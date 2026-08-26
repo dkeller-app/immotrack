@@ -41188,11 +41188,12 @@ async function _ddtRecapPDF() {
   if (!ref) return;
   const log = (DB.logements || []).find(l => l.ref === ref);
   if (!log) return;
-  if (typeof window.jspdf === 'undefined' || !window.DocNative) {
-    showToast('Bibliothèque PDF non chargée', 'err'); return;
-  }
+  if (!window.DocNative) { showToast('Bibliothèque PDF non chargée', 'err'); return; }
   showToast('Génération du PDF en cours…', 'info', 1500);
   try {
+    // Le tableau des diagnostics passe par PDF_NATIVE.drawTable → pdf.autoTable : il faut donc
+    // jsPDF ET le plugin autotable dans la fenêtre principale (même loader que l'EDL natif).
+    await _ensurePDFLibsLoaded();
     const today = new Date();
     const todayStr = today.toLocaleDateString('fr-FR');
     const ddt = _ddtComplet(log, today);
@@ -41210,15 +41211,21 @@ async function _ddtRecapPDF() {
     y = PN.drawTitle(pdf, 1, 'Logement ' + (log.ref || '—'), x, y);
     y = PN.drawText(pdf, log.adr || log.imm || '—', x, y, { color: PN.COLOR_MUTED, align: 'center' });
     y = PN.drawText(pdf, "Date d'édition : " + todayStr, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, align: 'center' }) + 3;
-    // Identité bailleur + logement
+    // Identité bailleur + logement (mêmes mots que l'aperçu _buildDdtRecapHTML)
     const bailleurNom = (ent && ent.nom) || log.entity || '—';
     const bailLine = 'Bailleur : ' + bailleurNom
       + ((ent && ent.siege) ? ' — ' + ent.siege : '')
       + ((ent && ent.siren) ? ' — SIREN ' + ent.siren : '');
-    y = PN.drawText(pdf, bailLine, x, y, { size: PN.FONT_SIZE_NOTE }) + 1;
-    // Verdict global
+    y = PN.drawText(pdf, bailLine, x, y, { size: PN.FONT_SIZE_NOTE });
+    const logLine = 'Logement : '
+      + [log.type || '', log.surf ? log.surf + ' m²' : '',
+         log.etage ? 'Étage : ' + log.etage : '',
+         log.anneeConstruction ? 'Construction : ' + log.anneeConstruction : '']
+        .filter(Boolean).join(' · ');
+    y = PN.drawText(pdf, logLine, x, y, { size: PN.FONT_SIZE_NOTE }) + 1;
+    // Verdict global (mots identiques à l'aperçu, hors pictogramme ✓/⚠ non-WinAnsi)
     const verdict = ddt.complet
-      ? 'Diagnostics complets — tous les diagnostics applicables sont valides'
+      ? 'Diagnostics complets — Tous diagnostics applicables sont valides'
       : 'Diagnostics incomplets — ' + (ddt.manquants.length + ddt.expires.length) + ' diagnostic(s) à régulariser';
     y = PN.drawText(pdf, verdict, x, y, { style: 'bold', color: ddt.complet ? [21, 83, 45] : [127, 29, 29] }) + 2;
     // Tableau des diagnostics
@@ -41240,12 +41247,14 @@ async function _ddtRecapPDF() {
     });
     y = PN.drawTable(pdf, ['Diagnostic', 'Statut', 'Détail', 'Diagnostiqueur'], rows, y,
       { columnStyles: { 0: { cellWidth: 74 } } }) + 2;
-    // Cadre légal
-    const legende = "Cadre légal : le Dossier de diagnostic technique est obligatoire (loi 89-462 art. 3-3) et doit être annexé au bail à la signature. L'absence ou la péremption d'un diagnostic applicable peut entraîner la nullité du bail.\n"
-      + "Auto-détection : CREP, Amiante, Gaz, Élec, Termites, Mérule et Bruit aérien sont marqués applicables ou non selon l'année de construction et les zones réglementaires déclarées.\n"
-      + "Limite : ce récap atteste de la complétude côté gestion. Les PDF source de chaque diagnostic doivent être joints individuellement au bail.";
-    y = PN.newPageIfNeeded(pdf, y, 32);
-    PN.drawText(pdf, legende, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED });
+    // Cadre légal — mots repris à l'identique de l'aperçu _buildDdtRecapHTML
+    const legende = "Cadre légal : Le Dossier de diagnostic technique est obligatoire selon la loi 89-462 art. 3-3 et doit être annexé au bail à la signature. L'absence ou la péremption d'un diagnostic applicable peut entraîner la nullité du bail.\n"
+      + "Auto-détection : Les diagnostics CREP, Amiante, Gaz, Élec, Termites, Mérule et Bruit aérien sont automatiquement marqués applicables ou non en fonction de l'année de construction du logement et des zones réglementaires déclarées.\n"
+      + "Limite : Ce récap atteste de la complétude de vos diagnostics côté gestion. Les PDFs source de chaque diagnostic doivent être joints individuellement au bail.";
+    y = PN.newPageIfNeeded(pdf, y, 34);
+    y = PN.drawText(pdf, legende, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED }) + 2;
+    // Pied (mêmes mots que l'aperçu, hors numéro de version géré par le pilotage)
+    PN.drawText(pdf, 'Propryo — Récap diagnostics généré automatiquement le ' + todayStr, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, align: 'right' });
     pdf.save(`Diagnostics-${ref}-${td()}.pdf`);
     showToast('PDF téléchargé', 'ok', 2500);
   } catch (e) {

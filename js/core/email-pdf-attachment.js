@@ -89,12 +89,58 @@ function _getJsPdfClass() {
  * @param {object} ent  — entité bailleur (logo/nom, pour le bandeau vectoriel)
  * @returns {Promise<Blob>}
  */
+/**
+ * CDC-QUITTANCES-IRL D26 — assure jsPDF + le plugin autotable dans la fenêtre principale.
+ * Réutilise le loader de l'EDL natif (`window._ensurePDFLibsLoaded`, jspdf+autotable) s'il est là,
+ * repli local sinon (décode `_BAIL_PDF_LIBS.autotable` en <script>, même patron que jsPDF).
+ */
+// Sonde SANS construire d'instance : autotable s'attache à `jsPDF.API.autoTable`. Construire une
+// instance juste pour tester (`new Cls().autoTable`) est risqué — si un chargement précédent a
+// laissé le plugin à moitié enregistré, la construction jette dans l'event « initialized ».
+function _autotableReady() {
+  const C = _getJsPdfClass();
+  return !!(C && C.API && typeof C.API.autoTable === 'function');
+}
+async function _ensureNativePdfLibs() {
+  if (_getJsPdfClass() && _autotableReady()) return true;
+  // UN SEUL loader : `window._ensurePDFLibsLoaded` (EDL) charge jsPDF + autotable d'un coup et est
+  // idempotent. NE PAS pré-appeler `_ensureJsPdfLoaded` : charger jsPDF deux fois (ici puis dans
+  // _ensurePDFLibsLoaded) ré-enregistre autotable et corrompt son handler d'init → `new jsPDF`
+  // jette « reading '1' » (diagnostiqué au smoke). Repli local seulement hors app.
+  if (typeof window !== 'undefined' && typeof window._ensurePDFLibsLoaded === 'function') {
+    try { await window._ensurePDFLibsLoaded(); } catch (e) { /* repli ci-dessous */ }
+    if (_getJsPdfClass() && _autotableReady()) return true;
+  }
+  // Repli (contexte hors monolithe) : charge jsPDF puis, une seule fois, le plugin autotable.
+  await _ensureJsPdfLoaded();
+  if (!_autotableReady() && typeof document !== 'undefined' && window._BAIL_PDF_LIBS && window._BAIL_PDF_LIBS.autotable) {
+    await new Promise(resolve => {
+      try {
+        const bin = atob(window._BAIL_PDF_LIBS.autotable);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/javascript' }));
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = () => { URL.revokeObjectURL(url); resolve(); };
+        s.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+        document.head.appendChild(s);
+      } catch (e) { resolve(); }
+    });
+  }
+  return _getJsPdfClass() && _autotableReady();
+}
+
 async function _docHtmlToNativeBlob(html, ent) {
-  const Cls = _getJsPdfClass();
-  if (!Cls) throw new Error('jspdf-not-loaded');
   if (typeof window === 'undefined' || !window.DocNative || typeof window.DocNative.parseDocDoc !== 'function') {
     throw new Error('doc-native-not-loaded');
   }
+  // Le décompte contient un tableau natif (PDF_NATIVE.drawTable → pdf.autoTable) : il faut donc
+  // jsPDF ET le plugin autotable dans la fenêtre principale. Même loader que l'EDL natif quand il
+  // existe (jspdf + autotable), repli local sinon.
+  await _ensureNativePdfLibs();
+  const Cls = _getJsPdfClass();
+  if (!Cls) throw new Error('jspdf-not-loaded');
   const pdf = new Cls({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
   // Garde-fou obligatoire (audit 13/08) : assainit ET signale en console tout caractère non
   // encodable — un caractère perdu en silence dans un document légal est inacceptable.

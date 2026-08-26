@@ -78,6 +78,11 @@ describe('htmlToText / htmlToWords', () => {
     expect(htmlToText('ligne1<br>ligne2')).toBe('ligne1\nligne2');
     expect(htmlToText('ligne1<br/>ligne2')).toBe('ligne1\nligne2');
   });
+  it('sépare aux frontières de blocs (jamais « habilité ;Désigné(s) »)', () => {
+    // Deux paragraphes voisins : sans coupure, les mots se colleraient dans le PDF natif.
+    expect(htmlToText('habilité ;</p><p>Désigné(s) ci-après')).toBe('habilité ;\nDésigné(s) ci-après');
+    expect(htmlToWords('<h2>Bailleur</h2><span class="pro-qui">SCI DEMO</span>')).toEqual(['Bailleur', 'SCI', 'DEMO']);
+  });
   it('htmlToWords donne la suite de mots sans balise ni entité', () => {
     expect(htmlToWords('<p>Loyer&nbsp;: <b>800,00&nbsp;€</b></p>')).toEqual(['Loyer', ':', '800,00', '€']);
   });

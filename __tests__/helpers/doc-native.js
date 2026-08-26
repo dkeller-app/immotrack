@@ -36,6 +36,9 @@ const _NBSP = String.fromCharCode(160);  // espace insécable WinAnsi (0xA0)
 /** Entités rencontrées dans le fond des documents (escHtml + littéraux des gabarits). */
 function _decodeEntities(s) {
   return String(s == null ? '' : s)
+    // Les frontières de blocs séparent les mots (comme le navigateur les rend) : sans ça, deux
+    // paragraphes voisins « habilité ;</p><p>Désigné(s) » se colleraient en « ;Désigné(s) ».
+    .replace(/<\/?(?:p|div|h[1-6]|li|tr|ul|ol|table|thead|tbody)\b[^>]*>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .replace(/&nbsp;/g, _NBSP)
