@@ -29401,7 +29401,10 @@ function _lyEtatLot(l) {
    « on mélange des quittances (document obligatoire) avec des loyers non payés —
    2 niveaux de priorités ».
    Rien de tout cela n'est une donnée : c'est de l'état d'écran, volatil, jamais en base. */
-var _lyUI = { tuile: 'retard', suivi: null, frise: null, blocs: {} };
+// D25 — l'IRL EN PREMIER : la tuile ouverte par défaut est « À préparer » (révisions). Une
+// révision arrive une fois par an et SE PERD si on l'oublie (prescription 1 an) ; une quittance
+// ou un impayé se rattrape. Le rare et périssable passe avant le fréquent et rattrapable.
+var _lyUI = { tuile: 'rev', suivi: null, frise: null, blocs: {} };
 function _lyVoir(k) { _lyUI.tuile = k; rLoyers(); }
 function _lyOuvrirSuivi(k) { _lyUI.suivi = (_lyUI.suivi === k) ? null : k; rLoyers(); }
 function _lyOuvrirMois(ym) { _lyUI.frise = (_lyUI.frise === ym) ? null : ym; rLoyers(); }
@@ -29470,13 +29473,14 @@ function rLoyers() {
     : (partis
         ? `aucun retard sur les baux en cours — hors ${partis} locataire${partis > 1 ? 's' : ''} parti${partis > 1 ? 's' : ''}`
         : 'tout est payé');
+  // D25 — l'ordre spatial suit la priorité : Révisions (rare, périssable) → Quittances → Pas à jour.
   html += '<div class="m5tiles">'
-    + tuile('retard', 'neg', 'Impayés', retards.length ? fmt(duRetard) : '0 €', _ditRetard)
+    + tuile('rev', 'pos', 'À préparer', `${nbRev} révision${nbRev > 1 ? 's' : ''}`, 'effet le 1ᵉʳ du mois — IRL')
     // AUDIT (vérification) I-2 — `demandes` compte des LOTS, pas des documents : la liste dessous
     // propose « Éditer les 47 », « Éditer les 67 »… soit 295 quittances annoncées comme « 8 ».
     + tuile('quit', 'acc', 'À remettre', `${demandes.length} demande${demandes.length > 1 ? 's' : ''}`,
         demandes.length ? 'des locataires attendent leur document' : 'personne n\'attend')
-    + tuile('rev', 'pos', 'À préparer', `${nbRev} révision${nbRev > 1 ? 's' : ''}`, 'effet le 1ᵉʳ du mois — IRL')
+    + tuile('retard', 'neg', 'Impayés', retards.length ? fmt(duRetard) : '0 €', _ditRetard)
     + '</div>';
 
   // ── 3. UNE SEULE liste : celle de la tuile choisie ──
