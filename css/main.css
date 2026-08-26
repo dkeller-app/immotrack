@@ -3442,6 +3442,11 @@ textarea.field-modified-since-sig{
 .edl-sheet-row.done .edl-sheet-nom::before{content:'✓ ';color:var(--pos);font-weight:800}
 .edl-sheet-nom{font:700 14px var(--font);color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .edl-sheet-meta{display:flex;align-items:center;gap:6px;flex:none}
+/* EDL-TÉLÉPHONE — la feuille liste TOUTES les étapes (admin + pièces) ; le tag les distingue. */
+.edl-sheet-tag{flex:none;font:700 10px var(--font);text-transform:uppercase;letter-spacing:.4px;
+  padding:2px 7px;border-radius:999px;background:var(--sur2);color:var(--t3)}
+.edl-sheet-tag.adm{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.edl-sheet-tag.pce{color:var(--pos);background:color-mix(in srgb,var(--pos) 12%,transparent)}
 
 /* ══ Lot 7 (§A.6) — LA VISIONNEUSE PHOTO entrée/sortie ════════════════════════
    Grande image EN ENTIER (contain, fond neutre, jamais rognée), portrait comme

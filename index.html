@@ -3760,7 +3760,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   <div style="overflow-y:auto;flex:1;padding:14px 18px">
 
     <!-- §1 Infos générales -->
-    <div style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
+    <div id="edl-step-infos" data-edl-step="infos" style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
       <!-- Type + dates + boutons récupération -->
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;padding:8px 10px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">
         <label class="flex-c" style="gap:6px;cursor:pointer;font-size:13px">
@@ -3812,7 +3812,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
          comme une "piece" EDL, avec elements libres ajoutables + photos par element.
          Pre-rempli au 1er load avec les 11 categories decret 2015-981 (modifiables,
          renommables, supprimables). User peut ajouter "TV Samsung 55", "Lampe d'appoint", etc. -->
-    <div id="edl-mobilier-section" style="border:1px solid #f5d28e;background:#fffaf0;border-radius:var(--r);padding:12px;margin-bottom:12px">
+    <div id="edl-mobilier-section" data-edl-step="mobilier" style="border:1px solid #f5d28e;background:#fffaf0;border-radius:var(--r);padding:12px;margin-bottom:12px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;color:#92400e;font-size:13px">
         <input type="checkbox" id="edl-mob-enabled" onchange="_edlToggleMobilierFields()" style="width:18px;height:18px">
         <span>📚 Logement meublé — inclure l'inventaire mobilier détaillé (décret 2015-981)</span>
@@ -3844,7 +3844,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     </div>
 
     <!-- §1 bis — v15.08 Sprint 9 — Sécurité incendie (DAAF, EDL entrée surtout) -->
-    <div id="edl-daaf-section" style="border:1px solid #d97706;background:#fef9c3;border-radius:var(--r);padding:12px;margin-bottom:12px">
+    <div id="edl-daaf-section" data-edl-step="daaf" style="border:1px solid #d97706;background:#fef9c3;border-radius:var(--r);padding:12px;margin-bottom:12px">
       <div style="font-weight:700;color:#78350f;font-size:13px;margin-bottom:6px">🚨 Sécurité incendie — Détecteur de fumée (DAAF)</div>
       <div class="mu sm" style="font-size:11.5px;line-height:1.55;margin-bottom:10px;color:#78350f">
         Le constat de la présence du détecteur de fumée à l'entrée du locataire est <strong>juridiquement essentiel</strong> en cas d'incendie ultérieur
@@ -3880,7 +3880,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     </div>
 
     <!-- §2 Compteurs -->
-    <div style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
+    <div id="edl-step-compteurs" data-edl-step="compteurs" style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
       <div style="font-weight:700;color:var(--acc);font-size:13px;margin-bottom:8px">Relevé des compteurs</div>
       <table class="tbl edl-cpt-tbl" style="font-size:12px;width:100%">
         <thead><tr>
@@ -4009,7 +4009,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     </div>
 
     <!-- §3 Clés -->
-    <div style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
+    <div id="edl-step-cles" data-edl-step="cles" style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
       <div style="font-weight:700;color:var(--acc);font-size:13px;margin-bottom:8px">Clés et accès remis</div>
       <table class="tbl edl-cles-tbl" style="font-size:12px;width:100%">
         <thead><tr>
@@ -4027,9 +4027,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 
     <!-- §4 Pièces -->
     <!-- Bannière référence chargée -->
-    <div id="edl-ref-banner" style="display:none;padding:8px 14px;background:#003366;color:white;border-radius:var(--r);margin-bottom:10px;font-size:12px"></div>
+    <div id="edl-ref-banner" data-edl-step="pieces" style="display:none;padding:8px 14px;background:#003366;color:white;border-radius:var(--r);margin-bottom:10px;font-size:12px"></div>
     <!-- Barre actions -->
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px">
+    <div data-edl-step="pieces" data-edl-disp="flex" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px">
       <b class="mu sm">Pièces :</b>
       <select class="inp" id="edl-add-piece-sel" style="width:220px"><option value="">Pièce standard à ajouter...</option></select>
       <button class="btn bs bb" onclick="edlAddPieceFromSel()" style="font-size:12px">▶ Ajouter</button>
@@ -4037,16 +4037,16 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 
     </div>
     <!-- Pièces -->
-    <div id="edl-pieces-section"></div>
+    <div id="edl-pieces-section" data-edl-step="pieces"></div>
 
     <!-- §5 Observations -->
-    <div style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
+    <div data-edl-step="fin" style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
       <div style="font-weight:700;color:var(--acc);font-size:13px;margin-bottom:6px">Observations générales</div>
       <textarea class="inp" id="edl-notes" rows="3" style="width:100%" placeholder="Remarques générales sur l'état du logement..."></textarea>
     </div>
 
     <!-- §6 Photos cloud + Signatures -->
-    <div style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
+    <div data-edl-step="fin" style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
       <div style="font-weight:700;color:var(--acc);font-size:13px;margin-bottom:8px">Photos &amp; Signatures</div>
       <div class="flex-c mb10" style="gap:8px;flex-wrap:wrap">
         <button class="btn bs bb" onclick="edlSyncDrive()" style="font-size:12px">☁️ Sauvegarder les photos dans le cloud</button>
@@ -4107,12 +4107,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
        cf. avertissement §A.1 hérité du bug de prod). Le bouton du milieu ouvre la
        feuille des pièces. Masqué par défaut ; affiché par _edlSyncParcours(). -->
   <div id="edl-rail" class="edl-rail" style="display:none">
-    <button id="edl-rail-prev" class="edl-rail-arrow" onclick="_edlRailNav(-1)" aria-label="Pièce précédente" title="Pièce précédente">←</button>
-    <button id="edl-rail-mid" class="edl-rail-mid" onclick="_edlOpenPieceSheet()" aria-label="Choisir une pièce" title="Toutes les pièces">
+    <button id="edl-rail-prev" class="edl-rail-arrow" onclick="_edlRailNav(-1)" aria-label="Étape précédente" title="Étape précédente">←</button>
+    <button id="edl-rail-mid" class="edl-rail-mid" onclick="_edlOpenPieceSheet()" aria-label="Choisir une étape" title="Toutes les étapes">
       <span class="edl-rail-jump">⤒</span>
-      <span class="edl-rail-txt"><span id="edl-rail-label" class="edl-rail-label">Pièce</span><span id="edl-rail-global" class="edl-rail-global"></span></span>
+      <span class="edl-rail-txt"><span id="edl-rail-label" class="edl-rail-label">Étape</span><span id="edl-rail-global" class="edl-rail-global"></span></span>
     </button>
-    <button id="edl-rail-next" class="edl-rail-arrow" onclick="_edlRailNav(1)" aria-label="Pièce suivante" title="Pièce suivante">→</button>
+    <button id="edl-rail-next" class="edl-rail-arrow" onclick="_edlRailNav(1)" aria-label="Étape suivante" title="Étape suivante">→</button>
   </div>
 
   <!-- La feuille des pièces (§A.1) : monte du bas, chaque pièce avec son avancement
@@ -4121,7 +4121,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   <div id="edl-piece-sheet" class="edl-piece-sheet" style="display:none" onclick="if(event.target===this)_edlClosePieceSheet()">
     <div class="edl-sheet-panel">
       <div class="edl-sheet-head">
-        <b>Pièces de l'état des lieux</b>
+        <b>Les étapes de l'état des lieux</b>
         <button class="edl-sheet-close" onclick="_edlClosePieceSheet()" aria-label="Fermer">✕</button>
       </div>
       <div id="edl-piece-sheet-list" class="edl-sheet-list"></div>
@@ -32146,6 +32146,9 @@ function _edlToggleMobilierFields() {
     if (!_edlMobElements.length) _edlMobInit();
     _edlMobRender();
   }
+  // EDL-TÉLÉPHONE : (dés)activer le meublé fait (dis)paraître l'étape « Inventaire
+  // mobilier » du parcours et re-plie/dé-plie sa section dans « Infos ».
+  if (typeof _edlSyncParcours === 'function') _edlSyncParcours();
 }
 
 function _edlMobRender() {
@@ -32538,9 +32541,10 @@ function _edlBindVisualViewport() {
 }
 
 function _edlRenderAll(sigs) {
-  _edlCurPiece = 0; // lot 5 : à l'ouverture, le parcours démarre sur la 1re pièce
+  _edlCurStep = 0; // EDL-TÉLÉPHONE : à l'ouverture, le parcours démarre sur la 1re étape (Infos)
   _edlApplyNumericInputs(); // lot 5 P4 : pavé numérique pour les relevés
   _edlBindVisualViewport();  // lot 5 P5 : le rail suit le clavier
+  _edlBindResize();          // EDL-TÉLÉPHONE : re-synchroniser le parcours au franchissement du seuil 1024
   _edlRenderPieces();
   _edlFillPieceSelect();
   _edlApplySortieVis();
@@ -32584,62 +32588,148 @@ function _edlRenderPieces() {
  * comptage/navigation vit dans js/core/edl-parcours.js (module testé). Ici :
  * le branchement au DOM. PC et tablette (≥ 768) ignorent tout ceci — CSS.
  * ──────────────────────────────────────────────────────────────────────── */
-let _edlCurPiece = 0;
+/* ═══════════════════════════════════════════════════════════════════════════
+ * EDL-TÉLÉPHONE (CDC §2.1/§2.2/§2.5) — LE PARCOURS DE L'EDL ENTIER.
+ * La prod v15.545 ne paginait QUE les pièces ; les 8 sections administratives
+ * (6 884 px, 63 % de la hauteur) restaient empilées en permanence. Désormais
+ * CHAQUE section admin est une ÉTAPE au même titre qu'une pièce, et le rail
+ * gouverne TOUT l'EDL. Une seule étape à l'écran (invariant §2.10 nº2). Le
+ * comptage/verdict vit dans edl-parcours.js ; la LISTE des étapes dans
+ * edl-steps.js (modules testés) ; ici : le branchement au DOM. PC ≥ 1024 :
+ * INCHANGÉ (tout visible, rail masqué — §2.9, aucune régression).
+ * ═════════════════════════════════════════════════════════════════════════ */
+let _edlCurStep = 0;
 function _edlPhoneMode() { return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:1023px)').matches; }
+function _edlMobEnabled() { return !!(el('edl-mob-enabled') && el('edl-mob-enabled').checked); }
+// La liste ordonnée des étapes de l'EDL (module testé edl-steps.js).
+function _edlSteps() {
+  const S = (typeof window !== 'undefined') ? window.EdlSteps : null;
+  if (!S) return [];
+  return S.buildSteps({ mobilierEnabled: _edlMobEnabled(), pieceNames: _edlP.map(p => p && p.nom) });
+}
+// L'index de pièce de l'étape courante, ou -1 si l'étape n'est pas une pièce.
+function _edlCurPieceIdx() {
+  const steps = _edlSteps(); const s = steps[_edlCurStep];
+  return (s && s.kind === 'piece') ? s.pieceIdx : -1;
+}
+// Une seule étape à l'écran : montrer/masquer les sections de premier niveau selon
+// le group de l'étape courante. Téléphone/tablette (<1024) uniquement ; sur PC on
+// restaure tout. Le mobilier est dual-home (module edl-steps.sectionVisible) :
+// replié dans « Infos » quand nu (interrupteur atteignable), étape propre quand meublé.
+function _edlApplyStepVisibility() {
+  const S = (typeof window !== 'undefined') ? window.EdlSteps : null;
+  const scroll = document.querySelector('#ov-edl > .modal > div[style*="overflow-y"]');
+  if (!scroll) return;
+  const nodes = scroll.querySelectorAll(':scope > [data-edl-step]');
+  const phone = _edlPhoneMode();
+  const steps = _edlSteps(); const cur = steps[_edlCurStep] || steps[0];
+  const curGroup = cur ? cur.group : 'infos';
+  const mobOn = _edlMobEnabled();
+  nodes.forEach(node => {
+    const disp = node.getAttribute('data-edl-disp') || '';   // display « naturel » (flex pour la barre d'actions)
+    // PC (≥1024) OU modules absents (file://) : tout visible — aucun parcours, pas de
+    // collapse trompeur (§2.9 aucune régression ; dégradation propre hors serveur).
+    if (!phone || !S) { node.style.display = disp; return; }
+    const g = node.getAttribute('data-edl-step');
+    let vis;
+    if (S && node.id === 'edl-mobilier-section') vis = S.sectionVisible(g, curGroup, mobOn, true);
+    else if (node.id === 'edl-ref-banner')       vis = (curGroup === 'pieces') && !!node.innerHTML.trim();
+    else vis = S ? S.sectionVisible(g, curGroup, mobOn, false) : (g === curGroup);
+    node.style.display = vis ? disp : 'none';
+  });
+}
 function _edlSyncParcours() {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
-  const n = _edlP.length;
-  if (P) _edlCurPiece = P.indexClamp(_edlCurPiece, n);
-  const phone = _edlPhoneMode();
+  const steps = _edlSteps();
+  const N = steps.length;
+  if (P && N) _edlCurStep = P.indexClamp(_edlCurStep, N);
+  // pièce courante (pour .edl-cur) = pièce de l'étape courante si c'en est une
+  const pi = _edlCurPieceIdx();
   document.querySelectorAll('#edl-pieces-section .edl-piece-block').forEach(b => {
     const idx = parseInt(b.getAttribute('data-pidx'), 10);
-    b.classList.toggle('edl-cur', idx === _edlCurPiece);
+    b.classList.toggle('edl-cur', idx === pi);
   });
+  _edlApplyStepVisibility();
+  const phone = _edlPhoneMode();
   const rail = el('edl-rail');
-  // rail visible seulement si le module de parcours est là (sinon boutons inertes)
-  if (rail) rail.style.display = (phone && n > 0 && P) ? 'flex' : 'none';
+  // rail visible seulement si les modules sont là (sinon boutons inertes, file://)
+  if (rail) rail.style.display = (phone && N > 0 && P) ? 'flex' : 'none';
   _edlUpdateRail();
 }
 function _edlUpdateRail() {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
-  const n = _edlP.length; if (!P || !n) return;
-  const cur = _edlP[_edlCurPiece];
-  const lbl = el('edl-rail-label'); if (lbl) lbl.textContent = P.railLabel(cur ? cur.nom : '', _edlCurPiece, n);
-  const g = P.statsGlobales(_edlP, _edlSortie);
-  const gl = el('edl-rail-global'); if (gl) gl.textContent = `${g.remplis}/${g.total}` + (_edlSortie && g.ecarts ? ` · ${g.ecarts} écart${g.ecarts > 1 ? 's' : ''}` : '');
+  const S = (typeof window !== 'undefined') ? window.EdlSteps : null;
+  const steps = _edlSteps(); const N = steps.length; if (!P || !S || !N) return;
+  const s = steps[_edlCurStep] || steps[0];
+  const lbl = el('edl-rail-label'); if (lbl) lbl.textContent = s ? s.nom : '';
+  const gl = el('edl-rail-global');
+  if (gl) {
+    let txt = S.stepGlobalLabel(_edlCurStep, N);                 // « Étape 2 / 12 »
+    if (s && s.kind === 'piece') {
+      const st = P.statsPiece(_edlP[s.pieceIdx], _edlSortie);    // « · 3/24 · 1 écart »
+      txt += ` · ${st.remplis}/${st.total}` + (_edlSortie && st.ecarts ? ` · ${st.ecarts} écart${st.ecarts > 1 ? 's' : ''}` : '');
+    }
+    gl.textContent = txt;
+  }
   const prev = el('edl-rail-prev'), next = el('edl-rail-next');
-  if (prev) prev.disabled = !P.aPrecedente(_edlCurPiece, n);
-  if (next) next.disabled = !P.aSuivante(_edlCurPiece, n);
+  if (prev) prev.disabled = !P.aPrecedente(_edlCurStep, N);
+  if (next) next.disabled = !P.aSuivante(_edlCurStep, N);
 }
-function _edlGoPiece(idx) {
+function _edlGoStep(idx) {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
-  _edlCurPiece = P ? P.indexClamp(idx, _edlP.length) : 0;
+  const N = _edlSteps().length;
+  _edlCurStep = P ? P.indexClamp(idx, N) : 0;
   _edlSyncParcours();
   _edlClosePieceSheet();
-  // amener le haut de la pièce courante dans le cadre (sans faire défiler le body)
-  const b = document.querySelector(`#edl-pieces-section .edl-piece-block[data-pidx="${_edlCurPiece}"]`);
+  // ramener le haut de l'étape dans le cadre (le body de la modale, pas la page)
   const scroll = document.querySelector('#ov-edl > .modal > div[style*="overflow-y"]');
-  if (b && scroll) scroll.scrollTo({ top: Math.max(0, b.offsetTop - 8), behavior: 'smooth' });
+  if (scroll) scroll.scrollTo({ top: 0, behavior: 'smooth' });
+}
+// compat : sauter directement à une PIÈCE par son index (feuille & anciens appels).
+function _edlGoPiece(pieceIdx) {
+  const steps = _edlSteps();
+  const t = steps.findIndex(s => s.kind === 'piece' && s.pieceIdx === pieceIdx);
+  _edlGoStep(t >= 0 ? t : _edlCurStep);
 }
 function _edlRailNav(delta) {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null; if (!P) return;
-  _edlGoPiece(delta > 0 ? P.suivante(_edlCurPiece, _edlP.length) : P.precedente(_edlCurPiece, _edlP.length));
+  const N = _edlSteps().length;
+  _edlGoStep(delta > 0 ? P.suivante(_edlCurStep, N) : P.precedente(_edlCurStep, N));
 }
+// La feuille de TOUTES les étapes (admin + pièces) — sauter directement (CDC §2.5).
 function _edlOpenPieceSheet() {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
   const sheet = el('edl-piece-sheet'), list = el('edl-piece-sheet-list'); if (!sheet || !list || !P) return;
-  list.innerHTML = _edlP.map((p, i) => {
-    const s = P.statsPiece(p, _edlSortie);
-    const ec = (_edlSortie && s.ecarts > 0) ? `<span class="edl-pecart">${s.ecarts} écart${s.ecarts > 1 ? 's' : ''}</span>` : '';
-    const done = s.complete ? ' done' : '';
-    return `<button class="edl-sheet-row${done}${i === _edlCurPiece ? ' cur' : ''}" onclick="_edlGoPiece(${i})">
-      <span class="edl-sheet-nom">${escHtml(p.nom)}</span>
-      <span class="edl-sheet-meta"><span class="edl-pcount">${s.remplis}/${s.total}</span>${ec}</span>
+  const steps = _edlSteps();
+  list.innerHTML = steps.map((s, i) => {
+    let meta = '', done = '';
+    if (s.kind === 'piece') {
+      const st = P.statsPiece(_edlP[s.pieceIdx], _edlSortie);
+      const ec = (_edlSortie && st.ecarts > 0) ? `<span class="edl-pecart">${st.ecarts} écart${st.ecarts > 1 ? 's' : ''}</span>` : '';
+      meta = `<span class="edl-pcount">${st.remplis}/${st.total}</span>${ec}`;
+      if (st.complete) done = ' done';
+    }
+    const tag = s.kind === 'piece'
+      ? '<span class="edl-sheet-tag pce">pièce</span>'
+      : '<span class="edl-sheet-tag adm">admin</span>';
+    return `<button class="edl-sheet-row${done}${i === _edlCurStep ? ' cur' : ''}" onclick="_edlGoStep(${i})">
+      <span class="edl-sheet-nom">${i + 1}. ${escHtml(s.nom)}</span>
+      <span class="edl-sheet-meta">${meta}${tag}</span>
     </button>`;
   }).join('');
   sheet.style.display = 'flex';
 }
 function _edlClosePieceSheet() { const s = el('edl-piece-sheet'); if (s) s.style.display = 'none'; }
+// EDL-TÉLÉPHONE : re-synchroniser le parcours au franchissement du seuil 1024 px
+// (rotation, redimensionnement) — sinon des sections resteraient masquées/visibles à tort.
+let _edlResizeBound = false;
+function _edlBindResize() {
+  if (_edlResizeBound || typeof window === 'undefined') return;
+  _edlResizeBound = true;
+  window.addEventListener('resize', () => {
+    const ov = el('ov-edl'); if (ov && !ov.classList.contains('hidden')) _edlSyncParcours();
+  });
+}
 
 function _edlBtns(pi,ei,field,cur) {
   return EDL_ETATS.map((et,idx)=>{

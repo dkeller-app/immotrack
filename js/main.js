@@ -165,6 +165,10 @@ import * as EdlConflit from './core/edl-conflit.js';
 // DEDUIT (verdictDe(entree, sortie)) qui n'est ni stocke ni saisi.
 import * as EdlParcours from './core/edl-parcours.js';
 
+// EDL-TÉLÉPHONE — le parcours de l'EDL ENTIER : chaque section admin devient une
+// étape au même titre qu'une pièce (fin du mur de 6 884 px d'admin permanent).
+import * as EdlSteps from './core/edl-steps.js';
+
 // EDL TERRAIN lot 2 — invitation a installer l'app (CDC §3 verrou 4 : sans
 // installation, Safari purge photos et miroir a 7 jours).
 import * as PwaInstall from './core/pwa-install.js';
@@ -615,6 +619,8 @@ window.EdlAutosave = EdlAutosave;
 window.EdlConflit = EdlConflit;
 // EDL TERRAIN lots 5 et 7 — progression, ecarts, navigation, verdict DEDUIT.
 window.EdlParcours = EdlParcours;
+// EDL-TELEPHONE — la liste ordonnee des etapes de l'EDL entier (admin + pieces + fin).
+window.EdlSteps = EdlSteps;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
 window.PwaInstall = PwaInstall;
 
