@@ -485,9 +485,13 @@ html,body{height:100%;background:var(--bg);color:var(--t1);
   font-size:var(--font-base);line-height:var(--lh);
   /* EDL TERRAIN lot 0 (CDC docs/CDC-EDL.md §3bis) — BUG DE PRODUCTION.
      Sans ça le pull-to-refresh du navigateur est actif : un défilement du haut
-     vers le bas dans la modale EDL se chaînait jusqu'au document et rechargeait
-     la page. Ça a coûté un état des lieux réel le 20/08. */
-  overscroll-behavior-y:contain}
+     vers le bas dans la modale EDL rechargeait la page. Ça a coûté un état des
+     lieux réel le 20/08, et Didier s'est encore fait éjecter le 26/08 : `contain`
+     bloque le CHAÎNAGE mais PAS le pull-to-refresh iOS (geste sur l'en-tête de la
+     modale, hors conteneur de défilement). `none` le désactive vraiment. */
+  overscroll-behavior-y:none}
+  /* Ceinture + bretelles : sur iOS le pull-to-refresh peut viser documentElement. */
+  html{overscroll-behavior:none}
 a{color:var(--acc);text-decoration:none}
 
 /* ── LAYOUT ───────────────────────────────────────────────── */

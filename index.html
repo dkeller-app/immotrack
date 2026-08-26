@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.549</title>
+<title>Propryo v15.550</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4215,7 +4215,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.549';
+const IMMOTRACK_VERSION = '15.550';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -32201,7 +32201,7 @@ function _edlMobRender() {
     const _ph = (arr, side) => (arr || []).map((ph, phi) =>
       '<div style="position:relative;display:inline-block">'
       + '<img src="' + escHtml(_photoCache[ph.idbKey] || _EDL_PH_VIDE) + '" data-ph="' + escHtml(ph.idbKey || '') + '" alt="" class="edl-thumb" onclick="edlMobViewPhoto(' + idx + ',\'' + side + '\',' + phi + ')">'
-      + '<button type="button" onclick="edlMobDelPhoto(' + idx + ',\'' + side + '\',' + phi + ')" style="position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:11px;line-height:1;padding:0" title="Supprimer">✕</button>'
+      + '<button type="button" class="edl-delphoto" onclick="edlMobDelPhoto(' + idx + ',\'' + side + '\',' + phi + ')" title="Supprimer">✕</button>'
       + '</div>'
     ).join('');
     return ''
@@ -33890,7 +33890,16 @@ function edlAddPieceFromSel(){
   _edlInsertPiece({nom,elements:(tpl?.e||[]).map(n=>({nom:n,etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]}))});
   _edlRenderPieces();_edlFillPieceSelect();sel.value='';
 }
-function edlAddPieceCustom(){const nom=prompt('Nom de la pièce :');if(!nom?.trim())return;_edlInsertPiece({nom:nom.trim(),elements:[]});_edlRenderPieces();_edlFillPieceSelect();}
+function edlAddPieceCustom(){
+  // #2 (retour Didier 26/08) — plus de prompt() bloquant qui exigeait un titre : on ajoute une
+  // pièce VIDE (nom éditable en ligne, placeholder « Nom de la pièce ») et on saute dessus.
+  const piece={nom:'',elements:[]};
+  _edlInsertPiece(piece);
+  _edlRenderPieces();
+  _edlFillPieceSelect();
+  const pi=_edlP.indexOf(piece);
+  if(pi>=0 && typeof _edlGoPiece==='function') _edlGoPiece(pi);
+}
 
 // ── Photos ────────────────────────────────────────────────────
 /* v14.41 EDL-AUDIT-CRITIQUE Phase 4a — iOS Safari camera fix (Bug 2 + Bug 7).
@@ -34489,7 +34498,7 @@ function _edlRedrawCles() {
     return `<div style="text-align:center;padding:2px">
       ${arr.map((ph,phi)=>`<div style="position:relative;display:inline-block;margin:1px">
         <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlCleViewPhoto(${i},${phi},'${side}')" title="${escHtml(ph.name||'')}">
-        <button onclick="edlCleDelPhoto(${i},${phi},'${side}')" style="position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:13px;height:13px;font-size:8px;cursor:pointer;padding:0;line-height:13px;text-align:center">✕</button>
+        <button class="edl-delphoto" onclick="edlCleDelPhoto(${i},${phi},'${side}')" aria-label="Supprimer la photo">✕</button>
       </div>`).join('')}
       <button onclick="edlCleAddPhoto(${i},'${side}')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:10px;padding:1px 5px;display:block;margin:2px auto">📷</button>
     </div>`;
@@ -34838,7 +34847,7 @@ function _edlCptRenderThumbs(key){
   wrap.innerHTML=(_edlCptPhotos[key]||[]).map((ph,phi)=>
     `<div style="position:relative;display:inline-block">
       <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlCptViewPhoto('${key}',${phi})" title="${escHtml(ph.name||'')}">
-      <button onclick="edlCptDelPhoto('${key}',${phi})" style="position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:13px;height:13px;font-size:8px;cursor:pointer;padding:0;line-height:13px;text-align:center">✕</button>
+      <button class="edl-delphoto" onclick="edlCptDelPhoto('${key}',${phi})" aria-label="Supprimer la photo">✕</button>
     </div>`
   ).join('');
   _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
@@ -41544,7 +41553,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.549 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.550 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
