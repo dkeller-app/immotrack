@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.547</title>
+<title>Propryo v15.548</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4053,9 +4053,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <!-- §6 Photos cloud + Signatures -->
     <div data-edl-step="fin" style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
       <div style="font-weight:700;color:var(--acc);font-size:13px;margin-bottom:8px">Photos &amp; Signatures</div>
-      <div class="flex-c mb10" style="gap:8px;flex-wrap:wrap">
-        <button class="btn bs bb" onclick="edlSyncDrive()" style="font-size:12px">☁️ Sauvegarder les photos dans le cloud</button>
-      </div>
+      <!-- Le bouton « Sauvegarder les photos dans le cloud » est RETIRÉ (26/08) : l'upload cloud
+           est AUTOMATIQUE après enregistrement (saveEDL → edlSyncDrive silencieux), sur PC,
+           tablette ET téléphone. Plus de geste manuel. edlSyncDrive reste appelée en interne. -->
 
       <!-- v14.12.6 EDL-ENGAGEMENT-VISIBLE : cadre jaune identique au PDF, affiché
            AU-DESSUS des canvas de signature pour que le locataire voie ce qu'il
@@ -4089,6 +4089,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
           <button class="btn bs bb mt4" onclick="clearSig('edl-sig-locataire')" style="font-size:11px">✕ Effacer</button>
         </div>
       </div>
+      <!-- Finalisation MOBILE : le pied de page « 💾 Enregistrer » est masqué sur téléphone,
+           l'état des lieux devenait impossible à terminer (retour Didier 26/08). Ce bouton
+           n'apparaît que sur mobile (CSS .edl-finish-mobile) et appelle saveEDL (auto-cloud inclus). -->
+      <button type="button" class="edl-finish-mobile" onclick="saveEDL()">✅ Enregistrer l'état des lieux</button>
     </div>
 
   </div><!-- fin scroll -->
@@ -4213,7 +4217,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.547';
+const IMMOTRACK_VERSION = '15.548';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -32606,10 +32610,15 @@ function _edlFillPieceSelect() {
 
 function _edlRenderPieces() {
   const wrap=el('edl-pieces-section');if(!wrap)return;
-  const legend=`<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px;font-size:11px;align-items:center">
-    <b style="margin-right:4px;color:var(--t1)">États :</b>`+
-    EDL_ETATS.map(et=>{const c=EDL_CSSVAR[et];return `<span style="padding:2px 8px;border-radius:10px;border:1px solid ${c};color:${c};font-weight:700">${EDL_ABBREV[et]}</span><span style="color:var(--t2)"> ${EDL_DESC[et]}</span>`;}).join('<span style="color:var(--bor)"> │ </span>')+
-  `</div>`;
+  // La légende des états : REPLIABLE. Sur téléphone elle prenait ~424 px (2/3 du 1er écran de
+  // chaque pièce) ; repliée par défaut, elle se réduit à sa barre de pastilles (~40 px), les
+  // définitions s'ouvrent au toucher. Sur PC (≥1024) elle reste dépliée (les descriptions visibles).
+  const legend=`<div class="edl-legend">
+    <button type="button" class="edl-legend-sum" onclick="this.parentElement.classList.toggle('open')" aria-label="Afficher / masquer les définitions des états">
+      <b>États :</b>${EDL_ETATS.map(et=>{const c=EDL_CSSVAR[et];return `<span class="edl-leg-pill" style="border-color:${c};color:${c}">${EDL_ABBREV[et]}</span>`;}).join('')}<span class="edl-leg-hint">définitions ▾</span>
+    </button>
+    <div class="edl-legend-body">${EDL_ETATS.map(et=>{const c=EDL_CSSVAR[et];return `<span class="edl-leg-row"><span class="edl-leg-pill" style="border-color:${c};color:${c}">${EDL_ABBREV[et]}</span> ${EDL_DESC[et]}</span>`;}).join('')}</div>
+  </div>`;
   // lot 5 : marqueur de mode pour scoper les cartes mobiles à 7 colonnes (sortie).
   // Sans lui, la règle td:nth-child(5) « État sortie : » débordait sur la cellule ✕
   // des lignes d'ENTRÉE (5 td, la 5e = suppression) — étiquette fantôme sur chaque carte.
@@ -32723,7 +32732,10 @@ function _edlUpdateRail() {
   }
   const prev = el('edl-rail-prev'), next = el('edl-rail-next');
   if (prev) prev.disabled = !P.aPrecedente(_edlCurStep, N);
-  if (next) next.disabled = !P.aSuivante(_edlCurStep, N);
+  // Sur la relecture, la flèche → est désactivée : la SEULE voie vers les signatures est le
+  // bouton « Signer l'état des lieux » (qui passe par le récap « en connaissance de cause »).
+  // Fini le doublon « Signer » + « → » qui déroutait (retour Didier 26/08).
+  if (next) next.disabled = !P.aSuivante(_edlCurStep, N) || (s && s.group === 'relecture');
 }
 function _edlGoStep(idx) {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
@@ -41491,7 +41503,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.547 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.548 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }

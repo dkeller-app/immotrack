@@ -3342,10 +3342,37 @@ textarea.field-modified-since-sig{
   #edl-pieces-section > div > div:first-child > .flex-c > .btn{
     min-height:36px;padding:0 12px;font-size:13px !important;
   }
-  /* Légende des états : compactée */
-  #edl-pieces-section > div:first-child{
-    font-size:11px !important;line-height:1.6;padding:8px 10px !important;
-  }
+  /* Légende des états : la .edl-legend gère son propre padding (repliable, voir plus bas) */
+  #edl-pieces-section > .edl-legend{padding:0 !important}
+}
+
+/* ══ EDL-TÉLÉPHONE — la légende des états, REPLIABLE (fin des 424 px par pièce) ══════════ */
+.edl-legend{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);margin-bottom:10px;font-size:11px;overflow:hidden}
+.edl-legend-sum{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;background:none;border:none;
+  padding:9px 12px;cursor:pointer;font-family:inherit;font-size:11px;color:var(--t1);text-align:left}
+.edl-legend-sum b{color:var(--t1)}
+.edl-leg-pill{padding:2px 8px;border-radius:10px;border:1px solid;font-weight:700;white-space:nowrap}
+.edl-leg-hint{color:var(--t3);margin-left:auto;font-weight:600;white-space:nowrap}
+.edl-legend.open .edl-leg-hint::after{content:'▴';display:inline}
+.edl-leg-hint::after{content:'▾'}
+.edl-legend-body{display:none;padding:0 12px 10px;color:var(--t2)}
+.edl-legend.open .edl-legend-body{display:flex;flex-wrap:wrap;gap:5px 14px}
+.edl-leg-row{display:inline-flex;align-items:center;gap:5px}
+/* PC (≥1024) : toujours dépliée, sans bouton — les descriptions restent visibles (PC inchangé). */
+@media (min-width:1024px){
+  .edl-legend-body{display:flex !important;flex-wrap:wrap;gap:5px 14px}
+  .edl-leg-hint{display:none}
+  .edl-legend-sum{cursor:default}
+  .edl-legend-sum .edl-leg-pill{display:none}   /* pastilles portées par les lignes du corps */
+}
+
+/* Bouton de finalisation sur l'étape « fin » — MOBILE only (le pied de page « Enregistrer »
+   est masqué sur téléphone). Termine l'état des lieux (saveEDL). */
+.edl-finish-mobile{display:none}
+@media (max-width:1023px){
+  .edl-finish-mobile{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    min-height:52px;margin-top:14px;border:none;border-radius:var(--r);background:var(--pos);color:#fff;
+    font:800 15px var(--font);cursor:pointer}
 }
 
 /* ── C) Header EDL : compaction ultime sous 480px ─────────────────────────── */
