@@ -57,8 +57,12 @@ describe('AUDIT I1 — le forçage vaut pour UN cycle, pas « pour toujours »',
 
 describe('Le mode forcé ne devient jamais le mode normal', () => {
   it('`force` ne franchit QUE les sorties dues à une règle, pas un calcul', () => {
-    expect(has("if (!dpe && !_force) {")).toBe(true);
-    expect(has("if ((dpe === 'F' || dpe === 'G') && !_force) {")).toBe(true);
+    // D23 — la sortie anticipée « DPE absent » (muet, non calculée) est SUPPRIMÉE : un DPE absent
+    // ou périmé ne retient plus la révision (elle est calculée et proposée, cf. irl-dpe-gate).
+    expect(has("if (!dpe && !_force) {")).toBe(false);
+    // Seul le gel F/G reste une sortie de RÈGLE, franchie par force — désormais via le garde-fou
+    // testé irl-dpe-gate (F ou G VALIDE ; un F/G périmé ne gèle plus).
+    expect(has("if (_gate.gel && !_force) {")).toBe(true);
     // les sorties « il n'y a rien à calculer » restent inconditionnelles
     expect(has("if (!cal || cal.etat === 'trop-jeune') {")).toBe(true);
     expect(has('if(!valN || !valN1) {')).toBe(true);

@@ -210,6 +210,8 @@ import {
 
 // CDC-QUITTANCES-IRL etape 5 - LE calendrier des revisions (D12/D13/D15/D16/D17).
 import * as IrlCalendrier from './core/irl-calendrier.js';
+// CDC-QUITTANCES-IRL D22/I15 - coeur de comptage de la pastille menu Loyers (pur, teste).
+import { loyersBadgeCount, loyersBadgeBreakdown } from './core/loyers-badge.js';
 
 // Groupage des lots par bailleur / immeuble — module transverse deja consomme par le socle
 // Finances. L'onglet Loyers le CONSOMME aussi (jamais un groupement reinvente).
@@ -518,6 +520,8 @@ window.peutQuittancer = peutQuittancer;
 window.moisProposables = moisProposables;
 window.moisAQuittancer = moisAQuittancer;
 window.retardLot = retardLot;
+window.loyersBadgeCount = loyersBadgeCount;          // D22/I15 — coeur pur du compteur de pastille
+window.loyersBadgeBreakdown = loyersBadgeBreakdown;
 window.lignesRelance = lignesRelance;
 window.niveauRelance = niveauRelance;
 // I-DATE (CDC-LOYERS-DESIGN V5) — LA porte unique de la date de paiement d'un mois.

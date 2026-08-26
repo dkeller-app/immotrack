@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.545</title>
+<title>Propryo v15.546</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.545">
+<link rel="stylesheet" href="css/main.css?v=15.546">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><svg viewBox="0 0 24 24" fill="none" width="22" height="22"><path d="M3.2 11 12 3.6 20.8 11M5.6 9.2V19a1 1 0 0 0 1 1H10v-5h4v5h3.4a1 1 0 0 0 1-1V9.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.545</em>
+      <em>v15.546</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -684,17 +684,30 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-loyers .fr-m .u{font-size:8.5px;color:var(--t3)}
         #p-loyers .fr-m.eff{background:var(--acc-bg);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
         #p-loyers .fr-m.eff .n{color:var(--acc)}
-        #p-loyers .fr-m.rap{background:repeating-linear-gradient(45deg,var(--acc-bg),var(--acc-bg) 5px,transparent 5px,transparent 10px);
-          border-color:color-mix(in srgb,var(--acc) 30%,transparent)}
+        /* D24 — état « faite » : tuile verte pleine (fini la hachure « rappel » sans voisin ni chiffre). */
+        #p-loyers .fr-m.fait{background:var(--pos-soft);border-color:color-mix(in srgb,var(--pos) 45%,transparent)}
+        #p-loyers .fr-m.fait .n{color:var(--pos)}
         #p-loyers .fr-m.now{box-shadow:inset 0 0 0 2px var(--t1)}
         #p-loyers .fr-m.sel{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc-soft)}
         #p-loyers .fr-m .gel{position:absolute;right:3px;top:3px;font-size:8px;color:var(--t3)}
         #p-loyers .fr-leg{display:flex;flex-wrap:wrap;gap:9px;padding:0 12px 9px;font-size:10px;color:var(--t3)}
         #p-loyers .fr-leg i{display:inline-block;width:12px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--sur2);border:1px solid var(--bor)}
         #p-loyers .fr-leg i.eff{background:var(--acc);border-color:var(--acc)}
-        #p-loyers .fr-leg i.rap{background:repeating-linear-gradient(45deg,var(--acc-bg),var(--acc-bg) 3px,transparent 3px,transparent 6px)}
+        #p-loyers .fr-leg i.fait{background:var(--pos);border-color:var(--pos)}
         #p-loyers .fr-leg i.gel{background:var(--bor)}
         #p-loyers .fr-leg i.now{box-shadow:inset 0 0 0 1px var(--t3)}
+
+        /* D23 — bloc « DPE à compléter » : saisie rapide classe + date, compacte. */
+        #p-loyers .ly-dpe-body{padding:2px 12px 8px}
+        #p-loyers .ly-dpe-ln{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--bor)}
+        #p-loyers .ly-dpe-ln:first-child{border-top:0}
+        #p-loyers .ly-dpe-ln .who{flex:1;min-width:120px;font-size:12.5px}
+        #p-loyers .ly-dpe-ln .pick{display:flex;align-items:center;gap:3px;flex-wrap:wrap}
+        #p-loyers .ly-dpe-d{font-size:11px;padding:2px 4px;border:1px solid var(--bor);border-radius:5px;background:var(--sur);color:var(--t1);margin-right:4px}
+        #p-loyers .ly-dpe-c{width:22px;height:24px;font-weight:800;font-size:12px;border:1px solid var(--bor);border-radius:5px;background:var(--sur2);color:var(--t1);cursor:pointer}
+        #p-loyers .ly-dpe-c:hover{border-color:var(--acc);color:var(--acc)}
+        #p-loyers .ly-dpe-c.fg{border-color:color-mix(in srgb,var(--red) 50%,transparent);color:var(--red)}
+        #p-loyers .ly-dpe-c.fg:hover{background:var(--red);color:#fff}
 
         /* Le détail post-clic : un panneau, jamais un nouvel écran. */
         #p-loyers .fr-det{border-top:1px solid var(--bor);background:var(--sur2)}
@@ -4153,6 +4166,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- DOCS-UNIFIES — gabarit unique des documents émis (variante B validée le 12/08) :
      feuille de style scopée .pro-doc + primitives titre/parties/lignes/mentions/pied. -->
 <script src="js/helpers/doc-template.global.js"></script>
+<!-- CDC-QUITTANCES-IRL D26 — moteur d'écriture NATIF partagé (window.DocNative) : PDF_NATIVE (sous-ensemble
+     document du moteur du bail) + pont HTML .pro-doc → texte natif. Après pdf-flow + doc-brand (ses deps). -->
+<script src="js/helpers/doc-native.global.js"></script>
+<!-- CDC-QUITTANCES-IRL D23/I16 — décision réglementaire DPE de la révision (window.IrlDpeGate) :
+     gel F/G valide vs « à compléter » (absent ou périmé). Consommé par computeIRLRevision. -->
+<script src="js/helpers/irl-dpe-gate.global.js"></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
 <script src="js/helpers/alert-rules.global.js"></script>
@@ -4175,7 +4194,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.545';
+const IMMOTRACK_VERSION = '15.546';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -9404,6 +9423,9 @@ function _navChildBadge(id, counts, candUnread) {
   if (id === 'baux')   return '<span class="v4s-bd">' + (counts.locs || 0) + '</span>';
   if (id === 'mouvements') return '<span class="v4s-bd">' + (counts.loyers || 0) + '</span>';
   if (id === 'candidats') return '<span class="v4s-bd v4s-bd-new" id="v4s-cand-badge"' + (candUnread > 0 ? '' : ' style="display:none"') + '>' + (candUnread || '') + '</span>';
+  // CDC-QUITTANCES-IRL D22 — ancre de la pastille rouge « à traiter » de Loyers (remplie/vidée à
+  // chaud par _renderInboxSurfaces via _lyBadgeCount). Masquée tant qu'il n'y a rien (I15).
+  if (id === 'loyers') return '<span class="v4s-bd v4s-bd-new" id="v4s-loyers-badge" style="display:none"></span>';
   return '';
 }
 // Persistance (par appareil) des groupes dépliés. Clés = 1re page-enfant du groupe.
@@ -18772,6 +18794,26 @@ function _renderInboxSurfaces(){
   // Sidebar V4 (réelle) : badge rouge sur l'item Candidats
   const cb = el('v4s-cand-badge');
   if(cb){ if(n > 0){ cb.textContent = n; cb.style.display = ''; } else { cb.textContent = ''; cb.style.display = 'none'; } }
+  // CDC-QUITTANCES-IRL D22 — la PASTILLE « Loyers » (remplace la popup au boot). Même mécanisme,
+  // trois surfaces : sidebar legacy (.ni), barre du bas (.v4-bn), sidebar V4 (#v4s-loyers-badge).
+  // La pastille = _lyBadgeCount() (= les lignes actionnables de l'écran, I15) ; 0 → pas de pastille.
+  let nL = 0; try { if (typeof _lyBadgeCount === 'function') nL = _lyBadgeCount(); } catch(e){ nL = 0; }
+  const tip = nL > 0 ? (typeof _lyBadgeTip === 'function' ? _lyBadgeTip(nL) : '') : '';
+  const niL = document.querySelector('.ni[data-module="loyers"]');
+  if(niL){
+    if(tip) niL.setAttribute('title', tip); else niL.removeAttribute('title');
+    let b = niL.querySelector('.ni-pastille');
+    if(nL > 0){ if(!b){ b = document.createElement('span'); b.className = 'ni-pastille'; niL.appendChild(b); } b.textContent = nL; }
+    else if(b){ b.remove(); }
+  }
+  const bnL = document.querySelector('.v4-bnav .v4-bn[data-page="loyers"]');
+  if(bnL){
+    let b = bnL.querySelector('.v4-bn-badge');
+    if(nL > 0){ if(!b){ b = document.createElement('span'); b.className = 'v4-bn-badge'; bnL.appendChild(b); } b.textContent = nL; }
+    else if(b){ b.remove(); }
+  }
+  const v4L = el('v4s-loyers-badge');
+  if(v4L){ if(nL > 0){ v4L.textContent = nL; v4L.style.display = ''; if(tip) v4L.setAttribute('title', tip); } else { v4L.textContent = ''; v4L.style.display = 'none'; } }
   _renderCandInboxBanner();
 }
 function _candMarkAllSeen(){
@@ -25752,15 +25794,16 @@ function computeIRLRevision(log, opts) {
     joursAvantEffet: (_calNu && _calNu.joursAvantEffet) != null ? _calNu.joursAvantEffet : null
   };
 
-  if (!dpe && !_force) {
-    return Object.assign({
-      dpeManquant: true, muet: true, etat: 'dpe-manquant', T: Math.ceil((moisAnniv+1)/3),
-      premiereAnniv: premiereAnnivD, perdue: null, isApplicable: false,
-      message: 'DPE non renseigné — saisir le DPE sur la fiche du bien (onglet Diagnostics) avant de calculer la révision IRL'
-    }, _quand);
-  }
-  // I10 — loyer GELÉ : jamais dans « à réviser », applyIRL reste bloqué.
-  if ((dpe === 'F' || dpe === 'G') && !_force) {
+  // D23 / I16 — décision réglementaire du DPE, isolée et testée (js/helpers/irl-dpe-gate.global.js).
+  // Un DPE ABSENT ou PÉRIMÉ (>10 ans) ne RETIENT plus la révision : elle est calculée et proposée
+  // normalement, avec une pastille « à compléter ». SEUL un DPE renseigné F ou G ET valide gèle le
+  // loyer (loi Climat art. 23). Le blocage « DPE manquant » d'avant (sortie muet+isApplicable:false)
+  // est SUPPRIMÉ : il sortait 6 lots du parc réel des révisions sans raison légale.
+  const _gate = (typeof window !== 'undefined' && window.IrlDpeGate && typeof window.IrlDpeGate.irlDpeGate === 'function')
+    ? window.IrlDpeGate.irlDpeGate({ dpe, dpeDate, todayISO: today })
+    : { gel: (dpe === 'F' || dpe === 'G'), dpeManquant: !dpe, dpeExpire: false };
+  // I10 — loyer GELÉ (F/G valide) : jamais dans « à réviser », applyIRL reste bloqué.
+  if (_gate.gel && !_force) {
     return Object.assign({
       gelDpeFG: true, dpe, muet: true, etat: 'gel',
       T: Math.ceil((moisAnniv+1)/3), premiereAnniv: premiereAnnivD, perdue: null,
@@ -25816,15 +25859,9 @@ function computeIRLRevision(log, opts) {
     h && !h._deleted && h.ref === log.ref && h.action === 'renonciation'
     && h.dateRevision === log.irlDerniereApplication);
 
-  // v13.31 IRL-DPE-FG : warning DPE expiré (>10 ans) — non bloquant
-  let dpeExpire = false;
-  if (dpeDate) {
-    const dateD = new Date(dpeDate + 'T00:00:00');
-    if (!isNaN(dateD.getTime())) {
-      const ageYears = (Date.now() - dateD.getTime()) / (365.25 * 24 * 3600 * 1000);
-      if (ageYears > 10) dpeExpire = true;
-    }
-  }
+  // D23 — DPE périmé (>10 ans) OU absent : porté par le garde-fou testé (gate), traité comme
+  // « à compléter » (informatif, jamais bloquant). `dpeExpire` reste exposé pour la pastille.
+  const dpeExpire = _gate.dpeExpire;
 
   return {
     T, N,
@@ -25833,6 +25870,9 @@ function computeIRLRevision(log, opts) {
     dateRevision, premiereAnniv: premiereAnnivD, variation, nouveauHC,
     diff:        dejaApplique ? 0 : nouveauHC - log.hc,
     isApplicable, dejaApplique, renonce, dpe, dpeExpire,
+    // D23/I16 — pastille informative « DPE à compléter » (absent ou périmé) sur une révision
+    // par ailleurs PROPOSABLE. Ne retient rien (le seul verrou DPE est le gel F/G ci-dessus).
+    dpeManquant: _gate.dpeManquant,
     // CDC étape 5 — le calendrier, tel que le module l'a tranché.
     etat: cal.etat, muet: !!cal.muet, effetPrevuIso: cal.effetPrevuIso,
     rappelYm: cal.rappelYm, joursAvantEffet: cal.joursAvantEffet, perdue: cal.perdue
@@ -29361,7 +29401,10 @@ function _lyEtatLot(l) {
    « on mélange des quittances (document obligatoire) avec des loyers non payés —
    2 niveaux de priorités ».
    Rien de tout cela n'est une donnée : c'est de l'état d'écran, volatil, jamais en base. */
-var _lyUI = { tuile: 'retard', suivi: null, frise: null, blocs: {} };
+// D25 — l'IRL EN PREMIER : la tuile ouverte par défaut est « À préparer » (révisions). Une
+// révision arrive une fois par an et SE PERD si on l'oublie (prescription 1 an) ; une quittance
+// ou un impayé se rattrape. Le rare et périssable passe avant le fréquent et rattrapable.
+var _lyUI = { tuile: 'rev', suivi: null, frise: null, blocs: {} };
 function _lyVoir(k) { _lyUI.tuile = k; rLoyers(); }
 function _lyOuvrirSuivi(k) { _lyUI.suivi = (_lyUI.suivi === k) ? null : k; rLoyers(); }
 function _lyOuvrirMois(ym) { _lyUI.frise = (_lyUI.frise === ym) ? null : ym; rLoyers(); }
@@ -29430,13 +29473,14 @@ function rLoyers() {
     : (partis
         ? `aucun retard sur les baux en cours — hors ${partis} locataire${partis > 1 ? 's' : ''} parti${partis > 1 ? 's' : ''}`
         : 'tout est payé');
+  // D25 — l'ordre spatial suit la priorité : Révisions (rare, périssable) → Quittances → Pas à jour.
   html += '<div class="m5tiles">'
-    + tuile('retard', 'neg', 'Impayés', retards.length ? fmt(duRetard) : '0 €', _ditRetard)
+    + tuile('rev', 'pos', 'À préparer', `${nbRev} révision${nbRev > 1 ? 's' : ''}`, 'effet le 1ᵉʳ du mois — IRL')
     // AUDIT (vérification) I-2 — `demandes` compte des LOTS, pas des documents : la liste dessous
     // propose « Éditer les 47 », « Éditer les 67 »… soit 295 quittances annoncées comme « 8 ».
     + tuile('quit', 'acc', 'À remettre', `${demandes.length} demande${demandes.length > 1 ? 's' : ''}`,
         demandes.length ? 'des locataires attendent leur document' : 'personne n\'attend')
-    + tuile('rev', 'pos', 'À préparer', `${nbRev} révision${nbRev > 1 ? 's' : ''}`, 'effet le 1ᵉʳ du mois — IRL')
+    + tuile('retard', 'neg', 'Impayés', retards.length ? fmt(duRetard) : '0 €', _ditRetard)
     + '</div>';
 
   // ── 3. UNE SEULE liste : celle de la tuile choisie ──
@@ -29461,6 +29505,10 @@ function rLoyers() {
   // ── 4. La frise IRL : toujours affichée, jamais repliée (V3/V4) ──
   html += _lyFriseRuban(etats);
 
+  // ── 4bis. DPE à compléter (D23/D25) — juste SOUS les révisions : il parle du bloc du dessus.
+  // Informe (compte les lots sans DPE), ne retient rien ; saisie rapide écrite sur le bien.
+  html += _lyDpeBlock(etats);
+
   // ── 5. La bande « Suivi » : ce qui ne demande AUCUN geste, chiffré, à un clic ──
   const nQuitMois = _lyQuittancesDuMois(ymCourant).count;
   const pastille = (k, lbl, n) =>
@@ -29474,6 +29522,100 @@ function rLoyers() {
   if (_lyUI.suivi) html += _lyPanneauSuivi(_lyUI.suivi, rev, ymCourant, moisCourant);
 
   host.innerHTML = `<div class="ly2 cft">${html}</div>`;
+}
+
+// CDC-QUITTANCES-IRL D22 / I15 — LE COMPTEUR de l'entrée de menu « Loyers ». Il vaut EXACTEMENT
+// le nombre de LIGNES ACTIONNABLES de l'écran : quittances demandées prêtes à éditer + lots pas à
+// jour + révisions à préparer. Ni les « non révisables » (gelé/bail<1an/indice) ni les « perdues »
+// (D15) n'y entrent — rien à y faire, rien à compter. Écran vide → 0 → pas de pastille (I15).
+// Réutilise LES MÊMES calculs que rLoyers (jamais une 2ᵉ source qui divergerait).
+function _lyBadgeCount() {
+  try {
+    if (typeof window.moisAQuittancer !== 'function' || typeof _lyLots !== 'function' || typeof window.loyersBadgeCount !== 'function') return 0;
+    const lots = _lyLots();
+    if (!lots.length) return 0;
+    const etats = lots.map(_lyEtatLot);
+    // I15 encodé dans le module pur js/core/loyers-badge.js (testé) : l'écran fournit les mêmes
+    // états + révisions triées qu'il affiche, le module fait la somme des lignes actionnables.
+    return window.loyersBadgeCount(etats, _lyRevisionsTriees(etats));
+  } catch (e) { return 0; }
+}
+// Détail des trois nombres, pour l'info-bulle de la pastille (D22) — même source que le compteur.
+function _lyBadgeTip(n) {
+  try {
+    if (typeof window.moisAQuittancer !== 'function' || typeof _lyLots !== 'function' || typeof window.loyersBadgeBreakdown !== 'function') return '';
+    const lots = _lyLots(); if (!lots.length) return '';
+    const etats = lots.map(_lyEtatLot);
+    const b = window.loyersBadgeBreakdown(etats, _lyRevisionsTriees(etats));
+    return `Loyers — ${n} à traiter : ${b.revisions} révision${b.revisions > 1 ? 's' : ''} à préparer · ${b.quittances} quittance${b.quittances > 1 ? 's' : ''} demandée${b.quittances > 1 ? 's' : ''} · ${b.pasAJour} lot${b.pasAJour > 1 ? 's' : ''} pas à jour`;
+  } catch (e) { return ''; }
+}
+
+// CDC-QUITTANCES-IRL D23 — LE BLOC « 🏷 DPE à compléter », juste sous les révisions. Il INFORME
+// (compte les lots dont le DPE est absent ou périmé) et ne retient RIEN : la révision reste
+// proposable (D23). Saisie rapide en un clic (classe A→G + date), écrite sur le BIEN
+// (log.diagnostics.dpe, la source de vérité depuis v15.233) et nulle part ailleurs (I17). Un lot
+// « non concerné » (garage/cave/parking) ne réapparaît jamais. Un DPE > 10 ans = manquant.
+function _lyDpeBlock(etats) {
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  const gate = (window.IrlDpeGate && typeof window.IrlDpeGate.irlDpeGate === 'function') ? window.IrlDpeGate.irlDpeGate : null;
+  const aCompleter = [];
+  for (const e of etats) {
+    if (!e.bail) continue;                                   // lots loués (même périmètre que les révisions)
+    const d = (typeof _diagGet === 'function') ? _diagGet(e.log, 'dpe') : null;
+    if (d && d.na) continue;                                 // « non concerné » : jamais réclamé (I17)
+    const cls = (d && d.classe) || '';
+    const dat = (d && d.date) || '';
+    const g = gate ? gate({ dpe: cls, dpeDate: dat, todayISO: today }) : { dpeManquant: !cls, dpeExpire: false };
+    if (g.dpeManquant) aCompleter.push({ e, expire: !!g.dpeExpire });
+  }
+  const n = aCompleter.length;
+  if (!n) {
+    return `<div class="ly2-blk t-info"><div class="ly2-h"><span class="t">🏷 DPE à compléter</span>`
+      + `<span class="c">tous les DPE des lots loués sont renseignés</span></div></div>`;
+  }
+  const rows = aCompleter.map(({ e, expire }) => {
+    const ref = _lyQ(e.ref);
+    const classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(c =>
+      `<button type="button" class="ly-dpe-c${(c === 'F' || c === 'G') ? ' fg' : ''}" onclick="_lyDpeRapide('${ref}','${c}',this)" `
+      + `title="${(c === 'F' || c === 'G') ? 'Classe ' + c + ' — loyer gelé (loi Climat art. 23)' : 'Classe ' + c}">${c}</button>`).join('');
+    return `<div class="ly-dpe-ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml((e.log && e.log.adr) || '')}</span>`
+      + `${expire ? ' <span class="mu" style="display:inline">· DPE > 10 ans</span>' : ''}</span>`
+      + `<span class="pick"><input type="date" class="ly-dpe-d" title="Date de réalisation du DPE" />${classes}`
+      + `<button type="button" class="btn bs bb" onclick="_lyDpeNonConcerne('${ref}')" title="Garage, cave, parking — pas de DPE exigible par nature">non concerné</button></span></div>`;
+  }).join('');
+  return `<div class="ly2-blk t-info"><div class="ly2-h"><span class="t">🏷 DPE à compléter</span>`
+    + `<span class="c">${n} lot${n > 1 ? 's' : ''} sans DPE en base — la révision reste possible, mais un F ou G ne se révise pas</span></div>`
+    + `<div class="ly-dpe-body">${rows}</div></div>`;
+}
+// I17 — écrit la classe + la date sur le BIEN (log.diagnostics.dpe), source de vérité. La date
+// est OBLIGATOIRE (un DPE sans date de réalisation ne prouve pas sa validité).
+function _lyDpeRapide(ref, classe, btn) {
+  const log = DB.logements.find(l => l.ref === ref); if (!log) return;
+  const row = (btn && btn.closest) ? btn.closest('.ly-dpe-ln') : null;
+  const di = row ? row.querySelector('.ly-dpe-d') : null;
+  const date = (di && di.value) || '';
+  if (!date) { try { showToast('Saisir d\'abord la date de réalisation du DPE', 'warn', 3000); } catch (e) {} if (di) di.focus(); return; }
+  if (!log.diagnostics) log.diagnostics = {};
+  const cur = (log.diagnostics.dpe && typeof log.diagnostics.dpe === 'object') ? log.diagnostics.dpe : {};
+  log.diagnostics.dpe = Object.assign({}, cur, { classe: classe, date: date, na: false });
+  if (typeof _stamp === 'function') _stamp(log);
+  saveDB();
+  try { showToast('DPE ' + classe + ' enregistré sur ' + ref + ((classe === 'F' || classe === 'G') ? ' — loyer gelé' : ''), 'ok', 3000); } catch (e) {}
+  try { rLoyers(); } catch (e) {}
+  try { _renderInboxSurfaces(); } catch (e) {}
+}
+// I17 — « non concerné » : marque le DPE na sur le bien ; le lot ne réapparaît jamais dans le rappel.
+function _lyDpeNonConcerne(ref) {
+  const log = DB.logements.find(l => l.ref === ref); if (!log) return;
+  if (!log.diagnostics) log.diagnostics = {};
+  const cur = (log.diagnostics.dpe && typeof log.diagnostics.dpe === 'object') ? log.diagnostics.dpe : {};
+  log.diagnostics.dpe = Object.assign({}, cur, { na: true });
+  if (typeof _stamp === 'function') _stamp(log);
+  saveDB();
+  try { showToast(ref + ' — DPE marqué « non concerné »', 'ok', 2500); } catch (e) {}
+  try { rLoyers(); } catch (e) {}
+  try { _renderInboxSurfaces(); } catch (e) {}
 }
 
 /**
@@ -29787,16 +29929,28 @@ function _lyFriseRuban(etats) {
   const r = window.IrlCalendrier.rubanRevisions(window.IrlCalendrier.ganttRevisions(lots, today));
   if (!r.mois.length) return '';
 
+  // D24 — LE RUBAN N'A QUE TROIS ÉTATS : à faire (orange, nbEffet), faite (verte, nbFaite), rien
+  // (gris). La hachure « mois de rappel (M-1) » est retirée : agrégée en tuiles, elle produisait
+  // une case rayée sans voisin ni chiffre. Le rappel M-1 reste ce qui fait APPARAÎTRE la ligne
+  // dans « Révisions à préparer » (D13), il ne colore plus rien. Toute tuile colorée porte un
+  // chiffre ≥ 1 ET un mot ; le gris veut dire « rien ce mois-ci » (I18).
   const tuiles = r.mois.map(m => {
-    const n = m.nbEffet;
-    const cls = 'fr-m' + (n ? ' eff' : '') + (!n && m.nbRappel ? ' rap' : '')
+    const aFaire = m.nbEffet;                 // révisions à préparer/en retard ce mois
+    const faites = m.nbFaite;                 // révisions déjà appliquées ce mois (jamais rendues avant)
+    const kind = aFaire > 0 ? 'eff' : (faites > 0 ? 'fait' : '');
+    const n = aFaire > 0 ? aFaire : faites;   // le chiffre de la tuile colorée
+    const mot = aFaire > 0 ? 'à faire' : (faites > 0 ? (faites > 1 ? 'faites' : 'faite') : '—');
+    const cls = 'fr-m' + (kind ? ' ' + kind : '')
       + (m.courant ? ' now' : '') + (_lyUI.frise === m.ym ? ' sel' : '');
-    const titre = `${_LY_MOIS_COURT[m.mois - 1]} ${m.annee} — ${n} révision${n > 1 ? 's' : ''}`
+    const titre = `${_LY_MOIS_COURT[m.mois - 1]} ${m.annee} — `
+      + (aFaire > 0 ? `${aFaire} révision${aFaire > 1 ? 's' : ''} à faire`
+         : faites > 0 ? `${faites} révision${faites > 1 ? 's' : ''} faite${faites > 1 ? 's' : ''}`
+         : 'rien ce mois-ci')
       + (m.nbGel ? `, ${m.nbGel} lot${m.nbGel > 1 ? 's' : ''} non révisable${m.nbGel > 1 ? 's' : ''}` : '');
     return `<button class="${cls}" onclick="_lyOuvrirMois('${m.ym}')" title="${escHtml(titre)}">
       <span class="lbl">${_LY_MOIS_COURT[m.mois - 1]}<span class="an">${m.annee}</span></span>
-      <div class="n${n ? '' : ' z'}">${n || '·'}</div>
-      <span class="u">${n ? (n > 1 ? 'révisions' : 'révision') : '—'}</span>
+      <div class="n${kind ? '' : ' z'}">${kind ? n : '·'}</div>
+      <span class="u">${mot}</span>
       ${m.nbGel ? `<span class="gel">🔒${m.nbGel}</span>` : ''}</button>`;
   }).join('');
 
@@ -29804,25 +29958,45 @@ function _lyFriseRuban(etats) {
   let detail = '';
   const sel = _lyUI.frise ? r.mois.find(m => m.ym === _lyUI.frise) : null;
   if (sel) {
-    const lignes = sel.effet.concat(sel.gel).map(x => {
+    // D24 — le détail liste les trois natures du mois : à faire (bouton Réviser), FAITE (verte,
+    // lecture seule, rendue enfin) et non révisable (motif muet). Sans les faites, une tuile
+    // verte s'ouvrait sur « Rien ce mois-ci » — le défaut que D24 corrige.
+    const items = (sel.effet || []).map(x => ({ x, kind: 'effet' }))
+      .concat((sel.faite || []).map(x => ({ x, kind: 'faite' })))
+      .concat((sel.gel || []).map(x => ({ x, kind: 'gel' })));
+    const lignes = items.map(({ x, kind }) => {
       const o = parRef.get(x.ref);
       if (!o) return '';
-      const gele = sel.gel.indexOf(x) >= 0;
-      const pct = o.rev.variation != null ? ((o.rev.variation || 0) * 100).toFixed(2).replace('.', ',') : null;
-      // Le ruban PROJETTE un effet passé sur sa prochaine occurrence annuelle (« quand ça
-      // retombe », pas « quand ça aurait dû ») : la ligne doit donc annoncer la date de la
-      // tuile, et dire séparément que le cycle d'origine n'a pas été appliqué. Sans ça, on
-      // lisait « effet au 01/09/2025 » sous une tuile de septembre 2026.
       const effetProj = sel.ym + '-01';
+      if (kind === 'gel') {
+        return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
+          <span class="mu">${escHtml(_lyMotifMuet(o.rev))}</span>
+          <span class="am"><span class="ly2-p nu">${escHtml(_lyPastilleMuet(o.rev))}</span></span>
+          <span class="ac"></span></div>`;
+      }
+      if (kind === 'faite') {
+        return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
+          <span class="mu">révisée · effet au <b>${fd(effetProj)}</b></span>
+          <span class="am"><b>${fmt(o.rev.nouveauHC)}</b></span>
+          <span class="ac"><span class="ly2-p" style="color:var(--pos)">✓ faite</span></span></div>`;
+      }
+      // effet — le ruban PROJETTE un effet passé sur sa prochaine occurrence annuelle (« quand ça
+      // retombe », pas « quand ça aurait dû ») : la ligne annonce la date de la tuile, et dit
+      // séparément que le cycle d'origine n'a pas été appliqué.
+      const pct = o.rev.variation != null ? ((o.rev.variation || 0) * 100).toFixed(2).replace('.', ',') : null;
       const decale = o.rev.effetPrevuIso && String(o.rev.effetPrevuIso).slice(0, 7) !== sel.ym;
       const quand = `effet au <b>${fd(effetProj)}</b>${pct != null ? ` · ${o.rev.variation >= 0 ? '+' : ''}${pct} %` : ''}`
         + (decale ? ` — cycle du ${fd(o.rev.effetPrevuIso)} non appliqué` : '');
       return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
-        <span class="mu">${gele ? escHtml(_lyMotifMuet(o.rev)) : quand}</span>
-        <span class="am">${gele ? `<span class="ly2-p nu">${escHtml(_lyPastilleMuet(o.rev))}</span>` : `<b>${fmt(o.rev.nouveauHC)}</b>`}</span>
-        <span class="ac">${gele ? '' : `<button class="btn bp bb" onclick="applyIRL('${_lyQ(x.ref)}',${o.rev.nouveauHC})">Réviser</button>`}</span></div>`;
+        <span class="mu">${quand}</span>
+        <span class="am"><b>${fmt(o.rev.nouveauHC)}</b></span>
+        <span class="ac"><button class="btn bp bb" onclick="applyIRL('${_lyQ(x.ref)}',${o.rev.nouveauHC})">Réviser</button></span></div>`;
     }).join('');
-    detail = `<div class="fr-det"><div class="h">${_LY_MOIS_COURT[sel.mois - 1]} ${sel.annee} — ${sel.nbEffet} révision${sel.nbEffet > 1 ? 's' : ''}${sel.nbGel ? ` · ${sel.nbGel} non révisable${sel.nbGel > 1 ? 's' : ''}` : ''}
+    const hParts = [];
+    if (sel.nbEffet) hParts.push(`${sel.nbEffet} à faire`);
+    if (sel.nbFaite) hParts.push(`${sel.nbFaite} faite${sel.nbFaite > 1 ? 's' : ''}`);
+    if (sel.nbGel) hParts.push(`${sel.nbGel} non révisable${sel.nbGel > 1 ? 's' : ''}`);
+    detail = `<div class="fr-det"><div class="h">${_LY_MOIS_COURT[sel.mois - 1]} ${sel.annee} — ${hParts.join(' · ') || 'rien ce mois-ci'}
       <button class="x" onclick="_lyOuvrirMois('${sel.ym}')" title="Fermer">✕</button></div>
       ${lignes || '<div class="foot" style="border-top:0">Rien ce mois-ci.</div>'}</div>`;
   }
@@ -29832,8 +30006,8 @@ function _lyFriseRuban(etats) {
     <div class="ly2-frise-h"><span class="t">📅 Révisions IRL — 12 mois glissants</span>
       <span class="s">${r.totalEffet} révision${r.totalEffet > 1 ? 's' : ''} à faire${gelTot ? ` · ${gelTot} lot${gelTot > 1 ? 's' : ''} non révisable${gelTot > 1 ? 's' : ''}` : ''}</span></div>
     <div class="fr-ruban">${tuiles}</div>
-    <div class="fr-leg"><span><i class="eff"></i>mois d'effet (1ᵉʳ du mois)</span>
-      <span><i class="rap"></i>mois de rappel (M-1)</span><span><i class="gel"></i>🔒 non révisable</span>
+    <div class="fr-leg"><span><i class="eff"></i>à faire (1ᵉʳ du mois d'effet)</span>
+      <span><i class="fait"></i>faite</span><span><i class="gel"></i>🔒 non révisable</span>
       <span><i class="now"></i>mois en cours</span><span>Clic sur un mois = la liste des lots concernés.</span></div>
     ${detail}</div>`;
 }
@@ -30778,29 +30952,14 @@ function _renderIRLRappelModal() {
    - condition stricte : isApplicable && !dejaApplique (mois anniversaire dépassé)
    Si déjà affichée pour la session (même source), on n'ouvre pas la popup mais on
    maintient le toast léger pour signaler discrètement les révisions à traiter. */
-function _checkIRLRappelsAuLogin(source) {
-  source = source || 'login';
-  // v14.1.2 : Drive connect prend la priorité absolue. Pas de popup IRL si :
-  const list = _collectIRLRappels();
-  if (!list.length) return;
-  const today = new Date().toISOString().slice(0,10);
-  // Anti-spam : 1 popup par jour max, quelle que soit la source
-  const alreadyShown = sessionStorage.getItem('irlRappelShown') === today;
-  if (!alreadyShown) {
-    sessionStorage.setItem('irlRappelShown', today);
-    _renderIRLRappelModal();
-    openM('ov-irl-rappel');
-  }
-  // Toast léger en complément (informatif si popup déjà vue)
-  if (source === 'login' || !alreadyShown) {
-    const n = list.length;
-    const nNonEnv = list.filter(({log,rev}) => !(log.irlLettreEnvoyee && log.irlLettreEnvoyeePour === _isoLocal(rev.dateRevision))).length;
-    const msg = nNonEnv > 0
-      ? `📈 ${n} révision${n>1?'s':''} IRL · ${nNonEnv} lettre${nNonEnv>1?'s':''} à envoyer`
-      : `📈 ${n} révision${n>1?'s':''} IRL prête${n>1?'s':''} à appliquer`;
-    try { showToast(msg, 'warn', 4500); } catch(e) {}
-  }
-}
+// CDC-QUITTANCES-IRL D22 / I14 — `_checkIRLRappelsAuLogin` SUPPRIMÉE. Elle ouvrait au boot la
+// modale `ov-irl-rappel` (+ un toast), ce qui contredisait trois décisions : déclenchée sur
+// `rev.isApplicable` (après l'anniversaire, jamais au rappel M-1 de D13), elle portait un bouton
+// « Valider IRL » qui appliquait une révision depuis une fenêtre ouverte automatiquement (hors de
+// la fenêtre de validation D18), et elle interrompait là où D5 met le travail dans l'écran. Le
+// rappel vit désormais sur la PASTILLE de l'entrée de menu « Loyers » (_lyBadgeCount). Preuve
+// d'atteignabilité : `openM('ov-irl-rappel')` n'était appelé que d'ici, et cette fonction n'était
+// planifiée qu'au boot — la modale est donc désormais inatteignable (reste masquée, I14).
 
 // v15.249 B8 (D-B12) — Rappel au login : diagnostics expirés. Toast léger (PAS de modale,
 // pour ne pas empiler sur la popup IRL). Anti-spam : 1 toast/jour max (sessionStorage).
@@ -41065,7 +41224,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.545 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.546 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -41175,49 +41334,88 @@ function _ddtRecapBrandzone() {
   return bz ? `<div style="max-width:760px;padding:0 22px">${bz}</div>` : '';
 }
 
-/** Génère un PDF natif via jsPDF + html2canvas du récap DDT. */
+/** CDC-QUITTANCES-IRL D26 — récap DDT en TEXTE NATIF (fini html2canvas). Dessiné depuis les
+ *  mêmes données que `_buildDdtRecapHTML` : bandeau d'identité vectoriel, page de garde, tableau
+ *  natif des diagnostics, cadre légal. 1 page nette, quelques Ko, accents/€ WinAnsi. Tout le
+ *  texte passe par hardenJsPdfText ; les libellés de statut (emoji) sont assainis en amont via
+ *  DocNative.htmlToText → 0 avertissement [pdfSafeText]. */
 async function _ddtRecapPDF() {
   const ref = el('ov-ddt-recap-ref')?.value;
   if (!ref) return;
-  const content = el('ddt-recap-content');
-  if (!content || typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
-    showToast('Bibliothèques PDF non chargées', 'err'); return;
-  }
-  showToast('Génération du PDF en cours…', 'info', 2000);
-  // AUDIT I1 — on rastérise le récap PRÉCÉDÉ du même bandeau d'identité que l'impression,
-  // sinon les deux sorties de la même pièce divergent. Conteneur hors écran, monté dans le
-  // document pour que les variables CSS de l'app se résolvent, démonté dans le finally.
-  const shell = document.createElement('div');
-  shell.style.cssText = 'position:fixed;left:-10000px;top:0;background:#fff;z-index:-1';
-  shell.innerHTML = _ddtRecapBrandzone();
-  shell.appendChild(content.cloneNode(true));
-  document.body.appendChild(shell);
+  const log = (DB.logements || []).find(l => l.ref === ref);
+  if (!log) return;
+  if (!window.DocNative) { showToast('Bibliothèque PDF non chargée', 'err'); return; }
+  showToast('Génération du PDF en cours…', 'info', 1500);
   try {
-    const canvas = await html2canvas(shell, { scale: 2, backgroundColor: '#ffffff' });
-    const imgData = canvas.toDataURL('image/png');
+    // Le tableau des diagnostics passe par PDF_NATIVE.drawTable → pdf.autoTable : il faut donc
+    // jsPDF ET le plugin autotable dans la fenêtre principale (même loader que l'EDL natif).
+    await _ensurePDFLibsLoaded();
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('fr-FR');
+    const ddt = _ddtComplet(log, today);
+    const ent = _entiteDeLogement(log);
+    const PN = window.DocNative.PDF_NATIVE;
+    const clean = window.DocNative.htmlToText;   // assainit (emoji → retirés, accents/€ gardés)
     const { jsPDF } = window.jspdf;
-    const pdf = window.MontantDoc.hardenJsPdfText(new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }));   /* S3 */
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth - 16; // 8mm margin chaque côté
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let position = 8;
-    let heightLeft = imgHeight;
-    pdf.addImage(imgData, 'PNG', 8, position, imgWidth, imgHeight);
-    heightLeft -= (pageHeight - 16);
-    while (heightLeft > 0) {
-      position = -heightLeft + 8;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 8, position, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - 16);
-    }
+    const pdf = window.MontantDoc.hardenJsPdfText(new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true }));
+    const x = PN.MARGIN_LEFT, right = PN.PAGE_W - PN.MARGIN_RIGHT;
+    let y = PN.MARGIN_TOP;
+    // Bandeau d'identité (vectoriel — même helper que tous les documents)
+    try { y = _pdfDrawBrandzone(pdf, ent, x, y, right) + 2; } catch (e) { y = PN.MARGIN_TOP + 8; }
+    // Page de garde
+    y = PN.drawText(pdf, 'DOSSIER DE DIAGNOSTIC TECHNIQUE', x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, align: 'center' });
+    y = PN.drawTitle(pdf, 1, 'Logement ' + (log.ref || '—'), x, y);
+    y = PN.drawText(pdf, log.adr || log.imm || '—', x, y, { color: PN.COLOR_MUTED, align: 'center' });
+    y = PN.drawText(pdf, "Date d'édition : " + todayStr, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, align: 'center' }) + 3;
+    // Identité bailleur + logement (mêmes mots que l'aperçu _buildDdtRecapHTML)
+    const bailleurNom = (ent && ent.nom) || log.entity || '—';
+    const bailLine = 'Bailleur : ' + bailleurNom
+      + ((ent && ent.siege) ? ' — ' + ent.siege : '')
+      + ((ent && ent.siren) ? ' — SIREN ' + ent.siren : '');
+    y = PN.drawText(pdf, bailLine, x, y, { size: PN.FONT_SIZE_NOTE });
+    const logLine = 'Logement : '
+      + [log.type || '', log.surf ? log.surf + ' m²' : '',
+         log.etage ? 'Étage : ' + log.etage : '',
+         log.anneeConstruction ? 'Construction : ' + log.anneeConstruction : '']
+        .filter(Boolean).join(' · ');
+    y = PN.drawText(pdf, logLine, x, y, { size: PN.FONT_SIZE_NOTE }) + 1;
+    // Verdict global (mots identiques à l'aperçu, hors pictogramme ✓/⚠ non-WinAnsi)
+    const verdict = ddt.complet
+      ? 'Diagnostics complets — Tous diagnostics applicables sont valides'
+      : 'Diagnostics incomplets — ' + (ddt.manquants.length + ddt.expires.length) + ' diagnostic(s) à régulariser';
+    y = PN.drawText(pdf, verdict, x, y, { style: 'bold', color: ddt.complet ? [21, 83, 45] : [127, 29, 29] }) + 2;
+    // Tableau des diagnostics
+    const rows = _DIAGS_CATALOG_INLINE.map(entry => {
+      const statut = _diagStatut(entry.key, log, today);
+      const info = _diagGet(log, entry.key) || {};
+      const exp = _diagDateExpiration(entry.key, info);
+      const meta = _DIAG_STATUT_LABEL[statut] || _DIAG_STATUT_LABEL.manquant;
+      const validityTxt = entry.validityYears == null
+        ? (entry.key === 'crep' ? 'Illimitée (1 an si plomb)' : 'Illimitée')
+        : entry.validityYears < 1 ? Math.round(entry.validityYears * 12) + ' mois' : entry.validityYears + ' ans';
+      let detail = '—';
+      if (info.date) { detail = 'Réalisé le ' + fd(info.date); if (exp) detail += ' · Expire le ' + fd(exp); }
+      else if (statut === 'inapplicable') detail = 'Non concerné (auto-détecté)';
+      else if (statut === 'na') detail = 'Marqué N/A par le bailleur';
+      const classeTxt = entry.key === 'dpe' && info.classe ? ' (Classe ' + info.classe + ')' : '';
+      const col1 = entry.label + classeTxt + '\n' + entry.legal + ' · Validité ' + validityTxt;
+      return [col1, clean(meta.txt), detail, info.diagnostiqueur || '—'];
+    });
+    y = PN.drawTable(pdf, ['Diagnostic', 'Statut', 'Détail', 'Diagnostiqueur'], rows, y,
+      { columnStyles: { 0: { cellWidth: 74 } } }) + 2;
+    // Cadre légal — mots repris à l'identique de l'aperçu _buildDdtRecapHTML
+    const legende = "Cadre légal : Le Dossier de diagnostic technique est obligatoire selon la loi 89-462 art. 3-3 et doit être annexé au bail à la signature. L'absence ou la péremption d'un diagnostic applicable peut entraîner la nullité du bail.\n"
+      + "Auto-détection : Les diagnostics CREP, Amiante, Gaz, Élec, Termites, Mérule et Bruit aérien sont automatiquement marqués applicables ou non en fonction de l'année de construction du logement et des zones réglementaires déclarées.\n"
+      + "Limite : Ce récap atteste de la complétude de vos diagnostics côté gestion. Les PDFs source de chaque diagnostic doivent être joints individuellement au bail.";
+    y = PN.newPageIfNeeded(pdf, y, 34);
+    y = PN.drawText(pdf, legende, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED }) + 2;
+    // Pied (mêmes mots que l'aperçu, hors numéro de version géré par le pilotage)
+    PN.drawText(pdf, 'Propryo — Récap diagnostics généré automatiquement le ' + todayStr, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, align: 'right' });
     pdf.save(`Diagnostics-${ref}-${td()}.pdf`);
-    showToast('✓ PDF téléchargé', 'ok', 2500);
+    showToast('PDF téléchargé', 'ok', 2500);
   } catch (e) {
     console.error('[Diagnostics PDF]', e);
     showToast('Erreur PDF : ' + (e.message || ''), 'err', 4000);
-  } finally {
-    if (shell.parentNode) shell.parentNode.removeChild(shell);
   }
 }
 
@@ -57968,8 +58166,9 @@ function _bootDataJobs() {
       _migratePjMouvementsToAttachments().catch(e => console.warn('[migration PJ] fail', e));
     }
   }, 1500);
-  // v13.32 IRL-VALIDATION : toast au login si rappels IRL en attente
-  setTimeout(_checkIRLRappelsAuLogin, 1500);
+  // CDC-QUITTANCES-IRL D22 / I14 — AUCUNE fenêtre ni toast IRL au démarrage. Le rappel des
+  // révisions n'ouvre plus de modale au boot (`_checkIRLRappelsAuLogin` supprimée) : il attend
+  // sur une PASTILLE de l'entrée de menu « Loyers » (_lyBadgeCount → _renderInboxSurfaces).
   // BAIL-SIGNATURE-DISTANCE C3 (Task 12) : poll des sessions de signature distance en attente.
   setTimeout(() => { try { _pollRemoteSignSessions({ force: true }); } catch (e) {} }, 2500);
   // v14.52 BUG-ENT-ORPHANS-CLEANUP Phase 1 : audit des rattachements orphelins

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ETAT, ETATS_MUETS, effetDuCycle, moisRappel, premierEffet,
-  cycleEnCours, cycleSuivant, etatRevision, ganttRevisions
+  cycleEnCours, cycleSuivant, etatRevision, ganttRevisions, rubanRevisions
 } from '../../js/core/irl-calendrier.js';
 
 /**
@@ -223,6 +223,19 @@ describe('D16 — douze mois glissants, un lot par ligne', () => {
   it('un cycle déjà fait se distingue d\'un cycle à faire', () => {
     const g = ganttRevisions([lot('X', { debut: '2024-08-05', derniereApplicationIso: '2026-08-01' })], today);
     expect(g.lignes[0].cells.find(c => c.ym === '2026-08').kind).toBe('faite');
+  });
+
+  // D24 / I18 — le ruban rend nbFaite : une révision appliquée devient une tuile VERTE chiffrée,
+  // au lieu d'un « — » comme s'il ne s'y était rien passé. Le rappel M-1 ne colore plus (nbRappel
+  // reste calculé pour d'autres surfaces, mais aucune tuile n'est hachurée).
+  it('rubanRevisions agrège nbFaite pour le mois d\'application', () => {
+    const g = ganttRevisions([lot('X', { debut: '2024-08-05', derniereApplicationIso: '2026-08-01' })], today);
+    const ruban = rubanRevisions(g);
+    const aout = ruban.mois.find(m => m.ym === '2026-08');
+    expect(aout.nbFaite).toBe(1);
+    expect(aout.faite.map(f => f.ref)).toContain('X');
+    // Une tuile « faite » n'est pas comptée comme « à faire » : les deux compteurs sont distincts.
+    expect(aout.nbEffet).toBe(0);
   });
 
   it('liste vide ou date invalide → structure vide, aucun crash', () => {

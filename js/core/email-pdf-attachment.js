@@ -72,92 +72,84 @@ function _getJsPdfClass() {
 }
 
 /**
- * v15.91 EM-2d — Charge html2canvas si pas déjà disponible globalement.
- * Même pattern que _ensureJsPdfLoaded — décode window._BAIL_PDF_LIBS.html2canvas
- * (inliné en base64) → Blob URL → <script src=blob:>. Idempotent.
- *
- * @returns {Promise<boolean>} true si window.html2canvas disponible après l'appel
+ * CDC-QUITTANCES-IRL D26 — `_ensureHtml2CanvasLoaded` et `_rasterizeHtmlToPdfBlob` SUPPRIMÉS :
+ * les quatre derniers documents rasterisés (quittance, lettre IRL, décompte, récap DDT) passent
+ * au texte natif. Plus aucun chemin ne décode html2canvas depuis base64 au téléchargement.
  */
-function _ensureHtml2CanvasLoaded() {
-  if (typeof window !== 'undefined' && typeof window.html2canvas === 'function') return Promise.resolve(true);
-  if (typeof window === 'undefined' || typeof document === 'undefined') return Promise.resolve(false);
-  if (typeof document.createElement !== 'function') return Promise.resolve(false);
-  if (!window._BAIL_PDF_LIBS || !window._BAIL_PDF_LIBS.html2canvas) return Promise.resolve(false);
-
-  return new Promise(resolve => {
-    try {
-      const b64 = window._BAIL_PDF_LIBS.html2canvas;
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'application/javascript' });
-      const url = URL.createObjectURL(blob);
-      const script = document.createElement('script');
-      script.src = url;
-      script.onload = () => resolve(typeof window.html2canvas === 'function');
-      script.onerror = (e) => { console.error('[email-pdf-attachment] html2canvas script load failed', e); resolve(false); };
-      document.head.appendChild(script);
-    } catch (e) {
-      console.error('[email-pdf-attachment] _ensureHtml2CanvasLoaded threw', e);
-      resolve(false);
-    }
-  });
-}
 
 /**
- * v15.91 EM-2d — Rasterise un HTML/CSS donné en un PDF jsPDF (multi-pages A4)
- * via html2canvas. Retourne un Blob PDF.
+ * CDC-QUITTANCES-IRL D26 — HTML `.pro-doc` d'un document (sortie d'un `_buildXHtml` du gabarit)
+ * → Blob PDF en TEXTE NATIF, via le moteur partagé `window.DocNative`. Remplace l'ancienne
+ * rasterisation html2canvas (`_rasterizeHtmlToPdfBlob`, supprimée) : le document pèse quelques
+ * Ko au lieu de 449, tient sur 1 page, reste net à tout zoom, et ses accents/€ sont encodés
+ * nativement (WinAnsi). AUCUN mot n'est réécrit — le fond est celui de l'aperçu écran (D26).
+ * Tout le texte passe par `MontantDoc.hardenJsPdfText` (signale les caractères non encodables).
  *
- * @param {string} html — body HTML à rendre
- * @param {string} css — CSS à inclure (scope auto via wrapper)
+ * @param {string} html — HTML complet du document (conteneur .pro-doc)
+ * @param {object} ent  — entité bailleur (logo/nom, pour le bandeau vectoriel)
  * @returns {Promise<Blob>}
  */
-async function _rasterizeHtmlToPdfBlob(html, css) {
+/**
+ * CDC-QUITTANCES-IRL D26 — assure jsPDF + le plugin autotable dans la fenêtre principale.
+ * Réutilise le loader de l'EDL natif (`window._ensurePDFLibsLoaded`, jspdf+autotable) s'il est là,
+ * repli local sinon (décode `_BAIL_PDF_LIBS.autotable` en <script>, même patron que jsPDF).
+ */
+// Sonde SANS construire d'instance : autotable s'attache à `jsPDF.API.autoTable`. Construire une
+// instance juste pour tester (`new Cls().autoTable`) est risqué — si un chargement précédent a
+// laissé le plugin à moitié enregistré, la construction jette dans l'event « initialized ».
+function _autotableReady() {
+  const C = _getJsPdfClass();
+  return !!(C && C.API && typeof C.API.autoTable === 'function');
+}
+async function _ensureNativePdfLibs() {
+  if (_getJsPdfClass() && _autotableReady()) return true;
+  // UN SEUL loader : `window._ensurePDFLibsLoaded` (EDL) charge jsPDF + autotable d'un coup et est
+  // idempotent. NE PAS pré-appeler `_ensureJsPdfLoaded` : charger jsPDF deux fois (ici puis dans
+  // _ensurePDFLibsLoaded) ré-enregistre autotable et corrompt son handler d'init → `new jsPDF`
+  // jette « reading '1' » (diagnostiqué au smoke). Repli local seulement hors app.
+  if (typeof window !== 'undefined' && typeof window._ensurePDFLibsLoaded === 'function') {
+    try { await window._ensurePDFLibsLoaded(); } catch (e) { /* repli ci-dessous */ }
+    if (_getJsPdfClass() && _autotableReady()) return true;
+  }
+  // Repli (contexte hors monolithe) : charge jsPDF puis, une seule fois, le plugin autotable.
+  await _ensureJsPdfLoaded();
+  if (!_autotableReady() && typeof document !== 'undefined' && window._BAIL_PDF_LIBS && window._BAIL_PDF_LIBS.autotable) {
+    await new Promise(resolve => {
+      try {
+        const bin = atob(window._BAIL_PDF_LIBS.autotable);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/javascript' }));
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = () => { URL.revokeObjectURL(url); resolve(); };
+        s.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+        document.head.appendChild(s);
+      } catch (e) { resolve(); }
+    });
+  }
+  return _getJsPdfClass() && _autotableReady();
+}
+
+async function _docHtmlToNativeBlob(html, ent) {
+  if (typeof window === 'undefined' || !window.DocNative || typeof window.DocNative.parseDocDoc !== 'function') {
+    throw new Error('doc-native-not-loaded');
+  }
+  // Le décompte contient un tableau natif (PDF_NATIVE.drawTable → pdf.autoTable) : il faut donc
+  // jsPDF ET le plugin autotable dans la fenêtre principale. Même loader que l'EDL natif quand il
+  // existe (jspdf + autotable), repli local sinon.
+  await _ensureNativePdfLibs();
   const Cls = _getJsPdfClass();
   if (!Cls) throw new Error('jspdf-not-loaded');
-  if (typeof window === 'undefined' || typeof window.html2canvas !== 'function') {
-    throw new Error('html2canvas-not-loaded');
+  const pdf = new Cls({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+  // Garde-fou obligatoire (audit 13/08) : assainit ET signale en console tout caractère non
+  // encodable — un caractère perdu en silence dans un document légal est inacceptable.
+  if (window.MontantDoc && typeof window.MontantDoc.hardenJsPdfText === 'function') {
+    window.MontantDoc.hardenJsPdfText(pdf);
   }
-  // Conteneur off-screen (visuellement caché mais rendable par html2canvas).
-  // Dimensions calées sur ~A4 700px wide (matches body max-width:700px du CSS quittance).
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:760px;background:#fff;color:#111;z-index:-1';
-  // Inline CSS via <style> scope sur le container pour ne pas polluer la page principale
-  container.innerHTML = '<style>' + css + '</style><div class="em-pdf-render-root" style="background:#fff;padding:30px 30px;max-width:700px;margin:0 auto;font-family:\'Times New Roman\',serif;font-size:11.5pt;color:#111;line-height:1.45">' + html + '</div>';
-  document.body.appendChild(container);
-  try {
-    const target = container.querySelector('.em-pdf-render-root');
-    // v15.107 : scale 2 + JPEG quality 0.95 (Option A user) → fidélité visuelle
-    // maximale au rendu officiel _buildQuittanceHtml, taille raisonnable ~500-800 KB.
-    // PNG aurait été pixel-perfect mais 3-5 Mo. JPEG 0.95 dégrade imperceptiblement
-    // sur du texte noir/blanc + une signature image, taille divisée par ~6.
-    const canvas = await window.html2canvas(target, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const pdf = new Cls({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const imgW = pageW - 16; // 8mm margin chaque côté
-    const imgH = (canvas.height * imgW) / canvas.width;
-    // v15.110 — Fix pagination multi-page (bug pré-existant depuis v15.91).
-    // Avant : position page 2 = -heightLeft + 8 → overlap massif (la majorité
-    // du contenu se répétait sur les 2 pages, signature visible 2× etc.).
-    // Maintenant : page N affiche pixels [n*pageContentH, (n+1)*pageContentH]
-    // de l'image en plaçant l'image à y = 8 - n*pageContentH (sliding propre).
-    const pageContentH = pageH - 16; // hauteur utile entre marges 8mm haut/bas (281mm pour A4)
-    let renderedMm = 0;
-    // Page 1
-    pdf.addImage(imgData, 'JPEG', 8, 8 - renderedMm, imgW, imgH, undefined, 'MEDIUM');
-    renderedMm += pageContentH;
-    // Pages suivantes (si imgH > pageContentH)
-    while (renderedMm < imgH) {
-      pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 8, 8 - renderedMm, imgW, imgH, undefined, 'MEDIUM');
-      renderedMm += pageContentH;
-    }
-    return pdf.output('blob');
-  } finally {
-    if (container.parentNode) container.parentNode.removeChild(container);
-  }
+  const parsed = window.DocNative.parseDocDoc(html);
+  window.DocNative.renderDocToPdf(pdf, ent || {}, parsed, window.DocNative.PDF_NATIVE);
+  return pdf.output('blob');
 }
 
 /**
@@ -249,27 +241,25 @@ async function _genPdfQuittance(ctx) {
   const ent = c.entite || {};
   const bail = c.bail || {};
 
-  // v15.107 (Option A user) — Single source of truth = window._buildQuittanceHtml.
-  // La PJ email = rasterisation html2canvas + JPEG 0.95 + scale 2 de l'aperçu
-  // officiel. Garantit la fidélité visuelle stricte (pas de divergence aperçu/PJ).
-  if (typeof window !== 'undefined' && typeof window._buildQuittanceHtml === 'function') {
-    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
-    if (html2canvasLoaded) {
-      try {
-        const built = window._buildQuittanceHtml(q, log, ent, bail);
-        if (built.status === 'non-paye') {
-          return {
-            error: 'no-payment',
-            message: 'Aucun paiement enregistré pour ce mois — impossible de générer la quittance. Saisir le paiement dans les mouvements d\'abord.'
-          };
-        }
-        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
-        const base64 = await _blobToBase64(blob);
-        const filename = 'Quittance-' + (q.mois || 'mois').replace(/\s+/g, '-') + '-' + (log.ref || 'logement') + '.pdf';
-        return { filename, base64, mimeType: 'application/pdf' };
-      } catch (e) {
-        console.warn('[email-pdf] rendu officiel quittance KO, fallback :', e && e.message);
+  // CDC-QUITTANCES-IRL D26 — TEXTE NATIF. Source unique = window._buildQuittanceHtml (le HTML
+  // du gabarit .pro-doc, aussi servi à l'aperçu écran). Le PDF est rejoué en texte natif
+  // (window.DocNative), pas rasterisé : 1 page, quelques Ko, net à tout zoom, accents et €
+  // encodés WinAnsi. Aucun mot n'est réécrit — le fond juridique est celui de l'aperçu.
+  if (typeof window !== 'undefined' && typeof window._buildQuittanceHtml === 'function' && window.DocNative) {
+    try {
+      const built = window._buildQuittanceHtml(q, log, ent, bail);
+      if (built.status === 'non-paye') {
+        return {
+          error: 'no-payment',
+          message: 'Aucun paiement enregistré pour ce mois — impossible de générer la quittance. Saisir le paiement dans les mouvements d\'abord.'
+        };
       }
+      const blob = await _docHtmlToNativeBlob(built.html, ent);
+      const base64 = await _blobToBase64(blob);
+      const filename = 'Quittance-' + (q.mois || 'mois').replace(/\s+/g, '-') + '-' + (log.ref || 'logement') + '.pdf';
+      return { filename, base64, mimeType: 'application/pdf' };
+    } catch (e) {
+      console.warn('[email-pdf] rendu natif quittance KO, fallback :', e && e.message);
     }
   }
 
@@ -437,23 +427,20 @@ async function _genPdfDecompteRegul(ctx) {
   const log = c.logement || {};
   const annee = c.annee || '—';
 
-  // v15.113 — Path principal Option A : rendu officiel via window._buildDecompteHtml
-  // (single source of truth = aperçu modale). html2canvas + JPEG 0.95 + scale 2.
-  if (typeof window !== 'undefined' && typeof window._buildDecompteHtml === 'function' && c.entryKey && c.from && c.to) {
-    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
-    if (html2canvasLoaded) {
-      try {
-        const built = window._buildDecompteHtml(c.entryKey, c.from, c.to);
-        if (built.error) {
-          return { error: built.error, message: 'Décompte non émissible : ' + built.error };
-        }
-        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
-        const base64 = await _blobToBase64(blob);
-        const filename = 'Decompte-charges-' + annee + '-' + (log.ref || c.entryKey || 'logement') + '.pdf';
-        return { filename, base64, mimeType: 'application/pdf' };
-      } catch (e) {
-        console.warn('[email-pdf] rendu officiel décompte KO, fallback text-natif :', e && e.message);
+  // CDC-QUITTANCES-IRL D26 — TEXTE NATIF (fini la rasterisation). Source unique = le HTML
+  // du gabarit window._buildDecompteHtml, rejoué en texte natif (window.DocNative).
+  if (typeof window !== 'undefined' && typeof window._buildDecompteHtml === 'function' && window.DocNative && c.entryKey && c.from && c.to) {
+    try {
+      const built = window._buildDecompteHtml(c.entryKey, c.from, c.to);
+      if (built.error) {
+        return { error: built.error, message: 'Décompte non émissible : ' + built.error };
       }
+      const blob = await _docHtmlToNativeBlob(built.html, c.entite);
+      const base64 = await _blobToBase64(blob);
+      const filename = 'Decompte-charges-' + annee + '-' + (log.ref || c.entryKey || 'logement') + '.pdf';
+      return { filename, base64, mimeType: 'application/pdf' };
+    } catch (e) {
+      console.warn('[email-pdf] rendu natif décompte KO, fallback text-natif :', e && e.message);
     }
   }
 
@@ -732,28 +719,25 @@ async function _genPdfIrlRevision(ctx) {
   const log = c.logement || {};
   const ent = c.entite || {};
 
-  // v15.111 — Path principal Option A : rendu officiel via window._buildIRLLetterHtml
-  // (single source of truth = aperçu modale). html2canvas + JPEG 0.95 + scale 2.
-  if (typeof window !== 'undefined' && typeof window._buildIRLLetterHtml === 'function') {
-    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
-    if (html2canvasLoaded) {
-      try {
-        // rev : si pas fourni dans ctx, calculer via window.computeIRLRevision
-        let rev = c.rev;
-        if (!rev && typeof window.computeIRLRevision === 'function' && log.ref) {
-          rev = window.computeIRLRevision(log);
-        }
-        const built = window._buildIRLLetterHtml(log, bail, ent, rev);
-        if (built.error) {
-          return { error: built.error, message: built.alertMsg || 'Lettre IRL non émissible' };
-        }
-        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
-        const base64 = await _blobToBase64(blob);
-        const filename = 'Lettre-revision-IRL-' + (log.ref || 'logement') + '.pdf';
-        return { filename, base64, mimeType: 'application/pdf' };
-      } catch (e) {
-        console.warn('[email-pdf] rendu officiel IRL KO, fallback text-natif :', e && e.message);
+  // CDC-QUITTANCES-IRL D26 — TEXTE NATIF (fini la rasterisation). Source unique = le HTML
+  // du gabarit window._buildIRLLetterHtml, rejoué en texte natif (window.DocNative).
+  if (typeof window !== 'undefined' && typeof window._buildIRLLetterHtml === 'function' && window.DocNative) {
+    try {
+      // rev : si pas fourni dans ctx, calculer via window.computeIRLRevision
+      let rev = c.rev;
+      if (!rev && typeof window.computeIRLRevision === 'function' && log.ref) {
+        rev = window.computeIRLRevision(log);
       }
+      const built = window._buildIRLLetterHtml(log, bail, ent, rev);
+      if (built.error) {
+        return { error: built.error, message: built.alertMsg || 'Lettre IRL non émissible' };
+      }
+      const blob = await _docHtmlToNativeBlob(built.html, ent);
+      const base64 = await _blobToBase64(blob);
+      const filename = 'Lettre-revision-IRL-' + (log.ref || 'logement') + '.pdf';
+      return { filename, base64, mimeType: 'application/pdf' };
+    } catch (e) {
+      console.warn('[email-pdf] rendu natif IRL KO, fallback text-natif :', e && e.message);
     }
   }
 
