@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.548</title>
+<title>Propryo v15.549</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4089,10 +4089,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
           <button class="btn bs bb mt4" onclick="clearSig('edl-sig-locataire')" style="font-size:11px">✕ Effacer</button>
         </div>
       </div>
-      <!-- Finalisation MOBILE : le pied de page « 💾 Enregistrer » est masqué sur téléphone,
-           l'état des lieux devenait impossible à terminer (retour Didier 26/08). Ce bouton
-           n'apparaît que sur mobile (CSS .edl-finish-mobile) et appelle saveEDL (auto-cloud inclus). -->
-      <button type="button" class="edl-finish-mobile" onclick="saveEDL()">✅ Enregistrer l'état des lieux</button>
+      <!-- Finalisation MOBILE : plus de bouton flottant ici — l'action « ✅ Enregistrer l'état
+           des lieux » est portée par le CENTRE DU RAIL sur l'étape fin (place cohérente, #3 26/08). -->
     </div>
 
   </div><!-- fin scroll -->
@@ -4217,7 +4215,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.548';
+const IMMOTRACK_VERSION = '15.549';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -32568,6 +32566,21 @@ function _edlApplyNumericInputs() {
    via --edl-vv-offset. Idempotent : un seul écouteur pour toute la vie de la page. */
 let _edlVVBound = false;
 function _edlBindVisualViewport() {
+  // #1 (retour Didier 26/08) — un champ en bas de page était CACHÉ par le clavier. À la
+  // prise de focus (mobile), on le fait remonter juste sous l'en-tête, bien au-dessus du clavier.
+  const _sc = document.querySelector('#ov-edl > .modal > div[style*="overflow-y"]');
+  if (_sc && !_sc._edlFocusBound) {
+    _sc._edlFocusBound = true;
+    _sc.addEventListener('focusin', (e) => {
+      if (!_edlPhoneMode()) return;
+      const t = e.target;
+      if (!t || !t.matches || !t.matches('input,textarea,select')) return;
+      setTimeout(() => { try {
+        const scRect = _sc.getBoundingClientRect(), r = t.getBoundingClientRect();
+        _sc.scrollTo({ top: Math.max(0, _sc.scrollTop + (r.top - scRect.top) - 90), behavior: 'smooth' });
+      } catch (_) {} }, 320); // laisser le clavier finir de s'ouvrir
+    });
+  }
   if (_edlVVBound || typeof window === 'undefined' || !window.visualViewport) return;
   _edlVVBound = true;
   const vv = window.visualViewport;
@@ -32576,6 +32589,10 @@ function _edlBindVisualViewport() {
     // décalage = ce que le clavier recouvre en bas de la fenêtre
     const off = Math.max(0, (window.innerHeight - (vv.height + vv.offsetTop)));
     document.documentElement.style.setProperty('--edl-vv-offset', off + 'px');
+    // #1 : clavier ouvert → on ajoute au conteneur un padding bas = hauteur du clavier, pour que
+    // MÊME le dernier champ d'une étape puisse remonter au-dessus du clavier (sinon il reste dessous).
+    const sc = document.querySelector('#ov-edl > .modal > div[style*="overflow-y"]');
+    if (sc) sc.style.paddingBottom = (80 + off) + 'px';
   };
   vv.addEventListener('resize', sync);
   vv.addEventListener('scroll', sync);
@@ -32736,6 +32753,31 @@ function _edlUpdateRail() {
   // bouton « Signer l'état des lieux » (qui passe par le récap « en connaissance de cause »).
   // Fini le doublon « Signer » + « → » qui déroutait (retour Didier 26/08).
   if (next) next.disabled = !P.aSuivante(_edlCurStep, N) || (s && s.group === 'relecture');
+  // #3 (retour Didier 26/08) — le bouton d'ACTION est TOUJOURS au même endroit : le centre du
+  // rail. Sur relecture/fin, le bouton central DEVIENT l'action (au lieu d'un bouton flottant
+  // dans le corps, à une place différente) ; ailleurs il reste la navigation (⤒ = feuille des étapes).
+  const mid = el('edl-rail-mid');
+  if (mid) {
+    const jump = mid.querySelector('.edl-rail-jump');
+    mid.classList.remove('rail-act-sign', 'rail-act-save');
+    const grp = s && s.group;
+    if (grp === 'relecture') {
+      mid.onclick = () => _edlOpenSignConfirm();
+      mid.classList.add('rail-act-sign');
+      if (jump) jump.textContent = '✍️';
+      if (lbl) lbl.textContent = "Signer l'état des lieux";
+      if (gl) gl.textContent = '';
+    } else if (grp === 'fin') {
+      mid.onclick = () => saveEDL();
+      mid.classList.add('rail-act-save');
+      if (jump) jump.textContent = '✅';
+      if (lbl) lbl.textContent = "Enregistrer l'état des lieux";
+      if (gl) gl.textContent = '';
+    } else {
+      mid.onclick = () => _edlOpenPieceSheet();
+      if (jump) jump.textContent = '⤒';
+    }
+  }
 }
 function _edlGoStep(idx) {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
@@ -32871,8 +32913,7 @@ function _edlRenderRelecture() {
     <div class="edl-rl-title">Relecture avant signature</div>
     <div class="edl-rl-hint">${isS ? 'Vérifier tout avant de signer. Les états identiques entrée/sortie sont conformes ; seuls les changements sont des écarts.' : 'Relecture du constat d\'entrée. Vérifier chaque état et chaque observation avant de signer.'}</div>
     ${chips}${alertHtml}${roomHtml}
-    <div class="edl-rl-after">Après cette relecture viennent, à l'étape suivante, le cadre d'engagement, le « Fait à … le … » et les zones de signature.</div>
-    <button class="edl-rl-cta" onclick="_edlOpenSignConfirm()">Signer l'état des lieux</button>
+    <div class="edl-rl-after">Quand tout est vérifié, touchez <b>« Signer l'état des lieux »</b> en bas : un récapitulatif s'affiche, puis viennent l'engagement et les signatures.</div>
   </div>`;
 }
 // Le pop-up de confirmation « en connaissance de cause ».
@@ -32932,7 +32973,7 @@ function _edlPhotoCell(pi,ei,side) {
     return `<div style="position:relative;display:inline-block;margin:1px;vertical-align:top">
       <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlViewPhoto(${pi},${ei},'${side}',${phi})" title="${escHtml(ph.name||'')}${ph._source?' ['+ph._source+' '+fd(ph._sourceDate)+']':''}">
       ${srcBadge}
-      ${locked?'':`<button onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" style="position:absolute;top:-5px;right:-5px;background:var(--red);color:white;border:none;border-radius:50%;width:15px;height:15px;font-size:9px;cursor:pointer;padding:0;line-height:15px;text-align:center">✕</button>`}
+      ${locked?'':`<button class="edl-delphoto" onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" aria-label="Supprimer la photo">✕</button>`}
     </div>`;
   }).join('');
   return `<td style="padding:4px;text-align:center;vertical-align:top;min-width:60px">
@@ -41503,7 +41544,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.548 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.549 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }

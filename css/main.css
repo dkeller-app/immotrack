@@ -3368,12 +3368,21 @@ textarea.field-modified-since-sig{
 
 /* Bouton de finalisation sur l'étape « fin » — MOBILE only (le pied de page « Enregistrer »
    est masqué sur téléphone). Termine l'état des lieux (saveEDL). */
-.edl-finish-mobile{display:none}
-@media (max-width:1023px){
-  .edl-finish-mobile{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
-    min-height:52px;margin-top:14px;border:none;border-radius:var(--r);background:var(--pos);color:#fff;
-    font:800 15px var(--font);cursor:pointer}
-}
+/* #3 (26/08) — sur relecture / fin, le CENTRE DU RAIL devient le bouton d'ACTION (place
+   cohérente, plus de bouton flottant dans le corps). Rempli, texte blanc. */
+.edl-rail-mid.rail-act-sign{background:var(--acc);border-color:var(--acc)}
+.edl-rail-mid.rail-act-save{background:var(--pos);border-color:var(--pos)}
+.edl-rail-mid.rail-act-sign .edl-rail-label,
+.edl-rail-mid.rail-act-save .edl-rail-label,
+.edl-rail-mid.rail-act-sign .edl-rail-jump,
+.edl-rail-mid.rail-act-save .edl-rail-jump{color:#fff}
+
+/* Bouton « ✕ » de suppression d'une photo : un ROND propre. La cible tactile mobile
+   (min-height:44px) l'étirait en ellipse verticale (15×44). Dimensions forcées + centrage. */
+.edl-delphoto{position:absolute;top:-6px;right:-6px;width:22px !important;height:22px !important;
+  min-width:0 !important;min-height:0 !important;border:none;border-radius:50%;background:var(--red);
+  color:#fff;font-size:11px;line-height:1;padding:0 !important;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.35);z-index:2}
 
 /* ── C) Header EDL : compaction ultime sous 480px ─────────────────────────── */
 @media (max-width:480px){
