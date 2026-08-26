@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.550</title>
+<title>Propryo v15.551</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4215,7 +4215,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.550';
+const IMMOTRACK_VERSION = '15.551';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -32620,7 +32620,8 @@ function _edlFillPieceSelect() {
   const sel=el('edl-add-piece-sel');if(!sel)return;
   const existing=_edlP.map(p=>p.nom);
   const nCh=existing.filter(n=>n.startsWith('Chambre')).length;
-  sel.innerHTML='<option value="">Pièce standard à ajouter...</option>'+
+  sel.innerHTML='<option value="">Pièce à ajouter…</option>'+
+    '<option value="__custom">✏️ Pièce personnalisée (nom libre)</option>'+
     `<option value="__ch">🛏 Chambre ${nCh+1}</option>`+
     EDL_EXTRA.filter(p=>!p.nom.startsWith('Chambre')&&!existing.includes(p.nom)).map(p=>`<option value="${escHtml(p.nom)}">${escHtml(p.nom)}</option>`).join('');
 }
@@ -32768,7 +32769,7 @@ function _edlUpdateRail() {
       if (lbl) lbl.textContent = "Signer l'état des lieux";
       if (gl) gl.textContent = '';
     } else if (grp === 'fin') {
-      mid.onclick = () => saveEDL();
+      mid.onclick = () => _edlFinalize();
       mid.classList.add('rail-act-save');
       if (jump) jump.textContent = '✅';
       if (lbl) lbl.textContent = "Enregistrer l'état des lieux";
@@ -32943,6 +32944,24 @@ function _edlConfirmSign() {
   const steps = _edlSteps(); const fin = steps.findIndex(s => s.id === 'fin');
   _edlGoStep(fin >= 0 ? fin : _edlCurStep);
   if (typeof showToast === 'function') showToast('Relecture confirmée — apposer les signatures ci-dessous.', 'ok', 3500);
+}
+// #1 (retour Didier 26/08) — le bouton « Enregistrer l'état des lieux » du rail « ne faisait rien »
+// quand le logement (ou la date) manquait : saveEDL toaste puis sort, la modale reste ouverte. On
+// guide désormais : retour à l'étape Infos + champ manquant mis en évidence. Sinon, saveEDL normal.
+function _edlFinalize() {
+  const log = v('edl-log');
+  const date = _edlSortie ? v('edl-date-sortie') : v('edl-date-entree');
+  if (!log || !date) {
+    _edlGoStep(0); // étape Infos
+    const champId = !log ? 'edl-log' : (_edlSortie ? 'edl-date-sortie' : 'edl-date-entree');
+    setTimeout(() => {
+      const f = el(champId);
+      if (f) { try { f.focus(); } catch (e) {} f.style.outline = '2px solid var(--red)'; setTimeout(() => { f.style.outline = ''; }, 2800); }
+    }, 360);
+    if (typeof showToast === 'function') showToast(!log ? 'Sélectionnez d\'abord le logement (étape « Infos »)' : 'Indiquez la date (étape « Infos »)', 'warn', 4000);
+    return;
+  }
+  saveEDL(); // succès : enregistre, ferme la modale et toaste « EDL enregistré ✓ »
 }
 
 function _edlBtns(pi,ei,field,cur) {
@@ -33885,6 +33904,8 @@ async function uploadEDLPDFToDriveFromForm() {
 }
 function edlAddPieceFromSel(){
   const sel=el('edl-add-piece-sel');let nom=sel.value;if(!nom)return;
+  // #2 (26/08) — « Pièce personnalisée » : ajoute une pièce vide (nom éditable en ligne) et saute dessus.
+  if(nom==='__custom'){sel.value='';edlAddPieceCustom();return;}
   if(nom==='__ch'){const n=_edlP.filter(p=>p.nom.startsWith('Chambre')).length+1;nom='Chambre '+n;}
   const tpl=[...EDL_TPL,...EDL_EXTRA].find(p=>p.nom===nom||p.nom==='Chambre');
   _edlInsertPiece({nom,elements:(tpl?.e||[]).map(n=>({nom:n,etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]}))});
@@ -41553,7 +41574,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.550 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.551 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
