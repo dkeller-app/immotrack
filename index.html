@@ -6120,8 +6120,10 @@ const EQUIP_RULES = [
     intervalYears:1, rappels:[], condFn: (b, log) => log?.equipements?.vmcType === 'individuelle' },
 ];
 
-// (legacy — non utilisé directement mais conservé pour compatibilité)
-const AGENDA_MAINTENANCES = EQUIP_RULES;
+// KPI Lot 5 — l'alias `AGENDA_MAINTENANCES` (= EQUIP_RULES, jamais lu) est retiré : une seule
+// source d'entretiens, `EQUIP_RULES`, désormais consommée par l'Agenda, « À traiter » et la
+// matrice de conformité du Pilotage. L'Agenda reste le CALENDRIER (le « quand ») ; ce qui presse
+// vit au Pilotage (les 8 bulles), plus de double liste d'alertes.
 
 function agendaId() {
   return 'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
