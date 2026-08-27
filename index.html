@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.562</title>
+<title>Propryo v15.563</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4214,7 +4214,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.562';
+const IMMOTRACK_VERSION = '15.563';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -31845,18 +31845,23 @@ function _edlKickListUploads(list) {
 }
 
 /* « 👁 Voir » — ouvre le PDF de l'EDL À L'ÉCRAN (régression 27/08 : plus aucune façon de
-   visualiser sans télécharger). Fenêtre ouverte DANS le geste → pas bloquée ; repli
-   téléchargement si le navigateur bloque le pop-up. Local, sans cloud. */
+   visualiser sans télécharger). Local, sans cloud.
+   MOBILE (iOS/Android) : un nouvel onglet vers une URL blob s'ouvre en about:blank (bug WebKit
+   connu). On affiche donc le PDF dans l'onglet COURANT — le « Retour » du navigateur revient à
+   la liste (aucune saisie en cours sur la liste). PC : nouvel onglet, ouvert DANS le geste pour
+   ne pas être bloqué, avec repli téléchargement. */
 async function _edlViewPdf(id) {
   const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
-  const w = window.open('', '_blank');
+  const mobile = _edlPrefersShare();
+  const w = mobile ? null : window.open('', '_blank');   // PC : pré-ouvre l'onglet dans le geste
   showToast('⌛ Génération du PDF…', 'info', 30000);
   try {
     await _ensurePDFLibsLoaded();
     await _edlPreloadPhotos(edl);
     const blob = await generateEDLPdfNative(edl);
     const url = URL.createObjectURL(blob);
+    if (mobile) { window.location.href = url; return; }   // affichage plein écran, « Retour » = liste
     if (w) { w.location.href = url; showToast('PDF ouvert', 'ok', 2500); }
     else { _edlDownloadBlob(blob, `EDL_${_edlSanitize(edl.logement)}_${edl.type}_${edl.date}.pdf`); showToast('Fenêtre bloquée — PDF téléchargé', 'warn', 4000); }
     setTimeout(() => URL.revokeObjectURL(url), 120000);
@@ -31877,9 +31882,11 @@ function rEDLList() {
   const list=DB.edl.filter(_edlActive).filter(e=>(!_entEdlRefs||_entEdlRefs.has(e.logement))&&(!flog||e.logement===flog)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   el('edl-tbody').innerHTML=list.map(e=>{
     const nb=(e.pieces||[]).reduce((s,p)=>s+(p.elements||[]).length,0);
-    const nph=(e.pieces||[]).reduce((s,p)=>s+(p.elements||[]).reduce((s2,x)=>s2+(x.photosE?.length||0)+(x.photosS?.length||0),0),0);
-    // EDL TERRAIN lot 3 : « le compteur reste visible sur la ligne de l'EDL
-    // dans la liste tant que tout n'est pas monté » (CDC §2).
+    // Nombre RÉEL de photos (toutes sources : pièces, clés, compteurs, détecteur, mobilier) —
+    // pour n'afficher « 📷 Photos » que s'il y en a. On ne montre plus le compte brut sur la ligne
+    // (le « 📷 1 » collé au badge cloud se lisait « 1 sauvegardé » — retour Didier 27/08).
+    const _EPl = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+    const nph = _EPl ? _EPl.collectEdlPhotos(e).length : (e.pieces||[]).reduce((s,p)=>s+(p.elements||[]).reduce((s2,x)=>s2+(x.photosE?.length||0)+(x.photosS?.length||0),0),0);
     // Indicateur cloud CALME (plus de fraction « 3/4 à l'abri » — décision 27/08).
     const abri = _edlCloudBadgeHtml(e);
     const sig=e.signatures?.bailleur||e.signatures?.locataire?' ✍️':'';
@@ -31891,7 +31898,7 @@ function rEDLList() {
       <td><b>${escHtml(e.logement||'–')}</b></td><td>${escHtml(e.locataire||'–')}</td>
       <td><span class="badge ${e.type==='Entrée'?'grn':'ora'}">${e.type}</span> ${brouillon}</td>
       <td>${fd(e.date)}</td>
-      <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${nph?' 📷'+nph:''}${abri}</td>
+      <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${abri}</td>
       <td class="act-cell">
         <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier">✏️</button>
         <button class="btn bs bb" onclick="_edlViewPdf(${e.id})" title="Voir l'état des lieux à l'écran">👁 Voir</button>
@@ -41881,7 +41888,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.562 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.563 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
