@@ -9877,6 +9877,81 @@ function _suiviLoyerStrip(log, yr) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
+// KPI Lot 1 — COLLECTE DES 8 FAMILLES pour l'écran Pilotage (CDC-KPI §2.2).
+// Les moteurs existants disent QUI est concerné ; on normalise chaque source en
+// { ref, nom, montant?, urgenceJours } puis on passe le tout à computePilotageFamilles
+// (module pur testé) qui ordonne, compte et choisit le pire cas. Aucun recalcul.
+// ════════════════════════════════════════════════════════════════════════
+function _pilCollectFamilles(ctx) {
+  const { scopeLogs, yr, mo, activeEnt } = ctx;
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  const todayD = new Date(today + 'T00:00:00');
+  const joursDepuis = (iso) => { if (!iso) return null; const d = new Date(String(iso).slice(0, 10) + 'T00:00:00'); return isNaN(d) ? null : Math.floor((todayD - d) / 86400000); };
+  const AR = window.AlertRules || {};
+  const isLoyer = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
+  const src = { depot: [], irl: [], impaye: [], regul: [], finbail: [], document: [], entretien: [], vacant: [] };
+
+  // ── IMPAYÉS (byLot / suivi — R-0) : montant dû, ancienneté = plus vieux mois impayé ──
+  try {
+    const imp = (typeof _computeImpayes === 'function') ? _computeImpayes(ctx) : { items: [] };
+    (imp.items || []).forEach(it => {
+      let anc = null;
+      try {
+        const s = _suiviLoyerStrip((scopeLogs.find(l => l.ref === it.ref) || { ref: it.ref }), mo ? parseInt(yr) : parseInt(today.slice(0, 4), 10));
+        if (s && s.months) { const m = s.months.find(x => x && x.due > 0.5 && (x.due - x.recu) > 0.5); if (m && m.ym) anc = joursDepuis(m.ym + '-01'); }
+      } catch (e) {}
+      src.impaye.push({ ref: it.ref, nom: it.locataire || it.ref, montant: it.reste || 0, urgenceJours: anc });
+    });
+  } catch (e) {}
+
+  // ── VACANTS : occupation en jours (moteur socle) + candidatures rattachées ──
+  try {
+    if (typeof _computeOccupationLots === 'function') {
+      const W = (typeof _finWindows === 'function' && typeof _finEntScope === 'function') ? _finWindows(parseInt(yr, 10), _finEntScope(activeEnt || '', '')) : null;
+      const from = (yr) + '-01-01', to = today;
+      const occ = _computeOccupationLots(DB, scopeLogs, { from, to });
+      (occ.vacantsJour || []).forEach(v => {
+        const cnd = (DB.candidats || []).filter(c => c && !c._deleted && c.logRef === v.ref && c.statut !== 'refuse' && c.statut !== 'converti' && !c._archived);
+        const nbEnCours = cnd.filter(c => c.statut === 'enCours').length;
+        const nbValide = cnd.filter(c => c.statut === 'valide').length;
+        src.vacant.push({ ref: v.ref, nom: v.ref, montant: 0, urgenceJours: joursDepuis(v.depuis), nbEnCours, nbValide });
+      });
+    }
+  } catch (e) {}
+
+  // ── Le reste vient des règles canoniques + de _computeUnifiedTodo par type ──
+  try {
+    const items = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
+    const jFromScore = (it) => (it.score >= 90 ? 0 : it.score >= 70 ? 15 : it.score >= 50 ? 30 : 60);
+    items.forEach(it => {
+      const nom = (it.subtitle || it.contextRef || it.ref || '').split(' — ')[0] || it.contextRef || '';
+      if (it.type === 'mrh' || it.type === 'diag') src.document.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
+      else if (it.type === 'irl') src.irl.push({ ref: it.contextRef, nom, montant: 0, urgenceJours: jFromScore(it) });
+      else if (it.type === 'regul') src.regul.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
+      else if (it.type === 'equip') src.entretien.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
+      else if (it.type === 'depart') {
+        // Un départ en cours : dépôt à restituer (si échéance DG) OU fin de bail à préparer.
+        const hasDG = / DG /.test(it.subtitle || '');
+        if (hasDG) src.depot.push({ ref: it.contextRef, nom, montant: 0, urgenceJours: jFromScore(it) });
+        else src.finbail.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
+      }
+    });
+  } catch (e) {}
+
+  // ── Fins de bail à terme (bauxEcheance : la règle existe mais n'était lue nulle part) ──
+  try {
+    if (typeof AR.bauxEcheance === 'function') {
+      AR.bauxEcheance(scopeLogs, todayD, 90).forEach(b => {
+        if (src.finbail.some(x => x.ref === b.ref)) return;   // déjà porté par un départ en cours
+        src.finbail.push({ ref: b.ref, nom: b.locataire || b.ref, urgenceJours: b.jours });
+      });
+    }
+  } catch (e) {}
+
+  return computePilotageFamilles(src);
+}
+
 // v15.73 — PAGE D'ACCUEIL (#p-accueil)
 // Entrée par défaut pour TOUS les modes. Remplace dashboard en mode Solo.
 // 4 sections : hero météo · 4 QA tiles · donut payés/impayés · À traiter en carrés.
