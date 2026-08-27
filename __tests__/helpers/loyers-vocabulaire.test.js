@@ -141,7 +141,7 @@ describe('I-MOT — aucune information chiffrée sans libellé en toutes lettres
   it('chaque famille de bloc porte une icône ET un titre en toutes lettres', () => {
     const bloc = SRC.slice(SRC.indexOf('const _LY_FAM = {'), SRC.indexOf('function rLoyers()'));
     const titres = [...bloc.matchAll(/,\s+t: '([^']+)'/g)].map((m) => m[1]);
-    expect(titres.length).toBe(4);
+    expect(titres.length).toBe(3);   // KPI §4 (27/08) : 3 blocs — Impayés, Révisions (fusionné), Quittances
     for (const t of titres) expect(/[A-Za-zÀ-ÿ]{3,}/.test(t)).toBe(true);
   });
   it('chaque pastille de la bande Suivi porte son libellé', () => {
