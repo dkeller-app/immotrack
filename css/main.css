@@ -9246,6 +9246,49 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .edl-cloud-wip{color:var(--muted,#8a94a6);font-weight:500;font-size:.9em;font-style:italic}
 .edl-cloud-warn{color:var(--ora);font-weight:600;font-size:.9em}
 
+/* ── Consultation EDL (décision 27/08) : « Voir l'EDL » (lecture seule) + « Photos » (galerie) ── */
+.edl-consult-ov{position:fixed;inset:0;background:rgba(20,28,50,.55);z-index:9500;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
+.edl-consult-card{background:var(--sur);border:1px solid var(--bor);border-radius:16px;width:100%;max-width:820px;box-shadow:0 18px 60px rgba(20,28,50,.28);overflow:hidden;margin:auto}
+.edl-consult-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bor);position:sticky;top:0;background:var(--sur);z-index:2}
+.edl-consult-t{font-weight:800;font-size:16px}
+.edl-consult-st{font-size:12.5px;color:var(--muted);margin-top:2px}
+.edl-consult-x{border:0;background:var(--sur3);color:var(--txt,#1c2333);width:34px;height:34px;border-radius:50%;font-size:22px;line-height:1;cursor:pointer;flex:0 0 auto}
+.edl-consult-x:hover{background:var(--bor)}
+.edl-consult-actions{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--bor2);background:var(--sur2)}
+.edl-consult-body{padding:8px 16px 18px}
+.btn.bprim{border-color:var(--acc);color:var(--acc)}
+/* Voir l'EDL — corps lecture seule */
+.edl-v-id{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;padding:10px 0 12px;font-size:13px;border-bottom:1px solid var(--bor2)}
+.edl-v-id b{color:var(--muted);font-weight:600;margin-right:4px}
+.edl-v-sec{padding:12px 0;border-bottom:1px solid var(--bor2)}
+.edl-v-sec h4{margin:0 0 8px;font-size:14px}
+.edl-v-el{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px dashed var(--bor)}
+.edl-v-el:first-of-type{border-top:0}
+.edl-v-nom{flex:0 0 104px;font-size:13px;font-weight:600}
+.edl-v-main{flex:1;min-width:0}
+.edl-v-etats{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.edl-v-arrow{color:var(--muted)}
+.edl-v-obs{font-size:12.5px;color:var(--muted);margin-top:4px;white-space:pre-wrap}
+.edl-v-kvs{display:flex;flex-direction:column;gap:3px;margin-bottom:6px}
+.edl-v-kv{font-size:13px}
+.edl-v-kv b{color:var(--muted);font-weight:600;margin-right:6px}
+.edl-v-thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.edl-v-thumbs .edl-thumb,.edl-gal-cell .edl-thumb{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--bor);cursor:pointer;background:var(--sur3)}
+.edl-v-empty{padding:24px;text-align:center;color:var(--muted)}
+/* Galerie photos */
+.edl-gal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 0}
+.edl-gal-cell{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:1px solid var(--bor);cursor:pointer;background:var(--sur3)}
+.edl-gal-cell .edl-thumb{width:100%;height:100%;border-radius:0;border:0}
+.edl-gal-cap{position:absolute;left:0;right:0;bottom:0;font-size:10px;line-height:1.25;padding:3px 5px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.62));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.edl-gal-pin{position:absolute;top:4px;right:5px;font-size:12px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+@media (max-width:767px){
+  .edl-v-id{grid-template-columns:1fr}
+  .edl-v-nom{flex-basis:78px}
+  .edl-gal-grid{grid-template-columns:repeat(3,1fr)}
+  .edl-consult-ov{padding:0}
+  .edl-consult-card{max-width:none;border-radius:0;min-height:100vh}
+}
+
 /* ── EDL TERRAIN lot 2 · invitation à installer l'app ──────────────────────
    CDC §3 verrou 4. Bandeau discret, au-dessus de la barre du bas, jamais
    par-dessus le contenu de saisie. Téléphone uniquement (le module refuse

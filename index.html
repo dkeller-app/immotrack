@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.563</title>
+<title>Propryo v15.564</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4214,7 +4214,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.563';
+const IMMOTRACK_VERSION = '15.564';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -31844,32 +31844,144 @@ function _edlKickListUploads(list) {
   _edlDrainerFileEnvoi();
 }
 
-/* « 👁 Voir » — ouvre le PDF de l'EDL À L'ÉCRAN (régression 27/08 : plus aucune façon de
-   visualiser sans télécharger). Local, sans cloud.
-   MOBILE (iOS/Android) : un nouvel onglet vers une URL blob s'ouvre en about:blank (bug WebKit
-   connu). On affiche donc le PDF dans l'onglet COURANT — le « Retour » du navigateur revient à
-   la liste (aucune saisie en cours sur la liste). PC : nouvel onglet, ouvert DANS le geste pour
-   ne pas être bloqué, avec repli téléchargement. */
-async function _edlViewPdf(id) {
+/* ── CONSULTATION d'un EDL (décision Didier 27/08) — « Voir l'EDL » (lecture seule) et « Photos »
+   (galerie grande déf). Le « Voir » par PDF est mort sur iOS (blob → about:blank / URL non gérée) :
+   on affiche l'EDL DANS l'app. Le fichier PDF exact reste à un clic (Partager / Télécharger).
+   Tout est CLOUD-FIRST : réutilise _edlPhotoSrc (local→cloud), _showEDLPhotoLightbox (plein écran
+   avec repli cloud) et _edlEtatPastille (pastille d'état lecture seule) — rien de réinventé. */
+let _edlViewPhotos = [];  // index → objet photo, pour la visionneuse plein écran des modales
+
+function _edlConsultClose(idov) { const o = el(idov); if (o) o.remove(); }
+function _edlConsultShell(idov, titre, sousTitre, corps, actions) {
+  _edlConsultClose(idov);
+  const o = document.createElement('div');
+  o.id = idov;
+  o.className = 'edl-consult-ov';
+  o.onclick = (e) => { if (e.target === o) o.remove(); };
+  o.innerHTML = `<div class="edl-consult-card" role="dialog" aria-label="${escHtml(titre)}">
+    <div class="edl-consult-hd">
+      <div><div class="edl-consult-t">${escHtml(titre)}</div>${sousTitre ? `<div class="edl-consult-st">${escHtml(sousTitre)}</div>` : ''}</div>
+      <button class="edl-consult-x" onclick="_edlConsultClose('${idov}')" aria-label="Fermer">×</button>
+    </div>
+    ${actions ? `<div class="edl-consult-actions">${actions}</div>` : ''}
+    <div class="edl-consult-body">${corps}</div>
+  </div>`;
+  document.body.appendChild(o);
+  return o;
+}
+/* Une vignette de consultation : mémorise l'objet photo (index) → clic = plein écran grande déf. */
+function _edlVThumb(ph) {
+  const i = _edlViewPhotos.push(ph) - 1;
+  return `<img class="edl-thumb edl-vthumb" data-vi="${i}" src="${_edlThumbSrc(ph)}" alt="" title="${escHtml(ph.name || '')}" onclick="_edlVOpen(${i})">`;
+}
+function _edlVOpen(i) { const ph = _edlViewPhotos[i]; if (ph) _showEDLPhotoLightbox(ph); }
+/* Hydrate les vignettes CLOUD-FIRST via _edlPhotoSrc (avec le vrai cloudKey de chaque photo). */
+function _edlHydrateVThumbs(root) {
+  if (!root) return;
+  root.querySelectorAll('img.edl-vthumb[data-vi]').forEach(img => {
+    const i = +img.getAttribute('data-vi'); const ph = _edlViewPhotos[i];
+    if (!ph) return;
+    if (_photoCache[ph.idbKey]) { img.src = _photoCache[ph.idbKey]; return; }
+    _edlPhotoSrc(ph).then(src => { if (src && img.getAttribute('data-vi') === String(i)) img.src = src; }).catch(() => {});
+  });
+}
+
+/* « 👁 Voir l'EDL » — vue lecture seule complète (pièces/états/obs/photos, compteurs, DAAF, clés,
+   mobilier, observations). Marche partout (c'est de l'app, pas un fichier PDF). */
+function edlOpenView(id) {
   const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
-  const mobile = _edlPrefersShare();
-  const w = mobile ? null : window.open('', '_blank');   // PC : pré-ouvre l'onglet dans le geste
-  showToast('⌛ Génération du PDF…', 'info', 30000);
-  try {
-    await _ensurePDFLibsLoaded();
-    await _edlPreloadPhotos(edl);
-    const blob = await generateEDLPdfNative(edl);
-    const url = URL.createObjectURL(blob);
-    if (mobile) { window.location.href = url; return; }   // affichage plein écran, « Retour » = liste
-    if (w) { w.location.href = url; showToast('PDF ouvert', 'ok', 2500); }
-    else { _edlDownloadBlob(blob, `EDL_${_edlSanitize(edl.logement)}_${edl.type}_${edl.date}.pdf`); showToast('Fenêtre bloquée — PDF téléchargé', 'warn', 4000); }
-    setTimeout(() => URL.revokeObjectURL(url), 120000);
-  } catch (e) {
-    if (w) { try { w.close(); } catch (_) {} }
-    console.error('[_edlViewPdf]', e);
-    showToast('Erreur PDF : ' + (e.message || e), 'err');
+  _edlViewPhotos = [];
+  const corps = _edlViewBodyHtml(edl);
+  const share = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
+  const actions = `<button class="btn bs bb bprim" onclick="edlOpenGallery(${id})">🖼 Toutes les photos</button>
+    <button class="btn bs bb" onclick="downloadEDLPdfNative(${id},{share:true})">${share ? '📤 Partager' : '⬇️ Télécharger le PDF'}</button>`;
+  const st = `${edl.type || ''} · ${edl.logement || ''} · ${fd(edl.date) || ''}`;
+  const o = _edlConsultShell('ov-edl-view', 'État des lieux', st, corps, actions);
+  _edlHydrateVThumbs(o);
+}
+
+function _edlViewBodyHtml(edl) {
+  const sortie = edl.type === 'Sortie';
+  const H = [];
+  H.push(`<div class="edl-v-id">
+    <div><b>Logement</b> ${escHtml(edl.logement || '—')}${edl.adr ? (' · ' + escHtml(edl.adr)) : ''}</div>
+    <div><b>Date</b> ${fd(edl.date) || '—'}</div>
+    <div><b>Type</b> ${escHtml(edl.type || '—')}</div>
+    ${edl.locataire ? `<div><b>Locataire</b> ${escHtml(edl.locataire)}</div>` : ''}
+  </div>`);
+  (edl.pieces || []).forEach(p => {
+    const els = (p.elements || []);
+    if (!els.length) return;
+    H.push(`<div class="edl-v-sec"><h4>${escHtml(p.nom || 'Pièce')}</h4>`);
+    els.forEach(x => {
+      const etats = sortie
+        ? `${_edlEtatPastille(x.etatE)} <span class="edl-v-arrow">→</span> ${_edlEtatPastille(x.etatS)}`
+        : _edlEtatPastille(x.etatE);
+      const obs = [x.obsE && ('Entrée : ' + x.obsE), sortie && x.obsS && ('Sortie : ' + x.obsS)].filter(Boolean).join(' · ');
+      const thumbs = [...(x.photosE || []), ...(sortie ? (x.photosS || []) : [])].map(_edlVThumb).join('');
+      H.push(`<div class="edl-v-el"><div class="edl-v-nom">${escHtml(x.nom || '')}</div>
+        <div class="edl-v-main"><div class="edl-v-etats">${etats}</div>
+          ${obs ? `<div class="edl-v-obs">${escHtml(obs)}</div>` : ''}
+          ${thumbs ? `<div class="edl-v-thumbs">${thumbs}</div>` : ''}
+        </div></div>`);
+    });
+    H.push(`</div>`);
+  });
+  const CPT_ROWS = [['elec-num', 'N° compteur élec.'], ['elec-hp', 'Élec. HP'], ['elec-hc', 'Élec. HC'], ['gaz-num', 'N° compteur gaz'], ['gaz', 'Index gaz'], ['eau-c-num', 'N° eau chaude'], ['eau-c', 'Index eau chaude'], ['eau-f-num', 'N° eau froide'], ['eau-f', 'Index eau froide']];
+  const cpt = edl.compteurs || {}, cptS = edl.compteursSortie || {};
+  const cptRows = CPT_ROWS.filter(([k]) => cpt[k] || cptS[k]).map(([k, lbl]) => `<div class="edl-v-kv"><b>${lbl}</b> ${escHtml(cpt[k] || '—')}${sortie ? (' → ' + escHtml(cptS[k] || '—')) : ''}</div>`).join('');
+  const cptPhotos = Object.keys(edl.compteursPhotos || {}).filter(k => k !== 'daaf').flatMap(k => (edl.compteursPhotos[k] || [])).map(_edlVThumb).join('');
+  if (cptRows || cptPhotos) H.push(`<div class="edl-v-sec"><h4>Compteurs</h4>${cptRows ? `<div class="edl-v-kvs">${cptRows}</div>` : ''}${cptPhotos ? `<div class="edl-v-thumbs">${cptPhotos}</div>` : ''}</div>`);
+  const daaf = edl.daaf;
+  if (daaf && (daaf.statut || (daaf.notes || '').trim() || (daaf.photos || []).length)) {
+    const lbl = { present: 'Présent et fonctionnel', defaut: 'Présent, à vérifier', absent: 'Absent (à installer par le bailleur)' }[daaf.statut] || 'Non renseigné';
+    const dphotos = [...(daaf.photos || []), ...((edl.compteursPhotos && edl.compteursPhotos.daaf) || [])];
+    const seen = new Set(); const dp = dphotos.filter(ph => ph && ph.idbKey && !seen.has(ph.idbKey) && seen.add(ph.idbKey));
+    H.push(`<div class="edl-v-sec"><h4>Détecteur de fumée</h4><div class="edl-v-kv"><b>État</b> ${escHtml(lbl)}</div>${(daaf.notes || '').trim() ? `<div class="edl-v-obs">${escHtml(daaf.notes.trim())}</div>` : ''}${dp.length ? `<div class="edl-v-thumbs">${dp.map(_edlVThumb).join('')}</div>` : ''}</div>`);
   }
+  const cles = edl.cles || [];
+  if (cles.length) {
+    const rows = cles.map(c => {
+      const t = c.type || 'Clés';
+      const thumbs = [...(c.photos || []), ...(sortie ? (c.photosS || []) : [])].map(_edlVThumb).join('');
+      return `<div class="edl-v-el"><div class="edl-v-nom">${escHtml(t)}</div><div class="edl-v-main">${(c.obs || '').trim() ? `<div class="edl-v-obs">${escHtml(c.obs.trim())}</div>` : ''}${thumbs ? `<div class="edl-v-thumbs">${thumbs}</div>` : ''}</div></div>`;
+    }).join('');
+    H.push(`<div class="edl-v-sec"><h4>Clés</h4>${rows}</div>`);
+  }
+  const mob = (edl.mobilier && Array.isArray(edl.mobilier.elements)) ? edl.mobilier.elements : [];
+  if (mob.length) {
+    const rows = mob.map(m => {
+      const thumbs = [...(m.photosE || []), ...(sortie ? (m.photosS || []) : [])].map(_edlVThumb).join('');
+      return `<div class="edl-v-el"><div class="edl-v-nom">${escHtml(m.nom || '')}</div><div class="edl-v-main">${thumbs ? `<div class="edl-v-thumbs">${thumbs}</div>` : '<span class="edl-v-obs">—</span>'}</div></div>`;
+    }).join('');
+    H.push(`<div class="edl-v-sec"><h4>Inventaire mobilier</h4>${rows}</div>`);
+  }
+  if ((edl.notes || '').trim()) H.push(`<div class="edl-v-sec"><h4>Observations générales</h4><div class="edl-v-obs">${escHtml(edl.notes.trim())}</div></div>`);
+  return H.join('');
+}
+
+/* « 🖼 Photos » — galerie de TOUTES les photos, grande déf au clic, cloud en priorité. Export
+   vers l'appareil = mobile seulement (Partager au locataire), à l'intérieur de la galerie. */
+function edlOpenGallery(id) {
+  const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
+  if (!edl) { showToast('EDL introuvable', 'err'); return; }
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  const items = _EP ? _EP.photosGalerie(edl) : [];
+  _edlViewPhotos = [];
+  if (!items.length) { _edlConsultShell('ov-edl-gal', 'Photos', edl.logement || '', `<div class="edl-v-empty">Aucune photo dans cet état des lieux.</div>`, ''); return; }
+  const cells = items.map(({ ph, label }) => {
+    const i = _edlViewPhotos.push(ph) - 1;
+    const pin = ph.binaireManquant ? '<span class="edl-gal-pin" title="Photo à reprendre">⚠️</span>' : (ph.cloudKey ? '<span class="edl-gal-pin" title="Sauvegardée dans le cloud">☁️</span>' : '');
+    return `<div class="edl-gal-cell" onclick="_edlVOpen(${i})" title="${escHtml(label)}">
+      <img class="edl-thumb edl-vthumb" data-vi="${i}" src="${_edlThumbSrc(ph)}" alt="">
+      ${pin}<div class="edl-gal-cap">${escHtml(label)}</div>
+    </div>`;
+  }).join('');
+  const share = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
+  const actions = share ? `<button class="btn bs bb bprim" onclick="_edlSharePhotos(${id})">📤 Partager les photos</button>` : '';
+  const o = _edlConsultShell('ov-edl-gal', 'Photos', `${edl.logement || ''} · ${items.length} photo(s)`, `<div class="edl-gal-grid">${cells}</div>`, actions);
+  _edlHydrateVThumbs(o);
 }
 
 function rEDLList() {
@@ -31887,6 +31999,8 @@ function rEDLList() {
     // (le « 📷 1 » collé au badge cloud se lisait « 1 sauvegardé » — retour Didier 27/08).
     const _EPl = (typeof window !== 'undefined') ? window.EdlPhotos : null;
     const nph = _EPl ? _EPl.collectEdlPhotos(e).length : (e.pieces||[]).reduce((s,p)=>s+(p.elements||[]).reduce((s2,x)=>s2+(x.photosE?.length||0)+(x.photosS?.length||0),0),0);
+    // Mobile/tablette → « Partager » (feuille native) ; PC → « Télécharger » le PDF (décision 27/08).
+    const _share = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
     // Indicateur cloud CALME (plus de fraction « 3/4 à l'abri » — décision 27/08).
     const abri = _edlCloudBadgeHtml(e);
     const sig=e.signatures?.bailleur||e.signatures?.locataire?' ✍️':'';
@@ -31900,10 +32014,10 @@ function rEDLList() {
       <td>${fd(e.date)}</td>
       <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${abri}</td>
       <td class="act-cell">
-        <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier">✏️</button>
-        <button class="btn bs bb" onclick="_edlViewPdf(${e.id})" title="Voir l'état des lieux à l'écran">👁 Voir</button>
-        <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">📤 Partager</button>
-        ${nph ? `<button class="btn bs bb" onclick="_edlSharePhotos(${e.id})" title="Enregistrer les photos sur l'appareil (Fichiers / dossier au choix)">📷 Photos</button>` : ''}
+        <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Éditer l'état des lieux">✏️</button>
+        <button class="btn bs bb" onclick="edlOpenView(${e.id})" title="Voir l'état des lieux (lecture seule)">👁 Voir l'EDL</button>
+        ${nph ? `<button class="btn bs bb" onclick="edlOpenGallery(${e.id})" title="Voir toutes les photos en grand (cloud en priorité)">🖼 Photos</button>` : ''}
+        <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="${_share ? 'Envoyer au locataire (WhatsApp, mail…)' : 'Télécharger le PDF (Enregistrer sous)'}">${_share ? '📤 Partager' : '⬇️ Télécharger'}</button>
         <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">🗑</button>
       </td></tr>`;
   }).join('')||'<tr><td colspan="6" class="mu" style="text-align:center;padding:20px">Aucun état des lieux</td></tr>';
@@ -34025,24 +34139,10 @@ async function _edlSharePhotos(id) {
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   try {
-    // 1) Recenser les photos (synchrone, sans I/O) pour savoir s'il y en a et pré-choisir le dossier
-    //    avant tout await (l'activation utilisateur doit rester fraîche pour showDirectoryPicker).
-    const items = [];
-    (edl.pieces || []).forEach(p => (p.elements || []).forEach(x => {
-      (x.photosE || []).forEach(ph => items.push({ ph, label: (p.nom || 'piece') + '-' + (x.nom || 'elem') + '-entree' }));
-      (x.photosS || []).forEach(ph => items.push({ ph, label: (p.nom || 'piece') + '-' + (x.nom || 'elem') + '-sortie' }));
-    }));
-    (edl.cles || []).forEach((c, i) => {
-      (c.photos || []).forEach(ph => items.push({ ph, label: 'cle-' + (c.type || i) + '-entree' }));
-      (c.photosS || []).forEach(ph => items.push({ ph, label: 'cle-' + (c.type || i) + '-sortie' }));
-    });
-    const cp = edl.compteursPhotos || {};
-    Object.keys(cp).forEach(k => (cp[k] || []).forEach(ph => items.push({ ph, label: 'compteur-' + k })));
-    if (edl.daaf && Array.isArray(edl.daaf.photos)) edl.daaf.photos.forEach(ph => items.push({ ph, label: 'detecteur-fumee' }));
-    if (edl.mobilier && Array.isArray(edl.mobilier.elements)) edl.mobilier.elements.forEach((m, i) => {
-      (m.photosE || []).forEach(ph => items.push({ ph, label: 'mobilier-' + (m.nom || i) + '-entree' }));
-      (m.photosS || []).forEach(ph => items.push({ ph, label: 'mobilier-' + (m.nom || i) + '-sortie' }));
-    });
+    // 1) Recenser les photos étiquetées — SOURCE UNIQUE partagée avec la galerie (photosGalerie,
+    //    testée). Synchrone : on peut pré-choisir le dossier avant tout await (activation fraîche).
+    const _EPg = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+    const items = _EPg ? _EPg.photosGalerie(edl) : [];
     if (!items.length) { showToast('Aucune photo dans cet état des lieux', 'warn', 3500); return; }
     // 2) PC (souris) : choisir UN dossier (Chrome/Edge) → toutes les photos y seront rangées, et
     //    l'utilisateur sait exactement où. Acquis avant tout await pour garder l'activation.
@@ -41888,7 +41988,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.563 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.564 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }

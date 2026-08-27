@@ -220,6 +220,57 @@ export function collectEdlPhotos(edlRec) {
   return out;
 }
 
+/** Libellés lisibles des 8 emplacements compteur + DAAF (pour la galerie et l'export). */
+export const EDL_PHOTO_LABELS = {
+  elec: 'Compteur élec. (entrée)', gaz: 'Compteur gaz (entrée)', eauC: 'Eau chaude (entrée)', eauF: 'Eau froide (entrée)',
+  elecS: 'Compteur élec. (sortie)', gazS: 'Compteur gaz (sortie)', eauCS: 'Eau chaude (sortie)', eauFS: 'Eau froide (sortie)',
+  daaf: 'Détecteur de fumée',
+};
+
+/**
+ * Toutes les photos d'un EDL avec un LIBELLÉ lisible (pièce·élément·côté, compteur, DAAF, clé,
+ * mobilier), dédupliquées par idbKey (premier libellé rencontré). Source unique pour la galerie
+ * de consultation ET l'export mobile (factorisation de l'ancien inline de _edlSharePhotos).
+ * @returns {Array<{ph:object, label:string}>}
+ */
+export function photosGalerie(edlRec) {
+  const out = [];
+  const seen = new Set();
+  if (!edlRec || typeof edlRec !== 'object') return out;
+  const add = (arr, label) => {
+    if (!Array.isArray(arr)) return;
+    for (const ph of arr) {
+      if (!ph || !ph.idbKey || seen.has(ph.idbKey)) continue;
+      seen.add(ph.idbKey);
+      out.push({ ph, label });
+    }
+  };
+  (edlRec.pieces || []).forEach(p => (p && p.elements || []).forEach(x => {
+    if (!x) return;
+    const base = ((p.nom || 'Pièce') + ' · ' + (x.nom || 'Élément'));
+    add(x.photosE, base + ' · entrée');
+    add(x.photosS, base + ' · sortie');
+  }));
+  (edlRec.cles || []).forEach((c, i) => {
+    if (!c) return;
+    const t = 'Clés' + (c.type ? ' ' + c.type : (i ? ' ' + (i + 1) : ''));
+    add(c.photos, t + ' · entrée');
+    add(c.photosS, t + ' · sortie');
+  });
+  const cpt = edlRec.compteursPhotos || {};
+  EDL_COMPTEUR_PHOTO_KEYS.forEach(k => add(cpt[k], EDL_PHOTO_LABELS[k] || k));
+  add(cpt.daaf, EDL_PHOTO_LABELS.daaf);
+  if (edlRec.daaf) add(edlRec.daaf.photos, EDL_PHOTO_LABELS.daaf);
+  const mob = (edlRec.mobilier && Array.isArray(edlRec.mobilier.elements)) ? edlRec.mobilier.elements : [];
+  mob.forEach((m, i) => {
+    if (!m) return;
+    const t = 'Mobilier · ' + (m.nom || ('élément ' + (i + 1)));
+    add(m.photosE, t + ' · entrée');
+    add(m.photosS, t + ' · sortie');
+  });
+  return out;
+}
+
 /** Les clés IndexedDB de toutes les photos d'un EDL, dédupliquées. */
 export function edlPhotoKeys(edlRec) {
   return collectEdlPhotos(edlRec).map(ph => ph.idbKey);

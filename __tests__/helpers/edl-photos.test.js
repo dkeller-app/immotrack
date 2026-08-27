@@ -175,7 +175,7 @@ describe('photoIndexByKey — retrouver le cloudKey d’une vignette à hydrater
 import {
   PHOTO_MAX_PX, PHOTO_QUALITE, dimensionsRedimensionnees, metaPhoto,
   estAlAbri, compterAlAbri, photosAEnvoyer, cheminRelecture, peutLibererLocal, etatSauvegarde,
-  decisionBinaireIntrouvable, SEUIL_BINAIRE_MANQUANT,
+  decisionBinaireIntrouvable, SEUIL_BINAIRE_MANQUANT, photosGalerie,
 } from '../../js/core/edl-photos.js';
 
 describe('dimensionsRedimensionnees — invariant 10 : UN seul calibre', () => {
@@ -279,6 +279,37 @@ describe('decisionBinaireIntrouvable — jamais de perte sur incident transitoir
   it('manqueVus survit à metaPhoto (persisté)', () => {
     expect(metaPhoto({ idbKey: 'a', manqueVus: 2 }).manqueVus).toBe(2);
     expect(metaPhoto({ idbKey: 'a' }).manqueVus).toBe(0);
+  });
+});
+
+describe('photosGalerie — toutes les photos étiquetées, dédupliquées (galerie + export)', () => {
+  const edl = {
+    pieces: [{ nom: 'Séjour', elements: [
+      { nom: 'Sol', photosE: [{ idbKey: 'a' }, { idbKey: 'b' }], photosS: [{ idbKey: 'c' }] },
+      { nom: 'Murs', photosE: [] },
+    ] }],
+    cles: [{ type: 'boîte aux lettres', photos: [{ idbKey: 'd' }] }],
+    compteursPhotos: { elec: [{ idbKey: 'e' }], daaf: [{ idbKey: 'f' }] },
+    daaf: { photos: [{ idbKey: 'f' }] }, // même idbKey que compteursPhotos.daaf → dédup
+    mobilier: { elements: [{ nom: 'Canapé', photosE: [{ idbKey: 'g' }] }] },
+  };
+  it('collecte toutes les sources avec un libellé lisible', () => {
+    const g = photosGalerie(edl);
+    const keys = g.map(x => x.ph.idbKey);
+    expect(keys).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g']); // f une seule fois (dédup)
+    expect(g.find(x => x.ph.idbKey === 'a').label).toBe('Séjour · Sol · entrée');
+    expect(g.find(x => x.ph.idbKey === 'c').label).toBe('Séjour · Sol · sortie');
+    expect(g.find(x => x.ph.idbKey === 'e').label).toBe('Compteur élec. (entrée)');
+    expect(g.find(x => x.ph.idbKey === 'f').label).toBe('Détecteur de fumée');
+    expect(g.find(x => x.ph.idbKey === 'g').label).toBe('Mobilier · Canapé · entrée');
+  });
+  it('un EDL vide → liste vide, ne plante pas', () => {
+    expect(photosGalerie(null)).toEqual([]);
+    expect(photosGalerie({})).toEqual([]);
+  });
+  it('ignore les photos sans idbKey (non adressables)', () => {
+    const g = photosGalerie({ pieces: [{ nom: 'P', elements: [{ nom: 'S', photosE: [{ name: 'x' }, { idbKey: 'k' }] }] }] });
+    expect(g.map(x => x.ph.idbKey)).toEqual(['k']);
   });
 });
 
