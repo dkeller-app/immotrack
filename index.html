@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.559</title>
+<title>Propryo v15.560</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4214,7 +4214,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.559';
+const IMMOTRACK_VERSION = '15.560';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -33849,16 +33849,55 @@ function _edlPrefersShare() {
   } catch (e) {}
   return false;
 }
+// PC (retour Didier 27/08 « ça télécharge mais je ne sais pas où ») — boîte « Enregistrer sous ».
+// L'API File System Access (Chrome/Edge de bureau) ouvre un vrai dialogue où l'utilisateur choisit
+// le dossier ET voit où va le fichier. On acquiert le handle AVANT toute génération pour garder
+// l'activation utilisateur valide. Renvoie : un FileSystemFileHandle, 'abort' (annulé → ne rien
+// faire), ou null (non supporté / activation perdue → repli <a download>).
+async function _edlPickSaveHandle(fileName, desc, mime, ext) {
+  try {
+    if (typeof window.showSaveFilePicker !== 'function') return null;
+    return await window.showSaveFilePicker({
+      suggestedName: fileName,
+      types: [{ description: desc, accept: { [mime]: [ext] } }],
+    });
+  } catch (e) {
+    if (e && e.name === 'AbortError') return 'abort';
+    return null;
+  }
+}
+async function _edlWriteHandle(handle, blob) {
+  const w = await handle.createWritable();
+  await w.write(blob);
+  await w.close();
+}
+function _edlDownloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
 async function downloadEDLPdfNative(id, opts) {
   const { share = false } = opts || {};
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
+  const fileName = `EDL_${_edlSanitize(edl.logement)}_${edl.type}_${edl.date}.pdf`;
+  // PC (souris) : proposer OÙ enregistrer AVANT de générer (activation utilisateur encore fraîche).
+  // Sur mobile/tablette on ne pré-ouvre rien : ce sera la feuille de partage plus bas.
+  let handle = null;
+  if (!_edlPrefersShare()) {
+    handle = await _edlPickSaveHandle(fileName, 'PDF (état des lieux)', 'application/pdf', '.pdf');
+    if (handle === 'abort') { showToast('Enregistrement annulé', 'info', 2500); return; }
+  }
   showToast('⌛ Génération du PDF…', 'info', 30000);
   try {
     await _ensurePDFLibsLoaded();
     await _edlPreloadPhotos(edl);
     const blob = await generateEDLPdfNative(edl);
-    const fileName = `EDL_${_edlSanitize(edl.logement)}_${edl.type}_${edl.date}.pdf`;
     // #1 (retour Didier 26/08) — PARTAGE direct (WhatsApp, mail, AirDrop…) via l'API Web Share
     // avec fichiers : marche sur iOS, Android ET tablette. Repli téléchargement sur PC ou
     // navigateur sans support. (AbortError = l'utilisateur a fermé la feuille → on ne fait rien.)
@@ -33874,15 +33913,15 @@ async function downloadEDLPdfNative(id, opts) {
         console.warn('[edl pdf] partage indisponible, repli téléchargement', e);
       }
     }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast(`📥 PDF téléchargé (${Math.round(blob.size/1024)} KB)`, 'ok', 4000);
+    // PC : dossier choisi via la boîte « Enregistrer sous » → on écrit exactement là.
+    if (handle) {
+      await _edlWriteHandle(handle, blob);
+      showToast(`✅ PDF enregistré (${Math.round(blob.size/1024)} KB)`, 'ok', 4000);
+      return;
+    }
+    // Repli (Firefox/Safari, activation perdue) : téléchargement dans le dossier par défaut.
+    _edlDownloadBlob(blob, fileName);
+    showToast(`📥 PDF dans vos Téléchargements (${Math.round(blob.size/1024)} KB)`, 'ok', 4000);
   } catch(e) {
     console.error('[downloadEDLPdfNative] fail:', e);
     showToast('Erreur génération PDF : ' + (e.message||e), 'err');
@@ -33904,9 +33943,9 @@ function _edlDataUrlToBlob(dataUrl) {
 async function _edlSharePhotos(id) {
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
-  showToast('⌛ Préparation des photos…', 'info', 30000);
   try {
-    await _edlPreloadPhotos(edl);
+    // 1) Recenser les photos (synchrone, sans I/O) pour savoir s'il y en a et pré-choisir le dossier
+    //    avant tout await (l'activation utilisateur doit rester fraîche pour showDirectoryPicker).
     const items = [];
     (edl.pieces || []).forEach(p => (p.elements || []).forEach(x => {
       (x.photosE || []).forEach(ph => items.push({ ph, label: (p.nom || 'piece') + '-' + (x.nom || 'elem') + '-entree' }));
@@ -33924,6 +33963,16 @@ async function _edlSharePhotos(id) {
       (m.photosS || []).forEach(ph => items.push({ ph, label: 'mobilier-' + (m.nom || i) + '-sortie' }));
     });
     if (!items.length) { showToast('Aucune photo dans cet état des lieux', 'warn', 3500); return; }
+    // 2) PC (souris) : choisir UN dossier (Chrome/Edge) → toutes les photos y seront rangées, et
+    //    l'utilisateur sait exactement où. Acquis avant tout await pour garder l'activation.
+    let dir = null;
+    if (!_edlPrefersShare() && typeof window.showDirectoryPicker === 'function') {
+      try { dir = await window.showDirectoryPicker({ id: 'edl-photos', mode: 'readwrite' }); }
+      catch (e) { if (e && e.name === 'AbortError') { showToast('Enregistrement annulé', 'info', 2500); return; } dir = null; }
+    }
+    showToast('⌛ Préparation des photos…', 'info', 30000);
+    await _edlPreloadPhotos(edl);
+    // 3) Résoudre chaque photo en fichier image.
     const files = [];
     let n = 0;
     for (const { ph, label } of items) {
@@ -33933,21 +33982,31 @@ async function _edlSharePhotos(id) {
       files.push(new File([_edlDataUrlToBlob(src)], name, { type: 'image/jpeg' }));
     }
     if (!files.length) { showToast('Photos indisponibles (hors ligne ?)', 'warn', 4000); return; }
-    // Partage natif (iOS/Android/tablette) — une seule feuille avec toutes les photos.
+    // 4) Mobile/tablette : une seule feuille de partage avec toutes les photos (« Enregistrer dans Fichiers »…).
     if (_edlPrefersShare() && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files })) {
       try {
         await navigator.share({ files, title: 'Photos état des lieux', text: `Photos — ${edl.logement}` });
         return;
       } catch (e) { if (e && e.name === 'AbortError') return; console.warn('[edl photos] partage indispo, repli téléchargement', e); }
     }
-    // Repli PC : téléchargement de chaque photo.
-    files.forEach(f => {
-      const u = URL.createObjectURL(f);
-      const a = document.createElement('a'); a.href = u; a.download = f.name;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(u), 1500);
-    });
-    showToast(`📥 ${files.length} photo(s) enregistrée(s)`, 'ok', 4000);
+    // 5) PC : dossier choisi → on écrit toutes les photos dedans.
+    if (dir) {
+      let ok = 0;
+      for (const f of files) {
+        try {
+          const h = await dir.getFileHandle(f.name, { create: true });
+          const w = await h.createWritable();
+          await w.write(f);
+          await w.close();
+          ok++;
+        } catch (e) { console.warn('[edl photos] écriture échouée', f.name, e); }
+      }
+      showToast(`✅ ${ok} photo(s) enregistrée(s) dans le dossier choisi`, 'ok', 4500);
+      return;
+    }
+    // 6) Repli (Firefox/Safari) : téléchargement de chaque photo dans le dossier par défaut.
+    files.forEach(f => _edlDownloadBlob(f, f.name));
+    showToast(`📥 ${files.length} photo(s) dans vos Téléchargements`, 'ok', 4000);
   } catch (e) {
     console.error('[_edlSharePhotos] fail:', e);
     showToast('Erreur photos : ' + (e.message || e), 'err');
@@ -41691,7 +41750,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.559 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.560 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
