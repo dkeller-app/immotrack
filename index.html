@@ -160,15 +160,69 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <!-- PAGE: ACCUEIL (v15.73 — page d'entrée pour TOUS les modes, remplace dashboard en Solo)
          Peuplé par _renderAccueil(ctx). 4 sections : hero météo, 4 QA, donut payés/impayés, À traiter en carrés. -->
     <div class="page act" id="p-accueil">
-      <section class="v4h" id="v4h-root">
-        <div class="v4h-hero" id="v4h-hero"></div>
+      <style>
+        /* ══ KPI Lot 1 — écran PILOTAGE (bandeau + bulles) · calé sur pilotage-fusion.html ══
+           Aucune couleur en dur : uniquement les jetons de css/main.css. */
+        #p-accueil .pil{display:flex;flex-direction:column;gap:16px}
+        #p-accueil #cand-inbox-banner:empty{display:none}
+        /* bandeau de contexte — 5 états, pleine largeur */
+        #p-accueil .pil-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+        #p-accueil .pil-s1{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:12px 14px}
+        #p-accueil .pil-s1 .k{font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--t3)}
+        #p-accueil .pil-s1 .v{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-.6px;margin-top:4px;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        #p-accueil .pil-s1 .v small{font-family:var(--font);font-size:12px;font-weight:600;color:var(--t3);letter-spacing:0}
+        #p-accueil .pil-s1 .v.warn{color:var(--warn)} #p-accueil .pil-s1 .v.pos{color:var(--pos)}
+        #p-accueil .pil-s1 .s{font-size:10.5px;color:var(--t3);font-weight:600;margin-top:5px}
+        #p-accueil .pil-bar{height:5px;border-radius:5px;background:var(--sur3);margin-top:8px;overflow:hidden}
+        #p-accueil .pil-bar i{display:block;height:100%;border-radius:5px;background:var(--pos)}
+        /* zones + bulles */
+        #p-accueil .pil-zt{display:flex;align-items:center;gap:9px;margin:2px 0 9px}
+        #p-accueil .pil-zt b{font-size:10.5px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--t2)}
+        #p-accueil .pil-zt b::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--t3);margin-right:7px;vertical-align:2px;opacity:.55}
+        #p-accueil .pil-zt i{flex:1;height:1px;background:var(--bor);font-style:normal}
+        #p-accueil .pil-zt em{font-style:normal;font-size:10.5px;font-weight:700;color:var(--t3)}
+        #p-accueil .pil-zbloc{margin-bottom:14px}
+        #p-accueil .pil-bub{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+        #p-accueil .pil-b{position:relative;background:var(--sur);border:1px solid var(--bor2);border-radius:16px;padding:13px 14px 12px;display:flex;flex-direction:column;cursor:pointer;text-align:left;font:inherit;color:inherit;min-width:0;overflow:hidden;isolation:isolate;box-shadow:0 1px 2px rgba(16,21,33,.05),0 6px 16px -6px rgba(16,21,33,.10);transition:transform .16s cubic-bezier(.2,.8,.3,1),box-shadow .16s,border-color .16s}
+        #p-accueil .pil-b::before{content:"";position:absolute;inset:0 0 auto;height:62%;z-index:-1;background:linear-gradient(180deg,var(--cs),transparent)}
+        #p-accueil .pil-b::after{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--c);opacity:.85}
+        #p-accueil .pil-b:hover{transform:translateY(-3px);border-color:var(--c);box-shadow:0 2px 4px rgba(16,21,33,.06),0 14px 28px -10px rgba(16,21,33,.22)}
+        #p-accueil .pil-b.hot{border-color:transparent;box-shadow:0 2px 5px rgba(16,21,33,.07),0 12px 26px -8px var(--cs)}
+        #p-accueil .pil-b.hot::before{height:100%;background:linear-gradient(165deg,var(--cs),transparent 78%)}
+        html[data-theme="dark"] #p-accueil .pil-b{border-color:rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 8px 20px -8px rgba(0,0,0,.6)}
+        #p-accueil .pil-b .bh{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+        #p-accueil .pil-b .ic{width:34px;height:34px;flex:none;border-radius:12px;background:var(--c);color:var(--sur);display:grid;place-items:center;box-shadow:0 3px 8px -2px var(--cs)}
+        html[data-theme="dark"] #p-accueil .pil-b .ic{color:#14161d}
+        #p-accueil .pil-b .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+        #p-accueil .pil-b .n{position:absolute;top:10px;left:40px;min-width:20px;height:20px;padding:0 6px;border-radius:20px;background:var(--c);color:var(--sur);font-size:11px;font-weight:800;display:grid;place-items:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2.5px var(--sur)}
+        html[data-theme="dark"] #p-accueil .pil-b .n{color:#14161d}
+        #p-accueil .pil-b.hot .n{box-shadow:0 0 0 2.5px var(--cs)}
+        #p-accueil .pil-b .v{font-size:13px;font-weight:700;color:var(--t1);line-height:1.26;min-height:2.52em;letter-spacing:-.1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        #p-accueil .pil-b .a{font-family:var(--display);font-size:20px;font-weight:800;color:var(--c);font-variant-numeric:tabular-nums;line-height:1.26;margin-top:2px;letter-spacing:-.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        #p-accueil .pil-b .sub{font-size:11px;color:var(--t3);font-weight:600;margin-top:4px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+        #p-accueil .pil-b.rouge{--c:var(--neg);--cs:var(--neg-soft)}
+        #p-accueil .pil-b.orange{--c:var(--warn);--cs:var(--warn-soft)}
+        #p-accueil .pil-b.gris{--c:var(--info);--cs:var(--info-soft)}
+        #p-accueil .pil-calme{display:flex;align-items:center;gap:14px;background:var(--pos-soft);border:1px solid transparent;border-radius:16px;padding:16px 18px}
+        #p-accueil .pil-calme .ic{width:40px;height:40px;flex:none;border-radius:13px;background:var(--sur);color:var(--pos);display:grid;place-items:center}
+        #p-accueil .pil-calme .ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+        #p-accueil .pil-calme b{font-size:14.5px;font-weight:700;display:block}
+        #p-accueil .pil-calme s{text-decoration:none;font-size:12px;color:var(--t3);font-weight:600;line-height:1.45;display:block;margin-top:2px}
+        /* tablette / téléphone */
+        @media(max-width:920px){ #p-accueil .pil-strip{grid-template-columns:repeat(3,1fr)} }
+        @media(max-width:560px){
+          #p-accueil .pil-strip{grid-template-columns:repeat(2,1fr);gap:8px}
+          #p-accueil .pil-bub{grid-template-columns:repeat(2,1fr);gap:8px}
+          #p-accueil .pil-b .a{font-size:17px;white-space:normal;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+          #p-accueil .pil-b .sub{display:none}
+        }
+      </style>
+      <section class="pil" id="pil-root">
         <div id="cand-inbox-banner"></div>
-        <div class="v4h-row1">
-          <div class="v4h-qa-grid" id="v4h-qa"></div>
-          <div class="v4h-donut card" id="v4h-donut"></div>
-        </div>
-        <div class="v4h-todo card" id="v4h-todo"></div>
+        <div id="pil-strip"></div>
+        <div id="pil-bulles"></div>
       </section>
+      <div id="pil-layer"></div>
     </div>
 
     <!-- PAGE: DASHBOARD -->
@@ -9975,8 +10029,110 @@ function rAccueil() {
   // (source unique du scope + matchMv, ex-copiée dans rDash). Accueil = pas de mvsPrev.
   const activeEnt = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
   const ctx = DashCtx.buildDashCtx(DB.logements, DB.mouvements, yr, mo, activeEnt);
-  _renderAccueil(ctx);
+  _renderPilotage(ctx);
   try{ _renderInboxSurfaces(); }catch(e){}
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// KPI Lot 1a — RENDU de l'écran Pilotage : bandeau de contexte + 8 bulles groupées
+// par zone (calé sur mockups/KPI-REVUE/pilotage-fusion.html). La matrice de conformité
+// et la chaîne de clic arrivent aux lots 1b/1c.
+// ════════════════════════════════════════════════════════════════════════
+const _PIL_ICONS = {
+  depot:   '<path d="M3 10h18M5 10V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3M5 10v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9"/><path d="M12 14v3"/>',
+  irl:     '<path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/>',
+  impaye:  '<path d="M4 5h16v11H7l-3 3z"/><path d="M9 9h6M9 12.5h4"/>',
+  regul:   '<path d="M12 3v18M3 8h18"/><path d="M7 8l-3 6a3 3 0 0 0 6 0zM17 8l-3 6a3 3 0 0 0 6 0z"/>',
+  finbail: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 9h6M9 13h4"/>',
+  document:'<path d="M4 4h9l7 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M13 4v7h7"/>',
+  entretien:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  vacant:  '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5h4v5"/>',
+  ok:      '<path d="M20 6 9 17l-5-5"/>'
+};
+
+// Le pire cas nommé, sous la forme « Nom · repère ».
+function _pilPireTxt(f) {
+  const p = f.pire; if (!p) return '';
+  const nom = escHtml(p.nom || p.ref || '');
+  const j = p.urgenceJours;
+  if (f.id === 'impaye')  return nom + (j != null ? ' · ' + j + ' j' : '');
+  if (f.id === 'vacant')  return nom + (j != null ? ' · vide ' + j + ' j' : '');
+  if (f.id === 'entretien') return nom + (j != null ? ' · ' + j + ' j de retard' : '');
+  if (f.id === 'irl' || f.id === 'depot') return nom;
+  return nom;
+}
+// Le chiffre-clé : montant si la famille en a un DE NON NUL, sinon un indicateur de gravité.
+// (La vacance n'a pas encore de valorisation de perte : on montre le compte, pas « 0 € ».)
+function _pilChiffre(f) {
+  if (f.montant != null && Math.abs(f.montant) > 0.005) {
+    const s = (typeof fmt === 'function') ? fmt(Math.abs(f.montant)) : (Math.abs(f.montant) + ' €');
+    const val = (f.unite === '€/mois') ? s.replace(' €', ' €/mois') : s;
+    return (f.montant < 0 ? '− ' : '') + val;
+  }
+  if (f.id === 'vacant') return f.count + (f.count > 1 ? ' logements' : ' logement');
+  return f.count + ' à traiter';
+}
+
+function _pilBulleHtml(f, premier) {
+  return '<button type="button" class="pil-b ' + f.couleur + (premier ? ' hot' : '') + '" data-pilfam="' + f.id + '">'
+    + '<span class="bh"><span class="ic"><svg viewBox="0 0 24 24">' + (_PIL_ICONS[f.id] || '') + '</svg></span></span>'
+    + (f.count > 1 ? '<span class="n">' + f.count + '</span>' : '')
+    + '<span class="v">' + escHtml(f.lbl) + '</span>'
+    + '<span class="a">' + _pilChiffre(f) + '</span>'
+    + '<span class="sub">' + _pilPireTxt(f) + '</span>'
+    + '</button>';
+}
+
+function _renderPilotage(ctx) {
+  const { scopeLogs, yr, mo, activeEnt } = ctx;
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
+  const fmtN = (n) => (typeof fmt === 'function' ? fmt(n) : String(Math.round(n || 0)));
+  const stripEl = el('pil-strip'), bullesEl = el('pil-bulles');
+  if (!stripEl || !bullesEl) { return; }
+
+  // ── Bandeau de contexte : 5 états (aucun euro de flux au-delà de l'encaissé du mois) ──
+  const _occKpi = DashCtx.occupationKpis(scopeLogs);
+  let occTaux = _occKpi.pctOcc, occSub = 'sur les lots occupés';
+  try {
+    if (typeof _computeOccupationLots === 'function') {
+      const occ = _computeOccupationLots(DB, scopeLogs, { from: yr + '-01-01', to: (typeof window._loyerTodayLocal === 'function' ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)) });
+      if (occ && occ.louableDays > 0) { occTaux = Math.round(occ.taux); occSub = 'en jours loués · année'; }
+    }
+  } catch (e) {}
+  const _cfr = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
+  const encaisse = _cfr ? _cfr.recettes : null;
+  const dgTot = scopeLogs.filter(l => l.locataire && (l.dg || 0) > 0).reduce((s, l) => s + (l.dg || 0), 0);
+  const nbDg = scopeLogs.filter(l => l.locataire && (l.dg || 0) > 0).length;
+  const strip = [
+    '<div class="pil-s1"><div class="k">Encaissé · ' + (mo ? _DMF[parseInt(mo) - 1] : yr) + '</div>'
+      + '<div class="v">' + (encaisse != null ? fmtN(encaisse) : '—') + '</div>'
+      + '<div class="s">recettes lues depuis Finances</div></div>',
+    '<div class="pil-s1"><div class="k">Occupation</div><div class="v ' + (occTaux < 80 ? 'warn' : 'pos') + '">' + occTaux + ' %</div>'
+      + '<div class="s">' + occSub + '</div></div>',
+    '<div class="pil-s1"><div class="k">Logements</div><div class="v">' + _occKpi.nbTotal + ' <small>· ' + _occKpi.nbVacants + ' vides</small></div>'
+      + '<div class="s">' + _occKpi.nbOcc + ' loués</div></div>',
+    '<div class="pil-s1"><div class="k">Dépôts détenus</div><div class="v">' + fmtN(dgTot) + '</div>'
+      + '<div class="s">' + nbDg + ' dépôts · argent des locataires</div></div>',
+    '<div class="pil-s1"><div class="k">Périmètre</div><div class="v" style="font-size:16px">' + (activeEnt ? esc(activeEnt) : 'Tout le parc') + '</div>'
+      + '<div class="s">filtre entité global</div></div>'
+  ].join('');
+  stripEl.innerHTML = '<div class="pil-strip">' + strip + '</div>';
+
+  // ── Les 8 familles, groupées par zone ──
+  let fams;
+  try { fams = _pilCollectFamilles(ctx); } catch (e) { fams = { familles: [], parZone: [], total: 0 }; }
+  if (!fams.total) {
+    bullesEl.innerHTML = '<div class="pil-zt"><b>Ce qui presse</b><i></i></div>'
+      + '<div class="pil-calme"><span class="ic"><svg viewBox="0 0 24 24">' + _PIL_ICONS.ok + '</svg></span>'
+      + '<span><b>Rien ne presse aujourd’hui.</b><s>Aucune action requise sur le périmètre affiché.</s></span></div>';
+    return;
+  }
+  const premierId = fams.familles[0] ? fams.familles[0].id : null;
+  bullesEl.innerHTML = '<div class="pil-zt"><b>Ce qui presse</b><i></i><em>' + fams.total + ' au total</em></div>'
+    + fams.parZone.map(z =>
+      '<div class="pil-zbloc"><div class="pil-zt"><b>' + esc(z.titre) + '</b><i></i><em>' + z.count + ' à traiter</em></div>'
+      + '<div class="pil-bub">' + z.familles.map(f => _pilBulleHtml(f, f.id === premierId)).join('') + '</div></div>'
+    ).join('');
 }
 
 function _renderAccueil(ctx) {
