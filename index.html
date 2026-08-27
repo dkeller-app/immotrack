@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.561</title>
+<title>Propryo v15.562</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4214,7 +4214,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.561';
+const IMMOTRACK_VERSION = '15.562';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -31803,7 +31803,12 @@ function _edlCloudBadgeHtml(e) {
     if (st.statut === 'sauvegarde') {
       inner = '<span class="edl-cloud-ok" title="Toutes les photos sont sauvegardées dans le cloud">☁️ Sauvegardé</span>';
     } else if (st.statut === 'en-cours') {
-      inner = '<span class="edl-cloud-wip" title="Sauvegarde des photos dans le cloud en cours…">☁️ Sauvegarde en cours…</span>';
+      // Hors ligne / réseau absent : ne pas afficher un « en cours » qui ne finira jamais (anxiogène) —
+      // un état neutre et honnête (audit D-UX). La montée reprendra au retour du réseau.
+      const horsLigne = (typeof navigator !== 'undefined' && navigator.onLine === false) || (typeof window !== 'undefined' && window.__immoHorsLigne);
+      inner = horsLigne
+        ? '<span class="edl-cloud-wip" title="Les photos seront sauvegardées dans le cloud au retour de la connexion">☁️ En attente de connexion</span>'
+        : '<span class="edl-cloud-wip" title="Sauvegarde des photos dans le cloud en cours…">☁️ Sauvegarde en cours…</span>';
     } else if (st.statut === 'perte') {
       const noms = st.perdues.map(p => p && p.name).filter(Boolean).join(', ');
       const n = st.perdues.length;
@@ -34454,8 +34459,13 @@ function _edlPropagateSyncedToForm(syncedEdlId, idbKey, result) {
     ph.synced = true;
     ph.driveFileId = result.id || ph.driveFileId || '';
     ph.driveFileName = result.name || ph.driveFileName || '';
-    if (result.cloudKey) ph.cloudKey = result.cloudKey;   // PARTAGE-SCI : chemin Storage par-SCI propagé au form
-    if (result.binaireManquant) ph.binaireManquant = true; // invariant 20 : binaire local perdu → « à reprendre »
+    if (result.cloudKey) {
+      ph.cloudKey = result.cloudKey;      // PARTAGE-SCI : chemin Storage par-SCI propagé au form
+      ph.binaireManquant = false; ph.manqueVus = 0;  // montée réussie → plus aucune absence
+    } else {
+      if (result.binaireManquant) ph.binaireManquant = true; // invariant 20 : perte confirmée → « à reprendre »
+      if (typeof result.manqueVus === 'number') ph.manqueVus = result.manqueVus;
+    }
     return true;
   };
   // _edlP : pieces × elements × photosE/photosS
@@ -34584,20 +34594,34 @@ async function _edlEnvoyerUnePhoto(job) {
     const rec = eid ? (DB.edl || []).find(x => x.id === parseInt(eid)) : null;
     if (!rec) return false;         // l'EDL n'est pas encore enregistré : on réessaiera
     let data = _photoCache[job.idbKey];
-    if (!data) data = await _idbGet(job.idbKey).catch(() => null);
+    // On distingue une lecture IDB qui LÈVE (transitoire : iOS sous pression, store fermé) d'une
+    // lecture qui se RÉSOUT à vide (absence réelle) — la différence entre « réessayer » et
+    // « déclarer perdu » (audit 27/08, D-HAUTE).
+    let idbThrew = false;
+    if (!data) data = await _idbGet(job.idbKey).catch(() => { idbThrew = true; return null; });
     if (!data) {
-      // Invariant 20 (retour Didier 27/08) — le binaire local a disparu (éviction stockage iOS,
-      // le scénario que le lot 0 combat). AVANT, on retournait `true` en silence : la photo
-      // quittait la file sans cloudKey, restait comptée, et bloquait « 3/4 » à vie sans dire
-      // laquelle. Désormais on la MARQUE `binaireManquant` (persisté) → l'indicateur calme dit
-      // « 1 photo à reprendre » en la nommant, et photosAEnvoyer cesse de la ré-enfiler.
-      console.warn('[edl envoi] binaire local introuvable → marqué « à reprendre »', job.idbKey);
+      // Invariant 20 (retour Didier 27/08) — binaire local introuvable. On ne condamne JAMAIS une
+      // photo (preuve légale) sur un incident transitoire : throw → réessai ; absence confirmée →
+      // on incrémente un compteur et on ne marque « à reprendre » qu'au SEUIL. `return true` à
+      // chaque fois (ne pas bloquer la tête de file) — la photo est ré-enfilée au prochain
+      // reconcile tant qu'elle n'est pas marquée. Marquée, photosAEnvoyer cesse de la ré-enfiler
+      // et l'indicateur calme la NOMME (« 1 photo à reprendre »).
       try {
         const _EPm = (typeof window !== 'undefined') ? window.EdlPhotos : null;
-        if (_EPm) _EPm.collectEdlPhotos(rec).forEach(p => { if (p.idbKey === job.idbKey) p.binaireManquant = true; });
-        _edlPropagateSyncedToForm(rec.id, job.idbKey, { binaireManquant: true });
+        let vus = 0;
+        if (_EPm) _EPm.collectEdlPhotos(rec).forEach(p => { if (p.idbKey === job.idbKey && p.manqueVus) vus = p.manqueVus; });
+        const dec = _EPm ? _EPm.decisionBinaireIntrouvable(idbThrew, vus) : { action: 'retry', manqueVus: vus };
+        if (dec.action === 'retry') {
+          console.warn('[edl envoi] lecture IDB transitoire → réessai ultérieur', job.idbKey);
+          return true;   // pas de marquage : la photo repartira au prochain reconcile
+        }
+        if (_EPm) _EPm.collectEdlPhotos(rec).forEach(p => {
+          if (p.idbKey === job.idbKey) { p.manqueVus = dec.manqueVus; if (dec.action === 'perdre') p.binaireManquant = true; }
+        });
+        _edlPropagateSyncedToForm(rec.id, job.idbKey, { manqueVus: dec.manqueVus, binaireManquant: dec.action === 'perdre' });
         saveDB({ autosave: true, quoi: 'edl-photo' });
-      } catch (e) { console.warn('[edl envoi] marquage perte échoué', e); }
+        if (dec.action === 'perdre') console.warn('[edl envoi] binaire absent confirmé (' + dec.manqueVus + '×) → « à reprendre »', job.idbKey);
+      } catch (e) { console.warn('[edl envoi] marquage échoué', e); }
       return true;
     }
     const mm = /^data:([^;]+);base64,(.*)$/.exec(data);
@@ -34610,8 +34634,10 @@ async function _edlEnvoyerUnePhoto(job) {
     // Le chemin RETOURNÉ est stocké, des deux côtés : l'enregistrement (ce qui
     // sera synchronisé) et le formulaire ouvert (ce qui sera ré-enregistré).
     const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
-    if (_EP) _EP.collectEdlPhotos(rec).forEach(p => { if (p.idbKey === job.idbKey) p.cloudKey = chemin; });
-    _edlPropagateSyncedToForm(rec.id, job.idbKey, { cloudKey: chemin });
+    // Montée réussie → le binaire était bien là : on efface toute trace d'absence (récupération
+    // d'un éventuel faux positif) en même temps qu'on pose le cloudKey.
+    if (_EP) _EP.collectEdlPhotos(rec).forEach(p => { if (p.idbKey === job.idbKey) { p.cloudKey = chemin; p.binaireManquant = false; p.manqueVus = 0; } });
+    _edlPropagateSyncedToForm(rec.id, job.idbKey, { cloudKey: chemin, manqueVus: 0 });
     saveDB({ autosave: true, quoi: 'edl-photo' });   // pas d'audit, pas de capture d'annulation (F6/F7)
     return true;
   } catch (e) {
@@ -41855,7 +41881,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.561 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.562 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }

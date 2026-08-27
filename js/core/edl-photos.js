@@ -63,6 +63,8 @@ export function metaPhoto(ph) {
     // (éviction stockage iOS) est marquée ICI pour être NOMMÉE à l'utilisateur (« à
     // reprendre ») au lieu de bloquer le compteur à N‑1 en silence. Doit survivre au save.
     binaireManquant: !!p.binaireManquant,
+    // Compteur d'absences confirmées (anti-faux-positif, cf. decisionBinaireIntrouvable) — persisté.
+    manqueVus: Math.max(0, (Number(p.manqueVus) | 0)),
     // Héritages Google Drive : conservés pour ne rien détruire, jamais lus.
     synced: !!p.synced,
     driveFileId: p.driveFileId || '',
@@ -93,6 +95,32 @@ export function compterAlAbri(photos) {
  */
 export function photosAEnvoyer(photos) {
   return (photos || []).filter(ph => ph && ph.idbKey && !estAlAbri(ph) && !ph.binaireManquant);
+}
+
+/** Nombre d'absences CONFIRMÉES (lecture IDB résolue à vide, pas un throw) avant de déclarer
+ *  une photo « perdue ». Absorbe les faux négatifs iOS (le store renvoie parfois vide sous
+ *  pression) : on ne condamne pas une preuve légale sur un seul incident. */
+export const SEUIL_BINAIRE_MANQUANT = 3;
+
+/**
+ * Décision quand le binaire local est introuvable à l'envoi (audit 27/08, D-HAUTE).
+ * On distingue une erreur TRANSITOIRE (la lecture IndexedDB a levé : iOS sous pression mémoire,
+ * store fermé) d'une absence CONFIRMÉE (la lecture s'est résolue à vide). On ne déclare JAMAIS
+ * une perte sur un throw, ni avant SEUIL absences confirmées — sinon on transforme un incident
+ * réparable en abandon définitif (la photo étant exclue à vie de l'envoi une fois marquée).
+ * @param {boolean} idbThrew        la lecture IDB a-t-elle levé (vs résolu à vide) ?
+ * @param {number}  manqueVusAvant  absences confirmées déjà comptées
+ * @returns {{action:'retry'|'compter'|'perdre', manqueVus:number}}
+ *   retry   → transitoire : réessayer plus tard, ne rien marquer ;
+ *   compter → absence confirmée mais sous le seuil : incrémenter, réessayer ;
+ *   perdre  → seuil atteint : marquer binaireManquant (« à reprendre »).
+ */
+export function decisionBinaireIntrouvable(idbThrew, manqueVusAvant) {
+  const avant = Math.max(0, (Number(manqueVusAvant) | 0));
+  if (idbThrew) return { action: 'retry', manqueVus: avant };
+  const n = avant + 1;
+  if (n >= SEUIL_BINAIRE_MANQUANT) return { action: 'perdre', manqueVus: n };
+  return { action: 'compter', manqueVus: n };
 }
 
 /**

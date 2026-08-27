@@ -175,6 +175,7 @@ describe('photoIndexByKey — retrouver le cloudKey d’une vignette à hydrater
 import {
   PHOTO_MAX_PX, PHOTO_QUALITE, dimensionsRedimensionnees, metaPhoto,
   estAlAbri, compterAlAbri, photosAEnvoyer, cheminRelecture, peutLibererLocal, etatSauvegarde,
+  decisionBinaireIntrouvable, SEUIL_BINAIRE_MANQUANT,
 } from '../../js/core/edl-photos.js';
 
 describe('dimensionsRedimensionnees — invariant 10 : UN seul calibre', () => {
@@ -253,6 +254,31 @@ describe('metaPhoto — binaireManquant survit à l’enregistrement (invariant 
   });
   it('par défaut une photo n’est pas déclarée perdue', () => {
     expect(metaPhoto({ idbKey: 'ph_y' }).binaireManquant).toBe(false);
+  });
+});
+
+describe('decisionBinaireIntrouvable — jamais de perte sur incident transitoire (audit D-HAUTE)', () => {
+  it('une lecture IDB qui LÈVE (throw) → retry, sans jamais marquer ni incrémenter', () => {
+    expect(decisionBinaireIntrouvable(true, 0)).toEqual({ action: 'retry', manqueVus: 0 });
+    expect(decisionBinaireIntrouvable(true, 2)).toEqual({ action: 'retry', manqueVus: 2 });
+  });
+  it('une absence CONFIRMÉE sous le seuil → compter (incrémente, réessaie)', () => {
+    expect(decisionBinaireIntrouvable(false, 0)).toEqual({ action: 'compter', manqueVus: 1 });
+    expect(decisionBinaireIntrouvable(false, 1)).toEqual({ action: 'compter', manqueVus: 2 });
+  });
+  it('au SEUIL d’absences confirmées → perdre (marque « à reprendre »)', () => {
+    expect(SEUIL_BINAIRE_MANQUANT).toBe(3);
+    expect(decisionBinaireIntrouvable(false, 2)).toEqual({ action: 'perdre', manqueVus: 3 });
+    expect(decisionBinaireIntrouvable(false, 5)).toEqual({ action: 'perdre', manqueVus: 6 });
+  });
+  it('un throw ne fait JAMAIS avancer vers la perte, même répété', () => {
+    let vus = 0;
+    for (let i = 0; i < 50; i++) { const d = decisionBinaireIntrouvable(true, vus); expect(d.action).toBe('retry'); vus = d.manqueVus; }
+    expect(vus).toBe(0);
+  });
+  it('manqueVus survit à metaPhoto (persisté)', () => {
+    expect(metaPhoto({ idbKey: 'a', manqueVus: 2 }).manqueVus).toBe(2);
+    expect(metaPhoto({ idbKey: 'a' }).manqueVus).toBe(0);
   });
 });
 
