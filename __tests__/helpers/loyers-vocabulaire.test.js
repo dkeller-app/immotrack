@@ -38,9 +38,8 @@ describe('V14 — « Impayés » remplace « Pas à jour »', () => {
   it('son sous-titre nomme ce qui manque, pas un état vague', () => {
     expect(has("Loyer ou charges non réglés — aucun document n\\'est émis")).toBe(true);
   });
-  it('la tuile porte le mot « Impayés » et un montant, jamais une icône seule', () => {
-    expect(has("tuile('retard', 'neg', 'Impayés'")).toBe(true);
-    expect(has('de retard sur ')).toBe(true);
+  it('« Impayés » est un BLOC empilé visible, rendu via _lyBloc (KPI §4, 27/08)', () => {
+    expect(has("_lyBloc('retard', retards.length, retards.map(_lyLigneRetard)")).toBe(true);
   });
 });
 
@@ -75,20 +74,24 @@ describe('V20/V21 — « Non révisables » annonce un avertissement, pas un ver
   });
 });
 
-describe('V1 — l\'écran est un tableau de bord : trois tuiles, UNE seule liste', () => {
-  it('les trois tuiles existent, chacune avec sa clé en toutes lettres', () => {
-    expect(has("'Impayés'")).toBe(true);
-    expect(has("'À remettre'")).toBe(true);
-    expect(has("'À préparer'")).toBe(true);
+describe('V1 (révisé KPI §4, 27/08) — trois BLOCS empilés visibles, plus de sélecteur à tuiles', () => {
+  it('les trois familles sont des blocs empilés (Impayés, Révisions, Quittances)', () => {
+    expect(has("_lyBloc('retard'")).toBe(true);
+    expect(has("_lyBloc('prep'")).toBe(true);
+    expect(has("_lyBloc('quit'")).toBe(true);
   });
-  it('D25 — les révisions (À préparer) sont la liste affichée par défaut (l\'IRL en premier)', () => {
-    // Le rare et périssable (une révision se perd à un an de prescription) passe avant le fréquent
-    // et rattrapable (un impayé, une quittance). Changé de 'retard' → 'rev' au 26/08 (D25).
-    expect(matches(/_lyUI = \{ tuile: 'rev'/)).toBe(true);
+  it('ordre du cash : Impayés est rendu en PREMIER (le mockup loyers-v4 met l\'argent d\'abord)', () => {
+    // L'ancien D25 (révisions en tête via un sélecteur à tuiles) est remplacé : les trois blocs
+    // sont visibles ensemble, et Impayés ouvre la pile.
+    expect(matches(/_lyBloc\('retard'[\s\S]{0,400}_lyBloc\('prep'[\s\S]{0,400}_lyBloc\('quit'/)).toBe(true);
   });
-  it('une seule liste est rendue à la fois (if / else if / else sur la tuile)', () => {
-    expect(has("if (_lyUI.tuile === 'quit')")).toBe(true);
-    expect(has("} else if (_lyUI.tuile === 'rev') {")).toBe(true);
+  it('le sélecteur à tuiles a disparu (plus de branche if/else par tuile)', () => {
+    expect(has("_lyUI.tuile === 'quit'")).toBe(false);
+    expect(has("tuile('retard', 'neg'")).toBe(false);
+  });
+  it('« Tous les loyers » est un dépliant inline groupé (solution B), pas une bascule', () => {
+    expect(has('_lyToggleTous()')).toBe(true);
+    expect(has("{ inline: true, grouped: true }")).toBe(true);
   });
 });
 
