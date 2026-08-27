@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.554</title>
+<title>Propryo v15.555</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4214,7 +4214,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.554';
+const IMMOTRACK_VERSION = '15.555';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -31823,6 +31823,7 @@ function rEDLList() {
       <td class="act-cell">
         <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier">✏️</button>
         <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">📤 Partager</button>
+        ${nph ? `<button class="btn bs bb" onclick="_edlSharePhotos(${e.id})" title="Enregistrer les photos sur l'appareil (Fichiers / dossier au choix)">📷 Photos</button>` : ''}
         <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">🗑</button>
       </td></tr>`;
   }).join('')||'<tr><td colspan="6" class="mu" style="text-align:center;padding:20px">Aucun état des lieux</td></tr>';
@@ -33875,6 +33876,71 @@ async function downloadEDLPdfNative(id, opts) {
   } catch(e) {
     console.error('[downloadEDLPdfNative] fail:', e);
     showToast('Erreur génération PDF : ' + (e.message||e), 'err');
+  }
+}
+
+// #6 (retour Didier 26/08) — « 📷 Enregistrer les photos » : réunit TOUTES les photos d'un EDL
+// (pièces, clés, compteurs, détecteur, mobilier) et ouvre UNE feuille de partage → l'utilisateur
+// fait « Enregistrer dans Fichiers » et choisit/crée son dossier (iOS + Android). Repli PC =
+// téléchargement. Un dossier auto dans la pellicule est impossible depuis le web sur iOS.
+function _edlDataUrlToBlob(dataUrl) {
+  const parts = String(dataUrl || '').split(',');
+  const mime = (parts[0].match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+  const bin = atob(parts[1] || '');
+  const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return new Blob([u], { type: mime });
+}
+async function _edlSharePhotos(id) {
+  const edl = DB.edl.find(e => e.id === id && !e._deleted);
+  if (!edl) { showToast('EDL introuvable', 'err'); return; }
+  showToast('⌛ Préparation des photos…', 'info', 30000);
+  try {
+    await _edlPreloadPhotos(edl);
+    const items = [];
+    (edl.pieces || []).forEach(p => (p.elements || []).forEach(x => {
+      (x.photosE || []).forEach(ph => items.push({ ph, label: (p.nom || 'piece') + '-' + (x.nom || 'elem') + '-entree' }));
+      (x.photosS || []).forEach(ph => items.push({ ph, label: (p.nom || 'piece') + '-' + (x.nom || 'elem') + '-sortie' }));
+    }));
+    (edl.cles || []).forEach((c, i) => {
+      (c.photos || []).forEach(ph => items.push({ ph, label: 'cle-' + (c.type || i) + '-entree' }));
+      (c.photosS || []).forEach(ph => items.push({ ph, label: 'cle-' + (c.type || i) + '-sortie' }));
+    });
+    const cp = edl.compteursPhotos || {};
+    Object.keys(cp).forEach(k => (cp[k] || []).forEach(ph => items.push({ ph, label: 'compteur-' + k })));
+    if (edl.daaf && Array.isArray(edl.daaf.photos)) edl.daaf.photos.forEach(ph => items.push({ ph, label: 'detecteur-fumee' }));
+    if (edl.mobilier && Array.isArray(edl.mobilier.elements)) edl.mobilier.elements.forEach((m, i) => {
+      (m.photosE || []).forEach(ph => items.push({ ph, label: 'mobilier-' + (m.nom || i) + '-entree' }));
+      (m.photosS || []).forEach(ph => items.push({ ph, label: 'mobilier-' + (m.nom || i) + '-sortie' }));
+    });
+    if (!items.length) { showToast('Aucune photo dans cet état des lieux', 'warn', 3500); return; }
+    const files = [];
+    let n = 0;
+    for (const { ph, label } of items) {
+      const src = await _edlPhotoSrc(ph);
+      if (!src || src.indexOf('data:') !== 0) continue;
+      const name = `EDL_${_edlSanitize(edl.logement)}_${String(++n).padStart(2, '0')}_${_edlSanitize(label)}.jpg`;
+      files.push(new File([_edlDataUrlToBlob(src)], name, { type: 'image/jpeg' }));
+    }
+    if (!files.length) { showToast('Photos indisponibles (hors ligne ?)', 'warn', 4000); return; }
+    // Partage natif (iOS/Android/tablette) — une seule feuille avec toutes les photos.
+    if (typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files })) {
+      try {
+        await navigator.share({ files, title: 'Photos état des lieux', text: `Photos — ${edl.logement}` });
+        return;
+      } catch (e) { if (e && e.name === 'AbortError') return; console.warn('[edl photos] partage indispo, repli téléchargement', e); }
+    }
+    // Repli PC : téléchargement de chaque photo.
+    files.forEach(f => {
+      const u = URL.createObjectURL(f);
+      const a = document.createElement('a'); a.href = u; a.download = f.name;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(u), 1500);
+    });
+    showToast(`📥 ${files.length} photo(s) enregistrée(s)`, 'ok', 4000);
+  } catch (e) {
+    console.error('[_edlSharePhotos] fail:', e);
+    showToast('Erreur photos : ' + (e.message || e), 'err');
   }
 }
 
@@ -41615,7 +41681,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.554 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.555 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -43151,7 +43217,8 @@ function _renderLogFichePanelEDL(log, ref) {
       </div>
       <div class="logf-edl-card-actions">
         <button class="btn bp bb" onclick="openEditEDL(${edl.id})" title="Modifier l'EDL">✏️ Modifier</button>
-        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id}, {share:true})" title="Télécharger PDF (envoi mail / WhatsApp)">📤 Partager</button>
+        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id}, {share:true})" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">📤 Partager</button>
+        ${stats.nbPhotos ? `<button class="btn bs bb" onclick="_edlSharePhotos(${edl.id})" title="Enregistrer les photos sur l'appareil (Fichiers / dossier au choix)">📷 Photos</button>` : ''}
         ${driveBtn}
         <button class="btn bs bb" onclick="saveLogEDLTemplateFromEDL(${edl.id})" title="Sauvegarder la structure de cet EDL comme template par défaut pour ce logement (réutilisable au prochain bail)">🗐 Sauv. template</button>
         <button class="btn br bb" onclick="delEDL(${edl.id})" title="Supprimer">🗑</button>
