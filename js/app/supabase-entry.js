@@ -1392,11 +1392,10 @@ function renderLoading(overlay, user) {
 }
 
 function brand() {
-  // Logo + wordmark Propryo de la charte : pavé encre + point corail (accent identité).
+  // Logo validé (charte) : marque = carré arrondi CONTOUR corail + point corail (dessinés en CSS,
+  // cf .imsb-mark / .imsb-mark::after) ; wordmark en encre (fond clair) / blanc (fond sombre) via var(--ink).
   return `<div class="imsb-brand">
-    <span class="imsb-mark">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.2 11 12 3.6 20.8 11M5.6 9.2V19a1 1 0 0 0 1 1H10v-5h4v5h3.4a1 1 0 0 0 1-1V9.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </span>
+    <span class="imsb-mark" aria-hidden="true"></span>
     <span class="imsb-name">Propryo</span>
   </div>`
 }
@@ -1641,9 +1640,9 @@ function injectStyles() {
   /* ===== NAV ===== */
   .imsb-nav{display:flex;align-items:center;justify-content:space-between;padding:22px 44px;gap:20px}
   .imsb-brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:var(--display-w);font-size:21px;letter-spacing:-.03em;color:var(--ink)}
-  .imsb-mark{position:relative;width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--logo-mark-bg);color:#fff;box-shadow:var(--shadow-sm);flex-shrink:0}
-  .imsb-mark svg{width:20px;height:20px}
-  .imsb-mark::after{content:"";position:absolute;right:6px;bottom:6px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--logo-mark-bg)}
+  /* Logo validé : marque = carré arrondi CONTOUR corail + point corail (jamais d'aplat, pas d'ombre). */
+  .imsb-mark{position:relative;width:36px;height:36px;border-radius:var(--r);background:transparent;border:2.5px solid var(--accent);flex-shrink:0}
+  .imsb-mark::after{content:"";position:absolute;right:6px;bottom:6px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
   .imsb-name{font-weight:var(--display-w)}
   .imsb-nav-right{display:flex;align-items:center;gap:24px}
   .imsb-nav-links{display:flex;align-items:center;gap:28px;font-size:14.5px;font-weight:600;color:var(--ink-2)}
@@ -1690,8 +1689,7 @@ function injectStyles() {
   #imsb-left{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:22px;display:flex;flex-direction:column}
   /* le brand est répété dans #imsb-left (login/chargement/invitation) mais discret dans la carte */
   #imsb-left .imsb-brand{font-size:15px;margin-bottom:12px}
-  #imsb-left .imsb-mark{width:26px;height:26px;border-radius:8px}
-  #imsb-left .imsb-mark svg{width:15px;height:15px}
+  #imsb-left .imsb-mark{width:26px;height:26px;border-radius:8px;border-width:2px}
   #imsb-left .imsb-mark::after{right:4px;bottom:4px;width:5px;height:5px}
   .imsb-mid{display:flex;flex-direction:column}
   .imsb-h2{font-size:17px;font-weight:800;margin:0 0 4px;color:var(--ink);font-family:var(--display)}

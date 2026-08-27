@@ -7830,11 +7830,22 @@ body[data-dash-v4="on"] .v4s-sb-logo {
   align-items: center;
   gap: 8px;
 }
+/* Logo validé (charte) : marque = carré arrondi CONTOUR corail + point corail (jamais un aplat plein). */
 body[data-dash-v4="on"] .v4s-sb-logo i {
+  position: relative;
   width: 22px; height: 22px;
   border-radius: 6px;
-  background: var(--acc);
+  border: 2.2px solid var(--acc);
+  background: transparent;
   display: inline-block;
+}
+body[data-dash-v4="on"] .v4s-sb-logo i::after {
+  content: "";
+  position: absolute;
+  right: 4px; bottom: 4px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--acc);
 }
 body[data-dash-v4="on"] .v4s-sb-logo .v4s-prem {
   color: var(--cta);
