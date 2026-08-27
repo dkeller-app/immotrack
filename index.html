@@ -699,6 +699,12 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           padding:6px 10px;margin-bottom:8px;position:sticky;top:0;z-index:15;box-shadow:var(--shadow-card)}
         #p-loyers .ly2-cmd .ttl{font-family:var(--display);font-weight:800;font-size:15px;color:var(--t1);white-space:nowrap}
         #p-loyers .ly2-cmd .ttl em{font-style:normal;font-weight:500;font-size:11.5px;color:var(--t3);margin-left:6px}
+        #p-loyers .ly-vues{display:flex;background:var(--sur3);border-radius:9px;padding:2.5px;gap:2px;margin-left:8px}
+        #p-loyers .ly-vt{border:0;background:transparent;color:var(--t2);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:7px;cursor:pointer;white-space:nowrap}
+        #p-loyers .ly-vt.on{background:var(--sur);color:var(--t1);box-shadow:0 1px 3px rgba(0,0,0,.13)}
+        html[data-theme="dark"] #p-loyers .ly-vt.on{background:#39404f}
+        #p-loyers .ly-vn{display:inline-block;margin-left:5px;font-size:10px;font-weight:800;background:var(--neg);color:#fff;border-radius:20px;padding:0 6px;vertical-align:1px}
+        html[data-theme="dark"] #p-loyers .ly-vn{color:#14161d}
         #p-loyers .ly2-cmd .sp{flex:1;min-width:4px}
 
         /* ── 2. Les trois tuiles EN TOUTES LETTRES (V1 + I-MOT) ───────────────────── */
@@ -29998,6 +30004,10 @@ function _lyEtatLot(l) {
 // révision arrive une fois par an et SE PERD si on l'oublie (prescription 1 an) ; une quittance
 // ou un impayé se rattrape. Le rare et périssable passe avant le fréquent et rattrapable.
 var _lyUI = { tuile: 'rev', suivi: null, frise: null, blocs: {} };
+// KPI Lot 2 (CDC-KPI §4) : l'onglet Loyers a deux vues — « À faire » (l'existant : tuiles +
+// listes d'action) et « Tous les loyers » (la frise 12 mois par locataire, ex-onglet Suivi).
+let _lyVue = 'faire';
+function _lyVoirVue(v) { _lyVue = v; if (typeof rLoyers === 'function') rLoyers(); }
 function _lyVoir(k) { _lyUI.tuile = k; rLoyers(); }
 function _lyOuvrirSuivi(k) { _lyUI.suivi = (_lyUI.suivi === k) ? null : k; rLoyers(); }
 function _lyOuvrirMois(ym) { _lyUI.frise = (_lyUI.frise === ym) ? null : ym; rLoyers(); }
@@ -30045,10 +30055,25 @@ function rLoyers() {
   const loues    = etats.filter(e => e.bail).length;
 
   // ── 1. La ligne de commande : titre, contexte, bouton. Une seule ligne. ──
+  // KPI Lot 2 — bascule de vue « À faire » / « Tous les loyers » (CDC-KPI §4).
+  const nRetardVue = retards.length;
   let html = `<div class="ly2-cmd">
     <div class="ttl">Loyers<em>${escHtml(moisCourant)} · ${loues} lot${loues > 1 ? 's' : ''} loué${loues > 1 ? 's' : ''} sur ${lots.length} suivi${lots.length > 1 ? 's' : ''}</em></div>
+    <div class="ly-vues" role="tablist" aria-label="Vue des loyers">
+      <button class="ly-vt${_lyVue === 'faire' ? ' on' : ''}" role="tab" aria-selected="${_lyVue === 'faire'}" onclick="_lyVoirVue('faire')">À faire${nRetardVue ? ' <b class="ly-vn">' + nRetardVue + '</b>' : ''}</button>
+      <button class="ly-vt${_lyVue === 'tous' ? ' on' : ''}" role="tab" aria-selected="${_lyVue === 'tous'}" onclick="_lyVoirVue('tous')">Tous les loyers</button>
+    </div>
     <div class="sp"></div>
     <button class="btn bp" onclick="_openFaireQuittance()">＋ Faire une quittance</button></div>`;
+
+  // ── Vue « Tous les loyers » : la frise 12 mois par locataire (DRY : même constructeur que la modale) ──
+  if (_lyVue === 'tous') {
+    const ent = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
+    html += '<div class="ly2-blk t-info" style="margin-top:8px"><div style="padding:12px 14px">'
+      + _lyTousLoyersHtml(new Date().getFullYear(), ent, { inline: true }).html + '</div></div>';
+    host.innerHTML = `<div class="ly2 cft">${html}</div>`;
+    return;
+  }
 
   // ── 2. Les trois tuiles EN TOUTES LETTRES (V1 + I-MOT) ──
   const tuile = (k, ton, cle, valeur, dit) =>
@@ -53086,8 +53111,14 @@ let _suiviMonth = 0;   // mi du mois déplié (drill : paiements du mois) — 0 
 const _SUIVI_CC = { ok: ['#e1f5ee', 'var(--grn)', '#0f6e56'], warn: ['#faeeda', 'var(--warn)', '#854f0b'], imp: ['#fcebeb', 'var(--red)', '#a32d2d'], avance: ['#e6f1fb', '#2563eb', '#185fa5'], avenir: ['var(--sur3)', 'var(--t3)', 'var(--t3)'], vac: ['#f7f8fb', 'var(--t3)', 'var(--t3)'] };
 const _SUIVI_MOF = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 const _SUIVI_ICO = { ok: '✓', warn: '◐', imp: '✕', avance: '↑', avenir: '', vac: '' };
-function _suiviToggle(ref) { _suiviOpen = (_suiviOpen === ref) ? '' : ref; _suiviMonth = 0; _impayesOpenVue(); }
-function _suiviMonthToggle(mi) { _suiviMonth = (_suiviMonth === mi) ? 0 : mi; _impayesOpenVue(); }
+// KPI Lot 2 : le repli d'une ligne re-render la bonne surface — l'onglet Loyers si on est
+// dans sa vue inline « Tous les loyers », sinon la modale historique.
+function _suiviReRender() {
+  if (typeof _lyVue !== 'undefined' && _lyVue === 'tous' && document.querySelector('#p-loyers.act')) { if (typeof rLoyers === 'function') rLoyers(); }
+  else _impayesOpenVue();
+}
+function _suiviToggle(ref) { _suiviOpen = (_suiviOpen === ref) ? '' : ref; _suiviMonth = 0; _suiviReRender(); }
+function _suiviMonthToggle(mi) { _suiviMonth = (_suiviMonth === mi) ? 0 : mi; _suiviReRender(); }
 // Écran B — échéancier détaillé d'un locataire : 12 cases (mois + statut + montant) + solde + drill mois.
 function _suiviDetailHtml(log, s, yr) {
   const cell = (m) => {
@@ -53128,24 +53159,23 @@ function _impayesOuvrirSur(ref) {
   _suiviMonth = 0;
   _impayesOpenVue();
 }
-function _impayesOpenVue() {
-  const body = el('ov-impayes-vue-body');
-  if (!body) return;
-  // Phase A : moteur unique requis (js/core/loyer-statut.js via main.js). Sans lui (file://), dégradation propre.
+// KPI Lot 2 — LE CONSTRUCTEUR de la vue « Tous les loyers » (frise 12 mois par locataire +
+// solde signé). Partagé DRY par la modale historique `_impayesOpenVue` ET la vue inline de
+// l'onglet Loyers (CDC-KPI §4 : la vue d'ensemble qui disparaîtrait avec l'onglet Suivi).
+// `opts.inline` = vue dans l'onglet (le lien locataire ne ferme aucune modale).
+// Retourne { html, empty }.
+function _lyTousLoyersHtml(yr, ent, opts) {
+  const inline = !!(opts && opts.inline);
   if (typeof window._computeLoyerStatut !== 'function' || typeof window._loyerChipVerdict !== 'function') {
-    body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Suivi indisponible — ouvre l\'application via le serveur (modules non chargés).</div>';
-    openM('ov-impayes-vue'); return;
+    return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Suivi indisponible — ouvre l\'application via le serveur (modules non chargés).</div>', empty: true };
   }
-  const yr = new Date().getFullYear();
-  const ent = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   const _MO = ['J', 'F', 'M', 'A', 'M', 'J', 'Jt', 'A', 'S', 'O', 'N', 'D'];
   const _MOF = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const CLL = { ok: 'payé', warn: 'partiel', imp: 'en retard', avance: 'payé d\'avance' };
   const logs = (DB.logements || []).filter(aliveFn).filter(l => l.locataire && (!ent || l.entity === ent));
   if (!logs.length) {
-    body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Aucun logement occupé' + (ent ? ' pour ' + escHtml(ent) : '') + '.</div>';
-    openM('ov-impayes-vue'); return;
+    return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Aucun logement occupé' + (ent ? ' pour ' + escHtml(ent) : '') + '.</div>', empty: true };
   }
   const rows = logs.map(l => ({ log: l, s: _suiviLoyerStrip(l, yr) })).sort((a, b) => a.s.solde - b.s.solde); // retard (solde −) en premier
   const CC = _SUIVI_CC;   // DRY : mêmes couleurs que le détail (écran B)
@@ -53161,22 +53191,32 @@ function _impayesOpenVue() {
     return '<span style="background:#e1f5ee;color:#0f6e56;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">✓ À jour</span>';
   };
   const nRetard = rows.filter(r => window._loyerChipVerdict(r.s.solde, r.s.monthlyFull).cls === 'retard').length;
+  const linkOpen = inline ? ('openLogFiche(\'') : ('closeM(\'ov-impayes-vue\');openLogFiche(\'');
   const legende = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:0 0 12px;font-size:11px;color:var(--t2)">'
     + [['#e1f5ee', 'var(--grn)', 'Payé'], ['#faeeda', 'var(--warn)', 'Partiel'], ['#fcebeb', 'var(--red)', 'Retard'], ['#e6f1fb', '#2563eb', 'Avance'], ['var(--sur3)', 'var(--t3)', 'À venir']]
       .map(x => '<span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:' + x[0] + ';border:1px solid ' + x[1] + '"></span>' + x[2] + '</span>').join('') + '</div>';
-  body.innerHTML = legende
-    + '<div class="mu sm" style="margin-bottom:10px;font-size:12px">Suivi mois par mois · année ' + yr + ' · ' + rows.length + ' locataire' + (rows.length > 1 ? 's' : '') + (nRetard ? ' · <b style="color:var(--red)">' + nRetard + ' en retard</b>' : ' · <b style="color:var(--grn)">tous à jour</b>') + (ent ? ' · ' + escHtml(ent) : '') + '</div>'
+  const html = legende
+    + '<div class="mu sm" style="margin-bottom:10px;font-size:12px">Tous les loyers · année ' + yr + ' · ' + rows.length + ' locataire' + (rows.length > 1 ? 's' : '') + (nRetard ? ' · <b style="color:var(--red)">' + nRetard + ' en retard</b>' : ' · <b style="color:var(--grn)">tous à jour</b>') + (ent ? ' · ' + escHtml(ent) : '') + '</div>'
     + '<div style="border:1px solid var(--bor);border-radius:12px;overflow:hidden">'
     + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = escHtml(r.log.ref);
       return '<div style="' + (i < rows.length - 1 ? 'border-bottom:1px solid var(--bor2)' : '') + (open ? ';background:var(--sur2)' : '') + '">'
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
-      + '<div style="min-width:0"><a onclick="closeM(\'ov-impayes-vue\');openLogFiche(\'' + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
+      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
       +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
       + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.s) + (window._loyerChipVerdict(r.s.solde, r.s.monthlyFull).cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">⚡ Actions</button>' : '') + '</div>'
       + '</div>'
       + (open ? _suiviDetailHtml(r.log, r.s, yr) : '')
       + '</div>'; }).join('')
     + '</div>';
+  return { html, empty: false };
+}
+
+function _impayesOpenVue() {
+  const body = el('ov-impayes-vue-body');
+  if (!body) return;
+  const yr = new Date().getFullYear();
+  const ent = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
+  body.innerHTML = _lyTousLoyersHtml(yr, ent, { inline: false }).html;
   openM('ov-impayes-vue');
 }
 
