@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.564</title>
+<title>Propryo v15.565</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4214,7 +4214,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.564';
+const IMMOTRACK_VERSION = '15.565';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -31875,15 +31875,33 @@ function _edlVThumb(ph) {
   return `<img class="edl-thumb edl-vthumb" data-vi="${i}" src="${_edlThumbSrc(ph)}" alt="" title="${escHtml(ph.name || '')}" onclick="_edlVOpen(${i})">`;
 }
 function _edlVOpen(i) { const ph = _edlViewPhotos[i]; if (ph) _showEDLPhotoLightbox(ph); }
-/* Hydrate les vignettes CLOUD-FIRST via _edlPhotoSrc (avec le vrai cloudKey de chaque photo). */
+/* Hydrate les vignettes CLOUD-FIRST via _edlPhotoSrc (avec le vrai cloudKey de chaque photo).
+   Les vignettes déjà en cache sont posées tout de suite ; celles à télécharger du cloud le sont
+   avec une CONCURRENCE PLAFONNÉE (audit §2) — sinon un gros EDL cross-device lancerait ~100
+   téléchargements simultanés (rafale réseau/mémoire sur mobile). */
 function _edlHydrateVThumbs(root) {
   if (!root) return;
+  const todo = [];
   root.querySelectorAll('img.edl-vthumb[data-vi]').forEach(img => {
     const i = +img.getAttribute('data-vi'); const ph = _edlViewPhotos[i];
     if (!ph) return;
     if (_photoCache[ph.idbKey]) { img.src = _photoCache[ph.idbKey]; return; }
-    _edlPhotoSrc(ph).then(src => { if (src && img.getAttribute('data-vi') === String(i)) img.src = src; }).catch(() => {});
+    todo.push({ img, i, ph });
   });
+  if (!todo.length) return;
+  const CAP = 5;
+  let active = 0, next = 0;
+  const pump = () => {
+    while (active < CAP && next < todo.length) {
+      const { img, i, ph } = todo[next++];
+      active++;
+      _edlPhotoSrc(ph)
+        .then(src => { if (src && img.getAttribute('data-vi') === String(i)) img.src = src; })
+        .catch(() => {})
+        .finally(() => { active--; pump(); });
+    }
+  };
+  pump();
 }
 
 /* « 👁 Voir l'EDL » — vue lecture seule complète (pièces/états/obs/photos, compteurs, DAAF, clés,
@@ -31891,10 +31909,16 @@ function _edlHydrateVThumbs(root) {
 function edlOpenView(id) {
   const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
+  // UNE seule modale de consultation à la fois : le tableau _edlViewPhotos (index → photo) est
+  // partagé ; deux modales coexistantes le rendraient incohérent → mauvaise photo en plein écran
+  // (audit §1). On ferme donc l'autre avant d'ouvrir celle-ci.
+  _edlConsultClose('ov-edl-gal');
   _edlViewPhotos = [];
   const corps = _edlViewBodyHtml(edl);
   const share = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
-  const actions = `<button class="btn bs bb bprim" onclick="edlOpenGallery(${id})">🖼 Toutes les photos</button>
+  const _EPv = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  const nPhotos = _EPv ? _EPv.collectEdlPhotos(edl).length : 0;
+  const actions = `${nPhotos ? `<button class="btn bs bb bprim" onclick="edlOpenGallery(${id})">🖼 Toutes les photos (${nPhotos})</button>` : ''}
     <button class="btn bs bb" onclick="downloadEDLPdfNative(${id},{share:true})">${share ? '📤 Partager' : '⬇️ Télécharger le PDF'}</button>`;
   const st = `${edl.type || ''} · ${edl.logement || ''} · ${fd(edl.date) || ''}`;
   const o = _edlConsultShell('ov-edl-view', 'État des lieux', st, corps, actions);
@@ -31906,7 +31930,7 @@ function _edlViewBodyHtml(edl) {
   const H = [];
   H.push(`<div class="edl-v-id">
     <div><b>Logement</b> ${escHtml(edl.logement || '—')}${edl.adr ? (' · ' + escHtml(edl.adr)) : ''}</div>
-    <div><b>Date</b> ${fd(edl.date) || '—'}</div>
+    <div><b>Date</b> ${escHtml(fd(edl.date) || '—')}</div>
     <div><b>Type</b> ${escHtml(edl.type || '—')}</div>
     ${edl.locataire ? `<div><b>Locataire</b> ${escHtml(edl.locataire)}</div>` : ''}
   </div>`);
@@ -31930,7 +31954,12 @@ function _edlViewBodyHtml(edl) {
   });
   const CPT_ROWS = [['elec-num', 'N° compteur élec.'], ['elec-hp', 'Élec. HP'], ['elec-hc', 'Élec. HC'], ['gaz-num', 'N° compteur gaz'], ['gaz', 'Index gaz'], ['eau-c-num', 'N° eau chaude'], ['eau-c', 'Index eau chaude'], ['eau-f-num', 'N° eau froide'], ['eau-f', 'Index eau froide']];
   const cpt = edl.compteurs || {}, cptS = edl.compteursSortie || {};
-  const cptRows = CPT_ROWS.filter(([k]) => cpt[k] || cptS[k]).map(([k, lbl]) => `<div class="edl-v-kv"><b>${lbl}</b> ${escHtml(cpt[k] || '—')}${sortie ? (' → ' + escHtml(cptS[k] || '—')) : ''}</div>`).join('');
+  const cptRows = CPT_ROWS.filter(([k]) => cpt[k] || cptS[k]).map(([k, lbl]) => {
+    // Un N° de compteur ne change pas entre entrée et sortie → pas de « → — » trompeur (audit §4).
+    const isNum = /-num$/.test(k);
+    const valS = (sortie && !isNum) ? (' → ' + escHtml(cptS[k] || '—')) : '';
+    return `<div class="edl-v-kv"><b>${lbl}</b> ${escHtml(cpt[k] || '—')}${valS}</div>`;
+  }).join('');
   const cptPhotos = Object.keys(edl.compteursPhotos || {}).filter(k => k !== 'daaf').flatMap(k => (edl.compteursPhotos[k] || [])).map(_edlVThumb).join('');
   if (cptRows || cptPhotos) H.push(`<div class="edl-v-sec"><h4>Compteurs</h4>${cptRows ? `<div class="edl-v-kvs">${cptRows}</div>` : ''}${cptPhotos ? `<div class="edl-v-thumbs">${cptPhotos}</div>` : ''}</div>`);
   const daaf = edl.daaf;
@@ -31966,6 +31995,7 @@ function _edlViewBodyHtml(edl) {
 function edlOpenGallery(id) {
   const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
+  _edlConsultClose('ov-edl-view');  // une seule modale de consultation à la fois (audit §1)
   const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
   const items = _EP ? _EP.photosGalerie(edl) : [];
   _edlViewPhotos = [];
@@ -41988,7 +42018,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.564 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.565 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
