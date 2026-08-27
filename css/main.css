@@ -7830,22 +7830,11 @@ body[data-dash-v4="on"] .v4s-sb-logo {
   align-items: center;
   gap: 8px;
 }
-/* Logo validé (charte) : marque = carré arrondi CONTOUR corail + point corail (jamais un aplat plein). */
-body[data-dash-v4="on"] .v4s-sb-logo i {
-  position: relative;
-  width: 22px; height: 22px;
-  border-radius: 6px;
-  border: 2.2px solid var(--acc);
-  background: transparent;
-  display: inline-block;
-}
-body[data-dash-v4="on"] .v4s-sb-logo i::after {
-  content: "";
-  position: absolute;
-  right: 4px; bottom: 4px;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--acc);
+/* Logo validé : image SVG vectorisée (brand-assets/propryo-logo-dark.svg), mot blanc sur chrome sombre. */
+body[data-dash-v4="on"] .v4s-sb-logo .v4s-logo-img {
+  height: 28px;
+  width: auto;
+  display: block;
 }
 body[data-dash-v4="on"] .v4s-sb-logo .v4s-prem {
   color: var(--cta);
