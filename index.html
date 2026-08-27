@@ -243,6 +243,10 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-accueil .pil-q{display:inline-block;font-size:10.5px;font-weight:700;padding:2.5px 9px;border-radius:20px;white-space:nowrap;margin:1px 0}
         #p-accueil .pil-q.ko{background:var(--neg-soft);color:var(--neg)} #p-accueil .pil-q.wn{background:var(--warn-soft);color:var(--warn)} #p-accueil .pil-q.vac{background:var(--info-soft);color:var(--info)} #p-accueil .pil-q.adv{background:var(--adv-bg);color:var(--adv)}
         #p-accueil .pil-pile{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+        #p-accueil .pil-rep{font-size:9.5px;font-weight:800;letter-spacing:.3px;background:var(--adv-bg);color:var(--adv);border-radius:20px;padding:1px 6px;margin-left:6px;vertical-align:1px;text-transform:uppercase}
+        #pil-layer .pil-rep{font-size:10px;font-weight:800;letter-spacing:.3px;background:var(--adv-bg);color:var(--adv);border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:2px;text-transform:uppercase}
+        #pil-layer .pil-repbar{background:var(--adv-bg);color:var(--t2);font-size:11.5px;font-weight:600;padding:10px 17px;line-height:1.5;border-bottom:1px solid var(--bor2);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+        #pil-layer .pil-repbar .lk{margin-left:auto;border:0;background:0;color:var(--adv);font:inherit;font-size:11.5px;font-weight:800;cursor:pointer;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
         /* tablette / téléphone */
         @media(max-width:1100px){ #p-accueil .pil-duo{grid-template-columns:1fr} #p-accueil .pil-duo .pil-bub{grid-template-columns:repeat(4,1fr)} }
         @media(max-width:920px){ #p-accueil .pil-strip{grid-template-columns:repeat(3,1fr)} }
@@ -10200,11 +10204,28 @@ function _pilIrlDot(l) {
     return 'na';
   } catch (e) { return 'na'; }
 }
+// Bail repris (art. 1743) : les colonnes Bail / EDL / Caution ne demandent plus « as-tu signé ? »
+// mais « la pièce du vendeur est-elle là ? ». Sans mécanisme de dépôt/déclaration (R-2, chantier
+// dédié), la pièce du vendeur n'est jamais « détenue » via signature → on affiche 'ko' « à
+// réclamer » plutôt que le faux « non signé » qui restait rouge à vie sur un bien acheté occupé.
+const _PIL_REPRIS_COLS = { bail: 1, edl: 1, caut: 1 };
+function _pilEstRepris(bail) { return !!(bail && bail.typeContrat === 'repris'); }
+// Le geste d'une colonne pour un bail repris.
+const _PIL_MTX_ACT_REPRIS = { bail: 'Réclamer le bail au vendeur', edl: 'Réclamer l’EDL au vendeur', caut: 'Réclamer la caution au vendeur' };
+
 // Les 7 points d'un lot + le point de paiement (byLot, R-0) + le verdict + les actions.
 function _pilLotLigne(l, byLotEntry, today) {
   const bail = (DB.baux && DB.baux[l.ref]) || null;
+  const repris = _pilEstRepris(bail);
   const dots = _PIL_MTX_COLS.map(c => {
     if (c.k === 'irl') return _pilIrlDot(l);
+    // Bail repris : sur Bail/EDL/Caution, un statut « signé/présent » manquant = pièce du vendeur
+    // à réclamer (ko), pas un défaut de signature. Un 'na' (sans objet) reste 'na'.
+    if (repris && _PIL_REPRIS_COLS[c.k]) {
+      let st; try { st = _pilStatutDoc(bail, l, c.doc, today).statut; } catch (e) { st = 'na'; }
+      if (st === 'na') return 'na';
+      return _pilDocToDot(st) === 'ok' ? 'ok' : 'ko';
+    }
     try { return _pilDocToDot(_pilStatutDoc(bail, l, c.doc, today).statut); } catch (e) { return 'na'; }
   });
   // point de paiement du mois : lu de byLot (solde signé + dernier mois)
@@ -10220,12 +10241,17 @@ function _pilLotLigne(l, byLotEntry, today) {
     } else pay = 'pos';
   }
   const vacant = !l.locataire;
-  // actions : relocation d'un vide + toute colonne ko/wn
+  // actions : relocation d'un vide + toute colonne ko/wn (geste « réclamer au vendeur » si repris)
   const actions = [];
   if (vacant) actions.push({ g: 'vacant', label: 'Relouer', cls: 'vac' });
-  dots.forEach((d, i) => { if (d === 'ko' || d === 'wn') actions.push({ g: _PIL_MTX_COLS[i].k, label: _PIL_MTX_ACT[_PIL_MTX_COLS[i].k], cls: d }); });
+  dots.forEach((d, i) => {
+    if (d !== 'ko' && d !== 'wn') return;
+    const k = _PIL_MTX_COLS[i].k;
+    const label = (repris && _PIL_MTX_ACT_REPRIS[k]) ? _PIL_MTX_ACT_REPRIS[k] : _PIL_MTX_ACT[k];
+    actions.push({ g: k, label, cls: d });
+  });
   const verdict = vacant ? 'vac' : (dots.indexOf('ko') >= 0 ? 'ko' : (dots.indexOf('wn') >= 0 ? 'wn' : 'ok'));
-  return { ref: l.ref, imm: l.imm || '—', loyer: (Number(l.hc) || 0) + (Number(l.ch) || 0), dots, pay, actions, verdict, vacant };
+  return { ref: l.ref, imm: l.imm || '—', loyer: (Number(l.hc) || 0) + (Number(l.ch) || 0), dots, pay, actions, verdict, vacant, repris };
 }
 
 function _renderPilotage(ctx) {
@@ -10337,12 +10363,13 @@ function _renderPilMatrice(ctx) {
     let body = '';
     ligs.forEach(lig => {
       if (!garde(lig)) return;
+      const repBadge = lig.repris ? ' <span class="pil-rep" title="Bail repris à l’acquisition (art. 1743) — les pièces viennent du vendeur">repris</span>' : '';
       if (tel) {
         body += '<div class="pil-lc" data-pillot="' + esc(lig.ref) + '">'
-          + '<div class="pil-lc-h"><b>' + esc(lig.ref) + '</b><span class="pil-lc-l">' + loyerCell(lig) + '</span></div>'
+          + '<div class="pil-lc-h"><b>' + esc(lig.ref) + repBadge + '</b><span class="pil-lc-l">' + loyerCell(lig) + '</span></div>'
           + pileHtml(lig, true) + '</div>';
       } else {
-        body += '<tr data-pillot="' + esc(lig.ref) + '"><td class="l">' + esc(lig.ref) + '</td>'
+        body += '<tr data-pillot="' + esc(lig.ref) + '"><td class="l">' + esc(lig.ref) + repBadge + '</td>'
           + '<td class="r">' + loyerCell(lig) + '</td>'
           + lig.dots.map(d => '<td><span class="pil-d ' + d + '"></span></td>').join('')
           + '<td class="r">' + pileHtml(lig, false) + '</td></tr>';
@@ -10429,20 +10456,27 @@ function _pilOpenFiche(ref) {
   const l = (DB.logements || []).find(x => x && x.ref === ref); if (!l) return;
   const lig = _pilLotLigne(l, null, new Date());
   const SENS = { ok: 'en règle', wn: 'à compléter', ko: 'manquant', na: 'sans objet' };
+  // Bail repris : le sens des colonnes du vendeur change (pièce détenue / à réclamer).
+  const SENS_REP = { ok: 'pièce du vendeur détenue', ko: 'à réclamer au vendeur', na: 'sans objet' };
   let lignes = '';
   if (lig.vacant) lignes += '<div class="ck"><span class="d na"></span><span class="kn"><b>Occupation</b><s>lot vide</s></span>'
     + '<button type="button" class="go hot" data-pilact="vacant">Relouer ›</button></div>';
   _PIL_MTX_COLS.forEach((c, i) => {
     const d = lig.dots[i], k = (d === 'ko' || d === 'wn');
-    lignes += '<div class="ck"><span class="d ' + d + '"></span><span class="kn"><b>' + esc(c.l) + '</b><s>' + SENS[d] + '</s></span>'
-      + (k ? '<button type="button" class="go' + (d === 'ko' ? ' hot' : '') + '" data-pilact="' + c.k + '">' + esc(_PIL_MTX_ACT[c.k]) + ' ›</button>'
+    const rep = lig.repris && _PIL_REPRIS_COLS[c.k];
+    const sens = rep ? (SENS_REP[d] || SENS[d]) : SENS[d];
+    const act = rep && _PIL_MTX_ACT_REPRIS[c.k] ? _PIL_MTX_ACT_REPRIS[c.k] : _PIL_MTX_ACT[c.k];
+    lignes += '<div class="ck"><span class="d ' + d + '"></span><span class="kn"><b>' + esc(c.l) + '</b><s>' + sens + '</s></span>'
+      + (k ? '<button type="button" class="go' + (d === 'ko' ? ' hot' : '') + '" data-pilact="' + c.k + '">' + esc(act) + ' ›</button>'
         : '<span class="mut2">' + (d === 'na' ? 'sans objet' : 'à jour') + '</span>') + '</div>';
   });
   L.dataset.lot = ref;
+  const repBar = lig.repris ? '<div class="pil-repbar">Bien acheté occupé — le bail se poursuit aux conditions du vendeur (art. 1743). Les pièces proviennent du vendeur, pas du bailleur actuel.'
+    + '<button type="button" class="lk" data-pilact="bail-modif">Modifier dans le bail ›</button></div>' : '';
   L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh">'
-    + '<div class="sh-h"><span class="ttl"><b>' + esc(ref) + '</b><s>' + esc(lig.imm) + ' · ' + (lig.loyer ? fmt(lig.loyer) : 'lot vacant') + '</s></span>'
+    + '<div class="sh-h"><span class="ttl"><b>' + esc(ref) + (lig.repris ? ' <span class="pil-rep">repris</span>' : '') + '</b><s>' + esc(lig.imm) + ' · ' + (lig.loyer ? fmt(lig.loyer) : 'lot vacant') + '</s></span>'
     + '<button type="button" class="x" data-pilclose="1" aria-label="Fermer">✕</button></div>'
-    + '<div class="sh-b">' + lignes + '</div></div></div>';
+    + repBar + '<div class="sh-b">' + lignes + '</div></div></div>';
 }
 
 // Geste cliqué dans la fiche → l'écran d'action réel (l'onglet concerné, pré-ciblé).
@@ -10451,6 +10485,7 @@ function _pilActionGeste(ref, geste) {
   const l = (DB.logements || []).find(x => x && x.ref === ref);
   try {
     if (geste === 'vacant') { go('biens'); }
+    else if (geste === 'bail-modif') { if (typeof openBail === 'function') openBail(ref); else go('baux'); }   // bail repris → régler le « Type de contrat »
     else if (geste === 'entr') { if (typeof openLogFiche === 'function') { openLogFiche(ref); if (typeof setLogFicheTab === 'function') setTimeout(() => setLogFicheTab('conformite'), 200); } else go('equipements'); }
     else if (geste === 'bail') { if (typeof openBail === 'function') openBail(ref); else go('baux'); }
     else if (geste === 'edl') { go('edl'); }
