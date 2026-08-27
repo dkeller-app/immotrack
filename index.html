@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.558</title>
+<title>Propryo v15.559</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4214,7 +4214,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.558';
+const IMMOTRACK_VERSION = '15.559';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -33839,6 +33839,16 @@ async function openLastEDLPDF(id) {
 /* v14.10.5 : télécharge le PDF EDL en local (mail / WhatsApp / archive perso).
    Pas d'upload Drive — pour ça utiliser uploadEDLPDFToDrive séparément.
    Pas besoin de Drive connecté pour télécharger. */
+// #7 (retour Didier 27/08) — la feuille de partage native ne doit s'ouvrir que sur MOBILE/TABLETTE
+// (tactile). Sur PC (souris), Windows sait aussi « partager » mais l'utilisateur veut TÉLÉCHARGER :
+// on force le repli téléchargement. Heuristique : UA mobile OU pointeur grossier (tactile primaire).
+function _edlPrefersShare() {
+  try {
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) return true;
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(pointer:coarse)').matches) return true;
+  } catch (e) {}
+  return false;
+}
 async function downloadEDLPdfNative(id, opts) {
   const { share = false } = opts || {};
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
@@ -33852,7 +33862,7 @@ async function downloadEDLPdfNative(id, opts) {
     // #1 (retour Didier 26/08) — PARTAGE direct (WhatsApp, mail, AirDrop…) via l'API Web Share
     // avec fichiers : marche sur iOS, Android ET tablette. Repli téléchargement sur PC ou
     // navigateur sans support. (AbortError = l'utilisateur a fermé la feuille → on ne fait rien.)
-    if (share && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function') {
+    if (share && _edlPrefersShare() && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function') {
       try {
         const file = new File([blob], fileName, { type: 'application/pdf' });
         if (navigator.canShare({ files: [file] })) {
@@ -33924,7 +33934,7 @@ async function _edlSharePhotos(id) {
     }
     if (!files.length) { showToast('Photos indisponibles (hors ligne ?)', 'warn', 4000); return; }
     // Partage natif (iOS/Android/tablette) — une seule feuille avec toutes les photos.
-    if (typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files })) {
+    if (_edlPrefersShare() && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files })) {
       try {
         await navigator.share({ files, title: 'Photos état des lieux', text: `Photos — ${edl.logement}` });
         return;
@@ -41681,7 +41691,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.558 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.559 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
