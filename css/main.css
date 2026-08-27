@@ -527,7 +527,7 @@ a{color:var(--acc);text-decoration:none}
 .sb.sb-collapsed .sb-logo-utils{opacity:0;pointer-events:none;width:0;overflow:hidden}
 .sb-logo-icon{font-size:22px;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;color:#fff}
 .sb-logo-text{display:flex;flex-direction:column;gap:1px;overflow:hidden;white-space:nowrap;transition:opacity 180ms,width 180ms}
-.sb-logo-text strong{font-family:var(--display);font-weight:800;font-size:16px;color:#fff;letter-spacing:-.02em}
+.sb-logo-text strong{font-family:var(--display);font-weight:700;font-size:16px;color:#fff;letter-spacing:-.02em}
 .sb-logo-text em{
   font-size:10px;color:rgba(255,255,255,.45);font-style:normal;letter-spacing:.4px;
   font-weight:600;text-transform:uppercase;
@@ -7821,7 +7821,7 @@ html[data-theme="dark"] body[data-dash-v4="on"] .sb-nav {
 }
 body[data-dash-v4="on"] .v4s-sb-logo {
   font-family: var(--display);
-  font-weight: 800;
+  font-weight: 700; /* logo = Schibsted Grotesk Bold 700 (réf. business plan) */
   font-size: 14px;
   letter-spacing: .04em;
   color: var(--t1);

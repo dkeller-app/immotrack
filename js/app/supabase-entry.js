@@ -1643,7 +1643,7 @@ function injectStyles() {
   /* Logo validé : marque = carré arrondi CONTOUR corail + point corail (jamais d'aplat, pas d'ombre). */
   .imsb-mark{position:relative;width:36px;height:36px;border-radius:var(--r);background:transparent;border:2.5px solid var(--accent);flex-shrink:0}
   .imsb-mark::after{content:"";position:absolute;right:6px;bottom:6px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
-  .imsb-name{font-weight:var(--display-w)}
+  .imsb-name{font-weight:700}  /* logo = Schibsted Grotesk Bold 700 (réf. business plan), pas le 800 des titres */
   .imsb-nav-right{display:flex;align-items:center;gap:24px}
   .imsb-nav-links{display:flex;align-items:center;gap:28px;font-size:14.5px;font-weight:600;color:var(--ink-2)}
   .imsb-nav-link:hover{color:var(--accent)}
