@@ -208,19 +208,66 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-accueil .pil-calme .ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
         #p-accueil .pil-calme b{font-size:14.5px;font-weight:700;display:block}
         #p-accueil .pil-calme s{text-decoration:none;font-size:12px;color:var(--t3);font-weight:600;line-height:1.45;display:block;margin-top:2px}
+        /* deux colonnes : bulles à gauche (~380 px), matrice à droite */
+        #p-accueil .pil-duo{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:14px;align-items:start}
+        #p-accueil .pil-col-left{min-width:0}
+        #p-accueil .pil-col-right{min-width:0}
+        #p-accueil .pil-duo .pil-bub{grid-template-columns:repeat(2,1fr)}
+        /* matrice de conformité */
+        #p-accueil .pil-mtx{background:var(--sur);border:1px solid var(--bor);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,21,33,.04)}
+        #p-accueil .pil-mtx-h{display:flex;align-items:center;gap:10px;padding:11px 15px 10px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
+        #p-accueil .pil-mtx-h b{font-size:12.5px;font-weight:800}
+        #p-accueil .pil-mtx-h .cnt{font-size:11px;font-weight:700;color:var(--t3)}
+        #p-accueil .pil-mtx-h .fl{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap}
+        #p-accueil .pil-mtx-h .fl button{border:1px solid var(--bor);background:var(--sur);color:var(--t2);font:inherit;font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:20px;cursor:pointer;white-space:nowrap}
+        #p-accueil .pil-mtx-h .fl button[aria-pressed="true"]{background:var(--t1);color:var(--bg);border-color:var(--t1)}
+        #p-accueil .pil-mtx-h .fchip{border:0;background:var(--acc-soft);color:var(--acc);font:inherit;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;cursor:pointer}
+        #p-accueil .pil-lgd{display:flex;gap:12px;flex-wrap:wrap;padding:7px 15px;border-bottom:1px solid var(--bor);font-size:10.5px;font-weight:700;color:var(--t3)}
+        #p-accueil .pil-lgd span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+        #p-accueil .pil-mtx-s{overflow:auto;max-height:560px;scrollbar-width:thin}
+        #p-accueil table.pil-mx{width:100%;border-collapse:collapse;font-size:12.5px}
+        #p-accueil table.pil-mx th{position:sticky;top:0;background:var(--sur);z-index:2;text-align:center;font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);padding:7px 4px;border-bottom:1px solid var(--bor);white-space:nowrap}
+        #p-accueil table.pil-mx th.l{text-align:left;padding-left:15px} #p-accueil table.pil-mx th.r{text-align:right;padding-right:15px}
+        #p-accueil table.pil-mx td{padding:7px 4px;border-bottom:1px solid var(--bor2);text-align:center;vertical-align:top}
+        #p-accueil table.pil-mx td.l{text-align:left;padding-left:15px;font-weight:700}
+        #p-accueil table.pil-mx td.r{text-align:right;padding-right:15px;font-variant-numeric:tabular-nums;font-weight:600;color:var(--t2);white-space:nowrap}
+        #p-accueil table.pil-mx tr.grp td{background:var(--sur2);font-size:10.5px;font-weight:800;color:var(--t2);padding:5px 15px;text-align:left}
+        #p-accueil table.pil-mx tbody tr:not(.grp){cursor:pointer}
+        #p-accueil table.pil-mx tbody tr:not(.grp):hover td{background:var(--sur2)}
+        #p-accueil .pil-d{display:inline-block;width:9px;height:9px;border-radius:50%}
+        #p-accueil .pil-d.ok{background:var(--pos)} #p-accueil .pil-d.ko{background:var(--neg)} #p-accueil .pil-d.wn{background:var(--warn)}
+        #p-accueil .pil-d.dcl{background:var(--sur);box-shadow:inset 0 0 0 2px var(--pos)} #p-accueil .pil-d.na{background:var(--bor);width:7px;height:7px}
+        #p-accueil .pil-pd{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+        #p-accueil .pil-pd.pos{background:var(--pos)} #p-accueil .pil-pd.warn{background:var(--warn)} #p-accueil .pil-pd.neg{background:var(--neg)} #p-accueil .pil-pd.adv{background:var(--adv)} #p-accueil .pil-pd.na{background:transparent;border:1px solid var(--bor)}
+        #p-accueil .pil-q{display:inline-block;font-size:10.5px;font-weight:700;padding:2.5px 9px;border-radius:20px;white-space:nowrap;margin:1px 0}
+        #p-accueil .pil-q.ko{background:var(--neg-soft);color:var(--neg)} #p-accueil .pil-q.wn{background:var(--warn-soft);color:var(--warn)} #p-accueil .pil-q.vac{background:var(--info-soft);color:var(--info)} #p-accueil .pil-q.adv{background:var(--adv-bg);color:var(--adv)}
+        #p-accueil .pil-pile{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
         /* tablette / téléphone */
+        @media(max-width:1100px){ #p-accueil .pil-duo{grid-template-columns:1fr} #p-accueil .pil-duo .pil-bub{grid-template-columns:repeat(4,1fr)} }
         @media(max-width:920px){ #p-accueil .pil-strip{grid-template-columns:repeat(3,1fr)} }
         @media(max-width:560px){
           #p-accueil .pil-strip{grid-template-columns:repeat(2,1fr);gap:8px}
-          #p-accueil .pil-bub{grid-template-columns:repeat(2,1fr);gap:8px}
+          #p-accueil .pil-duo .pil-bub{grid-template-columns:repeat(2,1fr);gap:8px}
           #p-accueil .pil-b .a{font-size:17px;white-space:normal;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
           #p-accueil .pil-b .sub{display:none}
+          /* téléphone : la matrice devient une liste de cartes */
+          #p-accueil .pil-mtx-s{max-height:none}
+          #p-accueil .pil-lc{background:var(--sur2);border:1px solid var(--bor2);border-radius:13px;padding:10px 12px;margin:6px 10px;cursor:pointer}
+          #p-accueil .pil-lc-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
+          #p-accueil .pil-lc-h b{font-size:13px;font-weight:800}
+          #p-accueil .pil-lc-l{font-size:12.5px;font-weight:700;color:var(--t2);font-variant-numeric:tabular-nums;white-space:nowrap}
+          #p-accueil .pil-lc .pil-pile{flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:5px}
+          #p-accueil .pil-lgrp{font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--t3);margin:8px 12px 1px}
+          #p-accueil .pil-lc-ok{font-size:11px;font-weight:600;color:var(--t3)}
         }
       </style>
       <section class="pil" id="pil-root">
         <div id="cand-inbox-banner"></div>
         <div id="pil-strip"></div>
-        <div id="pil-bulles"></div>
+        <div class="pil-duo" id="pil-duo">
+          <div class="pil-col-left"><div id="pil-bulles"></div></div>
+          <div class="pil-col-right"><div id="pil-matrice"></div></div>
+        </div>
       </section>
       <div id="pil-layer"></div>
     </div>
@@ -10083,6 +10130,67 @@ function _pilBulleHtml(f, premier) {
     + '</button>';
 }
 
+// ── Matrice de conformité : les 7 colonnes d'un lot (CDC §2.5) ──
+// Chaque case = un point de statut (ok/wn/ko/na). Les 6 premières viennent de _pilStatutDoc
+// (module entretien-statut branché pour « Entretiens ») ; la 7ᵉ (Révision IRL) de irlClassifier.
+const _PIL_MTX_COLS = [
+  { k: 'bail', l: 'Bail', doc: 'bail' },
+  { k: 'edl', l: 'EDL', doc: 'edl' },
+  { k: 'ass', l: 'Assurance', doc: 'mrh' },
+  { k: 'diag', l: 'Diagnostics', doc: 'ddt' },
+  { k: 'entr', l: 'Entretiens', doc: 'chauffage' },
+  { k: 'caut', l: 'Caution', doc: 'caution' },
+  { k: 'irl', l: 'Révision', doc: null }   // IRL — résolveur dédié
+];
+// Le geste à faire par colonne manquante (R-1 : infinitif).
+const _PIL_MTX_ACT = { bail: 'Signer le bail', edl: 'Faire l’EDL', ass: 'Obtenir l’assurance', diag: 'Compléter les diagnostics', entr: 'Planifier l’entretien', caut: 'Faire signer la caution', irl: 'Réviser le loyer' };
+
+// Traduit un statut _pilStatutDoc en classe de point de la matrice.
+function _pilDocToDot(statut) {
+  if (statut === 'ok') return 'ok';
+  if (statut === 'na') return 'na';
+  if (statut === 'soon' || statut === 'partial') return 'wn';
+  return 'ko';   // absent, expire, ko
+}
+// Statut IRL d'un lot → point.
+function _pilIrlDot(l) {
+  try {
+    if (!l.locataire || !l.debut || typeof computeIRLRevision !== 'function') return 'na';
+    const rev = computeIRLRevision(l);
+    if (!rev || rev.insuffisant || rev.pasEncoreApplicable) return 'na';
+    if (rev.dejaApplique) return 'ok';
+    if (rev.isApplicable && rev.diff !== 0) return 'ko';   // exigible, non appliquée
+    return 'na';
+  } catch (e) { return 'na'; }
+}
+// Les 7 points d'un lot + le point de paiement (byLot, R-0) + le verdict + les actions.
+function _pilLotLigne(l, byLotEntry, today) {
+  const bail = (DB.baux && DB.baux[l.ref]) || null;
+  const dots = _PIL_MTX_COLS.map(c => {
+    if (c.k === 'irl') return _pilIrlDot(l);
+    try { return _pilDocToDot(_pilStatutDoc(bail, l, c.doc, today).statut); } catch (e) { return 'na'; }
+  });
+  // point de paiement du mois : lu de byLot (solde signé + dernier mois)
+  let pay = 'na';
+  if (l.locataire) {
+    if (byLotEntry) {
+      const s = byLotEntry.solde;
+      if (s > 0.5) pay = 'adv'; else if (s < -0.5) pay = 'neg';
+      else {
+        const m = byLotEntry.months[byLotEntry.months.length - 1];
+        pay = (m && (m.loyerRetard + m.chargeRetard) > 0.5) ? 'warn' : 'pos';
+      }
+    } else pay = 'pos';
+  }
+  const vacant = !l.locataire;
+  // actions : relocation d'un vide + toute colonne ko/wn
+  const actions = [];
+  if (vacant) actions.push({ g: 'vacant', label: 'Relouer', cls: 'vac' });
+  dots.forEach((d, i) => { if (d === 'ko' || d === 'wn') actions.push({ g: _PIL_MTX_COLS[i].k, label: _PIL_MTX_ACT[_PIL_MTX_COLS[i].k], cls: d }); });
+  const verdict = vacant ? 'vac' : (dots.indexOf('ko') >= 0 ? 'ko' : (dots.indexOf('wn') >= 0 ? 'wn' : 'ok'));
+  return { ref: l.ref, imm: l.imm || '—', loyer: (Number(l.hc) || 0) + (Number(l.ch) || 0), dots, pay, actions, verdict, vacant };
+}
+
 function _renderPilotage(ctx) {
   const { scopeLogs, yr, mo, activeEnt } = ctx;
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
@@ -10125,15 +10233,98 @@ function _renderPilotage(ctx) {
     bullesEl.innerHTML = '<div class="pil-zt"><b>Ce qui presse</b><i></i></div>'
       + '<div class="pil-calme"><span class="ic"><svg viewBox="0 0 24 24">' + _PIL_ICONS.ok + '</svg></span>'
       + '<span><b>Rien ne presse aujourd’hui.</b><s>Aucune action requise sur le périmètre affiché.</s></span></div>';
+  } else {
+    const premierId = fams.familles[0] ? fams.familles[0].id : null;
+    bullesEl.innerHTML = '<div class="pil-zt"><b>Ce qui presse</b><i></i><em>' + fams.total + ' au total</em></div>'
+      + fams.parZone.map(z =>
+        '<div class="pil-zbloc"><div class="pil-zt"><b>' + esc(z.titre) + '</b><i></i><em>' + z.count + ' à traiter</em></div>'
+        + '<div class="pil-bub">' + z.familles.map(f => _pilBulleHtml(f, f.id === premierId)).join('') + '</div></div>'
+      ).join('');
+  }
+
+  // ── La matrice de conformité (toujours rendue, même quand rien ne presse) ──
+  _renderPilMatrice(ctx);
+}
+
+// Filtre courant de la matrice ('tous' | 'ko' | 'vac'), persistant le temps de la session.
+let _pilMtxFilter = 'tous';
+function _renderPilMatrice(ctx) {
+  const { scopeLogs, yr, activeEnt } = ctx;
+  const host = el('pil-matrice'); if (!host) return;
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
+  const tel = (typeof window !== 'undefined' && window.innerWidth && window.innerWidth <= 560);
+  const today = new Date();
+  // byLot du moteur (R-0) pour le point de paiement.
+  let byLot = {};
+  try {
+    const scope = (typeof _finEntScope === 'function') ? _finEntScope(activeEnt || '', '') : null;
+    const W = (typeof _finWindows === 'function') ? _finWindows(parseInt(yr, 10), scope) : null;
+    const r = (typeof _finMonthly === 'function') ? _finMonthly(parseInt(yr, 10), scope, W ? W.constat : undefined) : null;
+    if (r && r.byLot) byLot = r.byLot;
+  } catch (e) {}
+
+  // Grouper les lots par immeuble, calculer chaque ligne.
+  const parImm = {};
+  let nTot = 0, nKo = 0;
+  scopeLogs.forEach(l => {
+    const lig = _pilLotLigne(l, byLot[l.ref], today);
+    nTot++; if (lig.verdict === 'ko' || lig.verdict === 'wn') nKo++;
+    (parImm[lig.imm] = parImm[lig.imm] || []).push(lig);
+  });
+  const garde = (lig) => _pilMtxFilter === 'tous' || (_pilMtxFilter === 'ko' && (lig.verdict === 'ko' || lig.verdict === 'wn')) || (_pilMtxFilter === 'vac' && lig.vacant);
+
+  const PAY_TITRE = { pos: 'soldé', warn: 'partiel', neg: 'en retard', adv: 'payé d’avance', na: 'hors bail' };
+  const pileHtml = (lig, telMode) => {
+    const act = telMode ? lig.actions : lig.actions.filter(a => a.g === 'vacant');
+    if (!act.length) return telMode ? '<div class="pil-lc-ok">rien à faire</div>' : '';
+    return '<div class="pil-pile">' + act.map(a => '<span class="pil-q ' + (a.cls === 'vac' ? 'vac' : a.cls) + '">' + esc(a.label) + '</span>').join('') + '</div>';
+  };
+  const loyerCell = (lig) => '<span class="pil-pd ' + lig.pay + '" title="' + PAY_TITRE[lig.pay] + '"></span>' + (lig.loyer ? fmt(lig.loyer) : '—');
+
+  let corps = '';
+  Object.keys(parImm).forEach(imm => {
+    const ligs = parImm[imm];
+    let body = '';
+    ligs.forEach(lig => {
+      if (!garde(lig)) return;
+      if (tel) {
+        body += '<div class="pil-lc" data-pillot="' + esc(lig.ref) + '">'
+          + '<div class="pil-lc-h"><b>' + esc(lig.ref) + '</b><span class="pil-lc-l">' + loyerCell(lig) + '</span></div>'
+          + pileHtml(lig, true) + '</div>';
+      } else {
+        body += '<tr data-pillot="' + esc(lig.ref) + '"><td class="l">' + esc(lig.ref) + '</td>'
+          + '<td class="r">' + loyerCell(lig) + '</td>'
+          + lig.dots.map(d => '<td><span class="pil-d ' + d + '"></span></td>').join('')
+          + '<td class="r">' + pileHtml(lig, false) + '</td></tr>';
+      }
+    });
+    if (body) corps += tel ? ('<div class="pil-lgrp">' + esc(imm) + ' — ' + ligs.length + ' lots</div>' + body)
+      : ('<tr class="grp"><td colspan="' + (3 + _PIL_MTX_COLS.length) + '">' + esc(imm) + ' — ' + ligs.length + ' lots</td></tr>' + body);
+  });
+
+  const famF = _pilMtxFamActive ? (window._PIL_FAMILLES || []).find(f => f.id === _pilMtxFamActive) : null;
+  const tete = '<div class="pil-mtx-h"><b>Conformité du parc</b>'
+    + (famF ? '<button type="button" class="fchip" data-pilclearfam="1">' + esc(famF.lbl) + ' ✕</button>' : '')
+    + '<span class="cnt">' + (nTot - nKo) + ' / ' + nTot + ' en règle</span>'
+    + '<span class="fl">' + [['tous', 'Tous'], ['ko', 'À compléter'], ['vac', 'Vacants']].map(k =>
+      '<button type="button" data-pilfl="' + k[0] + '" aria-pressed="' + (_pilMtxFilter === k[0]) + '">' + k[1] + '</button>').join('') + '</span></div>';
+
+  if (tel) {
+    host.innerHTML = '<div class="pil-mtx">' + tete + '<div class="pil-mtx-s">' + (corps || '<div class="pil-lgrp">Aucun lot</div>') + '</div></div>';
     return;
   }
-  const premierId = fams.familles[0] ? fams.familles[0].id : null;
-  bullesEl.innerHTML = '<div class="pil-zt"><b>Ce qui presse</b><i></i><em>' + fams.total + ' au total</em></div>'
-    + fams.parZone.map(z =>
-      '<div class="pil-zbloc"><div class="pil-zt"><b>' + esc(z.titre) + '</b><i></i><em>' + z.count + ' à traiter</em></div>'
-      + '<div class="pil-bub">' + z.familles.map(f => _pilBulleHtml(f, f.id === premierId)).join('') + '</div></div>'
-    ).join('');
+  const lgd = '<div class="pil-lgd"><span><i class="pil-d ok"></i>en règle</span>'
+    + '<span><i class="pil-d dcl"></i>classé hors de l’app</span>'
+    + '<span><i class="pil-d wn"></i>à compléter</span><span><i class="pil-d ko"></i>manquant</span>'
+    + '<span><i class="pil-d na"></i>sans objet</span></div>';
+  host.innerHTML = '<div class="pil-mtx">' + tete + lgd
+    + '<div class="pil-mtx-s"><table class="pil-mx"><thead><tr><th class="l">Lot</th><th class="r">Loyer · paiement</th>'
+    + _PIL_MTX_COLS.map(c => '<th>' + esc(c.l) + '</th>').join('') + '<th class="r">À faire</th></tr></thead><tbody>'
+    + (corps || '<tr><td colspan="' + (3 + _PIL_MTX_COLS.length) + '" style="padding:16px;text-align:center;color:var(--t3)">Aucun lot</td></tr>')
+    + '</tbody></table></div></div>';
 }
+// Famille active filtrant la matrice (posée par la chaîne de clic, lot 1c) — déclarée ici pour le rendu.
+let _pilMtxFamActive = null;
 
 function _renderAccueil(ctx) {
   const {scopeLogs, mvs, mvsYTD, yr, mo} = ctx;
