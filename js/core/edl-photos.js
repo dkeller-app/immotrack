@@ -59,6 +59,10 @@ export function metaPhoto(ph) {
     ts: p.ts || '',
     // Le SEUL juge de « à l'abri » (invariant 7) : il ne doit jamais se perdre.
     cloudKey: p.cloudKey || '',
+    // Invariant 20 (retour Didier 27/08) : une photo dont le binaire local a disparu
+    // (éviction stockage iOS) est marquée ICI pour être NOMMÉE à l'utilisateur (« à
+    // reprendre ») au lieu de bloquer le compteur à N‑1 en silence. Doit survivre au save.
+    binaireManquant: !!p.binaireManquant,
     // Héritages Google Drive : conservés pour ne rien détruire, jamais lus.
     synced: !!p.synced,
     driveFileId: p.driveFileId || '',
@@ -82,9 +86,32 @@ export function compterAlAbri(photos) {
   return { total: l.length, alAbri, restantes: l.length - alAbri };
 }
 
-/** Ce qu'il reste à envoyer : tout ce qui n'a pas de cloudKey. Rien d'autre. */
+/**
+ * Ce qu'il reste à envoyer : ce qui a un idbKey, pas encore de cloudKey, ET dont le binaire
+ * local n'est pas déclaré perdu. On exclut `binaireManquant` sinon la photo se ré-enfile et se
+ * re-jette à l'infini (boucle « 3/4 » éternelle) — elle relève de « à reprendre », pas d'un envoi.
+ */
 export function photosAEnvoyer(photos) {
-  return (photos || []).filter(ph => ph && ph.idbKey && !estAlAbri(ph));
+  return (photos || []).filter(ph => ph && ph.idbKey && !estAlAbri(ph) && !ph.binaireManquant);
+}
+
+/**
+ * État de sauvegarde cloud d'un EDL pour la LISTE — calme, JAMAIS de fraction anxiogène
+ * (décision Didier 27/08). Quatre états seulement :
+ *   - 'vide'       : aucune photo → rien à afficher ;
+ *   - 'perte'      : ≥1 photo au binaire local perdu (à reprendre) → NOMMÉE, distincte ;
+ *   - 'en-cours'   : il reste des photos à monter (binaires présents) → « sauvegarde en cours » ;
+ *   - 'sauvegarde' : toutes les photos sont dans le cloud → « sauvegardé ».
+ * `perdues` liste les objets photo perdus (pour les nommer). On ne montre jamais « X/Y ».
+ */
+export function etatSauvegarde(photos) {
+  const l = photos || [];
+  if (!l.length) return { statut: 'vide', total: 0, perdues: [], enAttente: 0 };
+  const perdues = l.filter(ph => ph && ph.binaireManquant && !estAlAbri(ph));
+  const enAttente = l.filter(ph => ph && ph.idbKey && !estAlAbri(ph) && !ph.binaireManquant).length;
+  if (perdues.length) return { statut: 'perte', total: l.length, perdues, enAttente };
+  if (enAttente > 0) return { statut: 'en-cours', total: l.length, perdues: [], enAttente };
+  return { statut: 'sauvegarde', total: l.length, perdues: [], enAttente: 0 };
 }
 
 /**

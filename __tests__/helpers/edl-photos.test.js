@@ -174,7 +174,7 @@ describe('photoIndexByKey — retrouver le cloudKey d’une vignette à hydrater
 
 import {
   PHOTO_MAX_PX, PHOTO_QUALITE, dimensionsRedimensionnees, metaPhoto,
-  estAlAbri, compterAlAbri, photosAEnvoyer, cheminRelecture, peutLibererLocal,
+  estAlAbri, compterAlAbri, photosAEnvoyer, cheminRelecture, peutLibererLocal, etatSauvegarde,
 } from '../../js/core/edl-photos.js';
 
 describe('dimensionsRedimensionnees — invariant 10 : UN seul calibre', () => {
@@ -236,6 +236,56 @@ describe('estAlAbri / photosAEnvoyer — invariant 7 : le cloudKey seul juge', (
   });
   it('une photo sans idbKey n’est pas envoyable', () => {
     expect(photosAEnvoyer([{ name: 'orpheline' }])).toHaveLength(0);
+  });
+  it('une photo au binaire perdu (binaireManquant) N’EST PLUS ré-enfilée (fin de la boucle 3/4)', () => {
+    const ph = { idbKey: 'a', binaireManquant: true };
+    expect(photosAEnvoyer([ph])).toHaveLength(0);
+    // mais si elle a fini par recevoir un cloudKey, elle est à l'abri (le flag ne la condamne pas)
+    expect(estAlAbri({ idbKey: 'a', binaireManquant: true, cloudKey: 'esp/ent/files/a' })).toBe(true);
+  });
+});
+
+describe('metaPhoto — binaireManquant survit à l’enregistrement (invariant 20)', () => {
+  it('conserve le marqueur de perte locale au fil des ré-enregistrements', () => {
+    let ph = { idbKey: 'ph_x', binaireManquant: true };
+    for (let i = 0; i < 100; i++) ph = metaPhoto(ph);
+    expect(ph.binaireManquant).toBe(true);
+  });
+  it('par défaut une photo n’est pas déclarée perdue', () => {
+    expect(metaPhoto({ idbKey: 'ph_y' }).binaireManquant).toBe(false);
+  });
+});
+
+describe('etatSauvegarde — indicateur calme de la liste, JAMAIS de fraction (décision 27/08)', () => {
+  it('aucune photo → vide', () => {
+    expect(etatSauvegarde([]).statut).toBe('vide');
+    expect(etatSauvegarde(null).statut).toBe('vide');
+  });
+  it('toutes montées → sauvegarde', () => {
+    const p = [{ idbKey: 'a', cloudKey: 'k/a' }, { idbKey: 'b', cloudKey: 'k/b' }];
+    expect(etatSauvegarde(p)).toMatchObject({ statut: 'sauvegarde', total: 2, enAttente: 0 });
+  });
+  it('il reste des photos à monter (binaires présents) → en-cours', () => {
+    const p = [{ idbKey: 'a', cloudKey: 'k/a' }, { idbKey: 'b' }];
+    expect(etatSauvegarde(p)).toMatchObject({ statut: 'en-cours', enAttente: 1 });
+  });
+  it('une photo au binaire perdu prime → perte, et la NOMME', () => {
+    const p = [{ idbKey: 'a', cloudKey: 'k/a' }, { idbKey: 'b', name: 'salon-2.jpg', binaireManquant: true }];
+    const st = etatSauvegarde(p);
+    expect(st.statut).toBe('perte');
+    expect(st.perdues).toHaveLength(1);
+    expect(st.perdues[0].name).toBe('salon-2.jpg');
+  });
+  it('perte et attente coexistent : le statut « perte » l’emporte (le plus grave, actionnable)', () => {
+    const p = [{ idbKey: 'a' }, { idbKey: 'b', binaireManquant: true }];
+    const st = etatSauvegarde(p);
+    expect(st.statut).toBe('perte');
+    expect(st.enAttente).toBe(1);
+  });
+  it('ne renvoie JAMAIS de champ fraction/restantes (compteur anxiogène banni)', () => {
+    const st = etatSauvegarde([{ idbKey: 'a' }]);
+    expect(st).not.toHaveProperty('restantes');
+    expect(st).not.toHaveProperty('alAbri');
   });
 });
 

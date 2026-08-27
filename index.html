@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.560</title>
+<title>Propryo v15.561</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4214,7 +4214,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.560';
+const IMMOTRACK_VERSION = '15.561';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -31792,6 +31792,76 @@ function _alive(coll) {
   return coll;
 }
 
+/* Indicateur de sauvegarde cloud CALME de la liste (décision Didier 27/08 : jamais de fraction
+   anxiogène « 3/4 »). Rendu SEULEMENT si le cloud est actif (faux en test/sandbox). Le <span>
+   conteneur porte data-edl-id → _edlRenderListBadges peut le rafraîchir sans re-render complet. */
+function _edlCloudBadgeHtml(e) {
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  let inner = '';
+  if (_EP && typeof _immoCloudActive === 'function' && _immoCloudActive()) {
+    const st = _EP.etatSauvegarde(_EP.collectEdlPhotos(e));
+    if (st.statut === 'sauvegarde') {
+      inner = '<span class="edl-cloud-ok" title="Toutes les photos sont sauvegardées dans le cloud">☁️ Sauvegardé</span>';
+    } else if (st.statut === 'en-cours') {
+      inner = '<span class="edl-cloud-wip" title="Sauvegarde des photos dans le cloud en cours…">☁️ Sauvegarde en cours…</span>';
+    } else if (st.statut === 'perte') {
+      const noms = st.perdues.map(p => p && p.name).filter(Boolean).join(', ');
+      const n = st.perdues.length;
+      inner = '<span class="edl-cloud-warn" title="Photo(s) à reprendre : ' + escHtml(noms || 'sans nom') + '">⚠️ ' + n + ' photo' + (n > 1 ? 's' : '') + ' à reprendre</span>';
+    }
+  }
+  return '<span class="edl-cloud-badge" data-edl-id="' + e.id + '">' + (inner ? ' ' + inner : '') + '</span>';
+}
+
+/* Rafraîchit UNIQUEMENT les badges cloud déjà présents dans la liste (aucun re-render de la
+   table, aucun re-déclenchement de la file). Appelé en fin de drain (D2). */
+function _edlRenderListBadges() {
+  try {
+    document.querySelectorAll('#edl-tbody span.edl-cloud-badge[data-edl-id]').forEach(span => {
+      const id = parseInt(span.getAttribute('data-edl-id'));
+      const e = (DB.edl || []).find(x => x.id === id && !x._deleted);
+      if (e) span.outerHTML = _edlCloudBadgeHtml(e);
+    });
+  } catch (err) { console.warn('[edl badges] refresh', err); }
+}
+
+/* D3 — depuis la LISTE : ré-enfile ce qui reste à monter pour les EDL affichés, puis draine.
+   Regarder ses EDL suffit à relancer la sauvegarde cloud (plus besoin d'ouvrir chacun). */
+function _edlKickListUploads(list) {
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (!_EP || typeof _immoCloudActive !== 'function' || !_immoCloudActive()) return;
+  (list || []).forEach(e => {
+    _EP.photosAEnvoyer(_EP.collectEdlPhotos(e)).forEach(ph => {
+      if (_edlFileEnvoi.some(j => j.idbKey === ph.idbKey)) return;
+      _edlFileEnvoi.push({ idbKey: ph.idbKey, edlId: e.id });
+    });
+  });
+  _edlDrainerFileEnvoi();
+}
+
+/* « 👁 Voir » — ouvre le PDF de l'EDL À L'ÉCRAN (régression 27/08 : plus aucune façon de
+   visualiser sans télécharger). Fenêtre ouverte DANS le geste → pas bloquée ; repli
+   téléchargement si le navigateur bloque le pop-up. Local, sans cloud. */
+async function _edlViewPdf(id) {
+  const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
+  if (!edl) { showToast('EDL introuvable', 'err'); return; }
+  const w = window.open('', '_blank');
+  showToast('⌛ Génération du PDF…', 'info', 30000);
+  try {
+    await _ensurePDFLibsLoaded();
+    await _edlPreloadPhotos(edl);
+    const blob = await generateEDLPdfNative(edl);
+    const url = URL.createObjectURL(blob);
+    if (w) { w.location.href = url; showToast('PDF ouvert', 'ok', 2500); }
+    else { _edlDownloadBlob(blob, `EDL_${_edlSanitize(edl.logement)}_${edl.type}_${edl.date}.pdf`); showToast('Fenêtre bloquée — PDF téléchargé', 'warn', 4000); }
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+  } catch (e) {
+    if (w) { try { w.close(); } catch (_) {} }
+    console.error('[_edlViewPdf]', e);
+    showToast('Erreur PDF : ' + (e.message || e), 'err');
+  }
+}
+
 function rEDLList() {
   const ql=el('edl-f-log'); let flog=v('edl-f-log');
   // Merge v14.4 BUG-EDL-DELETE-NOSYNC (filter tombstones via _edlActive) + v14.2 LOG-ARCHIVE (selects via _activeLogements)
@@ -31805,28 +31875,27 @@ function rEDLList() {
     const nph=(e.pieces||[]).reduce((s,p)=>s+(p.elements||[]).reduce((s2,x)=>s2+(x.photosE?.length||0)+(x.photosS?.length||0),0),0);
     // EDL TERRAIN lot 3 : « le compteur reste visible sur la ligne de l'EDL
     // dans la liste tant que tout n'est pas monté » (CDC §2).
-    const _EPl = (typeof window !== 'undefined') ? window.EdlPhotos : null;
-    const _cAbri = _EPl ? _EPl.compterAlAbri(_EPl.collectEdlPhotos(e)) : { total: 0, alAbri: 0, restantes: 0 };
-    const abri = _cAbri.restantes
-      ? ' <span class="edl-photos-attente" title="' + _cAbri.restantes + ' photo(s) pas encore dans le cloud">' + _cAbri.alAbri + '/' + _cAbri.total + ' à l\'abri</span>'
-      : '';
+    // Indicateur cloud CALME (plus de fraction « 3/4 à l'abri » — décision 27/08).
+    const abri = _edlCloudBadgeHtml(e);
     const sig=e.signatures?.bailleur||e.signatures?.locataire?' ✍️':'';
     // EDL TERRAIN lot 1 (CDC §1) : « Brouillon » tant qu'aucune signature
     // n'existe. Ce n'est pas un autre magasin — c'est le même EDL, en cours.
     const brouillon = (e.signatures && (e.signatures.bailleur || e.signatures.locataire))
       ? '' : '<span class="badge gry" title="État des lieux en cours — il s\'enregistre tout seul">Brouillon</span>';
-    return `<tr>
+    return `<tr data-edl-id="${e.id}">
       <td><b>${escHtml(e.logement||'–')}</b></td><td>${escHtml(e.locataire||'–')}</td>
       <td><span class="badge ${e.type==='Entrée'?'grn':'ora'}">${e.type}</span> ${brouillon}</td>
       <td>${fd(e.date)}</td>
-      <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${nph?' 📷'+nph:''}${abri}${e.cloudPdfKey?' ☁️':''}</td>
+      <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${nph?' 📷'+nph:''}${abri}</td>
       <td class="act-cell">
         <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier">✏️</button>
+        <button class="btn bs bb" onclick="_edlViewPdf(${e.id})" title="Voir l'état des lieux à l'écran">👁 Voir</button>
         <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">📤 Partager</button>
         ${nph ? `<button class="btn bs bb" onclick="_edlSharePhotos(${e.id})" title="Enregistrer les photos sur l'appareil (Fichiers / dossier au choix)">📷 Photos</button>` : ''}
         <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">🗑</button>
       </td></tr>`;
   }).join('')||'<tr><td colspan="6" class="mu" style="text-align:center;padding:20px">Aucun état des lieux</td></tr>';
+  _edlKickListUploads(list);
 }
 
 // ── Ouverture ─────────────────────────────────────────────────
@@ -34386,6 +34455,7 @@ function _edlPropagateSyncedToForm(syncedEdlId, idbKey, result) {
     ph.driveFileId = result.id || ph.driveFileId || '';
     ph.driveFileName = result.name || ph.driveFileName || '';
     if (result.cloudKey) ph.cloudKey = result.cloudKey;   // PARTAGE-SCI : chemin Storage par-SCI propagé au form
+    if (result.binaireManquant) ph.binaireManquant = true; // invariant 20 : binaire local perdu → « à reprendre »
     return true;
   };
   // _edlP : pieces × elements × photosE/photosS
@@ -34500,6 +34570,10 @@ async function _edlDrainerFileEnvoi() {
     _edlFileEnvoiBusy = false;
     // Le compteur dit la vérité même quand la file s'arrête sur un échec réseau.
     _edlMajCompteurPhotos();
+    // D2 (audit 27/08) : l'en-tête du formulaire ne suffit pas — le badge de la LISTE
+    // restait périmé (« 3/4 » alors que c'était monté). On le rafraîchit ici, SANS
+    // re-déclencher la file (sinon boucle sur un échec réseau persistant).
+    _edlRenderListBadges();
   }
 }
 
@@ -34511,7 +34585,21 @@ async function _edlEnvoyerUnePhoto(job) {
     if (!rec) return false;         // l'EDL n'est pas encore enregistré : on réessaiera
     let data = _photoCache[job.idbKey];
     if (!data) data = await _idbGet(job.idbKey).catch(() => null);
-    if (!data) { console.warn('[edl envoi] binaire introuvable', job.idbKey); return true; }
+    if (!data) {
+      // Invariant 20 (retour Didier 27/08) — le binaire local a disparu (éviction stockage iOS,
+      // le scénario que le lot 0 combat). AVANT, on retournait `true` en silence : la photo
+      // quittait la file sans cloudKey, restait comptée, et bloquait « 3/4 » à vie sans dire
+      // laquelle. Désormais on la MARQUE `binaireManquant` (persisté) → l'indicateur calme dit
+      // « 1 photo à reprendre » en la nommant, et photosAEnvoyer cesse de la ré-enfiler.
+      console.warn('[edl envoi] binaire local introuvable → marqué « à reprendre »', job.idbKey);
+      try {
+        const _EPm = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+        if (_EPm) _EPm.collectEdlPhotos(rec).forEach(p => { if (p.idbKey === job.idbKey) p.binaireManquant = true; });
+        _edlPropagateSyncedToForm(rec.id, job.idbKey, { binaireManquant: true });
+        saveDB({ autosave: true, quoi: 'edl-photo' });
+      } catch (e) { console.warn('[edl envoi] marquage perte échoué', e); }
+      return true;
+    }
     const mm = /^data:([^;]+);base64,(.*)$/.exec(data);
     if (!mm) return true;
     const bs = atob(mm[2]); const by = new Uint8Array(bs.length);
@@ -34532,8 +34620,25 @@ async function _edlEnvoyerUnePhoto(job) {
   }
 }
 
-// Retour du réseau : on reprend la file là où elle s'était arrêtée.
-window.addEventListener('online', () => { try { _edlDrainerFileEnvoi(); } catch (e) {} });
+// Retour du réseau : on RÉCONCILIE d'abord (la file est en mémoire seule — après un
+// rechargement elle est vide, donc un simple drain ne remonterait rien : c'est la cause
+// du « 0/99 » durable, audit D3), puis on draine.
+window.addEventListener('online', () => { try { _edlReconcileAllPending(); } catch (e) {} });
+
+/* D3 (audit 27/08) — RÉCONCILIATION : balaye TOUS les EDL, ré-enfile ce qui n'a pas encore
+   de cloudKey (hors « à reprendre »), puis draine. Appelé au retour réseau et depuis la LISTE
+   (l'utilisateur qui regarde ses EDL relance ainsi la montée, sans avoir à ouvrir chacun). */
+function _edlReconcileAllPending() {
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (!_EP || typeof _immoCloudActive !== 'function' || !_immoCloudActive()) return;
+  (DB.edl || []).filter(e => !e._deleted).forEach(e => {
+    _EP.photosAEnvoyer(_EP.collectEdlPhotos(e)).forEach(ph => {
+      if (_edlFileEnvoi.some(j => j.idbKey === ph.idbKey)) return;
+      _edlFileEnvoi.push({ idbKey: ph.idbKey, edlId: e.id });
+    });
+  });
+  _edlDrainerFileEnvoi();
+}
 
 async function edlSyncDrive(forcedId, silentMode){
   // EDL TERRAIN lot 4 — HORS LIGNE, ON NE TENTE MÊME PAS.
@@ -41750,7 +41855,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.560 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.561 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
