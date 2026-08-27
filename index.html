@@ -189,6 +189,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-accueil .pil-b:hover{transform:translateY(-3px);border-color:var(--c);box-shadow:0 2px 4px rgba(16,21,33,.06),0 14px 28px -10px rgba(16,21,33,.22)}
         #p-accueil .pil-b.hot{border-color:transparent;box-shadow:0 2px 5px rgba(16,21,33,.07),0 12px 26px -8px var(--cs)}
         #p-accueil .pil-b.hot::before{height:100%;background:linear-gradient(165deg,var(--cs),transparent 78%)}
+        #p-accueil .pil-b.sel{border-color:var(--c);box-shadow:0 0 0 2px var(--c),0 12px 26px -8px var(--cs)}
         html[data-theme="dark"] #p-accueil .pil-b{border-color:rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 8px 20px -8px rgba(0,0,0,.6)}
         #p-accueil .pil-b .bh{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
         #p-accueil .pil-b .ic{width:34px;height:34px;flex:none;border-radius:12px;background:var(--c);color:var(--sur);display:grid;place-items:center;box-shadow:0 3px 8px -2px var(--cs)}
@@ -260,6 +261,34 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           #p-accueil .pil-lgrp{font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--t3);margin:8px 12px 1px}
           #p-accueil .pil-lc-ok{font-size:11px;font-weight:600;color:var(--t3)}
         }
+        /* couches (fiche lot, liste, écran d'action) */
+        #pil-layer .scrim{position:fixed;inset:0;background:rgba(8,10,16,.34);z-index:120;animation:pilfade .16s ease-out}
+        @keyframes pilfade{from{opacity:0}to{opacity:1}}
+        #pil-layer .shw{position:fixed;inset:0;z-index:121;display:grid;place-items:center;padding:24px;pointer-events:none}
+        #pil-layer .sh{position:relative;pointer-events:auto;background:var(--sur);border:1px solid var(--bor);border-radius:18px;box-shadow:0 18px 60px rgba(0,0,0,.30);display:flex;flex-direction:column;overflow:hidden;width:560px;max-width:100%;max-height:82vh;animation:pilfade .18s ease-out}
+        #pil-layer .sh-h{display:flex;align-items:center;gap:11px;padding:14px 17px;border-bottom:1px solid var(--bor);flex:none}
+        #pil-layer .sh-h .ttl{flex:1;min-width:0}
+        #pil-layer .sh-h b{display:block;font-size:15px;font-weight:800}
+        #pil-layer .sh-h s{display:block;text-decoration:none;font-size:11.5px;color:var(--t3);font-weight:600;margin-top:2px}
+        #pil-layer .sh-h .x,#pil-layer .sh-h .back{border:0;background:var(--sur3);color:var(--t2);width:28px;height:28px;border-radius:9px;font-size:15px;cursor:pointer;flex:none;line-height:1;font-family:inherit}
+        #pil-layer .sh-h .back{font-size:17px;font-weight:800}
+        #pil-layer .sh-b{overflow:auto;flex:1;min-height:0;scrollbar-width:thin;padding:2px 0 6px}
+        #pil-layer .ck{display:flex;align-items:center;gap:11px;padding:11px 17px;border-bottom:1px solid var(--bor2)}
+        #pil-layer .ck:last-child{border-bottom:0}
+        #pil-layer .ck .kn{flex:1;min-width:0}
+        #pil-layer .ck .kn b{display:block;font-size:12.5px;font-weight:700}
+        #pil-layer .ck .kn s{display:block;text-decoration:none;font-size:11px;color:var(--t3);font-weight:600;margin-top:2px;line-height:1.45}
+        #pil-layer .ck .go{border:1px solid var(--bor);background:var(--sur);color:var(--t2);font:inherit;font-size:11px;font-weight:700;padding:5px 11px;border-radius:8px;cursor:pointer;white-space:nowrap;flex:none}
+        #pil-layer .ck .go.hot{background:var(--neg);color:#fff;border-color:transparent}
+        html[data-theme="dark"] #pil-layer .ck .go.hot{color:#14161d}
+        #pil-layer .ck .go.alt{background:var(--sur2);color:var(--t3);margin-left:6px}
+        #pil-layer .ck .gos{display:flex;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end}
+        #pil-layer .mut2{font-size:11px;font-weight:700;color:var(--t3)}
+        #pil-layer .d{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none}
+        #pil-layer .d.ok{background:var(--pos)} #pil-layer .d.ko{background:var(--neg)} #pil-layer .d.wn{background:var(--warn)} #pil-layer .d.na{background:var(--bor);width:7px;height:7px}
+        #pil-layer .d.pos{background:var(--pos)} #pil-layer .d.neg{background:var(--neg)} #pil-layer .d.warn{background:var(--warn)} #pil-layer .d.adv{background:var(--adv)}
+        #pil-layer .shf{border-top:1px solid var(--bor);padding:11px 17px;display:flex;justify-content:flex-end;flex:none}
+        #pil-layer .shf .go{border:1px solid var(--bor);background:var(--sur);color:var(--t2);font:inherit;font-size:12px;font-weight:700;padding:8px 15px;border-radius:9px;cursor:pointer}
       </style>
       <section class="pil" id="pil-root">
         <div id="cand-inbox-banner"></div>
@@ -10077,6 +10106,7 @@ function rAccueil() {
   const activeEnt = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
   const ctx = DashCtx.buildDashCtx(DB.logements, DB.mouvements, yr, mo, activeEnt);
   _renderPilotage(ctx);
+  try{ _pilWireClicks(); }catch(e){}
   try{ _renderInboxSurfaces(); }catch(e){}
 }
 
@@ -10121,7 +10151,8 @@ function _pilChiffre(f) {
 }
 
 function _pilBulleHtml(f, premier) {
-  return '<button type="button" class="pil-b ' + f.couleur + (premier ? ' hot' : '') + '" data-pilfam="' + f.id + '">'
+  const sel = (typeof _pilMtxFamActive !== 'undefined' && _pilMtxFamActive === f.id) ? ' sel' : '';
+  return '<button type="button" class="pil-b ' + f.couleur + (premier ? ' hot' : '') + sel + '" data-pilfam="' + f.id + '">'
     + '<span class="bh"><span class="ic"><svg viewBox="0 0 24 24">' + (_PIL_ICONS[f.id] || '') + '</svg></span></span>'
     + (f.count > 1 ? '<span class="n">' + f.count + '</span>' : '')
     + '<span class="v">' + escHtml(f.lbl) + '</span>'
@@ -10271,7 +10302,20 @@ function _renderPilMatrice(ctx) {
     nTot++; if (lig.verdict === 'ko' || lig.verdict === 'wn') nKo++;
     (parImm[lig.imm] = parImm[lig.imm] || []).push(lig);
   });
-  const garde = (lig) => _pilMtxFilter === 'tous' || (_pilMtxFilter === 'ko' && (lig.verdict === 'ko' || lig.verdict === 'wn')) || (_pilMtxFilter === 'vac' && lig.vacant);
+  // Une famille active (clic sur une bulle) restreint la matrice à ses lots concernés.
+  const idx = (k) => _PIL_MTX_COLS.findIndex(c => c.k === k);
+  const famMatch = (lig) => {
+    if (!_pilMtxFamActive) return true;
+    switch (_pilMtxFamActive) {
+      case 'entretien': return ['ko', 'wn'].includes(lig.dots[idx('entr')]);
+      case 'document':  return ['ko', 'wn'].includes(lig.dots[idx('ass')]) || ['ko', 'wn'].includes(lig.dots[idx('diag')]);
+      case 'irl':       return lig.dots[idx('irl')] === 'ko';
+      case 'vacant':    return lig.vacant;
+      case 'impaye':    return lig.pay === 'neg' || lig.pay === 'warn';
+      default:          return true;   // dépôt/finbail/régul : pas de colonne → liste, pas filtre
+    }
+  };
+  const garde = (lig) => famMatch(lig) && (_pilMtxFilter === 'tous' || (_pilMtxFilter === 'ko' && (lig.verdict === 'ko' || lig.verdict === 'wn')) || (_pilMtxFilter === 'vac' && lig.vacant));
 
   const PAY_TITRE = { pos: 'soldé', warn: 'partiel', neg: 'en retard', adv: 'payé d’avance', na: 'hors bail' };
   const pileHtml = (lig, telMode) => {
@@ -10323,8 +10367,115 @@ function _renderPilMatrice(ctx) {
     + (corps || '<tr><td colspan="' + (3 + _PIL_MTX_COLS.length) + '" style="padding:16px;text-align:center;color:var(--t3)">Aucun lot</td></tr>')
     + '</tbody></table></div></div>';
 }
-// Famille active filtrant la matrice (posée par la chaîne de clic, lot 1c) — déclarée ici pour le rendu.
+// Famille active filtrant la matrice (posée par la chaîne de clic) — déclarée ici pour le rendu.
 let _pilMtxFamActive = null;
+
+// ════════════════════════════════════════════════════════════════════════
+// KPI Lot 1c — CHAÎNE DE CLIC : bulle → filtre matrice ou liste · ligne → fiche
+// lot · geste → écran d'action (onglet concerné). Couches dans #pil-layer.
+// ════════════════════════════════════════════════════════════════════════
+// Familles SANS colonne dans la matrice : elles ouvrent une liste + nomment l'onglet cible.
+const _PIL_HORS = {
+  depot:   { onglet: 'Locataires', go: () => go('baux') },
+  finbail: { onglet: 'Locataires', go: () => go('baux') },
+  regul:   { onglet: 'Charges', go: () => go('regul') }
+};
+function _pilCloseLayer() { const L = el('pil-layer'); if (L) L.innerHTML = ''; }
+
+// Bulle cliquée : famille AVEC colonne → filtre la matrice ; SANS colonne → liste.
+function _pilBulleClick(famId) {
+  if (_PIL_HORS[famId]) { _pilOpenListe(famId); return; }
+  _pilMtxFamActive = (_pilMtxFamActive === famId) ? null : famId;
+  const rAcc = (typeof rAccueil === 'function') ? rAccueil : null;
+  if (rAcc) rAcc(); // re-render (bulle sélectionnée + matrice filtrée)
+}
+
+// Couche « liste » pour dépôt / fin de bail / régularisation (pas de colonne).
+function _pilOpenListe(famId) {
+  const L = el('pil-layer'); if (!L) return;
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
+  const H = _PIL_HORS[famId];
+  const def = (window._PIL_FAMILLES || []).find(f => f.id === famId) || { lbl: famId };
+  // recollecter la famille pour lister ses items
+  let items = [];
+  try {
+    const activeEnt = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
+    const ctx = DashCtx.buildDashCtx(DB.logements, DB.mouvements, v('dash-year') || new Date().getFullYear().toString(), v('dash-mois'), activeEnt);
+    const fams = _pilCollectFamilles(ctx);
+    const f = fams.familles.find(x => x.id === famId);
+    if (f) items = f.items;
+  } catch (e) {}
+  const rows = items.length ? items.map(i =>
+    '<div class="ck"><span class="kn"><b>' + esc(i.nom || i.ref || '') + '</b></span>'
+    + '<button type="button" class="go hot" data-pilgo="' + esc(i.ref || '') + '">Ouvrir ›</button></div>'
+  ).join('') : '<div class="ck"><span class="kn"><s>Aucun élément.</s></span></div>';
+  L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh">'
+    + '<div class="sh-h"><span class="ttl"><b>' + esc(def.lbl) + '</b><s>ce geste se fait dans l’onglet <b>' + esc(H.onglet) + '</b></s></span>'
+    + '<button type="button" class="x" data-pilclose="1" aria-label="Fermer">✕</button></div>'
+    + '<div class="sh-b">' + rows + '</div>'
+    + '<div class="shf"><button type="button" class="go" data-pilonglet="' + famId + '">Voir tout dans ' + esc(H.onglet) + ' ›</button></div></div></div>';
+}
+
+// Couche « fiche du lot » : les 7 contrôles, un geste par manque (+ « Je l'ai déjà » — R-2, à venir).
+function _pilOpenFiche(ref) {
+  const L = el('pil-layer'); if (!L) return;
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
+  const l = (DB.logements || []).find(x => x && x.ref === ref); if (!l) return;
+  const lig = _pilLotLigne(l, null, new Date());
+  const SENS = { ok: 'en règle', wn: 'à compléter', ko: 'manquant', na: 'sans objet' };
+  let lignes = '';
+  if (lig.vacant) lignes += '<div class="ck"><span class="d na"></span><span class="kn"><b>Occupation</b><s>lot vide</s></span>'
+    + '<button type="button" class="go hot" data-pilact="vacant">Relouer ›</button></div>';
+  _PIL_MTX_COLS.forEach((c, i) => {
+    const d = lig.dots[i], k = (d === 'ko' || d === 'wn');
+    lignes += '<div class="ck"><span class="d ' + d + '"></span><span class="kn"><b>' + esc(c.l) + '</b><s>' + SENS[d] + '</s></span>'
+      + (k ? '<button type="button" class="go' + (d === 'ko' ? ' hot' : '') + '" data-pilact="' + c.k + '">' + esc(_PIL_MTX_ACT[c.k]) + ' ›</button>'
+        : '<span class="mut2">' + (d === 'na' ? 'sans objet' : 'à jour') + '</span>') + '</div>';
+  });
+  L.dataset.lot = ref;
+  L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh">'
+    + '<div class="sh-h"><span class="ttl"><b>' + esc(ref) + '</b><s>' + esc(lig.imm) + ' · ' + (lig.loyer ? fmt(lig.loyer) : 'lot vacant') + '</s></span>'
+    + '<button type="button" class="x" data-pilclose="1" aria-label="Fermer">✕</button></div>'
+    + '<div class="sh-b">' + lignes + '</div></div></div>';
+}
+
+// Geste cliqué dans la fiche → l'écran d'action réel (l'onglet concerné, pré-ciblé).
+function _pilActionGeste(ref, geste) {
+  _pilCloseLayer();
+  const l = (DB.logements || []).find(x => x && x.ref === ref);
+  try {
+    if (geste === 'vacant') { go('biens'); }
+    else if (geste === 'entr') { if (typeof openLogFiche === 'function') { openLogFiche(ref); if (typeof setLogFicheTab === 'function') setTimeout(() => setLogFicheTab('conformite'), 200); } else go('equipements'); }
+    else if (geste === 'bail') { if (typeof openBail === 'function') openBail(ref); else go('baux'); }
+    else if (geste === 'edl') { go('edl'); }
+    else if (geste === 'ass') { go('baux'); }
+    else if (geste === 'diag') { if (typeof openLogModalOnTab === 'function') openLogModalOnTab(ref, 'diag'); else go('biens'); }
+    else if (geste === 'caut') { if (typeof openBail === 'function') openBail(ref); else go('baux'); }
+    else if (geste === 'irl') { go('loyers'); }
+    else go('biens');
+  } catch (e) { try { go('biens'); } catch (e2) {} }
+}
+
+// Handler de clic délégué sur toute la page Pilotage (bulles, filtres, matrice, couches).
+function _pilWireClicks() {
+  const page = el('p-accueil'); if (!page || page._pilWired) return; page._pilWired = true;
+  page.addEventListener('click', (ev) => {
+    const close = ev.target.closest('[data-pilclose]'); if (close) { _pilCloseLayer(); return; }
+    const onglet = ev.target.closest('[data-pilonglet]'); if (onglet) { const h = _PIL_HORS[onglet.dataset.pilonglet]; _pilCloseLayer(); if (h) h.go(); return; }
+    const goItem = ev.target.closest('[data-pilgo]'); if (goItem) { _pilCloseLayer(); _pilOpenFiche(goItem.dataset.pilgo); return; }
+    const act = ev.target.closest('[data-pilact]'); if (act) { const L = el('pil-layer'); _pilActionGeste(L ? L.dataset.lot : '', act.dataset.pilact); return; }
+    const clearFam = ev.target.closest('[data-pilclearfam]'); if (clearFam) { _pilMtxFamActive = null; rAccueil(); return; }
+    const fl = ev.target.closest('[data-pilfl]'); if (fl) { _pilMtxFilter = fl.dataset.pilfl; _renderPilMatrice(_pilCtxCourant()); return; }
+    const fam = ev.target.closest('[data-pilfam]'); if (fam) { _pilBulleClick(fam.dataset.pilfam); return; }
+    const lot = ev.target.closest('[data-pillot]'); if (lot) { _pilOpenFiche(lot.dataset.pillot); return; }
+  });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && el('pil-layer') && el('pil-layer').innerHTML) _pilCloseLayer(); });
+}
+// ctx courant (pour re-render partiel de la matrice sur un changement de filtre).
+function _pilCtxCourant() {
+  const activeEnt = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
+  return DashCtx.buildDashCtx(DB.logements, DB.mouvements, v('dash-year') || new Date().getFullYear().toString(), v('dash-mois'), activeEnt);
+}
 
 function _renderAccueil(ctx) {
   const {scopeLogs, mvs, mvsYTD, yr, mo} = ctx;
