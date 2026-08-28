@@ -103,6 +103,8 @@ import {
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
 import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
+import { computeEntretienStatut } from './core/entretien-statut.js';
+import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES } from './core/pilotage-familles.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
   appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, impactCloture,
@@ -381,6 +383,11 @@ window._isEraseEligible = _isEraseEligible;
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
 window._computeOccupationLots = _computeOccupationLots;   // R-4/K-2 — occupation sous le socle
+window.computeEntretienStatut = computeEntretienStatut;   // KPI Lot 0 — statut d'entretien (12 obligations)
+window.computePilotageFamilles = computePilotageFamilles; // KPI Lot 1 — agrégateur des 8 familles
+window.pilotagePay = pilotagePay;                         // KPI audit §1 — pastille paiement == bulle Impayés
+window._PIL_FAMILLES = _PIL_FAMILLES;
+window._PIL_ZONES = _PIL_ZONES;
 window.tauxPleinMois = tauxPleinMois;                     // P-4 — taux plein du mois (potentiel)
 window.tauxPleinMoisFromRaw = tauxPleinMoisFromRaw;
 window._finSciWeightMensuel = _finSciWeightMensuelM;      // P-4 — clé mensuelle au potentiel locatif

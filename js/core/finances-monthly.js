@@ -185,6 +185,9 @@ export function _computeFinancesMonthly(input) {
   //     loyer+charges, récupère les arriérés (loyer d'abord), reliquat = avance. Les résultats
   //     mensuels somment exactement à l'annuel (le mois qui reçoit porte la récup + l'avance).
   const lotsEnRetard = [];       // R-2 : lots à retard résiduel > 0 (compteur « N impayés »)
+  // KPI Lot 0 (CDC-KPI §R-0 / D34) : le détail par lot est EXPOSÉ, pas jeté. Aucun calcul de
+  // plus — on range dans byLot exactement ce que la cascade et le netting produisent déjà.
+  const byLot = {};
   const allLots = new Set();
   order.forEach(ym => { const lots = buckets[ym]._loyerByLot; if (lots) for (const q in lots) allLots.add(q); });
   activeLots.forEach(q => allLots.add(q));   // + lots à bail actif sans mouvement (retard « zéro paiement »)
@@ -193,6 +196,11 @@ export function _computeFinancesMonthly(input) {
       const d = loyerDue(q, ym) || {};
       return { hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: (buckets[ym]._loyerByLot && buckets[ym]._loyerByLot[q]) || 0 };
     });
+    // KPI : une ligne de frise par mois, remplie au fil des deux passes ci-dessous.
+    const lotFrise = order.map((ym, idx) => ({
+      ym, duHC: lotMonths[idx].hcDue, duCH: lotMonths[idx].chDue,
+      encaisse: lotMonths[idx].received, loyerRetard: 0, chargeRetard: 0, avance: 0, rattrapage: 0
+    }));
     // R-2 : le dû CC du mois (barème historisé) est RENDU — c'est le dénominateur unique du
     // recouvrement (remplace `attenduHCTheo`, la 2ᵉ définition du dû qui écrasait l'historique).
     lotMonths.forEach((lm, idx) => { const b = buckets[order[idx]]; b.duHC += lm.hcDue; b.duCH += lm.chDue; });
@@ -200,6 +208,7 @@ export function _computeFinancesMonthly(input) {
       const b = buckets[order[idx]];
       b.loyersHC += a.loyersHC; b.provisions += a.provisions; b.avance += a.avance;
       b.rattrapage += a.rattrapage || 0;
+      lotFrise[idx].avance = a.avance; lotFrise[idx].rattrapage = a.rattrapage || 0;
     });
     // Retard orange : RÉSIDU du mois (manque encore dû attribué à son mois d'origine, net des
     // rattrapages) — colonne P&L par mois, on ne reporte pas (user 2026-07-13). L'annuel = SOMME
@@ -211,11 +220,33 @@ export function _computeFinancesMonthly(input) {
     _computeLoyerNetting(lotMonths.slice(0, dueMonth), graceLast).retardMois.forEach((rm, idx) => {
       const b = buckets[order[idx]];
       b.loyerRetard += rm.loyer; b.chargeRetard += rm.charge;
+      lotFrise[idx].loyerRetard = rm.loyer; lotFrise[idx].chargeRetard = rm.charge;
       _retardLot += rm.loyer + rm.charge;
     });
     // R-2 : le compteur « N impayés » vient du MÊME moteur (lots à retard résiduel > 0),
     // plus d'une liste calculée à part.
     if (_retardLot > 0.005 && q) lotsEnRetard.push(q);
+
+    // KPI : agrégats du lot = Σ de sa frise (mêmes règles que l'annuel du moteur). `solde` est
+    // la position de trésorerie signée du lot : encaissé − dû (+ avance / − retard).
+    if (q) {
+      const sum = (k) => lotFrise.reduce((s, m) => s + (m[k] || 0), 0);
+      const encaisse = round2(sum('encaisse'));
+      const duHC = round2(sum('duHC')), duCH = round2(sum('duCH'));
+      byLot[q] = {
+        months: lotFrise.map(m => ({
+          ym: m.ym, duHC: round2(m.duHC), duCH: round2(m.duCH), encaisse: round2(m.encaisse),
+          loyerRetard: round2(m.loyerRetard), chargeRetard: round2(m.chargeRetard),
+          avance: round2(m.avance), rattrapage: round2(m.rattrapage)
+        })),
+        annual: {
+          duHC, duCH, encaisse,
+          retard: round2(sum('loyerRetard') + sum('chargeRetard')),
+          avance: round2(sum('avance'))
+        },
+        solde: round2(encaisse - duHC - duCH)
+      };
+    }
   });
   // (2) Champs dérivés (loyersHC/provisions/avance déjà posés : par cascade au mois, par somme à l'année).
   const finalizeDerived = b => {
@@ -243,5 +274,5 @@ export function _computeFinancesMonthly(input) {
   const interetsTotal = annual.interets;
   // Les bornes effectivement appliquées sont RENDUES : l'appelant (et les tests) peuvent
   // vérifier quelle fenêtre a réellement piloté le calcul, au lieu de le supposer.
-  return { months, annual, interetsTotal, interetsKnown: interetsTotal > 0, lastMonth, dueMonth, lotsEnRetard };
+  return { months, annual, interetsTotal, interetsKnown: interetsTotal > 0, lastMonth, dueMonth, lotsEnRetard, byLot };
 }

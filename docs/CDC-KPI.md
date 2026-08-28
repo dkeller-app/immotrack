@@ -12,7 +12,7 @@ Mockups validés (locaux, gitignorés) :
 | `mockups/KPI-REVUE/accueil-v3.html` | Les 8 familles — 3 styles de débordement (A/B/C), bulles par zone |
 | `mockups/KPI-REVUE/accueil-v2.html` | Accueil à 4 familles — historique de la décision |
 | `mockups/KPI-REVUE/parc-v1.html` | Carte de navigation avant/après · « Où se déclare repris ? » · fiche post-clic |
-| `mockups/KPI-REVUE/loyers-v1.html` | Loyers — vue « À faire » + vue « Tous les loyers » |
+| `mockups/KPI-REVUE/loyers-v4.html` | Loyers — 3 blocs (Impayés/Révisions/Quittances) + « Tous les loyers » en dépliant groupé (VALIDÉ 27/08, remplace loyers-v1) |
 | `mockups/KPI-REVUE/revue-kpi.html` | Support d'audit initial (24 cartes) — historique |
 
 ---
@@ -408,45 +408,57 @@ chaudière est vue. La colonne doit appeler `EQUIP_RULES`, pas refaire un filtre
 
 **Loyers devient le seul écran qui répond à « qui a payé quoi ».**
 
-### Vue « À faire » — inchangée
+> **RÉVISION 27/08 — mockup validé `loyers-v4.html` (remplace la bascule de `loyers-v1`).**
+> La bascule « À faire / Tous les loyers » faisait passer l'ensemble pour une annexe, et une liste
+> plate de 25 baux « n'est pas visuelle ». Bascule supprimée. L'écran est **un seul flux vertical** :
+> les blocs d'action en haut, la vue d'ensemble en dépliant en bas.
 
-Les 4 familles existantes (`_LY_FAM`, `index.html:29376`) : Quittances demandées · Impayés ·
-Révisions à préparer · Révisions en retard. Une ligne = un lot, un contexte, un montant, un geste.
+### Haut — trois blocs « À faire » (brique de bloc de `_LY_FAM`, réorganisée)
 
-**Le point de paiement n'y va PAS.** Correction assumée d'une recommandation initiale :
-l'onglet est organisé **par famille d'action**, l'en-tête du bloc dit déjà l'état. Un point vert dans
-« Impayés » serait absurde ; un point rouge dans « Quittances demandées » impossible.
-Ce serait répéter l'en-tête — le défaut qu'on démonte partout ailleurs.
+Bloc = en-tête (icône + titre + compteur + hint) ; ligne = lot, contexte, montant, geste.
+On passe de **4 familles à 3 blocs**, dans l'ordre du cash :
 
-### Vue « Tous les loyers » — À AJOUTER
+1. **Impayés** *(rouge)* — loyer/charges **échus** non réglés. **Le partiel EST un impayé**
+   (ex. Wolff reste 138 €). Correctif : le compteur = **tous** les retards, partiels compris
+   (`loyers-v1` en affichait 2 pour 3 retards réels).
+2. **Révisions** *(ambre)* — **« à préparer » ET « en retard » fusionnées** (fusion des ex-familles
+   `prep` + `ret-irl`) : dans les deux cas une lettre à faire ; la ligne en retard porte un tag
+   `EN RETARD`.
+3. **Quittances** *(bleu)* — mois soldé, quittance éditable.
 
-**Motif** : si Suivi et sa modale 📅 disparaissent, la **vue d'ensemble disparaît**. Loyers ne montre
-que ce qui appelle une action — un parc où tout va bien s'affiche vide, et plus aucun écran ne dit
-« voilà mes 15 baux et où ils en sont ».
+**Le point de paiement ne va PAS dans ces blocs** (l'en-tête de bloc dit déjà l'état). Il vit dans
+la matrice du Pilotage et dans la frise du dépliant.
 
-Contenu : **une frise de 12 mois par locataire** + le **solde signé** à droite.
+### Bas — « Tous les loyers » en **dépliant replié** (pas une bascule)
+
+Restaure la vue d'ensemble (un parc sain s'afficherait vide sinon) sans concurrencer les blocs.
+
+- **Replié par défaut** ; déplié, il **défile dans sa zone**, le reste de l'écran ne bouge pas
+  (lève l'objection « un dépliage fait déborder les 3 formats » — vérifié faux avec défil. interne).
+- **Frise 12 mois par lot + solde signé** (choix utilisateur).
 
 | Élément | Source |
 |---|---|
-| Frise 12 mois (payé/partiel/retard/avance/hors bail) | `_suiviLoyerStrip` — **existe déjà** |
+| Frise 12 mois (payé/partiel/retard/avance/**en attente**/hors bail) | `_suiviLoyerStrip` — **existe déjà** |
 | Solde signé (`retard 1 530 € · 3 mois`) | `_loyerChipVerdict` + netting `_computeLoyerNetting` |
 
-**Un seul chiffre signé, jamais retard ET avance simultanés** — le netting est déjà écrit.
+- **Groupé par immeuble / bailleur**, séparateur **collant** (immeuble, bailleur, résumé
+  « N lots · N en retard »).
+- **RÈGLE DU 1ᵉʳ DU MOIS** *(non négociable)* : loyer du **mois courant pas encore échu** = **PAS
+  un retard** → affiché **« en attente »** (case hachurée neutre, jamais rouge), hors bloc Impayés
+  et hors compteur de retards. Retard = mois **échu** non réglé. Cf. import↔bail (2 sources).
 
-**Chaque case de la frise EST le point de paiement**, à la maille du mois. Douze mois d'un coup
-d'œil au lieu d'un seul point.
-
+**Un seul chiffre signé, jamais retard ET avance simultanés** — netting déjà écrit.
 **Remplace trois écrans** : Suivi › Suivi comptable, la modale 📅 « Suivi des loyers »,
 et la colonne QUIT. du mode Gestionnaire.
 
-### Hauteurs mesurées
+### Hauteurs mesurées (`loyers-v4.html`, dépliant replié)
 
 | | PC 900 | Tablette 930 | Téléphone 620 |
 |---|---|---|---|
-| À faire | 898 (100 %) | 928 (100 %) | 618 (100 %) |
-| Tous les loyers | 898 (100 %) | 928 (100 %) | 618 (100 %) |
+| 3 blocs + dépliant replié | 898 ✓ | 928 ✓ | 618 ✓ (blocs défilent) |
 
-Vérifié : 12 combinaisons, 0 anomalie, 0 troncature.
+Vérifié navigateur : 3 formats, clair + sombre, dépliant ouvert/fermé, 0 débordement ↔, 0 erreur.
 
 ---
 
