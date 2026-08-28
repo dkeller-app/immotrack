@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.568</title>
+<title>Propryo v15.569</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.567">
+<link rel="stylesheet" href="css/main.css?v=15.569">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.568</em>
+      <em>v15.569</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4335,7 +4335,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.567';
+const IMMOTRACK_VERSION = '15.569';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -27176,7 +27176,10 @@ function _rgImmRegime(entry){
   const nbLogs = (DB.logements||[]).filter(_isAlive).filter(l=>l.imm===entry.imm).length;
   const copro = /copro/i.test(regime);
   const collectif = copro || nbLogs > 1;
-  return { regime, nbLogs, copro, collectif, applies20: collectif,
+  // CDC Charges DEP-20% (choix Didier 28/08) : la retenue conservatoire 20 % du DG
+  // ne s'applique qu'en COPROPRIÉTÉ (art. 22 vise l'« immeuble collectif », mais le 20 %
+  // est un droit et non une obligation → y renoncer hors copro est sûr). Avant : applies20=collectif.
+  return { regime, nbLogs, copro, collectif, applies20: copro,
            label: copro ? 'copropriété' : (nbLogs>1 ? 'immeuble collectif (monopropriété)' : 'maison individuelle') };
 }
 
@@ -28277,13 +28280,13 @@ ${_dt('docLignes', [
   { lab:`SOLDE ${solde>=0?'(à votre crédit)':'(à payer)'}`, val:`${solde>=0?'+':''}${fmtN(solde)} €`, tot:true, hi:true }
 ])}
 ${_dt('docSignzone', [
-  { sig: _docSigOnly(ent), label: 'Le bailleur' },
-  { sig: '', label: 'Le locataire (signature + date)' }
+  { sig: _docSigOnly(ent), label: 'Le bailleur' }
 ])}
 ${_dt('docEncart', `<b>Mentions légales obligatoires</b><br>
-      • <b>Justificatifs :</b> les pièces justificatives (factures, contrats d'entretien, relevés de charges de copropriété, etc.) sont tenues à votre disposition pendant <b>un mois</b> à compter de l'envoi du présent décompte — art. 23 al. 3 loi n°89-462 du 6 juillet 1989.<br>
+      • <b>Justificatifs :</b> les pièces justificatives (factures, contrats d'entretien, relevés de charges de copropriété, etc.) sont tenues à votre disposition pendant <b>six mois</b> à compter de l'envoi du présent décompte — art. 23 al. 3 loi n°89-462 du 6 juillet 1989 (durée portée à six mois par la loi ALUR du 24 mars 2014). Sur demande, l'ensemble des justificatifs disponibles vous est transmis sous forme d'un dossier numérique (.zip).<br>
       • <b>Contestation :</b> en cas de désaccord sur le montant ou la nature des charges, vous pouvez saisir la <b>Commission Départementale de Conciliation (CDC)</b> compétente avant toute action judiciaire — art. 20 loi 89-462.<br>
       • <b>Charges récupérables :</b> les charges portées au présent décompte sont celles figurant sur la liste limitative définie par le <b>décret n°87-713 du 26 août 1987</b> (art. 23 loi 89-462).<br>
+      • <b>Communication :</b> le présent décompte est <b>communiqué</b> au locataire ; sa signature n'est pas requise (art. 23 loi 89-462).<br>
       ${solde < 0 ? '• <b>Paiement du solde :</b> le solde appelé est exigible dans le mois suivant l\'envoi du présent décompte (art. 23 al. 4 loi 89-462).' : '• <b>Remboursement :</b> le trop-perçu vous sera restitué dans le mois suivant l\'envoi du présent décompte (art. 23 al. 4 loi 89-462).'}`)}`;
 
   const html = _docPage(_entiteDeLogement(log), {
@@ -39744,17 +39747,23 @@ function _calcCcQuotePart(im, log, cc, allLogs) {
   if(mode === 'sous-compteurs') {
     // Conso individuelle = somme conso pendant la période (entre 2 derniers relevés)
     // V1 simplifiée : conso = (dernier relevé - 1er relevé) du logement, type matchant
-    const cptType = (cc.type === 'eau-c') ? 'eau-c' : (cc.type === 'eau-f') ? 'eau-f'
-                  : (cc.type === 'elec')  ? 'elec-hp' : (cc.type === 'gaz') ? 'gaz' : null;
-    if(!cptType) return { ratio: 0, methode: 'sous-compteurs', denomLabel: 'Type non mappable', exclu: true };
-    // Helper : conso totale du logement sur le type
+    // CDC Charges §13 : élec = HP + HC (avant : HP seul). cptTypes = liste des index à sommer.
+    const cptTypes = (cc.type === 'eau-c') ? ['eau-c'] : (cc.type === 'eau-f') ? ['eau-f']
+                  : (cc.type === 'elec')  ? ['elec-hp','elec-hc'] : (cc.type === 'gaz') ? ['gaz'] : null;
+    if(!cptTypes) return { ratio: 0, methode: 'sous-compteurs', denomLabel: 'Type non mappable', exclu: true };
+    // Helper : conso totale du logement sur le(s) type(s) (somme HP+HC pour l'élec)
     // (Bug #8 perf O(N²) connu — acceptable pour <100 logements V1, à refondre si nécessaire)
     const consoOf = (l) => {
       if(typeof _collectCompteurReleves !== 'function') return 0;
       const rs = _collectCompteurReleves(l.ref);
-      const arr = (rs && rs[cptType]) || [];
-      if(arr.length < 2) return 0;
-      return arr[arr.length-1].value - arr[0].value;
+      if(!rs) return 0;
+      let total = 0;
+      for(const t of cptTypes){
+        const arr = rs[t] || [];
+        if(arr.length < 2) continue;
+        total += arr[arr.length-1].value - arr[0].value;
+      }
+      return total;
     };
     const c = consoOf(log);
     if(c <= 0) return { ratio: 0, methode: 'sous-compteurs', denomLabel: 'Pas de conso relevée', exclu: true };
@@ -39804,25 +39813,29 @@ function _ccLogsInScope(cc, allLogs) {
 // Si pas de relevés encadrant la période, retourne 0.
 function _ccConsoLogPeriod(log, ccType, periodFrom, periodTo) {
   if(typeof _collectCompteurReleves !== 'function') return 0;
-  const cptType = (ccType === 'eau-c') ? 'eau-c'
-                : (ccType === 'eau-f') ? 'eau-f'
-                : (ccType === 'elec')  ? 'elec-hp'
-                : (ccType === 'gaz')   ? 'gaz' : null;
-  if(!cptType) return 0;
+  // CDC Charges §13 : élec = HP + HC (avant : HP seul) → liste des index à sommer.
+  const cptTypes = (ccType === 'eau-c') ? ['eau-c']
+                : (ccType === 'eau-f') ? ['eau-f']
+                : (ccType === 'elec')  ? ['elec-hp','elec-hc']
+                : (ccType === 'gaz')   ? ['gaz'] : null;
+  if(!cptTypes) return 0;
   const all = _collectCompteurReleves(log.ref);
-  const arr = (all && all[cptType]) || [];
-  if(arr.length < 2) return 0;
-  // Si pas de bornage période → utilise dernier - premier (V1)
-  if(!periodFrom || !periodTo) {
-    return arr[arr.length-1].value - arr[0].value;
+  if(!all) return 0;
+  let total = 0;
+  for(const cptType of cptTypes){
+    const arr = all[cptType] || [];
+    if(arr.length < 2) continue;
+    // Si pas de bornage période → utilise dernier - premier (V1)
+    if(!periodFrom || !periodTo) { total += arr[arr.length-1].value - arr[0].value; continue; }
+    // Bornage : trouve dernier relevé <= periodFrom et dernier <= periodTo
+    const before = arr.filter(r => (r.date||'') <= periodFrom).pop();
+    const within = arr.filter(r => (r.date||'') <= periodTo);
+    if(!within.length) continue;
+    const start = before ? before.value : within[0].value;
+    const end = within[within.length-1].value;
+    total += Math.max(0, end - start);
   }
-  // Bornage : trouve dernier relevé <= periodFrom et dernier <= periodTo
-  const before = arr.filter(r => (r.date||'') <= periodFrom).pop();
-  const within = arr.filter(r => (r.date||'') <= periodTo);
-  if(!within.length) return 0;
-  const start = before ? before.value : within[0].value;
-  const end = within[within.length-1].value;
-  return Math.max(0, end - start);
+  return total;
 }
 
 // Calcul prorata jours d'occupation d'un logement par locataire sur la période.
