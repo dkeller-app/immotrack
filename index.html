@@ -40122,22 +40122,23 @@ function _ccMouvementsForCc(cc, year) {
 function openNewMvForCc(ccId, immNom) {
   if(!ccId) return;
   if(typeof openNewMv !== 'function') { showToast('Module Mouvements indisponible','err'); return; }
-  openNewMv();
-  setTimeout(() => {
+  openNewMv();   // synchrone : ouvre la modale + rend _affZone (niveau par défaut « logement »)
+  // CDC Charges §13 (friction) : piloter la zone d'affectation _affZone (#mv-aff) au niveau
+  // « Récupérable » avec l'immeuble + le poste présélectionnés — l'ancien #mv-cc-wrap est superseded.
+  const apply = () => {
     try {
-      // Pré-remplir l'immeuble (déclenche _mvSyncCcSelect via oninput/onchange)
-      const immInp = el('mv-imm');
-      if(immInp && immNom) {
-        immInp.value = immNom;
-        try { immInp.dispatchEvent(new Event('input',{bubbles:true})); } catch(e){}
-        try { immInp.dispatchEvent(new Event('change',{bubbles:true})); } catch(e){}
-      }
-      // Pré-remplir le compteur lié (force au cas où le sync n'a pas encore tourné)
-      _mvSyncCcSelect(ccId);
-      // Mettre le focus sur le libellé
-      setTimeout(() => { const f = el('mv-lib'); if(f) f.focus(); }, 50);
+      if(el('mv-imm') && immNom) el('mv-imm').value = immNom;   // champ caché lu par saveMv + _affZone
+      if(el('mv-qui')) el('mv-qui').value = '';
+      if(typeof _affState === 'object') (_affState['mv'] || (_affState['mv'] = {})).niv = 'recup';
+      if(typeof _affRender === 'function') _affRender('mv', 'mv');   // rend recup + peuple #mv-cc-comp / #mv-cc
+      if(el('mv-cc')) el('mv-cc').value = ccId;                      // les options existent maintenant
+      if(typeof _affRender === 'function') _affRender('mv', 'mv');   // présélectionne le poste + badge destination
+      if(typeof _mvEnforceExclusivity === 'function') _mvEnforceExclusivity();
     } catch(e) { console.warn('[openNewMvForCc]', e); }
-  }, 60);
+  };
+  apply();                    // synchrone (openNewMv l'est aussi)
+  setTimeout(apply, 60);      // belt-and-suspenders si un rendu différé réinitialise la zone
+  setTimeout(() => { const f = el('mv-lib'); if(f) f.focus(); }, 90);
 }
 
 // v14.60/v14.72 BUG #19 — Modale tableau des mouvements liés à un compteur (au lieu d'alert)
