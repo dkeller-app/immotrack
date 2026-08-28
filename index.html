@@ -40329,7 +40329,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
     ${banner}
     <div class="logf-doc-empty">
       Aucun poste de charge enregistré pour cet immeuble.
-      <div class="mu sm" style="margin-top:6px">Saisissez ici les <b>postes de charges</b> de l'immeuble (eau, chauffage collectif, électricité des parties communes, ascenseur, entretien…) pour calculer automatiquement la quote-part de chaque logement à la régularisation annuelle.</div>
+      <div class="mu sm" style="margin-top:6px">Saisissez ici les <b>postes de charges</b> de l'immeuble (eau, chauffage collectif, électricité des parties communes, ascenseur, entretien…) pour calculer automatiquement la quote-part de chaque logement à la régularisation annuelle. <b>Sans règle particulière, un poste est réparti au prorata (parts égales)</b> ; on ne définit une clé (tantièmes, surface, sous-compteur…) que pour les postes qui le méritent.</div>
       <div style="margin-top:10px"><button class="btn bp bb" onclick="openNewCcForImm(${entIdSafe},${immIdSafe})">+ Premier poste de charge</button></div>
     </div>`
     + _renderImmRelevesLogements(activeLogs, archivedLogs);
@@ -40494,7 +40494,7 @@ function openCcFormModal(entId, immId, ccIdx) {
     nom: cc ? (cc.nom||'') : '',
     type: cc ? (cc.type||'eau-f') : 'eau-f',
     typeLabel: cc ? (cc.typeLabel||'') : '',
-    cleRepartition: cc ? (cc.cleRepartition||'tantiemes') : 'tantiemes',
+    cleRepartition: cc ? (cc.cleRepartition||'proportionnel') : 'proportionnel',  // CDC W2 : défaut = prorata (parts égales 1/N)
     fallbackRepartition: cc ? (cc.fallbackRepartition||'') : '',
     scope: cc ? (cc.scope||[]) : [],
     numCompteur: cc ? (cc.numCompteur||'') : '',
@@ -40543,10 +40543,24 @@ function openCcFormModal(entId, immId, ccIdx) {
           </div>
 
           <div class="fg">
-            <label>Clé de répartition *</label>
+            <label>① Logements concernés *</label>
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+              <button class="btn bs" type="button" onclick="_ccFormToggleAllLogs(true)" style="font-size:11px;padding:4px 10px">☑ Tous</button>
+              <button class="btn bs" type="button" onclick="_ccFormToggleAllLogs(false)" style="font-size:11px;padding:4px 10px">☐ Aucun</button>
+              <span class="mu sm" style="font-size:11px;align-self:center;margin-left:6px">${logsImm.length} logement${logsImm.length>1?'s':''} dans cet immeuble</span>
+            </div>
+            <div id="cc-form-logs" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;padding:4px;border:1px solid var(--bor);border-radius:6px">
+              ${checkboxesHtml || '<p class="mu sm" style="padding:10px;text-align:center">Aucun logement dans cet immeuble. Crée d\'abord les logements.</p>'}
+            </div>
+            <div class="mu sm" style="margin-top:6px;font-size:11px">💡 Décoche un logement pour l'exclure de ce poste (ex : garage non chauffé pour le chauffage).</div>
+          </div>
+
+          <div class="fg">
+            <label>② Clé de répartition entre les logements retenus *</label>
             <select class="inp" id="cc-form-repart" onchange="_ccFormOnRepartChange()">
               ${_renderCcRepartOptions(cur.cleRepartition)}
             </select>
+            <div class="mu sm" style="margin-top:4px;font-size:11px">Par défaut : <b>prorata (parts égales, 1/N)</b> — ne change la clé que pour les postes qui le méritent (chauffage aux tantièmes, eau au sous-compteur…).</div>
             <div id="cc-form-repart-hint" class="mu sm" style="margin-top:4px;font-size:11px;font-style:italic">${escHtml(_ccRepartHint(cur.cleRepartition))}</div>
             <div id="cc-form-fallback-row" class="fg" style="margin-top:10px;${cur.cleRepartition==='sous-compteurs'?'':'display:none'}">
               <label class="mu sm">Clé secondaire (logements SANS sous-compteur)</label>
@@ -40561,19 +40575,6 @@ function openCcFormModal(entId, immId, ccIdx) {
               <button class="btn bs" type="button" onclick="_ccCompAddRow()" style="font-size:11px;padding:4px 10px;margin-top:4px">+ Ajouter une clé</button>
               <div id="cc-form-comp-total" class="mu sm" style="margin-top:6px;font-size:11px"></div>
             </div>
-          </div>
-
-          <div class="fg">
-            <label>Logements concernés *</label>
-            <div style="display:flex;gap:6px;margin-bottom:8px">
-              <button class="btn bs" type="button" onclick="_ccFormToggleAllLogs(true)" style="font-size:11px;padding:4px 10px">☑ Tous</button>
-              <button class="btn bs" type="button" onclick="_ccFormToggleAllLogs(false)" style="font-size:11px;padding:4px 10px">☐ Aucun</button>
-              <span class="mu sm" style="font-size:11px;align-self:center;margin-left:6px">${logsImm.length} logement${logsImm.length>1?'s':''} dans cet immeuble</span>
-            </div>
-            <div id="cc-form-logs" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;padding:4px;border:1px solid var(--bor);border-radius:6px">
-              ${checkboxesHtml || '<p class="mu sm" style="padding:10px;text-align:center">Aucun logement dans cet immeuble. Crée d\'abord les logements.</p>'}
-            </div>
-            <div class="mu sm" style="margin-top:6px;font-size:11px">💡 Décoche un logement pour l'exclure de ce poste (ex : garage non chauffé pour le chauffage).</div>
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
