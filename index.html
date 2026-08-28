@@ -28269,8 +28269,17 @@ function rRegul() {
     const gC   = grp.reduce((s,r)=>s+r.charges,0);
     const gS   = gP - gC;
     const cls  = 'rgim'+gi;
+    // CDC É4-nav (mockup 09) — 3 états : Émise / En attente de l'arrêté copro / À émettre.
     const imVal = _rgIsValidated(imNom);
-    const imBadge = imVal ? '<span class="rg-badge-ok">✓ validé</span>' : '<span class="rg-badge-todo">⚠️ à valider</span>';
+    let imBadge;
+    if(imVal){
+      imBadge = '<span class="rg-badge-ok">✓ Émise</span>';
+    } else {
+      const _reg = (typeof _rgImmRegime==='function') ? _rgImmRegime({imm:imNom, bail:{}}) : {copro:false};
+      imBadge = _reg.copro
+        ? '<span class="rg-badge-todo" style="background:var(--blu-soft,rgba(37,99,235,.1));color:var(--fg-info,#2563eb)" title="En copropriété, la régul attend le décompte arrêté du syndic avant d\'être émise">⏳ En attente de l’arrêté copro</span>'
+        : '<span class="rg-badge-todo">⚠️ À émettre</span>';
+    }
     body += `<tr class="rg-imm" onclick="_rgToggleImm('${cls}',this)">
       <td><span class="rg-chev">▸</span> 🏘️ ${escHtml(imNom)} <span class="mu sm">· ${grp.length} occupation${grp.length>1?'s':''}</span> ${imBadge}</td>
       <td class="num">${fmt(gP)}</td><td class="num">${fmt(gC)}</td>
