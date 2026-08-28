@@ -27307,7 +27307,7 @@ function _rgClotureLocataire(entryKey){
         </div></div>`
     : `<div class="rgc-blk"><div class="rgc-t">② Dépôt de garantie</div>
         <div class="rgc-l"><span>Dépôt de garantie</span><span class="mono">${f(dg)}</span></div>
-        <div class="mu sm" style="margin-top:6px">Maison individuelle → pas de retenue 20 %. Restitution intégrale sous 1 mois (EDL conforme) / 2 mois, déduction faite des seules sommes dûment justifiées.</div></div>`;
+        <div class="mu sm" style="margin-top:6px">Pas de retenue 20 % (${escHtml(reg.label)}, hors copropriété). Restitution intégrale sous 1 mois (EDL conforme) / 2 mois, déduction faite des seules sommes dûment justifiées.</div></div>`;
   ov.innerHTML = `<div class="modal"><div class="m-head"><h3>🏁 Clôture — ${escHtml(entry.ref)} · ${escHtml(entry.loc||'')}</h3><button class="m-close" onclick="closeM('ov-rg-cloture')">✕</button></div>
     <div class="m-body">
       <div class="mu sm" style="margin-bottom:12px">Occupation ${entry.debutOcc?fd(entry.debutOcc):'—'} → sortie ${entry.fin?fd(entry.fin):'—'} · ${escHtml(entry.imm||'')} (${escHtml(reg.label)})</div>
@@ -27483,7 +27483,7 @@ function _departState(bail){
     sub:'Réparations locatives (devis), loyers/charges impayés, régularisation des charges.',
     alert: reg.applies20
       ? "Charges de l'année souvent non arrêtées → estimation sur N‑1 + retenue ≤ 20 % du dépôt de garantie (loi 89‑462 art. 22)."
-      : 'Maison individuelle → pas de retenue 20 % ; déduire les seules sommes justifiées.',
+      : `Pas de retenue 20 % (${reg.label}, hors copropriété) → déduire les seules sommes justifiées.`,
     done: retenueFaite,
     cta:[{label:'🏁 Ouvrir la clôture (charges + DG)', on:`closeM('ov-depart');_departOuvrirCloture('${jsRef}')`}]
   });
