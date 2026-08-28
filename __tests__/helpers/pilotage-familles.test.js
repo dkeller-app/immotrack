@@ -10,7 +10,7 @@
  *   F-6  count et total exacts.
  */
 import { describe, it, expect } from 'vitest';
-import { computePilotageFamilles, FAMILLES, ordreFamille } from '../../js/core/pilotage-familles.js';
+import { computePilotageFamilles, FAMILLES, ordreFamille, pilotagePay } from '../../js/core/pilotage-familles.js';
 
 // Chaque famille à 2 items met VOLONTAIREMENT le pire cas en 2ᵉ position : le tri doit le
 // remonter. Un tri neutralisé (comparateur → 0) laisserait le mauvais item en tête et
@@ -105,5 +105,35 @@ describe('computePilotageFamilles', () => {
     expect(ordreFamille('depot')).toBe(0);
     expect(ordreFamille('vacant')).toBe(7);
     expect(ordreFamille('inconnue')).toBe(-1);
+  });
+});
+
+describe('pilotagePay — la pastille de paiement colle à la bulle Impayés (audit KPI §1)', () => {
+  it('hors bail (pas de locataire) → na', () => {
+    expect(pilotagePay(false, 'L1', new Set(['L1']), -700)).toBe('na');
+  });
+
+  it('membre de la bulle Impayés → neg, même avec un solde brut positif (l\'arriéré prime)', () => {
+    expect(pilotagePay(true, 'L1', new Set(['L1']), 200)).toBe('neg');
+  });
+
+  it('LE 1er DU MOIS : loyer courant non versé → PAS « en retard »', () => {
+    // La bulle est tolérante (le mois courant avant le 10 n'y entre pas) → 'L1' n'est PAS dans
+    // impayeRefs. Le solde BRUT est négatif (loyer du mois non encaissé) — mais ce n'est pas un
+    // retard. La pastille doit rester 'pos', jamais 'neg'. C'est le bug corrigé.
+    expect(pilotagePay(true, 'L1', new Set([]), -700)).toBe('pos');
+  });
+
+  it('pas d\'arriéré + solde positif → avance', () => {
+    expect(pilotagePay(true, 'L1', new Set([]), 620)).toBe('adv');
+  });
+
+  it('pas d\'arriéré + solde nul → à jour', () => {
+    expect(pilotagePay(true, 'L1', new Set([]), 0)).toBe('pos');
+  });
+
+  it('accepte un tableau de réfs comme un Set', () => {
+    expect(pilotagePay(true, 'L2', ['L1', 'L2'], 0)).toBe('neg');
+    expect(pilotagePay(true, 'L3', ['L1', 'L2'], 0)).toBe('pos');
   });
 });

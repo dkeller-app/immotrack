@@ -38,8 +38,12 @@ describe('V14 — « Impayés » remplace « Pas à jour »', () => {
   it('son sous-titre nomme ce qui manque, pas un état vague', () => {
     expect(has("Loyer ou charges non réglés — aucun document n\\'est émis")).toBe(true);
   });
-  it('« Impayés » est un BLOC empilé visible, rendu via _lyBloc (KPI §4, 27/08)', () => {
-    expect(has("_lyBloc('retard', retards.length, retards.map(_lyLigneRetard)")).toBe(true);
+  it('« Impayés » alimente un bloc empilé (structure)', () => {
+    // Structure seulement : le bloc existe. L'invariant §4 « compteur = tous les retards, partiels
+    // compris » n'est PLUS prouvé par grattage de source (retards.length/map) mais en COMPORTEMENTAL
+    // dans __tests__/helpers/loyers-badge.test.js (« le compteur inclut TOUS les retards, partiels
+    // compris »).
+    expect(has("_lyBloc('retard'")).toBe(true);
   });
 });
 

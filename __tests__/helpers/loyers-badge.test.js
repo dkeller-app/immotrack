@@ -38,6 +38,19 @@ describe('loyersBadgeCount — I15', () => {
     expect(loyersBadgeCount(etats, { aPreparer: [1], enRetard: [], muets: [1, 2, 3], perdues: [9] })).toBe(2);
   });
 
+  it('§4 (KPI) — le compteur inclut TOUS les retards, PARTIELS COMPRIS', () => {
+    // Un paiement partiel laisse un reste dû > 0 → retard.enRetard = true (le lot « n'est pas à
+    // jour ») → il est compté exactement comme un impayé plein. C'est l'invariant « compteur = tous
+    // les retards, partiels compris » : jamais le partiel n'est traité comme soldé.
+    const etats = [
+      { demande: false, aQuittancer: [], retard: { enRetard: true, reste: 130, partiel: true } }, // partiel → compté
+      { demande: false, aQuittancer: [], retard: { enRetard: true, reste: 680 } },                 // plein → compté
+      { demande: false, aQuittancer: [], retard: { enRetard: false } },                            // à jour → ignoré
+    ];
+    expect(loyersBadgeCount(etats, {})).toBe(2);        // les deux retards, le partiel inclus
+    expect(loyersBadgeBreakdown(etats, {}).pasAJour).toBe(2);
+  });
+
   it('breakdown : trois nombres cohérents avec le total', () => {
     const etats = [
       { demande: true, aQuittancer: ['a'], retard: { enRetard: false } },

@@ -10060,6 +10060,25 @@ function _pilCollectFamilles(ctx) {
     }
   } catch (e) {}
 
+  // ── Préavis bailleur — LA 13ᵉ ALERTE (6 mois nu / 3 mois meublé avant échéance : dernier moment
+  //    pour notifier congé / renouvellement, sinon reconduction tacite). Les événements sont déjà
+  //    produits par agendaAutoSync (cat BAIL_PREVIS, synchro au boot) : on les RELIT (DRY), fenêtre
+  //    ouverte ou s'ouvrant sous 60 j (aligné aux rappels agenda), non traités, dans le périmètre.
+  //    Rejoint « Fins de bail à préparer » — même geste, même zone.
+  try {
+    const refsScope = new Set(scopeLogs.map(l => l.ref));
+    (DB.agenda || []).forEach(e => {
+      if (!e || e._deleted || e.done || e.cat !== 'BAIL_PREVIS') return;
+      if (!refsScope.has(e.logement)) return;
+      if (activeEnt && e.entite && e.entite !== activeEnt) return;
+      const jDepuisStart = joursDepuis(e.date);          // >0 = préavis déjà ouvert
+      if (jDepuisStart == null || jDepuisStart < -60) return;   // s'ouvre dans + de 60 j → trop tôt
+      if (src.finbail.some(x => x.ref === e.logement)) return;  // déjà porté (départ / échéance)
+      const log = scopeLogs.find(l => l.ref === e.logement);
+      src.finbail.push({ ref: e.logement, nom: (log && log.locataire) || e.logement, urgenceJours: -jDepuisStart });
+    });
+  } catch (e) {}
+
   return computePilotageFamilles(src);
 }
 
@@ -10068,7 +10087,8 @@ function _pilCollectFamilles(ctx) {
 // 4 sections : hero météo · 4 QA tiles · donut payés/impayés · À traiter en carrés.
 // ════════════════════════════════════════════════════════════════════════
 
-// Construit le ctx (réutilise la logique de rDash) puis appelle _renderAccueil.
+// Construit le ctx (réutilise la logique de rDash) puis appelle _renderPilotage (l'écran Pilotage
+// a remplacé l'ancien _renderAccueil, purgé).
 function rAccueil() {
   const yrSel = el('dash-year');
   if (yrSel && !yrSel.innerHTML.trim()) {
@@ -10108,27 +10128,36 @@ const _PIL_ICONS = {
   ok:      '<path d="M20 6 9 17l-5-5"/>'
 };
 
-// Le pire cas nommé, sous la forme « Nom · repère ».
+// LE PIRE CAS NOMMÉ — 3ᵉ ligne de la bulle (CDC §2.4 règle 3), pour TOUTES les familles.
+// Quand le chiffre (.a) montre déjà un temps de gravité, on ne le répète pas ; quand il montre
+// un euro, on ajoute le repère de temps (« Meyer · 67 j »).
 function _pilPireTxt(f) {
   const p = f.pire; if (!p) return '';
   const nom = escHtml(p.nom || p.ref || '');
   const j = p.urgenceJours;
-  if (f.id === 'impaye')  return nom + (j != null ? ' · ' + j + ' j' : '');
-  if (f.id === 'vacant')  return nom + (j != null ? ' · vide ' + j + ' j' : '');
-  if (f.id === 'entretien') return nom + (j != null ? ' · ' + j + ' j de retard' : '');
-  if (f.id === 'irl' || f.id === 'depot') return nom;
+  const chiffreEstEuro = (f.montant != null && Math.abs(f.montant) > 0.005);
+  if (!chiffreEstEuro) return nom;                          // .a porte déjà la gravité (temps)
+  if (f.id === 'impaye') return nom + (j != null ? ' · ' + j + ' j' : '');
+  if (f.id === 'vacant') return nom + (j != null ? ' · vide ' + j + ' j' : '');
   return nom;
 }
-// Le chiffre-clé : montant si la famille en a un DE NON NUL, sinon un indicateur de gravité.
-// (La vacance n'a pas encore de valorisation de perte : on montre le compte, pas « 0 € ».)
+// LE CHIFFRE-CLÉ (.a) — jamais le compte (il est déjà dans la pastille en anneau). Pour les
+// familles à euros, le montant EST la gravité ; pour les autres, il porte la gravité du PIRE cas
+// (CDC §2.4 règle 2 : « 8 mois de retard », « dans 35 jours », « échéance dépassée »).
 function _pilChiffre(f) {
   if (f.montant != null && Math.abs(f.montant) > 0.005) {
     const s = (typeof fmt === 'function') ? fmt(Math.abs(f.montant)) : (Math.abs(f.montant) + ' €');
     const val = (f.unite === '€/mois') ? s.replace(' €', ' €/mois') : s;
     return (f.montant < 0 ? '− ' : '') + val;
   }
-  if (f.id === 'vacant') return f.count + (f.count > 1 ? ' logements' : ' logement');
-  return f.count + ' à traiter';
+  const p = f.pire; const j = p ? p.urgenceJours : null;
+  if (j == null) return (f.id === 'vacant') ? (f.count + (f.count > 1 ? ' logements' : ' logement')) : (f.count + ' à traiter');
+  // Familles « ancienneté » (grand j = plus urgent) : le retard / la durée de vacance.
+  if (f.id === 'entretien') return (j >= 60) ? (Math.round(j / 30) + ' mois de retard') : (j + ' j de retard');
+  if (f.id === 'vacant')    return 'vide ' + j + ' j';
+  if (f.id === 'impaye')    return j + ' j de retard';
+  // Familles « échéance » (petit j = plus urgent) : dépôt, IRL, fin de bail, document, régul.
+  return (j <= 0) ? 'échéance dépassée' : ('dans ' + j + ' j');
 }
 
 function _pilBulleHtml(f, premier) {
@@ -10185,7 +10214,7 @@ function _pilEstRepris(bail) { return !!(bail && bail.typeContrat === 'repris');
 const _PIL_MTX_ACT_REPRIS = { bail: 'Réclamer le bail au vendeur', edl: 'Réclamer l’EDL au vendeur', caut: 'Réclamer la caution au vendeur' };
 
 // Les 7 points d'un lot + le point de paiement (byLot, R-0) + le verdict + les actions.
-function _pilLotLigne(l, byLotEntry, today) {
+function _pilLotLigne(l, byLotEntry, today, impayeRefs) {
   const bail = (DB.baux && DB.baux[l.ref]) || null;
   const repris = _pilEstRepris(bail);
   const dots = _PIL_MTX_COLS.map(c => {
@@ -10199,18 +10228,14 @@ function _pilLotLigne(l, byLotEntry, today) {
     }
     try { return _pilDocToDot(_pilStatutDoc(bail, l, c.doc, today).statut); } catch (e) { return 'na'; }
   });
-  // point de paiement du mois : lu de byLot (solde signé + dernier mois)
-  let pay = 'na';
-  if (l.locataire) {
-    if (byLotEntry) {
-      const s = byLotEntry.solde;
-      if (s > 0.5) pay = 'adv'; else if (s < -0.5) pay = 'neg';
-      else {
-        const m = byLotEntry.months[byLotEntry.months.length - 1];
-        pay = (m && (m.loyerRetard + m.chargeRetard) > 0.5) ? 'warn' : 'pos';
-      }
-    } else pay = 'pos';
-  }
+  // Point de paiement du mois : « en retard » (neg) vient de l'ENSEMBLE de la bulle Impayés —
+  // déjà tolérant « 1er du mois » (_computeImpayes/_loyerSoldeAjuste). PLUS du signe du solde brut,
+  // qui comptait le loyer courant non échu et mentait « en retard » le 5. L'avance reste lue du
+  // solde signé. Garantit matrice == bulle. (audit KPI §1 · module pur pilotagePay, testé)
+  const _soldeSigned = byLotEntry ? (byLotEntry.solde || 0) : 0;
+  const pay = (typeof window !== 'undefined' && typeof window.pilotagePay === 'function')
+    ? window.pilotagePay(!!l.locataire, l.ref, impayeRefs, _soldeSigned)
+    : (!l.locataire ? 'na' : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
   const vacant = !l.locataire;
   // actions : relocation d'un vide + toute colonne ko/wn (geste « réclamer au vendeur » si repris)
   const actions = [];
@@ -10297,11 +10322,20 @@ function _renderPilMatrice(ctx) {
     if (r && r.byLot) byLot = r.byLot;
   } catch (e) {}
 
+  // Ensemble EXACT des lots de la bulle Impayés (même source _computeImpayes → déjà tolérant
+  // « 1er du mois »). Pilote la pastille 'neg' ET le filtre bulle→matrice : garantit matrice ==
+  // bulle Impayés. (audit KPI §1)
+  const impayeRefs = new Set();
+  try {
+    const imp = (typeof _computeImpayes === 'function') ? _computeImpayes(ctx) : null;
+    if (imp && imp.items) imp.items.forEach(it => impayeRefs.add(it.ref));
+  } catch (e) {}
+
   // Grouper les lots par immeuble, calculer chaque ligne.
   const parImm = {};
   let nTot = 0, nKo = 0;
   scopeLogs.forEach(l => {
-    const lig = _pilLotLigne(l, byLot[l.ref], today);
+    const lig = _pilLotLigne(l, byLot[l.ref], today, impayeRefs);
     nTot++; if (lig.verdict === 'ko' || lig.verdict === 'wn') nKo++;
     (parImm[lig.imm] = parImm[lig.imm] || []).push(lig);
   });
@@ -10314,7 +10348,7 @@ function _renderPilMatrice(ctx) {
       case 'document':  return ['ko', 'wn'].includes(lig.dots[idx('ass')]) || ['ko', 'wn'].includes(lig.dots[idx('diag')]);
       case 'irl':       return lig.dots[idx('irl')] === 'ko';
       case 'vacant':    return lig.vacant;
-      case 'impaye':    return lig.pay === 'neg' || lig.pay === 'warn';
+      case 'impaye':    return impayeRefs.has(lig.ref);   // l'ensemble EXACT de la bulle (audit KPI §1)
       default:          return true;   // dépôt/finbail/régul : pas de colonne → liste, pas filtre
     }
   };
@@ -10487,257 +10521,6 @@ function _pilWireClicks() {
 function _pilCtxCourant() {
   const activeEnt = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
   return DashCtx.buildDashCtx(DB.logements, DB.mouvements, v('dash-year') || new Date().getFullYear().toString(), v('dash-mois'), activeEnt);
-}
-
-function _renderAccueil(ctx) {
-  const {scopeLogs, mvs, mvsYTD, yr, mo} = ctx;
-  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s||''));
-  const fmtN = (n) => (typeof fmt === 'function' ? fmt(n) : String(Math.round(n||0)));
-  const periodLabel = mo ? (_DMF[parseInt(mo)-1] + ' ' + yr) : ('Année ' + yr);
-
-  // ── Calculs métier — v15.437 DRY chantier 4 (fin) : totaux mvs via DashCtx (dernier îlot).
-  const {totalCr, crYTD, dbYTD} = DashCtx.mvTotals(ctx);
-  // v15.396 — Cash-flow réel = BLOC UNIQUE partagé avec le Tableau de bord et Finances (mêmes chiffres).
-  const _cfr    = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
-  const cfYTD   = _cfr ? _cfr.cf : (crYTD - dbYTD);   // exercice cashflowReel, fallback brut si moteur absent
-  // v15.429 DRY chantier 4 : KPIs occupation via DashCtx.occupationKpis (source unique, 6 renders).
-  const _occ = DashCtx.occupationKpis(scopeLogs);
-  const nbTotal = _occ.nbTotal, occupiedLogs = _occ.occupied, nbOcc = _occ.nbOcc,
-        nbVacants = _occ.nbVacants, pctOcc = _occ.pctOcc;
-
-  // ── Payés / partiels / impayés par logement occupé (v15.73 : avec prorata via _v4ComputeLotStatus) ──
-  const perLog = occupiedLogs.map(l => {
-    const st = _v4ComputeLotStatus(l, yr, mo, mvs);
-    return {log:l, attendu:st.attendu, recu:st.recu, cls:st.cls, ratio:st.ratio, prorata:st.prorata};
-  });
-  const paidLogs    = perLog.filter(x => x.cls === 'ok');
-  const partialLogs = perLog.filter(x => x.cls === 'warn');
-  const unpaidLogs  = perLog.filter(x => x.cls === 'imp');
-  const nbPaid    = paidLogs.length;
-  const nbPartial = partialLogs.length;
-  const nbUnpaid  = unpaidLogs.length;
-  const totalPaid = perLog.reduce((s,x) => s + x.recu, 0);
-  const totalDue  = perLog.reduce((s,x) => s + Math.max(0, x.attendu - x.recu), 0);
-  // % payé "complet" = ratio nb totalement payés / occupied
-  const pctPaid = nbOcc > 0 ? Math.round(nbPaid / nbOcc * 100) : 0;
-
-  // ── Greeting personnalisé ──
-  const userName = _appUserName();
-  const todos = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
-  const nbTodos = todos.length;
-  const greeting = (function(){
-    const h = new Date().getHours();
-    if (h < 6 || h >= 21) return 'Bonsoir';
-    if (h < 12) return 'Bonjour';
-    if (h < 18) return 'Bonjour';
-    return 'Bonsoir';
-  })();
-
-  // ── Drill impayés + partiels (cliquable depuis la ligne donut) ──
-  if (typeof _DD !== 'undefined') {
-    // Inclure partiels (sous-payés) ET impayés stricts dans le drill
-    const needAction = perLog.filter(x => x.cls === 'imp' || x.cls === 'warn');
-    const rows = needAction.map(x => {
-      const ratio = x.attendu > 0 ? Math.round(x.recu / x.attendu * 100) : 0;
-      const proInfo = (x.prorata > 0 && x.prorata < 0.99)
-        ? ' <span style="color:var(--t3);font-size:11px">(prorata ' + Math.round(x.prorata*100) + '%)</span>'
-        : '';
-      const statut = x.cls === 'warn'
-        ? '<span style="color:var(--fg-warning);font-weight:600">~ Partiel (' + ratio + '%)</span>'
-        : '<span style="color:var(--fg-danger);font-weight:600">⚠ Impayé</span>';
-      return '<tr><td><b>' + esc(x.log.ref) + '</b>' + proInfo + '</td>'
-        + '<td>' + esc(x.log.locataire || '—') + '</td>'
-        + '<td style="text-align:right">' + fmtN(x.attendu) + '</td>'
-        + '<td style="text-align:right;color:var(--fg-success)">' + fmtN(x.recu) + '</td>'
-        + '<td style="text-align:right;color:var(--fg-danger)">' + fmtN(Math.max(0, x.attendu - x.recu)) + '</td>'
-        + '<td>' + statut + '</td></tr>';
-    }).join('');
-    const totalAction = nbUnpaid + nbPartial;
-    _DD['accueil-impayes'] = {
-      title: 'Loyers à relancer — ' + periodLabel,
-      html: '<div style="margin-bottom:14px;padding:10px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:8px;color:var(--fg-danger);font:600 13px/1.3 Inter">'
-          + '<b>' + totalAction + ' loyer' + (totalAction>1?'s':'') + ' à relancer</b> · ' + fmtN(totalDue) + ' en attente · ' + nbUnpaid + ' impayé' + (nbUnpaid>1?'s':'') + ' + ' + nbPartial + ' partiel' + (nbPartial>1?'s':'')
-          + '</div>'
-          + (needAction.length === 0
-              ? '<div style="text-align:center;padding:24px;color:var(--t3)">✓ Tous les loyers sont à jour sur la période.</div>'
-              : '<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">Attendu</th><th style="text-align:right">Reçu</th><th style="text-align:right">Manque</th><th>Statut</th></tr></thead><tbody>' + rows + '</tbody></table>')
-          + '<div style="margin-top:14px;padding:10px 12px;background:var(--sur2);border-radius:8px;font-size:12px;color:var(--t2);line-height:1.5">'
-          +   '💡 Le prorata est appliqué automatiquement si le bail commence ou finit en cours du mois. Pour relancer un locataire, ouvre <strong>Locataires</strong> ou <strong>Loyers &amp; Mouvements</strong>.'
-          + '</div>'
-    };
-  }
-
-  // ── Hero météo — SVG (jamais d'emoji) ──
-  const heroIcon = (function(){
-    const h = new Date().getHours();
-    // Nuit : lune
-    if (h < 6 || h >= 20) return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M38 26.5A16.5 16.5 0 1 1 21.5 10a12.5 12.5 0 0 0 16.5 16.5Z" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" fill="none"/></svg>';
-    // Matin / soir : soleil + nuage (météo générique)
-    return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle class="sun" cx="18" cy="17" r="7.5" stroke="currentColor" stroke-width="2.4"/><g class="sun" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 4v3.5M18 26.5V30M5 17h3.5M27.5 17H31M8.8 7.8l2.5 2.5M24.7 23.7l2.5 2.5M27.2 7.8l-2.5 2.5M11.3 23.7l-2.5 2.5"/></g><path d="M16 33a6.5 6.5 0 0 1 12.6-2.2 5.5 5.5 0 1 1 1.4 10.7H16a5.5 5.5 0 0 1 0-11Z" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>';
-  })();
-  const heroHtml = ''
-    + '<div class="v4h-hero-ic">' + heroIcon + '</div>'
-    + '<div class="v4h-hero-info">'
-    +   '<h2>' + esc(greeting) + (userName ? ' ' + esc(userName) : '') + (nbTodos > 0 ? ', ' + nbTodos + ' action' + (nbTodos>1?'s':'') + ' en attente' : '') + '</h2>'
-    +   '<div class="v4h-hero-sub">' + (nbTodos > 0
-            ? (nbTodos + ' point' + (nbTodos>1?'s':'') + ' à traiter ce mois-ci.')
-            : 'Tout est à jour ce mois-ci. ✓') + '</div>'
-    +   '<div class="v4h-hero-kpis">'
-    +     '<div class="v4h-hero-kpi key"><b>' + fmtN(totalPaid) + '</b><s>Reçu ' + (mo ? _DMF[parseInt(mo)-1] : 'Année') + '</s></div>'
-    +     '<div class="v4h-hero-kpi"><b>' + pctOcc + ' %</b><s>Occupation</s></div>'
-    +     '<div class="v4h-hero-kpi"><b class="' + (cfYTD>=0?'pos':'neg') + '">' + (cfYTD>=0?'+':'') + fmtN(cfYTD) + '</b><s>Net YTD</s></div>'
-    +   '</div>'
-    + '</div>';
-  const heroEl = el('v4h-hero');
-  if (heroEl) heroEl.innerHTML = heroHtml;
-
-  // ── 4 QA tiles ──
-  // v15.140 — Mode Solo supprimé → tuile "Tableau de bord" toujours présente sur l'Accueil.
-  const showDash = true;
-  const nb7d = (function(){
-    // Échéances dans les 7 jours : reuses agenda data si dispo
-    try {
-      const events = (typeof _agendaBuild === 'function') ? _agendaBuild() : [];
-      const now = new Date(); const in7 = new Date(now.getTime() + 7*86400000);
-      return events.filter(e => {
-        const d = new Date(e.date || e.dt || '');
-        return d >= now && d <= in7;
-      }).length;
-    } catch(e){ return 0; }
-  })();
-
-  // v15.reskin — tuiles QA : pastilles neutres + SVG de _V4_NAV_ICONS (plus d'emoji)
-  const tileDash = !showDash ? '' : ''
-    + '<button type="button" class="v4h-qa t1" onclick="go(\'dashboard\')">'
-    +   '<div class="v4h-qa-ic">' + _V4_NAV_ICONS.dashboard + '</div>'
-    +   '<b>Tableau de bord</b>'
-    +   '<s>Vue complète Premium</s>'
-    + '</button>';
-  const tileLogs = ''
-    + '<button type="button" class="v4h-qa t2" onclick="go(\'biens\')">'
-    +   '<div class="v4h-qa-ic">' + _V4_NAV_ICONS.biens + '</div>'
-    +   '<b>Logements</b>'
-    +   '<s>' + nbTotal + ' lot' + (nbTotal>1?'s':'') + (nbVacants>0 ? ' · ' + nbVacants + ' vacant' + (nbVacants>1?'s':'') : '') + '</s>'
-    + '</button>';
-  const tileLoy = ''
-    + '<button type="button" class="v4h-qa t3" onclick="go(\'loyers\')">'
-    +   '<div class="v4h-qa-ic">' + _V4_NAV_ICONS.loyers + '</div>'
-    +   '<b>Loyers</b>'
-    +   '<s>' + nbPaid + '/' + nbOcc + ' payés ce mois</s>'
-    + '</button>';
-  const tileAg = ''
-    + '<button type="button" class="v4h-qa t4" onclick="go(\'agenda\')">'
-    +   '<div class="v4h-qa-ic">' + _V4_NAV_ICONS.agenda + '</div>'
-    +   '<b>Agenda</b>'
-    +   '<s>' + (nb7d > 0 ? nb7d + ' échéance' + (nb7d>1?'s':'') + ' cette semaine' : 'Aucune cette semaine') + '</s>'
-    + '</button>';
-  // Mode Solo : pas de dashboard → on garde 4 tiles (Logements/Loyers/Agenda + future Locataires)
-  const qaEl = el('v4h-qa');
-  if (qaEl) {
-    if (showDash) {
-      qaEl.innerHTML = tileDash + tileLogs + tileLoy + tileAg;
-    } else {
-      // Solo : remplace Dashboard par Quittances (action récurrente)
-      const tileQuit = ''
-        + '<button type="button" class="v4h-qa t1" onclick="go(\'quittances\')">'
-        +   '<div class="v4h-qa-ic">' + _V4_NAV_ICONS.quittances + '</div>'
-        +   '<b>Quittances</b>'
-        +   '<s>Générer ce mois</s>'
-        + '</button>';
-      qaEl.innerHTML = tileQuit + tileLogs + tileLoy + tileAg;
-    }
-  }
-
-  // ── Donut payés/impayés (XL : 180×180) ──
-  const C = 2 * Math.PI * 72; // circumference (rayon 72 au lieu de 56)
-  const filled = C * (pctPaid / 100);
-  const empty  = C - filled;
-  const donutHtml = ''
-    + '<div class="v4h-donut-h">'
-    +   '<h3>Loyers · ' + (mo ? _DMF[parseInt(mo)-1] : 'Année ' + yr) + '</h3>'
-    +   '<span class="v4h-small">' + nbPaid + ' / ' + nbOcc + ' lots</span>'
-    + '</div>'
-    + '<div class="v4h-donut-wrap">'
-    +   '<svg width="180" height="180" viewBox="0 0 180 180">'
-    +     '<circle cx="90" cy="90" r="72" fill="none" stroke="var(--bor, var(--sur3, #EEF1F6))" stroke-width="20"/>'
-    +     '<circle cx="90" cy="90" r="72" fill="none" stroke="' + (pctPaid >= 90 ? 'var(--pos)' : pctPaid >= 70 ? 'var(--fg-warning,#F59E0B)' : 'var(--neg)') + '" stroke-width="20" '
-    +       'stroke-dasharray="' + filled.toFixed(1) + ' ' + empty.toFixed(1) + '" stroke-dashoffset="-10" stroke-linecap="round" transform="rotate(-90 90 90)"/>'
-    +     '<text x="90" y="84" text-anchor="middle" font-family="var(--display)" font-size="34" font-weight="800" fill="var(--t1)">' + pctPaid + '</text>'
-    +     '<text x="90" y="108" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="600" fill="var(--t3)" letter-spacing="2">% PAYÉ</text>'
-    +   '</svg>'
-    +   '<div class="v4h-donut-info">'
-    +     '<div class="v4h-donut-vl">' + fmtN(totalPaid) + '</div>'
-    +     '<div class="v4h-donut-row pos"><span class="v4h-dot"></span><span><b>' + nbPaid + '</b> payé' + (nbPaid>1?'s':'') + '</span><span class="v4h-am">+' + fmtN(totalPaid) + '</span></div>'
-    +     (nbPartial > 0
-        ? '<div class="v4h-donut-row neg" onclick="_openDD(\'accueil-impayes\')" role="button" tabindex="0" title="Cliquer pour voir le détail">'
-          + '<span class="v4h-dot" style="background:var(--warn)"></span><span><b>' + nbPartial + '</b> partiel' + (nbPartial>1?'s':'') + '</span>'
-          + '<span class="v4h-am" style="color:var(--warn)">~</span><span class="v4h-chev">→</span></div>'
-        : '')
-    +     (nbUnpaid > 0
-        ? '<div class="v4h-donut-row neg" onclick="_openDD(\'accueil-impayes\')" role="button" tabindex="0" title="Cliquer pour voir le détail des impayés">'
-          + '<span class="v4h-dot"></span><span><b>' + nbUnpaid + '</b> impayé' + (nbUnpaid>1?'s':'') + '</span>'
-          + '<span class="v4h-am">−' + fmtN(totalDue) + '</span><span class="v4h-chev">→</span></div>'
-        : (nbPartial === 0 ? '<div class="v4h-donut-row pos"><span class="v4h-dot"></span><span>Aucun impayé ✓</span><span class="v4h-am">—</span></div>' : ''))
-    +     (nbVacants > 0
-        ? '<div class="v4h-donut-row vac"><span class="v4h-dot"></span><span><b>' + nbVacants + '</b> vacant' + (nbVacants>1?'s':'') + '</span><span class="v4h-am">—</span></div>'
-        : '')
-    +   '</div>'
-    + '</div>';
-  const donutEl = el('v4h-donut');
-  if (donutEl) donutEl.innerHTML = donutHtml;
-
-  // ── À traiter en carrés compacts (TOUS les sujets, tri auto) ──
-  // Tri : impayés en premier (severity red), puis severity ora, puis info
-  const sevRank = {red:3, ora:2, info:1};
-  const sorted = todos.slice().sort((a,b) => (sevRank[b.severity]||0) - (sevRank[a.severity]||0) || (b.score||0) - (a.score||0));
-  const goMeta = (typeof _TODO_TYPE_META !== 'undefined') ? _TODO_TYPE_META : {};
-  const iconClassMap = {
-    impaye: 'b-impaye', loyer: 'b-impaye',
-    irl: 'b-irl', revision: 'b-irl',
-    regul: 'b-regul', charge: 'b-regul',
-    edl: 'b-edl', bail: 'b-edl',
-    assurance: 'b-ass', mrh: 'b-ass'
-  };
-  // v15.reskin — mapping type → SVG inline (jamais d'emoji dans l'Accueil rendu)
-  const _TODO_SVG = {
-    impaye:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
-    loyer:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
-    assurance: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 5 6v6c0 4 3 6.7 7 9 4-2.3 7-5 7-9V6l-7-3Z"/></svg>',
-    mrh:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 5 6v6c0 4 3 6.7 7 9 4-2.3 7-5 7-9V6l-7-3Z"/></svg>',
-    irl:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17 9 11l4 4 8-8M21 7v5m0-5h-5"/></svg>',
-    revision:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17 9 11l4 4 8-8M21 7v5m0-5h-5"/></svg>',
-    regul:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 10v4M12 17v.01"/></svg>',
-    charge:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 10v4M12 17v.01"/></svg>',
-    edl:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9zM7 7h10v13H7z"/><path d="M10 12l1.5 1.5L15 10"/></svg>',
-    bail:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
-    _default:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 10v4M12 17v.01"/></svg>'
-  };
-  const sqHtml = sorted.map(it => {
-    const meta = goMeta[it.type] || {label:'À faire', go:"_openDD('todo-unified')"};
-    const goFn = meta.go || "_openDD('todo-unified')";
-    const titleTxt = it.title || meta.label || 'À traiter';
-    const subTxt = it.subtitle || '';
-    const isUrg = it.severity === 'red';
-    const typeLow = (it.type||'').toLowerCase();
-    const iconCls = iconClassMap[typeLow] || '';
-    const iconSvg = _TODO_SVG[typeLow] || _TODO_SVG._default;
-    return '<button type="button" class="v4h-sq' + (isUrg ? ' urg' : '') + '" onclick="' + goFn + '">'
-      + (isUrg ? '<span class="v4h-sq-urgent"></span>' : '')
-      + '<div class="v4h-sq-ic ' + iconCls + '">' + iconSvg + '</div>'
-      + '<div class="v4h-sq-info"><b>' + esc(titleTxt) + '</b><s>' + esc(subTxt) + '</s></div>'
-      + '</button>';
-  }).join('');
-  const todoEl = el('v4h-todo');
-  if (todoEl) {
-    todoEl.innerHTML = ''
-      + '<div class="v4h-todo-h">'
-      +   '<h3>À traiter</h3>'
-      +   '<span class="v4h-pill">' + nbTodos + ' action' + (nbTodos>1?'s':'') + '</span>'
-      + '</div>'
-      + (nbTodos === 0
-          ? '<div class="v4h-todo-empty">✓ Tout est à jour, profite ! 🎉</div>'
-          : '<div class="v4h-todo-grid">' + sqHtml + '</div>');
-  }
 }
 
 // Render PREMIUM (cockpit financier complet — l'existant)
