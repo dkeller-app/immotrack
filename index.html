@@ -27303,7 +27303,10 @@ function _rgClotureLocataire(entryKey){
   if(!c){ if(typeof showToast==='function') showToast('Occupation introuvable','err'); return; }
   const entry=c.entry, dg=c.dg, reg=c.reg, n1=c.n1, occN=c.occN, winDays=c.winDays, excl=c.excl,
         baseN1=c.baseN1, estCharges=c.estCharges, prov=c.prov, real=c.real, acompte=c.acompte, estimated=c.estimated,
-        solde=c.solde, du=c.du, max20=c.max20, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit;
+        solde=c.solde, du=c.du, max20=c.max20, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit,
+        impayes=c.impayes, reparations=c.reparations, regulDu=c.regulDu, regulCredit=c.regulCredit,
+        knownDebts=c.knownDebts, totalDu=c.totalDu, retenueRegul=c.retenueRegul, covered=c.covered,
+        restitTotal=c.restitTotal, resteADemander=c.resteADemander;
   const f = fmt;
   let ov = document.getElementById('ov-rg-cloture');
   if(!ov){ ov=document.createElement('div'); ov.id='ov-rg-cloture'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-rg-cloture')"); document.body.appendChild(ov); }
@@ -27332,22 +27335,40 @@ function _rgClotureLocataire(entryKey){
   } else {
     chargeLines = `<div class="rgc-l"><span>Charges réelles imputées</span><span class="mono">${f(real)}</span></div>`;
   }
+  const resteLegal = reg.applies20
+    ? `Reste <b>${f(resteADemander)}</b> à demander au locataire (${f(totalDu)} dû − ${f(covered)} couverts par le dépôt ; la régularisation restante se solde après l'arrêté de la copropriété).`
+    : `Reste <b>${f(resteADemander)}</b> à demander au locataire (${f(totalDu)} dû − ${f(covered)} couverts par le dépôt).`;
   const dgBlock = reg.applies20
-    ? `<div class="rgc-blk"><div class="rgc-t">② Dépôt de garantie &amp; retenue</div>
-        <div class="rgc-dg"><div class="rgc-dgh">🏛️ Règle des 20 % — ${escHtml(reg.label)}, comptes non arrêtés</div>
+    ? `<div class="rgc-blk"><div class="rgc-t">③ Dépôt de garantie &amp; restitution</div>
+        <div class="rgc-dg">
           <div class="rgc-dgr"><span>Dépôt de garantie</span><span class="mono">${f(dg)}</span></div>
-          <div class="rgc-dgr"><span>Retenue maximale autorisée (20 %)</span><span class="mono" style="color:var(--amb,#d97706)">${f(max20)}</span></div>
-          <div class="rgc-hi">💡 Tu peux retenir jusqu'à <b>${f(max20)}</b> en attendant l'arrêté des comptes, puis régulariser dans le mois suivant l'approbation.${du>0?` Estimation du dû (<b>${f(du)}</b>) ${du<=max20?'≤':'>'} plafond → retenue suggérée <b>${f(retenueSugg)}</b>.`:' Solde en faveur du locataire → rien à retenir à ce titre.'}</div>
-          <div class="rgc-dgr rgc-restit"><span><b>À restituer maintenant</b></span><span class="mono" style="color:var(--grn)">${f(dgRestit)}</span></div>
-          <div class="rgc-legal">Retenir une part fait passer le délai de restitution à 2 mois (sur la base du DG dû). Solde définitif à l'approbation des comptes. Réf. loi 89‑462 art. 22 &amp; 23.</div>
+          <div class="rgc-dgr"><span>Total dû par le locataire <span class="mu sm">· report</span></span><span class="mono">${f(totalDu)}</span></div>
+          <div class="rgc-dgr"><span>− Dettes connues, déduites en entier <span class="mu sm">· loyers, charges, réparations</span></span><span class="mono" style="color:var(--red)">−${f(knownDebts)}</span></div>
+          <div class="rgc-dgr"><span>− Retenue provisoire sur la régularisation</span><span class="mono" style="color:var(--red)">−${f(retenueRegul)}</span></div>
+          <div class="rgc-hi"><b>Retenue = min( régul dû ${f(regulDu)} ; 20 % du DG ${f(max20)} ) = ${f(retenueRegul)}</b>. Le plafond 20 % ne vaut qu'en copropriété, en attendant l'arrêté des comptes (art. 22).</div>
+          <div class="rgc-dgr rgc-restit"><span><b>= À restituer maintenant</b></span><span class="mono" style="color:var(--grn)">${f(restitTotal)}</span></div>
+          ${resteADemander>0?`<div class="rgc-legal">${resteLegal}</div>`:''}
+          <div class="rgc-legal">Retenir une part fait passer le délai de restitution à 2 mois. Solde définitif à l'approbation des comptes. Réf. loi 89‑462 art. 22 &amp; 23.</div>
         </div></div>`
-    : `<div class="rgc-blk"><div class="rgc-t">② Dépôt de garantie</div>
-        <div class="rgc-l"><span>Dépôt de garantie</span><span class="mono">${f(dg)}</span></div>
-        <div class="mu sm" style="margin-top:6px">Pas de retenue 20 % (${escHtml(reg.label)}, hors copropriété). Restitution intégrale sous 1 mois (EDL conforme) / 2 mois, déduction faite des seules sommes dûment justifiées.</div></div>`;
+    : `<div class="rgc-blk"><div class="rgc-t">③ Dépôt de garantie &amp; restitution</div>
+        <div class="rgc-dg">
+          <div class="rgc-dgr"><span>Dépôt de garantie</span><span class="mono">${f(dg)}</span></div>
+          <div class="rgc-dgr"><span>Total dû par le locataire <span class="mu sm">· report</span></span><span class="mono">${f(totalDu)}</span></div>
+          <div class="rgc-dgr"><span>− Sommes dues, imputées sur le dépôt <span class="mu sm">· charges connues, hors copropriété</span></span><span class="mono" style="color:var(--red)">−${f(covered)}</span></div>
+          <div class="rgc-dgr rgc-restit"><span><b>= À restituer maintenant</b></span><span class="mono" style="color:var(--grn)">${f(restitTotal)}</span></div>
+          ${resteADemander>0?`<div class="rgc-legal">${resteLegal}</div>`:''}
+          <div class="mu sm" style="margin-top:6px">Pas de retenue 20 % (${escHtml(reg.label)}, hors copropriété). Restitution sous 1 mois (EDL conforme) / 2 mois.</div>
+        </div></div>`;
   ov.innerHTML = `<div class="modal"><div class="m-head"><h3>🏁 Clôture — ${escHtml(entry.ref)} · ${escHtml(entry.loc||'')}</h3><button class="m-close" onclick="closeM('ov-rg-cloture')">✕</button></div>
     <div class="m-body">
       <div class="mu sm" style="margin-bottom:12px">Occupation ${entry.debutOcc?fd(entry.debutOcc):'—'} → sortie ${entry.fin?fd(entry.fin):'—'} · ${escHtml(entry.imm||'')} (${escHtml(reg.label)})</div>
-      <div class="rgc-blk"><div class="rgc-t">① Charges récupérables — ${estimated?'estimation comparée':'réel'}</div>
+      <div class="rgc-blk"><div class="rgc-t">① Ce que le locataire doit au départ</div>
+        <div class="rgc-l"><span>Loyers &amp; charges impayés${impayes>0?'':' <span class="mu sm">· aucun</span>'}</span><span class="mono">${f(impayes)}</span></div>
+        <div class="rgc-l"><span>Réparations locatives <span class="mu sm">· état des lieux de sortie</span></span><span class="mono"><input type="number" min="0" step="1" value="${reparations}" data-ek="${escHtml(entryKey)}" onchange="_rgSetReparations(this.dataset.ek,this.value)" style="width:76px;text-align:right"> €</span></div>
+        <div class="rgc-l"><span>Régularisation des charges <span class="mu sm">· détail ci-dessous</span></span><span class="mono">${regulCredit>0?('− '+f(regulCredit)+' (crédit)'):f(regulDu)}</span></div>
+        <div class="rgc-l tot"><span><b>= Total dû par le locataire</b></span><span class="mono"><b>${f(totalDu)}</b></span></div>
+      </div>
+      <div class="rgc-blk"><div class="rgc-t">② Détail de la régularisation des charges — ${estimated?'estimation comparée':'réel'}</div>
         ${chargeLines}
         <div class="rgc-l"><span>− Provisions versées</span><span class="mono">${f(prov)}</span></div>
         ${acompte>0?`<div class="rgc-l"><span>− Acompte de charges déjà versé</span><span class="mono">${f(acompte)}</span></div>`:''}
@@ -27357,7 +27378,7 @@ function _rgClotureLocataire(entryKey){
     </div>
     <div class="m-foot">
       <button class="btn bs" data-ek="${escHtml(entryKey)}" onclick="closeM('ov-rg-cloture');_rgOpenDecompteEstimatif(this.dataset.ek)">📄 Décompte${estimated?' estimatif':''}</button>
-      ${(reg.applies20 && retenueSugg>0)?`<button class="btn bp" data-ek="${escHtml(entryKey)}" data-ret="${retenueSugg}" data-res="${dgRestit}" onclick="_rgApplyRetenue(this.dataset.ek,+this.dataset.ret,+this.dataset.res)">🏛️ Retenir ${f(retenueSugg)} sur le DG</button>`:''}
+      ${(reg.applies20 && retenueRegul>0)?`<button class="btn bp" data-ek="${escHtml(entryKey)}" data-ret="${retenueRegul}" data-res="${restitTotal}" onclick="_rgApplyRetenue(this.dataset.ek,+this.dataset.ret,+this.dataset.res)">🏛️ Retenir ${f(retenueRegul)} sur le DG</button>`:''}
     </div></div>`;
   openM('ov-rg-cloture');
 }
@@ -27371,6 +27392,18 @@ function _rgToggleExcl(entryKey, idx){
   if(!Array.isArray(bail.estimExclues)) bail.estimExclues=[];
   const p=bail.estimExclues.indexOf(key);
   if(p>=0) bail.estimExclues.splice(p,1); else bail.estimExclues.push(key);
+  if(typeof _stamp==='function') _stamp(bail);
+  if(typeof saveDB==='function') saveDB();
+  _rgClotureLocataire(entryKey);
+}
+
+// CDC Charges Lot 4 — réparations locatives saisies à la clôture (aucune source EDL) : persistées sur bail.depart.
+function _rgSetReparations(entryKey, val){
+  const res=computeRegul(window._regulFrom,window._regulTo); const entry=(res.entries||{})[entryKey];
+  if(!entry || !entry.bail){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  const bail=entry.bail;
+  if(!bail.depart || typeof bail.depart!=='object') bail.depart={};
+  bail.depart.reparations=Math.max(0, Number(String(val).replace(',','.'))||0);
   if(typeof _stamp==='function') _stamp(bail);
   if(typeof saveDB==='function') saveDB();
   _rgClotureLocataire(entryKey);
