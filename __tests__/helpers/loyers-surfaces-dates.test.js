@@ -63,14 +63,18 @@ describe('Surface 3 — fiche 360 · Compta : le badge « ✓ payé / ⏳ non co
   });
 });
 
-describe('Surface 4 — dashboard solo « ✓ Payé JJ/MM »', () => {
+describe('Surface 4 — dashboard solo « ✓ Payé JJ/MM » : SUPPRIMÉE (KPI Lot 3)', () => {
+  // Le Tableau de bord (et son mode solo/patrimoine qui portait cette surface de paiement) est
+  // supprimé — remplacé par l'écran Pilotage (#p-accueil) et l'onglet Loyers. Le 7ᵉ moteur de
+  // rattachement au mois calendaire n'a donc plus aucune surface où réapparaître.
   it('le 7ᵉ moteur résiduel (rattachement au mois calendaire du mouvement) a disparu', () => {
     expect(has('const moPayments = (mvs||[]).filter(m =>')).toBe(false);
     expect(has("'✓ Payé ' + lastPay.date.slice(8,10)")).toBe(false);
   });
-  it('lit l\'imputation unique et n\'affiche une date que si le mois est soldé', () => {
-    expect(has('const _moM = (_etM && _etM.byYm) ? _etM.byYm[yrMoPrefix] : null;')).toBe(true);
-    expect(has("_payM && _payM.date ? ' le ' + fd(_payM.date) : ''")).toBe(true);
+  it('la surface elle-même a disparu : plus de renderer dashboard (rDash / _renderDashV4*)', () => {
+    expect(has('function _renderDashV4Solo')).toBe(false);
+    expect(has('function _renderDashV4Premium')).toBe(false);
+    expect(has('function rDash(')).toBe(false);
   });
 });
 
