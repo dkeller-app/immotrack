@@ -197,7 +197,9 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         html[data-theme="dark"] #p-accueil .pil-b .n{color:#14161d}
         #p-accueil .pil-b.hot .n{box-shadow:0 0 0 2.5px var(--cs)}
         #p-accueil .pil-b .v{font-size:13px;font-weight:700;color:var(--t1);line-height:1.26;min-height:2.52em;letter-spacing:-.1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-        #p-accueil .pil-b .a{font-family:var(--display);font-size:18px;font-weight:800;color:var(--c);font-variant-numeric:tabular-nums;line-height:1.26;margin-top:2px;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        #p-accueil .pil-b .a{font-family:var(--display);font-size:16px;font-weight:800;color:var(--c);line-height:1.2;margin-top:2px;letter-spacing:-.3px;overflow:hidden;word-break:break-word}
+        #p-accueil .pil-b .a.euro{font-variant-numeric:tabular-nums;white-space:nowrap;text-overflow:ellipsis}
+        #p-accueil .pil-b .a.txt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
         #p-accueil .pil-b .sub{font-size:11px;color:var(--t3);font-weight:600;margin-top:4px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
         #p-accueil .pil-b.todo{--c:var(--acc);--cs:var(--acc-soft)}
         #p-accueil .pil-b.ok{--c:var(--pos);--cs:var(--pos-soft);cursor:default}
@@ -250,7 +252,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         @media(max-width:560px){
           #p-accueil .pil-strip{grid-template-columns:repeat(2,1fr);gap:8px}
           #p-accueil .pil-duo .pil-bub{grid-template-columns:repeat(2,1fr);gap:8px}
-          #p-accueil .pil-b .a{font-size:17px;white-space:normal;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+          #p-accueil .pil-b .a{font-size:15px;white-space:normal;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
           #p-accueil .pil-b .sub{display:none}
           /* téléphone : la matrice devient une liste de cartes */
           #p-accueil .pil-mtx-s{max-height:none}
@@ -9960,7 +9962,7 @@ function _pilBulleHtml(f, premier) {
     + '<span class="bh"><span class="ic"><svg viewBox="0 0 24 24">' + (_PIL_ICONS[f.id] || '') + '</svg></span></span>'
     + (f.count > 1 ? '<span class="n">' + f.count + '</span>' : '')
     + '<span class="v">' + escHtml(f.lbl) + '</span>'
-    + '<span class="a">' + _pilChiffre(f) + '</span>'
+    + '<span class="a ' + ((f.montant != null && Math.abs(f.montant) > 0.005) ? 'euro' : 'txt') + '">' + _pilChiffre(f) + '</span>'
     + '<span class="sub">' + _pilPireTxt(f) + '</span>'
     + '</button>';
 }
@@ -10021,11 +10023,17 @@ const _PIL_MARK_HTML = '<span class="pil-mk" title="à faire"><svg viewBox="0 0 
 // Case de matrice BINAIRE : la marque Propryo si le point est « à faire » (ko/wn), sinon rien.
 function _pilMk(dot) { return (dot === 'ko' || dot === 'wn') ? _PIL_MARK_HTML : '<span class="pil-mk-no"></span>'; }
 // Les 7 points d'un lot + le point de paiement (byLot, R-0) + le verdict + les actions.
-function _pilLotLigne(l, byLotEntry, today, impayeRefs) {
+function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs) {
   const bail = (DB.baux && DB.baux[l.ref]) || null;
   const repris = _pilEstRepris(bail);
   const dots = _PIL_MTX_COLS.map(c => {
-    if (c.k === 'irl') return _pilIrlDot(l);
+    // Lot VACANT (pas de locataire) : « vide = rien ». Un logement vide n'a ni bail, ni EDL, ni
+    // assurance/diagnostics/entretien/caution À FAIRE — sa seule action est « Relouer » (bulle
+    // Vacants). Sans ça, _pilStatutDoc renvoyait _absent→ko sur 6 colonnes = 6 fausses marques
+    // corail sur chaque vacant (audit vitrine D3). Aligné sur la bulle (mrhManquante ne cible que
+    // les lots loués) et sur l'en-tête « à faire · vide = rien ».
+    if (!l.locataire) return 'na';
+    if (c.k === 'irl') return irlRefs ? (irlRefs.has(l.ref) ? 'ko' : 'na') : _pilIrlDot(l);
     // Bail repris : sur Bail/EDL/Caution, un statut « signé/présent » manquant = pièce du vendeur
     // à réclamer (ko), pas un défaut de signature. Un 'na' (sans objet) reste 'na'.
     if (repris && _PIL_REPRIS_COLS[c.k]) {
@@ -10145,6 +10153,16 @@ function _renderPilMatrice(ctx) {
     if (imp && imp.items) imp.items.forEach(it => impayeRefs.add(it.ref));
   } catch (e) {}
 
+  // Révision IRL : la colonne matrice DOIT marquer les MÊMES lots que la bulle « Loyers à réviser »
+  // (source unique _computeUnifiedTodo → AlertRules.irlClassifier). Sans ça, la matrice lisait
+  // _pilIrlDot (computeIRLRevision seul) et divergeait de la bulle / du ruban IRL (grief Didier :
+  // « IRL en vert alors que j'en ai à faire »). Garantit matrice == bulle.
+  const irlRefs = new Set();
+  try {
+    const todo = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
+    (todo || []).forEach(it => { if (it && it.type === 'irl' && it.contextRef) irlRefs.add(it.contextRef); });
+  } catch (e) {}
+
   // « À faire » d'un lot = BINAIRE : une action de conformité (ko/wn), un logement vacant, OU un
   // loyer en retard. Le compteur ET le filtre « À faire » DOIVENT suivre la marque affichée, sinon
   // un impayé seul montre une marque corail mais reste hors du « X à traiter » (audit §1).
@@ -10153,7 +10171,7 @@ function _renderPilMatrice(ctx) {
   const parImm = {};
   let nTot = 0, nKo = 0;
   scopeLogs.forEach(l => {
-    const lig = _pilLotLigne(l, byLot[l.ref], today, impayeRefs);
+    const lig = _pilLotLigne(l, byLot[l.ref], today, impayeRefs, irlRefs);
     nTot++; if (isTodo(lig)) nKo++;
     (parImm[lig.imm] = parImm[lig.imm] || []).push(lig);
   });
