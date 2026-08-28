@@ -115,8 +115,22 @@ export function _calculerSoldeDG(bail, mouvements) {
   if (!bail) return { dgPaid: 0, retenuesDG: 0, loyerImpaye: 0, soldeRestitue: 0 };
   const dgPaid = Number(bail.dgPaid) || 0;
   const retenuesDG = Number(bail.dgRetenu) || 0;
-  // Loyers impayés depuis le début du bail
-  const loyerImpaye = _calculerLoyerImpayeCumule(bail, mouvements);
+  // MODÈLE DIDIER (anti double-compte, chantier Charges) : le dépôt couvre le LOYER impayé seul.
+  // Les charges — même les provisions non versées — sont portées UNIQUEMENT par la régularisation
+  // (via bail.dgRetenu), jamais re-comptées comme impayé. On prend donc resteLoyer (cascade
+  // d'imputation loyer-d'abord, résolveur _loyerEtatLot), borné à la période réelle du bail
+  // [debut, fin/sortie/aujourd'hui] — sinon la cascade génère du dû au-delà de la fin et gonfle
+  // l'impayé. Fallback sur l'ancien cumul total (loyer+charges) si le résolveur n'est pas dispo.
+  // _calculerLoyerImpayeCumule (total) reste utilisé pour les ALERTES impayés (où le total est juste).
+  const W = (typeof window !== 'undefined') ? window : null;
+  let loyerImpaye;
+  if (W && typeof W._rgClotureImpayes === 'function' && typeof W._loyerEtatLot === 'function' && bail.ref) {
+    const today = (typeof W.td === 'function') ? W.td() : new Date().toISOString().slice(0, 10);
+    const finBail = bail.finEffective || bail.fin || (bail.depart && bail.depart.dateSortie) || today;
+    loyerImpaye = W._rgClotureImpayes(bail.ref, bail.debut || null, finBail);
+  } else {
+    loyerImpaye = _calculerLoyerImpayeCumule(bail, mouvements);
+  }
   const soldeRestitue = Math.max(0, dgPaid - retenuesDG - loyerImpaye);
   return { dgPaid, retenuesDG, loyerImpaye, soldeRestitue };
 }
