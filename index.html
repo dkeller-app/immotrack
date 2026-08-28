@@ -27900,8 +27900,56 @@ function _rgShowGlobal(immNom){
     ${bail&&bail.total>0?`<div class="rg-glob-bail">🏛️ Part bailleur (non récupérable → 2044) : <b>${f(bail.total)}</b></div>`:''}
     <div class="rg-glob-foot">
       <button class="btn ${hasTrou?'bs':'bp'}" data-imm="${escHtml(immNom)}" ${hasTrou?'disabled':''} onclick="_rgValidate(this.dataset.imm)">✓ Valider la régul de l'immeuble</button>
+      ${_rgJustifFactures(immNom).length?`<button class="btn bs" data-imm="${escHtml(immNom)}" onclick="_rgBuildJustifsZip(this.dataset.imm)" title="Télécharger un dossier .zip des factures justificatives attachées">📦 Paquet de justificatifs (${_rgJustifFactures(immNom).length})</button>`:''}
       <span class="mu sm">${hasTrou?'Validation bloquée tant qu’il reste des charges non réparties.':'Une fois validé, les décomptes de cet immeuble peuvent être envoyés.'}</span>
     </div>`;
+}
+
+// CDC Charges Lot 5 (mockup 13) — paquet de justificatifs .zip. Réutilise _mvPjResolve (résolution PJ),
+// _dcDataUrlToBytes (data URL → octets) et _bk.storedZip (zip maison, sans lib). Pas de fusion PDF.
+async function _rgFetchMvDataUrl(m){
+  const pj = (typeof _mvPjResolve==='function') ? _mvPjResolve(m) : null;
+  if(!pj) return null;
+  if(pj._legacy) return pj.dataB64 || null;
+  if(pj.idbKey){ try{ return await _idbGet(pj.idbKey); }catch(e){} }
+  if(pj.cloudKey||pj.idbKey||pj.driveFileId){
+    try{ const u=await _downloadPhotoFromDrive(null,pj.idbKey,pj.cloudKey||pj.driveFileId); if(u&&pj.idbKey)try{await _idbPut(pj.idbKey,u);}catch(e){} return u; }catch(e){}
+  }
+  return null;
+}
+// Collecte les factures récupérables de l'immeuble sur la période qui ont une PJ attachée.
+function _rgJustifFactures(immNom){
+  const from=window._regulFrom, to=window._regulTo;
+  let im=null; (DB.entites||[]).filter(_isAlive).forEach(e=>{const f=(e.immeubles||[]).find(i=>i.nom===immNom); if(f) im=f;});
+  const ccIds=new Set(((im&&im.compteursCollectifs)||[]).filter(_isAlive).map(c=>c.id));
+  return (DB.mouvements||[]).filter(_isAlive).filter(m=>
+    (typeof _isChargeRecupCategory==='function' && _isChargeRecupCategory(m.cat)) && (m.db>0) &&
+    m.date>=from && m.date<=to &&
+    (m.imm===immNom || (m.compteurCcId && ccIds.has(m.compteurCcId))) &&
+    (typeof _mvPjResolve==='function' && _mvPjResolve(m)));
+}
+async function _rgBuildJustifsZip(immNom){
+  if(!window._bk || typeof window._bk.storedZip!=='function'){ showToast('Module .zip non chargé','err'); return; }
+  const facts=_rgJustifFactures(immNom);
+  if(!facts.length){ showToast('Aucun justificatif attaché aux factures de cet immeuble','warn',5000); return; }
+  showToast('📦 Constitution du paquet de justificatifs…','info',2500);
+  const safe=s=>String(s||'').replace(/[^\w\- ]+/g,'_').replace(/\s+/g,'_').slice(0,40);
+  const entries=[]; let failed=0;
+  for(const m of facts){
+    let dataUrl=null; try{ dataUrl=await _rgFetchMvDataUrl(m); }catch(e){}
+    const bytes = dataUrl ? _dcDataUrlToBytes(dataUrl) : null;
+    if(!bytes || !bytes.length){ failed++; continue; }
+    const pj=_mvPjResolve(m);
+    const ext=(pj && pj.name && pj.name.includes('.')) ? pj.name.split('.').pop().toLowerCase()
+            : (/pdf/i.test((pj&&pj.mime)||'')?'pdf':'jpg');
+    const d=String(m.date||'').slice(0,10).replace(/\//g,'-');
+    entries.push({ name: `justificatifs/${d}_${safe(m.lib||'facture')}.${ext}`, bytes });
+  }
+  if(!entries.length){ showToast('Justificatifs introuvables (cache local vide / hors ligne)','err',6000); return; }
+  const u8=window._bk.storedZip(entries);
+  const y=String(window._regulFrom||'').slice(0,4)||'exercice';
+  if(typeof _downloadBlobAs==='function') _downloadBlobAs(new Blob([u8],{type:'application/zip'}), `Justificatifs-charges-${y}-${safe(immNom)}.zip`);
+  showToast('📦 Paquet .zip téléchargé — '+entries.length+' pièce(s)'+(failed>0?` · ${failed} introuvable(s)`:''),'ok',5500);
 }
 
 function computeRegul(from, to) {
