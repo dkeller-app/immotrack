@@ -454,7 +454,9 @@ export const ONGLETS_OUVERTS_HORS_LIGNE = [
  * une donnée fausse » — et ça ne sert à rien dans un appartement vide.
  */
 export const ONGLETS_FERMES_HORS_LIGNE = [
-  'accueil', 'dashboard', 'pilotage', 'finances', 'loyers', 'regul', 'mouvements',
+  // KPI Lot 3 — « dashboard » (Tableau de bord) et « pilotage » (Suivi) supprimés : leurs pages
+  // n'existent plus. L'écran Pilotage vit sous « accueil ».
+  'accueil', 'finances', 'loyers', 'regul', 'mouvements',
   // Ceux-là ne sont pas des chiffres périmés : ils ne PEUVENT pas fonctionner
   // sans réseau (import bancaire, envoi de courriel). Les nommer ici les fait
   // afficher leur raison au lieu de tomber dans le « fermé par défaut ».

@@ -91,7 +91,6 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
   <div class="sb-section" data-module-section="vue">
     <div class="sb-section-title" onclick="toggleSbSection(this)" role="button" tabindex="0">Vue d'ensemble<span class="sb-chev" aria-hidden="true">▾</span></div>
     <div class="ni act" data-module="accueil" data-tip="Accueil" onclick="go('accueil',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label"> Accueil</span></div>
-    <div class="ni" data-module="dashboard-simple" data-tip="Tableau de bord" onclick="go('dashboard',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/></svg></span><span class="ni-label"> Tableau de bord</span></div>
     <div class="ni" data-module="import" data-tip="Import / Données" onclick="go('import',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label"> Import / Données</span></div>
     <div class="ni" data-module="mouvements" data-tip="Mouvements" onclick="go('mouvements',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Mouvements</span></div>
   </div>
@@ -114,7 +113,6 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <div class="ni" data-module="loyers" data-tip="Loyers" onclick="go('loyers',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Loyers</span></div>
     <div class="ni" data-module="emails" data-tip="Communications — historique emails + modèles + tableau de bord" onclick="go('emails',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="m2 7 10 7 10-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Communications</span></div>
     <div class="ni" data-module="edl" data-tip="États des lieux" onclick="go('edl',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M9 4h6v3H9zM7 7h10v13H7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 12l1.5 1.5L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label"> États des lieux</span></div>
-    <div class="ni" data-module="pilotage-matriciel" data-tip="Pilotage matriciel — vue multi-baux pour gestionnaire" onclick="go('pilotage',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2.2-1.3L14 2h-4l-.3 2.4a7 7 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2.2 1.3L10 22h4l.3-2.4a7 7 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.07-.43.1-.86.1-1.3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="ni-label"> Pilotage</span></div>
   </div>
 
   <div class="sb-section" data-module-section="finances">
@@ -907,121 +905,6 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     </div>
 
     <!-- PAGE: PILOTAGE (v15.07 Sprint 8 PILOTAGE-MATRICIEL — vue multi-baux gestionnaire pro) -->
-    <div class="page" id="p-pilotage">
-      <div class="flex-b mb12" style="flex-wrap:wrap;gap:9px">
-        <div class="flex-c" style="gap:8px;flex-wrap:wrap">
-          <h2 style="margin:0;font-size:18px">🎛 Pilotage matriciel</h2>
-          <span class="mu sm" id="pil-count">— vue multi-baux</span>
-        </div>
-        <div class="flex-c" style="gap:7px;flex-wrap:wrap">
-          <button class="btn bs bb" onclick="_impayesOpenVue()" style="font-size:12.5px" title="Suivi des loyers mois par mois : payé / retard / avance par locataire">📅 Suivi des loyers</button>
-          <!-- v15.21 : bouton "Mettre à jour les loyers" retiré (user : « quel est l'utilité ? »). La révision IRL reste accessible via l'onglet Révision IRL et au cas par cas dans chaque bail. Fonction _pilOpenBulkMajIrl conservée mais @deprecated. -->
-        </div>
-      </div>
-      <div class="tabs" role="tablist" aria-label="Sous-sections Pilotage">
-        <div class="tab act" id="pil-tab-compta"  role="tab" aria-selected="true"  onclick="_setPilotageTab('compta',this)">💰 Suivi comptable</div>
-        <div class="tab"     id="pil-tab-docs"    role="tab" aria-selected="false" onclick="_setPilotageTab('documents',this)">📋 Suivi documents</div>
-        <div class="tab"     id="pil-tab-autom"   role="tab" aria-selected="false" onclick="_setPilotageTab('automatisations',this)">⚡ Automatisations</div>
-        <div class="tab"     id="pil-tab-prelev"  role="tab" aria-selected="false" onclick="_setPilotageTab('prelevements',this)">🏦 Prélèvements</div>
-      </div>
-
-      <!-- Filtres communs (s'adaptent selon sous-onglet) -->
-      <div class="flex-c mb12" style="gap:8px;flex-wrap:wrap;padding:8px 12px;background:var(--sur2);border-radius:var(--rl);border:1px solid var(--bor)">
-        <select class="inp" id="pil-f-statut" onchange="rPilotage()" style="min-width:160px">
-          <option value="">Tous statuts</option>
-          <option value="impaye">Impayés</option>
-          <option value="ajour">À jour</option>
-          <option value="dg_incomplet">DG incomplet</option>
-          <option value="docs_incomplets">Docs incomplets</option>
-        </select>
-        <select class="inp" id="pil-f-entity" onchange="rPilotage()" style="min-width:180px"><option value="">Toutes entités</option></select>
-        <input class="inp" id="pil-f-search" type="text" placeholder="🔍 Rechercher locataire / bien…" oninput="rPilotage()" style="flex:1;min-width:220px">
-        <span class="mu sm" id="pil-filter-info" style="font-size:11.5px"></span>
-      </div>
-
-      <!-- Sous-panneau Compta -->
-      <div class="tab-panel act" id="tp-pil-compta">
-        <div class="tbl-wrap"><table class="tbl" id="pil-compta-tbl">
-          <thead>
-            <tr>
-              <th style="width:34px"><input type="checkbox" id="pil-bulk-all" onchange="_pilBulkSelectAll(this.checked)" title="Tout sélectionner"></th>
-              <th>Locataire · Bien</th>
-              <th style="text-align:right">DG (versé / dû)</th>
-              <th style="text-align:right" title="Position cumulée depuis le début du suivi : + en avance, − en retard">Cumul (±)</th>
-              <th id="pil-compta-mo1" style="text-align:right">M-2</th>
-              <th id="pil-compta-mo2" style="text-align:right">M-1</th>
-              <th id="pil-compta-mo3" style="text-align:right">Mois</th>
-              <th id="pil-compta-mo4" style="text-align:right">À venir</th>
-              <th style="width:120px"></th>
-            </tr>
-          </thead>
-          <tbody id="pil-compta-tbody"></tbody>
-        </table></div>
-      </div>
-
-      <!-- Sous-panneau Documents -->
-      <div class="tab-panel" id="tp-pil-documents">
-        <div class="tbl-wrap"><table class="tbl" id="pil-docs-tbl">
-          <thead>
-            <tr>
-              <th>Locataire · Bien</th>
-              <th style="text-align:center;width:90px" title="Bail signé">📜 Bail</th>
-              <th style="text-align:center;width:90px" title="État des lieux entrée">🔍 EDL</th>
-              <th style="text-align:center;width:90px" title="Attestation assurance habitation (locataire)">🛡 Ass. hab.</th>
-              <th style="text-align:center;width:90px" title="Entretien chaudière annuel">🔥 Chauffage</th>
-              <th style="text-align:center;width:90px" title="Acte de cautionnement signé">✍ Caution</th>
-              <th style="text-align:center;width:90px" title="Dossier de diagnostic technique (9 diagnostics obligatoires bailleur)">🏷 Diagnostics</th>
-              <th style="width:120px"></th>
-            </tr>
-          </thead>
-          <tbody id="pil-docs-tbody"></tbody>
-        </table></div>
-      </div>
-
-      <!-- Sous-panneau Automatisations -->
-      <div class="tab-panel" id="tp-pil-automatisations">
-        <div class="mu sm mb10" style="line-height:1.6">
-          6 automatisations par bail. Les toggles héritent de la configuration du bailleur (entité) au 1er load.
-          Modifier un toggle ici = <strong>override</strong> spécifique à ce bail (icône ⇧).
-          Bouton "Reset bail" = restaure les valeurs héritées du bailleur.
-          <!-- CDC-QUITTANCES-IRL C2/C11 : la colonne « 🧾 quittance auto » (3ᵉ réglage pour la même
-               idée — seule la case du bail survit, D21) et la colonne « 📈 révision IRL automatique »
-               (interrupteur branché sur rien : aucun moteur ne l'a jamais lue) sont RETIRÉES. -->
-        </div>
-        <div class="tbl-wrap"><table class="tbl" id="pil-autom-tbl">
-          <thead>
-            <tr>
-              <th>Locataire · Bien</th>
-              <th style="text-align:center" title="Avis d'échéance envoyé avant date de paiement">📨</th>
-              <th style="text-align:center" title="Demande attestation assurance habitation à l'expiration">🛡</th>
-              <th style="text-align:center" title="Rappel entretien chaudière annuel">🔥</th>
-              <th style="text-align:center" title="Notification fin de bail T-3 mois">📜</th>
-              <th style="text-align:center" title="Rappel impayé auto J+3">⚠</th>
-              <th style="text-align:center" title="Alerte virement entrant inattendu">🏦</th>
-              <th style="width:90px"></th>
-            </tr>
-          </thead>
-          <tbody id="pil-autom-tbody"></tbody>
-        </table></div>
-      </div>
-
-      <!-- Sous-panneau Prélèvements (stub V1) -->
-      <div class="tab-panel" id="tp-pil-prelevements">
-        <div style="padding:24px;text-align:center;background:var(--sur2);border:1px dashed var(--bor);border-radius:var(--rl)">
-          <div style="font-size:36px;margin-bottom:8px">🏦</div>
-          <div style="font-size:15px;font-weight:600;margin-bottom:6px">Prélèvements SEPA — Bientôt disponible</div>
-          <div class="mu sm" style="max-width:520px;margin:0 auto;line-height:1.6">
-            Génération du fichier SEPA pain.008 (mandats RUM + bulk debits) prévue en V2 SaaS.<br>
-            Nécessite : statut PSP/PISP via prestataire (Fintecture, Saltedge, Bridge) + signature mandats clients.<br>
-            Le sujet est tracé dans <code>docs/subjects/SEPA-PRELEVEMENTS.md</code> (à créer).
-          </div>
-          <button class="btn bs bb mt12" onclick="showToast('Sujet capté — sera traité en V2 SaaS','info',3500)" style="margin-top:14px">📌 J'en suis intéressé</button>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- PAGE: BIENS (v14.2 NAV-RESTRUCTURE + LOG-LISTE-CARDS Phases 1+2 + LOG-ARCHIVE) -->
     <div class="page" id="p-biens">
       <!-- Fil COMPLET (Task 8) : bandeau « Fil rouge en cours » (reprise) — rempli par _frRenderResumeBanner via rBiens -->
       <div id="fr-resume-slot"></div>
@@ -1503,7 +1386,6 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 </style>
 <nav class="v4-bnav" id="v4-bnav" role="navigation" aria-label="Navigation mobile">
   <button type="button" class="v4-bn act" data-page="accueil" onclick="go('accueil')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lbl">Accueil</span></button>
-  <button type="button" class="v4-bn" data-page="dashboard" onclick="go('dashboard')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/></svg></span><span class="lbl">Dashboard</span></button>
   <button type="button" class="v4-bn" data-page="loyers" onclick="go('loyers')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="lbl">Loyers</span></button>
   <button type="button" class="v4-bn" data-page="agenda" onclick="go('agenda')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="lbl">Agenda</span></button>
   <button type="button" class="v4-bn" data-page="more" onclick="_openMoreSheet()"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg></span><span class="lbl">Plus</span></button>
@@ -8702,7 +8584,8 @@ function _confirmBailSignatureFlow(ref) {
 // on réutilise les pages #p-<id> telles quelles + le routeur go(). En Phase 2a la sidebar garde ses
 // 17 items (rien d'injoignable) ; en Phase 2b elle passera aux parents + zones.
 const _NAV_GROUPS = [
-  { parent: 'Pilotage',            tabs: [['dashboard','Tableau de bord'], ['pilotage','Suivi']] },
+  // KPI Lot 3 — « Tableau de bord » et « Suivi » supprimés (remplacés par l'écran Pilotage/#p-accueil
+  // et l'onglet Loyers). Le groupe « Pilotage » perd son sous-menu ; « Accueil » reste seul.
   { parent: 'Locataires',          tabs: [['baux','Baux en cours'], ['candidats','Candidatures']] },
   { parent: 'Agenda',              tabs: [['agenda','Agenda'], ['equipements','Équipements']] },
   // D1 — la zone Argent tient en QUATRE entrées de plein droit : Mouvements · Loyers ·
@@ -8731,17 +8614,17 @@ function _navSidebarLanding(id, on) {
 // on/off ; Accueil + Logements toujours ON (menu jamais vide). Filtre sidebar + feuille Plus +
 // sous-onglets. Une page masquée reste joignable en `#p-<id>` (on masque du menu, on ne supprime pas).
 // D1 — 13 entrées au lieu de 14 : « Loyer (IRL) » disparaît, absorbée par « Loyers ».
-const _MENU_ALL = ['accueil','dashboard','pilotage','biens','baux','candidats','edl','agenda','equipements','mouvements','loyers','regul','finances'];
+const _MENU_ALL = ['accueil','biens','baux','candidats','edl','agenda','equipements','mouvements','loyers','regul','finances'];
 const _MENU_LOCKED = ['accueil','biens'];
-const _MENU_LABELS = { accueil:'Accueil', dashboard:'Tableau de bord', finances:'Finances', pilotage:'Suivi', biens:'Logements', baux:'Locataires', candidats:'Candidatures', edl:'États des lieux', agenda:'Agenda', equipements:'Équipements', mouvements:'Mouvements', loyers:'Loyers', regul:'Charges' };
+const _MENU_LABELS = { accueil:'Accueil', finances:'Finances', biens:'Logements', baux:'Locataires', candidats:'Candidatures', edl:'États des lieux', agenda:'Agenda', equipements:'Équipements', mouvements:'Mouvements', loyers:'Loyers', regul:'Charges' };
 const _MENU_ZONES = [
-  { z:'Pilotage', ids:['accueil','dashboard','pilotage'] },
+  { z:'Pilotage', ids:['accueil'] },
   { z:'Gestion locative', ids:['biens','baux','candidats','edl','agenda','equipements'] },
   { z:'Argent', ids:['mouvements','loyers','regul','finances'] },
 ];
 const _MENU_PRESETS = {
   'Propriétaire — tout': _MENU_ALL.slice(),
-  'Gestion locative': ['accueil','dashboard','pilotage','biens','baux','candidats','edl','agenda','equipements','mouvements','loyers'],
+  'Gestion locative': ['accueil','biens','baux','candidats','edl','agenda','equipements','mouvements','loyers'],
   'Comptable': ['accueil','biens','mouvements','loyers','finances','regul'],
 };
 function _menuKey() { return (typeof _lsKey === 'function') ? _lsKey('immo_menu_on') : 'immo_menu_on'; }
@@ -8880,8 +8763,8 @@ function go(page, elNav) {
   if(window.innerWidth<=768) { el('sb')?.classList.remove('open'); el('sb-backdrop')?.classList.remove('open'); }
   // Render page
   const renders = {
-    accueil:rAccueil, // v15.73 — page d'entrée par défaut
-    dashboard:rDash, import:()=>{}, mouvements:()=>{initFilters();rMv();},
+    accueil:rAccueil, // v15.73 — page d'entrée par défaut (l'écran Pilotage)
+    import:()=>{}, mouvements:()=>{initFilters();rMv();},
     agenda:()=>{initAgendaFilters();rAgenda();},
     equipements:()=>{initFilters();rEquipements();},
     baux:()=>{initFilters();const bauxActifTab=document.querySelector('#p-baux .tab.act');if(!bauxActifTab){const t=document.querySelector('#p-baux .tab');if(t)t.classList.add('act');}el('baux-tab-actifs').style.display='';el('baux-tab-historique').style.display='none';rBaux();}, candidats:()=>{ _candidatsTab = _candidatsTab || 'actifs'; rCandidats(); _autoPullCandidatures('open'); },
@@ -8896,7 +8779,6 @@ function go(page, elNav) {
     'log-fiche':rLogFiche,// v14.2 LOG-FICHE-360
     'imm-fiche':rImmFiche,// v14.3 IMM-FICHE-360
     'ent-fiche':rEntFiche,// v14.8 ENT-FICHE-360
-    pilotage:()=>{initFilters();rPilotage();}, // v15.07 Sprint 8 PILOTAGE-MATRICIEL
     params:rParams,
     export:rExport,
   };
@@ -8998,7 +8880,6 @@ function _renderMoreSheet() {
 // surlignage est câlé sur le PARENT représentant (_navSidebarRep) dans go(), comme la sidebar.
 const _V4_BOTTOM = [
   { id:'accueil',   lb:'Accueil',    svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-  { id:'dashboard', lb:'Pilotage',   svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/></svg>' },
   { id:'baux',      lb:'Locataires', svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M8 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 100-5M22 20c0-3-2-4-4-4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
   { id:'loyers',    lb:'Loyers',     svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' },
 ];
@@ -9197,11 +9078,10 @@ function _renderSidebarPinned() {
 }
 
 function _sbPinnedClick(name) {
-  if (typeof go === 'function') go('dashboard');
-  setTimeout(() => {
-    const es = (typeof el === 'function') ? el('dash-ent') : null;
-    if (es) { es.value = name; if (typeof rDash === 'function') rDash(); }
-  }, 30);
+  // KPI Lot 3 — le dashboard a disparu : on pose le filtre d'entité GLOBAL (source unique
+  // _activeEntity) puis on ouvre l'écran Pilotage (#p-accueil), qui lit _finActiveEnt().
+  if (typeof _setActiveEntity === 'function') _setActiveEntity(name);
+  if (typeof go === 'function') go('accueil');
 }
 
 // v15.154 — Nom d'affichage de l'utilisateur (commercialisation : plus de « Didier » codé en dur).
@@ -9530,7 +9410,6 @@ function _v4TopEntities() {
 const _V4_NAV_MODEL = [
   { h6:'Pilotage' },
   { id:'accueil',   ic:'accueil',   lb:'Accueil' },
-  { id:'dashboard', ic:'dashboard', lb:'Pilotage' },
   { h6:'Gestion locative' },
   { id:'biens',     ic:'biens',     lb:'Logements', badge:'logs' },
   { id:'baux',      ic:'baux',      lb:'Locataires', badge:'locs', candBadge:true },
@@ -52140,47 +52019,6 @@ function saveAgendaEvt() {
 // Tests Vitest : __tests__/helpers/pilotage.test.js
 // ════════════════════════════════════════════════════════════════════════════
 
-let _pilotageTab = 'compta'; // sous-onglet actif
-let _pilSelectedRefs = new Set(); // refs cochées pour bulk actions
-
-function _setPilotageTab(t, e) {
-  if (!['compta','documents','automatisations','prelevements'].includes(t)) return;
-  _pilotageTab = t;
-  // Activate tab UI
-  document.querySelectorAll('#p-pilotage .tab').forEach(x => x.classList.remove('act'));
-  if (e) e.classList.add('act');
-  else {
-    const map = { compta:'pil-tab-compta', documents:'pil-tab-docs', automatisations:'pil-tab-autom', prelevements:'pil-tab-prelev' };
-    const tab = el(map[t]); if (tab) tab.classList.add('act');
-  }
-  // Show corresponding panel
-  document.querySelectorAll('#p-pilotage .tab-panel').forEach(p => p.classList.remove('act'));
-  const panels = { compta:'tp-pil-compta', documents:'tp-pil-documents', automatisations:'tp-pil-automatisations', prelevements:'tp-pil-prelevements' };
-  const panel = el(panels[t]); if (panel) panel.classList.add('act');
-  // Re-render contenu actif
-  rPilotage();
-}
-
-/** Dispatcher principal du tab Pilotage. */
-function rPilotage() {
-  if (!DB) return;
-  // Init select entité une fois
-  const selEnt = el('pil-f-entity');
-  if (selEnt && selEnt.options.length <= 1) {
-    const ents = [...new Set((DB.logements||[]).filter(_isAlive).map(l => l.entity).filter(Boolean))].sort();
-    selEnt.innerHTML = '<option value="">Toutes entités</option>' + ents.map(e => `<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
-  }
-  // v15.234 NAV-FILTRE-ENTITE-GLOBAL : synchroniser le filtre entité du pilotage
-  // sur l'entité globale active (la bulle pilote aussi le pilotage).
-  if (selEnt) {
-    const has = !_activeEntity || [...selEnt.options].some(o => o.value === _activeEntity);
-    selEnt.value = has ? (_activeEntity || '') : '';
-  }
-  if (_pilotageTab === 'compta')        _rPilCompta();
-  else if (_pilotageTab === 'documents') _rPilDocs();
-  else if (_pilotageTab === 'automatisations') _rPilAutom();
-  // prelevements = stub statique
-}
 
 // ─── Helpers purs (réutilisés par tests Vitest miroir) ──────────────────────
 
@@ -52331,405 +52169,6 @@ function _pilBulkMajLoyersSimule(baux, dateApplication) {
 
 // ─── Filtrage des baux selon les filtres user ───────────────────────────────
 // Début du suivi = 1er mouvement de la base (borne du cumul contre la dette fantôme).
-function _pilTrackingStartYm() {
-  let min = '';
-  (DB.mouvements || []).forEach(m => { if (m && !m._deleted && m.date && (!min || m.date < min)) min = m.date; });
-  return min ? min.slice(0, 7) : ((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal().slice(0, 7) : (new Date().getFullYear() + '-01'));
-}
-// Cumul signé d'un locataire, borné à max(bail.debut, début du suivi) → moteur _computeLoyerCumul.
-function _pilCumulLocataire(log, bail, trackStartYm, nowYm) {
-  if (typeof window._computeLoyerCumul !== 'function') return { cumul: 0, sumDue: 0, months: 0, tracked: false, startYm: '' };
-  // Mémoïsation (audit Phase D-matrice, perf) : évite le rescan DB.mouvements par lot à chaque
-  // rendu ET à chaque coche (_pilBulkSelect rappelle _pilGetFilteredRows). Invalidé par saveDB (_dbGen) + jour.
-  const gen = ((typeof window._dbGen !== 'undefined') ? window._dbGen : 0) + '|' + nowYm + '|' + trackStartYm;
-  const C = window._pilCumulCache || (window._pilCumulCache = { gen: '', map: {} });
-  if (C.gen !== gen) { C.gen = gen; C.map = {}; }
-  if (C.map[log.ref]) return C.map[log.ref];
-  const isLoy = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
-  const bailDebutYm = String(bail.debut || '').slice(0, 7);
-  const startYm = (bailDebutYm && bailDebutYm > trackStartYm) ? bailDebutYm : trackStartYm;
-  // totalPaid = TOUT loyer encaissé du lot depuis startYm (borne haute retirée — audit bug 1 :
-  // une avance datée d'un mois futur est de l'argent reçu → doit compter, sinon chip « à jour »
-  // contredit la case bleue « avance »). Le dû reste borné aux mois échus dans le moteur.
-  let totalPaid = 0;
-  (DB.mouvements || []).forEach(m => {
-    if (!m || m._deleted || m.qui !== log.ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) return;
-    if (m.date.slice(0, 7) >= startYm) totalPaid += (m.cr || 0);
-  });
-  const r = window._computeLoyerCumul({
-    startYm, endYm: nowYm, totalPaid,
-    dueOfMonth: (ym) => (typeof _getActiveBailHcChProrated === 'function') ? _getActiveBailHcChProrated(log.ref, parseInt(ym.slice(0, 4), 10), parseInt(ym.slice(5, 7), 10) - 1) : 0
-  });
-  r.startYm = startYm;
-  C.map[log.ref] = r;
-  return r;
-}
-function _pilGetFilteredRows() {
-  const today = new Date();
-  const _pilNowYm = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal().slice(0, 7) : (today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0'));
-  const _pilTrackStartYm = _pilTrackingStartYm();
-  const fStatut = v('pil-f-statut');
-  const fEnt    = v('pil-f-entity');
-  const fSearch = v('pil-f-search').toLowerCase().trim();
-
-  const aliveLogs = (DB.logements||[]).filter(_isAlive).filter(l => !l.archived);
-  const scoped = aliveLogs.filter(l => l.locataire); // baux actifs uniquement
-  const rows = [];
-
-  for (const log of scoped) {
-    if (fEnt && log.entity !== fEnt) continue;
-    const bail = DB.baux && DB.baux[log.ref];
-    if (!bail) continue;
-    const searchHay = `${log.ref} ${log.locataire||''} ${log.adr||''} ${log.imm||''} ${(bail.locataires||[]).map(x=>x.nom).join(' ')}`.toLowerCase();
-    if (fSearch && !searchHay.includes(fSearch)) continue;
-
-    // SUIVI-LOYERS-SOURCE-UNIQUE Phase D-matrice : cumul via le moteur unique, BORNÉ au suivi
-    // (fin du −63 050 € fantôme) + dû du bail de l'époque ; verdict = pastille partagée.
-    const cum = _pilCumulLocataire(log, bail, _pilTrackStartYm, _pilNowYm);
-    const monthlyFull = (Number(bail.hc) || Number(log.hc) || 0) + (Number(bail.ch) || Number(log.ch) || 0);
-    const verdict = (typeof window._loyerChipVerdict === 'function') ? window._loyerChipVerdict(cum.cumul, monthlyFull) : { cls: 'ajour', montant: 0, nMois: 0 };
-    const dgVerse = Number(bail.dgPaid) || 0;
-    const dgDu = Number(bail.dg) || Number(log.dg) || 0;
-    const _bailDebutYm = String(bail.debut || '').slice(0, 7);
-    const _bailPendantSuivi = _bailDebutYm && _bailDebutYm >= _pilTrackStartYm;   // bail créé APRÈS le début du suivi
-    const dgTracked = dgVerse > 0;
-    const dgIncomplet = dgTracked && dgDu > 0 && dgVerse < dgDu;
-    // « non suivi » (gris) SEULEMENT si le bail est antérieur au suivi (DG probablement pré-app).
-    // Un bail récent avec DG dû mais jamais versé = vrai manquement → alerte (audit Phase D-matrice, risque 2).
-    const dgManquant = !dgTracked && dgDu > 0 && _bailPendantSuivi;
-
-    if (fStatut === 'impaye' && verdict.cls !== 'retard') continue;
-    if (fStatut === 'ajour' && verdict.cls === 'retard') continue;   // à jour OU en avance
-    if (fStatut === 'dg_incomplet' && !dgIncomplet && !dgManquant) continue;
-    if (fStatut === 'docs_incomplets') {
-      const docTypes = ['bail','edl','mrh','chauffage','caution','ddt'];
-      const anyKo = docTypes.some(t => {
-        const s = _pilStatutDoc(bail, log, t, today);
-        return ['absent','expire','partial','ko'].includes(s.statut);
-      });
-      if (!anyKo) continue;
-    }
-
-    rows.push({ log, bail, cum, verdict, monthlyFull, dgVerse, dgDu, dgTracked, dgIncomplet, dgManquant });
-  }
-  rows.sort((a,b) => a.cum.cumul - b.cum.cumul); // retard (cumul le plus négatif) en premier
-
-  // Update count
-  const count = el('pil-count');
-  if (count) count.textContent = `— ${rows.length} bail${rows.length>1?'s':''} sélectionné${rows.length>1?'s':''}`;
-  return rows;
-}
-
-// ─── Phase 2 : sous-onglet Suivi comptable ──────────────────────────────────
-function _rPilCompta() {
-  const tbody = el('pil-compta-tbody');
-  if (!tbody) return;
-  const today = new Date();
-  // Headers : fenêtre M-2 → M+1 (inclut le mois À VENIR pour matérialiser une avance).
-  for (let i = 0; i < 4; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth() + (i - 2), 1);
-    const moHeader = el(`pil-compta-mo${i+1}`);
-    if (moHeader) moHeader.textContent = _DMC[d.getMonth()] + ' ' + String(d.getFullYear()).slice(-2) + (i === 3 ? ' →' : '');
-  }
-
-  const rows = _pilGetFilteredRows();
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="padding:24px;text-align:center;color:var(--mut)">Aucun bail correspondant aux filtres.</td></tr>`;
-    return;
-  }
-
-  const _pilCell = (m) => {
-    // m = strip.months[mois-1] | null → couleur + icône du langage Suivi des loyers (report géré).
-    if (!m || m.cls === 'vac') return { bg: '#f3f4f6', ic: '·', tx: '—', c: 'var(--t3)', tip: 'Hors bail' };
-    if (m.cls === 'avance')   return { bg: '#e6f1fb', ic: '↑', tx: 'payé d\'avance', c: '#185fa5', tip: 'Mois à venir déjà couvert (avance)' };
-    if (m.cls === 'avenir')   return { bg: '#f3f4f6', ic: '·', tx: fmt(0), c: 'var(--t3)', tip: 'À venir — dû ' + fmt(m.due || m.attendu || 0) };
-    if (m.cls === 'ok')       return { bg: '#dcfce7', ic: '✓', tx: fmt(m.recu), c: '#0f6e56', tip: 'Payé (' + fmt(m.recu) + ' / dû ' + fmt(m.due) + ')' + (m.recu < m.due * 0.5 ? ' — couvert par avance' : '') };
-    if (m.cls === 'warn')     return { bg: '#fef3c7', ic: '~', tx: fmt(m.recu), c: '#854f0b', tip: 'Partiel (' + fmt(m.recu) + ' / dû ' + fmt(m.due) + ')' };
-    return { bg: '#fee2e2', ic: '✗', tx: fmt(m.recu), c: '#a32d2d', tip: 'Impayé (' + fmt(m.recu) + ' / dû ' + fmt(m.due) + ')' };
-  };
-
-  tbody.innerHTML = rows.map(({log, bail, cum, verdict, dgVerse, dgDu, dgTracked, dgIncomplet, dgManquant}) => {
-    const rEsc = escHtml(log.ref);
-    const locName = escHtml(log.locataire || (bail.locataires||[]).map(x=>x.nom).join(', ') || '—');
-    const adr = escHtml(log.adr || log.imm || '');
-    const suivi = cum.startYm ? (' · suivi depuis ' + (_DMC[parseInt(cum.startYm.slice(5, 7), 10) - 1] || '') + ' ' + cum.startYm.slice(0, 4)) : '';
-    // Cellules fenêtre M-2..M+1 via le moteur (strip mémoïsé, report géré, dû du bail de l'époque).
-    const moCells = [];
-    for (let i = 0; i < 4; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth() + (i - 2), 1);
-      const s = _suiviLoyerStrip(log, d.getFullYear());
-      const m = s ? s.months[d.getMonth()] : null;
-      const cell = _pilCell(m);
-      moCells.push(`<td style="text-align:right;background:${cell.bg};font-size:11.5px;color:${cell.c}"><span title="${escHtml(_DMC[d.getMonth()] + ' ' + d.getFullYear() + ' — ' + cell.tip)}">${cell.ic} ${cell.tx}</span></td>`);
-    }
-    // DG : « non suivi » tant qu'aucun versement enregistré (au lieu d'un faux 0,00 € rouge).
-    const dgHtml = dgTracked
-      ? `<span style="${dgIncomplet ? 'color:var(--ora);font-weight:600' : ''}" title="Versé / dû">${fmt(dgVerse)} / ${fmt(dgDu)}</span>`
-      : dgManquant
-        ? `<span style="color:var(--red);font-weight:600" title="Dépôt de garantie dû mais aucun versement enregistré (bail créé pendant le suivi)">⚠ 0 / ${fmt(dgDu)}</span>`
-        : `<span style="color:var(--t3)" title="Aucun versement de dépôt de garantie enregistré (souvent antérieur à l'app)">non suivi</span>`;
-    // Cumul : la pastille unique (avance bleu / retard rouge / à jour vert).
-    const cch = verdict.cls === 'retard'
-      ? `<span style="background:#fcebeb;color:#a32d2d;font-weight:700;padding:3px 9px;border-radius:8px;white-space:nowrap">↓ ${fmt(verdict.montant)}${verdict.nMois >= 1 ? ' · ' + verdict.nMois + ' m' : ''}</span>`
-      : verdict.cls === 'avance'
-        ? `<span style="background:#e6f1fb;color:#185fa5;font-weight:700;padding:3px 9px;border-radius:8px;white-space:nowrap">↑ ${fmt(verdict.montant)}${verdict.nMois >= 1 ? ' · ' + verdict.nMois + ' m' : ''}</span>`
-        : `<span style="background:#e1f5ee;color:#0f6e56;font-weight:700;padding:3px 9px;border-radius:8px;white-space:nowrap">✓ à jour</span>`;
-    const checked = _pilSelectedRefs.has(log.ref) ? 'checked' : '';
-    return `<tr>
-      <td><input type="checkbox" ${checked} onchange="_pilBulkSelect('${rEsc}',this.checked)"></td>
-      <td style="font-size:12.5px">
-        <a href="#" onclick="openLogFiche('${rEsc}');return false" style="color:var(--acc);text-decoration:none;font-weight:600">${locName}</a>
-        <div class="mu sm" style="font-size:10.5px">${rEsc} · ${adr}${suivi}</div>
-      </td>
-      <td style="text-align:right;font-size:12px">${dgHtml}</td>
-      <td style="text-align:right;font-size:12px">${cch}</td>
-      ${moCells.join('')}
-      <td style="text-align:right">
-        <button class="btn bs" onclick="openLogFiche('${rEsc}')" title="Ouvrir la fiche" style="font-size:13px;min-width:40px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;padding:4px 8px">↗</button>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function _pilBulkSelect(ref, on) {
-  if (on) _pilSelectedRefs.add(ref);
-  else    _pilSelectedRefs.delete(ref);
-  const all = el('pil-bulk-all');
-  if (all) {
-    const visibleRefs = _pilGetFilteredRows().map(r => r.log.ref);
-    all.checked = visibleRefs.length > 0 && visibleRefs.every(r => _pilSelectedRefs.has(r));
-  }
-}
-
-function _pilBulkSelectAll(on) {
-  const visibleRefs = _pilGetFilteredRows().map(r => r.log.ref);
-  if (on) visibleRefs.forEach(r => _pilSelectedRefs.add(r));
-  else    visibleRefs.forEach(r => _pilSelectedRefs.delete(r));
-  rPilotage();
-}
-
-// ─── Phase 2 : bulk update IRL ──────────────────────────────────────────────
-// @deprecated v15.21 — bouton « Mettre à jour les loyers » retiré du Pilotage
-// (user : « quel est l'utilité ? »). La révision IRL passe par l'onglet Révision
-// IRL et au cas par cas par bail. Fonction conservée (au cas où on rebascule).
-function _pilOpenBulkMajIrl() {
-  // Sélection : refs cochés OU tous les baux filtrés si rien coché
-  let refs = [..._pilSelectedRefs];
-  const allRows = _pilGetFilteredRows();
-  if (!refs.length) refs = allRows.map(r => r.log.ref);
-  if (!refs.length) { showToast('Aucun bail à mettre à jour', 'warn'); return; }
-  const items = refs.map(r => {
-    const log = (DB.logements||[]).find(l => l.ref === r);
-    return log ? { log } : null;
-  }).filter(Boolean);
-  const simulation = _pilBulkMajLoyersSimule(items, new Date());
-  // Build modal HTML
-  const body = el('ov-pil-bulk-irl-body');
-  if (body) {
-    const lignes = simulation.baux.map(b => {
-      if (b.exclu) {
-        return `<tr style="background:#f9fafb"><td style="padding:6px 10px;font-size:12px">${escHtml(b.ref)}</td><td style="padding:6px 10px;font-size:11.5px;color:var(--mut)" colspan="3">⊘ Exclu : ${escHtml(b.raison)}</td></tr>`;
-      }
-      const pct = (b.variation*100).toFixed(2);
-      const sign = b.variation >= 0 ? '+' : '';
-      return `<tr><td style="padding:6px 10px;font-size:12px">${escHtml(b.ref)}</td>
-        <td style="padding:6px 10px;font-size:12px;text-align:right">${fmt(b.ancienHC)}</td>
-        <td style="padding:6px 10px;font-size:12px;text-align:right;font-weight:600;color:var(--grn)">${fmt(b.nouveauHC)}</td>
-        <td style="padding:6px 10px;font-size:11.5px;text-align:right;color:${b.variation>=0?'var(--grn)':'var(--red)'}">${sign}${pct} %</td></tr>`;
-    }).join('');
-    body.innerHTML = `
-      <div class="mu sm" style="line-height:1.6;margin-bottom:12px">
-        Aperçu de la révision IRL bulk sur <strong>${refs.length}</strong> bail${refs.length>1?'s':''} sélectionné${refs.length>1?'s':''}.
-        <strong style="color:var(--grn)">${simulation.totalConcernes}</strong> sera${simulation.totalConcernes>1?'nt':''} mis à jour,
-        <strong style="color:var(--mut)">${simulation.totalExclus}</strong> exclu${simulation.totalExclus>1?'s':''}
-        (gel DPE F/G, IRL manquant, déjà appliqué cette année, etc.).
-      </div>
-      <div style="max-height:50vh;overflow-y:auto;border:1px solid var(--bor);border-radius:var(--rl)">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead style="background:var(--sur2);position:sticky;top:0">
-            <tr>
-              <th style="padding:8px 10px;text-align:left;font-weight:700;font-size:11px">Logement</th>
-              <th style="padding:8px 10px;text-align:right;font-weight:700;font-size:11px">Ancien HC</th>
-              <th style="padding:8px 10px;text-align:right;font-weight:700;font-size:11px">Nouveau HC</th>
-              <th style="padding:8px 10px;text-align:right;font-weight:700;font-size:11px">Variation</th>
-            </tr>
-          </thead>
-          <tbody>${lignes}</tbody>
-        </table>
-      </div>`;
-  }
-  el('ov-pil-bulk-irl-refs').value = JSON.stringify(refs);
-  el('ov-pil-bulk-irl-count').textContent = String(simulation.totalConcernes);
-  openM('ov-pil-bulk-irl');
-}
-
-function _pilConfirmBulkMajIrl() {
-  const refsJson = el('ov-pil-bulk-irl-refs')?.value;
-  if (!refsJson) return;
-  let refs = []; try { refs = JSON.parse(refsJson); } catch(e) {}
-  let applied = 0, skipped = 0;
-  for (const ref of refs) {
-    const log = (DB.logements||[]).find(l => l.ref === ref);
-    if (!log) { skipped++; continue; }
-    if (typeof computeIRLRevision !== 'function' || typeof applyIRL !== 'function') { skipped++; continue; }
-    try {
-      // Application EN MASSE : lecture HONNÊTE. Le mode forcé n'appartient qu'au geste
-      // explicite, un par un, avec sa case à cocher — jamais à un traitement de lot.
-      const rev = computeIRLRevision(log);
-      if (!rev || rev.gelDpeFG || rev.dejaApplique || rev.insuffisant || rev.pasEncoreApplicable) { skipped++; continue; }
-      // AUDIT-SUIVI-LOYERS Q1 : date d'effet explicite par lot (jamais rétroactive, jamais avant un
-      // mois quittancé), comme applyIRL. Corrige aussi la désync du batch (baux[ref].hc n'était jamais
-      // mis à jour) via _baremeRecordRevision, et alimente le barème (source de vérité).
-      const annivIso = rev.dateRevision ? _isoLocal(rev.dateRevision) : td();
-      const todayLocal = _todayIsoLocal();
-      const _eff = (typeof window._baremeComputeDateEffetIRL === 'function')
-        ? window._baremeComputeDateEffetIRL({ anniversaireIso: annivIso, validationIso: todayLocal, dernierMoisQuittanceYm: _dernierMoisQuittanceYm(log.ref) })
-        : { effetIso: annivIso, ajustee: false };
-      const dateEffetIso = _eff.effetIso || annivIso;
-      const futureApplication = dateEffetIso > todayLocal;
-      const ancienHC = log.hc;
-      _stamp(log);
-      // Historique — dateRevision = ANNIVERSAIRE (clé de cycle), dateEffet = date d'effet Q1.
-      if (!DB.irlHistorique) DB.irlHistorique = [];
-      DB.irlHistorique.push({
-        id: nid(), ref: log.ref,
-        dateRevision: annivIso, dateEffet: dateEffetIso, dateApplication: dateEffetIso,
-        dateEffetAjustee: !!_eff.ajustee,
-        ancienHC, nouveauHC: rev.nouveauHC,
-        ancienIrl: rev.ancienIrl, nouveauIrl: rev.nouveauIrl,
-        variation: rev.variation, action: 'applique_bulk',
-        pendingApply: futureApplication, appliedAt: futureApplication ? '' : todayLocal
-      });
-      _baremeRecordRevision(log, log.ref, rev.nouveauHC, dateEffetIso, { source: 'irl', note: rev?.irlVigueur?.key || '', applyNow: !futureApplication, cycleMarker: annivIso });
-      if (typeof _auditLog === 'function') _auditLog('update', 'logement', log.id, log.ref + '/irl_bulk');
-      applied++;
-    } catch(e) { console.warn('[bulk IRL]', ref, e); skipped++; }
-  }
-  saveDB();
-  closeM('ov-pil-bulk-irl');
-  _pilSelectedRefs.clear();
-  rPilotage();
-  showToast(`✓ ${applied} bail${applied>1?'s':''} mis à jour · ${skipped} ignoré${skipped>1?'s':''}`, 'ok', 4000);
-}
-
-// ─── Phase 3 : sous-onglet Suivi documents ──────────────────────────────────
-function _rPilDocs() {
-  const tbody = el('pil-docs-tbody');
-  if (!tbody) return;
-  const today = new Date();
-  const rows = _pilGetFilteredRows();
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--mut)">Aucun bail correspondant aux filtres.</td></tr>`;
-    return;
-  }
-  const docTypes = ['bail','edl','mrh','chauffage','caution','ddt'];
-  const docLabels = {bail:'Bail', edl:'EDL', mrh:'Ass. hab.', chauffage:'Chauffage', caution:'Caution', ddt:'Diagnostics'};
-  tbody.innerHTML = rows.map(({log, bail}) => {
-    const rEsc = escHtml(log.ref);
-    const locName = escHtml(log.locataire || '—');
-    const adr = escHtml(log.adr || log.imm || '');
-    const cells = docTypes.map(t => {
-      const s = _pilStatutDoc(bail, log, t, today);
-      const isClickable = (t === 'ddt') ? `onclick="openLogModalOnTab('${rEsc}','diag')"` :
-                          (t === 'bail') ? `onclick="openBail('${rEsc}')"` :
-                          (t === 'edl') ? `onclick="go('edl')"` :
-                          (t === 'mrh') ? `onclick="go('baux')"` :
-                          (t === 'chauffage') ? `onclick="openLogFiche('${rEsc}');setTimeout(()=>setLogFicheTab('conformite'),200)"` :
-                          '';
-      const cursor = isClickable ? 'cursor:pointer' : '';
-      return `<td data-doc="${docLabels[t]}" style="text-align:center;background:${s.bg};${cursor}" ${isClickable} title="${escHtml(s.label)} (cliquer pour ouvrir)">
-        <span style="display:inline-block;padding:2px 8px;border:1px solid ${s.color};color:${s.txtColor};border-radius:12px;font-size:10.5px;font-weight:700">${escHtml(s.label)}</span>
-      </td>`;
-    }).join('');
-    return `<tr>
-      <td style="font-size:12.5px">
-        <a href="#" onclick="openLogFiche('${rEsc}');return false" style="color:var(--acc);text-decoration:none;font-weight:600">${locName}</a>
-        <div class="mu sm" style="font-size:10.5px">${rEsc} · ${adr}</div>
-      </td>
-      ${cells}
-      <td style="text-align:right">
-        <button class="btn bs" onclick="openLogFiche('${rEsc}')" title="Ouvrir la fiche" style="font-size:13px;min-width:40px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;padding:4px 8px">↗</button>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-// ─── Phase 4 : sous-onglet Automatisations ──────────────────────────────────
-// CDC-QUITTANCES-IRL C2/C11 — `quittance` et `revision_irl` retirés : le premier était le
-// 3ᵉ réglage pour la même idée (seule `bail.quittanceDemandee` survit, D21), le second un
-// interrupteur qu'aucun moteur ne lisait. Les valeurs stockées ne sont pas détruites.
-const _PIL_AUTOM_KEYS = ['avis_echeance','assurance_mrh','entretien_chauffage','fin_bail','impaye','virement'];
-
-function _pilAutomGet(bail, ent) {
-  // Retourne un objet { key: bool } combinant hérité + override.
-  const heritedDefault = { avis_echeance:false, assurance_mrh:true, entretien_chauffage:true, fin_bail:true, impaye:true, virement:false };
-  const herited = (ent && ent.automatisations) ? { ...heritedDefault, ...ent.automatisations } : { ...heritedDefault };
-  const override = (bail && bail.automatisations) || {};
-  const merged = {}; const isOverride = {};
-  for (const k of _PIL_AUTOM_KEYS) {
-    if (k in override) { merged[k] = !!override[k]; isOverride[k] = (override[k] !== herited[k]); }
-    else { merged[k] = herited[k]; isOverride[k] = false; }
-  }
-  return { merged, herited, override, isOverride };
-}
-
-function _rPilAutom() {
-  const tbody = el('pil-autom-tbody');
-  if (!tbody) return;
-  const rows = _pilGetFilteredRows();
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--mut)">Aucun bail correspondant aux filtres.</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = rows.map(({log, bail}) => {
-    const rEsc = escHtml(log.ref);
-    const locName = escHtml(log.locataire || '—');
-    const adr = escHtml(log.adr || log.imm || '');
-    const ent = (DB.entites||[]).find(e => e.nom === log.entity);
-    const { merged, isOverride } = _pilAutomGet(bail, ent);
-    const automLabels = {avis_echeance:'Avis échéance', assurance_mrh:'Ass. hab.', entretien_chauffage:'Chauffage', fin_bail:'Fin de bail', impaye:'Impayé', virement:'Virement'};
-    const cells = _PIL_AUTOM_KEYS.map(k => {
-      const checked = merged[k] ? 'checked' : '';
-      const ovIcon = isOverride[k] ? '<span style="display:block;font-size:8px;color:var(--acc);margin-top:-3px;line-height:1" title="Override par bail">⇧</span>' : '';
-      return `<td data-autom="${automLabels[k]}" style="text-align:center;padding:6px 4px">
-        <input type="checkbox" ${checked} onchange="_pilAutomToggle('${rEsc}','${k}',this.checked)" style="cursor:pointer">
-        ${ovIcon}
-      </td>`;
-    }).join('');
-    return `<tr>
-      <td style="font-size:12.5px">
-        <a href="#" onclick="openLogFiche('${rEsc}');return false" style="color:var(--acc);text-decoration:none;font-weight:600">${locName}</a>
-        <div class="mu sm" style="font-size:10.5px">${rEsc} · ${adr}</div>
-      </td>
-      ${cells}
-      <td style="text-align:right">
-        <button class="btn bs" onclick="_pilAutomReset('${rEsc}')" style="font-size:10.5px;padding:3px 6px" title="Restaure les valeurs héritées du bailleur">↺ Reset</button>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function _pilAutomToggle(ref, key, on) {
-  const bail = DB.baux && DB.baux[ref];
-  if (!bail) return;
-  if (!bail.automatisations) bail.automatisations = {};
-  bail.automatisations[key] = !!on;
-  _stamp(bail);
-  saveDB();
-  rPilotage();
-  showToast(`✓ Automatisation ${key} ${on?'activée':'désactivée'} pour ${ref}`, 'ok', 2000);
-}
-
-function _pilAutomReset(ref) {
-  const bail = DB.baux && DB.baux[ref];
-  if (!bail) return;
-  if (!confirm2(`Réinitialiser toutes les automatisations du bail ${ref} aux valeurs héritées du bailleur ?`)) return;
-  delete bail.automatisations;
-  _stamp(bail);
-  saveDB();
-  rPilotage();
-  showToast(`✓ Automatisations du bail ${ref} réinitialisées`, 'ok', 2500);
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // GESTION DG & IMPAYÉS v15.12 Sprint 12 V1.1 — UI inline
@@ -57576,7 +57015,7 @@ async function _backupRestoreRun(dir, snapName) {
       _backupClearRestoreProgress();
       if (typeof initFilters === 'function') initFilters();
       if (typeof rExport === 'function') rExport();
-      if (typeof go === 'function') go('dashboard');
+      if (typeof go === 'function') go('accueil');
       showToast('✓ Restauration effectuée', 'ok');
     }
   } catch (e) { console.error('[restore] run', e); _backupClearRestoreProgress(); showToast('Échec de la restauration : ' + ((e && e.message) || 'erreur'), 'err', 7000); }
@@ -58127,7 +57566,7 @@ function importJSON(inp) {
       showToast('Import réussi','ok');
       initFilters();
       rExport();
-      go('dashboard', document.querySelector('.ni'));
+      go('accueil', document.querySelector('.ni'));
     } catch(err){ showToast('Fichier invalide : '+err.message,'err'); }
   };
   r.readAsText(file);
@@ -59935,24 +59374,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
   </div>
 </div>
 
-<!-- ── v15.07 PILOTAGE-MATRICIEL Phase 2 : modale bulk MAJ loyers IRL ── -->
-<div class="ov hidden" id="ov-pil-bulk-irl" onclick="closeBg(event,'ov-pil-bulk-irl')">
-  <div class="modal" style="max-width:760px;width:96%;max-height:88vh">
-    <div class="m-head">
-      <h3>📈 Mettre à jour les loyers (révision IRL bulk)</h3>
-      <button class="m-close" onclick="closeM('ov-pil-bulk-irl')">✕</button>
-    </div>
-    <div class="m-body" id="ov-pil-bulk-irl-body" style="font-size:13px"></div>
-    <input type="hidden" id="ov-pil-bulk-irl-refs">
-    <div class="m-foot" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="btn bs" onclick="closeM('ov-pil-bulk-irl')">Annuler</button>
-      <span class="mu sm" style="margin-left:auto;font-size:11.5px"><strong id="ov-pil-bulk-irl-count">0</strong> bail(s) seront mis à jour</span>
-      <button class="btn bp" onclick="_pilConfirmBulkMajIrl()">✓ Confirmer & appliquer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── v15.06 BAILLEUR-DIAGNOSTICS-DDT Phase 3 : bloquage soft bail si DDT incomplet ── -->
 <div class="ov hidden" id="ov-ddt-incomplet" onclick="closeBg(event,'ov-ddt-incomplet')">
   <div class="modal" style="max-width:620px;width:96%;border-top:4px solid #d97706">
     <div class="m-head">

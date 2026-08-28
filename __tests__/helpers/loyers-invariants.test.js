@@ -332,10 +332,12 @@ describe('D1/D2 — la zone Argent, et des identifiants qui disent ce qu’ils m
     expect(m[0]).toMatch(/mouvements:'Mouvements'/);
   });
 
-  it('D1 — 13 entrées de menu au lieu de 14, et la zone Argent en compte 4', () => {
+  it('11 entrées de menu (KPI Lot 3 : « dashboard » et « pilotage » retirés), et la zone Argent en compte 4', () => {
     const all = code.match(/const _MENU_ALL = \[([^\]]*)\]/)[1].split(',').filter(Boolean);
-    expect(all).toHaveLength(13);
+    expect(all).toHaveLength(11);
     expect(all.join(',')).not.toMatch(/'irl'/);
+    expect(all.join(',')).not.toMatch(/'dashboard'/);   // KPI Lot 3 — Tableau de bord supprimé
+    expect(all.join(',')).not.toMatch(/'pilotage'/);    // KPI Lot 3 — Suivi supprimé
     const argent = code.match(/\{ z:'Argent', ids:\[([^\]]*)\] \}/)[1];
     expect(argent.split(',')).toHaveLength(4);
     expect(argent).toBe("'mouvements','loyers','regul','finances'");
