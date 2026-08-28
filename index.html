@@ -27227,6 +27227,22 @@ function _rgN1Charges(ref){
            moyenne, moyennePrev, spike, moves:n1.moves, year:n1.year };
 }
 
+// CDC Charges Lot 4 (mockup 11) — total des loyers/charges impayés d'une occupation.
+// Réutilise le résolveur unique _loyerEtatLot (byYm[ym].reste = dû non soldé du mois).
+function _rgClotureImpayes(ref, from, to){
+  const e = (typeof _loyerEtatLot==='function') ? _loyerEtatLot(ref) : null;
+  if(!e || !e.byYm) return 0;
+  const f7 = from ? String(from).slice(0,7) : null, t7 = to ? String(to).slice(0,7) : null;
+  let total = 0;
+  Object.keys(e.byYm).forEach(ym => {
+    if(f7 && ym < f7) return;
+    if(t7 && ym > t7) return;
+    const m = e.byYm[ym];
+    if(m && m.reste > 0) total += m.reste;
+  });
+  return Math.round(total*100)/100;
+}
+
 // DEPART-ESTIM : calcul unifié de la clôture (partagé panneau + décompte estimatif) — DRY.
 function _rgClotureCompute(entryKey){
   const res = computeRegul(window._regulFrom, window._regulTo);
@@ -27259,7 +27275,27 @@ function _rgClotureCompute(entryKey){
   const max20 = Math.round(dg*0.20*100)/100;
   const retenueSugg = reg.applies20 ? Math.min(du, max20) : 0;
   const dgRestit = Math.round((dg - retenueSugg)*100)/100;
-  return { entry, bail, log, dg, reg, n1, occN, winDays, excl, baseN1, estCharges, prov, real, acompte, estimated, chargesUsed, solde, du, max20, retenueSugg, dgRestit };
+  // Lot 4 (mockup 11) — SOLDE DE TOUT COMPTE : dettes connues (loyers+charges impayés, réparations)
+  // + régularisation → total dû → réconciliation avec le dépôt de garantie.
+  const impayes = _rgClotureImpayes(entry.ref, entry.debutOcc, entry.finOcc);
+  const reparations = Math.round((Number((bail.depart||{}).reparations)||0)*100)/100;
+  const regulDu = du;                          // dû sur la régul (0 si trop-perçu)
+  const regulCredit = solde > 0 ? solde : 0;   // trop-perçu de charges → à restituer
+  const knownDebts = Math.round((impayes + reparations)*100)/100;
+  const totalDu = Math.round((knownDebts + regulDu)*100)/100;
+  let retenueRegul, covered;
+  if(reg.applies20){                           // copropriété : dettes en entier + régul plafonnée 20 %
+    retenueRegul = Math.min(regulDu, max20, Math.max(0, dg - knownDebts));
+    covered = Math.min(dg, knownDebts + retenueRegul);
+  } else {                                     // hors copro : pas de plafond, tout se solde
+    retenueRegul = 0;
+    covered = Math.min(dg, totalDu);
+  }
+  covered = Math.round(covered*100)/100;
+  const restitTotal = Math.round(((dg - covered) + regulCredit)*100)/100;    // à restituer maintenant
+  const resteADemander = Math.round(Math.max(0, totalDu - covered)*100)/100; // reste dû (régul après arrêté en copro)
+  return { entry, bail, log, dg, reg, n1, occN, winDays, excl, baseN1, estCharges, prov, real, acompte, estimated, chargesUsed, solde, du, max20, retenueSugg, dgRestit,
+           impayes, reparations, regulDu, regulCredit, knownDebts, totalDu, retenueRegul, covered, restitTotal, resteADemander };
 }
 
 function _rgClotureLocataire(entryKey){
