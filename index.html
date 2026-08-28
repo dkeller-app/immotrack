@@ -9830,9 +9830,15 @@ function _pilCollectFamilles(ctx) {
   try {
     const items = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
     const jFromScore = (it) => (it.score >= 90 ? 0 : it.score >= 70 ? 15 : it.score >= 50 ? 30 : 60);
+    const _lotRefs = new Set(scopeLogs.map(l => l.ref));
     items.forEach(it => {
       const nom = (it.subtitle || it.contextRef || it.ref || '').split(' — ')[0] || it.contextRef || '';
-      if (it.type === 'mrh' || it.type === 'diag') src.document.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
+      if (it.type === 'mrh' || it.type === 'diag') {
+        // PNO (assurance propriétaire, contextRef = libellé, hors lot) : EXCLUE de l'Accueil (décision
+        // Didier) — reste visible dans Biens/Assurances. Ne comptent que les documents RATTACHÉS à un lot.
+        if (!_lotRefs.has(it.contextRef)) return;
+        src.document.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
+      }
       else if (it.type === 'irl') src.irl.push({ ref: it.contextRef, nom, montant: 0, urgenceJours: jFromScore(it) });
       else if (it.type === 'regul') src.regul.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
       else if (it.type === 'equip') src.entretien.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
@@ -9843,6 +9849,20 @@ function _pilCollectFamilles(ctx) {
         else src.finbail.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
       }
     });
+    // Bulle = nombre de LOTS (décision Didier) : un lot avec 2 documents/entretiens à faire compte 1.
+    // On garde par lot l'item le PLUS urgent (échéance : petit j ; entretien : grand j = retard).
+    const _dedupLot = (arr, anciennete) => {
+      const by = {};
+      arr.forEach(x => {
+        const k = x.ref, p = by[k];
+        if (!p) { by[k] = x; return; }
+        const a = Number(x.urgenceJours), b = Number(p.urgenceJours);
+        if (isNaN(b) || (!isNaN(a) && (anciennete ? a > b : a < b))) by[k] = x;
+      });
+      return Object.keys(by).map(k => by[k]);
+    };
+    src.document = _dedupLot(src.document, false);
+    src.entretien = _dedupLot(src.entretien, true);
   } catch (e) {}
 
   // ── Fins de bail à terme (bauxEcheance : la règle existe mais n'était lue nulle part) ──
@@ -10023,9 +10043,10 @@ const _PIL_MARK_HTML = '<span class="pil-mk" title="à faire"><svg viewBox="0 0 
 // Case de matrice BINAIRE : la marque Propryo si le point est « à faire » (ko/wn), sinon rien.
 function _pilMk(dot) { return (dot === 'ko' || dot === 'wn') ? _PIL_MARK_HTML : '<span class="pil-mk-no"></span>'; }
 // Les 7 points d'un lot + le point de paiement (byLot, R-0) + le verdict + les actions.
-function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs) {
+function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs, colRefs) {
   const bail = (DB.baux && DB.baux[l.ref]) || null;
   const repris = _pilEstRepris(bail);
+  const _cr = colRefs || {};   // ensembles ass/diag/entr (matrice) — sinon repli _pilStatutDoc (fiche lot)
   const dots = _PIL_MTX_COLS.map(c => {
     // Lot VACANT (pas de locataire) : « vide = rien ». Un logement vide n'a ni bail, ni EDL, ni
     // assurance/diagnostics/entretien/caution À FAIRE — sa seule action est « Relouer » (bulle
@@ -10034,6 +10055,10 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs) {
     // les lots loués) et sur l'en-tête « à faire · vide = rien ».
     if (!l.locataire) return 'na';
     if (c.k === 'irl') return irlRefs ? (irlRefs.has(l.ref) ? 'ko' : 'na') : _pilIrlDot(l);
+    // Assurance / Diagnostics / Entretiens : MÊME moteur que la bulle (ensembles _computeUnifiedTodo).
+    if (c.k === 'ass' && _cr.ass) return _cr.ass.has(l.ref) ? 'ko' : 'na';
+    if (c.k === 'diag' && _cr.diag) return _cr.diag.has(l.ref) ? 'ko' : 'na';
+    if (c.k === 'entr' && _cr.entr) return _cr.entr.has(l.ref) ? 'ko' : 'na';
     // Bail repris : sur Bail/EDL/Caution, un statut « signé/présent » manquant = pièce du vendeur
     // à réclamer (ko), pas un défaut de signature. Un 'na' (sans objet) reste 'na'.
     if (repris && _PIL_REPRIS_COLS[c.k]) {
@@ -10153,14 +10178,22 @@ function _renderPilMatrice(ctx) {
     if (imp && imp.items) imp.items.forEach(it => impayeRefs.add(it.ref));
   } catch (e) {}
 
-  // Révision IRL : la colonne matrice DOIT marquer les MÊMES lots que la bulle « Loyers à réviser »
-  // (source unique _computeUnifiedTodo → AlertRules.irlClassifier). Sans ça, la matrice lisait
-  // _pilIrlDot (computeIRLRevision seul) et divergeait de la bulle / du ruban IRL (grief Didier :
-  // « IRL en vert alors que j'en ai à faire »). Garantit matrice == bulle.
-  const irlRefs = new Set();
+  // Colonnes MIROIR d'une bulle (Assurance←mrh, Diagnostics←diag, Entretiens←equip, Révision←irl) :
+  // la matrice DOIT marquer les MÊMES lots que la bulle → UN SEUL moteur, _computeUnifiedTodo (celui
+  // des alertes de l'app). Avant, ass/diag/entr/irl lisaient _pilStatutDoc / computeEntretienStatut /
+  // _pilIrlDot (moteurs concurrents, seuils différents) → divergences (grief « IRL en vert », audit
+  // vitrine D1/D2). La PNO (contextRef = libellé, hors lot) est exclue de l'Accueil (décision Didier).
+  const _lotRefsMx = new Set(scopeLogs.map(l => l.ref));
+  const irlRefs = new Set(), assRefs = new Set(), diagRefs = new Set(), entrRefs = new Set();
   try {
     const todo = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
-    (todo || []).forEach(it => { if (it && it.type === 'irl' && it.contextRef) irlRefs.add(it.contextRef); });
+    (todo || []).forEach(it => {
+      if (!it || !_lotRefsMx.has(it.contextRef)) return;
+      if (it.type === 'irl') irlRefs.add(it.contextRef);
+      else if (it.type === 'mrh') assRefs.add(it.contextRef);
+      else if (it.type === 'diag') diagRefs.add(it.contextRef);
+      else if (it.type === 'equip') entrRefs.add(it.contextRef);
+    });
   } catch (e) {}
 
   // « À faire » d'un lot = BINAIRE : une action de conformité (ko/wn), un logement vacant, OU un
@@ -10171,7 +10204,7 @@ function _renderPilMatrice(ctx) {
   const parImm = {};
   let nTot = 0, nKo = 0;
   scopeLogs.forEach(l => {
-    const lig = _pilLotLigne(l, byLot[l.ref], today, impayeRefs, irlRefs);
+    const lig = _pilLotLigne(l, byLot[l.ref], today, impayeRefs, irlRefs, { ass: assRefs, diag: diagRefs, entr: entrRefs });
     nTot++; if (isTodo(lig)) nKo++;
     (parImm[lig.imm] = parImm[lig.imm] || []).push(lig);
   });
