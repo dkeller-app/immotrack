@@ -9830,7 +9830,7 @@ function _pilCollectFamilles(ctx) {
   try {
     const items = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
     const jFromScore = (it) => (it.score >= 90 ? 0 : it.score >= 70 ? 15 : it.score >= 50 ? 30 : 60);
-    const _lotRefs = new Set(scopeLogs.map(l => l.ref));
+    const _lotRefs = new Set(scopeLogs.filter(l => l.locataire).map(l => l.ref));   // occupés seulement : un lot vide = « rien » (aligné sur la matrice qui court-circuite les vacants)
     items.forEach(it => {
       const nom = (it.subtitle || it.contextRef || it.ref || '').split(' — ')[0] || it.contextRef || '';
       if (it.type === 'mrh' || it.type === 'diag') {
@@ -10154,6 +10154,28 @@ function _renderPilotage(ctx) {
 
 // Filtre courant de la matrice ('tous' | 'ko' | 'vac'), persistant le temps de la session.
 let _pilMtxFilter = 'tous';
+// Ensembles « à faire » par colonne (impayés + miroirs de bulle mrh/diag/equip/irl), construits par
+// UN SEUL moteur (_computeImpayes + _computeUnifiedTodo). Partagé par la matrice ET la fiche du lot
+// pour que ces deux surfaces d'un même lot ne se contredisent jamais. PNO / items hors-lot exclus.
+function _pilColRefs(ctx) {
+  const impaye = new Set(), irl = new Set(), ass = new Set(), diag = new Set(), entr = new Set();
+  try {
+    const imp = (typeof _computeImpayes === 'function') ? _computeImpayes(ctx) : null;
+    if (imp && imp.items) imp.items.forEach(it => impaye.add(it.ref));
+  } catch (e) {}
+  try {
+    const lotRefs = new Set(((ctx && ctx.scopeLogs) || []).map(l => l.ref));
+    const todo = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
+    (todo || []).forEach(it => {
+      if (!it || !lotRefs.has(it.contextRef)) return;
+      if (it.type === 'irl') irl.add(it.contextRef);
+      else if (it.type === 'mrh') ass.add(it.contextRef);
+      else if (it.type === 'diag') diag.add(it.contextRef);
+      else if (it.type === 'equip') entr.add(it.contextRef);
+    });
+  } catch (e) {}
+  return { impaye, irl, ass, diag, entr };
+}
 function _renderPilMatrice(ctx) {
   const { scopeLogs, yr, activeEnt } = ctx;
   const host = el('pil-matrice'); if (!host) return;
@@ -10169,32 +10191,10 @@ function _renderPilMatrice(ctx) {
     if (r && r.byLot) byLot = r.byLot;
   } catch (e) {}
 
-  // Ensemble EXACT des lots de la bulle Impayés (même source _computeImpayes → déjà tolérant
-  // « 1er du mois »). Pilote la pastille 'neg' ET le filtre bulle→matrice : garantit matrice ==
-  // bulle Impayés. (audit KPI §1)
-  const impayeRefs = new Set();
-  try {
-    const imp = (typeof _computeImpayes === 'function') ? _computeImpayes(ctx) : null;
-    if (imp && imp.items) imp.items.forEach(it => impayeRefs.add(it.ref));
-  } catch (e) {}
-
-  // Colonnes MIROIR d'une bulle (Assurance←mrh, Diagnostics←diag, Entretiens←equip, Révision←irl) :
-  // la matrice DOIT marquer les MÊMES lots que la bulle → UN SEUL moteur, _computeUnifiedTodo (celui
-  // des alertes de l'app). Avant, ass/diag/entr/irl lisaient _pilStatutDoc / computeEntretienStatut /
-  // _pilIrlDot (moteurs concurrents, seuils différents) → divergences (grief « IRL en vert », audit
-  // vitrine D1/D2). La PNO (contextRef = libellé, hors lot) est exclue de l'Accueil (décision Didier).
-  const _lotRefsMx = new Set(scopeLogs.map(l => l.ref));
-  const irlRefs = new Set(), assRefs = new Set(), diagRefs = new Set(), entrRefs = new Set();
-  try {
-    const todo = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
-    (todo || []).forEach(it => {
-      if (!it || !_lotRefsMx.has(it.contextRef)) return;
-      if (it.type === 'irl') irlRefs.add(it.contextRef);
-      else if (it.type === 'mrh') assRefs.add(it.contextRef);
-      else if (it.type === 'diag') diagRefs.add(it.contextRef);
-      else if (it.type === 'equip') entrRefs.add(it.contextRef);
-    });
-  } catch (e) {}
+  // Ensembles « à faire » par colonne (impayés + miroirs de bulle) — UN SEUL moteur partagé par la
+  // matrice ET la fiche du lot (cf _pilColRefs), pour qu'aucune des deux surfaces ne mente vs l'autre.
+  const _refs = _pilColRefs(ctx);
+  const impayeRefs = _refs.impaye, irlRefs = _refs.irl, assRefs = _refs.ass, diagRefs = _refs.diag, entrRefs = _refs.entr;
 
   // « À faire » d'un lot = BINAIRE : une action de conformité (ko/wn), un logement vacant, OU un
   // loyer en retard. Le compteur ET le filtre « À faire » DOIVENT suivre la marque affichée, sinon
@@ -10326,7 +10326,11 @@ function _pilOpenFiche(ref) {
   const L = el('pil-layer'); if (!L) return;
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
   const l = (DB.logements || []).find(x => x && x.ref === ref); if (!l) return;
-  const lig = _pilLotLigne(l, null, new Date());
+  // La fiche du lot lit les MÊMES ensembles que la matrice (helper partagé) — sinon une ligne propre
+  // pouvait ouvrir une fiche réclamant des gestes (audit : matrice ≠ fiche). Repli propre si pas de ctx.
+  const _fctx = (typeof _pilCtxCourant === 'function') ? _pilCtxCourant() : null;
+  const _fr = _fctx ? _pilColRefs(_fctx) : {};
+  const lig = _pilLotLigne(l, null, new Date(), _fr.impaye, _fr.irl, { ass: _fr.ass, diag: _fr.diag, entr: _fr.entr });
   const SENS = { ok: 'en règle', wn: 'à compléter', ko: 'manquant', na: 'sans objet' };
   // Bail repris : le sens des colonnes du vendeur change (pièce détenue / à réclamer).
   const SENS_REP = { ok: 'pièce du vendeur détenue', ko: 'à réclamer au vendeur', na: 'sans objet' };
