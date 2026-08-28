@@ -27781,6 +27781,9 @@ function _rgShowGlobal(immNom){
   const bail=(result.bailleur||{})[immNom];
   const nonRep=(result.nonReparti||{})[immNom];
   const f=fmt;
+  // CDC É4 (mockup 07) — colonne « Bailleur (225) » : part non refacturée par facture (mvId).
+  const bailPerMv={};
+  ((bail&&bail.segments)||[]).forEach(s=>{ if(s&&s.mvId!=null) bailPerMv[s.mvId]=(bailPerMv[s.mvId]||0)+s.montant; });
   // pivot : 1 ligne par mouvement, 1 colonne par occupation
   const mv={};
   entries.forEach(e=>(e.details||[]).forEach(d=>{
@@ -27796,11 +27799,13 @@ function _rgShowGlobal(immNom){
     return `<tr class="rg-mv${clk?' clk':''}"${clk?` onclick="openEditMv(${m.mvId})"`:''}>`
       + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(m.lib)}">${escHtml(m.lib)}</span><small>${escHtml(m.date||'')}${m.total?' · facture '+f(m.total):''}${clk?' · ✏️':''}</small></td>`
       + entries.map(e=>`<td class="num">${m.per[e.entryKey]?f(m.per[e.entryKey]):'<span class="z">—</span>'}</td>`).join('')
+      + `<td class="num col-bail" style="color:var(--ora)">${(m.mvId!=null&&bailPerMv[m.mvId])?f(bailPerMv[m.mvId]):'<span class="z">—</span>'}</td>`
       + `<td class="num col-tot">${f(rowSum)}</td></tr>`; }).join('');
   const trouRows=(nonRep&&nonRep.total>0.005)?nonRep.lines.map(l=>{ const clk=(l.mvId!=null);
     return `<tr class="trou${clk?' clk':''}"${clk?` onclick="openEditMv(${l.mvId})"`:''}>`
       + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(l.lib||'')}">${escHtml(l.lib||'')}</span><small>⚠️ ${escHtml(l.motif||'')}${clk?' · ✏️ corriger':''}</small></td>`
       + entries.map(()=>`<td class="num"><span class="z">—</span></td>`).join('')
+      + `<td class="num col-bail"><span class="z">—</span></td>`
       + `<td class="num col-tot">${f(l.montant)}</td></tr>`; }).join(''):'';
   const rowCharges=entries.map(e=>`<td class="num">${f(e.charges)}</td>`).join('');
   const rowProv=entries.map(e=>`<td class="num">${f(e.provisions)}</td>`).join('');
@@ -27815,13 +27820,13 @@ function _rgShowGlobal(immNom){
       ${validated?'<span class="rg-badge-ok">✓ validé</span>':'<span class="rg-badge-todo">⚠️ à valider</span>'}</div>
     ${banner}
     <div class="rg-wrap"><table class="tbl rg-mtx">
-      <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-tot">Réparti loc.</th></tr></thead>
+      <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-bail" style="color:var(--ora)" title="Part non refacturée aux locataires — reste à charge du bailleur (2044 ligne 225)">Bailleur (225)</th><th class="num col-tot">Réparti loc.</th></tr></thead>
       <tbody>
-        ${mvRows||`<tr><td colspan="${entries.length+2}" class="mu sm">Aucune charge répartie sur la période.</td></tr>`}
+        ${mvRows||`<tr><td colspan="${entries.length+3}" class="mu sm">Aucune charge répartie sur la période.</td></tr>`}
         ${trouRows}
-        <tr class="sumc"><td class="c0">Total charges réelles</td>${rowCharges}<td class="num col-tot">${f(sumCharges)}</td></tr>
-        <tr class="prov"><td class="c0">Provisions appelées</td>${rowProv}<td class="num col-tot">${f(sumProv)}</td></tr>
-        <tr class="solde"><td class="c0">Solde</td>${rowSolde}<td class="num col-tot">${(sumProv-sumCharges)>=0?'+':''}${f(sumProv-sumCharges)}</td></tr>
+        <tr class="sumc"><td class="c0">Total charges réelles</td>${rowCharges}<td class="num col-bail" style="color:var(--ora)">${bail&&bail.total?f(bail.total):'<span class="z">—</span>'}</td><td class="num col-tot">${f(sumCharges)}</td></tr>
+        <tr class="prov"><td class="c0">Provisions appelées</td>${rowProv}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${f(sumProv)}</td></tr>
+        <tr class="solde"><td class="c0">Solde</td>${rowSolde}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${(sumProv-sumCharges)>=0?'+':''}${f(sumProv-sumCharges)}</td></tr>
       </tbody></table></div>
     ${bail&&bail.total>0?`<div class="rg-glob-bail">🏛️ Part bailleur (non récupérable → 2044) : <b>${f(bail.total)}</b></div>`:''}
     <div class="rg-glob-foot">
@@ -27970,6 +27975,7 @@ function computeRegul(from, to) {
           // v14.73 : exclu (compteur scope ou compteCharges:false) → tombera côté bailleur
           if(p.exclu && p.montant > 0) {
             _bailleurAdd(im.nom, {
+              mvId: m.id,
               date: m.date, lib: m.lib, cc: cc.nom||'Compteur',
               montant: Math.round(p.montant*100)/100,
               motif: 'Logement exclu : ' + (p.raison || 'compte-charges désactivé')
@@ -27980,6 +27986,7 @@ function computeRegul(from, to) {
         if(p.isBailleur) {
           // v14.73 : période vacante → reste à charge du bailleur (2044)
           _bailleurAdd(im.nom, {
+            mvId: m.id,
             date: m.date, lib: m.lib, cc: cc.nom||'Compteur',
             montant: Math.round(p.montant*100)/100,
             motif: `Vacance ${p.ref}${p.debut?' ('+fd(p.debut)+'→'+fd(p.fin||'')+')':''}`
@@ -27990,7 +27997,7 @@ function computeRegul(from, to) {
         if(!candidates.length){
           // v15.x Phase C (audit) : part de compteur pour un logement sans bail sur la période
           // → reste à charge du bailleur (sinon perdue silencieusement).
-          _bailleurAdd(im.nom, { date:m.date, lib:m.lib, cc:cc.nom||'Compteur', montant:Math.round(p.montant*100)/100, motif:'Logement '+p.ref+' sans bail sur la période' });
+          _bailleurAdd(im.nom, { mvId:m.id, date:m.date, lib:m.lib, cc:cc.nom||'Compteur', montant:Math.round(p.montant*100)/100, motif:'Logement '+p.ref+' sans bail sur la période' });
           return;
         }
         // Match l'entrée res dont la période d'occupation chevauche la part (par locataire successif)
