@@ -2,6 +2,20 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "immotrack-wt-export-compta",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-export-compta",
+        "-p",
+        "8813",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8813
+    },
+    {
       "name": "dashboard-mockups",
       "runtimeExecutable": "npx",
       "runtimeArgs": [

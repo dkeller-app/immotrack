@@ -70,7 +70,8 @@ avec le **nom du fichier facture** (ex. `2026-06-02_assurance-pno_142.pdf`).
 - Les **deux** lignes d'une écriture (partie double, même `num`) portent le **même** `PieceRef`.
 
 ### 3.4 Factures manquantes (mouvement sans PJ)
-- Listées dans `index.csv` : colonne `facture` = `ABSENTE`, colonnes `piece_ref` / `fichier` = `—`.
+- Listées dans `index.csv` : colonne `facture` = `ABSENTE`, colonne `fichier` = `—`. La colonne
+  `piece_ref` garde `M`+num (miroir exact du `PieceRef` du FEC) — jamais `—` (cf. §4.4, décision audit m2).
 - **Récap avant download** (cf. mockup §2) : compteur « N mouvements, N factures, N manquantes » +
   liste dépliable des manquantes (date · catégorie · montant · Bailleur - Lot).
 
@@ -112,13 +113,16 @@ En-tête = 1 ligne de commentaire datée, puis colonnes :
 | `lot` | ref logement (ou `_general`) |
 | `categorie` | catégorie du mouvement |
 | `libelle` | libellé du mouvement |
-| `montant` | montant TTC (format FR `,`) |
-| `piece_ref` | **= `PieceRef` du FEC** (nom de fichier, ou `—` si absente) |
+| `montant` | montant TTC, **point décimal** (`720.00`) — cohérent avec `journal.csv` / `grand-livre.csv`, les 3 CSV du dossier ; seul `FEC.txt` garde la virgule imposée DGFiP (décision audit m1) |
+| `piece_ref` | **= `PieceRef` du FEC**, miroir exact : nom de fichier si présente, sinon `M`+num (jamais `—`) |
 | `fichier` | chemin relatif dans le zip (`factures/…`), ou `—` |
 | `facture` | `présente` \| `ABSENTE` |
 
 Ligne 1 : `# date d'extraction : AAAA-MM-JJ · bailleur : <…> · période : <from> → <to>`.
-Échappement CSV identique aux helpers existants (`export-comptable.js:158`).
+Échappement CSV via l'helper **partagé** `_csvCell` (`export-comptable.js`) : quoting standard
+`, " \n` **+ garde anti-injection de formule** (préfixe `'` sur une cellule texte commençant par
+`= + @` ou `-` non-numérique — les nombres négatifs ne sont pas touchés). Appliqué aux 4 CSV
+(index + journal + grand-livre), décision audit m6.
 
 ---
 
