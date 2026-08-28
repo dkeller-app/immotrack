@@ -118,8 +118,13 @@ import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './cor
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 
 import {
-  _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
+  _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
 } from './core/export-comptable.js';
+
+import {
+  _dcZipName, _dcFactureDir, _dcExtFromMime, _dcMontantSlug, _dcCatSlug,
+  _dcFactureName, _dcResolveDoc, _dcBuildPlan, _dcIndexCsv, _dcApplyFetchFailure
+} from './core/dossier-comptable.js';
 
 import {
   _mapRentila, _mapBailFacile, _mergeImport
@@ -462,11 +467,20 @@ window._bailModifRedaterIRL = redaterRevisionIRL;
 window._bailModifBorneMinEffet = borneMinEffetBareme;
 
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
+window._buildMvtRows = _buildMvtRows;
 window._buildEcritures = _buildEcritures;
 window._buildGrandLivre = _buildGrandLivre;
 window._toFEC = _toFEC;
 window._journalToCsv = _journalToCsv;
 window._grandLivreToCsv = _grandLivreToCsv;
+
+// EXPORT-COMPTABLE-ZIP (Dossier comptable) — cœur pur exposé sous window._dc.*
+window._dc = {
+  zipName: _dcZipName, factureDir: _dcFactureDir, extFromMime: _dcExtFromMime,
+  montantSlug: _dcMontantSlug, catSlug: _dcCatSlug, factureName: _dcFactureName,
+  resolveDoc: _dcResolveDoc, buildPlan: _dcBuildPlan, indexCsv: _dcIndexCsv,
+  applyFetchFailure: _dcApplyFetchFailure
+};
 
 // IMPORT-CONCURRENTS (Sprint 3G) - mappers Rentila + BailFacile
 window._mapRentila = _mapRentila;

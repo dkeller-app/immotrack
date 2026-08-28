@@ -38,11 +38,14 @@ const MAPPING_COMPTE = {
 };
 
 /**
- * Construit la liste des écritures (journal) pour une période + entité.
+ * Vue « par mouvement » — SOURCE UNIQUE du filtre (période/entité) et de la
+ * numérotation `num` séquentielle. `_buildEcritures` (écritures partie double) ET
+ * le Dossier comptable (lien num ↔ facture) consomment cette même liste, ce qui
+ * GARANTIT par construction l'alignement des `num` (même filtre, même ordre).
  *
- * @returns {Array} - [{ date, num, compte, libelleCompte, lib, qui, debit, credit, contrepartie }]
+ * @returns {Array} - [{ num, mvt, std, mapping, montant, type, date, qui, lib, cat }]
  */
-export function _buildEcritures(mouvements, stdCategories, opts = {}) {
+export function _buildMvtRows(mouvements, stdCategories, opts = {}) {
   const { from = '', to = '', entityNom = '', refs = [] } = opts;
   const catByName = new Map();
   (stdCategories || []).forEach(c => catByName.set(c.nom, c));
@@ -59,7 +62,7 @@ export function _buildEcritures(mouvements, stdCategories, opts = {}) {
     return true;
   };
 
-  const ecritures = [];
+  const rows = [];
   let num = 1;
   (mouvements || []).filter(inScope).forEach(m => {
     const std = catByName.get(m.cat);
@@ -68,8 +71,21 @@ export function _buildEcritures(mouvements, stdCategories, opts = {}) {
     if (!mapping) return;
     const montant = (std.type === 'recette') ? (m.cr || 0) : (m.db || 0);
     if (montant <= 0) return;
+    rows.push({ num: num++, mvt: m, std, mapping, montant, type: std.type, date: m.date, qui: m.qui || '', lib: m.lib || '', cat: m.cat || '' });
+  });
+  return rows;
+}
+
+/**
+ * Construit la liste des écritures (journal) pour une période + entité.
+ *
+ * @returns {Array} - [{ date, num, compte, libelleCompte, lib, qui, debit, credit, contrepartie }]
+ */
+export function _buildEcritures(mouvements, stdCategories, opts = {}) {
+  const ecritures = [];
+  _buildMvtRows(mouvements, stdCategories, opts).forEach(r => {
+    const { num: numEcr, mapping, montant, std, mvt: m } = r;
     // 1 mouvement = 2 écritures (partie double : compte du tiers + compte de produit/charge)
-    const numEcr = num++;
     const tierCompte = std.type === 'recette' ? '411000' : '401000';
     const tierLib = std.type === 'recette' ? 'Client (locataire)' : 'Fournisseur';
     if (mapping.sens === 'C') {
@@ -116,9 +132,13 @@ export function _buildGrandLivre(ecritures) {
  *   EcritureLet | DateLet | ValidDate | Montantdevise | Idevise
  *
  * Référence : Arrêté du 29 juillet 2013, BOI-CF-IOR-60-40-20.
+ *
+ * `opts.pieceRefByNum` (optionnel) : map { num → nom de fichier facture } fournie
+ * par le Dossier comptable pour relier chaque écriture à son justificatif dans le
+ * .zip. Absent (export FEC autonome) → comportement historique `'M'+num`.
  */
 export function _toFEC(ecritures, opts = {}) {
-  const { entityNom = '', from = '', to = '' } = opts;
+  const { entityNom = '', from = '', to = '', pieceRefByNum = null } = opts;
   const headers = [
     'JournalCode', 'JournalLib', 'EcritureNum', 'EcritureDate', 'CompteNum', 'CompteLib',
     'CompAuxNum', 'CompAuxLib', 'PieceRef', 'PieceDate', 'EcritureLib', 'Debit',
@@ -134,7 +154,7 @@ export function _toFEC(ecritures, opts = {}) {
     (e.libelleCompte || '').slice(0, 50),     // CompteLib
     e.qui || '',                               // CompAuxNum (auxiliaire = ref locataire/fournisseur)
     (e.qui || '').slice(0, 50),                // CompAuxLib
-    'M' + e.num,                               // PieceRef
+    (pieceRefByNum && pieceRefByNum[e.num]) || ('M' + e.num), // PieceRef (nom fichier facture si Dossier comptable, sinon 'M'+num)
     e.date.replace(/-/g, ''),                  // PieceDate
     (e.lib || '').slice(0, 200).replace(/[\t\n\r]/g, ' '), // EcritureLib (anti-tab)
     e.debit ? e.debit.toFixed(2).replace('.', ',') : '0,00',
@@ -148,6 +168,19 @@ export function _toFEC(ecritures, opts = {}) {
   return [headers.join('\t'), ...rows.map(r => r.join('\t'))].join('\n');
 }
 
+/**
+ * Échappement CSV + garde anti-injection de formule (Excel/Sheets exécutent une
+ * cellule TEXTE commençant par = + @ ou tab/CR, ou par - non suivi d'un chiffre).
+ * On préfixe une apostrophe pour neutraliser SANS toucher aux nombres négatifs
+ * légitimes (soldes du grand livre). Puis quoting standard si , " ou saut de ligne.
+ */
+export function _csvCell(s) {
+  let v = String(s == null ? '' : s);
+  if (/^[=+@\t\r]/.test(v) || /^-(?![0-9])/.test(v)) v = "'" + v;
+  if (/[",\n\r]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+  return v;
+}
+
 /** Génère un journal général en CSV (lisible humain + Excel). */
 export function _journalToCsv(ecritures) {
   const headers = ['date', 'num', 'compte', 'libelle_compte', 'tier', 'libelle', 'debit', 'credit'];
@@ -155,12 +188,7 @@ export function _journalToCsv(ecritures) {
     e.date, e.num, e.compte, e.libelleCompte, e.qui || '', e.lib || '',
     e.debit ? e.debit.toFixed(2) : '', e.credit ? e.credit.toFixed(2) : ''
   ]);
-  const escape = s => {
-    const v = String(s == null ? '' : s);
-    if (v.includes(',') || v.includes('"') || v.includes('\n')) return '"' + v.replace(/"/g, '""') + '"';
-    return v;
-  };
-  return [headers.join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
+  return [headers.join(','), ...rows.map(r => r.map(_csvCell).join(','))].join('\n');
 }
 
 /** Génère le grand livre en CSV. */
@@ -179,10 +207,5 @@ export function _grandLivreToCsv(grandLivre) {
     rows.push([lvr.compte, '== TOTAL ' + lvr.compte + ' ==', '', '', '',
       lvr.totalDebit.toFixed(2), lvr.totalCredit.toFixed(2), lvr.solde.toFixed(2)]);
   });
-  const escape = s => {
-    const v = String(s == null ? '' : s);
-    if (v.includes(',') || v.includes('"') || v.includes('\n')) return '"' + v.replace(/"/g, '""') + '"';
-    return v;
-  };
-  return [headers.join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
+  return [headers.join(','), ...rows.map(r => r.map(_csvCell).join(','))].join('\n');
 }

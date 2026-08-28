@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.567</title>
+<title>Propryo v15.568</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.567</em>
+      <em>v15.568</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -1410,8 +1410,20 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           <div id="rgpd-result" class="mu sm" style="white-space:pre-wrap;font-family:monospace;font-size:11px;max-height:400px;overflow:auto;margin-top:12px;display:none;background:var(--sur2);border-radius:6px;padding:10px"></div>
         </div>
         <div class="card" id="exp-card-fec">
-          <div class="ct">💼 Export comptable FEC + journal + grand livre (v14.93)</div>
-          <div class="mu sm mb8">Formats normés DGFiP pour expert-comptable / contrôle fiscal art. L47A LPF. Mapping comptes 706/411/615/616/622/635/661 sur catégories LEGAL-2044.</div>
+          <div class="ct">💼 Export comptable</div>
+          <div class="mu sm mb8">Écritures normées DGFiP (contrôle fiscal art. L47A LPF) et, en un seul fichier, le dossier complet avec les factures pour l'expert-comptable. Mapping comptes 706/411/615/616/622/635/661 sur catégories LEGAL-2044.</div>
+          <div class="mb8" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <label for="dc-from" class="mu sm">Période :</label>
+            <input type="date" id="dc-from" class="inp" style="width:auto;display:inline-block">
+            <span class="mu sm">→</span>
+            <input type="date" id="dc-to" class="inp" style="width:auto;display:inline-block">
+            <label for="dc-ent" class="mu sm" style="margin-left:8px">Bailleur :</label>
+            <select id="dc-ent" class="inp" style="width:auto;display:inline-block"><option value="">Tous</option></select>
+          </div>
+          <div class="mu sm mb8" style="margin-top:-4px;font-size:11px">Pré-rempli sur l'année civile en cours. Ajustable.</div>
+          <div class="mb8"><button class="btn bp" onclick="openDossierComptable()">📦 Dossier comptable (.zip) — écritures + factures</button></div>
+          <div style="border-top:1px solid var(--bor);margin:14px 0 10px"></div>
+          <div class="mu sm mb8">Ou exports séparés (par année civile) :</div>
           <div class="mb8">
             <label for="compta-year" class="mu sm">Année :</label>
             <select id="compta-year" class="inp" style="width:auto;display:inline-block;margin-left:8px"></select>
@@ -57865,6 +57877,178 @@ function downloadGrandLivre() {
   if (typeof _auditLog === 'function') _auditLog('export', 'grand_livre', null, o.yr, null, null, 'ui');
   showToast('Grand livre téléchargé', 'ok');
 }
+
+// ── EXPORT-COMPTABLE-ZIP « Dossier comptable » ───────────────────────────────
+// Cœur PUR = js/core/dossier-comptable.js (window._dc.*) + export-comptable + backup.
+// Ici : orchestration IMPURE (fetch async des factures + storedZip + download).
+function _dcTodayYmd() { const d = new Date(); const p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+function _dcEuro(n) { return (Math.round((Number(n) || 0) * 100) / 100).toFixed(2).replace('.', ',') + ' €'; }
+function _dcDateFr(ymd) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); return m ? m[3] + '/' + m[2] + '/' + m[1] : (ymd || '—'); }
+function _dcInitSelectors() {
+  const cy = new Date().getFullYear();
+  const f = el('dc-from'), t = el('dc-to');
+  if (f && !f.value) f.value = cy + '-01-01';
+  if (t && !t.value) t.value = cy + '-12-31';
+  const es = el('dc-ent');
+  if (es) {
+    const cur = es.value;
+    const ents = (DB.entites || []).filter(_isAlive).map(e => e.nom);
+    es.innerHTML = '<option value="">Tous</option>' + ents.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+    if (cur && ents.includes(cur)) es.value = cur;
+  }
+}
+function _dcBuildOpts() {
+  const from = v('dc-from') || '', to = v('dc-to') || '', entityNom = v('dc-ent') || '';
+  const refs = entityNom ? (DB.logements || []).filter(l => _isAlive(l) && l.entity === entityNom).map(l => l.ref) : [];
+  return { from, to, entityNom, refs, extractionYmd: _dcTodayYmd() };
+}
+function openDossierComptable() {
+  if (!window._dc || typeof window._buildMvtRows !== 'function' || !window._bk || !window._bk.storedZip) { showToast('Module compta non chargé', 'err'); return; }
+  const o = _dcBuildOpts();
+  if (o.from && o.to && o.from > o.to) { showToast('Période invalide (début après fin)', 'warn'); return; }
+  // Audit M1 : on FIGE la référence du tableau des mouvements ici et on la réutilise pour
+  // les écritures dans _dcRun. Une hydratation cloud (`__immoSetDB` réassigne DB) entre le
+  // récap et le clic « Télécharger » ne peut donc plus désaligner les `num` (plan vs FEC).
+  const mvts = DB.mouvements || [];
+  o._mvts = mvts;
+  const rows = window._buildMvtRows(mvts, STD_CATEGORIES, o);
+  if (!rows.length) { showToast('Aucun mouvement comptable sur cette période', 'warn', 5000); return; }
+  const plan = window._dc.buildPlan(rows, { documents: DB.documents || [], logements: DB.logements || [], extractionYmd: o.extractionYmd, entityNom: o.entityNom || 'Tous', from: o.from, to: o.to });
+  _dcRecapOverlay(plan, o);
+}
+function _dcCloseOv() { const o = document.getElementById('dc-ov'); if (o) o.remove(); }
+function _dcRecapOverlay(plan, o) {
+  _dcCloseOv();
+  const c = plan.counts;
+  const miss = plan.rows.filter(r => !r.hasPj);
+  const estBytes = plan.rows.reduce((s, r) => {
+    if (!r.hasPj || !r.resolved) return s;
+    if (r.resolved.doc) return s + (r.resolved.doc.size || 0);
+    if (r.resolved.legacy && r.resolved.dataB64) return s + Math.round(r.resolved.dataB64.length * 0.75); // base64 → octets
+    return s;
+  }, 0);
+  const estLbl = estBytes > 1048576 ? (estBytes / 1048576).toFixed(1) + ' Mo' : Math.max(1, Math.round(estBytes / 1024)) + ' Ko';
+  const chip = t => '<span style="background:var(--sur2);border:1px solid var(--bor);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--t1);font-weight:600">' + t + '</span>';
+  const cell = (val, lbl, col) => '<div style="background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:12px;text-align:center"><div style="font-weight:800;font-size:24px;color:' + col + '">' + val + '</div><div style="font-size:11px;color:var(--t2);margin-top:2px">' + lbl + '</div></div>';
+  const missHtml = miss.length ? (
+    '<details ' + (miss.length <= 6 ? 'open' : '') + ' style="border:1px solid var(--bor);border-radius:var(--r);overflow:hidden;margin-top:4px">'
+    + '<summary style="cursor:pointer;padding:9px 12px;background:var(--bg-danger,rgba(210,63,63,.10));color:var(--red);font-weight:700;font-size:12.5px">' + miss.length + ' mouvement(s) sans facture</summary>'
+    + '<ul style="margin:0;padding:4px 0;list-style:none">' + miss.map(r => '<li style="padding:7px 13px;font-size:12.5px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:10px"><span>' + escHtml(_dcDateFr(r.date) + ' · ' + r.categorie + ' · ') + _dcEuro(r.montant) + '</span><span style="color:var(--t2);font-size:11px">' + escHtml(r.bailleur + ' - ' + r.lot) + '</span></li>').join('') + '</ul></details>'
+  ) : '';
+  const bodyInner =
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' + chip('Période <b>' + escHtml(_dcDateFr(o.from) + ' → ' + _dcDateFr(o.to)) + '</b>') + chip('Bailleur <b>' + escHtml(o.entityNom || 'Tous') + '</b>') + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">' + cell(c.mouvements, 'mouvements', 'var(--t1)') + cell(c.factures, 'factures jointes', 'var(--pos,var(--grn,#1a8f6f))') + cell(c.manquantes, 'manquantes', 'var(--red)') + '</div>'
+    + missHtml
+    + (miss.length ? '<div class="mu sm" style="margin-top:10px">Les manquantes restent dans les écritures, signalées « ABSENTE » dans index.csv. Le dossier reste complet côté chiffres.</div>' : '')
+    + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:12px;border-top:1px solid var(--bor)">'
+    + '<span class="mu sm">Taille estimée : ~ ' + estLbl + '</span>'
+    + '<span style="display:flex;gap:8px"><button class="btn bs" onclick="_dcCloseOv()">Annuler</button><button class="btn bp" id="dc-go">⬇ Télécharger le .zip</button></span></div>';
+  const html =
+    '<div id="dc-ov" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)_dcCloseOv()">'
+    + '<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);box-shadow:0 30px 80px -30px rgba(0,0,0,.5);max-width:560px;width:100%;max-height:88vh;overflow:auto" onclick="event.stopPropagation()">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--bor)"><div style="font-weight:800;color:var(--t1);font-size:15px">📦 Dossier comptable — récapitulatif</div>'
+    + '<button onclick="_dcCloseOv()" aria-label="Fermer" style="border:0;background:transparent;color:var(--t2);font-size:18px;cursor:pointer">✕</button></div>'
+    + '<div id="dc-body" style="padding:16px">' + bodyInner + '</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  const go = el('dc-go'); if (go) go.onclick = () => _dcRun(plan, o);
+}
+function _dcRenderProgress(done, total, label, current) {
+  const body = el('dc-body'); if (!body) return;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 8;
+  body.innerHTML =
+    '<div style="font-weight:800;color:var(--t1);margin-bottom:10px">' + escHtml(label || 'Construction…') + '</div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t2);margin-bottom:6px"><span>Factures</span><span>' + done + ' / ' + total + '</span></div>'
+    + '<div style="height:9px;border-radius:999px;background:var(--sur2);overflow:hidden"><i style="display:block;height:100%;width:' + pct + '%;background:var(--acc)"></i></div>'
+    + (current ? '<div class="mu sm" style="margin-top:10px;word-break:break-all;font-family:var(--mono,monospace)">' + escHtml(current) + '</div>' : '')
+    + '<div style="margin-top:14px;text-align:right"><button class="btn bs" onclick="window._dcCancel=true">Annuler</button></div>';
+}
+async function _dcFetchDataUrl(rz) {
+  if (!rz) return null;
+  if (rz.legacy) return rz.dataB64 || null;
+  const d = rz.doc; if (!d) return null;
+  let dataUrl = null;
+  if (d.idbKey) { try { dataUrl = await _idbGet(d.idbKey); } catch (e) {} }
+  if (!dataUrl && (d.cloudKey || d.idbKey || d.driveFileId)) {
+    try {
+      dataUrl = await _downloadPhotoFromDrive(null, d.idbKey, d.cloudKey || d.driveFileId);
+      if (dataUrl && d.idbKey) { try { await _idbPut(d.idbKey, dataUrl); } catch (e) {} }
+    } catch (e) {}
+  }
+  return dataUrl || null;
+}
+function _dcDataUrlToBytes(dataUrl) {
+  const m = /^data:([^;]+);base64,(.*)$/.exec(String(dataUrl || ''));
+  if (!m) return null;
+  const bin = atob(m[2]); const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+let _dcRunning = false;
+async function _dcRun(plan, o) {
+  if (_dcRunning) return;
+  _dcRunning = true; window._dcCancel = false;
+  try {
+    const todo = plan.rows.filter(r => r.hasPj);
+    const total = todo.length;
+    _dcRenderProgress(0, total, 'Récupération des factures…');
+    const enc = new TextEncoder();
+    const factureEntries = [];
+    let totalBytes = 0, fetched = 0, failed = 0;
+    for (let i = 0; i < todo.length; i++) {
+      if (window._dcCancel) { _dcCloseOv(); showToast('Génération annulée', 'info'); return; }
+      const row = todo[i];
+      _dcRenderProgress(i, total, 'Récupération des factures…', row.fileName);
+      let dataUrl = null;
+      try { dataUrl = await _dcFetchDataUrl(row.resolved); } catch (e) { dataUrl = null; }
+      const bytes = dataUrl ? _dcDataUrlToBytes(dataUrl) : null;
+      if (!bytes || !bytes.length) {
+        // Binaire finalement introuvable (hors ligne, cache vidé) → dégrade en ABSENTE via le
+        // helper PUR testé, pour que index.csv et le FEC restent EXACTS (pas de PieceRef pointant
+        // vers un fichier absent du zip). Helper : js/core/dossier-comptable.js _dcApplyFetchFailure.
+        failed++;
+        window._dc.applyFetchFailure(plan, row.num);
+        continue;
+      }
+      if (totalBytes + bytes.length > _BK_ZIP64_LIMIT) {
+        _dcCloseOv();
+        showToast('Dossier trop volumineux pour un .zip (> ~3,8 Go) — filtre par un seul bailleur ou réduis la période', 'err', 9000);
+        return;
+      }
+      totalBytes += bytes.length;
+      factureEntries.push({ name: row.filePath, bytes });
+      fetched++;
+    }
+    _dcRenderProgress(total, total, 'Assemblage…');
+    // Écritures (PieceRef final = plan.pieceRefByNum, corrigé des échecs) + index.csv reflétant la réalité.
+    const ecr = window._buildEcritures(o._mvts || DB.mouvements || [], STD_CATEGORIES, o);
+    const gl = window._buildGrandLivre(ecr);
+    const fec = window._toFEC(ecr, { entityNom: o.entityNom, from: o.from, to: o.to, pieceRefByNum: plan.pieceRefByNum });
+    const journal = window._journalToCsv(ecr);
+    const grandLivre = window._grandLivreToCsv(gl);
+    const indexCsv = window._dc.indexCsv(plan);
+    const bom = '﻿';
+    const entries = [
+      { name: 'ecritures/FEC.txt', bytes: enc.encode(bom + fec) },
+      { name: 'ecritures/journal.csv', bytes: enc.encode(bom + journal) },
+      { name: 'ecritures/grand-livre.csv', bytes: enc.encode(bom + grandLivre) },
+      { name: 'ecritures/index.csv', bytes: enc.encode(bom + indexCsv) },
+      ...factureEntries
+    ];
+    const u8 = window._bk.storedZip(entries);
+    const zipName = window._dc.zipName(o.entityNom || 'Tous', o.extractionYmd);
+    _downloadBlobAs(new Blob([u8], { type: 'application/zip' }), zipName);
+    if (typeof _auditLog === 'function') _auditLog('export', 'dossier_comptable', null, (o.from || '') + '..' + (o.to || '') + '/' + (o.entityNom || 'all'), null, null, 'ui');
+    _dcCloseOv();
+    const note = failed > 0 ? (' · ' + failed + ' facture(s) introuvable(s) → listée(s) ABSENTE') : '';
+    showToast('📦 Dossier comptable téléchargé (' + fetched + ' facture(s), ' + plan.counts.manquantes + ' manquante(s))' + note, failed > 0 ? 'warn' : 'ok', 6000);
+  } catch (e) {
+    console.warn('[dossier-compta] run', e);
+    _dcCloseOv();
+    showToast('Échec de la génération — ' + (e && e.message || e), 'err', 7000);
+  } finally {
+    _dcRunning = false;
+  }
+}
 function _comptaRefreshSelects() {
   const ys = el('compta-year');
   if (ys && !ys.innerHTML.trim()) {
@@ -57879,6 +58063,7 @@ function _comptaRefreshSelects() {
       ents.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
     if (cur && ents.includes(cur)) es.value = cur;
   }
+  if (typeof _dcInitSelectors === 'function') { try { _dcInitSelectors(); } catch (e) { console.warn('[dossier-compta] init selectors', e); } }
 }
 
 // v14.92 LEGAL-BILAN-ANNUEL Sprint 3C — Bilan annuel par entité
