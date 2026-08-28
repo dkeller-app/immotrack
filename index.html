@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.569</title>
+<title>Propryo v15.570</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.569">
+<link rel="stylesheet" href="css/main.css?v=15.570">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.569</em>
+      <em>v15.570</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4335,7 +4335,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.569';
+const IMMOTRACK_VERSION = '15.570';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -39701,8 +39701,12 @@ const CC_REPARTITION_LABELS = {
   'sous-compteurs': { label: 'Sous-compteurs (réel)',      icon: '📊', desc: 'Selon conso individuelle relevée' },
   // v14.61 : parts égales 1/N par logement (TV collective, antenne, vidéo-surveillance...)
   'proportionnel':  { label: 'Proportionnel (1/N parts égales)', icon: '⚖️', desc: 'Division par le nombre de logements (chaque logement compte pour 1)' },
-  'forfait':        { label: 'Forfait (parts manuelles)',  icon: '✋', desc: 'Parts définies manuellement par logement' }
+  'forfait':        { label: 'Forfait (parts manuelles)',  icon: '✋', desc: 'Parts définies manuellement par logement' },
+  // CDC Charges É1b : clé Mixte — combine plusieurs clés en % (moteur composite _calcCcRepartition).
+  'composite':      { label: 'Mixte (plusieurs clés en %)', icon: '🧩', desc: 'Combine plusieurs clés (ex. chauffage 50 % tantièmes + 50 % sous-compteurs)' }
 };
+// Clés « simples » proposables dans une composition Mixte (composite exclu = pas de récursion).
+const CC_SIMPLE_KEYS = ['tantiemes','surface','sous-compteurs','proportionnel','forfait'];
 
 // Calcule la quote-part d'un logement sur un compteur collectif.
 // Retourne { ratio: 0-1, methode, denomLabel, exclu? } ou null si exclu/non-applicable.
@@ -39710,6 +39714,16 @@ const CC_REPARTITION_LABELS = {
 function _calcCcQuotePart(im, log, cc, allLogs) {
   if(!im || !log || !cc) return null;
   const mode = cc.cleRepartition || 'tantiemes';
+
+  // CDC Charges É1b — Mixte : ratio pondéré = Σ (ratio de la ligne × quote-part de sa clé simple).
+  if(mode === 'composite' && Array.isArray(cc.composition)) {
+    let ratio = 0;
+    for(const ligne of cc.composition.filter(c => c && c.ratio > 0 && CC_SIMPLE_KEYS.includes(c.cle))) {
+      const sub = _calcCcQuotePart(im, log, Object.assign({}, cc, { cleRepartition: ligne.cle, composition: null }), allLogs);
+      if(sub && !sub.exclu) ratio += (sub.ratio || 0) * ligne.ratio;
+    }
+    return { ratio, methode: 'composite', denomLabel: 'Mixte' };
+  }
 
   if(mode === 'tantiemes') {
     const t = +log.tantiemes || 0;
@@ -40538,8 +40552,14 @@ function openCcFormModal(entId, immId, ccIdx) {
               <label class="mu sm">Clé secondaire (logements SANS sous-compteur)</label>
               <select class="inp" id="cc-form-fallback">
                 <option value="">— Aucun (tous ont sous-compteur) —</option>
-                ${_renderCcRepartOptions(cur.fallbackRepartition).replace(/<option value="sous-compteurs"[^<]*<\/option>/, '')}
+                ${_renderCcRepartOptions(cur.fallbackRepartition).replace(/<option value="sous-compteurs"[^<]*<\/option>/, '').replace(/<option value="composite"[^<]*<\/option>/, '')}
               </select>
+            </div>
+            <div id="cc-form-comp-row" class="fg" style="margin-top:10px;${cur.cleRepartition==='composite'?'':'display:none'}">
+              <label class="mu sm">Composition — combine plusieurs clés (le total doit faire 100 %)</label>
+              <div id="cc-form-comp-rows"></div>
+              <button class="btn bs" type="button" onclick="_ccCompAddRow()" style="font-size:11px;padding:4px 10px;margin-top:4px">+ Ajouter une clé</button>
+              <div id="cc-form-comp-total" class="mu sm" style="margin-top:6px;font-size:11px"></div>
             </div>
           </div>
 
@@ -40567,7 +40587,7 @@ function openCcFormModal(entId, immId, ccIdx) {
         </div>
         <div class="m-foot">
           <button class="btn bs" onclick="closeM('ov-cc-form')">Annuler</button>
-          <button class="btn bp" onclick="saveCcForm(${entId},${immId},${isEdit?ccIdx:'null'})">${isEdit?'✓ Enregistrer':'➕ Créer le compteur'}</button>
+          <button class="btn bp" onclick="saveCcForm(${entId},${immId},${isEdit?ccIdx:'null'})">${isEdit?'✓ Enregistrer':'➕ Créer le poste'}</button>
         </div>
       </div>
     </div>`;
@@ -40575,6 +40595,7 @@ function openCcFormModal(entId, immId, ccIdx) {
   if(old) old.remove();
   document.body.insertAdjacentHTML('beforeend', html);
   openM('ov-cc-form');
+  _ccCompInit(cur.composition);   // CDC É1b : peuple l'éditeur de composition (Mixte)
   setTimeout(() => { const f = document.getElementById('cc-form-nom'); if(f) f.focus(); }, 80);
 }
 
@@ -40588,10 +40609,60 @@ function _ccFormOnTypeChange() {
 function _ccFormOnRepartChange() {
   const sel = document.getElementById('cc-form-repart');
   const row = document.getElementById('cc-form-fallback-row');
+  const comp = document.getElementById('cc-form-comp-row');
   const hint = document.getElementById('cc-form-repart-hint');
   if(!sel) return;
+  const isComposite = (sel.value === 'composite');
   if(row) row.style.display = (sel.value === 'sous-compteurs') ? '' : 'none';
+  if(comp) comp.style.display = isComposite ? '' : 'none';
   if(hint) hint.textContent = _ccRepartHint(sel.value);
+  // Passage à Mixte sans composition déjà saisie → amorce 2 lignes 50/50.
+  if(isComposite) {
+    const rows = document.getElementById('cc-form-comp-rows');
+    if(rows && !rows.children.length) { _ccCompAddRow('tantiemes', 50); _ccCompAddRow('sous-compteurs', 50); }
+  }
+}
+
+// CDC Charges É1b — éditeur de composition (clé Mixte). 1 ligne = {cle simple, pct}. Σ pct doit = 100.
+function _ccCompRowHtml(cle, pct) {
+  const opts = CC_SIMPLE_KEYS.map(k => `<option value="${k}"${k===cle?' selected':''}>${escHtml((CC_REPARTITION_LABELS[k]||{}).label||k)}</option>`).join('');
+  return `<div class="cc-comp-row" style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+    <select class="inp cc-comp-cle" style="flex:1" onchange="_ccCompRenderTotal()">${opts}</select>
+    <input class="inp cc-comp-pct" type="number" min="0" max="100" step="1" value="${(pct!=null?pct:0)}" style="width:72px" oninput="_ccCompRenderTotal()">
+    <span class="mu sm">%</span>
+    <button class="btn bs" type="button" title="Retirer cette clé" onclick="_ccCompRemoveRow(this)" style="padding:2px 8px">✕</button>
+  </div>`;
+}
+function _ccCompAddRow(cle, pct) {
+  const rows = document.getElementById('cc-form-comp-rows'); if(!rows) return;
+  rows.insertAdjacentHTML('beforeend', _ccCompRowHtml(cle || 'tantiemes', pct != null ? pct : 0));
+  _ccCompRenderTotal();
+}
+function _ccCompRemoveRow(btn) {
+  const r = btn.closest('.cc-comp-row'); if(r) r.remove();
+  _ccCompRenderTotal();
+}
+function _ccCompRenderTotal() {
+  const rows = Array.from(document.querySelectorAll('#cc-form-comp-rows .cc-comp-row'));
+  const total = rows.reduce((s,r) => s + (parseFloat((r.querySelector('.cc-comp-pct')||{}).value) || 0), 0);
+  const box = document.getElementById('cc-form-comp-total'); if(!box) return;
+  const ok = Math.abs(total - 100) < 0.01 && rows.length >= 2;
+  box.innerHTML = `Total : <b style="color:${ok?'var(--grn)':'var(--red,#d23f3f)'}">${total}%</b> ${ok?'✓':(rows.length<2?'· ajoute au moins 2 clés':'· doit faire 100 %')}`;
+}
+function _ccCompInit(composition) {
+  const rows = document.getElementById('cc-form-comp-rows'); if(!rows) return;
+  rows.innerHTML = '';
+  (Array.isArray(composition)?composition:[]).filter(c=>c&&c.cle).forEach(c => _ccCompAddRow(c.cle, Math.round((c.ratio||0)*100)));
+  _ccCompRenderTotal();
+}
+// Lit l'éditeur → [{cle, ratio}] (ratio = pct/100), ou null si invalide (≥2 clés, chacune >0, total = 100).
+function _ccCompRead() {
+  const rows = Array.from(document.querySelectorAll('#cc-form-comp-rows .cc-comp-row'));
+  if(rows.length < 2) return null;
+  const comp = rows.map(r => ({ cle: (r.querySelector('.cc-comp-cle')||{}).value, pct: parseFloat((r.querySelector('.cc-comp-pct')||{}).value)||0 }));
+  if(comp.some(c => !CC_SIMPLE_KEYS.includes(c.cle) || !(c.pct > 0))) return null;
+  if(Math.abs(comp.reduce((s,c)=>s+c.pct,0) - 100) > 0.01) return null;
+  return comp.map(c => ({ cle: c.cle, ratio: c.pct/100 }));
 }
 
 function _ccFormToggleAllLogs(checked) {
@@ -40613,6 +40684,12 @@ function saveCcForm(entId, immId, ccIdx) {
   if(!_allCcTypes().find(t => t.key === type)) { showToast('Type invalide','err'); return; }
   if(!CC_REPARTITION_LABELS[cleRepart]) { showToast('Clé de répartition invalide','err'); return; }
   if(type === 'autre' && !typeLabel.trim()) { showToast('Libellé custom requis pour type = Autre','err'); return; }
+  // CDC É1b — clé Mixte : lire la composition (≥2 clés, total = 100 %).
+  let composition = [];
+  if(cleRepart === 'composite') {
+    composition = _ccCompRead();
+    if(!composition) { showToast('Composition Mixte invalide : au moins 2 clés et un total de 100 %','err'); return; }
+  }
   // Scope = refs des logements cochés (vide si tous cochés = "tous concernés")
   const allCheckboxes = Array.from(document.querySelectorAll('#cc-form-logs .cc-form-log'));
   const checked = allCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
@@ -40628,6 +40705,7 @@ function saveCcForm(entId, immId, ccIdx) {
     cc.typeLabel = (type === 'autre') ? typeLabel.trim() : '';
     cc.cleRepartition = cleRepart;
     cc.fallbackRepartition = (cleRepart === 'sous-compteurs') ? fallback : '';
+    cc.composition = composition;
     cc.scope = scope;
     cc.numCompteur = numCompteur;
     cc.fournisseur = fournisseur;
@@ -40646,7 +40724,7 @@ function saveCcForm(entId, immId, ccIdx) {
       scope: scope,
       numCompteur: numCompteur,
       fournisseur: fournisseur,
-      composition: [],
+      composition: composition,
       releves: [], factures: [], forfaitParts: {},
       _modifiedAt: new Date().toISOString()
     };
