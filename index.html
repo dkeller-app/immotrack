@@ -1620,7 +1620,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     </div>
     <!-- v14.60 CHARGES-COMMUNES Phase 1.5 — lien compteur collectif (single source) -->
     <div class="fg" id="mv-cc-wrap" style="display:none">
-      <label>⚡ Compteur collectif lié <span class="mu sm">(facture imputable à un compteur de l'immeuble)</span></label>
+      <label>⚡ Poste de charge lié <span class="mu sm">(facture imputable à un poste de charge de l'immeuble)</span></label>
       <select class="inp" id="mv-cc" onchange="_mvEnforceExclusivity()">
         <option value="">— Aucun (mouvement ordinaire)</option>
       </select>
@@ -16691,7 +16691,7 @@ function _affRender(id, tgt) {
     field = '<select class="inp" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'sci\',this.value)"><option value="">— quelle entité ? —</option>' + o + '</select>';
   } else if (niv === 'recup') {
     const o = (typeof immeubles === 'function' ? immeubles() : []).map(im => opt(im, im, imm === im)).join('');
-    field = '<div class="mu sm" style="margin-bottom:6px">Se récupère sur les locataires → réparti via un compteur collectif (au lieu de déduire aux impôts).</div>'
+    field = '<div class="mu sm" style="margin-bottom:6px">Se récupère sur les locataires → réparti via un poste de charge (au lieu de déduire aux impôts).</div>'
       + '<select class="inp" style="margin-bottom:6px" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'recupImm\',this.value)"><option value="">— quel immeuble ? —</option>' + o + '</select>'
       + '<select class="inp" id="' + id + '-cc-comp" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'cc\',this.value)"><option value="">— choisis d\'abord l\'immeuble —</option></select>';
   }
@@ -17890,7 +17890,7 @@ function _mvAffLabel(m) {
   const ic = _mvNiveauIcon(m);
   if (m.compteurCcId) {
     const nom = _ccNom(m.compteurCcId);
-    return `<span class="mu sm">${ic}</span> ${escHtml(nom || 'compteur collectif')}${m.imm ? ` <span class="mu sm">· ${escHtml(m.imm)}</span>` : ''}`;
+    return `<span class="mu sm">${ic}</span> ${escHtml(nom || 'poste de charge')}${m.imm ? ` <span class="mu sm">· ${escHtml(m.imm)}</span>` : ''}`;
   }
   if (String(m.qui||'').startsWith('SCI:')) return `<span class="mu sm">${ic}</span> ${escHtml(m.qui.slice(4))}`;
   if (m.qui) {
@@ -38558,7 +38558,7 @@ function _print2044(entId, year) {
     <div style="margin-top:30px;padding:10px 14px;border:1px solid #bbb;border-radius:4px;font-size:9.5px;color:#555;line-height:1.6;background:#fafafa">
       <b>Mentions importantes</b><br>
       • Document généré par <b>Propryo</b> à partir des mouvements bancaires saisis. Valeurs <b>indicatives</b> à vérifier avec ton centre des impôts ou un expert-comptable agréé.<br>
-      • La ligne 225 inclut automatiquement les charges restées à charge bailleur (vacances + logements exclus du compteur collectif), calculées par le moteur de régularisation.<br>
+      • La ligne 225 inclut automatiquement les charges restées à charge bailleur (vacances + logements exclus du poste de charge), calculées par le moteur de régularisation.<br>
       • Cette synthèse <b>ne remplace pas</b> le formulaire CERFA 2044 officiel. Recopie les totaux dans ton formulaire (impots.gouv.fr → déclaration en ligne).<br>
       • Conserve les pièces justificatives (factures, baux, contrats, relevés bancaires) pendant 6 ans (art. L102 B LPF).
     </div>`;
@@ -40287,7 +40287,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
 
   // Header CTA
   const headerActions = `<div style="display:flex;gap:6px;flex-wrap:wrap">
-    <button class="btn bp bb" onclick="openNewCcForImm(${entIdSafe},${immIdSafe})">+ Compteur collectif</button>
+    <button class="btn bp bb" onclick="openNewCcForImm(${entIdSafe},${immIdSafe})">+ Poste de charge</button>
   </div>`;
 
   // Banner pédagogique : règle de répartition disponible
@@ -40308,14 +40308,14 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
 
   if(!ccsAlive.length) {
     return `<div class="logf-section-head">
-      <h3 class="logf-section-title">⚡ Compteurs collectifs & charges communes</h3>
+      <h3 class="logf-section-title">⚡ Postes de charges & charges communes</h3>
       ${headerActions}
     </div>
     ${banner}
     <div class="logf-doc-empty">
-      Aucun compteur collectif enregistré pour cet immeuble.
-      <div class="mu sm" style="margin-top:6px">Saisissez ici les compteurs <b>généraux</b> de l'immeuble (eau froide générale, électricité parties communes, gaz collectif…) pour calculer automatiquement la quote-part de chaque logement à la régularisation annuelle.</div>
-      <div style="margin-top:10px"><button class="btn bp bb" onclick="openNewCcForImm(${entIdSafe},${immIdSafe})">+ Premier compteur collectif</button></div>
+      Aucun poste de charge enregistré pour cet immeuble.
+      <div class="mu sm" style="margin-top:6px">Saisissez ici les <b>postes de charges</b> de l'immeuble (eau, chauffage collectif, électricité des parties communes, ascenseur, entretien…) pour calculer automatiquement la quote-part de chaque logement à la régularisation annuelle.</div>
+      <div style="margin-top:10px"><button class="btn bp bb" onclick="openNewCcForImm(${entIdSafe},${immIdSafe})">+ Premier poste de charge</button></div>
     </div>`
     + _renderImmRelevesLogements(activeLogs, archivedLogs);
   }
@@ -40365,7 +40365,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
       <div class="logf-cpt-card-head">
         <span class="logf-cpt-icon" style="background:${t.color}22;color:${t.color}">${_ccIconSvg(t.key,19)}</span>
         <div class="logf-cpt-card-title">${escHtml(cc.nom)} <span class="mu sm">· <span style="display:inline-flex;vertical-align:-2px">${_repartIconSvg(cc.cleRepartition,12)}</span> ${repart.label}</span></div>
-        <button class="btn bs bb" onclick="editCcForImm(${entIdSafe},${immIdSafe},${ccIdx})" title="Modifier ce compteur">✏️</button>
+        <button class="btn bs bb" onclick="editCcForImm(${entIdSafe},${immIdSafe},${ccIdx})" title="Modifier ce poste de charge">✏️</button>
         <button class="btn br bb" onclick="delCcForImm(${entIdSafe},${immIdSafe},${ccIdx})" title="Supprimer">🗑</button>
       </div>
       <div class="logf-cpt-kpis">
@@ -40404,7 +40404,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
   }).join('');
 
   return `<div class="logf-section-head">
-    <h3 class="logf-section-title">⚡ Compteurs collectifs & charges communes <span class="mu sm">(${ccsAlive.length})</span></h3>
+    <h3 class="logf-section-title">⚡ Postes de charges & charges communes <span class="mu sm">(${ccsAlive.length})</span></h3>
     ${headerActions}
   </div>
   ${banner}
@@ -40504,13 +40504,13 @@ function openCcFormModal(entId, immId, ccIdx) {
     <div class="ov" id="ov-cc-form" onclick="closeBg(event,'ov-cc-form')">
       <div class="modal" style="max-width:680px">
         <div class="m-head">
-          <h3>${isEdit?'✏️ Modifier':'➕ Nouveau'} compteur collectif — ${escHtml(im.nom||'')}</h3>
+          <h3>${isEdit?'✏️ Modifier':'➕ Nouveau'} poste de charge — ${escHtml(im.nom||'')}</h3>
           <button class="m-close" onclick="closeM('ov-cc-form')">✕</button>
         </div>
         <div class="m-body">
           <div class="fg">
-            <label>Nom du compteur *</label>
-            <input class="inp" id="cc-form-nom" placeholder="Ex : Eau froide générale, Chauffage collectif" value="${escHtml(cur.nom)}">
+            <label>Nom du poste *</label>
+            <input class="inp" id="cc-form-nom" placeholder="Ex : Eau froide, Chauffage collectif, Ascenseur, Entretien" value="${escHtml(cur.nom)}">
           </div>
 
           <div class="fg">
@@ -40552,7 +40552,7 @@ function openCcFormModal(entId, immId, ccIdx) {
             <div id="cc-form-logs" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;padding:4px;border:1px solid var(--bor);border-radius:6px">
               ${checkboxesHtml || '<p class="mu sm" style="padding:10px;text-align:center">Aucun logement dans cet immeuble. Crée d\'abord les logements.</p>'}
             </div>
-            <div class="mu sm" style="margin-top:6px;font-size:11px">💡 Décoche un logement pour l'exclure de ce compteur (ex : garage non chauffé pour le chauffage).</div>
+            <div class="mu sm" style="margin-top:6px;font-size:11px">💡 Décoche un logement pour l'exclure de ce poste (ex : garage non chauffé pour le chauffage).</div>
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -40769,7 +40769,7 @@ function delCcForImm(entId, immId, ccIdx) {
   if(!ent || !im) return;
   const cc = (im.compteursCollectifs||[])[ccIdx];
   if(!cc) return;
-  if(!confirm2(`Supprimer le compteur collectif "${cc.nom}" et tous ses relevés/factures ?`)) return;
+  if(!confirm2(`Supprimer le poste de charge "${cc.nom}" et tous ses relevés/factures ?`)) return;
   // v14.71 BUG-DRIVE-RESURRECTION pattern : tombstone au lieu de splice direct.
   // Sans ça, la suppression ne se propage pas via Drive merge et le compteur
   // ressuscite après reload sur un autre device.
@@ -44779,7 +44779,7 @@ function rImmFiche() {
            (décision 1 du 11/08 : pas de rappel d'échéance, ces contrats se renouvellent
            automatiquement), et l'onglet grisé « À venir » part (P1-12 : une V1 qui a l'air finie). -->
       <button class="logf-subtab${_currentImmFicheTab==='logements'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='logements'}" onclick="setImmFicheTab('logements')">🏠 Logements (${nbLogs})</button>
-      <button class="logf-subtab${_currentImmFicheTab==='charges'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='charges'}" onclick="setImmFicheTab('charges')" title="Compteurs collectifs, répartition des charges et relevés des logements">⚡ Charges communes</button>
+      <button class="logf-subtab${_currentImmFicheTab==='charges'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='charges'}" onclick="setImmFicheTab('charges')" title="Postes de charges, répartition des charges et relevés des logements">⚡ Charges communes</button>
     </div>
     ${_currentImmFicheTab === 'charges'
       ? _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs)
