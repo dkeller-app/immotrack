@@ -216,9 +216,11 @@ describe('V7 — une quittance FORCÉE est une quittance, pas un reçu partiel',
   // était un « Reçu de paiement partiel » de 300 € sur un terme de 800 €. L'état disait
   // quittancé, le document disait reçu : le geste que le CDC rend possible ne produisait pas
   // ce qu'il promet.
-  it('la trace du geste forcé fait basculer le document en quittance pleine', () => {
-    expect(has('const estComplet   = totalRecu >= total - 0.01 || _forceeV7;')).toBe(true);
-    expect(has('const estNonPayé   = totalRecu <= 0 && !_forceeV7;')).toBe(true);
+  it('D27 (retour Didier) — « Document non émissible » N\'EXISTE PLUS : un mois sans paiement bascule en QUITTANCE pleine', () => {
+    expect(SRC.includes('estNonPayé')).toBe(false);                 // la branche impasse a disparu du code
+    expect(SRC.includes('AUCUN PAIEMENT ENREGISTRÉ')).toBe(false);  // son texte aussi
+    expect(has('const estPartiel   = totalRecu > 0 && totalRecu < total - 0.01 && !_forceeV7;')).toBe(true);
+    expect(has("(estPartiel?'Reçu partiel':'Quittance')")).toBe(true);   // le titre ne connaît plus l'impasse
   });
   it('elle se lit dans la trace V9, ou se déclare explicitement pour l\'aperçu', () => {
     expect(has('const _forceeV7 = (opts.forceeV7 != null)')).toBe(true);

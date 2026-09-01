@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.578</title>
+<title>Propryo v15.579</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.578">
+<link rel="stylesheet" href="css/main.css?v=15.579">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.578</em>
+      <em>v15.579</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4189,7 +4189,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.578';
+const IMMOTRACK_VERSION = '15.579';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -26979,7 +26979,7 @@ function _creerQuittance(ref, ym, opts) {
  * @param {object} bail - Entrée DB.baux[ref]
  * @param {object} [opts] - { totalRecu?: number, infoPaiement?: {date, dates, nb} } — surcharge
  *        explicite (reçu partiel, tests) ; sinon la date vient de la cascade unique (I-DATE).
- * @returns {{html:string, css:string, title:string, status:'complet'|'partiel'|'non-paye'}}
+ * @returns {{html:string, css:string, title:string, status:'complet'|'partiel'}}
  */
 // AUDIT M3 — mise en page propre a la FENETRE d'impression/partage de la quittance.
 // Volontairement SEPAREE de `built.css` : ce dernier est injecte dans la page de l'app par
@@ -27114,10 +27114,15 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   // ce qu'il promet. Quand la trace du geste forcé existe, le document est une QUITTANCE
   // pleine — et, le mois n'étant pas soldé, elle sort SANS ligne « payé le » (exactement ce que
   // le bandeau annonce). L'étiquette « sans paiement constaté » reste, elle, DANS L'APP (V9).
-  const estComplet   = totalRecu >= total - 0.01 || _forceeV7;
-  const estPartiel   = totalRecu > 0 && !estComplet;
-  const estNonPayé   = totalRecu <= 0 && !_forceeV7;
-  const status = estComplet ? 'complet' : (estPartiel ? 'partiel' : 'non-paye');
+  // D27 (retour Didier 01/09) — « Document non émissible » N'EXISTE PLUS. Le CDC §3 le retirait
+  // (index.html:27114) ; ça n'avait pas été fait, et une quittance sur un mois sans paiement
+  // retombait dans cette impasse. Deux documents seulement, désormais :
+  //   · PAIEMENT PARTIEL (0 < reçu < dû, hors geste forcé) → reçu de paiement partiel (art. 21) ;
+  //   · SINON (soldé, AUCUN paiement, ou geste forcé) → QUITTANCE. Sans encaissement imputé, elle
+  //     sort simplement SANS ligne « payé le » (la mention gère déjà l'absence de date).
+  // Un mois sans paiement s'édite et se réédite LIBREMENT — jamais d'impasse, jamais de blocage.
+  const estPartiel   = totalRecu > 0 && totalRecu < total - 0.01 && !_forceeV7;   // = _docPartiel
+  const status = estPartiel ? 'partiel' : 'complet';
 
   const _resteBailleur = `${typeEnt?', '+escHtml(typeEnt):''}${siegeStr?', dont le siège social est situé '+escHtml(siegeStr):''}${siren?',<br>immatriculée au registre du commerce et des sociétés sous le numéro d\'identification '+escHtml(siren):''}${gerant?',<br>représentée par '+escHtml(gerant)+' en sa qualité de Gérant, dument habilité':''}${siegeStr||siren||gerant?' ;':''}`.replace(/^,\s*/, '');
   // DOCS-UNIFIES — les deux parties côte à côte (gabarit B). Mêmes clauses, même ordre,
@@ -27143,19 +27148,7 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
 ${_docCss()}`;
 
   let html = '', titreDoc = '', ctxDoc = '';
-  if(estNonPayé) {
-    titreDoc = '⛔ Document non émissible';
-    ctxDoc = `Période de location ${periodeStr}`;
-    html = `
-<div class="alerte no-print" style="background:#f8d7da;border:.5mm solid #dc3545;color:#721c24;font-size:12pt;font-weight:bold">
-  ⛔ AUCUN PAIEMENT ENREGISTRÉ<br>
-  <span style="font-size:9.5pt;font-weight:normal">Aucun encaissement Loyers trouvé pour <b>${escHtml(q.logement)}</b> en <b>${escHtml(q.mois)}</b>.<br>
-  Impossible d'émettre une quittance ou un reçu. Enregistrer le paiement dans les mouvements d'abord.</span>
-</div>
-${enteteHtml}
-<p style="color:#dc3545;font-weight:bold">Aucun paiement enregistré pour la période ${periodeStr}.<br>
-Ce document ne peut être remis au locataire.</p>`;
-  } else if(estPartiel) {
+  if(estPartiel) {
     const solde = total - totalRecu;
     titreDoc = 'Reçu de paiement partiel';
     ctxDoc = `Période de location ${periodeStr}`;
@@ -27203,7 +27196,7 @@ ${_dt('docLieu', `Fait à ${escHtml(villeTitre||'–')},<br>Le ${dateEmission}`)
 ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
   }
 
-  const title = (estComplet?'Quittance':estPartiel?'Reçu partiel':'Non émissible') + ' — ' + escHtml(q.logement||'') + ' — ' + escHtml(q.mois||'');
+  const title = (estPartiel?'Reçu partiel':'Quittance') + ' — ' + escHtml(q.logement||'') + ' — ' + escHtml(q.mois||'');
   // DOCS-UNIFIES — un seul assemblage : bandeau + titre + corps + pied (gabarit B).
   // La feuille de style part dans `css` (la quittance a son propre <head>), pas dans le corps.
   const htmlPage = _docPage(ent, {
@@ -28507,9 +28500,9 @@ function _qeInjecterDoc(m) {
   // LIBREMENT (plus de case à cocher) — c'est donc TOUJOURS une quittance pleine forcée (V7),
   // sortie sans ligne « payé le ». L'étiquette « sans paiement constaté » reste DANS l'app.
   const built = _buildQuittanceHtml(q, log, ent, bail, {
-    // AUDIT R5 — un mois DÉJÀ quittancé de force porte sa trace : sans la lire, réouvrir
-    // l'éditeur dessus (« ↺ Rééditer », case du bien) affichait « Document non émissible »
-    // alors que l'aperçu, le PDF et la PJ e-mail sortent une quittance pleine.
+    // R5/D27 — un mois non soldé (ou déjà forcé, via sa trace meta) rouvre en QUITTANCE pleine
+    // sans « payé le ». (« Document non émissible » n'existe plus : la branche a été retirée de
+    // _buildQuittanceHtml — un mois sans paiement produit une quittance, jamais une impasse.)
     forceeV7: (m.etat === 'no' || m.etat === 'fut')
       || !!(typeof _qeMeta === 'function' && _qeMeta(_qe.ref, m.ym))
   });
