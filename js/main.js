@@ -192,7 +192,7 @@ import {
 
 // v15.87 EM-2b - PJ PDF auto-générée (quittance + IRL en V1.0)
 import {
-  _emailGenPdfAttachment, _emailPdfTypesSupportedV1, _blobToBase64
+  _emailGenPdfAttachment, _emailPdfTypesSupportedV1, _blobToBase64, _docHtmlToNativeBlob
 } from './core/email-pdf-attachment.js';
 
 // v14.99 BUG-PJ-LOCALSTORAGE - helpers attachements (PJ unifiées Drive + IDB)
@@ -286,7 +286,7 @@ import { dateVersementDG, dateRestitutionDG, dateEDLSortie, dateLiberation } fro
 // l'émission doit avertir. Aucun dû, aucun payé, aucune imputation n'y est recalculé.
 import {
   MOIS_ETAT, moisRailLot, moisParDefaut, anneeParDefaut, anneesDisponibles,
-  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, lotSuivant, cleMeta,
+  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, cleMeta,
   metaApresEmission, metaApresSuppression
 } from './core/quittance-editeur.js';
 
@@ -305,7 +305,6 @@ window.anneesDisponibles = anneesDisponibles;
 window.verdictEmission = verdictEmission;
 window.etiquetteSansPaiement = etiquetteSansPaiement;
 window.validerSaisieLibre = validerSaisieLibre;
-window.lotSuivant = lotSuivant;
 window.cleMeta = cleMeta;
 window.metaApresEmission = metaApresEmission;
 window.metaApresSuppression = metaApresSuppression;
@@ -517,6 +516,7 @@ window._emailSendViaGmail = _emailSendViaGmail;
 
 // v15.87 EM-2b - PJ PDF auto-générée
 window._emailGenPdfAttachment = _emailGenPdfAttachment;
+window._docHtmlToNativeBlob = _docHtmlToNativeBlob;
 window._emailPdfTypesSupportedV1 = _emailPdfTypesSupportedV1;
 window._blobToBase64 = _blobToBase64;
 

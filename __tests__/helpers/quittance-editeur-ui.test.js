@@ -50,9 +50,9 @@ describe('V10 — UNE SEULE PORTE : la quittance libre est un mode DEDANS', () =
   });
 });
 
-describe('V7 — le garde-fou est un bandeau + une case, JAMAIS un verrou', () => {
-  it('tous les mois sont cochables, y compris non soldés', () => {
-    expect(has('// V7 : TOUS les mois sont cochables, y compris non soldés.')).toBe(true);
+describe('V7/D27 — l\'alerte est un bandeau NON BLOQUANT, JAMAIS un verrou ni une case', () => {
+  it('tous les mois sont CLIQUABLES, y compris non soldés et déjà édités (D27)', () => {
+    expect(has('TOUS les mois restent cliquables, y compris non soldés et déjà édités')).toBe(true);
   });
   it('l\'émission passe outre le contrôle de solde et laisse une trace', () => {
     expect(has('_creerQuittance(_qe.ref, ym, { verifierSolde: false })')).toBe(true);
@@ -64,12 +64,18 @@ describe('V7 — le garde-fou est un bandeau + une case, JAMAIS un verrou', () =
   it('le bandeau propose le reçu partiel en un clic', () => {
     expect(has('onclick="_qeRecuPartiel(')).toBe(true);
   });
-  it('la confirmation est une case à cocher explicite', () => {
-    expect(has('Je sais que ce document vaut reçu et éteint la dette')).toBe(true);
+  it('D27 (retour Didier) — PLUS de case à cocher : « on met une alerte mais on laisse libre »', () => {
+    expect(SRC.includes('Je sais que ce document vaut reçu')).toBe(false);
+    expect(SRC.includes('_qeSetConfirme')).toBe(false);
+    expect(SRC.includes('_qe.confirme')).toBe(false);
+    // le bandeau rassure au lieu de bloquer, et dit que l'app marque « sans paiement constaté »
+    expect(has('Tu peux l\'éditer quand même.')).toBe(true);
+    expect(has('sans paiement constaté')).toBe(true);
   });
-  it('le bouton n\'est jamais désactivé par une RÈGLE, seulement par une saisie incomplète', () => {
-    expect(has("why = 'Coche la confirmation ci-dessus'")).toBe(true);
-    expect(has("why = 'Choisis au moins un mois'")).toBe(true);
+  it('AUCUNE règle ne grise le bouton : seule une saisie sans mois le désactive', () => {
+    expect(SRC.includes("why = 'Coche la confirmation ci-dessus'")).toBe(false);
+    expect(SRC.includes('confirmationRequise && !_qe.confirme')).toBe(false);
+    expect(has("why = 'Choisis un mois'")).toBe(true);
   });
 });
 
@@ -115,13 +121,69 @@ describe('V11/V12 — la saisie libre', () => {
   });
 });
 
-describe('V6 — l\'enchaînement « lot suivant » quand plusieurs lots attendent', () => {
-  it('le bouton n\'apparaît que s\'il reste un lot dans la pile', () => {
-    expect(has('const suiv = window.lotSuivant(_qe.pile, _qe.ref);')).toBe(true);
-    expect(has('Éditer &amp; lot suivant')).toBe(true);
+describe('D27 — un lot, un mois, un document ; aucune impasse', () => {
+  it('la sélection est UNIQUE : un mois choisi, rien à décocher', () => {
+    expect(has('function _qeChoisirMois(ym)')).toBe(true);
+    expect(has('const on = _qe.ym === m.ym;')).toBe(true);
+    expect(SRC.includes('_qe.sel')).toBe(false);
+    expect(SRC.includes('_qeToggle(')).toBe(false);
   });
-  it('la pile met les demandes mensuelles en tête', () => {
-    expect(has('.sort((a, b) => (b.demande - a.demande) || (b.nb - a.nb))')).toBe(true);
+  it("l'enchaînement « lot suivant » et la pile ont disparu", () => {
+    expect(SRC.includes('lotSuivant')).toBe(false);
+    expect(SRC.includes('_qe.pile')).toBe(false);
+  });
+  it('le bouton NOMME le mois (élidé, sans année), et la réédition se dit', () => {
+    expect(has('`Rééditer la quittance ${moisLbl}`')).toBe(true);
+    expect(has('`Éditer la quittance ${moisLbl}`')).toBe(true);
+  });
+  it("plus d'onglets « N documents » : un seul document à l'écran", () => {
+    expect(SRC.includes('_qeOnglet')).toBe(false);
+    expect(SRC.includes('documents — un par mois')).toBe(false);
+  });
+  it('règle 5 — sur téléphone le bouton principal reste visible', () => {
+    expect(has('.qd-foot .rec{flex:0 0 100%;order:0}')).toBe(true);
+    expect(has('.qd-foot .btn.bp{flex:2}')).toBe(true);
+  });
+  it("le document édité s'ouvre : c'est de là qu'on le partage ou l'enregistre", () => {
+    expect(has('if (faites.length) previewQuit(faites[0].id);')).toBe(true);
+  });
+  it("le pied de l'aperçu n'a qu'UN bouton, comme l'EDL", () => {
+    expect(has('<button class="btn bp" id="qp-action" onclick="_qpAction()"></button>')).toBe(true);
+    expect(SRC.includes('_archiveQuittancePreviewModal &&')).toBe(false);
+    expect(SRC.includes('_printQuittancePreviewModal()">')).toBe(false);
+    expect(SRC.includes('_emailQuittancePreviewModal')).toBe(false);
+  });
+  it("D27 (retour Didier) — le bouton de l'aperçu quittance dit « Partager » quel que soit l'appareil (tablette ≠ PC)", () => {
+    const i = SRC.indexOf('function _qpMajBoutonAction');
+    const fn = SRC.slice(i, i + 600);
+    expect(fn.includes("b.textContent = '📤 Partager';")).toBe(true);
+    expect(fn.includes('share ?')).toBe(false);   // plus de libellé selon l'appareil pour la quittance
+    // le GESTE, lui, reste adaptatif (partage natif sur téléphone / enregistrement sur PC) via _pdfSortie
+    expect(has('function _pdfSortie(')).toBe(true);
+  });
+  it("D27 (retour Didier) — mois en BULLES qui s'enroulent (ni liste verticale, ni carrousel horizontal)", () => {
+    expect(has('.qd-mois{display:flex;flex-wrap:wrap')).toBe(true);
+    expect(SRC.includes('<span class="bx">✓</span>')).toBe(false);   // la case de liste a disparu
+    expect(has('class="qd-selmo"')).toBe(true);                        // état + montant, une fois, sous les bulles
+    expect(SRC.includes('grid-auto-flow:column')).toBe(false);        // plus de carrousel horizontal
+  });
+  it("D27 (retour Didier) — les mois À VENIR sont masqués (on ne quittance pas un mois pas arrivé)", () => {
+    expect(has('function _qeRailVisible()')).toBe(true);
+    expect(has("_qeRail().filter(m => m.etat !== 'fut')")).toBe(true);
+  });
+  it("D27 (retour Didier) — le bouton nomme le mois ÉLIDÉ et sans année (« d'avril », « de septembre »)", () => {
+    expect(has('function _qeMoisLabel(ym)')).toBe(true);
+    expect(has("? \"d'\" : 'de '")).toBe(true);              // avril/août/octobre → d'
+    expect(has('`Éditer la quittance ${moisLbl}`')).toBe(true);
+  });
+  it("il fonctionne aussi sur un document éphémère (reçu partiel, relance)", () => {
+    expect(has('function _qpAction()')).toBe(true);
+    // Un document non persisté sort par la MÊME fonction, avec le même moteur natif.
+    expect(has("genererBlob: () => window._docHtmlToNativeBlob(built.html")).toBe(true);
+    expect(SRC.includes("_printQuittancePreviewModal")).toBe(false);
+  });
+  it('le mois sans paiement offre la sortie utile, jamais un bouton mort', () => {
+    expect(has('Enregistrer le paiement')).toBe(true);
   });
 });
 
@@ -162,9 +224,10 @@ describe('V7 — une quittance FORCÉE est une quittance, pas un reçu partiel',
     // au repli sur `dates` → I-DATE s'applique et la date disparaît.
     expect(has('(!_forceeV7 && totalRecu > 0 && totalRecu < total - 0.01)')).toBe(true);
   });
-  it('cocher la case REFAIT l\'aperçu : on voit ce qui sortira, pas l\'ancien document', () => {
-    expect(has('function _qeSetConfirme(on) { _qe.confirme = !!on; _qeRenderDoc(); _qeFootBtn(); }')).toBe(true);
-    expect(has("forceeV7: ((m.etat === 'no' || m.etat === 'fut') && _qe.confirme)")).toBe(true);
+  it('D27 (retour Didier) — un mois non soldé est TOUJOURS une quittance pleine forcée, sans case à cocher', () => {
+    expect(SRC.includes('_qeSetConfirme')).toBe(false);
+    expect(SRC.includes('&& _qe.confirme')).toBe(false);
+    expect(has("forceeV7: (m.etat === 'no' || m.etat === 'fut')")).toBe(true);
   });
 });
 

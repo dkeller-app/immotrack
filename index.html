@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.576</title>
+<title>Propryo v15.577</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.576">
+<link rel="stylesheet" href="css/main.css?v=15.577">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.576</em>
+      <em>v15.577</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -3581,52 +3581,48 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 .qd-an button{flex:1;min-width:52px;border:1px solid var(--bor);background:var(--sur2);color:var(--t2);
   font:700 11.5px var(--font);border-radius:var(--rp);padding:4px 0;cursor:pointer}
 .qd-an button.on{background:var(--t1);border-color:var(--t1);color:var(--sur)}
-.qd-mois{flex:1;overflow-y:auto;padding:4px 8px 8px;min-height:0}
-.qd-m{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:7px;align-items:center;
-  width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:var(--r);
-  padding:4px 7px;cursor:pointer;font-family:var(--font);min-height:34px}
-.qd-m:hover{background:var(--sur2)}
-.qd-m .bx{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--bor);background:var(--sur);
-  font-size:9px;color:transparent;display:flex;align-items:center;justify-content:center;flex:none}
-.qd-m .nm{font-size:12px;font-weight:700;color:var(--t1);line-height:1.2}
-.qd-m .st{display:block;font-size:9.5px;font-weight:500;color:var(--t3);line-height:1.25;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.qd-m .am{font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;white-space:nowrap}
-.qd-m.ok .bx{border-color:var(--acc)}
-.qd-m.ok .st{color:var(--acc);font-weight:600}
-.qd-m.done .bx{background:var(--pos);border-color:var(--pos);color:#fff}
-.qd-m.done .st{color:var(--pos);font-weight:600}
-.qd-m.no .st{color:var(--neg)}
-.qd-m.no .bx{border-style:dashed}
-.qd-m.fut{opacity:.7}
-.qd-m.fut .bx{border-style:dashed}
+/* D27 (retour Didier) — les mois en BULLES qui s'enroulent (fini la liste verticale « longue
+   comme le bras » ET le carrousel horizontal). L'état tient dans un point coloré ; l'état en
+   toutes lettres + le montant vivent UNE fois, sous les bulles (.qd-selmo). */
+.qd-mois{display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px 2px;overflow-y:auto;min-height:0}
+.qd-m{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--bor);background:var(--sur);
+  color:var(--t1);border-radius:999px;padding:6px 12px;cursor:pointer;font:600 12px var(--font);
+  line-height:1;white-space:nowrap}
+.qd-m:hover{border-color:var(--acc)}
+.qd-m .bx{width:7px;height:7px;border-radius:50%;background:var(--t3);flex:none}
+.qd-m .nm{line-height:1.1}
+.qd-m.ok .bx{background:var(--acc)}
+.qd-m.done .bx{background:var(--pos)}
+.qd-m.no .bx{background:var(--neg)}
 .qd-m.off{opacity:.45;cursor:default}
 .qd-m.off .bx{visibility:hidden}
-.qd-m.sel{border-color:var(--acc);background:var(--acc-bg)}
-.qd-m.sel .bx{background:var(--acc);border-color:var(--acc);color:#fff}
+.qd-m.sel{background:var(--acc);border-color:var(--acc);color:#fff}
+.qd-m.sel .bx{background:#fff}
 .qd-m:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.qd-selmo{display:flex;align-items:baseline;gap:9px;margin:0 10px;padding:10px 0 2px;
+  border-top:1px solid var(--bor);font-size:12px}
+.qd-selmo b{font-size:13px;color:var(--t1)}
+.qd-selmo .st{color:var(--t3)}
+.qd-selmo .st.ok{color:var(--acc)}
+.qd-selmo .st.done{color:var(--pos)}
+.qd-selmo .st.no{color:var(--neg)}
+.qd-selmo .am{margin-left:auto;font-weight:800;color:var(--t1);font-variant-numeric:tabular-nums}
 .qd-doc{flex:1;overflow-y:auto;padding:14px 16px 18px;min-width:0;display:flex;flex-direction:column;gap:10px}
 .qd-doc iframe{width:100%;flex:1;min-height:420px;border:1px solid var(--bor);border-radius:var(--rl);background:#fff}
-.qd-tabs{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
-.qd-tabs button{border:1px solid var(--bor);background:var(--sur2);color:var(--t2);border-radius:var(--rp);
-  padding:3px 10px;font:600 11.5px var(--font);cursor:pointer}
-.qd-tabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
-.qd-tabs .k{font-size:10.5px;color:var(--t3);margin-left:4px}
 .qd-foot{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--bor);
   background:var(--sur);flex:none;flex-wrap:wrap}
 .qd-foot .rec{font-size:11.5px;color:var(--t2)}
 .qd-foot .rec b{color:var(--t1);font-weight:800}
 .qd-foot .sp{flex:1;min-width:4px}
-/* Le garde-fou NON BLOQUANT (V7) : il explique, il propose une porte de sortie,
-   il demande une confirmation — il ne grise jamais le bouton. */
+/* D27 (retour Didier) — l'alerte NON BLOQUANTE : elle explique et propose une porte de sortie,
+   mais ne grise JAMAIS le bouton et ne demande PLUS de case à cocher (« on met une alerte mais
+   on laisse libre »). */
 .q-warn{display:flex;gap:9px;padding:10px 12px;border-radius:var(--rl);font-size:12px;line-height:1.5}
 .q-warn.w{background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);color:var(--t1)}
 .q-warn.i{background:var(--info-soft);border:1px solid color-mix(in srgb,var(--info) 35%,transparent);color:var(--t1)}
 .q-warn .ic{font-size:15px;flex:none;line-height:1.2}
 .q-warn b{font-weight:800}
 .q-warn .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.q-warn .cf{display:flex;align-items:flex-start;gap:7px;margin-top:9px;font-size:12px;font-weight:600;cursor:pointer}
-.q-warn .cf input{margin-top:2px;flex:none;width:15px;height:15px;accent-color:var(--acc)}
 /* Le sélecteur de lot — se pose PAR-DESSUS le rail, jamais dans une seconde fenêtre. */
 .qd-pick{position:absolute;left:8px;top:52px;width:340px;max-width:calc(100% - 16px);z-index:5;
   background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
@@ -3669,15 +3665,20 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   .qd-lot{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;padding:8px 12px}
   .qd-lot .lo,.qd-lot .ct{margin-top:0}
   .qd-lot .chg{margin-top:0;margin-left:auto}
-  .qd-mois{display:grid;grid-auto-flow:column;grid-template-rows:1fr;gap:4px;overflow-x:auto;
-    overflow-y:hidden;padding:4px 10px 8px;scrollbar-width:thin;max-height:88px}
-  .qd-m{grid-template-columns:14px auto;grid-template-areas:'b n' 'b a';min-width:104px;
-    border:1px solid var(--bor);background:var(--sur2);padding:4px 8px}
-  .qd-m .bx{grid-area:b}.qd-m .nm{grid-area:n;font-size:11px}
-  .qd-m .st{display:none}
-  .qd-m .am{grid-area:a;font-size:10px;text-align:left}
+  /* D27 — sur téléphone les bulles s'enroulent naturellement (plus de carrousel horizontal) ;
+     on plafonne juste la hauteur pour laisser voir le document dessous. */
+  .qd-mois{max-height:132px}
   .qd-doc iframe{min-height:320px}
-  .qd-foot .btn{flex:1;justify-content:center}
+  /* D27 règle 5 — LE BOUTON PRINCIPAL EST VISIBLE SUR TÉLÉPHONE.
+     Avant : le compteur, « Annuler » et le bouton d'édition se partageaient une rangée qui
+     débordait ; le principal passait à la ligne et sortait de l'écran. Désormais le compteur
+     prend sa propre ligne, les deux boutons tiennent la suivante, et le pied réserve la zone
+     sûre du téléphone (barre de gestes iOS). */
+  .qd-foot{padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  .qd-foot .rec{flex:0 0 100%;order:0}
+  .qd-foot .sp{display:none}
+  .qd-foot .btn{flex:1;justify-content:center;order:1;min-height:44px}
+  .qd-foot .btn.bp{flex:2}
 }
 </style>
 
@@ -4109,7 +4110,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   <div class="m-foot">
     <button class="btn bs" onclick="closeM('ov-regul-doc')">Fermer</button>
     <button class="btn" onclick="window._shareDecompteWithPdf && window._shareDecompteWithPdf()" title="Partager avec PDF">🔗 Partager</button>
-    <button class="btn" onclick="window._emailDecompteFromModal && window._emailDecompteFromModal()">📤 Partager</button>
+    <button class="btn" onclick="window._emailDecompteFromModal && window._emailDecompteFromModal()" title="Enregistrer le PDF sur cet appareil">⬇ Télécharger</button>
     <button class="btn bp" onclick="printRegulDoc()">🖨 Imprimer</button>
   </div>
 </div></div>
@@ -4165,7 +4166,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.576';
+const IMMOTRACK_VERSION = '15.577';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7669,18 +7670,27 @@ function _shareModalShareVia() {
 // La signature du bail n'est PAS concernee (flux relais, chemin distinct).
 const DOC_ENVOI_ACTIF = false;
 // Telechargement seul : meme fabrication de PDF que l'envoi, sans modale ni trace d'envoi.
+// AUDIT #3 — LA sortie de TOUS les documents passe par `_pdfSortie` (partagée avec l'EDL) :
+// boîte « Enregistrer sous » sur PC, partage natif sur téléphone. Avant, ce chemin — emprunté
+// par le décompte, la lettre IRL et le « 📥 » de la liste des quittances — faisait un
+// `<a download>` nu : la même quittance se téléchargeait de deux façons selon le bouton cliqué.
 async function _docTelechargerSeul(type, ctx) {
   if (typeof window._emailGenPdfAttachment !== 'function') { showToast('Module PDF non charge — verifie http-server', 'err', 6000); return; }
-  showToast('Preparation du PDF…', 'info', 1800);
-  let r = null;
-  try { r = await window._emailGenPdfAttachment(type, ctx); } catch (e) { r = null; }
-  if (!r || r.error || !r.base64) { showToast('PDF indisponible', 'err'); return; }
-  try {
-    const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    _downloadBlobAs(new Blob([bytes], { type: r.mimeType || 'application/pdf' }), r.filename || 'document.pdf');
-    showToast('PDF telecharge', 'ok');
-  } catch (e) { showToast('Telechargement impossible', 'err'); }
+  let nom = 'document.pdf';
+  await _pdfSortie({
+    fileName: nom,
+    desc: 'PDF',
+    genererAvant: true,          // l'échec est une règle métier : rien ne doit atterrir sur le disque
+    genererBlob: async () => {
+      const r = await window._emailGenPdfAttachment(type, ctx);
+      if (!r || r.error || !r.base64) throw new Error((r && r.message) || 'PDF indisponible');
+      nom = r.filename || nom;
+      const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Blob([bytes], { type: r.mimeType || 'application/pdf' });
+    },
+    nomApresGeneration: () => nom
+  });
 }
 async function _docShareOpen(type, ctx, opts) {
   if (!DOC_ENVOI_ACTIF) return _docTelechargerSeul(type, ctx);
@@ -27199,7 +27209,10 @@ function previewQuit(id) {
   iframe._docBuilt = built;
   const _h = document.querySelector('#ov-quit-preview .m-head h3');
   if (_h) _h.textContent = '📄 Aperçu quittance';
-  const _ov = el('ov-quit-preview'); if (_ov) delete _ov.dataset.ephemere;
+  // D27 (retour Didier) — le bouton unique porte un libellé FIXE « 📤 Partager » (partout pareil,
+  // tablette ≠ PC). Le GESTE, lui, reste adaptatif via `_shareQuittanceWithPdf` / `_pdfSortie`
+  // (partage natif sur téléphone, boîte « Enregistrer sous » / téléchargement sur PC).
+  _qpMajBoutonAction();
   // Ouvre la modale puis injecte le HTML+CSS dans l'iframe via srcdoc
   // (sandbox allow-same-origin pour que le parent puisse encore lire _quitId)
   openM('ov-quit-preview');
@@ -27231,71 +27244,75 @@ window._shareQuittanceWithPdf = async function(id) {
   const subject = `Quittance de loyer ${q.mois}${adrBien ? ' — ' + adrBien : ''}`;
   const body = `Quittance de loyer pour la période ${q.mois}.\n\nDétail :\n- Loyer hors charges : ${q.hc||0} €\n- Provisions sur charges : ${q.ch||0} €\n- Total perçu : ${total} €\n\nLa quittance officielle est jointe en PDF.\n\nCordialement,\n${ent?.gerant || ''}${ent?.nom ? '\n' + ent.nom : ''}`;
 
+  // D27 — même sortie que l'EDL : boîte « Enregistrer sous » sur PC, feuille de partage sur
+  // téléphone. Une seule fonction (`_pdfSortie`) — le `<a download>` recopié ici a disparu.
   if (typeof window._emailGenPdfAttachment !== 'function') {
     showToast('Module PDF non chargé (rafraîchir la page)', 'err', 5000);
     return;
   }
-
-  showToast('Génération du PDF en cours…', 'info', 2000);
-  let pdfResult;
-  try {
-    const ctx = {
-      locataire,
-      bail: bail || { adrBien: log?.adr || '', hc: q.hc, ch: q.ch },
-      logement: log || { ref: q.logement },
-      entite: ent || {},
-      quittance: { ...q, total }
-    };
-    pdfResult = await window._emailGenPdfAttachment('quittance', ctx);
-  } catch (e) {
-    showToast('Erreur génération PDF : ' + e.message, 'err', 5000);
-    return;
-  }
-  if (pdfResult && pdfResult.error) {
-    showToast('Génération PDF échouée : ' + (pdfResult.message || pdfResult.error), 'err', 5000);
-    return;
-  }
-
-  // Convertit base64 → File pour Web Share API
-  const bin = atob(pdfResult.base64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const file = new File([bytes], pdfResult.filename, { type: 'application/pdf' });
-
-  const shareData = { title: subject, text: body, files: [file] };
-
-  // Web Share API niveau 2 (files) — supporté sur mobile (Android Chrome, iOS Safari 15+)
-  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function'
-      && typeof navigator.canShare === 'function' && navigator.canShare(shareData)) {
-    try {
-      await navigator.share(shareData);
-      showToast('Partagé ✓ (avec PDF)', 'ok', 3000);
-      return;
-    } catch (e) {
-      if (e && e.name === 'AbortError') return; // user cancel = no error
-      showToast('Erreur partage : ' + (e.message || e), 'err', 4000);
-      return;
+  const ctx = {
+    locataire,
+    bail: bail || { adrBien: log?.adr || '', hc: q.hc, ch: q.ch },
+    logement: log || { ref: q.logement },
+    entite: ent || {},
+    quittance: { ...q, total }
+  };
+  await _pdfSortie({
+    fileName: `Quittance_${_edlSanitize(q.logement || '')}_${_edlSanitize(q.mois || '')}.pdf`,
+    desc: 'PDF (quittance de loyer)',
+    genererAvant: true,   // AUDIT #2 — non émissible = règle métier : rien ne doit atterrir sur le disque
+    titre: subject,
+    texte: body,
+    genererBlob: async () => {
+      const r = await window._emailGenPdfAttachment('quittance', ctx);
+      if (!r || r.error) throw new Error(r && r.message ? r.message : 'PDF indisponible');
+      const bin = atob(r.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+      return new Blob([bytes], { type: 'application/pdf' });
     }
-  }
-
-  // Fallback : download direct du PDF + copie texte (cas desktop principalement)
-  try {
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = url; a.download = pdfResult.filename; a.style.display = 'none';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(subject + '\n\n' + body).catch(() => {});
-    }
-    showToast('Partage natif indisponible — PDF téléchargé + texte copié dans le presse-papier', 'ok', 5000);
-  } catch (e) {
-    showToast('Erreur download : ' + e.message, 'err', 5000);
-  }
+  });
 };
 // v15.98 EM-2e — alias rétrocompat (l'ancien bouton v15.97 appelait _shareQuittanceTextOnly)
 window._shareQuittanceTextOnly = window._shareQuittanceWithPdf;
 
+/**
+ * D27 — LE BOUTON UNIQUE du pied de l'aperçu. Même règle que l'EDL (cf. `_edlPrefersShare` / `downloadEDLPdfNative`) :
+ * `_edlPrefersShare()` dit si l'appareil sait partager ; `_shareQuittanceWithPdf` fait déjà
+ * les deux (partage natif avec le PDF, sinon téléchargement). Seul le libellé change.
+ */
+function _qpMajBoutonAction() {
+  const b = el('qp-action'); if (!b) return;
+  // D27 (retour Didier) — UN SEUL libellé, PARTOUT : « Partager ». Comme la carte EDL
+  // (downloadEDLPdfNative {share:true}), le geste fait déjà les deux — partage natif avec le PDF
+  // sur téléphone, boîte « Enregistrer sous » / téléchargement sur PC — mais le MOT ne change
+  // pas selon l'appareil (« c'est partagé, pas téléchargé » ; « la tablette se comporte comme le PC »).
+  b.textContent = '📤 Partager';
+  b.title = 'Partager la quittance, ou l’enregistrer en PDF';
+}
+/**
+ * D27 — LE geste du bouton unique. Même sortie pour tout le monde (`_pdfSortie`, partagée avec
+ * l'EDL) : seul le GÉNÉRATEUR du PDF change. Un document non persisté (reçu partiel, courrier de
+ * relance, quittance libre) n'a pas d'id, mais il a son HTML : le même moteur natif que les
+ * autres documents (`_docHtmlToNativeBlob`, D26) le transforme en PDF.
+ */
+async function _qpAction() {
+  const ifr = el('ov-quit-preview-iframe') || {};
+  if (ifr._quitId) return window._shareQuittancePreviewModal && window._shareQuittancePreviewModal();
+  const built = ifr._docBuilt;
+  if (!built) { showToast('Aucun document ouvert', 'err'); return; }
+  const titre = ifr._docTitre || 'Document';
+  if (typeof window._docHtmlToNativeBlob !== 'function') {
+    showToast('Module PDF non chargé (rafraîchir la page)', 'err', 5000); return;
+  }
+  await _pdfSortie({
+    fileName: _edlSanitize(titre) + '.pdf',
+    desc: 'PDF (' + titre.toLowerCase() + ')',
+    genererAvant: true,
+    titre,
+    genererBlob: () => window._docHtmlToNativeBlob(built.html, ifr._docEnt || {})
+  });
+}
 // v15.104 — Wrappers footer modale aperçu quittance (#ov-quit-preview)
 // Lisent l'id stocké sur ov-quit-preview-iframe + délèguent aux fonctions existantes.
 window._shareQuittancePreviewModal = function() {
@@ -27303,82 +27320,7 @@ window._shareQuittancePreviewModal = function() {
   if (!id) { showToast('Aucune quittance ouverte', 'err'); return; }
   window._shareQuittanceWithPdf(id);
 };
-window._emailQuittancePreviewModal = function() {
-  const id = el('ov-quit-preview-iframe')?._quitId;
-  if (!id) { showToast('Aucune quittance ouverte', 'err'); return; }
-  envoyerQuittanceParEmail(id);
-};
-window._printQuittancePreviewModal = function() {
-  const iframe = el('ov-quit-preview-iframe');
-  const id = iframe?._quitId;
-  // Document éphémère (reçu partiel, courrier de relance) : on imprime le rendu déjà construit.
-  let built = null;
-  if (!id) {
-    built = iframe && iframe._docBuilt;
-    if (!built) { showToast('Aucun document ouvert', 'err'); return; }
-  } else {
-    const q = DB.quittances.find(x => x.id === id); if (!q) return;
-    const log = DB.logements.find(l => l.ref === q.logement);
-    const ent = DB.entites.find(e => e.nom === (q.entity || log?.entity));
-    const bail = DB.baux[q.logement];
-    built = _buildQuittanceHtml(q, log, ent, bail);
-  }
-  // Ouvre une fenêtre dédiée pour impression (window.print() standard).
-  // L'aperçu modale reste ouvert en arrière-plan.
-  const win = window.open('', '_blank');
-  if (!win) { showToast('Popup bloquée — autorise les popups pour imprimer', 'err', 5000); return; }
-  win.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-<title>${built.title}</title>
-<style>${QUIT_PRINT_CSS}${built.css}</style></head><body>
-${built.html}
-<script>window.onload=()=>setTimeout(()=>window.print(),300);<\/script>
-<\/body><\/html>`);
-  win.document.close();
-};
 
-// v15.159 Phase 2 — Archive le PDF de la quittance dans DB.documents (→ Drive via pipeline v15.155).
-// Dédup : une seule archive par quittance (l'ancienne est tombstone si on régénère).
-window._archiveQuittancePreviewModal = async function() {
-  const id = el('ov-quit-preview-iframe')?._quitId;
-  if (!id) { showToast('Aucune quittance ouverte', 'err'); return; }
-  const q = DB.quittances.find(x => x.id === id);
-  if (!q) { showToast('Quittance introuvable', 'err'); return; }
-  const log = DB.logements.find(l => l.ref === q.logement);
-  const bail = DB.baux[q.logement];
-  const ent = DB.entites.find(e => e.nom === (q.entity || log?.entity));
-  const locataire = (bail?.locataires && bail.locataires[0]) || { nom: q.locataire || log?.locataire || '', email: log?.mail || '' };
-  if (typeof window._emailGenPdfAttachment !== 'function') { showToast('Module PDF non chargé (rafraîchir)', 'err', 5000); return; }
-  showToast('📄 Génération + archivage…', 'info', 2500);
-  let pdfResult;
-  try {
-    const total = (q.hc||0) + (q.ch||0);
-    const ctx = { locataire, bail: bail || { adrBien: log?.adr || '', hc: q.hc, ch: q.ch }, logement: log || { ref: q.logement }, entite: ent || {}, quittance: { ...q, total } };
-    pdfResult = await window._emailGenPdfAttachment('quittance', ctx);
-  } catch (e) { showToast('Erreur génération PDF : ' + e.message, 'err', 5000); return; }
-  if (!pdfResult || pdfResult.error || !pdfResult.base64) { showToast('Génération PDF échouée : ' + ((pdfResult&&pdfResult.message)||'inconnue'), 'err', 5000); return; }
-  // Dédup : tombstone l'archive précédente de CETTE quittance (marqueur _srcQuittanceId)
-  for (const d of (DB.documents || [])) {
-    if (d && !d._deleted && d._srcQuittanceId === q.id) {
-      Object.assign(d, { _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString() });
-      if (d.idbKey) { try { await _idbDel(d.idbKey); } catch(e) {} }
-    }
-  }
-  try {
-    // Rattaché au logement (→ visible dans la section Documents de la fiche logement) si dispo,
-    // sinon fallback parentType='quittance' (toujours archivé sur Drive via le pipeline v15.155).
-    const parent = log
-      ? { type: 'logement', id: log.id, ref: q.logement, logRef: q.logement, category: 'quittances' }
-      : { type: 'quittance', id: q.id, ref: q.logement + ' · ' + (q.mois||''), logRef: q.logement, category: 'quittances' };
-    const doc = await _attachmentSaveForEntity(
-      parent,
-      { name: pdfResult.filename || ('Quittance-' + (q.mois||'') + '.pdf'), mime: 'application/pdf', size: Math.round((pdfResult.base64.length) * 0.75), dataB64: 'data:application/pdf;base64,' + pdfResult.base64 }
-    );
-    doc._srcQuittanceId = q.id;   // marqueur source : dédup + identifie un doc généré par l'app
-    doc._generated = true;
-    _stamp(doc); saveDB();
-    showToast('✓ Quittance archivée', 'ok', 4000);
-  } catch (e) { showToast('Archivage échoué : ' + (e.message || 'erreur'), 'err', 6000); }
-};
 
 function delQuit(id) {
   if(!confirm2('Supprimer ?')) return;
@@ -28114,18 +28056,22 @@ function _lyRecuPartiel(ref, ym) {
     // réellement reçus. Un document juridiquement faux, dans les deux sens à la fois.
     forceeV7: false
   });
-  _lyPreviewEphemere(built, 'Reçu de paiement partiel');
+  _lyPreviewEphemere(built, 'Reçu de paiement partiel', ent);
 }
 
 /** Aperçu d'un document NON persisté (reçu partiel, courrier de relance). */
-function _lyPreviewEphemere(built, titre) {
+function _lyPreviewEphemere(built, titre, ent) {
   const iframe = el('ov-quit-preview-iframe');
   if (!iframe) { showToast('Modale aperçu introuvable', 'err'); return; }
   iframe._quitId = null;
   iframe._docBuilt = built;
+  // D27 — un document non persisté sort par le MÊME chemin que les autres : il faut donc son
+  // entité (bandeau du gabarit) et son titre pour nommer le fichier.
+  iframe._docEnt = ent || null;
+  iframe._docTitre = titre || 'Document';
   const h = document.querySelector('#ov-quit-preview .m-head h3');
   if (h) h.textContent = '📄 ' + (titre || 'Aperçu');
-  const ov = el('ov-quit-preview'); if (ov) ov.dataset.ephemere = '1';
+  _qpMajBoutonAction();
   openM('ov-quit-preview');
   iframe.srcdoc = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${built.title}</title><style>${QUIT_PRINT_CSS}${built.css}</style></head><body>${built.html}</body></html>`;
 }
@@ -28145,7 +28091,10 @@ function _lyRelance(ref) {
   if (!lignes.length) { showToast('Rien à réclamer — ce lot est à jour', 'info'); return; }
   const r = window.retardLot(etat, { toleranceActive: tol });
   const niveau = window.niveauRelance(r.depuisYm, today);
-  _lyPreviewEphemere(_buildRelanceHtml(ref, lignes, r, niveau, today), 'Courrier de relance');
+  // AUDIT #1 — l'entité suit le document : sans elle, le PDF sortait sans bandeau bailleur.
+  const _entRel = (DB.entites || []).find(e => e.nom === ((_findBailByRefTolerant(ref) || {}).entity
+    || ((DB.logements || []).find(l => l.ref === ref) || {}).entity)) || {};
+  _lyPreviewEphemere(_buildRelanceHtml(ref, lignes, r, niveau, today), 'Courrier de relance', _entRel);
 }
 
 const _LY_RELANCE_TON = {
@@ -28212,11 +28161,15 @@ ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
 //
 // La logique pure est dans js/core/quittance-editeur.js (testée). Ici : le DOM.
 // ============================================================================
+// D27 (01/09) — UN LOT, UN MOIS, UN DOCUMENT. `sel` (Set de mois cochés) devient `ym`
+// (le mois choisi, un seul) et `pile` disparaît avec l'enchaînement « lot suivant ».
 const _qe = {
-  ref: null, an: null, sel: new Set(), libre: false, confirme: false,
-  pick: false, filtre: '', pile: [], onglet: 0,
+  ref: null, an: null, ym: null, libre: false,
+  pick: false, filtre: '',
   saisie: null, rejoue: null
 };
+/** D27 — le mois choisi, sous la forme attendue par `verdictEmission` (0 ou 1 élément). */
+function _qeSel() { return _qe.ym ? [_qe.ym] : []; }
 
 /** Les mois déjà quittancés d'un lot + leur date d'édition (pour l'état « done » du rail). */
 function _qeDeja(ref) {
@@ -28281,9 +28234,8 @@ function _qeLots() {
 }
 
 /**
- * LA PORTE UNIQUE. `ref` absent = on entre par la porte globale : l'app constitue la pile des
- * lots qui attendent une quittance et propose l'enchaînement « lot suivant » (repris de la
- * direction « la tournée »).
+ * LA PORTE UNIQUE. `ref` absent = on entre par la porte globale : on demande quel lot, plutôt
+ * que d'en imposer un. D27 — un lot à la fois, choisi ; ni pile ni tournée.
  */
 function _openFaireQuittance(ref) {
   if (typeof window === 'undefined' || typeof window.moisRailLot !== 'function') {
@@ -28294,33 +28246,23 @@ function _openFaireQuittance(ref) {
     showToast("Aucun bail en cours — les quittances apparaîtront dès qu'un logement sera loué", 'info', 5000);
     return;
   }
-  // La pile : les lots qui ont au moins un mois soldé non quittancé, demandes mensuelles en tête.
-  _qe.pile = lots.map(l => {
-    const etat = _loyerEtatLot(l.ref);
-    const nb = etat ? window.moisAQuittancer(etat, _qeDeja(l.ref).yms).length : 0;
-    const bail = _findBailByRefTolerant(l.ref);
-    return { ref: l.ref, nb, demande: !!(bail && bail.quittanceDemandee) };
-  }).filter(x => x.nb > 0)
-    .sort((a, b) => (b.demande - a.demande) || (b.nb - a.nb));
-
-  const want = (ref && lots.some(l => l.ref === ref)) ? ref
-    : (_qe.pile.length ? _qe.pile[0].ref : lots[0].ref);
+  // D27 — plus de PILE ni d'enchaînement « lot suivant » : on ouvre UN lot. Entré sans `ref`
+  // (porte globale), on demande lequel plutôt que d'en imposer un.
+  const want = (ref && lots.some(l => l.ref === ref)) ? ref : lots[0].ref;
   _qe.libre = false; _qe.saisie = null;
   _qeSetLot(want);
-  _qe.pick = !ref && !_qe.pile.length;   // rien n'attend : on ouvre le sélecteur de lot
+  _qe.pick = !ref;                        // porte globale : on choisit son lot
   openM('ov-quit-editeur');
   _qeRender();
 }
 
 function _qeSetLot(ref) {
-  _qe.ref = ref; _qe.sel.clear(); _qe.confirme = false; _qe.pick = false; _qe.onglet = 0;
+  _qe.ref = ref; _qe.ym = null; _qe.pick = false;
   const etat = _loyerEtatLot(ref);
   const deja = _qeDeja(ref);
   const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
   _qe.an = window.anneeParDefaut(etat, deja.yms, today.slice(0, 7));
-  const rail = _qeRail();
-  const def = window.moisParDefaut(rail);
-  if (def) _qe.sel.add(def);
+  _qe.ym = window.moisParDefaut(_qeRailVisible()) || null;
 }
 
 function _qeRail() {
@@ -28329,24 +28271,32 @@ function _qeRail() {
   const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
   return window.moisRailLot(etat, deja.yms, _qe.an, today.slice(0, 7), deja.dates);
 }
+// D27 (retour Didier) — les mois À VENIR (non couverts) ne s'affichent pas et ne peuvent pas être
+// le défaut : on ne quittance pas un mois pas encore arrivé. Le mois EN COURS, lui, n'est jamais
+// 'fut' (il est 'ok'/'no'/'done'), donc il reste. Un mois futur COUVERT par une avance est 'ok',
+// pas 'fut' — il reste visible (V8). Source unique du filtre, réutilisée au rendu et au défaut.
+function _qeRailVisible() { return _qeRail().filter(m => m.etat !== 'fut'); }
 
-function _qeSetAn(an) { _qe.an = String(an); _qe.sel.clear(); _qe.confirme = false; _qeRender(); }
-function _qeToggle(ym) {
-  // V7 : TOUS les mois sont cochables, y compris non soldés. Le garde-fou avertit, il n'interdit pas.
-  if (_qe.sel.has(ym)) _qe.sel.delete(ym); else _qe.sel.add(ym);
-  _qe.confirme = false; _qe.onglet = 0;
+// D27 — changer d'année garde un mois choisi : on n'atterrit jamais sur un écran sans document.
+function _qeSetAn(an) {
+  _qe.an = String(an); _qe.ym = window.moisParDefaut(_qeRailVisible()) || null;
   _qeRender();
+}
+/**
+ * D27 — SÉLECTION UNIQUE. Cliquer un mois le choisit ; il n'y a rien à décocher, donc jamais
+ * d'écran sans mois. TOUS les mois restent cliquables, y compris non soldés et déjà édités
+ * (réédition) : le garde-fou avertit, il n'interdit pas.
+ */
+function _qeChoisirMois(ym) {
+  if (_qe.ym === ym) return;
+  _qe.ym = ym; _qeRender();
+  // AUDIT #6 — `_qeRender` réécrit tout l'écran : sans ça le focus clavier retombe sur <body>
+  // et il faut re-tabuler l'écran entier après chaque mois choisi.
+  try { const b = document.querySelector('.qd-mois .qd-m.sel'); if (b) b.focus(); } catch (e) {}
 }
 function _qeTogglePick() { _qe.pick = !_qe.pick; _qe.filtre = ''; _qeRender(); }
 function _qeFiltre(v) { _qe.filtre = String(v || ''); _qeRenderPick(); }
 function _qeChoisirLot(ref) { _qe.libre = false; _qe.saisie = null; _qeSetLot(ref); _qeRender(); }
-/**
- * Cocher la confirmation V7 CHANGE LE DOCUMENT : il passe de « reçu de paiement partiel »
- * à une QUITTANCE pleine, sans ligne « payé le ». L'aperçu doit donc se refaire — sinon
- * l'utilisateur coche, voit toujours un reçu partiel, et émet sans savoir ce qui sortira.
- */
-function _qeSetConfirme(on) { _qe.confirme = !!on; _qeRenderDoc(); _qeFootBtn(); }
-function _qeOnglet(i) { _qe.onglet = i; _qeRenderDoc(); }
 function _qeFermer() { closeM('ov-quit-editeur'); if (typeof rLoyers === 'function' && currentPage === 'loyers') rLoyers(); }
 
 /**
@@ -28368,7 +28318,7 @@ function _qeModeLibre(depuisLot) {
   const bail = depuisLot ? _findBailByRefTolerant(depuisLot) : null;
   const ent = (DB.entites || []).find(e => e.nom === ((bail && bail.entity) || (l && l.entity)));
   // V12 — la quittance libre peut PARTIR d'un logement existant ; tout reste modifiable ensuite.
-  _qe.libre = true; _qe.pick = false; _qe.confirme = false; _qe.rejoue = null;
+  _qe.libre = true; _qe.pick = false; _qe.rejoue = null;
   _qe.saisie = {
     bailleurNom: (ent && ent.nom) || '', bailleurAdresse: (ent && ent.siege) || '',
     locataireNom: (l && l.locataire) || '', adresse: (bail && bail.adrBien) || (l && l.adr) || '',
@@ -28385,8 +28335,7 @@ function _qeSaisie(champ, val) { if (_qe.saisie) _qe.saisie[champ] = val; _qeFoo
 function _qeRejouerLibre(id) {
   const l = ((DB.params || {}).quittancesLibres || []).find(x => String(x.id) === String(id));
   if (!l) { showToast('Saisie introuvable', 'err'); return; }
-  _qe.libre = true; _qe.pick = false; _qe.confirme = false;
-  _qe.saisie = Object.assign({}, l);
+  _qe.libre = true; _qe.pick = false; _qe.saisie = Object.assign({}, l);
   _qe.rejoue = l.id;
   _qeRender();
 }
@@ -28414,20 +28363,34 @@ function _qeRender() {
     const annees = window.anneesDisponibles(etat, deja.yms);
     rail += `<div class="qd-an">${annees.map(a =>
       `<button class="${a === String(_qe.an) ? 'on' : ''}" onclick="_qeSetAn('${a}')">${a}</button>`).join('')}</div>`;
-    rail += `<div class="qd-mois">${_qeRail().map(m => {
-      const on = _qe.sel.has(m.ym);
+    // D27 — mois en BULLES, et les mois À VENIR (non couverts) masqués : on ne quittance pas un
+    // mois pas encore arrivé (le mois EN COURS reste, même non soldé). Le mois choisi ne pointe
+    // jamais sur un mois masqué : on retombe sur le dernier visible.
+    const _vis = _qeRailVisible();
+    // AUDIT (mineur) — le défaut/self-heal vise un mois RÉELLEMENT quittançable : ni à venir (déjà
+    // filtré), ni hors bail ('off'). Sinon la ligne de détail pouvait afficher « hors bail » sur une
+    // bulle sélectionnée pendant que le volet document disait « choisis un mois ».
+    const _sel0 = _vis.filter(m => m.etat !== 'off');
+    if (!_qe.ym || !_sel0.some(m => m.ym === _qe.ym)) _qe.ym = _sel0.length ? _sel0[_sel0.length - 1].ym : null;
+    rail += `<div class="qd-mois" role="radiogroup" aria-label="Mois de l'année">${_vis.map(m => {
+      const on = _qe.ym === m.ym;
       const meta = _qeMeta(_qe.ref, m.ym);
       const et = window.etiquetteSansPaiement(meta, fd);
-      const st = m.etat === 'done' ? ('éditée le ' + (m.editeeLe ? fd(m.editeeLe) : '—'))
-        : m.etat === 'ok' ? 'soldé — à quittancer'
-        : m.etat === 'no' ? ('reste ' + fmt(m.reste))
-        : m.etat === 'fut' ? 'à venir, non couvert' : 'hors bail';
-      return `<button class="qd-m ${m.etat}${on ? ' sel' : ''}" ${m.etat === 'off' ? 'disabled' : `onclick="_qeToggle('${m.ym}')"`}>
-        <span class="bx">✓</span>
-        <span><span class="nm">${escHtml(m.nom.charAt(0).toUpperCase() + m.nom.slice(1))}</span>
-        <span class="st"${et.visible ? ` title="${escHtml(et.survol)}"` : ''}>${escHtml(st)}${et.visible ? ' · ' + escHtml(et.libelle) : ''}</span></span>
-        <span class="am">${m.etat === 'off' ? '—' : fmt(m.du)}</span></button>`;
+      return `<button class="qd-m ${m.etat}${on ? ' sel' : ''}" role="radio" aria-checked="${on ? 'true' : 'false'}" ${m.etat === 'off' ? 'disabled' : `onclick="_qeChoisirMois('${m.ym}')"`}${et.visible ? ` title="${escHtml(et.survol)}"` : ''}>
+        <span class="bx"></span><span class="nm">${escHtml(m.nom.charAt(0).toUpperCase() + m.nom.slice(1))}</span></button>`;
     }).join('')}</div>`;
+    // La ligne de détail du mois choisi : son état en clair + son montant, UNE fois, sous les bulles.
+    const _sel = _qe.ym ? _vis.find(m => m.ym === _qe.ym) : null;
+    if (_sel) {
+      const meta = _qeMeta(_qe.ref, _sel.ym);
+      const et = window.etiquetteSansPaiement(meta, fd);
+      const st = _sel.etat === 'done' ? ('éditée le ' + (_sel.editeeLe ? fd(_sel.editeeLe) : '—'))
+        : _sel.etat === 'ok' ? 'soldé — à quittancer'
+        : _sel.etat === 'no' ? ('reste ' + fmt(_sel.reste)) : 'hors bail';
+      rail += `<div class="qd-selmo"><b>${escHtml(_sel.nom.charAt(0).toUpperCase() + _sel.nom.slice(1))} ${escHtml(String(_qe.an))}</b>
+        <span class="st ${_sel.etat}"${et.visible ? ` title="${escHtml(et.survol)}"` : ''}>${escHtml(st)}${et.visible ? ' · ' + escHtml(et.libelle) : ''}</span>
+        <span class="am">${fmt(_sel.du)}</span></div>`;
+    }
   }
 
   root.innerHTML = `<div class="qd-top">
@@ -28451,7 +28414,7 @@ function _qeRenderDoc() {
   const host = el('qd-doc'); if (!host) return;
   if (_qe.libre) { host.innerHTML = _qeDocLibre(); return; }
   const rail = _qeRail();
-  const v = window.verdictEmission(rail, [..._qe.sel]);
+  const v = window.verdictEmission(rail, _qeSel());
   let warn = '';
   if (v.risques.length) {
     // V7 — l'avertissement NOMME les mois et le reste dû, propose le reçu partiel en un clic,
@@ -28461,17 +28424,16 @@ function _qeRenderDoc() {
     const noms = v.risques.map(m => `${escHtml(m.mois)} (${m.etat === 'fut' ? 'à venir, non couvert' : 'reste ' + fmt(m.reste)})`).join(', ');
     const premier = v.risques[0];
     warn = `<div class="q-warn w"><span class="ic">⚠</span><div>
-      <b>${v.risques.length > 1 ? v.risques.length + ' mois non soldés sélectionnés' : escHtml(premier.mois) + ' n’est pas soldé'}</b> — ${noms}.
+      <b>${escHtml(premier.mois)} n’est pas soldé</b> — ${noms}.
       Une quittance atteste que le loyer <b>a été payé</b> : remise au locataire, elle vaut reçu et éteint
-      la dette du mois. Le document sortira <b>sans</b> ligne « payé le » — aucun paiement n'y est rattachable.
+      la dette du mois. Le document sortira <b>sans</b> ligne « payé le », et l'app la marque
+      <b>« sans paiement constaté »</b> (dans l'app seulement). <b>Tu peux l'éditer quand même.</b>
       <div class="act">
         ${_qeAPaiement(premier.ym)
           ? `<button class="btn bs bb" onclick="_qeRecuPartiel('${premier.ym}')">Émettre un reçu de paiement partiel à la place</button>`
           : ''}
-        <button class="btn bs bb" onclick="_qeToggle('${premier.ym}')">Décocher ${escHtml(premier.nom)}</button>
+        ${premier.etat === 'fut' ? '' : `<button class="btn bs bb" onclick="_qeEnregistrerPaiement()">Enregistrer le paiement d'abord</button>`}
       </div>
-      <label class="cf"><input type="checkbox" ${_qe.confirme ? 'checked' : ''} onchange="_qeSetConfirme(this.checked)">
-        Je sais que ce document vaut reçu et éteint la dette de ${v.risques.length > 1 ? 'ces mois' : 'ce mois'}</label>
     </div></div>`;
   } else if (v.reedits.length) {
     const r = v.reedits[0];
@@ -28481,21 +28443,21 @@ function _qeRenderDoc() {
       L'app retiendra la nouvelle date ; rien d'autre n'est conservé.</div></div>`;
   }
 
-  const choisis = rail.filter(m => _qe.sel.has(m.ym) && m.etat !== 'off');
-  if (!choisis.length) {
-    host.innerHTML = warn + `<div class="q-warn i"><span class="ic">📄</span><div>
-      Choisis un mois dans le rail pour voir la quittance. Le document est regénéré depuis le
-      <b>barème de ce mois</b> — jamais depuis le loyer d'aujourd'hui.</div></div>`;
+  // D27 — un seul mois : plus d'onglets « N documents », plus d'index à borner.
+  const m = _qe.ym ? rail.find(x => x.ym === _qe.ym && x.etat !== 'off') : null;
+  if (!m) {
+    // AUDIT (mineur) — distinguer « rien à quittancer » (bail à venir, ou année hors bail : aucun mois
+    // ni soldé ni échu) d'un simple « choisis un mois ». Le premier n'est pas une impasse, c'est un
+    // état légitime — on le dit clairement au lieu d'inviter à cliquer une bulle inexistante.
+    const rienAQuittancer = !rail.some(x => x.etat !== 'off' && x.etat !== 'fut');
+    host.innerHTML = warn + `<div class="q-warn i"><span class="ic">📄</span><div>${rienAQuittancer
+      ? `<b>Aucun mois à quittancer pour ce bail sur ${escHtml(String(_qe.an))}.</b> Change d'année ci-dessus — ou ce bail commence plus tard.`
+      : `Choisis un mois dans le rail pour voir la quittance. Le document est regénéré depuis le
+      <b>barème de ce mois</b> — jamais depuis le loyer d'aujourd'hui.`}</div></div>`;
     return;
   }
-  const i = Math.min(_qe.onglet, choisis.length - 1);
-  const tabs = choisis.length > 1
-    ? `<div class="qd-tabs">${choisis.map((m, k) =>
-        `<button class="${k === i ? 'on' : ''}" onclick="_qeOnglet(${k})">${escHtml(m.mois)}</button>`).join('')}
-        <span class="k">${choisis.length} documents — un par mois (I7)</span></div>`
-    : '';
-  host.innerHTML = warn + tabs + `<iframe id="qd-iframe" title="Aperçu de la quittance"></iframe>`;
-  _qeInjecterDoc(choisis[i]);
+  host.innerHTML = warn + `<iframe id="qd-iframe" title="Aperçu de la quittance"></iframe>`;
+  _qeInjecterDoc(m);
 }
 
 /** Le document réel, construit par le MÊME builder que l'impression et le PDF (I5). */
@@ -28510,13 +28472,14 @@ function _qeInjecterDoc(m) {
     locataire: ((bail.locataires || []).map(x => x && x.nom).filter(Boolean).join(', ')) || (log && log.locataire) || '',
     entity: (bail.entity || (log && log.entity) || ''), date: td()
   };
-  // L'aperçu doit montrer LE document qui sortira : si la confirmation V7 est cochée, c'est
-  // déjà une quittance pleine, sans date de paiement.
+  // L'aperçu montre LE document qui sortira. D27 (retour Didier) : un mois non soldé s'édite
+  // LIBREMENT (plus de case à cocher) — c'est donc TOUJOURS une quittance pleine forcée (V7),
+  // sortie sans ligne « payé le ». L'étiquette « sans paiement constaté » reste DANS l'app.
   const built = _buildQuittanceHtml(q, log, ent, bail, {
     // AUDIT R5 — un mois DÉJÀ quittancé de force porte sa trace : sans la lire, réouvrir
     // l'éditeur dessus (« ↺ Rééditer », case du bien) affichait « Document non émissible »
     // alors que l'aperçu, le PDF et la PJ e-mail sortent une quittance pleine.
-    forceeV7: ((m.etat === 'no' || m.etat === 'fut') && _qe.confirme)
+    forceeV7: (m.etat === 'no' || m.etat === 'fut')
       || !!(typeof _qeMeta === 'function' && _qeMeta(_qe.ref, m.ym))
   });
   iframe.srcdoc = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${built.title}</title><style>${QUIT_PRINT_CSS}${built.css}</style></head><body>${built.html}</body></html>`;
@@ -28551,6 +28514,14 @@ function _qeDocLibre() {
     </div>`;
 }
 
+/** D27 (retour Didier) — le bouton NOMME le mois, élidé et sans année (« d'avril », « de septembre »),
+ *  comme la maquette validée. L'année vit dans le sélecteur d'année et la ligne de détail. */
+function _qeMoisLabel(ym) {
+  if (!ym) return '';
+  const mi = parseInt(String(ym).slice(5, 7), 10) - 1;
+  const nom = (typeof MOIS_FR !== 'undefined' && MOIS_FR[mi]) ? MOIS_FR[mi] : String(ym);
+  return ([3, 7, 9].indexOf(mi) >= 0 ? "d'" : 'de ') + nom;   // avril, août, octobre → d'
+}
 function _qeRenderFoot() {
   const foot = el('qd-foot'); if (!foot) return;
   if (_qe.libre) {
@@ -28561,16 +28532,18 @@ function _qeRenderFoot() {
       <button class="btn bs" onclick="_qeFermer()">Annuler</button>
       <button class="btn bp" id="qd-ok" onclick="_qeEditer()">✓ Éditer la quittance (PDF)</button>`;
   } else {
-    const v = window.verdictEmission(_qeRail(), [..._qe.sel]);
-    const lbl = v.reedits.length ? 'Rééditer — nouvelle date d\'édition'
-      : v.nbDocs > 1 ? `Éditer les ${v.nbDocs} quittances (PDF)`
-      : 'Éditer la quittance (PDF)';
-    const suiv = window.lotSuivant(_qe.pile, _qe.ref);
-    foot.innerHTML = `<span class="rec"><b>${v.nbDocs}</b> document${v.nbDocs > 1 ? 's' : ''} · <b>${fmt(v.total)}</b></span>
+    // D27 — un seul mois, donc un seul document : le bouton NOMME le mois, il n'y a plus de
+    // total à additionner ni d'enchaînement « lot suivant ».
+    const v = window.verdictEmission(_qeRail(), _qeSel());
+    const moisNom = _qe.ym ? window.ymToMoisFr(_qe.ym) : '';   // « avril 2026 » — pour le compteur
+    const moisLbl = _qeMoisLabel(_qe.ym);                      // « d'avril » / « de septembre » — élidé, sans année
+    const lbl = v.reedits.length ? `Rééditer la quittance ${moisLbl}`
+      : moisLbl ? `Éditer la quittance ${moisLbl}`
+      : 'Éditer la quittance';
+    foot.innerHTML = `<span class="rec">${moisNom ? `${escHtml(moisNom)} · <b>${fmt(v.total)}</b>` : 'Choisis un mois'}</span>
       <span class="sp"></span>
       <button class="btn bs" onclick="_qeFermer()">Annuler</button>
-      ${suiv ? `<button class="btn bs" onclick="_qeEditer(true)" title="Éditer, puis passer au lot suivant de la pile">Éditer &amp; lot suivant (${escHtml(suiv.ref)})</button>` : ''}
-      <button class="btn bp" id="qd-ok" onclick="_qeEditer()">✓ ${lbl}</button>`;
+      <button class="btn bp" id="qd-ok" onclick="_qeEditer()">✓ ${escHtml(lbl)}</button>`;
   }
   _qeFootBtn();
 }
@@ -28583,14 +28556,28 @@ function _qeFootBtn() {
     const v = window.validerSaisieLibre(_qe.saisie);
     off = !v.valide; why = v.valide ? '' : 'Il manque ' + v.manquants.join(', ');
   } else {
-    const v = window.verdictEmission(_qeRail(), [..._qe.sel]);
-    if (!v.nbDocs) { off = true; why = 'Choisis au moins un mois'; }
-    // V7 : la SEULE condition posée par une règle est une case à cocher — pas un refus.
-    else if (v.confirmationRequise && !_qe.confirme) { off = true; why = 'Coche la confirmation ci-dessus'; }
+    const v = window.verdictEmission(_qeRail(), _qeSel());
+    // D27 (retour Didier) — AUCUNE règle ne grise le bouton : un mois non soldé s'édite librement,
+    // l'app se contente d'avertir (« on met une alerte mais on laisse libre »). Seul un écran sans
+    // mois choisi le désactive — et il ne peut pas rester sans mois (sélection unique).
+    if (!v.nbDocs) { off = true; why = 'Choisis un mois'; }
   }
   btn.disabled = off;
   btn.style.opacity = off ? '.5' : '';
   btn.title = why;
+}
+
+/**
+ * AUDIT #4 — la sortie « enregistrer le paiement » : elle ferme l'éditeur (la modale Mouvement
+ * ne peut pas s'empiler dessus) mais elle NOMME le lot et le mois, comme le fait déjà la fiche
+ * logement. Elle n'est proposée que sur un mois ÉCHU : sur un mois à venir, il n'y a rien à
+ * encaisser.
+ */
+function _qeEnregistrerPaiement() {
+  const ref = _qe.ref, ym = _qe.ym;
+  _qeFermer();
+  openNewMv();
+  if (ref) showToast(`Sélectionne « ${ref} »${ym ? ' — ' + window.ymToMoisFr(ym) : ''}`, 'info', 4000);
 }
 
 /** V7 — la porte de sortie proposée dans le bandeau : le reçu partiel, en un clic. */
@@ -28600,19 +28587,19 @@ function _qeRecuPartiel(ym) {
 }
 
 /**
- * I7 — N mois cochés = N documents. Une seule écriture en base pour N documents.
+ * D27/I7 — UN mois choisi = UN document. Il n'y a plus de boucle sur une sélection : la boucle
+ * ne porte que sur le mois retenu, et l'enchaînement « lot suivant » a disparu.
  * V7 — le mois non soldé passe (`verifierSolde:false`) et laisse une TRACE : qui a confirmé,
  * quand. C'est cette trace qui alimente l'étiquette « sans paiement constaté » (V9).
  */
-function _qeEditer(enchainer) {
+function _qeEditer() {
   if (_qe.libre) return _qeEditerLibre();
   const rail = _qeRail();
-  const v = window.verdictEmission(rail, [..._qe.sel]);
-  if (!v.nbDocs) { showToast('Choisis au moins un mois', 'err'); return; }
-  if (v.confirmationRequise && !_qe.confirme) { showToast('Coche la confirmation avant d\'éditer', 'err', 5000); return; }
+  const v = window.verdictEmission(rail, _qeSel());
+  if (!v.nbDocs) { showToast('Choisis un mois', 'err'); return; }
   const forces = new Set(v.risques.map(m => m.ym));
   const faites = [], refusees = [];
-  for (const ym of [..._qe.sel].sort()) {
+  for (const ym of _qeSel()) {
     const m = rail.find(x => x.ym === ym);
     if (!m || m.etat === 'off') continue;
     const r = _creerQuittance(_qe.ref, ym, { verifierSolde: false });
@@ -28632,12 +28619,12 @@ function _qeEditer(enchainer) {
   if (faites.length) saveDB();
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
   if (refusees.length) showToast('Non émis : ' + refusees.join(' · '), 'err', 7000);
-  showToast(faites.length > 1 ? `${faites.length} quittances éditées ✓` : 'Quittance éditée ✓', 'ok');
-
-  const suiv = enchainer ? window.lotSuivant(_qe.pile, _qe.ref) : null;
-  if (suiv) { _qeSetLot(suiv.ref); _qeRender(); return; }
+  if (faites.length) showToast('Quittance éditée ✓', 'ok');
   _qeFermer();
-  if (faites.length === 1) previewQuit(faites[0].id);
+  // D27 — un mois, un fichier : le document ÉDITÉ S'OUVRE, toujours. C'est de là qu'on le
+  // partage (téléphone), qu'on le télécharge ou qu'on l'imprime (PC) — éditer sans rendre la
+  // main sur le document laissait le geste à moitié fait.
+  if (faites.length) previewQuit(faites[0].id);
 }
 
 /**
@@ -28657,7 +28644,9 @@ function _qeEditerLibre() {
   saveDB();
   const built = _qeBuildLibre(entree);
   closeM('ov-quit-editeur');
-  _lyPreviewEphemere(built, 'Quittance — saisie libre');
+  // AUDIT #1 — idem : la saisie libre porte son bailleur dans sa saisie.
+  _lyPreviewEphemere(built, 'Quittance — saisie libre',
+    { nom: entree.bailleurNom || '', siege: entree.bailleurAdresse || '' });
   showToast('Quittance libre éditée ✓ — saisie retenue, exclue des calculs', 'ok', 6000);
 }
 
@@ -32126,61 +32115,110 @@ async function _edlWriteHandle(handle, blob) {
   await w.write(blob);
   await w.close();
 }
-function _edlDownloadBlob(blob, fileName) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
+/**
+ * D27 — LA SORTIE D'UN PDF, écrite UNE fois pour toute l'app.
+ *
+ * Elle existait déjà, mais uniquement dans `downloadEDLPdfNative` : la quittance refaisait un
+ * `<a download>` de son côté, sans boîte « Enregistrer sous ». Un seul chemin désormais.
+ *
+ * L'ordre compte (retours Didier des 26 et 27/08) :
+ *   1. PC → on ouvre la boîte « Enregistrer sous » AVANT de générer, tant que l'activation
+ *      utilisateur est fraîche ; annuler ici ne génère rien.
+ *   2. on génère le blob.
+ *   3. téléphone/tablette → feuille de partage native avec le fichier.
+ *   4. PC → écriture exacte dans le fichier choisi.
+ *   5. repli (Firefox/Safari, activation perdue) → téléchargement classique.
+ *
+ * @param {Object} o
+ *   @param {string}   o.fileName    nom du fichier proposé
+ *   @param {string}   o.desc        libellé du type dans la boîte d'enregistrement
+ *   @param {Function} o.genererBlob async → Blob
+ *   @param {string}   [o.titre]     titre de la feuille de partage
+ *   @param {string}   [o.texte]     texte de la feuille de partage
+ *   @param {boolean}  [o.partager]  autoriser le partage natif (défaut : oui)
+ * @returns {Promise<'partage'|'enregistre'|'telecharge'|'annule'|'erreur'>}
+ */
+async function _pdfSortie(o) {
+  const opt = o || {};
+  let fileName = opt.fileName || 'document.pdf';
+  const mobile = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
+  // AUDIT #2 — `showSaveFilePicker` CRÉE le fichier dès la confirmation : si la génération échoue
+  // ensuite, il reste un PDF de 0 octet sur le disque, que l'utilisateur croira valide. Quand
+  // l'échec est une RÈGLE MÉTIER atteignable (quittance devenue non émissible), on génère AVANT
+  // d'ouvrir la boîte. L'EDL garde l'ordre inverse : sa génération est lente (photos) et son
+  // échec n'est qu'un bug, donc l'activation utilisateur prime.
+  const genererAvant = !!opt.genererAvant;
+  let handle = null;
+  let blob;
+  const generer = async () => {
+    showToast('⌛ Génération du PDF…', 'info', 30000);
+    try { return await opt.genererBlob(); }
+    catch (e) {
+      console.error('[_pdfSortie] génération', e);
+      showToast('Erreur génération PDF : ' + (e.message || e), 'err');
+      return null;
+    }
+  };
+  if (genererAvant) {
+    blob = await generer(); if (!blob) return 'erreur';
+    // Le nom définitif peut n'être connu qu'après génération (il vient du module PDF).
+    if (typeof opt.nomApresGeneration === 'function') fileName = opt.nomApresGeneration() || fileName;
+  }
+  if (!mobile) {
+    handle = await _edlPickSaveHandle(fileName, opt.desc || 'PDF', 'application/pdf', '.pdf');
+    if (handle === 'abort') { showToast('Enregistrement annulé', 'info', 2500); return 'annule'; }
+  }
+  if (!blob) { blob = await generer(); if (!blob) return 'erreur'; }
+  if (opt.partager !== false && mobile && typeof navigator !== 'undefined'
+      && typeof navigator.canShare === 'function') {
+    try {
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: opt.titre || '', text: opt.texte || '' });
+        return 'partage';
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return 'annule';
+      console.warn('[_pdfSortie] partage indisponible, repli téléchargement', e);
+    }
+  }
+  // L'écriture aussi peut échouer (disque plein, permission refusée) : dans la version d'origine
+  // elle était couverte par le même `try` que la génération. Elle le reste.
+  try {
+    const ko = Math.round(blob.size / 1024);
+    if (handle) {
+      await _edlWriteHandle(handle, blob);
+      showToast('✅ PDF enregistré (' + ko + ' KB)', 'ok', 4000);
+      return 'enregistre';
+    }
+      _downloadBlobAs(blob, fileName);
+    showToast('📥 PDF dans vos Téléchargements (' + ko + ' KB)', 'ok', 4000);
+    return 'telecharge';
+  } catch (e) {
+    console.error('[_pdfSortie] écriture', e);
+    showToast('Erreur enregistrement : ' + (e.message || e), 'err', 5000);
+    return 'erreur';
+  }
 }
+
 async function downloadEDLPdfNative(id, opts) {
   const { share = false } = opts || {};
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
-  const fileName = `EDL_${_edlSanitize(edl.logement)}_${edl.type}_${edl.date}.pdf`;
-  // PC (souris) : proposer OÙ enregistrer AVANT de générer (activation utilisateur encore fraîche).
-  // Sur mobile/tablette on ne pré-ouvre rien : ce sera la feuille de partage plus bas.
-  let handle = null;
-  if (!_edlPrefersShare()) {
-    handle = await _edlPickSaveHandle(fileName, 'PDF (état des lieux)', 'application/pdf', '.pdf');
-    if (handle === 'abort') { showToast('Enregistrement annulé', 'info', 2500); return; }
-  }
-  showToast('⌛ Génération du PDF…', 'info', 30000);
-  try {
-    await _ensurePDFLibsLoaded();
-    await _edlPreloadPhotos(edl);
-    const blob = await generateEDLPdfNative(edl);
-    // #1 (retour Didier 26/08) — PARTAGE direct (WhatsApp, mail, AirDrop…) via l'API Web Share
-    // avec fichiers : marche sur iOS, Android ET tablette. Repli téléchargement sur PC ou
-    // navigateur sans support. (AbortError = l'utilisateur a fermé la feuille → on ne fait rien.)
-    if (share && _edlPrefersShare() && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function') {
-      try {
-        const file = new File([blob], fileName, { type: 'application/pdf' });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'État des lieux', text: `État des lieux ${edl.type} — ${edl.logement}` });
-          return;
-        }
-      } catch (e) {
-        if (e && e.name === 'AbortError') return;
-        console.warn('[edl pdf] partage indisponible, repli téléchargement', e);
-      }
+  // D27 — le corps de cette fonction (boîte « Enregistrer sous » avant génération, partage natif,
+  // écriture, repli téléchargement) est désormais `_pdfSortie`, partagé avec la quittance.
+  await _pdfSortie({
+    fileName: `EDL_${_edlSanitize(edl.logement)}_${edl.type}_${edl.date}.pdf`,
+    desc: 'PDF (état des lieux)',
+    partager: share,
+    titre: 'État des lieux',
+    texte: `État des lieux ${edl.type} — ${edl.logement}`,
+    genererBlob: async () => {
+      await _ensurePDFLibsLoaded();
+      await _edlPreloadPhotos(edl);
+      return generateEDLPdfNative(edl);
     }
-    // PC : dossier choisi via la boîte « Enregistrer sous » → on écrit exactement là.
-    if (handle) {
-      await _edlWriteHandle(handle, blob);
-      showToast(`✅ PDF enregistré (${Math.round(blob.size/1024)} KB)`, 'ok', 4000);
-      return;
-    }
-    // Repli (Firefox/Safari, activation perdue) : téléchargement dans le dossier par défaut.
-    _edlDownloadBlob(blob, fileName);
-    showToast(`📥 PDF dans vos Téléchargements (${Math.round(blob.size/1024)} KB)`, 'ok', 4000);
-  } catch(e) {
-    console.error('[downloadEDLPdfNative] fail:', e);
-    showToast('Erreur génération PDF : ' + (e.message||e), 'err');
-  }
+  });
 }
 
 // #6 (retour Didier 26/08) — « 📷 Enregistrer les photos » : réunit TOUTES les photos d'un EDL
@@ -32246,7 +32284,7 @@ async function _edlSharePhotos(id) {
       return;
     }
     // 6) Repli (Firefox/Safari) : téléchargement de chaque photo dans le dossier par défaut.
-    files.forEach(f => _edlDownloadBlob(f, f.name));
+    files.forEach(f => _downloadBlobAs(f, f.name));
     showToast(`📥 ${files.length} photo(s) dans vos Téléchargements`, 'ok', 4000);
   } catch (e) {
     console.error('[_edlSharePhotos] fail:', e);
@@ -39076,8 +39114,7 @@ function _ouvrirQuittanceSurMois(ref, ym) {
   _openFaireQuittance(ref);
   if (!_qe || _qe.ref !== ref) return;
   _qe.an = String(ym).slice(0, 4);
-  _qe.sel.clear(); _qe.sel.add(ym); _qe.confirme = false; _qe.onglet = 0;
-  _qeRender();
+  _qe.ym = ym; _qeRender();
 }
 
 // HISTORIQUE-BAIL-ONGLET (17/07) : _renderIrlForLog supprimé — l'historique IRL est
@@ -57372,7 +57409,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     <div class="m-foot">
       <button class="btn bs" onclick="closeM('ov-irl-lettre')">Fermer</button>
       <button class="btn" onclick="window._shareIRLLetterWithPdf && window._shareIRLLetterWithPdf()" title="Partager avec PDF (Web Share API + fallback download)">🔗 Partager</button>
-      <button class="btn" onclick="envoyerLettreIRLParEmail()">📤 Partager</button>
+      <button class="btn" onclick="envoyerLettreIRLParEmail()" title="Enregistrer le PDF sur cet appareil">⬇ Télécharger</button>
       <button class="btn bp" onclick="printIRLLetter()">🖨 Imprimer</button>
     </div>
   </div>
@@ -57381,10 +57418,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <!-- v15.104 — Modale aperçu quittance (alignement avec IRL).
      Utilise un IFRAME pour isoler le CSS Times New Roman de la page principale
      (sinon les styles globaux body/h1/h2 polluaient l'app entière). -->
-<!-- `data-ephemere="1"` : document NON persisté (reçu de paiement partiel, courrier de
-     relance). Archiver/Partager/Télécharger s'appuient sur un id de quittance en base — ils
-     n'ont pas de sens ici et sont masqués plutôt que de répondre « aucune quittance ouverte ». -->
-<style>#ov-quit-preview[data-ephemere="1"] .qp-persist{display:none}</style>
+<!-- D27 — cette modale sert à DEUX choses : une quittance persistée (`iframe._quitId`) et un
+     document non persisté (`iframe._docBuilt` : reçu de paiement partiel, courrier de relance,
+     quittance libre). Le pied ne porte qu'UN bouton, qui fonctionne dans les deux cas — seul le
+     générateur du PDF change (cf. `_qpAction`). -->
 <div class="ov hidden" id="ov-quit-preview" onclick="closeBg(event,'ov-quit-preview')">
   <div class="modal" style="max-width:780px;width:96%">
     <div class="m-head">
@@ -57394,12 +57431,13 @@ window.addEventListener('DOMContentLoaded', ()=>{
     <div class="m-body" style="padding:0;background:#fff;border:1px solid var(--bor);border-radius:var(--rl)">
       <iframe id="ov-quit-preview-iframe" style="width:100%;height:72vh;border:0;display:block;background:#fff" sandbox="allow-same-origin"></iframe>
     </div>
+    <!-- D27 — UN SEUL BOUTON, comme l'EDL (cf. `downloadEDLPdfNative`) : `_edlPrefersShare()` décide du
+         libellé, et `_shareQuittanceWithPdf` fait déjà les deux — partage natif avec le PDF
+         quand l'appareil le permet, téléchargement du PDF sinon. Les quatre autres boutons
+         (Archiver, Imprimer, et un « Partager » qui téléchargeait) sont retirés. Fermer reste
+         le ✕ de l'en-tête, comme dans l'EDL. -->
     <div class="m-foot">
-      <button class="btn bs" onclick="closeM('ov-quit-preview')">Fermer</button>
-      <button class="btn qp-persist" onclick="window._archiveQuittancePreviewModal && window._archiveQuittancePreviewModal()" title="Enregistrer le PDF dans les documents">💾 Archiver</button>
-      <button class="btn qp-persist" onclick="window._shareQuittancePreviewModal && window._shareQuittancePreviewModal()" title="Partager avec PDF">🔗 Partager</button>
-      <button class="btn qp-persist" onclick="window._emailQuittancePreviewModal && window._emailQuittancePreviewModal()">📤 Partager</button>
-      <button class="btn bp" onclick="window._printQuittancePreviewModal && window._printQuittancePreviewModal()">🖨 Imprimer</button>
+      <button class="btn bp" id="qp-action" onclick="_qpAction()"></button>
     </div>
   </div>
 </div>

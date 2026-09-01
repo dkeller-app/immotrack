@@ -241,18 +241,4 @@ export function validerSaisieLibre(saisie) {
   };
 }
 
-/**
- * L'ENCHAÎNEMENT « lot suivant » (repris de la direction « la tournée », V6) — quand on entre
- * par la porte globale et que plusieurs lots attendent. Retourne le lot suivant de la pile,
- * ou null s'il n'y en a plus.
- * @param {Array<{ref:string, nb:number}>} pile lots en attente, dans l'ordre
- * @param {string} refCourante
- */
-export function lotSuivant(pile, refCourante) {
-  const p = (pile || []).filter((x) => x && x.ref);
-  const i = p.findIndex((x) => String(x.ref) === String(refCourante));
-  if (i < 0) return p.length ? p[0] : null;
-  return (i + 1 < p.length) ? p[i + 1] : null;
-}
-
 export { EPS_CENTIME };

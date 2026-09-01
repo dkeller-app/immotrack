@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import { etatMoisLot } from '../../js/core/loyers-mois.js';
 import {
   MOIS_ETAT, moisRailLot, moisParDefaut, anneeParDefaut, anneesDisponibles,
-  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, lotSuivant, cleMeta,
+  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, cleMeta,
   metaApresEmission, metaApresSuppression
 } from '../../js/core/quittance-editeur.js';
 
@@ -193,21 +193,6 @@ describe('V11/V12 — la saisie libre', () => {
       bailleurNom: 'A', locataireNom: 'B', adresse: 'C', debut: '2025-11-01', fin: '2025-11-30', hc: 100
     });
     expect(r.normalisee.datePaiement).toBeNull();
-  });
-});
-
-describe('V6 — l\'enchaînement « lot suivant » quand on entre par la porte globale', () => {
-  const pile = [{ ref: 'A-01', nb: 1 }, { ref: 'B-02', nb: 3 }, { ref: 'C-03', nb: 1 }];
-  it('passe au lot suivant de la pile', () => {
-    expect(lotSuivant(pile, 'A-01').ref).toBe('B-02');
-    expect(lotSuivant(pile, 'B-02').ref).toBe('C-03');
-  });
-  it('au dernier lot, il n\'y a plus de suivant — la tournée est finie', () => {
-    expect(lotSuivant(pile, 'C-03')).toBeNull();
-  });
-  it('un lot hors pile ouvre la pile par son début', () => {
-    expect(lotSuivant(pile, 'Z-99').ref).toBe('A-01');
-    expect(lotSuivant([], 'A-01')).toBeNull();
   });
 });
 

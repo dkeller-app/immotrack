@@ -841,6 +841,8 @@ async function _genPdfIrlRevision(ctx) {
  * @param {object} ctx — Contexte (locataire, bail, logement, entite, etc.)
  * @returns {Promise<{filename, base64, mimeType} | {error: string, supportedV1: string[]}>}
  */
+export { _docHtmlToNativeBlob };
+
 export async function _emailGenPdfAttachment(type, ctx) {
   const supportedV1 = [
     'quittance', 'irl-revision',

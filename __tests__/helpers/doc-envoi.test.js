@@ -26,10 +26,10 @@ describe('Envoi de documents coupé — téléchargement seul', () => {
     expect(iGarde).toBeLessThan(iModale);
   });
 
-  it('la fonction de téléchargement seul existe et réutilise _downloadBlobAs (pas de recopie)', () => {
+  it('la fonction de téléchargement seul existe et réutilise _pdfSortie (pas de recopie)', () => {
     const i = html.indexOf('async function _docTelechargerSeul(');
     expect(i).toBeGreaterThan(0);
-    expect(html.slice(i, i + 1200)).toMatch(/_downloadBlobAs\(/);
+    expect(html.slice(i, i + 1200)).toMatch(/_pdfSortie\(/);
   });
 
   it("aucun bouton de document ne promet un envoi", () => {

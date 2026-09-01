@@ -3106,17 +3106,24 @@ textarea.field-modified-since-sig{
   #ov-edl > .modal div[style*="background:var(--sur2)"][style*="border-radius:var(--r)"] + .g2,
   #ov-edl input#edl-drive-path{width:100% !important}
   /* Footer : sticky avec wrap */
-  #ov-edl .m-foot{
+  /* Pied de modale sur petit écran — UN seul motif, deux modales.
+     ⚠️ Pour #ov-edl ces règles ne rendent RIEN : plus bas dans ce même media query,
+     `#ov-edl .m-foot{display:none !important}` masque son pied (le rail EDL le remplace).
+     Elles ne sont donc validées que par #ov-quit-preview — à vérifier au smoke téléphone. */
+  #ov-edl .m-foot,
+  #ov-quit-preview .m-foot{
     flex-wrap:wrap;gap:6px;padding:10px 12px;
     background:var(--sur);border-top:1px solid var(--bor);
     position:sticky;bottom:0;
   }
-  #ov-edl .m-foot .btn{
+  #ov-edl .m-foot .btn,
+  #ov-quit-preview .m-foot .btn{
     flex:1 1 calc(50% - 4px);min-height:44px;font-size:13px;
     justify-content:center;padding:0 8px;
   }
-  /* "Enregistrer" prend pleine largeur en haut du footer */
-  #ov-edl .m-foot .btn.bp{flex:1 1 100%;order:-1;background:var(--acc);font-weight:600}
+  /* Le bouton principal prend toute la largeur, en haut : « Enregistrer » (EDL), « Partager » (quittance) */
+  #ov-edl .m-foot .btn.bp,
+  #ov-quit-preview .m-foot .btn.bp{flex:1 1 100%;order:-1;background:var(--acc);font-weight:600}
   /* Banner référence chargée : lisibilité */
   #ov-edl #edl-ref-banner{font-size:11.5px !important;line-height:1.4}
   /* Barre actions Pièces : empilée */
@@ -3394,8 +3401,11 @@ textarea.field-modified-since-sig{
   #ov-edl .m-head h3{font-size:13px;line-height:1.2}
   #ov-edl .m-head .mu.sm{font-size:10px}
   /* Footer : si on a vraiment 4-5 boutons, passer à 1 colonne pour lisibilité */
-  #ov-edl .m-foot .btn{flex:1 1 100%;font-size:13px;min-height:42px}
-  #ov-edl .m-foot .btn.bp{order:-1}
+  /* Sous 480 px : un bouton par rangée. Même motif, deux modales. */
+  #ov-edl .m-foot .btn,
+  #ov-quit-preview .m-foot .btn{flex:1 1 100%;font-size:13px;min-height:42px}
+  #ov-edl .m-foot .btn.bp,
+  #ov-quit-preview .m-foot .btn.bp{order:-1}
   /* Boutons header EDL list : sans icône texte */
   #p-edl .tbl tr td.act-cell .btn[onclick*="downloadEDLPdfNative"]::after,
   #p-edl .tbl tr td.act-cell .btn[onclick*="uploadEDLPDFToDrive"]::after{
