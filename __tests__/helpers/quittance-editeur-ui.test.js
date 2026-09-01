@@ -153,13 +153,23 @@ describe('D27 — un lot, un mois, un document ; aucune impasse', () => {
     expect(SRC.includes('_printQuittancePreviewModal()">')).toBe(false);
     expect(SRC.includes('_emailQuittancePreviewModal')).toBe(false);
   });
-  it("D27 (retour Didier) — le bouton de l'aperçu quittance dit « Partager » quel que soit l'appareil (tablette ≠ PC)", () => {
+  it("D27 (retour Didier) — le libellé SUIT l'appareil : « Partager » sur tactile, « Télécharger le PDF » sur PC", () => {
     const i = SRC.indexOf('function _qpMajBoutonAction');
-    const fn = SRC.slice(i, i + 600);
-    expect(fn.includes("b.textContent = '📤 Partager';")).toBe(true);
-    expect(fn.includes('share ?')).toBe(false);   // plus de libellé selon l'appareil pour la quittance
-    // le GESTE, lui, reste adaptatif (partage natif sur téléphone / enregistrement sur PC) via _pdfSortie
+    const fn = SRC.slice(i, i + 700);
+    expect(fn.includes('_edlPrefersShare()')).toBe(true);
+    expect(fn.includes("b.textContent = share ? '📤 Partager' : '⬇️ Télécharger le PDF'")).toBe(true);
+    // le GESTE, lui, fait les deux (partage natif / enregistrement) via _pdfSortie
     expect(has('function _pdfSortie(')).toBe(true);
+  });
+  it("Retour Didier — noms de fichiers SANS accents (août → aout) via _edlSanitize", () => {
+    const i = SRC.indexOf('function _edlSanitize');
+    expect(SRC.slice(i, i + 200).includes("normalize('NFD')")).toBe(true);
+  });
+  it("Retour Didier — PDF natif : signature à ratio préservé + parties en cartouches côte à côte", () => {
+    const dn = fs.readFileSync(path.join(ROOT, 'js/helpers/doc-native.global.js'), 'utf8');
+    expect(dn.includes('getImageProperties(src)')).toBe(true);                              // ratio signature lu
+    expect(dn.includes("addImage(src, 'PNG', bx, yy, Math.min(bw, 58), 10)")).toBe(false);  // ancien forçage 58×10 retiré
+    expect(dn.includes('roundedRect')).toBe(true);                                          // cartouches gris des parties
   });
   it("D27 (retour Didier) — LISTE sur PC/tablette (comme avant), BULLES seulement sur téléphone (place)", () => {
     // défaut (large) = liste : lignes en grille, état + montant par ligne

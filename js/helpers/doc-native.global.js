@@ -458,16 +458,39 @@
       if (!b || b.screenOnly) continue;
       y = PN.newPageIfNeeded(pdf, y, b.t === 'tbl' ? 40 : 14);
       switch (b.t) {
-        case 'parties':
-          for (const p of (b.blocs || [])) {
-            y = PN.newPageIfNeeded(pdf, y, 16);
-            y = PN.drawText(pdf, htmlToText(p.label).toUpperCase(), x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED }) + 0.5;
-            if (p.qui) y = PN.drawText(pdf, htmlToText(p.qui), x, y, { style: 'bold' });
+        case 'parties': {
+          // Retour Didier : les parties doivent être CÔTE À CÔTE dans des cartouches gris, comme à
+          // l'écran (.pro-parties{display:flex} / .pro-partie{background:#f7f8fb}) — plus empilées.
+          const blocs = (b.blocs || []).filter(Boolean);
+          const nCol = blocs.length || 1;
+          const gapC = 4, pad = 2.5;
+          const colW = (W - gapC * (nCol - 1)) / nCol;
+          // Mesurer chaque colonne (mêmes tailles/police que le tracé) → fonds alignés sur la plus haute.
+          const measure = (p) => {
+            const w = colW - 2 * pad;
+            let h = pad;
+            pdf.setFont(PN.FONT_FAMILY, 'normal'); pdf.setFontSize(PN.FONT_SIZE_SMALL);
+            h += pdf.splitTextToSize(htmlToText(p.label).toUpperCase(), w).length * (PN.FONT_SIZE_SMALL * 0.4) + 1;
+            if (p.qui) { pdf.setFontSize(9.5); h += pdf.splitTextToSize(htmlToText(p.qui), w).length * (9.5 * 0.4) + 0.5; }
+            const c = htmlToText(p.corps);
+            if (c) { pdf.setFontSize(PN.FONT_SIZE_SMALL); h += pdf.splitTextToSize(c, w).length * (PN.FONT_SIZE_SMALL * 0.4); }
+            return h + pad;
+          };
+          const boxH = blocs.length ? Math.max.apply(null, blocs.map(measure)) : 0;
+          y = PN.newPageIfNeeded(pdf, y, boxH + 2);
+          const yTop = y;
+          blocs.forEach((p, i) => {
+            const cx = x + i * (colW + gapC);
+            try { pdf.setFillColor(247, 248, 251); pdf.roundedRect(cx, yTop, colW, boxH, 1.5, 1.5, 'F'); } catch (e) {}
+            let cy = yTop + pad;
+            cy = PN.drawText(pdf, htmlToText(p.label).toUpperCase(), cx + pad, cy, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, maxWidth: colW - 2 * pad }) + 0.5;
+            if (p.qui) cy = PN.drawText(pdf, htmlToText(p.qui), cx + pad, cy, { size: 9.5, style: 'bold', color: PN.COLOR_TITLE, maxWidth: colW - 2 * pad });
             const corps = htmlToText(p.corps);
-            if (corps) y = PN.drawText(pdf, corps, x, y);
-            y += PN.PARAGRAPH_GAP;
-          }
+            if (corps) PN.drawText(pdf, corps, cx + pad, cy, { size: PN.FONT_SIZE_SMALL, maxWidth: colW - 2 * pad });
+          });
+          y = yTop + boxH + PN.PARAGRAPH_GAP;
           break;
+        }
         case 'acte':
         case 'para':
           y = PN.drawText(pdf, htmlToText(b.v), x, y) + PN.PARAGRAPH_GAP;
@@ -513,7 +536,17 @@
           for (const box of boxes) {
             let yy = yTop;
             const src = _imgSrc(box.sig);
-            if (src) { try { pdf.addImage(src, 'PNG', bx, yy, Math.min(bw, 58), 10); } catch (e) {} }
+            // Signature : ratio PRÉSERVÉ (avant : forcée à 58×10 mm → déformée). Ajustée dans une
+            // boîte max 58×11 mm, calée sur la ligne — comme à l'écran.
+            if (src) {
+              try {
+                let maxWsig = Math.min(bw, 58), maxHsig = 11, ratioSig = 1;
+                try { const prSig = pdf.getImageProperties(src); if (prSig && prSig.width && prSig.height) ratioSig = prSig.width / prSig.height; } catch (e) {}
+                let iw = maxWsig, ih = iw / ratioSig;
+                if (ih > maxHsig) { ih = maxHsig; iw = ih * ratioSig; }
+                pdf.addImage(src, 'PNG', bx, yy + (maxHsig - ih), iw, ih);
+              } catch (e) {}
+            }
             yy += 11;
             pdf.setDrawColor(120, 120, 120); pdf.setLineWidth(0.2);
             pdf.line(bx, yy, bx + bw, yy);
