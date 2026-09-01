@@ -161,10 +161,15 @@ describe('D27 — un lot, un mois, un document ; aucune impasse', () => {
     // le GESTE, lui, reste adaptatif (partage natif sur téléphone / enregistrement sur PC) via _pdfSortie
     expect(has('function _pdfSortie(')).toBe(true);
   });
-  it("D27 (retour Didier) — mois en BULLES qui s'enroulent (ni liste verticale, ni carrousel horizontal)", () => {
-    expect(has('.qd-mois{display:flex;flex-wrap:wrap')).toBe(true);
-    expect(SRC.includes('<span class="bx">✓</span>')).toBe(false);   // la case de liste a disparu
-    expect(has('class="qd-selmo"')).toBe(true);                        // état + montant, une fois, sous les bulles
+  it("D27 (retour Didier) — LISTE sur PC/tablette (comme avant), BULLES seulement sur téléphone (place)", () => {
+    // défaut (large) = liste : lignes en grille, état + montant par ligne
+    expect(has('.qd-m{display:grid;grid-template-columns:16px minmax(0,1fr) auto')).toBe(true);
+    expect(has('.qd-selmo{display:none}')).toBe(true);                 // pas de ligne de détail sur la liste
+    // sous 600 px : bulles qui s'enroulent + ligne de détail montrée
+    expect(has('@media (max-width:600px)')).toBe(true);
+    expect(has('.qd-mois{display:flex;flex-wrap:wrap')).toBe(true);    // (dans la media query téléphone)
+    expect(has('class="qd-selmo"')).toBe(true);
+    expect(SRC.includes('<span class="bx">✓</span>')).toBe(false);    // la case de liste a disparu
     expect(SRC.includes('grid-auto-flow:column')).toBe(false);        // plus de carrousel horizontal
   });
   it("D27 (retour Didier) — les mois À VENIR sont masqués (on ne quittance pas un mois pas arrivé)", () => {

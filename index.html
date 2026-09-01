@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.577</title>
+<title>Propryo v15.578</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.577">
+<link rel="stylesheet" href="css/main.css?v=15.578">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.577</em>
+      <em>v15.578</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -3581,32 +3581,58 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 .qd-an button{flex:1;min-width:52px;border:1px solid var(--bor);background:var(--sur2);color:var(--t2);
   font:700 11.5px var(--font);border-radius:var(--rp);padding:4px 0;cursor:pointer}
 .qd-an button.on{background:var(--t1);border-color:var(--t1);color:var(--sur)}
-/* D27 (retour Didier) — les mois en BULLES qui s'enroulent (fini la liste verticale « longue
-   comme le bras » ET le carrousel horizontal). L'état tient dans un point coloré ; l'état en
-   toutes lettres + le montant vivent UNE fois, sous les bulles (.qd-selmo). */
-.qd-mois{display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px 2px;overflow-y:auto;min-height:0}
-.qd-m{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--bor);background:var(--sur);
-  color:var(--t1);border-radius:999px;padding:6px 12px;cursor:pointer;font:600 12px var(--font);
-  line-height:1;white-space:nowrap}
-.qd-m:hover{border-color:var(--acc)}
-.qd-m .bx{width:7px;height:7px;border-radius:50%;background:var(--t3);flex:none}
-.qd-m .nm{line-height:1.1}
-.qd-m.ok .bx{background:var(--acc)}
-.qd-m.done .bx{background:var(--pos)}
-.qd-m.no .bx{background:var(--neg)}
+/* D27 — DÉFAUT (PC + tablette) : la LISTE, comme avant. (Retour Didier : les bulles n'étaient
+   demandées que sur TÉLÉPHONE, pour une question de place. Sur PC on garde la vue d'avant.)
+   Une seule structure de rendu ; c'est le CSS qui replie en bulles sous 600 px (bloc plus bas). */
+.qd-mois{flex:1;overflow-y:auto;padding:4px 8px 8px;min-height:0}
+.qd-m{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:7px;align-items:center;
+  width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:var(--r);
+  padding:4px 7px;cursor:pointer;font-family:var(--font);min-height:34px}
+.qd-m:hover{background:var(--sur2)}
+.qd-m .bx{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--bor);background:var(--sur);
+  font-size:9px;color:transparent;display:flex;align-items:center;justify-content:center;flex:none}
+.qd-m .nm{font-size:12px;font-weight:700;color:var(--t1);line-height:1.2}
+.qd-m .st{display:block;font-size:9.5px;font-weight:500;color:var(--t3);line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qd-m .am{font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.qd-m.ok .bx{border-color:var(--acc)}
+.qd-m.ok .st{color:var(--acc);font-weight:600}
+.qd-m.done .bx{background:var(--pos);border-color:var(--pos);color:#fff}
+.qd-m.done .st{color:var(--pos);font-weight:600}
+.qd-m.no .st{color:var(--neg)}
+.qd-m.no .bx{border-style:dashed}
 .qd-m.off{opacity:.45;cursor:default}
 .qd-m.off .bx{visibility:hidden}
-.qd-m.sel{background:var(--acc);border-color:var(--acc);color:#fff}
-.qd-m.sel .bx{background:#fff}
+.qd-m.sel{border-color:var(--acc);background:var(--acc-bg)}
+.qd-m.sel .bx{background:var(--acc);border-color:var(--acc);color:#fff}
 .qd-m:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
-.qd-selmo{display:flex;align-items:baseline;gap:9px;margin:0 10px;padding:10px 0 2px;
-  border-top:1px solid var(--bor);font-size:12px}
-.qd-selmo b{font-size:13px;color:var(--t1)}
-.qd-selmo .st{color:var(--t3)}
-.qd-selmo .st.ok{color:var(--acc)}
-.qd-selmo .st.done{color:var(--pos)}
-.qd-selmo .st.no{color:var(--neg)}
-.qd-selmo .am{margin-left:auto;font-weight:800;color:var(--t1);font-variant-numeric:tabular-nums}
+/* La ligne de détail du mois choisi n'apparaît QUE sur téléphone (sur PC/tablette chaque ligne
+   porte déjà son état + son montant). */
+.qd-selmo{display:none}
+/* TÉLÉPHONE (≤ 600 px) — les mois passent en BULLES qui s'enroulent (place). Le point coloré
+   porte l'état, et l'état en toutes lettres + le montant du mois choisi passent dans .qd-selmo. */
+@media (max-width:600px){
+  .qd-mois{display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px 2px;max-height:132px}
+  .qd-m{display:inline-flex;grid-template-columns:none;align-items:center;gap:6px;width:auto;
+    border:1px solid var(--bor);background:var(--sur);border-radius:999px;padding:6px 12px;
+    font:600 12px var(--font);line-height:1;white-space:nowrap;min-height:0}
+  .qd-m:hover{background:var(--sur);border-color:var(--acc)}
+  .qd-m .bx{width:7px;height:7px;border-radius:50%;background:var(--t3);border:0}
+  .qd-m.ok .bx{background:var(--acc)}
+  .qd-m.done .bx{background:var(--pos)}
+  .qd-m.no .bx{background:var(--neg)}
+  .qd-m .st,.qd-m .am{display:none}
+  .qd-m.sel{background:var(--acc);border-color:var(--acc);color:#fff}
+  .qd-m.sel .bx{background:#fff}
+  .qd-selmo{display:flex;align-items:baseline;gap:9px;margin:8px 10px 0;padding:10px 0 2px;
+    border-top:1px solid var(--bor);font-size:12px}
+  .qd-selmo b{font-size:13px;color:var(--t1)}
+  .qd-selmo .st{color:var(--t3)}
+  .qd-selmo .st.ok{color:var(--acc)}
+  .qd-selmo .st.done{color:var(--pos)}
+  .qd-selmo .st.no{color:var(--neg)}
+  .qd-selmo .am{margin-left:auto;font-weight:800;color:var(--t1);font-variant-numeric:tabular-nums}
+}
 .qd-doc{flex:1;overflow-y:auto;padding:14px 16px 18px;min-width:0;display:flex;flex-direction:column;gap:10px}
 .qd-doc iframe{width:100%;flex:1;min-height:420px;border:1px solid var(--bor);border-radius:var(--rl);background:#fff}
 .qd-foot{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--bor);
@@ -3665,9 +3691,6 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   .qd-lot{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;padding:8px 12px}
   .qd-lot .lo,.qd-lot .ct{margin-top:0}
   .qd-lot .chg{margin-top:0;margin-left:auto}
-  /* D27 — sur téléphone les bulles s'enroulent naturellement (plus de carrousel horizontal) ;
-     on plafonne juste la hauteur pour laisser voir le document dessous. */
-  .qd-mois{max-height:132px}
   .qd-doc iframe{min-height:320px}
   /* D27 règle 5 — LE BOUTON PRINCIPAL EST VISIBLE SUR TÉLÉPHONE.
      Avant : le compteur, « Annuler » et le bouton d'édition se partageaient une rangée qui
@@ -4166,7 +4189,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.577';
+const IMMOTRACK_VERSION = '15.578';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -28376,8 +28399,16 @@ function _qeRender() {
       const on = _qe.ym === m.ym;
       const meta = _qeMeta(_qe.ref, m.ym);
       const et = window.etiquetteSansPaiement(meta, fd);
+      const st = m.etat === 'done' ? ('éditée le ' + (m.editeeLe ? fd(m.editeeLe) : '—'))
+        : m.etat === 'ok' ? 'soldé — à quittancer'
+        : m.etat === 'no' ? ('reste ' + fmt(m.reste)) : 'hors bail';
+      // Une seule structure : sur PC/tablette elle s'affiche en LISTE (état + montant par ligne),
+      // sur téléphone le CSS la replie en BULLE (point + nom) et déporte état/montant vers .qd-selmo.
       return `<button class="qd-m ${m.etat}${on ? ' sel' : ''}" role="radio" aria-checked="${on ? 'true' : 'false'}" ${m.etat === 'off' ? 'disabled' : `onclick="_qeChoisirMois('${m.ym}')"`}${et.visible ? ` title="${escHtml(et.survol)}"` : ''}>
-        <span class="bx"></span><span class="nm">${escHtml(m.nom.charAt(0).toUpperCase() + m.nom.slice(1))}</span></button>`;
+        <span class="bx"></span>
+        <span><span class="nm">${escHtml(m.nom.charAt(0).toUpperCase() + m.nom.slice(1))}</span>
+        <span class="st">${escHtml(st)}${et.visible ? ' · ' + escHtml(et.libelle) : ''}</span></span>
+        <span class="am">${fmt(m.du)}</span></button>`;
     }).join('')}</div>`;
     // La ligne de détail du mois choisi : son état en clair + son montant, UNE fois, sous les bulles.
     const _sel = _qe.ym ? _vis.find(m => m.ym === _qe.ym) : null;
