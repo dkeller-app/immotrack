@@ -260,4 +260,11 @@ describe('CONTRE-AUDIT — R1/R5/R8 : le bon document, dans le bon contexte', ()
     expect(has('const _forceeV7Pre')).toBe(false);
     expect(SRC.split('const _forceeV7 = (opts.forceeV7 != null)').length - 1).toBe(1);
   });
+  it("D27 — le chemin PDF ne rallume aucune impasse « no-payment » (statut 'non-paye' retiré du module)", () => {
+    // Angle mort de l'audit précédent : le grep « non-paye » n'avait porté que sur index.html.
+    // Ce consommateur mort vivait dans le module PDF — on garde le module aussi.
+    const pdf = fs.readFileSync(path.join(ROOT, 'js/core/email-pdf-attachment.js'), 'utf8');
+    expect(pdf.includes("status === 'non-paye'")).toBe(false);
+    expect(pdf.includes('no-payment')).toBe(false);
+  });
 });

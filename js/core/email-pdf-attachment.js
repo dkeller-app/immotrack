@@ -247,13 +247,10 @@ async function _genPdfQuittance(ctx) {
   // encodés WinAnsi. Aucun mot n'est réécrit — le fond juridique est celui de l'aperçu.
   if (typeof window !== 'undefined' && typeof window._buildQuittanceHtml === 'function' && window.DocNative) {
     try {
+      // D27 — plus aucun blocage ici : le builder ne renvoie plus de statut « sans encaissement »
+      // (retiré avec l'écran « Document non émissible »). Un mois sans paiement produit une
+      // QUITTANCE pleine sans « payé le » ; le PDF suit le même rendu, jamais d'impasse.
       const built = window._buildQuittanceHtml(q, log, ent, bail);
-      if (built.status === 'non-paye') {
-        return {
-          error: 'no-payment',
-          message: 'Aucun paiement enregistré pour ce mois — impossible de générer la quittance. Saisir le paiement dans les mouvements d\'abord.'
-        };
-      }
       const blob = await _docHtmlToNativeBlob(built.html, ent);
       const base64 = await _blobToBase64(blob);
       const filename = 'Quittance-' + (q.mois || 'mois').replace(/\s+/g, '-') + '-' + (log.ref || 'logement') + '.pdf';
