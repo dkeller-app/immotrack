@@ -144,8 +144,12 @@ describe('D27 — un lot, un mois, un document ; aucune impasse', () => {
     expect(has('.qd-foot .rec{flex:0 0 100%;order:0}')).toBe(true);
     expect(has('.qd-foot .btn.bp{flex:2}')).toBe(true);
   });
-  it("le document édité s'ouvre : c'est de là qu'on le partage ou l'enregistre", () => {
-    expect(has('if (faites.length) previewQuit(faites[0].id);')).toBe(true);
+  it("le document édité s'ouvre PAR-DESSUS l'éditeur (retour Didier : plus de renvoi sur Loyers après chaque quittance)", () => {
+    expect(has('if (faites.length) { _qeRender(); previewQuit(faites[0].id); }')).toBe(true);
+    // _qeEditer ne ferme PLUS l'éditeur (c'est _qeFermer() qui re-rendait Loyers) : on reste dedans.
+    const i = SRC.indexOf('function _qeEditer(');
+    const fn = SRC.slice(i, SRC.indexOf('\nfunction _qeEditerLibre', i));
+    expect(fn.includes('_qeFermer()')).toBe(false);
   });
   it("le pied de l'aperçu n'a qu'UN bouton, comme l'EDL", () => {
     expect(has('<button class="btn bp" id="qp-action" onclick="_qpAction()"></button>')).toBe(true);
