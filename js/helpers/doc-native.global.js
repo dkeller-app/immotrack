@@ -463,7 +463,7 @@
           // l'écran (.pro-parties{display:flex} / .pro-partie{background:#f7f8fb}) — plus empilées.
           const blocs = (b.blocs || []).filter(Boolean);
           const nCol = blocs.length || 1;
-          const gapC = 4, pad = 2.5;
+          const gapC = 4, pad = 3.4;   // plus d'air dans les cartouches (retour Didier : « tout serré »)
           const colW = (W - gapC * (nCol - 1)) / nCol;
           // Mesurer chaque colonne (mêmes tailles/police que le tracé) → fonds alignés sur la plus haute.
           const measure = (p) => {
@@ -488,10 +488,14 @@
             const corps = htmlToText(p.corps);
             if (corps) PN.drawText(pdf, corps, cx + pad, cy, { size: PN.FONT_SIZE_SMALL, maxWidth: colW - 2 * pad });
           });
-          y = yTop + boxH + PN.PARAGRAPH_GAP;
+          y = yTop + boxH + PN.PARAGRAPH_GAP + 4;   // plus d'air après les parties
           break;
         }
         case 'acte':
+          // La phrase d'acte (« Je soussigné… ») respire : un peu d'air avant et après.
+          y += 2;
+          y = PN.drawText(pdf, htmlToText(b.v), x, y) + PN.PARAGRAPH_GAP + 2;
+          break;
         case 'para':
           y = PN.drawText(pdf, htmlToText(b.v), x, y) + PN.PARAGRAPH_GAP;
           break;
@@ -503,9 +507,9 @@
             const color = r.hi ? [255, 90, 60] : (r.tot ? PN.COLOR_TITLE : PN.COLOR_TEXT);
             const yLab = PN.drawText(pdf, htmlToText(r.lab), x, y, { style: style, maxWidth: W - valW - 4 });
             PN.drawText(pdf, htmlToText(r.val), right - valW, y, { style: style, color: color, align: 'right', maxWidth: valW });
-            y = yLab + 0.5;
+            y = yLab + 1.2;   // lignes du décompte un peu plus aérées
           }
-          y += PN.PARAGRAPH_GAP;
+          y += PN.PARAGRAPH_GAP + 3;
           break;
         }
         case 'tbl': {
@@ -522,12 +526,12 @@
           y = PN.drawText(pdf, htmlToText(b.v), x, y, { size: PN.FONT_SIZE_NOTE, color: PN.COLOR_MUTED }) + PN.PARAGRAPH_GAP;
           break;
         case 'lieu':
-          y += 2;
+          y += 8;   // « Fait à… » nettement détaché du corps
           y = PN.drawText(pdf, htmlToText(b.v), x, y) + PN.PARAGRAPH_GAP;
           break;
         case 'signzone': {
           y = PN.newPageIfNeeded(pdf, y, 24);
-          y += 3;
+          y += 8;
           const boxes = b.boxes || [];
           const bw = 70, gap = 8;
           let bx = boxes.length > 1 ? x : right - bw;
@@ -563,10 +567,20 @@
       }
     }
 
-    // Pied : réf. à gauche, date à droite — comme le pied du gabarit (deux <span>, sans séparateur).
-    const footY = Math.min(y + 4, PN.PAGE_H - PN.MARGIN_BOTTOM + 5);
-    if (parsed.ref) PN.drawText(pdf, parsed.ref, x, footY, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, maxWidth: W / 2 });
-    if (parsed.date) PN.drawText(pdf, parsed.date, x + W / 2, footY, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, align: 'right', maxWidth: W / 2 });
+    // Pied EN BAS DE PAGE (retour Didier : il flottait au milieu, il doit être en bas). Réf. à
+    // gauche, date à droite, avec un filet de séparation — comme .pro-pied à l'écran. Si le contenu
+    // descend jusque dans la zone du pied, on le renvoie en bas de la page suivante.
+    let footY = PN.PAGE_H - PN.MARGIN_BOTTOM + 8;
+    if (y + 6 > footY) { pdf.addPage(); footY = PN.PAGE_H - PN.MARGIN_BOTTOM + 8; }
+    if (parsed.ref || parsed.date) {
+      try { pdf.setDrawColor(228, 231, 238); pdf.setLineWidth(0.2); pdf.line(x, footY - 4, x + W, footY - 4); } catch (e) {}
+      // pdf.text DIRECT (pas PN.drawText) : le pied vit dans la marge basse, SOUS la zone de contenu.
+      // PN.drawText refuserait d'y écrire (sa pagination le renverrait sur une page en trop).
+      pdf.setFont(PN.FONT_FAMILY, 'normal'); pdf.setFontSize(PN.FONT_SIZE_SMALL);
+      pdf.setTextColor(PN.COLOR_MUTED[0], PN.COLOR_MUTED[1], PN.COLOR_MUTED[2]);
+      if (parsed.ref) pdf.text(String(parsed.ref), x, footY, { baseline: 'top' });
+      if (parsed.date) pdf.text(String(parsed.date), x + W, footY, { align: 'right', baseline: 'top' });
+    }
     return pdf;
   }
 

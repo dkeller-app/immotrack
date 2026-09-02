@@ -230,4 +230,29 @@ describe('Non-régression — AUCUN contenu de premier niveau avalé en silence 
     // et les blocs non gérés sont marqués _unhandled (les tests d'intégration au gabarit peuvent l'exiger)
     expect(parseDocDoc(html).blocks.some(b => b._unhandled)).toBe(true);
   });
+
+  it('Retour Didier — le PIED est EN BAS de page (pas au milieu), et un doc court ne crée pas de page en trop', () => {
+    const calls = [];
+    const pdf = {
+      internal: { pageSize: { getWidth: () => 210, getHeight: () => 297 }, getCurrentPageInfo: () => ({ pageNumber: 1 }) },
+      lastAutoTable: { finalY: 0 },
+      setFont() { return pdf; }, setFontSize() { return pdf; }, setTextColor() { return pdf; },
+      setDrawColor() { return pdf; }, setFillColor() { return pdf; }, setLineWidth() { return pdf; },
+      line() { return pdf; }, rect() { return pdf; }, roundedRect() { return pdf; }, circle() { return pdf; },
+      addImage() { return pdf; }, getImageProperties() { return { width: 100, height: 40 }; },
+      getTextWidth(t) { return String(t).length * 1.8; },
+      addPage() { calls.push({ s: '__PAGE__', y: 0 }); return pdf; },
+      splitTextToSize(t) { return [String(t)]; },
+      text(t, x, y) { (Array.isArray(t) ? t : [t]).forEach(s => calls.push({ s: String(s), y })); return pdf; }
+    };
+    const doc = '<div class="pro-doc"><div class="pro-titre"><h1>Quittance de loyer</h1></div>'
+      + '<p class="pro-acte">Je soussigne le Bailleur declare avoir recu.</p>'
+      + '<div class="pro-pied"><span class="ref">F-001</span><span>Emis le 01/09/2026</span></div></div>';
+    renderDocToPdf(pdf, { nom: 'SCI' }, parseDocDoc(doc), PDF_NATIVE);
+    const foot = calls.find(c => c.s.indexOf('F-001') >= 0);
+    expect(foot).toBeTruthy();
+    // PAGE_H 297 − MARGIN_BOTTOM 25 = 272 ; le pied est posé ~280 → bas de page, jamais au milieu.
+    expect(foot.y).toBeGreaterThan(270);
+    expect(calls.some(c => c.s === '__PAGE__')).toBe(false);
+  });
 });
