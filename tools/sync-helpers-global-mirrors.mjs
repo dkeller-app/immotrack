@@ -205,7 +205,7 @@ const PAIRS = [
     src: '__tests__/helpers/montant-doc.js',
     dst: 'js/helpers/montant-doc.global.js',
     globalName: 'MontantDoc',
-    exports: ['NBSP', 'WINANSI_HIGH', 'PDF_UNSAFE_MAP', 'isWinAnsiChar', 'pdfSafeText', 'hasPdfUnsafeChars', 'parseMontant', 'fmtMontantDoc', 'fmtEuroDoc', 'hardenJsPdfText'],
+    exports: ['NBSP', 'WINANSI_HIGH', 'PDF_UNSAFE_MAP', 'isWinAnsiChar', 'pdfSafeText', 'hasPdfUnsafeChars', 'parseMontant', 'fmtMontantDoc', 'fmtEuroDoc', 'hardenJsPdfText', 'nombreEnLettres', 'montantEnLettres'],
   },
   {
     // CDC-QUITTANCES-IRL D26 — moteur d'écriture NATIF partagé des documents émis (fini la

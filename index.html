@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.581</title>
+<title>Propryo v15.582</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.581">
+<link rel="stylesheet" href="css/main.css?v=15.582">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.581</em>
+      <em>v15.582</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4189,7 +4189,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.581';
+const IMMOTRACK_VERSION = '15.582';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -15044,54 +15044,14 @@ function _buildEdlScript(sigsJson) {
 }
 
 // ── numToWords : montant en toutes lettres (FR) ─────────────────────────
+// Délègue à la source unique window.MontantDoc.montantEnLettres (module
+// __tests__/helpers/montant-doc.js, testé Vitest). Ancienne implémentation inline
+// SUPPRIMÉE : elle écrivait 670 « six cent soixante » (manquait « -dix ») → montant
+// en lettres FAUX sur des quittances opposables (art. 21 loi n° 89-462). Voir aussi
+// la copie `nw` du générateur de bail, désormais elle aussi déléguée (DRY).
 function numToWords(n) {
-  if(isNaN(n)||n===''||n===null) return '';
-  n = Math.round(parseFloat(n)*100)/100;
-  if(n<0) return 'moins '+numToWords(-n);
-  const u = ['','un','deux','trois','quatre','cinq','six','sept','huit','neuf',
-             'dix','onze','douze','treize','quatorze','quinze','seize','dix-sept',
-             'dix-huit','dix-neuf'];
-  const d = ['','','vingt','trente','quarante','cinquante','soixante','soixante',
-             'quatre-vingt','quatre-vingt'];
-  function centaines(n) {
-    if(n===0) return '';
-    if(n<20)  return u[n];
-    const di=Math.floor(n/10), un=n%10;
-    if(di===7||di===9) {
-      const sub = numUnder100(10+(di===7?un:un));
-      return d[di]+(un===0&&di!==9?'':'-'+sub);
-    }
-    let r = d[di];
-    if(di===8 && un===0) r += 's';
-    if(un===1 && di!==8) r += '-et-un';
-    else if(un>0) r += '-'+u[un];
-    return r;
-  }
-  function numUnder100(n) { return centaines(n); }
-  function group(n) {
-    const c = Math.floor(n/100), rest = n%100;
-    let r = '';
-    if(c>1) r = u[c]+'-cent'+(rest===0?'s':'');
-    else if(c===1) r = 'cent';
-    if(rest>0) r += (r?' ':'')+centaines(rest);
-    return r;
-  }
-  const euros = Math.floor(n);
-  const cts   = Math.round((n-euros)*100);
-  let res = '';
-  if(euros===0) res='zéro';
-  else {
-    const mill = Math.floor(euros/1000000);
-    const mil  = Math.floor((euros%1000000)/1000);
-    const rem  = euros%1000;
-    if(mill>0) res += (mill===1?'un million':(group(mill)+' millions'))+' ';
-    if(mil>0)  res += (mil===1?'mille':(group(mil)+' mille'))+' ';
-    if(rem>0)  res += group(rem);
-    res = res.trim();
-  }
-  res += euros>1?' euros':' euro';
-  if(cts>0) res += ' et '+centaines(cts)+(cts>1?' centimes':' centime');
-  return res.charAt(0).toUpperCase()+res.slice(1);
+  return (typeof window !== 'undefined' && window.MontantDoc)
+    ? window.MontantDoc.montantEnLettres(n) : '';
 }
 
 // ── IRL correct : dernier trimestre publié avant la date de signature ────
@@ -21001,16 +20961,12 @@ function previewBailData(bail, log, ref, opts) {
   var statut_caution = bail.garant ? 'Ci-inclus (\u00a7\u00a015)' : 'Le cas \u00e9ch\u00e9ant';
 
   /* ── numToWords simplifié pour DG ─────────────────────────── */
+  // Ancienne copie inline SUPPRIM\u00c9E (DRY) : elle ne g\u00e9rait pas 70-79/90-99. Source
+  // unique = window.MontantDoc.nombreEnLettres (m\u00eame moteur que numToWords). Renvoie
+  // '\u2013' pour une entr\u00e9e vide, comme avant ; minuscules (les appelants capitalisent).
   function nw(n) {
-    var units=['','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix',
-      'onze','douze','treize','quatorze','quinze','seize','dix-sept','dix-huit','dix-neuf'];
-    var tens=['','','vingt','trente','quarante','cinquante','soixante','soixante','quatre-vingt','quatre-vingt'];
     if(!n||isNaN(n)) return '\u2013';
-    n=Math.round(parseFloat(n));
-    if(n>=1000){var th=Math.floor(n/1000);return (th===1?'mille':nw(th)+' mille')+(n%1000?' '+nw(n%1000):'');}
-    if(n>=100){var h=Math.floor(n/100);return (h===1?'cent':nw(h)+' cent')+(n%100?' '+nw(n%100):'');}
-    if(n>=20){var t=Math.floor(n/10),u=n%10;var ts=tens[t];if(t===7||t===9)ts=tens[t-1]+'-'+units[10+u];else if(u===1&&t!==8&&t!==9)ts=tens[t]+' et un';else if(u)ts=tens[t]+'-'+units[u];else ts=tens[t]+(t===8?'s':'');return ts;}
-    return units[n];
+    return window.MontantDoc.nombreEnLettres(n);
   }
   var dgLettres = nw(bail.dg)
     ? nw(bail.dg).charAt(0).toUpperCase()+nw(bail.dg).slice(1)+' euros ('+dg+'\u00a0\u20ac)' : dg+'\u00a0\u20ac';
@@ -23367,8 +23323,9 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
       ? 'à terme à échoir (paiement en début de période)'
       : 'à terme échu (paiement en fin de période)',
     'TOTAL_LETTRES': (()=>{
+      // numToWords renvoie déjà « … euros » capitalisé (ne PAS rajouter « euros » → double).
       const tot=Math.round((bail.hc||0)+(bail.ch||0));
-      const w=numToWords(tot); return w ? w.charAt(0).toUpperCase()+w.slice(1)+' euros' : fmtN2(tot)+' €';
+      return numToWords(tot) || (fmtN2(tot)+' €');
     })(),
     // BUG-BAIL-ANNEXES-DUP : signé → locauxPrivatifs legacy inchangé (byte-identique) ; non signé → fusion annexes structurées.
     'LOCAUX_PRIVATIFS': S(_bailSigned(bail) ? (bail.locauxPrivatifs||_lbFill.locauxPrivatifs||'Néant') : _bailLocauxFused(bail,_lbFill)),
@@ -48603,7 +48560,7 @@ Depuis l\u2019ordonnance du 15\u00a0septembre\u00a02021, la recopie manuscrite n
 
 <div class="mention-bloc">
 <strong>Texte mod\u00e8le \u00e0 recopier \u00e0 la main\u00a0:<\/strong>
-\u00ab\u00a0Je soussign\u00e9(e) <strong>${garantNom||'\u2013'}<\/strong>, me porte caution solidaire de <strong>${locNames}<\/strong> pour la location du logement situ\u00e9 <strong>${bail.adrBien||log?.adr||'\u2013'}<\/strong>, moyennant un loyer mensuel de <strong>${loyerLettres}<\/strong> euros (<strong>${fmtN(bail.hc||0)}\u00a0\u20ac<\/strong>) hors charges, r\u00e9visable annuellement selon l\u2019IRL. Je m\u2019engage pour une dur\u00e9e de ${_dureeAns}\u00a0ans \u00e0 compter du ${fd2(bail.debut)}, dans la limite de <strong>${plafondLettres}<\/strong> euros (<strong>${plafondFmt}\u00a0\u20ac<\/strong>) en principal et accessoires. Je renonce express\u00e9ment aux b\u00e9n\u00e9fices de discussion et de division. Lu, approuv\u00e9 et bon pour engagement de caution solidaire.\u00a0\u00bb
+\u00ab\u00a0Je soussign\u00e9(e) <strong>${garantNom||'\u2013'}<\/strong>, me porte caution solidaire de <strong>${locNames}<\/strong> pour la location du logement situ\u00e9 <strong>${bail.adrBien||log?.adr||'\u2013'}<\/strong>, moyennant un loyer mensuel de <strong>${loyerLettres}<\/strong> (<strong>${fmtN(bail.hc||0)}\u00a0\u20ac<\/strong>) hors charges, r\u00e9visable annuellement selon l\u2019IRL. Je m\u2019engage pour une dur\u00e9e de ${_dureeAns}\u00a0ans \u00e0 compter du ${fd2(bail.debut)}, dans la limite de <strong>${plafondLettres}<\/strong> (<strong>${plafondFmt}\u00a0\u20ac<\/strong>) en principal et accessoires. Je renonce express\u00e9ment aux b\u00e9n\u00e9fices de discussion et de division. Lu, approuv\u00e9 et bon pour engagement de caution solidaire.\u00a0\u00bb
 <\/div>
 
 <div style="border:1px dashed #aaa;border-radius:4px;padding:8px 12px;background:#fff;margin:4px 0 10px">

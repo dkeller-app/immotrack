@@ -171,6 +171,121 @@
     return pdf;
   }
 
+  // ─── Montant EN TOUTES LETTRES (FR) ────────────────────────────────────────────
+  //
+  // POURQUOI (bug légal repéré 01/09/2026, smoke éditeur de quittance) :
+  // la quittance F-001 (670,00 €) écrivait « … 670,00 € – Six-cent soixante euros »,
+  // or 670 = « six cent soixante-DIX ». Montant en lettres FAUX de 10 € sur un
+  // document que l'article 21 de la loi n° 89-462 rend OPPOSABLE au bailleur.
+  // Cause : les tableaux de dizaines de `numToWords` (l.15047) ET de sa copie `nw`
+  // (l.21004) ne géraient pas les cas spéciaux 70-79 / 90-99. DRY : une seule
+  // conversion correcte ici, réutilisée par les deux via le mirror window.MontantDoc.
+  //
+  // ORTHOGRAPHE : traditionnelle (pré-1990) — c'est la forme attendue sur les
+  // documents légaux et financiers français (chèques) : espaces autour de
+  // cent/mille, « et un » pour 21/31/41/51/61/71, accords de cent et vingt.
+  //
+  // Règles couvertes : 70 = soixante-dix, 71 = soixante et onze, 80 = quatre-vingts
+  // (s final), 81 = quatre-vingt-un (ni « et » ni s), 90 = quatre-vingt-dix,
+  // 91 = quatre-vingt-onze, 100 = cent (invariable), 200 = deux cents, 201 = deux
+  // cent un, 1000 = mille (invariable, jamais « un mille »), « cent »/« vingt »
+  // perdent leur s devant « mille » mais le gardent devant « million(s) ».
+
+  const _LET_UNITES = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf',
+    'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+  const _LET_DIZAINES = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante'];
+
+  /**
+   * 0..99 en lettres. `finalVingtSansS` : true quand le groupe est suivi de « mille »
+   * → « quatre-vingt » perd son s (quatre-vingt mille, et non quatre-vingts mille).
+   */
+  function _sousCent(n, finalVingtSansS) {
+    if (n < 20) return _LET_UNITES[n];
+    const d = Math.floor(n / 10), u = n % 10;
+    if (d === 7 || d === 9) {
+      // 70-79 : soixante-… ; 90-99 : quatre-vingt-… (base + 10..19)
+      if (d === 7 && u === 1) return 'soixante et onze';        // 71 : seul « et » de la plage
+      const base = d === 7 ? 'soixante' : 'quatre-vingt';
+      return base + '-' + _LET_UNITES[10 + u];
+    }
+    if (d === 8) {
+      if (u === 0) return finalVingtSansS ? 'quatre-vingt' : 'quatre-vingts'; // 80
+      return 'quatre-vingt-' + _LET_UNITES[u];                   // 81-89 : sans « et », sans s
+    }
+    const diz = _LET_DIZAINES[d];
+    if (u === 0) return diz;
+    if (u === 1) return diz + ' et un';                          // 21/31/41/51/61
+    return diz + '-' + _LET_UNITES[u];
+  }
+
+  /**
+   * 0..999 en lettres. `avantMille` : true si le groupe est suivi de « mille » (numéral
+   * invariable) → cent et quatre-vingt perdent leur s ; devant « million(s) »/« milliard(s) »
+   * (noms), passer false pour garder l'accord (deux cents millions).
+   */
+  function _troisChiffres(n, avantMille) {
+    if (n === 0) return '';
+    const c = Math.floor(n / 100), r = n % 100;
+    let mot = '';
+    if (c === 1) mot = 'cent';
+    else if (c > 1) mot = _LET_UNITES[c] + ' cent' + (r === 0 && !avantMille ? 's' : '');
+    if (r > 0) mot += (mot ? ' ' : '') + _sousCent(r, avantMille);
+    return mot;
+  }
+
+  /**
+   * Entier ≥ 0 en toutes lettres (FR traditionnel), 0..999 999 999 999.
+   * Ex. 670 → « six cent soixante-dix », 1671 → « mille six cent soixante et onze ».
+   */
+  function _entierEnLettres(n) {
+    n = Math.floor(Math.abs(n));
+    if (n === 0) return 'zéro';
+    const md = Math.floor(n / 1e9);
+    const mi = Math.floor((n % 1e9) / 1e6);
+    const ml = Math.floor((n % 1e6) / 1000);
+    const r = n % 1000;
+    const parts = [];
+    if (md > 0) parts.push(_troisChiffres(md, false) + ' milliard' + (md > 1 ? 's' : ''));
+    if (mi > 0) parts.push(_troisChiffres(mi, false) + ' million' + (mi > 1 ? 's' : ''));
+    if (ml > 0) parts.push(ml === 1 ? 'mille' : _troisChiffres(ml, true) + ' mille');
+    if (r > 0) parts.push(_troisChiffres(r, false));
+    return parts.join(' ');
+  }
+
+  /**
+   * Entier en toutes lettres, tolérant à l'entrée (chaîne, décimale arrondie).
+   * Renvoie '' pour null/undefined/''/NaN. Résultat en minuscules (l'appelant
+   * capitalise selon le contexte de phrase). Remplace l'ancienne fonction `nw`.
+   * @param {number|string|null} n
+   * @returns {string}
+   */
+  function nombreEnLettres(n) {
+    if (n === '' || n === null || n === undefined) return '';
+    const v = parseMontant(n);
+    if (isNaN(v)) return '';
+    return _entierEnLettres(Math.round(v));
+  }
+
+  /**
+   * Montant en toutes lettres au format légal : « X euro(s) [et Y centime(s)] »,
+   * première lettre capitalisée. Remplace l'ancienne fonction `numToWords`
+   * (même contrat : suffixe « euro »/« euros » inclus, '' si entrée vide/NaN).
+   * @param {number|string|null} n  montant en euros (décimales = centimes)
+   * @returns {string}
+   */
+  function montantEnLettres(n) {
+    if (n === '' || n === null || n === undefined) return '';
+    const v = parseMontant(n);
+    if (isNaN(v)) return '';
+    if (v < 0) return 'moins ' + montantEnLettres(-v);
+    const cents = Math.round(v * 100);
+    const euros = Math.floor(cents / 100);
+    const cts = cents % 100;
+    let res = _entierEnLettres(euros) + (euros > 1 ? ' euros' : ' euro');
+    if (cts > 0) res += ' et ' + _entierEnLettres(cts) + (cts > 1 ? ' centimes' : ' centime');
+    return res.charAt(0).toUpperCase() + res.slice(1);
+  }
+
   // ─── EXPORT GLOBAL ───────────────────────────────────────────────
   global.MontantDoc = {
     NBSP: NBSP,
@@ -182,6 +297,8 @@
     parseMontant: parseMontant,
     fmtMontantDoc: fmtMontantDoc,
     fmtEuroDoc: fmtEuroDoc,
-    hardenJsPdfText: hardenJsPdfText
+    hardenJsPdfText: hardenJsPdfText,
+    nombreEnLettres: nombreEnLettres,
+    montantEnLettres: montantEnLettres
   };
 })(typeof window !== 'undefined' ? window : globalThis);
