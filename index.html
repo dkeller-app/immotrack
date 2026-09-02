@@ -3567,23 +3567,28 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   border-bottom:1px solid var(--bor);flex:none}
 .qd-top .bk{background:none;border:0;color:var(--t3);font-size:14px;cursor:pointer;padding:2px 4px}
 .qd-top h3{font-family:var(--display);font-weight:800;font-size:14.5px;margin:0}
-.qd-top .who{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.qd-top .who{margin-left:auto;text-align:right;min-width:0;max-width:64%;overflow:hidden;line-height:1.15}
 .qd-top .x{margin-left:auto;background:none;border:0;color:var(--t3);font-size:16px;cursor:pointer;line-height:1}
 .qd-body{flex:1;display:flex;min-height:0}
 .qd-rail{width:272px;flex:none;border-right:1px solid var(--bor);background:var(--sur);
   display:flex;flex-direction:column;min-height:0}
-.qd-lot{padding:10px 12px;border-bottom:1px solid var(--bor)}
-.qd-lot .rf{display:block;font:800 13px var(--display);color:var(--t1)}
-.qd-lot .lo{display:block;font-size:11.5px;color:var(--t2);margin-top:1px}
-.qd-lot .ct{display:block;font-size:10.5px;color:var(--t3);margin-top:1px}
-.qd-lot .chg{margin-top:7px;display:inline-flex;align-items:center;gap:6px;font:600 11px var(--font);
-  color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rp);
-  padding:3px 10px;cursor:pointer}
-.qd-lot .chg:hover{border-color:var(--acc);color:var(--acc)}
-.qd-an{display:flex;gap:3px;padding:8px 12px 4px;flex:none;flex-wrap:wrap}
-.qd-an button{flex:1;min-width:52px;border:1px solid var(--bor);background:var(--sur2);color:var(--t2);
-  font:700 11.5px var(--font);border-radius:var(--rp);padding:4px 0;cursor:pointer}
-.qd-an button.on{background:var(--t1);border-color:var(--t1);color:var(--sur)}
+/* En-tête : le lot À DROITE de « Quittance » (fini le bloc .qd-lot en doublon). */
+.qd-top .wrf{display:block;font:800 12.5px var(--display);color:var(--t1)}
+.qd-top .wlo{display:block;font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Ligne d'actions : « Changer de lot » à gauche, année (déroulant) à droite. */
+.qd-act{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bor);flex:none}
+.chg{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--font);color:var(--t2);
+  background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rp);padding:6px 12px;cursor:pointer;white-space:nowrap}
+.chg:hover{border-color:var(--acc);color:var(--acc)}
+.qd-yr{margin-left:auto;position:relative}
+.qd-yrbtn{font-weight:700}
+.qd-yrlist{position:absolute;right:0;top:calc(100% + 4px);z-index:10;background:var(--sur);border:1px solid var(--bor);
+  border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);overflow:hidden;min-width:92px}
+.qd-yrlist.hidden{display:none}
+.qd-yrlist button{display:block;width:100%;text-align:right;border:0;background:none;color:var(--t2);
+  padding:9px 14px;font:600 13px var(--font);cursor:pointer}
+.qd-yrlist button:hover{background:var(--sur2)}
+.qd-yrlist button.on{color:var(--acc);font-weight:800}
 /* D27 — DÉFAUT (PC + tablette) : la LISTE, comme avant. (Retour Didier : les bulles n'étaient
    demandées que sur TÉLÉPHONE, pour une question de place. Sur PC on garde la vue d'avant.)
    Une seule structure de rendu ; c'est le CSS qui replie en bulles sous 600 px (bloc plus bas). */
@@ -3595,6 +3600,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 .qd-m .bx{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--bor);background:var(--sur);
   font-size:9px;color:transparent;display:flex;align-items:center;justify-content:center;flex:none}
 .qd-m .nm{font-size:12px;font-weight:700;color:var(--t1);line-height:1.2}
+.qd-m .nmab{display:none}   /* abréviation : téléphone seulement (bulle) */
 .qd-m .st{display:block;font-size:9.5px;font-weight:500;color:var(--t3);line-height:1.25;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qd-m .am{font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -3615,16 +3621,17 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 /* TÉLÉPHONE (≤ 600 px) — les mois passent en BULLES qui s'enroulent (place). Le point coloré
    porte l'état, et l'état en toutes lettres + le montant du mois choisi passent dans .qd-selmo. */
 @media (max-width:600px){
-  .qd-mois{display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px 2px;max-height:132px}
-  .qd-m{display:inline-flex;grid-template-columns:none;align-items:center;gap:6px;width:auto;
-    border:1px solid var(--bor);background:var(--sur);border-radius:999px;padding:6px 12px;
-    font:600 12px var(--font);line-height:1;white-space:nowrap;min-height:0}
+  .qd-mois{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;padding:8px 10px 2px}
+  .qd-m{display:flex;justify-content:center;align-items:center;gap:4px;width:auto;min-width:0;
+    border:1px solid var(--bor);background:var(--sur);border-radius:999px;padding:6px 2px;
+    font:600 11.5px var(--font);line-height:1;white-space:nowrap;min-height:0}
   .qd-m:hover{background:var(--sur);border-color:var(--acc)}
   .qd-m .bx{width:7px;height:7px;border-radius:50%;background:var(--t3);border:0}
   .qd-m.ok .bx{background:var(--acc)}
   .qd-m.done .bx{background:var(--pos)}
   .qd-m.no .bx{background:var(--neg)}
-  .qd-m .st,.qd-m .am{display:none}
+  .qd-m .nm,.qd-m .st,.qd-m .am{display:none}
+  .qd-m .nmab{display:inline}
   .qd-m.sel{background:var(--acc);border-color:var(--acc);color:#fff}
   .qd-m.sel .bx{background:#fff}
   .qd-selmo{display:flex;align-items:baseline;gap:9px;margin:8px 10px 0;padding:10px 0 2px;
@@ -3635,12 +3642,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   .qd-selmo .st.done{color:var(--pos)}
   .qd-selmo .st.no{color:var(--neg)}
   .qd-selmo .am{margin-left:auto;font-weight:800;color:var(--t1);font-variant-numeric:tabular-nums}
-  /* Compact téléphone (retour Didier « c'est gros pâteux ») — on resserre bulles, détail, bandeau. */
-  .qd-m{padding:5px 11px;font-size:11.5px}
-  /* L'année en CHIP compact aligné à gauche, plus une grosse barre pleine largeur. */
-  .qd-an{padding:6px 10px 2px;justify-content:flex-start}
-  .qd-an button{flex:0 1 auto;min-width:0;padding:4px 16px;font-size:12px}
-  .qd-lot{padding:7px 10px}
+  .qd-act{padding:7px 10px}
   .qd-selmo{font-size:11px;margin:6px 10px 0;padding:8px 0 2px}
   .qd-selmo b{font-size:12px}
   .q-warn{font-size:11px;padding:8px 10px;gap:7px;line-height:1.4;margin-bottom:8px}
@@ -3657,6 +3659,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 .qd-foot .rec{font-size:11.5px;color:var(--t2)}
 .qd-foot .rec b{color:var(--t1);font-weight:800}
 .qd-foot .sp{flex:1;min-width:4px}
+/* Le bouton « Éditer » NE GROSSIT JAMAIS avec le mois (retour Didier) : taille bornée, on
+   TRONQUE le libellé (« …de sept… ») plutôt que d'élargir le bouton ou de le faire passer à la ligne. */
+.qd-foot .btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* PC/tablette : largeur FIXE (ne grossit jamais avec le mois ; tronque au besoin). Sur téléphone,
+   le pied passe en flex:2 (proportion constante) plus bas — même effet « taille stable ». */
+.qd-foot .btn.bp{flex:0 0 auto;width:280px;max-width:280px}
 /* D27 (retour Didier) — l'alerte NON BLOQUANTE : elle explique et propose une porte de sortie,
    mais ne grise JAMAIS le bouton et ne demande PLUS de case à cocher (« on met une alerte mais
    on laisse libre »). */
@@ -26152,6 +26160,8 @@ function printRegulDoc() {
 <script>
 // =================== QUITTANCES ===================
 const MOIS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+// Abréviations courtes (éditeur quittance téléphone : janv→déc sur 2 lignes de 6 bulles).
+const MOIS_ABBR = ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
 
 // CDC-QUITTANCES-IRL C5/D1 — la bascule cartes/tableau de l'onglet « Quittances » disparaît
 // avec lui. `_QUIT_STATUT_STYLE` reste : les alertes de l'Accueil s'en servent encore.
@@ -28286,6 +28296,8 @@ function _qeChoisirMois(ym) {
   try { const b = document.querySelector('.qd-mois .qd-m.sel'); if (b) b.focus(); } catch (e) {}
 }
 function _qeTogglePick() { _qe.pick = !_qe.pick; _qe.filtre = ''; _qeRender(); }
+/** Ouvre/ferme la liste des années (déroulant compact, à droite de « Changer de lot »). */
+function _qeToggleYear() { const l = el('qd-yrlist'); if (l) l.classList.toggle('hidden'); }
 function _qeFiltre(v) { _qe.filtre = String(v || ''); _qeRenderPick(); }
 function _qeChoisirLot(ref) { _qe.libre = false; _qe.saisie = null; _qeSetLot(ref); _qeRender(); }
 function _qeFermer() { closeM('ov-quit-editeur'); if (typeof rLoyers === 'function' && currentPage === 'loyers') rLoyers(); }
@@ -28338,22 +28350,22 @@ function _qeRender() {
   const libre = _qe.libre;
   const log = libre ? null : (DB.logements || []).find(l => l.ref === _qe.ref);
   const bail = libre ? null : _findBailByRefTolerant(_qe.ref);
-  const titreLot = libre
-    ? `<div class="qd-lot"><span class="rf">Saisie libre</span>
-        <span class="lo">aucun bail requis — tout se remplit sur la feuille</span>
-        <button class="chg" onclick="_qeTogglePick()">Partir d'un logement existant ▾</button></div>`
-    : `<div class="qd-lot"><span class="rf">${escHtml(_qe.ref || '')}</span>
-        <span class="lo">${escHtml((log && log.locataire) || '— vacant —')}</span>
-        <span class="ct">${escHtml((log && log.imm) || 'sans immeuble')} · ${escHtml((bail && bail.entity) || (log && log.entity) || 'sans bailleur')}</span>
-        <button class="chg" onclick="_qeTogglePick()">Changer de lot ▾</button></div>`;
-
-  let rail = titreLot;
-  if (!libre) {
+  // Ligne d'ACTIONS : « Changer de lot » à gauche, année (déroulant compact) à droite. Le lot
+  // lui-même vit dans l'en-tête (fini le doublon). En libre : « Partir d'un logement existant ».
+  let rail;
+  if (libre) {
+    rail = `<div class="qd-act"><button class="chg" onclick="_qeTogglePick()">Partir d'un logement existant ▾</button></div>`;
+  } else {
     const etat = _loyerEtatLot(_qe.ref);
     const deja = _qeDeja(_qe.ref);
     const annees = window.anneesDisponibles(etat, deja.yms);
-    rail += `<div class="qd-an">${annees.map(a =>
-      `<button class="${a === String(_qe.an) ? 'on' : ''}" onclick="_qeSetAn('${a}')">${a}</button>`).join('')}</div>`;
+    rail = `<div class="qd-act">
+      <button class="chg" onclick="_qeTogglePick()">Changer de lot ▾</button>
+      <div class="qd-yr">
+        <button class="chg qd-yrbtn" onclick="_qeToggleYear()">${escHtml(String(_qe.an))} ▾</button>
+        <div class="qd-yrlist hidden" id="qd-yrlist">${annees.map(a =>
+          `<button class="${a === String(_qe.an) ? 'on' : ''}" onclick="_qeSetAn('${a}')">${a}</button>`).join('')}</div>
+      </div></div>`;
     // D27 — mois en BULLES, et les mois À VENIR (non couverts) masqués : on ne quittance pas un
     // mois pas encore arrivé (le mois EN COURS reste, même non soldé). Le mois choisi ne pointe
     // jamais sur un mois masqué : on retombe sur le dernier visible.
@@ -28367,14 +28379,17 @@ function _qeRender() {
       const on = _qe.ym === m.ym;
       const meta = _qeMeta(_qe.ref, m.ym);
       const et = window.etiquetteSansPaiement(meta, fd);
+      const nom = m.nom.charAt(0).toUpperCase() + m.nom.slice(1);
+      const _mi = parseInt(String(m.ym).slice(5, 7), 10) - 1;
+      const ab = (typeof MOIS_ABBR !== 'undefined' && MOIS_ABBR[_mi]) ? MOIS_ABBR[_mi] : nom.slice(0, 4);
       const st = m.etat === 'done' ? ('éditée le ' + (m.editeeLe ? fd(m.editeeLe) : '—'))
         : m.etat === 'ok' ? 'soldé — à quittancer'
         : m.etat === 'no' ? ('reste ' + fmt(m.reste)) : 'hors bail';
-      // Une seule structure : sur PC/tablette elle s'affiche en LISTE (état + montant par ligne),
-      // sur téléphone le CSS la replie en BULLE (point + nom) et déporte état/montant vers .qd-selmo.
+      // Une seule structure : LISTE sur PC/tablette (nom complet + état + montant), BULLE sur
+      // téléphone (point + abréviation .nmab ; état/montant déportés dans .qd-selmo).
       return `<button class="qd-m ${m.etat}${on ? ' sel' : ''}" role="radio" aria-checked="${on ? 'true' : 'false'}" ${m.etat === 'off' ? 'disabled' : `onclick="_qeChoisirMois('${m.ym}')"`}${et.visible ? ` title="${escHtml(et.survol)}"` : ''}>
         <span class="bx"></span>
-        <span><span class="nm">${escHtml(m.nom.charAt(0).toUpperCase() + m.nom.slice(1))}</span>
+        <span class="lbl"><span class="nm">${escHtml(nom)}</span><span class="nmab">${escHtml(ab)}</span>
         <span class="st">${escHtml(st)}${et.visible ? ' · ' + escHtml(et.libelle) : ''}</span></span>
         <span class="am">${fmt(m.du)}</span></button>`;
     }).join('')}</div>`;
@@ -28394,8 +28409,10 @@ function _qeRender() {
 
   root.innerHTML = `<div class="qd-top">
       <button class="bk" onclick="_qeFermer()" title="Revenir">‹</button>
-      <h3>Quittance de loyer</h3>
-      <span class="who">${libre ? 'saisie libre' : escHtml(_qe.ref || '') + ' · ' + escHtml((log && log.locataire) || '—')}</span>
+      <h3>Quittance</h3>
+      <div class="who">${libre
+        ? `<span class="wlo">saisie libre</span>`
+        : `<span class="wrf">${escHtml(_qe.ref || '')}</span><span class="wlo">${escHtml((log && log.locataire) || '— vacant —')} · ${escHtml((bail && bail.entity) || (log && log.entity) || '—')}</span>`}</div>
       <button class="x" onclick="_qeFermer()" title="Fermer">✕</button></div>
     <div class="qd-body">
       <div class="qd-rail">${rail}</div>

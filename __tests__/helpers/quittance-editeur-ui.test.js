@@ -33,9 +33,20 @@ describe('V6 — on ouvre LE DOCUMENT, pas un formulaire', () => {
     expect(has('const built = _buildQuittanceHtml(q, log, ent, bail);')).toBe(true);
     expect(has('const du = _duMoisLot(_qe.ref, m.ym);')).toBe(true);
   });
-  it('le rail ne porte que le mois (et l\'année), aucun autre champ de saisie', () => {
+  it('le rail = les mois + la ligne d\'action (changer-lot + année déroulante), aucun champ de saisie', () => {
     expect(has('class="qd-mois"')).toBe(true);
-    expect(has('class="qd-an"')).toBe(true);
+    expect(has('class="qd-act"')).toBe(true);        // ligne « Changer de lot » + année
+    expect(has('onclick="_qeToggleYear()"')).toBe(true);  // année en menu déroulant compact
+  });
+  it("Retour Didier — en-tête « Quittance » + lot à droite (plus « de loyer », plus de doublon de lot)", () => {
+    expect(has('<h3>Quittance</h3>')).toBe(true);
+    expect(SRC.includes('<h3>Quittance de loyer</h3>')).toBe(false);
+    expect(has('class="wrf"')).toBe(true);                 // le lot vit dans l'en-tête
+    expect(SRC.includes('class="qd-lot"')).toBe(false);    // fini le bloc lot en doublon
+  });
+  it("Retour Didier — le bouton « Éditer » ne grossit jamais (tronque le mois, jamais le bouton)", () => {
+    expect(has('.qd-foot .btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}')).toBe(true);
+    expect(has('.qd-foot .btn.bp{flex:0 0 auto;width:280px;max-width:280px}')).toBe(true);
   });
 });
 
@@ -181,7 +192,7 @@ describe('D27 — un lot, un mois, un document ; aucune impasse', () => {
     expect(has('.qd-selmo{display:none}')).toBe(true);                 // pas de ligne de détail sur la liste
     // sous 600 px : bulles qui s'enroulent + ligne de détail montrée
     expect(has('@media (max-width:600px)')).toBe(true);
-    expect(has('.qd-mois{display:flex;flex-wrap:wrap')).toBe(true);    // (dans la media query téléphone)
+    expect(has('.qd-mois{display:grid;grid-template-columns:repeat(6,1fr)')).toBe(true);  // bulles 6×2 sur téléphone
     expect(has('class="qd-selmo"')).toBe(true);
     expect(SRC.includes('<span class="bx">✓</span>')).toBe(false);    // la case de liste a disparu
     expect(SRC.includes('grid-auto-flow:column')).toBe(false);        // plus de carrousel horizontal
