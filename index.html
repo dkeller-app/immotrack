@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.583</title>
+<title>Propryo v15.584</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.583">
+<link rel="stylesheet" href="css/main.css?v=15.584">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.583</em>
+      <em>v15.584</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -3556,7 +3556,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <div class="qd" id="qd-root"></div>
 </div>
 <style>
-#ov-quit-editeur{padding:0;align-items:stretch;justify-content:stretch;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}
+/* z-index AU-DESSUS de la barre du bas (v4-bnav z:999) : sinon le pied de l'éditeur — donc le
+   bouton « Éditer » — passe DERRIÈRE la barre et devient invisible sur téléphone (retour Didier). */
+#ov-quit-editeur{padding:0;align-items:stretch;justify-content:stretch;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none;z-index:1000}
+#ov-quit-preview{z-index:1001}
 .qd{position:relative;flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg);
   font-family:var(--font);color:var(--t1);container-type:inline-size}
 .qd *{box-sizing:border-box}
@@ -3632,6 +3635,20 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   .qd-selmo .st.done{color:var(--pos)}
   .qd-selmo .st.no{color:var(--neg)}
   .qd-selmo .am{margin-left:auto;font-weight:800;color:var(--t1);font-variant-numeric:tabular-nums}
+  /* Compact téléphone (retour Didier « c'est gros pâteux ») — on resserre bulles, détail, bandeau. */
+  .qd-m{padding:5px 11px;font-size:11.5px}
+  /* L'année en CHIP compact aligné à gauche, plus une grosse barre pleine largeur. */
+  .qd-an{padding:6px 10px 2px;justify-content:flex-start}
+  .qd-an button{flex:0 1 auto;min-width:0;padding:4px 16px;font-size:12px}
+  .qd-lot{padding:7px 10px}
+  .qd-selmo{font-size:11px;margin:6px 10px 0;padding:8px 0 2px}
+  .qd-selmo b{font-size:12px}
+  .q-warn{font-size:11px;padding:8px 10px;gap:7px;line-height:1.4;margin-bottom:8px}
+  .q-warn .ic{font-size:13px}
+  .q-warn .act{margin-top:6px}
+  .q-warn .act .btn{padding:6px 10px;font-size:11.5px;min-height:0}
+  /* Le détail du mois (.qd-selmo) suffit au-dessus — le compteur du pied ferait doublon. */
+  .qd-foot .rec{display:none}
 }
 .qd-doc{flex:1;overflow-y:auto;padding:14px 16px 18px;min-width:0;display:flex;flex-direction:column;gap:10px}
 .qd-doc iframe{width:100%;flex:1;min-height:420px;border:1px solid var(--bor);border-radius:var(--rl);background:#fff}
@@ -4189,7 +4206,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.583';
+const IMMOTRACK_VERSION = '15.584';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -28403,18 +28420,18 @@ function _qeRenderDoc() {
     // et demande une confirmation explicite. Fondement : l'article 21 de la loi du 6 juillet
     // 1989 fait de la quittance un REÇU — remise à un locataire qui n'a pas payé, elle vaut
     // preuve de paiement CONTRE le bailleur.
-    const noms = v.risques.map(m => `${escHtml(m.mois)} (${m.etat === 'fut' ? 'à venir, non couvert' : 'reste ' + fmt(m.reste)})`).join(', ');
     const premier = v.risques[0];
+    const resteStr = premier.etat === 'fut' ? 'à venir, non couvert' : 'reste ' + fmt(premier.reste);
+    // Bandeau COMPACT (retour Didier : « un demi écran pour des infos peu utiles ») — l'essentiel,
+    // sans répéter le mois ni le laïus juridique. Le fond légal reste sur le document lui-même.
     warn = `<div class="q-warn w"><span class="ic">⚠</span><div>
-      <b>${escHtml(premier.mois)} n’est pas soldé</b> — ${noms}.
-      Une quittance atteste que le loyer <b>a été payé</b> : remise au locataire, elle vaut reçu et éteint
-      la dette du mois. Le document sortira <b>sans</b> ligne « payé le », et l'app la marque
-      <b>« sans paiement constaté »</b> (dans l'app seulement). <b>Tu peux l'éditer quand même.</b>
+      <b>${escHtml(premier.mois)} non soldé</b> · ${resteStr}. <b>Tu peux l'éditer quand même</b> : la
+      quittance sort <b>sans « payé le »</b>, marquée « sans paiement constaté » en interne.
       <div class="act">
         ${_qeAPaiement(premier.ym)
-          ? `<button class="btn bs bb" onclick="_qeRecuPartiel('${premier.ym}')">Émettre un reçu de paiement partiel à la place</button>`
+          ? `<button class="btn bs bb" onclick="_qeRecuPartiel('${premier.ym}')" title="Émettre un reçu de paiement partiel à la place">Reçu partiel</button>`
           : ''}
-        ${premier.etat === 'fut' ? '' : `<button class="btn bs bb" onclick="_qeEnregistrerPaiement()">Enregistrer le paiement d'abord</button>`}
+        ${premier.etat === 'fut' ? '' : `<button class="btn bs bb" onclick="_qeEnregistrerPaiement()">Enregistrer le paiement</button>`}
       </div>
     </div></div>`;
   } else if (v.reedits.length) {

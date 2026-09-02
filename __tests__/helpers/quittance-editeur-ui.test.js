@@ -69,7 +69,7 @@ describe('V7/D27 — l\'alerte est un bandeau NON BLOQUANT, JAMAIS un verrou ni 
     expect(SRC.includes('_qeSetConfirme')).toBe(false);
     expect(SRC.includes('_qe.confirme')).toBe(false);
     // le bandeau rassure au lieu de bloquer, et dit que l'app marque « sans paiement constaté »
-    expect(has('Tu peux l\'éditer quand même.')).toBe(true);
+    expect(has('Tu peux l\'éditer quand même')).toBe(true);
     expect(has('sans paiement constaté')).toBe(true);
   });
   it('AUCUNE règle ne grise le bouton : seule une saisie sans mois le désactive', () => {
