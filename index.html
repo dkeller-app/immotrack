@@ -28442,7 +28442,7 @@ function _qeRenderDoc() {
     // Bandeau COMPACT (retour Didier : « un demi écran pour des infos peu utiles ») — l'essentiel,
     // sans répéter le mois ni le laïus juridique. Le fond légal reste sur le document lui-même.
     warn = `<div class="q-warn w"><span class="ic">⚠</span><div>
-      <b>${escHtml(premier.mois)} non soldé</b> · ${resteStr}. <b>Tu peux l'éditer quand même</b> : la
+      <b>${escHtml(premier.mois)} non soldé</b> · ${resteStr}. <b>Édition possible quand même</b> : la
       quittance sort <b>sans « payé le »</b>, marquée « sans paiement constaté » en interne.
       <div class="act">
         ${_qeAPaiement(premier.ym)
@@ -28467,8 +28467,8 @@ function _qeRenderDoc() {
     // état légitime — on le dit clairement au lieu d'inviter à cliquer une bulle inexistante.
     const rienAQuittancer = !rail.some(x => x.etat !== 'off' && x.etat !== 'fut');
     host.innerHTML = warn + `<div class="q-warn i"><span class="ic">📄</span><div>${rienAQuittancer
-      ? `<b>Aucun mois à quittancer pour ce bail sur ${escHtml(String(_qe.an))}.</b> Change d'année ci-dessus — ou ce bail commence plus tard.`
-      : `Choisis un mois dans le rail pour voir la quittance. Le document est regénéré depuis le
+      ? `<b>Aucun mois à quittancer pour ce bail sur ${escHtml(String(_qe.an))}.</b> Changer d'année ci-dessus — ou ce bail commence plus tard.`
+      : `Choisir un mois pour voir la quittance. Le document est regénéré depuis le
       <b>barème de ce mois</b> — jamais depuis le loyer d'aujourd'hui.`}</div></div>`;
     return;
   }
@@ -28576,7 +28576,7 @@ function _qeFootBtn() {
     // D27 (retour Didier) — AUCUNE règle ne grise le bouton : un mois non soldé s'édite librement,
     // l'app se contente d'avertir (« on met une alerte mais on laisse libre »). Seul un écran sans
     // mois choisi le désactive — et il ne peut pas rester sans mois (sélection unique).
-    if (!v.nbDocs) { off = true; why = 'Choisis un mois'; }
+    if (!v.nbDocs) { off = true; why = 'Choisir un mois'; }
   }
   btn.disabled = off;
   btn.style.opacity = off ? '.5' : '';
