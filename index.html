@@ -1920,6 +1920,49 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         </div>
       </div>
     </div>
+      <!-- CHANTIER BAIL-GARAGE — section propre au bail garage/box/stockage (droit commun).
+           Affichée uniquement pour type==='garage' (via onBailTypeChange → _toggleGarageSection). -->
+      <div id="b-garage-section" style="display:none;margin-top:16px;padding:14px;background:#f4f6f9;border:1px solid #dbe2ea;border-radius:6px">
+        <div style="font-weight:700;margin-bottom:10px">🚗 Emplacement (garage / parking / box — Code civil, droit commun)</div>
+        <div class="fg">
+          <label>Nature de l'emplacement *</label>
+          <select class="inp" id="b-emplNature">
+            <option value="place">Place de stationnement (numérotée, non fermée)</option>
+            <option value="box" selected>Box fermé (surface + serrure)</option>
+            <option value="stockage">Local de stockage / de rangement</option>
+          </select>
+        </div>
+        <div class="fg2">
+          <div class="fg"><label>N° d'emplacement / box</label><input class="inp" id="b-emplNum" placeholder="12"></div>
+          <div class="fg"><label>Surface (m²)</label><input class="inp" id="b-emplSurface" placeholder="12"></div>
+        </div>
+        <div class="fg2">
+          <div class="fg"><label>Niveau / localisation</label><input class="inp" id="b-emplNiveau" placeholder="au niveau −1, parking souterrain"></div>
+          <div class="fg"><label>Durée <span class="mu sm">(libre)</span></label><input class="inp" id="b-dureeGarage" placeholder="1 (un) an, reconductible"></div>
+        </div>
+        <div class="fg"><label>Descriptif de l'emplacement</label><input class="inp" id="b-emplDesc" placeholder="porte basculante avec serrure, point lumineux, prise électrique"></div>
+        <div class="fg2">
+          <div class="fg"><label>Préavis de résiliation</label><input class="inp" id="b-preavisGarage" placeholder="un (1) mois"></div>
+          <div class="fg"></div>
+        </div>
+        <div class="fg" style="margin-top:4px">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;font-size:13px">
+            <input type="checkbox" id="b-garageIndexActive" onchange="_garageToggleIndex()"> Ajouter une clause d'indexation annuelle <span class="mu sm">(sinon loyer fixe)</span>
+          </label>
+        </div>
+        <div class="fg2" id="b-garageIndexRow" style="display:none">
+          <div class="fg"><label>Indice d'indexation</label>
+            <select class="inp" id="b-garageIndex"><option>ICC</option><option>ILC</option><option>ILAT</option></select>
+            <span class="mu sm">ICC = coût de la construction (recommandé, art. L112-2 CMF). IRL exclu (indice logement → clause nulle sur un garage).</span>
+          </div>
+          <div class="fg"><label>Indice de base (trimestre)</label><input class="inp" id="b-garageIndexBase" placeholder="T2 2026"></div>
+        </div>
+        <div class="fg" style="margin-top:4px">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;font-size:13px">
+            <input type="checkbox" id="b-erpZoneRisque"> Emplacement en zone à risque (PPR / séisme / radon) — joindre l'état des risques (ERP)
+          </label>
+        </div>
+      </div>
       <!-- Section : diagnostics (hérités du logement, lecture seule) — v15.249 B7 (D-B13).
            DPE/GES/plomb/amiante/élec/gaz/bruit/ERP/dpeDate viennent du bien via _readLogForBail
            et sont verrouillés par _makeBailBienTabReadOnly(). « Date diagnostic » (b-diag) et
@@ -15724,6 +15767,19 @@ function openBailHist(i) {
   if(el('b-mob-entretien'))  el('b-mob-entretien').checked  = !!_mobH.entretien;
   if(el('b-mob-details'))    el('b-mob-details').value      = _mobH.details || '';
   try { _toggleMobilierSection(b.type || 'nu'); } catch(e) {}
+  // CHANTIER BAIL-GARAGE — champs emplacement
+  if(el('b-emplNature'))   el('b-emplNature').value   = b.natureEmplacement || 'box';
+  if(el('b-emplNum'))      el('b-emplNum').value       = b.emplNum || '';
+  if(el('b-emplSurface'))  el('b-emplSurface').value   = b.emplSurface || '';
+  if(el('b-emplNiveau'))   el('b-emplNiveau').value    = b.emplNiveau || '';
+  if(el('b-emplDesc'))     el('b-emplDesc').value      = b.emplDesc || '';
+  if(el('b-dureeGarage'))  el('b-dureeGarage').value   = b.dureeGarageText || '';
+  if(el('b-preavisGarage'))el('b-preavisGarage').value = b.preavisGarage || '';
+  if(el('b-garageIndexActive')) el('b-garageIndexActive').checked = !!b.garageIndexActive;
+  if(el('b-garageIndex'))  el('b-garageIndex').value    = b.garageIndex || 'ICC';
+  if(el('b-garageIndexBase')) el('b-garageIndexBase').value = b.garageIndexBase || '';
+  if(el('b-erpZoneRisque')) el('b-erpZoneRisque').checked = !!b.erpZoneRisque;
+  try { _toggleGarageSection(b.type || 'nu'); } catch(e) {}
   if(el('b-typeContrat')) el('b-typeContrat').value = b.typeContrat||'initial';
   if(el('b-modalitePaiement')) el('b-modalitePaiement').value = b.modalitePaiement||'echeoir';
   el('b-hc').value = b.hc||''; el('b-ch').value = b.ch||''; el('b-dg').value = b.dg||'';
@@ -17805,6 +17861,19 @@ function openBail(ref, opts) {
   if(el('b-mob-entretien'))  el('b-mob-entretien').checked  = !!_mob.entretien;
   if(el('b-mob-details'))    el('b-mob-details').value      = _mob.details || '';
   try { _toggleMobilierSection(bail.type || 'nu'); } catch(e) {}
+  // CHANTIER BAIL-GARAGE — champs emplacement
+  if(el('b-emplNature'))   el('b-emplNature').value   = bail.natureEmplacement || 'box';
+  if(el('b-emplNum'))      el('b-emplNum').value       = bail.emplNum || '';
+  if(el('b-emplSurface'))  el('b-emplSurface').value   = bail.emplSurface || '';
+  if(el('b-emplNiveau'))   el('b-emplNiveau').value    = bail.emplNiveau || '';
+  if(el('b-emplDesc'))     el('b-emplDesc').value      = bail.emplDesc || '';
+  if(el('b-dureeGarage'))  el('b-dureeGarage').value   = bail.dureeGarageText || '';
+  if(el('b-preavisGarage'))el('b-preavisGarage').value = bail.preavisGarage || '';
+  if(el('b-garageIndexActive')) el('b-garageIndexActive').checked = !!bail.garageIndexActive;
+  if(el('b-garageIndex'))  el('b-garageIndex').value    = bail.garageIndex || 'ICC';
+  if(el('b-garageIndexBase')) el('b-garageIndexBase').value = bail.garageIndexBase || '';
+  if(el('b-erpZoneRisque')) el('b-erpZoneRisque').checked = !!bail.erpZoneRisque;
+  try { _toggleGarageSection(bail.type || 'nu'); } catch(e) {}
   if(el('b-typeContrat')) el('b-typeContrat').value = bail.typeContrat||'initial';
   if(el('b-modalitePaiement')) el('b-modalitePaiement').value = bail.modalitePaiement||'echeoir';
   el('b-hc').value = bail.hc||log?.hc||'';
@@ -18410,6 +18479,28 @@ function onBailTypeChange() {
   }
   // 5. v15.192 BAIL-TYPES Étape 2 : visibilité section inventaire mobilier (meublé/étudiant/mobilité)
   try { _toggleMobilierSection(type); } catch(e) { console.warn('[onBailTypeChange] _toggleMobilierSection', e); }
+  // CHANTIER BAIL-GARAGE — section emplacement + masquage des rubriques logement pour garage.
+  try { _toggleGarageSection(type); } catch(e) { console.warn('[onBailTypeChange] _toggleGarageSection', e); }
+}
+
+/* CHANTIER BAIL-GARAGE — bascule la section emplacement (garage) et masque les rubriques
+ * logement sans objet en droit commun (diagnostics DDT). Le mobilier est déjà masqué par
+ * _toggleMobilierSection (garage hors liste). */
+function _toggleGarageSection(type) {
+  const isGarage = (type === 'garage');
+  const sec = el('b-garage-section');
+  if (sec) sec.style.display = isGarage ? '' : 'none';
+  // Masquer la section diagnostics (DPE/DDT hérités du logement) : sans objet pour un garage.
+  const diag = el('bp-diag');
+  if (diag) diag.style.display = isGarage ? 'none' : '';
+  if (isGarage) { try { _garageToggleIndex(); } catch(e) {} }
+}
+
+/* Affiche la ligne indice seulement si la clause d'indexation est cochée. */
+function _garageToggleIndex() {
+  const on = !!el('b-garageIndexActive')?.checked;
+  const row = el('b-garageIndexRow');
+  if (row) row.style.display = on ? '' : 'none';
 }
 
 /* v15.192 BAIL-TYPES Étape 2 : helpers section inventaire mobilier (décret 2015-981).
@@ -19322,6 +19413,21 @@ function getBailDataFromForm() {
         entretien:  !!el('b-mob-entretien')?.checked,
         details:    v('b-mob-details') || '',
       } };
+    })()),
+    // CHANTIER BAIL-GARAGE — champs propres au bail garage/box/stockage. Émis UNIQUEMENT si
+    // type==='garage' (évite la pollution DB sur les autres types).
+    ...((function(){
+      if ((v('b-type')||'nu') !== 'garage') return {};
+      return {
+        natureEmplacement: v('b-emplNature') || 'box',
+        emplNum: v('b-emplNum'), emplSurface: v('b-emplSurface'),
+        emplNiveau: v('b-emplNiveau'), emplDesc: v('b-emplDesc'),
+        dureeGarageText: v('b-dureeGarage'), preavisGarage: v('b-preavisGarage'),
+        garageIndexActive: !!el('b-garageIndexActive')?.checked,
+        garageIndex: v('b-garageIndex') || 'ICC',
+        garageIndexBase: v('b-garageIndexBase'),
+        erpZoneRisque: !!el('b-erpZoneRisque')?.checked,
+      };
     })()),
     typeContrat: v('b-typeContrat')||'initial',
     modalitePaiement: v('b-modalitePaiement')||'echeoir',
