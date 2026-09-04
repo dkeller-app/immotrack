@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.587</title>
+<title>Propryo v15.588</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.587</em>
+      <em>v15.588</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4260,7 +4260,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.587';
+const IMMOTRACK_VERSION = '15.588';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10043,12 +10043,42 @@ function _isPhone(){ try{ return window.matchMedia('(max-width:767px)').matches;
 // ── MOBILE-REFONTE lot 1 — rendu Accueil téléphone. TOUS les chiffres viennent des moteurs
 //    existants (DRY, zéro recalcul maison) : occupation=DashCtx.occupationKpis, encaissé/attendu
 //    =_v4ComputeLotStatus, à-regarder=_pilCollectFamilles, dépôts=_bienActiveBail.
-function _accmShowPilotage(){
+// « À regarder » sur téléphone = liste calme des familles Pilotage (DRY : _pilCollectFamilles +
+// _pilChiffre + _pilPireTxt réutilisés), PAS l'ancien Pilotage desktop. Retour = rAccueil.
+function _accmShowAregarder(){
   try{
-    var a = el('p-accueil'); if(a) a.classList.remove('accm-on');   // révèle le squelette Pilotage (détail)
-    var c = DashCtx.buildDashCtx(DB.logements, DB.mouvements, String(new Date().getFullYear()), '', (typeof _finActiveEnt==='function'?_finActiveEnt():''));
-    _renderPilotage(c); try{ _pilWireClicks(); }catch(e){} try{ _renderInboxSurfaces(); }catch(e){}
-  }catch(e){ console.warn('[accmShowPilotage]', e); }
+    var host = el('p-accueil'); if(!host) return;
+    var wrap = document.getElementById('accm-phone'); if(!wrap) return;
+    host.classList.add('accm-on');
+    var ctx = DashCtx.buildDashCtx(DB.logements, DB.mouvements, String(new Date().getFullYear()), '', (typeof _finActiveEnt==='function'?_finActiveEnt():''));
+    var fams = {familles:[],total:0}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
+    var pageFor = {impaye:'loyers',depot:'loyers',irl:'loyers',regul:'regul',finbail:'baux',vacant:'biens',document:'biens',entretien:'equipements'};
+    var rows = (fams.familles||[]).map(function(f){
+      var chiffre=(typeof _pilChiffre==='function')?_pilChiffre(f):''; var pire=(typeof _pilPireTxt==='function')?_pilPireTxt(f):'';
+      return '<button type="button" class="atr" onclick="go(\''+(pageFor[f.id]||'loyers')+'\')">'
+        +'<span class="ic"><svg viewBox="0 0 24 24">'+(_PIL_ICONS[f.id]||'')+'</svg></span>'
+        +'<span class="m"><span class="t">'+escHtml(f.lbl)+'</span><span class="s">'+escHtml(chiffre)+(pire?(' · '+escHtml(pire)):'')+'</span></span>'
+        +((f.count>1)?('<span class="cnt">'+f.count+'</span>'):'')
+        +'<svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>';
+    }).join('');
+    if(!rows) rows='<div class="empty">Tout est à jour ✓</div>';
+    wrap.innerHTML='<style>'
+      +'#accm-phone{display:none}#p-accueil.accm-on>*:not(#accm-phone){display:none!important}#p-accueil.accm-on #accm-phone{display:block}'
+      +'.atl{padding:8px 16px 24px}'
+      +'.atl .th{display:flex;align-items:center;gap:11px;padding:8px 0 14px}'
+      +'.atl .th .back{width:34px;height:34px;border-radius:999px;border:1px solid var(--bor);background:var(--sur);display:grid;place-items:center;cursor:pointer;color:var(--t2)}'
+      +'.atl .th .back svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2}'
+      +'.atl .th h2{font-family:var(--ff-display,\'Schibsted Grotesk\',\'Inter\',sans-serif);font-weight:800;color:var(--t1);font-size:22px}'
+      +'.atr{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:13px 14px;margin-bottom:9px;cursor:pointer;font:inherit;color:inherit}'
+      +'.atr .ic{width:38px;height:38px;border-radius:11px;background:var(--acc-soft);display:grid;place-items:center;flex:0 0 auto}'
+      +'.atr .ic svg{width:19px;height:19px;stroke:var(--acc);fill:none;stroke-width:1.8}'
+      +'.atr .m{flex:1;min-width:0}.atr .m .t{display:block;font-weight:700;color:var(--t1);font-size:14px}.atr .m .s{display:block;font-size:12px;color:var(--t3);margin-top:2px;overflow-wrap:anywhere}'
+      +'.atr .cnt{min-width:24px;height:24px;padding:0 8px;border-radius:999px;background:var(--acc);color:#fff;font-weight:800;font-size:12px;display:grid;place-items:center;flex:0 0 auto}'
+      +'.atr .chev{width:16px;height:16px;stroke:var(--t3);fill:none;stroke-width:1.8;flex:0 0 auto}'
+      +'.atl .empty{padding:34px 12px;text-align:center;color:var(--pos);font-weight:700}'
+      +'</style>'
+      +'<div class="atl"><div class="th"><button class="back" onclick="rAccueil()"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button><h2>À regarder</h2></div>'+rows+'</div>';
+  }catch(e){ console.warn('[accmAregarder]', e); }
 }
 function _renderAccueilPhone(ctx){
   var host = el('p-accueil'); if(!host) return;
@@ -10072,7 +10102,9 @@ function _renderAccueilPhone(ctx){
   if(famBy.finbail) bits.push(famBy.finbail.count+' départ'+(famBy.finbail.count>1?'s':'')+' proche'+(famBy.finbail.count>1?'s':''));
   if(!bits.length && famBy.vacant) bits.push(famBy.vacant.count+' vacant'+(famBy.vacant.count>1?'s':''));
   var sub = bits.length ? ('dont '+bits.join(' · ')) : 'tout est à jour';
-  var nom = (DB.params && (DB.params.userPrenom||DB.params.prenom||DB.params.userNom||DB.params.nom||DB.params.gerant)) || '';
+  var nom = '';
+  if (DB.params && DB.params.userName && String(DB.params.userName).trim() && DB.params.userName !== 'Utilisateur') nom = String(DB.params.userName).trim();
+  if (!nom) { try{ var _eNom=(DB.entites||[]).find(function(x){ return x && !x._deleted && x.gerant; }); if(_eNom && _eNom.gerant) nom = String(_eNom.gerant).trim(); }catch(e){} }
   var dstr = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   var pctPay = attMois>0 ? Math.min(100, Math.round(encMois/attMois*100)) : (encMois>0?100:0);
   var reste = Math.max(0, attMois - encMois);
@@ -10116,7 +10148,7 @@ function _renderAccueilPhone(ctx){
   +'<div class="bar"><i style="width:'+pctPay+'%"></i></div>'
   +'<div class="srow occ"><div class="k">Occupation<span class="sub2">'+occ.nbOcc+' lot'+(occ.nbOcc>1?'s':'')+' loué'+(occ.nbOcc>1?'s':'')+' sur '+occ.nbTotal+'</span></div><div class="right">'+gauge+'<span class="v">'+(occ.pctOcc||0)+' %</span></div></div>'
   +'<div class="srow"><div class="k">Dépôts détenus<span class="sub2">'+nbDep+' dépôt'+(nbDep>1?'s':'')+' · argent des locataires</span></div><div class="v">'+F(dg)+'</div></div>'
-  +'<button type="button" class="watch" onclick="_accmShowPilotage()"><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/></svg></span><span class="m"><span class="t">À regarder</span><span class="s">'+escHtml(sub)+'</span></span><span class="cnt">'+aReg+'</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>'
+  +'<button type="button" class="watch" onclick="_accmShowAregarder()"><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/></svg></span><span class="m"><span class="t">À regarder</span><span class="s">'+escHtml(sub)+'</span></span><span class="cnt">'+aReg+'</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>'
   +'</div>';
 }
 
