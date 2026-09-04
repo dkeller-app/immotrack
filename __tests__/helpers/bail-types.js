@@ -157,6 +157,62 @@ export function resolveBailType(bail, log) {
   return BAIL_TYPE_DEFAULT;
 }
 
+// ─── Bail garage / box / stockage (droit commun) — CDC-BAIL-GARAGE-STOCKAGE ───────
+// Juridiquement identique quelle que soit la nature (Code civil art. 1708 et s.), mais le
+// DOCUMENT (titre, désignation §1, destination §2) diffère : une place se décrit par un n°,
+// un box/local par une surface + fermeture. La nature ne change PAS le régime juridique.
+
+/** Natures d'emplacement d'un bail garage (`bail.natureEmplacement`). */
+export const BAIL_GARAGE_NATURES = ['place', 'box', 'stockage'];
+
+/** Nature par défaut (rétrocompat baux garage sans champ). */
+export const BAIL_GARAGE_NATURE_DEFAULT = 'box';
+
+/** Nature effective d'un bail garage (défaut box si absente/invalide). */
+export function resolveGarageNature(bail) {
+  const n = bail && bail.natureEmplacement;
+  return BAIL_GARAGE_NATURES.includes(n) ? n : BAIL_GARAGE_NATURE_DEFAULT;
+}
+
+/** Titres de document par nature (majuscules — rendus en h1). */
+const GARAGE_TITLES = Object.freeze({
+  place:    'CONTRAT DE LOCATION D\'UNE PLACE DE STATIONNEMENT',
+  box:      'CONTRAT DE LOCATION D\'UN BOX FERMÉ',
+  stockage: 'CONTRAT DE LOCATION D\'UN LOCAL DE STOCKAGE'
+});
+
+/** Titre du bail garage pour la nature donnée (défaut box). */
+export function getGarageTitle(nature) {
+  return GARAGE_TITLES[nature] || GARAGE_TITLES[BAIL_GARAGE_NATURE_DEFAULT];
+}
+
+/** Phrase d'usage exclusif (§2 Destination) par nature. Jamais d'habitation. */
+const GARAGE_DESTINATIONS = Object.freeze({
+  place:    'exclusif de stationnement d\'un véhicule',
+  box:      'exclusif de remisage et de stockage de biens personnels',
+  stockage: 'exclusif de remisage et de stockage de biens personnels'
+});
+
+/** Usage exclusif du §2 pour la nature donnée (défaut box). */
+export function getGarageDestinationUsage(nature) {
+  return GARAGE_DESTINATIONS[nature] || GARAGE_DESTINATIONS[BAIL_GARAGE_NATURE_DEFAULT];
+}
+
+// Indexation — art. L112-2 du Code monétaire et financier : l'indice doit être en « relation
+// directe » avec l'objet. Pour un immeuble bâti : ICC (défaut), ILC/ILAT si activité pro.
+// L'IRL (indice du logement, loi 89) N'EST PAS reconnu → clause nulle sur un garage isolé.
+
+/** Indices d'indexation valables pour un bail garage (IRL EXCLU). */
+export const BAIL_GARAGE_INDICES = ['ICC', 'ILC', 'ILAT'];
+
+/** Indice par défaut (relation directe immeuble bâti). */
+export const BAIL_GARAGE_INDEX_DEFAULT = 'ICC';
+
+/** Indexation proposée décochée par défaut (loyer fixe) — décision Didier 04/09. */
+export function isGarageIndexationOnByDefault() {
+  return false;
+}
+
 /**
  * Évalue la complétude de l'inventaire mobilier d'un bail.
  * @param {object} mobilier  bail.mobilier (objet avec clés booléennes)

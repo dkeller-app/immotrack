@@ -26,7 +26,15 @@ import {
   isTaciteReconductionAllowed,
   getMobilierCompletion,
   isMobilierLegallyComplete,
-  resolveBailType
+  resolveBailType,
+  BAIL_GARAGE_NATURES,
+  BAIL_GARAGE_NATURE_DEFAULT,
+  resolveGarageNature,
+  getGarageTitle,
+  getGarageDestinationUsage,
+  BAIL_GARAGE_INDICES,
+  BAIL_GARAGE_INDEX_DEFAULT,
+  isGarageIndexationOnByDefault
 } from './bail-types.js';
 
 describe('BAIL_TYPES — constantes', () => {
@@ -402,5 +410,84 @@ describe('resolveBailType — type effectif (bail.type prioritaire, fallback log
     expect(resolveBailType({ typeContrat: 'meuble' }, null)).toBe('nu');
     expect(resolveBailType({ typeContrat: 'mobilite' }, null)).toBe('nu');
     expect(resolveBailType({ type: 'meuble', typeContrat: 'renouvellement' }, null)).toBe('meuble');
+  });
+});
+
+// ── Bail garage / box / stockage (droit commun) — CDC-BAIL-GARAGE-STOCKAGE §2, §3, §4 ──
+// Nature d'emplacement (place/box/stockage) : juridiquement identique (Code civil), mais
+// le document (titre, désignation, destination) diffère. Indexation : loyer FIXE par défaut,
+// indice ICC seul valide (art. L112-2 CMF) — IRL exclu (indice logement).
+describe('BAIL_GARAGE_NATURES — natures d\'emplacement', () => {
+  it('couvre place / box / stockage', () => {
+    expect(BAIL_GARAGE_NATURES).toEqual(['place', 'box', 'stockage']);
+  });
+
+  it('défaut = box (rétrocompat baux garage sans natureEmplacement)', () => {
+    expect(BAIL_GARAGE_NATURE_DEFAULT).toBe('box');
+  });
+});
+
+describe('resolveGarageNature — nature effective', () => {
+  it('bail.natureEmplacement valide fait autorité', () => {
+    expect(resolveGarageNature({ natureEmplacement: 'place' })).toBe('place');
+    expect(resolveGarageNature({ natureEmplacement: 'box' })).toBe('box');
+    expect(resolveGarageNature({ natureEmplacement: 'stockage' })).toBe('stockage');
+  });
+
+  it('nature absente / invalide / bail null → box (défaut)', () => {
+    expect(resolveGarageNature({})).toBe('box');
+    expect(resolveGarageNature({ natureEmplacement: 'cave' })).toBe('box');
+    expect(resolveGarageNature(null)).toBe('box');
+    expect(resolveGarageNature(undefined)).toBe('box');
+  });
+});
+
+describe('getGarageTitle — titre du document par nature', () => {
+  it('un titre distinct et non vide par nature', () => {
+    const place = getGarageTitle('place');
+    const box = getGarageTitle('box');
+    const stock = getGarageTitle('stockage');
+    expect(place).toMatch(/STATIONNEMENT/i);
+    expect(box).toMatch(/BOX/i);
+    expect(stock).toMatch(/STOCKAGE/i);
+    expect(new Set([place, box, stock]).size).toBe(3);
+  });
+
+  it('nature inconnue → titre du défaut (box)', () => {
+    expect(getGarageTitle('cave')).toBe(getGarageTitle('box'));
+    expect(getGarageTitle()).toBe(getGarageTitle('box'));
+  });
+});
+
+describe('getGarageDestinationUsage — clause de destination par nature', () => {
+  it('place = stationnement d\'un véhicule', () => {
+    expect(getGarageDestinationUsage('place')).toMatch(/stationnement/i);
+    expect(getGarageDestinationUsage('place')).not.toMatch(/stockage/i);
+  });
+
+  it('box / stockage = remisage et stockage de biens', () => {
+    expect(getGarageDestinationUsage('box')).toMatch(/remisage|stockage/i);
+    expect(getGarageDestinationUsage('stockage')).toMatch(/remisage|stockage/i);
+  });
+
+  it('jamais d\'usage habitation dans aucune destination', () => {
+    for (const n of BAIL_GARAGE_NATURES) {
+      expect(getGarageDestinationUsage(n)).not.toMatch(/habitation|résidence principale/i);
+    }
+  });
+});
+
+describe('Indexation garage — ICC par défaut, IRL exclu (art. L112-2 CMF)', () => {
+  it('indices proposés = ICC, ILC, ILAT (jamais IRL)', () => {
+    expect(BAIL_GARAGE_INDICES).toEqual(['ICC', 'ILC', 'ILAT']);
+    expect(BAIL_GARAGE_INDICES).not.toContain('IRL');
+  });
+
+  it('indice par défaut = ICC (relation directe immeuble bâti)', () => {
+    expect(BAIL_GARAGE_INDEX_DEFAULT).toBe('ICC');
+  });
+
+  it('indexation DÉSACTIVÉE par défaut (loyer fixe) — décision Didier', () => {
+    expect(isGarageIndexationOnByDefault()).toBe(false);
   });
 });
