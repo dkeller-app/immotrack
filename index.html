@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.586</title>
+<title>Propryo v15.587</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.586</em>
+      <em>v15.587</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4260,7 +4260,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.585';
+const IMMOTRACK_VERSION = '15.587';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10026,9 +10026,98 @@ function rAccueil() {
   // (source unique du scope + matchMv, ex-copiée dans rDash). Accueil = pas de mvsPrev.
   const activeEnt = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
   const ctx = DashCtx.buildDashCtx(DB.logements, DB.mouvements, yr, mo, activeEnt);
+  // ── MOBILE-REFONTE lot 1 — Accueil calme sur TÉLÉPHONE (≤767px). PC + tablette inchangés
+  //    (le Pilotage reste la vue ≥768). Branche ici, avant _renderPilotage.
+  var _accEl = el('p-accueil');
+  if (_isPhone()) { if(_accEl) _accEl.classList.add('accm-on'); try { _renderAccueilPhone(ctx); return; } catch(e) { console.warn('[accueilPhone]', e); if(_accEl) _accEl.classList.remove('accm-on'); } }
+  else if (_accEl) { _accEl.classList.remove('accm-on'); }
   _renderPilotage(ctx);
   try{ _pilWireClicks(); }catch(e){}
   try{ _renderInboxSurfaces(); }catch(e){}
+}
+
+// ── MOBILE-REFONTE — helper breakpoint UNIQUE (téléphone ≤767 ; tablette = PC). L'EDL garde
+//    son propre seuil <1024 (_edlPhoneMode). Réutilisable par tous les lots de la refonte.
+function _isPhone(){ try{ return window.matchMedia('(max-width:767px)').matches; }catch(e){ return (window.innerWidth||9999) <= 767; } }
+
+// ── MOBILE-REFONTE lot 1 — rendu Accueil téléphone. TOUS les chiffres viennent des moteurs
+//    existants (DRY, zéro recalcul maison) : occupation=DashCtx.occupationKpis, encaissé/attendu
+//    =_v4ComputeLotStatus, à-regarder=_pilCollectFamilles, dépôts=_bienActiveBail.
+function _accmShowPilotage(){
+  try{
+    var a = el('p-accueil'); if(a) a.classList.remove('accm-on');   // révèle le squelette Pilotage (détail)
+    var c = DashCtx.buildDashCtx(DB.logements, DB.mouvements, String(new Date().getFullYear()), '', (typeof _finActiveEnt==='function'?_finActiveEnt():''));
+    _renderPilotage(c); try{ _pilWireClicks(); }catch(e){} try{ _renderInboxSurfaces(); }catch(e){}
+  }catch(e){ console.warn('[accmShowPilotage]', e); }
+}
+function _renderAccueilPhone(ctx){
+  var host = el('p-accueil'); if(!host) return;
+  // Wrapper dédié qui COEXISTE avec le squelette Pilotage (#pil-strip/#pil-bulles) — on ne l'efface pas.
+  var wrap = document.getElementById('accm-phone');
+  if(!wrap){ wrap=document.createElement('div'); wrap.id='accm-phone'; host.appendChild(wrap); }
+  var F = function(n){ return (typeof fmt==='function') ? fmt(Math.round(n||0)) : (Math.round(n||0)+' €'); };
+  var yr = ctx.yr, moNow = new Date().getMonth()+1, logs = ctx.scopeLogs || [];
+  var occ = (window.DashCtx && DashCtx.occupationKpis) ? DashCtx.occupationKpis(logs) : {nbOcc:0,nbTotal:logs.length,pctOcc:0};
+  var encMois=0, attMois=0, encYTD=0;
+  logs.forEach(function(l){ try{
+    var sM = _v4ComputeLotStatus(l, yr, String(moNow), ctx.mvs); encMois += (sM.recu||0); attMois += (sM.attendu||0);
+    var sY = _v4ComputeLotStatus(l, yr, '', ctx.mvsYTD); encYTD += (sY.recu||0);
+  }catch(e){} });
+  var dg=0, nbDep=0;
+  logs.forEach(function(l){ if(l && l.locataire){ var b=(typeof _bienActiveBail==='function')?_bienActiveBail(l.ref):null; var d=(b&&+b.dg)||(+l.dg)||0; if(d>0){ dg+=d; nbDep++; } } });
+  var fams={total:0,familles:[]}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
+  var aReg = fams.total||0, famBy={}; (fams.familles||[]).forEach(function(f){ famBy[f.id]=f; });
+  var bits=[];
+  if(famBy.impaye) bits.push(famBy.impaye.count+' impayé'+(famBy.impaye.count>1?'s':''));
+  if(famBy.finbail) bits.push(famBy.finbail.count+' départ'+(famBy.finbail.count>1?'s':'')+' proche'+(famBy.finbail.count>1?'s':''));
+  if(!bits.length && famBy.vacant) bits.push(famBy.vacant.count+' vacant'+(famBy.vacant.count>1?'s':''));
+  var sub = bits.length ? ('dont '+bits.join(' · ')) : 'tout est à jour';
+  var nom = (DB.params && (DB.params.userPrenom||DB.params.prenom||DB.params.userNom||DB.params.nom||DB.params.gerant)) || '';
+  var dstr = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  var pctPay = attMois>0 ? Math.min(100, Math.round(encMois/attMois*100)) : (encMois>0?100:0);
+  var reste = Math.max(0, attMois - encMois);
+  // Jauge occupation (neutre) — aiguille selon pctOcc sur un demi-cercle.
+  var ang = Math.PI*(1 - (occ.pctOcc||0)/100), nx=(50+38*Math.cos(ang)).toFixed(1), ny=(52-38*Math.sin(ang)).toFixed(1);
+  var gauge = '<svg class="gauge" viewBox="0 0 100 60" aria-hidden="true"><path d="M10 52 A40 40 0 0 1 90 52" fill="none" stroke="var(--bor)" stroke-width="8" stroke-linecap="round"/><line x1="50" y1="52" x2="'+nx+'" y2="'+ny+'" stroke="var(--t1)" stroke-width="2.6" stroke-linecap="round"/><circle cx="50" cy="52" r="4.2" fill="var(--t1)"/></svg>';
+  wrap.innerHTML =
+  '<style>'
+  +'#accm-phone{display:none}'
+  +'#p-accueil.accm-on>*:not(#accm-phone){display:none!important}'
+  +'#p-accueil.accm-on #accm-phone{display:block}'
+  +'.accm{padding:14px 16px 22px}'
+  +'.accm .hi{font-size:13px;color:var(--t3);font-weight:600}'
+  +'.accm .name{font-family:var(--ff-display,\'Schibsted Grotesk\',\'Inter\',sans-serif);font-weight:800;color:var(--pos);font-size:26px;line-height:1.12;overflow-wrap:anywhere}'
+  +'.accm .hello-s{font-size:12.5px;color:var(--t3);margin-top:3px;text-transform:capitalize}'
+  +'.accm .hero{padding:16px 2px 4px}'
+  +'.accm .hero .k{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}'
+  +'.accm .hero .v{font-family:var(--ff-display,\'Schibsted Grotesk\',\'Inter\',sans-serif);font-weight:800;color:var(--t1);font-size:36px;line-height:1.05;margin-top:5px}'
+  +'.accm .srow{display:flex;justify-content:space-between;align-items:center;padding:15px 2px;border-top:1px solid var(--bor);gap:12px}'
+  +'.accm .srow .k{font-size:14px;color:var(--t2);font-weight:600}'
+  +'.accm .srow .k .sub2{display:block;font-size:11.5px;color:var(--t3);font-weight:400;margin-top:2px}'
+  +'.accm .srow .v{font-family:var(--ff-display,\'Schibsted Grotesk\',\'Inter\',sans-serif);font-weight:800;color:var(--t1);font-size:19px;text-align:right;white-space:nowrap}'
+  +'.accm .srow .v small{font-size:12px;color:var(--t3);font-weight:600}'
+  +'.accm .bar{height:7px;background:var(--bor);border-radius:4px;margin:9px 2px 0;overflow:hidden}'
+  +'.accm .bar>i{display:block;height:7px;border-radius:4px;background:var(--pos)}'
+  +'.accm .occ .right{display:flex;align-items:center;gap:10px}'
+  +'.accm .gauge{width:68px;height:42px;flex:0 0 auto}'
+  +'.accm .watch{margin-top:16px;display:flex;align-items:center;gap:13px;background:var(--sur);border:1px solid var(--bor);border-radius:15px;padding:15px 16px;width:100%;text-align:left;cursor:pointer;font:inherit;color:inherit}'
+  +'.accm .watch .ic{width:40px;height:40px;border-radius:12px;background:var(--acc-soft);display:grid;place-items:center;flex:0 0 auto}'
+  +'.accm .watch .ic svg{width:20px;height:20px;stroke:var(--acc);fill:none;stroke-width:1.7}'
+  +'.accm .watch .m{flex:1;min-width:0}'
+  +'.accm .watch .m .t{display:block;font-weight:800;font-family:var(--ff-display,\'Schibsted Grotesk\',\'Inter\',sans-serif);color:var(--t1);font-size:15.5px}'
+  +'.accm .watch .m .s{display:block;font-size:12px;color:var(--t3);margin-top:2px;line-height:1.3}'
+  +'.accm .watch .cnt{min-width:25px;height:25px;padding:0 8px;border-radius:999px;background:var(--acc);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;flex:0 0 auto}'
+  +'.accm .watch .chev{width:17px;height:17px;stroke:var(--t3);fill:none;stroke-width:1.8;flex:0 0 auto}'
+  +'</style>'
+  +'<div class="accm">'
+  +'<div class="hi">Bonjour</div>'+(nom?('<div class="name">'+escHtml(nom)+'</div>'):'')+'<div class="hello-s">'+escHtml(dstr)+'</div>'
+  +'<div class="hero"><div class="k">Encaissé depuis le 1ᵉʳ janvier</div><div class="v">'+F(encYTD)+'</div></div>'
+  +'<div class="srow"><div class="k">Encaissé ce mois'+(reste>0?('<span class="sub2">reste '+F(reste)+' à encaisser</span>'):'<span class="sub2">tout est encaissé</span>')+'</div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
+  +'<div class="bar"><i style="width:'+pctPay+'%"></i></div>'
+  +'<div class="srow occ"><div class="k">Occupation<span class="sub2">'+occ.nbOcc+' lot'+(occ.nbOcc>1?'s':'')+' loué'+(occ.nbOcc>1?'s':'')+' sur '+occ.nbTotal+'</span></div><div class="right">'+gauge+'<span class="v">'+(occ.pctOcc||0)+' %</span></div></div>'
+  +'<div class="srow"><div class="k">Dépôts détenus<span class="sub2">'+nbDep+' dépôt'+(nbDep>1?'s':'')+' · argent des locataires</span></div><div class="v">'+F(dg)+'</div></div>'
+  +'<button type="button" class="watch" onclick="_accmShowPilotage()"><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/></svg></span><span class="m"><span class="t">À regarder</span><span class="s">'+escHtml(sub)+'</span></span><span class="cnt">'+aReg+'</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>'
+  +'</div>';
 }
 
 // ════════════════════════════════════════════════════════════════════════
