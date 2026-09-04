@@ -280,6 +280,16 @@ const PAIRS = [
     globalName: 'ActeRapprochement',
     exports: ['canonAdresse', 'matchImmeuble'],
   },
+  {
+    // CHANTIER BAIL-GARAGE — structure du document « bail garage / box / stockage » (droit
+    // commun, Code civil). index.html appelle window.BailGarage.buildGarageStructure pour
+    // bail.type==='garage', en injectant ses blocs partagés (en-tête, identité, signatures).
+    name: 'bail-garage',
+    src: '__tests__/helpers/bail-garage.js',
+    dst: 'js/helpers/bail-garage.global.js',
+    globalName: 'BailGarage',
+    exports: '*',
+  },
 ];
 
 let totalErrors = 0;
