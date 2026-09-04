@@ -4183,6 +4183,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/pdf-flow.global.js"></script>
 <!-- S4 — bandeau d'identité des documents : logo du bailleur + logo Propryo. -->
 <script src="js/helpers/doc-brand.global.js"></script>
+<!-- CHANTIER BAIL-GARAGE — structure du bail garage/box/stockage (droit commun, Code civil).
+     buildBailStructure y délègue pour bail.type==='garage' en injectant en-tête/identité/signatures. -->
+<script src="js/helpers/bail-garage.global.js"></script>
 <!-- DOCS-UNIFIES — gabarit unique des documents émis (variante B validée le 12/08) :
      feuille de style scopée .pro-doc + primitives titre/parties/lignes/mentions/pied. -->
 <script src="js/helpers/doc-template.global.js"></script>
@@ -19764,6 +19767,125 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // v15.197 post-audit : libellé "Bailleur (...)" adapté au statut juridique réel.
   // Avant : "Bailleur (SCI IS)" en dur (faux pour SARL/SAS/asso). Maintenant : reflète ent.type.
   const bailleurLabel = _entStatutLabel ? 'Bailleur (' + _entStatutLabel + ')' : 'Bailleur';
+
+  // ── Blocs PARTAGÉS extraits (réutilisés par le bail garage, sans copie) ──────────
+  // Identité des parties : « Entre les soussignés → garant(s) » (SANS la phrase d'engagement,
+  // que chaque type formule ensuite). Byte-identique au résidentiel (mêmes objets).
+  const identityBlocks = [
+    { type:'h2', text:'Entre les soussignés' },
+    { type:'h3', text:'Le Bailleur' },
+    ...(isPersoPhysique ? [
+      { type:'p', text: nomSci + ', personne physique' + (sciSiege && sciSiege !== '–' ? ', domicilié(e) ' + sciSiege : '') + (nomGerant && nomGerant !== nomSci && nomGerant !== '–' ? ', agissant en qualité de bailleur représenté par ' + nomGerant : '') + '.' }
+    ] : [
+      { type:'p', text: nomSci + (_entStatutDesc ? ', ' + _entStatutDesc : '') + (sciSiege && sciSiege !== '–' ? ', dont le siège social est à ' + sciSiege : '') + (rcsVille && rcsVille !== '–' && numRcs && numRcs !== '–' ? ', immatriculée au RCS de ' + rcsVille + ' sous le numéro ' + numRcs : '') + (nomGerant && nomGerant !== '–' ? ' et représentée par son Gérant ' + nomGerant : '') + '.' }
+    ]),
+    ...mandataireBlocks,
+    { type:'h3', text: locs.length >= 2 ? 'Les Locataires' : 'Le Locataire' },
+    ...locsDetailBlocks,
+    ...(locs.length >= 2 ? [
+      { type:'p-italic-note', text:'En cas de pluralité de locataires, ceux-ci sont engagés solidairement pour tout ce qui concerne les obligations découlant du présent bail.' }
+    ] : []),
+    { type:'p-italic-note', text:'Ci-après désigné(s) « le LOCATAIRE » d\'autre part,' },
+    ...garantBlocks
+  ];
+
+  // Émission des signatures (page dédiée) : logique multi-gérant / mandataire / distance.
+  // Paramétrée par le n° de section (résidentiel §18, garage §16) et le nb d'exemplaires.
+  function _buildSigBlocks(sectionNo, nbEx) {
+    const villeSig = S(bail.villeSignature || 'Strasbourg');
+    const _sigISO = bail.signatures && (bail.signatures.signedBailleurAt || bail.signatures.signedAt);
+    const _sigDate = _sigISO ? new Date(_sigISO) : new Date();
+    const dateSig = _sigDate.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+    const blocks = [
+      { type:'page-break' },
+      { type:'h2', text: sectionNo + ' — Signatures' },
+      { type:'p', text: `Fait à ${villeSig}, le ${dateSig}, en ${nbEx} exemplaires originaux, dont un remis à chaque partie qui le reconnaît.` },
+      { type:'gap', size:6 },
+      { type:'gap', size:2 }
+    ];
+    const _withMandataire = !!(bail.withMandataire && typeof DB !== 'undefined' && DB.params && DB.params.mandataire && DB.params.mandataire.actif && DB.params.mandataire.nom);
+    const _bSignersRes = window.BailSignataires.resolveBailleurSigners({
+      names: getBailSignataires(bail, ent),
+      withMandataire: _withMandataire,
+      mandataireNom: (typeof DB !== 'undefined' && DB.params && DB.params.mandataire && DB.params.mandataire.nom) || '',
+      entityLabel: nomSci
+    });
+    const _sigsBailleur = _withMandataire ? [] : _bSignersRes.map(s => s.nom);
+    const _bMode = (i) => { const s = Array.isArray(bail.bailleurSign) ? bail.bailleurSign[i] : null; return (s && (s.mode === 'dist' || s.mode === 'no')) ? s.mode : 'pres'; };
+    if (_withMandataire) {
+      const mandNom = DB.params.mandataire.nom;
+      blocks.push({ type:'signature-bailleur', role: `MANDATAIRE — ${mandNom} (pour le compte de ${nomSci})`, bIdx: 0, remote: false });
+    } else if (_sigsBailleur.length > 1) {
+      _sigsBailleur.forEach((g, i) => {
+        const m = _bMode(i);
+        if (m === 'no') return;
+        blocks.push({ type:'signature-bailleur', role: `CO-GÉRANT ${i+1} — ${nomSci} (représenté par ${g})`, bIdx: i, remote: (m === 'dist') });
+      });
+    } else {
+      const g = _sigsBailleur[0] || nomGerant;
+      const _kind0 = (_bSignersRes[0] && _bSignersRes[0].kind) || 'gerant';
+      const m = _bMode(0);
+      if (m !== 'no') blocks.push({ type:'signature-bailleur', role: (_kind0 === 'entite' ? `LE BAILLEUR — ${nomSci}` : `LE BAILLEUR — ${nomSci} (représenté par ${g})`), bIdx: 0, remote: (m === 'dist') });
+    }
+    blocks.push(
+      ...locs.map((l,i) => ({
+        type: 'signature-locataire-placeholder',
+        label: `Signature ${locs.length>1?'LOCATAIRE '+(i+1)+' — ':'LOCATAIRE — '}${[l.civilite,l.nom||'–'].filter(Boolean).join(' ')}`
+      }))
+    );
+    return blocks;
+  }
+
+  // ── BAIL GARAGE / BOX / STOCKAGE (droit commun) — route dédiée ────────────────────
+  // Réutilise l'en-tête, l'identité et les signatures ci-dessus ; le corps §1-16 + annexes
+  // vient du module testé window.BailGarage (aucune clause loi 89, protections bailleur).
+  if (isGarage && window.BailGarage && typeof window.BailGarage.buildGarageStructure === 'function') {
+    const _cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+    const _lettres = n => (n ? _cap(numToWords(Math.round(n))) : '');
+    const _gnat = window.BailGarage.resolveGarageNature(bail);
+    const _emplRecap = [
+      (_gnat === 'place' ? 'Place de stationnement' : _gnat === 'stockage' ? 'Local de stockage' : 'Box fermé'),
+      (bail.emplNum || bail.lot) ? ('n° ' + S(bail.emplNum || bail.lot)) : '',
+      (bail.emplNiveau || bail.etage) ? S(bail.emplNiveau || bail.etage) : '',
+      (_gnat !== 'place' && (bail.emplSurface || bail.surf)) ? ('env. ' + S(bail.emplSurface || bail.surf) + ' m²') : ''
+    ].filter(Boolean).join(' — ');
+    const _bailleurLine = isPersoPhysique
+      ? (nomSci + (sciSiege && sciSiege !== '–' ? ' — domicile ' + sciSiege : ''))
+      : (nomSci + (sciSiege && sciSiege !== '–' ? ' — siège ' + sciSiege : ''));
+    const _representantLine = (!isPersoPhysique && nomGerant && nomGerant !== '–' && nomGerant !== nomSci) ? (nomGerant + ' — Gérant') : '';
+    return window.BailGarage.buildGarageStructure({
+      data: {
+        nature: bail.natureEmplacement,
+        adrBien: adrBien, ensembleAdr: adrBien,
+        numEmplacement: S(bail.emplNum || bail.lot || ''),
+        surface: S(bail.emplSurface || bail.surf || ''),
+        niveau: S(bail.emplNiveau || bail.etage || ''),
+        descriptif: S(bail.emplDesc || ''),
+        lotCopro: S(bail.lot || ''),
+        dateDebut: dateDebut, dateFin: (bail.fin ? dateFin : ''),
+        dureeText: S(bail.dureeGarageText || ''),
+        dureeRecap: (S(bail.dureeGarageText || '') || '—') + (bail.fin ? ' — fin le ' + dateFin : ''),
+        preavisText: S(bail.preavisGarage || 'un (1) mois'),
+        loyerHC: loyerHC, loyerHCLettres: _lettres(bail.hc),
+        charges: charges, dg: dg, dgLettres: _lettres(bail.dg),
+        jourPaiement: S(bail.jpay || '5'),
+        iban: iban, bic: bic, nomSci: nomSci, locNames: locNames,
+        bailleurLine: _bailleurLine, representantLine: _representantLine,
+        garantNoms: garNoms, emplacementRecap: _emplRecap,
+        indexation: { active: !!bail.garageIndexActive, indice: S(bail.garageIndex || 'ICC'), indiceBase: S(bail.garageIndexBase || '') },
+        hasCharges: !!(bail.ch > 0),
+        hasGarant: !!bail.garant,
+        erpZoneRisque: !!bail.erpZoneRisque,
+        plusieursLocataires: locs.length >= 2
+      },
+      blocks: {
+        header: headerBlocks,
+        identity: identityBlocks,
+        signature: _buildSigBlocks(window.BailGarage.GARAGE_SIGNATURE_SECTION_NO || 16, window.BailGarage.GARAGE_NB_EXEMPLAIRES || 2)
+      }
+    });
+  }
+
   const out = [
     ...headerBlocks,
     { type:'h1', text: bailTitle },
@@ -19796,24 +19918,8 @@ function buildBailStructure(bail, log, ref, ent, locs) {
       return { type:'table', rows: _rows, columnStyles: { 0: { fontStyle:'bold', fillColor:[240,240,240], cellWidth:55 } } };
     })()),
 
-    { type:'h2', text:'Entre les soussignés' },
-    { type:'h3', text:'Le Bailleur' },
-    // v15.197 post-audit : description adaptée au statut juridique réel
-    ...(isPersoPhysique ? [
-      { type:'p', text: nomSci + ', personne physique' + (sciSiege && sciSiege !== '–' ? ', domicilié(e) ' + sciSiege : '') + (nomGerant && nomGerant !== nomSci && nomGerant !== '–' ? ', agissant en qualité de bailleur représenté par ' + nomGerant : '') + '.' }
-    ] : [
-      { type:'p', text: nomSci + (_entStatutDesc ? ', ' + _entStatutDesc : '') + (sciSiege && sciSiege !== '–' ? ', dont le siège social est à ' + sciSiege : '') + (rcsVille && rcsVille !== '–' && numRcs && numRcs !== '–' ? ', immatriculée au RCS de ' + rcsVille + ' sous le numéro ' + numRcs : '') + (nomGerant && nomGerant !== '–' ? ' et représentée par son Gérant ' + nomGerant : '') + '.' }
-    ]),
-    ...mandataireBlocks,
-
-    { type:'h3', text: locs.length >= 2 ? 'Les Locataires' : 'Le Locataire' },
-    ...locsDetailBlocks,
-    // v15.201 fix : mention pluralité affichée uniquement si ≥ 2 locataires (sinon non-pertinent)
-    ...(locs.length >= 2 ? [
-      { type:'p-italic-note', text:'En cas de pluralité de locataires, ceux-ci sont engagés solidairement pour tout ce qui concerne les obligations découlant du présent bail.' }
-    ] : []),
-    { type:'p-italic-note', text:'Ci-après désigné(s) « le LOCATAIRE » d\'autre part,' },
-    ...garantBlocks,
+    // Identité des parties : extraite en `identityBlocks` (réutilisée par le bail garage).
+    ...identityBlocks,
     { type:'p', text:'IL A ÉTÉ CONVENU ET ARRÊTÉ CE QUI SUIT. Le BAILLEUR loue, aux clauses et conditions ci-dessous énoncées, au LOCATAIRE qui accepte, les lieux ci-après désignés.' },
 
     // ─── §1 Désignation du logement ─────────────────────────────────
@@ -20373,71 +20479,8 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // L'ancien bloc Annexe 11 (v15.194) est désormais dans le PDF de l'EDL.
 
   // ─── §18 Signatures (page dédiée) ───────────────────────────────
-  const villeSig = S(bail.villeSignature || 'Strasbourg');
-  // v14.6 BUG-BAIL-DATE-SIG : utiliser la date de signature RÉELLE si bail signé.
-  // Avant : new Date() → la date changeait à chaque régénération du PDF (faux
-  // juridiquement). Maintenant : bail.signatures.signedAt si signé, sinon today
-  // (preview avant signature).
-  const _sigISO = bail.signatures && (bail.signatures.signedBailleurAt || bail.signatures.signedAt);
-  const _sigDate = _sigISO ? new Date(_sigISO) : new Date();
-  const dateSig = _sigDate.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  out.push(
-    { type:'page-break' },
-    { type:'h2', text:'18 — Signatures' },
-    { type:'p', text: `Fait à ${villeSig}, le ${dateSig}, en 3 exemplaires originaux, dont un remis à chaque partie qui le reconnaît.` },
-    { type:'gap', size:6 },
-    // v13.01 : retiré "Mention manuscrite obligatoire ... Lu et approuvé" inline
-    // (la mention est désormais affichée directement au-dessus de chaque signature
-    // via drawSignatureBlock(luApprouve=true) si la case correspondante a été
-    // cochée dans le wizard final).
-    { type:'gap', size:2 }
-  );
-  // BUG-BAIL-003 fix (v13.19) — émettre 1 bloc signature-bailleur PAR signataire
-  // bailleur (au lieu d'un seul bloc). Sinon, en cas de multi-gérants, le wizard
-  // capture bien N signatures (bailleur-0, bailleur-1, ...) mais le PDF n'a
-  // qu'un cadre → seules les sigs du 1er gérant apparaissent.
-  const _withMandataire = !!(bail.withMandataire && typeof DB !== 'undefined' && DB.params && DB.params.mandataire && DB.params.mandataire.actif && DB.params.mandataire.nom);
-  // SIGNATURE-SMOKE S1 — dérivation UNIQUE (partagée avec previewBailData/_SIGS et la file de
-  // signature). Couvre « entité sans gérant » : repli sur le bailleur lui-même (id bailleur-0),
-  // au lieu du « (représenté par –) » sans signataire nommé de la v15.502.
-  const _bSignersRes = window.BailSignataires.resolveBailleurSigners({
-    names: getBailSignataires(bail, ent),
-    withMandataire: _withMandataire,
-    mandataireNom: (typeof DB !== 'undefined' && DB.params && DB.params.mandataire && DB.params.mandataire.nom) || '',
-    entityLabel: nomSci
-  });
-  const _sigsBailleur = _withMandataire ? [] : _bSignersRes.map(s => s.nom);
-  // D2a — état de signature par co-gérant (bail.bailleurSign[i].mode : 'pres'|'dist'|'no'). Défaut 'pres'.
-  // 'no' (exclu) → AUCUN cadre signature ni paraphe. 'dist' → case vide + ancre (remplie à distance).
-  const _bMode = (i) => { const s = Array.isArray(bail.bailleurSign) ? bail.bailleurSign[i] : null; return (s && (s.mode === 'dist' || s.mode === 'no')) ? s.mode : 'pres'; };
-  if (_withMandataire) {
-    // Mandataire (personne physique) signe pour le compte de la SCI : 1 seul cadre. Présentiel in-app en v1.
-    const mandNom = DB.params.mandataire.nom;
-    out.push({ type:'signature-bailleur', role: `MANDATAIRE — ${mandNom} (pour le compte de ${nomSci})`, bIdx: 0, remote: false });
-  } else if (_sigsBailleur.length > 1) {
-    // Multi-gérants : 1 cadre par co-gérant SIGNATAIRE (exclus omis), rôle "CO-GÉRANT N"
-    _sigsBailleur.forEach((g, i) => {
-      const m = _bMode(i);
-      if (m === 'no') return; // exclu → aucun cadre
-      out.push({ type:'signature-bailleur', role: `CO-GÉRANT ${i+1} — ${nomSci} (représenté par ${g})`, bIdx: i, remote: (m === 'dist') });
-    });
-  } else {
-    // 1 gérant signataire (cas standard) : comportement historique conservé.
-    // S1 — entité SANS gérant : le bailleur signe pour lui-même → pas de « représenté par – ».
-    const g = _sigsBailleur[0] || nomGerant;
-    const _kind0 = (_bSignersRes[0] && _bSignersRes[0].kind) || 'gerant';
-    const m = _bMode(0);
-    if (m !== 'no') out.push({ type:'signature-bailleur', role: (_kind0 === 'entite' ? `LE BAILLEUR — ${nomSci}` : `LE BAILLEUR — ${nomSci} (représenté par ${g})`), bIdx: 0, remote: (m === 'dist') });
-  }
-  // Signature(s) locataire(s) — placeholders pour Acrobat
-  out.push(
-    ...locs.map((l,i) => ({
-      type: 'signature-locataire-placeholder',
-      label: `Signature ${locs.length>1?'LOCATAIRE '+(i+1)+' — ':'LOCATAIRE — '}${[l.civilite,l.nom||'–'].filter(Boolean).join(' ')}`
-    }))
-    // Note : la caution NE SIGNE PAS le bail. Elle signe l'acte de cautionnement
-    // solidaire (document séparé annexé en pièce 6 du tableau §17).
-  );
+  // Émission extraite dans _buildSigBlocks (réutilisée par le bail garage, §16). Résidentiel : §18, 3 ex.
+  out.push(..._buildSigBlocks(18, 3));
 
   // ─── ANNEXE A — Liste des réparations locatives (décret 87-712) ─
   out.push(
