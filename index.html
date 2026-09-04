@@ -35320,6 +35320,31 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
   </article>`;
 }
 
+// MOBILE-REFONTE lot 2a — CSS carte logement compacte (téléphone), injecté une seule fois.
+function _ensureBiencPhCss(){
+  if(document.getElementById('bienc-ph-css')) return;
+  var st=document.createElement('style'); st.id='bienc-ph-css';
+  st.textContent=[
+    '@media(max-width:767px){#p-biens .biens-grid,#p-imm-fiche .biens-grid,#p-ent-fiche .biens-grid{grid-template-columns:1fr!important;gap:9px!important}}',
+    '.bienc-ph{display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:11px 12px;cursor:pointer;margin:0}',
+    '.bienc-ph .bienc-thumb{width:52px;height:52px;border-radius:11px;flex:0 0 auto;position:relative;overflow:hidden;background:var(--sur3);display:flex;align-items:center;justify-content:center;font-size:22px}',
+    '.bienc-ph .bienc-thumb img{width:100%;height:100%;object-fit:cover;display:block}',
+    '.bienc-ph.is-archived .bienc-thumb{filter:grayscale(1) opacity(.6)}',
+    '.bienc-ph .bienc-badge{position:absolute;left:0;right:0;bottom:0;font-size:8px;font-weight:800;text-align:center;padding:3px 2px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.bienc-ph .bienc-badge.loue{background:rgba(29,143,111,.95);color:#fff}',
+    '.bienc-ph .bienc-badge.vac{background:rgba(46,52,64,.92);color:#e6ebf2}',
+    '.bienc-ph .bienc-badge.arch{background:rgba(46,52,64,.92);color:#aeb7c4}',
+    '.bienc-ph .bienc-mid{flex:1;min-width:0}',
+    '.bienc-ph .bienc-ref{font-family:var(--ff-display,"Schibsted Grotesk","Inter",sans-serif);font-weight:800;color:var(--t1);font-size:15px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.bienc-ph .bienc-ten{font-size:12px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}',
+    '.bienc-ph .bienc-r3{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}',
+    '.bienc-ph .bienc-meta{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.bienc-ph .bienc-rent{font-size:12px;color:var(--t1);font-weight:700;white-space:nowrap;flex:0 0 auto}',
+    '.bienc-ph .bienc-rent small{color:var(--t3);font-weight:500;font-size:10.5px}',
+    '.bienc-ph .bienc-menu{flex:0 0 auto;background:none;border:0;color:var(--t3);font-size:18px;line-height:1;padding:2px 4px;cursor:pointer;align-self:flex-start}'
+  ].join('');
+  document.head.appendChild(st);
+}
 function _renderLogementCardFlat(l) {
   const bail = _bienActiveBail(l.ref);
   const occupied = !!bail;
@@ -35337,6 +35362,22 @@ function _renderLogementCardFlat(l) {
   const isArchived = !!l.archived;
   const archCls = isArchived ? ' is-archived' : '';
   const archBadge = isArchived ? '<span class="bien-card-archived-badge">Archivé</span>' : '';
+  // MOBILE-REFONTE lot 2a — carte compacte sur téléphone (données identiques ; PC inchangé).
+  if (_isPhone()) {
+    _ensureBiencPhCss();
+    const badgeCls = isArchived ? 'arch' : (occupied ? 'loue' : 'vac');
+    const badgeLbl = isArchived ? 'Archivé' : occupLabel;
+    const metaBits = [typeLabel, (l.surf?fmtN(l.surf)+' m²':''), (l.imm||'')].filter(Boolean).map(escHtml).join(' · ');
+    const rentPh = (occupied || !isArchived)
+      ? `${fmt(l.hc||0)}<small> HC</small>${l.ch?` <small>+${fmt(l.ch)}</small>`:''}`
+      : `${fmt(l.hc||0)}<small> /mois</small>`;
+    return `<article class="bienc-ph${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">`
+      +`<div class="bienc-thumb">${_coverImg('logement', l.id, '🏠')}<span class="bienc-badge ${badgeCls}">${escHtml(badgeLbl)}</span></div>`
+      +`<div class="bienc-mid"><div class="bienc-ref">${titleEsc}</div><div class="bienc-ten">${subtitleEsc}</div>`
+      +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${rentPh}</span></div></div>`
+      +`<button class="bienc-menu" onclick="event.stopPropagation();openBienMenu(event,'logement','${escHtml(l.ref)}','${escHtml(l.imm||'')}')" aria-label="Actions">⋮</button>`
+      +`</article>`;
+  }
   return `<article class="bien-card${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
     <div class="bien-card-header">
       <span class="bch-bailleur" title="${bailleurEsc}">${bailleurEsc}</span>
