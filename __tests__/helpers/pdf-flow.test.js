@@ -32,10 +32,20 @@ describe('sectionKindFromTitle — UNE seule liste de titres pour le PDF et pour
     expect(sectionKindFromTitle('Notice d\'information (arrêté du 29 mai 2015)')).toBe('notice');
   });
 
-  it('ne confond pas un article numéroté avec le §18', () => {
+  it('détecte la page Signatures par le MOT, quel que soit le numéro (garage §16)', () => {
+    // CHANTIER BAIL-GARAGE : le bail garage numérote signatures §16 (moins de sections).
+    // La détection doit tenir sur le mot, pas sur « 18 ».
+    expect(sectionKindFromTitle('16 — Signatures')).toBe('signatures');
+    expect(sectionKindFromTitle('16 — SIGNATURES')).toBe('signatures');
+    expect(sectionKindFromTitle('Signatures')).toBe('signatures');
+    expect(titreSansParaphe('16 — Signatures')).toBe(true);
+  });
+
+  it('ne confond pas un article numéroté avec la page Signatures', () => {
     expect(sectionKindFromTitle('1 — DÉSIGNATION DU LOGEMENT')).toBeNull();
     expect(sectionKindFromTitle('8 — OBLIGATIONS DU BAILLEUR')).toBeNull();
     expect(sectionKindFromTitle('18.2 — Autre chose')).toBeNull();
+    expect(sectionKindFromTitle('15 — Dispositions diverses')).toBeNull();
   });
 
   it('DÉCISION USER 13/08 : §18, annexes et notice sans paraphe — le corps du bail en porte', () => {

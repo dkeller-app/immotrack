@@ -33,7 +33,9 @@ export const SECTIONS_SANS_PARAPHE = ['signatures', 'annexe-a', 'annexe-b', 'not
  * l'étaient dans le PDF. C'est exactement ce qui s'est produit le 13/08.
  */
 export const SECTION_TITRES = [
-  { kind: 'signatures', re: /^18\s*[—\-]?\s*SIGNATURES/i },
+  // Détection par le MOT « SIGNATURES », pas le numéro : le bail résidentiel numérote §18,
+  // le bail garage §16 (moins de sections). Le numéro de tête est optionnel.
+  { kind: 'signatures', re: /^\s*\d*\s*[—\-]?\s*SIGNATURES/i },
   { kind: 'annexe-a', re: /^ANNEXE\s+A/i },
   { kind: 'annexe-b', re: /^ANNEXE\s+B/i },
   { kind: 'notice', re: /^Notice/i }
