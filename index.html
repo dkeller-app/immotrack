@@ -35326,7 +35326,7 @@ function _ensureBiencPhCss(){
   var st=document.createElement('style'); st.id='bienc-ph-css';
   st.textContent=[
     '@media(max-width:767px){#p-biens .biens-grid,#p-imm-fiche .biens-grid,#p-ent-fiche .biens-grid{grid-template-columns:1fr!important;gap:9px!important}}',
-    '.bienc-ph{display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:11px 12px;cursor:pointer;margin:0}',
+    '.bienc-ph{display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:11px 12px;cursor:pointer;margin:0;min-width:0;max-width:100%;overflow:hidden}',
     '.bienc-ph .bienc-thumb{width:52px;height:52px;border-radius:11px;flex:0 0 auto;position:relative;overflow:hidden;background:var(--sur3);display:flex;align-items:center;justify-content:center;font-size:22px}',
     '.bienc-ph .bienc-thumb img{width:100%;height:100%;object-fit:cover;display:block}',
     '.bienc-ph.is-archived .bienc-thumb{filter:grayscale(1) opacity(.6)}',
@@ -35337,11 +35337,21 @@ function _ensureBiencPhCss(){
     '.bienc-ph .bienc-mid{flex:1;min-width:0}',
     '.bienc-ph .bienc-ref{font-family:var(--ff-display,"Schibsted Grotesk","Inter",sans-serif);font-weight:800;color:var(--t1);font-size:15px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.bienc-ph .bienc-ten{font-size:12px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}',
-    '.bienc-ph .bienc-r3{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}',
+    '.bienc-ph .bienc-r3{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;min-width:0}',
     '.bienc-ph .bienc-meta{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.bienc-ph .bienc-rent{font-size:12px;color:var(--t1);font-weight:700;white-space:nowrap;flex:0 0 auto}',
     '.bienc-ph .bienc-rent small{color:var(--t3);font-weight:500;font-size:10.5px}',
-    '.bienc-ph .bienc-menu{flex:0 0 auto;background:none;border:0;color:var(--t3);font-size:18px;line-height:1;padding:2px 4px;cursor:pointer;align-self:flex-start}'
+    '.bienc-ph .bienc-menu{flex:0 0 auto;background:none;border:0;color:var(--t3);font-size:18px;line-height:1;padding:2px 4px;cursor:pointer;align-self:flex-start}',
+    '@media(max-width:767px){',
+    '#p-biens .biens-toolbar{flex-direction:column;gap:10px;align-items:stretch}',
+    '#p-biens .biens-toolbar-left,#p-biens .biens-toolbar-right{width:100%}',
+    '#p-biens .biens-toolbar-right{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
+    '#p-biens .biens-view-toggle{display:flex;width:100%}',
+    '#p-biens .biens-view-toggle .bvt{flex:1;min-width:0;font-size:12px;padding:9px 4px;white-space:nowrap;text-align:center}',
+    '#p-biens .biens-search-wrap{flex:1 1 100%}',
+    '#p-biens .biens-search{width:100%}',
+    '#p-biens #biens-add-btn{flex:1 1 100%}',
+    '}'
   ].join('');
   document.head.appendChild(st);
 }
@@ -36722,6 +36732,7 @@ function _renderBiensModeBailleurs(wrap, cntEl) {
 
 function rBiens() {
   const wrap = el('biens-list-wrap'); if(!wrap) return;
+  try{ if(_isPhone()) _ensureBiencPhCss(); }catch(e){}   // MOBILE-REFONTE lot 2b — CSS toolbar téléphone présent quel que soit le mode
   // Fil COMPLET (Task 8) : bandeau de reprise AVANT les early-returns (empty states, mode bailleurs)
   // pour qu'il soit rafraîchi à chaque rendu de la page, quel que soit le sous-onglet.
   if(typeof _frRenderResumeBanner==='function') _frRenderResumeBanner();
