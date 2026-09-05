@@ -35669,6 +35669,7 @@ function setEntFicheComptaYear(y) {
 
 function rEntFiche() {
   const wrap = el('ent-fiche-content'); if(!wrap) return;
+  try{ if(_isPhone()) _ensureLogFichePhCss(); }catch(e){}   // MOBILE-REFONTE — compaction fiche bailleur sur téléphone
   if(!_currentEntFiche) { wrap.innerHTML = '<p class="mu">Aucun bailleur sélectionné.</p>'; return; }
   const ent = (DB.entites||[]).find(e => +e.id === _currentEntFiche);
   if(!ent) {
@@ -42334,16 +42335,16 @@ function _ensureLogFichePhCss(){
   var st=document.createElement('style'); st.id='logf-ph-css';
   st.textContent=[
     '@media(max-width:767px){',
-    '#p-log-fiche{overflow-x:hidden}',
-    '#p-log-fiche .logf-photos,#p-log-fiche .logf-photos-mini{width:56px!important;height:56px!important;min-width:56px!important;max-width:56px!important;flex:0 0 56px!important;border-radius:12px;overflow:hidden}',
-    '#p-log-fiche .logf-photos img,#p-log-fiche .logf-photos-mini img{width:100%!important;height:100%!important;object-fit:cover}',
-    '#p-log-fiche .logf-hero-pulse{display:none!important}',
-    '#p-log-fiche .logf-title{font-size:18px!important;line-height:1.15}',
-    '#p-log-fiche .logf-hero-stats{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;margin-top:10px}',
-    '#p-log-fiche .logf-actions{display:flex!important;flex-direction:column!important;gap:8px!important;margin-top:12px}',
-    '#p-log-fiche .logf-actions>*{width:100%!important}',
-    '#p-log-fiche .logf-subtabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}',
-    '#p-log-fiche .logf-subtab{flex:1 0 auto;white-space:nowrap}',
+    '#p-log-fiche,#p-imm-fiche,#p-ent-fiche{overflow-x:hidden}',
+    '.logf-photos,.logf-photos-mini{width:56px!important;height:56px!important;min-width:56px!important;max-width:56px!important;flex:0 0 56px!important;border-radius:12px;overflow:hidden}',
+    '.logf-photos img,.logf-photos-mini img{width:100%!important;height:100%!important;object-fit:cover}',
+    '.logf-hero-pulse{display:none!important}',
+    '.logf-title{font-size:18px!important;line-height:1.15}',
+    '.logf-hero-stats{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;margin-top:10px}',
+    '.logf-actions{display:flex!important;flex-direction:column!important;gap:8px!important;margin-top:12px}',
+    '.logf-actions>*{width:100%!important}',
+    '.logf-subtabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}',
+    '.logf-subtab{flex:1 0 auto;white-space:nowrap}',
     '}'
   ].join('');
   document.head.appendChild(st);
@@ -42835,6 +42836,7 @@ function _renderOccupationDonut(loues, total, sizePx) {
 
 function rImmFiche() {
   const wrap = el('imm-fiche-content'); if(!wrap) return;
+  try{ if(_isPhone()) _ensureLogFichePhCss(); }catch(e){}   // MOBILE-REFONTE — compaction fiche immeuble sur téléphone
   if(!_currentImmFiche) { wrap.innerHTML = '<p class="mu">Aucun immeuble sélectionné.</p>'; return; }
   const { entId, immId } = _currentImmFiche;
   const ent = (DB.entites||[]).find(e => +e.id === entId);
