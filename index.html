@@ -15964,14 +15964,14 @@ function rMv() {
     return `<tr>
     <td>${fd(m.date)}</td>
     <td>${escHtml(m.lib||'–')}</td>
-    <td>${m.cat ? `<span class="badge gry" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>` : '<span class="badge ora">⚠ à classer</span>'}</td>
+    <td>${m.cat ? `<span class="badge gry" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>` : `<span class="badge ora">${_uiIcon('warn',13)} à classer</span>`}</td>
     <td>${_mvAffLabel(m)}</td>
     <td class="num ${net>=0?'pos':'neg'}">${net>=0?'+ ':'− '}${fmt(Math.abs(net))}</td>
-    <td>${m.fac?`<span title="${escHtml(m.fac)}">📎</span>`:''}</td>
+    <td>${m.fac?`<span title="${escHtml(m.fac)}">${_uiIcon('attach',14)}</span>`:''}</td>
     <td class="act-cell">
-      <button class="btn bs bb" onclick="openEditMv(${m.id})" title="Modifier">✏️</button>
+      <button class="btn bs bb" onclick="openEditMv(${m.id})" title="Modifier">${_uiIcon('edit')}</button>
       <button class="btn bs bb" onclick="openSplitMvList(${m.id})" title="Scinder ce mouvement">✂</button>
-      <button class="btn br bb" onclick="delMv(${m.id})" title="Supprimer">🗑</button>
+      <button class="btn br bb" onclick="delMv(${m.id})" title="Supprimer">${_uiIcon('trash')}</button>
     </td>
   </tr>`;
   }).join('');
@@ -25209,7 +25209,7 @@ function rRegulInit() {
         <select class="inp" id="reg-imm" onchange="rRegul()" style="width:180px"><option value="">Tous immeubles</option>${immeubles().map(i=>`<option>${i}</option>`).join('')}</select>
         <input class="inp" type="date" id="reg-from" value="${yr}-01-01" oninput="rRegul()" onchange="rRegul()" style="width:140px">
         <input class="inp" type="date" id="reg-to" value="${yr}-12-31" oninput="rRegul()" onchange="rRegul()" style="width:140px">
-        <button class="btn bs" onclick="rRegul()">🔄 Calculer</button>
+        <button class="btn bs" onclick="rRegul()">${_uiIcon('refresh')} Calculer</button>
       </div>
       <div class="flex-c">
         <button class="btn bs" onclick="printSelectedRegul()">🖨 Imprimer sélection</button>
@@ -25792,15 +25792,15 @@ function _departRenderStepper(ref){
     let e=null; try{ e=_departEstimDu(bail); }catch(err){ if(window.console) console.warn('[depart-estim stepper]', err); }
     if(e && e.du>0){
       const jsref=(ref||'').replace(/'/g,"\\'");
-      acp=`<div class="dep-acp"><div class="dep-acp-h">⏰ À anticiper — avant l'état des lieux</div>
+      acp=`<div class="dep-acp"><div class="dep-acp-h">${_uiIcon('clock',15)} À anticiper — avant l'état des lieux</div>
         <div class="dep-acp-l"><span>Charges ${e.estimated?'estimées':'réelles'} du locataire</span><span>${fmt(e.est)}</span></div>
         <div class="dep-acp-l"><span>− Provisions${e.acompte>0?' + acompte reçu':''} versées</span><span>${fmt(e.prov+e.acompte)}</span></div>
         <div class="dep-acp-l tot"><span>= Dû estimé</span><span class="neg">${fmt(e.du)}</span></div>
         ${e.applies20?`<div class="dep-acp-l"><span>Retenue possible sur le dépôt (20 %)</span><span>${fmt(e.couvertDG)}</span></div><div class="dep-acp-l"><span>Reste non couvert par le dépôt</span><span class="neg">${fmt(e.reste)}</span></div>`:''}
-        <div class="dep-acp-rc">💡 Le locataire est encore présent → demande-lui un <b>acompte de ${fmt(e.du)}</b> (le dû${e.estimated?' estimé':''}), imputé sur le décompte final. ${e.reste>0?`Sinon ~${fmt(e.reste)} resteraient non couverts par le dépôt après son départ.`:'Ça évite de retenir sur le dépôt (restitution plus rapide).'}</div>
-        ${e.acompte>0?`<div class="dep-acp-ok">✓ Acompte déjà reçu : ${fmt(e.acompte)} (imputé sur le décompte)</div>`:''}
+        <div class="dep-acp-rc">${_uiIcon('bulb',14)} Le locataire est encore présent → demande-lui un <b>acompte de ${fmt(e.du)}</b> (le dû${e.estimated?' estimé':''}), imputé sur le décompte final. ${e.reste>0?`Sinon ~${fmt(e.reste)} resteraient non couverts par le dépôt après son départ.`:'Ça évite de retenir sur le dépôt (restitution plus rapide).'}</div>
+        ${e.acompte>0?`<div class="dep-acp-ok">${_uiIcon('check',13)} Acompte déjà reçu : ${fmt(e.acompte)} (imputé sur le décompte)</div>`:''}
         ${d.acompteDemande
-          ? `<div class="dep-acp-ok">✓ Acompte de ${fmt(d.acompteDemande.montant)} demandé le ${fd(d.acompteDemande.at)}${(Math.abs((d.acompteDemande.montant||0)-e.du)>1)?` <span style="color:var(--ora)">— estimation actuelle : ${fmt(e.du)}</span>`:''}</div>
+          ? `<div class="dep-acp-ok">${_uiIcon('check',13)} Acompte de ${fmt(d.acompteDemande.montant)} demandé le ${fd(d.acompteDemande.at)}${(Math.abs((d.acompteDemande.montant||0)-e.du)>1)?` <span style="color:var(--ora)">— estimation actuelle : ${fmt(e.du)}</span>`:''}</div>
              <div class="dep-cta"><button onclick="_departMarquerAcompteRecu('${jsref}',${d.acompteDemande.montant})">Marquer comme reçu</button><button class="ghost" onclick="_departDemanderAcompte('${jsref}',${e.du})">Réviser (${fmt(e.du)})</button><button class="ghost" onclick="_departAnnulerAcompte('${jsref}')">Annuler</button></div>`
           : `<div class="dep-cta"><button onclick="_departDemanderAcompte('${jsref}',${e.du})">Demander un acompte de charges</button></div>`}
       </div>`;
@@ -25975,11 +25975,11 @@ function _rgShowGlobal(immNom){
   const sumCharges=entries.reduce((s,e)=>s+e.charges,0), sumProv=entries.reduce((s,e)=>s+e.provisions,0);
   const hasTrou=!!(nonRep&&nonRep.total>0.005);
   const validated=_rgIsValidated(immNom);
-  const banner=hasTrou?`<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">⚠️</span> <b>${f(nonRep.total)} de charges non réparties</b> — corrige avant de valider cet immeuble</div></div>`:'';
+  const banner=hasTrou?`<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${f(nonRep.total)} de charges non réparties</b> — corrige avant de valider cet immeuble</div></div>`:'';
   el('reg-cards').innerHTML=`
     <div class="rg-glob-h"><button class="rg-back" onclick="_rgBackToList()">← Retour</button>
-      <b>🔎 Vue globale — ${escHtml(immNom)}</b>
-      ${validated?'<span class="rg-badge-ok">✓ validé</span>':'<span class="rg-badge-todo">⚠️ à valider</span>'}</div>
+      <b>${_uiIcon('search')} Vue globale — ${escHtml(immNom)}</b>
+      ${validated?`<span class="rg-badge-ok">${_uiIcon('check',13)} validé</span>`:`<span class="rg-badge-todo">${_uiIcon('warn',13)} à valider</span>`}</div>
     ${banner}
     <div class="rg-wrap"><table class="tbl rg-mtx">
       <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-bail" style="color:var(--ora)" title="Part non refacturée aux locataires — reste à charge du bailleur (2044 ligne 225)">Bailleur (225)</th><th class="num col-tot">Réparti loc.</th></tr></thead>
@@ -25992,8 +25992,8 @@ function _rgShowGlobal(immNom){
       </tbody></table></div>
     ${bail&&bail.total>0?`<div class="rg-glob-bail">🏛️ Part bailleur (non récupérable → 2044) : <b>${f(bail.total)}</b></div>`:''}
     <div class="rg-glob-foot">
-      <button class="btn ${hasTrou?'bs':'bp'}" data-imm="${escHtml(immNom)}" ${hasTrou?'disabled':''} onclick="_rgValidate(this.dataset.imm)">✓ Valider la régul de l'immeuble</button>
-      ${_rgJustifFactures(immNom).length?`<button class="btn bs" data-imm="${escHtml(immNom)}" onclick="_rgBuildJustifsZip(this.dataset.imm)" title="Télécharger un dossier .zip des factures justificatives attachées">📦 Paquet de justificatifs (${_rgJustifFactures(immNom).length})</button>`:''}
+      <button class="btn ${hasTrou?'bs':'bp'}" data-imm="${escHtml(immNom)}" ${hasTrou?'disabled':''} onclick="_rgValidate(this.dataset.imm)">${_uiIcon('check')} Valider la régul de l'immeuble</button>
+      ${_rgJustifFactures(immNom).length?`<button class="btn bs" data-imm="${escHtml(immNom)}" onclick="_rgBuildJustifsZip(this.dataset.imm)" title="Télécharger un dossier .zip des factures justificatives attachées">${_uiIcon('archive')} Paquet de justificatifs (${_rgJustifFactures(immNom).length})</button>`:''}
       <span class="mu sm">${hasTrou?'Validation bloquée tant qu’il reste des charges non réparties.':'Une fois validé, les décomptes de cet immeuble peuvent être envoyés.'}</span>
     </div>`;
 }
@@ -26309,7 +26309,7 @@ function rRegul() {
     .filter(n => !fimm || n.imm===fimm || n.imm==='(sans immeuble)');
   const totNonRep = nonRepArr.reduce((s,n)=>s+n.total,0);
   const nonRepBanner = totNonRep > 0.005 ? `<div class="rg-trou-banner">
-      <div class="rg-trou-h"><span style="font-size:17px">⚠️</span> <b>${fmt(totNonRep)} de charges récupérables non réparties</b> — à corriger avant d'envoyer les décomptes</div>
+      <div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${fmt(totNonRep)} de charges récupérables non réparties</b> — à corriger avant d'envoyer les décomptes</div>
       <details><summary>Voir le détail</summary><div class="rg-trou-body">
       ${nonRepArr.map(n=>`<div class="rg-trou-im"><b>${escHtml(n.imm)}</b> · ${fmt(n.total)}</div>`+
         n.lines.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(l=>`<div class="rg-trou-l">${escHtml(l.date||'')} · ${escHtml(l.lib||'')} · <b>${fmt(l.montant)}</b> <span class="mu sm">— ${escHtml(l.motif||'')}</span></div>`).join('')
@@ -26325,7 +26325,7 @@ function rRegul() {
   const bailleurCardsHtml = bailleurArr.length
     ? `<div style="margin:14px 0;padding:14px 16px;background:#fffbf0;border:1px solid #f59e0b44;border-radius:8px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <span style="font-size:18px">🏛️</span>
+          <span style="font-size:18px">${_uiIcon('bank',18)}</span>
           <b style="font-size:14px">Part bailleur (charges non récupérables — déductibles 2044 ligne 224/227)</b>
         </div>
         ${bailleurArr.map(b => {
@@ -26349,7 +26349,7 @@ function rRegul() {
           </details>`;
         }).join('')}
         <p class="mu sm" style="font-size:11px;margin-top:10px;font-style:italic">
-          💡 Ces montants ne sont pas refacturés aux locataires. Ils correspondent aux périodes de vacance et aux logements exclus du compteur (garage, etc.). Reportez-les sur votre déclaration 2044 (ligne 224 ou 227 selon nature).
+          ${_uiIcon('bulb',14)} Ces montants ne sont pas refacturés aux locataires. Ils correspondent aux périodes de vacance et aux logements exclus du compteur (garage, etc.). Reportez-les sur votre déclaration 2044 (ligne 224 ou 227 selon nature).
         </p>
       </div>`
     : '';
@@ -26369,18 +26369,18 @@ function rRegul() {
     const imVal = _rgIsValidated(imNom);
     let imBadge;
     if(imVal){
-      imBadge = '<span class="rg-badge-ok">✓ Émise</span>';
+      imBadge = '<span class="rg-badge-ok">' + _uiIcon('check',13) + ' Émise</span>';
     } else {
       const _reg = (typeof _rgImmRegime==='function') ? _rgImmRegime({imm:imNom, bail:{}}) : {copro:false};
       imBadge = _reg.copro
-        ? '<span class="rg-badge-todo" style="background:var(--blu-soft,rgba(37,99,235,.1));color:var(--fg-info,#2563eb)" title="En copropriété, la régul attend le décompte arrêté du syndic avant d\'être émise">⏳ En attente de l’arrêté copro</span>'
-        : '<span class="rg-badge-todo">⚠️ À émettre</span>';
+        ? '<span class="rg-badge-todo" style="background:var(--blu-soft,rgba(37,99,235,.1));color:var(--fg-info,#2563eb)" title="En copropriété, la régul attend le décompte arrêté du syndic avant d\'être émise">' + _uiIcon('hourglass',13) + ' En attente de l’arrêté copro</span>'
+        : '<span class="rg-badge-todo">' + _uiIcon('warn',13) + ' À émettre</span>';
     }
     body += `<tr class="rg-imm" onclick="_rgToggleImm('${cls}',this)">
-      <td><span class="rg-chev">▸</span> 🏘️ ${escHtml(imNom)} <span class="mu sm">· ${grp.length} occupation${grp.length>1?'s':''}</span> ${imBadge}</td>
+      <td><span class="rg-chev">▸</span> ${_uiIcon('building',15)} ${escHtml(imNom)} <span class="mu sm">· ${grp.length} occupation${grp.length>1?'s':''}</span> ${imBadge}</td>
       <td class="num">${fmt(gP)}</td><td class="num">${fmt(gC)}</td>
       <td class="num ${gS>=0?'pos':'neg'}">${gS>=0?'+':''}${fmt(gS)}</td>
-      <td class="num"><button class="btn bs bb" data-imm="${escHtml(imNom)}" onclick="event.stopPropagation();_rgShowGlobal(this.dataset.imm)">🔎 Vue globale</button></td></tr>`;
+      <td class="num"><button class="btn bs bb" data-imm="${escHtml(imNom)}" onclick="event.stopPropagation();_rgShowGlobal(this.dataset.imm)">${_uiIcon('search')} Vue globale</button></td></tr>`;
     grp.forEach((r,li) => {
       // Liste régul = régul BRUTE (provisions vs charges réelles), cohérente avec ses sous-totaux/total.
       // L'acompte de départ ne s'impute que dans les DOCUMENTS de décompte + le panneau clôture, pas ici.
@@ -26401,8 +26401,8 @@ function rRegul() {
         <td class="num" data-l="Solde">${tag}</td>
         <td class="num rg-acts">
           ${(parti && !r.isHistorique)?`<button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();_rgClotureLocataire(this.dataset.entryKey)" title="Clôturer ce locataire parti : estimation N‑1 + retenue dépôt de garantie">🏁</button>`:''}
-          <button class="btn bs bb" data-entry-key="${ekEsc}" ${imVal?'':'disabled'} onclick="event.stopPropagation();envoyerDecompteParEmail(this.dataset.entryKey)" title="${imVal?'Télécharger le décompte (PDF)':'Valide l’immeuble (Vue globale) avant d’envoyer'}">📧</button>
-          <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();openRegulDoc(this.dataset.entryKey)" title="Décompte détaillé (PDF)">📄</button></td></tr>`;
+          <button class="btn bs bb" data-entry-key="${ekEsc}" ${imVal?'':'disabled'} onclick="event.stopPropagation();envoyerDecompteParEmail(this.dataset.entryKey)" title="${imVal?'Télécharger le décompte (PDF)':'Valide l’immeuble (Vue globale) avant d’envoyer'}">${_uiIcon('mail')}</button>
+          <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();openRegulDoc(this.dataset.entryKey)" title="Décompte détaillé (PDF)">${_uiIcon('doc-text')}</button></td></tr>`;
       const detRows = (r.details||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(d=>`
         <tr><td>${escHtml(d.date||'')}</td><td>${escHtml(d.lib||'')}</td><td class="mu sm">${escHtml(d.repartition||'')}</td><td class="num">${fmt(d.montant)}</td></tr>`).join('');
       body += `<tr class="rg-det ${cls}" id="${did}" style="display:none"><td colspan="5">
@@ -28051,7 +28051,7 @@ function rLoyers() {
     const _tousOpen = !!_lyUI.tousOpen;
     html += '<div class="ly2-blk t-info' + (_tousOpen ? '' : ' closed') + '" id="ly-tous">'
       + '<div class="ly2-blk-h" onclick="_lyToggleTous()" style="cursor:pointer"><span class="chev">▾</span>'
-      + '<span class="t">📋 Tous les loyers</span>'
+      + '<span class="t">' + _uiIcon('list') + ' Tous les loyers</span>'
       + '<span class="hint">' + loues + ' bail' + (loues > 1 ? 'ux' : '') + ' · frise 12 mois, groupés par immeuble</span></div>'
       + (_tousOpen ? '<div class="ly2-body" style="padding:12px 14px">'
           + _lyTousLoyersHtml(new Date().getFullYear(), _tousEnt, { inline: true, grouped: true }).html + '</div>' : '')
@@ -28064,8 +28064,8 @@ function rLoyers() {
     `<button class="ly2-s${_lyUI.suivi === k ? ' open' : ''}" onclick="_lyOuvrirSuivi('${k}')">${lbl}${n !== '' ? ` <b>${n}</b>` : ''}</button>`;
   html += '<div class="ly2-suivi"><span class="lg">Suivi</span>'
     + pastille('perdue', '⏸ IRL non appliquées', rev.perdues.length)
-    + pastille('muet', '🔒 Non révisables', rev.muets.length)
-    + pastille('quit-mois', '🧾 Quittances éditées ce mois', nQuitMois)
+    + pastille('muet', _uiIcon('lock') + ' Non révisables', rev.muets.length)
+    + pastille('quit-mois', _uiIcon('receipt') + ' Quittances éditées ce mois', nQuitMois)
     + '</div>';
   if (_lyUI.suivi) html += _lyPanneauSuivi(_lyUI.suivi, rev, ymCourant, moisCourant);
 
@@ -28119,7 +28119,7 @@ function _lyDpeBlock(etats) {
   }
   const n = aCompleter.length;
   if (!n) {
-    return `<div class="ly2-blk t-info"><div class="ly2-h"><span class="t">🏷 DPE à compléter</span>`
+    return `<div class="ly2-blk t-info"><div class="ly2-h"><span class="t">${_uiIcon('tag')} DPE à compléter</span>`
       + `<span class="c">tous les DPE des lots loués sont renseignés</span></div></div>`;
   }
   const rows = aCompleter.map(({ e, expire }) => {
@@ -28132,7 +28132,7 @@ function _lyDpeBlock(etats) {
       + `<span class="pick"><input type="date" class="ly-dpe-d" title="Date de réalisation du DPE" />${classes}`
       + `<button type="button" class="btn bs bb" onclick="_lyDpeNonConcerne('${ref}')" title="Garage, cave, parking — pas de DPE exigible par nature">non concerné</button></span></div>`;
   }).join('');
-  return `<div class="ly2-blk t-info"><div class="ly2-h"><span class="t">🏷 DPE à compléter</span>`
+  return `<div class="ly2-blk t-info"><div class="ly2-h"><span class="t">${_uiIcon('tag')} DPE à compléter</span>`
     + `<span class="c">${n} lot${n > 1 ? 's' : ''} sans DPE en base — la révision reste possible, mais un F ou G ne se révise pas</span></div>`
     + `<div class="ly-dpe-body">${rows}</div></div>`;
 }
@@ -28342,9 +28342,9 @@ function _lyQuittancesDuMois(ymCourant) {
       <span class="mu">${escHtml(q.mois || '')} · éditée le ${fd(q.date)}</span>
       <span class="am"><b>${fmt((q.hc || 0) + (q.ch || 0))}</b></span>
       <span class="ac"><button class="btn bs bb" onclick="_ouvrirQuittanceSurMois('${_lyQ(q.logement)}','${_lyQ(window.moisFrToYm(q.mois) || '')}')" title="Rééditer : l'éditeur s'ouvre sur ce mois, le document se regénère">↺ Rééditer</button>
-        <button class="btn bs bb" onclick="previewQuit(${q.id})" title="Aperçu">👁</button>
-        <button class="btn bs bb" onclick="envoyerQuittanceParEmail(${q.id})" title="Télécharger le PDF">📥</button>
-        <button class="btn br bb" onclick="delQuit(${q.id})" title="Supprimer">🗑</button></span></div>`).join('')
+        <button class="btn bs bb" onclick="previewQuit(${q.id})" title="Aperçu">${_uiIcon('eye')}</button>
+        <button class="btn bs bb" onclick="envoyerQuittanceParEmail(${q.id})" title="Télécharger le PDF">${_uiIcon('download')}</button>
+        <button class="btn br bb" onclick="delQuit(${q.id})" title="Supprimer">${_uiIcon('trash')}</button></span></div>`).join('')
   };
 }
 
@@ -28413,23 +28413,23 @@ function _lyPanneauSuivi(kind, rev, ymCourant, moisCourant) {
     }).join('');
     foot = 'La révision revient de toute façon à chaque anniversaire du bail, sur les indices du moment. Seul le cycle passé s\'éteint (art. 17-1). <b>Appliquer un cycle éteint reste possible</b> : la fenêtre dit alors ce que ça engage.';
   } else if (kind === 'muet') {
-    head = `🔒 Non révisables — ${rev.muets.length} lot${rev.muets.length > 1 ? 's' : ''}`;
+    head = `${_uiIcon('lock')} Non révisables — ${rev.muets.length} lot${rev.muets.length > 1 ? 's' : ''}`;
     rows = rev.muets.map(({ e, rev: r }) =>
       `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
         <span class="mu">${escHtml(_lyMotifMuet(r))}</span>
         <span class="am"><span class="ly2-p nu">${escHtml(_lyPastilleMuet(r))}</span></span>
         <span class="ac">${(typeof window.revisionForcable === 'function' && window.revisionForcable(r))
           ? `<button class="btn bs bb" onclick="_gfOuvrir('${_lyQ(e.ref)}')">${escHtml(window.libelleForcage(r) || 'Continuer quand même')}</button>`
-            + ((r.gelDpeFG || r.dpeManquant) ? `<button class="btn bs bb" onclick="openLogModalOnTab('${_lyQ(e.ref)}','diag')" title="Voir le DPE">📄</button>` : '')
+            + ((r.gelDpeFG || r.dpeManquant) ? `<button class="btn bs bb" onclick="openLogModalOnTab('${_lyQ(e.ref)}','diag')" title="Voir le DPE">${_uiIcon('doc-text')}</button>` : '')
           : `<button class="btn bs bb" onclick="_gfOuvrir('${_lyQ(e.ref)}')" title="Pourquoi ce lot n’est pas révisable">Pourquoi ?</button>`}</span></div>`).join('');
     foot = 'Gel légal (DPE F/G) et DPE absent sont des <b>avertissements</b>, pas des verrous. Bail de moins d\'un an et indice non publié n\'ont rien à débloquer : la date ou l\'indice manquent.';
   } else if (kind === 'quit-mois') {
     const q = _lyQuittancesDuMois(ymCourant);
-    head = `🧾 ${escHtml(moisCourant.charAt(0).toUpperCase() + moisCourant.slice(1))} — quittances éditées`;
+    head = `${_uiIcon('receipt')} ${escHtml(moisCourant.charAt(0).toUpperCase() + moisCourant.slice(1))} — quittances éditées`;
     rows = q.html || '<div class="foot" style="border-top:0">Aucune quittance éditée ce mois-ci.</div>';
     foot = 'Un état par (lot, mois) : le document n\'est pas stocké, chaque action le regénère depuis le barème du mois. Un mois plus ancien se réédite depuis la fiche du bien.';
   } else if (kind === 'suivi12') {
-    head = '📊 Suivi mois par mois';
+    head = _uiIcon('chart') + ' Suivi mois par mois';
     rows = `<div class="foot" style="border-top:0">Le tableau 12 mois × lots, avec le détail d'un mois au clic, est l'écran <b>Suivi des loyers</b> — déjà en prod, inchangé par ce chantier.
       <div style="margin-top:8px"><button class="btn bs" onclick="_impayesOpenVue()">Ouvrir le suivi mois par mois</button></div></div>`;
   }
@@ -28502,7 +28502,7 @@ function _lyFriseRuban(etats) {
       <span class="lbl">${_LY_MOIS_COURT[m.mois - 1]}<span class="an">${m.annee}</span></span>
       <div class="n${kind ? '' : ' z'}">${kind ? n : '·'}</div>
       <span class="u">${mot}</span>
-      ${m.nbGel ? `<span class="gel">🔒${m.nbGel}</span>` : ''}</button>`;
+      ${m.nbGel ? `<span class="gel">${_uiIcon('lock',12)}${m.nbGel}</span>` : ''}</button>`;
   }).join('');
 
   const parRef = new Map(toutes.map(({ e, rev }) => [e.ref, { e, rev }]));
@@ -28529,7 +28529,7 @@ function _lyFriseRuban(etats) {
         return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
           <span class="mu">révisée · effet au <b>${fd(effetProj)}</b></span>
           <span class="am"><b>${fmt(o.rev.nouveauHC)}</b></span>
-          <span class="ac"><span class="ly2-p" style="color:var(--pos)">✓ faite</span></span></div>`;
+          <span class="ac"><span class="ly2-p" style="color:var(--pos)">${_uiIcon('check',13)} faite</span></span></div>`;
       }
       // effet — le ruban PROJETTE un effet passé sur sa prochaine occurrence annuelle (« quand ça
       // retombe », pas « quand ça aurait dû ») : la ligne annonce la date de la tuile, et dit
@@ -28554,11 +28554,11 @@ function _lyFriseRuban(etats) {
 
   const gelTot = r.totalGel;
   return `<div class="ly2-frise">
-    <div class="ly2-frise-h"><span class="t">📅 Révisions IRL — 12 mois glissants</span>
+    <div class="ly2-frise-h"><span class="t">${_uiIcon('calendar')} Révisions IRL — 12 mois glissants</span>
       <span class="s">${r.totalEffet} révision${r.totalEffet > 1 ? 's' : ''} à faire${gelTot ? ` · ${gelTot} lot${gelTot > 1 ? 's' : ''} non révisable${gelTot > 1 ? 's' : ''}` : ''}</span></div>
     <div class="fr-ruban">${tuiles}</div>
     <div class="fr-leg"><span><i class="eff"></i>à faire (1ᵉʳ du mois d'effet)</span>
-      <span><i class="fait"></i>faite</span><span><i class="gel"></i>🔒 non révisable</span>
+      <span><i class="fait"></i>faite</span><span><i class="gel"></i>${_uiIcon('lock',13)} non révisable</span>
       <span><i class="now"></i>mois en cours</span><span>Clic sur un mois = la liste des lots concernés.</span></div>
     ${detail}</div>`;
 }
@@ -29531,7 +29531,7 @@ function _renderIRLRappelModal() {
   if (!host) return;
   if (!list.length) {
     host.innerHTML = `<div style="padding:18px;text-align:center;color:var(--grn);font-size:13px;background:rgba(22,163,74,.08);border-radius:8px;border:1px solid rgba(22,163,74,.2)">
-      ✓ Aucune révision IRL en attente.</div>`;
+      ${_uiIcon('check',13)} Aucune révision IRL en attente.</div>`;
     return;
   }
   host.innerHTML = list.map(({log, rev}) => {
@@ -29553,9 +29553,9 @@ function _renderIRLRappelModal() {
         </div>
       </div>
       <div class="flex-c irl-actions" style="gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
-        <button class="btn bs bb" onclick="previewIRLLetter('${log.ref}');closeM('ov-irl-rappel');go('irl',null)" title="Voir la lettre">👁 Aperçu lettre</button>
+        <button class="btn bs bb" onclick="previewIRLLetter('${log.ref}');closeM('ov-irl-rappel');go('irl',null)" title="Voir la lettre">${_uiIcon('eye')} Aperçu lettre</button>
         ${_irlEnvelopeBtn(log, st)}
-        <button class="btn bg bb" onclick="applyIRL('${log.ref}',${rev.nouveauHC})" title="Appliquer ${fmt(rev.nouveauHC)}" style="font-weight:600">💶 Valider IRL</button>
+        <button class="btn bg bb" onclick="applyIRL('${log.ref}',${rev.nouveauHC})" title="Appliquer ${fmt(rev.nouveauHC)}" style="font-weight:600">${_uiIcon('money')} Valider IRL</button>
       </div>
     </div>`;
   }).join('');
@@ -51855,7 +51855,7 @@ function _bankImportRunPreview(lines, format) {
   // sont proposées) ; les doublons déjà en base sont détectés par ⑥.
   if (window._bankIsRetroactive(lines, li)) {
     const ds = lines.map(l => l.date).filter(Boolean).sort();
-    const banner = `<div style="padding:10px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:6px;margin-bottom:12px;font-size:12px">📅 <b>Import rétroactif</b> — ce fichier couvre ${fd(ds[0])} → ${fd(ds[ds.length-1])}, antérieur à ton dernier import du ${fd(li.date)}. Toutes les lignes sont proposées, les doublons déjà en base sont détectés.</div>`;
+    const banner = `<div style="padding:10px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:6px;margin-bottom:12px;font-size:12px">${_uiIcon('calendar',14)} <b>Import rétroactif</b> — ce fichier couvre ${fd(ds[0])} → ${fd(ds[ds.length-1])}, antérieur à ton dernier import du ${fd(li.date)}. Toutes les lignes sont proposées, les doublons déjà en base sont détectés.</div>`;
     _bankImportFinalizePreview(lines, format, banner);
     return;
   }
@@ -51865,7 +51865,7 @@ function _bankImportRunPreview(lines, format) {
     const after = sliced.after;
     if (after.length === 0) {
       const preview = el('bank-import-preview');
-      if (preview) preview.innerHTML = `<div style="padding:18px;text-align:center;background:var(--sur2);border:1px solid var(--bor);border-radius:8px"><b style="font-size:14px">✓ Tout est déjà importé</b><br><span class="mu sm">Le fichier ne contient aucune ligne après la dernière déjà importée le ${fd(li.date)} pour <b>${escHtml(_currentBankAccount.label)}</b>.</span></div>`;
+      if (preview) preview.innerHTML = `<div style="padding:18px;text-align:center;background:var(--sur2);border:1px solid var(--bor);border-radius:8px"><b style="font-size:14px">${_uiIcon('check',14)} Tout est déjà importé</b><br><span class="mu sm">Le fichier ne contient aucune ligne après la dernière déjà importée le ${fd(li.date)} pour <b>${escHtml(_currentBankAccount.label)}</b>.</span></div>`;
       _bankImportLines = [];
       return;
     }
@@ -51873,7 +51873,7 @@ function _bankImportRunPreview(lines, format) {
     _bankImportFinalizePreview(after, format, banner);
   } else {
     // Pointeur perdu (fichier d'une autre période, ou ligne pointeur supprimée localement)
-    const banner = `<div style="padding:10px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:6px;margin-bottom:12px;font-size:12px">⚠️ <b>Reprise non retrouvée</b> dans ce fichier — aucune des ${fps.length} dernière(s) opération(s) déjà importée(s) n'y figure (autre période, ou lignes supprimées localement). Toutes les lignes sont proposées ; la détection de doublons sert de filet.</div>`;
+    const banner = `<div style="padding:10px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:6px;margin-bottom:12px;font-size:12px">${_uiIcon('warn',14)} <b>Reprise non retrouvée</b> dans ce fichier — aucune des ${fps.length} dernière(s) opération(s) déjà importée(s) n'y figure (autre période, ou lignes supprimées localement). Toutes les lignes sont proposées ; la détection de doublons sert de filet.</div>`;
     _bankImportFinalizePreview(lines, format, banner);
   }
 }
@@ -51975,7 +51975,7 @@ function _bankImportFirstImportConfirm(format) {
     // contradiction avec T-1 et ③.3 v2 (« on importe et on marque »). Elle passe, et
     // arrive dans « À compléter » avec son badge ⚠ date douteuse.
     filtered = filtered.filter(l => (l.date ? l.date >= from : true));
-    banner = `<div style="padding:8px;background:rgba(22,163,74,.08);border:1px solid #16a34a;border-radius:6px;margin-bottom:10px;font-size:12px">📅 <b>À partir du ${fd(from)}</b> — ${filtered.length} ligne(s) filtrée(s) sur ${(_bankImportLines||[]).length}.</div>`;
+    banner = `<div style="padding:8px;background:rgba(22,163,74,.08);border:1px solid #16a34a;border-radius:6px;margin-bottom:10px;font-size:12px">${_uiIcon('calendar',14)} <b>À partir du ${fd(from)}</b> — ${filtered.length} ligne(s) filtrée(s) sur ${(_bankImportLines||[]).length}.</div>`;
   } else if (choice === 'all') {
     banner = '';   // V3-REFONTE-LOYERS C : redondant avec le compteur du récap → supprimé
   } else if (choice === 'manual') {
@@ -52114,7 +52114,7 @@ function _bankImportRenderAccountSelect(identifier, format, hint) {
       </label>`).join('');
   preview.innerHTML = `
     <div style="padding:12px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:8px;margin-bottom:14px;font-size:13px;color:var(--t1)">
-      <b>📋 Fichier non reconnu</b> — à quel compte bancaire Propryo le rattacher ?<br>
+      <b>${_uiIcon('doc-text',14)} Fichier non reconnu</b> — à quel compte bancaire Propryo le rattacher ?<br>
       <span class="mu sm">Un compte appartient toujours à quelqu'un. Cette association sera mémorisée : les prochains relevés du même compte seront reconnus automatiquement.</span>
     </div>
     ${accounts.length ? `<div style="margin-bottom:10px">
@@ -52203,10 +52203,10 @@ function _bankAccountsRender() {
       : `<div class="mu sm" style="font-size:11.5px;margin-top:4px;color:var(--ora)">⏳ <b>Jamais importé</b> — le prochain import proposera les 3 choix (date / tout / sélection manuelle).</div>`;
     // ④.5 — « Mes comptes » affiche le bailleur : c'est un fait du compte, pas un réglage caché.
     const bailLine = a.mixte
-      ? `<span style="color:var(--t2)">👥 Compte mixte — plusieurs bailleurs</span>`
+      ? `<span style="color:var(--t2)">${_uiIcon('people',13)} Compte mixte — plusieurs bailleurs</span>`
       : (a.bailleur
-          ? `<span style="color:var(--t1)">🏛️ <b>${escHtml(a.bailleur)}</b></span>`
-          : `<span style="color:var(--ora)">⚠ Bailleur non renseigné</span>`);
+          ? `<span style="color:var(--t1)">${_uiIcon('bank',13)} <b>${escHtml(a.bailleur)}</b></span>`
+          : `<span style="color:var(--ora)">${_uiIcon('warn',13)} Bailleur non renseigné</span>`);
     return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:12px 14px;margin-bottom:10px">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <div style="flex:1">
@@ -52217,10 +52217,10 @@ function _bankAccountsRender() {
         </div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--bor2)">
-        <button class="btn bs bb" onclick="_bankAccountRename(${a.id})" title="Renommer le compte">✏ Renommer</button>
-        <button class="btn bs bb" onclick="_bankAccountSetBailleur(${a.id})" title="Changer le bailleur de ce compte">🏛️ Bailleur</button>
-        <button class="btn bs bb" onclick="_bankAccountResetPointer(${a.id})" title="Force le prochain import à passer par le choix « 1er import » (date / tout / manuel)"${li?'':' disabled style="opacity:.4;cursor:not-allowed"'}>🔄 Reset pointeur</button>
-        <button class="btn br bb" onclick="_bankAccountDelete(${a.id})" title="Supprimer ce compte (les mouvements déjà importés sont CONSERVÉS)" style="margin-left:auto">🗑 Supprimer</button>
+        <button class="btn bs bb" onclick="_bankAccountRename(${a.id})" title="Renommer le compte">${_uiIcon('edit')} Renommer</button>
+        <button class="btn bs bb" onclick="_bankAccountSetBailleur(${a.id})" title="Changer le bailleur de ce compte">${_uiIcon('bank')} Bailleur</button>
+        <button class="btn bs bb" onclick="_bankAccountResetPointer(${a.id})" title="Force le prochain import à passer par le choix « 1er import » (date / tout / manuel)"${li?'':' disabled style="opacity:.4;cursor:not-allowed"'}>${_uiIcon('refresh')} Reset pointeur</button>
+        <button class="btn br bb" onclick="_bankAccountDelete(${a.id})" title="Supprimer ce compte (les mouvements déjà importés sont CONSERVÉS)" style="margin-left:auto">${_uiIcon('trash')} Supprimer</button>
       </div>
     </div>`;
   }).join('');
@@ -52516,8 +52516,8 @@ function _bankReadRecapHtml() {
   const nDoubt = (r.lines || []).filter(l => l && l._dateDouteuse).length;
   const bits = [];
   bits.push(bal.checked
-    ? (bal.ok ? '✔ Solde vérifié sur ' + bal.count + ' lignes'
-              : '⚠ Le solde ne boucle pas' + (bal.brokenRow ? ' (ligne ' + bal.brokenRow + ')' : ''))
+    ? (bal.ok ? _uiIcon('check',13) + ' Solde vérifié sur ' + bal.count + ' lignes'
+              : _uiIcon('warn',13) + ' Le solde ne boucle pas' + (bal.brokenRow ? ' (ligne ' + bal.brokenRow + ')' : ''))
     : (m.source === 'ofx' ? 'montants signés par la banque' : 'pas de colonne de solde à vérifier'));
   if (m.dateColLabel) bits.push('date : ' + escHtml(m.dateColLabel));
   if (m.sheetName) bits.push('feuille « ' + escHtml(m.sheetName) + ' »');
@@ -52548,8 +52548,8 @@ function _bankReadRecapDetail(r) {
   h += row('Période', (m.period && m.period.from) ? (fd(m.period.from) + ' → ' + fd(m.period.to)) : '—');
   if (bal.checked) {
     h += row('Contrôle du solde', bal.ok
-      ? '<b style="color:var(--grn,#16a34a)">✔ le solde boucle sur les ' + bal.count + ' lignes</b> <span class="mu sm">(ordre ' + escHtml(bal.order || '') + ')</span>'
-      : '<b style="color:var(--amb,#d97706)">⚠ écart à la ligne ' + (bal.brokenRow || '?') + '</b> — ' + escHtml(bal.brokenLabel || '') + ' : le relevé varie de ' + fmt(bal.got) + ' alors que la ligne vaut ' + fmt(bal.expected) + '. Il manque peut-être une ligne, ou une colonne est mal lue.');
+      ? '<b style="color:var(--grn,#16a34a)">' + _uiIcon('check',13) + ' le solde boucle sur les ' + bal.count + ' lignes</b> <span class="mu sm">(ordre ' + escHtml(bal.order || '') + ')</span>'
+      : '<b style="color:var(--amb,#d97706)">' + _uiIcon('warn',13) + ' écart à la ligne ' + (bal.brokenRow || '?') + '</b> — ' + escHtml(bal.brokenLabel || '') + ' : le relevé varie de ' + fmt(bal.got) + ' alors que la ligne vaut ' + fmt(bal.expected) + '. Il manque peut-être une ligne, ou une colonne est mal lue.');
   }
   const first = (r.lines || []).slice(0, 3).map(l => '<div style="font-size:11.5px;padding:2px 0"><span class="mu sm">' + fd(l.date) + '</span> · ' + escHtml(String(l.libelle || '').slice(0, 60))
     + ' → <b style="color:' + (l.credit > 0 ? 'var(--grn,#16a34a)' : 'var(--red,#dc2626)') + '">' + (l.credit > 0 ? 'recette ' : 'dépense ') + fmt(l.credit > 0 ? l.credit : l.debit) + '</b></div>').join('');
@@ -52580,7 +52580,7 @@ function _bankDiscardedPanelHtml() {
     + '</div>').join('');
   return '<div style="background:var(--sur2,#f5f8fc);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;margin-bottom:12px">'
     + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-    + '<b style="font-size:12.5px">🗂 ' + r.discarded.length + ' ligne(s) non retenue(s)</b>'
+    + '<b style="font-size:12.5px">' + _uiIcon('archive',14) + ' ' + r.discarded.length + ' ligne(s) non retenue(s)</b>'
     + '<a onclick="_bankOpenDiscarded()" style="margin-left:auto;cursor:pointer;text-decoration:underline;font-size:11.5px;color:var(--t3)">masquer</a></div>'
     + '<div class="mu sm" style="margin-bottom:8px;font-size:11.5px;line-height:1.5">Rien n\'est caché : ces lignes du fichier n\'ont pas été retenues comme mouvements. '
     + 'Tu peux en réintégrer une si Propryo s\'est trompé — elle arrivera dans « À compléter ».</div>'
@@ -52637,16 +52637,16 @@ function _bankImportRenderPreview(format, prefixHtml) {
   const tabBtn = (key, lbl, n, bg) => `<button onclick="_bankSetTab('${key}')" style="border:0;border-bottom:2.5px solid ${_bankReviewTab===key?'var(--cta,#3b7ef6)':'transparent'};background:none;color:${_bankReviewTab===key?'var(--cta,#3b7ef6)':'var(--t2)'};padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer">${lbl} <span id="bank-tab-${key}" style="display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:${_bankReviewTab===key?'var(--cta,#3b7ef6)':'var(--bor)'};color:${_bankReviewTab===key?'#fff':'var(--t2)'};font-size:11px;padding:0 5px">${n}</span></button>`;
   preview.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl,14px);padding:9px 14px;margin-bottom:12px">
-      <span style="font-size:16px">📄</span>
+      <span style="font-size:16px">${_uiIcon('doc',16)}</span>
       <span style="font-weight:700;font-size:13px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:330px">${escHtml(_bankImportFileName || 'Relevé importé')}</span>
       <span class="mu sm" style="font-size:11.5px">${escHtml(_bankReviewFmt)} · <strong>${total}</strong> ligne${total>1?'s':''}</span>
-      <button class="btn bs" style="margin-left:auto;font-size:11.5px;padding:5px 11px" onclick="_bankImportChangeFile()">⟳ Changer de fichier</button>
+      <button class="btn bs" style="margin-left:auto;font-size:11.5px;padding:5px 11px" onclick="_bankImportChangeFile()">${_uiIcon('refresh')} Changer de fichier</button>
       ${_bankReadRecapHtml()}
     </div>
     ${prefixHtml || ''}
     ${_bankDiscardedPanelHtml()}
     ${_bankScopeBar()}
-    <div class="mu sm" style="margin:6px 0 8px;font-size:11px;line-height:1.4">💡 Clique une ligne pour la classer — <strong>tes règles</strong> (⚙) d'abord, sinon une proposition (✨). C'est <strong>toi</strong> qui valides.</div>
+    <div class="mu sm" style="margin:6px 0 8px;font-size:11px;line-height:1.4">${_uiIcon('bulb',13)} Clique une ligne pour la classer — <strong>tes règles</strong> (⚙) d'abord, sinon une proposition (✨). C'est <strong>toi</strong> qui valides.</div>
     <div style="display:flex;gap:4px;border-bottom:1px solid var(--bor);margin-bottom:10px">
       ${tabBtn('todo','À compléter',st.todo.length)}${tabBtn('ok','Reconnus',st.ok.length)}${st.dup.length?tabBtn('dup','🔁 Doublons',_bankDupOpenCount(st)):''}
     </div>
@@ -52664,8 +52664,8 @@ function _bankScopeBar() {
   if (!acct) return '';
   const sc = (acct.scope && acct.scope.niv === 'imm') ? acct.scope : null;
   const bailTxt = acct.mixte
-    ? '<span title="Compte mixte : Propryo ne peut pas deviner l\'entité, classement manuel">👥 <b>Compte mixte</b></span>'
-    : (acct.bailleur ? '🏛️ <b>' + escHtml(acct.bailleur) + '</b>' : '<span style="color:var(--ora)">⚠ bailleur non renseigné</span>');
+    ? '<span title="Compte mixte : Propryo ne peut pas deviner l\'entité, classement manuel">' + _uiIcon('people',13) + ' <b>Compte mixte</b></span>'
+    : (acct.bailleur ? _uiIcon('bank',13) + ' <b>' + escHtml(acct.bailleur) + '</b>' : '<span style="color:var(--ora)">' + _uiIcon('warn',13) + ' bailleur non renseigné</span>');
   // Les immeubles proposés sont ceux du bailleur du compte (sauf compte mixte).
   const immsAll = (typeof immeubles === 'function' ? immeubles() : []);
   const imms = (acct.mixte || !acct.bailleur) ? immsAll : immsAll.filter(im => {
@@ -52674,7 +52674,7 @@ function _bankScopeBar() {
   });
   const immOpts = imms.map(im => `<option value="imm:${escHtml(im)}" ${sc&&sc.cible===im?'selected':''}>🏢 ${escHtml(im)}</option>`).join('');
   return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--acc-bg);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-size:12px">
-    <span>📄 <b>Compte :</b> ${escHtml(acct.label||'Compte')}</span>
+    <span>${_uiIcon('doc',14)} <b>Compte :</b> ${escHtml(acct.label||'Compte')}</span>
     <span style="color:var(--t3)">·</span>
     <span>${bailTxt}</span>
     <span style="color:var(--t3)">→ affiner</span>
@@ -52823,7 +52823,7 @@ function _bankLineRow(i) {
         </div>
         <div class="bimp-l2">${catTxt}${affChip}${src}${dateChip}${reintChip}${conflitChip}${ruleConflictChip}${ambChip}</div>
       </div>
-      <span class="bimp-trash" onclick="event.stopPropagation();_bankExcludeLine(${i})" title="Ne pas importer cette ligne">🗑</span>
+      <span class="bimp-trash" onclick="event.stopPropagation();_bankExcludeLine(${i})" title="Ne pas importer cette ligne">${_uiIcon('trash',15)}</span>
       <span class="bimp-go">›</span>
     </div>`;
 }
@@ -52856,12 +52856,12 @@ function _bankRulePanelHtml(i) {
               + '<span style="font-family:var(--mono,monospace);font-weight:600">' + escHtml(r.pattern || '') + '</span>'
               + '<span style="color:var(--t3)">→</span><span style="flex:1">' + escHtml(val) + '</span>'
               + '<button class="btn bs" style="font-size:11px" onclick="_bankPickRule(' + i + ',' + idx + ',\'' + c.field + '\')">Choisir</button>'
-              + (idx >= 0 ? '<button class="btn bs" style="font-size:11px" onclick="_bankRuleOpen(' + idx + ')">✏️</button>' : '')
+              + (idx >= 0 ? '<button class="btn bs" style="font-size:11px" onclick="_bankRuleOpen(' + idx + ')">' + _uiIcon('edit',15) + '</button>' : '')
               + '</div>';
           }).join('') + '</div>';
     }).join('');
     return '<div style="background:var(--amb-bg,#fff8e6);border:1px solid var(--amb,#d97706);border-radius:10px;padding:10px 12px;margin-bottom:12px">'
-      + '<b style="font-size:12.5px;color:var(--amb,#d97706)">⚠ Plusieurs règles se contredisent — rien n\'a été appliqué</b>'
+      + '<b style="font-size:12.5px;color:var(--amb,#d97706)">' + _uiIcon('warn',14) + ' Plusieurs règles se contredisent — rien n\'a été appliqué</b>'
       + '<div class="mu sm" style="font-size:11.5px;margin-top:3px">Choisis celle qui s\'applique, ou corrige la règle qui est trop large.</div>'
       + cards + '</div>';
   }
@@ -53035,7 +53035,7 @@ function _bankWalkRender() {
   }
   const t = el('bank-mv-title'); if (t) t.textContent = reco ? 'Vérifier ce mouvement' : 'Renseigner ce mouvement';
   const sub = el('bank-mv-sub');
-  if (sub) sub.innerHTML = '<span style="color:var(--t1);background:var(--acc-bg);border-radius:6px;padding:1px 7px;font-size:10.5px;font-weight:700">🏦 Import banque</span> '
+  if (sub) sub.innerHTML = '<span style="color:var(--t1);background:var(--acc-bg);border-radius:6px;padding:1px 7px;font-size:10.5px;font-weight:700">' + _uiIcon('bank',13) + ' Import banque</span> '
     + escHtml(line.date || '') + ' · <b style="color:' + accent + '">' + sign + fmt(amount) + '</b>';
   const body = el('bank-mv-body');
   if (body) {
@@ -53057,8 +53057,8 @@ function _bankWalkRender() {
     + '</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
     + '<button class="btn bs" onclick="_bankWalkSkip()">Passer</button>'
-    + '<button class="btn bs" onclick="_bankImportAddRule(' + i + ')">💾 Mémoriser la règle</button>'
-    + '<button class="btn bp" id="bank-mv-validate" onclick="_bankMvValidate()">' + (last ? 'Valider et terminer ✓' : 'Valider l\'opération →') + '</button>'
+    + '<button class="btn bs" onclick="_bankImportAddRule(' + i + ')">' + _uiIcon('save') + ' Mémoriser la règle</button>'
+    + '<button class="btn bp" id="bank-mv-validate" onclick="_bankMvValidate()">' + (last ? 'Valider et terminer ' + _uiIcon('check') : 'Valider l\'opération →') + '</button>'
     + '</div>';
   _bankInitAff(i);                                  // initialise _affState/_affHooks + _affRender sur imp{i}
   const _baseHook = _affHooks['imp' + i];           // chaîne le hook pour rafraîchir « Valider » en live (cat/bien)
@@ -53137,12 +53137,12 @@ function _bankWalkDone() {
   const foot = el('bank-mv-foot');
   if (foot) {
     let right = '';
-    if (st.todo.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'todo\')">📝 Reprendre les ' + st.todo.length + ' à compléter</button>';
-    if (okToReview.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'ok\')">👁️ Revoir les ' + okToReview.length + ' ligne(s) classée(s) par tes règles</button>';
+    if (st.todo.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'todo\')">' + _uiIcon('doc-text') + ' Reprendre les ' + st.todo.length + ' à compléter</button>';
+    if (okToReview.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'ok\')">' + _uiIcon('eye') + ' Revoir les ' + okToReview.length + ' ligne(s) classée(s) par tes règles</button>';
     // AUDIT I1 / ⑧.1 v2 — cet écran bloquait encore l'import partiel (« Termine d'abord les
     // X à compléter ») : même décision que le bouton principal — rien ne bloque, l'attente se garde.
     right += '<button class="btn bp"' + (st.ok.length ? '' : ' disabled title="Aucune ligne prête à importer"')
-      + ' onclick="_bankWalk=null;closeM(\'ov-bank-mv\');_bankImportConfirm()">✓ Importer ' + st.ok.length
+      + ' onclick="_bankWalk=null;closeM(\'ov-bank-mv\');_bankImportConfirm()">' + _uiIcon('check') + ' Importer ' + st.ok.length
       + (st.todo.length ? ' · garder ' + st.todo.length + ' en attente' : '') + '</button>';
     foot.innerHTML = '<button class="btn bs" onclick="_bankCloseMvWindow()">Revoir la liste</button>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end">' + right + '</div>';
@@ -53330,7 +53330,7 @@ function _bankRuleRender() {
   const seg = (v, lbl) => '<button type="button" class="btn bs' + (d.sens === v ? ' bp' : '') + '" style="font-size:12px" onclick="_bankRuleSet(\'sens\',\'' + v + '\')">' + lbl + '</button>';
   const src = d.srcLine
     ? '<div style="background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 11px;margin-bottom:13px;font-size:12px">'
-      + '<div class="mu sm" style="font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">📥 À partir de cette ligne</div>'
+      + '<div class="mu sm" style="font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">' + _uiIcon('download',12) + ' À partir de cette ligne</div>'
       + '<div style="font-family:var(--mono,monospace);font-size:11.5px;overflow-wrap:anywhere">' + fd(d.srcLine.date) + ' · ' + escHtml(d.srcLine.libelle) + '</div></div>'
     : '';
   body.innerHTML = src
@@ -53349,7 +53349,7 @@ function _bankRuleRender() {
     + '<label class="affv2-lab" style="margin-top:11px;display:block">Affectation</label>'
     + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin:6px 0 8px;padding:7px 10px;border:1px solid ' + (d.bdc ? 'var(--pur,#7c3aed)' : 'var(--bor)') + ';border-radius:8px;cursor:pointer">'
     + '<input type="checkbox" ' + (d.bdc ? 'checked' : '') + ' onchange="_bankRuleSet(\'bdc\',this.checked)">'
-    + '<span><b>🏛️ Le bailleur du compte</b> — résolu à chaque import<br><span class="mu sm" style="font-size:11px">Une seule règle pour toutes tes SCI (cas du comptable qui facture chaque entité).</span></span></label>'
+    + '<span><b>' + _uiIcon('bank',14) + ' Le bailleur du compte</b> — résolu à chaque import<br><span class="mu sm" style="font-size:11px">Une seule règle pour toutes tes SCI (cas du comptable qui facture chaque entité).</span></span></label>'
     + (d.bdc ? '' : '<div id="brule-aff"></div><input type="hidden" id="brule-qui"><input type="hidden" id="brule-imm"><input type="hidden" id="brule-cc">')
     + '</div>'
     + '<label class="affv2-lab">Ce que cette règle va classer</label><div id="bank-rule-preview"></div>';
@@ -54028,19 +54028,19 @@ function rFinances() {
     : { entites: [], immeubles: [] };
   const _selLbl = 'font-size:12.5px;color:var(--t2);display:flex;align-items:center;gap:6px;white-space:nowrap';
   // Cran bailleur (P-1) — paniers « Sans bailleur » sélectionnables (P-2), compte de lots visible.
-  const _entSelect = '<label style="' + _selLbl + '">📂 <select id="fin-ent" class="inp" onchange="rFinances()" style="width:auto;display:inline-block">'
+  const _entSelect = '<label style="' + _selLbl + '">' + _uiIcon('archive') + ' <select id="fin-ent" class="inp" onchange="rFinances()" style="width:auto;display:inline-block">'
     + '<option value="">Tout (' + (_cat.nbLots || 0) + ' lot' + ((_cat.nbLots || 0) > 1 ? 's' : '') + ')</option>'
     + _cat.entites.map(e => '<option value="' + _esc(e.key) + '"' + (e.key === entKey ? ' selected' : '') + '>' + _esc(e.label) + ' (' + e.nbLots + ')</option>').join('')
     + '</select></label>';
   // Cran immeuble — TOUJOURS affiché (P-5), panier « Sans immeuble » inclus (P-2).
   const _entNode = entKey ? _cat.entites.find(e => e.key === entKey) : null;
   const _immNodes = (_entNode ? _entNode.immeubles : _cat.immeubles) || [];
-  const _immSelect = '<label style="' + _selLbl + '">🏢 <select id="fin-imm" class="inp" onchange="rFinances()" style="width:auto;display:inline-block"><option value="">Tous les immeubles</option>'
+  const _immSelect = '<label style="' + _selLbl + '">' + _uiIcon('building') + ' <select id="fin-imm" class="inp" onchange="rFinances()" style="width:auto;display:inline-block"><option value="">Tous les immeubles</option>'
     + _immNodes.map(n => '<option value="' + _esc(n.key) + '"' + (n.key === immKey ? ' selected' : '') + '>' + _esc(n.label) + ' (' + n.nbLots + ')</option>').join('')
     + '</select></label>';
   // P-6 : le garde-fou « hors périmètre » LE DIT au lieu d'agir en silence.
   const _fbNote = (scope && scope.fallbacks && scope.fallbacks.length)
-    ? '<div class="note" style="margin-bottom:12px;border-left:3px solid var(--warn);background:var(--sur2);padding:10px 12px;border-radius:var(--r)">⚠️ '
+    ? '<div class="note" style="margin-bottom:12px;border-left:3px solid var(--warn);background:var(--sur2);padding:10px 12px;border-radius:var(--r)">' + _uiIcon('warn',14) + ' '
       + scope.fallbacks.map(fb => fb.raison === 'imm-hors-perimetre'
           ? 'L\'immeuble « ' + _esc(fb.immDemande) + ' » n\'est pas dans ce périmètre — affichage « Tous les immeubles ».'
           : (fb.raison === 'ent-inconnu' ? 'Le bailleur « ' + _esc(fb.entDemande) + ' » est inconnu — affichage « Tout ».'
@@ -54892,7 +54892,7 @@ function _finDrillLigne(kind, yr, mo) {
         +   '<span class="badge ora">' + (total !== 0 ? Math.round(Math.abs(nvSum / total) * 100) + ' % du poste' : 'non ventilé') + '</span>'
         +   '<span style="font-weight:800;font-size:12.5px">' + nvExpl + '</span></div>'
         + '<div class="mv">' + (one ? '' : '<b>À affecter :</b> ') + tgtLib + '</div>'
-        + '<div class="lead">🏠 Affecter ' + (one ? 'ce mouvement' : 'ce mouvement (1 sur ' + nvCount + ')') + ' à un bien</div>'
+        + '<div class="lead">' + _uiIcon('home') + ' Affecter ' + (one ? 'ce mouvement' : 'ce mouvement (1 sur ' + nvCount + ')') + ' à un bien</div>'
         + '<input type="hidden" id="fdrAff-cat" value="' + esc(nvCat) + '">'
         + '<input type="hidden" id="fdrAff-qui"><input type="hidden" id="fdrAff-imm"><input type="hidden" id="fdrAff-cc">'
         + '<div id="fdrAff-aff"></div>'
@@ -54903,7 +54903,7 @@ function _finDrillLigne(kind, yr, mo) {
     // ── Répartition par bien : bande d'une ligne (nom condensé + montant · %), scroll horizontal ──
     const _short = ref => { const n = nomLot(ref); const i = n.indexOf(' · '); return i > 0 ? n.slice(0, i) : n; };
     if (biens.length === 1 && !nvCount) {
-      body += '<div class="note" style="margin:0 0 16px">🏠 Intégralement sur <b style="color:var(--t1)">' + esc(nomLot(biens[0].ref)) + '</b></div>';
+      body += '<div class="note" style="margin:0 0 16px">' + _uiIcon('home') + ' Intégralement sur <b style="color:var(--t1)">' + esc(nomLot(biens[0].ref)) + '</b></div>';
     } else if (biens.length >= 1) {
       body += '<div class="fdr-lbl">Répartition par bien</div><div class="fdr-strip">';
       biens.forEach(b => {
@@ -54923,7 +54923,7 @@ function _finDrillLigne(kind, yr, mo) {
       const bienCell = x.lot
         ? ' <span class="badge gry">' + esc(_short(x.lot)) + '</span>'
         : ' <span class="badge ora">non ventilé</span>' + (x.id != null ? ' <a onclick="_finVentiler(' + JSON.stringify(x.id) + ')" style="cursor:pointer;color:var(--pur);font-size:11px;text-decoration:underline">✂️</a>' : '');
-      const sciBadge = x.sci ? ' <span class="badge ora">⚠ SCI ' + Math.round(x.sci.part * 100) + ' % de ' + f(x.sci.brut) + '</span>' : '';
+      const sciBadge = x.sci ? ' <span class="badge ora">' + _uiIcon('warn',12) + ' SCI ' + Math.round(x.sci.part * 100) + ' % de ' + f(x.sci.brut) + '</span>' : '';
       return '<tr><td><span class="fdr-dt">' + esc(dfr(x.date).slice(0, 5)) + '</span><span class="fdr-lib">' + esc(x.lib || x.cat || '—') + '</span>' + bienCell + sciBadge + '</td>'
         + '<td class="' + s.cls + '">' + s.txt + '</td></tr>';
     };
@@ -54943,7 +54943,7 @@ function _finDrillLigne(kind, yr, mo) {
     // E-1 : les explications portées au doigt — clé P-4 si des quotes-parts SCI figurent,
     // « dont intérêts » / « prêt non importé » (L-3/H-6) sur le drill du Prêt.
     if (rows.some(x => x.sci)) {
-      body += '<div class="note">⚠ SCI n % = quote-part des frais bailleur pour CET immeuble, au <b>potentiel locatif du mois du mouvement</b> (clé P-4 : loyer du barème au taux plein, loyer de référence si vacant) — le montant complet est affiché sur le badge.</div>';
+      body += '<div class="note">' + _uiIcon('warn',13) + ' SCI n % = quote-part des frais bailleur pour CET immeuble, au <b>potentiel locatif du mois du mouvement</b> (clé P-4 : loyer du barème au taux plein, loyer de référence si vacant) — le montant complet est affiché sur le badge.</div>';
     }
     if (kind === 'pret') {
       let _intAn = 0;
@@ -54956,7 +54956,7 @@ function _finDrillLigne(kind, yr, mo) {
       _intAn = Math.round(_intAn * 100) / 100;
       body += '<div class="note">' + (_intAn > 0
         ? (total > 0.005 ? 'Dont <b>intérêts : ' + f(_intAn) + '</b> — répartis au prorata des échéances payées (H-7). Le capital = échéances − intérêts.'
-                         : '⚠ Des intérêts sont saisis (' + f(_intAn) + ') mais aucune échéance : <b>prêt non importé</b>.')
+                         : _uiIcon('warn',13) + ' Des intérêts sont saisis (' + f(_intAn) + ') mais aucune échéance : <b>prêt non importé</b>.')
         : 'Intérêts non saisis — utiles seulement pour déclarer (module déclaratif en bas de page), jamais pour lire cette page.') + '</div>';
     }
     const gt = _sgn(total);
@@ -55066,7 +55066,7 @@ function _finDrillRetard(kind, yr, mo) {
     blocks.push('<div style="border:1px solid var(--bor);border-radius:12px;padding:12px;margin-bottom:10px">'
       + '<div style="font-weight:700;font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + esc(_finLotNomAt(q, yr, cause[0].idx))
       + ' <span style="font:700 11px Inter;color:var(--warn);background:var(--warn-soft,rgba(143,98,14,.10));padding:2px 8px;border-radius:6px">' + f(arrear) + ' en retard</span>'
-      + (_canRelance ? '<button type="button" class="btn bs" style="margin-left:auto;font-size:11.5px;padding:4px 10px" onclick="closeM(\'ov-dash-drill\');_lyRelance(\'' + _lyQ(q) + '\')">📨 Créer une relance</button>' : '')
+      + (_canRelance ? '<button type="button" class="btn bs" style="margin-left:auto;font-size:11.5px;padding:4px 10px" onclick="closeM(\'ov-dash-drill\');_lyRelance(\'' + _lyQ(q) + '\')">' + _uiIcon('mail') + ' Créer une relance</button>' : '')
       + '</div>'
       + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + chips + '</div></div>');
   }
@@ -55175,16 +55175,16 @@ function _finRenderExports() {
   host.innerHTML =
     '<div class="sec-title">Exports &amp; déclaratif</div>'
     + '<div class="bridge">'
-    +   '<a onclick="_finOpen2044Previsu()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finOpen2044Previsu()}"><span class="ic">🧾</span><span class="tx"><b>Déclaration 2044</b><s>Prévisualiser &amp; générer</s></span></a>'
+    +   '<a onclick="_finOpen2044Previsu()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finOpen2044Previsu()}"><span class="ic">' + _uiIcon('receipt') + '</span><span class="tx"><b>Déclaration 2044</b><s>Prévisualiser &amp; générer</s></span></a>'
     // D-6 : « Renseigner les intérêts » a QUITTÉ le compte de résultat (L-8 : plus rien sur la
     // page n'en a besoin) — l'accès vit ici, dans le module déclaratif (seul consommateur).
     +   '<a onclick="_finCreditOpen()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finCreditOpen()}"><span class="ic">🧮</span><span class="tx"><b>Intérêts d\'emprunt</b><s>Pour la déclaration (ligne 250)</s></span></a>'
     // K-1 (passe de vérif) : la sous-indexation IRL doit rester ATTEIGNABLE EN UN CLIC depuis
     // Finances — l'info vit sur la page Révision IRL (aucun chiffre recalculé ici, pas de
     // résurrection du widget : un point d'accès, rien d'autre).
-    +   '<a onclick="go(\'irl\',null)" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){go(\'irl\',null)}"><span class="ic">📈</span><span class="tx"><b>Révision IRL</b><s>Loyers sous-indexés → onglet Loyers</s></span></a>'
+    +   '<a onclick="go(\'irl\',null)" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){go(\'irl\',null)}"><span class="ic">' + _uiIcon('chart') + '</span><span class="tx"><b>Révision IRL</b><s>Loyers sous-indexés → onglet Loyers</s></span></a>'
     +   item('📚', 'Bilan annuel', 'Synthèse comptable', 'exp-card-bilan')
-    +   item('🗄️', 'Export FEC', 'Écritures comptables', 'exp-card-fec')
+    +   item(_uiIcon('archive'), 'Export FEC', 'Écritures comptables', 'exp-card-fec')
     + '</div>'
     + '<div class="note">La 2044 s\'ouvre en <b>prévisualisation</b> ici (calcul live · <b>année civile pleine</b> — seul bloc de la page hors fenêtre d\'exercice, et c\'est assumé · périmètre = exercice + entité choisis ci-dessus). Les intérêts ne servent qu\'à déclarer, jamais à lire cette page. Bilan / FEC réutilisent la page Export.</div>';
 }
