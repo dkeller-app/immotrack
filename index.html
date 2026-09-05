@@ -42659,6 +42659,7 @@ function _ensureLogFichePhCss(){
   st.textContent=[
     '@media(max-width:767px){',
     '#p-log-fiche,#p-imm-fiche,#p-ent-fiche{overflow-x:hidden}',
+    // ── Fiches IMMEUBLE / BAILLEUR : compaction du hero desktop (inchangé, ne pas régresser) ──
     '.logf-photos,.logf-photos-mini{width:56px!important;height:56px!important;min-width:56px!important;max-width:56px!important;flex:0 0 56px!important;border-radius:12px;overflow:hidden}',
     '.logf-photos img,.logf-photos-mini img{width:100%!important;height:100%!important;object-fit:cover}',
     '.logf-hero-pulse{display:none!important}',
@@ -42668,9 +42669,129 @@ function _ensureLogFichePhCss(){
     '.logf-actions>*{width:100%!important}',
     '.logf-subtabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}',
     '.logf-subtab{flex:1 0 auto;white-space:nowrap}',
+    // ── Fiche LOGEMENT : hero natif téléphone (maquettes FICHE-LOGEMENT-2T / LIVE) ──
+    '.logf-ph-hero{margin-top:4px}',
+    '.logf-ph-idrow{display:flex;align-items:center;gap:11px;padding:2px 0 9px}',
+    '.logf-ph-thumb{width:52px;height:52px;min-width:52px;border-radius:12px;overflow:hidden;flex:0 0 52px;background:var(--sur2);border:1px solid var(--bor);display:grid;place-items:center;font-size:24px}',
+    '.logf-ph-thumb img{width:100%;height:100%;object-fit:cover}',
+    '.logf-ph-idm{flex:1;min-width:0}',
+    '.logf-ph-l1{display:flex;align-items:center;gap:9px;flex-wrap:wrap}',
+    '.logf-ph-ref{font-weight:800;color:var(--t1);font-size:21px;letter-spacing:-.01em;line-height:1.05}',
+    '.logf-ph-chip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}',
+    '.logf-ph-chip .d{width:6px;height:6px;border-radius:50%;background:currentColor}',
+    '.logf-ph-chip.loue{background:rgba(22,121,94,.14);color:var(--grn)}',
+    '.logf-ph-chip.vac{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}',
+    '.logf-ph-chip.vac .d{background:transparent;border:1.5px solid currentColor}',
+    '.logf-ph-chip.arch{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}',
+    '.logf-ph-l2{font-size:12.5px;color:var(--t2);margin-top:3px;font-weight:600}',
+    '.logf-ph-l3{font-size:11.5px;color:var(--t3);margin-top:1px}',
+    '.logf-ph-strip{display:flex;background:var(--sur);border:1px solid var(--bor);border-radius:12px;overflow:hidden;margin-top:2px}',
+    '.logf-ph-strip .c{flex:1;padding:9px 6px;text-align:center;border-left:1px solid var(--bor)}',
+    '.logf-ph-strip .c:first-child{border-left:0}',
+    '.logf-ph-strip .c .v{font-weight:800;color:var(--t1);font-size:14px;line-height:1.1}',
+    '.logf-ph-strip .c .v.k-ok{color:var(--grn)}',
+    '.logf-ph-strip .c .v.k-warn{color:var(--red)}',
+    '.logf-ph-strip .c .k{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.02em;margin-top:3px}',
+    '.logf-ph-actions{margin-top:12px}',
+    // barre d\'onglets courte, une ligne, 4 colonnes, pas de scroll
+    '.logf-ph-tabs{display:flex;border-bottom:1px solid var(--bor);margin-top:14px;position:sticky;top:0;z-index:2;background:var(--bg)}',
+    '.logf-ph-tab{flex:1;text-align:center;height:42px;font-size:12.5px;font-weight:700;color:var(--t3);background:transparent;border:0;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;white-space:nowrap;padding:0}',
+    '.logf-ph-tab.on{color:var(--acc);border-bottom-color:var(--acc)}',
+    // 4 actions carrées du bail (Quittance · Voir bail · EDL · Réviser)
+    '.logf-ph-bailacts{display:flex;gap:7px;margin-top:12px}',
+    '.logf-ph-bailact{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 2px;border:1px solid var(--bor);border-radius:11px;background:var(--sur2);color:var(--t2);font-weight:600;font-size:10px;cursor:pointer;font-family:inherit;text-align:center;line-height:1.15}',
+    '.logf-ph-bailact svg{width:18px;height:18px;stroke:var(--t2);fill:none;stroke-width:1.8}',
+    '.logf-ph-bailact.pri{background:var(--acc);color:#fff;border-color:transparent}',
+    '.logf-ph-bailact.pri svg{stroke:#fff}',
+    '.logf-ph-repwrap{margin-top:9px}',
     '}'
   ].join('');
   document.head.appendChild(st);
+}
+
+// MOBILE-REFONTE lot « fiche bien » — HERO NATIF téléphone (maquettes FICHE-LOGEMENT-2T / LIVE).
+// Remplace le hero desktop rétréci : vignette + réf en gros + statut + 2 lignes de contexte,
+// puis un bandeau de 3-4 chiffres réels. Aucune valeur recalculée ici — on relit bail/log et
+// l'état loyer déjà calculés par le moteur (_lyEtatLot / retardLot). PC/tablette n'appellent pas
+// cette fonction (branche _isPhone() dans rLogFiche).
+function _renderLogFichePhStrip(log, bail, ref){
+  const cells = [];
+  if(bail){
+    const loyer = (+bail.hc||+log.hc||0) + (+bail.ch||+log.ch||0);
+    const dep   = (+bail.dg||+log.dg||0);
+    let fin = 'en cours';
+    if(bail.fin && /^\d{4}-\d{2}/.test(bail.fin)) fin = bail.fin.slice(5,7)+'/'+bail.fin.slice(2,4);
+    // Solde : réutilise le moteur loyers (payé − dû, chiffre signé) — jamais un chiffre inventé.
+    let sV = '—', sCls = '';
+    try{
+      if(typeof _lyEtatLot === 'function' && typeof window.retardLot === 'function'){
+        const et = _lyEtatLot(log);
+        if(et && et.retard){
+          if(et.retard.enRetard){ sV = '-'+fmt(et.retard.reste); sCls = 'k-warn'; }
+          else { sV = 'À jour'; sCls = 'k-ok'; }
+        }
+      }
+    }catch(e){}
+    cells.push({v: fmt(loyer), k: 'Loyer'});
+    cells.push({v: fmt(dep),   k: 'Dépôt'});
+    cells.push({v: fin,        k: 'Fin bail'});
+    cells.push({v: sV, k: 'Solde', cls: sCls});
+  } else if(log.archived){
+    cells.push({v: '📦', k: 'Archivé'});
+    cells.push({v: fd(log.archivedAt)||'—', k: 'Date archive'});
+  } else {
+    const refTot = (Number(log.loyerHcRef)||Number(log.hc)||0) + (Number(log.chargesRef)||Number(log.ch)||0);
+    const lastEnd = (typeof _getLastClosedBailEndIso === 'function') ? _getLastClosedBailEndIso(ref) : null;
+    cells.push({v: refTot>0 ? fmt(refTot) : '—', k: 'Loyer souhaité'});
+    cells.push({v: '0 %', k: 'Occupé'});
+    cells.push({v: lastEnd ? 'Vacant' : 'Jamais loué', k: lastEnd ? ('depuis '+fd(lastEnd)) : 'Historique'});
+  }
+  return cells;
+}
+function _renderLogFichePhHero(log, bail, ref){
+  const occupied = !!bail;   // rLogFiche passe déjà le bail actif résolu (ou null)
+  const isArch   = !!log.archived;
+  let chip;
+  if(isArch)         chip = '<span class="logf-ph-chip arch"><span class="d"></span>Archivé</span>';
+  else if(occupied)  chip = '<span class="logf-ph-chip loue"><span class="d"></span>Loué</span>';
+  else               chip = '<span class="logf-ph-chip vac"><span class="d"></span>Vacant</span>';
+  const l2 = [log.type, log.surf?(fmtN(log.surf)+' m²'):'', log.etage].filter(Boolean).map(escHtml).join(' · ');
+  const l3 = [log.imm, log.adr].filter(Boolean).map(escHtml).join(' · ');
+  const strip = _renderLogFichePhStrip(log, bail, ref);
+  return `<div class="logf-ph-hero">
+    <div class="logf-ph-idrow">
+      <div class="logf-ph-thumb">${_coverImg('logement', log.id, '🏠')}</div>
+      <div class="logf-ph-idm">
+        <div class="logf-ph-l1"><span class="logf-ph-ref">${escHtml(ref)}</span>${chip}</div>
+        <div class="logf-ph-l2">${l2||'&nbsp;'}</div>
+        ${l3?`<div class="logf-ph-l3">${l3}</div>`:''}
+      </div>
+    </div>
+    <div class="logf-ph-strip">
+      ${strip.map(c=>`<div class="c"><div class="v ${c.cls||''}">${c.v}</div><div class="k">${escHtml(c.k)}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
+// Barre d'onglets courte, une ligne (Bail · Entretien · Docs · Compta), mêmes cibles que la desktop.
+function _renderLogFichePhTabs(){
+  const t = _currentLogFicheTab || 'bail';
+  const items = [['bail','Bail'],['conformite','Entretien'],['documents','Docs'],['compta','Compta']];
+  return '<div class="logf-ph-tabs" role="tablist" aria-label="Sous-sections de la fiche bien">'
+    + items.map(x=>`<button class="logf-ph-tab${t===x[0]?' on':''}" role="tab" aria-selected="${t===x[0]}" onclick="setLogFicheTab('${x[0]}')">${x[1]}</button>`).join('')
+    + '</div>';
+}
+// « Reprendre depuis un candidat » (bien vacant) : ouvre la page Candidats filtrée sur ce bien,
+// d'où l'utilisateur convertit le dossier retenu en bail (convertCandidatToBail). DRY : réutilise
+// le filtre existant cand-f-bien plutôt qu'un nouveau flux.
+function _logFicheReprendreCandidat(ref){
+  try{
+    if(typeof go === 'function') go('candidats');
+    setTimeout(function(){
+      const sel = el('cand-f-bien');
+      if(sel){ sel.value = ref; }
+      if(typeof rCandidats === 'function') rCandidats();
+    }, 0);
+  }catch(e){ if(typeof go === 'function') go('candidats'); }
 }
 function rLogFiche() {
   const wrap = el('log-fiche-content'); if(!wrap) return;
@@ -42710,6 +42831,39 @@ function rLogFiche() {
   const badgeBailleur = parentEnt
     ? `<span class="logf-badge" onclick="openEntFiche(${+parentEnt.id})" title="Voir le bailleur">🏛 ${escHtml(log.entity)}</span>`
     : `<span class="logf-badge">🏛 ${escHtml(log.entity||'—')}</span>`;
+
+  // Corps d'onglet — identique PC / téléphone (les panneaux sont conformes, on les réutilise).
+  const panelsHtml =
+      _currentLogFicheTab === 'compta'      ? _renderLogFichePanelCompta(log, ref)
+    : _currentLogFicheTab === 'conformite'  ? _renderLogFichePanelConformite(log, ref)
+    : _currentLogFicheTab === 'documents'   ? _renderLogFichePanelDocuments(log, ref)
+    // P0-3 : le fallback DOIT être Bail — c'est la branche par défaut, pas un cas parmi d'autres.
+    : _renderLogFichePanelBail(log, bail, ref);
+
+  // ── TÉLÉPHONE : hero natif + barre d'onglets courte (maquettes FICHE-LOGEMENT-2T / LIVE).
+  // Le codepath desktop (ci-dessous) reste strictement inchangé.
+  if(_isPhone()){
+    const phActions =
+      `<button class="btn bs" onclick="openNewLog('${refSafe}')">✏ Modifier le bien</button>`
+      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">🔗 Inviter un candidat</button>` : '')
+      + (isArchived
+          ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">↺ Restaurer</button>`
+          : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">📦 Archiver</button>`);
+    wrap.innerHTML = `
+      <button class="logf-back" onclick="closeLogFiche()" title="Retour au parent direct">${_logFicheBackLabel(log)}</button>
+      <div class="logf-breadcrumb">
+        <a onclick="_goToBiensRoot();return false">Biens</a>
+        ${crumbImm}
+        <span class="sep">›</span><span>${escHtml(ref)}</span>
+      </div>
+      ${_renderLogFichePhHero(log, bail, ref)}
+      <div class="logf-actions logf-ph-actions">${phActions}</div>
+      ${_renderLogFichePhTabs()}
+      ${panelsHtml}
+    `;
+    return;
+  }
+
   wrap.innerHTML = `
     <button class="logf-back" onclick="closeLogFiche()" title="Retour au parent direct">${_logFicheBackLabel(log)}</button>
     <div class="logf-breadcrumb">
@@ -42761,13 +42915,7 @@ function rLogFiche() {
       <button class="logf-subtab${_currentLogFicheTab==='documents'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='documents'}" onclick="setLogFicheTab('documents')" title="Documents et photos du logement">📁 Documents</button>
       <button class="logf-subtab${_currentLogFicheTab==='compta'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='compta'}" onclick="setLogFicheTab('compta')">💰 Comptabilité</button>
     </div>
-    ${
-      _currentLogFicheTab === 'compta'      ? _renderLogFichePanelCompta(log, ref)
-    : _currentLogFicheTab === 'conformite'  ? _renderLogFichePanelConformite(log, ref)
-    : _currentLogFicheTab === 'documents'   ? _renderLogFichePanelDocuments(log, ref)
-    // P0-3 : le fallback DOIT être Bail — c'est la branche par défaut, pas un cas parmi d'autres.
-    : _renderLogFichePanelBail(log, bail, ref)
-    }
+    ${panelsHtml}
   `;
 }
 
@@ -42890,6 +43038,21 @@ function _renderLogFichePanelBail(log, bail, ref) {
           <!-- v15.249 B6 (D-B5) : ligne « Régime fiscal » retirée de l'affichage (donnée conservée mais non surfacée). -->
           ${bail.notes?`<div class="logf-row" style="grid-column:1/-1"><span class="logf-label">Notes du bail</span><span class="logf-value" style="font-style:italic;font-weight:400;text-align:left">${escHtml(bail.notes)}</span></div>`:''}
         </div>
+        ${_isPhone() ? `
+        <!-- TÉLÉPHONE — 4 actions carrées du bail (maquettes FICHE-LOGEMENT-2T / LIVE) :
+             Quittance · Voir bail · EDL · Réviser, branchées sur les fonctions existantes.
+             La signature / le PDF / le partage restent accessibles via « ⋯ Plus » (menu bail). -->
+        <div class="logf-ph-bailacts">
+          <button class="logf-ph-bailact pri" onclick="_openFaireQuittance('${refSafe}')" title="Faire une quittance"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M4 20h16"/></svg>Quittance</button>
+          <button class="logf-ph-bailact" onclick="previewBailRef('${refSafe}')" title="Aperçu du bail"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Voir bail</button>
+          <button class="logf-ph-bailact" onclick="var a=document.getElementById('logf-edl-anchor');if(a)a.scrollIntoView({behavior:'smooth',block:'start'})" title="États des lieux"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6"/></svg>EDL</button>
+          <button class="logf-ph-bailact" onclick="_gfOuvrir('${refSafe}')" title="Réviser le loyer (IRL)"><svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-8"/></svg>Réviser</button>
+        </div>
+        <div class="logf-bail-actions" style="margin-top:9px">
+          ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour">✍️ Signer le bail</button>`:'')}
+          <button class="btn bs bb" onclick="openBailMenu(event,'${refSafe}',true)" title="Plus d'actions (Modifier · Aperçu · Garant · Réinitialiser · Clôturer · Supprimer · PDF · Partager)" aria-label="Plus d'actions" style="font-weight:700">⋯ Plus</button>
+        </div>
+        ` : `
         <div class="logf-bail-actions">
           ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour">✍️ Signer le bail</button>`:'')}
           ${/* §7 : ne pas doubler le PDF. Le badge « 🔒 Signé à distance » (remoteSession completed) expose DÉJÀ son propre « 📄 PDF signé » → on masque alors ce bouton générique (même fichier, même action). Présentiel (pas de remoteSession) : bouton conservé. */''}
@@ -42897,13 +43060,21 @@ function _renderLogFichePanelBail(log, bail, ref) {
           ${(complet&&bail.signatures&&bail.signatures.cloudPdfKey)?`<button class="btn bs bb" onclick="_openBailPdfShareModal('${refSafe}')" style="background:#7c3aed;color:#fff" title="Partager le PDF signé (Copier / Email / SMS / WhatsApp / QR)">📤 Partager le PDF signé</button>`:''}
           <button class="btn bs bb" onclick="openBailMenu(event,'${refSafe}',true)" title="Plus d'actions (Modifier · Aperçu · Garant · Réinitialiser · Clôturer · Supprimer)" aria-label="Plus d'actions" style="font-weight:700">⋯ Plus</button>
         </div>
+        `}
       </div>`;
   } else {
+    // Bien VACANT — nombre de candidats en attente sur ce bien (mêmes critères que la grille Biens :
+    // dossiers non refusés, non convertis, non archivés). Sert le bouton « Reprendre depuis un candidat (N) ».
+    const _nbCand = (DB.candidats||[]).filter(c => c && !c._deleted && c.logRef === ref
+      && c.statut !== 'refuse' && c.statut !== 'converti' && !c._archived).length;
     currentSection = `
       <div class="logf-panel" style="grid-column:1/-1">
         <h3 class="logf-panel-title">📜 Bail en cours</h3>
         <div class="logf-panel-empty">${log.archived ? 'Bien archivé — pas de bail actif' : 'Aucun bail en cours sur ce bien'}</div>
-        ${!log.archived?`<div style="text-align:center"><button class="btn bp" onclick="openBail('${refSafe}')">+ Créer / saisir un bail</button></div>`:''}
+        ${!log.archived?`<div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button class="btn bp" onclick="openBail('${refSafe}')">+ Créer le bail</button>
+          ${_nbCand>0?`<button class="btn bs bb" onclick="_logFicheReprendreCandidat('${refSafe}')" title="Convertir un dossier candidat déjà déposé en bail">👤 Reprendre depuis un candidat <span style="margin-left:5px;background:rgba(255,90,60,.14);color:var(--acc);border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px">${_nbCand}</span></button>`:''}
+        </div>`:''}
       </div>`;
   }
 
@@ -42926,7 +43097,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
         <h3 class="logf-panel-title">📝 Notes sur le bien</h3>
         <div class="logf-value" style="font-style:italic;font-weight:400;text-align:left;white-space:pre-wrap">${escHtml(log.notes)}</div>
       </div>` : '';
-  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}${notesSection}</div>`;
+  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${_renderHistoBailSection(ref)}<div id="logf-edl-anchor">${_renderLogFichePanelEDL(log, ref)}</div>${notesSection}</div>`;
 }
 
 // HISTORIQUE-BAIL-ONGLET (17/07) : _renderBailTimeline (timeline horizontale) et
