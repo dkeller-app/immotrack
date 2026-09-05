@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.592</title>
+<title>Propryo v15.593</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.592</em>
+      <em>v15.593</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -151,6 +151,13 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <span class="tb-brand" aria-label="Propryo"><svg viewBox="0 0 32 32" width="22" height="22" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg><span class="tb-brand-word">Propryo</span></span>
       <strong id="tb-title">Tableau de bord</strong>
     </div>
+    <!-- MOBILE-REFONTE — chip PÉRIMÈTRE dans la barre du haut (téléphone), à droite près du logo.
+         Cliquable : ouvre le sélecteur d'entités (Tout le parc / chaque SCI). -->
+    <button type="button" class="tb-perim" id="tb-perim" onclick="_openPerimPicker()" aria-label="Choisir le périmètre">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V8l8-5 8 5v13"/></svg>
+      <span id="tb-perim-lbl">Tout le parc</span>
+      <svg class="tb-perim-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
     <div class="tb-actions" id="tb-actions"></div>
     <div id="presence-pill" style="display:none"></div>
   </div>
@@ -4278,7 +4285,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.592';
+const IMMOTRACK_VERSION = '15.593';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7481,9 +7488,44 @@ function _logInEnt(l) { return !_activeEntity || (l && l.entity === _activeEntit
 function _setActiveEntity(name) {
   _activeEntity = name || '';
   try { localStorage.setItem(_lsKey('immotrack_active_entity'), _activeEntity); } catch(e) {}
+  try { const es = el('dash-ent'); if (es && es.value !== _activeEntity) es.value = _activeEntity; } catch(e) {}
   try { if (typeof initFilters === 'function') initFilters(); } catch(e) {}
   try { if (typeof go === 'function' && currentPage) go(currentPage); } catch(e) {}
+  _updatePerimChip();
 }
+// MOBILE-REFONTE — chip PÉRIMÈTRE de la barre du haut (téléphone) : label + sélecteur d'entités.
+function _updatePerimChip() {
+  try { var lb = document.getElementById('tb-perim-lbl'); if (lb) lb.textContent = _entActif() ? _entActif() : 'Tout le parc'; } catch(e) {}
+}
+function _openPerimPicker() {
+  var ents = (DB.entites || []).filter(function(e){ return e && !e._deleted; });
+  window._perimEnts = [''].concat(ents.map(function(e){ return e.nom || ''; }));
+  var cur = _entActif();
+  var mk = function(name, idx, isAll) {
+    var sel = (name === cur) || (isAll && !cur);
+    var ico = isAll
+      ? '<path d="M4 21V8l8-5 8 5v13"/>'
+      : '<path d="M4 21V4h16v17"/><path d="M8 8h2M14 8h2M8 12h2M14 12h2M8 16h2M14 16h2"/>';
+    return '<button type="button" class="pp-row' + (sel ? ' on' : '') + '" onclick="_perimPick(' + idx + ')">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ico + '</svg>'
+      + '<span class="pp-nm">' + (isAll ? 'Tout le parc' : escHtml(name)) + '</span>'
+      + (sel ? '<svg class="pp-ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>' : '')
+      + '</button>';
+  };
+  var rows = mk('', 0, true) + ents.map(function(e, i){ return mk(e.nom || '', i + 1, false); }).join('');
+  var ov = document.getElementById('ov-perim');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'ov-perim'; ov.className = 'pp-ov'; document.body.appendChild(ov); ov.addEventListener('click', function(ev){ if (ev.target === ov) _closePerimPicker(); }); }
+  ov.innerHTML = '<div class="pp-sheet"><div class="pp-grip"></div><div class="pp-head"><strong>Périmètre</strong>'
+    + '<button class="pp-x" onclick="_closePerimPicker()" aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'
+    + '<div class="pp-list">' + rows + '</div></div>';
+  ov.classList.add('open');
+}
+function _perimPick(idx) {
+  var name = (window._perimEnts && window._perimEnts[idx] != null) ? window._perimEnts[idx] : '';
+  _closePerimPicker();
+  _setActiveEntity(name); // recascade + re-render + _updatePerimChip
+}
+function _closePerimPicker() { var ov = document.getElementById('ov-perim'); if (ov) ov.classList.remove('open'); }
 
 // v14.28 — REFRESH-LIVE : helper appelé après chaque mutation (save/del) pour rafraîchir
 // la page courante. Avant, les fonctions de sauvegarde appelaient seulement `rBiens()` /
@@ -8875,6 +8917,7 @@ function go(page, elNav) {
   // (pas le mot « Accueil ») ; toutes les autres pages = marque + nom de la page (pas « Propryo »).
   // Bascule par la classe .tb-home sur la barre du haut (CSS ne montre le wordmark qu'en home).
   try { const _tb = document.querySelector('.tb'); if (_tb) _tb.classList.toggle('tb-home', page === 'accueil'); } catch(e){}
+  try { _updatePerimChip(); } catch(e){}
   // REFONTE-NAV Phase 2a — barre de sous-onglets de groupe (Locataires→Baux/Candidatures, etc.)
   try { const _st = el('nav-subtabs-host'); if (_st) _st.innerHTML = _navSubtabsHtml(page); } catch(e){}
   // NAV-SOUS-MENUS (chantier A) — ouvre le groupe visité + re-rend la sidebar (enfant actif, chevrons).
@@ -10425,7 +10468,7 @@ function _renderAccueilPhone(ctx){
   +'.accm .watch .chev{width:17px;height:17px;stroke:var(--t3);fill:none;stroke-width:1.8;flex:0 0 auto}'
   +'</style>'
   +'<div class="accm">'
-  +'<div class="perim"><svg viewBox="0 0 24 24"><path d="M4 21V8l8-5 8 5v13"/></svg><b>'+escHtml(perim)+'</b></div>'
+  /* MOBILE-REFONTE — le périmètre est désormais dans la barre du haut (chip #tb-perim), retiré du corps. */
   +'<div class="hi">Bonjour</div>'+(nom?('<div class="name">'+escHtml(nom)+'</div>'):'')+'<div class="hello-s">'+escHtml(dstr)+'</div>'
   +'<div class="hero"><div class="k">Encaissé depuis le 1ᵉʳ janvier</div><div class="v">'+F(encYTD)+'</div></div>'
   +'<div class="srow"><div class="k">Encaissé ce mois'+(reste>0?('<span class="sub2">reste '+F(reste)+' à encaisser</span>'):'<span class="sub2">tout est encaissé</span>')+'</div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
