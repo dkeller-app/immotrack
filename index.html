@@ -334,8 +334,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <!-- Contrôles -->
       <div class="flex-b mb16" style="flex-wrap:wrap;gap:10px">
         <div class="flex-c" style="flex-wrap:wrap;gap:8px">
-          <button class="btn bs bb" id="agenda-view-list" onclick="setAgendaView('list',this)" style="font-size:12.5px">☰ Liste</button>
-          <button class="btn bs bb" id="agenda-view-cal" onclick="setAgendaView('cal',this)" style="font-size:12.5px">📅 Calendrier</button>
+          <button class="btn bs bb" id="agenda-view-list" onclick="setAgendaView('list',this)" style="font-size:12.5px"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Liste</button>
+          <button class="btn bs bb" id="agenda-view-cal" onclick="setAgendaView('cal',this)" style="font-size:12.5px"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16M9 3v4M15 3v4"/></svg> Calendrier</button>
           <select class="inp" id="agenda-f-log" onchange="rAgenda()" style="width:180px"><option value="">Tous logements</option></select>
           <select class="inp" id="agenda-f-cat" onchange="rAgenda()" style="width:160px"><option value="">Toutes catégories</option></select>
           <label class="flex-c" style="gap:5px;font-size:12.5px;color:var(--t2);cursor:pointer">
@@ -343,7 +343,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           </label>
         </div>
         <div class="flex-c" style="gap:7px">
-          <button class="btn bs bb" onclick="agendaSyncAuto()" title="Régénérer depuis baux" style="font-size:12.5px">🔄 Sync baux</button>
+          <button class="btn bs bb" onclick="agendaSyncAuto()" title="Régénérer depuis baux" style="font-size:12.5px"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Sync baux</button>
           <button class="btn bp" onclick="openAgendaEvt(null)" style="font-size:13px">+ Événement</button>
         </div>
       </div>
@@ -478,8 +478,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <button class="btn bp" onclick="openNewBailChoix()">+ Nouveau bail</button>
       </div>
       <div class="tabs mb12">
-        <div class="tab act" onclick="setBauxTab('actifs',this)">📋 Baux actifs</div>
-        <div class="tab" onclick="setBauxTab('historique',this)">🗂 Historique</div>
+        <div class="tab act" onclick="setBauxTab('actifs',this)"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Baux actifs</div>
+        <div class="tab" onclick="setBauxTab('historique',this)"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="4"/><path d="M5 8v12h14V8M10 12h4"/></svg> Historique</div>
       </div>
       <div id="baux-tab-actifs"><div class="g2" id="baux-grid"></div></div>
       <div id="baux-tab-historique" style="display:none">
@@ -499,8 +499,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           <div class="mu sm" style="margin-top:2px">Pré-sélection des locataires — triez les dossiers avant de créer un bail</div>
         </div>
         <div class="flex-c" style="gap:8px;flex-wrap:wrap">
-          <button class="btn bs" onclick="_relayPullCandidatures()" title="Vérifier et rapatrier les dossiers déposés via les liens en ligne">🔄 Actualiser les dépôts</button>
-          <button class="btn bs" onclick="openInviteCandidat()" title="Générer un lien d'invitation en ligne (dépôt de dossier sans compte)">🔗 Inviter un candidat</button>
+          <button class="btn bs" onclick="_relayPullCandidatures()" title="Vérifier et rapatrier les dossiers déposés via les liens en ligne"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Actualiser les dépôts</button>
+          <button class="btn bs" onclick="openInviteCandidat()" title="Générer un lien d'invitation en ligne (dépôt de dossier sans compte)"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg> Inviter un candidat</button>
           <button class="btn bp" onclick="openAddCandidat()">+ Ajouter un candidat</button>
         </div>
       </div>
@@ -549,7 +549,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <!-- MODAL: INTERVENTION ÉQUIPEMENT -->
     <div class="ov hidden" id="ov-equip-interv" onclick="closeBg(event,'ov-equip-interv')">
       <div class="modal" style="max-width:500px">
-        <div class="m-head"><h3>Enregistrer une intervention</h3><button class="m-close" onclick="closeM('ov-equip-interv')">✕</button></div>
+        <div class="m-head"><h3>Enregistrer une intervention</h3><button class="m-close" onclick="closeM('ov-equip-interv')"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <div class="m-body">
           <div class="fg2">
             <div class="fg">
@@ -616,14 +616,14 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       </style>
       <div class="flex-b mb12" style="flex-wrap:wrap;gap:9px">
         <div>
-          <div class="ct" style="margin:0">📧 Communications</div>
+          <div class="ct" style="margin:0"><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg> Communications</div>
           <div class="mu sm" style="font-size:11.5px">Historique des emails envoyés + tableau de bord + modèles disponibles</div>
         </div>
       </div>
       <div class="em-tabs" role="tablist">
-        <button class="em-tab-btn act" data-em-tab="dashboard" onclick="_emailsSetTab('dashboard')" role="tab">📊 Tableau de bord</button>
-        <button class="em-tab-btn" data-em-tab="historique" onclick="_emailsSetTab('historique')" role="tab">📜 Historique</button>
-        <button class="em-tab-btn" data-em-tab="modeles" onclick="_emailsSetTab('modeles')" role="tab">📋 Modèles disponibles</button>
+        <button class="em-tab-btn act" data-em-tab="dashboard" onclick="_emailsSetTab('dashboard')" role="tab"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg> Tableau de bord</button>
+        <button class="em-tab-btn" data-em-tab="historique" onclick="_emailsSetTab('historique')" role="tab"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Historique</button>
+        <button class="em-tab-btn" data-em-tab="modeles" onclick="_emailsSetTab('modeles')" role="tab"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Modèles disponibles</button>
       </div>
       <div class="em-tab-pane act" id="em-pane-dashboard" role="tabpanel"></div>
       <div class="em-tab-pane" id="em-pane-historique" role="tabpanel"></div>
@@ -2895,7 +2895,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <div class="modal" style="max-width:480px">
   <div class="m-head">
     <h3 id="agenda-day-title">Événements du jour</h3>
-    <button class="m-close" onclick="closeM('ov-agenda-day')">✕</button>
+    <button class="m-close" onclick="closeM('ov-agenda-day')"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="m-body" id="agenda-day-list" style="display:flex;flex-direction:column;gap:8px"></div>
   <div class="m-foot" style="display:flex;justify-content:space-between;align-items:center">
@@ -2909,7 +2909,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <div class="modal" style="max-width:580px">
   <div class="m-head">
     <h3 id="agenda-modal-title">Nouvel événement</h3>
-    <button class="m-close" onclick="closeM('ov-agenda-evt')">✕</button>
+    <button class="m-close" onclick="closeM('ov-agenda-evt')"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="m-body">
     <div class="fg">
@@ -7827,11 +7827,11 @@ function _openShareModal(ctx) {
   const html =
     '<div class="ov" id="ov-bss-share" onclick="closeBg(event,\'ov-bss-share\')">'
     + '<div class="modal" style="max-width:560px">'
-    +   '<div class="m-head"><h3>' + escHtml(ctx.title || 'Partager') + '</h3><button class="m-close" onclick="closeM(\'ov-bss-share\')">✕</button></div>'
+    +   '<div class="m-head"><h3>' + escHtml(ctx.title || 'Partager') + '</h3><button class="m-close" onclick="closeM(\'ov-bss-share\')">' + _uiIcon('close',18) + '</button></div>'
     +   '<div class="m-body">'
     +     '<div class="bss-ctx"><div class="bss-ctx-ic">' + (ctx.ctxIcon || '📄') + '</div><div><div class="bss-ctx-t">' + escHtml(ctx.ctxTitle || '') + '</div><div class="bss-ctx-s">' + (ctx.ctxSub || '') + '</div></div></div>'
     +     linkRow
-    +     '<button class="btn bp" style="width:100%;margin-bottom:12px" onclick="_shareModalShareVia()">📎 Partager via…' + (hasPdf ? ' (PDF joint)' : '') + '</button>'
+    +     '<button class="btn bp" style="width:100%;margin-bottom:12px" onclick="_shareModalShareVia()">' + _uiIcon('share') + ' Partager via…' + (hasPdf ? ' (PDF joint)' : '') + '</button>'
     +     '<div class="fg"><label>Ou par un canal</label><div class="bss-chans">' + chans + '</div></div>'
     +     '<div id="bss-qr-wrap" class="hidden" style="text-align:center;margin-top:12px"></div>'
     +     (ctx.info ? '<div class="bss-info">' + ctx.info + '</div>' : '')
@@ -16163,10 +16163,10 @@ function rBauxHistorique() {
       <td class="mu sm">${fd(b._archivedAt)}</td>
       <td class="num">${b.dgRestitue>0?fmt(b.dgRestitue):'–'}</td>
       <td class="act-cell">
-        <button class="btn bs bb" onclick="openBailHist(${origIdx})" title="Voir toutes les informations">📋 Détail</button>
-        <button class="btn bs bb" onclick="previewBailHist(${origIdx})" title="Aperçu du bail">👁</button>
-        <button class="btn bs bb" onclick="exportBailHistWord(${origIdx})" title="Export Word">📄</button>
-        <button class="btn br bb" onclick="delBailHist(${origIdx})" title="Supprimer de l'historique">🗑</button>
+        <button class="btn bs bb" onclick="openBailHist(${origIdx})" title="Voir toutes les informations">${_uiIcon('list')} Détail</button>
+        <button class="btn bs bb" onclick="previewBailHist(${origIdx})" title="Aperçu du bail">${_uiIcon('eye')}</button>
+        <button class="btn bs bb" onclick="exportBailHistWord(${origIdx})" title="Export Word">${_uiIcon('doc')}</button>
+        <button class="btn br bb" onclick="delBailHist(${origIdx})" title="Supprimer de l'historique">${_uiIcon('trash')}</button>
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="8" class="mu" style="text-align:center;padding:20px">Aucun bail archivé</td></tr>';
@@ -16329,10 +16329,10 @@ function openBailHist(i) {
   const foot = document.querySelector('#ov-bail .m-foot');
   if (foot) {
     foot.innerHTML =
-      '<span class="mu sm">📂 Bail archivé — lecture seule</span>' +
+      '<span class="mu sm">' + _uiIcon('archive') + ' Bail archivé — lecture seule</span>' +
       '<button class="btn bs" onclick="closeBailHist()">Fermer</button>' +
-      '<button class="btn bs" onclick="previewBailHist('+i+')">👁 Aperçu</button>' +
-      '<button class="btn bs" onclick="exportBailHistWord('+i+')">📄 Word</button>';
+      '<button class="btn bs" onclick="previewBailHist('+i+')">' + _uiIcon('eye') + ' Aperçu</button>' +
+      '<button class="btn bs" onclick="exportBailHistWord('+i+')">' + _uiIcon('doc') + ' Word</button>';
   }
 
   openM('ov-bail');
@@ -17197,11 +17197,11 @@ function _renderCandInboxBanner(){
   const names = unread.slice(0,3).map(c => ((c.prenom||'')+' '+(c.nom||'')).trim() || 'Candidat');
   const extra = n > names.length ? (' +'+(n - names.length)) : '';
   host.innerHTML = '<div class="cand-inbox">'
-    + '<div class="ci-ic">📩</div>'
+    + '<div class="ci-ic">' + _uiIcon('mail',20) + '</div>'
     + '<div class="ci-tx"><b>' + n + ' nouveau' + (n>1?'x':'') + ' dossier' + (n>1?'s':'') + ' de candidature reçu' + (n>1?'s':'') + '</b>'
     +   '<div class="s">' + escHtml(names.join(' · ') + extra) + ' — déposé' + (n>1?'s':'') + ' via lien en ligne. Cliquez pour vérifier et traiter.</div></div>'
     + '<button class="btn bp bb" onclick="go(\'candidats\')">Voir les dossiers →</button>'
-    + '<button class="ci-x" title="Marquer comme vu" onclick="_candMarkAllSeen()">✕</button>'
+    + '<button class="ci-x" title="Marquer comme vu" onclick="_candMarkAllSeen()">' + _uiIcon('close') + '</button>'
     + '</div>';
 }
 function _renderInboxSurfaces(){
@@ -17989,7 +17989,7 @@ function rBaux() {
       }
       const echCellHtml = depState
         ? `<div class="loc-ech-b loc-dep-cell" title="Départ en cours — ouvrir l'assistant" onclick="event.stopPropagation();_departOuvrir('${refEsc}')">${_ICON_DEPART} Départ ${depState.doneCount}/${depState.total}${depDgHtml}</div>`
-        : `<div class="loc-ech-b ${ech.cls}">📅 ${ech.text}</div>`;
+        : `<div class="loc-ech-b ${ech.cls}">${_uiIcon('calendar',13)} ${ech.text}</div>`;
       const depActionBtn = depState
         ? `<button onclick="event.stopPropagation();_departOuvrir('${refEsc}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">${_ICON_DEPART}</button>`
         : (bail && !bail.cloture && !bail._deleted && ech.urgent
@@ -18000,15 +18000,15 @@ function rBaux() {
       // Actions compactes : principales en visible + ⋮ menu pour actions secondaires
       // (Clôturer / Supprimer / Acte cautionnement / PDF Drive / Réinitialiser sigs)
       const actions = `${depActionBtn}
-        <button onclick="event.stopPropagation();openBail('${refEsc}')" title="Modifier le bail" aria-label="Modifier le bail">📝</button>
-        <button onclick="event.stopPropagation();previewBailRef('${refEsc}')" title="Aperçu bail" aria-label="Aperçu bail">👁</button>
+        <button onclick="event.stopPropagation();openBail('${refEsc}')" title="Modifier le bail" aria-label="Modifier le bail">${_uiIcon('edit')}</button>
+        <button onclick="event.stopPropagation();previewBailRef('${refEsc}')" title="Aperçu bail" aria-label="Aperçu bail">${_uiIcon('eye')}</button>
         ${/* « Voir bail signé » (snapshot HTML) retiré 2026-06-18 — remplacé par « PDF du bail » */ ''}
         ${bail && bail.signatures && bail.signatures.mode === 'bailleur-seul'
-          ? `<button onclick="event.stopPropagation();openBailSignatureFlow('${refEsc}')" title="Continuer la signature du bail" aria-label="Continuer la signature" style="color:#16a34a">✍</button>`
+          ? `<button onclick="event.stopPropagation();openBailSignatureFlow('${refEsc}')" title="Continuer la signature du bail" aria-label="Continuer la signature" style="color:#16a34a">${_uiIcon('sign')}</button>`
           : ''}
-        ${email ? `<button onclick="event.stopPropagation();window.location.href='${mailtoUrl}'" title="Email ${escHtml(email)}" aria-label="Email locataire">📧</button>` : ''}
-        ${bail ? `<button onclick="event.stopPropagation();openMrh(${_mrhId},'${refEsc}')" title="Attestation assurance habitation (locataire)" aria-label="Attestation assurance habitation" style="color:${hasMrh?'#16a34a':'#dc2626'}">🔑</button>` : ''}
-        ${bail ? `<button onclick="openBailMenu(event,'${refEsc}')" title="Plus d'actions (clôturer, supprimer, acte cautionnement…)" aria-label="Plus d'actions" style="font-weight:700">⋮</button>` : ''}
+        ${email ? `<button onclick="event.stopPropagation();window.location.href='${mailtoUrl}'" title="Email ${escHtml(email)}" aria-label="Email locataire">${_uiIcon('mail')}</button>` : ''}
+        ${bail ? `<button onclick="event.stopPropagation();openMrh(${_mrhId},'${refEsc}')" title="Attestation assurance habitation (locataire)" aria-label="Attestation assurance habitation" style="color:${hasMrh?'#16a34a':'#dc2626'}">${_uiIcon('key')}</button>` : ''}
+        ${bail ? `<button onclick="openBailMenu(event,'${refEsc}')" title="Plus d'actions (clôturer, supprimer, acte cautionnement…)" aria-label="Plus d'actions" style="font-weight:700">${_uiIcon('dots')}</button>` : ''}
       `;
 
       const onRowClick = `openLogFiche('${refEsc}')`;
@@ -26998,14 +26998,14 @@ function rEmailsPage(tab) {
     const pane = el('em-pane-dashboard'); if (!pane) return;
     const stats = _emailsDashboardStats(all);
     if (!stats.total) {
-      pane.innerHTML = `<div class="em-empty">📭 Aucun email envoyé pour le moment.<br><span class="mu sm">L'historique se construira au fil de l'usage (clic sur 📧 dans les fiches bail / quittance / IRL).</span></div>`;
+      pane.innerHTML = `<div class="em-empty">${_uiIcon('mail')} Aucun email envoyé pour le moment.<br><span class="mu sm">L'historique se construira au fil de l'usage (clic sur 📧 dans les fiches bail / quittance / IRL).</span></div>`;
       return;
     }
     const topRows = stats.topTypes.map(t => {
       const meta = _emailsTypeMeta(t.type);
       return `<div class="em-row"><span class="ic">${meta.icon}</span><div class="info"><div class="lbl">${escHtml(meta.label)}</div><div class="meta">${escHtml(meta.phase)}</div></div><div class="when"><b>${t.n}</b> envois</div></div>`;
     }).join('');
-    const monthRows = stats.byMonth.map(m => `<div class="em-row"><span class="ic">📅</span><div class="info"><div class="lbl">${escHtml(m.label)}</div></div><div class="when"><b>${m.emails.length}</b> envois</div></div>`).join('');
+    const monthRows = stats.byMonth.map(m => `<div class="em-row"><span class="ic">${_uiIcon('calendar')}</span><div class="info"><div class="lbl">${escHtml(m.label)}</div></div><div class="when"><b>${m.emails.length}</b> envois</div></div>`).join('');
     pane.innerHTML = `
       <div class="em-stats">
         <div class="em-stat"><div class="v">${stats.total}</div><div class="l">emails envoyés (total)</div></div>
@@ -27019,7 +27019,7 @@ function rEmailsPage(tab) {
   } else if (tab === 'historique') {
     const pane = el('em-pane-historique'); if (!pane) return;
     if (!all.length) {
-      pane.innerHTML = `<div class="em-empty">📭 Aucun email dans l'historique.</div>`;
+      pane.innerHTML = `<div class="em-empty">${_uiIcon('mail')} Aucun email dans l'historique.</div>`;
       return;
     }
     const groups = _emailsGroupByMonth(all);
@@ -50291,16 +50291,16 @@ function _agendaEvtCard(e, compact=false) {
       <span class="agenda-cat-badge" style="background:${couleur}18;color:${couleur}">${_agendaIconSvg(e.cat,13)} ${cat.label}</span>
       ${badge}
       <div style="margin-left:auto;display:flex;gap:5px;flex-shrink:0">
-        ${!e.done?`<button onclick="agendaMarkDone(event,'${e.id}')" title="Marquer fait" style="font-size:14px;min-width:40px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(22,163,74,.3);background:rgba(22,163,74,.08);color:var(--grn);border-radius:6px;cursor:pointer">✓</button>`:''}
-        <button onclick="deleteAgendaEvt(event,'${e.id}')" title="Supprimer" style="font-size:14px;min-width:40px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(220,38,38,.2);background:rgba(220,38,38,.06);color:var(--red);border-radius:6px;cursor:pointer">✕</button>
+        ${!e.done?`<button onclick="agendaMarkDone(event,'${e.id}')" title="Marquer fait" style="font-size:14px;min-width:40px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(22,163,74,.3);background:rgba(22,163,74,.08);color:var(--grn);border-radius:6px;cursor:pointer">${_uiIcon('check')}</button>`:''}
+        <button onclick="deleteAgendaEvt(event,'${e.id}')" title="Supprimer" style="font-size:14px;min-width:40px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(220,38,38,.2);background:rgba(220,38,38,.06);color:var(--red);border-radius:6px;cursor:pointer">${_uiIcon('trash')}</button>
       </div>
     </div>
     <div class="agenda-card-title">${escHtml(e.titre)}</div>
     <div class="agenda-card-meta">
-      <span>📅 ${fd(e.date)}${e.dateFin && e.dateFin!==e.date?' → '+fd(e.dateFin):''}</span>
-      ${e.logement?`<span>🏠 ${escHtml(e.logement)}</span>`:''}
-      ${e.recurrence?.type!=='none'?`<span>🔁 ${_recLabel(e.recurrence)}</span>`:''}
-      ${e.auto?`<span style="color:var(--t3)">⚙ Auto</span>`:''}
+      <span>${_uiIcon('calendar',13)} ${fd(e.date)}${e.dateFin && e.dateFin!==e.date?' → '+fd(e.dateFin):''}</span>
+      ${e.logement?`<span>${_uiIcon('home',13)} ${escHtml(e.logement)}</span>`:''}
+      ${e.recurrence?.type!=='none'?`<span>${_uiIcon('refresh',13)} ${_recLabel(e.recurrence)}</span>`:''}
+      ${e.auto?`<span style="color:var(--t3)">${_uiIcon('settings',13)} Auto</span>`:''}
     </div>
     ${e.notes?`<div style="font-size:12px;color:var(--t2);margin-top:4px;white-space:pre-wrap">${escHtml(e.notes.slice(0,120))}${e.notes.length>120?'…':''}</div>`:''}
   </div>`;
@@ -50335,14 +50335,14 @@ function rAgendaList() {
   const rest     = all.filter(e=>!e.done && _daysFrom(e.date) > 30);
   const done     = all.filter(e=>e.done);
 
-  el('agenda-overdue-section').innerHTML = _agendaSection('⚠ En retard', overdue);
-  el('agenda-soon7-section').innerHTML   = _agendaSection('🔔 Cette semaine (7 jours)', soon7);
-  el('agenda-soon30-section').innerHTML  = _agendaSection('📅 Ce mois (30 jours)', soon30);
-  el('agenda-rest-section').innerHTML    = _agendaSection('📋 À venir', rest) + _agendaSection('✓ Terminés', done, false);
+  el('agenda-overdue-section').innerHTML = _agendaSection(_uiIcon('warn',13) + ' En retard', overdue);
+  el('agenda-soon7-section').innerHTML   = _agendaSection(_uiIcon('bell',13) + ' Cette semaine (7 jours)', soon7);
+  el('agenda-soon30-section').innerHTML  = _agendaSection(_uiIcon('calendar',13) + ' Ce mois (30 jours)', soon30);
+  el('agenda-rest-section').innerHTML    = _agendaSection(_uiIcon('list',13) + ' À venir', rest) + _agendaSection(_uiIcon('check',13) + ' Terminés', done, false);
 
   if(!all.length) {
     el('agenda-overdue-section').innerHTML = `<div class="card" style="text-align:center;padding:40px 20px;color:var(--t2)">
-      <div style="font-size:32px;margin-bottom:12px">📅</div>
+      <div style="margin-bottom:12px;color:var(--t3)">${_uiIcon('calendar',32)}</div>
       <div style="font-weight:600;margin-bottom:6px">Aucun événement</div>
       <div style="font-size:13px">Cliquez sur <b>+ Événement</b> pour en ajouter un, ou <b>🔄 Sync baux</b> pour générer automatiquement depuis vos baux.</div>
     </div>`;
@@ -50552,7 +50552,7 @@ function rEquipements() {
         <td style="color:${urgColor};font-weight:500">${nextStr}</td>
         <td>${urgBadge}</td>
         <td class="act-cell">
-          <button class="btn bs bb" onclick="openEquipIntervention('${l.ref}','${rule.key}')" style="font-size:11px">✏ Intervention</button>
+          <button class="btn bs bb" onclick="openEquipIntervention('${l.ref}','${rule.key}')" style="font-size:11px">${_uiIcon('edit',13)} Intervention</button>
         </td></tr>`;
     }).join('');
 
@@ -50561,7 +50561,7 @@ function rEquipements() {
     const rEsc = (l.ref||'').replace(/'/g,"\\'");
     const cfgPanel = `
       <details style="margin-top:14px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:10px 14px">
-        <summary style="cursor:pointer;font-weight:600;font-size:12.5px;user-select:none">⚙ Configuration des équipements du logement</summary>
+        <summary style="cursor:pointer;font-weight:600;font-size:12.5px;user-select:none">${_uiIcon('settings',13)} Configuration des équipements du logement</summary>
         <div class="mu sm" style="margin:6px 0 10px;font-size:11.5px;line-height:1.5">
           Renseignez les équipements présents pour activer les alertes d'entretien correspondantes.
           Les équipements à charge du locataire (chaudière, ramonage, chauffe-eau, climatisation, citerne) génèrent automatiquement une fréquence d'entretien.
