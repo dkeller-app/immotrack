@@ -871,22 +871,22 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <div class="biens-toolbar">
         <div class="biens-toolbar-left">
           <div class="biens-view-toggle" role="tablist" aria-label="Mode d'affichage">
-            <button class="bvt" id="bvt-bailleurs" role="tab" aria-selected="false" onclick="setBiensView('bailleurs')">👤 Bailleurs</button>
-            <button class="bvt act" id="bvt-immeubles" role="tab" aria-selected="true" onclick="setBiensView('immeubles')">🏢 Immeubles</button>
-            <button class="bvt" id="bvt-logements" role="tab" aria-selected="false" onclick="setBiensView('logements')">🏠 Logements</button>
+            <button class="bvt" id="bvt-bailleurs" role="tab" aria-selected="false" onclick="setBiensView('bailleurs')"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0114 0"/></svg> Bailleurs</button>
+            <button class="bvt act" id="bvt-immeubles" role="tab" aria-selected="true" onclick="setBiensView('immeubles')"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1"/></svg> Immeubles</button>
+            <button class="bvt" id="bvt-logements" role="tab" aria-selected="false" onclick="setBiensView('logements')"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/></svg> Logements</button>
           </div>
           <span class="biens-count" id="biens-count"></span>
         </div>
         <div class="biens-toolbar-right">
           <div class="biens-search-wrap">
-            <span class="biens-search-icon" aria-hidden="true">🔍</span>
+            <span class="biens-search-icon" aria-hidden="true"><svg class="tbico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2"/></svg></span>
             <input class="biens-search" id="biens-search" type="text" placeholder="Rechercher (nom, locataire, adresse…)" oninput="setBiensSearch(this.value)" aria-label="Rechercher un bien" title="Raccourcis : / ou Ctrl+K">
             <button class="biens-search-clear" id="biens-search-clear" onclick="setBiensSearch('')" aria-label="Effacer la recherche">✕</button>
             <kbd class="biens-search-kbd" aria-hidden="true">/</kbd>
           </div>
           <div class="biens-filter-wrap">
             <button class="biens-filter-btn" id="biens-filter-btn" onclick="toggleBiensFilter(event)" aria-haspopup="true" aria-expanded="false">
-              <span>🎯 Filtrer</span>
+              <span><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg> Filtrer</span>
               <span class="biens-filter-btn-badge" id="biens-filter-badge" style="display:none">0</span>
             </button>
             <div class="biens-popover" id="biens-filter-popover" role="dialog" aria-label="Filtres">
@@ -913,7 +913,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
             </div>
           </div>
           <div class="biens-filter-wrap">
-            <button class="biens-filter-btn" id="biens-sort-btn" onclick="toggleBiensSort(event)" aria-haspopup="true" aria-expanded="false">↕ Trier</button>
+            <button class="biens-filter-btn" id="biens-sort-btn" onclick="toggleBiensSort(event)" aria-haspopup="true" aria-expanded="false"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 4L3 8M7 4l4 4M17 20V4M17 20l-4-4M17 20l4-4"/></svg> Trier</button>
             <div class="biens-popover" id="biens-sort-popover" role="dialog" aria-label="Tri">
               <div class="biens-popover-row">
                 <div class="biens-popover-label">Trier par</div>
@@ -926,7 +926,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
               </div>
             </div>
           </div>
-          <button class="btn bs" onclick="exportBiensCSV()" title="Exporter la liste en CSV">📥 Exporter</button>
+          <button class="btn bs" onclick="exportBiensCSV()" title="Exporter la liste en CSV"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M12 4L8 8M12 4l4 4M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg> Exporter</button>
           <button class="btn bp" id="biens-add-btn" onclick="openBiensAdd()">+ Ajouter un bien</button>
         </div>
       </div>
@@ -35540,8 +35540,25 @@ function _ensureBiencPhCss(){
     '.bienc-ph .bienc-rent{font-size:12px;color:var(--t1);font-weight:700;white-space:nowrap;flex:0 0 auto}',
     '.bienc-ph .bienc-rent small{color:var(--t3);font-weight:500;font-size:10.5px}',
     '.bienc-ph .bienc-menu{flex:0 0 auto;background:none;border:0;color:var(--t3);font-size:18px;line-height:1;padding:2px 4px;cursor:pointer;align-self:flex-start}',
+    // MOBILE-REFONTE lot 3b — séparateur de groupe (bailleur en vue Immeubles) + groupe immeuble repliable (vue Logements).
+    '.biens-grp-sep{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);padding:8px 2px 6px;margin:2px 0 0}',
+    '.biens-grp-sep:first-child{padding-top:2px}',
+    '.log-grp{margin:0 0 4px}',
+    '.log-grp-h{display:flex;align-items:center;gap:10px;padding:9px 2px;cursor:pointer;user-select:none}',
+    '.log-grp-thumb{width:34px;height:34px;border-radius:9px;flex:0 0 auto;overflow:hidden;background:var(--sur3);display:flex;align-items:center;justify-content:center;font-size:16px}',
+    '.log-grp-thumb img{width:100%;height:100%;object-fit:cover;display:block}',
+    '.log-grp-info{flex:1;min-width:0}',
+    '.log-grp-name{font-family:var(--ff-display,"Schibsted Grotesk","Inter",sans-serif);font-weight:800;color:var(--t1);font-size:14.5px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.log-grp-sub{font-size:11px;color:var(--t3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.log-grp-chev{width:16px;height:16px;flex:0 0 auto;fill:none;stroke:var(--t3);stroke-width:2;transition:transform .18s}',
+    '.log-grp.collapsed .log-grp-chev{transform:rotate(-90deg)}',
+    '.log-grp-lots{margin-left:16px;padding-left:14px;border-left:2px solid var(--bor);display:flex;flex-direction:column;gap:9px;margin-bottom:6px}',
+    '.log-grp.collapsed .log-grp-lots{display:none}',
+    '.log-grp-lots .bienc-ph{margin:0}',
     '@media(max-width:767px){',
     '#p-biens .biens-toolbar{flex-direction:column;gap:10px;align-items:stretch}',
+    // MOBILE-REFONTE lot 3a — bascule active = corail plein + texte blanc (charte books), téléphone uniquement.
+    '#p-biens .biens-view-toggle .bvt.act{background:var(--acc);color:#fff;box-shadow:none}',
     '#p-biens .biens-toolbar-left,#p-biens .biens-toolbar-right{width:100%}',
     '#p-biens .biens-toolbar-right{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
     '#p-biens .biens-view-toggle{display:flex;width:100%}',
@@ -35614,6 +35631,71 @@ function _renderLogementCardFlat(l) {
       </div>
     </div>
   </article>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MOBILE-REFONTE lot 3 — Vue Logements TÉLÉPHONE regroupée par immeuble.
+// Grief user « où sont les séparateurs ? » : la liste plate ne montrait pas la
+// hiérarchie immeuble › lots. On regroupe par (bailleur, immeuble) avec un
+// en-tête repliable (vignette + nom + « Ville · N lots · M loués » + chevron) et
+// les cartes lots en retrait, en RÉUTILISANT _renderLogementCardFlat (DRY).
+// Logements sans immeuble → groupe « Logements isolés » (rangé en dernier).
+// État déplié/replié persisté en localStorage (motif _lsKey), comme les blocs A.
+// PC (≥768px) inchangé : rBiens garde la grille plate hors _isPhone().
+// ════════════════════════════════════════════════════════════════════════════
+function _readLogGroupsCollapsed() {
+  try { return JSON.parse(localStorage.getItem(_lsKey('logGroupsCollapsed')) || '{}'); }
+  catch(e) { return {}; }
+}
+function _toggleLogGroup(hEl) {
+  const grp = hEl && hEl.closest ? hEl.closest('.log-grp') : null;
+  if(!grp) return;
+  grp.classList.toggle('collapsed');
+  try {
+    const key = _lsKey('logGroupsCollapsed');
+    const stored = JSON.parse(localStorage.getItem(key) || '{}');
+    const gkey = grp.getAttribute('data-gkey') || '';
+    if(grp.classList.contains('collapsed')) stored[gkey] = true; else delete stored[gkey];
+    localStorage.setItem(key, JSON.stringify(stored));
+  } catch(e) {}
+}
+function _renderLogementsGroupedPhone(logs) {
+  // Regroupe par (bailleur, immeuble) ; logements sans immeuble → « Logements isolés ».
+  const groups = new Map();
+  (logs||[]).forEach(l => {
+    const hasImm = !!(l.imm && String(l.imm).trim());
+    const key = hasImm ? ((l.entity||'—') + '||' + l.imm) : '__ISOLES__';
+    if(!groups.has(key)) groups.set(key, { entNom:l.entity||'', immNom: hasImm ? l.imm : '', isoles:!hasImm, logs:[] });
+    groups.get(key).logs.push(l);
+  });
+  const arr = [...groups.values()];
+  arr.sort((a,b) => {
+    if(a.isoles !== b.isoles) return a.isoles ? 1 : -1;   // isolés toujours en dernier
+    return _natCmp(a.entNom, b.entNom) || _natCmp(a.immNom, b.immNom);
+  });
+  const collapsed = _readLogGroupsCollapsed();
+  return arr.map(g => {
+    const ent = (!g.isoles && g.entNom) ? (DB.entites||[]).find(e => e.nom === g.entNom) : null;
+    const im  = ent ? (ent.immeubles||[]).find(i => i && i.nom === g.immNom && !i._deleted) : null;
+    const nbLots  = g.logs.length;
+    const nbLoues = g.logs.filter(l => _bienActiveBail(l.ref)).length;
+    const ville = g.isoles ? '' : ((im && im.ville) || _extractVilleFromAdr(im && im.adr) || _extractVilleFromAdr(g.logs[0] && g.logs[0].adr) || '');
+    const sub = [ville, `${nbLots} lot${nbLots>1?'s':''}`, `${nbLoues} loué${nbLoues>1?'s':''}`]
+      .filter(Boolean).map(escHtml).join(' · ');
+    const title = g.isoles ? 'Logements isolés' : escHtml(g.immNom || '—');
+    const thumb = g.isoles ? '<span>🏠</span>' : (im && im.id ? _coverImg('immeuble', im.id, '🏢') : '<span>🏢</span>');
+    const gkey  = g.isoles ? '__ISOLES__' : (g.entNom + '||' + g.immNom);
+    const isCol = !!collapsed[gkey];
+    const cards = g.logs.slice().sort((a,b) => _natCmp(a.ref, b.ref)).map(_renderLogementCardFlat).join('');
+    return `<div class="log-grp${isCol?' collapsed':''}" data-gkey="${escHtml(gkey)}">
+      <div class="log-grp-h" onclick="_toggleLogGroup(this)" tabindex="0" role="button" aria-label="Replier ou déplier ${title}" onkeydown="if(event.key==='Enter'||event.key===' '){_toggleLogGroup(this);event.preventDefault()}">
+        <span class="log-grp-thumb">${thumb}</span>
+        <span class="log-grp-info"><div class="log-grp-name">${title}</div><div class="log-grp-sub">${sub}</div></span>
+        <svg class="log-grp-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="log-grp-lots">${cards}</div>
+    </div>`;
+  }).join('');
 }
 
 // v14.2 LOG-LISTE-CARDS Phase 2 — état toolbar (recherche / filtres / tri).
@@ -36984,6 +37066,14 @@ function rBiens() {
   const sc = el('biens-search-clear'); if(sc) sc.classList.toggle('show', !!_biensFilters.search);
   const cnt = el('biens-count');
 
+  // MOBILE-REFONTE lot 3c — le mode Bailleurs n'a que Trier + Exporter (mockup BOOK-BAILLEURS) :
+  // les filtres (bailleur / occupation / type) sont des attributs de LOGEMENT, sans objet ici.
+  try {
+    const _fb = el('biens-filter-btn');
+    const _fw = _fb && _fb.closest ? _fb.closest('.biens-filter-wrap') : null;
+    if(_fw) _fw.style.display = (_biensViewMode === 'bailleurs') ? 'none' : '';
+  } catch(e) {}
+
   // v14.3 PATRIMOINE-NAV-UNIFY : mode Bailleurs = render dédié sur DB.entites
   // Le tab Actifs/Archivés ne s'applique pas aux bailleurs (les entités n'ont pas de cycle de vie soft-delete)
   if(_biensViewMode === 'bailleurs') {
@@ -37035,7 +37125,13 @@ function rBiens() {
 
   if(_biensViewMode === 'logements') {
     if(cnt) cnt.textContent = `${filtered.length} ${filtered.length>1?'logements':'logement'}${filtered.length<pool.length?` sur ${pool.length}`:''}`;
-    wrap.innerHTML = `<div class="biens-grid">${filtered.map(_renderLogementCardFlat).join('')}</div>`;
+    // MOBILE-REFONTE lot 3 — téléphone : regroupement par immeuble (en-têtes repliables + lots en retrait).
+    // PC (≥768px) : grille plate d'origine inchangée.
+    if(_isPhone()) {
+      wrap.innerHTML = _renderLogementsGroupedPhone(filtered);
+    } else {
+      wrap.innerHTML = `<div class="biens-grid">${filtered.map(_renderLogementCardFlat).join('')}</div>`;
+    }
     return;
   }
 
@@ -37061,6 +37157,23 @@ function rBiens() {
     // v15.236 : tri par défaut groupé par BAILLEUR (entité) puis immeuble, pour
     // que tous les immeubles d'un même bailleur soient consécutifs.
     default:           groupsArr.sort((a,b)=>_natCmp(a.entNom, b.entNom) || _natCmp(a.immNom, b.immNom));
+  }
+  // MOBILE-REFONTE lot 3 — vue Immeubles TÉLÉPHONE : cartes compactes _renderBuildingCard
+  // (jamais le bloc desktop 7 colonnes _renderBuildingBlockA, illisible à 375px), groupées
+  // par bailleur avec un séparateur de groupe (mockup BOOK-IMMEUBLES). PC inchangé plus bas.
+  if(_isPhone()) {
+    let html = '', curEnt = null, buf = [];
+    const flush = () => { if(buf.length) { html += `<div class="biens-grid">${buf.join('')}</div>`; buf = []; } };
+    groupsArr.forEach(g => {
+      if(g.entNom !== curEnt) { flush(); curEnt = g.entNom; html += `<div class="biens-grp-sep">${escHtml(curEnt||'—')}</div>`; }
+      const ent = (DB.entites||[]).find(e => e.nom === g.entNom) || null;
+      buf.push(_renderBuildingCard(g.entNom, g.immNom, g.logs, ent, isArchivedTab));
+    });
+    flush();
+    const filtSuffixP = filtered.length < pool.length ? ' (filtré)' : '';
+    if(cnt) cnt.textContent = `${groupsArr.length} ${groupsArr.length>1?'immeubles':'immeuble'} · ${filtered.length} ${filtered.length>1?'biens':'bien'}${filtSuffixP}`;
+    wrap.innerHTML = html;
+    return;
   }
   // v15.230 ARCHI-FICHES-UNIFIED Session 4 Commit 3 — Variante A par défaut.
   // Bascule via _biensFilters.layout = 'cards-b' pour conserver l'ancien rendu cards.
