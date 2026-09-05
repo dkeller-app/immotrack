@@ -35291,6 +35291,18 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
   else if(firstRef) onClick = `openLogFiche('${escHtml(firstRef)}')`; // fallback pour logements orphelins (pas d'immeuble structuré)
   const archCls = isArchived ? ' is-archived' : '';
   const archBadge = isArchived ? '<span class="bien-card-archived-badge">Archivé</span>' : '';
+  // MOBILE-REFONTE lot 3b — carte immeuble compacte sur téléphone.
+  if (_isPhone()) {
+    _ensureBiencPhCss();
+    const occLbl = `${agg.nbOccupes}/${agg.nbTotal} loué${agg.nbOccupes>1?'s':''}`;
+    const metaBits = [`${agg.nbTotal} bien${agg.nbTotal>1?'s':''}`, typeLabel].filter(Boolean).map(escHtml).join(' · ');
+    return `<article class="bienc-ph${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">`
+      +`<div class="bienc-thumb">${im && im.id ? _coverImg('immeuble', im.id, '🏢') : '<span>🏢</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
+      +`<div class="bienc-mid"><div class="bienc-ref">${titleEsc}</div>${subtitleEsc?`<div class="bienc-ten">${subtitleEsc}</div>`:''}`
+      +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${fmt(agg.loyerHC)}<small> HC</small></span></div></div>`
+      +`<button class="bienc-menu" onclick="event.stopPropagation();openBienMenu(event,'building','${escHtml(firstRef||'')}','${escHtml(immNom||'')}')" aria-label="Actions">⋮</button>`
+      +`</article>`;
+  }
   return `<article class="bien-card${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
     <div class="bien-card-header">
       <span class="bch-bailleur" title="${bailleurEsc}">${bailleurEsc}</span>
@@ -35329,6 +35341,7 @@ function _ensureBiencPhCss(){
     '.bienc-ph{display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:11px 12px;cursor:pointer;margin:0;min-width:0;max-width:100%;overflow:hidden}',
     '.bienc-ph .bienc-thumb{width:52px;height:52px;border-radius:11px;flex:0 0 auto;position:relative;overflow:hidden;background:var(--sur3);display:flex;align-items:center;justify-content:center;font-size:22px}',
     '.bienc-ph .bienc-thumb img{width:100%;height:100%;object-fit:cover;display:block}',
+    '.bienc-ph .bienc-thumb.logo img{object-fit:contain;padding:6px;background:#fff}',
     '.bienc-ph.is-archived .bienc-thumb{filter:grayscale(1) opacity(.6)}',
     '.bienc-ph .bienc-badge{position:absolute;left:0;right:0;bottom:0;font-size:8px;font-weight:800;text-align:center;padding:3px 2px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.bienc-ph .bienc-badge.loue{background:rgba(29,143,111,.95);color:#fff}',
@@ -35578,6 +35591,18 @@ function _renderBailleurCard(ent, isArchivedTab) {
   const onClick  = `openEntFiche(${idEsc})`;
   const occupTxt = nbLogs ? `${occupes}/${nbLogs} ${nbLogs>1?'logements loués':'logement loué'}` : 'Aucun logement';
   const subtitle = ent.siren ? `SIREN ${escHtml(ent.siren)}` : (ent.gerant ? `Gérant : ${escHtml(ent.gerant)}` : '');
+  // MOBILE-REFONTE lot 4b — carte bailleur compacte sur téléphone.
+  if (_isPhone()) {
+    _ensureBiencPhCss();
+    const occLbl = nbLogs ? `${occupes}/${nbLogs} loué${occupes>1?'s':''}` : 'Aucun bien';
+    const metaBits = [`${nbImms} immeuble${nbImms>1?'s':''}`, `${nbLogs} bien${nbLogs>1?'s':''}`].map(escHtml).join(' · ');
+    return `<article class="bienc-ph" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">`
+      +`<div class="bienc-thumb${ent.logo?' logo':''}">${ent.logo ? `<img src="${escHtml(ent.logo)}" alt="">` : '<span>🏛</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
+      +`<div class="bienc-mid"><div class="bienc-ref">${escHtml(ent.nom||'—')}</div>${subtitle?`<div class="bienc-ten">${subtitle}</div>`:''}`
+      +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${fmt(loyerHC)}<small> HC</small></span></div></div>`
+      +`<button class="bienc-menu" onclick="event.stopPropagation();openBailleurMenu(event,${idEsc})" aria-label="Actions">⋮</button>`
+      +`</article>`;
+  }
   return `<article class="bien-card" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
     <div class="bien-card-header">
       <span class="bch-bailleur" title="${escHtml(ent.type||'Bailleur')}">${escHtml(ent.type||'Bailleur')}</span>
