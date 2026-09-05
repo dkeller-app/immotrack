@@ -42326,8 +42326,31 @@ function _goToBiensRoot() {
   // le hash de la page cible (#p-biens…), l'entrée vide ne créait qu'un « retour mort ».
 }
 
+// MOBILE-REFONTE lot 2c — compaction CSS de la fiche logement sur téléphone (photo réduite,
+// pulse 24 mois masqué, stats 2×2, actions empilées, sous-onglets scrollables, anti-débordement).
+// Réutilise tout le reste (hero, onglets, panneaux) ; PC/tablette inchangés.
+function _ensureLogFichePhCss(){
+  if(document.getElementById('logf-ph-css')) return;
+  var st=document.createElement('style'); st.id='logf-ph-css';
+  st.textContent=[
+    '@media(max-width:767px){',
+    '#p-log-fiche{overflow-x:hidden}',
+    '#p-log-fiche .logf-photos,#p-log-fiche .logf-photos-mini{width:56px!important;height:56px!important;min-width:56px!important;max-width:56px!important;flex:0 0 56px!important;border-radius:12px;overflow:hidden}',
+    '#p-log-fiche .logf-photos img,#p-log-fiche .logf-photos-mini img{width:100%!important;height:100%!important;object-fit:cover}',
+    '#p-log-fiche .logf-hero-pulse{display:none!important}',
+    '#p-log-fiche .logf-title{font-size:18px!important;line-height:1.15}',
+    '#p-log-fiche .logf-hero-stats{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;margin-top:10px}',
+    '#p-log-fiche .logf-actions{display:flex!important;flex-direction:column!important;gap:8px!important;margin-top:12px}',
+    '#p-log-fiche .logf-actions>*{width:100%!important}',
+    '#p-log-fiche .logf-subtabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}',
+    '#p-log-fiche .logf-subtab{flex:1 0 auto;white-space:nowrap}',
+    '}'
+  ].join('');
+  document.head.appendChild(st);
+}
 function rLogFiche() {
   const wrap = el('log-fiche-content'); if(!wrap) return;
+  try{ if(_isPhone()) _ensureLogFichePhCss(); }catch(e){}
   const ref = _currentLogFicheRef;
   if(!ref) {
     wrap.innerHTML = '<p class="mu">Aucun bien sélectionné.</p>';
