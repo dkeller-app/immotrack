@@ -35537,7 +35537,7 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
   return `<div class="imm-block-a${isArchived ? ' is-archived' : ''}" data-ent="${escHtml(entNom)}" data-imm="${escHtml(immNom)}">
     <div class="imm-block-a-bailleur">${bailleurEsc}</div>
     <div class="imm-block-a-header" onclick="${onHeaderClick}" tabindex="0" role="button" aria-label="Replier/déplier l'immeuble ${titleEsc}">
-      <span class="imm-icon" aria-hidden="true">🏛</span>
+      <span class="imm-icon" aria-hidden="true">${_uiIcon('building',24)}</span>
       <div class="imm-info">
         <div class="imm-name">${titleEsc}${isArchived ? ' <small style="color:var(--err)">(archivé)</small>' : ''}</div>
         <div class="imm-adr">${adrEsc}${regimeBadge}${lotsBadge}</div>
@@ -35612,7 +35612,7 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
     const occLbl = `${agg.nbOccupes}/${agg.nbTotal} loué${agg.nbOccupes>1?'s':''}`;
     const metaBits = [`${agg.nbTotal} bien${agg.nbTotal>1?'s':''}`, typeLabel].filter(Boolean).map(escHtml).join(' · ');
     return `<article class="bienc-ph${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">`
-      +`<div class="bienc-thumb">${im && im.id ? _coverImg('immeuble', im.id, '🏢') : '<span>🏢</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
+      +`<div class="bienc-thumb">${im && im.id ? _coverImg('immeuble', im.id, '' + _uiIcon('building',26) + '') : '<span>' + _uiIcon('building',26) + '</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
       +`<div class="bienc-mid"><div class="bienc-ref">${titleEsc}</div>${subtitleEsc?`<div class="bienc-ten">${subtitleEsc}</div>`:''}`
       +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${fmt(agg.loyerHC)}<small> HC</small></span></div></div>`
       +`<span class="bienc-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>`
@@ -35625,7 +35625,7 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
       <button class="bien-card-menu" onclick="event.stopPropagation();openBienMenu(event,'building','${escHtml(firstRef||'')}','${escHtml(immNom||'')}')" aria-label="Actions">⋮</button>
     </div>
     <div class="bien-card-img">
-      ${im && im.id ? _coverImg('immeuble', im.id, '🏢') : '<span aria-hidden="true">🏢</span>'}
+      ${im && im.id ? _coverImg('immeuble', im.id, '' + _uiIcon('building',36) + '') : '<span aria-hidden="true">' + _uiIcon('building',36) + '</span>'}
       <div class="bien-card-occup">
         <span class="bien-card-occup-label">${agg.nbOccupes} / ${agg.nbTotal} ${agg.nbTotal>1?'biens loués':'bien loué'}</span>
         <span class="bien-card-occup-bar"><span class="bien-card-occup-fill ${fillCls}" style="width:${ratioPct}%"></span></span>
@@ -35729,7 +35729,7 @@ function _renderLogementCardFlat(l) {
       ? `${fmt(l.hc||0)}<small> HC</small>${l.ch?` <small>+${fmt(l.ch)}</small>`:''}`
       : `${fmt(l.hc||0)}<small> /mois</small>`;
     return `<article class="bienc-ph${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">`
-      +`<div class="bienc-thumb">${_coverImg('logement', l.id, '🏠')}<span class="bienc-badge ${badgeCls}">${escHtml(badgeLbl)}</span></div>`
+      +`<div class="bienc-thumb">${_coverImg('logement', l.id, '' + _uiIcon('home',26) + '')}<span class="bienc-badge ${badgeCls}">${escHtml(badgeLbl)}</span></div>`
       +`<div class="bienc-mid"><div class="bienc-ref">${titleEsc}</div><div class="bienc-ten">${subtitleEsc}</div>`
       +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${rentPh}</span></div></div>`
       +`<span class="bienc-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>`
@@ -35742,7 +35742,7 @@ function _renderLogementCardFlat(l) {
       <button class="bien-card-menu" onclick="event.stopPropagation();openBienMenu(event,'logement','${escHtml(l.ref)}','${escHtml(l.imm||'')}')" aria-label="Actions">⋮</button>
     </div>
     <div class="bien-card-img">
-      ${_coverImg('logement', l.id, '🏠')}
+      ${_coverImg('logement', l.id, '' + _uiIcon('home',36) + '')}
       <div class="bien-card-occup">
         <span class="bien-card-occup-label">${occupLabel}</span>
         <span class="bien-card-occup-bar"><span class="bien-card-occup-fill ${fillCls}" style="width:${ratioPct}%"></span></span>
@@ -35815,7 +35815,7 @@ function _renderLogementsGroupedPhone(logs) {
     const sub = [ville, `${nbLots} lot${nbLots>1?'s':''}`, `${nbLoues} loué${nbLoues>1?'s':''}`]
       .filter(Boolean).map(escHtml).join(' · ');
     const title = g.isoles ? 'Logements isolés' : escHtml(g.immNom || '—');
-    const thumb = g.isoles ? '<span>🏠</span>' : (im && im.id ? _coverImg('immeuble', im.id, '🏢') : '<span>🏢</span>');
+    const thumb = g.isoles ? '<span>' + _uiIcon('home',20) + '</span>' : (im && im.id ? _coverImg('immeuble', im.id, '' + _uiIcon('building',20) + '') : '<span>' + _uiIcon('building',20) + '</span>');
     const gkey  = g.isoles ? '__ISOLES__' : (g.entNom + '||' + g.immNom);
     const isCol = !!collapsed[gkey];
     const cards = g.logs.slice().sort((a,b) => _natCmp(a.ref, b.ref)).map(_renderLogementCardFlat).join('');
@@ -35996,7 +35996,7 @@ function _renderBailleurCard(ent, isArchivedTab) {
     const occLbl = nbLogs ? `${occupes}/${nbLogs} loué${occupes>1?'s':''}` : 'Aucun bien';
     const metaBits = [`${nbImms} immeuble${nbImms>1?'s':''}`, `${nbLogs} bien${nbLogs>1?'s':''}`].map(escHtml).join(' · ');
     return `<article class="bienc-ph" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">`
-      +`<div class="bienc-thumb${ent.logo?' logo':''}">${ent.logo ? `<img src="${escHtml(ent.logo)}" alt="">` : '<span>🏛</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
+      +`<div class="bienc-thumb${ent.logo?' logo':''}">${ent.logo ? `<img src="${escHtml(ent.logo)}" alt="">` : '<span>' + _uiIcon('building',26) + '</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
       +`<div class="bienc-mid"><div class="bienc-ref">${escHtml(ent.nom||'—')}</div>${subtitle?`<div class="bienc-ten">${subtitle}</div>`:''}`
       +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${fmt(loyerHC)}<small> HC</small></span></div></div>`
       +`<span class="bienc-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>`
@@ -36008,7 +36008,7 @@ function _renderBailleurCard(ent, isArchivedTab) {
       <button class="bien-card-menu" onclick="event.stopPropagation();openBailleurMenu(event,${idEsc})" aria-label="Actions">⋮</button>
     </div>
     <div class="bien-card-img">
-      ${ent.logo ? `<img src="${escHtml(ent.logo)}" alt="" style="max-width:65%;max-height:75%;object-fit:contain">` : '<span aria-hidden="true">🏛</span>'}
+      ${ent.logo ? `<img src="${escHtml(ent.logo)}" alt="" style="max-width:65%;max-height:75%;object-fit:contain">` : '<span aria-hidden="true">' + _uiIcon('building',36) + '</span>'}
       <div class="bien-card-occup">
         <span class="bien-card-occup-label">${occupTxt}</span>
         <span class="bien-card-occup-bar"><span class="bien-card-occup-fill ${fillCls}" style="width:${ratioPct}%"></span></span>
@@ -36098,7 +36098,7 @@ function rEntFiche() {
   const ent = (DB.entites||[]).find(e => +e.id === _currentEntFiche);
   if(!ent) {
     wrap.innerHTML = `<div class="biens-empty">
-      <div class="biens-empty-icon">⚠</div>
+      <div class="biens-empty-icon">${_uiIcon('warn',44)}</div>
       <div class="biens-empty-title">Bailleur introuvable</div>
       <div class="biens-empty-msg">Le bailleur demandé n'existe pas ou a été supprimé.</div>
       <button class="btn bs" onclick="closeEntFiche()">← Retour aux biens</button>
@@ -36120,7 +36120,7 @@ function rEntFiche() {
   // Logo entité ou icône fallback
   const heroVisual = ent.logo
     ? `<img src="${ent.logo}" alt="" style="max-width:75%;max-height:75%;object-fit:contain;background:#fff;border-radius:6px;padding:8px">`
-    : `<span aria-hidden="true">🏛</span>`;
+    : `<span aria-hidden="true">${_uiIcon('building',36)}</span>`;
 
   wrap.innerHTML = `
     <button class="logf-back" onclick="closeEntFiche()">← Aux biens</button>
@@ -36149,17 +36149,17 @@ function rEntFiche() {
         </div>
         <div class="logf-actions">
           <button class="btn bp" onclick="_frStartCtx('imm', ${+ent.id})">＋ Ajouter un bien</button>
-          <button class="btn bs" onclick="openNewEnt(${+ent.id})">✏ Modifier le bailleur</button>
+          <button class="btn bs" onclick="openNewEnt(${+ent.id})">${_uiIcon('edit')} Modifier le bailleur</button>
           <!-- BIENS étape 10 — le Wizard 2044 est REMIS ICI. La comptabilité globale du bailleur a
                été supprimée (le P&L de Finances suffit), mais elle hébergeait le SEUL appel de
                openWizard2044 — et avec lui _renderWizard2044, ses 4 étapes, le mapping éditable et
                _print2044, UNIQUE chemin d'impression du CERFA 2044. Finances sort un CSV, pas le
                formulaire imprimable : ce n'était pas remplaçable. Son sélecteur d'année vient avec. -->
           <span class="flex-c" style="gap:6px;align-items:center">
-            <button class="btn bs" onclick="openWizard2044(${+ent.id})" title="Préparer et imprimer la déclaration CERFA 2044 (revenus fonciers) de ce bailleur">📋 Déclaration 2044</button>
+            <button class="btn bs" onclick="openWizard2044(${+ent.id})" title="Préparer et imprimer la déclaration CERFA 2044 (revenus fonciers) de ce bailleur">${_uiIcon('doc-text')} Déclaration 2044</button>
             <select class="inp" onchange="setEntFicheComptaYear(this.value)" style="width:92px;padding:4px 8px" title="Année de la déclaration" aria-label="Année de la déclaration 2044">${_ent2044YearOptions()}</select>
           </span>
-          <button class="btn br" onclick="delEnt(${+ent.id})">🗑 Supprimer</button>
+          <button class="btn br" onclick="delEnt(${+ent.id})">${_uiIcon('trash')} Supprimer</button>
         </div>
       </div>
       <div class="entf-donut-compact">
@@ -36171,14 +36171,14 @@ function rEntFiche() {
     ${_renderFichePastilles('ent:' + (+ent.id), [
       { id: 'identite', label: 'Coordonnées & identité juridique', html: _renderEntIdentitePastille(ent) },
       { id: 'docs', label: 'Documents', count: _attCount('entite', ent.id, 'documents'),
-        html: _renderAttachmentSection({parentType:'entite', parentId:ent.id, parentRef:ent.nom, category:'documents', title:'📁 Documents juridiques', emptyText:'Aucun document. Ajoutez K-bis, statuts SCI, RIB, mandats, attestations…'}) }
+        html: _renderAttachmentSection({parentType:'entite', parentId:ent.id, parentRef:ent.nom, category:'documents', title:'' + _uiIcon('doc') + ' Documents juridiques', emptyText:'Aucun document. Ajoutez K-bis, statuts SCI, RIB, mandats, attestations…'}) }
     ], 'rEntFiche')}
     <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche bailleur">
       <!-- BIENS étape 10 — UN SEUL onglet. Les documents juridiques remontent en entête ; la
            comptabilité globale du bailleur est supprimée (décision 2 du 11/08 : le P&L de Finances
            suffit) ; les 2 onglets grisés « À venir » partent (P1-12) — sur une fiche qui n'a plus
            qu'un onglet actif, deux fantômes faisaient plus de bruit que de promesse. -->
-      <button class="logf-subtab act" role="tab" aria-selected="true" onclick="setEntFicheTab('immeubles')">🏢 Immeubles (${nbImms})</button>
+      <button class="logf-subtab act" role="tab" aria-selected="true" onclick="setEntFicheTab('immeubles')">${_uiIcon('building')} Immeubles (${nbImms})</button>
     </div>
     ${`
         <div class="flex-b" style="margin:14px 0 10px">
@@ -36188,13 +36188,13 @@ function rEntFiche() {
         ${nbImms
           ? _renderEntFicheImmeubles(ent)
           : `<div class="biens-empty">
-              <div class="biens-empty-icon">🏢</div>
+              <div class="biens-empty-icon">${_uiIcon('building',44)}</div>
               <div class="biens-empty-title">Ce bailleur n'a pas encore d'immeuble</div>
               <div class="biens-empty-msg">Ajoutez le premier immeuble pour commencer le suivi.</div>
               <button class="btn bp" onclick="addImmForm(${+ent.id})">+ Ajouter un immeuble</button>
             </div>`
         }
-        ${archivedLogs.length ? `<div class="mu sm" style="margin-top:18px;text-align:center">📦 ${archivedLogs.length} logement${archivedLogs.length>1?'s':''} archivé${archivedLogs.length>1?'s':''} chez ce bailleur — visible${archivedLogs.length>1?'s':''} dans Biens > tab "Archivés"</div>` : ''}
+        ${archivedLogs.length ? `<div class="mu sm" style="margin-top:18px;text-align:center">${_uiIcon('archive')} ${archivedLogs.length} logement${archivedLogs.length>1?'s':''} archivé${archivedLogs.length>1?'s':''} chez ce bailleur — visible${archivedLogs.length>1?'s':''} dans Biens > tab "Archivés"</div>` : ''}
       `}
   `;
 }
@@ -36396,9 +36396,9 @@ function _renderEntFichePanelComptaGlobale(ent, activeLogs) {
         <select class="inp" onchange="setEntFicheComptaYear(this.value)" style="width:100px;padding:4px 8px">${yrSel}</select>
       </div>
       <div class="flex-c" style="gap:6px;flex-wrap:wrap">
-        <button class="btn bp bb" onclick="openWizard2044(${+ent.id})" title="Préparer la déclaration CERFA 2044 (revenus fonciers)">📋 Wizard 2044</button>
-        <button class="btn bs bb" onclick="_exportComptaBailleurCsv(${+ent.id},${yr},'annuel')" title="Une ligne par catégorie">📊 Export CSV annuel</button>
-        <button class="btn bs bb" onclick="_exportComptaBailleurCsv(${+ent.id},${yr},'mensuel')" title="12 lignes (1 par mois)">📅 Export CSV mensuel</button>
+        <button class="btn bp bb" onclick="openWizard2044(${+ent.id})" title="Préparer la déclaration CERFA 2044 (revenus fonciers)">${_uiIcon('doc-text')} Wizard 2044</button>
+        <button class="btn bs bb" onclick="_exportComptaBailleurCsv(${+ent.id},${yr},'annuel')" title="Une ligne par catégorie">${_uiIcon('download')} Export CSV annuel</button>
+        <button class="btn bs bb" onclick="_exportComptaBailleurCsv(${+ent.id},${yr},'mensuel')" title="12 lignes (1 par mois)">${_uiIcon('download')} Export CSV mensuel</button>
       </div>
     </div>
 
@@ -36766,8 +36766,8 @@ function _renderWizard2044() {
     <div class="ov" id="ov-wiz-2044" onclick="closeBg(event,'ov-wiz-2044')">
       <div class="modal" style="max-width:920px;max-height:92vh">
         <div class="m-head">
-          <h3>📋 Wizard 2044 — ${escHtml(ent.nom)} <span class="mu sm">(année ${_wiz2044.year})</span></h3>
-          <button class="m-close" onclick="closeM('ov-wiz-2044')">✕</button>
+          <h3>${_uiIcon('doc-text')} Wizard 2044 — ${escHtml(ent.nom)} <span class="mu sm">(année ${_wiz2044.year})</span></h3>
+          <button class="m-close" onclick="closeM('ov-wiz-2044')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body" style="max-height:75vh;overflow-y:auto">
           ${stepHeader}
@@ -36877,10 +36877,10 @@ function _renderWiz2044Step2() {
 
   return `
     <p>Les <b>catégories standard</b> sont mappées automatiquement (sourcées notice CERFA 2044 - DGFP). Tu n'as à mapper que tes <b>catégories personnalisées</b>.</p>
-    <p class="mu sm" style="font-size:11px">💡 Le mapping est mémorisé (DB.params.legal2044Mapping) — tu n'auras pas à le refaire chaque année.</p>
+    <p class="mu sm" style="font-size:11px">${_uiIcon('bulb',13)} Le mapping est mémorisé (DB.params.legal2044Mapping) — tu n'auras pas à le refaire chaque année.</p>
 
     <details style="margin:14px 0" ${stdCats.length<8?'open':''}>
-      <summary style="cursor:pointer;padding:6px 10px;background:#3b82f622;border:1px solid #3b82f644;border-radius:6px;font-size:12px"><b>🔒 Mapping standard (${stdCats.length} catégories pré-câblées)</b></summary>
+      <summary style="cursor:pointer;padding:6px 10px;background:#3b82f622;border:1px solid #3b82f644;border-radius:6px;font-size:12px"><b>${_uiIcon('lock')} Mapping standard (${stdCats.length} catégories pré-câblées)</b></summary>
       <table class="tbl" style="font-size:12px;margin-top:10px">
         <thead><tr><th>Catégorie</th><th>Ligne CERFA 2044</th></tr></thead>
         <tbody>${stdRows || '<tr><td colspan="2" class="mu sm" style="text-align:center;padding:14px">Aucune (état impossible — STD_CATEGORIES devrait toujours être présent)</td></tr>'}</tbody>
@@ -36889,7 +36889,7 @@ function _renderWiz2044Step2() {
 
     <div style="margin-top:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bor)">
-        <span style="font-size:14px">✏️</span>
+        <span style="font-size:14px">${_uiIcon('edit')}</span>
         <b style="font-size:13px">Mapping de tes catégories personnalisées <span class="mu sm" style="font-weight:400">(${customCats.length})</span></b>
       </div>
       ${customCats.length
@@ -36901,7 +36901,7 @@ function _renderWiz2044Step2() {
     </div>
 
     <details style="margin-top:14px">
-      <summary style="cursor:pointer;padding:6px 10px;background:var(--bg2);border-radius:6px;font-size:12px"><b>📖 Aide-mémoire des lignes 2044 (notice CERFA officielle)</b></summary>
+      <summary style="cursor:pointer;padding:6px 10px;background:var(--bg2);border-radius:6px;font-size:12px"><b>${_uiIcon('doc-text')} Aide-mémoire des lignes 2044 (notice CERFA officielle)</b></summary>
       <div style="padding:10px 4px;font-size:11px;line-height:1.7">
         ${LIGNES_2044.map(l => `<div style="padding:4px 0;border-bottom:1px solid var(--bor)"><b>${l.num}</b> — ${escHtml(l.libelle)}<br><span class="mu sm">${escHtml(l.desc)}</span></div>`).join('')}
       </div>
@@ -36924,7 +36924,7 @@ function _renderWiz2044Step3(ent, data) {
   const unmapped = data.byLine['___'];
   const unmappedHtml = unmapped.mvts.length
     ? `<div style="background:#fffbf0;border:1px solid #f59e0b44;border-radius:8px;padding:12px 14px;margin-top:14px">
-        <b style="font-size:12px">⚠ ${unmapped.mvts.length} mouvement${unmapped.mvts.length>1?'s':''} sans ligne 2044 (${fmt(unmapped.total)})</b>
+        <b style="font-size:12px">${_uiIcon('warn')} ${unmapped.mvts.length} mouvement${unmapped.mvts.length>1?'s':''} sans ligne 2044 (${fmt(unmapped.total)})</b>
         <p class="mu sm" style="font-size:11px;margin:6px 0">Retourne à l'étape 2 pour les mapper.</p>
       </div>` : '';
   return `
@@ -36936,11 +36936,11 @@ function _renderWiz2044Step3(ent, data) {
       <div class="kpi"><div class="kv ${resultatCls}"><b>${data.resultat>=0?'+':''}${fmt(data.resultat)}</b></div><div class="kl">${data.resultat>=0?'Bénéfice':'Déficit'} foncier</div></div>
     </div>
     ${data.deficitDeductible < 0 ? `<div style="background:#fffbf0;border:1px solid #f59e0b44;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px">
-      <b>💡 Déficit foncier déductible du revenu global</b> : ${fmt(Math.abs(data.deficitDeductible))} (plafonné à 10 700 €/an, hors intérêts).
+      <b>${_uiIcon('bulb')} Déficit foncier déductible du revenu global</b> : ${fmt(Math.abs(data.deficitDeductible))} (plafonné à 10 700 €/an, hors intérêts).
       L'excédent éventuel s'impute sur les revenus fonciers des 10 années suivantes.
     </div>`:''}
     ${t.partBailleurInjectee>0 ? `<div style="background:#eff6ff;border:1px solid #3b82f644;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px">
-      🏛️ <b>Part bailleur auto-injectée ligne 225</b> : ${fmt(t.partBailleurInjectee)} (charges de vacances + logements exclus, calculé par computeRegul).
+      ${_uiIcon('building')} <b>Part bailleur auto-injectée ligne 225</b> : ${fmt(t.partBailleurInjectee)} (charges de vacances + logements exclus, calculé par computeRegul).
     </div>`:''}
     <h4 style="margin:8px 0 6px;font-size:13px">Recettes brutes</h4>
     <table class="tbl" style="font-size:12px"><thead><tr><th>Ligne</th><th>Libellé</th><th class="num">Montant</th><th>Nb mvts</th></tr></thead><tbody>${recettesRows}</tbody>
@@ -37069,10 +37069,10 @@ function openBailleurMenu(evt, entId) {
   if(!ent) { evt.preventDefault(); evt.stopPropagation(); _closeBienMenus(); return; }
   const idEsc = +entId;
   const html =
-    `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openEntFiche(${idEsc})">📋 Voir détails</button>` +
-    `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openNewEnt(${idEsc})">✏ Modifier</button>` +
+    `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openEntFiche(${idEsc})">${_uiIcon('eye')} Voir détails</button>` +
+    `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openNewEnt(${idEsc})">${_uiIcon('edit')} Modifier</button>` +
     `<div class="bmp-divider" role="separator"></div>` +
-    `<button class="bmp-item bmp-danger" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();delEnt(${idEsc})">🗑 Supprimer</button>`;
+    `<button class="bmp-item bmp-danger" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();delEnt(${idEsc})">${_uiIcon('trash')} Supprimer</button>`;
   _openMenuPopover(evt, html);
 }
 
@@ -37124,14 +37124,14 @@ function _renderBiensModeBailleurs(wrap, cntEl) {
     if(cntEl) cntEl.textContent = '';
     if(isArchivedTab) {
       wrap.innerHTML = `<div class="biens-empty">
-        <div class="biens-empty-icon">📦</div>
+        <div class="biens-empty-icon">${_uiIcon('archive',44)}</div>
         <div class="biens-empty-title">Aucun bailleur n'a de bien archivé</div>
         <div class="biens-empty-msg">Les bailleurs n'apparaissent ici que s'ils ont au moins 1 bien archivé. Pour archiver un bien, ouvre sa fiche et utilise le menu ⋮.</div>
         <button class="btn bs" onclick="setBiensTab('actifs')">← Retour aux bailleurs actifs</button>
       </div>`;
     } else {
       wrap.innerHTML = `<div class="biens-empty">
-        <div class="biens-empty-icon">🏛</div>
+        <div class="biens-empty-icon">${_uiIcon('building',44)}</div>
         <div class="biens-empty-title">Aucun bailleur enregistré</div>
         <div class="biens-empty-msg">Créez votre première entité juridique propriétaire (SCI, particulier, indivision…) pour commencer.</div>
         <button class="btn bp" onclick="openNewEnt()">+ Ajouter un bailleur</button>
@@ -37142,9 +37142,9 @@ function _renderBiensModeBailleurs(wrap, cntEl) {
   if(!ents.length) {
     if(cntEl) cntEl.textContent = `0 résultat sur ${totalEnts}`;
     wrap.innerHTML = `<div class="biens-empty">
-      <div class="biens-empty-icon">🔍</div>
+      <div class="biens-empty-icon">${_uiIcon('search',44)}</div>
       <div class="biens-empty-title">Aucun bailleur ne correspond à votre recherche</div>
-      <button class="btn bs" onclick="clearBiensFilters()">↺ Réinitialiser</button>
+      <button class="btn bs" onclick="clearBiensFilters()">${_uiIcon('refresh')} Réinitialiser</button>
     </div>`;
     return;
   }
@@ -37220,7 +37220,7 @@ function rBiens() {
   if(!_aliveLogements().length) {
     if(cnt) cnt.textContent = '';
     wrap.innerHTML = `<div class="biens-empty">
-      <div class="biens-empty-icon">🏠</div>
+      <div class="biens-empty-icon">${_uiIcon('home',44)}</div>
       <div class="biens-empty-title">Aucun bien enregistré</div>
       <div class="biens-empty-msg">Commencez par ajouter votre premier logement pour visualiser votre patrimoine en cartes.</div>
       <!-- FIL-ROUGE FIDÉLITÉ (trouvé au vrai clic) : cet empty-state ouvrait la modale logement
@@ -37234,7 +37234,7 @@ function rBiens() {
   if(isArchivedTab && !pool.length) {
     if(cnt) cnt.textContent = '';
     wrap.innerHTML = `<div class="biens-empty">
-      <div class="biens-empty-icon">📦</div>
+      <div class="biens-empty-icon">${_uiIcon('archive',44)}</div>
       <div class="biens-empty-title">Aucun bien archivé</div>
       <div class="biens-empty-msg">Les biens vendus ou non gérés peuvent être archivés depuis le menu ⋮ d'une carte. L'historique (baux, mouvements, EDL) est conservé.</div>
       <button class="btn bs" onclick="setBiensTab('actifs')">← Retour aux biens actifs</button>
@@ -37247,10 +37247,10 @@ function rBiens() {
   if(!filtered.length) {
     if(cnt) cnt.textContent = `0 résultat sur ${pool.length}`;
     wrap.innerHTML = `<div class="biens-empty">
-      <div class="biens-empty-icon">🔍</div>
+      <div class="biens-empty-icon">${_uiIcon('search',44)}</div>
       <div class="biens-empty-title">Aucun bien ne correspond à vos filtres</div>
       <div class="biens-empty-msg">Modifiez la recherche ou réinitialisez les filtres.</div>
-      <button class="btn bs" onclick="clearBiensFilters()">↺ Réinitialiser les filtres</button>
+      <button class="btn bs" onclick="clearBiensFilters()">${_uiIcon('refresh')} Réinitialiser les filtres</button>
     </div>`;
     return;
   }
@@ -37528,7 +37528,7 @@ function _renderLogFicheHeroPulse(ref) {
 function _renderLogFicheHeroStats(log, ref) {
   if(log.archived) {
     return `<div class="logf-hero-stats">
-      <div class="logf-stat"><div class="logf-stat-v">📦</div><div class="logf-stat-l">Archivé</div></div>
+      <div class="logf-stat"><div class="logf-stat-v">${_uiIcon('archive',18)}</div><div class="logf-stat-l">Archivé</div></div>
       <div class="logf-stat"><div class="logf-stat-v">${fd(log.archivedAt)||'—'}</div><div class="logf-stat-l">Date archive</div></div>
     </div>`;
   }
@@ -37654,7 +37654,7 @@ function _renderLogFicheHeroStats(log, ref) {
     ${stats.map(s => `<div class="logf-stat"${s.edit?' style="position:relative"':''}>
       <div class="logf-stat-v ${s.cls||''}">${s.v}${s.unit?`<small>${s.unit}</small>`:''}</div>
       <div class="logf-stat-l">${escHtml(s.label)}${s.sub?`<span style="color:var(--mut);font-weight:400"> · ${escHtml(s.sub)}</span>`:''}</div>
-      ${s.edit?`<button title="Modifier le loyer de référence (bien vacant)" data-ref="${escHtml(s.edit)}" onclick="event.stopPropagation();openLoyerBienModal(null,this.dataset.ref)" style="position:absolute;top:8px;right:8px;border:1px solid var(--bor);background:var(--sur,#fff);border-radius:6px;width:24px;height:22px;font-size:12px;cursor:pointer;padding:0;line-height:1">✏️</button>`:''}
+      ${s.edit?`<button title="Modifier le loyer de référence (bien vacant)" data-ref="${escHtml(s.edit)}" onclick="event.stopPropagation();openLoyerBienModal(null,this.dataset.ref)" style="position:absolute;top:8px;right:8px;border:1px solid var(--bor);background:var(--sur,#fff);border-radius:6px;width:24px;height:22px;font-size:12px;cursor:pointer;padding:0;line-height:1">${_uiIcon('edit',13)}</button>`:''}
     </div>`).join('')}
   </div>`;
 }
@@ -37701,7 +37701,7 @@ function _tenantColorLight(name) {
 function _renderImmFichePlanGantt(ent, im, activeLogs) {
   if(!activeLogs.length) {
     return `<div class="biens-empty">
-      <div class="biens-empty-icon">📅</div>
+      <div class="biens-empty-icon">${_uiIcon('calendar',44)}</div>
       <div class="biens-empty-title">Pas encore de logement dans cet immeuble</div>
       <div class="biens-empty-msg">Le plan d'occupation se construira automatiquement dès le premier logement avec un bail.</div>
       <button class="btn bp" onclick="_immFicheNewLog('${escHtml(ent.nom)}','${escHtml(im.nom)}')">+ Ajouter un logement</button>
@@ -38045,13 +38045,13 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
       preavisHtml = `<div class="immf-gantt-preavis${isUrgent?' immf-gantt-preavis-urgent':''}"
         style="left:${preavisOverlay.left.toFixed(2)}%;width:${widthPct.toFixed(2)}%"
         title="${escHtml(tip)}">
-        ${widthPct > 8 ? `<span class="immf-gantt-preavis-lbl">⚠️ Préavis ${monthsLabel}m</span>` : ''}
+        ${widthPct > 8 ? `<span class="immf-gantt-preavis-lbl">${_uiIcon('warn',13)} Préavis ${monthsLabel}m</span>` : ''}
       </div>`;
     }
 
     // v14.48 — badge ⚠️ urgent sur le label de la ligne si en zone préavis aujourd'hui
     const preavisBadge = (preavisInfo && preavisInfo.inPreavisZone)
-      ? `<span class="immf-gantt-rowlabel-warn" title="Préavis bailleur à donner avant le ${fd(preavisInfo.preavisStart)} (échéance ${fd(preavisInfo.fin)})">⚠️</span>`
+      ? `<span class="immf-gantt-rowlabel-warn" title="Préavis bailleur à donner avant le ${fd(preavisInfo.preavisStart)} (échéance ${fd(preavisInfo.fin)})">${_uiIcon('warn',13)}</span>`
       : '';
 
     return `<div class="immf-gantt-row${preavisInfo&&preavisInfo.inPreavisZone?' immf-gantt-row-preavis':''}" onclick="openLogFiche('${refSafe}')" tabindex="0" onkeydown="if(event.key==='Enter')openLogFiche('${refSafe}')">
@@ -38070,7 +38070,7 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
   return `<div class="immf-gantt-wrap">
     <div class="immf-gantt-head">
       <div class="immf-gantt-head-l">
-        <div class="immf-gantt-head-title">📅 Plan d'occupation</div>
+        <div class="immf-gantt-head-title">${_uiIcon('calendar')} Plan d'occupation</div>
         <div class="immf-gantt-head-sub">24 mois passés · aujourd'hui · 12 mois projetés</div>
       </div>
       <div class="immf-gantt-head-r">
@@ -38123,7 +38123,7 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
           <div class="logf-stat-l">Manque à gagner cumulé 24m</div>
         </div>
         <div class="logf-stat${preavisCount>0?' logf-stat-warn':''}" title="${preavisNext ? `Plus proche échéance : ${fd(preavisNext.fin)} (préavis ${preavisNext.preavisMonths}m)` : 'Aucun bail en zone préavis'}">
-          <div class="logf-stat-v k-num ${preavisCount>0?'k-warn':'k-ok'}">${preavisCount>0?'⚠️ '+preavisCount:'✓ 0'}</div>
+          <div class="logf-stat-v k-num ${preavisCount>0?'k-warn':'k-ok'}">${preavisCount>0?'' + _uiIcon('warn') + ' '+preavisCount:'' + _uiIcon('check') + ' 0'}</div>
           <div class="logf-stat-l">Préavis bailleur à donner${preavisNext?` <small>(éch. ${fd(preavisNext.fin)})</small>`:''}</div>
         </div>
       </div>
@@ -38688,7 +38688,7 @@ function viewCcMouvements(ccId) {
       <div class="modal" style="max-width:760px">
         <div class="m-head">
           <h3>↗ Mouvements liés — ${escHtml(ccTitle)} <span class="mu sm">(${arr.length})</span></h3>
-          <button class="m-close" onclick="closeM('ov-cc-view-mvts')">✕</button>
+          <button class="m-close" onclick="closeM('ov-cc-view-mvts')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
           <p class="mu sm" style="margin-bottom:10px;font-size:12px">Total facturé : <b>${fmt(total)}</b> · Pour modifier un mouvement : onglet 💰 Loyers &amp; Mouvements</p>
@@ -38815,7 +38815,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
   const totalSurf = activeLogs.reduce((s,l)=>s+(+l.surf||0), 0);
   const totalTant = activeLogs.reduce((s,l)=>s+(+l.tantiemes||0), 0);
   const banner = `<div class="logf-edl-tpl-banner logf-edl-tpl-inactive" style="margin-bottom:14px">
-    <div class="logf-edl-tpl-icon">📐</div>
+    <div class="logf-edl-tpl-icon">${_uiIcon('scale',24)}</div>
     <div class="logf-edl-tpl-info">
       <div class="logf-edl-tpl-title">Bases de répartition disponibles pour cet immeuble</div>
       <div class="logf-edl-tpl-meta">
@@ -38860,7 +38860,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
       : activeLogs;
     const nExclus = activeLogs.length - logsScoped.length;
     const scopeBanner = nExclus > 0
-      ? `<div class="mu sm" style="font-size:11px;color:var(--ora);margin-bottom:6px">⚠ ${nExclus} logement${nExclus>1?'s':''} exclu${nExclus>1?'s':''} de ce compteur (scope ou compte-charges désactivé)</div>`
+      ? `<div class="mu sm" style="font-size:11px;color:var(--ora);margin-bottom:6px">${_uiIcon('warn',13)} ${nExclus} logement${nExclus>1?'s':''} exclu${nExclus>1?'s':''} de ce compteur (scope ou compte-charges désactivé)</div>`
       : '';
 
     // Calcul tableau quote-part (uniquement les logements en scope)
@@ -38886,8 +38886,8 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
       <div class="logf-cpt-card-head">
         <span class="logf-cpt-icon" style="background:${t.color}22;color:${t.color}">${_ccIconSvg(t.key,19)}</span>
         <div class="logf-cpt-card-title">${escHtml(cc.nom)} <span class="mu sm">· <span style="display:inline-flex;vertical-align:-2px">${_repartIconSvg(cc.cleRepartition,12)}</span> ${repart.label}</span></div>
-        <button class="btn bs bb" onclick="editCcForImm(${entIdSafe},${immIdSafe},${ccIdx})" title="Modifier ce poste de charge">✏️</button>
-        <button class="btn br bb" onclick="delCcForImm(${entIdSafe},${immIdSafe},${ccIdx})" title="Supprimer">🗑</button>
+        <button class="btn bs bb" onclick="editCcForImm(${entIdSafe},${immIdSafe},${ccIdx})" title="Modifier ce poste de charge">${_uiIcon('edit')}</button>
+        <button class="btn br bb" onclick="delCcForImm(${entIdSafe},${immIdSafe},${ccIdx})" title="Supprimer">${_uiIcon('trash')}</button>
       </div>
       <div class="logf-cpt-kpis">
         <div class="logf-cpt-kpi">
@@ -39025,8 +39025,8 @@ function openCcFormModal(entId, immId, ccIdx) {
     <div class="ov" id="ov-cc-form" onclick="closeBg(event,'ov-cc-form')">
       <div class="modal" style="max-width:680px">
         <div class="m-head">
-          <h3>${isEdit?'✏️ Modifier':'➕ Nouveau'} poste de charge — ${escHtml(im.nom||'')}</h3>
-          <button class="m-close" onclick="closeM('ov-cc-form')">✕</button>
+          <h3>${isEdit?'' + _uiIcon('edit') + ' Modifier':'' + _uiIcon('plus') + ' Nouveau'} poste de charge — ${escHtml(im.nom||'')}</h3>
+          <button class="m-close" onclick="closeM('ov-cc-form')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
           <div class="fg">
@@ -39058,7 +39058,7 @@ function openCcFormModal(entId, immId, ccIdx) {
             <div id="cc-form-logs" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;padding:4px;border:1px solid var(--bor);border-radius:6px">
               ${checkboxesHtml || '<p class="mu sm" style="padding:10px;text-align:center">Aucun logement dans cet immeuble. Crée d\'abord les logements.</p>'}
             </div>
-            <div class="mu sm" style="margin-top:6px;font-size:11px">💡 Décoche un logement pour l'exclure de ce poste (ex : garage non chauffé pour le chauffage).</div>
+            <div class="mu sm" style="margin-top:6px;font-size:11px">${_uiIcon('bulb',13)} Décoche un logement pour l'exclure de ce poste (ex : garage non chauffé pour le chauffage).</div>
           </div>
 
           <div class="fg">
@@ -39094,7 +39094,7 @@ function openCcFormModal(entId, immId, ccIdx) {
         </div>
         <div class="m-foot">
           <button class="btn bs" onclick="closeM('ov-cc-form')">Annuler</button>
-          <button class="btn bp" onclick="saveCcForm(${entId},${immId},${isEdit?ccIdx:'null'})">${isEdit?'✓ Enregistrer':'➕ Créer le poste'}</button>
+          <button class="btn bp" onclick="saveCcForm(${entId},${immId},${isEdit?ccIdx:'null'})">${isEdit?'' + _uiIcon('check') + ' Enregistrer':'' + _uiIcon('plus') + ' Créer le poste'}</button>
         </div>
       </div>
     </div>`;
@@ -39137,7 +39137,7 @@ function _ccCompRowHtml(cle, pct) {
     <select class="inp cc-comp-cle" style="flex:1" onchange="_ccCompRenderTotal()">${opts}</select>
     <input class="inp cc-comp-pct" type="number" min="0" max="100" step="1" value="${(pct!=null?pct:0)}" style="width:72px" oninput="_ccCompRenderTotal()">
     <span class="mu sm">%</span>
-    <button class="btn bs" type="button" title="Retirer cette clé" onclick="_ccCompRemoveRow(this)" style="padding:2px 8px">✕</button>
+    <button class="btn bs" type="button" title="Retirer cette clé" onclick="_ccCompRemoveRow(this)" style="padding:2px 8px">${_uiIcon('close')}</button>
   </div>`;
 }
 function _ccCompAddRow(cle, pct) {
@@ -39154,7 +39154,7 @@ function _ccCompRenderTotal() {
   const total = rows.reduce((s,r) => s + (parseFloat((r.querySelector('.cc-comp-pct')||{}).value) || 0), 0);
   const box = document.getElementById('cc-form-comp-total'); if(!box) return;
   const ok = Math.abs(total - 100) < 0.01 && rows.length >= 2;
-  box.innerHTML = `Total : <b style="color:${ok?'var(--grn)':'var(--red,#d23f3f)'}">${total}%</b> ${ok?'✓':(rows.length<2?'· ajoute au moins 2 clés':'· doit faire 100 %')}`;
+  box.innerHTML = `Total : <b style="color:${ok?'var(--grn)':'var(--red,#d23f3f)'}">${total}%</b> ${ok?'' + _uiIcon('check') + '':(rows.length<2?'· ajoute au moins 2 clés':'· doit faire 100 %')}`;
 }
 function _ccCompInit(composition) {
   const rows = document.getElementById('cc-form-comp-rows'); if(!rows) return;
@@ -39259,8 +39259,8 @@ function openCcAddTypeModal() {
     <div class="ov" id="ov-cc-newtype" onclick="closeBg(event,'ov-cc-newtype')">
       <div class="modal" style="max-width:520px">
         <div class="m-head">
-          <h3>➕ Nouveau type de compteur / charge</h3>
-          <button class="m-close" onclick="closeM('ov-cc-newtype')">✕</button>
+          <h3>${_uiIcon('plus')} Nouveau type de compteur / charge</h3>
+          <button class="m-close" onclick="closeM('ov-cc-newtype')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
           <p class="mu sm" style="margin-bottom:10px">
@@ -39281,11 +39281,11 @@ function openCcAddTypeModal() {
           <div class="fg"><label>Unité (optionnel)</label>
             <input class="inp" id="cc-newtype-unit" placeholder="m³ / kWh / laisser vide pour charge forfaitaire" style="max-width:280px">
           </div>
-          <p class="mu sm" style="font-size:11px;margin-top:6px">💡 Si pas d'unité, c'est une charge forfaitaire (montant € sans index relevé).</p>
+          <p class="mu sm" style="font-size:11px;margin-top:6px">${_uiIcon('bulb')} Si pas d'unité, c'est une charge forfaitaire (montant € sans index relevé).</p>
         </div>
         <div class="m-foot">
           <button class="btn bs" onclick="closeM('ov-cc-newtype')">Annuler</button>
-          <button class="btn bp" onclick="saveCcAddType()">✓ Ajouter ce type</button>
+          <button class="btn bp" onclick="saveCcAddType()">${_uiIcon('check')} Ajouter ce type</button>
         </div>
       </div>
     </div>`;
@@ -39380,7 +39380,7 @@ function openCcReleveModal(entId, immId, ccIdx) {
       <div class="modal" style="max-width:480px">
         <div class="m-head">
           <h3>Nouveau relevé — ${escHtml(cc.nom||'Compteur')}</h3>
-          <button class="m-close" onclick="closeM('ov-cc-releve')">✕</button>
+          <button class="m-close" onclick="closeM('ov-cc-releve')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
           <div class="fg"><label>Date du relevé *</label>
@@ -39395,7 +39395,7 @@ function openCcReleveModal(entId, immId, ccIdx) {
         </div>
         <div class="m-foot">
           <button class="btn bs" onclick="closeM('ov-cc-releve')">Annuler</button>
-          <button class="btn bp" onclick="saveCcReleveModal(${entId},${immId},${ccIdx})">✓ Enregistrer</button>
+          <button class="btn bp" onclick="saveCcReleveModal(${entId},${immId},${ccIdx})">${_uiIcon('check')} Enregistrer</button>
         </div>
       </div>
     </div>`;
@@ -39438,7 +39438,7 @@ function openCcFactureModal(entId, immId, ccIdx) {
       <div class="modal" style="max-width:520px">
         <div class="m-head">
           <h3>Nouvelle facture — ${escHtml(cc.nom||'Compteur')}</h3>
-          <button class="m-close" onclick="closeM('ov-cc-facture')">✕</button>
+          <button class="m-close" onclick="closeM('ov-cc-facture')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -39459,11 +39459,11 @@ function openCcFactureModal(entId, immId, ccIdx) {
           <div class="fg"><label>Notes (optionnel)</label>
             <input class="inp" id="cc-fact-notes" placeholder="Ex : régul N-1, abonnement annuel…">
           </div>
-          <p class="mu sm" style="font-size:11px;margin-top:6px">💡 Cette facture sera reportée dans Loyers &amp; Mouvements (cat. Charges) et utilisée pour la régul.</p>
+          <p class="mu sm" style="font-size:11px;margin-top:6px">${_uiIcon('bulb',13)} Cette facture sera reportée dans Loyers &amp; Mouvements (cat. Charges) et utilisée pour la régul.</p>
         </div>
         <div class="m-foot">
           <button class="btn bs" onclick="closeM('ov-cc-facture')">Annuler</button>
-          <button class="btn bp" onclick="saveCcFactureModal(${entId},${immId},${ccIdx})">✓ Enregistrer</button>
+          <button class="btn bp" onclick="saveCcFactureModal(${entId},${immId},${ccIdx})">${_uiIcon('check')} Enregistrer</button>
         </div>
       </div>
     </div>`;
@@ -39509,7 +39509,7 @@ function editCcReleve(entId, immId, ccIdx, releveId) {
       <div class="modal" style="max-width:480px">
         <div class="m-head">
           <h3>Modifier relevé — ${escHtml(cc.nom||'')}</h3>
-          <button class="m-close" onclick="closeM('ov-cc-edit-releve')">✕</button>
+          <button class="m-close" onclick="closeM('ov-cc-edit-releve')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
           <div class="fg"><label>Date du relevé *</label>
@@ -39523,9 +39523,9 @@ function editCcReleve(entId, immId, ccIdx, releveId) {
           </div>
         </div>
         <div class="m-foot">
-          <button class="btn br" onclick="if(confirm2('Supprimer ce relevé ?')){_delCcReleve(${entId},${immId},${ccIdx},'${escHtml(releveId)}')}">🗑 Supprimer</button>
+          <button class="btn br" onclick="if(confirm2('Supprimer ce relevé ?')){_delCcReleve(${entId},${immId},${ccIdx},'${escHtml(releveId)}')}">${_uiIcon('trash')} Supprimer</button>
           <button class="btn bs" onclick="closeM('ov-cc-edit-releve')">Annuler</button>
-          <button class="btn bp" onclick="_saveCcReleveEdit(${entId},${immId},${ccIdx},'${escHtml(releveId)}')">✓ Enregistrer</button>
+          <button class="btn bp" onclick="_saveCcReleveEdit(${entId},${immId},${ccIdx},'${escHtml(releveId)}')">${_uiIcon('check')} Enregistrer</button>
         </div>
       </div>
     </div>`;
@@ -39581,7 +39581,7 @@ function viewCcReleves(entId, immId, ccIdx) {
         <td>${escHtml(r.date||'—')}</td>
         <td class="num"><b>${fmtN(r.value)}</b> <span class="mu sm">${escHtml(t.unit||'')}</span></td>
         <td class="mu sm">${escHtml(r.notes||'—')}</td>
-        <td><button class="btn bs bb" onclick="closeM('ov-cc-view-releves');editCcReleve(${entId},${immId},${ccIdx},'${escHtml(r.id||'')}')" title="Modifier ce relevé">✏️</button></td>
+        <td><button class="btn bs bb" onclick="closeM('ov-cc-view-releves');editCcReleve(${entId},${immId},${ccIdx},'${escHtml(r.id||'')}')" title="Modifier ce relevé">${_uiIcon('edit')}</button></td>
       </tr>`).join('')
     : '<tr><td colspan="4" class="mu sm" style="padding:14px;text-align:center">Aucun relevé enregistré</td></tr>';
   const html = `
@@ -39589,12 +39589,12 @@ function viewCcReleves(entId, immId, ccIdx) {
       <div class="modal" style="max-width:620px">
         <div class="m-head">
           <h3>Relevés — ${escHtml(cc.nom||'')} <span class="mu sm">(${rels.length})</span></h3>
-          <button class="m-close" onclick="closeM('ov-cc-view-releves')">✕</button>
+          <button class="m-close" onclick="closeM('ov-cc-view-releves')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
           <table class="tbl"><thead><tr><th>Date</th><th class="num">Index</th><th>Notes</th><th></th></tr></thead>
           <tbody>${rows}</tbody></table>
-          <p class="mu sm" style="font-size:11px;margin-top:8px;font-style:italic">💡 Click sur ✏️ pour modifier ou supprimer un relevé (v14.79).</p>
+          <p class="mu sm" style="font-size:11px;margin-top:8px;font-style:italic">${_uiIcon('bulb')} Click sur ✏️ pour modifier ou supprimer un relevé (v14.79).</p>
         </div>
         <div class="m-foot">
           <button class="btn bp" onclick="closeM('ov-cc-view-releves');addCcReleve(${entId},${immId},${ccIdx})">+ Nouveau relevé</button>
@@ -39629,10 +39629,10 @@ function viewCcFactures(entId, immId, ccIdx) {
       <div class="modal" style="max-width:680px">
         <div class="m-head">
           <h3>Factures — ${escHtml(cc.nom||'')} <span class="mu sm">(${facts.length})</span></h3>
-          <button class="m-close" onclick="closeM('ov-cc-view-factures')">✕</button>
+          <button class="m-close" onclick="closeM('ov-cc-view-factures')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
-          <p class="mu sm" style="margin-bottom:8px;font-size:11px">💡 Données legacy (cc.factures[]). Les nouvelles factures passent par DB.mouvements (bouton « + Facture (mouvement) »).</p>
+          <p class="mu sm" style="margin-bottom:8px;font-size:11px">${_uiIcon('bulb')} Données legacy (cc.factures[]). Les nouvelles factures passent par DB.mouvements (bouton « + Facture (mouvement) »).</p>
           <table class="tbl"><thead><tr><th>Date</th><th>Période</th><th class="num">Montant</th><th class="num">Conso</th><th>Notes</th></tr></thead>
           <tbody>${rows}</tbody></table>
         </div>
@@ -39755,7 +39755,7 @@ function _renderComptaCashFlowChart(ref, year) {
   // Ligne zéro
   const zeroLine = `<line x1="${padL}" y1="${zeroY}" x2="${W-8}" y2="${zeroY}" stroke="var(--bor)" stroke-width="1" stroke-dasharray="2,2"/>`;
   return `<div class="compta-cashflow">
-    <div class="compta-cashflow-title">📊 Cash-flow mensuel ${year}</div>
+    <div class="compta-cashflow-title">${_uiIcon('chart')} Cash-flow mensuel ${year}</div>
     <svg viewBox="0 0 ${W} ${H}" class="compta-cashflow-svg" role="img" aria-label="Cash-flow mensuel ${year}">
       ${zeroLine}
       ${bars}
@@ -39824,9 +39824,9 @@ function _renderMvForLog(ref, year) {
     let facIcon = '';
     const pj = _mvPjResolve(m);
     if(pj) {
-      facIcon = `<button type="button" class="compta-row-fac compta-row-fac-active" onclick="event.stopPropagation();_mvDocOpenById(${+m.id})" title="Ouvrir : ${escHtml(pj.name||'document')}">📎</button> `;
+      facIcon = `<button type="button" class="compta-row-fac compta-row-fac-active" onclick="event.stopPropagation();_mvDocOpenById(${+m.id})" title="Ouvrir : ${escHtml(pj.name||'document')}">${_uiIcon('attach')}</button> `;
     } else if(m.fac) {
-      facIcon = `<span class="compta-row-fac" title="Facture : ${escHtml(m.fac)} (numéro saisi, pas de PJ stockée)">📎</span> `;
+      facIcon = `<span class="compta-row-fac" title="Facture : ${escHtml(m.fac)} (numéro saisi, pas de PJ stockée)">${_uiIcon('attach')}</span> `;
     }
     const facHint = m.fac ? ` (Facture ${escHtml(m.fac)})` : '';
     // v14.79 Bug #1 — Si quote-part compteur, afficher montant réparti + badge
@@ -39842,7 +39842,7 @@ function _renderMvForLog(ref, year) {
       <span class="compta-row-lib" title="${escHtml(m.lib||'')}${facHint}">${facIcon}${escHtml(m.lib||'—')}${ccBadge}</span>
       <span class="compta-row-cat"><span class="badge gry">${escHtml(m.cat||'—')}</span></span>
       <span class="compta-row-amt ${cls}">${amount?sign+fmt(amount):fmt(0)}</span>
-      <span class="compta-row-act"><button class="btn bs bb" onclick="openEditMv(${+m.id})" title="${isCcShare?'Modifier la facture brute (le mouvement source)':'Modifier ce mouvement'}">✏</button></span>
+      <span class="compta-row-act"><button class="btn bs bb" onclick="openEditMv(${+m.id})" title="${isCcShare?'Modifier la facture brute (le mouvement source)':'Modifier ce mouvement'}">${_uiIcon('edit')}</button></span>
     </div>`;
   }).join('');
   return `<div class="compta-list">${rows}</div>`;
@@ -39986,7 +39986,7 @@ function _renderHistoBailSection(ref){
   const rEsc = escHtml(ref);
   const refSafe = (ref||'').replace(/'/g,"\\'");
   if(typeof window==='undefined' || typeof window._bailHistoConstruire!=='function'){
-    return `<div class="logf-panel" style="grid-column:1/-1;margin-top:14px"><h3 class="logf-panel-title">🕒 Historique du bail</h3>
+    return `<div class="logf-panel" style="grid-column:1/-1;margin-top:14px"><h3 class="logf-panel-title">${_uiIcon('clock')} Historique du bail</h3>
       <div class="logf-panel-empty">Historique indisponible (modules non chargés).</div></div>`;
   }
   const bailCur = (DB.baux && DB.baux[ref] && !DB.baux[ref]._deleted && !DB.baux[ref].cloture) ? DB.baux[ref] : null;
@@ -39999,7 +39999,7 @@ function _renderHistoBailSection(ref){
   // ── bandeau « en vigueur » + prochaine évolution ──
   const v = _histoBailEnVigueur(ref);
   const nextChip = (v && v.prochaine)
-    ? `<span class="hl-nextchip">⏳ ${fmt(v.prochaine.total)} au ${fd(v.prochaine.debut)}${v.prochaine.note?` — ${escHtml(v.prochaine.note)}`:''}</span>` : '';
+    ? `<span class="hl-nextchip">${_uiIcon('hourglass')} ${fmt(v.prochaine.total)} au ${fd(v.prochaine.debut)}${v.prochaine.note?` — ${escHtml(v.prochaine.note)}`:''}</span>` : '';
   const nowHtml = v ? `
     <div class="hl-nowband">
       <div><div class="k">Loyer en vigueur</div><div class="v acc">${fmt(v.hc)} <small>HC</small></div></div>
@@ -40026,9 +40026,9 @@ function _renderHistoBailSection(ref){
   let migHtml = '';
   if(!migreValide && incs.length){
     const lignes = incs.map(i=>i.message).join(' ');
-    migHtml = `<div class="hl-migrate"><div>⚠️</div>
+    migHtml = `<div class="hl-migrate"><div>${_uiIcon('warn')}</div>
       <div class="txt"><b>${incs.length} point${incs.length>1?'s':''} à vérifier.</b> ${escHtml(lignes)}
-        <div style="margin-top:8px"><button class="btn bp bb" style="padding:6px 12px;font-size:12px" onclick="_histoLoyerValiderMigration('${rEsc}')">✓ Valider ces corrections</button></div></div></div>`;
+        <div style="margin-top:8px"><button class="btn bp bb" style="padding:6px 12px;font-size:12px" onclick="_histoLoyerValiderMigration('${rEsc}')">${_uiIcon('check')} Valider ces corrections</button></div></div></div>`;
   }
 
   // ── DG : même sélection que l'ancien panneau (bail courant actif, sinon dernier archivé) ──
@@ -40042,7 +40042,7 @@ function _renderHistoBailSection(ref){
   return `
     <div class="logf-panel" style="grid-column:1/-1;margin-top:14px">
       <div class="flex-b" style="margin-bottom:4px;flex-wrap:wrap;gap:10px;align-items:flex-end">
-        <div><h3 class="logf-panel-title" style="margin:0">🕒 Historique du bail</h3>
+        <div><h3 class="logf-panel-title" style="margin:0">${_uiIcon('clock')} Historique du bail</h3>
           <div class="mu sm" style="margin-top:2px">Toutes les évolutions, tous baux confondus : loyer · charges · dépôt de garantie · révisions IRL · fins de bail</div></div>
         <button class="btn bs bb" onclick="openHistoCorrPeriode('${rEsc}')">＋ Corriger une période</button>
       </div>
@@ -40123,7 +40123,7 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
   if(t==='bail-debut'){
     const badge = ev.signe ? 'bail signé' : 'bail';
     const foot = c.statut==='clos' && c.histIdx!=null
-      ? `<div class="hl-foot"><span class="hl-lnk" onclick="openBailHist(${c.histIdx})">👁 Voir le bail archivé</span></div>` : '';
+      ? `<div class="hl-foot"><span class="hl-lnk" onclick="openBailHist(${c.histIdx})">${_uiIcon('eye')} Voir le bail archivé</span></div>` : '';
     return `<div class="hl-card" data-dot="d-bail"><div class="tt"><h4>Bail — ${escHtml(ev.locataires||'locataire')}</h4><span class="hl-badge b-bail">${escHtml(badge)}</span></div>
       <div class="hl-desc">Loyer initial <b>${fmt(ev.hc0)} HC + ${fmt(ev.ch0)}</b> de provision${ev.dg?` · dépôt de garantie dû ${fmt(ev.dg)}`:''}.</div>${foot}</div>`;
   }
@@ -40136,11 +40136,11 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
       const dgInfo=_dgStatut(bailForDg);
       const isRestit = dgInfo.statut===DG_STATUS.RESTITUE;
       const map = {
-        [DG_STATUS.RESTITUE]:  ['✓ Restitué','b-irl'],
-        [DG_STATUS.EN_RETARD]: [`🚨 En retard ${dgInfo.joursRetard}j`,'b-warn'],
-        [DG_STATUS.A_RESTITUER]:[`⏳ À restituer J-${dgInfo.joursRestants} (délai légal ${dgInfo.delaiMois} mois)`,'b-warn'],
-        [DG_STATUS.COMPLET]:   [`✓ Versé (${fmt(dgInfo.dgPaid)})`,'b-irl'],
-        [DG_STATUS.PARTIEL]:   [`⚠ Partiel (${fmt(dgInfo.dgPaid)} / ${fmt(dgInfo.dgDu)})`,'b-warn']
+        [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
+        [DG_STATUS.EN_RETARD]: [`${_uiIcon('warn')} En retard ${dgInfo.joursRetard}j`,'b-warn'],
+        [DG_STATUS.A_RESTITUER]:[`${_uiIcon('hourglass')} À restituer J-${dgInfo.joursRestants} (délai légal ${dgInfo.delaiMois} mois)`,'b-warn'],
+        [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(dgInfo.dgPaid)})`,'b-irl'],
+        [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(dgInfo.dgPaid)} / ${fmt(dgInfo.dgDu)})`,'b-warn']
       };
       const st = map[dgInfo.statut] || ['❓ Non versé','b-warn'];
       statutHtml = `<span class="hl-badge ${st[1]}">${st[0]}</span>`;
@@ -40169,16 +40169,16 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
   if(t==='irl'){
     const pct = (ev.ancienHC>0) ? ((ev.nouveauHC-ev.ancienHC)/ev.ancienHC*100) : null;
     const move = `<div class="hl-move"><span class="old">${fmt(ev.ancienHC)}</span><span>→</span><span class="new">${fmt(ev.nouveauHC)}</span>${pct!=null?`<span class="pct">${pct>=0?'+':''}${pct.toFixed(2)} %</span>`:''}</div>`;
-    const etat = ev.pendingApply ? '<span class="hl-badge b-warn">⏳ en attente</span>' : (ev.future ? '<span class="hl-badge b-warn">⏳ à venir</span>' : '');
+    const etat = ev.pendingApply ? '<span class="hl-badge b-warn">' + _uiIcon('hourglass') + ' en attente</span>' : (ev.future ? '<span class="hl-badge b-warn">' + _uiIcon('hourglass') + ' à venir</span>' : '');
     const hb = ev.horsBail ? '<span class="hl-badge b-warn">hors bail ?</span>' : '';
     // Correction d'événement (décision user ⑤) : re-dater une date d'effet erronée — bail COURANT
     // uniquement (un bail clos est figé), garde-fous Q1 + bornes de périodes dans le module.
     // CDC-QUITTANCES-IRL D19 — la lettre est un ACCESSOIRE de l'événement : elle se
     // re-télécharge depuis la ligne, elle n'a pas besoin d'un écran à elle. Le sous-onglet
     // « Historique » de l'IRL disparaît, la trace vit là où vit le loyer : sur le bail.
-    const lettre = `<span class="hl-lnk" onclick="previewIRLLetter('${refSafe}')" title="Ré-ouvrir la lettre de révision">✉ Revoir la lettre</span>`;
+    const lettre = `<span class="hl-lnk" onclick="previewIRLLetter('${refSafe}')" title="Ré-ouvrir la lettre de révision">${_uiIcon('mail')} Revoir la lettre</span>`;
     const corr = (c.statut==='courant')
-      ? `<div class="hl-foot">${lettre}<span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${escHtml(ev.date)}','${escHtml(ev.effet)}')">✏️ Corriger la date d'effet</span></div>`
+      ? `<div class="hl-foot">${lettre}<span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${escHtml(ev.date)}','${escHtml(ev.effet)}')">${_uiIcon('edit')} Corriger la date d'effet</span></div>`
       : `<div class="hl-foot">${lettre}</div>`;
     return `<div class="hl-card" data-dot="d-irl"><div class="tt"><h4>Révision IRL validée</h4><span class="hl-badge b-irl">IRL${ev.irlVigueur?' '+escHtml(String(ev.irlVigueur).replace(/\s.*$/,'')):''}</span>${etat}${hb}</div>
       <div class="hl-desc">${ev.irlRef?`Indice ${escHtml(ev.irlRef)} → ${escHtml(ev.irlVigueur)}. `:''}Nouveau loyer à compter du <b>${fd(ev.effet)}</b>${ev.dateEffetAjustee?' (date ajustée — jamais rétroactive)':''} — les mois quittancés font foi.</div>${move}${corr}</div>`;
@@ -40401,22 +40401,22 @@ function _renderLogFichePanelCompta(log, ref) {
     ${_renderComptaCashFlowChart(ref, year)}
 
     <div class="logf-subtabs" style="margin-top:18px;border-bottom:none">
-      <span class="logf-subtab act" style="cursor:default">💰 Mouvements ${year}</span>
+      <span class="logf-subtab act" style="cursor:default">${_uiIcon('money')} Mouvements ${year}</span>
     </div>
     ${_renderMvForLog(ref, year)}
 
     <div class="logf-subtabs" style="margin-top:18px;border-bottom:none">
-      <span class="logf-subtab act" style="cursor:default">🧾 Quittancement ${year}</span>
+      <span class="logf-subtab act" style="cursor:default">${_uiIcon('receipt')} Quittancement ${year}</span>
     </div>
     ${_renderEtat12Mois(ref, year)}
 
     <div class="logf-subtabs" style="margin-top:18px;border-bottom:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span class="logf-subtab act" style="cursor:default">🕒 Historique du loyer</span>
+      <span class="logf-subtab act" style="cursor:default">${_uiIcon('clock')} Historique du loyer</span>
       <button class="btn bs bb" onclick="setLogFicheTab('bail')" title="L'historique complet du bail (loyer, charges, DG, IRL) vit dans l'onglet Bail">↗ Voir dans l'onglet Bail</button>
     </div>
 
     <div class="logf-subtabs" style="margin-top:18px;border-bottom:none">
-      <span class="logf-subtab act" style="cursor:default">⚖ Régularisation des charges</span>
+      <span class="logf-subtab act" style="cursor:default">${_uiIcon('scale')} Régularisation des charges</span>
     </div>
     <div class="compta-empty">
       <span class="mu sm">La régularisation des charges est gérée depuis l'onglet ⚖ Régularisation. </span>
@@ -40464,11 +40464,11 @@ function _renderEquipForLog(ref) {
     }
     const cat = AGENDA_CATS[rule.cat] || AGENDA_CATS.AUTRE;
     const statusBadge = status === 'late'
-      ? `<span class="logf-equip-badge logf-equip-late">⚠ En retard de ${Math.abs(daysToNext)}j</span>`
+      ? `<span class="logf-equip-badge logf-equip-late">${_uiIcon('warn')} En retard de ${Math.abs(daysToNext)}j</span>`
       : status === 'soon'
-        ? `<span class="logf-equip-badge logf-equip-soon">⏰ Échéance dans ${daysToNext}j</span>`
+        ? `<span class="logf-equip-badge logf-equip-soon">${_uiIcon('clock')} Échéance dans ${daysToNext}j</span>`
         : status === 'ok'
-          ? `<span class="logf-equip-badge logf-equip-ok">✓ À jour (${daysToNext}j restants)</span>`
+          ? `<span class="logf-equip-badge logf-equip-ok">${_uiIcon('check')} À jour (${daysToNext}j restants)</span>`
           : `<span class="logf-equip-badge logf-equip-mute">— Jamais renseigné</span>`;
     const refSafe = ref.replace(/'/g,"\\'");
     return `<div class="logf-equip-card logf-equip-${status}">
@@ -40487,7 +40487,7 @@ function _renderEquipForLog(ref) {
         ${data.notes ? `<div class="logf-equip-notes">${escHtml(data.notes)}</div>` : ''}
       </div>
       <div class="logf-equip-actions">
-        <button class="btn bs bb" onclick="openEquipIntervention('${refSafe}','${rule.key}')" title="Saisir un nouvel entretien">📝 Saisir entretien</button>
+        <button class="btn bs bb" onclick="openEquipIntervention('${refSafe}','${rule.key}')" title="Saisir un nouvel entretien">${_uiIcon('edit')} Saisir entretien</button>
       </div>
     </div>`;
   }).join('');
@@ -40516,11 +40516,11 @@ function _renderAssForLog(ref) {
       else status = 'ok';
     }
     const statusBadge = status === 'late'
-      ? `<span class="logf-equip-badge logf-equip-late">⚠ Expirée depuis ${Math.abs(days)}j</span>`
+      ? `<span class="logf-equip-badge logf-equip-late">${_uiIcon('warn')} Expirée depuis ${Math.abs(days)}j</span>`
       : status === 'soon'
-        ? `<span class="logf-equip-badge logf-equip-soon">⏰ Expire dans ${days}j</span>`
+        ? `<span class="logf-equip-badge logf-equip-soon">${_uiIcon('clock')} Expire dans ${days}j</span>`
         : status === 'ok'
-          ? `<span class="logf-equip-badge logf-equip-ok">✓ Valide (${days}j restants)</span>`
+          ? `<span class="logf-equip-badge logf-equip-ok">${_uiIcon('check')} Valide (${days}j restants)</span>`
           : `<span class="logf-equip-badge logf-equip-mute">— Pas d'échéance</span>`;
     const icon = isMrh
       ? _monoSvg('<path d="M12 3l7 2.5v5.4c0 4-3 6.6-7 7.6-4-1-7-3.6-7-7.6V5.5L12 3Z"/>',24)
@@ -40543,8 +40543,8 @@ function _renderAssForLog(ref) {
         ${a.notes?`<div class="logf-equip-notes">${escHtml(a.notes)}</div>`:''}
       </div>
       <div class="logf-equip-actions" style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 4px">
-        <button class="btn bs bb" style="font-size:11px;padding:3px 9px" onclick="${isMrh?`openMrh(${a.id},'${_refA}')`:`openAss(${a.id},'${_refA}')`}" title="Modifier">✏️ Modifier</button>
-        <button class="btn br bb" style="font-size:11px;padding:3px 9px" onclick="${isMrh?`delMrh(${a.id})`:`delAss(${a.id})`}" title="Supprimer">🗑</button>
+        <button class="btn bs bb" style="font-size:11px;padding:3px 9px" onclick="${isMrh?`openMrh(${a.id},'${_refA}')`:`openAss(${a.id},'${_refA}')`}" title="Modifier">${_uiIcon('edit')} Modifier</button>
+        <button class="btn br bb" style="font-size:11px;padding:3px 9px" onclick="${isMrh?`delMrh(${a.id})`:`delAss(${a.id})`}" title="Supprimer">${_uiIcon('trash')}</button>
       </div>
     </div>`;
   };
@@ -40584,7 +40584,7 @@ function _renderAgendaForLog(ref) {
     const isToday = days === 0;
     const isSoon = days >= 0 && days <= 30;
     const badgeCls = isPast ? 'logf-equip-late' : (isToday || isSoon ? 'logf-equip-soon' : 'logf-equip-ok');
-    const badgeTxt = isPast ? `⚠ Retard ${Math.abs(days)}j` : (isToday ? "Aujourd'hui" : `J-${days}`);
+    const badgeTxt = isPast ? `${_uiIcon('warn')} Retard ${Math.abs(days)}j` : (isToday ? "Aujourd'hui" : `J-${days}`);
     return `<div class="logf-agenda-row" onclick="_goFromLogFiche('agenda')" style="border-left:3px solid ${couleur}">
       <span class="logf-agenda-cat" style="background:${couleur}18;color:${couleur}">${_agendaIconSvg(e.cat,13)} ${cat.label}</span>
       <span class="logf-agenda-title">${escHtml(e.titre||'')}</span>
@@ -40604,7 +40604,7 @@ function _renderAgendaForLog(ref) {
 function _renderLogFichePanelConformite(log, ref) {
   return `
     <div class="logf-section-head">
-      <h3 class="logf-section-title">🔧 Équipements & entretiens obligatoires</h3>
+      <h3 class="logf-section-title">${_uiIcon('wrench')} Équipements & entretiens obligatoires</h3>
       <button class="btn bs bb" onclick="_goFromLogFiche('equipements')" title="Voir tous les équipements">↗ Onglet Équipements</button>
     </div>
     ${_renderEquipForLog(ref)}
@@ -41223,14 +41223,14 @@ function _renderLogFichePanelAgenda(log, ref) {
     const couleur = e.couleur || cat.couleur;
     const days = typeof e.days === 'number' ? e.days : null;
     let badge;
-    if(e.done) badge = `<span class="logf-equip-badge logf-equip-ok">✓ Terminé</span>`;
+    if(e.done) badge = `<span class="logf-equip-badge logf-equip-ok">${_uiIcon('check')} Terminé</span>`;
     else if(days === null) badge = '';
-    else if(days < 0) badge = `<span class="logf-equip-badge logf-equip-late">⚠ Retard ${Math.abs(days)}j</span>`;
+    else if(days < 0) badge = `<span class="logf-equip-badge logf-equip-late">${_uiIcon('warn')} Retard ${Math.abs(days)}j</span>`;
     else if(days === 0) badge = `<span class="logf-equip-badge logf-equip-soon">Aujourd'hui</span>`;
     else if(days <= 7) badge = `<span class="logf-equip-badge logf-equip-soon">J-${days}</span>`;
     else badge = `<span class="logf-equip-badge logf-equip-mute">J-${days}</span>`;
-    const recurr = e.recurrence?.type && e.recurrence.type !== 'none' ? `<span class="mu sm" style="margin-left:6px">🔁 ${escHtml(_recLabel(e.recurrence))}</span>` : '';
-    const auto = e.auto ? `<span class="mu sm" style="margin-left:6px">⚙ Auto</span>` : '';
+    const recurr = e.recurrence?.type && e.recurrence.type !== 'none' ? `<span class="mu sm" style="margin-left:6px">${_uiIcon('refresh')} ${escHtml(_recLabel(e.recurrence))}</span>` : '';
+    const auto = e.auto ? `<span class="mu sm" style="margin-left:6px">${_uiIcon('settings')} Auto</span>` : '';
     const notes = e.notes ? `<div class="logf-equip-notes" style="margin-top:6px;white-space:pre-wrap">${escHtml(e.notes.slice(0,200))}${e.notes.length>200?'…':''}</div>` : '';
     return `<div class="logf-doc-card" style="border-left:3px solid ${couleur};display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start">
       <div class="logf-doc-icon" style="color:${couleur}">${_agendaIconSvg(e.cat,22)}</div>
@@ -41238,15 +41238,15 @@ function _renderLogFichePanelAgenda(log, ref) {
         <div class="logf-doc-name">${escHtml(e.titre||'(sans titre)')}</div>
         <div class="logf-doc-meta">
           <span class="logf-agenda-cat" style="background:${couleur}18;color:${couleur}">${cat.label}</span>
-          <span style="margin-left:6px">📅 ${e.date?fd(e.date):'—'}${e.dateFin && e.dateFin!==e.date?' → '+fd(e.dateFin):''}</span>
+          <span style="margin-left:6px">${_uiIcon('calendar')} ${e.date?fd(e.date):'—'}${e.dateFin && e.dateFin!==e.date?' → '+fd(e.dateFin):''}</span>
           ${recurr}${auto}
         </div>
         ${notes}
       </div>
       <div class="logf-doc-actions" style="display:flex;flex-direction:column;gap:4px">
         ${badge}
-        <button class="btn bs bb" style="font-size:11px;padding:3px 8px" onclick="openAgendaEvt('${e.id}')" title="Modifier">✏️ Modifier</button>
-        ${!e.done?`<button class="btn bs bb" style="font-size:11px;padding:3px 8px;color:var(--grn);border-color:rgba(22,163,74,.3);background:rgba(22,163,74,.08)" onclick="agendaMarkDone(event,'${e.id}');setTimeout(rLogFiche,50)" title="Marquer fait">✓ Fait</button>`:''}
+        <button class="btn bs bb" style="font-size:11px;padding:3px 8px" onclick="openAgendaEvt('${e.id}')" title="Modifier">${_uiIcon('edit')} Modifier</button>
+        ${!e.done?`<button class="btn bs bb" style="font-size:11px;padding:3px 8px;color:var(--grn);border-color:rgba(22,163,74,.3);background:rgba(22,163,74,.08)" onclick="agendaMarkDone(event,'${e.id}');setTimeout(rLogFiche,50)" title="Marquer fait">${_uiIcon('check')} Fait</button>`:''}
       </div>
     </div>`;
   };
@@ -41264,7 +41264,7 @@ function _renderLogFichePanelAgenda(log, ref) {
   const isEmpty = !all.length;
   return `
     <div class="logf-section-head">
-      <h3 class="logf-section-title">📅 Agenda du logement</h3>
+      <h3 class="logf-section-title">${_uiIcon('calendar')} Agenda du logement</h3>
       <div style="display:flex;gap:6px">
         <button class="btn bp bb" onclick="openNewAgendaEvtForLog('${refSafe}')" title="Créer un événement pré-rempli pour ce logement">+ Événement</button>
         <button class="btn bs bb" onclick="_goFromLogFiche('agenda')" title="Voir l'agenda complet">↗ Onglet Agenda</button>
@@ -41275,11 +41275,11 @@ function _renderLogFichePanelAgenda(log, ref) {
       <div class="mu sm" style="margin-top:6px">Les événements automatiques (révision IRL, fin de bail, préavis bailleur, entretiens) apparaîtront ici dès qu'un bail est créé.</div>
       <div style="margin-top:10px"><button class="btn bp bb" onclick="openNewAgendaEvtForLog('${refSafe}')">+ Créer le premier événement</button></div>
     </div>` : `
-      ${section('⚠ En retard', overdue)}
-      ${section('🔔 Cette semaine', week)}
-      ${section('📅 Ce mois', month)}
-      ${section('📋 À venir', later)}
-      ${section('✓ Terminés', done)}
+      ${section('' + _uiIcon('warn') + ' En retard', overdue)}
+      ${section('' + _uiIcon('bell') + ' Cette semaine', week)}
+      ${section('' + _uiIcon('calendar') + ' Ce mois', month)}
+      ${section('' + _uiIcon('list') + ' À venir', later)}
+      ${section('' + _uiIcon('check') + ' Terminés', done)}
     `}
   `;
 }
@@ -41321,8 +41321,8 @@ function _attachmentRowHtml(d){
             <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(d.name)}">${escHtml(d.originalName || d.name)}</div>
             <div class="mu sm" style="font-size:11px">${_fmtSize(d.size)} · ${fd((d.uploadedAt||'').slice(0,10))}${d.cloudKey?' · ☁️':''}${d.idbKey?' · 💾':''}</div>
           </div>
-          <button type="button" class="btn bs bb" onclick="_handleAttachmentOpen(${d.id})" title="Aperçu">👁</button>
-          <button type="button" class="btn br bb" onclick="_handleAttachmentDelete(${d.id})" title="Supprimer">🗑</button>
+          <button type="button" class="btn bs bb" onclick="_handleAttachmentOpen(${d.id})" title="Aperçu">${_uiIcon('eye')}</button>
+          <button type="button" class="btn br bb" onclick="_handleAttachmentDelete(${d.id})" title="Supprimer">${_uiIcon('trash')}</button>
         </div>`;
 }
 function _renderAttachmentSection(opts) {
@@ -41545,7 +41545,7 @@ function _renderLogFichePanelPhotos(log, ref) {
 
   const header = `<div class="flex-b" style="align-items:center;margin-bottom:12px">
     <div>
-      <h3 style="margin:0;font-size:16px">📷 Photos du logement <span class="mu sm" style="font-weight:400">(${photos.length})</span></h3>
+      <h3 style="margin:0;font-size:16px">${_uiIcon('camera')} Photos du logement <span class="mu sm" style="font-weight:400">(${photos.length})</span></h3>
       <p class="mu sm" style="margin:4px 0 0 0;font-size:11px">Photos illustratives permanentes (façade, séjour, cuisine, plan…). Couverture utilisée sur les cards Biens.</p>
     </div>
     <label for="${uploaderId}" class="btn bp" style="cursor:pointer">+ Ajouter photos</label>
@@ -41555,7 +41555,7 @@ function _renderLogFichePanelPhotos(log, ref) {
 
   if (!photos.length) {
     return header + `<div class="logf-doc-empty" style="padding:32px;text-align:center;color:var(--t2);background:var(--sur2);border-radius:6px">
-      🖼️ Aucune photo. Téléversez des photos pour illustrer ce logement.
+      ${_uiIcon('camera',28)} Aucune photo. Téléversez des photos pour illustrer ce logement.
       <br><span class="mu sm" style="font-size:11px">Compression auto si > 2 Mo · stockage Drive 🖼️ Photos/ du logement</span>
     </div>`;
   }
@@ -41569,7 +41569,7 @@ function _renderLogFichePanelPhotos(log, ref) {
       <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent);padding:6px;color:#fff;font-size:10px;display:flex;justify-content:space-between;align-items:center" onclick="event.stopPropagation()">
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.originalName || p.name)}</span>
         <button class="btn bs bb" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);padding:2px 6px;margin-left:4px" onclick="event.stopPropagation();_togglePhotoCover(${p.id})" title="${isCover?'Retirer couverture':'Définir comme couverture'}">${isCover?'⭐':'☆'}</button>
-        <button class="btn bs bb" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);padding:2px 6px;margin-left:4px" onclick="event.stopPropagation();_handleAttachmentDelete(${p.id})" title="Supprimer">🗑</button>
+        <button class="btn bs bb" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);padding:2px 6px;margin-left:4px" onclick="event.stopPropagation();_handleAttachmentDelete(${p.id})" title="Supprimer">${_uiIcon('trash')}</button>
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -41683,7 +41683,7 @@ async function _renderLightbox() {
         <div style="font-size:16px;font-weight:600">${escHtml(p.originalName || p.name)}</div>
         <div style="font-size:11px;opacity:.7">${_lightboxIdx+1} / ${_lightboxPhotos.length} · ${_fmtSize(p.size)}</div>
       </div>
-      <button onclick="_closePhotoLightbox()" style="background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:0 8px">✕</button>
+      <button onclick="_closePhotoLightbox()" style="background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:0 8px">${_uiIcon('close')}</button>
     </div>
     <img id="lightbox-img" alt="${escHtml(p.originalName || p.name)}" style="max-width:90vw;max-height:80vh;object-fit:contain;box-shadow:0 4px 24px rgba(0,0,0,.5)">
     ${_lightboxPhotos.length > 1 ? `
@@ -41737,8 +41737,8 @@ function _renderLogFichePanelDocuments(log, ref) {
           <div class="logf-doc-meta">Signé le ${fd(sigSign)}${bail.debut?` · début ${fd(bail.debut)}`:''}</div>
         </div>
         <div class="logf-doc-actions">
-          <button class="btn bs bb" onclick="previewSignedBailRef('${ref.replace(/'/g,"\\'")}')" title="Voir le bail tel que signé (snapshot figé)">👁 Aperçu</button>
-          ${cloudPdf?`<button class="btn bs bb" onclick="_openCloudBailPdf('${ref.replace(/'/g,"\\'")}')" title="Ouvrir le PDF du bail signé">📄 PDF</button>`:''}
+          <button class="btn bs bb" onclick="previewSignedBailRef('${ref.replace(/'/g,"\\'")}')" title="Voir le bail tel que signé (snapshot figé)">${_uiIcon('eye')} Aperçu</button>
+          ${cloudPdf?`<button class="btn bs bb" onclick="_openCloudBailPdf('${ref.replace(/'/g,"\\'")}')" title="Ouvrir le PDF du bail signé">${_uiIcon('doc')} PDF</button>`:''}
         </div>
       </div>`;
     } else {
@@ -41747,7 +41747,7 @@ function _renderLogFichePanelDocuments(log, ref) {
   } else {
     bailSection = `<div class="logf-doc-empty">Aucun bail actif sur ce logement.</div>`;
   }
-  sections.push({ title: '📜 Bail', icon: '📜', html: bailSection });
+  sections.push({ title: '' + _uiIcon('doc-text') + ' Bail', icon: '📜', html: bailSection });
 
   // ── 2. EDLs (entrée + sortie)
   const edls = (DB.edl||[]).filter(_edlActive).filter(e => e.logement === ref)
@@ -41765,13 +41765,13 @@ function _renderLogFichePanelDocuments(log, ref) {
         <div class="logf-doc-info">
           <div class="logf-doc-name">EDL ${typeLabel} — ${fd(e.date)}</div>
           <div class="logf-doc-meta">
-            ${sigSign?`<span class="logf-equip-badge logf-equip-ok">✓ Signé</span>`:`<span class="logf-equip-badge logf-equip-mute">Non signé</span>`}
+            ${sigSign?`<span class="logf-equip-badge logf-equip-ok">${_uiIcon('check')} Signé</span>`:`<span class="logf-equip-badge logf-equip-mute">Non signé</span>`}
             ${e.locataire?` · ${escHtml(e.locataire)}`:''}
           </div>
         </div>
         <div class="logf-doc-actions">
-          <button class="btn bs bb" onclick="openEditEDL('${e.id}')" title="Ouvrir l'EDL">👁 Ouvrir</button>
-          ${e.cloudPdfKey?`<button class="btn bs bb" onclick="openLastEDLPDF('${e.id}')" title="Ouvrir le PDF de l'EDL">📄 PDF</button>`:''}
+          <button class="btn bs bb" onclick="openEditEDL('${e.id}')" title="Ouvrir l'EDL">${_uiIcon('eye')} Ouvrir</button>
+          ${e.cloudPdfKey?`<button class="btn bs bb" onclick="openLastEDLPDF('${e.id}')" title="Ouvrir le PDF de l'EDL">${_uiIcon('doc')} PDF</button>`:''}
         </div>
       </div>`;
     }).join('');
@@ -41780,7 +41780,7 @@ function _renderLogFichePanelDocuments(log, ref) {
       <div style="margin-top:10px"><button class="btn bs bb" onclick="_goFromLogFiche('edl')">↗ Onglet États des lieux</button></div>
     </div>`;
   }
-  sections.push({ title: `📋 États des lieux ${edls.length?`(${edls.length})`:''}`, icon: '📋', html: edlSection });
+  sections.push({ title: `${_uiIcon('list')} États des lieux ${edls.length?`(${edls.length})`:''}`, icon: '📋', html: edlSection });
 
   // ── 3. Lettres IRL envoyées (recensées dans log.irlLettres ou DB.irlLettres si existe)
   // Pour V1 : lien vers l'onglet IRL filtré sur ce logement (les lettres sont générées à la volée).
@@ -41794,7 +41794,7 @@ function _renderLogFichePanelDocuments(log, ref) {
         <div class="logf-doc-meta">Envoyée le ${fd(log.irlLettreEnvoyeeDate)}${log.irlLettreEnvoyeePour?` · pour anniversaire ${fd(log.irlLettreEnvoyeePour)}`:''}</div>
       </div>
       <div class="logf-doc-actions">
-        <button class="btn bs bb" onclick="previewIRLLetterFromLog('${ref.replace(/'/g,"\\'")}');" title="Aperçu de la lettre dans une modale (sans quitter la fiche)">👁 Voir lettre</button>
+        <button class="btn bs bb" onclick="previewIRLLetterFromLog('${ref.replace(/'/g,"\\'")}');" title="Aperçu de la lettre dans une modale (sans quitter la fiche)">${_uiIcon('eye')} Voir lettre</button>
       </div>
     </div>`;
   } else {
@@ -41802,7 +41802,7 @@ function _renderLogFichePanelDocuments(log, ref) {
       <div style="margin-top:10px"><button class="btn bs bb" onclick="_goFromLogFiche('irl')">↗ Onglet IRL</button></div>
     </div>`;
   }
-  sections.push({ title: '📈 Lettres IRL', icon: '📈', html: irlSection });
+  sections.push({ title: '' + _uiIcon('mail') + ' Lettres IRL', icon: '📈', html: irlSection });
 
   // ── 4. Quittancement — L'ÉTAT, PAS L'ARCHIVE (CDC-LOYERS-DESIGN V13, §2).
   // La GALERIE de documents disparaît : « on ne garde pas le document en visuel ; si
@@ -41811,7 +41811,7 @@ function _renderLogFichePanelDocuments(log, ref) {
   // À la place : la même bande de douze cases que le sous-onglet Compta, dont chaque case
   // rouvre l'éditeur sur ce mois. Taille FIXE, quel que soit l'historique.
   const _annQuit = new Date().getFullYear();
-  sections.push({ title: '🧾 Quittancement', icon: '🧾',
+  sections.push({ title: '' + _uiIcon('receipt') + ' Quittancement', icon: '🧾',
     html: _renderEtat12Mois(ref, _annQuit)
       + `<div class="mu sm" style="margin-top:8px;line-height:1.5">Aucune quittance n'est stockée :
          l'app retient un <b>état</b> par (lot, mois) — qui, quand — et regenère le document depuis le
@@ -41823,7 +41823,7 @@ function _renderLogFichePanelDocuments(log, ref) {
   // _renderLogFichePanelPhotos, sur DB.documents (category 'photos'), avec téléversement et
   // désignation de la couverture (photo.isCover). DRY : on branche le renderer existant à la
   // place du placeholder, on ne le recopie pas. `log.photos` reste intact en base.
-  sections.push({ title: '📷 Photos du logement', icon: '📷', html: _renderLogFichePanelPhotos(log, ref) });
+  sections.push({ title: '' + _uiIcon('camera') + ' Photos du logement', icon: '📷', html: _renderLogFichePanelPhotos(log, ref) });
 
   // ── 4. v15.00 DOC-PJ — Documents libres (PJ génériques attachées au logement)
   // Diagnostics (DPE/ERP/plomb/amiante/élec/gaz), plans, acte propriété, règlement copro, etc.
@@ -41833,10 +41833,10 @@ function _renderLogFichePanelDocuments(log, ref) {
     parentRef: ref,
     logRef: ref,
     category: 'documents',
-    title: '📎 Documents libres',
+    title: '' + _uiIcon('attach') + ' Documents libres',
     emptyText: 'Aucun document libre. Téléversez DPE, ERP, plans, acte de propriété, etc.'
   });
-  sections.push({ title: '📎 Documents libres', icon: '📎', html: attHtml });
+  sections.push({ title: '' + _uiIcon('attach') + ' Documents libres', icon: '📎', html: attHtml });
 
   return sections.map(s => `
     <div class="logf-section-head" style="margin-top:${sections.indexOf(s)===0?'0':'24px'}">
@@ -42073,8 +42073,8 @@ function _renderCompteurCard(type, releves, ref) {
     // v15.140 : ✏️ Modifier (ouvre la modale pré-remplie, qui contient aussi 🗑 Supprimer)
     // + 🗑 Supprimer rapide directement dans la liste.
     const actBtns = (r.source === 'manuel' && r.id)
-      ? `<button onclick="openCompteurReleve('${refSafe}','${r.type}','${r.id}')" title="Modifier ce relevé manuel" style="background:none;border:none;cursor:pointer;color:var(--t2);font-size:13px;line-height:1;padding:2px 5px;margin-left:2px">✏️</button>`
-        + `<button onclick="_delCompteurReleve('${refSafe}','${r.id}')" title="Supprimer ce relevé manuel" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;line-height:1;padding:2px 5px">🗑</button>`
+      ? `<button onclick="openCompteurReleve('${refSafe}','${r.type}','${r.id}')" title="Modifier ce relevé manuel" style="background:none;border:none;cursor:pointer;color:var(--t2);font-size:13px;line-height:1;padding:2px 5px;margin-left:2px">${_uiIcon('edit',13)}</button>`
+        + `<button onclick="_delCompteurReleve('${refSafe}','${r.id}')" title="Supprimer ce relevé manuel" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;line-height:1;padding:2px 5px">${_uiIcon('trash',13)}</button>`
       : '';
     return `<div class="logf-cpt-row">
       <span class="logf-cpt-row-date">${fd(r.date)}</span>
@@ -42138,7 +42138,7 @@ function _renderLogFichePanelCompteurs(log, ref) {
 
   // v14.62 — bouton Initialiser : visible si peu de relevés (<= 1 par type max)
   const showInit = total < 5;
-  const btnInit = `<button class="btn bp bb" onclick="openCompteursInitModal('${refSafe}')" title="Saisir les index initiaux des 5 compteurs en une seule fois">⚙ Initialiser les compteurs</button>`;
+  const btnInit = `<button class="btn bp bb" onclick="openCompteursInitModal('${refSafe}')" title="Saisir les index initiaux des 5 compteurs en une seule fois">${_uiIcon('settings')} Initialiser les compteurs</button>`;
 
   if(total === 0) {
     return `<div class="logf-section-head">
@@ -42153,7 +42153,7 @@ function _renderLogFichePanelCompteurs(log, ref) {
       Aucun relevé enregistré pour ce logement.
       <div class="mu sm" style="margin-top:6px">Démarrage rapide : <b>« ⚙ Initialiser les compteurs »</b> pour saisir les 5 index initiaux d'un coup.<br>Sinon, les relevés sont aussi extraits automatiquement des EDL (entrée + sortie).</div>
       <div style="margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-        <button class="btn bp bb" onclick="openCompteursInitModal('${refSafe}')">⚙ Initialiser les compteurs</button>
+        <button class="btn bp bb" onclick="openCompteursInitModal('${refSafe}')">${_uiIcon('settings')} Initialiser les compteurs</button>
         <button class="btn bs bb" onclick="_goFromLogFiche('edl')">↗ Créer un EDL</button>
       </div>
     </div>`;
@@ -42198,8 +42198,8 @@ function openCompteursInitModal(ref) {
     <div class="ov" id="ov-cci" onclick="closeBg(event,'ov-cci')">
       <div class="modal" style="max-width:620px">
         <div class="m-head">
-          <h3>⚙ Initialiser les compteurs — ${escHtml(ref)}</h3>
-          <button class="m-close" onclick="closeM('ov-cci')">✕</button>
+          <h3>${_uiIcon('settings')} Initialiser les compteurs — ${escHtml(ref)}</h3>
+          <button class="m-close" onclick="closeM('ov-cci')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
           <p class="mu sm" style="margin-bottom:12px">
@@ -42220,12 +42220,12 @@ function openCompteursInitModal(ref) {
             <tbody>${rows}</tbody>
           </table>
           <div class="mu sm" style="margin-top:10px;font-size:11px">
-            💡 Les n° de série seront stockés sur le logement (champ <code>log.compteurs[]</code>) et affichés à côté de chaque card compteur.
+            ${_uiIcon('bulb')} Les n° de série seront stockés sur le logement (champ <code>log.compteurs[]</code>) et affichés à côté de chaque card compteur.
           </div>
         </div>
         <div class="m-foot">
           <button class="btn bs" onclick="closeM('ov-cci')">Annuler</button>
-          <button class="btn bp" onclick="saveCompteursInit('${(ref||'').replace(/'/g,"\\'")}')">✓ Enregistrer</button>
+          <button class="btn bp" onclick="saveCompteursInit('${(ref||'').replace(/'/g,"\\'")}')">${_uiIcon('check')} Enregistrer</button>
         </div>
       </div>
     </div>
@@ -42303,20 +42303,20 @@ function openCompteurReleve(ref, typeKey, editId) {
   ).join('');
   const refSafe = (ref||'').replace(/'/g,"\\'");
   const idSafe  = (editId||'').replace(/'/g,"\\'");
-  const title = editRel ? `✏️ Modifier le relevé — ${escHtml(ref)}` : `📊 Nouveau relevé compteur — ${escHtml(ref)}`;
+  const title = editRel ? `${_uiIcon('edit')} Modifier le relevé — ${escHtml(ref)}` : `${_uiIcon('chart')} Nouveau relevé compteur — ${escHtml(ref)}`;
   const dateVal = editRel ? (editRel.date || today) : today;
   const valVal  = editRel ? (editRel.value != null ? editRel.value : '') : '';
   const notesVal = editRel ? (editRel.notes || '') : '';
   // Bouton "Supprimer" visible uniquement en édition d'un relevé manuel
   const delBtn = editRel
-    ? `<button class="btn bs" style="color:var(--red);margin-right:auto" onclick="_delCompteurReleve('${refSafe}','${idSafe}', true)">🗑 Supprimer</button>`
+    ? `<button class="btn bs" style="color:var(--red);margin-right:auto" onclick="_delCompteurReleve('${refSafe}','${idSafe}', true)">${_uiIcon('trash')} Supprimer</button>`
     : '';
   const html = `
     <div class="ov" id="ov-cpt-releve" onclick="closeBg(event,'ov-cpt-releve')">
       <div class="modal" style="max-width:480px">
         <div class="m-head">
           <h3>${title}</h3>
-          <button class="m-close" onclick="closeM('ov-cpt-releve')">✕</button>
+          <button class="m-close" onclick="closeM('ov-cpt-releve')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
           <div class="fg"><label>Type de compteur *</label>
@@ -42335,7 +42335,7 @@ function openCompteurReleve(ref, typeKey, editId) {
         <div class="m-foot">
           ${delBtn}
           <button class="btn bs" onclick="closeM('ov-cpt-releve')">Annuler</button>
-          <button class="btn bp" onclick="saveCompteurReleveModal('${refSafe}'${editRel ? `,'${idSafe}'` : ''})">✓ Enregistrer</button>
+          <button class="btn bp" onclick="saveCompteurReleveModal('${refSafe}'${editRel ? `,'${idSafe}'` : ''})">${_uiIcon('check')} Enregistrer</button>
         </div>
       </div>
     </div>`;
@@ -42425,10 +42425,10 @@ function _edlSignatureStatus(edl) {
   const hasLocataire = !!sig.locataire;
   const signedAt = sig.signedAt;
   if(hasBailleur && hasLocataire && signedAt) {
-    return { kind: 'complet', label: '✓ Signé', date: signedAt, cls: 'b-ok' };
+    return { kind: 'complet', label: '' + _uiIcon('check') + ' Signé', date: signedAt, cls: 'b-ok' };
   }
   if(hasBailleur && !hasLocataire) {
-    return { kind: 'partial', label: '⚠ Bailleur signé', cls: 'b-warn' };
+    return { kind: 'partial', label: '' + _uiIcon('warn') + ' Bailleur signé', cls: 'b-warn' };
   }
   return { kind: 'none', label: '○ Non signé', cls: 'b-mute' };
 }
@@ -42461,19 +42461,19 @@ function _renderLogFichePanelEDL(log, ref) {
     const tplElems = log.edlTemplate.pieces.reduce((s,p) => s+(p.elements||[]).length, 0);
     const tplDate = log.edlTemplate._modifiedAt ? fd(log.edlTemplate._modifiedAt.slice(0,10)) : '—';
     templateBanner = `<div class="logf-edl-tpl-banner logf-edl-tpl-active">
-      <div class="logf-edl-tpl-icon">🗐</div>
+      <div class="logf-edl-tpl-icon">${_uiIcon('doc',24)}</div>
       <div class="logf-edl-tpl-info">
         <div class="logf-edl-tpl-title">Template EDL personnalisé pour ce logement</div>
         <div class="logf-edl-tpl-meta">${tplPieces} pièce${tplPieces>1?'s':''} · ${tplElems} élément${tplElems>1?'s':''} · MAJ ${tplDate}</div>
       </div>
       <div class="logf-edl-tpl-actions">
-        <button class="btn bs bb" onclick="viewLogEDLTemplate('${refSafe}')" title="Voir le contenu du template">👁 Voir</button>
-        <button class="btn bs bb" onclick="clearLogEDLTemplate('${refSafe}')" title="Supprimer le template (les EDL existants ne sont pas affectés)" style="color:var(--red);border-color:rgba(220,38,38,.3)">✕ Supprimer template</button>
+        <button class="btn bs bb" onclick="viewLogEDLTemplate('${refSafe}')" title="Voir le contenu du template">${_uiIcon('eye')} Voir</button>
+        <button class="btn bs bb" onclick="clearLogEDLTemplate('${refSafe}')" title="Supprimer le template (les EDL existants ne sont pas affectés)" style="color:var(--red);border-color:rgba(220,38,38,.3)">${_uiIcon('close')} Supprimer template</button>
       </div>
     </div>`;
   } else {
     templateBanner = `<div class="logf-edl-tpl-banner logf-edl-tpl-inactive">
-      <div class="logf-edl-tpl-icon">🗐</div>
+      <div class="logf-edl-tpl-icon">${_uiIcon('doc',24)}</div>
       <div class="logf-edl-tpl-info">
         <div class="logf-edl-tpl-title">Aucun template EDL pour ce logement</div>
         <div class="logf-edl-tpl-meta">À la création d'un EDL, sauvegardez la structure des pièces/éléments comme template pour ne pas tout re-saisir au prochain locataire.</div>
@@ -42484,7 +42484,7 @@ function _renderLogFichePanelEDL(log, ref) {
   // ── Empty state
   if(edls.length === 0) {
     return `<div class="logf-section-head" id="logf-edl-anchor">
-      <h3 class="logf-section-title">📋 États des lieux du logement</h3>
+      <h3 class="logf-section-title">${_uiIcon('list')} États des lieux du logement</h3>
       ${headerActions}
     </div>
     ${templateBanner}
@@ -42513,24 +42513,24 @@ function _renderLogFichePanelEDL(log, ref) {
         <span class="logf-equip-badge ${sig.cls}">${sig.label}</span>
       </div>
       <div class="logf-edl-card-meta">
-        <span>📦 ${stats.nbPieces} pièce${stats.nbPieces>1?'s':''}</span>
-        <span>📋 ${stats.nbElem} élément${stats.nbElem>1?'s':''}</span>
-        ${stats.nbCles ? `<span>🔑 ${stats.nbCles} clé${stats.nbCles>1?'s':''}</span>` : ''}
-        ${stats.nbPhotos ? `<span>📷 ${stats.nbPhotos} photo${stats.nbPhotos>1?'s':''}</span>` : ''}
+        <span>${_uiIcon('archive',13)} ${stats.nbPieces} pièce${stats.nbPieces>1?'s':''}</span>
+        <span>${_uiIcon('list',13)} ${stats.nbElem} élément${stats.nbElem>1?'s':''}</span>
+        ${stats.nbCles ? `<span>${_uiIcon('key',13)} ${stats.nbCles} clé${stats.nbCles>1?'s':''}</span>` : ''}
+        ${stats.nbPhotos ? `<span>${_uiIcon('camera',13)} ${stats.nbPhotos} photo${stats.nbPhotos>1?'s':''}</span>` : ''}
       </div>
       <div class="logf-edl-card-actions">
-        <button class="btn bp bb" onclick="openEditEDL(${edl.id})" title="Modifier l'EDL">✏️ Modifier</button>
-        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id}, {share:true})" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">📤 Partager</button>
-        ${stats.nbPhotos ? `<button class="btn bs bb" onclick="_edlSharePhotos(${edl.id})" title="Enregistrer les photos sur l'appareil (Fichiers / dossier au choix)">📷 Photos</button>` : ''}
+        <button class="btn bp bb" onclick="openEditEDL(${edl.id})" title="Modifier l'EDL">${_uiIcon('edit')} Modifier</button>
+        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id}, {share:true})" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">${_uiIcon('share')} Partager</button>
+        ${stats.nbPhotos ? `<button class="btn bs bb" onclick="_edlSharePhotos(${edl.id})" title="Enregistrer les photos sur l'appareil (Fichiers / dossier au choix)">${_uiIcon('camera')} Photos</button>` : ''}
         ${driveBtn}
-        <button class="btn bs bb" onclick="saveLogEDLTemplateFromEDL(${edl.id})" title="Sauvegarder la structure de cet EDL comme template par défaut pour ce logement (réutilisable au prochain bail)">🗐 Sauv. template</button>
-        <button class="btn br bb" onclick="delEDL(${edl.id})" title="Supprimer">🗑</button>
+        <button class="btn bs bb" onclick="saveLogEDLTemplateFromEDL(${edl.id})" title="Sauvegarder la structure de cet EDL comme template par défaut pour ce logement (réutilisable au prochain bail)">${_uiIcon('doc')} Sauv. template</button>
+        <button class="btn br bb" onclick="delEDL(${edl.id})" title="Supprimer">${_uiIcon('trash')}</button>
       </div>
     </div>`;
   }).join('');
 
   return `<div class="logf-section-head" id="logf-edl-anchor">
-    <h3 class="logf-section-title">📋 États des lieux <span class="mu sm">(${edls.length})</span></h3>
+    <h3 class="logf-section-title">${_uiIcon('list')} États des lieux <span class="mu sm">(${edls.length})</span></h3>
     ${headerActions}
   </div>
   ${templateBanner}
@@ -42883,7 +42883,7 @@ function _renderLogFichePhStrip(log, bail, ref){
     cells.push({v: fin,        k: 'Fin bail'});
     cells.push({v: sV, k: 'Solde', cls: sCls});
   } else if(log.archived){
-    cells.push({v: '📦', k: 'Archivé'});
+    cells.push({v: '' + _uiIcon('archive',18) + '', k: 'Archivé'});
     cells.push({v: fd(log.archivedAt)||'—', k: 'Date archive'});
   } else {
     const refTot = (Number(log.loyerHcRef)||Number(log.hc)||0) + (Number(log.chargesRef)||Number(log.ch)||0);
@@ -42906,7 +42906,7 @@ function _renderLogFichePhHero(log, bail, ref){
   const strip = _renderLogFichePhStrip(log, bail, ref);
   return `<div class="logf-ph-hero">
     <div class="logf-ph-idrow">
-      <div class="logf-ph-thumb">${_coverImg('logement', log.id, '🏠')}</div>
+      <div class="logf-ph-thumb">${_coverImg('logement', log.id, '' + _uiIcon('home',26) + '')}</div>
       <div class="logf-ph-idm">
         <div class="logf-ph-l1"><span class="logf-ph-ref">${escHtml(ref)}</span>${chip}</div>
         <div class="logf-ph-l2">${l2||'&nbsp;'}</div>
@@ -42950,7 +42950,7 @@ function rLogFiche() {
   const log = (DB.logements||[]).find(l=>l.ref===ref);
   if(!log) {
     wrap.innerHTML = `<div class="biens-empty">
-      <div class="biens-empty-icon">⚠</div>
+      <div class="biens-empty-icon">${_uiIcon('warn',44)}</div>
       <div class="biens-empty-title">Bien introuvable</div>
       <div class="biens-empty-msg">Le bien « ${escHtml(ref)} » n'existe pas ou a été supprimé.</div>
       <button class="btn bs" onclick="closeLogFiche()">← Retour aux biens</button>
@@ -42961,7 +42961,7 @@ function rLogFiche() {
   const occupied = !!bail;
   const isArchived = !!log.archived;
   let statusBadge = '';
-  if(isArchived)    statusBadge = '<span class="logf-badge b-mute">📦 Archivé</span>';
+  if(isArchived)    statusBadge = '<span class="logf-badge b-mute">' + _uiIcon('archive') + ' Archivé</span>';
   else if(occupied) statusBadge = '<span class="logf-badge b-ok">● Loué</span>';
   else              statusBadge = '<span class="logf-badge b-warn">○ Vacant</span>';
 
@@ -42975,8 +42975,8 @@ function rLogFiche() {
     ? `<span class="sep">›</span><a onclick="openImmFiche(${+parentEnt.id},${+parentImm.id});return false">${escHtml(log.imm)}</a>`
     : (log.imm ? `<span class="sep">›</span><span>${escHtml(log.imm)}</span>` : '');
   const badgeBailleur = parentEnt
-    ? `<span class="logf-badge" onclick="openEntFiche(${+parentEnt.id})" title="Voir le bailleur">🏛 ${escHtml(log.entity)}</span>`
-    : `<span class="logf-badge">🏛 ${escHtml(log.entity||'—')}</span>`;
+    ? `<span class="logf-badge" onclick="openEntFiche(${+parentEnt.id})" title="Voir le bailleur">${_uiIcon('building')} ${escHtml(log.entity)}</span>`
+    : `<span class="logf-badge">${_uiIcon('building')} ${escHtml(log.entity||'—')}</span>`;
 
   // Corps d'onglet — identique PC / téléphone (les panneaux sont conformes, on les réutilise).
   const panelsHtml =
@@ -43020,7 +43020,7 @@ function rLogFiche() {
       <span class="sep">›</span><span>${escHtml(ref)}</span>
     </div>
     <div class="logf-hero logf-hero-compact">
-      <div class="logf-photos logf-photos-mini">${_coverImg('logement', log.id, '🏠')}</div>
+      <div class="logf-photos logf-photos-mini">${_coverImg('logement', log.id, '' + _uiIcon('home',28) + '')}</div>
       <div class="logf-info">
         <h1 class="logf-title">${escHtml(log.imm || ref)}${log.imm?` <span class="logf-title-suffix">— ${escHtml(ref)}</span>`:''}</h1>
         ${log.adr?`<div class="logf-adr">${escHtml(log.adr)}${log.etage?', '+escHtml(log.etage):''}</div>`:''}
@@ -43038,17 +43038,17 @@ function rLogFiche() {
         ${_renderLogFicheHeroStats(log, ref)}
         <div class="logf-actions">
           ${/* BIENS (P1-13, retour user 11/08) — « ＋ Ajouter un bien » RETIRÉ d'ici : un bien ne contient pas un bien. L'ajout part du bailleur ou de l'immeuble, par le fil rouge, qui est déjà la porte unique. _frStartFromLog perd son seul appelant. */''}
-          <button class="btn bs" onclick="openNewLog('${refSafe}')">✏ Modifier le bien</button>
+          <button class="btn bs" onclick="openNewLog('${refSafe}')">${_uiIcon('edit')} Modifier le bien</button>
           ${(!isArchived && !_bienActiveBail(ref)) ? `
             <!-- BIENS (P1-9, décision 7 du 11/08) — les 2 boutons Annonce et l'onglet Présentation
                  sont débranchés. Le module js/helpers/annonce-generator.global.js et ses tests RESTENT
                  (le CDC classe les annonces « OUT après V1 », pas « supprimées ») : réactiver = remettre
                  un bouton ici. log.presentation / log.quartier gardent leurs colonnes et leurs valeurs. -->
-            <button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">🔗 Inviter un candidat</button>
+            <button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_uiIcon('link')} Inviter un candidat</button>
           ` : ''}
           ${isArchived
-            ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">↺ Restaurer</button>`
-            : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">📦 Archiver</button>`
+            ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">${_uiIcon('refresh')} Restaurer</button>`
+            : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">${_uiIcon('archive')} Archiver</button>`
           }
         </div>
       </div>
@@ -43058,10 +43058,10 @@ function rLogFiche() {
            les états des lieux rejoignent Bail, les photos rejoignent Documents, l'Agenda est
            supprimé (la page globale reste) et les compteurs partent en fiche immeuble. Sur
            téléphone la barre devient une grille 2×2 (css/main.css) au lieu de défiler. -->
-      <button class="logf-subtab${_currentLogFicheTab==='bail'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='bail'}" onclick="setLogFicheTab('bail')" title="Bail en cours, historique et états des lieux">📜 Bail</button>
+      <button class="logf-subtab${_currentLogFicheTab==='bail'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='bail'}" onclick="setLogFicheTab('bail')" title="Bail en cours, historique et états des lieux">${_uiIcon('doc-text')} Bail</button>
       <button class="logf-subtab${_currentLogFicheTab==='conformite'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='conformite'}" onclick="setLogFicheTab('conformite')" title="Équipements à entretenir et assurances obligatoires">🛡 Entretien &amp; assurances</button>
-      <button class="logf-subtab${_currentLogFicheTab==='documents'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='documents'}" onclick="setLogFicheTab('documents')" title="Documents et photos du logement">📁 Documents</button>
-      <button class="logf-subtab${_currentLogFicheTab==='compta'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='compta'}" onclick="setLogFicheTab('compta')">💰 Comptabilité</button>
+      <button class="logf-subtab${_currentLogFicheTab==='documents'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='documents'}" onclick="setLogFicheTab('documents')" title="Documents et photos du logement">${_uiIcon('doc')} Documents</button>
+      <button class="logf-subtab${_currentLogFicheTab==='compta'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='compta'}" onclick="setLogFicheTab('compta')">${_uiIcon('money')} Comptabilité</button>
     </div>
     ${panelsHtml}
   `;
@@ -43082,7 +43082,7 @@ function _renderLogFichePanelGeneral(log, bail) {
     const totalLoyer = (+bail.hc || +log.hc || 0) + (+bail.ch || +log.ch || 0);
     locPanel = `
       <div class="logf-panel">
-        <h3 class="logf-panel-title">👤 Locataire actuel</h3>
+        <h3 class="logf-panel-title">${_uiIcon('person')} Locataire actuel</h3>
         <div class="logf-row"><span class="logf-label">Nom</span><span class="logf-value">${escHtml(principal.nom || log.locataire || '—')}</span></div>
         ${principal.civilite?`<div class="logf-row"><span class="logf-label">Civilité</span><span class="logf-value">${escHtml(principal.civilite)}</span></div>`:''}
         ${principal.email?`<div class="logf-row"><span class="logf-label">Email</span><span class="logf-value">${escHtml(principal.email)}</span></div>`:''}
@@ -43094,15 +43094,15 @@ function _renderLogFichePanelGeneral(log, bail) {
   } else {
     locPanel = `
       <div class="logf-panel">
-        <h3 class="logf-panel-title">👤 Locataire actuel</h3>
+        <h3 class="logf-panel-title">${_uiIcon('person')} Locataire actuel</h3>
         <div class="logf-panel-empty">${log.archived ? 'Bien archivé — historique consultable dans les baux passés' : 'Bien vacant — aucun locataire en cours'}</div>
-        ${!log.archived?`<div style="text-align:center"><button class="btn bs bb" onclick="setLogFicheTab('bail')">📜 Voir l'onglet Bail</button></div>`:''}
+        ${!log.archived?`<div style="text-align:center"><button class="btn bs bb" onclick="setLogFicheTab('bail')">${_uiIcon('doc-text')} Voir l'onglet Bail</button></div>`:''}
       </div>`;
   }
   // ── Panneau Caractéristiques du bien (informations matérielles, indépendantes du contrat)
   const bienPanel = `
     <div class="logf-panel">
-      <h3 class="logf-panel-title">🏠 Caractéristiques du bien</h3>
+      <h3 class="logf-panel-title">${_uiIcon('home')} Caractéristiques du bien</h3>
       <div class="logf-row"><span class="logf-label">Référence</span><span class="logf-value">${escHtml(log.ref||'—')}</span></div>
       ${log.type?`<div class="logf-row"><span class="logf-label">Type</span><span class="logf-value">${escHtml(log.type)}</span></div>`:''}
       ${log.surf?`<div class="logf-row"><span class="logf-label">Surface</span><span class="logf-value logf-value-num">${fmtN(log.surf)} m²</span></div>`:''}
@@ -43138,11 +43138,11 @@ function _renderLogFichePanelBail(log, bail, ref) {
     const complet  = sigSign && sigMode !== 'bailleur-seul';
     const partial  = sigSign && sigMode === 'bailleur-seul';
     // audit : 'bailleur-seul' peut couvrir « locataire signé, bailleur distant en attente » → libellé selon qui a signé.
-    const _partialLbl = (bail.signatures && bail.signatures.signedBailleurAt) ? '⚠ Bailleur signé, locataire en attente' : '⚠ Locataire signé, bailleur en attente';
+    const _partialLbl = (bail.signatures && bail.signatures.signedBailleurAt) ? '' + _uiIcon('warn') + ' Bailleur signé, locataire en attente' : '' + _uiIcon('warn') + ' Locataire signé, bailleur en attente';
     const sigBadge = complet
-      ? '<span class="logf-badge b-ok">✓ Signé bilatéralement</span>'
+      ? '<span class="logf-badge b-ok">' + _uiIcon('check') + ' Signé bilatéralement</span>'
       : (partial ? `<span class="logf-badge b-warn">${_partialLbl}</span>`
-                 : '<span class="logf-badge b-warn">⚠ Non signé</span>');
+                 : '<span class="logf-badge b-warn">' + _uiIcon('warn') + ' Non signé</span>');
     const locataires = (Array.isArray(bail.locataires) && bail.locataires.length) ? bail.locataires : [{nom: log.locataire}];
     const locNoms = locataires.map(l => l && l.nom).filter(Boolean).join(', ') || log.locataire || '—';
     // #3 DEPART-VISIBILITE : bandeau « départ en cours » sur la fiche 360 (réutilise _departState/_departOuvrir).
@@ -43162,7 +43162,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
     currentSection = `
       <div class="logf-panel" style="grid-column:1/-1">
         <div class="flex-b" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
-          <h3 class="logf-panel-title" style="margin:0">📜 Bail en cours</h3>
+          <h3 class="logf-panel-title" style="margin:0">${_uiIcon('doc-text')} Bail en cours</h3>
           ${sigBadge}
         </div>
         ${depBanner}
@@ -43202,10 +43202,10 @@ function _renderLogFichePanelBail(log, bail, ref) {
         </div>
         ` : `
         <div class="logf-bail-actions">
-          ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour">✍️ Signer le bail</button>`:'')}
+          ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour">${_uiIcon('sign')} Signer le bail</button>`:'')}
           ${/* §7 : ne pas doubler le PDF. Le badge « 🔒 Signé à distance » (remoteSession completed) expose DÉJÀ son propre « 📄 PDF signé » → on masque alors ce bouton générique (même fichier, même action). Présentiel (pas de remoteSession) : bouton conservé. */''}
-          ${(bail.signatures&&bail.signatures.cloudPdfKey&&!(bail.signatures.remoteSession&&bail.signatures.remoteSession.status==='completed'))?`<button class="btn bs bb" onclick="_openCloudBailPdf('${refSafe}')" style="background:#0ea5e9;color:#fff" title="Ouvrir le PDF du bail signé">📄 PDF du bail</button>`:''}
-          ${(complet&&bail.signatures&&bail.signatures.cloudPdfKey)?`<button class="btn bs bb" onclick="_openBailPdfShareModal('${refSafe}')" style="background:#7c3aed;color:#fff" title="Partager le PDF signé (Copier / Email / SMS / WhatsApp / QR)">📤 Partager le PDF signé</button>`:''}
+          ${(bail.signatures&&bail.signatures.cloudPdfKey&&!(bail.signatures.remoteSession&&bail.signatures.remoteSession.status==='completed'))?`<button class="btn bs bb" onclick="_openCloudBailPdf('${refSafe}')" style="background:#0ea5e9;color:#fff" title="Ouvrir le PDF du bail signé">${_uiIcon('doc')} PDF du bail</button>`:''}
+          ${(complet&&bail.signatures&&bail.signatures.cloudPdfKey)?`<button class="btn bs bb" onclick="_openBailPdfShareModal('${refSafe}')" style="background:#7c3aed;color:#fff" title="Partager le PDF signé (Copier / Email / SMS / WhatsApp / QR)">${_uiIcon('share')} Partager le PDF signé</button>`:''}
           <button class="btn bs bb" onclick="openBailMenu(event,'${refSafe}',true)" title="Plus d'actions (Modifier · Aperçu · Garant · Réinitialiser · Clôturer · Supprimer)" aria-label="Plus d'actions" style="font-weight:700">⋯ Plus</button>
         </div>
         `}
@@ -43217,11 +43217,11 @@ function _renderLogFichePanelBail(log, bail, ref) {
       && c.statut !== 'refuse' && c.statut !== 'converti' && !c._archived).length;
     currentSection = `
       <div class="logf-panel" style="grid-column:1/-1">
-        <h3 class="logf-panel-title">📜 Bail en cours</h3>
+        <h3 class="logf-panel-title">${_uiIcon('doc-text')} Bail en cours</h3>
         <div class="logf-panel-empty">${log.archived ? 'Bien archivé — pas de bail actif' : 'Aucun bail en cours sur ce bien'}</div>
         ${!log.archived?`<div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
           <button class="btn bp" onclick="openBail('${refSafe}')">+ Créer le bail</button>
-          ${_nbCand>0?`<button class="btn bs bb" onclick="_logFicheReprendreCandidat('${refSafe}')" title="Convertir un dossier candidat déjà déposé en bail">👤 Reprendre depuis un candidat <span style="margin-left:5px;background:rgba(255,90,60,.14);color:var(--acc);border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px">${_nbCand}</span></button>`:''}
+          ${_nbCand>0?`<button class="btn bs bb" onclick="_logFicheReprendreCandidat('${refSafe}')" title="Convertir un dossier candidat déjà déposé en bail">${_uiIcon('person')} Reprendre depuis un candidat <span style="margin-left:5px;background:rgba(255,90,60,.14);color:var(--acc);border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px">${_nbCand}</span></button>`:''}
         </div>`:''}
       </div>`;
   }
@@ -43242,7 +43242,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
   // équipements particuliers), pas le contrat — elles doivent rester lisibles sur un bien vacant.
   const notesSection = log.notes ? `
       <div class="logf-panel" style="grid-column:1/-1">
-        <h3 class="logf-panel-title">📝 Notes sur le bien</h3>
+        <h3 class="logf-panel-title">${_uiIcon('edit')} Notes sur le bien</h3>
         <div class="logf-value" style="font-style:italic;font-weight:400;text-align:left;white-space:pre-wrap">${escHtml(log.notes)}</div>
       </div>` : '';
   return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}${notesSection}</div>`;
@@ -43303,7 +43303,7 @@ function _renderEntIdentitePastille(ent) {
     + ligne('Signature', ent.signature ? 'signature enregistrée' : '')
     + ligne('Logo', ent.logo ? 'logo enregistré' : '')
     + '</div>'
-    + `<div style="margin-top:10px"><button class="btn bs bb" onclick="openNewEnt(${+ent.id})">✏ Modifier le bailleur</button></div>`;
+    + `<div style="margin-top:10px"><button class="btn bs bb" onclick="openNewEnt(${+ent.id})">${_uiIcon('edit')} Modifier le bailleur</button></div>`;
 }
 
 // BIENS (P1-15, demande user 11/08) — PHOTO DE COUVERTURE. La donnée existait déjà (photo.isCover
@@ -43409,7 +43409,7 @@ function _renderImmBatiPastille(ent, im) {
     + `<div class="logf-row" style="grid-column:1/-1"><span class="logf-label">Équipements communs</span><span class="logf-value">${ecTxt ? escHtml(ecTxt) : '<i>Aucun renseigné</i>'}</span></div>`
     + '</div>'
     + '<div class="mu sm" style="font-size:11px;color:var(--t3);margin-top:8px">Type d\'habitat, régime juridique et période de construction sont saisis une seule fois ici et hérités par les logements. Les équipements communs alimentent la clause « Parties communes » de chaque bail.</div>'
-    + (immIdx >= 0 ? `<div style="margin-top:10px"><button class="btn bs bb" onclick="editImm(${immIdx},${+ent.id})">✏ Modifier l'immeuble</button></div>` : '');
+    + (immIdx >= 0 ? `<div style="margin-top:10px"><button class="btn bs bb" onclick="editImm(${immIdx},${+ent.id})">${_uiIcon('edit')} Modifier l'immeuble</button></div>` : '');
 }
 
 function _toggleFichePastille(scope, id, refresh) {
@@ -43485,7 +43485,7 @@ function rImmFiche() {
   const im  = ent && (ent.immeubles||[]).find(i => +i.id === immId);
   if(!ent || !im) {
     wrap.innerHTML = `<div class="biens-empty">
-      <div class="biens-empty-icon">⚠</div>
+      <div class="biens-empty-icon">${_uiIcon('warn',44)}</div>
       <div class="biens-empty-title">Immeuble introuvable</div>
       <div class="biens-empty-msg">L'immeuble demandé n'existe pas ou a été supprimé.</div>
       <button class="btn bs" onclick="closeImmFiche()">← Retour aux biens</button>
@@ -43531,18 +43531,18 @@ function rImmFiche() {
     </div>
     <!-- v14.34 — hero compact 3 colonnes (option C). Plus de bande KPI séparée. -->
     <div class="logf-hero entf-hero-compact">
-      <div class="logf-photos entf-photos-mini">${_coverImg('immeuble', im.id, '🏢')}</div>
+      <div class="logf-photos entf-photos-mini">${_coverImg('immeuble', im.id, '' + _uiIcon('building',28) + '')}</div>
       <div class="logf-info">
         <h1 class="logf-title">${immNomEsc}</h1>
         ${adrLine}
         <div class="logf-badges">
-          <span class="logf-badge" onclick="openEntFiche(${+ent.id})" title="Voir le bailleur" style="cursor:pointer">🏛 ${entNomEsc}</span>
+          <span class="logf-badge" onclick="openEntFiche(${+ent.id})" title="Voir le bailleur" style="cursor:pointer">${_uiIcon('building')} ${entNomEsc}</span>
           ${im.regimeJuridique?`<span class="logf-badge b-mute">${escHtml(im.regimeJuridique)}</span>`:''}
           ${/* BIENS étape 9 (compaction, mesuré) — badge « période de construction » RETIRÉ du hero : il vit dans la pastille « Bâti » de l'entête. */''}
         </div>
         <div class="logf-hero-stats logf-hero-stats-4">
           <div class="logf-stat" title="${nbCompteCharges} sur ${nbLogs} comptent dans la répartition charges immeuble (cocher/décocher dans la modale logement)">
-            <div class="logf-stat-v k-num">${nbLogs}<small>/${nbCompteCharges} ⚖</small></div>
+            <div class="logf-stat-v k-num">${nbLogs}<small>/${nbCompteCharges} ${_uiIcon('scale',11)}</small></div>
             <div class="logf-stat-l">Logement${nbLogs>1?'s':''} <span class="mu sm">(répart. charges)</span></div>
           </div>
           <div class="logf-stat"><div class="logf-stat-v k-num ${occupCls}">${occupes}<small>/${nbLogs}</small></div><div class="logf-stat-l">Loué${occupes>1?'s':''}</div></div>
@@ -43552,7 +43552,7 @@ function rImmFiche() {
         <div class="logf-actions">
           <button class="btn bp" onclick="_frStartCtx('log', ${+ent.id}, '${escHtml(_frAttr(im.nom))}')">＋ Ajouter un bien</button>
           <!-- v14.34 fix : appel à editImm(idx, entId) au lieu d'openNewEnt qui ouvrait la modale bailleur -->
-          ${immIdx >= 0 ? `<button class="btn bs" onclick="editImm(${immIdx},${+ent.id})">✏ Modifier l'immeuble</button>` : ''}
+          ${immIdx >= 0 ? `<button class="btn bs" onclick="editImm(${immIdx},${+ent.id})">${_uiIcon('edit')} Modifier l'immeuble</button>` : ''}
           ${/* BIENS (P1-13, retour user 11/08) — « 🏛 Voir le bailleur » RETIRÉ : doublon strict du bouton retour, qui affiche déjà « ← nom du bailleur ». */''}
         </div>
       </div>
@@ -43565,16 +43565,16 @@ function rImmFiche() {
     ${_renderFichePastilles('imm:' + immId, [
       { id: 'bati', label: 'Bâti & parties communes', html: _renderImmBatiPastille(ent, im) },
       { id: 'photos', label: 'Photos', count: _attCount('immeuble', im.id, 'photos'),
-        html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'photos', title:'📷 Photos de l\'immeuble', emptyText:'Aucune photo. La première photo sert de vignette — ici et sur la bulle de la fiche bailleur.'}) },
+        html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'photos', title:'' + _uiIcon('camera') + ' Photos de l\'immeuble', emptyText:'Aucune photo. La première photo sert de vignette — ici et sur la bulle de la fiche bailleur.'}) },
       { id: 'docs', label: 'Documents', count: _attCount('immeuble', im.id, 'documents'),
-        html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'documents', title:'📁 Documents communs', emptyText:'Aucun document. Ajoutez règlement de copropriété, PV d\'AG, diagnostics communs, attestation d\'assurance MRO/PNO…'}) }
+        html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'documents', title:'' + _uiIcon('doc') + ' Documents communs', emptyText:'Aucun document. Ajoutez règlement de copropriété, PV d\'AG, diagnostics communs, attestation d\'assurance MRO/PNO…'}) }
     ], 'rImmFiche')}
     <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche immeuble">
       <!-- BIENS étape 9 — 2 onglets. Le plan d'occupation devient la VUE FRISE de l'onglet Logements,
            les documents communs remontent en entête, l'assurance MRO/PNO redevient un document
            (décision 1 du 11/08 : pas de rappel d'échéance, ces contrats se renouvellent
            automatiquement), et l'onglet grisé « À venir » part (P1-12 : une V1 qui a l'air finie). -->
-      <button class="logf-subtab${_currentImmFicheTab==='logements'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='logements'}" onclick="setImmFicheTab('logements')">🏠 Logements (${nbLogs})</button>
+      <button class="logf-subtab${_currentImmFicheTab==='logements'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='logements'}" onclick="setImmFicheTab('logements')">${_uiIcon('home')} Logements (${nbLogs})</button>
       <button class="logf-subtab${_currentImmFicheTab==='charges'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='charges'}" onclick="setImmFicheTab('charges')" title="Postes de charges, répartition des charges et relevés des logements">⚡ Charges communes</button>
     </div>
     ${_currentImmFicheTab === 'charges'
@@ -43594,13 +43594,13 @@ function rImmFiche() {
                 ? _renderImmFichePlanGantt(ent, im, activeLogs)
                 : `<div class="biens-grid">${activeLogs.map(_renderLogementCardFlat).join('')}</div>`}`
             : `<div class="biens-empty">
-                <div class="biens-empty-icon">🏠</div>
+                <div class="biens-empty-icon">${_uiIcon('home',44)}</div>
                 <div class="biens-empty-title">Cet immeuble n'a pas encore de logement</div>
                 <div class="biens-empty-msg">Ajoutez le premier logement pour commencer le suivi locatif.</div>
                 <button class="btn bp" onclick="_immFicheNewLog('${escHtml(ent.nom)}','${escHtml(im.nom)}')">+ Ajouter un logement</button>
               </div>`)
     }
-    ${_currentImmFicheTab === 'logements' && archivedLogs.length ? `<div class="mu sm" style="margin-top:18px;text-align:center">📦 ${archivedLogs.length} logement${archivedLogs.length>1?'s':''} archivé${archivedLogs.length>1?'s':''} — visible${archivedLogs.length>1?'s':''} dans Biens > tab "Archivés"</div>` : ''}
+    ${_currentImmFicheTab === 'logements' && archivedLogs.length ? `<div class="mu sm" style="margin-top:18px;text-align:center">${_uiIcon('archive')} ${archivedLogs.length} logement${archivedLogs.length>1?'s':''} archivé${archivedLogs.length>1?'s':''} — visible${archivedLogs.length>1?'s':''} dans Biens > tab "Archivés"</div>` : ''}
   `;
 }
 
@@ -43656,11 +43656,11 @@ function _renderAssForImm(ent, im) {
       status = days < 0 ? 'late' : (days <= 30 ? 'soon' : 'ok');
     }
     const badge = status === 'late'
-      ? `<span class="logf-equip-badge logf-equip-late">⚠ Expirée depuis ${Math.abs(days)}j</span>`
+      ? `<span class="logf-equip-badge logf-equip-late">${_uiIcon('warn')} Expirée depuis ${Math.abs(days)}j</span>`
       : status === 'soon'
-        ? `<span class="logf-equip-badge logf-equip-soon">⏰ Expire dans ${days}j</span>`
+        ? `<span class="logf-equip-badge logf-equip-soon">${_uiIcon('clock')} Expire dans ${days}j</span>`
         : status === 'ok'
-          ? `<span class="logf-equip-badge logf-equip-ok">✓ Valide (${days}j restants)</span>`
+          ? `<span class="logf-equip-badge logf-equip-ok">${_uiIcon('check')} Valide (${days}j restants)</span>`
           : `<span class="logf-equip-badge logf-equip-mute">— Pas d'échéance</span>`;
     return `<div class="logf-equip-card logf-equip-${status}">
       <div class="logf-equip-head">
@@ -43677,8 +43677,8 @@ function _renderAssForImm(ent, im) {
         ${a.notes?`<div class="logf-equip-notes">${escHtml(a.notes)}</div>`:''}
       </div>
       <div class="logf-equip-actions" style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 4px">
-        <button class="btn bs bb" style="font-size:11px;padding:3px 9px" onclick="openAss(${a.id})" title="Modifier">✏️ Modifier</button>
-        <button class="btn br bb" style="font-size:11px;padding:3px 9px" onclick="delAss(${a.id})" title="Supprimer">🗑</button>
+        <button class="btn bs bb" style="font-size:11px;padding:3px 9px" onclick="openAss(${a.id})" title="Modifier">${_uiIcon('edit')} Modifier</button>
+        <button class="btn br bb" style="font-size:11px;padding:3px 9px" onclick="delAss(${a.id})" title="Supprimer">${_uiIcon('trash')}</button>
       </div>
     </div>`;
   }).join('');
@@ -43770,29 +43770,29 @@ function openBienMenu(evt, kind, ref, immNom) {
       }
     }
     if(entId !== null && idx >= 0) {
-      html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openImmFiche(${entId},${immId})">📋 Voir détails</button>`;
-      html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();editImm(${idx},${entId})">✏ Modifier l'immeuble</button>`;
+      html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openImmFiche(${entId},${immId})">${_uiIcon('eye')} Voir détails</button>`;
+      html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();editImm(${idx},${entId})">${_uiIcon('edit')} Modifier l'immeuble</button>`;
       html += `<div class="bmp-divider" role="separator"></div>`;
-      html += `<button class="bmp-item bmp-danger" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();delImm(${idx},${entId})">🗑 Supprimer l'immeuble</button>`;
+      html += `<button class="bmp-item bmp-danger" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();delImm(${idx},${entId})">${_uiIcon('trash')} Supprimer l'immeuble</button>`;
     } else {
       // Carte "Logements isolés" (logements sans immeuble structuré) → renvoyer vers le 1er log.
       if(ref) {
-        html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openLogFiche('${refSafe}')">📋 Voir le logement</button>`;
+        html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openLogFiche('${refSafe}')">${_uiIcon('eye')} Voir le logement</button>`;
       } else {
         html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();showToast('Aucun logement à afficher','info')">ℹ Vide</button>`;
       }
     }
   } else if(ref) {
     // Actions logement
-    html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openLogFiche('${refSafe}')">📋 Voir détails</button>`;
-    html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openNewLog('${refSafe}')">✏ Modifier</button>`;
+    html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openLogFiche('${refSafe}')">${_uiIcon('eye')} Voir détails</button>`;
+    html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openNewLog('${refSafe}')">${_uiIcon('edit')} Modifier</button>`;
     html += `<div class="bmp-divider" role="separator"></div>`;
     if(isArchived) {
-      html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();restoreLogement('${refSafe}')">↺ Restaurer</button>`;
+      html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();restoreLogement('${refSafe}')">${_uiIcon('refresh')} Restaurer</button>`;
     } else {
-      html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();archiveLogement('${refSafe}')">📦 Archiver</button>`;
+      html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();archiveLogement('${refSafe}')">${_uiIcon('archive')} Archiver</button>`;
     }
-    html += `<button class="bmp-item bmp-danger" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();delLog('${refSafe}')">🗑 Supprimer définitivement</button>`;
+    html += `<button class="bmp-item bmp-danger" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();delLog('${refSafe}')">${_uiIcon('trash')} Supprimer définitivement</button>`;
   }
   _openMenuPopover(evt, html);
 }
