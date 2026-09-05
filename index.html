@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.588</title>
+<title>Propryo v15.589</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.588</em>
+      <em>v15.589</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4260,7 +4260,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.588';
+const IMMOTRACK_VERSION = '15.589';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -35291,6 +35291,18 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
   else if(firstRef) onClick = `openLogFiche('${escHtml(firstRef)}')`; // fallback pour logements orphelins (pas d'immeuble structuré)
   const archCls = isArchived ? ' is-archived' : '';
   const archBadge = isArchived ? '<span class="bien-card-archived-badge">Archivé</span>' : '';
+  // MOBILE-REFONTE lot 3b — carte immeuble compacte sur téléphone.
+  if (_isPhone()) {
+    _ensureBiencPhCss();
+    const occLbl = `${agg.nbOccupes}/${agg.nbTotal} loué${agg.nbOccupes>1?'s':''}`;
+    const metaBits = [`${agg.nbTotal} bien${agg.nbTotal>1?'s':''}`, typeLabel].filter(Boolean).map(escHtml).join(' · ');
+    return `<article class="bienc-ph${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">`
+      +`<div class="bienc-thumb">${im && im.id ? _coverImg('immeuble', im.id, '🏢') : '<span>🏢</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
+      +`<div class="bienc-mid"><div class="bienc-ref">${titleEsc}</div>${subtitleEsc?`<div class="bienc-ten">${subtitleEsc}</div>`:''}`
+      +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${fmt(agg.loyerHC)}<small> HC</small></span></div></div>`
+      +`<button class="bienc-menu" onclick="event.stopPropagation();openBienMenu(event,'building','${escHtml(firstRef||'')}','${escHtml(immNom||'')}')" aria-label="Actions">⋮</button>`
+      +`</article>`;
+  }
   return `<article class="bien-card${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
     <div class="bien-card-header">
       <span class="bch-bailleur" title="${bailleurEsc}">${bailleurEsc}</span>
@@ -35320,6 +35332,42 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
   </article>`;
 }
 
+// MOBILE-REFONTE lot 2a — CSS carte logement compacte (téléphone), injecté une seule fois.
+function _ensureBiencPhCss(){
+  if(document.getElementById('bienc-ph-css')) return;
+  var st=document.createElement('style'); st.id='bienc-ph-css';
+  st.textContent=[
+    '@media(max-width:767px){#p-biens .biens-grid,#p-imm-fiche .biens-grid,#p-ent-fiche .biens-grid{grid-template-columns:1fr!important;gap:9px!important}}',
+    '.bienc-ph{display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:11px 12px;cursor:pointer;margin:0;min-width:0;max-width:100%;overflow:hidden}',
+    '.bienc-ph .bienc-thumb{width:52px;height:52px;border-radius:11px;flex:0 0 auto;position:relative;overflow:hidden;background:var(--sur3);display:flex;align-items:center;justify-content:center;font-size:22px}',
+    '.bienc-ph .bienc-thumb img{width:100%;height:100%;object-fit:cover;display:block}',
+    '.bienc-ph .bienc-thumb.logo img{object-fit:contain;padding:6px;background:#fff}',
+    '.bienc-ph.is-archived .bienc-thumb{filter:grayscale(1) opacity(.6)}',
+    '.bienc-ph .bienc-badge{position:absolute;left:0;right:0;bottom:0;font-size:8px;font-weight:800;text-align:center;padding:3px 2px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.bienc-ph .bienc-badge.loue{background:rgba(29,143,111,.95);color:#fff}',
+    '.bienc-ph .bienc-badge.vac{background:rgba(46,52,64,.92);color:#e6ebf2}',
+    '.bienc-ph .bienc-badge.arch{background:rgba(46,52,64,.92);color:#aeb7c4}',
+    '.bienc-ph .bienc-mid{flex:1;min-width:0}',
+    '.bienc-ph .bienc-ref{font-family:var(--ff-display,"Schibsted Grotesk","Inter",sans-serif);font-weight:800;color:var(--t1);font-size:15px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.bienc-ph .bienc-ten{font-size:12px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}',
+    '.bienc-ph .bienc-r3{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;min-width:0}',
+    '.bienc-ph .bienc-meta{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.bienc-ph .bienc-rent{font-size:12px;color:var(--t1);font-weight:700;white-space:nowrap;flex:0 0 auto}',
+    '.bienc-ph .bienc-rent small{color:var(--t3);font-weight:500;font-size:10.5px}',
+    '.bienc-ph .bienc-menu{flex:0 0 auto;background:none;border:0;color:var(--t3);font-size:18px;line-height:1;padding:2px 4px;cursor:pointer;align-self:flex-start}',
+    '@media(max-width:767px){',
+    '#p-biens .biens-toolbar{flex-direction:column;gap:10px;align-items:stretch}',
+    '#p-biens .biens-toolbar-left,#p-biens .biens-toolbar-right{width:100%}',
+    '#p-biens .biens-toolbar-right{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
+    '#p-biens .biens-view-toggle{display:flex;width:100%}',
+    '#p-biens .biens-view-toggle .bvt{flex:1;min-width:0;font-size:12px;padding:9px 4px;white-space:nowrap;text-align:center}',
+    '#p-biens .biens-search-wrap{flex:1 1 100%}',
+    '#p-biens .biens-search{width:100%}',
+    '#p-biens #biens-add-btn{flex:1 1 100%}',
+    '}'
+  ].join('');
+  document.head.appendChild(st);
+}
 function _renderLogementCardFlat(l) {
   const bail = _bienActiveBail(l.ref);
   const occupied = !!bail;
@@ -35337,6 +35385,22 @@ function _renderLogementCardFlat(l) {
   const isArchived = !!l.archived;
   const archCls = isArchived ? ' is-archived' : '';
   const archBadge = isArchived ? '<span class="bien-card-archived-badge">Archivé</span>' : '';
+  // MOBILE-REFONTE lot 2a — carte compacte sur téléphone (données identiques ; PC inchangé).
+  if (_isPhone()) {
+    _ensureBiencPhCss();
+    const badgeCls = isArchived ? 'arch' : (occupied ? 'loue' : 'vac');
+    const badgeLbl = isArchived ? 'Archivé' : occupLabel;
+    const metaBits = [typeLabel, (l.surf?fmtN(l.surf)+' m²':''), (l.imm||'')].filter(Boolean).map(escHtml).join(' · ');
+    const rentPh = (occupied || !isArchived)
+      ? `${fmt(l.hc||0)}<small> HC</small>${l.ch?` <small>+${fmt(l.ch)}</small>`:''}`
+      : `${fmt(l.hc||0)}<small> /mois</small>`;
+    return `<article class="bienc-ph${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">`
+      +`<div class="bienc-thumb">${_coverImg('logement', l.id, '🏠')}<span class="bienc-badge ${badgeCls}">${escHtml(badgeLbl)}</span></div>`
+      +`<div class="bienc-mid"><div class="bienc-ref">${titleEsc}</div><div class="bienc-ten">${subtitleEsc}</div>`
+      +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${rentPh}</span></div></div>`
+      +`<button class="bienc-menu" onclick="event.stopPropagation();openBienMenu(event,'logement','${escHtml(l.ref)}','${escHtml(l.imm||'')}')" aria-label="Actions">⋮</button>`
+      +`</article>`;
+  }
   return `<article class="bien-card${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
     <div class="bien-card-header">
       <span class="bch-bailleur" title="${bailleurEsc}">${bailleurEsc}</span>
@@ -35527,6 +35591,18 @@ function _renderBailleurCard(ent, isArchivedTab) {
   const onClick  = `openEntFiche(${idEsc})`;
   const occupTxt = nbLogs ? `${occupes}/${nbLogs} ${nbLogs>1?'logements loués':'logement loué'}` : 'Aucun logement';
   const subtitle = ent.siren ? `SIREN ${escHtml(ent.siren)}` : (ent.gerant ? `Gérant : ${escHtml(ent.gerant)}` : '');
+  // MOBILE-REFONTE lot 4b — carte bailleur compacte sur téléphone.
+  if (_isPhone()) {
+    _ensureBiencPhCss();
+    const occLbl = nbLogs ? `${occupes}/${nbLogs} loué${occupes>1?'s':''}` : 'Aucun bien';
+    const metaBits = [`${nbImms} immeuble${nbImms>1?'s':''}`, `${nbLogs} bien${nbLogs>1?'s':''}`].map(escHtml).join(' · ');
+    return `<article class="bienc-ph" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">`
+      +`<div class="bienc-thumb${ent.logo?' logo':''}">${ent.logo ? `<img src="${escHtml(ent.logo)}" alt="">` : '<span>🏛</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
+      +`<div class="bienc-mid"><div class="bienc-ref">${escHtml(ent.nom||'—')}</div>${subtitle?`<div class="bienc-ten">${subtitle}</div>`:''}`
+      +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${fmt(loyerHC)}<small> HC</small></span></div></div>`
+      +`<button class="bienc-menu" onclick="event.stopPropagation();openBailleurMenu(event,${idEsc})" aria-label="Actions">⋮</button>`
+      +`</article>`;
+  }
   return `<article class="bien-card" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
     <div class="bien-card-header">
       <span class="bch-bailleur" title="${escHtml(ent.type||'Bailleur')}">${escHtml(ent.type||'Bailleur')}</span>
@@ -35618,6 +35694,7 @@ function setEntFicheComptaYear(y) {
 
 function rEntFiche() {
   const wrap = el('ent-fiche-content'); if(!wrap) return;
+  try{ if(_isPhone()) _ensureLogFichePhCss(); }catch(e){}   // MOBILE-REFONTE — compaction fiche bailleur sur téléphone
   if(!_currentEntFiche) { wrap.innerHTML = '<p class="mu">Aucun bailleur sélectionné.</p>'; return; }
   const ent = (DB.entites||[]).find(e => +e.id === _currentEntFiche);
   if(!ent) {
@@ -36681,6 +36758,7 @@ function _renderBiensModeBailleurs(wrap, cntEl) {
 
 function rBiens() {
   const wrap = el('biens-list-wrap'); if(!wrap) return;
+  try{ if(_isPhone()) _ensureBiencPhCss(); }catch(e){}   // MOBILE-REFONTE lot 2b — CSS toolbar téléphone présent quel que soit le mode
   // Fil COMPLET (Task 8) : bandeau de reprise AVANT les early-returns (empty states, mode bailleurs)
   // pour qu'il soit rafraîchi à chaque rendu de la page, quel que soit le sous-onglet.
   if(typeof _frRenderResumeBanner==='function') _frRenderResumeBanner();
@@ -42274,8 +42352,31 @@ function _goToBiensRoot() {
   // le hash de la page cible (#p-biens…), l'entrée vide ne créait qu'un « retour mort ».
 }
 
+// MOBILE-REFONTE lot 2c — compaction CSS de la fiche logement sur téléphone (photo réduite,
+// pulse 24 mois masqué, stats 2×2, actions empilées, sous-onglets scrollables, anti-débordement).
+// Réutilise tout le reste (hero, onglets, panneaux) ; PC/tablette inchangés.
+function _ensureLogFichePhCss(){
+  if(document.getElementById('logf-ph-css')) return;
+  var st=document.createElement('style'); st.id='logf-ph-css';
+  st.textContent=[
+    '@media(max-width:767px){',
+    '#p-log-fiche,#p-imm-fiche,#p-ent-fiche{overflow-x:hidden}',
+    '.logf-photos,.logf-photos-mini{width:56px!important;height:56px!important;min-width:56px!important;max-width:56px!important;flex:0 0 56px!important;border-radius:12px;overflow:hidden}',
+    '.logf-photos img,.logf-photos-mini img{width:100%!important;height:100%!important;object-fit:cover}',
+    '.logf-hero-pulse{display:none!important}',
+    '.logf-title{font-size:18px!important;line-height:1.15}',
+    '.logf-hero-stats{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;margin-top:10px}',
+    '.logf-actions{display:flex!important;flex-direction:column!important;gap:8px!important;margin-top:12px}',
+    '.logf-actions>*{width:100%!important}',
+    '.logf-subtabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}',
+    '.logf-subtab{flex:1 0 auto;white-space:nowrap}',
+    '}'
+  ].join('');
+  document.head.appendChild(st);
+}
 function rLogFiche() {
   const wrap = el('log-fiche-content'); if(!wrap) return;
+  try{ if(_isPhone()) _ensureLogFichePhCss(); }catch(e){}
   const ref = _currentLogFicheRef;
   if(!ref) {
     wrap.innerHTML = '<p class="mu">Aucun bien sélectionné.</p>';
@@ -42760,6 +42861,7 @@ function _renderOccupationDonut(loues, total, sizePx) {
 
 function rImmFiche() {
   const wrap = el('imm-fiche-content'); if(!wrap) return;
+  try{ if(_isPhone()) _ensureLogFichePhCss(); }catch(e){}   // MOBILE-REFONTE — compaction fiche immeuble sur téléphone
   if(!_currentImmFiche) { wrap.innerHTML = '<p class="mu">Aucun immeuble sélectionné.</p>'; return; }
   const { entId, immId } = _currentImmFiche;
   const ent = (DB.entites||[]).find(e => +e.id === entId);
