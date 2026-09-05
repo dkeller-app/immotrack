@@ -3793,7 +3793,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="mu sm" id="edl-photos-abri" style="margin-top:2px"></div>
     </div>
     <!-- Fermer ENREGISTRE (CDC §1) : aucune popup « voulez-vous enregistrer ? ». -->
-    <button class="m-close" onclick="edlCloseModal()">✕</button>
+    <button class="m-close" onclick="edlCloseModal()"><span data-uic="close"></span></button>
   </div>
 
   <!-- v14.42 EDL-AUDIT-CRITIQUE Phase 4b : bandeau verrouillage EDL signé.
@@ -3801,7 +3801,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
        voir l'état signé et propose un bouton de réinitialisation avec confirm fort. -->
   <div id="edl-locked-banner" style="display:none;background:#fef3c7;border-bottom:2px solid #d97706;padding:10px 18px;font-size:13px;color:#7c2d12;flex-shrink:0">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span style="font-weight:700">🔒 EDL signé le <span id="edl-locked-date">—</span></span>
+      <span style="font-weight:700"><span data-uic="lock"></span> EDL signé le <span id="edl-locked-date">—</span></span>
       <span style="flex:1;min-width:200px">— Document figé en lecture seule. Les modifications nécessitent de réinitialiser la signature.</span>
       <button class="btn br bb edl-unlock-btn" onclick="_edlResetSignatureUI()" style="background:#dc2626;color:#fff;font-weight:600;padding:6px 12px;border:none;border-radius:6px;cursor:pointer">🔓 Réinitialiser signature</button>
     </div>
@@ -3865,7 +3865,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <div id="edl-mobilier-section" data-edl-step="mobilier" style="border:1px solid #f5d28e;background:#fffaf0;border-radius:var(--r);padding:12px;margin-bottom:12px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;color:#92400e;font-size:13px">
         <input type="checkbox" id="edl-mob-enabled" onchange="_edlToggleMobilierFields()" style="width:18px;height:18px">
-        <span>📚 Logement meublé — inclure l'inventaire mobilier détaillé (décret 2015-981)</span>
+        <span><span data-uic="list"></span> Logement meublé — inclure l'inventaire mobilier détaillé (décret 2015-981)</span>
       </label>
       <div class="mu sm" style="margin-top:4px;color:#78350f;font-size:11.5px">
         Pré-coché automatiquement si bail meublé/étudiant/mobilité associé. À l'activation, les 11 catégories
@@ -3895,7 +3895,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 
     <!-- §1 bis — v15.08 Sprint 9 — Sécurité incendie (DAAF, EDL entrée surtout) -->
     <div id="edl-daaf-section" data-edl-step="daaf" style="border:1px solid #d97706;background:#fef9c3;border-radius:var(--r);padding:12px;margin-bottom:12px">
-      <div style="font-weight:700;color:#78350f;font-size:13px;margin-bottom:6px">🚨 Sécurité incendie — Détecteur de fumée (DAAF)</div>
+      <div style="font-weight:700;color:#78350f;font-size:13px;margin-bottom:6px"><span data-uic="warn"></span> Sécurité incendie — Détecteur de fumée (DAAF)</div>
       <div class="mu sm" style="font-size:11.5px;line-height:1.55;margin-bottom:10px;color:#78350f">
         Le constat de la présence du détecteur de fumée à l'entrée du locataire est <strong>juridiquement essentiel</strong> en cas d'incendie ultérieur
         (loi 2010-238 art. R129-12). Une photo datée est fortement recommandée comme preuve.
@@ -3903,23 +3903,23 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <label class="flex-c" style="gap:6px;cursor:pointer;font-size:13px">
           <input type="radio" name="edl-daaf-statut" id="edl-daaf-present" value="present" onchange="_edlDaafChange()">
-          <span>✓ DAAF présent et fonctionnel</span>
+          <span><span data-uic="check"></span> DAAF présent et fonctionnel</span>
         </label>
         <label class="flex-c" style="gap:6px;cursor:pointer;font-size:13px">
           <input type="radio" name="edl-daaf-statut" id="edl-daaf-defaut" value="defaut" onchange="_edlDaafChange()">
-          <span>⚠ DAAF présent mais à vérifier</span>
+          <span><span data-uic="warn"></span> DAAF présent mais à vérifier</span>
         </label>
         <label class="flex-c" style="gap:6px;cursor:pointer;font-size:13px">
           <input type="radio" name="edl-daaf-statut" id="edl-daaf-absent" value="absent" onchange="_edlDaafChange()">
-          <span>✗ DAAF absent (à installer par le bailleur)</span>
+          <span><span data-uic="close"></span> DAAF absent (à installer par le bailleur)</span>
         </label>
       </div>
       <div id="edl-daaf-photo-wrap" style="margin-top:8px">
-        <label style="font-size:11.5px;font-weight:600;display:block;margin-bottom:4px">📷 Photo du détecteur (recommandée)</label>
-        <button type="button" class="btn bs" onclick="edlAddDaafPhoto()" style="font-size:11.5px">📷 Ajouter une photo</button>
+        <label style="font-size:11.5px;font-weight:600;display:block;margin-bottom:4px"><span data-uic="camera"></span> Photo du détecteur (recommandée)</label>
+        <button type="button" class="btn bs" onclick="edlAddDaafPhoto()" style="font-size:11.5px"><span data-uic="camera"></span>Ajouter une photo</button>
         <div id="edl-cpt-daaf-thumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
         <div id="edl-daaf-warning" class="mu sm" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;border:1px solid #dc2626;border-radius:var(--rl);color:#7f1d1d;font-size:11.5px;line-height:1.5">
-          ⚠ <strong>Risque juridique</strong> : sans photo datée du détecteur, vous n'aurez aucune preuve de sa présence à l'entrée du locataire en cas d'incendie.
+          <span data-uic="warn"></span> <strong>Risque juridique</strong> : sans photo datée du détecteur, vous n'aurez aucune preuve de sa présence à l'entrée du locataire en cas d'incendie.
           L'absence de DAAF expose le bailleur à des sanctions pénales (loi 2010-238).
         </div>
       </div>
@@ -3937,9 +3937,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
           <th style="width:110px">Compteur</th>
           <th style="width:100px">N° / Réf.</th>
           <th style="background:rgba(0,100,200,.08)">↘ Entrée — Relevé</th>
-          <th style="width:90px;text-align:center;background:rgba(0,100,200,.08)">📷 E</th>
+          <th style="width:90px;text-align:center;background:rgba(0,100,200,.08)"><span data-uic="camera"></span> E</th>
           <th class="edl-col-s" style="background:rgba(26,82,118,.12)">↗ Sortie — Relevé</th>
-          <th class="edl-col-s" style="width:90px;text-align:center;background:rgba(26,82,118,.12)">📷 S</th>
+          <th class="edl-col-s" style="width:90px;text-align:center;background:rgba(26,82,118,.12)"><span data-uic="camera"></span> S</th>
         </tr></thead>
         <tbody>
           <tr>
@@ -3948,13 +3948,13 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
             <td data-label="↘ Entrée — Relevé"><span style="font-size:11px">HP</span><input class="inp" id="edl-cpt-elec-hp" style="width:62px" placeholder="kWh">
                 <span style="font-size:11px">HC</span><input class="inp" id="edl-cpt-elec-hc" style="width:62px" placeholder="kWh"></td>
             <td data-label="📷 Photos entrée" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('elec')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px">📷</button>
+              <button type="button" onclick="edlCptAddPhoto('elec')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
               <div id="edl-cpt-elec-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
             <td data-label="↗ Sortie — Relevé" class="edl-col-s"><span style="font-size:11px">HP</span><input class="inp" id="edl-cpt-elec-hp-s" style="width:62px" placeholder="kWh">
                 <span style="font-size:11px">HC</span><input class="inp" id="edl-cpt-elec-hc-s" style="width:62px" placeholder="kWh"></td>
             <td data-label="📷 Photos sortie" class="edl-col-s" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('elecS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px">📷</button>
+              <button type="button" onclick="edlCptAddPhoto('elecS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
               <div id="edl-cpt-elecS-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
           </tr>
@@ -3963,12 +3963,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-gaz-num" style="width:86px" placeholder="N°"></td>
             <td data-label="↘ Entrée — Relevé"><input class="inp" id="edl-cpt-gaz" style="width:80px" placeholder="m³"></td>
             <td data-label="📷 Photos entrée" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('gaz')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px">📷</button>
+              <button type="button" onclick="edlCptAddPhoto('gaz')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
               <div id="edl-cpt-gaz-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
             <td data-label="↗ Sortie — Relevé" class="edl-col-s"><input class="inp" id="edl-cpt-gaz-s" style="width:80px" placeholder="m³"></td>
             <td data-label="📷 Photos sortie" class="edl-col-s" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('gazS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px">📷</button>
+              <button type="button" onclick="edlCptAddPhoto('gazS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
               <div id="edl-cpt-gazS-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
           </tr>
@@ -3977,12 +3977,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-eau-c-num" style="width:86px" placeholder="N°"></td>
             <td data-label="↘ Entrée — Relevé"><input class="inp" id="edl-cpt-eau-c" style="width:80px" placeholder="m³"></td>
             <td data-label="📷 Photos entrée" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('eauC')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px">📷</button>
+              <button type="button" onclick="edlCptAddPhoto('eauC')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
               <div id="edl-cpt-eauC-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
             <td data-label="↗ Sortie — Relevé" class="edl-col-s"><input class="inp" id="edl-cpt-eau-c-s" style="width:80px" placeholder="m³"></td>
             <td data-label="📷 Photos sortie" class="edl-col-s" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('eauCS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px">📷</button>
+              <button type="button" onclick="edlCptAddPhoto('eauCS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
               <div id="edl-cpt-eauCS-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
           </tr>
@@ -3991,12 +3991,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-eau-f-num" style="width:86px" placeholder="N°"></td>
             <td data-label="↘ Entrée — Relevé"><input class="inp" id="edl-cpt-eau-f" style="width:80px" placeholder="m³"></td>
             <td data-label="📷 Photos entrée" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('eauF')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px">📷</button>
+              <button type="button" onclick="edlCptAddPhoto('eauF')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
               <div id="edl-cpt-eauF-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
             <td data-label="↗ Sortie — Relevé" class="edl-col-s"><input class="inp" id="edl-cpt-eau-f-s" style="width:80px" placeholder="m³"></td>
             <td data-label="📷 Photos sortie" class="edl-col-s" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('eauFS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px">📷</button>
+              <button type="button" onclick="edlCptAddPhoto('eauFS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
               <div id="edl-cpt-eauFS-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
           </tr>
@@ -4065,9 +4065,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <thead><tr>
           <th>Type de clé / accès</th>
           <th style="width:55px;text-align:center;background:rgba(0,100,200,.08)">Nb E</th>
-          <th style="width:80px;text-align:center;background:rgba(0,100,200,.08)">📷 E</th>
+          <th style="width:80px;text-align:center;background:rgba(0,100,200,.08)"><span data-uic="camera"></span> E</th>
           <th id="edl-cle-th-nbs" style="width:55px;text-align:center;background:rgba(26,82,118,.12)">Nb S</th>
-          <th id="edl-cle-th-phs" style="width:80px;text-align:center;background:rgba(26,82,118,.12)">📷 S</th>
+          <th id="edl-cle-th-phs" style="width:80px;text-align:center;background:rgba(26,82,118,.12)"><span data-uic="camera"></span> S</th>
           <th>Commentaires</th>
           <th style="width:28px"></th>
         </tr></thead>
@@ -4134,12 +4134,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <div>
           <div style="font-size:11px;font-weight:600;margin-bottom:4px">Bailleur / Représentant</div>
           <canvas id="edl-sig-bailleur" width="340" height="100" style="border:1px solid var(--bor);border-radius:var(--r);background:white;touch-action:none;cursor:crosshair;display:block;width:100%;max-width:340px"></canvas>
-          <button class="btn bs bb mt4" onclick="clearSig('edl-sig-bailleur')" style="font-size:11px">✕ Effacer</button>
+          <button class="btn bs bb mt4" onclick="clearSig('edl-sig-bailleur')" style="font-size:11px"><span data-uic="close"></span>Effacer</button>
         </div>
         <div>
           <div style="font-size:11px;font-weight:600;margin-bottom:4px">Locataire(s)</div>
           <canvas id="edl-sig-locataire" width="340" height="100" style="border:1px solid var(--bor);border-radius:var(--r);background:white;touch-action:none;cursor:crosshair;display:block;width:100%;max-width:340px"></canvas>
-          <button class="btn bs bb mt4" onclick="clearSig('edl-sig-locataire')" style="font-size:11px">✕ Effacer</button>
+          <button class="btn bs bb mt4" onclick="clearSig('edl-sig-locataire')" style="font-size:11px"><span data-uic="close"></span>Effacer</button>
         </div>
       </div>
       <!-- Finalisation MOBILE : plus de bouton flottant ici — l'action « ✅ Enregistrer l'état
@@ -4154,8 +4154,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
          liste (bouton 🗑 → delEDL, avec sa confirmation). Fermer = ✕ en haut,
          qui enregistre. « 💾 Enregistrer » reste sur PC et tablette, il est
          masqué sur téléphone (l'enregistrement y est automatique). -->
-    <button class="btn bs" onclick="downloadEDLPdfFromForm()" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">📤 Partager le PDF</button>
-    <button class="btn bp" id="edl-btn-save" onclick="saveEDL()">💾 Enregistrer</button>
+    <button class="btn bs" onclick="downloadEDLPdfFromForm()" title="Partager le PDF (WhatsApp, mail…) ou le télécharger"><span data-uic="share"></span>Partager le PDF</button>
+    <button class="btn bp" id="edl-btn-save" onclick="saveEDL()"><span data-uic="save"></span>Enregistrer</button>
     <input type="hidden" id="edl-edit-id">
   </div>
 
@@ -4181,7 +4181,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <div class="edl-sheet-panel">
       <div class="edl-sheet-head">
         <b>Les étapes de l'état des lieux</b>
-        <button class="edl-sheet-close" onclick="_edlClosePieceSheet()" aria-label="Fermer">✕</button>
+        <button class="edl-sheet-close" onclick="_edlClosePieceSheet()" aria-label="Fermer"><span data-uic="close"></span></button>
       </div>
       <div id="edl-piece-sheet-list" class="edl-sheet-list"></div>
       <!-- §2.5 — l'ajout de pièce vit ICI (feuille des étapes), plus dans le flux des pièces. -->
@@ -4357,6 +4357,20 @@ function _uiIcon(name, size) {
   var p = P[name] || P.doc;
   var sz = size || 16;
   return '<svg class="uic" viewBox="0 0 24 24" width="' + sz + '" height="' + sz + '" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
+}
+
+// LINE-ICONS (DOM statique) : les emoji de chrome du markup EDL non genere par JS sont
+// remplaces par des placeholders <span data-uic="nom"> ; on les hydrate ici via _uiIcon
+// (source unique — aucun SVG recopie dans le HTML). Idempotent, une passe au boot.
+function _uiHydrateSlots(root) {
+  (root || document).querySelectorAll('span[data-uic]').forEach(function(s) {
+    var sz = s.getAttribute('data-uic-size');
+    s.outerHTML = _uiIcon(s.getAttribute('data-uic'), sz ? +sz : undefined);
+  });
+}
+if (typeof document !== 'undefined') {
+  if (document.readyState !== 'loading') _uiHydrateSlots();
+  else document.addEventListener('DOMContentLoaded', function(){ _uiHydrateSlots(); });
 }
 // v14.80 SECU-INNERHTML — Sprint 1A
 // _esc alias court pour escHtml (existant).
@@ -30512,8 +30526,8 @@ function edlOpenView(id) {
   const share = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
   const _EPv = (typeof window !== 'undefined') ? window.EdlPhotos : null;
   const nPhotos = _EPv ? _EPv.collectEdlPhotos(edl).length : 0;
-  const actions = `${nPhotos ? `<button class="btn bs bb bprim" onclick="edlOpenGallery(${id})">🖼 Toutes les photos (${nPhotos})</button>` : ''}
-    <button class="btn bs bb" onclick="downloadEDLPdfNative(${id},{share:true})">${share ? '📤 Partager' : '⬇️ Télécharger le PDF'}</button>`;
+  const actions = `${nPhotos ? `<button class="btn bs bb bprim" onclick="edlOpenGallery(${id})">${_uiIcon('camera')}Toutes les photos (${nPhotos})</button>` : ''}
+    <button class="btn bs bb" onclick="downloadEDLPdfNative(${id},{share:true})">${share ? _uiIcon('share')+'Partager' : _uiIcon('download')+'Télécharger le PDF'}</button>`;
   const st = `${edl.type || ''} · ${edl.logement || ''} · ${fd(edl.date) || ''}`;
   const o = _edlConsultShell('ov-edl-view', 'État des lieux', st, corps, actions);
   _edlHydrateVThumbs(o);
@@ -30603,7 +30617,7 @@ function edlOpenGallery(id) {
     </div>`;
   }).join('');
   const share = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
-  const actions = share ? `<button class="btn bs bb bprim" onclick="_edlSharePhotos(${id})">📤 Partager les photos</button>` : '';
+  const actions = share ? `<button class="btn bs bb bprim" onclick="_edlSharePhotos(${id})">${_uiIcon('share')}Partager les photos</button>` : '';
   const o = _edlConsultShell('ov-edl-gal', 'Photos', `${edl.logement || ''} · ${items.length} photo(s)`, `<div class="edl-gal-grid">${cells}</div>`, actions);
   _edlHydrateVThumbs(o);
 }
@@ -30627,7 +30641,7 @@ function rEDLList() {
     const _share = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
     // Indicateur cloud CALME (plus de fraction « 3/4 à l'abri » — décision 27/08).
     const abri = _edlCloudBadgeHtml(e);
-    const sig=e.signatures?.bailleur||e.signatures?.locataire?' ✍️':'';
+    const sig=e.signatures?.bailleur||e.signatures?.locataire?' '+_uiIcon('sign'):'';
     // EDL TERRAIN lot 1 (CDC §1) : « Brouillon » tant qu'aucune signature
     // n'existe. Ce n'est pas un autre magasin — c'est le même EDL, en cours.
     const brouillon = (e.signatures && (e.signatures.bailleur || e.signatures.locataire))
@@ -30638,11 +30652,11 @@ function rEDLList() {
       <td>${fd(e.date)}</td>
       <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${abri}</td>
       <td class="act-cell">
-        <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Éditer l'état des lieux">✏️</button>
-        <button class="btn bs bb" onclick="edlOpenView(${e.id})" title="Voir l'état des lieux (lecture seule)">👁 Voir l'EDL</button>
-        ${nph ? `<button class="btn bs bb" onclick="edlOpenGallery(${e.id})" title="Voir toutes les photos en grand (cloud en priorité)">🖼 Photos</button>` : ''}
-        <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="${_share ? 'Envoyer au locataire (WhatsApp, mail…)' : 'Télécharger le PDF (Enregistrer sous)'}">${_share ? '📤 Partager' : '⬇️ Télécharger'}</button>
-        <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">🗑</button>
+        <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Éditer l'état des lieux">${_uiIcon('edit')}</button>
+        <button class="btn bs bb" onclick="edlOpenView(${e.id})" title="Voir l'état des lieux (lecture seule)">${_uiIcon('eye')}Voir l'EDL</button>
+        ${nph ? `<button class="btn bs bb" onclick="edlOpenGallery(${e.id})" title="Voir toutes les photos en grand (cloud en priorité)">${_uiIcon('camera')}Photos</button>` : ''}
+        <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="${_share ? 'Envoyer au locataire (WhatsApp, mail…)' : 'Télécharger le PDF (Enregistrer sous)'}">${_share ? _uiIcon('share')+'Partager' : _uiIcon('download')+'Télécharger'}</button>
+        <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">${_uiIcon('trash')}</button>
       </td></tr>`;
   }).join('')||'<tr><td colspan="6" class="mu" style="text-align:center;padding:20px">Aucun état des lieux</td></tr>';
   _edlKickListUploads(list);
@@ -31018,7 +31032,7 @@ function _edlMobRender() {
     const _ph = (arr, side) => (arr || []).map((ph, phi) =>
       '<div style="position:relative;display:inline-block">'
       + '<img src="' + escHtml(_photoCache[ph.idbKey] || _EDL_PH_VIDE) + '" data-ph="' + escHtml(ph.idbKey || '') + '" alt="" class="edl-thumb" onclick="edlMobViewPhoto(' + idx + ',\'' + side + '\',' + phi + ')">'
-      + '<button type="button" class="edl-delphoto" onclick="edlMobDelPhoto(' + idx + ',\'' + side + '\',' + phi + ')" title="Supprimer">✕</button>'
+      + '<button type="button" class="edl-delphoto" onclick="edlMobDelPhoto(' + idx + ',\'' + side + '\',' + phi + ')" title="Supprimer">' + _uiIcon('close') + '</button>'
       + '</div>'
     ).join('');
     return ''
@@ -31029,7 +31043,7 @@ function _edlMobRender() {
       +       '<input class="inp" type="text" value="' + escHtml(m.nom) + '" oninput="edlMobUpdate(' + idx + ',\'nom\',this.value)" placeholder="Nom de l\'élément (ex : Literie, TV Samsung 55\')" style="flex:1">'
       +       '<input class="inp" type="text" value="' + escHtml(m.qte) + '" oninput="edlMobUpdate(' + idx + ',\'qte\',this.value)" placeholder="Quantité / désignation" style="flex:1">'
       +     '</div>'
-      +     '<button type="button" class="btn br bb" onclick="edlMobDelElement(' + idx + ')" title="Supprimer cet élément">🗑</button>'
+      +     '<button type="button" class="btn br bb" onclick="edlMobDelElement(' + idx + ')" title="Supprimer cet élément">' + _uiIcon('trash') + '</button>'
       +   '</div>'
       +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
       +     '<div style="border:1px solid #dbeafe;background:#eff6ff;border-radius:4px;padding:8px">'
@@ -31042,7 +31056,7 @@ function _edlMobRender() {
       +           '<option value="U"' + (m.etatE==='U'?' selected':'') + '>U — Usagé fonctionnel</option>'
       +           '<option value="HS"' + (m.etatE==='HS'?' selected':'') + '>HS — Hors service / manquant</option>'
       +         '</select>'
-      +         '<button type="button" class="btn bs bb" onclick="edlMobAddPhoto(' + idx + ',\'E\')" title="Ajouter photo entrée">📷+</button>'
+      +         '<button type="button" class="btn bs bb" onclick="edlMobAddPhoto(' + idx + ',\'E\')" title="Ajouter photo entrée">' + _uiIcon('camera') + '+</button>'
       +       '</div>'
       +       '<textarea class="inp" rows="2" oninput="edlMobUpdate(' + idx + ',\'obsE\',this.value)" placeholder="Observations entrée (taches, marques, défauts apparents…)" style="width:100%;font-size:12px">' + escHtml(m.obsE) + '</textarea>'
       +       (m.photosE && m.photosE.length ? '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">' + _ph(m.photosE, 'E') + '</div>' : '')
@@ -31057,7 +31071,7 @@ function _edlMobRender() {
       +           '<option value="U"' + (m.etatS==='U'?' selected':'') + '>U — Usagé fonctionnel</option>'
       +           '<option value="HS"' + (m.etatS==='HS'?' selected':'') + '>HS — Hors service / manquant</option>'
       +         '</select>'
-      +         '<button type="button" class="btn bs bb" onclick="edlMobAddPhoto(' + idx + ',\'S\')" title="Ajouter photo sortie">📷+</button>'
+      +         '<button type="button" class="btn bs bb" onclick="edlMobAddPhoto(' + idx + ',\'S\')" title="Ajouter photo sortie">' + _uiIcon('camera') + '+</button>'
       +       '</div>'
       +       '<textarea class="inp" rows="2" oninput="edlMobUpdate(' + idx + ',\'obsS\',this.value)" placeholder="Observations sortie (dégradations, manquements…)" style="width:100%;font-size:12px">' + escHtml(m.obsS) + '</textarea>'
       +       (m.photosS && m.photosS.length ? '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">' + _ph(m.photosS, 'S') + '</div>' : '')
@@ -31317,11 +31331,11 @@ async function edlLoadRef(type) {
 
   let bannerMsg;
   if(_edlSortie===true && type==='Entrée')
-    bannerMsg=`<b>📋 EDL Entrée du ${fd(srcDate)}</b> chargé — remplissez les colonnes <b>État sortie</b>`;
+    bannerMsg=`<b>${_uiIcon('list')} EDL Entrée du ${fd(srcDate)}</b> chargé — remplissez les colonnes <b>État sortie</b>`;
   else if(_edlSortie===false && type==='Sortie')
-    bannerMsg=`<b>📋 EDL Sortie du ${fd(srcDate)}</b> chargé — états et observations repris &nbsp;<button onclick="edlClearAllObs()" style="padding:2px 8px;font-size:10px;border:none;border-radius:10px;background:rgba(255,255,255,.25);color:white;cursor:pointer">🗑 Vider obs</button>`;
+    bannerMsg=`<b>${_uiIcon('list')} EDL Sortie du ${fd(srcDate)}</b> chargé — états et observations repris &nbsp;<button onclick="edlClearAllObs()" style="padding:2px 8px;font-size:10px;border:none;border-radius:10px;background:rgba(255,255,255,.25);color:white;cursor:pointer">${_uiIcon('trash')}Vider obs</button>`;
   else
-    bannerMsg=`<b>📋 EDL ${type} du ${fd(srcDate)}</b> chargé intégralement &nbsp;<button onclick="edlClearAllObs()" style="padding:2px 8px;font-size:10px;border:none;border-radius:10px;background:rgba(255,255,255,.25);color:white;cursor:pointer">🗑 Vider obs</button>`;
+    bannerMsg=`<b>${_uiIcon('list')} EDL ${type} du ${fd(srcDate)}</b> chargé intégralement &nbsp;<button onclick="edlClearAllObs()" style="padding:2px 8px;font-size:10px;border:none;border-radius:10px;background:rgba(255,255,255,.25);color:white;cursor:pointer">${_uiIcon('trash')}Vider obs</button>`;
   el('edl-ref-banner').innerHTML=bannerMsg;
   el('edl-ref-banner').style.display='';
   showToast((src.pieces||[]).length+' pièce(s) chargées depuis EDL '+type.toLowerCase(),'ok');
@@ -31689,7 +31703,7 @@ function _edlRenderRelecture() {
     ? `<div class="edl-rl-chips"><div class="edl-rl-chip ok"><span class="n">${b.conformes}</span><span class="l">conformes</span></div><div class="edl-rl-chip ko"><span class="n">${b.ecarts}</span><span class="l">écarts</span></div><div class="edl-rl-chip att"><span class="n">${b.aConstater}</span><span class="l">à constater</span></div></div>`
     : `<div class="edl-rl-chips"><div class="edl-rl-chip ok"><span class="n">${b.renseignes}</span><span class="l">renseignés</span></div><div class="edl-rl-chip att"><span class="n">${b.nonRenseignes}</span><span class="l">non renseignés</span></div></div>`;
   const alertHtml = alerts.length
-    ? `<div class="edl-rl-banner"><span class="ic">⚠️</span><span><b>À vérifier avant de signer :</b> ${alerts.map(escHtml).join(' · ')}. Toucher une ligne signalée pour la corriger — sinon la signature les confirme en connaissance de cause.</span></div>`
+    ? `<div class="edl-rl-banner"><span class="ic">${_uiIcon('warn')}</span><span><b>À vérifier avant de signer :</b> ${alerts.map(escHtml).join(' · ')}. Toucher une ligne signalée pour la corriger — sinon la signature les confirme en connaissance de cause.</span></div>`
     : '';
   const roomHtml = _edlP.map((p, pi) => {
     const opened = isS && R.pieceAUnEcart(p);
@@ -31712,7 +31726,7 @@ function _edlRenderRelecture() {
         right = `<span class="trans">${x.etatE ? escHtml(x.etatE) : '<span class="att">—</span>'}</span>`;
         if (x.obsE) obs += `<span class="obs e">${escHtml(x.obsE)}</span>`;
       }
-      lines += `<div class="edl-rl-li${flagged ? ' flag' : ''}"${flagged ? ` onclick="_edlGoToElement(${pi},${ei})"` : ''}><span class="nm">${escHtml(x.nom)}${obs}${flagged ? '<span class="fix">✎ corriger →</span>' : ''}</span>${right}</div>`;
+      lines += `<div class="edl-rl-li${flagged ? ' flag' : ''}"${flagged ? ` onclick="_edlGoToElement(${pi},${ei})"` : ''}><span class="nm">${escHtml(x.nom)}${obs}${flagged ? '<span class="fix">' + _uiIcon('edit') + ' corriger →</span>' : ''}</span>${right}</div>`;
     });
     const flag = isS ? R.lignesSignalees([p]).length : 0;
     const badge = isS ? (flag ? `<span class="edl-rl-badge ko">${flag} à voir</span>` : '<span class="edl-rl-badge ok">RAS</span>') : '';
@@ -31721,13 +31735,13 @@ function _edlRenderRelecture() {
   // AUDIT 26/08 — récap des sections ADMIN (détecteur / compteurs / clés) : on pouvait signer sans
   // les avoir revues. Résumé compact, read-only, avant l'inventaire des pièces.
   const _daafSt = (typeof _edlDaafState !== 'undefined' && _edlDaafState && _edlDaafState.statut) || null;
-  const _daafLbl = { present: '✅ présent et fonctionnel', defaut: '⚠️ présent, à vérifier', absent: '❌ absent' }[_daafSt] || '— non renseigné';
+  const _daafLbl = { present: '<span style="color:#16a34a">'+_uiIcon('check')+'</span> présent et fonctionnel', defaut: '<span style="color:#d97706">'+_uiIcon('warn')+'</span> présent, à vérifier', absent: '<span style="color:#dc2626">'+_uiIcon('close')+'</span> absent' }[_daafSt] || '— non renseigné';
   const _cptCount = ['edl-cpt-elec-hp','edl-cpt-elec-hc','edl-cpt-gaz','edl-cpt-eau-c','edl-cpt-eau-f'].filter(id => (typeof v === 'function' && v(id))).length;
   const _clesCount = ((typeof _edlGetCles === 'function' ? _edlGetCles() : []) || []).filter(c => c && (c.type || c.nb || c.nbS)).length;
   const adminHtml = `<div class="edl-rl-admin">
-    <div class="edl-rl-arow"><span>🚨 Détecteur de fumée</span><b>${_daafLbl}</b></div>
+    <div class="edl-rl-arow"><span>${_uiIcon('warn')} Détecteur de fumée</span><b>${_daafLbl}</b></div>
     <div class="edl-rl-arow"><span>🔢 Compteurs relevés</span><b>${_cptCount} / 5</b></div>
-    <div class="edl-rl-arow"><span>🔑 Clés renseignées</span><b>${_clesCount}</b></div>
+    <div class="edl-rl-arow"><span>${_uiIcon('key')} Clés renseignées</span><b>${_clesCount}</b></div>
   </div>`;
   host.innerHTML = `<div class="edl-rl">
     <div class="edl-rl-title">Relecture avant signature</div>
@@ -31817,12 +31831,12 @@ function _edlPhotoCell(pi,ei,side) {
     return `<div style="position:relative;display:inline-block;margin:1px;vertical-align:top">
       <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlViewPhoto(${pi},${ei},'${side}',${phi})" title="${escHtml(ph.name||'')}${ph._source?' ['+ph._source+' '+fd(ph._sourceDate)+']':''}">
       ${srcBadge}
-      ${locked?'':`<button class="edl-delphoto" onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" aria-label="Supprimer la photo">✕</button>`}
+      ${locked?'':`<button class="edl-delphoto" onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" aria-label="Supprimer la photo">${_uiIcon('close')}</button>`}
     </div>`;
   }).join('');
   return `<td style="padding:4px;text-align:center;vertical-align:top;min-width:60px">
     <div>${thumbs}</div>
-    ${locked?'':`<button onclick="edlAddPhoto(${pi},${ei},'${side}')" style="margin-top:2px;background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:2px 6px;white-space:nowrap">📷${photos.length?' +':''}</button>`}
+    ${locked?'':`<button onclick="edlAddPhoto(${pi},${ei},'${side}')" style="margin-top:2px;background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:2px 6px;white-space:nowrap">${_uiIcon('camera')}${photos.length?' +':''}</button>`}
   </td>`;
 }
 
@@ -31859,7 +31873,7 @@ function _edlRefreshVerdict(pi, ei) {
 function _edlElemRow(pi,ei,x,isSortie) {
   const inp='width:100%;background:transparent;border:none;color:var(--t1);font-size:12px;padding:1px 2px';
   const ta='width:100%;background:transparent;border:none;color:var(--t1);font-size:11px;resize:vertical;min-height:26px';
-  const del=`<td style="width:20px"><button onclick="edlRemoveElem(${pi},${ei})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px">✕</button></td>`;
+  const del=`<td style="width:20px"><button onclick="edlRemoveElem(${pi},${ei})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px">${_uiIcon('close')}</button></td>`;
   if(isSortie) return `<tr>
     <td><input style="${inp}" value="${escHtml(x.nom)}" onchange="edlElemNom(${pi},${ei},this.value)" placeholder="Élément"></td>
     <td class="edl-cell-etatE" style="text-align:center"><span class="edl-etatE-view">${_edlEtatPastille(x.etatE)}</span>${_edlBtns(pi,ei,'etatE',x.etatE)}</td>
@@ -31893,8 +31907,8 @@ function _edlPieceBadge(p) {
 function _edlPieceHTML(p,pi) {
   const isSortie=_edlSortie;
   const thead=isSortie
-    ?`<tr style="background:var(--sur2)"><th style="min-width:120px">Élément</th><th style="width:100px;text-align:center">État entrée</th><th style="min-width:80px">Obs. entrée</th><th style="width:65px;text-align:center">📷 Entrée</th><th style="width:100px;text-align:center">État sortie</th><th style="min-width:80px">Obs. sortie</th><th style="width:65px;text-align:center">📷 Sortie</th><th style="width:88px;text-align:center">Verdict</th><th style="width:20px"></th></tr>`
-    :`<tr style="background:var(--sur2)"><th style="min-width:140px">Élément</th><th style="width:100px;text-align:center">État</th><th>Observations</th><th style="width:65px;text-align:center">📷</th><th style="width:20px"></th></tr>`;
+    ?`<tr style="background:var(--sur2)"><th style="min-width:120px">Élément</th><th style="width:100px;text-align:center">État entrée</th><th style="min-width:80px">Obs. entrée</th><th style="width:65px;text-align:center">${_uiIcon('camera')} Entrée</th><th style="width:100px;text-align:center">État sortie</th><th style="min-width:80px">Obs. sortie</th><th style="width:65px;text-align:center">${_uiIcon('camera')} Sortie</th><th style="width:88px;text-align:center">Verdict</th><th style="width:20px"></th></tr>`
+    :`<tr style="background:var(--sur2)"><th style="min-width:140px">Élément</th><th style="width:100px;text-align:center">État</th><th>Observations</th><th style="width:65px;text-align:center">${_uiIcon('camera')}</th><th style="width:20px"></th></tr>`;
   const rows=(p.elements||[]).map((x,ei)=>_edlElemRow(pi,ei,x,isSortie)).join('');
   // lot 5 : chaque pièce est un BLOC adressable (data-pidx) — sur téléphone, le
   // parcours n'en montre qu'un à la fois (§4, §9 inv. 23). Le rendu reste celui-ci.
@@ -31906,13 +31920,13 @@ function _edlPieceHTML(p,pi) {
       </div>
       <div class="flex-c edl-piece-acts" style="gap:5px;flex:none">
         <button class="btn bs bb" onclick="edlAddElem(${pi})" style="font-size:11px">+ Élément</button>
-        <button class="btn br bb edl-piece-del-pc" onclick="edlRemovePiece(${pi})" style="font-size:11px">🗑</button>
+        <button class="btn br bb edl-piece-del-pc" onclick="edlRemovePiece(${pi})" style="font-size:11px">${_uiIcon('trash')}</button>
       </div>
       <!-- §2.6 (maquette) — sur téléphone : 2 pilules sous le titre (masquées sur PC, qui garde
            le 🗑 dense). Réutilisent edlPieceNom (renommer) et edlRemovePiece (supprimer). -->
       <div class="edl-piece-pills">
-        <button class="edl-pill" onclick="_edlRenamePiece(${pi})">✎ Renommer la pièce</button>
-        <button class="edl-pill edl-pill-del" onclick="edlRemovePiece(${pi})">✕ Supprimer la pièce</button>
+        <button class="edl-pill" onclick="_edlRenamePiece(${pi})">${_uiIcon('edit')} Renommer la pièce</button>
+        <button class="edl-pill edl-pill-del" onclick="edlRemovePiece(${pi})">${_uiIcon('close')} Supprimer la pièce</button>
       </div>
     </div>
     <div class="tbl-wrap" style="margin:0"><table class="tbl" style="margin:0"><thead>${thead}</thead><tbody>${rows}</tbody></table></div>
@@ -33647,9 +33661,9 @@ function _edlRedrawCles() {
     return `<div style="text-align:center;padding:2px">
       ${arr.map((ph,phi)=>`<div style="position:relative;display:inline-block;margin:1px">
         <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlCleViewPhoto(${i},${phi},'${side}')" title="${escHtml(ph.name||'')}">
-        <button class="edl-delphoto" onclick="edlCleDelPhoto(${i},${phi},'${side}')" aria-label="Supprimer la photo">✕</button>
+        <button class="edl-delphoto" onclick="edlCleDelPhoto(${i},${phi},'${side}')" aria-label="Supprimer la photo">${_uiIcon('close')}</button>
       </div>`).join('')}
-      <button onclick="edlCleAddPhoto(${i},'${side}')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:10px;padding:1px 5px;display:block;margin:2px auto">📷</button>
+      <button onclick="edlCleAddPhoto(${i},'${side}')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:10px;padding:1px 5px;display:block;margin:2px auto">${_uiIcon('camera', 14)}</button>
     </div>`;
   };
   const _dS = _edlSortie ? '' : 'none';
@@ -33662,7 +33676,7 @@ function _edlRedrawCles() {
     <td data-label="Nb Sortie" style="text-align:center;display:${_dS}"><input class="inp" type="number" min="0" style="width:48px;text-align:center" value="${c.nbS}" onchange="_edlCles[${i}].nbS=this.value"></td>
     <td data-label="📷 Photos sortie" style="padding:2px;display:${_dS}">${_th(c.photosS,i,'S')}</td>
     <td data-label="Commentaires"><input class="inp" style="width:100%" value="${escHtml(c.obs)}" placeholder="Commentaires" onchange="_edlCles[${i}].obs=this.value"></td>
-    <td><button onclick="edlRemoveCle(${i})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:15px">✕</button></td>
+    <td><button onclick="edlRemoveCle(${i})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:15px">${_uiIcon('close')}</button></td>
   </tr>`).join('');
   _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
 }
@@ -33996,7 +34010,7 @@ function _edlCptRenderThumbs(key){
   wrap.innerHTML=(_edlCptPhotos[key]||[]).map((ph,phi)=>
     `<div style="position:relative;display:inline-block">
       <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlCptViewPhoto('${key}',${phi})" title="${escHtml(ph.name||'')}">
-      <button class="edl-delphoto" onclick="edlCptDelPhoto('${key}',${phi})" aria-label="Supprimer la photo">✕</button>
+      <button class="edl-delphoto" onclick="edlCptDelPhoto('${key}',${phi})" aria-label="Supprimer la photo">${_uiIcon('close')}</button>
     </div>`
   ).join('');
   _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
@@ -42425,10 +42439,10 @@ function _edlSignatureStatus(edl) {
   const hasLocataire = !!sig.locataire;
   const signedAt = sig.signedAt;
   if(hasBailleur && hasLocataire && signedAt) {
-    return { kind: 'complet', label: '✓ Signé', date: signedAt, cls: 'b-ok' };
+    return { kind: 'complet', label: _uiIcon('check')+' Signé', date: signedAt, cls: 'b-ok' };
   }
   if(hasBailleur && !hasLocataire) {
-    return { kind: 'partial', label: '⚠ Bailleur signé', cls: 'b-warn' };
+    return { kind: 'partial', label: _uiIcon('warn')+' Bailleur signé', cls: 'b-warn' };
   }
   return { kind: 'none', label: '○ Non signé', cls: 'b-mute' };
 }
@@ -42450,7 +42464,7 @@ function _renderLogFichePanelEDL(log, ref) {
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn bp bb" onclick="openNewEDLForLog('${refSafe}','Entrée')" title="Créer un EDL d'entrée pour ce logement">+ EDL Entrée</button>
       <button class="btn bp bb" onclick="openNewEDLForLog('${refSafe}','Sortie')" title="Créer un EDL de sortie pour ce logement"${!hasEntree?' style="opacity:.6"':''}>+ EDL Sortie</button>
-      <button class="btn bs bb" onclick="_goFromLogFiche('edl')" title="Voir tous les EDL">↗ Onglet EDL</button>
+      <button class="btn bs bb" onclick="_goFromLogFiche('edl')" title="Voir tous les EDL">${_uiIcon('external')}Onglet EDL</button>
     </div>
   `;
 
@@ -42461,19 +42475,19 @@ function _renderLogFichePanelEDL(log, ref) {
     const tplElems = log.edlTemplate.pieces.reduce((s,p) => s+(p.elements||[]).length, 0);
     const tplDate = log.edlTemplate._modifiedAt ? fd(log.edlTemplate._modifiedAt.slice(0,10)) : '—';
     templateBanner = `<div class="logf-edl-tpl-banner logf-edl-tpl-active">
-      <div class="logf-edl-tpl-icon">🗐</div>
+      <div class="logf-edl-tpl-icon">${_uiIcon('archive', 22)}</div>
       <div class="logf-edl-tpl-info">
         <div class="logf-edl-tpl-title">Template EDL personnalisé pour ce logement</div>
         <div class="logf-edl-tpl-meta">${tplPieces} pièce${tplPieces>1?'s':''} · ${tplElems} élément${tplElems>1?'s':''} · MAJ ${tplDate}</div>
       </div>
       <div class="logf-edl-tpl-actions">
-        <button class="btn bs bb" onclick="viewLogEDLTemplate('${refSafe}')" title="Voir le contenu du template">👁 Voir</button>
-        <button class="btn bs bb" onclick="clearLogEDLTemplate('${refSafe}')" title="Supprimer le template (les EDL existants ne sont pas affectés)" style="color:var(--red);border-color:rgba(220,38,38,.3)">✕ Supprimer template</button>
+        <button class="btn bs bb" onclick="viewLogEDLTemplate('${refSafe}')" title="Voir le contenu du template">${_uiIcon('eye')}Voir</button>
+        <button class="btn bs bb" onclick="clearLogEDLTemplate('${refSafe}')" title="Supprimer le template (les EDL existants ne sont pas affectés)" style="color:var(--red);border-color:rgba(220,38,38,.3)">${_uiIcon('close')}Supprimer template</button>
       </div>
     </div>`;
   } else {
     templateBanner = `<div class="logf-edl-tpl-banner logf-edl-tpl-inactive">
-      <div class="logf-edl-tpl-icon">🗐</div>
+      <div class="logf-edl-tpl-icon">${_uiIcon('archive', 22)}</div>
       <div class="logf-edl-tpl-info">
         <div class="logf-edl-tpl-title">Aucun template EDL pour ce logement</div>
         <div class="logf-edl-tpl-meta">À la création d'un EDL, sauvegardez la structure des pièces/éléments comme template pour ne pas tout re-saisir au prochain locataire.</div>
@@ -42484,7 +42498,7 @@ function _renderLogFichePanelEDL(log, ref) {
   // ── Empty state
   if(edls.length === 0) {
     return `<div class="logf-section-head" id="logf-edl-anchor">
-      <h3 class="logf-section-title">📋 États des lieux du logement</h3>
+      <h3 class="logf-section-title">${_uiIcon('list')} États des lieux du logement</h3>
       ${headerActions}
     </div>
     ${templateBanner}
@@ -42513,24 +42527,24 @@ function _renderLogFichePanelEDL(log, ref) {
         <span class="logf-equip-badge ${sig.cls}">${sig.label}</span>
       </div>
       <div class="logf-edl-card-meta">
-        <span>📦 ${stats.nbPieces} pièce${stats.nbPieces>1?'s':''}</span>
-        <span>📋 ${stats.nbElem} élément${stats.nbElem>1?'s':''}</span>
-        ${stats.nbCles ? `<span>🔑 ${stats.nbCles} clé${stats.nbCles>1?'s':''}</span>` : ''}
-        ${stats.nbPhotos ? `<span>📷 ${stats.nbPhotos} photo${stats.nbPhotos>1?'s':''}</span>` : ''}
+        <span>${_uiIcon('archive')} ${stats.nbPieces} pièce${stats.nbPieces>1?'s':''}</span>
+        <span>${_uiIcon('list')} ${stats.nbElem} élément${stats.nbElem>1?'s':''}</span>
+        ${stats.nbCles ? `<span>${_uiIcon('key')} ${stats.nbCles} clé${stats.nbCles>1?'s':''}</span>` : ''}
+        ${stats.nbPhotos ? `<span>${_uiIcon('camera')} ${stats.nbPhotos} photo${stats.nbPhotos>1?'s':''}</span>` : ''}
       </div>
       <div class="logf-edl-card-actions">
-        <button class="btn bp bb" onclick="openEditEDL(${edl.id})" title="Modifier l'EDL">✏️ Modifier</button>
-        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id}, {share:true})" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">📤 Partager</button>
-        ${stats.nbPhotos ? `<button class="btn bs bb" onclick="_edlSharePhotos(${edl.id})" title="Enregistrer les photos sur l'appareil (Fichiers / dossier au choix)">📷 Photos</button>` : ''}
+        <button class="btn bp bb" onclick="openEditEDL(${edl.id})" title="Modifier l'EDL">${_uiIcon('edit')}Modifier</button>
+        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id}, {share:true})" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">${_uiIcon('share')}Partager</button>
+        ${stats.nbPhotos ? `<button class="btn bs bb" onclick="_edlSharePhotos(${edl.id})" title="Enregistrer les photos sur l'appareil (Fichiers / dossier au choix)">${_uiIcon('camera')}Photos</button>` : ''}
         ${driveBtn}
-        <button class="btn bs bb" onclick="saveLogEDLTemplateFromEDL(${edl.id})" title="Sauvegarder la structure de cet EDL comme template par défaut pour ce logement (réutilisable au prochain bail)">🗐 Sauv. template</button>
-        <button class="btn br bb" onclick="delEDL(${edl.id})" title="Supprimer">🗑</button>
+        <button class="btn bs bb" onclick="saveLogEDLTemplateFromEDL(${edl.id})" title="Sauvegarder la structure de cet EDL comme template par défaut pour ce logement (réutilisable au prochain bail)">${_uiIcon('archive')}Sauv. template</button>
+        <button class="btn br bb" onclick="delEDL(${edl.id})" title="Supprimer">${_uiIcon('trash')}</button>
       </div>
     </div>`;
   }).join('');
 
   return `<div class="logf-section-head" id="logf-edl-anchor">
-    <h3 class="logf-section-title">📋 États des lieux <span class="mu sm">(${edls.length})</span></h3>
+    <h3 class="logf-section-title">${_uiIcon('list')} États des lieux <span class="mu sm">(${edls.length})</span></h3>
     ${headerActions}
   </div>
   ${templateBanner}
