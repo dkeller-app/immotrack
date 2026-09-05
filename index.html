@@ -1915,43 +1915,15 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <!-- v15.249 mockup v3 — « Précédent locataire parti depuis » + détails + travaux inter-locataires remontés à l'étape Conditions (section Encadrement). -->
         <div class="fg"></div>
       </div>
-      <!-- v15.192 BAIL-TYPES Étape 2 : Inventaire mobilier obligatoire pour bail meublé/étudiant/mobilité.
-           Décret 2015-981 art. 2 : la fourniture des 11 catégories ci-dessous est obligatoire pour
-           qualifier le logement de meublé (sinon = bail nu). Section visible uniquement si
-           bail.type ∈ {meuble, etudiant, mobilite}. data-bail-editable="1" pour échapper au
-           verrou readonly du tab "Le bien" (Phase 4 archi). -->
-      <div id="b-mobilier-section" style="display:none;margin-top:16px;padding:14px;background:#fffaf0;border:1px solid #f5d28e;border-radius:6px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-          <div>
-            <b style="color:#92400e">📚 Inventaire mobilier — décret 2015-981</b>
-            <div class="mu sm" style="margin-top:2px">Fourniture obligatoire des 11 catégories ci-dessous (sinon = bail nu, art. 25-4 loi 89-462)</div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <span id="b-mobilier-count" class="mu sm" style="font-weight:bold">0 / 11</span>
-            <button type="button" class="btn bs bb" data-bail-editable="1" onclick="bailMobilierToggleAll(true)" title="Cocher les 11 catégories obligatoires">✓ Tout cocher</button>
-            <button type="button" class="btn bs" data-bail-editable="1" onclick="bailMobilierToggleAll(false)" title="Décocher tout">✗ Tout décocher</button>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 14px;font-size:13px;margin-top:6px">
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-literie" data-bail-editable="1" data-bail-mob="1"> <span><b>1.</b> Literie (couette ou couverture)</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-occult" data-bail-editable="1" data-bail-mob="1"> <span><b>2.</b> Occultation fenêtres chambre(s)</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-cuisson" data-bail-editable="1" data-bail-mob="1"> <span><b>3.</b> Plaques de cuisson</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-four" data-bail-editable="1" data-bail-mob="1"> <span><b>4.</b> Four ou four micro-ondes</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer" title="Réfrigérateur + congélateur OU réfrigérateur avec compartiment ≤ -6 °C"><input type="checkbox" id="b-mob-frigo" data-bail-editable="1" data-bail-mob="1"> <span><b>5.</b> Réfrigérateur + congélateur</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-vaisselle" data-bail-editable="1" data-bail-mob="1"> <span><b>6.</b> Vaisselle pour repas</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-ustensiles" data-bail-editable="1" data-bail-mob="1"> <span><b>7.</b> Ustensiles de cuisine</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-table" data-bail-editable="1" data-bail-mob="1"> <span><b>8.</b> Table et sièges</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-etageres" data-bail-editable="1" data-bail-mob="1"> <span><b>9.</b> Étagères de rangement</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-luminaires" data-bail-editable="1" data-bail-mob="1"> <span><b>10.</b> Luminaires</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-entretien" data-bail-editable="1" data-bail-mob="1"> <span><b>11.</b> Matériel d'entretien ménager</span></label>
-        </div>
-        <div id="b-mobilier-warning" class="mu sm" style="display:none;margin-top:8px;padding:6px 10px;background:#fff8e1;border-left:3px solid #d97706;border-radius:3px;color:#92400e">
-          ⚠️ Bail meublé incomplet : moins de 11 catégories cochées. Le décret 2015-981 impose la totalité pour qualifier le logement de meublé. Si une catégorie manque, c'est juridiquement un bail nu.
-        </div>
-        <div class="fg" style="margin-top:10px;margin-bottom:0">
-          <label>Détails / précisions mobilier <span class="mu sm">(annexé à l'inventaire — quantités, marques, état)</span></label>
-          <textarea class="inp" id="b-mob-details" data-bail-editable="1" rows="3" placeholder="Ex : 1 lit double 140x190 + matelas, 2 oreillers, 1 couette 220x240 — table 4 places + 4 chaises bois — vaisselle 6 personnes (assiettes plates/creuses, bols, verres, couverts) — micro-ondes Whirlpool 20L — luminaires plafond chambre+salon+cuisine — aspirateur, balai, serpillière, seau"></textarea>
-        </div>
+      <!-- v15.59x MOBILIER-EDL : l'inventaire mobilier n'est PLUS ressaisi dans le bail.
+           Règle validée : il est dressé de façon contradictoire à l'état des lieux d'entrée
+           (décret 2015-981) et annexé automatiquement au bail — exactement comme les diagnostics
+           renvoient au DDT. L'annexe correspondante a été retirée du PDF en v15.199. La section
+           reste visible seulement pour meublé/étudiant/mobilité (via _toggleMobilierSection),
+           mais ne contient plus qu'une mention renvoyant à l'EDL (aucune saisie ici). -->
+      <div id="b-mobilier-section" style="display:none;margin-top:16px;padding:12px 14px;background:#fffaf0;border:1px solid #f5d28e;border-radius:6px;color:#92400e;font-size:13px;line-height:1.5">
+        <b>📚 Inventaire mobilier — décret 2015-981</b>
+        <div style="margin-top:4px">L'inventaire détaillé du mobilier ne se saisit pas ici : il est dressé de façon contradictoire à <b>l'état des lieux d'entrée</b> et annexé automatiquement au bail (comme les diagnostics renvoient au DDT). Il sera complété au moment de l'EDL.</div>
       </div>
     </div>
       <!-- CHANTIER BAIL-GARAGE — section propre au bail garage/box/stockage (droit commun).
@@ -2040,7 +2012,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
   </div>
   <div class="m-foot">
     <button class="btn bs" id="bail-prev-btn" onclick="prevBailStep()" style="display:none">← Précédent</button>
-    <button class="btn bs" onclick="closeBailWizard()">Annuler</button>
+    <button class="btn bs" id="bail-cancel-btn" onclick="closeBailWizard()">Annuler</button>
     <button class="btn bp" id="bail-next-btn" onclick="nextBailStep()">Suivant →</button>
     <button class="btn bp" id="bail-save-btn" onclick="saveBail()" style="display:none">💾 Enregistrer</button>
   </div>
@@ -19711,25 +19683,15 @@ function getBailDataFromForm() {
     ref: _bref, nom: locs[0]?.nom, locataires: locs,
     adrLoc: v('b-adrLoc'),
     type: v('b-type') || 'nu',  // v15.191 BAIL-TYPES : nu | meuble | etudiant | mobilite | garage | autre
-    // v15.192 BAIL-TYPES Étape 2 + v15.196 post-audit : inventaire mobilier (décret 2015-981).
-    // Émis UNIQUEMENT si type ∈ {meuble, etudiant, mobilite}. Évite la pollution DB sur baux nu.
+    // v15.59x MOBILIER-EDL : l'inventaire mobilier n'est PLUS saisi dans le bail (il est
+    // dressé à l'EDL et annexé — décret 2015-981). Le formulaire ne contient plus de cases à
+    // cocher, donc rien n'est collecté ici pour un nouveau bail. RÉTRO-COMPAT : si l'on édite
+    // un bail EXISTANT qui portait déjà un `mobilier` (créé avant ce chantier), on le PRÉSERVE
+    // tel quel pour ne jamais l'effacer au re-save (même logique que fiscal / champs gelés).
     ...((function(){
-      const _t = v('b-type') || 'nu';
-      if (_t !== 'meuble' && _t !== 'etudiant' && _t !== 'mobilite') return {};
-      return { mobilier: {
-        literie:    !!el('b-mob-literie')?.checked,
-        occultation:!!el('b-mob-occult')?.checked,
-        cuisson:    !!el('b-mob-cuisson')?.checked,
-        four:       !!el('b-mob-four')?.checked,
-        frigo:      !!el('b-mob-frigo')?.checked,
-        vaisselle:  !!el('b-mob-vaisselle')?.checked,
-        ustensiles: !!el('b-mob-ustensiles')?.checked,
-        table:      !!el('b-mob-table')?.checked,
-        etageres:   !!el('b-mob-etageres')?.checked,
-        luminaires: !!el('b-mob-luminaires')?.checked,
-        entretien:  !!el('b-mob-entretien')?.checked,
-        details:    v('b-mob-details') || '',
-      } };
+      const _er = v('b-edit-ref');
+      const _ex = _er ? DB.baux[_er] : null;
+      return (_ex && _ex.mobilier) ? { mobilier: _ex.mobilier } : {};
     })()),
     // CHANTIER BAIL-GARAGE — champs propres au bail garage/box/stockage. Émis UNIQUEMENT si
     // type==='garage' (évite la pollution DB sur les autres types).

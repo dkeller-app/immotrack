@@ -3695,7 +3695,13 @@ textarea.field-modified-since-sig{
 @media(max-width:600px){
   .bail-wizard-bar{padding:10px 0 14px;gap:2px}
   .ws-step{padding:6px 8px;gap:4px}
+  /* Téléphone (conforme mockup BOOK-BAIL) : on ne masque plus tout — les étapes inactives
+     restent des pastilles ①③, mais l'étape COURANTE affiche « Étape X/3 · <libellé> »
+     (Personnes / Conditions / Récapitulatif). data-step porte le numéro (1..3). */
   .ws-label{display:none}
+  .ws-step.act .ws-label{display:inline}
+  .ws-step.act .ws-num{display:none}
+  .ws-step.act::before{content:"Étape " attr(data-step) "/3 · ";font-weight:700}
   .ws-sep{max-width:12px}
 }
 
@@ -4807,6 +4813,14 @@ textarea.field-modified-since-sig{
   /* MOBILE-REFONTE M-16 : un overlay plein écran ouvert (.ov:not(.hidden)) masque la
      bottom-nav (#v4-bnav z:999) — sinon elle occulte le pied d'action collant (CTA). */
   body:has(.ov:not(.hidden)) #v4-bnav { display: none !important; }
+
+  /* MOBILE-REFONTE Bail : pied à 2 boutons conforme mockup BOOK-BAIL — ghost « Précédent »
+     + primaire « Suivant » (ou « Enregistrer »). Sur téléphone, « Annuler » est retiré :
+     la fermeture reste possible via le ✕ de l'en-tête. Le pied desktop garde ses 4 boutons. */
+  #ov-bail .m-foot #bail-cancel-btn { display: none; }
+  #ov-bail .m-foot { justify-content: stretch; }
+  #ov-bail .m-foot .btn { flex: 1 1 0; min-height: 44px; justify-content: center; }
+  #ov-bail .m-foot .btn.bp { flex: 1.4 1 0; }
 
   /* MOBILE-REFONTE lot 7 (Quittance) : l'aperçu (iframe 72vh en dur) remplit la hauteur
      dispo — sinon bande sombre sous le document. TÉLÉPHONE UNIQUEMENT (≤767) : la
