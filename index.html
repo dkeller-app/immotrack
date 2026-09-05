@@ -10220,10 +10220,13 @@ function _accmShowAregarder(){
     host.classList.add('accm-on');
     var ctx = DashCtx.buildDashCtx(DB.logements, DB.mouvements, String(new Date().getFullYear()), '', (typeof _finActiveEnt==='function'?_finActiveEnt():''));
     var fams = {familles:[],total:0}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
-    var pageFor = {impaye:'loyers',depot:'loyers',irl:'loyers',regul:'regul',finbail:'baux',vacant:'biens',document:'biens',entretien:'equipements'};
+    // Cibles PRÉCISES par famille → _accmGoto(id, ref, count) (défini plus bas). On passe la réf du
+    // pire lot pour ouvrir directement la fiche/l'assistant du bon lot, pas une page générique.
     var rows = (fams.familles||[]).map(function(f){
       var chiffre=(typeof _pilChiffre==='function')?_pilChiffre(f):''; var pire=(typeof _pilPireTxt==='function')?_pilPireTxt(f):'';
-      return '<button type="button" class="atr" onclick="go(\''+(pageFor[f.id]||'loyers')+'\')">'
+      var _ref=(f.pire&&f.pire.ref)?String(f.pire.ref):'';
+      var _refJs=_ref.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      return '<button type="button" class="atr" onclick="_accmGoto(\''+f.id+'\',\''+_refJs+'\','+(f.count||0)+')">'
         +'<span class="ic"><svg viewBox="0 0 24 24">'+(_PIL_ICONS[f.id]||'')+'</svg></span>'
         +'<span class="m"><span class="t">'+escHtml(f.lbl)+'</span><span class="s">'+escHtml(chiffre)+(pire?(' · '+escHtml(pire)):'')+'</span></span>'
         +((f.count>1)?('<span class="cnt">'+f.count+'</span>'):'')
@@ -10247,6 +10250,37 @@ function _accmShowAregarder(){
       +'</style>'
       +'<div class="atl"><div class="th"><button class="back" onclick="rAccueil()"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button><h2>À regarder</h2></div>'+rows+'</div>';
   }catch(e){ console.warn('[accmAregarder]', e); }
+}
+// Navigation PROFONDE depuis « À regarder » (téléphone) : chaque famille pointe vers l'écran d'action
+// réel, ciblé sur le bon lot quand la ligne n'en concerne qu'UN (ref = pire lot). DRY : réutilise les
+// vraies portes (openLogFiche + setLogFicheTab, _departOuvrir = assistant départ/restitution DG, go).
+// Familles à plusieurs lots → repli sur la liste de l'onglet concerné (jamais une cible morte).
+function _accmGoto(id, ref, count){
+  try{
+    var single = (Number(count)===1) && !!ref;
+    var hasFiche = (typeof openLogFiche==='function');
+    var setTab = function(t){ if(typeof setLogFicheTab==='function') setTimeout(function(){ try{ setLogFicheTab(t); }catch(e){} },200); };
+    var openDepart = function(){ if(ref && typeof _departOuvrir==='function'){ _departOuvrir(ref); return true; } return false; };
+    switch(id){
+      case 'impaye':   // impayé d'un lot → sa comptabilité (suivi des loyers), pas la page Loyers globale
+        if(single && hasFiche){ openLogFiche(ref); setTab('compta'); } else go('loyers'); break;
+      case 'depot':    // dépôt à restituer → assistant départ / restitution DG (JAMAIS Loyers)
+        if(!openDepart()) go('baux'); break;
+      case 'finbail':  // fin de bail à préparer → assistant départ (déclare le congé si absent)
+        if(single && openDepart()){} else go('baux'); break;
+      case 'irl':      // la révision IRL s'applique dans l'onglet Loyers (bloc « Révisions »)
+        go('loyers'); break;
+      case 'vacant':   // lot vacant → sa fiche (relouer / candidatures), pas le hub Biens
+        if(single && hasFiche){ openLogFiche(ref); } else go('biens'); break;
+      case 'document': // pièce / assurance manquante DU lot → onglet Conformité de sa fiche
+        if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('biens'); break;
+      case 'entretien':// entretien en retard DU lot → onglet Conformité de sa fiche
+        if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('equipements'); break;
+      case 'regul':    // régularisation de charges → onglet Charges
+        go('regul'); break;
+      default: go('loyers');
+    }
+  }catch(e){ console.warn('[accmGoto]', e); try{ go('loyers'); }catch(e2){} }
 }
 function _renderAccueilPhone(ctx){
   var host = el('p-accueil'); if(!host) return;
@@ -10274,17 +10308,27 @@ function _renderAccueilPhone(ctx){
   if (DB.params && DB.params.userName && String(DB.params.userName).trim() && DB.params.userName !== 'Utilisateur') nom = String(DB.params.userName).trim();
   if (!nom) { try{ var _eNom=(DB.entites||[]).find(function(x){ return x && !x._deleted && x.gerant; }); if(_eNom && _eNom.gerant) nom = String(_eNom.gerant).trim(); }catch(e){} }
   var dstr = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  // Périmètre actif (entité filtrée) ou « Tout le parc » — pastille neutre en tête de l'accueil.
+  var perim = (ctx && ctx.activeEnt) ? String(ctx.activeEnt) : ((typeof _finActiveEnt==='function' && _finActiveEnt()) ? String(_finActiveEnt()) : '');
+  if(!perim) perim = 'Tout le parc';
   var pctPay = attMois>0 ? Math.min(100, Math.round(encMois/attMois*100)) : (encMois>0?100:0);
   var reste = Math.max(0, attMois - encMois);
   // Jauge occupation (neutre) — aiguille selon pctOcc sur un demi-cercle.
   var ang = Math.PI*(1 - (occ.pctOcc||0)/100), nx=(50+38*Math.cos(ang)).toFixed(1), ny=(52-38*Math.sin(ang)).toFixed(1);
-  var gauge = '<svg class="gauge" viewBox="0 0 100 60" aria-hidden="true"><path d="M10 52 A40 40 0 0 1 90 52" fill="none" stroke="var(--bor)" stroke-width="8" stroke-linecap="round"/><line x1="50" y1="52" x2="'+nx+'" y2="'+ny+'" stroke="var(--t1)" stroke-width="2.6" stroke-linecap="round"/><circle cx="50" cy="52" r="4.2" fill="var(--t1)"/></svg>';
+  // Arc de remplissage NEUTRE (part occupée) sur le rail, même rayon (40) que le rail — de la gauche
+  // (10,52) jusqu'à l'angle du taux d'occupation. Masqué à 0 % (arc de longueur nulle).
+  var fx=(50+40*Math.cos(ang)).toFixed(2), fy=(52-40*Math.sin(ang)).toFixed(2);
+  var fillArc = ((occ.pctOcc||0)>0) ? '<path d="M10 52 A40 40 0 0 1 '+fx+' '+fy+'" fill="none" stroke="var(--t2)" stroke-width="8" stroke-linecap="round"/>' : '';
+  var gauge = '<svg class="gauge" viewBox="0 0 100 60" aria-hidden="true"><path d="M10 52 A40 40 0 0 1 90 52" fill="none" stroke="var(--bor)" stroke-width="8" stroke-linecap="round"/>'+fillArc+'<line x1="50" y1="52" x2="'+nx+'" y2="'+ny+'" stroke="var(--t1)" stroke-width="2.6" stroke-linecap="round"/><circle cx="50" cy="52" r="4.2" fill="var(--t1)"/></svg>';
   wrap.innerHTML =
   '<style>'
   +'#accm-phone{display:none}'
   +'#p-accueil.accm-on>*:not(#accm-phone){display:none!important}'
   +'#p-accueil.accm-on #accm-phone{display:block}'
   +'.accm{padding:14px 16px 22px}'
+  +'.accm .perim{display:inline-flex;align-items:center;gap:6px;max-width:100%;background:var(--sur);border:1px solid var(--bor);border-radius:999px;padding:6px 11px;margin-bottom:13px;font-size:12px;color:var(--t2);font-weight:600}'
+  +'.accm .perim svg{width:12px;height:12px;stroke:var(--t3);fill:none;stroke-width:2;flex:0 0 auto}'
+  +'.accm .perim b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
   +'.accm .hi{font-size:13px;color:var(--t3);font-weight:600}'
   +'.accm .name{font-family:var(--ff-display,\'Schibsted Grotesk\',\'Inter\',sans-serif);font-weight:800;color:var(--pos);font-size:26px;line-height:1.12;overflow-wrap:anywhere}'
   +'.accm .hello-s{font-size:12.5px;color:var(--t3);margin-top:3px;text-transform:capitalize}'
@@ -10310,6 +10354,7 @@ function _renderAccueilPhone(ctx){
   +'.accm .watch .chev{width:17px;height:17px;stroke:var(--t3);fill:none;stroke-width:1.8;flex:0 0 auto}'
   +'</style>'
   +'<div class="accm">'
+  +'<div class="perim"><svg viewBox="0 0 24 24"><path d="M4 21V8l8-5 8 5v13"/></svg><b>'+escHtml(perim)+'</b></div>'
   +'<div class="hi">Bonjour</div>'+(nom?('<div class="name">'+escHtml(nom)+'</div>'):'')+'<div class="hello-s">'+escHtml(dstr)+'</div>'
   +'<div class="hero"><div class="k">Encaissé depuis le 1ᵉʳ janvier</div><div class="v">'+F(encYTD)+'</div></div>'
   +'<div class="srow"><div class="k">Encaissé ce mois'+(reste>0?('<span class="sub2">reste '+F(reste)+' à encaisser</span>'):'<span class="sub2">tout est encaissé</span>')+'</div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
