@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.589</title>
+<title>Propryo v15.590</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.589</em>
+      <em>v15.590</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -146,6 +146,9 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
   <div class="tb">
     <button class="tb-menu" onclick="toggleSb()">☰</button>
     <div class="tb-breadcrumb">
+      <!-- MOBILE-REFONTE — lockup marque Propryo (carré contour + point corail, charte)
+           visible sur téléphone uniquement, à gauche du titre de page. -->
+      <span class="tb-brand" aria-label="Propryo"><svg viewBox="0 0 32 32" width="22" height="22" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
       <strong id="tb-title">Tableau de bord</strong>
     </div>
     <div class="tb-actions" id="tb-actions"></div>
@@ -868,22 +871,22 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <div class="biens-toolbar">
         <div class="biens-toolbar-left">
           <div class="biens-view-toggle" role="tablist" aria-label="Mode d'affichage">
-            <button class="bvt" id="bvt-bailleurs" role="tab" aria-selected="false" onclick="setBiensView('bailleurs')">👤 Bailleurs</button>
-            <button class="bvt act" id="bvt-immeubles" role="tab" aria-selected="true" onclick="setBiensView('immeubles')">🏢 Immeubles</button>
-            <button class="bvt" id="bvt-logements" role="tab" aria-selected="false" onclick="setBiensView('logements')">🏠 Logements</button>
+            <button class="bvt" id="bvt-bailleurs" role="tab" aria-selected="false" onclick="setBiensView('bailleurs')"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0114 0"/></svg> Bailleurs</button>
+            <button class="bvt act" id="bvt-immeubles" role="tab" aria-selected="true" onclick="setBiensView('immeubles')"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1"/></svg> Immeubles</button>
+            <button class="bvt" id="bvt-logements" role="tab" aria-selected="false" onclick="setBiensView('logements')"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/></svg> Logements</button>
           </div>
           <span class="biens-count" id="biens-count"></span>
         </div>
         <div class="biens-toolbar-right">
           <div class="biens-search-wrap">
-            <span class="biens-search-icon" aria-hidden="true">🔍</span>
+            <span class="biens-search-icon" aria-hidden="true"><svg class="tbico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2"/></svg></span>
             <input class="biens-search" id="biens-search" type="text" placeholder="Rechercher (nom, locataire, adresse…)" oninput="setBiensSearch(this.value)" aria-label="Rechercher un bien" title="Raccourcis : / ou Ctrl+K">
             <button class="biens-search-clear" id="biens-search-clear" onclick="setBiensSearch('')" aria-label="Effacer la recherche">✕</button>
             <kbd class="biens-search-kbd" aria-hidden="true">/</kbd>
           </div>
           <div class="biens-filter-wrap">
             <button class="biens-filter-btn" id="biens-filter-btn" onclick="toggleBiensFilter(event)" aria-haspopup="true" aria-expanded="false">
-              <span>🎯 Filtrer</span>
+              <span><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg> Filtrer</span>
               <span class="biens-filter-btn-badge" id="biens-filter-badge" style="display:none">0</span>
             </button>
             <div class="biens-popover" id="biens-filter-popover" role="dialog" aria-label="Filtres">
@@ -910,7 +913,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
             </div>
           </div>
           <div class="biens-filter-wrap">
-            <button class="biens-filter-btn" id="biens-sort-btn" onclick="toggleBiensSort(event)" aria-haspopup="true" aria-expanded="false">↕ Trier</button>
+            <button class="biens-filter-btn" id="biens-sort-btn" onclick="toggleBiensSort(event)" aria-haspopup="true" aria-expanded="false"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 4L3 8M7 4l4 4M17 20V4M17 20l-4-4M17 20l4-4"/></svg> Trier</button>
             <div class="biens-popover" id="biens-sort-popover" role="dialog" aria-label="Tri">
               <div class="biens-popover-row">
                 <div class="biens-popover-label">Trier par</div>
@@ -923,7 +926,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
               </div>
             </div>
           </div>
-          <button class="btn bs" onclick="exportBiensCSV()" title="Exporter la liste en CSV">📥 Exporter</button>
+          <button class="btn bs" onclick="exportBiensCSV()" title="Exporter la liste en CSV"><svg class="tbico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M12 4L8 8M12 4l4 4M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg> Exporter</button>
           <button class="btn bp" id="biens-add-btn" onclick="openBiensAdd()">+ Ajouter un bien</button>
         </div>
       </div>
@@ -1332,11 +1335,42 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 #ov-menu-perso .mp-sw.on{background:var(--acc)}
 #ov-menu-perso .mp-kn{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 #ov-menu-perso .mp-sw.on .mp-kn{left:19px}
+/* BARRE À FAVORIS — 1re ligne « Personnaliser ma barre » de la feuille Plus (pleine largeur, corail) */
+#more-grid .more-it.more-customize{grid-column:1/-1;flex-direction:row;justify-content:flex-start;gap:12px;border-color:var(--acc);color:var(--acc);font-weight:700}
+#more-grid .more-it.more-customize .more-ic{color:var(--acc)}
+/* BARRE À FAVORIS — picker « Personnaliser ma barre » plein écran (téléphone, M-16) */
+#ov-fav-picker{position:fixed;inset:0;background:var(--bg,var(--sur));z-index:10001;display:none;flex-direction:column;overflow:hidden}
+#ov-fav-picker.open{display:flex}
+#ov-fav-picker .fp-head{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;border-bottom:1px solid var(--bor);flex:0 0 auto;background:var(--sur)}
+#ov-fav-picker .fp-back{width:36px;height:36px;border-radius:10px;border:1px solid var(--bor);background:var(--sur2);color:var(--t1);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+#ov-fav-picker .fp-back svg{width:20px;height:20px}
+#ov-fav-picker .fp-title{font-family:var(--display,inherit);font-weight:800;font-size:18px;color:var(--t1);letter-spacing:-.01em}
+#ov-fav-picker .fp-sub{padding:12px 16px 0;font-size:13px;color:var(--t2);line-height:1.5}
+#ov-fav-picker .fp-body{flex:1;overflow:auto;padding:4px 16px calc(env(safe-area-inset-bottom,16px) + 24px)}
+#ov-fav-picker .fp-count{display:inline-block;font-size:12px;font-weight:700;color:var(--acc);background:var(--acc-soft);padding:4px 12px;border-radius:999px;margin:14px 0 12px}
+#ov-fav-picker .fp-grp{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin:16px 0 8px}
+#ov-fav-picker .fp-opt{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--bor);border-radius:12px;margin-bottom:8px;cursor:pointer;background:var(--sur);transition:border-color .12s,background .12s;user-select:none}
+#ov-fav-picker .fp-opt.sel{border-color:var(--acc);background:var(--acc-soft)}
+#ov-fav-picker .fp-opt.disabled{opacity:.42;cursor:not-allowed}
+#ov-fav-picker .fp-ic{width:36px;height:36px;border-radius:9px;background:var(--sur2);display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:var(--t2)}
+#ov-fav-picker .fp-opt.action .fp-ic{border-radius:50%}
+#ov-fav-picker .fp-opt.sel .fp-ic{background:var(--acc-soft);color:var(--acc)}
+#ov-fav-picker .fp-ic svg{width:19px;height:19px}
+#ov-fav-picker .fp-lbl{flex:1;min-width:0}
+#ov-fav-picker .fp-nm{font-weight:700;color:var(--t1);font-size:14.5px}
+#ov-fav-picker .fp-kind{font-size:11px;color:var(--t3)}
+#ov-fav-picker .fp-star{width:23px;height:23px;border-radius:50%;border:1.5px solid var(--t3);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+#ov-fav-picker .fp-opt.sel .fp-star{border-color:var(--acc);background:var(--acc)}
+#ov-fav-picker .fp-star svg{width:13px;height:13px;opacity:0}
+#ov-fav-picker .fp-opt.sel .fp-star svg{opacity:1}
 </style>
+<!-- BARRE À FAVORIS — repli statique (pré-JS) calé sur le défaut : Accueil · Parc · Loyers · +EDL · Plus.
+     _renderBottomNav() régénère cette barre depuis les favoris du compte au boot. -->
 <nav class="v4-bnav" id="v4-bnav" role="navigation" aria-label="Navigation mobile">
-  <button type="button" class="v4-bn act" data-page="accueil" onclick="go('accueil')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lbl">Accueil</span></button>
-  <button type="button" class="v4-bn" data-page="loyers" onclick="go('loyers')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="lbl">Loyers</span></button>
-  <button type="button" class="v4-bn" data-page="agenda" onclick="go('agenda')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="lbl">Agenda</span></button>
+  <button type="button" class="v4-bn act" data-page="accueil" onclick="go('accueil')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/></svg></span><span class="lbl">Accueil</span></button>
+  <button type="button" class="v4-bn" data-page="biens" onclick="go('biens')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/></svg></span><span class="lbl">Parc</span></button>
+  <button type="button" class="v4-bn" data-page="loyers" onclick="go('loyers')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="lbl">Loyers</span></button>
+  <button type="button" class="v4-bn fav-act" data-page="fav:addedl" onclick="_favRunAction('addedl')"><span class="ic fav-ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 9v6M9 12h6"/></svg></span><span class="lbl fav-albl">+ EDL</span></button>
   <button type="button" class="v4-bn" data-page="more" onclick="_openMoreSheet()"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg></span><span class="lbl">Plus</span></button>
 </nav>
 
@@ -1881,43 +1915,15 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <!-- v15.249 mockup v3 — « Précédent locataire parti depuis » + détails + travaux inter-locataires remontés à l'étape Conditions (section Encadrement). -->
         <div class="fg"></div>
       </div>
-      <!-- v15.192 BAIL-TYPES Étape 2 : Inventaire mobilier obligatoire pour bail meublé/étudiant/mobilité.
-           Décret 2015-981 art. 2 : la fourniture des 11 catégories ci-dessous est obligatoire pour
-           qualifier le logement de meublé (sinon = bail nu). Section visible uniquement si
-           bail.type ∈ {meuble, etudiant, mobilite}. data-bail-editable="1" pour échapper au
-           verrou readonly du tab "Le bien" (Phase 4 archi). -->
-      <div id="b-mobilier-section" style="display:none;margin-top:16px;padding:14px;background:#fffaf0;border:1px solid #f5d28e;border-radius:6px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-          <div>
-            <b style="color:#92400e">📚 Inventaire mobilier — décret 2015-981</b>
-            <div class="mu sm" style="margin-top:2px">Fourniture obligatoire des 11 catégories ci-dessous (sinon = bail nu, art. 25-4 loi 89-462)</div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <span id="b-mobilier-count" class="mu sm" style="font-weight:bold">0 / 11</span>
-            <button type="button" class="btn bs bb" data-bail-editable="1" onclick="bailMobilierToggleAll(true)" title="Cocher les 11 catégories obligatoires">✓ Tout cocher</button>
-            <button type="button" class="btn bs" data-bail-editable="1" onclick="bailMobilierToggleAll(false)" title="Décocher tout">✗ Tout décocher</button>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 14px;font-size:13px;margin-top:6px">
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-literie" data-bail-editable="1" data-bail-mob="1"> <span><b>1.</b> Literie (couette ou couverture)</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-occult" data-bail-editable="1" data-bail-mob="1"> <span><b>2.</b> Occultation fenêtres chambre(s)</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-cuisson" data-bail-editable="1" data-bail-mob="1"> <span><b>3.</b> Plaques de cuisson</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-four" data-bail-editable="1" data-bail-mob="1"> <span><b>4.</b> Four ou four micro-ondes</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer" title="Réfrigérateur + congélateur OU réfrigérateur avec compartiment ≤ -6 °C"><input type="checkbox" id="b-mob-frigo" data-bail-editable="1" data-bail-mob="1"> <span><b>5.</b> Réfrigérateur + congélateur</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-vaisselle" data-bail-editable="1" data-bail-mob="1"> <span><b>6.</b> Vaisselle pour repas</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-ustensiles" data-bail-editable="1" data-bail-mob="1"> <span><b>7.</b> Ustensiles de cuisine</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-table" data-bail-editable="1" data-bail-mob="1"> <span><b>8.</b> Table et sièges</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-etageres" data-bail-editable="1" data-bail-mob="1"> <span><b>9.</b> Étagères de rangement</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-luminaires" data-bail-editable="1" data-bail-mob="1"> <span><b>10.</b> Luminaires</span></label>
-          <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="b-mob-entretien" data-bail-editable="1" data-bail-mob="1"> <span><b>11.</b> Matériel d'entretien ménager</span></label>
-        </div>
-        <div id="b-mobilier-warning" class="mu sm" style="display:none;margin-top:8px;padding:6px 10px;background:#fff8e1;border-left:3px solid #d97706;border-radius:3px;color:#92400e">
-          ⚠️ Bail meublé incomplet : moins de 11 catégories cochées. Le décret 2015-981 impose la totalité pour qualifier le logement de meublé. Si une catégorie manque, c'est juridiquement un bail nu.
-        </div>
-        <div class="fg" style="margin-top:10px;margin-bottom:0">
-          <label>Détails / précisions mobilier <span class="mu sm">(annexé à l'inventaire — quantités, marques, état)</span></label>
-          <textarea class="inp" id="b-mob-details" data-bail-editable="1" rows="3" placeholder="Ex : 1 lit double 140x190 + matelas, 2 oreillers, 1 couette 220x240 — table 4 places + 4 chaises bois — vaisselle 6 personnes (assiettes plates/creuses, bols, verres, couverts) — micro-ondes Whirlpool 20L — luminaires plafond chambre+salon+cuisine — aspirateur, balai, serpillière, seau"></textarea>
-        </div>
+      <!-- v15.59x MOBILIER-EDL : l'inventaire mobilier n'est PLUS ressaisi dans le bail.
+           Règle validée : il est dressé de façon contradictoire à l'état des lieux d'entrée
+           (décret 2015-981) et annexé automatiquement au bail — exactement comme les diagnostics
+           renvoient au DDT. L'annexe correspondante a été retirée du PDF en v15.199. La section
+           reste visible seulement pour meublé/étudiant/mobilité (via _toggleMobilierSection),
+           mais ne contient plus qu'une mention renvoyant à l'EDL (aucune saisie ici). -->
+      <div id="b-mobilier-section" style="display:none;margin-top:16px;padding:12px 14px;background:#fffaf0;border:1px solid #f5d28e;border-radius:6px;color:#92400e;font-size:13px;line-height:1.5">
+        <b>📚 Inventaire mobilier — décret 2015-981</b>
+        <div style="margin-top:4px">L'inventaire détaillé du mobilier ne se saisit pas ici : il est dressé de façon contradictoire à <b>l'état des lieux d'entrée</b> et annexé automatiquement au bail (comme les diagnostics renvoient au DDT). Il sera complété au moment de l'EDL.</div>
       </div>
     </div>
       <!-- CHANTIER BAIL-GARAGE — section propre au bail garage/box/stockage (droit commun).
@@ -2006,7 +2012,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
   </div>
   <div class="m-foot">
     <button class="btn bs" id="bail-prev-btn" onclick="prevBailStep()" style="display:none">← Précédent</button>
-    <button class="btn bs" onclick="closeBailWizard()">Annuler</button>
+    <button class="btn bs" id="bail-cancel-btn" onclick="closeBailWizard()">Annuler</button>
     <button class="btn bp" id="bail-next-btn" onclick="nextBailStep()">Suivant →</button>
     <button class="btn bp" id="bail-save-btn" onclick="saveBail()" style="display:none">💾 Enregistrer</button>
   </div>
@@ -4071,8 +4077,11 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <!-- §4 Pièces -->
     <!-- Bannière référence chargée -->
     <div id="edl-ref-banner" data-edl-step="pieces" style="display:none;padding:8px 14px;background:#003366;color:white;border-radius:var(--r);margin-bottom:10px;font-size:12px"></div>
-    <!-- Barre actions -->
-    <div data-edl-step="pieces" data-edl-disp="flex" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px">
+    <!-- Barre actions — PC (≥1024) : ajout de pièce inline. Sur téléphone/tablette (<1024)
+         cette barre est PARASITE : data-edl-step="pieces" la réaffichait EN TÊTE DE CHAQUE
+         étape-pièce (écran non épuré). _edlApplyStepVisibility la masque donc en mode phone ;
+         l'ajout de pièce y vit dans la FEUILLE DES ÉTAPES (§2.5, cf _edlOpenPieceSheet). -->
+    <div id="edl-add-piece-bar" data-edl-step="pieces" data-edl-disp="flex" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px">
       <b class="mu sm">Pièces :</b>
       <select class="inp" id="edl-add-piece-sel" style="width:220px"><option value="">Pièce standard à ajouter...</option></select>
       <button class="btn bs bb" onclick="edlAddPieceFromSel()" style="font-size:12px">▶ Ajouter</button>
@@ -4174,6 +4183,14 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <button class="edl-sheet-close" onclick="_edlClosePieceSheet()" aria-label="Fermer">✕</button>
       </div>
       <div id="edl-piece-sheet-list" class="edl-sheet-list"></div>
+      <!-- §2.5 — l'ajout de pièce vit ICI (feuille des étapes), plus dans le flux des pièces. -->
+      <div class="edl-sheet-add">
+        <span class="edl-sheet-add-lbl">+ Ajouter une pièce</span>
+        <div class="edl-sheet-add-row">
+          <select class="inp" id="edl-sheet-add-sel" aria-label="Pièce à ajouter"></select>
+          <button class="btn bp" onclick="_edlSheetAddPiece()">Ajouter</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -4260,7 +4277,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.589';
+const IMMOTRACK_VERSION = '15.590';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -8904,18 +8921,20 @@ function _renderMoreSheet() {
   const cu = (typeof countUnreadCandidats === 'function' && typeof DB !== 'undefined') ? countUnreadCandidats(DB.candidats || []) : 0;
   const item = (id, lb, ic, extra) => '<button type="button" class="more-it" onclick="_moreGo(\'' + id + '\')"><span class="more-ic">' + (ic || '') + '</span><span>' + lb + (extra || '') + '</span></button>';
   const on = _menuGetOn();   // Phase 4 — filtre du menu perso
-  let html = '', pendingZone = null;
+  // BARRE À FAVORIS — 1re ligne corail : ouvre le picker plein écran (M-16).
+  let html = '<button type="button" class="more-it more-customize" onclick="_closeMoreSheet();_openFavPicker()">'
+    + '<span class="more-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span>'
+    + '<span>Personnaliser ma barre</span></button>';
+  let pendingZone = null;
   _V4_NAV_MODEL.forEach(m => {
     if (m.h6) { pendingZone = m.h6; return; }
     if (!_menuItemVisible(m.id, on)) return;
     if (pendingZone) { html += '<div class="more-zone">' + pendingZone + '</div>'; pendingZone = null; }
     const candBadge = m.candBadge ? ' <span class="more-badge" id="more-candidats-badge"' + (cu > 0 ? '' : ' style="display:none"') + '>' + (cu || '') + '</span>' : '';
     html += item(m.id, m.lb, _V4_NAV_ICONS[m.ic], candBadge);
-    const g = _NAV_PAGE_GROUP[m.id];
-    if (g) {
-      const subs = g.tabs.filter(([id]) => on.has(id));
-      if (subs.length > 1) html += '<div class="more-subs">' + subs.map(([id, lb]) => '<button type="button" class="more-sub' + (id === currentPage ? ' act' : '') + '" onclick="_moreGo(\'' + id + '\')">' + lb + '</button>').join('') + '</div>';
-    }
+    // NAV APLATIE — plus de sous-chips « more-subs » : chaque entrée est un lien
+    // simple. Les pages-enfants (Candidatures, Équipements) restent joignables via
+    // la barre de sous-onglets en haut de leur page-groupe (_navSubtabsHtml).
   });
   // Réglages : sur desktop c'est le menu compte ; sur mobile on les expose ici pour rester joignables.
   html += '<div class="more-zone">Réglages</div>'
@@ -8925,30 +8944,176 @@ function _renderMoreSheet() {
   host.innerHTML = html;
 }
 
-// REFONTE-NAV (fix mobile P0) — la BOTTOM-NAV est GÉNÉRÉE depuis la source unique (fin de la barre en dur
-// périmée : elle montrait encore « Dashboard »/« Agenda » sans « Locataires » et ignorait le menu perso).
-// 4 primaires = parents de zone (Accueil · Pilotage · Locataires · Loyers) + « Plus », filtrés par le menu
-// perso (_menuItemVisible). Icônes width=19 en dur (le CSS .v4-bn .ic ne dimensionne pas le SVG). Le
-// surlignage est câlé sur le PARENT représentant (_navSidebarRep) dans go(), comme la sidebar.
-const _V4_BOTTOM = [
-  { id:'accueil',   lb:'Accueil',    svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-  { id:'baux',      lb:'Locataires', svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M8 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 100-5M22 20c0-3-2-4-4-4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-  { id:'loyers',    lb:'Loyers',     svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' },
+// ─── BARRE DU BAS À FAVORIS (téléphone) ─────────────────────────────────────
+// Modèle EXACT de la maquette validée mockups/MOBILE-UX/NAV-FAVORIS-PROTO.html :
+// `fav` = tableau ordonné de max 4 ids, Accueil verrouillé toujours en 1er.
+// Chaque favori est soit un ONGLET (icône + label → go(page)), soit une ACTION
+// RAPIDE (pastille corail « + label » → fonction existante de l'app). « Plus »
+// reste toujours en dernier (ouvre la feuille + le picker « Personnaliser »).
+// Persistance PAR COMPTE via _lsKey (comme le menu perso). DRY : les onglets
+// appellent go() et les actions réutilisent les fonctions existantes — rien de
+// réinventé. Icônes = line-icons currentColor (paths repris de la maquette).
+const _FAV_MAX = 4;
+const _FAV_ICONS = {
+  accueil:'<path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/>',
+  parc:'<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/>',
+  loc:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/>',
+  loyers:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  argent:'<path d="M3 7h18M3 12h18M3 17h10"/>',
+  mvt:'<path d="M4 17l5-5 4 4 7-8"/>',
+  charges:'<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
+  finances:'<path d="M4 19h16M6 16l4-6 3 3 5-7"/>',
+  edl:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  agenda:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16M9 3v4M15 3v4"/>',
+  addedl:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 9v6M9 12h6"/>',
+  quit:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h4"/>',
+  depense:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.4"/><path d="M6.5 12h.01M17.5 12h.01"/>',
+  candidat:'<circle cx="9.5" cy="8" r="3.2"/><path d="M4 20c0-3.3 2.5-5.5 5.5-5.5"/><path d="M18 8.5v6M15 11.5h6"/>',
+  photo:'<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.4"/><path d="M8.5 7l1.3-2h4.4L15.5 7"/>',
+  rappel:'<path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/>'
+};
+// ONGLETS (10) — chaque `page` est un slug RÉEL vérifié dans go()/_V4_NAV_MODEL.
+// NB audit : la page « Locataires » est le slug 'baux' (#p-baux), pas 'locataires' ;
+// « Argent » n'a pas de page propre → son atterrissage est 'mouvements' (1re page de
+// la zone Argent). 'argent' et 'mvt' pointent donc tous deux sur Mouvements.
+const _FAV_TABS = [
+  { id:'accueil',  nm:'Accueil',          sh:'Accueil',  ic:'accueil',  page:'accueil', locked:true },
+  { id:'parc',     nm:'Logements',        sh:'Parc',     ic:'parc',     page:'biens' },
+  { id:'loc',      nm:'Locataires',       sh:'Locat.',   ic:'loc',      page:'baux' },
+  { id:'loyers',   nm:'Loyers',           sh:'Loyers',   ic:'loyers',   page:'loyers' },
+  { id:'argent',   nm:'Argent',           sh:'Argent',   ic:'argent',   page:'mouvements' },
+  { id:'mvt',      nm:'Mouvements',       sh:'Mouv.',    ic:'mvt',      page:'mouvements' },
+  { id:'charges',  nm:'Charges',          sh:'Charges',  ic:'charges',  page:'regul' },
+  { id:'finances', nm:'Finances',         sh:'Finances', ic:'finances', page:'finances' },
+  { id:'edl',      nm:'États des lieux',  sh:'EDL',      ic:'edl',      page:'edl' },
+  { id:'agenda',   nm:'Agenda',           sh:'Agenda',   ic:'agenda',   page:'agenda' },
 ];
+// ACTIONS RAPIDES (6) — chaque `id` déclenche une fonction EXISTANTE (cf. _favRunAction).
+const _FAV_ACTIONS = [
+  { id:'addedl',   nm:'Faire un EDL',              sh:'EDL',       ic:'addedl',   action:true },
+  { id:'depense',  nm:'Ajouter une dépense',       sh:'Dépense',   ic:'depense',  action:true },
+  { id:'candidat', nm:'Ajouter un candidat',       sh:'Candidat',  ic:'candidat', action:true },
+  { id:'photo',    nm:'Ajouter une photo / pièce', sh:'Photo',     ic:'photo',    action:true },
+  { id:'rappel',   nm:'Ajouter un rappel',         sh:'Rappel',    ic:'rappel',   action:true },
+  { id:'quit',     nm:'Faire une quittance',       sh:'Quittance', ic:'quit',     action:true },
+];
+const _FAV_ALL = _FAV_TABS.concat(_FAV_ACTIONS);
+const _FAV_ALL_IDS = _FAV_ALL.map(x => x.id);
+// Défaut intelligent (maquette) : Accueil (verrouillé) + Parc + Loyers + Faire un EDL.
+const _FAV_DEFAULT = ['accueil', 'parc', 'loyers', 'addedl'];
+function _favMeta(id) { return _FAV_ALL.find(x => x.id === id) || null; }
+function _favKey() { return (typeof _lsKey === 'function') ? _lsKey('immo_fav_bar') : 'immo_fav_bar'; }
+// Lecture normalisée : Accueil forcé en 1er, ids inconnus filtrés, unique, max 4.
+function _favGet() {
+  let arr = null;
+  try { const raw = localStorage.getItem(_favKey()); if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) arr = a; } } catch (e) {}
+  if (!arr) return _FAV_DEFAULT.slice();
+  const out = ['accueil'];
+  arr.forEach(id => { if (id !== 'accueil' && _FAV_ALL_IDS.includes(id) && !out.includes(id) && out.length < _FAV_MAX) out.push(id); });
+  return out;
+}
+function _favSet(list) {
+  const out = ['accueil'];
+  (list || []).forEach(id => { if (id !== 'accueil' && _FAV_ALL_IDS.includes(id) && !out.includes(id) && out.length < _FAV_MAX) out.push(id); });
+  try { localStorage.setItem(_favKey(), JSON.stringify(out)); } catch (e) {}
+  return out;
+}
+function _favSvg(ic) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">' + (_FAV_ICONS[ic] || '') + '</svg>'; }
+// Dispatch des actions rapides → fonctions EXISTANTES de l'app (DRY, aucune réinvention).
+// 'photo' : l'app n'a pas de capture photo globale hors contexte (les photos vivent
+// par logement / EDL / justificatif de mouvement) → on ouvre le hub Logements avec un
+// repère vers l'onglet Photos de la fiche. Mapping le plus « souple », à confirmer.
+function _favAddPhoto() {
+  try { if (typeof go === 'function') go('biens'); } catch (e) {}
+  try { if (typeof showToast === 'function') showToast('Ouvrir un logement puis l’onglet « Photos » de sa fiche pour ajouter des photos.', 'info', 4200); } catch (e) {}
+}
+const _FAV_ACTION_RUN = {
+  addedl:   () => openNewEDL(),
+  depense:  () => openNewMv(),
+  candidat: () => openAddCandidat(),
+  photo:    () => _favAddPhoto(),
+  rappel:   () => openAgendaEvt(null),
+  quit:     () => _openFaireQuittance(),
+};
+function _favRunAction(id) {
+  try { if (typeof _closeMoreSheet === 'function') _closeMoreSheet(); } catch (e) {}
+  const fn = _FAV_ACTION_RUN[id];
+  if (!fn) return;
+  try { fn(); }
+  catch (e) { console.warn('[fav] action ' + id, e); try { if (typeof showToast === 'function') showToast('Action indisponible', 'err'); } catch (_) {} }
+}
+// La bottom-nav rend les favoris (onglet = icône+label ; action = pastille corail
+// « + label ») + toujours « Plus ». Le surlignage .act (onglet actif) est câlé sur
+// le PARENT représentant (_navSidebarRep) — recalculé aussi dans go() à chaque navig.
 function _renderBottomNav() {
   const host = (typeof el === 'function') ? el('v4-bnav') : document.getElementById('v4-bnav');
   if (!host) return;
-  const on = (typeof _menuGetOn === 'function') ? _menuGetOn() : null;
+  const fav = _favGet();
   const rep = (typeof _navSidebarRep === 'function' && typeof currentPage !== 'undefined') ? _navSidebarRep(currentPage) : null;
-  let html = _V4_BOTTOM
-    .filter(p => !on || (typeof _menuItemVisible !== 'function') || _menuItemVisible(p.id, on))
-    .map(p => { const landing = (typeof _navSidebarLanding === 'function') ? _navSidebarLanding(p.id, on) : p.id; return '<button type="button" class="v4-bn' + (p.id === rep ? ' act' : '') + '" data-page="' + p.id + '" onclick="go(\'' + landing + '\')"><span class="ic">' + p.svg + '</span><span class="lbl">' + p.lb + '</span></button>'; })
-    .join('');
+  let html = fav.map(id => {
+    const it = _favMeta(id); if (!it) return '';
+    if (it.action) {
+      return '<button type="button" class="v4-bn fav-act" data-page="fav:' + id + '" onclick="_favRunAction(\'' + id + '\')">'
+        + '<span class="ic fav-ring">' + _favSvg(it.ic) + '</span>'
+        + '<span class="lbl fav-albl">+ ' + (it.sh || it.nm) + '</span></button>';
+    }
+    const isAct = (it.page === rep);
+    return '<button type="button" class="v4-bn' + (isAct ? ' act' : '') + '" data-page="' + it.page + '" onclick="go(\'' + it.page + '\')">'
+      + '<span class="ic">' + _favSvg(it.ic) + '</span>'
+      + '<span class="lbl">' + (it.sh || it.nm) + '</span></button>';
+  }).join('');
   html += '<button type="button" class="v4-bn' + (rep === 'more' ? ' act' : '') + '" data-page="more" onclick="_openMoreSheet()"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg></span><span class="lbl">Plus</span></button>';
   host.innerHTML = html;
   // La réécriture innerHTML efface le badge « candidats non lus » posé sur « Plus » par _renderInboxSurfaces
   // → on le re-pose (null-safe, ne re-render pas la sidebar). Sinon il disparaît après un toggle thème / menu / entité.
   try { if (typeof _renderInboxSurfaces === 'function') _renderInboxSurfaces(); } catch(e){}
+}
+// ─── PICKER « Personnaliser ma barre » (plein écran téléphone, M-16) ─────────
+function _favPickerRow(it, fav) {
+  const sel = fav.includes(it.id);
+  const disabled = it.locked || (!sel && fav.length >= _FAV_MAX);
+  const kind = it.locked ? 'Toujours présent' : (it.action ? 'Action rapide' : 'Onglet');
+  const cls = ['fp-opt', it.action ? 'action' : '', sel ? 'sel' : '', disabled ? 'disabled' : ''].filter(Boolean).join(' ');
+  return '<div class="' + cls + '"' + (it.locked ? '' : ' onclick="_favToggle(\'' + it.id + '\')"') + '>'
+    + '<div class="fp-ic">' + _favSvg(it.ic) + '</div>'
+    + '<div class="fp-lbl"><div class="fp-nm">' + it.nm + '</div><div class="fp-kind">' + kind + '</div></div>'
+    + '<div class="fp-star"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></div>'
+    + '</div>';
+}
+function _renderFavPicker() {
+  const ov = document.getElementById('ov-fav-picker'); if (!ov) return;
+  const body = ov.querySelector('.fp-body'); if (!body) return;
+  const fav = _favGet();
+  body.innerHTML = '<div class="fp-count">' + fav.length + ' / ' + _FAV_MAX + ' choisis</div>'
+    + '<div class="fp-grp">Onglets</div>' + _FAV_TABS.map(it => _favPickerRow(it, fav)).join('')
+    + '<div class="fp-grp">Actions rapides</div>' + _FAV_ACTIONS.map(it => _favPickerRow(it, fav)).join('');
+}
+function _openFavPicker() {
+  let ov = document.getElementById('ov-fav-picker');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'ov-fav-picker';
+    ov.innerHTML = '<div class="fp-head"><button type="button" class="fp-back" onclick="_closeFavPicker()" aria-label="Retour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><div class="fp-title">Personnaliser ma barre</div></div>'
+      + '<div class="fp-sub">Choisis jusqu’à 4 raccourcis pour ta barre du bas — des onglets <em>ou</em> des actions. « Plus » reste toujours là pour le reste. Accueil est toujours présent.</div>'
+      + '<div class="fp-body"></div>';
+    document.body.appendChild(ov);
+  }
+  _renderFavPicker();
+  ov.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function _closeFavPicker() {
+  const ov = document.getElementById('ov-fav-picker'); if (ov) ov.classList.remove('open');
+  document.body.style.overflow = '';
+}
+function _favToggle(id) {
+  const it = _favMeta(id); if (!it || it.locked) return;
+  let fav = _favGet();
+  const i = fav.indexOf(id);
+  if (i >= 0) { fav.splice(i, 1); }
+  else { if (fav.length >= _FAV_MAX) return; fav.push(id); }
+  _favSet(fav);
+  _renderFavPicker();
+  try { _renderBottomNav(); } catch (e) {}
 }
 
 // REFONTE-NAV Phase 4 — écran « Personnaliser le menu » (depuis le menu compte). Presets + interrupteurs
@@ -9531,8 +9696,11 @@ function _v4NavHtml(counts, candUnread, showDash) {
     if (m.showDash && !showDash) return;
     if (!_menuItemVisible(m.id, on)) return;           // masqué par le menu perso
     if (pendingZone) { out += '<h6>' + pendingZone + '</h6>'; pendingZone = null; }
-    const group = (typeof _NAV_PAGE_GROUP !== 'undefined') ? _NAV_PAGE_GROUP[m.id] : null;
-    const model = navSubmenuModel(m.id, group, cur, on, openSet);
+    // NAV APLATIE — les sous-menus dépliables sont neutralisés : chaque onglet est
+    // un LIEN SIMPLE (aucun chevron, aucun sous-menu). Les pages-enfants restent
+    // joignables via la barre de sous-onglets en haut de leur page-groupe.
+    // (navSubmenuModel/_navToggleGroup conservés mais plus appelés → 0 régression.)
+    const model = { kind: 'link' };
     if (model.kind === 'group') {
       // Onglet-GROUPE : parent (icône+label = naviguent) + chevron (déplie/replie seul) + sous-menu.
       const landing = (typeof _navSidebarLanding === 'function') ? _navSidebarLanding(m.id, on) : m.id;
@@ -10052,10 +10220,13 @@ function _accmShowAregarder(){
     host.classList.add('accm-on');
     var ctx = DashCtx.buildDashCtx(DB.logements, DB.mouvements, String(new Date().getFullYear()), '', (typeof _finActiveEnt==='function'?_finActiveEnt():''));
     var fams = {familles:[],total:0}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
-    var pageFor = {impaye:'loyers',depot:'loyers',irl:'loyers',regul:'regul',finbail:'baux',vacant:'biens',document:'biens',entretien:'equipements'};
+    // Cibles PRÉCISES par famille → _accmGoto(id, ref, count) (défini plus bas). On passe la réf du
+    // pire lot pour ouvrir directement la fiche/l'assistant du bon lot, pas une page générique.
     var rows = (fams.familles||[]).map(function(f){
       var chiffre=(typeof _pilChiffre==='function')?_pilChiffre(f):''; var pire=(typeof _pilPireTxt==='function')?_pilPireTxt(f):'';
-      return '<button type="button" class="atr" onclick="go(\''+(pageFor[f.id]||'loyers')+'\')">'
+      var _ref=(f.pire&&f.pire.ref)?String(f.pire.ref):'';
+      var _refJs=_ref.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      return '<button type="button" class="atr" onclick="_accmGoto(\''+f.id+'\',\''+_refJs+'\','+(f.count||0)+')">'
         +'<span class="ic"><svg viewBox="0 0 24 24">'+(_PIL_ICONS[f.id]||'')+'</svg></span>'
         +'<span class="m"><span class="t">'+escHtml(f.lbl)+'</span><span class="s">'+escHtml(chiffre)+(pire?(' · '+escHtml(pire)):'')+'</span></span>'
         +((f.count>1)?('<span class="cnt">'+f.count+'</span>'):'')
@@ -10079,6 +10250,37 @@ function _accmShowAregarder(){
       +'</style>'
       +'<div class="atl"><div class="th"><button class="back" onclick="rAccueil()"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button><h2>À regarder</h2></div>'+rows+'</div>';
   }catch(e){ console.warn('[accmAregarder]', e); }
+}
+// Navigation PROFONDE depuis « À regarder » (téléphone) : chaque famille pointe vers l'écran d'action
+// réel, ciblé sur le bon lot quand la ligne n'en concerne qu'UN (ref = pire lot). DRY : réutilise les
+// vraies portes (openLogFiche + setLogFicheTab, _departOuvrir = assistant départ/restitution DG, go).
+// Familles à plusieurs lots → repli sur la liste de l'onglet concerné (jamais une cible morte).
+function _accmGoto(id, ref, count){
+  try{
+    var single = (Number(count)===1) && !!ref;
+    var hasFiche = (typeof openLogFiche==='function');
+    var setTab = function(t){ if(typeof setLogFicheTab==='function') setTimeout(function(){ try{ setLogFicheTab(t); }catch(e){} },200); };
+    var openDepart = function(){ if(ref && typeof _departOuvrir==='function'){ _departOuvrir(ref); return true; } return false; };
+    switch(id){
+      case 'impaye':   // impayé d'un lot → sa comptabilité (suivi des loyers), pas la page Loyers globale
+        if(single && hasFiche){ openLogFiche(ref); setTab('compta'); } else go('loyers'); break;
+      case 'depot':    // dépôt à restituer → assistant départ / restitution DG (JAMAIS Loyers)
+        if(!openDepart()) go('baux'); break;
+      case 'finbail':  // fin de bail à préparer → assistant départ (déclare le congé si absent)
+        if(single && openDepart()){} else go('baux'); break;
+      case 'irl':      // la révision IRL s'applique dans l'onglet Loyers (bloc « Révisions »)
+        go('loyers'); break;
+      case 'vacant':   // lot vacant → sa fiche (relouer / candidatures), pas le hub Biens
+        if(single && hasFiche){ openLogFiche(ref); } else go('biens'); break;
+      case 'document': // pièce / assurance manquante DU lot → onglet Conformité de sa fiche
+        if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('biens'); break;
+      case 'entretien':// entretien en retard DU lot → onglet Conformité de sa fiche
+        if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('equipements'); break;
+      case 'regul':    // régularisation de charges → onglet Charges
+        go('regul'); break;
+      default: go('loyers');
+    }
+  }catch(e){ console.warn('[accmGoto]', e); try{ go('loyers'); }catch(e2){} }
 }
 function _renderAccueilPhone(ctx){
   var host = el('p-accueil'); if(!host) return;
@@ -10106,17 +10308,27 @@ function _renderAccueilPhone(ctx){
   if (DB.params && DB.params.userName && String(DB.params.userName).trim() && DB.params.userName !== 'Utilisateur') nom = String(DB.params.userName).trim();
   if (!nom) { try{ var _eNom=(DB.entites||[]).find(function(x){ return x && !x._deleted && x.gerant; }); if(_eNom && _eNom.gerant) nom = String(_eNom.gerant).trim(); }catch(e){} }
   var dstr = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  // Périmètre actif (entité filtrée) ou « Tout le parc » — pastille neutre en tête de l'accueil.
+  var perim = (ctx && ctx.activeEnt) ? String(ctx.activeEnt) : ((typeof _finActiveEnt==='function' && _finActiveEnt()) ? String(_finActiveEnt()) : '');
+  if(!perim) perim = 'Tout le parc';
   var pctPay = attMois>0 ? Math.min(100, Math.round(encMois/attMois*100)) : (encMois>0?100:0);
   var reste = Math.max(0, attMois - encMois);
   // Jauge occupation (neutre) — aiguille selon pctOcc sur un demi-cercle.
   var ang = Math.PI*(1 - (occ.pctOcc||0)/100), nx=(50+38*Math.cos(ang)).toFixed(1), ny=(52-38*Math.sin(ang)).toFixed(1);
-  var gauge = '<svg class="gauge" viewBox="0 0 100 60" aria-hidden="true"><path d="M10 52 A40 40 0 0 1 90 52" fill="none" stroke="var(--bor)" stroke-width="8" stroke-linecap="round"/><line x1="50" y1="52" x2="'+nx+'" y2="'+ny+'" stroke="var(--t1)" stroke-width="2.6" stroke-linecap="round"/><circle cx="50" cy="52" r="4.2" fill="var(--t1)"/></svg>';
+  // Arc de remplissage NEUTRE (part occupée) sur le rail, même rayon (40) que le rail — de la gauche
+  // (10,52) jusqu'à l'angle du taux d'occupation. Masqué à 0 % (arc de longueur nulle).
+  var fx=(50+40*Math.cos(ang)).toFixed(2), fy=(52-40*Math.sin(ang)).toFixed(2);
+  var fillArc = ((occ.pctOcc||0)>0) ? '<path d="M10 52 A40 40 0 0 1 '+fx+' '+fy+'" fill="none" stroke="var(--t2)" stroke-width="8" stroke-linecap="round"/>' : '';
+  var gauge = '<svg class="gauge" viewBox="0 0 100 60" aria-hidden="true"><path d="M10 52 A40 40 0 0 1 90 52" fill="none" stroke="var(--bor)" stroke-width="8" stroke-linecap="round"/>'+fillArc+'<line x1="50" y1="52" x2="'+nx+'" y2="'+ny+'" stroke="var(--t1)" stroke-width="2.6" stroke-linecap="round"/><circle cx="50" cy="52" r="4.2" fill="var(--t1)"/></svg>';
   wrap.innerHTML =
   '<style>'
   +'#accm-phone{display:none}'
   +'#p-accueil.accm-on>*:not(#accm-phone){display:none!important}'
   +'#p-accueil.accm-on #accm-phone{display:block}'
   +'.accm{padding:14px 16px 22px}'
+  +'.accm .perim{display:inline-flex;align-items:center;gap:6px;max-width:100%;background:var(--sur);border:1px solid var(--bor);border-radius:999px;padding:6px 11px;margin-bottom:13px;font-size:12px;color:var(--t2);font-weight:600}'
+  +'.accm .perim svg{width:12px;height:12px;stroke:var(--t3);fill:none;stroke-width:2;flex:0 0 auto}'
+  +'.accm .perim b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
   +'.accm .hi{font-size:13px;color:var(--t3);font-weight:600}'
   +'.accm .name{font-family:var(--ff-display,\'Schibsted Grotesk\',\'Inter\',sans-serif);font-weight:800;color:var(--pos);font-size:26px;line-height:1.12;overflow-wrap:anywhere}'
   +'.accm .hello-s{font-size:12.5px;color:var(--t3);margin-top:3px;text-transform:capitalize}'
@@ -10142,6 +10354,7 @@ function _renderAccueilPhone(ctx){
   +'.accm .watch .chev{width:17px;height:17px;stroke:var(--t3);fill:none;stroke-width:1.8;flex:0 0 auto}'
   +'</style>'
   +'<div class="accm">'
+  +'<div class="perim"><svg viewBox="0 0 24 24"><path d="M4 21V8l8-5 8 5v13"/></svg><b>'+escHtml(perim)+'</b></div>'
   +'<div class="hi">Bonjour</div>'+(nom?('<div class="name">'+escHtml(nom)+'</div>'):'')+'<div class="hello-s">'+escHtml(dstr)+'</div>'
   +'<div class="hero"><div class="k">Encaissé depuis le 1ᵉʳ janvier</div><div class="v">'+F(encYTD)+'</div></div>'
   +'<div class="srow"><div class="k">Encaissé ce mois'+(reste>0?('<span class="sub2">reste '+F(reste)+' à encaisser</span>'):'<span class="sub2">tout est encaissé</span>')+'</div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
@@ -19515,25 +19728,15 @@ function getBailDataFromForm() {
     ref: _bref, nom: locs[0]?.nom, locataires: locs,
     adrLoc: v('b-adrLoc'),
     type: v('b-type') || 'nu',  // v15.191 BAIL-TYPES : nu | meuble | etudiant | mobilite | garage | autre
-    // v15.192 BAIL-TYPES Étape 2 + v15.196 post-audit : inventaire mobilier (décret 2015-981).
-    // Émis UNIQUEMENT si type ∈ {meuble, etudiant, mobilite}. Évite la pollution DB sur baux nu.
+    // v15.59x MOBILIER-EDL : l'inventaire mobilier n'est PLUS saisi dans le bail (il est
+    // dressé à l'EDL et annexé — décret 2015-981). Le formulaire ne contient plus de cases à
+    // cocher, donc rien n'est collecté ici pour un nouveau bail. RÉTRO-COMPAT : si l'on édite
+    // un bail EXISTANT qui portait déjà un `mobilier` (créé avant ce chantier), on le PRÉSERVE
+    // tel quel pour ne jamais l'effacer au re-save (même logique que fiscal / champs gelés).
     ...((function(){
-      const _t = v('b-type') || 'nu';
-      if (_t !== 'meuble' && _t !== 'etudiant' && _t !== 'mobilite') return {};
-      return { mobilier: {
-        literie:    !!el('b-mob-literie')?.checked,
-        occultation:!!el('b-mob-occult')?.checked,
-        cuisson:    !!el('b-mob-cuisson')?.checked,
-        four:       !!el('b-mob-four')?.checked,
-        frigo:      !!el('b-mob-frigo')?.checked,
-        vaisselle:  !!el('b-mob-vaisselle')?.checked,
-        ustensiles: !!el('b-mob-ustensiles')?.checked,
-        table:      !!el('b-mob-table')?.checked,
-        etageres:   !!el('b-mob-etageres')?.checked,
-        luminaires: !!el('b-mob-luminaires')?.checked,
-        entretien:  !!el('b-mob-entretien')?.checked,
-        details:    v('b-mob-details') || '',
-      } };
+      const _er = v('b-edit-ref');
+      const _ex = _er ? DB.baux[_er] : null;
+      return (_ex && _ex.mobilier) ? { mobilier: _ex.mobilier } : {};
     })()),
     // CHANTIER BAIL-GARAGE — champs propres au bail garage/box/stockage. Émis UNIQUEMENT si
     // type==='garage' (évite la pollution DB sur les autres types).
@@ -31141,14 +31344,19 @@ function _edlRenderAll(sigs) {
   }, 50);
 }
 
-function _edlFillPieceSelect() {
-  const sel=el('edl-add-piece-sel');if(!sel)return;
+// Options du sélecteur « pièce à ajouter » — SOURCE UNIQUE (barre PC + feuille des étapes
+// sur téléphone, §2.5). Kit standard EDL_EXTRA + « Chambre N » + pièce personnalisée libre.
+function _edlPieceSelectOptions() {
   const existing=_edlP.map(p=>p.nom);
   const nCh=existing.filter(n=>n.startsWith('Chambre')).length;
-  sel.innerHTML='<option value="">Pièce à ajouter…</option>'+
+  return '<option value="">Pièce à ajouter…</option>'+
     '<option value="__custom">✏️ Pièce personnalisée (nom libre)</option>'+
     `<option value="__ch">🛏 Chambre ${nCh+1}</option>`+
     EDL_EXTRA.filter(p=>!p.nom.startsWith('Chambre')&&!existing.includes(p.nom)).map(p=>`<option value="${escHtml(p.nom)}">${escHtml(p.nom)}</option>`).join('');
+}
+function _edlFillPieceSelect() {
+  const sel=el('edl-add-piece-sel');if(!sel)return;
+  sel.innerHTML=_edlPieceSelectOptions();
 }
 
 function _edlRenderPieces() {
@@ -31233,6 +31441,9 @@ function _edlApplyStepVisibility() {
     let vis;
     if (S && node.id === 'edl-mobilier-section') vis = S.sectionVisible(g, curGroup, mobOn, true);
     else if (node.id === 'edl-ref-banner')       vis = (curGroup === 'pieces') && !!node.innerHTML.trim();
+    // §2.5 : la barre d'ajout de pièce est PARASITE sur téléphone (elle réapparaissait en tête
+    // de chaque étape-pièce) → jamais dans le flux ; l'ajout vit dans la feuille des étapes.
+    else if (node.id === 'edl-add-piece-bar')    vis = false;
     else vis = S ? S.sectionVisible(g, curGroup, mobOn, false) : (g === curGroup);
     node.style.display = vis ? disp : 'none';
   });
@@ -31266,7 +31477,7 @@ function _edlUpdateRail() {
   const lbl = el('edl-rail-label'); if (lbl) lbl.textContent = s ? s.nom : '';
   const gl = el('edl-rail-global');
   if (gl) {
-    let txt = S.stepGlobalLabel(_edlCurStep, N);                 // « Étape 2 / 12 »
+    let txt = S.stepGlobalLabelFromSteps(steps, _edlCurStep);    // « Étape 2 / 12 » (relecture non comptée, §2.2)
     if (s && s.kind === 'piece') {
       const st = P.statsPiece(_edlP[s.pieceIdx], _edlSortie);    // « · 3/24 · 1 écart »
       txt += ` · ${st.remplis}/${st.total}` + (_edlSortie && st.ecarts ? ` · ${st.ecarts} écart${st.ecarts > 1 ? 's' : ''}` : '');
@@ -31347,6 +31558,7 @@ function _edlOpenPieceSheet() {
       <span class="edl-sheet-meta">${meta}${tag}</span>
     </button>`;
   }).join('');
+  const ssel = el('edl-sheet-add-sel'); if (ssel) ssel.innerHTML = _edlPieceSelectOptions();
   sheet.style.display = 'flex';
 }
 function _edlClosePieceSheet() { const s = el('edl-piece-sheet'); if (s) s.style.display = 'none'; }
@@ -31617,13 +31829,19 @@ function _edlPieceHTML(p,pi) {
   // parcours n'en montre qu'un à la fois (§4, §9 inv. 23). Le rendu reste celui-ci.
   return `<div class="edl-piece-block" data-pidx="${pi}" style="border:2px solid var(--bor);border-radius:var(--r);margin-bottom:12px;overflow:hidden">
     <div class="edl-piece-head" style="background:var(--sur2);padding:7px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bor);gap:8px">
-      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
-        <input style="font-weight:700;font-size:13px;background:transparent;border:none;color:var(--t1);padding:0;flex:1;min-width:0" value="${escHtml(p.nom)}" onchange="edlPieceNom(${pi},this.value)" placeholder="Nom de la pièce">
+      <div class="edl-piece-titlerow" style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+        <input class="edl-piece-name" style="font-weight:700;font-size:13px;background:transparent;border:none;color:var(--t1);padding:0;flex:1;min-width:0" value="${escHtml(p.nom)}" onchange="edlPieceNom(${pi},this.value)" placeholder="Nom de la pièce">
         ${_edlPieceBadge(p)}
       </div>
-      <div class="flex-c" style="gap:5px;flex:none">
+      <div class="flex-c edl-piece-acts" style="gap:5px;flex:none">
         <button class="btn bs bb" onclick="edlAddElem(${pi})" style="font-size:11px">+ Élément</button>
-        <button class="btn br bb" onclick="edlRemovePiece(${pi})" style="font-size:11px">🗑</button>
+        <button class="btn br bb edl-piece-del-pc" onclick="edlRemovePiece(${pi})" style="font-size:11px">🗑</button>
+      </div>
+      <!-- §2.6 (maquette) — sur téléphone : 2 pilules sous le titre (masquées sur PC, qui garde
+           le 🗑 dense). Réutilisent edlPieceNom (renommer) et edlRemovePiece (supprimer). -->
+      <div class="edl-piece-pills">
+        <button class="edl-pill" onclick="_edlRenamePiece(${pi})">✎ Renommer la pièce</button>
+        <button class="edl-pill edl-pill-del" onclick="edlRemovePiece(${pi})">✕ Supprimer la pièce</button>
       </div>
     </div>
     <div class="tbl-wrap" style="margin:0"><table class="tbl" style="margin:0"><thead>${thead}</thead><tbody>${rows}</tbody></table></div>
@@ -31665,6 +31883,13 @@ function edlPieceNom(pi,v2){if(_edlP[pi])_edlP[pi].nom=v2;}
 function edlAddElem(pi){if(!_edlP[pi])return;_edlP[pi].elements.push({nom:'',etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]});_edlRenderPieces();}
 function edlRemoveElem(pi,ei){if(!_edlP[pi])return;_edlP[pi].elements.splice(ei,1);_edlRenderPieces();}
 function edlRemovePiece(pi){if(!confirm2('Supprimer cette pièce ?'))return;_edlP.splice(pi,1);_edlRenderPieces();_edlFillPieceSelect();}
+// §2.6 — pilule « ✎ Renommer la pièce » (téléphone) : donne le focus au titre éditable (le
+// nom reste écrit via edlPieceNom à la validation). Pas de pop-up partiel (règle mobile).
+function _edlRenamePiece(pi){
+  const blk=document.querySelector(`#edl-pieces-section .edl-piece-block[data-pidx="${pi}"]`);
+  const inp=blk&&blk.querySelector('.edl-piece-name');
+  if(inp){inp.focus();try{inp.select();}catch(_){}}
+}
 /* v14.10 EDL : insère une pièce dans _edlP en respectant l'ordre logique.
    Si "Extérieurs / Communs" existe (depuis v14.7), insère JUSTE AVANT elle.
    Sinon push à la fin (comportement legacy). Permet d'ajouter Chambre 2,
@@ -32658,14 +32883,33 @@ async function uploadEDLPDFToDriveFromForm() {
   showToast('💾 Enregistré — envoi vers Drive...', 'info', 1800);
   await uploadEDLPDFToDrive(savedId);
 }
-function edlAddPieceFromSel(){
-  const sel=el('edl-add-piece-sel');let nom=sel.value;if(!nom)return;
-  // #2 (26/08) — « Pièce personnalisée » : ajoute une pièce vide (nom éditable en ligne) et saute dessus.
-  if(nom==='__custom'){sel.value='';edlAddPieceCustom();return;}
+// Cœur d'ajout d'une pièce depuis une valeur de sélecteur — SOURCE UNIQUE (barre PC ET
+// feuille des étapes téléphone, §2.5). Renvoie l'index de la pièce ajoutée (ou -1 pour un
+// ajout personnalisé, qui saute déjà sur la nouvelle pièce via edlAddPieceCustom).
+function _edlAddPieceByValue(nom){
+  if(!nom) return -1;
+  // « Pièce personnalisée » : ajoute une pièce vide (nom éditable en ligne) et saute dessus.
+  if(nom==='__custom'){ edlAddPieceCustom(); return -1; }
   if(nom==='__ch'){const n=_edlP.filter(p=>p.nom.startsWith('Chambre')).length+1;nom='Chambre '+n;}
   const tpl=[...EDL_TPL,...EDL_EXTRA].find(p=>p.nom===nom||p.nom==='Chambre');
-  _edlInsertPiece({nom,elements:(tpl?.e||[]).map(n=>({nom:n,etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]}))});
-  _edlRenderPieces();_edlFillPieceSelect();sel.value='';
+  const piece={nom,elements:(tpl?.e||[]).map(n=>({nom:n,etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]}))};
+  _edlInsertPiece(piece);
+  _edlRenderPieces();_edlFillPieceSelect();
+  return _edlP.indexOf(piece);
+}
+function edlAddPieceFromSel(){
+  const sel=el('edl-add-piece-sel');if(!sel)return;const nom=sel.value;if(!nom)return;
+  _edlAddPieceByValue(nom);sel.value='';
+}
+// §2.5 — ajout de pièce DEPUIS LA FEUILLE DES ÉTAPES (téléphone) : même moteur, puis on
+// saute directement sur la nouvelle pièce (ferme la feuille). La pièce personnalisée gère
+// déjà son propre saut ; on ferme simplement la feuille.
+function _edlSheetAddPiece(){
+  const sel=el('edl-sheet-add-sel');if(!sel)return;const nom=sel.value;if(!nom)return;
+  const pi=_edlAddPieceByValue(nom);
+  sel.value='';
+  if(pi>=0 && typeof _edlGoPiece==='function') _edlGoPiece(pi); // saute sur la pièce (ferme la feuille)
+  else _edlClosePieceSheet();
 }
 function edlAddPieceCustom(){
   // #2 (retour Didier 26/08) — plus de prompt() bloquant qui exigeait un titre : on ajoute une
@@ -35355,8 +35599,25 @@ function _ensureBiencPhCss(){
     '.bienc-ph .bienc-rent{font-size:12px;color:var(--t1);font-weight:700;white-space:nowrap;flex:0 0 auto}',
     '.bienc-ph .bienc-rent small{color:var(--t3);font-weight:500;font-size:10.5px}',
     '.bienc-ph .bienc-menu{flex:0 0 auto;background:none;border:0;color:var(--t3);font-size:18px;line-height:1;padding:2px 4px;cursor:pointer;align-self:flex-start}',
+    // MOBILE-REFONTE lot 3b — séparateur de groupe (bailleur en vue Immeubles) + groupe immeuble repliable (vue Logements).
+    '.biens-grp-sep{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);padding:8px 2px 6px;margin:2px 0 0}',
+    '.biens-grp-sep:first-child{padding-top:2px}',
+    '.log-grp{margin:0 0 4px}',
+    '.log-grp-h{display:flex;align-items:center;gap:10px;padding:9px 2px;cursor:pointer;user-select:none}',
+    '.log-grp-thumb{width:34px;height:34px;border-radius:9px;flex:0 0 auto;overflow:hidden;background:var(--sur3);display:flex;align-items:center;justify-content:center;font-size:16px}',
+    '.log-grp-thumb img{width:100%;height:100%;object-fit:cover;display:block}',
+    '.log-grp-info{flex:1;min-width:0}',
+    '.log-grp-name{font-family:var(--ff-display,"Schibsted Grotesk","Inter",sans-serif);font-weight:800;color:var(--t1);font-size:14.5px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.log-grp-sub{font-size:11px;color:var(--t3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.log-grp-chev{width:16px;height:16px;flex:0 0 auto;fill:none;stroke:var(--t3);stroke-width:2;transition:transform .18s}',
+    '.log-grp.collapsed .log-grp-chev{transform:rotate(-90deg)}',
+    '.log-grp-lots{margin-left:16px;padding-left:14px;border-left:2px solid var(--bor);display:flex;flex-direction:column;gap:9px;margin-bottom:6px}',
+    '.log-grp.collapsed .log-grp-lots{display:none}',
+    '.log-grp-lots .bienc-ph{margin:0}',
     '@media(max-width:767px){',
     '#p-biens .biens-toolbar{flex-direction:column;gap:10px;align-items:stretch}',
+    // MOBILE-REFONTE lot 3a — bascule active = corail plein + texte blanc (charte books), téléphone uniquement.
+    '#p-biens .biens-view-toggle .bvt.act{background:var(--acc);color:#fff;box-shadow:none}',
     '#p-biens .biens-toolbar-left,#p-biens .biens-toolbar-right{width:100%}',
     '#p-biens .biens-toolbar-right{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
     '#p-biens .biens-view-toggle{display:flex;width:100%}',
@@ -35429,6 +35690,71 @@ function _renderLogementCardFlat(l) {
       </div>
     </div>
   </article>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MOBILE-REFONTE lot 3 — Vue Logements TÉLÉPHONE regroupée par immeuble.
+// Grief user « où sont les séparateurs ? » : la liste plate ne montrait pas la
+// hiérarchie immeuble › lots. On regroupe par (bailleur, immeuble) avec un
+// en-tête repliable (vignette + nom + « Ville · N lots · M loués » + chevron) et
+// les cartes lots en retrait, en RÉUTILISANT _renderLogementCardFlat (DRY).
+// Logements sans immeuble → groupe « Logements isolés » (rangé en dernier).
+// État déplié/replié persisté en localStorage (motif _lsKey), comme les blocs A.
+// PC (≥768px) inchangé : rBiens garde la grille plate hors _isPhone().
+// ════════════════════════════════════════════════════════════════════════════
+function _readLogGroupsCollapsed() {
+  try { return JSON.parse(localStorage.getItem(_lsKey('logGroupsCollapsed')) || '{}'); }
+  catch(e) { return {}; }
+}
+function _toggleLogGroup(hEl) {
+  const grp = hEl && hEl.closest ? hEl.closest('.log-grp') : null;
+  if(!grp) return;
+  grp.classList.toggle('collapsed');
+  try {
+    const key = _lsKey('logGroupsCollapsed');
+    const stored = JSON.parse(localStorage.getItem(key) || '{}');
+    const gkey = grp.getAttribute('data-gkey') || '';
+    if(grp.classList.contains('collapsed')) stored[gkey] = true; else delete stored[gkey];
+    localStorage.setItem(key, JSON.stringify(stored));
+  } catch(e) {}
+}
+function _renderLogementsGroupedPhone(logs) {
+  // Regroupe par (bailleur, immeuble) ; logements sans immeuble → « Logements isolés ».
+  const groups = new Map();
+  (logs||[]).forEach(l => {
+    const hasImm = !!(l.imm && String(l.imm).trim());
+    const key = hasImm ? ((l.entity||'—') + '||' + l.imm) : '__ISOLES__';
+    if(!groups.has(key)) groups.set(key, { entNom:l.entity||'', immNom: hasImm ? l.imm : '', isoles:!hasImm, logs:[] });
+    groups.get(key).logs.push(l);
+  });
+  const arr = [...groups.values()];
+  arr.sort((a,b) => {
+    if(a.isoles !== b.isoles) return a.isoles ? 1 : -1;   // isolés toujours en dernier
+    return _natCmp(a.entNom, b.entNom) || _natCmp(a.immNom, b.immNom);
+  });
+  const collapsed = _readLogGroupsCollapsed();
+  return arr.map(g => {
+    const ent = (!g.isoles && g.entNom) ? (DB.entites||[]).find(e => e.nom === g.entNom) : null;
+    const im  = ent ? (ent.immeubles||[]).find(i => i && i.nom === g.immNom && !i._deleted) : null;
+    const nbLots  = g.logs.length;
+    const nbLoues = g.logs.filter(l => _bienActiveBail(l.ref)).length;
+    const ville = g.isoles ? '' : ((im && im.ville) || _extractVilleFromAdr(im && im.adr) || _extractVilleFromAdr(g.logs[0] && g.logs[0].adr) || '');
+    const sub = [ville, `${nbLots} lot${nbLots>1?'s':''}`, `${nbLoues} loué${nbLoues>1?'s':''}`]
+      .filter(Boolean).map(escHtml).join(' · ');
+    const title = g.isoles ? 'Logements isolés' : escHtml(g.immNom || '—');
+    const thumb = g.isoles ? '<span>🏠</span>' : (im && im.id ? _coverImg('immeuble', im.id, '🏢') : '<span>🏢</span>');
+    const gkey  = g.isoles ? '__ISOLES__' : (g.entNom + '||' + g.immNom);
+    const isCol = !!collapsed[gkey];
+    const cards = g.logs.slice().sort((a,b) => _natCmp(a.ref, b.ref)).map(_renderLogementCardFlat).join('');
+    return `<div class="log-grp${isCol?' collapsed':''}" data-gkey="${escHtml(gkey)}">
+      <div class="log-grp-h" onclick="_toggleLogGroup(this)" tabindex="0" role="button" aria-label="Replier ou déplier ${title}" onkeydown="if(event.key==='Enter'||event.key===' '){_toggleLogGroup(this);event.preventDefault()}">
+        <span class="log-grp-thumb">${thumb}</span>
+        <span class="log-grp-info"><div class="log-grp-name">${title}</div><div class="log-grp-sub">${sub}</div></span>
+        <svg class="log-grp-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="log-grp-lots">${cards}</div>
+    </div>`;
+  }).join('');
 }
 
 // v14.2 LOG-LISTE-CARDS Phase 2 — état toolbar (recherche / filtres / tri).
@@ -36799,6 +37125,14 @@ function rBiens() {
   const sc = el('biens-search-clear'); if(sc) sc.classList.toggle('show', !!_biensFilters.search);
   const cnt = el('biens-count');
 
+  // MOBILE-REFONTE lot 3c — le mode Bailleurs n'a que Trier + Exporter (mockup BOOK-BAILLEURS) :
+  // les filtres (bailleur / occupation / type) sont des attributs de LOGEMENT, sans objet ici.
+  try {
+    const _fb = el('biens-filter-btn');
+    const _fw = _fb && _fb.closest ? _fb.closest('.biens-filter-wrap') : null;
+    if(_fw) _fw.style.display = (_biensViewMode === 'bailleurs') ? 'none' : '';
+  } catch(e) {}
+
   // v14.3 PATRIMOINE-NAV-UNIFY : mode Bailleurs = render dédié sur DB.entites
   // Le tab Actifs/Archivés ne s'applique pas aux bailleurs (les entités n'ont pas de cycle de vie soft-delete)
   if(_biensViewMode === 'bailleurs') {
@@ -36850,7 +37184,13 @@ function rBiens() {
 
   if(_biensViewMode === 'logements') {
     if(cnt) cnt.textContent = `${filtered.length} ${filtered.length>1?'logements':'logement'}${filtered.length<pool.length?` sur ${pool.length}`:''}`;
-    wrap.innerHTML = `<div class="biens-grid">${filtered.map(_renderLogementCardFlat).join('')}</div>`;
+    // MOBILE-REFONTE lot 3 — téléphone : regroupement par immeuble (en-têtes repliables + lots en retrait).
+    // PC (≥768px) : grille plate d'origine inchangée.
+    if(_isPhone()) {
+      wrap.innerHTML = _renderLogementsGroupedPhone(filtered);
+    } else {
+      wrap.innerHTML = `<div class="biens-grid">${filtered.map(_renderLogementCardFlat).join('')}</div>`;
+    }
     return;
   }
 
@@ -36876,6 +37216,23 @@ function rBiens() {
     // v15.236 : tri par défaut groupé par BAILLEUR (entité) puis immeuble, pour
     // que tous les immeubles d'un même bailleur soient consécutifs.
     default:           groupsArr.sort((a,b)=>_natCmp(a.entNom, b.entNom) || _natCmp(a.immNom, b.immNom));
+  }
+  // MOBILE-REFONTE lot 3 — vue Immeubles TÉLÉPHONE : cartes compactes _renderBuildingCard
+  // (jamais le bloc desktop 7 colonnes _renderBuildingBlockA, illisible à 375px), groupées
+  // par bailleur avec un séparateur de groupe (mockup BOOK-IMMEUBLES). PC inchangé plus bas.
+  if(_isPhone()) {
+    let html = '', curEnt = null, buf = [];
+    const flush = () => { if(buf.length) { html += `<div class="biens-grid">${buf.join('')}</div>`; buf = []; } };
+    groupsArr.forEach(g => {
+      if(g.entNom !== curEnt) { flush(); curEnt = g.entNom; html += `<div class="biens-grp-sep">${escHtml(curEnt||'—')}</div>`; }
+      const ent = (DB.entites||[]).find(e => e.nom === g.entNom) || null;
+      buf.push(_renderBuildingCard(g.entNom, g.immNom, g.logs, ent, isArchivedTab));
+    });
+    flush();
+    const filtSuffixP = filtered.length < pool.length ? ' (filtré)' : '';
+    if(cnt) cnt.textContent = `${groupsArr.length} ${groupsArr.length>1?'immeubles':'immeuble'} · ${filtered.length} ${filtered.length>1?'biens':'bien'}${filtSuffixP}`;
+    wrap.innerHTML = html;
+    return;
   }
   // v15.230 ARCHI-FICHES-UNIFIED Session 4 Commit 3 — Variante A par défaut.
   // Bascule via _biensFilters.layout = 'cards-b' pour conserver l'ancien rendu cards.
@@ -42053,7 +42410,7 @@ function _renderLogFichePanelEDL(log, ref) {
 
   // ── Empty state
   if(edls.length === 0) {
-    return `<div class="logf-section-head">
+    return `<div class="logf-section-head" id="logf-edl-anchor">
       <h3 class="logf-section-title">📋 États des lieux du logement</h3>
       ${headerActions}
     </div>
@@ -42099,7 +42456,7 @@ function _renderLogFichePanelEDL(log, ref) {
     </div>`;
   }).join('');
 
-  return `<div class="logf-section-head">
+  return `<div class="logf-section-head" id="logf-edl-anchor">
     <h3 class="logf-section-title">📋 États des lieux <span class="mu sm">(${edls.length})</span></h3>
     ${headerActions}
   </div>
@@ -42361,6 +42718,7 @@ function _ensureLogFichePhCss(){
   st.textContent=[
     '@media(max-width:767px){',
     '#p-log-fiche,#p-imm-fiche,#p-ent-fiche{overflow-x:hidden}',
+    // ── Fiches IMMEUBLE / BAILLEUR : compaction du hero desktop (inchangé, ne pas régresser) ──
     '.logf-photos,.logf-photos-mini{width:56px!important;height:56px!important;min-width:56px!important;max-width:56px!important;flex:0 0 56px!important;border-radius:12px;overflow:hidden}',
     '.logf-photos img,.logf-photos-mini img{width:100%!important;height:100%!important;object-fit:cover}',
     '.logf-hero-pulse{display:none!important}',
@@ -42370,9 +42728,139 @@ function _ensureLogFichePhCss(){
     '.logf-actions>*{width:100%!important}',
     '.logf-subtabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}',
     '.logf-subtab{flex:1 0 auto;white-space:nowrap}',
+    // ── Fiche LOGEMENT : hero natif téléphone (maquettes FICHE-LOGEMENT-2T / LIVE) ──
+    '.logf-ph-hero{margin-top:4px}',
+    '.logf-ph-idrow{display:flex;align-items:center;gap:11px;padding:2px 0 9px}',
+    '.logf-ph-thumb{width:52px;height:52px;min-width:52px;border-radius:12px;overflow:hidden;flex:0 0 52px;background:var(--sur2);border:1px solid var(--bor);display:grid;place-items:center;font-size:24px}',
+    '.logf-ph-thumb img{width:100%;height:100%;object-fit:cover}',
+    '.logf-ph-idm{flex:1;min-width:0}',
+    '.logf-ph-l1{display:flex;align-items:center;gap:9px;flex-wrap:wrap}',
+    '.logf-ph-ref{font-weight:800;color:var(--t1);font-size:21px;letter-spacing:-.01em;line-height:1.05}',
+    '.logf-ph-chip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}',
+    '.logf-ph-chip .d{width:6px;height:6px;border-radius:50%;background:currentColor}',
+    '.logf-ph-chip.loue{background:rgba(22,121,94,.14);color:var(--grn)}',
+    '.logf-ph-chip.vac{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}',
+    '.logf-ph-chip.vac .d{background:transparent;border:1.5px solid currentColor}',
+    '.logf-ph-chip.arch{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}',
+    '.logf-ph-l2{font-size:12.5px;color:var(--t2);margin-top:3px;font-weight:600}',
+    '.logf-ph-l3{font-size:11.5px;color:var(--t3);margin-top:1px}',
+    '.logf-ph-strip{display:flex;background:var(--sur);border:1px solid var(--bor);border-radius:12px;overflow:hidden;margin-top:2px}',
+    '.logf-ph-strip .c{flex:1;padding:9px 6px;text-align:center;border-left:1px solid var(--bor)}',
+    '.logf-ph-strip .c:first-child{border-left:0}',
+    '.logf-ph-strip .c .v{font-weight:800;color:var(--t1);font-size:14px;line-height:1.1}',
+    '.logf-ph-strip .c .v.k-ok{color:var(--grn)}',
+    '.logf-ph-strip .c .v.k-warn{color:var(--red)}',
+    '.logf-ph-strip .c .k{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.02em;margin-top:3px}',
+    '.logf-ph-actions{margin-top:12px}',
+    // barre d\'onglets courte, une ligne, 4 colonnes, pas de scroll
+    '.logf-ph-tabs{display:flex;border-bottom:1px solid var(--bor);margin-top:14px;position:sticky;top:0;z-index:2;background:var(--bg)}',
+    '.logf-ph-tab{flex:1;text-align:center;height:42px;font-size:12.5px;font-weight:700;color:var(--t3);background:transparent;border:0;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;white-space:nowrap;padding:0}',
+    '.logf-ph-tab.on{color:var(--acc);border-bottom-color:var(--acc)}',
+    // 4 actions carrées du bail (Quittance · Voir bail · EDL · Réviser)
+    '.logf-ph-bailacts{display:flex;gap:7px;margin-top:12px}',
+    '.logf-ph-bailact{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 2px;border:1px solid var(--bor);border-radius:11px;background:var(--sur2);color:var(--t2);font-weight:600;font-size:10px;cursor:pointer;font-family:inherit;text-align:center;line-height:1.15}',
+    '.logf-ph-bailact svg{width:18px;height:18px;stroke:var(--t2);fill:none;stroke-width:1.8}',
+    '.logf-ph-bailact.pri{background:var(--acc);color:#fff;border-color:transparent}',
+    '.logf-ph-bailact.pri svg{stroke:#fff}',
+    '.logf-ph-repwrap{margin-top:9px}',
     '}'
   ].join('');
   document.head.appendChild(st);
+}
+
+// MOBILE-REFONTE lot « fiche bien » — HERO NATIF téléphone (maquettes FICHE-LOGEMENT-2T / LIVE).
+// Remplace le hero desktop rétréci : vignette + réf en gros + statut + 2 lignes de contexte,
+// puis un bandeau de 3-4 chiffres réels. Aucune valeur recalculée ici — on relit bail/log et
+// l'état loyer déjà calculés par le moteur (_lyEtatLot / retardLot). PC/tablette n'appellent pas
+// cette fonction (branche _isPhone() dans rLogFiche).
+function _renderLogFichePhStrip(log, bail, ref){
+  const cells = [];
+  if(bail){
+    // Loyer COURANT (post-révision IRL) via le résolveur unique du barème `_duMoisLot`
+    // (mêmes 2 sources bail+barème que le moteur loyers) ; repli contractuel si indispo (file://).
+    let loyer = (+bail.hc||+log.hc||0) + (+bail.ch||+log.ch||0);
+    try{
+      if(typeof _duMoisLot === 'function'){
+        const _now = new Date();
+        const _ym = _now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0');
+        const _dm = _duMoisLot(ref, _ym);
+        if(_dm && +_dm.total > 0) loyer = +_dm.total;
+      }
+    }catch(e){}
+    const dep   = (+bail.dg||+log.dg||0);
+    let fin = 'en cours';
+    if(bail.fin && /^\d{4}-\d{2}/.test(bail.fin)) fin = bail.fin.slice(5,7)+'/'+bail.fin.slice(2,4);
+    // Solde : réutilise le moteur loyers (payé − dû, chiffre signé) — jamais un chiffre inventé.
+    let sV = '—', sCls = '';
+    try{
+      if(typeof _lyEtatLot === 'function' && typeof window.retardLot === 'function'){
+        const et = _lyEtatLot(log);
+        if(et && et.retard){
+          if(et.retard.enRetard){ sV = '-'+fmt(et.retard.reste); sCls = 'k-warn'; }
+          else { sV = 'À jour'; sCls = 'k-ok'; }
+        }
+      }
+    }catch(e){}
+    cells.push({v: fmt(loyer), k: 'Loyer'});
+    cells.push({v: fmt(dep),   k: 'Dépôt'});
+    cells.push({v: fin,        k: 'Fin bail'});
+    cells.push({v: sV, k: 'Solde', cls: sCls});
+  } else if(log.archived){
+    cells.push({v: '📦', k: 'Archivé'});
+    cells.push({v: fd(log.archivedAt)||'—', k: 'Date archive'});
+  } else {
+    const refTot = (Number(log.loyerHcRef)||Number(log.hc)||0) + (Number(log.chargesRef)||Number(log.ch)||0);
+    const lastEnd = (typeof _getLastClosedBailEndIso === 'function') ? _getLastClosedBailEndIso(ref) : null;
+    cells.push({v: refTot>0 ? fmt(refTot) : '—', k: 'Loyer souhaité'});
+    cells.push({v: '0 %', k: 'Occupé'});
+    cells.push({v: lastEnd ? 'Vacant' : 'Jamais loué', k: lastEnd ? ('depuis '+fd(lastEnd)) : 'Historique'});
+  }
+  return cells;
+}
+function _renderLogFichePhHero(log, bail, ref){
+  const occupied = !!bail;   // rLogFiche passe déjà le bail actif résolu (ou null)
+  const isArch   = !!log.archived;
+  let chip;
+  if(isArch)         chip = '<span class="logf-ph-chip arch"><span class="d"></span>Archivé</span>';
+  else if(occupied)  chip = '<span class="logf-ph-chip loue"><span class="d"></span>Loué</span>';
+  else               chip = '<span class="logf-ph-chip vac"><span class="d"></span>Vacant</span>';
+  const l2 = [log.type, log.surf?(fmtN(log.surf)+' m²'):'', log.etage].filter(Boolean).map(escHtml).join(' · ');
+  const l3 = [log.imm, log.adr].filter(Boolean).map(escHtml).join(' · ');
+  const strip = _renderLogFichePhStrip(log, bail, ref);
+  return `<div class="logf-ph-hero">
+    <div class="logf-ph-idrow">
+      <div class="logf-ph-thumb">${_coverImg('logement', log.id, '🏠')}</div>
+      <div class="logf-ph-idm">
+        <div class="logf-ph-l1"><span class="logf-ph-ref">${escHtml(ref)}</span>${chip}</div>
+        <div class="logf-ph-l2">${l2||'&nbsp;'}</div>
+        ${l3?`<div class="logf-ph-l3">${l3}</div>`:''}
+      </div>
+    </div>
+    <div class="logf-ph-strip">
+      ${strip.map(c=>`<div class="c"><div class="v ${c.cls||''}">${c.v}</div><div class="k">${escHtml(c.k)}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
+// Barre d'onglets courte, une ligne (Bail · Entretien · Docs · Compta), mêmes cibles que la desktop.
+function _renderLogFichePhTabs(){
+  const t = _currentLogFicheTab || 'bail';
+  const items = [['bail','Bail'],['conformite','Entretien'],['documents','Docs'],['compta','Compta']];
+  return '<div class="logf-ph-tabs" role="tablist" aria-label="Sections de la fiche bien (mobile)">'
+    + items.map(x=>`<button class="logf-ph-tab${t===x[0]?' on':''}" role="tab" aria-selected="${t===x[0]}" onclick="setLogFicheTab('${x[0]}')">${x[1]}</button>`).join('')
+    + '</div>';
+}
+// « Reprendre depuis un candidat » (bien vacant) : ouvre la page Candidats filtrée sur ce bien,
+// d'où l'utilisateur convertit le dossier retenu en bail (convertCandidatToBail). DRY : réutilise
+// le filtre existant cand-f-bien plutôt qu'un nouveau flux.
+function _logFicheReprendreCandidat(ref){
+  try{
+    if(typeof go === 'function') go('candidats');
+    setTimeout(function(){
+      const sel = el('cand-f-bien');
+      if(sel){ sel.value = ref; }
+      if(typeof rCandidats === 'function') rCandidats();
+    }, 0);
+  }catch(e){ if(typeof go === 'function') go('candidats'); }
 }
 function rLogFiche() {
   const wrap = el('log-fiche-content'); if(!wrap) return;
@@ -42412,6 +42900,39 @@ function rLogFiche() {
   const badgeBailleur = parentEnt
     ? `<span class="logf-badge" onclick="openEntFiche(${+parentEnt.id})" title="Voir le bailleur">🏛 ${escHtml(log.entity)}</span>`
     : `<span class="logf-badge">🏛 ${escHtml(log.entity||'—')}</span>`;
+
+  // Corps d'onglet — identique PC / téléphone (les panneaux sont conformes, on les réutilise).
+  const panelsHtml =
+      _currentLogFicheTab === 'compta'      ? _renderLogFichePanelCompta(log, ref)
+    : _currentLogFicheTab === 'conformite'  ? _renderLogFichePanelConformite(log, ref)
+    : _currentLogFicheTab === 'documents'   ? _renderLogFichePanelDocuments(log, ref)
+    // P0-3 : le fallback DOIT être Bail — c'est la branche par défaut, pas un cas parmi d'autres.
+    : _renderLogFichePanelBail(log, bail, ref);
+
+  // ── TÉLÉPHONE : hero natif + barre d'onglets courte (maquettes FICHE-LOGEMENT-2T / LIVE).
+  // Le codepath desktop (ci-dessous) reste strictement inchangé.
+  if(_isPhone()){
+    const phActions =
+      `<button class="btn bs" onclick="openNewLog('${refSafe}')">✏ Modifier le bien</button>`
+      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">🔗 Inviter un candidat</button>` : '')
+      + (isArchived
+          ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">↺ Restaurer</button>`
+          : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">📦 Archiver</button>`);
+    wrap.innerHTML = `
+      <button class="logf-back" onclick="closeLogFiche()" title="Retour au parent direct">${_logFicheBackLabel(log)}</button>
+      <div class="logf-breadcrumb">
+        <a onclick="_goToBiensRoot();return false">Biens</a>
+        ${crumbImm}
+        <span class="sep">›</span><span>${escHtml(ref)}</span>
+      </div>
+      ${_renderLogFichePhHero(log, bail, ref)}
+      <div class="logf-actions logf-ph-actions">${phActions}</div>
+      ${_renderLogFichePhTabs()}
+      ${panelsHtml}
+    `;
+    return;
+  }
+
   wrap.innerHTML = `
     <button class="logf-back" onclick="closeLogFiche()" title="Retour au parent direct">${_logFicheBackLabel(log)}</button>
     <div class="logf-breadcrumb">
@@ -42463,13 +42984,7 @@ function rLogFiche() {
       <button class="logf-subtab${_currentLogFicheTab==='documents'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='documents'}" onclick="setLogFicheTab('documents')" title="Documents et photos du logement">📁 Documents</button>
       <button class="logf-subtab${_currentLogFicheTab==='compta'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='compta'}" onclick="setLogFicheTab('compta')">💰 Comptabilité</button>
     </div>
-    ${
-      _currentLogFicheTab === 'compta'      ? _renderLogFichePanelCompta(log, ref)
-    : _currentLogFicheTab === 'conformite'  ? _renderLogFichePanelConformite(log, ref)
-    : _currentLogFicheTab === 'documents'   ? _renderLogFichePanelDocuments(log, ref)
-    // P0-3 : le fallback DOIT être Bail — c'est la branche par défaut, pas un cas parmi d'autres.
-    : _renderLogFichePanelBail(log, bail, ref)
-    }
+    ${panelsHtml}
   `;
 }
 
@@ -42592,6 +43107,21 @@ function _renderLogFichePanelBail(log, bail, ref) {
           <!-- v15.249 B6 (D-B5) : ligne « Régime fiscal » retirée de l'affichage (donnée conservée mais non surfacée). -->
           ${bail.notes?`<div class="logf-row" style="grid-column:1/-1"><span class="logf-label">Notes du bail</span><span class="logf-value" style="font-style:italic;font-weight:400;text-align:left">${escHtml(bail.notes)}</span></div>`:''}
         </div>
+        ${_isPhone() ? `
+        <!-- TÉLÉPHONE — 4 actions carrées du bail (maquettes FICHE-LOGEMENT-2T / LIVE) :
+             Quittance · Voir bail · EDL · Réviser, branchées sur les fonctions existantes.
+             La signature / le PDF / le partage restent accessibles via « ⋯ Plus » (menu bail). -->
+        <div class="logf-ph-bailacts">
+          <button class="logf-ph-bailact pri" onclick="_openFaireQuittance('${refSafe}')" title="Faire une quittance"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M4 20h16"/></svg>Quittance</button>
+          <button class="logf-ph-bailact" onclick="previewBailRef('${refSafe}')" title="Aperçu du bail"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Voir bail</button>
+          <button class="logf-ph-bailact" onclick="var a=document.getElementById('logf-edl-anchor');if(a)a.scrollIntoView({behavior:'smooth',block:'start'})" title="États des lieux"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6"/></svg>EDL</button>
+          <button class="logf-ph-bailact" onclick="_gfOuvrir('${refSafe}')" title="Réviser le loyer (IRL)"><svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-8"/></svg>Réviser</button>
+        </div>
+        <div class="logf-bail-actions" style="margin-top:9px">
+          ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour">✍️ Signer le bail</button>`:'')}
+          <button class="btn bs bb" onclick="openBailMenu(event,'${refSafe}',true)" title="Plus d'actions (Modifier · Aperçu · Garant · Réinitialiser · Clôturer · Supprimer · PDF · Partager)" aria-label="Plus d'actions" style="font-weight:700">⋯ Plus</button>
+        </div>
+        ` : `
         <div class="logf-bail-actions">
           ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour">✍️ Signer le bail</button>`:'')}
           ${/* §7 : ne pas doubler le PDF. Le badge « 🔒 Signé à distance » (remoteSession completed) expose DÉJÀ son propre « 📄 PDF signé » → on masque alors ce bouton générique (même fichier, même action). Présentiel (pas de remoteSession) : bouton conservé. */''}
@@ -42599,13 +43129,21 @@ function _renderLogFichePanelBail(log, bail, ref) {
           ${(complet&&bail.signatures&&bail.signatures.cloudPdfKey)?`<button class="btn bs bb" onclick="_openBailPdfShareModal('${refSafe}')" style="background:#7c3aed;color:#fff" title="Partager le PDF signé (Copier / Email / SMS / WhatsApp / QR)">📤 Partager le PDF signé</button>`:''}
           <button class="btn bs bb" onclick="openBailMenu(event,'${refSafe}',true)" title="Plus d'actions (Modifier · Aperçu · Garant · Réinitialiser · Clôturer · Supprimer)" aria-label="Plus d'actions" style="font-weight:700">⋯ Plus</button>
         </div>
+        `}
       </div>`;
   } else {
+    // Bien VACANT — nombre de candidats en attente sur ce bien (mêmes critères que la grille Biens :
+    // dossiers non refusés, non convertis, non archivés). Sert le bouton « Reprendre depuis un candidat (N) ».
+    const _nbCand = (DB.candidats||[]).filter(c => c && !c._deleted && c.logRef === ref
+      && c.statut !== 'refuse' && c.statut !== 'converti' && !c._archived).length;
     currentSection = `
       <div class="logf-panel" style="grid-column:1/-1">
         <h3 class="logf-panel-title">📜 Bail en cours</h3>
         <div class="logf-panel-empty">${log.archived ? 'Bien archivé — pas de bail actif' : 'Aucun bail en cours sur ce bien'}</div>
-        ${!log.archived?`<div style="text-align:center"><button class="btn bp" onclick="openBail('${refSafe}')">+ Créer / saisir un bail</button></div>`:''}
+        ${!log.archived?`<div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button class="btn bp" onclick="openBail('${refSafe}')">+ Créer le bail</button>
+          ${_nbCand>0?`<button class="btn bs bb" onclick="_logFicheReprendreCandidat('${refSafe}')" title="Convertir un dossier candidat déjà déposé en bail">👤 Reprendre depuis un candidat <span style="margin-left:5px;background:rgba(255,90,60,.14);color:var(--acc);border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px">${_nbCand}</span></button>`:''}
+        </div>`:''}
       </div>`;
   }
 

@@ -104,7 +104,7 @@ describe('EDL — 16 px à la source sur mobile (CDC §2.4, invariant §2.10 nº
       /td:nth-child\(3\) textarea$/,
       /edl-cell-obsE textarea$/,
       /td:nth-child\(6\) textarea$/,
-      /div:first-child > input$/,
+      /\.edl-piece-name$/,   // nom de pièce (ex-« div:first-child > input », renommé en classe §2.6)
     ];
     for (const re of wanted) {
       const rule = mobileRules.find(r => r.selectors.some(s => re.test(s)) && 'font-size' in r.decls);

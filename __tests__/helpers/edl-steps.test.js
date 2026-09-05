@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ADMIN_HEAD, buildSteps, sectionVisible, stepGlobalLabel, firstPieceStep,
+  isNumbered, numberedTotal, stepGlobalLabelFromSteps,
 } from '../../js/core/edl-steps.js';
 
 describe('buildSteps — l\'ordre validé (CDC §2.2)', () => {
@@ -94,6 +95,50 @@ describe('stepGlobalLabel — « Étape N / total » borné', () => {
     expect(stepGlobalLabel(-3, 12)).toBe('Étape 1 / 12');
     expect(stepGlobalLabel(0, 0)).toBe('');
     expect(stepGlobalLabel(NaN, 12)).toBe('');
+  });
+});
+
+describe('numérotation du rail — la relecture ne compte pas (CDC §2.2 « /12 »)', () => {
+  it('logement nu 7 pièces → dénominateur 12 (relecture exclue), fin = 12/12', () => {
+    const steps = buildSteps({ mobilierEnabled: false, pieceCount: 7 });
+    expect(steps).toHaveLength(13);                     // 12 numérotées + relecture
+    expect(numberedTotal(steps)).toBe(12);
+    // infos = 1/12
+    expect(stepGlobalLabelFromSteps(steps, 0)).toBe('Étape 1 / 12');
+    // 4e admin (daaf, index 3) = 4/12
+    expect(stepGlobalLabelFromSteps(steps, 3)).toBe('Étape 4 / 12');
+    // 1re pièce (index 4) = 5/12
+    expect(stepGlobalLabelFromSteps(steps, 4)).toBe('Étape 5 / 12');
+    // dernière pièce (index 10) = 11/12
+    expect(stepGlobalLabelFromSteps(steps, 10)).toBe('Étape 11 / 12');
+    // fin = Observations + Signatures (index 12) = 12/12 — PAS 13/13
+    const finIdx = steps.findIndex(s => s.id === 'fin');
+    expect(stepGlobalLabelFromSteps(steps, finIdx)).toBe('Étape 12 / 12');
+  });
+
+  it('la relecture n\'est pas numérotée et n\'incrémente pas la position de la fin', () => {
+    const steps = buildSteps({ mobilierEnabled: false, pieceCount: 7 });
+    const relIdx = steps.findIndex(s => s.id === 'relecture');
+    expect(isNumbered(steps[relIdx])).toBe(false);
+    // la relecture précède la fin : les 11 étapes numérotées avant elle (le rail masque
+    // de toute façon ce libellé sur la relecture — il devient « Signer l'état des lieux »).
+    expect(stepGlobalLabelFromSteps(steps, relIdx)).toBe('Étape 11 / 12');
+  });
+
+  it('logement meublé → dénominateur 13 (mobilier compté, relecture non)', () => {
+    const steps = buildSteps({ mobilierEnabled: true, pieceCount: 7 });
+    expect(steps).toHaveLength(14);
+    expect(numberedTotal(steps)).toBe(13);
+    const finIdx = steps.findIndex(s => s.id === 'fin');
+    expect(stepGlobalLabelFromSteps(steps, finIdx)).toBe('Étape 13 / 13');
+  });
+
+  it('borne les débordements et gère les entrées invalides', () => {
+    const steps = buildSteps({ pieceCount: 7 });
+    expect(stepGlobalLabelFromSteps(steps, 999)).toBe('Étape 12 / 12');
+    expect(stepGlobalLabelFromSteps(steps, -5)).toBe('Étape 1 / 12');
+    expect(stepGlobalLabelFromSteps([], 0)).toBe('');
+    expect(stepGlobalLabelFromSteps(steps, NaN)).toBe('');
   });
 });
 

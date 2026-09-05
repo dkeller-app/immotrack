@@ -361,7 +361,11 @@ describe('D1/D2 — la zone Argent, et des identifiants qui disent ce qu’ils m
   });
 
   it('aucun identifiant de page mort ne traîne dans les modèles de navigation', () => {
-    for (const bloc of ['_MENU_ALL', '_MENU_ZONES', '_MENU_PRESETS', '_V4_NAV_MODEL', '_V4_BOTTOM']) {
+    // MOBILE-REFONTE : _V4_BOTTOM (barre figée à 3 pages) est remplacé par le modèle
+    // FAVORIS validé (maquette NAV-FAVORIS-PROTO) — la barre du bas est désormais
+    // configurable via _FAV_TABS / _FAV_ACTIONS / _FAV_DEFAULT. Le garde-fou « aucun id
+    // mort (quittances/irl) » s'applique à ces nouvelles constantes.
+    for (const bloc of ['_MENU_ALL', '_MENU_ZONES', '_MENU_PRESETS', '_V4_NAV_MODEL', '_FAV_TABS', '_FAV_ACTIONS', '_FAV_DEFAULT']) {
       const i = code.indexOf('const ' + bloc);
       expect(i).toBeGreaterThan(-1);
       const extrait = code.slice(i, code.indexOf(';', i));
