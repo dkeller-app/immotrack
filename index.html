@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.591</title>
+<title>Propryo v15.592</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.591</em>
+      <em>v15.592</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4278,7 +4278,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.591';
+const IMMOTRACK_VERSION = '15.592';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -8811,6 +8811,10 @@ function go(page, elNav) {
     'ent-fiche':'Fiche bailleur',        // v14.8 ENT-FICHE-360
     params:'Paramètres',export:'Export / Sauvegarde'};
   el('tb-title').textContent = titles[page]||page;
+  // MOBILE-REFONTE — logo en tête PAR PAGE (retour Didier) : Accueil = marque + « Propryo »
+  // (pas le mot « Accueil ») ; toutes les autres pages = marque + nom de la page (pas « Propryo »).
+  // Bascule par la classe .tb-home sur la barre du haut (CSS ne montre le wordmark qu'en home).
+  try { const _tb = document.querySelector('.tb'); if (_tb) _tb.classList.toggle('tb-home', page === 'accueil'); } catch(e){}
   // REFONTE-NAV Phase 2a — barre de sous-onglets de groupe (Locataires→Baux/Candidatures, etc.)
   try { const _st = el('nav-subtabs-host'); if (_st) _st.innerHTML = _navSubtabsHtml(page); } catch(e){}
   // NAV-SOUS-MENUS (chantier A) — ouvre le groupe visité + re-rend la sidebar (enfant actif, chevrons).
@@ -8854,6 +8858,10 @@ function go(page, elNav) {
   };
   if(renders[page]) renders[page]();
   try{ _renderInboxSurfaces(); }catch(e){}
+  // MOBILE-REFONTE — toute navigation remonte le contenu en HAUT (retour Didier : ouvrir un
+  // bien depuis une liste défilée l'affichait à la position de scroll, pas en haut). Le
+  // conteneur défilant est #pc ; window en repli.
+  try { const _pc = el('pc'); if (_pc) _pc.scrollTop = 0; if (window.scrollTo) window.scrollTo(0,0); } catch(e){}
 }
 
 // v15.140 BUG-MOBILE-MENU-PLUS — Ouverture/fermeture de la sidebar en overlay mobile.
@@ -8979,7 +8987,7 @@ const _FAV_ICONS = {
 // « Argent » n'a pas de page propre → son atterrissage est 'mouvements' (1re page de
 // la zone Argent). 'argent' et 'mvt' pointent donc tous deux sur Mouvements.
 const _FAV_TABS = [
-  { id:'accueil',  nm:'Accueil',          sh:'Accueil',  ic:'accueil',  page:'accueil', locked:true },
+  { id:'accueil',  nm:'Accueil',          sh:'Accueil',  ic:'accueil',  page:'accueil' },
   { id:'parc',     nm:'Parc',             sh:'Parc',     ic:'parc',     page:'biens' },
   { id:'loc',      nm:'Locataires',       sh:'Locat.',   ic:'loc',      page:'baux' },
   { id:'loyers',   nm:'Loyers',           sh:'Loyers',   ic:'loyers',   page:'loyers' },
@@ -9005,18 +9013,19 @@ const _FAV_ALL_IDS = _FAV_ALL.map(x => x.id);
 const _FAV_DEFAULT = ['accueil', 'parc', 'loyers', 'addedl'];
 function _favMeta(id) { return _FAV_ALL.find(x => x.id === id) || null; }
 function _favKey() { return (typeof _lsKey === 'function') ? _lsKey('immo_fav_bar') : 'immo_fav_bar'; }
-// Lecture normalisée : Accueil forcé en 1er, ids inconnus filtrés, unique, max 4.
+// Lecture normalisée : ids inconnus filtrés, unique, max 4. Accueil n'est PLUS forcé
+// (retour Didier : c'est un favori comme les autres, on peut le retirer/remplacer).
 function _favGet() {
   let arr = null;
   try { const raw = localStorage.getItem(_favKey()); if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) arr = a; } } catch (e) {}
   if (!arr) return _FAV_DEFAULT.slice();
-  const out = ['accueil'];
-  arr.forEach(id => { if (id !== 'accueil' && _FAV_ALL_IDS.includes(id) && !out.includes(id) && out.length < _FAV_MAX) out.push(id); });
+  const out = [];
+  arr.forEach(id => { if (_FAV_ALL_IDS.includes(id) && !out.includes(id) && out.length < _FAV_MAX) out.push(id); });
   return out;
 }
 function _favSet(list) {
-  const out = ['accueil'];
-  (list || []).forEach(id => { if (id !== 'accueil' && _FAV_ALL_IDS.includes(id) && !out.includes(id) && out.length < _FAV_MAX) out.push(id); });
+  const out = [];
+  (list || []).forEach(id => { if (_FAV_ALL_IDS.includes(id) && !out.includes(id) && out.length < _FAV_MAX) out.push(id); });
   try { localStorage.setItem(_favKey(), JSON.stringify(out)); } catch (e) {}
   return out;
 }
@@ -35546,7 +35555,7 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
       +`<div class="bienc-thumb">${im && im.id ? _coverImg('immeuble', im.id, '🏢') : '<span>🏢</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
       +`<div class="bienc-mid"><div class="bienc-ref">${titleEsc}</div>${subtitleEsc?`<div class="bienc-ten">${subtitleEsc}</div>`:''}`
       +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${fmt(agg.loyerHC)}<small> HC</small></span></div></div>`
-      +`<button class="bienc-menu" onclick="event.stopPropagation();openBienMenu(event,'building','${escHtml(firstRef||'')}','${escHtml(immNom||'')}')" aria-label="Actions">⋮</button>`
+      +`<span class="bienc-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>`
       +`</article>`;
   }
   return `<article class="bien-card${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
@@ -35601,6 +35610,8 @@ function _ensureBiencPhCss(){
     '.bienc-ph .bienc-rent{font-size:12px;color:var(--t1);font-weight:700;white-space:nowrap;flex:0 0 auto}',
     '.bienc-ph .bienc-rent small{color:var(--t3);font-weight:500;font-size:10.5px}',
     '.bienc-ph .bienc-menu{flex:0 0 auto;background:none;border:0;color:var(--t3);font-size:18px;line-height:1;padding:2px 4px;cursor:pointer;align-self:flex-start}',
+    '.bienc-ph .bienc-chev{flex:0 0 auto;display:flex;align-items:center;color:var(--t3);opacity:.55;padding-left:2px}',
+    '.bienc-ph .bienc-chev svg{width:18px;height:18px}',
     // MOBILE-REFONTE lot 3b — séparateur de groupe (bailleur en vue Immeubles) + groupe immeuble repliable (vue Logements).
     '.biens-grp-sep{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);padding:8px 2px 6px;margin:2px 0 0}',
     '.biens-grp-sep:first-child{padding-top:2px}',
@@ -35661,7 +35672,7 @@ function _renderLogementCardFlat(l) {
       +`<div class="bienc-thumb">${_coverImg('logement', l.id, '🏠')}<span class="bienc-badge ${badgeCls}">${escHtml(badgeLbl)}</span></div>`
       +`<div class="bienc-mid"><div class="bienc-ref">${titleEsc}</div><div class="bienc-ten">${subtitleEsc}</div>`
       +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${rentPh}</span></div></div>`
-      +`<button class="bienc-menu" onclick="event.stopPropagation();openBienMenu(event,'logement','${escHtml(l.ref)}','${escHtml(l.imm||'')}')" aria-label="Actions">⋮</button>`
+      +`<span class="bienc-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>`
       +`</article>`;
   }
   return `<article class="bien-card${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
@@ -35928,7 +35939,7 @@ function _renderBailleurCard(ent, isArchivedTab) {
       +`<div class="bienc-thumb${ent.logo?' logo':''}">${ent.logo ? `<img src="${escHtml(ent.logo)}" alt="">` : '<span>🏛</span>'}<span class="bienc-badge vac">${escHtml(occLbl)}</span></div>`
       +`<div class="bienc-mid"><div class="bienc-ref">${escHtml(ent.nom||'—')}</div>${subtitle?`<div class="bienc-ten">${subtitle}</div>`:''}`
       +`<div class="bienc-r3"><span class="bienc-meta">${metaBits}</span><span class="bienc-rent">${fmt(loyerHC)}<small> HC</small></span></div></div>`
-      +`<button class="bienc-menu" onclick="event.stopPropagation();openBailleurMenu(event,${idEsc})" aria-label="Actions">⋮</button>`
+      +`<span class="bienc-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>`
       +`</article>`;
   }
   return `<article class="bien-card" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
@@ -42754,6 +42765,10 @@ function _ensureLogFichePhCss(){
     '.logf-ph-strip .c .v.k-warn{color:var(--red)}',
     '.logf-ph-strip .c .k{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.02em;margin-top:3px}',
     '.logf-ph-actions{margin-top:12px}',
+    // TÉLÉPHONE — carte « Bail en cours » compacte (retour Didier) : on garde 5 lignes
+    // essentielles (locataire, type, période, loyer total, dépôt) ; le détail (e-mail, tél,
+    // HC/charges, modalité, IRL, jour, notes…) est masqué ici et reste dans « Voir bail ».
+    '@media(max-width:767px){.logf-bail-grid .logf-row-more{display:none}}',
     // barre d\'onglets courte, une ligne, 4 colonnes, pas de scroll
     '.logf-ph-tabs{display:flex;border-bottom:1px solid var(--bor);margin-top:14px;position:sticky;top:0;z-index:2;background:var(--bg)}',
     '.logf-ph-tab{flex:1;text-align:center;height:42px;font-size:12.5px;font-weight:700;color:var(--t3);background:transparent;border:0;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;white-space:nowrap;padding:0}',
@@ -42914,12 +42929,14 @@ function rLogFiche() {
   // ── TÉLÉPHONE : hero natif + barre d'onglets courte (maquettes FICHE-LOGEMENT-2T / LIVE).
   // Le codepath desktop (ci-dessous) reste strictement inchangé.
   if(_isPhone()){
+    const _ic = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:4px">${p}</svg>`;
     const phActions =
-      `<button class="btn bs" onclick="openNewLog('${refSafe}')">✏ Modifier le bien</button>`
-      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">🔗 Inviter un candidat</button>` : '')
+      `<button class="btn bs" onclick="openNewLog('${refSafe}')">${_ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>')}Modifier le bien</button>`
+      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_ic('<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>')}Inviter un candidat</button>` : '')
       + (isArchived
-          ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">↺ Restaurer</button>`
-          : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">📦 Archiver</button>`);
+          ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">${_ic('<path d="M3 12a9 9 0 109-9 9 9 0 00-8 5"/><path d="M3 3v5h5"/>')}Restaurer</button>`
+          : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">${_ic('<path d="M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M2 4h20v4H2z"/><path d="M10 12h4"/>')}Archiver</button>`)
+      + `<button class="btn bs" onclick="openBienMenu(event,'logement','${refSafe}','${escHtml(log.imm||'')}')" aria-label="Plus d'actions (renommer, supprimer…)" title="Plus d'actions">${_ic('<circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="19" r="1.3"/>')}Plus</button>`;
     wrap.innerHTML = `
       <button class="logf-back" onclick="closeLogFiche()" title="Retour au parent direct">${_logFicheBackLabel(log)}</button>
       <div class="logf-breadcrumb">
@@ -43092,22 +43109,22 @@ function _renderLogFichePanelBail(log, bail, ref) {
         <div class="logf-bail-grid">
           <div class="logf-row"><span class="logf-label">Locataire(s)</span><span class="logf-value">${escHtml(locNoms)}</span></div>
           ${/* BIENS étape 8 — CONTACT du locataire, descendu de l'ex-onglet Général (mockup s3). */''}
-          ${(locataires[0]&&locataires[0].email)?`<div class="logf-row"><span class="logf-label">E-mail</span><span class="logf-value">${escHtml(locataires[0].email)}</span></div>`:''}
-          ${(locataires[0]&&locataires[0].tel)?`<div class="logf-row"><span class="logf-label">Téléphone</span><span class="logf-value">${escHtml(locataires[0].tel)}</span></div>`:''}
-          ${locataires.length>1?`<div class="logf-row"><span class="logf-label">Co-locataires</span><span class="logf-value">+${locataires.length-1} autre${locataires.length>2?'s':''}</span></div>`:''}
+          ${(locataires[0]&&locataires[0].email)?`<div class="logf-row logf-row-more"><span class="logf-label">E-mail</span><span class="logf-value">${escHtml(locataires[0].email)}</span></div>`:''}
+          ${(locataires[0]&&locataires[0].tel)?`<div class="logf-row logf-row-more"><span class="logf-label">Téléphone</span><span class="logf-value">${escHtml(locataires[0].tel)}</span></div>`:''}
+          ${locataires.length>1?`<div class="logf-row logf-row-more"><span class="logf-label">Co-locataires</span><span class="logf-value">+${locataires.length-1} autre${locataires.length>2?'s':''}</span></div>`:''}
           <div class="logf-row"><span class="logf-label">Type contrat</span><span class="logf-value">${escHtml(typeContratMap[bail.typeContrat] || bail.typeContrat || '—')}</span></div>
           <div class="logf-row"><span class="logf-label">Période</span><span class="logf-value">${fd(bail.debut)} → ${bail.fin?fd(bail.fin):'en cours'}</span></div>
-          <div class="logf-row"><span class="logf-label">Modalité</span><span class="logf-value">${escHtml(bail.modalitePaiement === 'echeoir' ? 'À échoir' : (bail.modalitePaiement === 'terme_echu' ? 'Terme échu' : '—'))}</span></div>
-          <div class="logf-row"><span class="logf-label">Loyer HC</span><span class="logf-value logf-value-num">${fmt(+bail.hc||+log.hc||0)}</span></div>
-          <div class="logf-row"><span class="logf-label">Charges</span><span class="logf-value logf-value-num">${fmt(+bail.ch||+log.ch||0)}</span></div>
+          <div class="logf-row logf-row-more"><span class="logf-label">Modalité</span><span class="logf-value">${escHtml(bail.modalitePaiement === 'echeoir' ? 'À échoir' : (bail.modalitePaiement === 'terme_echu' ? 'Terme échu' : '—'))}</span></div>
+          <div class="logf-row logf-row-more"><span class="logf-label">Loyer HC</span><span class="logf-value logf-value-num">${fmt(+bail.hc||+log.hc||0)}</span></div>
+          <div class="logf-row logf-row-more"><span class="logf-label">Charges</span><span class="logf-value logf-value-num">${fmt(+bail.ch||+log.ch||0)}</span></div>
           <div class="logf-row"><span class="logf-label">Loyer total</span><span class="logf-value logf-value-strong">${fmt(totalLoyer)}<small>/mois</small></span></div>
           <div class="logf-row"><span class="logf-label">Dépôt de garantie</span><span class="logf-value logf-value-num">${fmt(+bail.dg||+log.dg||0)}</span></div>
-          <div class="logf-row"><span class="logf-label">Indice IRL</span><span class="logf-value">${escHtml(bail.irl||log.irl||'–')}</span></div>
+          <div class="logf-row logf-row-more"><span class="logf-label">Indice IRL</span><span class="logf-value">${escHtml(bail.irl||log.irl||'–')}</span></div>
           ${(()=>{ const v=_histoBailEnVigueur(ref); if(!v||!v.prochaine) return '';
-            const n=v.prochaine; return `<div class="logf-row"><span class="logf-label">Prochaine évolution</span><span class="logf-value">${fmt(n.hc)} HC${n.ch?` + ${fmt(n.ch)}`:''} au ${fd(n.debut)}${n.note?` <span class="mu" style="font-size:10.5px">(${escHtml(n.note)})</span>`:''}</span></div>`; })()}
-          ${bail.jpay?`<div class="logf-row"><span class="logf-label">Jour paiement</span><span class="logf-value">${escHtml(String(bail.jpay))}</span></div>`:''}
+            const n=v.prochaine; return `<div class="logf-row logf-row-more"><span class="logf-label">Prochaine évolution</span><span class="logf-value">${fmt(n.hc)} HC${n.ch?` + ${fmt(n.ch)}`:''} au ${fd(n.debut)}${n.note?` <span class="mu" style="font-size:10.5px">(${escHtml(n.note)})</span>`:''}</span></div>`; })()}
+          ${bail.jpay?`<div class="logf-row logf-row-more"><span class="logf-label">Jour paiement</span><span class="logf-value">${escHtml(String(bail.jpay))}</span></div>`:''}
           <!-- v15.249 B6 (D-B5) : ligne « Régime fiscal » retirée de l'affichage (donnée conservée mais non surfacée). -->
-          ${bail.notes?`<div class="logf-row" style="grid-column:1/-1"><span class="logf-label">Notes du bail</span><span class="logf-value" style="font-style:italic;font-weight:400;text-align:left">${escHtml(bail.notes)}</span></div>`:''}
+          ${bail.notes?`<div class="logf-row logf-row-more" style="grid-column:1/-1"><span class="logf-label">Notes du bail</span><span class="logf-value" style="font-style:italic;font-weight:400;text-align:left">${escHtml(bail.notes)}</span></div>`:''}
         </div>
         ${_isPhone() ? `
         <!-- TÉLÉPHONE — 4 actions carrées du bail (maquettes FICHE-LOGEMENT-2T / LIVE) :
@@ -43120,8 +43137,8 @@ function _renderLogFichePanelBail(log, bail, ref) {
           <button class="logf-ph-bailact" onclick="_gfOuvrir('${refSafe}')" title="Réviser le loyer (IRL)"><svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-8"/></svg>Réviser</button>
         </div>
         <div class="logf-bail-actions" style="margin-top:9px">
-          ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour">✍️ Signer le bail</button>`:'')}
-          <button class="btn bs bb" onclick="openBailMenu(event,'${refSafe}',true)" title="Plus d'actions (Modifier · Aperçu · Garant · Réinitialiser · Clôturer · Supprimer · PDF · Partager)" aria-label="Plus d'actions" style="font-weight:700">⋯ Plus</button>
+          ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:4px"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Signer le bail</button>`:'')}
+          <button class="btn bs bb" onclick="openBailMenu(event,'${refSafe}',true)" title="Plus d'actions (Modifier · Aperçu · Garant · Réinitialiser · Clôturer · Supprimer · PDF · Partager)" aria-label="Plus d'actions" style="font-weight:700"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:4px"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>Plus</button>
         </div>
         ` : `
         <div class="logf-bail-actions">
