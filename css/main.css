@@ -4773,6 +4773,10 @@ textarea.field-modified-since-sig{
     box-shadow: 0 -2px 8px rgba(0,0,0,.08);
   }
 
+  /* MOBILE-REFONTE M-16 : un overlay plein écran ouvert (.ov:not(.hidden)) masque la
+     bottom-nav (#v4-bnav z:999) — sinon elle occulte le pied d'action collant (CTA). */
+  body:has(.ov:not(.hidden)) #v4-bnav { display: none !important; }
+
   /* Scroll-margin pour anchors : évite que le header sticky masque la cible */
   .page > .card, .page > section, [id^="ov-"] {
     scroll-margin-top: 60px;
