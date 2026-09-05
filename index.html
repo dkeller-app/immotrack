@@ -4105,8 +4105,11 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <!-- §4 Pièces -->
     <!-- Bannière référence chargée -->
     <div id="edl-ref-banner" data-edl-step="pieces" style="display:none;padding:8px 14px;background:#003366;color:white;border-radius:var(--r);margin-bottom:10px;font-size:12px"></div>
-    <!-- Barre actions -->
-    <div data-edl-step="pieces" data-edl-disp="flex" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px">
+    <!-- Barre actions — PC (≥1024) : ajout de pièce inline. Sur téléphone/tablette (<1024)
+         cette barre est PARASITE : data-edl-step="pieces" la réaffichait EN TÊTE DE CHAQUE
+         étape-pièce (écran non épuré). _edlApplyStepVisibility la masque donc en mode phone ;
+         l'ajout de pièce y vit dans la FEUILLE DES ÉTAPES (§2.5, cf _edlOpenPieceSheet). -->
+    <div id="edl-add-piece-bar" data-edl-step="pieces" data-edl-disp="flex" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px">
       <b class="mu sm">Pièces :</b>
       <select class="inp" id="edl-add-piece-sel" style="width:220px"><option value="">Pièce standard à ajouter...</option></select>
       <button class="btn bs bb" onclick="edlAddPieceFromSel()" style="font-size:12px">▶ Ajouter</button>
@@ -4208,6 +4211,14 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <button class="edl-sheet-close" onclick="_edlClosePieceSheet()" aria-label="Fermer">✕</button>
       </div>
       <div id="edl-piece-sheet-list" class="edl-sheet-list"></div>
+      <!-- §2.5 — l'ajout de pièce vit ICI (feuille des étapes), plus dans le flux des pièces. -->
+      <div class="edl-sheet-add">
+        <span class="edl-sheet-add-lbl">+ Ajouter une pièce</span>
+        <div class="edl-sheet-add-row">
+          <select class="inp" id="edl-sheet-add-sel" aria-label="Pièce à ajouter"></select>
+          <button class="btn bp" onclick="_edlSheetAddPiece()">Ajouter</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -31326,14 +31337,19 @@ function _edlRenderAll(sigs) {
   }, 50);
 }
 
-function _edlFillPieceSelect() {
-  const sel=el('edl-add-piece-sel');if(!sel)return;
+// Options du sélecteur « pièce à ajouter » — SOURCE UNIQUE (barre PC + feuille des étapes
+// sur téléphone, §2.5). Kit standard EDL_EXTRA + « Chambre N » + pièce personnalisée libre.
+function _edlPieceSelectOptions() {
   const existing=_edlP.map(p=>p.nom);
   const nCh=existing.filter(n=>n.startsWith('Chambre')).length;
-  sel.innerHTML='<option value="">Pièce à ajouter…</option>'+
+  return '<option value="">Pièce à ajouter…</option>'+
     '<option value="__custom">✏️ Pièce personnalisée (nom libre)</option>'+
     `<option value="__ch">🛏 Chambre ${nCh+1}</option>`+
     EDL_EXTRA.filter(p=>!p.nom.startsWith('Chambre')&&!existing.includes(p.nom)).map(p=>`<option value="${escHtml(p.nom)}">${escHtml(p.nom)}</option>`).join('');
+}
+function _edlFillPieceSelect() {
+  const sel=el('edl-add-piece-sel');if(!sel)return;
+  sel.innerHTML=_edlPieceSelectOptions();
 }
 
 function _edlRenderPieces() {
@@ -31418,6 +31434,9 @@ function _edlApplyStepVisibility() {
     let vis;
     if (S && node.id === 'edl-mobilier-section') vis = S.sectionVisible(g, curGroup, mobOn, true);
     else if (node.id === 'edl-ref-banner')       vis = (curGroup === 'pieces') && !!node.innerHTML.trim();
+    // §2.5 : la barre d'ajout de pièce est PARASITE sur téléphone (elle réapparaissait en tête
+    // de chaque étape-pièce) → jamais dans le flux ; l'ajout vit dans la feuille des étapes.
+    else if (node.id === 'edl-add-piece-bar')    vis = false;
     else vis = S ? S.sectionVisible(g, curGroup, mobOn, false) : (g === curGroup);
     node.style.display = vis ? disp : 'none';
   });
@@ -31451,7 +31470,7 @@ function _edlUpdateRail() {
   const lbl = el('edl-rail-label'); if (lbl) lbl.textContent = s ? s.nom : '';
   const gl = el('edl-rail-global');
   if (gl) {
-    let txt = S.stepGlobalLabel(_edlCurStep, N);                 // « Étape 2 / 12 »
+    let txt = S.stepGlobalLabelFromSteps(steps, _edlCurStep);    // « Étape 2 / 12 » (relecture non comptée, §2.2)
     if (s && s.kind === 'piece') {
       const st = P.statsPiece(_edlP[s.pieceIdx], _edlSortie);    // « · 3/24 · 1 écart »
       txt += ` · ${st.remplis}/${st.total}` + (_edlSortie && st.ecarts ? ` · ${st.ecarts} écart${st.ecarts > 1 ? 's' : ''}` : '');
@@ -31532,6 +31551,7 @@ function _edlOpenPieceSheet() {
       <span class="edl-sheet-meta">${meta}${tag}</span>
     </button>`;
   }).join('');
+  const ssel = el('edl-sheet-add-sel'); if (ssel) ssel.innerHTML = _edlPieceSelectOptions();
   sheet.style.display = 'flex';
 }
 function _edlClosePieceSheet() { const s = el('edl-piece-sheet'); if (s) s.style.display = 'none'; }
@@ -31802,13 +31822,19 @@ function _edlPieceHTML(p,pi) {
   // parcours n'en montre qu'un à la fois (§4, §9 inv. 23). Le rendu reste celui-ci.
   return `<div class="edl-piece-block" data-pidx="${pi}" style="border:2px solid var(--bor);border-radius:var(--r);margin-bottom:12px;overflow:hidden">
     <div class="edl-piece-head" style="background:var(--sur2);padding:7px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bor);gap:8px">
-      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
-        <input style="font-weight:700;font-size:13px;background:transparent;border:none;color:var(--t1);padding:0;flex:1;min-width:0" value="${escHtml(p.nom)}" onchange="edlPieceNom(${pi},this.value)" placeholder="Nom de la pièce">
+      <div class="edl-piece-titlerow" style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+        <input class="edl-piece-name" style="font-weight:700;font-size:13px;background:transparent;border:none;color:var(--t1);padding:0;flex:1;min-width:0" value="${escHtml(p.nom)}" onchange="edlPieceNom(${pi},this.value)" placeholder="Nom de la pièce">
         ${_edlPieceBadge(p)}
       </div>
-      <div class="flex-c" style="gap:5px;flex:none">
+      <div class="flex-c edl-piece-acts" style="gap:5px;flex:none">
         <button class="btn bs bb" onclick="edlAddElem(${pi})" style="font-size:11px">+ Élément</button>
-        <button class="btn br bb" onclick="edlRemovePiece(${pi})" style="font-size:11px">🗑</button>
+        <button class="btn br bb edl-piece-del-pc" onclick="edlRemovePiece(${pi})" style="font-size:11px">🗑</button>
+      </div>
+      <!-- §2.6 (maquette) — sur téléphone : 2 pilules sous le titre (masquées sur PC, qui garde
+           le 🗑 dense). Réutilisent edlPieceNom (renommer) et edlRemovePiece (supprimer). -->
+      <div class="edl-piece-pills">
+        <button class="edl-pill" onclick="_edlRenamePiece(${pi})">✎ Renommer la pièce</button>
+        <button class="edl-pill edl-pill-del" onclick="edlRemovePiece(${pi})">✕ Supprimer la pièce</button>
       </div>
     </div>
     <div class="tbl-wrap" style="margin:0"><table class="tbl" style="margin:0"><thead>${thead}</thead><tbody>${rows}</tbody></table></div>
@@ -31850,6 +31876,13 @@ function edlPieceNom(pi,v2){if(_edlP[pi])_edlP[pi].nom=v2;}
 function edlAddElem(pi){if(!_edlP[pi])return;_edlP[pi].elements.push({nom:'',etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]});_edlRenderPieces();}
 function edlRemoveElem(pi,ei){if(!_edlP[pi])return;_edlP[pi].elements.splice(ei,1);_edlRenderPieces();}
 function edlRemovePiece(pi){if(!confirm2('Supprimer cette pièce ?'))return;_edlP.splice(pi,1);_edlRenderPieces();_edlFillPieceSelect();}
+// §2.6 — pilule « ✎ Renommer la pièce » (téléphone) : donne le focus au titre éditable (le
+// nom reste écrit via edlPieceNom à la validation). Pas de pop-up partiel (règle mobile).
+function _edlRenamePiece(pi){
+  const blk=document.querySelector(`#edl-pieces-section .edl-piece-block[data-pidx="${pi}"]`);
+  const inp=blk&&blk.querySelector('.edl-piece-name');
+  if(inp){inp.focus();try{inp.select();}catch(_){}}
+}
 /* v14.10 EDL : insère une pièce dans _edlP en respectant l'ordre logique.
    Si "Extérieurs / Communs" existe (depuis v14.7), insère JUSTE AVANT elle.
    Sinon push à la fin (comportement legacy). Permet d'ajouter Chambre 2,
@@ -32843,14 +32876,33 @@ async function uploadEDLPDFToDriveFromForm() {
   showToast('💾 Enregistré — envoi vers Drive...', 'info', 1800);
   await uploadEDLPDFToDrive(savedId);
 }
-function edlAddPieceFromSel(){
-  const sel=el('edl-add-piece-sel');let nom=sel.value;if(!nom)return;
-  // #2 (26/08) — « Pièce personnalisée » : ajoute une pièce vide (nom éditable en ligne) et saute dessus.
-  if(nom==='__custom'){sel.value='';edlAddPieceCustom();return;}
+// Cœur d'ajout d'une pièce depuis une valeur de sélecteur — SOURCE UNIQUE (barre PC ET
+// feuille des étapes téléphone, §2.5). Renvoie l'index de la pièce ajoutée (ou -1 pour un
+// ajout personnalisé, qui saute déjà sur la nouvelle pièce via edlAddPieceCustom).
+function _edlAddPieceByValue(nom){
+  if(!nom) return -1;
+  // « Pièce personnalisée » : ajoute une pièce vide (nom éditable en ligne) et saute dessus.
+  if(nom==='__custom'){ edlAddPieceCustom(); return -1; }
   if(nom==='__ch'){const n=_edlP.filter(p=>p.nom.startsWith('Chambre')).length+1;nom='Chambre '+n;}
   const tpl=[...EDL_TPL,...EDL_EXTRA].find(p=>p.nom===nom||p.nom==='Chambre');
-  _edlInsertPiece({nom,elements:(tpl?.e||[]).map(n=>({nom:n,etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]}))});
-  _edlRenderPieces();_edlFillPieceSelect();sel.value='';
+  const piece={nom,elements:(tpl?.e||[]).map(n=>({nom:n,etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]}))};
+  _edlInsertPiece(piece);
+  _edlRenderPieces();_edlFillPieceSelect();
+  return _edlP.indexOf(piece);
+}
+function edlAddPieceFromSel(){
+  const sel=el('edl-add-piece-sel');if(!sel)return;const nom=sel.value;if(!nom)return;
+  _edlAddPieceByValue(nom);sel.value='';
+}
+// §2.5 — ajout de pièce DEPUIS LA FEUILLE DES ÉTAPES (téléphone) : même moteur, puis on
+// saute directement sur la nouvelle pièce (ferme la feuille). La pièce personnalisée gère
+// déjà son propre saut ; on ferme simplement la feuille.
+function _edlSheetAddPiece(){
+  const sel=el('edl-sheet-add-sel');if(!sel)return;const nom=sel.value;if(!nom)return;
+  const pi=_edlAddPieceByValue(nom);
+  sel.value='';
+  if(pi>=0 && typeof _edlGoPiece==='function') _edlGoPiece(pi); // saute sur la pièce (ferme la feuille)
+  else _edlClosePieceSheet();
 }
 function edlAddPieceCustom(){
   // #2 (retour Didier 26/08) — plus de prompt() bloquant qui exigeait un titre : on ajoute une
