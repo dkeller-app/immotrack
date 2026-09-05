@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.589</title>
+<title>Propryo v15.590</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.589</em>
+      <em>v15.590</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -146,6 +146,9 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
   <div class="tb">
     <button class="tb-menu" onclick="toggleSb()">☰</button>
     <div class="tb-breadcrumb">
+      <!-- MOBILE-REFONTE — lockup marque Propryo (carré contour + point corail, charte)
+           visible sur téléphone uniquement, à gauche du titre de page. -->
+      <span class="tb-brand" aria-label="Propryo"><svg viewBox="0 0 32 32" width="22" height="22" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
       <strong id="tb-title">Tableau de bord</strong>
     </div>
     <div class="tb-actions" id="tb-actions"></div>
@@ -1332,11 +1335,42 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 #ov-menu-perso .mp-sw.on{background:var(--acc)}
 #ov-menu-perso .mp-kn{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 #ov-menu-perso .mp-sw.on .mp-kn{left:19px}
+/* BARRE À FAVORIS — 1re ligne « Personnaliser ma barre » de la feuille Plus (pleine largeur, corail) */
+#more-grid .more-it.more-customize{grid-column:1/-1;flex-direction:row;justify-content:flex-start;gap:12px;border-color:var(--acc);color:var(--acc);font-weight:700}
+#more-grid .more-it.more-customize .more-ic{color:var(--acc)}
+/* BARRE À FAVORIS — picker « Personnaliser ma barre » plein écran (téléphone, M-16) */
+#ov-fav-picker{position:fixed;inset:0;background:var(--bg,var(--sur));z-index:10001;display:none;flex-direction:column;overflow:hidden}
+#ov-fav-picker.open{display:flex}
+#ov-fav-picker .fp-head{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;border-bottom:1px solid var(--bor);flex:0 0 auto;background:var(--sur)}
+#ov-fav-picker .fp-back{width:36px;height:36px;border-radius:10px;border:1px solid var(--bor);background:var(--sur2);color:var(--t1);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+#ov-fav-picker .fp-back svg{width:20px;height:20px}
+#ov-fav-picker .fp-title{font-family:var(--display,inherit);font-weight:800;font-size:18px;color:var(--t1);letter-spacing:-.01em}
+#ov-fav-picker .fp-sub{padding:12px 16px 0;font-size:13px;color:var(--t2);line-height:1.5}
+#ov-fav-picker .fp-body{flex:1;overflow:auto;padding:4px 16px calc(env(safe-area-inset-bottom,16px) + 24px)}
+#ov-fav-picker .fp-count{display:inline-block;font-size:12px;font-weight:700;color:var(--acc);background:var(--acc-soft);padding:4px 12px;border-radius:999px;margin:14px 0 12px}
+#ov-fav-picker .fp-grp{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin:16px 0 8px}
+#ov-fav-picker .fp-opt{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--bor);border-radius:12px;margin-bottom:8px;cursor:pointer;background:var(--sur);transition:border-color .12s,background .12s;user-select:none}
+#ov-fav-picker .fp-opt.sel{border-color:var(--acc);background:var(--acc-soft)}
+#ov-fav-picker .fp-opt.disabled{opacity:.42;cursor:not-allowed}
+#ov-fav-picker .fp-ic{width:36px;height:36px;border-radius:9px;background:var(--sur2);display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:var(--t2)}
+#ov-fav-picker .fp-opt.action .fp-ic{border-radius:50%}
+#ov-fav-picker .fp-opt.sel .fp-ic{background:var(--acc-soft);color:var(--acc)}
+#ov-fav-picker .fp-ic svg{width:19px;height:19px}
+#ov-fav-picker .fp-lbl{flex:1;min-width:0}
+#ov-fav-picker .fp-nm{font-weight:700;color:var(--t1);font-size:14.5px}
+#ov-fav-picker .fp-kind{font-size:11px;color:var(--t3)}
+#ov-fav-picker .fp-star{width:23px;height:23px;border-radius:50%;border:1.5px solid var(--t3);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+#ov-fav-picker .fp-opt.sel .fp-star{border-color:var(--acc);background:var(--acc)}
+#ov-fav-picker .fp-star svg{width:13px;height:13px;opacity:0}
+#ov-fav-picker .fp-opt.sel .fp-star svg{opacity:1}
 </style>
+<!-- BARRE À FAVORIS — repli statique (pré-JS) calé sur le défaut : Accueil · Parc · Loyers · +EDL · Plus.
+     _renderBottomNav() régénère cette barre depuis les favoris du compte au boot. -->
 <nav class="v4-bnav" id="v4-bnav" role="navigation" aria-label="Navigation mobile">
-  <button type="button" class="v4-bn act" data-page="accueil" onclick="go('accueil')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lbl">Accueil</span></button>
-  <button type="button" class="v4-bn" data-page="loyers" onclick="go('loyers')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="lbl">Loyers</span></button>
-  <button type="button" class="v4-bn" data-page="agenda" onclick="go('agenda')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="lbl">Agenda</span></button>
+  <button type="button" class="v4-bn act" data-page="accueil" onclick="go('accueil')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/></svg></span><span class="lbl">Accueil</span></button>
+  <button type="button" class="v4-bn" data-page="biens" onclick="go('biens')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/></svg></span><span class="lbl">Parc</span></button>
+  <button type="button" class="v4-bn" data-page="loyers" onclick="go('loyers')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="lbl">Loyers</span></button>
+  <button type="button" class="v4-bn fav-act" data-page="fav:addedl" onclick="_favRunAction('addedl')"><span class="ic fav-ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 9v6M9 12h6"/></svg></span><span class="lbl fav-albl">+ EDL</span></button>
   <button type="button" class="v4-bn" data-page="more" onclick="_openMoreSheet()"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg></span><span class="lbl">Plus</span></button>
 </nav>
 
@@ -4260,7 +4294,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.589';
+const IMMOTRACK_VERSION = '15.590';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -8904,18 +8938,20 @@ function _renderMoreSheet() {
   const cu = (typeof countUnreadCandidats === 'function' && typeof DB !== 'undefined') ? countUnreadCandidats(DB.candidats || []) : 0;
   const item = (id, lb, ic, extra) => '<button type="button" class="more-it" onclick="_moreGo(\'' + id + '\')"><span class="more-ic">' + (ic || '') + '</span><span>' + lb + (extra || '') + '</span></button>';
   const on = _menuGetOn();   // Phase 4 — filtre du menu perso
-  let html = '', pendingZone = null;
+  // BARRE À FAVORIS — 1re ligne corail : ouvre le picker plein écran (M-16).
+  let html = '<button type="button" class="more-it more-customize" onclick="_closeMoreSheet();_openFavPicker()">'
+    + '<span class="more-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span>'
+    + '<span>Personnaliser ma barre</span></button>';
+  let pendingZone = null;
   _V4_NAV_MODEL.forEach(m => {
     if (m.h6) { pendingZone = m.h6; return; }
     if (!_menuItemVisible(m.id, on)) return;
     if (pendingZone) { html += '<div class="more-zone">' + pendingZone + '</div>'; pendingZone = null; }
     const candBadge = m.candBadge ? ' <span class="more-badge" id="more-candidats-badge"' + (cu > 0 ? '' : ' style="display:none"') + '>' + (cu || '') + '</span>' : '';
     html += item(m.id, m.lb, _V4_NAV_ICONS[m.ic], candBadge);
-    const g = _NAV_PAGE_GROUP[m.id];
-    if (g) {
-      const subs = g.tabs.filter(([id]) => on.has(id));
-      if (subs.length > 1) html += '<div class="more-subs">' + subs.map(([id, lb]) => '<button type="button" class="more-sub' + (id === currentPage ? ' act' : '') + '" onclick="_moreGo(\'' + id + '\')">' + lb + '</button>').join('') + '</div>';
-    }
+    // NAV APLATIE — plus de sous-chips « more-subs » : chaque entrée est un lien
+    // simple. Les pages-enfants (Candidatures, Équipements) restent joignables via
+    // la barre de sous-onglets en haut de leur page-groupe (_navSubtabsHtml).
   });
   // Réglages : sur desktop c'est le menu compte ; sur mobile on les expose ici pour rester joignables.
   html += '<div class="more-zone">Réglages</div>'
@@ -8925,30 +8961,176 @@ function _renderMoreSheet() {
   host.innerHTML = html;
 }
 
-// REFONTE-NAV (fix mobile P0) — la BOTTOM-NAV est GÉNÉRÉE depuis la source unique (fin de la barre en dur
-// périmée : elle montrait encore « Dashboard »/« Agenda » sans « Locataires » et ignorait le menu perso).
-// 4 primaires = parents de zone (Accueil · Pilotage · Locataires · Loyers) + « Plus », filtrés par le menu
-// perso (_menuItemVisible). Icônes width=19 en dur (le CSS .v4-bn .ic ne dimensionne pas le SVG). Le
-// surlignage est câlé sur le PARENT représentant (_navSidebarRep) dans go(), comme la sidebar.
-const _V4_BOTTOM = [
-  { id:'accueil',   lb:'Accueil',    svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-  { id:'baux',      lb:'Locataires', svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M8 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 100-5M22 20c0-3-2-4-4-4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-  { id:'loyers',    lb:'Loyers',     svg:'<svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' },
+// ─── BARRE DU BAS À FAVORIS (téléphone) ─────────────────────────────────────
+// Modèle EXACT de la maquette validée mockups/MOBILE-UX/NAV-FAVORIS-PROTO.html :
+// `fav` = tableau ordonné de max 4 ids, Accueil verrouillé toujours en 1er.
+// Chaque favori est soit un ONGLET (icône + label → go(page)), soit une ACTION
+// RAPIDE (pastille corail « + label » → fonction existante de l'app). « Plus »
+// reste toujours en dernier (ouvre la feuille + le picker « Personnaliser »).
+// Persistance PAR COMPTE via _lsKey (comme le menu perso). DRY : les onglets
+// appellent go() et les actions réutilisent les fonctions existantes — rien de
+// réinventé. Icônes = line-icons currentColor (paths repris de la maquette).
+const _FAV_MAX = 4;
+const _FAV_ICONS = {
+  accueil:'<path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/>',
+  parc:'<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/>',
+  loc:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/>',
+  loyers:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  argent:'<path d="M3 7h18M3 12h18M3 17h10"/>',
+  mvt:'<path d="M4 17l5-5 4 4 7-8"/>',
+  charges:'<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
+  finances:'<path d="M4 19h16M6 16l4-6 3 3 5-7"/>',
+  edl:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  agenda:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16M9 3v4M15 3v4"/>',
+  addedl:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 9v6M9 12h6"/>',
+  quit:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h4"/>',
+  depense:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.4"/><path d="M6.5 12h.01M17.5 12h.01"/>',
+  candidat:'<circle cx="9.5" cy="8" r="3.2"/><path d="M4 20c0-3.3 2.5-5.5 5.5-5.5"/><path d="M18 8.5v6M15 11.5h6"/>',
+  photo:'<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.4"/><path d="M8.5 7l1.3-2h4.4L15.5 7"/>',
+  rappel:'<path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/>'
+};
+// ONGLETS (10) — chaque `page` est un slug RÉEL vérifié dans go()/_V4_NAV_MODEL.
+// NB audit : la page « Locataires » est le slug 'baux' (#p-baux), pas 'locataires' ;
+// « Argent » n'a pas de page propre → son atterrissage est 'mouvements' (1re page de
+// la zone Argent). 'argent' et 'mvt' pointent donc tous deux sur Mouvements.
+const _FAV_TABS = [
+  { id:'accueil',  nm:'Accueil',          sh:'Accueil',  ic:'accueil',  page:'accueil', locked:true },
+  { id:'parc',     nm:'Logements',        sh:'Parc',     ic:'parc',     page:'biens' },
+  { id:'loc',      nm:'Locataires',       sh:'Locat.',   ic:'loc',      page:'baux' },
+  { id:'loyers',   nm:'Loyers',           sh:'Loyers',   ic:'loyers',   page:'loyers' },
+  { id:'argent',   nm:'Argent',           sh:'Argent',   ic:'argent',   page:'mouvements' },
+  { id:'mvt',      nm:'Mouvements',       sh:'Mouv.',    ic:'mvt',      page:'mouvements' },
+  { id:'charges',  nm:'Charges',          sh:'Charges',  ic:'charges',  page:'regul' },
+  { id:'finances', nm:'Finances',         sh:'Finances', ic:'finances', page:'finances' },
+  { id:'edl',      nm:'États des lieux',  sh:'EDL',      ic:'edl',      page:'edl' },
+  { id:'agenda',   nm:'Agenda',           sh:'Agenda',   ic:'agenda',   page:'agenda' },
 ];
+// ACTIONS RAPIDES (6) — chaque `id` déclenche une fonction EXISTANTE (cf. _favRunAction).
+const _FAV_ACTIONS = [
+  { id:'addedl',   nm:'Faire un EDL',              sh:'EDL',       ic:'addedl',   action:true },
+  { id:'depense',  nm:'Ajouter une dépense',       sh:'Dépense',   ic:'depense',  action:true },
+  { id:'candidat', nm:'Ajouter un candidat',       sh:'Candidat',  ic:'candidat', action:true },
+  { id:'photo',    nm:'Ajouter une photo / pièce', sh:'Photo',     ic:'photo',    action:true },
+  { id:'rappel',   nm:'Ajouter un rappel',         sh:'Rappel',    ic:'rappel',   action:true },
+  { id:'quit',     nm:'Faire une quittance',       sh:'Quittance', ic:'quit',     action:true },
+];
+const _FAV_ALL = _FAV_TABS.concat(_FAV_ACTIONS);
+const _FAV_ALL_IDS = _FAV_ALL.map(x => x.id);
+// Défaut intelligent (maquette) : Accueil (verrouillé) + Parc + Loyers + Faire un EDL.
+const _FAV_DEFAULT = ['accueil', 'parc', 'loyers', 'addedl'];
+function _favMeta(id) { return _FAV_ALL.find(x => x.id === id) || null; }
+function _favKey() { return (typeof _lsKey === 'function') ? _lsKey('immo_fav_bar') : 'immo_fav_bar'; }
+// Lecture normalisée : Accueil forcé en 1er, ids inconnus filtrés, unique, max 4.
+function _favGet() {
+  let arr = null;
+  try { const raw = localStorage.getItem(_favKey()); if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) arr = a; } } catch (e) {}
+  if (!arr) return _FAV_DEFAULT.slice();
+  const out = ['accueil'];
+  arr.forEach(id => { if (id !== 'accueil' && _FAV_ALL_IDS.includes(id) && !out.includes(id) && out.length < _FAV_MAX) out.push(id); });
+  return out;
+}
+function _favSet(list) {
+  const out = ['accueil'];
+  (list || []).forEach(id => { if (id !== 'accueil' && _FAV_ALL_IDS.includes(id) && !out.includes(id) && out.length < _FAV_MAX) out.push(id); });
+  try { localStorage.setItem(_favKey(), JSON.stringify(out)); } catch (e) {}
+  return out;
+}
+function _favSvg(ic) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">' + (_FAV_ICONS[ic] || '') + '</svg>'; }
+// Dispatch des actions rapides → fonctions EXISTANTES de l'app (DRY, aucune réinvention).
+// 'photo' : l'app n'a pas de capture photo globale hors contexte (les photos vivent
+// par logement / EDL / justificatif de mouvement) → on ouvre le hub Logements avec un
+// repère vers l'onglet Photos de la fiche. Mapping le plus « souple », à confirmer.
+function _favAddPhoto() {
+  try { if (typeof go === 'function') go('biens'); } catch (e) {}
+  try { if (typeof showToast === 'function') showToast('Ouvrir un logement puis l’onglet « Photos » de sa fiche pour ajouter des photos.', 'info', 4200); } catch (e) {}
+}
+const _FAV_ACTION_RUN = {
+  addedl:   () => openNewEDL(),
+  depense:  () => openNewMv(),
+  candidat: () => openAddCandidat(),
+  photo:    () => _favAddPhoto(),
+  rappel:   () => openAgendaEvt(null),
+  quit:     () => _openFaireQuittance(),
+};
+function _favRunAction(id) {
+  try { if (typeof _closeMoreSheet === 'function') _closeMoreSheet(); } catch (e) {}
+  const fn = _FAV_ACTION_RUN[id];
+  if (!fn) return;
+  try { fn(); }
+  catch (e) { console.warn('[fav] action ' + id, e); try { if (typeof showToast === 'function') showToast('Action indisponible', 'err'); } catch (_) {} }
+}
+// La bottom-nav rend les favoris (onglet = icône+label ; action = pastille corail
+// « + label ») + toujours « Plus ». Le surlignage .act (onglet actif) est câlé sur
+// le PARENT représentant (_navSidebarRep) — recalculé aussi dans go() à chaque navig.
 function _renderBottomNav() {
   const host = (typeof el === 'function') ? el('v4-bnav') : document.getElementById('v4-bnav');
   if (!host) return;
-  const on = (typeof _menuGetOn === 'function') ? _menuGetOn() : null;
+  const fav = _favGet();
   const rep = (typeof _navSidebarRep === 'function' && typeof currentPage !== 'undefined') ? _navSidebarRep(currentPage) : null;
-  let html = _V4_BOTTOM
-    .filter(p => !on || (typeof _menuItemVisible !== 'function') || _menuItemVisible(p.id, on))
-    .map(p => { const landing = (typeof _navSidebarLanding === 'function') ? _navSidebarLanding(p.id, on) : p.id; return '<button type="button" class="v4-bn' + (p.id === rep ? ' act' : '') + '" data-page="' + p.id + '" onclick="go(\'' + landing + '\')"><span class="ic">' + p.svg + '</span><span class="lbl">' + p.lb + '</span></button>'; })
-    .join('');
+  let html = fav.map(id => {
+    const it = _favMeta(id); if (!it) return '';
+    if (it.action) {
+      return '<button type="button" class="v4-bn fav-act" data-page="fav:' + id + '" onclick="_favRunAction(\'' + id + '\')">'
+        + '<span class="ic fav-ring">' + _favSvg(it.ic) + '</span>'
+        + '<span class="lbl fav-albl">+ ' + (it.sh || it.nm) + '</span></button>';
+    }
+    const isAct = (it.page === rep);
+    return '<button type="button" class="v4-bn' + (isAct ? ' act' : '') + '" data-page="' + it.page + '" onclick="go(\'' + it.page + '\')">'
+      + '<span class="ic">' + _favSvg(it.ic) + '</span>'
+      + '<span class="lbl">' + (it.sh || it.nm) + '</span></button>';
+  }).join('');
   html += '<button type="button" class="v4-bn' + (rep === 'more' ? ' act' : '') + '" data-page="more" onclick="_openMoreSheet()"><span class="ic"><svg viewBox="0 0 24 24" fill="none" width="19" height="19"><circle cx="12" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg></span><span class="lbl">Plus</span></button>';
   host.innerHTML = html;
   // La réécriture innerHTML efface le badge « candidats non lus » posé sur « Plus » par _renderInboxSurfaces
   // → on le re-pose (null-safe, ne re-render pas la sidebar). Sinon il disparaît après un toggle thème / menu / entité.
   try { if (typeof _renderInboxSurfaces === 'function') _renderInboxSurfaces(); } catch(e){}
+}
+// ─── PICKER « Personnaliser ma barre » (plein écran téléphone, M-16) ─────────
+function _favPickerRow(it, fav) {
+  const sel = fav.includes(it.id);
+  const disabled = it.locked || (!sel && fav.length >= _FAV_MAX);
+  const kind = it.locked ? 'Toujours présent' : (it.action ? 'Action rapide' : 'Onglet');
+  const cls = ['fp-opt', it.action ? 'action' : '', sel ? 'sel' : '', disabled ? 'disabled' : ''].filter(Boolean).join(' ');
+  return '<div class="' + cls + '"' + (it.locked ? '' : ' onclick="_favToggle(\'' + it.id + '\')"') + '>'
+    + '<div class="fp-ic">' + _favSvg(it.ic) + '</div>'
+    + '<div class="fp-lbl"><div class="fp-nm">' + it.nm + '</div><div class="fp-kind">' + kind + '</div></div>'
+    + '<div class="fp-star"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></div>'
+    + '</div>';
+}
+function _renderFavPicker() {
+  const ov = document.getElementById('ov-fav-picker'); if (!ov) return;
+  const body = ov.querySelector('.fp-body'); if (!body) return;
+  const fav = _favGet();
+  body.innerHTML = '<div class="fp-count">' + fav.length + ' / ' + _FAV_MAX + ' choisis</div>'
+    + '<div class="fp-grp">Onglets</div>' + _FAV_TABS.map(it => _favPickerRow(it, fav)).join('')
+    + '<div class="fp-grp">Actions rapides</div>' + _FAV_ACTIONS.map(it => _favPickerRow(it, fav)).join('');
+}
+function _openFavPicker() {
+  let ov = document.getElementById('ov-fav-picker');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'ov-fav-picker';
+    ov.innerHTML = '<div class="fp-head"><button type="button" class="fp-back" onclick="_closeFavPicker()" aria-label="Retour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><div class="fp-title">Personnaliser ma barre</div></div>'
+      + '<div class="fp-sub">Choisis jusqu’à 4 raccourcis pour ta barre du bas — des onglets <em>ou</em> des actions. « Plus » reste toujours là pour le reste. Accueil est toujours présent.</div>'
+      + '<div class="fp-body"></div>';
+    document.body.appendChild(ov);
+  }
+  _renderFavPicker();
+  ov.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function _closeFavPicker() {
+  const ov = document.getElementById('ov-fav-picker'); if (ov) ov.classList.remove('open');
+  document.body.style.overflow = '';
+}
+function _favToggle(id) {
+  const it = _favMeta(id); if (!it || it.locked) return;
+  let fav = _favGet();
+  const i = fav.indexOf(id);
+  if (i >= 0) { fav.splice(i, 1); }
+  else { if (fav.length >= _FAV_MAX) return; fav.push(id); }
+  _favSet(fav);
+  _renderFavPicker();
+  try { _renderBottomNav(); } catch (e) {}
 }
 
 // REFONTE-NAV Phase 4 — écran « Personnaliser le menu » (depuis le menu compte). Presets + interrupteurs
@@ -9531,8 +9713,11 @@ function _v4NavHtml(counts, candUnread, showDash) {
     if (m.showDash && !showDash) return;
     if (!_menuItemVisible(m.id, on)) return;           // masqué par le menu perso
     if (pendingZone) { out += '<h6>' + pendingZone + '</h6>'; pendingZone = null; }
-    const group = (typeof _NAV_PAGE_GROUP !== 'undefined') ? _NAV_PAGE_GROUP[m.id] : null;
-    const model = navSubmenuModel(m.id, group, cur, on, openSet);
+    // NAV APLATIE — les sous-menus dépliables sont neutralisés : chaque onglet est
+    // un LIEN SIMPLE (aucun chevron, aucun sous-menu). Les pages-enfants restent
+    // joignables via la barre de sous-onglets en haut de leur page-groupe.
+    // (navSubmenuModel/_navToggleGroup conservés mais plus appelés → 0 régression.)
+    const model = { kind: 'link' };
     if (model.kind === 'group') {
       // Onglet-GROUPE : parent (icône+label = naviguent) + chevron (déplie/replie seul) + sous-menu.
       const landing = (typeof _navSidebarLanding === 'function') ? _navSidebarLanding(m.id, on) : m.id;

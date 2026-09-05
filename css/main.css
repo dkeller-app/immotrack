@@ -714,6 +714,9 @@ a{color:var(--acc);text-decoration:none}
   box-shadow:0 1px 0 var(--bor2);
 }
 .tb-menu{display:none;background:none;border:none;color:var(--t1);cursor:pointer;font-size:20px;padding:4px;line-height:1}
+/* MOBILE-REFONTE — lockup marque Propryo dans la topbar : caché sur PC/tablette, affiché sur téléphone. */
+.tb-brand{display:none}
+.tb-brand svg{display:block}
 .tb-breadcrumb{flex:1;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--t2);overflow:hidden}
 .tb-breadcrumb strong{font-family:var(--display);font-weight:800;color:var(--t1);font-size:14.5px;white-space:nowrap;letter-spacing:-.02em}
 .tb-sep{color:var(--t3);font-size:11px}
@@ -4659,6 +4662,8 @@ textarea.field-modified-since-sig{
   .sb-nav.open{transform:translate3d(0,0,0)!important;z-index:2000!important}
   .sb-collapse-btn{display:none}
   .tb-menu{display:block}
+  /* MOBILE-REFONTE — marque Propryo visible à gauche du titre de page (toutes pages téléphone) */
+  .tb-brand{display:inline-flex;align-items:center;flex:0 0 auto;margin-right:2px}
   /* v15.140 BUG-MOBILE-MENU-PLUS — Backdrop derrière la sidebar overlay (entre bottom nav 999 et sidebar 2000) */
   #sb-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1900;animation:sbbd-in .2s ease}
   @keyframes sbbd-in{from{opacity:0}to{opacity:1}}
@@ -8792,6 +8797,22 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   }
   body[data-dash-v4="on"] .v4-bnav .v4-bn.act { color: var(--cta); }
   body[data-dash-v4="on"] .v4-bnav .v4-bn.act .ic { filter: grayscale(0); }
+
+  /* BARRE À FAVORIS — action rapide : pastille corail surélevée (FAB), icône blanche.
+     Calé sur la maquette NAV-FAVORIS-PROTO.html (.bar>button.act .ring). */
+  body[data-dash-v4="on"] .v4-bnav { overflow: visible; }
+  body[data-dash-v4="on"] .v4-bnav .v4-bn.fav-act { color: var(--cta); font-weight: 700; overflow: visible; }
+  body[data-dash-v4="on"] .v4-bnav .v4-bn.fav-act .ic.fav-ring {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--cta);
+    display: flex; align-items: center; justify-content: center;
+    transform: translateY(-8px);
+    box-shadow: 0 6px 16px -4px rgba(255,90,60,.6);
+    border: 3px solid var(--sur);
+    filter: none;
+  }
+  body[data-dash-v4="on"] .v4-bnav .v4-bn.fav-act .ic.fav-ring svg { width: 18px; height: 18px; stroke: #fff; }
+  body[data-dash-v4="on"] .v4-bnav .v4-bn.fav-act .lbl.fav-albl { margin-top: -8px; }
 
   /* Body : reserve space pour le bottom nav fixe (≈64px) */
   body[data-dash-v4="on"] .pc { padding-bottom: 80px !important; }
