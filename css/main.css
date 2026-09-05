@@ -3202,53 +3202,24 @@ textarea.field-modified-since-sig{
     font-size:11px;color:var(--t3);font-weight:600;
     text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;
   }
-  /* Mode SORTIE uniquement : col 5 = État sortie, col 6 = Obs. sortie, col 7 = Photos
-     sortie. Scopé à .edl-sortie-mode (lot 5) — en ENTRÉE, la 5e cellule est la
-     suppression (✕), et cette étiquette « État sortie : » s'y collait à tort. */
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5){
-    display:flex !important;flex-wrap:wrap;gap:5px;
-    align-items:center;padding:8px 0 6px !important;
-    border-top:1px dashed var(--bor) !important;margin-top:6px;
-  }
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5)::before{
-    content:'État sortie :';display:inline-block;
-    font-size:11px;color:var(--ora);font-weight:600;
-    text-transform:uppercase;letter-spacing:.4px;margin-right:4px;
-  }
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5) button{
-    margin:0 !important;min-width:42px !important;
-    font-size:14px !important;padding:7px 12px !important;
-  }
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6){width:100%}
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6)::before{
-    content:'Obs. sortie';display:block;
-    font-size:11px;color:var(--ora);font-weight:600;
-    text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;
-  }
-  /* Lot 7 : la cellule Verdict (8e) sur mobile — étiquetée, alignée à gauche comme les autres */
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell{
-    text-align:left !important;padding:8px 0 4px !important;white-space:normal !important;
-    border-top:1px dashed var(--bor) !important;margin-top:4px;
-  }
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell::before{
-    content:'Verdict';display:block;font-size:11px;color:var(--t3);font-weight:600;
-    text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;
-  }
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell .edl-vwarn{max-width:none}
-
-  /* ══ EDL-TÉLÉPHONE (§2.6) — CARTE DE SORTIE : 2 registres nets ═════════════════
-     Entrée GRISE (référence signée, verrouillée, état en pastille lecture seule) et
-     sortie ORANGE (à remplir). Disposition validée : les ÉTATS côte à côte 1/3 · 2/3,
-     les OBSERVATIONS et PHOTOS en PLEINE LARGEUR (une obs de 277 car. en 1/3 devient
-     un ruban illisible) ; verdict déduit en bas. Le tableau PC (≥ 1024) n'est PAS
-     concerné. RÉUTILISE le rendu _edlElemRow + le module edl-parcours.js (pas de réécriture). */
+  /* ══ EDL-TÉLÉPHONE (§2.6) — MODE SORTIE : DEUX BANDES NETTES (maquette ecran-05-piece) ═══
+     Par élément, empilement vertical en 2 REGISTRES CONTINUS (fini la zébrure entrée/sortie
+     interlignée) : d'abord la bande GRISE « 🔒 Entrée — référence signée » (état d'entrée en
+     pastille LECTURE SEULE, obs d'entrée en italique verrouillée, miniatures verrouillées),
+     PUIS la bande CORAIL « ✍️ Sortie — à remplir » (5 boutons d'état ≥ 44 px, obs de sortie,
+     ajout de photo), le VERDICT déduit dessous (verdictDe(), jamais stocké). Le tableau PC
+     (≥ 1024) n'est PAS concerné (§2.9). Données réutilisées telles quelles (_edlElemRow) —
+     seule la disposition change, en CSS. Saisie ≥ 16 px (§2.4). */
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl tbody tr{
-    display:grid !important;grid-template-columns:1fr 2fr;
-    grid-template-areas:'nom nom' 'etatE etatS' 'obsE obsE' 'obsS obsS' 'photoE photoE' 'photoS photoS' 'verdict verdict';
-    column-gap:8px;row-gap:8px;align-items:start;padding:10px 12px !important;position:relative;
+    display:grid !important;grid-template-columns:1fr;
+    grid-template-areas:'nom' 'etatE' 'obsE' 'photoE' 'etatS' 'obsS' 'photoS' 'verdict';
+    row-gap:0;column-gap:0;align-items:stretch;padding:10px 12px !important;position:relative;
   }
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td{border-top:none !important;margin-top:0 !important}
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(1){grid-area:nom;padding:0 0 8px !important;border-bottom:1px solid var(--bor) !important;margin-bottom:8px !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td{border:none !important;margin-top:0 !important}
+  /* nom de l'élément en titre de la carte */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(1){
+    grid-area:nom;padding:0 36px 8px 0 !important;border-bottom:1px solid var(--bor) !important;margin-bottom:10px !important;
+  }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2){grid-area:etatE}
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE{grid-area:obsE}
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4){grid-area:photoE}
@@ -3257,75 +3228,99 @@ textarea.field-modified-since-sig{
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7){grid-area:photoS}
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell{grid-area:verdict}
 
-  /* registre ENTRÉE (signé) : fond gris discret, encadré = « référence verrouillée » */
+  /* ── BANDE ENTRÉE (grise, signée) : 3 cellules SOUDÉES en un bloc gris continu ── */
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2),
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE,
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4){
-    background:var(--sur2) !important;border:1px solid var(--bor) !important;border-radius:8px;padding:7px 9px !important;
+    background:var(--sur2) !important;
+    border-left:1px solid var(--bor) !important;border-right:1px solid var(--bor) !important;
+    padding:6px 10px !important;
   }
-  /* registre SORTIE (à remplir) : liseré orange à gauche + fond légèrement teinté */
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5),
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6),
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7){
-    background:color-mix(in srgb,var(--ora) 8%,transparent) !important;
-    border:1px solid color-mix(in srgb,var(--ora) 35%,transparent) !important;
-    border-left:4px solid var(--ora) !important;border-radius:8px;padding:7px 9px !important;
+  /* haut de bande = état d'entrée : PASTILLE lecture seule (PAS les 5 boutons), 1 seul en-tête */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2){
+    display:block !important;text-align:left !important;
+    border-top:1px solid var(--bor) !important;border-radius:8px 8px 0 0;padding-top:8px !important;
   }
-
-  /* état d'entrée : PASTILLE lecture seule, PAS les 5 boutons */
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2){display:block !important;text-align:left !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2)::before{
+    content:'🔒 Entrée — référence signée';display:block;font:700 10px var(--font);color:var(--t3);
+    text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;
+  }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2) button{display:none !important}
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2) .edl-etatE-view{display:inline-flex !important}
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2)::before{
-    content:'🔒 Entrée — signé';display:block;font:700 10px var(--font);color:var(--t3);
-    text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;
-  }
-  /* obs + photos entrée : verrouillées (visibles, non éditables) */
+  /* obs d'entrée : italique, lecture seule (≥ 16 px, §2.4) */
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE::before{
     content:'Obs. entrée';display:block;font:600 10px var(--font);color:var(--t3);
-    text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;
+    text-transform:uppercase;letter-spacing:.4px;margin:2px 0 3px;
   }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE textarea{
     pointer-events:none;background:var(--sur) !important;color:var(--t2) !important;font-style:italic;
     border:1px solid var(--bor) !important;border-radius:6px;padding:5px 7px !important;
-    font-size:16px !important;width:100% !important;opacity:.9;   /* §2.4 : 16 px À LA SOURCE (obs entrée, mode sortie, lecture seule) */
+    font-size:16px !important;width:100% !important;opacity:.9;   /* §2.4 : 16 px À LA SOURCE (obs entrée, lecture seule) */
+  }
+  /* bas de bande = photos d'entrée : miniatures verrouillées (ajout masqué), coin arrondi bas */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4){
+    border-bottom:1px solid var(--bor) !important;border-radius:0 0 8px 8px;padding-bottom:8px !important;
   }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4)::before{
     content:'🔒 📷 Entrée';display:block;font:600 10px var(--font);color:var(--t3);
-    text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;
+    text-transform:uppercase;letter-spacing:.4px;margin:2px 0 4px;
   }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4) button[onclick*="edlAddPhoto"]{display:none !important}
 
-  /* état de SORTIE : 5 boutons sur 2 rangs, cible ≥ 44 px */
+  /* ── BANDE SORTIE (corail, à remplir) : liseré orange à gauche, 3 cellules SOUDÉES ── */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5),
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6),
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7){
+    background:color-mix(in srgb,var(--ora) 8%,transparent) !important;
+    border-left:4px solid var(--ora) !important;
+    border-right:1px solid color-mix(in srgb,var(--ora) 35%,transparent) !important;
+    padding:6px 10px !important;
+  }
+  /* haut de bande = état de SORTIE : 5 boutons ≥ 44 px, 1 seul en-tête ; l'écart avec la
+     bande entrée (margin-top) forme la coupure NETTE entre les 2 registres */
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5){
-    display:flex !important;flex-wrap:wrap;gap:6px;align-content:flex-start;border-top:none !important;
+    display:flex !important;flex-wrap:wrap;gap:6px;align-content:flex-start;
+    margin-top:10px !important;
+    border-top:1px solid color-mix(in srgb,var(--ora) 35%,transparent) !important;
+    border-radius:8px 8px 0 0;padding-top:8px !important;
   }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5)::before{
-    content:'✍️ Sortie — état';display:block;width:100%;font:700 10px var(--font);color:var(--ora);
-    text-transform:uppercase;letter-spacing:.4px;margin:0 0 4px;
+    content:'✍️ Sortie — à remplir';display:block;width:100%;font:700 10px var(--font);color:var(--ora);
+    text-transform:uppercase;letter-spacing:.4px;margin:0 0 5px;
   }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5) button{
-    flex:1 1 calc(20% - 5px);min-width:44px !important;min-height:44px !important;
+    flex:1 1 calc(20% - 6px);min-width:44px !important;min-height:44px !important;
     margin:0 !important;font-size:15px !important;padding:0 !important;
   }
-  /* obs sortie : éditable */
+  /* obs de sortie : éditable (≥ 16 px, §2.4) */
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6){display:block !important;width:auto !important}
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6)::before{
     content:'✍️ Obs. sortie';display:block;font:600 10px var(--font);color:var(--ora);
-    text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;
+    text-transform:uppercase;letter-spacing:.4px;margin:2px 0 3px;
   }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6) textarea{
     background:var(--sur) !important;border:1px solid var(--bor) !important;border-radius:6px;
     padding:5px 7px !important;font-size:16px !important;width:100% !important;min-height:42px;   /* §2.4 : 16 px À LA SOURCE (obs sortie) */
   }
+  /* bas de bande = photos de sortie : ajout permis, coin arrondi bas */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7){
+    border-bottom:1px solid color-mix(in srgb,var(--ora) 35%,transparent) !important;
+    border-radius:0 0 8px 8px;padding-bottom:8px !important;
+  }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7)::before{
     content:'📷 Sortie';display:block;font:600 10px var(--font);color:var(--ora);
+    text-transform:uppercase;letter-spacing:.4px;margin:2px 0 4px;
+  }
+  /* verdict déduit : pleine largeur, séparé, sous les 2 bandes */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell{
+    text-align:left !important;white-space:normal !important;
+    border-top:1px dashed var(--bor) !important;margin-top:10px !important;padding:8px 0 0 !important;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell::before{
+    content:'Verdict';display:block;font:600 10px var(--font);color:var(--t3);
     text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;
   }
-  /* verdict : pleine largeur, séparé */
-  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell{
-    border-top:1px dashed var(--bor) !important;margin-top:8px !important;padding:8px 0 0 !important;text-align:left !important;
-  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell .edl-vwarn{max-width:none}
   /* Bouton ✕ supprimer élément (dernière cellule, width:20px) en absolute */
   #edl-pieces-section .tbl-wrap table.tbl td[style*="width:20px"]{
     position:absolute !important;top:8px;right:8px;
@@ -3337,21 +3332,37 @@ textarea.field-modified-since-sig{
     border:1px solid var(--bor) !important;border-radius:6px;
     display:flex;align-items:center;justify-content:center;
   }
-  /* Header pièce (titre + boutons + élém / 🗑) : empilé sur mobile */
-  #edl-pieces-section > div > div:first-child{
+  /* Header pièce (titre + pilules Renommer/Supprimer) : empilé sur mobile (§2.6) */
+  #edl-pieces-section .edl-piece-head{
     flex-direction:column !important;align-items:stretch !important;gap:8px !important;
     padding:10px !important;
   }
-  #edl-pieces-section > div > div:first-child > input{
+  #edl-pieces-section .edl-piece-name{
     width:100% !important;font-size:16px !important;padding:6px 8px !important;   /* §2.4 : 16 px À LA SOURCE (nom de pièce) */
     background:var(--sur) !important;border:1px solid var(--bor) !important;
     border-radius:6px !important;
   }
-  #edl-pieces-section > div > div:first-child > .flex-c{
-    width:100%;justify-content:flex-end;gap:6px;
+  #edl-pieces-section .edl-piece-acts{
+    width:100%;justify-content:flex-start;gap:6px;
   }
-  #edl-pieces-section > div > div:first-child > .flex-c > .btn{
-    min-height:36px;padding:0 12px;font-size:13px !important;
+  #edl-pieces-section .edl-piece-acts > .btn{
+    min-height:44px;padding:0 12px;font-size:14px !important;
+  }
+  /* Le 🗑 dense (PC) est remplacé sur téléphone par la pilule « ✕ Supprimer la pièce ». */
+  #edl-pieces-section .edl-piece-del-pc{display:none !important}
+  /* Les 2 pilules d'action de pièce : maquette §2.6, sous le titre, pleine largeur, ≥44 px. */
+  #edl-pieces-section .edl-piece-pills{
+    display:flex !important;gap:8px;width:100%;
+  }
+  #edl-pieces-section .edl-piece-pills .edl-pill{
+    flex:1 1 0;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    font:600 13px var(--font);border:1px solid var(--bor);border-radius:999px;
+    background:var(--sur);color:var(--t1);cursor:pointer;padding:0 12px;
+  }
+  #edl-pieces-section .edl-piece-pills .edl-pill:active{background:var(--sur2)}
+  #edl-pieces-section .edl-piece-pills .edl-pill-del{
+    color:var(--neg);border-color:color-mix(in srgb,var(--neg) 45%,transparent);
+    background:color-mix(in srgb,var(--neg) 8%,transparent);
   }
   /* Légende des états : la .edl-legend gère son propre padding (repliable, voir plus bas) */
   #edl-pieces-section > .edl-legend{padding:0 !important}
@@ -3457,6 +3468,9 @@ textarea.field-modified-since-sig{
    Masquée par défaut → le tableau PC garde ses 5 boutons ; la carte (< 1024) la
    montre et masque les boutons (voir bloc .edl-sortie-mode plus bas). */
 .edl-etatE-view{display:none}
+/* Les pilules Renommer/Supprimer de pièce sont MOBILE only (§2.6) : masquées sur PC, qui
+   garde le header dense (titre éditable + 🗑). Le bloc @media <1024 les rallume. */
+.edl-piece-pills{display:none}
 .edl-pastille{display:inline-flex;align-items:center;gap:5px;font:700 12px var(--font);
   border:1px solid var(--bor);border-radius:999px;padding:4px 11px;white-space:nowrap;line-height:1.1}
 .edl-pastille-vide{color:var(--t3);background:var(--sur);border-style:dashed}
@@ -3504,6 +3518,12 @@ textarea.field-modified-since-sig{
   padding:2px 7px;border-radius:999px;background:var(--sur2);color:var(--t3)}
 .edl-sheet-tag.adm{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
 .edl-sheet-tag.pce{color:var(--pos);background:color-mix(in srgb,var(--pos) 12%,transparent)}
+/* §2.5 — pied de la feuille : ajout de pièce (kit standard + libre), place unique sur téléphone. */
+.edl-sheet-add{flex:none;border-top:1px solid var(--bor);padding:10px 12px;background:var(--sur)}
+.edl-sheet-add-lbl{display:block;font:700 11px var(--font);text-transform:uppercase;letter-spacing:.4px;color:var(--t3);margin-bottom:6px}
+.edl-sheet-add-row{display:flex;gap:8px;align-items:stretch}
+.edl-sheet-add-row .inp{flex:1;min-width:0;font-size:16px;min-height:44px}
+.edl-sheet-add-row .btn{flex:none;min-height:44px;padding:0 16px;font-size:14px}
 
 /* ══ EDL-TÉLÉPHONE (§2.7) — LA RELECTURE AVANT SIGNATURE (écran mobile < 1024) ══ */
 .edl-rl{padding:2px}

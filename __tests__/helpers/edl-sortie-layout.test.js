@@ -1,12 +1,12 @@
 /**
- * __tests__/helpers/edl-sortie-layout.test.js — chantier EDL-TÉLÉPHONE, étape 3 (CDC §2.6).
+ * __tests__/helpers/edl-sortie-layout.test.js — chantier EDL-TÉLÉPHONE, mode sortie (CDC §2.6).
  *
- * La carte de sortie (< 1024) : deux registres nets, ÉTATS côte à côte 1/3 · 2/3,
- * OBSERVATIONS et PHOTOS en PLEINE LARGEUR (une obs de 277 car. en 1/3 est illisible).
- * Ce test parse la déclaration effective de la grille (comme edl-overscroll parse
- * overscroll-behavior) : il ne cherche pas un extrait brut, il vérifie la VALEUR des
- * propriétés de disposition. Muter les colonnes en 1fr 1fr, ou remettre les obs en
- * demi-largeur, fait rougir ce test.
+ * La carte de sortie (< 1024) : DEUX BANDES NETTES empilées (maquette ecran-05-piece).
+ * D'abord TOUTE la bande ENTRÉE (état + obs + photos, grise, verrouillée), PUIS TOUTE la
+ * bande SORTIE (état + obs + photos, corail, à remplir), le verdict dessous. Fini la zébrure
+ * entrée/sortie interlignée (l'ancien 1fr 2fr côte à côte). Ce test parse la déclaration
+ * effective de la grille : il vérifie la VALEUR des propriétés de disposition, pas un extrait
+ * brut. Réinterlacer les registres (etatE à côté d'etatS) fait rougir ce test.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -46,34 +46,34 @@ function parseFlatRules(css) {
   return rules;
 }
 
-describe('EDL — carte de sortie 2 registres (CDC §2.6, invariant §2.10 nº2/3)', () => {
+describe('EDL — carte de sortie 2 bandes nettes (CDC §2.6, invariant §2.10 nº2/3)', () => {
   let rules;
   beforeAll(() => {
     const css = readFileSync(resolve(repoRoot, 'css/main.css'), 'utf8');
     rules = parseFlatRules(extractMobileBlocks(css));
   });
 
-  it('la ligne d\'élément de sortie est une grille 1/3 · 2/3 (états côte à côte)', () => {
+  it('la ligne d\'élément de sortie est une grille EN COLONNE UNIQUE (bandes empilées)', () => {
     const r = rules.find(x => /\.edl-sortie-mode .*tbody tr$/.test(x.sel));
     expect(r, 'règle de la carte de sortie introuvable').toBeTruthy();
     expect(r.decls['display']).toBe('grid');
-    expect(r.decls['grid-template-columns'].replace(/\s+/g, ' ')).toBe('1fr 2fr');
+    // colonne unique : chaque registre occupe toute la largeur (obs longue lisible, §2.6)
+    expect(r.decls['grid-template-columns'].replace(/\s+/g, ' ')).toBe('1fr');
   });
 
-  it('observations et photos en PLEINE LARGEUR ; états côte à côte', () => {
+  it('DEUX BANDES NETTES : toute l\'entrée AVANT toute la sortie, verdict en bas', () => {
     const r = rules.find(x => /\.edl-sortie-mode .*tbody tr$/.test(x.sel));
-    const areas = r.decls['grid-template-areas'].replace(/\s+/g, ' ');
-    // états sur la même rangée (côte à côte)
-    expect(areas).toContain("'etatE etatS'");
-    // obs & photos : chaque côté sur sa propre rangée pleine largeur (même zone × 2 colonnes)
-    expect(areas).toContain("'obsE obsE'");
-    expect(areas).toContain("'obsS obsS'");
-    expect(areas).toContain("'photoE photoE'");
-    expect(areas).toContain("'photoS photoS'");
-    expect(areas).toContain("'verdict verdict'");
-    // ce qu'on NE veut PLUS : obs appariées en demi-largeur
-    expect(areas).not.toContain("'obsE obsS'");
-    expect(areas).not.toContain("'photoE photoS'");
+    const areas = r.decls['grid-template-areas'].replace(/\s+/g, ' ').trim();
+    // ordre exact des rangées : nom, [bande entrée], [bande sortie], verdict
+    expect(areas).toBe("'nom' 'etatE' 'obsE' 'photoE' 'etatS' 'obsS' 'photoS' 'verdict'");
+    // invariant « bandes nettes » : les 3 zones d'entrée précèdent TOUTES les zones de sortie
+    const order = (areas.match(/'([a-zA-Z]+)'/g) || []).map(s => s.replace(/'/g, ''));
+    const lastEntree = Math.max(order.indexOf('etatE'), order.indexOf('obsE'), order.indexOf('photoE'));
+    const firstSortie = Math.min(order.indexOf('etatS'), order.indexOf('obsS'), order.indexOf('photoS'));
+    expect(lastEntree).toBeLessThan(firstSortie);
+    expect(order.indexOf('verdict')).toBe(order.length - 1);
+    // ce qu'on NE veut PLUS : la zébrure côte à côte (états interlignés)
+    expect(areas).not.toContain('etatE etatS');
   });
 
   it('le registre sortie porte un liseré orange à gauche', () => {

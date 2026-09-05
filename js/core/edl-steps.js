@@ -75,12 +75,42 @@ export function sectionVisible(nodeGroup, curGroup, mobilierEnabled, isMobilierS
   return nodeGroup === curGroup;
 }
 
-/** Libellé global du rail : « Étape 2 / 12 ». Borné, jamais de position hors plage. */
+/** Libellé global du rail : « Étape 2 / 12 ». Borné, jamais de position hors plage.
+ *  (Forme héritée idx/total — conservée : appelée avec un total déjà calculé.) */
 export function stepGlobalLabel(idx, total) {
   const n = Number(idx), t = Number(total);
   if (!Number.isFinite(n) || !Number.isFinite(t) || t <= 0) return '';
   const pos = Math.min(Math.max(n + 1, 1), t);
   return 'Étape ' + pos + ' / ' + t;
+}
+
+/** Une étape est-elle NUMÉROTÉE dans le rail ? La relecture est le « +1 » NON numéroté
+ *  (CDC §2.2/§2.7) : elle ne compte ni dans la position ni dans le dénominateur. Toutes
+ *  les autres — les 4 admin de tête, le mobilier conditionnel, les pièces, la fin
+ *  (Observations + Signatures) — sont numérotées. */
+export function isNumbered(step) {
+  return !!step && step.group !== 'relecture';
+}
+
+/** Nombre d'étapes numérotées = le DÉNOMINATEUR du rail (la relecture exclue).
+ *  Logement nu 7 pièces → 12 ; meublé → 13 (CDC §2.2, « 12 étapes (+1 relecture) »). */
+export function numberedTotal(steps) {
+  return (steps || []).filter(isNumbered).length;
+}
+
+/** Libellé global du rail à partir de la LISTE des étapes : « Étape N / total », N et
+ *  total EXCLUANT la relecture (§2.2). Sur l'étape de relecture elle-même le rail
+ *  n'affiche pas ce libellé (il devient « Signer l'état des lieux ») : on rend malgré
+ *  tout une position bornée cohérente (celle de la fin, immédiatement après). */
+export function stepGlobalLabelFromSteps(steps, idx) {
+  const arr = steps || [];
+  const total = numberedTotal(arr);
+  const n = Number(idx);
+  if (!total || !Number.isFinite(n)) return '';
+  let pos = 0;
+  for (let i = 0; i < arr.length && i <= n; i++) if (isNumbered(arr[i])) pos++;
+  pos = Math.min(Math.max(pos, 1), total);
+  return 'Étape ' + pos + ' / ' + total;
 }
 
 /** Index de la première étape « pièce » (ou -1). Sert à démarrer un parcours sur les pièces si voulu. */
