@@ -4777,6 +4777,13 @@ textarea.field-modified-since-sig{
      bottom-nav (#v4-bnav z:999) — sinon elle occulte le pied d'action collant (CTA). */
   body:has(.ov:not(.hidden)) #v4-bnav { display: none !important; }
 
+  /* MOBILE-REFONTE lot 7 (Quittance) : l'aperçu (iframe 72vh en dur) remplit la hauteur
+     dispo — sinon bande sombre sous le document. TÉLÉPHONE UNIQUEMENT (≤767) : la
+     tablette (768-1023) garde son rendu d'origine (invariant refonte). */
+  #ov-quit-preview > .modal { display: flex; flex-direction: column; min-height: 100dvh; }
+  #ov-quit-preview > .modal > .m-body { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; max-height: none; padding: 0; }
+  #ov-quit-preview-iframe { flex: 1 1 auto; height: auto !important; min-height: 0; }
+
   /* Scroll-margin pour anchors : évite que le header sticky masque la cible */
   .page > .card, .page > section, [id^="ov-"] {
     scroll-margin-top: 60px;
