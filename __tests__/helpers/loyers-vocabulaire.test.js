@@ -149,9 +149,11 @@ describe('I-MOT — aucune information chiffrée sans libellé en toutes lettres
     for (const t of titres) expect(/[A-Za-zÀ-ÿ]{3,}/.test(t)).toBe(true);
   });
   it('chaque pastille de la bande Suivi porte son libellé', () => {
-    for (const lbl of ['⏸ IRL non appliquées', '🔒 Non révisables',
-      '🧾 Quittances éditées ce mois', '📊 Suivi mois par mois']) {
-      expect(has("'" + lbl + "'")).toBe(true);
+    // MOBILE-REFONTE line-icons : les emoji préfixes sont devenus des _uiIcon(); on vérifie
+    // désormais le LIBELLÉ EN TOUTES LETTRES (l'invariant I-MOT réel), pas le glyphe d'icône.
+    for (const lbl of ['IRL non appliquées', 'Non révisables',
+      'Quittances éditées ce mois', 'Suivi mois par mois']) {
+      expect(has(lbl), lbl).toBe(true);
     }
   });
 });
