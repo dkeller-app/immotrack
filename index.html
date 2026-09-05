@@ -42410,7 +42410,7 @@ function _renderLogFichePanelEDL(log, ref) {
 
   // ── Empty state
   if(edls.length === 0) {
-    return `<div class="logf-section-head">
+    return `<div class="logf-section-head" id="logf-edl-anchor">
       <h3 class="logf-section-title">📋 États des lieux du logement</h3>
       ${headerActions}
     </div>
@@ -42456,7 +42456,7 @@ function _renderLogFichePanelEDL(log, ref) {
     </div>`;
   }).join('');
 
-  return `<div class="logf-section-head">
+  return `<div class="logf-section-head" id="logf-edl-anchor">
     <h3 class="logf-section-title">📋 États des lieux <span class="mu sm">(${edls.length})</span></h3>
     ${headerActions}
   </div>
@@ -42835,7 +42835,7 @@ function _renderLogFichePhHero(log, bail, ref){
 function _renderLogFichePhTabs(){
   const t = _currentLogFicheTab || 'bail';
   const items = [['bail','Bail'],['conformite','Entretien'],['documents','Docs'],['compta','Compta']];
-  return '<div class="logf-ph-tabs" role="tablist" aria-label="Sous-sections de la fiche bien">'
+  return '<div class="logf-ph-tabs" role="tablist" aria-label="Sections de la fiche bien (mobile)">'
     + items.map(x=>`<button class="logf-ph-tab${t===x[0]?' on':''}" role="tab" aria-selected="${t===x[0]}" onclick="setLogFicheTab('${x[0]}')">${x[1]}</button>`).join('')
     + '</div>';
 }
@@ -43156,7 +43156,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
         <h3 class="logf-panel-title">📝 Notes sur le bien</h3>
         <div class="logf-value" style="font-style:italic;font-weight:400;text-align:left;white-space:pre-wrap">${escHtml(log.notes)}</div>
       </div>` : '';
-  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${_renderHistoBailSection(ref)}<div id="logf-edl-anchor">${_renderLogFichePanelEDL(log, ref)}</div>${notesSection}</div>`;
+  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}${notesSection}</div>`;
 }
 
 // HISTORIQUE-BAIL-ONGLET (17/07) : _renderBailTimeline (timeline horizontale) et
