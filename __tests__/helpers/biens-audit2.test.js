@@ -34,7 +34,7 @@ describe('BLOQUANT — le Wizard 2044 a retrouvé un point d\'entrée', () => {
   });
 
   it('le bouton vit dans l\'entête de la fiche bailleur, avec son sélecteur d\'année', () => {
-    const heroActions = html.slice(html.indexOf('<button class="btn bs" onclick="openNewEnt(${+ent.id})">✏ Modifier le bailleur</button>'));
+    const heroActions = html.slice(html.indexOf('onclick="openNewEnt(${+ent.id})"'));
     const bloc = heroActions.slice(0, heroActions.indexOf('</div>'));
     expect(bloc).toContain('openWizard2044(${+ent.id})');
     expect(bloc).toContain('setEntFicheComptaYear(this.value)');

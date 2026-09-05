@@ -119,7 +119,9 @@ describe('rImmFiche — le hero rend bien ses KPI et ses boutons (régression C1
       _renderImmFichePlanGantt: () => '<div class="immf-gantt"></div>',
       _renderLogementCardFlat: () => '<article class="bien-card"></article>',
       _coverImg: () => '<span aria-hidden="true">IC</span>',
-      _immFicheNewLog: noop
+      _immFicheNewLog: noop,
+      // MOBILE-REFONTE line-icons : le gabarit appelle désormais _uiIcon() pour ses icônes.
+      _uiIcon: () => ''
     };
     const noms = Object.keys(ctx);
     // eslint-disable-next-line no-new-func
@@ -185,7 +187,8 @@ describe('rImmFiche — le hero rend bien ses KPI et ses boutons (régression C1
         _renderLogementCardFlat: () => '<article class="bien-card"></article>',
         _coverImg: () => '<span aria-hidden="true">IC</span>',
       _coverImg: () => '<span aria-hidden="true">IC</span>',
-        _immFicheNewLog: () => ''
+        _immFicheNewLog: () => '',
+        _uiIcon: () => '' // MOBILE-REFONTE line-icons : dépendance du gabarit
       }, over);
       const noms = Object.keys(ctx);
       // eslint-disable-next-line no-new-func

@@ -26,12 +26,15 @@ const has = (s) => SRC.includes(s);
 
 describe('V13 — l\'état vit à DEUX endroits, et nulle part ailleurs', () => {
   it('1. l\'écran Loyers : la pastille « Quittances éditées ce mois » ouvre l\'état du mois courant', () => {
-    expect(has("pastille('quit-mois', '🧾 Quittances éditées ce mois'")).toBe(true);
+    // MOBILE-REFONTE line-icons : l'emoji préfixe est devenu _uiIcon('receipt'); on ancre
+    // sur la pastille + son libellé en toutes lettres.
+    expect(has("pastille('quit-mois'")).toBe(true);
+    expect(has('Quittances éditées ce mois')).toBe(true);
     expect(has("kind === 'quit-mois'")).toBe(true);
   });
   it('2. la fiche du bien : une bande de douze cases par année', () => {
     expect(has('function _renderEtat12Mois(ref, year)')).toBe(true);
-    expect(has('🧾 Quittancement ${year}')).toBe(true);
+    expect(has('Quittancement ${year}')).toBe(true);
   });
   it('un clic sur une case ouvre l\'éditeur SUR CE MOIS', () => {
     expect(has('function _ouvrirQuittanceSurMois(ref, ym)')).toBe(true);
@@ -51,7 +54,7 @@ describe('§2 — ce qui disparaît, et où va son information', () => {
   it('la GALERIE de documents de l\'onglet Documents disparaît → même bande de 12 cases', () => {
     expect(has('<div class="logf-doc-name">Quittance ${escHtml(q.mois||\'—\')}</div>')).toBe(false);
     expect(has('Aucune quittance enregistrée pour ce logement.')).toBe(false);
-    expect(has("sections.push({ title: '🧾 Quittancement'")).toBe(true);
+    expect(has("' Quittancement', icon: '🧾'")).toBe(true);
   });
   it('le « voir toutes » vers une liste infinie disparaît', () => {
     expect(has('voir toutes</a>')).toBe(false);
