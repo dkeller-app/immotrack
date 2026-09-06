@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.594</title>
+<title>Propryo v15.595</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.594</em>
+      <em>v15.595</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -144,7 +144,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <!-- MAIN -->
 <div class="main-area">
   <div class="tb">
-    <button class="tb-menu" onclick="toggleSb()">☰</button>
+    <button class="tb-menu" onclick="toggleSb()"><span data-uic="menu"></span></button>
     <div class="tb-breadcrumb">
       <!-- MOBILE-REFONTE — lockup marque Propryo (carré contour + point corail, charte)
            visible sur téléphone uniquement, à gauche du titre de page. -->
@@ -416,7 +416,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <button class="btn bs bb" onclick="clearMvFilters()">✕ Reset</button>
         <button class="btn bs bb" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…)">🏦 Importer banque</button>
         <button class="btn bs bb" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo">🏦 Mes comptes</button>
-        <button class="btn bs bb" onclick="_bankRulesOpen()" title="Mes règles de classement automatique — création et modification au moment où la règle sert">⚙ Mes règles</button>
+        <button class="btn bs bb" onclick="_bankRulesOpen()" title="Mes règles de classement automatique — création et modification au moment où la règle sert"><span data-uic="settings"></span> Mes règles</button>
         <button class="btn bp" onclick="openNewMv()" style="margin-left:auto">+ Mouvement</button>
       </div>
       <!-- Dropdown filtre multi-choix (style Excel) -->
@@ -1053,7 +1053,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 
       <!-- Onglet Thème couleurs -->
       <div class="tab-panel" id="tp-theme">
-        <div class="ct mb12">🎨 Couleurs de l'interface</div>
+        <div class="ct mb12"><span data-uic="palette"></span> Couleurs de l'interface</div>
         <div class="mu sm mb16">Personnalisez les couleurs d'Propryo. S'applique uniquement à l'interface — les documents générés (bail, EDL, quittances) restent en noir/blanc.</div>
         <div style="max-width:480px">
           <div id="theme-pickers"></div>
@@ -1121,7 +1121,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 
       <div class="tab-panel" id="tp-global">
         <div style="max-width:600px">
-          <div class="ct mb16">⚙️ Paramètres globaux</div>
+          <div class="ct mb16"><span data-uic="settings"></span> Paramètres globaux</div>
 
           <!-- Utilisateur (v2) -->
           <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
@@ -1224,7 +1224,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           <div class="mb8" id="reset-zone"><button class="btn br" onclick="confirmReset()">🗑 Reset base de données</button></div>
         </div>
         <div class="card" id="cloud-mode-card">
-          <div class="ct">☁️ Mode cloud (Supabase)</div>
+          <div class="ct"><span data-uic="cloud"></span> Mode cloud (Supabase)</div>
           <div id="cloud-mode-body" class="mu sm">…</div>
         </div>
         <div class="card">
@@ -1274,7 +1274,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           </div>
           <div class="mb8"><button class="btn bs" onclick="downloadFEC()">📄 Export FEC (.txt format DGFiP)</button></div>
           <div class="mb8"><button class="btn bs" onclick="downloadJournal()">📒 Journal général (.csv)</button></div>
-          <div class="mb8"><button class="btn bs" onclick="downloadGrandLivre()">📚 Grand livre (.csv)</button></div>
+          <div class="mb8"><button class="btn bs" onclick="downloadGrandLivre()"><span data-uic="book"></span> Grand livre (.csv)</button></div>
         </div>
         <div class="card" id="exp-card-bilan">
           <div class="ct">📊 Bilan annuel par entité (v14.92)</div>
@@ -1492,7 +1492,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     </div>
     <!-- v14.60 CHARGES-COMMUNES Phase 1.5 — lien compteur collectif (single source) -->
     <div class="fg" id="mv-cc-wrap" style="display:none">
-      <label>⚡ Poste de charge lié <span class="mu sm">(facture imputable à un poste de charge de l'immeuble)</span></label>
+      <label><span data-uic="bolt"></span> Poste de charge lié <span class="mu sm">(facture imputable à un poste de charge de l'immeuble)</span></label>
       <select class="inp" id="mv-cc" onchange="_mvEnforceExclusivity()">
         <option value="">— Aucun (mouvement ordinaire)</option>
       </select>
@@ -1507,7 +1507,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <label>N° Facture</label>
       <div style="display:flex;gap:6px;align-items:stretch">
         <input class="inp" id="mv-fac" placeholder="Optionnel — ex: 2026-042" style="flex:1">
-        <button type="button" class="btn bs bb" onclick="el('mv-fac').value = _nextFacNumber()" title="Générer le prochain numéro disponible (format YYYY-NNN incrémenté)">🔢 Auto</button>
+        <button type="button" class="btn bs bb" onclick="el('mv-fac').value = _nextFacNumber()" title="Générer le prochain numéro disponible (format YYYY-NNN incrémenté)"><span data-uic="counter"></span> Auto</button>
       </div>
     </div>
     <!-- v14.19 — PJ document attaché au mouvement (facture PDF/image), max 2 MB -->
@@ -1515,7 +1515,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <label>📎 Document attaché <span class="mu sm">(facture, justificatif PDF ou image, max 2 MB)</span></label>
       <div id="mv-doc-wrap" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <label class="btn bs bb" style="cursor:pointer;margin:0;padding:6px 12px">
-          📁 Choisir un fichier
+          <span data-uic="folder"></span> Choisir un fichier
           <input type="file" id="mv-doc-file" accept="application/pdf,image/*" style="display:none" onchange="_mvDocLoad(this)">
         </label>
         <span id="mv-doc-name" class="mu sm">Aucun document</span>
@@ -1535,11 +1535,11 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
      puis ouvre le formulaire mouvement PRÉ-REMPLI (flux audité existant). Pas de stockage de prêt = pas de double-compte. -->
 <div class="ov hidden" id="ov-fincredit" onclick="closeBg(event,'ov-fincredit')">
 <div class="modal">
-  <div class="m-head"><h3>🧮 Renseigner les intérêts d'emprunt</h3><button class="m-close" onclick="closeM('ov-fincredit')">✕</button></div>
+  <div class="m-head"><h3><span data-uic="calc"></span> Renseigner les intérêts d'emprunt</h3><button class="m-close" onclick="closeM('ov-fincredit')">✕</button></div>
   <div class="m-body">
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
       <button type="button" class="btn bp fc-tab" data-t="0" onclick="_finCreditTab(0)">💶 Saisir le montant</button>
-      <button type="button" class="btn bs fc-tab" data-t="1" onclick="_finCreditTab(1)">🧮 Calculer depuis le prêt</button>
+      <button type="button" class="btn bs fc-tab" data-t="1" onclick="_finCreditTab(1)"><span data-uic="calc"></span> Calculer depuis le prêt</button>
       <button type="button" class="btn bs fc-tab" data-t="2" onclick="_finCreditTab(2)">📄 Importer</button>
     </div>
     <div class="fc-pane" data-p="0">
@@ -2614,7 +2614,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <input class="inp" id="log-partiesCommunes" style="margin-top:6px" oninput="_logPiecesRefreshClauses()" placeholder="Laisser vide : la clause est générée depuis l'immeuble">
       </details>
 
-      <div class="logmod-section-title">🔥 Chauffage</div>
+      <div class="logmod-section-title"><span data-uic="fire"></span> Chauffage</div>
       <div class="logmod-checkbox-group">
         <label><input type="checkbox" id="log-chauf-elec"> Électrique</label>
         <label><input type="checkbox" id="log-chauf-gaz"> Gaz</label>
@@ -2633,7 +2633,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <div class="fg"><label>Description complète</label><input class="inp" id="log-chauf-label" placeholder="ex: Chauffage électrique individuel par convecteurs"></div>
       </div>
 
-      <div class="logmod-section-title">💧 Eau chaude sanitaire</div>
+      <div class="logmod-section-title"><span data-uic="water"></span> Eau chaude sanitaire</div>
       <div class="logmod-checkbox-group">
         <label><input type="checkbox" id="log-ecs-elec"> Chauffe-eau électrique</label>
         <label><input type="checkbox" id="log-ecs-gaz"> Chaudière gaz</label>
@@ -3401,7 +3401,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="mu sm mb8">PNG, JPG ou SVG. Réduite automatiquement à 400×150px max.</div>
       <div class="flex-c" style="gap:12px;align-items:flex-start">
         <label style="cursor:pointer;flex-shrink:0">
-          <div class="btn bs">📁 Choisir image</div>
+          <div class="btn bs"><span data-uic="folder"></span> Choisir image</div>
           <input type="file" id="ent-sig-file" accept="image/*" style="display:none" onchange="_loadEntSig(this)">
         </label>
         <div style="border:1px dashed var(--bor);border-radius:var(--r);padding:8px 12px;min-width:220px;min-height:56px;display:flex;align-items:center;justify-content:center;background:var(--sur2)">
@@ -3422,7 +3422,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="mu sm mb8">PNG, JPG ou SVG. Réduit automatiquement à 300×100px max. Apparaît en haut à gauche du bail PDF et de l'acte de cautionnement.</div>
       <div class="flex-c" style="gap:12px;align-items:flex-start">
         <label style="cursor:pointer;flex-shrink:0">
-          <div class="btn bs">📁 Choisir image</div>
+          <div class="btn bs"><span data-uic="folder"></span> Choisir image</div>
           <input type="file" id="ent-logo-file" accept="image/*" style="display:none" onchange="_loadEntLogo(this)">
         </label>
         <div style="border:1px dashed var(--bor);border-radius:var(--r);padding:8px 12px;min-width:220px;min-height:56px;display:flex;align-items:center;justify-content:center;background:var(--sur2)">
@@ -3810,7 +3810,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-weight:700"><span data-uic="lock"></span> EDL signé le <span id="edl-locked-date">—</span></span>
       <span style="flex:1;min-width:200px">— Document figé en lecture seule. Les modifications nécessitent de réinitialiser la signature.</span>
-      <button class="btn br bb edl-unlock-btn" onclick="_edlResetSignatureUI()" style="background:#dc2626;color:#fff;font-weight:600;padding:6px 12px;border:none;border-radius:6px;cursor:pointer">🔓 Réinitialiser signature</button>
+      <button class="btn br bb edl-unlock-btn" onclick="_edlResetSignatureUI()" style="background:#dc2626;color:#fff;font-weight:600;padding:6px 12px;border:none;border-radius:6px;cursor:pointer"><span data-uic="unlock"></span> Réinitialiser signature</button>
     </div>
   </div>
 
@@ -3950,7 +3950,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         </tr></thead>
         <tbody>
           <tr>
-            <td>⚡ Élec.</td>
+            <td><span data-uic="bolt"></span> Élec.</td>
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-elec-num" style="width:86px" placeholder="N°"></td>
             <td data-label="↘ Entrée — Relevé"><span style="font-size:11px">HP</span><input class="inp" id="edl-cpt-elec-hp" style="width:62px" placeholder="kWh">
                 <span style="font-size:11px">HC</span><input class="inp" id="edl-cpt-elec-hc" style="width:62px" placeholder="kWh"></td>
@@ -3966,7 +3966,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
             </td>
           </tr>
           <tr>
-            <td>🔥 Gaz</td>
+            <td><span data-uic="fire"></span> Gaz</td>
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-gaz-num" style="width:86px" placeholder="N°"></td>
             <td data-label="↘ Entrée — Relevé"><input class="inp" id="edl-cpt-gaz" style="width:80px" placeholder="m³"></td>
             <td data-label="📷 Photos entrée" style="text-align:center">
@@ -3980,7 +3980,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
             </td>
           </tr>
           <tr>
-            <td>💧 Eau chaude</td>
+            <td><span data-uic="water"></span> Eau chaude</td>
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-eau-c-num" style="width:86px" placeholder="N°"></td>
             <td data-label="↘ Entrée — Relevé"><input class="inp" id="edl-cpt-eau-c" style="width:80px" placeholder="m³"></td>
             <td data-label="📷 Photos entrée" style="text-align:center">
@@ -3994,7 +3994,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
             </td>
           </tr>
           <tr>
-            <td>💧 Eau froide</td>
+            <td><span data-uic="water"></span> Eau froide</td>
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-eau-f-num" style="width:86px" placeholder="N°"></td>
             <td data-label="↘ Entrée — Relevé"><input class="inp" id="edl-cpt-eau-f" style="width:80px" placeholder="m³"></td>
             <td data-label="📷 Photos entrée" style="text-align:center">
@@ -4092,7 +4092,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <div id="edl-add-piece-bar" data-edl-step="pieces" data-edl-disp="flex" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px">
       <b class="mu sm">Pièces :</b>
       <select class="inp" id="edl-add-piece-sel" style="width:220px"><option value="">Pièce standard à ajouter...</option></select>
-      <button class="btn bs bb" onclick="edlAddPieceFromSel()" style="font-size:12px">▶ Ajouter</button>
+      <button class="btn bs bb" onclick="edlAddPieceFromSel()" style="font-size:12px"><span data-uic="play"></span> Ajouter</button>
       <button class="btn bs bb" onclick="edlAddPieceCustom()" style="font-size:12px">+ Libre</button>
 
     </div>
@@ -4227,7 +4227,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <button class="btn bs" onclick="closeM('ov-regul-doc')">Fermer</button>
     <button class="btn" onclick="window._shareDecompteWithPdf && window._shareDecompteWithPdf()" title="Partager avec PDF">🔗 Partager</button>
     <button class="btn" onclick="window._emailDecompteFromModal && window._emailDecompteFromModal()" title="Enregistrer le PDF sur cet appareil">⬇ Télécharger</button>
-    <button class="btn bp" onclick="printRegulDoc()">🖨 Imprimer</button>
+    <button class="btn bp" onclick="printRegulDoc()"><span data-uic="printer"></span> Imprimer</button>
   </div>
 </div></div>
 <!-- v15.230 LOG-ANNONCE Étape 4 — module générateur d'annonces (window.AnnonceGenerator) -->
@@ -4285,7 +4285,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.594';
+const IMMOTRACK_VERSION = '15.595';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -9907,7 +9907,7 @@ function _renderSidebarV4() {
     : (() => { try { const es = el('dash-ent'); return es ? es.value : ''; } catch(e){ return ''; } })();
   try { const es = el('dash-ent'); if (es && es.value !== curEnt) es.value = curEnt; } catch(e){}
   const allActive = !curEnt;
-  const allHtml = '<div class="v4s-e v4s-e-all' + (allActive ? ' act' : '') + '" onclick="_v4FilterEnt(\'\')" title="Toutes les entités"><b>★</b><s>Toutes</s></div>';
+  const allHtml = '<div class="v4s-e v4s-e-all' + (allActive ? ' act' : '') + '" onclick="_v4FilterEnt(\'\')" title="Toutes les entités"><b>' + _uiIcon('star') + '</b><s>Toutes</s></div>';
   // Carrés entités : TOUTES (le user pilote plusieurs SCI — le « top 3 » cachait ses 4e/5e) ; la barre wrap.
   const entHtml = ents.map((e) => {
     const initials3 = e.nom.split(/\s+/).filter(Boolean).map(s => s[0]).slice(0, 3).join('').toUpperCase() || e.nom.slice(0, 3).toUpperCase();
@@ -13325,10 +13325,10 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
       + '<span class="dw-todo-count '+maxSev+'">'+totalTodo+'</span>'
       + '</div>'
       + '<div class="dw-todo-quads">'
-      +   quad(mrh,   '🛡', 'Assurances',  "go('baux',null)", 'Tout est à jour',    mrhSub)
-      +   quad(irl,   '📈', 'IRL',          "go('irl',null)",         'Aucune à appliquer', irlSub)
-      +   quad(equip, '🔧', 'Équipements', "go('equipements',null)", 'Aucune échéance',    eqSub)
-      +   quad(regul, '⚖️', 'Régul',        "go('regul',null)",       'Aucune à émettre',   rgSub)
+      +   quad(mrh,   _uiIcon('shield'), 'Assurances',  "go('baux',null)", 'Tout est à jour',    mrhSub)
+      +   quad(irl,   _uiIcon('chart'), 'IRL',          "go('irl',null)",         'Aucune à appliquer', irlSub)
+      +   quad(equip, _uiIcon('wrench'), 'Équipements', "go('equipements',null)", 'Aucune échéance',    eqSub)
+      +   quad(regul, _uiIcon('scale'), 'Régul',        "go('regul',null)",       'Aucune à émettre',   rgSub)
       + '</div>';
 
     const status = maxSev === 'red' ? 'red' : maxSev === 'ora' ? 'ora' : 'blu';
@@ -15106,7 +15106,7 @@ function _mvRenderProvenance(m) {
     bits.push('🏦 <b>Importé</b> depuis ' + (a ? escHtml(a.label || 'un compte') : 'un relevé bancaire')
       + (m._importedAt ? ' <span class="mu sm">le ' + fd(String(m._importedAt).slice(0, 10)) + '</span>' : ''));
   } else {
-    bits.push('✋ <b>Saisi à la main</b>');
+    bits.push(_uiIcon('hand') + ' <b>Saisi à la main</b>');
   }
 
   // La règle qui a classé, avec le lien « modifier la règle »
@@ -15117,13 +15117,13 @@ function _mvRenderProvenance(m) {
         ? '<a onclick="closeM(\'ov-mv\');_bankRuleOpen(' + idx + ')" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">« ' + escHtml(p) + ' »</a>'
         : '<span class="mu sm">« ' + escHtml(p) + ' » (règle supprimée)</span>';
     });
-    bits.push('⚙ <b>Classé par ' + (links.length > 1 ? 'les règles' : 'la règle') + '</b> ' + links.join(', '));
+    bits.push(_uiIcon('settings') + ' <b>Classé par ' + (links.length > 1 ? 'les règles' : 'la règle') + '</b> ' + links.join(', '));
   }
 
   // Découpage : la ligne d'origine et les mouvements liés, avec « défaire »
   if (m._splitGroup) {
     const freres = (DB.mouvements || []).filter(x => x && !x._deleted && x._splitGroup === m._splitGroup);
-    bits.push('✂️ <b>' + freres.length + ' parts</b> issues du même virement'
+    bits.push(_uiIcon('scissors') + ' <b>' + freres.length + ' parts</b> issues du même virement'
       + (m._splitSourceLib ? ' <span class="mu sm">(' + escHtml(m._splitSourceLib) + ')</span>' : '')
       + ' · <a onclick="_mvUndoSplit(\'' + escHtml(m._splitGroup) + '\')" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">↩ défaire le découpage</a>');
   }
@@ -16055,7 +16055,7 @@ function rMv() {
     <td>${m.fac?`<span title="${escHtml(m.fac)}">${_uiIcon('attach',14)}</span>`:''}</td>
     <td class="act-cell">
       <button class="btn bs bb" onclick="openEditMv(${m.id})" title="Modifier">${_uiIcon('edit')}</button>
-      <button class="btn bs bb" onclick="openSplitMvList(${m.id})" title="Scinder ce mouvement">✂</button>
+      <button class="btn bs bb" onclick="openSplitMvList(${m.id})" title="Scinder ce mouvement">${_uiIcon('scissors')}</button>
       <button class="btn br bb" onclick="delMv(${m.id})" title="Supprimer">${_uiIcon('trash')}</button>
     </td>
   </tr>`;
@@ -16949,7 +16949,7 @@ function _invRenderStep1() {
     + _invSegHtml()
     + '<div class="fg"><label>Message au candidat <span class="mu sm" style="font-weight:400">— pré-rempli, modifiable</span></label>'
     + '<textarea class="inp" id="inv-msg" rows="8" style="resize:vertical" oninput="this.dataset.touched=\'1\'">' + escHtml(_invState.message) + '</textarea></div>'
-    + '<div class="info-box" style="background:var(--sur2);border-color:var(--bor)">🛡 <b>RGPD</b> — les pièces transitent par le relais (sous-traitant Cloudflare) puis sont rapatriées dans votre coffre et <b>supprimées du relais</b> dès réception. Dossiers refusés purgés après 30 jours.</div>';
+    + '<div class="info-box" style="background:var(--sur2);border-color:var(--bor)">' + _uiIcon('shield') + ' <b>RGPD</b> — les pièces transitent par le relais (sous-traitant Cloudflare) puis sont rapatriées dans votre coffre et <b>supprimées du relais</b> dès réception. Dossiers refusés purgés après 30 jours.</div>';
   const foot = el('inv-foot');
   if (foot) foot.innerHTML = '<button class="btn bs" onclick="closeM(\'ov-invite-candidat\')">Annuler</button>'
     + '<button class="btn bp" id="inv-gen-btn" onclick="_invGenerate()">Continuer →</button>';
@@ -17756,7 +17756,7 @@ function openFicheCandidat(id){
   const vis = (c.visale && String(c.visale.visaId||'').trim()) ? c.visale : null;
   // Rappel d'éligibilité Visale (barème 2026), repliable. Chiffres en dur + lien officiel :
   // on renvoie à visale.fr pour la valeur qui fait foi (barème susceptible d'évoluer chaque année).
-  const _visaleEligibilite = `<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:#1b6ec2;font-weight:600;list-style:none">ℹ️ Rappel d'éligibilité Visale</summary>
+  const _visaleEligibilite = `<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:#1b6ec2;font-weight:600;list-style:none">${_uiIcon('info')} Rappel d'éligibilité Visale</summary>
     <div class="mu sm" style="font-size:11.5px;line-height:1.55;margin-top:6px">
       <b>Qui</b> : jeunes 18–30 ans (tous) · salariés +30 ans si revenus ≤ 1 710 €/mois net (ou embauche/mutation &lt; 6 mois) · étudiants, alternants, saisonniers.<br>
       <b>Logement</b> : loyer charges comprises ≤ 1 940 € (Île-de-France) / 1 575 € (grandes agglos, DROM) / 1 365 € ailleurs, et ≤ 50 % des revenus.<br>
@@ -17764,7 +17764,7 @@ function openFicheCandidat(id){
       <a href="https://www.visale.fr" target="_blank" rel="noopener" style="color:#1b6ec2;font-weight:600">vérifier sur visale.fr →</a> <span style="color:var(--mut)">· barème 2026, susceptible d'évoluer</span>
     </div></details>`;
   const _visaleCard = vis ? `<div style="border:1px solid #bcd9f2;background:#eff4fb;border-radius:10px;padding:10px 12px;margin-bottom:${hasGarant?'8px':'0'}">
-      <div style="font-weight:700;font-size:13px;color:#1b6ec2;display:flex;align-items:center;gap:8px;flex-wrap:wrap">🛡️ Garantie Visale <span style="background:#1b6ec2;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px">Caution d'État</span></div>
+      <div style="font-weight:700;font-size:13px;color:#1b6ec2;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${_uiIcon('shield')} Garantie Visale <span style="background:#1b6ec2;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px">Caution d'État</span></div>
       <div class="kv-grid" style="margin-top:6px">
         <div class="k">N° de visa</div><div class="v">${escHtml(vis.visaId)}</div>
         <div class="k">Coût bailleur</div><div class="v" style="color:var(--grn,#16a34a);font-weight:600">Gratuit · couvre 36 mois</div>
@@ -25297,8 +25297,8 @@ function rRegulInit() {
         <button class="btn bs" onclick="rRegul()">${_uiIcon('refresh')} Calculer</button>
       </div>
       <div class="flex-c">
-        <button class="btn bs" onclick="printSelectedRegul()">🖨 Imprimer sélection</button>
-        <button class="btn bs" onclick="selectAllRegul()">☑ Tout sélectionner</button>
+        <button class="btn bs" onclick="printSelectedRegul()">${_uiIcon('printer')} Imprimer sélection</button>
+        <button class="btn bs" onclick="selectAllRegul()">${_uiIcon('checkbox')} Tout sélectionner</button>
       </div>
     </div>
     <div class="g3 mb16" id="reg-kpis"></div>
@@ -25526,7 +25526,7 @@ function _rgClotureLocataire(entryKey){
           ${resteADemander>0?`<div class="rgc-legal">${resteLegal}</div>`:''}
           <div class="mu sm" style="margin-top:6px">Pas de retenue 20 % (${escHtml(reg.label)}, hors copropriété). Restitution sous 1 mois (EDL conforme) / 2 mois.</div>
         </div></div>`;
-  ov.innerHTML = `<div class="modal"><div class="m-head"><h3>🏁 Clôture — ${escHtml(entry.ref)} · ${escHtml(entry.loc||'')}</h3><button class="m-close" onclick="closeM('ov-rg-cloture')">✕</button></div>
+  ov.innerHTML = `<div class="modal"><div class="m-head"><h3>${_uiIcon('flag')} Clôture — ${escHtml(entry.ref)} · ${escHtml(entry.loc||'')}</h3><button class="m-close" onclick="closeM('ov-rg-cloture')">✕</button></div>
     <div class="m-body">
       <div class="mu sm" style="margin-bottom:12px">Occupation ${entry.debutOcc?fd(entry.debutOcc):'—'} → sortie ${entry.fin?fd(entry.fin):'—'} · ${escHtml(entry.imm||'')} (${escHtml(reg.label)})</div>
       <div class="rgc-blk"><div class="rgc-t">① Ce que le locataire doit au départ</div>
@@ -25795,7 +25795,7 @@ function _departDeclarer(ref){
   const jsRef=(ref||'').replace(/'/g,"\\'");
   const loc=(bail.locataires&&bail.locataires[0]&&bail.locataires[0].nom)||bail.nom||ref;
   const ov=_departOv();
-  ov.innerHTML=`<div class="modal"><div class="m-head"><h3>🏁 Déclarer le départ — ${escHtml(ref)}</h3><button class="m-close" onclick="closeM('ov-depart')">✕</button></div>
+  ov.innerHTML=`<div class="modal"><div class="m-head"><h3>${_uiIcon('flag')} Déclarer le départ — ${escHtml(ref)}</h3><button class="m-close" onclick="closeM('ov-depart')">✕</button></div>
     <div class="m-body dep-form">
       <div class="mu sm" style="margin-bottom:14px;line-height:1.5">Locataire : <b>${escHtml(loc)}</b>. Renseigne le congé et la date de remise des clés ; l'assistant déroulera ensuite les étapes (EDL de sortie, retenues, restitution du dépôt de garantie, remise en location).</div>
       <div class="fg"><label>Congé donné par</label>
@@ -25893,7 +25893,7 @@ function _departRenderStepper(ref){
   }
   const ov=_departOv();
   ov.innerHTML=`<div class="modal"><div class="m-head">
-      <div><h3 style="margin:0">🏁 Départ — ${escHtml(ref)} · ${escHtml(loc)}</h3>
+      <div><h3 style="margin:0">${_uiIcon('flag')} Départ — ${escHtml(ref)} · ${escHtml(loc)}</h3>
       <div class="mu sm" style="margin-top:2px">${d.congePar==='bailleur'?'Congé donné':'Congé reçu'}${d.congeDate?(' le '+fd(d.congeDate)):''} · sortie ${d.dateSortie?fd(d.dateSortie):'—'}${log.imm?(' · '+escHtml(log.imm)):''}${st.reg.label?(' ('+escHtml(st.reg.label)+')'):''}</div></div>
       <button class="m-close" onclick="closeM('ov-depart')">✕</button></div>
     <div class="m-body">
@@ -26462,7 +26462,7 @@ function rRegul() {
         : '<span class="rg-badge-todo">' + _uiIcon('warn',13) + ' À émettre</span>';
     }
     body += `<tr class="rg-imm" onclick="_rgToggleImm('${cls}',this)">
-      <td><span class="rg-chev">▸</span> ${_uiIcon('building',15)} ${escHtml(imNom)} <span class="mu sm">· ${grp.length} occupation${grp.length>1?'s':''}</span> ${imBadge}</td>
+      <td><span class="rg-chev">${_uiIcon('play',13)}</span> ${_uiIcon('building',15)} ${escHtml(imNom)} <span class="mu sm">· ${grp.length} occupation${grp.length>1?'s':''}</span> ${imBadge}</td>
       <td class="num">${fmt(gP)}</td><td class="num">${fmt(gC)}</td>
       <td class="num ${gS>=0?'pos':'neg'}">${gS>=0?'+':''}${fmt(gS)}</td>
       <td class="num"><button class="btn bs bb" data-imm="${escHtml(imNom)}" onclick="event.stopPropagation();_rgShowGlobal(this.dataset.imm)">${_uiIcon('search')} Vue globale</button></td></tr>`;
@@ -26485,7 +26485,7 @@ function rRegul() {
         <td class="num" data-l="Provisions">${fmt(r.provisions)}</td><td class="num" data-l="Charges réelles">${fmt(r.charges)}</td>
         <td class="num" data-l="Solde">${tag}</td>
         <td class="num rg-acts">
-          ${(parti && !r.isHistorique)?`<button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();_rgClotureLocataire(this.dataset.entryKey)" title="Clôturer ce locataire parti : estimation N‑1 + retenue dépôt de garantie">🏁</button>`:''}
+          ${(parti && !r.isHistorique)?`<button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();_rgClotureLocataire(this.dataset.entryKey)" title="Clôturer ce locataire parti : estimation N‑1 + retenue dépôt de garantie">${_uiIcon('flag')}</button>`:''}
           <button class="btn bs bb" data-entry-key="${ekEsc}" ${imVal?'':'disabled'} onclick="event.stopPropagation();envoyerDecompteParEmail(this.dataset.entryKey)" title="${imVal?'Télécharger le décompte (PDF)':'Valide l’immeuble (Vue globale) avant d’envoyer'}">${_uiIcon('mail')}</button>
           <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();openRegulDoc(this.dataset.entryKey)" title="Décompte détaillé (PDF)">${_uiIcon('doc-text')}</button></td></tr>`;
       const detRows = (r.details||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(d=>`
@@ -28148,7 +28148,7 @@ function rLoyers() {
   const pastille = (k, lbl, n) =>
     `<button class="ly2-s${_lyUI.suivi === k ? ' open' : ''}" onclick="_lyOuvrirSuivi('${k}')">${lbl}${n !== '' ? ` <b>${n}</b>` : ''}</button>`;
   html += '<div class="ly2-suivi"><span class="lg">Suivi</span>'
-    + pastille('perdue', '⏸ IRL non appliquées', rev.perdues.length)
+    + pastille('perdue', _uiIcon('pause') + ' IRL non appliquées', rev.perdues.length)
     + pastille('muet', _uiIcon('lock') + ' Non révisables', rev.muets.length)
     + pastille('quit-mois', _uiIcon('receipt') + ' Quittances éditées ce mois', nQuitMois)
     + '</div>';
@@ -28487,7 +28487,7 @@ function _lyGainCyclePerdu(e, rev) {
 function _lyPanneauSuivi(kind, rev, ymCourant, moisCourant) {
   let head = '', rows = '', foot = '';
   if (kind === 'perdue') {
-    head = `⏸ IRL non appliquées — ${rev.perdues.length} lot${rev.perdues.length > 1 ? 's' : ''}`;
+    head = `${_uiIcon('pause')} IRL non appliquées — ${rev.perdues.length} lot${rev.perdues.length > 1 ? 's' : ''}`;
     rows = rev.perdues.map(({ e, rev: r }) => {
       const prescritIso = (parseInt(r.perdue.effetIso.slice(0, 4), 10) + 1) + r.perdue.effetIso.slice(4);
       const gain = _lyGainCyclePerdu(e, r);
@@ -29838,7 +29838,7 @@ function printIRLLetter() {
   p{margin:6px 0} table{width:100%;border-collapse:collapse} td{padding:3px 7px;border-bottom:1px solid #eee}
   @media print{button{display:none}body{margin:12px auto}}
   </style></head><body>
-  <button onclick="window.print()" style="float:right;padding:6px 14px;cursor:pointer;margin-bottom:10px">🖨 Imprimer</button>
+  <button onclick="window.print()" style="float:right;padding:6px 14px;cursor:pointer;margin-bottom:10px">${_uiIcon('printer')} Imprimer</button>
   `+content.innerHTML+`<\/body><\/html>`));
   win.document.close();
 }
@@ -30480,14 +30480,14 @@ function _edlCloudBadgeHtml(e) {
   if (_EP && typeof _immoCloudActive === 'function' && _immoCloudActive()) {
     const st = _EP.etatSauvegarde(_EP.collectEdlPhotos(e));
     if (st.statut === 'sauvegarde') {
-      inner = '<span class="edl-cloud-ok" title="Toutes les photos sont sauvegardées dans le cloud">☁️ Sauvegardé</span>';
+      inner = '<span class="edl-cloud-ok" title="Toutes les photos sont sauvegardées dans le cloud">' + _uiIcon('cloud') + ' Sauvegardé</span>';
     } else if (st.statut === 'en-cours') {
       // Hors ligne / réseau absent : ne pas afficher un « en cours » qui ne finira jamais (anxiogène) —
       // un état neutre et honnête (audit D-UX). La montée reprendra au retour du réseau.
       const horsLigne = (typeof navigator !== 'undefined' && navigator.onLine === false) || (typeof window !== 'undefined' && window.__immoHorsLigne);
       inner = horsLigne
-        ? '<span class="edl-cloud-wip" title="Les photos seront sauvegardées dans le cloud au retour de la connexion">☁️ En attente de connexion</span>'
-        : '<span class="edl-cloud-wip" title="Sauvegarde des photos dans le cloud en cours…">☁️ Sauvegarde en cours…</span>';
+        ? '<span class="edl-cloud-wip" title="Les photos seront sauvegardées dans le cloud au retour de la connexion">' + _uiIcon('cloud') + ' En attente de connexion</span>'
+        : '<span class="edl-cloud-wip" title="Sauvegarde des photos dans le cloud en cours…">' + _uiIcon('cloud') + ' Sauvegarde en cours…</span>';
     } else if (st.statut === 'perte') {
       const noms = st.perdues.map(p => p && p.name).filter(Boolean).join(', ');
       const n = st.perdues.length;
@@ -30681,7 +30681,7 @@ function edlOpenGallery(id) {
   if (!items.length) { _edlConsultShell('ov-edl-gal', 'Photos', edl.logement || '', `<div class="edl-v-empty">Aucune photo dans cet état des lieux.</div>`, ''); return; }
   const cells = items.map(({ ph, label }) => {
     const i = _edlViewPhotos.push(ph) - 1;
-    const pin = ph.binaireManquant ? '<span class="edl-gal-pin" title="Photo à reprendre">⚠️</span>' : (ph.cloudKey ? '<span class="edl-gal-pin" title="Sauvegardée dans le cloud">☁️</span>' : '');
+    const pin = ph.binaireManquant ? '<span class="edl-gal-pin" title="Photo à reprendre">' + _uiIcon('warn',13) + '</span>' : (ph.cloudKey ? '<span class="edl-gal-pin" title="Sauvegardée dans le cloud">' + _uiIcon('cloud',13) + '</span>' : '');
     return `<div class="edl-gal-cell" onclick="_edlVOpen(${i})" title="${escHtml(label)}">
       <img class="edl-thumb edl-vthumb" data-vi="${i}" src="${_edlThumbSrc(ph)}" alt="">
       ${pin}<div class="edl-gal-cap">${escHtml(label)}</div>
@@ -31801,7 +31801,7 @@ function _edlRenderRelecture() {
     });
     const flag = isS ? R.lignesSignalees([p]).length : 0;
     const badge = isS ? (flag ? `<span class="edl-rl-badge ko">${flag} à voir</span>` : '<span class="edl-rl-badge ok">RAS</span>') : '';
-    return `<div class="edl-rl-sec${opened ? ' open' : ''}"><div class="edl-rl-sech" onclick="this.parentElement.classList.toggle('open')"><span class="edl-rl-secnom">${escHtml(p.nom)}</span><span class="edl-rl-secmeta">${badge}<span class="edl-rl-caret">▶</span></span></div><div class="edl-rl-secb">${lines || '<div class="edl-rl-li"><span class="nm" style="color:var(--t3)">Aucun élément à afficher</span></div>'}</div></div>`;
+    return `<div class="edl-rl-sec${opened ? ' open' : ''}"><div class="edl-rl-sech" onclick="this.parentElement.classList.toggle('open')"><span class="edl-rl-secnom">${escHtml(p.nom)}</span><span class="edl-rl-secmeta">${badge}<span class="edl-rl-caret">${_uiIcon('play',13)}</span></span></div><div class="edl-rl-secb">${lines || '<div class="edl-rl-li"><span class="nm" style="color:var(--t3)">Aucun élément à afficher</span></div>'}</div></div>`;
   }).join('');
   // AUDIT 26/08 — récap des sections ADMIN (détecteur / compteurs / clés) : on pouvait signer sans
   // les avoir revues. Résumé compact, read-only, avant l'inventaire des pièces.
@@ -31811,7 +31811,7 @@ function _edlRenderRelecture() {
   const _clesCount = ((typeof _edlGetCles === 'function' ? _edlGetCles() : []) || []).filter(c => c && (c.type || c.nb || c.nbS)).length;
   const adminHtml = `<div class="edl-rl-admin">
     <div class="edl-rl-arow"><span>${_uiIcon('warn')} Détecteur de fumée</span><b>${_daafLbl}</b></div>
-    <div class="edl-rl-arow"><span>🔢 Compteurs relevés</span><b>${_cptCount} / 5</b></div>
+    <div class="edl-rl-arow"><span>${_uiIcon('counter',15)} Compteurs relevés</span><b>${_cptCount} / 5</b></div>
     <div class="edl-rl-arow"><span>${_uiIcon('key')} Clés renseignées</span><b>${_clesCount}</b></div>
   </div>`;
   host.innerHTML = `<div class="edl-rl">
@@ -36843,7 +36843,7 @@ function _renderWizard2044() {
     const data = _legal2044WizardData(ent, _wiz2044.year);
     body = _renderWiz2044Step4(ent, data);
     footerNav = `<button class="btn bs" onclick="_wizard2044Prev()">← Récap</button>
-      <button class="btn bp" onclick="_print2044(${+ent.id},${+_wiz2044.year})">🖨️ Imprimer / PDF</button>
+      <button class="btn bp" onclick="_print2044(${+ent.id},${+_wiz2044.year})">${_uiIcon('printer')} Imprimer / PDF</button>
       <button class="btn bs" onclick="closeM('ov-wiz-2044')">Fermer</button>`;
   }
 
@@ -37142,7 +37142,7 @@ ${legalNote}`;
 .print-btn{position:fixed;top:10px;right:10px;background:#ff5a3c;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px}
 ${_docCss()}</style>
 </head><body>
-<button class="print-btn no-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+<button class="print-btn no-print" onclick="window.print()">${_uiIcon('printer')} Imprimer / PDF</button>
 ${/* AUDIT I2 : ni ref ni date au pied, headerInfo porte deja bailleur+SIREN+« Genere le » */''}
 ${_docPage(ent, { titre: 'Récapitulatif 2044', ctx: escHtml(ent.nom) + ' — revenus fonciers, année ' + year, corps: _corps2044, withStyle: false })}
 </body></html>`);
@@ -38877,7 +38877,7 @@ function _renderImmRelevesLogements(activeLogs, archivedLogs) {
   const log = logs.find(l => l.ref === courant);
   const opts = logs.map(l => `<option value="${escHtml(l.ref)}"${l.ref === courant ? ' selected' : ''}>${escHtml(l.ref)}${l.locataire ? ' — ' + escHtml(l.locataire) : ''}${l.archived ? ' (archivé)' : ''}</option>`).join('');
   return '<div class="logf-section-head" style="margin-top:26px">'
-    + '<h3 class="logf-section-title">⚡ Relevés compteurs des logements</h3>'
+    + '<h3 class="logf-section-title">' + _uiIcon('bolt') + ' Relevés compteurs des logements</h3>'
     + `<select class="inp" style="max-width:280px" onchange="_setImmCompteursRef(this.value)" aria-label="Logement dont on affiche les relevés">${opts}</select>`
     + '</div>'
     + (log ? _renderLogFichePanelCompteurs(log, log.ref) : '');
@@ -38914,7 +38914,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
 
   if(!ccsAlive.length) {
     return `<div class="logf-section-head">
-      <h3 class="logf-section-title">⚡ Postes de charges & charges communes</h3>
+      <h3 class="logf-section-title">${_uiIcon('bolt')} Postes de charges & charges communes</h3>
       ${headerActions}
     </div>
     ${banner}
@@ -39010,7 +39010,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
   }).join('');
 
   return `<div class="logf-section-head">
-    <h3 class="logf-section-title">⚡ Postes de charges & charges communes <span class="mu sm">(${ccsAlive.length})</span></h3>
+    <h3 class="logf-section-title">${_uiIcon('bolt')} Postes de charges & charges communes <span class="mu sm">(${ccsAlive.length})</span></h3>
     ${headerActions}
   </div>
   ${banner}
@@ -39920,7 +39920,7 @@ function _renderMvForLog(ref, year) {
     const sign = isCcShare ? '−' : ((+m.cr||0)>0 ? '+' : ((+m.db||0)>0 ? '−' : ''));
     const cls = isCcShare ? 'neg' : ((+m.cr||0)>0 ? 'pos' : ((+m.db||0)>0 ? 'neg' : ''));
     const ccBadge = isCcShare
-      ? ` <span class="badge blu" title="Quote-part du logement sur le compteur « ${escHtml(m._ccNom)} » (base : ${escHtml(m._ccDenom)}). Montant brut facture : ${fmt(+m.db||0)}">⚡ via ${escHtml(m._ccNom)}</span>`
+      ? ` <span class="badge blu" title="Quote-part du logement sur le compteur « ${escHtml(m._ccNom)} » (base : ${escHtml(m._ccDenom)}). Montant brut facture : ${fmt(+m.db||0)}">${_uiIcon('bolt',13)} via ${escHtml(m._ccNom)}</span>`
       : '';
     return `<div class="compta-row">
       <span class="compta-row-date">${fd(m.date)}</span>
@@ -40227,7 +40227,7 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
         [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(dgInfo.dgPaid)})`,'b-irl'],
         [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(dgInfo.dgPaid)} / ${fmt(dgInfo.dgDu)})`,'b-warn']
       };
-      const st = map[dgInfo.statut] || ['❓ Non versé','b-warn'];
+      const st = map[dgInfo.statut] || [_uiIcon('help') + ' Non versé','b-warn'];
       statutHtml = `<span class="hl-badge ${st[1]}">${st[0]}</span>`;
       if(!!bailForDg.cloture && !isRestit){
         ctaHtml = `<div class="hl-foot"><button class="btn bp bb" style="padding:5px 12px;font-size:12px" onclick="_dgOpenRestitution('${refSafe}')">✦ Préparer la restitution du DG</button></div>`;
@@ -40695,7 +40695,7 @@ function _renderLogFichePanelConformite(log, ref) {
     ${_renderEquipForLog(ref)}
 
     <div class="logf-section-head" style="margin-top:24px">
-      <h3 class="logf-section-title">🛡 Assurances obligatoires</h3>
+      <h3 class="logf-section-title">${_uiIcon('shield')} Assurances obligatoires</h3>
     </div>
     ${_renderAssForLog(ref)}
   `;
@@ -41404,7 +41404,7 @@ function _attachmentRowHtml(d){
           <span style="font-size:18px">${_attachmentIcon(d.mime)}</span>
           <div style="flex:1;min-width:0">
             <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(d.name)}">${escHtml(d.originalName || d.name)}</div>
-            <div class="mu sm" style="font-size:11px">${_fmtSize(d.size)} · ${fd((d.uploadedAt||'').slice(0,10))}${d.cloudKey?' · ☁️':''}${d.idbKey?' · 💾':''}</div>
+            <div class="mu sm" style="font-size:11px">${_fmtSize(d.size)} · ${fd((d.uploadedAt||'').slice(0,10))}${d.cloudKey?' · '+_uiIcon('cloud',12):''}${d.idbKey?' · '+_uiIcon('save',12):''}</div>
           </div>
           <button type="button" class="btn bs bb" onclick="_handleAttachmentOpen(${d.id})" title="Aperçu">${_uiIcon('eye')}</button>
           <button type="button" class="btn br bb" onclick="_handleAttachmentDelete(${d.id})" title="Supprimer">${_uiIcon('trash')}</button>
@@ -41650,7 +41650,7 @@ function _renderLogFichePanelPhotos(log, ref) {
     const isCover = !!p.isCover;
     return `<div class="photo-tile" style="position:relative;background:var(--sur2);border:${isCover?'2px solid var(--acc)':'1px solid var(--bor)'};border-radius:8px;overflow:hidden;aspect-ratio:1/1;cursor:pointer" onclick="_openPhotoLightbox(${p.id})" title="${escHtml(p.originalName || p.name)}">
       <img id="photo-thumb-${p.id}" alt="${escHtml(p.originalName || p.name)}" style="width:100%;height:100%;object-fit:cover;display:block" data-photo-id="${p.id}" loading="lazy">
-      ${isCover?'<div style="position:absolute;top:6px;left:6px;background:var(--acc);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">⭐ Couverture</div>':''}
+      ${isCover?'<div style="position:absolute;top:6px;left:6px;background:var(--acc);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">'+_uiIcon('star',12)+' Couverture</div>':''}
       <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent);padding:6px;color:#fff;font-size:10px;display:flex;justify-content:space-between;align-items:center" onclick="event.stopPropagation()">
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.originalName || p.name)}</span>
         <button class="btn bs bb" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);padding:2px 6px;margin-left:4px" onclick="event.stopPropagation();_togglePhotoCover(${p.id})" title="${isCover?'Retirer couverture':'Définir comme couverture'}">${isCover?'⭐':'☆'}</button>
@@ -42227,7 +42227,7 @@ function _renderLogFichePanelCompteurs(log, ref) {
 
   if(total === 0) {
     return `<div class="logf-section-head">
-      <h3 class="logf-section-title">⚡ Relevés compteurs</h3>
+      <h3 class="logf-section-title">${_uiIcon('bolt')} Relevés compteurs</h3>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${btnInit}
         <button class="btn bs bb" onclick="openCompteurReleve('${refSafe}','')">+ Saisir 1 relevé</button>
@@ -42245,7 +42245,7 @@ function _renderLogFichePanelCompteurs(log, ref) {
   }
 
   return `<div class="logf-section-head">
-    <h3 class="logf-section-title">⚡ Relevés compteurs <span class="mu sm">(${total} relevé${total>1?'s':''})</span></h3>
+    <h3 class="logf-section-title">${_uiIcon('bolt')} Relevés compteurs <span class="mu sm">(${total} relevé${total>1?'s':''})</span></h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${showInit ? btnInit : ''}
       <button class="btn bp bb" onclick="openCompteurReleve('${refSafe}','')">+ Saisir 1 relevé</button>
@@ -43144,7 +43144,7 @@ function rLogFiche() {
            supprimé (la page globale reste) et les compteurs partent en fiche immeuble. Sur
            téléphone la barre devient une grille 2×2 (css/main.css) au lieu de défiler. -->
       <button class="logf-subtab${_currentLogFicheTab==='bail'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='bail'}" onclick="setLogFicheTab('bail')" title="Bail en cours, historique et états des lieux">${_uiIcon('doc-text')} Bail</button>
-      <button class="logf-subtab${_currentLogFicheTab==='conformite'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='conformite'}" onclick="setLogFicheTab('conformite')" title="Équipements à entretenir et assurances obligatoires">🛡 Entretien &amp; assurances</button>
+      <button class="logf-subtab${_currentLogFicheTab==='conformite'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='conformite'}" onclick="setLogFicheTab('conformite')" title="Équipements à entretenir et assurances obligatoires">${_uiIcon('shield')} Entretien &amp; assurances</button>
       <button class="logf-subtab${_currentLogFicheTab==='documents'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='documents'}" onclick="setLogFicheTab('documents')" title="Documents et photos du logement">${_uiIcon('doc')} Documents</button>
       <button class="logf-subtab${_currentLogFicheTab==='compta'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='compta'}" onclick="setLogFicheTab('compta')">${_uiIcon('money')} Comptabilité</button>
     </div>
@@ -43238,7 +43238,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
         const dl=dst.deadline, dgDone=(dst.steps.find(s=>s.key==='dg')||{}).done;
         const dgTxt=(dl && !dgDone)?(dl.jours>=0?` · DG à restituer avant le ${fd(dl.iso)} (J‑${dl.jours})`:` · DG en retard ${-dl.jours} j`):'';
         depBanner=`<div class="logf-depart" onclick="_departOuvrir('${refSafe}')" role="button" tabindex="0" title="Ouvrir l'assistant de départ">
-          <span class="logf-depart-ic">🏁</span>
+          <span class="logf-depart-ic">${_uiIcon('flag')}</span>
           <div class="logf-depart-tx"><div class="t">Départ en cours — étape ${dst.doneCount}/${dst.total}</div><div class="s">${bail.depart.dateSortie?('sortie prévue le '+fd(bail.depart.dateSortie)):'à dérouler'}${dgTxt}</div></div>
           <button class="btn bp" onclick="event.stopPropagation();_departOuvrir('${refSafe}')">Ouvrir l'assistant →</button>
         </div>`;
@@ -43660,7 +43660,7 @@ function rImmFiche() {
            (décision 1 du 11/08 : pas de rappel d'échéance, ces contrats se renouvellent
            automatiquement), et l'onglet grisé « À venir » part (P1-12 : une V1 qui a l'air finie). -->
       <button class="logf-subtab${_currentImmFicheTab==='logements'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='logements'}" onclick="setImmFicheTab('logements')">${_uiIcon('home')} Logements (${nbLogs})</button>
-      <button class="logf-subtab${_currentImmFicheTab==='charges'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='charges'}" onclick="setImmFicheTab('charges')" title="Postes de charges, répartition des charges et relevés des logements">⚡ Charges communes</button>
+      <button class="logf-subtab${_currentImmFicheTab==='charges'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='charges'}" onclick="setImmFicheTab('charges')" title="Postes de charges, répartition des charges et relevés des logements">${_uiIcon('bolt')} Charges communes</button>
     </div>
     ${_currentImmFicheTab === 'charges'
       ? _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs)
@@ -43864,7 +43864,7 @@ function openBienMenu(evt, kind, ref, immNom) {
       if(ref) {
         html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openLogFiche('${refSafe}')">${_uiIcon('eye')} Voir le logement</button>`;
       } else {
-        html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();showToast('Aucun logement à afficher','info')">ℹ Vide</button>`;
+        html += `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();showToast('Aucun logement à afficher','info')">${_uiIcon('info')} Vide</button>`;
       }
     }
   } else if(ref) {
@@ -46436,7 +46436,7 @@ function _logDiagDetectBannerHtml() {
     .map(k => `<span class="logdiag-detect-chip">${escHtml(COV_LBL[k])}</span>`).join('');
   const dpeLine = numeroDpe
     ? `<div class="logdiag-detect-dpe">🔎 N° DPE détecté : <b>${escHtml(numeroDpe)}</b> <span class="mu sm">→ classe énergie/GES, conso et date récupérées via l'ADEME.</span></div>`
-    : `<div class="logdiag-detect-dpe logdiag-detect-warn">ℹ N° DPE non détecté dans les PDF (document scanné/image ?). Saisis-le à la main puis « ⬇ Récupérer ADEME ».</div>`;
+    : `<div class="logdiag-detect-dpe logdiag-detect-warn">${_uiIcon('info')} N° DPE non détecté dans les PDF (document scanné/image ?). Saisis-le à la main puis « ⬇ Récupérer ADEME ».</div>`;
   return `
     <div class="logdiag-detect">
       <div class="logdiag-detect-head">🤖 Détection automatique <span class="mu sm">(${ids.length} document${ids.length>1?'s':''} lu${ids.length>1?'s':''} · indicatif, à vérifier)</span></div>
@@ -47674,7 +47674,7 @@ function _annonceShowDpeWarn() {
     w.style.background = '#fef3c7'; w.style.borderColor = '#f59e0b'; w.style.color = '#78350f';
   } else if (cl === 'E') {
     w.style.display = '';
-    w.innerHTML = 'ℹ️ <strong>DPE E — interdiction de location au 1er janvier 2034</strong> (loi Climat 2021-1104). Travaux énergétiques recommandés pour anticiper l\'échéance.';
+    w.innerHTML = _uiIcon('info') + ' <strong>DPE E — interdiction de location au 1er janvier 2034</strong> (loi Climat 2021-1104). Travaux énergétiques recommandés pour anticiper l\'échéance.';
     w.style.background = '#dbeafe'; w.style.borderColor = '#3b82f6'; w.style.color = '#1e3a8a';
   } else {
     w.style.display = 'none';
@@ -50182,7 +50182,7 @@ function rParamsProfile() {
         ${ansHtml}
       </div>
 
-      <div class="ct mb12" style="font-size:14px">⚙ Modules activables</div>
+      <div class="ct mb12" style="font-size:14px">${_uiIcon('settings')} Modules activables</div>
       <div class="mu sm mb12">
         Cochez/décochez pour adapter la sidebar à votre besoin. Un module désactivé est masqué de la navigation.
         Les modules "À venir" seront livrés dans les prochains Sprints (V1.1+).
@@ -50654,7 +50654,7 @@ function rEquipements() {
             </div>
           </div>
           <div style="grid-column:1/-1;padding-top:8px;margin-top:6px;border-top:1px dashed var(--bor)">
-            <div style="font-weight:600;font-size:12px;margin-bottom:6px">🚨 Détecteur de fumée (DAAF)</div>
+            <div style="font-weight:600;font-size:12px;margin-bottom:6px">${_uiIcon('alarm')} Détecteur de fumée (DAAF)</div>
             <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:11.5px">
               <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
                 <input type="radio" name="daaf-${rEsc}" value="oui" ${eq.daafPresent===true?'checked':''} onchange="_equipSaveCfg('${rEsc}','daafPresent',true)">
@@ -51230,7 +51230,7 @@ function _dgOpenRestitution(ref) {
     </div>
 
     <div style="padding:12px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;margin-bottom:10px">🧮 Calcul du solde de restitution</div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px">${_uiIcon('calc')} Calcul du solde de restitution</div>
       <table style="width:100%;font-size:12.5px;border-collapse:collapse">
         <tr><td>DG initial versé</td><td style="text-align:right;font-weight:600">${fmt(solde.dgPaid)}</td></tr>
         <tr><td>– Retenues sur dégradations</td>
@@ -51443,7 +51443,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
       + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
       +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
-      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.s) + (window._loyerChipVerdict(r.s.solde, r.s.monthlyFull).cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">⚡ Actions</button>' : '') + '</div>'
+      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.s) + (window._loyerChipVerdict(r.s.solde, r.s.monthlyFull).cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
       + '</div>'
       + (open ? _suiviDetailHtml(r.log, r.s, yr) : '')
       + '</div>'; }).join('')
@@ -52021,7 +52021,7 @@ function _bankImportRenderFirstImportChoice(lines, format) {
   const totLines = lines.length;
   preview.innerHTML = `
     <div style="padding:12px;background:rgba(59,126,246,.08);border:1px solid #3b7ef6;border-radius:8px;margin-bottom:14px;font-size:13px">
-      <b>🆕 Premier import sur <span style="color:var(--cta)">${escHtml(_currentBankAccount.label)}</span></b><br>
+      <b>${_uiIcon('sparkle')} Premier import sur <span style="color:var(--cta)">${escHtml(_currentBankAccount.label)}</span></b><br>
       <span class="mu sm">Le fichier contient <b>${totLines}</b> ligne(s)${minD?(' du <b>'+fd(minD)+'</b> au <b>'+fd(maxD)+'</b>'):''}. Que veux-tu importer ?</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
@@ -52064,7 +52064,7 @@ function _bankImportFirstImportConfirm(format) {
   } else if (choice === 'all') {
     banner = '';   // V3-REFONTE-LOYERS C : redondant avec le compteur du récap → supprimé
   } else if (choice === 'manual') {
-    banner = `<div style="padding:8px;background:var(--sur2);border:1px solid var(--bor);border-radius:6px;margin-bottom:10px;font-size:12px">✋ <b>Sélection manuelle</b> — toutes les lignes sont affichées ci-dessous, ajuste les coches.</div>`;
+    banner = `<div style="padding:8px;background:var(--sur2);border:1px solid var(--bor);border-radius:6px;margin-bottom:10px;font-size:12px">${_uiIcon('hand')} <b>Sélection manuelle</b> — toutes les lignes sont affichées ci-dessous, ajuste les coches.</div>`;
   } else {
     showToast('Choisis une option', 'warn'); return;
   }
@@ -52733,7 +52733,7 @@ function _bankImportRenderPreview(format, prefixHtml) {
     ${_bankScopeBar()}
     <div class="mu sm" style="margin:6px 0 8px;font-size:11px;line-height:1.4">${_uiIcon('bulb',13)} Clique une ligne pour la classer — <strong>tes règles</strong> (⚙) d'abord, sinon une proposition (✨). C'est <strong>toi</strong> qui valides.</div>
     <div style="display:flex;gap:4px;border-bottom:1px solid var(--bor);margin-bottom:10px">
-      ${tabBtn('todo','À compléter',st.todo.length)}${tabBtn('ok','Reconnus',st.ok.length)}${st.dup.length?tabBtn('dup','🔁 Doublons',_bankDupOpenCount(st)):''}
+      ${tabBtn('todo','À compléter',st.todo.length)}${tabBtn('ok','Reconnus',st.ok.length)}${st.dup.length?tabBtn('dup',_uiIcon('cycle')+' Doublons',_bankDupOpenCount(st)):''}
     </div>
     <div id="bank-review-body"></div>
   `;
@@ -52874,12 +52874,12 @@ function _bankLineRow(i) {
   // sur les lignes « à compléter » (il aide à choisir). R-B v2 : « ✨ » est une PROPOSITION,
   // « ⚙ » une règle — seule la règle classe automatiquement.
   const src = line._byRule
-    ? '<span class="bimp-chip split">⚙ règle</span>'
+    ? '<span class="bimp-chip split">' + _uiIcon('settings') + ' règle</span>'
     : (line.suggestedCat
         ? (done ? '<span class="bimp-chip conf">✓ validé</span>' : '<span class="bimp-chip conf">✨ proposition ' + Math.round((line.confidence || 0) * 100) + '%</span>')
-        : '<span class="bimp-chip todo">❓ à classer</span>');
+        : '<span class="bimp-chip todo">' + _uiIcon('help') + ' à classer</span>');
   const catTxt = isSplit
-    ? '<span class="bimp-cat" style="color:var(--pur,#7c3aed)">✂️ Découpé · ' + line._sp.length + ' ligne' + (line._sp.length > 1 ? 's' : '') + '</span>'
+    ? '<span class="bimp-cat" style="color:var(--pur,#7c3aed)">' + _uiIcon('scissors') + ' Découpé · ' + line._sp.length + ' ligne' + (line._sp.length > 1 ? 's' : '') + '</span>'
     : (line.suggestedCat ? '<span class="bimp-cat">' + escHtml(line.suggestedCat) + '</span>' : '<span class="bimp-cat empty">— à classer —</span>');
   const affChip = aff ? '<span class="bimp-chip bien">' + aff + '</span>' : '';
   // ③.3 v2 — la date douteuse est SIGNALÉE, pas cachée, et ne bloque pas la validation
@@ -52956,7 +52956,7 @@ function _bankRulePanelHtml(i) {
     if (org.aff) bits.push('bien : règle « ' + escHtml(org.aff) + ' »');
     const idx = _bankRuleIdxOf(org.cat || org.aff);
     return '<div style="background:var(--acc-bg);border:1px solid var(--bor);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-      + '<span>⚙ ' + bits.join(' · ') + '</span>'
+      + '<span>' + _uiIcon('settings') + ' ' + bits.join(' · ') + '</span>'
       + (org.affUnresolved ? '<span style="color:var(--ora)">⚠ « le bailleur du compte » n\'a pas pu être résolu (compte mixte)</span>' : '')
       + (idx >= 0 ? '<a onclick="_bankRuleOpen(' + idx + ')" style="margin-left:auto;cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6);font-weight:600">modifier la règle</a>' : '')
       + '</div>';
@@ -53045,7 +53045,7 @@ function _bankLineAffEditor(i) {
     return `<div style="border:1px solid var(--bor);border-radius:8px;padding:6px 12px;background:var(--sur,#fff)">${rows}</div>
       <div style="margin-top:10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <button class="btn bs" style="font-size:11.5px" onclick="_bankUnsplitLine(${i})">↩ Annuler le découpage</button>
-        <button class="btn bs" style="font-size:11.5px;color:var(--pur,#7c3aed)" onclick="_bankSplitLine(${i})">✂️ Modifier le découpage</button>
+        <button class="btn bs" style="font-size:11.5px;color:var(--pur,#7c3aed)" onclick="_bankSplitLine(${i})">${_uiIcon('scissors')} Modifier le découpage</button>
       </div>`;
   }
   return `
@@ -53072,7 +53072,7 @@ function _bankLineAffEditor(i) {
         <div style="margin-bottom:12px"><label class="affv2-lab">Catégorie — <span class="mu">qu'est-ce que c'est ?</span></label><input type="hidden" id="imp${i}-cat" value="${escHtml(line.suggestedCat||'')}">${_catBtn('imp'+i,'imp'+i,line.suggestedCat||'')}</div>
         <div id="imp${i}-aff"></div>
         <input type="hidden" id="imp${i}-qui"><input type="hidden" id="imp${i}-imm"><input type="hidden" id="imp${i}-cc">
-        ${line._gerance?`<div style="margin-top:12px;font-size:11.5px;color:#6d28d9;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:var(--r,8px);padding:9px 12px">✂️ <b>Relevé de gérance détecté</b> — ce virement regroupe sûrement plusieurs loyers − des frais. <a onclick="_bankSplitLine(${i})" style="cursor:pointer;text-decoration:underline;font-weight:600">Le découper</a> plutôt que l'affecter à un seul bien.</div>`:''}
+        ${line._gerance?`<div style="margin-top:12px;font-size:11.5px;color:#6d28d9;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:var(--r,8px);padding:9px 12px">${_uiIcon('scissors')} <b>Relevé de gérance détecté</b> — ce virement regroupe sûrement plusieurs loyers − des frais. <a onclick="_bankSplitLine(${i})" style="cursor:pointer;text-decoration:underline;font-weight:600">Le découper</a> plutôt que l'affecter à un seul bien.</div>`:''}
       </div>
     </div>`;
 }
@@ -53127,7 +53127,7 @@ function _bankWalkRender() {
     // R-B v2 — le bandeau ne dit « classé » que pour une RÈGLE. Une proposition, même
     // complète, n'est qu'une proposition : elle attend une validation, et le dit.
     const bn = line._byRule
-      ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ok-bg,#ecfdf5);color:var(--grn,#16a34a);border:1px solid var(--grn,#16a34a)">⚙ Classé par une de tes règles — vérifie et corrige si besoin.</div>'
+      ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ok-bg,#ecfdf5);color:var(--grn,#16a34a);border:1px solid var(--grn,#16a34a)">' + _uiIcon('settings') + ' Classé par une de tes règles — vérifie et corrige si besoin.</div>'
       : (reco
         ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--acc-bg);color:var(--t1);border:1px solid var(--cta)">✨ Proposition — rien n\'est encore classé, valide ou corrige.</div>'
         : '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ora-bg,#fffbeb);color:var(--ora,#d97706);border:1px solid var(--ora,#d97706)">📝 À renseigner — choisis la catégorie, l\'app pose la bonne question.</div>');
@@ -53262,7 +53262,7 @@ function _bankSplitLine(i) {
     ];
   }
   const signe = window._spMvNet >= 0 ? '+' : '−';
-  el('sp-mv-info').innerHTML = `<div class="alert info" style="margin-bottom:8px"><strong>${escHtml(l.libelle||'')}</strong> &nbsp;·&nbsp; net bancaire : <span class="${window._spMvNet>=0?'pos':'neg'} fw">${signe} ${fmt(Math.abs(window._spMvNet))}</span>${l._gerance?' &nbsp;·&nbsp; <span style="color:#6d28d9;font-weight:600">✂️ relevé de gérance</span>':''}</div>`;
+  el('sp-mv-info').innerHTML = `<div class="alert info" style="margin-bottom:8px"><strong>${escHtml(l.libelle||'')}</strong> &nbsp;·&nbsp; net bancaire : <span class="${window._spMvNet>=0?'pos':'neg'} fw">${signe} ${fmt(Math.abs(window._spMvNet))}</span>${l._gerance?' &nbsp;·&nbsp; <span style="color:#6d28d9;font-weight:600">'+_uiIcon('scissors',13)+' relevé de gérance</span>':''}</div>`;
   renderSpMvRows();
   openM('ov-sp-mv');
 }
@@ -54982,7 +54982,7 @@ function _finDrillLigne(kind, yr, mo) {
         + '<input type="hidden" id="fdrAff-qui"><input type="hidden" id="fdrAff-imm"><input type="hidden" id="fdrAff-cc">'
         + '<div id="fdrAff-aff"></div>'
         + '<div class="act"><button type="button" class="btn bp" onclick="_finAffecter([' + JSON.stringify(nvIds[0]) + '],\'' + kind + '\',\'' + yr + '\',' + mo + ')">Affecter ce mouvement</button>'
-        +   '<span class="or">ou <a onclick="_finVentiler(' + JSON.stringify(nvIds[0]) + ')" style="color:var(--pur);cursor:pointer;text-decoration:underline;font-weight:600">✂️ ventiler</a> (si cette ligne couvre plusieurs biens)</span></div>'
+        +   '<span class="or">ou <a onclick="_finVentiler(' + JSON.stringify(nvIds[0]) + ')" style="color:var(--pur);cursor:pointer;text-decoration:underline;font-weight:600">' + _uiIcon('scissors',13) + ' ventiler</a> (si cette ligne couvre plusieurs biens)</span></div>'
         + '</div>';
     }
     // ── Répartition par bien : bande d'une ligne (nom condensé + montant · %), scroll horizontal ──
@@ -55007,7 +55007,7 @@ function _finDrillLigne(kind, yr, mo) {
       const s = _sgn(x.montant);
       const bienCell = x.lot
         ? ' <span class="badge gry">' + esc(_short(x.lot)) + '</span>'
-        : ' <span class="badge ora">non ventilé</span>' + (x.id != null ? ' <a onclick="_finVentiler(' + JSON.stringify(x.id) + ')" style="cursor:pointer;color:var(--pur);font-size:11px;text-decoration:underline">✂️</a>' : '');
+        : ' <span class="badge ora">non ventilé</span>' + (x.id != null ? ' <a onclick="_finVentiler(' + JSON.stringify(x.id) + ')" style="cursor:pointer;color:var(--pur);font-size:11px;text-decoration:underline">' + _uiIcon('scissors',13) + '</a>' : '');
       const sciBadge = x.sci ? ' <span class="badge ora">' + _uiIcon('warn',12) + ' SCI ' + Math.round(x.sci.part * 100) + ' % de ' + f(x.sci.brut) + '</span>' : '';
       return '<tr><td><span class="fdr-dt">' + esc(dfr(x.date).slice(0, 5)) + '</span><span class="fdr-lib">' + esc(x.lib || x.cat || '—') + '</span>' + bienCell + sciBadge + '</td>'
         + '<td class="' + s.cls + '">' + s.txt + '</td></tr>';
@@ -55263,12 +55263,12 @@ function _finRenderExports() {
     +   '<a onclick="_finOpen2044Previsu()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finOpen2044Previsu()}"><span class="ic">' + _uiIcon('receipt') + '</span><span class="tx"><b>Déclaration 2044</b><s>Prévisualiser &amp; générer</s></span></a>'
     // D-6 : « Renseigner les intérêts » a QUITTÉ le compte de résultat (L-8 : plus rien sur la
     // page n'en a besoin) — l'accès vit ici, dans le module déclaratif (seul consommateur).
-    +   '<a onclick="_finCreditOpen()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finCreditOpen()}"><span class="ic">🧮</span><span class="tx"><b>Intérêts d\'emprunt</b><s>Pour la déclaration (ligne 250)</s></span></a>'
+    +   '<a onclick="_finCreditOpen()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finCreditOpen()}"><span class="ic">' + _uiIcon('calc') + '</span><span class="tx"><b>Intérêts d\'emprunt</b><s>Pour la déclaration (ligne 250)</s></span></a>'
     // K-1 (passe de vérif) : la sous-indexation IRL doit rester ATTEIGNABLE EN UN CLIC depuis
     // Finances — l'info vit sur la page Révision IRL (aucun chiffre recalculé ici, pas de
     // résurrection du widget : un point d'accès, rien d'autre).
     +   '<a onclick="go(\'irl\',null)" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){go(\'irl\',null)}"><span class="ic">' + _uiIcon('chart') + '</span><span class="tx"><b>Révision IRL</b><s>Loyers sous-indexés → onglet Loyers</s></span></a>'
-    +   item('📚', 'Bilan annuel', 'Synthèse comptable', 'exp-card-bilan')
+    +   item(_uiIcon('book'), 'Bilan annuel', 'Synthèse comptable', 'exp-card-bilan')
     +   item(_uiIcon('archive'), 'Export FEC', 'Écritures comptables', 'exp-card-fec')
     + '</div>'
     + '<div class="note">La 2044 s\'ouvre en <b>prévisualisation</b> ici (calcul live · <b>année civile pleine</b> — seul bloc de la page hors fenêtre d\'exercice, et c\'est assumé · périmètre = exercice + entité choisis ci-dessus). Les intérêts ne servent qu\'à déclarer, jamais à lire cette page. Bilan / FEC réutilisent la page Export.</div>';
@@ -55732,7 +55732,7 @@ function _renderBackupCard() {
 
   let body;
   if (mode === 'mobile') {
-    body = '<div class="bk-mobmsg"><div class="big">💻</div>'
+    body = '<div class="bk-mobmsg"><div class="big">' + _uiIcon('computer',40) + '</div>'
       + '<div class="t">Sauvegarde depuis un PC</div>'
       + '<div class="d">La sauvegarde de sécurité se fait depuis <b>Chrome ou Edge sur ordinateur</b>. Tes données restent en sécurité sur le cloud en attendant.</div></div>';
     host.innerHTML = '<div class="bk-ch"><span class="bk-ic">🛟</span><h3>Sauvegarde de sécurité</h3></div>' + body;
@@ -55747,13 +55747,13 @@ function _renderBackupCard() {
     let rows = '';
     if (!hasFolder) {
       rows = '<div class="bk-row"><span class="bk-lbl">Dossier de sauvegarde</span>'
-        + '<button class="btn bp" onclick="_backupPickFolder()">📁 Choisir un dossier…</button></div>'
+        + '<button class="btn bp" onclick="_backupPickFolder()">' + _uiIcon('folder') + ' Choisir un dossier…</button></div>'
         + segBlock
         + '<p class="bk-hint">À l’ouverture de l’app, si la fréquence est écoulée et qu’il y a du nouveau, la sauvegarde se fait <b>toute seule</b> dans ce dossier (silencieuse).</p>'
         + '<div class="bk-row" style="justify-content:flex-end"><button class="btn bs" onclick="_backupRestoreOpen()">Restaurer une sauvegarde existante</button></div>';
     } else {
       const nm = (_backupDirHandle && _backupDirHandle.name) ? _backupDirHandle.name : 'dossier choisi';
-      rows = '<div class="bk-row"><span class="bk-lbl">Dossier</span><span class="bk-foldchip">📁 ' + escHtml(nm) + '</span></div>'
+      rows = '<div class="bk-row"><span class="bk-lbl">Dossier</span><span class="bk-foldchip">' + _uiIcon('folder',13) + ' ' + escHtml(nm) + '</span></div>'
         + segBlock
         + '<div class="bk-row"><span class="bk-lbl">Dernière sauvegarde</span><span class="bk-val">' + escHtml(lastLbl) + '</span></div>'
         + '<div class="bk-row"><span class="bk-lbl">Nouveau depuis</span><span class="bk-val">' + (nbNew > 0 ? (nbNew + ' fichier(s)') : '— rien') + '</span></div>'
@@ -57465,7 +57465,7 @@ async function _rParamsPartageCloud(wrap) {
   const partners = members.filter(m => !m.isOwner);
   const writePartners = partners.filter(m => (m.grants || []).some(g => g.mode === 'ecriture')).length;
   const billing = '<div style="background:var(--sur2,rgba(16,185,129,.08));border:1px solid rgba(16,185,129,.25);border-radius:var(--rl);padding:14px 16px;margin-bottom:16px">'
-    + '<div style="font-weight:700;color:var(--t1);font-size:13.5px">🎁 Gratuit pendant la bêta</div>'
+    + '<div style="font-weight:700;color:var(--t1);font-size:13.5px">' + _uiIcon('gift') + ' Gratuit pendant la bêta</div>'
     + '<div class="sm mu" style="margin-top:3px">Invitations illimitées — lecture et écriture offertes. '
     +   writePartners + ' partenaire' + (writePartners > 1 ? 's' : '') + ' en écriture actuellement.</div>'
     + '</div>';
@@ -57639,7 +57639,7 @@ function _partageRenderInvite() {
     +   '<input class="inp" id="partage-invite-email" type="email" placeholder="prénom@exemple.fr" required>'
     +   '<div class="sm" style="color:var(--t3);margin-top:5px">Requis : cet email sera autorisé à créer son compte pour rejoindre le partage.</div></div>'
     + '<div style="background:var(--bg-success,rgba(22,163,74,.10));border:1px solid rgba(22,163,74,.2);border-radius:var(--rl);padding:12px 14px;font-size:12.5px;color:var(--grn);line-height:1.5">'
-    +   '🎁 <b>Gratuit pendant la bêta</b> · invitations illimitées, lecture et écriture offertes.</div>';
+    +   _uiIcon('gift') + ' <b>Gratuit pendant la bêta</b> · invitations illimitées, lecture et écriture offertes.</div>';
   const genBtn = el('partage-invite-gen');
   if (genBtn) genBtn.disabled = (n === 0);
 }
@@ -58150,7 +58150,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <div class="ov hidden" id="ov-impayes-actions" onclick="closeBg(event,'ov-impayes-actions')">
   <div class="modal" style="max-width:580px;width:96%">
     <div class="m-head">
-      <h3>⚡ Actions impayés</h3>
+      <h3><span data-uic="bolt"></span> Actions impayés</h3>
       <button class="m-close" onclick="closeM('ov-impayes-actions')">✕</button>
     </div>
     <div class="m-body" id="ov-impayes-actions-body" style="font-size:13px"></div>
@@ -58342,7 +58342,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <div class="ov hidden" id="ov-bank-rules" onclick="closeBg(event,'ov-bank-rules')">
   <div class="modal" style="max-width:900px;width:96%;max-height:88vh">
     <div class="m-head">
-      <h3>⚙ Mes règles de classement</h3>
+      <h3><span data-uic="settings"></span> Mes règles de classement</h3>
       <button class="m-close" onclick="closeM('ov-bank-rules')">✕</button>
     </div>
     <div class="m-body" style="font-size:13px">
@@ -58416,7 +58416,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     <input type="hidden" id="ov-ddt-recap-ref">
     <div class="m-foot">
       <button class="btn bs" onclick="closeM('ov-ddt-recap')">Fermer</button>
-      <button class="btn" onclick="_ddtRecapPrint()">🖨 Imprimer</button>
+      <button class="btn" onclick="_ddtRecapPrint()"><span data-uic="printer"></span> Imprimer</button>
       <button class="btn bp" onclick="_ddtRecapPDF()">📄 Télécharger PDF</button>
     </div>
   </div>
@@ -58515,7 +58515,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
       <button class="btn bs" onclick="closeM('ov-irl-lettre')">Fermer</button>
       <button class="btn" onclick="window._shareIRLLetterWithPdf && window._shareIRLLetterWithPdf()" title="Partager avec PDF (Web Share API + fallback download)">🔗 Partager</button>
       <button class="btn" onclick="envoyerLettreIRLParEmail()" title="Enregistrer le PDF sur cet appareil">⬇ Télécharger</button>
-      <button class="btn bp" onclick="printIRLLetter()">🖨 Imprimer</button>
+      <button class="btn bp" onclick="printIRLLetter()"><span data-uic="printer"></span> Imprimer</button>
     </div>
   </div>
 </div>
@@ -58824,7 +58824,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
 <div class="ov hidden" id="ov-sp-mv" onclick="closeBg(event,'ov-sp-mv')">
   <div class="modal" style="max-width:940px;width:97%;max-height:94vh;overflow:auto">
-    <div class="m-head"><h3>✂ Scinder un mouvement</h3><button class="m-close" onclick="closeM('ov-sp-mv')">✕</button></div>
+    <div class="m-head"><h3><span data-uic="scissors"></span> Scinder un mouvement</h3><button class="m-close" onclick="closeM('ov-sp-mv')">✕</button></div>
     <div class="m-body">
       <div id="sp-mv-info"></div>
       <div style="font-size:12px;color:var(--t2);margin-bottom:8px">Chaque ligne a son <b>sens</b> (− débit / + crédit), sa catégorie et son affectation. L'équilibre se fait sur le <b>net</b> : Σ crédits − Σ débits = net bancaire du mouvement. Idéal pour un relevé de gérance (loyers encaissés en crédit, frais prélevés en débit). Le mouvement original sera remplacé.</div>
@@ -58841,7 +58841,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     </div>
     <div class="m-foot">
       <button class="btn bs" onclick="closeM('ov-sp-mv')">Annuler</button>
-      <button class="btn bp" id="sp-mv-confirm" onclick="confirmSplitMvList()" disabled>✂ Confirmer</button>
+      <button class="btn bp" id="sp-mv-confirm" onclick="confirmSplitMvList()" disabled><span data-uic="scissors"></span> Confirmer</button>
     </div>
   </div>
 </div>

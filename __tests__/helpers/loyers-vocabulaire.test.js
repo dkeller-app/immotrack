@@ -49,7 +49,9 @@ describe('V14 — « Impayés » remplace « Pas à jour »', () => {
 
 describe('V14 — « IRL non appliquées » remplace « Perdues »', () => {
   it('la pastille de la bande Suivi s\'appelle « IRL non appliquées »', () => {
-    expect(has("pastille('perdue', '⏸ IRL non appliquées'")).toBe(true);
+    // MOBILE-REFONTE line-icons : ⏸ est devenu _uiIcon('pause'); on ancre sur la pastille + son libellé.
+    expect(has("pastille('perdue'")).toBe(true);
+    expect(has('IRL non appliquées')).toBe(true);
   });
   it('« Perdues » n\'est plus un titre de bloc ni de panneau', () => {
     expect(matches(/'[^']*⌛ Perdues/)).toBe(false);
