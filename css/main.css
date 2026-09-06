@@ -2567,6 +2567,12 @@ textarea.field-modified-since-sig{
     display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
     overflow:hidden;white-space:normal;line-height:1.25;text-align:left;
   }
+  /* Libellé + affectation bornés à 2 lignes max (« 2 lignes maxi » — Didier v15.599).
+     Le libellé complet reste au survol (title). Gaté ≥769 → téléphone inchangé. */
+  #p-mouvements .mv-clamp2{
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
+    overflow:hidden;line-height:1.3;
+  }
 }
 
 /* ── MISC ─────────────────────────────────────────────────── */
