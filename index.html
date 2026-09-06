@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.596</title>
+<title>Propryo v15.597</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.585">
+<link rel="stylesheet" href="css/main.css?v=15.597">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.596</em>
+      <em>v15.597</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -404,18 +404,18 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <!-- PAGE: LOYERS & MOUVEMENTS -->
     <div class="page" id="p-mouvements">
       <div class="filters">
-        <input class="inp" id="mvf-search" placeholder="🔍 Recherche..." oninput="rMv()" style="width:180px;font-weight:500">
+        <input class="inp" id="mvf-search" placeholder="Recherche..." oninput="rMv()" style="width:180px;font-weight:500">
         <input class="inp" type="date" id="mvf-from" onchange="rMv()" style="width:130px" title="Date début">
         <input class="inp" type="date" id="mvf-to" onchange="rMv()" style="width:130px" title="Date fin">
         <!-- ⑨.4 — les DEUX FILTRES MANQUANTS : compte et état. Ils rejoignent la mécanique
              des menus existants, ils ne remplacent et ne déplacent rien. L'immeuble reste
              filtrable ici depuis que sa colonne a fusionné dans « Affectation » (⑨.1). -->
-        <button class="btn bs bb" onclick="openMvDD('compte',this)" title="Filtrer par compte bancaire (ou saisie manuelle)">🏦 Compte <span id="mvf-ind-compte" style="color:var(--acc)"></span>▼</button>
-        <button class="btn bs bb" onclick="openMvDD('etat',this)" title="Filtrer ce qui demande une action">⚠ État <span id="mvf-ind-etat" style="color:var(--acc)"></span>▼</button>
-        <button class="btn bs bb" onclick="openMvDD('imm',this)" title="Filtrer par immeuble">🏢 Immeuble <span id="mvf-ind-imm" style="color:var(--acc)"></span>▼</button>
-        <button class="btn bs bb" onclick="clearMvFilters()">✕ Reset</button>
-        <button class="btn bs bb" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…)">🏦 Importer banque</button>
-        <button class="btn bs bb" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo">🏦 Mes comptes</button>
+        <button class="btn bs bb" onclick="openMvDD('compte',this)" title="Filtrer par compte bancaire (ou saisie manuelle)"><span data-uic="bank"></span> Compte <span id="mvf-ind-compte" style="color:var(--acc)"></span>▼</button>
+        <button class="btn bs bb" onclick="openMvDD('etat',this)" title="Filtrer ce qui demande une action"><span data-uic="warn"></span> État <span id="mvf-ind-etat" style="color:var(--acc)"></span>▼</button>
+        <button class="btn bs bb" onclick="openMvDD('imm',this)" title="Filtrer par immeuble"><span data-uic="building"></span> Immeuble <span id="mvf-ind-imm" style="color:var(--acc)"></span>▼</button>
+        <button class="btn bs bb" onclick="clearMvFilters()"><span data-uic="refresh"></span> Reset</button>
+        <button class="btn bs bb" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…)"><span data-uic="download"></span> Importer banque</button>
+        <button class="btn bs bb" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo"><span data-uic="bank"></span> Mes comptes</button>
         <button class="btn bs bb" onclick="_bankRulesOpen()" title="Mes règles de classement automatique — création et modification au moment où la règle sert"><span data-uic="settings"></span> Mes règles</button>
         <button class="btn bp" onclick="openNewMv()" style="margin-left:auto">+ Mouvement</button>
       </div>
@@ -438,8 +438,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       </div>
       <div class="tabs">
         <div class="tab act" onclick="setMvTab('all',this)">Tous</div>
-        <div class="tab" onclick="setMvTab('cr',this)">💰 Recettes</div>
-        <div class="tab" onclick="setMvTab('db',this)">📤 Dépenses</div>
+        <div class="tab" onclick="setMvTab('cr',this)"><span data-uic="download"></span> Recettes</div>
+        <div class="tab" onclick="setMvTab('db',this)"><span data-uic="upload"></span> Dépenses</div>
       </div>
       <!-- ⑨.4 — LA LIGNE DES FILTRES ACTIFS. On ne DÉPLACE rien (onglets, menus dans les
            en-têtes, recherche et dates restent où ils sont : rassembler les filtres dans
@@ -4285,7 +4285,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.596';
+const IMMOTRACK_VERSION = '15.597';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -15932,13 +15932,14 @@ function _ccNom(ccId) {
   return nom;
 }
 
-// ⑨.1 — icône du NIVEAU d'affectation : ⌂ logement · ▤ immeuble · 🏛 SCI · ⚡ compteur.
+// ⑨.1 — icône du NIVEAU d'affectation : logement · immeuble · SCI · compteur.
 // Même sémantique que _AFF_NIV : les 4 niveaux ont une seule définition dans l'app.
+// PC-REFONTE — emoji → line-icons (_uiIcon) ; couleur héritée du <span class="mu"> parent.
 function _mvNiveauIcon(m) {
-  if (m.compteurCcId) return '⚡';
-  if (String(m.qui||'').startsWith('SCI:')) return '🏛';
-  if (m.qui) return '⌂';
-  if (m.imm) return '▤';
+  if (m.compteurCcId) return _uiIcon('bolt', 14);
+  if (String(m.qui||'').startsWith('SCI:')) return _uiIcon('bank', 14);
+  if (m.qui) return _uiIcon('home', 14);
+  if (m.imm) return _uiIcon('building', 14);
   return '';
 }
 
@@ -15957,31 +15958,31 @@ function _mvAffLabel(m) {
     return `<span class="mu sm">${ic}</span> ${escHtml(m.qui)}${log && log.locataire ? ` <span class="mu sm">· ${escHtml(log.locataire)}</span>` : ''}`;
   }
   if (m.imm) return `<span class="mu sm">${ic}</span> ${escHtml(m.imm)}`;
-  return '<span class="badge ora">⚠ non affecté</span>';
+  return '<span class="badge acc">' + _uiIcon('warn', 13) + ' non affecté</span>';
 }
 
 // ⑨.2 / ⑨.4 — « 🏦 compte » et « ✋ saisi » deviennent des FILTRES, pas des badges
 // répétés 140 fois. Ce sont les valeurs de ces deux menus.
 function _mvCompteLabel(m) {
-  if (!m || m._source !== 'bank_import') return '✋ Saisi à la main';
+  if (!m || m._source !== 'bank_import') return 'Saisi à la main';
   const a = (DB.params.bankAccounts||[]).find(x => x && String(x.id) === String(m._bankAccountId));
-  return a ? ('🏦 ' + (a.label || 'compte')) : '🏦 Import (compte inconnu)';
+  return a ? (a.label || 'Compte') : 'Import (compte inconnu)';
 }
 function _mvEtatLabel(m) {
-  if (!m.cat) return '⚠ À classer';
-  if (!m.qui && !m.imm && !m.compteurCcId) return '⚠ Non affecté';
-  return '✓ Classé';
+  if (!m.cat) return 'À classer';
+  if (!m.qui && !m.imm && !m.compteurCcId) return 'Non affecté';
+  return 'Classé';
 }
 
 // ⑨.4 — la ligne des filtres actifs : dire CE QUI filtre, et permettre de l'enlever.
 function _mvActiveFiltersHtml(nShown, nTotal) {
   const F = window._mvFilters;
   const chips = [];
-  const chip = (lbl, onclear) => `<span class="badge" style="border:1px solid var(--acc);color:var(--acc);background:transparent;font-weight:600">${lbl} <b style="cursor:pointer" onclick="${onclear}">✕</b></span>`;
+  const chip = (lbl, onclear) => `<span class="badge" style="border:1px solid var(--acc);color:var(--acc);background:transparent;font-weight:600">${lbl} <b style="cursor:pointer;display:inline-flex" onclick="${onclear}">${_uiIcon('close',11)}</b></span>`;
   const tab = window._mvTab || 'all';
   if (tab !== 'all') chips.push(chip(tab === 'cr' ? '± Recettes' : '± Dépenses', "setMvTab('all',document.querySelector('#p-loyers .tabs .tab'))"));
   // Les valeurs de `compte` et `etat` portent déjà leur icône : on ne la double pas.
-  const named = { cat: '🏷 ', qui: '🏠 ', imm: '🏢 ', date: '📅 ', compte: '', etat: '' };
+  const named = { cat: _uiIcon('tag',12)+' ', qui: _uiIcon('home',12)+' ', imm: _uiIcon('building',12)+' ', date: _uiIcon('calendar',12)+' ', compte: '', etat: '' };
   Object.keys(named).forEach(k => {
     const vals = F[k] || [];
     if (!vals.length) return;
@@ -15989,9 +15990,9 @@ function _mvActiveFiltersHtml(nShown, nTotal) {
     chips.push(chip(lbl, `_mvClearFilter('${k}')`));
   });
   const search = v('mvf-search');
-  if (search) chips.push(chip('🔍 ' + escHtml(search), "el('mvf-search').value='';rMv()"));
+  if (search) chips.push(chip(_uiIcon('search',12)+' ' + escHtml(search), "el('mvf-search').value='';rMv()"));
   const from = v('mvf-from'), to = v('mvf-to');
-  if (from || to) chips.push(chip('📆 ' + (from ? fd(from) : '…') + ' → ' + (to ? fd(to) : '…'), "el('mvf-from').value='';el('mvf-to').value='';rMv()"));
+  if (from || to) chips.push(chip(_uiIcon('calendar',12)+' ' + (from ? fd(from) : '…') + ' → ' + (to ? fd(to) : '…'), "el('mvf-from').value='';el('mvf-to').value='';rMv()"));
   if (!chips.length) return '';
   return chips.join(' ')
     + `<span class="mu sm" style="margin-left:4px">${nShown} ligne${nShown>1?'s':''} sur ${nTotal} · <a onclick="clearMvFilters()" style="cursor:pointer;text-decoration:underline">tout effacer</a></span>`;
@@ -16043,15 +16044,15 @@ function rMv() {
   const af = el('mv-active-filters');
   if (af) af.innerHTML = _mvActiveFiltersHtml(mvs.length, alive.length);
 
-  el('mv-tbody').innerHTML = mvs.map(m=>{
+  const _mvRows = mvs.map(m=>{
     // ⑨.1 — Débit + Crédit → « Montant » signé (rouge = sort, vert = entre).
     const net = (m.cr||0) - (m.db||0);
     return `<tr>
     <td>${fd(m.date)}</td>
     <td>${escHtml(m.lib||'–')}</td>
-    <td>${m.cat ? `<span class="badge gry" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>` : `<span class="badge ora">${_uiIcon('warn',13)} à classer</span>`}</td>
+    <td>${m.cat ? `<span class="badge gry" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>` : `<span class="badge acc">${_uiIcon('warn',13)} à classer</span>`}</td>
     <td>${_mvAffLabel(m)}</td>
-    <td class="num ${net>=0?'pos':'neg'}">${net>=0?'+ ':'− '}${fmt(Math.abs(net))}</td>
+    <td class="num mv-montant ${net>=0?'pos':'neg'}">${net>=0?'+ ':'− '}${fmt(Math.abs(net))}</td>
     <td>${m.fac?`<span title="${escHtml(m.fac)}">${_uiIcon('attach',14)}</span>`:''}</td>
     <td class="act-cell">
       <button class="btn bs bb" onclick="openEditMv(${m.id})" title="Modifier">${_uiIcon('edit')}</button>
@@ -16060,6 +16061,13 @@ function rMv() {
     </td>
   </tr>`;
   }).join('');
+  // PC-REFONTE — état vide accueillant (styles inline : correct à toutes largeurs, ne touche aucun @media)
+  const _mvEmpty = alive.length === 0
+    ? `${_uiIcon('receipt',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun mouvement pour l'instant</b><span style="color:var(--t2);font-size:12.5px">Importe un relevé bancaire ou ajoute un mouvement.</span>`
+    : `${_uiIcon('search',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun mouvement pour ces filtres</b><span style="color:var(--t2);font-size:12.5px">Élargis les dates ou réinitialise les filtres.</span><div style="margin-top:12px"><button class="btn bs bb" onclick="clearMvFilters()">${_uiIcon('refresh',14)} Réinitialiser</button></div>`;
+  el('mv-tbody').innerHTML = mvs.length
+    ? _mvRows
+    : `<tr><td colspan="7" style="text-align:center;padding:44px 20px;color:var(--t3)">${_mvEmpty}</td></tr>`;
 
   // Indicateurs ● sur colonnes / menus filtrés
   ['imm','cat','qui','date','compte','etat'].forEach(col=>{

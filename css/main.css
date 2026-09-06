@@ -2550,6 +2550,14 @@ textarea.field-modified-since-sig{
 .badge.blu{background:var(--acc-bg);color:var(--t1);border-color:var(--acc)}
 .badge.pur{background:var(--pur-bg);color:var(--pur);border-color:var(--pur)}
 .badge.gry{background:var(--gry-bg);color:var(--t2);border-color:var(--t2)}
+/* PC-REFONTE — badge corail « outline » : états qui demandent une action (à classer / non affecté).
+   Doctrine : corail = ce qui presse. Remplace l'ambre (--ora) sur ces deux états. */
+.badge.acc{background:transparent;color:var(--acc);border-color:var(--acc)}
+/* PC-REFONTE lot Mouvements — montant en police display, aligné, insécable.
+   Gaté ≥769 : le rendu ≤768 (téléphone) reste strictement inchangé. */
+@media(min-width:769px){
+  #p-mouvements .tbl td.mv-montant{font-family:var(--display);font-weight:800;font-size:var(--fs-num);white-space:nowrap}
+}
 
 /* ── MISC ─────────────────────────────────────────────────── */
 .hidden{display:none!important}
