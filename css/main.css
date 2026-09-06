@@ -2553,10 +2553,12 @@ textarea.field-modified-since-sig{
 /* PC-REFONTE — badge corail « outline » : états qui demandent une action (à classer / non affecté).
    Doctrine : corail = ce qui presse. Remplace l'ambre (--ora) sur ces deux états. */
 .badge.acc{background:transparent;color:var(--acc);border-color:var(--acc)}
-/* PC-REFONTE lot Mouvements — montant en police display, aligné, insécable.
+/* PC-REFONTE lot Mouvements — montant : même taille que la ligne (13,5px), juste
+   semi-gras + insécable + chiffres tabulaires (.num). La couleur vert/rouge suffit
+   à le faire ressortir — pas de gros chiffre dans une liste dense.
    Gaté ≥769 : le rendu ≤768 (téléphone) reste strictement inchangé. */
 @media(min-width:769px){
-  #p-mouvements .tbl td.mv-montant{font-family:var(--display);font-weight:800;font-size:var(--fs-num);white-space:nowrap}
+  #p-mouvements .tbl td.mv-montant{font-weight:600;white-space:nowrap}
 }
 
 /* ── MISC ─────────────────────────────────────────────────── */
