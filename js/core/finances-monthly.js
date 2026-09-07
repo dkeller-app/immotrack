@@ -184,6 +184,48 @@ export function _computeFinancesMonthly(input) {
   // (1) Cascade d'imputation CUMULATIVE par LOT sur toute la période : chaque mois comble son
   //     loyer+charges, récupère les arriérés (loyer d'abord), reliquat = avance. Les résultats
   //     mensuels somment exactement à l'annuel (le mois qui reçoit porte la récup + l'avance).
+  // ── C2 : POSITION D'OUVERTURE de l'arriéré (Finances maître, décision user (b) 2026-09-07) ──
+  // Le retard était borné à l'année → un arriéré ouvert en N-1 n'y entrait pas. On calcule, par lot,
+  // l'arriéré reporté du DÉBUT DU SUIVI (1er mouvement de la base) au 31/12 N-1, en faisant tourner
+  // le MÊME netting sur les mois pré-exercice (dû = loyerDue du bail de l'époque, 0 avant le bail →
+  // auto-borné). Il sera SEMÉ dans le netting de l'année (idx 0) → recouvré en priorité par les
+  // paiements de l'année (une avance de l'année solde d'abord la dette N-1 : jamais « avance ET
+  // retard » simultanés). N'entre QUE dans le retard/position : la cascade fiscale (loyersHC /
+  // provisions / avance imposable, base 2044) reste année-scopée et INTOUCHÉE.
+  const preRecv = {};            // qui → { ym → reçu 211 scopé } avant l'exercice
+  let _suiviStartYm = null;
+  mvts.forEach(mv => {
+    if (!mv || mv._deleted || !mv.date) return;
+    const ym = mv.date.slice(0, 7);
+    if (ym >= yr + '-01') return;                 // pré-exercice uniquement
+    const r0 = catLigne(mv.cat);
+    if (!r0 || r0.ligne2044 !== '211') return;    // seuls les loyers (HC + provisions)
+    const w0 = scopeWeight(scope, mv); if (!w0) return;
+    const q0 = mv.qui || ''; if (!q0) return;
+    const amt0 = ((Number(mv.cr) || 0) - (Number(mv.db) || 0)) * w0;
+    (preRecv[q0] = preRecv[q0] || {})[ym] = (preRecv[q0][ym] || 0) + amt0;
+    if (!_suiviStartYm || ym < _suiviStartYm) _suiviStartYm = ym;
+  });
+  const _preYms = [];
+  if (_suiviStartYm) {
+    let py = parseInt(_suiviStartYm.slice(0, 4), 10), pm = parseInt(_suiviStartYm.slice(5, 7), 10);
+    const endY = parseInt(yr, 10) - 1;
+    while ((py < endY) || (py === endY && pm <= 12)) {
+      _preYms.push(py + '-' + String(pm).padStart(2, '0'));
+      pm++; if (pm > 12) { pm = 1; py++; }
+      if (_preYms.length > 600) break;            // garde-fou 50 ans
+    }
+  }
+  const _openingOf = (q) => {
+    if (!_preYms.length) return null;
+    const pm = _preYms.map(ym => {
+      const d = loyerDue(q, ym) || {};
+      return { hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: (preRecv[q] && preRecv[q][ym]) || 0 };
+    });
+    const pr = _computeLoyerNetting(pm, false);   // pas de tolérance sur le passé clos
+    return (pr.loyerArrear > 0.005 || pr.chargeArrear > 0.005) ? { loyer: pr.loyerArrear, charge: pr.chargeArrear } : null;
+  };
+
   const lotsEnRetard = [];       // R-2 : lots à retard résiduel > 0 (compteur « N impayés »)
   // KPI Lot 0 (CDC-KPI §R-0 / D34) : le détail par lot est EXPOSÉ, pas jeté. Aucun calcul de
   // plus — on range dans byLot exactement ce que la cascade et le netting produisent déjà.
@@ -217,7 +259,7 @@ export function _computeFinancesMonthly(input) {
     // porte déjà un encaissement — décision « B ») ne peut pas être « en retard ». Les mois
     // au-delà de `dueMonth` gardent donc un retard de 0.
     let _retardLot = 0;
-    _computeLoyerNetting(lotMonths.slice(0, dueMonth), graceLast).retardMois.forEach((rm, idx) => {
+    _computeLoyerNetting(lotMonths.slice(0, dueMonth), graceLast, _openingOf(q)).retardMois.forEach((rm, idx) => {
       const b = buckets[order[idx]];
       b.loyerRetard += rm.loyer; b.chargeRetard += rm.charge;
       lotFrise[idx].loyerRetard = rm.loyer; lotFrise[idx].chargeRetard = rm.charge;
