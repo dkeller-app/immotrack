@@ -10734,8 +10734,13 @@ function _renderPilotage(ctx) {
   const _famZones = (typeof window !== 'undefined' && window._PIL_ZONES) ? window._PIL_ZONES
     : [{ id: 'argent', titre: 'Argent' }, { id: 'gestion', titre: 'Gestion locative' }];
   const premierId = (fams.familles && fams.familles[0]) ? fams.familles[0].id : null;
-  bullesEl.innerHTML = '<div class="pil-zt"><b>Ce qui presse</b><i></i><em>'
-      + (fams.total ? (fams.total + ' à traiter') : 'tout est à jour') + '</em></div>'
+  // ── La matrice de conformité (toujours rendue). Rendue AVANT le bandeau pour connaître nKo (lots à
+  //    traiter) : Bail/EDL/Caution n'ont PAS de bulle, donc « tout est à jour » ne doit pas s'afficher
+  //    si la matrice a des lots à mettre en règle (audit vitrine). Hosts DOM distincts → ordre libre.
+  let _nKoMtx = 0; try { _nKoMtx = _renderPilMatrice(ctx) || 0; } catch (e) {}
+  const _enTete = fams.total ? (fams.total + ' à traiter')
+    : (_nKoMtx ? (_nKoMtx + ' lot' + (_nKoMtx > 1 ? 's' : '') + ' à mettre en règle') : 'tout est à jour');
+  bullesEl.innerHTML = '<div class="pil-zt"><b>Ce qui presse</b><i></i><em>' + _enTete + '</em></div>'
     + _famZones.map(z => {
         const defs = _famDefs.filter(d => d.zone === z.id);
         const nz = defs.reduce((s, d) => s + (_famById[d.id] ? _famById[d.id].count : 0), 0);
@@ -10746,9 +10751,6 @@ function _renderPilotage(ctx) {
               return f ? _pilBulleHtml(f, f.id === premierId) : _pilBulleOkHtml(d);
             }).join('') + '</div></div>';
       }).join('');
-
-  // ── La matrice de conformité (toujours rendue, même quand rien ne presse) ──
-  _renderPilMatrice(ctx);
 }
 
 // Filtre courant de la matrice ('tous' | 'ko' | 'vac'), persistant le temps de la session.
@@ -10777,7 +10779,7 @@ function _pilColRefs(ctx) {
 }
 function _renderPilMatrice(ctx) {
   const { scopeLogs, yr, activeEnt } = ctx;
-  const host = el('pil-matrice'); if (!host) return;
+  const host = el('pil-matrice'); if (!host) return 0;
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
   const tel = (typeof window !== 'undefined' && window.innerWidth && window.innerWidth <= 560);
   const today = new Date();
@@ -10863,13 +10865,14 @@ function _renderPilMatrice(ctx) {
 
   if (tel) {
     host.innerHTML = '<div class="pil-mtx">' + tete + '<div class="pil-mtx-s">' + (corps || '<div class="pil-lgrp">Aucun lot</div>') + '</div></div>';
-    return;
+    return nKo;
   }
   host.innerHTML = '<div class="pil-mtx">' + tete
     + '<div class="pil-mtx-s"><table class="pil-mx"><thead><tr><th class="l">Lot</th><th class="payc">Loyer · paiement</th>'
     + _PIL_MTX_COLS.map(c => '<th>' + esc(c.l) + '</th>').join('') + '<th class="r">À faire</th></tr></thead><tbody>'
     + (corps || '<tr><td colspan="' + (3 + _PIL_MTX_COLS.length) + '" style="padding:16px;text-align:center;color:var(--t3)">Aucun lot</td></tr>')
     + '</tbody></table></div></div>';
+  return nKo;
 }
 // Famille active filtrant la matrice (posée par la chaîne de clic) — déclarée ici pour le rendu.
 let _pilMtxFamActive = null;
@@ -19745,8 +19748,12 @@ function saveBail() {
   _auditLog(isNewBail ? 'create' : 'update', 'bail', ref, ref);
   saveDB(); refreshAllIRL(); closeM('ov-bail'); initFilters(); rBaux();
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
-  // v14.48 GANTT-PREAVIS : régénérer les events fin de bail + préavis bailleur
-  try { agendaAutoSync(); } catch(e) { console.warn('[saveBail] agendaAutoSync', e); }
+  // v14.48 GANTT-PREAVIS : régénérer les events fin de bail + préavis bailleur.
+  // AUDIT-C1 — nettoyer AVANT de re-synchroniser : agendaAutoSync est add-only (clé BAIL/BAIL_PREVIS
+  // par échéance) ; sans ce cleanup, prolonger/modifier les dates d'un bail laissait l'ANCIEN préavis
+  // (date passée) en base → faux « fin de bail — échéance dépassée » sur le Pilotage. Ne retire que les
+  // events AUTO de ce lot ; les events manuels et faits sont préservés.
+  try { _cleanupBailAgendaEvents(ref); agendaAutoSync(); } catch(e) { console.warn('[saveBail] agenda', e); }
   showToast('Bail enregistré','ok'); suggestSave('Bail');
   // LOG-CANDIDATS Phase 6 : si ce save finalise une conversion candidat, migrer
   // les pièces + archiver le candidat. Consommé une seule fois (reset immédiat).
