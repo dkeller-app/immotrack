@@ -7004,6 +7004,11 @@ window.__immoSetDB = function(cloudDB) {
   // `window.opener.DB` pointe le bon objet (== liveDB, même référence) → la popup écrit + saveDB → sync.
   // Legacy non concerné (il ne passe pas par __immoSetDB ; sa popup persiste via l'événement storage).
   try { window.DB = cloudDB; } catch (e) {}
+  // AUDIT-C1 — invalide les caches mémoïsés sur _dbGen (statut loyers :10192, finances :12060, départ
+  // :25935, dashboard :54300) : sinon, après une re-hydratation cloud (re-pull cross-appareil Realtime),
+  // ils servent des valeurs PÉRIMÉES jusqu'au prochain saveDB local. saveDB (:6698) et la restauration
+  // (:55982) le bumpent déjà ; le chemin cloud était l'oubli.
+  try { window._dbGen = (window._dbGen || 0) + 1; } catch (e) {}
   // v15.452 BUG-DASHV4-CLOUD-HYDRATE — l'hydratation cloud remplace DB en bloc SANS repasser les
   // défauts d'initDB(). Un compte dont le blob espace_config n'a pas dashRenderV='v2' (compte frais /
   // bêta / associé pur-cloud) démarrait en data-dash-v4="off" → ancienne sidebar + hero météo géant +
