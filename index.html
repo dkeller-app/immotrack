@@ -1229,7 +1229,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         </div>
         <div class="card">
           <div class="ct">🔗 Relais candidatures</div>
-          <div class="mu sm mb8">Envoie à un candidat un lien sécurisé pour déposer son dossier en ligne (sans compte). Données chiffrées hébergées temporairement chez Cloudflare (sous-traitant RGPD), purgées dès rapatriement dans l'app. Voir <a href="docs/legal/RGPD-REGISTRE.md" target="_blank">RGPD-REGISTRE.md</a>.</div>
+          <div class="mu sm mb8">Envoie à un candidat un lien sécurisé pour déposer son dossier en ligne (sans compte). Données chiffrées hébergées temporairement chez Cloudflare (sous-traitant RGPD), purgées dès rapatriement dans l'app. Voir <a href="docs/legal/RGPD-REGISTRE.md" target="_blank" rel="noopener">RGPD-REGISTRE.md</a>.</div>
           <div class="alert info mb8">✓ Utilise la <b>même configuration que le relais de signature</b> (même worker Cloudflare, même clé APP_KEY). Rien à saisir ici — configure-le une seule fois dans <b>Paramètres → 📨 Signature à distance — Relais</b>.</div>
           <div class="mb8"><button class="btn bs" onclick="testRelayCfg()">🔌 Tester la connexion</button></div>
           <div id="relay-status" class="mu sm mt8"></div>
@@ -1241,7 +1241,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div class="card" id="backup-card" style="grid-column:1/-1"><!-- 🛟 Sauvegarde de sécurité (rendu par _renderBackupCard) --></div>
         <div class="card">
           <div class="ct">🔒 RGPD (v14.91)</div>
-          <div class="mu sm mb8">Droits art. 15-22 RGPD. Permet d'exporter / d'effacer les données personnelles d'un locataire. Voir aussi <a href="docs/legal/RGPD-REGISTRE.md" target="_blank">RGPD-REGISTRE.md</a>.</div>
+          <div class="mu sm mb8">Droits art. 15-22 RGPD. Permet d'exporter / d'effacer les données personnelles d'un locataire. Voir aussi <a href="docs/legal/RGPD-REGISTRE.md" target="_blank" rel="noopener">RGPD-REGISTRE.md</a>.</div>
           <div class="mb8">
             <label for="rgpd-log-ref" class="mu sm">Logement (ref) :</label>
             <select id="rgpd-log-ref" class="inp" style="width:auto;display:inline-block;margin-left:8px"></select>
@@ -49884,10 +49884,10 @@ function toggleBailMandataire(on) {
     const m = DB.params&&DB.params.mandataire;
     const prev = el('b-mandataire-preview');
     if(prev && m && m.nom) {
-      prev.innerHTML = '<strong>'+m.nom+'</strong>'
-        +(m.activite?' &mdash; '+m.activite:'')
-        +(m.carte?'<br>Carte prof. n° <strong>'+m.carte+'</strong> délivrée par CCI de '+(m.cci||'—'):'')
-        +(m.garantNom?'<br>Garant financier : '+m.garantNom+(m.garantMontant?' ('+m.garantMontant+' €)':''):'') 
+      prev.innerHTML = '<strong>'+escHtml(m.nom)+'</strong>'
+        +(m.activite?' &mdash; '+escHtml(m.activite):'')
+        +(m.carte?'<br>Carte prof. n° <strong>'+escHtml(m.carte)+'</strong> délivrée par CCI de '+escHtml(m.cci||'—'):'')
+        +(m.garantNom?'<br>Garant financier : '+escHtml(m.garantNom)+(m.garantMontant?' ('+escHtml(m.garantMontant)+' €)':''):'')
         +'<br><span style="font-size:10px;color:var(--mu)">Les informations du mandataire seront imprimées dans le bail.</span>';
     } else if(prev) {
       prev.innerHTML = '⚠️ Aucun mandataire configuré — aller dans <strong>Référentiel → 🤝 Mandataire</strong>';

@@ -92,22 +92,9 @@ export function _logEvent(name, properties = {}) {
     db.eventLog = db.eventLog.slice(-250);
   }
 
-  // Plausible-compatible : envoie si plausibleDomain configuré
-  if (db.params.plausibleDomain) {
-    try {
-      fetch('https://plausible.io/api/event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: entry.name,
-          domain: db.params.plausibleDomain,
-          url: location.href,
-          props: properties
-        }),
-        keepalive: true
-      }).catch(() => {});
-    } catch(_) {}
-  }
+  // AUDIT-C1 — beacon externe plausible.io RETIRÉ : viole la règle « aucun endpoint externe au
+  // runtime » + enjeu RGPD (exfiltration url/props vers un tiers sans consentement). L'eventLog
+  // reste LOCAL ; un forward first-party (domaine Propryo) pourra être ajouté explicitement plus tard.
 
   return entry;
 }
