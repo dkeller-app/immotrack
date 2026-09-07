@@ -10237,11 +10237,9 @@ function _pilCollectFamilles(ctx) {
   try {
     const imp = (typeof _computeImpayes === 'function') ? _computeImpayes(ctx) : { items: [] };
     (imp.items || []).forEach(it => {
-      let anc = null;
-      try {
-        const s = _suiviLoyerStrip((scopeLogs.find(l => l.ref === it.ref) || { ref: it.ref }), mo ? parseInt(yr) : parseInt(today.slice(0, 4), 10));
-        if (s && s.months) { const m = s.months.find(x => x && x.due > 0.5 && (x.due - x.recu) > 0.5); if (m && m.ym) anc = joursDepuis(m.ym + '-01'); }
-      } catch (e) {}
+      // C2 : l'ancienneté vient du MAÎTRE (byLot) via it.depuisYm (1er mois portant un résidu) —
+      // l'ancien recalcul par _suiviLoyerStrip lisait un champ `ym` absent → toujours null (audit).
+      const anc = it.depuisYm ? joursDepuis(it.depuisYm + '-01') : null;
       src.impaye.push({ ref: it.ref, nom: it.locataire || it.ref, montant: it.reste || 0, urgenceJours: anc });
     });
   } catch (e) {}
@@ -55213,12 +55211,15 @@ function _finDrillRetard(kind, yr, mo) {
   const lastMonth = _W ? _W.exigibilite.lastMonth : ((parseInt(yr, 10) === new Date().getFullYear()) ? (new Date().getMonth() + 1) : 12);
   const graceLast = _W ? _W.exigibilite.graceLast
     : ((typeof window._loyerToleranceActive === 'function') && window._loyerToleranceActive(window._loyerTodayLocal ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)));
-  const arr = window._computeLoyerArrears;
-  const map = _finLotMonthsMap(yr, scope, lastMonth);
+  // C2 — le drill lit le MÊME maître que la colonne P&L (byLot.months), fini _computeLoyerArrears
+  // (carry:false) qui divergeait de la colonne (netting carry:true) : le chiffre ET sa cause
+  // concordent désormais, report d'ouverture N-1 inclus. graceLast/lastMonth restent portés par la
+  // fenêtre côté moteur (byLot.months[].loyerRetard = résidu exigible du mois).
+  const _cur = (typeof _finMonthly === 'function') ? _finMonthly(parseInt(yr, 10), scope, _W ? _W.constat : lastMonth) : null;
+  const byLot = (_cur && _cur.byLot) || {};
   const blocks = []; let total = 0;
-  for (const q in map) {
-    const res = arr ? arr(map[q], graceLast) : null; if (!res) continue;
-    let cause = isLoy ? res.causeLoyer : res.causeCharge;
+  for (const q in byLot) {
+    let cause = (byLot[q].months || []).map((m, idx) => ({ idx, short: Math.round((isLoy ? m.loyerRetard : m.chargeRetard) * 100) / 100, due: isLoy ? m.duHC : m.duCH, recv: m.encaisse })).filter(c => c.short > 0.005);
     if (mo) cause = cause.filter(c => c.idx === (mo - 1));   // mois cliqué → ce mois seulement (année = tous les mois)
     const arrear = Math.round(cause.reduce((s, c) => s + c.short, 0) * 100) / 100;
     if (!(arrear > 0.005)) continue;
