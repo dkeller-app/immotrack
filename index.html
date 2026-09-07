@@ -12745,35 +12745,42 @@ function _computeUnifiedTodo(ctx) {
    calculer l'attendu réel (prorata jours intra-mois). Avant fix : (l.hc||0)+(l.ch||0)
    direct depuis le logement → locataire entré mi-mois marqué impayé à tort. */
 function _computeImpayes(ctx) {
-  const {scopeLogs, yr, mo} = ctx;
-  // SUIVI-LOYERS-SOURCE-UNIQUE Phase B : façade sur le moteur unique.
-  // - Mois COURANT : impayé = SOLDE négatif du locataire (report géré : « 2 mois payés en
-  //   janvier » ne fait plus un faux impayé en février — constat 40), avec LA règle de
-  //   tolérance partagée (_loyerSoldeAjuste : avant le 10, seul le mois courant est neutralisé,
-  //   les vrais arriérés restent visibles — fini le « 0 impayé ici, 14 là », constat 45).
-  // - Mois PASSÉ sélectionné : couverture de CE mois par l'allocation (due − recu alloué).
-  if (typeof window._computeLoyerStatut !== 'function') return {count:0, totalDue:0, items:[]};
+  const { scopeLogs, yr, mo, activeEnt } = ctx;
+  // C2 — FINANCES EST LE MAÎTRE DE L'ARRIÉRÉ (décision user, CDC-FINANCES §0bis). Cette façade
+  // ne recalcule plus rien : elle LIT byLot du moteur Finances (_finMonthly → _computeFinancesMonthly),
+  // qui porte le retard NETTÉ (avance↔retard), la tolérance début-de-mois (via la fenêtre) ET la
+  // POSITION D'OUVERTURE N-1 (décision (b)). Fin du moteur annuel concurrent _computeLoyerStatut :
+  // Accueil = Finances au centime PAR CONSTRUCTION (invariant testé).
+  //  - Instant T (mo vide, cas Accueil/Pilotage) : arriéré ANNUEL du lot (report N-1 inclus).
+  //  - Mois précis sélectionné : résidu de CE mois (colonne P&L du maître).
+  if (typeof _finMonthly !== 'function') return { count: 0, totalDue: 0, items: [] };
   const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
-  const refY = mo ? parseInt(yr) : parseInt(today.slice(0, 4), 10);
-  const refM = mo ? parseInt(mo) : parseInt(today.slice(5, 7), 10);
-  const isCurrentMonth = (refY === parseInt(today.slice(0, 4), 10) && refM === parseInt(today.slice(5, 7), 10));
+  const refY = mo ? parseInt(yr, 10) : parseInt(today.slice(0, 4), 10);
+  let byLot = {};
+  try {
+    const scope = (typeof _finEntScope === 'function') ? _finEntScope(activeEnt || '', '') : null;
+    const W = (typeof _finWindows === 'function') ? _finWindows(refY, scope) : null;
+    const r = _finMonthly(refY, scope, W ? W.constat : undefined);
+    if (r && r.byLot) byLot = r.byLot;
+  } catch (e) {}
   let count = 0, totalDue = 0;
   const items = [];
   scopeLogs.filter(l => l.locataire).forEach(l => {
-    const s = _suiviLoyerStrip(l, refY);
-    if (!s) return;
-    if (isCurrentMonth) {
-      const sa = (typeof window._loyerSoldeAjuste === 'function') ? window._loyerSoldeAjuste(s, today) : s.solde;
-      const v = window._loyerChipVerdict(sa, s.monthlyFull);
-      if (v.cls === 'retard') { count++; totalDue += v.montant; items.push({ref:l.ref, locataire:l.locataire, reste:v.montant, attendu:s.attendu, enc:s.recu}); }
+    const b = byLot[l.ref]; if (!b) return;
+    let reste, enc, attendu, depuisYm = null;
+    if (mo) {
+      const m = b.months && b.months[parseInt(mo, 10) - 1]; if (!m) return;
+      reste = Math.round((m.loyerRetard + m.chargeRetard) * 100) / 100;
+      enc = m.encaisse; attendu = Math.round((m.duHC + m.duCH) * 100) / 100;
     } else {
-      const m = s.months[refM - 1];
-      if (!m || m.due <= 0.5) return;
-      const reste = Math.round((m.due - m.recu) * 100) / 100;
-      if (reste > 0.5) { count++; totalDue += reste; items.push({ref:l.ref, locataire:l.locataire, reste, attendu:m.due, enc:m.recu}); }
+      const A = b.annual || {};
+      reste = A.retard || 0; enc = A.encaisse || 0; attendu = Math.round(((A.duHC || 0) + (A.duCH || 0)) * 100) / 100;
+      // Ancienneté (fin du « toujours null », audit) : 1er mois du maître portant un résidu.
+      if (Array.isArray(b.months)) { for (let k = 0; k < b.months.length; k++) { const m = b.months[k]; if ((m.loyerRetard + m.chargeRetard) > 0.5) { depuisYm = m.ym; break; } } }
     }
+    if (reste > 0.5) { count++; totalDue += reste; items.push({ ref: l.ref, locataire: l.locataire, reste, attendu, enc, depuisYm }); }
   });
-  return {count, totalDue: Math.round(totalDue * 100) / 100, items};
+  return { count, totalDue: Math.round(totalDue * 100) / 100, items };
 }
 
 /* Drill-down tableau complet "À traiter" — groupé par sévérité. */
