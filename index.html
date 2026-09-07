@@ -4263,6 +4263,7 @@ function _uiIcon(name, size) {
     mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
     send:'<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>',
     settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    sliders:'<path d="M4 21v-6M4 11V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 15h6M9 8h6M17 16h6"/>',
     sign:'<path d="M3 19c3 0 3-10 6-10s2 6 4 6 3-4 3-4"/><path d="M3 21h18"/>',
     clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     hourglass:'<path d="M6 2h12M6 22h12M6 2c0 5 6 6 6 6s6-1 6-6M6 22c0-5 6-6 6-6s6 1 6 6"/>',
@@ -50121,7 +50122,7 @@ function rParamsProfile() {
 
   wrap.innerHTML = `
     <div style="max-width:760px">
-      <div class="ct mb16">👤 Mon profil</div>
+      <div class="ct mb16">${_uiIcon('person',16)} Mon profil</div>
       <div class="mu sm mb16">
         Adapte l'interface à votre usage. Vous pouvez activer/désactiver chaque module individuellement.
       </div>
@@ -50141,7 +50142,7 @@ function rParamsProfile() {
       </div>
 
       <!-- PC-REFONTE étape 2 : identité regroupée ici (prénom + représentant), déplacée depuis « Préférences ». -->
-      <div class="ct mb12" style="font-size:14px">👤 Identité</div>
+      <div class="ct mb12" style="font-size:14px">${_uiIcon('person',15)} Identité</div>
       <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
         <div class="fg mb8">
           <label style="font-size:11px">Prénom (salutation du tableau de bord — « Bonjour Jean »)</label>
@@ -50151,7 +50152,7 @@ function rParamsProfile() {
           <label style="font-size:11px">Représentant bailleur par défaut (pré-rempli dans les EDL)</label>
           <input class="inp" id="param-gerant-defaut" placeholder="ex : Jean Dupont" style="width:100%" value="${escHtml(DB.params.gerantDefaut||'')}">
         </div>
-        <button class="btn bp bb" onclick="saveGlobalParams()">💾 Enregistrer</button>
+        <button class="btn bp bb" onclick="saveGlobalParams()">${_uiIcon('save',14)} Enregistrer</button>
       </div>
 
       <div class="ct mb12" style="font-size:14px">${_uiIcon('settings')} Modules activables</div>
