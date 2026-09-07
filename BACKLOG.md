@@ -16,6 +16,10 @@
 
 ✅ **saveBail INTÉGRÉ ET DÉPLOYÉ v15.544** (`3659faa`) après **8 passes d'audit**, verdict final SÛR sur fenêtre 2022-2042. **La partition du barème est réparée : plus aucun loyer passé recalculé au tarif d'aujourd'hui** (I-1 : 31 209 mois / 1,8 M€ en prod → 0). Plus les 3 pertes de données silencieuses fermées : dossier de départ préservé à l'enregistrement du bail, révision IRL programmée non écrasée, provision vidée qui n'écrit plus 0€. 3682 tests, worktree détruit, branche supprimée. **Suite consignée (hors périmètre)** : `reancrerPeriodesDuBail` étend une période vers l'arrière sans plancher quand on recule la date de début d'un bail derrière le locataire précédent → refus parlant à faire dans `saveBail`.
 
+🚀 **EDL garage + bail garage nature « garage » + adresse locataire — DÉPLOYÉ v15.602 (04/09)** — CDC `docs/CDC-EDL-GARAGE.md`. Bail : nature garage (place/box/garage/stockage) + champ « Adresse du locataire (domicile) » (identité + élection de domicile). EDL garage droit commun : module testé `edl-garage-model.js` (porte/serrure/huisserie/sol/plafond/toiture/éclairage/prise, ajout/retrait), parcours allégé (compteurs/DAAF/mobilier retirés, « Clés »→« Moyens d'accès »), bascule auto source unique `_edlDeriveGarageMode` (record d'abord) toutes portes d'entrée, PDF réduit. Audit code-reviewer (2 IMPORTANT dérivation éclatée + entrée générique + minors) corrigés. Gate 3960, CRLF 58928/0. **RESTE smoke user 3 formats** (créer bail garage nature garage/box/place → EDL réduit + PDF ; adresse locataire ; non-régression EDL logement) + **supprimer branche `feat/edl-garage`**.
+
+**Follow-on à cadrer (04/09)** : retouches de la fiche bien — **onglet Équipements** (modale « Modifier : {bien} ») + autres ajustements signalés par Didier. À traiter APRÈS l'EDL garage. · Template **Word garage** (Word bloqué en attendant côté bail garage).
+
 **Chantiers prêts à lancer (CDC figés, non démarrés)** : Finances = onglet maître (CDC §0bis) · timeline barème = geste « corriger une période » (`PROMPT-SESSION-TIMELINE-BAREME.md`). Sessions user à ouvrir : KPI, résumé mensuel.
 
 ---
