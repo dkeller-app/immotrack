@@ -151,6 +151,9 @@
 
     // ── Identité des parties (bloc partagé injecté) + phrase d'engagement garage ──
     out.push(...identity);
+    // Adresse du locataire (domicile) — l'emplacement n'est pas son habitation : on porte son
+    // domicile réel s'il est renseigné (le bloc identité injecté ne le contient pas pour un garage).
+    if (has(c.locDomicile)) out.push({ type: 'p', text: `Le LOCATAIRE demeure : ${S(c.locDomicile)}.` });
     out.push({ type: 'p', text: 'IL A ÉTÉ CONVENU ET ARRÊTÉ CE QUI SUIT. Le BAILLEUR donne à bail au LOCATAIRE, qui accepte, l\'emplacement ci-après désigné, aux seules charges et conditions énoncées ci-dessous.' });
 
     // ── §1 Désignation de l'emplacement ─────────────────────────────────────
@@ -275,7 +278,7 @@
     out.push({ type: 'h3', text: 'Tolérance — non-renonciation' });
     out.push({ type: 'p', text: 'Le fait pour le BAILLEUR de tolérer un retard de paiement ou l\'inexécution d\'une obligation ne peut jamais être interprété comme une renonciation à s\'en prévaloir ni comme une modification du contrat.' });
     out.push({ type: 'h3', text: 'Élection de domicile' });
-    out.push({ type: 'p', text: 'Le BAILLEUR fait élection de domicile à son siège ; le LOCATAIRE à l\'adresse de l\'emplacement loué. Toute correspondance y est valablement notifiée.' });
+    out.push({ type: 'p', text: 'Le BAILLEUR fait élection de domicile à son siège ; le LOCATAIRE ' + (has(c.locDomicile) ? 'à son domicile sis ' + S(c.locDomicile) : 'à l\'adresse de l\'emplacement loué') + '. Toute correspondance y est valablement notifiée.' });
     if (c.erpZoneRisque) {
       out.push({ type: 'h3', text: 'État des risques' });
       out.push({ type: 'p', text: 'L\'emplacement étant situé dans une zone couverte par un plan de prévention des risques (ou en zone sismique / radon), un état des risques (art. L. 125-5 du Code de l\'environnement) de moins de six mois est annexé au présent contrat (Annexe 2).' });

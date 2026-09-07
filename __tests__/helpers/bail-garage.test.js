@@ -241,3 +241,17 @@ describe('buildGarageStructure — pagination (page-break avant Signatures et An
     expect(sigIdx).toBeLessThan(annIdx);
   });
 });
+
+describe('buildGarageStructure — adresse du locataire (domicile, hors logement)', () => {
+  it('domicile renseigné : « Le LOCATAIRE demeure » + élection de domicile sur le domicile', () => {
+    const t = allText(build({ locDomicile: '5 rue du Domicile, 68000 Colmar' }));
+    expect(t).toMatch(/Le LOCATAIRE demeure : 5 rue du Domicile, 68000 Colmar\./);
+    expect(t).toMatch(/le LOCATAIRE à son domicile sis 5 rue du Domicile, 68000 Colmar/);
+    expect(t).not.toMatch(/le LOCATAIRE à l'adresse de l'emplacement loué/);
+  });
+  it('domicile absent : pas de ligne « demeure », élection de domicile sur l\'emplacement (défaut)', () => {
+    const t = allText(build({ locDomicile: '' }));
+    expect(t).not.toMatch(/Le LOCATAIRE demeure/);
+    expect(t).toMatch(/le LOCATAIRE à l'adresse de l'emplacement loué/);
+  });
+});

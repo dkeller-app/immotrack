@@ -1956,6 +1956,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           <div class="fg"><label>Durée <span class="mu sm">(libre)</span></label><input class="inp" id="b-dureeGarage" placeholder="1 (un) an, reconductible"></div>
         </div>
         <div class="fg"><label>Descriptif de l'emplacement</label><input class="inp" id="b-emplDesc" placeholder="porte basculante avec serrure, point lumineux, prise électrique"></div>
+        <div class="fg"><label>Adresse du locataire (domicile) <span class="mu sm">— l'emplacement n'est pas son habitation</span></label><input class="inp" id="b-locDomicile" placeholder="12 rue du Domicile, 68000 Colmar"></div>
         <div class="fg2">
           <div class="fg"><label>Préavis de résiliation</label><input class="inp" id="b-preavisGarage" placeholder="un (1) mois"></div>
           <div class="fg"></div>
@@ -16276,6 +16277,7 @@ function openBailHist(i) {
   try { _toggleMobilierSection(b.type || 'nu'); } catch(e) {}
   // CHANTIER BAIL-GARAGE — champs emplacement
   if(el('b-emplNature'))   el('b-emplNature').value   = b.natureEmplacement || 'box';
+  if(el('b-locDomicile'))  el('b-locDomicile').value  = b.locDomicile || '';
   if(el('b-emplNum'))      el('b-emplNum').value       = b.emplNum || '';
   if(el('b-emplSurface'))  el('b-emplSurface').value   = b.emplSurface || '';
   if(el('b-emplNiveau'))   el('b-emplNiveau').value    = b.emplNiveau || '';
@@ -18370,6 +18372,7 @@ function openBail(ref, opts) {
   try { _toggleMobilierSection(bail.type || 'nu'); } catch(e) {}
   // CHANTIER BAIL-GARAGE — champs emplacement
   if(el('b-emplNature'))   el('b-emplNature').value   = bail.natureEmplacement || 'box';
+  if(el('b-locDomicile'))  el('b-locDomicile').value  = bail.locDomicile || '';
   if(el('b-emplNum'))      el('b-emplNum').value       = bail.emplNum || '';
   if(el('b-emplSurface'))  el('b-emplSurface').value   = bail.emplSurface || '';
   if(el('b-emplNiveau'))   el('b-emplNiveau').value    = bail.emplNiveau || '';
@@ -19921,6 +19924,7 @@ function getBailDataFromForm() {
       if ((v('b-type')||'nu') !== 'garage') return {};
       return {
         natureEmplacement: v('b-emplNature') || 'box',
+        locDomicile: v('b-locDomicile'),
         emplNum: v('b-emplNum'), emplSurface: v('b-emplSurface'),
         emplNiveau: v('b-emplNiveau'), emplDesc: v('b-emplDesc'),
         dureeGarageText: v('b-dureeGarage'), preavisGarage: v('b-preavisGarage'),
@@ -20475,6 +20479,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
         nature: bail.natureEmplacement,
         adrBien: adrBien, ensembleAdr: adrBien,
         numEmplacement: S(bail.emplNum || bail.lot || ''),
+        locDomicile: S(bail.locDomicile || ''),
         surface: S(bail.emplSurface || bail.surf || ''),
         niveau: S(bail.emplNiveau || bail.etage || ''),
         descriptif: S(bail.emplDesc || ''),
