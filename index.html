@@ -963,8 +963,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div class="tab" onclick="setParamsTab('rules',this)"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M4 7h7M15 7h5M4 12h9M17 12h3M4 17h3M11 17h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="7" r="2" stroke="currentColor" stroke-width="2"/><circle cx="15" cy="12" r="2" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="17" r="2" stroke="currentColor" stroke-width="2"/></svg>Règles import</div>
         <div class="tab" onclick="setParamsTab('mandataire',this)"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Mandataire</div>
         <div class="tab" onclick="setParamsTab('partage',this)"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 6.2a3 3 0 0 1 0 5.6M17.5 19a5.5 5.5 0 0 0-2.7-4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Partage</div>
-        <div class="tab" onclick="setParamsTab('profile',this)"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="2"/><path d="M5 20a7 7 0 0 1 14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Profil utilisateur</div>
-        <div class="tab" onclick="setParamsTab('global',this)"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2.2-1.3L14 2h-4l-.3 2.4a7 7 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2.2 1.3L10 22h4l.3-2.4a7 7 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.07-.43.1-.86.1-1.3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Préférences</div>
+        <div class="tab" onclick="setParamsTab('profile',this)"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="2"/><path d="M5 20a7 7 0 0 1 14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Mon profil</div>
+        <div class="tab" onclick="setParamsTab('global',this)"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2.2-1.3L14 2h-4l-.3 2.4a7 7 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2.2 1.3L10 22h4l.3-2.4a7 7 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.07-.43.1-.86.1-1.3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Avancé</div>
       </div>
       <div class="tab-panel act" id="tp-categories">
         <div class="flex-b mb12">
@@ -1097,18 +1097,10 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 
       <div class="tab-panel" id="tp-global">
         <div style="max-width:600px">
-          <div class="ct mb16"><span data-uic="settings"></span> Paramètres globaux</div>
+          <div class="ct mb16"><span data-uic="settings"></span> Avancé</div>
 
-          <!-- Utilisateur (v2) -->
-          <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
-            <div style="font-weight:700;color:var(--acc);margin-bottom:4px">👤 Utilisateur</div>
-            <div class="mu sm mb8">Prénom utilisé pour la salutation du tableau de bord (« Bonjour Jean »). Laisser vide = salutation neutre.</div>
-            <div class="fg mb8">
-              <label style="font-size:11px">Prénom</label>
-              <input class="inp" id="param-user-name" placeholder="ex : Jean" style="width:100%">
-            </div>
-            <button class="btn bp bb" onclick="saveGlobalParams()">💾 Enregistrer</button>
-          </div>
+          <!-- PC-REFONTE étape 2 : prénom + représentant déplacés vers « Mon profil » ;
+               relais retiré (défaut RELAY_BASE_DEFAULT) ; note mandataire retirée. Reste : IRL + maintenance. -->
 
           <!-- CDC-QUITTANCES-IRL D21/I13 — le réglage global « génération auto mensuelle »
                est RETIRÉ : il émettait des quittances sans regarder si le loyer était payé.
@@ -1138,31 +1130,10 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
             <div class="mu sm" style="margin-top:8px;font-size:11px">Un trimestre est publié environ six semaines après sa fin : la colonne « Publié au JO » dit à partir de quand l'indice existe. Sans réseau, la table conserve ses valeurs et le filet interne complète ce qui manque.</div>
           </div>
 
-          <!-- BAIL-SIGNATURE-DISTANCE C3 (Task 14) : configuration du relais de signature à distance -->
-          <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
-            <div style="font-weight:700;color:var(--acc);margin-bottom:4px">📨 Signature à distance — Relais</div>
-            <div class="mu sm mb10">URL du Worker relais pour la signature électronique à distance. L'authentification se fait automatiquement avec ta session — aucune clé à saisir.</div>
-            <div class="fg mb8">
-              <label style="font-size:11px">URL du relais de signature</label>
-              <input class="inp" id="param-bailsign-relay-url" placeholder="https://bail-sign-relay.didierkeller.workers.dev" style="width:100%;font-family:monospace">
-            </div>
-            <button class="btn bp bb" onclick="saveGlobalParams()">💾 Enregistrer</button>
-          </div>
 
 
-          <!-- Mandataire géré dans l'onglet Référentiel → 🤝 Mandataire -->
-          <div class="alert info mb16">🤝 Les informations mandataire se configurent dans l'onglet <strong>Mandataire</strong> ci-dessus.</div>
 
 
-          <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
-            <div style="font-weight:700;color:var(--acc);margin-bottom:4px">👤 Représentant bailleur par défaut</div>
-            <div class="mu sm mb8">Pré-rempli dans les EDL si aucune entité ne définit de gérant.</div>
-            <div class="fg mb8">
-              <label style="font-size:11px">Nom du représentant</label>
-              <input class="inp" id="param-gerant-defaut" placeholder="ex : Jean Dupont" style="width:100%">
-            </div>
-            <button class="btn bp bb" onclick="saveGlobalParams()">💾 Enregistrer</button>
-          </div>
 
           <!-- v14.53 BUG-ENT-ORPHANS-CLEANUP Phase 2 : maintenance des rattachements orphelins -->
           <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
@@ -49540,12 +49511,8 @@ function rParamsPieces() {
 
 function rParamsGlobal() {
   if(!DB.params) DB.params = {};
-  const g = el('param-gerant-defaut');
-  if(g) g.value = DB.params.gerantDefaut || '';
-  const u = el('param-user-name');
-  if(u) u.value = DB.params.userName || '';
-  // BAIL-SIGNATURE-DISTANCE : URL du relais (auth = jeton de session, aucune clé à saisir).
-  const ru = el('param-bailsign-relay-url'); if (ru) ru.value = (DB.params.bailSignRelayUrl || '');
+  // PC-REFONTE étape 2 : prénom + représentant peuplés dans « Mon profil » (rParamsProfile) ;
+  // relais retiré. Ce panneau « Avancé » ne contient plus que IRL + maintenance (rendus ailleurs).
 }
 
 function rMandRef() {
@@ -49910,14 +49877,11 @@ function toggleTravauxInterLoc() {
 
 function saveGlobalParams() {
   if(!DB.params) DB.params = {};
-  const gerant   = v('param-gerant-defaut').trim();
-  const userName = (el('param-user-name') ? v('param-user-name').trim() : '');
-  DB.params.gerantDefaut     = gerant || '';
-  DB.params.userName         = userName;
-  // BAIL-SIGNATURE-DISTANCE C3 (Task 14) : relais signature distance. APP_KEY non trimée (clé exacte).
-  // Relais : URL du worker = config LOCAL-USER (jamais synchronisée — strip extractConfig), écrite en
-  // localStorage par appareil. L'authentification se fait par jeton de session — aucune clé à enregistrer.
-  if (el('param-bailsign-relay-url')) { DB.params.bailSignRelayUrl = v('param-bailsign-relay-url').trim(); try { localStorage.setItem(_lsKey('RELAY_BASE'), DB.params.bailSignRelayUrl); } catch (e) {} }
+  // PC-REFONTE étape 2 : prénom + représentant vivent dans « Mon profil ». Gardes :
+  // si l'input n'est pas rendu, on préserve la valeur existante (jamais d'écrasement à vide).
+  DB.params.gerantDefaut = el('param-gerant-defaut') ? v('param-gerant-defaut').trim() : (DB.params.gerantDefaut || '');
+  DB.params.userName     = el('param-user-name')     ? v('param-user-name').trim()     : (DB.params.userName || '');
+  // Relais signature retiré des réglages (défaut RELAY_BASE_DEFAULT). Champ absent → rien à écrire.
   saveDB();
   showToast('Paramètres enregistrés ✓', 'ok');
 }
@@ -50152,7 +50116,7 @@ function rParamsProfile() {
 
   wrap.innerHTML = `
     <div style="max-width:760px">
-      <div class="ct mb16">👤 Profil utilisateur</div>
+      <div class="ct mb16">👤 Mon profil</div>
       <div class="mu sm mb16">
         Adapte l'interface à votre usage. Vous pouvez activer/désactiver chaque module individuellement.
       </div>
@@ -50169,6 +50133,20 @@ function rParamsProfile() {
           </div>
         </div>
         ${ansHtml}
+      </div>
+
+      <!-- PC-REFONTE étape 2 : identité regroupée ici (prénom + représentant), déplacée depuis « Préférences ». -->
+      <div class="ct mb12" style="font-size:14px">👤 Identité</div>
+      <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
+        <div class="fg mb8">
+          <label style="font-size:11px">Prénom (salutation du tableau de bord — « Bonjour Jean »)</label>
+          <input class="inp" id="param-user-name" placeholder="ex : Jean" style="width:100%" value="${escHtml(DB.params.userName||'')}">
+        </div>
+        <div class="fg mb8">
+          <label style="font-size:11px">Représentant bailleur par défaut (pré-rempli dans les EDL)</label>
+          <input class="inp" id="param-gerant-defaut" placeholder="ex : Jean Dupont" style="width:100%" value="${escHtml(DB.params.gerantDefaut||'')}">
+        </div>
+        <button class="btn bp bb" onclick="saveGlobalParams()">💾 Enregistrer</button>
       </div>
 
       <div class="ct mb12" style="font-size:14px">${_uiIcon('settings')} Modules activables</div>
