@@ -104,3 +104,77 @@ Pas de prorata charges à part pour une entrée en cours de mois. « sans bail �
   près » mais un sous-système plus vieux. Ce chantier Finances a été validé via preview (données démo isolées) +
   app déployée, pas via `index-test.html`. Rétro-porter une seule fonction dans un sous-système divergent serait
   incohérent (violerait DRY). À reprendre si/quand le sandbox Finances est remis à niveau globalement.
+
+---
+
+## Phase C2 — FINANCES MAÎTRE DE L'ARRIÉRÉ (CDC figé 2026-09-07, décisions user)
+
+> Née de l'audit code global 2026-09-07 (dashboard `mockups/AUDIT-CODE/`). Constat : **3 moteurs d'arriéré
+> concurrents** répondent encore à « qui est en retard, combien » — `_computeLoyerStatut` (annuel, Accueil/
+> matrice/fiche via `_computeImpayes`/`_suiviLoyerStrip`), `_computeLoyerArrears` (carry:false, drill Finances
+> `_finDrillRetard`), `_computeLoyerNetting` (carry, onglet Loyers `etatMoisLot` + colonne retard du P&L
+> `finances-monthly.js:220`). Résultat : **Accueil ≠ Loyers ≠ Finances** sur les reports inter-années — viole
+> CDC-FINANCES §0bis invariant #4 (« Accueil = Finances au centime »). C'est la migration promise mais
+> jamais finie (loyer-statut.js:198 « les surfaces basculeront sur `_computeLoyerNetting` »).
+
+### Principe (gravé, réaffirmé user 2026-09-07 : « Finances est l'onglet maître, la source de vérité »)
+**`_computeFinancesMonthly.byLot` EST la source unique de l'arriéré.** Il expose déjà, par lot :
+`annual.retard`, `annual.avance`, `solde`, et le détail mois par mois (`months[].loyerRetard/chargeRetard`),
++ la liste `lotsEnRetard`. **Toutes les autres surfaces LISENT cette sortie ; aucune ne recalcule** — pas
+même en rappelant la même fonction dans son coin.
+
+### Décision user : (b) position d'ouverture
+Le retard du maître était **borné à l'année affichée** (Σ des résidus des mois de l'année) → un arriéré ouvert
+en N-1 n'entrait pas dans le retard de N. **Décision : (b)** — le moteur Finances porte une **position
+d'ouverture d'arriéré** au 1er janvier de l'exercice : pour chaque lot, l'arriéré (loyer puis charges) accumulé
+du **début du suivi** (1er mouvement de la base, borné à `max(bail.debut, début du suivi)`) jusqu'au 31/12 de
+l'année précédente, **injecté comme dette de départ** dans le netting de l'année N. Ainsi l'« impayé » de
+l'Accueil ne ment jamais sur un vieux dû.
+- **Seed = `_computeLoyerCumul`** (module `loyer-statut.js`, cumul signé borné au début du suivi, construit en
+  Phase D-matrice, aujourd'hui **code mort** — l'audit l'a confirmé) : C2 le ressuscite comme graine de la
+  position d'ouverture (DRY, pas de nouveau moteur).
+- Position d'ouverture **négative seulement** (un trop-perçu de N-1 = avance d'ouverture, chip bleue à part —
+  jamais fusionné dans « à récupérer »).
+
+### Surfaces rebranchées (façades qui lisent `byLot`)
+1. **Accueil / matrice / fiche** — `_computeImpayes` cesse d'appeler `_computeLoyerStatut` ; ensemble en retard
+   = `{ref : byLot[ref].annual.retard > 0}`, montant + ancienneté lus du maître. Accueil = Finances **par
+   construction**. (Corrige aussi le trou « ancienneté toujours null » — l'urgence vient des `months[]` du maître.)
+2. **Drill Finances « Cause du retard »** — `_finDrillRetard` lit `byLot[ref].months[]` au lieu de
+   `_computeLoyerArrears`. Le drill cesse de contredire sa propre colonne.
+3. **Onglet Loyers** — la frise reste le détail visuel, mais son **total d'arriéré réconcilie au centime** avec
+   `byLot` (invariant). Là où c'est propre, elle lit `byLot[ref].months` directement.
+
+### Conservé / intouché
+- **Tolérance 1er du mois** (constante partagée) appliquée partout — le mois courant non échu n'est pas un retard.
+- **Avances affichées à part** (chip bleue), jamais dans « à récupérer ».
+- **Base fiscale 2044 INTOUCHÉE** : elle reste le brut `(cr − db)` par catégorie, ne dépend jamais du split ni
+  de la position d'ouverture. Le résultat 2044 ne bouge pas d'un centime.
+- Compte de résultat / trésorerie Finances (vue cash) inchangé.
+
+### Garde-fou = INVARIANT testé (le cœur du chantier, écrit AVANT le code)
+Sur jeux réels + scénarios forgés (arriéré N-1, avance déc→janv N+1, rattrapage de janvier, mois partiel,
+entrée/sortie en cours de mois) : **Σ retard Accueil == Σ retard Finances == Σ retard onglet Loyers, au
+centime** ; avances idem, à part ; tolérance respectée ; **base 2044 identique avant/après (octet)**. Test
+d'invariant permanent (`__tests__/…arriere-source-unique.test.js`) qui rend toute future divergence impossible.
+
+### Impact fiscal & risque
+Le **chiffre d'argent du moteur maître change** (le retard inclut désormais l'ouverture) → **audit code-reviewer
+renforcé + 2e passe de vérification** (règle §5bis-5), smoke 3 formats au volume réel. La base 2044, elle, ne
+change pas (vérifié par l'invariant octet). Aucune colonne cloud nouvelle (la position d'ouverture est calculée,
+pas stockée).
+
+### Retrait (une fois les surfaces basculées, vérifié 0 appelant)
+`_computeLoyerStatut`, `_computeLoyerArrears`, `_suiviLoyerStrip` (si plus lu que par ces surfaces) →
+suppression. `_computeLoyerCumul` **cesse d'être mort** (devient le seed).
+
+### Hors scope (chantiers séparés)
+Phase E régularisation (fiscal, à part) · résidu cosmétique R1 (déjà partiellement adressé par l'ouverture) ·
+le re-skin visuel des surfaces (aucun changement visuel voulu ici — mêmes pastilles/mêmes libellés).
+
+### Gate
+Worktree dédié · invariants écrits d'abord (TDD) · `npx vitest run` vert · `check-inline-js` 5\|0 · CRLF 0 LF nu
+· audit code-reviewer + 2e passe · smoke user 3 formats. Bump + BACKLOG temps réel. Jamais de commit depuis
+`Desktop\Immo`.
+
+- 2026-09-07 : CDC C2 figé, décisions user (Finances maître ; (b) position d'ouverture). Chantier ouvert.
