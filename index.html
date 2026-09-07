@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.601</title>
+<title>Propryo v15.602</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.601</em>
+      <em>v15.602</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -1943,6 +1943,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           <select class="inp" id="b-emplNature">
             <option value="place">Place de stationnement (numérotée, non fermée)</option>
             <option value="box" selected>Box fermé (surface + serrure)</option>
+            <option value="garage">Garage individuel (fermé, avec toiture)</option>
             <option value="stockage">Local de stockage / de rangement</option>
           </select>
         </div>
@@ -1955,6 +1956,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           <div class="fg"><label>Durée <span class="mu sm">(libre)</span></label><input class="inp" id="b-dureeGarage" placeholder="1 (un) an, reconductible"></div>
         </div>
         <div class="fg"><label>Descriptif de l'emplacement</label><input class="inp" id="b-emplDesc" placeholder="porte basculante avec serrure, point lumineux, prise électrique"></div>
+        <div class="fg"><label>Adresse du locataire (domicile) <span class="mu sm">— l'emplacement n'est pas son habitation</span></label><input class="inp" id="b-locDomicile" placeholder="12 rue du Domicile, 68000 Colmar"></div>
         <div class="fg2">
           <div class="fg"><label>Préavis de résiliation</label><input class="inp" id="b-preavisGarage" placeholder="un (1) mois"></div>
           <div class="fg"></div>
@@ -16275,6 +16277,7 @@ function openBailHist(i) {
   try { _toggleMobilierSection(b.type || 'nu'); } catch(e) {}
   // CHANTIER BAIL-GARAGE — champs emplacement
   if(el('b-emplNature'))   el('b-emplNature').value   = b.natureEmplacement || 'box';
+  if(el('b-locDomicile'))  el('b-locDomicile').value  = b.locDomicile || '';
   if(el('b-emplNum'))      el('b-emplNum').value       = b.emplNum || '';
   if(el('b-emplSurface'))  el('b-emplSurface').value   = b.emplSurface || '';
   if(el('b-emplNiveau'))   el('b-emplNiveau').value    = b.emplNiveau || '';
@@ -18369,6 +18372,7 @@ function openBail(ref, opts) {
   try { _toggleMobilierSection(bail.type || 'nu'); } catch(e) {}
   // CHANTIER BAIL-GARAGE — champs emplacement
   if(el('b-emplNature'))   el('b-emplNature').value   = bail.natureEmplacement || 'box';
+  if(el('b-locDomicile'))  el('b-locDomicile').value  = bail.locDomicile || '';
   if(el('b-emplNum'))      el('b-emplNum').value       = bail.emplNum || '';
   if(el('b-emplSurface'))  el('b-emplSurface').value   = bail.emplSurface || '';
   if(el('b-emplNiveau'))   el('b-emplNiveau').value    = bail.emplNiveau || '';
@@ -19920,6 +19924,7 @@ function getBailDataFromForm() {
       if ((v('b-type')||'nu') !== 'garage') return {};
       return {
         natureEmplacement: v('b-emplNature') || 'box',
+        locDomicile: v('b-locDomicile'),
         emplNum: v('b-emplNum'), emplSurface: v('b-emplSurface'),
         emplNiveau: v('b-emplNiveau'), emplDesc: v('b-emplDesc'),
         dureeGarageText: v('b-dureeGarage'), preavisGarage: v('b-preavisGarage'),
@@ -20460,7 +20465,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     const _lettres = n => (n ? _cap(numToWords(Math.round(n))) : '');
     const _gnat = window.BailGarage.resolveGarageNature(bail);
     const _emplRecap = [
-      (_gnat === 'place' ? 'Place de stationnement' : _gnat === 'stockage' ? 'Local de stockage' : 'Box fermé'),
+      (_gnat === 'place' ? 'Place de stationnement' : _gnat === 'stockage' ? 'Local de stockage' : _gnat === 'garage' ? 'Garage individuel' : 'Box fermé'),
       (bail.emplNum || bail.lot) ? ('n° ' + S(bail.emplNum || bail.lot)) : '',
       (bail.emplNiveau || bail.etage) ? S(bail.emplNiveau || bail.etage) : '',
       (_gnat !== 'place' && (bail.emplSurface || bail.surf)) ? ('env. ' + S(bail.emplSurface || bail.surf) + ' m²') : ''
@@ -20474,6 +20479,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
         nature: bail.natureEmplacement,
         adrBien: adrBien, ensembleAdr: adrBien,
         numEmplacement: S(bail.emplNum || bail.lot || ''),
+        locDomicile: S(bail.locDomicile || ''),
         surface: S(bail.emplSurface || bail.surf || ''),
         niveau: S(bail.emplNiveau || bail.etage || ''),
         descriptif: S(bail.emplDesc || ''),
@@ -30229,6 +30235,9 @@ async function _migratePhoto(ph){
 // Élément : {nom, etatE, obsE, photosE:[], etatS, obsS, photosS:[]}
 let _edlP = [];
 let _edlSortie = false;
+// CHANTIER EDL-GARAGE — EDL d'un emplacement de droit commun (bail.type==='garage') : parcours
+// allégé (pas de compteurs/DAAF/mobilier) + rubriques réduites. Positionné à l'ouverture.
+let _edlGarageMode = false;
 // v15.205 BAIL-TYPES option A : état global mobilier EDL (parallèle à _edlP pour pièces)
 // Format : [{ nom, qte, etatE, obsE, photosE[], etatS, obsS, photosS[] }, ...]
 let _edlMobElements = [];
@@ -30797,6 +30806,7 @@ function openNewEDL() {
   el('edl-edit-id').value='';
   el('m-edl-title').textContent='Nouvel état des lieux';
   _edlSortie=false;
+  _edlGarageMode=false;   // défaut logement ; openNewEDLForLog bascule si bail garage
   _edlP.push(...EDL_TPL.map(p=>({nom:p.nom,elements:p.e.map(n=>({nom:n,etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]}))})));
   _edlFill({});
   _edlRenderAll();
@@ -30817,6 +30827,9 @@ async function openEditEDL(id) {
   el('edl-edit-id').value=id;
   el('m-edl-title').textContent=`EDL ${e.type} — ${e.logement}`;
   _edlSortie=e.type==='Sortie';
+  // CHANTIER EDL-GARAGE — mode garage à la réouverture : le RECORD persisté prime (immutabilité +
+  // cohérence avec `edl.garage` qui pilote le PDF), repli sur le bail pour les EDL legacy sans flag.
+  _edlGarageMode = _edlDeriveGarageMode(e.logement, e);
   // Push dans _edlP qu'on vient de vider (au lieu de réassigner pour préserver la ref)
   _edlP.push(...JSON.parse(JSON.stringify(e.pieces||[])));
   _edlP.forEach(p=>p.elements.forEach(x=>{if(!x.photosE)x.photosE=[];if(!x.photosS)x.photosS=[];}));
@@ -31260,6 +31273,37 @@ function _edlReadMobilierFromForm() {
   };
 }
 
+// CHANTIER EDL-GARAGE — SOURCE UNIQUE de la dérivation du mode garage (audit : elle était
+// éclatée en 3 endroits divergents). Le record persisté PRIME (immutabilité + cohérence PDF :
+// `edl.garage` pilote la réduction PDF), sinon on lit le type du bail rattaché (nouvel EDL).
+function _edlDeriveGarageMode(ref, record) {
+  if (record && typeof record.garage === 'boolean') return record.garage;
+  return !!(DB.baux && ref && DB.baux[ref] && DB.baux[ref].type === 'garage');
+}
+// Applique le modèle EDL garage/logement pour un NOUVEL EDL selon le bail rattaché à `ref`.
+// Appelé après chaque sélection de logement (onEDLLogChange), quelle que soit la porte d'entrée
+// (« + Nouvel EDL » générique OU bouton de la fiche). Respecte « ne jamais écraser une saisie ».
+function _edlSyncGarageForRef(ref) {
+  // Édition d'un EDL existant : le mode vient du record (openEditEDL) — ne rien re-déverser ici.
+  if (el('edl-edit-id') && el('edl-edit-id').value) return;
+  const nowGarage = _edlDeriveGarageMode(ref, null);
+  const hasSaisie = (typeof _edlAUneSaisie === 'function') && _edlAUneSaisie();
+  // Pas de changement de mode, ou saisie en cours → on ne re-déverse pas (anti-perte de données),
+  // on se contente d'aligner le mode + la visibilité des sections.
+  if (nowGarage === _edlGarageMode || hasSaisie) { _edlGarageMode = nowGarage; try { _edlApplyStepVisibility(); } catch(e){} return; }
+  _edlGarageMode = nowGarage;
+  _edlP.length = 0;
+  if (nowGarage && window.EdlGarageModel && typeof window.EdlGarageModel.buildGarageEdlPieces === 'function') {
+    const _b = DB.baux && DB.baux[ref];
+    const _nat = (window.BailGarage && typeof window.BailGarage.resolveGarageNature === 'function')
+      ? window.BailGarage.resolveGarageNature(_b) : ((_b && _b.natureEmplacement) || 'box');
+    _edlP.push(...window.EdlGarageModel.buildGarageEdlPieces(_nat));
+  } else {
+    _edlP.push(...EDL_TPL.map(p=>({nom:p.nom,elements:p.e.map(n=>({nom:n,etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]}))})));
+  }
+  try { _edlRenderAll(); _edlApplyStepVisibility(); } catch(e){}
+}
+
 function onEDLLogChange() {
   const ref = v('edl-log');
   // ⚠️ #4 (retour Didier 26/08 — PERTE DE DONNÉES RÉELLE) : sélectionner un logement sur un EDL
@@ -31270,6 +31314,9 @@ function onEDLLogChange() {
   // NE recharge PAS la composition tant qu'il y a une saisie → les pièces/états/photos sont gardés.
   const avaitSaisie = (typeof _edlAUneSaisie === 'function') && _edlAUneSaisie();
   _edlPrefill(ref, false);
+  // CHANTIER EDL-GARAGE — bascule le modèle/parcours selon le bail (source unique, toutes portes
+  // d'entrée). AVANT _edlRenderPieces pour rendre le bon modèle du premier coup.
+  try { _edlSyncGarageForRef(ref); } catch(e) { console.warn('[EDL garage] sync', e); }
   _edlRenderPieces();
   if (ref && avaitSaisie && typeof showToast === 'function') {
     showToast('Logement rattaché — vos saisies sont conservées.', 'ok', 3500);
@@ -31579,7 +31626,7 @@ function _edlMobEnabled() { return !!(el('edl-mob-enabled') && el('edl-mob-enabl
 function _edlSteps() {
   const S = (typeof window !== 'undefined') ? window.EdlSteps : null;
   if (!S) return [];
-  return S.buildSteps({ mobilierEnabled: _edlMobEnabled(), pieceNames: _edlP.map(p => p && p.nom) });
+  return S.buildSteps({ garage: _edlGarageMode, mobilierEnabled: _edlMobEnabled(), pieceNames: _edlP.map(p => p && p.nom) });
 }
 // L'index de pièce de l'étape courante, ou -1 si l'étape n'est pas une pièce.
 function _edlCurPieceIdx() {
@@ -31601,6 +31648,10 @@ function _edlApplyStepVisibility() {
   const mobOn = _edlMobEnabled();
   nodes.forEach(node => {
     const disp = node.getAttribute('data-edl-disp') || '';   // display « naturel » (flex pour la barre d'actions)
+    // CHANTIER EDL-GARAGE — les sections logement (compteurs, détecteur de fumée, mobilier) sont
+    // sans objet pour un EDL de garage : toujours masquées, sur PC comme sur mobile.
+    const _stG = node.getAttribute('data-edl-step');
+    if (_edlGarageMode && (_stG === 'compteurs' || _stG === 'daaf' || _stG === 'mobilier' || node.id === 'edl-mobilier-section')) { node.style.display = 'none'; return; }
     // PC (≥1024) OU modules absents (file://) : tout visible — aucun parcours, pas de
     // collapse trompeur (§2.9 aucune régression ; dégradation propre hors serveur).
     // relecture (§2.7) : écran MOBILE only → hors phone (ou modules absents) toujours masqué
@@ -32353,7 +32404,7 @@ async function generateEDLPdfNative(edl) {
   }
   if (ch.radEau) chRows.push(['Radiateur eau (nb/état)', ch.radEau, '—']);
   if (ch.radElec) chRows.push(['Radiateur électrique (nb/état)', ch.radElec, '—']);
-  if (chRows.length) {
+  if (!edl.garage && chRows.length) {   // CHANTIER EDL-GARAGE — pas de rubrique chauffage pour un garage
     y = newPageIfNeeded(y, 30);
     y = drawTitle(y, 'Chauffage & eau chaude sanitaire', 2);
     pdf.autoTable({
@@ -32375,7 +32426,7 @@ async function generateEDLPdfNative(edl) {
     tech['tech-tnt']&&'TNT', tech['tech-interphone']&&'Interphone', tech['tech-digicode']&&'Digicode',
     tech['tech-autre']
   ].filter(Boolean).join(' · ');
-  if (techList) {
+  if (!edl.garage && techList) {   // CHANTIER EDL-GARAGE — pas de rubrique technologies pour un garage
     y = newPageIfNeeded(y, 12);
     pdf.setFont('helvetica','bold').setFontSize(10).setTextColor(20,20,20);
     pdf.text('Technologies présentes : ', M, y);
@@ -32389,7 +32440,8 @@ async function generateEDLPdfNative(edl) {
   //     « preuve datée ». On rend le statut, les notes et la/les photo(s). ────────────────────
   {
     const daaf = edl.daaf;
-    if (daaf && (daaf.statut || (daaf.notes || '').trim() || (daaf.photos || []).length)) {
+    // CHANTIER EDL-GARAGE — un garage n'a pas de détecteur de fumée : pas de page DAAF.
+    if (!edl.garage && daaf && (daaf.statut || (daaf.notes || '').trim() || (daaf.photos || []).length)) {
       pdf.addPage(); y = MT;   // Détecteur sur sa PROPRE page (retour Didier 26/08)
       y = drawTitle(y, 'Détecteur de fumée (DAAF)', 2);
       const statutLbl = { present: 'Présent et fonctionnel', defaut: 'Présent, à vérifier', absent: 'Absent (à installer par le bailleur)' }[daaf.statut] || 'Non renseigné';
@@ -33898,6 +33950,7 @@ let _edlCptPhotos={elec:[],gaz:[],eauC:[],eauF:[],elecS:[],gazS:[],eauCS:[],eauF
 function _edlResetGlobalState() {
   _edlP.length = 0;
   _edlSortie = false;
+  _edlGarageMode = false;   // CHANTIER EDL-GARAGE — repart en mode logement ; re-dérivé à l'ouverture
   _edlCles.length = 0;
   // v15.205 BAIL-TYPES option A : reset aussi _edlMobElements pour éviter que les éléments
   // d'un EDL précédent ouvert dans la même session ne polluent un nouveau EDL.
@@ -34325,6 +34378,7 @@ function saveEDL(opts){
       adr:v('edl-adr'), surf:v('edl-surf'), npp:v('edl-npp'), ltype:v('edl-ltype'),
       ancienOcc:v('edl-ancien-occ'), notes:v('edl-notes'), drivePath:'',
       pieces:piecesClean, compteurs, compteursSortie, compteursPhotos:_edlGetCptPhotos(), chauffage, technologies, cles:_edlGetCles(),
+      garage: _edlGarageMode, // CHANTIER EDL-GARAGE — EDL réduit (droit commun) : pas de compteurs/DAAF/mobilier
       daaf: _daafRecord, // v15.08 Sprint 9 : sécurité incendie (EDL entrée surtout)
       // v15.202 : inventaire mobilier (null si toggle off, sinon { literie, ..., details })
       mobilierEnabled: !!_edlMobilier,
@@ -42662,6 +42716,8 @@ function openNewEDLForLog(ref, type) {
         logSel.value = ref;
         try { logSel.dispatchEvent(new Event('change',{bubbles:true})); } catch(e){}
       }
+      // CHANTIER EDL-GARAGE — la bascule garage est faite par onEDLLogChange (déclenché par le
+      // dispatch 'change' ci-dessus) : source UNIQUE, quelle que soit la porte d'entrée.
       // Type (radios #edl-type-entree / #edl-type-sortie + edlTypeChange())
       if(type) {
         const isSortie = (type === 'Sortie');
@@ -42679,7 +42735,7 @@ function openNewEDLForLog(ref, type) {
       // SANS question quand elle vient de la FICHE (_source:'fiche') : c'est la composition du bien,
       // pas une proposition. La question ne garde son sens que pour un template sauvegardé APRÈS coup
       // depuis un EDL rempli (« 🗐 Sauv. template »), qui peut être plus riche que la structure de base.
-      if(log.edlTemplate && log.edlTemplate.pieces && log.edlTemplate.pieces.length) {
+      if(!_edlGarageMode && log.edlTemplate && log.edlTemplate.pieces && log.edlTemplate.pieces.length) {
         const _tpl = log.edlTemplate;
         const _vientDeLaFiche = _tpl._source === 'fiche';
         // Délai supplémentaire pour laisser onEDLLogChange finir

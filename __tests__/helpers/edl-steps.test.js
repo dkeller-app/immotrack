@@ -62,6 +62,31 @@ describe('buildSteps — l\'ordre validé (CDC §2.2)', () => {
   });
 });
 
+describe('buildSteps — EDL garage (droit commun) : parcours allégé', () => {
+  it('retire compteurs, DAAF et mobilier ; garde infos/moyens d\'accès/pièces/relecture/fin', () => {
+    const steps = buildSteps({ garage: true, mobilierEnabled: true, pieceCount: 1 });
+    const ids = steps.map(s => s.id);
+    expect(ids).not.toContain('compteurs');
+    expect(ids).not.toContain('daaf');
+    expect(ids).not.toContain('mobilier');           // même si mobilierEnabled=true
+    expect(ids).toEqual(['infos', 'cles', 'piece:0', 'relecture', 'fin']);
+  });
+  it('« Clés » devient « Moyens d\'accès » et « Infos » vise l\'emplacement', () => {
+    const steps = buildSteps({ garage: true, pieceCount: 1 });
+    expect(steps.find(s => s.id === 'cles').nom).toMatch(/Moyens d'accès/);
+    expect(steps.find(s => s.id === 'infos').nom).toMatch(/emplacement/i);
+  });
+  it('sans le flag garage, le parcours logement est inchangé (non-régression)', () => {
+    const steps = buildSteps({ pieceCount: 7 });
+    expect(steps.map(s => s.id).slice(0, 4)).toEqual(['infos', 'compteurs', 'cles', 'daaf']);
+    expect(steps.find(s => s.id === 'cles').nom).toBe('Clés remises');
+  });
+  it('numérotation : garage 1 pièce = 3 étapes numérotées (infos, accès, pièce ; +1 relecture non comptée)', () => {
+    const steps = buildSteps({ garage: true, pieceCount: 1 });
+    expect(numberedTotal(steps)).toBe(4); // infos, cles, piece, fin (relecture exclue)
+  });
+});
+
 describe('sectionVisible — une seule étape à l\'écran (invariant §2.10 nº2)', () => {
   it('une section ordinaire n\'est visible que sur SON étape', () => {
     expect(sectionVisible('compteurs', 'compteurs', false)).toBe(true);
