@@ -155,8 +155,17 @@ l'Accueil ne ment jamais sur un vieux dû.
 ### Garde-fou = INVARIANT testé (le cœur du chantier, écrit AVANT le code)
 Sur jeux réels + scénarios forgés (arriéré N-1, avance déc→janv N+1, rattrapage de janvier, mois partiel,
 entrée/sortie en cours de mois) : **Σ retard Accueil == Σ retard Finances == Σ retard onglet Loyers, au
-centime** ; avances idem, à part ; tolérance respectée ; **base 2044 identique avant/après (octet)**. Test
-d'invariant permanent (`__tests__/…arriere-source-unique.test.js`) qui rend toute future divergence impossible.
+centime**, **SUR LES LOTS OCCUPÉS** (voir périmètre ci-dessous) ; avances idem, à part ; tolérance respectée ;
+**base 2044 identique avant/après (octet)**.
+
+**PÉRIMÈTRE de la bulle Impayés (décision user 2026-09-07)** : l'Accueil ne suit que les **locataires en place**
+(`_computeImpayes` filtre `l.locataire`). Un locataire **PARTI** qui laisse une dette relève de **Fin de bail /
+Dépôt de garantie**, PAS de la bulle « Impayés à relancer ». Conséquence assumée : sur un lot vacant-avec-dette,
+Finances (byLot, qui inclut les baux clôturés de la période via `activeLots`) peut montrer un retard que l'Accueil
+n'affiche pas. L'invariant « Accueil = Finances au centime » de §0bis vaut donc **pour les lots occupés** ; il est
+volontairement plus étroit sur les lots libérés. (Le test module `finances-ouverture-arriere.test.js` garde
+`Σ byLot.annual.retard == retard annuel du P&L` — l'agrégation lot↔P&L ; l'égalité façade Accueil==byLot pour un
+lot occupé tient par construction — `_computeImpayes` lit `byLot[ref].annual.retard` — et est vérifiée au smoke.)
 
 ### Impact fiscal & risque
 Le **chiffre d'argent du moteur maître change** (le retard inclut désormais l'ouverture) → **audit code-reviewer
@@ -178,3 +187,15 @@ Worktree dédié · invariants écrits d'abord (TDD) · `npx vitest run` vert ·
 `Desktop\Immo`.
 
 - 2026-09-07 : CDC C2 figé, décisions user (Finances maître ; (b) position d'ouverture). Chantier ouvert.
+- 2026-09-07 : **C2 codé** (worktree `Immo-wt-c2-arriere`, branche `feat/c2-arriere-source-unique`) — moteur
+  `opts.opening` (loyer/charge/avance), pré-passe pré-exercice dans `_computeFinancesMonthly` (seed du netting),
+  `_computeImpayes` + `_finDrillRetard` = façades lisant `byLot`, ancienneté réparée. Gate **3958 tests**, inline 5\|0,
+  CRLF 0. **Audit renforcé PASSANT** (INTÉGRABLE) → 1 défaut d'argent corrigé (**#1** : l'avance d'ouverture N-1
+  était jetée → faux impayé sur un locataire à terme échoir payé le 28/12 ; désormais portée via `avanceCarry`
+  initial). **2ᵉ passe adversariale PASSANTE** (aucun scénario d'argent faux : 2044 isolée octet, pas de double-compte,
+  pas de dette fantôme pré-suivi, avance correcte, régressions inertes). **Réserve tranchée par user** : périmètre
+  Impayés = locataires en place (cf. ci-dessus). **Restes non bloquants** : mémoïser `_finMonthly` (perf gros parc,
+  les 2 audits le notent) · retrait moteurs morts `_computeLoyerStatut`/`_computeLoyerArrears` (0 appelant à confirmer)
+  · `_computeLoyerCumul` reste mort (le seed passe par `_finBailHcChAt`, plus cohérent) · cosmétique chip drill
+  « janvier » qui porte le report · `dueMonth===0` (exercice futur) perd l'ouverture (edge, garde à poser). **RESTE :
+  GO user pour intégrer + déployer, puis smoke sur parc réel multi-années.**
