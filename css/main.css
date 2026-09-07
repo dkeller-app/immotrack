@@ -2550,6 +2550,9 @@ textarea.field-modified-since-sig{
 .badge.blu{background:var(--acc-bg);color:var(--t1);border-color:var(--acc)}
 .badge.pur{background:var(--pur-bg);color:var(--pur);border-color:var(--pur)}
 .badge.gry{background:var(--gry-bg);color:var(--t2);border-color:var(--t2)}
+/* PC-REFONTE — badge neutre gris-bleuté (info) : catégorie factuelle sans alarme.
+   Ex. type EDL « Sortie » (Entrée = vert positif ; Sortie = neutre, pas d'ambre). */
+.badge.info{background:var(--info-soft);color:var(--info);border-color:var(--info)}
 /* PC-REFONTE — badge corail « outline » : états qui demandent une action (à classer / non affecté).
    Doctrine : corail = ce qui presse. Remplace l'ambre (--ora) sur ces deux états. */
 .badge.acc{background:transparent;color:var(--acc);border-color:var(--acc)}
