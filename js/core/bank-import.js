@@ -1167,8 +1167,12 @@ export function _bankDedup(newLines, mouvementsExistants, options = {}) {
   // imports d'avant le suivi par compte.
   const fitidIndex = new Map();
   for (const m of alive) {
-    if (m._fingerprint && !fpIndex.has(m._fingerprint)) fpIndex.set(m._fingerprint, m);
+    // AUDIT-C1 — l'empreinte (comme le FITID) n'est PAS unique dans l'absolu : 2 comptes multi-SCI
+    // (même syndic, même jour/montant/libellé) → sans ce filtre, l'opération du 2e compte était
+    // déclarée « doublon certain » et écartée SANS un clic (argent manquant). On scope fpIndex au
+    // compte courant, comme fitidIndex ci-dessous. Les mouvements sans compte (legacy/manuel) restent inclus.
     if (accountId != null && m._bankAccountId != null && String(m._bankAccountId) !== String(accountId)) continue;
+    if (m._fingerprint && !fpIndex.has(m._fingerprint)) fpIndex.set(m._fingerprint, m);
     const f = _bankMvFitid(m);
     if (f && !fitidIndex.has(f)) fitidIndex.set(f, m);
   }
@@ -1194,7 +1198,10 @@ export function _bankDedup(newLines, mouvementsExistants, options = {}) {
     // 🐛 Audit C2 : conclure globalement dès qu'UN mouvement du compte portait un FITID
     // faisait sauter empreinte ET heuristique → une période importée en Excel puis
     // recouverte par un relevé OFX était comptée DEUX FOIS, sans un mot.
-    const cands = lineFitid ? alive.filter(m => { const f = _bankMvFitid(m); return !f || f === lineFitid; }) : alive;
+    // AUDIT-C1 — candidats limités au compte courant (même raison que fpIndex/fitidIndex) : la
+    // ressemblance date/montant (strat. 3) ne doit pas matcher un mouvement d'un AUTRE compte.
+    const scopedAlive = alive.filter(m => !(accountId != null && m._bankAccountId != null && String(m._bankAccountId) !== String(accountId)));
+    const cands = lineFitid ? scopedAlive.filter(m => { const f = _bankMvFitid(m); return !f || f === lineFitid; }) : scopedAlive;
 
     // ── Stratégie 2 : empreinte (principale pour Excel) ──────────────────────
     if (line._fingerprint && fpIndex.has(line._fingerprint)) {

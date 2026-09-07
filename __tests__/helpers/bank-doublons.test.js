@@ -182,6 +182,29 @@ describe('⑥.1 Le FITID n\'est unique QUE chez une banque — index limité au 
   });
 });
 
+describe('AUDIT-C1 — l\'EMPREINTE non plus n\'est unique qu\'au sein d\'un compte (fpIndex scopé)', () => {
+  it('Même empreinte sur un AUTRE compte → PAS doublon certain (le mouvement réel n\'est pas jeté)', () => {
+    // 2 comptes multi-SCI (même syndic, même jour/montant/libellé). Avant le fix, l\'empreinte
+    // identique déclarait « doublon certain » et écartait l\'opération du 2e compte sans un clic.
+    const base = [mv({ id: 7, cr: 850, _fingerprint: 'FP-X', _bankAccountId: 1 })];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'SYNDIC', debit: 0, credit: 850, _fingerprint: 'FP-X' }],
+      base, { accountId: 2, legacyFallback: false });
+    expect(r[0].dupLevel).not.toBe('certain');
+  });
+  it('Même empreinte sur le MÊME compte → doublon certain (dédup préservé)', () => {
+    const base = [mv({ id: 7, cr: 850, _fingerprint: 'FP-X', _bankAccountId: 1 })];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'SYNDIC', debit: 0, credit: 850, _fingerprint: 'FP-X' }],
+      base, { accountId: 1, legacyFallback: false });
+    expect(r[0].dupLevel).toBe('certain');
+  });
+  it('Empreinte d\'un mouvement legacy sans compte → toujours reconnue', () => {
+    const base = [mv({ id: 7, cr: 850, _fingerprint: 'FP-Y' })];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'X', debit: 0, credit: 850, _fingerprint: 'FP-Y' }],
+      base, { accountId: 9, legacyFallback: false });
+    expect(r[0].dupLevel).toBe('certain');
+  });
+});
+
 describe('AUDIT C2 — la preuve négative du FITID ne vaut que face à un FITID', () => {
   it('Une période importée en Excel puis recouverte par un OFX N\'EST PAS comptée deux fois', () => {
     // Base mixte : un mouvement Excel (sans fitid) + un mouvement OFX (avec fitid) sur

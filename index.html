@@ -1229,7 +1229,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         </div>
         <div class="card">
           <div class="ct">🔗 Relais candidatures</div>
-          <div class="mu sm mb8">Envoie à un candidat un lien sécurisé pour déposer son dossier en ligne (sans compte). Données chiffrées hébergées temporairement chez Cloudflare (sous-traitant RGPD), purgées dès rapatriement dans l'app. Voir <a href="docs/legal/RGPD-REGISTRE.md" target="_blank">RGPD-REGISTRE.md</a>.</div>
+          <div class="mu sm mb8">Envoie à un candidat un lien sécurisé pour déposer son dossier en ligne (sans compte). Données chiffrées hébergées temporairement chez Cloudflare (sous-traitant RGPD), purgées dès rapatriement dans l'app. Voir <a href="docs/legal/RGPD-REGISTRE.md" target="_blank" rel="noopener">RGPD-REGISTRE.md</a>.</div>
           <div class="alert info mb8">✓ Utilise la <b>même configuration que le relais de signature</b> (même worker Cloudflare, même clé APP_KEY). Rien à saisir ici — configure-le une seule fois dans <b>Paramètres → 📨 Signature à distance — Relais</b>.</div>
           <div class="mb8"><button class="btn bs" onclick="testRelayCfg()">🔌 Tester la connexion</button></div>
           <div id="relay-status" class="mu sm mt8"></div>
@@ -1241,7 +1241,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div class="card" id="backup-card" style="grid-column:1/-1"><!-- 🛟 Sauvegarde de sécurité (rendu par _renderBackupCard) --></div>
         <div class="card">
           <div class="ct">🔒 RGPD (v14.91)</div>
-          <div class="mu sm mb8">Droits art. 15-22 RGPD. Permet d'exporter / d'effacer les données personnelles d'un locataire. Voir aussi <a href="docs/legal/RGPD-REGISTRE.md" target="_blank">RGPD-REGISTRE.md</a>.</div>
+          <div class="mu sm mb8">Droits art. 15-22 RGPD. Permet d'exporter / d'effacer les données personnelles d'un locataire. Voir aussi <a href="docs/legal/RGPD-REGISTRE.md" target="_blank" rel="noopener">RGPD-REGISTRE.md</a>.</div>
           <div class="mb8">
             <label for="rgpd-log-ref" class="mu sm">Logement (ref) :</label>
             <select id="rgpd-log-ref" class="inp" style="width:auto;display:inline-block;margin-left:8px"></select>
@@ -7004,6 +7004,11 @@ window.__immoSetDB = function(cloudDB) {
   // `window.opener.DB` pointe le bon objet (== liveDB, même référence) → la popup écrit + saveDB → sync.
   // Legacy non concerné (il ne passe pas par __immoSetDB ; sa popup persiste via l'événement storage).
   try { window.DB = cloudDB; } catch (e) {}
+  // AUDIT-C1 — invalide les caches mémoïsés sur _dbGen (statut loyers :10192, finances :12060, départ
+  // :25935, dashboard :54300) : sinon, après une re-hydratation cloud (re-pull cross-appareil Realtime),
+  // ils servent des valeurs PÉRIMÉES jusqu'au prochain saveDB local. saveDB (:6698) et la restauration
+  // (:55982) le bumpent déjà ; le chemin cloud était l'oubli.
+  try { window._dbGen = (window._dbGen || 0) + 1; } catch (e) {}
   // v15.452 BUG-DASHV4-CLOUD-HYDRATE — l'hydratation cloud remplace DB en bloc SANS repasser les
   // défauts d'initDB(). Un compte dont le blob espace_config n'a pas dashRenderV='v2' (compte frais /
   // bêta / associé pur-cloud) démarrait en data-dash-v4="off" → ancienne sidebar + hero météo géant +
@@ -10729,8 +10734,13 @@ function _renderPilotage(ctx) {
   const _famZones = (typeof window !== 'undefined' && window._PIL_ZONES) ? window._PIL_ZONES
     : [{ id: 'argent', titre: 'Argent' }, { id: 'gestion', titre: 'Gestion locative' }];
   const premierId = (fams.familles && fams.familles[0]) ? fams.familles[0].id : null;
-  bullesEl.innerHTML = '<div class="pil-zt"><b>Ce qui presse</b><i></i><em>'
-      + (fams.total ? (fams.total + ' à traiter') : 'tout est à jour') + '</em></div>'
+  // ── La matrice de conformité (toujours rendue). Rendue AVANT le bandeau pour connaître nKo (lots à
+  //    traiter) : Bail/EDL/Caution n'ont PAS de bulle, donc « tout est à jour » ne doit pas s'afficher
+  //    si la matrice a des lots à mettre en règle (audit vitrine). Hosts DOM distincts → ordre libre.
+  let _nKoMtx = 0; try { _nKoMtx = _renderPilMatrice(ctx) || 0; } catch (e) {}
+  const _enTete = fams.total ? (fams.total + ' à traiter')
+    : (_nKoMtx ? (_nKoMtx + ' lot' + (_nKoMtx > 1 ? 's' : '') + ' à mettre en règle') : 'tout est à jour');
+  bullesEl.innerHTML = '<div class="pil-zt"><b>Ce qui presse</b><i></i><em>' + _enTete + '</em></div>'
     + _famZones.map(z => {
         const defs = _famDefs.filter(d => d.zone === z.id);
         const nz = defs.reduce((s, d) => s + (_famById[d.id] ? _famById[d.id].count : 0), 0);
@@ -10741,9 +10751,6 @@ function _renderPilotage(ctx) {
               return f ? _pilBulleHtml(f, f.id === premierId) : _pilBulleOkHtml(d);
             }).join('') + '</div></div>';
       }).join('');
-
-  // ── La matrice de conformité (toujours rendue, même quand rien ne presse) ──
-  _renderPilMatrice(ctx);
 }
 
 // Filtre courant de la matrice ('tous' | 'ko' | 'vac'), persistant le temps de la session.
@@ -10772,7 +10779,7 @@ function _pilColRefs(ctx) {
 }
 function _renderPilMatrice(ctx) {
   const { scopeLogs, yr, activeEnt } = ctx;
-  const host = el('pil-matrice'); if (!host) return;
+  const host = el('pil-matrice'); if (!host) return 0;
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
   const tel = (typeof window !== 'undefined' && window.innerWidth && window.innerWidth <= 560);
   const today = new Date();
@@ -10858,13 +10865,14 @@ function _renderPilMatrice(ctx) {
 
   if (tel) {
     host.innerHTML = '<div class="pil-mtx">' + tete + '<div class="pil-mtx-s">' + (corps || '<div class="pil-lgrp">Aucun lot</div>') + '</div></div>';
-    return;
+    return nKo;
   }
   host.innerHTML = '<div class="pil-mtx">' + tete
     + '<div class="pil-mtx-s"><table class="pil-mx"><thead><tr><th class="l">Lot</th><th class="payc">Loyer · paiement</th>'
     + _PIL_MTX_COLS.map(c => '<th>' + esc(c.l) + '</th>').join('') + '<th class="r">À faire</th></tr></thead><tbody>'
     + (corps || '<tr><td colspan="' + (3 + _PIL_MTX_COLS.length) + '" style="padding:16px;text-align:center;color:var(--t3)">Aucun lot</td></tr>')
     + '</tbody></table></div></div>';
+  return nKo;
 }
 // Famille active filtrant la matrice (posée par la chaîne de clic) — déclarée ici pour le rendu.
 let _pilMtxFamActive = null;
@@ -19740,8 +19748,12 @@ function saveBail() {
   _auditLog(isNewBail ? 'create' : 'update', 'bail', ref, ref);
   saveDB(); refreshAllIRL(); closeM('ov-bail'); initFilters(); rBaux();
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
-  // v14.48 GANTT-PREAVIS : régénérer les events fin de bail + préavis bailleur
-  try { agendaAutoSync(); } catch(e) { console.warn('[saveBail] agendaAutoSync', e); }
+  // v14.48 GANTT-PREAVIS : régénérer les events fin de bail + préavis bailleur.
+  // AUDIT-C1 — nettoyer AVANT de re-synchroniser : agendaAutoSync est add-only (clé BAIL/BAIL_PREVIS
+  // par échéance) ; sans ce cleanup, prolonger/modifier les dates d'un bail laissait l'ANCIEN préavis
+  // (date passée) en base → faux « fin de bail — échéance dépassée » sur le Pilotage. Ne retire que les
+  // events AUTO de ce lot ; les events manuels et faits sont préservés.
+  try { _cleanupBailAgendaEvents(ref); agendaAutoSync(); } catch(e) { console.warn('[saveBail] agenda', e); }
   showToast('Bail enregistré','ok'); suggestSave('Bail');
   // LOG-CANDIDATS Phase 6 : si ce save finalise une conversion candidat, migrer
   // les pièces + archiver le candidat. Consommé une seule fois (reset immédiat).
@@ -49884,10 +49896,10 @@ function toggleBailMandataire(on) {
     const m = DB.params&&DB.params.mandataire;
     const prev = el('b-mandataire-preview');
     if(prev && m && m.nom) {
-      prev.innerHTML = '<strong>'+m.nom+'</strong>'
-        +(m.activite?' &mdash; '+m.activite:'')
-        +(m.carte?'<br>Carte prof. n° <strong>'+m.carte+'</strong> délivrée par CCI de '+(m.cci||'—'):'')
-        +(m.garantNom?'<br>Garant financier : '+m.garantNom+(m.garantMontant?' ('+m.garantMontant+' €)':''):'') 
+      prev.innerHTML = '<strong>'+escHtml(m.nom)+'</strong>'
+        +(m.activite?' &mdash; '+escHtml(m.activite):'')
+        +(m.carte?'<br>Carte prof. n° <strong>'+escHtml(m.carte)+'</strong> délivrée par CCI de '+escHtml(m.cci||'—'):'')
+        +(m.garantNom?'<br>Garant financier : '+escHtml(m.garantNom)+(m.garantMontant?' ('+escHtml(m.garantMontant)+' €)':''):'')
         +'<br><span style="font-size:10px;color:var(--mu)">Les informations du mandataire seront imprimées dans le bail.</span>';
     } else if(prev) {
       prev.innerHTML = '⚠️ Aucun mandataire configuré — aller dans <strong>Référentiel → 🤝 Mandataire</strong>';

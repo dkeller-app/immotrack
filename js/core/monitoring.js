@@ -12,8 +12,9 @@
  *   - DÉSACTIVÉ par défaut tant que DB.params.monitoringEnabled ≠ true
  *   - Métriques anonymes (pas de PII, pas d'IP, pas de userAgent en clair → hash)
  *
- * Pour Sentry/Plausible réels (V1.1+) : ajouter DB.params.sentryDsn ou
- * plausibleDomain, le code détecte et active le forward HTTP.
+ * L'eventLog reste LOCAL. Le forward HTTP externe (plausible.io) a été RETIRÉ (AUDIT-C1 :
+ * règle « aucun endpoint externe au runtime » + RGPD) ; un forward first-party (domaine Propryo)
+ * pourra être ajouté explicitement le moment venu.
  */
 
 /** Hash léger (FNV-1a) pour anonymiser userAgent / pathname. */
@@ -92,22 +93,9 @@ export function _logEvent(name, properties = {}) {
     db.eventLog = db.eventLog.slice(-250);
   }
 
-  // Plausible-compatible : envoie si plausibleDomain configuré
-  if (db.params.plausibleDomain) {
-    try {
-      fetch('https://plausible.io/api/event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: entry.name,
-          domain: db.params.plausibleDomain,
-          url: location.href,
-          props: properties
-        }),
-        keepalive: true
-      }).catch(() => {});
-    } catch(_) {}
-  }
+  // AUDIT-C1 — beacon externe plausible.io RETIRÉ : viole la règle « aucun endpoint externe au
+  // runtime » + enjeu RGPD (exfiltration url/props vers un tiers sans consentement). L'eventLog
+  // reste LOCAL ; un forward first-party (domaine Propryo) pourra être ajouté explicitement plus tard.
 
   return entry;
 }
