@@ -30230,6 +30230,9 @@ async function _migratePhoto(ph){
 // Élément : {nom, etatE, obsE, photosE:[], etatS, obsS, photosS:[]}
 let _edlP = [];
 let _edlSortie = false;
+// CHANTIER EDL-GARAGE — EDL d'un emplacement de droit commun (bail.type==='garage') : parcours
+// allégé (pas de compteurs/DAAF/mobilier) + rubriques réduites. Positionné à l'ouverture.
+let _edlGarageMode = false;
 // v15.205 BAIL-TYPES option A : état global mobilier EDL (parallèle à _edlP pour pièces)
 // Format : [{ nom, qte, etatE, obsE, photosE[], etatS, obsS, photosS[] }, ...]
 let _edlMobElements = [];
@@ -30798,6 +30801,7 @@ function openNewEDL() {
   el('edl-edit-id').value='';
   el('m-edl-title').textContent='Nouvel état des lieux';
   _edlSortie=false;
+  _edlGarageMode=false;   // défaut logement ; openNewEDLForLog bascule si bail garage
   _edlP.push(...EDL_TPL.map(p=>({nom:p.nom,elements:p.e.map(n=>({nom:n,etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]}))})));
   _edlFill({});
   _edlRenderAll();
@@ -30818,6 +30822,9 @@ async function openEditEDL(id) {
   el('edl-edit-id').value=id;
   el('m-edl-title').textContent=`EDL ${e.type} — ${e.logement}`;
   _edlSortie=e.type==='Sortie';
+  // CHANTIER EDL-GARAGE — re-dérive le mode garage depuis le bail rattaché (l'EDL réutilise le
+  // même parcours allégé + masquage à la réouverture).
+  _edlGarageMode = !!(DB.baux && DB.baux[e.logement] && DB.baux[e.logement].type === 'garage');
   // Push dans _edlP qu'on vient de vider (au lieu de réassigner pour préserver la ref)
   _edlP.push(...JSON.parse(JSON.stringify(e.pieces||[])));
   _edlP.forEach(p=>p.elements.forEach(x=>{if(!x.photosE)x.photosE=[];if(!x.photosS)x.photosS=[];}));
@@ -31580,7 +31587,7 @@ function _edlMobEnabled() { return !!(el('edl-mob-enabled') && el('edl-mob-enabl
 function _edlSteps() {
   const S = (typeof window !== 'undefined') ? window.EdlSteps : null;
   if (!S) return [];
-  return S.buildSteps({ mobilierEnabled: _edlMobEnabled(), pieceNames: _edlP.map(p => p && p.nom) });
+  return S.buildSteps({ garage: _edlGarageMode, mobilierEnabled: _edlMobEnabled(), pieceNames: _edlP.map(p => p && p.nom) });
 }
 // L'index de pièce de l'étape courante, ou -1 si l'étape n'est pas une pièce.
 function _edlCurPieceIdx() {
@@ -31591,6 +31598,8 @@ function _edlCurPieceIdx() {
 // le group de l'étape courante. Téléphone/tablette (<1024) uniquement ; sur PC on
 // restaure tout. Le mobilier est dual-home (module edl-steps.sectionVisible) :
 // replié dans « Infos » quand nu (interrupteur atteignable), étape propre quand meublé.
+// CHANTIER EDL-GARAGE — réapplique la visibilité (masque compteurs/DAAF/mobilier pour un garage).
+function _edlApplyGarageDom() { try { _edlApplyStepVisibility(); } catch(e) {} }
 function _edlApplyStepVisibility() {
   const S = (typeof window !== 'undefined') ? window.EdlSteps : null;
   const scroll = document.querySelector('#ov-edl > .modal > div[style*="overflow-y"]');
@@ -31602,6 +31611,10 @@ function _edlApplyStepVisibility() {
   const mobOn = _edlMobEnabled();
   nodes.forEach(node => {
     const disp = node.getAttribute('data-edl-disp') || '';   // display « naturel » (flex pour la barre d'actions)
+    // CHANTIER EDL-GARAGE — les sections logement (compteurs, détecteur de fumée, mobilier) sont
+    // sans objet pour un EDL de garage : toujours masquées, sur PC comme sur mobile.
+    const _stG = node.getAttribute('data-edl-step');
+    if (_edlGarageMode && (_stG === 'compteurs' || _stG === 'daaf' || _stG === 'mobilier' || node.id === 'edl-mobilier-section')) { node.style.display = 'none'; return; }
     // PC (≥1024) OU modules absents (file://) : tout visible — aucun parcours, pas de
     // collapse trompeur (§2.9 aucune régression ; dégradation propre hors serveur).
     // relecture (§2.7) : écran MOBILE only → hors phone (ou modules absents) toujours masqué
@@ -32390,7 +32403,8 @@ async function generateEDLPdfNative(edl) {
   //     « preuve datée ». On rend le statut, les notes et la/les photo(s). ────────────────────
   {
     const daaf = edl.daaf;
-    if (daaf && (daaf.statut || (daaf.notes || '').trim() || (daaf.photos || []).length)) {
+    // CHANTIER EDL-GARAGE — un garage n'a pas de détecteur de fumée : pas de page DAAF.
+    if (!edl.garage && daaf && (daaf.statut || (daaf.notes || '').trim() || (daaf.photos || []).length)) {
       pdf.addPage(); y = MT;   // Détecteur sur sa PROPRE page (retour Didier 26/08)
       y = drawTitle(y, 'Détecteur de fumée (DAAF)', 2);
       const statutLbl = { present: 'Présent et fonctionnel', defaut: 'Présent, à vérifier', absent: 'Absent (à installer par le bailleur)' }[daaf.statut] || 'Non renseigné';
@@ -33899,6 +33913,7 @@ let _edlCptPhotos={elec:[],gaz:[],eauC:[],eauF:[],elecS:[],gazS:[],eauCS:[],eauF
 function _edlResetGlobalState() {
   _edlP.length = 0;
   _edlSortie = false;
+  _edlGarageMode = false;   // CHANTIER EDL-GARAGE — repart en mode logement ; re-dérivé à l'ouverture
   _edlCles.length = 0;
   // v15.205 BAIL-TYPES option A : reset aussi _edlMobElements pour éviter que les éléments
   // d'un EDL précédent ouvert dans la même session ne polluent un nouveau EDL.
@@ -34326,6 +34341,7 @@ function saveEDL(opts){
       adr:v('edl-adr'), surf:v('edl-surf'), npp:v('edl-npp'), ltype:v('edl-ltype'),
       ancienOcc:v('edl-ancien-occ'), notes:v('edl-notes'), drivePath:'',
       pieces:piecesClean, compteurs, compteursSortie, compteursPhotos:_edlGetCptPhotos(), chauffage, technologies, cles:_edlGetCles(),
+      garage: _edlGarageMode, // CHANTIER EDL-GARAGE — EDL réduit (droit commun) : pas de compteurs/DAAF/mobilier
       daaf: _daafRecord, // v15.08 Sprint 9 : sécurité incendie (EDL entrée surtout)
       // v15.202 : inventaire mobilier (null si toggle off, sinon { literie, ..., details })
       mobilierEnabled: !!_edlMobilier,
@@ -42663,6 +42679,20 @@ function openNewEDLForLog(ref, type) {
         logSel.value = ref;
         try { logSel.dispatchEvent(new Event('change',{bubbles:true})); } catch(e){}
       }
+      // CHANTIER EDL-GARAGE — si le bail rattaché est un garage (droit commun), l'EDL est réduit :
+      // modèle = rubriques garage (module testé), parcours allégé, sections logement masquées.
+      try {
+        const _b = DB.baux && DB.baux[ref];
+        if (_b && _b.type === 'garage' && window.EdlGarageModel && typeof window.EdlGarageModel.buildGarageEdlPieces === 'function') {
+          _edlGarageMode = true;
+          const _nat = (window.BailGarage && typeof window.BailGarage.resolveGarageNature === 'function')
+            ? window.BailGarage.resolveGarageNature(_b) : (_b.natureEmplacement || 'box');
+          _edlP.length = 0;
+          _edlP.push(...window.EdlGarageModel.buildGarageEdlPieces(_nat));
+          if (typeof _edlRenderAll === 'function') _edlRenderAll();
+          if (typeof _edlApplyGarageDom === 'function') _edlApplyGarageDom();
+        }
+      } catch(e) { console.warn('[EDL garage] bascule échouée', e); }
       // Type (radios #edl-type-entree / #edl-type-sortie + edlTypeChange())
       if(type) {
         const isSortie = (type === 'Sortie');
@@ -42680,7 +42710,7 @@ function openNewEDLForLog(ref, type) {
       // SANS question quand elle vient de la FICHE (_source:'fiche') : c'est la composition du bien,
       // pas une proposition. La question ne garde son sens que pour un template sauvegardé APRÈS coup
       // depuis un EDL rempli (« 🗐 Sauv. template »), qui peut être plus riche que la structure de base.
-      if(log.edlTemplate && log.edlTemplate.pieces && log.edlTemplate.pieces.length) {
+      if(!_edlGarageMode && log.edlTemplate && log.edlTemplate.pieces && log.edlTemplate.pieces.length) {
         const _tpl = log.edlTemplate;
         const _vientDeLaFiche = _tpl._source === 'fiche';
         // Délai supplémentaire pour laisser onEDLLogChange finir

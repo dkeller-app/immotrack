@@ -175,6 +175,7 @@ import * as EdlParcours from './core/edl-parcours.js';
 // EDL-TÉLÉPHONE — le parcours de l'EDL ENTIER : chaque section admin devient une
 // étape au même titre qu'une pièce (fin du mur de 6 884 px d'admin permanent).
 import * as EdlSteps from './core/edl-steps.js';
+import * as EdlGarageModel from './core/edl-garage-model.js';
 
 // EDL-TÉLÉPHONE — la relecture avant signature : bilan, lignes signalées, alertes,
 // pop-up « en connaissance de cause » (verdict toujours déduit).
@@ -646,6 +647,7 @@ window.EdlConflit = EdlConflit;
 window.EdlParcours = EdlParcours;
 // EDL-TELEPHONE — la liste ordonnee des etapes de l'EDL entier (admin + pieces + fin).
 window.EdlSteps = EdlSteps;
+window.EdlGarageModel = EdlGarageModel;
 // EDL-TELEPHONE — la relecture avant signature (bilan, lignes signalees, pop-up).
 window.EdlRelecture = EdlRelecture;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
