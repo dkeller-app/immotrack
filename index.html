@@ -1011,14 +1011,14 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <div class="tab-panel" id="tp-rules">
         <div class="flex-b mb12">
           <div>
-            <div class="ct" style="margin-bottom:2px">🤖 Règles de remplissage automatique</div>
+            <div class="ct" style="margin-bottom:2px"><span data-uic="sliders"></span> Règles de remplissage automatique</div>
             <div class="mu sm">À l'import bancaire, si le libellé contient le motif, les champs sélectionnés sont pré-remplis. Les règles s'appliquent dans l'ordre.</div>
           </div>
           <button class="btn bp bb" onclick="addImportRule()">+ Règle</button>
         </div>
         <div id="import-rules-list"></div>
         <div class="mu sm mt12" style="padding:8px 12px;background:var(--sur2);border-radius:var(--r)">
-          💡 Exemple : motif <code>CREDIT AGRICOLE 12345</code> → Catégorie = <code>Prêt</code>, Logement = <code>F-001</code>
+          <span data-uic="bulb"></span> Exemple : motif <code>CREDIT AGRICOLE 12345</code> → Catégorie = <code>Prêt</code>, Logement = <code>F-001</code>
         </div>
       </div>
 
@@ -1027,7 +1027,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 
       <div class="tab-panel" id="tp-mandataire">
         <div style="max-width:600px">
-          <div class="ct mb16">🤝 Mandataire — loi Hoguet</div>
+          <div class="ct mb16"><span data-uic="building"></span> Mandataire — loi Hoguet</div>
           <div class="mu sm mb16">Informations légales du mandataire qui représente le bailleur (art. 92 décret n° 72-678). Ces informations s'impriment dans le bail quand le toggle "Mandataire" est activé dans le formulaire bail.</div>
           <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
             <div class="flex-b mb12">
@@ -1060,7 +1060,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
               <div class="fg"><label style="font-size:11px">Garant financier — organisme</label><input class="inp" id="mand-garant-nom" placeholder="GALIAN / SOCAF / MMA…"></div>
               <div class="fg"><label style="font-size:11px">Montant garantie (€)</label><input class="inp" type="number" id="mand-garant-mont" placeholder="110000"></div>
             </div>
-            <button class="btn bp" onclick="saveMandRef()">💾 Enregistrer</button>
+            <button class="btn bp" onclick="saveMandRef()"><span data-uic="save"></span> Enregistrer</button>
           </div>
         </div>
       </div>
@@ -1094,20 +1094,24 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           <div id="param-irl" style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
             <div class="flex-b mb8" style="flex-wrap:wrap;gap:8px">
               <div>
-                <div style="font-weight:700;color:var(--acc);margin-bottom:2px">📈 Indice de référence des loyers (IRL)</div>
+                <div style="font-weight:700;color:var(--acc);margin-bottom:2px"><span data-uic="chart"></span> Indice de référence des loyers (IRL)</div>
                 <div class="mu sm" id="irl-sync-etat">Table INSEE — série 001515333.</div>
               </div>
               <div class="flex-c" style="gap:6px">
-                <button class="btn bs bb" onclick="addIRLRow()">+ Trimestre</button>
-                <button class="btn bs bb" onclick="_irlSyncInsee({ manuel: true })" title="Relire la série IRL sur l'API de l'INSEE">↺ Synchroniser maintenant</button>
+                <button class="btn bs bb" onclick="_irlSyncInsee({ manuel: true })" title="Relire la série IRL sur l'API de l'INSEE"><span data-uic="refresh"></span> Synchroniser</button>
               </div>
             </div>
-            <div id="irl-divergences"></div>
-            <div class="tbl-wrap"><table class="tbl">
-              <thead><tr><th>Trimestre</th><th class="num">Valeur INSEE</th><th class="num">Variation</th><th>Publié au JO</th><th>Source</th><th></th></tr></thead>
-              <tbody id="irl-table-tbody"></tbody>
-            </table></div>
-            <div class="mu sm" style="margin-top:8px;font-size:11px">Un trimestre est publié environ six semaines après sa fin : la colonne « Publié au JO » dit à partir de quand l'indice existe. Sans réseau, la table conserve ses valeurs et le filet interne complète ce qui manque.</div>
+            <!-- PC-REFONTE étape 4 : la table (auto-sync INSEE) est repliée par défaut — on ne la touche presque jamais. -->
+            <details>
+              <summary style="cursor:pointer;font-size:12px;color:var(--acc);font-weight:600;margin-top:4px">Voir / corriger la table</summary>
+              <div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn bs bb" onclick="addIRLRow()"><span data-uic="plus"></span> Trimestre</button></div>
+              <div id="irl-divergences"></div>
+              <div class="tbl-wrap"><table class="tbl">
+                <thead><tr><th>Trimestre</th><th class="num">Valeur INSEE</th><th class="num">Variation</th><th>Publié au JO</th><th>Source</th><th></th></tr></thead>
+                <tbody id="irl-table-tbody"></tbody>
+              </table></div>
+              <div class="mu sm" style="margin-top:8px;font-size:11px">Un trimestre est publié environ six semaines après sa fin : la colonne « Publié au JO » dit à partir de quand l'indice existe. Sans réseau, la table conserve ses valeurs et le filet interne complète ce qui manque.</div>
+            </details>
           </div>
 
 
@@ -1117,9 +1121,9 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 
           <!-- v14.53 BUG-ENT-ORPHANS-CLEANUP Phase 2 : maintenance des rattachements orphelins -->
           <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
-            <div style="font-weight:700;color:var(--acc);margin-bottom:4px">🛠 Maintenance — Rattachements orphelins</div>
+            <div style="font-weight:700;color:var(--acc);margin-bottom:4px"><span data-uic="wrench"></span> Maintenance — Rattachements orphelins</div>
             <div class="mu sm mb10">Détecte les logements / baux / quittances / mouvements dont l'entité de rattachement n'existe plus (entité supprimée, renommée pre-v14.51, faute de frappe). Permet de les ré-affecter à une entité active ou de les marquer supprimés.</div>
-            <button class="btn bp bb" onclick="_openOrphansCleanup()">🔍 Détecter les rattachements orphelins</button>
+            <button class="btn bp bb" onclick="_openOrphansCleanup()"><span data-uic="search"></span> Détecter les rattachements orphelins</button>
           </div>
 
         </div>
@@ -49304,12 +49308,12 @@ function rParamsCats() {
   const renderStdRow = ({nom, idx}) => {
     const std = _stdCategoryByName(nom);
     const lineBadge = std.ligne2044
-      ? `<span style="font-size:10px;background:#3b82f622;color:#1e40af;padding:2px 7px;border-radius:8px;font-weight:600;font-family:monospace">L. ${escHtml(std.ligne2044)}</span>`
-      : `<span style="font-size:10px;background:#94a3b822;color:#64748b;padding:2px 7px;border-radius:8px;font-weight:600">hors 2044</span>`;
+      ? `<span style="font-size:10px;background:var(--info-soft);color:var(--info);border:1px solid var(--info);padding:1px 7px;border-radius:8px;font-weight:600;font-family:var(--display)">L. ${escHtml(std.ligne2044)}</span>`
+      : `<span style="font-size:10px;background:var(--gry-bg);color:var(--t3);border:1px solid var(--t3);padding:1px 7px;border-radius:8px;font-weight:600">hors 2044</span>`;
     return `<div class="flex-b mb8" style="padding:8px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);flex-wrap:wrap;gap:6px;opacity:0.95">
       ${_catIconHTML(nom)}
       <span style="flex:1;min-width:120px"><b>${escHtml(nom)}</b> ${lineBadge}
-        <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">🔒 Standard CERFA 2044 — la ligne d'impôt détermine tout (loyer / charge) automatiquement.</span>
+        <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">${_uiIcon('lock',11)} Standard CERFA 2044 — la ligne d'impôt détermine tout (loyer / charge) automatiquement.</span>
       </span>
     </div>`;
   };
@@ -49324,11 +49328,11 @@ function rParamsCats() {
       <span style="flex:1;min-width:120px">${escHtml(nom)}
         <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">Personnalisée · sa ligne 2044 détermine son traitement (loyer / charge / hors 2044).</span>
       </span>
-      <select data-cat="${escHtml(nom)}" onchange="_setCustomCatMap(this.getAttribute('data-cat'), this.value)" style="font-size:11px;padding:5px 7px;border-radius:6px;border:1px solid var(--bor);background:#fff;max-width:240px">
+      <select data-cat="${escHtml(nom)}" onchange="_setCustomCatMap(this.getAttribute('data-cat'), this.value)" style="font-size:11px;padding:5px 7px;border-radius:6px;border:1px solid var(--bor);background:var(--sur);color:var(--t1);max-width:240px">
         <option value="">— (non rattachée : à corriger) —</option>${opts}
       </select>
       <div class="flex-c">
-        <button class="btn br bb" onclick="delCat(${idx})" title="Supprimer cette catégorie personnalisée">🗑</button>
+        <button class="btn br bb" onclick="delCat(${idx})" title="Supprimer cette catégorie personnalisée">${_uiIcon('trash',14)}Supprimer</button>
       </div>
     </div>`;
   };
@@ -49336,7 +49340,7 @@ function rParamsCats() {
   const stdSection = `
     <div style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bor)">
-        <span style="font-size:16px">🔒</span>
+        ${_uiIcon('lock',16)}
         <b style="font-size:13px">Catégories standard (CERFA 2044) <span class="mu sm" style="font-weight:400">(${stdCats.length})</span></b>
         <span class="mu sm" style="font-size:10px;font-style:italic;margin-left:auto">Sourcées Notice 2044 — DGFP. Mapping figé, non modifiable.</span>
       </div>
@@ -49346,7 +49350,7 @@ function rParamsCats() {
   const customSection = `
     <div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bor)">
-        <span style="font-size:16px">✏️</span>
+        ${_uiIcon('edit',16)}
         <b style="font-size:13px">Catégories personnalisées <span class="mu sm" style="font-weight:400">(${customCats.length})</span></b>
         <span class="mu sm" style="font-size:10px;font-style:italic;margin-left:auto">Créées par toi · mapping libre via le wizard 2044</span>
       </div>
@@ -49940,14 +49944,14 @@ function rParamsRules(hostId) {
   if(!aliveIdx.length) {
     host.innerHTML = '<div class="mu sm" style="padding:16px;text-align:center;line-height:1.6">'
       + '<b>Aucune règle.</b><br>Propryo ne livre aucune règle toute faite : ce sont <b>tes</b> données, pas les siennes.<br>'
-      + 'Crée-en une depuis une ligne d\'import (💾 Mémoriser la règle) ou avec « + Règle ».</div>';
+      + 'Crée-en une depuis une ligne d\'import (' + _uiIcon('save',12) + ' Mémoriser la règle) ou avec « + Règle ».</div>';
     return;
   }
   const _acct = (DB.params.bankAccounts || []).filter(a => a && !a._deleted);
   const sensLbl = s => s === 'db' ? '− dépense' : s === 'cr' ? '+ recette' : 'les deux';
-  const affLbl = r => r.bailleurDuCompte ? '🏛️ le bailleur du compte'
-    : (r.compteurCcId ? '⚡ compteur' : (String(r.qui||'').startsWith('SCI:') ? '🏛️ ' + escHtml(r.qui.slice(4))
-      : (r.qui ? '🚪 ' + escHtml(r.qui) : (r.imm ? '🏢 ' + escHtml(r.imm) : '<span class="mu sm">—</span>'))));
+  const affLbl = r => r.bailleurDuCompte ? _uiIcon('bank',13)+' le bailleur du compte'
+    : (r.compteurCcId ? _uiIcon('bolt',13)+' compteur' : (String(r.qui||'').startsWith('SCI:') ? _uiIcon('bank',13)+' ' + escHtml(r.qui.slice(4))
+      : (r.qui ? _uiIcon('home',13)+' ' + escHtml(r.qui) : (r.imm ? _uiIcon('building',13)+' ' + escHtml(r.imm) : '<span class="mu sm">—</span>'))));
   // La table est large (7 colonnes) : elle défile DANS son conteneur, la page ne
   // scrolle jamais horizontalement (contrainte 3 formats, zéro scroll à 390 px).
   host.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="tbl" style="min-width:720px"><thead><tr>
@@ -49965,8 +49969,8 @@ function rParamsRules(hostId) {
     <td>${affLbl(r)}</td>
     <td class="mu sm" style="font-size:11.5px">${u.count ? u.count+' mouvement'+(u.count>1?'s':'')+'<br>dernière fois le '+fd(u.lastDate) : '<span style="color:var(--ora)">jamais utilisée</span>'}</td>
     <td class="act-cell">
-      <button class="btn bs bb" onclick="_bankRuleOpen(${i})" title="Modifier cette règle">✏️</button>
-      <button class="btn br bb" onclick="delRule(${i})" title="Supprimer">🗑</button>
+      <button class="btn bs bb" onclick="_bankRuleOpen(${i})" title="Modifier cette règle">${_uiIcon('edit',13)}Modifier</button>
+      <button class="btn br bb" onclick="delRule(${i})" title="Supprimer">${_uiIcon('trash',13)}Supprimer</button>
     </td>
   </tr>`;}).join('')}
   </tbody></table></div>`;
