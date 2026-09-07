@@ -338,6 +338,11 @@ export function _loyerArrearsPass(months, opts) {
     const oL = Math.max(0, Number(_open.loyer) || 0), oC = Math.max(0, Number(_open.charge) || 0);
     if (oL > 0.005) loyerQ.push({ idx: 0, short: oL, due: oL, recv: 0, opening: true });
     if (oC > 0.005) chargeQ.push({ idx: 0, short: oC, due: oC, recv: 0, opening: true });
+    // AVANCE d'ouverture (trop-perçu de N-1, ex. locataire à terme échoir qui paie janvier le 28/12) :
+    // portée comme avance de départ → couvre les 1ers mois dus de l'année AVANT qu'un retard naisse.
+    // Sinon l'Accueil afficherait un faux impayé sur un locataire qui a payé d'avance (audit C2 #1,
+    // décision CDC (b) l.136). N'a de sens qu'avec le report (carry) — la politique du maître.
+    if (carry) { const oA = Math.max(0, Number(_open.avance) || 0); if (oA > 0.005) avanceCarry = oA; }
   }
 
   // ── Traçabilité (lot 0) : le miroir en fragments du pool scalaire ──────────

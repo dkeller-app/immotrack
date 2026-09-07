@@ -42,4 +42,11 @@ describe('C2 — position d\'ouverture d\'arriéré', () => {
     expect(r.loyerArrear).toBe(0);
     expect(r.avance).toBe(200);
   });
+
+  it('AVANCE d\'ouverture (trop-perçu N-1) : couvre les 1ers mois → aucun faux retard (audit #1)', () => {
+    // 2 mois dus 500 ; le 1er reçoit 0 (payé d'avance en N-1), le 2e est payé. Avance d'ouverture 500.
+    const r = _computeLoyerNetting([{ hcDue: 500, chDue: 0, received: 0 }, { hcDue: 500, chDue: 0, received: 500 }], false, { avance: 500 });
+    expect(r.loyerArrear).toBe(0);
+    expect(r.retardMois.reduce((s, m) => s + m.loyer, 0)).toBe(0);
+  });
 });

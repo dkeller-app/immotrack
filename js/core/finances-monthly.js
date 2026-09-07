@@ -223,7 +223,9 @@ export function _computeFinancesMonthly(input) {
       return { hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: (preRecv[q] && preRecv[q][ym]) || 0 };
     });
     const pr = _computeLoyerNetting(pm, false);   // pas de tolérance sur le passé clos
-    return (pr.loyerArrear > 0.005 || pr.chargeArrear > 0.005) ? { loyer: pr.loyerArrear, charge: pr.chargeArrear } : null;
+    if (pr.loyerArrear > 0.005 || pr.chargeArrear > 0.005) return { loyer: pr.loyerArrear, charge: pr.chargeArrear };
+    if (pr.avance > 0.005) return { avance: pr.avance };   // trop-perçu de N-1 reporté (audit C2 #1, CDC (b))
+    return null;
   };
 
   const lotsEnRetard = [];       // R-2 : lots à retard résiduel > 0 (compteur « N impayés »)
