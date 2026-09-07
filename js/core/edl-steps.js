@@ -28,13 +28,25 @@ export const ADMIN_HEAD = [
  * @returns {Array<{id:string, group:string, kind:'admin'|'piece', nom:string, pieceIdx?:number}>}
  */
 export function buildSteps(opts = {}) {
-  const mobilierEnabled = !!opts.mobilierEnabled;
+  // CHANTIER EDL-GARAGE — un EDL de garage (droit commun) n'a pas d'étapes logement :
+  // pas de compteurs, pas de détecteur de fumée (DAAF), pas de mobilier. « Clés » devient
+  // « Moyens d'accès » (clés / badge / bip). Les rubriques logement sont sans objet.
+  const garage = !!opts.garage;
+  const mobilierEnabled = !garage && !!opts.mobilierEnabled;
   const names = Array.isArray(opts.pieceNames) ? opts.pieceNames : [];
   const pieceCount = Number.isFinite(opts.pieceCount)
     ? Math.max(0, Math.trunc(opts.pieceCount))
     : names.length;
 
-  const steps = ADMIN_HEAD.map(s => ({ ...s, kind: 'admin' }));
+  let head = ADMIN_HEAD.map(s => ({ ...s, kind: 'admin' }));
+  if (garage) {
+    head = head
+      .filter(s => s.id !== 'compteurs' && s.id !== 'daaf')
+      .map(s => s.id === 'cles'  ? { ...s, nom: 'Moyens d\'accès (clés, badge, bip)' }
+              : s.id === 'infos' ? { ...s, nom: 'Infos de l\'emplacement' }
+              : s);
+  }
+  const steps = head;
 
   // Mobilier : étape à part ENTIÈRE, mais seulement pour un logement meublé (pas d'étape
   // vide pour un logement nu — CDC §2.2). Placée juste après le DAAF, avant les pièces :

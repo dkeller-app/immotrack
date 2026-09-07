@@ -327,6 +327,24 @@ export function _loyerArrearsPass(months, opts) {
   const sumQ = (q) => q.reduce((s, e) => s + e.short, 0);
   let avanceCarry = 0;
 
+  // C2 — POSITION D'OUVERTURE (Finances maître de l'arriéré) : une dette reportée d'avant la
+  // fenêtre (arriéré des exercices antérieurs, bornée au début du suivi) est semée dans les files
+  // à l'index 0. Elle est donc recouvrée EN PRIORITÉ par les premiers surplus (loyer avant charge,
+  // comme un arriéré normal) et, si elle survit, attribuée au 1er mois → « Σ retardMois = arriéré
+  // final » reste vrai, l'Accueil (qui lit ce total via Finances) ne ment plus sur un vieux dû.
+  // Aucune imputation fiscale : c'est une dette, pas un dû/encaissement du mois (2044 en amont).
+  const _open = opts && opts.opening;
+  if (_open) {
+    const oL = Math.max(0, Number(_open.loyer) || 0), oC = Math.max(0, Number(_open.charge) || 0);
+    if (oL > 0.005) loyerQ.push({ idx: 0, short: oL, due: oL, recv: 0, opening: true });
+    if (oC > 0.005) chargeQ.push({ idx: 0, short: oC, due: oC, recv: 0, opening: true });
+    // AVANCE d'ouverture (trop-perçu de N-1, ex. locataire à terme échoir qui paie janvier le 28/12) :
+    // portée comme avance de départ → couvre les 1ers mois dus de l'année AVANT qu'un retard naisse.
+    // Sinon l'Accueil afficherait un faux impayé sur un locataire qui a payé d'avance (audit C2 #1,
+    // décision CDC (b) l.136). N'a de sens qu'avec le report (carry) — la politique du maître.
+    if (carry) { const oA = Math.max(0, Number(_open.avance) || 0); if (oA > 0.005) avanceCarry = oA; }
+  }
+
   // ── Traçabilité (lot 0) : le miroir en fragments du pool scalaire ──────────
   const imput = ms.map(() => []);                   // imput[idx] = [{date,id,montant,poste}]
   let frags = [];                                   // [{date,id,reste}] FIFO, le plus ancien devant
@@ -431,6 +449,6 @@ export function _loyerArrearsPass(months, opts) {
  * @param {Array<{hcDue:number, chDue:number, received:number}>} months chronologiques (échus)
  * @param {boolean} [graceLast] neutralise le manque neuf du dernier mois (tolérance <10)
  */
-export function _computeLoyerNetting(months, graceLast) {
-  return _loyerArrearsPass(months, { carry: true, graceLast: !!graceLast });
+export function _computeLoyerNetting(months, graceLast, opening) {
+  return _loyerArrearsPass(months, { carry: true, graceLast: !!graceLast, opening: opening || null });
 }

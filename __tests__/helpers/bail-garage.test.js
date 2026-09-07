@@ -12,13 +12,14 @@ import {
   BAIL_GARAGE_INDICES, BAIL_GARAGE_INDEX_DEFAULT, isGarageIndexationOnByDefault
 } from './bail-garage.js';
 
-describe('Nature d\'emplacement (place/box/stockage)', () => {
-  it('natures = place/box/stockage, défaut box', () => {
-    expect(BAIL_GARAGE_NATURES).toEqual(['place', 'box', 'stockage']);
+describe('Nature d\'emplacement (place/box/garage/stockage)', () => {
+  it('natures = place/box/garage/stockage, défaut box', () => {
+    expect(BAIL_GARAGE_NATURES).toEqual(['place', 'box', 'garage', 'stockage']);
     expect(BAIL_GARAGE_NATURE_DEFAULT).toBe('box');
   });
   it('resolveGarageNature : valide fait autorité, sinon box', () => {
     expect(resolveGarageNature({ natureEmplacement: 'place' })).toBe('place');
+    expect(resolveGarageNature({ natureEmplacement: 'garage' })).toBe('garage');
     expect(resolveGarageNature({ natureEmplacement: 'stockage' })).toBe('stockage');
     expect(resolveGarageNature({})).toBe('box');
     expect(resolveGarageNature({ natureEmplacement: 'cave' })).toBe('box');
@@ -27,12 +28,17 @@ describe('Nature d\'emplacement (place/box/stockage)', () => {
   it('getGarageTitle : distinct par nature, défaut box', () => {
     expect(getGarageTitle('place')).toMatch(/STATIONNEMENT/i);
     expect(getGarageTitle('box')).toMatch(/BOX/i);
+    expect(getGarageTitle('garage')).toMatch(/GARAGE/i);
     expect(getGarageTitle('stockage')).toMatch(/STOCKAGE/i);
     expect(getGarageTitle('cave')).toBe(getGarageTitle('box'));
+    // 4 titres distincts
+    expect(new Set(['place','box','garage','stockage'].map(getGarageTitle)).size).toBe(4);
   });
-  it('getGarageDestinationUsage : place=stationnement, box/stockage=remisage, jamais habitation', () => {
+  it('getGarageDestinationUsage : place=stationnement, box/stockage=remisage, garage=les deux, jamais habitation', () => {
     expect(getGarageDestinationUsage('place')).toMatch(/stationnement/i);
     expect(getGarageDestinationUsage('box')).toMatch(/remisage|stockage/i);
+    expect(getGarageDestinationUsage('garage')).toMatch(/stationnement/i);
+    expect(getGarageDestinationUsage('garage')).toMatch(/remisage/i);
     for (const n of BAIL_GARAGE_NATURES) {
       expect(getGarageDestinationUsage(n)).not.toMatch(/habitation|résidence principale/i);
     }
@@ -233,5 +239,19 @@ describe('buildGarageStructure — pagination (page-break avant Signatures et An
     const annIdx = out.findIndex(b => b.type === 'h2' && b.text === 'Annexes');
     expect(resolIdx).toBeLessThan(sigIdx);
     expect(sigIdx).toBeLessThan(annIdx);
+  });
+});
+
+describe('buildGarageStructure — adresse du locataire (domicile, hors logement)', () => {
+  it('domicile renseigné : « Le LOCATAIRE demeure » + élection de domicile sur le domicile', () => {
+    const t = allText(build({ locDomicile: '5 rue du Domicile, 68000 Colmar' }));
+    expect(t).toMatch(/Le LOCATAIRE demeure : 5 rue du Domicile, 68000 Colmar\./);
+    expect(t).toMatch(/le LOCATAIRE à son domicile sis 5 rue du Domicile, 68000 Colmar/);
+    expect(t).not.toMatch(/le LOCATAIRE à l'adresse de l'emplacement loué/);
+  });
+  it('domicile absent : pas de ligne « demeure », élection de domicile sur l\'emplacement (défaut)', () => {
+    const t = allText(build({ locDomicile: '' }));
+    expect(t).not.toMatch(/Le LOCATAIRE demeure/);
+    expect(t).toMatch(/le LOCATAIRE à l'adresse de l'emplacement loué/);
   });
 });
