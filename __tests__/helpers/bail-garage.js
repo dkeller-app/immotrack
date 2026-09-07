@@ -18,12 +18,12 @@
  * - Code de l'environnement art. L125-5 : état des risques (ERP) — dû si zone à risque
  */
 
-// ── Nature de l'emplacement (place / box / stockage) ─────────────────────────────
+// ── Nature de l'emplacement (place / box / garage / stockage) ────────────────────
 // Juridiquement identique (Code civil) ; seul le DOCUMENT diffère (titre, désignation §1,
 // destination §2). La nature ne change PAS le régime juridique.
 
 /** Natures d'emplacement d'un bail garage (`bail.natureEmplacement`). */
-export const BAIL_GARAGE_NATURES = ['place', 'box', 'stockage'];
+export const BAIL_GARAGE_NATURES = ['place', 'box', 'garage', 'stockage'];
 /** Nature par défaut (rétrocompat baux garage sans champ). */
 export const BAIL_GARAGE_NATURE_DEFAULT = 'box';
 
@@ -36,6 +36,7 @@ export function resolveGarageNature(bail) {
 const GARAGE_TITLES = Object.freeze({
   place:    'CONTRAT DE LOCATION D\'UNE PLACE DE STATIONNEMENT',
   box:      'CONTRAT DE LOCATION D\'UN BOX FERMÉ',
+  garage:   'CONTRAT DE LOCATION D\'UN GARAGE',
   stockage: 'CONTRAT DE LOCATION D\'UN LOCAL DE STOCKAGE'
 });
 /** Titre du bail garage pour la nature donnée (défaut box). */
@@ -46,6 +47,7 @@ export function getGarageTitle(nature) {
 const GARAGE_DESTINATIONS = Object.freeze({
   place:    'exclusif de stationnement d\'un véhicule',
   box:      'exclusif de remisage et de stockage de biens personnels',
+  garage:   'exclusif de stationnement d\'un véhicule et de remisage de biens personnels',
   stockage: 'exclusif de remisage et de stockage de biens personnels'
 });
 /** Usage exclusif du §2 pour la nature donnée (défaut box). Jamais d'habitation. */
@@ -96,11 +98,13 @@ export function buildGarageStructure(ctx) {
   const usage = getGarageDestinationUsage(nature);
   const natureLabel = nature === 'place' ? 'Emplacement loué'
                     : nature === 'stockage' ? 'Local loué'
+                    : nature === 'garage' ? 'Garage loué'
                     : 'Emplacement loué';
 
   // Désignation (§1) — libellé de l'objet selon la nature.
   const objet = nature === 'place' ? 'une place de stationnement individuelle'
               : nature === 'stockage' ? 'un local de stockage / de rangement'
+              : nature === 'garage' ? 'un garage individuel fermé'
               : 'un box fermé individuel';
   const numTxt = has(c.numEmplacement) ? ` portant le n° ${S(c.numEmplacement)}` : '';
   const niveauTxt = has(c.niveau) ? `, situé ${S(c.niveau)}` : '';

@@ -1943,6 +1943,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           <select class="inp" id="b-emplNature">
             <option value="place">Place de stationnement (numérotée, non fermée)</option>
             <option value="box" selected>Box fermé (surface + serrure)</option>
+            <option value="garage">Garage individuel (fermé, avec toiture)</option>
             <option value="stockage">Local de stockage / de rangement</option>
           </select>
         </div>
@@ -20460,7 +20461,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     const _lettres = n => (n ? _cap(numToWords(Math.round(n))) : '');
     const _gnat = window.BailGarage.resolveGarageNature(bail);
     const _emplRecap = [
-      (_gnat === 'place' ? 'Place de stationnement' : _gnat === 'stockage' ? 'Local de stockage' : 'Box fermé'),
+      (_gnat === 'place' ? 'Place de stationnement' : _gnat === 'stockage' ? 'Local de stockage' : _gnat === 'garage' ? 'Garage individuel' : 'Box fermé'),
       (bail.emplNum || bail.lot) ? ('n° ' + S(bail.emplNum || bail.lot)) : '',
       (bail.emplNiveau || bail.etage) ? S(bail.emplNiveau || bail.etage) : '',
       (_gnat !== 'place' && (bail.emplSurface || bail.surf)) ? ('env. ' + S(bail.emplSurface || bail.surf) + ' m²') : ''
