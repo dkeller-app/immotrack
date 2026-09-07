@@ -50105,22 +50105,16 @@ function applyTheme(theme) {
 
 // Liste de modules exposés à l'utilisateur dans la matrice (override toggles).
 // On expose les modules non-CORE pour éviter de masquer accidentellement biens/baux/etc.
+// PC-REFONTE étape 2 — seuls les modules RÉELS (fonctionnalités livrées) restent.
+// Les 9 modules « À venir Sprint 7/8 » (dashboard-lentilles, bailleurs-multi, travaux,
+// pilotage-matriciel, export-fec, mandat-crg-sepa, audit-trail-ui, carnet-adresse,
+// bank-integration) exposaient des cases inertes vers des features inexistantes → retirés.
 const PROFILE_TOGGLEABLE_MODULES = [
   { key:'import',             label:'Import / Données',          desc:'Imports CSV/Excel, batches' },
   { key:'charges-regul',      label:'Régularisation charges',    desc:'Régul annuelle + provisions' },
   { key:'export',             label:'Export / Sauvegarde',       desc:'Backups + restore + Drive' },
   { key:'equipements',        label:'Équipements',               desc:'Suivi chaudière, DAAF, etc.' },
-  // Modules futurs (Sprint 7+) — visibles dans le panneau dès maintenant
-  { key:'dashboard-lentilles',label:'Dashboard multi-lentilles', desc:'À venir Sprint 7 — vue avancée' },
-  { key:'bailleurs-multi',    label:'Bailleurs multiples',       desc:'À venir — gestion SCI/parts' },
   { key:'candidats',          label:'Candidats / pré-baux',      desc:'Pipeline candidatures + conversion bail' },
-  { key:'travaux',            label:'Travaux & artisans',        desc:'À venir — devis, suivi' },
-  { key:'pilotage-matriciel', label:'Pilotage matriciel',        desc:'À venir Sprint 8 — KPI pro' },
-  { key:'export-fec',         label:'Export FEC',                desc:'À venir — comptabilité officielle' },
-  { key:'mandat-crg-sepa',    label:'Mandat CRG + SEPA',         desc:'À venir — mandataires Hoguet' },
-  { key:'audit-trail-ui',     label:'Audit trail (UI dédié)',    desc:'À venir — visualisation logs' },
-  { key:'carnet-adresse',     label:'Carnet d\'adresses',        desc:'À venir — artisans, contacts' },
-  { key:'bank-integration',   label:'Intégration bancaire',      desc:'À venir — sync comptes pro' },
 ];
 
 function rParamsProfile() {
@@ -50180,7 +50174,6 @@ function rParamsProfile() {
       <div class="ct mb12" style="font-size:14px">${_uiIcon('settings')} Modules activables</div>
       <div class="mu sm mb12">
         Cochez/décochez pour adapter la sidebar à votre besoin. Un module désactivé est masqué de la navigation.
-        Les modules "À venir" seront livrés dans les prochains Sprints (V1.1+).
       </div>
       ${togglesHtml}
     </div>`;
