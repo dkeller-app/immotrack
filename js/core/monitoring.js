@@ -12,8 +12,9 @@
  *   - DÉSACTIVÉ par défaut tant que DB.params.monitoringEnabled ≠ true
  *   - Métriques anonymes (pas de PII, pas d'IP, pas de userAgent en clair → hash)
  *
- * Pour Sentry/Plausible réels (V1.1+) : ajouter DB.params.sentryDsn ou
- * plausibleDomain, le code détecte et active le forward HTTP.
+ * L'eventLog reste LOCAL. Le forward HTTP externe (plausible.io) a été RETIRÉ (AUDIT-C1 :
+ * règle « aucun endpoint externe au runtime » + RGPD) ; un forward first-party (domaine Propryo)
+ * pourra être ajouté explicitement le moment venu.
  */
 
 /** Hash léger (FNV-1a) pour anonymiser userAgent / pathname. */
