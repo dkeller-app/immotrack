@@ -416,7 +416,7 @@ export function _loyerArrearsPass(months, opts) {
   const last = perMonth.length ? perMonth[perMonth.length - 1] : { loyerArrear: 0, chargeArrear: 0 };
   // RÉSIDU par mois (colonnes P&L) : le manque ENCORE dû attribué à son mois d'origine
   // (net des rattrapages ET du netting). Invariant : Σ = arriéré final.
-  const residual = (q) => { const a = ms.map(() => 0); q.forEach((e) => { if (e.short > 0.005) a[e.idx] = _r2(a[e.idx] + e.short); }); return a; };
+  const residual = (q) => { const a = ms.map(() => 0); q.forEach((e) => { if (e.short > 0.005 && e.idx >= 0 && e.idx < a.length) a[e.idx] = _r2(a[e.idx] + e.short); }); return a; };
   const loyerRes = residual(loyerQ), chargeRes = residual(chargeQ);
   const retardMois = ms.map((m, idx) => ({ loyer: loyerRes[idx], charge: chargeRes[idx] }));
   // Traçabilité : on fusionne les prélèvements successifs d'un même mouvement sur un même

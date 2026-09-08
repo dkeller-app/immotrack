@@ -54437,10 +54437,21 @@ function _finIsRecupACharge(m) {
   }
   return false;
 }
+let _finMonthlyCache = { gen: -1, m: new Map() };
 function _finMonthly(yr, scope, win) {
   if (typeof window._computeFinancesMonthly !== 'function') return null;
+  // Mémoïsation par (année · périmètre · fenêtre · _dbGen) : l'Accueil déclenche _finMonthly plusieurs
+  // fois par rendu (bulle Impayés `_computeImpayes` + matrice + drill), chacun refaisant le moteur
+  // complet + la pré-passe d'ouverture O(lots × mois pré-exercice) — coûteux sur gros parc (audits C2).
+  // Le cache s'invalide dès que `_dbGen` change (save / hydratation cloud / restauration, cf C1).
+  // Résultat lu en SEULE LECTURE par les appelants (aucune mutation de byLot/months).
+  const gen = (typeof window._dbGen === 'number') ? window._dbGen : 0;
+  if (gen !== _finMonthlyCache.gen) { _finMonthlyCache.gen = gen; _finMonthlyCache.m.clear(); }
+  let _key = null;
+  try { _key = String(yr) + '|' + JSON.stringify(scope) + '|' + JSON.stringify(win); } catch (e) {}
+  if (_key && _finMonthlyCache.m.has(_key)) return _finMonthlyCache.m.get(_key);
   const isWin = !!(win && typeof win === 'object');
-  return window._computeFinancesMonthly({
+  const _res = window._computeFinancesMonthly({
     mouvements: DB.mouvements || [],
     year: yr,
     scope,
@@ -54457,6 +54468,8 @@ function _finMonthly(yr, scope, win) {
     window: isWin ? win : undefined,
     lastMonth: isWin ? undefined : win
   });
+  if (_key) _finMonthlyCache.m.set(_key, _res);
+  return _res;
 }
 
 
