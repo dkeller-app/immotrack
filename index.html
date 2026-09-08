@@ -6630,7 +6630,7 @@ function _undoUIInit() {
    Plutôt que d'éditer ~205 sites, on rend focusable + role=button tout [onclick] non-natif
    (idempotent via [data-a11y], + MutationObserver pour le contenu (re)généré) et on active au
    clavier GLOBALEMENT. Les natifs (a/button/input…) gardent leur comportement propre. */
-const _A11Y_SEL = '[onclick]:not([data-a11y]):not(a):not(button):not(input):not(select):not(textarea):not(label)';
+const _A11Y_SEL = '[onclick]:not([data-a11y]):not(a):not(button):not(input):not(select):not(textarea):not(label):not([aria-hidden="true"]):not([role="dialog"]):not([aria-modal="true"])';
 function _a11yTag(el) {
   if (!el || el.nodeType !== 1 || el.isContentEditable) { if (el && el.setAttribute) el.setAttribute && el.setAttribute('data-a11y', '1'); return; }
   if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
@@ -6657,6 +6657,10 @@ function _a11yEnhance(root) {
     if (el.isContentEditable) return;
     if (typeof _inEditableField === 'function' && _inEditableField(el)) return;
     if (!(el.getAttribute('role') === 'button' || el.hasAttribute('onclick'))) return;
+    // L'élément gère DÉJÀ le clavier lui-même (onkeydown inline) → ne pas refaire un clic : sinon
+    // double activation (les handlers inline ne font que preventDefault, l'event remonte ici) → sur
+    // une bascule, 2× = no-op (audit : casse .log-grp-h / .hbc-head). On laisse l'inline agir seul.
+    if (el.hasAttribute('onkeydown')) return;
     e.preventDefault();                                                  // Espace ne doit pas scroller
     if (typeof el.click === 'function') el.click();
   });
