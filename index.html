@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.605</title>
+<title>Propryo v15.607</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.605">
+<link rel="stylesheet" href="css/main.css?v=15.607">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.605</em>
+      <em>v15.607</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -216,12 +216,13 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-accueil .pil-b.ok:hover{transform:none;border-color:var(--bor);box-shadow:0 1px 2px rgba(16,21,33,.05),0 6px 16px -6px rgba(16,21,33,.10)}
         #p-accueil .pil-b.ok .a{font-size:14.5px;letter-spacing:0}
         /* deux colonnes : bulles à gauche (~380 px), matrice à droite */
-        #p-accueil .pil-duo{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:14px;align-items:start}
+        #p-accueil .pil-duo{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:14px;align-items:stretch}
         #p-accueil .pil-col-left{min-width:0}
-        #p-accueil .pil-col-right{min-width:0}
+        #p-accueil .pil-col-right{min-width:0;min-height:0;display:flex;flex-direction:column}
+        #p-accueil .pil-col-right #pil-matrice{display:flex;flex-direction:column;flex:1;min-height:0}
         #p-accueil .pil-duo .pil-bub{grid-template-columns:repeat(2,1fr)}
         /* matrice de conformité */
-        #p-accueil .pil-mtx{background:var(--sur);border:1px solid var(--bor);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,21,33,.04)}
+        #p-accueil .pil-mtx{background:var(--sur);border:1px solid var(--bor);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,21,33,.04);display:flex;flex-direction:column;flex:1;min-height:0}
         #p-accueil .pil-mtx-h{display:flex;align-items:center;gap:10px;padding:11px 15px 10px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
         #p-accueil .pil-mtx-h b{font-size:12.5px;font-weight:800}
         #p-accueil .pil-mtx-h .cnt{font-size:11px;font-weight:700;color:var(--t3)}
@@ -230,6 +231,9 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-accueil .pil-mtx-h .fl button[aria-pressed="true"]{background:var(--t1);color:var(--bg);border-color:var(--t1)}
         #p-accueil .pil-mtx-h .fchip{border:0;background:var(--acc-soft);color:var(--acc);font:inherit;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;cursor:pointer}
         #p-accueil .pil-mtx-s{overflow:auto;max-height:560px;scrollbar-width:thin}
+        /* PC (2 colonnes) : la matrice remplit la hauteur de la colonne de bulles (align-items:stretch),
+           le tableau défile dedans → plus de « trou » sous la carte Conformité. Tablette/1-col garde le plafond. */
+        @media(min-width:1101px){ #p-accueil .pil-mtx-s{max-height:none;flex:1;min-height:0} }
         #p-accueil table.pil-mx{width:100%;border-collapse:collapse;font-size:12.5px}
         #p-accueil table.pil-mx th{position:sticky;top:0;background:var(--sur);z-index:2;text-align:center;font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);padding:7px 4px;border-bottom:1px solid var(--bor);white-space:nowrap}
         #p-accueil table.pil-mx th.l{text-align:left;padding-left:15px} #p-accueil table.pil-mx th.r{text-align:right;padding-right:15px}
@@ -4215,7 +4219,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.605';
+const IMMOTRACK_VERSION = '15.607';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -54392,10 +54396,21 @@ function _finIsRecupACharge(m) {
   }
   return false;
 }
+let _finMonthlyCache = { gen: -1, m: new Map() };
 function _finMonthly(yr, scope, win) {
   if (typeof window._computeFinancesMonthly !== 'function') return null;
+  // Mémoïsation par (année · périmètre · fenêtre · _dbGen) : l'Accueil déclenche _finMonthly plusieurs
+  // fois par rendu (bulle Impayés `_computeImpayes` + matrice + drill), chacun refaisant le moteur
+  // complet + la pré-passe d'ouverture O(lots × mois pré-exercice) — coûteux sur gros parc (audits C2).
+  // Le cache s'invalide dès que `_dbGen` change (save / hydratation cloud / restauration, cf C1).
+  // Résultat lu en SEULE LECTURE par les appelants (aucune mutation de byLot/months).
+  const gen = (typeof window._dbGen === 'number') ? window._dbGen : 0;
+  if (gen !== _finMonthlyCache.gen) { _finMonthlyCache.gen = gen; _finMonthlyCache.m.clear(); }
+  let _key = null;
+  try { _key = String(yr) + '|' + JSON.stringify(scope) + '|' + JSON.stringify(win); } catch (e) {}
+  if (_key && _finMonthlyCache.m.has(_key)) return _finMonthlyCache.m.get(_key);
   const isWin = !!(win && typeof win === 'object');
-  return window._computeFinancesMonthly({
+  const _res = window._computeFinancesMonthly({
     mouvements: DB.mouvements || [],
     year: yr,
     scope,
@@ -54412,6 +54427,8 @@ function _finMonthly(yr, scope, win) {
     window: isWin ? win : undefined,
     lastMonth: isWin ? undefined : win
   });
+  if (_key) _finMonthlyCache.m.set(_key, _res);
+  return _res;
 }
 
 
