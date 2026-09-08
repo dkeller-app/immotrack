@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.607</title>
+<title>Propryo v15.611</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.607">
+<link rel="stylesheet" href="css/main.css?v=15.608">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.607</em>
+      <em>v15.611</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -2270,6 +2270,11 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 .ni-pastille{margin-left:auto;background:var(--red,#dc2626);color:#fff;font-size:10.5px;font-weight:700;min-width:18px;height:18px;padding:0 5px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center}
 /* Badge notif rouge sur l'item Candidats de la sidebar V4 (override du .v4s-bd gris) */
 body[data-dash-v4="on"] .v4s-sb-nav .v4s-a .v4s-bd.v4s-bd-new{background:var(--red,#dc2626);color:#fff}
+/* Le badge (.v4-bn-badge, position:absolute) doit s'ancrer à SON onglet. Sans ce
+   position:relative, il se cale sur le nav (position:fixed) → right:calc(50%-20px)
+   le pousse au CENTRE de la barre : correct par hasard pour l'onglet du milieu,
+   au mauvais endroit pour tout autre onglet (ex. « Plus ») ou tout ordre de favoris. */
+.v4-bnav .v4-bn{position:relative}
 .v4-bn-badge{position:absolute;top:2px;right:calc(50% - 20px);background:var(--red,#dc2626);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;padding:0 3px;border-radius:8px;display:flex;align-items:center;justify-content:center}
 .more-badge{background:var(--red,#dc2626);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;padding:0 4px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;margin-left:4px}
 .cand-new-pill{background:var(--acc,#3b7ef6);color:#fff;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;margin-left:6px;vertical-align:middle;white-space:nowrap}
@@ -4219,7 +4224,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.607';
+const IMMOTRACK_VERSION = '15.611';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -6618,6 +6623,62 @@ function _undoUIInit() {
   _undoUIRefresh();
 }
 /* ═══ FIN UNDO-OP cœur ═════════════════════════════════════════════════════ */
+
+/* ═══ A11Y CLAVIER — activation Enter/Espace + focusabilité globale ═════════════
+   Les commandes stylées en <div>/<span> onclick (nav, chips, cartes, lignes) DOIVENT être
+   atteignables ET activables au clavier (audit a11y, non-négociable pré-commercialisation).
+   Plutôt que d'éditer ~205 sites, on rend focusable + role=button tout [onclick] non-natif
+   (idempotent via [data-a11y], + MutationObserver pour le contenu (re)généré) et on active au
+   clavier GLOBALEMENT. Les natifs (a/button/input…) gardent leur comportement propre. */
+const _A11Y_SEL = '[onclick]:not([data-a11y]):not(a):not(button):not(input):not(select):not(textarea):not(label):not([aria-hidden="true"]):not([role="dialog"]):not([aria-modal="true"])';
+function _a11yTag(el) {
+  if (!el || el.nodeType !== 1 || el.isContentEditable) { if (el && el.setAttribute) el.setAttribute && el.setAttribute('data-a11y', '1'); return; }
+  if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+  if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
+  if (!el.getAttribute('aria-label') && !(el.textContent || '').trim()) {
+    const lbl = el.getAttribute('data-tip') || el.getAttribute('title');
+    if (lbl) el.setAttribute('aria-label', lbl);
+  }
+  el.setAttribute('data-a11y', '1');
+}
+function _a11yEnhance(root) {
+  if (!root || root.nodeType !== 1) { root = document.body || document.documentElement; if (!root) return; }
+  try { if (root.matches && root.matches(_A11Y_SEL)) _a11yTag(root); } catch (e) {}
+  let list; try { list = root.querySelectorAll ? root.querySelectorAll(_A11Y_SEL) : []; } catch (e) { return; }
+  for (let i = 0; i < list.length; i++) _a11yTag(list[i]);
+}
+(function _a11yBootClavier() {
+  // 1) Activation clavier : Enter / Espace sur une commande non-native focalisée → clic.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const el = e.target;
+    if (!el || el.nodeType !== 1) return;
+    if (/^(A|BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;   // natifs : gèrent seuls
+    if (el.isContentEditable) return;
+    if (typeof _inEditableField === 'function' && _inEditableField(el)) return;
+    if (!(el.getAttribute('role') === 'button' || el.hasAttribute('onclick'))) return;
+    // L'élément gère DÉJÀ le clavier lui-même (onkeydown inline) → ne pas refaire un clic : sinon
+    // double activation (les handlers inline ne font que preventDefault, l'event remonte ici) → sur
+    // une bascule, 2× = no-op (audit : casse .log-grp-h / .hbc-head). On laisse l'inline agir seul.
+    if (el.hasAttribute('onkeydown')) return;
+    e.preventDefault();                                                  // Espace ne doit pas scroller
+    if (typeof el.click === 'function') el.click();
+  });
+  // 2) Focusabilité : passe initiale + observer (contenu généré à chaque rendu/modale).
+  const run = () => { try { _a11yEnhance(document.body || document.documentElement); } catch (e) {} };
+  if (document.readyState !== 'loading') run(); else document.addEventListener('DOMContentLoaded', run);
+  try {
+    const obs = new MutationObserver((muts) => {
+      for (let i = 0; i < muts.length; i++) {
+        const added = muts[i].addedNodes; if (!added) continue;
+        for (let j = 0; j < added.length; j++) { const n = added[j]; if (n && n.nodeType === 1) _a11yEnhance(n); }
+      }
+    });
+    const target = document.body || document.documentElement;
+    if (target) obs.observe(target, { childList: true, subtree: true });
+    else document.addEventListener('DOMContentLoaded', () => obs.observe(document.body, { childList: true, subtree: true }));
+  } catch (e) {}
+})();
 
 function saveDB(opts) {
   // EDL TERRAIN lot 1 — `opts.autosave` : l'autosave de l'EDL écrit toutes les
@@ -10164,7 +10225,11 @@ function _pilCollectFamilles(ctx) {
       // C2 : l'ancienneté vient du MAÎTRE (byLot) via it.depuisYm (1er mois portant un résidu) —
       // l'ancien recalcul par _suiviLoyerStrip lisait un champ `ym` absent → toujours null (audit).
       const anc = it.depuisYm ? joursDepuis(it.depuisYm + '-01') : null;
-      src.impaye.push({ ref: it.ref, nom: it.locataire || it.ref, montant: it.reste || 0, urgenceJours: anc });
+      // loyer mensuel du lot → affichage « N mois de loyer » (montant ÷ loyer, décision user :
+      // l'ampleur de la dette en nombre de loyers, cohérent avec l'onglet Loyers ; pas des jours).
+      const _lot = scopeLogs.find(x => x.ref === it.ref);
+      const _mens = _lot ? ((Number(_lot.hc) || 0) + (Number(_lot.ch) || 0)) : 0;
+      src.impaye.push({ ref: it.ref, nom: it.locataire || it.ref, montant: it.reste || 0, urgenceJours: anc, loyerMensuel: _mens });
     });
   } catch (e) {}
 
@@ -10476,7 +10541,7 @@ function _pilPireTxt(f) {
   const j = p.urgenceJours;
   const chiffreEstEuro = (f.montant != null && Math.abs(f.montant) > 0.005);
   if (!chiffreEstEuro) return nom;                          // .a porte déjà la gravité (temps)
-  if (f.id === 'impaye') return nom + (j != null ? ' · ' + j + ' j' : '');
+  if (f.id === 'impaye') { const lm = Number(p.loyerMensuel) || 0, nM = (lm > 0.5) ? Math.round((Number(p.montant) || 0) / lm) : 0; return nom + (nM >= 1 ? ' · ' + nM + ' mois' : ''); }   // ampleur en loyers (montant ÷ loyer), cohérent onglet Loyers
   if (f.id === 'vacant') return nom + (j != null ? ' · vide ' + j + ' j' : '');
   return nom;
 }
@@ -51420,20 +51485,37 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   if (!logs.length) {
     return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Aucun logement occupé' + (ent ? ' pour ' + escHtml(ent) : '') + '.</div>', empty: true };
   }
-  const rows = logs.map(l => ({ log: l, s: _suiviLoyerStrip(l, yr) })).sort((a, b) => a.s.solde - b.s.solde); // retard (solde −) en premier
+  // Phase C — « aligner le chiffre » (décision user) : le CHIP (montant retard/avance) lit le MAÎTRE
+  // Finances (byLot, report N-1 inclus) → même € que l'Accueil/Finances. La frise 12 mois garde son
+  // affichage d'allocation annuelle (déjà juste DANS l'année). Chip = Accueil = Finances au centime.
+  let _lyByLot = {};
+  try {
+    const _sc = (typeof _finEntScope === 'function') ? _finEntScope(ent || '', '') : null;
+    const _W = (typeof _finWindows === 'function') ? _finWindows(parseInt(yr, 10), _sc) : null;
+    const _mst = (typeof _finMonthly === 'function') ? _finMonthly(parseInt(yr, 10), _sc, _W ? _W.constat : undefined) : null;
+    if (_mst && _mst.byLot) _lyByLot = _mst.byLot;
+  } catch (e) {}
+  const _lyPos = (ref, monthly) => {
+    const A = (_lyByLot[ref] && _lyByLot[ref].annual) || {};
+    const ret = A.retard || 0, av = A.avance || 0;
+    if (ret > 0.5) return { cls: 'retard', montant: ret, nMois: monthly > 0.5 ? Math.round(ret / monthly) : 0, signe: -ret };
+    if (av > 0.5) return { cls: 'avance', montant: av, nMois: monthly > 0.5 ? Math.round(av / monthly) : 0, signe: av };
+    return { cls: 'ajour', montant: 0, nMois: 0, signe: 0 };
+  };
+  const rows = logs.map(l => ({ log: l, s: _suiviLoyerStrip(l, yr), pos: _lyPos(l.ref, (Number(l.hc) || 0) + (Number(l.ch) || 0)) }))
+    .sort((a, b) => a.pos.signe - b.pos.signe); // retard (signe −) en premier
   const CC = _SUIVI_CC;   // DRY : mêmes couleurs que le détail (écran B)
   const stripHtml = (s) => '<div style="display:flex;gap:2px;margin-top:6px">' + s.months.map(m => {
     const c = CC[m.cls] || CC.avenir; const dash = (m.cls === 'avenir' || m.cls === 'vac');
     const tip = _MOF[m.mi - 1] + ' : ' + (m.cls === 'vac' ? 'hors bail' : (m.cls === 'avenir' ? 'à venir' : (fmt(m.recu) + (m.attendu ? ' / ' + fmt(m.attendu) : '') + ' — ' + (CLL[m.cls] || ''))));
     return '<span title="' + escHtml(tip) + '" style="flex:1;height:22px;border-radius:3px;background:' + c[0] + ';border:1px ' + (dash ? 'dashed' : 'solid') + ' ' + c[1] + ';display:grid;place-items:center;font:600 9px monospace;color:' + c[2] + '">' + (dash ? '' : _MO[m.mi - 1]) + '</span>';
   }).join('') + '</div>';
-  const chip = (s) => {
-    const v = window._loyerChipVerdict(s.solde, s.monthlyFull);   // Phase A : seuils = source unique (module)
-    if (v.cls === 'retard') return '<span style="background:#fcebeb;color:#a32d2d;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↓ retard ' + fmt(v.montant) + (v.nMois >= 1 ? ' · ' + v.nMois + ' mois' : '') + '</span>';
-    if (v.cls === 'avance') return '<span style="background:#e6f1fb;color:#185fa5;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↑ avance ' + fmt(v.montant) + (v.nMois >= 1 ? ' · ' + v.nMois + ' mois' : '') + '</span>';
+  const chip = (pos) => {   // Phase C : le montant vient du maître (byLot), plus du solde annuel de la frise
+    if (pos.cls === 'retard') return '<span style="background:#fcebeb;color:#a32d2d;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↓ retard ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
+    if (pos.cls === 'avance') return '<span style="background:#e6f1fb;color:#185fa5;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↑ avance ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
     return '<span style="background:#e1f5ee;color:#0f6e56;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">✓ À jour</span>';
   };
-  const nRetard = rows.filter(r => window._loyerChipVerdict(r.s.solde, r.s.monthlyFull).cls === 'retard').length;
+  const nRetard = rows.filter(r => r.pos.cls === 'retard').length;
   const linkOpen = inline ? ('openLogFiche(\'') : ('closeM(\'ov-impayes-vue\');openLogFiche(\'');
   const legende = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:0 0 12px;font-size:11px;color:var(--t2)">'
     + [['#e1f5ee', 'var(--grn)', 'Payé'], ['#faeeda', 'var(--warn)', 'Partiel'], ['#fcebeb', 'var(--red)', 'Retard'], ['#e6f1fb', '#2563eb', 'Avance'], ['var(--sur3)', 'var(--t3)', 'À venir']]
@@ -51448,7 +51530,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
       const inner = '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 13px">'
         + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>'
         + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div></div>'
-        + '<div>' + chip(r.s) + '</div></div>';
+        + '<div>' + chip(r.pos) + '</div></div>';
       return { log: r.log, html: inner };
     });
     const grpHtml = (typeof _lyGrouper === 'function') ? _lyGrouper(items) : items.map(x => x.html).join('');
@@ -51463,7 +51545,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
       + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
       +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
-      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.s) + (window._loyerChipVerdict(r.s.solde, r.s.monthlyFull).cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
+      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.pos) + (r.pos.cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
       + '</div>'
       + (open ? _suiviDetailHtml(r.log, r.s, yr) : '')
       + '</div>'; }).join('')
