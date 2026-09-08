@@ -2305,9 +2305,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 
   <!-- Tabs internes -->
   <div class="logmod-tabs" role="tablist" aria-label="Sections du logement">
-    <button class="logmod-tab act" data-tab="ident" onclick="setLogModalTab('ident')" role="tab" aria-selected="true">📋 Identité</button>
-    <button class="logmod-tab" data-tab="diag" onclick="setLogModalTab('diag')" role="tab" aria-selected="false" title="DPE + risques + 9 diagnostics obligatoires (loi 89-462 art. 3-3) — saisie groupée">🏷 Diagnostics</button>
-    <button class="logmod-tab" data-tab="equip" onclick="setLogModalTab('equip')" role="tab" aria-selected="false">🔧 Équipements</button>
+    <button class="logmod-tab act" data-tab="ident" onclick="setLogModalTab('ident')" role="tab" aria-selected="true"><span data-uic="list"></span> Identité</button>
+    <button class="logmod-tab" data-tab="diag" onclick="setLogModalTab('diag')" role="tab" aria-selected="false" title="DPE + risques + 9 diagnostics obligatoires (loi 89-462 art. 3-3) — saisie groupée"><span data-uic="tag"></span> Diagnostics</button>
+    <button class="logmod-tab" data-tab="equip" onclick="setLogModalTab('equip')" role="tab" aria-selected="false"><span data-uic="wrench"></span> Équipements</button>
   </div>
 
   <div class="m-body">
@@ -40847,6 +40847,21 @@ function _ddtComplet(logement, dateRef) {
   return out;
 }
 
+// PC-REFONTE — badge de statut ÉCRAN : line-icon + classe tokenisée (dark-safe).
+// Le print continue d'utiliser _DIAG_STATUT_LABEL (hex, papier blanc).
+const _LOGDIAG_ST_UI = {
+  valide:        { cls:'pos',  icon:'check-circle', txt:'Valide' },
+  expirebientot: { cls:'warn', icon:'clock',        txt:'Expire bientôt' },
+  expire:        { cls:'neg',  icon:'warn',         txt:'Expiré' },
+  na:            { cls:'gry',  icon:'',             txt:'N/A' },
+  inapplicable:  { cls:'gry',  icon:'',             txt:'Non applicable' },
+  manquant:      { cls:'warn', icon:'help',         txt:'À renseigner' }
+};
+function _logDiagStBadge(statut){
+  const u = _LOGDIAG_ST_UI[statut] || _LOGDIAG_ST_UI.manquant;
+  return `<span class="logdiag-st ${u.cls}">${u.icon?_uiIcon(u.icon,12):''}${u.txt}</span>`;
+}
+
 const _DIAG_STATUT_LABEL = {
   valide:        { txt: '✅ Valide',           bg: '#dcfce7', border: '#16a34a', color: '#14532d' },
   expirebientot: { txt: '⚠️ Expire bientôt',  bg: '#fef3c7', border: '#d97706', color: '#78350f' },
@@ -40909,42 +40924,49 @@ function _logDiagEnsureCSS() {
     .logdiag-help{font-size:11px;color:var(--t2);margin-top:2px}
     .logdiag-q{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--sur2);border:1px solid var(--bor);color:var(--t2);font-size:10px;font-weight:700;cursor:help;margin-left:5px;position:relative}
     .logdiag-q:hover::after{content:attr(data-tip);position:absolute;left:0;bottom:140%;background:#1f2937;color:#fff;font-size:11px;font-weight:400;line-height:1.4;padding:7px 10px;border-radius:6px;width:230px;max-width:230px;white-space:normal;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.25);pointer-events:none}
-    .logdiag-detect{border:1px solid var(--bor);border-left:3px solid #2563eb;border-radius:8px;background:rgba(37,99,235,.05);padding:10px 12px;margin-bottom:14px}
-    .logdiag-detect-head{font-size:12px;font-weight:700;margin-bottom:6px}
-    .logdiag-detect-dpe{font-size:12px;line-height:1.5;margin-bottom:4px}
-    .logdiag-detect-warn{color:#92400e}
+    /* PC-REFONTE — badge de statut ÉCRAN tokenisé (le print garde ses hex, papier blanc). */
+    .logdiag-st{display:inline-flex;align-items:center;gap:3px;border:1px solid;border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700}
+    .logdiag-st.pos{background:var(--pos-soft);color:var(--pos);border-color:var(--pos)}
+    .logdiag-st.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+    .logdiag-st.neg{background:var(--neg-soft);color:var(--neg);border-color:var(--neg)}
+    .logdiag-st.gry{background:var(--gry-bg);color:var(--t3);border-color:var(--t3)}
+    /* PC-REFONTE — couleurs codées en dur → tokens design-system (dark-safe). */
+    .logdiag-detect{border:1px solid var(--adv);border-left:3px solid var(--adv);border-radius:8px;background:var(--adv-bg);padding:10px 12px;margin-bottom:14px}
+    .logdiag-detect-head{font-size:12px;font-weight:700;margin-bottom:6px;color:var(--t1)}
+    .logdiag-detect-dpe{font-size:12px;line-height:1.5;margin-bottom:4px;color:var(--t2)}
+    .logdiag-detect-warn{color:var(--warn)}
     .logdiag-detect-cov{font-size:11.5px;line-height:1.9;margin-top:4px}
     .logdiag-detect-chip{display:inline-block;font-size:10.5px;font-weight:600;background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:2px 8px;margin:0 4px 2px 0;white-space:nowrap}
     /* v15.240 B2 v2-c2 — pré-remplissage « suggéré · à vérifier » */
-    .inp.logdiag-sg{background:#fffdf3;border-color:#fcd34d}
-    .inp.logdiag-ad{background:#f0fdf6;border-color:#86efac}
-    .logdiag-tbl tr.logdiag-sg-row>td{background:#fffdf3}
+    .inp.logdiag-sg{background:var(--warn-soft);border-color:var(--warn)}
+    .inp.logdiag-ad{background:var(--pos-soft);border-color:var(--pos)}
+    .logdiag-tbl tr.logdiag-sg-row>td{background:var(--warn-soft)}
     .logdiag-sg-cell{display:flex;flex-direction:column;gap:4px}
     .logdiag-sg-val{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-    .logdiag-sg-badge{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:0 6px;white-space:nowrap}
-    .logdiag-ad-badge{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;color:#166534;background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:0 6px;white-space:nowrap}
-    .logdiag-sg-src{font-size:10.5px;color:#92400e;background:#fffbeb;border:1px dashed #fcd34d;border-radius:5px;padding:3px 7px;line-height:1.4;display:none;margin-top:2px}
+    .logdiag-sg-badge{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;color:var(--warn);background:var(--warn-soft);border:1px solid var(--warn);border-radius:10px;padding:0 6px;white-space:nowrap}
+    .logdiag-ad-badge{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;color:var(--pos);background:var(--pos-soft);border:1px solid var(--pos);border-radius:10px;padding:0 6px;white-space:nowrap}
+    .logdiag-sg-src{font-size:10.5px;color:var(--t2);background:var(--warn-soft);border:1px dashed var(--warn);border-radius:5px;padding:3px 7px;line-height:1.4;display:none;margin-top:2px}
     .logdiag-sg-src.show{display:block}
-    .logdiag-sg-src b{color:#78350f}
+    .logdiag-sg-src b{color:var(--warn)}
     .logdiag-sg-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:2px}
-    .logdiag-sg-link{font-size:10.5px;color:#1e40af;text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;font-family:inherit}
-    .logdiag-chk{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;border-radius:10px;padding:1px 7px;cursor:pointer;border:1px solid;background:#fff}
-    .logdiag-chk.ok{color:#166534;border-color:#86efac}
-    .logdiag-chk.ok:hover{background:#dcfce7}
-    .logdiag-chk.no{color:#991b1b;border-color:#fca5a5}
-    .logdiag-chk.no:hover{background:#fee2e2}
-    .logdiag-amb-note{font-size:10.5px;color:#9a3412;background:#fff7ed;border:1px solid #fdba74;border-radius:5px;padding:3px 7px;line-height:1.4}
-    .logdiag-review{margin-bottom:14px;background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:11px 13px;font-size:12.5px;color:#92400e}
-    .logdiag-review-h{font-weight:700;color:#78350f;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .logdiag-sg-link{font-size:10.5px;color:var(--acc);text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;font-family:inherit}
+    .logdiag-chk{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;border-radius:10px;padding:1px 7px;cursor:pointer;border:1px solid;background:var(--sur)}
+    .logdiag-chk.ok{color:var(--pos);border-color:var(--pos)}
+    .logdiag-chk.ok:hover{background:var(--pos-soft)}
+    .logdiag-chk.no{color:var(--neg);border-color:var(--neg)}
+    .logdiag-chk.no:hover{background:var(--neg-soft)}
+    .logdiag-amb-note{font-size:10.5px;color:var(--t2);background:var(--warn-soft);border:1px solid var(--warn);border-radius:5px;padding:3px 7px;line-height:1.4}
+    .logdiag-review{margin-bottom:14px;background:var(--warn-soft);border:1px solid var(--warn);border-left:4px solid var(--warn);border-radius:8px;padding:11px 13px;font-size:12.5px;color:var(--t2)}
+    .logdiag-review-h{font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .logdiag-review p{margin:6px 0 0;line-height:1.5}
     .logdiag-review-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
-    .logdiag-review .btn.logdiag-rev-validate{background:#f59e0b;border-color:#d97706;color:#fff}
-    .logdiag-erp-banner{margin-bottom:14px;display:flex;gap:12px;align-items:flex-start;border-radius:8px;padding:11px 13px;background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;color:#7f1d1d}
-    .logdiag-erp-banner .big{font-size:24px;line-height:1;flex:none}
-    .logdiag-erp-banner h4{margin:0 0 3px;font-size:13.5px;font-weight:800}
+    .logdiag-review .btn.logdiag-rev-validate{background:var(--warn);border-color:var(--warn);color:var(--sur)}
+    .logdiag-erp-banner{margin-bottom:14px;display:flex;gap:12px;align-items:flex-start;border-radius:8px;padding:11px 13px;background:var(--neg-soft);border:1px solid var(--neg);border-left:4px solid var(--neg);color:var(--t2)}
+    .logdiag-erp-banner .big{flex:none;color:var(--neg)}
+    .logdiag-erp-banner h4{margin:0 0 3px;font-size:13.5px;font-weight:800;color:var(--t1)}
     .logdiag-erp-banner p{margin:0;font-size:12px;line-height:1.5}
-    .logdiag-erp-banner .renew{display:inline-flex;align-items:center;gap:6px;margin-top:9px;font-size:12px;font-weight:700;border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid #b91c1c;background:#dc2626;color:#fff;text-decoration:none}
-    .logdiag-erp-banner .renew:hover{background:#b91c1c}
+    .logdiag-erp-banner .renew{display:inline-flex;align-items:center;gap:6px;margin-top:9px;font-size:12px;font-weight:700;border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid var(--neg);background:var(--neg);color:var(--sur);text-decoration:none}
+    .logdiag-erp-banner .renew:hover{filter:brightness(1.08)}
     @media(max-width:560px){
       .logdiag-tbl,.logdiag-tbl thead,.logdiag-tbl tbody,.logdiag-tbl tr,.logdiag-tbl td{display:block;width:100%}
       .logdiag-tbl thead{display:none}
@@ -46462,7 +46484,7 @@ function _logDiagDetectBannerHtml() {
     : `<div class="logdiag-detect-dpe logdiag-detect-warn">${_uiIcon('info')} N° DPE non détecté dans les PDF (document scanné/image ?). Saisis-le à la main puis « ⬇ Récupérer ADEME ».</div>`;
   return `
     <div class="logdiag-detect">
-      <div class="logdiag-detect-head">🤖 Détection automatique <span class="mu sm">(${ids.length} document${ids.length>1?'s':''} lu${ids.length>1?'s':''} · indicatif, à vérifier)</span></div>
+      <div class="logdiag-detect-head">${_uiIcon('search',14)} Détection automatique <span class="mu sm">(${ids.length} document${ids.length>1?'s':''} lu${ids.length>1?'s':''} · indicatif, à vérifier)</span></div>
       ${dpeLine}
       ${covChips ? `<div class="logdiag-detect-cov"><span class="mu sm">Diagnostics probablement couverts :</span> ${covChips}</div>` : ''}
     </div>`;
@@ -46535,7 +46557,7 @@ function _logDiagRenderTab() {
   if(logId != null && typeof _renderAttachmentSection === 'function') {
     uploadHtml = `<div style="border:1px dashed var(--bor);border-radius:10px;padding:12px 14px;margin-bottom:14px;background:var(--sur2)">
       ${_renderAttachmentSection({ parentType:'logement', parentId:logId, parentRef:logRef, logRef:logRef, category:'documents', title:'📎 Documents de diagnostic', emptyText:'Dépose ici tes diagnostics — DPE, CREP (plomb), ERP, élec, gaz… (PDF ou image, 10 Mo max). Ils sont enregistrés dans ton espace et proposés à l\'envoi avec le bail au locataire.' })}
-      <div class="mu sm" style="font-size:10.5px;margin-top:8px;color:var(--t3);line-height:1.5">📨 Les PDF déposés sont stockés sur le Drive du logement (sous-dossier « Documents ») et proposés à l'envoi <b>avec le bail</b> au locataire. <em>🤖 Lecture auto : si le N° DPE figure dans le PDF, il est extrait et le DPE est récupéré via l'ADEME.</em></div>
+      <div class="mu sm" style="font-size:10.5px;margin-top:8px;color:var(--t3);line-height:1.5">${_uiIcon('mail',12)} Les PDF déposés sont stockés sur le Drive du logement (sous-dossier « Documents ») et proposés à l'envoi <b>avec le bail</b> au locataire. <em>${_uiIcon('search',12)} Lecture auto : si le N° DPE figure dans le PDF, il est extrait et le DPE est récupéré via l'ADEME.</em></div>
     </div>`;
   } else {
     // Bug1 — bien NEUF : zone de staging (buffer + flush à l'enregistrement)
@@ -46637,7 +46659,7 @@ function _logDiagRenderTab() {
     const helpLine = ui.help ? `<div class="logdiag-help">${escHtml(ui.help)}</div>` : '';
     const labelCell = `<div style="white-space:normal"><span class="logdiag-lblmain"><span style="vertical-align:-2px;margin-right:3px;display:inline-flex">${_diagIconSvg(e.key,14)}</span>${escHtml(cleanLbl)}</span>${techChip}${helpQ}</div>${helpLine}`;
     const legacyHint = (!info.date && info.presence == null && info.conforme == null && info._legacy)
-      ? `<div class="mu sm" style="font-size:10px;color:#92400e;margin-top:3px">ancienne saisie : ${escHtml(info._legacy)}</div>` : '';
+      ? `<div class="mu sm" style="font-size:10px;color:var(--warn);margin-top:3px">ancienne saisie : ${escHtml(info._legacy)}</div>` : '';
 
     // v15.240 B2 v2-c2 — état « ✨ suggéré · à vérifier » par champ (date / cabinet / résultat).
     const sg = _logDiagSuggest[e.key] || null;
@@ -46651,16 +46673,16 @@ function _logDiagRenderTab() {
     const dateInputSg = `<input class="inp logdiag-sg" type="date" style="font-size:12px;padding:4px 6px" value="${escHtml(info.date||'')}" onchange="_logDiagSetField('${e.key}','date',this.value)">`;
     const dateInput   = `<input class="inp" type="date" style="font-size:12px;padding:4px 6px" value="${escHtml(info.date||'')}" onchange="_logDiagSetField('${e.key}','date',this.value)">`;
     const dateCell = (sg && sg.date)
-      ? `<div class="logdiag-sg-cell"><div class="logdiag-sg-val">${dateInputSg}<span class="logdiag-sg-badge">✨ suggéré</span></div>${_logDiagSgAnnot(e.key,'date', sg.date.src)}</div>`
+      ? `<div class="logdiag-sg-cell"><div class="logdiag-sg-val">${dateInputSg}<span class="logdiag-sg-badge">${_uiIcon('sparkle',11)} suggéré</span></div>${_logDiagSgAnnot(e.key,'date', sg.date.src)}</div>`
       : dateInput;
 
     // RÉSULTAT — select ambre + source + actions si suggéré ; note « formulaire à cases » si ambigu.
     const resCtl = _logDiagResultControl(e.key, kind, info, (sg && sg.result) ? 'logdiag-sg' : '');
     let resultCell;
     if(sg && sg.result) {
-      resultCell = `<div class="logdiag-sg-cell"><div class="logdiag-sg-val">${resCtl}<span class="logdiag-sg-badge">✨ suggéré</span></div>${_logDiagSgAnnot(e.key,'result', sg.result.src)}</div>`;
+      resultCell = `<div class="logdiag-sg-cell"><div class="logdiag-sg-val">${resCtl}<span class="logdiag-sg-badge">${_uiIcon('sparkle',11)} suggéré</span></div>${_logDiagSgAnnot(e.key,'result', sg.result.src)}</div>`;
     } else if(sg && sg.resultAmbiguous) {
-      resultCell = `<div class="logdiag-sg-cell">${resCtl}<div class="logdiag-amb-note">⚠️ Résultat non lu : le rapport n'a qu'un formulaire à cases (les 2 réponses coexistent dans le texte). <b>À saisir à la main.</b></div></div>`;
+      resultCell = `<div class="logdiag-sg-cell">${resCtl}<div class="logdiag-amb-note">${_uiIcon('warn',12)} Résultat non lu : le rapport n'a qu'un formulaire à cases (les 2 réponses coexistent dans le texte). <b>À saisir à la main.</b></div></div>`;
     } else {
       resultCell = `${resCtl}${legacyHint}`;
     }
@@ -46679,7 +46701,7 @@ function _logDiagRenderTab() {
         <td data-lbl="Résultat">${resultCell}</td>
         <td data-lbl="Diagnostiqueur">${cabinetCell}</td>
         <td data-lbl="Expire le" style="font-size:12px;white-space:nowrap">${expTxt}</td>
-        <td data-lbl="Statut" style="white-space:nowrap"><span style="background:${meta.bg};color:${meta.color};border:1px solid ${meta.border};border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700">${meta.txt}</span></td>
+        <td data-lbl="Statut" style="white-space:nowrap">${_logDiagStBadge(statut)}</td>
       </tr>`;
     return mainRow + (e.key === 'dpe' ? dpeDetailRow : '');
   }).join('');
@@ -46697,9 +46719,9 @@ function _logDiagRenderTab() {
       <div class="logdiag-review-h">✨ ${pendingCount} champ${pendingCount>1?'s':''} pré-rempli${pendingCount>1?'s':''} depuis tes PDF — à vérifier</div>
       <p>L'app a lu les PDF et proposé des valeurs (dates, résultats, cabinet). <b>Vérifie-les</b> : elles restent marquées « ✨ à vérifier » tant que tu ne les valides pas. En cas de doute (résultat illisible : formulaire à cases), le champ est laissé vide.</p>
       <div class="logdiag-review-actions">
-        <button type="button" class="btn logdiag-rev-validate" onclick="_logDiagSuggestValidateAll()">✓ Tout valider</button>
-        <button type="button" class="btn" onclick="_logDiagSuggestClearAll()">✗ Tout effacer</button>
-        <button type="button" class="btn" onclick="_logDiagSuggestToggleSrc()">📄 ${_logDiagSrcOpen?'Masquer':'Voir'} les phrases source</button>
+        <button type="button" class="btn logdiag-rev-validate" onclick="_logDiagSuggestValidateAll()">${_uiIcon('check',13)} Tout valider</button>
+        <button type="button" class="btn" onclick="_logDiagSuggestClearAll()">${_uiIcon('close',13)} Tout effacer</button>
+        <button type="button" class="btn" onclick="_logDiagSuggestToggleSrc()">${_uiIcon('doc',13)} ${_logDiagSrcOpen?'Masquer':'Voir'} les phrases source</button>
       </div>
     </div>` : '';
 
@@ -46712,11 +46734,11 @@ function _logDiagRenderTab() {
     const _erpEtabli = (_erpInfo && _erpInfo.date) ? _fr(_erpInfo.date) : '';
     erpAlertHtml = `
     <div class="logdiag-erp-banner">
-      <span class="big">🛑</span>
+      <span class="big">${_uiIcon('warn',22)}</span>
       <div>
         <h4>État des Risques expiré</h4>
         <p>Cet État des Risques${_erpEtabli?`, établi le <b>${_erpEtabli}</b>,`:''} a <b>dépassé sa validité de 6 mois</b>${_erpExp?` (valable jusqu'au <b>${_fr(_erpExp)}</b>)`:''} — Art. L.125-5 C. env. Régénérez-le <b>gratuitement, sans diagnostiqueur</b>, puis redéposez le PDF ci-dessus pour mettre la date à jour.</p>
-        <a class="renew" href="https://errial.georisques.gouv.fr/" target="_blank" rel="noopener">↻ Régénérer sur ERRIAL (gratuit)</a>
+        <a class="renew" href="https://errial.georisques.gouv.fr/" target="_blank" rel="noopener">${_uiIcon('refresh',13)} Régénérer sur ERRIAL (gratuit)</a>
       </div>
     </div>`;
   }
@@ -46727,7 +46749,7 @@ function _logDiagRenderTab() {
     ${reviewHtml}
     ${erpAlertHtml}
     <div class="logmod-info-banner">
-      <b>🏷 Dossier de diagnostic technique (DDT).</b> Saisie groupée — on remplit une fois.
+      <b>${_uiIcon('tag',14)} Dossier de diagnostic technique (DDT).</b> Saisie groupée — on remplit une fois.
       Seuls les diagnostics <em>applicables</em> sont affichés (auto-détectés depuis le contexte ci-dessous).
       L'app calcule l'expiration, pousse les rappels dans l'Agenda et fait remonter les diagnostics expirés
       dans les actions prioritaires. À joindre au bail à la signature (loi 89-462 art. 3-3, sous peine de nullité).
