@@ -10164,7 +10164,11 @@ function _pilCollectFamilles(ctx) {
       // C2 : l'ancienneté vient du MAÎTRE (byLot) via it.depuisYm (1er mois portant un résidu) —
       // l'ancien recalcul par _suiviLoyerStrip lisait un champ `ym` absent → toujours null (audit).
       const anc = it.depuisYm ? joursDepuis(it.depuisYm + '-01') : null;
-      src.impaye.push({ ref: it.ref, nom: it.locataire || it.ref, montant: it.reste || 0, urgenceJours: anc });
+      // loyer mensuel du lot → affichage « N mois de loyer » (montant ÷ loyer, décision user :
+      // l'ampleur de la dette en nombre de loyers, cohérent avec l'onglet Loyers ; pas des jours).
+      const _lot = scopeLogs.find(x => x.ref === it.ref);
+      const _mens = _lot ? ((Number(_lot.hc) || 0) + (Number(_lot.ch) || 0)) : 0;
+      src.impaye.push({ ref: it.ref, nom: it.locataire || it.ref, montant: it.reste || 0, urgenceJours: anc, loyerMensuel: _mens });
     });
   } catch (e) {}
 
@@ -10476,7 +10480,7 @@ function _pilPireTxt(f) {
   const j = p.urgenceJours;
   const chiffreEstEuro = (f.montant != null && Math.abs(f.montant) > 0.005);
   if (!chiffreEstEuro) return nom;                          // .a porte déjà la gravité (temps)
-  if (f.id === 'impaye') return nom + (j != null ? ' · ' + j + ' j' : '');
+  if (f.id === 'impaye') { const lm = Number(p.loyerMensuel) || 0, nM = (lm > 0.5) ? Math.round((Number(p.montant) || 0) / lm) : 0; return nom + (nM >= 1 ? ' · ' + nM + ' mois' : ''); }   // ampleur en loyers (montant ÷ loyer), cohérent onglet Loyers
   if (f.id === 'vacant') return nom + (j != null ? ' · vide ' + j + ' j' : '');
   return nom;
 }
