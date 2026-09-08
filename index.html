@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.608</title>
+<title>Propryo v15.609</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.608</em>
+      <em>v15.609</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -2270,6 +2270,11 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 .ni-pastille{margin-left:auto;background:var(--red,#dc2626);color:#fff;font-size:10.5px;font-weight:700;min-width:18px;height:18px;padding:0 5px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center}
 /* Badge notif rouge sur l'item Candidats de la sidebar V4 (override du .v4s-bd gris) */
 body[data-dash-v4="on"] .v4s-sb-nav .v4s-a .v4s-bd.v4s-bd-new{background:var(--red,#dc2626);color:#fff}
+/* Le badge (.v4-bn-badge, position:absolute) doit s'ancrer à SON onglet. Sans ce
+   position:relative, il se cale sur le nav (position:fixed) → right:calc(50%-20px)
+   le pousse au CENTRE de la barre : correct par hasard pour l'onglet du milieu,
+   au mauvais endroit pour tout autre onglet (ex. « Plus ») ou tout ordre de favoris. */
+.v4-bnav .v4-bn{position:relative}
 .v4-bn-badge{position:absolute;top:2px;right:calc(50% - 20px);background:var(--red,#dc2626);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;padding:0 3px;border-radius:8px;display:flex;align-items:center;justify-content:center}
 .more-badge{background:var(--red,#dc2626);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;padding:0 4px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;margin-left:4px}
 .cand-new-pill{background:var(--acc,#3b7ef6);color:#fff;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;margin-left:6px;vertical-align:middle;white-space:nowrap}
@@ -4219,7 +4224,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.608';
+const IMMOTRACK_VERSION = '15.609';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
