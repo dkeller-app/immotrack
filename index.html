@@ -51412,20 +51412,37 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   if (!logs.length) {
     return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Aucun logement occupé' + (ent ? ' pour ' + escHtml(ent) : '') + '.</div>', empty: true };
   }
-  const rows = logs.map(l => ({ log: l, s: _suiviLoyerStrip(l, yr) })).sort((a, b) => a.s.solde - b.s.solde); // retard (solde −) en premier
+  // Phase C — « aligner le chiffre » (décision user) : le CHIP (montant retard/avance) lit le MAÎTRE
+  // Finances (byLot, report N-1 inclus) → même € que l'Accueil/Finances. La frise 12 mois garde son
+  // affichage d'allocation annuelle (déjà juste DANS l'année). Chip = Accueil = Finances au centime.
+  let _lyByLot = {};
+  try {
+    const _sc = (typeof _finEntScope === 'function') ? _finEntScope(ent || '', '') : null;
+    const _W = (typeof _finWindows === 'function') ? _finWindows(parseInt(yr, 10), _sc) : null;
+    const _mst = (typeof _finMonthly === 'function') ? _finMonthly(parseInt(yr, 10), _sc, _W ? _W.constat : undefined) : null;
+    if (_mst && _mst.byLot) _lyByLot = _mst.byLot;
+  } catch (e) {}
+  const _lyPos = (ref, monthly) => {
+    const A = (_lyByLot[ref] && _lyByLot[ref].annual) || {};
+    const ret = A.retard || 0, av = A.avance || 0;
+    if (ret > 0.5) return { cls: 'retard', montant: ret, nMois: monthly > 0.5 ? Math.round(ret / monthly) : 0, signe: -ret };
+    if (av > 0.5) return { cls: 'avance', montant: av, nMois: monthly > 0.5 ? Math.round(av / monthly) : 0, signe: av };
+    return { cls: 'ajour', montant: 0, nMois: 0, signe: 0 };
+  };
+  const rows = logs.map(l => ({ log: l, s: _suiviLoyerStrip(l, yr), pos: _lyPos(l.ref, (Number(l.hc) || 0) + (Number(l.ch) || 0)) }))
+    .sort((a, b) => a.pos.signe - b.pos.signe); // retard (signe −) en premier
   const CC = _SUIVI_CC;   // DRY : mêmes couleurs que le détail (écran B)
   const stripHtml = (s) => '<div style="display:flex;gap:2px;margin-top:6px">' + s.months.map(m => {
     const c = CC[m.cls] || CC.avenir; const dash = (m.cls === 'avenir' || m.cls === 'vac');
     const tip = _MOF[m.mi - 1] + ' : ' + (m.cls === 'vac' ? 'hors bail' : (m.cls === 'avenir' ? 'à venir' : (fmt(m.recu) + (m.attendu ? ' / ' + fmt(m.attendu) : '') + ' — ' + (CLL[m.cls] || ''))));
     return '<span title="' + escHtml(tip) + '" style="flex:1;height:22px;border-radius:3px;background:' + c[0] + ';border:1px ' + (dash ? 'dashed' : 'solid') + ' ' + c[1] + ';display:grid;place-items:center;font:600 9px monospace;color:' + c[2] + '">' + (dash ? '' : _MO[m.mi - 1]) + '</span>';
   }).join('') + '</div>';
-  const chip = (s) => {
-    const v = window._loyerChipVerdict(s.solde, s.monthlyFull);   // Phase A : seuils = source unique (module)
-    if (v.cls === 'retard') return '<span style="background:#fcebeb;color:#a32d2d;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↓ retard ' + fmt(v.montant) + (v.nMois >= 1 ? ' · ' + v.nMois + ' mois' : '') + '</span>';
-    if (v.cls === 'avance') return '<span style="background:#e6f1fb;color:#185fa5;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↑ avance ' + fmt(v.montant) + (v.nMois >= 1 ? ' · ' + v.nMois + ' mois' : '') + '</span>';
+  const chip = (pos) => {   // Phase C : le montant vient du maître (byLot), plus du solde annuel de la frise
+    if (pos.cls === 'retard') return '<span style="background:#fcebeb;color:#a32d2d;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↓ retard ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
+    if (pos.cls === 'avance') return '<span style="background:#e6f1fb;color:#185fa5;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↑ avance ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
     return '<span style="background:#e1f5ee;color:#0f6e56;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">✓ À jour</span>';
   };
-  const nRetard = rows.filter(r => window._loyerChipVerdict(r.s.solde, r.s.monthlyFull).cls === 'retard').length;
+  const nRetard = rows.filter(r => r.pos.cls === 'retard').length;
   const linkOpen = inline ? ('openLogFiche(\'') : ('closeM(\'ov-impayes-vue\');openLogFiche(\'');
   const legende = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:0 0 12px;font-size:11px;color:var(--t2)">'
     + [['#e1f5ee', 'var(--grn)', 'Payé'], ['#faeeda', 'var(--warn)', 'Partiel'], ['#fcebeb', 'var(--red)', 'Retard'], ['#e6f1fb', '#2563eb', 'Avance'], ['var(--sur3)', 'var(--t3)', 'À venir']]
@@ -51440,7 +51457,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
       const inner = '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 13px">'
         + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>'
         + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div></div>'
-        + '<div>' + chip(r.s) + '</div></div>';
+        + '<div>' + chip(r.pos) + '</div></div>';
       return { log: r.log, html: inner };
     });
     const grpHtml = (typeof _lyGrouper === 'function') ? _lyGrouper(items) : items.map(x => x.html).join('');
@@ -51455,7 +51472,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
       + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
       +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
-      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.s) + (window._loyerChipVerdict(r.s.solde, r.s.monthlyFull).cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
+      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.pos) + (r.pos.cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
       + '</div>'
       + (open ? _suiviDetailHtml(r.log, r.s, yr) : '')
       + '</div>'; }).join('')
