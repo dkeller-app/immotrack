@@ -392,10 +392,10 @@ describe('fiche logement — étape 8', () => {
 });
 
 describe('fiche bailleur — étape 10', () => {
-  it('un seul onglet, et plus aucun onglet grisé « À venir » sur les 2 fiches (P1-12)', () => {
-    const barre = html.slice(html.indexOf('aria-label="Sous-sections de la fiche bailleur"'));
-    const onglets = (barre.slice(0, barre.indexOf('</div>')).match(/setEntFicheTab\('(\w+)'\)/g) || []);
-    expect(onglets).toEqual(["setEntFicheTab('immeubles')"]);
+  it('ruban 1-onglet devenu un simple titre « Immeubles (N) », aucun onglet « À venir » (P1-12 / PC-REFONTE)', () => {
+    // PC-REFONTE — un ruban d'onglets à 1 seul item = bruit inutile → remplacé par un titre de section.
+    expect(html).not.toContain('aria-label="Sous-sections de la fiche bailleur"');
+    expect(html).toContain('Immeubles (${nbImms})');
     expect(html).not.toContain('<span class="soon">À venir</span>');
   });
 

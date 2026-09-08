@@ -36254,7 +36254,7 @@ function rEntFiche() {
           <div class="logf-stat"><div class="logf-stat-v k-money">${fmt(loyerHC)}</div><div class="logf-stat-l">Loyer HC /mois</div></div>
         </div>
         <div class="logf-actions">
-          <button class="btn bp" onclick="_frStartCtx('imm', ${+ent.id})">＋ Ajouter un bien</button>
+          <button class="btn bp" onclick="_frStartCtx('imm', ${+ent.id})">${_uiIcon('plus',15)} Ajouter un bien</button>
           <button class="btn bs" onclick="openNewEnt(${+ent.id})">${_uiIcon('edit')} Modifier le bailleur</button>
           <!-- BIENS étape 10 — le Wizard 2044 est REMIS ICI. La comptabilité globale du bailleur a
                été supprimée (le P&L de Finances suffit), mais elle hébergeait le SEUL appel de
@@ -36279,13 +36279,8 @@ function rEntFiche() {
       { id: 'docs', label: 'Documents', count: _attCount('entite', ent.id, 'documents'),
         html: _renderAttachmentSection({parentType:'entite', parentId:ent.id, parentRef:ent.nom, category:'documents', title:'' + _uiIcon('doc') + ' Documents juridiques', emptyText:'Aucun document. Ajoutez K-bis, statuts SCI, RIB, mandats, attestations…'}) }
     ], 'rEntFiche')}
-    <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche bailleur">
-      <!-- BIENS étape 10 — UN SEUL onglet. Les documents juridiques remontent en entête ; la
-           comptabilité globale du bailleur est supprimée (décision 2 du 11/08 : le P&L de Finances
-           suffit) ; les 2 onglets grisés « À venir » partent (P1-12) — sur une fiche qui n'a plus
-           qu'un onglet actif, deux fantômes faisaient plus de bruit que de promesse. -->
-      <button class="logf-subtab act" role="tab" aria-selected="true" onclick="setEntFicheTab('immeubles')">${_uiIcon('building')} Immeubles (${nbImms})</button>
-    </div>
+    <!-- PC-REFONTE — un ruban d'onglets à 1 seul item = bruit inutile → simple titre de section. -->
+    <div class="ct" style="display:flex;align-items:center;gap:8px;margin:0 0 4px;padding-bottom:8px;border-bottom:1px solid var(--bor)">${_uiIcon('building',18)} Immeubles (${nbImms})</div>
     ${`
         <div class="flex-b" style="margin:14px 0 10px">
           <span class="mu sm">${nbImms} immeuble${nbImms>1?'s':''} pour ce bailleur</span>
@@ -43680,7 +43675,7 @@ function rImmFiche() {
           <div class="logf-stat"><div class="logf-stat-v k-money">${fmt(loyerHC)}</div><div class="logf-stat-l">Loyer HC /mois</div></div>
         </div>
         <div class="logf-actions">
-          <button class="btn bp" onclick="_frStartCtx('log', ${+ent.id}, '${escHtml(_frAttr(im.nom))}')">＋ Ajouter un bien</button>
+          <button class="btn bp" onclick="_frStartCtx('log', ${+ent.id}, '${escHtml(_frAttr(im.nom))}')">${_uiIcon('plus',15)} Ajouter un bien</button>
           <!-- v14.34 fix : appel à editImm(idx, entId) au lieu d'openNewEnt qui ouvrait la modale bailleur -->
           ${immIdx >= 0 ? `<button class="btn bs" onclick="editImm(${immIdx},${+ent.id})">${_uiIcon('edit')} Modifier l'immeuble</button>` : ''}
           ${/* BIENS (P1-13, retour user 11/08) — « 🏛 Voir le bailleur » RETIRÉ : doublon strict du bouton retour, qui affiche déjà « ← nom du bailleur ». */''}
