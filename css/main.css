@@ -9580,3 +9580,8 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   opacity:.55;
   background:transparent;
 }
+
+/* A11Y clavier (passe 2026-09) : anneau de focus visible sur les commandes non-natives
+   (div/span onclick promus role=button/[data-a11y]). :focus-visible = clavier seulement, pas au clic souris. */
+[data-a11y]:focus-visible,
+[role="button"]:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:5px}

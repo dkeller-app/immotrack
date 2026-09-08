@@ -6624,6 +6624,58 @@ function _undoUIInit() {
 }
 /* ═══ FIN UNDO-OP cœur ═════════════════════════════════════════════════════ */
 
+/* ═══ A11Y CLAVIER — activation Enter/Espace + focusabilité globale ═════════════
+   Les commandes stylées en <div>/<span> onclick (nav, chips, cartes, lignes) DOIVENT être
+   atteignables ET activables au clavier (audit a11y, non-négociable pré-commercialisation).
+   Plutôt que d'éditer ~205 sites, on rend focusable + role=button tout [onclick] non-natif
+   (idempotent via [data-a11y], + MutationObserver pour le contenu (re)généré) et on active au
+   clavier GLOBALEMENT. Les natifs (a/button/input…) gardent leur comportement propre. */
+const _A11Y_SEL = '[onclick]:not([data-a11y]):not(a):not(button):not(input):not(select):not(textarea):not(label)';
+function _a11yTag(el) {
+  if (!el || el.nodeType !== 1 || el.isContentEditable) { if (el && el.setAttribute) el.setAttribute && el.setAttribute('data-a11y', '1'); return; }
+  if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+  if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
+  if (!el.getAttribute('aria-label') && !(el.textContent || '').trim()) {
+    const lbl = el.getAttribute('data-tip') || el.getAttribute('title');
+    if (lbl) el.setAttribute('aria-label', lbl);
+  }
+  el.setAttribute('data-a11y', '1');
+}
+function _a11yEnhance(root) {
+  if (!root || root.nodeType !== 1) { root = document.body || document.documentElement; if (!root) return; }
+  try { if (root.matches && root.matches(_A11Y_SEL)) _a11yTag(root); } catch (e) {}
+  let list; try { list = root.querySelectorAll ? root.querySelectorAll(_A11Y_SEL) : []; } catch (e) { return; }
+  for (let i = 0; i < list.length; i++) _a11yTag(list[i]);
+}
+(function _a11yBootClavier() {
+  // 1) Activation clavier : Enter / Espace sur une commande non-native focalisée → clic.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const el = e.target;
+    if (!el || el.nodeType !== 1) return;
+    if (/^(A|BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;   // natifs : gèrent seuls
+    if (el.isContentEditable) return;
+    if (typeof _inEditableField === 'function' && _inEditableField(el)) return;
+    if (!(el.getAttribute('role') === 'button' || el.hasAttribute('onclick'))) return;
+    e.preventDefault();                                                  // Espace ne doit pas scroller
+    if (typeof el.click === 'function') el.click();
+  });
+  // 2) Focusabilité : passe initiale + observer (contenu généré à chaque rendu/modale).
+  const run = () => { try { _a11yEnhance(document.body || document.documentElement); } catch (e) {} };
+  if (document.readyState !== 'loading') run(); else document.addEventListener('DOMContentLoaded', run);
+  try {
+    const obs = new MutationObserver((muts) => {
+      for (let i = 0; i < muts.length; i++) {
+        const added = muts[i].addedNodes; if (!added) continue;
+        for (let j = 0; j < added.length; j++) { const n = added[j]; if (n && n.nodeType === 1) _a11yEnhance(n); }
+      }
+    });
+    const target = document.body || document.documentElement;
+    if (target) obs.observe(target, { childList: true, subtree: true });
+    else document.addEventListener('DOMContentLoaded', () => obs.observe(document.body, { childList: true, subtree: true }));
+  } catch (e) {}
+})();
+
 function saveDB(opts) {
   // EDL TERRAIN lot 1 — `opts.autosave` : l'autosave de l'EDL écrit toutes les
   // 2 s. F6 du CDC (§3ter) : _undoOnSaveDB/_undoOnSaveDBSuccess font un
