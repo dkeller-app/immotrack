@@ -187,7 +187,10 @@ async function boot() {
     // maintient vivante. storageKey EXPLICITE (AUTH_STORAGE_KEY) → clé déterministe, purgée au logout /
     // changement de compte (hygiène RGPD : un token valide ne doit pas rester lisible sur la machine).
     // detectSessionInUrl (défaut true) reste actif : SSO Google / reset mdp / invitation.
-    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_STORAGE_KEY },
+    // F4-auth (audit sécu) : flowType PKCE → les liens OTP/magic-link/reset/SSO portent un `code` à
+    // usage unique échangé serveur, PAS le token dans le fragment d'URL (#access_token, qui traîne dans
+    // l'historique). Transparent pour le login mot-de-passe actuel ; prépare le magic-link propryo.fr.
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_STORAGE_KEY, flowType: 'pkce' },
   })
   _supaClient = client
   // Jeton de session Supabase (ES256) pour authentifier l'app auprès du worker de signature : le worker
@@ -244,7 +247,11 @@ async function boot() {
     else { try { await _supaClient.auth.signOut() } catch (e) { console.warn('[Supabase] signOut', e) } }
     // P1.3 volet RGPD (audit C-C) : le miroir localStorage est TOUJOURS purgé au logout — sinon le
     // dernier saveDB laisse une copie intégrale du DB lisible à vie sur la machine (cas Marion).
-    try { localStorage.removeItem(MIRROR_KEY); localStorage.removeItem(MIRROR_TAG_KEY) } catch (e) {}
+    // F14.1 (audit sécu, poste partagé) : on purge le miroir de DONNÉES (RGPD) mais on GARDE le tag
+    // quand IndexedDB est CONSERVÉE (binaires idb-only, ci-dessous). Sinon, tag effacé ⇒ au login suivant
+    // classifyMirrorTag renvoie 'untagged' ⇒ les photos d'A restent en IndexedDB, lisibles en DevTools par
+    // B sur le même poste. Tag gardé ⇒ login B → 'other-user' → purge des photos résiduelles (:1219).
+    try { localStorage.removeItem(MIRROR_KEY) } catch (e) {}
     // Les horodatages partent AVEC le miroir : une clé résiduelle après une purge
     // RGPD n'a pas de raison d'exister, et un horodatage orphelin ferait croire à
     // F1, au prochain login, qu'il reste du travail hors ligne à rejouer.
@@ -260,7 +267,9 @@ async function boot() {
       if (keepPhotos) console.info('[Supabase] purge espace : IndexedDB photos CONSERVÉE (seule copie restante, Storage inaccessible)')
       else if (dbNow && _cachePurge) {
         const leftovers = _cachePurge.listIdbOnlyBinaries(dbNow)
-        if (leftovers.length === 0) await _deletePhotosDb()
+        // IndexedDB réellement purgée → le tag n'a plus d'utilité (rien à re-détecter) : on le retire.
+        // Sinon (leftovers conservés), le tag RESTE → le login suivant purge si 'other-user' (F14.1).
+        if (leftovers.length === 0) { await _deletePhotosDb(); try { localStorage.removeItem(MIRROR_TAG_KEY) } catch (e) {} }
         else console.warn('[Supabase] logout : IndexedDB photos CONSERVÉE — ' + leftovers.length + ' binaire(s) sans copie Storage (preuves)')
       }
     } catch (e) { console.warn('[Supabase] logout purge IndexedDB', e) }
