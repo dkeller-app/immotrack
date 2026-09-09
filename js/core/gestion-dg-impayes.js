@@ -113,7 +113,10 @@ export function _calculerDelaiRestitution(bail, edls) {
  */
 export function _calculerSoldeDG(bail, mouvements) {
   if (!bail) return { dgPaid: 0, retenuesDG: 0, loyerImpaye: 0, soldeRestitue: 0 };
-  const dgPaid = Number(bail.dgPaid) || 0;
+  // `dgPaid` (versement effectif) n'est historiquement jamais renseigné → repli sur le DG dû
+  // (`dg`) : au moment de la restitution, on rend le dépôt effectivement pris. Le repli vit ICI
+  // (source unique) plutôt que recopié dans chaque surface (clôture, restitution). DRY.
+  const dgPaid = Number(bail.dgPaid) || Number(bail.dg) || 0;
   const retenuesDG = Number(bail.dgRetenu) || 0;
   // MODÈLE DIDIER (anti double-compte, chantier Charges) : le dépôt couvre le LOYER impayé seul.
   // Les charges — même les provisions non versées — sont portées UNIQUEMENT par la régularisation
@@ -158,11 +161,20 @@ export function _penaliteRetardDG(bail, dateRef) {
   const finDate = new Date(String(sortieISO).slice(0, 10) + 'T00:00:00');
   if (Number.isNaN(finDate.getTime())) return out;
 
-  const delaiMois = _calculerDelaiRestitution(bail);
-  const dateLimite = new Date(finDate);
-  dateLimite.setMonth(dateLimite.getMonth() + delaiMois);
-  // Format LOCAL (pas toISOString, qui décale d'un jour selon le fuseau).
+  // Ajout calendaire de mois avec recadrage FIN DE MOIS (art. 641 CPC) : 31/01 + 1 mois
+  // → 28/02, pas 03/03. IDENTIQUE à _departDeadlineDG (index.html) pour que les deux surfaces
+  // affichent la MÊME date limite. Sans ce recadrage : date limite fausse + mois sous-comptés.
+  const _addMonthsClamped = (base, k) => {
+    const day = base.getDate();
+    const d = new Date(base);
+    d.setMonth(d.getMonth() + k);
+    if (d.getDate() !== day) d.setDate(0); // dernier jour du mois cible
+    return d;
+  };
   const _iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+  const delaiMois = _calculerDelaiRestitution(bail);
+  const dateLimite = _addMonthsClamped(finDate, delaiMois);
   out.dateLimite = _iso(dateLimite);
 
   // Date de restitution effective : la date enregistrée fait foi ; sinon aujourd'hui
@@ -175,12 +187,12 @@ export function _penaliteRetardDG(bail, dateRef) {
   if (Number.isNaN(restit.getTime()) || restit <= dateLimite) return out; // pas de retard
 
   out.enRetard = true;
-  // Nombre de mois ENTAMÉS entre la date limite et la restitution.
-  let m = (restit.getFullYear() - dateLimite.getFullYear()) * 12 + (restit.getMonth() - dateLimite.getMonth());
-  if (restit.getDate() < dateLimite.getDate()) m--; // mois pleins révolus
-  const boundary = new Date(dateLimite);
-  boundary.setMonth(boundary.getMonth() + m);
-  out.moisRetard = Math.max(0, (restit > boundary) ? m + 1 : m);
+  // Mois ENTAMÉS = mois pleins révolus + 1 si un reste subsiste (mois commencé). On compte les
+  // mois pleins via l'ajout calendaire recadré, puis on ajoute le mois entamé s'il y a un reste.
+  let c = 0;
+  while (_addMonthsClamped(dateLimite, c + 1).getTime() <= restit.getTime()) c++;
+  const exact = _addMonthsClamped(dateLimite, c).getTime() === restit.getTime();
+  out.moisRetard = exact ? Math.max(1, c) : c + 1;
 
   out.base = Number(bail.hc) || 0; // loyer en principal (hors charges)
   out.exclue = !!bail.dgAdresseNonCommuniquee;

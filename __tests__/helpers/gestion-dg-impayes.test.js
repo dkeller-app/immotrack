@@ -52,6 +52,39 @@ describe('_penaliteRetardDG', () => {
     expect(r.penalite).toBe(0);
     expect(r.dateLimite).toBe(null);
   });
+
+  // AUDIT #1 — recadrage fin de mois (art. 641 CPC), comme _departDeadlineDG.
+  describe('débordement fin de mois', () => {
+    it('sortie 31/12, délai 2 mois → date limite recadrée au 28/02 (pas 03/03)', () => {
+      const r = _penaliteRetardDG({ hc: 650, dgRetenu: 100, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-02-28' });
+      expect(r.dateLimite).toBe('2026-02-28');
+      expect(r.moisRetard).toBe(0); // pile à la date limite → pas de retard
+    });
+    it('date limite 31/01 (sortie 31/12, délai 1), restit 01/03 → 2 mois entamés (pas 1)', () => {
+      // pas de dgRetenu ni EDL → délai 1 mois. 31/12 + 1 = 31/01.
+      const r = _penaliteRetardDG({ hc: 650, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-03-01' });
+      expect(r.dateLimite).toBe('2026-01-31');
+      expect(r.moisRetard).toBe(2); // 1er mois plein court jusqu'au 28/02 ; au 01/03 le 2e est entamé
+      expect(r.penalite).toBe(130);
+    });
+    it('date limite 31/01, restit exactement +1 mois (28/02) → 1 mois', () => {
+      const r = _penaliteRetardDG({ hc: 650, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-02-28' });
+      expect(r.moisRetard).toBe(1);
+    });
+  });
+});
+
+describe('_calculerSoldeDG — repli dgPaid → dg (AUDIT observation)', () => {
+  it('dgPaid non renseigné → base = dg (pas 0)', () => {
+    const r = _calculerSoldeDG({ dg: 1300, dgRetenu: 300 }, []);
+    expect(r.dgPaid).toBe(1300);
+    expect(r.soldeRestitue).toBe(1000); // 1300 − 300, pas 0
+  });
+  it('dgPaid renseigné → prioritaire sur dg', () => {
+    const r = _calculerSoldeDG({ dg: 1300, dgPaid: 1200, dgRetenu: 200 }, []);
+    expect(r.dgPaid).toBe(1200);
+    expect(r.soldeRestitue).toBe(1000);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════
