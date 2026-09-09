@@ -24041,14 +24041,26 @@ function _avenantSave(ref){
   var loyerObj=objets.find(function(o){return o.k==='loyer' && String(o.data.motif||'').indexOf('Travaux')===0;});
   if(loyerObj){ var g=window.loyerTravauxGuard({loyer0:Number(bail.hc)||0, coutTTC:loyerObj.data.cout, dpe:loyerObj.data.dpe, nouveau:loyerObj.data.nouveau});
     if(!g.ok){ if(!confirm2('La hausse de loyer n\'est pas conforme :\n\n'+g.blocages.join('\n')+'\n\nEnregistrer quand même l\'avenant ?')) return; } }
+  var loyerAny=objets.find(function(o){return o.k==='loyer';});
+  var chargesAny=objets.find(function(o){return o.k==='charges';});
+  // AUDIT ARGENT — la date d'effet qui pilote le barème doit passer les MÊMES garde-fous que
+  // « Modifier le bail » (_bailValidConfirm) : 1er du mois, jamais avant le début du bail, jamais
+  // dans un mois déjà quittancé, jamais avant la dernière période vivante. Sinon dû faux / passé réécrit.
+  if((loyerAny||chargesAny) && typeof window._baremeClampDateEffet==='function'){
+    var dq=(typeof _dernierMoisQuittanceYm==='function')?_dernierMoisQuittanceYm(ref):null;
+    var cl=window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm:dq||undefined, debutBailIso:bail.debut||undefined });
+    var effetOk=cl.effetIso, ajuste=!!cl.ajustee;
+    var bmin=(typeof window._bailModifBorneMinEffet==='function')?window._bailModifBorneMinEffet(DB.loyerBareme||[], ref):'';
+    if(bmin && effetOk && effetOk<bmin){ effetOk=bmin; ajuste=true; }
+    if(effetOk && effetOk!==effet){ effet=effetOk; ajuste=true; }
+    if(ajuste){ if(el('av-effet')) el('av-effet').value=effet; showToast('Date d\'effet ajustée au '+fd(effet)+' (1ᵉʳ du mois / mois déjà quittancé / début du bail).','warn',6000); }
+  }
   var docHtml=_avenantDocPageHtml(ref); var built=window.buildAvenantHtml(Object.assign(_avenantCtx(),{objets:objets}));
   bail.avenants=bail.avenants||[];
   var rec={ no:_avenantState.no, dateEffet:effet, ville:v('av-ville')||'', objets:objets, html:docHtml, createdAt:(new Date()).toISOString() };
   bail.avenants.push(rec);
 
   // PROPAGATION loyer/charges dans les calculs (barème daté — MÊME mécanisme que « Modifier le bail »).
-  var loyerAny=objets.find(function(o){return o.k==='loyer';});
-  var chargesAny=objets.find(function(o){return o.k==='charges';});
   if(loyerAny||chargesAny){
     var prevHc=Number(bail.hc)||0, prevCh=Number(bail.ch)||0;
     var newHc=loyerAny?(parseFloat(String(loyerAny.data.nouveau).replace(',','.'))||prevHc):prevHc;
@@ -24062,6 +24074,9 @@ function _avenantSave(ref){
       DB.loyerBareme=window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], { ref:ref, debut:effet, hc:newHc, ch:newCh, source:'manuel', bailDebut:bail.debut, note:'Avenant n° '+rec.no+(loyerAny&&chargesAny?' (loyer + charges)':loyerAny?' (loyer)':' (charges)') });
     }
     bail.hc=newHc; bail.ch=newCh; // termes courants du bail alignés (l'historique est porté par le barème)
+    // Forfait de charges (meublé/colocation) : marque le bail pour que la régularisation NE le régularise PAS (art. 23-1).
+    if(chargesAny && String(chargesAny.data.mode||'').toLowerCase().indexOf('forfait')>=0) bail.chForfait=true;
+    else if(chargesAny) bail.chForfait=false;
     if(Array.isArray(DB.bailEvents)) DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:effet, type:'modif', avenant:rec.no, hcAvant:prevHc, hcApres:newHc, chAvant:prevCh, chApres:newCh });
   }
 
