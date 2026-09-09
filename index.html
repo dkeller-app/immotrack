@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.613</title>
+<title>Propryo v15.614</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.608">
+<link rel="stylesheet" href="css/main.css?v=15.614">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.613</em>
+      <em>v15.614</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -485,7 +485,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div class="tab act" onclick="setBauxTab('actifs',this)"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Baux actifs</div>
         <div class="tab" onclick="setBauxTab('historique',this)"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="4"/><path d="M5 8v12h14V8M10 12h4"/></svg> Historique</div>
       </div>
-      <div id="baux-tab-actifs"><div class="g2" id="baux-grid"></div></div>
+      <div id="baux-tab-actifs"><div id="baux-grid"></div></div>
       <div id="baux-tab-historique" style="display:none">
         <div class="tbl-wrap"><table class="tbl">
           <thead><tr><th>Logement</th><th>Locataire(s)</th><th>Début</th><th>Fin effective</th><th>Motif</th><th>Archivé le</th><th>DG restitué</th><th></th></tr></thead>
@@ -4224,7 +4224,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.613';
+const IMMOTRACK_VERSION = '15.614';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -17977,14 +17977,22 @@ function rBaux() {
     if (!groups.has(key)) groups.set(key, { entNom: l.entity || '—', immNom: l.imm || '', logs: [] });
     groups.get(key).logs.push(l);
   });
-  const groupsArr = [...groups.values()].sort((a, b) => _natCmp(a.immNom, b.immNom));
+  // v15.614 REFONTE-PC — tri par BAILLEUR (entité) puis immeuble ; stats par bailleur pour l'intercalaire.
+  const groupsArr = [...groups.values()].sort((a, b) => _natCmp(a.entNom, b.entNom) || _natCmp(a.immNom, b.immNom));
+  const _bailleurStats = new Map(); // entNom -> {nbImm, nbLoc}
+  groupsArr.forEach(g => {
+    const s = _bailleurStats.get(g.entNom) || { nbImm: 0, nbLoc: 0 };
+    s.nbImm += 1; s.nbLoc += g.logs.length;
+    _bailleurStats.set(g.entNom, s);
+  });
+  const _multiBailleur = _bailleurStats.size > 1;
 
   if (!groupsArr.length) {
     el('baux-grid').innerHTML = `<div style="text-align:center;padding:40px;color:var(--t3,#9ca3af);font-style:italic">Aucun locataire ne correspond aux filtres.</div>`;
     return;
   }
 
-  el('baux-grid').innerHTML = groupsArr.map(g => {
+  const _bubbles = groupsArr.map(g => {
     const ent = (DB.entites || []).find(e => e && e.nom === g.entNom) || null;
     const im = ent && Array.isArray(ent.immeubles) ? ent.immeubles.find(i => i && i.nom === g.immNom && !i._deleted) : null;
     const immKey = `${g.entNom}||${g.immNom}`;
@@ -18013,11 +18021,12 @@ function rBaux() {
       const debutLbl = bail && bail.debut ? `Bail début ${fd(bail.debut)}` : 'Aucun bail';
 
       // Type badge meublé/etc (compact)
+      // v15.614 REFONTE-PC Locataires — emoji type de bail → badge libellé (DRY .badge existant)
       let typeBadge = '';
       if (bail && bail.type && bail.type !== 'nu') {
-        const BADGES = { 'meuble': '📚', 'etudiant': '🎓', 'mobilite': '🚀', 'garage': '🚗', 'autre': '📋' };
-        const ic = BADGES[bail.type] || '';
-        if (ic) typeBadge = ` ${ic}`;
+        const TYPE_LBL = { 'meuble': 'Meublé', 'etudiant': 'Étudiant', 'mobilite': 'Mobilité', 'garage': 'Garage', 'autre': 'Autre' };
+        const lbl = TYPE_LBL[bail.type] || '';
+        if (lbl) typeBadge = ` <span class="badge gry loc-nom-badge">${escHtml(lbl)}</span>`;
       }
       // Sig badge si bail signé
       let sigBadge = '';
@@ -18026,7 +18035,10 @@ function rBaux() {
         // audit : le mode 'bailleur-seul' peut désormais couvrir « locataire signé, bailleur distant en attente » →
         // le libellé reflète QUI a réellement signé (via signedBailleurAt), pas une hypothèse bailleur-first.
         const _partialTitle = bail.signatures.signedBailleurAt ? 'Bailleur signé, locataire en attente' : 'Locataire signé, bailleur en attente';
-        sigBadge = isPartiel ? `<span title="${_partialTitle}" style="color:#f59e0b;font-size:13px;margin-left:4px">🟠</span>` : '<span title="Bail signé bilatéralement" style="color:#16a34a;font-size:13px;margin-left:4px">🔒</span>';
+        // v15.614 REFONTE-PC — emoji signature → badge tokenisé + line-icon
+        sigBadge = isPartiel
+          ? ` <span class="badge ora loc-nom-badge" title="${escHtml(_partialTitle)}">${_uiIcon('clock',11)} Signature partielle</span>`
+          : ` <span class="badge grn loc-nom-badge" title="Bail signé bilatéralement">${_uiIcon('sign',11)} Signé</span>`;
       }
       // v15.230 P0-A — Badge MRH (assurance obligatoire bailleur) restauré
       // v15.253 V3-REFONTE-ASSURANCES Étape 2 : badge cliquable → ouvre la modale MRH (accès direct
@@ -18034,16 +18046,13 @@ function rBaux() {
       const _mrhRec = (DB.mrh || []).find(m => m && m.logement === l.ref && !m._deleted);
       const hasMrh = !!_mrhRec;
       const _mrhId = _mrhRec ? _mrhRec.id : 'null';
+      // v15.614 REFONTE-PC — badge « Ass. hab. » manquante tokenisé (.badge red) ; le 🔑 « présente » (doublon
+      // avec le bouton Assurance de la ligne) est RETIRÉ.
       const mrhBadge = bail && !hasMrh
-        ? `<span onclick="event.stopPropagation();openMrh(null,'${refEsc}')" title="Assurance habitation manquante — cliquer pour l'ajouter" style="cursor:pointer;display:inline-block;background:#fee2e2;color:#991b1b;border:1px solid #ef4444;border-radius:10px;padding:1px 6px;font-size:9.5px;font-weight:700;margin-left:4px;vertical-align:middle">⚠ Ass. hab.</span>`
-        : (bail && hasMrh ? `<span onclick="event.stopPropagation();openMrh(${_mrhId},'${refEsc}')" title="Assurance habitation — cliquer pour voir / modifier" style="cursor:pointer;color:#16a34a;font-size:11px;margin-left:4px">🔑</span>` : '');
+        ? ` <span class="badge red loc-nom-badge" onclick="event.stopPropagation();openMrh(null,'${refEsc}')" title="Assurance habitation manquante — cliquer pour l'ajouter" style="cursor:pointer">${_uiIcon('warn',11)} Ass. hab.</span>`
+        : '';
 
-      // v15.230 P0-A — Prog bar % bail écoulé (restauré du legacy)
-      const progPct = _bailProgressPct(bail);
-      const progBar = (progPct !== null) ? `<div style="height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden;margin-top:6px"><div style="height:100%;background:linear-gradient(90deg,#3b82f6,#2563eb);width:${progPct}%"></div></div>` : '';
-
-      // v15.230 P1-F — Fix mailto encoding (encodeURIComponent au lieu d'escHtml)
-      const mailtoUrl = email ? `mailto:${encodeURIComponent(email).replace(/'/g, '%27')}` : '';
+      // v15.614 REFONTE-PC — prog-bar % + bouton Email retirés (décoratif / option indisponible).
 
       // v15.x DEPART-VISIBILITE — remonter l'état de départ sur la carte (au lieu du seul menu ⋮).
       // bail.depart présent → carte en état « départ » (accent + avancement N/6 + compte à rebours DG) ;
@@ -18060,34 +18069,32 @@ function rBaux() {
       const echCellHtml = depState
         ? `<div class="loc-ech-b loc-dep-cell" title="Départ en cours — ouvrir l'assistant" onclick="event.stopPropagation();_departOuvrir('${refEsc}')">${_ICON_DEPART} Départ ${depState.doneCount}/${depState.total}${depDgHtml}</div>`
         : `<div class="loc-ech-b ${ech.cls}">${_uiIcon('calendar',13)} ${ech.text}</div>`;
+      // v15.614 REFONTE-PC — bouton départ libellé (plus d'icône seule)
       const depActionBtn = depState
-        ? `<button onclick="event.stopPropagation();_departOuvrir('${refEsc}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">${_ICON_DEPART}</button>`
+        ? `<button onclick="event.stopPropagation();_departOuvrir('${refEsc}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">${_ICON_DEPART} Départ</button>`
         : (bail && !bail.cloture && !bail._deleted && ech.urgent
             ? `<button onclick="event.stopPropagation();_departOuvrir('${refEsc}')" title="Préparer le départ du locataire" aria-label="Préparer le départ" class="loc-dep-prep">${_ICON_DEPART} Départ</button>`
             : '');
       const rowDepCls = depState ? ' loc-depart' : (ech.urgent ? ' warn-soon' : '');
 
-      // Actions compactes : principales en visible + ⋮ menu pour actions secondaires
-      // (Clôturer / Supprimer / Acte cautionnement / PDF Drive / Réinitialiser sigs)
+      // v15.614 REFONTE-PC — actions LIBELLÉES (règle « jamais d'icône seule »), Email retiré (option
+      // indisponible), couleurs en classes tokenisées. Actions secondaires dans le ⋮ menu.
       const actions = `${depActionBtn}
-        <button onclick="event.stopPropagation();openBail('${refEsc}')" title="Modifier le bail" aria-label="Modifier le bail">${_uiIcon('edit')}</button>
-        <button onclick="event.stopPropagation();previewBailRef('${refEsc}')" title="Aperçu bail" aria-label="Aperçu bail">${_uiIcon('eye')}</button>
-        ${/* « Voir bail signé » (snapshot HTML) retiré 2026-06-18 — remplacé par « PDF du bail » */ ''}
+        <button onclick="event.stopPropagation();openBail('${refEsc}')" title="Modifier le bail" aria-label="Modifier le bail">${_uiIcon('edit')} Modifier</button>
+        <button onclick="event.stopPropagation();previewBailRef('${refEsc}')" title="Aperçu bail" aria-label="Aperçu bail">${_uiIcon('eye')} Aperçu</button>
         ${bail && bail.signatures && bail.signatures.mode === 'bailleur-seul'
-          ? `<button onclick="event.stopPropagation();openBailSignatureFlow('${refEsc}')" title="Continuer la signature du bail" aria-label="Continuer la signature" style="color:#16a34a">${_uiIcon('sign')}</button>`
+          ? `<button onclick="event.stopPropagation();openBailSignatureFlow('${refEsc}')" title="Continuer la signature du bail" aria-label="Continuer la signature" class="loc-act-sign">${_uiIcon('sign')} Signer</button>`
           : ''}
-        ${email ? `<button onclick="event.stopPropagation();window.location.href='${mailtoUrl}'" title="Email ${escHtml(email)}" aria-label="Email locataire">${_uiIcon('mail')}</button>` : ''}
-        ${bail ? `<button onclick="event.stopPropagation();openMrh(${_mrhId},'${refEsc}')" title="Attestation assurance habitation (locataire)" aria-label="Attestation assurance habitation" style="color:${hasMrh?'#16a34a':'#dc2626'}">${_uiIcon('key')}</button>` : ''}
-        ${bail ? `<button onclick="openBailMenu(event,'${refEsc}')" title="Plus d'actions (clôturer, supprimer, acte cautionnement…)" aria-label="Plus d'actions" style="font-weight:700">${_uiIcon('dots')}</button>` : ''}
+        ${bail ? `<button onclick="event.stopPropagation();openMrh(${_mrhId},'${refEsc}')" title="Attestation assurance habitation (locataire)" aria-label="Attestation assurance habitation" class="${hasMrh?'loc-act-mrh-ok':'loc-act-mrh-no'}">${_uiIcon('key')} Assurance</button>` : ''}
+        ${bail ? `<button onclick="openBailMenu(event,'${refEsc}')" title="Plus d'actions (clôturer, supprimer, acte cautionnement…)" aria-label="Plus d'actions">${_uiIcon('dots')} Plus</button>` : ''}
       `;
 
       const onRowClick = `openLogFiche('${refEsc}')`;
-      return `<div class="loc-card-row-b${rowDepCls}" onclick="${onRowClick}">
+      return `<div class="loc-card-row-b${rowDepCls}${isVacant ? ' loc-vacant' : ''}" onclick="${onRowClick}">
         <div class="loc-avatar-b">${initials}</div>
         <div class="loc-info-b">
-          <div class="nom-b">${isVacant ? '<span style="color:var(--err,#ef4444)">VACANT</span>' : escHtml(locDisplay) + typeBadge + sigBadge + mrhBadge}</div>
+          <div class="nom-b">${isVacant ? '<span class="loc-vacant-tag">VACANT</span>' : escHtml(locDisplay) + typeBadge + sigBadge + mrhBadge}</div>
           <div class="meta-b">${refEsc} · ${typeStr}${tel ? ' · ' + escHtml(tel) : ''}</div>
-          ${progBar}
         </div>
         <div class="loc-loyer-b">${loyerStr}</div>
         ${echCellHtml}
@@ -18098,14 +18105,29 @@ function rBaux() {
 
     return `<div class="locimm-block-b" data-immkey="${escHtml(immKey)}">
       <div class="locimm-block-b-header" onclick="_toggleLocImmBlockB('${escHtml(immKey).replace(/'/g, "\\'")}', event)" role="button" tabindex="0">
-        <span class="imm-icon-b">🏛</span>
+        <span class="imm-icon-b">${_uiIcon('building',18)}</span>
         <span class="imm-name-b">${titleEsc}${adrEsc}</span>
         <span class="count-b">${g.logs.length} ${g.logs.length > 1 ? 'locataires' : 'locataire'}</span>
         <span class="chevron-b">▾</span>
       </div>
       <div class="locimm-body-b">${locCards}</div>
     </div>`;
-  }).join('');
+  });
+
+  // v15.614 REFONTE-PC — assemblage empilé avec intercalaires bailleur (fixes, non repliables ;
+  // affichés seulement si ≥2 bailleurs). Réutilise le langage « étiquette bailleur » de la page Biens.
+  let _html = '', _lastEnt = null;
+  groupsArr.forEach((g, i) => {
+    if (_multiBailleur && g.entNom !== _lastEnt) {
+      const st = _bailleurStats.get(g.entNom) || { nbImm: 0, nbLoc: 0 };
+      _html += `<div class="locbail-inter"><span class="locbail-ico" aria-hidden="true">${_uiIcon('person',14)}</span>`
+        + `<span class="locbail-name">${escHtml(g.entNom)}</span>`
+        + `<span class="locbail-stats">${st.nbImm} ${st.nbImm > 1 ? 'immeubles' : 'immeuble'} · ${st.nbLoc} ${st.nbLoc > 1 ? 'locataires' : 'locataire'}</span></div>`;
+      _lastEnt = g.entNom;
+    }
+    _html += _bubbles[i];
+  });
+  el('baux-grid').innerHTML = _html;
 
   // Restaure l'état collapsed mémorisé
   try { _applyLocImmBlocksCollapsedState(); } catch(e) {}
