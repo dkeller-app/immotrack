@@ -51282,7 +51282,7 @@ function _pilBulkMajLoyersSimule(baux, dateApplication) {
 // ─────────────────────────────────────────────────────────────────────────
 let _dgVgRows = [];
 let _dgVgCtx = {};
-let _dgRegulPortion = 0; // part de régularisation de charges déjà retenue à la clôture (préservée)
+let _dgAutresRetenues = 0; // retenues hors réparations (régul charges, etc.) — éditable, jamais gelée
 
 /** Devine le type de grille depuis le nom de l'élément EDL (repli : peinture). */
 function _dgVgGuessType(nom) {
@@ -51418,18 +51418,35 @@ function _dgOpenRestitution(ref) {
   const dgInfo = _dgStatut(_bailN); // AUDIT #3 : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
   const solde = _calculerSoldeDG(_bailN, DB.mouvements || []);
   const delaiMois = _calculerDelaiRestitution(bail, DB.edl);
-  // AUDIT #2 : part de régularisation de charges déjà retenue à la clôture (dgRetenu = réparations
-  // + retenueRegul). La grille de vétusté ne porte QUE les réparations → on isole la part régul
-  // (dgRetenu − réparations déjà enregistrées) pour ne PAS l'effacer, sinon sur-restitution.
-  _dgRegulPortion = Math.max(0, Math.round(((Number(bail.dgRetenu) || 0) - (Number(bail.depart && bail.depart.reparations) || 0)) * 100) / 100);
-  // Grille de vétusté : reprise d'une saisie précédente, sinon amorçage depuis l'EDL de sortie.
   _dgVgCtx = {
     refDate: (bail.depart && bail.depart.dateSortie) || bail.finEffective || (typeof td === 'function' ? td() : ''),
     edlEntreeDate: _dgVgEntreeDate(bail),
     bareme: window.VETUSTE_BAREME
   };
-  const saved = bail.depart && Array.isArray(bail.depart.vetusteLignes) ? bail.depart.vetusteLignes : null;
-  _dgVgRows = saved ? saved.map(r => Object.assign({}, r)) : _dgVgSeedFromEdl(bail);
+  // AUDIT #2 (2ᵉ passe) — deux natures de retenue distinctes, JAMAIS inférées à partir d'un scalaire :
+  //   • réparations locatives → la GRILLE de vétusté (source unique) ;
+  //   • autres retenues (régularisation de charges 20 %, etc.) → un champ ÉDITABLE `_dgAutresRetenues`.
+  // Migration transparente à la 1ʳᵉ ouverture, sans jamais geler ni perdre un montant déjà enregistré :
+  const _dep = bail.depart || {};
+  const _dgRet = Number(bail.dgRetenu) || 0;
+  if (Array.isArray(_dep.vetusteLignes)) {
+    // Réouverture du nouveau flux : reprise fidèle.
+    _dgVgRows = _dep.vetusteLignes.map(r => Object.assign({}, r));
+    _dgAutresRetenues = Number(_dep.autresRetenues) || 0;
+  } else if (Number(_dep.reparations) > 0) {
+    // Décomposition clôture connue : réparations déjà chiffrées → ligne « report » (pleine, éditable,
+    // pas de vétusté tant que l'utilisateur ne renseigne pas le type/l'âge) ; le reste = autres retenues.
+    _dgVgRows = [{ piece: 'Réparations (report clôture — à vérifier)', type: 'peinture', cout: Number(_dep.reparations) || 0, source: 'estim', mes: '' }];
+    _dgAutresRetenues = Math.max(0, Math.round((_dgRet - (Number(_dep.reparations) || 0)) * 100) / 100);
+  } else if (_dgRet > 0) {
+    // Retenue héritée non décomposable (saisie directe formulaire bail) : on la porte INTÉGRALEMENT
+    // dans « autres retenues » (éditable, à ventiler) — jamais gelée ni recomptée en double.
+    _dgVgRows = _dgVgSeedFromEdl(bail);
+    _dgAutresRetenues = _dgRet;
+  } else {
+    _dgVgRows = _dgVgSeedFromEdl(bail);
+    _dgAutresRetenues = 0;
+  }
   const body = el('ov-dg-restitution-body');
   if (!body) return;
   // I-DATE, surface 7 du §4 : ce champ était pré-rempli à `td()` et jamais confronté au
@@ -51477,7 +51494,8 @@ function _dgOpenRestitution(ref) {
       <table style="width:100%;font-size:12.5px;border-collapse:collapse">
         <tr><td>DG initial versé</td><td style="text-align:right;font-weight:600">${fmt(dgVerse)}</td></tr>
         <tr><td>– Réparations locatives (vétusté)</td><td style="text-align:right;color:var(--red)" id="dg-restit-retenues-display">${fmt(0)}</td></tr>
-        <tr id="dg-restit-regul-row"${_dgRegulPortion > 0 ? '' : ' hidden'}><td>– Régularisation de charges (retenue clôture)</td><td style="text-align:right;color:var(--red)" id="dg-restit-regul-amt">${fmt(_dgRegulPortion)}</td></tr>
+        <tr><td>– Autres retenues <span class="mu" style="font-size:10.5px">(régularisation de charges, etc.)</span></td>
+            <td style="text-align:right"><input class="inp" type="number" id="dg-restit-autres" value="${_dgAutresRetenues}" min="0" step="0.01" style="width:110px;text-align:right;color:var(--red)" onchange="_dgRestitRecalc('${escHtml(ref)}')"></td></tr>
         <tr><td>– Loyers impayés cumulés</td><td style="text-align:right;color:var(--red)">${fmt(solde.loyerImpaye)}</td></tr>
         <tr id="dg-restit-pen-row" hidden><td>+ Pénalité de retard (art. 22)</td><td style="text-align:right;color:#185fa5;font-weight:600" id="dg-restit-pen-amt">—</td></tr>
         <tr style="border-top:2px solid var(--bor)">
@@ -51524,10 +51542,11 @@ function _dgRestitRecalc(ref) {
   const bail = DB.baux && DB.baux[ref];
   if (!bail) return;
   // Réparations locatives = total de la grille de vétusté. Retenue totale = réparations +
-  // part de régularisation de charges déjà posée à la clôture (préservée, AUDIT #2).
+  // autres retenues (champ éditable : régul charges, etc. — AUDIT #2 2ᵉ passe, jamais inféré).
   const vg = window.computeVetusteTotal ? window.computeVetusteTotal(_dgVgRows, _dgVgCtx) : { total: 0 };
   const reparations = Math.round((vg.total || 0) * 100) / 100;
-  const retenuesTotal = Math.round((reparations + _dgRegulPortion) * 100) / 100;
+  const autres = Math.max(0, parseFloat(v('dg-restit-autres')) || 0);
+  const retenuesTotal = Math.round((reparations + autres) * 100) / 100;
   const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
   const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal });
   const solde = _calculerSoldeDG(tempBail, DB.mouvements || []);
@@ -51540,8 +51559,6 @@ function _dgRestitRecalc(ref) {
   const soldeFinal = Math.round((solde.soldeRestitue + penMontant) * 100) / 100;
 
   const rt = el('dg-restit-retenues-display'); if (rt) rt.textContent = fmt(reparations);
-  const rg = el('dg-restit-regul-amt'); if (rg) rg.textContent = fmt(_dgRegulPortion);
-  const rgRow = el('dg-restit-regul-row'); if (rgRow) rgRow.hidden = !(_dgRegulPortion > 0);
   const disp = el('dg-restit-solde-display'); if (disp) disp.textContent = fmt(soldeFinal);
 
   // Bloc pénalité : visible dès qu'il y a retard (même neutralisée, pour montrer l'exception).
@@ -51571,7 +51588,8 @@ function _dgConfirmerRestitution() {
   // préservée (AUDIT #2 : ne pas effacer la retenue de charges posée à la clôture).
   const vg = window.computeVetusteTotal ? window.computeVetusteTotal(_dgVgRows, _dgVgCtx) : { total: 0 };
   const reparations = Math.round((vg.total || 0) * 100) / 100;
-  const retenuesTotal = Math.round((reparations + _dgRegulPortion) * 100) / 100;
+  const autres = Math.max(0, parseFloat(v('dg-restit-autres')) || 0);
+  const retenuesTotal = Math.round((reparations + autres) * 100) / 100;
   const detailRetenues = v('dg-restit-detail-retenues') || '';
   const iban = v('dg-restit-iban') || '';
   const adresseKO = !!(el('dg-restit-adresse-ko') && el('dg-restit-adresse-ko').checked);
@@ -51617,11 +51635,12 @@ function _dgConfirmerRestitution() {
   // Persiste le détail structuré de la grille de vétusté (justificatif + réédition).
   bail.depart = bail.depart || {};
   bail.depart.reparations = reparations;
+  bail.depart.autresRetenues = autres;
   bail.depart.vetusteLignes = _dgVgRows.map(r => ({ piece: r.piece, type: r.type, cout: Number(r.cout) || 0, source: r.source, mes: r.mes || '' }));
   _stamp(bail);
   if (typeof _auditLog === 'function') {
     _auditLog('dg-restitution', 'bail', ref,
-      `restitué=${montantRestitue}€ réparations=${reparations}€ régul=${_dgRegulPortion}€ impayé=${solde.loyerImpaye}€ pénalité=${penMontant}€`);
+      `restitué=${montantRestitue}€ réparations=${reparations}€ autres=${autres}€ impayé=${solde.loyerImpaye}€ pénalité=${penMontant}€`);
   }
   saveDB();
   closeM('ov-dg-restitution');

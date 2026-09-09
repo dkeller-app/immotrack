@@ -162,8 +162,10 @@ export function _penaliteRetardDG(bail, dateRef) {
   if (Number.isNaN(finDate.getTime())) return out;
 
   // Ajout calendaire de mois avec recadrage FIN DE MOIS (art. 641 CPC) : 31/01 + 1 mois
-  // → 28/02, pas 03/03. IDENTIQUE à _departDeadlineDG (index.html) pour que les deux surfaces
-  // affichent la MÊME date limite. Sans ce recadrage : date limite fausse + mois sous-comptés.
+  // → 28/02, pas 03/03. MÊME recadrage que _departDeadlineDG (index.html) — donc même date limite
+  // dès lors que le délai retenu est le même. Nuance : _departDeadlineDG force 2 mois tant qu'aucun
+  // EDL de sortie n'existe (affichage prudent) ; ici on suit _calculerDelaiRestitution (1 ou 2). En
+  // pratique la pénalité se calcule une fois le départ fait (EDL présent), donc les deux concordent.
   const _addMonthsClamped = (base, k) => {
     const day = base.getDate();
     const d = new Date(base);
