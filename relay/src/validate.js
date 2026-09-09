@@ -110,3 +110,34 @@ export function validateCandidatureMeta(meta) {
   if (![7, 14, 30].includes(meta.expDays)) return { ok: false, reason: 'bad-expdays' };
   return { ok: true };
 }
+
+// P0-1 — Payload de signature (tamponnage CÔTÉ SERVEUR) : le signataire envoie son image de
+// signature (+ paraphes par page) en dataURL PNG, jamais les octets du document.
+export const MAX_SIG_IMG_BYTES = 2 * 1024 * 1024; // 2 Mo par image
+
+function isPngDataUrl(s, max) {
+  if (typeof s !== 'string') return false;
+  const pfx = 'data:image/png;base64,';
+  if (!s.startsWith(pfx)) return false;
+  const b64 = s.slice(pfx.length);
+  if (b64.length === 0 || b64.length * 0.75 > max) return false;
+  return /^[A-Za-z0-9+/]+={0,2}$/.test(b64);
+}
+
+export function validateSignPayload(body) {
+  if (!body || typeof body !== 'object') return { ok: false, reason: 'bad-json' };
+  if (!isPngDataUrl(body.signaturePngDataUrl, MAX_SIG_IMG_BYTES)) {
+    return { ok: false, reason: 'bad-signature-image' };
+  }
+  const p = body.paraphesByPage;
+  if (p != null) {
+    if (typeof p !== 'object' || Array.isArray(p)) return { ok: false, reason: 'bad-paraphes' };
+    const keys = Object.keys(p);
+    if (keys.length > 300) return { ok: false, reason: 'too-many-paraphes' };
+    for (const k of keys) {
+      if (!/^\d+$/.test(k)) return { ok: false, reason: 'bad-paraphe-page' };
+      if (!isPngDataUrl(p[k], MAX_SIG_IMG_BYTES)) return { ok: false, reason: 'bad-paraphe-image' };
+    }
+  }
+  return { ok: true };
+}

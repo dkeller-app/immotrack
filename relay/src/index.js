@@ -7,7 +7,8 @@ import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { generateCode, hashCode, verifyCode, otpUsable, OTP_TTL_MS } from './otp.js';
 import { makeSender } from './email-sender.js';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession } from './storage.js';
-import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta } from './validate.js';
+import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta, validateSignPayload } from './validate.js';
+import { stampSignedPdf } from './sign-stamp.js';
 import { renderSignPage, renderErrorPage } from './sign-page.js';
 import {
   createCandidature, loadCandidature, saveDossier, addPiece, removePiece,
@@ -243,21 +244,44 @@ app.post('/api/sessions/:id/signed', async (c) => {
     if (!_signer || !_signer.otpVerifiedAt) return c.json({ error: 'otp-required' }, 403);
   }
 
-  const contentType = c.req.header('content-type') || '';
-  const bytes = new Uint8Array(await c.req.arrayBuffer());
-  const v = validatePdfUpload(bytes, contentType);
+  // P0-1 : le client envoie SON IMAGE de signature (+ paraphes), jamais les octets du document.
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'bad-json' }, 400); }
+  const v = validateSignPayload(body);
   if (!v.ok) return c.json({ error: v.reason }, 400);
+
+  // Charge l'ORIGINAL stocké par le relais (hors de portée du signataire). Pour un signataire N>0,
+  // c'est la version déjà tamponnée par N-1 (chaînage « signature par-dessus »).
+  const originalBytes = await getOriginalPdf(c.env, sessionId);
+  if (!originalBytes) return c.json({ error: 'pdf-missing' }, 404);
+
+  const dateISO = new Date().toISOString();
+  // Preuve client optionnelle (acte de volonté + horodatages d'étape), base64url(JSON UTF-8).
+  // Décodage défensif : un en-tête malformé est ignoré, jamais bloquant.
+  const clientProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
+
+  // Tamponnage CÔTÉ SERVEUR depuis l'original → substitution du document impossible.
+  let signedBytes, stamp;
+  try {
+    ({ signedBytes, stamp } = await stampSignedPdf(originalBytes, {
+      signers: guard.session.signers,
+      idx: guard.session.currentIndex,
+      signaturePngDataUrl: body.signaturePngDataUrl,
+      paraphesByPage: body.paraphesByPage || {},
+      signerName: clientProof ? clientProof.signerName : null,
+      dateISO
+    }));
+  } catch (e) {
+    return c.json({ error: 'stamp-failed' }, 500);
+  }
 
   const proof = {
     ip: c.req.header('CF-Connecting-IP') || '',
     userAgent: c.req.header('User-Agent') || '',
-    signedAt: new Date().toISOString()
+    signedAt: dateISO
   };
-  // Preuve client optionnelle (acte de volonté + horodatages d'étape), base64url(JSON UTF-8).
-  // Décodage défensif : un en-tête malformé est ignoré, jamais bloquant.
-  const clientProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
-  const session = await recordSignature(c.env, sessionId, { signedBytes: bytes, proof, clientProof });
-  return c.json({ status: session.status, currentIndex: session.currentIndex });
+  const session = await recordSignature(c.env, sessionId, { signedBytes, proof, clientProof });
+  return c.json({ status: session.status, currentIndex: session.currentIndex, stamp });
 });
 
 app.get('/api/sessions/:id/result', async (c) => {
