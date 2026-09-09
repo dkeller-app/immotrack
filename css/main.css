@@ -3711,6 +3711,10 @@ textarea.field-modified-since-sig{
 /* Modale Bail (wizard) : zone de défilement plus haute pour limiter le
    scroll caché (étape 1 avec 2 garants + mandataire est dense). */
 #ov-bail .m-body{max-height:78vh}
+/* REFONTE PC/TABLETTE — reflow tablette ÉTROITE du formulaire bail : les paires de champs
+   (.fg2) passent en 1 colonne sous 860px (évite des champs trop serrés) ; PC/tablette large
+   ≥860 gardent 2 colonnes. Scopé au bail, disjoint du téléphone (≤767 a ses propres règles). */
+@media (min-width:768px) and (max-width:859px){ #ov-bail .m-body .fg2{grid-template-columns:1fr} }
 
 /* ── BAIL WIZARD BAR (étape 3 phase 2 — wizard 4 étapes) ──────────
    Remplace l'ancienne barre d'onglets par une barre de progression

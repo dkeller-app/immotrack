@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.617</title>
+<title>Propryo v15.618</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.617</em>
+      <em>v15.618</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -1576,8 +1576,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <label>Entité propriétaire *</label><select class="inp" id="b-entity" onchange="autoFinBail(); renderBailSignataires()"></select>
       </div>
       <div class="fg" id="b-signataires-wrap" style="display:none">
-        <label>Signataires du bail <span style="color:#888;font-weight:normal;font-size:11px">— cochez le(s) co-gérant(s) qui signera/signeront</span></label>
-        <div id="b-signataires-list" style="display:flex;flex-wrap:wrap;gap:10px;padding:8px 10px;background:#fafafa;border:1px solid var(--bor);border-radius:5px"></div>
+        <label>Signataires du bail <span style="color:var(--t3);font-weight:normal;font-size:11px">— cochez le(s) co-gérant(s) qui signera/signeront</span></label>
+        <div id="b-signataires-list" style="display:flex;flex-wrap:wrap;gap:10px;padding:8px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px"></div>
       </div>
       <div class="fg2">
         <div class="fg">
@@ -1683,13 +1683,13 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div class="fg">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;font-size:13px">
             <input type="checkbox" id="b-zoneTendue" onchange="toggleZoneTendue()">
-            <span>📍 Zone tendue (art. 17)</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span data-uic="pin"></span>Zone tendue (art. 17)</span>
           </label>
         </div>
         <div class="fg" id="b-encadrement-wrap" style="display:none">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;font-size:13px">
             <input type="checkbox" id="b-encadrementLoyers" onchange="toggleEncadrement()">
-            <span>🔒 Encadrement des loyers (art. 140 ELAN)</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span data-uic="lock"></span>Encadrement des loyers (art. 140 ELAN)</span>
           </label>
         </div>
       </div>
@@ -1861,15 +1861,15 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
            renvoient au DDT. L'annexe correspondante a été retirée du PDF en v15.199. La section
            reste visible seulement pour meublé/étudiant/mobilité (via _toggleMobilierSection),
            mais ne contient plus qu'une mention renvoyant à l'EDL (aucune saisie ici). -->
-      <div id="b-mobilier-section" style="display:none;margin-top:16px;padding:12px 14px;background:#fffaf0;border:1px solid #f5d28e;border-radius:6px;color:#92400e;font-size:13px;line-height:1.5">
+      <div id="b-mobilier-section" style="display:none;margin-top:16px;padding:12px 14px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:6px;color:var(--warn);font-size:13px;line-height:1.5">
         <b><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Inventaire mobilier — décret 2015-981</b>
         <div style="margin-top:4px">L'inventaire détaillé du mobilier ne se saisit pas ici : il est dressé de façon contradictoire à <b>l'état des lieux d'entrée</b> et annexé automatiquement au bail (comme les diagnostics renvoient au DDT). Il sera complété au moment de l'EDL.</div>
       </div>
     </div>
       <!-- CHANTIER BAIL-GARAGE — section propre au bail garage/box/stockage (droit commun).
            Affichée uniquement pour type==='garage' (via onBailTypeChange → _toggleGarageSection). -->
-      <div id="b-garage-section" style="display:none;margin-top:16px;padding:14px;background:#f4f6f9;border:1px solid #dbe2ea;border-radius:6px">
-        <div style="font-weight:700;margin-bottom:10px">🚗 Emplacement (garage / parking / box — Code civil, droit commun)</div>
+      <div id="b-garage-section" style="display:none;margin-top:16px;padding:14px;background:var(--sur2);border:1px solid var(--bor);border-radius:6px">
+        <div style="font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px"><span data-uic="car"></span><span>Emplacement (garage / parking / box — Code civil, droit commun)</span></div>
         <div class="fg">
           <label>Nature de l'emplacement *</label>
           <select class="inp" id="b-emplNature">
@@ -4224,7 +4224,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.617';
+const IMMOTRACK_VERSION = '15.618';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -4327,7 +4327,9 @@ function _uiIcon(name, size) {
     gift:'<rect x="4" y="8" width="16" height="4"/><path d="M6 12v9h12v-9M12 8v13M12 8S9.5 3 7 5s5 3 5 3zM12 8s2.5-5 5-3-5 3-5 3z"/>',
     alarm:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3L2 6M19 3l3 3"/>',
     counter:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4M12 10v4M17 10v4"/>',
-    play:'<path d="M7 5l12 7-12 7z"/>'
+    play:'<path d="M7 5l12 7-12 7z"/>',
+    car:'<path d="M5 11l1.6-4.2A2 2 0 018.5 5.5h7a2 2 0 011.9 1.3L19 11M4 11h16v5H4z"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/>',
+    pin:'<path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'
   };
   var p = P[name] || P.doc;
   var sz = size || 16;
@@ -59180,8 +59182,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
   .bsd-toggle input:checked + span{background:var(--acc);border-color:var(--acc)}
   .bsd-toggle input:checked + span::after{left:18px}
   .bsd-banner{border-radius:var(--r,8px);padding:10px 12px;font-size:12px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
-  .bsd-banner-warn{background:#fef3c7;border:1px solid #f59e0b;color:#92400e}
-  .bsd-banner-info{background:rgba(59,126,246,.08);border:1px solid rgba(59,126,246,.25);color:#1d4ed8}
+  .bsd-banner-warn{background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn)}
+  .bsd-banner-info{background:var(--adv-bg);border:1px solid var(--adv);color:var(--adv)}
   .bsd-state-label{font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
   .bsd-spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:bsd-sp .7s linear infinite;vertical-align:middle}
   @keyframes bsd-sp{to{transform:rotate(360deg)}}
