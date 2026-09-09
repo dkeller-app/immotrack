@@ -100,7 +100,8 @@ function _deletePhotosDb() {
 function _purgeAuthTokenKeys() {
   try {
     const keys = _cachePurge ? _cachePurge.authStorageKeys(AUTH_STORAGE_KEY) : [AUTH_STORAGE_KEY, AUTH_STORAGE_KEY + '-code-verifier']
-    keys.forEach(k => { try { localStorage.removeItem(k) } catch (e) {} })
+    // F14.2 : le token peut vivre en localStorage (PWA) OU sessionStorage (navigateur) → purge les DEUX.
+    keys.forEach(k => { try { localStorage.removeItem(k) } catch (e) {}; try { sessionStorage.removeItem(k) } catch (e) {} })
   } catch (e) {}
 }
 
@@ -177,20 +178,24 @@ async function boot() {
     if (btn) { btn.disabled = false; btn.textContent = 'Recharger la page'; btn.type = 'button'; btn.onclick = () => location.reload() }
     return
   }
+  // F14.2 (audit sécu) — « on ne reste pas connecté ». L'APP INSTALLÉE (PWA, display-mode standalone =
+  // usage TERRAIN) garde la session sur le disque (localStorage) : indispensable à l'EDL hors-ligne
+  // (rouvrir l'app SANS réseau sur site exige que la session ait survécu à la fermeture). Le NAVIGATEUR
+  // (web/desktop) la met en sessionStorage → fermer l'onglet/le navigateur DÉCONNECTE : on se reconnecte
+  // à chaque visite (identifiants retenus par le navigateur), rien ne reste lisible sur un poste partagé.
+  const _standalone = (() => { try { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true } catch (e) { return false } })();
+  const _authStore = _standalone ? window.localStorage : window.sessionStorage;
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
-    // BUG-LOGIN-DOUBLE (P0 vente) — FIX : session PERSISTÉE (standard SaaS). Avant, persistSession:false
-    // gardait la session en MÉMOIRE SEULE : tout reload entre le login et l'Accueil la détruisait → « il
-    // faut se connecter 2× » (récurrent PC + tablette, « rédhibitoire pour la vente »). Le principal
-    // déclencheur : le SW `controllerchange` qui rechargeait la page pendant la fenêtre post-login (le
-    // flag anti-reload n'était armé qu'APRÈS onLoggedIn). Désormais la session survit aux reloads/onglets
-    // (au boot, currentUser() la retrouve → onLoggedIn direct, pas de 2ᵉ login) et autoRefreshToken la
-    // maintient vivante. storageKey EXPLICITE (AUTH_STORAGE_KEY) → clé déterministe, purgée au logout /
-    // changement de compte (hygiène RGPD : un token valide ne doit pas rester lisible sur la machine).
+    // BUG-LOGIN-DOUBLE (P0 vente) — la session PERSISTE pendant la session de navigation : sessionStorage
+    // (navigateur) comme localStorage (PWA) SURVIVENT au reload post-login (le SW `controllerchange` qui
+    // rechargeait la page pendant la fenêtre post-login ne détruit plus la session — contrairement à
+    // l'ancienne mémoire-seule qui causait « se connecter 2× »). currentUser() la retrouve au reload →
+    // onLoggedIn direct ; autoRefreshToken la maintient vivante. storageKey EXPLICITE (AUTH_STORAGE_KEY)
+    // → clé déterministe, purgée au logout / changement de compte.
     // detectSessionInUrl (défaut true) reste actif : SSO Google / reset mdp / invitation.
-    // F4-auth (audit sécu) : flowType PKCE → les liens OTP/magic-link/reset/SSO portent un `code` à
-    // usage unique échangé serveur, PAS le token dans le fragment d'URL (#access_token, qui traîne dans
-    // l'historique). Transparent pour le login mot-de-passe actuel ; prépare le magic-link propryo.fr.
-    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_STORAGE_KEY, flowType: 'pkce' },
+    // F4-auth : flowType PKCE → liens OTP/magic-link/reset/SSO via `code` usage-unique (pas de token dans
+    // le fragment #access_token). Transparent pour le login mot-de-passe ; prépare le magic-link propryo.fr.
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_STORAGE_KEY, flowType: 'pkce', storage: _authStore },
   })
   _supaClient = client
   // Jeton de session Supabase (ES256) pour authentifier l'app auprès du worker de signature : le worker
