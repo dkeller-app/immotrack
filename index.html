@@ -8061,11 +8061,11 @@ function _renderRemoteSignBadge(bail, ref) {
     const certRegen = (!certKey && !certLegacy && Array.isArray(sig.proof) && sig.contentHash);
     const refSafe = String(ref);   // `ref` est déjà échappé par l'appelant (_renderLogFichePanelBail passe refSafe) — ne pas ré-échapper (double-escape)
     const cloudBtn = (keyArg, title, label) => '<button class="btn bs bb" onclick="_openCloudBailPdf(\'' + refSafe + '\'' + keyArg + ')" style="background:#0ea5e9;color:#fff" title="' + title + '">' + label + '</button>';
-    const legacyBtn = (u, title, label) => '<button class="btn bs bb" onclick="window.open(\'' + String(u).replace(/'/g, "\\'") + '\',\'_blank\',\'noopener\')" style="background:#0ea5e9;color:#fff" title="' + title + '">' + label + '</button>';
+    const legacyBtn = (u, title, label) => '<button class="btn bs bb" onclick="window.open(\'' + _lyQ(u) + '\',\'_blank\',\'noopener\')" style="background:#0ea5e9;color:#fff" title="' + title + '">' + label + '</button>';
     return pill('#dcfce7', '#16a34a', '#166534', '🔒 Signé à distance')
       + (pdfKey ? cloudBtn('', 'Ouvrir le PDF du bail signé', '📄 PDF signé')
          : (pdfLegacy ? legacyBtn(pdfLegacy, 'Ouvrir le PDF du bail signé', '📄 PDF signé') : ''))
-      + (certKey ? cloudBtn(', \'' + String(certKey).replace(/'/g, "\\'") + '\'', 'Ouvrir le certificat de preuve de signature', '📜 Certificat')
+      + (certKey ? cloudBtn(', \'' + _lyQ(certKey) + '\'', 'Ouvrir le certificat de preuve de signature', '📜 Certificat')
          : (certLegacy ? legacyBtn(certLegacy, 'Ouvrir le certificat de preuve de signature', '📜 Certificat')
             : (certRegen ? '<button class="btn bs bb" onclick="_regenBailCertificate(\'' + refSafe + '\')" style="background:#0ea5e9;color:#fff" title="Régénérer et télécharger le certificat de preuve (archivage en ligne indisponible)">📜 Régénérer le certificat</button>' : '')));
   }
@@ -9431,7 +9431,7 @@ function _renderSidebarPinned() {
 
   const fmtK = n => n >= 10000 ? Math.round(n / 1000) + ' k€' : Math.round(n) + ' €';
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s||''));
-  const escAttr = s => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const escAttr = s => _lyQ(s);
 
   wrap.innerHTML = '<div class="sb-section-title sb-pinned-title">📌 Entités principales</div>'
     + scored.map(s =>
@@ -9887,7 +9887,7 @@ function _renderSidebarV4() {
   const _candUnread = (typeof countUnreadCandidats === 'function') ? countUnreadCandidats(DB.candidats||[]) : 0; // T13d : badge notif
   const ents = _v4TopEntities();
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s||''));
-  const escAttr = s => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const escAttr = s => _lyQ(s);
   const userName = _appUserName();
   const parts = userName.split(/\s+/).filter(Boolean);
   const initials = (parts.map(s => s[0]).slice(0, 2).join('') || '👤').toUpperCase();
@@ -12661,7 +12661,7 @@ function _computeUnifiedTodo(ctx) {
         subtitle:l.ref + ' — ' + loc + dgTxt + acpTxt,
         contextRef:l.ref,
         actionLabel:'Ouvrir l\'assistant',
-        actionFn:'_departOuvrir(\'' + String(l.ref).replace(/'/g, "\\'") + '\')'
+        actionFn:'_departOuvrir(\'' + _lyQ(l.ref) + '\')'
       });
     });
   }
@@ -16502,7 +16502,7 @@ function _openImmBlockMenu(evt, entNom, immNom, entId, immId) {
  *  perdues du legacy rBaux. */
 function openBailMenu(evt, ref, full) {
   const bail = DB.baux && DB.baux[ref];
-  const refEsc = (ref || '').replace(/'/g, "\\'");
+  const refEsc = _lyQ(ref);
   const items = [];
   // v15.x DÉGRAISSAGE FICHE — `full` (appel depuis la fiche bail) déporte Modifier + Aperçu dans le menu.
   // rBaux n'envoie PAS `full` (il garde Modifier/Aperçu en boutons inline) → pas de doublon.
@@ -18098,7 +18098,7 @@ function rBaux() {
     }).join('');
 
     return `<div class="locimm-block-b" data-immkey="${escHtml(immKey)}">
-      <div class="locimm-block-b-header" onclick="_toggleLocImmBlockB('${escHtml(immKey).replace(/'/g, "\\'")}', event)" role="button" tabindex="0">
+      <div class="locimm-block-b-header" onclick="_toggleLocImmBlockB('${_lyQ(immKey)}', event)" role="button" tabindex="0">
         <span class="imm-icon-b">🏛</span>
         <span class="imm-name-b">${titleEsc}${adrEsc}</span>
         <span class="count-b">${g.logs.length} ${g.logs.length > 1 ? 'locataires' : 'locataire'}</span>
@@ -25927,7 +25927,7 @@ function _departState(bail){
   const delaiMois = (typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, DB.edl) : 2;
   const deadline = _departDeadlineDG(bail);
   const d = bail.depart || null;
-  const jsRef = (ref||'').replace(/'/g,"\\'");
+  const jsRef = _lyQ(ref);
   const congeFait   = !!(d && d.dateSortie);
   const edlFait     = !!edlSortie;
   // NB : saveBail écrit toujours dgRetenu/dgRestitue (pf() → 0 si vide). 0 ≠ « retenues arrêtées »
@@ -26020,7 +26020,7 @@ function _departOuvrir(ref){
 function _departDeclarer(ref){
   const bail=_departBail(ref); if(!bail){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
   const d=bail.depart||{};
-  const jsRef=(ref||'').replace(/'/g,"\\'");
+  const jsRef=_lyQ(ref);
   const loc=(bail.locataires&&bail.locataires[0]&&bail.locataires[0].nom)||bail.nom||ref;
   const ov=_departOv();
   ov.innerHTML=`<div class="modal"><div class="m-head"><h3>${_uiIcon('flag')} Déclarer le départ — ${escHtml(ref)}</h3><button class="m-close" onclick="closeM('ov-depart')">✕</button></div>
@@ -26104,7 +26104,7 @@ function _departRenderStepper(ref){
   if(!edlDone){
     let e=null; try{ e=_departEstimDu(bail); }catch(err){ if(window.console) console.warn('[depart-estim stepper]', err); }
     if(e && e.du>0){
-      const jsref=(ref||'').replace(/'/g,"\\'");
+      const jsref=_lyQ(ref);
       acp=`<div class="dep-acp"><div class="dep-acp-h">${_uiIcon('clock',15)} À anticiper — avant l'état des lieux</div>
         <div class="dep-acp-l"><span>Charges ${e.estimated?'estimées':'réelles'} du locataire</span><span>${fmt(e.est)}</span></div>
         <div class="dep-acp-l"><span>− Provisions${e.acompte>0?' + acompte reçu':''} versées</span><span>${fmt(e.prov+e.acompte)}</span></div>
@@ -27169,7 +27169,7 @@ function _openCommsHub(ref) {
         ? `<span style="background:#dcfce7;color:#14532d;border:1px solid #16a34a;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:6px">✓ ${escHtml(fd(histAt.slice(0,10)))}</span>`
         : '';
       html += `
-        <button class="btn bs" onclick="_commsHubSend('${escHtml(ref)}','${escHtml(item.type)}')" style="text-align:left;font-size:12px;padding:8px 10px;display:flex;align-items:flex-start;gap:8px;line-height:1.4">
+        <button class="btn bs" onclick="_commsHubSend('${_lyQ(ref)}','${_lyQ(item.type)}')" style="text-align:left;font-size:12px;padding:8px 10px;display:flex;align-items:flex-start;gap:8px;line-height:1.4">
           <span style="font-size:15px;line-height:1.2;flex-shrink:0">${item.icon}</span>
           <span style="flex:1">
             ${escHtml(item.label)}
@@ -35909,7 +35909,7 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
       </div>
       ${onOpenImmFiche ? `<button class="log-row-a-action" onclick="${onOpenImmFiche}" title="Ouvrir la fiche immeuble 360°" style="margin-left:8px;flex-shrink:0">Fiche →</button>` : ''}
       <!-- v15.230 K2 — menu ⋮ dédié variante A (popover positionné absolument à l'écran, ne dépend pas de .bien-card parent) -->
-      <button class="log-row-a-action" onclick="event.stopPropagation();_openImmBlockMenu(event,'${escHtml(entNom)}','${escHtml(immNom||'')}'${ent && +ent.id ? ',' + (+ent.id) : ',null'}${im && +im.id ? ',' + (+im.id) : ',null'})" title="Plus d'actions immeuble" aria-label="Menu actions immeuble" style="margin-left:4px;flex-shrink:0;font-weight:700;font-size:14px">⋮</button>
+      <button class="log-row-a-action" onclick="event.stopPropagation();_openImmBlockMenu(event,'${_lyQ(entNom)}','${_lyQ(immNom||'')}'${ent && +ent.id ? ',' + (+ent.id) : ',null'}${im && +im.id ? ',' + (+im.id) : ',null'})" title="Plus d'actions immeuble" aria-label="Menu actions immeuble" style="margin-left:4px;flex-shrink:0;font-weight:700;font-size:14px">⋮</button>
       <span class="chevron-a" aria-hidden="true">▾</span>
     </div>
     <div class="imm-log-list-a">${logRows || '<div class="mu" style="text-align:center;padding:10px;font-style:italic;color:var(--t3)">Aucun logement dans cet immeuble</div>'}</div>
@@ -35983,7 +35983,7 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
     <div class="bien-card-header">
       <span class="bch-bailleur" title="${bailleurEsc}">${bailleurEsc}</span>
       ${archBadge}
-      <button class="bien-card-menu" onclick="event.stopPropagation();openBienMenu(event,'building','${escHtml(firstRef||'')}','${escHtml(immNom||'')}')" aria-label="Actions">⋮</button>
+      <button class="bien-card-menu" onclick="event.stopPropagation();openBienMenu(event,'building','${_lyQ(firstRef||'')}','${_lyQ(immNom||'')}')" aria-label="Actions">⋮</button>
     </div>
     <div class="bien-card-img">
       ${im && im.id ? _coverImg('immeuble', im.id, '' + _uiIcon('building',36) + '') : '<span aria-hidden="true">' + _uiIcon('building',36) + '</span>'}
@@ -36100,7 +36100,7 @@ function _renderLogementCardFlat(l) {
     <div class="bien-card-header">
       <span class="bch-bailleur" title="${bailleurEsc}">${bailleurEsc}</span>
       ${archBadge}
-      <button class="bien-card-menu" onclick="event.stopPropagation();openBienMenu(event,'logement','${escHtml(l.ref)}','${escHtml(l.imm||'')}')" aria-label="Actions">⋮</button>
+      <button class="bien-card-menu" onclick="event.stopPropagation();openBienMenu(event,'logement','${_lyQ(l.ref)}','${_lyQ(l.imm||'')}')" aria-label="Actions">⋮</button>
     </div>
     <div class="bien-card-img">
       ${_coverImg('logement', l.id, '' + _uiIcon('home',36) + '')}
@@ -38060,7 +38060,7 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
       <div class="biens-empty-icon">${_uiIcon('calendar',44)}</div>
       <div class="biens-empty-title">Pas encore de logement dans cet immeuble</div>
       <div class="biens-empty-msg">Le plan d'occupation se construira automatiquement dès le premier logement avec un bail.</div>
-      <button class="btn bp" onclick="_immFicheNewLog('${escHtml(ent.nom)}','${escHtml(im.nom)}')">+ Ajouter un logement</button>
+      <button class="btn bp" onclick="_immFicheNewLog('${_lyQ(ent.nom)}','${_lyQ(im.nom)}')">+ Ajouter un logement</button>
     </div>`;
   }
 
@@ -38236,7 +38236,7 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
       };
     }).filter(v => (v.right - v.left) > 4); // ne label que si la zone fait > 4% de la timeline (~lisible)
 
-    const refSafe = (log.ref||'').replace(/'/g,"\\'");
+    const refSafe = _lyQ(log.ref);
     const typeLabel = (log.type||'').slice(0, 12);
     const surfLabel = log.surf ? `${fmtN(log.surf)} m²` : '';
     const subtitleParts = [typeLabel, surfLabel, log.etage ? `ét. ${log.etage}` : ''].filter(Boolean);
@@ -39262,9 +39262,9 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
 
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn bs bb" onclick="addCcReleve(${entIdSafe},${immIdSafe},${ccIdx})">+ Relevé</button>
-        <button class="btn bp bb" onclick="openNewMvForCc('${escHtml(cc.id)}','${escHtml(im.nom)}')" title="Nouveau mouvement bancaire pré-lié à ce compteur">+ Facture (mouvement)</button>
+        <button class="btn bp bb" onclick="openNewMvForCc('${_lyQ(cc.id)}','${_lyQ(im.nom)}')" title="Nouveau mouvement bancaire pré-lié à ce compteur">+ Facture (mouvement)</button>
         <button class="btn bs bb" onclick="viewCcReleves(${entIdSafe},${immIdSafe},${ccIdx})">${nbReleves} relevé${nbReleves>1?'s':''}</button>
-        <button class="btn bs bb" onclick="viewCcMouvements('${escHtml(cc.id)}')" title="Voir tous les mouvements liés à ce compteur">↗ ${nbMvLies} mouvement${nbMvLies>1?'s':''} lié${nbMvLies>1?'s':''}</button>
+        <button class="btn bs bb" onclick="viewCcMouvements('${_lyQ(cc.id)}')" title="Voir tous les mouvements liés à ce compteur">↗ ${nbMvLies} mouvement${nbMvLies>1?'s':''} lié${nbMvLies>1?'s':''}</button>
       </div>
 
       <div class="cc-table-wrap" style="margin-top:12px">
@@ -39879,9 +39879,9 @@ function editCcReleve(entId, immId, ccIdx, releveId) {
           </div>
         </div>
         <div class="m-foot">
-          <button class="btn br" onclick="if(confirm2('Supprimer ce relevé ?')){_delCcReleve(${entId},${immId},${ccIdx},'${escHtml(releveId)}')}">${_uiIcon('trash')} Supprimer</button>
+          <button class="btn br" onclick="if(confirm2('Supprimer ce relevé ?')){_delCcReleve(${entId},${immId},${ccIdx},'${_lyQ(releveId)}')}">${_uiIcon('trash')} Supprimer</button>
           <button class="btn bs" onclick="closeM('ov-cc-edit-releve')">Annuler</button>
-          <button class="btn bp" onclick="_saveCcReleveEdit(${entId},${immId},${ccIdx},'${escHtml(releveId)}')">${_uiIcon('check')} Enregistrer</button>
+          <button class="btn bp" onclick="_saveCcReleveEdit(${entId},${immId},${ccIdx},'${_lyQ(releveId)}')">${_uiIcon('check')} Enregistrer</button>
         </div>
       </div>
     </div>`;
@@ -39937,7 +39937,7 @@ function viewCcReleves(entId, immId, ccIdx) {
         <td>${escHtml(r.date||'—')}</td>
         <td class="num"><b>${fmtN(r.value)}</b> <span class="mu sm">${escHtml(t.unit||'')}</span></td>
         <td class="mu sm">${escHtml(r.notes||'—')}</td>
-        <td><button class="btn bs bb" onclick="closeM('ov-cc-view-releves');editCcReleve(${entId},${immId},${ccIdx},'${escHtml(r.id||'')}')" title="Modifier ce relevé">${_uiIcon('edit')}</button></td>
+        <td><button class="btn bs bb" onclick="closeM('ov-cc-view-releves');editCcReleve(${entId},${immId},${ccIdx},'${_lyQ(r.id||'')}')" title="Modifier ce relevé">${_uiIcon('edit')}</button></td>
       </tr>`).join('')
     : '<tr><td colspan="4" class="mu sm" style="padding:14px;text-align:center">Aucun relevé enregistré</td></tr>';
   const html = `
@@ -40340,7 +40340,7 @@ function _histoBailToggleChap(key){
 
 function _renderHistoBailSection(ref){
   const rEsc = escHtml(ref);
-  const refSafe = (ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
   if(typeof window==='undefined' || typeof window._bailHistoConstruire!=='function'){
     return `<div class="logf-panel" style="grid-column:1/-1;margin-top:14px"><h3 class="logf-panel-title">${_uiIcon('clock')} Historique du bail</h3>
       <div class="logf-panel-empty">Historique indisponible (modules non chargés).</div></div>`;
@@ -40419,7 +40419,7 @@ function _histoBailChapHtml(c, ref, refSafe, bailForDg){
     _histoBailOuverts[key] = (c.statut==='courant') || dgUrgent;
   }
   const open = !!_histoBailOuverts[key];
-  const keySafe = key.replace(/'/g,"\\'");
+  const keySafe = _lyQ(key);
   const duree = _hlNbMois(c.debut, c.fin);
   const dureeLbl = duree>=12 ? `${Math.floor(duree/12)} an${Math.floor(duree/12)>1?'s':''}${duree%12?` ${duree%12} mois`:''}` : `${duree} mois`;
   const statutChip = c.statut==='courant'
@@ -40534,7 +40534,7 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     // « Historique » de l'IRL disparaît, la trace vit là où vit le loyer : sur le bail.
     const lettre = `<span class="hl-lnk" onclick="previewIRLLetter('${refSafe}')" title="Ré-ouvrir la lettre de révision">${_uiIcon('mail')} Revoir la lettre</span>`;
     const corr = (c.statut==='courant')
-      ? `<div class="hl-foot">${lettre}<span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${escHtml(ev.date)}','${escHtml(ev.effet)}')">${_uiIcon('edit')} Corriger la date d'effet</span></div>`
+      ? `<div class="hl-foot">${lettre}<span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${_lyQ(ev.date)}','${_lyQ(ev.effet)}')">${_uiIcon('edit')} Corriger la date d'effet</span></div>`
       : `<div class="hl-foot">${lettre}</div>`;
     return `<div class="hl-card" data-dot="d-irl"><div class="tt"><h4>Révision IRL validée</h4><span class="hl-badge b-irl">IRL${ev.irlVigueur?' '+escHtml(String(ev.irlVigueur).replace(/\s.*$/,'')):''}</span>${etat}${hb}</div>
       <div class="hl-desc">${ev.irlRef?`Indice ${escHtml(ev.irlRef)} → ${escHtml(ev.irlVigueur)}. `:''}Nouveau loyer à compter du <b>${fd(ev.effet)}</b>${ev.dateEffetAjustee?' (date ajustée — jamais rétroactive)':''} — les mois quittancés font foi.</div>${move}${corr}</div>`;
@@ -40735,7 +40735,7 @@ function _histoSaveCorrPeriode(){
 // ── Sous-onglet Compta complet de la fiche logement
 function _renderLogFichePanelCompta(log, ref) {
   const year = _logFicheComptaYear;
-  const refSafe = (ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
   // Sélecteur année : 3 ans en arrière + année courante
   const cy = new Date().getFullYear();
   const years = [cy-2, cy-1, cy];
@@ -40747,8 +40747,8 @@ function _renderLogFichePanelCompta(log, ref) {
         <select class="inp" style="width:100px" onchange="setLogFicheComptaYear(this.value)">${yearOpts}</select>
       </div>
       <div class="compta-toolbar-right">
-        <button class="btn bs bb" onclick="openNewMv();showToast('Pensez à sélectionner « ${escHtml(ref)} » dans le champ Logement','info',4000)">+ Mouvement</button>
-        <button class="btn bs bb" onclick="_openFaireQuittance('${escHtml(ref)}')">＋ Faire une quittance</button>
+        <button class="btn bs bb" onclick="openNewMv();showToast('Pensez à sélectionner « ${_lyQ(ref)} » dans le champ Logement','info',4000)">+ Mouvement</button>
+        <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(ref)}')">＋ Faire une quittance</button>
         <button class="btn bs bb" onclick="_goFromLogFiche('mouvements')" title="Voir tous les mouvements dans l'onglet">↗ Onglet Mouvements</button>
       </div>
     </div>
@@ -40826,7 +40826,7 @@ function _renderEquipForLog(ref) {
         : status === 'ok'
           ? `<span class="logf-equip-badge logf-equip-ok">${_uiIcon('check')} À jour (${daysToNext}j restants)</span>`
           : `<span class="logf-equip-badge logf-equip-mute">— Jamais renseigné</span>`;
-    const refSafe = ref.replace(/'/g,"\\'");
+    const refSafe = _lyQ(ref);
     return `<div class="logf-equip-card logf-equip-${status}">
       <div class="logf-equip-head">
         <span class="logf-equip-icon" style="color:${(AGENDA_CATS[rule.cat]||AGENDA_CATS.AUTRE).couleur}">${_agendaIconSvg(rule.cat,24)}</span>
@@ -40854,7 +40854,7 @@ function _renderEquipForLog(ref) {
 // ── Helper : assurances MRH (locataire) + PNO (propriétaire) du logement
 function _renderAssForLog(ref) {
   const today = new Date();
-  const _refA = String(ref).replace(/'/g, "\\'"); // v15.237 : ref sûre pour onclick
+  const _refA = _lyQ(ref); // v15.237 : ref sûre pour onclick
   const aliveMrh = (DB.mrh||[]).filter(_isAlive).filter(m => m.logement === ref);
   // v15.246 V3-REFONTE-ASSURANCES : la fiche logement ne montre QUE ses assurances propres
   // (MRH locataire + éventuelle assurance du lot). La PNO immeuble se gère dans la fiche immeuble.
@@ -41568,7 +41568,7 @@ async function _ddtRecapPDF() {
 // est hors périmètre V1) mais la PAGE GLOBALE Agenda reste, et _goFromLogFiche('agenda') la vise.
 // Fonction conservée sans appelant : la rebrancher = remettre un onglet.
 function _renderLogFichePanelAgenda(log, ref) {
-  const refSafe = (ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
   const today = new Date(); today.setHours(0,0,0,0);
   const todayMs = today.getTime();
   const all = (DB.agenda||[]).filter(e => e.logement === ref);
@@ -41735,7 +41735,7 @@ function _renderAttachmentSection(opts) {
       <h4 style="margin:0;font-size:14px;color:var(--t1)">${title} ${docs.length?`<span class="mu sm" style="font-weight:400">(${docs.length})</span>`:''}</h4>
       <label for="${uploaderId}" class="btn bs bb" style="cursor:pointer">+ Ajouter</label>
       <input type="file" id="${uploaderId}" accept="${accept}" style="display:none"
-             onchange="_handleAttachmentUpload(this, '${parentType}', ${typeof parentId==='number'?parentId:`'${String(parentId).replace(/'/g,"\\'")}'`}, ${parentRef!=null?`'${String(parentRef).replace(/'/g,"\\'")}'`:'null'}, ${logRef!=null?`'${String(logRef).replace(/'/g,"\\'")}'`:'null'}, '${category}')">
+             onchange="_handleAttachmentUpload(this, '${parentType}', ${typeof parentId==='number'?parentId:`'${_lyQ(parentId)}'`}, ${parentRef!=null?`'${_lyQ(parentRef)}'`:'null'}, ${logRef!=null?`'${_lyQ(logRef)}'`:'null'}, '${category}')">
     </div>
     ${listHtml}
   </div>`;
@@ -41748,7 +41748,7 @@ function _renderAttachmentSection(opts) {
 // dépôts) tombent dans « Autres pièces ». Statut ✓/⏳ aligné sur les vraies pièces (cf. score).
 function _renderCandidatPiecesGrouped(cand){
   const candId = String(cand.id);
-  const logRefArg = cand.logRef != null ? `'${String(cand.logRef).replace(/'/g,"\\'")}'` : 'null';
+  const logRefArg = cand.logRef != null ? `'${_lyQ(cand.logRef)}'` : 'null';
   const accept = 'application/pdf,image/*,.doc,.docx,.xls,.xlsx';
   const docs = (DB.documents||[]).filter(d => d && !d._deleted && d.parentType==='candidat' && String(d.parentId)===candId)
     .sort((a,b)=>(b.uploadedAt||'').localeCompare(a.uploadedAt||''));
@@ -41919,7 +41919,7 @@ function _renderLogFichePanelPhotos(log, ref) {
   ).sort((a, b) => (b.uploadedAt || '').localeCompare(a.uploadedAt || ''));
 
   const uploaderId = `photos-up-${log.id}`;
-  const refSafe = String(ref).replace(/'/g, "\\'");
+  const refSafe = _lyQ(ref);
 
   const header = `<div class="flex-b" style="align-items:center;margin-bottom:12px">
     <div>
@@ -42115,8 +42115,8 @@ function _renderLogFichePanelDocuments(log, ref) {
           <div class="logf-doc-meta">Signé le ${fd(sigSign)}${bail.debut?` · début ${fd(bail.debut)}`:''}</div>
         </div>
         <div class="logf-doc-actions">
-          <button class="btn bs bb" onclick="previewSignedBailRef('${ref.replace(/'/g,"\\'")}')" title="Voir le bail tel que signé (snapshot figé)">${_uiIcon('eye')} Aperçu</button>
-          ${cloudPdf?`<button class="btn bs bb" onclick="_openCloudBailPdf('${ref.replace(/'/g,"\\'")}')" title="Ouvrir le PDF du bail signé">${_uiIcon('doc')} PDF</button>`:''}
+          <button class="btn bs bb" onclick="previewSignedBailRef('${_lyQ(ref)}')" title="Voir le bail tel que signé (snapshot figé)">${_uiIcon('eye')} Aperçu</button>
+          ${cloudPdf?`<button class="btn bs bb" onclick="_openCloudBailPdf('${_lyQ(ref)}')" title="Ouvrir le PDF du bail signé">${_uiIcon('doc')} PDF</button>`:''}
         </div>
       </div>`;
     } else {
@@ -42172,7 +42172,7 @@ function _renderLogFichePanelDocuments(log, ref) {
         <div class="logf-doc-meta">Envoyée le ${fd(log.irlLettreEnvoyeeDate)}${log.irlLettreEnvoyeePour?` · pour anniversaire ${fd(log.irlLettreEnvoyeePour)}`:''}</div>
       </div>
       <div class="logf-doc-actions">
-        <button class="btn bs bb" onclick="previewIRLLetterFromLog('${ref.replace(/'/g,"\\'")}');" title="Aperçu de la lettre dans une modale (sans quitter la fiche)">${_uiIcon('eye')} Voir lettre</button>
+        <button class="btn bs bb" onclick="previewIRLLetterFromLog('${_lyQ(ref)}');" title="Aperçu de la lettre dans une modale (sans quitter la fiche)">${_uiIcon('eye')} Voir lettre</button>
       </div>
     </div>`;
   } else {
@@ -42388,7 +42388,7 @@ function _renderCompteurChart(releves, type) {
 
 // Card complète pour un type de compteur : KPIs + graph + liste relevés
 function _renderCompteurCard(type, releves, ref) {
-  const refSafe = (ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
   if(!releves.length) {
     return `<div class="logf-cpt-card logf-cpt-card-empty">
       <div class="logf-cpt-card-head">
@@ -42508,7 +42508,7 @@ function _rafraichirApresReleve() {
 }
 
 function _renderLogFichePanelCompteurs(log, ref) {
-  const refSafe = (ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
   const releves = _collectCompteurReleves(ref);
 
   // Compter total relevés
@@ -42603,7 +42603,7 @@ function openCompteursInitModal(ref) {
         </div>
         <div class="m-foot">
           <button class="btn bs" onclick="closeM('ov-cci')">Annuler</button>
-          <button class="btn bp" onclick="saveCompteursInit('${(ref||'').replace(/'/g,"\\'")}')">${_uiIcon('check')} Enregistrer</button>
+          <button class="btn bp" onclick="saveCompteursInit('${_lyQ(ref)}')">${_uiIcon('check')} Enregistrer</button>
         </div>
       </div>
     </div>
@@ -42679,8 +42679,8 @@ function openCompteurReleve(ref, typeKey, editId) {
   const typesOpts = COMPTEUR_TYPES.map(t =>
     `<option value="${t.key}"${t.key===defaultType?' selected':''}>${escHtml(t.label)} (${t.unit||'—'})</option>`
   ).join('');
-  const refSafe = (ref||'').replace(/'/g,"\\'");
-  const idSafe  = (editId||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
+  const idSafe  = _lyQ(editId);
   const title = editRel ? `${_uiIcon('edit')} Modifier le relevé — ${escHtml(ref)}` : `${_uiIcon('chart')} Nouveau relevé compteur — ${escHtml(ref)}`;
   const dateVal = editRel ? (editRel.date || today) : today;
   const valVal  = editRel ? (editRel.value != null ? editRel.value : '') : '';
@@ -42812,7 +42812,7 @@ function _edlSignatureStatus(edl) {
 }
 
 function _renderLogFichePanelEDL(log, ref) {
-  const refSafe = (ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
   const edls = (DB.edl||[])
     .filter(_edlActive)
     .filter(e => e.logement === ref)
@@ -43349,7 +43349,7 @@ function rLogFiche() {
   // pour rendre le breadcrumb et le badge bailleur cliquables.
   const parentEnt = log.entity ? (DB.entites||[]).find(e => e.nom === log.entity) : null;
   const parentImm = parentEnt && log.imm ? (parentEnt.immeubles||[]).find(i => i.nom === log.imm) : null;
-  const refSafe = (ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
   // Breadcrumb : immeuble cliquable si on a entId+immId résolus, badge bailleur cliquable si ent résolu
   const crumbImm = (log.imm && parentEnt && parentImm)
     ? `<span class="sep">›</span><a onclick="openImmFiche(${+parentEnt.id},${+parentImm.id});return false">${escHtml(log.imm)}</a>`
@@ -43376,7 +43376,7 @@ function rLogFiche() {
       + (isArchived
           ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">${_ic('<path d="M3 12a9 9 0 109-9 9 9 0 00-8 5"/><path d="M3 3v5h5"/>')}Restaurer</button>`
           : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">${_ic('<path d="M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M2 4h20v4H2z"/><path d="M10 12h4"/>')}Archiver</button>`)
-      + `<button class="btn bs" onclick="openBienMenu(event,'logement','${refSafe}','${escHtml(log.imm||'')}')" aria-label="Plus d'actions (renommer, supprimer…)" title="Plus d'actions">${_ic('<circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="19" r="1.3"/>')}Plus</button>`;
+      + `<button class="btn bs" onclick="openBienMenu(event,'logement','${refSafe}','${_lyQ(log.imm||'')}')" aria-label="Plus d'actions (renommer, supprimer…)" title="Plus d'actions">${_ic('<circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="19" r="1.3"/>')}Plus</button>`;
     wrap.innerHTML = `
       <button class="logf-back" onclick="closeLogFiche()" title="Retour au parent direct">${_logFicheBackLabel(log)}</button>
       <div class="logf-breadcrumb">
@@ -43453,7 +43453,7 @@ function rLogFiche() {
 // d'origine et resterait le point de départ si un panneau de synthèse revenait.
 // v14.13 A3 — onglet Général : Locataire actuel + Caractéristiques du bien.
 function _renderLogFichePanelGeneral(log, bail) {
-  const refSafe = (log.ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(log.ref);
   // ── Panneau Locataire actuel
   let locPanel;
   if(bail) {
@@ -43499,7 +43499,7 @@ function _renderLogFichePanelGeneral(log, bail) {
 
 // v14.13 A3 — onglet Bail dédié : bail courant détaillé + actions + historique + timeline horizontale
 function _renderLogFichePanelBail(log, bail, ref) {
-  const refSafe = (ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
   const typeContratMap = { initial:'Initial', renouvellement:'Renouvellement', avenant:'Avenant', repris:'Repris (Art. 1743)' };
 
   // v15.14 Fix bug refresh : un bail tombstoné (_deleted:true) ou clôturé NE doit pas
@@ -43650,11 +43650,11 @@ function _renderFichePastilles(scope, items, refresh) {
   const vivants = (items || []).filter(Boolean);
   if (!vivants.length) return '';
   const ouvert = _fichePastilles[scope] || '';
-  const scopeAttr = String(scope).replace(/'/g, "\\'");
+  const scopeAttr = _lyQ(scope);
   const rangee = vivants.map(it => {
     const act = it.id === ouvert;
     return `<button type="button" class="fiche-pastille${act ? ' act' : ''}" aria-expanded="${act}"`
-      + ` onclick="_toggleFichePastille('${scopeAttr}','${String(it.id).replace(/'/g, "\\'")}','${refresh}')">`
+      + ` onclick="_toggleFichePastille('${scopeAttr}','${_lyQ(it.id)}','${refresh}')">`
       + `<span class="fiche-pastille-lbl">${escHtml(it.label)}</span>`
       + (it.count != null ? `<span class="fiche-pastille-n">${escHtml(String(it.count))}</span>` : '')
       + `<span class="fiche-pastille-cx" aria-hidden="true">${act ? '▾' : '▸'}</span>`
@@ -43977,7 +43977,7 @@ function rImmFiche() {
                 <div class="biens-empty-icon">${_uiIcon('home',44)}</div>
                 <div class="biens-empty-title">Cet immeuble n'a pas encore de logement</div>
                 <div class="biens-empty-msg">Ajoutez le premier logement pour commencer le suivi locatif.</div>
-                <button class="btn bp" onclick="_immFicheNewLog('${escHtml(ent.nom)}','${escHtml(im.nom)}')">+ Ajouter un logement</button>
+                <button class="btn bp" onclick="_immFicheNewLog('${_lyQ(ent.nom)}','${_lyQ(im.nom)}')">+ Ajouter un logement</button>
               </div>`)
     }
     ${_currentImmFicheTab === 'logements' && archivedLogs.length ? `<div class="mu sm" style="margin-top:18px;text-align:center">${_uiIcon('archive')} ${archivedLogs.length} logement${archivedLogs.length>1?'s':''} archivé${archivedLogs.length>1?'s':''} — visible${archivedLogs.length>1?'s':''} dans Biens > tab "Archivés"</div>` : ''}
@@ -44014,7 +44014,7 @@ function setImmFicheTab(tab) {
 // v15.246 V3-REFONTE-ASSURANCES : sous-onglet « Assurances » de la fiche immeuble.
 function _renderAssForImm(ent, im) {
   const immNom = (im && im.nom) || '';
-  const _immA = String(immNom).replace(/'/g, "\\'");
+  const _immA = _lyQ(immNom);
   const today = new Date();
   const list = (DB.assurances||[]).filter(_isAlive).filter(a => a.portee === 'immeuble' && a.immeuble && a.immeuble === immNom);
   const addBtn = `<div style="display:flex;justify-content:flex-end;margin-top:12px">
@@ -44133,7 +44133,7 @@ window.addEventListener('hashchange', () => {
 function openBienMenu(evt, kind, ref, immNom) {
   const log = ref ? (DB.logements||[]).find(l=>l.ref===ref) : null;
   const isArchived = !!(log && log.archived);
-  const refSafe = (ref||'').replace(/'/g,"\\'");
+  const refSafe = _lyQ(ref);
   let html = '';
   // v14.27 — kind === 'building' est prioritaire sur ref : menu ⋮ d'une carte immeuble
   // doit lister les actions IMMEUBLE, pas celles du 1er logement (bug UX historique).
@@ -46819,7 +46819,7 @@ function _logDiagRenderTab() {
           <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(d.name)}">${escHtml(d.name)}</div>
           <div class="mu sm" style="font-size:11px">${_fmtSize(d.size)} · <span class="logdiag-sg-badge">⏳ à enregistrer</span></div>
         </div>
-        <button type="button" class="btn br bb" onclick="_logDiagRemovePending('${String(d.tmpId).replace(/'/g,"\\'")}')" title="Retirer">✕</button>
+        <button type="button" class="btn br bb" onclick="_logDiagRemovePending('${_lyQ(d.tmpId)}')" title="Retirer">✕</button>
       </div>`).join('');
     uploadHtml = `<div style="border:1px dashed var(--bor);border-radius:10px;padding:12px 14px;margin-bottom:14px;background:var(--sur2)">
       <div class="flex-b" style="align-items:center;margin-bottom:8px">
@@ -47185,12 +47185,12 @@ function _openRenameLog(ref) {
     + '<div class="mu sm" style="margin-bottom:4px">Référence actuelle</div><div style="font-weight:600;margin-bottom:14px">' + escHtml(ref) + '</div>'
     + (blocked
         ? '<div style="background:var(--bg-warning,rgba(180,83,9,.10));border:1px solid rgba(180,83,9,.25);border-radius:var(--r);padding:12px 14px;color:var(--amb,#b45309);font-size:13px;line-height:1.5"><b>🔒 Référence verrouillée.</b><br>' + escHtml(guard.error) + '</div>'
-        : '<div class="fg"><label>Nouvelle référence</label><input class="inp" id="rename-log-input" value="' + escHtml(ref) + '" oninput="_renameLogLive(\'' + String(ref).replace(/'/g, "\\'") + '\')"></div>'
+        : '<div class="fg"><label>Nouvelle référence</label><input class="inp" id="rename-log-input" value="' + escHtml(ref) + '" oninput="_renameLogLive(\'' + _lyQ(ref) + '\')"></div>'
           + '<div id="rename-log-msg" class="sm" style="min-height:18px;margin-top:4px"></div>'
           + '<div id="rename-log-preview" class="sm mu" style="margin-top:6px"></div>')
     + '</div>'
     + '<div class="m-foot"><button class="btn bs" onclick="closeM(\'ov-rename-log\')">' + (blocked ? 'Fermer' : 'Annuler') + '</button>'
-    + (blocked ? '' : '<button class="btn bp" id="rename-log-go" onclick="_doRenameLog(\'' + String(ref).replace(/'/g, "\\'") + '\')" disabled>Renommer</button>') + '</div>'
+    + (blocked ? '' : '<button class="btn bp" id="rename-log-go" onclick="_doRenameLog(\'' + _lyQ(ref) + '\')" disabled>Renommer</button>') + '</div>'
     + '</div></div>');
   openM('ov-rename-log');
   if (!blocked) _renameLogLive(ref);
@@ -47244,7 +47244,7 @@ function openNewLog(ref) {
   if(log) {
     // ── Tab Identité (legacy + typeUsage)
     setV('log-ref', log.ref); el('log-ref').readOnly = true;
-    (function(){ const w = el('log-ref-rename-wrap'); if (w) { w.style.display = ''; w.innerHTML = '<button type="button" class="btn bs bb" onclick="_openRenameLog(\'' + String(log.ref).replace(/'/g, "\\'") + '\')" title="Renommer ce bien">✏️ Renommer</button>'; } })();
+    (function(){ const w = el('log-ref-rename-wrap'); if (w) { w.style.display = ''; w.innerHTML = '<button type="button" class="btn bs bb" onclick="_openRenameLog(\'' + _lyQ(log.ref) + '\')" title="Renommer ce bien">✏️ Renommer</button>'; } })();
     setV('log-typeUsage', log.typeUsage || 'habitation-nu');
     setV('log-entity', log.entity);
     refreshLogImmSelect();
@@ -50875,7 +50875,7 @@ function rEquipements() {
 
     // v15.08 Sprint 9 — Section "Configuration des équipements" (état des équipements du logement)
     const eq = l.equipements || {};
-    const rEsc = (l.ref||'').replace(/'/g,"\\'");
+    const rEsc = _lyQ(l.ref);
     const cfgPanel = `
       <details style="margin-top:14px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:10px 14px">
         <summary style="cursor:pointer;font-weight:600;font-size:12.5px;user-select:none">${_uiIcon('settings',13)} Configuration des équipements du logement</summary>
@@ -52014,7 +52014,7 @@ function _impayesOpenActions(ref) {
           plan.statut === 'retard' ? `<span style="color:var(--red)">Retard ${plan.retardJours}j</span> — ${fmt(plan.montantPaye)} / ${fmt(plan.montantDu)}` :
           `Terminé (${fmt(plan.montantPaye)} payés)`}
       </div>
-      <button class="btn bs bb" onclick="_planApurementOpen('${escHtml(ref)}')" style="font-size:11.5px">${plan.statut === 'aucun' ? '+ Créer un plan' : '✏ Modifier le plan'}</button>
+      <button class="btn bs bb" onclick="_planApurementOpen('${_lyQ(ref)}')" style="font-size:11.5px">${plan.statut === 'aucun' ? '+ Créer un plan' : '✏ Modifier le plan'}</button>
     </div>
 
     <div style="padding:10px 12px;background:#fef3c7;border:1px solid #d97706;border-radius:var(--rl)">
@@ -52027,7 +52027,7 @@ function _impayesOpenActions(ref) {
           proc.etat === 'jugement' ? `Jugement rendu (il y a ${proc.nbJoursDernEtape||'?'}j)` :
           proc.etat === 'cloturee' ? 'Procédure clôturée' : proc.etat}</strong>
       </div>
-      <button class="btn bs bb" onclick="_procedureOpen('${escHtml(ref)}')" style="font-size:11.5px;background:#fef3c7;color:#78350f;border:1px solid #d97706">⚖ Gérer la procédure</button>
+      <button class="btn bs bb" onclick="_procedureOpen('${_lyQ(ref)}')" style="font-size:11.5px;background:#fef3c7;color:#78350f;border:1px solid #d97706">⚖ Gérer la procédure</button>
     </div>
   `;
   openM('ov-impayes-actions');
@@ -52047,7 +52047,7 @@ function _planApurementOpen(ref) {
       <td style="padding:4px 6px"><input type="date" class="inp" value="${escHtml(ech.date||'')}" onchange="_planEcheanceUpdate('${escHtml(ref)}',${i},'date',this.value)" style="width:140px;font-size:11.5px"></td>
       <td style="padding:4px 6px"><input type="number" class="inp" value="${ech.montant||0}" step="0.01" min="0" onchange="_planEcheanceUpdate('${escHtml(ref)}',${i},'montant',this.value)" style="width:100px;text-align:right;font-size:11.5px"></td>
       <td style="padding:4px 6px;text-align:center"><input type="checkbox" ${ech.paye?'checked':''} onchange="_planEcheanceUpdate('${escHtml(ref)}',${i},'paye',this.checked)"></td>
-      <td style="padding:4px 6px;text-align:right"><button class="btn br bb" onclick="_planEcheanceDel('${escHtml(ref)}',${i})" style="font-size:10.5px;padding:2px 6px">✕</button></td>
+      <td style="padding:4px 6px;text-align:right"><button class="btn br bb" onclick="_planEcheanceDel('${_lyQ(ref)}',${i})" style="font-size:10.5px;padding:2px 6px">✕</button></td>
     </tr>`).join('') : `<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--mut)">Aucune échéance — cliquez "+ Échéance"</td></tr>`;
   body.innerHTML = `
     <div class="mu sm" style="margin-bottom:14px;line-height:1.55">
@@ -52062,7 +52062,7 @@ function _planApurementOpen(ref) {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <button class="btn bs bb" onclick="_planEcheanceAdd('${escHtml(ref)}')" style="font-size:11.5px">+ Échéance</button>
+    <button class="btn bs bb" onclick="_planEcheanceAdd('${_lyQ(ref)}')" style="font-size:11.5px">+ Échéance</button>
   `;
   el('ov-plan-apurement-ref').value = ref;
   openM('ov-plan-apurement');
@@ -58025,7 +58025,7 @@ async function _rParamsPartageCloud(wrap) {
     const acts = (!m.isOwner)
       ? '<div class="flex-c" style="gap:6px;flex-shrink:0">'
         + '<button class="btn bs bb" title="Modifier le périmètre et le mode (bientôt)" disabled style="opacity:.5;cursor:not-allowed">✏️ Modifier</button>'
-        + '<button class="btn br bb" title="Révoquer tout l\'accès" onclick="_partageRevoke(\'' + m.user_id + '\',\'' + escHtml(m.label).replace(/'/g, "\\'") + '\')">🗑 Révoquer</button>'
+        + '<button class="btn br bb" title="Révoquer tout l\'accès" onclick="_partageRevoke(\'' + m.user_id + '\',\'' + _lyQ(m.label) + '\')">🗑 Révoquer</button>'
         + '</div>'
       : '';
     const sub = m.isOwner ? 'Propriétaire de l\'espace · accès à tout'
@@ -58076,7 +58076,7 @@ async function _renderBetaAdmin() {
     return '<div class="flex-b" style="align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--bor)">'
       + '<span style="font-weight:600;font-size:13px;color:var(--t1);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(x.email) + '</span>'
       + '<span class="flex-c" style="gap:9px;flex-shrink:0">' + typePill + stat
-      +   '<button class="btn br bb" title="Retirer l\'accès" onclick="_betaRemove(\'' + escHtml(x.email).replace(/'/g, "\\'") + '\')">🗑</button></span>'
+      +   '<button class="btn br bb" title="Retirer l\'accès" onclick="_betaRemove(\'' + _lyQ(x.email) + '\')">🗑</button></span>'
       + '</div>';
   }).join('') : '<div class="mu sm" style="text-align:center;padding:22px">Aucun accès pour l\'instant. Ajoute l\'email d\'un testeur.</div>';
   mount.innerHTML =
