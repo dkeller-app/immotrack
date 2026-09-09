@@ -2,6 +2,12 @@
 <html lang="fr" data-theme="light">
 <head>
 <meta charset="UTF-8">
+<!-- P0-3 CSP (audit sécu v15.614) : défense en profondeur. L'injection XSS est corrigée à la source (P0-2),
+     cette CSP VERROUILLE LA SORTIE (connect-src/img-src) pour neutraliser toute exfiltration résiduelle.
+     script-src garde 'unsafe-inline' (handlers onclick conservés — Approche A). Aucun CDN (tout vendorisé).
+     ⚠️ connect-src = liste exhaustive des endpoints réseau réels ; à SMOKE-TESTER feature par feature
+     (DevTools→Console, chercher "Content-Security-Policy") avant merge — cf. checklist. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Propryo v15.614</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
