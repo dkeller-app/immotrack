@@ -197,9 +197,14 @@ export function buildAvenantHtml(ctx) {
   const signataires = locs.map(nom => ({ role: 'Le locataire', nom }));
   if (entrant) signataires.push({ role: 'Le colocataire entrant', nom: entrant });
   signataires.push({ role: 'Le bailleur', nom: ctx.bailleur || '' });
-  const sigHtml = signataires.map(s =>
-    '<div><strong>' + s.role + '</strong><br><em>' + esc(s.nom) + '</em>' +
-    '<div class="sig-bloc"><em style="font-size:8.5pt">Précéder la signature de la mention « Lu et approuvé »</em></div></div>').join('');
+  // Zone de signature CANONIQUE `pro-signzone` (rendue nativement par DocNative → vrai PDF jsPDF,
+  // et stylée par _docCss à l'écran/impression). Groupée par 2 (duo) pour ne pas déborder A4.
+  const sigBoxes = signataires.map(s => '<div class="pro-signbox">' + s.role + '<br><strong>' + esc(s.nom) + '</strong><br><em>Lu et approuvé</em></div>');
+  let sigHtml = '';
+  for (let i = 0; i < sigBoxes.length; i += 2) {
+    const pair = sigBoxes.slice(i, i + 2);
+    sigHtml += '<div class="pro-signzone' + (pair.length > 1 ? ' duo' : '') + '">' + pair.join('') + '</div>';
+  }
 
   // CORPS au gabarit Propryo (.pro-doc) — l'habillage (bandeau logos, titre, pied) est posé par _docPage.
   const html =
@@ -213,9 +218,9 @@ export function buildAvenantHtml(ctx) {
     '<p>Les parties sont convenues d\'apporter au bail les modifications ci-après, sans que celles-ci n\'emportent novation ni conclusion d\'un nouveau bail.</p>' +
     '<p style="font-variant:small-caps;letter-spacing:.03em">Ceci exposé, il a été convenu ce qui suit :</p>' +
     arts +
-    (caution ? '<div class="alerte">La ou les cautions concernées doivent réitérer leur engagement par un nouvel acte de cautionnement couvrant les présentes modifications, à peine de décharge (art. 22-1 de la loi du 6 juillet 1989).</div>' : '') +
+    (caution ? '<p><strong>Rappel :</strong> la ou les cautions concernées doivent réitérer leur engagement par un nouvel acte de cautionnement couvrant les présentes modifications, à peine de décharge (art. 22-1 de la loi du 6 juillet 1989).</p>' : '') +
     '<p style="margin-top:4mm">Fait à ' + esc(ctx.ville || '…') + ', le ' + effet + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
-    '<h3>Signatures</h3><div class="grid2">' + sigHtml + '</div>';
+    '<h3>Signatures</h3>' + sigHtml;
   return { html, caution, nbArticles: n - 1, entrant };
 }
 

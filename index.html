@@ -24027,7 +24027,7 @@ function _avenantOpen(ref){
    '</div>'+
    '<input type="hidden" id="ov-avenant-ref" value="'+escHtml(ref)+'">'+
    '<div class="av-foot"><button class="btn bp" onclick="_avenantSave(\''+ (ref||'').replace(/'/g,"\\'") +'\')">Enregistrer l\'avenant</button>'+
-     '<button class="btn bs bb" onclick="_avenantPrint()">Imprimer / PDF</button>'+
+     '<button class="btn bs bb" onclick="_avenantSortiePdf()">'+((typeof _edlPrefersShare==='function'&&_edlPrefersShare())?'📤 Partager le PDF':'⬇️ Télécharger le PDF')+'</button>'+
      '<button class="btn bs" onclick="closeM(\'ov-avenant\')">Fermer</button></div>'+
    '</div>';
   _avenantBuildGrid(); _avenantBuildGroups(); _avenantRender();
@@ -24105,25 +24105,24 @@ function _avenantSave(ref){
   if(typeof refreshAllIRL==='function') refreshAllIRL();
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
 }
-// Impression / PDF — trame Propryo (_docPage), pas de Word.
-function _avenantPrint(ref){
+// PDF de l'avenant — MÊME sortie que la quittance / l'EDL / le décompte : PDF natif jsPDF
+// (`_docHtmlToNativeBlob`, trame Propryo) puis `_pdfSortie` (PC = « Enregistrer sous » /
+// téléchargement ; téléphone = feuille de partage native). PAS de fenêtre d'impression.
+async function _avenantSortiePdf(ref){
   ref=ref||(el('ov-avenant-ref')?el('ov-avenant-ref').value:_avenantState.ref);
-  if(!_avenantChampsOk(_avenantCollect(),'Imprimer')) return;
+  if(!_avenantChampsOk(_avenantCollect(),'Générer le PDF')) return;
+  var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
+  var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
   var docHtml=_avenantDocPageHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
-  var css='@page{size:A4;margin:1.8cm 2cm}*{box-sizing:border-box}body{padding:0;margin:0;background:#fff}'+_docCss()+
-    '.pro-doc .alerte{background:#fff8ef;border:.35mm solid #f0c987;border-radius:2.5mm;padding:3mm 4mm;margin:3mm 0;font-size:9pt;line-height:1.5;page-break-inside:avoid}'+
-    '.pro-doc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:3mm;page-break-inside:avoid}'+
-    '.pro-doc .sig-bloc{border:.3mm solid #b8c0cd;border-radius:2.5mm;min-height:70px;padding:3mm;margin-top:2mm;font-size:9pt;color:#8b94a5;page-break-inside:avoid}'+
-    '.print-hint{background:#f7f8fb;border-left:1mm solid #ff5a3c;padding:3mm 4mm;margin:0 0 4mm;font-size:9pt;color:#3c4658;border-radius:2.5mm;font-family:Inter,system-ui,sans-serif}'+
-    '.pro-doc .av-todo{color:#c2472f;font-style:italic;font-weight:600}'+
-    '@media screen{body{max-width:780px;margin:20px auto;padding:1.8cm 2cm;background:#f4f5f8}}@media print{.no-print,.print-hint{display:none!important}}';
-  var html='<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Avenant n° '+_avenantState.no+'</title><style>'+css+'</style></head><body>'+
-    '<div class="print-hint">💡 Avant d\'imprimer : décochez « En-têtes et pieds de page » dans la fenêtre d\'impression pour un rendu propre.</div>'+
-    docHtml+
-    '<div class="no-print" style="margin-top:16px;text-align:center;display:flex;justify-content:center;gap:12px"><button onclick="window.print()" style="padding:8px 20px;cursor:pointer;background:#ff5a3c;color:#fff;border:none;border-radius:6px">🖨 Imprimer / PDF</button><button onclick="window.close()" style="padding:8px 20px;cursor:pointer;background:#ccc;border:none;border-radius:6px">Fermer</button></div>'+
-    '</body></html>';
-  var w=window.open('','_blank'); if(!w){ showToast('Popup bloquée — autorisez les popups','err'); return; }
-  w.document.write(typeof _injectPreviewCloseButton==='function'?_injectPreviewCloseButton(html):html); w.document.close();
+  if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
+  await _pdfSortie({
+    fileName:'Avenant_n'+_avenantState.no+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf',
+    desc:'PDF (avenant au bail)',
+    genererAvant:true,
+    titre:'Avenant n° '+_avenantState.no+' au bail',
+    texte:'Avenant n° '+_avenantState.no+' au contrat de bail — '+(bail.adrBien||ref),
+    genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); }
+  });
 }
 
 function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef, villeSig, mode) {
