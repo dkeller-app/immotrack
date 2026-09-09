@@ -20,7 +20,14 @@
 const ROMAINS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI'];
 export function romain(n) { return ROMAINS[n - 1] || String(n); }
 
-function b(x) { return '<strong>' + x + '</strong>'; }
+// Échappe une valeur saisie avant injection HTML (anti-XSS : le document est persisté dans
+// bail.avenants[].html et sera rendu ailleurs, y compris en partage SCI multi-tenant).
+export function esc(x) {
+  return String(x == null ? '' : x)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function b(x) { return '<strong>' + esc(x) + '</strong>'; }
 function num(x) { return Number(x) || 0; }
 function frDate(iso) {
   if (!iso) return '…';
@@ -45,7 +52,8 @@ export function loyerTravauxGuard(o) {
   const passoire = (dpe === 'F' || dpe === 'G');
   const blocages = [];
   if (passoire) blocages.push('Logement classé ' + dpe + ' : majoration interdite (passoire énergétique, art. 17) tant qu\'une rénovation ne l\'en fait pas sortir.');
-  if (coutTTC < seuil) blocages.push('Travaux insuffisants : ' + coutTTC + ' € < seuil ' + seuil + ' € (moitié d\'une année de loyer).');
+  if (coutTTC <= 0) blocages.push('Coût réel TTC des travaux non renseigné.');
+  else if (coutTTC < seuil) blocages.push('Travaux insuffisants : ' + coutTTC + ' € < seuil ' + seuil + ' € (moitié d\'une année de loyer).');
   if (hausse > maxHausseMois) blocages.push('Hausse ' + hausse + ' €/mois > plafond ' + maxHausseMois + ' €/mois (15 % × ' + coutTTC + ' € TTC ÷ 12). Loyer maximal : ' + maxLoyer + ' €.');
   return { seuil, maxHausseMois, maxLoyer, hausse, passoire, ok: blocages.length === 0, blocages };
 }
@@ -83,7 +91,7 @@ export function avenantArticle(k, d, ctx) {
       const ml = act.indexOf('Mainlevée') === 0;
       const h = ml
         ? 'Le bailleur donne mainlevée pleine et entière de l\'engagement de caution souscrit par ' + b(d.nom || '…') + ', qui se trouve déchargé(e) de toute obligation au titre du bail à compter de la date d\'effet du présent avenant.'
-        : act + ' : ' + b(d.nom || '…') + ' s\'engage en qualité de caution solidaire à garantir l\'exécution de l\'ensemble des obligations du / des locataire(s), dans la limite de ' + b(num(d.plafond) + ' €') + ', pour la durée du bail et de son ou ses renouvellements. Cet engagement, conforme à l\'article 22-1 de la loi du 6 juillet 1989, fait l\'objet d\'un acte de cautionnement distinct portant les mentions manuscrites requises, annexé au présent avenant.';
+        : act + ' : ' + b(d.nom || '…') + ' s\'engage en qualité de caution solidaire à garantir l\'exécution de l\'ensemble des obligations du / des locataire(s), dans la limite de ' + b(num(d.plafond) + ' €') + ', pour la durée du bail et de son ou ses renouvellements. Cet engagement, conforme à l\'article 22-1 de la loi du 6 juillet 1989, fait l\'objet d\'un acte de cautionnement distinct portant les mentions requises, annexé au présent avenant.';
       return { titre: 'Cautionnement', html: h, base: 'art. 22-1, loi du 6 juillet 1989', caution: !ml };
     }
     case 'loyer': {
@@ -92,7 +100,7 @@ export function avenantArticle(k, d, ctx) {
       const trav = motif.indexOf('Travaux') === 0, baisse = motif.indexOf('Baisse') === 0;
       let h = 'Les parties rappellent ';
       if (trav) {
-        h += 'que le bailleur a fait réaliser dans le logement, depuis la conclusion du bail, des travaux d\'amélioration (apport d\'un équipement ou service nouveau, à l\'exclusion de tout entretien, réparation ou remise en état) : ' + b(d.desc || '…') + ', pour un coût réel de ' + b(num(d.cout) + ' € TTC') + ', excédant la moitié de la dernière année de loyer. Par application de l\'article 17-1, II de la loi du 6 juillet 1989, la hausse annuelle n\'excédant pas 15 % du coût réel TTC des travaux, ';
+        h += 'que le bailleur a fait réaliser dans le logement, depuis la conclusion du bail, des travaux d\'amélioration (apport d\'un équipement ou service nouveau, à l\'exclusion de tout entretien, réparation ou remise en état) : ' + b(d.desc || '…') + ', pour un coût réel de ' + b(num(d.cout) + ' € TTC') + '. Par application de l\'article 17-1, II de la loi du 6 juillet 1989, qui autorise les parties à fixer par avenant la majoration de loyer consécutive à de tels travaux, et le montant de la majoration ayant été, par prudence, aligné sur le plafond retenu pour la relocation encadrée (hausse annuelle limitée à 15 % du coût réel TTC des travaux, ces derniers excédant la moitié de la dernière année de loyer), ';
       } else if (baisse) {
         h += 'qu\'il est consenti une baisse temporaire du loyer pendant la réalisation des travaux suivants : ' + b(d.desc || '…') + '. À ce titre, ';
       } else {
@@ -106,7 +114,7 @@ export function avenantArticle(k, d, ctx) {
       const forf = mode.toLowerCase().indexOf('forfait') >= 0;
       const h = 'Les modalités de règlement des charges récupérables sont modifiées comme suit : ' + b(mode.toLowerCase()) + '. Le montant ' + (forf ? 'du forfait' : 'des provisions mensuelles') + ' de charges est fixé à ' + b(num(d.montant) + ' €') + ' à compter de la date d\'effet. ' +
         (forf
-          ? 'Ce forfait n\'est pas soumis à régularisation et ne peut donner lieu à complément, conformément à l\'article 23-1 de la loi du 6 juillet 1989.'
+          ? 'Ce forfait, applicable aux locations meublées et aux colocations, n\'est pas soumis à régularisation et ne peut donner lieu à complément, conformément aux articles 8-1 et 23-1 de la loi du 6 juillet 1989.'
           : 'Ces provisions donnent lieu à une régularisation annuelle au regard des charges réelles, sur justificatifs tenus à la disposition du locataire, conformément à l\'article 23 de la loi du 6 juillet 1989.');
       return { titre: 'Charges locatives', html: h, base: forf ? 'art. 23-1, loi du 6 juillet 1989' : 'art. 23, loi du 6 juillet 1989' };
     }
@@ -150,9 +158,9 @@ export function avenantArticle(k, d, ctx) {
       return { titre: 'Sous-location / cession', html: h, base: 'art. 8, loi du 6 juillet 1989' };
     }
     case 'clause':
-      return { titre: (d.titre || 'Stipulation particulière'), html: b(d.texte || '…') };
+      return { titre: esc(d.titre || 'Stipulation particulière'), html: b(d.texte || '…') };
     case 'correction': {
-      const h = 'Les parties constatent qu\'une erreur purement matérielle affecte ' + b(d.champ || '…') + ' figurant au bail initial. En conséquence, la mention « ' + (d.anc || '…') + ' » est rectifiée et remplacée par « ' + b(d.nouv || '…') + ' ». Cette rectification n\'emporte ni novation, ni modification de l\'économie générale du contrat.';
+      const h = 'Les parties constatent qu\'une erreur purement matérielle affecte ' + b(d.champ || '…') + ' figurant au bail initial. En conséquence, la mention « ' + esc(d.anc || '…') + ' » est rectifiée et remplacée par « ' + b(d.nouv || '…') + ' ». Cette rectification n\'emporte ni novation, ni modification de l\'économie générale du contrat.';
       return { titre: 'Rectification d\'une erreur matérielle', html: h };
     }
     default:
@@ -184,7 +192,7 @@ export function buildAvenantHtml(ctx) {
   const signataires = locs.map(nom => ({ role: 'Le locataire', nom }));
   if (entrant) signataires.push({ role: 'Le colocataire entrant', nom: entrant });
   signataires.push({ role: 'Le bailleur', nom: ctx.bailleur || '' });
-  const sigHtml = signataires.map(s => '<div class="av-s">' + s.role + '<br><strong>' + s.nom + '</strong><div class="av-la">Lu et approuvé</div><div class="av-ln"></div></div>').join('');
+  const sigHtml = signataires.map(s => '<div class="av-s">' + s.role + '<br><strong>' + esc(s.nom) + '</strong><div class="av-la">Lu et approuvé</div><div class="av-ln"></div></div>').join('');
 
   const html =
     '<div class="av-doc">' +
@@ -194,11 +202,11 @@ export function buildAvenantHtml(ctx) {
     '<p>' + b(ctx.bailleur || '…') + ', ci-après « le bailleur », d\'une part,</p>' +
     '<p>Et ' + b(locs.join(' & ') || '…') + ', ci-après « le(s) locataire(s) », d\'autre part,</p>' +
     '<p class="av-lead">Il a été préalablement exposé ce qui suit :</p>' +
-    '<p>Les parties sont liées par un contrat de bail d\'habitation signé le ' + frDate(ctx.dateBail) + ', portant sur le logement situé ' + (ctx.bien || '…') + ' (ci-après « le bail »). Elles sont convenues d\'y apporter les modifications ci-après, sans que celles-ci n\'emportent conclusion d\'un nouveau bail.</p>' +
+    '<p>Les parties sont liées par un contrat de bail d\'habitation signé le ' + frDate(ctx.dateBail) + ', portant sur le logement situé ' + esc(ctx.bien || '…') + ' (ci-après « le bail »). Elles sont convenues d\'y apporter les modifications ci-après, sans que celles-ci n\'emportent conclusion d\'un nouveau bail.</p>' +
     '<p class="av-lead">Ceci exposé, il a été convenu ce qui suit :</p>' +
     arts +
     (caution ? '<div class="av-cau">La ou les cautions concernées doivent réitérer leur engagement par un nouvel acte de cautionnement couvrant les présentes modifications, à peine de décharge (art. 22-1).</div>' : '') +
-    '<p class="av-fait">Fait à ' + (ctx.ville || '…') + ', le ' + effet + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
+    '<p class="av-fait">Fait à ' + esc(ctx.ville || '…') + ', le ' + effet + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
     '<div class="av-sig">' + sigHtml + '</div>' +
     '</div>';
   return { html, caution, nbArticles: n - 1, entrant };

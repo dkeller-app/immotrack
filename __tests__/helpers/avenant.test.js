@@ -2,7 +2,27 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc } from '../../js/core/avenant.js';
+
+describe('esc — anti-XSS des champs saisis', () => {
+  it('échappe le HTML injecté', () => {
+    expect(esc('<img src=x onerror=alert(1)>')).toBe('&lt;img src=x onerror=alert(1)&gt;');
+    expect(esc('a & "b" \'c\'')).toBe('a &amp; &quot;b&quot; &#39;c&#39;');
+  });
+  it('clause avec HTML → échappée dans l\'article', () => {
+    const a = avenantArticle('clause', { titre: '<b>x</b>', texte: '<script>alert(1)</script>' });
+    expect(a.html).not.toMatch(/<script>/);
+    expect(a.html).toMatch(/&lt;script&gt;/);
+    expect(a.titre).toBe('&lt;b&gt;x&lt;/b&gt;');
+  });
+  it('buildAvenantHtml échappe bien / bailleur / entrant', () => {
+    const r = buildAvenantHtml({ bailleur: '<b>SCI</b>', locataires: ['A'], bien: '<i>rue</i>', dateBail: '2023-01-01', effetIso: '2026-01-01', ville: '<u>X</u>',
+      objets: [{ k: 'coloc', data: { act: 'Ajout d\'un colocataire', entrant: '<img src=x>' } }] });
+    expect(r.html).not.toMatch(/<b>SCI<\/b>/);
+    expect(r.html).not.toMatch(/<img src=x>/);
+    expect(r.html).toMatch(/&lt;img src=x&gt;/);
+  });
+});
 
 describe('romain', () => {
   it('numérote correctement (XI inclus)', () => {
@@ -39,6 +59,11 @@ describe('loyerTravauxGuard — encadrement art. 17-1 II', () => {
     expect(f.blocages.join(' ')).toMatch(/passoire|interdite/);
     const g = loyerTravauxGuard({ loyer0: 650, coutTTC: 9000, dpe: 'G (passoire)', nouveau: 690 });
     expect(g.passoire).toBe(true);
+  });
+  it('coût des travaux non renseigné → bloqué (pas de conformité par défaut)', () => {
+    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 0, dpe: 'C', nouveau: 650 });
+    expect(r.ok).toBe(false);
+    expect(r.blocages.join(' ')).toMatch(/non renseigné/);
   });
   it('pile au plafond → conforme', () => {
     const r = loyerTravauxGuard({ loyer0: 1000, coutTTC: 12000, dpe: 'C', nouveau: 1150 });

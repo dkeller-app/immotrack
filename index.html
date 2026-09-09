@@ -23891,8 +23891,9 @@ var _AVENANT_OBJETS = [
    {id:'dpe',l:'Classe DPE du logement',t:'select',o:['A à E','F (passoire)','G (passoire)']},
    {id:'nouveau',l:'Nouveau loyer HC (€)',t:'num',v:''}]},
  {k:'charges', tt:'Charges', f:[
-   {id:'mode',l:'Nature',t:'select',o:['Révision du montant des provisions','Passage au forfait de charges','Passage aux provisions avec régularisation']},
-   {id:'montant',l:'Nouveau montant mensuel (€)',t:'num',v:''}]},
+   {id:'mode',l:'Nature',t:'select',o:function(){ return _avenantState.forfaitOk ? ['Révision du montant des provisions','Passage au forfait de charges','Passage aux provisions avec régularisation'] : ['Révision du montant des provisions','Passage aux provisions avec régularisation']; }},
+   {id:'montant',l:'Nouveau montant mensuel (€)',t:'num',v:''}],
+   note:'Le forfait de charges n\'est proposé que pour un bail meublé ou une colocation (art. 8-1 / 25-9) ; sinon seules les provisions (régularisables) sont possibles.'},
  {k:'annexe', tt:'Annexe / dépendance', f:[
    {id:'act',l:'Action',t:'select',o:['Adjonction','Retrait']},
    {id:'type',l:'Type',t:'select',o:['un garage','une cave','une place de stationnement','un jardin privatif']},
@@ -23966,8 +23967,10 @@ function _avenantRender(){ var ctx=_avenantCtx(); if(!ctx)return; ctx.objets=_av
 }
 function _avenantOpen(ref){
   var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
-  _avenantState={ ref:ref, no:((bail.avenants&&bail.avenants.length)||0)+1, sel:{}, locNames:[] };
+  _avenantState={ ref:ref, no:((bail.avenants&&bail.avenants.length)||0)+1, sel:{}, locNames:[], forfaitOk:false };
   _avenantState.locNames=(bail.locataires&&bail.locataires.length)?bail.locataires.map(function(l){return l.nom||'';}).filter(Boolean):(bail.nom?[bail.nom]:[]);
+  // Forfait de charges licite seulement en meublé (et variantes) ou en colocation (art. 8-1 / 25-9).
+  _avenantState.forfaitOk=(['meuble','etudiant','mobilite'].indexOf(bail.type)>=0)||_avenantState.locNames.length>1;
   var ov=_avenantOv();
   var who=escHtml((_avenantState.locNames.join(' & ')||'—')+' · '+(bail.adrBien||ref));
   ov.innerHTML=''+
@@ -24034,8 +24037,8 @@ function _avenantSave(ref){
   if(typeof _auditLog==='function') _auditLog('avenant','bail',ref,'n°'+rec.no+' objets='+objets.map(function(o){return o.k;}).join(','));
   if(typeof saveDB==='function') saveDB();
   showToast('Avenant n° '+rec.no+' enregistré ✓','ok');
-  if(built.caution){ setTimeout(function(){ if(confirm2('Cet avenant appelle un nouvel acte de cautionnement. L\'ouvrir maintenant ?')){ closeM('ov-avenant'); if(typeof genActeCautionnementRef==='function') genActeCautionnementRef(ref); } },150); }
-  else closeM('ov-avenant');
+  closeM('ov-avenant'); // toujours fermer après un enregistrement réussi (évite un doublon au re-clic)
+  if(built.caution){ setTimeout(function(){ if(confirm2('Cet avenant appelle un nouvel acte de cautionnement. L\'ouvrir maintenant ?')){ if(typeof genActeCautionnementRef==='function') genActeCautionnementRef(ref); } },150); }
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
 }
 function _avenantDocWordHtml(){
