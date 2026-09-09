@@ -66,44 +66,36 @@ describe('romain', () => {
   });
 });
 
-describe('loyerTravauxGuard — encadrement art. 17-1 II', () => {
-  it('conforme : plafond 15 % TTC / 12, seuil 1/2 année atteint', () => {
-    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 9000, dpe: 'D', nouveau: 690 });
-    expect(r.seuil).toBe(3900);
-    expect(r.maxHausseMois).toBe(112.5);   // 9000 × 15 % ÷ 12
-    expect(r.maxLoyer).toBe(762.5);
-    expect(r.hausse).toBe(40);
-    expect(r.ok).toBe(true);
-    expect(r.blocages).toEqual([]);
+const _warns = r => r.alertes.filter(a => a.n === 'warn').map(a => a.m).join(' ');
+const _infos = r => r.alertes.filter(a => a.n === 'info').map(a => a.m).join(' ');
+describe('loyerTravauxGuard — alertes zone-aware, NON bloquantes', () => {
+  it('zone non tendue : hausse libre → info, aucun warn (même au-delà de 15 %)', () => {
+    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 9000, dpe: 'D', nouveau: 900, zoneEncadree: false, motif: 'Travaux d\'amélioration réalisés par le bailleur' });
+    expect(r.alertes.some(a => a.n === 'warn')).toBe(false);
+    expect(_infos(r)).toMatch(/non tendue|plafond/);
   });
-  it('hausse au-dessus du plafond → bloquée', () => {
-    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 9000, dpe: 'D', nouveau: 800 });
-    expect(r.ok).toBe(false);
-    expect(r.blocages.join(' ')).toMatch(/plafond/);
+  it('zone encadrée : dépassement du plafond 15 % → warn', () => {
+    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 9000, dpe: 'D', nouveau: 900, zoneEncadree: true, motif: 'Travaux d\'amélioration réalisés par le bailleur' });
+    expect(r.maxHausseMois).toBe(112.5);
+    expect(_warns(r)).toMatch(/plafond|15 %/);
   });
-  it('travaux sous le seuil (½ année) → bloqués', () => {
-    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 2000, dpe: 'D', nouveau: 660 });
-    expect(r.ok).toBe(false);
-    expect(r.blocages.join(' ')).toMatch(/insuffisants/);
+  it('zone encadrée : travaux sous ½ année → warn', () => {
+    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 2000, dpe: 'D', nouveau: 660, zoneEncadree: true, motif: 'Travaux d\'amélioration réalisés par le bailleur' });
+    expect(_warns(r)).toMatch(/moitié|inférieur/);
   });
-  it('DPE F ou G → majoration interdite', () => {
-    const f = loyerTravauxGuard({ loyer0: 650, coutTTC: 9000, dpe: 'F', nouveau: 690 });
-    expect(f.passoire).toBe(true);
-    expect(f.ok).toBe(false);
-    expect(f.blocages.join(' ')).toMatch(/passoire|interdite/);
-    const g = loyerTravauxGuard({ loyer0: 650, coutTTC: 9000, dpe: 'G (passoire)', nouveau: 690 });
-    expect(g.passoire).toBe(true);
+  it('DPE F/G → warn partout (même zone non tendue)', () => {
+    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 9000, dpe: 'F (passoire)', nouveau: 690, zoneEncadree: false, motif: 'Travaux d\'amélioration réalisés par le bailleur' });
+    expect(r.passoire).toBe(true);
+    expect(_warns(r)).toMatch(/passoire|interdite/);
   });
-  it('coût des travaux non renseigné → bloqué (pas de conformité par défaut)', () => {
-    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 0, dpe: 'C', nouveau: 650 });
-    expect(r.ok).toBe(false);
-    expect(r.blocages.join(' ')).toMatch(/non renseigné/);
+  it('baisse sous un motif de hausse → warn incohérence, JAMAIS « conforme »', () => {
+    const r = loyerTravauxGuard({ loyer0: 577.64, coutTTC: 9000, dpe: 'D', nouveau: 100, zoneEncadree: false, motif: 'Travaux d\'amélioration réalisés par le bailleur' });
+    expect(r.baisse).toBe(true);
+    expect(_warns(r)).toMatch(/inférieur|incohérent/);
   });
-  it('pile au plafond → conforme', () => {
-    const r = loyerTravauxGuard({ loyer0: 1000, coutTTC: 12000, dpe: 'C', nouveau: 1150 });
-    expect(r.maxHausseMois).toBe(150); // 12000×15%÷12
-    expect(r.hausse).toBe(150);
-    expect(r.ok).toBe(true);
+  it('motif « baisse » + hausse → warn', () => {
+    const r = loyerTravauxGuard({ loyer0: 650, coutTTC: 0, dpe: 'D', nouveau: 700, zoneEncadree: false, motif: 'Baisse temporaire pendant travaux' });
+    expect(_warns(r)).toMatch(/baisse.*supérieur|supérieur/i);
   });
 });
 

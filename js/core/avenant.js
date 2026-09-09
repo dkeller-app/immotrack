@@ -41,26 +41,41 @@ function frDate(iso) {
 }
 
 /**
- * Garde-fous chiffrés de la hausse de loyer pour travaux d'amélioration.
- * @param {{loyer0:number, coutTTC:number, dpe:string, nouveau:number}} o
- *   dpe : classe DPE ('A'..'G'). F/G ⇒ majoration interdite.
- * @returns {{seuil, maxHausseMois, maxLoyer, hausse, passoire, ok, blocages:string[]}}
+ * Alertes (NON bloquantes) sur la modification de loyer. L'app conseille, l'utilisateur décide.
+ * Le plafond 15 % / seuil ½ année ne vaut qu'en ZONE ENCADRÉE (tendue / encadrement des loyers) ;
+ * en zone non tendue, la hausse pour travaux se fixe librement (art. 17-1 II) → simple info.
+ * L'interdiction DPE F/G (art. 17) et l'incohérence de sens (baisse sous un motif de hausse) sont
+ * signalées partout.
+ * @param {{loyer0:number, coutTTC:number, dpe:string, nouveau:number, zoneEncadree:boolean, motif:string}} o
+ * @returns {{seuil, maxHausseMois, maxLoyer, hausse, passoire, baisse, zoneEncadree, alertes:Array<{n:'info'|'warn', m:string}>}}
  */
 export function loyerTravauxGuard(o) {
   o = o || {};
   const loyer0 = num(o.loyer0), coutTTC = num(o.coutTTC), nouveau = num(o.nouveau);
   const dpe = String(o.dpe || '').trim().toUpperCase().charAt(0);
+  const motif = String(o.motif || '');
+  const baisseMotif = motif.indexOf('Baisse') === 0;
+  const zoneEncadree = !!o.zoneEncadree;
   const seuil = Math.round(loyer0 * 6 * 100) / 100;                 // 1/2 année de loyer
   const maxHausseMois = Math.round((coutTTC * 0.15 / 12) * 100) / 100; // 15 % TTC / an → /mois
   const maxLoyer = Math.round((loyer0 + maxHausseMois) * 100) / 100;
   const hausse = Math.round((nouveau - loyer0) * 100) / 100;
   const passoire = (dpe === 'F' || dpe === 'G');
-  const blocages = [];
-  if (passoire) blocages.push('Logement classé ' + dpe + ' : majoration interdite (passoire énergétique, art. 17) tant qu\'une rénovation ne l\'en fait pas sortir.');
-  if (coutTTC <= 0) blocages.push('Coût réel TTC des travaux non renseigné.');
-  else if (coutTTC < seuil) blocages.push('Travaux insuffisants : ' + coutTTC + ' € < seuil ' + seuil + ' € (moitié d\'une année de loyer).');
-  if (hausse > maxHausseMois) blocages.push('Hausse ' + hausse + ' €/mois > plafond ' + maxHausseMois + ' €/mois (15 % × ' + coutTTC + ' € TTC ÷ 12). Loyer maximal : ' + maxLoyer + ' €.');
-  return { seuil, maxHausseMois, maxLoyer, hausse, passoire, ok: blocages.length === 0, blocages };
+  const alertes = [];
+  if (passoire && !baisseMotif) alertes.push({ n: 'warn', m: 'Logement classé ' + dpe + ' : la majoration de loyer est en principe interdite (passoire énergétique, art. 17) tant qu\'une rénovation énergétique ne l\'en fait pas sortir.' });
+  if (nouveau > 0) {
+    if (!baisseMotif && hausse < 0) alertes.push({ n: 'warn', m: 'Le nouveau loyer (' + nouveau + ' €) est INFÉRIEUR au loyer actuel (' + loyer0 + ' €) : incohérent avec une majoration.' });
+    if (baisseMotif && hausse > 0) alertes.push({ n: 'warn', m: 'Motif « baisse » mais le nouveau loyer (' + nouveau + ' €) est SUPÉRIEUR au loyer actuel (' + loyer0 + ' €).' });
+  }
+  if (!baisseMotif && hausse > 0) {
+    if (zoneEncadree) {
+      if (coutTTC > 0 && coutTTC < seuil) alertes.push({ n: 'warn', m: 'Zone encadrée : le coût des travaux (' + coutTTC + ' €) est inférieur à la moitié d\'une année de loyer (' + seuil + ' €) — la majoration pour travaux n\'est pas ouverte.' });
+      if (hausse > maxHausseMois) alertes.push({ n: 'warn', m: 'Zone encadrée : la hausse (' + hausse + ' €/mois) dépasse le plafond de 15 % du coût TTC ÷ 12 (' + maxHausseMois + ' €/mois, soit un loyer maximal de ' + maxLoyer + ' €).' });
+    } else {
+      alertes.push({ n: 'info', m: 'Zone non tendue : la hausse pour travaux se fixe librement, d\'un commun accord — aucun plafond réglementaire. Veillez seulement au caractère réel des travaux (amélioration, non entretien).' });
+    }
+  }
+  return { seuil, maxHausseMois, maxLoyer, hausse, passoire, baisse: hausse < 0, zoneEncadree, alertes };
 }
 
 /**

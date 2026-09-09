@@ -23957,10 +23957,15 @@ function _avenantBuildGroups(){ var c=document.getElementById('av-groups'); if(!
   }).join(''); }
 function _avenantLoyerFeedback(){ var fb=document.getElementById('av-loyer-fb'); if(!fb)return;
   var motif=(document.getElementById('av-loyer-motif')||{}).value||'';
-  if(motif.indexOf('Travaux')!==0){ fb.innerHTML=''; return; }
-  var g=window.loyerTravauxGuard({loyer0:(_avenantCtx()||{}).loyer0||0, coutTTC:(document.getElementById('av-loyer-cout')||{}).value, dpe:(document.getElementById('av-loyer-dpe')||{}).value, nouveau:(document.getElementById('av-loyer-nouveau')||{}).value});
-  var msg = g.ok ? '✅ Conforme : plafond '+g.maxHausseMois+' €/mois (loyer max '+g.maxLoyer+' €), seuil de travaux '+g.seuil+' € atteint, DPE hors F/G.' : g.blocages.map(function(m){return '⛔ '+m;}).join('<br>');
-  fb.innerHTML='<div class="av-note" style="'+(g.ok?'background:#e1f5ee;border-color:#a9dcc6;color:#0f6e56':'background:#fcebeb;border-color:#f1b9b9;color:#a32d2d')+'">'+msg+'</div>';
+  var bail=DB.baux&&DB.baux[_avenantState.ref];
+  var zoneEncadree=!!(bail&&(bail.zoneTendue||bail.encadrementLoyers));
+  var g=window.loyerTravauxGuard({loyer0:(_avenantCtx()||{}).loyer0||0, coutTTC:(document.getElementById('av-loyer-cout')||{}).value, dpe:(document.getElementById('av-loyer-dpe')||{}).value, nouveau:(document.getElementById('av-loyer-nouveau')||{}).value, zoneEncadree:zoneEncadree, motif:motif});
+  if(!g.alertes.length){ fb.innerHTML=''; return; }
+  // Alertes NON bloquantes : info (bleu) / warn (ambre). L'app conseille, l'utilisateur décide.
+  fb.innerHTML=g.alertes.map(function(a){
+    var st = a.n==='warn' ? 'background:var(--warnbg,#faeeda);border-color:#efd9a8;color:#8a5a12' : 'background:#e6f1fb;border-color:#cfe0f6;color:#185fa5';
+    return '<div class="av-note" style="'+st+'">'+(a.n==='warn'?'⚠ ':'ℹ ')+a.m+'</div>';
+  }).join('');
 }
 function _avenantToggle(k){ _avenantState.sel[k]=!_avenantState.sel[k]; _avenantBuildGrid(); _avenantBuildGroups(); _avenantRender(); }
 // Habille le corps de l'avenant avec la trame Propryo (_docPage : bandeau logos + titre + pied).
@@ -24049,12 +24054,17 @@ function _avenantSave(ref){
   if(!objets.length){ showToast('Coche au moins un objet de modification.','warn'); return; }
   if(!_avenantChampsOk(objets,'Enregistrer')) return;
   var effet=v('av-effet')||td();
-  // Garde-fou argent/légal : bloquer un loyer travaux non conforme.
-  var loyerObj=objets.find(function(o){return o.k==='loyer' && String(o.data.motif||'').indexOf('Travaux')===0;});
-  if(loyerObj){ var g=window.loyerTravauxGuard({loyer0:Number(bail.hc)||0, coutTTC:loyerObj.data.cout, dpe:loyerObj.data.dpe, nouveau:loyerObj.data.nouveau});
-    if(!g.ok){ if(!confirm2('La hausse de loyer n\'est pas conforme :\n\n'+g.blocages.join('\n')+'\n\nEnregistrer quand même l\'avenant ?')) return; } }
   var loyerAny=objets.find(function(o){return o.k==='loyer';});
   var chargesAny=objets.find(function(o){return o.k==='charges';});
+  // Loyer : on ALERTE (jamais on ne bloque — l'utilisateur décide). Les avertissements sérieux
+  // (DPE F/G, baisse incohérente, dépassement en zone encadrée) sont confirmés ; les infos (zone
+  // non tendue = pas de plafond) ne le sont pas.
+  if(loyerAny){
+    var _ze=!!(bail.zoneTendue||bail.encadrementLoyers);
+    var gl=window.loyerTravauxGuard({loyer0:Number(bail.hc)||0, coutTTC:loyerAny.data.cout, dpe:loyerAny.data.dpe, nouveau:loyerAny.data.nouveau, zoneEncadree:_ze, motif:loyerAny.data.motif});
+    var warns=(gl.alertes||[]).filter(function(a){return a.n==='warn';});
+    if(warns.length && !confirm2('À vérifier avant d\'enregistrer :\n\n'+warns.map(function(a){return '• '+a.m;}).join('\n')+'\n\nEnregistrer quand même ?')) return;
+  }
   // AUDIT ARGENT — la date d'effet qui pilote le barème doit passer les MÊMES garde-fous que
   // « Modifier le bail » (_bailValidConfirm) : 1er du mois, jamais avant le début du bail, jamais
   // dans un mois déjà quittancé, jamais avant la dernière période vivante. Sinon dû faux / passé réécrit.
