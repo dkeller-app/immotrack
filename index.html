@@ -9,7 +9,7 @@
      (DevTools→Console, chercher "Content-Security-Policy") avant merge — cf. checklist. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.614</title>
+<title>Propryo v15.615</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -83,7 +83,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.614</em>
+      <em>v15.615</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4230,7 +4230,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.614';
+const IMMOTRACK_VERSION = '15.615';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -8694,7 +8694,7 @@ async function openRemoteSignModal(ref) {
         </div>
         <div class="m-foot">
           <button class="btn bs" onclick="closeM('ov-send-b')">Annuler</button>
-          <button class="btn bp" id="bsd-next" onclick="_confirmBailSignatureFlow('${ref}')">${_uiIcon('sign')}Lancer la signature</button>
+          <button class="btn bp" id="bsd-next" onclick="_confirmBailSignatureFlow('${_lyQ(ref)}')">${_uiIcon('sign')}Lancer la signature</button>
         </div>
       </div>
     </div>`;
@@ -18006,7 +18006,7 @@ function rBaux() {
         ? bail.locataires.map(x => x.nom).filter(Boolean).join(', ')
         : (l.locataire || '');
       const isVacant = !bail || !locDisplay;
-      const refEsc = escHtml(l.ref);
+      const refEsc = _lyQ(l.ref);
       const typeStr = `${escHtml(l.type || '')}${l.surf ? ' · ' + fmtN(l.surf) + 'm²' : ''}`;
       const initials = _locAvatarInitials(locDisplay || l.ref);
       const ech = _locEcheanceInfo(bail);
@@ -18093,7 +18093,7 @@ function rBaux() {
         <div class="loc-avatar-b">${initials}</div>
         <div class="loc-info-b">
           <div class="nom-b">${isVacant ? '<span style="color:var(--err,#ef4444)">VACANT</span>' : escHtml(locDisplay) + typeBadge + sigBadge + mrhBadge}</div>
-          <div class="meta-b">${refEsc} · ${typeStr}${tel ? ' · ' + escHtml(tel) : ''}</div>
+          <div class="meta-b">${escHtml(l.ref)} · ${typeStr}${tel ? ' · ' + escHtml(tel) : ''}</div>
           ${progBar}
         </div>
         <div class="loc-loyer-b">${loyerStr}</div>
@@ -28444,12 +28444,12 @@ function _lyDpeBlock(etats) {
   const rows = aCompleter.map(({ e, expire }) => {
     const ref = _lyQ(e.ref);
     const classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(c =>
-      `<button type="button" class="ly-dpe-c${(c === 'F' || c === 'G') ? ' fg' : ''}" onclick="_lyDpeRapide('${ref}','${c}',this)" `
+      `<button type="button" class="ly-dpe-c${(c === 'F' || c === 'G') ? ' fg' : ''}" onclick="_lyDpeRapide('${_lyQ(ref)}','${c}',this)" `
       + `title="${(c === 'F' || c === 'G') ? 'Classe ' + c + ' — loyer gelé (loi Climat art. 23)' : 'Classe ' + c}">${c}</button>`).join('');
     return `<div class="ly-dpe-ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml((e.log && e.log.adr) || '')}</span>`
       + `${expire ? ' <span class="mu" style="display:inline">· DPE > 10 ans</span>' : ''}</span>`
       + `<span class="pick"><input type="date" class="ly-dpe-d" title="Date de réalisation du DPE" />${classes}`
-      + `<button type="button" class="btn bs bb" onclick="_lyDpeNonConcerne('${ref}')" title="Garage, cave, parking — pas de DPE exigible par nature">non concerné</button></span></div>`;
+      + `<button type="button" class="btn bs bb" onclick="_lyDpeNonConcerne('${_lyQ(ref)}')" title="Garage, cave, parking — pas de DPE exigible par nature">non concerné</button></span></div>`;
   }).join('');
   return `<div class="ly2-blk t-info"><div class="ly2-h"><span class="t">${_uiIcon('tag')} DPE à compléter</span>`
     + `<span class="c">${n} lot${n > 1 ? 's' : ''} sans DPE en base — la révision reste possible, mais un F ou G ne se révise pas</span></div>`
@@ -35840,7 +35840,7 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
   const logRows = sortedLogs.map(l => {
     const bail = _bienActiveBail(l.ref);
     const isVacant = !bail;
-    const refEsc = escHtml(l.ref || '');
+    const refEsc = _lyQ(l.ref || '');
     const typeEsc = escHtml(l.type || '—');
     const surf = l.surf ? `${fmtN(l.surf)} m²` : '';
     const etage = (l.etage != null && l.etage !== '') ? (typeof window.LogImmResolver !== 'undefined' ? window.LogImmResolver.formatLogLocation(l) : `étage ${l.etage}`) : '';
@@ -35891,7 +35891,7 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
     // (sinon le grid 7 cols se décale entre lignes vacantes et non-vacantes).
     const annonceSlot = annonceBtn || '<span></span>';
     return `<div class="log-row-a${isVacant && !isArchived ? ' is-vacant' : ''}" onclick="openLogFiche('${refEsc}')">
-      <span class="log-row-a-ref">${refEsc}</span>
+      <span class="log-row-a-ref">${escHtml(l.ref || '')}</span>
       <span class="log-row-a-type">${typeEsc}</span>
       <span class="log-row-a-details" title="${escHtml(detailsFull)}">${escHtml(detailsFull)}</span>
       <span class="log-row-a-loc"><span class="dot ${dotCls}"></span><span class="loc-name">${locDisplay}</span></span>
@@ -40345,7 +40345,7 @@ function _histoBailToggleChap(key){
 }
 
 function _renderHistoBailSection(ref){
-  const rEsc = escHtml(ref);
+  const rEsc = _lyQ(ref);
   const refSafe = _lyQ(ref);
   if(typeof window==='undefined' || typeof window._bailHistoConstruire!=='function'){
     return `<div class="logf-panel" style="grid-column:1/-1;margin-top:14px"><h3 class="logf-panel-title">${_uiIcon('clock')} Historique du bail</h3>
@@ -41741,7 +41741,7 @@ function _renderAttachmentSection(opts) {
       <h4 style="margin:0;font-size:14px;color:var(--t1)">${title} ${docs.length?`<span class="mu sm" style="font-weight:400">(${docs.length})</span>`:''}</h4>
       <label for="${uploaderId}" class="btn bs bb" style="cursor:pointer">+ Ajouter</label>
       <input type="file" id="${uploaderId}" accept="${accept}" style="display:none"
-             onchange="_handleAttachmentUpload(this, '${parentType}', ${typeof parentId==='number'?parentId:`'${_lyQ(parentId)}'`}, ${parentRef!=null?`'${_lyQ(parentRef)}'`:'null'}, ${logRef!=null?`'${_lyQ(logRef)}'`:'null'}, '${category}')">
+             onchange="_handleAttachmentUpload(this, '${parentType}', ${typeof parentId==='number'?parentId:`'${_lyQ(parentId)}'`}, ${parentRef!=null?`'${_lyQ(parentRef)}'`:'null'}, ${logRef!=null?`'${_lyQ(logRef)}'`:'null'}, '${_lyQ(category)}')">
     </div>
     ${listHtml}
   </div>`;
@@ -41774,7 +41774,7 @@ function _renderCandidatPiecesGrouped(cand){
   const _addBtn = (catKey) => {
     const upId = `att-up-candidat-${candId}-${catKey}`;
     return `<div style="margin-top:8px"><label for="${upId}" class="btn bs bb" style="cursor:pointer;font-size:12px">+ Ajouter</label>`
-      + `<input type="file" id="${upId}" accept="${accept}" style="display:none" onchange="_handleAttachmentUpload(this,'candidat','${candId}','${candId}',${logRefArg},'${catKey}')"></div>`;
+      + `<input type="file" id="${upId}" accept="${accept}" style="display:none" onchange="_handleAttachmentUpload(this,'candidat','${candId}','${candId}',${logRefArg},'${_lyQ(catKey)}')"></div>`;
   };
   const catHtml = CATS.map(cat => {
     const files = byCat[cat.key] || [];
@@ -47642,7 +47642,7 @@ function _logpRenderCustoms(group) {
   wrap.innerHTML = arr.map((c, i) =>
     `<span style="background:#dcfce7;color:#166534;padding:3px 8px;border-radius:12px;font-size:12px;display:inline-flex;align-items:center;gap:6px">`
     + escHtml(c)
-    + `<button type="button" onclick="_logpRemoveCustom('${group}',${i})" style="background:none;border:none;cursor:pointer;color:#666;font-size:14px;line-height:1;padding:0">✕</button>`
+    + `<button type="button" onclick="_logpRemoveCustom('${_lyQ(group)}',${i})" style="background:none;border:none;cursor:pointer;color:#666;font-size:14px;line-height:1;padding:0">✕</button>`
     + `</span>`
   ).join('');
 }
