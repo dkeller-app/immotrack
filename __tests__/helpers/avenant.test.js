@@ -2,7 +2,41 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants } from '../../js/core/avenant.js';
+
+describe('champ vide → marqueur « à compléter » (jamais un « … » final)', () => {
+  it('clause sans texte → marqueur av-todo, pas de …', () => {
+    const a = avenantArticle('clause', { titre: 'Animal', texte: '' });
+    expect(a.html).toMatch(/av-todo/);
+    expect(a.html).not.toMatch(/…/);
+  });
+  it('caution sans nom → marqueur', () => {
+    const a = avenantArticle('caution', { act: 'Ajout d\'une caution', nom: '' });
+    expect(a.html).toMatch(/à compléter/);
+  });
+});
+
+describe('avenantChampsManquants — validation avant impression', () => {
+  it('liste les champs vides par objet', () => {
+    const m = avenantChampsManquants([
+      { k: 'clause', data: { titre: '', texte: '' } },
+      { k: 'loyer', data: { motif: 'Travaux d\'amélioration réalisés par le bailleur', nouveau: '', desc: '' } }
+    ]);
+    const clause = m.find(x => x.k === 'clause'), loyer = m.find(x => x.k === 'loyer');
+    expect(clause.champs).toContain('intitulé de la clause');
+    expect(clause.champs).toContain('texte de la clause');
+    expect(loyer.champs).toContain('nouveau loyer');
+    expect(loyer.champs).toContain('nature des travaux');
+  });
+  it('objet complet → rien', () => {
+    const m = avenantChampsManquants([{ k: 'charges', data: { mode: 'Révision du montant des provisions', montant: 95 } }]);
+    expect(m).toEqual([]);
+  });
+  it('coloc départ seul → n\'exige PAS l\'entrant', () => {
+    const m = avenantChampsManquants([{ k: 'coloc', data: { act: 'Départ (séparation), sans remplaçant', sortant: 'DUBOIS Léa', entrant: '' } }]);
+    expect(m).toEqual([]);
+  });
+});
 
 describe('esc — anti-XSS des champs saisis', () => {
   it('échappe le HTML injecté', () => {

@@ -24004,6 +24004,7 @@ function _avenantOpen(ref){
    '#ov-avenant .av-note{background:var(--warnbg,#faeeda);border:1px solid #efd9a8;border-radius:8px;padding:8px 10px;font-size:10.5px;color:#8a5a12;margin-top:8px;line-height:1.45}'+
    '#ov-avenant .av-prevwrap{background:var(--sur3);padding:14px;overflow:auto}'+
    '#ov-avenant .pro-doc{background:#fff;max-width:600px;margin:0 auto;padding:26px 32px;box-shadow:0 2px 12px rgba(0,0,0,.09)}'+
+   '#ov-avenant .av-todo{color:#c2472f;font-style:italic;font-weight:600}'+
    '#ov-avenant .pro-doc .alerte{background:#fff8ef;border:1px solid #f0c987;border-radius:8px;padding:8px 11px;margin:8px 0;font-size:10.5px;line-height:1.5;color:#6b4610}'+
    '#ov-avenant .pro-doc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}'+
    '#ov-avenant .pro-doc .sig-bloc{border:1px solid #b8c0cd;border-radius:6px;min-height:70px;padding:6px;margin-top:4px;font-size:10px;color:#8b94a5}'+
@@ -24032,10 +24033,19 @@ function _avenantOpen(ref){
   _avenantBuildGrid(); _avenantBuildGroups(); _avenantRender();
   openM('ov-avenant');
 }
+// Confirme si des champs essentiels manquent (le document afficherait « ‹à compléter› »).
+var _AV_LBL={coloc:'Colocataire',caution:'Garant / caution',loyer:'Loyer',charges:'Charges',annexe:'Annexe',duree:'Durée',destination:'Destination',travaux:'Travaux',paiement:'Paiement / RIB',souslocation:'Sous-location',clause:'Clause',correction:'Correction'};
+function _avenantChampsOk(objets, verbe){
+  var manque=window.avenantChampsManquants?window.avenantChampsManquants(objets):[];
+  if(!manque.length) return true;
+  var msg=manque.map(function(m){return '• '+(_AV_LBL[m.k]||m.k)+' : '+m.champs.join(', ');}).join('\n');
+  return confirm2('Des champs sont vides — le document affichera « ‹à compléter› » :\n\n'+msg+'\n\n'+(verbe||'Continuer')+' quand même ?');
+}
 function _avenantSave(ref){
   var bail=DB.baux&&DB.baux[ref]; if(!bail)return;
   var objets=_avenantCollect();
   if(!objets.length){ showToast('Coche au moins un objet de modification.','warn'); return; }
+  if(!_avenantChampsOk(objets,'Enregistrer')) return;
   var effet=v('av-effet')||td();
   // Garde-fou argent/légal : bloquer un loyer travaux non conforme.
   var loyerObj=objets.find(function(o){return o.k==='loyer' && String(o.data.motif||'').indexOf('Travaux')===0;});
@@ -24098,12 +24108,14 @@ function _avenantSave(ref){
 // Impression / PDF — trame Propryo (_docPage), pas de Word.
 function _avenantPrint(ref){
   ref=ref||(el('ov-avenant-ref')?el('ov-avenant-ref').value:_avenantState.ref);
+  if(!_avenantChampsOk(_avenantCollect(),'Imprimer')) return;
   var docHtml=_avenantDocPageHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
   var css='@page{size:A4;margin:1.8cm 2cm}*{box-sizing:border-box}body{padding:0;margin:0;background:#fff}'+_docCss()+
     '.pro-doc .alerte{background:#fff8ef;border:.35mm solid #f0c987;border-radius:2.5mm;padding:3mm 4mm;margin:3mm 0;font-size:9pt;line-height:1.5;page-break-inside:avoid}'+
     '.pro-doc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:3mm;page-break-inside:avoid}'+
     '.pro-doc .sig-bloc{border:.3mm solid #b8c0cd;border-radius:2.5mm;min-height:70px;padding:3mm;margin-top:2mm;font-size:9pt;color:#8b94a5;page-break-inside:avoid}'+
     '.print-hint{background:#f7f8fb;border-left:1mm solid #ff5a3c;padding:3mm 4mm;margin:0 0 4mm;font-size:9pt;color:#3c4658;border-radius:2.5mm;font-family:Inter,system-ui,sans-serif}'+
+    '.pro-doc .av-todo{color:#c2472f;font-style:italic;font-weight:600}'+
     '@media screen{body{max-width:780px;margin:20px auto;padding:1.8cm 2cm;background:#f4f5f8}}@media print{.no-print,.print-hint{display:none!important}}';
   var html='<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Avenant n° '+_avenantState.no+'</title><style>'+css+'</style></head><body>'+
     '<div class="print-hint">💡 Avant d\'imprimer : décochez « En-têtes et pieds de page » dans la fenêtre d\'impression pour un rendu propre.</div>'+

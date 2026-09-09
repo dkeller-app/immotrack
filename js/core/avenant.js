@@ -28,6 +28,11 @@ export function esc(x) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function b(x) { return '<strong>' + esc(x) + '</strong>'; }
+// Marqueur de champ NON renseigné : « ‹à compléter› » lisible (jamais un « … » qui passe pour du texte final).
+const TODO = '<span class="av-todo">‹à compléter›</span>';
+function _vide(x) { return String(x == null ? '' : x).trim() === ''; }
+function champ(x) { return _vide(x) ? TODO : '<strong>' + esc(x) + '</strong>'; }   // valeur en gras, sinon marqueur
+function champTxt(x) { return _vide(x) ? TODO : esc(x); }                              // idem sans gras
 function num(x) { return Number(x) || 0; }
 function frDate(iso) {
   if (!iso) return '…';
@@ -74,13 +79,13 @@ export function avenantArticle(k, d, ctx) {
       const isDepart = act.indexOf('Départ') === 0;
       let h = '';
       if (!isAjout) {
-        h += 'M. / Mme ' + b(d.sortant || '…') + ' cesse d\'être partie au contrat de bail à compter de la date d\'effet du présent avenant et libère les lieux à cette date, renonçant à tout droit d\'occupation sur le logement. Conformément à l\'article 8-1, VI de la loi du 6 juillet 1989, sa solidarité et celle de la personne qui s\'est portée caution pour lui prennent fin ' +
+        h += 'M. / Mme ' + champ(d.sortant) + ' cesse d\'être partie au contrat de bail à compter de la date d\'effet du présent avenant et libère les lieux à cette date, renonçant à tout droit d\'occupation sur le logement. Conformément à l\'article 8-1, VI de la loi du 6 juillet 1989, sa solidarité et celle de la personne qui s\'est portée caution pour lui prennent fin ' +
           (isDepart
             ? 'au plus tard à l\'expiration d\'un délai de six mois suivant la date d\'effet de son congé, à défaut de colocataire entrant inscrit au bail avant ce terme'
             : 'à la date d\'effet du présent avenant, un colocataire entrant lui étant substitué') + '. ';
       }
       if (!isDepart) {
-        h += 'M. / Mme ' + b(d.entrant || '…') + ' est ' + (isAjout ? 'adjoint(e) au' : 'substitué(e) au colocataire sortant et devient partie au') +
+        h += 'M. / Mme ' + champ(d.entrant) + ' est ' + (isAjout ? 'adjoint(e) au' : 'substitué(e) au colocataire sortant et devient partie au') +
           ' contrat de bail à compter de la date d\'effet. Il / elle déclare avoir pris connaissance du bail initial et de ses annexes, en accepter sans réserve l\'ensemble des clauses et conditions, et devient solidairement et indivisiblement tenu(e), avec le(s) colocataire(s) en place, du paiement des loyers, charges et accessoires ainsi que de l\'exécution de toutes les obligations du bail. Un acte de cautionnement distinct est régularisé pour garantir ses engagements. ';
       }
       h += 'Le(s) colocataire(s) demeurant dans les lieux poursuit / poursuivent le bail aux conditions initiales et fait / font leur affaire personnelle de la restitution éventuelle de la quote-part de dépôt de garantie au colocataire sortant.';
@@ -90,8 +95,8 @@ export function avenantArticle(k, d, ctx) {
       const act = String(d.act || '');
       const ml = act.indexOf('Mainlevée') === 0;
       const h = ml
-        ? 'Le bailleur donne mainlevée pleine et entière de l\'engagement de caution souscrit par ' + b(d.nom || '…') + ', qui se trouve déchargé(e) de toute obligation au titre du bail à compter de la date d\'effet du présent avenant.'
-        : act + ' : ' + b(d.nom || '…') + ' s\'engage en qualité de caution solidaire à garantir l\'exécution de l\'ensemble des obligations du / des locataire(s), dans la limite de ' + b(num(d.plafond) + ' €') + ', pour la durée du bail et de son ou ses renouvellements. Cet engagement, conforme à l\'article 22-1 de la loi du 6 juillet 1989, fait l\'objet d\'un acte de cautionnement distinct portant les mentions requises, annexé au présent avenant.';
+        ? 'Le bailleur donne mainlevée pleine et entière de l\'engagement de caution souscrit par ' + champ(d.nom) + ', qui se trouve déchargé(e) de toute obligation au titre du bail à compter de la date d\'effet du présent avenant.'
+        : act + ' : ' + champ(d.nom) + ' s\'engage en qualité de caution solidaire à garantir l\'exécution de l\'ensemble des obligations du / des locataire(s), dans la limite de ' + b(num(d.plafond) + ' €') + ', pour la durée du bail et de son ou ses renouvellements. Cet engagement, conforme à l\'article 22-1 de la loi du 6 juillet 1989, fait l\'objet d\'un acte de cautionnement distinct portant les mentions requises, annexé au présent avenant.';
       return { titre: 'Cautionnement', html: h, base: 'art. 22-1, loi du 6 juillet 1989', caution: !ml };
     }
     case 'loyer': {
@@ -100,9 +105,9 @@ export function avenantArticle(k, d, ctx) {
       const trav = motif.indexOf('Travaux') === 0, baisse = motif.indexOf('Baisse') === 0;
       let h = 'Les parties rappellent ';
       if (trav) {
-        h += 'que le bailleur a fait réaliser dans le logement, depuis la conclusion du bail, des travaux d\'amélioration (apport d\'un équipement ou service nouveau, à l\'exclusion de tout entretien, réparation ou remise en état) : ' + b(d.desc || '…') + ', pour un coût réel de ' + b(num(d.cout) + ' € TTC') + '. Par application de l\'article 17-1, II de la loi du 6 juillet 1989, qui autorise les parties à fixer par avenant la majoration de loyer consécutive à de tels travaux, et le montant de la majoration ayant été, par prudence, aligné sur le plafond retenu pour la relocation encadrée (hausse annuelle limitée à 15 % du coût réel TTC des travaux, ces derniers excédant la moitié de la dernière année de loyer), ';
+        h += 'que le bailleur a fait réaliser dans le logement, depuis la conclusion du bail, des travaux d\'amélioration (apport d\'un équipement ou service nouveau, à l\'exclusion de tout entretien, réparation ou remise en état) : ' + champ(d.desc) + ', pour un coût réel de ' + b(num(d.cout) + ' € TTC') + '. Par application de l\'article 17-1, II de la loi du 6 juillet 1989, qui autorise les parties à fixer par avenant la majoration de loyer consécutive à de tels travaux, et le montant de la majoration ayant été, par prudence, aligné sur le plafond retenu pour la relocation encadrée (hausse annuelle limitée à 15 % du coût réel TTC des travaux, ces derniers excédant la moitié de la dernière année de loyer), ';
       } else if (baisse) {
-        h += 'qu\'il est consenti une baisse temporaire du loyer pendant la réalisation des travaux suivants : ' + b(d.desc || '…') + '. À ce titre, ';
+        h += 'qu\'il est consenti une baisse temporaire du loyer pendant la réalisation des travaux suivants : ' + champ(d.desc) + '. À ce titre, ';
       } else {
         h += 'leur volonté commune de réévaluer le loyer manifestement sous-évalué. En conséquence, ';
       }
@@ -131,12 +136,12 @@ export function avenantArticle(k, d, ctx) {
       return { titre: 'Durée du bail', html: h };
     }
     case 'destination': {
-      const h = 'La destination des lieux loués est modifiée pour devenir : ' + b(d.dest || '…') + ', à compter de la date d\'effet. Le locataire s\'engage à respecter les obligations et la réglementation propres à cet usage, ainsi que, le cas échéant, le règlement de copropriété de l\'immeuble.';
+      const h = 'La destination des lieux loués est modifiée pour devenir : ' + champ(d.dest) + ', à compter de la date d\'effet. Le locataire s\'engage à respecter les obligations et la réglementation propres à cet usage, ainsi que, le cas échéant, le règlement de copropriété de l\'immeuble.';
       return { titre: 'Destination des lieux', html: h, base: 'art. 2, loi du 6 juillet 1989' };
     }
     case 'travaux': {
       const loc = String(d.qui || 'le locataire') === 'le locataire';
-      const h = 'Le bailleur autorise expressément ' + (d.qui || 'le locataire') + ' à faire réaliser les travaux suivants dans le logement : ' + b(d.nature || '…') + '. ' +
+      const h = 'Le bailleur autorise expressément ' + (d.qui || 'le locataire') + ' à faire réaliser les travaux suivants dans le logement : ' + champ(d.nature) + '. ' +
         (loc
           ? 'Les travaux sont exécutés sous la responsabilité du locataire, dans les règles de l\'art et sans porter atteinte à la structure ni à la destination du logement. Sauf convention contraire, les aménagements ainsi réalisés resteront acquis au bailleur en fin de bail, sans indemnité.'
           : 'Le bailleur en supporte le coût et informera le locataire du calendrier d\'exécution.') +
@@ -144,23 +149,23 @@ export function avenantArticle(k, d, ctx) {
       return { titre: 'Autorisation de travaux', html: h };
     }
     case 'paiement': {
-      const h = 'À compter de la date d\'effet, le loyer et les charges sont payables d\'avance le ' + b(d.jour || '…') + ' de chaque mois, par ' + b(d.mode || '…') + ', sur le compte du bailleur ouvert sous l\'IBAN ' + b(d.rib || '…') + '. La présente stipulation ne porte que sur les modalités de règlement et laisse inchangés le montant, l\'exigibilité et le terme du loyer.';
+      const h = 'À compter de la date d\'effet, le loyer et les charges sont payables d\'avance le ' + champ(d.jour) + ' de chaque mois, par ' + champ(d.mode) + ', sur le compte du bailleur ouvert sous l\'IBAN ' + champ(d.rib) + '. La présente stipulation ne porte que sur les modalités de règlement et laisse inchangés le montant, l\'exigibilité et le terme du loyer.';
       return { titre: 'Modalités de paiement', html: h };
     }
     case 'souslocation': {
       const act = String(d.act || '');
       const sl = act.indexOf('sous-location') >= 0, ce = act.indexOf('cession') >= 0;
       const h = sl
-        ? 'Le bailleur autorise le locataire à sous-louer le logement, ' + b(d.cond || '…') + '. Le prix du mètre carré de surface habitable de la sous-location ne peut excéder celui payé par le locataire principal ; ce dernier demeure seul tenu envers le bailleur de l\'exécution du bail, conformément à l\'article 8 de la loi du 6 juillet 1989.'
+        ? 'Le bailleur autorise le locataire à sous-louer le logement, ' + champ(d.cond) + '. Le prix du mètre carré de surface habitable de la sous-location ne peut excéder celui payé par le locataire principal ; ce dernier demeure seul tenu envers le bailleur de l\'exécution du bail, conformément à l\'article 8 de la loi du 6 juillet 1989.'
         : ce
-          ? 'Le bailleur autorise le locataire à céder son droit au bail, ' + b(d.cond || '…') + '. Le cessionnaire est subrogé dans l\'ensemble des droits et obligations résultant du bail à compter de la date d\'effet.'
+          ? 'Le bailleur autorise le locataire à céder son droit au bail, ' + champ(d.cond) + '. Le cessionnaire est subrogé dans l\'ensemble des droits et obligations résultant du bail à compter de la date d\'effet.'
           : 'Le bailleur n\'autorise pas la sous-location ni la cession du présent bail, qui demeurent interdites sans son accord écrit préalable (art. 8 de la loi du 6 juillet 1989).';
       return { titre: 'Sous-location / cession', html: h, base: 'art. 8, loi du 6 juillet 1989' };
     }
     case 'clause':
-      return { titre: esc(d.titre || 'Stipulation particulière'), html: b(d.texte || '…') };
+      return { titre: esc(d.titre || 'Stipulation particulière'), html: champ(d.texte) };
     case 'correction': {
-      const h = 'Les parties constatent qu\'une erreur purement matérielle affecte ' + b(d.champ || '…') + ' figurant au bail initial. En conséquence, la mention « ' + esc(d.anc || '…') + ' » est rectifiée et remplacée par « ' + b(d.nouv || '…') + ' ». Cette rectification n\'emporte ni novation, ni modification de l\'économie générale du contrat.';
+      const h = 'Les parties constatent qu\'une erreur purement matérielle affecte ' + champ(d.champ) + ' figurant au bail initial. En conséquence, la mention « ' + champTxt(d.anc) + ' » est rectifiée et remplacée par « ' + champ(d.nouv) + ' ». Cette rectification n\'emporte ni novation, ni modification de l\'économie générale du contrat.';
       return { titre: 'Rectification d\'une erreur matérielle', html: h };
     }
     default:
@@ -212,4 +217,45 @@ export function buildAvenantHtml(ctx) {
     '<p style="margin-top:4mm">Fait à ' + esc(ctx.ville || '…') + ', le ' + effet + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
     '<h3>Signatures</h3><div class="grid2">' + sigHtml + '</div>';
   return { html, caution, nbArticles: n - 1, entrant };
+}
+
+/**
+ * Champs essentiels non renseignés, par objet sélectionné (pour bloquer/avertir avant impression).
+ * @param {Array<{k,data}>} objets
+ * @returns {Array<{k, champs:string[]}>}
+ */
+export function avenantChampsManquants(objets) {
+  const out = [];
+  (objets || []).forEach(o => {
+    const d = o.data || {}, miss = [];
+    switch (o.k) {
+      case 'coloc': {
+        const act = String(d.act || '');
+        if (act.indexOf('Ajout') !== 0 && _vide(d.sortant)) miss.push('colocataire sortant');
+        if (act.indexOf('Départ') !== 0 && _vide(d.entrant)) miss.push('colocataire entrant');
+        break;
+      }
+      case 'caution': if (_vide(d.nom)) miss.push('caution concernée'); break;
+      case 'loyer':
+        if (!(num(d.nouveau) > 0)) miss.push('nouveau loyer');
+        if (String(d.motif || '').indexOf('Travaux') === 0 && _vide(d.desc)) miss.push('nature des travaux');
+        break;
+      case 'charges': if (!(num(d.montant) > 0)) miss.push('montant des charges'); break;
+      case 'annexe': if (_vide(d.design)) miss.push('désignation de la dépendance'); break;
+      case 'duree': if (_vide(d.fin)) miss.push('nouveau terme'); break;
+      case 'travaux': if (_vide(d.nature)) miss.push('nature des travaux'); break;
+      case 'paiement': if (_vide(d.rib)) miss.push('IBAN du bailleur'); break;
+      case 'souslocation': if (String(d.act || '').indexOf('Refus') !== 0 && _vide(d.cond)) miss.push('conditions'); break;
+      case 'clause':
+        if (_vide(d.titre)) miss.push('intitulé de la clause');
+        if (_vide(d.texte)) miss.push('texte de la clause');
+        break;
+      case 'correction':
+        if (_vide(d.champ)) miss.push('élément corrigé');
+        if (_vide(d.nouv)) miss.push('mention rectifiée');
+        break;
+    }
+    if (miss.length) out.push({ k: o.k, champs: miss });
+  });
+  return out;
 }
