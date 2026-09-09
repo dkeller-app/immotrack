@@ -135,6 +135,59 @@ export function _calculerSoldeDG(bail, mouvements) {
   return { dgPaid, retenuesDG, loyerImpaye, soldeRestitue };
 }
 
+/**
+ * Pénalité de retard de restitution du DG — article 22, loi 89-462 (mod. ALUR).
+ * À défaut de restitution dans le délai légal, le bailleur doit au locataire une
+ * majoration de 10 % du loyer mensuel EN PRINCIPAL (hors charges) par mois de retard
+ * ENTAMÉ. Point de départ = remise des clés (bail.depart.dateSortie), sinon fin
+ * effective. Exception légale : la pénalité n'est PAS due si le locataire n'a pas
+ * communiqué sa nouvelle adresse (bail.dgAdresseNonCommuniquee).
+ *
+ * La pénalité est au CRÉDIT du locataire (elle augmente ce que le bailleur doit) —
+ * elle ne se retranche pas du dépôt.
+ *
+ * @param {object} bail - { hc, depart:{dateSortie}, finEffective, fin, dgRestitueAt, dgRetenu, dgAdresseNonCommuniquee }
+ * @param {Date|string} [dateRef=today] - date de restitution effective si dgRestitueAt absent (retard courant)
+ * @returns {{ moisRetard, penalite, base, dateLimite, exclue, enRetard }}
+ */
+export function _penaliteRetardDG(bail, dateRef) {
+  const out = { moisRetard: 0, penalite: 0, base: 0, dateLimite: null, exclue: false, enRetard: false };
+  if (!bail) return out;
+  const sortieISO = (bail.depart && bail.depart.dateSortie) || bail.finEffective || bail.fin;
+  if (!sortieISO) return out;
+  const finDate = new Date(String(sortieISO).slice(0, 10) + 'T00:00:00');
+  if (Number.isNaN(finDate.getTime())) return out;
+
+  const delaiMois = _calculerDelaiRestitution(bail);
+  const dateLimite = new Date(finDate);
+  dateLimite.setMonth(dateLimite.getMonth() + delaiMois);
+  // Format LOCAL (pas toISOString, qui décale d'un jour selon le fuseau).
+  const _iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  out.dateLimite = _iso(dateLimite);
+
+  // Date de restitution effective : la date enregistrée fait foi ; sinon aujourd'hui
+  // (le retard court tant que le DG n'est pas restitué).
+  const today = dateRef instanceof Date ? dateRef
+    : new Date(String(dateRef || new Date().toISOString().slice(0, 10)) + 'T00:00:00');
+  const restit = bail.dgRestitueAt
+    ? new Date(String(bail.dgRestitueAt).slice(0, 10) + 'T00:00:00')
+    : today;
+  if (Number.isNaN(restit.getTime()) || restit <= dateLimite) return out; // pas de retard
+
+  out.enRetard = true;
+  // Nombre de mois ENTAMÉS entre la date limite et la restitution.
+  let m = (restit.getFullYear() - dateLimite.getFullYear()) * 12 + (restit.getMonth() - dateLimite.getMonth());
+  if (restit.getDate() < dateLimite.getDate()) m--; // mois pleins révolus
+  const boundary = new Date(dateLimite);
+  boundary.setMonth(boundary.getMonth() + m);
+  out.moisRetard = Math.max(0, (restit > boundary) ? m + 1 : m);
+
+  out.base = Number(bail.hc) || 0; // loyer en principal (hors charges)
+  out.exclue = !!bail.dgAdresseNonCommuniquee;
+  out.penalite = out.exclue ? 0 : Math.round(out.moisRetard * 0.10 * out.base * 100) / 100;
+  return out;
+}
+
 /** Cumul des loyers impayés sur toute la durée du bail.
  *  @param dateRef optional — borne supérieure (= today si non fourni). Permet
  *  des tests déterministes. */
@@ -304,3 +357,4 @@ export function _listerImpayesActifs(logements, baux, mouvements, dateRef) {
 
 // Exports utilitaires
 export { DG_STATUS, PROCEDURE_ETAT };
+// (_penaliteRetardDG est exporté à sa définition, bloc A)

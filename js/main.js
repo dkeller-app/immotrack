@@ -243,10 +243,17 @@ import { migrerIdsMenuLoyers } from './core/nav-submenu.js';
 
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
-  _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG,
+  _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
   _planApurementStatut, _procedureJudiciaireEtat, _listerImpayesActifs,
   DG_STATUS, PROCEDURE_ETAT
 } from './core/gestion-dg-impayes.js';
+
+// Grille de vétusté (décret 2016-382 / barème OPAC) — chiffrage part locataire
+import {
+  VETUSTE_BAREME, VETUSTE_SOURCES,
+  vetusteParams, vetusteAge, vetusteUsure, vetustePart,
+  computeVetusteLigne, computeVetusteTotal
+} from './core/vetuste-grille.js';
 
 // LOG-CANDIDATS (Phase 2) - helpers purs candidature locataire
 import {
@@ -572,6 +579,16 @@ window.migrerIdsMenuLoyers = migrerIdsMenuLoyers;
 window._dgStatut = _dgStatut;
 window._calculerDelaiRestitution = _calculerDelaiRestitution;
 window._calculerSoldeDG = _calculerSoldeDG;
+window._penaliteRetardDG = _penaliteRetardDG;
+// Grille de vétusté (décret 2016-382 / OPAC)
+window.VETUSTE_BAREME = VETUSTE_BAREME;
+window.VETUSTE_SOURCES = VETUSTE_SOURCES;
+window.vetusteParams = vetusteParams;
+window.vetusteAge = vetusteAge;
+window.vetusteUsure = vetusteUsure;
+window.vetustePart = vetustePart;
+window.computeVetusteLigne = computeVetusteLigne;
+window.computeVetusteTotal = computeVetusteTotal;
 window._planApurementStatut = _planApurementStatut;
 window._procedureJudiciaireEtat = _procedureJudiciaireEtat;
 window._listerImpayesActifs = _listerImpayesActifs;

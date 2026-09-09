@@ -51275,12 +51275,155 @@ function _pilBulkMajLoyersSimule(baux, dateApplication) {
 // ════════════════════════════════════════════════════════════════════════════
 
 /** Phase A2 — Ouvre la modale de restitution DG pour un bail clôturé (ou bouton manuel). */
+// ─────────────────────────────────────────────────────────────────────────
+// GRILLE DE VÉTUSTÉ dans la restitution du DG (décret 2016-382 / barème OPAC).
+// L'EDL constate (« Mauvais état »), il ne chiffre pas — le chiffrage vit ICI.
+// État runtime de la grille en cours d'édition (vidé/réamorcé à chaque ouverture).
+// ─────────────────────────────────────────────────────────────────────────
+let _dgVgRows = [];
+let _dgVgCtx = {};
+
+/** Devine le type de grille depuis le nom de l'élément EDL (repli : peinture). */
+function _dgVgGuessType(nom) {
+  const s = (nom || '').toLowerCase();
+  if (/moquette/.test(s)) return 'moquette';
+  if (/parquet|carrelage|faïence|faience|dalle/.test(s)) return 'parquet';
+  if (/sol|lino|pvc|revêt|revet/.test(s)) return 'solplast_h';
+  if (/lavabo|évier|evier|\bwc\b|toilette|douche|baignoire|sanitaire|lave-main|cuvette/.test(s)) return 'sanitaire';
+  if (/robinet|mitigeur|quincaill|poignée|poignee|serrure/.test(s)) return 'robinet';
+  if (/volet/.test(s)) return 'volet';
+  if (/store/.test(s)) return 'store';
+  if (/porte|fenêtre|fenetre|menuis|plinthe/.test(s)) return 'menuiserie';
+  if (/radiateur|chauff|chaudière|chaudiere/.test(s)) return 'chauffage';
+  if (/meuble|placard|cuisine|évier|plan de travail/.test(s)) return 'meuble';
+  if (/prise|électr|electr|interrupteur|tableau/.test(s)) return 'elec';
+  return 'peinture';
+}
+
+/** Date de l'EDL d'entrée du logement (ancre « neuf »), repli sur le début du bail. */
+function _dgVgEntreeDate(bail) {
+  const edls = DB.edl || [];
+  const entrees = edls.filter(e => e && !e._deleted && (e.logement === bail.ref) && e.type === 'Entrée' && e.date)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  return entrees.length ? String(entrees[0].date).slice(0, 10) : (bail.debut ? String(bail.debut).slice(0, 10) : '');
+}
+
+/** Amorce les lignes de grille depuis les éléments dégradés de l'EDL de sortie. */
+function _dgVgSeedFromEdl(bail) {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const sortie = (P && P.edlSortieQuiFaitFoi) ? P.edlSortieQuiFaitFoi(bail, DB.edl || []) : null;
+  const rows = [];
+  if (sortie) {
+    (sortie.pieces || []).forEach(p => {
+      (p.elements || []).forEach(el2 => {
+        const degr = el2.etatS && el2.etatS !== el2.etatE &&
+          (el2.etatS === 'Mauvais état' || (el2.etatS === "État d'usage" && el2.etatE === 'Bon état'));
+        if (!degr) return;
+        const neuf = el2.etatE === 'Neuf';
+        rows.push({
+          piece: (p.nom ? p.nom + ' · ' : '') + (el2.nom || 'Élément'),
+          type: _dgVgGuessType(el2.nom),
+          cout: 0,
+          source: neuf ? 'edl_neuf' : 'estim',
+          mes: ''
+        });
+      });
+    });
+  }
+  return rows;
+}
+
+/** Options <option> pour le type de grille. */
+function _dgVgTypeOpts(sel) {
+  return (window.VETUSTE_BAREME || []).map(g =>
+    `<option value="${g.k}"${g.k === sel ? ' selected' : ''}>${escHtml(g.nom)}</option>`).join('');
+}
+function _dgVgSrcOpts(sel) {
+  const S = window.VETUSTE_SOURCES || {};
+  return Object.keys(S).map(k => `<option value="${k}"${k === sel ? ' selected' : ''}>${escHtml(S[k])}</option>`).join('');
+}
+
+/** Rend la grille de vétusté (une carte par ligne) + sous-total, puis recalcule le solde. */
+function _dgVgRender(ref) {
+  const body = el('dg-vg-body');
+  if (!body) return;
+  const t = window.computeVetusteTotal ? window.computeVetusteTotal(_dgVgRows, _dgVgCtx) : { total: 0, nbAJustifier: 0, rows: [] };
+  if (!_dgVgRows.length) {
+    body.innerHTML = `<div class="mu sm" style="padding:8px 2px">Aucune dégradation reprise de l'EDL de sortie. Ajoute une réparation si nécessaire.</div>`;
+  } else {
+    body.innerHTML = t.rows.map((r, i) => {
+      const isAuto = r.source === 'edl_neuf';
+      const proof = r.aJustifier
+        ? `<span style="font:800 10px Inter;color:#8a5a12;background:#faeeda;border-radius:6px;padding:2px 7px">⚠ à justifier</span>`
+        : (isAuto
+          ? `<span style="font:800 10px Inter;color:#0f6e56;background:#e1f5ee;border-radius:6px;padding:2px 7px">✓ prouvé — EDL d'entrée</span>`
+          : `<span style="font:800 10px Inter;color:#0f6e56;background:#e1f5ee;border-radius:6px;padding:2px 7px">✓ prouvé — facture</span>`);
+      const dateCell = isAuto
+        ? `<span class="mu sm" style="font-size:11px">= EDL entrée ${_dgVgCtx.edlEntreeDate ? fd(_dgVgCtx.edlEntreeDate) : '—'}</span>`
+        : `<input class="inp" type="date" value="${escHtml(r.mes || '')}" style="width:150px" onchange="_dgVgSet(${i},'mes',this.value)">`;
+      const g = r.params || {};
+      return `<div style="border:1px solid var(--bor);border-radius:12px;padding:10px 12px;margin-bottom:9px;background:var(--sur2)">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+          <input class="inp" value="${escHtml(r.piece || '')}" style="font-weight:700;border:0;background:transparent;padding:2px 0;flex:1" onchange="_dgVgSet(${i},'piece',this.value)">
+          <button class="btn bt" style="padding:2px 7px;color:var(--t3)" title="Retirer" onclick="_dgVgRemove(${i})">✕</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin-top:7px">
+          <label style="font-size:10px"><div class="mu" style="font-size:9px;text-transform:uppercase;letter-spacing:.3px">Type (grille)</div><select class="inp" style="min-width:170px" onchange="_dgVgSet(${i},'type',this.value)">${_dgVgTypeOpts(r.type)}</select></label>
+          <label style="font-size:10px"><div class="mu" style="font-size:9px;text-transform:uppercase;letter-spacing:.3px">Coût remplacement</div><input class="inp" type="number" min="0" step="0.01" value="${r.cout || 0}" style="width:110px;text-align:right" onchange="_dgVgSet(${i},'cout',this.value)"></label>
+          <label style="font-size:10px"><div class="mu" style="font-size:9px;text-transform:uppercase;letter-spacing:.3px">Source de l'âge</div><select class="inp" style="min-width:150px" onchange="_dgVgSet(${i},'source',this.value)">${_dgVgSrcOpts(r.source)}</select></label>
+          <label style="font-size:10px"><div class="mu" style="font-size:9px;text-transform:uppercase;letter-spacing:.3px">Mise en service</div>${dateCell}</label>
+          <div style="margin-left:auto;text-align:right">
+            <div class="mu sm" style="font-size:10.5px">âge ${r.age} a · usure ${r.usurePct} %</div>
+            <div style="font-weight:800;font-size:15px">${fmt(r.part)}</div>
+          </div>
+        </div>
+        <div class="mu sm" style="font-size:10.5px;margin-top:6px">${proof} &nbsp;·&nbsp; grille : vie <b>${g.vie} a</b> · franchise <b>${g.fr} a</b> · abatt. <b>${g.ab} %/an</b> · résiduel <b>${g.res} %</b></div>
+      </div>`;
+    }).join('');
+  }
+  const sub = el('dg-vg-subtotal');
+  if (sub) sub.textContent = fmt(t.total);
+  const warn = el('dg-vg-warn');
+  if (warn) {
+    warn.hidden = !t.nbAJustifier;
+    if (t.nbAJustifier) warn.textContent = `⚠ ${t.nbAJustifier} ligne(s) « à justifier » — la charge de la preuve de l'ancienneté incombe au bailleur (facture/devis ou « neuf » à l'EDL d'entrée).`;
+  }
+  _dgRestitRecalc(ref);
+}
+
+/** Modifie un champ d'une ligne de grille (onchange → pas de perte de focus). */
+function _dgVgSet(i, k, val) {
+  if (!_dgVgRows[i]) return;
+  _dgVgRows[i][k] = (k === 'cout') ? (parseFloat(String(val).replace(',', '.')) || 0) : val;
+  _dgVgRender(el('ov-dg-restitution-ref') ? el('ov-dg-restitution-ref').value : '');
+}
+function _dgVgAdd() {
+  _dgVgRows.push({ piece: 'Réparation', type: 'peinture', cout: 0, source: 'estim', mes: '' });
+  _dgVgRender(el('ov-dg-restitution-ref') ? el('ov-dg-restitution-ref').value : '');
+}
+function _dgVgRemove(i) {
+  _dgVgRows.splice(i, 1);
+  _dgVgRender(el('ov-dg-restitution-ref') ? el('ov-dg-restitution-ref').value : '');
+}
+
 function _dgOpenRestitution(ref) {
   const bail = DB.baux && DB.baux[ref];
   if (!bail) { showToast('Bail introuvable', 'err'); return; }
   const dgInfo = _dgStatut(bail);
-  const solde = _calculerSoldeDG(bail, DB.mouvements || []);
+  // Base « DG versé » : dgPaid est un champ historiquement non renseigné → repli sur dg
+  // (comme le fait déjà la clôture, index ~25680). Normalisé UNIQUEMENT dans cette surface.
+  const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const _bailN = Object.assign({}, bail, { dgPaid: dgVerse });
+  const solde = _calculerSoldeDG(_bailN, DB.mouvements || []);
   const delaiMois = _calculerDelaiRestitution(bail, DB.edl);
+  // Grille de vétusté : reprise d'une saisie précédente, sinon amorçage depuis l'EDL de sortie.
+  _dgVgCtx = {
+    refDate: (bail.depart && bail.depart.dateSortie) || bail.finEffective || (typeof td === 'function' ? td() : ''),
+    edlEntreeDate: _dgVgEntreeDate(bail),
+    bareme: window.VETUSTE_BAREME
+  };
+  const saved = bail.depart && Array.isArray(bail.depart.vetusteLignes) ? bail.depart.vetusteLignes : null;
+  _dgVgRows = saved ? saved.map(r => Object.assign({}, r)) : _dgVgSeedFromEdl(bail);
   const body = el('ov-dg-restitution-body');
   if (!body) return;
   // I-DATE, surface 7 du §4 : ce champ était pré-rempli à `td()` et jamais confronté au
@@ -51315,22 +51458,38 @@ function _dgOpenRestitution(ref) {
     </div>
 
     <div style="padding:12px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;margin-bottom:10px">${_uiIcon('calc')} Calcul du solde de restitution</div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:3px">${_uiIcon('calc')} Réparations locatives — grille de vétusté</div>
+      <div class="mu sm" style="font-size:11px;margin-bottom:10px">Part réellement imputable au locataire (barème OPAC · décret 2016-382 · franchise + part résiduelle). Éléments « Mauvais état » repris de l'EDL de sortie.</div>
+      <div id="dg-vg-body"></div>
+      <button class="btn bt" style="margin-top:2px;border:1px dashed var(--bor2)" onclick="_dgVgAdd()">+ Ajouter une réparation</button>
+      <div id="dg-vg-warn" hidden style="margin-top:9px;font-size:11px;color:#8a5a12;background:#faeeda;border-radius:8px;padding:8px 10px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:11px;padding-top:9px;border-top:2px solid var(--bor)"><span style="font-weight:700">Sous-total réparations (part locataire)</span><b id="dg-vg-subtotal" style="font-size:15px">—</b></div>
+    </div>
+
+    <div style="padding:12px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px">${_uiIcon('calc')} Solde de tout compte</div>
       <table style="width:100%;font-size:12.5px;border-collapse:collapse">
-        <tr><td>DG initial versé</td><td style="text-align:right;font-weight:600">${fmt(solde.dgPaid)}</td></tr>
-        <tr><td>– Retenues sur dégradations</td>
-            <td style="text-align:right"><input class="inp" type="number" id="dg-restit-retenues" value="${solde.retenuesDG||0}" min="0" step="0.01" style="width:120px;text-align:right" onchange="_dgRestitRecalc('${escHtml(ref)}')"></td></tr>
+        <tr><td>DG initial versé</td><td style="text-align:right;font-weight:600">${fmt(dgVerse)}</td></tr>
+        <tr><td>– Réparations locatives (vétusté)</td><td style="text-align:right;color:var(--red)" id="dg-restit-retenues-display">${fmt(solde.retenuesDG)}</td></tr>
         <tr><td>– Loyers impayés cumulés</td><td style="text-align:right;color:var(--red)">${fmt(solde.loyerImpaye)}</td></tr>
+        <tr id="dg-restit-pen-row" hidden><td>+ Pénalité de retard (art. 22)</td><td style="text-align:right;color:#185fa5;font-weight:600" id="dg-restit-pen-amt">—</td></tr>
         <tr style="border-top:2px solid var(--bor)">
-          <td style="padding-top:8px;font-weight:700">Solde à restituer au locataire</td>
+          <td style="padding-top:8px;font-weight:700" id="dg-restit-solde-label">Solde à restituer au locataire</td>
           <td id="dg-restit-solde-display" style="padding-top:8px;text-align:right;font-weight:700;color:var(--grn);font-size:14px">${fmt(solde.soldeRestitue)}</td>
         </tr>
       </table>
+      <div id="dg-restit-pen-box" hidden style="margin-top:10px;background:#e6f1fb;border:1px solid #cfe0f6;border-radius:10px;padding:10px 12px">
+        <div class="mu sm" id="dg-restit-pen-calc" style="font-size:11px;color:#2f6bb0"></div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="dg-restit-adresse-ko" ${bail.dgAdresseNonCommuniquee ? 'checked' : ''} onchange="_dgRestitRecalc('${escHtml(ref)}')">
+          Le locataire n'a pas communiqué sa nouvelle adresse → pénalité non due (exception légale)
+        </label>
+      </div>
     </div>
 
     <div class="fg" style="margin-bottom:10px">
-      <label style="font-size:11.5px;font-weight:600">Détail des retenues (factures / devis joints)</label>
-      <textarea class="inp" id="dg-restit-detail-retenues" rows="3" placeholder="Ex: Peinture séjour 280€ (facture jointe)&#10;Joint salle de bain 60€ (devis joint)" style="width:100%">${escHtml(bail.dgDetailRetenues||'')}</textarea>
+      <label style="font-size:11.5px;font-weight:600">Notes complémentaires sur les retenues (facultatif)</label>
+      <textarea class="inp" id="dg-restit-detail-retenues" rows="2" placeholder="Ex : devis plombier joint, remarque particulière…" style="width:100%">${escHtml(bail.dgDetailRetenues||'')}</textarea>
     </div>
 
     <div class="fg" style="margin-bottom:10px">
@@ -51340,7 +51499,7 @@ function _dgOpenRestitution(ref) {
 
     <div class="fg" style="margin-bottom:0">
       <label style="font-size:11.5px;font-weight:600">Date du virement de restitution</label>
-      <input class="inp" type="date" id="dg-restit-date" value="${_dgDateVirement || ''}" style="width:180px">
+      <input class="inp" type="date" id="dg-restit-date" value="${_dgDateVirement || ''}" style="width:180px" onchange="_dgRestitRecalc('${escHtml(ref)}')">
       <div class="mu sm" style="font-size:10.5px;margin-top:4px">${_dgDejaSaisie
         ? 'Date déjà enregistrée pour cette restitution — la modifier réécrit le point de départ du délai de l’article 22.'
         : (_dgMouvement
@@ -51350,17 +51509,45 @@ function _dgOpenRestitution(ref) {
   `;
   el('ov-dg-restitution-ref').value = ref;
   openM('ov-dg-restitution');
+  _dgVgRender(ref);
 }
 
-/** Recalcule le solde en temps réel quand l'utilisateur saisit les retenues. */
+/** Recalcule le solde en temps réel : total vétusté + impayés + pénalité art. 22. */
 function _dgRestitRecalc(ref) {
   const bail = DB.baux && DB.baux[ref];
   if (!bail) return;
-  const retenues = parseFloat(v('dg-restit-retenues')) || 0;
-  const tempBail = { ...bail, dgRetenu: retenues };
+  // Retenues = total de la grille de vétusté (source unique du chiffre).
+  const vg = window.computeVetusteTotal ? window.computeVetusteTotal(_dgVgRows, _dgVgCtx) : { total: 0 };
+  const retenues = Math.round((vg.total || 0) * 100) / 100;
+  const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenues });
   const solde = _calculerSoldeDG(tempBail, DB.mouvements || []);
-  const display = el('dg-restit-solde-display');
-  if (display) display.textContent = fmt(solde.soldeRestitue);
+  // Pénalité art. 22 (au crédit du locataire), recomputée avec le toggle adresse + la date saisie.
+  const adresseKO = !!(el('dg-restit-adresse-ko') && el('dg-restit-adresse-ko').checked);
+  const dateRestit = v('dg-restit-date') || '';
+  const penBail = Object.assign({}, bail, { dgRetenu: retenues, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestit || bail.dgRestitueAt });
+  const pen = window._penaliteRetardDG ? window._penaliteRetardDG(penBail, dateRestit || undefined) : { penalite: 0, moisRetard: 0, enRetard: false, base: 0, exclue: false };
+  const penMontant = Number(pen.penalite) || 0;
+  const soldeFinal = Math.round((solde.soldeRestitue + penMontant) * 100) / 100;
+
+  const rt = el('dg-restit-retenues-display'); if (rt) rt.textContent = fmt(retenues);
+  const disp = el('dg-restit-solde-display'); if (disp) disp.textContent = fmt(soldeFinal);
+
+  // Bloc pénalité : visible dès qu'il y a retard (même neutralisée, pour montrer l'exception).
+  const penRow = el('dg-restit-pen-row'), penBox = el('dg-restit-pen-box'), penAmt = el('dg-restit-pen-amt'), penCalc = el('dg-restit-pen-calc');
+  if (penRow && penBox) {
+    if (pen.enRetard) {
+      penRow.hidden = (penMontant === 0);
+      penBox.hidden = false;
+      if (penAmt) penAmt.textContent = '+ ' + fmt(penMontant);
+      if (penCalc) penCalc.textContent = pen.exclue
+        ? `Retard de ${pen.moisRetard} mois entamé(s) — pénalité neutralisée (adresse non communiquée).`
+        : `10 % × ${fmt(pen.base)} (loyer HC) × ${pen.moisRetard} mois entamé(s) — dû au locataire au-delà du délai de l'article 22 (date limite ${pen.dateLimite ? fd(pen.dateLimite) : '—'}).`;
+    } else {
+      penRow.hidden = true;
+      penBox.hidden = true;
+    }
+  }
 }
 
 /** Confirme la restitution DG : marque le bail + propose envoi email. */
@@ -51369,9 +51556,12 @@ function _dgConfirmerRestitution() {
   if (!ref) return;
   const bail = DB.baux && DB.baux[ref];
   if (!bail) return;
-  const retenues = parseFloat(v('dg-restit-retenues')) || 0;
+  // Retenues = total de la grille de vétusté (source unique du chiffre) — plus de champ libre.
+  const vg = window.computeVetusteTotal ? window.computeVetusteTotal(_dgVgRows, _dgVgCtx) : { total: 0 };
+  const retenues = Math.round((vg.total || 0) * 100) / 100;
   const detailRetenues = v('dg-restit-detail-retenues') || '';
   const iban = v('dg-restit-iban') || '';
+  const adresseKO = !!(el('dg-restit-adresse-ko') && el('dg-restit-adresse-ko').checked);
   // I-DATE : plus de repli silencieux sur `td()`. Une restitution de DG datée du jour de
   // l'édition fausse le délai de l'article 22 et la pénalité de 10 %/mois qui en découle.
   // On demande la date réelle — c'est une saisie à faire, pas un mur : le champ est là.
@@ -51380,16 +51570,24 @@ function _dgConfirmerRestitution() {
   // et l'écran le dit. Ce qui a disparu, c'est le repli SILENCIEUX sur `td()`, qui faisait
   // porter au document une date qui n'était celle de rien.
   const dateRestitution = v('dg-restit-date') || '';
-  const solde = _calculerSoldeDG({ ...bail, dgRetenu: retenues }, DB.mouvements || []);
+  const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const solde = _calculerSoldeDG({ ...bail, dgPaid: dgVerse, dgRetenu: retenues }, DB.mouvements || []);
+  // Pénalité art. 22 (au crédit du locataire) — ajoutée au montant restitué.
+  const pen = window._penaliteRetardDG
+    ? window._penaliteRetardDG({ ...bail, dgRetenu: retenues, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestitution || bail.dgRestitueAt }, dateRestitution || undefined)
+    : { penalite: 0, moisRetard: 0 };
+  const penMontant = Number(pen.penalite) || 0;
+  const montantRestitue = Math.round((solde.soldeRestitue + penMontant) * 100) / 100;
 
   // AUDIT R3 — `dgRestitueAt` EST le drapeau de restitution, partout (fiche départ, statut DG,
   // gestion des impayés, timeline du bail). Sans date, il reste vide : le bail demeure
   // « à restituer » sur toutes les surfaces. On ne peut donc PAS faire confirmer « le bail sera
   // marqué DG restitué » puis afficher « ✓ DG restitué » : ce serait un demi-état annoncé comme
   // complet. L'écran dit exactement ce qui sera écrit — et ce qui ne le sera pas.
+  const _penLine = penMontant ? `\nDont pénalité de retard (art. 22) : ${fmt(penMontant)}` : '';
   const _msgConfirm = dateRestitution
-    ? `Confirmer la restitution DG ?\n\nMontant restitué : ${fmt(solde.soldeRestitue)}\nDate du virement : ${fd(dateRestitution)}\n\nLe bail sera marqué comme "DG restitué" + entrée audit-trail.`
-    : `Enregistrer une restitution INCOMPLÈTE ?\n\nMontant restitué : ${fmt(solde.soldeRestitue)}\nDate du virement : non renseignée\n\nLe montant, les retenues et l'entrée audit-trail sont conservés, `
+    ? `Confirmer la restitution DG ?\n\nMontant restitué : ${fmt(montantRestitue)}${_penLine}\nDate du virement : ${fd(dateRestitution)}\n\nLe bail sera marqué comme "DG restitué" + entrée audit-trail.`
+    : `Enregistrer une restitution INCOMPLÈTE ?\n\nMontant restitué : ${fmt(montantRestitue)}${_penLine}\nDate du virement : non renseignée\n\nLe montant, les retenues et l'entrée audit-trail sont conservés, `
       + `mais le bail restera « à restituer » tant que la date manque — c'est elle qui déclenche le `
       + `délai de l'article 22. Reviens la compléter dès que le virement est fait.`;
   if (!confirm2(_msgConfirm)) return;
@@ -51398,17 +51596,22 @@ function _dgConfirmerRestitution() {
   bail.dgDetailRetenues = detailRetenues;
   bail.locNouvIban = iban;
   bail.dgRestitueAt = dateRestitution;
-  bail.dgRestitueMontant = solde.soldeRestitue;
+  bail.dgRestitueMontant = montantRestitue;
+  bail.dgAdresseNonCommuniquee = adresseKO;
+  bail.dgPenaliteArt22 = penMontant;
+  // Persiste le détail structuré de la grille de vétusté (justificatif + réédition).
+  bail.depart = bail.depart || {};
+  bail.depart.vetusteLignes = _dgVgRows.map(r => ({ piece: r.piece, type: r.type, cout: Number(r.cout) || 0, source: r.source, mes: r.mes || '' }));
   _stamp(bail);
   if (typeof _auditLog === 'function') {
     _auditLog('dg-restitution', 'bail', ref,
-      `restitué=${solde.soldeRestitue}€ retenu=${retenues}€ impayé=${solde.loyerImpaye}€`);
+      `restitué=${montantRestitue}€ retenu=${retenues}€ impayé=${solde.loyerImpaye}€ pénalité=${penMontant}€`);
   }
   saveDB();
   closeM('ov-dg-restitution');
   showToast(dateRestitution
-    ? `✓ DG restitué : ${fmt(solde.soldeRestitue)} à ${bail.nom||'—'}`
-    : `Restitution enregistrée SANS date : ${fmt(solde.soldeRestitue)} à ${bail.nom||'—'} — le bail reste « à restituer » tant que la date du virement manque.`,
+    ? `✓ DG restitué : ${fmt(montantRestitue)} à ${bail.nom||'—'}`
+    : `Restitution enregistrée SANS date : ${fmt(montantRestitue)} à ${bail.nom||'—'} — le bail reste « à restituer » tant que la date du virement manque.`,
     dateRestitution ? 'ok' : 'warn', dateRestitution ? 4500 : 8000);
   if (typeof _rPeriodPage === 'function') setTimeout(() => _rPeriodPage(), 200);
 }

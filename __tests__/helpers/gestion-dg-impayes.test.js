@@ -4,10 +4,55 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG,
+  _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
   _planApurementStatut, _procedureJudiciaireEtat, _listerImpayesActifs,
   DG_STATUS, PROCEDURE_ETAT
 } from '../../js/core/gestion-dg-impayes.js';
+
+// ═══════════════════════════════════════════════════════════════════
+//  _penaliteRetardDG — pénalité art. 22 (10 % loyer HC / mois entamé)
+// ═══════════════════════════════════════════════════════════════════
+describe('_penaliteRetardDG', () => {
+  // dgRetenu>0 → délai 2 mois ; sortie 15/06/2026 → date limite 15/08/2026.
+  const base = { hc: 650, ch: 80, dgRetenu: 100, depart: { dateSortie: '2026-06-15' } };
+
+  it('restitué dans le délai → aucune pénalité', () => {
+    const r = _penaliteRetardDG({ ...base, dgRestitueAt: '2026-08-10' });
+    expect(r.enRetard).toBe(false);
+    expect(r.penalite).toBe(0);
+    expect(r.moisRetard).toBe(0);
+    expect(r.dateLimite).toBe('2026-08-15');
+  });
+  it('1 mois pile de retard → 1 mois entamé = 65 €', () => {
+    const r = _penaliteRetardDG({ ...base, dgRestitueAt: '2026-09-15' });
+    expect(r.moisRetard).toBe(1);
+    expect(r.base).toBe(650); // loyer HC, pas HC+charges
+    expect(r.penalite).toBe(65);
+  });
+  it('1 mois + 1 jour → 2 mois entamés = 130 €', () => {
+    const r = _penaliteRetardDG({ ...base, dgRestitueAt: '2026-09-16' });
+    expect(r.moisRetard).toBe(2);
+    expect(r.penalite).toBe(130);
+  });
+  it('adresse non communiquée → pénalité neutralisée', () => {
+    const r = _penaliteRetardDG({ ...base, dgRestitueAt: '2026-09-16', dgAdresseNonCommuniquee: true });
+    expect(r.enRetard).toBe(true);
+    expect(r.moisRetard).toBe(2);
+    expect(r.exclue).toBe(true);
+    expect(r.penalite).toBe(0);
+  });
+  it('non restitué → retard courant calculé à la date de référence', () => {
+    const r = _penaliteRetardDG(base, '2026-10-20'); // pas de dgRestitueAt
+    expect(r.enRetard).toBe(true);
+    expect(r.moisRetard).toBe(3); // 15/08 → 20/10 = 2 mois pleins + entamé
+    expect(r.penalite).toBe(195);
+  });
+  it('sans date de sortie → 0 (incalculable)', () => {
+    const r = _penaliteRetardDG({ hc: 650 });
+    expect(r.penalite).toBe(0);
+    expect(r.dateLimite).toBe(null);
+  });
+});
 
 // ═══════════════════════════════════════════════════════════════════
 //  _dgStatut — Tracking DG bail actif
