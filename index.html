@@ -23961,8 +23961,22 @@ function _avenantLoyerFeedback(){ var fb=document.getElementById('av-loyer-fb');
   fb.innerHTML='<div class="av-note" style="'+(g.ok?'background:#e1f5ee;border-color:#a9dcc6;color:#0f6e56':'background:#fcebeb;border-color:#f1b9b9;color:#a32d2d')+'">'+msg+'</div>';
 }
 function _avenantToggle(k){ _avenantState.sel[k]=!_avenantState.sel[k]; _avenantBuildGrid(); _avenantBuildGroups(); _avenantRender(); }
-function _avenantRender(){ var ctx=_avenantCtx(); if(!ctx)return; ctx.objets=_avenantCollect();
-  var r=window.buildAvenantHtml(ctx); var prev=document.getElementById('av-preview'); if(prev) prev.innerHTML=r.html;
+// Habille le corps de l'avenant avec la trame Propryo (_docPage : bandeau logos + titre + pied).
+function _avenantDocPageHtml(ref){
+  var bail=DB.baux&&DB.baux[ref]; if(!bail) return '';
+  var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
+  var ctx=_avenantCtx(); if(!ctx) return ''; ctx.objets=_avenantCollect();
+  var r=window.buildAvenantHtml(ctx);
+  return _docPage(ent, {
+    titre:'AVENANT N° '+(ctx.no||1)+' AU CONTRAT DE BAIL D\'HABITATION',
+    ctx:'Loi n° 89-462 du 6 juillet 1989 — portant modification du bail signé le '+(function(d){var p=String(d||'').slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'…';})(ctx.dateBail),
+    corps:r.html, ref:escHtml(ref), date:(v('av-effet')?'Effet du '+fd(v('av-effet')):''),
+    withStyle:false
+  });
+}
+function _avenantRender(){ var prev=document.getElementById('av-preview'); if(!prev)return;
+  var ref=el('ov-avenant-ref')?el('ov-avenant-ref').value:_avenantState.ref;
+  prev.innerHTML=_avenantDocPageHtml(ref||_avenantState.ref);
   _avenantLoyerFeedback();
 }
 function _avenantOpen(ref){
@@ -23989,14 +24003,12 @@ function _avenantOpen(ref){
    '#ov-avenant .av-grp h4{font:800 10px Inter;letter-spacing:.4px;text-transform:uppercase;color:var(--acc);margin:0 0 9px}'+
    '#ov-avenant .av-note{background:var(--warnbg,#faeeda);border:1px solid #efd9a8;border-radius:8px;padding:8px 10px;font-size:10.5px;color:#8a5a12;margin-top:8px;line-height:1.45}'+
    '#ov-avenant .av-prevwrap{background:var(--sur3);padding:14px;overflow:auto}'+
-   '#ov-avenant .av-doc{background:#fff;max-width:600px;margin:0 auto;padding:30px 38px;font:12.5px/1.7 Georgia,serif;color:#1a1a1a;text-align:justify;box-shadow:0 2px 12px rgba(0,0,0,.09)}'+
-   '#ov-avenant .av-h3{text-align:center;font:800 15px Georgia,serif;margin:0 0 2px}'+
-   '#ov-avenant .av-st{text-align:center;font-size:11px;color:#666;margin-bottom:16px}'+
-   '#ov-avenant .av-doc p{margin:0 0 9px}#ov-avenant .av-lead{font-variant:small-caps;letter-spacing:.3px;color:#333}'+
-   '#ov-avenant .av-art{margin:11px 0}#ov-avenant .av-at{font-weight:700;font-variant:small-caps;letter-spacing:.3px;display:block;margin-bottom:2px}'+
-   '#ov-avenant .av-cau{font-size:10.5px;border:1px dashed #c9a86a;background:#fdf7ec;padding:8px 10px;border-radius:5px;margin-top:12px;color:#6b4610}'+
-   '#ov-avenant .av-sig{display:flex;justify-content:space-between;gap:16px;margin-top:22px;flex-wrap:wrap}#ov-avenant .av-s{flex:1;min-width:150px;font-size:11px}#ov-avenant .av-la{color:#777;font-style:italic;font-size:10px}#ov-avenant .av-ln{border-bottom:1px solid #999;height:38px;margin-top:2px}'+
+   '#ov-avenant .pro-doc{background:#fff;max-width:600px;margin:0 auto;padding:26px 32px;box-shadow:0 2px 12px rgba(0,0,0,.09)}'+
+   '#ov-avenant .pro-doc .alerte{background:#fff8ef;border:1px solid #f0c987;border-radius:8px;padding:8px 11px;margin:8px 0;font-size:10.5px;line-height:1.5;color:#6b4610}'+
+   '#ov-avenant .pro-doc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}'+
+   '#ov-avenant .pro-doc .sig-bloc{border:1px solid #b8c0cd;border-radius:6px;min-height:70px;padding:6px;margin-top:4px;font-size:10px;color:#8b94a5}'+
    '#ov-avenant .av-foot{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--bor);background:var(--sur2)}'+
+   _docCss()+
    '</style>'+
    '<div class="av-wrap" onclick="event.stopPropagation()">'+
    '<div class="m-head"><div><h3 style="margin:0;font:800 15px Inter">Créer un avenant — n° '+_avenantState.no+'</h3><div style="font-size:12px;color:var(--t3);font-weight:600">'+who+'</div></div><button class="m-close" onclick="closeM(\'ov-avenant\')">✕</button></div>'+
@@ -24008,12 +24020,12 @@ function _avenantOpen(ref){
          '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Date d\'effet</label><input class="inp" type="date" id="av-effet" value="'+escHtml(td())+'" oninput="_avenantRender()"></div>'+
          '<div class="fld"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Fait à</label><input class="inp" id="av-ville" value="'+escHtml(bail.villeSignature||'')+'" oninput="_avenantRender()"></div>'+
        '</div>'+
-       '<div class="av-note" style="background:var(--sur3);border-color:var(--bor);color:var(--t3);margin-top:10px">Ce document formalise l\'accord des parties. Pour que le nouveau loyer / les charges / la composition soient pris en compte dans les calculs, applique la modification via « Modifier le bail » (le barème daté existant s\'en charge).</div>'+
+       '<div class="av-note" style="background:#e6f1fb;border-color:#cfe0f6;color:#185fa5;margin-top:10px">À l\'enregistrement, un changement de <b>loyer</b> ou de <b>charges</b> est automatiquement daté dans le barème (date d\'effet) → le dû et la régularisation se recalculent à partir de cette date. La signature électronique de l\'avenant arrivera dans une prochaine version.</div>'+
      '</div>'+
-     '<div class="av-prevwrap"><div class="av-doc" id="av-preview"></div></div>'+
+     '<div class="av-prevwrap"><div id="av-preview"></div></div>'+
    '</div>'+
+   '<input type="hidden" id="ov-avenant-ref" value="'+escHtml(ref)+'">'+
    '<div class="av-foot"><button class="btn bp" onclick="_avenantSave(\''+ (ref||'').replace(/'/g,"\\'") +'\')">Enregistrer l\'avenant</button>'+
-     '<button class="btn bs bb" onclick="_avenantExportWord()">Word</button>'+
      '<button class="btn bs bb" onclick="_avenantPrint()">Imprimer / PDF</button>'+
      '<button class="btn bs" onclick="closeM(\'ov-avenant\')">Fermer</button></div>'+
    '</div>';
@@ -24024,37 +24036,63 @@ function _avenantSave(ref){
   var bail=DB.baux&&DB.baux[ref]; if(!bail)return;
   var objets=_avenantCollect();
   if(!objets.length){ showToast('Coche au moins un objet de modification.','warn'); return; }
+  var effet=v('av-effet')||td();
   // Garde-fou argent/légal : bloquer un loyer travaux non conforme.
   var loyerObj=objets.find(function(o){return o.k==='loyer' && String(o.data.motif||'').indexOf('Travaux')===0;});
   if(loyerObj){ var g=window.loyerTravauxGuard({loyer0:Number(bail.hc)||0, coutTTC:loyerObj.data.cout, dpe:loyerObj.data.dpe, nouveau:loyerObj.data.nouveau});
     if(!g.ok){ if(!confirm2('La hausse de loyer n\'est pas conforme :\n\n'+g.blocages.join('\n')+'\n\nEnregistrer quand même l\'avenant ?')) return; } }
-  var ctx=_avenantCtx(); ctx.objets=objets; var built=window.buildAvenantHtml(ctx);
+  var docHtml=_avenantDocPageHtml(ref); var built=window.buildAvenantHtml(Object.assign(_avenantCtx(),{objets:objets}));
   bail.avenants=bail.avenants||[];
-  var rec={ no:_avenantState.no, dateEffet:v('av-effet')||'', ville:v('av-ville')||'', objets:objets, html:built.html, createdAt:(new Date()).toISOString() };
+  var rec={ no:_avenantState.no, dateEffet:effet, ville:v('av-ville')||'', objets:objets, html:docHtml, createdAt:(new Date()).toISOString() };
   bail.avenants.push(rec);
+
+  // PROPAGATION loyer/charges dans les calculs (barème daté — MÊME mécanisme que « Modifier le bail »).
+  var loyerAny=objets.find(function(o){return o.k==='loyer';});
+  var chargesAny=objets.find(function(o){return o.k==='charges';});
+  if(loyerAny||chargesAny){
+    var prevHc=Number(bail.hc)||0, prevCh=Number(bail.ch)||0;
+    var newHc=loyerAny?(parseFloat(String(loyerAny.data.nouveau).replace(',','.'))||prevHc):prevHc;
+    var newCh=chargesAny?(parseFloat(String(chargesAny.data.montant).replace(',','.'))||prevCh):prevCh;
+    // Couvre le passé au tarif PRÉCÉDENT jusqu'à la date d'effet (sinon duMois applique le nouveau au passé)…
+    if(typeof window._baremeGarantirCouverture==='function'){
+      DB.loyerBareme=window._baremeGarantirCouverture(DB.loyerBareme||[], { ref:ref, debut:bail.debut, hc:prevHc, ch:prevCh }, effet);
+    }
+    // …puis pose la nouvelle période datée à la date d'effet (source manuel = avenant).
+    if(typeof window._baremeAppliquerNouvellePeriode==='function'){
+      DB.loyerBareme=window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], { ref:ref, debut:effet, hc:newHc, ch:newCh, source:'manuel', bailDebut:bail.debut, note:'Avenant n° '+rec.no+(loyerAny&&chargesAny?' (loyer + charges)':loyerAny?' (loyer)':' (charges)') });
+    }
+    bail.hc=newHc; bail.ch=newCh; // termes courants du bail alignés (l'historique est porté par le barème)
+    if(Array.isArray(DB.bailEvents)) DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:effet, type:'modif', avenant:rec.no, hcAvant:prevHc, hcApres:newHc, chAvant:prevCh, chApres:newCh });
+  }
+
   if(typeof _stamp==='function') _stamp(bail);
-  if(Array.isArray(DB.bailEvents)){ DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:(v('av-effet')||td()), type:'avenant', no:rec.no, objets:objets.map(function(o){return o.k;}) }); }
-  if(typeof _auditLog==='function') _auditLog('avenant','bail',ref,'n°'+rec.no+' objets='+objets.map(function(o){return o.k;}).join(','));
+  if(Array.isArray(DB.bailEvents)){ DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:effet, type:'avenant', no:rec.no, objets:objets.map(function(o){return o.k;}) }); }
+  if(typeof _auditLog==='function') _auditLog('avenant','bail',ref,'n°'+rec.no+' objets='+objets.map(function(o){return o.k;}).join(',')+((loyerAny||chargesAny)?' [barème daté au '+effet+']':''));
   if(typeof saveDB==='function') saveDB();
-  showToast('Avenant n° '+rec.no+' enregistré ✓','ok');
+  var toastMsg='Avenant n° '+rec.no+' enregistré ✓'+((loyerAny||chargesAny)?' — loyer/charges appliqués au '+fd(effet):'');
+  showToast(toastMsg,'ok');
   closeM('ov-avenant'); // toujours fermer après un enregistrement réussi (évite un doublon au re-clic)
   if(built.caution){ setTimeout(function(){ if(confirm2('Cet avenant appelle un nouvel acte de cautionnement. L\'ouvrir maintenant ?')){ if(typeof genActeCautionnementRef==='function') genActeCautionnementRef(ref); } },150); }
+  if(typeof refreshAllIRL==='function') refreshAllIRL();
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
 }
-function _avenantDocWordHtml(){
-  var inner=(document.getElementById('av-preview')||{}).innerHTML||'';
-  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>Avenant</title>'+
-   '<style>@page{size:A4;margin:2cm 2.5cm}body{font-family:Georgia,serif;font-size:11pt;color:#111;line-height:1.6;text-align:justify}.av-h3{text-align:center;font-size:14pt;font-weight:bold}.av-st{text-align:center;color:#555;margin-bottom:16px}.av-at{font-weight:bold;display:block}.av-lead{font-variant:small-caps}.av-sig{display:flex;justify-content:space-between;margin-top:28px}.av-s{width:45%}.av-ln{border-bottom:1px solid #999;height:44px}.av-la{font-style:italic;color:#777;font-size:9pt}.av-cau{border:1px dashed #c9a86a;background:#fdf7ec;padding:8px;font-size:9.5pt}</style></head><body>'+inner+'</body></html>';
-}
-function _avenantExportWord(){
-  var bom='﻿'; var blob=new Blob([bom+_avenantDocWordHtml()],{type:'application/msword'});
-  var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url;
-  a.download='Avenant_'+_avenantState.no+'_'+((_avenantState.ref||'bail')).replace(/\s+/g,'_')+'.doc'; a.click(); URL.revokeObjectURL(url);
-  showToast('Avenant exporté (Word)','ok');
-}
-function _avenantPrint(){
-  var w=window.open('','_blank'); if(!w){ showToast('Fenêtre bloquée','err'); return; }
-  w.document.write(_avenantDocWordHtml()); w.document.close(); w.focus(); setTimeout(function(){ try{w.print();}catch(e){} },300);
+// Impression / PDF — trame Propryo (_docPage), pas de Word.
+function _avenantPrint(ref){
+  ref=ref||(el('ov-avenant-ref')?el('ov-avenant-ref').value:_avenantState.ref);
+  var docHtml=_avenantDocPageHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
+  var css='@page{size:A4;margin:1.8cm 2cm}*{box-sizing:border-box}body{padding:0;margin:0;background:#fff}'+_docCss()+
+    '.pro-doc .alerte{background:#fff8ef;border:.35mm solid #f0c987;border-radius:2.5mm;padding:3mm 4mm;margin:3mm 0;font-size:9pt;line-height:1.5;page-break-inside:avoid}'+
+    '.pro-doc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:3mm;page-break-inside:avoid}'+
+    '.pro-doc .sig-bloc{border:.3mm solid #b8c0cd;border-radius:2.5mm;min-height:70px;padding:3mm;margin-top:2mm;font-size:9pt;color:#8b94a5;page-break-inside:avoid}'+
+    '.print-hint{background:#f7f8fb;border-left:1mm solid #ff5a3c;padding:3mm 4mm;margin:0 0 4mm;font-size:9pt;color:#3c4658;border-radius:2.5mm;font-family:Inter,system-ui,sans-serif}'+
+    '@media screen{body{max-width:780px;margin:20px auto;padding:1.8cm 2cm;background:#f4f5f8}}@media print{.no-print,.print-hint{display:none!important}}';
+  var html='<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Avenant n° '+_avenantState.no+'</title><style>'+css+'</style></head><body>'+
+    '<div class="print-hint">💡 Avant d\'imprimer : décochez « En-têtes et pieds de page » dans la fenêtre d\'impression pour un rendu propre.</div>'+
+    docHtml+
+    '<div class="no-print" style="margin-top:16px;text-align:center;display:flex;justify-content:center;gap:12px"><button onclick="window.print()" style="padding:8px 20px;cursor:pointer;background:#ff5a3c;color:#fff;border:none;border-radius:6px">🖨 Imprimer / PDF</button><button onclick="window.close()" style="padding:8px 20px;cursor:pointer;background:#ccc;border:none;border-radius:6px">Fermer</button></div>'+
+    '</body></html>';
+  var w=window.open('','_blank'); if(!w){ showToast('Popup bloquée — autorisez les popups','err'); return; }
+  w.document.write(typeof _injectPreviewCloseButton==='function'?_injectPreviewCloseButton(html):html); w.document.close();
 }
 
 function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef, villeSig, mode) {

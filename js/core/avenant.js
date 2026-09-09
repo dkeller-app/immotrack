@@ -184,30 +184,32 @@ export function buildAvenantHtml(ctx) {
     if (!a) return;
     if (a.caution) caution = true;
     if (o.k === 'coloc' && String((o.data || {}).act || '').indexOf('Départ') !== 0 && (o.data || {}).entrant) entrant = o.data.entrant;
-    arts += '<div class="av-art"><span class="av-at">Article ' + romain(n++) + ' — ' + a.titre + '</span> ' + a.html + (a.base ? ' <em>(' + a.base + ')</em>' : '') + '</div>';
+    arts += '<h3>Article ' + romain(n++) + ' — ' + a.titre + '</h3><p>' + a.html + (a.base ? ' <em style="color:#8b94a5">(' + a.base + ')</em>' : '') + '</p>';
   });
-  arts += '<div class="av-art"><span class="av-at">Article ' + romain(n++) + ' — Prise d\'effet</span> Le présent avenant prend effet le ' + b(effet) + '.</div>';
-  arts += '<div class="av-art"><span class="av-at">Article ' + romain(n++) + ' — Stipulations inchangées</span> À l\'exception des modifications qui précèdent, l\'ensemble des clauses et conditions du bail initial demeure applicable et inchangé. Le présent avenant forme un tout indivisible avec le bail auquel il demeure annexé, et ne vaut ni novation ni conclusion d\'un nouveau bail.</div>';
+  arts += '<h3>Article ' + romain(n++) + ' — Prise d\'effet</h3><p>Le présent avenant prend effet le ' + b(effet) + '.</p>';
+  arts += '<h3>Article ' + romain(n++) + ' — Stipulations inchangées</h3><p>À l\'exception des modifications qui précèdent, l\'ensemble des clauses et conditions du bail initial demeure applicable et inchangé. Le présent avenant forme un tout indivisible avec le bail auquel il demeure annexé, et ne vaut ni novation ni conclusion d\'un nouveau bail.</p>';
 
   const signataires = locs.map(nom => ({ role: 'Le locataire', nom }));
   if (entrant) signataires.push({ role: 'Le colocataire entrant', nom: entrant });
   signataires.push({ role: 'Le bailleur', nom: ctx.bailleur || '' });
-  const sigHtml = signataires.map(s => '<div class="av-s">' + s.role + '<br><strong>' + esc(s.nom) + '</strong><div class="av-la">Lu et approuvé</div><div class="av-ln"></div></div>').join('');
+  const sigHtml = signataires.map(s =>
+    '<div><strong>' + s.role + '</strong><br><em>' + esc(s.nom) + '</em>' +
+    '<div class="sig-bloc"><em style="font-size:8.5pt">Précéder la signature de la mention « Lu et approuvé »</em></div></div>').join('');
 
+  // CORPS au gabarit Propryo (.pro-doc) — l'habillage (bandeau logos, titre, pied) est posé par _docPage.
   const html =
-    '<div class="av-doc">' +
-    '<h3 class="av-h3">AVENANT N° ' + (ctx.no || 1) + ' AU CONTRAT DE BAIL D\'HABITATION</h3>' +
-    '<div class="av-st">portant modification du bail signé le ' + frDate(ctx.dateBail) + '</div>' +
-    '<p class="av-lead">Entre les soussignés :</p>' +
+    '<p class="pro-lead" style="font-variant:small-caps;letter-spacing:.03em">Entre les soussignés :</p>' +
     '<p>' + b(ctx.bailleur || '…') + ', ci-après « le bailleur », d\'une part,</p>' +
     '<p>Et ' + b(locs.join(' & ') || '…') + ', ci-après « le(s) locataire(s) », d\'autre part,</p>' +
-    '<p class="av-lead">Il a été préalablement exposé ce qui suit :</p>' +
-    '<p>Les parties sont liées par un contrat de bail d\'habitation signé le ' + frDate(ctx.dateBail) + ', portant sur le logement situé ' + esc(ctx.bien || '…') + ' (ci-après « le bail »). Elles sont convenues d\'y apporter les modifications ci-après, sans que celles-ci n\'emportent conclusion d\'un nouveau bail.</p>' +
-    '<p class="av-lead">Ceci exposé, il a été convenu ce qui suit :</p>' +
+    '<table class="pro-kv"><tr><td>Bail modifié</td><td>Contrat d\'habitation signé le <strong>' + frDate(ctx.dateBail) + '</strong></td></tr>' +
+    '<tr><td>Logement</td><td>' + esc(ctx.bien || '…') + '</td></tr>' +
+    '<tr><td>Loyer mensuel HC en vigueur</td><td>' + num(ctx.loyer0) + ' €</td></tr></table>' +
+    '<p style="font-variant:small-caps;letter-spacing:.03em">Il a été préalablement exposé ce qui suit :</p>' +
+    '<p>Les parties sont convenues d\'apporter au bail les modifications ci-après, sans que celles-ci n\'emportent novation ni conclusion d\'un nouveau bail.</p>' +
+    '<p style="font-variant:small-caps;letter-spacing:.03em">Ceci exposé, il a été convenu ce qui suit :</p>' +
     arts +
-    (caution ? '<div class="av-cau">La ou les cautions concernées doivent réitérer leur engagement par un nouvel acte de cautionnement couvrant les présentes modifications, à peine de décharge (art. 22-1).</div>' : '') +
-    '<p class="av-fait">Fait à ' + esc(ctx.ville || '…') + ', le ' + effet + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
-    '<div class="av-sig">' + sigHtml + '</div>' +
-    '</div>';
+    (caution ? '<div class="alerte">La ou les cautions concernées doivent réitérer leur engagement par un nouvel acte de cautionnement couvrant les présentes modifications, à peine de décharge (art. 22-1 de la loi du 6 juillet 1989).</div>' : '') +
+    '<p style="margin-top:4mm">Fait à ' + esc(ctx.ville || '…') + ', le ' + effet + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
+    '<h3>Signatures</h3><div class="grid2">' + sigHtml + '</div>';
   return { html, caution, nbArticles: n - 1, entrant };
 }
