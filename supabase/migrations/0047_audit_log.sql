@@ -22,8 +22,11 @@ begin;
 create table public.audit_log (
   id           uuid primary key default gen_random_uuid(),
   espace_id    uuid not null references public.espaces(id) on delete cascade,
-  user_id      uuid not null default auth.uid() references auth.users(id),  -- FORCÉ par trigger
-  ts           timestamptz not null default now(),                          -- FORCÉ par trigger
+  user_id      uuid not null default auth.uid() references auth.users(id),  -- FORCÉ par trigger (fait foi)
+  ts           timestamptz not null default now(),                          -- FORCÉ par trigger (fait foi)
+  client_ts    timestamptz, -- heure d'ACTION déclarée par le client (informative, NON fiable). Sert
+                            -- l'affichage "action faite le…" pour une action hors-ligne synchronisée
+                            -- plus tard (et l'ETL des entrées historiques). `ts` (serveur) fait foi.
   user_name    text,        -- nom d'affichage fourni par le client (cosmétique ; l'identité = user_id)
   action       text not null,                 -- create | update | delete | restore
   entity_type  text not null,                 -- entite | logement | bail | mouvement | quittance | …
