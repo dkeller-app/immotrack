@@ -9094,7 +9094,7 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .loc-card-row-b.loc-vacant .loc-avatar-b { background: transparent; color: var(--t3); border: 1px solid var(--bor2); }
 .loc-info-b { min-width: 0; }
 .loc-info-b .nom-b { font-weight: 600; font-size: 13px; color: var(--t1, #1f2937); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.loc-info-b .nom-b .loc-nom-badge { font-size: 9.5px; padding: 1px 6px; font-weight: 700; }
+.loc-info-b .nom-b .loc-nom-badge { font-size: 9.5px; padding: 1px 6px; font-weight: 700; white-space: nowrap; flex: none; }
 .loc-info-b .nom-b .loc-vacant-tag { color: var(--neg); font-weight: 700; }
 .loc-info-b .meta-b { font-size: 11px; color: var(--t2, #6b7280); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .loc-loyer-b { font-weight: 600; font-size: 13px; color: var(--t1, #1f2937); white-space: nowrap; }
@@ -9148,13 +9148,28 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   .imm-block-a-header .imm-stats b { font-size: 12.5px; }
   .imm-block-a-header .imm-adr { font-size: 11px; }
   .imm-block-a-header .imm-name { font-size: 14px; }
-  .loc-card-row-b {
-    grid-template-columns: 32px 1fr auto auto auto;
-    gap: 8px;
-    padding: 8px 10px;
-  }
-  .loc-card-row-b .loc-meta-bail-b { display: none; }
   .loc-actions-b button { padding: 4px 7px; font-size: 10.5px; }
+}
+
+/* v15.614 REFONTE-PC — sous plein desktop (≤1279px) la rangée passe en 2 lignes :
+   infos en haut, actions LIBELLÉES sur leur propre ligne pleine largeur → jamais de débordement
+   ni de badges écrasés, quelle que soit la largeur de la fenêtre. */
+@media (min-width: 481px) and (max-width: 1279px) {
+  .loc-card-row-b {
+    grid-template-columns: 36px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "av info loyer ech"
+      "act act act act";
+    gap: 6px 12px;
+    align-items: center;
+    padding: 9px 12px;
+  }
+  .loc-card-row-b > .loc-avatar-b { grid-area: av; }
+  .loc-card-row-b > .loc-info-b { grid-area: info; }
+  .loc-card-row-b > .loc-loyer-b { grid-area: loyer; }
+  .loc-card-row-b > .loc-ech-b { grid-area: ech; }
+  .loc-card-row-b > .loc-meta-bail-b { display: none; }
+  .loc-card-row-b > .loc-actions-b { grid-area: act; justify-content: flex-end; margin-top: 2px; }
 }
 
 /* === MOBILE SPEC ≤ 480px : cards empilées + sticky + touch 44px === */
