@@ -28,17 +28,18 @@ Document structuré : titre + rappel du bail ; **préambule** (« Entre les sous
 ## §4 — Architecture (réutilise l'existant — zéro réinvention)
 
 - **Module pur** `js/core/avenant.js` (testé) : `avenantArticle(k, data, ctx)`, `buildAvenantHtml(ctx)`, `loyerTravauxGuard(...)`, `romain(n)`.
-- **UI inline** `index.html` : modale `#ov-avenant` (formulaire 12 objets + aperçu live), `_avenantOpen/_avenantSave/_avenantExportWord/_avenantPrint`. Entrée « Créer un avenant… » dans `openBailMenu` (bail en cours).
+- **UI inline** `index.html` : modale `#ov-avenant` (formulaire 12 objets + aperçu live), `_avenantOpen/_avenantSave/_avenantDocPageHtml/_avenantPrint`. Entrée « Créer un avenant… » dans `openBailMenu` (bail en cours).
 - **Pré-remplissage** depuis le bail (bailleur/entité, `locataires[]`, `adrBien`, `hc`, date de signature).
-- **Export** : Word (HTML→.doc, même mécanisme que `exportBailWord`) + impression/PDF (`window.print`). Cohérent avec l'acte de cautionnement (`genActeCautionnementDoc`).
-- **Persistance** : `bail.avenants[]` = `[{no, dateEffet, ville, objets:[{k,data}], html, createdAt}]` (blob bail, **aucune colonne cloud**) + trace `DB.bailEvents` (type `'avenant'`) + `_auditLog`. `amends_id` (déjà en base) réservé à un futur chaînage bail↔bail ; non requis pour ce modèle sous-document.
-- **Caution** : si l'avenant appelle une caution (colocataire entrant / caution / …), offre de régénérer l'**acte de cautionnement** existant.
+- **DOCUMENT = trame Propryo** (rév. v15.615, retour user « boulot d'amateur ») : le corps `.pro-doc` (`buildAvenantHtml`) est habillé par **`_docPage(ent,{titre,ctx,corps,ref,date})`** — bandeau logos bailleur+Propryo, titre, table `pro-kv`, `h3` d'articles, `grid2/sig-bloc`, mentions — exactement comme l'acte de cautionnement / le bail. **Word SUPPRIMÉ** (retour user) : Impression / PDF seulement (`_avenantPrint` → fenêtre `_docCss()`), cohérent `genActeCautionnementDoc`.
+- **PROPAGATION loyer/charges (rév. v15.615, demande user « pris en compte dans les calculs, charges surtout »)** : à l'enregistrement, un objet `loyer`/`charges` **date une période dans `DB.loyerBareme`** à la date d'effet — MÊME mécanisme que « Modifier le bail » : clamp de la date (`_baremeClampDateEffet` + `_bailModifBorneMinEffet` = 1ᵉʳ du mois, jamais avant le début du bail ni un mois quittancé), `_baremeGarantirCouverture` (passé au tarif précédent) puis `_baremeAppliquerNouvellePeriode` (source `manuel`). → `duMois()` et la **régularisation** recalculent à partir de la date d'effet. `bail.hc/ch` alignés. Vérifié : charges 80→95 au 01/10 → dû sept 730 / oct 745.
+- **Persistance** : `bail.avenants[]` = `[{no, dateEffet, ville, objets:[{k,data}], html (doc habillé), createdAt}]` (blob bail, **aucune colonne cloud**) + trace `DB.bailEvents` (type `'avenant'` + `'modif'` sur loyer/charges) + `_auditLog`. `amends_id` (déjà en base) réservé à un futur chaînage bail↔bail.
+- **Caution** : si l'avenant appelle une caution, offre de régénérer l'**acte de cautionnement** existant.
 
 ## §5 — Choix de périmètre V1 (portes ouvertes)
 
-- **Signature in-app** de l'avenant (présentiel canvas + distant relais, même porte que le bail) = **phase 2** (le fil rouge de signature est couplé au document « bail » ; découplage + conteneur `signatures` dédié à faire). V1 = document à signer.
-- **Propagation automatique** du nouveau loyer/charges/composition dans les calculs = via « Modifier le bail » existant (barème daté + reset signatures + `bail-modif.js`). L'avenant formalise l'accord ; un message dans la modale le précise. Propagation en un clic depuis l'avenant = phase 2.
+- **Signature in-app** de l'avenant (présentiel canvas + distant relais, même porte que le bail) = **phase 2** (le fil rouge de signature est couplé au document « bail » ; découplage + conteneur `signatures` dédié à faire). V1 = document (trame Propryo) à imprimer / signer.
+- **Forfait de charges (art. 23-1) ↔ régularisation** : l'avenant enregistre `bail.chForfait` mais le **moteur de régularisation ne le lit pas encore** → un forfait posé par avenant serait aujourd'hui quand même régularisé. Câblage régul (honorer `chForfait`) = suite à faire (chantier Charges). Le dû mensuel, lui, est correct.
 
 ## §6 — Gate
 
-`npx vitest run` (4021 tests, dont 17 avenant) · `node scripts/check-inline-js.mjs` = 5|0 · CRLF index.html = 0 bare LF · smoke 3 formats. Livrable sensible (légal + argent) → audit `code-reviewer` avant « prêt ».
+`npx vitest run` (4025 tests, dont 21 avenant) · `node scripts/check-inline-js.mjs` = 5|0 · CRLF index.html = 0 bare LF · smoke 3 formats. Livrable sensible (légal + argent) → audit `code-reviewer` **+ 2ᵉ passe adversariale** (money) : 1er audit = base légale/forfait/XSS + clamp date d'effet manquant ; 2ᵉ passe = clamp fidèle à `saveBail`, aucune fausseté, seul reste `chForfait` inerte.

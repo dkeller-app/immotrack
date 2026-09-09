@@ -24065,19 +24065,23 @@ function _avenantSave(ref){
     var prevHc=Number(bail.hc)||0, prevCh=Number(bail.ch)||0;
     var newHc=loyerAny?(parseFloat(String(loyerAny.data.nouveau).replace(',','.'))||prevHc):prevHc;
     var newCh=chargesAny?(parseFloat(String(chargesAny.data.montant).replace(',','.'))||prevCh):prevCh;
-    // Couvre le passé au tarif PRÉCÉDENT jusqu'à la date d'effet (sinon duMois applique le nouveau au passé)…
-    if(typeof window._baremeGarantirCouverture==='function'){
-      DB.loyerBareme=window._baremeGarantirCouverture(DB.loyerBareme||[], { ref:ref, debut:bail.debut, hc:prevHc, ch:prevCh }, effet);
+    // Ne date une période QUE si un terme change réellement (évite une période redondante à montant identique).
+    if(newHc!==prevHc || newCh!==prevCh){
+      // Couvre le passé au tarif PRÉCÉDENT jusqu'à la date d'effet (sinon duMois applique le nouveau au passé)…
+      if(typeof window._baremeGarantirCouverture==='function'){
+        DB.loyerBareme=window._baremeGarantirCouverture(DB.loyerBareme||[], { ref:ref, debut:bail.debut, hc:prevHc, ch:prevCh }, effet);
+      }
+      // …puis pose la nouvelle période datée à la date d'effet (source manuel = avenant).
+      if(typeof window._baremeAppliquerNouvellePeriode==='function'){
+        DB.loyerBareme=window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], { ref:ref, debut:effet, hc:newHc, ch:newCh, source:'manuel', bailDebut:bail.debut, note:'Avenant n° '+rec.no+(loyerAny&&chargesAny?' (loyer + charges)':loyerAny?' (loyer)':' (charges)') });
+      }
+      bail.hc=newHc; bail.ch=newCh; // termes courants du bail alignés (l'historique est porté par le barème)
+      if(Array.isArray(DB.bailEvents)) DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:effet, type:'modif', avenant:rec.no, hcAvant:prevHc, hcApres:newHc, chAvant:prevCh, chApres:newCh });
     }
-    // …puis pose la nouvelle période datée à la date d'effet (source manuel = avenant).
-    if(typeof window._baremeAppliquerNouvellePeriode==='function'){
-      DB.loyerBareme=window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], { ref:ref, debut:effet, hc:newHc, ch:newCh, source:'manuel', bailDebut:bail.debut, note:'Avenant n° '+rec.no+(loyerAny&&chargesAny?' (loyer + charges)':loyerAny?' (loyer)':' (charges)') });
-    }
-    bail.hc=newHc; bail.ch=newCh; // termes courants du bail alignés (l'historique est porté par le barème)
-    // Forfait de charges (meublé/colocation) : marque le bail pour que la régularisation NE le régularise PAS (art. 23-1).
-    if(chargesAny && String(chargesAny.data.mode||'').toLowerCase().indexOf('forfait')>=0) bail.chForfait=true;
-    else if(chargesAny) bail.chForfait=false;
-    if(Array.isArray(DB.bailEvents)) DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:effet, type:'modif', avenant:rec.no, hcAvant:prevHc, hcApres:newHc, chAvant:prevCh, chApres:newCh });
+    // Statut forfait de charges (art. 23-1) : enregistré sur le bail pour un usage FUTUR par la
+    // régularisation. ⚠ Non encore lu par le moteur de régul (chantier Charges) → un forfait posé
+    // ici serait aujourd'hui quand même régularisé : câblage régul = suite à faire (voir BACKLOG).
+    if(chargesAny) bail.chForfait = String(chargesAny.data.mode||'').toLowerCase().indexOf('forfait')>=0;
   }
 
   if(typeof _stamp==='function') _stamp(bail);
