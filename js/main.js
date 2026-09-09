@@ -116,6 +116,7 @@ import {
 import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './core/bail-historique.js';
 // HISTORIQUE-BAIL-ONGLET - popup de validation des modifications financieres du bail
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain } from './core/avenant.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
@@ -580,6 +581,11 @@ window._dgStatut = _dgStatut;
 window._calculerDelaiRestitution = _calculerDelaiRestitution;
 window._calculerSoldeDG = _calculerSoldeDG;
 window._penaliteRetardDG = _penaliteRetardDG;
+// Avenant au bail (loi 89-462) — articles + garde-fous loyer travaux
+window.loyerTravauxGuard = loyerTravauxGuard;
+window.avenantArticle = avenantArticle;
+window.buildAvenantHtml = buildAvenantHtml;
+window.avenantRomain = avenantRomain;
 // Grille de vétusté (décret 2016-382 / OPAC)
 window.VETUSTE_BAREME = VETUSTE_BAREME;
 window.VETUSTE_SOURCES = VETUSTE_SOURCES;
