@@ -18,6 +18,7 @@ import { planFlush, FLUSH_DEBOUNCE_MS } from '../core/sync-schedule.js'
 // mode test). Elle était redéclarée ici ET dans le module ; deux définitions
 // d'une même clé de stockage finissent toujours par diverger.
 import { MIROIR_KEY as MIRROR_KEY } from '../core/offline-boot.js'
+import { makeDetUuid } from '../core/det-uuid.js'   // P0-4 : id d'audit DÉTERMINISTE (anti-doublons, DRY)
 
 const FLAG = (() => {
   try {
@@ -69,9 +70,13 @@ async function _auditCloudFlush() {
   if (!pending.length) return
   _auditCloudBusy = true
   try {
-    const uuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
-      : ('a' + Date.now().toString(16) + '-' + Math.random().toString(16).slice(2, 10))
-    for (const e of pending) { if (!e.id) e.id = uuid() }   // id stable → idempotence des réessais
+    // id DÉTERMINISTE dérivé du CONTENU (réutilise det-uuid.js — DRY) → la MÊME entrée donne le MÊME id
+    // à chaque réessai/reload → ON CONFLICT DO NOTHING dédoublonne SANS dépendre d'une persistance de l'id
+    // (fix F-A de l'audit : plus de doublons indélébiles si l'id n'a pas été sauvegardé avant un reload).
+    const _det = makeDetUuid('immotrack-audit')
+    for (const e of pending) {
+      if (!e.id) e.id = _det(e.ts || '', e.action || '', e.entityType || '', e.entityId != null ? String(e.entityId) : '', e.userId || '')
+    }
     const toRow = e => ({
       id: e.id,
       espace_id: _cloudEspaceId,
