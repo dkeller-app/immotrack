@@ -6248,6 +6248,9 @@ function agendaAutoSync() {
   }
   const existing = new Set(DB.agenda.filter(e=>e.auto).map(e=>e.autoKey));
   const toAdd = [];
+  // Clés BAIL/BAIL_PREVIS valides ce run — sert à purger les doublons dont la date a bougé
+  // (ex. correctif fuseau horaire : échéance 30/12 → 31/12, l'ancienne clé devient orpheline).
+  const validBailKeys = new Set();
 
   DB.logements.forEach(l => {
     if(!l.locataire || !l.ref) return;
@@ -6283,6 +6286,7 @@ function agendaAutoSync() {
     const echeanceFin = _bailEcheanceEffective(bail, l);
     if(echeanceFin) {
       const key = `BAIL:${l.ref}:${echeanceFin}`;
+      validBailKeys.add(key);
       if(!existing.has(key)) {
         toAdd.push({ id:agendaId(), titre:`Fin de bail — ${l.ref} (${bail.nom||l.locataire})`,
           date:echeanceFin, dateFin:echeanceFin, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
@@ -6297,6 +6301,7 @@ function agendaAutoSync() {
       const preavis = _bailPreavisInfo(bail, l);
       if(preavis && preavis.preavisStart) {
         const keyPrev = `BAIL_PREVIS:${l.ref}:${preavis.fin}`;
+        validBailKeys.add(keyPrev);
         if(!existing.has(keyPrev)) {
           const tenant = bail.nom || l.locataire || '—';
           const typeLabel = preavis.isMeuble ? 'meublé' : 'nu';
@@ -6427,8 +6432,16 @@ function agendaAutoSync() {
     DB.agenda = DB.agenda.filter(e => !(e.auto && e.cat === 'DIAG' && !validDiagKeys.has(e.autoKey)));
     _diagPurged = DB.agenda.length !== _before;
   }
+  // Purge des échéances BAIL/BAIL_PREVIS orphelines (autoKey absent de l'état courant) — supprime
+  // notamment les doublons dont la date a bougé d'un jour après le correctif fuseau horaire.
+  let _bailPurged = false;
+  if (DB.agenda && DB.agenda.length) {
+    const _before = DB.agenda.length;
+    DB.agenda = DB.agenda.filter(e => !(e.auto && (e.cat === 'BAIL' || e.cat === 'BAIL_PREVIS') && !validBailKeys.has(e.autoKey)));
+    _bailPurged = DB.agenda.length !== _before;
+  }
 
-  if(toAdd.length || _diagPurged) {
+  if(toAdd.length || _diagPurged || _bailPurged) {
     if(toAdd.length) DB.agenda.push(...toAdd);
     DB.agendaLastSync = todayStr;
     saveDB();
@@ -24201,7 +24214,7 @@ function _congeExtra(ref){
       }
       e.dateFin=fd(_isoLocal(finD)); // format LOCAL (évite le décalage d'un jour de toISOString)
     } else { e.dateFin=bail.fin?fd(bail.fin):'‹échéance du bail›'; }
-    e.mentionPreavis='Le délai de préavis légal applicable à ce congé est de '+preavisMois+' mois avant le terme du bail ; la date d\'effet indiquée ci-dessus le respecte.';
+    e.mentionPreavis='Le délai de préavis légal applicable à ce congé est de '+preavisMois+' mois ; il court à compter de la réception du présent congé et la date d\'effet ci-dessus a été fixée pour le respecter.';
   } else if(_congeState.kind==='conge_locataire'){
     var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
     e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='à convenir';
@@ -27627,15 +27640,21 @@ function _commsHubSend(ref, type) {
     case 'bail-conge-bailleur-6mois': {
       extra.motifConge = promptVal('Motif du congé (vente / reprise / motif légitime et sérieux) :', 'vente');
       extra.motifDetail = promptVal('Détail du motif (cession à un tiers / reprise pour soi/proche/motif) :', '');
-      extra.dateFin = (DB.baux && DB.baux[ref] && DB.baux[ref].fin) || '';
+      const _finC = (DB.baux && DB.baux[ref] && DB.baux[ref].fin) || '';
+      extra.dateFin = _finC ? fd(_finC) : '';
       // Tokens du modèle (mêmes que l'acte Congé) : préavis réel + clause préemption pour la vente uniquement.
       const _logC = (DB.logements||[]).find(l => l && l.ref === ref) || {};
       const _bcp = _bailPreavisInfo((DB.baux && DB.baux[ref]) || {}, _logC);
       const _pm = _bcp ? _bcp.preavisMonths : 6;
       extra.mentionPreavis = 'Le délai de préavis légal applicable à ce congé est de ' + _pm + ' mois avant le terme du bail.';
-      if (/vente/i.test(extra.motifConge)) {
+      // Vente : on n'écrase PAS un motifDetail annulé (null) — la boucle d'annulation doit encore le voir.
+      // On ajoute la clause de préemption ET la reproduction verbatim des 5 alinéas de l'art. 15-II
+      // (imposée « à peine de nullité dans chaque notification » — vaut aussi pour la notification par email).
+      if (extra.motifDetail !== null && /vente/i.test(extra.motifConge)) {
         extra.motifDetail = (extra.motifDetail ? extra.motifDetail + '\n\n' : '')
-          + 'Conformément à l\'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d\'un droit de préemption aux prix et conditions indiqués ci-dessus.';
+          + 'Conformément à l\'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d\'un droit de préemption aux prix et conditions indiqués ci-dessus.'
+          + '\n\nReproduction de l\'article 15, II de la loi du 6 juillet 1989 (à peine de nullité) :\n\n'
+          + (window.ART15_II_ALINEAS || []).join('\n\n');
       }
       break; }
     case 'bail-preavis-recu': {
