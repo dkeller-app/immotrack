@@ -2,7 +2,67 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, bailForfaitActifLe } from '../../js/core/avenant.js';
+
+describe('bailForfaitActifLe — timeline forfait (art. 23-1)', () => {
+  const chAvenant = (dateEffet, mode) => ({ no: 1, dateEffet, objets: [{ k: 'charges', data: { mode, montant: 80 } }] });
+
+  it('aucun avenant + chForfait:true → forfait à toute date (fallback day-1/legacy)', () => {
+    const bail = { chForfait: true, debut: '2020-01-01' };
+    expect(bailForfaitActifLe(bail, '2020-01-01')).toBe(true);
+    expect(bailForfaitActifLe(bail, '2026-06-15')).toBe(true);
+  });
+
+  it('aucun avenant + chForfait absent/false → jamais forfait', () => {
+    expect(bailForfaitActifLe({ debut: '2020-01-01' }, '2026-06-15')).toBe(false);
+    expect(bailForfaitActifLe({ chForfait: false }, '2026-06-15')).toBe(false);
+  });
+
+  it('avenant « passage au forfait » au 01/07 → provisions avant, forfait à partir du 1er', () => {
+    const bail = { chForfait: true, avenants: [chAvenant('2026-07-01', 'Passage au forfait de charges')] };
+    expect(bailForfaitActifLe(bail, '2026-06-30')).toBe(false);
+    expect(bailForfaitActifLe(bail, '2026-07-01')).toBe(true);
+    expect(bailForfaitActifLe(bail, '2027-03-10')).toBe(true);
+  });
+
+  it('N-1 régularisé après signature : fenêtre antérieure à l\'effet reste provisions', () => {
+    // Avenant forfait signé/effet 2026-07-01 ; on régularise l'exercice 2025 → 100 % provisions.
+    const bail = { chForfait: true, avenants: [chAvenant('2026-07-01', 'Passage au forfait de charges')] };
+    expect(bailForfaitActifLe(bail, '2025-01-01')).toBe(false);
+    expect(bailForfaitActifLe(bail, '2025-12-31')).toBe(false);
+  });
+
+  it('forfait puis retour aux provisions → forfait seulement entre les deux effets', () => {
+    const bail = {
+      chForfait: false,
+      avenants: [
+        chAvenant('2026-07-01', 'Passage au forfait de charges'),
+        chAvenant('2027-01-01', 'Passage aux provisions avec régularisation')
+      ]
+    };
+    expect(bailForfaitActifLe(bail, '2026-06-30')).toBe(false);
+    expect(bailForfaitActifLe(bail, '2026-09-15')).toBe(true);
+    expect(bailForfaitActifLe(bail, '2027-01-01')).toBe(false);
+    expect(bailForfaitActifLe(bail, '2027-05-01')).toBe(false);
+  });
+
+  it('date avant le 1er avenant charges → régime d\'origine (provisions), même si chForfait true aujourd\'hui', () => {
+    const bail = { chForfait: true, avenants: [chAvenant('2026-07-01', 'Passage au forfait de charges')] };
+    expect(bailForfaitActifLe(bail, '2024-05-01')).toBe(false);
+  });
+
+  it('avenant sans objet charges (loyer seul) → ignoré, retombe sur le flag', () => {
+    const bail = { chForfait: true, avenants: [{ no: 1, dateEffet: '2026-07-01', objets: [{ k: 'loyer', data: { nouveau: 700 } }] }] };
+    expect(bailForfaitActifLe(bail, '2026-08-01')).toBe(true); // fallback flag (aucun avenant charges)
+  });
+
+  it('robuste : bail null / date vide / avenants absents', () => {
+    expect(bailForfaitActifLe(null, '2026-01-01')).toBe(false);
+    expect(bailForfaitActifLe({ chForfait: true }, '')).toBe(false);
+    expect(bailForfaitActifLe({ chForfait: true }, null)).toBe(false);
+    expect(bailForfaitActifLe({}, '2026-01-01')).toBe(false);
+  });
+});
 
 describe('champ vide → marqueur « à compléter » (jamais un « … » final)', () => {
   it('clause sans texte → marqueur av-todo, pas de …', () => {

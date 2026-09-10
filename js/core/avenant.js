@@ -279,3 +279,33 @@ export function avenantChampsManquants(objets) {
   });
   return out;
 }
+
+// ── Forfait de charges (art. 23-1) : timeline reconstruite depuis les avenants ──────────
+// Le forfait de charges N'EST PAS régularisable (art. 23-1 loi 89-462). L'avenant pose
+// `bail.chForfait`, mais ce flag est NON DATÉ : régulariser un exercice antérieur à la
+// signature (N-1, usage courant) ne doit PAS être court-circuité. On reconstruit donc l'état
+// forfait À LA DATE demandée depuis `bail.avenants[]` (chaque objet charges porte data.mode :
+// « … forfait … » = ON, « … provisions … » = OFF), ce qui gère N-1, l'année de transition et
+// un retour aux provisions. Utilisé par computeRegul pour exclure les charges/provisions
+// datées pendant une période au forfait. Pur (aucune DB / DOM).
+export function bailForfaitActifLe(bail, dateIso) {
+  if (!bail || !dateIso) return false;
+  const d = String(dateIso).slice(0, 10);
+  // Avenants portant un changement de régime de charges (mode renseigné), triés par date d'effet.
+  const chAvs = (Array.isArray(bail.avenants) ? bail.avenants : [])
+    .filter(a => a && a.dateEffet && Array.isArray(a.objets)
+      && a.objets.some(o => o && o.k === 'charges' && o.data && String(o.data.mode || '').trim() !== ''))
+    .slice()
+    .sort((a, b) => String(a.dateEffet).localeCompare(String(b.dateEffet)));
+  // Pas de timeline charges → fallback sur le flag global (forfait day-1 / legacy).
+  if (!chAvs.length) return bail.chForfait === true;
+  // Applique dans l'ordre les avenants dont l'effet est atteint à la date demandée.
+  // Régime d'origine (avant le 1er avenant charges) = provisions (false).
+  let etat = false;
+  for (const a of chAvs) {
+    if (String(a.dateEffet).slice(0, 10) > d) break;
+    const ch = a.objets.find(o => o && o.k === 'charges' && o.data && String(o.data.mode || '').trim() !== '');
+    etat = String(ch.data.mode || '').toLowerCase().indexOf('forfait') >= 0;
+  }
+  return etat;
+}

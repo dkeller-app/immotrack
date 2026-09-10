@@ -116,7 +116,7 @@ import {
 import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './core/bail-historique.js';
 // HISTORIQUE-BAIL-ONGLET - popup de validation des modifications financieres du bail
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants } from './core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, bailForfaitActifLe } from './core/avenant.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
@@ -587,6 +587,8 @@ window.avenantArticle = avenantArticle;
 window.buildAvenantHtml = buildAvenantHtml;
 window.avenantRomain = avenantRomain;
 window.avenantChampsManquants = avenantChampsManquants;
+// Forfait de charges (art. 23-1) : état forfait daté, lu par computeRegul pour ne pas régulariser un forfait
+window.bailForfaitActifLe = bailForfaitActifLe;
 // Grille de vétusté (décret 2016-382 / OPAC)
 window.VETUSTE_BAREME = VETUSTE_BAREME;
 window.VETUSTE_SOURCES = VETUSTE_SOURCES;
