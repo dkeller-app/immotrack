@@ -107,9 +107,10 @@ describe('_emailTypesSupportes', () => {
     expect(types.every(t => typeof t === 'string')).toBe(true);
   });
 
-  it('contient les 29 types V1+V1.1 (10 V1 v14.97 + 19 extension v15.09)', () => {
+  it('contient les 30 types (29 V1+V1.1 + résiliation amiable v15.62)', () => {
     const types = _emailTypesSupportes();
-    expect(types).toHaveLength(29);
+    expect(types).toHaveLength(30);
+    expect(types).toContain('bail-resiliation-amiable');
     // V1 v14.97 (10 types)
     expect(types).toContain('quittance');
     expect(types).toContain('avis-echeance');

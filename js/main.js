@@ -117,6 +117,7 @@ import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './cor
 // HISTORIQUE-BAIL-ONGLET - popup de validation des modifications financieres du bail
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants } from './core/avenant.js';
+import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege } from './core/conge.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
@@ -587,6 +588,17 @@ window.avenantArticle = avenantArticle;
 window.buildAvenantHtml = buildAvenantHtml;
 window.avenantRomain = avenantRomain;
 window.avenantChampsManquants = avenantChampsManquants;
+// Congé & résiliation (loi 89-462)
+window.CONGE_MOTIFS = CONGE_MOTIFS;
+window.REPRISE_LIENS = REPRISE_LIENS;
+window.CONGE_CAS_REDUITS = CONGE_CAS_REDUITS;
+window.ART15_II_ALINEAS = ART15_II_ALINEAS;
+window.letterToProDoc = letterToProDoc;
+window.art15IIProDoc = art15IIProDoc;
+window.congeBailleurPreavisMois = congeBailleurPreavisMois;
+window.congeLocatairePreavis = congeLocatairePreavis;
+window.congeAddMois = congeAddMois;
+window.locataireProtege = locataireProtege;
 // Grille de vétusté (décret 2016-382 / OPAC)
 window.VETUSTE_BAREME = VETUSTE_BAREME;
 window.VETUSTE_SOURCES = VETUSTE_SOURCES;

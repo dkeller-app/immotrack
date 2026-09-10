@@ -16521,6 +16521,7 @@ function openBailMenu(evt, ref, full) {
     items.push('<div class="bmp-divider" role="separator"></div>');
     if (!bail._deleted && !bail.cloture) {
       items.push(`<button class="bmp-item" onclick="_closeBienMenus();_avenantOpen('${refEsc}')" style="font-weight:700">${_uiIcon('edit')}Créer un avenant…</button>`);
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_congeOpen('${refEsc}')" style="font-weight:700">${_uiIcon('doc-text')}Congé / résiliation…</button>`);
       items.push(`<button class="bmp-item" onclick="_closeBienMenus();_departOuvrir('${refEsc}')" style="font-weight:700">${_ICON_DEPART} Assistant de départ…</button>`);
     }
     items.push(`<button class="bmp-item" onclick="_closeBienMenus();openBailClore('${refEsc}')">${_uiIcon('archive')}Clôturer ce bail</button>`);
@@ -24157,6 +24158,126 @@ async function _avenantSortiePdf(ref){
     texte:'Avenant n° '+_avenantState.no+' au contrat de bail — '+(bail.adrBien||ref),
     genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); }
   });
+}
+
+// ═══════════════ CONGÉ & RÉSILIATION (loi 89-462) ═══════════════
+// Génère l'acte (congé bailleur / accusé de congé locataire / mise en demeure / résiliation amiable).
+// Le TEXTE vient des modèles Propryo (`window._emailCompose`), jamais réinventé ; mis en page dans la
+// trame Propryo (_docPage/.pro-doc) et sorti par le pipeline canonique (_docHtmlToNativeBlob + _pdfSortie).
+var _congeState={ ref:'', kind:'conge_bailleur' };
+var _CONGE_ACTS=[
+ {k:'conge_bailleur', tt:'Congé du bailleur', ds:'Reprise / vente / motif légitime (art. 15)', tpl:'bail-conge-bailleur-6mois'},
+ {k:'conge_locataire', tt:'Congé reçu du locataire', ds:'Accusé + calcul du préavis', tpl:'bail-preavis-recu'},
+ {k:'mise_demeure', tt:'Mise en demeure (impayés)', ds:'Avant clause résolutoire (art. 24)', tpl:'rappel-impaye-3'},
+ {k:'resiliation_amiable', tt:'Résiliation amiable', ds:'Protocole d\'accord (art. 1193)', tpl:'bail-resiliation-amiable'}
+];
+function _congeOv(){ var ov=document.getElementById('ov-conge'); if(!ov){ ov=document.createElement('div'); ov.id='ov-conge'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-conge')"); document.body.appendChild(ov); } return ov; }
+function _congeTplOf(){ var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:''; }
+function _congeExtra(ref){
+  var bail=DB.baux[ref]||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||{};
+  var typeBail=bail.type||'nu'; var today=(typeof td==='function')?td():new Date().toISOString().slice(0,10);
+  // On reformate bail.debut en date FR (les modèles affichent {{bail.debut}}) sans toucher au texte des modèles Propryo.
+  var e={ dateLettre: fd(today), bail: Object.assign({}, bail, { adrBien: bail.adrBien||log.adr||'', debut: bail.debut?fd(bail.debut):'‹début du bail›' }) };
+  if(_congeState.kind==='conge_bailleur'){
+    var motif=v('cg-motif')||'reprise';
+    e.motifConge = motif==='vente'?'vente':motif==='legitime'?'motif légitime et sérieux':'reprise';
+    if(motif==='reprise') e.motifDetail='Reprise du logement pour l\'habiter, au bénéfice de '+(v('cg-benef')||'‹bénéficiaire›')+' ('+(v('cg-lien')||'le bailleur lui-même')+').';
+    else if(motif==='vente') e.motifDetail='Vente du logement, au prix de '+(v('cg-prix')||'‹prix›')+' € — conditions : '+(v('cg-cond')||'‹conditions›')+'.';
+    else e.motifDetail=(v('cg-legitime')||'‹description du motif légitime et sérieux›');
+    var pinfo=(typeof _bailPreavisInfo==='function')?_bailPreavisInfo(bail,log):null;
+    var fin=(pinfo&&pinfo.fin)||bail.fin||''; e.dateFin=fin?fd(fin):'‹échéance du bail›';
+  } else if(_congeState.kind==='conge_locataire'){
+    var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
+    e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='';
+  } else if(_congeState.kind==='mise_demeure'){
+    e.periode=v('cg-periode')||'‹période›'; e.montant=v('cg-montant')||'‹montant›'; e.rappel1Date='(relance 1)'; e.rappel2Date='(relance 2)';
+  } else if(_congeState.kind==='resiliation_amiable'){
+    e.dateEffet=fd(v('cg-effet')||today); e.conditions=v('cg-cond2')||'—';
+  }
+  return e;
+}
+function _congeDocHtml(ref){
+  var bail=DB.baux&&DB.baux[ref]; if(!bail) return '';
+  var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
+  var ctx=(typeof _buildEmailCtxFromRef==='function')?_buildEmailCtxFromRef(ref,_congeExtra(ref)):_congeExtra(ref);
+  var draft=(typeof window._emailCompose==='function')?window._emailCompose(_congeTplOf(),ctx):{body:''};
+  var corps=window.letterToProDoc(draft.body||'');
+  if(_congeState.kind==='conge_bailleur' && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
+  var TIT={conge_bailleur:'Congé donné au locataire',conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
+  var LEG={conge_bailleur:'Loi n° 89-462 du 6 juillet 1989, article 15',conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
+  return _docPage(ent,{titre:TIT[_congeState.kind],ctx:LEG[_congeState.kind],corps:corps,ref:escHtml(ref),date:'',withStyle:false});
+}
+function _congeSubBailleur(motif){
+  if(motif==='reprise') return _congeField('cg-benef','Bénéficiaire de la reprise','text','')+_congeField('cg-lien','Lien avec le bailleur',null,null,(window.REPRISE_LIENS||[]));
+  if(motif==='vente') return _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
+  return _congeField('cg-legitime','Description du motif légitime et sérieux','text','');
+}
+function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+l+'</label>';
+  if(opts) return '<div class="fld" style="margin-bottom:8px">'+lab+'<select class="inp" id="'+id+'" oninput="_congeRender()">'+opts.map(function(o){return '<option value="'+(o.v!=null?o.v:o)+'">'+(o.t!=null?o.t:o)+'</option>';}).join('')+'</select></div>';
+  return '<div class="fld" style="margin-bottom:8px">'+lab+'<input class="inp" id="'+id+'" '+(t==='date'?'type="date"':t==='number'?'type="number"':'')+' value="'+escHtml(val||'')+'" oninput="_congeRender()"></div>'; }
+function _congeForm(){
+  if(_congeState.kind==='conge_bailleur'){
+    var motif=v('cg-motif')||'reprise';
+    return _congeField('cg-motif','Motif du congé',null,null,[{v:'reprise',t:'Reprise pour habiter'},{v:'vente',t:'Vente du logement'},{v:'legitime',t:'Motif légitime et sérieux'}])+
+      '<div id="cg-sub" data-m="'+motif+'">'+_congeSubBailleur(motif)+'</div>'+
+      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé (art. 15-III)</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
+      '<div id="cg-alert"></div>';
+  }
+  if(_congeState.kind==='conge_locataire') return _congeField('cg-recu','Date de réception du congé','date',(typeof td==='function'?td():''))+_congeField('cg-cas','Cas de préavis réduit (1 mois)',null,null,(window.CONGE_CAS_REDUITS||[]))+'<div id="cg-alert"></div>';
+  if(_congeState.kind==='mise_demeure') return _congeField('cg-montant','Montant total dû (€)','number','')+_congeField('cg-periode','Période concernée','text','')+'<div class="note info" style="background:#e6f1fb;border:1px solid #cfe0f6;color:#185fa5;border-radius:8px;padding:8px 10px;font-size:10.5px">Étape amiable AVANT la clause résolutoire. Le commandement de payer (commissaire de justice) reste hors app — suivi via la procédure.</div>';
+  if(_congeState.kind==='resiliation_amiable') return _congeField('cg-effet','Date d\'effet de la résiliation','date',(typeof td==='function'?td():''))+_congeField('cg-cond2','Conditions particulières','text','restitution des clés le jour de l\'effet, solde de tout compte sous 1 mois');
+  return '';
+}
+function _congeRender(){
+  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_CONGE_ACTS.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
+  var form=document.getElementById('cg-form'); if(form && form.dataset.k!==_congeState.kind){ form.innerHTML=_congeForm(); form.dataset.k=_congeState.kind; }
+  if(_congeState.kind==='conge_bailleur'){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
+  var prev=document.getElementById('cg-preview'); if(prev) prev.innerHTML=_congeDocHtml(_congeState.ref);
+  // alerte locataire protégé (congé bailleur) — NON bloquante
+  var al=document.getElementById('cg-alert');
+  if(al){ if(_congeState.kind==='conge_bailleur' && document.getElementById('cg-protege') && document.getElementById('cg-protege').checked){
+      var lp=window.locataireProtege({plusDe65:true,ressourcesFaibles:true});
+      al.innerHTML='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé (art. 15-III) : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
+    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:(DB.baux[_congeState.ref]||{}).type||'nu', casReduit:v('cg-cas')}); al.innerHTML='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
+    else al.innerHTML=''; }
+}
+function _congePick(k){ _congeState.kind=k; var f=document.getElementById('cg-form'); if(f)f.dataset.k=''; _congeRender(); }
+function _congeOpen(ref){
+  var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
+  _congeState={ ref:ref, kind:'conge_bailleur' };
+  var ov=_congeOv(); var who=escHtml((bail.nom||(bail.locataires&&bail.locataires[0]&&bail.locataires[0].nom)||'—')+' · '+(bail.adrBien||ref));
+  ov.innerHTML='<style>'+
+   '#ov-conge .av-wrap{background:var(--sur);border-radius:16px;max-width:1080px;width:96vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}'+
+   '#ov-conge .m-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bor)}'+
+   '#ov-conge .av-body{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:0;flex:1;min-height:0}@media(max-width:820px){#ov-conge .av-body{grid-template-columns:1fr}}'+
+   '#ov-conge .av-form{padding:14px 16px;overflow:auto;border-right:1px solid var(--bor)}'+
+   '#ov-conge .av-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}'+
+   '#ov-conge .av-obj{border:1px solid var(--bor);border-radius:9px;padding:8px 10px;cursor:pointer;background:var(--sur2)}#ov-conge .av-obj.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset;background:#fff6f4}'+
+   '#ov-conge .av-prevwrap{background:var(--sur3);padding:14px;overflow:auto}'+
+   '#ov-conge .pro-doc{background:#fff;max-width:600px;margin:0 auto;padding:26px 32px;box-shadow:0 2px 12px rgba(0,0,0,.09)}'+
+   '#ov-conge .av-foot{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--bor);background:var(--sur2)}'+
+   _docCss()+
+   '</style>'+
+   '<div class="av-wrap" onclick="event.stopPropagation()">'+
+   '<div class="m-head"><div><h3 style="margin:0;font:800 15px Inter">Congé & résiliation</h3><div style="font-size:12px;color:var(--t3);font-weight:600">'+who+'</div></div><button class="m-close" onclick="closeM(\'ov-conge\')">✕</button></div>'+
+   '<div class="av-body"><div class="av-form"><div class="av-acts" id="cg-acts"></div><div id="cg-form"></div></div>'+
+   '<div class="av-prevwrap"><div id="cg-preview"></div></div></div>'+
+   '<input type="hidden" id="ov-conge-ref" value="'+escHtml(ref)+'">'+
+   '<div class="av-foot"><button class="btn bs bb" onclick="_congeSortiePdf()">'+((typeof _edlPrefersShare==='function'&&_edlPrefersShare())?'📤 Partager le PDF':'⬇️ Télécharger le PDF')+'</button>'+
+   '<button class="btn bs" onclick="closeM(\'ov-conge\')">Fermer</button></div></div>';
+  var f=document.getElementById('cg-form'); if(f)f.dataset.k='';
+  _congeRender(); openM('ov-conge');
+}
+async function _congeSortiePdf(ref){
+  ref=ref||(el('ov-conge-ref')?el('ov-conge-ref').value:_congeState.ref);
+  var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
+  var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
+  var docHtml=_congeDocHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
+  if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
+  var noms={conge_bailleur:'Conge-bailleur',conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};
+  await _pdfSortie({ fileName:noms[_congeState.kind]+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf', desc:'PDF (acte)', genererAvant:true,
+    titre:noms[_congeState.kind].replace(/-/g,' '), texte:'Acte — '+(bail.adrBien||ref),
+    genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); } });
 }
 
 function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef, villeSig, mode) {
