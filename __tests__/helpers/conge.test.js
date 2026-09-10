@@ -72,13 +72,18 @@ describe('letterToProDoc — corps de lettre → .pro-doc, anti-XSS', () => {
     expect(h).not.toMatch(/<img/);
     expect(h).toMatch(/&lt;img/);
   });
+  it('ne produit pas de <p> vide (clause conditionnelle absente)', () => {
+    const h = letterToProDoc('Début.\n\n\n\nFin.');
+    expect(h).not.toMatch(/<p><\/p>/);
+    expect(h).toBe('<p>Début.</p><p>Fin.</p>');
+  });
 });
 
 describe('art. 15-II verbatim', () => {
   it('5 alinéas reproduits', () => {
     expect(ART15_II_ALINEAS.length).toBe(5);
     expect(ART15_II_ALINEAS[0]).toMatch(/à peine de nullité, indiquer le prix et les conditions/);
-    expect(art15IIProDoc()).toMatch(/reproduction intégrale/i);
+    expect(art15IIProDoc()).toMatch(/reproduction imposée à peine de nullité/i);
   });
   it('CONGE_MOTIFS = 3 motifs légaux', () => {
     expect(CONGE_MOTIFS.map(m => m.k)).toEqual(['reprise', 'vente', 'legitime']);

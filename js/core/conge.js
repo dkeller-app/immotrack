@@ -29,7 +29,12 @@ export const CONGE_CAS_REDUITS = [
   'Bénéficiaire du RSA', 'Bénéficiaire de l\'AAH', 'Attribution d\'un logement social', 'Victime de violences conjugales'
 ];
 
-/** Les 5 premiers alinéas de l'art. 15-II — reproduits VERBATIM dans le congé pour vente (nullité sinon). */
+/**
+ * Les CINQ alinéas de l'art. 15-II que la loi impose de reproduire « à peine de nullité dans chaque
+ * notification » (dernière phrase du II : « Les termes des cinq alinéas précédents sont reproduits… »).
+ * Copié VERBATIM depuis la version consolidée EN VIGUEUR (Légifrance, LEGIARTI000047900030).
+ * Ne pas paraphraser : toute altération est une cause de nullité du congé pour vente.
+ */
 export const ART15_II_ALINEAS = [
   "Lorsqu'il est fondé sur la décision de vendre le logement, le congé doit, à peine de nullité, indiquer le prix et les conditions de la vente projetée. Le congé vaut offre de vente au profit du locataire : l'offre est valable pendant les deux premiers mois du délai de préavis. Les dispositions de l'article 46 de la loi n° 65-557 du 10 juillet 1965 fixant le statut de la copropriété des immeubles bâtis ne sont pas applicables au congé fondé sur la décision de vendre le logement.",
   "A l'expiration du délai de préavis, le locataire qui n'a pas accepté l'offre de vente est déchu de plein droit de tout titre d'occupation sur le local.",
@@ -50,15 +55,17 @@ function esc(x) {
  * saisies — noms, montants), puis applique le formatage léger.
  */
 export function letterToProDoc(body) {
-  return String(body == null ? '' : body).trim().split(/\n\n+/).map(par => {
-    const h = esc(par).replace(/\n/g, '<br>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    return '<p>' + h + '</p>';
-  }).join('');
+  return String(body == null ? '' : body).trim().split(/\n\n+/)
+    .filter(par => par.trim() !== '') // un token conditionnel vide (ex. clause préemption hors vente) ne laisse pas de <p> creux
+    .map(par => {
+      const h = esc(par).replace(/\n/g, '<br>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      return '<p>' + h + '</p>';
+    }).join('');
 }
 
 /** Les 5 alinéas de l'art. 15-II en HTML `.pro-doc` (annexe du congé pour vente). */
 export function art15IIProDoc() {
-  return '<h3>Annexe — Article 15, II de la loi du 6 juillet 1989 (reproduction intégrale)</h3>' +
+  return '<h3>Annexe — Article 15, II de la loi du 6 juillet 1989 (reproduction imposée à peine de nullité)</h3>' +
     ART15_II_ALINEAS.map(a => '<p style="font-size:9pt;color:#3c4658">' + esc(a) + '</p>').join('');
 }
 

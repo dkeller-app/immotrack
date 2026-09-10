@@ -585,17 +585,15 @@ Objet : Congé pour {{motifConge}} — Bail du {{bail.debut}}
 
 {{locataire.civNom}},
 
-Conformément aux articles 15-I et 15-II de la loi n° 89-462 du 6 juillet 1989, je vous donne par la présente congé du logement {{bail.adrBien}} que je vous loue depuis le {{bail.debut}}, pour le motif suivant :
+Conformément à l'article 15-I de la loi n° 89-462 du 6 juillet 1989, je vous donne par la présente congé du logement {{bail.adrBien}} que je vous loue depuis le {{bail.debut}}, pour le motif suivant :
 
 {{motifDetail}}
 
 Le présent congé prend effet au terme du bail, soit le {{dateFin}}.
 
-Le préavis légal de 6 mois (pour un bail nu) ou 3 mois (pour un meublé) avant cette date est respecté.
+{{mentionPreavis}}
 
 Vous trouverez ci-joint, le cas échéant, les pièces justifiant le motif allégué (offre de vente, justificatif de reprise pour un proche, etc.) conformément à la loi.
-
-Conformément à l'article 15-II, vous bénéficiez d'un droit de préemption en cas de congé pour vente. Le présent congé vaut offre de vente aux conditions précisées en annexe.
 
 Veuillez agréer, {{locataire.civNom}}, l'expression de mes salutations distinguées.
 

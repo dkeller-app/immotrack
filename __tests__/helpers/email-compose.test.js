@@ -602,7 +602,9 @@ describe('EMAIL-AUTO extension v15.09 — Fin de bail', () => {
     expect(r.body).toMatch(/Lettre recommandée/);
     expect(r.body).toMatch(/Cession du bien/);
     expect(r.body).toMatch(/2027-06-30/);
-    expect(r.body).toMatch(/article 15-II/);
+    // Le congé est fondé sur l'article 15-I (base commune à tous les motifs) ; la mention 15-II /
+    // droit de préemption n'est ajoutée que pour la vente, via le contexte (motifDetail), pas en dur.
+    expect(r.body).toMatch(/article 15-I/);
     expect(r.legalNote).toMatch(/LRAR/);
   });
 

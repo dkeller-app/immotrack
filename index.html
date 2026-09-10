@@ -6198,7 +6198,7 @@ function _bailEcheanceEffective(bail, log) {
   if(!finRefIso) {
     const debutD = new Date(bail.debut + 'T00:00:00');
     debutD.setMonth(debutD.getMonth() + dureeMois);
-    finRefIso = debutD.toISOString().slice(0,10);
+    finRefIso = _isoLocal(debutD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
   }
 
   const todayMs = Date.now();
@@ -6207,7 +6207,7 @@ function _bailEcheanceEffective(bail, log) {
   while(finD.getTime() <= todayMs) {
     finD.setMonth(finD.getMonth() + dureeMois);
   }
-  return finD.toISOString().slice(0,10);
+  return _isoLocal(finD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
 }
 
 // Calcule l'info préavis pour un bail. Retourne null si non applicable.
@@ -6225,7 +6225,7 @@ function _bailPreavisInfo(bail, log) {
   const daysToFin = Math.round((finD.getTime() - today.getTime()) / 86400000);
   return {
     fin,
-    preavisStart: preavisD.toISOString().slice(0,10),
+    preavisStart: _isoLocal(preavisD),
     preavisMonths,
     isMeuble,
     inPreavisZone,
@@ -24182,13 +24182,29 @@ function _congeExtra(ref){
     var motif=v('cg-motif')||'reprise';
     e.motifConge = motif==='vente'?'vente':motif==='legitime'?'motif légitime et sérieux':'reprise';
     if(motif==='reprise') e.motifDetail='Reprise du logement pour l\'habiter, au bénéfice de '+(v('cg-benef')||'‹bénéficiaire›')+' ('+(v('cg-lien')||'le bailleur lui-même')+').';
-    else if(motif==='vente') e.motifDetail='Vente du logement, au prix de '+(v('cg-prix')||'‹prix›')+' € — conditions : '+(v('cg-cond')||'‹conditions›')+'.';
+    else if(motif==='vente') e.motifDetail='Vente du logement, au prix de '+(v('cg-prix')||'‹prix›')+' € — conditions : '+(v('cg-cond')||'‹conditions›')+'.\n\nConformément à l\'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d\'un droit de préemption aux prix et conditions indiqués ci-dessus. Les termes des cinq alinéas de l\'article 15-II, dont la reproduction est imposée à peine de nullité, figurent en annexe du présent congé.';
     else e.motifDetail=(v('cg-legitime')||'‹description du motif légitime et sérieux›');
+    // Préavis bailleur (6 mois nu / 3 meublé) : la date d'effet doit être un TERME qui respecte
+    // RÉELLEMENT le préavis. Si l'échéance la plus proche est déjà trop tardive, on reporte au terme
+    // suivant — sinon le congé serait nul et la mention « préavis respecté » mensongère (audit P0-1).
     var pinfo=(typeof _bailPreavisInfo==='function')?_bailPreavisInfo(bail,log):null;
-    var fin=(pinfo&&pinfo.fin)||bail.fin||''; e.dateFin=fin?fd(fin):'‹échéance du bail›';
+    var preavisMois=pinfo?pinfo.preavisMonths:window.congeBailleurPreavisMois(typeBail);
+    _congeState.preavisPushed=false;
+    if(pinfo){
+      var finD=new Date(pinfo.fin+'T00:00:00'), tD=new Date(); tD.setHours(0,0,0,0);
+      var limite=new Date(finD); limite.setMonth(limite.getMonth()-preavisMois);
+      if(tD>limite){
+        var entB=(DB.entites||[]).find(function(x){return x.nom===(bail.entity||log.entity);});
+        var cycle=(typeof _bailDureeMois==='function')?_bailDureeMois(bail,log,entB):(pinfo.isMeuble?12:36);
+        if(!(cycle>0)) cycle=pinfo.isMeuble?12:36;
+        while(tD>limite){ finD.setMonth(finD.getMonth()+cycle); limite.setMonth(limite.getMonth()+cycle); _congeState.preavisPushed=true; }
+      }
+      e.dateFin=fd(_isoLocal(finD)); // format LOCAL (évite le décalage d'un jour de toISOString)
+    } else { e.dateFin=bail.fin?fd(bail.fin):'‹échéance du bail›'; }
+    e.mentionPreavis='Le délai de préavis légal applicable à ce congé est de '+preavisMois+' mois avant le terme du bail ; la date d\'effet indiquée ci-dessus le respecte.';
   } else if(_congeState.kind==='conge_locataire'){
     var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
-    e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='';
+    e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='à convenir';
   } else if(_congeState.kind==='mise_demeure'){
     e.periode=v('cg-periode')||'‹période›'; e.montant=v('cg-montant')||'‹montant›'; e.rappel1Date='(relance 1)'; e.rappel2Date='(relance 2)';
   } else if(_congeState.kind==='resiliation_amiable'){
@@ -24235,11 +24251,13 @@ function _congeRender(){
   var prev=document.getElementById('cg-preview'); if(prev) prev.innerHTML=_congeDocHtml(_congeState.ref);
   // alerte locataire protégé (congé bailleur) — NON bloquante
   var al=document.getElementById('cg-alert');
-  if(al){ if(_congeState.kind==='conge_bailleur' && document.getElementById('cg-protege') && document.getElementById('cg-protege').checked){
-      var lp=window.locataireProtege({plusDe65:true,ressourcesFaibles:true});
-      al.innerHTML='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé (art. 15-III) : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
-    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:(DB.baux[_congeState.ref]||{}).type||'nu', casReduit:v('cg-cas')}); al.innerHTML='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
-    else al.innerHTML=''; }
+  if(al){ var html='';
+    if(_congeState.kind==='conge_bailleur'){
+      if(_congeState.preavisPushed) html+='<div class="note" style="background:#e6f1fb;border:1px solid #cfe0f6;color:#185fa5;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Date d\'effet reportée au terme suivant : le préavis légal ne pouvait plus être respecté pour l\'échéance la plus proche (un congé délivré trop tard est nul).</div>';
+      if(document.getElementById('cg-protege') && document.getElementById('cg-protege').checked)
+        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé (art. 15-III) : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
+    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:(DB.baux[_congeState.ref]||{}).type||'nu', casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
+    al.innerHTML=html; }
 }
 function _congePick(k){ _congeState.kind=k; var f=document.getElementById('cg-form'); if(f)f.dataset.k=''; _congeRender(); }
 function _congeOpen(ref){
@@ -27610,6 +27628,15 @@ function _commsHubSend(ref, type) {
       extra.motifConge = promptVal('Motif du congé (vente / reprise / motif légitime et sérieux) :', 'vente');
       extra.motifDetail = promptVal('Détail du motif (cession à un tiers / reprise pour soi/proche/motif) :', '');
       extra.dateFin = (DB.baux && DB.baux[ref] && DB.baux[ref].fin) || '';
+      // Tokens du modèle (mêmes que l'acte Congé) : préavis réel + clause préemption pour la vente uniquement.
+      const _logC = (DB.logements||[]).find(l => l && l.ref === ref) || {};
+      const _bcp = _bailPreavisInfo((DB.baux && DB.baux[ref]) || {}, _logC);
+      const _pm = _bcp ? _bcp.preavisMonths : 6;
+      extra.mentionPreavis = 'Le délai de préavis légal applicable à ce congé est de ' + _pm + ' mois avant le terme du bail.';
+      if (/vente/i.test(extra.motifConge)) {
+        extra.motifDetail = (extra.motifDetail ? extra.motifDetail + '\n\n' : '')
+          + 'Conformément à l\'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d\'un droit de préemption aux prix et conditions indiqués ci-dessus.';
+      }
       break; }
     case 'bail-preavis-recu': {
       extra.datePreavis = promptVal('Date de réception du préavis (YYYY-MM-DD) :', td());
