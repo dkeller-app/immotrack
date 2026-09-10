@@ -25753,12 +25753,24 @@ function _rgClotureCompute(entryKey){
   const occN = entry.occDays || 0;
   const winDays = entry.totalDays || 365; // durée de la fenêtre régul (≠ 365 si période custom)
   const excl = new Set((bail.estimExclues)||[]);
-  // Forfait de charges (art. 23-1) : si le bail est au forfait sur TOUTE la fenêtre, aucune
-  // régularisation — on neutralise aussi l'estimation N-1 (elle projette des charges N-1 sans
-  // connaître les dates de forfait). computeRegul a déjà mis provisions/charges réelles à 0.
-  const forfaitTotal = !!(entry.forfait && !entry.forfait.partiel);
+  // Forfait de charges (art. 23-1) : l'estimation N-1 (chemin utilisé au DÉPART, exercice non
+  // clos) projette des charges sans connaître les dates de forfait. On ne l'estime donc que sur
+  // la fraction d'occupation NON couverte par le forfait (interrogation directe de
+  // bailForfaitActifLe jour par jour — indépendant de la post-passe/`entry.forfait`, ce qui
+  // couvre aussi le forfait total sans aucun mouvement importé). Dates en UTC ('…T00:00:00Z' +
+  // toISOString) pour éviter toute dérive de fuseau. Effet clampé au 1er du mois → pas d'asymétrie.
+  let occNonForfait = occN;
+  if (occN > 0 && entry.debutOcc && typeof window.bailForfaitActifLe === 'function') {
+    const t0 = Date.parse(entry.debutOcc+'T00:00:00Z');
+    const t1 = Date.parse((entry.finOcc||entry.debutOcc)+'T00:00:00Z');
+    let jours = 0;
+    for (let t = t0; t <= t1; t += 86400000) {
+      if (!window.bailForfaitActifLe(bail, new Date(t).toISOString().slice(0,10))) jours++;
+    }
+    occNonForfait = jours;
+  }
   const baseN1 = n1 ? Math.round(n1.moves.reduce((s,m)=> s + (excl.has(m.key)?0:m.montant), 0)*100)/100 : 0;
-  const estCharges = (n1 && !forfaitTotal) ? Math.round(baseN1 * (occN/winDays) * 100)/100 : null;
+  const estCharges = n1 ? Math.round(baseN1 * (occNonForfait/winDays) * 100)/100 : null;
   const prov = entry.provisions || 0;
   const real = entry.charges || 0;
   // Phase C : acompte de charges déjà reçu (catégorie dédiée neutre) pour ce logement sur la fenêtre.
@@ -25795,7 +25807,7 @@ function _rgClotureCompute(entryKey){
   covered = Math.round(covered*100)/100;
   const restitTotal = Math.round(((dg - covered) + regulCredit)*100)/100;    // à restituer maintenant
   const resteADemander = Math.round(Math.max(0, totalDu - covered)*100)/100; // reste dû (régul après arrêté en copro)
-  return { entry, bail, log, dg, reg, n1, occN, winDays, excl, baseN1, estCharges, prov, real, acompte, estimated, chargesUsed, solde, du, max20, retenueSugg, dgRestit,
+  return { entry, bail, log, dg, reg, n1, occN, occNonForfait, winDays, excl, baseN1, estCharges, prov, real, acompte, estimated, chargesUsed, solde, du, max20, retenueSugg, dgRestit,
            impayes, reparations, regulDu, regulCredit, knownDebts, totalDu, retenueRegul, covered, restitTotal, resteADemander };
 }
 
@@ -25918,8 +25930,12 @@ function _rgOpenDecompteEstimatif(entryKey){
   if(!c){ if(typeof showToast==='function') showToast('Occupation introuvable','err'); return; }
   if(!c.estimated){ openRegulDoc(entryKey); return; } // pas d'historique N-1 → décompte réel classique
   const entry=c.entry, bail=c.bail, log=c.log, dg=c.dg, reg=c.reg, n1=c.n1,
-        occN=c.occN, winDays=c.winDays, baseN1=c.baseN1, estCharges=c.estCharges,
+        occN=c.occN, occNonForfait=(c.occNonForfait!=null?c.occNonForfait:c.occN), winDays=c.winDays, baseN1=c.baseN1, estCharges=c.estCharges,
         prov=c.prov, acompte=c.acompte, solde=c.solde, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit;
+  // Forfait de charges (art. 23-1) : la fraction d'occupation au forfait est exclue de l'estimation.
+  const forfaitMention = entry.forfait
+    ? `<p style="font-size:11px;margin-top:12px;padding:8px 11px;background:#eef4ff;border-left:3px solid #2563eb;border-radius:2px">ⓘ <b>Charges au forfait</b> (art. 23‑1 loi 89‑462) ${entry.forfait.effet?('à compter du <b>'+fd(entry.forfait.effet)+'</b>'):'sur toute la période'} : cette part <b>n'est pas régularisable</b>. L'estimation ne porte que sur la fraction d'occupation restée aux provisions${occNonForfait<occN?(' ('+occNonForfait+' j sur '+occN+' j occupés)'):''}.</p>`
+    : '';
   const f = v => fmtN(v) + ' €';
   const ent = (DB.entites||[]).find(e=>e && e.nom===((bail&&bail.entity)||log.entity)) || {};
   const cmpRows = [{l:'N‑3',v:n1.y3},{l:'N‑2',v:n1.y2},{l:'N‑1 ('+escHtml(n1.year)+')',v:n1.y1}]
@@ -25938,11 +25954,12 @@ function _rgOpenDecompteEstimatif(entryKey){
     <p>${escHtml(entry.loc||log.locataire||'–')}<br>${escHtml((bail&&bail.adrBien)||log.adr||'–')}</p>
     <p style="margin-top:16px"><b>Décompte ESTIMATIF de charges — provisoire</b><br>Logement ${escHtml(entry.ref)} · occupation ${entry.debutOcc?fd(entry.debutOcc):'—'} → ${entry.fin?fd(entry.fin):'—'} (${occN} j / ${winDays})</p>
     <p style="font-size:11px;margin-top:12px;padding:8px 11px;background:#fff8e6;border-left:3px solid #c9a000;border-radius:2px">⚠ <b>Document provisoire</b> : les charges réelles de l'année ne sont pas encore arrêtées. Estimation calculée sur l'historique (année précédente), proratisée à la durée d'occupation. Un <b>décompte définitif</b> suivra après l'arrêté des comptes (art. 23 loi 89‑462).</p>
+    ${forfaitMention}
     <p style="font-size:11px;margin-top:14px"><b>Base d'estimation — charges récupérables du logement par année</b></p>
     <table style="width:100%;border-collapse:collapse;margin:6px 0;font-size:12px">${cmpRows}</table>
     <table style="width:100%;border-collapse:collapse;margin:10px 0;font-size:12px">
       <tr><td style="padding:5px;border:1px solid #ccc">Base retenue (année précédente)</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(baseN1)}</td></tr>
-      <tr><td style="padding:5px;border:1px solid #ccc">Quote-part estimée (× ${occN}/${winDays})</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(estCharges)}</td></tr>
+      <tr><td style="padding:5px;border:1px solid #ccc">Quote-part estimée (× ${occNonForfait}/${winDays})</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(estCharges)}</td></tr>
       <tr><td style="padding:5px;border:1px solid #ccc">Provisions versées</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(prov)}</td></tr>
       ${acompte>0?`<tr><td style="padding:5px;border:1px solid #ccc">Acompte de charges déjà versé</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(acompte)}</td></tr>`:''}
       <tr style="font-weight:bold;background:${solde>=0?'#f0fff0':'#fff0f0'}"><td style="padding:5px;border:1px solid #ccc">SOLDE ${soldeLbl}</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${solde>=0?'+':''}${f(solde)}</td></tr>
@@ -26726,10 +26743,17 @@ function computeRegul(from, to) {
         if(m.mois && window.bailForfaitActifLe(bl, m.mois+'-01')){ excluProvisions+=Number(m.ch)||0; if(!minExcl||(m.mois+'-01')<minExcl) minExcl=m.mois+'-01'; }
         else keptMois.push(m);
       });
-      if(excluCharges===0 && excluProvisions===0) return; // forfait hors fenêtre → rien à retirer
+      var effet=_forfaitEffet(bl)||minExcl;
+      if(excluCharges===0 && excluProvisions===0){
+        // Rien à retirer. Si le bail est quand même au forfait EN FIN DE FENÊTRE (ex. forfait total
+        // sans aucun mouvement importé), on pose le repère pour l'UI/clôture — sans jamais taguer un
+        // exercice N-1 (forfait hors fenêtre → bailForfaitActifLe(bl,to) faux). effet '' = « toute la période ».
+        if(window.bailForfaitActifLe(bl, to)) e.forfait={ effet:effet, partiel:false, excluCharges:0, excluProvisions:0 };
+        return;
+      }
       e.details=keptDet; e.charges=Math.round(keptDet.reduce(function(s,d){ return s+(Number(d.montant)||0); },0)*100)/100;
       e.moisDetails=keptMois; e.provisions=Math.round(keptMois.reduce(function(s,m){ return s+(Number(m.ch)||0); },0)*100)/100;
-      e.forfait={ effet:(_forfaitEffet(bl)||minExcl), partiel:(keptDet.length>0||keptMois.length>0), excluCharges:Math.round(excluCharges*100)/100, excluProvisions:Math.round(excluProvisions*100)/100 };
+      e.forfait={ effet:effet, partiel:(keptDet.length>0||keptMois.length>0), excluCharges:Math.round(excluCharges*100)/100, excluProvisions:Math.round(excluProvisions*100)/100 };
     });
   }
   // v14.73 : retour structuré { entries, bailleur } · v15.x Phase B : + nonReparti
@@ -26851,7 +26875,7 @@ function rRegul() {
       // Forfait de charges (art. 23-1) : non régularisable. Badge daté ; « dès » si une partie de
       // la fenêtre (avant l'effet) reste régularisée, « depuis » si tout est au forfait.
       const forfaitBadge = r.forfait
-        ? ` <span class="rg-badge" style="background:var(--blu-soft,rgba(37,99,235,.1));color:var(--fg-info,#2563eb)" title="Le forfait de charges (art. 23-1) n'est pas régularisable">Forfait ${r.forfait.partiel?'dès':'depuis'} ${fd(r.forfait.effet)}${r.forfait.partiel?' — période antérieure régularisée':' — non régularisable'}</span>`
+        ? ` <span class="rg-badge" style="background:var(--blu-soft,rgba(37,99,235,.1));color:var(--fg-info,#2563eb)" title="Le forfait de charges (art. 23-1) n'est pas régularisable">Forfait${r.forfait.effet?((r.forfait.partiel?' dès ':' depuis ')+fd(r.forfait.effet)):''}${r.forfait.partiel?' — période antérieure régularisée':' — non régularisable'}</span>`
         : '';
       const per   = r.debutOcc ? ` · ${fd(r.debutOcc)} → ${fd(r.finOcc||to)}` : '';
       const tag   = solde>=0
@@ -26950,6 +26974,12 @@ function _buildDecompteHtml(entryKey, from, to) {
        </p>` : '';
   const clotureBadge = r.isHistorique
     ? `<span style="display:inline-block;font-size:10px;padding:2px 8px;background:#e0e0e0;border-radius:8px;color:#555;margin-left:8px">Bail clôturé</span>` : '';
+  // Forfait de charges (art. 23-1) : transparence sur le document remis au locataire — la part au
+  // forfait n'est pas régularisable et a été retirée du présent décompte (charges ET provisions).
+  const forfaitBandeau = r.forfait
+    ? `<p style="font-size:11px;margin-top:10px;padding:6px 10px;background:#eef4ff;border-left:3px solid #2563eb;border-radius:2px">
+        ⓘ <b>Charges au forfait</b> (art. 23-1 loi n°89-462) ${r.forfait.effet?('à compter du <b>'+fd(r.forfait.effet)+'</b>'):'sur toute la période'} : cette part <b>n'est pas régularisable</b> et n'entre pas dans le présent décompte.${(r.forfait.excluCharges||r.forfait.excluProvisions)?` <em style="font-size:10px">Non pris en compte au titre du forfait : ${fmtN(r.forfait.excluCharges||0)} € de charges réelles, ${fmtN(r.forfait.excluProvisions||0)} € de provisions.</em>`:''}
+       </p>` : '';
   // DOCS-UNIFIES — gabarit unique (variante B). Le fond est repris MOT POUR MOT : objet,
   // article 23, tableau des charges réelles ligne à ligne, provisions/acompte/solde, les
   // quatre mentions légales obligatoires, le bandeau d'occupation partielle et son décret.
@@ -26962,6 +26992,7 @@ ${_dt('docParties', [
 ])}
     <p>Objet : Régularisation des charges locatives — ${escHtml(r.ref)}<br>Période du ${fd(from)} au ${fd(to)}</p>
     ${occBandeau}
+    ${forfaitBandeau}
     <p>Conformément à l'article 23 de la loi n°89-462 du 6 juillet 1989, nous vous adressons le décompte de régularisation des charges locatives pour la période mentionnée ci-dessus.</p>
     <table class="pro-tbl">
       <tr><th>Date</th><th>Libellé</th><th>Répartition</th><th class="num">Montant</th></tr>
