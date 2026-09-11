@@ -18,6 +18,7 @@ import { planFlush, FLUSH_DEBOUNCE_MS } from '../core/sync-schedule.js'
 // mode test). Elle était redéclarée ici ET dans le module ; deux définitions
 // d'une même clé de stockage finissent toujours par diverger.
 import { MIROIR_KEY as MIRROR_KEY } from '../core/offline-boot.js'
+import { makeDetUuid } from '../core/det-uuid.js'   // P0-4 : id d'audit DÉTERMINISTE (anti-doublons, DRY)
 
 const FLAG = (() => {
   try {
@@ -49,6 +50,58 @@ const COUNTS = [
   ['mrh', 'assurances locataire'], ['agenda', 'agenda'], ['baux_historique', 'historique baux'],
 ]
 const sizeOf = c => (Array.isArray(c) ? c.length : (c && typeof c === 'object' ? Object.keys(c).length : 0))
+
+// ── P0-4 (audit sécurité) — synchro du journal d'audit vers la table SERVEUR append-only `audit_log`.
+// Le journal local (DB.auditTrail, dans le blob espace_config_private) reste un CACHE ; l'AUTORITÉ
+// inviolable est la table serveur : un membre ne peut plus effacer/altérer ses traces en réécrivant le
+// blob. Purement ADDITIF. Idempotent (id client + ON CONFLICT DO NOTHING via upsert ignoreDuplicates →
+// compatible append-only, aucun UPDATE requis). return=minimal (pas de .select()) → aucune lecture, donc
+// indépendant de la policy SELECT is_full_member (F1). ETL AUTOMATIQUE : les entrées historiques (sans
+// _syncedAt) sont backfillées au 1er flush (client_ts = ts d'origine). OFFLINE : elles restent non-synced
+// et sont re-tentées au prochain flush cloud réussi et sur l'événement `online`.
+let _auditCloudBusy = false
+async function _auditCloudFlush() {
+  if (_auditCloudBusy || !_supaClient || !_cloudEspaceId) return
+  // DB VIVANT via getter (window.DB est un miroir qui peut être périmé après réassignation du let DB).
+  const _db = (typeof window.__immoGetDB === 'function') ? window.__immoGetDB() : window.DB
+  const trail = (_db && Array.isArray(_db.auditTrail)) ? _db.auditTrail : null
+  if (!trail) return
+  const pending = trail.filter(e => e && !e._syncedAt)
+  if (!pending.length) return
+  _auditCloudBusy = true
+  try {
+    // id DÉTERMINISTE dérivé du CONTENU (réutilise det-uuid.js — DRY) → la MÊME entrée donne le MÊME id
+    // à chaque réessai/reload → ON CONFLICT DO NOTHING dédoublonne SANS dépendre d'une persistance de l'id
+    // (fix F-A de l'audit : plus de doublons indélébiles si l'id n'a pas été sauvegardé avant un reload).
+    const _det = makeDetUuid('immotrack-audit')
+    for (const e of pending) {
+      if (!e.id) e.id = _det(e.ts || '', e.action || '', e.entityType || '', e.entityId != null ? String(e.entityId) : '', e.userId || '')
+    }
+    const toRow = e => ({
+      id: e.id,
+      espace_id: _cloudEspaceId,
+      action: String(e.action || 'update').slice(0, 40),
+      entity_type: String(e.entityType || 'inconnu').slice(0, 60),
+      entity_id: e.entityId != null ? String(e.entityId).slice(0, 200) : null,
+      entity_ref: e.entityRef != null ? String(e.entityRef).slice(0, 200) : null,
+      diff: e.diff || null,
+      source: String(e.source || 'ui').slice(0, 20),
+      user_name: e.userName != null ? String(e.userName).slice(0, 120) : null,
+      client_ts: e.ts || null   // heure d'action (informative) ; `ts` serveur (trigger) fait foi
+    })
+    const now = new Date().toISOString()
+    for (let i = 0; i < pending.length; i += 500) {   // chunké (backfill historique possiblement volumineux)
+      const chunk = pending.slice(i, i + 500)
+      const { error } = await _supaClient.from('audit_log')
+        .upsert(chunk.map(toRow), { onConflict: 'id', ignoreDuplicates: true })
+      if (error) { console.warn('[audit] cloud flush', error.message || error); break }
+      for (const e of chunk) e._syncedAt = now   // marqué synchronisé → plus jamais renvoyé
+    }
+  } catch (e) { console.warn('[audit] cloud flush', e) }
+  finally { _auditCloudBusy = false }
+}
+try { window.addEventListener('online', () => { try { _auditCloudFlush() } catch (e) {} }) } catch (e) {}
+try { window.__immoAuditFlushCloud = _auditCloudFlush } catch (e) {}
 
 // DÉCOUPLAGE cloud↔Drive — espace courant (posé au login) pour résoudre les chemins Supabase Storage des
 // fichiers : `<espaceId>/files/<idbKey>`. Lu par le helper window.__immoCloudFileUrl (ouverture de documents).
@@ -980,6 +1033,10 @@ async function onLoggedIn(api, overlay, user) {
       // écrit quelque chose (upserts/removes/config) — un poison isolé (P1.2) n'étouffe plus le signal.
       // Repli sans le helper (import raté) : ancienne condition « flush 100 % propre ».
       if (_liveChannel && (_hasCloudWrites ? _hasCloudWrites(s) : !bad)) { try { _liveChannel.send({ type: 'broadcast', event: 'changed', payload: {} }) } catch (e) {} }
+      // P0-4 : flush cloud RÉUSSI → enregistre les entrées d'audit restantes dans la table append-only
+      // `audit_log` (autorité inviolable). Fire-and-forget : ne bloque pas le retour du flush au caller.
+      // !bad → on n'enregistre jamais une entrée dont la sauvegarde data vient d'échouer (rollback amont).
+      if (!bad) { _auditCloudFlush() }
       // P1.3 CONFLIT → RE-HYDRATE : le contrat écrit depuis toujours dans store-supabase.js (l.7,161)
       // est enfin honoré. Un conflit de version = notre baseline est PÉRIMÉE (autre appareil / associé) ;
       // retenter à l'identique est une impasse éternelle (audit C-A). On re-hydrate TOUT (serveur gagne),
@@ -1286,6 +1343,9 @@ async function onLoggedIn(api, overlay, user) {
     if (typeof window.__immoSetDB === 'function' && typeof window.__immoRender === 'function') {
       window.__immoSupabaseMode = true            // saveDB/beforeunload/storage ne toucheront pas localStorage
       if (window.__immoSetDB(db) === false) { renderProof(overlay, api, user, esp, db); return }   // DB invalide → fallback
+      // P0-4 : ETL + rattrapage — au login, backfille dans audit_log les entrées locales non encore
+      // enregistrées (historiques d'avant la feature + accumulées hors-ligne). Fire-and-forget, idempotent.
+      try { _auditCloudFlush() } catch (e) {}
       liveDB = db                                 // le sync lit CE DB (l'app le mute EN PLACE → diff = vraies modifs)
       _liveDBRef = db                             // réf pour résoudre l'espace/owner d'une SCI (Storage + uuid par-SCI)
       // ⚠️ Après une remontée F1, la baseline se re-sème depuis l'instantané
