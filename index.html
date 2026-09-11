@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.621</title>
+<title>Propryo v15.622</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.620">
+<link rel="stylesheet" href="css/main.css?v=15.622">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.621</em>
+      <em>v15.622</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -2869,19 +2869,19 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="fg">
         <label>Catégorie</label>
         <select class="inp" id="agenda-evt-cat">
-          <option value="CHAUDIERE">🔥 Entretien chaudière</option>
-          <option value="RAMONAGE">🏠 Ramonage</option>
-          <option value="DAAF">🚨 Test DAAF</option>
-          <option value="ELEC">⚡ Diagnostic électrique</option>
-          <option value="DPE">🌿 DPE</option>
-          <option value="VMC">💨 Entretien VMC</option>
-          <option value="IRL">📈 Révision IRL</option>
-          <option value="BAIL">📋 Bail / Congé</option>
-          <option value="REGUL">⚖️ Régularisation</option>
-          <option value="TRAVAUX">🔨 Travaux</option>
-          <option value="SYNDIC">🏢 Réunion syndic</option>
-          <option value="QUITTANCE">🧾 Quittances</option>
-          <option value="AUTRE" selected>📌 Autre</option>
+          <option value="CHAUDIERE">Entretien chaudière</option>
+          <option value="RAMONAGE">Ramonage</option>
+          <option value="DAAF">Test DAAF</option>
+          <option value="ELEC">Diagnostic électrique</option>
+          <option value="DPE">DPE</option>
+          <option value="VMC">Entretien VMC</option>
+          <option value="IRL">Révision IRL</option>
+          <option value="BAIL">Bail / Congé</option>
+          <option value="REGUL">Régularisation</option>
+          <option value="TRAVAUX">Travaux</option>
+          <option value="SYNDIC">Réunion syndic</option>
+          <option value="QUITTANCE">Quittances</option>
+          <option value="AUTRE" selected>Autre</option>
         </select>
       </div>
       <div class="fg">
@@ -4224,7 +4224,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.621';
+const IMMOTRACK_VERSION = '15.622';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -50822,7 +50822,7 @@ function initAgendaFilters() {
   const sc = el('agenda-f-cat');
   if(sc) {
     sc.innerHTML = '<option value="">Toutes catégories</option>'
-      + Object.entries(AGENDA_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('');
+      + Object.entries(AGENDA_CATS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join(''); // v15.62x REFONTE-PC : libellé seul (un <select> natif n'affiche pas de SVG)
   }
 }
 
@@ -50856,29 +50856,31 @@ function rAgenda() {
 
 function _agendaEvtCard(e, compact=false) {
   const cat = AGENDA_CATS[e.cat] || AGENDA_CATS.AUTRE;
-  const couleur = e.couleur || cat.couleur;
   const today = new Date().toISOString().slice(0,10);
   const isOverdue = !e.done && e.date < today;
   const isToday   = e.date === today;
   const daysLeft  = Math.round((new Date(e.date+'T00:00:00') - new Date()) / 86400000);
+  // v15.62x REFONTE-PC Agenda — statut via la CHARTE uniquement (rouge=retard, ambre=proche/aujourd'hui,
+  // vert=fait, corail=action à réaliser). Plus de couleur par type : le type = son line-icon en encre.
   const badge = e.done
-    ? `<span style="font-size:10.5px;font-weight:600;color:var(--grn);background:rgba(22,163,74,.1);padding:2px 8px;border-radius:10px">✓ Fait</span>`
+    ? `<span class="badge grn">${_uiIcon('check',10)} Fait</span>`
     : isOverdue
-      ? `<span style="font-size:10.5px;font-weight:700;color:var(--red);background:rgba(220,38,38,.1);padding:2px 8px;border-radius:10px">⚠ ${Math.abs(daysLeft)}j de retard</span>`
+      ? `<span class="badge red">${_uiIcon('warn',10)} ${Math.abs(daysLeft)} j de retard</span>`
       : isToday
-        ? `<span style="font-size:10.5px;font-weight:700;color:var(--ora);background:rgba(234,88,12,.1);padding:2px 8px;border-radius:10px">Aujourd'hui</span>`
+        ? `<span class="badge ora">Aujourd'hui</span>`
         : daysLeft <= 7
-          ? `<span style="font-size:10.5px;font-weight:600;color:var(--ora);background:rgba(234,88,12,.08);padding:2px 8px;border-radius:10px">J-${daysLeft}</span>`
-          : `<span style="font-size:10.5px;color:var(--t3);padding:2px 8px">J-${daysLeft}</span>`;
+          ? `<span class="badge ora">J-${daysLeft}</span>`
+          : `<span class="badge acc">À réaliser</span>`;
 
-  return `<div class="agenda-card${e.done?' agenda-done':''}" onclick="openAgendaEvt('${e.id}')"
-    style="border-left:3px solid ${couleur}">
+  return `<div class="agenda-card${e.done?' agenda-done':' agenda-todo'}" onclick="openAgendaEvt('${e.id}')">
     <div class="agenda-card-top">
-      <span class="agenda-cat-badge" style="background:${couleur}18;color:${couleur}">${_agendaIconSvg(e.cat,13)} ${cat.label}</span>
+      <span class="agenda-cat-badge">${_agendaIconSvg(e.cat,13)} ${cat.label}</span>
       ${badge}
-      <div style="margin-left:auto;display:flex;gap:5px;flex-shrink:0">
-        ${!e.done?`<button onclick="agendaMarkDone(event,'${e.id}')" title="Marquer fait" style="font-size:14px;min-width:40px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(22,163,74,.3);background:rgba(22,163,74,.08);color:var(--grn);border-radius:6px;cursor:pointer">${_uiIcon('check')}</button>`:''}
-        <button onclick="deleteAgendaEvt(event,'${e.id}')" title="Supprimer" style="font-size:14px;min-width:40px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(220,38,38,.2);background:rgba(220,38,38,.06);color:var(--red);border-radius:6px;cursor:pointer">${_uiIcon('trash')}</button>
+      <div class="agenda-card-actions">
+        ${!e.done
+          ? `<button onclick="agendaMarkDone(event,'${e.id}')" title="Marquer fait" aria-label="Marquer fait" class="agenda-act agenda-act-done">${_uiIcon('check',14)} Marquer fait</button>`
+          : `<button onclick="agendaMarkDone(event,'${e.id}')" title="Rouvrir" aria-label="Rouvrir" class="agenda-act">${_uiIcon('refresh',14)} Rouvrir</button>`}
+        <button onclick="deleteAgendaEvt(event,'${e.id}')" title="Supprimer" aria-label="Supprimer" class="agenda-act agenda-act-del">${_uiIcon('trash',14)} Supprimer</button>
       </div>
     </div>
     <div class="agenda-card-title">${escHtml(e.titre)}</div>
@@ -50930,7 +50932,7 @@ function rAgendaList() {
     el('agenda-overdue-section').innerHTML = `<div class="card" style="text-align:center;padding:40px 20px;color:var(--t2)">
       <div style="margin-bottom:12px;color:var(--t3)">${_uiIcon('calendar',32)}</div>
       <div style="font-weight:600;margin-bottom:6px">Aucun événement</div>
-      <div style="font-size:13px">Cliquez sur <b>+ Événement</b> pour en ajouter un, ou <b>🔄 Sync baux</b> pour générer automatiquement depuis vos baux.</div>
+      <div style="font-size:13px">Cliquez sur <b>+ Événement</b> pour en ajouter un, ou <b>Sync baux</b> pour générer automatiquement depuis vos baux.</div>
     </div>`;
   }
 }
@@ -50969,9 +50971,9 @@ function rAgendaCal() {
     html += `<div class="agenda-cal-day${isToday?' agenda-cal-today':''}" onclick="openDayDetail('${ds}')">
       <span class="agenda-cal-day-num${isToday?' today':''}">${d}</span>
       ${dayEvts.slice(0,3).map(e=>{
-        const cat=AGENDA_CATS[e.cat]||AGENDA_CATS.AUTRE;
-        const c=e.couleur||cat.couleur;
-        return `<div class="agenda-cal-evt" style="background:${c}22;border-left:2px solid ${c};color:${c}">${_agendaIconSvg(e.cat,11)}${escHtml(e.titre.slice(0,22))}</div>`;
+        // v15.62x REFONTE-PC — pastille neutre ; couleur = charte (retard rouge, à faire corail, fait atténué)
+        const cls = e.done ? 'done' : ((!e.done && e.date < today) ? 'retard' : 'todo');
+        return `<div class="agenda-cal-evt ${cls}">${_agendaIconSvg(e.cat,11)}${escHtml(e.titre.slice(0,22))}</div>`;
       }).join('')}
       ${dayEvts.length>3?`<div style="font-size:9px;color:var(--t2);padding:0 3px">+${dayEvts.length-3} autres</div>`:''}
     </div>`;
@@ -50999,26 +51001,26 @@ function openDayDetail(ds) {
   el('agenda-day-title').textContent = d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   el('agenda-day-list').innerHTML = evts.map(e=>{
     const cat = AGENDA_CATS[e.cat]||AGENDA_CATS.AUTRE;
-    const couleur = e.couleur||cat.couleur;
     const today = new Date().toISOString().slice(0,10);
     const isOverdue = !e.done && e.date < today;
+    // v15.62x REFONTE-PC — neutre + charte : liseré corail = action à réaliser ; type = line-icon encre.
     return `<div onclick="closeM('ov-agenda-day');openAgendaEvt('${e.id}')"
       style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);
-             border:1.5px solid ${e.done?'var(--bor)':couleur+'55'};background:${e.done?'var(--sur2)':'var(--sur)'};
+             border:1px solid var(--bor);${e.done?'':'box-shadow:inset 3px 0 0 var(--acc);'}background:${e.done?'var(--sur2)':'var(--sur)'};
              cursor:pointer;transition:box-shadow .15s"
-      onmouseover="this.style.boxShadow='var(--shadow-hover)'" onmouseout="this.style.boxShadow=''">
-      <span style="flex-shrink:0;display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;background:${couleur}18;color:${couleur}">${_agendaIconSvg(e.cat,18)}</span>
+      onmouseover="this.style.boxShadow='${e.done?'var(--shadow-hover)':'inset 3px 0 0 var(--acc), var(--shadow-hover)'}'" onmouseout="this.style.boxShadow='${e.done?'':'inset 3px 0 0 var(--acc)'}'">
+      <span style="flex-shrink:0;display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;background:var(--sur2);color:var(--t2)">${_agendaIconSvg(e.cat,18)}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:${e.done?'var(--t3)':'var(--t1)'};
                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
                     text-decoration:${e.done?'line-through':'none'}">${escHtml(e.titre)}</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
-          <span style="background:${couleur}22;color:${couleur};padding:1px 7px;border-radius:10px;font-weight:600;font-size:10px">${cat.label}</span>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span class="agenda-cat-badge" style="font-size:10px">${cat.label}</span>
           ${e.logement?`<span>${escHtml(e.logement)}</span>`:''}
         </div>
       </div>
-      ${e.done?'<span style="font-size:10px;color:var(--grn);font-weight:600">✓ Fait</span>':
-        isOverdue?'<span style="font-size:10px;color:var(--red);font-weight:700">En retard</span>':''}
+      ${e.done?`<span class="badge grn">${_uiIcon('check',10)} Fait</span>`:
+        isOverdue?`<span class="badge red">En retard</span>`:''}
       <span style="font-size:16px;color:var(--t3)">›</span>
     </div>`;
   }).join('');
