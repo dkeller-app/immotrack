@@ -585,17 +585,15 @@ Objet : Congé pour {{motifConge}} — Bail du {{bail.debut}}
 
 {{locataire.civNom}},
 
-Conformément aux articles 15-I et 15-II de la loi n° 89-462 du 6 juillet 1989, je vous donne par la présente congé du logement {{bail.adrBien}} que je vous loue depuis le {{bail.debut}}, pour le motif suivant :
+Conformément à l'article 15-I de la loi n° 89-462 du 6 juillet 1989, je vous donne par la présente congé du logement {{bail.adrBien}} que je vous loue depuis le {{bail.debut}}, pour le motif suivant :
 
 {{motifDetail}}
 
 Le présent congé prend effet au terme du bail, soit le {{dateFin}}.
 
-Le préavis légal de 6 mois (pour un bail nu) ou 3 mois (pour un meublé) avant cette date est respecté.
+{{mentionPreavis}}
 
 Vous trouverez ci-joint, le cas échéant, les pièces justifiant le motif allégué (offre de vente, justificatif de reprise pour un proche, etc.) conformément à la loi.
-
-Conformément à l'article 15-II, vous bénéficiez d'un droit de préemption en cas de congé pour vente. Le présent congé vaut offre de vente aux conditions précisées en annexe.
 
 Veuillez agréer, {{locataire.civNom}}, l'expression de mes salutations distinguées.
 
@@ -638,6 +636,35 @@ Cordialement,
 {{entite.nom}}`,
     attachments: [],
     legalNote: 'Conserver le préavis original (papier ou email). Le délai de préavis court à compter de la réception par le bailleur (cachet de la Poste).'
+  },
+
+  // ─── Résiliation amiable (accord des parties, art. 1193 C. civ.) ─────────
+  'bail-resiliation-amiable': {
+    subject: 'Protocole de résiliation amiable du bail — {{bail.adrBien}}',
+    body: `PROTOCOLE DE RÉSILIATION AMIABLE
+
+Entre les soussignés :
+- Le bailleur : {{entite.nom}}, {{entite.siege}},
+- Le locataire : {{locataire.civNom}},
+
+concernant le logement situé {{bail.adrBien}}, loué depuis le {{bail.debut}},
+
+il est convenu d'un commun accord, en application de l'article 1193 du code civil, ce qui suit :
+
+Le bail est résilié à l'amiable, sans préavis ni indemnité de part ni d'autre, à la date d'effet du {{dateEffet}}.
+
+À cette date, le locataire libère les lieux et restitue l'ensemble des clés. Un état des lieux de sortie contradictoire est établi ; le dépôt de garantie est restitué dans les conditions et délais légaux (art. 22 de la loi du 6 juillet 1989).
+
+Conditions particulières convenues : {{conditions}}
+
+Les parties se donnent mutuellement quitus de toute autre obligation au titre du bail, sous réserve du solde de tout compte (loyers, charges et régularisations dus jusqu'à la date d'effet).
+
+Fait en deux exemplaires originaux à {{entite.siege}}, le {{dateLettre}}.
+
+Le bailleur                              Le locataire (« Bon pour résiliation amiable »)
+{{entite.gerant}} — {{entite.nom}}       {{locataire.civNom}}`,
+    attachments: [],
+    legalNote: 'La résiliation amiable suppose l\'accord EXPRÈS des deux parties (art. 1193 C. civ.) : faire signer les deux exemplaires. Elle met fin au bail sans préavis ni motif, à la date convenue.'
   },
 
   // ─── PHASE SORTIE / SOLDE ───────────────────────────────────────────────

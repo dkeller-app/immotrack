@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.613</title>
+<title>Propryo v15.621</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.608">
+<link rel="stylesheet" href="css/main.css?v=15.620">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.613</em>
+      <em>v15.621</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -485,7 +485,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div class="tab act" onclick="setBauxTab('actifs',this)"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Baux actifs</div>
         <div class="tab" onclick="setBauxTab('historique',this)"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="4"/><path d="M5 8v12h14V8M10 12h4"/></svg> Historique</div>
       </div>
-      <div id="baux-tab-actifs"><div class="g2" id="baux-grid"></div></div>
+      <div id="baux-tab-actifs"><div id="baux-grid"></div></div>
       <div id="baux-tab-historique" style="display:none">
         <div class="tbl-wrap"><table class="tbl">
           <thead><tr><th>Logement</th><th>Locataire(s)</th><th>Début</th><th>Fin effective</th><th>Motif</th><th>Archivé le</th><th>DG restitué</th><th></th></tr></thead>
@@ -1576,8 +1576,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <label>Entité propriétaire *</label><select class="inp" id="b-entity" onchange="autoFinBail(); renderBailSignataires()"></select>
       </div>
       <div class="fg" id="b-signataires-wrap" style="display:none">
-        <label>Signataires du bail <span style="color:#888;font-weight:normal;font-size:11px">— cochez le(s) co-gérant(s) qui signera/signeront</span></label>
-        <div id="b-signataires-list" style="display:flex;flex-wrap:wrap;gap:10px;padding:8px 10px;background:#fafafa;border:1px solid var(--bor);border-radius:5px"></div>
+        <label>Signataires du bail <span style="color:var(--t3);font-weight:normal;font-size:11px">— cochez le(s) co-gérant(s) qui signera/signeront</span></label>
+        <div id="b-signataires-list" style="display:flex;flex-wrap:wrap;gap:10px;padding:8px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px"></div>
       </div>
       <div class="fg2">
         <div class="fg">
@@ -1683,13 +1683,13 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div class="fg">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;font-size:13px">
             <input type="checkbox" id="b-zoneTendue" onchange="toggleZoneTendue()">
-            <span>📍 Zone tendue (art. 17)</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span data-uic="pin"></span>Zone tendue (art. 17)</span>
           </label>
         </div>
         <div class="fg" id="b-encadrement-wrap" style="display:none">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;font-size:13px">
             <input type="checkbox" id="b-encadrementLoyers" onchange="toggleEncadrement()">
-            <span>🔒 Encadrement des loyers (art. 140 ELAN)</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span data-uic="lock"></span>Encadrement des loyers (art. 140 ELAN)</span>
           </label>
         </div>
       </div>
@@ -1861,15 +1861,15 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
            renvoient au DDT. L'annexe correspondante a été retirée du PDF en v15.199. La section
            reste visible seulement pour meublé/étudiant/mobilité (via _toggleMobilierSection),
            mais ne contient plus qu'une mention renvoyant à l'EDL (aucune saisie ici). -->
-      <div id="b-mobilier-section" style="display:none;margin-top:16px;padding:12px 14px;background:#fffaf0;border:1px solid #f5d28e;border-radius:6px;color:#92400e;font-size:13px;line-height:1.5">
+      <div id="b-mobilier-section" style="display:none;margin-top:16px;padding:12px 14px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:6px;color:var(--warn);font-size:13px;line-height:1.5">
         <b><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Inventaire mobilier — décret 2015-981</b>
         <div style="margin-top:4px">L'inventaire détaillé du mobilier ne se saisit pas ici : il est dressé de façon contradictoire à <b>l'état des lieux d'entrée</b> et annexé automatiquement au bail (comme les diagnostics renvoient au DDT). Il sera complété au moment de l'EDL.</div>
       </div>
     </div>
       <!-- CHANTIER BAIL-GARAGE — section propre au bail garage/box/stockage (droit commun).
            Affichée uniquement pour type==='garage' (via onBailTypeChange → _toggleGarageSection). -->
-      <div id="b-garage-section" style="display:none;margin-top:16px;padding:14px;background:#f4f6f9;border:1px solid #dbe2ea;border-radius:6px">
-        <div style="font-weight:700;margin-bottom:10px">🚗 Emplacement (garage / parking / box — Code civil, droit commun)</div>
+      <div id="b-garage-section" style="display:none;margin-top:16px;padding:14px;background:var(--sur2);border:1px solid var(--bor);border-radius:6px">
+        <div style="font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px"><span data-uic="car"></span><span>Emplacement (garage / parking / box — Code civil, droit commun)</span></div>
         <div class="fg">
           <label>Nature de l'emplacement *</label>
           <select class="inp" id="b-emplNature">
@@ -4224,7 +4224,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.613';
+const IMMOTRACK_VERSION = '15.621';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -4327,7 +4327,9 @@ function _uiIcon(name, size) {
     gift:'<rect x="4" y="8" width="16" height="4"/><path d="M6 12v9h12v-9M12 8v13M12 8S9.5 3 7 5s5 3 5 3zM12 8s2.5-5 5-3-5 3-5 3z"/>',
     alarm:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3L2 6M19 3l3 3"/>',
     counter:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4M12 10v4M17 10v4"/>',
-    play:'<path d="M7 5l12 7-12 7z"/>'
+    play:'<path d="M7 5l12 7-12 7z"/>',
+    car:'<path d="M5 11l1.6-4.2A2 2 0 018.5 5.5h7a2 2 0 011.9 1.3L19 11M4 11h16v5H4z"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/>',
+    pin:'<path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'
   };
   var p = P[name] || P.doc;
   var sz = size || 16;
@@ -6199,7 +6201,7 @@ function _bailEcheanceEffective(bail, log) {
   if(!finRefIso) {
     const debutD = new Date(bail.debut + 'T00:00:00');
     debutD.setMonth(debutD.getMonth() + dureeMois);
-    finRefIso = debutD.toISOString().slice(0,10);
+    finRefIso = _isoLocal(debutD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
   }
 
   const todayMs = Date.now();
@@ -6208,7 +6210,7 @@ function _bailEcheanceEffective(bail, log) {
   while(finD.getTime() <= todayMs) {
     finD.setMonth(finD.getMonth() + dureeMois);
   }
-  return finD.toISOString().slice(0,10);
+  return _isoLocal(finD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
 }
 
 // Calcule l'info préavis pour un bail. Retourne null si non applicable.
@@ -6226,7 +6228,7 @@ function _bailPreavisInfo(bail, log) {
   const daysToFin = Math.round((finD.getTime() - today.getTime()) / 86400000);
   return {
     fin,
-    preavisStart: preavisD.toISOString().slice(0,10),
+    preavisStart: _isoLocal(preavisD),
     preavisMonths,
     isMeuble,
     inPreavisZone,
@@ -6249,6 +6251,9 @@ function agendaAutoSync() {
   }
   const existing = new Set(DB.agenda.filter(e=>e.auto).map(e=>e.autoKey));
   const toAdd = [];
+  // Clés BAIL/BAIL_PREVIS valides ce run — sert à purger les doublons dont la date a bougé
+  // (ex. correctif fuseau horaire : échéance 30/12 → 31/12, l'ancienne clé devient orpheline).
+  const validBailKeys = new Set();
 
   DB.logements.forEach(l => {
     if(!l.locataire || !l.ref) return;
@@ -6284,6 +6289,7 @@ function agendaAutoSync() {
     const echeanceFin = _bailEcheanceEffective(bail, l);
     if(echeanceFin) {
       const key = `BAIL:${l.ref}:${echeanceFin}`;
+      validBailKeys.add(key);
       if(!existing.has(key)) {
         toAdd.push({ id:agendaId(), titre:`Fin de bail — ${l.ref} (${bail.nom||l.locataire})`,
           date:echeanceFin, dateFin:echeanceFin, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
@@ -6298,6 +6304,7 @@ function agendaAutoSync() {
       const preavis = _bailPreavisInfo(bail, l);
       if(preavis && preavis.preavisStart) {
         const keyPrev = `BAIL_PREVIS:${l.ref}:${preavis.fin}`;
+        validBailKeys.add(keyPrev);
         if(!existing.has(keyPrev)) {
           const tenant = bail.nom || l.locataire || '—';
           const typeLabel = preavis.isMeuble ? 'meublé' : 'nu';
@@ -6428,8 +6435,16 @@ function agendaAutoSync() {
     DB.agenda = DB.agenda.filter(e => !(e.auto && e.cat === 'DIAG' && !validDiagKeys.has(e.autoKey)));
     _diagPurged = DB.agenda.length !== _before;
   }
+  // Purge des échéances BAIL/BAIL_PREVIS orphelines (autoKey absent de l'état courant) — supprime
+  // notamment les doublons dont la date a bougé d'un jour après le correctif fuseau horaire.
+  let _bailPurged = false;
+  if (DB.agenda && DB.agenda.length) {
+    const _before = DB.agenda.length;
+    DB.agenda = DB.agenda.filter(e => !(e.auto && (e.cat === 'BAIL' || e.cat === 'BAIL_PREVIS') && !validBailKeys.has(e.autoKey)));
+    _bailPurged = DB.agenda.length !== _before;
+  }
 
-  if(toAdd.length || _diagPurged) {
+  if(toAdd.length || _diagPurged || _bailPurged) {
     if(toAdd.length) DB.agenda.push(...toAdd);
     DB.agendaLastSync = todayStr;
     saveDB();
@@ -16521,6 +16536,8 @@ function openBailMenu(evt, ref, full) {
   if (bail) {
     items.push('<div class="bmp-divider" role="separator"></div>');
     if (!bail._deleted && !bail.cloture) {
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_avenantOpen('${refEsc}')" style="font-weight:700">${_uiIcon('edit')}Créer un avenant…</button>`);
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_congeOpen('${refEsc}')" style="font-weight:700">${_uiIcon('doc-text')}Congé / résiliation…</button>`);
       items.push(`<button class="bmp-item" onclick="_closeBienMenus();_departOuvrir('${refEsc}')" style="font-weight:700">${_ICON_DEPART} Assistant de départ…</button>`);
     }
     items.push(`<button class="bmp-item" onclick="_closeBienMenus();openBailClore('${refEsc}')">${_uiIcon('archive')}Clôturer ce bail</button>`);
@@ -17980,14 +17997,22 @@ function rBaux() {
     if (!groups.has(key)) groups.set(key, { entNom: l.entity || '—', immNom: l.imm || '', logs: [] });
     groups.get(key).logs.push(l);
   });
-  const groupsArr = [...groups.values()].sort((a, b) => _natCmp(a.immNom, b.immNom));
+  // v15.614 REFONTE-PC — tri par BAILLEUR (entité) puis immeuble ; stats par bailleur pour l'intercalaire.
+  const groupsArr = [...groups.values()].sort((a, b) => _natCmp(a.entNom, b.entNom) || _natCmp(a.immNom, b.immNom));
+  const _bailleurStats = new Map(); // entNom -> {nbImm, nbLoc}
+  groupsArr.forEach(g => {
+    const s = _bailleurStats.get(g.entNom) || { nbImm: 0, nbLoc: 0 };
+    s.nbImm += 1; s.nbLoc += g.logs.length;
+    _bailleurStats.set(g.entNom, s);
+  });
+  const _multiBailleur = _bailleurStats.size > 1;
 
   if (!groupsArr.length) {
     el('baux-grid').innerHTML = `<div style="text-align:center;padding:40px;color:var(--t3,#9ca3af);font-style:italic">Aucun locataire ne correspond aux filtres.</div>`;
     return;
   }
 
-  el('baux-grid').innerHTML = groupsArr.map(g => {
+  const _bubbles = groupsArr.map(g => {
     const ent = (DB.entites || []).find(e => e && e.nom === g.entNom) || null;
     const im = ent && Array.isArray(ent.immeubles) ? ent.immeubles.find(i => i && i.nom === g.immNom && !i._deleted) : null;
     const immKey = `${g.entNom}||${g.immNom}`;
@@ -18016,11 +18041,12 @@ function rBaux() {
       const debutLbl = bail && bail.debut ? `Bail début ${fd(bail.debut)}` : 'Aucun bail';
 
       // Type badge meublé/etc (compact)
+      // v15.614 REFONTE-PC Locataires — emoji type de bail → badge libellé (DRY .badge existant)
       let typeBadge = '';
       if (bail && bail.type && bail.type !== 'nu') {
-        const BADGES = { 'meuble': '📚', 'etudiant': '🎓', 'mobilite': '🚀', 'garage': '🚗', 'autre': '📋' };
-        const ic = BADGES[bail.type] || '';
-        if (ic) typeBadge = ` ${ic}`;
+        const TYPE_LBL = { 'meuble': 'Meublé', 'etudiant': 'Étudiant', 'mobilite': 'Mobilité', 'garage': 'Garage', 'autre': 'Autre' };
+        const lbl = TYPE_LBL[bail.type] || '';
+        if (lbl) typeBadge = ` <span class="badge gry loc-nom-badge">${escHtml(lbl)}</span>`;
       }
       // Sig badge si bail signé
       let sigBadge = '';
@@ -18029,7 +18055,10 @@ function rBaux() {
         // audit : le mode 'bailleur-seul' peut désormais couvrir « locataire signé, bailleur distant en attente » →
         // le libellé reflète QUI a réellement signé (via signedBailleurAt), pas une hypothèse bailleur-first.
         const _partialTitle = bail.signatures.signedBailleurAt ? 'Bailleur signé, locataire en attente' : 'Locataire signé, bailleur en attente';
-        sigBadge = isPartiel ? `<span title="${_partialTitle}" style="color:#f59e0b;font-size:13px;margin-left:4px">🟠</span>` : '<span title="Bail signé bilatéralement" style="color:#16a34a;font-size:13px;margin-left:4px">🔒</span>';
+        // v15.614 REFONTE-PC — emoji signature → badge tokenisé + line-icon
+        sigBadge = isPartiel
+          ? ` <span class="badge ora loc-nom-badge" title="${escHtml(_partialTitle)}">${_uiIcon('clock',11)} Signature partielle</span>`
+          : ` <span class="badge grn loc-nom-badge" title="Bail signé bilatéralement">${_uiIcon('sign',11)} Signé</span>`;
       }
       // v15.230 P0-A — Badge MRH (assurance obligatoire bailleur) restauré
       // v15.253 V3-REFONTE-ASSURANCES Étape 2 : badge cliquable → ouvre la modale MRH (accès direct
@@ -18037,16 +18066,13 @@ function rBaux() {
       const _mrhRec = (DB.mrh || []).find(m => m && m.logement === l.ref && !m._deleted);
       const hasMrh = !!_mrhRec;
       const _mrhId = _mrhRec ? _mrhRec.id : 'null';
+      // v15.614 REFONTE-PC — badge « Ass. hab. » manquante tokenisé (.badge red) ; le 🔑 « présente » (doublon
+      // avec le bouton Assurance de la ligne) est RETIRÉ.
       const mrhBadge = bail && !hasMrh
-        ? `<span onclick="event.stopPropagation();openMrh(null,'${refEsc}')" title="Assurance habitation manquante — cliquer pour l'ajouter" style="cursor:pointer;display:inline-block;background:#fee2e2;color:#991b1b;border:1px solid #ef4444;border-radius:10px;padding:1px 6px;font-size:9.5px;font-weight:700;margin-left:4px;vertical-align:middle">⚠ Ass. hab.</span>`
-        : (bail && hasMrh ? `<span onclick="event.stopPropagation();openMrh(${_mrhId},'${refEsc}')" title="Assurance habitation — cliquer pour voir / modifier" style="cursor:pointer;color:#16a34a;font-size:11px;margin-left:4px">🔑</span>` : '');
+        ? ` <span class="badge red loc-nom-badge" onclick="event.stopPropagation();openMrh(null,'${refEsc}')" title="Assurance habitation manquante — cliquer pour l'ajouter" style="cursor:pointer">${_uiIcon('warn',11)} Ass. hab.</span>`
+        : '';
 
-      // v15.230 P0-A — Prog bar % bail écoulé (restauré du legacy)
-      const progPct = _bailProgressPct(bail);
-      const progBar = (progPct !== null) ? `<div style="height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden;margin-top:6px"><div style="height:100%;background:linear-gradient(90deg,#3b82f6,#2563eb);width:${progPct}%"></div></div>` : '';
-
-      // v15.230 P1-F — Fix mailto encoding (encodeURIComponent au lieu d'escHtml)
-      const mailtoUrl = email ? `mailto:${encodeURIComponent(email).replace(/'/g, '%27')}` : '';
+      // v15.614 REFONTE-PC — prog-bar % + bouton Email retirés (décoratif / option indisponible).
 
       // v15.x DEPART-VISIBILITE — remonter l'état de départ sur la carte (au lieu du seul menu ⋮).
       // bail.depart présent → carte en état « départ » (accent + avancement N/6 + compte à rebours DG) ;
@@ -18063,34 +18089,32 @@ function rBaux() {
       const echCellHtml = depState
         ? `<div class="loc-ech-b loc-dep-cell" title="Départ en cours — ouvrir l'assistant" onclick="event.stopPropagation();_departOuvrir('${refEsc}')">${_ICON_DEPART} Départ ${depState.doneCount}/${depState.total}${depDgHtml}</div>`
         : `<div class="loc-ech-b ${ech.cls}">${_uiIcon('calendar',13)} ${ech.text}</div>`;
+      // v15.614 REFONTE-PC — bouton départ libellé (plus d'icône seule)
       const depActionBtn = depState
-        ? `<button onclick="event.stopPropagation();_departOuvrir('${refEsc}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">${_ICON_DEPART}</button>`
+        ? `<button onclick="event.stopPropagation();_departOuvrir('${refEsc}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">${_ICON_DEPART} Départ</button>`
         : (bail && !bail.cloture && !bail._deleted && ech.urgent
             ? `<button onclick="event.stopPropagation();_departOuvrir('${refEsc}')" title="Préparer le départ du locataire" aria-label="Préparer le départ" class="loc-dep-prep">${_ICON_DEPART} Départ</button>`
             : '');
       const rowDepCls = depState ? ' loc-depart' : (ech.urgent ? ' warn-soon' : '');
 
-      // Actions compactes : principales en visible + ⋮ menu pour actions secondaires
-      // (Clôturer / Supprimer / Acte cautionnement / PDF Drive / Réinitialiser sigs)
+      // v15.614 REFONTE-PC — actions LIBELLÉES (règle « jamais d'icône seule »), Email retiré (option
+      // indisponible), couleurs en classes tokenisées. Actions secondaires dans le ⋮ menu.
       const actions = `${depActionBtn}
-        <button onclick="event.stopPropagation();openBail('${refEsc}')" title="Modifier le bail" aria-label="Modifier le bail">${_uiIcon('edit')}</button>
-        <button onclick="event.stopPropagation();previewBailRef('${refEsc}')" title="Aperçu bail" aria-label="Aperçu bail">${_uiIcon('eye')}</button>
-        ${/* « Voir bail signé » (snapshot HTML) retiré 2026-06-18 — remplacé par « PDF du bail » */ ''}
+        <button onclick="event.stopPropagation();openBail('${refEsc}')" title="Modifier le bail" aria-label="Modifier le bail">${_uiIcon('edit')} Modifier</button>
+        <button onclick="event.stopPropagation();previewBailRef('${refEsc}')" title="Aperçu bail" aria-label="Aperçu bail">${_uiIcon('eye')} Aperçu</button>
         ${bail && bail.signatures && bail.signatures.mode === 'bailleur-seul'
-          ? `<button onclick="event.stopPropagation();openBailSignatureFlow('${refEsc}')" title="Continuer la signature du bail" aria-label="Continuer la signature" style="color:#16a34a">${_uiIcon('sign')}</button>`
+          ? `<button onclick="event.stopPropagation();openBailSignatureFlow('${refEsc}')" title="Continuer la signature du bail" aria-label="Continuer la signature" class="loc-act-sign">${_uiIcon('sign')} Signer</button>`
           : ''}
-        ${email ? `<button onclick="event.stopPropagation();window.location.href='${mailtoUrl}'" title="Email ${escHtml(email)}" aria-label="Email locataire">${_uiIcon('mail')}</button>` : ''}
-        ${bail ? `<button onclick="event.stopPropagation();openMrh(${_mrhId},'${refEsc}')" title="Attestation assurance habitation (locataire)" aria-label="Attestation assurance habitation" style="color:${hasMrh?'#16a34a':'#dc2626'}">${_uiIcon('key')}</button>` : ''}
-        ${bail ? `<button onclick="openBailMenu(event,'${refEsc}')" title="Plus d'actions (clôturer, supprimer, acte cautionnement…)" aria-label="Plus d'actions" style="font-weight:700">${_uiIcon('dots')}</button>` : ''}
+        ${bail ? `<button onclick="event.stopPropagation();openMrh(${_mrhId},'${refEsc}')" title="Attestation assurance habitation (locataire)" aria-label="Attestation assurance habitation" class="${hasMrh?'loc-act-mrh-ok':'loc-act-mrh-no'}">${_uiIcon('key')} Assurance</button>` : ''}
+        ${bail ? `<button onclick="openBailMenu(event,'${refEsc}')" title="Plus d'actions (clôturer, supprimer, acte cautionnement…)" aria-label="Plus d'actions">${_uiIcon('dots')} Plus</button>` : ''}
       `;
 
       const onRowClick = `openLogFiche('${refEsc}')`;
-      return `<div class="loc-card-row-b${rowDepCls}" onclick="${onRowClick}">
+      return `<div class="loc-card-row-b${rowDepCls}${isVacant ? ' loc-vacant' : ''}" onclick="${onRowClick}">
         <div class="loc-avatar-b">${initials}</div>
         <div class="loc-info-b">
-          <div class="nom-b">${isVacant ? '<span style="color:var(--err,#ef4444)">VACANT</span>' : escHtml(locDisplay) + typeBadge + sigBadge + mrhBadge}</div>
+          <div class="nom-b">${isVacant ? '<span class="loc-vacant-tag">VACANT</span>' : escHtml(locDisplay) + typeBadge + sigBadge + mrhBadge}</div>
           <div class="meta-b">${refEsc} · ${typeStr}${tel ? ' · ' + escHtml(tel) : ''}</div>
-          ${progBar}
         </div>
         <div class="loc-loyer-b">${loyerStr}</div>
         ${echCellHtml}
@@ -18101,14 +18125,29 @@ function rBaux() {
 
     return `<div class="locimm-block-b" data-immkey="${escHtml(immKey)}">
       <div class="locimm-block-b-header" onclick="_toggleLocImmBlockB('${escHtml(immKey).replace(/'/g, "\\'")}', event)" role="button" tabindex="0">
-        <span class="imm-icon-b">🏛</span>
+        <span class="imm-icon-b">${_uiIcon('building',18)}</span>
         <span class="imm-name-b">${titleEsc}${adrEsc}</span>
         <span class="count-b">${g.logs.length} ${g.logs.length > 1 ? 'locataires' : 'locataire'}</span>
         <span class="chevron-b">▾</span>
       </div>
       <div class="locimm-body-b">${locCards}</div>
     </div>`;
-  }).join('');
+  });
+
+  // v15.614 REFONTE-PC — assemblage empilé avec intercalaires bailleur (fixes, non repliables ;
+  // affichés seulement si ≥2 bailleurs). Réutilise le langage « étiquette bailleur » de la page Biens.
+  let _html = '', _lastEnt = null;
+  groupsArr.forEach((g, i) => {
+    if (_multiBailleur && g.entNom !== _lastEnt) {
+      const st = _bailleurStats.get(g.entNom) || { nbImm: 0, nbLoc: 0 };
+      _html += `<div class="locbail-inter"><span class="locbail-ico" aria-hidden="true">${_uiIcon('person',14)}</span>`
+        + `<span class="locbail-name">${escHtml(g.entNom)}</span>`
+        + `<span class="locbail-stats">${st.nbImm} ${st.nbImm > 1 ? 'immeubles' : 'immeuble'} · ${st.nbLoc} ${st.nbLoc > 1 ? 'locataires' : 'locataire'}</span></div>`;
+      _lastEnt = g.entNom;
+    }
+    _html += _bubbles[i];
+  });
+  el('baux-grid').innerHTML = _html;
 
   // Restaure l'état collapsed mémorisé
   try { _applyLocImmBlocksCollapsedState(); } catch(e) {}
@@ -23870,6 +23909,411 @@ function exportBailWord(bail, log, ref) {
   showToast('Export Word téléchargé','ok');
 }
 
+// ═══════════════ AVENANT AU BAIL (loi 89-462) ═══════════════
+// Génère un avenant (12 objets) réutilisant les données du bail + le module js/core/avenant.js
+// (articles + garde-fous loyer). V1 : document généré (aperçu + Word/impression) à signer ;
+// signature in-app = phase 2. Le document formalise l'accord ; la prise en compte du nouveau
+// loyer/charges/colocataire dans les calculs passe par « Modifier le bail » (barème daté existant).
+var _avenantState = { ref:'', no:1, sel:{}, locNames:[] };
+var _AVENANT_OBJETS = [
+ {k:'coloc', tt:'Colocataire', f:[
+   {id:'act',l:'Situation',t:'select',o:['Départ (séparation), sans remplaçant','Ajout d\'un colocataire','Remplacement (départ + arrivée)']},
+   {id:'sortant',l:'Colocataire sortant',t:'select',o:function(){return _avenantState.locNames;}},
+   {id:'entrant',l:'Colocataire entrant',t:'text',v:''}],
+   note:'Départ seul : solidarité + caution du sortant éteintes au plus tard 6 mois après le congé. Ajout / remplacement : nouvelle caution pour l\'entrant.'},
+ {k:'caution', tt:'Garant / caution', f:[
+   {id:'act',l:'Action',t:'select',o:['Ajout d\'une caution','Remplacement de la caution','Mainlevée (fin de caution)']},
+   {id:'nom',l:'Caution concernée',t:'text',v:''},
+   {id:'plafond',l:'Montant garanti (€)',t:'num',v:''}]},
+ {k:'loyer', tt:'Loyer (hors IRL)', dyn:true, f:[
+   {id:'motif',l:'Motif',t:'select',o:['Travaux d\'amélioration réalisés par le bailleur','Baisse temporaire pendant travaux','Réévaluation d\'un loyer manifestement sous-évalué']},
+   {id:'desc',l:'Nature des travaux',t:'text',v:''},
+   {id:'cout',l:'Coût réel TTC des travaux (€)',t:'num',v:''},
+   {id:'dpe',l:'Classe DPE du logement',t:'select',o:['A à E','F (passoire)','G (passoire)']},
+   {id:'nouveau',l:'Nouveau loyer HC (€)',t:'num',v:''}]},
+ {k:'charges', tt:'Charges', f:[
+   {id:'mode',l:'Nature',t:'select',o:function(){ return _avenantState.forfaitOk ? ['Révision du montant des provisions','Passage au forfait de charges','Passage aux provisions avec régularisation'] : ['Révision du montant des provisions','Passage aux provisions avec régularisation']; }},
+   {id:'montant',l:'Nouveau montant mensuel (€)',t:'num',v:''}],
+   note:'Le forfait de charges n\'est proposé que pour un bail meublé ou une colocation (art. 8-1 / 25-9) ; sinon seules les provisions (régularisables) sont possibles.'},
+ {k:'annexe', tt:'Annexe / dépendance', f:[
+   {id:'act',l:'Action',t:'select',o:['Adjonction','Retrait']},
+   {id:'type',l:'Type',t:'select',o:['un garage','une cave','une place de stationnement','un jardin privatif']},
+   {id:'design',l:'Désignation précise',t:'text',v:''},
+   {id:'sup',l:'Loyer supplémentaire (€/mois)',t:'num',v:''}]},
+ {k:'duree', tt:'Durée / prorogation', f:[
+   {id:'act',l:'Nature',t:'select',o:['Prorogation du bail','Fixation d\'une nouvelle échéance']},
+   {id:'fin',l:'Nouveau terme',t:'date',v:''}]},
+ {k:'destination', tt:'Destination des lieux', f:[
+   {id:'dest',l:'Nouvelle destination',t:'select',o:['usage exclusif d\'habitation','usage mixte (habitation et activité professionnelle)']}]},
+ {k:'travaux', tt:'Travaux (autorisation)', f:[
+   {id:'nature',l:'Nature des travaux',t:'text',v:''},
+   {id:'qui',l:'À l\'initiative de',t:'select',o:['le locataire','le bailleur']},
+   {id:'contre',l:'Contrepartie éventuelle',t:'text',v:'—'}]},
+ {k:'paiement', tt:'Paiement / RIB', f:[
+   {id:'jour',l:'Jour de paiement',t:'num',v:'5'},
+   {id:'mode',l:'Mode',t:'select',o:['virement','prélèvement automatique','chèque']},
+   {id:'rib',l:'IBAN du bailleur',t:'text',v:''}]},
+ {k:'souslocation', tt:'Sous-location / cession', f:[
+   {id:'act',l:'Décision',t:'select',o:['Autorisation de sous-location','Autorisation de cession du bail','Refus']},
+   {id:'cond',l:'Conditions',t:'text',v:''}]},
+ {k:'clause', tt:'Clause libre', f:[
+   {id:'titre',l:'Intitulé de la clause',t:'text',v:''},
+   {id:'texte',l:'Texte de la clause',t:'textarea',v:''}]},
+ {k:'correction', tt:'Correction d\'erreur', f:[
+   {id:'champ',l:'Élément corrigé',t:'text',v:''},
+   {id:'anc',l:'Mention erronée',t:'text',v:''},
+   {id:'nouv',l:'Mention rectifiée',t:'text',v:''}]}
+];
+function _avenantOv(){
+  var ov=document.getElementById('ov-avenant');
+  if(!ov){ ov=document.createElement('div'); ov.id='ov-avenant'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-avenant')"); document.body.appendChild(ov); }
+  return ov;
+}
+function _avenantCtx(){
+  var bail=DB.baux&&DB.baux[_avenantState.ref]; if(!bail) return null;
+  var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
+  var locs=(bail.locataires&&bail.locataires.length)?bail.locataires.map(function(l){return l.nom||'';}).filter(Boolean):(bail.nom?[bail.nom]:[]);
+  var dateBail=(bail.signatures&&bail.signatures.signedAt)?bail.signatures.signedAt:(bail.dateSignaturePrevue||bail.debut||'');
+  return { no:_avenantState.no, bailleur:ent.nom||bail.entity||'Le bailleur', locataires:locs,
+    bien:bail.adrBien||'', dateBail:dateBail, loyer0:Number(bail.hc)||0,
+    effetIso:v('av-effet')||'', ville:v('av-ville')||bail.villeSignature||'' };
+}
+function _avenantFldHtml(k,fd){ var id='av-'+k+'-'+fd.id; var opts=(typeof fd.o==='function')?fd.o():fd.o;
+  if(opts) return '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+fd.l+'</label><select class="inp" id="'+id+'" oninput="_avenantRender()">'+opts.map(function(x){return '<option>'+escHtml(x)+'</option>';}).join('')+'</select></div>';
+  if(fd.t==='textarea') return '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+fd.l+'</label><textarea class="inp" id="'+id+'" rows="3" oninput="_avenantRender()">'+escHtml(fd.v||'')+'</textarea></div>';
+  return '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+fd.l+'</label><input class="inp" id="'+id+'" '+(fd.t==='num'?'type="number"':fd.t==='date'?'type="date"':'')+' value="'+escHtml(fd.v||'')+'" oninput="_avenantRender()"></div>';
+}
+function _avenantObjById(k){ return _AVENANT_OBJETS.find(function(o){return o.k===k;}); }
+function _avenantGetVals(o){ var g={}; o.f.forEach(function(fd){ var e=document.getElementById('av-'+o.k+'-'+fd.id); g[fd.id]=e?e.value:(fd.v||''); }); return g; }
+function _avenantCollect(){ return _AVENANT_OBJETS.filter(function(o){return _avenantState.sel[o.k];}).map(function(o){return {k:o.k, data:_avenantGetVals(o)};}); }
+function _avenantBuildGrid(){ var g=document.getElementById('av-objgrid'); if(!g)return;
+  g.innerHTML=_AVENANT_OBJETS.map(function(o){ var on=_avenantState.sel[o.k];
+    return '<div class="av-obj'+(on?' on':'')+'" data-o="'+o.k+'" onclick="_avenantToggle(\''+o.k+'\')"><span class="av-cb">'+(on?'✓':'')+'</span>'+o.tt+'</div>';
+  }).join(''); }
+function _avenantBuildGroups(){ var c=document.getElementById('av-groups'); if(!c)return;
+  c.innerHTML=_AVENANT_OBJETS.filter(function(o){return _avenantState.sel[o.k];}).map(function(o){
+    return '<div class="av-grp"><h4>'+o.tt+'</h4>'+o.f.map(function(fd){return _avenantFldHtml(o.k,fd);}).join('')+(o.dyn?'<div id="av-'+o.k+'-fb"></div>':'')+(o.note?'<div class="av-note">'+o.note+'</div>':'')+'</div>';
+  }).join(''); }
+function _avenantLoyerFeedback(){ var fb=document.getElementById('av-loyer-fb'); if(!fb)return;
+  var motif=(document.getElementById('av-loyer-motif')||{}).value||'';
+  var bail=DB.baux&&DB.baux[_avenantState.ref];
+  var zoneEncadree=!!(bail&&(bail.zoneTendue||bail.encadrementLoyers));
+  var g=window.loyerTravauxGuard({loyer0:(_avenantCtx()||{}).loyer0||0, coutTTC:(document.getElementById('av-loyer-cout')||{}).value, dpe:(document.getElementById('av-loyer-dpe')||{}).value, nouveau:(document.getElementById('av-loyer-nouveau')||{}).value, zoneEncadree:zoneEncadree, motif:motif});
+  if(!g.alertes.length){ fb.innerHTML=''; return; }
+  // Alertes NON bloquantes : info (bleu) / warn (ambre). L'app conseille, l'utilisateur décide.
+  fb.innerHTML=g.alertes.map(function(a){
+    var st = a.n==='warn' ? 'background:var(--warnbg,#faeeda);border-color:#efd9a8;color:#8a5a12' : 'background:#e6f1fb;border-color:#cfe0f6;color:#185fa5';
+    return '<div class="av-note" style="'+st+'">'+(a.n==='warn'?'⚠ ':'ℹ ')+a.m+'</div>';
+  }).join('');
+}
+function _avenantToggle(k){ _avenantState.sel[k]=!_avenantState.sel[k]; _avenantBuildGrid(); _avenantBuildGroups(); _avenantRender(); }
+// Habille le corps de l'avenant avec la trame Propryo (_docPage : bandeau logos + titre + pied).
+function _avenantDocPageHtml(ref){
+  var bail=DB.baux&&DB.baux[ref]; if(!bail) return '';
+  var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
+  var ctx=_avenantCtx(); if(!ctx) return ''; ctx.objets=_avenantCollect();
+  var r=window.buildAvenantHtml(ctx);
+  return _docPage(ent, {
+    titre:'AVENANT N° '+(ctx.no||1)+' AU CONTRAT DE BAIL D\'HABITATION',
+    ctx:'Loi n° 89-462 du 6 juillet 1989 — portant modification du bail signé le '+(function(d){var p=String(d||'').slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'…';})(ctx.dateBail),
+    corps:r.html, ref:escHtml(ref), date:(v('av-effet')?'Effet du '+fd(v('av-effet')):''),
+    withStyle:false
+  });
+}
+function _avenantRender(){ var prev=document.getElementById('av-preview'); if(!prev)return;
+  var ref=el('ov-avenant-ref')?el('ov-avenant-ref').value:_avenantState.ref;
+  prev.innerHTML=_avenantDocPageHtml(ref||_avenantState.ref);
+  _avenantLoyerFeedback();
+}
+function _avenantOpen(ref){
+  var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
+  _avenantState={ ref:ref, no:((bail.avenants&&bail.avenants.length)||0)+1, sel:{}, locNames:[], forfaitOk:false };
+  _avenantState.locNames=(bail.locataires&&bail.locataires.length)?bail.locataires.map(function(l){return l.nom||'';}).filter(Boolean):(bail.nom?[bail.nom]:[]);
+  // Forfait de charges licite seulement en meublé (et variantes) ou en colocation (art. 8-1 / 25-9).
+  _avenantState.forfaitOk=(['meuble','etudiant','mobilite'].indexOf(bail.type)>=0)||_avenantState.locNames.length>1;
+  var ov=_avenantOv();
+  var who=escHtml((_avenantState.locNames.join(' & ')||'—')+' · '+(bail.adrBien||ref));
+  ov.innerHTML=''+
+   '<style>'+
+   '#ov-avenant .av-wrap{background:var(--sur);border-radius:16px;max-width:1080px;width:96vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}'+
+   '#ov-avenant .m-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bor)}'+
+   '#ov-avenant .av-body{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);gap:0;flex:1;min-height:0}'+
+   '@media(max-width:820px){#ov-avenant .av-body{grid-template-columns:1fr}}'+
+   '#ov-avenant .av-form{padding:14px 16px;overflow:auto;border-right:1px solid var(--bor)}'+
+   '#ov-avenant .av-objgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}'+
+   '#ov-avenant .av-obj{border:1px solid var(--bor);border-radius:9px;padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:8px;background:var(--sur2);font-weight:700;font-size:12px}'+
+   '#ov-avenant .av-obj.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset;background:#fff6f4}'+
+   '#ov-avenant .av-cb{width:16px;height:16px;border-radius:4px;border:2px solid var(--bor2);flex:0 0 auto;display:grid;place-items:center;font-size:11px;color:#fff}'+
+   '#ov-avenant .av-obj.on .av-cb{background:var(--acc);border-color:var(--acc)}'+
+   '#ov-avenant .av-grp{border:1px solid var(--bor);border-radius:10px;padding:11px 12px;margin-top:10px}'+
+   '#ov-avenant .av-grp h4{font:800 10px Inter;letter-spacing:.4px;text-transform:uppercase;color:var(--acc);margin:0 0 9px}'+
+   '#ov-avenant .av-note{background:var(--warnbg,#faeeda);border:1px solid #efd9a8;border-radius:8px;padding:8px 10px;font-size:10.5px;color:#8a5a12;margin-top:8px;line-height:1.45}'+
+   '#ov-avenant .av-prevwrap{background:var(--sur3);padding:14px;overflow:auto}'+
+   '#ov-avenant .pro-doc{background:#fff;max-width:600px;margin:0 auto;padding:26px 32px;box-shadow:0 2px 12px rgba(0,0,0,.09)}'+
+   '#ov-avenant .av-todo{color:#c2472f;font-style:italic;font-weight:600}'+
+   '#ov-avenant .pro-doc .alerte{background:#fff8ef;border:1px solid #f0c987;border-radius:8px;padding:8px 11px;margin:8px 0;font-size:10.5px;line-height:1.5;color:#6b4610}'+
+   '#ov-avenant .pro-doc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}'+
+   '#ov-avenant .pro-doc .sig-bloc{border:1px solid #b8c0cd;border-radius:6px;min-height:70px;padding:6px;margin-top:4px;font-size:10px;color:#8b94a5}'+
+   '#ov-avenant .av-foot{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--bor);background:var(--sur2)}'+
+   _docCss()+
+   '</style>'+
+   '<div class="av-wrap" onclick="event.stopPropagation()">'+
+   '<div class="m-head"><div><h3 style="margin:0;font:800 15px Inter">Créer un avenant — n° '+_avenantState.no+'</h3><div style="font-size:12px;color:var(--t3);font-weight:600">'+who+'</div></div><button class="m-close" onclick="closeM(\'ov-avenant\')">✕</button></div>'+
+   '<div class="av-body">'+
+     '<div class="av-form">'+
+       '<div class="av-objgrid" id="av-objgrid"></div>'+
+       '<div id="av-groups"></div>'+
+       '<div class="av-grp"><h4>Effet & signature</h4>'+
+         '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Date d\'effet</label><input class="inp" type="date" id="av-effet" value="'+escHtml(td())+'" oninput="_avenantRender()"></div>'+
+         '<div class="fld"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Fait à</label><input class="inp" id="av-ville" value="'+escHtml(bail.villeSignature||'')+'" oninput="_avenantRender()"></div>'+
+       '</div>'+
+       '<div class="av-note" style="background:#e6f1fb;border-color:#cfe0f6;color:#185fa5;margin-top:10px">À l\'enregistrement, un changement de <b>loyer</b> ou de <b>charges</b> est automatiquement daté dans le barème (date d\'effet) → le dû et la régularisation se recalculent à partir de cette date. La signature électronique de l\'avenant arrivera dans une prochaine version.</div>'+
+     '</div>'+
+     '<div class="av-prevwrap"><div id="av-preview"></div></div>'+
+   '</div>'+
+   '<input type="hidden" id="ov-avenant-ref" value="'+escHtml(ref)+'">'+
+   '<div class="av-foot"><button class="btn bp" onclick="_avenantSave(\''+ (ref||'').replace(/'/g,"\\'") +'\')">Enregistrer l\'avenant</button>'+
+     '<button class="btn bs bb" onclick="_avenantSortiePdf()">'+((typeof _edlPrefersShare==='function'&&_edlPrefersShare())?'📤 Partager le PDF':'⬇️ Télécharger le PDF')+'</button>'+
+     '<button class="btn bs" onclick="closeM(\'ov-avenant\')">Fermer</button></div>'+
+   '</div>';
+  _avenantBuildGrid(); _avenantBuildGroups(); _avenantRender();
+  openM('ov-avenant');
+}
+// Confirme si des champs essentiels manquent (le document afficherait « ‹à compléter› »).
+var _AV_LBL={coloc:'Colocataire',caution:'Garant / caution',loyer:'Loyer',charges:'Charges',annexe:'Annexe',duree:'Durée',destination:'Destination',travaux:'Travaux',paiement:'Paiement / RIB',souslocation:'Sous-location',clause:'Clause',correction:'Correction'};
+function _avenantChampsOk(objets, verbe){
+  var manque=window.avenantChampsManquants?window.avenantChampsManquants(objets):[];
+  if(!manque.length) return true;
+  var msg=manque.map(function(m){return '• '+(_AV_LBL[m.k]||m.k)+' : '+m.champs.join(', ');}).join('\n');
+  return confirm2('Des champs sont vides — le document affichera « ‹à compléter› » :\n\n'+msg+'\n\n'+(verbe||'Continuer')+' quand même ?');
+}
+function _avenantSave(ref){
+  var bail=DB.baux&&DB.baux[ref]; if(!bail)return;
+  var objets=_avenantCollect();
+  if(!objets.length){ showToast('Coche au moins un objet de modification.','warn'); return; }
+  if(!_avenantChampsOk(objets,'Enregistrer')) return;
+  var effet=v('av-effet')||td();
+  var loyerAny=objets.find(function(o){return o.k==='loyer';});
+  var chargesAny=objets.find(function(o){return o.k==='charges';});
+  // Loyer : on ALERTE (jamais on ne bloque — l'utilisateur décide). Les avertissements sérieux
+  // (DPE F/G, baisse incohérente, dépassement en zone encadrée) sont confirmés ; les infos (zone
+  // non tendue = pas de plafond) ne le sont pas.
+  if(loyerAny){
+    var _ze=!!(bail.zoneTendue||bail.encadrementLoyers);
+    var gl=window.loyerTravauxGuard({loyer0:Number(bail.hc)||0, coutTTC:loyerAny.data.cout, dpe:loyerAny.data.dpe, nouveau:loyerAny.data.nouveau, zoneEncadree:_ze, motif:loyerAny.data.motif});
+    var warns=(gl.alertes||[]).filter(function(a){return a.n==='warn';});
+    if(warns.length && !confirm2('À vérifier avant d\'enregistrer :\n\n'+warns.map(function(a){return '• '+a.m;}).join('\n')+'\n\nEnregistrer quand même ?')) return;
+  }
+  // AUDIT ARGENT — la date d'effet qui pilote le barème doit passer les MÊMES garde-fous que
+  // « Modifier le bail » (_bailValidConfirm) : 1er du mois, jamais avant le début du bail, jamais
+  // dans un mois déjà quittancé, jamais avant la dernière période vivante. Sinon dû faux / passé réécrit.
+  if((loyerAny||chargesAny) && typeof window._baremeClampDateEffet==='function'){
+    var dq=(typeof _dernierMoisQuittanceYm==='function')?_dernierMoisQuittanceYm(ref):null;
+    var cl=window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm:dq||undefined, debutBailIso:bail.debut||undefined });
+    var effetOk=cl.effetIso, ajuste=!!cl.ajustee;
+    var bmin=(typeof window._bailModifBorneMinEffet==='function')?window._bailModifBorneMinEffet(DB.loyerBareme||[], ref):'';
+    if(bmin && effetOk && effetOk<bmin){ effetOk=bmin; ajuste=true; }
+    if(effetOk && effetOk!==effet){ effet=effetOk; ajuste=true; }
+    if(ajuste){ if(el('av-effet')) el('av-effet').value=effet; showToast('Date d\'effet ajustée au '+fd(effet)+' (1ᵉʳ du mois / mois déjà quittancé / début du bail).','warn',6000); }
+  }
+  var docHtml=_avenantDocPageHtml(ref); var built=window.buildAvenantHtml(Object.assign(_avenantCtx(),{objets:objets}));
+  bail.avenants=bail.avenants||[];
+  var rec={ no:_avenantState.no, dateEffet:effet, ville:v('av-ville')||'', objets:objets, html:docHtml, createdAt:(new Date()).toISOString() };
+  bail.avenants.push(rec);
+
+  // PROPAGATION loyer/charges dans les calculs (barème daté — MÊME mécanisme que « Modifier le bail »).
+  if(loyerAny||chargesAny){
+    var prevHc=Number(bail.hc)||0, prevCh=Number(bail.ch)||0;
+    var newHc=loyerAny?(parseFloat(String(loyerAny.data.nouveau).replace(',','.'))||prevHc):prevHc;
+    var newCh=chargesAny?(parseFloat(String(chargesAny.data.montant).replace(',','.'))||prevCh):prevCh;
+    // Ne date une période QUE si un terme change réellement (évite une période redondante à montant identique).
+    if(newHc!==prevHc || newCh!==prevCh){
+      // Couvre le passé au tarif PRÉCÉDENT jusqu'à la date d'effet (sinon duMois applique le nouveau au passé)…
+      if(typeof window._baremeGarantirCouverture==='function'){
+        DB.loyerBareme=window._baremeGarantirCouverture(DB.loyerBareme||[], { ref:ref, debut:bail.debut, hc:prevHc, ch:prevCh }, effet);
+      }
+      // …puis pose la nouvelle période datée à la date d'effet (source manuel = avenant).
+      if(typeof window._baremeAppliquerNouvellePeriode==='function'){
+        DB.loyerBareme=window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], { ref:ref, debut:effet, hc:newHc, ch:newCh, source:'manuel', bailDebut:bail.debut, note:'Avenant n° '+rec.no+(loyerAny&&chargesAny?' (loyer + charges)':loyerAny?' (loyer)':' (charges)') });
+      }
+      bail.hc=newHc; bail.ch=newCh; // termes courants du bail alignés (l'historique est porté par le barème)
+      if(Array.isArray(DB.bailEvents)) DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:effet, type:'modif', avenant:rec.no, hcAvant:prevHc, hcApres:newHc, chAvant:prevCh, chApres:newCh });
+    }
+    // Statut forfait de charges (art. 23-1) : enregistré sur le bail pour un usage FUTUR par la
+    // régularisation. ⚠ Non encore lu par le moteur de régul (chantier Charges) → un forfait posé
+    // ici serait aujourd'hui quand même régularisé : câblage régul = suite à faire (voir BACKLOG).
+    if(chargesAny) bail.chForfait = String(chargesAny.data.mode||'').toLowerCase().indexOf('forfait')>=0;
+  }
+
+  if(typeof _stamp==='function') _stamp(bail);
+  if(Array.isArray(DB.bailEvents)){ DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:effet, type:'avenant', no:rec.no, objets:objets.map(function(o){return o.k;}) }); }
+  if(typeof _auditLog==='function') _auditLog('avenant','bail',ref,'n°'+rec.no+' objets='+objets.map(function(o){return o.k;}).join(',')+((loyerAny||chargesAny)?' [barème daté au '+effet+']':''));
+  if(typeof saveDB==='function') saveDB();
+  var toastMsg='Avenant n° '+rec.no+' enregistré ✓'+((loyerAny||chargesAny)?' — loyer/charges appliqués au '+fd(effet):'');
+  showToast(toastMsg,'ok');
+  closeM('ov-avenant'); // toujours fermer après un enregistrement réussi (évite un doublon au re-clic)
+  if(built.caution){ setTimeout(function(){ if(confirm2('Cet avenant appelle un nouvel acte de cautionnement. L\'ouvrir maintenant ?')){ if(typeof genActeCautionnementRef==='function') genActeCautionnementRef(ref); } },150); }
+  if(typeof refreshAllIRL==='function') refreshAllIRL();
+  if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
+}
+// PDF de l'avenant — MÊME sortie que la quittance / l'EDL / le décompte : PDF natif jsPDF
+// (`_docHtmlToNativeBlob`, trame Propryo) puis `_pdfSortie` (PC = « Enregistrer sous » /
+// téléchargement ; téléphone = feuille de partage native). PAS de fenêtre d'impression.
+async function _avenantSortiePdf(ref){
+  ref=ref||(el('ov-avenant-ref')?el('ov-avenant-ref').value:_avenantState.ref);
+  if(!_avenantChampsOk(_avenantCollect(),'Générer le PDF')) return;
+  var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
+  var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
+  var docHtml=_avenantDocPageHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
+  if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
+  await _pdfSortie({
+    fileName:'Avenant_n'+_avenantState.no+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf',
+    desc:'PDF (avenant au bail)',
+    genererAvant:true,
+    titre:'Avenant n° '+_avenantState.no+' au bail',
+    texte:'Avenant n° '+_avenantState.no+' au contrat de bail — '+(bail.adrBien||ref),
+    genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); }
+  });
+}
+
+// ═══════════════ CONGÉ & RÉSILIATION (loi 89-462) ═══════════════
+// Génère l'acte (congé bailleur / accusé de congé locataire / mise en demeure / résiliation amiable).
+// Le TEXTE vient des modèles Propryo (`window._emailCompose`), jamais réinventé ; mis en page dans la
+// trame Propryo (_docPage/.pro-doc) et sorti par le pipeline canonique (_docHtmlToNativeBlob + _pdfSortie).
+var _congeState={ ref:'', kind:'conge_bailleur' };
+var _CONGE_ACTS=[
+ {k:'conge_bailleur', tt:'Congé du bailleur', ds:'Reprise / vente / motif légitime (art. 15)', tpl:'bail-conge-bailleur-6mois'},
+ {k:'conge_locataire', tt:'Congé reçu du locataire', ds:'Accusé + calcul du préavis', tpl:'bail-preavis-recu'},
+ {k:'mise_demeure', tt:'Mise en demeure (impayés)', ds:'Avant clause résolutoire (art. 24)', tpl:'rappel-impaye-3'},
+ {k:'resiliation_amiable', tt:'Résiliation amiable', ds:'Protocole d\'accord (art. 1193)', tpl:'bail-resiliation-amiable'}
+];
+function _congeOv(){ var ov=document.getElementById('ov-conge'); if(!ov){ ov=document.createElement('div'); ov.id='ov-conge'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-conge')"); document.body.appendChild(ov); } return ov; }
+function _congeTplOf(){ var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:''; }
+function _congeExtra(ref){
+  var bail=DB.baux[ref]||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||{};
+  var typeBail=bail.type||'nu'; var today=(typeof td==='function')?td():new Date().toISOString().slice(0,10);
+  // On reformate bail.debut en date FR (les modèles affichent {{bail.debut}}) sans toucher au texte des modèles Propryo.
+  var e={ dateLettre: fd(today), bail: Object.assign({}, bail, { adrBien: bail.adrBien||log.adr||'', debut: bail.debut?fd(bail.debut):'‹début du bail›' }) };
+  if(_congeState.kind==='conge_bailleur'){
+    var motif=v('cg-motif')||'reprise';
+    e.motifConge = motif==='vente'?'vente':motif==='legitime'?'motif légitime et sérieux':'reprise';
+    if(motif==='reprise') e.motifDetail='Reprise du logement pour l\'habiter, au bénéfice de '+(v('cg-benef')||'‹bénéficiaire›')+' ('+(v('cg-lien')||'le bailleur lui-même')+').';
+    else if(motif==='vente') e.motifDetail='Vente du logement, au prix de '+(v('cg-prix')||'‹prix›')+' € — conditions : '+(v('cg-cond')||'‹conditions›')+'.\n\nConformément à l\'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d\'un droit de préemption aux prix et conditions indiqués ci-dessus. Les termes des cinq alinéas de l\'article 15-II, dont la reproduction est imposée à peine de nullité, figurent en annexe du présent congé.';
+    else e.motifDetail=(v('cg-legitime')||'‹description du motif légitime et sérieux›');
+    // Préavis bailleur (6 mois nu / 3 meublé) : la date d'effet doit être un TERME qui respecte
+    // RÉELLEMENT le préavis. Si l'échéance la plus proche est déjà trop tardive, on reporte au terme
+    // suivant — sinon le congé serait nul et la mention « préavis respecté » mensongère (audit P0-1).
+    var pinfo=(typeof _bailPreavisInfo==='function')?_bailPreavisInfo(bail,log):null;
+    var preavisMois=pinfo?pinfo.preavisMonths:window.congeBailleurPreavisMois(typeBail);
+    _congeState.preavisPushed=false;
+    if(pinfo){
+      var finD=new Date(pinfo.fin+'T00:00:00'), tD=new Date(); tD.setHours(0,0,0,0);
+      var limite=new Date(finD); limite.setMonth(limite.getMonth()-preavisMois);
+      if(tD>limite){
+        var entB=(DB.entites||[]).find(function(x){return x.nom===(bail.entity||log.entity);});
+        var cycle=(typeof _bailDureeMois==='function')?_bailDureeMois(bail,log,entB):(pinfo.isMeuble?12:36);
+        if(!(cycle>0)) cycle=pinfo.isMeuble?12:36;
+        while(tD>limite){ finD.setMonth(finD.getMonth()+cycle); limite.setMonth(limite.getMonth()+cycle); _congeState.preavisPushed=true; }
+      }
+      e.dateFin=fd(_isoLocal(finD)); // format LOCAL (évite le décalage d'un jour de toISOString)
+    } else { e.dateFin=bail.fin?fd(bail.fin):'‹échéance du bail›'; }
+    e.mentionPreavis='Le délai de préavis légal applicable à ce congé est de '+preavisMois+' mois ; il court à compter de la réception du présent congé et la date d\'effet ci-dessus a été fixée pour le respecter.';
+  } else if(_congeState.kind==='conge_locataire'){
+    var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
+    e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='à convenir';
+  } else if(_congeState.kind==='mise_demeure'){
+    e.periode=v('cg-periode')||'‹période›'; e.montant=v('cg-montant')||'‹montant›'; e.rappel1Date='(relance 1)'; e.rappel2Date='(relance 2)';
+  } else if(_congeState.kind==='resiliation_amiable'){
+    e.dateEffet=fd(v('cg-effet')||today); e.conditions=v('cg-cond2')||'—';
+  }
+  return e;
+}
+function _congeDocHtml(ref){
+  var bail=DB.baux&&DB.baux[ref]; if(!bail) return '';
+  var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
+  var ctx=(typeof _buildEmailCtxFromRef==='function')?_buildEmailCtxFromRef(ref,_congeExtra(ref)):_congeExtra(ref);
+  var draft=(typeof window._emailCompose==='function')?window._emailCompose(_congeTplOf(),ctx):{body:''};
+  var corps=window.letterToProDoc(draft.body||'');
+  if(_congeState.kind==='conge_bailleur' && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
+  var TIT={conge_bailleur:'Congé donné au locataire',conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
+  var LEG={conge_bailleur:'Loi n° 89-462 du 6 juillet 1989, article 15',conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
+  return _docPage(ent,{titre:TIT[_congeState.kind],ctx:LEG[_congeState.kind],corps:corps,ref:escHtml(ref),date:'',withStyle:false});
+}
+function _congeSubBailleur(motif){
+  if(motif==='reprise') return _congeField('cg-benef','Bénéficiaire de la reprise','text','')+_congeField('cg-lien','Lien avec le bailleur',null,null,(window.REPRISE_LIENS||[]));
+  if(motif==='vente') return _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
+  return _congeField('cg-legitime','Description du motif légitime et sérieux','text','');
+}
+function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+l+'</label>';
+  if(opts) return '<div class="fld" style="margin-bottom:8px">'+lab+'<select class="inp" id="'+id+'" oninput="_congeRender()">'+opts.map(function(o){return '<option value="'+(o.v!=null?o.v:o)+'">'+(o.t!=null?o.t:o)+'</option>';}).join('')+'</select></div>';
+  return '<div class="fld" style="margin-bottom:8px">'+lab+'<input class="inp" id="'+id+'" '+(t==='date'?'type="date"':t==='number'?'type="number"':'')+' value="'+escHtml(val||'')+'" oninput="_congeRender()"></div>'; }
+function _congeForm(){
+  if(_congeState.kind==='conge_bailleur'){
+    var motif=v('cg-motif')||'reprise';
+    return _congeField('cg-motif','Motif du congé',null,null,[{v:'reprise',t:'Reprise pour habiter'},{v:'vente',t:'Vente du logement'},{v:'legitime',t:'Motif légitime et sérieux'}])+
+      '<div id="cg-sub" data-m="'+motif+'">'+_congeSubBailleur(motif)+'</div>'+
+      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé (art. 15-III)</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
+      '<div id="cg-alert"></div>';
+  }
+  if(_congeState.kind==='conge_locataire') return _congeField('cg-recu','Date de réception du congé','date',(typeof td==='function'?td():''))+_congeField('cg-cas','Cas de préavis réduit (1 mois)',null,null,(window.CONGE_CAS_REDUITS||[]))+'<div id="cg-alert"></div>';
+  if(_congeState.kind==='mise_demeure') return _congeField('cg-montant','Montant total dû (€)','number','')+_congeField('cg-periode','Période concernée','text','')+'<div class="note info" style="background:#e6f1fb;border:1px solid #cfe0f6;color:#185fa5;border-radius:8px;padding:8px 10px;font-size:10.5px">Étape amiable AVANT la clause résolutoire. Le commandement de payer (commissaire de justice) reste hors app — suivi via la procédure.</div>';
+  if(_congeState.kind==='resiliation_amiable') return _congeField('cg-effet','Date d\'effet de la résiliation','date',(typeof td==='function'?td():''))+_congeField('cg-cond2','Conditions particulières','text','restitution des clés le jour de l\'effet, solde de tout compte sous 1 mois');
+  return '';
+}
+function _congeRender(){
+  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_CONGE_ACTS.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
+  var form=document.getElementById('cg-form'); if(form && form.dataset.k!==_congeState.kind){ form.innerHTML=_congeForm(); form.dataset.k=_congeState.kind; }
+  if(_congeState.kind==='conge_bailleur'){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
+  var prev=document.getElementById('cg-preview'); if(prev) prev.innerHTML=_congeDocHtml(_congeState.ref);
+  // alerte locataire protégé (congé bailleur) — NON bloquante
+  var al=document.getElementById('cg-alert');
+  if(al){ var html='';
+    if(_congeState.kind==='conge_bailleur'){
+      if(_congeState.preavisPushed) html+='<div class="note" style="background:#e6f1fb;border:1px solid #cfe0f6;color:#185fa5;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Date d\'effet reportée au terme suivant : le préavis légal ne pouvait plus être respecté pour l\'échéance la plus proche (un congé délivré trop tard est nul).</div>';
+      if(document.getElementById('cg-protege') && document.getElementById('cg-protege').checked)
+        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé (art. 15-III) : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
+    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:(DB.baux[_congeState.ref]||{}).type||'nu', casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
+    al.innerHTML=html; }
+}
+function _congePick(k){ _congeState.kind=k; var f=document.getElementById('cg-form'); if(f)f.dataset.k=''; _congeRender(); }
+function _congeOpen(ref){
+  var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
+  _congeState={ ref:ref, kind:'conge_bailleur' };
+  var ov=_congeOv(); var who=escHtml((bail.nom||(bail.locataires&&bail.locataires[0]&&bail.locataires[0].nom)||'—')+' · '+(bail.adrBien||ref));
+  ov.innerHTML='<style>'+
+   '#ov-conge .av-wrap{background:var(--sur);border-radius:16px;max-width:1080px;width:96vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}'+
+   '#ov-conge .m-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bor)}'+
+   '#ov-conge .av-body{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:0;flex:1;min-height:0}@media(max-width:820px){#ov-conge .av-body{grid-template-columns:1fr}}'+
+   '#ov-conge .av-form{padding:14px 16px;overflow:auto;border-right:1px solid var(--bor)}'+
+   '#ov-conge .av-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}'+
+   '#ov-conge .av-obj{border:1px solid var(--bor);border-radius:9px;padding:8px 10px;cursor:pointer;background:var(--sur2)}#ov-conge .av-obj.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset;background:#fff6f4}'+
+   '#ov-conge .av-prevwrap{background:var(--sur3);padding:14px;overflow:auto}'+
+   '#ov-conge .pro-doc{background:#fff;max-width:600px;margin:0 auto;padding:26px 32px;box-shadow:0 2px 12px rgba(0,0,0,.09)}'+
+   '#ov-conge .av-foot{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--bor);background:var(--sur2)}'+
+   _docCss()+
+   '</style>'+
+   '<div class="av-wrap" onclick="event.stopPropagation()">'+
+   '<div class="m-head"><div><h3 style="margin:0;font:800 15px Inter">Congé & résiliation</h3><div style="font-size:12px;color:var(--t3);font-weight:600">'+who+'</div></div><button class="m-close" onclick="closeM(\'ov-conge\')">✕</button></div>'+
+   '<div class="av-body"><div class="av-form"><div class="av-acts" id="cg-acts"></div><div id="cg-form"></div></div>'+
+   '<div class="av-prevwrap"><div id="cg-preview"></div></div></div>'+
+   '<input type="hidden" id="ov-conge-ref" value="'+escHtml(ref)+'">'+
+   '<div class="av-foot"><button class="btn bs bb" onclick="_congeSortiePdf()">'+((typeof _edlPrefersShare==='function'&&_edlPrefersShare())?'📤 Partager le PDF':'⬇️ Télécharger le PDF')+'</button>'+
+   '<button class="btn bs" onclick="closeM(\'ov-conge\')">Fermer</button></div></div>';
+  var f=document.getElementById('cg-form'); if(f)f.dataset.k='';
+  _congeRender(); openM('ov-conge');
+}
+async function _congeSortiePdf(ref){
+  ref=ref||(el('ov-conge-ref')?el('ov-conge-ref').value:_congeState.ref);
+  var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
+  var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
+  var docHtml=_congeDocHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
+  if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
+  var noms={conge_bailleur:'Conge-bailleur',conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};
+  await _pdfSortie({ fileName:noms[_congeState.kind]+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf', desc:'PDF (acte)', genererAvant:true,
+    titre:noms[_congeState.kind].replace(/-/g,' '), texte:'Acte — '+(bail.adrBien||ref),
+    genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); } });
+}
+
 function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef, villeSig, mode) {
   // Utilise le template stocké dans DB.templates.bail (éditable par l'utilisateur)
   let tmpl = (DB.templates && DB.templates.bail) ? DB.templates.bail : BAIL_TEMPLATE_DEFAULT;
@@ -27199,7 +27643,22 @@ function _commsHubSend(ref, type) {
     case 'bail-conge-bailleur-6mois': {
       extra.motifConge = promptVal('Motif du congé (vente / reprise / motif légitime et sérieux) :', 'vente');
       extra.motifDetail = promptVal('Détail du motif (cession à un tiers / reprise pour soi/proche/motif) :', '');
-      extra.dateFin = (DB.baux && DB.baux[ref] && DB.baux[ref].fin) || '';
+      const _finC = (DB.baux && DB.baux[ref] && DB.baux[ref].fin) || '';
+      extra.dateFin = _finC ? fd(_finC) : '';
+      // Tokens du modèle (mêmes que l'acte Congé) : préavis réel + clause préemption pour la vente uniquement.
+      const _logC = (DB.logements||[]).find(l => l && l.ref === ref) || {};
+      const _bcp = _bailPreavisInfo((DB.baux && DB.baux[ref]) || {}, _logC);
+      const _pm = _bcp ? _bcp.preavisMonths : 6;
+      extra.mentionPreavis = 'Le délai de préavis légal applicable à ce congé est de ' + _pm + ' mois avant le terme du bail.';
+      // Vente : on n'écrase PAS un motifDetail annulé (null) — la boucle d'annulation doit encore le voir.
+      // On ajoute la clause de préemption ET la reproduction verbatim des 5 alinéas de l'art. 15-II
+      // (imposée « à peine de nullité dans chaque notification » — vaut aussi pour la notification par email).
+      if (extra.motifDetail !== null && /vente/i.test(extra.motifConge)) {
+        extra.motifDetail = (extra.motifDetail ? extra.motifDetail + '\n\n' : '')
+          + 'Conformément à l\'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d\'un droit de préemption aux prix et conditions indiqués ci-dessus.'
+          + '\n\nReproduction de l\'article 15, II de la loi du 6 juillet 1989 (à peine de nullité) :\n\n'
+          + (window.ART15_II_ALINEAS || []).join('\n\n');
+      }
       break; }
     case 'bail-preavis-recu': {
       extra.datePreavis = promptVal('Date de réception du préavis (YYYY-MM-DD) :', td());
@@ -58925,8 +59384,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
   .bsd-toggle input:checked + span{background:var(--acc);border-color:var(--acc)}
   .bsd-toggle input:checked + span::after{left:18px}
   .bsd-banner{border-radius:var(--r,8px);padding:10px 12px;font-size:12px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
-  .bsd-banner-warn{background:#fef3c7;border:1px solid #f59e0b;color:#92400e}
-  .bsd-banner-info{background:rgba(59,126,246,.08);border:1px solid rgba(59,126,246,.25);color:#1d4ed8}
+  .bsd-banner-warn{background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn)}
+  .bsd-banner-info{background:var(--adv-bg);border:1px solid var(--adv);color:var(--adv)}
   .bsd-state-label{font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
   .bsd-spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:bsd-sp .7s linear infinite;vertical-align:middle}
   @keyframes bsd-sp{to{transform:rotate(360deg)}}

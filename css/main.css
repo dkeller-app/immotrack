@@ -3711,6 +3711,10 @@ textarea.field-modified-since-sig{
 /* Modale Bail (wizard) : zone de défilement plus haute pour limiter le
    scroll caché (étape 1 avec 2 garants + mandataire est dense). */
 #ov-bail .m-body{max-height:78vh}
+/* REFONTE PC/TABLETTE — reflow tablette ÉTROITE du formulaire bail : les paires de champs
+   (.fg2) passent en 1 colonne sous 860px (évite des champs trop serrés) ; PC/tablette large
+   ≥860 gardent 2 colonnes. Scopé au bail, disjoint du téléphone (≤767 a ses propres règles). */
+@media (min-width:768px) and (max-width:859px){ #ov-bail .m-body .fg2{grid-template-columns:1fr} }
 
 /* ── BAIL WIZARD BAR (étape 3 phase 2 — wizard 4 étapes) ──────────
    Remplace l'ancienne barre d'onglets par une barre de progression
@@ -9073,38 +9077,61 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .loc-card-row-b.loc-depart .loc-avatar-b { background: var(--acc,#ff5a3c); }
 .loc-dep-cell { display: flex; align-items: center; gap: 5px; color: var(--acc,#ff5a3c); font-weight: 700; cursor: pointer; }
 .loc-ech-b.loc-dep-cell::before { content: '' !important; }
-.loc-dep-dg { font-weight: 700; color: var(--ora,#b27a12); }
-.loc-dep-dg.late { color: var(--err,#ef4444); }
+.loc-dep-dg { font-weight: 700; color: var(--warn); }
+.loc-dep-dg.late { color: var(--neg); }
 .loc-actions-b button.loc-dep-go { background: var(--acc,#ff5a3c); border-color: var(--acc,#ff5a3c); color: #fff; }
 .loc-actions-b button.loc-dep-go:hover { filter: brightness(1.06); background: var(--acc,#ff5a3c); border-color: var(--acc,#ff5a3c); color: #fff; }
 .loc-actions-b button.loc-dep-prep { background: #fff; border-color: var(--warn,#f59e0b); color: var(--ora,#b27a12); font-weight: 700; white-space: nowrap; }
 .loc-actions-b button.loc-dep-prep:hover { background: var(--warn,#f59e0b); color: #fff; border-color: var(--warn,#f59e0b); }
-.loc-card-row-b.warn-soon { background: #fef3c7; }
-.loc-card-row-b.warn-soon:hover { background: #fde68a; }
+.loc-card-row-b.warn-soon { background: var(--warn-soft); }
+.loc-card-row-b.warn-soon:hover { background: var(--warn-soft); filter: brightness(0.97); }
 
 .loc-avatar-b {
   width: 32px; height: 32px; border-radius: 50%;
-  background: #5566aa; color: #fff;
+  background: var(--t1); color: var(--sur);
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 12px;
+  font-weight: 700; font-size: 12px; letter-spacing: .3px;
 }
-.loc-card-row-b.warn-soon .loc-avatar-b { background: var(--warn, #f59e0b); }
+/* v15.614 REFONTE-PC — avatar sobre monochrome uniforme : le statut vit sur la ligne (liseré + échéance), jamais sur l'avatar */
+.loc-card-row-b.warn-soon .loc-avatar-b,
+.loc-card-row-b.loc-depart .loc-avatar-b { background: var(--t1); color: var(--sur); }
+.loc-card-row-b.loc-vacant .loc-avatar-b { background: transparent; color: var(--t3); border: 1px solid var(--bor2); }
 .loc-info-b { min-width: 0; }
-.loc-info-b .nom-b { font-weight: 600; font-size: 13px; color: var(--t1, #1f2937); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loc-info-b .nom-b { font-weight: 600; font-size: 13px; color: var(--t1, #1f2937); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.loc-info-b .nom-b .loc-nom-badge { font-size: 9.5px; padding: 1px 6px; font-weight: 700; white-space: nowrap; flex: none; }
+.loc-info-b .nom-b .loc-vacant-tag { color: var(--neg); font-weight: 700; }
 .loc-info-b .meta-b { font-size: 11px; color: var(--t2, #6b7280); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .loc-loyer-b { font-weight: 600; font-size: 13px; color: var(--t1, #1f2937); white-space: nowrap; }
-.loc-ech-b { font-size: 11.5px; white-space: nowrap; }
-.loc-ech-b.ok { color: var(--ok, #10b981); }
-.loc-ech-b.warn { color: var(--warn, #f59e0b); font-weight: 600; }
-.loc-ech-b.err { color: var(--err, #ef4444); font-weight: 700; }
+.loc-ech-b { font-size: 11.5px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+/* v15.614 REFONTE-PC — tokens sémantiques (avant : --ok/--err inexistants → hex figés cassaient en sombre) */
+.loc-ech-b.ok { color: var(--pos); }
+.loc-ech-b.warn { color: var(--warn); font-weight: 600; }
+.loc-ech-b.err { color: var(--neg); font-weight: 700; }
 .loc-meta-bail-b { font-size: 11px; color: var(--t2, #6b7280); white-space: nowrap; }
-.loc-actions-b { display: flex; gap: 4px; }
+.loc-actions-b { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 .loc-actions-b button {
   padding: 5px 9px; background: var(--sur, #fff); border: 1px solid var(--bor, #e5e7eb);
   border-radius: 4px; font-size: 11px; cursor: pointer; color: var(--t1, #1f2937);
-  white-space: nowrap;
+  white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
 }
+.loc-actions-b button svg { width: 14px; height: 14px; flex: none; }
 .loc-actions-b button:hover { background: var(--acc, #ff5a3c); color: #fff; border-color: var(--acc, #ff5a3c); }
+/* v15.614 REFONTE-PC — couleurs d'action tokenisées (avant : hex #16a34a/#dc2626 inline) */
+.loc-actions-b button.loc-act-sign, .loc-actions-b button.loc-act-mrh-ok { color: var(--pos); }
+.loc-actions-b button.loc-act-mrh-no { color: var(--neg); }
+.loc-actions-b button.loc-act-sign:hover, .loc-actions-b button.loc-act-mrh-ok:hover, .loc-actions-b button.loc-act-mrh-no:hover { color: #fff; }
+
+/* v15.614 REFONTE-PC — intercalaire bailleur (réutilise le langage « étiquette bailleur » de la page Biens :
+   fine capitale grise + icône bailleur). Fixe, non repliable ; rendu seulement si ≥2 bailleurs. */
+.locbail-inter {
+  display: flex; align-items: center; gap: 7px;
+  padding: 16px 4px 6px; font-size: 10.5px; font-weight: 700;
+  color: var(--t3); text-transform: uppercase; letter-spacing: 0.4px;
+}
+.locbail-inter:first-child { padding-top: 4px; }
+.locbail-inter .locbail-ico { color: var(--t3); display: inline-flex; }
+.locbail-inter .locbail-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.locbail-inter .locbail-stats { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--t3); white-space: nowrap; }
 
 /* Breakpoint tablette intermédiaire (481-1024px) */
 @media (max-width: 1024px) and (min-width: 481px) {
@@ -9125,13 +9152,28 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   .imm-block-a-header .imm-stats b { font-size: 12.5px; }
   .imm-block-a-header .imm-adr { font-size: 11px; }
   .imm-block-a-header .imm-name { font-size: 14px; }
-  .loc-card-row-b {
-    grid-template-columns: 32px 1fr auto auto auto;
-    gap: 8px;
-    padding: 8px 10px;
-  }
-  .loc-card-row-b .loc-meta-bail-b { display: none; }
   .loc-actions-b button { padding: 4px 7px; font-size: 10.5px; }
+}
+
+/* v15.614 REFONTE-PC — sous plein desktop (≤1279px) la rangée passe en 2 lignes :
+   infos en haut, actions LIBELLÉES sur leur propre ligne pleine largeur → jamais de débordement
+   ni de badges écrasés, quelle que soit la largeur de la fenêtre. */
+@media (min-width: 481px) and (max-width: 1279px) {
+  .loc-card-row-b {
+    grid-template-columns: 36px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "av info loyer ech"
+      "act act act act";
+    gap: 6px 12px;
+    align-items: center;
+    padding: 9px 12px;
+  }
+  .loc-card-row-b > .loc-avatar-b { grid-area: av; }
+  .loc-card-row-b > .loc-info-b { grid-area: info; }
+  .loc-card-row-b > .loc-loyer-b { grid-area: loyer; }
+  .loc-card-row-b > .loc-ech-b { grid-area: ech; }
+  .loc-card-row-b > .loc-meta-bail-b { display: none; }
+  .loc-card-row-b > .loc-actions-b { grid-area: act; justify-content: flex-end; margin-top: 2px; }
 }
 
 /* === MOBILE SPEC ≤ 480px : cards empilées + sticky + touch 44px === */
