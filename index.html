@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.623</title>
+<title>Propryo v15.624</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.623">
+<link rel="stylesheet" href="css/main.css?v=15.624">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -51,7 +51,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
   (function(){
     try{
       var p=(location.pathname||'').toLowerCase(), s=location.search||'';
-      var test = p.endsWith('index-test.html')||p.endsWith('/test')||p.includes('-test.')||/[?&]sandbox=1/.test(s);
+      var test = p.endsWith('index-test.html')||p.endsWith('/test')||p.includes('-test.')||/[?&](sandbox|demo)=1/.test(s);
       // CLOUD-ONLY : toute page servie (non-test) masque l'app jusqu'au login cloud. Mode test : ce script
       // ne tourne pas → harnais legacy/démo inchangé.
       // BUG-LOGIN-DOUBLE : window.__immoCloudBoot posé DÈS ICI (avant tout, synchrone) → la garde
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.623</em>
+      <em>v15.624</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4224,7 +4224,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.623';
+const IMMOTRACK_VERSION = '15.624';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -4384,7 +4384,7 @@ const _isTestMode = (function() {
     if (typeof location !== 'undefined') {
       const path = (location.pathname || '').toLowerCase();
       if (path.endsWith('index-test.html') || path.endsWith('/test') || path.includes('-test.')) return true;
-      if (/[?&]sandbox=1/.test(location.search || '')) return true;
+      if (/[?&](sandbox|demo)=1/.test(location.search || '')) return true;
     }
   } catch(e){}
   return false;
@@ -4422,25 +4422,8 @@ function _injectTestModeBanner() {
     const btnDemo = document.getElementById('sandbox-load-demo');
     if (btnDemo) btnDemo.addEventListener('click', () => {
       if (!confirm('Charger un dataset de démonstration ?\nÇa va REMPLACER toutes les données du sandbox actuel.')) return;
-      // v14.62 — vérification que l'écriture a bien eu lieu avant le reload
-      try {
-        _loadDemoDataset();
-        const verif = localStorage.getItem(KEY);
-        if (!verif) {
-          alert('❌ Échec d\'écriture du dataset — vérifie le quota localStorage');
-          return;
-        }
-        const parsed = JSON.parse(verif);
-        if (!parsed.logements || parsed.logements.length < 4) {
-          alert('❌ Dataset incomplet après écriture — abort.');
-          return;
-        }
-        console.info('[SANDBOX] Vérif OK : ' + parsed.logements.length + ' logements écrits, reload...');
-      } catch(e) {
-        alert('❌ Erreur : ' + e.message);
-        return;
-      }
-      location.reload();
+      try { _loadDemoDataset(); }
+      catch(e){ alert('❌ Erreur : ' + e.message); }
     });
     const btnReset = document.getElementById('sandbox-reset');
     if (btnReset) btnReset.addEventListener('click', () => {
@@ -4456,6 +4439,10 @@ function _injectTestModeBanner() {
       } catch(e){}
       location.reload();
     });
+    // ?demo=1 : charge automatiquement le dataset démo si le sandbox est vide (accès client direct)
+    if (/[?&]demo=1/.test(location.search||'')) {
+      setTimeout(function(){ try { if (!DB || !DB.logements || !DB.logements.length) _loadDemoDataset(); } catch(e){} }, 350);
+    }
   };
   if (document.body) inject();
   else document.addEventListener('DOMContentLoaded', inject);
@@ -4465,93 +4452,97 @@ function _injectTestModeBanner() {
 // 1 bailleur (SCI) + 1 immeuble (Test SCI Demo) + 4 logements + 2 baux courants
 // + quelques mouvements pour permettre de tester charges/régul/compta.
 function _loadDemoDataset() {
-  if (!_isTestMode) { console.warn('[SANDBOX] _loadDemoDataset refusé hors mode test'); return; }
-  const today = new Date();
-  const yr = today.getFullYear();
-  const isoToday = today.toISOString().slice(0,10);
-  const monthAgo = (m) => new Date(today.getFullYear(), today.getMonth() - m, 1).toISOString().slice(0,10);
+  if (!_isTestMode) { console.warn('[SANDBOX] _loadDemoDataset refuse hors mode test'); return; }
+  var today = new Date();
+  var iso = function(d){ return d.toISOString().slice(0,10); };
+  var mAgo = function(m){ return iso(new Date(today.getFullYear(), today.getMonth()-m, 5)); };
+  var yNow = today.getFullYear();
 
-  const ent = {
-    id: 1, nom: 'SCI DEMO', type: 'SCI', siren: '999000111',
-    siege: '1 rue de la Demo, 67000 Strasbourg', gerant: 'Mme Demo',
-    iban: 'FR76...', bic: 'XXX',
-    immeubles: [{
-      id: 100, nom: 'Immeuble Demo', adr: '1 rue de la Demo, 67000 Strasbourg',
-      annee: 1980, regimeJuridique: 'Copropriété', driveFolderId: null,
-      compteursCollectifs: []
-    }],
-    entityId: 'eid_demo_001', members: [], driveFileId: null, driveFolderId: null
+  var ent = {
+    id: 1, nom: "SCI Patrimoine Demo", type: "SCI", siren: "999000111",
+    siege: "12 rue des Tanneurs, 68100 Mulhouse", gerant: "Mme Demo",
+    iban: "FR76 3000 4000 0100 0000 1234 567", bic: "XXXXFRPP",
+    immeubles: [{ id: 100, nom: "Immeuble Demo", adr: "12 rue des Tanneurs, 68100 Mulhouse",
+      annee: 1985, regimeJuridique: "Copropriété", driveFolderId: null, compteursCollectifs: [] }],
+    entityId: "eid_demo_001", members: [], driveFileId: null, driveFolderId: null
   };
+  function dpe(classe, date){ return { diagnostics: { dpe: { classe: classe, date: date, na: false } } }; }
+  var EN = "SCI Patrimoine Demo";
 
-  const logs = [
-    { id: 1001, ref: 'D-101', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T2', surf: 45,
-      etage: 'RDC', adr: '1 rue de la Demo · porte gauche', hc: 600, ch: 80, dg: 600,
-      tantiemes: 200, compteCharges: true, locataire: 'Pierre Demo',
-      tel:'06.00.00.00.01', mail:'pierre@demo.fr', debut:'2023-09-01', fin:'2026-08-31',
-      irl:'T1', notes:'Logement de démo · sandbox isolé' },
-    { id: 1002, ref: 'D-102', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T3', surf: 65,
-      etage: '1er', adr: '1 rue de la Demo · porte droite', hc: 850, ch: 120, dg: 850,
-      tantiemes: 280, compteCharges: true, locataire: 'Marie Demo',
-      tel:'06.00.00.00.02', mail:'marie@demo.fr', debut:'2024-03-01', fin:'2027-02-28',
-      irl:'T1', notes:'' },
-    { id: 1003, ref: 'D-103', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T2', surf: 50,
-      etage: '2e', adr: '1 rue de la Demo · porte gauche', hc: 700, ch: 100, dg: 700,
-      tantiemes: 220, compteCharges: true, locataire: '', /* vacant */
-      debut:'', fin:'', irl:'T1', notes:'Vacant — bon test régul part bailleur' },
-    { id: 1004, ref: 'D-Garage', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'Garage', surf: 12,
-      etage: 'Sous-sol', adr: '1 rue de la Demo', hc: 50, ch: 0, dg: 0,
-      tantiemes: 30, compteCharges: false /* exclu charges immeuble */, locataire: 'Pierre Demo',
-      tel:'06.00.00.00.01', mail:'pierre@demo.fr', debut:'2023-09-01', fin:'2026-08-31',
-      irl:'T1', notes:'Garage exclu de la répartition charges' }
+  var logs = [
+    Object.assign({ id:1001, ref:"D-101", imm:"Immeuble Demo", entity:EN, type:"T2", surf:45,
+      etage:"RDC", adr:"12 rue des Tanneurs — porte gauche", hc:680, ch:90, dg:680, tantiemes:200, compteCharges:true,
+      locataire:"Pierre Martin", tel:"06.00.00.00.01", mail:"pierre.martin@demo.fr",
+      debut:"2023-05-15", fin:"2026-05-14", irl:"T1", notes:"Cas nominal — à jour" }, dpe("D","2023-01-15")),
+    Object.assign({ id:1002, ref:"D-102", imm:"Immeuble Demo", entity:EN, type:"T3", surf:65,
+      etage:"1er", adr:"12 rue des Tanneurs — porte droite", hc:900, ch:130, dg:900, tantiemes:280, compteCharges:true,
+      locataire:"Marie Bernard", tel:"06.00.00.00.02", mail:"marie.bernard@demo.fr",
+      debut:"2024-09-01", fin:"2027-08-31", irl:"T3", notes:"Loyer impayé — relance à faire" }, dpe("E","2024-02-10")),
+    { id:1003, ref:"D-103", imm:"Immeuble Demo", entity:EN, type:"Studio", surf:28,
+      etage:"2e", adr:"12 rue des Tanneurs — studio", hc:520, ch:70, dg:520, tantiemes:120, compteCharges:true,
+      locataire:"", debut:"", fin:"", irl:"T2", notes:"Vacant — à relouer" },
+    Object.assign({ id:1004, ref:"D-104", imm:"Immeuble Demo", entity:EN, type:"T2 meublé", surf:42,
+      etage:"3e", adr:"12 rue des Tanneurs — meublé", hc:780, ch:100, dg:1560, tantiemes:190, compteCharges:true,
+      locataire:"Lucas Petit", tel:"06.00.00.00.04", mail:"lucas.petit@demo.fr",
+      debut:"2025-10-01", fin:"2026-09-30", irl:"T4", notes:"Meublé étudiant — fin de bail proche — DPE F (gel IRL)" }, dpe("F","2025-06-01"))
   ];
 
-  const baux = {
-    'D-101': {
-      ref:'D-101', debut:'2023-09-01', fin:'2026-08-31', hc:600, ch:80, dg:600,
-      typeContrat:'nu', entity:'SCI DEMO', irl:'T1 2023',
-      locataires:[{civilite:'M.', nom:'Pierre Demo', tel:'06.00.00.00.01', email:'pierre@demo.fr'}],
-      jpay:5
-    },
-    'D-102': {
-      ref:'D-102', debut:'2024-03-01', fin:'2027-02-28', hc:850, ch:120, dg:850,
-      typeContrat:'nu', entity:'SCI DEMO', irl:'T1 2024',
-      locataires:[{civilite:'Mme', nom:'Marie Demo', tel:'06.00.00.00.02', email:'marie@demo.fr'}],
-      jpay:5
+  var baux = {
+    "D-101": { ref:"D-101", debut:"2023-05-15", fin:"2026-05-14", hc:680, ch:90, dg:680, typeContrat:"nu", entity:EN, irl:"T1 2023", locataires:[{civilite:"M.", nom:"Pierre Martin", tel:"06.00.00.00.01", email:"pierre.martin@demo.fr"}], jpay:5 },
+    "D-102": { ref:"D-102", debut:"2024-09-01", fin:"2027-08-31", hc:900, ch:130, dg:900, typeContrat:"nu", entity:EN, irl:"T3 2024", locataires:[{civilite:"Mme", nom:"Marie Bernard", tel:"06.00.00.00.02", email:"marie.bernard@demo.fr"}], jpay:5 },
+    "D-104": { ref:"D-104", debut:"2025-10-01", fin:"2026-09-30", hc:780, ch:100, dg:1560, typeContrat:"meuble", entity:EN, irl:"T4 2025", locataires:[{civilite:"M.", nom:"Lucas Petit", tel:"06.00.00.00.04", email:"lucas.petit@demo.fr"}], jpay:5 }
+  };
+
+  var mvts = []; var mid = 5000;
+  function push(o){ o.id = mid++; mvts.push(o); }
+  var curM = new Date(today.getFullYear(), today.getMonth(), 5);
+  function payFrom(ref, debut, monthly, lib, stopMonthsAgo){
+    var d0 = new Date(debut + "T00:00:00");
+    var d = new Date(d0.getFullYear(), d0.getMonth(), 5);
+    while (d <= curM){
+      var mAgoN = (curM.getFullYear()-d.getFullYear())*12 + (curM.getMonth()-d.getMonth());
+      if (mAgoN >= (stopMonthsAgo||0)) push({ date: iso(d), lib: lib, imm:"Immeuble Demo", cat:"Loyers encaissés", qui: ref, db:0, cr: monthly, fac:"" });
+      d.setMonth(d.getMonth()+1);
     }
-  };
-
-  const mvts = [];
-  let mid = 5000;
-  // Loyers encaissés sur les 6 derniers mois pour D-101 et D-102
-  for (let m = 5; m >= 0; m--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - m, 5);
-    mvts.push({ id: mid++, date: d.toISOString().slice(0,10),
-      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers', qui:'D-101', db:0, cr:680, fac:'' });
-    mvts.push({ id: mid++, date: d.toISOString().slice(0,10),
-      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers', qui:'D-102', db:0, cr:970, fac:'' });
   }
-  // 1 facture eau collective (à répartir)
-  mvts.push({ id: mid++, date: monthAgo(2),
-    lib:'Facture eau immeuble (à répartir)', imm:'Immeuble Demo',
-    cat:'Charges', qui:'', db:280, cr:0, fac:'EAU-2025-Q3' });
-  // 1 facture taxe foncière (charges propriétaires)
-  mvts.push({ id: mid++, date: monthAgo(4),
-    lib:'Taxe foncière', imm:'Immeuble Demo',
-    cat:'Charges', qui:'', db:1500, cr:0, fac:'TF-2025' });
+  payFrom("D-101", "2023-05-15", 770, "Loyer + charges", 0);          // à jour
+  payFrom("D-102", "2024-09-01", 1030, "Loyer + charges", 4);         // 4 derniers mois impayés
+  payFrom("D-104", "2025-10-01", 880, "Loyer + charges (meublé)", 0); // à jour
+  push({ date: mAgo(4), lib:"Taxe foncière", imm:"Immeuble Demo", cat:"Taxe foncière (et taxes annexes)", qui:"", db:1500, cr:0, fac:"TF-"+yNow });
+  push({ date: mAgo(6), lib:"Appel de fonds copropriété", imm:"Immeuble Demo", cat:"Charges de copropriété", qui:"", db:1200, cr:0, fac:"COPRO-"+yNow });
+  push({ date: mAgo(2), lib:"Facture eau immeuble (à répartir)", imm:"Immeuble Demo", cat:"Charges récupérables (eau, énergie…)", qui:"", db:300, cr:0, fac:"EAU-"+yNow });
+  push({ date: mAgo(5), lib:"Assurance PNO", imm:"Immeuble Demo", cat:"Primes d'assurance (PNO, GLI)", qui:"", db:420, cr:0, fac:"PNO-"+yNow });
+  push({ date: mAgo(3), lib:"Réparation plomberie", imm:"Immeuble Demo", cat:"Travaux (entretien, réparation, amélioration)", qui:"D-101", db:650, cr:0, fac:"PLOMB-"+yNow });
+  for (var mp=7; mp>=0; mp--){ push({ date: mAgo(mp), lib:"Échéance de prêt", imm:"Immeuble Demo", cat:"Prêt", qui:"", db:600, cr:0, fac:"" }); }
 
-  const demoDB = {
-    entites: [ent], logements: logs, baux,
-    mouvements: mvts, baux_historique: [], quittances: [], assurances: [], mrh: [],
-    edl: [], categories: ['Loyers','Charges','Travaux','Assurance','Autre'],
-    catConfig: { 'Loyers': { inclYTD: true } },
-    agenda: [], params: {}, irlTable: {}
+  var edl = [{ id:"edl_demo_101", type:"Entrée", date:"2023-09-01", logement:"D-101",
+    locataire:"Pierre Martin", gerant:"Mme Demo", adr:"12 rue des Tanneurs — porte gauche", surf:45,
+    pieces:[
+      { nom:"Séjour", elements:[
+        { nom:"Murs et plafond", etatE:"Bon état", obsE:"Peinture récente", photosE:[], etatS:"", obsS:"", photosS:[] },
+        { nom:"Sol", etatE:"Bon état", obsE:"Parquet stratifié", photosE:[], etatS:"", obsS:"", photosS:[] } ] },
+      { nom:"Cuisine", elements:[
+        { nom:"Plan de travail", etatE:"Bon état", obsE:"", photosE:[], etatS:"", obsS:"", photosS:[] } ] } ],
+    compteurs:{}, cles:"3 jeux remis", signatures:{} }];
+
+  var demoDB = {
+    entites:[ent], logements:logs, baux:baux, mouvements:mvts,
+    baux_historique:[], quittances:[], assurances:[], mrh:[], edl:edl,
+    categories:["Loyers encaissés","Taxe foncière (et taxes annexes)","Charges de copropriété","Charges récupérables (eau, énergie…)","Primes d'assurance (PNO, GLI)","Travaux (entretien, réparation, amélioration)","Prêt"],
+    catConfig:{ "Loyers encaissés": { inclYTD: true } },
+    agenda:[], params:{}, irlTable:{}
   };
+
   try {
-    localStorage.setItem(KEY, JSON.stringify(demoDB));
-    console.info('[SANDBOX] Dataset démo chargé : 1 SCI · 1 immeuble · 4 logements · 2 baux · ' + mvts.length + ' mvts');
-  } catch(e) {
-    console.error('[SANDBOX] Échec chargement dataset', e);
-  }
+    if (typeof __immoSetDB === "function") { __immoSetDB(demoDB); }
+    else { DB = demoDB; try { window.DB = demoDB; } catch(e){} }
+    if (typeof saveDB === "function") saveDB();
+    try {
+      if (typeof window.__immoRerenderCurrent === "function") window.__immoRerenderCurrent();
+      else if (typeof go === "function") go("accueil");
+    } catch(e){}
+    console.info("[SANDBOX] Dataset démo chargé : SCI Patrimoine Demo · 4 lots · " + mvts.length + " mouvements");
+  } catch(e){ console.error("[SANDBOX] Échec chargement dataset", e); alert("Échec chargement dataset démo : " + e.message); }
 }
 
 let DB = {};
