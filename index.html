@@ -4457,57 +4457,73 @@ function _loadDemoDataset() {
   var iso = function(d){ return d.toISOString().slice(0,10); };
   var mAgo = function(m){ return iso(new Date(today.getFullYear(), today.getMonth()-m, 5)); };
   var yNow = today.getFullYear();
+  var EN = "SCI Patrimoine Demo";
 
   var ent = {
-    id: 1, nom: "SCI Patrimoine Demo", type: "SCI", siren: "999000111",
+    id: 1, nom: EN, type: "SCI", siren: "999000111",
     siege: "12 rue des Tanneurs, 68100 Mulhouse", gerant: "Mme Demo",
     iban: "FR76 3000 4000 0100 0000 1234 567", bic: "XXXXFRPP",
     immeubles: [{ id: 100, nom: "Immeuble Demo", adr: "12 rue des Tanneurs, 68100 Mulhouse",
-      annee: 1985, regimeJuridique: "Copropriété", driveFolderId: null, compteursCollectifs: [] }],
+      annee: 2006, regimeJuridique: "Copropriété", driveFolderId: null, compteursCollectifs: [] }],
     entityId: "eid_demo_001", members: [], driveFileId: null, driveFolderId: null
   };
   function dpe(classe, date){ return { diagnostics: { dpe: { classe: classe, date: date, na: false } } }; }
-  var EN = "SCI Patrimoine Demo";
 
   var logs = [
     Object.assign({ id:1001, ref:"D-101", imm:"Immeuble Demo", entity:EN, type:"T2", surf:45,
       etage:"RDC", adr:"12 rue des Tanneurs — porte gauche", hc:680, ch:90, dg:680, tantiemes:200, compteCharges:true,
       locataire:"Pierre Martin", tel:"06.00.00.00.01", mail:"pierre.martin@demo.fr",
-      debut:"2023-05-15", fin:"2026-05-14", irl:"T1", notes:"Cas nominal — à jour" }, dpe("D","2023-01-15")),
+      debut:"2023-05-15", fin:"2028-05-14", irl:"T1", notes:"Cas nominal — à jour" }, dpe("C","2023-04-10")),
     Object.assign({ id:1002, ref:"D-102", imm:"Immeuble Demo", entity:EN, type:"T3", surf:65,
       etage:"1er", adr:"12 rue des Tanneurs — porte droite", hc:900, ch:130, dg:900, tantiemes:280, compteCharges:true,
       locataire:"Marie Bernard", tel:"06.00.00.00.02", mail:"marie.bernard@demo.fr",
-      debut:"2024-09-01", fin:"2027-08-31", irl:"T3", notes:"Loyer impayé — relance à faire" }, dpe("E","2024-02-10")),
+      debut:"2025-11-01", fin:"2028-10-31", irl:"T3", notes:"Loyer impayé — relance à faire" }, dpe("D","2024-10-05")),
     { id:1003, ref:"D-103", imm:"Immeuble Demo", entity:EN, type:"Studio", surf:28,
       etage:"2e", adr:"12 rue des Tanneurs — studio", hc:520, ch:70, dg:520, tantiemes:120, compteCharges:true,
       locataire:"", debut:"", fin:"", irl:"T2", notes:"Vacant — à relouer" },
     Object.assign({ id:1004, ref:"D-104", imm:"Immeuble Demo", entity:EN, type:"T2 meublé", surf:42,
       etage:"3e", adr:"12 rue des Tanneurs — meublé", hc:780, ch:100, dg:1560, tantiemes:190, compteCharges:true,
       locataire:"Lucas Petit", tel:"06.00.00.00.04", mail:"lucas.petit@demo.fr",
-      debut:"2025-10-01", fin:"2026-09-30", irl:"T4", notes:"Meublé étudiant — fin de bail proche — DPE F (gel IRL)" }, dpe("F","2025-06-01"))
+      debut:"2025-10-01", fin:"2027-09-30", irl:"T4", notes:"Meublé étudiant — DPE F (révision gelée)" }, dpe("F","2025-06-01"))
   ];
 
+  var SIG = { bailleur: true, locataires: true, signedAt: "2023-01-01T10:00:00.000Z" };
+  function sig(){ return { bailleur:true, locataire:true, locataires:true, signedAt: today.toISOString() }; }
   var baux = {
-    "D-101": { ref:"D-101", debut:"2023-05-15", fin:"2026-05-14", hc:680, ch:90, dg:680, typeContrat:"nu", entity:EN, irl:"T1 2023", locataires:[{civilite:"M.", nom:"Pierre Martin", tel:"06.00.00.00.01", email:"pierre.martin@demo.fr"}], jpay:5 },
-    "D-102": { ref:"D-102", debut:"2024-09-01", fin:"2027-08-31", hc:900, ch:130, dg:900, typeContrat:"nu", entity:EN, irl:"T3 2024", locataires:[{civilite:"Mme", nom:"Marie Bernard", tel:"06.00.00.00.02", email:"marie.bernard@demo.fr"}], jpay:5 },
-    "D-104": { ref:"D-104", debut:"2025-10-01", fin:"2026-09-30", hc:780, ch:100, dg:1560, typeContrat:"meuble", entity:EN, irl:"T4 2025", locataires:[{civilite:"M.", nom:"Lucas Petit", tel:"06.00.00.00.04", email:"lucas.petit@demo.fr"}], jpay:5 }
+    "D-101": { ref:"D-101", debut:"2023-05-15", fin:"2028-05-14", hc:680, ch:90, dg:680, typeContrat:"nu", entity:EN, irl:"T1 2023", locataires:[{civilite:"M.", nom:"Pierre Martin", tel:"06.00.00.00.01", email:"pierre.martin@demo.fr"}], jpay:5, signatures: sig() },
+    "D-102": { ref:"D-102", debut:"2025-11-01", fin:"2028-10-31", hc:900, ch:130, dg:900, typeContrat:"nu", entity:EN, irl:"T3 2025", locataires:[{civilite:"Mme", nom:"Marie Bernard", tel:"06.00.00.00.02", email:"marie.bernard@demo.fr"}], jpay:5, signatures: sig() },
+    "D-104": { ref:"D-104", debut:"2025-10-01", fin:"2027-09-30", hc:780, ch:100, dg:1560, typeContrat:"meuble", entity:EN, irl:"T4 2025", locataires:[{civilite:"M.", nom:"Lucas Petit", tel:"06.00.00.00.04", email:"lucas.petit@demo.fr"}], jpay:5, signatures: sig() }
   };
+
+  // Assurances habitation locataire (MRH) — valides, échéance lointaine
+  var mrh = [
+    { id:"mrh_101", logement:"D-101", assureur:"Assurance Démo", numero:"MRH-101", echeance:"2028-06-30" },
+    { id:"mrh_102", logement:"D-102", assureur:"Assurance Démo", numero:"MRH-102", echeance:"2028-06-30" },
+    { id:"mrh_104", logement:"D-104", assureur:"Assurance Démo", numero:"MRH-104", echeance:"2028-06-30" }
+  ];
+
+  // États des lieux d'entrée (un par lot loué) — la colonne EDL passe au vert
+  function edlEntree(ref, loc){ return { id:"edl_"+ref, type:"Entrée", date:"2023-05-15", logement:ref, locataire:loc, gerant:"Mme Demo", adr:"12 rue des Tanneurs", surf:45,
+    pieces:[{ nom:"Séjour", elements:[{ nom:"Murs et sol", etatE:"Bon état", obsE:"", photosE:[], etatS:"", obsS:"", photosS:[] }] }],
+    compteurs:{}, cles:"Jeux remis", signatures:{ bailleur:true, locataire:true, signedAt: today.toISOString() } }; }
+  var edl = [ edlEntree("D-101","Pierre Martin"), edlEntree("D-102","Marie Bernard"), edlEntree("D-104","Lucas Petit") ];
 
   var mvts = []; var mid = 5000;
   function push(o){ o.id = mid++; mvts.push(o); }
   var curM = new Date(today.getFullYear(), today.getMonth(), 5);
   function payFrom(ref, debut, monthly, lib, stopMonthsAgo){
     var d0 = new Date(debut + "T00:00:00");
-    var d = new Date(d0.getFullYear(), d0.getMonth(), 5);
-    while (d <= curM){
-      var mAgoN = (curM.getFullYear()-d.getFullYear())*12 + (curM.getMonth()-d.getMonth());
-      if (mAgoN >= (stopMonthsAgo||0)) push({ date: iso(d), lib: lib, imm:"Immeuble Demo", cat:"Loyers encaissés", qui: ref, db:0, cr: monthly, fac:"" });
-      d.setMonth(d.getMonth()+1);
+    var dd = new Date(d0.getFullYear(), d0.getMonth(), 5);
+    while (dd <= curM){
+      var mAgoN = (curM.getFullYear()-dd.getFullYear())*12 + (curM.getMonth()-dd.getMonth());
+      if (mAgoN >= (stopMonthsAgo||0)) push({ date: iso(dd), lib: lib, imm:"Immeuble Demo", cat:"Loyers encaissés", qui: ref, db:0, cr: monthly, fac:"" });
+      dd.setMonth(dd.getMonth()+1);
     }
   }
-  payFrom("D-101", "2023-05-15", 770, "Loyer + charges", 0);          // à jour
-  payFrom("D-102", "2024-09-01", 1030, "Loyer + charges", 4);         // 4 derniers mois impayés
-  payFrom("D-104", "2025-10-01", 880, "Loyer + charges (meublé)", 0); // à jour
+  payFrom("D-101", "2023-05-15", 770, "Loyer + charges", 0);           // à jour
+  payFrom("D-102", "2025-11-01", 1030, "Loyer + charges", 4);          // 4 derniers mois impayés
+  payFrom("D-104", "2025-10-01", 880, "Loyer + charges (meublé)", 0);  // à jour
+
   push({ date: mAgo(4), lib:"Taxe foncière", imm:"Immeuble Demo", cat:"Taxe foncière (et taxes annexes)", qui:"", db:1500, cr:0, fac:"TF-"+yNow });
   push({ date: mAgo(6), lib:"Appel de fonds copropriété", imm:"Immeuble Demo", cat:"Charges de copropriété", qui:"", db:1200, cr:0, fac:"COPRO-"+yNow });
   push({ date: mAgo(2), lib:"Facture eau immeuble (à répartir)", imm:"Immeuble Demo", cat:"Charges récupérables (eau, énergie…)", qui:"", db:300, cr:0, fac:"EAU-"+yNow });
@@ -4515,19 +4531,9 @@ function _loadDemoDataset() {
   push({ date: mAgo(3), lib:"Réparation plomberie", imm:"Immeuble Demo", cat:"Travaux (entretien, réparation, amélioration)", qui:"D-101", db:650, cr:0, fac:"PLOMB-"+yNow });
   for (var mp=7; mp>=0; mp--){ push({ date: mAgo(mp), lib:"Échéance de prêt", imm:"Immeuble Demo", cat:"Prêt", qui:"", db:600, cr:0, fac:"" }); }
 
-  var edl = [{ id:"edl_demo_101", type:"Entrée", date:"2023-09-01", logement:"D-101",
-    locataire:"Pierre Martin", gerant:"Mme Demo", adr:"12 rue des Tanneurs — porte gauche", surf:45,
-    pieces:[
-      { nom:"Séjour", elements:[
-        { nom:"Murs et plafond", etatE:"Bon état", obsE:"Peinture récente", photosE:[], etatS:"", obsS:"", photosS:[] },
-        { nom:"Sol", etatE:"Bon état", obsE:"Parquet stratifié", photosE:[], etatS:"", obsS:"", photosS:[] } ] },
-      { nom:"Cuisine", elements:[
-        { nom:"Plan de travail", etatE:"Bon état", obsE:"", photosE:[], etatS:"", obsS:"", photosS:[] } ] } ],
-    compteurs:{}, cles:"3 jeux remis", signatures:{} }];
-
   var demoDB = {
     entites:[ent], logements:logs, baux:baux, mouvements:mvts,
-    baux_historique:[], quittances:[], assurances:[], mrh:[], edl:edl,
+    baux_historique:[], quittances:[], assurances:[], mrh:mrh, edl:edl,
     categories:["Loyers encaissés","Taxe foncière (et taxes annexes)","Charges de copropriété","Charges récupérables (eau, énergie…)","Primes d'assurance (PNO, GLI)","Travaux (entretien, réparation, amélioration)","Prêt"],
     catConfig:{ "Loyers encaissés": { inclYTD: true } },
     agenda:[], params:{}, irlTable:{}
@@ -4541,7 +4547,7 @@ function _loadDemoDataset() {
       if (typeof window.__immoRerenderCurrent === "function") window.__immoRerenderCurrent();
       else if (typeof go === "function") go("accueil");
     } catch(e){}
-    console.info("[SANDBOX] Dataset démo chargé : SCI Patrimoine Demo · 4 lots · " + mvts.length + " mouvements");
+    console.info("[SANDBOX] Dataset démo chargé : " + EN + " · 4 lots · " + mvts.length + " mouvements");
   } catch(e){ console.error("[SANDBOX] Échec chargement dataset", e); alert("Échec chargement dataset démo : " + e.message); }
 }
 
@@ -51819,7 +51825,7 @@ function _pilStatutDoc(bail, log, type, dateRef) {
     return _absent;
   }
   if (type === 'edl') {
-    const hasEdl = (DB.edls||[]).some(e => e && !e._deleted && e.logement === log.ref && (e.type === 'entree' || !e.type));
+    const hasEdl = (DB.edl||[]).some(e => e && !e._deleted && e.logement === log.ref && (e.type === 'entree' || e.type === 'Entrée' || !e.type));
     return hasEdl ? _ok : _absent;
   }
   if (type === 'mrh') {
