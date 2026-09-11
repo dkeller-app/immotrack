@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.622</title>
+<title>Propryo v15.623</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.622">
+<link rel="stylesheet" href="css/main.css?v=15.623">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.622</em>
+      <em>v15.623</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -336,17 +336,17 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <!-- PAGE: AGENDA -->
     <div class="page" id="p-agenda">
       <!-- Contrôles -->
-      <div class="flex-b mb16" style="flex-wrap:wrap;gap:10px">
-        <div class="flex-c" style="flex-wrap:wrap;gap:8px">
+      <div class="flex-b mb16" id="agenda-controls" style="flex-wrap:wrap;gap:10px">
+        <div class="flex-c" id="agenda-controls-filters" style="flex-wrap:wrap;gap:8px">
           <button class="btn bs bb" id="agenda-view-list" onclick="setAgendaView('list',this)" style="font-size:12.5px"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Liste</button>
           <button class="btn bs bb" id="agenda-view-cal" onclick="setAgendaView('cal',this)" style="font-size:12.5px"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16M9 3v4M15 3v4"/></svg> Calendrier</button>
           <select class="inp" id="agenda-f-log" onchange="rAgenda()" style="width:180px"><option value="">Tous logements</option></select>
           <select class="inp" id="agenda-f-cat" onchange="rAgenda()" style="width:160px"><option value="">Toutes catégories</option></select>
-          <label class="flex-c" style="gap:5px;font-size:12.5px;color:var(--t2);cursor:pointer">
+          <label class="flex-c" id="agenda-showdone-label" style="gap:5px;font-size:12.5px;color:var(--t2);cursor:pointer">
             <input type="checkbox" id="agenda-show-done" onchange="rAgenda()"> Afficher terminés
           </label>
         </div>
-        <div class="flex-c" style="gap:7px">
+        <div class="flex-c" id="agenda-controls-actions" style="gap:7px">
           <button class="btn bs bb" onclick="agendaSyncAuto()" title="Régénérer depuis baux" style="font-size:12.5px"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Sync baux</button>
           <button class="btn bp" onclick="openAgendaEvt(null)" style="font-size:13px">+ Événement</button>
         </div>
@@ -4224,7 +4224,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.622';
+const IMMOTRACK_VERSION = '15.623';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -50840,6 +50840,18 @@ function _agendaFilter(evts) {
     return true;
   });
 }
+/* Mobile : même filtre logement/catégorie mais on GARDE les terminés
+   (le téléphone n'a pas la case « Afficher terminés » du desktop ;
+   les terminés y vivent dans la section repliée + le point gris du calendrier). */
+function _agendaFilterKeepDone(evts) {
+  const fLog = el('agenda-f-log')?.value||'';
+  const fCat = el('agenda-f-cat')?.value||'';
+  return evts.filter(e=>{
+    if(fLog && e.logement !== fLog) return false;
+    if(fCat && e.cat !== fCat) return false;
+    return true;
+  });
+}
 
 function setAgendaView(v, btn) {
   _agendaView = v;
@@ -50853,11 +50865,13 @@ function setAgendaView(v, btn) {
 function rAgenda() {
   agendaAutoSync(); // sync silencieux
   _updateAgendaBadge();
+  try{ if(_isPhone()){ _ensureAgendaPhCss(); _ensureAgendaPhToolbar(); } }catch(e){}
   if(_agendaView === 'cal') { rAgendaCal(); return; }
   rAgendaList();
 }
 
 function _agendaEvtCard(e, compact=false) {
+  if(_isPhone()) return _agendaEvtCardPhone(e);
   const cat = AGENDA_CATS[e.cat] || AGENDA_CATS.AUTRE;
   const today = new Date().toISOString().slice(0,10);
   const isOverdue = !e.done && e.date < today;
@@ -50926,6 +50940,15 @@ function rAgendaList() {
   const rest     = all.filter(e=>!e.done && _daysFrom(e.date) > 30);
   const done     = all.filter(e=>e.done);
 
+  // TÉLÉPHONE (≤767) : rendu mobile charte-only (Terminés bornés à 30 j). PC (≥768) = chemin ci-dessous inchangé.
+  // Les Terminés (section repliée) sont TOUJOURS dispo sur mobile, indépendamment de « Afficher terminés » :
+  // on recalcule depuis la base en respectant SEULEMENT les filtres logement/catégorie.
+  if(_isPhone()){
+    const donePh=_agendaFilterKeepDone(DB.agenda||[]).filter(e=>e.done)
+                   .sort((a,b)=>b.date.localeCompare(a.date)); // plus récents d'abord
+    _ensureAgendaPhCss(); _rAgendaListPhone({overdue,soon7,soon30,rest,done:donePh}); return;
+  }
+
   el('agenda-overdue-section').innerHTML = _agendaSection(_uiIcon('warn',13) + ' En retard', overdue);
   el('agenda-soon7-section').innerHTML   = _agendaSection(_uiIcon('bell',13) + ' Cette semaine (7 jours)', soon7);
   el('agenda-soon30-section').innerHTML  = _agendaSection(_uiIcon('calendar',13) + ' Ce mois (30 jours)', soon30);
@@ -50944,6 +50967,161 @@ function _daysFrom(dateStr) {
   return Math.round((new Date(dateStr+'T00:00:00') - new Date()) / 86400000);
 }
 
+/* ===== AGENDA MOBILE (≤767) — rendu téléphone additif, aligné sur la direction Agenda PC :
+   type = line-icon ENCRE NEUTRE (pas de teinte par type), couleur = charte SEULE
+   (corail=à réaliser via liseré, rouge=en retard, ambre=proche J-N), actions LIBELLÉES,
+   « Terminés » borné aux 30 derniers jours. Le chemin PC (≥768) reste intact. ===== */
+function _ensureAgendaPhCss(){
+  if(document.getElementById('agph-css')) return;
+  var st=document.createElement('style'); st.id='agph-css';
+  st.textContent=[
+    '.agph-sec{margin-bottom:16px}',
+    '.agph-sec-h{display:flex;align-items:center;gap:8px;margin:0 2px 9px}',
+    '.agph-sec-h .uic{width:14px;height:14px;color:var(--t3);flex:0 0 auto}',
+    '.agph-sec-h b{font-family:var(--display,inherit);font-weight:700;font-size:13.5px;color:var(--t1)}',
+    '.agph-sec-h.late b,.agph-sec-h.late .uic{color:var(--red)}',
+    '.agph-sec-h .cnt{font-size:11px;font-weight:700;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:999px;padding:1px 8px}',
+    '.agph-sec-h.late .cnt{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);border-color:transparent}',
+    '.agph-card{background:var(--sur);border:1px solid var(--bor);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer}',
+    '.agph-card.todo{box-shadow:inset 3px 0 0 var(--acc)}',
+    '.agph-card.done{opacity:.62}',
+    '.agph-card.done .agph-ti{text-decoration:line-through;text-decoration-color:var(--t3)}',
+    '.agph-top{display:flex;gap:11px;align-items:flex-start}',
+    '.agph-ico{width:36px;height:36px;border-radius:10px;flex:0 0 auto;display:grid;place-items:center;background:var(--sur2);color:var(--t2)}',
+    '.agph-ti{font-weight:700;color:var(--t1);font-size:14px;line-height:1.25}',
+    '.agph-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:4px;color:var(--t3);font-size:11.5px}',
+    '.agph-meta .uic{width:12px;height:12px;flex:0 0 auto}',
+    '.agph-meta .m{display:inline-flex;align-items:center;gap:3px}',
+    '.agph-catlbl{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t2)}',
+    '.agph-dotsep{opacity:.5}',
+    '.agph-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;border-radius:999px;padding:2px 8px;white-space:nowrap}',
+    '.agph-badge .uic{width:11px;height:11px;flex:0 0 auto}',
+    '.agph-badge.late{background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)}',
+    '.agph-badge.warn{background:color-mix(in srgb,var(--ora) 14%,transparent);color:var(--ora)}',
+    '.agph-acts{display:flex;gap:7px;margin-top:10px}',
+    '.agph-acts button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;font:inherit;font-size:12px;font-weight:700;border-radius:9px;padding:8px 0;cursor:pointer;border:1px solid var(--bor);background:var(--sur);color:var(--t2);min-height:38px}',
+    '.agph-acts .uic{width:15px;height:15px;flex:0 0 auto}',
+    '.agph-acts .done{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 40%,var(--bor))}',
+    '.agph-acts .del{color:var(--red);border-color:color-mix(in srgb,var(--red) 30%,var(--bor))}',
+    '.agph-done{margin-bottom:16px}',
+    '.agph-done>summary{list-style:none;display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--sur2);border:1px solid var(--bor);border-radius:11px;padding:11px 13px;color:var(--t2);font-size:13px;font-weight:600}',
+    '.agph-done>summary::-webkit-details-marker{display:none}',
+    '.agph-done>summary .uic{width:14px;height:14px;color:var(--t3)}',
+    '.agph-done>summary .cnt{margin-left:auto;font-size:11px;font-weight:700;color:var(--t2);background:var(--sur);border:1px solid var(--bor);border-radius:999px;padding:1px 8px}',
+    '.agph-done[open]>summary{margin-bottom:9px}',
+    '.agph-fbtn{display:none}', // masqué par défaut (PC) ; ré-affiché ≤767 ci-dessous — robuste au resize mobile→desktop
+    /* calendrier téléphone : points d'urgence (corail/rouge/gris) au lieu de pastilles 7-col illisibles */
+    '@media(max-width:767px){',
+    '#p-agenda .agenda-cal-day{min-height:50px;padding:4px 0 4px;align-items:center;gap:3px}',
+    '#p-agenda .agenda-cal-day-num{align-self:center;font-size:11px}',
+    '#p-agenda .agph-dots{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}',
+    '#p-agenda .agph-dot{width:5px;height:5px;border-radius:50%}',
+    '#p-agenda .agph-dot.todo{background:var(--acc)}',
+    '#p-agenda .agph-dot.late{background:var(--red)}',
+    '#p-agenda .agph-dot.done{background:var(--t3)}',
+    '#p-agenda .agph-cal-legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:12px;color:var(--t2);font-size:11.5px}',
+    '#p-agenda .agph-cal-legend span{display:inline-flex;align-items:center;gap:5px}',
+    '#p-agenda .agph-cal-legend .agph-dot{width:7px;height:7px}',
+    /* barre d\'outils mobile épurée (mockup validé) : segment Vue + bouton Filtrer repliable + CTA corail pleine largeur */
+    '#agenda-controls{flex-direction:column;align-items:stretch;gap:10px}',
+    '#agenda-controls-filters{align-items:center;gap:8px}',
+    '#agenda-controls-filters #agenda-view-list,#agenda-controls-filters #agenda-view-cal{flex:1 1 0}',
+    '#agenda-showdone-label{display:none!important}', // « Afficher terminés » sans objet sur mobile (section Terminés toujours dispo)
+    '#agenda-f-log,#agenda-f-cat{display:none;width:100%!important;flex:1 1 100%}',
+    '#agenda-controls.agph-filters-open #agenda-f-log,#agenda-controls.agph-filters-open #agenda-f-cat{display:block}',
+    '.agph-fbtn{display:inline-flex;align-items:center;gap:6px;position:relative;flex:0 0 auto;font:inherit;font-size:12.5px;font-weight:600;border:1px solid var(--bor);background:var(--sur);color:var(--t2);border-radius:9px;padding:8px 12px;min-height:38px;cursor:pointer}',
+    '.agph-fbtn .uic{width:15px;height:15px}',
+    '#agenda-controls.agph-filters-open .agph-fbtn{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 40%,var(--bor))}',
+    '.agph-fbtn .cnt{background:var(--acc);color:#fff;font-size:10px;font-weight:800;border-radius:999px;min-width:16px;height:16px;display:inline-grid;place-items:center;padding:0 4px}',
+    '.agph-fbtn .cnt[hidden]{display:none}',
+    '#agenda-controls-actions{gap:8px;flex-wrap:wrap}',
+    '#agenda-controls-actions .bp{flex:1 1 auto;min-height:44px}', // CTA corail prééminent, pleine largeur restante
+    '}'
+  ].join('');
+  document.head.appendChild(st);
+}
+/* Barre d'outils mobile épurée : on RÉUTILISE les contrôles desktop (mêmes #agenda-f-log/#agenda-f-cat,
+   1 seule source d'état — DRY) mais on les replie derrière un bouton « Filtrer », on masque « Afficher
+   terminés » (sans objet sur mobile) et on rend le CTA « + Nouvel événement » explicite. PC intact. */
+function _ensureAgendaPhToolbar(){
+  const ctr=el('agenda-controls'), filters=el('agenda-controls-filters');
+  if(!ctr||!filters) return;
+  let fb=el('agenda-ph-filter');
+  if(!fb){
+    fb=document.createElement('button');
+    fb.id='agenda-ph-filter'; fb.type='button'; fb.className='agph-fbtn';
+    fb.setAttribute('aria-label','Filtrer les événements');
+    fb.onclick=function(){ ctr.classList.toggle('agph-filters-open'); };
+    fb.innerHTML=_uiIcon('filter')+'Filtrer<span class="cnt" hidden>0</span>';
+    const calBtn=el('agenda-view-cal');
+    if(calBtn && calBtn.parentNode===filters) calBtn.insertAdjacentElement('afterend',fb);
+    else filters.appendChild(fb);
+  }
+  _agendaPhFilterCount();
+  // On ne mute AUCUN élément partagé (libellé du CTA laissé tel quel) : tout le style mobile est en CSS ≤767,
+  // pour ne rien laisser fuir sur le PC après un passage mobile→desktop.
+}
+function _agendaPhFilterCount(){
+  const fb=el('agenda-ph-filter'); if(!fb) return;
+  const n=(el('agenda-f-log')?.value?1:0)+(el('agenda-f-cat')?.value?1:0);
+  const cnt=fb.querySelector('.cnt'); if(cnt){ cnt.textContent=n; cnt.hidden=!n; }
+}
+function _agendaEvtCardPhone(e){
+  const today=new Date().toISOString().slice(0,10);
+  const isOverdue=!e.done && e.date<today;
+  const isToday=!e.done && e.date===today;
+  // Écart en jours calculé de minuit-à-minuit (évite le -1 dû à l'heure courante dans _daysFrom).
+  const daysLeft=Math.round((new Date(e.date+'T00:00:00') - new Date(today+'T00:00:00'))/86400000);
+  const cat=AGENDA_CATS[e.cat]||AGENDA_CATS.AUTRE;
+  let badge='';
+  if(!e.done){
+    if(isOverdue) badge=`<span class="agph-badge late">${_uiIcon('warn')}${Math.abs(daysLeft)} j de retard</span>`;
+    else if(isToday) badge=`<span class="agph-badge warn">${_uiIcon('clock')}Aujourd'hui</span>`;
+    else if(daysLeft>0 && daysLeft<=30) badge=`<span class="agph-badge warn">${_uiIcon('clock')}J-${daysLeft}</span>`;
+  }
+  const meta=[`<span class="agph-catlbl">${escHtml(cat.label)}</span>`,'<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('calendar')}${fd(e.date)}</span>`];
+  if(e.logement) meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('home')}${escHtml(e.logement)}</span>`);
+  if(e.recurrence&&e.recurrence.type!=='none') meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('refresh')}${escHtml(_recLabel(e.recurrence))}</span>`);
+  if(e.auto) meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('settings')}Auto</span>`);
+  const acts=e.done
+    ? `<button class="del" onclick="deleteAgendaEvt(event,'${e.id}')">${_uiIcon('trash')}Supprimer</button>`
+    : `<button class="done" onclick="agendaMarkDone(event,'${e.id}')">${_uiIcon('check')}Marquer fait</button><button class="del" onclick="deleteAgendaEvt(event,'${e.id}')">${_uiIcon('trash')}Suppr.</button>`;
+  return `<div class="agph-card${e.done?' done':' todo'}" onclick="openAgendaEvt('${e.id}')">
+    <div class="agph-top"><div class="agph-ico">${_agendaIconSvg(e.cat,19)}</div>
+      <div style="flex:1;min-width:0"><div class="agph-ti">${escHtml(e.titre)}</div><div class="agph-meta">${meta.join('')}${badge}</div></div></div>
+    <div class="agph-acts">${acts}</div>
+  </div>`;
+}
+function _agendaSectionPhone(icon,label,evts,late){
+  if(!evts.length) return '';
+  return `<div class="agph-sec"><div class="agph-sec-h${late?' late':''}">${icon}<b>${label}</b><span class="cnt">${evts.length}</span></div>${evts.map(_agendaEvtCardPhone).join('')}</div>`;
+}
+function _rAgendaListPhone(g){
+  // Terminés = 30 derniers jours (décision Didier). Frontière NETTE minuit-à-minuit
+  // (pas _daysFrom qui intègre l'heure courante → un événement à J-30 pile ne clignote pas selon l'heure).
+  const cut = new Date(); cut.setHours(0,0,0,0); cut.setDate(cut.getDate()-30);
+  const done30 = g.done.filter(e=>new Date(e.date+'T00:00:00') >= cut);
+  el('agenda-overdue-section').innerHTML = _agendaSectionPhone(_uiIcon('warn'),'En retard',g.overdue,true);
+  el('agenda-soon7-section').innerHTML   = _agendaSectionPhone(_uiIcon('bell'),'Cette semaine',g.soon7,false);
+  el('agenda-soon30-section').innerHTML  = _agendaSectionPhone(_uiIcon('calendar'),'Ce mois-ci',g.soon30,false);
+  let restHtml = _agendaSectionPhone(_uiIcon('list'),'À venir',g.rest,false);
+  if(done30.length){
+    restHtml += `<details class="agph-done"><summary>${_uiIcon('check')}Terminés · 30 derniers jours<span class="cnt">${done30.length}</span></summary>${done30.map(_agendaEvtCardPhone).join('')}</details>`;
+  }
+  el('agenda-rest-section').innerHTML = restHtml;
+  const total=g.overdue.length+g.soon7.length+g.soon30.length+g.rest.length+done30.length;
+  if(!total){
+    el('agenda-overdue-section').innerHTML = `<div class="agph-card" style="cursor:default;text-align:center"><div class="agph-ti" style="margin-bottom:4px">Aucun événement</div><div style="color:var(--t3);font-size:12.5px">Ajoutez-en un avec « + Nouvel événement », ou synchronisez depuis vos baux.</div></div>`;
+  }
+}
+function _agendaDayDotsPhone(dayEvts){
+  const today=new Date().toISOString().slice(0,10);
+  const cls=e=>e.done?'done':(e.date<today?'late':'todo');
+  const dots=dayEvts.slice(0,5).map(e=>`<span class="agph-dot ${cls(e)}"></span>`).join('');
+  return dots?`<span class="agph-dots">${dots}</span>`:'';
+}
+
+
 function rAgendaCal() {
   const titleEl = el('agenda-cal-title');
   const gridEl  = el('agenda-cal-grid');
@@ -50957,7 +51135,8 @@ function rAgendaCal() {
   const daysInMonth = new Date(_agendaCalYear, _agendaCalMonth+1, 0).getDate();
   const today = new Date().toISOString().slice(0,10);
   const yrm = `${_agendaCalYear}-${String(_agendaCalMonth+1).padStart(2,'0')}`;
-  const monthEvts = _agendaFilter(DB.agenda||[]).filter(e=>e.date.startsWith(yrm));
+  // Mobile : garder les terminés (point gris) ; PC : filtre desktop inchangé (case « Afficher terminés »).
+  const monthEvts = (_isPhone()?_agendaFilterKeepDone:_agendaFilter)(DB.agenda||[]).filter(e=>e.date.startsWith(yrm));
 
   const days = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
   let html = `<div class="agenda-cal-wrap">
@@ -50973,16 +51152,22 @@ function rAgendaCal() {
     const isToday = ds===today;
     html += `<div class="agenda-cal-day${isToday?' agenda-cal-today':''}" onclick="openDayDetail('${ds}')">
       <span class="agenda-cal-day-num${isToday?' today':''}">${d}</span>
-      ${dayEvts.slice(0,3).map(e=>{
-        // v15.62x REFONTE-PC — pastille neutre ; couleur = charte (retard rouge, à faire corail, fait atténué)
-        const cls = e.done ? 'done' : ((!e.done && e.date < today) ? 'retard' : 'todo');
-        return `<div class="agenda-cal-evt ${cls}">${_agendaIconSvg(e.cat,11)}${escHtml(e.titre.slice(0,22))}</div>`;
-      }).join('')}
-      ${dayEvts.length>3?`<div style="font-size:9px;color:var(--t2);padding:0 3px">+${dayEvts.length-3} autres</div>`:''}
+      ${_isPhone() ? _agendaDayDotsPhone(dayEvts) : (
+        dayEvts.slice(0,3).map(e=>{
+          // v15.62x REFONTE-PC — pastille neutre ; couleur = charte (retard rouge, à faire corail, fait atténué)
+          const cls = e.done ? 'done' : ((!e.done && e.date < today) ? 'retard' : 'todo');
+          return `<div class="agenda-cal-evt ${cls}">${_agendaIconSvg(e.cat,11)}${escHtml(e.titre.slice(0,22))}</div>`;
+        }).join('') + (dayEvts.length>3?`<div style="font-size:9px;color:var(--t2);padding:0 3px">+${dayEvts.length-3} autres</div>`:'')
+      )}
     </div>`;
   }
 
   html += `</div></div>`;
+  // Téléphone : légende des points d'urgence (charte : corail=à réaliser, rouge=en retard, gris=fait).
+  if(_isPhone()) html += `<div class="agph-cal-legend">
+    <span><i class="agph-dot todo"></i>À réaliser</span>
+    <span><i class="agph-dot late"></i>En retard</span>
+    <span><i class="agph-dot done"></i>Fait</span></div>`;
   gridEl.innerHTML = html;
 }
 
@@ -50994,7 +51179,7 @@ function agendaCalNav(dir) {
 }
 
 function openDayDetail(ds) {
-  const evts = _agendaFilter(DB.agenda||[]).filter(e=>e.date===ds).sort((a,b)=>a.titre.localeCompare(b.titre));
+  const evts = (_isPhone()?_agendaFilterKeepDone:_agendaFilter)(DB.agenda||[]).filter(e=>e.date===ds).sort((a,b)=>a.titre.localeCompare(b.titre));
   // 0 événement → créer directement
   if(!evts.length) { openAgendaEvt(null, ds); return; }
   // 1 seul événement → ouvrir directement
