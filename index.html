@@ -55267,7 +55267,10 @@ function rFinances() {
   // (sous-lignes retard), le ratio d'occupation (vacance, K-2), la ligne Solde (régul) et la
   // page Révision IRL. Aucun total reconstruit (ces créances ne s'additionnent pas).
   // Micro-foncier (art. 32 CGI) — suggestion de régime, périmètre entité (comme la prévisu 2044).
-  const microFoncierHtml = (typeof _microFoncierCardHtml === 'function') ? _microFoncierCardHtml(yr, entNom) : '';
+  // try/catch : la chaîne _compute2044 ne doit jamais casser le rendu de toute la page Finances.
+  let microFoncierHtml = '';
+  try { if (typeof _microFoncierCardHtml === 'function') microFoncierHtml = _microFoncierCardHtml(yr, entNom); }
+  catch (e) { microFoncierHtml = ''; if (typeof console !== 'undefined') console.warn('[micro-foncier] carte ignorée :', e); }
   root.innerHTML = headHtml + _cleNote + _fbNote + _mapBanner + heroHtml + ratiosHtml + microFoncierHtml
     + '<div id="fin-pl"></div>'
     + '<div id="fin-exports"></div>';
@@ -56294,14 +56297,38 @@ function _finRenderExports() {
 // totalCharges + totalInterets. Le verdict pur vient du module js/core/micro-foncier.js.
 // L'app NE PEUT PAS connaître les régimes spéciaux ni les revenus fonciers du foyer hors Propryo
 // → SUGGESTION sous conditions, jamais une affirmation d'éligibilité (sauf loyers > 15 000 €).
+// Le micro-foncier n'existe QUE pour une personne physique imposée à l'IR sur ses revenus fonciers
+// (location nue en direct). Toute SOCIÉTÉ est exclue : les parts de sociétés louant nu sont
+// explicitement écartées par l'art. 32 CGI (SCI à l'IR → 2072 au réel), et SCI à l'IS / SARL / SAS /
+// EURL / SNC relèvent de l'IS ou des BIC (aucun revenu foncier). Détection = miroir de genBailHTML.
+function _microFoncierEntEligible(ent) {
+  if (!ent) return false;
+  const t = String(ent.type || '').trim();
+  if (!t) return true;                                        // forme non renseignée → particulier par défaut (cas le plus courant)
+  if (/personne physique|perso|particulier|indivision/i.test(t)) return true;
+  if (/SCI|SARL|SASU|SAS|SNC|EURL|\bSA\b|soci[eé]t[eé]|association/i.test(t)) return false; // société → micro exclu
+  return false;                                               // forme renseignée mais non reconnue → prudence
+}
 function _microFoncierEval(yr, entNom) {
   if (typeof window._compute2044 !== 'function' || typeof _legal2044BuildOpts !== 'function'
     || typeof window.evaluerMicroFoncier !== 'function') return null;
   const opts = _legal2044BuildOpts(yr, entNom);
   const r = window._compute2044(DB.mouvements || [], STD_CATEGORIES, opts);
-  return window.evaluerMicroFoncier({ loyersNus: r.totalRecettes || 0, chargesReelles: (r.totalCharges || 0) + (r.totalInterets || 0) });
+  const ev = window.evaluerMicroFoncier({ loyersNus: r.totalRecettes || 0, chargesReelles: (r.totalCharges || 0) + (r.totalInterets || 0) });
+  // P1-1 : lots meublés/mixtes écartés du foncier (le brut foncier peut être faussé par du meublé résiduel).
+  ev._hasExclusions = !!((opts.exclus && opts.exclus.length) || (opts.flagues && opts.flagues.length));
+  return ev;
 }
 function _microFoncierCardHtml(yr, entNom) {
+  // P0-2 : le seuil de 15 000 € s'apprécie par FOYER fiscal, jamais en cumulant plusieurs contribuables.
+  // Périmètre exigé = UNE entité (ou « Tout » quand il n'y en a qu'une seule).
+  const ents = (DB.entites || []).filter(e => e && !e._deleted);
+  let ent = null;
+  if (entNom) ent = ents.find(e => e.nom === entNom);
+  else if (ents.length === 1) { ent = ents[0]; entNom = ent.nom; }
+  else return '';                                             // plusieurs contribuables agrégés → non calculable
+  // P0-1 : réservé à la personne physique (société → régime inexistant tel qu'affiché).
+  if (!_microFoncierEntEligible(ent)) return '';
   const ev = _microFoncierEval(yr, entNom);
   if (!ev || ev.statut === 'na') return '';
   const f = (typeof fmt === 'function') ? fmt : (x => (Math.round(x) || 0) + ' €');
@@ -56326,32 +56353,37 @@ function _microFoncierCardHtml(yr, entNom) {
     + '<th ' + S + '"padding:8px 11px;text-align:right;font-weight:' + (microWin ? '800' : '600') + ';font-size:12px' + (microWin ? ';background:var(--pos);color:#fff' : ';background:var(--sur2);color:var(--t2)') + '">Micro-foncier</th>'
     + '<th ' + S + '"padding:8px 11px;text-align:right;font-weight:' + (!microWin ? '800' : '600') + ';font-size:12px' + (!microWin ? ';background:var(--pos);color:#fff' : ';background:var(--sur2);color:var(--t2)') + '">Réel (2044)</th>'
     + '</tr></thead><tbody>'
-    + '<tr><td ' + S + '"padding:8px 11px;text-align:left;color:var(--t2)">Loyers nus ' + yr + '</td>' + cell(f(ev.loyersNus)) + cell(f(ev.loyersNus)) + '</tr>'
+    + '<tr><td ' + S + '"padding:8px 11px;text-align:left;color:var(--t2)">Revenus fonciers bruts ' + yr + '</td>' + cell(f(ev.loyersNus)) + cell(f(ev.loyersNus)) + '</tr>'
     + '<tr><td ' + S + '"padding:8px 11px;text-align:left;color:var(--t2);border-top:1px solid var(--bor)">Déduction</td>'
     + cell('− ' + f(ev.microAbattement) + ' <span ' + S + '"color:var(--t3);font-size:11.5px">(30 %)</span>', microWin) + cell('− ' + f(ev.chargesReelles) + ' <span ' + S + '"color:var(--t3);font-size:11.5px">(réel)</span>', !microWin) + '</tr>'
     + '<tr><td ' + S + '"padding:8px 11px;text-align:left;color:var(--t1);border-top:1px solid var(--bor);font-weight:800">Revenu imposable</td>' + cell(f(ev.microImposable), microWin, true) + cell(f(ev.reelImposable), !microWin, true) + '</tr>'
     + '</tbody></table>';
+  // P1-1 : avertissement si des lots meublés/mixtes ont pu être écartés (brut foncier potentiellement faussé).
+  const mixte = ev._hasExclusions
+    ? '<div ' + S + '"margin-top:10px;font-size:11.5px;color:var(--warn);background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:8px 11px">⚠ Des loyers meublés ou de lots mixtes (nu + meublé la même année) ont pu être écartés du foncier — chiffres indicatifs, vérifie le détail dans la prévisualisation 2044 ci-dessous.</div>'
+    : '';
+  const sur = !ev._hasExclusions; // affirmation ferme du dépassement seulement si aucun lot écarté
   let inner;
   if (ev.statut === 'reel_obligatoire') {
     inner = '<div ' + S + '"border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--info-soft,rgba(66,80,106,.12));border:1px solid var(--bor)">'
-      + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">Régime réel obligatoire</div>'
-      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Tes loyers nus (<b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b>) dépassent le seuil de <b ' + S + '"color:var(--t1)">' + f(ev.seuil) + '/an</b> : le micro-foncier n\'est pas possible.</div></div>'
-      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Déclaration au <b ' + S + '"color:var(--t1)">régime réel</b> (formulaire <b>2044</b>). Prévisualise-la depuis « Exports &amp; déclaratif » ci-dessous.</div>' + src;
+      + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">Régime réel' + (sur ? ' obligatoire' : ' très probable') + '</div>'
+      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Tes revenus fonciers bruts (<b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b>) ' + (sur ? 'dépassent' : 'semblent dépasser') + ' le seuil de <b ' + S + '"color:var(--t1)">' + f(ev.seuil) + '/an</b> : le micro-foncier ' + (sur ? 'n\'est pas possible' : 'n\'est probablement pas possible') + '.</div></div>'
+      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Déclaration au <b ' + S + '"color:var(--t1)">régime réel</b> (formulaire <b>2044</b>). Prévisualise-la depuis « Exports &amp; déclaratif » ci-dessous.</div>';
   } else if (ev.statut === 'micro_piste') {
     inner = '<div ' + S + '"border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--acc-soft,rgba(255,90,60,.12));border:1px solid var(--acc)">'
       + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">💡 Piste à explorer : le micro-foncier te ferait sans doute payer moins</div>'
-      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Tes charges déductibles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> de tes loyers, sous les <b ' + S + '"color:var(--t1)">30 %</b> de l\'abattement forfaitaire. Le micro déduirait donc plus que tes charges réelles.</div></div>'
+      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Tes charges déductibles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> de tes revenus fonciers, sous les <b ' + S + '"color:var(--t1)">30 %</b> de l\'abattement forfaitaire. Le micro déduirait donc plus que tes charges réelles.</div></div>'
       + table(true)
       + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Au micro : déclare <b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b> en case ' + pill4be + ' de la <b ' + S + '"color:var(--t1)">2042</b>, sans 2044. <span ' + S + '"color:var(--t3)">L\'option micro/réel s\'exerce pour 3 ans.</span></div>'
-      + cond + src;
+      + cond;
   } else { // reel_avantageux
     inner = '<div ' + S + '"border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--info-soft,rgba(66,80,106,.12));border:1px solid var(--bor)">'
       + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">Reste au régime réel — il déduit plus dans ton cas</div>'
-      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Tes charges réelles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> de tes loyers, au-dessus des 30 % forfaitaires. Le réel te fait payer moins qu\'au micro. Rien à changer.</div></div>'
+      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Tes charges réelles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> de tes revenus fonciers, au-dessus des 30 % forfaitaires. Le réel te fait payer moins qu\'au micro. Rien à changer. <span ' + S + '"color:var(--t3)">Un déficit foncier s\'impute même sur ton revenu global (jusqu\'à 10 700 €/an).</span></div></div>'
       + table(false)
-      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Continue sur le <b ' + S + '"color:var(--t1)">régime réel</b> (2044) : prévisualise-le depuis « Exports &amp; déclaratif » ci-dessous.</div>' + src;
+      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Continue sur le <b ' + S + '"color:var(--t1)">régime réel</b> (2044) : prévisualise-le depuis « Exports &amp; déclaratif » ci-dessous.</div>';
   }
-  return '<div class="card" ' + S + '"border:2px solid var(--acc);margin-bottom:14px">' + head + inner + '</div>';
+  return '<div class="card" ' + S + '"border:2px solid var(--acc);margin-bottom:14px">' + head + inner + mixte + src + '</div>';
 }
 
 // ===== Prévisualisation 2044 (depuis Finances) — réutilise _compute2044 + _legal2044BuildOpts =====
