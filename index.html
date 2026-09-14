@@ -4407,6 +4407,18 @@ function _injectTestModeBanner() {
   // Bandeau via insertion en début de body
   const inject = () => {
     if (document.getElementById('sandbox-banner')) return;
+    // Mode DÉMO client (?demo=1) : bandeau discret et à la marque (pas le bandeau dev orange).
+    if (/[?&]demo=1/.test(location.search||'')) {
+      var dd = document.createElement('div');
+      dd.id = 'sandbox-banner';
+      dd.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#101521;color:#fff;font-size:11.5px;padding:5px 14px;display:flex;align-items:center;justify-content:center;gap:12px;font-family:Inter,system-ui,sans-serif;letter-spacing:.3px;box-shadow:0 1px 6px rgba(16,21,33,.25)';
+      dd.innerHTML = '<span style="display:inline-flex;align-items:center;gap:7px;opacity:.9"><span style="width:7px;height:7px;border-radius:50%;background:#ff5a3c;display:inline-block"></span>Mode d\u00e9monstration</span><button id="demo-reload" style="background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:5px;padding:3px 11px;font-size:11px;font-weight:600;cursor:pointer">\u21bb Recharger la d\u00e9mo</button>';
+      document.body.appendChild(dd);
+      document.body.style.paddingTop = (parseFloat(getComputedStyle(document.body).paddingTop)||0) + 30 + 'px';
+      var rb = document.getElementById('demo-reload');
+      if (rb) rb.addEventListener('click', function(){ try { _loadDemoDataset(); } catch(e){ alert('Erreur : ' + e.message); } });
+      return;
+    }
     const div = document.createElement('div');
     div.id = 'sandbox-banner';
     div.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#f97316,#ea580c);color:#fff;text-align:center;font-weight:700;font-size:12.5px;padding:6px 12px;letter-spacing:.4px;font-family:sans-serif;box-shadow:0 2px 8px rgba(249,115,22,.4);display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;';
@@ -4609,12 +4621,24 @@ function _loadDemoDataset() {
   push({ date: mAgo(3), lib:"Réparation plomberie", imm:"Immeuble Demo", cat:"Travaux (entretien, réparation, amélioration)", qui:"D-101", db:650, cr:0, fac:"PLOMB-"+yNow });
   for (var mp=7; mp>=0; mp--){ push({ date: mAgo(mp), lib:"Échéance de prêt", imm:"Immeuble Demo", cat:"Prêt", qui:"", db:600, cr:0, fac:"" }); }
 
+  // Candidatures reçues sur le lot vacant D-103 (pipeline "Candidatures")
+  var cands = [
+    { id:"cand_1", nom:"Rousseau", prenom:"Emma", civilite:"Mme", email:"emma.rousseau@demo.fr", tel:"06.00.00.10.01",
+      logRef:"D-103", statut:"valide", confianceScore:82, revenus:2600, garant:{ nom:"Rousseau Jean", lien:"Parent" },
+      piecesVerifiees:true, source:"lien", contrat:"CDI", employeur:"Clinique du Parc",
+      dateDebutSouhaitee: iso(new Date(today.getFullYear(), today.getMonth()+1, 1)), vu:true },
+    { id:"cand_2", nom:"Girard", prenom:"Thomas", civilite:"M.", email:"thomas.girard@demo.fr", tel:"06.00.00.10.02",
+      logRef:"D-103", statut:"enCours", confianceScore:61, revenus:1980, garant:null,
+      piecesVerifiees:false, source:"manuel", contrat:"CDD", employeur:"Mairie de Mulhouse",
+      dateDebutSouhaitee: iso(new Date(today.getFullYear(), today.getMonth()+1, 15)), vu:false }
+  ];
+
   var demoDB = {
     entites:[ent], logements:logs, baux:baux, mouvements:mvts,
     baux_historique:[], quittances:[], assurances:[], mrh:mrh, edl:edl,
     categories:["Loyers encaissés","Taxe foncière (et taxes annexes)","Charges de copropriété","Charges récupérables (eau, énergie…)","Primes d'assurance (PNO, GLI)","Travaux (entretien, réparation, amélioration)","Prêt"],
     catConfig:{ "Loyers encaissés": { inclYTD: true } },
-    agenda:[], params:{}, irlTable:{}
+    candidats:cands, agenda:[], params:{}, irlTable:{}
   };
 
   try {
