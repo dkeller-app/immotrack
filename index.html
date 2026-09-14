@@ -4479,13 +4479,13 @@ function _loadDemoDataset() {
       annee: 2006, regimeJuridique: "Copropriété", driveFolderId: null, compteursCollectifs: [] }],
     entityId: "eid_demo_001", members: [], driveFileId: null, driveFolderId: null
   };
-  function dpe(classe, date){ return { diagnostics: { dpe: { classe: classe, date: date, na: false } } }; }
+  function dpe(classe, date, extra){ return { diagnostics: { dpe: Object.assign({ classe: classe, date: date, na: false }, extra||{}) } }; }
 
   var logs = [
     Object.assign({ id:1001, ref:"D-101", imm:"Immeuble Demo", entity:EN, type:"T2", surf:45,
       etage:"RDC", adr:"12 rue des Tanneurs — porte gauche", hc:680, ch:90, dg:680, tantiemes:200, compteCharges:true,
       locataire:"Pierre Martin", tel:"06.00.00.00.01", mail:"pierre.martin@demo.fr",
-      debut:"2023-05-15", fin:"2028-05-14", irl:"T1", notes:"Cas nominal — à jour" }, dpe("C","2023-04-10")),
+      debut:"2023-05-15", fin:"2028-05-14", irl:"T1", notes:"Cas nominal — à jour" }, dpe("C","2023-04-10",{ numeroDpe:"2568E1284997T", ges:"C", valEner:"145", depensesEnergie:"900 \u00e0 1 200" })),
     Object.assign({ id:1002, ref:"D-102", imm:"Immeuble Demo", entity:EN, type:"T3", surf:65,
       etage:"1er", adr:"12 rue des Tanneurs — porte droite", hc:900, ch:130, dg:900, tantiemes:280, compteCharges:true,
       locataire:"Marie Bernard", tel:"06.00.00.00.02", mail:"marie.bernard@demo.fr",
@@ -4597,6 +4597,7 @@ function _loadDemoDataset() {
   // Semer les binaires photo en IndexedDB (et en cache mémoire pour affichage immédiat).
   try { if (typeof _photoCache === "object" && _photoCache) Object.assign(_photoCache, _edlSeed); } catch(e){}
   try { if (typeof _idbPut === "function") Object.keys(_edlSeed).forEach(function(k){ if(_edlSeed[k]) _idbPut(k, _edlSeed[k]).catch(function(){}); }); } catch(e){}
+  try { if (typeof _idbPut === "function") Object.keys(_docSeed).forEach(function(k){ if(_docSeed[k]) _idbPut(k, _docSeed[k]).catch(function(){}); }); } catch(e){}
 
   var mvts = []; var mid = 5000;
   function push(o){ o.id = mid++; mvts.push(o); }
@@ -4633,12 +4634,27 @@ function _loadDemoDataset() {
       dateDebutSouhaitee: iso(new Date(today.getFullYear(), today.getMonth()+1, 15)), vu:false }
   ];
 
+  // Documents de diagnostic attachés au lot D-101 (id 1001) — PDF réels seedés en IndexedDB.
+  var _DEMO_PDF_DDT = "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAxNzcgPj4Kc3RyZWFtCkJUIC9GMSAyMiBUZiA2MCA3NzAgVGQgKERvc3NpZXIgZGUgZGlhZ25vc3RpYyB0ZWNobmlxdWUgLSBELTEwMSkgVGogRVQKQlQgL0YxIDEyIFRmIDYwIDc0MCBUZCAoUGxvbWIgXChDUkVQXCkgKyBBbWlhbnRlICsgRWxlY3RyaWNpdGUgKyBEUEUgLSBSREMgLSBEZW1vbnN0cmF0aW9uIFByb3ByeW8pIFRqIEVUCgplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDQ2OSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjUzOQolJUVPRg==";
+  var _DEMO_PDF_ERR = "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAxNTggPj4Kc3RyZWFtCkJUIC9GMSAyMiBUZiA2MCA3NzAgVGQgKEV0YXQgZGVzIFJpc3F1ZXMgXChFUlJJQUxcKSAtIEQtMTAxKSBUaiBFVApCVCAvRjEgMTIgVGYgNjAgNzQwIFRkIChQYXJjZWxsZSAwMDAtOS0xMzkgLSA2ODIxOCBNdWxob3VzZSAtIERlbW9uc3RyYXRpb24gUHJvcHJ5bykgVGogRVQKCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwNDUwIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNTIwCiUlRU9G";
+  var _docSeed = { "demo_doc_ddt": _DEMO_PDF_DDT, "demo_doc_errial": _DEMO_PDF_ERR };
+  var docs = [
+    { id:6001, parentType:"logement", parentId:1001, category:"documents",
+      name:"Diagnostics - plomb + amiante + \u00e9lectricit\u00e9 + DPE - RDC.pdf",
+      originalName:"Diagnostics - plomb + amiante + \u00e9lectricit\u00e9 + DPE - RDC.pdf",
+      mime:"application/pdf", size:3387000, uploadedAt:"2026-06-09T09:00:00.000Z", idbKey:"demo_doc_ddt" },
+    { id:6002, parentType:"logement", parentId:1001, category:"documents",
+      name:"ERRIAL_Parcelle_000-9-139@68218_02062026.pdf",
+      originalName:"ERRIAL_Parcelle_000-9-139@68218_02062026.pdf",
+      mime:"application/pdf", size:492000, uploadedAt:"2026-06-09T09:05:00.000Z", idbKey:"demo_doc_errial" }
+  ];
+
   var demoDB = {
     entites:[ent], logements:logs, baux:baux, mouvements:mvts,
     baux_historique:[], quittances:[], assurances:[], mrh:mrh, edl:edl,
     categories:["Loyers encaissés","Taxe foncière (et taxes annexes)","Charges de copropriété","Charges récupérables (eau, énergie…)","Primes d'assurance (PNO, GLI)","Travaux (entretien, réparation, amélioration)","Prêt"],
     catConfig:{ "Loyers encaissés": { inclYTD: true } },
-    candidats:cands, agenda:[], params:{}, irlTable:{}
+    candidats:cands, documents:docs, agenda:[], params:{}, irlTable:{}
   };
 
   try {
