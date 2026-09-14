@@ -4557,6 +4557,7 @@ function _loadDemoDataset() {
     sejour:  _demoRoom({ wall:'#efe8dd', floor:'#c39a63', sofa:'#8fa7b3', tag:'Séjour',       stamp:'15/05/2023  10:42' }),
     cuisine: _demoRoom({ wall:'#e7eef0', floor:'#b9a988', counter:'#e9edf2', tag:'Cuisine',    stamp:'15/05/2023  10:47' }),
     chambre: _demoRoom({ wall:'#ece7e2', floor:'#c39a63', bed:'#b7c2cc', tag:'Chambre',        stamp:'15/05/2023  10:51' }),
+    sol:     _demoRoom({ wall:'#efe8dd', floor:'#b98a4e', tag:'Séjour — sol',  stamp:'15/05/2023  10:44' }),
     compteur:_demoMeter({ reading:'0 0 1 2 3', tag:'Compteur électrique', stamp:'15/05/2023  10:55' })
   };
   function _phRef(ref, which, label){ var k='demo_edl_'+ref+'_'+which; _edlSeed[k]=_IMG[which]; return { name:label, idbKey:k, ts:'', cloudKey:'' }; }
@@ -4566,8 +4567,8 @@ function _loadDemoDataset() {
       adr:"12 rue des Tanneurs, 68100 Mulhouse", surf:surf,
       pieces:[
         { nom:"Séjour", elements:[
-          { nom:"Murs / peinture", etatE:"Bon état", obsE:"Peinture récente, sans trace", photosE:(phset.sejour||[]), etatS:"", obsS:"", photosS:[] },
-          { nom:"Sol / revêtement", etatE:"Bon état", obsE:"Quelques micro-rayures d'usage", photosE:[], etatS:"", obsS:"", photosS:[] } ] },
+          { nom:"Murs / peinture", etatE:"Bon état", obsE:"Peinture refaite à neuf — aucune trace ni fissure.", photosE:(phset.sejour||[]), etatS:"", obsS:"", photosS:[] },
+          { nom:"Sol / parquet", etatE:"Bon état", obsE:"Parquet en bon état ; légères micro-rayures près de la fenêtre.", photosE:(phset.sol||[]), etatS:"", obsS:"", photosS:[] } ] },
         { nom:"Cuisine", elements:[
           { nom:"Plan de travail / évier", etatE:"Bon état", obsE:"", photosE:(phset.cuisine||[]), etatS:"", obsS:"", photosS:[] },
           { nom:"Électroménager", etatE:"Bon état", obsE:"Plaques et hotte fonctionnelles", photosE:[], etatS:"", obsS:"", photosS:[] } ] },
@@ -4586,7 +4587,7 @@ function _loadDemoDataset() {
 
   var edl = [
     edlEntree(2001, "D-101", "Pierre Martin", "2023-05-15", 45, {
-      sejour:[_phRef("D-101","sejour","Séjour — mur")], cuisine:[_phRef("D-101","cuisine","Cuisine")],
+      sejour:[_phRef("D-101","sejour","Séjour — mur")], sol:[_phRef("D-101","sol","Séjour — sol / parquet")], cuisine:[_phRef("D-101","cuisine","Cuisine")],
       chambre:[_phRef("D-101","chambre","Chambre")], compteur:[_phRef("D-101","compteur","Compteur élec.")] }),
     edlEntree(2002, "D-102", "Marie Bernard", "2024-11-01", 65, {
       sejour:[_phRef("D-102","sejour","Séjour")], cuisine:[_phRef("D-102","cuisine","Cuisine")] }),
