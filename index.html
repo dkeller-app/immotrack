@@ -56300,14 +56300,16 @@ function _finRenderExports() {
 // Le micro-foncier n'existe QUE pour une personne physique imposée à l'IR sur ses revenus fonciers
 // (location nue en direct). Toute SOCIÉTÉ est exclue : les parts de sociétés louant nu sont
 // explicitement écartées par l'art. 32 CGI (SCI à l'IR → 2072 au réel), et SCI à l'IS / SARL / SAS /
-// EURL / SNC relèvent de l'IS ou des BIC (aucun revenu foncier). Détection = miroir de genBailHTML.
+// EURL / SNC relèvent de l'IS ou des BIC (aucun revenu foncier).
+// Le champ `type` étant FACULTATIF (souvent vide), on cherche la forme sociale sur le NOM *et* le type
+// (le nom porte quasi toujours « SCI … »). Règle : match société positif → exclu ; sinon éligible
+// (personne physique, indivision translucide, ou nom propre libre). Jetons bornés (\b) pour éviter
+// qu'un patronyme contenant « sci » (ex. « Francisci ») exclue un particulier à tort.
 function _microFoncierEntEligible(ent) {
   if (!ent) return false;
-  const t = String(ent.type || '').trim();
-  if (!t) return true;                                        // forme non renseignée → particulier par défaut (cas le plus courant)
-  if (/personne physique|perso|particulier|indivision/i.test(t)) return true;
-  if (/SCI|SARL|SASU|SAS|SNC|EURL|\bSA\b|soci[eé]t[eé]|association/i.test(t)) return false; // société → micro exclu
-  return false;                                               // forme renseignée mais non reconnue → prudence
+  const s = (String(ent.nom || '') + ' ' + String(ent.type || '')).toLowerCase();
+  if (/\b(sci|scp|scpi|sccv|sc|scm|scea|sarl|sasu|sas|eurl|snc|gfa|gfr|soci[eé]t[eé]|association)\b/.test(s)) return false;
+  return true;
 }
 function _microFoncierEval(yr, entNom) {
   if (typeof window._compute2044 !== 'function' || typeof _legal2044BuildOpts !== 'function'
