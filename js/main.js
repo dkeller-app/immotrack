@@ -118,6 +118,7 @@ import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './cor
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants } from './core/avenant.js';
 import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege } from './core/conge.js';
+import { MF_SEUIL, MF_ABATTEMENT, evaluerMicroFoncier } from './core/micro-foncier.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
@@ -599,6 +600,10 @@ window.congeBailleurPreavisMois = congeBailleurPreavisMois;
 window.congeLocatairePreavis = congeLocatairePreavis;
 window.congeAddMois = congeAddMois;
 window.locataireProtege = locataireProtege;
+// Micro-foncier (art. 32 CGI) — suggestion de régime dans Finances
+window.MF_SEUIL = MF_SEUIL;
+window.MF_ABATTEMENT = MF_ABATTEMENT;
+window.evaluerMicroFoncier = evaluerMicroFoncier;
 // Grille de vétusté (décret 2016-382 / OPAC)
 window.VETUSTE_BAREME = VETUSTE_BAREME;
 window.VETUSTE_SOURCES = VETUSTE_SOURCES;
