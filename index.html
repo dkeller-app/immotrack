@@ -4502,11 +4502,89 @@ function _loadDemoDataset() {
     { id:"mrh_104", logement:"D-104", assureur:"Assurance Démo", numero:"MRH-104", echeance:"2028-06-30" }
   ];
 
-  // États des lieux d'entrée (un par lot loué) — la colonne EDL passe au vert
-  function edlEntree(ref, loc){ return { id:"edl_"+ref, type:"Entrée", date:"2023-05-15", logement:ref, locataire:loc, gerant:"Mme Demo", adr:"12 rue des Tanneurs", surf:45,
-    pieces:[{ nom:"Séjour", elements:[{ nom:"Murs et sol", etatE:"Bon état", obsE:"", photosE:[], etatS:"", obsS:"", photosS:[] }] }],
-    compteurs:{}, cles:"Jeux remis", signatures:{ bailleur:true, locataire:true, signedAt: today.toISOString() } }; }
-  var edl = [ edlEntree("D-101","Pierre Martin"), edlEntree("D-102","Marie Bernard"), edlEntree("D-104","Lucas Petit") ];
+  // ── États des lieux d'entrée (un par lot loué) ─────────────────────────────
+  // Photos générées localement (canvas → data URL, aucun binaire externe) puis
+  // stockées en IndexedDB sous leur idbKey, comme une vraie photo prise dans l'app.
+  var _edlSeed = {};
+  function _rr(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); g.fill(); }
+  function _demoRoom(o){
+    try{
+      var c=document.createElement('canvas'); c.width=900; c.height=600; var g=c.getContext('2d');
+      g.fillStyle=o.floor; g.fillRect(0,368,900,232);
+      g.fillStyle=o.wall; g.fillRect(0,0,900,368);
+      g.fillStyle='rgba(0,0,0,.06)'; g.fillRect(0,360,900,10);
+      // fenêtre + lumière
+      g.fillStyle='#e6eef5'; g.fillRect(560,66,250,196);
+      g.strokeStyle='#c4d1dd'; g.lineWidth=12; g.strokeRect(560,66,250,196);
+      g.lineWidth=6; g.beginPath(); g.moveTo(685,66); g.lineTo(685,262); g.moveTo(560,164); g.lineTo(810,164); g.stroke();
+      var lg=g.createLinearGradient(560,66,690,420); lg.addColorStop(0,'rgba(255,255,255,.55)'); lg.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=lg; g.fillRect(470,66,360,360);
+      if(o.sofa){ g.fillStyle=o.sofa; _rr(g,70,300,330,110,18); g.fillStyle=o.sofa; _rr(g,60,266,70,150,14); _rr(g,340,266,70,150,14); g.fillStyle='rgba(255,255,255,.18)'; _rr(g,92,312,130,60,10); _rr(g,236,312,130,60,10); }
+      if(o.counter){ g.fillStyle='rgba(0,0,0,.14)'; g.fillRect(70,320,380,100); g.fillStyle=o.counter; g.fillRect(64,300,392,26); g.fillStyle='rgba(255,255,255,.5)'; g.fillRect(360,300,92,26); g.strokeStyle='rgba(0,0,0,.15)'; g.lineWidth=2; for(var i=0;i<3;i++){ g.strokeRect(80+i*126,332,110,80); } }
+      if(o.bed){ g.fillStyle=o.bed; _rr(g,80,300,300,120,14); g.fillStyle='#f4f1ea'; _rr(g,92,286,300,60,12); g.fillStyle='rgba(255,255,255,.9)'; _rr(g,110,300,90,44,10); _rr(g,214,300,90,44,10); }
+      g.fillStyle='rgba(16,21,33,.5)'; g.font='600 22px Inter,Arial,sans-serif'; g.fillText(o.tag||'', 30, 42);
+      g.fillStyle='rgba(255,255,255,.9)'; g.font='600 18px Arial'; g.fillText(o.stamp||'', 30, 576);
+      return c.toDataURL('image/jpeg',0.82);
+    }catch(e){ return ''; }
+  }
+  function _demoMeter(o){
+    try{
+      var c=document.createElement('canvas'); c.width=900; c.height=600; var g=c.getContext('2d');
+      g.fillStyle='#d9dde4'; g.fillRect(0,0,900,600);
+      g.fillStyle='#f4f6f9'; _rr(g,210,90,480,420,10);
+      g.strokeStyle='#c2c9d3'; g.lineWidth=6; g.strokeRect(210,90,480,420);
+      g.fillStyle='#e9edf2'; g.fillRect(240,120,420,70);
+      g.fillStyle='#101521'; g.font='700 34px Consolas,monospace'; g.fillText(o.reading||'0 0 0 4 7', 300, 168);
+      g.fillStyle='#cfd6de'; for(var r=0;r<3;r++){ for(var i=0;i<6;i++){ _rr(g,250+i*66,220+r*84,52,60,6); } }
+      g.fillStyle='#ff5a3c'; for(var i2=0;i2<6;i2++){ g.fillRect(266+i2*66,236,20,12); }
+      g.fillStyle='rgba(16,21,33,.5)'; g.font='600 22px Inter,Arial,sans-serif'; g.fillText(o.tag||'', 30, 42);
+      g.fillStyle='rgba(16,21,33,.7)'; g.font='600 18px Arial'; g.fillText(o.stamp||'', 30, 576);
+      return c.toDataURL('image/jpeg',0.82);
+    }catch(e){ return ''; }
+  }
+  var _IMG = {
+    sejour:  _demoRoom({ wall:'#efe8dd', floor:'#c39a63', sofa:'#8fa7b3', tag:'Séjour',       stamp:'15/05/2023  10:42' }),
+    cuisine: _demoRoom({ wall:'#e7eef0', floor:'#b9a988', counter:'#e9edf2', tag:'Cuisine',    stamp:'15/05/2023  10:47' }),
+    chambre: _demoRoom({ wall:'#ece7e2', floor:'#c39a63', bed:'#b7c2cc', tag:'Chambre',        stamp:'15/05/2023  10:51' }),
+    compteur:_demoMeter({ reading:'0 0 1 2 3', tag:'Compteur électrique', stamp:'15/05/2023  10:55' })
+  };
+  function _phRef(ref, which, label){ var k='demo_edl_'+ref+'_'+which; _edlSeed[k]=_IMG[which]; return { name:label, idbKey:k, ts:'', cloudKey:'' }; }
+
+  function edlEntree(id, ref, loc, dateISO, surf, phset){
+    return { id:id, type:"Entrée", date:dateISO, logement:ref, locataire:loc, gerant:"Mme Demo",
+      adr:"12 rue des Tanneurs, 68100 Mulhouse", surf:surf,
+      pieces:[
+        { nom:"Séjour", elements:[
+          { nom:"Murs / peinture", etatE:"Bon état", obsE:"Peinture récente, sans trace", photosE:(phset.sejour||[]), etatS:"", obsS:"", photosS:[] },
+          { nom:"Sol / revêtement", etatE:"Bon état", obsE:"Quelques micro-rayures d'usage", photosE:[], etatS:"", obsS:"", photosS:[] } ] },
+        { nom:"Cuisine", elements:[
+          { nom:"Plan de travail / évier", etatE:"Bon état", obsE:"", photosE:(phset.cuisine||[]), etatS:"", obsS:"", photosS:[] },
+          { nom:"Électroménager", etatE:"Bon état", obsE:"Plaques et hotte fonctionnelles", photosE:[], etatS:"", obsS:"", photosS:[] } ] },
+        { nom:"Chambre", elements:[
+          { nom:"Murs / sol", etatE:"Bon état", obsE:"", photosE:(phset.chambre||[]), etatS:"", obsS:"", photosS:[] } ] },
+        { nom:"Salle de bain", elements:[
+          { nom:"Sanitaires / robinetterie", etatE:"Bon état", obsE:"Joints propres, pas de fuite", photosE:[], etatS:"", obsS:"", photosS:[] } ] }
+      ],
+      cles:[
+        { type:"Entrée principale", nb:"2", obs:"" },
+        { type:"Boîte aux lettres", nb:"1", obs:"" },
+        { type:"Cave / local", nb:"1", obs:"" } ],
+      compteurs:{}, compteursPhotos:{ elec:(phset.compteur||[]) },
+      signatures:{ bailleur:true, locataire:true, signedAt: today.toISOString() } };
+  }
+
+  var edl = [
+    edlEntree(2001, "D-101", "Pierre Martin", "2023-05-15", 45, {
+      sejour:[_phRef("D-101","sejour","Séjour — mur")], cuisine:[_phRef("D-101","cuisine","Cuisine")],
+      chambre:[_phRef("D-101","chambre","Chambre")], compteur:[_phRef("D-101","compteur","Compteur élec.")] }),
+    edlEntree(2002, "D-102", "Marie Bernard", "2024-11-01", 65, {
+      sejour:[_phRef("D-102","sejour","Séjour")], cuisine:[_phRef("D-102","cuisine","Cuisine")] }),
+    edlEntree(2004, "D-104", "Lucas Petit", "2025-10-01", 42, {
+      sejour:[_phRef("D-104","sejour","Séjour meublé")], compteur:[_phRef("D-104","compteur","Compteur élec.")] })
+  ];
+
+  // Semer les binaires photo en IndexedDB (et en cache mémoire pour affichage immédiat).
+  try { if (typeof _photoCache === "object" && _photoCache) Object.assign(_photoCache, _edlSeed); } catch(e){}
+  try { if (typeof _idbPut === "function") Object.keys(_edlSeed).forEach(function(k){ if(_edlSeed[k]) _idbPut(k, _edlSeed[k]).catch(function(){}); }); } catch(e){}
 
   var mvts = []; var mid = 5000;
   function push(o){ o.id = mid++; mvts.push(o); }
@@ -4547,6 +4625,7 @@ function _loadDemoDataset() {
       if (typeof window.__immoRerenderCurrent === "function") window.__immoRerenderCurrent();
       else if (typeof go === "function") go("accueil");
     } catch(e){}
+    try { if (typeof _v4SetTheme === "function") _v4SetTheme("light"); } catch(e){}  // démo = mode clair (présentation client)
     console.info("[SANDBOX] Dataset démo chargé : " + EN + " · 4 lots · " + mvts.length + " mouvements");
   } catch(e){ console.error("[SANDBOX] Échec chargement dataset", e); alert("Échec chargement dataset démo : " + e.message); }
 }
