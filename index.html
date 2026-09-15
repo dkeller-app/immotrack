@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.626</title>
+<title>Propryo v15.627</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -41,7 +41,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.623">
+<link rel="stylesheet" href="css/main.css?v=15.627">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -77,7 +77,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.626</em>
+      <em>v15.627</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4224,7 +4224,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.626';
+const IMMOTRACK_VERSION = '15.627';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -55842,11 +55842,13 @@ function _finB4InjectCss() {
     + '.b4-hint{font-size:10.5px;color:var(--acc2);font-weight:600}'
     + '.b4-mo-pick{display:none;font-size:12px;padding:4px 8px;width:auto}'
     + '.b4-rotmsg{display:none}'
-    // RS-1/RS-3 : sous LA bascule unique (680), sélecteur de mois + une colonne (cases toujours
+    // RS-1/RS-3 : sous LA bascule unique, sélecteur de mois + une colonne (cases toujours
     // cliquables), panneau droit masqué (~230 px rendus), et le repli est ÉCRIT, plus muet.
-    + '@media(max-width:680px){'
+    // v15.62x MOBILE : bascule alignée sur la frontière mobile de l'app (767) au lieu de 680,
+    // pour cohérence avec le reste du système téléphone/tablette-portrait (PC ≥768 inchangé).
+    + '@media(max-width:767px){'
     +   '.b4-mid th.b4-mo,.b4-mid td.b4-mo{display:none}'
-    +   '.b4-mid th.b4-mo.b4-selmo,.b4-mid td.b4-mo.b4-selmo{display:table-cell;width:92px}'
+    +   '.b4-mid th.b4-mo.b4-selmo,.b4-mid td.b4-mo.b4-selmo{display:table-cell;width:82px}'
     +   '.b4-right{display:none}'
     +   '.b4-mo-pick{display:inline-block}'
     +   '.b4-hint{display:none}'
@@ -55858,7 +55860,10 @@ function _finB4InjectCss() {
     +   '.b4-midwrap{flex:0 0 auto}'
     +   '.b4-left .b4-poste{width:auto;white-space:normal}'
     +   '.b4-pane th,.b4-pane td{padding:6px 5px;font-size:11.5px}'
-    +   '.b4-y26{width:88px}'
+    +   '.b4-y26{width:82px}'
+    // MOBILE : descripteurs gris resserrés (info conservée, rangées moins hautes) + colonnes de
+    // valeurs un peu plus étroites → le libellé « Poste » gagne de la place sur 375 px.
+    +   '.b4-x{font-size:9.5px;line-height:1.2}'
     + '}'
     // RS-2 (complément, passe de vérif) : en TÉLÉPHONE PAYSAGE la sidebar consomme ~220 px —
     // gauche (316) + droit (290) > contenu (601) et le panneau des mois tombait à 0 px. Sous
