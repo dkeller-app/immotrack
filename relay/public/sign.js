@@ -76,19 +76,13 @@ function buildUI() {
           <div class="pad-wrap"><canvas id="sig-pad" width="600" height="200"></canvas></div>
           <label class="chk"><input id="luSign" type="checkbox"> <strong>« Lu et approuvé »</strong> — je reconnais avoir lu l'intégralité du bail et en approuver les termes.</label>
         </div>
-        <div class="actionbar"><div class="bar-btns">
-          <button id="sig-clr" class="ghost">Effacer</button>
-          <button id="toConfirm" class="primary">Valider ma signature</button>
-        </div></div>
-      </section>
-
-      <section id="step-confirm" class="step" hidden>
-        <div class="scroll">
-          <h1>Confirmer l'envoi</h1>
-          <p>Vos paraphes (chaque page) et votre signature vont être apposés sur le document, qui sera renvoyé automatiquement.</p>
-          <p id="busy" hidden>Traitement…</p>
+        <div class="actionbar">
+          <p id="busy" class="busy-line" hidden>Traitement…</p>
+          <div class="bar-btns">
+            <button id="sig-clr" class="ghost">Effacer</button>
+            <button id="submit" class="primary">Signer et envoyer</button>
+          </div>
         </div>
-        <div class="actionbar"><button id="submit" class="primary">Signer et envoyer</button></div>
       </section>
 
       <section id="step-done" class="step" hidden>
@@ -184,12 +178,15 @@ function buildUI() {
     show('step-read'); await startReading();
   };
   app.querySelector('#sig-clr').onclick = () => signaturePad && signaturePad.clear();
-  app.querySelector('#toConfirm').onclick = () => {
+  // Q4 — écran de signature FUSIONNÉ : un seul bouton « Signer et envoyer » (plus d'écran
+  // « Confirmer l'envoi » intermédiaire). On conserve les validations d'avant (signature tracée +
+  // « Lu et approuvé » cochée), puis doSubmit directement. Preuve inchangée (openedAt/
+  // readCompletedAt fixés en amont ; signedAt dans doSubmit ; en-tête X-Sign-Proof identique).
+  app.querySelector('#submit').onclick = () => {
     if (!signaturePad || signaturePad.isEmpty()) { alert('Veuillez tracer votre signature avant de continuer.'); return; }
     if (!app.querySelector('#luSign').checked) { alert('Veuillez cocher « Lu et approuvé » pour confirmer votre signature.'); return; }
-    show('step-confirm');
+    doSubmit();
   };
-  app.querySelector('#submit').onclick = doSubmit;
 }
 
 async function startReading() {
@@ -229,30 +226,47 @@ async function renderReadStep() {
     bar.appendChild(h(`<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:13px;color:#92400e;margin:6px 0">📝 La zone de signature figure sur cette page, mais vous <strong>tracerez votre signature à la dernière étape</strong>, après avoir tout lu. Continuez la lecture.</div>`));
   }
 
+  // Q3 — la zone d'action (pad de paraphe + bouton) est enfermée dans un conteneur RÉVÉLÉ : elle
+  // reste cachée tant que la page n'a pas été lue jusqu'en bas ; seul l'indice « ↓ Faites défiler »
+  // est visible. À l'arrivée en bas, elle apparaît (fondu + glissé) puis reste ACQUISE (latch) :
+  // on ne la re-cache jamais — révéler agrandit la barre, ce qui réduit la zone de lecture et
+  // ferait repasser « plus en bas » en boucle si on re-cachait.
+  const zone = h(`<div class="sign-reveal is-hidden"></div>`);
+  let parPad = null;
   if (needsParaphe) {
-    bar.appendChild(h(`<div class="pad-wrap small"><canvas id="par-pad" width="320" height="90"></canvas></div>`));
-    bar.appendChild(h(`<div class="bar-btns"><button id="par-clr" class="ghost">Effacer</button><button id="par-next" class="primary">${nextLabel}</button></div>`));
-    const parPad = initPad(app.querySelector('#par-pad'), { clearBtn: app.querySelector('#par-clr') });
-    app.querySelector('#par-next').onclick = () => {
+    zone.appendChild(h(`<div class="pad-wrap small"><canvas id="par-pad" width="320" height="90"></canvas></div>`));
+    zone.appendChild(h(`<div class="bar-btns"><button id="par-clr" class="ghost">Effacer</button><button id="par-next" class="primary" disabled>${nextLabel}</button></div>`));
+  } else {
+    zone.appendChild(h(`<div class="bar-btns"><button id="par-next" class="primary" disabled>${nextLabel}</button></div>`));
+  }
+  bar.appendChild(zone);
+  if (needsParaphe) parPad = initPad(app.querySelector('#par-pad'), { clearBtn: app.querySelector('#par-clr') });
+  app.querySelector('#par-next').onclick = () => {
+    if (needsParaphe) {
       if (parPad.isEmpty()) { alert('Veuillez parapher cette page avant de continuer.'); return; }
       paraphesByPage[curPage] = parPad.toDataURL();
-      advancePage(isLast);
-    };
-  } else {
-    bar.appendChild(h(`<div class="bar-btns"><button id="par-next" class="primary">${nextLabel}</button></div>`));
-    app.querySelector('#par-next').onclick = () => advancePage(isLast);
-  }
+    }
+    advancePage(isLast);
+  };
 
-  // (4) Lecture forcée : « ${nextLabel} » reste désactivé tant que la page n'a pas été défilée
-  // jusqu'en bas (on s'assure que le signataire a vu toute la page avant de parapher/continuer).
-  const parNext = app.querySelector('#par-next');
-  if (sc && parNext) {
+  // (4) Lecture forcée : la zone reste cachée tant que la page n'a pas été défilée jusqu'en bas
+  // (on s'assure que le signataire a vu toute la page avant de parapher/continuer).
+  // Révélation : le bouton reste `disabled` tant que la zone est cachée (gate robuste au clavier /
+  // lecteur d'écran, pas seulement un clip CSS — P2-1) ; on ne l'active qu'ici, à l'arrivée en bas.
+  const revealZone = () => {
+    zone.classList.remove('is-hidden'); zone.classList.add('is-in');
+    const pn = zone.querySelector('#par-next'); if (pn) pn.disabled = false;
+  };
+  if (sc) {
     const hint = h(`<div class="scroll-hint" style="font-size:12px;color:#92400e;margin-top:6px;text-align:center">↓ Faites défiler la page jusqu'en bas pour ${needsParaphe ? 'pouvoir parapher' : 'continuer'}.</div>`);
     bar.appendChild(hint);
     const atBottom = () => sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 8;
-    const sync = () => { const ok = atBottom(); parNext.disabled = !ok; hint.style.display = ok ? 'none' : ''; };
+    const reveal = () => { revealZone(); hint.style.display = 'none'; sc.onscroll = null; };  // latch
+    const sync = () => { if (atBottom()) reveal(); };
     sc.onscroll = sync;
-    sync(); // page courte (pas de défilement requis) → active d'emblée ; sinon désactivée jusqu'au bas
+    sync(); // page courte (pas de défilement requis) → révélée d'emblée
+  } else {
+    revealZone();   // défensif : pas de zone défilante → zone visible d'emblée
   }
 }
 

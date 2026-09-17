@@ -71,6 +71,16 @@ button.ghost { background: transparent; border-color: transparent; color: var(--
 .pad-wrap.small { /* pad de paraphe compact dans la barre */ }
 #sig-pad, #par-pad { display: block; width: 100%; height: auto; touch-action: none; }
 
+/* Q3 — zone d'action (paraphe/continuer) révélée seulement à l'arrivée en bas de page.
+   Cachée : hauteur/opacité nulles ; révélée (latch) : transition douce (fondu + glissé vers le haut). */
+.sign-reveal { display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.sign-reveal.is-hidden { max-height: 0; opacity: 0; transform: translateY(8px); pointer-events: none; }
+/* cap large (le contenu réel fait ~265px au pire) : évite tout risque de coupe silencieuse du bouton */
+.sign-reveal.is-in { max-height: 600px; opacity: 1; transform: none; transition: max-height .34s ease, opacity .3s ease, transform .3s ease; }
+
+/* Q4 — ligne « Traitement… » pendant l'envoi (écran de signature fusionné) */
+.busy-line { margin: 0; text-align: center; font-size: 13px; color: var(--sec); }
+
 /* écran de confirmation (✓ Document signé) */
 .state-card { text-align: center; padding: 44px 18px; margin: auto; }
 .state-card h1 { font-size: 1.5rem; }
