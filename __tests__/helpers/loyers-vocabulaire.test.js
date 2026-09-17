@@ -29,7 +29,9 @@ const matches = (re) => re.test(SRC);
 
 describe('V14 — « Impayés » remplace « Pas à jour »', () => {
   it('la famille s\'appelle « Impayés »', () => {
-    expect(matches(/retard:\s*\{ ico: '💸', t: 'Impayés'/)).toBe(true);
+    // v15.63x REFONTE-PC : l'icône emoji '💸' est devenue un line-icon (_uiIcon, ico:'warn').
+    // Le test vérifie le LIBELLÉ « Impayés », pas l'icône (robuste au reskin).
+    expect(matches(/retard:\s*\{ ico: '[^']*',\s*t: 'Impayés'/)).toBe(true);
   });
   it('« Pas à jour » n\'est plus un libellé de famille ni un titre', () => {
     expect(matches(/t: '[^']*Pas à jour/)).toBe(false);

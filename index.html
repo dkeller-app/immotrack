@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.631</title>
+<title>Propryo v15.632</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.631">
+<link rel="stylesheet" href="css/main.css?v=15.632">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.631</em>
+      <em>v15.632</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.631';
+const IMMOTRACK_VERSION = '15.632';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -26110,12 +26110,12 @@ function _rgClotureLocataire(entryKey){
     }).join('');
     const avgPct=Math.round((n1.moyenne||0)/maxV*100);
     const barChart=`<div class="rgc-chart">${n1.moyenne!=null?`<div class="rgc-avg" style="bottom:${avgPct}%"></div><div class="rgc-avgl" style="bottom:${avgPct}%">moy. ${f(n1.moyenne)}</div>`:''}${bars}</div>`;
-    const spikeFlag = n1.spike ? `<div class="rgc-spike">⚠ N‑1 décroche vs les années précédentes — vérifie les gros postes ci‑dessous.</div>` : '';
+    const spikeFlag = n1.spike ? `<div class="rgc-spike">${_uiIcon('warn',13)} N‑1 décroche vs les années précédentes — vérifie les gros postes ci‑dessous.</div>` : '';
     const list = n1.moves.map((m,i)=>{
       const off=excl.has(m.key);
       return `<div class="rgc-mv${off?' off':''}"><label class="rgc-mvck"><input type="checkbox" data-ek="${escHtml(entryKey)}" data-idx="${i}" ${off?'':'checked'} onclick="_rgToggleExcl(this.dataset.ek,+this.dataset.idx)"><span class="rgc-mvl">${escHtml(m.lib||'(sans libellé)')}${m.date?` <span class="rgc-mvd">${fd(m.date)}</span>`:''}</span></label><span class="mono">${f(m.montant)}</span></div>`;
     }).join('');
-    chargeLines = `<div class="rgc-est">⏳ Charges réelles de l'année pas encore arrêtées → estimation sur l'historique, proratisée à l'occupation. Compare les années et décoche un poste exceptionnel.</div>
+    chargeLines = `<div class="rgc-est">${_uiIcon('hourglass',13)} Charges réelles de l'année pas encore arrêtées → estimation sur l'historique, proratisée à l'occupation. Compare les années et décoche un poste exceptionnel.</div>
        ${barChart}${spikeFlag}
        <div class="rgc-mvh">Dépenses N‑1 (${escHtml(n1.year)}) — décoche un poste isolé pour l'exclure de la base</div>
        ${list}
@@ -26166,8 +26166,8 @@ function _rgClotureLocataire(entryKey){
       ${dgBlock}
     </div>
     <div class="m-foot">
-      <button class="btn bs" data-ek="${escHtml(entryKey)}" onclick="closeM('ov-rg-cloture');_rgOpenDecompteEstimatif(this.dataset.ek)">📄 Décompte${estimated?' estimatif':''}</button>
-      ${(reg.applies20 && retenueRegul>0)?`<button class="btn bp" data-ek="${escHtml(entryKey)}" data-ret="${retenueRegul}" data-res="${restitTotal}" onclick="_rgApplyRetenue(this.dataset.ek,+this.dataset.ret,+this.dataset.res)">🏛️ Retenir ${f(retenueRegul)} sur le DG</button>`:''}
+      <button class="btn bs" data-ek="${escHtml(entryKey)}" onclick="closeM('ov-rg-cloture');_rgOpenDecompteEstimatif(this.dataset.ek)">${_uiIcon('doc-text',15)} Décompte${estimated?' estimatif':''}</button>
+      ${(reg.applies20 && retenueRegul>0)?`<button class="btn bp" data-ek="${escHtml(entryKey)}" data-ret="${retenueRegul}" data-res="${restitTotal}" onclick="_rgApplyRetenue(this.dataset.ek,+this.dataset.ret,+this.dataset.res)">${_uiIcon('bank',15)} Retenir ${f(retenueRegul)} sur le DG</button>`:''}
     </div></div>`;
   openM('ov-rg-cloture');
 }
@@ -26666,13 +26666,13 @@ function _rgShowGlobal(immNom){
   const mvRows=mvArr.map(m=>{ const rowSum=Math.round(Object.values(m.per).reduce((s,x)=>s+x,0)*100)/100;
     const clk=(m.mvId!=null);
     return `<tr class="rg-mv${clk?' clk':''}"${clk?` onclick="openEditMv(${m.mvId})"`:''}>`
-      + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(m.lib)}">${escHtml(m.lib)}</span><small>${escHtml(m.date||'')}${m.total?' · facture '+f(m.total):''}${clk?' · ✏️':''}</small></td>`
+      + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(m.lib)}">${escHtml(m.lib)}</span><small>${escHtml(m.date||'')}${m.total?' · facture '+f(m.total):''}${clk?' · '+_uiIcon('edit',10):''}</small></td>`
       + entries.map(e=>`<td class="num">${m.per[e.entryKey]?f(m.per[e.entryKey]):'<span class="z">—</span>'}</td>`).join('')
       + `<td class="num col-bail" style="color:var(--ora)">${(m.mvId!=null&&bailPerMv[m.mvId])?f(bailPerMv[m.mvId]):'<span class="z">—</span>'}</td>`
       + `<td class="num col-tot">${f(rowSum)}</td></tr>`; }).join('');
   const trouRows=(nonRep&&nonRep.total>0.005)?nonRep.lines.map(l=>{ const clk=(l.mvId!=null);
     return `<tr class="trou${clk?' clk':''}"${clk?` onclick="openEditMv(${l.mvId})"`:''}>`
-      + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(l.lib||'')}">${escHtml(l.lib||'')}</span><small>⚠️ ${escHtml(l.motif||'')}${clk?' · ✏️ corriger':''}</small></td>`
+      + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(l.lib||'')}">${escHtml(l.lib||'')}</span><small>${_uiIcon('warn',11)} ${escHtml(l.motif||'')}${clk?' · '+_uiIcon('edit',10)+' corriger':''}</small></td>`
       + entries.map(()=>`<td class="num"><span class="z">—</span></td>`).join('')
       + `<td class="num col-bail"><span class="z">—</span></td>`
       + `<td class="num col-tot">${f(l.montant)}</td></tr>`; }).join(''):'';
@@ -26697,7 +26697,7 @@ function _rgShowGlobal(immNom){
         <tr class="prov"><td class="c0">Provisions appelées</td>${rowProv}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${f(sumProv)}</td></tr>
         <tr class="solde"><td class="c0">Solde</td>${rowSolde}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${(sumProv-sumCharges)>=0?'+':''}${f(sumProv-sumCharges)}</td></tr>
       </tbody></table></div>
-    ${bail&&bail.total>0?`<div class="rg-glob-bail">🏛️ Part bailleur (non récupérable → 2044) : <b>${f(bail.total)}</b></div>`:''}
+    ${bail&&bail.total>0?`<div class="rg-glob-bail">${_uiIcon('bank',15)} Part bailleur (non récupérable → 2044) : <b>${f(bail.total)}</b></div>`:''}
     <div class="rg-glob-foot">
       <button class="btn ${hasTrou?'bs':'bp'}" data-imm="${escHtml(immNom)}" ${hasTrou?'disabled':''} onclick="_rgValidate(this.dataset.imm)">${_uiIcon('check')} Valider la régul de l'immeuble</button>
       ${_rgJustifFactures(immNom).length?`<button class="btn bs" data-imm="${escHtml(immNom)}" onclick="_rgBuildJustifsZip(this.dataset.imm)" title="Télécharger un dossier .zip des factures justificatives attachées">${_uiIcon('archive')} Paquet de justificatifs (${_rgJustifFactures(immNom).length})</button>`:''}
@@ -27022,15 +27022,16 @@ function rRegul() {
         n.lines.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(l=>`<div class="rg-trou-l">${escHtml(l.date||'')} · ${escHtml(l.lib||'')} · <b>${fmt(l.montant)}</b> <span class="mu sm">— ${escHtml(l.motif||'')}</span></div>`).join('')
       ).join('')}
       </div></details></div>` : '';
+  // v15.63x REFONTE-PC Charges — tuile KPI « Part bailleur » retirée (doublon avec la carte détaillée
+  // ci-dessous + la colonne matrice) → 3 tuiles pleines, bandeau .g3 équilibré. Décision Didier.
   el('reg-kpis').innerHTML=`
     <div class="kpi"><div class="kv">${fmt(totProv)}</div><div class="kl">Provisions totales</div></div>
     <div class="kpi"><div class="kv neg">${fmt(totChar)}</div><div class="kl">Charges réelles</div></div>
     <div class="kpi"><div class="kv ${totSolde>=0?'pos':'neg'}">${fmt(totSolde)}</div><div class="kl">Solde locataires</div></div>
-    <div class="kpi" title="Part restée à charge du bailleur (vacances + logements exclus)"><div class="kv ${totBailleur>0?'k-warn':''}">${fmt(totBailleur)}</div><div class="kl">Part bailleur (2044)</div></div>
   `;
   // v14.73 : Card "Part bailleur" par immeuble (si non-vide)
   const bailleurCardsHtml = bailleurArr.length
-    ? `<div style="margin:14px 0;padding:14px 16px;background:#fffbf0;border:1px solid #f59e0b44;border-radius:8px">
+    ? `<div style="margin:14px 0;padding:14px 16px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <span style="font-size:18px">${_uiIcon('bank',18)}</span>
           <b style="font-size:14px">Part bailleur (charges non récupérables — déductibles 2044 ligne 224/227)</b>
@@ -27045,8 +27046,8 @@ function rRegul() {
               <td class="num"><b>${fmt(seg.montant)}</b></td>
             </tr>`).join('');
           return `<details style="margin-top:6px" ${bailleurArr.length===1?'open':''}>
-            <summary style="cursor:pointer;padding:6px 8px;background:rgba(245,158,11,.06);border-radius:4px">
-              <b>${escHtml(b.imm)}</b> · <b style="color:#c2410c">${fmt(b.total)}</b>
+            <summary style="cursor:pointer;padding:6px 8px;background:var(--warn-soft);border-radius:4px">
+              <b>${escHtml(b.imm)}</b> · <b style="color:var(--warn)">${fmt(b.total)}</b>
               <span class="mu sm" style="font-size:11px">(${b.segments.length} ligne${b.segments.length>1?'s':''})</span>
             </summary>
             <table class="tbl" style="margin-top:8px;font-size:12px">
@@ -27080,7 +27081,7 @@ function rRegul() {
     } else {
       const _reg = (typeof _rgImmRegime==='function') ? _rgImmRegime({imm:imNom, bail:{}}) : {copro:false};
       imBadge = _reg.copro
-        ? '<span class="rg-badge-todo" style="background:var(--blu-soft,rgba(37,99,235,.1));color:var(--fg-info,#2563eb)" title="En copropriété, la régul attend le décompte arrêté du syndic avant d\'être émise">' + _uiIcon('hourglass',13) + ' En attente de l’arrêté copro</span>'
+        ? '<span class="rg-badge-todo" style="background:var(--info-soft);color:var(--info);border:1px solid var(--info)" title="En copropriété, la régul attend le décompte arrêté du syndic avant d\'être émise">' + _uiIcon('hourglass',13) + ' En attente de l’arrêté copro</span>'
         : '<span class="rg-badge-todo">' + _uiIcon('warn',13) + ' À émettre</span>';
     }
     body += `<tr class="rg-imm" onclick="_rgToggleImm('${cls}',this)">
@@ -27107,9 +27108,9 @@ function rRegul() {
         <td class="num" data-l="Provisions">${fmt(r.provisions)}</td><td class="num" data-l="Charges réelles">${fmt(r.charges)}</td>
         <td class="num" data-l="Solde">${tag}</td>
         <td class="num rg-acts">
-          ${(parti && !r.isHistorique)?`<button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();_rgClotureLocataire(this.dataset.entryKey)" title="Clôturer ce locataire parti : estimation N‑1 + retenue dépôt de garantie">${_uiIcon('flag')}</button>`:''}
-          <button class="btn bs bb" data-entry-key="${ekEsc}" ${imVal?'':'disabled'} onclick="event.stopPropagation();envoyerDecompteParEmail(this.dataset.entryKey)" title="${imVal?'Télécharger le décompte (PDF)':'Valide l’immeuble (Vue globale) avant d’envoyer'}">${_uiIcon('mail')}</button>
-          <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();openRegulDoc(this.dataset.entryKey)" title="Décompte détaillé (PDF)">${_uiIcon('doc-text')}</button></td></tr>`;
+          ${(parti && !r.isHistorique)?`<button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();_rgClotureLocataire(this.dataset.entryKey)" title="Clôturer ce locataire parti : estimation N‑1 + retenue dépôt de garantie">${_uiIcon('flag')} Clôturer</button>`:''}
+          <button class="btn bs bb" data-entry-key="${ekEsc}" ${imVal?'':'disabled'} onclick="event.stopPropagation();envoyerDecompteParEmail(this.dataset.entryKey)" title="${imVal?'Télécharger le décompte (PDF)':'Valide l’immeuble (Vue globale) avant d’envoyer'}">${_uiIcon('mail')} Envoyer</button>
+          <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();openRegulDoc(this.dataset.entryKey)" title="Décompte détaillé (PDF)">${_uiIcon('doc-text')} Décompte</button></td></tr>`;
       const detRows = (r.details||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(d=>`
         <tr><td>${escHtml(d.date||'')}</td><td>${escHtml(d.lib||'')}</td><td class="mu sm">${escHtml(d.repartition||'')}</td><td class="num">${fmt(d.montant)}</td></tr>`).join('');
       body += `<tr class="rg-det ${cls}" id="${did}" style="display:none"><td colspan="5">
@@ -28703,10 +28704,11 @@ function _lyToggleBlk(id) {
 function _lyToggleTous() { _lyUI.tousOpen = !_lyUI.tousOpen; if (typeof rLoyers === 'function') rLoyers(); }
 
 /** Les trois familles-blocs de l'écran — libellés figés par V14 (jamais d'icône sans mot). */
+// v15.63x REFONTE-PC Loyers — emoji d'en-tête → noms de line-icons (_uiIcon), rendus en 28822.
 const _LY_FAM = {
-  quit:      { ico: '🧾', t: 'Quittances demandées', hint: 'Mois soldé — la quittance peut être remise' },
-  retard:    { ico: '💸', t: 'Impayés',              hint: 'Loyer ou charges non réglés — aucun document n\'est émis' },
-  prep:      { ico: '📈', t: 'Révisions', hint: 'À préparer ou en retard — dans les deux cas, une lettre à faire' }
+  quit:      { ico: 'receipt', t: 'Quittances demandées', hint: 'Mois soldé — la quittance peut être remise' },
+  retard:    { ico: 'warn',    t: 'Impayés',              hint: 'Loyer ou charges non réglés — aucun document n\'est émis' },
+  prep:      { ico: 'chart',   t: 'Révisions', hint: 'À préparer ou en retard — dans les deux cas, une lettre à faire' }
 };
 
 function rLoyers() {
@@ -28936,7 +28938,7 @@ function _lyBloc(fam, n, items, vide, replie) {
   const closed = !n || (memo === undefined ? !!replie : !memo);
   return `<div class="ly2-blk t-${fam}${closed ? ' closed' : ''}" id="${id}">
     <div class="ly2-blk-h" onclick="_lyToggleBlk('${id}')"><span class="chev">▾</span>
-      <span class="t">${f.ico} ${f.t}</span><span class="n">${n}</span>
+      <span class="t">${_uiIcon(f.ico,15)} ${f.t}</span><span class="n">${n}</span>
       ${n ? `<span class="hint">${f.hint}</span>` : `<span class="vide">${escHtml(vide || 'rien ce mois-ci')}</span>`}</div>
     ${n ? `<div class="ly2-body">${_lyGrouper(items)}</div>` : ''}
   </div>`;
@@ -52441,7 +52443,9 @@ function _dgConfirmerRestitution() {
 // SUIVI DES LOYERS — état du dépli (locataire + mois) et helpers partagés (couleurs/labels DRY).
 let _suiviOpen = '';   // ref du locataire déplié (écran B : échéancier détaillé) — '' = aucun
 let _suiviMonth = 0;   // mi du mois déplié (drill : paiements du mois) — 0 = aucun
-const _SUIVI_CC = { ok: ['#e1f5ee', 'var(--grn)', '#0f6e56'], warn: ['#faeeda', 'var(--warn)', '#854f0b'], imp: ['#fcebeb', 'var(--red)', '#a32d2d'], avance: ['#e6f1fb', '#2563eb', '#185fa5'], avenir: ['var(--sur3)', 'var(--t3)', 'var(--t3)'], vac: ['#f7f8fb', 'var(--t3)', 'var(--t3)'] };
+// v15.63x REFONTE-PC Loyers — pastels figés → tokens charte : GARDE le code couleur d'état (vert payé /
+// ambre partiel / rouge retard) mais bascule proprement en thème sombre. Avance (bleu hors-charte) → --info neutre.
+const _SUIVI_CC = { ok: ['var(--pos-soft)', 'var(--pos)', 'var(--pos)'], warn: ['var(--warn-soft)', 'var(--warn)', 'var(--warn)'], imp: ['var(--neg-soft)', 'var(--neg)', 'var(--neg)'], avance: ['var(--info-soft)', 'var(--info)', 'var(--info)'], avenir: ['var(--sur3)', 'var(--t3)', 'var(--t3)'], vac: ['var(--sur3)', 'var(--t3)', 'var(--t3)'] };
 const _SUIVI_MOF = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 const _SUIVI_ICO = { ok: '✓', warn: '◐', imp: '✕', avance: '↑', avenir: '', vac: '' };
 // Le repli d'une ligne re-render la modale de suivi (« Tous les loyers »/Suivi des loyers).
@@ -52461,7 +52465,7 @@ function _suiviDetailHtml(log, s, yr) {
       + '<div style="font-weight:700;font-size:12.5px;color:' + c[2] + ';margin-top:2px">' + val + '</div></div>';
   };
   const grid = '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:12px 14px">' + s.months.map(cell).join('') + '</div>';
-  const solde = '<div style="padding:10px 14px;background:rgba(255,90,60,.06);border-top:1px solid var(--bor2);font-size:12px;color:var(--t2)">Attendu à date <b style="color:var(--t1)">' + fmt(s.attendu) + '</b> · reçu <b style="color:var(--t1)">' + fmt(s.recu) + '</b> · solde <b style="color:' + (s.solde >= 0 ? 'var(--grn)' : 'var(--red)') + '">' + (s.solde >= 0 ? '+ ' : '− ') + fmt(Math.abs(s.solde)) + '</b> <span style="color:var(--t3)">· clique un mois pour ses paiements</span></div>';
+  const solde = '<div style="padding:10px 14px;background:var(--sur3);border-top:1px solid var(--bor2);font-size:12px;color:var(--t2)">Attendu à date <b style="color:var(--t1)">' + fmt(s.attendu) + '</b> · reçu <b style="color:var(--t1)">' + fmt(s.recu) + '</b> · solde <b style="color:' + (s.solde >= 0 ? 'var(--pos)' : 'var(--neg)') + '">' + (s.solde >= 0 ? '+ ' : '− ') + fmt(Math.abs(s.solde)) + '</b> <span style="color:var(--t3)">· clique un mois pour ses paiements</span></div>';
   let drill = '';
   if (_suiviMonth) {
     const isLoy = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
@@ -52535,14 +52539,14 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     return '<span title="' + escHtml(tip) + '" style="flex:1;height:22px;border-radius:3px;background:' + c[0] + ';border:1px ' + (dash ? 'dashed' : 'solid') + ' ' + c[1] + ';display:grid;place-items:center;font:600 9px monospace;color:' + c[2] + '">' + (dash ? '' : _MO[m.mi - 1]) + '</span>';
   }).join('') + '</div>';
   const chip = (pos) => {   // Phase C : le montant vient du maître (byLot), plus du solde annuel de la frise
-    if (pos.cls === 'retard') return '<span style="background:#fcebeb;color:#a32d2d;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↓ retard ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
-    if (pos.cls === 'avance') return '<span style="background:#e6f1fb;color:#185fa5;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↑ avance ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
-    return '<span style="background:#e1f5ee;color:#0f6e56;font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">✓ À jour</span>';
+    if (pos.cls === 'retard') return '<span style="background:var(--neg-soft);color:var(--neg);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↓ retard ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
+    if (pos.cls === 'avance') return '<span style="background:var(--info-soft);color:var(--info);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↑ avance ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
+    return '<span style="background:var(--pos-soft);color:var(--pos);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">✓ À jour</span>';
   };
   const nRetard = rows.filter(r => r.pos.cls === 'retard').length;
   const linkOpen = inline ? ('openLogFiche(\'') : ('closeM(\'ov-impayes-vue\');openLogFiche(\'');
   const legende = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:0 0 12px;font-size:11px;color:var(--t2)">'
-    + [['#e1f5ee', 'var(--grn)', 'Payé'], ['#faeeda', 'var(--warn)', 'Partiel'], ['#fcebeb', 'var(--red)', 'Retard'], ['#e6f1fb', '#2563eb', 'Avance'], ['var(--sur3)', 'var(--t3)', 'À venir']]
+    + [['var(--pos-soft)', 'var(--pos)', 'Payé'], ['var(--warn-soft)', 'var(--warn)', 'Partiel'], ['var(--neg-soft)', 'var(--neg)', 'Retard'], ['var(--info-soft)', 'var(--info)', 'Avance'], ['var(--sur3)', 'var(--t3)', 'À venir']]
       .map(x => '<span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:' + x[0] + ';border:1px solid ' + x[1] + '"></span>' + x[2] + '</span>').join('') + '</div>';
 
   // KPI §4 (solution B) — variante GROUPÉE par immeuble/bailleur pour le dépliant inline de
