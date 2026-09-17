@@ -10,7 +10,12 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.628</title>
+<title>Propryo v15.629</title>
+<!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
+     est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
+     sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
+     on masque le document par sécurité. Les aperçus internes (iframes data:/srcdoc) ne sont PAS l'app. -->
+<script>(function(){try{if(window.top!==window.self){window.top.location=window.self.location;}}catch(e){try{document.documentElement.style.display='none';}catch(_){}}})();</script>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -84,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.628</em>
+      <em>v15.629</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4231,7 +4236,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.628';
+const IMMOTRACK_VERSION = '15.629';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -59156,7 +59161,7 @@ if('serviceWorker' in navigator && location.hostname.includes('github.io')){
 // SheetJS CDN
 (function(){
   const s=document.createElement('script');
-  s.src='js/vendor/xlsx-0.18.5.full.min.js'; // v15.444 FIX-CDN-VENDORED : self-hosted (plus de cdnjs runtime, marche derriere pare-feu entreprise)
+  s.src='js/vendor/xlsx-0.20.3.full.min.js'; // self-hosted (plus de cdnjs runtime) ; F-xlsx (audit sécu) : bump SheetJS 0.18.5→0.20.3 → corrige CVE-2023-30533 (prototype pollution) + CVE-2024-22363 (ReDoS)
   document.head.appendChild(s);
 })();
 

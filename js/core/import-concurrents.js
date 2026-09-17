@@ -239,6 +239,9 @@ export function _mergeImport(db, importedData) {
   });
 
   Object.values(importedData.baux || {}).forEach(b => {
+    // F-proto (audit sécu) : une réf '__proto__'/'constructor'/'prototype' dans un fichier importé
+    // polluerait le prototype de db.baux au lieu d'ajouter une clé → on rejette ces clés dangereuses.
+    if (!b || b.ref === '__proto__' || b.ref === 'constructor' || b.ref === 'prototype') { skipped.baux++; return; }
     if (db.baux[b.ref]) { skipped.baux++; return; }
     db.baux[b.ref] = b;
     added.baux++;

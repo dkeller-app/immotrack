@@ -153,7 +153,8 @@ function _deletePhotosDb() {
 function _purgeAuthTokenKeys() {
   try {
     const keys = _cachePurge ? _cachePurge.authStorageKeys(AUTH_STORAGE_KEY) : [AUTH_STORAGE_KEY, AUTH_STORAGE_KEY + '-code-verifier']
-    keys.forEach(k => { try { localStorage.removeItem(k) } catch (e) {} })
+    // F14.2 : le token peut vivre en localStorage (PWA) OU sessionStorage (navigateur) → purge les DEUX.
+    keys.forEach(k => { try { localStorage.removeItem(k) } catch (e) {}; try { sessionStorage.removeItem(k) } catch (e) {} })
   } catch (e) {}
 }
 
@@ -230,17 +231,24 @@ async function boot() {
     if (btn) { btn.disabled = false; btn.textContent = 'Recharger la page'; btn.type = 'button'; btn.onclick = () => location.reload() }
     return
   }
+  // F14.2 (audit sécu) — « on ne reste pas connecté ». L'APP INSTALLÉE (PWA, display-mode standalone =
+  // usage TERRAIN) garde la session sur le disque (localStorage) : indispensable à l'EDL hors-ligne
+  // (rouvrir l'app SANS réseau sur site exige que la session ait survécu à la fermeture). Le NAVIGATEUR
+  // (web/desktop) la met en sessionStorage → fermer l'onglet/le navigateur DÉCONNECTE : on se reconnecte
+  // à chaque visite (identifiants retenus par le navigateur), rien ne reste lisible sur un poste partagé.
+  const _standalone = (() => { try { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true } catch (e) { return false } })();
+  const _authStore = _standalone ? window.localStorage : window.sessionStorage;
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
-    // BUG-LOGIN-DOUBLE (P0 vente) — FIX : session PERSISTÉE (standard SaaS). Avant, persistSession:false
-    // gardait la session en MÉMOIRE SEULE : tout reload entre le login et l'Accueil la détruisait → « il
-    // faut se connecter 2× » (récurrent PC + tablette, « rédhibitoire pour la vente »). Le principal
-    // déclencheur : le SW `controllerchange` qui rechargeait la page pendant la fenêtre post-login (le
-    // flag anti-reload n'était armé qu'APRÈS onLoggedIn). Désormais la session survit aux reloads/onglets
-    // (au boot, currentUser() la retrouve → onLoggedIn direct, pas de 2ᵉ login) et autoRefreshToken la
-    // maintient vivante. storageKey EXPLICITE (AUTH_STORAGE_KEY) → clé déterministe, purgée au logout /
-    // changement de compte (hygiène RGPD : un token valide ne doit pas rester lisible sur la machine).
+    // BUG-LOGIN-DOUBLE (P0 vente) — la session PERSISTE pendant la session de navigation : sessionStorage
+    // (navigateur) comme localStorage (PWA) SURVIVENT au reload post-login (le SW `controllerchange` qui
+    // rechargeait la page pendant la fenêtre post-login ne détruit plus la session — contrairement à
+    // l'ancienne mémoire-seule qui causait « se connecter 2× »). currentUser() la retrouve au reload →
+    // onLoggedIn direct ; autoRefreshToken la maintient vivante. storageKey EXPLICITE (AUTH_STORAGE_KEY)
+    // → clé déterministe, purgée au logout / changement de compte.
     // detectSessionInUrl (défaut true) reste actif : SSO Google / reset mdp / invitation.
-    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_STORAGE_KEY },
+    // F4-auth : flowType PKCE → liens OTP/magic-link/reset/SSO via `code` usage-unique (pas de token dans
+    // le fragment #access_token). Transparent pour le login mot-de-passe ; prépare le magic-link propryo.fr.
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_STORAGE_KEY, flowType: 'pkce', storage: _authStore },
   })
   _supaClient = client
   // Jeton de session Supabase (ES256) pour authentifier l'app auprès du worker de signature : le worker
@@ -297,7 +305,11 @@ async function boot() {
     else { try { await _supaClient.auth.signOut() } catch (e) { console.warn('[Supabase] signOut', e) } }
     // P1.3 volet RGPD (audit C-C) : le miroir localStorage est TOUJOURS purgé au logout — sinon le
     // dernier saveDB laisse une copie intégrale du DB lisible à vie sur la machine (cas Marion).
-    try { localStorage.removeItem(MIRROR_KEY); localStorage.removeItem(MIRROR_TAG_KEY) } catch (e) {}
+    // F14.1 (audit sécu, poste partagé) : on purge le miroir de DONNÉES (RGPD) mais on GARDE le tag
+    // quand IndexedDB est CONSERVÉE (binaires idb-only, ci-dessous). Sinon, tag effacé ⇒ au login suivant
+    // classifyMirrorTag renvoie 'untagged' ⇒ les photos d'A restent en IndexedDB, lisibles en DevTools par
+    // B sur le même poste. Tag gardé ⇒ login B → 'other-user' → purge des photos résiduelles (:1219).
+    try { localStorage.removeItem(MIRROR_KEY) } catch (e) {}
     // Les horodatages partent AVEC le miroir : une clé résiduelle après une purge
     // RGPD n'a pas de raison d'exister, et un horodatage orphelin ferait croire à
     // F1, au prochain login, qu'il reste du travail hors ligne à rejouer.
@@ -313,7 +325,9 @@ async function boot() {
       if (keepPhotos) console.info('[Supabase] purge espace : IndexedDB photos CONSERVÉE (seule copie restante, Storage inaccessible)')
       else if (dbNow && _cachePurge) {
         const leftovers = _cachePurge.listIdbOnlyBinaries(dbNow)
-        if (leftovers.length === 0) await _deletePhotosDb()
+        // IndexedDB réellement purgée → le tag n'a plus d'utilité (rien à re-détecter) : on le retire.
+        // Sinon (leftovers conservés), le tag RESTE → le login suivant purge si 'other-user' (F14.1).
+        if (leftovers.length === 0) { await _deletePhotosDb(); try { localStorage.removeItem(MIRROR_TAG_KEY) } catch (e) {} }
         else console.warn('[Supabase] logout : IndexedDB photos CONSERVÉE — ' + leftovers.length + ' binaire(s) sans copie Storage (preuves)')
       }
     } catch (e) { console.warn('[Supabase] logout purge IndexedDB', e) }
