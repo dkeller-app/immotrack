@@ -174,7 +174,9 @@ function buildUI() {
 
   toRead.onclick = async () => {
     signerName = name.value.trim();
-    luApprouve = c1.checked; consentElectronic = c2.checked;
+    // c1 (« je reconnais signer ») = garde-fou d'accès. Le « Lu et approuvé » consigné dans la preuve
+    // est la case #luSign de l'écran signature (fixée au submit, P2-3), pas cette case-ci.
+    consentElectronic = c2.checked;
     show('step-read'); await startReading();
   };
   app.querySelector('#sig-clr').onclick = () => signaturePad && signaturePad.clear();
@@ -185,6 +187,8 @@ function buildUI() {
   app.querySelector('#submit').onclick = () => {
     if (!signaturePad || signaturePad.isEmpty()) { alert('Veuillez tracer votre signature avant de continuer.'); return; }
     if (!app.querySelector('#luSign').checked) { alert('Veuillez cocher « Lu et approuvé » pour confirmer votre signature.'); return; }
+    // P2-3 — la preuve consigne le « Lu et approuvé » RÉEL (case #luSign de cet écran).
+    luApprouve = app.querySelector('#luSign').checked;
     doSubmit();
   };
 }
