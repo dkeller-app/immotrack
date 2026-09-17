@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.630</title>
+<title>Propryo v15.631</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.630">
+<link rel="stylesheet" href="css/main.css?v=15.631">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.630</em>
+      <em>v15.631</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -421,19 +421,20 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <div class="page" id="p-mouvements">
       <div class="filters">
         <input class="inp" id="mvf-search" placeholder="Recherche..." oninput="rMv()" style="width:180px;font-weight:500">
-        <input class="inp" type="date" id="mvf-from" onchange="rMv()" style="width:130px" title="Date début">
-        <input class="inp" type="date" id="mvf-to" onchange="rMv()" style="width:130px" title="Date fin">
+        <input class="inp mvf-adv" type="date" id="mvf-from" onchange="rMv()" style="width:130px" title="Date début">
+        <input class="inp mvf-adv" type="date" id="mvf-to" onchange="rMv()" style="width:130px" title="Date fin">
         <!-- ⑨.4 — les DEUX FILTRES MANQUANTS : compte et état. Ils rejoignent la mécanique
              des menus existants, ils ne remplacent et ne déplacent rien. L'immeuble reste
-             filtrable ici depuis que sa colonne a fusionné dans « Affectation » (⑨.1). -->
-        <button class="btn bs bb" onclick="openMvDD('compte',this)" title="Filtrer par compte bancaire (ou saisie manuelle)"><span data-uic="bank"></span> Compte <span id="mvf-ind-compte" style="color:var(--acc)"></span>▼</button>
-        <button class="btn bs bb" onclick="openMvDD('etat',this)" title="Filtrer ce qui demande une action"><span data-uic="warn"></span> État <span id="mvf-ind-etat" style="color:var(--acc)"></span>▼</button>
-        <button class="btn bs bb" onclick="openMvDD('imm',this)" title="Filtrer par immeuble"><span data-uic="building"></span> Immeuble <span id="mvf-ind-imm" style="color:var(--acc)"></span>▼</button>
-        <button class="btn bs bb" onclick="clearMvFilters()"><span data-uic="refresh"></span> Reset</button>
-        <button class="btn bs bb" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…)"><span data-uic="download"></span> Importer banque</button>
-        <button class="btn bs bb" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo"><span data-uic="bank"></span> Mes comptes</button>
-        <button class="btn bs bb" onclick="_bankRulesOpen()" title="Mes règles de classement automatique — création et modification au moment où la règle sert"><span data-uic="settings"></span> Mes règles</button>
-        <button class="btn bp" onclick="openNewMv()" style="margin-left:auto">+ Mouvement</button>
+             filtrable ici depuis que sa colonne a fusionné dans « Affectation » (⑨.1).
+             class mvf-adv = contrôles rangés derrière « Filtrer » sur téléphone (≤767) ; aucun effet sur PC. -->
+        <button class="btn bs bb mvf-adv" onclick="openMvDD('compte',this)" title="Filtrer par compte bancaire (ou saisie manuelle)"><span data-uic="bank"></span> Compte <span id="mvf-ind-compte" style="color:var(--acc)"></span>▼</button>
+        <button class="btn bs bb mvf-adv" onclick="openMvDD('etat',this)" title="Filtrer ce qui demande une action"><span data-uic="warn"></span> État <span id="mvf-ind-etat" style="color:var(--acc)"></span>▼</button>
+        <button class="btn bs bb mvf-adv" onclick="openMvDD('imm',this)" title="Filtrer par immeuble"><span data-uic="building"></span> Immeuble <span id="mvf-ind-imm" style="color:var(--acc)"></span>▼</button>
+        <button class="btn bs bb mvf-adv" onclick="clearMvFilters()"><span data-uic="refresh"></span> Reset</button>
+        <button class="btn bs bb mvf-adv" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…)"><span data-uic="download"></span> Importer banque</button>
+        <button class="btn bs bb mvf-adv" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo"><span data-uic="bank"></span> Mes comptes</button>
+        <button class="btn bs bb mvf-adv" onclick="_bankRulesOpen()" title="Mes règles de classement automatique — création et modification au moment où la règle sert"><span data-uic="settings"></span> Mes règles</button>
+        <button class="btn bp mvf-add" onclick="openNewMv()" style="margin-left:auto">+ Mouvement</button>
       </div>
       <!-- Dropdown filtre multi-choix (style Excel) -->
       <div id="mv-col-filter-dd" style="display:none;position:fixed;z-index:9999;background:var(--bg);border:1px solid var(--bor);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.35);min-width:220px;max-width:300px;padding:10px">
@@ -4236,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.630';
+const IMMOTRACK_VERSION = '15.631';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -11044,7 +11045,7 @@ function setTab(parentSel, tabEl, panelPrefix) {
 }
 
 function setMvTab(type, el2) {
-  document.querySelectorAll('#p-loyers .tab').forEach(t=>t.classList.remove('act'));
+  document.querySelectorAll('#p-mouvements .tab').forEach(t=>t.classList.remove('act'));
   el2.classList.add('act');
   window._mvTab = type;
   rMv();
@@ -16043,7 +16044,7 @@ function _mvActiveFiltersHtml(nShown, nTotal) {
   const chips = [];
   const chip = (lbl, onclear) => `<span class="badge" style="border:1px solid var(--acc);color:var(--acc);background:transparent;font-weight:600">${lbl} <b style="cursor:pointer;display:inline-flex" onclick="${onclear}">${_uiIcon('close',11)}</b></span>`;
   const tab = window._mvTab || 'all';
-  if (tab !== 'all') chips.push(chip(tab === 'cr' ? '± Recettes' : '± Dépenses', "setMvTab('all',document.querySelector('#p-loyers .tabs .tab'))"));
+  if (tab !== 'all') chips.push(chip(tab === 'cr' ? '± Recettes' : '± Dépenses', "setMvTab('all',document.querySelector('#p-mouvements .tabs .tab'))"));
   // Les valeurs de `compte` et `etat` portent déjà leur icône : on ne la double pas.
   const named = { cat: _uiIcon('tag',12)+' ', qui: _uiIcon('home',12)+' ', imm: _uiIcon('building',12)+' ', date: _uiIcon('calendar',12)+' ', compte: '', etat: '' };
   Object.keys(named).forEach(k => {
@@ -16066,6 +16067,109 @@ function _mvClearFilter(k) {
   rMv();
 }
 
+/* ===== MOUVEMENTS MOBILE (≤767) — lignes du tableau rendues en CARTES (montant en évidence,
+   corail = ce qui demande une action : à classer / non affecté). Réutilise les helpers existants
+   (fmt, fd, _mvCatCourt, _mvAffLabel, _uiIcon) — zéro calcul. Le chemin PC (≥768) est inchangé. ===== */
+function _ensureMvPhCss(){
+  if(document.getElementById('mvph-css')) return;
+  var st=document.createElement('style'); st.id='mvph-css';
+  st.textContent=[
+    '.mvf-filter-btn{display:none}', // bouton « Filtrer » injecté : masqué par défaut (PC), ré-affiché ≤767 ci-dessous — robuste au resize
+    '@media(max-width:767px){',
+    /* barre d\'outils mobile : recherche pleine largeur, contrôles avancés repliés derrière « Filtrer », CTA en évidence */
+    '#p-mouvements .filters{gap:8px}',
+    '#p-mouvements #mvf-search{flex:1 1 100%;width:auto!important}',
+    '#p-mouvements .mvf-filter-btn{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}',
+    '#p-mouvements .mvf-filter-btn.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 40%,var(--bor))}',
+    '#p-mouvements .mvf-add{flex:1 1 auto;margin-left:0!important;min-height:42px}',
+    '#p-mouvements .mvf-adv{display:none}',
+    '#p-mouvements .filters.mvf-open .mvf-adv{display:inline-flex}',
+    '#p-mouvements .filters.mvf-open .mvf-adv.inp{display:block;flex:1 1 calc(50% - 4px);width:auto!important}',
+    '#p-mouvements .filters.mvf-open button.mvf-adv{flex:1 1 calc(50% - 4px);justify-content:center}',
+    /* le popover de filtre colonne (Compte/État/Immeuble) devient une feuille basse plein écran */
+    '#mv-col-filter-dd{left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;width:auto!important;min-width:0!important;max-width:none!important;max-height:72vh;overflow:auto}',
+    '#p-mouvements .tbl-wrap{overflow:visible;border:0;background:none;box-shadow:none}',
+    '#p-mouvements thead{display:none}',
+    '#p-mouvements table.tbl,#p-mouvements .tbl tbody{display:block;width:auto}',
+    '#p-mouvements .mvph-row{display:block}',
+    '#p-mouvements .mvph-cell{display:block;padding:0;border:0}',
+    '#p-mouvements #mv-tbody>tr:not(.mvph-row){display:block}', // état vide : rendu en bloc propre
+    '#p-mouvements #mv-tbody>tr:not(.mvph-row)>td{display:block;border:0}',
+    '.mvph-card{background:var(--sur);border:1px solid var(--bor);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer}',
+    '.mvph-row.todo .mvph-card{box-shadow:inset 3px 0 0 var(--acc)}',
+    '.mvph-top{display:flex;gap:11px;align-items:flex-start}',
+    '.mvph-body{flex:1;min-width:0}',
+    '.mvph-lib{font-weight:700;color:var(--t1);font-size:14px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.mvph-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px;color:var(--t3);font-size:11.5px}',
+    '.mvph-meta .uic{width:13px;height:13px;flex:0 0 auto}',
+    '.mvph-meta .m{display:inline-flex;align-items:center;gap:4px}',
+    '.mvph-meta .mu{color:var(--t3);display:inline-flex;align-items:center;gap:3px}',
+    '.mvph-sep{opacity:.45}',
+    '.mvph-chip{font-size:10.5px;font-weight:600;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:7px;padding:2px 8px;white-space:nowrap}',
+    '.mvph-aff{display:inline-flex;align-items:center;gap:4px;color:var(--t3)}',
+    '.mvph-amt{font-family:var(--display,inherit);font-weight:800;font-size:16px;white-space:nowrap;flex:0 0 auto;text-align:right;font-variant-numeric:tabular-nums}',
+    '.mvph-amt.pos{color:var(--pos)}',
+    '.mvph-amt.neg{color:var(--t1)}',
+    '.mvph-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}',
+    '.mvph-bdg{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;border-radius:999px;padding:2px 8px;white-space:nowrap}',
+    '.mvph-bdg .uic{width:11px;height:11px;flex:0 0 auto}',
+    '.mvph-bdg.act{background:color-mix(in srgb,var(--acc) 13%,transparent);color:var(--acc)}',
+    '.mvph-bdg.att{background:var(--sur2);color:var(--t2);font-weight:600}',
+    '.mvph-more{margin-top:9px;display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:11.5px;font-weight:600;color:var(--t3);background:none;border:0;padding:4px 2px;cursor:pointer}',
+    '.mvph-more .uic{width:14px;height:14px}',
+    '.mvph-acts{display:none;gap:7px;margin-top:8px}',
+    '.mvph-card.open .mvph-acts{display:flex}',
+    '.mvph-card.open .mvph-more{color:var(--acc)}',
+    '.mvph-acts button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;font:inherit;font-size:12px;font-weight:700;border-radius:9px;padding:8px 0;cursor:pointer;border:1px solid var(--bor);background:var(--sur);color:var(--t2);min-height:38px}',
+    '.mvph-acts .uic{width:15px;height:15px;flex:0 0 auto}',
+    '.mvph-acts .del{color:var(--red);border-color:color-mix(in srgb,var(--red) 30%,var(--bor))}',
+    '}'
+  ].join('');
+  document.head.appendChild(st);
+}
+/* Téléphone : injecte le bouton « Filtrer » (une seule fois) qui replie/déplie les contrôles .mvf-adv.
+   On ne mute aucun contrôle partagé — juste l'ajout d'un bouton, masqué sur PC par .mvf-filter-btn{display:none}. */
+function _ensureMvPhToolbar(){
+  const filters=document.querySelector('#p-mouvements .filters'); if(!filters) return;
+  if(document.getElementById('mvf-filter-btn')) return;
+  const fb=document.createElement('button');
+  fb.id='mvf-filter-btn'; fb.type='button'; fb.className='btn bs bb mvf-filter-btn';
+  fb.setAttribute('aria-label','Filtrer les mouvements');
+  fb.onclick=function(){ const open=filters.classList.toggle('mvf-open'); fb.classList.toggle('on',open); };
+  fb.innerHTML=_uiIcon('filter',15)+' Filtrer';
+  const search=document.getElementById('mvf-search');
+  if(search && search.parentNode===filters) search.insertAdjacentElement('afterend',fb);
+  else filters.insertBefore(fb, filters.firstChild);
+}
+function _mvCardRowPhone(m, net){
+  const needsCat = !m.cat;
+  const needsAff = !m.qui && !m.imm && !m.compteurCcId;
+  const todo = needsCat || needsAff;
+  const meta = [`<span class="m">${_uiIcon('calendar',13)}${fd(m.date)}</span>`];
+  if(m.cat) meta.push('<span class="mvph-sep">·</span>', `<span class="mvph-chip" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>`);
+  if(!needsAff) meta.push('<span class="mvph-sep">·</span>', `<span class="mvph-aff">${_mvAffLabel(m)}</span>`);
+  const badges = [];
+  if(needsCat) badges.push(`<span class="mvph-bdg act">${_uiIcon('warn',11)}À classer</span>`);
+  if(needsAff) badges.push(`<span class="mvph-bdg act">${_uiIcon('warn',11)}Non affecté</span>`);
+  if(m.fac) badges.push(`<span class="mvph-bdg att" title="${escHtml(m.fac)}">${_uiIcon('attach',11)}Pièce jointe</span>`);
+  return `<tr class="mvph-row${todo?' todo':''}"><td colspan="7" class="mvph-cell">
+    <div class="mvph-card" onclick="openEditMv(${m.id})">
+      <div class="mvph-top">
+        <div class="mvph-body">
+          <div class="mvph-lib">${escHtml(m.lib||'—')}</div>
+          <div class="mvph-meta">${meta.join('')}</div>
+          ${badges.length?`<div class="mvph-badges">${badges.join('')}</div>`:''}
+        </div>
+        <div class="mvph-amt ${net>=0?'pos':'neg'}">${net>=0?'+ ':'− '}${fmt(Math.abs(net))}</div>
+      </div>
+      <button type="button" class="mvph-more" onclick="event.stopPropagation();this.closest('.mvph-card').classList.toggle('open')">${_uiIcon('dots',14)}Plus</button>
+      <div class="mvph-acts">
+        <button type="button" onclick="event.stopPropagation();openSplitMvList(${m.id})">${_uiIcon('scissors',14)}Scinder</button>
+        <button type="button" class="del" onclick="event.stopPropagation();delMv(${m.id})">${_uiIcon('trash',14)}Supprimer</button>
+      </div>
+    </div>
+  </td></tr>`;
+}
 function rMv() {
   const search = v('mvf-search').toLowerCase().trim();
   const from   = v('mvf-from');
@@ -16107,9 +16211,11 @@ function rMv() {
   const af = el('mv-active-filters');
   if (af) af.innerHTML = _mvActiveFiltersHtml(mvs.length, alive.length);
 
+  const _ph = _isPhone(); if(_ph){ _ensureMvPhCss(); _ensureMvPhToolbar(); }  // TÉLÉPHONE (≤767) : lignes en cartes (montant visible, action en corail) + barre d'outils repliée
   const _mvRows = mvs.map(m=>{
     // ⑨.1 — Débit + Crédit → « Montant » signé (rouge = sort, vert = entre).
     const net = (m.cr||0) - (m.db||0);
+    if(_ph) return _mvCardRowPhone(m, net);
     return `<tr>
     <td>${fd(m.date)}</td>
     <td><div class="mv-clamp2" title="${escHtml(m.lib||'')}">${escHtml(m.lib||'–')}</div></td>
