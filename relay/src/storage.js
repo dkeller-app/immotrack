@@ -65,6 +65,26 @@ export async function getReclaims(env, sid) {
   return raw ? JSON.parse(raw) : [];
 }
 
+// P0-6 — epoch de RÉVOCATION des jetons PROPRIÉTAIRE de session, dans une clé DÉDIÉE (même raison que
+// le journal reclaim : hors méta → aucune course avec l'écriture du chemin signataire). mintOwnerToken
+// embarque l'epoch courant ; requireOwner rejette un jeton dont l'epoch est ANTÉRIEUR. reclaim bump
+// l'epoch → tout jeton owner antérieur (y compris un jeton FUITÉ) devient invalide. Le read-modify-write
+// n'est pas atomique, mais les bumps sont rares et owner-initiés (au pire, un bump perdu laisse un
+// ancien jeton survivre jusqu'au bump suivant — jamais une signature en jeu, clé à part).
+const ownerEpochKey = (sid) => `epoch:${sid}`;
+
+export async function getOwnerEpoch(env, sid) {
+  const raw = await env.SESSIONS_KV.get(ownerEpochKey(sid));
+  const n = raw == null ? 0 : parseInt(raw, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export async function bumpOwnerEpoch(env, sid) {
+  const next = (await getOwnerEpoch(env, sid)) + 1;
+  await env.SESSIONS_KV.put(ownerEpochKey(sid), String(next), { expirationTtl: SESSION_TTL_SECONDS });
+  return next;
+}
+
 // Purge complète d'une session (D12 : relais éphémère).
 // On supprime la meta EN PREMIER : la session devient immédiatement introuvable
 // (requireOwner gate sur la meta) même si une suppression PDF échoue ensuite.
@@ -74,7 +94,8 @@ export async function deleteSession(env, sid) {
   await Promise.all([
     env.SESSIONS_KV.delete(originalKey(sid)),
     env.SESSIONS_KV.delete(signedKey(sid)),
-    env.SESSIONS_KV.delete(reclaimKey(sid))
+    env.SESSIONS_KV.delete(reclaimKey(sid)),
+    env.SESSIONS_KV.delete(ownerEpochKey(sid))
   ]);
 }
 

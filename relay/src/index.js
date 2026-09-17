@@ -6,8 +6,9 @@ import { createToken, verifyToken } from './tokens.js';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { generateCode, hashCode, verifyCode, otpUsable, OTP_TTL_MS } from './otp.js';
 import { makeSender } from './email-sender.js';
-import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession } from './storage.js';
-import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta } from './validate.js';
+import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession, getOwnerEpoch, bumpOwnerEpoch } from './storage.js';
+import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta, validateSignPayload } from './validate.js';
+import { stampSignedPdf } from './sign-stamp.js';
 import { renderSignPage, renderErrorPage } from './sign-page.js';
 import {
   createCandidature, loadCandidature, saveDossier, addPiece, removePiece,
@@ -123,8 +124,9 @@ app.post('/sessions', async (c) => {
 // Frappe d'un jeton propriétaire. UNE seule fabrique, partagée par la création et la
 // récupération : les deux jetons sont interchangeables par construction.
 async function mintOwnerToken(env, sessionId) {
+  const ep = await getOwnerEpoch(env, sessionId);   // P0-6 : jeton lié à l'epoch de révocation courant
   return createToken(
-    { sid: sessionId, role: 'owner', jti: randomHex(8), exp: expEpoch() },
+    { sid: sessionId, role: 'owner', ep, jti: randomHex(8), exp: expEpoch() },
     env.SIGNING_SECRET
   );
 }
@@ -225,6 +227,10 @@ async function requireOwner(c, sessionId) {
   if (!ver.valid || ver.payload.role !== 'owner' || ver.payload.sid !== sessionId) {
     return { error: c.json({ error: 'unauthorized' }, 401) };
   }
+  // P0-6 : révocation — un jeton d'un epoch ANTÉRIEUR (un reclaim/une révocation a eu lieu depuis) est
+  // refusé. Un jeton fuité meurt dès que le propriétaire re-frappe (reclaim bump l'epoch).
+  const _epoch = await getOwnerEpoch(c.env, sessionId);
+  if ((ver.payload.ep || 0) < _epoch) return { error: c.json({ error: 'token-revoked' }, 401) };
   const session = await loadSession(c.env, sessionId);
   if (!session) return { error: c.json({ error: 'not found' }, 404) };
   return { session };
@@ -243,21 +249,44 @@ app.post('/api/sessions/:id/signed', async (c) => {
     if (!_signer || !_signer.otpVerifiedAt) return c.json({ error: 'otp-required' }, 403);
   }
 
-  const contentType = c.req.header('content-type') || '';
-  const bytes = new Uint8Array(await c.req.arrayBuffer());
-  const v = validatePdfUpload(bytes, contentType);
+  // P0-1 : le client envoie SON IMAGE de signature (+ paraphes), jamais les octets du document.
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'bad-json' }, 400); }
+  const v = validateSignPayload(body);
   if (!v.ok) return c.json({ error: v.reason }, 400);
+
+  // Charge l'ORIGINAL stocké par le relais (hors de portée du signataire). Pour un signataire N>0,
+  // c'est la version déjà tamponnée par N-1 (chaînage « signature par-dessus »).
+  const originalBytes = await getOriginalPdf(c.env, sessionId);
+  if (!originalBytes) return c.json({ error: 'pdf-missing' }, 404);
+
+  const dateISO = new Date().toISOString();
+  // Preuve client optionnelle (acte de volonté + horodatages d'étape), base64url(JSON UTF-8).
+  // Décodage défensif : un en-tête malformé est ignoré, jamais bloquant.
+  const clientProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
+
+  // Tamponnage CÔTÉ SERVEUR depuis l'original → substitution du document impossible.
+  let signedBytes, stamp;
+  try {
+    ({ signedBytes, stamp } = await stampSignedPdf(originalBytes, {
+      signers: guard.session.signers,
+      idx: guard.session.currentIndex,
+      signaturePngDataUrl: body.signaturePngDataUrl,
+      paraphesByPage: body.paraphesByPage || {},
+      signerName: clientProof ? clientProof.signerName : null,
+      dateISO
+    }));
+  } catch (e) {
+    return c.json({ error: 'stamp-failed' }, 500);
+  }
 
   const proof = {
     ip: c.req.header('CF-Connecting-IP') || '',
     userAgent: c.req.header('User-Agent') || '',
-    signedAt: new Date().toISOString()
+    signedAt: dateISO
   };
-  // Preuve client optionnelle (acte de volonté + horodatages d'étape), base64url(JSON UTF-8).
-  // Décodage défensif : un en-tête malformé est ignoré, jamais bloquant.
-  const clientProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
-  const session = await recordSignature(c.env, sessionId, { signedBytes: bytes, proof, clientProof });
-  return c.json({ status: session.status, currentIndex: session.currentIndex });
+  const session = await recordSignature(c.env, sessionId, { signedBytes, proof, clientProof });
+  return c.json({ status: session.status, currentIndex: session.currentIndex, stamp });
 });
 
 app.get('/api/sessions/:id/result', async (c) => {
@@ -307,8 +336,8 @@ app.get('/api/sessions/:id', async (c) => {
 // L'ownerToken n'existe qu'en un exemplaire côté app : écrasé, il rend un bail SIGNÉ
 // irrécupérable. Le créateur (identité Supabase, pas un jeton) peut en re-frapper un.
 //
-// Ce n'est PAS une révocation : les jetons sont des HMAC sans état côté serveur, l'ancien
-// reste donc valide jusqu'à son expiration. On répare un accès perdu, on ne ferme pas un accès fuité.
+// P0-6 — c'EST une révocation : reclaim bump l'epoch owner (storage) → tout jeton owner antérieur
+// (dont un jeton FUITÉ) est refusé par requireOwner. On répare un accès perdu ET on ferme l'accès fuité.
 //
 // PORTÉE — à ne pas surestimer : la récupération n'existe que TANT QUE la session vit dans KV.
 // Passé le TTL (SESSION_TTL_SECONDS, prolongé à chaque écriture), `loadSession` renvoie null et
@@ -333,6 +362,9 @@ app.post('/api/sessions/:id/reclaim', async (c) => {
   // d'écrit. On journalise donc chaque re-frappe dans la méta (bornée : 20 dernières).
   await recordReclaim(c.env, sessionId, gate.userId);
 
+  // P0-6 : reclaim = RÉVOCATION. Bump de l'epoch AVANT la re-frappe → tout jeton owner antérieur (dont
+  // un éventuel jeton FUITÉ) est désormais refusé par requireOwner. Le nouveau jeton porte le nouvel epoch.
+  await bumpOwnerEpoch(c.env, sessionId);
   const ownerToken = await mintOwnerToken(c.env, sessionId);
   // Pas d'`expiresAt` dans cette réponse : la valeur portée par la session est figée à la création
   // alors que `putMeta` repousse le TTL KV à chaque écriture — la renvoyer ferait croire à une

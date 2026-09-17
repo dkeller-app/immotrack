@@ -7,8 +7,8 @@
 // SOLUTION : le worker mémorise QUI a créé la session (`createdBy` = `sub` du jeton Supabase) et
 // expose `POST /api/sessions/:id/reclaim` qui re-frappe un ownerToken pour ce même utilisateur.
 //
-// PORTÉE VOLONTAIRE : re-frapper n'INVALIDE PAS l'ancien jeton (jetons HMAC sans état côté serveur).
-// L'objectif est la RÉCUPÉRATION d'un accès perdu, pas la révocation d'un accès fuité.
+// P0-6 (audit sécu) : re-frapper INVALIDE l'ancien jeton — reclaim bump un epoch owner (storage) que
+// requireOwner vérifie. L'objectif est la RÉCUPÉRATION d'un accès perdu ET la révocation d'un accès fuité.
 import { describe, it, expect } from 'vitest';
 import { SELF, env } from 'cloudflare:test';
 import { appToken, appAuth, PUBLIC_JWK, TEST_USER_ID, OTHER_USER_ID } from './_auth.js';
@@ -129,6 +129,29 @@ describe('POST /api/sessions/:id/reclaim', () => {
     expect(apres.status).toBe(200);
   });
 
+  it('P0-6 : reclaim RÉVOQUE le jeton owner précédent (un jeton fuité meurt)', async () => {
+    const { sessionId, ownerToken: original } = await createTestSession(TEST_USER_ID);
+    // L'original fonctionne AVANT le reclaim.
+    const avant = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': original } });
+    expect(avant.status).toBe(200);
+
+    // Reclaim → nouveau jeton + révocation de l'ancien (bump epoch).
+    const { ownerToken: frais } = await (await reclaim(sessionId, await appAuth())).json();
+
+    // L'ANCIEN jeton (fuité) est désormais refusé.
+    const apresAncien = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': original } });
+    expect(apresAncien.status).toBe(401);
+    expect((await apresAncien.json()).error).toBe('token-revoked');
+
+    // Le NOUVEAU jeton fonctionne.
+    const apresFrais = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': frais } });
+    expect(apresFrais.status).toBe(200);
+
+    // Un ancien jeton révoqué ne peut PLUS détruire la preuve (DELETE refusé).
+    const delAncien = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { method: 'DELETE', headers: { 'X-Owner-Token': original } });
+    expect(delAncien.status).toBe(401);
+  });
+
   it('ne modifie ni le statut ni les signataires de la session', async () => {
     const { sessionId } = await createTestSession();
     const avant = await loadSession(env, sessionId);
@@ -215,8 +238,10 @@ describe('POST /api/sessions/:id/reclaim', () => {
   });
 
   it('purge le journal avec la session', async () => {
-    const { sessionId, ownerToken } = await createTestSession(TEST_USER_ID);
-    await reclaim(sessionId, await appAuth());
+    const { sessionId } = await createTestSession(TEST_USER_ID);
+    // P0-6 : le reclaim bump l'epoch → on utilise le jeton COURANT (celui re-frappé), l'original
+    // d'avant-reclaim est désormais révoqué.
+    const { ownerToken } = await (await reclaim(sessionId, await appAuth())).json();
     expect(await getReclaims(env, sessionId)).toHaveLength(1);
 
     const del = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, {

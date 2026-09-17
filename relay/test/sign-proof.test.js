@@ -4,12 +4,11 @@
 import { SELF } from 'cloudflare:test';
 import { describe, it, expect } from 'vitest';
 import { appToken } from './_auth.js';
-
-const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34]); // %PDF-1.4
+import { makeBailBytes, b64urlJson, signedBody } from './_fixtures.js';
 
 async function createSession(signers) {
   const form = new FormData();
-  form.set('pdf', new File([PDF_BYTES], 'b.pdf', { type: 'application/pdf' }));
+  form.set('pdf', new File([await makeBailBytes(2)], 'b.pdf', { type: 'application/pdf' }));
   form.set('meta', JSON.stringify({ bailRef: 'BAIL-PROOF-001', signers }));
   const res = await SELF.fetch('https://relay.test/sessions', {
     method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form
@@ -21,14 +20,6 @@ async function createSession(signers) {
 async function signTokenOf(sessionId) {
   const html = await (await SELF.fetch(`https://relay.test/s/${sessionId}`)).text();
   return html.match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
-}
-
-// Encode base64url UTF-8 (symétrique du décodage relais), comme le fera sign.js.
-function b64urlJson(obj) {
-  const bytes = new TextEncoder().encode(JSON.stringify(obj));
-  let bin = '';
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 describe('POST /api/sessions/:id/verify-email', () => {
@@ -82,8 +73,8 @@ describe('dossier de preuve persisté via X-Sign-Proof', () => {
     });
     const post = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
       method: 'POST',
-      headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf', 'X-Sign-Proof': proofHeader },
-      body: PDF_BYTES
+      headers: { 'X-Sign-Token': token, 'content-type': 'application/json', 'X-Sign-Proof': proofHeader },
+      body: signedBody(2)
     });
     expect(post.status).toBe(200);
 
@@ -105,7 +96,7 @@ describe('dossier de preuve persisté via X-Sign-Proof', () => {
     const { sessionId, ownerToken } = await createSession([{ role: 'locataire', email: 'jean@x.fr', ordre: 0 }]);
     const token = await signTokenOf(sessionId);
     const post = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
-      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' }, body: PDF_BYTES
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json' }, body: signedBody(2)
     });
     expect(post.status).toBe(200);
     const det = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, {

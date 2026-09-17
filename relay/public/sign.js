@@ -270,24 +270,17 @@ async function doSubmit() {
   const busy = app.querySelector('#busy'); const btn = app.querySelector('#submit');
   busy.hidden = false; btn.disabled = true;
   try {
-    const doc = await PDFLib.PDFDocument.load(master);
     const dateISO = new Date().toISOString();
-    const mentionLines = buildMentionLines({ signerName, role: S.role, dateISO });
-    await stampSignature(doc, {
-      sigId: S.sigId, side: S.side,
-      signaturePngDataUrl: signaturePad.toDataURL(),
-      paraphesByPage, mentionLines
-    }, { rgb: PDFLib.rgb });
-    const signed = await doc.save();
-    // Dossier de preuve client (acte de volonté + horodatages d'étape, §5 #3) → en-tête X-Sign-Proof.
+    // P0-1 : le tamponnage se fait CÔTÉ SERVEUR depuis l'original stocké. On n'envoie QUE l'image
+    // de signature (+ paraphes par page) — jamais les octets du document (anti-substitution).
     const proof = buildProofObject({
       signerName, role: S.role, sigId: S.sigId, dateISO,
       consentElectronic, luApprouve, openedAt, readCompletedAt
     });
     const r = await fetch(`/api/sessions/${SID}/signed`, {
       method: 'POST',
-      headers: { 'X-Sign-Token': TOKEN, 'content-type': 'application/pdf', 'X-Sign-Proof': b64urlJson(proof) },
-      body: signed
+      headers: { 'X-Sign-Token': TOKEN, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson(proof) },
+      body: JSON.stringify({ signaturePngDataUrl: signaturePad.toDataURL(), paraphesByPage })
     });
     if (r.status === 403) return fail('Ce n\'est pas (ou plus) votre tour de signer.');
     if (r.status === 410) return fail('Ce document est déjà signé.');

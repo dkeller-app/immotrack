@@ -3,6 +3,7 @@ import { SELF, env } from 'cloudflare:test';
 import { emailHash } from '../src/crypto-utils.js';
 import { verifyToken } from '../src/tokens.js';
 import { appToken } from './_auth.js';
+import { makeBailBytes, signedBody } from './_fixtures.js';
 
 describe('GET /health', () => {
   it('répond 200 avec ok:true', async () => {
@@ -58,7 +59,7 @@ describe('POST /sessions', () => {
 
 async function createTestSession(signers) {
   const form = new FormData();
-  form.set('pdf', new Blob([new Uint8Array([0x25,0x50,0x44,0x46,1])], { type: 'application/pdf' }), 'b.pdf');
+  form.set('pdf', new Blob([await makeBailBytes(2)], { type: 'application/pdf' }), 'b.pdf');
   form.set('meta', JSON.stringify({ bailRef: 'B', signers }));
   const res = await SELF.fetch('https://relay.test/sessions', {
     method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form
@@ -93,8 +94,8 @@ describe('GET /s/:id', () => {
     const token = (await open.text()).match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
     await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
       method: 'POST',
-      headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
-      body: new Uint8Array([0x25, 0x50, 0x44, 0x46, 7])
+      headers: { 'X-Sign-Token': token, 'content-type': 'application/json' },
+      body: signedBody(2)
     });
     const res = await SELF.fetch(`https://relay.test/s/${sessionId}`);
     expect(res.status).toBe(410);
@@ -170,8 +171,8 @@ describe('POST /api/sessions/:id/signed', () => {
     const token = await signTokenOf(sessionId);
     const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
       method: 'POST',
-      headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf', 'CF-Connecting-IP': '9.9.9.9' },
-      body: signedPdf
+      headers: { 'X-Sign-Token': token, 'content-type': 'application/json', 'CF-Connecting-IP': '9.9.9.9' },
+      body: signedBody(2)
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -182,7 +183,7 @@ describe('POST /api/sessions/:id/signed', () => {
 describe('routes bailleur (ownerToken)', () => {
   async function createWithOwner(signers) {
     const form = new FormData();
-    form.set('pdf', new Blob([new Uint8Array([0x25,0x50,0x44,0x46,1])], { type: 'application/pdf' }), 'b.pdf');
+    form.set('pdf', new Blob([await makeBailBytes(2)], { type: 'application/pdf' }), 'b.pdf');
     form.set('meta', JSON.stringify({ bailRef: 'B', signers }));
     const res = await SELF.fetch('https://relay.test/sessions', {
       method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form
@@ -207,8 +208,8 @@ describe('routes bailleur (ownerToken)', () => {
 
     const token = await signTokenOf(sessionId);
     await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
-      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
-      body: new Uint8Array([0x25,0x50,0x44,0x46,3,3])
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json' },
+      body: signedBody(2)
     });
     const r2 = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': ownerToken } });
     expect((await r2.json()).status).toBe('completed');
@@ -221,8 +222,8 @@ describe('routes bailleur (ownerToken)', () => {
 
     const token = await signTokenOf(sessionId);
     await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
-      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
-      body: new Uint8Array([0x25,0x50,0x44,0x46,4,4])
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json' },
+      body: signedBody(2)
     });
     const done = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/result`, { headers: { 'X-Owner-Token': ownerToken } });
     expect(done.status).toBe(200);
@@ -235,16 +236,16 @@ describe('aller-retour complet — gestion (bailleur + locataire ordonnés)', ()
     const res = await SELF.fetch(`https://relay.test/s/${sessionId}`);
     return (await res.text()).match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
   }
-  async function postSigned(sessionId, token, marker) {
+  async function postSigned(sessionId, token) {
     return SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
-      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
-      body: new Uint8Array([0x25, 0x50, 0x44, 0x46, marker])
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json' },
+      body: signedBody(2)
     });
   }
 
   it('enchaîne les 2 signataires et produit 1 PDF final', async () => {
     const form = new FormData();
-    form.set('pdf', new Blob([new Uint8Array([0x25,0x50,0x44,0x46,0])], { type: 'application/pdf' }), 'b.pdf');
+    form.set('pdf', new Blob([await makeBailBytes(2)], { type: 'application/pdf' }), 'b.pdf');
     form.set('meta', JSON.stringify({ bailRef: 'BAIL-G', signers: [
       { role: 'bailleur', email: 'g@sci.fr', tel: '', ordre: 1 },
       { role: 'locataire', email: 'loc@x.fr', tel: '', ordre: 2 }
