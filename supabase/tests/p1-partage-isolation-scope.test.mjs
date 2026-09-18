@@ -12,7 +12,8 @@ import { createSupabaseAdapter } from '../../js/core/store-supabase-adapter.js'
 // pas prouvées : Storage list / URL signée / remove / move / copy / upload signé, Realtime (canal espace),
 // RE-PULL via le VRAI adaptateur client (createSupabaseAdapter.fetchTable = ce que l'app rejoue après un
 // broadcast « changed »), et la liste des membres (migration 0050).
-// Tourne contre le projet hébergé (.env) : les assertions « 0050 » exigent que 0050 y soit appliquée.
+// + écritures croisées forgées (0052), config en allowlist (0051), oracles et variante de casse (0053).
+// Tourne contre le projet hébergé (.env) : les assertions 0050→0053 exigent que ces migrations y soient appliquées.
 // ════════════════════════════════════════════════════════════════════════════
 
 const RUN = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -55,6 +56,7 @@ async function seedSci (client, espaceId, sciNom) {
   ids.assurances = await ins('assurances', { logement_id: ids.logements, compagnie: 'AXA', num_contrat: `C-${tag}`, prime: 100 })
   ids.agenda     = await ins('agenda', { logement_id: ids.logements, titre: 'Visite', date_evt: '2026-03-01' })
   ids.candidats  = await ins('candidats', { logement_id: ids.logements, legacy_raw: { nom: 'Cand', logRef: `F-${tag}` } })
+  ids.ref = `F-${tag}`   // ref du logement = clé des blobs de config par-SCI
   return ids
 }
 
@@ -130,16 +132,68 @@ describe('RE-PULL (createSupabaseAdapter.fetchTable) — un scopé SCI-A ne reç
     const ids = data.map(r => r.id)
     expect(ids).toContain(SA.baux_evenements); expect(ids).not.toContain(SB.baux_evenements)
   })
-  it('fetchConfig (RPC espace_config_scoped) : Bob ne reçoit que les clés de sa SCI', async () => {
+  it('fetchConfig (RPC espace_config_scoped) : Bob reçoit SA ref, jamais SCI-B, et AUCUNE clé hors allowlist (0051)', async () => {
     const { error } = await admin.from('espace_config').upsert({ espace_id: espaceA, data: {
       categories: ['loyer'],
-      irlHistorique: [{ ref: `F-SCI-A-${RUN}`.slice(0, 22), nouveauHC: 1 }, { ref: `F-SCI-B-${RUN}`.slice(0, 22), nouveauHC: 2 }],
+      importRules: [{ pattern: 'LOCATAIRE SECRET', qui: SB.ref }],
+      bailEvents: [{ ref: SB.ref, hcAvant: 800, hcApres: 820 }],
+      params: { mandataire: { nom: 'Secret' }, bankPending: { c1: [{ libelle: 'VIR SECRET' }] } },
+      zzzCleInconnue: [{ ref: SB.ref }],
+      irlHistorique: [{ ref: SA.ref, nouveauHC: 1 }, { ref: SB.ref, nouveauHC: 2 }],
     } }, { onConflict: 'espace_id' })
     expect(error).toBeNull()
     const cfg = await createSupabaseAdapter(clientB, espaceA).fetchConfig()
-    const refs = (cfg.irlHistorique || []).map(x => x.ref)
-    expect(refs.some(r => r.startsWith('F-SCI-B'))).toBe(false)
-    expect(cfg.categories).toEqual(['loyer'])
+    expect((cfg.irlHistorique || []).map(x => x.ref)).toEqual([SA.ref])   // SA ref présente (pas un simple « tout vide »)
+    for (const k of ['categories', 'importRules', 'bailEvents', 'params', 'zzzCleInconnue']) expect(cfg, 'clé ' + k + ' fuit').not.toHaveProperty(k)
+    expect(JSON.stringify(cfg)).not.toContain(SB.ref)
+    const full = await createSupabaseAdapter(clientA, espaceA).fetchConfig()
+    for (const k of ['importRules', 'params', 'zzzCleInconnue']) expect(full).toHaveProperty(k)   // Alice : blob intégral
+  })
+})
+
+// ── 1bis) ÉCRITURES FORGÉES par une gestionnaire scopée (0052) + oracles et casse (0053) ──────────────
+describe('ÉCRITURES CROISÉES — Carol (gestionnaire SCI-A) ne peut rien rattacher à SCI-B (0052/0053)', () => {
+  const bail = (entite_id, logement_id) => ({ entite_id, logement_id, type_bail: 'nu', hc: 1, ch: 1, dg: 1, jour_paiement: 1, date_debut: '2027-01-01', locataires: [{ nom: 'X' }], archived: true })
+  it('baux { entité SCI-A + logement de SCI-B } refusé ; { entité SCI-A + logement SCI-A } accepté', async () => {
+    const { error: eF } = await clientC.from('baux').insert({ espace_id: espaceA, ...bail(SA.entites, SB.logements) })
+    expect(eF).not.toBeNull()
+    const { error: eL } = await clientC.from('baux').insert({ espace_id: espaceA, ...bail(SA.entites, SA.logements) })
+    expect(eL).toBeNull()
+  })
+  it('quittances / candidats / agenda / mouvements / logements forgés vers SCI-B refusés, rien n\'atterrit', async () => {
+    const tries = [
+      ['quittances', { entite_id: SA.entites, logement_id: SB.logements, mois: '2027-02', hc: 1, ch: 1, date_paiement: '2027-02-05' }],
+      ['candidats',  { entite_id: SA.entites, logement_id: SB.logements, legacy_raw: { nom: 'Forge' } }],
+      ['agenda',     { entite_id: SA.entites, immeuble_id: SB.immeubles, titre: 'Forge-' + RUN, date_evt: '2027-03-01' }],
+      ['mouvements', { entite_id: SA.entites, immeuble_id: SB.immeubles, date_mouvement: '2027-01-15', libelle: 'Forge-' + RUN, categorie: 'frais', debit: 1 }],
+      ['logements',  { entite_id: SA.entites, immeuble_id: SB.immeubles, ref: ('FORGE-' + RUN).slice(0, 22), type: 'appartement', surface: 10, loyer_hc_ref: 1, charges_ref: 1 }],
+    ]
+    for (const [t, row] of tries) {
+      const { error } = await clientC.from(t).insert({ espace_id: espaceA, ...row })
+      expect(error, t + ' forgé accepté').not.toBeNull()
+    }
+    const { count } = await admin.from('agenda').select('id', { count: 'exact', head: true }).eq('espace_id', espaceA).eq('titre', 'Forge-' + RUN)
+    expect(count).toBe(0)
+  })
+  it('LECTURE fail-closed : un événement à entite_id PÉRIMÉE (entité SCI-A + logement de SCI-B) est invisible de Bob, visible d\'Alice', async () => {
+    const { data: row, error } = await admin.from('agenda').insert({ espace_id: espaceA, entite_id: SA.entites, logement_id: SB.logements, titre: 'Perime-' + RUN, date_evt: '2027-05-01' }).select('id').single()
+    expect(error).toBeNull()
+    const { data: b } = await clientB.from('agenda').select('id').eq('id', row.id)
+    expect(b).toEqual([])
+    const { data: al } = await clientA.from('agenda').select('id').eq('id', row.id)
+    expect((al || []).map(r => r.id)).toEqual([row.id])
+  })
+  it('résolveur entite_of_logement : NULL pour un logement de SCI-B (plus d\'oracle), entité pour SCI-A', async () => {
+    const { data: b } = await clientB.rpc('entite_of_logement', { p_espace_id: espaceA, p_logement_id: SB.logements })
+    expect(b).toBeNull()
+    const { data: a } = await clientB.rpc('entite_of_logement', { p_espace_id: espaceA, p_logement_id: SA.logements })
+    expect(a).toBe(SA.entites)
+  })
+  it('variante de CASSE d\'une ref de SCI-B créée dans SCI-A : la config de SCI-B ne fuit pas vers Carol', async () => {
+    const { error } = await clientC.from('logements').insert({ espace_id: espaceA, entite_id: SA.entites, immeuble_id: SA.immeubles, ref: SB.ref.toLowerCase(), type: 'appartement', surface: 10, loyer_hc_ref: 1, charges_ref: 1 })
+    expect(error).toBeNull()                                             // création légitime dans SA SCI
+    const cfg = await createSupabaseAdapter(clientC, espaceA).fetchConfig()
+    expect(JSON.stringify(cfg).toLowerCase()).not.toContain(SB.ref.toLowerCase())
   })
 })
 
@@ -176,7 +230,7 @@ describe('STORAGE — surfaces non couvertes par p1-partage-sci (list, signed UR
   })
   it('download(_orphelin) et download(legacy) refusés à Bob ; accordés à Alice', async () => {
     for (const p of [pathOrph, pathLegacy]) {
-      const { data } = await clientB.storage.from(BUCKET).download(p); expect(data, `Bob ${p}`).toBeNull()
+      const { data, error: eb } = await clientB.storage.from(BUCKET).download(p); expect(data, `Bob ${p}`).toBeNull(); expect(eb, `Bob ${p}`).not.toBeNull()
       const { data: da, error } = await clientA.storage.from(BUCKET).download(p); expect(error, `Alice ${p}`).toBeNull(); expect(da).not.toBeNull()
     }
   })
@@ -221,17 +275,21 @@ describe('STORAGE — surfaces non couvertes par p1-partage-sci (list, signed UR
 // ── 3) REALTIME : un scopé ne rejoint PAS le canal de l'espace partagé (0048) ─────────────────────────
 describe('REALTIME — canal espace:<id> (migration 0048)', () => {
   it('Alice (owner plein) PEUT s\'abonner à espace:<espaceA>', async () => {
-    expect(await trySubscribe(clientA, `espace:${espaceA}`)).toBe('SUBSCRIBED')
+    expect(await trySubscribe(clientA, 'espace:' + espaceA)).toBe('SUBSCRIBED')
   }, 15000)
-  it('Bob (scopé lecture) NE PEUT PAS s\'abonner à espace:<espaceA>', async () => {
-    expect(await trySubscribe(clientB, `espace:${espaceA}`)).toBe('DENIED')
-  }, 20000)
+  it('Bob PEUT s\'abonner au canal de SON espace propre (socket chaude AVANT le test négatif)', async () => {
+    expect(await trySubscribe(clientB, 'espace:' + espaceB)).toBe('SUBSCRIBED')
+  }, 15000)
+  it('Bob (scopé lecture) NE PEUT PAS s\'abonner à espace:<espaceA>, ni à un topic dérivé', async () => {
+    expect(await trySubscribe(clientB, 'espace:' + espaceA)).toBe('DENIED')
+    expect(await trySubscribe(clientB, 'espace:' + espaceA + ':x', 8000)).toBe('DENIED')
+  }, 30000)
+  it('Bob s\'abonne toujours à son espace APRÈS le refus (le DENIED n\'était pas une panne de socket)', async () => {
+    expect(await trySubscribe(clientB, 'espace:' + espaceB)).toBe('SUBSCRIBED')
+  }, 15000)
   it('Carol (scopée gestionnaire) NE PEUT PAS s\'abonner à espace:<espaceA>', async () => {
-    expect(await trySubscribe(clientC, `espace:${espaceA}`)).toBe('DENIED')
+    expect(await trySubscribe(clientC, 'espace:' + espaceA)).toBe('DENIED')
   }, 20000)
-  it('Bob PEUT s\'abonner au canal de SON espace propre (non-régression)', async () => {
-    expect(await trySubscribe(clientB, `espace:${espaceB}`)).toBe('SUBSCRIBED')
-  }, 15000)
 })
 
 // ── 4) MEMBRES : un scopé ne lit que SA ligne (migration 0050) ───────────────────────────────────────

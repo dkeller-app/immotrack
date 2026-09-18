@@ -39,3 +39,13 @@ Depuis 0038 les migrations sont appliquées par un runner pg (ex-`db-run.mjs` de
 - `espaces` SELECT `is_member` : un scopé voit le nom de l'espace + colonnes abonnement (plan). Pas une donnée de SCI ; à traiter par colonnes si besoin.
 - `audit_log` INSERT `is_member` : un scopé peut insérer une ligne d'audit (append-only, user_id forcé par trigger, lecture réservée aux pleins). Pollution possible, pas de fuite.
 - Réalignement du suivi CLI (`supabase migration repair --status applied 0033 0038 … 0049`).
+
+## 6. Addendum 2026-09-18 — après les deux audits adversariaux
+
+Le §1 ci-dessus classait `espace_config` et les tables métier « par-SCI ✅ ». Les audits ont montré que c'était faux sur deux points, reproduits depuis :
+
+- **Config** : la RPC `espace_config_scoped` filtrait 8 clés et renvoyait le reste (denylist). → migration **0051** (allowlist : objet neuf, 7 clés par-SCI filtrées, rien d'autre pour un scopé).
+- **Écritures** : `coalesce(entite_id, entité du logement, …)` laissait une gestionnaire scopée rattacher une ligne à un logement/immeuble d'une autre SCI. → migration **0052** (`has_entite_write_all` : droit exigé sur chaque rattachement non NULL).
+- **Durcissements** : variante de casse des refs, résolveurs-oracles (+ `anon`), octroi survivant à la révocation, invitations au porteur éternelles. → migration **0053**.
+
+Décision inchangée sur Storage et Realtime (déjà étanches, confirmé par les deux audits). Reste hors périmètre, à traiter en lot client dédié : la cohérence `legacy_raw` ↔ colonnes à l'hydrate (préalable à un octroi « écriture » pour un tiers non de confiance). Détail et preuves : `docs/subjects/PARTAGE-ISOLATION-SCI.md`.
