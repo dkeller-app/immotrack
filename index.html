@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.634</title>
+<title>Propryo v15.635</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.634">
+<link rel="stylesheet" href="css/main.css?v=15.635">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.634</em>
+      <em>v15.635</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.634';
+const IMMOTRACK_VERSION = '15.635';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7148,13 +7148,70 @@ function _downloadSignedBailFallback(blob, ref) {
     showToast('⚠ Sauvegarde cloud échouée — le bail signé a été téléchargé sur cet appareil. Conserve ce fichier précieusement (preuve légale).', 'err', 9000);
   } catch (e) { console.warn('[fallback] download bail signé', e); }
 }
+// Dossier de preuve d'un bail signé EN PRÉSENTIEL, reconstruit depuis bail.signatures (finales +
+// luApprouveBy). Plus léger que le distant : signature manuscrite en présence, SANS email/OTP/IP ni
+// empreinte par signataire (aucun relais). `finales` ne stocke que sigId→image → noms/rôles re-dérivés
+// du bail via les MÊMES accesseurs que la matrice d'envoi (_bailBailleurSigners + bail.locataires).
+function _buildPresentielProof(bail) {
+  const sig = (bail && bail.signatures) || {};
+  const finales = sig.finales || {};
+  const luBy = sig.luApprouveBy || {};
+  const bSigners = (typeof _bailBailleurSigners === 'function') ? _bailBailleurSigners(bail) : [];
+  const locs = (Array.isArray(bail.locataires) && bail.locataires.length) ? bail.locataires : [{ nom: bail.nom }];
+  const mandNom = (DB.params && DB.params.mandataire && DB.params.mandataire.nom) || bail.entity || 'Bailleur';
+  return Object.keys(finales).map((sigId) => {
+    let nom = sigId, role = '', when = sig.signedAt || null;
+    const mB = /^bailleur-(\d+)$/.exec(sigId), mL = /^loc-(\d+)$/.exec(sigId);
+    if (mB) {
+      const i = +mB[1];
+      nom = bSigners.length ? ((bSigners[i] && bSigners[i].nom) || bail.entity || 'Bailleur') : mandNom;   // [] = mandataire (p/o bailleur)
+      role = 'bailleur';
+      when = sig.signedBailleurAt || sig.signedAt || null;
+    } else if (mL) {
+      const i = +mL[1];
+      nom = (locs[i] && locs[i].nom) || ('Locataire ' + (i + 1));
+      role = 'locataire';
+      when = sig.signedLocataireAt || sig.signedAt || null;
+    }
+    return { nom, role, signedAt: when, luApprouve: !!luBy[sigId] };   // pas d'email/OTP/IP ni pdfSha256 (présentiel)
+  });
+}
+
 window.__immoArchiveBailPdf = async function (ref, blob) {
   try {
     const bail = DB.baux && DB.baux[ref];
     if (!bail || !bail.signatures || !blob || typeof window.__immoCloudUpload !== 'function') return;
+    const seg = _cloudEntiteSeg(_cloudEntiteNomForBail(ref));
+    const complet = !!(bail.signatures.signedAt && bail.signatures.mode && bail.signatures.mode !== 'bailleur-seul');
+
+    // Défense en profondeur (P2-3) : bail déjà archivé AVEC son certificat → ne pas ré-archiver un PDF
+    // nu par-dessus (jamais rétrograder cloudPdfKey). Une re-signature repart d'un `signatures` neuf sans certRef.
+    if (complet && bail.signatures.certRef && bail.signatures.cloudPdfKey) return;
+
+    // P2 — bail signé EN PRÉSENCE et COMPLET (mode 'avec-locataire') : on rend le PDF AUTO-SUFFISANT en y
+    // fusionnant la page « Certificat de preuve » (uniformisé avec le distant, Q5). Un bail PARTIEL
+    // ('bailleur-seul', une partie en attente) n'a PAS de certificat. La PREUVE est ACQUISE dès que la
+    // fusion réussit : proof/contentHash persistés AVANT l'upload annexe (best-effort, _uploadCloudRetry
+    // ne lève jamais) → une erreur réseau sur la COPIE séparée du certificat ne jette pas le bail fusionné.
+    // Échec de la fusion elle-même → PDF nu (bail valide/archivé).
+    let artifact = blob;
+    if (complet && !bail.signatures.certRef) {
+      try {
+        const contentHash = await _sha256Hex(await blob.arrayBuffer());   // empreinte du bail signé (avant page preuve)
+        const proof = _buildPresentielProof(bail);
+        const certBlob = await _buildBailCertificatePdf(bail, proof, contentHash, bail.signatures.signedAt, { presentiel: true });
+        artifact = await _mergeCertificateIntoBail(blob, certBlob);
+        bail.signatures.proof = proof;
+        bail.signatures.contentHash = contentHash;
+        const certKey = 'bc_' + String(ref).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now();
+        const certPath = await _uploadCloudRetry(certKey, certBlob, 'application/pdf', seg);   // copie séparée du certificat — best-effort (retry, ne lève pas)
+        bail.signatures.certRef = { cloudPdfKey: certPath || null };
+      } catch (e) { console.warn('[présentiel] fusion certificat→bail échouée, PDF nu conservé', e); artifact = blob; }
+    }
+
     const key = 'bp_' + String(ref).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now();
-    const path = await window.__immoCloudUpload(key, blob, 'application/pdf', _cloudEntiteSeg(_cloudEntiteNomForBail(ref)));
-    if (!path) { console.warn('[Supabase] archive PDF bail échouée', ref); _downloadSignedBailFallback(blob, ref); return; }
+    const path = await _uploadCloudRetry(key, artifact, 'application/pdf', seg);   // parité robustesse avec le distant (retry + backoff)
+    if (!path) { console.warn('[Supabase] archive PDF bail échouée', ref); _downloadSignedBailFallback(artifact, ref); return; }
     bail.signatures.cloudPdfKey = path;
     if (typeof saveDB === 'function') saveDB();
     if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
@@ -8263,7 +8320,8 @@ async function _sha256Hex(buf) {
 
 // Certificat de preuve PDF (fichier A4 SÉPARÉ, lisible). Champs alignés sur le DTO de preuve réel
 // du relais (pdfSha256 par signataire, consentElectronic, luApprouve, openedAt, readCompletedAt).
-async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt) {
+async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, opts) {
+  const _presentiel = !!(opts && opts.presentiel);   // présentiel = signature en présence : pas de relais/serveur → libellés « mode » + empreinte adaptés
   const PDFLib = await _loadPdfLib();
   const doc = await PDFLib.PDFDocument.create();
   let page = doc.addPage([595.28, 841.89]); // A4 pt
@@ -8312,9 +8370,10 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt) {
   line('Bailleur : ' + (_entCert.nom || bail.entity || '-'));
   line('Bail : ' + (bail.ref || ''));
   line('Date de completion : ' + (completedAt ? new Date(completedAt) : new Date()).toLocaleString('fr-FR'));
-  line('Empreinte SHA-256 du bail signe (scellee a la signature, hors present certificat) :', 10);
+  line('Mode : ' + (_presentiel ? 'signature manuscrite en presence (presentiel)' : 'signature electronique a distance (verification email/OTP + relais)'));
+  line('Empreinte SHA-256 du bail signe (' + (_presentiel ? 'calculee' : 'scellee') + ' a la signature, hors present certificat) :', 10);
   line(contentHash || '', 8);
-  line('Attestee par le serveur au moment de la signature (cf. empreinte par signataire ci-dessous).', 7); y -= 10;
+  line(_presentiel ? 'Calculee par l\'application au moment de la signature (signature en presence).' : 'Attestee par le serveur au moment de la signature (cf. empreinte par signataire ci-dessous).', 7); y -= 10;
   line('Signataires :', 13, true); y -= 4;
   (proof || []).forEach(p => {
     line('- ' + (p.nom || '') + ' (' + (p.role || '') + ')', 11, true);
@@ -8406,7 +8465,7 @@ async function _regenBailCertificate(ref) {
   if (!sig || !Array.isArray(sig.proof) || !sig.contentHash) { showToast('Certificat non régénérable (preuve absente)', 'err', 5000); return; }
   showToast('Régénération du certificat de preuve…', 'info', 2500);
   try {
-    const certBlob = await _buildBailCertificatePdf(bail, sig.proof, sig.contentHash, sig.signedAt);   // date de complétion ancrée = cert identique à l'original
+    const certBlob = await _buildBailCertificatePdf(bail, sig.proof, sig.contentHash, sig.signedAt, { presentiel: sig.mode !== 'distance' });   // date de complétion ancrée = cert identique à l'original ; mode = présentiel sauf signature à distance
     _downloadBlobAs(certBlob, 'certificat-preuve-' + String(ref).replace(/[^a-zA-Z0-9]/g, '_') + '.pdf');
     showToast('✓ Certificat de preuve régénéré et téléchargé', 'ok', 5000);
   } catch (e) { console.warn('[remoteSign] regen cert', e); showToast('Erreur lors de la régénération du certificat', 'err', 6000); }
