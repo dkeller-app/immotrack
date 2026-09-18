@@ -604,11 +604,12 @@ describe('D2 — config scopée : espace_config filtré par SCI côté serveur (
   })
 
   for (const [who, getClient] of [['Bob (lecture)', () => clientB], ['Carol (gestionnaire)', () => clientC]]) {
-    it(`RPC espace_config_scoped : ${who} (scopé SCI-A) reçoit UNIQUEMENT le sous-ensemble SCI-A + les clés d'app`, async () => {
+    it(`RPC espace_config_scoped : ${who} (scopé SCI-A) reçoit UNIQUEMENT le sous-ensemble SCI-A (0051 : plus aucune clé d'app)`, async () => {
       const { data, error } = await getClient().rpc('espace_config_scoped', { p_espace_id: espaceA })
       expect(error).toBeNull()
-      // clés d'app (non per-SCI) conservées
-      expect(data.categories).toEqual(['loyer', 'charges'])
+      // 0051 (allowlist) : les clés d'APP ne sont PLUS renvoyées à un scopé (le client jette la config d'un
+      // espace tiers, store-multi.js) — seules les clés par-SCI filtrées le sont.
+      expect(data).not.toHaveProperty('categories')
       // irlHistorique : SCI-A seulement, SCI-B absent
       expect(data.irlHistorique.map(e => e.ref)).toEqual([A1.ref])
       // loyerBareme (AUDIT-SUIVI-LOYERS, migration 0044) : SCI-A seulement
