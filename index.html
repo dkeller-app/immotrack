@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.635</title>
+<title>Propryo v15.636</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.635">
+<link rel="stylesheet" href="css/main.css?v=15.636">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.635</em>
+      <em>v15.636</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.635';
+const IMMOTRACK_VERSION = '15.636';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -16179,28 +16179,31 @@ function _ensureMvPhCss(){
     '#p-mouvements .mvph-cell{display:block;padding:0;border:0}',
     '#p-mouvements #mv-tbody>tr:not(.mvph-row){display:block}', // état vide : rendu en bloc propre
     '#p-mouvements #mv-tbody>tr:not(.mvph-row)>td{display:block;border:0}',
-    '.mvph-card{background:var(--sur);border:1px solid var(--bor);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer}',
+    '.mvph-card{background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:10px 12px;margin-bottom:7px;cursor:pointer}',
     '.mvph-row.todo .mvph-card{box-shadow:inset 3px 0 0 var(--acc)}',
-    '.mvph-top{display:flex;gap:11px;align-items:flex-start}',
-    '.mvph-body{flex:1;min-width:0}',
-    '.mvph-lib{font-weight:700;color:var(--t1);font-size:14px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.mvph-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px;color:var(--t3);font-size:11.5px}',
-    '.mvph-meta .uic{width:13px;height:13px;flex:0 0 auto}',
+    '.mvph-top{display:flex;gap:9px;align-items:center}',
+    '.mvph-lib{flex:1;min-width:0;font-weight:700;color:var(--t1);font-size:13.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    // méta forcée sur UNE ligne : date + catégorie fixes, l\'affectation se tronque (ellipsis) si trop longue
+    '.mvph-meta{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;min-width:0;overflow:hidden;margin-top:4px;color:var(--t3);font-size:11.5px}',
+    '.mvph-catline{margin-top:5px}', // ligne dédiée au type/catégorie, sous logement+date
+    '.mvph-meta .uic{width:12px;height:12px;flex:0 0 auto}',
+    '.mvph-meta .m,.mvph-meta .mvph-sep,.mvph-meta .mvph-chip{flex:0 0 auto}',
     '.mvph-meta .m{display:inline-flex;align-items:center;gap:4px}',
     '.mvph-meta .mu{color:var(--t3);display:inline-flex;align-items:center;gap:3px}',
     '.mvph-sep{opacity:.45}',
     '.mvph-chip{font-size:10.5px;font-weight:600;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:7px;padding:2px 8px;white-space:nowrap}',
-    '.mvph-aff{display:inline-flex;align-items:center;gap:4px;color:var(--t3)}',
+    '.mvph-aff{flex:0 1 auto;min-width:0;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t3)}',
+    '.mvph-aff .mu{vertical-align:-2px}',
     '.mvph-amt{font-family:var(--display,inherit);font-weight:800;font-size:16px;white-space:nowrap;flex:0 0 auto;text-align:right;font-variant-numeric:tabular-nums}',
     '.mvph-amt.pos{color:var(--pos)}',
     '.mvph-amt.neg{color:var(--t1)}',
-    '.mvph-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}',
+    '.mvph-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}',
     '.mvph-bdg{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;border-radius:999px;padding:2px 8px;white-space:nowrap}',
     '.mvph-bdg .uic{width:11px;height:11px;flex:0 0 auto}',
     '.mvph-bdg.act{background:color-mix(in srgb,var(--acc) 13%,transparent);color:var(--acc)}',
     '.mvph-bdg.att{background:var(--sur2);color:var(--t2);font-weight:600}',
-    '.mvph-more{margin-top:9px;display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:11.5px;font-weight:600;color:var(--t3);background:none;border:0;padding:4px 2px;cursor:pointer}',
-    '.mvph-more .uic{width:14px;height:14px}',
+    '.mvph-more{flex:0 0 auto;min-height:0;display:inline-flex;align-items:center;justify-content:center;color:var(--t3);background:none;border:0;padding:2px;margin:-2px -4px -2px 0;cursor:pointer}', // ⋯ compact, à droite du titre (après le montant)
+    '.mvph-more .uic{width:18px;height:18px}',
     '.mvph-acts{display:none;gap:7px;margin-top:8px}',
     '.mvph-card.open .mvph-acts{display:flex}',
     '.mvph-card.open .mvph-more{color:var(--acc)}',
@@ -16229,9 +16232,11 @@ function _mvCardRowPhone(m, net){
   const needsCat = !m.cat;
   const needsAff = !m.qui && !m.imm && !m.compteurCcId;
   const todo = needsCat || needsAff;
-  const meta = [`<span class="m">${_uiIcon('calendar',13)}${fd(m.date)}</span>`];
-  if(m.cat) meta.push('<span class="mvph-sep">·</span>', `<span class="mvph-chip" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>`);
-  if(!needsAff) meta.push('<span class="mvph-sep">·</span>', `<span class="mvph-aff">${_mvAffLabel(m)}</span>`);
+  // Ligne 1 = logement (affectation) + date ; ligne 2 (en dessous) = type/catégorie.
+  const line1 = [];
+  if(!needsAff) line1.push(`<span class="mvph-aff">${_mvAffLabel(m)}</span>`, '<span class="mvph-sep">·</span>');
+  line1.push(`<span class="m">${_uiIcon('calendar',12)}${fd(m.date)}</span>`);
+  const catLine = m.cat ? `<div class="mvph-catline"><span class="mvph-chip" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span></div>` : '';
   const badges = [];
   if(needsCat) badges.push(`<span class="mvph-bdg act">${_uiIcon('warn',11)}À classer</span>`);
   if(needsAff) badges.push(`<span class="mvph-bdg act">${_uiIcon('warn',11)}Non affecté</span>`);
@@ -16239,14 +16244,13 @@ function _mvCardRowPhone(m, net){
   return `<tr class="mvph-row${todo?' todo':''}"><td colspan="7" class="mvph-cell">
     <div class="mvph-card" onclick="openEditMv(${m.id})">
       <div class="mvph-top">
-        <div class="mvph-body">
-          <div class="mvph-lib">${escHtml(m.lib||'—')}</div>
-          <div class="mvph-meta">${meta.join('')}</div>
-          ${badges.length?`<div class="mvph-badges">${badges.join('')}</div>`:''}
-        </div>
+        <div class="mvph-lib">${escHtml(m.lib||'—')}</div>
         <div class="mvph-amt ${net>=0?'pos':'neg'}">${net>=0?'+ ':'− '}${fmt(Math.abs(net))}</div>
+        <button type="button" class="mvph-more" aria-label="Plus d'actions" onclick="event.stopPropagation();this.closest('.mvph-card').classList.toggle('open')">${_uiIcon('dots',18)}</button>
       </div>
-      <button type="button" class="mvph-more" onclick="event.stopPropagation();this.closest('.mvph-card').classList.toggle('open')">${_uiIcon('dots',14)}Plus</button>
+      <div class="mvph-meta">${line1.join('')}</div>
+      ${catLine}
+      ${badges.length?`<div class="mvph-badges">${badges.join('')}</div>`:''}
       <div class="mvph-acts">
         <button type="button" onclick="event.stopPropagation();openSplitMvList(${m.id})">${_uiIcon('scissors',14)}Scinder</button>
         <button type="button" class="del" onclick="event.stopPropagation();delMv(${m.id})">${_uiIcon('trash',14)}Supprimer</button>
