@@ -4630,6 +4630,14 @@ const STD_CATEGORIES = [
 ];
 
 // Helper : retrouve la définition standard d'une catégorie par son nom
+// R0-D (AUDIT-GLOBAL) : le référentiel est exposé pour que js/main.js l’INJECTE dans les
+// classifieurs du module (source unique). Sans lui, le module retombe sur sa liste par défaut.
+// Figé (tableau ET entrées) : le référentiel est désormais joignable par tout script de la
+// page et relu à chaque classement. Aucun code ne le mute (vérifié) ; le gel interdit qu'un
+// script injecté reclasse de l'argent en poussant une catégorie ou en changeant une ligne 2044.
+STD_CATEGORIES.forEach(Object.freeze);
+window.STD_CATEGORIES = Object.freeze(STD_CATEGORIES);   // MÊME objet : une copie ferait diverger
+// le monolithe (qui lit la constante) et le module (qui lirait la copie) — R0-D reviendrait muet.
 function _stdCategoryByName(nom) {
   return STD_CATEGORIES.find(c => c.nom === nom);
 }
@@ -4771,38 +4779,11 @@ function _catIconHTML(nom) {
 // v15.291 : ligne 2044 d'une catégorie, source UNIFIÉE. STD figée d'abord, sinon les DEUX
 // magasins de mapping custom (catMapping = « Associer mes catégories » ; params.legal2044Mapping
 // = wizard 2044). Les deux coexistent dans l'app → on lit les deux pour ne rien rater.
-function _catLigne2044(cat) {
-  if (!cat) return null;
-  const std = _stdCategoryByName(cat);
-  if (std) return std.ligne2044 || null;
-  // M-1 : les ALIAS (catAlias {nom: mère}) priment — puis les 2 magasins legacy.
-  const al = (DB.catAlias || {})[cat];
-  if (al && typeof _stdCategoryByName === 'function') { const mere = _stdCategoryByName(al); if (mere) return mere.ligne2044 || null; }
-  const m = (DB.catMapping || {})[cat] || ((DB.params && DB.params.legal2044Mapping) || {})[cat] || null;
-  return (m === '__ignore') ? null : m; // '__ignore' = hors 2044 (cohérent avec _finCatLigne)
-}
-function _isLoyerCategory(cat) {
-  if (!cat) return false;
-  if (cat === 'Loyers') return true; // legacy v14.59
-  return _catLigne2044(cat) === '211';
-}
-function _isChargeRecupCategory(cat) {
-  if (!cat) return false;
-  if (cat === 'Charges') return true; // legacy v14.59
-  // v15.x FIX-REGUL-RECUP : la catégorie « Charges récupérables (eau, énergie…) » porte
-  // le flag recup (hors 2044, ligne vide). C'est l'intitulé que l'utilisateur tague à
-  // l'import pour l'eau/énergie. La régul DOIT la prendre — avant, ignorée (bug : charges
-  // récup jamais refacturées). Source unifiée avec js/core/utils.js + tests charges.test.js.
-  const std = _stdCategoryByName(cat);
-  if (std && std.recup) return true;
-  // M-1 : un ALIAS d'une catégorie récupérable hérite du flag de sa mère.
-  const al = (DB.catAlias || {})[cat];
-  if (al) { const mere = _stdCategoryByName(al); if (mere && mere.recup) return true; }
-  // 229 Provisions copro + 230 Régul N-1 = charges récupérables refacturables.
-  // 225 = part bailleur (non refacturable) → exclu. 224/221/223 = charges propriétaire → exclu.
-  const ln = _catLigne2044(cat);
-  return ln === '229' || ln === '230';
-}
+// R0-D (AUDIT-GLOBAL) : _catLigne2044 / _isLoyerCategory / _isChargeRecupCategory vivaient ICI en
+// double du module. js/main.js posait la version du module par-dessus, SANS le référentiel ni les
+// alias de l’app — une catégorie perso était comptée par Finances et ignorée par Loyers.
+// La logique vit maintenant dans js/core/utils.js (testée), et js/main.js l’expose en lui injectant
+// STD_CATEGORIES + DB.catAlias + les mappings legacy. Le monolithe ne fait plus qu’appeler.
 // Recette assimilée (ligne 213 : indemnités GLI, assurance, subventions, recettes diverses).
 function _isRecette213(cat) { return _catLigne2044(cat) === '213'; }
 // Catégories comptées dans le « réalisé » du dashboard : loyers (211) + (si réglage actif)
