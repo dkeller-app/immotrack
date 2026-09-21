@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.636</title>
+<title>Propryo v15.637</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.636">
+<link rel="stylesheet" href="css/main.css?v=15.637">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.636</em>
+      <em>v15.637</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.636';
+const IMMOTRACK_VERSION = '15.637';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -27110,6 +27110,9 @@ function rRegul() {
         n.lines.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(l=>`<div class="rg-trou-l">${escHtml(l.date||'')} · ${escHtml(l.lib||'')} · <b>${fmt(l.montant)}</b> <span class="mu sm">— ${escHtml(l.motif||'')}</span></div>`).join('')
       ).join('')}
       </div></details></div>` : '';
+  // TÉLÉPHONE (≤767) : KPIs compacts + décompte en CARTES (par immeuble → logements), à partir des
+  // mêmes données déjà calculées (items/totaux). Zéro calcul touché. PC (≥768) = chemin desktop ci-dessous.
+  if(_isPhone()){ _ensureRegulPhCss(); _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, bailleurArr); return; }
   // v15.63x REFONTE-PC Charges — tuile KPI « Part bailleur » retirée (doublon avec la carte détaillée
   // ci-dessous + la colonne matrice) → 3 tuiles pleines, bandeau .g3 équilibré. Décision Didier.
   el('reg-kpis').innerHTML=`
@@ -27221,6 +27224,152 @@ function rRegul() {
       <thead><tr><th>Immeuble / logement</th><th class="num">Provisions</th><th class="num">Charges réelles</th><th class="num">Solde</th><th></th></tr></thead>
       <tbody>${body || '<tr><td colspan="5" class="mu sm">Aucune donnée de régularisation sur la période.</td></tr>'}${totRow}</tbody>
     </table></div>` + bailleurCardsHtml;
+}
+
+/* ===== CHARGES MOBILE (≤767) — KPIs compacts + décompte en CARTES (par immeuble → logements).
+   Rendu additif branché sur _isPhone() dans rRegul ; réutilise items/totaux déjà calculés par
+   computeRegul (zéro calcul touché) + fmt/fd/_uiIcon + les actions existantes. PC (≥768) inchangé. ===== */
+function _ensureRegulPhCss(){
+  if(document.getElementById('regph-css')) return;
+  var st=document.createElement('style'); st.id='regph-css';
+  st.textContent=[
+    '@media(max-width:767px){',
+    '#p-regul #reg-imm{width:100%!important}',
+    /* contrôles compacts : sélecteur pleine largeur, dates + boutons secondaires en ligne (au lieu de 5 rangées) */
+    '#p-regul #p-regul-inner>.flex-b .btn{width:auto!important;flex:0 0 auto;font-size:12px;min-height:38px;padding:8px 12px}',
+    '#p-regul #p-regul-inner>.flex-b .flex-c{gap:8px}',
+    /* KPIs : #reg-kpis en rangée de 3 tuiles compactes (au lieu de 3 blocs géants) */
+    '#p-regul #reg-kpis{display:flex!important;gap:8px}',
+    '#p-regul .rgph-kpi{flex:1;min-width:0;background:var(--sur);border:1px solid var(--bor);border-radius:11px;padding:10px 6px;text-align:center}',
+    '#p-regul .rgph-kpi .v{font-family:var(--display,inherit);font-weight:800;font-size:15px;white-space:nowrap;font-variant-numeric:tabular-nums}',
+    '#p-regul .rgph-kpi .v.neg{color:var(--neg)}',
+    '#p-regul .rgph-kpi .v.pos{color:var(--pos)}',
+    '#p-regul .rgph-kpi .l{font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);margin-top:6px}',
+    /* en-tête immeuble */
+    '#p-regul .rgph-imh{display:flex;align-items:center;gap:7px;margin:14px 2px 8px}',
+    '#p-regul .rgph-imh .uicw{color:var(--t2);display:inline-flex}',
+    '#p-regul .rgph-imh .uic{width:15px;height:15px;flex:0 0 auto}',
+    '#p-regul .rgph-imh .nm{font-family:var(--display,inherit);font-weight:800;font-size:13.5px}',
+    '#p-regul .rgph-imh .occ{font-size:11px;color:var(--t3)}',
+    '#p-regul .rgph-bdg{margin-left:auto;display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:800;border-radius:999px;padding:3px 8px;white-space:nowrap}',
+    '#p-regul .rgph-bdg .uic{width:11px;height:11px;flex:0 0 auto}',
+    '#p-regul .rgph-bdg.ok{background:color-mix(in srgb,var(--pos) 14%,transparent);color:var(--pos)}',
+    '#p-regul .rgph-bdg.todo{background:color-mix(in srgb,var(--acc) 13%,transparent);color:var(--acc)}',
+    '#p-regul .rgph-bdg.wait{background:color-mix(in srgb,var(--info,#5b9bd5) 15%,transparent);color:var(--info,#5b9bd5)}',
+    '#p-regul .rgph-glob{display:inline-flex;align-items:center;gap:6px;margin:0 2px 10px;font:inherit;font-size:11.5px;font-weight:600;color:var(--t2);background:none;border:0;padding:0;cursor:pointer}',
+    '#p-regul .rgph-glob .uic{width:13px;height:13px}',
+    /* carte logement */
+    '#p-regul .rgph-lc{background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:11px 12px;margin-bottom:8px}',
+    '#p-regul .rgph-lc-top{display:flex;align-items:baseline;gap:7px}',
+    '#p-regul .rgph-ref{font-family:var(--display,inherit);font-weight:800;font-size:13.5px;flex:0 0 auto}',
+    '#p-regul .rgph-clos{font-size:9px;font-weight:800;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:5px;padding:2px 5px;flex:0 0 auto}',
+    '#p-regul .rgph-loc{flex:1;min-width:0;font-size:11.5px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '#p-regul .rgph-more{flex:0 0 auto;min-height:0;color:var(--t3);background:none;border:0;padding:2px;margin:-2px -4px -2px 0;cursor:pointer;display:inline-flex}',
+    '#p-regul .rgph-more .uic{width:18px;height:18px}',
+    '#p-regul .rgph-vals{display:flex;gap:10px;margin-top:9px}',
+    '#p-regul .rgph-v{flex:1;min-width:0}',
+    '#p-regul .rgph-v .k{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--t3)}',
+    '#p-regul .rgph-v .n{font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;margin-top:3px}',
+    '#p-regul .rgph-v.solde .n{font-weight:800}',
+    '#p-regul .rgph-v.solde .n.rest{color:var(--pos)}',
+    '#p-regul .rgph-v.solde .n.dem{color:var(--neg)}',
+    '#p-regul .rgph-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:5px;padding:2px 5px;margin-top:4px}',
+    '#p-regul .rgph-tag.rest{background:color-mix(in srgb,var(--pos) 14%,transparent);color:var(--pos)}',
+    '#p-regul .rgph-tag.dem{background:color-mix(in srgb,var(--neg) 13%,transparent);color:var(--neg)}',
+    '#p-regul .rgph-acts{display:flex;gap:7px;margin-top:11px}',
+    '#p-regul .rgph-acts button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;font:inherit;font-size:12px;font-weight:700;border-radius:9px;padding:9px 0;min-height:38px;cursor:pointer;border:1px solid var(--bor);background:var(--sur2);color:var(--t2)}',
+    '#p-regul .rgph-acts .uic{width:14px;height:14px;flex:0 0 auto}',
+    '#p-regul .rgph-acts .pri{background:var(--acc);color:#fff;border-color:var(--acc)}',
+    '#p-regul .rgph-acts button:disabled{opacity:.5}',
+    '#p-regul .rgph-moreacts{display:none;margin-top:7px}',
+    '#p-regul .rgph-lc.open .rgph-moreacts{display:block}',
+    '#p-regul .rgph-lc.open .rgph-more{color:var(--acc)}',
+    '#p-regul .rgph-moreacts button{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-size:12.5px;font-weight:700;border-radius:9px;padding:9px 0;min-height:40px;cursor:pointer;border:1px solid color-mix(in srgb,var(--acc) 40%,var(--bor));background:var(--sur);color:var(--acc)}',
+    '#p-regul .rgph-moreacts .uic{width:15px;height:15px;flex:0 0 auto}',
+    '#p-regul .rgph-total{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--sur2);border:1px solid var(--bor);border-radius:11px;padding:11px 13px;margin-top:4px;font-weight:700;font-size:12.5px;color:var(--t2)}',
+    '#p-regul .rgph-total b{font-family:var(--display,inherit);font-size:14px;white-space:nowrap}',
+    '#p-regul .rgph-total b.pos{color:var(--pos)}',
+    '#p-regul .rgph-total b.neg{color:var(--neg)}',
+    '#p-regul .rgph-empty{color:var(--t3);font-size:13px;text-align:center;padding:30px 16px}',
+    /* Part bailleur (compact, non récupérable / déductible 2044) */
+    '#p-regul .rgph-bail{margin-top:10px;background:var(--warn-soft,rgba(234,179,8,.1));border:1px solid var(--warn,#eab308);border-radius:12px;overflow:hidden}',
+    '#p-regul .rgph-bail>summary{list-style:none;display:flex;align-items:center;gap:8px;cursor:pointer;padding:11px 13px}',
+    '#p-regul .rgph-bail>summary::-webkit-details-marker{display:none}',
+    '#p-regul .rgph-bail>summary .uicw{color:var(--warn,#eab308);display:inline-flex;flex:0 0 auto}',
+    '#p-regul .rgph-bail>summary .uic{width:15px;height:15px}',
+    '#p-regul .rgph-bail>summary .tt{font-weight:700;font-size:12.5px;color:var(--t1);flex:1;min-width:0}',
+    '#p-regul .rgph-bail>summary .tt .sub{display:block;font-weight:500;font-size:10.5px;color:var(--t3)}',
+    '#p-regul .rgph-bail>summary>b{font-family:var(--display,inherit);font-size:14px;color:var(--warn,#eab308);white-space:nowrap}',
+    '#p-regul .rgph-bail-body{padding:0 13px 12px}',
+    '#p-regul .rgph-bail-imm{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--t1);border-top:1px solid var(--bor);padding:8px 0 4px;margin-top:4px}',
+    '#p-regul .rgph-bail-imm .amt{color:var(--warn,#eab308);white-space:nowrap}',
+    '#p-regul .rgph-bail-l{display:flex;align-items:baseline;gap:7px;font-size:11px;color:var(--t3);padding:3px 0}',
+    '#p-regul .rgph-bail-l .d{flex:0 0 auto;font-variant-numeric:tabular-nums}',
+    '#p-regul .rgph-bail-l .lib{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)}',
+    '#p-regul .rgph-bail-l .mo{color:var(--t3);font-style:italic}',
+    '#p-regul .rgph-bail-l b{flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--t2)}',
+    '#p-regul .rgph-bail-note{font-size:10.5px;color:var(--t3);margin:9px 0 0;line-height:1.4}',
+    '#p-regul .rgph-bail-note .uic{width:13px;height:13px;vertical-align:-2px}',
+    '}'
+  ].join('');
+  document.head.appendChild(st);
+}
+function _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, bailleurArr){
+  el('reg-kpis').innerHTML =
+      `<div class="rgph-kpi"><div class="v">${fmt(totProv)}</div><div class="l">Provisions</div></div>`
+    + `<div class="rgph-kpi"><div class="v neg">${fmt(totChar)}</div><div class="l">Charges réelles</div></div>`
+    + `<div class="rgph-kpi"><div class="v ${totSolde>=0?'pos':'neg'}">${totSolde>=0?'+':''}${fmt(totSolde)}</div><div class="l">Solde loc.</div></div>`;
+  const byImm={}; items.forEach(r=>{ const k=r.imm||'(sans immeuble)'; (byImm[k]=byImm[k]||[]).push(r); });
+  const immNames=Object.keys(byImm).sort((a,b)=>a.localeCompare(b));
+  let body='';
+  immNames.forEach(imNom=>{
+    const grp=byImm[imNom];
+    const imVal=_rgIsValidated(imNom);
+    let imBadge;
+    if(imVal){ imBadge=`<span class="rgph-bdg ok">${_uiIcon('check',12)}Émise</span>`; }
+    else { const _reg=(typeof _rgImmRegime==='function')?_rgImmRegime({imm:imNom,bail:{}}):{copro:false};
+      imBadge=_reg.copro
+        ? `<span class="rgph-bdg wait">${_uiIcon('hourglass',12)}Arrêté copro</span>`
+        : `<span class="rgph-bdg todo">${_uiIcon('warn',12)}À émettre</span>`; }
+    body+=`<div class="rgph-imh"><span class="uicw">${_uiIcon('building',15)}</span><span class="nm">${escHtml(imNom)}</span><span class="occ">${grp.length} occ.</span>${imBadge}</div>`;
+    body+=`<button type="button" class="rgph-glob" data-imm="${escHtml(imNom)}" onclick="_rgShowGlobal(this.dataset.imm)">${_uiIcon('search',13)}Vue globale (répartition par lot)</button>`;
+    grp.forEach(r=>{
+      const solde=r.provisions-r.charges;
+      const ek=escHtml(r.entryKey);
+      const parti=_rgIsParti(r) && !r.isHistorique;
+      const per=r.debutOcc?` · ${fd(r.debutOcc)} → ${fd(r.finOcc||to)}`:'';
+      const clos=r.isHistorique?`<span class="rgph-clos">Clôturé</span>`:'';
+      const tag=solde>=0?`<span class="rgph-tag rest">à restituer</span>`:`<span class="rgph-tag dem">à demander</span>`;
+      body+=`<div class="rgph-lc">
+        <div class="rgph-lc-top"><span class="rgph-ref">${escHtml(r.ref)}</span>${clos}<span class="rgph-loc">${escHtml(r.loc||'Vacant')}${per}</span>${parti?`<button type="button" class="rgph-more" aria-label="Plus d'actions" onclick="this.closest('.rgph-lc').classList.toggle('open')">${_uiIcon('dots',18)}</button>`:''}</div>
+        <div class="rgph-vals">
+          <div class="rgph-v"><div class="k">Provisions</div><div class="n">${fmt(r.provisions)}</div></div>
+          <div class="rgph-v"><div class="k">Charges réelles</div><div class="n">${fmt(r.charges)}</div></div>
+          <div class="rgph-v solde"><div class="k">Solde</div><div class="n ${solde>=0?'rest':'dem'}">${solde>=0?'+':''}${fmt(solde)}</div>${tag}</div>
+        </div>
+        <div class="rgph-acts">
+          <button type="button" class="pri" data-ek="${ek}" onclick="openRegulDoc(this.dataset.ek)">${_uiIcon('doc-text',14)}Décompte</button>
+          <button type="button" data-ek="${ek}" ${imVal?'':'disabled title="Valide l\'immeuble (Vue globale) avant d\'envoyer"'} onclick="envoyerDecompteParEmail(this.dataset.ek)">${_uiIcon('mail',14)}Envoyer</button>
+        </div>
+        ${parti?`<div class="rgph-moreacts"><button type="button" data-ek="${ek}" onclick="_rgClotureLocataire(this.dataset.ek)">${_uiIcon('flag',14)}Clôturer le partant</button></div>`:''}
+      </div>`;
+    });
+  });
+  const total=`<div class="rgph-total"><span>TOTAL — solde net locataires</span><b class="${totSolde>=0?'pos':'neg'}">${totSolde>=0?'+':''}${fmt(totSolde)}</b></div>`;
+  // Part bailleur (charges non récupérables — déductibles 2044) : version mobile compacte (lignes empilées, pas de tableau large).
+  const bArr=bailleurArr||[];
+  const totBail=bArr.reduce((s,b)=>s+(b.total||0),0);
+  let bailHtml='';
+  if(bArr.length){
+    const imms=bArr.map(b=>{
+      const segs=(b.segments||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''))
+        .map(seg=>`<div class="rgph-bail-l"><span class="d">${escHtml(fd(seg.date)||'—')}</span><span class="lib">${escHtml(seg.lib||'')}${seg.motif?` <span class="mo">— ${escHtml(seg.motif)}</span>`:''}</span><b>${fmt(seg.montant)}</b></div>`).join('');
+      return `<div class="rgph-bail-imm"><b>${escHtml(b.imm)}</b><b class="amt">${fmt(b.total)}</b></div>${segs}`;
+    }).join('');
+    bailHtml=`<details class="rgph-bail"><summary><span class="uicw">${_uiIcon('bank',15)}</span><span class="tt">Part bailleur <span class="sub">non récupérable · déductible 2044</span></span><b>${fmt(totBail)}</b></summary>`
+      + `<div class="rgph-bail-body">${imms}<p class="rgph-bail-note">${_uiIcon('bulb',13)} Non refacturé aux locataires (vacance, lots exclus). À reporter en 2044 (ligne 224/227).</p></div></details>`;
+  }
+  el('reg-cards').innerHTML = nonRepBanner + (body ? `<div class="rgph-list">${body}${total}${bailHtml}</div>` : `<div class="rgph-empty">Aucune donnée de régularisation sur la période.</div>${bailHtml}`);
 }
 
 function selectAllRegul() {
