@@ -30,15 +30,19 @@
 //
 // 🚨 IMPORTANT : tant que l'inline existe ENCORE dans index-test.html, le code
 // inline s'exécute AVANT main.js (qui est en `defer` implicite via type="module").
-// Donc l'inline gagne. La ré-écriture par main.js arrive après, mais c'est
-// IDEMPOTENT puisqu'on définit la même version (source unique).
+// Donc l'inline gagne. La ré-écriture par main.js arrive après.
+// ⚠️ R0-D (AUDIT-GLOBAL) : cette ré-écriture n'est PAS idempotente par défaut. Elle ne l'est que
+// si le module reçoit le même contexte que l'inline. Ça n'a pas été le cas pour les classifieurs
+// de catégorie : le module posait son référentiel par défaut par-dessus celui de l'app et faisait
+// disparaître la résolution d'alias. Toute globale exportée ici qui dépend de `DB` ou d'une
+// constante du monolithe doit donc être ENVELOPPÉE avec son contexte, jamais assignée nue.
 
 import {
   escHtml, _esc, _h, _raw,
   _validateHC, _validateHCCH, _outlierVsMedian,
   _isDpeClassValide, _bailGelDpeFG, _dpeExpire, _estRevisableIRL,
   _dpeInterditLocationAuDate, _dpeInterdictionCalendrier,
-  _isLoyerCategory, _isChargeRecupCategory,
+  _catLigne2044, _isLoyerCategory, _isChargeRecupCategory, catCtxFromDb, appDbFrom, makeCatCtxCache,
   _bailEstActifAt, _loyerHCAtDate, _chargesAtDate, _loyerProrataMois, _loyerProrataMoisSplit
 } from './core/utils.js';
 
@@ -340,8 +344,46 @@ window._estRevisableIRL = _estRevisableIRL;
 // v15.05 Sprint 7 V1.1 LEGAL-DPE-INTERDICTION-LOCATION
 window._dpeInterditLocationAuDate = _dpeInterditLocationAuDate;
 window._dpeInterdictionCalendrier = _dpeInterdictionCalendrier;
-window._isLoyerCategory = _isLoyerCategory;
-window._isChargeRecupCategory = _isChargeRecupCategory;
+// R0-D (AUDIT-GLOBAL) — Les classifieurs de catégorie reçoivent le VRAI contexte de l'app.
+// Avant : `window._isLoyerCategory = _isLoyerCategory` posait la version du module avec son
+// référentiel par défaut (8 entrées codées en dur, AUCUNE résolution d'alias) PAR-DESSUS la
+// version inline du monolithe, qui résolvait `DB.catAlias` et les mappings legacy. Résultat :
+// un encaissement rangé dans une catégorie PERSO (règle M-1 : toute catégorie perso est un alias
+// d'une mère) était compté par Finances et ignoré par Loyers, le suivi et la quittance.
+// Maintenant : la logique vit dans le module (source unique), le contexte est INJECTÉ à l'appel
+// — même patron que `_loyerHCAtDate` ci-dessous et que `_computeFinancesMonthly`.
+// Le contexte est relu à CHAQUE appel : `DB` change (hydratation cloud, restauration, import).
+// La construction du contexte vit dans le module testé (`catCtxFromDb`) : c'est le pont qui
+// était cassé, il ne doit pas retourner vivre dans du câblage non couvert.
+// Mémoïsé sur `_dbGen` : ces classifieurs tournent dans des boucles sur `DB.mouvements`
+// (mesuré dans l'app : 52 ms par rendu sur un parc courant, 488 ms à 200 catégories, sans cache).
+const _catCtxRead = makeCatCtxCache();
+let _stdCatsWarned = false, _dbWarned = false;
+const _catCtxApp = () => {
+  const W = (typeof window !== 'undefined') ? window : {};
+  // Repli SILENCIEUX interdit, des DEUX côtés : sans le référentiel, le module retombe sur sa
+  // liste par défaut (8 entrées, aucun alias) ; sans le DB, il perd `catAlias` et les mappings.
+  // Les deux produisent le MÊME état dégradé — l'état du bug R0-D. Donc les deux crient.
+  // Drapeau testé EN PREMIER : ces gardes tournent à chaque classification, donc dans des boucles
+  // sur `DB.mouvements`. Une fois le warn tiré, on ne doit plus rien évaluer.
+  if (!_stdCatsWarned && !Array.isArray(W.STD_CATEGORIES)) {
+    _stdCatsWarned = true;
+    console.warn('[R0-D] window.STD_CATEGORIES absent : les catégories personnalisées ne seront pas reconnues (classement des loyers et des charges dégradé).');
+  }
+  // NB : en pratique ce warn est quasi inatteignable — `index.html:4570-4573` pose
+  // `window.__immoGetDB = () => DB` juste après `let DB = {}`, donc le getter répond toujours un
+  // objet truthy. Il ne tire que si le getter JETTE et que le miroir `window.DB` est absent. L'état
+  // vraiment dégradé (« DB présent mais vide ») est indiscernable d'un compte neuf : rien de mieux
+  // n'est détectable ici. On le garde comme filet, pas comme couverture.
+  if (!_dbWarned && typeof W.__immoGetDB === 'function' && !appDbFrom(W)) {
+    _dbWarned = true;
+    console.warn('[R0-D] aucun DB vivant : les catégories personnalisées ne seront pas reconnues (classement des loyers et des charges dégradé).');
+  }
+  return _catCtxRead(W);
+};
+window._catLigne2044 = (cat) => _catLigne2044(cat, _catCtxApp());
+window._isLoyerCategory = (cat) => _isLoyerCategory(cat, _catCtxApp());
+window._isChargeRecupCategory = (cat) => _isChargeRecupCategory(cat, _catCtxApp());
 window._bailEstActifAt = _bailEstActifAt;
 // _loyerHCAtDate : signature module = (log, dateRef, irlHistorique). On wrappe
 // pour que window._loyerHCAtDate(log, dateRef) consomme DB.irlHistorique global

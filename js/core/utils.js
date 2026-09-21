@@ -203,26 +203,177 @@ function _findStd(stdCats, nom) {
   return (stdCats || STD_CATEGORIES_DEFAULT).find(c => c.nom === nom);
 }
 
+/**
+ * R0-D (AUDIT-GLOBAL) — Normalise le 2e argument des classifieurs.
+ *
+ * Deux formes acceptées, pour que l'app injecte son VRAI contexte sans casser les appelants
+ * historiques (même patron d'injection que `_computeFinancesMonthly`, qui reçoit `catLigne`) :
+ *   - `Array`  → référentiel seul (forme historique des tests) ;
+ *   - `Object` → `{ stdCats, alias, mapping }` — le contexte complet de l'app :
+ *       `alias`   = `DB.catAlias`   (règle M-1 : toute catégorie perso est un alias d'une mère),
+ *       `mapping` = `DB.catMapping` ou `params.legal2044Mapping` ('__ignore' = hors 2044).
+ *
+ * Sans argument, on retombe sur le référentiel par défaut — suffisant pour les libellés
+ * standard, jamais pour une catégorie perso : c'est précisément pourquoi l'app doit injecter.
+ */
+function _catCtx(arg) {
+  if (Array.isArray(arg)) return { stdCats: arg, alias: null, mapping: null };
+  if (arg && typeof arg === 'object') {
+    return {
+      stdCats: Array.isArray(arg.stdCats) ? arg.stdCats : STD_CATEGORIES_DEFAULT,
+      alias: arg.alias || null,
+      mapping: arg.mapping || null
+    };
+  }
+  return { stdCats: STD_CATEGORIES_DEFAULT, alias: null, mapping: null };
+}
+
+/** Lecture de table SÛRE : une clé héritée (`toString`, `constructor`…) ne doit rien rattacher. */
+function _own(obj, key) {
+  return (obj && Object.prototype.hasOwnProperty.call(obj, key)) ? obj[key] : undefined;
+}
+
+/**
+ * Catégorie mère d'un nom : hit direct dans le référentiel, sinon résolution d'alias.
+ * Le hit STD prime : le référentiel est figé, un alias ne peut pas remapper une mère.
+ * Renvoie l'entrée du référentiel, ou undefined.
+ */
+function _catMere(cat, ctx) {
+  const std = _findStd(ctx.stdCats, cat);
+  if (std) return std;
+  const al = _own(ctx.alias, cat);
+  return al ? _findStd(ctx.stdCats, al) : undefined;
+}
+
+/**
+ * R0-D — LE PONT app→module : construit le contexte de classification depuis `DB`.
+ *
+ * Il vit ICI, dans le module testé, et non dans le câblage de `js/main.js` : c'est
+ * exactement ce pont qui était cassé, il doit donc être couvert par des tests.
+ *
+ * Deux points de fidélité à l'ancien inline du monolithe, non négociables :
+ *  - **repli CLÉ PAR CLÉ** : l'ancien écrivait `catMapping[cat] || legal2044Mapping[cat]`.
+ *    Une valeur FALSY dans `catMapping` laissait donc le wizard 2044 reprendre la main.
+ *    Une fusion d'objets naïve (`Object.assign`) casse ça et fait disparaître un loyer.
+ *  - **prototype nul** : `Object.assign` déclenche le *setter* `__proto__`, si bien qu'un
+ *    snapshot hostile (`JSON.parse('{"__proto__":{"Ma cat":"211"}}')`) reclasserait une
+ *    catégorie en loyer par la chaîne de prototypes. `Object.create(null)` l'interdit.
+ *
+ * @param {object} db      DB de l'app (catAlias, catMapping, params.legal2044Mapping)
+ * @param {Array} stdCats  référentiel réel de l'app (STD_CATEGORIES)
+ */
+/**
+ * R0-D — Le DB VIVANT de l'app.
+ *
+ * Piège : `DB` est déclaré en `let` au niveau d'un script classique du monolithe. Il vit donc dans
+ * l'environnement LEXICAL global et n'est **pas** une propriété de `window` — `window.DB` est un
+ * simple miroir posé par `__immoSetDB` (chemin cloud), absent en session locale et périmé dès que
+ * le `let DB` est réassigné (import, restauration, hydratation).
+ *
+ * Lire `window.DB` donne donc `undefined` la plupart du temps, et le classement retombe
+ * silencieusement sans alias : c'est très exactement le bug R0-D, reconduit par sa propre
+ * correction. Le dépôt a déjà le bon geste (`js/app/supabase-entry.js:65-66`) : le getter vivant.
+ *
+ * @param {object} win objet global (injecté pour être testable)
+ * @returns {object|null}
+ */
+export function appDbFrom(win) {
+  const W = win || null;
+  if (!W) return null;
+  if (typeof W.__immoGetDB === 'function') {
+    // Le getter fait AUTORITÉ, y compris quand il répond « pas de DB ». `window.DB` est un miroir
+    // posé par `__immoSetDB` que RIEN n'efface à la déconnexion ni au changement d'espace : lui
+    // préférer le miroir reviendrait à classer avec le `catAlias` d'un AUTRE espace.
+    try { return W.__immoGetDB() || null; } catch (e) { return W.DB || null; }
+  }
+  return W.DB || null;   // index.html sans le getter (ancien) → miroir, faute de mieux
+}
+
+export function catCtxFromDb(db, stdCats) {
+  const D = db || {};
+  const legal = (D.params && D.params.legal2044Mapping) || {};
+  const cm = D.catMapping || {};
+  const mapping = Object.create(null);
+  for (const k of Object.keys(legal)) { if (legal[k]) mapping[k] = legal[k]; }
+  for (const k of Object.keys(cm)) { if (cm[k]) mapping[k] = cm[k]; }
+  return {
+    stdCats: Array.isArray(stdCats) ? stdCats : undefined,
+    alias: D.catAlias || null,
+    mapping
+  };
+}
+
+/**
+ * Ligne 2044 d'une catégorie — LE résolveur unique (remplace la copie inline du monolithe).
+ * Ordre : nom exact → alias vers une mère → mapping legacy ('__ignore' ⇒ hors 2044, donc null).
+ */
+export function _catLigne2044(cat, arg) {
+  if (!cat) return null;
+  const ctx = _catCtx(arg);
+  const mere = _catMere(cat, ctx);
+  if (mere) return mere.ligne2044 || null;
+  const m = _own(ctx.mapping, cat) || null;
+  return (m === '__ignore') ? null : m;
+}
+
+/**
+ * R0-D — Fabrique un lecteur de contexte MÉMOÏSÉ sur `_dbGen`.
+ *
+ * Pourquoi : les classifieurs tournent dans des `.filter()` sur `DB.mouvements`, une dizaine de
+ * boucles par rendu d'Accueil. Reconstruire le mapping à chaque appel coûte, mesuré dans l'app :
+ * 52 ms sur un parc courant (25 catégories × 2 000 mouvements), 488 ms à 200 catégories — soit du
+ * jank visible, justement sur le profil « parc importé avec beaucoup de catégories perso » que ce
+ * correctif vise. L'ancien inline, lui, faisait deux accès de propriété.
+ *
+ * `_dbGen` est le signal d'invalidation du dépôt (bumpé par `saveDB`, `__immoSetDB`, la
+ * restauration), déjà utilisé pour mémoïser le statut des loyers et Finances — on le réutilise,
+ * on n'en invente pas un autre.
+ *
+ * **Sans `_dbGen`, on ne mémoïse jamais** : la justesse prime sur la vitesse.
+ */
+export function makeCatCtxCache() {
+  let gen = null, db = null, ctx = null;
+  return function (win) {
+    const W = win || null;
+    const d = appDbFrom(W);
+    // NaN !== NaN : pas de `_dbGen` ⇒ la comparaison échoue toujours ⇒ reconstruction à chaque appel.
+    const g = (W && typeof W._dbGen === 'number') ? W._dbGen : NaN;
+    // L'IDENTITÉ de l'objet DB compte autant que la génération : l'adoption cross-onglet
+    // (`index.html:59394`) fait `DB = newDB` puis REND, sans bumper `_dbGen`. Sans cette
+    // comparaison, on classerait le nouvel état avec l'ancienne table d'alias — R0-D, reconduit
+    // par le cache censé accélérer sa correction. Couvre aussi les autres réassignations de `DB`.
+    if (ctx !== null && g === gen && d === db) return ctx;
+    ctx = catCtxFromDb(d, W && W.STD_CATEGORIES);
+    gen = g; db = d;
+    return ctx;
+  };
+}
+
 /** True si cette catégorie compte comme "loyer encaissé" pour la régul. */
-export function _isLoyerCategory(cat, stdCats = STD_CATEGORIES_DEFAULT) {
+export function _isLoyerCategory(cat, arg) {
   if (!cat) return false;
   if (cat === 'Loyers') return true;
-  const std = _findStd(stdCats, cat);
-  if (std && std.type === 'recette' && std.ligne2044 === '211') return true;
-  return false;
+  const ctx = _catCtx(arg);
+  const mere = _catMere(cat, ctx);
+  if (mere) return mere.type === 'recette' && mere.ligne2044 === '211';
+  // Pas de mère connue : seul le mapping legacy peut encore rattacher à la ligne 211.
+  return _catLigne2044(cat, arg) === '211';
 }
 
 /** True si cette catégorie compte comme "charge récupérable" refacturable. */
-export function _isChargeRecupCategory(cat, stdCats = STD_CATEGORIES_DEFAULT) {
+export function _isChargeRecupCategory(cat, arg) {
   if (!cat) return false;
   if (cat === 'Charges') return true;
-  const std = _findStd(stdCats, cat);
+  const std = _catMere(cat, _catCtx(arg));
   // v15.x FIX-REGUL-RECUP : la catégorie « Charges récupérables (eau, énergie…) »
   // porte le flag recup (hors 2044). C'est l'intitulé que l'utilisateur tague à
   // l'import pour l'eau/énergie. La régul DOIT la prendre (avant : ignorée car ligne vide).
   if (std && std.recup) return true;
-  if (std && (std.ligne2044 === '229' || std.ligne2044 === '230')) return true;
-  return false;
+  // 229 Provisions copro + 230 Régul N-1 = récupérables. 225 = part bailleur (non refacturable),
+  // 221/223/224 = charges propriétaire → exclus. On passe par le résolveur de ligne pour attraper
+  // aussi les catégories rattachées par le MAPPING legacy, pas seulement par leur nom ou leur alias.
+  const ln = _catLigne2044(cat, arg);
+  return ln === '229' || ln === '230';
 }
 
 // ────────────────────────────────────────────────────────────────────────────
