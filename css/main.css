@@ -9177,7 +9177,7 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 /* v15.614 REFONTE-PC — sous plein desktop (≤1279px) la rangée passe en 2 lignes :
    infos en haut, actions LIBELLÉES sur leur propre ligne pleine largeur → jamais de débordement
    ni de badges écrasés, quelle que soit la largeur de la fenêtre. */
-@media (min-width: 481px) and (max-width: 1279px) {
+@media (min-width: 768px) and (max-width: 1279px) {
   .loc-card-row-b {
     grid-template-columns: 36px minmax(0, 1fr) auto auto;
     grid-template-areas:
@@ -9254,6 +9254,63 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   .loc-actions-b button {
     flex: 1; min-height: 44px; padding: 12px; font-size: 13px; font-weight: 600;
   }
+}
+
+/* MOBILE ≤767 (téléphone/tablette portrait) : mêmes cartes empilées Locataires que ≤480,
+   pour aligner sur la frontière mobile de l'app (avant, 481-767 restait en grille 2 lignes).
+   On ne touche PAS le bloc ≤480 (qui porte aussi la fiche immeuble) ni le PC (≥768). */
+@media (min-width: 481px) and (max-width: 767px) {
+  .locimm-block-b-header { position: sticky; top: 0; z-index: 5; padding: 10px 12px; font-size: 12.5px; }
+  .loc-card-row-b {
+    display: block; padding: 12px 14px;
+    border: 1px solid var(--bor, #e5e7eb); border-radius: 8px;
+    margin: 8px 10px; background: var(--sur, #fff);
+  }
+  .loc-avatar-b { float: left; margin: 0 10px 6px 0; width: 36px; height: 36px; font-size: 13px; }
+  .loc-info-b { overflow: hidden; }
+  .loc-info-b .nom-b { font-size: 14px; white-space: normal; }
+  .loc-info-b .meta-b { font-size: 11.5px; white-space: normal; }
+  .loc-loyer-b, .loc-ech-b, .loc-meta-bail-b {
+    clear: left; display: flex; justify-content: space-between;
+    margin-top: 8px; padding: 4px 0; border-bottom: 1px solid var(--sur2, #f3f4f6);
+    font-size: 12.5px;
+  }
+  .loc-loyer-b:before { content: '💰 Loyer'; font-weight: 500; color: var(--t2, #6b7280); }
+  .loc-ech-b:before { content: '📅 Échéance'; font-weight: 500; color: var(--t2, #6b7280); }
+  .loc-meta-bail-b:before { content: 'ℹ Bail'; font-weight: 500; color: var(--t2, #6b7280); }
+  .loc-actions-b { display: flex; gap: 8px; margin-top: 10px; }
+  .loc-actions-b button { flex: 1; min-height: 44px; padding: 12px; font-size: 13px; font-weight: 600; }
+}
+
+/* MOBILE ≤767 : onglet Historique — le tableau 7 colonnes devient des cartes (rendu JS
+   par rBauxHistorique quand _isPhone()). PC (≥768) = tableau inchangé. */
+@media (max-width:767px){
+  #baux-tab-historique .tbl-wrap{overflow:visible;border:0;background:none;box-shadow:none}
+  #baux-tab-historique thead{display:none}
+  #baux-tab-historique table.tbl,#baux-tab-historique .tbl tbody{display:block;width:auto}
+  #baux-tab-historique #baux-hist-tbody > tr{display:block}
+  #baux-tab-historique #baux-hist-tbody > tr > td{display:block;padding:0;border:0}
+  .bxh-card{background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:11px 12px;margin-bottom:8px}
+  .bxh-top{display:flex;align-items:center;gap:8px}
+  .bxh-ref{font-family:var(--display,inherit);font-weight:800;font-size:13.5px;flex:0 0 auto}
+  .bxh-loc{flex:1;min-width:0;font-size:12.5px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bxh-more{flex:0 0 auto;min-height:0;color:var(--t3);background:none;border:0;padding:2px;margin:-2px -4px -2px 0;cursor:pointer;display:inline-flex}
+  .bxh-more svg{width:18px;height:18px}
+  .bxh-per{display:flex;align-items:center;gap:6px;margin-top:6px;color:var(--t3);font-size:11.5px}
+  .bxh-per svg{width:12px;height:12px;flex:0 0 auto}
+  .bxh-motif{display:inline-block;font-size:10px;font-weight:600;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:6px;padding:3px 7px;margin-top:7px}
+  .bxh-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--t3)}
+  .bxh-foot .dg{display:inline-flex;align-items:center;gap:4px}
+  .bxh-foot .dg.ok{color:var(--pos)}
+  .bxh-foot .dg svg{width:12px;height:12px}
+  .bxh-acts{display:flex;gap:7px;margin-top:11px}
+  .bxh-acts button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;font:inherit;font-size:12px;font-weight:700;border-radius:9px;padding:9px 0;min-height:38px;cursor:pointer;border:1px solid var(--bor);background:var(--sur2);color:var(--t2)}
+  .bxh-acts svg{width:14px;height:14px;flex:0 0 auto}
+  .bxh-moreacts{display:none;margin-top:7px}
+  .bxh-card.open .bxh-moreacts{display:block}
+  .bxh-card.open .bxh-more{color:var(--acc)}
+  .bxh-moreacts button{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-size:12.5px;font-weight:700;border-radius:9px;padding:9px 0;min-height:40px;cursor:pointer;border:1px solid color-mix(in srgb,var(--red) 35%,var(--bor));background:var(--sur);color:var(--red)}
+  .bxh-moreacts svg{width:15px;height:15px}
 }
 
 /* ════════════════════ LOG-CANDIDATS — Onglet Candidats (variante B) ════════════════════
