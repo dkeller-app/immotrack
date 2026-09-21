@@ -94,3 +94,8 @@ apply_new_row.bat
 # Diagrammes audit (Mermaid sources + PNG rendus, pas de données perso)
 !docs/audit/diagrams/**
 actes/
+
+# Securite : artefacts locaux JAMAIS versionnes (bail signe reel, scripts de mot de passe de test)
+_recovery-bail-signe/
+_setpass-test0.mjs
+_definir-mdp-test0.bat

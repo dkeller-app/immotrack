@@ -107,6 +107,7 @@ describe('rImmFiche — le hero rend bien ses KPI et ses boutons (régression C1
       _currentImmFicheTab: 'logements', _immVueFrise: false,
       // helpers
       escHtml: (x) => String(x == null ? '' : x),
+      _lyQ: (x) => String(x == null ? '' : x),   // P0-2 : rImmFiche route ses handlers via _lyQ (global en prod)
       fmt: (n) => String(n) + ' €',
       fmtN: (n) => String(n),
       _frAttr: (x) => String(x),
@@ -179,7 +180,7 @@ describe('rImmFiche — le hero rend bien ses KPI et ses boutons (régression C1
         nbLogs: 5, nbCompteCharges: 4, occupes: 4, vacance: 1, vacancePct: 20, occupCls: '', loyerHC: 0,
         activeLogs: [{ ref: 'A' }], archivedLogs: [],
         _currentImmFicheTab: 'logements', _immVueFrise: false,
-        escHtml: (x) => String(x == null ? '' : x), fmt: String, fmtN: String, _frAttr: String,
+        escHtml: (x) => String(x == null ? '' : x), _lyQ: (x) => String(x == null ? '' : x), fmt: String, fmtN: String, _frAttr: String,
         _renderOccupationDonut: () => '', _renderFichePastilles: () => '',
         _renderImmBatiPastille: () => '', _attCount: () => 0, _renderAttachmentSection: () => '',
         _renderImmFichePanelCharges: () => '<div class="cc-grid"></div>',
