@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.646</title>
+<title>Propryo v15.647</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.646">
+<link rel="stylesheet" href="css/main.css?v=15.647">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.646</em>
+      <em>v15.647</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.646';
+const IMMOTRACK_VERSION = '15.647';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7528,14 +7528,15 @@ function _docPrintSandboxed(corps, titre, hauteurPx, css) {
 function _docCarteCss() {
   return '.pro-doc{background:#fff;max-width:600px;margin:0 auto;padding:26px 32px;box-shadow:0 2px 12px rgba(0,0,0,.09)}';
 }
-// La carte + ce que l'avenant seul ajoute. `.av-todo` porte le rouge italique des `‹à compléter›` :
-// c'est le signal qui fait repérer un champ manquant AVANT de générer un acte opposable.
+// La carte + LA SEULE règle que l'avenant émet vraiment. `.av-todo` (posé par
+// `js/core/avenant.js:32`) porte le rouge italique des `‹à compléter›` : c'est le signal qui
+// fait repérer un champ manquant AVANT de générer un acte opposable.
+// Les règles `.alerte` / `.grid2` / `.sig-bloc` qui vivaient ici sont parties : elles
+// n'étaient émises que par l'ACTE DE CAUTIONNEMENT (`:50813` et suivants), qui sort encore
+// par sa propre fenêtre et ne passe pas par ce cadre. Les garder ici laissait croire
+// l'inverse à qui lirait ce lot ; elles reviendront AVEC le cautionnement, s'il y passe.
 function _avenantFrameCss() {
-  return _docCarteCss()
-    + '.av-todo{color:#c2472f;font-style:italic;font-weight:600}'
-    + '.pro-doc .alerte{background:#fff8ef;border:1px solid #f0c987;border-radius:8px;padding:8px 11px;margin:8px 0;font-size:10.5px;line-height:1.5;color:#6b4610}'
-    + '.pro-doc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}'
-    + '.pro-doc .sig-bloc{border:1px solid #b8c0cd;border-radius:6px;min-height:70px;padding:6px;margin-top:4px;font-size:10px;color:#8b94a5}';
+  return _docCarteCss() + '.av-todo{color:#c2472f;font-style:italic;font-weight:600}';
 }
 function _docCss() {
   return window.DocTemplate ? window.DocTemplate.docCss() : '';
@@ -26465,7 +26466,7 @@ function _rgOpenDecompteEstimatif(entryKey){
     </div>
   </div>`;
   const box = el('regul-doc-content');
-  if(box){ openM('ov-regul-doc'); _docRenderSandboxed(box, html, 'Décompte estimatif'); }   // DOC-3 : ouvrir AVANT de rendre
+  if(box){ openM('ov-regul-doc'); _docRenderSandboxed(box, html, 'Décompte estimatif', _docCarteCss()); }   // DOC-3 : ouvrir AVANT de rendre
   else if(typeof showToast==='function') showToast('Aperçu indisponible','err');
 }
 
@@ -27710,7 +27711,7 @@ function _openRegulDoc(entryKeys, from, to) {
     return built.html;
   });
   openM('ov-regul-doc');   // DOC-3 : ouvrir AVANT de rendre (mesure du cadre sandboxé)
-  _docRenderSandboxed(el('regul-doc-content'), parts.join('') || '<p class="mu">Aucune donnée</p>', 'Décompte de régularisation');
+  _docRenderSandboxed(el('regul-doc-content'), parts.join('') || '<p class="mu">Aucune donnée</p>', 'Décompte de régularisation', _docCarteCss());
   // DOC-3 : le décompte pose `pageBreakAfter:'always'` pour donner UNE PAGE PAR DESTINATAIRE.
   // Ces sauts vivent désormais dans un document imbriqué : ils ne peuvent plus piloter la
   // pagination de la page parente. On retient le nombre pour AVERTIR à l'impression plutôt que
@@ -27892,7 +27893,7 @@ function printRegulDoc() {
   if (!corps) { showToast('Document indisponible — rouvrir le décompte', 'err'); return; }
   const nbDest = (host && host._docNbDest) || 1;
   if (nbDest > 1 && !confirm2('Ce décompte couvre ' + nbDest + ' destinataires. À l’impression, une page par destinataire n’est pas garantie — la sortie PDF la respecte. Imprimer quand même ?')) return;
-  _docPrintSandboxed(corps, 'Décompte charges', fr ? parseInt(fr.style.height, 10) : 0);
+  _docPrintSandboxed(corps, 'Décompte charges', fr ? parseInt(fr.style.height, 10) : 0, _docCarteCss());
 }
 </script>
 <script>
@@ -30515,7 +30516,7 @@ function previewIRLLetter(ref) {
   // DOC-3 : la lettre est un document `.pro-doc` comme les autres — elle passe par le cadre
   // isolé. Et on OUVRE AVANT DE RENDRE : le cadre se mesure, une modale cachée mesure 0.
   openM('ov-irl-lettre');
-  _docRenderSandboxed(dst, html, 'Lettre de révision IRL');
+  _docRenderSandboxed(dst, html, 'Lettre de révision IRL', _docCarteCss());
 }
 
 // v14.58 — Aperçu IRL depuis la fiche logement (force la modale, même desktop)
@@ -30535,7 +30536,7 @@ function previewIRLLetterFromLog(ref) {
     return;
   }
   openM('ov-irl-lettre');   // DOC-3 : ouvrir AVANT de rendre
-  _docRenderSandboxed(dst, src.innerHTML, 'Lettre de révision IRL');
+  _docRenderSandboxed(dst, src.innerHTML, 'Lettre de révision IRL', _docCarteCss());
 }
 
 /**
@@ -30625,7 +30626,7 @@ ${_dt('docLignes', [
 ${_dt('docMention', `Réf. : art. 17-1, loi n° 89-462 du 6/7/1989 — Indices INSEE série 001515333, hexagone, base 100 = T4 1998.<br>
       À défaut de révision notifiée dans l'année suivant sa date d'effet, le bailleur est réputé avoir renoncé à la révision (art. 17-1 al. 3).`)}
 
-      <p>Nous vous prions d'agréer, ${_civConge(bail?.locataires)} l'expression de nos salutations distinguées.</p>
+      <p>Nous vous prions d'agréer, ${escHtml(_civConge(bail?.locataires))} l'expression de nos salutations distinguées.</p>
 
 ${_dt('docLieu', `Fait le ${dateLettre}`)}
 ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: `Le bailleur<br><b>${escHtml(ent?.gerant||ent?.nom||'')}</b>` }])}`;
@@ -30951,7 +30952,7 @@ function printIRLLetter() {
   const html = _irlLetterHtml || (host && host._docHtml) || '';
   if(!html.trim()) { showToast('Aucune lettre ouverte', 'err'); return; }
   const fr = host ? host.querySelector('iframe.doc-sandbox') : null;
-  _docPrintSandboxed(html, 'Lettre IRL', fr ? parseInt(fr.style.height, 10) : 0);
+  _docPrintSandboxed(html, 'Lettre IRL', fr ? parseInt(fr.style.height, 10) : 0, _docCarteCss());
 }
 
 
