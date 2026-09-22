@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.655</title>
+<title>Propryo v15.652</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.655">
+<link rel="stylesheet" href="css/main.css?v=15.652">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.655</em>
+      <em>v15.652</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.655';
+const IMMOTRACK_VERSION = '15.652';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -5303,10 +5303,10 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 
 <h2>4 — Durée du bail</h2>
 <p><strong>Nature du contrat :</strong> {{TYPE_CONTRAT_DETAIL}}.</p>
-<p>Le présent contrat est conclu pour une durée initiale de <strong>{{DUREE_BAIL}}</strong> à compter du <strong>{{DATE_DEBUT}}</strong> et prendra fin le <strong>{{DATE_FIN}}</strong>. Cette durée de 6 ans s'applique conformément à l'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).</p>
+<p>Le présent contrat est conclu pour une durée initiale de <strong>{{DUREE_BAIL}}</strong> à compter du <strong>{{DATE_DEBUT}}</strong> et prendra fin le <strong>{{DATE_FIN}}</strong>. {{DUREE_PHRASE}}</p>
 <h3>Congé au cours du bail</h3>
 <p>Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de <strong>trois (3) mois</strong>, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.</p>
-<p>Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l'AAH ; obtient un logement social ; réside en zone tendue.</p>
+<p>{{PREAVIS_REDUIT}}</p>
 <p>Le BAILLEUR n'aura aucune faculté de résilier le contrat par anticipation. Il n'aura que le droit d'en demander la résiliation judiciaire pour inexécution d'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.</p>
 <h3>Congé à l'expiration du bail</h3>
 <p>La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins <strong>six (6) mois</strong> avant l'échéance si le congé émane du BAILLEUR, et <strong>trois (3) mois</strong> avant si le congé émane du LOCATAIRE.</p>
@@ -21078,7 +21078,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
       // Bail nu (cas par défaut)
       { type:'h3', text:'Congé au cours du bail' },
       { type:'p', text:'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.' },
-      { type:'p', text:'Ce délai est réduit à un (1) mois si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.' },
+      // Art. 15-I dans les termes de la loi, depuis le module : c'est le document SIGNÉ, il ne
+      // peut pas énoncer une condition que la loi n'impose plus (cf. `preavisReduitClause`).
+      { type:'p', text:(typeof window.preavisReduitClause==='function')
+        ? window.preavisReduitClause(false)
+        : 'Ce délai est réduit à un (1) mois dans les cas prévus à l\'article 15-I de la loi n° 89-462 du 6 juillet 1989.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation. Il n\'aura que le droit d\'en demander la résiliation judiciaire pour inexécution d\'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Congé à l\'expiration du bail' },
       { type:'p', text:'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins six (6) mois avant l\'échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE.' },
@@ -22178,7 +22182,7 @@ function previewBailData(bail, log, ref, opts) {
     +pz(2)+'</div>';
 
   const p3 = '<div class="bail-page" id="page-3">'
-    +'<p>Ce d\u00e9lai est r\u00e9duit \u00e0 <strong>un (1) mois</strong> si le LOCATAIRE\u00a0: est mut\u00e9 ou perd involontairement son emploi\u00a0; obtient un premier emploi\u00a0; est \u00e2g\u00e9 de plus de 60 ans et son \u00e9tat de sant\u00e9 n\u00e9cessite un changement de domicile\u00a0; b\u00e9n\u00e9ficie du RSA ou de l\u2019AAH\u00a0; obtient un logement social\u00a0; r\u00e9side en zone tendue.</p>'
+    +'<p>'+((typeof window.preavisReduitClause==='function')?window.preavisReduitClause(true):'Ce d\u00e9lai est r\u00e9duit \u00e0 <strong>un (1) mois</strong> dans les cas pr\u00e9vus \u00e0 l\u2019article 15-I de la loi n\u00b0 89-462 du 6 juillet 1989.')+'</p>'
     +'<p>Le BAILLEUR n\u2019aura aucune facult\u00e9 de r\u00e9silier le contrat par anticipation. Il n\u2019aura que le droit d\u2019en demander la r\u00e9siliation judiciaire pour inex\u00e9cution d\u2019une des conditions des pr\u00e9sentes, sauf b\u00e9n\u00e9fice de la clause r\u00e9solutoire ci-apr\u00e8s.</p>'
     +'<h3>Cong\u00e9 \u00e0 l\u2019expiration du bail</h3>'
     +'<p>La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommand\u00e9e avec avis de r\u00e9ception ou acte de commissaire de justice, au moins <strong>six (6) mois</strong> avant l\u2019\u00e9ch\u00e9ance si le cong\u00e9 \u00e9mane du BAILLEUR, et <strong>trois (3) mois</strong> avant si le cong\u00e9 \u00e9mane du LOCATAIRE.</p>'
@@ -24733,6 +24737,16 @@ async function _congeSortiePdf(ref){
 function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef, villeSig, mode) {
   // Utilise le template stocké dans DB.templates.bail (éditable par l'utilisateur)
   let tmpl = (DB.templates && DB.templates.bail) ? DB.templates.bail : BAIL_TEMPLATE_DEFAULT;
+  // Le modèle est ÉDITABLE et stocké tel quel. Un utilisateur qui l'a enregistré avant ce
+  // correctif garde donc, dans son contrat, deux clauses juridiquement fausses : une condition
+  // d'âge que l'art. 15-I n'impose pas, et une durée de « 6 ans, personne morale (SCI) » plaquée
+  // sur un bailleur particulier. On ne réécrit PAS ses données — c'est son document — mais on ne
+  // peut pas non plus imprimer sciemment une clause fausse. On remonte donc les deux phrases
+  // périmées vers leurs jetons AU MOMENT DU RENDU, par correspondance EXACTE (jamais approchée :
+  // une phrase qu'il aurait réellement retouchée lui appartient et reste intacte).
+  tmpl = tmpl
+    .replace('Cette durée de 6 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).', '{{DUREE_PHRASE}}')
+    .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}');
 
   const S = s => escHtml(String(s==null?'':s));
   const fd2 = s => s ? fd(s) : '—';
@@ -24888,6 +24902,18 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
       ? 'Renouvellement du contrat de bail (art. 10 et 17-2 loi n° 89-462 du 6 juillet 1989)'
       : 'Contrat initial (art. 10 loi n° 89-462 du 6 juillet 1989)',
     'DUREE_BAIL': (()=>{ const ent2=DB.entites.find(e=>e.nom===bail.entity)||{}; return /personne physique|perso/i.test(ent2.type||'') ? '3 (trois) ans' : '6 (six) ans'; })(),
+    // La PHRASE qui justifie la durée était figée en dur dans le modèle : « Cette durée de 6 ans
+    // s'applique …, le bailleur étant une personne morale (SCI) ». Pour un bailleur particulier,
+    // le même paragraphe annonçait donc « durée initiale de 3 ans » PUIS « cette durée de 6 ans …
+    // personne morale » — contradictoire, et faux pour la majorité des utilisateurs. Le PDF signé
+    // branchait correctement depuis toujours (`buildBailStructure`) : seul l'export Word mentait.
+    'DUREE_PHRASE': (()=>{ const ent2=DB.entites.find(e=>e.nom===bail.entity)||{}; return /personne physique|perso/i.test(ent2.type||'')
+      ? 'Cette durée de 3 ans s’applique conformément à l’article 10 de la loi du 6 juillet 1989, le bailleur étant une personne physique.'
+      : 'Cette durée de 6 ans s’applique conformément à l’article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).'; })(),
+    // La clause de préavis réduit vient du module (art. 15-I verbatim), plus du corps du modèle.
+    'PREAVIS_REDUIT': (typeof window.preavisReduitClause==='function')
+      ? window.preavisReduitClause(true)
+      : 'Ce délai est réduit à <strong>un (1) mois</strong> dans les cas prévus à l’article 15-I de la loi n° 89-462 du 6 juillet 1989.',
     'MODALITE_PAIEMENT': bail.modalitePaiement==='echeoir'
       ? 'à terme à échoir (paiement en début de période)'
       : 'à terme échu (paiement en fin de période)',

@@ -23,11 +23,49 @@ export const CONGE_MOTIFS = [
 // Bénéficiaires possibles d'une reprise (art. 15-I).
 export const REPRISE_LIENS = ['le bailleur lui-même', 'son conjoint', 'son partenaire de PACS', 'son concubin notoire (depuis au moins 1 an)', 'un ascendant', 'un descendant', 'un ascendant ou descendant du conjoint / partenaire / concubin'];
 // Cas de préavis RÉDUIT à 1 mois pour le locataire d'un bail nu (art. 15-I).
+// ⚠️ « État de santé » NE PORTE AUCUNE CONDITION D'ÂGE. L'entrée disait « Plus de 65 ans et état
+// de santé » : les 65 ans sont le seuil de l'art. 15-III (protection du locataire âgé contre un
+// congé du bailleur), qui n'a rien à voir avec le préavis réduit. Un bailleur qui lisait cette
+// liste écartait le bon cas pour un locataire de 50 ans muni d'un certificat médical — et lui
+// réclamait trois mois de préavis au lieu d'un.
 export const CONGE_CAS_REDUITS = [
   'Aucun (préavis plein)', 'Zone tendue', 'Mutation professionnelle', 'Perte d\'emploi',
-  'Premier emploi', 'Nouvel emploi consécutif à une perte', 'Plus de 65 ans et état de santé',
+  'Premier emploi', 'Nouvel emploi consécutif à une perte', 'État de santé (certificat médical)',
   'Bénéficiaire du RSA', 'Bénéficiaire de l\'AAH', 'Attribution d\'un logement social', 'Victime de violences conjugales'
 ];
+
+/**
+ * Les SIX cas de préavis réduit à un mois, dans les termes de la loi.
+ * Copiés depuis la version consolidée EN VIGUEUR (Légifrance, LEGIARTI000047900030, art. 15-I).
+ *
+ * Pourquoi ils vivent ICI et plus dans le corps du bail : la même phrase existait en TROIS
+ * exemplaires (modèle Word éditable, générateur du PDF signé, copie en dur), tous les trois
+ * périmés de la même façon — ils exigeaient d'avoir « plus de 60 ans » pour le cas de l'état de
+ * santé, condition supprimée de la loi, omettaient le certificat médical qu'elle exige, et
+ * ignoraient purement le cas des violences au sein du couple.
+ *
+ * Un bail qui énonce une condition que la loi n'impose pas n'est pas un détail de rédaction :
+ * le locataire qui s'y fie donne trois mois de préavis au lieu d'un, et paie deux mois de loyer
+ * qu'il ne devait pas.
+ */
+export const PREAVIS_REDUIT_CAS = [
+  'sur les territoires mentionnés au premier alinéa de l\'article 17 (zone tendue)',
+  'en cas d\'obtention d\'un premier emploi, de mutation, de perte d\'emploi ou de nouvel emploi consécutif à une perte d\'emploi',
+  'pour le locataire dont l\'état de santé, constaté par un certificat médical, justifie un changement de domicile',
+  'pour le locataire bénéficiaire d\'une ordonnance de protection ou dont le conjoint, partenaire lié par un pacte civil de solidarité ou concubin fait l\'objet de poursuites, d\'une procédure alternative aux poursuites ou d\'une condamnation, même non définitive, en raison de violences exercées au sein du couple ou sur un enfant qui réside habituellement avec lui',
+  'pour les bénéficiaires du revenu de solidarité active ou de l\'allocation adulte handicapé',
+  'pour le locataire qui s\'est vu attribuer un logement défini à l\'article L. 831-1 du code de la construction et de l\'habitation'
+];
+
+/**
+ * La clause du bail énonçant le préavis réduit. UNE source, trois consommateurs.
+ * @param {boolean} [gras] true = le « un (1) mois » en <strong> (corps HTML du bail) ;
+ *                         false = texte nu (générateur PDF, qui pose ses propres styles).
+ */
+export function preavisReduitClause(gras) {
+  const mois = gras ? '<strong>un (1) mois</strong>' : 'un (1) mois';
+  return 'Ce délai est réduit à ' + mois + ' : ' + PREAVIS_REDUIT_CAS.join(' ; ') + '.';
+}
 
 /**
  * Les CINQ alinéas de l'art. 15-II que la loi impose de reproduire « à peine de nullité dans chaque
