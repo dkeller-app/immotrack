@@ -104,7 +104,7 @@ describe('messageMentionsManquantes — dire ce qui manque, ce que ça coûte, e
     expect(msg).toMatch(/NUL/);
     expect(msg).toMatch(/15-II/);
     expect(msg).toMatch(/Générer le PDF quand même/);
-    expect(msg).toMatch(/pas opposable/);
+    expect(msg).toMatch(/sans effet : le bail se poursuivrait/);
   });
 
   it('accorde le pluriel plutôt que d’écrire « 1 mentions »', () => {
@@ -115,7 +115,7 @@ describe('messageMentionsManquantes — dire ce qui manque, ce que ça coûte, e
   it('sans mention fatale : on signale, on ne parle pas de nullité', () => {
     const msg = messageMentionsManquantes(mentionsManquantes(M('montant')), 'Générer le PDF');
     expect(msg).not.toMatch(/NUL/);
-    expect(msg).not.toMatch(/opposable/);
+    expect(msg).not.toMatch(/sans effet/);
     expect(msg).toMatch(/Générer le PDF quand même \?/);
   });
 

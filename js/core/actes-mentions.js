@@ -15,9 +15,12 @@
  * l'utilisateur, comme pour l'avenant (`avenantChampsManquants`) — l'app alerte, elle n'interdit
  * pas. Mais elle ne laisse plus passer en silence.
  *
- * ⚠️ Le marqueur `‹…›` est réservé À CET USAGE dans tout le dépôt (vérifié : 10 occurrences,
- * toutes des champs vides). Si un texte légal venait un jour à employer des guillemets simples,
- * il faudrait changer de marqueur — pas assouplir cette détection.
+ * ⚠️ CE QUI PROTÈGE CETTE DÉTECTION, ce n'est pas la rareté du caractère : `›` est au contraire
+ * très répandu dans l'INTERFACE (chevrons de fil d'Ariane, « Continuer › », `content:'›'` en CSS).
+ * C'est qu'on exige une PAIRE `‹…›`, et qu'aucun chevron de l'interface n'atteint le DOCUMENT :
+ * `_docPage` et `letterToProDoc` n'en produisent aucun. Quiconque ajouterait un chevron dans le
+ * gabarit de document casserait donc un garde-fou légal sans s'en apercevoir. Si cela arrive,
+ * changer de marqueur — jamais assouplir cette détection.
  */
 
 /** Un marqueur = un chevron simple ouvrant, du texte sans chevron, un chevron fermant. */
@@ -31,7 +34,8 @@ const RE_MARQUEUR = /‹([^›]{1,150})›/g;
 const NULLITE = {
   'prix': 'art. 15-II de la loi du 6 juillet 1989 : le prix de la vente doit figurer dans le congé, à peine de nullité',
   'conditions': 'art. 15-II de la loi du 6 juillet 1989 : les conditions de la vente doivent figurer dans le congé, à peine de nullité',
-  'bénéficiaire': 'art. 15-I de la loi du 6 juillet 1989 : le congé pour reprise doit désigner le bénéficiaire, à peine de nullité',
+  'bénéficiaire': 'art. 15-I de la loi du 6 juillet 1989 : le congé pour reprise doit indiquer les nom et adresse du bénéficiaire ainsi que la nature du lien avec le bailleur, à peine de nullité',
+  'adresse du bénéficiaire': 'art. 15-I de la loi du 6 juillet 1989 : le congé pour reprise doit indiquer les nom et ADRESSE du bénéficiaire, à peine de nullité',
   'description du motif légitime et sérieux': 'art. 15-I de la loi du 6 juillet 1989 : le motif du congé doit être énoncé, à peine de nullité'
 };
 
@@ -108,8 +112,13 @@ export function messageMentionsManquantes(mentions, verbe) {
     for (const a of autres) lignes.push('• ‹' + a.marqueur + '›');
   }
   lignes.push('');
+  // « Inopposable » serait FAUX, et plus rassurant que la réalité : un acte inopposable vaut
+  // entre les parties et ne peut qu'être invoqué contre un tiers, alors qu'un congé nul n'a
+  // AUCUN effet — le bail se poursuit. On dit donc la conséquence, pas le terme de droit.
+  // (Les quatre mentions fatales connues sont toutes des mentions de CONGÉ. Le jour où un autre
+  //  acte en porte une, cette conséquence devra descendre dans la table `NULLITE`.)
   lignes.push(graves.length
-    ? ((verbe || 'Continuer') + ' quand même ? Le document produit ne serait pas opposable.')
+    ? ((verbe || 'Continuer') + ' quand même ? Le congé serait sans effet : le bail se poursuivrait.')
     : ((verbe || 'Continuer') + ' quand même ?'));
   return lignes.join('\n');
 }

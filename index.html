@@ -24521,10 +24521,20 @@ function _avenantSave(ref){
 // téléchargement ; téléphone = feuille de partage native). PAS de fenêtre d'impression.
 async function _avenantSortiePdf(ref){
   ref=ref||(el('ov-avenant-ref')?el('ov-avenant-ref').value:_avenantState.ref);
-  if(!_avenantChampsOk(_avenantCollect(),'Générer le PDF')) return;
+  var _avObjets=_avenantCollect();
+  var _avManqueChamps=((typeof window.avenantChampsManquants==='function')?window.avenantChampsManquants(_avObjets):[])||[];
+  if(!_avenantChampsOk(_avObjets,_acteVerbePdf())) return;
   var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
   var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
   var docHtml=_avenantDocPageHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
+  // FILET, et seulement un filet. `_avenantChampsOk` vérifie les CHAMPS DU FORMULAIRE, et il est
+  // plus précis que nous (il nomme l'objet ET le champ). Mais il a des trous : `avenantChampsManquants`
+  // ne connaît ni la destination des lieux, ni le jour et le mode de paiement, ni la mention de
+  // l'ancienne clause — que `buildAvenantHtml` marque pourtant « ‹à compléter› ». Ces cas-là
+  // partaient en PDF sans un mot, sur un acte contractuel signable.
+  // ⚠️ On ne parle QUE s'il s'est tu : deux questions d'affilée sur le même trou, formulées
+  // différemment, apprennent à cliquer sans lire — et c'est la première qu'on cesse de lire.
+  if(!_avManqueChamps.length && !_acteMentionsOk(docHtml,_acteVerbePdf())) return;
   if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
   await _pdfSortie({
     fileName:'Avenant_n'+_avenantState.no+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf',
@@ -24557,7 +24567,7 @@ function _congeExtra(ref){
   if(_congeState.kind==='conge_bailleur'){
     var motif=v('cg-motif')||'reprise';
     e.motifConge = motif==='vente'?'vente':motif==='legitime'?'motif légitime et sérieux':'reprise';
-    if(motif==='reprise') e.motifDetail='Reprise du logement pour l\'habiter, au bénéfice de '+(v('cg-benef')||'‹bénéficiaire›')+' ('+(v('cg-lien')||'le bailleur lui-même')+').';
+    if(motif==='reprise') e.motifDetail='Reprise du logement pour l\'habiter, au bénéfice de '+(v('cg-benef')||'‹bénéficiaire›')+', demeurant '+(v('cg-benefadr')||'‹adresse du bénéficiaire›')+' ('+(v('cg-lien')||'le bailleur lui-même')+').';
     else if(motif==='vente') e.motifDetail='Vente du logement, au prix de '+(v('cg-prix')||'‹prix›')+' € — conditions : '+(v('cg-cond')||'‹conditions›')+'.\n\nConformément à l\'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d\'un droit de préemption aux prix et conditions indiqués ci-dessus. Les termes des cinq alinéas de l\'article 15-II, dont la reproduction est imposée à peine de nullité, figurent en annexe du présent congé.';
     else e.motifDetail=(v('cg-legitime')||'‹description du motif légitime et sérieux›');
     // Préavis bailleur (6 mois nu / 3 meublé) : la date d'effet doit être un TERME qui respecte
@@ -24600,7 +24610,10 @@ function _congeDocHtml(ref){
   return _docPage(ent,{titre:TIT[_congeState.kind],ctx:LEG[_congeState.kind],corps:corps,ref:escHtml(ref),date:'',withStyle:false});
 }
 function _congeSubBailleur(motif){
-  if(motif==='reprise') return _congeField('cg-benef','Bénéficiaire de la reprise','text','')+_congeField('cg-lien','Lien avec le bailleur',null,null,(window.REPRISE_LIENS||[]));
+  // L'art. 15-I exige « les nom ET ADRESSE du bénéficiaire de la reprise ainsi que la nature du
+  // lien », à peine de nullité. L'adresse n'était collectée nulle part : le congé partait sans
+  // elle, donc nul, et rien ne le signalait. Elle a son champ, et son marqueur quand elle manque.
+  if(motif==='reprise') return _congeField('cg-benef','Bénéficiaire de la reprise','text','')+_congeField('cg-benefadr','Adresse du bénéficiaire','text','')+_congeField('cg-lien','Lien avec le bailleur',null,null,(window.REPRISE_LIENS||[]));
   if(motif==='vente') return _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
   return _congeField('cg-legitime','Description du motif légitime et sérieux','text','');
 }
@@ -24674,6 +24687,12 @@ function _congeOpen(ref){
 // pas chargé (mode file://, service-worker périmé), on refuse quand même, avec un message plus
 // pauvre. Un garde-fou légal qui s'évapore en silence quand un script manque n'est pas un
 // garde-fou — cf. la règle « pas de repli qui dégrade sans le dire ».
+// Le verbe de la question doit être CELUI DU BOUTON qu'on vient de cliquer : sur téléphone le
+// bouton propose « Partager le PDF », et demander « Générer le PDF quand même ? » fait douter
+// d'avoir cliqué au bon endroit — au pire moment, celui où il faut lire la question.
+function _acteVerbePdf(){
+  return (typeof _edlPrefersShare==='function' && _edlPrefersShare()) ? 'Partager le PDF' : 'Télécharger le PDF';
+}
 function _acteMentionsOk(docHtml, verbe){
   if(!docHtml || String(docHtml).indexOf('‹')===-1) return true;   // aucun marqueur : rien à dire
   var msg;
@@ -24697,7 +24716,7 @@ async function _congeSortiePdf(ref){
   var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
   var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
   var docHtml=_congeDocHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
-  if(!_acteMentionsOk(docHtml,'Générer le PDF')) return;
+  if(!_acteMentionsOk(docHtml,_acteVerbePdf())) return;
   if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
   var noms={conge_bailleur:'Conge-bailleur',conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};
   await _pdfSortie({ fileName:noms[_congeState.kind]+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf', desc:'PDF (acte)', genererAvant:true,

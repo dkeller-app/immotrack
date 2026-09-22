@@ -51,7 +51,8 @@ describe('DOC-C — la sortie PDF du congé est gardée', () => {
 
   it('un refus interrompt réellement la fonction', () => {
     // `_acteMentionsOk(...)` dont on ignorerait le résultat serait un garde-fou décoratif.
-    expect(codeSeul(corpsDe(html, '_congeSortiePdf'))).toMatch(/if\s*\(\s*!\s*_acteMentionsOk\([^)]*\)\s*\)\s*return/);
+    // (Les arguments peuvent contenir un appel imbriqué — `_acteVerbePdf()` — donc pas de `[^)]*`.)
+    expect(codeSeul(corpsDe(html, '_congeSortiePdf'))).toMatch(/if\s*\(\s*!\s*_acteMentionsOk\([\s\S]*?\)\s*return/);
   });
 });
 
@@ -60,21 +61,41 @@ describe('DOC-C — le garde-fou survit à l’absence de js/main.js', () => {
     expect(corpsDe(html, '_acteMentionsOk')).toBeTruthy();
   });
 
-  it('il possède une branche de repli qui ne dépend d’aucun module', () => {
-    const code = codeSeul(corpsDe(html, '_acteMentionsOk'));
-    // Le repli détecte le marqueur lui-même (chevron simple) sans passer par window.*
-    expect(code).toMatch(/\\u203[9a]|‹|›/);
-    expect(code, 'aucune branche else : le garde-fou disparaît si le module manque').toMatch(/}\s*else\s*{/);
+  /**
+   * ISOLE la branche `else` — et seulement elle.
+   *
+   * La première version de ces tests interrogeait le corps ENTIER : le chevron y était déjà
+   * (sortie anticipée), et l'ancre `$` d'un `return true` cherchait la fin de chaîne, pas la fin
+   * de branche. Résultat : neutraliser complètement le repli laissait les trois assertions
+   * VERTES. Un audit l'a prouvé en exécutant la mutation. C'est le défaut que ces tests étaient
+   * censés empêcher, commis dans les tests eux-mêmes.
+   */
+  function brancheRepli(code) {
+    const i = code.indexOf('} else {');
+    if (i === -1) return null;
+    const debut = i + '} else {'.length;
+    const fin = code.indexOf('\n  }', debut);          // la fermeture de la branche, indentée
+    return fin === -1 ? null : code.slice(debut, fin);
+  }
+
+  it('il possède une branche de repli, et elle détecte le marqueur SANS aucun module', () => {
+    const repli = brancheRepli(codeSeul(corpsDe(html, '_acteMentionsOk')));
+    expect(repli, 'aucune branche else : le garde-fou disparaît si le module manque').toBeTruthy();
+    expect(repli, 'le repli ne cherche pas le marqueur').toMatch(/[‹›]/);
+    expect(repli, 'le repli passe par window.* — il ne remplace donc rien').not.toMatch(/window\./);
   });
 
   it('le repli aboutit à la MÊME question, pas à un passage silencieux', () => {
     const code = codeSeul(corpsDe(html, '_acteMentionsOk'));
-    // `confirm2` doit être atteignable depuis les deux branches : une seule occurrence en
-    // sortie commune, ou une par branche. Ce qui est interdit, c'est un `return true` nu
-    // dans la branche sans module.
-    const apresElse = code.slice(code.indexOf('} else {'));
-    expect(apresElse).not.toMatch(/return\s+true\s*;?\s*}\s*$/);
-    expect(code).toMatch(/confirm2\(/);
+    const repli = brancheRepli(code);
+    expect(repli).toBeTruthy();
+    // La branche doit CONSTRUIRE le message. Un repli neutralisé (`return true`) n'écrit plus
+    // `msg`, quelle que soit la forme qu'on lui donne — c'est l'invariant qui mord vraiment.
+    // (Un `return true` y est légitime quand aucun marqueur n'est trouvé : il ne faut pas poser
+    //  une question qui n'a pas lieu d'être. On ne peut donc pas interdire le mot lui-même.)
+    expect(repli, 'le repli ne construit plus de message : il laisse passer en silence').toMatch(/msg\s*=/);
+    // Et la question finale doit rester atteignable après la branche.
+    expect(code).toMatch(/return\s+confirm2\(/);
   });
 });
 
