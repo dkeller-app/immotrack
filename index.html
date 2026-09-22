@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.640</title>
+<title>Propryo v15.641</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.640">
+<link rel="stylesheet" href="css/main.css?v=15.641">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.640</em>
+      <em>v15.641</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.640';
+const IMMOTRACK_VERSION = '15.641';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7154,7 +7154,7 @@ function _buildPresentielProof(bail) {
       role = 'locataire';
       when = sig.signedLocataireAt || sig.signedAt || null;
     }
-    return { nom, role, signedAt: when, luApprouve: !!luBy[sigId] };   // pas d'email/OTP/IP ni pdfSha256 (présentiel)
+    return { sigId, nom, role, mode: 'presentiel', signedAt: when, luApprouve: !!luBy[sigId] };   // signature en présence : pas d'email/OTP/IP ni pdfSha256
   });
 }
 
@@ -8302,7 +8302,13 @@ async function _sha256Hex(buf) {
 // Certificat de preuve PDF (fichier A4 SÉPARÉ, lisible). Champs alignés sur le DTO de preuve réel
 // du relais (pdfSha256 par signataire, consentElectronic, luApprouve, openedAt, readCompletedAt).
 async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, opts) {
-  const _presentiel = !!(opts && opts.presentiel);   // présentiel = signature en présence : pas de relais/serveur → libellés « mode » + empreinte adaptés
+  // Mode du DOCUMENT déduit des signataires (chaque item `proof` porte son `mode`). Bail MIXTE
+  // (présentiel in-app + distant) → 'mixte'. Repli legacy (proof sans `mode`) : opts.presentiel.
+  const _modes = (proof || []).map(p => p && p.mode).filter(Boolean);
+  const _hasP = _modes.indexOf('presentiel') >= 0, _hasD = _modes.indexOf('distance') >= 0;
+  const _docMode = _modes.length ? ((_hasP && _hasD) ? 'mixte' : (_hasP ? 'presentiel' : 'distance'))
+                                 : ((opts && opts.presentiel) ? 'presentiel' : 'distance');
+  const _presentielOnly = _docMode === 'presentiel';   // seul le présentiel PUR = empreinte « calculée par l'app »
   const PDFLib = await _loadPdfLib();
   const doc = await PDFLib.PDFDocument.create();
   let page = doc.addPage([595.28, 841.89]); // A4 pt
@@ -8351,13 +8357,16 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
   line('Bailleur : ' + (_entCert.nom || bail.entity || '-'));
   line('Bail : ' + (bail.ref || ''));
   line('Date de completion : ' + (completedAt ? new Date(completedAt) : new Date()).toLocaleString('fr-FR'));
-  line('Mode : ' + (_presentiel ? 'signature manuscrite en presence (presentiel)' : 'signature electronique a distance (verification email/OTP + relais)'));
-  line('Empreinte SHA-256 du bail signe (' + (_presentiel ? 'calculee' : 'scellee') + ' a la signature, hors present certificat) :', 10);
+  line('Mode : ' + (_docMode === 'mixte' ? 'mixte (signature en presence + signature electronique a distance)'
+                    : _docMode === 'presentiel' ? 'signature manuscrite en presence (presentiel)'
+                    : 'signature electronique a distance (verification email/OTP + relais)'));
+  line('Empreinte SHA-256 du bail signe (' + (_presentielOnly ? 'calculee' : 'scellee') + ' a la signature, hors present certificat) :', 10);
   line(contentHash || '', 8);
-  line(_presentiel ? 'Calculee par l\'application au moment de la signature (signature en presence).' : 'Attestee par le serveur au moment de la signature (cf. empreinte par signataire ci-dessous).', 7); y -= 10;
+  line(_presentielOnly ? 'Calculee par l\'application au moment de la signature (signature en presence).' : 'Attestee par le serveur au moment de la signature (cf. empreinte par signataire ci-dessous).', 7); y -= 10;
   line('Signataires :', 13, true); y -= 4;
   (proof || []).forEach(p => {
     line('- ' + (p.nom || '') + ' (' + (p.role || '') + ')', 11, true);
+    if (p.mode) line('   mode : ' + (p.mode === 'presentiel' ? 'signature manuscrite en presence' : 'signature electronique a distance (email/OTP)'), 9);
     if (p.email) line('   email : ' + p.email + (p.emailVerifiedAt ? ' - verifie le ' + p.emailVerifiedAt : ''), 9);
     if (p.otpVerifiedAt) line('   identite verifiee par code (' + (p.otpChannel || 'email') + ') le ' + p.otpVerifiedAt, 9);
     line('   signe le : ' + (p.signedAt || '-') + (p.ip ? ' - IP ' + p.ip : ''), 9);
@@ -8468,7 +8477,7 @@ async function _completeRemoteSign(ref, state) {
   // 2) Dossier de preuve par signataire : identite (sigId/nom/email) depuis rs.signers (local,
   //    matche par ordre 1-based), preuve cryptographique depuis ss.proof (relais). Le relais ne
   //    renvoie NI sigId NI nom NI email (emailHash only) NI sigHash (mais pdfSha256).
-  const proof = (state.signers || []).map(ss => {
+  const distantProof = (state.signers || []).map(ss => {
     const local = rs.signers[(ss.ordre || 0) - 1] || {};
     const pr = ss.proof || {};
     return {
@@ -8477,6 +8486,7 @@ async function _completeRemoteSign(ref, state) {
       nom: local.nom || pr.signerName || null,
       email: local.email || null,
       ordre: ss.ordre || null,
+      mode: 'distance',
       emailVerifiedAt: ss.emailVerifiedAt || pr.emailVerifiedAt || null,
       otpVerifiedAt: ss.otpVerifiedAt || pr.otpVerifiedAt || null,   // OTP : email CONTRÔLÉ (code saisi)
       otpChannel: ss.otpChannel || pr.otpChannel || null,
@@ -8490,6 +8500,17 @@ async function _completeRemoteSign(ref, state) {
       pdfSha256: pr.pdfSha256 || null
     };
   });
+  // BAIL MIXTE — les signataires EN PRÉSENCE (in-app, ex. bailleur) ont signé AVANT l'envoi distant et
+  // vivent dans bail.signatures (finales/luApprouveBy), pas dans la session relais. Sans ça ils
+  // MANQUERAIENT au certificat (défaut légal). On les reconstruit (mode 'presentiel') et on les place
+  // EN TÊTE (ordre réel : présentiels puis distants). PAS de dédup par sigId : présentiels et distants
+  // sont des INDIVIDUS DISJOINTS (un signataire signe soit en présence soit à distance, jamais les deux),
+  // et les sigId distants sont re-numérotés PARMI les distants → ils entreraient en collision avec
+  // l'index plein des présentiels (ex. 2 colocataires : le présentiel 'loc-0' serait exclu à tort par le
+  // distant 'loc-0'). Appel gardé sur finales non vide → le chemin 100 % distant ne dépend pas du module
+  // signataires (évite un throw de _bailBailleurSigners qui différerait la complétion).
+  const _hasPresentiel = Object.keys((bail.signatures && bail.signatures.finales) || {}).length > 0;
+  const proof = (_hasPresentiel ? _buildPresentielProof(bail) : []).concat(distantProof);
   // 3) Certificat de preuve PDF (fichier separe). completedAt FIGÉ ici et réutilisé pour signatures.signedAt
   //    → le certificat (originel ET régénéré via _regenBailCertificate) affiche TOUJOURS la même date.
   const completedAt = new Date().toISOString();
