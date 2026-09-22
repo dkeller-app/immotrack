@@ -122,6 +122,10 @@ import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './cor
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants } from './core/avenant.js';
 import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege } from './core/conge.js';
+
+// DOC-C — un acte ne part pas en PDF avec ses trous. Détection des mentions restées vides dans
+// le document RENDU, et fondement légal quand l'absence emporte nullité (art. 15-I / 15-II).
+import { mentionsManquantes, emporteNullite, messageMentionsManquantes } from './core/actes-mentions.js';
 import { MF_SEUIL, MF_ABATTEMENT, evaluerMicroFoncier } from './core/micro-foncier.js';
 
 import {
@@ -638,6 +642,9 @@ window.CONGE_CAS_REDUITS = CONGE_CAS_REDUITS;
 window.ART15_II_ALINEAS = ART15_II_ALINEAS;
 window.letterToProDoc = letterToProDoc;
 window.art15IIProDoc = art15IIProDoc;
+window.mentionsManquantes = mentionsManquantes;
+window.emporteNullite = emporteNullite;
+window.messageMentionsManquantes = messageMentionsManquantes;
 window.congeBailleurPreavisMois = congeBailleurPreavisMois;
 window.congeLocatairePreavis = congeLocatairePreavis;
 window.congeAddMois = congeAddMois;
