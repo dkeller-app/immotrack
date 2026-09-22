@@ -9703,3 +9703,6 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
    (div/span onclick promus role=button/[data-a11y]). :focus-visible = clavier seulement, pas au clic souris. */
 [data-a11y]:focus-visible,
 [role="button"]:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:5px}
+
+/* DOC-3 — cadre isolé des documents .pro-doc (iframe sandbox, cf. _docRenderSandboxed). */
+.doc-sandbox{display:block;width:100%;border:0;min-height:220px;background:#fff}

@@ -182,7 +182,7 @@ const PAIRS = [
     exports: [
       'DOC_TPL', 'DOC_FONT_TITRE', 'DOC_FONT_CORPS',
       'docCss', 'docStyleTag', 'docTitre', 'docParties', 'docActe', 'docLignes',
-      'docMention', 'docEncart', 'docLieu', 'docSignzone', 'docPied', 'docPage'
+      'docMention', 'docEncart', 'docLieu', 'docSignzone', 'docPied', 'docPage', 'docSandboxDoc', 'docSandboxFrame'
     ],
     // Sanity : autant de déclarations `function ` en sortie qu'en source (tolère `export `).
     sanity: [

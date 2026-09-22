@@ -259,6 +259,58 @@
       + '</div>';
   }
 
+  /**
+   * DOC-3 (AUDIT-GLOBAL) — Rend un document `.pro-doc` dans une IFRAME SANDBOXÉE.
+   *
+   * Le HTML des documents était injecté par `innerHTML` DANS LA PAGE DE L'APP : un `<img onerror>`
+   * glissé dans un champ synchronisé (nom de garant, libellé, note) s'exécutait dans l'origine de
+   * l'application, avec accès au jeton de session et au miroir de données.
+   *
+   * Pourquoi isoler plutôt qu'assainir : le corps d'un document CONTIENT du HTML légitime
+   * (tableaux, mises en forme) — l'échapper globalement casserait le document. Et on n'écrit pas un
+   * sanitizer maison sur un chemin de document légal, ni n'en charge un (règle « aucun CDN runtime »).
+   * L'iframe neutralise le script QUEL QUE SOIT le contenu : c'est la seule garantie qui ne dépend
+   * pas de la perfection de chaque générateur.
+   *
+   * ⚠️ `allow-same-origin` SANS `allow-scripts` : le script ne s'exécute pas, et le parent peut
+   * mesurer la hauteur du document pour dimensionner le cadre. **Ajouter `allow-scripts` à cette
+   * combinaison rendrait le bac à sable inopérant** — l'iframe pourrait retirer son propre sandbox.
+   * C'est pourquoi le jeton est ignoré s'il est demandé par un appelant.
+   *
+   * @param {{corps?:string, css?:string, className?:string, title?:string}} o
+   * @returns {string} le markup `<iframe …>` prêt à être inséré
+   */
+  /**
+   * ⚠️ Le document est rendu TEL QUEL, sans échappement : il est destiné à la PROPRIÉTÉ `.srcdoc`
+   * d'un cadre existant (aucun échappement d'attribut nécessaire par ce chemin). Pour produire du
+   * MARKUP, passer par `docSandboxFrame`, qui échappe. Concaténer ce résultat dans un `innerHTML`
+   * rouvrirait exactement la faille DOC-3.
+   */
+  function docSandboxDoc(o) {
+    const opts = o || {};
+    // `body{margin:0}` AVANT la CSS du gabarit : le cadre ne doit pas décaler le document par
+    // rapport au rendu d'avant (marge par défaut de 8 px du navigateur).
+    return '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
+      + '<style>body{margin:0}' + (opts.css || '') + '</style></head><body>'
+      + (opts.corps || '') + '</body></html>';
+  }
+
+  /**
+   * Le cadre complet, prêt à insérer. Pour un RE-rendu, préférer `docSandboxDoc` posé sur la
+   * propriété `srcdoc` du cadre existant : on garde le cadre, sa hauteur et le défilement.
+   */
+  function docSandboxFrame(o) {
+    const opts = o || {};
+    const doc = docSandboxDoc(opts);
+    // `srcdoc` est un attribut HTML : `&` D'ABORD (sinon on ré-encoderait les `&` produits juste
+    // après), puis `"` qui seul peut fermer l'attribut.
+    const srcdoc = String(doc).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const cls = opts.className ? ' class="' + String(opts.className).replace(/"/g, '&quot;') + '"' : '';
+    const ttl = opts.title ? ' title="' + String(opts.title).replace(/"/g, '&quot;') + '"' : '';
+    // Bac à sable NON négociable : la valeur est constante, jamais celle de l'appelant.
+    return '<iframe sandbox="allow-same-origin"' + cls + ttl + ' srcdoc="' + srcdoc + '"></iframe>';
+  }
+
   // ─── EXPORT GLOBAL ───────────────────────────────────────────────
   global.DocTemplate = {
     DOC_TPL: DOC_TPL,
@@ -275,6 +327,8 @@
     docLieu: docLieu,
     docSignzone: docSignzone,
     docPied: docPied,
-    docPage: docPage
+    docPage: docPage,
+    docSandboxDoc: docSandboxDoc,
+    docSandboxFrame: docSandboxFrame
   };
 })(typeof window !== 'undefined' ? window : globalThis);

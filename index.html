@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.649</title>
+<title>Propryo v15.645</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.649">
+<link rel="stylesheet" href="css/main.css?v=15.645">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.649</em>
+      <em>v15.645</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.649';
+const IMMOTRACK_VERSION = '15.645';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7430,6 +7430,91 @@ function _docPage(ent, opts) {
 }
 // La feuille de style du gabarit, pour les documents qui ouvrent leur propre fenêtre/iframe
 // et portent leur CSS dans un <head> (quittance). Vide si le module n'est pas chargé.
+// DOC-3 (AUDIT-GLOBAL) — LE point de rendu des documents `.pro-doc` dans la page.
+// Avant : `host.innerHTML = <html du document>` — un `<img onerror>` glissé dans un champ
+// synchronisé (nom de garant, libellé, note) s'exécutait dans l'ORIGINE DE L'APP, avec accès au
+// jeton de session. On n'assainit pas (le corps contient du HTML légitime, et on n'écrit pas un
+// sanitizer maison sur un document légal) : on ISOLE. La construction du cadre et l'échappement
+// de `srcdoc` vivent dans le module testé (DocTemplate.docSandboxFrame) ; ici, du câblage.
+function _docRenderSandboxed(host, corps, titre) {
+  if (!host) return;
+  const DT = window.DocTemplate;
+  if (!DT || typeof DT.docSandboxDoc !== 'function') {
+    // Pas de repli en innerHTML : ce serait rouvrir exactement le trou qu'on ferme. Le message
+    // ORIENTE, car la sortie PDF, elle, reste disponible (elle part de la chaîne, pas du DOM).
+    host.textContent = 'Aperçu indisponible — module de document non chargé. La sortie PDF reste disponible ; sinon, rafraîchir la page.';
+    return;
+  }
+  // Le document BRUT reste joignable : l'impression et le PDF en ont besoin, et `innerHTML`
+  // du hôte ne rend plus que le cadre.
+  host._docHtml = corps || '';
+  // Remis à 1 À CHAQUE rendu : le décompte estimatif et le décompte de régularisation partagent
+  // le même hôte (`#regul-doc-content`). Sans ça, un décompte multi-destinataires laissait son
+  // compteur derrière lui et l'estimatif héritait d'un avertissement mensonger à l'impression.
+  host._docNbDest = 1;
+  let fr = host.querySelector('iframe.doc-sandbox');
+  if (!fr) {
+    // Le cadre naît AVEC son contenu : créer un cadre vide puis poser `srcdoc` faisait mesurer
+    // le document VIDE (hauteur du min-height), et la mesure n'était jamais refaite.
+    host.innerHTML = DT.docSandboxFrame({ corps: corps || '', css: _docCss(), className: 'doc-sandbox', title: titre || 'Aperçu du document' });
+    fr = host.querySelector('iframe.doc-sandbox');
+    if (!fr) return;
+    // Hauteur : `allow-same-origin` (JAMAIS `allow-scripts`) permet au parent de mesurer.
+    // Un ResizeObserver, pas un simple `load` : le document peut être rendu alors que la modale
+    // est encore cachée (scrollHeight = 0), ou grandir après coup (images, polices).
+    // Mesure IDEMPOTENTE. Deux pièges, tous deux constatés dans l'app :
+    //  1. `documentElement.scrollHeight` est planchéré par la fenêtre DU CADRE, donc par la hauteur
+    //     qu'on a posée au tour précédent : chaque re-rendu rajoutait +24 px (635→755 sur 6 rendus
+    //     identiques) et ne redescendait jamais (cadre à 779 px pour un document de 21 px).
+    //     On libère donc le plancher AVANT de mesurer, et on mesure le `body`, dont la boîte suit
+    //     le contenu et non la fenêtre.
+    //  2. `h === 0` = hôte encore caché : on restaure au lieu d'écraser.
+    const ajuste = () => { try {
+      const d = fr.contentDocument; if (!d || !d.body) return;
+      const prev = fr.style.height;
+      fr.style.height = '0px';
+      const h = d.body.scrollHeight;
+      fr.style.height = h > 0 ? (h + 24) + 'px' : prev;
+    } catch (e) {} };
+    // Observer AUSSI l'hôte, côté parent : quand la modale s'ouvre, le cadre passe de
+    // caché à visible. Le document INTÉRIEUR, lui, ne se redimensionne pas à ce moment-là —
+    // vérifié dans l'app : sans cet observateur, l'aperçu rendu avant `openM()` reste tronqué.
+    try { if (typeof ResizeObserver === 'function') { const roHote = new ResizeObserver(ajuste); roHote.observe(host); fr._docROHote = roHote; } } catch (e) {}
+    // Pas d'observateur À L'INTÉRIEUR du cadre : mesuré, un ResizeObserver construit dans le
+    // parent ne se déclenche JAMAIS pour un élément d'un cadre sandboxé sans `allow-scripts`.
+    // Le vrai invariant est ailleurs, et il est porté par les appelants : ON OUVRE AVANT DE RENDRE.
+    fr.addEventListener('load', ajuste);
+    return;   // contenu déjà posé — pas de second chargement inutile
+  }
+  if (titre) fr.setAttribute('title', titre);
+  // RE-rendu : on ne remplace que le CONTENU, jamais le cadre — sinon l'aperçu vivant clignote
+  // et perd sa position de défilement à chaque frappe. La propriété `srcdoc` ne demande aucun
+  // échappement d'attribut, contrairement au markup.
+  fr.srcdoc = DT.docSandboxDoc({ corps: corps || '', css: _docCss() });
+}
+// Ouvre un document `.pro-doc` dans une fenêtre d'impression — EN L'ISOLANT AUSSI.
+// `window.open('','_blank')` hérite de l'origine de l'app : y écrire le HTML brut du document
+// ferait exécuter un `<img onerror>` dans la session authentifiée. On y pose donc le même cadre
+// sandboxé, avec son dimensionnement EN LOCAL (css/main.css n'est pas chargée dans la popup).
+function _docPrintSandboxed(corps, titre, hauteurPx) {
+  const DT = window.DocTemplate;
+  if (!DT || typeof DT.docSandboxFrame !== 'function') { showToast('Module de document non chargé', 'err'); return; }
+  const win = window.open('', '_blank');
+  if (!win) { showToast('Popup bloquée', 'err'); return; }
+  const h = Math.max(400, parseInt(hauteurPx, 10) || 0);
+  // Enrobée comme les 4 autres popups d'aperçu : le bouton de fermeture gère l'encoche iOS en
+  // PWA. Sans lui, une popup qui s'imprime toute seule est un cul-de-sac sur téléphone.
+  win.document.write(_injectPreviewCloseButton('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + escHtml(titre || 'Document')
+    + '</title><style>html,body{margin:0;padding:0}iframe{display:block;width:100%;border:0;height:' + h + 'px}'
+    + '@media print{@page{margin:12mm}}</style></head><body>'
+    + DT.docSandboxFrame({ corps: corps || '', css: _docCss(), title: escHtml(titre || 'Document') })
+    + '</body></html>'));
+  win.document.close();
+  // Au chargement plutôt qu'à la minuterie : le contenu est un niveau plus bas (popup → cadre),
+  // une minuterie ouvrirait le dialogue sur une page blanche sur téléphone lent.
+  try { win.onload = () => { try { win.print(); } catch (e) {} }; } catch (e) {}
+  setTimeout(() => { try { win.print(); } catch (e) {} }, 1200);   // filet si onload ne tire pas
+}
 function _docCss() {
   return window.DocTemplate ? window.DocTemplate.docCss() : '';
 }
@@ -24274,7 +24359,7 @@ function _avenantDocPageHtml(ref){
 }
 function _avenantRender(){ var prev=document.getElementById('av-preview'); if(!prev)return;
   var ref=el('ov-avenant-ref')?el('ov-avenant-ref').value:_avenantState.ref;
-  prev.innerHTML=_avenantDocPageHtml(ref||_avenantState.ref);
+  _docRenderSandboxed(prev, _avenantDocPageHtml(ref||_avenantState.ref), 'Aperçu de l’avenant');
   _avenantLoyerFeedback();
 }
 function _avenantOpen(ref){
@@ -24328,8 +24413,11 @@ function _avenantOpen(ref){
      '<button class="btn bs bb" onclick="_avenantSortiePdf()">'+((typeof _edlPrefersShare==='function'&&_edlPrefersShare())?'📤 Partager le PDF':'⬇️ Télécharger le PDF')+'</button>'+
      '<button class="btn bs" onclick="closeM(\'ov-avenant\')">Fermer</button></div>'+
    '</div>';
-  _avenantBuildGrid(); _avenantBuildGroups(); _avenantRender();
+  _avenantBuildGrid(); _avenantBuildGroups();
+  // DOC-3 : ouvrir AVANT de rendre. Le cadre sandboxé se mesure au chargement ; chargé dans
+  // une modale encore cachée, son document n'est jamais mis en page et l'aperçu reste tronqué.
   openM('ov-avenant');
+  _avenantRender();
 }
 // Confirme si des champs essentiels manquent (le document afficherait « ‹à compléter› »).
 var _AV_LBL={coloc:'Colocataire',caution:'Garant / caution',loyer:'Loyer',charges:'Charges',annexe:'Annexe',duree:'Durée',destination:'Destination',travaux:'Travaux',paiement:'Paiement / RIB',souslocation:'Sous-location',clause:'Clause',correction:'Correction'};
@@ -24516,7 +24604,7 @@ function _congeRender(){
   var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_CONGE_ACTS.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
   var form=document.getElementById('cg-form'); if(form && form.dataset.k!==_congeState.kind){ form.innerHTML=_congeForm(); form.dataset.k=_congeState.kind; }
   if(_congeState.kind==='conge_bailleur'){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
-  var prev=document.getElementById('cg-preview'); if(prev) prev.innerHTML=_congeDocHtml(_congeState.ref);
+  var prev=document.getElementById('cg-preview'); if(prev) _docRenderSandboxed(prev, _congeDocHtml(_congeState.ref), 'Aperçu du congé');
   // alerte locataire protégé (congé bailleur) — NON bloquante
   var al=document.getElementById('cg-alert');
   if(al){ var html='';
@@ -24552,7 +24640,7 @@ function _congeOpen(ref){
    '<div class="av-foot"><button class="btn bs bb" onclick="_congeSortiePdf()">'+((typeof _edlPrefersShare==='function'&&_edlPrefersShare())?'📤 Partager le PDF':'⬇️ Télécharger le PDF')+'</button>'+
    '<button class="btn bs" onclick="closeM(\'ov-conge\')">Fermer</button></div></div>';
   var f=document.getElementById('cg-form'); if(f)f.dataset.k='';
-  _congeRender(); openM('ov-conge');
+  openM('ov-conge'); _congeRender();   // DOC-3 : ouvrir AVANT de rendre (mesure du cadre)
 }
 async function _congeSortiePdf(ref){
   ref=ref||(el('ov-conge-ref')?el('ov-conge-ref').value:_congeState.ref);
@@ -26358,7 +26446,7 @@ function _rgOpenDecompteEstimatif(entryKey){
     </div>
   </div>`;
   const box = el('regul-doc-content');
-  if(box){ box.innerHTML = html; openM('ov-regul-doc'); }
+  if(box){ openM('ov-regul-doc'); _docRenderSandboxed(box, html, 'Décompte estimatif'); }   // DOC-3 : ouvrir AVANT de rendre
   else if(typeof showToast==='function') showToast('Aperçu indisponible','err');
 }
 
@@ -27602,8 +27690,13 @@ function _openRegulDoc(entryKeys, from, to) {
     _styleVu = /^<style>/.test(built.html);
     return built.html;
   });
-  el('regul-doc-content').innerHTML = parts.join('') || '<p class="mu">Aucune donnée</p>';
-  openM('ov-regul-doc');
+  openM('ov-regul-doc');   // DOC-3 : ouvrir AVANT de rendre (mesure du cadre sandboxé)
+  _docRenderSandboxed(el('regul-doc-content'), parts.join('') || '<p class="mu">Aucune donnée</p>', 'Décompte de régularisation');
+  // DOC-3 : le décompte pose `pageBreakAfter:'always'` pour donner UNE PAGE PAR DESTINATAIRE.
+  // Ces sauts vivent désormais dans un document imbriqué : ils ne peuvent plus piloter la
+  // pagination de la page parente. On retient le nombre pour AVERTIR à l'impression plutôt que
+  // de laisser disparaître une garantie en silence.
+  try { el('regul-doc-content')._docNbDest = entryKeys.length; } catch (e) {}
 }
 
 // v14.97 EMAIL-AUTO.4 : envoi décompte de régularisation par email.
@@ -27768,12 +27861,17 @@ window._shareDecompteWithPdf = async function(entryKey) {
 };
 
 function printRegulDoc() {
-  const content = el('regul-doc-content').innerHTML;
-  const win = window.open('','_blank');
-  if(!win) { showToast('Popup bloquée','err'); return; }
-  win.document.write(_injectPreviewCloseButton('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Décompte charges</title><style>body{font-family:Arial,sans-serif;font-size:13px;margin:30px;color:#222;line-height:1.6}button{display:none}@media print{button{display:none}}</style></head><body>'+content+'<\/body><\/html>'));
-  win.document.close();
-  setTimeout(()=>win.print(), 500);
+  // DOC-3 : l'hôte ne contient plus que le cadre sandboxé — imprimer son `innerHTML` produirait
+  // un timbre-poste de 300 px (css/main.css absente de la popup). On repart du document BRUT.
+  const host = el('regul-doc-content');
+  const fr = host ? host.querySelector('iframe.doc-sandbox') : null;
+  // Pas de repli sur `innerHTML` : ce serait le markup DU CADRE, que la popup emboiterait dans
+  // un second cadre — le timbre-poste, en silence. Sans document brut, on refuse.
+  const corps = host && host._docHtml;
+  if (!corps) { showToast('Document indisponible — rouvrir le décompte', 'err'); return; }
+  const nbDest = (host && host._docNbDest) || 1;
+  if (nbDest > 1 && !confirm2('Ce décompte couvre ' + nbDest + ' destinataires. À l’impression, une page par destinataire n’est pas garantie — la sortie PDF la respecte. Imprimer quand même ?')) return;
+  _docPrintSandboxed(corps, 'Décompte charges', fr ? parseInt(fr.style.height, 10) : 0);
 }
 </script>
 <script>
