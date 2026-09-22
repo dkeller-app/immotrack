@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.651</title>
+<title>Propryo v15.653</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.651">
+<link rel="stylesheet" href="css/main.css?v=15.653">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.651</em>
+      <em>v15.653</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.651';
+const IMMOTRACK_VERSION = '15.653';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -24592,7 +24592,13 @@ function _congeExtra(ref){
     var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
     e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='à convenir';
   } else if(_congeState.kind==='mise_demeure'){
-    e.periode=v('cg-periode')||'‹période›'; e.montant=v('cg-montant')||'‹montant›'; e.rappel1Date='(relance 1)'; e.rappel2Date='(relance 2)';
+    e.periode=v('cg-periode')||'‹période›'; e.montant=v('cg-montant')||'‹montant›';
+    // Les relances RÉELLEMENT envoyées, pas deux relances décrétées. Avant, ce chemin posait
+    // littéralement « (relance 1) » et « (relance 2) » dans une mise en demeure : un placeholder
+    // imprimé dans l'acte, et l'affirmation de deux courriers qui n'avaient peut-être jamais existé.
+    e.phraseRelances=(typeof window.phraseRelances==='function')
+      ? window.phraseRelances(_relancesEnvoyees(ref))
+      : 'Nous constatons que';
   } else if(_congeState.kind==='resiliation_amiable'){
     e.dateEffet=fd(v('cg-effet')||today); e.conditions=v('cg-cond2')||'—';
   }
@@ -28646,6 +28652,28 @@ function _escaladeAlerte(statut) {
   }
 }
 
+/**
+ * LES RELANCES RÉELLEMENT ENVOYÉES pour ce lot, dans l'ordre chronologique.
+ *
+ * Unique lecture de l'historique : la modale d'actes et le Hub Communications produisent la même
+ * mise en demeure, et doivent donc s'appuyer sur les mêmes faits. Avant, l'un décrétait deux
+ * relances (« (relance 1) », « (relance 2) ») et l'autre lisait l'historique — deux documents,
+ * deux vérités, pour le même impayé.
+ *
+ * On ne retient que les envois RÉELLEMENT tracés : un acte qui précède un commandement de payer
+ * ne s'appuie pas sur une relance supposée.
+ */
+function _relancesEnvoyees(ref){
+  var sent=(DB.emailsSent||[]).filter(function(e){
+    return e && e.entityType==='logement' && e.entityId===ref && /^rappel-impaye-[12]$/.test(e.type||'');
+  });
+  return sent
+    .map(function(e){ return String(e.sentAt||'').slice(0,10); })
+    .filter(Boolean)
+    .sort()
+    .map(function(d){ return (typeof fd==='function') ? fd(d) : d; });
+}
+
 /** v15.10 Phase B3 — Lance un email d'escalade quittance impayée. */
 function _quittanceActionEmail(ref, mois, emailType, ev) {
   if (ev) { try { ev.preventDefault(); ev.stopPropagation(); } catch(e){} }
@@ -28661,20 +28689,14 @@ function _quittanceActionEmail(ref, mois, emailType, ev) {
   const ent = (DB.entites||[]).find(e => e.nom === (log.entity || q.entity));
   const locataire = (bail?.locataires && bail.locataires[0]) || { nom: q.locataire || log.locataire || '', email: log.mail || '' };
   const montant = (Number(q.hc)||0) + (Number(q.ch)||0);
-  // Récupère les dates des rappels précédents si type=rappel-3
-  let rappel1Date = '', rappel2Date = '';
-  if (emailType === 'rappel-impaye-3') {
-    const sent = (DB.emailsSent||[]).filter(e => e.entityType === 'logement' && e.entityId === ref);
-    const r1 = sent.find(e => e.type === 'rappel-impaye-1');
-    const r2 = sent.find(e => e.type === 'rappel-impaye-2');
-    if (r1) rappel1Date = fd((r1.sentAt||'').slice(0,10));
-    if (r2) rappel2Date = fd((r2.sentAt||'').slice(0,10));
-  }
   const ctx = {
     locataire, bail: bail || { adrBien: log.adr||'', hc: q.hc, ch: q.ch, dg: 0 },
     logement: log, entite: ent || {}, quittance: { ...q, total: montant },
     periode: mois, montant: montant, dateLettre: td(),
-    rappel1Date, rappel2Date
+    // Les relances réellement envoyées, via la MÊME lecture que la modale d'actes.
+    phraseRelances: (typeof window.phraseRelances==='function')
+      ? window.phraseRelances(emailType === 'rappel-impaye-3' ? _relancesEnvoyees(ref) : [])
+      : 'Nous constatons que'
   };
   window._openEmailModal(emailType, ctx, { entityType: 'logement', entityId: ref });
   // Pour mise en demeure (rappel-impaye-3), marquer la quittance après envoi (handled côté EmailModal logEmailSent)

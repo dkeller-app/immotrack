@@ -126,7 +126,7 @@ Objet : Mise en demeure de payer — Loyer {{periode}}
 
 {{locataire.civNom}},
 
-Malgré nos relances des {{rappel1Date}} et {{rappel2Date}}, nous constatons que votre loyer de la période {{periode}} d'un montant de {{montant}} € reste à ce jour impayé.
+{{phraseRelances}} votre loyer de la période {{periode}} d'un montant de {{montant}} € reste à ce jour impayé.
 
 Par la présente, nous vous mettons en demeure de procéder au règlement intégral de la somme due dans un délai de huit (8) jours à compter de la réception de cette lettre.
 
@@ -842,6 +842,34 @@ function _resolvePath(context, path) {
     v = v[p];
   }
   return v;
+}
+
+/**
+ * L'ouverture de la mise en demeure, construite sur les relances RÉELLEMENT envoyées.
+ *
+ * Le modèle affirmait « Malgré nos relances des {{rappel1Date}} et {{rappel2Date}} » — deux
+ * relances, toujours, qu'elles aient existé ou non. Les deux chemins produisaient une phrase
+ * fausse : depuis la modale d'actes, les jetons valaient littéralement « (relance 1) » et
+ * « (relance 2) » ; depuis le Hub, une absence de relance donnait « (inconnu) ».
+ *
+ * Une mise en demeure est l'étape amiable qui précède le commandement de payer visant la clause
+ * résolutoire. Y affirmer des relances qui n'ont pas eu lieu, c'est offrir au locataire de quoi
+ * la faire écarter — et, quand le locataire a bien été relancé une seule fois, se priver d'une
+ * preuve exacte au profit d'une formule invérifiable.
+ *
+ * Ne renvoie JAMAIS une chaîne vide : `_interpolateEmail` transformerait '' en « (inconnu) ».
+ *
+ * @param {Array<string>} dates dates des relances effectivement envoyées, déjà formatées
+ * @returns {string} l'amorce, ponctuation comprise, jusqu'à « nous constatons que »
+ */
+export function phraseRelances(dates) {
+  const l = (Array.isArray(dates) ? dates : [])
+    .map((d) => String(d == null ? '' : d).trim())
+    .filter(Boolean);
+  if (!l.length) return 'Nous constatons que';
+  if (l.length === 1) return 'Malgré notre relance du ' + l[0] + ', nous constatons que';
+  return 'Malgré nos relances des ' + l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1]
+    + ', nous constatons que';
 }
 
 /**

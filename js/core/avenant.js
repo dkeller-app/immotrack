@@ -120,7 +120,19 @@ export function avenantArticle(k, d, ctx) {
       const trav = motif.indexOf('Travaux') === 0, baisse = motif.indexOf('Baisse') === 0;
       let h = 'Les parties rappellent ';
       if (trav) {
-        h += 'que le bailleur a fait réaliser dans le logement, depuis la conclusion du bail, des travaux d\'amélioration (apport d\'un équipement ou service nouveau, à l\'exclusion de tout entretien, réparation ou remise en état) : ' + champ(d.desc) + ', pour un coût réel de ' + b(num(d.cout) + ' € TTC') + '. Par application de l\'article 17-1, II de la loi du 6 juillet 1989, qui autorise les parties à fixer par avenant la majoration de loyer consécutive à de tels travaux, et le montant de la majoration ayant été, par prudence, aligné sur le plafond retenu pour la relocation encadrée (hausse annuelle limitée à 15 % du coût réel TTC des travaux, ces derniers excédant la moitié de la dernière année de loyer), ';
+        // L'acte affirmait SANS CONDITION que la majoration était « alignée sur le plafond
+        // retenu pour la relocation encadrée ». Or `loyerTravauxGuard` ne fait qu'AVERTIR :
+        // l'utilisateur peut dépasser le plafond, ou faire des travaux inférieurs à la demi-année
+        // de loyer, et l'avenant certifiait quand même la conformité. Un locataire n'a alors
+        // qu'à faire le calcul pour établir que l'acte est faux sur le point même qui fonde la
+        // hausse. On ne certifie donc que ce qu'on a compté.
+        const g = loyerTravauxGuard({ loyer0: loyer0, coutTTC: d.cout, dpe: d.dpe, nouveau: d.nouveau, motif: motif });
+        const aligne = num(d.cout) > 0 && num(d.nouveau) > 0
+          && num(d.cout) >= g.seuil && g.hausse > 0 && g.hausse <= g.maxHausseMois;
+        h += 'que le bailleur a fait réaliser dans le logement, depuis la conclusion du bail, des travaux d\'amélioration (apport d\'un équipement ou service nouveau, à l\'exclusion de tout entretien, réparation ou remise en état) : ' + champ(d.desc) + ', pour un coût réel de ' + b(num(d.cout) + ' € TTC') + '. Par application de l\'article 17-1, II de la loi du 6 juillet 1989, qui autorise les parties à fixer par avenant la majoration de loyer consécutive à de tels travaux, '
+          + (aligne
+            ? 'et le montant de la majoration ayant été, par prudence, aligné sur le plafond retenu pour la relocation encadrée (hausse annuelle limitée à 15 % du coût réel TTC des travaux, ces derniers excédant la moitié de la dernière année de loyer), '
+            : 'la majoration étant fixée d\'un commun accord entre les parties, ');
       } else if (baisse) {
         h += 'qu\'il est consenti une baisse temporaire du loyer pendant la réalisation des travaux suivants : ' + champ(d.desc) + '. À ce titre, ';
       } else {
@@ -147,7 +159,14 @@ export function avenantArticle(k, d, ctx) {
     }
     case 'duree': {
       const prorog = String(d.act || '').indexOf('Prorog') >= 0;
-      const h = 'Le terme du contrat de bail est ' + (prorog ? 'prorogé' : 'fixé') + ' au ' + b(frDate(d.fin)) + '. La présente stipulation respecte la durée minimale légale applicable au contrat. Le bail se poursuit pour le surplus aux conditions initiales, la faculté de résiliation dans les conditions légales demeurant réservée à chacune des parties.';
+      // L'acte AFFIRMAIT « La présente stipulation respecte la durée minimale légale applicable
+      // au contrat » — sans la moindre vérification. Or l'app ne peut PAS la vérifier : l'art. 10
+      // donne trois ans aux personnes physiques ET aux bailleurs de l'art. 13 (dont les SCI
+      // familiales), six ans aux autres personnes morales, et le modèle de données ne dit nulle
+      // part si une SCI est familiale. Affirmer une conformité qu'on n'a pas contrôlée, dans un
+      // acte contractuel, c'est offrir au locataire de quoi la contester — et endormir le
+      // bailleur. On énonce donc le terme, et on rappelle la règle au lieu de certifier le fait.
+      const h = 'Le terme du contrat de bail est ' + (prorog ? 'prorogé' : 'fixé') + ' au ' + b(frDate(d.fin)) + '. Les parties rappellent que la durée du contrat ne peut être inférieure à la durée minimale fixée par la loi du 6 juillet 1989 selon la qualité du bailleur et la nature du bail. Le bail se poursuit pour le surplus aux conditions initiales, la faculté de résiliation dans les conditions légales demeurant réservée à chacune des parties.';
       return { titre: 'Durée du bail', html: h };
     }
     case 'destination': {

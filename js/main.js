@@ -147,7 +147,7 @@ import {
 
 import {
   _emailCompose, _emailTypesSupportes, _interpolateEmail,
-  _logEmailSent, _getEmailHistory
+  _logEmailSent, _getEmailHistory, phraseRelances
 } from './core/email-compose.js';
 
 import { openEmailModal, _buildMailtoUrl, _emHandleAction } from './components/email-modal.js';
@@ -557,6 +557,7 @@ if (window.DB?.params?.monitoringEnabled === true) {
 window._emailCompose = _emailCompose;
 window._emailTypesSupportes = _emailTypesSupportes;
 window._interpolateEmail = _interpolateEmail;
+window.phraseRelances = phraseRelances;
 window._openEmailModal = openEmailModal;
 window.openEmailModal = openEmailModal;
 window._buildMailtoUrl = _buildMailtoUrl;
