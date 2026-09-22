@@ -36,6 +36,8 @@
  */
 
 /** Crée une nouvelle entrée audit, sans la persister (caller doit push dans DB.auditTrail + saveDB). */
+import { _csvCell } from './export-comptable.js';
+
 export function _auditEntry({ action, entityType, entityId, entityRef, diff, source = 'ui' } = {}) {
   if (!action || !entityType) {
     throw new Error('_auditEntry: action et entityType obligatoires');
@@ -126,13 +128,7 @@ export function _auditToCsv(entries) {
     e.source || '',
     e.diff ? JSON.stringify(e.diff) : ''
   ]);
-  const escape = s => {
-    const v = String(s == null ? '' : s);
-    if (v.includes(',') || v.includes('"') || v.includes('\n')) {
-      return '"' + v.replace(/"/g, '""') + '"';
-    }
-    return v;
-  };
+  const escape = _csvCell;   // DRY : garde anti-formule CSV unique (export-comptable.js)
   return [headers.join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
 }
 

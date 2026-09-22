@@ -34,6 +34,8 @@
  * @returns {{ lignes: Object, totalRecettes, totalCharges, totalInterets,
  *             resultatFoncier, nonMappes: Array, comptes: Object }}
  */
+import { _csvCell } from './export-comptable.js';
+
 export function _compute2044(mouvements, stdCategories, opts = {}) {
   const { from = '', to = '', entityNom = '', refs = [],
           imms = [], nbLocaux = 0, partBailleur225 = 0, detail = false, mapping = null } = opts;
@@ -241,10 +243,6 @@ export function _2044ToCsv(result, opts = {}) {
   (opts.flagues || []).forEach(f => {
     rows.push(['LOT_A_VERIFIER', `Lot à vérifier (${f.mode || 'mixte'}) : ${f.ref}${f.msg ? ' — ' + f.msg : ''}`, '', '']);
   });
-  const escape = s => {
-    const v = String(s == null ? '' : s);
-    if (v.includes(',') || v.includes('"') || v.includes('\n')) return '"' + v.replace(/"/g, '""') + '"';
-    return v;
-  };
+  const escape = _csvCell;   // DRY : garde anti-formule CSV unique (export-comptable.js)
   return [headers.join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
 }
