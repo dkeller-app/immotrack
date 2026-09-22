@@ -96,6 +96,34 @@ describe('F-5 — l’avenant travaux ne certifie le plafond que s’il est tenu
     expect(avenantArticle('loyer', { ...base, cout: 0, nouveau: 870 }, ctx).html).not.toMatch(/aligné sur le plafond/);
     expect(avenantArticle('loyer', { ...base, nouveau: 0 }, ctx).html).not.toMatch(/aligné sur le plafond/);
   });
+
+  it('LOGEMENT CLASSÉ F OU G → aucune certification : la majoration est INTERDITE, pas plafonnée', () => {
+    // Art. 17-1, dernier alinéa : « La révision et la majoration de loyer prévues aux I et II
+    // du présent article ne peuvent être appliquées aux logements de classe F ou de classe G ».
+    // Les chiffres tiennent le plafond — et c'est justement le piège : certifier un alignement
+    // reviendrait à certifier la régularité de ce que la loi ferme.
+    for (const dpe of ['F', 'G', 'f', 'g']) {
+      const a = avenantArticle('loyer', { ...base, dpe, nouveau: 870 }, ctx);
+      expect(a.html, 'DPE ' + dpe).not.toMatch(/aligné sur le plafond/);
+      expect(a.html, 'DPE ' + dpe).toMatch(/d'un commun accord entre les parties/);
+    }
+    // Contrôle : le même dossier en DPE D, lui, mérite la certification.
+    expect(avenantArticle('loyer', { ...base, dpe: 'D', nouveau: 870 }, ctx).html).toMatch(/aligné sur le plafond/);
+  });
+
+  it('les BORNES exactes sont couvertes (égalité, pas seulement « dans » et « au-dessus »)', () => {
+    // Deux mutants survivaient aux tests précédents : `>= seuil` → `>` et `<= plafond` → `<`.
+    // Coût EXACTEMENT égal à la demi-année (4 800 €) : la loi dit « au moins égal » → admis.
+    const auSeuil = avenantArticle('loyer', { ...base, cout: 4800, nouveau: 860 }, ctx);
+    expect(auSeuil.html, 'coût = demi-année de loyer').toMatch(/aligné sur le plafond/);
+    // Hausse EXACTEMENT au plafond (6000 × 15 % ÷ 12 = 75 €) : admise aussi.
+    const auPlafond = avenantArticle('loyer', { ...base, cout: 6000, nouveau: 875 }, ctx);
+    expect(auPlafond.html, 'hausse = plafond mensuel').toMatch(/aligné sur le plafond/);
+    // Un centime au-delà : refusée.
+    expect(avenantArticle('loyer', { ...base, cout: 6000, nouveau: 875.01 }, ctx).html).not.toMatch(/aligné sur le plafond/);
+    // Un centime sous le seuil de travaux : refusée.
+    expect(avenantArticle('loyer', { ...base, cout: 4799.99, nouveau: 860 }, ctx).html).not.toMatch(/aligné sur le plafond/);
+  });
 });
 
 describe('F-6 — l’avenant durée n’affirme plus une conformité qu’il n’a pas contrôlée', () => {

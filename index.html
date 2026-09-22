@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.653</title>
+<title>Propryo v15.655</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.653">
+<link rel="stylesheet" href="css/main.css?v=15.655">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.653</em>
+      <em>v15.655</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.653';
+const IMMOTRACK_VERSION = '15.655';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -28041,7 +28041,13 @@ function _buildEmailCtxFromRef(ref, extraCtx) {
     garant: bail.garant ? { nom: bail.garant } : null,
     montant: (Number(bail.hc)||Number(log.hc)||0) + (Number(bail.ch)||Number(log.ch)||0),
     periode: '', // À compléter par extraCtx selon le type
-    dateLettre: td()
+    dateLettre: td(),
+    // TROISIÈME chemin de composition de la mise en demeure, après la modale d'actes et
+    // l'escalade quittance. Il avait été oublié : le modèle ne portant plus `{{rappel1Date}}`,
+    // l'acte s'ouvrait sur « (inconnu) votre loyer… ». Même lecture unique de l'historique.
+    phraseRelances: (typeof window.phraseRelances === 'function')
+      ? window.phraseRelances(typeof _relancesEnvoyees === 'function' ? _relancesEnvoyees(ref) : [])
+      : 'Nous constatons que'
   };
   return { ...baseCtx, ...(extraCtx || {}) };
 }
@@ -28343,10 +28349,13 @@ function _commsHubSend(ref, type) {
     case 'rappel-impaye-3': {
       extra.periode = promptVal('Période concernée (ex mai 2026) :', '');
       extra.montant = promptVal('Montant impayé en € :', '');
-      if (type === 'rappel-impaye-3') {
-        extra.rappel1Date = promptVal('Date du 1er rappel (YYYY-MM-DD) :', '');
-        extra.rappel2Date = promptVal('Date du 2e rappel (YYYY-MM-DD) :', '');
-      }
+      // Les dates de rappel ne sont PLUS demandées : l'app les connaît (`_relancesEnvoyees`,
+      // consommé par `_buildEmailCtxFromRef`). Les redemander, c'était deux sources de vérité
+      // pour le même fait — et, depuis que le modèle construit sa phrase d'ouverture à partir
+      // de l'historique, deux questions dont les réponses étaient jetées. Un prompt annulé
+      // interrompait même l'envoi d'un acte réel.
+      // ⚠️ Conséquence assumée : une relance envoyée HORS de l'app n'est plus revendiquée dans
+      // la mise en demeure. C'est le prix de ne rien affirmer qu'on ne puisse montrer.
       break; }
     case 'avis-echeance': {
       extra.periode = promptVal('Période concernée (ex mai 2026) :', '');
@@ -28653,23 +28662,36 @@ function _escaladeAlerte(statut) {
 }
 
 /**
- * LES RELANCES RÉELLEMENT ENVOYÉES pour ce lot, dans l'ordre chronologique.
+ * LES RELANCES QU'ON PEUT MONTRER, pour ce lot, dans l'ordre chronologique.
  *
- * Unique lecture de l'historique : la modale d'actes et le Hub Communications produisent la même
- * mise en demeure, et doivent donc s'appuyer sur les mêmes faits. Avant, l'un décrétait deux
- * relances (« (relance 1) », « (relance 2) ») et l'autre lisait l'historique — deux documents,
- * deux vérités, pour le même impayé.
+ * Unique lecture de l'historique : les TROIS chemins qui composent une mise en demeure — modale
+ * d'actes, escalade quittance, Hub Communications — produisent le même acte et doivent donc
+ * partir des mêmes faits. Avant, l'un décrétait deux relances (« (relance 1) », « (relance 2) »),
+ * un autre les demandait à l'utilisateur, le troisième lisait l'historique.
  *
- * On ne retient que les envois RÉELLEMENT tracés : un acte qui précède un commandement de payer
- * ne s'appuie pas sur une relance supposée.
+ * ⚠️ LE STATUT COMPTE AUTANT QUE LE TYPE. `_logEmailSent` trace quatre issues très différentes :
+ * `sent` (envoi prouvé par l'API, avec identifiant), `mailto` (le client mail s'est ouvert),
+ * `shared` (partage système déclenché) et `copied` (le texte a été mis dans le presse-papier).
+ * **`copied` n'est pas un envoi** : relire un rappel en le copiant créait une trace, et la mise
+ * en demeure affirmait ensuite « Malgré notre relance du … » pour un courrier jamais parti.
+ * On retient donc les trois issues où l'utilisateur a réellement lancé l'envoi, jamais la copie.
+ *
+ * ⚠️ UNE RELANCE, UNE DATE. Copier puis ouvrir le client mail sur le MÊME rappel produisait deux
+ * traces le même jour — et un acte qui annonçait « nos relances des 05/06/2026 et 05/06/2026 ».
+ * On ne garde donc qu'une date par rappel, la plus récente : c'est celle qui précède l'acte.
  */
 function _relancesEnvoyees(ref){
-  var sent=(DB.emailsSent||[]).filter(function(e){
-    return e && e.entityType==='logement' && e.entityId===ref && /^rappel-impaye-[12]$/.test(e.type||'');
+  var ENVOI={ sent:1, mailto:1, shared:1 };   // `copied` exclu : voir ci-dessus
+  var parType={};
+  (DB.emailsSent||[]).forEach(function(e){
+    if(!e || e.entityType!=='logement' || e.entityId!==ref) return;
+    if(!/^rappel-impaye-[12]$/.test(e.type||'')) return;
+    if(!ENVOI[e.status]) return;
+    var d=String(e.sentAt||'').slice(0,10);
+    if(!d) return;
+    if(!parType[e.type] || d>parType[e.type]) parType[e.type]=d;
   });
-  return sent
-    .map(function(e){ return String(e.sentAt||'').slice(0,10); })
-    .filter(Boolean)
+  return Object.keys(parType).map(function(k){ return parType[k]; })
     .sort()
     .map(function(d){ return (typeof fd==='function') ? fd(d) : d; });
 }

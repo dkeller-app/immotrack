@@ -127,7 +127,12 @@ export function avenantArticle(k, d, ctx) {
         // qu'à faire le calcul pour établir que l'acte est faux sur le point même qui fonde la
         // hausse. On ne certifie donc que ce qu'on a compté.
         const g = loyerTravauxGuard({ loyer0: loyer0, coutTTC: d.cout, dpe: d.dpe, nouveau: d.nouveau, motif: motif });
-        const aligne = num(d.cout) > 0 && num(d.nouveau) > 0
+        // ⚠️ `!g.passoire` : sur un logement classé F ou G, la majoration n'est pas PLAFONNÉE,
+        // elle est INTERDITE (art. 17-1, dernier alinéa : « La révision et la majoration de loyer
+        // prévues aux I et II du présent article ne peuvent être appliquées aux logements de
+        // classe F ou de classe G »). Certifier un alignement sur un plafond y serait certifier
+        // la régularité de ce que la loi ferme. La donnée était déjà dans `g`, elle n'était pas lue.
+        const aligne = num(d.cout) > 0 && num(d.nouveau) > 0 && !g.passoire
           && num(d.cout) >= g.seuil && g.hausse > 0 && g.hausse <= g.maxHausseMois;
         h += 'que le bailleur a fait réaliser dans le logement, depuis la conclusion du bail, des travaux d\'amélioration (apport d\'un équipement ou service nouveau, à l\'exclusion de tout entretien, réparation ou remise en état) : ' + champ(d.desc) + ', pour un coût réel de ' + b(num(d.cout) + ' € TTC') + '. Par application de l\'article 17-1, II de la loi du 6 juillet 1989, qui autorise les parties à fixer par avenant la majoration de loyer consécutive à de tels travaux, '
           + (aligne
