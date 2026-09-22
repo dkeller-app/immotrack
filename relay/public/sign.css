@@ -75,8 +75,12 @@ button.ghost { background: transparent; border-color: transparent; color: var(--
    Cachée : hauteur/opacité nulles ; révélée (latch) : transition douce (fondu + glissé vers le haut). */
 .sign-reveal { display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
 .sign-reveal.is-hidden { max-height: 0; opacity: 0; transform: translateY(8px); pointer-events: none; }
-/* cap large (le contenu réel fait ~265px au pire) : évite tout risque de coupe silencieuse du bouton */
-.sign-reveal.is-in { max-height: 600px; opacity: 1; transform: none; transition: max-height .34s ease, opacity .3s ease, transform .3s ease; }
+/* cap large (le contenu réel fait ~265px au pire) : évite tout risque de coupe silencieuse du bouton.
+   La transition ne porte QUE sur opacity + transform (fondu + glissé) : transitionner `max-height`
+   depuis 0 avec overflow:hidden, déclenché au scroll, se bloque à 0 sur Chromium (zone révélée mais
+   restant à hauteur 0). On laisse donc max-height SNAPPER 0→600 (révélation immédiate de l'espace)
+   et seuls le fondu/glissé sont animés. */
+.sign-reveal.is-in { max-height: 600px; opacity: 1; transform: none; transition: opacity .3s ease, transform .3s ease; }
 
 /* Q4 — ligne « Traitement… » pendant l'envoi (écran de signature fusionné) */
 .busy-line { margin: 0; text-align: center; font-size: 13px; color: var(--sec); }
