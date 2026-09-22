@@ -292,7 +292,15 @@ const PAIRS = [
   },
 ];
 
+// `--check` : on NE RÉGÉNÈRE PAS, on VÉRIFIE. Le script n'avait qu'un mode écriture, donc
+// rien ne pouvait DÉTECTER une dérive : il fallait lancer la régénération puis lire
+// `git status` — ce que personne ne fait. C'est exactement comme ça que le mirror
+// `bank-import` est resté en retard sur son module après le correctif AUDIT-C1 : module
+// corrigé, tests verts, et le fichier réellement chargé en mode file:// inchangé.
+// Ce mode rend la dérive VISIBLE, et un test Vitest l'exécute à chaque suite.
+const CHECK_ONLY = process.argv.includes('--check');
 let totalErrors = 0;
+const derives = [];
 
 for (const p of PAIRS) {
   const srcAbs = path.join(ROOT, p.src);
@@ -415,7 +423,21 @@ ${deps}
 
   const out = header + indented + footerLines.join('\n') + '\n';
 
-  fs.writeFileSync(dstAbs, out, 'utf8');
+  if (CHECK_ONLY) {
+    // Comparaison en LF des deux côtés : sur un checkout Windows (core.autocrlf), sinon
+    // TOUS les mirrors seraient déclarés « dérivés » pour cause de fins de ligne, et le
+    // contrôle deviendrait un bruit qu'on apprend à ignorer — pire que pas de contrôle.
+    const actuel = fs.existsSync(dstAbs) ? fs.readFileSync(dstAbs, 'utf8').replace(/\r\n/g, '\n') : null;
+    if (actuel !== out.replace(/\r\n/g, '\n')) {
+      console.error(`[${p.name}] ❌ DÉRIVE : ${p.dst} ne correspond plus à ${p.src}`);
+      derives.push(p.dst);
+      totalErrors++;
+    } else {
+      console.log(`[${p.name}] ✓ à jour`);
+    }
+  } else {
+    fs.writeFileSync(dstAbs, out, 'utf8');
+  }
 
   // 6) Sanity checks paire
   // mode: 'equal' (défaut) → compare src vs out (les 2 doivent matcher)
@@ -448,11 +470,20 @@ ${deps}
     }
   }
 
-  console.log(`[${p.name}] ✓ Sync ${p.src} → ${p.dst}${okSanity ? '' : ' (avec désync)'}`);
+  // En `--check`, rien n'a été écrit : annoncer « Sync » ferait croire le contraire à qui
+  // lit la sortie en diagonale — et un contrôle auquel on ne croit pas ne sert à rien.
+  if (!CHECK_ONLY) console.log(`[${p.name}] ✓ Sync ${p.src} → ${p.dst}${okSanity ? '' : ' (avec désync)'}`);
 }
 
+if (derives.length) {
+  console.error(`\n❌ ${derives.length} mirror(s) en DÉRIVE :\n  - ${derives.join('\n  - ')}`);
+  console.error(`\n  Le navigateur charge le MIRROR en mode file://, et chaque fois que js/main.js`);
+  console.error(`  n'est pas servi (service-worker périmé). Un correctif absent du mirror est donc`);
+  console.error(`  un correctif qui ne s'applique pas, alors que ses tests sont verts.`);
+  console.error(`  Corriger : node tools/sync-helpers-global-mirrors.mjs`);
+}
 if (totalErrors > 0) {
   console.error(`\n❌ ${totalErrors} erreur(s) détectée(s).`);
   process.exit(1);
 }
-console.log('\n✓ Tous les mirrors synchronisés.');
+console.log(CHECK_ONLY ? '\n✓ Tous les mirrors sont à jour.' : '\n✓ Tous les mirrors synchronisés.');
