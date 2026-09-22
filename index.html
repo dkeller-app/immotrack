@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.642</title>
+<title>Propryo v15.643</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.642">
+<link rel="stylesheet" href="css/main.css?v=15.643">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.642</em>
+      <em>v15.643</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.642';
+const IMMOTRACK_VERSION = '15.643';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10504,7 +10504,7 @@ function _accmShowAregarder(){
     var rows = (fams.familles||[]).map(function(f){
       var chiffre=(typeof _pilChiffre==='function')?_pilChiffre(f):''; var pire=(typeof _pilPireTxt==='function')?_pilPireTxt(f):'';
       var _ref=(f.pire&&f.pire.ref)?String(f.pire.ref):'';
-      var _refJs=_ref.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      var _refJs=_lyQ(_ref);
       return '<button type="button" class="atr" onclick="_accmGoto(\''+f.id+'\',\''+_refJs+'\','+(f.count||0)+')">'
         +'<span class="ic"><svg viewBox="0 0 24 24">'+(_PIL_ICONS[f.id]||'')+'</svg></span>'
         +'<span class="m"><span class="t">'+escHtml(f.lbl)+'</span><span class="s">'+escHtml(chiffre)+(pire?(' · '+escHtml(pire)):'')+'</span></span>'
@@ -15195,6 +15195,7 @@ function _catPkChoose(v) {
 function _catPkCreate() {
   if (!_catPk) return;
   const inp = el('cat-pk-new'); const v = inp ? inp.value.trim() : '';
+  if(v==='__proto__'||v==='constructor'||v==='prototype'){ showToast('Nom de catégorie non autorisé','err'); return; }
   if (!v) return;
   if (_isStdCategory(v)) { showToast('« ' + v + ' » existe déjà comme catégorie standard', 'warn'); return; }
   if ((DB.categories || []).includes(v)) { showToast('« ' + v + ' » existe déjà', 'warn'); return; }
@@ -37573,7 +37574,7 @@ function _exportComptaBailleurCsv(entId, year, mode) {
   const sep = ';'; // séparateur Excel-friendly FR
   let lines = [];
   const csvEsc = (s) => {
-    const v = String(s||'');
+    let v = String(s||''); if(/^[=+\-@\t\r]/.test(v)) v = "'" + v;  // injection de formule CSV
     if(v.includes(sep) || v.includes('"') || v.includes('\n')) return '"' + v.replace(/"/g,'""') + '"';
     return v;
   };
@@ -45738,7 +45739,7 @@ function _logDiagErpDetailHtml() {
 
   let when = '';
   if (r.detectedAt) { try { when = ' · détecté le ' + escHtml(new Date(r.detectedAt).toLocaleDateString('fr-FR')); } catch(e){} }
-  const url = r.georisquesUrl || 'https://www.georisques.gouv.fr/';
+  const _u0 = r.georisquesUrl || 'https://www.georisques.gouv.fr/'; const url = /^https?:\/\//i.test(_u0) ? _u0 : 'https://www.georisques.gouv.fr/';  // URL-1 : bloque le schéma javascript:
   return `<div id="logdiag-erp-detail" style="margin-top:8px;padding:9px 11px;border-radius:8px;${tone}">
     <div style="font-weight:700;font-size:12px">${badge}</div>
     ${metaLine}
@@ -50465,6 +50466,7 @@ function _setRealise213(checked) {
 }
 
 function saveCatConfig(cat, field, val) {
+  if(cat==='__proto__'||cat==='constructor'||cat==='prototype') return;  // anti-pollution de prototype (nom de catégorie)
   if(!DB.catConfig) DB.catConfig={};
   if(!DB.catConfig[cat]) DB.catConfig[cat]={};
   DB.catConfig[cat][field] = val;
@@ -50511,6 +50513,7 @@ function addCat(){
   if(!n) return;
   const trimmed = n.trim();
   if(!trimmed) { showToast('Nom vide','err'); return; }
+  if(trimmed==='__proto__'||trimmed==='constructor'||trimmed==='prototype'){ showToast('Nom de catégorie non autorisé','err'); return; }
   // v14.78 — Empêcher de créer un doublon avec une catégorie standard
   if(_isStdCategory(trimmed)) {
     showToast(`« ${trimmed} » existe déjà comme catégorie standard`,'warn');
@@ -58333,7 +58336,8 @@ function importJSON(inp) {
 
 function exportCSV() {
   const headers=['Date','Libellé','Immeuble','Catégorie','Qui','Débit','Crédit','Facture'];
-  const rows=DB.mouvements.map(m=>[m.date,`"${m.lib?.replace(/"/g,'""')||''}"`,m.imm||'',m.cat||'',m.qui||'',m.db||0,m.cr||0,m.fac||'']);
+  const csvSafe=v=>{let s=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(s)) s="'"+s; return '"'+s.replace(/"/g,'""')+'"';};  // injection de formule CSV
+  const rows=DB.mouvements.map(m=>[m.date,csvSafe(m.lib),csvSafe(m.imm||''),csvSafe(m.cat||''),csvSafe(m.qui||''),m.db||0,m.cr||0,csvSafe(m.fac||'')]);
   const csv=[headers,...rows].map(r=>r.join(';')).join('\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
