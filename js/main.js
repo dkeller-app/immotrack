@@ -250,7 +250,7 @@ import { migrerIdsMenuLoyers } from './core/nav-submenu.js';
 
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
-  _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
+  _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG, arriereLoyerSurPeriode,
   _planApurementStatut, _procedureJudiciaireEtat, _listerImpayesActifs,
   DG_STATUS, PROCEDURE_ETAT
 } from './core/gestion-dg-impayes.js';
@@ -624,6 +624,7 @@ window.migrerIdsMenuLoyers = migrerIdsMenuLoyers;
 window._dgStatut = _dgStatut;
 window._calculerDelaiRestitution = _calculerDelaiRestitution;
 window._calculerSoldeDG = _calculerSoldeDG;
+window.arriereLoyerSurPeriode = arriereLoyerSurPeriode;   // R0-C : brique pure lue par _rgClotureImpayes
 window._penaliteRetardDG = _penaliteRetardDG;
 // Avenant au bail (loi 89-462) — articles + garde-fous loyer travaux
 window.loyerTravauxGuard = loyerTravauxGuard;

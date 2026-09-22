@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.644</title>
+<title>Propryo v15.645</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.644">
+<link rel="stylesheet" href="css/main.css?v=15.645">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.644</em>
+      <em>v15.645</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.644';
+const IMMOTRACK_VERSION = '15.645';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -26130,21 +26130,28 @@ function _rgN1Charges(ref){
 // CDC Charges Lot 4 (mockup 11) — total des loyers/charges impayés d'une occupation.
 // Réutilise le résolveur unique _loyerEtatLot (byYm[ym].reste = dû non soldé du mois).
 function _rgClotureImpayes(ref, from, to){
-  const e = (typeof _loyerEtatLot==='function') ? _loyerEtatLot(ref) : null;
-  if(!e || !e.byYm) return 0;
+  // R0-C (AUDIT-GLOBAL) — LIT LE MAÎTRE. Avant : `_loyerEtatLot`, un moteur d'arriéré parallèle
+  // (autre fenêtre de départ via _debutSuivi, autre prédicat de catégorie, pas de position
+  // d'ouverture N-1). Finances et l'écran de restitution pouvaient donc annoncer deux dettes
+  // différentes pour le même locataire sortant — CDC-FINANCES §0bis, et c'est la restitution qui
+  // produit un acte opposable (art. 22 loi 89-462) et un virement réel.
+  // Rend `null` si le maître n'est pas chargé : `_calculerSoldeDG` le distingue d'un vrai zéro
+  // et refuse alors de conclure, plutôt que de rendre un dépôt sur une dette inconnue.
+  if (typeof _finMonthly !== 'function' || typeof window.arriereLoyerSurPeriode !== 'function') return null;
   const f7 = from ? String(from).slice(0,7) : null, t7 = to ? String(to).slice(0,7) : null;
-  let total = 0;
-  Object.keys(e.byYm).forEach(ym => {
-    if(f7 && ym < f7) return;
-    if(t7 && ym > t7) return;
-    const m = e.byYm[ym];
-    // AUDIT-FIX (double-comptage) : ne sommer QUE le loyer impayé (resteLoyer). La provision de
-    // charge impayée (resteCharge) est déjà portée par la régularisation (regulDu = charges − provisions
-    // versées) ; la sommer ici la compterait deux fois. Fallback prudent sur m.reste si resteLoyer absent.
-    const rl = (m && m.resteLoyer != null) ? m.resteLoyer : (m ? m.reste : 0);
-    if(rl > 0) total += rl;
-  });
-  return Math.round(total*100)/100;
+  if (!f7 || !t7 || t7 < f7) return 0;
+  const mois = [];
+  const y0 = parseInt(f7.slice(0,4), 10), y1 = parseInt(t7.slice(0,4), 10);
+  for (let y = y0; y <= y1; y++) {
+    try {
+      // Périmètre NUL : on ne veut pas la quote-part d'une vue immeuble, on veut la dette du lot.
+      const W = (typeof _finWindows === 'function') ? _finWindows(y, null) : null;
+      const r = _finMonthly(y, null, W ? W.constat : undefined);
+      const b = r && r.byLot && r.byLot[ref];
+      if (b && Array.isArray(b.months)) mois.push(...b.months);
+    } catch(e) { return null; }   // un exercice illisible ⇒ dette inconnue, jamais « zéro »
+  }
+  return window.arriereLoyerSurPeriode(mois, f7, t7);
 }
 
 // DEPART-ESTIM : calcul unifié de la clôture (partagé panneau + décompte estimatif) — DRY.
@@ -28293,115 +28300,12 @@ function _calculerDelaiRestitution(bail, edls) {
   return 1;
 }
 
-function _calculerLoyerImpayeCumule(bail, mouvements, dateRef) {
-  if (!bail || !bail.debut) return 0;
-  const debut = new Date(bail.debut + 'T00:00:00');
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
-  const fin = bail.finEffective ? new Date(bail.finEffective + 'T23:59:59') :
-              bail.fin ? new Date(bail.fin + 'T23:59:59') : today;
-  if (Number.isNaN(debut.getTime())) return 0;
-  const nbMois = Math.max(0, (fin.getFullYear()-debut.getFullYear())*12 + (fin.getMonth()-debut.getMonth()) + 1);
-  const loyerMensuel = (Number(bail.hc)||0) + (Number(bail.ch)||0);
-  const attendu = nbMois * loyerMensuel;
-  const ref = bail.ref;
-  const encaisse = (mouvements||[]).filter(m => m && !m._deleted && m.qui === ref && (m.cr||0) > 0)
-    .reduce((s,m) => s + (Number(m.cr)||0), 0);
-  return Math.max(0, attendu - encaisse);
-}
-
-function _calculerSoldeDG(bail, mouvements) {
-  if (!bail) return { dgPaid: 0, retenuesDG: 0, loyerImpaye: 0, soldeRestitue: 0 };
-  const dgPaid = Number(bail.dgPaid) || 0;
-  const retenuesDG = Number(bail.dgRetenu) || 0;
-  const loyerImpaye = _calculerLoyerImpayeCumule(bail, mouvements);
-  const soldeRestitue = Math.max(0, dgPaid - retenuesDG - loyerImpaye);
-  return { dgPaid, retenuesDG, loyerImpaye, soldeRestitue };
-}
-// NB : cette copie est DEAD CODE — la version qui fait autorité au runtime est
-// js/core/gestion-dg-impayes.js (exportée + assignée à window par js/main.js). Le fix « loyer seul »
-// (modèle Didier, anti double-compte) est appliqué dans le module, pas ici.
-
-function _planApurementStatut(plan, dateRef) {
-  if (!plan || !Array.isArray(plan.echeances) || !plan.echeances.length) {
-    return { statut: 'aucun', montantPaye: 0, montantDu: 0, prochaineEcheance: null, retardJours: 0 };
-  }
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
-  let montantPaye = 0, montantDu = 0, prochaineEcheance = null, retardJours = 0;
-  for (const ech of plan.echeances) {
-    if (!ech) continue;
-    montantDu += Number(ech.montant) || 0;
-    if (ech.paye) montantPaye += Number(ech.montant) || 0;
-    else if (!prochaineEcheance) {
-      prochaineEcheance = ech.date;
-      const dEch = new Date(ech.date + 'T23:59:59');
-      if (!Number.isNaN(dEch.getTime())) {
-        const j = Math.floor((today.getTime() - dEch.getTime()) / 86400000);
-        if (j > 0) retardJours = j;
-      }
-    }
-  }
-  if (montantPaye >= montantDu && montantDu > 0) return { statut: 'termine', montantPaye, montantDu, prochaineEcheance: null, retardJours: 0 };
-  if (retardJours > 0) return { statut: 'retard', montantPaye, montantDu, prochaineEcheance, retardJours };
-  return { statut: 'a_jour', montantPaye, montantDu, prochaineEcheance, retardJours: 0 };
-}
-
-function _procedureJudiciaireEtat(procedure, dateRef) {
-  if (!procedure) return { etat: PROCEDURE_ETAT.AUCUNE };
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
-  let etat = PROCEDURE_ETAT.AUCUNE, derniereDate = null;
-  if (procedure.miseEnDemeureDate)    { etat = PROCEDURE_ETAT.MISE_EN_DEMEURE;     derniereDate = procedure.miseEnDemeureDate; }
-  if (procedure.commandementDate)     { etat = PROCEDURE_ETAT.COMMANDEMENT_PAYER;  derniereDate = procedure.commandementDate; }
-  if (procedure.assignationDate)      { etat = PROCEDURE_ETAT.ASSIGNATION;         derniereDate = procedure.assignationDate; }
-  if (procedure.jugementDate)         { etat = PROCEDURE_ETAT.JUGEMENT;            derniereDate = procedure.jugementDate; }
-  if (procedure.clotureDate)          { etat = PROCEDURE_ETAT.CLOTUREE;            derniereDate = procedure.clotureDate; }
-  const out = { etat };
-  if (derniereDate) {
-    const dD = new Date(derniereDate + 'T00:00:00');
-    if (!Number.isNaN(dD.getTime())) out.nbJoursDernEtape = Math.floor((today.getTime() - dD.getTime()) / 86400000);
-  }
-  return out;
-}
-
-function _listerImpayesActifs(logements, baux, mouvements, dateRef) {
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
-  const out = [];
-  for (const l of (logements||[])) {
-    if (!l || l._deleted || l.archived || !l.locataire) continue;
-    const bail = baux && baux[l.ref];
-    if (!bail || bail.cloture) continue;
-    const impayeCumule = _calculerLoyerImpayeCumule(bail, mouvements, today);
-    if (impayeCumule < 1) continue;
-    const paiements = (mouvements||[])
-      .filter(m => m && !m._deleted && m.qui === l.ref && (m.cr||0) > 0 && m.date)
-      .sort((a,b) => (b.date||'').localeCompare(a.date||''));
-    const dernierPaiement = paiements.length ? paiements[0].date : null;
-    const debut = bail.debut ? new Date(bail.debut + 'T00:00:00') : null;
-    let ancienneteJours = 0;
-    if (debut) {
-      const lastPay = dernierPaiement ? new Date(dernierPaiement + 'T00:00:00') : debut;
-      ancienneteJours = Math.floor((today.getTime() - lastPay.getTime()) / 86400000);
-    }
-    let statut = 'recent';
-    if (ancienneteJours > 90) statut = 'critique';
-    else if (ancienneteJours > 45) statut = 'serieux';
-    else if (ancienneteJours > 15) statut = 'a_relancer';
-    const proc = bail.procedure ? _procedureJudiciaireEtat(bail.procedure, today) : null;
-    if (proc && proc.etat !== PROCEDURE_ETAT.AUCUNE) statut = 'procedure_' + proc.etat;
-    out.push({
-      ref: l.ref, locataire: l.locataire,
-      montantImpaye: impayeCumule, ancienneteJours, dernierPaiement, statut,
-      procedureEtat: proc ? proc.etat : PROCEDURE_ETAT.AUCUNE
-    });
-  }
-  const procRank = { jugement:5, assignation:4, commandement_payer:3, mise_en_demeure:2, cloturee:1, aucune:0 };
-  out.sort((a,b) => {
-    const ra = procRank[a.procedureEtat] || 0;
-    const rb = procRank[b.procedureEtat] || 0;
-    if (rb !== ra) return rb - ra;
-    return b.ancienneteJours - a.ancienneteJours;
-  });
-  return out;
-}
+// R0-C (AUDIT-GLOBAL) — _calculerLoyerImpayeCumule / _calculerSoldeDG / _listerImpayesActifs
+// vivaient ICI en double du module, ombrés au runtime par js/main.js. Les copies avaient DIVERGÉ
+// (l'inline ignorait le repli dgPaid→dg : « 0 € à restituer » là où il y avait un dépôt) et
+// portaient la formule interdite `(hc + ch) × nbMois` — le loyer d'AUJOURD'HUI appliqué à tout
+// le passé, soit 32 760 € d'impayé fabriqués sur un bail de 3 ans indexé. La source unique est
+// js/core/gestion-dg-impayes.js, qui lit désormais le MAÎTRE Finances via _rgClotureImpayes.
 
 // ════════════════════════════════════════════════════════════════════════════
 // QUITTANCES ACTIVES v15.10 Sprint 11 V1.1 — Shadow inline des helpers purs

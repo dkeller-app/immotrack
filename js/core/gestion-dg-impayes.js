@@ -106,6 +106,46 @@ export function _calculerDelaiRestitution(bail, edls) {
 }
 
 /**
+ * R0-C (AUDIT-GLOBAL) — Arriéré de LOYER d'un lot sur une période, LU DANS LE MAÎTRE.
+ *
+ * CDC-FINANCES §0bis : « le retard a une seule implémentation, celle de Finances ». La retenue
+ * sur dépôt lisait jusqu'ici un moteur d'arriéré parallèle (`_loyerEtatLot`) : Finances et
+ * l'écran de restitution pouvaient annoncer deux dettes différentes pour le même locataire
+ * sortant — et c'est la restitution qui produit un acte opposable (art. 22 loi 89-462) et un
+ * virement réel.
+ *
+ * Brique PURE : l'appelant fournit les mois du maître (`byLot[ref].months` concaténés sur les
+ * exercices couverts, le maître sommant lui-même `loyerRetard` pour son agrégat annuel), on
+ * borne à la vie du bail et on somme.
+ *
+ * **Anti-double-compte (modèle Didier, chantier Charges)** : on ne somme QUE `loyerRetard`.
+ * Les charges impayées sont portées par la régularisation (`bail.dgRetenu`) ; les compter ici
+ * les ferait payer deux fois au locataire.
+ *
+ * **Bornage** : hors [from, to], la cascade du maître continue de produire du dû (mois postérieurs
+ * à la sortie, mois antérieurs à l'entrée) — le sommer gonflerait la retenue.
+ *
+ * @param {Array<{ym:string, loyerRetard:number}>} mois
+ * @param {string} from borne incluse, 'YYYY-MM' ou 'YYYY-MM-DD'
+ * @param {string} to   borne incluse, idem
+ * @returns {number} arriéré de loyer, au centime, jamais négatif
+ */
+export function arriereLoyerSurPeriode(mois, from, to) {
+  const ym7 = (d) => (d ? String(d).slice(0, 7) : null);
+  const f = ym7(from), t = ym7(to);
+  if (!f || !t || !Array.isArray(mois)) return 0;
+  let total = 0;
+  for (const m of mois) {
+    if (!m || !/^\d{4}-\d{2}$/.test(String(m.ym))) continue;
+    const ym = String(m.ym);
+    if (ym < f || ym > t) continue;
+    const r = Number(m.loyerRetard);
+    if (Number.isFinite(r) && r > 0) total += r;   // un « négatif » serait une avance, pas une dette
+  }
+  return Math.round(total * 100) / 100;
+}
+
+/**
  * Calcule le solde de restitution DG = DG versé - retenues - loyers impayés.
  * @param {object} bail
  * @param {Array} mouvements
@@ -120,22 +160,33 @@ export function _calculerSoldeDG(bail, mouvements) {
   const retenuesDG = Number(bail.dgRetenu) || 0;
   // MODÈLE DIDIER (anti double-compte, chantier Charges) : le dépôt couvre le LOYER impayé seul.
   // Les charges — même les provisions non versées — sont portées UNIQUEMENT par la régularisation
-  // (via bail.dgRetenu), jamais re-comptées comme impayé. On prend donc resteLoyer (cascade
-  // d'imputation loyer-d'abord, résolveur _loyerEtatLot), borné à la période réelle du bail
-  // [debut, fin/sortie/aujourd'hui] — sinon la cascade génère du dû au-delà de la fin et gonfle
-  // l'impayé. Fallback sur l'ancien cumul total (loyer+charges) si le résolveur n'est pas dispo.
-  // _calculerLoyerImpayeCumule (total) reste utilisé pour les ALERTES impayés (où le total est juste).
+  // (via bail.dgRetenu), jamais re-comptées comme impayé. On prend donc le résidu de LOYER du
+  // MAÎTRE Finances (R0-C), borné à la période réelle du bail [debut, fin/sortie/aujourd'hui] —
+  // sinon la cascade génère du dû au-delà de la fin et gonfle la retenue.
+  //
+  // R0-C (AUDIT-GLOBAL) — PLUS DE REPLI QUI INVENTE. L'ancien repli calculait
+  // `(bail.hc + bail.ch) × nbMois − Σ tous les crédits` : infraction I-1 (le loyer d'AUJOURD'HUI
+  // appliqué à tout le passé — 32 760 € d'« impayé » fabriqués sur un bail de 3 ans indexé, le
+  // dépôt entier absorbé), charges incluses en double-compte, et encaissé sommé sans filtre de
+  // catégorie (le versement du dépôt comptait comme un loyer payé).
+  // Un acte opposable (art. 22 loi 89-462) et un virement réel ne se fondent pas sur une
+  // estimation : faute de maître, on ne retient RIEN et on le DIT, à charge pour l'écran de
+  // refuser de conclure seul.
   const W = (typeof window !== 'undefined') ? window : null;
-  let loyerImpaye;
-  if (W && typeof W._rgClotureImpayes === 'function' && typeof W._loyerEtatLot === 'function' && bail.ref) {
+  // Le résolveur peut EXISTER sans que le maître soit chargé : il rend alors `null`, qu'il ne
+  // faut surtout pas lire comme « zéro impayé » — un 0 calculé (locataire à jour) et un 0 faute
+  // de moteur ne disent pas la même chose, et l'un des deux rend un dépôt qu'il ne faut peut-être
+  // pas rendre. Seul un nombre fini vaut réponse.
+  let loyerImpaye = 0, maitreDispo = false;
+  if (W && typeof W._rgClotureImpayes === 'function' && bail.ref) {
     const today = (typeof W.td === 'function') ? W.td() : new Date().toISOString().slice(0, 10);
     const finBail = bail.finEffective || bail.fin || (bail.depart && bail.depart.dateSortie) || today;
-    loyerImpaye = W._rgClotureImpayes(bail.ref, bail.debut || null, finBail);
-  } else {
-    loyerImpaye = _calculerLoyerImpayeCumule(bail, mouvements);
+    const brut = W._rgClotureImpayes(bail.ref, bail.debut || null, finBail);
+    // `brut != null` AVANT la conversion : `Number(null)` vaut 0 et passerait pour une réponse.
+    if (brut != null && Number.isFinite(Number(brut))) { loyerImpaye = Math.max(0, Number(brut)); maitreDispo = true; }
   }
   const soldeRestitue = Math.max(0, dgPaid - retenuesDG - loyerImpaye);
-  return { dgPaid, retenuesDG, loyerImpaye, soldeRestitue };
+  return { dgPaid, retenuesDG, loyerImpaye, soldeRestitue, impayeIndisponible: !maitreDispo };
 }
 
 /**

@@ -189,27 +189,33 @@ describe('_calculerSoldeDG', () => {
     expect(_calculerSoldeDG(bail, []).soldeRestitue).toBe(1000);
   });
 
-  it('Avec loyer impayé → déduit', () => {
+  // R0-C : ces deux cas passaient par l'ancien repli `(hc + ch) × nbMois`, qui violait I-1 et
+  // comptait les charges en double. Ils décrivent maintenant le contrat RÉEL : l'arriéré vient
+  // du MAÎTRE Finances (`_rgClotureImpayes`, borné à la vie du bail). Cf. dg-arriere-maitre.test.js.
+  const avecMaitre = (arriere, fn) => {
+    const prev = globalThis.window;
+    globalThis.window = { td: () => '2026-06-30', _rgClotureImpayes: () => arriere };
+    try { return fn(); } finally { globalThis.window = prev; }
+  };
+
+  it('Avec loyer impayé → déduit (arriéré lu dans le maître)', () => {
     const bail = {
       ref: 'F-001', dg: 1200, dgPaid: 1200,
-      debut: '2026-01-01', finEffective: '2026-03-31',
-      hc: 600, ch: 50
+      debut: '2026-01-01', finEffective: '2026-03-31'
     };
-    // 3 mois × 650 = 1950 attendu, 0 reçu → impayé 1950
-    const r = _calculerSoldeDG(bail, []);
+    const r = avecMaitre(1950, () => _calculerSoldeDG(bail, []));
     expect(r.loyerImpaye).toBe(1950);
+    expect(r.impayeIndisponible).toBe(false);
     expect(r.soldeRestitue).toBe(0); // 1200 - 1950 → clamped à 0
   });
 
   it('Retenue + impayé partiel', () => {
     const bail = {
       ref: 'F-001', dg: 1200, dgPaid: 1200, dgRetenu: 100,
-      debut: '2026-01-01', finEffective: '2026-01-31', hc: 600, ch: 50
+      debut: '2026-01-01', finEffective: '2026-01-31'
     };
-    const mvts = [{ qui: 'F-001', date: '2026-01-05', cr: 400, _deleted: false }];
-    // 1 mois × 650 attendu, 400 reçu → 250 impayé
-    // Solde = 1200 - 100 (retenue) - 250 (impayé) = 850
-    const r = _calculerSoldeDG(bail, mvts);
+    // Solde = 1200 - 100 (retenue) - 250 (arriéré du maître) = 850
+    const r = avecMaitre(250, () => _calculerSoldeDG(bail, []));
     expect(r.loyerImpaye).toBe(250);
     expect(r.soldeRestitue).toBe(850);
   });
