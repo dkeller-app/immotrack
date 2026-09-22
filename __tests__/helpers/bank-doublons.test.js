@@ -203,6 +203,34 @@ describe('AUDIT-C1 — l\'EMPREINTE non plus n\'est unique qu\'au sein d\'un com
       base, { accountId: 9, legacyFallback: false });
     expect(r[0].dupLevel).toBe('certain');
   });
+
+  // Le SECOND volet du correctif (`scopedAlive`) n'avait AUCUN test, ni ici ni ailleurs : les
+  // trois cas ci-dessus passent `legacyFallback: false`, qui ÉTEINT la stratégie 3. Or la
+  // production n'envoie que `{ accountId }` (index.html, `_bankImportConfirm`) — le repli est
+  // donc ACTIF chez l'utilisateur, et c'est précisément la branche qui n'était pas gardée.
+  it('Stratégie 3 — la RESSEMBLANCE date/montant ne traverse pas la frontière du compte', () => {
+    // Pas d'empreinte, pas de FITID : seule l'heuristique peut parler. Sans `scopedAlive`,
+    // elle répond « doublon probable », ce qui BLOQUE la validation de l'import (⑥.2) et
+    // pousse à écarter une opération réelle du 2e compte.
+    const base = [mv({ id: 7, cr: 850, lib: 'SYNDIC MARTIN', _bankAccountId: 1 })];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'SYNDIC MARTIN', debit: 0, credit: 850 }],
+      base, { accountId: 2 });
+    expect(r[0].isDuplicate).toBe(false);
+  });
+
+  it('Stratégie 3 — sur le MÊME compte, la ressemblance reste signalée', () => {
+    const base = [mv({ id: 7, cr: 850, lib: 'SYNDIC MARTIN', _bankAccountId: 1 })];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'SYNDIC MARTIN', debit: 0, credit: 850 }],
+      base, { accountId: 1 });
+    expect(r[0].dupLevel).toBe('probable');
+  });
+
+  it('Stratégie 3 — un mouvement legacy SANS compte reste candidat (imports d\'avant le suivi)', () => {
+    const base = [mv({ id: 7, cr: 850, lib: 'SYNDIC MARTIN' })];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'SYNDIC MARTIN', debit: 0, credit: 850 }],
+      base, { accountId: 2 });
+    expect(r[0].dupLevel).toBe('probable');
+  });
 });
 
 describe('AUDIT C2 — la preuve négative du FITID ne vaut que face à un FITID', () => {

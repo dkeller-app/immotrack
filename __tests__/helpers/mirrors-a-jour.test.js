@@ -43,8 +43,11 @@ describe('Mirrors — aucun `js/helpers/*.global.js` ne diverge de sa source', (
       code = e.status == null ? -1 : e.status;
       sortie = String(e.stdout || '') + String(e.stderr || '');
     }
-    // Le message d'échec PORTE la sortie : sinon on lit « exit 1 » sans savoir quel mirror.
-    expect(code, 'mirror(s) en dérive — relancer `node tools/sync-helpers-global-mirrors.mjs`\n' + sortie).toBe(0);
+    // Le message d'échec PORTE la sortie : sinon on lit « exit 1 » sans savoir pourquoi.
+    // Et il ne PRÉSUME pas de la cause : le générateur sort aussi en 1 sur une source absente,
+    // un import non supporté ou un sanity check rouge. Annoncer « dérive » dans ces cas-là
+    // enverrait chercher au mauvais endroit — la sortie ci-dessous, elle, dit la vérité.
+    expect(code, 'le contrôle des mirrors a échoué (dérive, source absente ou sanity check) :\n' + sortie).toBe(0);
   });
 
   it('… et le mode --check n\'écrit rien (sinon il masquerait la dérive au lieu de la dire)', () => {
@@ -110,11 +113,25 @@ describe('AUDIT-C1 — le correctif d\'argent est VRAIMENT dans le fichier que l
   });
 
   it('La ressemblance date/montant ne traverse pas non plus la frontière du compte', () => {
-    // Stratégie 3 (heuristique) : c'est le second volet du correctif (`scopedAlive`).
+    // Stratégie 3 (heuristique date ±3 j / montant ±1 €) : le SECOND volet du correctif
+    // (`scopedAlive`). ⚠️ SURTOUT PAS de `legacyFallback: false` ici : c'est le drapeau qui
+    // ÉTEINT la stratégie 3 (`bank-import.js`, « if (!isDuplicate && legacyFallback) »), et
+    // l'assertion devenait vraie par construction — le test passait à l'identique sur
+    // l'ancien mirror. La production, elle, n'envoie que `{ accountId }` : le repli est ACTIF.
+    // Sans ce garde-fou, une opération du compte B ressortait « doublon probable », ce qui
+    // BLOQUE la validation de l'import et pousse à écarter une opération réelle.
     const base = [mv({ id: 7, cr: 850, lib: 'SYNDIC MARTIN', _bankAccountId: 1 })];
     const r = _bankDedup(
       [{ date: '2026-08-05', libelle: 'SYNDIC MARTIN', debit: 0, credit: 850 }],
-      base, { accountId: 2, legacyFallback: false });
+      base, { accountId: 2 });
     expect(r[0].isDuplicate).toBe(false);
+  });
+
+  it('… mais sur le MÊME compte, la ressemblance reste signalée (le repli garde son utilité)', () => {
+    const base = [mv({ id: 7, cr: 850, lib: 'SYNDIC MARTIN', _bankAccountId: 1 })];
+    const r = _bankDedup(
+      [{ date: '2026-08-05', libelle: 'SYNDIC MARTIN', debit: 0, credit: 850 }],
+      base, { accountId: 1 });
+    expect(r[0].dupLevel).toBe('probable');
   });
 });

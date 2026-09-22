@@ -1177,6 +1177,13 @@ export function _bankDedup(newLines, mouvementsExistants, options = {}) {
     if (f && !fitidIndex.has(f)) fitidIndex.set(f, m);
   }
 
+  // AUDIT-C1 — candidats limités au compte courant (même raison que fpIndex/fitidIndex) : la
+  // ressemblance date/montant (strat. 3) ne doit pas matcher un mouvement d'un AUTRE compte.
+  // Calculé UNE fois : il ne dépend que de `alive` et `accountId`, tous deux constants pour
+  // l'import. Il vivait dans la boucle, donc refiltrait tout le parc à chaque ligne du relevé
+  // (O(lignes × mouvements) sur le thread de l'interface, qui se voit dès quelques milliers).
+  const scopedAlive = alive.filter(m => !(accountId != null && m._bankAccountId != null && String(m._bankAccountId) !== String(accountId)));
+
   const out = [];
   for (const line of (newLines || [])) {
     let isDuplicate = false, dupLevel = '', duplicateOf = '', duplicateReason = '';
@@ -1198,9 +1205,6 @@ export function _bankDedup(newLines, mouvementsExistants, options = {}) {
     // 🐛 Audit C2 : conclure globalement dès qu'UN mouvement du compte portait un FITID
     // faisait sauter empreinte ET heuristique → une période importée en Excel puis
     // recouverte par un relevé OFX était comptée DEUX FOIS, sans un mot.
-    // AUDIT-C1 — candidats limités au compte courant (même raison que fpIndex/fitidIndex) : la
-    // ressemblance date/montant (strat. 3) ne doit pas matcher un mouvement d'un AUTRE compte.
-    const scopedAlive = alive.filter(m => !(accountId != null && m._bankAccountId != null && String(m._bankAccountId) !== String(accountId)));
     const cands = lineFitid ? scopedAlive.filter(m => { const f = _bankMvFitid(m); return !f || f === lineFitid; }) : scopedAlive;
 
     // ── Stratégie 2 : empreinte (principale pour Excel) ──────────────────────
