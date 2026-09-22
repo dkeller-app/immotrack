@@ -63,9 +63,16 @@ describe('preavisReduitClause — UNE clause, deux habillages', () => {
     expect(nus(preavisReduitClause(true))).toBe(preavisReduitClause(false));
   });
 
-  it('la clause porte les six cas et se termine par un point', () => {
+  it('la clause est bien construite sur les six cas, sans en perdre en route', () => {
+    // ⚠️ Ce test AFFIRMAIT « la clause porte les six cas » en bouclant `toContain(cas)` sur
+    // `PREAVIS_REDUIT_CAS` — or la clause EST `join(' ; ')` de ce même tableau : l'assertion
+    // était vraie par construction, quel que soit le contenu. Un audit l'a prouvé en remplaçant
+    // un cas légal par « BLABLA » : le test restait vert. On vérifie donc la STRUCTURE (six
+    // segments séparés) plutôt que l'appartenance, et le contenu légal est testé ailleurs,
+    // contre le texte de loi.
     const c = preavisReduitClause();
-    for (const cas of PREAVIS_REDUIT_CAS) expect(c).toContain(cas);
+    const corps = c.slice(c.indexOf(' : ') + 3).replace(/\.$/, '');
+    expect(corps.split(' ; ')).toHaveLength(6);
     expect(c.endsWith('.')).toBe(true);
   });
 });

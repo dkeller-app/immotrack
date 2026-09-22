@@ -49,7 +49,10 @@ export const CONGE_CAS_REDUITS = [
  * qu'il ne devait pas.
  */
 export const PREAVIS_REDUIT_CAS = [
-  'sur les territoires mentionnés au premier alinéa de l\'article 17 (zone tendue)',
+  // « l'article 17 » NU serait une auto-référence fausse : le bail Propryo a son propre
+  // article 17 (« Annexes obligatoires »). On nomme la loi, comme le fait le 6e cas pour le
+  // code de la construction.
+  'sur les territoires mentionnés au premier alinéa de l\'article 17 de la loi n° 89-462 du 6 juillet 1989 (zone tendue)',
   'en cas d\'obtention d\'un premier emploi, de mutation, de perte d\'emploi ou de nouvel emploi consécutif à une perte d\'emploi',
   'pour le locataire dont l\'état de santé, constaté par un certificat médical, justifie un changement de domicile',
   'pour le locataire bénéficiaire d\'une ordonnance de protection ou dont le conjoint, partenaire lié par un pacte civil de solidarité ou concubin fait l\'objet de poursuites, d\'une procédure alternative aux poursuites ou d\'une condamnation, même non définitive, en raison de violences exercées au sein du couple ou sur un enfant qui réside habituellement avec lui',

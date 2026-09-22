@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.652</title>
+<title>Propryo v15.654</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.652">
+<link rel="stylesheet" href="css/main.css?v=15.654">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.652</em>
+      <em>v15.654</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.652';
+const IMMOTRACK_VERSION = '15.654';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -5681,6 +5681,13 @@ function _applyParamDefaults() {
 // vides + défauts de config seulement. Les MIGRATIONS de données (_CAT_MIGRATION, collision
 // « Prêt », tombstones, entityId…) restent dans initDB : elles réécrivent des données et
 // dépendent de l'ordre legacy.
+// La version du modèle de bail par défaut. SORTIE de `_applyDataDefaults` : elle y était déclarée
+// en `var`, donc invisible depuis `saveBailTemplate` et `resetBailTemplate`, qui en ont pourtant
+// besoin pour marquer un modèle comme à jour. Au niveau du script, elle est partagée.
+// À bumper quand le modèle par défaut change ET qu'on veut REPUBLIER ce défaut à tout le monde —
+// ce qui écrase aussi les personnalisations : c'est une republication, pas une correction.
+const BAIL_TMPL_VERSION = '2026-v1';
+
 function _applyDataDefaults() {
   if (!DB.entites) DB.entites = [];
   if (!DB.documents) DB.documents = []; // v14.35 DRIVE-ARBORESCENCE Phase B (uploads app→Drive)
@@ -5689,7 +5696,6 @@ function _applyDataDefaults() {
   if (!DB.baux_historique) DB.baux_historique = [];
   if (!DB.mouvements) DB.mouvements = [];
   if (!DB.templates) DB.templates = {};
-  var BAIL_TMPL_VERSION = '2026-v1';
   if (!DB.templates.bail || DB.templates.bailVersion !== BAIL_TMPL_VERSION) {
     DB.templates.bail = BAIL_TEMPLATE_DEFAULT;
     DB.templates.bailVersion = BAIL_TMPL_VERSION;
@@ -11310,7 +11316,14 @@ function saveBailTemplate() {
   if(!ta) return;
   if(!DB.templates) DB.templates = {};
   DB.templates.bail = ta.value;
-  delete DB.templates.bailVersion;
+  // ⚠️ PERTE DE DONNÉES SILENCIEUSE (trouvée en auditant les clauses légales, 22/09) : cette
+  // ligne faisait `delete DB.templates.bailVersion`. Or `_applyDataDefaults`, qui tourne à CHAQUE
+  // démarrage et après chaque hydratation cloud, réécrit le modèle par défaut dès que la version
+  // stockée ne correspond plus à `BAIL_TMPL_VERSION`. Une version absente ne correspond jamais :
+  // le modèle que l'utilisateur venait d'enregistrer — et que l'app lui confirmait « enregistré »
+  // — était donc écrasé au rechargement suivant, sans un mot. On marque la version : sa
+  // personnalisation survit, ce que le message de confirmation promet depuis toujours.
+  DB.templates.bailVersion = BAIL_TMPL_VERSION;
   saveDB();
   showToast('Modèle de bail enregistré','ok');
   el('bail-template-preview-btn').style.display = 'none';
@@ -11320,7 +11333,10 @@ function resetBailTemplate() {
   if(!confirm2('Restaurer le modèle original ? Vos modifications seront perdues.')) return;
   if(!DB.templates) DB.templates = {};
   DB.templates.bail = BAIL_TEMPLATE_DEFAULT;
-  DB.templates.bailVersion = '2025-v6';
+  // La version COURANTE, pas une constante figée : '2025-v6' ne correspondait plus à
+  // `BAIL_TMPL_VERSION`, donc « restaurer le modèle original » laissait un état que le prochain
+  // démarrage réécrivait — sans conséquence ici (c'est le même défaut), mais trompeur à lire.
+  DB.templates.bailVersion = BAIL_TMPL_VERSION;
   saveDB();
   loadBailTemplateEditor();
   showToast('Modèle restauré','ok');
@@ -20662,7 +20678,19 @@ function buildBailStructure(bail, log, ref, ent, locs) {
      : 'Contrat initial (art. 10 loi n° 89-462 du 6 juillet 1989)');
 
   // Durée selon type entité (perso = 3 ans, sinon 6 ans) — uniquement pour bail nu
-  const isPersoPhysique = /personne physique|perso/i.test(ent.type||'');
+  // ⚠️ L'ancien test cherchait le fragment « perso » dans le type d'entité — or ce fragment est
+  // contenu dans « PERSOnne morale ». Une personne morale était donc lue comme une personne
+  // physique, et « Particulier » comme une personne morale : les deux inversés, dans le PDF
+  // SIGNÉ. Le champ `ent.type` est LIBRE : il se classe dans un module testé, jamais par un
+  // fragment de mot.
+  const _regimeBailleur = (typeof window.regimeBailleur==='function')
+    ? window.regimeBailleur(ent.type||'')
+    : { regime: /personne morale/i.test(ent.type||'') ? 'morale' : 'physique', ans: 6, certain:false };
+  // ⚠️ DEUX QUESTIONS DISTINCTES, à ne pas confondre : « qui signe » et « quelle durée ».
+  // `isPersoPhysique` pilote l'IDENTITÉ (bloc bailleur, ligne du gérant, représentation) — une
+  // SCI familiale relève bien des trois ans (art. 13) mais reste une société, avec un gérant.
+  // La durée, elle, suit `_regimeBailleur.ans`.
+  const isPersoPhysique = _regimeBailleur.regime === 'physique';
   // v15.197 post-audit : détection du statut juridique réel de l'entité.
   // Avant : "SCI IS" codé en dur dans le PDF (faux pour SARL/SAS/asso/perso).
   // Maintenant : libellé adapté en table d'entête + paragraphe « Le Bailleur ».
@@ -20702,11 +20730,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     dureeBail = '[durée à préciser]';
     dureePhrase = 'La durée est définie par les parties. Le régime juridique applicable doit être précisé en concertation avec un professionnel du droit.';
   } else {
-    // Bail nu standard
-    dureeBail = isPersoPhysique ? '3 (trois) ans' : '6 (six) ans';
-    dureePhrase = isPersoPhysique
-      ? 'Cette durée de 3 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne physique.'
-      : 'Cette durée de 6 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).';
+    // Bail nu standard — art. 10 ET art. 13 (SCI familiale, indivision : trois ans).
+    dureeBail = (typeof window.dureeBailNuLabel==='function') ? window.dureeBailNuLabel(ent.type||'') : (_regimeBailleur.ans === 3 ? '3 (trois) ans' : '6 (six) ans');
+    dureePhrase = (typeof window.dureeBailNuPhrase==='function')
+      ? window.dureeBailNuPhrase(ent.type||'')
+      : 'Cette durée est fixée conformément à l\'article 10 de la loi du 6 juillet 1989.';
   }
 
   // Destination locaux (mixte ou habitation)
@@ -22118,6 +22146,13 @@ function previewBailData(bail, log, ref, opts) {
   ].map(function(r){ return '<tr><td>'+r[0]+'</td><td style="text-align:center">'+r[1]+'</td><td style="text-align:center">'+r[2]+'</td><td style="text-align:center">'+r[3]+'</td><td style="text-align:center">'+r[4]+'</td></tr>'; }).join('');
 
   /* ── HTML des 10 pages ───────────────────────────────────── */
+
+  // ⚠️ CODE MORT — `p1`, `p2`, `p3` ne sont consommés NULLE PART (cf. la note ligne ~22390 :
+  // « conservés temporairement, dead code à nettoyer »). Le rendu réel passe par
+  // `buildBailStructure`. Ces vestiges portent encore les clauses juridiques d'AVANT le
+  // correctif — durée « six (6) années … personne morale (SCI) » plaquée sur tout bailleur,
+  // et le préavis réduit avec sa condition d'âge supprimée de la loi. Ne JAMAIS les reprendre
+  // comme référence : ils sont faux. À supprimer dans un lot de nettoyage.
 
   // PAGE 1 : Couverture + Entre les soussignés
   const p1 = '<div class="bail-page" id="page-1">'
@@ -24737,14 +24772,16 @@ async function _congeSortiePdf(ref){
 function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef, villeSig, mode) {
   // Utilise le template stocké dans DB.templates.bail (éditable par l'utilisateur)
   let tmpl = (DB.templates && DB.templates.bail) ? DB.templates.bail : BAIL_TEMPLATE_DEFAULT;
-  // Le modèle est ÉDITABLE et stocké tel quel. Un utilisateur qui l'a enregistré avant ce
-  // correctif garde donc, dans son contrat, deux clauses juridiquement fausses : une condition
-  // d'âge que l'art. 15-I n'impose pas, et une durée de « 6 ans, personne morale (SCI) » plaquée
-  // sur un bailleur particulier. On ne réécrit PAS ses données — c'est son document — mais on ne
-  // peut pas non plus imprimer sciemment une clause fausse. On remonte donc les deux phrases
-  // périmées vers leurs jetons AU MOMENT DU RENDU, par correspondance EXACTE (jamais approchée :
-  // une phrase qu'il aurait réellement retouchée lui appartient et reste intacte).
-  tmpl = tmpl
+  // Le modèle est ÉDITABLE et stocké tel quel : un modèle déjà enregistré porte encore les deux
+  // clauses fausses. On ne réécrit PAS les données de l'utilisateur — c'est son document — mais
+  // on ne peut pas imprimer sciemment une clause fausse. Les deux phrases périmées sont donc
+  // remontées vers leurs jetons AU MOMENT DU RENDU, par correspondance EXACTE : une phrase qu'il
+  // aurait réellement retouchée ne correspond pas, et reste intacte.
+  //
+  // ⚠️ Pourquoi PAS un bump de `BAIL_TMPL_VERSION`, qui aurait rafraîchi les modèles stockés :
+  // ce mécanisme écrase le modèle ENTIER, y compris une personnalisation légitime. Il est fait
+  // pour republier un défaut, pas pour corriger deux phrases dans le document de quelqu'un.
+  tmpl = String(tmpl)
     .replace('Cette durée de 6 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).', '{{DUREE_PHRASE}}')
     .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}');
 
@@ -24901,15 +24938,13 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
       : bail.typeContrat==='renouvellement'
       ? 'Renouvellement du contrat de bail (art. 10 et 17-2 loi n° 89-462 du 6 juillet 1989)'
       : 'Contrat initial (art. 10 loi n° 89-462 du 6 juillet 1989)',
-    'DUREE_BAIL': (()=>{ const ent2=DB.entites.find(e=>e.nom===bail.entity)||{}; return /personne physique|perso/i.test(ent2.type||'') ? '3 (trois) ans' : '6 (six) ans'; })(),
-    // La PHRASE qui justifie la durée était figée en dur dans le modèle : « Cette durée de 6 ans
-    // s'applique …, le bailleur étant une personne morale (SCI) ». Pour un bailleur particulier,
-    // le même paragraphe annonçait donc « durée initiale de 3 ans » PUIS « cette durée de 6 ans …
-    // personne morale » — contradictoire, et faux pour la majorité des utilisateurs. Le PDF signé
-    // branchait correctement depuis toujours (`buildBailStructure`) : seul l'export Word mentait.
-    'DUREE_PHRASE': (()=>{ const ent2=DB.entites.find(e=>e.nom===bail.entity)||{}; return /personne physique|perso/i.test(ent2.type||'')
-      ? 'Cette durée de 3 ans s’applique conformément à l’article 10 de la loi du 6 juillet 1989, le bailleur étant une personne physique.'
-      : 'Cette durée de 6 ans s’applique conformément à l’article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).'; })(),
+    // Durée et phrase viennent du MÊME module que le PDF signé (`js/core/bail-duree.js`) :
+    // deux documents du même bail ne peuvent pas annoncer deux durées. La PHRASE était en plus
+    // figée en dur dans le modèle (« … le bailleur étant une personne morale (SCI) »), si bien
+    // que le Word d'un bailleur particulier annonçait « durée initiale de 3 ans » PUIS « cette
+    // durée de 6 ans … personne morale ». Et le classement lui-même était inversé, des deux côtés.
+    'DUREE_BAIL': (()=>{ const ent2=DB.entites.find(e=>e.nom===bail.entity)||{}; return (typeof window.dureeBailNuLabel==='function') ? window.dureeBailNuLabel(ent2.type||'') : '6 (six) ans'; })(),
+    'DUREE_PHRASE': (()=>{ const ent2=DB.entites.find(e=>e.nom===bail.entity)||{}; return (typeof window.dureeBailNuPhrase==='function') ? window.dureeBailNuPhrase(ent2.type||'') : 'Cette durée est fixée conformément à l’article 10 de la loi du 6 juillet 1989.'; })(),
     // La clause de préavis réduit vient du module (art. 15-I verbatim), plus du corps du modèle.
     'PREAVIS_REDUIT': (typeof window.preavisReduitClause==='function')
       ? window.preavisReduitClause(true)

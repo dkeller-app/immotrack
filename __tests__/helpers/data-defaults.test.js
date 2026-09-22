@@ -35,6 +35,11 @@ const IRL_DEFAULT = { 'T1 2024': 143.46, 'T2 2024': 145.17, 'T3 2024': 144.51 };
 const DEFAULT_CATS = ['Loyers encaissés', 'Frais bancaires', 'Prêt'];
 const DEFAULT_PIECES = { 'Cuisine': ['Sol', 'Murs'], 'Séjour': ['Sol'] };
 const BAIL_TEMPLATE_DEFAULT = '<html>TPL-DEFAUT</html>';
+// `BAIL_TMPL_VERSION` a quitte l'interieur de `_applyDataDefaults` : elle y etait en `var`,
+// donc invisible depuis `saveBailTemplate`, qui en a pourtant besoin pour marquer un modele
+// personnalise comme a jour. Elle est desormais au niveau du script, et ce harnais la fournit
+// comme les autres constantes globales que la fonction extraite reference.
+const BAIL_TMPL_VERSION = '2026-v1';
 
 let indexHtml, applyDataDefaults;
 
@@ -46,10 +51,10 @@ beforeAll(() => {
   if (src) {
     // La fonction inline référence DB + constantes globales → wrapper qui les fournit.
     const factory = new Function(
-      'IRL_DEFAULT', 'DEFAULT_CATS', 'DEFAULT_PIECES', 'BAIL_TEMPLATE_DEFAULT',
+      'IRL_DEFAULT', 'DEFAULT_CATS', 'DEFAULT_PIECES', 'BAIL_TEMPLATE_DEFAULT', 'BAIL_TMPL_VERSION',
       `let DB; ${src}\nreturn (db) => { DB = db; _applyDataDefaults(); return DB; };`
     );
-    applyDataDefaults = factory(IRL_DEFAULT, DEFAULT_CATS, DEFAULT_PIECES, BAIL_TEMPLATE_DEFAULT);
+    applyDataDefaults = factory(IRL_DEFAULT, DEFAULT_CATS, DEFAULT_PIECES, BAIL_TEMPLATE_DEFAULT, BAIL_TMPL_VERSION);
   }
 });
 
