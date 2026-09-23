@@ -3431,8 +3431,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 
     <!-- Construction & régime -->
     <div class="fg2 mb8">
-      <div class="fg"><label>Année construction</label><input class="inp" type="number" id="imm-annee" min="1800" max="2100" oninput="immAnneeToperiode()"></div>
-      <div class="fg"><label>Période de construction</label>
+      <div class="fg"><label>Année construction</label><input class="inp" type="number" id="imm-annee" min="1800" max="2100" oninput="immAnneeToperiode()" placeholder="ex 1985"></div>
+      <div class="fg"><label>Période de construction <span class="mu sm" id="imm-periode-note">(déduite de l'année)</span></label>
         <select class="inp" id="imm-periodeConstr">
           <option value="">— Sélectionner —</option>
           <option>Avant 1949</option>
@@ -49910,14 +49910,24 @@ function openNewEnt(id) {
 }
 
 function immAnneeToperiode() {
-  const a = parseInt(el('imm-annee').value)||0;
-  if(!a) return;
+  // L'ANNÉE est la source de vérité ; la période est DÉRIVÉE (verrouillée) tant qu'une
+  // année est saisie. Année inconnue → la période redevient saisissable (repli pour le
+  // document de bail, qui a besoin de la mention). Fin de la double saisie année/période.
   const sel = el('imm-periodeConstr'); if(!sel) return;
+  const note = el('imm-periode-note');
+  const a = parseInt(el('imm-annee').value)||0;
+  if(!a) {
+    sel.disabled = false;
+    if(note) note.textContent = "(année inconnue — à choisir)";
+    return;
+  }
   if(a < 1949)       sel.value = 'Avant 1949';
   else if(a <= 1974) sel.value = 'De 1949 à 1974';
   else if(a <= 1989) sel.value = 'De 1975 à 1989';
   else if(a <= 2005) sel.value = 'De 1990 à 2005';
   else               sel.value = 'Depuis 2005';
+  sel.disabled = true;
+  if(note) note.textContent = "(déduite de l'année)";
 }
 
 function renderImmList(imms) {
@@ -49994,6 +50004,7 @@ function addImmForm(entIdOverride) {
    'imm-ec-custom-input']
     .forEach(id => { const e = el(id); if(e) e.value = ''; });
   el('imm-periodeConstr').value = '';
+  immAnneeToperiode();   // état dérivé initial (année vide → période saisissable)
   el('imm-regimeJuridique').value = '';
   if(el('imm-typeHabitat')) el('imm-typeHabitat').value = '';   // v15.249 B3
   // Reset checkboxes équipements communs
@@ -50036,6 +50047,7 @@ function editImm(idx, entIdOverride) {
   el('imm-valeur').value = im.valeurEstimee||'';
   el('imm-nbLots').value = im.nbLots||'';
   el('imm-periodeConstr').value = im.periodeConstr||'';
+  immAnneeToperiode();   // année saisie → période dérivée+verrouillée ; sinon saisissable
   el('imm-regimeJuridique').value = im.regimeJuridique||'';
   if(el('imm-typeHabitat')) el('imm-typeHabitat').value = im.typeHabitat||'';   // v15.249 B3
   el('imm-travaux').value = im.travaux||'';
