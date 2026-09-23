@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.670</title>
+<title>Propryo v15.671</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.670">
+<link rel="stylesheet" href="css/main.css?v=15.671">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.670</em>
+      <em>v15.671</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.670';
+const IMMOTRACK_VERSION = '15.671';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -41375,9 +41375,12 @@ function viewCcFactures(entId, immId, ccIdx) {
 }
 
 // ── KPIs annuels d'un logement (loyers encaissés / charges / solde / manque à gagner)
-// v14.29 : 4ᵉ KPI passe de "Vacance %" à "Manque à gagner €" (sub-label avec % vacance).
-//          Calcul utilise _computeExpectedRent qui fait le fallback sur le bail le plus
-//          récent → reflète correctement les vacances entre 2 baux (mémoire du dernier loyer).
+// v14.29 : 4ᵉ KPI passe de "Vacance %" à "Manque à gagner €".
+// ⚠️ CE BLOC A LONGTEMPS DIT FAUX : il annonçait que `_computeExpectedRent` garde « la
+// mémoire du dernier loyer » pendant une vacance. Vérifié en exécutant le moteur : `duMois`
+// rend `{source:'vacance', hc:0}` sur un mois sans bail. Ce KPI mesure donc l'IMPAYÉ (dû
+// moins encaissé), pas le coût d'un logement vide — un mois vacant ne doit rien, il ne pèse
+// pas ici. Le coût du vide, lui, est dans le bilan annuel (`_computeOccupationLots`).
 function _renderComptaKPIsForLog(ref, year) {
   const yearStart = `${year}-01-01`;
   const yearEnd   = `${year}-12-31`;
@@ -41395,7 +41398,8 @@ function _renderComptaKPIsForLog(ref, year) {
   const chargesCc = ccMoisKpi.reduce((a,b)=>a+b, 0);
   const charges = chargesDirect + chargesCc;
   const solde     = loyersEnc - charges;
-  // Loyer attendu réel : pro-rata mois × HC+CH du bail actif OU du dernier bail (fallback vacance)
+  // Loyer attendu réel : pro-rata mois × HC+CH du bail EN COURS. Un mois sans bail rend 0 —
+  // il n'y a pas de « repli sur le dernier bail », contrairement à ce que disait ce commentaire.
   const today = new Date();
   const isCurYr = today.getFullYear() === yr;
   const lastVisibleMonth = isCurYr ? today.getMonth() + 1 : 12;
@@ -56528,7 +56532,8 @@ function rFinances() {
   const _nbImp = (cur.lotsEnRetard || []).length;
   // R-4 / K-2 : occupation = MOYENNE de la période, calculée SOUS LE SOCLE (lots du périmètre
   // via scopeLots — les lots sans bailleur comptent enfin, constat 21) ; le manque à gagner
-  // THÉORIQUE de la vacance s'affiche SOUS le taux (il le qualifie, ce n'est pas une créance).
+  // THÉORIQUE de la vacance s'affiche SOUS le taux (il le qualifie, ce n'est pas une créance)
+  // — chaque période vide valorisée au loyer de SON époque depuis R0-H, plus au loyer du jour.
   const scopedLogs = (typeof window._finScopeLots === 'function' && scope) ? window._finScopeLots(scope, DB.logements || []) : (DB.logements || []).filter(l => l && !l._deleted);
   const _todayIso = W.constat.today || new Date().toISOString().slice(0, 10);
   const _occTo = (String(yr) === _todayIso.slice(0, 4)) ? _todayIso : (yr + '-12-31');
@@ -56543,7 +56548,7 @@ function rFinances() {
       + (_vac.length === 1 && _vac[0].depuis ? ' depuis le ' + _dfr(_vac[0].depuis) : '')
     : '';
   const _occTip = 'moyenne sur ' + W.exigibilite.nbMois + ' mois · ' + OCC.nbLots + ' lot' + (OCC.nbLots > 1 ? 's' : '')
-    + (OCC.manqueAGagner > 0.005 ? ' · <b>' + f(OCC.manqueAGagner) + ' de manque à gagner</b> <span style="color:var(--t3)">(théorique : loyer de référence × jours vides, même base que la clé P-4)</span>' : '')
+    + (OCC.manqueAGagner > 0.005 ? ' · <b>' + f(OCC.manqueAGagner) + ' de manque à gagner</b> <span style="color:var(--t3)">(théorique : chaque période vide au loyer qui était alors en vigueur)</span>' : '')
     + _vacTxt;
   const ratiosHtml = '<div class="fin-ratios">'
     + _finRatio('Recouvrement', recouv == null ? '—' : recouv, recouv == null ? '' : '%',

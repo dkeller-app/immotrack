@@ -141,9 +141,10 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
  * filtre `l.entity === X` maison — les lots sans bailleur comptent enfin (P-2, constat 21).
  *   R-4 · « Occupation » = MOYENNE de la période (jours loués ÷ jours louables sur [from..to]),
  *         plus jamais un instantané. L'état du jour est rendu à part (`vacantsJour`).
- *   K-2 · manque à gagner THÉORIQUE = jours vides × loyer de référence du lot
- *         (`loyerHcRef`, repli `hc`) ÷ 30,44 — même base que la clé P-4 pour un mois sans bail,
- *         même fenêtre que le reste de la page. Il QUALIFIE le taux, ce n'est pas une créance.
+ *   K-2 · manque à gagner THÉORIQUE = chaque segment vide × le loyer qui était EN VIGUEUR
+ *         à son début (`loyerHcDuLotA`) ÷ 30,44. R0-H : c'était le loyer de référence du lot
+ *         AUJOURD'HUI appliqué à des jours vides PASSÉS — l'infraction I-1. Il QUALIFIE le
+ *         taux, ce n'est pas une créance.
  * @param {Object} db  DB (baux, baux_historique)
  * @param {Array} lots lots du périmètre (déjà filtrés par le socle)
  * @param {{from:string, to:string}} opts fenêtre ISO (YYYY-MM-DD, bornes incluses)
@@ -168,7 +169,7 @@ export function _computeOccupationLots(db, lots, opts) {
     occ += occDays; louable += totalDays;
     // R0-H : ce moteur-ci valorisait la vacance avec `lot.loyerHcRef || lot.hc`, l'autre avec
     // `bailCourant.hc` — deux sources, et la même erreur : le loyer d'aujourd'hui appliqué
-    // au passé. Une seule lecture désormais, datee segment par segment.
+    // au passé. Une seule lecture désormais, datée segment par segment.
     manque += _manqueVacance(
       _segmentsVacants(bailCourant, hists, from, to), l.ref,
       { bareme: (db && db.loyerBareme) || [], bailCourant, hists, lot: l });
@@ -215,7 +216,15 @@ export function loyerHcDuLotA(iso, ref, ctx) {
   const c = ctx || {};
   const d = String(iso || '').slice(0, 10);
   if (!d) return 0;
-  const num = (v) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? x : null; };
+  // I5 : un champ VIDE n'est pas un zéro. Un logement de fonction ou un bail à titre gratuit
+  // porte un `hc` de 0 RÉELLEMENT saisi : le rejeter faisait valoriser sa vacance au loyer
+  // du bail d'avant, donc un manque à gagner sur un lot qui ne rapportait rien. Même règle
+  // que `premierMontantSaisi` (`loyer-bareme.js`).
+  const num = (v) => {
+    if (v == null || v === '') return null;
+    const x = Number(v);
+    return Number.isFinite(x) && x >= 0 ? x : null;
+  };
 
   const p = periodeEnVigueurA(c.bareme || [], ref, d);
   const viaBareme = p ? num(p.hc) : null;
@@ -225,26 +234,29 @@ export function loyerHcDuLotA(iso, ref, ctx) {
   if (c.bailCourant) baux.push(c.bailCourant);
   (c.hists || []).forEach((b) => { if (b) baux.push(b); });
 
-  const finDe = (b) => b.finEffective || b.fin || b._archivedAt || null;
-  // R0-E : un bail dont la date de fin est passée mais qui n'est pas clôturé court toujours
-  // (tacite reconduction). Même règle que `_calcOccDays` et `_bienActiveBail`.
+  // I4 : LA même lecture de la fin d'un bail que `_segmentsOccupes`. Trois versions
+  // cohabitaient dans ce module ; celle-ci ne regardait que `finEffective`, donc un bail
+  // clôturé SANS `finEffective` n'était jamais « en cours », à aucune date.
+  const finDe = (b) => _finDeBail(b, false, null);
   const enCoursA = (b) => {
     if (!b || !b.debut || String(b.debut).slice(0, 10) > d) return false;
-    if (b.cloture || b.finEffective) return String(b.finEffective || '').slice(0, 10) >= d;
-    return true;
+    const f = finDe(b);
+    return f == null ? true : f >= d;
   };
   // 2. le bail EN COURS. Sans lui, le 31 décembre d'un lot reloué au 1er octobre renvoyait
   //    le loyer de l'ANCIEN bail — la recherche ne regardait que les baux TERMINÉS.
   for (const b of baux) { if (enCoursA(b) && num(b.hc) != null) return num(b.hc); }
-  // 3. le dernier bail TERMINÉ avant cette date, choisi sur sa date de fin — pas sur l'ordre
-  //    du tableau, qui ne garantit rien (le défaut précédent prenait `hists[hists.length-1]`).
-  let avant = null, finAvant = '';
-  for (const b of baux) {
-    const f = finDe(b);
-    if (!f || String(f).slice(0, 10) >= d) continue;
-    if (!avant || String(f).slice(0, 10) > finAvant) { avant = b; finAvant = String(f).slice(0, 10); }
-  }
-  if (avant && num(avant.hc) != null) return num(avant.hc);
+  // 3. les baux TERMINÉS avant cette date, du plus récent au plus ancien — choisis sur leur
+  //    date de FIN, pas sur l'ordre du tableau (le défaut précédent prenait le dernier
+  //    ÉLÉMENT). On REMONTE tant qu'un bail ne porte pas de loyer : un bail dont le montant
+  //    n'a jamais été saisi est une lacune de saisie, pas un loyer de zéro — il ne doit pas
+  //    masquer celui d'avant et faire retomber sur la fiche du lot, c'est-à-dire sur le
+  //    loyer d'AUJOURD'HUI (le défaut I-1 que tout ce lot corrige).
+  const termines = baux
+    .map((b) => ({ b, f: finDe(b) }))
+    .filter((x) => x.f != null && x.f < d)
+    .sort((x, y) => y.f.localeCompare(x.f));
+  for (const { b } of termines) { const v = num(b.hc); if (v != null) return v; }
 
   // 4. le premier bail qui COMMENCE après cette date.
   let apres = null, debutApres = '';
@@ -260,54 +272,93 @@ export function loyerHcDuLotA(iso, ref, ctx) {
 }
 
 /**
- * Les segments VIDES d'un lot sur [from, to] — le complément exact de `_calcOccDays`, mêmes
- * règles de fin de bail (tacite reconduction comprise : seule la clôture termine un bail).
- * @returns {Array<{from:string, to:string, jours:number}>}
+ * La FIN d'un bail, lue PARTOUT pareil dans ce module.
+ *
+ * R0-E : un bail n'est pas terminé parce que sa date de fin est passée — un bail nu non
+ * dénoncé se reconduit tacitement. Seule la clôture (ou une `finEffective`) le termine. Les
+ * baux d'HISTORIQUE, eux, sont terminés par construction : `force` les borne sans se fier à
+ * leurs drapeaux, car les chemins d'archivage ne posent pas tous `cloture`.
+ * @returns {string|null} la date de fin ISO, ou `defaut` si le bail court toujours.
  */
-function _segmentsVacants(bailCourant, hists, from, to) {
-  const J = 86400000;
-  const ts = (iso) => new Date(String(iso).slice(0, 10) + 'T00:00:00').getTime();
-  // ⚠️ `toISOString()` reconvertit en UTC : à Paris, minuit local d'un 1er juillet devient
-  // le 30 juin à 22 h UTC, et le segment vide commençait la VEILLE — assez pour que le bail
-  // qui se terminait ce jour-là soit encore vu comme en cours, et que la vacance soit
-  // valorisée au loyer du bail d'AVANT. Le découpage est local, le formatage aussi.
-  const iso = (t) => { const d = new Date(t); const p2 = (x) => String(x).padStart(2, '0');
-    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
-  const fromTs = ts(from), toTs = ts(to);
-  if (!(toTs >= fromTs)) return [];
+function _finDeBail(b, force, defaut) {
+  if (!b) return defaut;
+  const finIso = b.finEffective || b.fin || b._archivedAt || null;
+  const termine = force || !!(b.cloture || b.finEffective);
+  return (termine && finIso) ? String(finIso).slice(0, 10) : defaut;
+}
 
-  const occ = [];
+// Arithmétique de jours en UTC : un jour y dure EXACTEMENT 86 400 000 ms, y compris les deux
+// dimanches de bascule horaire. En local, `+ 86400000` sur le 25 octobre donne le 25 à 23 h —
+// assez pour perdre un trou d'un jour au printemps (aucun segment vide rendu alors que
+// l'occupation en comptait un) et pour dater une vacance d'automne LA VEILLE, ce qui la
+// valorisait au loyer de la période de barème refermée à la sortie du locataire.
+const _J = 86400000;
+const _utc = (iso) => {
+  const t = String(iso).slice(0, 10);
+  return Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10));
+};
+const _isoUtc = (t) => new Date(t).toISOString().slice(0, 10);
+
+/**
+ * Les segments OCCUPÉS d'un lot sur [from, to], fusionnés — LA décomposition unique.
+ *
+ * C2 (retour d'audit) : les jours occupés et les segments vides venaient de deux calculs
+ * séparés — une SOMME écrêtée d'un côté, une UNION de l'autre. Dès que deux baux se
+ * chevauchent (le cas existe : deux lignes d'historique pour la même ref, ou un bail courant
+ * recopié dans l'historique), les deux se contredisaient dans le MÊME objet retourné :
+ * « 99,7 % d'occupation · 2 720,11 € de manque à gagner », un jour vide affiché pour
+ * quatre-vingt-douze facturés. Une seule décomposition, deux lectures.
+ * @returns {Array<[number, number]>} bornes UTC inclusives, triées et disjointes
+ */
+function _segmentsOccupes(bailCourant, hists, from, to) {
+  const fromTs = _utc(from), toTs = _utc(to);
+  if (!(toTs >= fromTs)) return [];
+  const brut = [];
   const pousse = (b, force) => {
     if (!b || !b.debut) return;
-    const finIso = b.finEffective || b.fin || b._archivedAt || null;
-    const termine = force || !!(b.cloture || b.finEffective);
-    const bStart = ts(b.debut);
-    const bEnd = (termine && finIso) ? ts(finIso) : toTs;
-    const a = Math.max(bStart, fromTs), z = Math.min(bEnd, toTs);
-    if (z >= a) occ.push([a, z]);
+    const fin = _finDeBail(b, force, null);
+    const a = Math.max(_utc(b.debut), fromTs);
+    const z = Math.min(fin == null ? toTs : _utc(fin), toTs);
+    if (z >= a) brut.push([a, z]);
   };
   pousse(bailCourant, false);
   (hists || []).forEach((b) => pousse(b, true));
 
-  occ.sort((x, y) => x[0] - y[0]);
+  brut.sort((x, y) => x[0] - y[0]);
   const fusion = [];
-  for (const seg of occ) {
+  for (const seg of brut) {
     const dernier = fusion[fusion.length - 1];
-    if (dernier && seg[0] <= dernier[1] + J) { if (seg[1] > dernier[1]) dernier[1] = seg[1]; }
+    // `+ _J` fusionne aussi les baux ADJACENTS : un bail qui finit le 30/06 et le suivant qui
+    // commence le 01/07 ne laissent aucune vacance.
+    if (dernier && seg[0] <= dernier[1] + _J) { if (seg[1] > dernier[1]) dernier[1] = seg[1]; }
     else fusion.push([seg[0], seg[1]]);
   }
+  return fusion;
+}
 
+/** Les jours d'occupation — la SOMME des segments occupés, donc jamais plus que la période. */
+function _calcOccDays(bailCourant, hists, from, to) {
+  return _segmentsOccupes(bailCourant, hists, from, to)
+    .reduce((s, [a, z]) => s + Math.round((z - a) / _J) + 1, 0);
+}
+
+/**
+ * Les segments VIDES — le complément EXACT des segments occupés, par construction.
+ * @returns {Array<{from:string, to:string, jours:number}>}
+ */
+function _segmentsVacants(bailCourant, hists, from, to) {
+  const fromTs = _utc(from), toTs = _utc(to);
+  if (!(toTs >= fromTs)) return [];
   const vides = [];
   let curseur = fromTs;
-  for (const [a, z] of fusion) {
-    if (a > curseur) vides.push([curseur, a - J]);
-    if (z + J > curseur) curseur = z + J;
+  for (const [a, z] of _segmentsOccupes(bailCourant, hists, from, to)) {
+    if (a > curseur) vides.push([curseur, a - _J]);
+    if (z + _J > curseur) curseur = z + _J;
   }
   if (curseur <= toTs) vides.push([curseur, toTs]);
-
   return vides
     .filter(([a, z]) => z >= a)
-    .map(([a, z]) => ({ from: iso(a), to: iso(z), jours: Math.round((z - a) / J) + 1 }));
+    .map(([a, z]) => ({ from: _isoUtc(a), to: _isoUtc(z), jours: Math.round((z - a) / _J) + 1 }));
 }
 
 /**
@@ -319,44 +370,6 @@ function _manqueVacance(segments, ref, ctx) {
   let total = 0;
   for (const seg of segments) total += (seg.jours / 30.44) * loyerHcDuLotA(seg.from, ref, ctx);
   return Math.round(total * 100) / 100;
-}
-
-/** Calcule le nombre de jours d'occupation d'un logement pour la période donnée.
- *  Utilise T00:00:00 partout + `+1` pour inclure début ET fin (cohérent avec _daysBetween). */
-function _calcOccDays(bailCourant, hists, from, to) {
-  const fromTs = new Date(from + 'T00:00:00').getTime();
-  const toTs = new Date(to + 'T00:00:00').getTime();
-  let total = 0;
-  // R0-E — Un bail n'est PAS terminé parce que sa date de fin est passée : un bail nu non
-  // dénoncé se reconduit tacitement, le locataire est là et le loyer est dû. Seule la CLÔTURE
-  // termine un bail. C'est déjà la règle de `_bienActiveBail` (index.html) depuis v15.343 ;
-  // ce moteur-ci ne la suivait pas, et voyait donc « vacant » le cas le plus courant du parc :
-  // taux d'occupation sous-évalué et « manque à gagner » inventé sur une vacance inexistante.
-  //
-  // ⚠️ Portée exacte, vérifiée : ce moteur n'alimente QUE le taux d'occupation, le manque à
-  // gagner et la liste des vacants. Il ne touche NI le dû, NI la clé de répartition P-4 —
-  // celle-ci passe par `_occupation` (js/core/loyer-du-mois.js), qui connaît déjà la tacite
-  // reconduction. Aucun montant de charges ne bouge.
-  //
-  // Les baux d'HISTORIQUE sont terminés par construction : on les borne toujours, sans se fier
-  // à leurs drapeaux — les chemins d'archivage ne posent pas tous `cloture`. Le repli qui tient
-  // réellement le stock est `_archivedAt`, posé par les trois chemins ; une entrée antérieure
-  // sans AUCUNE des trois dates resterait ouverte jusqu'à la fin de la période.
-  const compte = (b, force) => {
-    if (!b || !b.debut) return;
-    const finIso = b.finEffective || b.fin || b._archivedAt || null;
-    const termine = force || !!(b.cloture || b.finEffective);
-    const bStart = new Date(b.debut + 'T00:00:00').getTime();
-    const bEnd = (termine && finIso) ? new Date(finIso + 'T00:00:00').getTime() : toTs;
-    const start = Math.max(bStart, fromTs);
-    const end = Math.min(bEnd, toTs);
-    if (end >= start) total += Math.round((end - start) / 86400000) + 1;
-  };
-  compte(bailCourant, false);
-  (hists || []).forEach((b) => compte(b, true));
-  // Clip à la durée totale de la période (cas rare : si plusieurs baux se chevauchent)
-  const maxDays = _daysBetween(from, to);
-  return Math.min(total, maxDays);
 }
 
 /**

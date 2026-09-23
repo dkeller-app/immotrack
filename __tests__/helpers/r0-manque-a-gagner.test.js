@@ -36,9 +36,7 @@ describe('La vacance est valorisée au loyer de SON époque', () => {
     const r = occ(DB_BASE, '2026-07-01', '2026-09-30');
     expect(r.occDays).toBe(0);
     expect(r.louableDays).toBe(92);
-    expect(r.manqueAGagner).toBe(2417.87);                 // 92/30,44 × 800
-    const avant = Math.round((92 / 30.44) * 950 * 100) / 100;
-    expect(avant).toBe(2871.22);                          // ce que l'ancien calcul donnait
+    expect(r.manqueAGagner).toBe(2417.87);                 // 92/30,44 × 800, et non × 950
   });
 
   it('le BARÈME l’emporte sur le bail — c’est l’historique du loyer', () => {
@@ -61,6 +59,84 @@ describe('La vacance est valorisée au loyer de SON époque', () => {
     // Occupé du 01/01 au 30/06 (181 j) et du 01/10 au 31/12 (92 j) = 273 j ; 92 j vides.
     expect(r.occDays).toBe(273);
     expect(r.manqueAGagner).toBe(2417.87);
+  });
+});
+
+describe('Les jours occupés et les jours vides sortent de la MÊME décomposition', () => {
+  it('deux baux qui se CHEVAUCHENT ne facturent pas 92 jours pour 1 jour affiché', () => {
+    // Le compte des jours occupés ADDITIONNAIT les baux puis écrêtait ; les segments vides,
+    // eux, prenaient l'union. Le même objet renvoyait donc « 99,7 % d'occupation » et
+    // « 2 720,11 € de manque à gagner ». Deux lignes d'historique pour la même ref existent
+    // (la clé de synchro est `ref|_archivedAt`), et un bail courant peut y être recopié.
+    const db = {
+      logements: [LOT],
+      baux: {},
+      baux_historique: [
+        { ref: 'A-1', debut: '2026-01-01', finEffective: '2026-06-30', hc: 800 },
+        { ref: 'A-1', debut: '2026-04-01', finEffective: '2026-09-30', hc: 900 }
+      ],
+      loyerBareme: []
+    };
+    const r = occ(db, '2026-01-01', '2026-12-31');
+    expect(r.occDays).toBe(273);                 // 01/01 → 30/09, pas 364
+    // Les 92 jours vides sont valorisés à 900 € : c'est le bail qui courait encore le 30/09.
+    expect(r.manqueAGagner).toBe(2720.11);
+    // L'invariant qui manquait : le manque à gagner porte sur les jours RÉELLEMENT vides.
+    expect(r.louableDays - r.occDays).toBe(92);
+    expect(Math.round((r.manqueAGagner * 30.44) / 900)).toBe(92);
+  });
+
+  it('un bail COURANT recopié dans l’historique ne fabrique pas de manque à gagner', () => {
+    // Avant : « 100 % d'occupation, aucun lot vacant, 1 550,59 € de manque à gagner ».
+    const db = {
+      logements: [LOT],
+      baux: { 'A-1': { ref: 'A-1', debut: '2026-03-01', hc: 800 } },
+      baux_historique: [{ ref: 'A-1', debut: '2026-03-01', finEffective: '2026-12-31', hc: 800 }],
+      loyerBareme: []
+    };
+    const r = occ(db, '2026-01-01', '2026-12-31');
+    expect(r.occDays).toBe(306);                 // 01/03 → 31/12
+    expect(r.manqueAGagner).toBe(1550.59);       // les 59 jours de janvier-février, eux, sont vides
+  });
+});
+
+describe('Les changements d’heure ne déplacent aucun jour', () => {
+  // À Paris, `+ 86 400 000 ms` sur le 25 octobre donne le 25 à 23 h. L'arithmétique est
+  // désormais en UTC, où un jour dure exactement 86 400 000 ms toute l'année.
+  const trou = (finBail, repriseBail) => ({
+    logements: [LOT],
+    baux: { 'A-1': { ref: 'A-1', debut: repriseBail, hc: 900 } },
+    baux_historique: [{ ref: 'A-1', debut: '2025-01-01', finEffective: finBail, hc: 800 }],
+    loyerBareme: []
+  });
+
+  it('PRINTEMPS : un trou d’un seul jour n’est pas avalé', () => {
+    // Le bail finit le 28/03, le suivant commence le 30/03 : le 29/03 est vide — et c'est le
+    // jour du passage à l'heure d'été. Le manque à gagner rendait 0 € pour 1 jour compté vide.
+    const r = occ(trou('2026-03-28', '2026-03-30'), '2026-01-01', '2026-12-31');
+    expect(r.occDays).toBe(364);
+    expect(r.manqueAGagner).toBe(26.28);         // 1/30,44 × 800, et non 0
+  });
+
+  it('AUTOMNE : une vacance qui suit la bascule n’est pas datée la veille', () => {
+    // Le barème est refermé à la date de sortie du locataire : lire la vacance un jour trop
+    // tôt la valorisait AU TARIF DE LA PÉRIODE CLOSE — I-1, en plus petit.
+    const db = {
+      logements: [LOT],
+      baux: {},
+      baux_historique: [{ ref: 'A-1', debut: '2025-01-01', finEffective: '2026-10-25', hc: 800 }],
+      // Correction datée : le barème dit 830 € JUSQU'AU 25/10, puis plus rien.
+      loyerBareme: [{ ref: 'A-1', debut: '2025-01-01', fin: '2026-10-25', hc: 830 }]
+    };
+    const r = occ(db, '2026-10-26', '2026-12-31');
+    expect(r.occDays).toBe(0);
+    expect(r.manqueAGagner).toBe(1760.84);       // 67 j × 800 (le bail), et non × 830
+  });
+
+  it('une année entière compte 365 jours, bascules comprises', () => {
+    const db = { logements: [LOT], baux: { 'A-1': { ref: 'A-1', debut: '2020-01-01', hc: 800 } }, baux_historique: [], loyerBareme: [] };
+    expect(occ(db, '2026-01-01', '2026-12-31').occDays).toBe(365);
+    expect(occ(db, '2024-01-01', '2024-12-31').occDays).toBe(366);   // bissextile
   });
 });
 
@@ -120,13 +196,39 @@ describe('loyerHcDuLotA — la chaîne des sources, dans l’ordre', () => {
   });
 
   it('un bail sans loyer ne masque pas celui d’avant', () => {
+    // Un montant jamais saisi est une LACUNE, pas un loyer de zéro. S'arrêter au bail le plus
+    // récent faisait retomber sur la fiche du lot — c'est-à-dire sur le loyer d'AUJOURD'HUI,
+    // le défaut I-1 que tout ce lot corrige. On remonte jusqu'au dernier montant connu.
     const sansHc = {
       bareme: [], hists: [
         { ref: 'A-1', debut: '2023-01-01', finEffective: '2024-12-31', hc: 700 },
         { ref: 'A-1', debut: '2025-01-01', finEffective: '2026-06-30' }      // hc manquant
-      ], lot: {}
+      ], lot: { hc: 9999 }
     };
-    expect(loyerHcDuLotA('2026-08-15', 'A-1', sansHc)).toBe(0);   // on n'invente pas 700
+    expect(loyerHcDuLotA('2026-08-15', 'A-1', sansHc)).toBe(700);
+  });
+
+  it('un loyer de 0 RÉELLEMENT saisi vaut 0 — ce n’est pas une lacune', () => {
+    // Logement de fonction, bail à titre gratuit : rejeter ce 0 faisait valoriser la vacance
+    // au loyer du bail d'avant, donc un manque à gagner sur un lot qui ne rapportait rien.
+    const gratuit = {
+      bareme: [], hists: [
+        { ref: 'A-1', debut: '2023-01-01', finEffective: '2024-12-31', hc: 700 },
+        { ref: 'A-1', debut: '2025-01-01', finEffective: '2026-06-30', hc: 0 }
+      ], lot: { hc: 9999 }
+    };
+    expect(loyerHcDuLotA('2026-08-15', 'A-1', gratuit)).toBe(0);
+  });
+
+  it('un bail CLÔTURÉ sans `finEffective` est quand même terminé à sa date de fin', () => {
+    // Trois lectures de « fin de bail » cohabitaient : celle-ci ne regardait que
+    // `finEffective`, donc un tel bail n'était « en cours » à AUCUNE date.
+    const ctxClot = {
+      bareme: [], bailCourant: null, lot: { hc: 9999 },
+      hists: [{ ref: 'A-1', debut: '2025-01-01', fin: '2026-06-30', cloture: true, hc: 820 }]
+    };
+    expect(loyerHcDuLotA('2026-03-15', 'A-1', ctxClot)).toBe(820);   // pendant le bail
+    expect(loyerHcDuLotA('2026-08-15', 'A-1', ctxClot)).toBe(820);   // après, dernier connu
   });
 });
 
