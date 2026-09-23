@@ -28,6 +28,8 @@ import { escHtml } from '../core/utils.js';
 import { _emailToMimeBase64Url, _emailSendViaGmail } from '../core/email-send.js';
 // v15.87 EM-2b — PJ PDF auto-générée
 import { _emailGenPdfAttachment } from '../core/email-pdf-attachment.js';
+// DOC-C étendu — un acte ne sort pas non plus par la modale email avec ses trous.
+import { sortieAutorisee } from '../core/actes-mentions.js';
 
 export const MODAL_ID = 'ov-email-compose';
 
@@ -182,10 +184,48 @@ function _ensureModalDom() {
  * v15.82bis — Handler global exposé sur window. Appelé depuis les onclick inline
  * des boutons de la modale. Lit le contexte stocké sur la modale + dispatch.
  */
+/** Ce que l'utilisateur s'apprête à faire, pour que la question finale soit la sienne. */
+const VERBES_SORTIE = {
+  mailto: 'Ouvrir le client mail',
+  copy: 'Copier',
+  share: 'Partager',
+  sendnow: 'Envoyer maintenant'
+};
+
+/**
+ * LES MENTIONS OBLIGATOIRES, AVANT LA SORTIE — quelle que soit la sortie.
+ *
+ * DOC-C avait gardé la sortie PDF de la modale d'actes, mais le congé a un SECOND chemin : le
+ * Hub Communications, dont les quatre boutons (client mail, copie, partage, envoi Gmail) font
+ * tous sortir l'acte de l'app. On garde donc le point de passage commun, pas chaque bouton :
+ * un cinquième bouton serait couvert d'office.
+ *
+ * On lit le SUJET et le CORPS tels qu'ils sont à l'écran, pas le brouillon composé : les deux
+ * champs sont éditables, et c'est ce qui part au locataire qui fait foi.
+ *
+ * Sans marqueur, la fonction ne dit rien et ne coûte rien — un email courant n'ouvre aucune
+ * boîte de dialogue.
+ *
+ * @returns {boolean} false = l'utilisateur a renoncé ; la sortie doit être interrompue.
+ */
+export function _emActeMentionsOk(action) {
+  const v = _readModalValues();
+  // Sujet ET corps : les deux sont éditables, et l'objet d'un congé porte lui aussi le motif.
+  const texte = String(v.subject || '') + '\n\n' + String(v.body || '');
+  // `confirm2` vit dans le monolithe ; on retombe sur `confirm` natif. Si aucun des deux n'est
+  // là, `sortieAutorisee` REFUSE — un garde-fou légal ne s'évapore pas faute de décoration.
+  const demander = (typeof window !== 'undefined' && typeof window.confirm2 === 'function')
+    ? window.confirm2
+    : ((typeof window !== 'undefined' && typeof window.confirm === 'function')
+        ? window.confirm.bind(window) : null);
+  return sortieAutorisee(texte, VERBES_SORTIE[action] || 'Continuer', demander);
+}
+
 export function _emHandleAction(action) {
   const modal = document.getElementById(MODAL_ID);
   if (!modal) return;
   const ctx = modal._emailCtx || {};
+  if (!_emActeMentionsOk(action)) return;
   if (action === 'mailto') _onMailto(ctx);
   else if (action === 'copy') _onCopy(ctx);
   else if (action === 'share') _onShare(ctx);

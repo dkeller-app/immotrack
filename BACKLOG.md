@@ -1,5 +1,58 @@
 # Propryo — Backlog actif
 
+## 🚦 CONGÉ-HUB — v15.674 (branche `claude/gallant-goldberg-71ca26`) — à intégrer
+
+**Suite directe de DOC-C** (`fix/actes-incomplets`, déjà dans `main`). 4 395 tests verts (baseline 4 336, +59), 28 mutations toutes rouges, CRLF intact, app lancée sans erreur console.
+
+### Le défaut
+Le congé bailleur a **deux** chemins de sortie ; DOC-C n'en gardait qu'un. Le second — le Hub
+Communications — ne collectait **ni le prix ni les conditions de la vente**, tout en émettant
+« vous bénéficiez d'un droit de préemption aux prix et conditions indiqués ci-dessus », et en
+reproduisant deux paragraphes plus bas l'alinéa de l'**art. 15-II (loi n° 89-462)** qui les impose
+à peine de nullité. L'acte citait la règle qu'il violait. Le garde-fou était aveugle : il lit les
+marqueurs ‹…› posés par les générateurs, et ce chemin n'en posait aucun.
+
+**Trois défauts de plus, même cause** (le Hub réimplémentait le congé) : la **reprise** était
+également nulle (art. 15-I : ni bénéficiaire, ni adresse, ni lien demandés) ; la **date d'effet**
+n'était jamais vérifiée (un congé délivré trop tard pour le terme annoncé est nul) ; les dates
+partaient en ISO (« Bail du 2023-01-01 ») dans un acte destiné au recommandé.
+
+### ⚠ CE CHEMIN EST DU CODE MORT — décision produit attendue
+`_openCommsHub` est `@deprecated v15.16` (« communication dans bail n'a aucune logique ») et n'a
+**plus aucun point d'entrée UI** : son seul appelant est la branche « envoi annulé » de
+`_commsHubSend`, lui-même déclenché par un bouton que `_openCommsHub` génère. Aucun congé pour
+vente n'a donc pu partir par là, et **le smoke de ce chemin est impossible**. À trancher :
+le rebrancher (et le tester) ou le supprimer — le laisser mort avec du code juridique frais
+dedans est la pire des trois options.
+
+**Ce que le lot gagne sur des chemins VIVANTS**, en revanche :
+- le garde-fou couvre désormais `_quittanceActionEmail` (mise en demeure), `envoyerLettreIRLParEmail`, `envoyerDecompteParEmail` ;
+- le congé **PDF de la modale** ne signe plus « Fait à (inconnu) » / « (inconnu) » ;
+- le report de date d'effet est corrigé (débordement de mois **et** fuseau) sur la modale, qui est vivante.
+
+### La décision sur les deux conventions de trou
+Le dépôt en a deux : `‹nom›` (posé par un **générateur** qui connaît l'acte et **nomme** la mention
+— clé de la table `NULLITE`) et `(inconnu)` (posé par `_interpolateEmail`, qui ne connaît qu'un
+chemin de jeton). **Ni unifier, ni apprendre `(inconnu)` au garde-fou** : unifier ferait alerter
+sur chaque jeton légitimement vide → fatigue d'alerte, et l'utilisateur apprend à cliquer
+« Continuer » ; apprendre `(inconnu)` ne permettrait ni de nommer la mention, ni de graduer la
+nullité. La frontière reste où elle est — **c'est le générateur qui pose le marqueur, et il est
+désormais le même sur tous les chemins**.
+
+### Lecteurs uniques créés (à réutiliser, ne pas recopier)
+`congeMotifDetail` · `congeDateEffet` · `congeMentionPreavis` (`js/core/conge.js`) ·
+`sortieAutorisee` (`js/core/actes-mentions.js`, **la** décision de sortie des deux garde-fous) ·
+`acteFormel` / `_enrichContextActe` (`js/core/email-compose.js`, déduits du modèle, pas d'une liste).
+
+### ⏳ Restes
+- **Décision produit** : rebrancher ou supprimer le Hub Communications (voir ci-dessus).
+- Smoke Didier sur les chemins **vivants** : congé PDF depuis la modale (3 formats), mise en demeure depuis l'escalade quittance.
+- 🟡 Un bailleur **particulier** signe son acte deux fois (`{{entite.gerant}}` retombe sur `{{entite.nom}}`) : mieux que « (inconnu) », mais la forme du modèle mérite sa propre décision.
+- 🟡 `_lyRelance` → `_buildRelanceHtml` produit une **« Mise en demeure de payer »** par un générateur tiers, sans jeton ni marqueur : hors de portée des deux garde-fous (pas de nullité art. 15, donc non urgent).
+- 🟡 La collecte des champs reste dupliquée (modale = formulaire, Hub = `prompt()`) : un descripteur unique `congeChampsRequis(motif)` reste à faire.
+
+---
+
 ## 🚦 ÉTAT AU 23/09 — série R-0 (« Finances fait foi »)
 
 **PROD = v15.668** (`e6430d9`). 4 302 tests verts, CRLF intact, miroirs à jour, app lancée sans erreur console.

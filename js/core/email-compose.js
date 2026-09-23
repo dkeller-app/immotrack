@@ -917,6 +917,47 @@ export function _emailTypesSupportes() {
  * @param {object} ctx
  * @returns {object} ctx enrichi (nouvel objet, ne mute pas l'original)
  */
+/**
+ * Un modèle est un ACTE FORMEL s'il se clôt par « Fait à … » — c'est-à-dire s'il porte
+ * `{{entite.siege}}`. On le DÉDUIT du modèle au lieu d'en tenir une liste : une liste à la main
+ * aurait dérivé au premier modèle ajouté, et c'est précisément ce genre d'oubli qui a laissé le
+ * Hub émettre un congé sans prix.
+ *
+ * Aujourd'hui : mise en demeure, congé bailleur, résiliation amiable, attestation de libération.
+ */
+export function acteFormel(type) {
+  const t = TEMPLATES[type];
+  return !!(t && /\{\{entite\.siege\}\}/.test(String(t.body || '')));
+}
+
+/**
+ * L'IDENTITÉ DU SIGNATAIRE dans un acte formel.
+ *
+ * Une entité sans siège ni gérant produisait un acte « Fait à (inconnu) », signé « (inconnu) » —
+ * sans que rien ne le signale, parce que `(inconnu)` est la convention du moteur d'interpolation
+ * et que le garde-fou ne lit que les marqueurs nommés (cf. `congeMotifDetail`, conge.js).
+ *
+ * On pose donc ici des marqueurs NOMMÉS, et seulement sur les actes : un email courant signé du
+ * prénom de l'utilisateur n'a pas à déclencher une alerte juridique.
+ *
+ * Ces deux mentions n'emportent PAS nullité — aucun texte n'impose le lieu de rédaction d'un
+ * congé. Elles sont donc signalées sans le mot « NUL » (cf. table `NULLITE`, actes-mentions.js).
+ */
+function _enrichContextActe(ctx) {
+  const e = (ctx && typeof ctx.entite === 'object' && ctx.entite) || {};
+  const ou = (v, nom) => (String(v == null ? '' : v).trim() || ('\u2039' + nom + '\u203a'));
+  return Object.assign({}, ctx, {
+    entite: Object.assign({}, e, {
+      siege: ou(e.siege, 'lieu de r\u00e9daction'),
+      // `gerant` est FACULTATIF, et n'a pas de sens pour un bailleur particulier. Le reste
+      // du code retombe déjà sur le nom de l'entité ; sans ce repli, chaque acte d'un
+      // particulier ouvrirait un dialogue — et on lui apprendrait à cliquer « Continuer »
+      // avant le jour où le dialogue dira « cet acte serait NUL ».
+      gerant: ou(e.gerant || e.nom, 'signataire')
+    })
+  });
+}
+
 function _enrichContextCivilite(ctx) {
   if (!ctx || typeof ctx !== 'object') return ctx;
   const enriched = Object.assign({}, ctx);
@@ -962,7 +1003,10 @@ export function _emailCompose(type, context = {}, opts = {}) {
   }
 
   // v15.90 EM-3 — enrichit locataire + garant avec civNom, civSalut, civilitePolitesse
-  const ctx = _enrichContextCivilite(context || {});
+  let ctx = _enrichContextCivilite(context || {});
+  // Les actes formels nomment leurs trous d'identité ; ici, et pas au cas par cas chez
+  // les appelants — le Hub, l'escalade quittance et la modale d'actes passent tous par ici.
+  if (acteFormel(type)) ctx = _enrichContextActe(ctx);
   const to = (ctx.locataire && ctx.locataire.email) || ctx.to || '';
   const cc = ctx.cc || '';
 

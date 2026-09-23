@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.673</title>
+<title>Propryo v15.674</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.673">
+<link rel="stylesheet" href="css/main.css?v=15.674">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.673</em>
+      <em>v15.674</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.673';
+const IMMOTRACK_VERSION = '15.674';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -24966,17 +24966,47 @@ var _CONGE_ACTS=[
 ];
 function _congeOv(){ var ov=document.getElementById('ov-conge'); if(!ov){ ov=document.createElement('div'); ov.id='ov-conge'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-conge')"); document.body.appendChild(ov); } return ov; }
 function _congeTplOf(){ var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:''; }
+/**
+ * Le pont entre la DB (cycle de reconduction, préavis) et `congeDateEffet`, la fonction PURE
+ * qui reporte la date d'effet au terme suivant quand le préavis ne tient plus.
+ *
+ * Il sert les DEUX chemins du congé : la modale d'actes et le Hub Communications. Le Hub, lui,
+ * annonçait jusqu'ici l'échéance brute du bail avec un « préavis de N mois » que rien ne
+ * vérifiait — un congé délivré trop tard pour ce terme est nul, tout comme un congé sans prix.
+ *
+ * ⚠ « AUJOURD'HUI » EST CALCULÉ ICI, EN HEURE LOCALE, et n'est pas un paramètre.
+ * `td()` renvoie une date UTC : entre minuit et ~2 h (CEST), elle désigne la VEILLE. Un congé
+ * délivré le 16 juin à 00 h 30 aurait été jugé « dans les temps » pour une limite au 15 juin,
+ * et la lettre aurait affirmé que la date d'effet respecte le préavis — alors que le congé
+ * était tardif, donc nul. Le dépôt a déjà payé ce décalage deux fois (v15.671, chantier Congé).
+ *
+ * Pose `_congeState.preavisPushed` pour l'encart d'alerte de la modale.
+ * @returns {string} la date d'effet en ISO local
+ */
+function _congeDateEffetLocale(bail,log,pinfo,preavisMois){
+  var todayIso=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
+  var entB=(DB.entites||[]).find(function(x){return x.nom===((bail&&bail.entity)||(log&&log.entity));});
+  var cycle=(typeof _bailDureeMois==='function')?_bailDureeMois(bail,log,entB):(pinfo.isMeuble?12:36);
+  if(!(cycle>0)) cycle=pinfo.isMeuble?12:36;
+  var de=window.congeDateEffet({ finIso:pinfo.fin, preavisMois:preavisMois, cycleMois:cycle, todayIso:todayIso });
+  _congeState.preavisPushed=!!de.pushed;
+  return de.finIso||pinfo.fin;
+}
 function _congeExtra(ref){
   var bail=DB.baux[ref]||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||{};
-  var typeBail=bail.type||'nu'; var today=(typeof td==='function')?td():new Date().toISOString().slice(0,10);
+  // Date CIVILE (pas td(), qui est UTC : cf. `_congeDateEffetLocale`) — elle date l'acte.
+  var typeBail=bail.type||'nu';
+  var today=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
   // On reformate bail.debut en date FR (les modèles affichent {{bail.debut}}) sans toucher au texte des modèles Propryo.
   var e={ dateLettre: fd(today), bail: Object.assign({}, bail, { adrBien: bail.adrBien||log.adr||'', debut: bail.debut?fd(bail.debut):'‹début du bail›' }) };
   if(_congeState.kind==='conge_bailleur'){
     var motif=v('cg-motif')||'reprise';
-    e.motifConge = motif==='vente'?'vente':motif==='legitime'?'motif légitime et sérieux':'reprise';
-    if(motif==='reprise') e.motifDetail='Reprise du logement pour l\'habiter, au bénéfice de '+(v('cg-benef')||'‹bénéficiaire›')+', demeurant '+(v('cg-benefadr')||'‹adresse du bénéficiaire›')+' ('+(v('cg-lien')||'le bailleur lui-même')+').';
-    else if(motif==='vente') e.motifDetail='Vente du logement, au prix de '+(v('cg-prix')||'‹prix›')+' € — conditions : '+(v('cg-cond')||'‹conditions›')+'.\n\nConformément à l\'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d\'un droit de préemption aux prix et conditions indiqués ci-dessus. Les termes des cinq alinéas de l\'article 15-II, dont la reproduction est imposée à peine de nullité, figurent en annexe du présent congé.';
-    else e.motifDetail=(v('cg-legitime')||'‹description du motif légitime et sérieux›');
+    // Le motif et ses marqueurs viennent du générateur COMMUN (js/core/conge.js). Le Hub
+    // Communications appelle le même : c'est ce qui l'empêche de réinventer un congé sans prix.
+    var _md=window.congeMotifDetail({ motif:motif, prix:v('cg-prix'), conditions:v('cg-cond'),
+      benef:v('cg-benef'), benefAdr:v('cg-benefadr'), lien:v('cg-lien'), legitime:v('cg-legitime'),
+      art15Inline:false });  // le document porte les cinq alinéas en ANNEXE (art15IIProDoc)
+    e.motifConge=_md.motifConge; e.motifDetail=_md.motifDetail;
     // Préavis bailleur (6 mois nu / 3 meublé) : la date d'effet doit être un TERME qui respecte
     // RÉELLEMENT le préavis. Si l'échéance la plus proche est déjà trop tardive, on reporte au terme
     // suivant — sinon le congé serait nul et la mention « préavis respecté » mensongère (audit P0-1).
@@ -24984,17 +25014,9 @@ function _congeExtra(ref){
     var preavisMois=pinfo?pinfo.preavisMonths:window.congeBailleurPreavisMois(typeBail);
     _congeState.preavisPushed=false;
     if(pinfo){
-      var finD=new Date(pinfo.fin+'T00:00:00'), tD=new Date(); tD.setHours(0,0,0,0);
-      var limite=new Date(finD); limite.setMonth(limite.getMonth()-preavisMois);
-      if(tD>limite){
-        var entB=(DB.entites||[]).find(function(x){return x.nom===(bail.entity||log.entity);});
-        var cycle=(typeof _bailDureeMois==='function')?_bailDureeMois(bail,log,entB):(pinfo.isMeuble?12:36);
-        if(!(cycle>0)) cycle=pinfo.isMeuble?12:36;
-        while(tD>limite){ finD.setMonth(finD.getMonth()+cycle); limite.setMonth(limite.getMonth()+cycle); _congeState.preavisPushed=true; }
-      }
-      e.dateFin=fd(_isoLocal(finD)); // format LOCAL (évite le décalage d'un jour de toISOString)
+      e.dateFin=fd(_congeDateEffetLocale(bail,log,pinfo,preavisMois));
     } else { e.dateFin=bail.fin?fd(bail.fin):'‹échéance du bail›'; }
-    e.mentionPreavis='Le délai de préavis légal applicable à ce congé est de '+preavisMois+' mois ; il court à compter de la réception du présent congé et la date d\'effet ci-dessus a été fixée pour le respecter.';
+    e.mentionPreavis=window.congeMentionPreavis(preavisMois);
   } else if(_congeState.kind==='conge_locataire'){
     var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
     e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='à convenir';
@@ -25109,10 +25131,9 @@ function _acteVerbePdf(){
 function _acteMentionsOk(docHtml, verbe){
   if(!docHtml || String(docHtml).indexOf('‹')===-1) return true;   // aucun marqueur : rien à dire
   var msg;
-  if(typeof window.mentionsManquantes==='function' && typeof window.messageMentionsManquantes==='function'){
-    var manque=window.mentionsManquantes(docHtml);
-    if(!manque.length) return true;
-    msg=window.messageMentionsManquantes(manque, verbe||'Continuer');
+  // MÊME décision que les sorties de la modale email : une seule implémentation (actes-mentions.js).
+  if(typeof window.sortieAutorisee==='function'){
+    return window.sortieAutorisee(docHtml, verbe||'Continuer', confirm2);
   } else {
     var bruts=String(docHtml).match(/‹[^›]{1,150}›/g)||[];
     if(!bruts.length) return true;
@@ -28470,7 +28491,8 @@ function _buildEmailCtxFromRef(ref, extraCtx) {
     garant: bail.garant ? { nom: bail.garant } : null,
     montant: (Number(bail.hc)||Number(log.hc)||0) + (Number(bail.ch)||Number(log.ch)||0),
     periode: '', // À compléter par extraCtx selon le type
-    dateLettre: td(),
+    // Date en clair : ces modèles l'impriment en toutes lettres (« Fait à …, le … »).
+    dateLettre: fd(td()),
     // TROISIÈME chemin de composition de la mise en demeure, après la modale d'actes et
     // l'escalade quittance. Il avait été oublié : le modèle ne portant plus `{{rappel1Date}}`,
     // l'acte s'ouvrait sur « (inconnu) votre loyer… ». Même lecture unique de l'historique.
@@ -28743,24 +28765,66 @@ function _commsHubSend(ref, type) {
       extra.noteRevisionLoyer = promptVal('Note révision loyer (laisser vide si tacite reconduction) :', '') || '';
       break; }
     case 'bail-conge-bailleur-6mois': {
-      extra.motifConge = promptVal('Motif du congé (vente / reprise / motif légitime et sérieux) :', 'vente');
-      extra.motifDetail = promptVal('Détail du motif (cession à un tiers / reprise pour soi/proche/motif) :', '');
-      const _finC = (DB.baux && DB.baux[ref] && DB.baux[ref].fin) || '';
-      extra.dateFin = _finC ? fd(_finC) : '';
-      // Tokens du modèle (mêmes que l'acte Congé) : préavis réel + clause préemption pour la vente uniquement.
-      const _logC = (DB.logements||[]).find(l => l && l.ref === ref) || {};
-      const _bcp = _bailPreavisInfo((DB.baux && DB.baux[ref]) || {}, _logC);
-      const _pm = _bcp ? _bcp.preavisMonths : 6;
-      extra.mentionPreavis = 'Le délai de préavis légal applicable à ce congé est de ' + _pm + ' mois avant le terme du bail.';
-      // Vente : on n'écrase PAS un motifDetail annulé (null) — la boucle d'annulation doit encore le voir.
-      // On ajoute la clause de préemption ET la reproduction verbatim des 5 alinéas de l'art. 15-II
-      // (imposée « à peine de nullité dans chaque notification » — vaut aussi pour la notification par email).
-      if (extra.motifDetail !== null && /vente/i.test(extra.motifConge)) {
-        extra.motifDetail = (extra.motifDetail ? extra.motifDetail + '\n\n' : '')
-          + 'Conformément à l\'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d\'un droit de préemption aux prix et conditions indiqués ci-dessus.'
-          + '\n\nReproduction de l\'article 15, II de la loi du 6 juillet 1989 (à peine de nullité) :\n\n'
-          + (window.ART15_II_ALINEAS || []).join('\n\n');
+      // ── Ce chemin émettait un congé pour vente STRUCTURELLEMENT NUL ──
+      // Il ne demandait ni le prix ni les conditions, tout en affirmant « aux prix et conditions
+      // indiqués ci-dessus » et en reproduisant, deux paragraphes plus bas, l'alinéa de
+      // l'art. 15-II qui les impose à peine de nullité. Le garde-fou DOC-C ne pouvait rien voir :
+      // faute de générateur, aucun marqueur ‹…› n'était posé. Le Hub ne compose donc plus son
+      // propre motif : il collecte ce que la loi exige et appelle `congeMotifDetail`, le MÊME
+      // générateur que la modale d'actes — marqueurs compris.
+      const _motifLib = promptVal('Motif du congé (vente / reprise / motif légitime et sérieux) :', 'vente');
+      if (_motifLib === null) { extra.motifDetail = null; break; }
+      const _mk = /vente/i.test(_motifLib) ? 'vente' : (/légitime|legitime/i.test(_motifLib) ? 'legitime' : 'reprise');
+      let _champs = null;
+      if (_mk === 'vente') {
+        const _prix = promptVal('Prix de vente en € — art. 15-II, à peine de nullité :', '');
+        const _cond = promptVal('Conditions de la vente — art. 15-II, à peine de nullité :', 'vente libre de toute occupation');
+        if (_prix === null || _cond === null) { extra.motifDetail = null; break; }
+        _champs = { motif: 'vente', prix: _prix, conditions: _cond };
+      } else if (_mk === 'reprise') {
+        // Art. 15-I : nom ET adresse du bénéficiaire, ET nature du lien — à peine de nullité
+        // aussi. Le Hub n'en demandait aucun (même angle mort que la vente).
+        const _benef = promptVal('Bénéficiaire de la reprise — art. 15-I, à peine de nullité :', '');
+        const _badr = promptVal('Adresse du bénéficiaire — art. 15-I, à peine de nullité :', '');
+        const _lien = promptVal('Lien avec le bailleur (ex ' + ((window.REPRISE_LIENS||['le bailleur lui-même'])[0]) + ') :', 'le bailleur lui-même');
+        if (_benef === null || _badr === null || _lien === null) { extra.motifDetail = null; break; }
+        _champs = { motif: 'reprise', benef: _benef, benefAdr: _badr, lien: _lien };
+      } else {
+        const _leg = promptVal('Description du motif légitime et sérieux — art. 15-I :', '');
+        if (_leg === null) { extra.motifDetail = null; break; }
+        _champs = { motif: 'legitime', legitime: _leg };
       }
+      // art15Inline : un email n'a pas d'annexe, les cinq alinéas doivent tenir DANS le corps
+      // (« reproduits à peine de nullité dans chaque notification »).
+      const _md = window.congeMotifDetail(Object.assign({ art15Inline: true }, _champs));
+      extra.motifConge = _md.motifConge;
+      extra.motifDetail = _md.motifDetail;
+
+      // La date d'effet doit être un terme que le préavis permet encore d'atteindre. Le Hub
+      // annonçait l'échéance brute du bail avec un « préavis de N mois » que rien ne vérifiait :
+      // un congé délivré trop tard pour ce terme est nul, exactement comme un congé sans prix.
+      const _bailC = (DB.baux && DB.baux[ref]) || {};
+      const _logC = (DB.logements||[]).find(l => l && !l._deleted && l.ref === ref) || {};
+      const _bcp = (typeof _bailPreavisInfo === 'function') ? _bailPreavisInfo(_bailC, _logC) : null;
+      const _pm = _bcp ? _bcp.preavisMonths : window.congeBailleurPreavisMois(_bailC.type || 'nu');
+      if (_bcp) {
+        const _eff = _congeDateEffetLocale(_bailC, _logC, _bcp, _pm);
+        extra.dateFin = _eff ? fd(_eff) : '';
+        if (_congeState && _congeState.preavisPushed) {
+          showToast('Date d\'effet reportée au terme suivant : le préavis ne pouvait plus être respecté pour l\'échéance la plus proche.', 'info', 7000);
+        }
+      } else {
+        extra.dateFin = _bailC.fin ? fd(_bailC.fin) : '‹échéance du bail›';
+      }
+      extra.mentionPreavis = window.congeMentionPreavis(_pm);
+      // Dates en clair, comme la modale d'actes : le Hub laissait « Bail du 2023-01-01 » et
+      // « Fait à …, le 2026-09-23 » dans un acte destiné à partir en recommandé.
+      // ⚠ On RECONSTRUIT `bail` : ne pas reprendre `adrBien` effacerait le repli sur l'adresse
+      // du logement posé par `_buildEmailCtxFromRef`, et l'objet du congé désignerait « (inconnu) ».
+      extra.bail = Object.assign({}, _bailC, {
+        adrBien: _bailC.adrBien || _logC.adr || '',
+        debut: _bailC.debut ? fd(_bailC.debut) : '‹début du bail›'
+      });
       break; }
     case 'bail-preavis-recu': {
       extra.datePreavis = promptVal('Date de réception du préavis (YYYY-MM-DD) :', td());
@@ -29148,7 +29212,7 @@ function _quittanceActionEmail(ref, mois, emailType, ev) {
   const ctx = {
     locataire, bail: bail || { adrBien: log.adr||'', hc: q.hc, ch: q.ch, dg: 0 },
     logement: log, entite: ent || {}, quittance: { ...q, total: montant },
-    periode: mois, montant: montant, dateLettre: td(),
+    periode: mois, montant: montant, dateLettre: fd(td()),
     // Les relances réellement envoyées, via la MÊME lecture que la modale d'actes.
     phraseRelances: (typeof window.phraseRelances==='function')
       ? window.phraseRelances(emailType === 'rappel-impaye-3' ? _relancesEnvoyees(ref) : [])

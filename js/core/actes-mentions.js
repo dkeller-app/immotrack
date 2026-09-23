@@ -36,6 +36,7 @@ const NULLITE = {
   'conditions': 'art. 15-II de la loi du 6 juillet 1989 : les conditions de la vente doivent figurer dans le congé, à peine de nullité',
   'bénéficiaire': 'art. 15-I de la loi du 6 juillet 1989 : le congé pour reprise doit indiquer les nom et adresse du bénéficiaire ainsi que la nature du lien avec le bailleur, à peine de nullité',
   'adresse du bénéficiaire': 'art. 15-I de la loi du 6 juillet 1989 : le congé pour reprise doit indiquer les nom et ADRESSE du bénéficiaire, à peine de nullité',
+  'nature du lien avec le bailleur': 'art. 15-I de la loi du 6 juillet 1989 : le congé pour reprise doit indiquer la nature du lien entre le bailleur et le bénéficiaire, à peine de nullité',
   'description du motif légitime et sérieux': 'art. 15-I de la loi du 6 juillet 1989 : le motif du congé doit être énoncé, à peine de nullité'
 };
 
@@ -43,6 +44,10 @@ const NULLITE = {
 const LIBELLES = {
   'à compléter': 'un champ de l’avenant',
   'montant': 'le montant dû',
+  // Trous d'identité du signataire d'un acte formel (`_enrichContextActe`, email-compose.js).
+  // Aucun texte n'impose le lieu de rédaction : ils alertent, ils n'emportent pas nullité.
+  'lieu de rédaction': 'le lieu de rédaction de l’acte (siège de l’entité)',
+  'signataire': 'le signataire de l’acte (gérant de l’entité)',
   'période': 'la période concernée',
   'début du bail': 'la date de début du bail',
   'échéance du bail': 'l’échéance du bail'
@@ -75,6 +80,33 @@ export function mentionsManquantes(html) {
     });
   }
   return out;
+}
+
+/**
+ * LA DÉCISION DE SORTIE, une fois pour toutes.
+ *
+ * Elle existait en double : la sortie PDF de la modale d'actes (`_acteMentionsOk`) et les
+ * quatre sorties de la modale email (`_emActeMentionsOk`) prenaient la même décision avec
+ * deux codes. Un garde-fou LÉGAL qu'on durcirait d'un côté seulement laisserait le même acte
+ * sortir bloqué en PDF et libre en email — sans que rien ne le signale.
+ *
+ * ⚠ Ce garde-fou détecte des MARQUEURS, pas la complétude juridique : qui SUPPRIME la phrase
+ * « au prix de ‹prix› € » au lieu de la compléter fait sortir l'acte sans alerte. C'est
+ * assumé — l'app alerte sur ce qu'elle a généré, elle ne relit pas l'acte à la place du bailleur.
+ *
+ * @param {string} texte  l'acte TEL QU'IL VA SORTIR (document rendu, ou sujet + corps à l'écran)
+ * @param {string} verbe  l'action demandée, pour la question finale
+ * @param {function(string):boolean} demander  le dialogue (confirm2 / confirm)
+ * @returns {boolean} false = renoncement : la sortie doit être interrompue
+ */
+export function sortieAutorisee(texte, verbe, demander) {
+  const src = (texte == null) ? '' : String(texte);
+  if (src.indexOf('\u2039') === -1) return true;      // aucun marqueur : rien à dire, aucun dialogue
+  const manque = mentionsManquantes(src);
+  if (!manque.length) return true;
+  // Sans dialogue disponible, on REFUSE : un garde-fou légal ne s'évapore pas faute d'UI.
+  if (typeof demander !== 'function') return false;
+  return !!demander(messageMentionsManquantes(manque, verbe || 'Continuer'));
 }
 
 /** Vrai dès qu'une seule mention manquante emporte la nullité de l'acte. */

@@ -123,10 +123,10 @@ import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL
 import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants } from './core/avenant.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
 import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase } from './core/bail-duree.js';
-import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause } from './core/conge.js';
+import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause, congeMotifDetail, congeDateEffet, congeMentionPreavis } from './core/conge.js';
 // DOC-C — un acte ne part pas en PDF avec ses trous. Détection des mentions restées vides dans
 // le document RENDU, et fondement légal quand l'absence emporte nullité (art. 15-I / 15-II).
-import { mentionsManquantes, emporteNullite, messageMentionsManquantes } from './core/actes-mentions.js';
+import { mentionsManquantes, emporteNullite, messageMentionsManquantes, sortieAutorisee } from './core/actes-mentions.js';
 import { MF_SEUIL, MF_ABATTEMENT, evaluerMicroFoncier } from './core/micro-foncier.js';
 
 import {
@@ -655,7 +655,11 @@ window.art15IIProDoc = art15IIProDoc;
 window.mentionsManquantes = mentionsManquantes;
 window.emporteNullite = emporteNullite;
 window.messageMentionsManquantes = messageMentionsManquantes;
+window.sortieAutorisee = sortieAutorisee;
 window.congeBailleurPreavisMois = congeBailleurPreavisMois;
+window.congeMotifDetail = congeMotifDetail;
+window.congeDateEffet = congeDateEffet;
+window.congeMentionPreavis = congeMentionPreavis;
 window.congeLocatairePreavis = congeLocatairePreavis;
 window.congeAddMois = congeAddMois;
 window.locataireProtege = locataireProtege;
