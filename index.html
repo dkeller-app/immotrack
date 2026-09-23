@@ -45270,7 +45270,7 @@ function _attCount(parentType, parentId, category) {
 /** Contenu de la pastille « Bâti & parties communes » de la fiche immeuble.
  *  Ces 3 informations (type d'habitat, régime juridique, période de construction) se saisissent
  *  UNE SEULE FOIS ici et sont héritées par tous les logements — la période qualifie le BÂTIMENT,
- *  pas le logement rénové (encadrement, CREP plomb 1949, amiante 1997 : trois critères bâtiment). */
+ *  pas le logement rénové (encadrement, CREP plomb avant 1949, amiante avant le 1er juillet 1997 : trois critères bâtiment). */
 function _renderImmBatiPastille(ent, im) {
   const immIdx = (ent.immeubles || []).findIndex(i => +i.id === +im.id);
   const ecTxt = (typeof window !== 'undefined' && window.BiensPieces)
@@ -48540,7 +48540,7 @@ function _logDiagRenderTab() {
       ${_logDiagErpDetailHtml()}
     </div>
     <div class="mu sm" style="font-size:10.5px;margin-top:8px;color:var(--t3);line-height:1.5">
-      Plomb (CREP) si &lt; 1949 · Amiante si &lt; 1997 · Gaz/Élec si installation &gt; 15 ans · ERP/termites/mérule/bruit selon zones.
+      Plomb (CREP) si « Avant 1949 » · Amiante si « Avant 1949 » ou « De 1949 à 1997 » · Gaz/Élec si installation &gt; 15 ans · ERP/termites/mérule/bruit selon zones.
       <em>L'année de construction sera héritée de l'immeuble (phase suivante).</em>
     </div>
   `;
@@ -50798,7 +50798,7 @@ function _frCompDiagsHtml(dg, status){
   else s+='aucun diagnostic déterminé pour l’instant';
   s+='</span>';
   // deux causes d'indétermination, deux consignes DIFFÉRENTES (la donnée manquante n'est pas la même) :
-  // 'annee' = année de construction de l'immeuble (amiante < 1997, plomb < 1949) · 'donnee' = année
+  // 'annee' = période de construction (amiante avant le 1er juillet 1997 = 1997 inclus, plomb avant 1949) · 'donnee' = année
   // d'installation gaz/élec (diagnostic exigé au-delà de 15 ans), saisie sur la fiche du bien.
   const _nm=function(l){ return l.map(function(r){ return escHtml(r.label); }).join(', '); };
   const byAnnee=ind.filter(function(r){ return r.cause==='annee'; });
