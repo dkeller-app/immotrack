@@ -80,7 +80,8 @@ formels gardent leur pied de page inchangé).
 
 **Lecteurs uniques créés** (à réutiliser, ne pas recopier) : `_lotEstLoue` · `_dgDuLot` · `_finLotCatRole` / `_finLotEstLoyer` / `_finLotEstCharge` · `_finLotNet` · `_lotCcQuotePartMois`.
 
-### 🧯 R0-D, DEUXIÈME DOMAINE — « le miroir n'est pas le DB » — v15.674, PRÊT (worktree `modest-cori-5a547e`, pas intégré)
+### 🧯 R0-D, DEUXIÈME DOMAINE — « le miroir n'est pas le DB » — v15.678, PRÊT (worktree `modest-cori-5a547e`, pas poussé)
+*Numéroté v15.674 à l'écriture, recalé en **v15.678** après synchro : `main` avait pris 15.674 (congé) et était déjà à 15.677. Troisième collision de numéro du mois — la version se choisit **après** la synchro, pas avant.*
 `index.html:4570` déclare `let DB = {}` : une liaison **lexicale**, PAS une propriété de `window`. `window.DB` n'est posé que par `__immoSetDB` (cloud, post-hydratation) et **rien** ne le rafraîchit quand `DB` est réassigné (reset `5821`, import/restauration `59053`, adoption cross-onglet `60236`).
 
 | Ce qui lisait le miroir | Ce que ça coûtait |
