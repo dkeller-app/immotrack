@@ -212,10 +212,18 @@ export function _computeOccupationLots(db, lots, opts) {
  *   5. la fiche du lot, en dernier recours (stock non migré) ;
  *   6. zéro, et rien d'inventé.
  */
-export function loyerHcDuLotA(iso, ref, ctx) {
+export function loyerHcDuLotA(iso, ref, ctx) { return loyerDuLotA(iso, ref, ctx).hc; }
+
+/**
+ * Le loyer HC ET les charges d'un lot à une date — pris sur la MÊME source, jamais l'un au
+ * barème et l'autre au bail. Trois écrans valorisaient une vacance à `hc + ch`, chacun avec
+ * sa propre façon de trouver « le dernier bail » (le dernier ÉLÉMENT d'un tableau trié par
+ * date de DÉBUT, ce qui n'est pas le dernier bail).
+ */
+export function loyerDuLotA(iso, ref, ctx) {
   const c = ctx || {};
   const d = String(iso || '').slice(0, 10);
-  if (!d) return 0;
+  if (!d) return { hc: 0, ch: 0 };
   // I5 : un champ VIDE n'est pas un zéro. Un logement de fonction ou un bail à titre gratuit
   // porte un `hc` de 0 RÉELLEMENT saisi : le rejeter faisait valoriser sa vacance au loyer
   // du bail d'avant, donc un manque à gagner sur un lot qui ne rapportait rien. Même règle
@@ -226,9 +234,9 @@ export function loyerHcDuLotA(iso, ref, ctx) {
     return Number.isFinite(x) && x >= 0 ? x : null;
   };
 
+  const sortie = (src) => ({ hc: num(src && src.hc) || 0, ch: num(src && src.ch) || 0 });
   const p = periodeEnVigueurA(c.bareme || [], ref, d);
-  const viaBareme = p ? num(p.hc) : null;
-  if (viaBareme != null) return viaBareme;
+  if (p && num(p.hc) != null) return sortie(p);
 
   const baux = [];
   if (c.bailCourant) baux.push(c.bailCourant);
@@ -245,7 +253,7 @@ export function loyerHcDuLotA(iso, ref, ctx) {
   };
   // 2. le bail EN COURS. Sans lui, le 31 décembre d'un lot reloué au 1er octobre renvoyait
   //    le loyer de l'ANCIEN bail — la recherche ne regardait que les baux TERMINÉS.
-  for (const b of baux) { if (enCoursA(b) && num(b.hc) != null) return num(b.hc); }
+  for (const b of baux) { if (enCoursA(b) && num(b.hc) != null) return sortie(b); }
   // 3. les baux TERMINÉS avant cette date, du plus récent au plus ancien — choisis sur leur
   //    date de FIN, pas sur l'ordre du tableau (le défaut précédent prenait le dernier
   //    ÉLÉMENT). On REMONTE tant qu'un bail ne porte pas de loyer : un bail dont le montant
@@ -256,7 +264,7 @@ export function loyerHcDuLotA(iso, ref, ctx) {
     .map((b) => ({ b, f: finDe(b) }))
     .filter((x) => x.f != null && x.f < d)
     .sort((x, y) => y.f.localeCompare(x.f));
-  for (const { b } of termines) { const v = num(b.hc); if (v != null) return v; }
+  for (const { b } of termines) { if (num(b.hc) != null) return sortie(b); }
 
   // 4. le premier bail qui COMMENCE après cette date.
   let apres = null, debutApres = '';
@@ -265,10 +273,12 @@ export function loyerHcDuLotA(iso, ref, ctx) {
     if (!deb || deb <= d) continue;
     if (!apres || deb < debutApres) { apres = b; debutApres = deb; }
   }
-  if (apres && num(apres.hc) != null) return num(apres.hc);
+  if (apres && num(apres.hc) != null) return sortie(apres);
 
   const lot = c.lot || null;
-  return lot ? (num(lot.loyerHcRef) || num(lot.hc) || 0) : 0;
+  if (!lot) return { hc: 0, ch: 0 };
+  const ref0 = num(lot.loyerHcRef);
+  return { hc: ref0 != null ? ref0 : (num(lot.hc) || 0), ch: num(lot.ch) || 0 };
 }
 
 /**

@@ -13,7 +13,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { _computeOccupationLots, loyerHcDuLotA } from '../../js/core/legal-bilan.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+import { _computeOccupationLots, loyerHcDuLotA, loyerDuLotA } from '../../js/core/legal-bilan.js';
 
 const LOT = { ref: 'A-1', hc: 950, loyerHcRef: 950 };
 
@@ -220,6 +225,27 @@ describe('loyerHcDuLotA — la chaîne des sources, dans l’ordre', () => {
     expect(loyerHcDuLotA('2026-08-15', 'A-1', gratuit)).toBe(0);
   });
 
+  it('`hc` et `ch` viennent de la MÊME source, jamais l’un du barème et l’autre du bail', () => {
+    // Trois écrans valorisaient une vacance à `hc + ch`, chacun avec sa façon de trouver
+    // « le dernier bail ». Le lecteur daté rend les deux ensemble.
+    const mix = {
+      bareme: [{ ref: 'A-1', debut: '2026-01-01', hc: 860, ch: 120 }],
+      bailCourant: null, lot: { hc: 9999, ch: 9999 },
+      hists: [{ ref: 'A-1', debut: '2025-01-01', finEffective: '2026-06-30', hc: 800, ch: 90 }]
+    };
+    expect(loyerDuLotA('2026-08-15', 'A-1', mix)).toEqual({ hc: 860, ch: 120 });   // le barème
+    const sansBareme = { ...mix, bareme: [] };
+    expect(loyerDuLotA('2026-08-15', 'A-1', sansBareme)).toEqual({ hc: 800, ch: 90 });  // le bail
+  });
+
+  it('`loyerDuLotA` ne rend jamais `undefined` dans une addition', () => {
+    // `hc + ch` sur un retour dégradé donnerait NaN, qui se propage en silence jusqu'à l'écran.
+    for (const arg of [[null, 'A-1', {}], ['', 'A-1', ctx], ['2026-08-15', 'A-1', undefined]]) {
+      const r = loyerDuLotA(...arg);
+      expect(Number.isFinite(r.hc + r.ch), JSON.stringify(arg)).toBe(true);
+    }
+  });
+
   it('un bail CLÔTURÉ sans `finEffective` est quand même terminé à sa date de fin', () => {
     // Trois lectures de « fin de bail » cohabitaient : celle-ci ne regardait que
     // `finEffective`, donc un tel bail n'était « en cours » à AUCUNE date.
@@ -244,5 +270,49 @@ describe('La tacite reconduction ne crée pas de vacance à valoriser', () => {
     const r = occ(db, '2026-01-01', '2026-12-31');
     expect(r.occDays).toBe(365);
     expect(r.manqueAGagner).toBe(0);
+  });
+});
+
+describe('« Le dernier bail » d’un lot — lu sur la date de FIN, pas sur l’ordre du tableau', () => {
+  /** Extrait `_getLastBailForLog` d'index.html et l'exécute. */
+  function dernierBail(bails) {
+    const src = readFileSync(resolve(repoRoot, 'index.html'), 'utf8').replace(/\r/g, '');
+    const i = src.indexOf('function _getLastBailForLog(');
+    const j = src.indexOf('\n}', i);
+    if (i === -1 || j === -1) throw new Error('fonction introuvable — le test ne teste plus rien');
+    return new Function('_getAllBailsForLog',
+      src.slice(i, j + 2) + '\nreturn _getLastBailForLog;')(() => bails)('A-1');
+  }
+
+  it('deux baux qui se chevauchent : celui qui finit le plus tard gagne', () => {
+    // `_getAllBailsForLog` trie par DÉBUT. Un bail commencé avant et fini après un autre se
+    // retrouvait donc avant lui dans le tableau, et `bails[bails.length-1]` désignait le mauvais.
+    // Mesuré dans l'app : « dernier bail : 660 € » au lieu de 890 €, et un manque à gagner de
+    // 1 843 € au lieu de 2 485 €.
+    const b = dernierBail([
+      { debut: '2023-01-01', fin: '2026-06-30', hc: 800, ch: 90 },
+      { debut: '2024-01-01', fin: '2025-03-31', hc: 600, ch: 60 }
+    ]);
+    expect(b.hc + b.ch).toBe(890);
+  });
+
+  it('un bail EN COURS l’emporte sur tous les baux terminés', () => {
+    const b = dernierBail([
+      { debut: '2023-01-01', fin: '2026-06-30', hc: 800, ch: 90 },
+      { debut: '2026-07-01', fin: null, hc: 950, ch: 110 }
+    ]);
+    expect(b.hc + b.ch).toBe(1060);
+  });
+
+  it('le cas ordinaire — baux successifs — ne bouge pas', () => {
+    const b = dernierBail([
+      { debut: '2022-01-01', fin: '2024-12-31', hc: 600, ch: 60 },
+      { debut: '2025-01-01', fin: '2026-06-30', hc: 800, ch: 90 }
+    ]);
+    expect(b.hc + b.ch).toBe(890);
+  });
+
+  it('aucun bail → null, pas une exception', () => {
+    expect(dernierBail([])).toBe(null);
   });
 });

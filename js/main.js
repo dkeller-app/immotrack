@@ -71,7 +71,7 @@ import {
 } from './core/rgpd.js';
 
 import {
-  _computeBilanAnnuel, _formatBilanTexte, _computeOccupationLots
+  _computeBilanAnnuel, _formatBilanTexte, _computeOccupationLots, loyerDuLotA
 } from './core/legal-bilan.js';
 
 // B4 — sous-P&L mensuel (modèle prêt entier en charge)
@@ -445,6 +445,9 @@ window._isEraseEligible = _isEraseEligible;
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
 window._computeOccupationLots = _computeOccupationLots;   // R-4/K-2 — occupation sous le socle
+// R0-H — LE loyer d'un lot à une date, même vide : les surfaces qui valorisent une vacance
+// le LISENT au lieu d'aller chercher « le dernier bail » chacune à sa façon.
+window.loyerDuLotA = loyerDuLotA;
 window.computeEntretienStatut = computeEntretienStatut;   // KPI Lot 0 — statut d'entretien (12 obligations)
 window.computePilotageFamilles = computePilotageFamilles; // KPI Lot 1 — agrégateur des 8 familles
 window.pilotagePay = pilotagePay;                         // KPI audit §1 — pastille paiement == bulle Impayés
