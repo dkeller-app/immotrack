@@ -1,8 +1,8 @@
 # Propryo — Backlog actif
 
-## 🚦 CONGÉ-HUB — v15.674 (branche `claude/gallant-goldberg-71ca26`) — à intégrer
+## 🚦 CONGÉ-HUB — v15.675 (branche `claude/gallant-goldberg-71ca26`) — à intégrer
 
-**Suite directe de DOC-C** (`fix/actes-incomplets`, déjà dans `main`). 4 395 tests verts (baseline 4 336, +59), 28 mutations toutes rouges, CRLF intact, app lancée sans erreur console.
+**Suite directe de DOC-C** (`fix/actes-incomplets`, déjà dans `main`). 4 401 tests verts (baseline 4 336, +65), 34 mutations toutes rouges, CRLF intact, app lancée sans erreur console.
 
 ### Le défaut
 Le congé bailleur a **deux** chemins de sortie ; DOC-C n'en gardait qu'un. Le second — le Hub
@@ -42,12 +42,14 @@ désormais le même sur tous les chemins**.
 ### Lecteurs uniques créés (à réutiliser, ne pas recopier)
 `congeMotifDetail` · `congeDateEffet` · `congeMentionPreavis` (`js/core/conge.js`) ·
 `sortieAutorisee` (`js/core/actes-mentions.js`, **la** décision de sortie des deux garde-fous) ·
-`acteFormel` / `_enrichContextActe` (`js/core/email-compose.js`, déduits du modèle, pas d'une liste).
+`acteFormel` / `_enrichContextActe` (`js/core/email-compose.js`, déduits du modèle, pas d'une liste) ·
+`entite.signataire` / `entite.signataireLigne` (mention de signature calculée : le nom n'est
+imprimé qu'une fois — un bailleur **particulier** n'a pas de gérant ; les 22 modèles non
+formels gardent leur pied de page inchangé).
 
 ### ⏳ Restes
 - **Décision produit** : rebrancher ou supprimer le Hub Communications (voir ci-dessus).
 - Smoke Didier sur les chemins **vivants** : congé PDF depuis la modale (3 formats), mise en demeure depuis l'escalade quittance.
-- 🟡 Un bailleur **particulier** signe son acte deux fois (`{{entite.gerant}}` retombe sur `{{entite.nom}}`) : mieux que « (inconnu) », mais la forme du modèle mérite sa propre décision.
 - 🟡 `_lyRelance` → `_buildRelanceHtml` produit une **« Mise en demeure de payer »** par un générateur tiers, sans jeton ni marqueur : hors de portée des deux garde-fous (pas de nullité art. 15, donc non urgent).
 - 🟡 La collecte des champs reste dupliquée (modale = formulaire, Hub = `prompt()`) : un descripteur unique `congeChampsRequis(motif)` reste à faire.
 

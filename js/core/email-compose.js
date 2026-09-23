@@ -140,8 +140,7 @@ Veuillez agréer, {{locataire.civNom}}, l'expression de nos salutations distingu
 
 Fait à {{entite.siege}}, le {{dateLettre}}.
 
-{{entite.gerant}}
-{{entite.nom}}`,
+{{entite.signataire}}`,
     attachments: [],
     legalNote: 'OBLIGATOIRE : envoyer en lettre recommandée avec accusé de réception (LRAR). L\'email seul ne suffit pas juridiquement. Conserver les preuves d\'envoi et de réception.'
   },
@@ -599,8 +598,7 @@ Veuillez agréer, {{locataire.civNom}}, l'expression de mes salutations distingu
 
 Fait à {{entite.siege}}, le {{dateLettre}}.
 
-{{entite.gerant}}
-{{entite.nom}}`,
+{{entite.signataire}}`,
     attachments: [],
     legalNote: 'OBLIGATOIRE : LRAR ou signification par huissier ou remise en main propre contre récépissé. Mentionner précisément le motif (vente, reprise pour soi/proche, motif sérieux et légitime). Joindre justificatifs.'
   },
@@ -662,7 +660,7 @@ Les parties se donnent mutuellement quitus de toute autre obligation au titre du
 Fait en deux exemplaires originaux à {{entite.siege}}, le {{dateLettre}}.
 
 Le bailleur                              Le locataire (« Bon pour résiliation amiable »)
-{{entite.gerant}} — {{entite.nom}}       {{locataire.civNom}}`,
+{{entite.signataireLigne}}       {{locataire.civNom}}`,
     attachments: [],
     legalNote: 'La résiliation amiable suppose l\'accord EXPRÈS des deux parties (art. 1193 C. civ.) : faire signer les deux exemplaires. Elle met fin au bail sans préavis ni motif, à la date convenue.'
   },
@@ -788,8 +786,7 @@ Cette attestation est délivrée pour servir et valoir ce que de droit (changeme
 
 Fait à {{entite.siege}}, le {{dateAttestation}}.
 
-{{entite.gerant}}
-{{entite.nom}}`,
+{{entite.signataire}}`,
     attachments: [],
     legalNote: 'Utile au locataire pour CAF, employeur, nouveau bailleur, opérateurs téléphoniques, etc. Bonne pratique de la délivrer systématiquement.'
   },
@@ -946,9 +943,29 @@ export function acteFormel(type) {
 function _enrichContextActe(ctx) {
   const e = (ctx && typeof ctx.entite === 'object' && ctx.entite) || {};
   const ou = (v, nom) => (String(v == null ? '' : v).trim() || ('\u2039' + nom + '\u203a'));
+
+  // LA SIGNATURE DE L'ACTE, calculée — parce que « gérant » et « entité » ne sont pas toujours
+  // deux choses. Les modèles imprimaient les deux jetons l'un sous l'autre : pour une SCI c'est
+  // juste (« Didier Keller » / « SCI Dupont »), mais un PARTICULIER n'a pas de gérant — son acte
+  // partait signé « (inconnu) », et le repli sur le nom de l'entité l'aurait fait signer deux fois.
+  // On ne nomme donc la personne qu'une fois, et l'entité seulement si elle en diffère.
+  // (Ces deux jetons n'existent que pour les actes formels : les 22 autres modèles gardent
+  //  « {{entite.gerant}} / {{entite.nom}} », qui leur convient et que rien n'oblige à changer.)
+  const gerant = String(e.gerant == null ? '' : e.gerant).trim();
+  const nom = String(e.nom == null ? '' : e.nom).trim();
+  const parties = [];
+  if (gerant) parties.push(gerant);
+  if (nom && nom !== gerant) parties.push(nom);
+  const MARQUEUR = '\u2039signataire\u203a';
+
   return Object.assign({}, ctx, {
     entite: Object.assign({}, e, {
       siege: ou(e.siege, 'lieu de r\u00e9daction'),
+      // Bloc de signature classique : une ligne par partie.
+      signataire: parties.length ? parties.join('\n') : MARQUEUR,
+      // Variante d'une seule ligne, pour le bloc à deux colonnes du protocole amiable, où un
+      // saut de ligne décalerait la colonne du locataire.
+      signataireLigne: parties.length ? parties.join(' \u2014 ') : MARQUEUR,
       // `gerant` est FACULTATIF, et n'a pas de sens pour un bailleur particulier. Le reste
       // du code retombe déjà sur le nom de l'entité ; sans ce repli, chaque acte d'un
       // particulier ouvrirait un dialogue — et on lui apprendrait à cliquer « Continuer »

@@ -101,3 +101,48 @@ describe('Les marqueurs d’identité sont bien NOMMÉS par actes-mentions', () 
     expect(body).toContain('(inconnu)');
   });
 });
+
+describe('La signature d’un acte nomme la personne UNE fois', () => {
+  const acte = (entite) => _emailCompose('bail-conge-bailleur-6mois',
+    { entite, locataire: { nom: 'Martin' }, bail: {} }).body;
+  /** Les lignes du bloc de signature, après « Fait à … ». */
+  const signature = (body) => body.slice(body.lastIndexOf('Fait à '))
+    .split('\n').slice(1).filter((l) => l.trim());
+
+  it('une SCI signe sur deux lignes : le gérant, puis l’entité', () => {
+    expect(signature(acte({ nom: 'SCI Dupont', siege: 'Colmar', gerant: 'Didier Keller' })))
+      .toEqual(['Didier Keller', 'SCI Dupont']);
+  });
+
+  it('un PARTICULIER (sans gérant) signe une seule fois', () => {
+    // Avant : « (inconnu) » puis le nom. Un repli naïf aurait donné le nom deux fois.
+    expect(signature(acte({ nom: 'Didier Keller', siege: 'Colmar' })))
+      .toEqual(['Didier Keller']);
+  });
+
+  it('un gérant qui porte le nom de l’entité n’est pas imprimé en double', () => {
+    expect(signature(acte({ nom: 'Didier Keller', siege: 'Colmar', gerant: 'Didier Keller' })))
+      .toEqual(['Didier Keller']);
+  });
+
+  it('une entité sans nom ni gérant laisse un marqueur, pas un blanc', () => {
+    expect(signature(acte({ siege: 'Colmar' }))).toEqual(['\u2039signataire\u203a']);
+  });
+
+  it('le protocole amiable signe sur UNE ligne (bloc à deux colonnes)', () => {
+    const body = _emailCompose('bail-resiliation-amiable',
+      { entite: { nom: 'SCI Dupont', siege: 'Colmar', gerant: 'Didier Keller' },
+        locataire: { nom: 'M. Martin' }, bail: {} }).body;
+    const ligne = body.split('\n').find((l) => l.includes('Didier Keller'));
+    // Un saut de ligne ici décalerait la colonne du locataire.
+    expect(ligne).toContain('Didier Keller \u2014 SCI Dupont');
+    expect(ligne).toContain('M. Martin');
+  });
+
+  it('les modèles NON formels gardent leur pied de page inchangé', () => {
+    // La mention calculée n'existe que pour les actes : 22 autres modèles s'en passent très bien.
+    const body = _emailCompose('notification-visite',
+      { entite: { nom: 'SCI Dupont', gerant: 'Didier Keller' }, locataire: { nom: 'Martin' }, bail: {} }).body;
+    expect(body).toContain('Didier Keller\nSCI Dupont');
+  });
+});
