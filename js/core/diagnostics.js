@@ -24,6 +24,29 @@
  */
 
 // ────────────────────────────────────────────────────────────────────────────
+// Période de construction → 3 tranches LÉGALES (source unique)
+// Personne n'a l'année exacte : la PÉRIODE pilote plomb & amiante ; l'année
+// (legacy) sert de repli exact quand elle est présente.
+//   Avant 1949 → plomb + amiante · De 1949 à 1997 → amiante · Après 1997 → aucun.
+// ────────────────────────────────────────────────────────────────────────────
+
+export function periodeLegale(periode, annee) {
+  const a = Number(annee);
+  // Amiante = permis avant le 1er JUILLET 1997 → à la granularité de l'année, 1997 est INCLUS (prudence : jamais sous-appliquer un diagnostic obligatoire). Plomb = avant le 1er janvier 1949 (exact).
+  if (a && a >= 1000) return a < 1949 ? 'Avant 1949' : (a < 1998 ? 'De 1949 à 1997' : 'Après 1997');
+  switch (periode) {
+    case 'Avant 1949': return 'Avant 1949';
+    case 'De 1949 à 1997': return 'De 1949 à 1997';
+    case 'Après 1997': return 'Après 1997';
+    case 'De 1949 à 1974':
+    case 'De 1975 à 1989':
+    case 'De 1990 à 2005': return 'De 1949 à 1997';   // ancien bucket sans année : prudence (amiante possible)
+    case 'Depuis 2005': return 'Après 1997';
+    default: return '';
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Catalogue des 9 diagnostics — source unique
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -46,11 +69,11 @@ export const DIAGS_CATALOG = [
     legal:  'Art. L1334-5 à L1334-9 Code santé publique',
     icon:   '⚠',
     joindreAuBail: true,
-    /** CREP : logements dont le permis de construire est antérieur au 1er janvier 1949. */
+    /** CREP : logements dont le permis de construire est antérieur au 1er janvier 1949.
+     *  Piloté par la PÉRIODE (année legacy en repli via periodeLegale). */
     isApplicable: (log) => {
-      const a = Number(log?.anneeConstruction);
-      if (!a) return null; // info manquante → ne sait pas
-      return a < 1949;
+      const p = periodeLegale(log?.periodeConstr, log?.anneeConstruction);
+      return p ? (p === 'Avant 1949') : null; // info manquante → ne sait pas
     }
   },
   {
@@ -60,11 +83,11 @@ export const DIAGS_CATALOG = [
     legal:  'Art. R1334-15 à R1334-29 Code santé publique',
     icon:   '🧪',
     joindreAuBail: true,
-    /** Amiante : permis de construire avant le 1er juillet 1997. */
+    /** Amiante : permis de construire avant le 1er juillet 1997.
+     *  Piloté par la PÉRIODE (année legacy en repli via periodeLegale). */
     isApplicable: (log) => {
-      const a = Number(log?.anneeConstruction);
-      if (!a) return null;
-      return a < 1997;
+      const p = periodeLegale(log?.periodeConstr, log?.anneeConstruction);
+      return p ? (p !== 'Après 1997') : null;
     }
   },
   {
