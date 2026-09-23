@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.667</title>
+<title>Propryo v15.668</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.667">
+<link rel="stylesheet" href="css/main.css?v=15.668">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.667</em>
+      <em>v15.668</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.667';
+const IMMOTRACK_VERSION = '15.668';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10725,7 +10725,7 @@ function _renderAccueilPhone(ctx){
   // lue au MAITRE (`byLot`), la meme frise que la bulle Impayes, et ne porte que la ligne 2044
   // n 211 : loyers et provisions de charges. D'ou son libelle « Loyers encaisses » — ni GLI
   // (213), ni encaissement non rattache. C'est voulu, pas un oubli.
-  var encMois=0, attMois=0, encYTD=0, resteMois=0, _grace=false;
+  var encMois=0, attMois=0, encYTD=0, resteMois=0, _grace=false, _graceConnu=false;
   var _cfrPh = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
   var _moisLu = false;
   try {
@@ -10735,6 +10735,7 @@ function _renderAccueilPhone(ctx){
     // Tolerance de debut de mois : avant le 10, le loyer non paye du mois courant n'est pas
     // un RETARD (`finances-window.js:154`, `finances-monthly.js:87`). Le residu tombe donc a
     // zero — ce qui ne veut PAS dire que l'argent est rentre. Le drapeau sert a le dire.
+    _graceConnu = !!(_WPh && _WPh.exigibilite);
     _grace = !!(_WPh && _WPh.exigibilite && _WPh.exigibilite.graceLast);
     if (_rPh && _rPh.byLot) {
       var _refs = {}; logs.forEach(function(l){ if(l && l.ref) _refs[l.ref] = 1; });
@@ -10791,22 +10792,32 @@ function _renderAccueilPhone(ctx){
   // affichaient « reste 6 300 EUR » a cote d'un denominateur de 900 EUR. La ligne parle DU
   // MOIS ; la dette des exercices anterieurs est le sujet de la bulle Impayes.
   var reste = _moisLu ? (Math.round(resteMois*100)/100) : Math.max(0, attMois - encMois);
-  if (attMois > 0 && reste > attMois) reste = attMois;
+  // La borne vaut AUSSI quand rien n'est du : un ex-locataire qui rembourse 300 EUR en janvier
+  // sur un bail clos fait entrer son lot dans `byLot` avec un du de 0 et 6 000 EUR d'arriere
+  // d'ouverture. L'ecran annoncait « 300 EUR / 0 EUR · reste 6 000 EUR », barre pleine.
+  if (reste > attMois) reste = attMois;
+  if (reste < 0) reste = 0;
   // La barre mesure le RECOUVREMENT du mois (du - reste), pas le cash tombe dans le mois : un
   // loyer paye d'avance le mois precedent laisse la barre pleine, comme la bulle Impayes.
+  // Rien de du ce mois-ci : il n'y a pas de recouvrement a mesurer. La barre est pleine parce
+  // que rien ne manque, pas parce que quelque chose est rentre.
   var pctPay = attMois>0
     ? Math.min(100, Math.max(0, Math.round((attMois - reste)/attMois*100)))
-    : (encMois>0?100:0);
+    : 100;
   // LE SOUS-TITRE. « Tout est encaisse » est une affirmation sur l'ARGENT RENTRE : elle ne peut
   // se dire que si le cash du mois couvre le du. Un residu nul veut dire « rien en retard », ce
   // qui n'est pas la meme chose — le mois peut etre couvert par une avance du mois precedent,
   // ou simplement pas encore exigible avant le 10. Les confondre faisait afficher « tout est
   // encaisse », barre pleine, le 5 du mois, sur un loyer que personne n'avait paye.
   var _subMois;
-  if (reste > 0.005) _subMois = 'reste ' + F(reste) + ' à encaisser';
+  if (attMois <= 0.005) _subMois = 'rien de dû ce mois-ci';
+  else if (reste > 0.005) _subMois = 'reste ' + F(reste) + ' à encaisser';
   else if (encMois + 0.5 >= attMois) _subMois = 'tout est encaissé';
   else if (_grace) _subMois = 'rien en retard · à régler avant le 10';
-  else _subMois = 'rien en retard · couvert par une avance';
+  else if (_graceConnu) _subMois = 'rien en retard · couvert par une avance';
+  // Sans la fenêtre d'exigibilite, on ne sait pas SI la tolerance du 10 a joue : le moteur
+  // recalcule alors la sienne de son cote. On dit ce qu'on sait, et rien de plus.
+  else _subMois = 'rien en retard';
   // Jauge occupation (neutre) — aiguille selon pctOcc sur un demi-cercle.
   var ang = Math.PI*(1 - (occ.pctOcc||0)/100), nx=(50+38*Math.cos(ang)).toFixed(1), ny=(52-38*Math.sin(ang)).toFixed(1);
   // Arc de remplissage NEUTRE (part occupée) sur le rail, même rayon (40) que le rail — de la gauche
@@ -38021,7 +38032,7 @@ function _computeComptaBailleur(ent, year, activeLogs) {
       loyerAttendu += _computeExpectedRent(l.ref, yr, lastMonth) || 0;
     }
     // R0-G : au référentiel, pas au libellé (cf. `_finLotCatRole`).
-    loyerEncaisse += mvts.filter(m => m.qui === l.ref && _finLotEstLoyer(m)).reduce((s,m)=>s+(+m.cr||0), 0);
+    loyerEncaisse += mvts.filter(m => m.qui === l.ref && _finLotEstLoyer(m)).reduce((s,m)=>s+_finLotNet(m), 0);
   });
   const manqueAGagner = Math.max(0, loyerAttendu - loyerEncaisse);
 
@@ -41365,7 +41376,8 @@ function _renderComptaKPIsForLog(ref, year) {
   const chargesDirect = mvts.filter(m => _finLotEstCharge(m) && !m.compteurCcId).reduce((s,m)=>s+_finLotNet(m,'charge'), 0);
   // Quote-part des compteurs collectifs (lecture unique, cf. `_lotCcQuotePartMois`) — c'est
   // celle que le graphe du même panneau lit aussi, mois par mois.
-  const chargesCc = _lotCcQuotePartMois(ref, year).reduce((a,b)=>a+b, 0);
+  const ccMoisKpi = _lotCcQuotePartMois(ref, year);
+  const chargesCc = ccMoisKpi.reduce((a,b)=>a+b, 0);
   const charges = chargesDirect + chargesCc;
   const solde     = loyersEnc - charges;
   // Loyer attendu réel : pro-rata mois × HC+CH du bail actif OU du dernier bail (fallback vacance)
@@ -41375,8 +41387,11 @@ function _renderComptaKPIsForLog(ref, year) {
   const loyerAttendu = (typeof _computeExpectedRent === 'function')
     ? _computeExpectedRent(ref, year, lastVisibleMonth)
     : 0;
-  // Manque à gagner = max(0, attendu - encaissé)
-  const manqueAGagner = Math.max(0, loyerAttendu - loyersEnc);
+  // Manque à gagner = max(0, attendu - encaissé), BORNÉ à l'attendu. Depuis que `loyersEnc`
+  // est un net, une restitution de trop-perçu le rend négatif : le manque dépassait alors le
+  // loyer attendu, et le « % vacance » saturait à 100 % sur un lot loué toute l'année. On ne
+  // peut pas manquer plus que ce qu'on attendait ; l'argent rendu se lit sur le solde.
+  const manqueAGagner = Math.min(loyerAttendu, Math.max(0, loyerAttendu - loyersEnc));
   // Vacance % = part du loyer attendu non encaissé
   const vacancePct = loyerAttendu > 0
     ? Math.max(0, Math.min(100, Math.round((manqueAGagner / loyerAttendu) * 100)))
@@ -41386,23 +41401,36 @@ function _renderComptaKPIsForLog(ref, year) {
   // Finances ouvre d'office le rattachement ; la fiche d'un lot, elle, ne disait rien : on
   // pouvait lire « Solde net 0 EUR » avec quatorze mouvements sur le compte. Elle le dit
   // maintenant, et propose LE geste existant (`_finOpenCatMapping`), pas un nouveau.
-  const nonClasses = mvts.filter(m => !_finLotCatRole(m.cat) && ((+m.cr||0) || (+m.db||0)));
-  const nonClassesTot = nonClasses.reduce((s,m)=>s+Math.abs(+m.cr||0)+Math.abs(+m.db||0), 0);
+  const nonClasses = mvts.filter(m => !_finLotCatRole(m.cat) && ((+m.cr||0) || (+m.db||0)))
+    .concat((ccMoisKpi.nonClasses || []).filter(m => ((+m.cr||0) || (+m.db||0))));
+  // Le montant qui MANQUE aux totaux, c'est le net du mouvement : une correction de saisie
+  // (900 cr et 900 db sur la même ligne) ne retire rien, l'annoncer 1 800 EUR serait faux.
+  const nonClassesTot = nonClasses.reduce((s,m)=>s+Math.abs(_finLotNet(m)), 0);
+  // Deux causes distinctes, deux gestes distincts. `_finOpenCatMapping` indexe par nom de
+  // catégorie et SAUTE les mouvements qui n'en ont pas (:56086) : leur proposer « Rattacher »
+  // ouvrait un écran qui répondait « tout est déjà rattaché ». Ceux-là se corrigent dans les
+  // mouvements, un par un.
+  const _sansCat = nonClasses.filter(m => !m.cat);
+  const _aRattacher = nonClasses.length - _sansCat.length;
+  const _causes = [];
+  if (_aRattacher) _causes.push(_aRattacher > 1 ? 'leurs catégories ne sont rattachées à rien' : 'sa catégorie n\'est rattachée à rien');
+  if (_sansCat.length) _causes.push(_sansCat.length > 1 ? 'ils n\'ont pas de catégorie' : 'il n\'a pas de catégorie');
+  const _gestes = (_aRattacher ? `<button class="btn bs bb" onclick="_finOpenCatMapping()">Rattacher</button> ` : '')
+    + (_sansCat.length ? `<button class="btn bs bb" onclick="_goFromLogFiche('mouvements')">Voir les mouvements</button>` : '');
   const avertNonClasses = nonClasses.length
     ? `<div class="alert warn" style="margin-top:10px">⚠️ <b>${nonClasses.length} mouvement${nonClasses.length>1?'s':''}</b> de ce lot`
       + ` (${fmt(nonClassesTot)}) ne compte${nonClasses.length>1?'nt':''} ni dans les loyers ni dans les charges :`
-      + ` ${nonClasses.length>1?"leurs catégories ne sont rattachées":"sa catégorie n'est rattachée"} à rien.`
-      + ` <button class="btn bs bb" onclick="_finOpenCatMapping()">Rattacher</button></div>`
+      + ` ${_causes.join(' ; ')}. ${_gestes}</div>`
     : '';
   const soldeCls  = solde > 0 ? 'k-ok' : (solde < 0 ? 'k-warn' : '');
   const manqueCls = manqueAGagner > 0 ? 'k-warn' : 'k-ok';
   return `<div class="immf-kpis">
-    <div class="immf-kpi"><div class="immf-kpi-v k-money">${fmt(loyersEnc)}</div><div class="immf-kpi-l">Loyers encaissés ${year}</div></div>
-    <div class="immf-kpi" title="Charges saisies SUR CE LOT, plus sa quote-part des compteurs collectifs. Une taxe foncière ou un appel de copropriété saisi au niveau de l’immeuble n’y figure pas."><div class="immf-kpi-v k-money">${fmt(charges)}</div><div class="immf-kpi-l">Charges payées <small>sur ce lot</small></div></div>
+    <div class="immf-kpi" title="Loyers encaissés sur ce lot, NETS des sommes rendues au locataire (trop-perçu restitué). Même lecture que Finances."><div class="immf-kpi-v k-money">${fmt(loyersEnc)}</div><div class="immf-kpi-l">Loyers encaissés ${year} <small>nets</small></div></div>
+    <div class="immf-kpi" title="Charges saisies SUR CE LOT, plus sa quote-part des compteurs collectifs de l’immeuble. Une taxe foncière ou un appel de copropriété saisi au niveau de l’immeuble n’y figure pas."><div class="immf-kpi-v k-money">${fmt(charges)}</div><div class="immf-kpi-l">Charges payées <small>sur ce lot</small></div></div>
     <div class="immf-kpi"><div class="immf-kpi-v k-money ${soldeCls}">${fmt(solde)}</div><div class="immf-kpi-l">Solde net</div></div>
-    <div class="immf-kpi" title="Loyer attendu (avec mémoire du dernier loyer en vacance) – loyers encaissés">
+    <div class="immf-kpi" title="Loyer attendu (avec mémoire du dernier loyer pendant une vacance) moins les loyers encaissés nets. Le manque peut venir d’une vacance COMME d’un impayé — d’où « non encaissé » et non « vacance ».">
       <div class="immf-kpi-v k-money ${manqueCls}">${manqueAGagner > 0 ? '-' : ''}${fmt(manqueAGagner)}</div>
-      <div class="immf-kpi-l">Manque à gagner${vacancePct > 0 ? ` <small>(${vacancePct}% vacance)</small>` : ''}</div>
+      <div class="immf-kpi-l">Manque à gagner${vacancePct > 0 ? ` <small>(${vacancePct}% non encaissé)</small>` : ''}</div>
     </div>
   </div>${avertNonClasses}`;
 }
@@ -41411,10 +41439,13 @@ function _renderComptaKPIsForLog(ref, year) {
  * La QUOTE-PART du lot dans les compteurs collectifs de son immeuble, MOIS PAR MOIS.
  * Deux écrans en avaient chacun leur copie (héro de la fiche, KPI de l'onglet Compta) ; le
  * graphe du même panneau, lui, n'en avait aucune. Une seule lecture, trois surfaces.
- * @returns {number[]} 12 montants de charge (index 0 = janvier).
+ * @returns {number[]} 12 montants de charge (index 0 = janvier). Le tableau porte en plus
+ *          `nonClasses` : les mouvements écartés faute de catégorie rattachée, pour que
+ *          l'écran puisse le DIRE au lieu de les perdre en silence.
  */
 function _lotCcQuotePartMois(ref, year) {
   const out = [0,0,0,0,0,0,0,0,0,0,0,0];
+  out.nonClasses = [];
   const log = (DB.logements||[]).find(l => l.ref === ref);
   if (!log) return out;
   const yr = String(year).slice(0,4);
@@ -41435,9 +41466,14 @@ function _lotCcQuotePartMois(ref, year) {
       if(!logsScoped.find(l => l.ref === ref)) return;
       const qp = (typeof _calcCcQuotePart === 'function') ? _calcCcQuotePart(im, log, cc, logsScoped) : null;
       if(!qp || qp.exclu) return;
+      // Même classement que les charges directes du même écran : une catégorie non rattachée
+      // au référentiel est ignorée par le moteur, elle ne peut pas rentrer par la quote-part.
+      // Mais on la RETIENT : la faire disparaître sans le dire serait le défaut qu'on vient
+      // de fermer sur les charges directes.
+      if (!_finLotEstCharge(m)) { out.nonClasses.push(m); return; }
       const mi = parseInt(String(m.date).slice(5,7), 10) - 1;
-      if (mi < 0 || mi > 11) return;
-      out[mi] += Math.round((+m.db || 0) * (qp.ratio || 0) * 100) / 100;
+      if (!(mi >= 0 && mi <= 11)) return;   // `NaN < 0` est faux : un garde qui ne garde rien
+      out[mi] += Math.round(_finLotNet(m, 'charge') * (qp.ratio || 0) * 100) / 100;
     });
   return out;
 }
@@ -41478,9 +41514,10 @@ function _renderComptaCashFlowChart(ref, year) {
     const y = ratio >= 0 ? zeroY - h : zeroY;
     const isToday = (i+1) === todayMonth;
     /* P5 reskin : barre du mois courant en corail accent, autres barres en vert/rouge sémantique */
-    const color = isToday ? 'var(--acc)' : (d.net > 0 ? '#16a34a' : (d.net < 0 ? '#dc2626' : '#94a3b8'));
+    // Design system : les trois teintes du graphe étaient en dur, donc muettes en mode sombre.
+    const color = isToday ? 'var(--acc)' : (d.net > 0 ? 'var(--grn)' : (d.net < 0 ? 'var(--red)' : 'var(--t3)'));
     const x = padL + i * barW + 4;
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(barW-8).toFixed(1)}" height="${h.toFixed(1)}" fill="${color}" rx="2" opacity="1"><title>${monthLabels[i]} ${year} : ${fmt(d.net)} (${fmt(d.cr)} encaissé · ${fmt(d.db)} payé)</title></rect>`;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(barW-8).toFixed(1)}" height="${h.toFixed(1)}" fill="${color}" rx="2" opacity="1"><title>${monthLabels[i]} ${year} : ${fmt(d.net)} (${fmt(d.cr)} encaissé net · ${fmt(d.db)} payé net)</title></rect>`;
   }).join('');
   const labels = monthLabels.map((l,i) => {
     const x = padL + i * barW + barW/2;

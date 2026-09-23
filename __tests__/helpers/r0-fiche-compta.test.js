@@ -66,6 +66,13 @@ describe('_finLotCatRole — le référentiel répond, jamais le libellé', () =
   let M, STD;
   beforeAll(() => { M = charger(); STD = referentiel(); });
 
+  it('le référentiel lu est bien le référentiel entier', () => {
+    // Sans ce compte, « balaie les 23 entrées réelles » reste une affirmation invérifiable :
+    // une extraction tronquée passerait pour un référentiel complet.
+    expect(STD.length).toBe(23);
+    expect(STD.every(c => c && typeof c.nom === 'string' && c.nom)).toBe(true);
+  });
+
   it('« Loyers encaissés » est un loyer', () => {
     expect(M._finLotCatRole('Loyers encaissés')).toBe('loyer');
   });
@@ -163,8 +170,9 @@ describe('Le « Solde » de la fiche logement — la formule, sur un cas réel',
   ];
 
   it('le solde ne compte plus le dépôt restitué ni le virement interne', () => {
-    const enc = MVTS.filter(M._finLotEstLoyer).reduce((s, m) => s + (+m.cr || 0), 0);
-    const dep = MVTS.filter(m => M._finLotEstCharge(m) && !m.compteurCcId).reduce((s, m) => s + (+m.db || 0), 0);
+    // La formule de l'écran, au NET — recopier `(+m.cr||0)` ici rejouerait la version périmée.
+    const enc = MVTS.filter(M._finLotEstLoyer).reduce((s, m) => s + M._finLotNet(m), 0);
+    const dep = MVTS.filter(m => M._finLotEstCharge(m) && !m.compteurCcId).reduce((s, m) => s + M._finLotNet(m, 'charge'), 0);
     expect(enc).toBe(9000);
     expect(dep).toBe(2000);
     expect(enc - dep).toBe(7000);
@@ -177,15 +185,28 @@ describe('Le « Solde » de la fiche logement — la formule, sur un cas réel',
   });
 
   it('le graphe du même panneau somme EXACTEMENT au « Solde net » affiché au-dessus', () => {
-    // Le graphe est rendu 30 px sous les KPI. Il sommait tous les cr et tous les db sans rien
-    // classer : après R0-G, il annonçait 3 400 € là où le KPI disait 7 000 €.
-    const parMois = [1, 2].map(mo => {
-      const duMois = mo === 1 ? MVTS.slice(0, 3) : MVTS.slice(3);
-      const cr = duMois.filter(M._finLotEstLoyer).reduce((s, m) => s + (+m.cr || 0), 0);
-      const db = duMois.filter(m => M._finLotEstCharge(m) && !m.compteurCcId).reduce((s, m) => s + (+m.db || 0), 0);
-      return cr - db;
-    });
-    expect(parMois.reduce((a, b) => a + b, 0)).toBe(7000);
+    // Refaire l'addition à la main des deux côtés ne prouverait rien : (a₁+a₂)−(b₁+b₂) égale
+    // (a₁−b₁)+(a₂−b₂) pour n'importe quel classifieur. On EXÉCUTE donc les deux fonctions du
+    // monolithe, avec la quote-part des compteurs collectifs — c'est elle que le graphe
+    // n'avait pas, et c'est par là que l'écart revenait.
+    const mvts = MVTS.map((m, i) => ({ ...m, id: 'm' + i, qui: 'A-1', date: '2026-0' + (i + 1) + '-05' }));
+    const ccParMois = [0, 0, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0];   // 300 € de quote-part en mars
+    const M2 = charger();
+
+    const soldeKpi = mvts.filter(M2._finLotEstLoyer).reduce((s, m) => s + M2._finLotNet(m), 0)
+      - (mvts.filter(m => M2._finLotEstCharge(m) && !m.compteurCcId).reduce((s, m) => s + M2._finLotNet(m, 'charge'), 0)
+         + ccParMois.reduce((a, b) => a + b, 0));
+
+    const sommeBarres = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce((total, mo) => {
+      const duMois = mvts.filter(m => m.date.slice(5, 7) === String(mo).padStart(2, '0'));
+      const cr = duMois.filter(M2._finLotEstLoyer).reduce((s, m) => s + M2._finLotNet(m), 0);
+      const db = duMois.filter(m => M2._finLotEstCharge(m) && !m.compteurCcId).reduce((s, m) => s + M2._finLotNet(m, 'charge'), 0)
+        + (ccParMois[mo - 1] || 0);
+      return total + (cr - db);
+    }, 0);
+
+    expect(soldeKpi).toBe(6700);       // 7 000 € moins la quote-part de mars
+    expect(sommeBarres).toBe(soldeKpi);
   });
 
   it('un loyer RENDU au locataire ne s’évapore pas du solde', () => {
@@ -227,6 +248,96 @@ describe('Le « Solde » de la fiche logement — la formule, sur un cas réel',
   });
 });
 
+describe('La quote-part des compteurs collectifs — exécutée, pas relue', () => {
+  /** Extrait `_lotCcQuotePartMois` d'index.html et l'exécute avec des dépendances contrôlées. */
+  function quotePart(mouvements, estCharge) {
+    const src = corpsDe('_lotCcQuotePartMois');
+    if (!src) throw new Error('helper introuvable — le test ne teste plus rien');
+    const M = charger();
+    const DB = {
+      logements: [{ ref: 'A-1', imm: 'Résidence' }, { ref: 'A-2', imm: 'Résidence' }],
+      mouvements,
+      entites: [{ immeubles: [{ nom: 'Résidence', compteursCollectifs: [{ id: 'cc1' }] }] }]
+    };
+    const noms = ['DB', '_isAlive', '_ccLogsInScope', '_calcCcQuotePart', '_finLotEstCharge', '_finLotNet'];
+    const f = new Function(...noms, src + '\nreturn _lotCcQuotePartMois;');
+    return f(DB,
+      (x) => !!x && !x._deleted,
+      (cc, lots) => lots,
+      () => ({ ratio: 0.25, exclu: false }),
+      estCharge || M._finLotEstCharge,
+      M._finLotNet)('A-1', 2026);
+  }
+
+  it('un AVOIR du fournisseur vient en déduction de la quote-part', () => {
+    // Le helper sommait `m.db` seul : l'avoir était ignoré et le lot payait trop.
+    const r = quotePart([
+      { id: 'a', compteurCcId: 'cc1', date: '2026-03-10', db: 1200, cr: 0, cat: 'Charges récupérables (eau, énergie…)' },
+      { id: 'b', compteurCcId: 'cc1', date: '2026-06-10', db: 0, cr: 300, cat: 'Charges récupérables (eau, énergie…)' }
+    ]);
+    expect(r[2]).toBe(300);      // mars : 25 % de 1 200
+    expect(r[5]).toBe(-75);      // juin : 25 % de −300
+    expect(r.reduce((a, b) => a + b, 0)).toBe(225);   // net, pas 300
+  });
+
+  it('un mouvement de compteur non rattaché au référentiel est RETENU, pas perdu', () => {
+    const r = quotePart([
+      { id: 'a', compteurCcId: 'cc1', date: '2026-03-10', db: 1200, cr: 0, cat: 'Charges récupérables (eau, énergie…)' },
+      { id: 'z', compteurCcId: 'cc1', date: '2026-04-10', db: 800, cr: 0, cat: 'TRUC NON RATTACHÉ' }
+    ]);
+    expect(r.reduce((a, b) => a + b, 0)).toBe(300);          // le non classé n'entre pas
+    expect(r.nonClasses.map(m => m.id)).toEqual(['z']);      // mais il est signalé
+  });
+
+  it('un mouvement supprimé ou hors année ne compte pas', () => {
+    const r = quotePart([
+      { id: 'a', compteurCcId: 'cc1', date: '2026-03-10', db: 1200, cr: 0, cat: 'Charges récupérables (eau, énergie…)', _deleted: true },
+      { id: 'b', compteurCcId: 'cc1', date: '2025-03-10', db: 800, cr: 0, cat: 'Charges récupérables (eau, énergie…)' }
+    ]);
+    expect(r.reduce((a, b) => a + b, 0)).toBe(0);
+    expect(r.nonClasses.length).toBe(0);
+  });
+
+  it('une date tronquée ne crée pas d’entrée fantôme', () => {
+    // `NaN < 0` et `NaN > 11` sont tous deux faux : l'ancien garde ne gardait rien.
+    const r = quotePart([{ id: 'a', compteurCcId: 'cc1', date: '2026', db: 1200, cr: 0, cat: 'Charges récupérables (eau, énergie…)' }]);
+    expect(r.length).toBe(12);
+    expect(r.every(v => typeof v === 'number' && !Number.isNaN(v))).toBe(true);
+    expect(r.reduce((a, b) => a + b, 0)).toBe(0);
+  });
+});
+
+describe('Le « manque à gagner » du lot — borné à ce qui était attendu', () => {
+  /** Exécute les deux lignes du monolithe qui le calculent. */
+  function manque(loyerAttendu, loyersEnc) {
+    const i = html.indexOf('  const manqueAGagner = Math.min(');
+    const fin = '    : 0;';
+    const j = html.indexOf(fin, i);
+    if (i === -1 || j === -1) throw new Error('calcul introuvable — le test ne teste plus rien');
+    return new Function('loyerAttendu', 'loyersEnc',
+      html.slice(i, j + fin.length) + '\nreturn { manqueAGagner, vacancePct };')(loyerAttendu, loyersEnc);
+  }
+
+  it('un trop-perçu restitué ne fait pas manquer PLUS que ce qui était attendu', () => {
+    // `loyersEnc` est un net depuis le passage au signe : −900 € donnait un manque de 9 000 €
+    // sur 8 100 € attendus, et un « % » de 111 écrêté en silence à 100.
+    const r = manque(8100, -900);
+    expect(r.manqueAGagner).toBe(8100);
+    expect(r.vacancePct).toBe(100);
+  });
+
+  it('le cas ordinaire n’est pas touché', () => {
+    expect(manque(8100, 5400).manqueAGagner).toBe(2700);
+    expect(manque(8100, 5400).vacancePct).toBe(33);
+    expect(manque(8100, 8100).manqueAGagner).toBe(0);
+    expect(manque(0, 0).vacancePct).toBe(0);
+  });
+
+  it('plus encaissé qu’attendu (avance) ne donne jamais un manque négatif', () => {
+    expect(manque(8100, 9000).manqueAGagner).toBe(0);
+  });
+});
+
 describe('Aucune surface d’argent ne reclasse sur le libellé', () => {
   it('plus aucun `/loyer/i` exécuté dans index.html', () => {
     // Il n'en reste qu'un, dans le commentaire de `_finLotCatRole` qui raconte le défaut.
@@ -248,6 +359,42 @@ describe('Aucune surface d’argent ne reclasse sur le libellé', () => {
       expect(corps, nom + ' est reparti sur une somme de `cr` seuls').not.toMatch(/\+\(\+m?v?\.cr\|\|0\)/);
       expect(corps, nom + ' ne lit plus le net').toMatch(/_finLotNet\(/);
     }
+  });
+
+  it('le quatrième site — code mort, mais corrigé comme les autres', () => {
+    // `_computeComptaBailleur` n'a aucun appelant (`setEntFicheTab` redirige « compta » vers
+    // « immeubles » depuis 764c7c9). Il avait pourtant été passé au référentiel avec les trois
+    // autres : l'oublier au passage au net laissait DEUX règles dans la même série.
+    // Ses autres `(+x.cr||0)` sont un JOURNAL de trésorerie — encaissé et dépensé y sont deux
+    // colonnes distinctes, les mettre au net n'aurait aucun sens.
+    const corps = corpsDe('_computeComptaBailleur');
+    expect(corps).toBeTruthy();
+    const ligne = corps.split('\n').find(l => l.includes('loyerEncaisse +='));
+    expect(ligne, 'la ligne des loyers encaissés a disparu').toBeTruthy();
+    expect(ligne, 'elle est repartie sur `cr` seul').toMatch(/_finLotNet\(m\)/);
+  });
+
+  it('un mouvement SANS catégorie ne se voit pas proposer un écran qui l’ignore', () => {
+    // `_finOpenCatMapping` indexe par nom de catégorie et saute les mouvements qui n'en ont pas
+    // (:56086) : leur offrir « Rattacher » ouvrait un écran répondant « tout est déjà rattaché ».
+    const corps = corpsDe('_renderComptaKPIsForLog');
+    expect(corps, 'les deux causes ne sont plus distinguées').toMatch(/_sansCat/);
+    expect(corps, 'le second geste a disparu').toMatch(/_goFromLogFiche\('mouvements'\)/);
+    // Le montant annoncé est le NET : une correction de saisie (900 cr et 900 db) ne retire
+    // rien des totaux, l'annoncer 1 800 € serait faux.
+    expect(corps, 'le montant est reparti sur |cr|+|db|').not.toMatch(/Math\.abs\(\+m\.cr\|\|0\)/);
+    expect(corps).toMatch(/Math\.abs\(_finLotNet\(m\)\)/);
+  });
+
+  it('un compteur collectif non classé est signalé, pas perdu', () => {
+    // La quote-part classe maintenant comme les charges directes. Sans ce filet, un mouvement
+    // de compteur non rattaché disparaîtrait du total SANS que l'écran le dise — le défaut
+    // qu'on venait de fermer, réintroduit par la porte d'à côté.
+    const helper = corpsDe('_lotCcQuotePartMois');
+    expect(helper, 'le helper ne classe plus').toMatch(/_finLotEstCharge\(m\)/);
+    expect(helper, 'le helper ne retient plus ce qu’il écarte').toMatch(/out\.nonClasses\.push\(m\)/);
+    const kpi = corpsDe('_renderComptaKPIsForLog');
+    expect(kpi, 'l’avertissement ignore les compteurs collectifs').toMatch(/ccMoisKpi\.nonClasses/);
   });
 
   it('la fiche AVERTIT quand des mouvements du lot ne sont rattachés à rien', () => {

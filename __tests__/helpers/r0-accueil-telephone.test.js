@@ -41,7 +41,7 @@ function blocCalcul() {
     "  else logs.forEach(function(l){ try{ encYTD += (_v4ComputeLotStatus(l, yr, '', ctx.mvsYTD).recu||0); }catch(e){} });");
   const b = tranche(
     '  // C1 : le reste du vient du maitre',
-    "  else _subMois = 'rien en retard · couvert par une avance';");
+    "  else _subMois = 'rien en retard';");
   return (a && b) ? (a + '\n' + b) : null;
 }
 
@@ -56,7 +56,7 @@ function calculer(deps) {
     '_dashCfReel', '_finEntScope', '_finWindows', '_finMonthly', '_v4ComputeLotStatus'];
   const f = new Function(...noms, src +
     '\nreturn { occ:occ, occSub:occSub, encMois:encMois, attMois:attMois, encYTD:encYTD,' +
-    ' reste:reste, pctPay:pctPay, sub:_subMois, grace:_grace };');
+    ' reste:reste, pctPay:pctPay, sub:_subMois, grace:_grace, graceConnu:_graceConnu };');
   return f(...noms.map(n => deps[n]));
 }
 
@@ -233,11 +233,57 @@ describe('Accueil téléphone — « reste à encaisser » ne peut pas contredir
     expect(r.pctPay).toBe(33);
   });
 
-  it('aucun dû ce mois-ci → pas de division par zéro', () => {
+  it('aucun dû ce mois-ci : l’écran le DIT, il ne dit pas « tout est encaissé »', () => {
+    // « Tout est encaissé » sur « 0 € / 0 € » est une affirmation vide. Un lot vacant, ou un
+    // parc dont aucun lot n'a de dû, tombait dessus faute d'avoir son propre état.
     const r = calculer({ ...BASE, _finMonthly: () => ({ byLot: { 'A-1': { months: frise({ duHC: 0, duCH: 0, encaisse: 0 }) } } }) });
     expect(r.attMois).toBe(0);
     expect(r.reste).toBe(0);
-    expect(Number.isFinite(r.pctPay)).toBe(true);
+    expect(r.pctPay).toBe(100);
+    expect(r.sub).toBe('rien de dû ce mois-ci');
+  });
+
+  it('un remboursement sur un lot sans dû n’invente pas une avance', () => {
+    // Bail terminé en août ; le 20 septembre le bailleur rend 450 € de trop-perçu. `encaisse`
+    // est un NET : il vaut −450. `encMois + 0.5 >= attMois` était alors faux, et l'écran
+    // concluait « rien en retard · couvert par une avance » — aucune avance n'existait.
+    const r = calculer({
+      ...BASE,
+      _finMonthly: () => ({ byLot: { 'A-1': { months: frise(i => (
+        i === MOIS - 1 ? { duHC: 0, duCH: 0, encaisse: -450 } : {}
+      )) } } })
+    });
+    expect(r.encMois).toBe(-450);
+    expect(r.attMois).toBe(0);
+    expect(r.sub).toBe('rien de dû ce mois-ci');
+  });
+
+  it('JANVIER sur un bail clos : la dette d’ouverture ne se colle pas à un dû de zéro', () => {
+    // Un ex-locataire rembourse 300 € en janvier ; son lot rentre dans `byLot` avec 6 000 € de
+    // position d'ouverture et AUCUN dû. L'écran annonçait « 300 € / 0 € · reste 6 000 € », barre
+    // pleine. La borne ne s'appliquait pas faute de dénominateur.
+    const r = calculer({
+      ...BASE,
+      moNow: 1,
+      _finMonthly: () => ({ byLot: { 'A-1': { months: [
+        { ym: '2026-01', duHC: 0, duCH: 0, encaisse: 300, loyerRetard: 6000, chargeRetard: 0, avance: 0, rattrapage: 0 }
+      ] } } })
+    });
+    expect(r.reste).toBe(0);
+    expect(r.sub).toBe('rien de dû ce mois-ci');
+  });
+
+  it('sans fenêtre d’exigibilité, l’écran n’explique pas ce qu’il ignore', () => {
+    // `_finWindows` peut rendre null alors que `_finMonthly` répond quand même : le moteur
+    // recalcule alors SA tolérance de son côté. On ne sait plus si le résidu nul vient d'une
+    // avance ou du 10 du mois — donc on ne l'affirme pas.
+    const r = calculer({
+      ...BASE,
+      _finWindows: () => null,
+      _finMonthly: () => ({ byLot: { 'A-1': { months: frise(i => (i === MOIS - 1 ? { encaisse: 0 } : {})) } } })
+    });
+    expect(r.graceConnu).toBe(false);
+    expect(r.sub).toBe('rien en retard');
   });
 });
 
