@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.669</title>
+<title>Propryo v15.670</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.669">
+<link rel="stylesheet" href="css/main.css?v=15.670">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.669</em>
+      <em>v15.670</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.669';
+const IMMOTRACK_VERSION = '15.670';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -6256,7 +6256,10 @@ function agendaAutoSync() {
   const validBailKeys = new Set();
 
   DB.logements.forEach(l => {
-    if(!l.locataire || !l.ref) return;
+    // R-0 : sur le cache, un bail repris à l'achat (art. 1743, aucun nom sur la fiche) ne
+    // produisait AUCUNE échéance d'agenda — ni rappel de révision IRL, ni fin de bail, ni
+    // préavis. Le bail, lui, est là : la ligne suivante le lit déjà.
+    if(!l.ref || !_lotEstLoue(l)) return;
     const bail = DB.baux[l.ref];
     if(!bail || !bail.debut) return;
     const yrNow = today.getFullYear();
@@ -9949,13 +9952,15 @@ function _v4NavCounts() {
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   if (typeof DB === 'undefined') return {logs:0, locs:0, loyers:0, baux:0};
   const logs = (DB.logements||[]).filter(aliveFn);
-  const locs = logs.filter(l => l.locataire).length;
+  // R-0 : la barre latérale comptait les noms en cache. Un bail repris à l'achat n'en porte pas :
+  // la barre annonçait un locataire de moins que l'Accueil, pour le même parc.
+  const locs = logs.filter(_lotEstLoue).length;
   const yr = String(new Date().getFullYear());
   const mo = (new Date().getMonth() + 1);
   const moStr = String(mo).padStart(2, '0');
   const yrMo = yr + '-' + moStr;
   const loyersMois = (DB.mouvements||[]).filter(aliveFn).filter(m => m.date && m.date.startsWith(yrMo) && (m.cr||0) > 0 && typeof _isLoyerCategory === 'function' && _isLoyerCategory(m.cat)).length;
-  const baux = logs.filter(l => l.locataire && l.debut).length;
+  const baux = logs.filter(l => _lotEstLoue(l) && l.debut).length;
   return {logs: logs.length, locs, loyers: loyersMois, baux};
 }
 
@@ -10501,7 +10506,10 @@ function _pilCollectFamilles(ctx) {
   try {
     const items = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
     const jFromScore = (it) => (it.score >= 90 ? 0 : it.score >= 70 ? 15 : it.score >= 50 ? 30 : 60);
-    const _lotRefs = new Set(scopeLogs.filter(l => l.locataire).map(l => l.ref));   // occupés seulement : un lot vide = « rien » (aligné sur la matrice qui court-circuite les vacants)
+    // R-0 : « occupés seulement » se lit sur le BAIL. Sur le cache, un bail repris à l'achat sortait
+    // vacant ici alors que la matrice, elle, le compte loué depuis v15.661 : l'assurance et les diagnostics
+    // du lot disparaissaient d'« À regarder » tout en restant marqués à faire dans la matrice.
+    const _lotRefs = new Set(scopeLogs.filter(_lotEstLoue).map(l => l.ref));   // un lot vide = « rien »
     items.forEach(it => {
       const nom = (it.subtitle || it.contextRef || it.ref || '').split(' — ')[0] || it.contextRef || '';
       if (it.type === 'mrh' || it.type === 'diag') {
@@ -10964,7 +10972,9 @@ function _pilDocToDot(statut) {
 // Statut IRL d'un lot → point.
 function _pilIrlDot(l) {
   try {
-    if (!l.locataire || !l.debut || typeof computeIRLRevision !== 'function') return 'na';
+    // R-0 : le BAIL dit si le lot est loué. Sur le cache, un bail repris à l'achat n'affichait jamais
+    // sa révision IRL comme exigible — alors que le loyer court et que la révision est due.
+    if (!_lotEstLoue(l) || !l.debut || typeof computeIRLRevision !== 'function') return 'na';
     const rev = computeIRLRevision(l);
     if (!rev || rev.insuffisant || rev.pasEncoreApplicable) return 'na';
     if (rev.dejaApplique) return 'ok';
@@ -28949,9 +28959,14 @@ function _listerImpayesActifs(logements, baux, mouvements, dateRef) {
   const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
   const out = [];
   for (const l of (logements||[])) {
-    if (!l || l._deleted || l.archived || !l.locataire) continue;
+    // R-0 : le BAIL décide, pas le cache. La condition de bail juste dessous suffisait déjà ;
+    // `!l.locataire` ne faisait qu'exclure les baux repris. Ajout de `finEffective` : un bail
+    // sorti sans passer par la clôture ne loue plus rien (règle `_bienActiveBail`).
+    // ⚠️ Cette copie n'a AUCUN appelant (celle de `js/core/gestion-dg-impayes.js` la recouvre
+    // sur `window` via `js/main.js`). Corrigée pour que les deux disent la même chose.
+    if (!l || l._deleted || l.archived) continue;
     const bail = baux && baux[l.ref];
-    if (!bail || bail.cloture) continue;
+    if (!bail || bail.cloture || bail.finEffective) continue;
     const impayeCumule = _calculerLoyerImpayeCumule(bail, mouvements, today);
     if (impayeCumule < 1) continue;
     const paiements = (mouvements||[])
@@ -52719,7 +52734,13 @@ function openEquipIntervention(ref, key) {
 
   // Remplir le select logement — v14.47 audit tombstones
   const logSel = el('ei-log');
-  logSel.innerHTML = (DB.logements||[]).filter(_isAlive).filter(l=>l.locataire).map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml((l.locataire||'').substring(0,25))}</option>`).join('');
+  // R-0 : le lot loué se lit sur le BAIL. Un bien acheté occupé était absent de la liste,
+  // donc impossible à rattacher à une intervention. Le NOM affiché, lui, vient du cache
+  // puis du bail — afficher un nom n'est pas décider (`_nomsDuBail`).
+  logSel.innerHTML = (DB.logements||[]).filter(_isAlive).filter(_lotEstLoue).map(l=>{
+    const _n = l.locataire || _nomsDuBail(_bienActiveBail(l.ref));
+    return `<option value="${escHtml(l.ref)}">${escHtml(l.ref)}${_n ? ' — ' + escHtml(String(_n).substring(0,25)) : ''}</option>`;
+  }).join('');
   if(ref) logSel.value = ref;
 
   // Remplir les types d'équipements selon le logement sélectionné
@@ -60355,7 +60376,9 @@ function _bootDataJobs() {
       const todayIso = today.toISOString().slice(0,10);
       let incoherences = 0;
       for (const log of (DB.logements||[])) {
-        if (!log || log._deleted || !log.locataire) continue;
+        // R-0 : un bail repris sortait de l'audit de cohérence IRL, donc son écart de loyer
+        // n'était jamais signalé.
+        if (!log || log._deleted || !_lotEstLoue(log)) continue;
         const expected = _loyerHCAtDate(log, todayIso);
         if (expected > 0 && Math.abs((Number(log.hc)||0) - expected) > 1) {
           incoherences++;

@@ -341,6 +341,23 @@ describe('_listerImpayesActifs', () => {
     expect(r[0].montantImpaye).toBe(8450);
   });
 
+  it('R-0 : un bail REPRIS à l’achat sort de la liste — il n’a pas de nom sur la fiche', () => {
+    // Un bien acheté occupé (art. 1743) laisse `log.locataire` vide : le filtre sur ce cache
+    // rendait son impayé INVISIBLE, alors que le loyer court et que la dette existe.
+    const repris = [{ ref: 'F-001', locataire: '' }];
+    const r = _listerImpayesActifs(repris, { 'F-001': baux['F-001'] }, [], new Date('2026-01-31'));
+    expect(r.map(x => x.ref)).toEqual(['F-001']);
+    expect(r[0].montantImpaye).toBe(8450);
+  });
+
+  it('R-0 : un bail sorti par `finEffective`, sans clôture, ne loue plus rien', () => {
+    // Tous les chemins de sortie ne posent pas `cloture` : la règle `_bienActiveBail` regarde
+    // les deux. Sans `finEffective`, un locataire parti continuait d'accumuler une dette.
+    const parti = { 'F-001': { ...baux['F-001'], finEffective: '2025-06-30' } };
+    const r = _listerImpayesActifs([logements[0]], parti, [], new Date('2026-01-31'));
+    expect(r).toEqual([]);
+  });
+
   it('Statut "recent" si < 15j', () => {
     const mvts = [{ qui: 'F-001', date: '2026-05-25', cr: 650, _deleted: false }];
     const r = _listerImpayesActifs([logements[0]], { 'F-001': baux['F-001'] }, mvts, new Date('2026-06-01'));

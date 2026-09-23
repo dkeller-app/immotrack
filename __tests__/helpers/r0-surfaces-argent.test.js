@@ -139,7 +139,13 @@ describe('Aucune surface d’argent VIVANTE ne remet un filtre sur le cache', ()
     '_pilLotLigne',          // matrice du Pilotage — cellule loyer et filtre « vacant »
     '_lyTousLoyersHtml',     // page Loyers — chips de retard et d'avance
     '_computeUnifiedTodo',   // tâches unifiées — révisions IRL et entretien
-    '_collectIRLRappels'     // récap des rappels IRL
+    '_collectIRLRappels',    // récap des rappels IRL
+    '_pilCollectFamilles',   // « À regarder » — assurance et diagnostics d'un lot loué
+    '_pilIrlDot',            // pastille IRL de la fiche lot
+    '_v4NavCounts',          // barre latérale — compteurs locataires et baux
+    'agendaAutoSync',        // agenda — révision IRL, fin de bail, préavis
+    'openEquipIntervention', // sélecteur de lot d'une intervention
+    '_bootDataJobs'          // audit de cohérence IRL au démarrage
   ];
 
   it('les surfaces DÉJÀ corrigées ne sont pas revenues au cache', () => {

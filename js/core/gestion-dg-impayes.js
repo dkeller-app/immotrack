@@ -321,9 +321,13 @@ export function _listerImpayesActifs(logements, baux, mouvements, dateRef) {
   const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||new Date().toISOString().slice(0,10)) + 'T00:00:00');
   const out = [];
   for (const l of (logements||[])) {
-    if (!l || l._deleted || l.archived || !l.locataire) continue;
+    // R-0 : le BAIL décide, pas le cache `l.locataire`. Un bail repris à l'achat ne porte
+    // aucun nom sur la fiche du lot : son impayé était invisible ici. La condition de bail
+    // juste dessous suffit — augmentée de `finEffective`, un bail sorti sans clôture ne loue
+    // plus rien (même règle que `_bienActiveBail`).
+    if (!l || l._deleted || l.archived) continue;
     const bail = baux && baux[l.ref];
-    if (!bail || bail.cloture) continue;
+    if (!bail || bail.cloture || bail.finEffective) continue;
     const impayeCumule = _calculerLoyerImpayeCumule(bail, mouvements, today);
     if (impayeCumule < 1) continue;
     // Dernier paiement reçu
