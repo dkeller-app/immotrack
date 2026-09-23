@@ -47,7 +47,10 @@ function charger(alias) {
   const fin = "function _finLotEstCharge(m) { return _finLotCatRole(m && m.cat) === 'charge'; }";
   const i = html.indexOf(debut), j = html.indexOf(fin, i);
   if (i === -1 || j === -1) throw new Error('lecteurs introuvables — le test ne teste plus rien');
-  const src = html.slice(i, j + fin.length);
+  const dNet = 'function _finLotNet(', fNet = "\n}";
+  const iN = html.indexOf(dNet), jN = html.indexOf(fNet, iN);
+  if (iN === -1 || jN === -1) throw new Error('_finLotNet introuvable — le test ne teste plus rien');
+  const src = html.slice(i, j + fin.length) + '\n' + html.slice(iN, jN + fNet.length);
   const STD = referentiel();
   const _finCatMere = (nom) => {
     if (!nom) return null;
@@ -56,7 +59,7 @@ function charger(alias) {
     const m = (alias || {})[nom];
     return m ? (STD.find(c => c.nom === m) || null) : null;
   };
-  return new Function('_finCatMere', src + '\nreturn { _finLotCatRole, _finLotEstLoyer, _finLotEstCharge };')(_finCatMere);
+  return new Function('_finCatMere', src + '\nreturn { _finLotCatRole, _finLotEstLoyer, _finLotEstCharge, _finLotNet };')(_finCatMere);
 }
 
 describe('_finLotCatRole — le référentiel répond, jamais le libellé', () => {
@@ -185,6 +188,35 @@ describe('Le « Solde » de la fiche logement — la formule, sur un cas réel',
     expect(parMois.reduce((a, b) => a + b, 0)).toBe(7000);
   });
 
+  it('un loyer RENDU au locataire ne s’évapore pas du solde', () => {
+    // Le moteur travaille en net (`cr − db` sur la ligne 211). Les surfaces sommaient `cr` seul :
+    // un trop-perçu restitué — un DÉBIT sur « Loyers encaissés » — n'était compté nulle part,
+    // ni en moins-value de loyer, ni en charge. 900 € disparaissaient.
+    const mvts = [
+      { cat: 'Loyers encaissés', cr: 10800, db: 0 },
+      { cat: 'Loyers encaissés', cr: 0, db: 900 }   // trop-perçu rendu en avril
+    ];
+    const enc = mvts.filter(M._finLotEstLoyer).reduce((s, m) => s + M._finLotNet(m), 0);
+    expect(enc).toBe(9900);
+    const encAvant = mvts.filter(M._finLotEstLoyer).reduce((s, m) => s + (+m.cr || 0), 0);
+    expect(encAvant).toBe(10800);   // ce que l'ancienne somme donnait
+  });
+
+  it('une indemnité d’assurance vient en déduction des travaux, comme dans Finances', () => {
+    const mvts = [
+      { cat: 'Travaux (entretien, réparation, amélioration)', cr: 0, db: 2000 },
+      { cat: 'Travaux (entretien, réparation, amélioration)', cr: 800, db: 0 }  // remboursement
+    ];
+    const dep = mvts.filter(M._finLotEstCharge).reduce((s, m) => s + M._finLotNet(m, 'charge'), 0);
+    expect(dep).toBe(1200);
+  });
+
+  it('`_finLotNet` ne rend jamais NaN sur des entrées dégradées', () => {
+    expect(M._finLotNet(null)).toBe(0);
+    expect(M._finLotNet({})).toBe(0);
+    expect(M._finLotNet({ cr: 'abc', db: null }, 'charge')).toBe(0);
+  });
+
   it('la source du graphe est bien celle des KPI, pas une somme brute', () => {
     const corps = corpsDe('_renderComptaCashFlowChart');
     expect(corps).toBeTruthy();
@@ -208,6 +240,26 @@ describe('Aucune surface d’argent ne reclasse sur le libellé', () => {
       expect(corps, nom + ' introuvable — le test ne teste plus rien').toBeTruthy();
       expect(corps, nom + ' ne lit plus le référentiel').toMatch(/_finLotEst(Loyer|Charge)/);
     }
+  });
+
+  it('les surfaces du lot comptent en NET, plus en `cr` seul', () => {
+    for (const nom of ['_renderLogFicheHeroStats', '_renderComptaKPIsForLog', '_renderComptaCashFlowChart']) {
+      const corps = corpsDe(nom);
+      expect(corps, nom + ' est reparti sur une somme de `cr` seuls').not.toMatch(/\+\(\+m?v?\.cr\|\|0\)/);
+      expect(corps, nom + ' ne lit plus le net').toMatch(/_finLotNet\(/);
+    }
+  });
+
+  it('la fiche AVERTIT quand des mouvements du lot ne sont rattachés à rien', () => {
+    // Sinon l'écran affiche « Solde net 0 € » avec quatorze mouvements sur le compte, sans rien
+    // dire. Finances ouvre d'office le rattachement ; la fiche d'un lot ne disait rien.
+    const corps = corpsDe('_renderComptaKPIsForLog');
+    expect(corps, 'l’avertissement a disparu').toMatch(/nonClasses/);
+    expect(corps, 'il faut proposer LE geste existant, pas en inventer un').toMatch(/_finOpenCatMapping\(\)/);
+    expect(corps, 'l’avertissement n’est pas rendu').toMatch(/\$\{avertNonClasses\}/);
+    // Design system : une classe existante, pas un style inventé ni un hex en dur.
+    expect(corps).toMatch(/class="alert warn"/);
+    expect(corps, 'couleur en dur dans l’avertissement').not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
 
   it('la quote-part des compteurs collectifs n’est plus recopiée d’un écran à l’autre', () => {

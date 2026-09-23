@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.666</title>
+<title>Propryo v15.667</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.666">
+<link rel="stylesheet" href="css/main.css?v=15.667">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.666</em>
+      <em>v15.667</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.666';
+const IMMOTRACK_VERSION = '15.667';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -13250,6 +13250,21 @@ function _finLotCatRole(cat) {
 function _finLotEstLoyer(m) { return _finLotCatRole(m && m.cat) === 'loyer'; }
 /** Une CHARGE du lot, au sens du moteur (ce que `_dashCfReel.charges` compte). */
 function _finLotEstCharge(m) { return _finLotCatRole(m && m.cat) === 'charge'; }
+
+/**
+ * Le NET d'un mouvement pour le lot, dans le sens du moteur.
+ *
+ * I1 (retour d'audit) : les trois surfaces sommaient `m.cr` seul pour les loyers et `m.db`
+ * seul pour les charges. Le moteur, lui, travaille en net (`finances-monthly.js:149,158`).
+ * Conséquence : un loyer RENDU au locataire (débit sur « Loyers encaissés ») ne comptait
+ * nulle part — ni en moins-value de loyer, ni en charge : 900 EUR s'évaporaient du solde.
+ * Symétriquement, une indemnité d'assurance saisie en crédit sur la catégorie Travaux ne
+ * venait pas en déduction des travaux.
+ */
+function _finLotNet(m, sens) {
+  const cr = Number(m && m.cr) || 0, db = Number(m && m.db) || 0;
+  return sens === 'charge' ? (db - cr) : (cr - db);
+}
 
 /** Le nom des locataires d'un bail (actif ou archivé). Le cache `log.locataire`, lui, ment. */
 function _nomsDuBail(b) {
@@ -39312,9 +39327,9 @@ function _renderLogFicheHeroStats(log, ref) {
     const ytdMvts = (DB.mouvements||[]).filter(_isAlive).filter(m => m.qui === ref && m.date && m.date.startsWith(yr));
     // R0-G : au référentiel, pas au libellé (cf. `_finLotCatRole`). Le « Solde » du lot ne
     // compte plus une restitution de dépôt ni un virement interne comme une charge.
-    const enc = ytdMvts.filter(_finLotEstLoyer).reduce((s,m)=>s+(+m.cr||0), 0);
+    const enc = ytdMvts.filter(_finLotEstLoyer).reduce((s,m)=>s+_finLotNet(m), 0);
     // Charges directes (exclut compteurCcId, déjà comptabilisé via quote-part)
-    const depDirect = ytdMvts.filter(m => _finLotEstCharge(m) && !m.compteurCcId).reduce((s,m)=>s+(+m.db||0), 0);
+    const depDirect = ytdMvts.filter(m => _finLotEstCharge(m) && !m.compteurCcId).reduce((s,m)=>s+_finLotNet(m,'charge'), 0);
     // Quote-part des compteurs collectifs scopés (lecture unique, cf. `_lotCcQuotePartMois`)
     const depCc = _lotCcQuotePartMois(ref, yr).reduce((a,b)=>a+b, 0);
     const dep = depDirect + depCc;
@@ -41345,9 +41360,9 @@ function _renderComptaKPIsForLog(ref, year) {
     m.qui === ref && m.date >= yearStart && m.date <= yearEnd
   );
   // R0-G : au référentiel, pas au libellé (cf. `_finLotCatRole`).
-  const loyersEnc = mvts.filter(_finLotEstLoyer).reduce((s,m)=>s+(+m.cr||0), 0);
+  const loyersEnc = mvts.filter(_finLotEstLoyer).reduce((s,m)=>s+_finLotNet(m), 0);
   // v14.79 Bug #1 — Charges = directes (mvt.qui=ref) + quote-part des compteurs collectifs scopés
-  const chargesDirect = mvts.filter(m => _finLotEstCharge(m) && !m.compteurCcId).reduce((s,m)=>s+(+m.db||0), 0);
+  const chargesDirect = mvts.filter(m => _finLotEstCharge(m) && !m.compteurCcId).reduce((s,m)=>s+_finLotNet(m,'charge'), 0);
   // Quote-part des compteurs collectifs (lecture unique, cf. `_lotCcQuotePartMois`) — c'est
   // celle que le graphe du même panneau lit aussi, mois par mois.
   const chargesCc = _lotCcQuotePartMois(ref, year).reduce((a,b)=>a+b, 0);
@@ -41366,17 +41381,30 @@ function _renderComptaKPIsForLog(ref, year) {
   const vacancePct = loyerAttendu > 0
     ? Math.max(0, Math.min(100, Math.round((manqueAGagner / loyerAttendu) * 100)))
     : 0;
+  // I3 (retour d'audit) : une catégorie non rattachée au référentiel n'est ni un loyer ni une
+  // charge — le moteur l'ignore, la fiche aussi. Le montant disparaît alors des DEUX totaux.
+  // Finances ouvre d'office le rattachement ; la fiche d'un lot, elle, ne disait rien : on
+  // pouvait lire « Solde net 0 EUR » avec quatorze mouvements sur le compte. Elle le dit
+  // maintenant, et propose LE geste existant (`_finOpenCatMapping`), pas un nouveau.
+  const nonClasses = mvts.filter(m => !_finLotCatRole(m.cat) && ((+m.cr||0) || (+m.db||0)));
+  const nonClassesTot = nonClasses.reduce((s,m)=>s+Math.abs(+m.cr||0)+Math.abs(+m.db||0), 0);
+  const avertNonClasses = nonClasses.length
+    ? `<div class="alert warn" style="margin-top:10px">⚠️ <b>${nonClasses.length} mouvement${nonClasses.length>1?'s':''}</b> de ce lot`
+      + ` (${fmt(nonClassesTot)}) ne compte${nonClasses.length>1?'nt':''} ni dans les loyers ni dans les charges :`
+      + ` ${nonClasses.length>1?"leurs catégories ne sont rattachées":"sa catégorie n'est rattachée"} à rien.`
+      + ` <button class="btn bs bb" onclick="_finOpenCatMapping()">Rattacher</button></div>`
+    : '';
   const soldeCls  = solde > 0 ? 'k-ok' : (solde < 0 ? 'k-warn' : '');
   const manqueCls = manqueAGagner > 0 ? 'k-warn' : 'k-ok';
   return `<div class="immf-kpis">
     <div class="immf-kpi"><div class="immf-kpi-v k-money">${fmt(loyersEnc)}</div><div class="immf-kpi-l">Loyers encaissés ${year}</div></div>
-    <div class="immf-kpi"><div class="immf-kpi-v k-money">${fmt(charges)}</div><div class="immf-kpi-l">Charges payées</div></div>
+    <div class="immf-kpi" title="Charges saisies SUR CE LOT, plus sa quote-part des compteurs collectifs. Une taxe foncière ou un appel de copropriété saisi au niveau de l’immeuble n’y figure pas."><div class="immf-kpi-v k-money">${fmt(charges)}</div><div class="immf-kpi-l">Charges payées <small>sur ce lot</small></div></div>
     <div class="immf-kpi"><div class="immf-kpi-v k-money ${soldeCls}">${fmt(solde)}</div><div class="immf-kpi-l">Solde net</div></div>
     <div class="immf-kpi" title="Loyer attendu (avec mémoire du dernier loyer en vacance) – loyers encaissés">
       <div class="immf-kpi-v k-money ${manqueCls}">${manqueAGagner > 0 ? '-' : ''}${fmt(manqueAGagner)}</div>
       <div class="immf-kpi-l">Manque à gagner${vacancePct > 0 ? ` <small>(${vacancePct}% vacance)</small>` : ''}</div>
     </div>
-  </div>`;
+  </div>${avertNonClasses}`;
 }
 
 /**
@@ -41430,8 +41458,8 @@ function _renderComptaCashFlowChart(ref, year) {
     const mvts = (DB.mouvements||[]).filter(_isAlive).filter(mv =>
       mv.qui === ref && mv.date >= monthStart && mv.date <= monthEnd
     );
-    const cr = mvts.filter(_finLotEstLoyer).reduce((s,mv)=>s+(+mv.cr||0), 0);
-    const db = mvts.filter(mv => _finLotEstCharge(mv) && !mv.compteurCcId).reduce((s,mv)=>s+(+mv.db||0), 0)
+    const cr = mvts.filter(_finLotEstLoyer).reduce((s,mv)=>s+_finLotNet(mv), 0);
+    const db = mvts.filter(mv => _finLotEstCharge(mv) && !mv.compteurCcId).reduce((s,mv)=>s+_finLotNet(mv,'charge'), 0)
              + (ccMois[m-1] || 0);
     return { month: m, net: cr - db, cr, db };
   });
