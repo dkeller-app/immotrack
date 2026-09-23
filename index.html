@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.662</title>
+<title>Propryo v15.663</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.662">
+<link rel="stylesheet" href="css/main.css?v=15.663">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.662</em>
+      <em>v15.663</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.662';
+const IMMOTRACK_VERSION = '15.663';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10608,8 +10608,11 @@ function rAccueil() {
 function _isPhone(){ try{ return window.matchMedia('(max-width:767px)').matches; }catch(e){ return (window.innerWidth||9999) <= 767; } }
 
 // ── MOBILE-REFONTE lot 1 — rendu Accueil téléphone. TOUS les chiffres viennent des moteurs
-//    existants (DRY, zéro recalcul maison) : occupation=DashCtx.occupationKpis, encaissé/attendu
-//    =_v4ComputeLotStatus, à-regarder=_pilCollectFamilles, dépôts=_bienActiveBail.
+//    existants (DRY, zéro recalcul maison). R0-F a corrigé les deux sources qui divergeaient du
+//    PC : occupation=_lotEstLoue + _computeOccupationLots (était DashCtx.occupationKpis, qui
+//    lisait le cache `l.locataire`), encaissé annuel=_dashCfReel et mois=_finMonthly.byLot
+//    (était Σ _v4ComputeLotStatus, qui ignorait provisions et recettes diverses).
+//    À-regarder=_pilCollectFamilles, dépôts=_dgDuLot sur le bail.
 // « À regarder » sur téléphone = liste calme des familles Pilotage (DRY : _pilCollectFamilles +
 // _pilChiffre + _pilPireTxt réutilisés), PAS l'ancien Pilotage desktop. Retour = rAccueil.
 function _accmShowAregarder(){
@@ -10688,12 +10691,57 @@ function _renderAccueilPhone(ctx){
   if(!wrap){ wrap=document.createElement('div'); wrap.id='accm-phone'; host.appendChild(wrap); }
   var F = function(n){ return (typeof fmt==='function') ? fmt(Math.round(n||0)) : (Math.round(n||0)+' €'); };
   var yr = ctx.yr, moNow = new Date().getMonth()+1, logs = ctx.scopeLogs || [];
-  var occ = (window.DashCtx && DashCtx.occupationKpis) ? DashCtx.occupationKpis(logs) : {nbOcc:0,nbTotal:logs.length,pctOcc:0};
+  // R0-F — L'Accueil TELEPHONE lisait un autre moteur que l'Accueil PC, et affichait donc
+  // d'autres chiffres pour les memes questions. §0bis : « un chiffre d'argent present sur deux
+  // ecrans doit etre le meme octet ».
+  //
+  // OCCUPATION : le compte de lots loues se lit sur le BAIL (comme le bandeau PC), et le taux
+  // vient du moteur d'occupation (en jours sur la periode), plus d'un instantane sur le cache.
+  var _loues = logs.filter(_lotEstLoue);
+  var occ = { nbOcc:_loues.length, nbTotal:logs.length,
+              pctOcc: logs.length ? Math.round(_loues.length/logs.length*100) : 0 };
+  try {
+    if (typeof _computeOccupationLots === 'function') {
+      var _today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0,10);
+      var _to = (String(yr) === _today.slice(0,4)) ? _today : (yr + '-12-31');
+      var _o = _computeOccupationLots(DB, logs, { from: yr + '-01-01', to: _to });
+      if (_o && _o.louableDays > 0) occ.pctOcc = Math.round(_o.taux);
+    }
+  } catch(e) {}
+
+  // ENCAISSE : le PC affiche les RECETTES du moteur (loyers + provisions + recettes diverses).
+  // Le telephone sommait `_v4ComputeLotStatus(l).recu`, c'est-a-dire les seuls loyers alloues a
+  // un lot : il ignorait structurellement les provisions, les recettes diverses et tout
+  // encaissement non rattache. Meme fonction que le PC, donc meme chiffre.
   var encMois=0, attMois=0, encYTD=0;
-  logs.forEach(function(l){ try{
-    var sM = _v4ComputeLotStatus(l, yr, String(moNow), ctx.mvs); encMois += (sM.recu||0); attMois += (sM.attendu||0);
-    var sY = _v4ComputeLotStatus(l, yr, '', ctx.mvsYTD); encYTD += (sY.recu||0);
-  }catch(e){} });
+  var _cfrPh = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
+  // LE MOIS : lu au MAITRE (byLot du moteur Finances), comme la bulle Impayes du PC.
+  var _moisLu = false;
+  try {
+    var _scPh = (typeof _finEntScope === 'function') ? _finEntScope(ctx.activeEnt || '', '') : null;
+    var _WPh = (typeof _finWindows === 'function') ? _finWindows(parseInt(yr, 10), _scPh) : null;
+    var _rPh = (typeof _finMonthly === 'function') ? _finMonthly(parseInt(yr, 10), _scPh, _WPh ? _WPh.constat : undefined) : null;
+    if (_rPh && _rPh.byLot) {
+      var _refs = {}; logs.forEach(function(l){ if(l && l.ref) _refs[l.ref] = 1; });
+      for (var _k in _rPh.byLot) {
+        if (!_refs[_k]) continue;
+        var _m = _rPh.byLot[_k].months && _rPh.byLot[_k].months[moNow - 1];
+        if (!_m) continue;
+        encMois += (_m.encaisse || 0);
+        attMois += (_m.duHC || 0) + (_m.duCH || 0);
+      }
+      _moisLu = true;
+    }
+  } catch(e) {}
+  // Repli SANS le moteur (mode file://, service-worker perime) : l'ancien calcul par lot. Il est
+  // moins complet, mais il n'invente rien — et l'ecran cesserait d'afficher un chiffre sinon.
+  if (!_moisLu) {
+    logs.forEach(function(l){ try{
+      var sM = _v4ComputeLotStatus(l, yr, String(moNow), ctx.mvs); encMois += (sM.recu||0); attMois += (sM.attendu||0);
+    }catch(e){} });
+  }
+  if (_cfrPh && _cfrPh.recettes != null) encYTD = _cfrPh.recettes;
+  else logs.forEach(function(l){ try{ encYTD += (_v4ComputeLotStatus(l, yr, '', ctx.mvsYTD).recu||0); }catch(e){} });
   var dg=0, nbDep=0;
   // R-0 : la porte d'entree etait `l.locataire` alors que le montant, lui, venait deja du bail.
   logs.forEach(function(l){ if(_lotEstLoue(l)){ var d=_dgDuLot(l); if(d>0){ dg+=d; nbDep++; } } });
@@ -10757,7 +10805,7 @@ function _renderAccueilPhone(ctx){
   /* MOBILE-REFONTE — le périmètre est désormais dans la barre du haut (chip #tb-perim), retiré du corps. */
   +'<div class="hi">Bonjour</div>'+(nom?('<div class="name">'+escHtml(nom)+'</div>'):'')+'<div class="hello-s">'+escHtml(dstr)+'</div>'
   +'<div class="hero"><div class="k">Encaissé depuis le 1ᵉʳ janvier</div><div class="v">'+F(encYTD)+'</div></div>'
-  +'<div class="srow"><div class="k">Encaissé ce mois'+(reste>0?('<span class="sub2">reste '+F(reste)+' à encaisser</span>'):'<span class="sub2">tout est encaissé</span>')+'</div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
+  +'<div class="srow"><div class="k">Loyers encaissés ce mois'+(reste>0?('<span class="sub2">reste '+F(reste)+' à encaisser</span>'):'<span class="sub2">tout est encaissé</span>')+'</div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
   +'<div class="bar"><i style="width:'+pctPay+'%"></i></div>'
   +'<div class="srow occ"><div class="k">Occupation<span class="sub2">'+occ.nbOcc+' lot'+(occ.nbOcc>1?'s':'')+' loué'+(occ.nbOcc>1?'s':'')+' sur '+occ.nbTotal+'</span></div><div class="right">'+gauge+'<span class="v">'+(occ.pctOcc||0)+' %</span></div></div>'
   +'<div class="srow"><div class="k">Dépôts détenus<span class="sub2">'+nbDep+' dépôt'+(nbDep>1?'s':'')+' · argent des locataires</span></div><div class="v">'+F(dg)+'</div></div>'
