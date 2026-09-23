@@ -9282,6 +9282,12 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   .loc-actions-b button { flex: 1; min-height: 44px; padding: 12px; font-size: 13px; font-weight: 600; }
 }
 
+/* v15.674 BUG-VACANT-TACITE — logement vacant : la cellule échéance est un <div> VIDE
+   (conservé pour tenir la colonne de la grille PC ≥1280 et l'alignement des actions).
+   En ≤767 (cartes avec libellé `:before`), on masque ce div vide pour éviter une ligne
+   fantôme « 📅 Échéance ». PC/tablette : le div vide reste (0 px). */
+@media (max-width: 767px) { .loc-ech-b:empty { display: none; } }
+
 /* MOBILE ≤767 : onglet Historique — le tableau 7 colonnes devient des cartes (rendu JS
    par rBauxHistorique quand _isPhone()). PC (≥768) = tableau inchangé. */
 @media (max-width:767px){
