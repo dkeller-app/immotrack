@@ -1,8 +1,8 @@
 # Propryo — Backlog actif
 
-## 🚦 CONGÉ-HUB — v15.675 (branche `claude/gallant-goldberg-71ca26`) — à intégrer
+## 🚦 CONGÉ — v15.676 (branche `claude/gallant-goldberg-71ca26`) — à intégrer
 
-**Suite directe de DOC-C** (`fix/actes-incomplets`, déjà dans `main`). 4 401 tests verts (baseline 4 336, +65), 34 mutations toutes rouges, CRLF intact, app lancée sans erreur console.
+**Suite directe de DOC-C** (`fix/actes-incomplets`, déjà dans `main`). 4 395 tests verts, 34 mutations toutes rouges, CRLF intact, app lancée sans erreur console.
 
 ### Le défaut
 Le congé bailleur a **deux** chemins de sortie ; DOC-C n'en gardait qu'un. Le second — le Hub
@@ -17,13 +17,21 @@ marqueurs ‹…› posés par les générateurs, et ce chemin n'en posait aucun
 n'était jamais vérifiée (un congé délivré trop tard pour le terme annoncé est nul) ; les dates
 partaient en ISO (« Bail du 2023-01-01 ») dans un acte destiné au recommandé.
 
-### ⚠ CE CHEMIN EST DU CODE MORT — décision produit attendue
-`_openCommsHub` est `@deprecated v15.16` (« communication dans bail n'a aucune logique ») et n'a
-**plus aucun point d'entrée UI** : son seul appelant est la branche « envoi annulé » de
-`_commsHubSend`, lui-même déclenché par un bouton que `_openCommsHub` génère. Aucun congé pour
-vente n'a donc pu partir par là, et **le smoke de ce chemin est impossible**. À trancher :
-le rebrancher (et le tester) ou le supprimer — le laisser mort avec du code juridique frais
-dedans est la pire des trois options.
+### ✅ CE CHEMIN ÉTAIT MORT — IL A ÉTÉ SUPPRIMÉ (décision Didier, 23/09)
+`_openCommsHub` était `@deprecated v15.16` (« communication dans bail n'a aucune logique ») et
+n'avait **plus aucun point d'entrée UI** : son seul appelant était la branche « envoi annulé »
+de `_commsHubSend`, lui-même déclenché par un bouton que `_openCommsHub` générait. Aucun congé
+pour vente n'a donc pu partir par là. **277 lignes supprimées** (les deux fonctions + l'overlay).
+
+**Ce qui SURVIT**, parce que la page Communications (`go('emails')`, vivante) le lit :
+`EMAIL_HUB_CATALOG`, `_emailsTypeMeta`, `rEmailsPage`. Les trois onglets rejoués dans l'app.
+
+**Deux dommages collatéraux assumés** : les actes « reçu de DG » et « attestation de logement
+libéré » (surfaces I-DATE 6 et 8) perdent leur seul déclencheur — ils étaient déjà
+inatteignables, la suppression ne change que la constatation. Leurs modèles et leurs résolveurs
+de date (`dateVersementDG`, `dateLiberation`, `dateEDLSortie`) sont **conservés et toujours
+exposés** : leur rendre un point d'entrée est une décision produit, pas un nettoyage.
+La surface 7 (restitution DG) est intacte — elle a un appelant vivant.
 
 **Ce que le lot gagne sur des chemins VIVANTS**, en revanche :
 - le garde-fou couvre désormais `_quittanceActionEmail` (mise en demeure), `envoyerLettreIRLParEmail`, `envoyerDecompteParEmail` ;
@@ -48,8 +56,8 @@ imprimé qu'une fois — un bailleur **particulier** n'a pas de gérant ; les 22
 formels gardent leur pied de page inchangé).
 
 ### ⏳ Restes
-- **Décision produit** : rebrancher ou supprimer le Hub Communications (voir ci-dessus).
-- Smoke Didier sur les chemins **vivants** : congé PDF depuis la modale (3 formats), mise en demeure depuis l'escalade quittance.
+- Smoke Didier sur les chemins **vivants** : congé PDF depuis la modale (3 formats), mise en demeure depuis l'escalade quittance, et les 3 onglets de la page Communications.
+- 🟡 À décider un jour : redonner un point d'entrée au « reçu de DG » et à l'« attestation de logement libéré », orphelins depuis la v15.16.
 - 🟡 `_lyRelance` → `_buildRelanceHtml` produit une **« Mise en demeure de payer »** par un générateur tiers, sans jeton ni marqueur : hors de portée des deux garde-fous (pas de nullité art. 15, donc non urgent).
 - 🟡 La collecte des champs reste dupliquée (modale = formulaire, Hub = `prompt()`) : un descripteur unique `congeChampsRequis(motif)` reste à faire.
 

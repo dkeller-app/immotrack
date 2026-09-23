@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.675</title>
+<title>Propryo v15.676</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.675">
+<link rel="stylesheet" href="css/main.css?v=15.676">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.675</em>
+      <em>v15.676</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.675';
+const IMMOTRACK_VERSION = '15.676';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -28430,12 +28430,19 @@ const _QUIT_STATUT_STYLE = {
 // Construit le contexte (locataire, bail, logement, entité, quittance) et ouvre
 // la modale email-modal.js (cf js/components/email-modal.js).
 // ════════════════════════════════════════════════════════════════════════════
-// EMAIL-AUTO v15.09 Sprint 10 — Hub centralisé "📧 Communications locataire"
-// @deprecated v15.16 — point d'entrée UI (bouton fiche bail) retiré suite
-// au retour user « communication dans bail n'a aucune logique ».
-// Code conservé en lecture seule pour audit final post-marathon (v15.x → audit
-// onglet par onglet). Aucun appelant actif. Peut être supprimé ou ré-exposé
-// ailleurs (Paramètres / page dédiée) selon décision audit.
+// CATALOGUE DES MODÈLES D'EMAIL — il décrit, il ne déclenche plus.
+//
+// Le « Hub Communications » qui s'en servait pour ENVOYER a été supprimé : son point
+// d'entrée UI avait été retiré en v15.16 (« communication dans bail n'a aucune logique »)
+// et il est resté inatteignable depuis. On l'a découvert en auditant son congé pour vente,
+// structurellement NUL (art. 15-II : ni prix ni conditions collectés) — du code juridique
+// faux, sur un chemin que personne ne pouvait emprunter, donc que personne ne pouvait tester.
+//
+// Le catalogue, lui, RESTE : la page Communications (`go('emails')`) le lit pour nommer les
+// envois de l'historique, compter les types et lister les modèles disponibles. Les envois
+// réels partent des fiches (bail / quittance / IRL / EDL), jamais d'ici.
+//
+// `ctxRequires` n'a plus de consommateur depuis cette suppression : documentation d'intention.
 // ════════════════════════════════════════════════════════════════════════════
 
 // Catalogue des types affichés dans le hub + métadonnées (phase + icon + nécessite quoi)
@@ -28501,67 +28508,6 @@ function _buildEmailCtxFromRef(ref, extraCtx) {
       : 'Nous constatons que'
   };
   return { ...baseCtx, ...(extraCtx || {}) };
-}
-
-/** Ouvre la modale Hub Communications pour un logement. */
-function _openCommsHub(ref) {
-  if (typeof window._openEmailModal !== 'function') {
-    showToast('Module email non chargé — vérifie http-server (npx serve)', 'err', 6000);
-    return;
-  }
-  const log = (DB.logements||[]).find(l => l && !l._deleted && l.ref === ref);
-  if (!log) { showToast('Logement introuvable', 'err'); return; }
-  el('ov-comms-hub-ref').value = ref;
-  const body = el('ov-comms-hub-body');
-  if (!body) return;
-
-  // Historique récent pour ce logement (DB.emailsSent)
-  const sent = ((typeof window._getEmailHistory === 'function') ? window._getEmailHistory('logement', ref) : [])
-    .slice().sort((a,b) => (b.sentAt||'').localeCompare(a.sentAt||''));
-  const histMap = new Map();
-  sent.forEach(e => { if (!histMap.has(e.type)) histMap.set(e.type, e.sentAt); });
-
-  // Groupage par phase
-  const byPhase = {};
-  EMAIL_HUB_CATALOG.forEach(item => {
-    if (!byPhase[item.phase]) byPhase[item.phase] = [];
-    byPhase[item.phase].push(item);
-  });
-
-  let html = `
-    <div class="mu sm" style="margin-bottom:14px;line-height:1.55;font-size:12.5px">
-      Sélectionnez un type de communication. Le brouillon sera pré-rempli avec les infos du bail
-      (locataire, adresse, montants) — vous pourrez ajuster avant envoi.
-    </div>
-    <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <strong>Destinataire :</strong>
-      <span>${escHtml(log.locataire || (DB.baux && DB.baux[ref] && DB.baux[ref].locataires && DB.baux[ref].locataires[0]?.nom) || '—')}</span>
-      ${log.mail ? `<span class="mu sm" style="font-size:11px">→ ${escHtml(log.mail)}</span>` : '<span style="color:var(--red);font-size:11px">⚠ Pas d\'email locataire renseigné</span>'}
-    </div>`;
-
-  for (const phase of ['1. Signature','2. Entrée','3. Vie du bail','4. Fin de bail','5. Sortie']) {
-    const items = byPhase[phase] || [];
-    if (!items.length) continue;
-    html += `<div style="margin-top:14px;font-weight:700;font-size:12.5px;color:var(--acc);padding:6px 10px;background:var(--sur2);border-radius:var(--rl)">${escHtml(phase)}</div>`;
-    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px;margin:8px 0">`;
-    for (const item of items) {
-      const histAt = histMap.get(item.type);
-      const histBadge = histAt
-        ? `<span style="background:#dcfce7;color:#14532d;border:1px solid #16a34a;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:6px">✓ ${escHtml(fd(histAt.slice(0,10)))}</span>`
-        : '';
-      html += `
-        <button class="btn bs" onclick="_commsHubSend('${_lyQ(ref)}','${_lyQ(item.type)}')" style="text-align:left;font-size:12px;padding:8px 10px;display:flex;align-items:flex-start;gap:8px;line-height:1.4">
-          <span style="font-size:15px;line-height:1.2;flex-shrink:0">${item.icon}</span>
-          <span style="flex:1">
-            ${escHtml(item.label)}
-            ${histBadge}
-          </span>
-        </button>`;
-    }
-    html += `</div>`;
-  }
-  body.innerHTML = html;
-  openM('ov-comms-hub');
 }
 
 // ─── v15.79 EMAIL-ONGLET-PERMANENT (Sprint 19B) — Page Communications #p-emails ─
@@ -28703,214 +28649,6 @@ function rEmailsPage(tab) {
   }
 }
 // ────────────────────────────────────────────────────────────────────────────
-
-/** Envoi depuis le hub : prompts pour les variables manquantes selon le type. */
-function _commsHubSend(ref, type) {
-  // Fermer le hub avant d'ouvrir la modale email
-  closeM('ov-comms-hub');
-  // Variables spécifiques par type — prompt() utilisateur quand requis
-  let extra = {};
-  const promptVal = (label, defaultVal) => {
-    const v = prompt(label, defaultVal || '');
-    return (v == null) ? null : v;
-  };
-  switch (type) {
-    case 'bail-pret-a-signer': {
-      extra.dureeBail = promptVal('Durée du bail (ex 3 ans nu / 1 an meublé) :', '3 ans');
-      extra.dateSignature = promptVal('Date prévue de la signature (YYYY-MM-DD) :', td());
-      extra.lieuSignatureTxt = '';
-      break; }
-    case 'bail-avenant': {
-      extra.motifAvenant = promptVal('Objet de l\'avenant (ex Ajout colocataire) :', '');
-      extra.dateApplication = promptVal('Date d\'application (YYYY-MM-DD) :', td());
-      break; }
-    case 'edl-convocation-entree':
-    case 'convocation-edl-sortie':
-    case 'edl-entree-signe':
-    case 'edl-sortie-signe': {
-      extra.dateEDL = promptVal('Date EDL (YYYY-MM-DD) :', td());
-      extra.heureEDL = promptVal('Heure (ex 14h00) :', '14h00');
-      extra.heureEDLSortie = extra.heureEDL;
-      extra.dateEDLSortie = extra.dateEDL;
-      break; }
-    case 'dg-recu': {
-      // I-DATE, surface 6 du §4 : pré-remplir « aujourd'hui » faisait partir un accusé de
-      // réception daté du jour de l'envoi, pas du jour du versement. On propose le mouvement
-      // de DG réellement encaissé ; s'il n'existe pas, on ne propose RIEN.
-      extra.dateVersement = promptVal('Date du versement DG (YYYY-MM-DD) :',
-        (typeof window.dateVersementDG === 'function' ? window.dateVersementDG(DB.mouvements || [], ref) : null) || '');
-      break; }
-    case 'demande-attest-entretien-chauffage': {
-      extra.annee = promptVal('Année concernée :', String(new Date().getFullYear()));
-      break; }
-    case 'demande-attest-mrh':
-    case 'mrh-renouvellement': {
-      extra.dateFinMRH = promptVal('Date de fin actuelle de l\'attestation d’assurance habitation (YYYY-MM-DD) :', td());
-      break; }
-    case 'notification-travaux-a-venir': {
-      extra.natureTravaux = promptVal('Nature des travaux :', '');
-      extra.dateDebut = promptVal('Date de début (YYYY-MM-DD) :', td());
-      extra.dureeEstimee = promptVal('Durée estimée :', '1 semaine');
-      extra.intervenant = promptVal('Intervenant / entreprise :', '');
-      extra.detailContexte = '';
-      break; }
-    case 'notification-visite': {
-      extra.motifVisite = promptVal('Motif de la visite (ex contrôle équipement) :', '');
-      extra.creneau1 = promptVal('Créneau 1 proposé :', '');
-      extra.creneau2 = promptVal('Créneau 2 proposé :', '');
-      extra.creneau3 = promptVal('Créneau 3 proposé :', '');
-      break; }
-    case 'bail-renouvellement-3ans': {
-      extra.dateFin = (DB.baux && DB.baux[ref] && DB.baux[ref].fin) || '';
-      extra.noteRevisionLoyer = promptVal('Note révision loyer (laisser vide si tacite reconduction) :', '') || '';
-      break; }
-    case 'bail-conge-bailleur-6mois': {
-      // ── Ce chemin émettait un congé pour vente STRUCTURELLEMENT NUL ──
-      // Il ne demandait ni le prix ni les conditions, tout en affirmant « aux prix et conditions
-      // indiqués ci-dessus » et en reproduisant, deux paragraphes plus bas, l'alinéa de
-      // l'art. 15-II qui les impose à peine de nullité. Le garde-fou DOC-C ne pouvait rien voir :
-      // faute de générateur, aucun marqueur ‹…› n'était posé. Le Hub ne compose donc plus son
-      // propre motif : il collecte ce que la loi exige et appelle `congeMotifDetail`, le MÊME
-      // générateur que la modale d'actes — marqueurs compris.
-      const _motifLib = promptVal('Motif du congé (vente / reprise / motif légitime et sérieux) :', 'vente');
-      if (_motifLib === null) { extra.motifDetail = null; break; }
-      const _mk = /vente/i.test(_motifLib) ? 'vente' : (/légitime|legitime/i.test(_motifLib) ? 'legitime' : 'reprise');
-      let _champs = null;
-      if (_mk === 'vente') {
-        const _prix = promptVal('Prix de vente en € — art. 15-II, à peine de nullité :', '');
-        const _cond = promptVal('Conditions de la vente — art. 15-II, à peine de nullité :', 'vente libre de toute occupation');
-        if (_prix === null || _cond === null) { extra.motifDetail = null; break; }
-        _champs = { motif: 'vente', prix: _prix, conditions: _cond };
-      } else if (_mk === 'reprise') {
-        // Art. 15-I : nom ET adresse du bénéficiaire, ET nature du lien — à peine de nullité
-        // aussi. Le Hub n'en demandait aucun (même angle mort que la vente).
-        const _benef = promptVal('Bénéficiaire de la reprise — art. 15-I, à peine de nullité :', '');
-        const _badr = promptVal('Adresse du bénéficiaire — art. 15-I, à peine de nullité :', '');
-        const _lien = promptVal('Lien avec le bailleur (ex ' + ((window.REPRISE_LIENS||['le bailleur lui-même'])[0]) + ') :', 'le bailleur lui-même');
-        if (_benef === null || _badr === null || _lien === null) { extra.motifDetail = null; break; }
-        _champs = { motif: 'reprise', benef: _benef, benefAdr: _badr, lien: _lien };
-      } else {
-        const _leg = promptVal('Description du motif légitime et sérieux — art. 15-I :', '');
-        if (_leg === null) { extra.motifDetail = null; break; }
-        _champs = { motif: 'legitime', legitime: _leg };
-      }
-      // art15Inline : un email n'a pas d'annexe, les cinq alinéas doivent tenir DANS le corps
-      // (« reproduits à peine de nullité dans chaque notification »).
-      const _md = window.congeMotifDetail(Object.assign({ art15Inline: true }, _champs));
-      extra.motifConge = _md.motifConge;
-      extra.motifDetail = _md.motifDetail;
-
-      // La date d'effet doit être un terme que le préavis permet encore d'atteindre. Le Hub
-      // annonçait l'échéance brute du bail avec un « préavis de N mois » que rien ne vérifiait :
-      // un congé délivré trop tard pour ce terme est nul, exactement comme un congé sans prix.
-      const _bailC = (DB.baux && DB.baux[ref]) || {};
-      const _logC = (DB.logements||[]).find(l => l && !l._deleted && l.ref === ref) || {};
-      const _bcp = (typeof _bailPreavisInfo === 'function') ? _bailPreavisInfo(_bailC, _logC) : null;
-      const _pm = _bcp ? _bcp.preavisMonths : window.congeBailleurPreavisMois(_bailC.type || 'nu');
-      if (_bcp) {
-        const _eff = _congeDateEffetLocale(_bailC, _logC, _bcp, _pm);
-        extra.dateFin = _eff ? fd(_eff) : '';
-        if (_congeState && _congeState.preavisPushed) {
-          showToast('Date d\'effet reportée au terme suivant : le préavis ne pouvait plus être respecté pour l\'échéance la plus proche.', 'info', 7000);
-        }
-      } else {
-        extra.dateFin = _bailC.fin ? fd(_bailC.fin) : '‹échéance du bail›';
-      }
-      extra.mentionPreavis = window.congeMentionPreavis(_pm);
-      // Dates en clair, comme la modale d'actes : le Hub laissait « Bail du 2023-01-01 » et
-      // « Fait à …, le 2026-09-23 » dans un acte destiné à partir en recommandé.
-      // ⚠ On RECONSTRUIT `bail` : ne pas reprendre `adrBien` effacerait le repli sur l'adresse
-      // du logement posé par `_buildEmailCtxFromRef`, et l'objet du congé désignerait « (inconnu) ».
-      extra.bail = Object.assign({}, _bailC, {
-        adrBien: _bailC.adrBien || _logC.adr || '',
-        debut: _bailC.debut ? fd(_bailC.debut) : '‹début du bail›'
-      });
-      break; }
-    case 'bail-preavis-recu': {
-      extra.datePreavis = promptVal('Date de réception du préavis (YYYY-MM-DD) :', td());
-      extra.typeBail = promptVal('Type bail (nu / meublé) :', 'nu');
-      extra.dureePreavis = promptVal('Durée préavis (mois) :', '3');
-      extra.dateFinPreavis = promptVal('Date de fin du préavis (YYYY-MM-DD) :', '');
-      extra.motifReduction = promptVal('Motif de réduction si applicable :', '');
-      // I-DATE : l'EDL de sortie est connu de l'app quand il existe — on le propose, sinon rien.
-      extra.dateEDLSortie = promptVal('Date EDL sortie proposée :',
-        (typeof window.dateEDLSortie === 'function' ? window.dateEDLSortie(DB.edl || [], ref) : null) || '');
-      extra.heureEDLSortie = '14h00';
-      break; }
-    case 'rappel-impaye-1':
-    case 'rappel-impaye-2':
-    case 'rappel-impaye-3': {
-      extra.periode = promptVal('Période concernée (ex mai 2026) :', '');
-      extra.montant = promptVal('Montant impayé en € :', '');
-      // Les dates de rappel ne sont PLUS demandées : l'app les connaît (`_relancesEnvoyees`,
-      // consommé par `_buildEmailCtxFromRef`). Les redemander, c'était deux sources de vérité
-      // pour le même fait — et, depuis que le modèle construit sa phrase d'ouverture à partir
-      // de l'historique, deux questions dont les réponses étaient jetées. Un prompt annulé
-      // interrompait même l'envoi d'un acte réel.
-      // ⚠️ Conséquence assumée : une relance envoyée HORS de l'app n'est plus revendiquée dans
-      // la mise en demeure. C'est le prix de ne rien affirmer qu'on ne puisse montrer.
-      break; }
-    case 'avis-echeance': {
-      extra.periode = promptVal('Période concernée (ex mai 2026) :', '');
-      extra.dateEcheance = promptVal('Date d\'échéance (YYYY-MM-DD) :', '');
-      break; }
-    case 'dg-restitution-integrale': {
-      extra.dateEDLSortie = promptVal('Date EDL sortie (YYYY-MM-DD) :', '');
-      extra.ibanLocataire = promptVal('IBAN du locataire pour virement :', '');
-      extra.dateRestitution = promptVal('Date prévue du virement :', td());
-      break; }
-    case 'dg-restitution-partielle': {
-      extra.dateEDLSortie = promptVal('Date EDL sortie (YYYY-MM-DD) :', '');
-      extra.detailRetenues = promptVal('Détail des retenues (1 par ligne avec montants) :', '');
-      extra.montantRetenu = promptVal('Total retenu en € :', '');
-      const dg = (DB.baux && DB.baux[ref] && Number(DB.baux[ref].dg)) || 0;
-      const ret = parseFloat(extra.montantRetenu) || 0;
-      extra.soldeRestitue = String(Math.max(0, dg - ret));
-      extra.ibanLocataire = promptVal('IBAN locataire :', '');
-      extra.dateRestitution = promptVal('Date prévue du virement :', td());
-      break; }
-    case 'solde-tout-compte': {
-      extra.tropPercuCharges = promptVal('Trop-perçu charges en € :', '0');
-      extra.autresCredits = '0';
-      extra.loyerImpaye = promptVal('Loyer impayé en € (si applicable) :', '0');
-      extra.chargesDues = promptVal('Charges restant dues en € :', '0');
-      extra.retenuesDG = promptVal('Retenues sur DG en € :', '0');
-      extra.autresDebits = '0';
-      const dg = (DB.baux && DB.baux[ref] && Number(DB.baux[ref].dg)) || 0;
-      const tot_c = dg + (parseFloat(extra.tropPercuCharges)||0);
-      const tot_d = (parseFloat(extra.loyerImpaye)||0) + (parseFloat(extra.chargesDues)||0) + (parseFloat(extra.retenuesDG)||0);
-      extra.totalCredit = String(tot_c);
-      extra.totalDebit = String(tot_d);
-      extra.soldeNet = String(Math.abs(tot_c - tot_d));
-      extra.senseSolde = tot_c >= tot_d ? 'à votre profit' : 'à votre charge';
-      extra.instructionsReglement = tot_c >= tot_d
-        ? 'Virement effectué sur l\'IBAN communiqué ci-après.'
-        : 'Merci de régler par virement à l\'IBAN bailleur sous 15 jours.';
-      break; }
-    case 'attestation-logement-libere': {
-      // I-DATE, surface 8 du §4 : une ATTESTATION datée du jour où on l'imprime n'atteste rien.
-      // On propose la sortie réellement déclarée et l'EDL de sortie réel ; sinon rien.
-      const _edlSortieIso = (typeof window.dateEDLSortie === 'function')
-        ? window.dateEDLSortie(DB.edl || [], ref) : null;
-      const _libIso = (typeof window.dateLiberation === 'function')
-        ? window.dateLiberation((DB.baux && DB.baux[ref]) || null, _edlSortieIso) : null;
-      extra.dateLiberation = promptVal('Date de libération du logement :', _libIso || '');
-      extra.dateEDLSortie = promptVal('Date EDL sortie :', _edlSortieIso || '');
-      extra.modaliteRemiseClef = promptVal('Modalité de remise des clés (ex en main propre / par courrier) :', 'en main propre');
-      extra.dateAttestation = td();
-      break; }
-  }
-  // Si l'utilisateur a annulé un prompt → on respecte et n'ouvre pas la modale email
-  for (const k of Object.keys(extra)) {
-    if (extra[k] === null) {
-      showToast('Envoi annulé', 'info', 1500);
-      _openCommsHub(ref);
-      return;
-    }
-  }
-  const ctx = _buildEmailCtxFromRef(ref, extra);
-  window._openEmailModal(type, ctx, { entityType: 'logement', entityId: ref });
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // GESTION DG & IMPAYÉS v15.12 Sprint 12 V1.1 — Shadow inline helpers purs
@@ -60752,21 +60490,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
 </div>
 
 <!-- ── v15.09 Sprint 10 EMAIL-AUTO : hub centralisé 23 types d'emails ── -->
-<div class="ov hidden" id="ov-comms-hub" onclick="closeBg(event,'ov-comms-hub')">
-  <div class="modal" style="max-width:820px;width:96%;max-height:90vh">
-    <div class="m-head">
-      <h3>📧 Communications locataire — toutes phases du bail</h3>
-      <button class="m-close" onclick="closeM('ov-comms-hub')">✕</button>
-    </div>
-    <div class="m-body" id="ov-comms-hub-body" style="font-size:13px;overflow-y:auto;max-height:72vh"></div>
-    <input type="hidden" id="ov-comms-hub-ref">
-    <div class="m-foot">
-      <button class="btn bs" onclick="closeM('ov-comms-hub')">Fermer</button>
-      <div class="mu sm" style="margin-left:auto;font-size:11px">23 types · Phase locataire complète</div>
-    </div>
-  </div>
-</div>
-
 <!-- ── v15.07 BANK-INTEGRATION V1 : modale import CSV/OFX ── -->
 <div class="ov hidden" id="ov-bank-import" onclick="closeBg(event,'ov-bank-import')">
   <div class="modal" style="max-width:920px;width:96%;max-height:94vh">

@@ -18,6 +18,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const EMAIL = fs.readFileSync(path.join(ROOT, 'js/core/email-compose.js'), 'utf8');
+// Les surfaces 6 et 8 ont perdu leur déclencheur avec le « Hub Communications » : on
+// vérifie désormais que leurs résolveurs restent exposés pour un futur point d'entrée.
+const MAIN = fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8');
 const has = (s) => SRC.includes(s);
 
 describe('Surface 1 — la quittance (aperçu, impression, PDF partagé, PDF archivé, PJ e-mail)', () => {
@@ -85,9 +88,13 @@ describe('Surface 5 — fiche 360 · Documents : la date d\'émission est étiqu
 });
 
 describe('Surfaces 6/7/8 — les dates proposées ne sont plus « aujourd\'hui »', () => {
-  it('6 — le reçu de DG propose le mouvement de DG réel, sinon rien', () => {
-    expect(has("window.dateVersementDG(DB.mouvements || [], ref) : null) || ''")).toBe(true);
+  it('6 — le reçu de DG n’a plus de déclencheur, et surtout plus de repli sur « aujourd’hui »', () => {
+    // Son unique consommateur était le « Hub Communications », inatteignable depuis la v15.16
+    // et supprimé depuis. L’invariant I-DATE reste vérifiable sous sa forme NÉGATIVE : le repli
+    // sur `td()` ne doit pas réapparaître le jour où cet acte retrouvera un point d’entrée.
     expect(has("extra.dateVersement = promptVal('Date du versement DG (YYYY-MM-DD) :', td());")).toBe(false);
+    // Le résolveur, lui, reste dispo pour ce futur point d’entrée.
+    expect(MAIN.includes('window.dateVersementDG = dateVersementDG;')).toBe(true);
   });
   it('7 — la restitution du DG propose le virement réel, sinon champ vide', () => {
     expect(has('window.dateRestitutionDG(DB.mouvements || [], ref)')).toBe(true);
@@ -97,11 +104,11 @@ describe('Surfaces 6/7/8 — les dates proposées ne sont plus « aujourd\'hui �
     expect(has("const dateRestitution = v('dg-restit-date') || td();")).toBe(false);
     expect(has("const dateRestitution = v('dg-restit-date') || '';")).toBe(true);
   });
-  it('8 — l\'attestation propose la sortie déclarée et l\'EDL de sortie, sinon rien', () => {
+  it('8 — l\'attestation non plus — même cause, même invariant négatif', () => {
     expect(has("extra.dateLiberation = promptVal('Date de libération du logement :', td());")).toBe(false);
     expect(has("extra.dateEDLSortie = promptVal('Date EDL sortie :', td());")).toBe(false);
-    expect(has("promptVal('Date de libération du logement :', _libIso || '')")).toBe(true);
-    expect(has("promptVal('Date EDL sortie :', _edlSortieIso || '')")).toBe(true);
+    expect(MAIN.includes('window.dateLiberation = dateLiberation;')).toBe(true);
+    expect(MAIN.includes('window.dateEDLSortie = dateEDLSortie;')).toBe(true);
   });
   it('les gabarits e-mail n\'ont pas de date en dur (ils sont interpolés)', () => {
     expect(EMAIL.includes('{{dateVersement}}')).toBe(true);
