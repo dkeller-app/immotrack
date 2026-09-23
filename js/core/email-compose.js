@@ -143,8 +143,7 @@ Veuillez agréer, {{locataire.civNom}}, l'expression de nos salutations distingu
 
 Fait à {{entite.siege}}, le {{dateLettre}}.
 
-{{entite.gerant}}
-{{entite.nom}}`,
+{{entite.signataire}}`,
     attachments: [],
     legalNote: 'OBLIGATOIRE : envoyer en lettre recommandée avec accusé de réception (LRAR). L\'email seul ne suffit pas juridiquement. Conserver les preuves d\'envoi et de réception.'
   },
@@ -602,8 +601,7 @@ Veuillez agréer, {{locataire.civNom}}, l'expression de mes salutations distingu
 
 Fait à {{entite.siege}}, le {{dateLettre}}.
 
-{{entite.gerant}}
-{{entite.nom}}`,
+{{entite.signataire}}`,
     attachments: [],
     legalNote: 'OBLIGATOIRE : LRAR ou signification par huissier ou remise en main propre contre récépissé. Mentionner précisément le motif (vente, reprise pour soi/proche, motif sérieux et légitime). Joindre justificatifs.'
   },
@@ -665,7 +663,7 @@ Les parties se donnent mutuellement quitus de toute autre obligation au titre du
 Fait en deux exemplaires originaux à {{entite.siege}}, le {{dateLettre}}.
 
 Le bailleur                              Le locataire (« Bon pour résiliation amiable »)
-{{entite.gerant}} — {{entite.nom}}       {{locataire.civNom}}`,
+{{entite.signataireLigne}}       {{locataire.civNom}}`,
     attachments: [],
     legalNote: 'La résiliation amiable suppose l\'accord EXPRÈS des deux parties (art. 1193 C. civ.) : faire signer les deux exemplaires. Elle met fin au bail sans préavis ni motif, à la date convenue.'
   },
@@ -791,8 +789,7 @@ Cette attestation est délivrée pour servir et valoir ce que de droit (changeme
 
 Fait à {{entite.siege}}, le {{dateAttestation}}.
 
-{{entite.gerant}}
-{{entite.nom}}`,
+{{entite.signataire}}`,
     attachments: [],
     legalNote: 'Utile au locataire pour CAF, employeur, nouveau bailleur, opérateurs téléphoniques, etc. Bonne pratique de la délivrer systématiquement.'
   },
@@ -920,6 +917,67 @@ export function _emailTypesSupportes() {
  * @param {object} ctx
  * @returns {object} ctx enrichi (nouvel objet, ne mute pas l'original)
  */
+/**
+ * Un modèle est un ACTE FORMEL s'il se clôt par « Fait à … » — c'est-à-dire s'il porte
+ * `{{entite.siege}}`. On le DÉDUIT du modèle au lieu d'en tenir une liste : une liste à la main
+ * aurait dérivé au premier modèle ajouté, et c'est précisément ce genre d'oubli qui a laissé le
+ * Hub émettre un congé sans prix.
+ *
+ * Aujourd'hui : mise en demeure, congé bailleur, résiliation amiable, attestation de libération.
+ */
+export function acteFormel(type) {
+  const t = TEMPLATES[type];
+  return !!(t && /\{\{entite\.siege\}\}/.test(String(t.body || '')));
+}
+
+/**
+ * L'IDENTITÉ DU SIGNATAIRE dans un acte formel.
+ *
+ * Une entité sans siège ni gérant produisait un acte « Fait à (inconnu) », signé « (inconnu) » —
+ * sans que rien ne le signale, parce que `(inconnu)` est la convention du moteur d'interpolation
+ * et que le garde-fou ne lit que les marqueurs nommés (cf. `congeMotifDetail`, conge.js).
+ *
+ * On pose donc ici des marqueurs NOMMÉS, et seulement sur les actes : un email courant signé du
+ * prénom de l'utilisateur n'a pas à déclencher une alerte juridique.
+ *
+ * Ces deux mentions n'emportent PAS nullité — aucun texte n'impose le lieu de rédaction d'un
+ * congé. Elles sont donc signalées sans le mot « NUL » (cf. table `NULLITE`, actes-mentions.js).
+ */
+function _enrichContextActe(ctx) {
+  const e = (ctx && typeof ctx.entite === 'object' && ctx.entite) || {};
+  const ou = (v, nom) => (String(v == null ? '' : v).trim() || ('\u2039' + nom + '\u203a'));
+
+  // LA SIGNATURE DE L'ACTE, calculée — parce que « gérant » et « entité » ne sont pas toujours
+  // deux choses. Les modèles imprimaient les deux jetons l'un sous l'autre : pour une SCI c'est
+  // juste (« Didier Keller » / « SCI Dupont »), mais un PARTICULIER n'a pas de gérant — son acte
+  // partait signé « (inconnu) », et le repli sur le nom de l'entité l'aurait fait signer deux fois.
+  // On ne nomme donc la personne qu'une fois, et l'entité seulement si elle en diffère.
+  // (Ces deux jetons n'existent que pour les actes formels : les 22 autres modèles gardent
+  //  « {{entite.gerant}} / {{entite.nom}} », qui leur convient et que rien n'oblige à changer.)
+  const gerant = String(e.gerant == null ? '' : e.gerant).trim();
+  const nom = String(e.nom == null ? '' : e.nom).trim();
+  const parties = [];
+  if (gerant) parties.push(gerant);
+  if (nom && nom !== gerant) parties.push(nom);
+  const MARQUEUR = '\u2039signataire\u203a';
+
+  return Object.assign({}, ctx, {
+    entite: Object.assign({}, e, {
+      siege: ou(e.siege, 'lieu de r\u00e9daction'),
+      // Bloc de signature classique : une ligne par partie.
+      signataire: parties.length ? parties.join('\n') : MARQUEUR,
+      // Variante d'une seule ligne, pour le bloc à deux colonnes du protocole amiable, où un
+      // saut de ligne décalerait la colonne du locataire.
+      signataireLigne: parties.length ? parties.join(' \u2014 ') : MARQUEUR,
+      // `gerant` est FACULTATIF, et n'a pas de sens pour un bailleur particulier. Le reste
+      // du code retombe déjà sur le nom de l'entité ; sans ce repli, chaque acte d'un
+      // particulier ouvrirait un dialogue — et on lui apprendrait à cliquer « Continuer »
+      // avant le jour où le dialogue dira « cet acte serait NUL ».
+      gerant: ou(e.gerant || e.nom, 'signataire')
+    })
+  });
+}
+
 function _enrichContextCivilite(ctx) {
   if (!ctx || typeof ctx !== 'object') return ctx;
   const enriched = Object.assign({}, ctx);
@@ -965,7 +1023,10 @@ export function _emailCompose(type, context = {}, opts = {}) {
   }
 
   // v15.90 EM-3 — enrichit locataire + garant avec civNom, civSalut, civilitePolitesse
-  const ctx = _enrichContextCivilite(context || {});
+  let ctx = _enrichContextCivilite(context || {});
+  // Les actes formels nomment leurs trous d'identité ; ici, et pas au cas par cas chez
+  // les appelants — le Hub, l'escalade quittance et la modale d'actes passent tous par ici.
+  if (acteFormel(type)) ctx = _enrichContextActe(ctx);
   const to = (ctx.locataire && ctx.locataire.email) || ctx.to || '';
   const cc = ctx.cc || '';
 

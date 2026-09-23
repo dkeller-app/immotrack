@@ -151,3 +151,133 @@ export function locataireProtege(o) {
   const bloquant = protege && !exceptionBailleur;
   return { protege, exceptionBailleur, bloquant };
 }
+
+/**
+ * ═══ LE MOTIF DU CONGÉ BAILLEUR, ET LES MARQUEURS QUAND IL MANQUE ═══
+ *
+ * UNE source pour les deux chemins de sortie du congé : la modale « Congé & résiliation » et le
+ * Hub Communications. Le Hub réécrivait son propre motif — il ne demandait ni le prix ni les
+ * conditions de la vente, tout en affirmant « aux prix et conditions indiqués ci-dessus », et en
+ * reproduisant deux paragraphes plus bas l'alinéa qui les impose « à peine de nullité ».
+ *
+ * POURQUOI LE MARQUEUR EST POSÉ ICI, ET PAS PAR LE MOTEUR D'INTERPOLATION.
+ * Le dépôt a deux conventions de trou, et ce n'est pas un accident à résorber :
+ *   • « ‹prix› » est posé par un GÉNÉRATEUR qui connaît la sémantique de l'acte. Il NOMME la
+ *     mention en français, et ce nom est la clé de la table `NULLITE` (actes-mentions.js).
+ *   • « (inconnu) » est posé par `_interpolateEmail`, qui ne connaît qu'un chemin de jeton. Il
+ *     ne peut pas savoir si un jeton vide est un défaut ou un cas normal (note de révision
+ *     facultative, motif de préavis réduit sans objet…).
+ * Unifier reviendrait à faire parler la couche aveugle à la place de la couche savante : elle
+ * alerterait sur chaque jeton légitimement vide, et l'utilisateur apprendrait à passer outre —
+ * exactement ce que le garde-fou cherche à éviter. Apprendre « (inconnu) » au garde-fou a le
+ * défaut symétrique : il ne pourrait ni nommer la mention manquante, ni dire si elle emporte
+ * nullité. La frontière reste donc où elle est ; ce qui change, c'est que le générateur est
+ * désormais le MÊME sur tous les chemins.
+ *
+ * @param {object} o
+ * @param {string} o.motif        'vente' | 'reprise' | 'legitime'
+ * @param {string} [o.prix]       vente — art. 15-II, à peine de nullité
+ * @param {string} [o.conditions] vente — art. 15-II, à peine de nullité
+ * @param {string} [o.benef]      reprise — art. 15-I, à peine de nullité
+ * @param {string} [o.benefAdr]   reprise — art. 15-I, à peine de nullité
+ * @param {string} [o.lien]       reprise — nature du lien (défaut : le bailleur lui-même)
+ * @param {string} [o.legitime]   motif légitime et sérieux — art. 15-I
+ * @param {boolean} [o.art15Inline] true = reproduire les cinq alinéas DANS le corps (courrier en
+ *        texte seul : un email n'a pas d'annexe) ; false = renvoyer à l'annexe du document.
+ * @returns {{motifConge:string, motifDetail:string}}
+ */
+export function congeMotifDetail(o) {
+  o = o || {};
+  /** La valeur saisie, ou le marqueur NOMMÉ que lira `mentionsManquantes`. */
+  const ou = (v, nom) => {
+    const s = String(v == null ? '' : v).trim();
+    return s || ('\u2039' + nom + '\u203a');
+  };
+  const motif = String(o.motif || 'reprise');
+
+  // Le symbole est posé par le modèle ; une saisie libre peut déjà le porter (« 250 000 € »).
+  const prixNu = String(o.prix == null ? '' : o.prix).trim().replace(/\s*€\s*$/, '').trim();
+
+  if (motif === 'vente') {
+    // La phrase de préemption n'a de sens que si le prix et les conditions la PRÉCÈDENT
+    // réellement : elle est donc indissociable de la ligne qui les porte, et ne peut plus
+    // être ajoutée seule comme le faisait le Hub.
+    const preemption = "Conformément à l'article 15-II de la loi précitée, ce congé vaut offre de vente à votre profit : vous bénéficiez d'un droit de préemption aux prix et conditions indiqués ci-dessus.";
+    const alineas = o.art15Inline
+      ? "\n\nReproduction de l'article 15, II de la loi du 6 juillet 1989 (à peine de nullité) :\n\n" + ART15_II_ALINEAS.join('\n\n')
+      : " Les termes des cinq alinéas de l'article 15-II, dont la reproduction est imposée à peine de nullité, figurent en annexe du présent congé.";
+    return {
+      motifConge: 'vente',
+      motifDetail: 'Vente du logement, au prix de ' + ou(prixNu, 'prix') + ' € — conditions : '
+        + ou(o.conditions, 'conditions') + '.\n\n' + preemption + alineas
+    };
+  }
+
+  if (motif === 'legitime') {
+    return {
+      motifConge: 'motif légitime et sérieux',
+      motifDetail: ou(o.legitime, 'description du motif légitime et sérieux')
+    };
+  }
+
+  return {
+    motifConge: 'reprise',
+    motifDetail: "Reprise du logement pour l'habiter, au bénéfice de " + ou(o.benef, 'bénéficiaire')
+      + ', demeurant ' + ou(o.benefAdr, 'adresse du bénéficiaire')
+      // Un lien vide donnait « (le bailleur lui-même) » : une affirmation de FAIT que
+      // personne n'avait saisie, dans une mention imposée à peine de nullité (art. 15-I).
+      + ' (' + ou(o.lien, 'nature du lien avec le bailleur') + ').'
+  };
+}
+
+/**
+ * La DATE D'EFFET du congé bailleur : un terme qui respecte RÉELLEMENT le préavis.
+ *
+ * Si l'échéance la plus proche est déjà trop tardive pour que le préavis y tienne, le congé
+ * délivré pour cette échéance est nul. On reporte alors au terme suivant, autant de fois qu'il
+ * le faut, plutôt que d'annoncer une date d'effet que la loi n'admet pas.
+ *
+ * Extrait de la modale (audit P0-1) pour que le Hub cesse d'annoncer, lui, l'échéance brute du
+ * bail assortie d'un « le délai de préavis est de N mois » que rien ne vérifiait.
+ *
+ * @param {object} o
+ * @param {string} o.finIso      échéance du bail (YYYY-MM-DD)
+ * @param {number} o.preavisMois durée du préavis bailleur
+ * @param {number} o.cycleMois   durée d'un cycle de reconduction (36 nu / 12 meublé…)
+ * @param {string} o.todayIso    date du jour (YYYY-MM-DD) — injectée, jamais lue ici
+ * @returns {{finIso:string, pushed:boolean}} finIso='' si l'échéance est inexploitable
+ */
+export function congeDateEffet(o) {
+  o = o || {};
+  const fin = String(o.finIso || '').slice(0, 10);
+  const today = String(o.todayIso || '').slice(0, 10);
+  if (!fin || !today) return { finIso: '', pushed: false };
+  let cycle = Number(o.cycleMois);
+  if (!(cycle > 0)) cycle = 36;
+  const preavis = Number(o.preavisMois) > 0 ? Number(o.preavisMois) : 6;
+
+  let courant = fin;
+  let pushed = false;
+  // Garde-fou de boucle : un cycle valide ne demande jamais 200 reports ; au-delà, la donnée
+  // est absurde et boucler sans fin figerait l'onglet.
+  for (let i = 0; i < 200; i++) {
+    const limite = addMoisClamped(courant, -preavis);
+    if (!limite || limite >= today) break;   // le préavis tient encore : ce terme est le bon
+    const suivant = addMoisClamped(courant, cycle);
+    if (!suivant || suivant <= courant) break;
+    courant = suivant;
+    pushed = true;
+  }
+  return { finIso: courant, pushed };
+}
+
+/**
+ * La mention du préavis dans le corps du congé. Les deux chemins l'écrivaient séparément, et le
+ * Hub écrivait la version courte — « de N mois avant le terme du bail » — alors qu'il n'avait
+ * rien vérifié du tout. Une seule phrase, adossée à `congeDateEffet`, qui la rend vraie.
+ */
+export function congeMentionPreavis(mois) {
+  return 'Le délai de préavis légal applicable à ce congé est de ' + mois
+    + " mois ; il court à compter de la réception du présent congé et la date d'effet ci-dessus"
+    + ' a été fixée pour le respecter.';
+}

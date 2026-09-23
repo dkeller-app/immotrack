@@ -1,5 +1,68 @@
 # Propryo — Backlog actif
 
+## 🚦 CONGÉ — v15.677 (branche `claude/gallant-goldberg-71ca26`) — à intégrer
+
+**Suite directe de DOC-C** (`fix/actes-incomplets`, déjà dans `main`). 4 395 tests verts, 34 mutations toutes rouges, CRLF intact, app lancée sans erreur console.
+
+### Le défaut
+Le congé bailleur a **deux** chemins de sortie ; DOC-C n'en gardait qu'un. Le second — le Hub
+Communications — ne collectait **ni le prix ni les conditions de la vente**, tout en émettant
+« vous bénéficiez d'un droit de préemption aux prix et conditions indiqués ci-dessus », et en
+reproduisant deux paragraphes plus bas l'alinéa de l'**art. 15-II (loi n° 89-462)** qui les impose
+à peine de nullité. L'acte citait la règle qu'il violait. Le garde-fou était aveugle : il lit les
+marqueurs ‹…› posés par les générateurs, et ce chemin n'en posait aucun.
+
+**Trois défauts de plus, même cause** (le Hub réimplémentait le congé) : la **reprise** était
+également nulle (art. 15-I : ni bénéficiaire, ni adresse, ni lien demandés) ; la **date d'effet**
+n'était jamais vérifiée (un congé délivré trop tard pour le terme annoncé est nul) ; les dates
+partaient en ISO (« Bail du 2023-01-01 ») dans un acte destiné au recommandé.
+
+### ✅ CE CHEMIN ÉTAIT MORT — IL A ÉTÉ SUPPRIMÉ (décision Didier, 23/09)
+`_openCommsHub` était `@deprecated v15.16` (« communication dans bail n'a aucune logique ») et
+n'avait **plus aucun point d'entrée UI** : son seul appelant était la branche « envoi annulé »
+de `_commsHubSend`, lui-même déclenché par un bouton que `_openCommsHub` générait. Aucun congé
+pour vente n'a donc pu partir par là. **277 lignes supprimées** (les deux fonctions + l'overlay).
+
+**Ce qui SURVIT**, parce que la page Communications (`go('emails')`, vivante) le lit :
+`EMAIL_HUB_CATALOG`, `_emailsTypeMeta`, `rEmailsPage`. Les trois onglets rejoués dans l'app.
+
+**Deux dommages collatéraux assumés** : les actes « reçu de DG » et « attestation de logement
+libéré » (surfaces I-DATE 6 et 8) perdent leur seul déclencheur — ils étaient déjà
+inatteignables, la suppression ne change que la constatation. Leurs modèles et leurs résolveurs
+de date (`dateVersementDG`, `dateLiberation`, `dateEDLSortie`) sont **conservés et toujours
+exposés** : leur rendre un point d'entrée est une décision produit, pas un nettoyage.
+La surface 7 (restitution DG) est intacte — elle a un appelant vivant.
+
+**Ce que le lot gagne sur des chemins VIVANTS**, en revanche :
+- le garde-fou couvre désormais `_quittanceActionEmail` (mise en demeure), `envoyerLettreIRLParEmail`, `envoyerDecompteParEmail` ;
+- le congé **PDF de la modale** ne signe plus « Fait à (inconnu) » / « (inconnu) » ;
+- le report de date d'effet est corrigé (débordement de mois **et** fuseau) sur la modale, qui est vivante.
+
+### La décision sur les deux conventions de trou
+Le dépôt en a deux : `‹nom›` (posé par un **générateur** qui connaît l'acte et **nomme** la mention
+— clé de la table `NULLITE`) et `(inconnu)` (posé par `_interpolateEmail`, qui ne connaît qu'un
+chemin de jeton). **Ni unifier, ni apprendre `(inconnu)` au garde-fou** : unifier ferait alerter
+sur chaque jeton légitimement vide → fatigue d'alerte, et l'utilisateur apprend à cliquer
+« Continuer » ; apprendre `(inconnu)` ne permettrait ni de nommer la mention, ni de graduer la
+nullité. La frontière reste où elle est — **c'est le générateur qui pose le marqueur, et il est
+désormais le même sur tous les chemins**.
+
+### Lecteurs uniques créés (à réutiliser, ne pas recopier)
+`congeMotifDetail` · `congeDateEffet` · `congeMentionPreavis` (`js/core/conge.js`) ·
+`sortieAutorisee` (`js/core/actes-mentions.js`, **la** décision de sortie des deux garde-fous) ·
+`acteFormel` / `_enrichContextActe` (`js/core/email-compose.js`, déduits du modèle, pas d'une liste) ·
+`entite.signataire` / `entite.signataireLigne` (mention de signature calculée : le nom n'est
+imprimé qu'une fois — un bailleur **particulier** n'a pas de gérant ; les 22 modèles non
+formels gardent leur pied de page inchangé).
+
+### ⏳ Restes
+- Smoke Didier sur les chemins **vivants** : congé PDF depuis la modale (3 formats), mise en demeure depuis l'escalade quittance, et les 3 onglets de la page Communications.
+- 🟡 À décider un jour : redonner un point d'entrée au « reçu de DG » et à l'« attestation de logement libéré », orphelins depuis la v15.16.
+- 🟡 `_lyRelance` → `_buildRelanceHtml` produit une **« Mise en demeure de payer »** par un générateur tiers, sans jeton ni marqueur : hors de portée des deux garde-fous (pas de nullité art. 15, donc non urgent).
+- 🟡 La collecte des champs reste dupliquée (modale = formulaire, Hub = `prompt()`) : un descripteur unique `congeChampsRequis(motif)` reste à faire.
+
+---
+
 ## 🚦 ÉTAT AU 23/09 — série R-0 (« Finances fait foi »)
 
 **PROD = v15.668** (`e6430d9`). 4 302 tests verts, CRLF intact, miroirs à jour, app lancée sans erreur console.
@@ -342,7 +405,13 @@ Didier veut **un audit sécurité complet, tous les trous** — pas seulement l'
 
 **Exécution : session de conception dédiée** → audit de toute la couche de persistance + court CDC (archi IndexedDB, migration des données, invariant save sacré, nettoyage rétroactif) → validation Didier → code sous **audit code-reviewer obligatoire** (données + persistance = sensible). Pas d'urgence à bâcler (Didier débloqué). Lié à [[project_persistance_multitenant]].
 
-## 🏗️ CONSTRUCTION : année + période = double saisie (cohérence UX, note 23/09)
+## 🏗️ CONSTRUCTION : PÉRIODE SEULE (3 tranches légales) — ✅ DÉPLOYÉ v15.676
+
+✅ **PÉRIODE-SEULE INTÉGRÉE + DÉPLOYÉE v15.676** (`96630a5`, 23/09) — **décision Didier : « personne n'a l'année exacte » → l'année de construction est SUPPRIMÉE partout** (modale immeuble, formulaire logement, bail, formulaire diagnostics, fiche). La **PÉRIODE en 3 tranches LÉGALES** pilote les diagnostics : **« Avant 1949 »** (plomb + amiante) · **« De 1949 à 1997 »** (amiante) · **« Après 1997 »** (aucun). Fonction pure `periodeLegale(periode, annee)` (`js/core/diagnostics.js` + mirror inline `_periodeLegale`) normalise anciens buckets DPE + année legacy → 3 tranches ; `crep`/`amiante` `isApplicable` lisent la période (repli année). Migration **lazy** à la lecture/écriture (pas de snapshot → respecte P0 stockage). **2 passes d'audit code-reviewer SÛR** — la 1re a trouvé une **sous-application amiante réelle** (année 1997 : permis avant 1er juillet 1997 → 1997 **inclus**, corrigé `a<1998`) + année legacy purgée à l'enregistrement (période choisie autoritaire) + doc bail normalisé. Vérifié **au runtime dans l'app** (amiante(1997)=true, amiante(1998)=false, 0 erreur console, DOM période-only). 4341 tests, inline 6|0, CRLF 0 LF nu. **Remplace le patch v15.675 « année source » (rejeté par Didier).** Worktree retiré (dossier physique verrouillé, sans impact). ⚠️ **Reste : smoke user 3 formats.**
+
+### Historique (v15.675, remplacé)
+✅ ~~MODALE IMMEUBLE INTÉGRÉE + DÉPLOYÉE v15.675~~ (`dac3305`, 23/09) — l'**année devient la source de vérité**, la **période dérivée + verrouillée** (`immAnneeToperiode` pose valeur + `disabled` + libellé, style `:disabled` propre clair/sombre) ; **année inconnue → période saisissable en repli** (le bail a besoin de la mention). État dérivé appliqué au reset, chargement de fiche, import acte fil rouge. **Diagnostics légaux (plomb <1949 / amiante <1997 via `anneeConstruction||imm.annee`) et gabarit bail INCHANGÉS**, données legacy préservées. Audit `code-reviewer` **SÛR**, 4336 tests, inline 6|0, CRLF. Worktree détruit. ⚠️ **RESTE (follow-up) : même correctif sur les formulaires LOGEMENT (`log-periodeConstr`) et BAIL (`b-periodeConstr`) + unification du nommage `annee`/`anneeConstruction`** (le pont `ctx = {anneeConstruction: log.anneeConstruction||imm.annee}` à `index.html:~50711` fonctionne mais deux champs distincts subsistent). Reste smoke user (3 formats).
+### Note d'origine (23/09)
 
 Constat Didier (modale « Modifier immeuble ») : deux champs éditables pour **le même fait** — **Année construction** (`imm-annee`, `im.annee`, :3434) ET **Période de construction** (`imm-periodeConstr`, `im.periodeConstr`, :3436, tranche « Avant 1949 »). **Pas un doublon gratuit, mais alimentent 2 consommateurs** : l'**année précise** pilote les **diagnostics** (plomb <1949 `:41750`, amiante <1997 `:41752`) + fiche ; la **période** alimente le **document de bail** (`{{PERIODE_CONSTR}}` :5274/20876/22038/24706). **Défaut** : `immAnneeToperiode()` (:3434) **dérive déjà la période depuis l'année** → deux champs éditables = double saisie + risque de **contradiction** (année 1930 / période « Après 2005 » → diagnostics et bail divergent). Contre le WHY « pas un 2ᵉ métier ». **Correctif à cadrer** : **un seul champ éditable = l'année (source de vérité)**, période **dérivée** (lecture seule, calculée pour le bail) ; repli période si année inconnue (année vide → diagnostics « indéterminé », déjà géré). ⚠️ Transverse : 3 formulaires (immeuble :3434, logement `log-periodeConstr` :2517, bail `b-periodeConstr` :1839) + héritage immeuble→logement (:35943/35965) + **incohérence de nommage** `annee` (form) vs `anneeConstruction` (diagnostics) à traiter au passage. Finding « cohérence fonctionnelle » de l'audit global. Mockup-first (états du champ) → CDC léger → code.
 
