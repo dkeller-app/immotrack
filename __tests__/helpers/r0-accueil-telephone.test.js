@@ -41,7 +41,7 @@ function blocCalcul() {
     "  else logs.forEach(function(l){ try{ encYTD += (_v4ComputeLotStatus(l, yr, '', ctx.mvsYTD).recu||0); }catch(e){} });");
   const b = tranche(
     '  // C1 : le reste du vient du maitre',
-    '    : (encMois>0?100:0);');
+    "  else _subMois = 'rien en retard · couvert par une avance';");
   return (a && b) ? (a + '\n' + b) : null;
 }
 
@@ -52,10 +52,11 @@ function blocCalcul() {
 function calculer(deps) {
   const src = blocCalcul();
   if (!src) throw new Error('bloc de calcul introuvable — le test ne teste plus rien');
-  const noms = ['logs', 'yr', 'moNow', 'ctx', 'DB', 'window', '_lotEstLoue', '_computeOccupationLots',
+  const noms = ['logs', 'yr', 'moNow', 'ctx', 'DB', 'window', 'F', '_lotEstLoue', '_computeOccupationLots',
     '_dashCfReel', '_finEntScope', '_finWindows', '_finMonthly', '_v4ComputeLotStatus'];
   const f = new Function(...noms, src +
-    '\nreturn { occ:occ, occSub:occSub, encMois:encMois, attMois:attMois, encYTD:encYTD, reste:reste, pctPay:pctPay };');
+    '\nreturn { occ:occ, occSub:occSub, encMois:encMois, attMois:attMois, encYTD:encYTD,' +
+    ' reste:reste, pctPay:pctPay, sub:_subMois, grace:_grace };');
   return f(...noms.map(n => deps[n]));
 }
 
@@ -78,11 +79,14 @@ const BASE = {
   ctx: { yr: '2026', activeEnt: '', mvs: [], mvsYTD: [], scopeLogs: LOTS },
   DB: {},
   window: {},
+  F: (n) => Math.round(n || 0) + ' €',
   _lotEstLoue: (l) => !!l && l.ref === 'A-1',
   _computeOccupationLots: () => ({ louableDays: 266, taux: 100 }),
   _dashCfReel: () => ({ recettes: 1150 }),
   _finEntScope: () => ({}),
-  _finWindows: () => ({ constat: '2026-09-23' }),
+  // La vraie forme : `_finWindows` rend { constat, exigibilite, n1 } — c'est `exigibilite`
+  // qui porte la tolérance de début de mois (`finances-window.js:158`).
+  _finWindows: () => ({ constat: { lastMonth: MOIS, dueMonth: MOIS }, exigibilite: { graceLast: false } }),
   _finMonthly: () => ({ byLot: { 'A-1': { months: frise() } } }),
   _v4ComputeLotStatus: () => ({ recu: 900, attendu: 900 })
 };
@@ -165,17 +169,62 @@ describe('Accueil téléphone — « reste à encaisser » ne peut pas contredir
     expect(r.pctPay).toBe(22);      // (900 − 700) / 900
   });
 
-  it('paiement PARTIEL : le reste du maître prime sur la soustraction', () => {
-    // Le maître a nettoyé 300 € d'arriéré avec ce versement : le résidu du mois est 150 €,
-    // pas les 400 € que donnerait « attendu − encaissé ».
+  it('paiement PARTIEL qui éponge un arriéré : le reste du maître prime sur la soustraction', () => {
+    // 500 € reçus, dont 200 € sont allés à un arriéré plus ancien : 300 € seulement ont servi
+    // le mois, dont le dû est 900 → il en manque 600. « attendu − encaissé » dirait 400 €, et
+    // sous-estimerait la dette. Le maître, lui, sait où est parti chaque euro.
     const r = calculer({
       ...BASE,
       _finMonthly: () => ({ byLot: { 'A-1': { months: frise(i => (
-        i === MOIS - 1 ? { encaisse: 500, loyerRetard: 150, chargeRetard: 0, rattrapage: 300 } : {}
+        i === MOIS - 1 ? { encaisse: 500, loyerRetard: 600, chargeRetard: 0, rattrapage: 200 } : {}
       )) } } })
     });
     expect(r.attMois - r.encMois).toBe(400);  // ce que la soustraction aurait dit
-    expect(r.reste).toBe(150);                // ce que le maître dit
+    expect(r.reste).toBe(600);                // ce que le maître dit
+    expect(r.sub).toBe('reste 600 € à encaisser');
+  });
+
+  it('TOLÉRANCE DU 10 : rien n’est payé, mais rien n’est « en retard » — et l’écran le dit', () => {
+    // Avant le 10, le moteur ne compte pas le manque NEUF du mois courant comme un retard
+    // (`finances-monthly.js:87`). Le résidu tombe à 0 — ce qui ne veut pas dire que l'argent
+    // est rentré. Dire « tout est encaissé » le 5, sur un loyer que personne n'a payé, est faux.
+    const r = calculer({
+      ...BASE,
+      _finWindows: () => ({ constat: { lastMonth: MOIS, dueMonth: MOIS }, exigibilite: { graceLast: true } }),
+      _finMonthly: () => ({ byLot: { 'A-1': { months: frise(i => (i === MOIS - 1 ? { encaisse: 0 } : {})) } } })
+    });
+    expect(r.grace).toBe(true);
+    expect(r.encMois).toBe(0);
+    expect(r.reste).toBe(0);
+    expect(r.sub).toBe('rien en retard · à régler avant le 10');
+    expect(r.sub).not.toContain('tout est encaissé');
+  });
+
+  it('le mois COUVERT PAR UNE AVANCE se distingue du mois pas encore exigible', () => {
+    const r = calculer({
+      ...BASE,
+      _finMonthly: () => ({ byLot: { 'A-1': { months: frise(i => (i === MOIS - 1 ? { encaisse: 0 } : {})) } } })
+    });
+    expect(r.sub).toBe('rien en retard · couvert par une avance');
+  });
+
+  it('« tout est encaissé » ne se dit que quand l’argent est vraiment rentré', () => {
+    expect(calculer(BASE).sub).toBe('tout est encaissé');
+  });
+
+  it('JANVIER : la dette des exercices antérieurs ne s’affiche pas sous le dû du mois', () => {
+    // Le moteur attribue au premier mois la position d'ouverture de l'exercice précédent :
+    // six mois d'arriéré affichaient « reste 6 300 € » à côté d'un dénominateur de 900 €.
+    const r = calculer({
+      ...BASE,
+      moNow: 1,
+      _finMonthly: () => ({ byLot: { 'A-1': { months: [
+        { ym: '2026-01', duHC: 800, duCH: 100, encaisse: 0, loyerRetard: 6300, chargeRetard: 0, avance: 0, rattrapage: 0 }
+      ] } } })
+    });
+    expect(r.attMois).toBe(900);
+    expect(r.reste).toBe(900);   // borné au mois, pas 6 300
+    expect(r.pctPay).toBe(0);
   });
 
   it('sans moteur, le reste redevient une soustraction — et il est dit que c’est un repli', () => {

@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.665</title>
+<title>Propryo v15.666</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.665">
+<link rel="stylesheet" href="css/main.css?v=15.666">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.665</em>
+      <em>v15.666</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.665';
+const IMMOTRACK_VERSION = '15.666';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10725,13 +10725,17 @@ function _renderAccueilPhone(ctx){
   // lue au MAITRE (`byLot`), la meme frise que la bulle Impayes, et ne porte que la ligne 2044
   // n 211 : loyers et provisions de charges. D'ou son libelle « Loyers encaisses » — ni GLI
   // (213), ni encaissement non rattache. C'est voulu, pas un oubli.
-  var encMois=0, attMois=0, encYTD=0, resteMois=0;
+  var encMois=0, attMois=0, encYTD=0, resteMois=0, _grace=false;
   var _cfrPh = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
   var _moisLu = false;
   try {
     var _scPh = (typeof _finEntScope === 'function') ? _finEntScope(ctx.activeEnt || '', '') : null;
     var _WPh = (typeof _finWindows === 'function') ? _finWindows(parseInt(yr, 10), _scPh) : null;
     var _rPh = (typeof _finMonthly === 'function') ? _finMonthly(parseInt(yr, 10), _scPh, _WPh ? _WPh.constat : undefined) : null;
+    // Tolerance de debut de mois : avant le 10, le loyer non paye du mois courant n'est pas
+    // un RETARD (`finances-window.js:154`, `finances-monthly.js:87`). Le residu tombe donc a
+    // zero — ce qui ne veut PAS dire que l'argent est rentre. Le drapeau sert a le dire.
+    _grace = !!(_WPh && _WPh.exigibilite && _WPh.exigibilite.graceLast);
     if (_rPh && _rPh.byLot) {
       var _refs = {}; logs.forEach(function(l){ if(l && l.ref) _refs[l.ref] = 1; });
       for (var _k in _rPh.byLot) {
@@ -10781,12 +10785,28 @@ function _renderAccueilPhone(ctx){
   if(!perim) perim = 'Tout le parc';
   // C1 : le reste du vient du maitre (residu nette). `attendu - encaisse` serait une TROISIEME
   // definition du du, fabriquee dans l'ecran. Sans moteur, on retombe sur la soustraction.
+  //
+  // BORNE AU MOIS : en janvier, le moteur attribue au premier mois la position d'ouverture de
+  // l'exercice precedent (`_openingOf`, `loyer-du-mois.js:419`) — six mois d'arriere 2025
+  // affichaient « reste 6 300 EUR » a cote d'un denominateur de 900 EUR. La ligne parle DU
+  // MOIS ; la dette des exercices anterieurs est le sujet de la bulle Impayes.
   var reste = _moisLu ? (Math.round(resteMois*100)/100) : Math.max(0, attMois - encMois);
+  if (attMois > 0 && reste > attMois) reste = attMois;
   // La barre mesure le RECOUVREMENT du mois (du - reste), pas le cash tombe dans le mois : un
   // loyer paye d'avance le mois precedent laisse la barre pleine, comme la bulle Impayes.
   var pctPay = attMois>0
-    ? Math.min(100, Math.max(0, Math.round((attMois - Math.min(reste, attMois))/attMois*100)))
+    ? Math.min(100, Math.max(0, Math.round((attMois - reste)/attMois*100)))
     : (encMois>0?100:0);
+  // LE SOUS-TITRE. « Tout est encaisse » est une affirmation sur l'ARGENT RENTRE : elle ne peut
+  // se dire que si le cash du mois couvre le du. Un residu nul veut dire « rien en retard », ce
+  // qui n'est pas la meme chose — le mois peut etre couvert par une avance du mois precedent,
+  // ou simplement pas encore exigible avant le 10. Les confondre faisait afficher « tout est
+  // encaisse », barre pleine, le 5 du mois, sur un loyer que personne n'avait paye.
+  var _subMois;
+  if (reste > 0.005) _subMois = 'reste ' + F(reste) + ' à encaisser';
+  else if (encMois + 0.5 >= attMois) _subMois = 'tout est encaissé';
+  else if (_grace) _subMois = 'rien en retard · à régler avant le 10';
+  else _subMois = 'rien en retard · couvert par une avance';
   // Jauge occupation (neutre) — aiguille selon pctOcc sur un demi-cercle.
   var ang = Math.PI*(1 - (occ.pctOcc||0)/100), nx=(50+38*Math.cos(ang)).toFixed(1), ny=(52-38*Math.sin(ang)).toFixed(1);
   // Arc de remplissage NEUTRE (part occupée) sur le rail, même rayon (40) que le rail — de la gauche
@@ -10831,7 +10851,7 @@ function _renderAccueilPhone(ctx){
   /* MOBILE-REFONTE — le périmètre est désormais dans la barre du haut (chip #tb-perim), retiré du corps. */
   +'<div class="hi">Bonjour</div>'+(nom?('<div class="name">'+escHtml(nom)+'</div>'):'')+'<div class="hello-s">'+escHtml(dstr)+'</div>'
   +'<div class="hero"><div class="k">Encaissé depuis le 1ᵉʳ janvier</div><div class="v">'+F(encYTD)+'</div></div>'
-  +'<div class="srow"><div class="k">Loyers encaissés ce mois'+(reste>0?('<span class="sub2">reste '+F(reste)+' à encaisser</span>'):'<span class="sub2">tout est encaissé</span>')+'</div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
+  +'<div class="srow"><div class="k">Loyers encaissés ce mois<span class="sub2">'+_subMois+'</span></div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
   +'<div class="bar"><i style="width:'+pctPay+'%"></i></div>'
   +'<div class="srow occ"><div class="k">Occupation<span class="sub2">'+occ.nbOcc+' lot'+(occ.nbOcc>1?'s':'')+' loué'+(occ.nbOcc>1?'s':'')+' sur '+occ.nbTotal+' · '+occSub+'</span></div><div class="right">'+gauge+'<span class="v">'+(occ.pctOcc||0)+' %</span></div></div>'
   +'<div class="srow"><div class="k">Dépôts détenus<span class="sub2">'+nbDep+' dépôt'+(nbDep>1?'s':'')+' · argent des locataires</span></div><div class="v">'+F(dg)+'</div></div>'
@@ -13195,21 +13215,30 @@ function _dgDuLot(l) {
  *   'charge'  échéance de prêt entière, CFE/TLV, charges récupérables directes, 221→230 ;
  *   null      hors résultat — exactement ce que le moteur ignore.
  *
- * ⚠️ Ce null porte une conséquence à connaître : les frais bancaires, les travaux de
- * construction non déductibles et « Divers (non déductible) » sont de VRAIES sorties d'argent
- * que le moteur ne compte pas en charge. La fiche ne les compte donc plus non plus. C'est le
- * prix de la source unique : si ces postes doivent peser sur un solde, c'est le moteur qu'on
- * change, pas la fiche — sinon on recrée la deuxième définition qu'on vient de supprimer.
+ * ⚠️ Ce null porte une conséquence à connaître : « Travaux de construction / agrandissement
+ * (non déductible) » et « Divers (non déductible) » sont de VRAIES sorties d'argent que le
+ * moteur ne compte pas en charge. La fiche ne les compte donc plus non plus. C'est le prix de
+ * la source unique : si ces postes doivent peser sur un solde, c'est le moteur qu'on change,
+ * pas la fiche — sinon on recrée la deuxième définition qu'on vient de supprimer.
  *
- * Les intérêts d'emprunt (250) rendent null : ce n'est pas un flux de compte mais la
- * ventilation fiscale d'une échéance déjà comptée entière (`finances-monthly.js:128,169-181`).
+ * Les intérêts d'emprunt (250) rendent null. Le moteur les met dans `b.interets`, qui n'entre
+ * NI dans `b.charges` NI dans `cashflowReel` (`finances-monthly.js:297,301`) : c'est une donnée
+ * de déclaration, pas un flux de compte — y compris pour qui saisit ses intérêts sans jamais
+ * saisir d'échéance « Prêt ». La fiche ne perd donc aucune charge que le moteur compterait.
+ *
+ * Les lignes 212 et 214 sont prévues par parité avec la 2044, mais AUCUNE des 23 catégories du
+ * référentiel ne les porte aujourd'hui : cette branche ne se déclenche jamais en l'état.
  */
 function _finLotCatRole(cat) {
   if (!cat) return null;
   const mere = (typeof _finCatMere === 'function') ? _finCatMere(cat) : null;
   if (!mere) return null;                       // non rattachée → hors résultat, comme le moteur
   if (mere.nom === 'Prêt') return 'charge';     // échéance entière (isEcheance)
-  if (mere.gestionCharge) return 'charge';      // CFE / taxe logements vacants (réel, hors 2044)
+  // `gestionCharge` : dans le référentiel d'aujourd'hui, une seule catégorie le porte, « Frais
+  // bancaires » (:4619). Le moteur la compte en charge (`b.gestionHF`, inclus dans `b.charges`)
+  // — la fiche aussi. Le libellé « CFE / taxe vacance » qui traîne ailleurs dans le dépôt est
+  // périmé ; ne pas s'y fier.
+  if (mere.gestionCharge) return 'charge';      // réel, hors 2044
   if (mere.recup) return 'charge';              // charges récupérables directes : transit locataire
   const ln = mere.ligne2044;
   if (!ln || ln === '250') return null;
@@ -39286,31 +39315,8 @@ function _renderLogFicheHeroStats(log, ref) {
     const enc = ytdMvts.filter(_finLotEstLoyer).reduce((s,m)=>s+(+m.cr||0), 0);
     // Charges directes (exclut compteurCcId, déjà comptabilisé via quote-part)
     const depDirect = ytdMvts.filter(m => _finLotEstCharge(m) && !m.compteurCcId).reduce((s,m)=>s+(+m.db||0), 0);
-    // Quote-part des compteurs collectifs scopés
-    let depCc = 0;
-    const _log = (DB.logements||[]).find(l => l.ref === ref);
-    if(_log) {
-      (DB.mouvements||[]).filter(_isAlive)
-        .filter(m => m.compteurCcId && !m.qui && m.date && m.date.startsWith(yr))
-        .forEach(m => {
-          let cc = null, im = null;
-          for(const ent of (DB.entites||[]).filter(_isAlive)) {
-            for(const i of (ent.immeubles||[]).filter(_isAlive)) {
-              const c = (i.compteursCollectifs||[]).filter(_isAlive).find(x => x.id === m.compteurCcId);
-              if(c) { cc = c; im = i; break; }
-            }
-            if(cc) break;
-          }
-          if(!cc || !im || im.nom !== _log.imm) return;
-          const allLogsImm = (DB.logements||[]).filter(_isAlive).filter(l => l.imm === im.nom);
-          const logsScoped = (typeof _ccLogsInScope === 'function') ? _ccLogsInScope(cc, allLogsImm) : allLogsImm;
-          if(!logsScoped.find(l => l.ref === ref)) return;
-          const qp = (typeof _calcCcQuotePart === 'function')
-            ? _calcCcQuotePart(im, _log, cc, logsScoped) : null;
-          if(!qp || qp.exclu) return;
-          depCc += Math.round((+m.db || 0) * (qp.ratio || 0) * 100) / 100;
-        });
-    }
+    // Quote-part des compteurs collectifs scopés (lecture unique, cf. `_lotCcQuotePartMois`)
+    const depCc = _lotCcQuotePartMois(ref, yr).reduce((a,b)=>a+b, 0);
     const dep = depDirect + depCc;
     const solde = enc - dep;
     const cls = solde > 0 ? 'k-ok' : (solde < 0 ? 'k-warn' : '');
@@ -41342,31 +41348,9 @@ function _renderComptaKPIsForLog(ref, year) {
   const loyersEnc = mvts.filter(_finLotEstLoyer).reduce((s,m)=>s+(+m.cr||0), 0);
   // v14.79 Bug #1 — Charges = directes (mvt.qui=ref) + quote-part des compteurs collectifs scopés
   const chargesDirect = mvts.filter(m => _finLotEstCharge(m) && !m.compteurCcId).reduce((s,m)=>s+(+m.db||0), 0);
-  let chargesCc = 0;
-  const log = (DB.logements||[]).find(l => l.ref === ref);
-  if(log) {
-    (DB.mouvements||[]).filter(_isAlive)
-      .filter(m => m.compteurCcId && !m.qui && m.date >= yearStart && m.date <= yearEnd)
-      .forEach(m => {
-        let cc = null, im = null;
-        for(const ent of (DB.entites||[]).filter(_isAlive)) {
-          for(const i of (ent.immeubles||[]).filter(_isAlive)) {
-            const c = (i.compteursCollectifs||[]).filter(_isAlive).find(x => x.id === m.compteurCcId);
-            if(c) { cc = c; im = i; break; }
-          }
-          if(cc) break;
-        }
-        if(!cc || !im || im.nom !== log.imm) return;
-        const allLogsImm = (DB.logements||[]).filter(_isAlive).filter(l => l.imm === im.nom);
-        const logsScoped = (typeof _ccLogsInScope === 'function') ? _ccLogsInScope(cc, allLogsImm) : allLogsImm;
-        if(!logsScoped.find(l => l.ref === ref)) return;
-        const qp = (typeof _calcCcQuotePart === 'function')
-          ? _calcCcQuotePart(im, log, cc, logsScoped)
-          : null;
-        if(!qp || qp.exclu) return;
-        chargesCc += Math.round((+m.db || 0) * (qp.ratio || 0) * 100) / 100;
-      });
-  }
+  // Quote-part des compteurs collectifs (lecture unique, cf. `_lotCcQuotePartMois`) — c'est
+  // celle que le graphe du même panneau lit aussi, mois par mois.
+  const chargesCc = _lotCcQuotePartMois(ref, year).reduce((a,b)=>a+b, 0);
   const charges = chargesDirect + chargesCc;
   const solde     = loyersEnc - charges;
   // Loyer attendu réel : pro-rata mois × HC+CH du bail actif OU du dernier bail (fallback vacance)
@@ -41395,18 +41379,60 @@ function _renderComptaKPIsForLog(ref, year) {
   </div>`;
 }
 
+/**
+ * La QUOTE-PART du lot dans les compteurs collectifs de son immeuble, MOIS PAR MOIS.
+ * Deux écrans en avaient chacun leur copie (héro de la fiche, KPI de l'onglet Compta) ; le
+ * graphe du même panneau, lui, n'en avait aucune. Une seule lecture, trois surfaces.
+ * @returns {number[]} 12 montants de charge (index 0 = janvier).
+ */
+function _lotCcQuotePartMois(ref, year) {
+  const out = [0,0,0,0,0,0,0,0,0,0,0,0];
+  const log = (DB.logements||[]).find(l => l.ref === ref);
+  if (!log) return out;
+  const yr = String(year).slice(0,4);
+  (DB.mouvements||[]).filter(_isAlive)
+    .filter(m => m.compteurCcId && !m.qui && m.date && m.date.startsWith(yr))
+    .forEach(m => {
+      let cc = null, im = null;
+      for(const ent of (DB.entites||[]).filter(_isAlive)) {
+        for(const i of (ent.immeubles||[]).filter(_isAlive)) {
+          const c = (i.compteursCollectifs||[]).filter(_isAlive).find(x => x.id === m.compteurCcId);
+          if(c) { cc = c; im = i; break; }
+        }
+        if(cc) break;
+      }
+      if(!cc || !im || im.nom !== log.imm) return;
+      const allLogsImm = (DB.logements||[]).filter(_isAlive).filter(l => l.imm === im.nom);
+      const logsScoped = (typeof _ccLogsInScope === 'function') ? _ccLogsInScope(cc, allLogsImm) : allLogsImm;
+      if(!logsScoped.find(l => l.ref === ref)) return;
+      const qp = (typeof _calcCcQuotePart === 'function') ? _calcCcQuotePart(im, log, cc, logsScoped) : null;
+      if(!qp || qp.exclu) return;
+      const mi = parseInt(String(m.date).slice(5,7), 10) - 1;
+      if (mi < 0 || mi > 11) return;
+      out[mi] += Math.round((+m.db || 0) * (qp.ratio || 0) * 100) / 100;
+    });
+  return out;
+}
+
 // ── Graphique cash-flow mensuel (12 barres SVG)
 // Vert positif (loyers > charges), Rouge négatif. Marker "auj." pour mois courant.
 function _renderComptaCashFlowChart(ref, year) {
   const months = Array.from({length:12}, (_,i)=>i+1);
+  // R0-G : le graphe est rendu JUSTE SOUS les KPI du même panneau. Il sommait tous les cr
+  // et tous les db sans rien classer : une restitution de dépôt de garantie creusait une
+  // barre rouge, et la somme des 12 barres ne faisait plus le « Solde net » affiché 30 px
+  // au-dessus. Même lecture que les KPI, quote-part des compteurs collectifs comprise :
+  // Σ des barres = Solde net, par construction.
+  const ccMois = _lotCcQuotePartMois(ref, year);
   const data = months.map(m => {
     const monthStart = `${year}-${String(m).padStart(2,'0')}-01`;
     const monthEnd   = `${year}-${String(m).padStart(2,'0')}-31`;
-    const mvts = (DB.mouvements||[]).filter(mv =>
+    const mvts = (DB.mouvements||[]).filter(_isAlive).filter(mv =>
       mv.qui === ref && mv.date >= monthStart && mv.date <= monthEnd
     );
-    const cr = mvts.reduce((s,mv)=>s+(+mv.cr||0), 0);
-    const db = mvts.reduce((s,mv)=>s+(+mv.db||0), 0);
+    const cr = mvts.filter(_finLotEstLoyer).reduce((s,mv)=>s+(+mv.cr||0), 0);
+    const db = mvts.filter(mv => _finLotEstCharge(mv) && !mv.compteurCcId).reduce((s,mv)=>s+(+mv.db||0), 0)
+             + (ccMois[m-1] || 0);
     return { month: m, net: cr - db, cr, db };
   });
   const maxAbs = Math.max(...data.map(d=>Math.abs(d.net)), 100); // au moins 100 pour échelle
