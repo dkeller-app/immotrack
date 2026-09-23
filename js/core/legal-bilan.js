@@ -72,7 +72,18 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
       ref: l.ref,
       type: l.type,
       imm: l.imm,
-      locataire: l.locataire || (allBails.length ? '(historique)' : 'Vacant'),
+      // ⚠️ Lisait `allBails`, dont la déclaration a disparu avec le changement de signature de
+      // `_calcOccDays` : `ReferenceError` en mode strict, qui ne se déclenchait QUE si le cache
+      // `l.locataire` était vide — c'est-à-dire exactement le cas que R0-B répare. Le bilan
+      // annuel ne s'affichait plus, sans le moindre message (`openBilanAnnuel` n'a pas de
+      // try/catch). Aucun test ne l'a vu : la fixture existante remplit toujours `locataire`.
+      //
+      // Au passage, le libellé était déjà faux : `allBails` contenait AUSSI le bail courant,
+      // donc un lot loué dont le cache est vide s'affichait « (historique) ». Un bail courant
+      // existe → on prend son locataire ; sinon seul l'historique justifie « (historique) ».
+      locataire: l.locataire
+        || (bailCourant ? _nomLocataireBail(bailCourant) : '')
+        || (histsForRef.length ? '(historique)' : 'Vacant'),
       occDays,
       vacanceDays,
       tauxOccupation: totalDays > 0 ? Math.round(occDays / totalDays * 1000) / 10 : 0,
@@ -177,13 +188,18 @@ function _calcOccDays(bailCourant, hists, from, to) {
   // R0-E — Un bail n'est PAS terminé parce que sa date de fin est passée : un bail nu non
   // dénoncé se reconduit tacitement, le locataire est là et le loyer est dû. Seule la CLÔTURE
   // termine un bail. C'est déjà la règle de `_bienActiveBail` (index.html) depuis v15.343 ;
-  // ce moteur-ci ne la suivait pas, et voyait donc « vacant » le cas le plus courant du parc —
-  // taux d'occupation sous-évalué, manque à gagner inventé, et part bailleur des charges
-  // surévaluée (la clé P-4 bascule sur `loyerHcRef` dès qu'un mois est vu sans bail).
+  // ce moteur-ci ne la suivait pas, et voyait donc « vacant » le cas le plus courant du parc :
+  // taux d'occupation sous-évalué et « manque à gagner » inventé sur une vacance inexistante.
   //
-  // Les baux d'HISTORIQUE, eux, sont terminés par construction : on les borne toujours, sans
-  // se fier à leurs drapeaux (une entrée legacy sans `cloture` ni `finEffective` ferait sinon
-  // courir un bail archivé jusqu'à la fin de la période — l'erreur symétrique, et pire).
+  // ⚠️ Portée exacte, vérifiée : ce moteur n'alimente QUE le taux d'occupation, le manque à
+  // gagner et la liste des vacants. Il ne touche NI le dû, NI la clé de répartition P-4 —
+  // celle-ci passe par `_occupation` (js/core/loyer-du-mois.js), qui connaît déjà la tacite
+  // reconduction. Aucun montant de charges ne bouge.
+  //
+  // Les baux d'HISTORIQUE sont terminés par construction : on les borne toujours, sans se fier
+  // à leurs drapeaux — les chemins d'archivage ne posent pas tous `cloture`. Le repli qui tient
+  // réellement le stock est `_archivedAt`, posé par les trois chemins ; une entrée antérieure
+  // sans AUCUNE des trois dates resterait ouverte jusqu'à la fin de la période.
   const compte = (b, force) => {
     if (!b || !b.debut) return;
     const finIso = b.finEffective || b.fin || b._archivedAt || null;
@@ -199,6 +215,17 @@ function _calcOccDays(bailCourant, hists, from, to) {
   // Clip à la durée totale de la période (cas rare : si plusieurs baux se chevauchent)
   const maxDays = _daysBetween(from, to);
   return Math.min(total, maxDays);
+}
+
+/**
+ * Le nom des locataires d'un bail. `log.locataire` n'est qu'un cache : un bail repris à
+ * l'achat ou une saisie en cours le laisse vide, et la clôture le VIDE (`log.locataire = ''`).
+ * Le bail, lui, sait toujours.
+ */
+function _nomLocataireBail(b) {
+  if (!b) return '';
+  const noms = Array.isArray(b.locataires) ? b.locataires.map((x) => x && x.nom).filter(Boolean) : [];
+  return noms.join(', ') || String(b.nom || '');
 }
 
 function _daysBetween(from, to) {
