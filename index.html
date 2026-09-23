@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.660</title>
+<title>Propryo v15.661</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.660">
+<link rel="stylesheet" href="css/main.css?v=15.661">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.660</em>
+      <em>v15.661</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.660';
+const IMMOTRACK_VERSION = '15.661';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10364,8 +10364,14 @@ function _v4ComputeLotStatus(log, yr, mo, mvs) {
   if (!log) return {cls:'vac', attendu:0, recu:0, label:'—', ratio:0, prorata:1, vacant:true};
   const fmtN = (n) => (typeof fmt === 'function' ? fmt(n) : String(Math.round(n||0)));
 
-  // VACANT : pas de locataire → status vacant immédiatement
-  if (!log.locataire) {
+  // VACANT : pas de BAIL → status vacant immédiatement.
+  // ⚠️ Cette porte lisait `log.locataire`, un CACHE que `_resyncLocatairesFromBaux` ne remplit
+  // que si le bail porte un nom, et que la clôture VIDE. C'était la dernière surface VIVANTE où
+  // le cache mettait directement des euros à zéro : un bail repris à l'achat, ou une saisie en
+  // cours, renvoyait `attendu: 0, recu: 0` et court-circuitait tout le moteur de loyer — juste
+  // avant que l'Accueil téléphone n'additionne ces zéros en « encaissé » et « attendu » du mois
+  // et de l'année. Le lot disparaissait des chiffres, comme dans la bulle Impayés (R0-B).
+  if (!_lotEstLoue(log)) {
     const theo = (Number(log.hc)||0) + (Number(log.ch)||0);
     return {cls:'vac', attendu:0, recu:0, label:(theo > 0 ? (theo + ' € théo') : '—'), ratio:0, prorata:0, vacant:true};
   }
@@ -10930,7 +10936,17 @@ function _renderPilotage(ctx) {
   if (!stripEl || !bullesEl) { return; }
 
   // ── Bandeau de contexte : 5 états (aucun euro de flux au-delà de l'encaissé du mois) ──
-  const _occKpi = DashCtx.occupationKpis(scopeLogs);
+  // R-0 — Le COMPTE de lots loués se lit sur le BAIL, plus sur `DashCtx.occupationKpis` (qui
+  // compte `l.locataire`, un cache). Sinon la tuile « Logements » annonce « 1 vide » juste à
+  // côté d'une tuile « Dépôts détenus » qui, elle, compte ce même lot comme loué — deux voisines
+  // qui se contredisent sur le même logement.
+  const _lotsLoues = scopeLogs.filter(_lotEstLoue);
+  const _occKpi = {
+    nbTotal: scopeLogs.length,
+    nbOcc: _lotsLoues.length,
+    nbVacants: scopeLogs.length - _lotsLoues.length,
+    pctOcc: scopeLogs.length ? Math.round(_lotsLoues.length / scopeLogs.length * 100) : 0
+  };
   let occTaux = _occKpi.pctOcc, occSub = 'sur les lots occupés';
   try {
     if (typeof _computeOccupationLots === 'function') {
@@ -12073,14 +12089,15 @@ function _buildChgDrill(ctx) {
  * R0-A — L'OCCUPATION DU PÉRIMÈTRE, LUE AU MOTEUR. Une seule lecture, deux consommateurs :
  * la carte du tableau de bord et le détail qu'on ouvre en cliquant dessus.
  *
- * Les deux calculaient chacun leur version, sur `l.locataire` — un CACHE que la clôture vide et
- * qu'un bail sans nom (repris à l'achat, saisie en cours) laisse vide. Ils annonçaient donc un
- * taux INSTANTANÉ et un manque à gagner ANNUALISÉ (`Σ hc × 12`), quand le bandeau Pilotage et
- * Finances affichent, eux, un taux EN JOURS et un manque calculé sur la période.
+ * Les deux calculaient chacun leur version sur `l.locataire` — un CACHE que la clôture vide et
+ * qu'un bail sans nom (repris à l'achat, saisie en cours) laisse vide : un taux INSTANTANÉ et un
+ * manque à gagner ANNUALISÉ (`Σ hc × 12`).
  *
- * Résultat mesuré : la bulle pouvait annoncer 0 € de manque à gagner et le détail qu'on ouvre
- * d'un clic, 9 600 €. §0bis : « un chiffre d'argent présent sur deux écrans doit être le même
- * octet ».
+ * ⚠️ RECTIFICATION (audit) : la carte et son détail ne divergeaient PAS entre eux — leurs deux
+ * calculs étaient identiques au caractère près. La divergence réelle, et c'est elle qui compte,
+ * oppose ce couple (cache, instantané, annualisé) au bandeau Pilotage et à Finances, qui lisent
+ * le moteur (taux EN JOURS, manque sur la période). §0bis : « un chiffre d'argent présent sur
+ * deux écrans doit être le même octet ».
  *
  * Le COMPTE de lots loués, lui, se lit sur le bail (`_bienIsBailActif`), jamais sur le cache.
  */
@@ -12148,9 +12165,9 @@ function _buildOccDrill(ctx) {
           ? '<span style="color:var(--fg-success);font-weight:600">Occup\u00e9</span>'
           : '<span style="color:var(--fg-danger);font-weight:600">Vacant</span>';
         const loyerTTC = (l.hc||0)+(l.ch||0);
-        // Colonne ANNUALISEE : ce n'est pas le manque de la periode (le chiffre du haut), c'est
-        // ce que couterait une vacance sur douze mois. Le nom de colonne le dit desormais --
-        // c'est cette confusion qui faisait lire 9 600 EUR sous une bulle annoncant 0 EUR.
+        // Colonne ANNUALISÉE : ce n'est pas le manque de la période (le chiffre du haut), c'est
+        // ce que coûterait une vacance sur douze mois. Le nom de colonne le dit désormais —
+        // sans quoi deux montants de sens différents se lisent comme le même.
         const perte = _loue ? '\u2014' : fmt((l.hc||0)*12);
         const perteCol = _loue ? 'var(--t3)' : 'var(--fg-danger)';
         return '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(l.imm||'—')+'</td><td>'+statut+'</td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right">'+fmt(loyerTTC)+'</td><td style="text-align:right;color:'+perteCol+';font-weight:'+(_loue?'400':'600')+'">'+perte+'</td></tr>';
@@ -13071,7 +13088,10 @@ function _lotEstLoue(l) {
 
 /**
  * Le DEPOT DE GARANTIE detenu pour ce lot : celui du bail en cours, sinon celui du lot.
- * Le montant du bail fait foi (il a pu etre revu a la relocation) ; `l.dg` est le repli legacy.
+ * ⚠️ Le `||` traite un `dg: 0` EXPLICITE comme une absence et retombe sur la fiche. C'est la
+ * sémantique héritée du code téléphone, conservée telle quelle : `saveBail` resynchronise
+ * `log.dg = bail.dg`, donc les deux ne divergent que sur des données legacy ou importées.
+ * `l.dg` est le repli ; le bail l'emporte dès qu'il porte un montant non nul.
  */
 function _dgDuLot(l) {
   if (!l) return 0;
@@ -13286,6 +13306,18 @@ function _buildRdtDrill(ctx) {
 //
 // Garantie : tant qu'un widget n'a pas son rendu v2, on délègue à v1
 // (préservation 100% des 23 drill-downs cf. DASHBOARD-DRILLDOWNS-INVENTAIRE.md).
+//
+// ⚠️⚠️ CODE MORT — `buildDashWidget` N'A AUCUN APPELANT (vérifié : ni dans le code, ni dans un
+// attribut `on*` du DOM, ni dans les modules différés). `rAccueil` route vers
+// `_renderAccueilPhone` (≤767) ou `_renderPilotage` (≥768), jamais vers cette grille. Tout ce
+// qui en dépend est donc mort aussi : `_buildWidgetV1Legacy`, `_buildWidgetV2Modern`,
+// `_occPerimetre`, `_buildOccDrill`, `_nomLotAffiche`, et la vingtaine de `_build*Drill`.
+//
+// Le signaler ici parce que ça coûte : un correctif R-0 a été écrit sur cette grille avant de
+// s'apercevoir qu'elle n'est jamais rendue. À TRANCHER dans un lot dédié — rebrancher ou
+// supprimer — mais ne pas y réinvestir entre-temps, et ne pas s'en servir comme référence :
+// ces widgets portent encore d'anciennes règles (comptage sur `l.locataire`, manque à gagner
+// annualisé) que les surfaces vivantes ont abandonnées.
 // ═══════════════════════════════════════════════════════════════════════
 
 function buildDashWidget(id, ctx, col=3, row=2) {
@@ -13897,10 +13929,10 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
      Value principale = Occupation %. Sous-ligne = vacants + manque à gagner /an. ── */
   if(id==='occ') {
     // R0-A — La carte ET son détail lisent la MÊME source (`_occPerimetre`, qui interroge le
-    // moteur d'occupation). Avant, chacun comptait pour soi sur `l.locataire` : taux instantané
-    // ici, taux en jours dans le bandeau Pilotage et dans Finances, et un « manque à gagner »
-    // annualisé (Σ hc × 12) qui n'avait rien à voir avec celui de la période. On pouvait donc
-    // lire 0 € sur la bulle et 9 600 € dans le détail qu'elle ouvre.
+    // moteur d'occupation). Avant, tous deux comptaient sur `l.locataire` : taux instantané et
+    // manque à gagner annualisé, là où le bandeau Pilotage et Finances lisent le moteur (taux en
+    // jours, manque sur la période). C'est CE couple-là qui divergeait du reste de l'app — pas
+    // la carte de son propre détail.
     const O = _occPerimetre(ctx);
     const pct = O.taux;
     const color = pct >= 90 ? 'var(--fg-success)' : pct >= 50 ? 'var(--fg-warning)' : 'var(--fg-danger)';
@@ -13936,7 +13968,10 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
      Affichage : total + count uniquement. Détail complet via drill-down. ── */
   if(id==='dg') {
     const dgs = scopeLogs.filter(l => _lotEstLoue(l) && _dgDuLot(l) > 0).sort((a,b) => _dgDuLot(b) - _dgDuLot(a));
-    const tot = dgs.reduce((s,l) => s+(l.dg||0), 0);
+    // Les lignes du tableau passent par `_dgDuLot` : le TOTAL doit suivre la même source,
+    // sinon la carte annonce une somme que son propre tableau contredit (mesuré : 3 100 € au
+    // total pour 3 400 € de lignes).
+    const tot = dgs.reduce((s,l) => s+_dgDuLot(l), 0);
     _DD['dg'] = {title:'Dépôts de garantie', html:'<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">DG</th></tr></thead><tbody>'
       + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDuLot(l))+'</td></tr>').join('')
       + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+dgs.length+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
