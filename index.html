@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.663</title>
+<title>Propryo v15.664</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.663">
+<link rel="stylesheet" href="css/main.css?v=15.664">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.663</em>
+      <em>v15.664</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.663';
+const IMMOTRACK_VERSION = '15.664';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10700,22 +10700,33 @@ function _renderAccueilPhone(ctx){
   var _loues = logs.filter(_lotEstLoue);
   var occ = { nbOcc:_loues.length, nbTotal:logs.length,
               pctOcc: logs.length ? Math.round(_loues.length/logs.length*100) : 0 };
+  // Le pourcentage et le compte de lots ne répondent pas à la même question : « 1 lot loué
+  // sur 1 » à l'instant peut aller avec 32 % en JOURS si le bail a commencé en juillet. Le PC
+  // nomme son dénominateur (`occSub`, :11002) ; le téléphone fait pareil, sinon les deux
+  // chiffres se contredisent à l'œil sans que l'écran donne de quoi trancher.
+  var occSub = 'taux à l’instant';
   try {
     if (typeof _computeOccupationLots === 'function') {
       var _today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0,10);
-      var _to = (String(yr) === _today.slice(0,4)) ? _today : (yr + '-12-31');
-      var _o = _computeOccupationLots(DB, logs, { from: yr + '-01-01', to: _to });
-      if (_o && _o.louableDays > 0) occ.pctOcc = Math.round(_o.taux);
+      // Même fenêtre que le PC : du 1ᵉʳ janvier à AUJOURD'HUI. `rAccueil` force l'année en
+      // cours (:10586), il n'y a donc pas d'exercice passé à borner ici — et en inventer un
+      // ferait diverger du PC le jour où un sélecteur d'année apparaîtrait sur l'Accueil.
+      var _o = _computeOccupationLots(DB, logs, { from: yr + '-01-01', to: _today });
+      if (_o && _o.louableDays > 0) { occ.pctOcc = Math.round(_o.taux); occSub = 'taux en jours sur l’année'; }
     }
   } catch(e) {}
 
-  // ENCAISSE : le PC affiche les RECETTES du moteur (loyers + provisions + recettes diverses).
-  // Le telephone sommait `_v4ComputeLotStatus(l).recu`, c'est-a-dire les seuls loyers alloues a
-  // un lot : il ignorait structurellement les provisions, les recettes diverses et tout
-  // encaissement non rattache. Meme fonction que le PC, donc meme chiffre.
-  var encMois=0, attMois=0, encYTD=0;
+  // LE CUMUL ANNUEL : `_dashCfReel` est LA fonction du PC (:11009), donc le meme octet. Le
+  // telephone sommait `_v4ComputeLotStatus(l).recu`, c'est-a-dire les seuls loyers alloues a un
+  // lot : il ignorait structurellement les provisions, les recettes diverses et tout
+  // encaissement non rattache a un lot.
+  //
+  // LA LIGNE DU MOIS n'a PAS d'equivalent sur PC (le bandeau n'affiche qu'un annuel). Elle est
+  // lue au MAITRE (`byLot`), la meme frise que la bulle Impayes, et ne porte que la ligne 2044
+  // n 211 : loyers et provisions de charges. D'ou son libelle « Loyers encaisses » — ni GLI
+  // (213), ni encaissement non rattache. C'est voulu, pas un oubli.
+  var encMois=0, attMois=0, encYTD=0, resteMois=0;
   var _cfrPh = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
-  // LE MOIS : lu au MAITRE (byLot du moteur Finances), comme la bulle Impayes du PC.
   var _moisLu = false;
   try {
     var _scPh = (typeof _finEntScope === 'function') ? _finEntScope(ctx.activeEnt || '', '') : null;
@@ -10729,12 +10740,21 @@ function _renderAccueilPhone(ctx){
         if (!_m) continue;
         encMois += (_m.encaisse || 0);
         attMois += (_m.duHC || 0) + (_m.duCH || 0);
+        // C1 (retour d'audit) : le RESTE DU se lit au maitre, il ne se soustrait pas.
+        // `encaisse` est le cash DATE du mois, pas une allocation : un locataire qui verse deux
+        // mois le 28 aout laisse septembre a 0 encaisse, et `attendu - encaisse` annoncait
+        // « reste 800 EUR a encaisser » pendant que « A regarder », deux lignes plus bas, disait
+        // « tout est a jour ». `loyerRetard`/`chargeRetard` sont le residu reellement du, net
+        // des avances et de la tolerance du 10 (finances-monthly.js:264-270).
+        resteMois += (_m.loyerRetard || 0) + (_m.chargeRetard || 0);
       }
       _moisLu = true;
     }
   } catch(e) {}
-  // Repli SANS le moteur (mode file://, service-worker perime) : l'ancien calcul par lot. Il est
-  // moins complet, mais il n'invente rien — et l'ecran cesserait d'afficher un chiffre sinon.
+  // Repli quand les modules ES ne sont pas charges DU TOUT (mode file://) : sans lui, l'ecran
+  // afficherait « 0 EUR / 0 EUR · tout est encaisse », pire qu'un chiffre approche. Un
+  // service-worker perime, lui, ne declenche PAS ce repli : il sert un ancien `js/main.js`, qui
+  // definit quand meme le moteur — c'est l'ancien moteur qui repond.
   if (!_moisLu) {
     logs.forEach(function(l){ try{
       var sM = _v4ComputeLotStatus(l, yr, String(moNow), ctx.mvs); encMois += (sM.recu||0); attMois += (sM.attendu||0);
@@ -10759,8 +10779,14 @@ function _renderAccueilPhone(ctx){
   // Périmètre actif (entité filtrée) ou « Tout le parc » — pastille neutre en tête de l'accueil.
   var perim = (ctx && ctx.activeEnt) ? String(ctx.activeEnt) : ((typeof _finActiveEnt==='function' && _finActiveEnt()) ? String(_finActiveEnt()) : '');
   if(!perim) perim = 'Tout le parc';
-  var pctPay = attMois>0 ? Math.min(100, Math.round(encMois/attMois*100)) : (encMois>0?100:0);
-  var reste = Math.max(0, attMois - encMois);
+  // C1 : le reste du vient du maitre (residu nette). `attendu - encaisse` serait une TROISIEME
+  // definition du du, fabriquee dans l'ecran. Sans moteur, on retombe sur la soustraction.
+  var reste = _moisLu ? (Math.round(resteMois*100)/100) : Math.max(0, attMois - encMois);
+  // La barre mesure le RECOUVREMENT du mois (du - reste), pas le cash tombe dans le mois : un
+  // loyer paye d'avance le mois precedent laisse la barre pleine, comme la bulle Impayes.
+  var pctPay = attMois>0
+    ? Math.min(100, Math.max(0, Math.round((attMois - Math.min(reste, attMois))/attMois*100)))
+    : (encMois>0?100:0);
   // Jauge occupation (neutre) — aiguille selon pctOcc sur un demi-cercle.
   var ang = Math.PI*(1 - (occ.pctOcc||0)/100), nx=(50+38*Math.cos(ang)).toFixed(1), ny=(52-38*Math.sin(ang)).toFixed(1);
   // Arc de remplissage NEUTRE (part occupée) sur le rail, même rayon (40) que le rail — de la gauche
@@ -10807,7 +10833,7 @@ function _renderAccueilPhone(ctx){
   +'<div class="hero"><div class="k">Encaissé depuis le 1ᵉʳ janvier</div><div class="v">'+F(encYTD)+'</div></div>'
   +'<div class="srow"><div class="k">Loyers encaissés ce mois'+(reste>0?('<span class="sub2">reste '+F(reste)+' à encaisser</span>'):'<span class="sub2">tout est encaissé</span>')+'</div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
   +'<div class="bar"><i style="width:'+pctPay+'%"></i></div>'
-  +'<div class="srow occ"><div class="k">Occupation<span class="sub2">'+occ.nbOcc+' lot'+(occ.nbOcc>1?'s':'')+' loué'+(occ.nbOcc>1?'s':'')+' sur '+occ.nbTotal+'</span></div><div class="right">'+gauge+'<span class="v">'+(occ.pctOcc||0)+' %</span></div></div>'
+  +'<div class="srow occ"><div class="k">Occupation<span class="sub2">'+occ.nbOcc+' lot'+(occ.nbOcc>1?'s':'')+' loué'+(occ.nbOcc>1?'s':'')+' sur '+occ.nbTotal+' · '+occSub+'</span></div><div class="right">'+gauge+'<span class="v">'+(occ.pctOcc||0)+' %</span></div></div>'
   +'<div class="srow"><div class="k">Dépôts détenus<span class="sub2">'+nbDep+' dépôt'+(nbDep>1?'s':'')+' · argent des locataires</span></div><div class="v">'+F(dg)+'</div></div>'
   +'<button type="button" class="watch" onclick="_accmShowAregarder()"><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/></svg></span><span class="m"><span class="t">À regarder</span><span class="s">'+escHtml(sub)+'</span></span><span class="cnt">'+aReg+'</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>'
   +'</div>';
