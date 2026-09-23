@@ -12,6 +12,7 @@
  */
 
 import { _compute2044 } from './legal-2044.js';
+import { periodeEnVigueurA } from './loyer-du-mois.js';
 
 /**
  * Calcule le bilan annuel pour une entité (= un bailleur, personne morale ou physique).
@@ -67,7 +68,10 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
     const occDays = _calcOccDays(bailCourant, histsForRef, from, occTo);
     const totalDays = _daysBetween(from, occTo);
     const vacanceDays = totalDays - occDays;
-    const loyerMensuelMoyen = bailCourant ? Number(bailCourant.hc || 0) : (histsForRef.length ? Number(histsForRef[histsForRef.length-1].hc || 0) : 0);
+    // R0-H : le loyer de référence se lit au barème à la fin de la période mesurée, pas sur
+    // `hists[hists.length-1]` — le dernier ÉLÉMENT du tableau, qui n'est pas le dernier bail.
+    const _ctxLoyer = { bareme: db.loyerBareme || [], bailCourant, hists: histsForRef, lot: l };
+    const loyerMensuelMoyen = loyerHcDuLotA(occTo, l.ref, _ctxLoyer);
     return {
       ref: l.ref,
       type: l.type,
@@ -91,7 +95,9 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
       charges: lFiscal.totalCharges,
       cashFlow: Math.round((lFiscal.totalRecettes - lFiscal.totalCharges) * 100) / 100,
       loyerMensuelMoyen,
-      manqueAGagner: Math.round((vacanceDays / 30.44) * loyerMensuelMoyen * 100) / 100
+      // R0-H : chaque segment vide est valorisé au loyer de SON époque, jamais à celui
+      // d'aujourd'hui. `vacanceDays` reste le total affiché, il ne sert plus de multiplicande.
+      manqueAGagner: _manqueVacance(_segmentsVacants(bailCourant, histsForRef, from, occTo), l.ref, _ctxLoyer)
     };
   });
 
@@ -160,7 +166,12 @@ export function _computeOccupationLots(db, lots, opts) {
     const totalDays = _daysBetween(from, to);
     const vac = Math.max(0, totalDays - occDays);
     occ += occDays; louable += totalDays;
-    manque += (vac / 30.44) * (Number(l.loyerHcRef) || Number(l.hc) || 0);
+    // R0-H : ce moteur-ci valorisait la vacance avec `lot.loyerHcRef || lot.hc`, l'autre avec
+    // `bailCourant.hc` — deux sources, et la même erreur : le loyer d'aujourd'hui appliqué
+    // au passé. Une seule lecture désormais, datee segment par segment.
+    manque += _manqueVacance(
+      _segmentsVacants(bailCourant, hists, from, to), l.ref,
+      { bareme: (db && db.loyerBareme) || [], bailCourant, hists, lot: l });
     // R0-B — la vacance se lit sur le BAIL, pas sur `l.locataire`. Ce champ n'est qu'un cache
     // dénormalisé, resynchronisé au démarrage et seulement SI le bail porte un nom : un bail
     // repris à l'achat ou une saisie en cours le laissent vide. Un lot loué apparaissait alors
@@ -177,6 +188,137 @@ export function _computeOccupationLots(db, lots, opts) {
     taux: louable > 0 ? r2(occ / louable * 100) : 0,
     manqueAGagner: r2(manque), vacantsJour, nbLots: nb
   };
+}
+
+
+/**
+ * LE loyer HC d'un lot À UNE DATE DONNÉE — qu'il soit loué ou vide.
+ *
+ * R0-H : deux moteurs valorisaient la vacance, et tous deux appliquaient le loyer
+ * D'AUJOURD'HUI à des jours vides PASSÉS — `bailCourant.hc` ici, `lot.loyerHcRef || lot.hc`
+ * dans `_computeOccupationLots`. Deux sources, et la même infraction à I-1 (« le loyer
+ * d'aujourd'hui appliqué à tout le passé ») que le CDC déclare supprimée. Un lot reloué
+ * 850 € après six mois de vide, puis révisé à 900 €, se voyait imputer six mois à 900 €.
+ *
+ * La chaîne des sources, dans cet ordre :
+ *   1. le BARÈME en vigueur à cette date — c'est l'historique du loyer, la même lecture que
+ *      `duMois()` (aucun moteur concurrent) ;
+ *   2. le bail EN COURS à cette date, s'il y en a un ;
+ *   3. sinon le bail qui s'est terminé le plus récemment AVANT — ce que le lot valait quand
+ *      il s'est vidé, qui est la bonne contrefactuelle d'une vacance ;
+ *   4. le bail qui commence le plus tôt APRÈS — un lot jamais encore loué à cette date ne
+ *      vaut que ce que son premier locataire acceptera ;
+ *   5. la fiche du lot, en dernier recours (stock non migré) ;
+ *   6. zéro, et rien d'inventé.
+ */
+export function loyerHcDuLotA(iso, ref, ctx) {
+  const c = ctx || {};
+  const d = String(iso || '').slice(0, 10);
+  if (!d) return 0;
+  const num = (v) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? x : null; };
+
+  const p = periodeEnVigueurA(c.bareme || [], ref, d);
+  const viaBareme = p ? num(p.hc) : null;
+  if (viaBareme != null) return viaBareme;
+
+  const baux = [];
+  if (c.bailCourant) baux.push(c.bailCourant);
+  (c.hists || []).forEach((b) => { if (b) baux.push(b); });
+
+  const finDe = (b) => b.finEffective || b.fin || b._archivedAt || null;
+  // R0-E : un bail dont la date de fin est passée mais qui n'est pas clôturé court toujours
+  // (tacite reconduction). Même règle que `_calcOccDays` et `_bienActiveBail`.
+  const enCoursA = (b) => {
+    if (!b || !b.debut || String(b.debut).slice(0, 10) > d) return false;
+    if (b.cloture || b.finEffective) return String(b.finEffective || '').slice(0, 10) >= d;
+    return true;
+  };
+  // 2. le bail EN COURS. Sans lui, le 31 décembre d'un lot reloué au 1er octobre renvoyait
+  //    le loyer de l'ANCIEN bail — la recherche ne regardait que les baux TERMINÉS.
+  for (const b of baux) { if (enCoursA(b) && num(b.hc) != null) return num(b.hc); }
+  // 3. le dernier bail TERMINÉ avant cette date, choisi sur sa date de fin — pas sur l'ordre
+  //    du tableau, qui ne garantit rien (le défaut précédent prenait `hists[hists.length-1]`).
+  let avant = null, finAvant = '';
+  for (const b of baux) {
+    const f = finDe(b);
+    if (!f || String(f).slice(0, 10) >= d) continue;
+    if (!avant || String(f).slice(0, 10) > finAvant) { avant = b; finAvant = String(f).slice(0, 10); }
+  }
+  if (avant && num(avant.hc) != null) return num(avant.hc);
+
+  // 4. le premier bail qui COMMENCE après cette date.
+  let apres = null, debutApres = '';
+  for (const b of baux) {
+    const deb = b.debut ? String(b.debut).slice(0, 10) : '';
+    if (!deb || deb <= d) continue;
+    if (!apres || deb < debutApres) { apres = b; debutApres = deb; }
+  }
+  if (apres && num(apres.hc) != null) return num(apres.hc);
+
+  const lot = c.lot || null;
+  return lot ? (num(lot.loyerHcRef) || num(lot.hc) || 0) : 0;
+}
+
+/**
+ * Les segments VIDES d'un lot sur [from, to] — le complément exact de `_calcOccDays`, mêmes
+ * règles de fin de bail (tacite reconduction comprise : seule la clôture termine un bail).
+ * @returns {Array<{from:string, to:string, jours:number}>}
+ */
+function _segmentsVacants(bailCourant, hists, from, to) {
+  const J = 86400000;
+  const ts = (iso) => new Date(String(iso).slice(0, 10) + 'T00:00:00').getTime();
+  // ⚠️ `toISOString()` reconvertit en UTC : à Paris, minuit local d'un 1er juillet devient
+  // le 30 juin à 22 h UTC, et le segment vide commençait la VEILLE — assez pour que le bail
+  // qui se terminait ce jour-là soit encore vu comme en cours, et que la vacance soit
+  // valorisée au loyer du bail d'AVANT. Le découpage est local, le formatage aussi.
+  const iso = (t) => { const d = new Date(t); const p2 = (x) => String(x).padStart(2, '0');
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+  const fromTs = ts(from), toTs = ts(to);
+  if (!(toTs >= fromTs)) return [];
+
+  const occ = [];
+  const pousse = (b, force) => {
+    if (!b || !b.debut) return;
+    const finIso = b.finEffective || b.fin || b._archivedAt || null;
+    const termine = force || !!(b.cloture || b.finEffective);
+    const bStart = ts(b.debut);
+    const bEnd = (termine && finIso) ? ts(finIso) : toTs;
+    const a = Math.max(bStart, fromTs), z = Math.min(bEnd, toTs);
+    if (z >= a) occ.push([a, z]);
+  };
+  pousse(bailCourant, false);
+  (hists || []).forEach((b) => pousse(b, true));
+
+  occ.sort((x, y) => x[0] - y[0]);
+  const fusion = [];
+  for (const seg of occ) {
+    const dernier = fusion[fusion.length - 1];
+    if (dernier && seg[0] <= dernier[1] + J) { if (seg[1] > dernier[1]) dernier[1] = seg[1]; }
+    else fusion.push([seg[0], seg[1]]);
+  }
+
+  const vides = [];
+  let curseur = fromTs;
+  for (const [a, z] of fusion) {
+    if (a > curseur) vides.push([curseur, a - J]);
+    if (z + J > curseur) curseur = z + J;
+  }
+  if (curseur <= toTs) vides.push([curseur, toTs]);
+
+  return vides
+    .filter(([a, z]) => z >= a)
+    .map(([a, z]) => ({ from: iso(a), to: iso(z), jours: Math.round((z - a) / J) + 1 }));
+}
+
+/**
+ * LE manque à gagner d'une vacance : chaque segment vide est valorisé au loyer qui était en
+ * vigueur à SON DÉBUT. Le barème ne bouge pas pendant une vacance (une période naît d'une
+ * révision, qui suppose un bail), donc cette lecture est exacte, pas approchée.
+ */
+function _manqueVacance(segments, ref, ctx) {
+  let total = 0;
+  for (const seg of segments) total += (seg.jours / 30.44) * loyerHcDuLotA(seg.from, ref, ctx);
+  return Math.round(total * 100) / 100;
 }
 
 /** Calcule le nombre de jours d'occupation d'un logement pour la période donnée.
