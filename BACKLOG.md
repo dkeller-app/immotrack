@@ -17,6 +17,26 @@
 
 **Lecteurs uniques créés** (à réutiliser, ne pas recopier) : `_lotEstLoue` · `_dgDuLot` · `_finLotCatRole` / `_finLotEstLoyer` / `_finLotEstCharge` · `_finLotNet` · `_lotCcQuotePartMois`.
 
+### 🧯 R0-D, DEUXIÈME DOMAINE — « le miroir n'est pas le DB » — v15.674, PRÊT (worktree `modest-cori-5a547e`, pas intégré)
+`index.html:4570` déclare `let DB = {}` : une liaison **lexicale**, PAS une propriété de `window`. `window.DB` n'est posé que par `__immoSetDB` (cloud, post-hydratation) et **rien** ne le rafraîchit quand `DB` est réassigné (reset `5821`, import/restauration `59053`, adoption cross-onglet `60236`).
+
+| Ce qui lisait le miroir | Ce que ça coûtait |
+|---|---|
+| **`window._loyerHCAtDate`** (`main.js`) | historique IRL **toujours vide** en session locale/sandbox → repli sur `log.hc`, le loyer **d'aujourd'hui**, facturé sur les mois **passés**. 750 € au lieu de 700 € → **impayé fantôme, 600 €/an sur un seul lot** |
+| **`_loyerProrataMois` / `_loyerProrataMoisSplit`** | même chose sur le dû proraté — la source du dû de la cascade d'imputation (`index.html:12496`) |
+| **Garde-fou « IRL audit »** (`index.html:60434`) | il compare `log.hc` à `_loyerHCAtDate(log, aujourd'hui)` : avec l'historique vide, **deux fois la même valeur** → l'alerte ne s'est jamais déclenchée |
+| **`_calculerDelaiRestitution`** (DG) | la branche « EDL de sortie dégradé → **2 mois** » (art. 22) était morte. ⚠️ **Elle s'allume : des montants de pénalité et des dates limites vont bouger** — smoke attendu |
+| **`_logEmailSent` / `_getEmailHistory`** | l'historique d'envoi n'était **jamais écrit** en local |
+| **`_auditEntry`** | auteur `anonymous` / `Utilisateur` au lieu du vrai, et l'`userId` de repli n'était pas persisté |
+| **`_baremeOfLot`, `monitoring`** | même piège, **sans impact aujourd'hui** (câblage sans consommateur · `monitoringEnabled` n'est écrit nulle part) |
+
+**Lecteur unique à réutiliser, jamais recopier** : `appDbFrom(window)` (`js/core/utils.js`) — getter `window.__immoGetDB` d'abord, repli sur le miroir, try/catch. Barrière : `__tests__/helpers/db-vivant-cablage.test.js` refuse toute lecture de `window.DB` dans `js/**`.
+
+**Le piège INVERSE, trouvé par l'audit du correctif** : `window.DB` répondait aussi, par accident, à « l'hydratation a-t-elle eu lieu ? ». `appDbFrom` rend **toujours** un objet → mon premier jet supprimait la garde de la purge IndexedDB des photos (chemin destructif, preuves légales). La preuve d'hydratation vient de `_liveDBRef`.
+
+### 🔴 Le même défaut, NON corrigé : la popup de signature écrit dans le miroir
+`index.html:23713-23727` — la popup fait `window.opener.DB.baux[ref].signatures = …` puis `window.opener.saveDB()`. Si le miroir est périmé (cloud + import / restauration / adoption cross-onglet), **la signature est écrite dans un objet mort et `saveDB` persiste un état qui ne la contient pas** : signature d'un acte juridique perdue, sans erreur ni log. ~17 sites `window.opener.DB`. Correctif de la même famille (`window.opener.__immoGetDB()`), mais sur le chemin le plus sensible de l'app : **session dédiée avec son smoke de bout en bout**, pas un patch glissé dans un lot d'argent.
+
 ### ⏳ Smokes dus par Didier
 - **Import bancaire 2 comptes** : relevé A puis relevé B avec une opération de même date/montant/libellé → ne doit PAS être écartée.
 - **Document 2 pages imprimé depuis l'iPhone** (DOC-3, iframe sandboxée).
