@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.674</title>
+<title>Propryo v15.675</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.674">
+<link rel="stylesheet" href="css/main.css?v=15.675">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.674</em>
+      <em>v15.675</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -3431,8 +3431,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 
     <!-- Construction & régime -->
     <div class="fg2 mb8">
-      <div class="fg"><label>Année construction</label><input class="inp" type="number" id="imm-annee" min="1800" max="2100" oninput="immAnneeToperiode()"></div>
-      <div class="fg"><label>Période de construction</label>
+      <div class="fg"><label>Année construction</label><input class="inp" type="number" id="imm-annee" min="1800" max="2100" oninput="immAnneeToperiode()" placeholder="ex 1985"></div>
+      <div class="fg"><label>Période de construction <span class="mu sm" id="imm-periode-note">(déduite de l'année)</span></label>
         <select class="inp" id="imm-periodeConstr">
           <option value="">— Sélectionner —</option>
           <option>Avant 1949</option>
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.674';
+const IMMOTRACK_VERSION = '15.675';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -42676,6 +42676,8 @@ function _logDiagEnsureCSS() {
     /* v15.240 B2 v2-c2 — pré-remplissage « suggéré · à vérifier » */
     .inp.logdiag-sg{background:var(--warn-soft);border-color:var(--warn)}
     .inp.logdiag-ad{background:var(--pos-soft);border-color:var(--pos)}
+    /* Période de construction dérivée de l'année = verrouillée. Rendu propre en clair ET sombre (opacité, pas de couleur en dur). */
+    #imm-periodeConstr:disabled{opacity:.55;cursor:not-allowed}
     .logdiag-tbl tr.logdiag-sg-row>td{background:var(--warn-soft)}
     .logdiag-sg-cell{display:flex;flex-direction:column;gap:4px}
     .logdiag-sg-val{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -42848,7 +42850,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.567 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.675 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -49914,14 +49916,24 @@ function openNewEnt(id) {
 }
 
 function immAnneeToperiode() {
-  const a = parseInt(el('imm-annee').value)||0;
-  if(!a) return;
+  // L'ANNÉE est la source de vérité ; la période est DÉRIVÉE (verrouillée) tant qu'une
+  // année est saisie. Année inconnue → la période redevient saisissable (repli pour le
+  // document de bail, qui a besoin de la mention). Fin de la double saisie année/période.
   const sel = el('imm-periodeConstr'); if(!sel) return;
+  const note = el('imm-periode-note');
+  const a = parseInt(el('imm-annee').value)||0;
+  if(!a) {
+    sel.disabled = false;
+    if(note) note.textContent = "(année inconnue — à choisir)";
+    return;
+  }
   if(a < 1949)       sel.value = 'Avant 1949';
   else if(a <= 1974) sel.value = 'De 1949 à 1974';
   else if(a <= 1989) sel.value = 'De 1975 à 1989';
   else if(a <= 2005) sel.value = 'De 1990 à 2005';
   else               sel.value = 'Depuis 2005';
+  sel.disabled = true;
+  if(note) note.textContent = "(déduite de l'année)";
 }
 
 function renderImmList(imms) {
@@ -49998,6 +50010,7 @@ function addImmForm(entIdOverride) {
    'imm-ec-custom-input']
     .forEach(id => { const e = el(id); if(e) e.value = ''; });
   el('imm-periodeConstr').value = '';
+  immAnneeToperiode();   // état dérivé initial (année vide → période saisissable)
   el('imm-regimeJuridique').value = '';
   if(el('imm-typeHabitat')) el('imm-typeHabitat').value = '';   // v15.249 B3
   // Reset checkboxes équipements communs
@@ -50040,6 +50053,7 @@ function editImm(idx, entIdOverride) {
   el('imm-valeur').value = im.valeurEstimee||'';
   el('imm-nbLots').value = im.nbLots||'';
   el('imm-periodeConstr').value = im.periodeConstr||'';
+  immAnneeToperiode();   // année saisie → période dérivée+verrouillée ; sinon saisissable
   el('imm-regimeJuridique').value = im.regimeJuridique||'';
   if(el('imm-typeHabitat')) el('imm-typeHabitat').value = im.typeHabitat||'';   // v15.249 B3
   el('imm-travaux').value = im.travaux||'';
