@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.661</title>
+<title>Propryo v15.662</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.661">
+<link rel="stylesheet" href="css/main.css?v=15.662">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.661</em>
+      <em>v15.662</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.661';
+const IMMOTRACK_VERSION = '15.662';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10891,7 +10891,7 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs, colRefs) {
     // Vacants). Sans ça, _pilStatutDoc renvoyait _absent→ko sur 6 colonnes = 6 fausses marques
     // corail sur chaque vacant (audit vitrine D3). Aligné sur la bulle (mrhManquante ne cible que
     // les lots loués) et sur l'en-tête « à faire · vide = rien ».
-    if (!l.locataire) return 'na';
+    if (!_lotEstLoue(l)) return 'na';
     if (c.k === 'irl') return irlRefs ? (irlRefs.has(l.ref) ? 'ko' : 'na') : _pilIrlDot(l);
     // Assurance / Diagnostics / Entretiens : MÊME moteur que la bulle (ensembles _computeUnifiedTodo).
     if (c.k === 'ass' && _cr.ass) return _cr.ass.has(l.ref) ? 'ko' : 'na';
@@ -10911,10 +10911,14 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs, colRefs) {
   // qui comptait le loyer courant non échu et mentait « en retard » le 5. L'avance reste lue du
   // solde signé. Garantit matrice == bulle. (audit KPI §1 · module pur pilotagePay, testé)
   const _soldeSigned = byLotEntry ? (byLotEntry.solde || 0) : 0;
+  // R-0 : « ce lot est-il loue ? » se lit sur le BAIL. Sur le cache, un bail repris a l'achat
+  // sortait en 'na' : ni pastille de paiement, ni euros, et le lot comptait comme vacant dans
+  // le filtre de la matrice — alors que la bulle Impayes, elle, affiche sa dette.
+  const _loue = _lotEstLoue(l);
   const pay = (typeof window !== 'undefined' && typeof window.pilotagePay === 'function')
-    ? window.pilotagePay(!!l.locataire, l.ref, impayeRefs, _soldeSigned)
-    : (!l.locataire ? 'na' : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
-  const vacant = !l.locataire;
+    ? window.pilotagePay(_loue, l.ref, impayeRefs, _soldeSigned)
+    : (!_loue ? 'na' : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
+  const vacant = !_loue;
   // actions : relocation d'un vide + toute colonne ko/wn (geste « réclamer au vendeur » si repris)
   const actions = [];
   if (vacant) actions.push({ g: 'vacant', label: 'Relouer', cls: 'vac' });
@@ -12891,7 +12895,9 @@ function _computeUnifiedTodo(ctx) {
   // 4. Révision IRL applicable / à venir — v15.424 DRY : classification CANONIQUE
   // AlertRules.irlClassifier (mêmes verdicts que la bannière et les widgets ; filtre
   // dejaApplique/renoncée garanti partout).
-  scopeLogs.filter(l => l.locataire && l.debut).forEach(l => {
+  // R-0 : un bail repris a l'achat ne sortait AUCUNE revision IRL a proposer, alors que le
+  // loyer court et que la revision est due. Le bail decide, pas le cache.
+  scopeLogs.filter(l => _lotEstLoue(l) && l.debut).forEach(l => {
     const rev = typeof computeIRLRevision === 'function' ? computeIRLRevision(l) : null;
     const c = AlertRules.irlClassifier(rev, l, today, _isoLocal);
     if(!c) return;
@@ -12994,7 +13000,7 @@ function _computeUnifiedTodo(ctx) {
 
   // 8. Équipements : entretien en retard ou à venir (< 30 j) — cf. EQUIP_RULES
   if(typeof EQUIP_RULES !== 'undefined' && DB.baux) {
-    scopeLogs.filter(l => l.locataire).forEach(l => {
+    scopeLogs.filter(_lotEstLoue).forEach(l => {
       const bail = DB.baux[l.ref];
       if(!bail || !bail.debut) return;
       const equipData = (DB.equipements||{})[l.ref] || {};
@@ -31021,7 +31027,7 @@ function _collectIRLRappels() {
   const out = [];
   // v14.47 audit tombstones
   (DB.logements||[]).filter(_isAlive).forEach(l => {
-    if (!l.locataire || !l.debut) return;
+    if (!_lotEstLoue(l) || !l.debut) return;
     const rev = (typeof computeIRLRevision === 'function') ? computeIRLRevision(l) : null;
     if (!rev || !rev.isApplicable || rev.dejaApplique || !rev.diff) return;
     // ⚠️ Recoupe le JOURNAL irlHistorique (source indexée par `ref`, robuste aux DOUBLONS et à la désync
@@ -53299,7 +53305,9 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   const _MO = ['J', 'F', 'M', 'A', 'M', 'J', 'Jt', 'A', 'S', 'O', 'N', 'D'];
   const _MOF = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const CLL = { ok: 'payé', warn: 'partiel', imp: 'en retard', avance: 'payé d\'avance' };
-  const logs = (DB.logements || []).filter(aliveFn).filter(l => l.locataire && (!ent || l.entity === ent));
+  // R-0 : le BAIL decide, pas le cache. Un bail repris a l'achat faisait disparaitre le lot de
+  // TOUTE la page Loyers — chips de retard et d'avance comprises.
+  const logs = (DB.logements || []).filter(aliveFn).filter(l => _lotEstLoue(l) && (!ent || l.entity === ent));
   if (!logs.length) {
     return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Aucun logement occupé' + (ent ? ' pour ' + escHtml(ent) : '') + '.</div>', empty: true };
   }

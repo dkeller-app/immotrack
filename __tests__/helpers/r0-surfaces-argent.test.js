@@ -125,16 +125,32 @@ describe('Le total des dépôts détenus (bandeau Pilotage) — surface VIVANTE'
 describe('Aucune surface d’argent VIVANTE ne remet un filtre sur le cache', () => {
   /**
    * Liste des fonctions qui affichent un MONTANT et lisent encore `l.locataire`.
-   * Elle est conçue pour SE VIDER : corriger l'une fait rougir son test, ce qui oblige à la
-   * retirer d'ici. Et rien de nouveau ne peut y entrer sans être remarqué.
+   * Conçue pour SE VIDER : corriger l'une fait rougir son test, ce qui oblige à la retirer
+   * d'ici. Et rien de nouveau ne peut y entrer sans être remarqué.
+   *
+   * Elle est VIDE depuis v15.662 : plus aucune surface d'argent vivante ne décide sur le cache.
+   * Si une ligne réapparaît ici, c'est une régression assumée — pas un oubli.
    */
-  const RESTE_A_FAIRE = ['_lyTousLoyersHtml', '_pilLotLigne', '_computeUnifiedTodo', '_collectIRLRappels'];
+  const RESTE_A_FAIRE = [];
+
+  /** Les surfaces corrigées. Une entrée qui repart au cache fait rougir immédiatement. */
+  const CORRIGEES = [
+    '_v4ComputeLotStatus',   // Accueil téléphone — mettait attendu/reçu à zéro
+    '_pilLotLigne',          // matrice du Pilotage — cellule loyer et filtre « vacant »
+    '_lyTousLoyersHtml',     // page Loyers — chips de retard et d'avance
+    '_computeUnifiedTodo',   // tâches unifiées — révisions IRL et entretien
+    '_collectIRLRappels'     // récap des rappels IRL
+  ];
 
   it('les surfaces DÉJÀ corrigées ne sont pas revenues au cache', () => {
-    for (const nom of ['_v4ComputeLotStatus']) {
+    for (const nom of CORRIGEES) {
       const corps = corpsDe(nom);
       expect(corps, nom + ' introuvable — le test ne teste plus rien').toBeTruthy();
-      expect(codeSeul(corps), nom + ' relit le cache').not.toMatch(/[!(]\s*log\.locataire|[!(]\s*l\.locataire/);
+      // On vise les DÉCISIONS (`!l.locataire`, `filter(l => l.locataire)`), pas l'affichage
+      // d'un nom, qui reste légitime.
+      const code = codeSeul(corps);
+      expect(code, nom + ' décide encore sur le cache').not.toMatch(/!\s*l(?:og)?\.locataire/);
+      expect(code, nom + ' filtre encore sur le cache').not.toMatch(/filter\s*\(\s*l\s*=>\s*l\.locataire(?!\s*\?)/);
     }
   });
 
