@@ -1,6 +1,6 @@
 # Propryo — Backlog actif
 
-## 🚦 CONGÉ — v15.676 (branche `claude/gallant-goldberg-71ca26`) — à intégrer
+## 🚦 CONGÉ — v15.677 (branche `claude/gallant-goldberg-71ca26`) — à intégrer
 
 **Suite directe de DOC-C** (`fix/actes-incomplets`, déjà dans `main`). 4 395 tests verts, 34 mutations toutes rouges, CRLF intact, app lancée sans erreur console.
 
