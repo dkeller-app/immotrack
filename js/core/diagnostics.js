@@ -32,7 +32,8 @@
 
 export function periodeLegale(periode, annee) {
   const a = Number(annee);
-  if (a && a >= 1000) return a < 1949 ? 'Avant 1949' : (a < 1997 ? 'De 1949 à 1997' : 'Après 1997');
+  // Amiante = permis avant le 1er JUILLET 1997 → à la granularité de l'année, 1997 est INCLUS (prudence : jamais sous-appliquer un diagnostic obligatoire). Plomb = avant le 1er janvier 1949 (exact).
+  if (a && a >= 1000) return a < 1949 ? 'Avant 1949' : (a < 1998 ? 'De 1949 à 1997' : 'Après 1997');
   switch (periode) {
     case 'Avant 1949': return 'Avant 1949';
     case 'De 1949 à 1997': return 'De 1949 à 1997';

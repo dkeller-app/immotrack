@@ -21374,7 +21374,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
         ['Numéro de lot copropriété', S(bail.lot||_lbFill.lot||'N/A')],
         ['Type d\'habitat', S(bail.typeHabitat||_lbFill.typeHabitat||'–')],
         ['Régime juridique', S(bail.regimeJuridique||_lbFill._immRegime||'–')],
-        ['Période de construction', S(bail.periodeConstr||_lbFill._immPeriodeConstr||'–')],
+        ['Période de construction', S(_periodeLegale(bail.periodeConstr||_lbFill._immPeriodeConstr||'', 0) || '–')],
         ['Équipements cuisine', S(bail.equipCuisine||_lbFill.equipCuisine||'–')],
         ['Équipements sanitaires', S(bail.equipSanitaires||_lbFill.equipSanitaires||'–')],
         ['Eau chaude sanitaire', S(bail.ecs||_lbFill.ecsLabel||'–')],
@@ -22547,7 +22547,7 @@ function previewBailData(bail, log, ref, opts) {
     +'<tr><td>Adresse compl\u00e8te</td><td>'+adrBien+(etage&&etage!=='\u2013'?' \u2014 '+etage:'')+'</td></tr>'
     +'<tr><td>Type d\u2019habitat</td><td>'+S(bail.typeHabitat||_lbFill.typeHabitat||'\u2013')+'</td></tr>'
     +'<tr><td>R\u00e9gime juridique</td><td>'+S(bail.regimeJuridique||_lbFill._immRegime||'\u2013')+'</td></tr>'
-    +'<tr><td>P\u00e9riode de construction</td><td>'+S(bail.periodeConstr||_lbFill._immPeriodeConstr||'\u2013')+'</td></tr>'
+    +'<tr><td>P\u00e9riode de construction</td><td>'+S(_periodeLegale(bail.periodeConstr||_lbFill._immPeriodeConstr||'', 0) || '\u2013')+'</td></tr>'
     +'<tr><td>N\u00b0 identifiant fiscal</td><td>'+fmtNumFiscal(bail.numFiscal||_lbFill.numFiscal)+'</td></tr>'
     +'<tr><td>Surface habitable (loi Boutin)</td><td><strong>'+surf+'\u00a0m\u00b2</strong></td></tr>'
     +'<tr><td>Pi\u00e8ces principales</td><td>'+npp+' \u2014 '+S(bail.piecesDesc||_lbFill.piecesDesc||'\u2013')+'</td></tr>'
@@ -25283,7 +25283,7 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     // Décret 2015-587 — nouveaux champs
     'TYPE_HABITAT': S(bail.typeHabitat||_lbFill.typeHabitat||'–'),
     'REGIME_JURIDIQUE': S(bail.regimeJuridique||_lbFill._immRegime||'–'),
-    'PERIODE_CONSTR': S(bail.periodeConstr||_lbFill._immPeriodeConstr||'–'),
+    'PERIODE_CONSTR': S(_periodeLegale(bail.periodeConstr||_lbFill._immPeriodeConstr||'', 0) || '–'),
     'EQUIP_CUISINE': S(bail.equipCuisine||_lbFill.equipCuisine||'–'),
     'EQUIP_SANITAIRES': S(bail.equipSanitaires||_lbFill.equipSanitaires||'–'),
     'ECS': S(bail.ecs||_lbFill.ecsLabel||'–'),
@@ -42463,7 +42463,8 @@ function _renderLogFichePanelConformite(log, ref) {
 //   Avant 1949 → plomb + amiante · De 1949 à 1997 → amiante · Après 1997 → aucun des deux.
 function _periodeLegale(periode, annee){
   const a = Number(annee);
-  if (a && a >= 1000) return a < 1949 ? 'Avant 1949' : (a < 1997 ? 'De 1949 à 1997' : 'Après 1997');
+  // Amiante = permis avant le 1er JUILLET 1997 → 1997 INCLUS à la granularité année (prudence). Plomb = avant 1949 (exact).
+  if (a && a >= 1000) return a < 1949 ? 'Avant 1949' : (a < 1998 ? 'De 1949 à 1997' : 'Après 1997');
   switch (periode) {
     case 'Avant 1949': return 'Avant 1949';
     case 'De 1949 à 1997': return 'De 1949 à 1997';
@@ -48583,8 +48584,8 @@ function _logDiagCommitToLog(log) {
   // 2) Contexte auto-détection
   const ctx = _logDiagDraft.ctx;
   const _num = v => { const n = parseInt(v,10); return Number.isFinite(n) && n>0 ? n : null; };
-  log.anneeConstruction     = _num(ctx.anneeConstruction);   // legacy conservé (repli)
   log.periodeConstr         = ctx.periodeConstr || log.periodeConstr || '';   // pilote plomb/amiante
+  log.anneeConstruction     = log.periodeConstr ? 0 : _num(ctx.anneeConstruction);   // année legacy purgée si période choisie (audit #2)
   log.installationGazAnnee  = _num(ctx.installationGazAnnee);
   log.installationElecAnnee = _num(ctx.installationElecAnnee);
   log.zoneRisques  = !!ctx.zoneRisques;
@@ -50161,7 +50162,9 @@ function saveImm() {
     adr: (el('imm-adr').value || '').trim(),                    // rue uniquement désormais
     codePostal: (el('imm-codePostal').value || '').trim(),
     ville: (el('imm-ville').value || '').trim(),
-    annee: existingIm?.annee || 0,   // legacy conservé (repli diagnostics) ; plus de champ de saisie
+    // Année legacy PURGÉE dès qu'une période est enregistrée → la période choisie devient autoritaire
+    // (sinon une année invisible réécraserait le choix de l'utilisateur, cf audit #2). Conservée seulement si aucune période.
+    annee: el('imm-periodeConstr').value ? 0 : (existingIm?.annee || 0),
     periodeConstr: el('imm-periodeConstr').value,
     regimeJuridique: el('imm-regimeJuridique').value,
     typeHabitat: (el('imm-typeHabitat') ? el('imm-typeHabitat').value : (existingIm?.typeHabitat || '')),   // v15.249 B3

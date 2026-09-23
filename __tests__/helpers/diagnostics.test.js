@@ -14,7 +14,8 @@ describe('periodeLegale — normalisation en 3 tranches légales', () => {
     expect(periodeLegale('', 1930)).toBe('Avant 1949');
     expect(periodeLegale('', 1949)).toBe('De 1949 à 1997');
     expect(periodeLegale('', 1996)).toBe('De 1949 à 1997');
-    expect(periodeLegale('', 1997)).toBe('Après 1997');
+    expect(periodeLegale('', 1997)).toBe('De 1949 à 1997'); // amiante = avant 1er juillet 1997 → 1997 inclus (prudence)
+    expect(periodeLegale('', 1998)).toBe('Après 1997');
     expect(periodeLegale('', 2010)).toBe('Après 1997');
   });
   it('anciens buckets → tranche légale (sans année)', () => {
