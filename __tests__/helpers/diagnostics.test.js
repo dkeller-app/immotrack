@@ -6,8 +6,39 @@ import { describe, it, expect } from 'vitest';
 import {
   DIAGS_CATALOG, DIAGS_KEYS, _diagCatalogEntry, _diagGet,
   _estDiagApplicable, _diagDateExpiration, _estDiagExpire,
-  _diagStatut, _ddtComplet
+  _diagStatut, _ddtComplet, periodeLegale
 } from '../../js/core/diagnostics.js';
+
+describe('periodeLegale — normalisation en 3 tranches légales', () => {
+  it('année exacte → tranche (repli legacy)', () => {
+    expect(periodeLegale('', 1930)).toBe('Avant 1949');
+    expect(periodeLegale('', 1949)).toBe('De 1949 à 1997');
+    expect(periodeLegale('', 1996)).toBe('De 1949 à 1997');
+    expect(periodeLegale('', 1997)).toBe('De 1949 à 1997'); // amiante = avant 1er juillet 1997 → 1997 inclus (prudence)
+    expect(periodeLegale('', 1998)).toBe('Après 1997');
+    expect(periodeLegale('', 2010)).toBe('Après 1997');
+  });
+  it('anciens buckets → tranche légale (sans année)', () => {
+    expect(periodeLegale('Avant 1949', 0)).toBe('Avant 1949');
+    expect(periodeLegale('De 1949 à 1974', 0)).toBe('De 1949 à 1997');
+    expect(periodeLegale('De 1975 à 1989', 0)).toBe('De 1949 à 1997');
+    expect(periodeLegale('De 1990 à 2005', 0)).toBe('De 1949 à 1997'); // prudence : amiante possible
+    expect(periodeLegale('Depuis 2005', 0)).toBe('Après 1997');
+  });
+  it('nouvelles valeurs passent inchangées (idempotent)', () => {
+    expect(periodeLegale('Avant 1949', 0)).toBe('Avant 1949');
+    expect(periodeLegale('De 1949 à 1997', 0)).toBe('De 1949 à 1997');
+    expect(periodeLegale('Après 1997', 0)).toBe('Après 1997');
+  });
+  it('année prime sur un ancien bucket ambigu (1990-2005 + année 2000 → Après 1997)', () => {
+    expect(periodeLegale('De 1990 à 2005', 2000)).toBe('Après 1997');
+    expect(periodeLegale('De 1990 à 2005', 1995)).toBe('De 1949 à 1997');
+  });
+  it('rien → vide (indéterminé)', () => {
+    expect(periodeLegale('', 0)).toBe('');
+    expect(periodeLegale(undefined, undefined)).toBe('');
+  });
+});
 
 describe('DIAGS_CATALOG — structure', () => {
   it('contient les 9 diagnostics légaux', () => {
@@ -66,14 +97,21 @@ describe('_estDiagApplicable — auto-détection par contexte logement', () => {
     expect(_estDiagApplicable('dpe', {})).toBe(true);
     expect(_estDiagApplicable('dpe', { anneeConstruction: 2020 })).toBe(true);
   });
-  it('CREP : applicable si construit avant 1949', () => {
-    expect(_estDiagApplicable('crep', { anneeConstruction: 1930 })).toBe(true);
+  it('CREP : applicable si Avant 1949 (période, repli année)', () => {
+    expect(_estDiagApplicable('crep', { periodeConstr: 'Avant 1949' })).toBe(true);
+    expect(_estDiagApplicable('crep', { periodeConstr: 'De 1949 à 1997' })).toBe(false);
+    expect(_estDiagApplicable('crep', { periodeConstr: 'Après 1997' })).toBe(false);
+    expect(_estDiagApplicable('crep', { anneeConstruction: 1930 })).toBe(true);  // repli legacy
     expect(_estDiagApplicable('crep', { anneeConstruction: 1950 })).toBe(false);
     expect(_estDiagApplicable('crep', {})).toBeNull(); // info manquante
   });
-  it('Amiante : applicable si permis avant 1997', () => {
-    expect(_estDiagApplicable('amiante', { anneeConstruction: 1990 })).toBe(true);
+  it('Amiante : applicable si Avant 1949 ou De 1949 à 1997 (période, repli année)', () => {
+    expect(_estDiagApplicable('amiante', { periodeConstr: 'Avant 1949' })).toBe(true);
+    expect(_estDiagApplicable('amiante', { periodeConstr: 'De 1949 à 1997' })).toBe(true);
+    expect(_estDiagApplicable('amiante', { periodeConstr: 'Après 1997' })).toBe(false);
+    expect(_estDiagApplicable('amiante', { anneeConstruction: 1990 })).toBe(true);  // repli legacy
     expect(_estDiagApplicable('amiante', { anneeConstruction: 2000 })).toBe(false);
+    expect(_estDiagApplicable('amiante', {})).toBeNull();
   });
   it('Gaz : applicable si installation > 15 ans', () => {
     const yearOld = new Date().getFullYear() - 20;
