@@ -1,5 +1,42 @@
 # Propryo — Backlog actif
 
+## 🚦 ÉTAT AU 23/09 — série R-0 (« Finances fait foi »)
+
+**PROD = v15.668** (`e6430d9`). 4 302 tests verts, CRLF intact, miroirs à jour, app lancée sans erreur console.
+
+### ✅ Parti en production aujourd'hui — 12 commits, v15.657 → v15.668
+| Sujet | Le défaut d'argent, mesuré dans l'app |
+|---|---|
+| **R0-B / R0-E** | L'Accueil cachait **8 100 € d'impayé** (filtre sur le cache `l.locataire`) ; la tacite reconduction créait une vacance fictive |
+| **R0-A** | La carte Occupation et son drill donnaient deux taux ; trois définitions de l'occupation coexistaient |
+| **R-0 cache** | Six surfaces d'argent décidaient sur `l.locataire` — un **bail repris à l'achat** (art. 1743, pas de nom sur la fiche) sortait vacant et son loyer disparaîssait |
+| **R0-F** | Accueil **téléphone 900 €** là où le **PC affichait 1 150 €** — l'indemnité GLI (ligne 213) était structurellement invisible |
+| **R0-G** | La fiche d'un lot classait l'argent au **libellé** (`/loyer/i`) : restituer 1 500 € de dépôt faisait chuter le « Solde » d'autant. Solde 3 400 € → **7 000 €** |
+| **Signe** | Un loyer **rendu** au locataire s'évaporait : 10 800 € encaissés moins 900 € restitués affichaient 10 800 € |
+| **Silence** | Une catégorie non rattachée disparaissait des deux totaux sans rien dire — « Solde net 0 € » avec des mouvements plein le compte |
+
+**Lecteurs uniques créés** (à réutiliser, ne pas recopier) : `_lotEstLoue` · `_dgDuLot` · `_finLotCatRole` / `_finLotEstLoyer` / `_finLotEstCharge` · `_finLotNet` · `_lotCcQuotePartMois`.
+
+### ⏳ Smokes dus par Didier
+- **Import bancaire 2 comptes** : relevé A puis relevé B avec une opération de même date/montant/libellé → ne doit PAS être écartée.
+- **Document 2 pages imprimé depuis l'iPhone** (DOC-3, iframe sandboxée).
+- **Congé pour vente sans prix** → doit refuser en citant l'art. 15-II.
+- **Fiche d'un lot** : le « Solde net » et la somme des 12 barres du graphe juste dessous doivent être égaux.
+
+### 🔴 Reste de la série R-0
+- **R0-H** — bilan annuel : `manqueAGagner = loyer d'AUJOURD'HUI × jours vides PASSÉS` (`legal-bilan.js:71,84`). C'est l'infraction **I-1** que le CDC déclare supprimée.
+- **R0-J** — onglet Loyers : deux réponses au « suis-je payé ? » sur la **même ligne**.
+- **Trois sites résiduels sur le cache** : documents rattachés à un lot dans « À regarder » (contredit la matrice depuis v15.661), pastille IRL de la fiche lot, compteurs de la barre latérale.
+- **R0-I est PÉRIMÉ** : le rapport décrit « des euros faux dans la sidebar ». Le montant n'est plus affiché — il ne sert qu'à **trier** les pastilles d'entités. Rien à corriger à l'écran.
+
+### 🔑 Leçons de la série — trois passages d'audit, trois défauts à MOI
+- **Un audit par lot, systématiquement.** Chacun des trois a trouvé un défaut réel dans le lot précédent, dont **un défaut d'argent que le lot prétendait fermer**.
+- **Un test qui recopie une donnée de référence prouve la copie, pas la donnée.** Mon fixture recopiait `STD_CATEGORIES` avec une catégorie inventée : il a « prouvé » une croyance fausse, reprise dans un message de commit. Les tests **lisent** le référentiel dans `index.html`.
+- **Écrire le correctif ne suffit pas : il faut la mutation.** Sur sept correctifs d'un lot, **trois** passaient au travers des tests existants.
+- **`months[].encaisse` est le cash DATÉ du mois**, pas l'allocation. Le reste dû se lit sur `loyerRetard` + `chargeRetard`.
+
+---
+
 ## 🚦 ÉTAT AU 22/09 — journée « audit global »
 
 **PROD = v15.649** (`14c1759`). Rapport de référence : `mockups/AUDIT-GLOBAL/RAPPORT.md` (local, gitignoré).
