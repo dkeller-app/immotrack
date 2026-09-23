@@ -42672,6 +42672,8 @@ function _logDiagEnsureCSS() {
     /* v15.240 B2 v2-c2 — pré-remplissage « suggéré · à vérifier » */
     .inp.logdiag-sg{background:var(--warn-soft);border-color:var(--warn)}
     .inp.logdiag-ad{background:var(--pos-soft);border-color:var(--pos)}
+    /* Période de construction dérivée de l'année = verrouillée. Rendu propre en clair ET sombre (opacité, pas de couleur en dur). */
+    #imm-periodeConstr:disabled{opacity:.55;cursor:not-allowed}
     .logdiag-tbl tr.logdiag-sg-row>td{background:var(--warn-soft)}
     .logdiag-sg-cell{display:flex;flex-direction:column;gap:4px}
     .logdiag-sg-val{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
