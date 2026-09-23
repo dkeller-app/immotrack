@@ -64,8 +64,7 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
     // Détecter période de vacance (bail courant + historiques de cette année)
     const bailCourant = (db.baux && db.baux[l.ref] && isAlive(db.baux[l.ref])) ? db.baux[l.ref] : null;
     const histsForRef = (db.baux_historique || []).filter(b => isAlive(b) && b.ref === l.ref);
-    const allBails = [...(bailCourant ? [bailCourant] : []), ...histsForRef];
-    const occDays = _calcOccDays(allBails, from, occTo);
+    const occDays = _calcOccDays(bailCourant, histsForRef, from, occTo);
     const totalDays = _daysBetween(from, occTo);
     const vacanceDays = totalDays - occDays;
     const loyerMensuelMoyen = bailCourant ? Number(bailCourant.hc || 0) : (histsForRef.length ? Number(histsForRef[histsForRef.length-1].hc || 0) : 0);
@@ -146,13 +145,18 @@ export function _computeOccupationLots(db, lots, opts) {
     nb++;
     const bailCourant = (db && db.baux && db.baux[l.ref] && isAlive(db.baux[l.ref])) ? db.baux[l.ref] : null;
     const hists = ((db && db.baux_historique) || []).filter((b) => isAlive(b) && b.ref === l.ref);
-    const allBails = [...(bailCourant ? [bailCourant] : []), ...hists];
-    const occDays = _calcOccDays(allBails, from, to);
+    const occDays = _calcOccDays(bailCourant, hists, from, to);
     const totalDays = _daysBetween(from, to);
     const vac = Math.max(0, totalDays - occDays);
     occ += occDays; louable += totalDays;
     manque += (vac / 30.44) * (Number(l.loyerHcRef) || Number(l.hc) || 0);
-    if (!bailCourant && !l.locataire) {
+    // R0-B — la vacance se lit sur le BAIL, pas sur `l.locataire`. Ce champ n'est qu'un cache
+    // dénormalisé, resynchronisé au démarrage et seulement SI le bail porte un nom : un bail
+    // repris à l'achat ou une saisie en cours le laissent vide. Un lot loué apparaissait alors
+    // dans la liste des vacants — et un lot réellement vide, dont le cache gardait l'ancien
+    // locataire, n'y apparaissait pas. Un bail clôturé mais encore présent ne loue plus rien.
+    const loue = !!bailCourant && !bailCourant.cloture && !bailCourant.finEffective;
+    if (!loue) {
       const fins = hists.map((b) => b.finEffective || b.fin).filter(Boolean).sort();
       vacantsJour.push({ ref: l.ref, depuis: fins.length ? fins[fins.length - 1] : null });
     }
@@ -166,18 +170,32 @@ export function _computeOccupationLots(db, lots, opts) {
 
 /** Calcule le nombre de jours d'occupation d'un logement pour la période donnée.
  *  Utilise T00:00:00 partout + `+1` pour inclure début ET fin (cohérent avec _daysBetween). */
-function _calcOccDays(bails, from, to) {
+function _calcOccDays(bailCourant, hists, from, to) {
   const fromTs = new Date(from + 'T00:00:00').getTime();
   const toTs = new Date(to + 'T00:00:00').getTime();
   let total = 0;
-  bails.forEach(b => {
-    if (!b.debut) return;
+  // R0-E — Un bail n'est PAS terminé parce que sa date de fin est passée : un bail nu non
+  // dénoncé se reconduit tacitement, le locataire est là et le loyer est dû. Seule la CLÔTURE
+  // termine un bail. C'est déjà la règle de `_bienActiveBail` (index.html) depuis v15.343 ;
+  // ce moteur-ci ne la suivait pas, et voyait donc « vacant » le cas le plus courant du parc —
+  // taux d'occupation sous-évalué, manque à gagner inventé, et part bailleur des charges
+  // surévaluée (la clé P-4 bascule sur `loyerHcRef` dès qu'un mois est vu sans bail).
+  //
+  // Les baux d'HISTORIQUE, eux, sont terminés par construction : on les borne toujours, sans
+  // se fier à leurs drapeaux (une entrée legacy sans `cloture` ni `finEffective` ferait sinon
+  // courir un bail archivé jusqu'à la fin de la période — l'erreur symétrique, et pire).
+  const compte = (b, force) => {
+    if (!b || !b.debut) return;
+    const finIso = b.finEffective || b.fin || b._archivedAt || null;
+    const termine = force || !!(b.cloture || b.finEffective);
     const bStart = new Date(b.debut + 'T00:00:00').getTime();
-    const bEnd = b.fin ? new Date((b.finEffective || b.fin) + 'T00:00:00').getTime() : toTs;
+    const bEnd = (termine && finIso) ? new Date(finIso + 'T00:00:00').getTime() : toTs;
     const start = Math.max(bStart, fromTs);
     const end = Math.min(bEnd, toTs);
     if (end >= start) total += Math.round((end - start) / 86400000) + 1;
-  });
+  };
+  compte(bailCourant, false);
+  (hists || []).forEach((b) => compte(b, true));
   // Clip à la durée totale de la période (cas rare : si plusieurs baux se chevauchent)
   const maxDays = _daysBetween(from, to);
   return Math.min(total, maxDays);
