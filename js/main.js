@@ -390,17 +390,29 @@ window._catLigne2044 = (cat) => _catLigne2044(cat, _catCtxApp());
 window._isLoyerCategory = (cat) => _isLoyerCategory(cat, _catCtxApp());
 window._isChargeRecupCategory = (cat) => _isChargeRecupCategory(cat, _catCtxApp());
 window._bailEstActifAt = _bailEstActifAt;
+// ⚠️ LE MIROIR N'EST PAS LE DB. `index.html:4570` déclare `let DB = {}` : une liaison LEXICALE,
+// qui n'est PAS une propriété de `window`. `window.DB` n'est posé que par `__immoSetDB` (chemin
+// cloud, APRÈS hydratation) et RIEN ne le rafraîchit quand `DB` est réassigné (`index.html:5821`
+// remise à zéro, `59053` import/restauration, `60236` adoption cross-onglet).
+// Lire `window.DB?.irlHistorique` rendait donc [] en session locale / sandbox, et un historique
+// PÉRIMÉ après un import ou une adoption cross-onglet. Avec un historique vide, `_loyerHCAtDate`
+// retombe sur `log.hc` — le loyer COURANT, déjà révisé — pour TOUS les mois antérieurs à la
+// révision : le dû du passé est surévalué, l'app affiche un impayé fantôme. Et le garde-fou
+// « IRL audit » (`index.html:60434`), qui compare `log.hc` à `_loyerHCAtDate(log, aujourd'hui)`,
+// comparait deux fois la même valeur → il ne se déclenchait jamais.
+// `appDbFrom(window)` lit le getter VIVANT (`index.html:4573 window.__immoGetDB = () => DB`)
+// avant de se rabattre sur le miroir. C'est le même geste que R0-D, sur un autre domaine.
 // _loyerHCAtDate : signature module = (log, dateRef, irlHistorique). On wrappe
-// pour que window._loyerHCAtDate(log, dateRef) consomme DB.irlHistorique global
+// pour que window._loyerHCAtDate(log, dateRef) consomme l'historique IRL du DB vivant
 // (compat avec le code inline qui appelle sans le 3e arg).
-window._loyerHCAtDate = (log, dateRef) => _loyerHCAtDate(log, dateRef, window.DB?.irlHistorique || []);
+window._loyerHCAtDate = (log, dateRef) => _loyerHCAtDate(log, dateRef, appDbFrom(window)?.irlHistorique || []);
 window._chargesAtDate = _chargesAtDate;
 // v15.19 Phase A1 BUG-PRORATA-DASH : prorata jours intra-mois
 window._loyerProrataMois = (log, yr, mi, bails) =>
-  _loyerProrataMois(log, yr, mi, bails, window.DB?.irlHistorique || []);
+  _loyerProrataMois(log, yr, mi, bails, appDbFrom(window)?.irlHistorique || []);
 // Split {hc, ch} proraté (même signature, irlHistorique consommé) — source du dû pour la cascade d'imputation.
 window._loyerProrataMoisSplit = (log, yr, mi, bails) =>
-  _loyerProrataMoisSplit(log, yr, mi, bails, window.DB?.irlHistorique || []);
+  _loyerProrataMoisSplit(log, yr, mi, bails, appDbFrom(window)?.irlHistorique || []);
 
 // IndexedDB helpers (Phase 1b)
 window._IDB_NAME = _IDB_NAME;
@@ -498,7 +510,11 @@ window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
 window.duMois = duMois;
 window.duMoisFromRaw = duMoisFromRaw;
 window.bailsFromRaw = bailsFromRaw;
-window._baremeOfLot = (ref) => _baremeOfLot(window.DB?.loyerBareme || [], ref);
+// Même piège que l'historique IRL ci-dessus (le miroir rendait []), mais AUCUN impact aujourd'hui :
+// ce câblage n'a pas de consommateur. Le seul appelant de `_baremeOfLot` est `loyer-du-mois.js`
+// (L78/151/210), qui passe son propre barème. On le corrige quand même — il est exposé, donc il
+// sera appelé un jour, et il aurait menti en silence.
+window._baremeOfLot = (ref) => _baremeOfLot(appDbFrom(window)?.loyerBareme || [], ref);
 window._loyerPeriodeEnVigueurA = periodeEnVigueurA;
 window._loyerProvisionPourRevision = provisionPourRevision;
 window._debutSuivi = _debutSuivi;
@@ -553,7 +569,12 @@ window._logEvent = _logEvent;
 window._exportMonitoringLogs = _exportMonitoringLogs;
 window._clearMonitoringLogs = _clearMonitoringLogs;
 // Install global capture si user opt-in (DB.params.monitoringEnabled)
-if (window.DB?.params?.monitoringEnabled === true) {
+// ⚠️ Ce test est évalué au CHARGEMENT du module, donc AVANT `initDB()` (appelé au
+// DOMContentLoaded, `index.html:60501`) : à cet instant `DB` vaut encore `{}`. Lire le DB vivant
+// corrige le mécanisme (plus de miroir), pas le moment : la capture ne s'installe que pour un DB
+// déjà peuplé. Aucun écran ne permet aujourd'hui d'activer `monitoringEnabled` — déplacer ce
+// gating après l'hydratation est un chantier à part (il changerait QUAND la capture démarre).
+if (appDbFrom(window)?.params?.monitoringEnabled === true) {
   _installGlobalCapture();
 }
 

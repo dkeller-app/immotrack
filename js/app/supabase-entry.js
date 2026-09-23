@@ -19,6 +19,9 @@ import { planFlush, FLUSH_DEBOUNCE_MS } from '../core/sync-schedule.js'
 // d'une même clé de stockage finissent toujours par diverger.
 import { MIROIR_KEY as MIRROR_KEY } from '../core/offline-boot.js'
 import { makeDetUuid } from '../core/det-uuid.js'   // P0-4 : id d'audit DÉTERMINISTE (anti-doublons, DRY)
+// LE lecteur du DB vivant (getter d'abord, repli sur le miroir, try/catch). Ce fichier portait déjà
+// le bon geste à la main ; on appelle le helper testé plutôt que d'en garder deux copies.
+import { appDbFrom } from '../core/utils.js'
 
 const FLAG = (() => {
   try {
@@ -63,7 +66,7 @@ let _auditCloudBusy = false
 async function _auditCloudFlush() {
   if (_auditCloudBusy || !_supaClient || !_cloudEspaceId) return
   // DB VIVANT via getter (window.DB est un miroir qui peut être périmé après réassignation du let DB).
-  const _db = (typeof window.__immoGetDB === 'function') ? window.__immoGetDB() : window.DB
+  const _db = appDbFrom(window)
   const trail = (_db && Array.isArray(_db.auditTrail)) ? _db.auditTrail : null
   if (!trail) return
   const pending = trail.filter(e => e && !e._syncedAt)
@@ -321,7 +324,18 @@ async function boot() {
     // légales (règle « pas d'auto-suppression »). Le rattrapage _drvUploadPendingAttachments (rebranché
     // post-hydratation, P1.3) fait fondre ce reliquat → la purge deviendra effective d'elle-même.
     try {
-      const dbNow = window.DB   // posé par __immoSetDB ; absent = déconnexion avant hydratation → prudence
+      // DEUX questions distinctes, longtemps confondues dans une seule lecture de `window.DB` :
+      //  1. « L'hydratation a-t-elle eu lieu ? » — sinon on ne purge RIEN (les binaires de l'état
+      //     pré-login ne prouvent rien). Le miroir répondait par accident, parce que seul
+      //     `__immoSetDB` le pose. `_liveDBRef` répond exprès : il n'est affecté qu'après un
+      //     `__immoSetDB` réussi (L1197 et L1372). `appDbFrom`, lui, répond TOUJOURS un objet
+      //     (`index.html:4573` rend le `let DB`, au pire `{}`) : l'utiliser seul supprimerait la
+      //     garde, et `listIdbOnlyBinaries({})` rendrait `[]` → on effacerait les photos.
+      //  2. « Quel est l'état à inspecter ? » — le DB VIVANT, pas le miroir : `window.DB` n'est pas
+      //     rafraîchi quand `DB` est réassigné (import, restauration, adoption cross-onglet), et
+      //     compter les binaires « idb-only » sur un état périmé peut rendre 0 alors que le vivant
+      //     en a → on détruirait la SEULE copie restante (preuves légales).
+      const dbNow = _liveDBRef ? appDbFrom(window) : null
       if (keepPhotos) console.info('[Supabase] purge espace : IndexedDB photos CONSERVÉE (seule copie restante, Storage inaccessible)')
       else if (dbNow && _cachePurge) {
         const leftovers = _cachePurge.listIdbOnlyBinaries(dbNow)

@@ -17,7 +17,10 @@
  * Mode V2 SaaS (envoi auto via SendGrid/Postmark) — hors scope V1.
  */
 
-import { escHtml } from './utils.js';
+// `appDbFrom` : le lecteur du DB VIVANT (getter `window.__immoGetDB`, repli sur le miroir
+// `window.DB`) — jamais `window.DB` nu, qui est absent en session locale et périmé après
+// réassignation de `DB`.
+import { escHtml, appDbFrom } from './utils.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Templates inline (V1) — un par type. Variables interpolées : {{path.to.value}}
@@ -990,7 +993,7 @@ export function _emailCompose(type, context = {}, opts = {}) {
  * limiter la rétention des données personnelles). Persiste uniquement les
  * métadonnées : type, destinataires, sujet, date, statut, entité liée.
  *
- * Side-effect : si window.DB existe (prod), append + window.saveDB() si dispo.
+ * Side-effect : si le DB vivant existe (prod), append + window.saveDB() si dispo.
  * En tests sans DB, retourne juste l'entry construite (pas de persistance).
  *
  * @param {string} entityType - 'logement' | 'bail' | 'entite' | 'quittance' | etc.
@@ -1012,10 +1015,17 @@ export function _logEmailSent(entityType, entityId, emailData) {
     entityId: entityId || ''
   };
 
-  // Persistance en prod (window.DB existe).
-  if (typeof window !== 'undefined' && window.DB) {
-    if (!Array.isArray(window.DB.emailsSent)) window.DB.emailsSent = [];
-    window.DB.emailsSent.push(entry);
+  // Persistance dans le DB VIVANT. Avant : `window.DB`, un simple MIROIR posé par `__immoSetDB`
+  // (chemin cloud, post-hydratation). Deux dégâts distincts :
+  //  · session locale / sandbox — le miroir est `undefined`, tout le bloc était sauté :
+  //    l'historique d'envoi n'était jamais écrit (et `saveDB()` pas même appelé) ;
+  //  · cloud après réassignation de `DB` (import, restauration, adoption cross-onglet) — le miroir
+  //    est périmé : l'entrée partait dans un objet mort, et le `saveDB()` qui suit persistait
+  //    le DB vivant, donc un état SANS l'entrée.
+  const _db = (typeof window !== 'undefined') ? appDbFrom(window) : null;
+  if (_db) {
+    if (!Array.isArray(_db.emailsSent)) _db.emailsSent = [];
+    _db.emailsSent.push(entry);
     if (typeof window.saveDB === 'function') {
       try { window.saveDB(); } catch (_) { /* silent — saveDB peut être bloqué en mode read-only */ }
     }
@@ -1030,15 +1040,16 @@ export function _logEmailSent(entityType, entityId, emailData) {
  *
  * @param {string} [entityType]
  * @param {string} [entityId]
- * @param {Array} [emailsSent] - Liste à filtrer (par défaut window.DB.emailsSent ou [])
+ * @param {Array} [emailsSent] - Liste à filtrer (par défaut DB.emailsSent du DB vivant, ou [])
  * @returns {Array}
  */
 export function _getEmailHistory(entityType, entityId, emailsSent) {
   let list;
+  const _db = (typeof window !== 'undefined') ? appDbFrom(window) : null;   // DB vivant, pas le miroir
   if (Array.isArray(emailsSent)) {
     list = emailsSent;
-  } else if (typeof window !== 'undefined' && window.DB && Array.isArray(window.DB.emailsSent)) {
-    list = window.DB.emailsSent;
+  } else if (_db && Array.isArray(_db.emailsSent)) {
+    list = _db.emailsSent;
   } else {
     list = [];
   }

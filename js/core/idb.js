@@ -14,7 +14,13 @@
 export const _IDB_NAME = 'immotrack_photos';
 export const _IDB_STORE = 'photos';
 
-/** Cache mémoire dataURL — partagé entre l'inline et ce module via window._photoCache. */
+/** Cache mémoire dataURL, PROPRE à ce module.
+ *  ⚠️ Le partage annoncé avec l'inline n'a jamais existé : `index.html:31685` déclare
+ *  `let _photoCache = {}`, une liaison LEXICALE qui n'est PAS une propriété de `window`, et rien
+ *  ne pose `window._photoCache`. La lecture ci-dessous rend donc toujours `{}` — même piège que
+ *  `window.DB` (cf. `appDbFrom`, js/core/utils.js). Sans conséquence aujourd'hui : cet export
+ *  n'est importé nulle part. On garde la lecture (elle marchera si l'inline expose un jour son
+ *  cache) mais on cesse d'affirmer un partage qui n'a pas lieu. */
 export const _photoCache = (typeof window !== 'undefined' && window._photoCache) || {};
 
 /** Ouvre (ou crée) la DB et retourne l'instance IDBDatabase. */

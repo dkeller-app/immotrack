@@ -22,6 +22,8 @@
 // On RÉUTILISE celui du module edl-parcours (jamais une seconde copie du choix) : le
 // délai de restitution doit lire le plus récent de la fenêtre du bail, pas le premier.
 import { edlSortieQuiFaitFoi } from './edl-parcours.js';
+// Le lecteur du DB VIVANT (getter `window.__immoGetDB`, repli sur le miroir) — jamais `window.DB` nu.
+import { appDbFrom } from './utils.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Bloc A — Gestion DG
@@ -88,11 +90,14 @@ export function _calculerDelaiRestitution(bail, edls) {
   if (Number(bail.dgRetenu) > 0) return 2;
   // Si l'EDL sortie a des dégradations comparées à entrée → 2 mois.
   // P9 : le plus récent de la fenêtre du bail (résolveur unique), pas le premier trouvé.
-  // Repli sur window.DB.edl quand l'appelant ne passe pas la collection — SANS lui, cette
+  // Repli sur DB.edl quand l'appelant ne passe pas la collection — SANS lui, cette
   // copie (qui fait autorité au runtime via main.js) recevait `edls=undefined` → résolveur
   // null → la branche « dégradation → 2 mois » restait MORTE en prod. La copie inline avait
-  // déjà `edls || DB.edl` ; on aligne, comme audit-trail.js / email-compose.js lisent window.DB.
-  const sourceEdls = edls || ((typeof window !== 'undefined' && window.DB && window.DB.edl) || []);
+  // déjà `edls || DB.edl` ; on aligne.
+  // ⚠️ Ce repli lisait `window.DB`, qui n'est qu'un MIROIR (posé par `__immoSetDB`, absent en
+  // session locale / sandbox, périmé après réassignation de `DB`) : la branche restait morte,
+  // exactement comme avant son « correctif ». `appDbFrom` lit le getter vivant.
+  const sourceEdls = edls || (appDbFrom(typeof window !== 'undefined' ? window : null)?.edl) || [];
   const edlSortie = edlSortieQuiFaitFoi(bail, sourceEdls);
   if (edlSortie) {
     const hasDegradation = (edlSortie.pieces||[]).some(p =>

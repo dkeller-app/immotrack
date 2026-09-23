@@ -17,6 +17,18 @@
  * pourra être ajouté explicitement le moment venu.
  */
 
+// Le lecteur du DB VIVANT (getter `window.__immoGetDB`, repli sur le miroir) — jamais `window.DB`
+// nu : ce miroir est absent en session locale / sandbox et périmé après réassignation de `DB`.
+// Correction de MÉCANISME, pas de symptôme observé : `params.monitoringEnabled` n'est écrit NULLE
+// PART dans le dépôt (trois sites le lisent, aucun ne l'active), donc ce module ne journalise rien
+// aujourd'hui. Le jour où un écran l'activera, il écrira dans le bon état.
+import { appDbFrom } from './utils.js';
+
+/** Le DB vivant de l'app, ou null. */
+function _db() {
+  return appDbFrom(typeof window !== 'undefined' ? window : null);
+}
+
 /** Hash léger (FNV-1a) pour anonymiser userAgent / pathname. */
 function _hashFNV(s) {
   let h = 0x811c9dc5;
@@ -30,7 +42,7 @@ function _hashFNV(s) {
 /** Capture une erreur dans le buffer monitoring. */
 export function _logError(error, context = {}) {
   if (typeof window === 'undefined') return null;
-  const db = window.DB;
+  const db = _db();
   if (!db || !db.params || db.params.monitoringEnabled !== true) return null;
 
   // navigator/location optionnels (peuvent être absents en Node test)
@@ -75,7 +87,7 @@ export function _logError(error, context = {}) {
 /** Compte simple événement (page view, action métier). */
 export function _logEvent(name, properties = {}) {
   if (typeof window === 'undefined') return null;
-  const db = window.DB;
+  const db = _db();
   if (!db || !db.params || db.params.monitoringEnabled !== true) return null;
 
   const pathStr = (typeof location !== 'undefined' && location && location.pathname) ? String(location.pathname) : '';

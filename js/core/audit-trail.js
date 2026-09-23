@@ -37,6 +37,8 @@
 
 /** Crée une nouvelle entrée audit, sans la persister (caller doit push dans DB.auditTrail + saveDB). */
 import { _csvCell } from './export-comptable.js';
+// Le lecteur du DB VIVANT (getter `window.__immoGetDB`, repli sur le miroir) — jamais `window.DB` nu.
+import { appDbFrom } from './utils.js';
 
 export function _auditEntry({ action, entityType, entityId, entityRef, diff, source = 'ui' } = {}) {
   if (!action || !entityType) {
@@ -85,9 +87,17 @@ function _truncate(v) {
   return v;
 }
 
-/** Récupère l'userId actuel (génère + persiste si absent). Source : window.DB.params.userId. */
+/** Le DB VIVANT de l'app. `window.DB` n'est qu'un miroir posé par `__immoSetDB` (cloud,
+ *  post-hydratation) : absent en session locale / sandbox, périmé après réassignation de `DB`.
+ *  Lu tel quel, l'auteur de chaque entrée d'audit retombait sur « anonymous » / « Utilisateur »,
+ *  et l'`userId` généré en repli n'était jamais persisté (il repartait de zéro à chaque appel). */
+function _db() {
+  return appDbFrom(typeof window !== 'undefined' ? window : null);
+}
+
+/** Récupère l'userId actuel (génère + persiste si absent). Source : DB.params.userId. */
 function _getCurrentUserId() {
-  const db = (typeof window !== 'undefined') ? window.DB : null;
+  const db = _db();
   if (!db || !db.params) return 'anonymous';
   if (!db.params.userId) {
     db.params.userId = 'usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
@@ -97,7 +107,7 @@ function _getCurrentUserId() {
 
 /** Récupère le nom utilisateur (DB.params.userName ou 'Utilisateur'). */
 function _getCurrentUserName() {
-  const db = (typeof window !== 'undefined') ? window.DB : null;
+  const db = _db();
   return (db && db.params && db.params.userName) ? String(db.params.userName).trim() : 'Utilisateur';
 }
 
