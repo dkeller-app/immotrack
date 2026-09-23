@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.672</title>
+<title>Propryo v15.673</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.672">
+<link rel="stylesheet" href="css/main.css?v=15.673">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.672</em>
+      <em>v15.673</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.672';
+const IMMOTRACK_VERSION = '15.673';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -13285,6 +13285,27 @@ function _finLotEstCharge(m) { return _finLotCatRole(m && m.cat) === 'charge'; }
 function _finLotNet(m, sens) {
   const cr = Number(m && m.cr) || 0, db = Number(m && m.db) || 0;
   return sens === 'charge' ? (db - cr) : (cr - db);
+}
+
+/**
+ * LE contexte de lecture du loyer d'un lot à une date (`loyerDuLotA`).
+ *
+ * La ref est TOLÉRANTE (trim + minuscule), comme `_getAllBailsForLog` et `_baremeOfLot`.
+ * Les deux appels de la fiche d'un bien filtraient l'historique en STRICT tout en passant
+ * un bail courant résolu de façon tolérante : sur un lot `B12` dont l'historique est
+ * enregistré `b12`, la lecture perdait ses baux et retombait sur le loyer SOUHAITÉ
+ * d'aujourd'hui — 3 490 EUR de manque à gagner au lieu de 2 485 EUR, soit l'infraction I-1
+ * réintroduite par le filtre.
+ */
+function _ctxLoyerLot(ref, lot) {
+  const want = String(ref == null ? '' : ref).trim().toLowerCase();
+  const memeRef = (x) => x && (x.ref === ref || String(x.ref || '').trim().toLowerCase() === want);
+  return {
+    bareme: DB.loyerBareme || [],
+    bailCourant: (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(ref) : (DB.baux || {})[ref],
+    hists: (DB.baux_historique || []).filter(b => b && !b._deleted && memeRef(b)),
+    lot: lot || (DB.logements || []).find(memeRef) || null
+  };
 }
 
 /** Le nom des locataires d'un bail (actif ou archivé). Le cache `log.locataire`, lui, ment. */
@@ -39380,11 +39401,7 @@ function _renderLogFicheHeroStats(log, ref) {
     const lastBail = _getLastBailForLog(ref);
     if(lastEnd && lastBail) {
       const days = _daysBetweenIso(lastEnd, today);
-      const _ld = (typeof loyerDuLotA === 'function')
-        ? loyerDuLotA(lastEnd, ref, { bareme: DB.loyerBareme || [], bailCourant: _findBailByRefTolerant(ref),
-                                      hists: (DB.baux_historique || []).filter(b => b && !b._deleted && b.ref === ref),
-                                      lot: (DB.logements || []).find(l => l.ref === ref) })
-        : null;
+      const _ld = (typeof loyerDuLotA === 'function') ? loyerDuLotA(lastEnd, ref, _ctxLoyerLot(ref)) : null;
       const lastRent = _ld ? (_ld.hc + _ld.ch) : ((+lastBail.hc || 0) + (+lastBail.ch || 0));
       const manque = Math.round(days / 30.44 * lastRent);
       dernierKPI = { v: '-' + fmt(manque), unit: '', label: 'Manque à gagner', cls: 'k-money k-warn' };
@@ -39692,10 +39709,13 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
         // Manque à gagner du mois sur la base du dernier bail antérieur
         // R0-H : le loyer de CE mois-là, lu au barème puis au bail (même lecteur que partout
         // ailleurs). Avant : `prev[prev.length-1]`, le dernier ÉLÉMENT du tableau.
+        // `ms15` est un timestamp LOCAL : `toISOString()` le reconvertit en UTC et rend le 14
+        // sous tout fuseau à offset positif. On formate donc localement, comme `active` le lit.
+        const _d15 = new Date(ms15);
+        const _iso15 = _d15.getFullYear() + '-' + String(_d15.getMonth()+1).padStart(2,'0')
+          + '-' + String(_d15.getDate()).padStart(2,'0');
         const _ld15 = (typeof loyerDuLotA === 'function')
-          ? loyerDuLotA(new Date(ms15).toISOString().slice(0,10), l.ref,
-              { bareme: DB.loyerBareme || [], bailCourant: _findBailByRefTolerant(l.ref),
-                hists: (DB.baux_historique || []).filter(b => b && !b._deleted && b.ref === l.ref), lot: l })
+          ? loyerDuLotA(_iso15, log.ref, _ctxLoyerLot(log.ref, log))
           : null;
         if (_ld15) manqueCumul += _ld15.hc + _ld15.ch;
         else {
