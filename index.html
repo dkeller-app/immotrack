@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.659</title>
+<title>Propryo v15.660</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.659">
+<link rel="stylesheet" href="css/main.css?v=15.660">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.659</em>
+      <em>v15.660</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4237,7 +4237,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.659';
+const IMMOTRACK_VERSION = '15.660';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10689,7 +10689,8 @@ function _renderAccueilPhone(ctx){
     var sY = _v4ComputeLotStatus(l, yr, '', ctx.mvsYTD); encYTD += (sY.recu||0);
   }catch(e){} });
   var dg=0, nbDep=0;
-  logs.forEach(function(l){ if(l && l.locataire){ var b=(typeof _bienActiveBail==='function')?_bienActiveBail(l.ref):null; var d=(b&&+b.dg)||(+l.dg)||0; if(d>0){ dg+=d; nbDep++; } } });
+  // R-0 : la porte d'entree etait `l.locataire` alors que le montant, lui, venait deja du bail.
+  logs.forEach(function(l){ if(_lotEstLoue(l)){ var d=_dgDuLot(l); if(d>0){ dg+=d; nbDep++; } } });
   var fams={total:0,familles:[]}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
   var aReg = fams.total||0, famBy={}; (fams.familles||[]).forEach(function(f){ famBy[f.id]=f; });
   var bits=[];
@@ -10939,8 +10940,10 @@ function _renderPilotage(ctx) {
   } catch (e) {}
   const _cfr = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
   const encaisse = _cfr ? _cfr.recettes : null;
-  const dgTot = scopeLogs.filter(l => l.locataire && (l.dg || 0) > 0).reduce((s, l) => s + (l.dg || 0), 0);
-  const nbDg = scopeLogs.filter(l => l.locataire && (l.dg || 0) > 0).length;
+  // R-0 : lot LOUE selon le bail, et montant du bail en cours (revu a la relocation).
+  const _dgLots = scopeLogs.filter(l => _lotEstLoue(l) && _dgDuLot(l) > 0);
+  const dgTot = _dgLots.reduce((s, l) => s + _dgDuLot(l), 0);
+  const nbDg = _dgLots.length;
   const strip = [
     '<div class="pil-s1"><div class="k">Encaissé · ' + (mo ? _DMF[parseInt(mo) - 1] : yr) + '</div>'
       + '<div class="v">' + (encaisse != null ? fmtN(encaisse) : '—') + '</div>'
@@ -13054,6 +13057,28 @@ function _computeUnifiedTodo(ctx) {
    v15.19 Phase A1 BUG-PRORATA-DASH : utilise _getActiveBailHcChProrated pour
    calculer l'attendu réel (prorata jours intra-mois). Avant fix : (l.hc||0)+(l.ch||0)
    direct depuis le logement → locataire entré mi-mois marqué impayé à tort. */
+/**
+ * CE LOT EST-IL LOUE ? Le BAIL repond, jamais le cache `l.locataire`.
+ *
+ * `_resyncLocatairesFromBaux` ne remplit ce champ que si le bail porte un nom, et la cloture le
+ * VIDE. Un bail repris a l'achat, une saisie en cours, un locataire parti : le cache ment dans
+ * les deux sens. Toute surface qui affiche de l'ARGENT doit passer par ici.
+ */
+function _lotEstLoue(l) {
+  if (!l || !l.ref) return false;
+  return (typeof _bienIsBailActif === 'function') ? _bienIsBailActif(l.ref) : !!l.locataire;
+}
+
+/**
+ * Le DEPOT DE GARANTIE detenu pour ce lot : celui du bail en cours, sinon celui du lot.
+ * Le montant du bail fait foi (il a pu etre revu a la relocation) ; `l.dg` est le repli legacy.
+ */
+function _dgDuLot(l) {
+  if (!l) return 0;
+  const b = (typeof _bienActiveBail === 'function') ? _bienActiveBail(l.ref) : null;
+  return Number((b && b.dg) || l.dg || 0) || 0;
+}
+
 /** Le nom des locataires d'un bail (actif ou archivé). Le cache `log.locataire`, lui, ment. */
 function _nomsDuBail(b) {
   if (!b) return '';
@@ -13523,7 +13548,15 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
   const _occ = DashCtx.occupationKpis(scopeLogs);
   const occupied = _occ.nbOcc;   // NB : ici `occupied` = compte (pas le tableau)
   const nbLogs   = _occ.nbTotal;
-  const objMens  = scopeLogs.filter(l=>l.locataire).reduce((s,l)=>s+(l.hc||0)+(l.ch||0),0);
+  // R-0 : lots LOUES selon le bail, et montant lu au BAREME (`_duMoisLot`), qui est la source
+  // du du dans le temps. `l.hc`/`l.ch` sont les valeurs figees de la fiche : apres une revision
+  // IRL ou un avenant, elles ne sont plus le loyer du mois.
+  const _ymObj = (mo ? (yr + '-' + String(mo).padStart(2, '0'))
+                     : ((typeof window._loyerTodayLocal === 'function' ? window._loyerTodayLocal() : new Date().toISOString().slice(0,10)).slice(0, 7)));
+  const objMens  = scopeLogs.filter(_lotEstLoue).reduce((s,l)=>{
+    const d = (typeof _duMoisLot === 'function') ? _duMoisLot(l.ref, _ymObj) : null;
+    return s + (d ? ((d.hc||0)+(d.ch||0)) : ((l.hc||0)+(l.ch||0)));
+  },0);
   const objAnnuel= scopeLogs.reduce((s,l)=>s+(l.hc||0)+(l.ch||0),0)*12;
 
   // Shorthand pour le bouton "Voir tout" ancré dans .dw-foot
@@ -13902,10 +13935,10 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
   /* ── v2 Phase 3 FINAL — Dépôts de garantie (col 3 row 2, minimaliste)
      Affichage : total + count uniquement. Détail complet via drill-down. ── */
   if(id==='dg') {
-    const dgs = scopeLogs.filter(l => l.locataire && (l.dg||0) > 0).sort((a,b) => (b.dg||0) - (a.dg||0));
+    const dgs = scopeLogs.filter(l => _lotEstLoue(l) && _dgDuLot(l) > 0).sort((a,b) => _dgDuLot(b) - _dgDuLot(a));
     const tot = dgs.reduce((s,l) => s+(l.dg||0), 0);
     _DD['dg'] = {title:'Dépôts de garantie', html:'<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">DG</th></tr></thead><tbody>'
-      + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td style="text-align:right;font-weight:600">'+fmt(l.dg)+'</td></tr>').join('')
+      + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDuLot(l))+'</td></tr>').join('')
       + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+dgs.length+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
     // v15.38 DASH-REFONTE-GLOBALE-V4 CP3 — DG Bloomberg : eyebrow + valeur + count
     const body = '<button type="button" class="dw-kpi-click bb-card" '
@@ -14330,7 +14363,9 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
     // Calcul par immeuble
     const rows = Object.entries(logsByImm).map(([immNom, iL]) => {
       const refs = iL.map(l => l.ref);
-      const provTh = iL.filter(l => l.locataire).reduce((s,l) => s+(l.ch||0), 0) * nbMois;
+      // R-0 : lots LOUES selon le bail. Un lot loue au cache vide sortait du total, et la
+      // regularisation comparait alors des charges reelles a des provisions amputees.
+      const provTh = iL.filter(_lotEstLoue).reduce((s,l) => s+(l.ch||0), 0) * nbMois;
       const chargesR = mvsYTD
         .filter(m => m.db > 0 && inclCh.has(m.cat) && (refs.includes(m.qui) || m.imm === immNom))
         .reduce((s,m) => s+(m.db||0), 0);
@@ -18623,7 +18658,8 @@ function rBaux() {
 // Git history conserve le code si besoin de revenir : commit 4c5ae48 v15.221.
 
 function getBailStatus(l) {
-  if(!l.locataire) return {badge:`<span class="badge gry">Vacant</span>`};
+  // Le badge suit le BAIL : un bail repris sans nom affichait « Vacant » sur un lot loue.
+  if(!_lotEstLoue(l)) return {badge:`<span class="badge gry">Vacant</span>`};
   const today = new Date();
   if(l.fin) {
     const fin = new Date(l.fin);
