@@ -216,7 +216,7 @@ export function cycleSuivant(debutIso, todayISO, moisConvenu) {
  * Audit I3 — une marque ANTÉRIEURE au début du bail appartient au bail précédent du même lot
  * (relocation) : elle ne vaut rien pour celui-ci.
  */
-function _marques(i, debut) {
+function _marques(i, debut, moisConvenu) {
   const out = [];
   const garde = (k) => _ok(k) && (!debut || k >= debut);
   let d0 = String(i.derniereApplicationIso || '').slice(0, 10);
@@ -224,7 +224,10 @@ function _marques(i, debut) {
   // versions précédentes) : si elle n'est la clé d'aucune entrée mais la date d'effet de l'une,
   // c'est la clé de cycle de cette entrée qui vaut.
   const jr = Array.isArray(i.journal) ? i.journal.filter((e) => e && !e._deleted) : [];
-  if (_ok(d0) && !jr.some((e) => String(e.dateRevision || '').slice(0, 10) === d0)) {
+  // Passe 3 N9 — jamais si d0 EST une date de cycle du bail : c'est alors la marque de CE cycle
+  // (entrée absente du journal), la rattacher à un autre ferait réappliquer sa variation.
+  const _estCycle = _ok(d0) && debut && effetDuCycle(debut, _an(d0), moisConvenu) === d0;
+  if (_ok(d0) && !_estCycle && !jr.some((e) => String(e.dateRevision || '').slice(0, 10) === d0)) {
     const e = jr.find((x) => String(x.dateEffet || x.dateApplication || '').slice(0, 10) === d0 && _ok(String(x.dateRevision || '').slice(0, 10)));
     if (e) d0 = String(e.dateRevision).slice(0, 10);
   }
@@ -317,7 +320,7 @@ export function etatRevision(input) {
   // I10 — le gel DPE F/G prime sur tout : aucun calendrier, aucune action.
   if (i.gel) return Object.assign(base, { etat: ETAT.GEL, muet: true });
 
-  const marques = _marques(i, debut);
+  const marques = _marques(i, debut, mc);
   const fait = (effetIso) => _traite(marques, debut, effetIso, mc, i.moisRevisionDepuis);
 
   // R5 / audit I1 — une révision validée dont l'effet est à venir PRIME sur tout le reste.

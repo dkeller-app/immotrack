@@ -521,3 +521,11 @@ describe('Audit passe 2 N5 — changer le mois de révision ne saute aucun cycle
     expect(r.etat).toBe(ETAT.FAITE);
   });
 });
+
+describe('Audit passe 3 N9 — une marque qui EST une date de cycle n’est jamais rattachée à un autre cycle', () => {
+  it('bail du 01/10 : cycle 2024 validé tard (effet 01/10/2025), cycle 2025 fait (marque 2025-10-01 sans entrée) → FAIT', () => {
+    const r = etatRevision({ debut: '2023-10-01', todayISO: '2026-02-10', derniereApplicationIso: '2025-10-01',
+      journal: [{ dateRevision: '2024-10-01', dateEffet: '2025-10-01', pendingApply: false }] });
+    expect(r.etat).toBe(ETAT.FAITE);
+  });
+});

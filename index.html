@@ -7829,10 +7829,11 @@ function _refreshAfterMutation() {
 // (dataURL) + ancres mm capturées + nb pages. Phase 3 (Task 9) complétera l'émission
 // (manifeste pdf-lib + POST session relais + emails). Ici : staging + log + appel
 // guardé de _emitRemoteSignSession (défini Task 9) pour rester inerte mais branché.
-async function _onRemoteBailReady(ref, pdfDataUrl, anchors, totalPages) {
+async function _onRemoteBailReady(ref, pdfDataUrl, anchors, totalPages, clauseIrlV) {
   try {
     window.__remoteBailStaging = window.__remoteBailStaging || {};
-    window.__remoteBailStaging[ref] = { pdfDataUrl, anchors, totalPages, at: Date.now() };
+    // IRL-REVISION N11 — la version de clause 5.2 IMPRIMÉE dans ce PDF (celle de la popup).
+    window.__remoteBailStaging[ref] = { pdfDataUrl, anchors, totalPages, at: Date.now(), clauseIrlV: clauseIrlV === 2 ? 2 : 1 };
     console.log('[remoteSign] PDF prêt', ref, (anchors || []).length, 'ancres,', totalPages, 'pages');
     if (typeof _emitRemoteSignSession === 'function') {
       await _emitRemoteSignSession(ref); // défini Task 9
@@ -8356,7 +8357,7 @@ async function _emitRemoteSignSession(ref) {
     status: 'sent', createdAt: new Date().toISOString(),
     signers: signers.map(s => ({ sigId: s.sigId, role: s.role, nom: s.nom, email: s.email, distant: s.distant, signedAt: null, notifiedAt: null })),
     lastPolledAt: null,
-    clauseIrlV: 2   // IRL-REVISION N4 : le document envoyé porte la clause 5.2 v2
+    clauseIrlV: (staging && staging.clauseIrlV === 2) ? 2 : 1   // IRL-REVISION N4/N11 : la version IMPRIMÉE dans le PDF envoyé
   };
   bail._modifiedAt = new Date().toISOString();
   saveDB();
@@ -8686,7 +8687,8 @@ async function _completeRemoteSign(ref, state) {
   const prevRemote = Object.assign({}, rs, { status: 'completed' });
   prevRemote.ownerToken = null; // audit M5 : session relais supprimée → le token n'a plus d'usage, ne pas le conserver/synchroniser
   // IRL-REVISION N4 — la version de clause relue par le locataire (celle de l'envoi) est gravée.
-  if (rs && rs.clauseIrlV === 2) bail.clauseIrlV = 2;
+  // N10 — écrite EXPLICITEMENT (un 2 laissé par un enregistrement ultérieur ne doit pas survivre).
+  bail.clauseIrlV = (rs && rs.clauseIrlV === 2) ? 2 : 1;
   bail.signatures = Object.assign({}, bail.signatures, {
     mode: 'distance',
     signedAt: completedAt,
@@ -20885,8 +20887,11 @@ function getBailDataFromForm() {
       const _ex = DB.baux[_bref];
       if (!_ex || !_ex.debut) return null;                      // bail neuf : rien à tracer
       if (_ex.signatures && _ex.signatures.signedAt) return _ex.irlMoisRevisionDepuis || null;
-      const avant = parseInt(_ex.irlMoisRevision, 10) || null;
-      const apres = parseInt(v('b-irlMois'), 10) || null;
+      // M1 (passe 3) — comparer les mois EFFECTIFS : choisir explicitement le mois auto n'est pas un changement.
+      const _C = window.IrlCalendrier;
+      const _deb = v('b-debut') || _ex.debut;
+      const avant = _C ? _C.moisRevision(_deb, _ex.irlMoisRevision) : (parseInt(_ex.irlMoisRevision, 10) || null);
+      const apres = _C ? _C.moisRevision(_deb, v('b-irlMois')) : (parseInt(v('b-irlMois'), 10) || null);
       return (avant !== apres) ? _todayIsoLocal() : (_ex.irlMoisRevisionDepuis || null);
     })(),
     // Audit C3 — version de la clause 5.2 : un bail enregistré non signé porte la clause v2 ; un
@@ -20894,7 +20899,8 @@ function getBailDataFromForm() {
     clauseIrlV: (function(){
       const _ex = DB.baux[_bref];
       if (_ex && _ex.signatures && _ex.signatures.signedAt) return _ex.clauseIrlV != null ? _ex.clauseIrlV : null;
-      return 2;
+      // N10 — non signé : la version que le bail AFFICHE (1 si une signature à distance d'avant est en cours).
+      return _ex ? _bailClauseVersion(_ex) : 2;
     })(),
     // v15.249 B6 (D-B5) : `fiscal: v('b-fiscal')` retiré (champ supprimé). La valeur historique
     // existante est préservée au save (carryover dans saveBail) → aucune perte sur bail signé.
@@ -24631,7 +24637,7 @@ function previewBailData(bail, log, ref, opts) {
     +      'var _fr=new FileReader();'
     +      '_fr.onload=function(){'
     +        'if(window.opener&&!window.opener.closed&&typeof window.opener._onRemoteBailReady==="function"){'
-    +          'window.opener._onRemoteBailReady(_BAIL_REF,_fr.result,_remoteAnchors,_remoteTotalPages);'
+    +          'window.opener._onRemoteBailReady(_BAIL_REF,_fr.result,_remoteAnchors,_remoteTotalPages,_CLAUSE_IRL_V);'
     +        '}else{alert("Fenêtre principale Propryo introuvable. Envoi pour signature impossible.");}'
     +        'try{window.close();}catch(e){}'
     +      '};'
