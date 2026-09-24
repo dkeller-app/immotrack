@@ -1,6 +1,9 @@
 # Propryo — Backlog actif
 
-## 🚦 CONGÉ — v15.677 (branche `claude/gallant-goldberg-71ca26`) — à intégrer
+## 🚦 MAIN = **v15.678** (`443cdbd`, 24/09) — 4 414 tests verts, mirrors à jour, CRLF intact, app lancée sans erreur console
+Dernier lot poussé : « le miroir n'est pas le DB » (R0-D deuxième domaine, détail plus bas). ⏳ **Smoke dû** : dépôt de garantie d'un bail clôturé avec EDL de sortie dégradé — la date limite recule d'un mois et la pénalité art. 22 baisse d'autant (branche légale qui était morte et qui s'allume).
+
+## 🚦 CONGÉ — v15.677 (branche `claude/gallant-goldberg-71ca26`) — INTÉGRÉ dans `main` (repris par la synchro du 24/09)
 
 **Suite directe de DOC-C** (`fix/actes-incomplets`, déjà dans `main`). 4 395 tests verts, 34 mutations toutes rouges, CRLF intact, app lancée sans erreur console.
 
@@ -80,7 +83,7 @@ formels gardent leur pied de page inchangé).
 
 **Lecteurs uniques créés** (à réutiliser, ne pas recopier) : `_lotEstLoue` · `_dgDuLot` · `_finLotCatRole` / `_finLotEstLoyer` / `_finLotEstCharge` · `_finLotNet` · `_lotCcQuotePartMois`.
 
-### 🧯 R0-D, DEUXIÈME DOMAINE — « le miroir n'est pas le DB » — v15.678, PRÊT (worktree `modest-cori-5a547e`, pas poussé)
+### 🧯 R0-D, DEUXIÈME DOMAINE — « le miroir n'est pas le DB » — 🚀 **SUR MAIN v15.678** (`443cdbd`, 24/09)
 *Numéroté v15.674 à l'écriture, recalé en **v15.678** après synchro : `main` avait pris 15.674 (congé) et était déjà à 15.677. Troisième collision de numéro du mois — la version se choisit **après** la synchro, pas avant.*
 `index.html:4570` déclare `let DB = {}` : une liaison **lexicale**, PAS une propriété de `window`. `window.DB` n'est posé que par `__immoSetDB` (cloud, post-hydratation) et **rien** ne le rafraîchit quand `DB` est réassigné (reset `5821`, import/restauration `59053`, adoption cross-onglet `60236`).
 
