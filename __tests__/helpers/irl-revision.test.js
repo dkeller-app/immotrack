@@ -127,3 +127,25 @@ describe('annulerRevisionProgrammee (R7) — le loyer d\'avant reprend, le pass�
     expect(annulerRevisionProgrammee(null).ok).toBe(false);
   });
 });
+
+describe('Audit I2 — annuler neutralise TOUTES les révisions en attente du lot (doublons de prod)', () => {
+  const bareme1 = appliquerNouvellePeriode(BAREME0, {
+    ref: REF, debut: '2026-10-01', hc: 606.82, ch: 60, source: 'irl', bailDebut: '2023-09-01'
+  });
+  it('deux entrées en attente (double validation d\'avant le correctif) : les deux sont annulées', () => {
+    const a = { ...ENTREE, date: '2026-09-20' }, b = { ...ENTREE, date: '2026-09-24' };
+    const r = annulerRevisionProgrammee({ irlHistorique: [a, b], bareme: bareme1, ref: REF, todayIso: '2026-09-25' });
+    expect(r.ok).toBe(true);
+    expect(r.irlHistorique.every(h => h._deleted)).toBe(true);
+    expect(r.irlHistorique.every(h => h._deletedAt)).toBe(true);   // M8 — horodaté comme resetIRLApply
+    expect(duMois(ctx(r.bareme), '2026-10').hc).toBe(600);
+  });
+});
+
+describe('Audit I3 — relocation : jamais la révision du bail précédent', () => {
+  it('une entrée antérieure au début du bail n\'est pas « celle du cycle »', () => {
+    const ancienne = { ...ENTREE, dateRevision: '2026-03-01', nouveauHC: 510 };
+    expect(entreeValideeDuCycle([ancienne], REF, '2026-10-01', '2026-09-15')).toBeNull();
+    expect(entreeValideeDuCycle([ancienne], REF, '2026-10-01')).toBe(ancienne);   // sans borne : comportement historique
+  });
+});

@@ -155,6 +155,24 @@ export function computeDateEffetIRL(input) {
   return clampDateEffet(propose, { annivMoisPremierIso: annivMoisPremier, demandeIso: validation || undefined, dernierMoisQuittanceYm: i.dernierMoisQuittanceYm });
 }
 
+/**
+ * Audit M1 — la règle de date d'effet EN VIGUEUR AVANT IRL-REVISION (Q1 du 14/07), conservée pour
+ * RELIRE l'historique : la reconstruction du barème (loyer-migration.js) re-date les révisions
+ * anciennes sans date d'effet avec la règle sous laquelle elles ont été faites. La nouvelle règle
+ * (R1/R2 ci-dessus) ne s'applique qu'aux révisions validées désormais — jamais rétroactivement
+ * au passé, qui fait foi.
+ */
+export function computeDateEffetIRLHistorique(input) {
+  const i = input || {};
+  const anniv = _ymd(i.anniversaireIso);
+  const validation = _ymd(i.validationIso);
+  const annivMoisPremier = _premierDuMois(anniv);
+  const propose = (validation && anniv && validation > anniv)
+    ? _premierDuMoisSuivant(validation)
+    : annivMoisPremier;
+  return clampDateEffet(propose, { annivMoisPremierIso: annivMoisPremier, dernierMoisQuittanceYm: i.dernierMoisQuittanceYm });
+}
+
 /** Période initiale à la création d'un bail (source 'bail', fin ouverte). */
 export function periodeInitialeBail(bail) {
   if (!bail || !bail.debut) return null;

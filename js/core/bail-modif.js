@@ -105,7 +105,15 @@ export function redaterRevisionIRL(input) {
     return { ok: false, erreur: 'Une renonciation n\'a pas de date d\'effet à corriger.' };
   }
 
-  const cl = clampDateEffet(i.nouvelleDateEffet, { dernierMoisQuittanceYm: i.dernierMoisQuittanceYm || undefined });
+  // IRL-REVISION (audit I5) — corriger une date d'effet ne la rend JAMAIS rétroactive : pas avant la
+  // date de révision du cycle, pas avant la DEMANDE (date de validation — art. 17-1 : « prend effet
+  // à compter de sa demande »), pas sur un mois quittancé. Avant : seul le mois quittancé bornait,
+  // et le menu « ⋯ » d'une révision programmée ouvrait ce chemin.
+  const cl = clampDateEffet(i.nouvelleDateEffet, {
+    annivMoisPremierIso: _ymd(hist[idx].dateRevision) || undefined,
+    demandeIso: _ymd(hist[idx].date) || undefined,
+    dernierMoisQuittanceYm: i.dernierMoisQuittanceYm || undefined
+  });
   const effet = cl.effetIso;
   if (!effet) return { ok: false, erreur: 'Date d\'effet invalide.' };
 

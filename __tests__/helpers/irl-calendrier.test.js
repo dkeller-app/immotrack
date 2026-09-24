@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ETAT, ETATS_MUETS, effetDuCycle, moisRappel, premierEffet, premierEffetAnticipe,
-  moisRevisionParDefaut, moisRevision, anneeIndice,
+  moisRevisionParDefaut, moisRevision, anneeIndice, anneeReference, indiceDuCycle,
   cycleEnCours, cycleSuivant, etatRevision, ganttRevisions, rubanRevisions
 } from '../../js/core/irl-calendrier.js';
 
@@ -438,5 +438,61 @@ describe('I9 — la première révision d\'un bail a droit à son mois de rappel
 
   it('un bail gelé DPE F/G n\'entre jamais dans ce rappel', () => {
     expect(etatRevision({ debut: OHL, todayISO: '2024-09-10', gel: true }).etat).toBe(ETAT.GEL);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AUDIT code-reviewer (2026-09-25) — scénarios reproduits, verrouillés ici
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Audit C1/C2 — jamais deux fois la même variation d\'indice', () => {
+  it('référence = indice en vigueur de la dernière révision du bail, à défaut son indice de base', () => {
+    expect(anneeReference({ bailIrl: 'T2 2023' })).toBe(2023);
+    expect(anneeReference({ bailIrl: 'T4 2024', debut: '2024-03-01',
+      journal: [{ dateRevision: '2025-03-01', irlVigueur: 'T4 2025' }] })).toBe(2025);
+    expect(anneeReference({ bailIrl: 'T2' })).toBeNull();
+  });
+  it('une renonciation consomme aussi son année', () => {
+    expect(anneeReference({ bailIrl: 'T2 2023', journal: [{ dateRevision: '2025-09-01', irlVigueur: 'T2 2025', action: 'renonciation' }] })).toBe(2025);
+  });
+  it('le journal du bail PRÉCÉDENT du lot est ignoré (relocation)', () => {
+    expect(anneeReference({ bailIrl: 'T2 2026', debut: '2026-09-15',
+      journal: [{ dateRevision: '2026-03-01', irlVigueur: 'T4 2025' }] })).toBe(2026);
+  });
+  it('C1 — bail du 1er mars T4, cycle 2025 appliqué en retard avec T4 2025 : au 01/03/2026, RIEN à réviser', () => {
+    expect(indiceDuCycle(4, '2026-03-01', 2025)).toEqual({ annee: 2025, dejaIndexe: true });
+    // un an plus tard, T4 2026 est publié : révision normale
+    expect(indiceDuCycle(4, '2027-03-01', 2025)).toEqual({ annee: 2026, dejaIndexe: false });
+  });
+  it('C2 — bail signé sur T2 2026, date commune octobre : rien à réviser au 01/10/2026', () => {
+    expect(indiceDuCycle(2, '2026-10-01', 2026).dejaIndexe).toBe(true);
+    expect(indiceDuCycle(2, '2027-10-01', 2026)).toEqual({ annee: 2027, dejaIndexe: false });
+  });
+  it('cas nominal : bail de septembre T2, cycles successifs', () => {
+    expect(indiceDuCycle(2, '2024-09-01', 2023)).toEqual({ annee: 2024, dejaIndexe: false });
+    expect(indiceDuCycle(2, '2025-09-01', 2024)).toEqual({ annee: 2025, dejaIndexe: false });
+  });
+});
+
+describe('Audit I1 — une révision programmée prime sur le rappel du cycle suivant', () => {
+  it('cycle 2025-10 validé tard (15/09/2026, effet 01/10/2026) : le lot reste PROGRAMMÉ en septembre', () => {
+    const r = etatRevision({ debut: OHL, todayISO: '2026-09-20', derniereApplicationIso: '2024-10-01',
+      journal: [{ dateRevision: '2025-10-01', dateEffet: '2026-10-01', pendingApply: true }] });
+    expect(r.etat).toBe(ETAT.PROGRAMMEE);
+    expect(r.programmee).toEqual({ cycleIso: '2025-10-01', effetIso: '2026-10-01' });
+  });
+  it('une fois l\'effet atteint et appliqué, le cycle suivant redevient proposable', () => {
+    const r = etatRevision({ debut: OHL, todayISO: '2026-10-02', derniereApplicationIso: '2025-10-01',
+      journal: [{ dateRevision: '2025-10-01', dateEffet: '2026-10-01', pendingApply: false }] });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+    expect(r.effetPrevuIso).toBe('2026-10-01');
+  });
+});
+
+describe('Audit I3 — relocation : les marques du bail précédent ne valent rien', () => {
+  it('nouveau bail du 15/09/2026 (mois convenu octobre) : l\'ancienne marque 2026-03-01 ne fait pas son 1er cycle', () => {
+    const r = etatRevision({ debut: '2026-09-15', moisRevision: 10, todayISO: '2026-10-05', derniereApplicationIso: '2026-03-01' });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+    expect(r.effetPrevuIso).toBe('2026-10-01');
   });
 });

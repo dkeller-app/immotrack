@@ -71,14 +71,20 @@ describe('Le mode forcé ne devient jamais le mode normal', () => {
     // Les SEULS appels forcés sont ceux du geste explicite : la fenêtre d'avertissement
     // (pour chiffrer ce qu'elle propose), applyIRL en mode confirmé, et la lettre d'un lot
     // qui porte déjà la trace du forçage. Aucune liste, aucun ruban, aucun calendrier.
+    // IRL-REVISION (audit I4) : + le pré-vol anti-double-validation d'applyIRL, qui lit en mode forcé
+    // pour VOIR le journal d'un lot gelé — un garde, pas une surface d'affichage.
     const forces = SRC.split('computeIRLRevision(log, { force:').length - 1;
-    expect(forces).toBe(3);
+    expect(forces).toBe(4);
     expect(has('const rev = computeIRLRevision(log, { force: _forceIrl });')).toBe(true);
     expect(has('const rev = computeIRLRevision(log, { force: _forcee });')).toBe(true);
-    // les surfaces d'affichage appellent la version honnête
+    expect(has('const revDeja = computeIRLRevision(log, { force: true });')).toBe(true);
+    // les surfaces d'affichage appellent la version honnête — la liste ne relit en mode forcé
+    // QUE la révision déjà validée « quand même » (trace de forçage du cycle ET état programmé),
+    // pour pouvoir l'annuler : un lot gelé non révisé reste « non révisable ».
     expect(has('function _lyRevisions(etats)')).toBe(true);
-    const lyRev = SRC.slice(SRC.indexOf('function _lyRevisions(etats)'), SRC.indexOf('function _lyRevisions(etats)') + 400);
-    expect(lyRev.includes('force')).toBe(false);
+    const lyRev = SRC.slice(SRC.indexOf('function _lyRevisions(etats)'), SRC.indexOf('function _lyRevisions(etats)') + 1200);
+    expect(lyRev.includes('try { rev = computeIRLRevision(e.log); }')).toBe(true);
+    expect(lyRev.includes("if (rf && rf.etat === 'programmee') rev = rf;")).toBe(true);
   });
   it('le geste forcé laisse une trace datée, nominative et RATTACHÉE À SON CYCLE', () => {
     expect(has('_irlSetForcage(ref, {')).toBe(true);

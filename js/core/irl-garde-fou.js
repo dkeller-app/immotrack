@@ -24,8 +24,15 @@ export const GARDE = Object.freeze({
   CYCLE_ETEINT: 'cycle-eteint',  // cycle non appliqué, éteint par le délai d'un an (art. 17-1)
   MOINS_UN_AN: 'moins-un-an',    // IRL-REVISION R12 : date commune < 1 an après le début du bail
   TROP_JEUNE: 'trop-jeune',      // pas un verrou : la date n'est pas arrivée
-  INDICE: 'indice-manquant'      // pas un verrou : l'INSEE n'a rien publié
+  INDICE: 'indice-manquant',     // pas un verrou : l'INSEE n'a rien publié
+  DEJA_INDEXE: 'deja-indexe'     // audit C1/C2 : aucun indice plus récent que celui déjà dans le loyer
 });
+
+// Audit M4 — un seul avertissement s'affiche (le plus fort) : s'il n'est pas « bail < 1 an », il le
+// mentionne quand même, sinon le mode forcé l'escamote.
+const _moinsUnAn = (r) => (r && r.moinsDunAn)
+  ? ' <b>Par ailleurs</b>, cette date de révision tombe moins d’un an après le début du bail : une première augmentation aussi précoce peut être contestée par le locataire.'
+  : '';
 
 const _fr = (iso) => {
   const s = String(iso || '');
@@ -87,7 +94,7 @@ export function gardeFouRevision(rev, ctx) {
         + '<b>interdit l’augmentation du loyer</b> des logements F et G.',
       consequence: 'Une révision appliquée <b>n’est pas opposable au locataire</b> : il peut refuser '
         + 'de payer l’augmentation et réclamer le remboursement de ce qu’il aurait versé en trop. '
-        + 'La lettre part quand même si tu le décides.',
+        + 'La lettre part quand même si tu le décides.' + _moinsUnAn(r),
       confirmation: 'J’ai compris que cette révision n’est pas opposable au locataire',
       cta: 'Réviser quand même'
     };
@@ -103,7 +110,7 @@ export function gardeFouRevision(rev, ctx) {
       consequence: 'Rien ne t’empêche de réviser. Mais si le logement s’avère classé F ou G, '
         + 'l’augmentation ne sera pas opposable au locataire. '
         + '<b>Un garage, une cave ou un parking n’a pas de DPE par nature</b> — le gel ne les vise pas, '
-        + 'aucune vérification n’est attendue.',
+        + 'aucune vérification n’est attendue.' + _moinsUnAn(r),
       confirmation: 'J’ai compris que l’app ne peut pas vérifier le gel F/G sur ce lot',
       cta: 'Réviser quand même'
     };
@@ -136,6 +143,15 @@ export function gardeFouRevision(rev, ctx) {
       pourquoi: 'La première révision arrive au <b>premier anniversaire du bail</b>'
         + (quand ? ` (${quand})` : '') + '. Il n’y a rien à réviser avant : ce n’est pas un verrou, '
         + 'c’est la date qui n’est pas encore là.'
+    };
+  }
+  if (r.etat === 'deja-indexe') {
+    return {
+      kind: GARDE.DEJA_INDEXE, peut: false,
+      pourquoi: 'Le loyer est déjà indexé sur l’IRL' + (r.T && r.anneeRef ? ` T${r.T} ${r.anneeRef}` : '')
+        + '. À la date de révision' + (r.effetPrevuIso ? ` (${_fr(r.effetPrevuIso)})` : '')
+        + ', l’INSEE n’a publié <b>aucun indice plus récent</b> pour ce trimestre : il n’y a rien à réviser. '
+        + 'Appliquer à nouveau la même variation augmenterait le loyer deux fois pour la même année.'
     };
   }
   if (r.etat === 'indice-manquant') {

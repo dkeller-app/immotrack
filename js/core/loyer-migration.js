@@ -18,7 +18,7 @@
  * __tests__/helpers/loyer-migration.test.js (cas Fric canonique).
  */
 
-import { computeDateEffetIRL, _premierDuMois } from './loyer-bareme.js';
+import { computeDateEffetIRLHistorique as computeDateEffetIRL, _premierDuMois } from './loyer-bareme.js';   // audit M1 : l'historique se relit avec SA règle
 
 const _nr = (s) => String(s == null ? '' : s).trim().toLowerCase();
 const _ymd = (iso) => String(iso == null ? '' : iso).slice(0, 10);

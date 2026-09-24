@@ -157,3 +157,15 @@ describe('IRL-REVISION R12 — date commune à moins d\'un an du début du bail 
     expect(gardeFouRevision({ ...rev, gelDpeFG: true, dpe: 'G' }).kind).toBe(GARDE.GEL);
   });
 });
+
+describe('Audit M4 — l\'avertissement « < 1 an » n\'est jamais escamoté par un autre', () => {
+  it('DPE absent + bail < 1 an : la fenêtre DPE le mentionne', () => {
+    const g = gardeFouRevision({ etat: 'en-retard', dpeManquant: true, moinsDunAn: true, effetPrevuIso: '2024-01-01' });
+    expect(g.kind).toBe(GARDE.DPE_ABSENT);
+    expect(g.consequence).toContain('moins d’un an');
+  });
+  it('sans « < 1 an », rien n\'est ajouté', () => {
+    const g = gardeFouRevision({ etat: 'en-retard', dpeManquant: true });
+    expect(g.consequence).not.toContain('moins d’un an');
+  });
+});

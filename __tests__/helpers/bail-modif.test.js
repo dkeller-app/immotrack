@@ -85,9 +85,23 @@ describe('redaterRevisionIRL — corriger la date d\'effet depuis la timeline', 
     expect(r.ajustee).toBe(true);
   });
 
-  it('refuse de franchir la période précédente (chevauchement)', () => {
+  it('IRL-REVISION (audit I5) — une date rétroactive est remontée au minimum légal : jamais avant la demande', () => {
+    // Validée le 20/06 → au plus tôt le 01/07 (art. 17-1 : « à compter de sa demande »). Avant ce
+    // garde-fou, 2024-02-01 n'était refusé que par la borne de période — et 2026-04-01 PASSAIT.
     const r = redaterRevisionIRL({ irlHistorique: irlHist, bareme, ref: 'F-001',
       revisionDate: '2026-06-20', ancienEffet: '2026-07-01', nouvelleDateEffet: '2024-02-01' });
+    expect(r.ok).toBe(true);
+    expect(r.effetIso).toBe('2026-07-01');
+    expect(r.ajustee).toBe(true);
+    const r2 = redaterRevisionIRL({ irlHistorique: irlHist, bareme, ref: 'F-001',
+      revisionDate: '2026-06-20', ancienEffet: '2026-07-01', nouvelleDateEffet: '2026-04-01' });
+    expect(r2.effetIso).toBe('2026-07-01');
+  });
+
+  it('refuse de franchir la période suivante (chevauchement)', () => {
+    const bar2 = bareme.concat([{ ref: 'F-001', debut: '2027-03-01', fin: null, hc: 520, ch: 65, source: 'irl', bailDebut: '2024-03-01' }]);
+    const r = redaterRevisionIRL({ irlHistorique: irlHist, bareme: bar2, ref: 'F-001',
+      revisionDate: '2026-06-20', ancienEffet: '2026-07-01', nouvelleDateEffet: '2027-05-01' });
     expect(r.ok).toBe(false);
     expect(r.erreur).toMatch(/périod/i);
   });

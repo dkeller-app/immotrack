@@ -142,6 +142,48 @@ export function anneeIndice(T, effetIso) {
 }
 
 /**
+ * Audit C1/C2 — L'INDICE DE RÉFÉRENCE du bail : l'année de l'indice « en vigueur » de sa dernière
+ * révision (appliquée, programmée ou renoncée — une renonciation consomme aussi son année), à
+ * défaut celle de l'indice de base du bail (`bail.irl`, ex. « T2 2023 »). Les entrées antérieures
+ * au début du bail (bail précédent du même lot) sont ignorées.
+ * @param {{journal?:Array, debut?:string, bailIrl?:string}} input
+ * @returns {number|null}
+ */
+export function anneeReference(input) {
+  const i = input || {};
+  const debut = String(i.debut || '').slice(0, 10);
+  let best = null, bestK = '';
+  for (const e of (Array.isArray(i.journal) ? i.journal : [])) {
+    if (!e || e._deleted) continue;
+    const k = String(e.dateRevision || e.date || '').slice(0, 10);
+    if (!_ok(k) || (debut && k < debut)) continue;
+    const m = String(e.irlVigueur || '').match(/^T[1-4]\s+(\d{4})$/);
+    if (m && k >= bestK) { bestK = k; best = parseInt(m[1], 10); }
+  }
+  if (best != null) return best;
+  const b = String(i.bailIrl || '').match(/(\d{4})/);
+  return b ? parseInt(b[1], 10) : null;
+}
+
+/**
+ * L'indice d'une révision : le dernier publié à la date de révision (`anneeIndice`), et JAMAIS une
+ * année déjà prise en compte par le loyer (`anneeReference`). Si aucun indice plus récent que la
+ * référence n'est publié à cette date, il n'y a RIEN à réviser pour ce cycle (`dejaIndexe`) :
+ * appliquer la même variation une deuxième fois serait une IRL composée.
+ *   · audit C1 — bail du 1er mars indexé T4, cycle 2025 appliqué EN RETARD avec T4 2025 : au
+ *     01/03/2026 le dernier T4 publié est encore T4 2025 → rien à réviser (et pas T4 2025 deux fois).
+ *   · audit C2 — bail signé en septembre sur T2 2026, date commune en octobre : au 01/10/2026
+ *     aucun T2 plus récent → la révision anticipée n'a rien à appliquer.
+ * @returns {{annee:number|null, dejaIndexe:boolean}}
+ */
+export function indiceDuCycle(T, effetIso, anneeRef) {
+  const n = anneeIndice(T, effetIso);
+  if (n == null) return { annee: null, dejaIndexe: false };
+  const ref = parseInt(anneeRef, 10);
+  return { annee: n, dejaIndexe: Number.isFinite(ref) && n <= ref };
+}
+
+/**
  * Le cycle EN COURS : le dernier dont la date de révision est déjà passée (ou du jour).
  * `null` tant que le premier cycle n'est pas atteint.
  */
@@ -167,41 +209,61 @@ export function cycleSuivant(debutIso, todayISO, moisConvenu) {
  * (`dateRevision`) de chaque entrée vivante du journal — appliquée, programmée (effet à venir)
  * ou renoncée. Avant : seul `irlDerniereApplication` comptait, et il n'est posé qu'une fois
  * l'effet atteint → une révision validée pour le mois prochain laissait la ligne « en retard ».
+ * Audit I3 — une marque ANTÉRIEURE au début du bail appartient au bail précédent du même lot
+ * (relocation) : elle ne vaut rien pour celui-ci.
  */
-function _marques(i) {
+function _marques(i, debut) {
   const out = [];
+  const garde = (k) => _ok(k) && (!debut || k >= debut);
   const d0 = String(i.derniereApplicationIso || '').slice(0, 10);
-  if (_ok(d0)) out.push(d0);
+  if (garde(d0)) out.push(d0);
   for (const e of (Array.isArray(i.journal) ? i.journal : [])) {
     if (!e || e._deleted) continue;
     const k = String(e.dateRevision || '').slice(0, 10);
-    if (_ok(k)) out.push(k);
+    if (garde(k)) out.push(k);
   }
   return out;
 }
 
 /**
- * Un cycle est traité si une marque est POSTÉRIEURE à la date de révision du cycle précédent.
- * Fenêtre et non égalité : les clés déjà enregistrées portent d'anciens formats (jour
- * anniversaire, puis 1er du mois de l'anniversaire, ex-D12) — un bail du 15/09 marqué
+ * Un cycle est traité si une marque tombe DANS SA FENÊTRE : après la date de révision du cycle
+ * précédent, au plus tard à la sienne. Fenêtre et non égalité : les clés déjà enregistrées portent
+ * d'anciens formats (jour anniversaire, 1er du mois de l'anniversaire — ex-D12), toujours
+ * ANTÉRIEURS OU ÉGAUX à la date du cycle qu'elles désignent : un bail du 15/09 marqué
  * « 2025-09-01 » a bien fait son cycle 2025, dont la date est désormais le 01/10/2025.
+ * Audit I6 — borne haute : une marque postérieure (date d'effet d'une révision tardive posée en
+ * repli) ne « fait » plus le cycle suivant à sa place.
  */
 function _traite(marques, debut, effetIso, moisConvenu) {
+  if (!effetIso) return false;
+  const prev = effetDuCycle(debut, _an(effetIso) - 1, moisConvenu);
+  return marques.some((d) => d > prev && d <= effetIso);
+}
+
+/**
+ * Pour la PRESCRIPTION seulement : une marque postérieure vaut preuve que les cycles d'avant ont
+ * été réglés (appliqués ou renoncés). Données importées avec la seule dernière application : on
+ * n'affiche jamais « IRL non appliquée » sur un cycle dont on ne sait rien.
+ */
+function _traiteOuDepasse(marques, debut, effetIso, moisConvenu) {
   if (!effetIso) return false;
   const prev = effetDuCycle(debut, _an(effetIso) - 1, moisConvenu);
   return marques.some((d) => d > prev);
 }
 
-/** L'entrée du journal qui PROGRAMME ce cycle : validée, effet encore à venir. */
-function _programmee(i, debut, effetIso, moisConvenu, today) {
-  const prev = effetDuCycle(debut, _an(effetIso) - 1, moisConvenu);
+/**
+ * Audit I1 — la révision PROGRAMMÉE du lot, quel que soit son cycle : validée, effet encore à
+ * venir. Tant qu'elle existe, c'est ELLE que le lot affiche (annulable, non revalidable) — sinon
+ * le rappel du cycle suivant la masquait et laissait valider une 2ᵉ révision par-dessus.
+ */
+function _programmeeDuLot(i, debut, today) {
   let best = null;
   for (const e of (Array.isArray(i.journal) ? i.journal : [])) {
     if (!e || e._deleted || e.action === 'renonciation' || !e.pendingApply) continue;
     const k = String(e.dateRevision || '').slice(0, 10);
     const eff = String(e.dateEffet || e.dateApplication || '').slice(0, 10);
-    if (!_ok(k) || !_ok(eff) || k <= prev || eff <= today) continue;
-    if (!best || k > best.cycleIso) best = { cycleIso: k, effetIso: eff };
+    if (!_ok(k) || !_ok(eff) || (debut && k < debut) || eff <= today) continue;
+    if (!best || k > best.cycleIso || (k === best.cycleIso && eff > best.effetIso)) best = { cycleIso: k, effetIso: eff };
   }
   return best;
 }
@@ -237,17 +299,24 @@ export function etatRevision(input) {
   // I10 — le gel DPE F/G prime sur tout : aucun calendrier, aucune action.
   if (i.gel) return Object.assign(base, { etat: ETAT.GEL, muet: true });
 
-  const marques = _marques(i);
+  const marques = _marques(i, debut);
   const fait = (effetIso) => _traite(marques, debut, effetIso, mc);
-  // Un cycle traité : PROGRAMMÉ si son effet est encore à venir, sinon FAIT.
-  const etatTraite = (cycle, extra) => {
-    const prog = _programmee(i, debut, cycle.effetIso, mc, today);
+
+  // R5 / audit I1 — une révision validée dont l'effet est à venir PRIME sur tout le reste.
+  const prog = _programmeeDuLot(i, debut, today);
+  if (prog) {
     return Object.assign(base, {
-      etat: prog ? ETAT.PROGRAMMEE : ETAT.FAITE, cycleAnnee: cycle.annee,
-      effetPrevuIso: cycle.effetIso, rappelYm: cycle.rappelYm, programmee: prog,
-      joursAvantEffet: _joursEntre(today, prog ? prog.effetIso : cycle.effetIso)
-    }, extra || {});
-  };
+      etat: ETAT.PROGRAMMEE, cycleAnnee: _an(prog.cycleIso), effetPrevuIso: prog.cycleIso,
+      rappelYm: moisRappel(prog.cycleIso), programmee: prog,
+      joursAvantEffet: _joursEntre(today, prog.effetIso)
+    });
+  }
+  // Un cycle traité (et plus rien de programmé) : FAIT.
+  const etatTraite = (cycle, extra) => Object.assign(base, {
+    etat: ETAT.FAITE, cycleAnnee: cycle.annee,
+    effetPrevuIso: cycle.effetIso, rappelYm: cycle.rappelYm,
+    joursAvantEffet: _joursEntre(today, cycle.effetIso)
+  }, extra || {});
 
   const suivant = cycleSuivant(debut, today, mc);
   const cur = cycleEnCours(debut, today, mc);
@@ -257,7 +326,7 @@ export function etatRevision(input) {
     const premier = base.premiereEffetIso;
     const rappelPremier = moisRappel(premier);
     const premierCycle = { annee: _an(premier), effetIso: premier, rappelYm: rappelPremier };
-    // Déjà validée à l'avance (pendant le mois de rappel) : programmée, plus « à préparer ».
+    // Déjà traitée (renoncée à l'avance, par ex.) : plus « à préparer ».
     if (premier && fait(premier)) return etatTraite(premierCycle);
     // D13/I9 — le rappel M-1 vaut AUSSI pour la toute première révision.
     if (rappelPremier && today.slice(0, 7) === rappelPremier && !i.indiceManquant) {
@@ -285,7 +354,7 @@ export function etatRevision(input) {
   let perdue = null;
   const precedentIso = effetDuCycle(debut, cur.annee - 1, mc);
   if (precedentIso && precedentIso >= base.premiereEffetIso
-      && !fait(precedentIso)
+      && !_traiteOuDepasse(marques, debut, precedentIso, mc)
       && today >= _plusUnAn(precedentIso)) {
     perdue = { annee: cur.annee - 1, effetIso: precedentIso };
   }

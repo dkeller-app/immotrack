@@ -25,10 +25,13 @@ const _vivante = (h) => !!h && !h._deleted && h.action !== 'renonciation';
  * L'entrée validée (appliquée ou programmée) qui porte le cycle `cycleIso` du lot `ref`.
  * Un cycle couvre l'année qui précède sa date : une clé à l'ancien format (1er du mois de
  * l'anniversaire, jour anniversaire) du même cycle est reconnue ; celle du cycle d'avant, non.
+ * Audit I3 — `debutBail` : une entrée antérieure au début du bail appartient au bail PRÉCÉDENT du
+ * même lot (relocation) — sa lettre porterait le loyer de l'ancien locataire.
  * @returns {Object|null} la plus récente (par date de validation) ; null si aucune
  */
-export function entreeValideeDuCycle(journal, ref, cycleIso) {
+export function entreeValideeDuCycle(journal, ref, cycleIso, debutBail) {
   const cyc = _ymd(cycleIso);
+  const deb = _ok(debutBail) ? _ymd(debutBail) : '';
   if (!_ok(cyc) || !Array.isArray(journal)) return null;
   const prev = (parseInt(cyc.slice(0, 4), 10) - 1) + cyc.slice(4);
   const want = _nr(ref);
@@ -36,7 +39,7 @@ export function entreeValideeDuCycle(journal, ref, cycleIso) {
   journal.forEach((h, i) => {
     if (!_vivante(h) || _nr(h.ref) !== want) return;
     const k = _ymd(h.dateRevision);
-    if (!_ok(k) || k <= prev) return;
+    if (!_ok(k) || k <= prev || (deb && k < deb)) return;
     const d = _ymd(h.date);
     if (!best || d > _ymd(best.date) || (d === _ymd(best.date) && i > bestI)) { best = h; bestI = i; }
   });
@@ -81,27 +84,37 @@ export function annulerRevisionProgrammee(input) {
   const want = _nr(i.ref);
   const hist = Array.isArray(i.irlHistorique) ? i.irlHistorique : [];
   if (!want || !_ok(today)) return { ok: false, erreur: 'Données insuffisantes pour annuler la révision.' };
-  // La plus récente entrée validée du lot encore en attente.
-  let idx = -1;
-  hist.forEach((h, k) => {
-    if (_vivante(h) && _nr(h.ref) === want && h.pendingApply) idx = k;
-  });
-  if (idx < 0) return { ok: false, erreur: 'Aucune révision programmée pour ce lot.' };
-  const e = hist[idx];
-  const effet = _ymd(e.dateEffet) || _ymd(e.dateApplication);
-  if (!_ok(effet) || effet <= today) {
-    return { ok: false, erreur: 'La date d\'effet est atteinte : le nouveau loyer s\'applique déjà. Corriger la date d\'effet depuis l\'historique du bail.' };
+  // Audit I2 — TOUTES les entrées du lot encore en attente (les doublons d'avant le correctif
+  // existent en prod) : en laisser une, c'est la voir s'appliquer quand même au jour de l'effet.
+  const idxs = [];
+  hist.forEach((h, k) => { if (_vivante(h) && _nr(h.ref) === want && h.pendingApply) idxs.push(k); });
+  if (!idxs.length) return { ok: false, erreur: 'Aucune révision programmée pour ce lot.' };
+  const e = hist[idxs[idxs.length - 1]];     // la plus récente : celle que l'écran affiche
+  for (const k of idxs) {
+    const eff = _ymd(hist[k].dateEffet) || _ymd(hist[k].dateApplication);
+    if (!_ok(eff) || eff <= today) {
+      return { ok: false, erreur: "La date d'effet est atteinte : le nouveau loyer s'applique déjà. Corriger la date d'effet depuis l'historique du bail." };
+    }
   }
-  const irlHistorique = hist.map((h, k) => (k === idx ? { ...h, _deleted: true, _annuleeLe: today } : h));
-  // Le loyer d'avant reprend À LA MÊME DATE : la période IRL est supersédée (tombstone portant
-  // sa raison, visible dans l'historique du bail), jamais un trou dans le barème.
+  // Audit M8 — horodaté comme les autres tombstones (resetIRLApply), pour la propagation.
+  const stamp = today + 'T00:00:00.000Z';
+  const irlHistorique = hist.map((h, k) => (idxs.includes(k) ? { ...h, _deleted: true, _deletedAt: stamp, _annuleeLe: today } : h));
+  // Le loyer d'avant reprend À LA MÊME DATE, pour chaque date d'effet programmée : la période IRL
+  // est supersédée (tombstone portant sa raison, visible dans l'historique du bail), jamais un trou.
   let bareme = Array.isArray(i.bareme) ? i.bareme : [];
-  const per = bareme.find((p) => p && !p._deleted && _nr(p.ref) === want && _ymd(p.debut) === effet && p.source === 'irl');
-  if (per) {
-    bareme = appliquerNouvellePeriode(bareme, {
-      ref: per.ref, debut: effet, hc: Number(e.ancienHC) || 0, ch: Number(per.ch) || 0,
-      source: 'bail', bailDebut: per.bailDebut || undefined, note: 'Révision IRL programmée annulée'
-    });
+  const vues = new Set();
+  for (const k of idxs) {
+    const h = hist[k];
+    const effet = _ymd(h.dateEffet) || _ymd(h.dateApplication);
+    if (vues.has(effet)) continue;
+    vues.add(effet);
+    const per = bareme.find((p) => p && !p._deleted && _nr(p.ref) === want && _ymd(p.debut) === effet && p.source === 'irl');
+    if (per) {
+      bareme = appliquerNouvellePeriode(bareme, {
+        ref: per.ref, debut: effet, hc: Number(h.ancienHC) || 0, ch: Number(per.ch) || 0,
+        source: 'bail', bailDebut: per.bailDebut || undefined, note: 'Révision IRL programmée annulée'
+      });
+    }
   }
   return { ok: true, irlHistorique, bareme, entree: e };
 }
