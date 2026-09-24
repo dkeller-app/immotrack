@@ -136,3 +136,24 @@ describe('Ordre de priorité — c\'est le GESTE demandé qui prime, jamais l\'�
     expect(gardeFouRevision(lot, {}).kind).toBe(GARDE.GEL);
   });
 });
+
+describe('IRL-REVISION R12 — date commune à moins d\'un an du début du bail : on prévient, on ne bloque pas', () => {
+  const rev = { etat: 'en-retard', isApplicable: true, moinsDunAn: true, effetPrevuIso: '2024-01-01', debutBail: '2023-10-01' };
+  it('le geste est offert, avec la règle citée et une case à cocher', () => {
+    const g = gardeFouRevision(rev);
+    expect(g.kind).toBe(GARDE.MOINS_UN_AN);
+    expect(g.peut).toBe(true);
+    expect(g.loi).toContain('01/01/2024');
+    expect(g.loi).toContain('01/10/2023');
+    expect(g.loi).toContain('chaque année à la date convenue entre les parties');
+    expect(g.confirmation).toBeTruthy();
+    expect(revisionForcable(rev)).toBe(true);
+  });
+  it('rien quand la révision n\'est pas proposable (déjà programmée, faite…)', () => {
+    expect(gardeFouRevision({ ...rev, etat: 'programmee' })).toBeNull();
+    expect(gardeFouRevision({ ...rev, etat: 'faite' })).toBeNull();
+  });
+  it('le gel DPE F/G reste prioritaire (c\'est la règle la plus forte)', () => {
+    expect(gardeFouRevision({ ...rev, gelDpeFG: true, dpe: 'G' }).kind).toBe(GARDE.GEL);
+  });
+});

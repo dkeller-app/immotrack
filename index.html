@@ -1586,7 +1586,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <!-- Tab: Conditions -->
     <div class="tab-panel" id="bp-conditions">
       <div class="fg">
-        <label>Entité propriétaire *</label><select class="inp" id="b-entity" onchange="autoFinBail(); renderBailSignataires()"></select>
+        <label>Entité propriétaire *</label><select class="inp" id="b-entity" onchange="autoFinBail(); renderBailSignataires(); _bIrlMoisDepuisBailleur()"></select>
       </div>
       <div class="fg" id="b-signataires-wrap" style="display:none">
         <label>Signataires du bail <span style="color:var(--t3);font-weight:normal;font-size:11px">— cochez le(s) co-gérant(s) qui signera/signeront</span></label>
@@ -1651,6 +1651,23 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           </div>
         </div>
         <div class="fg"><label>Jour paiement</label><input class="inp" type="number" id="b-jpay" min="1" max="28" value="5"></div>
+      </div>
+      <!-- IRL-REVISION R1/R10 — la DATE DE RÉVISION du bail (« date convenue entre les parties »,
+           art. 17-1) : le 1er d'un mois. Vide = mois du début du bail, reporté au mois suivant si
+           le bail ne commence pas un 1er. Pré-remplie par la date commune du bailleur (R11).
+           Bail signé : figée. -->
+      <div class="fg2">
+        <div class="fg">
+          <label title="Date à laquelle le loyer peut être révisé chaque année (art. 17-1 loi 89-462 : « à la date convenue entre les parties ou, à défaut, au terme de chaque année du contrat »). Toujours le 1er du mois.">Mois de révision annuelle <span class="mu sm">(le 1<sup>er</sup> du mois)</span></label>
+          <select class="inp" id="b-irlMois" onchange="_bIrlMoisHint()">
+            <option value="">Auto — d'après la date de début</option>
+            <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
+            <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
+            <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
+            <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+          </select>
+          <div class="mu sm" id="b-irlMois-hint" style="margin-top:4px;font-size:11.5px"></div>
+        </div>
       </div>
       <!-- CDC-QUITTANCES-IRL D21 — UN SEUL réglage de quittance survit, et c'est une QUESTION
            posée une fois, au moment du bail. La case « 📄 proposer quittance automatiquement à
@@ -3329,6 +3346,19 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <div class="fg2">
       <div class="fg"><label>IBAN</label><input class="inp" id="ent-iban"></div>
       <div class="fg"><label>BIC</label><input class="inp" id="ent-bic"></div>
+    </div>
+    <!-- IRL-REVISION R11 — date de révision COMMUNE : un bailleur de plusieurs lots regroupe ses
+         révisions sur un même mois. Pré-remplit les NOUVEAUX baux seulement. -->
+    <div class="fg">
+      <label>Mois de révision IRL commun <span style="color:#888;font-weight:normal;font-size:11px">(optionnel)</span></label>
+      <select class="inp" id="ent-irl-mois">
+        <option value="">Aucun — chaque bail suit sa date de début</option>
+        <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
+        <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
+        <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
+        <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+      </select>
+      <div class="mu sm" style="margin-top:4px;font-size:11.5px">Pré-remplit la date de révision des <b>nouveaux</b> baux de ce bailleur (le 1<sup>er</sup> du mois choisi — art. 17-1 : « date convenue entre les parties »). Modifiable bail par bail. Les baux déjà signés ne changent pas.</div>
     </div>
     <!-- v15.92 EM-5 EMAIL-FROM-PAR-ENTITE — adresse d'envoi des emails depuis cette entité -->
     <div class="fg">
@@ -5327,10 +5357,10 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <tr><td style="background:#f0f0f0;font-weight:bold">Référence</td><td>{{LOCATAIRES}} — {{ADRESSE_BIEN}}</td></tr>
 </table>
 <h3>5.2 — Révision annuelle du loyer (IRL)</h3>
-<p>Le loyer sera révisé annuellement à la date anniversaire du bail selon la variation de la moyenne sur quatre trimestres de l'<strong>Indice de Référence des Loyers (IRL)</strong> publié par l'INSEE, conformément à l'article 17-1 de la loi du 6 juillet 1989.</p>
+<p>Le loyer sera révisé {{IRL_REVISION_QUAND}} selon la variation de la moyenne sur quatre trimestres de l'<strong>Indice de Référence des Loyers (IRL)</strong> publié par l'INSEE, conformément à l'article 17-1 de la loi du 6 juillet 1989.</p>
 <p>L'indice de base est l'indice du <strong>{{IRL_TRIMESTRE}}</strong>, dont la valeur est <strong>{{IRL_VALEUR}}</strong>.</p>
 <p><strong>Nouveau loyer = Loyer actuel × (IRL trimestre de révision ÷ IRL même trimestre année précédente)</strong></p>
-<p>Le nouveau montant sera exigible dès la première échéance suivant la date de révision, sans notification préalable. À défaut d'application dans l'année suivant sa prise d'effet, la révision est réputée abandonnée pour cette période.</p>
+<p>Le nouveau montant sera exigible dès la première échéance suivant la date de révision{{IRL_SANS_NOTIF}}. À défaut d'application dans l'année suivant sa prise d'effet, la révision est réputée abandonnée pour cette période.</p>
 <h3>5.3 — Quittance</h3>
 <p>Lorsque le LOCATAIRE en fera la demande, le BAILLEUR lui remettra gratuitement une quittance portant le détail des sommes versées. Dans tous les cas de paiement partiel, le BAILLEUR délivrera un reçu.</p>
 
@@ -19189,6 +19219,18 @@ function openBail(ref, opts) {
   if(bail.irl) el('b-irl').value = bail.irl;
   else if(log?.debut) { el('b-irl').value = getIRLRefForDate(log.debut) || irlKeys[irlKeys.length-1] || ''; }
   else el('b-irl').value = irlKeys[irlKeys.length-1]||'';
+  // IRL-REVISION R10/R11 — mois de révision : celui du bail ; pour un bail NOUVEAU (jamais
+  // enregistré), la date commune de son bailleur ; sinon « Auto ». Bail signé : figé.
+  if (el('b-irlMois')) {
+    const _entB = (DB.entites || []).find(e => e && e.nom === (bail.entity || log?.entity));
+    const _nouveau = !(bail && bail.debut && DB.baux[bail.ref || ref]);
+    const _m = bail.irlMoisRevision != null ? bail.irlMoisRevision
+      : (_nouveau && _entB && _entB.irlMoisRevision ? _entB.irlMoisRevision : '');
+    el('b-irlMois').value = _m ? String(_m) : '';
+    el('b-irlMois').disabled = !!(bail.signatures && bail.signatures.signedAt);
+    if (_nouveau) _bIrlMoisDepuisBailleur();   // bailleur déjà présélectionné dans la liste
+    _bIrlMoisHint();
+  }
 
   // Dates
   el('b-debut').value = bail.debut||log?.debut||'';
@@ -19886,9 +19928,41 @@ function autoIRLTrimestre() {
   if(ref) el('b-irl').value = ref;
 }
 
+// IRL-REVISION R1/R10/R12 — ce que le mois de révision choisi veut dire, en clair, sous le champ.
+// Le calendrier est celui du moteur (js/core/irl-calendrier.js), rien n'est recalculé ici.
+function _bIrlMoisHint() {
+  const h = el('b-irlMois-hint'), s = el('b-irlMois');
+  if (!h || !s) return;
+  const C = (typeof window !== 'undefined') ? window.IrlCalendrier : null;
+  const debut = v('b-debut');
+  const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  if (s.disabled) { h.textContent = 'Bail signé : la date de révision est celle du contrat, elle ne se modifie pas.'; return; }
+  if (!C || !/^\d{4}-\d{2}-\d{2}$/.test(debut)) { h.textContent = 'Renseigner la date de début pour voir la date de la première révision.'; return; }
+  const m = parseInt(s.value, 10) || null;
+  const mois = C.moisRevision(debut, m);
+  const premier = C.premierEffet(debut, m);
+  const anticipe = C.premierEffetAnticipe(debut, m);
+  let txt = `Révision chaque 1er ${MOIS[mois - 1]}`;
+  if (!m && debut.slice(8, 10) !== '01') txt += ' (bail commencé en cours de mois : reportée au 1er du mois suivant)';
+  txt += premier ? ` — première le ${fd(premier)}.` : '.';
+  if (anticipe) txt += ` Le 1er ${MOIS[mois - 1]} ${anticipe.slice(0, 4)} tombe moins d'un an après le début du bail : la révision y sera proposée avec un avertissement.`;
+  h.textContent = txt;
+}
+
+// IRL-REVISION R11 — au choix du bailleur d'un bail NON signé, sa date de révision commune
+// pré-remplit le champ s'il est encore sur « Auto ». Un choix déjà fait n'est jamais écrasé.
+function _bIrlMoisDepuisBailleur() {
+  const s = el('b-irlMois');
+  if (!s || s.disabled || s.value) return;
+  const ent = (DB.entites || []).find(e => e && e.nom === v('b-entity'));
+  if (ent && ent.irlMoisRevision) s.value = String(ent.irlMoisRevision);
+  _bIrlMoisHint();
+}
+
 // Déclencheur sur changement date début
 function onBailDebutChange() {
   autoIRLTrimestre();
+  try { _bIrlMoisHint(); } catch (e) {}
   if(v('b-entity')) autoFinBail();
   // Recalcule plafond aussi (durée change avec date début/fin)
   onBailLoyerChange();
@@ -20744,6 +20818,13 @@ function getBailDataFromForm() {
     plafondCaution: pf('b-plafondCaution'),
     entity: v('b-entity'), hc: pf('b-hc'), ch: pf('b-ch'), dg: pf('b-dg'),
     debut: v('b-debut'), fin: v('b-fin'), irl: v('b-irl'), jpay: v('b-jpay'),
+    // IRL-REVISION R10 — mois de révision convenu (1..12) ; null = auto (R1). Bail SIGNÉ : jamais
+    // réécrit depuis le formulaire (le champ y est désactivé) — la valeur du contrat est conservée.
+    irlMoisRevision: (function(){
+      const _ex = DB.baux[_bref];
+      if (_ex && _ex.signatures && _ex.signatures.signedAt) return _ex.irlMoisRevision != null ? _ex.irlMoisRevision : null;
+      return parseInt(v('b-irlMois'), 10) || null;
+    })(),
     // v15.249 B6 (D-B5) : `fiscal: v('b-fiscal')` retiré (champ supprimé). La valeur historique
     // existante est préservée au save (carryover dans saveBail) → aucune perte sur bail signé.
     // v15.232 ARCHI-DB-DOUBLONS 4b (décision B3) — le « bien physique » a pour source unique le
@@ -20906,6 +20987,23 @@ function renderStructureAsHTML(structure, opts) {
 //   • Bail SIGNÉ → rendu INCHANGÉ (immutabilité légale byte-identique) : les 2 lignes restent
 //     telles qu'au moment de la signature. → gating sur _bailSigned().
 function _bailSigned(bail){ return !!(bail && bail.signatures && bail.signatures.signedAt); }
+// IRL-REVISION R10/R13 — la clause de révision (art. 5.2) : QUAND le loyer est révisé, et la
+// mention d'exigibilité. Bail SIGNÉ : le texte d'origine, mot pour mot (le document signé se
+// ré-affiche à l'identique). Bail non signé : la date de révision convenue (le 1er d'un mois —
+// R1 : mois du début, reporté au mois suivant si le bail ne commence pas un 1er), et plus de
+// « sans notification préalable » (art. 17-1 : la révision prend effet à compter de la DEMANDE).
+function _bailClauseRevisionIRL(bail, log){
+  const b = bail || {};
+  // ⚠️ Texte d'origine EXACT (« annuellement à la date anniversaire du bail ») : les générateurs
+  // remplacent ce fragment entier par `quand` — un mot de moins et le bail signé ne serait plus
+  // ré-affiché à l'identique.
+  if (_bailSigned(b)) return { quand: 'annuellement à la date anniversaire du bail', sansNotif: ', sans notification préalable' };
+  const C = (typeof window !== 'undefined') ? window.IrlCalendrier : null;
+  const debut = String(b.debut || (log && log.debut) || '').slice(0, 10);
+  const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const m = (C && /^\d{4}-\d{2}-\d{2}$/.test(debut)) ? C.moisRevision(debut, b.irlMoisRevision) : 0;
+  return { quand: m ? `chaque année le 1er ${MOIS[m - 1]}` : 'annuellement à la date anniversaire du bail', sansNotif: '' };
+}
 // Annexes structurées sérialisées (string). Repli legacy géré par l'appelant.
 function _bailAnnexesVal(bail, fill){
   fill = fill || {};
@@ -21560,11 +21658,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     ], columnStyles: { 0: { fontStyle:'bold', fillColor:[240,240,240], cellWidth:55 } } },
 
     { type:'h3', text:'5.2 — Révision annuelle du loyer (IRL)' },
-    { type:'p', text:'Le loyer sera révisé annuellement à la date anniversaire du bail selon la variation de la moyenne sur quatre trimestres de l\'Indice de Référence des Loyers (IRL) publié par l\'INSEE, conformément à l\'article 17-1 de la loi du 6 juillet 1989.' },
+    { type:'p', text:'Le loyer sera révisé ' + _bailClauseRevisionIRL(bail, log).quand + ' selon la variation de la moyenne sur quatre trimestres de l\'Indice de Référence des Loyers (IRL) publié par l\'INSEE, conformément à l\'article 17-1 de la loi du 6 juillet 1989.' },
     // v15.201 fix : IRL au format français (virgule décimale) au lieu de "145.78"
     { type:'p', text: `L'indice de base est l'indice du ${irlKey}, dont la valeur est ${String(irlValRef).replace('.', ',')}.` },
     { type:'p-callout', text:'Nouveau loyer = Loyer actuel × (IRL trimestre de révision ÷ IRL même trimestre année précédente)' },
-    { type:'p', text:'Le nouveau montant sera exigible dès la première échéance suivant la date de révision, sans notification préalable. À défaut d\'application dans l\'année suivant sa prise d\'effet, la révision est réputée abandonnée pour cette période.' },
+    { type:'p', text:'Le nouveau montant sera exigible dès la première échéance suivant la date de révision' + _bailClauseRevisionIRL(bail, log).sansNotif + '. À défaut d\'application dans l\'année suivant sa prise d\'effet, la révision est réputée abandonnée pour cette période.' },
 
     { type:'h3', text:'5.3 — Quittance' },
     { type:'p', text:'Lorsque le LOCATAIRE en fera la demande, le BAILLEUR lui remettra gratuitement une quittance portant le détail des sommes versées. Dans tous les cas de paiement partiel, le BAILLEUR délivrera un reçu.' },
@@ -22627,10 +22725,10 @@ function previewBailData(bail, log, ref, opts) {
     })()
     +'<p>Tous paiements auront lieu par virement bancaire sur le compte suivant\u00a0: <strong>'+nomSci+'</strong> \u2014 IBAN <strong>'+iban+'</strong>.</p>'
     +'<h3>5.2 \u2014 R\u00e9vision annuelle du loyer (IRL)</h3>'
-    +'<p>Le loyer sera r\u00e9vis\u00e9 annuellement \u00e0 la date anniversaire du bail selon la variation de la moyenne sur quatre trimestres de l\u2019<strong>Indice de R\u00e9f\u00e9rence des Loyers (IRL)</strong> publi\u00e9 par l\u2019INSEE, conform\u00e9ment \u00e0 l\u2019article 17-1 de la loi du 6 juillet 1989.</p>'
+    +'<p>Le loyer sera r\u00e9vis\u00e9 '+_bailClauseRevisionIRL(bail, log).quand+' selon la variation de la moyenne sur quatre trimestres de l\u2019<strong>Indice de R\u00e9f\u00e9rence des Loyers (IRL)</strong> publi\u00e9 par l\u2019INSEE, conform\u00e9ment \u00e0 l\u2019article 17-1 de la loi du 6 juillet 1989.</p>'
     +'<p>L\u2019indice de base retenu est celui du <strong>'+irl+'</strong>, dont la valeur est <strong>'+irlVal+'</strong>.</p>'
     +'<p style="padding:5px 10px;background:#f7f7f7;border-left:3px solid #888;border-radius:2px;font-size:10pt;margin:6px 0"><strong>Nouveau loyer = Loyer actuel \u00d7 (IRL trimestre de r\u00e9vision \u00f7 IRL m\u00eame trimestre ann\u00e9e pr\u00e9c\u00e9dente)</strong></p>'
-    +'<p>Le nouveau montant sera exigible d\u00e8s la premi\u00e8re \u00e9ch\u00e9ance suivant la date de r\u00e9vision, sans notification pr\u00e9alable. \u00c0 d\u00e9faut d\u2019application dans l\u2019ann\u00e9e suivant sa prise d\u2019effet, la r\u00e9vision est r\u00e9put\u00e9e abandonn\u00e9e pour cette p\u00e9riode.</p>'
+    +'<p>Le nouveau montant sera exigible d\u00e8s la premi\u00e8re \u00e9ch\u00e9ance suivant la date de r\u00e9vision'+_bailClauseRevisionIRL(bail, log).sansNotif+'. \u00c0 d\u00e9faut d\u2019application dans l\u2019ann\u00e9e suivant sa prise d\u2019effet, la r\u00e9vision est r\u00e9put\u00e9e abandonn\u00e9e pour cette p\u00e9riode.</p>'
     +pz(3)+'</div>';
 
   const p4 = '<div class="bail-page" id="page-4">'
@@ -25167,6 +25265,10 @@ function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef,
   // ce mécanisme écrase le modèle ENTIER, y compris une personnalisation légitime. Il est fait
   // pour republier un défaut, pas pour corriger deux phrases dans le document de quelqu'un.
   tmpl = String(tmpl)
+    // IRL-REVISION R10/R13 — même mécanisme pour la clause 5.2 d'un modèle déjà enregistré. Bail
+    // signé : les jetons rendent le texte d'origine (document identique) ; sinon la date convenue.
+    .replace('révisé annuellement à la date anniversaire du bail selon', 'révisé {{IRL_REVISION_QUAND}} selon')
+    .replace('suivant la date de révision, sans notification préalable.', 'suivant la date de révision{{IRL_SANS_NOTIF}}.')
     .replace('Cette durée de 6 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).', '{{DUREE_PHRASE}}')
     .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}');
 
@@ -25285,6 +25387,9 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     'GAZ': S(bail.gaz||_lbFill.gaz||'–'),
     'BRUIT': S(bail.bruit||_lbFill.bruit||'–'),
     'IRL_TRIMESTRE': S(irlKey||'–'),
+    // IRL-REVISION R10/R13 — clause 5.2 : bail signé = texte d'origine ; sinon date convenue.
+    'IRL_REVISION_QUAND': S(_bailClauseRevisionIRL(bail, log).quand),
+    'IRL_SANS_NOTIF': S(_bailClauseRevisionIRL(bail, log).sansNotif),
     'IRL_VALEUR': S(irlValRef||'–').replace('.', ','),  // v15.201 : format français
     'GARANT_NOM': bail.garant ? S(bail.garant)+(bail.garant2?' &amp; '+S(bail.garant2):'') : 'Néant',
     'GARANT_SECTION': garantSection,
@@ -25800,7 +25905,10 @@ function computeIRLRevision(log, opts) {
     // CDC étape 5 — le calendrier, tel que le module l'a tranché.
     etat: cal.etat, muet: !!cal.muet, effetPrevuIso: cal.effetPrevuIso,
     rappelYm: cal.rappelYm, joursAvantEffet: cal.joursAvantEffet, perdue: cal.perdue,
-    programmee: cal.programmee || null, premiereAnticipeeIso: cal.premiereAnticipeeIso || ''
+    programmee: cal.programmee || null, premiereAnticipeeIso: cal.premiereAnticipeeIso || '',
+    // R12 — la révision PROPOSÉE est la toute première et tombe < 1 an après le début (date commune) :
+    // le garde-fou avertit (case à cocher), jamais un verrou.
+    moinsDunAn: !!(cal.premiereAnticipeeIso && cal.effetPrevuIso === cal.premiereAnticipeeIso), debutBail: debut
   };
 }
 
@@ -26343,8 +26451,9 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
   delete log.irlLettreEnvoyeePour;
 
   if (typeof _auditLog === 'function') {
+    // Constat 14 — `entityRef` est le LIBELLÉ de l'entité dans le journal : il nomme le lot, puis le détail.
     _auditLog(futureApplication ? 'irl-validated-future' : 'irl-applied', 'bail', ref,
-      `${ancienHC}→${newHC} eff. ${dateEffetIso}`);
+      `${ref} · ${ancienHC}→${newHC} eff. ${dateEffetIso}`);
   }
 
   saveDB(); refreshAllIRL(); _rPeriodPage();
@@ -29887,9 +29996,10 @@ function _lyLigneRev({ e, rev }, tard) {
   // Bloc « Révisions » fusionné (KPI §4) : la ligne EN RETARD porte une pastille rouge visible —
   // le regroupement par immeuble (_lyGrouper) entremêle « à préparer » et « en retard », c'est le
   // seul repère qui distingue le périssable (prescription 1 an) du courant.
-  const contexte = tard
+  const contexte = (rev.moinsDunAn ? '<span class="ly2-p wa" title="Date de révision convenue moins d\'un an après le début du bail — avertissement à la validation">bail &lt; 1 an</span> ' : '')
+    + (tard
     ? `<span class="ly2-p er">en retard</span> prévu au <b>${effet}</b>, jamais appliqué · ${rev.variation >= 0 ? '+' : ''}${pct} %`
-    : `effet au <b>${effet}</b> · ${rev.variation >= 0 ? '+' : ''}${pct} %`;
+    : `effet au <b>${effet}</b> · ${rev.variation >= 0 ? '+' : ''}${pct} %`);
   return { log: e.log, html: _lyRow({
     ref: e.ref, loc: e.log.locataire, demande: !!e.demande, contexte,
     montant: `<span class="ly2-p nu">${fmt(e.log.hc).replace(' €', '')}</span> → <b>${fmt(rev.nouveauHC)}</b>`,
@@ -49885,6 +49995,8 @@ function openNewEnt(id) {
     // v15.92 EM-5 EMAIL-FROM-PAR-ENTITE — adresse d'envoi alias Gmail
     if (el('ent-email-envoi')) el('ent-email-envoi').value = ent.emailEnvoi || '';
   }
+  // IRL-REVISION R11 — mois de révision commun du bailleur (vide pour une nouvelle entité).
+  if (el('ent-irl-mois')) el('ent-irl-mois').value = (ent && ent.irlMoisRevision) ? String(ent.irlMoisRevision) : '';
   // Signature
   _entSigB64 = ent?.signature || null;
   const sigFile = el('ent-sig-file'); if(sigFile) sigFile.value='';
@@ -50953,6 +51065,8 @@ function saveEnt() {
     siege:v('ent-siege'), iban:v('ent-iban'), bic:v('ent-bic'),
     // v15.92 EM-5 EMAIL-FROM-PAR-ENTITE — alias Gmail send-as (trim + lowercase pour cohérence)
     emailEnvoi: (v('ent-email-envoi')||'').trim().toLowerCase(),
+    // IRL-REVISION R11 — mois de révision commun (1..12) ; null = chaque bail suit son début.
+    irlMoisRevision: (el('ent-irl-mois') ? (parseInt(v('ent-irl-mois'), 10) || null) : (existing?.irlMoisRevision || null)),
     immeubles: existing?.immeubles||[],
     signature: _entSigB64 !== undefined ? _entSigB64 : (existing?.signature||null),
     logo: _entLogoB64 !== undefined ? _entLogoB64 : (existing?.logo||null), // v13.28
@@ -51429,7 +51543,7 @@ Depuis l\u2019ordonnance du 15\u00a0septembre\u00a02021, la recopie manuscrite d
 <h3>IV \u2014 D\u00e9claration d\u2019engagement<\/h3>
 <div style="text-align:justify;line-height:1.5;font-size:10.5pt">
 <p>Je soussign\u00e9(e) <strong>${S(garantNom||'\u2013')}<\/strong>, n\u00e9(e) le ${fd2(garantDdn)}\u00a0\u00e0\u00a0${S(garantLieu||'\u2013')}, r\u00e9sidant \u00e0 l\u2019adresse suivante\u00a0: ${S(garantAdr||'\u2013')}, d\u00e9clare me porter caution solidaire de <strong>${locNames}<\/strong> pour les obligations r\u00e9sultant du bail qui lui a \u00e9t\u00e9 consenti par le bailleur <strong>${S(ent.nom||bail.entity||'\u2013')}<\/strong>, demeurant ${S(ent.siege||'\u2013')}, pour la location du logement situ\u00e9\u00a0: <strong>${S(bail.adrBien||log?.adr||'\u2013')}<\/strong>.<\/p>
-<p>J\u2019ai pris connaissance du montant du loyer de <strong>${loyerLettres}<\/strong> (hors charges et en euros), soit <strong>${fmtN(bail.hc||0)}\u00a0\u20ac<\/strong> par mois. Il sera r\u00e9vis\u00e9 annuellement \u00e0 la date anniversaire du bail selon la variation de l\u2019indice de r\u00e9f\u00e9rence des loyers (IRL) publi\u00e9 par l\u2019INSEE.<\/p>
+<p>J\u2019ai pris connaissance du montant du loyer de <strong>${loyerLettres}<\/strong> (hors charges et en euros), soit <strong>${fmtN(bail.hc||0)}\u00a0\u20ac<\/strong> par mois. Il sera r\u00e9vis\u00e9 ${_bailClauseRevisionIRL(bail, log).quand} selon la variation de l\u2019indice de r\u00e9f\u00e9rence des loyers (IRL) publi\u00e9 par l\u2019INSEE.<\/p>
 <p>Cet engagement vaut pour le paiement, en cas de d\u00e9faillance du locataire, des loyers, des indemnit\u00e9s d\u2019occupation, des charges, des r\u00e9parations et des d\u00e9gradations locatives, des imp\u00f4ts et taxes, des frais et d\u00e9pens de proc\u00e9dure, des co\u00fbts des actes dus, dans la limite de loyer\u00a0\u00d7\u00a012\u00a0\u00d7\u00a0la dur\u00e9e du bail, soit <strong>${plafondFmt}\u00a0\u20ac<\/strong>, en principal et accessoires.<\/p>
 <p>Cet engagement est valable pour une dur\u00e9e d\u00e9termin\u00e9e (${_dureeAns}\u00a0ans \u00e0 compter du ${fd2(bail.debut)}).<\/p>
 <p>Je reconnais avoir pris connaissance de l\u2019avant-dernier alin\u00e9a de l\u2019article\u00a022-1 de la loi du 6\u00a0juillet\u00a01989, selon lequel\u00a0:<\/p>

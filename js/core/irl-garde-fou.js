@@ -22,6 +22,7 @@ export const GARDE = Object.freeze({
   GEL: 'gel',                    // DPE F ou G — loi Climat & Résilience, art. 23
   DPE_ABSENT: 'dpe-absent',      // aucun DPE saisi : l'app ne PEUT PAS vérifier le gel
   CYCLE_ETEINT: 'cycle-eteint',  // cycle non appliqué, éteint par le délai d'un an (art. 17-1)
+  MOINS_UN_AN: 'moins-un-an',    // IRL-REVISION R12 : date commune < 1 an après le début du bail
   TROP_JEUNE: 'trop-jeune',      // pas un verrou : la date n'est pas arrivée
   INDICE: 'indice-manquant'      // pas un verrou : l'INSEE n'a rien publié
 });
@@ -104,6 +105,24 @@ export function gardeFouRevision(rev, ctx) {
         + '<b>Un garage, une cave ou un parking n’a pas de DPE par nature</b> — le gel ne les vise pas, '
         + 'aucune vérification n’est attendue.',
       confirmation: 'J’ai compris que l’app ne peut pas vérifier le gel F/G sur ce lot',
+      cta: 'Réviser quand même'
+    };
+  }
+
+  // ── IRL-REVISION R12 — date de révision CONVENUE tombant moins d'un an après le début du bail
+  // (date commune du bailleur). Le bail est signé : jamais bloquant, mais on prévient.
+  if (r.moinsDunAn && (r.etat === 'a-preparer' || r.etat === 'en-retard')) {
+    return {
+      kind: GARDE.MOINS_UN_AN, peut: true, ico: '📅',
+      titre: 'Réviser un bail de moins d’un an',
+      loi: 'La date de révision convenue au bail'
+        + (r.effetPrevuIso ? ` (${_fr(r.effetPrevuIso)})` : '')
+        + ' tombe moins d’un an après son début'
+        + (r.debutBail ? ` (${_fr(r.debutBail)})` : '')
+        + '. L’article 17-1 de la loi du 6 juillet 1989 prévoit une révision « chaque année à la date convenue entre les parties ».',
+      consequence: 'La révision reste possible : la date figure au bail signé. <b>À vérifier avant d’envoyer la lettre</b> : '
+        + 'une première augmentation moins d’un an après l’entrée dans les lieux peut être contestée par le locataire.',
+      confirmation: 'J’ai vérifié que cette date de révision figure au bail et je valide cette première révision',
       cta: 'Réviser quand même'
     };
   }

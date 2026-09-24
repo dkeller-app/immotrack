@@ -93,34 +93,34 @@ function _plusUnAn(iso) {
 }
 
 /**
- * Le PREMIER cycle révisable : la première date de révision tombant AU MOINS un an après le
- * début du bail. Bail du 15/09/2023 → 01/10/2024 ; bail du 01/09/2023 → 01/09/2024 ; bail du
- * 15/12/2023 → 01/01/2025.
+ * Le PREMIER cycle révisable.
+ *  - Sans date convenue (R1) : la première date de révision tombant AU MOINS un an après le début
+ *    du bail. Bail du 15/09/2023 → 01/10/2024 ; du 01/09/2023 → 01/09/2024 ; du 15/12/2023 → 01/01/2025.
+ *  - Avec une date CONVENUE au bail (R10/R11, date commune du bailleur) : sa première occurrence
+ *    APRÈS le début du bail, même à moins d'un an (R12 : le bail est signé, on ne bloque pas —
+ *    `premierEffetAnticipe` le signale, le garde-fou avertit avant la validation).
  */
 export function premierEffet(debutIso, moisConvenu) {
   if (!_ok(debutIso)) return '';
-  const unAn = _plusUnAn(String(debutIso).slice(0, 10));
-  for (let y = _an(debutIso); y <= _an(debutIso) + 2; y++) {
+  const debut = String(debutIso).slice(0, 10);
+  const convenu = parseInt(moisConvenu, 10) >= 1 && parseInt(moisConvenu, 10) <= 12;
+  const borne = convenu ? null : _plusUnAn(debut);
+  for (let y = _an(debut); y <= _an(debut) + 2; y++) {
     const e = effetDuCycle(debutIso, y, moisConvenu);
-    if (e && e >= unAn) return e;
+    if (!e) continue;
+    if (convenu ? e > debut : e >= borne) return e;
   }
   return '';
 }
 
 /**
- * IRL-REVISION R12 — avec une date de révision CONVENUE (date commune du bailleur), sa
- * première occurrence peut tomber moins d'un an après le début du bail. Ce n'est pas un verrou
- * (le bail est signé) : l'app le propose, avec un avertissement. '' s'il n'y a rien d'anticipé.
+ * IRL-REVISION R12 — la première révision tombe-t-elle MOINS d'un an après le début du bail
+ * (date convenue) ? Rend cette date, sinon ''. Informatif : jamais un verrou.
  */
 export function premierEffetAnticipe(debutIso, moisConvenu) {
-  if (!_ok(debutIso) || !(parseInt(moisConvenu, 10) >= 1)) return '';
-  const debut = String(debutIso).slice(0, 10);
+  if (!_ok(debutIso)) return '';
   const premier = premierEffet(debutIso, moisConvenu);
-  for (let y = _an(debut); y <= _an(debut) + 1; y++) {
-    const e = effetDuCycle(debutIso, y, moisConvenu);
-    if (e && e > debut) return (e < premier) ? e : '';
-  }
-  return '';
+  return (premier && premier < _plusUnAn(String(debutIso).slice(0, 10))) ? premier : '';
 }
 
 /**

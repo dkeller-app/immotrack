@@ -50,24 +50,28 @@ describe('R1 — la révision est au 1er du mois, reportée au mois SUIVANT si l
   });
 });
 
-describe('R12 — date commune : la première occurrence peut précéder le premier anniversaire', () => {
-  it('bail du 01/10/2023, date commune au 1er janvier → 01/01/2024 proposable (avertissement), premier cycle plein au 01/01/2025', () => {
-    expect(premierEffet('2023-10-01', 1)).toBe('2025-01-01');
+describe('R12 — date commune : jamais bloquant, même à moins d\'un an du début du bail', () => {
+  it('bail du 01/10/2023, date commune au 1er janvier → première révision PROPOSÉE au 01/01/2024, signalée < 1 an', () => {
+    expect(premierEffet('2023-10-01', 1)).toBe('2024-01-01');
     expect(premierEffetAnticipe('2023-10-01', 1)).toBe('2024-01-01');
   });
-  it('sans date convenue, rien n\'est anticipé', () => {
+  it('sans date convenue, la première révision attend un an : rien de signalé', () => {
+    expect(premierEffet('2023-10-01')).toBe('2024-10-01');
     expect(premierEffetAnticipe(OHL)).toBe('');
   });
-  it('date convenue = mois du début : rien à anticiper', () => {
+  it('date convenue = mois du début d\'un bail commencé un 1er : un an plein, rien à signaler', () => {
+    expect(premierEffet(B1, 9)).toBe('2024-09-01');
     expect(premierEffetAnticipe(B1, 9)).toBe('');
   });
-  it('l\'état expose la date anticipée (lue par le garde-fou « bail de moins d\'un an »)', () => {
+  it('la révision anticipée a son rappel M-1 et devient « en retard » si elle n\'est pas faite', () => {
+    expect(etatRevision({ debut: '2023-10-01', moisRevision: 1, todayISO: '2023-12-10' }).etat).toBe(ETAT.A_PREPARER);
     const r = etatRevision({ debut: '2023-10-01', moisRevision: 1, todayISO: '2024-01-10' });
-    expect(r.etat).toBe(ETAT.TROP_JEUNE);
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+    expect(r.effetPrevuIso).toBe('2024-01-01');
     expect(r.premiereAnticipeeIso).toBe('2024-01-01');
   });
-  it('au premier cycle plein, la date commune pilote le calendrier', () => {
-    const r = etatRevision({ debut: '2023-10-01', moisRevision: 1, todayISO: '2025-01-15' });
+  it('les cycles suivants suivent la date commune', () => {
+    const r = etatRevision({ debut: '2023-10-01', moisRevision: 1, todayISO: '2025-01-15', derniereApplicationIso: '2024-01-01' });
     expect(r.etat).toBe(ETAT.EN_RETARD);
     expect(r.effetPrevuIso).toBe('2025-01-01');
   });
