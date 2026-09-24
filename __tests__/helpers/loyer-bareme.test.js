@@ -48,9 +48,18 @@ describe('computeDateEffetIRL (Q1) — pré-remplissage de la date d\'effet', ()
     const r = computeDateEffetIRL({ anniversaireIso: '2026-03-01', validationIso: '2026-06-20' });
     expect(r.effetIso).toBe('2026-07-01');
   });
-  it('anniversaire un 15 : effet quand même au 1er du mois (jamais un prorata dans la date d\'effet)', () => {
+  it('IRL-REVISION R1 — anniversaire un 15 : REPORT au 1er du mois suivant, jamais avancé', () => {
+    // Ex-D12 donnait le 01/03 : quinze jours AVANT le terme de l'année du contrat (art. 17-1).
     const r = computeDateEffetIRL({ anniversaireIso: '2026-03-15', validationIso: '2026-02-01' });
-    expect(r.effetIso).toBe('2026-03-01');
+    expect(r.effetIso).toBe('2026-04-01');
+  });
+  it('R2 — validée après la date de révision, un 1er du mois : effet ce jour-là (pas un mois de perdu)', () => {
+    const r = computeDateEffetIRL({ anniversaireIso: '2026-03-01', validationIso: '2026-06-01' });
+    expect(r.effetIso).toBe('2026-06-01');
+  });
+  it('R2 — validée le 31/12 : effet au 01/01 (franchit l\'année)', () => {
+    const r = computeDateEffetIRL({ anniversaireIso: '2026-03-01', validationIso: '2026-12-31' });
+    expect(r.effetIso).toBe('2027-01-01');
   });
   it('garde-fou : jamais avant un mois déjà quittancé (le passé quittancé ne bouge pas)', () => {
     // validée en février pour effet mars, mais mars ET avril déjà quittancés → effet repoussé à mai
@@ -81,6 +90,18 @@ describe('clampDateEffet — validation d\'une date d\'effet MODIFIÉE par l\'ut
     const r = clampDateEffet('2026-03-01', base);
     expect(r.effetIso).toBe('2026-05-01');
     expect(r.ajustee).toBe(true);
+  });
+  it('R2 — jamais avant la DEMANDE (art. 17-1 : effet à compter de la demande)', () => {
+    // Demande le 24/09, date de révision 01/09 : une saisie au 01/09 serait rétroactive.
+    const r = clampDateEffet('2026-09-01', { annivMoisPremierIso: '2026-09-01', demandeIso: '2026-09-24' });
+    expect(r.effetIso).toBe('2026-10-01');
+    expect(r.ajustee).toBe(true);
+  });
+  it('R2 — demande un 1er : ce jour-là suffit', () => {
+    expect(clampDateEffet('2026-09-01', { annivMoisPremierIso: '2026-09-01', demandeIso: '2026-09-01' }).effetIso).toBe('2026-09-01');
+  });
+  it('R2 — demande AVANT la date de révision : c\'est la date de révision qui borne', () => {
+    expect(clampDateEffet('2026-08-01', { annivMoisPremierIso: '2026-10-01', demandeIso: '2026-09-10' }).effetIso).toBe('2026-10-01');
   });
   it('normalise toujours au 1er du mois', () => {
     expect(clampDateEffet('2026-09-17', { annivMoisPremierIso: '2026-03-01' }).effetIso).toBe('2026-09-01');

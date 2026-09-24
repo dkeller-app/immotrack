@@ -7,8 +7,11 @@
  * ce module ne les redouble pas.
  *
  * Décisions encodées :
- *   D12 — l'effet est au 1ᵉʳ JOUR DU MOIS de l'anniversaire du bail. Bail du 15/09 →
- *         effet au 01/09 de chaque année (et non au jour anniversaire).
+ *   R1 (IRL-REVISION, remplace D12) — la révision est au 1ᵉʳ du mois : celui du début du
+ *         bail s'il commence le 1er, sinon le mois SUIVANT (bail du 15/09 → 01/10). Jamais en
+ *         cours de mois, jamais avant le terme de l'année du contrat. Un mois CONVENU au bail
+ *         (R10/R11, date commune du bailleur) remplace ce défaut.
+ *   R5 — une révision validée à effet futur est PROGRAMMÉE (lue dans le journal irlHistorique).
  *   D13 — la révision est proposée UN MOIS AVANT : elle apparaît le 1ᵉʳ du mois précédent
  *         (effet 01/09 → à partir du 01/08), pas à 30 jours glissants.
  *   D15 — PRESCRIPTION art. 17-1 : au-delà d'un an après la date d'effet prévue, le cycle
@@ -31,6 +34,7 @@ export const ETAT = Object.freeze({
   A_PREPARER: 'a-preparer',   // dans le mois de rappel de l'effet à venir (D13)
   EN_RETARD: 'en-retard',     // effet prévu passé, jamais appliqué, cycle encore ouvert
   FAITE: 'faite',             // le cycle en cours est appliqué (ou renoncé)
+  PROGRAMMEE: 'programmee',   // IRL-REVISION R5 : validée, effet encore à venir (« programmée au JJ/MM »)
   RIEN: 'rien',               // rien à faire maintenant
   GEL: 'gel',                 // DPE F ou G — loi Climat (I10)
   TROP_JEUNE: 'trop-jeune',   // bail de moins d'un an
@@ -41,11 +45,35 @@ export const ETAT = Object.freeze({
 export const ETATS_MUETS = Object.freeze([ETAT.GEL, ETAT.TROP_JEUNE, ETAT.INDICE_MANQUANT]);
 
 /**
- * D12 — la date d'effet du cycle d'une année : 1ᵉʳ jour du MOIS de l'anniversaire.
+ * IRL-REVISION R1 — LE MOIS DE RÉVISION par défaut d'un bail : celui de son début si le bail
+ * commence le 1er, sinon le mois SUIVANT. On ne révise jamais en cours de mois, et on ne
+ * révise jamais AVANT le terme de l'année du contrat (art. 17-1 : « au terme de chaque année
+ * du contrat ») — bail du 15/09 → révision chaque 01/10, jamais au 01/09 (ex-D12, qui avançait
+ * la révision de quinze jours).
+ * @returns {number} 1..12 (0 si entrée invalide)
+ */
+export function moisRevisionParDefaut(debutIso) {
+  if (!_ok(debutIso)) return 0;
+  const m = _mo(debutIso);
+  const j = parseInt(String(debutIso).slice(8, 10), 10);
+  return j === 1 ? m : (m % 12) + 1;
+}
+
+/** Le mois de révision retenu : celui convenu au bail (1..12) s'il est valide, sinon le défaut. */
+export function moisRevision(debutIso, moisConvenu) {
+  const m = parseInt(moisConvenu, 10);
+  return (m >= 1 && m <= 12) ? m : moisRevisionParDefaut(debutIso);
+}
+
+/**
+ * La date de révision d'un cycle : le 1er du mois de révision de l'année `annee`.
+ * @param {string} debutIso début du bail
+ * @param {number} annee année du cycle (= année de la date de révision)
+ * @param {number} [moisConvenu] mois de révision convenu au bail (R10/R11), sinon R1
  * @returns {string} 'YYYY-MM-01' ('' si entrée invalide)
  */
-export function effetDuCycle(debutIso, annee) {
-  const m = _mo(debutIso);
+export function effetDuCycle(debutIso, annee, moisConvenu) {
+  const m = _ok(debutIso) ? moisRevision(debutIso, moisConvenu) : 0;
   const y = parseInt(annee, 10);
   if (!m || m < 1 || m > 12 || !Number.isFinite(y)) return '';
   return `${y}-${String(m).padStart(2, '0')}-01`;
@@ -59,45 +87,123 @@ export function moisRappel(effetIso) {
   return `${y}-${String(m).padStart(2, '0')}`;
 }
 
-/**
- * Le PREMIER cycle révisable : l'année du premier anniversaire (D12 appliqué à la lettre —
- * un bail du 15/09/2023 a sa première révision au 01/09/2024, alignée sur le mois).
- */
-export function premierEffet(debutIso) {
-  return _ok(debutIso) ? effetDuCycle(debutIso, _an(debutIso) + 1) : '';
-}
-
 /** Même date, un an plus tard (bornes de prescription — art. 17-1). */
 function _plusUnAn(iso) {
   return `${_an(iso) + 1}${String(iso).slice(4, 10)}`;
 }
 
 /**
- * Le cycle EN COURS : le dernier dont la date d'effet est déjà passée (ou du jour).
- * `null` tant que le premier anniversaire n'est pas atteint.
+ * Le PREMIER cycle révisable : la première date de révision tombant AU MOINS un an après le
+ * début du bail. Bail du 15/09/2023 → 01/10/2024 ; bail du 01/09/2023 → 01/09/2024 ; bail du
+ * 15/12/2023 → 01/01/2025.
  */
-export function cycleEnCours(debutIso, todayISO) {
-  const p = premierEffet(debutIso);
+export function premierEffet(debutIso, moisConvenu) {
+  if (!_ok(debutIso)) return '';
+  const unAn = _plusUnAn(String(debutIso).slice(0, 10));
+  for (let y = _an(debutIso); y <= _an(debutIso) + 2; y++) {
+    const e = effetDuCycle(debutIso, y, moisConvenu);
+    if (e && e >= unAn) return e;
+  }
+  return '';
+}
+
+/**
+ * IRL-REVISION R12 — avec une date de révision CONVENUE (date commune du bailleur), sa
+ * première occurrence peut tomber moins d'un an après le début du bail. Ce n'est pas un verrou
+ * (le bail est signé) : l'app le propose, avec un avertissement. '' s'il n'y a rien d'anticipé.
+ */
+export function premierEffetAnticipe(debutIso, moisConvenu) {
+  if (!_ok(debutIso) || !(parseInt(moisConvenu, 10) >= 1)) return '';
+  const debut = String(debutIso).slice(0, 10);
+  const premier = premierEffet(debutIso, moisConvenu);
+  for (let y = _an(debut); y <= _an(debut) + 1; y++) {
+    const e = effetDuCycle(debutIso, y, moisConvenu);
+    if (e && e > debut) return (e < premier) ? e : '';
+  }
+  return '';
+}
+
+/**
+ * L'année de l'indice à retenir pour une révision datée `effetIso`, sur le trimestre `T` du bail :
+ * le DERNIER indice de ce trimestre PUBLIÉ à la date de révision (INSEE, « Réviser un loyer
+ * d'habitation » : un bail signé le 1er mars applique chaque année l'IRL du 4e trimestre de
+ * l'année précédente). Publications au JO vers le milieu du mois suivant le trimestre :
+ * T1 → avril, T2 → juillet, T3 → octobre, T4 → janvier N+1. Au 1er d'un mois, l'indice est
+ * donc disponible à partir de mai (T1), août (T2), novembre (T3), février (T4 de N-1).
+ * @returns {number|null}
+ */
+export function anneeIndice(T, effetIso) {
+  const t = parseInt(T, 10);
+  if (!_ok(effetIso) || !(t >= 1 && t <= 4)) return null;
+  const y = _an(effetIso), m = _mo(effetIso);
+  if (t === 4) return m >= 2 ? y - 1 : y - 2;
+  const dispo = { 1: 5, 2: 8, 3: 11 }[t];
+  return m >= dispo ? y : y - 1;
+}
+
+/**
+ * Le cycle EN COURS : le dernier dont la date de révision est déjà passée (ou du jour).
+ * `null` tant que le premier cycle n'est pas atteint.
+ */
+export function cycleEnCours(debutIso, todayISO, moisConvenu) {
+  const p = premierEffet(debutIso, moisConvenu);
   if (!p || !_ok(todayISO) || todayISO < p) return null;
-  // Les cycles sont annuels : l'année du cycle en cours se déduit sans boucle.
   let annee = _an(todayISO);
-  if (todayISO < effetDuCycle(debutIso, annee)) annee -= 1;
-  const effetIso = effetDuCycle(debutIso, annee);
+  if (todayISO < effetDuCycle(debutIso, annee, moisConvenu)) annee -= 1;
+  const effetIso = effetDuCycle(debutIso, annee, moisConvenu);
   return { annee, effetIso, rappelYm: moisRappel(effetIso) };
 }
 
 /** Le cycle SUIVANT (celui dont on prépare la lettre pendant son mois de rappel). */
-export function cycleSuivant(debutIso, todayISO) {
-  const cur = cycleEnCours(debutIso, todayISO);
-  const annee = cur ? cur.annee + 1 : _an(premierEffet(debutIso));
-  const effetIso = effetDuCycle(debutIso, annee);
+export function cycleSuivant(debutIso, todayISO, moisConvenu) {
+  const cur = cycleEnCours(debutIso, todayISO, moisConvenu);
+  const annee = cur ? cur.annee + 1 : _an(premierEffet(debutIso, moisConvenu));
+  const effetIso = effetDuCycle(debutIso, annee, moisConvenu);
   return effetIso ? { annee, effetIso, rappelYm: moisRappel(effetIso) } : null;
 }
 
-/** Un cycle est appliqué si la dernière application couvre sa date d'effet. */
-function _applique(derniereApplicationIso, effetIso) {
-  const d = String(derniereApplicationIso || '').slice(0, 10);
-  return !!(d && effetIso && d >= effetIso);
+/**
+ * IRL-REVISION R5 — les marques de cycle TRAITÉ : `irlDerniereApplication` + la clé de cycle
+ * (`dateRevision`) de chaque entrée vivante du journal — appliquée, programmée (effet à venir)
+ * ou renoncée. Avant : seul `irlDerniereApplication` comptait, et il n'est posé qu'une fois
+ * l'effet atteint → une révision validée pour le mois prochain laissait la ligne « en retard ».
+ */
+function _marques(i) {
+  const out = [];
+  const d0 = String(i.derniereApplicationIso || '').slice(0, 10);
+  if (_ok(d0)) out.push(d0);
+  for (const e of (Array.isArray(i.journal) ? i.journal : [])) {
+    if (!e || e._deleted) continue;
+    const k = String(e.dateRevision || '').slice(0, 10);
+    if (_ok(k)) out.push(k);
+  }
+  return out;
+}
+
+/**
+ * Un cycle est traité si une marque est POSTÉRIEURE à la date de révision du cycle précédent.
+ * Fenêtre et non égalité : les clés déjà enregistrées portent d'anciens formats (jour
+ * anniversaire, puis 1er du mois de l'anniversaire, ex-D12) — un bail du 15/09 marqué
+ * « 2025-09-01 » a bien fait son cycle 2025, dont la date est désormais le 01/10/2025.
+ */
+function _traite(marques, debut, effetIso, moisConvenu) {
+  if (!effetIso) return false;
+  const prev = effetDuCycle(debut, _an(effetIso) - 1, moisConvenu);
+  return marques.some((d) => d > prev);
+}
+
+/** L'entrée du journal qui PROGRAMME ce cycle : validée, effet encore à venir. */
+function _programmee(i, debut, effetIso, moisConvenu, today) {
+  const prev = effetDuCycle(debut, _an(effetIso) - 1, moisConvenu);
+  let best = null;
+  for (const e of (Array.isArray(i.journal) ? i.journal : [])) {
+    if (!e || e._deleted || e.action === 'renonciation' || !e.pendingApply) continue;
+    const k = String(e.dateRevision || '').slice(0, 10);
+    const eff = String(e.dateEffet || e.dateApplication || '').slice(0, 10);
+    if (!_ok(k) || !_ok(eff) || k <= prev || eff <= today) continue;
+    if (!best || k > best.cycleIso) best = { cycleIso: k, effetIso: eff };
+  }
+  return best;
 }
 
 /**
@@ -106,37 +212,54 @@ function _applique(derniereApplicationIso, effetIso) {
  * @param {Object} input
  *   @param {string} input.debut         début du bail 'YYYY-MM-DD'
  *   @param {string} input.todayISO      date du jour 'YYYY-MM-DD'
+ *   @param {number} [input.moisRevision]  mois de révision convenu au bail (1..12), sinon R1
  *   @param {string} [input.derniereApplicationIso]  `log.irlDerniereApplication`
+ *   @param {Array}  [input.journal]     entrées `DB.irlHistorique` DE CE LOT
  *   @param {boolean} [input.gel]        DPE F ou G (I10) — décidé par l'appelant
  *   @param {boolean} [input.indiceManquant]  trimestre non publié (D17)
  * @returns {{etat:string, muet:boolean, cycleAnnee:number|null, effetPrevuIso:string,
  *            rappelYm:string, joursAvantEffet:number|null, premiereEffetIso:string,
+ *            premiereAnticipeeIso:string, programmee:{cycleIso:string, effetIso:string}|null,
  *            perdue:{annee:number, effetIso:string}|null}}
  */
 export function etatRevision(input) {
   const i = input || {};
   const debut = String(i.debut || '').slice(0, 10);
   const today = String(i.todayISO || '').slice(0, 10);
+  const mc = i.moisRevision;
   const base = {
     etat: ETAT.RIEN, muet: false, cycleAnnee: null, effetPrevuIso: '', rappelYm: '',
-    joursAvantEffet: null, premiereEffetIso: premierEffet(debut), perdue: null
+    joursAvantEffet: null, premiereEffetIso: premierEffet(debut, mc),
+    premiereAnticipeeIso: premierEffetAnticipe(debut, mc), programmee: null, perdue: null
   };
   if (!_ok(debut) || !_ok(today)) return base;
 
   // I10 — le gel DPE F/G prime sur tout : aucun calendrier, aucune action.
   if (i.gel) return Object.assign(base, { etat: ETAT.GEL, muet: true });
 
-  const suivant = cycleSuivant(debut, today);
-  const cur = cycleEnCours(debut, today);
+  const marques = _marques(i);
+  const fait = (effetIso) => _traite(marques, debut, effetIso, mc);
+  // Un cycle traité : PROGRAMMÉ si son effet est encore à venir, sinon FAIT.
+  const etatTraite = (cycle, extra) => {
+    const prog = _programmee(i, debut, cycle.effetIso, mc, today);
+    return Object.assign(base, {
+      etat: prog ? ETAT.PROGRAMMEE : ETAT.FAITE, cycleAnnee: cycle.annee,
+      effetPrevuIso: cycle.effetIso, rappelYm: cycle.rappelYm, programmee: prog,
+      joursAvantEffet: _joursEntre(today, prog ? prog.effetIso : cycle.effetIso)
+    }, extra || {});
+  };
 
-  // Bail encore dans sa première année.
+  const suivant = cycleSuivant(debut, today, mc);
+  const cur = cycleEnCours(debut, today, mc);
+
+  // Bail encore avant son premier cycle.
   if (!cur) {
     const premier = base.premiereEffetIso;
     const rappelPremier = moisRappel(premier);
-    // D13/I9 — le rappel M-1 vaut AUSSI pour la toute première révision : sans ça, le lot
-    // reste « 🔒 Non révisable » pendant tout son mois de rappel, puis bascule le 1er du mois
-    // suivant directement en « ⚠ en retard ». Sur un parc qui se remplit au fil de l'eau,
-    // c'est la première révision de CHAQUE nouveau bail qui passe à la trappe.
+    const premierCycle = { annee: _an(premier), effetIso: premier, rappelYm: rappelPremier };
+    // Déjà validée à l'avance (pendant le mois de rappel) : programmée, plus « à préparer ».
+    if (premier && fait(premier)) return etatTraite(premierCycle);
+    // D13/I9 — le rappel M-1 vaut AUSSI pour la toute première révision.
     if (rappelPremier && today.slice(0, 7) === rappelPremier && !i.indiceManquant) {
       return Object.assign(base, {
         etat: ETAT.A_PREPARER, cycleAnnee: _an(premier),
@@ -155,20 +278,20 @@ export function etatRevision(input) {
     });
   }
 
-  const curFait = _applique(i.derniereApplicationIso, cur.effetIso);
+  const curFait = fait(cur.effetIso);
 
   // D15 — PRESCRIPTION : le cycle PRÉCÉDENT jamais réclamé est présumé abandonné
-  // (plus d'un an après sa date d'effet prévue). Informatif, jamais proposé (I8).
+  // (plus d'un an après sa date de révision). Informatif, jamais proposé (I8).
   let perdue = null;
-  const precedentIso = effetDuCycle(debut, cur.annee - 1);
+  const precedentIso = effetDuCycle(debut, cur.annee - 1, mc);
   if (precedentIso && precedentIso >= base.premiereEffetIso
-      && !_applique(i.derniereApplicationIso, precedentIso)
+      && !fait(precedentIso)
       && today >= _plusUnAn(precedentIso)) {
     perdue = { annee: cur.annee - 1, effetIso: precedentIso };
   }
 
-  // Le cycle en cours n'a pas été réclamé : il reste ouvert (moins d'un an), donc proposable.
-  // D14 : la date d'effet réelle sera recalée par les garde-fous Q1 (jamais rétroactive).
+  // R3 — le cycle en cours n'a pas été réclamé : il reste ouvert (moins d'un an), proposable.
+  // La date d'effet réelle est recalée par les garde-fous R2 (jamais rétroactive).
   if (!curFait) {
     if (i.indiceManquant) {
       return Object.assign(base, {
@@ -182,8 +305,9 @@ export function etatRevision(input) {
     });
   }
 
-  // Le cycle en cours est fait. Reste-t-il le RAPPEL du cycle suivant (D13/I9) ?
+  // Le cycle en cours est traité. Reste-t-il le RAPPEL du cycle suivant (D13/I9) ?
   if (suivant && today.slice(0, 7) === suivant.rappelYm) {
+    if (fait(suivant.effetIso)) return etatTraite(suivant, { perdue });
     if (i.indiceManquant) {
       return Object.assign(base, {
         etat: ETAT.INDICE_MANQUANT, muet: true, cycleAnnee: suivant.annee,
@@ -196,11 +320,10 @@ export function etatRevision(input) {
     });
   }
 
-  return Object.assign(base, {
-    etat: ETAT.FAITE, cycleAnnee: cur.annee, effetPrevuIso: cur.effetIso,
-    rappelYm: cur.rappelYm,
-    joursAvantEffet: suivant ? _joursEntre(today, suivant.effetIso) : null, perdue
-  });
+  const r = etatTraite(cur, { perdue });
+  // FAITE : le compte à rebours porte sur le cycle suivant (comportement historique).
+  if (r.etat === ETAT.FAITE) r.joursAvantEffet = suivant ? _joursEntre(today, suivant.effetIso) : null;
+  return r;
 }
 
 function _joursEntre(aIso, bIso) {
@@ -259,7 +382,7 @@ export function ganttRevisions(lots, todayISO) {
         }
       } else if (effetYm) {
         if (mm.ym === effetYm) {
-          kind = (e.etat === ETAT.FAITE) ? 'faite' : 'effet';
+          kind = (e.etat === ETAT.FAITE || e.etat === ETAT.PROGRAMMEE) ? 'faite' : 'effet';
           label = '01/' + effetYm.slice(5, 7);
         } else if (mm.ym === rappelYm) { kind = 'rappel'; label = 'rappel'; }
       }

@@ -37,6 +37,17 @@ export function _premierDuMoisSuivant(iso) {
 }
 
 /**
+ * IRL-REVISION R1/R2 — jamais de révision en cours de mois : une date qui n'est pas un 1er
+ * est reportée au 1er du mois SUIVANT (jamais avancée). '2026-09-15' → '2026-10-01' ;
+ * '2026-09-01' → inchangé.
+ */
+export function _premierDuMoisOuSuivant(iso) {
+  const d = _ymd(iso);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+  return d.slice(8, 10) === '01' ? d : _premierDuMoisSuivant(d);
+}
+
+/**
  * « Montant réellement saisi » — CDC Finances §M-1 bis : l'app ne devine rien. Un champ VIDE
  * n'est pas un zéro, et un zéro doit être une SAISIE EXPLICITE.
  *
@@ -102,7 +113,7 @@ function _veille(iso) {
  * commencer le 15 ; la période prend alors effet ce jour-là, duMois proratise déjà).
  * `ajustee` = la date a dû être remontée (à signaler dans l'UI).
  * @param {string} effetIso date d'effet proposée
- * @param {{annivMoisPremierIso?:string, dernierMoisQuittanceYm?:string, debutBailIso?:string}} opts
+ * @param {{annivMoisPremierIso?:string, demandeIso?:string, dernierMoisQuittanceYm?:string, debutBailIso?:string}} opts
  * @returns {{effetIso:string, ajustee:boolean}}
  */
 export function clampDateEffet(effetIso, opts) {
@@ -111,6 +122,10 @@ export function clampDateEffet(effetIso, opts) {
   const propose = effet;
   const annivMin = o.annivMoisPremierIso ? _premierDuMois(o.annivMoisPremierIso) : '';
   if (annivMin && effet < annivMin) effet = annivMin;
+  // IRL-REVISION R2 — art. 17-1 : la révision « prend effet à compter de sa demande ». Une
+  // date d'effet ne précède donc jamais la demande (1er du mois qui la suit, sauf demande un 1er).
+  const demandeMin = o.demandeIso ? _premierDuMoisOuSuivant(o.demandeIso) : '';
+  if (demandeMin && effet < demandeMin) effet = demandeMin;
   if (o.dernierMoisQuittanceYm) {
     const minLibre = _premierDuMoisSuivant(o.dernierMoisQuittanceYm + '-01');
     if (minLibre && effet < minLibre) effet = minLibre;
@@ -129,13 +144,15 @@ export function computeDateEffetIRL(input) {
   const i = input || {};
   const anniv = _ymd(i.anniversaireIso);
   const validation = _ymd(i.validationIso);
-  const annivMoisPremier = _premierDuMois(anniv);
-  // Validée avant/au jour de l'anniversaire → effet au 1er du mois de l'anniversaire ;
-  // validée après → 1er du mois suivant la validation.
-  const propose = (validation && anniv && validation > anniv)
-    ? _premierDuMoisSuivant(validation)
+  // IRL-REVISION R1 — la date de révision est un 1er ; une date anniversaire en cours de mois
+  // est REPORTÉE au 1er du mois suivant (ex-D12 l'avançait au 1er du mois courant).
+  const annivMoisPremier = _premierDuMoisOuSuivant(anniv);
+  // R2 — validée avant/au jour de la date de révision → effet à cette date ; validée après →
+  // à compter de la demande : le 1er du mois qui la suit (le jour même si c'est un 1er).
+  const propose = (validation && annivMoisPremier && validation > annivMoisPremier)
+    ? _premierDuMoisOuSuivant(validation)
     : annivMoisPremier;
-  return clampDateEffet(propose, { annivMoisPremierIso: annivMoisPremier, dernierMoisQuittanceYm: i.dernierMoisQuittanceYm });
+  return clampDateEffet(propose, { annivMoisPremierIso: annivMoisPremier, demandeIso: validation || undefined, dernierMoisQuittanceYm: i.dernierMoisQuittanceYm });
 }
 
 /** Période initiale à la création d'un bail (source 'bail', fin ouverte). */

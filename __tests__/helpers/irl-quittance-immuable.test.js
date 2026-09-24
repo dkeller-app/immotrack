@@ -38,6 +38,7 @@ function reviserComme_applyIRLValidated({ bareme, quittances, validationIso, sai
   });
   const clamp = clampDateEffet(saisieUtilisateur || pre.effetIso, {
     annivMoisPremierIso: cal.effetPrevuIso,
+    demandeIso: validationIso,          // IRL-REVISION R2 : jamais avant la demande
     dernierMoisQuittanceYm: dernierMoisQuittance(quittances)
   });
   return {
@@ -60,27 +61,28 @@ describe('I2 — une révision ne recalcule jamais un mois déjà quittancé', (
   it('cas nominal : la révision prend effet APRÈS le dernier mois quittancé', () => {
     const avant = photo(BAREME0);
     const r = reviserComme_applyIRLValidated({
-      bareme: BAREME0, quittances: QUITTANCES, validationIso: '2026-08-18', nouveauHC: 733.32
+      bareme: BAREME0, quittances: QUITTANCES, validationIso: '2026-09-18', nouveauHC: 733.32
     });
-    expect(r.effetIso).toBe('2026-09-01');
+    // Bail du 15/09 → révision au 01/10 (R1), validée pendant son mois de rappel (septembre).
+    expect(r.effetIso).toBe('2026-10-01');
     const apres = photo(r.bareme);
-    for (const ym of ['2025-09', '2025-12', '2026-01', '2026-05', '2026-06', '2026-07', '2026-08']) {
+    for (const ym of ['2025-09', '2025-12', '2026-01', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09']) {
       const i = MOIS_SUIVIS.indexOf(ym);
       expect(apres[i]).toBe(avant[i]);
     }
-    expect(duMois(ctx(r.bareme), '2026-09').total).toBe(813.32);
+    expect(duMois(ctx(r.bareme), '2026-10').total).toBe(813.32);
   });
 
   it('l\'utilisateur saisit une date DANS un mois quittancé → elle est remontée, rien ne bouge', () => {
     const avant = photo(BAREME0);
     const r = reviserComme_applyIRLValidated({
-      bareme: BAREME0, quittances: QUITTANCES, validationIso: '2026-08-18',
+      bareme: BAREME0, quittances: QUITTANCES, validationIso: '2026-09-18',
       saisieUtilisateur: '2026-06-01', nouveauHC: 733.32   // juin est quittancé
     });
     expect(r.ajustee).toBe(true);
-    // DEUX planchers s'appliquent et le PLUS HAUT gagne : le 1er mois libre après juillet
-    // (2026-08) et le 1er du mois de l'anniversaire (2026-09). Résultat : septembre.
-    expect(r.effetIso).toBe('2026-09-01');
+    // TROIS planchers s'appliquent et le PLUS HAUT gagne : le 1er mois libre après juillet
+    // (2026-08), la demande (18/09 → 2026-10) et la date de révision (2026-10). Résultat : octobre.
+    expect(r.effetIso).toBe('2026-10-01');
     const apres = photo(r.bareme);
     for (const ym of ['2026-05', '2026-06', '2026-07']) {
       const i = MOIS_SUIVIS.indexOf(ym);
@@ -91,7 +93,7 @@ describe('I2 — une révision ne recalcule jamais un mois déjà quittancé', (
   it('l\'utilisateur saisit une date carrément rétroactive → même garantie', () => {
     const avant = photo(BAREME0);
     const r = reviserComme_applyIRLValidated({
-      bareme: BAREME0, quittances: QUITTANCES, validationIso: '2026-08-18',
+      bareme: BAREME0, quittances: QUITTANCES, validationIso: '2026-09-18',
       saisieUtilisateur: '2024-01-15', nouveauHC: 733.32
     });
     const apres = photo(r.bareme);
@@ -105,27 +107,27 @@ describe('I2 — une révision ne recalcule jamais un mois déjà quittancé', (
   it('DEUX révisions successives ne touchent toujours aucun mois quittancé', () => {
     const avant = photo(BAREME0);
     const r1 = reviserComme_applyIRLValidated({
-      bareme: BAREME0, quittances: QUITTANCES, validationIso: '2026-08-18', nouveauHC: 733.32
+      bareme: BAREME0, quittances: QUITTANCES, validationIso: '2026-09-18', nouveauHC: 733.32
     });
-    const q2 = QUITTANCES.concat([{ logement: REF, mois: 'août 2026' }, { logement: REF, mois: 'septembre 2026' }]);
+    const q2 = QUITTANCES.concat([{ logement: REF, mois: 'août 2026' }, { logement: REF, mois: 'septembre 2026' }, { logement: REF, mois: 'octobre 2026' }]);
     const r2 = reviserComme_applyIRLValidated({
-      bareme: r1.bareme, quittances: q2, validationIso: '2027-08-18', nouveauHC: 750
+      bareme: r1.bareme, quittances: q2, validationIso: '2027-09-18', nouveauHC: 750
     });
     const apres = photo(r2.bareme);
     for (const ym of ['2025-09', '2025-12', '2026-01', '2026-05', '2026-06', '2026-07']) {
       const i = MOIS_SUIVIS.indexOf(ym);
       expect(apres[i]).toBe(avant[i]);
     }
-    // Septembre 2026 (quittancé après r1) garde le tarif issu de r1.
-    expect(duMois(ctx(r2.bareme), '2026-09').total).toBe(813.32);
+    // Octobre 2026 (quittancé après r1) garde le tarif issu de r1.
+    expect(duMois(ctx(r2.bareme), '2026-10').total).toBe(813.32);
   });
 
   it('sans aucune quittance, le garde-fou anniversaire suffit — jamais de rétroactif', () => {
     const r = reviserComme_applyIRLValidated({
-      bareme: BAREME0, quittances: [], validationIso: '2026-08-18',
+      bareme: BAREME0, quittances: [], validationIso: '2026-09-18',
       saisieUtilisateur: '2025-01-01', nouveauHC: 733.32
     });
-    expect(r.effetIso).toBe('2026-09-01');
+    expect(r.effetIso).toBe('2026-10-01');
     expect(duMois(ctx(r.bareme), '2026-01').total).toBe(780);
   });
 
@@ -134,7 +136,7 @@ describe('I2 — une révision ne recalcule jamais un mois déjà quittancé', (
     const avant = MOIS_SUIVIS.map(ym => duMois(ctx(BAREME0), ym).total);
     for (const saisie of ['2024-05-01', '2026-01-01', '2026-06-15', '2026-08-31', '']) {
       const r = reviserComme_applyIRLValidated({
-        bareme: BAREME0, quittances, validationIso: '2026-08-18',
+        bareme: BAREME0, quittances, validationIso: '2026-09-18',
         saisieUtilisateur: saisie, nouveauHC: 999
       });
       const apres = MOIS_SUIVIS.map(ym => duMois(ctx(r.bareme), ym).total);

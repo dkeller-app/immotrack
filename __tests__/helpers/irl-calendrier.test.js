@@ -1,33 +1,97 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ETAT, ETATS_MUETS, effetDuCycle, moisRappel, premierEffet,
+  ETAT, ETATS_MUETS, effetDuCycle, moisRappel, premierEffet, premierEffetAnticipe,
+  moisRevisionParDefaut, moisRevision, anneeIndice,
   cycleEnCours, cycleSuivant, etatRevision, ganttRevisions, rubanRevisions
 } from '../../js/core/irl-calendrier.js';
 
 /**
- * CDC-QUITTANCES-IRL étape 5 — le calendrier des révisions.
- * Invariants : I8 (prescription art. 17-1), I9 (rappel M-1), I10 (loyer gelé DPE F/G).
+ * Le calendrier des révisions — CDC-QUITTANCES-IRL étape 5, révisé par IRL-REVISION
+ * (docs/subjects/IRL-REVISION.md, validé 2026-09-24).
+ * Invariants : I8 (prescription art. 17-1), I9 (rappel M-1), I10 (loyer gelé DPE F/G),
+ * R1 (révision au 1er du mois, report au mois suivant), R5 (programmée), R12 (date commune).
  */
 
-// Le bail d'Ohl (mockup revision-irl.html) : signé le 15/09/2023.
+// Le bail d'Ohl : signé le 15/09/2023 → révisé chaque 01/10 (R1).
 const OHL = '2023-09-15';
+// Un bail commencé un 1er : révisé chaque 01/09, sans report.
+const B1 = '2023-09-01';
 
-describe('D12 — l\'effet est au 1ᵉʳ jour du mois de l\'anniversaire', () => {
-  it('bail du 15/09 → effet au 01/09 de chaque année, jamais au jour anniversaire', () => {
-    expect(effetDuCycle(OHL, 2026)).toBe('2026-09-01');
-    expect(effetDuCycle(OHL, 2027)).toBe('2027-09-01');
+describe('R1 — la révision est au 1er du mois, reportée au mois SUIVANT si le bail ne commence pas un 1er', () => {
+  it('mois de révision par défaut', () => {
+    expect(moisRevisionParDefaut(OHL)).toBe(10);
+    expect(moisRevisionParDefaut(B1)).toBe(9);
+    expect(moisRevisionParDefaut('2023-12-15')).toBe(1);   // franchit l'année
+    expect(moisRevisionParDefaut('nope')).toBe(0);
   });
-  it('bail du 1ᵉʳ du mois → inchangé', () => {
+  it('bail du 15/09 → révision au 01/10 de chaque année, jamais avancée au 01/09 (ex-D12)', () => {
+    expect(effetDuCycle(OHL, 2026)).toBe('2026-10-01');
+    expect(effetDuCycle(OHL, 2027)).toBe('2027-10-01');
+  });
+  it('bail du 1er du mois → inchangé', () => {
     expect(effetDuCycle('2026-02-01', 2027)).toBe('2027-02-01');
   });
-  it('la première révision tombe l\'année du premier anniversaire', () => {
-    expect(premierEffet(OHL)).toBe('2024-09-01');
+  it('un mois CONVENU au bail remplace le défaut (R10/R11)', () => {
+    expect(moisRevision(OHL, 1)).toBe(1);
+    expect(moisRevision(OHL, '')).toBe(10);
+    expect(moisRevision(OHL, 13)).toBe(10);
+    expect(effetDuCycle(OHL, 2026, 1)).toBe('2026-01-01');
+  });
+  it('la première révision tombe au moins un an après le début du bail', () => {
+    expect(premierEffet(OHL)).toBe('2024-10-01');
+    expect(premierEffet(B1)).toBe('2024-09-01');
     expect(premierEffet('2026-02-01')).toBe('2027-02-01');
+    expect(premierEffet('2023-12-15')).toBe('2025-01-01');
   });
   it('entrées invalides → chaîne vide, jamais de crash', () => {
     expect(effetDuCycle('', 2026)).toBe('');
     expect(effetDuCycle(OHL, NaN)).toBe('');
     expect(premierEffet('nope')).toBe('');
+  });
+});
+
+describe('R12 — date commune : la première occurrence peut précéder le premier anniversaire', () => {
+  it('bail du 01/10/2023, date commune au 1er janvier → 01/01/2024 proposable (avertissement), premier cycle plein au 01/01/2025', () => {
+    expect(premierEffet('2023-10-01', 1)).toBe('2025-01-01');
+    expect(premierEffetAnticipe('2023-10-01', 1)).toBe('2024-01-01');
+  });
+  it('sans date convenue, rien n\'est anticipé', () => {
+    expect(premierEffetAnticipe(OHL)).toBe('');
+  });
+  it('date convenue = mois du début : rien à anticiper', () => {
+    expect(premierEffetAnticipe(B1, 9)).toBe('');
+  });
+  it('l\'état expose la date anticipée (lue par le garde-fou « bail de moins d\'un an »)', () => {
+    const r = etatRevision({ debut: '2023-10-01', moisRevision: 1, todayISO: '2024-01-10' });
+    expect(r.etat).toBe(ETAT.TROP_JEUNE);
+    expect(r.premiereAnticipeeIso).toBe('2024-01-01');
+  });
+  it('au premier cycle plein, la date commune pilote le calendrier', () => {
+    const r = etatRevision({ debut: '2023-10-01', moisRevision: 1, todayISO: '2025-01-15' });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+    expect(r.effetPrevuIso).toBe('2025-01-01');
+  });
+});
+
+describe('Indice — le dernier indice du trimestre du bail PUBLIÉ à la date de révision (INSEE)', () => {
+  it('exemple INSEE : bail signé le 1er mars → IRL du T4 de l\'année précédente', () => {
+    expect(anneeIndice(4, '2026-03-01')).toBe(2025);
+  });
+  it('T4 publié mi-janvier : au 01/01 c\'est encore celui de N-2', () => {
+    expect(anneeIndice(4, '2026-01-01')).toBe(2024);
+    expect(anneeIndice(4, '2026-02-01')).toBe(2025);
+  });
+  it('T1 mi-avril, T2 mi-juillet, T3 mi-octobre', () => {
+    expect(anneeIndice(1, '2026-04-01')).toBe(2025);
+    expect(anneeIndice(1, '2026-05-01')).toBe(2026);
+    expect(anneeIndice(2, '2026-07-01')).toBe(2025);
+    expect(anneeIndice(2, '2026-09-01')).toBe(2026);
+    expect(anneeIndice(3, '2026-10-01')).toBe(2025);
+    expect(anneeIndice(3, '2026-11-01')).toBe(2026);
+  });
+  it('entrées invalides → null', () => {
+    expect(anneeIndice(5, '2026-03-01')).toBeNull();
+    expect(anneeIndice(2, 'nope')).toBeNull();
   });
 });
 
@@ -41,28 +105,28 @@ describe('D13 — le mois de rappel est le mois précédent, en entier', () => {
 });
 
 describe('cycleEnCours / cycleSuivant', () => {
-  it('le cycle en cours est le dernier effet déjà passé', () => {
-    expect(cycleEnCours(OHL, '2026-08-18').effetIso).toBe('2025-09-01');
-    expect(cycleEnCours(OHL, '2026-09-01').effetIso).toBe('2026-09-01');
-    expect(cycleEnCours(OHL, '2026-08-31').effetIso).toBe('2025-09-01');
+  it('le cycle en cours est la dernière date de révision déjà passée', () => {
+    expect(cycleEnCours(OHL, '2026-09-18').effetIso).toBe('2025-10-01');
+    expect(cycleEnCours(OHL, '2026-10-01').effetIso).toBe('2026-10-01');
+    expect(cycleEnCours(OHL, '2026-09-30').effetIso).toBe('2025-10-01');
   });
-  it('null tant que le premier anniversaire n\'est pas atteint', () => {
-    expect(cycleEnCours(OHL, '2024-08-31')).toBeNull();
-    expect(cycleEnCours(OHL, '2024-09-01')).not.toBeNull();
+  it('null tant que le premier cycle n\'est pas atteint', () => {
+    expect(cycleEnCours(OHL, '2024-09-30')).toBeNull();
+    expect(cycleEnCours(OHL, '2024-10-01')).not.toBeNull();
   });
   it('le cycle suivant est un an après', () => {
-    expect(cycleSuivant(OHL, '2026-08-18').effetIso).toBe('2026-09-01');
-    expect(cycleSuivant(OHL, '2026-08-18').rappelYm).toBe('2026-08');
+    expect(cycleSuivant(OHL, '2026-09-18').effetIso).toBe('2026-10-01');
+    expect(cycleSuivant(OHL, '2026-09-18').rappelYm).toBe('2026-09');
   });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  I9 — Rappel M-1 : du 1ᵉʳ au dernier jour du mois précédent, et pas avant
+//  I9 / R4 — Rappel M-1 : du 1ᵉʳ au dernier jour du mois précédent, et pas avant
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('I9 — une révision d\'effet 01/09 apparaît du 01/08 au 31/08, jamais avant', () => {
   // Cycle 2025 déjà appliqué → c'est bien le rappel du cycle 2026 qu'on observe.
-  const at = (today) => etatRevision({ debut: OHL, todayISO: today, derniereApplicationIso: '2025-09-01' });
+  const at = (today) => etatRevision({ debut: B1, todayISO: today, derniereApplicationIso: '2025-09-01' });
 
   it('le 31/07 : rien à préparer', () => {
     expect(at('2026-07-31').etat).toBe(ETAT.FAITE);
@@ -73,7 +137,7 @@ describe('I9 — une révision d\'effet 01/09 apparaît du 01/08 au 31/08, jamai
     expect(r.effetPrevuIso).toBe('2026-09-01');
     expect(r.joursAvantEffet).toBe(31);
   });
-  it('le 18/08 : toujours à préparer, 14 jours avant l\'effet (exemple du mockup)', () => {
+  it('le 18/08 : toujours à préparer, 14 jours avant l\'effet', () => {
     const r = at('2026-08-18');
     expect(r.etat).toBe(ETAT.A_PREPARER);
     expect(r.joursAvantEffet).toBe(14);
@@ -87,6 +151,79 @@ describe('I9 — une révision d\'effet 01/09 apparaît du 01/08 au 31/08, jamai
   it('un mois AVANT le rappel (le 15/07) : rien', () => {
     expect(at('2026-07-15').etat).not.toBe(ETAT.A_PREPARER);
   });
+  it('bail du 15/09 : le rappel est en SEPTEMBRE (révision au 01/10)', () => {
+    const r = etatRevision({ debut: OHL, todayISO: '2026-09-10', derniereApplicationIso: '2025-10-01' });
+    expect(r.etat).toBe(ETAT.A_PREPARER);
+    expect(r.effetPrevuIso).toBe('2026-10-01');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  R5 — une révision VALIDÉE à effet futur est PROGRAMMÉE (le bug de prod v15.678)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('R5 — « Valider la révision » fait quitter la ligne de « en retard » / « à préparer »', () => {
+  it('BUG PROD : en retard (effet prévu 01/09), validée le 24/09 → effet 01/10 → PROGRAMMÉE, plus « en retard »', () => {
+    const r = etatRevision({
+      debut: B1, todayISO: '2026-09-24', derniereApplicationIso: '2025-09-01',
+      journal: [{ ref: 'X', dateRevision: '2026-09-01', dateEffet: '2026-10-01', pendingApply: true }]
+    });
+    expect(r.etat).toBe(ETAT.PROGRAMMEE);
+    expect(r.programmee).toEqual({ cycleIso: '2026-09-01', effetIso: '2026-10-01' });
+    expect(r.muet).toBe(false);
+    expect(r.joursAvantEffet).toBe(7);
+  });
+  it('sans l\'entrée du journal, la même ligne est bien « en retard » (témoin)', () => {
+    const r = etatRevision({ debut: B1, todayISO: '2026-09-24', derniereApplicationIso: '2025-09-01' });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+  });
+  it('à préparer, validée à l\'avance pendant le mois de rappel → PROGRAMMÉE à la date de révision', () => {
+    const r = etatRevision({
+      debut: B1, todayISO: '2026-08-18', derniereApplicationIso: '2025-09-01',
+      journal: [{ dateRevision: '2026-09-01', dateEffet: '2026-09-01', pendingApply: true }]
+    });
+    expect(r.etat).toBe(ETAT.PROGRAMMEE);
+    expect(r.programmee.effetIso).toBe('2026-09-01');
+  });
+  it('la toute première révision, validée à l\'avance → PROGRAMMÉE aussi', () => {
+    const r = etatRevision({
+      debut: OHL, todayISO: '2024-09-10',
+      journal: [{ dateRevision: '2024-10-01', dateEffet: '2024-10-01', pendingApply: true }]
+    });
+    expect(r.etat).toBe(ETAT.PROGRAMMEE);
+  });
+  it('effet atteint et appliqué → FAITE', () => {
+    const r = etatRevision({
+      debut: B1, todayISO: '2026-10-02', derniereApplicationIso: '2026-09-01',
+      journal: [{ dateRevision: '2026-09-01', dateEffet: '2026-10-01', pendingApply: false }]
+    });
+    expect(r.etat).toBe(ETAT.FAITE);
+  });
+  it('une entrée SUPPRIMÉE (annulée) ne programme rien : la ligne revient « en retard »', () => {
+    const r = etatRevision({
+      debut: B1, todayISO: '2026-09-24', derniereApplicationIso: '2025-09-01',
+      journal: [{ dateRevision: '2026-09-01', dateEffet: '2026-10-01', pendingApply: true, _deleted: true }]
+    });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+  });
+  it('une RENONCIATION traite le cycle sans le programmer', () => {
+    const r = etatRevision({
+      debut: B1, todayISO: '2026-09-24', derniereApplicationIso: '2025-09-01',
+      journal: [{ dateRevision: '2026-09-01', action: 'renonciation' }]
+    });
+    expect(r.etat).toBe(ETAT.FAITE);
+    expect(r.programmee).toBeNull();
+  });
+  it('les clés d\'anciens formats valent pour leur cycle (bail du 15/09 marqué « 2025-09-01 » = cycle 2025 fait)', () => {
+    const r = etatRevision({ debut: OHL, todayISO: '2026-08-18', derniereApplicationIso: '2025-09-01' });
+    expect(r.etat).toBe(ETAT.FAITE);
+    expect(r.effetPrevuIso).toBe('2025-10-01');
+  });
+  it('… mais n\'éteignent pas le cycle suivant (pas d\'IRL composée ni de cycle sauté)', () => {
+    const r = etatRevision({ debut: OHL, todayISO: '2026-10-05', derniereApplicationIso: '2025-09-01' });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+    expect(r.effetPrevuIso).toBe('2026-10-01');
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -94,30 +231,26 @@ describe('I9 — une révision d\'effet 01/09 apparaît du 01/08 au 31/08, jamai
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('I8 — au-delà d\'un an, la révision n\'est plus proposée', () => {
-  it('un oubli de 5 mois reste proposable (cycle en cours)', () => {
-    // Effet prévu 01/03/2026, on est le 18/08/2026 : 5 mois, cycle encore ouvert.
+  it('un oubli de 4 mois reste proposable (cycle en cours)', () => {
+    // Bail du 03/03 → révision au 01/04 ; cycle 2025 marqué à l'ancien format (01/03).
     const r = etatRevision({ debut: '2024-03-03', todayISO: '2026-08-18', derniereApplicationIso: '2025-03-01' });
     expect(r.etat).toBe(ETAT.EN_RETARD);
-    expect(r.effetPrevuIso).toBe('2026-03-01');
+    expect(r.effetPrevuIso).toBe('2026-04-01');
     expect(r.perdue).toBeNull();
   });
 
   it('un oubli de DEUX ans : seul le cycle EN COURS est proposé, le précédent est perdu', () => {
     const r = etatRevision({ debut: '2021-06-20', todayISO: '2026-08-18', derniereApplicationIso: '2024-06-01' });
     expect(r.etat).toBe(ETAT.EN_RETARD);
-    expect(r.effetPrevuIso).toBe('2026-06-01');   // cycle en cours, sur le loyer ACTUEL
-    expect(r.perdue).toEqual({ annee: 2025, effetIso: '2025-06-01' });
+    expect(r.effetPrevuIso).toBe('2026-07-01');   // cycle en cours, sur le loyer ACTUEL
+    expect(r.perdue).toEqual({ annee: 2025, effetIso: '2025-07-01' });
   });
 
   it('un cycle jamais appliqué de plus d\'un an n\'est JAMAIS la révision proposée', () => {
-    // Rien n'a jamais été appliqué depuis 2021 : la proposition porte sur 2026, pas sur 2022.
     const r = etatRevision({ debut: '2021-06-20', todayISO: '2026-08-18' });
-    expect(r.effetPrevuIso).toBe('2026-06-01');
-    const prescription = new Date(r.perdue.effetIso + 'T00:00:00');
-    expect(prescription.getFullYear()).toBe(2025);
-    // Aucun état ne peut renvoyer une date d'effet vieille de plus d'un an.
-    const unAnAvant = '2025-08-18';
-    expect(r.effetPrevuIso > unAnAvant).toBe(true);
+    expect(r.effetPrevuIso).toBe('2026-07-01');
+    expect(new Date(r.perdue.effetIso + 'T00:00:00').getFullYear()).toBe(2025);
+    expect(r.effetPrevuIso > '2025-08-18').toBe(true);
   });
 
   it('aucun cycle perdu quand tout est à jour', () => {
@@ -126,9 +259,8 @@ describe('I8 — au-delà d\'un an, la révision n\'est plus proposée', () => {
   });
 
   it('la prescription ne remonte pas avant la première révision possible', () => {
-    // Bail de 2025 : au 18/08/2026 le cycle en cours est le premier, rien n'est « perdu ».
     const r = etatRevision({ debut: '2025-03-10', todayISO: '2026-08-18' });
-    expect(r.effetPrevuIso).toBe('2026-03-01');
+    expect(r.effetPrevuIso).toBe('2026-04-01');
     expect(r.perdue).toBeNull();
   });
 });
@@ -145,7 +277,7 @@ describe('I10 — un lot au DPE F ou G n\'apparaît jamais dans « à réviser �
     expect(ETATS_MUETS).toContain(r.etat);
   });
   it('un état muet n\'est jamais « à préparer » ni « en retard »', () => {
-    for (const today of ['2026-05-01', '2026-08-01', '2026-08-18', '2026-09-01']) {
+    for (const today of ['2026-05-01', '2026-08-01', '2026-09-18', '2026-10-01']) {
       const r = etatRevision({ debut: OHL, todayISO: today, gel: true });
       expect(r.etat).not.toBe(ETAT.A_PREPARER);
       expect(r.etat).not.toBe(ETAT.EN_RETARD);
@@ -163,15 +295,15 @@ describe('D17 — visibles, hors du compteur, sans action', () => {
     expect(r.etat).toBe(ETAT.TROP_JEUNE);
     expect(r.muet).toBe(true);
     expect(r.effetPrevuIso).toBe('2027-02-01');
-    expect(r.joursAvantEffet).toBe(167);   // « Dans 167 j » du mockup
+    expect(r.joursAvantEffet).toBe(167);
   });
   it('indice non publié : muet, mais la date d\'effet reste connue', () => {
-    // COLMAR-4 du mockup : effet prévu au 01/11/2025 jamais réclamé, indice T4 non publié.
+    // Bail du 12/11 → révision au 01/12 ; cycle 2025 jamais réclamé, indice non publié.
     const r = etatRevision({ debut: '2022-11-12', todayISO: '2026-08-18', derniereApplicationIso: '2024-11-01', indiceManquant: true });
     expect(r.etat).toBe(ETAT.INDICE_MANQUANT);
     expect(ETATS_MUETS).toContain(r.etat);
     expect(r.muet).toBe(true);
-    expect(r.effetPrevuIso).toBe('2025-11-01');
+    expect(r.effetPrevuIso).toBe('2025-12-01');
   });
   it('tous les états muets portent bien muet=true', () => {
     const cas = [
@@ -191,7 +323,7 @@ describe('D17 — visibles, hors du compteur, sans action', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  D16 — le calendrier Gantt
+//  D16 — le calendrier Gantt / le ruban
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('D16 — douze mois glissants, un lot par ligne', () => {
@@ -206,7 +338,7 @@ describe('D16 — douze mois glissants, un lot par ligne', () => {
   });
 
   it('bande de rappel au mois M-1, pavé plein au mois d\'effet', () => {
-    const g = ganttRevisions([lot('MUTZIG-B1', { debut: OHL, derniereApplicationIso: '2025-09-01' })], today);
+    const g = ganttRevisions([lot('MUTZIG-B1', { debut: B1, derniereApplicationIso: '2025-09-01' })], today);
     const cells = g.lignes[0].cells;
     expect(cells.find(c => c.ym === '2026-08').kind).toBe('rappel');
     expect(cells.find(c => c.ym === '2026-09').kind).toBe('effet');
@@ -221,20 +353,26 @@ describe('D16 — douze mois glissants, un lot par ligne', () => {
   });
 
   it('un cycle déjà fait se distingue d\'un cycle à faire', () => {
-    const g = ganttRevisions([lot('X', { debut: '2024-08-05', derniereApplicationIso: '2026-08-01' })], today);
+    const g = ganttRevisions([lot('X', { debut: '2024-08-01', derniereApplicationIso: '2026-08-01' })], today);
     expect(g.lignes[0].cells.find(c => c.ym === '2026-08').kind).toBe('faite');
   });
 
-  // D24 / I18 — le ruban rend nbFaite : une révision appliquée devient une tuile VERTE chiffrée,
-  // au lieu d'un « — » comme s'il ne s'y était rien passé. Le rappel M-1 ne colore plus (nbRappel
-  // reste calculé pour d'autres surfaces, mais aucune tuile n'est hachurée).
+  it('une révision PROGRAMMÉE n\'est plus comptée « à faire »', () => {
+    const g = ganttRevisions([lot('P', {
+      debut: B1, derniereApplicationIso: '2025-09-01',
+      journal: [{ dateRevision: '2026-09-01', dateEffet: '2026-09-01', pendingApply: true }]
+    })], today);
+    const r = rubanRevisions(g);
+    expect(r.totalEffet).toBe(0);
+    expect(r.mois.find(m => m.ym === '2026-09').nbFaite).toBe(1);
+  });
+
   it('rubanRevisions agrège nbFaite pour le mois d\'application', () => {
-    const g = ganttRevisions([lot('X', { debut: '2024-08-05', derniereApplicationIso: '2026-08-01' })], today);
+    const g = ganttRevisions([lot('X', { debut: '2024-08-01', derniereApplicationIso: '2026-08-01' })], today);
     const ruban = rubanRevisions(g);
     const aout = ruban.mois.find(m => m.ym === '2026-08');
     expect(aout.nbFaite).toBe(1);
     expect(aout.faite.map(f => f.ref)).toContain('X');
-    // Une tuile « faite » n'est pas comptée comme « à faire » : les deux compteurs sont distincts.
     expect(aout.nbEffet).toBe(0);
   });
 
@@ -245,45 +383,45 @@ describe('D16 — douze mois glissants, un lot par ligne', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  D13/I9 — le rappel M-1 vaut aussi pour la PREMIÈRE révision (constat d'audit)
+//  D13/I9 — le rappel M-1 vaut aussi pour la PREMIÈRE révision
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('I9 — la première révision d\'un bail a droit à son mois de rappel', () => {
-  // Bail du 15/09/2023 : premier effet au 01/09/2024, donc rappel sur tout août 2024.
+  // Bail du 15/09/2023 : premier effet au 01/10/2024, donc rappel sur tout septembre 2024.
   const at = (today) => etatRevision({ debut: OHL, todayISO: today });
 
   it('avant le mois de rappel : muet, listé comme non révisable', () => {
-    const r = at('2024-07-15');
+    const r = at('2024-08-15');
     expect(r.etat).toBe(ETAT.TROP_JEUNE);
     expect(r.muet).toBe(true);
   });
 
-  it('le 01/08 : la ligne apparaît dans « à préparer », et elle n\'est PAS muette', () => {
-    const r = at('2024-08-01');
+  it('le 01/09 : la ligne apparaît dans « à préparer », et elle n\'est PAS muette', () => {
+    const r = at('2024-09-01');
     expect(r.etat).toBe(ETAT.A_PREPARER);
     expect(r.muet).toBe(false);
-    expect(r.effetPrevuIso).toBe('2024-09-01');
+    expect(r.effetPrevuIso).toBe('2024-10-01');
     expect(r.cycleAnnee).toBe(2024);
   });
 
-  it('le 31/08 : dernier jour de la fenêtre', () => {
-    expect(at('2024-08-31').etat).toBe(ETAT.A_PREPARER);
+  it('le 30/09 : dernier jour de la fenêtre', () => {
+    expect(at('2024-09-30').etat).toBe(ETAT.A_PREPARER);
   });
 
-  it('le 01/09 : le cycle est en cours — en retard seulement s\'il n\'a pas été fait', () => {
-    expect(at('2024-09-01').etat).toBe(ETAT.EN_RETARD);
-    expect(etatRevision({ debut: OHL, todayISO: '2024-09-01', derniereApplicationIso: '2024-09-01' }).etat)
+  it('le 01/10 : le cycle est en cours — en retard seulement s\'il n\'a pas été fait', () => {
+    expect(at('2024-10-01').etat).toBe(ETAT.EN_RETARD);
+    expect(etatRevision({ debut: OHL, todayISO: '2024-10-01', derniereApplicationIso: '2024-10-01' }).etat)
       .toBe(ETAT.FAITE);
   });
 
   it('sans l\'indice, le rappel reste muet plutôt que de proposer un calcul impossible', () => {
-    const r = etatRevision({ debut: OHL, todayISO: '2024-08-10', indiceManquant: true });
+    const r = etatRevision({ debut: OHL, todayISO: '2024-09-10', indiceManquant: true });
     expect(ETATS_MUETS).toContain(r.etat);
     expect(r.muet).toBe(true);
-    expect(r.effetPrevuIso).toBe('2024-09-01');
+    expect(r.effetPrevuIso).toBe('2024-10-01');
   });
 
   it('un bail gelé DPE F/G n\'entre jamais dans ce rappel', () => {
-    expect(etatRevision({ debut: OHL, todayISO: '2024-08-10', gel: true }).etat).toBe(ETAT.GEL);
+    expect(etatRevision({ debut: OHL, todayISO: '2024-09-10', gel: true }).etat).toBe(ETAT.GEL);
   });
 });
