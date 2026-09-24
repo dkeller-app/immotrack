@@ -6303,7 +6303,10 @@ function agendaAutoSync() {
         // commencé en cours de mois → révision au mois suivant) au lieu de rester à l'ancien mois.
         if (existing.has(key)) {
           const _ev = DB.agenda.find(e => e && e.auto && e.autoKey === key && !e._deleted);
-          if (_ev && !_ev.done && _ev.date !== ds) {
+          // Audit passe 2 — seulement si l'utilisateur n'a pas déplacé ce rappel à la main (autoDate =
+          // la date posée par l'app ; absente = rappel créé avant ce suivi, toujours automatique).
+          if (_ev && !_ev.done && _ev.date !== ds && (!_ev.autoDate || _ev.date === _ev.autoDate)) {
+            _ev.autoDate = ds;
             _ev.date = ds; _ev.dateFin = ds;
             _ev.titre = `Préparer révision IRL — ${l.ref} (éch. ${fd(_isoLocal(revDate))})`;
             _ev.notes = `Date de révision du bail : ${fd(_isoLocal(revDate))}\nPréparer la lettre de révision IRL à envoyer au locataire.`;
@@ -6316,7 +6319,7 @@ function agendaAutoSync() {
             date:ds, dateFin:ds, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
             cat:'IRL', couleur:'', notes:`Date de révision du bail : ${fd(_isoLocal(revDate))}\nPréparer la lettre de révision IRL à envoyer en recommandé.`,
             recurrence:{type:'none',interval:1,fin:''},
-            rappels:[7], auto:true, autoKey:key, done:false, createdAt:todayStr });
+            rappels:[7], auto:true, autoKey:key, autoDate:ds, done:false, createdAt:todayStr });
           existing.add(key);
         }
       }
@@ -8352,7 +8355,8 @@ async function _emitRemoteSignSession(ref) {
     relayUrl: _emitRelayBase.replace(/\/$/, ''),
     status: 'sent', createdAt: new Date().toISOString(),
     signers: signers.map(s => ({ sigId: s.sigId, role: s.role, nom: s.nom, email: s.email, distant: s.distant, signedAt: null, notifiedAt: null })),
-    lastPolledAt: null
+    lastPolledAt: null,
+    clauseIrlV: 2   // IRL-REVISION N4 : le document envoyé porte la clause 5.2 v2
   };
   bail._modifiedAt = new Date().toISOString();
   saveDB();
@@ -8681,6 +8685,8 @@ async function _completeRemoteSign(ref, state) {
   // 5) Ecriture finale immuable + verrou. remoteSession PRESERVEE (status completed) pour le badge.
   const prevRemote = Object.assign({}, rs, { status: 'completed' });
   prevRemote.ownerToken = null; // audit M5 : session relais supprimée → le token n'a plus d'usage, ne pas le conserver/synchroniser
+  // IRL-REVISION N4 — la version de clause relue par le locataire (celle de l'envoi) est gravée.
+  if (rs && rs.clauseIrlV === 2) bail.clauseIrlV = 2;
   bail.signatures = Object.assign({}, bail.signatures, {
     mode: 'distance',
     signedAt: completedAt,
@@ -16308,7 +16314,13 @@ function getIRLRefForDate(dateStr) {
   // Date de publication de chaque trimestre
   function pubDate(trim) {
     const [t,y]=[trim.split(' ')[0],parseInt(trim.split(' ')[1])];
-    const mois={T1:3,T2:6,T3:9,T4:0}; // T4 → janvier de l'année suivante
+    // IRL-REVISION (audit passe 2 N1) — MÊME table que le moteur (IrlCalendrier.anneeIndice) :
+    // publication au JO vers le milieu du mois (T1 mi-avril…), donc disponible au 1er du mois
+    // SUIVANT. Avant, T1 était réputé publié le 01/04 : un bail du 01/04 prenait comme base un
+    // indice que la révision, elle, considérait non publié — et le premier cycle se retrouvait sans
+    // variation. Mai / août / novembre / février (T4 de l'année précédente).
+    const mois={T1:4,T2:7,T3:10,T4:1};
+    // T4 → février de l'année suivante
     const an = t==='T4' ? y+1 : y;
     return new Date(an, mois[t], 1);
   }
@@ -17096,6 +17108,13 @@ function openBailHist(i) {
   const irlKeys = sortedIRLKeys();
   el('b-irl').innerHTML = irlKeys.map(k=>`<option value="${k}">${k}</option>`).join('');
   el('b-irl').value = b.irl||'';
+  // IRL-REVISION (audit passe 2) — bail ARCHIVÉ : son mois de révision, en lecture seule (openBail(null)
+  // l'aurait présenté comme un bail neuf, sur « Auto », modifiable).
+  if (el('b-irlMois')) {
+    el('b-irlMois').value = b.irlMoisRevision ? String(b.irlMoisRevision) : '';
+    el('b-irlMois').dataset.nouveau = ''; el('b-irlMois').dataset.signe = '1'; el('b-irlMois').disabled = true;
+    const _h = el('b-irlMois-hint'); if (_h) _h.textContent = 'Bail archivé : lecture seule.';
+  }
   el('b-debut').value = b.debut||''; el('b-fin').value = b.fin||'';
   el('b-notes').value = b.notes||'';
   // v15.232 ARCHI-DB-DOUBLONS 4b — le bien physique vit sur le logement. Un bail archivé garde ses
@@ -19956,7 +19975,7 @@ function _bIrlMoisHint() {
   const debut = v('b-debut');
   const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   // Audit I8 — bail garage : son contrat prévoit la révision à la date anniversaire (clause garage).
-  if (v('b-type') === 'garage') { s.value = ''; s.disabled = true; h.textContent = 'Bail garage : la révision suit la date anniversaire prévue au contrat garage.'; return; }
+  if (v('b-type') === 'garage') { s.disabled = true; h.textContent = 'Bail garage : la révision suit la date anniversaire prévue au contrat garage.'; return; }
   s.disabled = (s.dataset.signe === '1');   // type repassé de « garage » à autre chose : le champ revient
   if (s.disabled) { h.textContent = 'Bail signé : la date de révision est celle du contrat, elle ne se modifie pas.'; return; }
   if (!C || !/^\d{4}-\d{2}-\d{2}$/.test(debut)) { h.textContent = 'Renseigner la date de début pour voir la date de la première révision.'; return; }
@@ -20860,6 +20879,16 @@ function getBailDataFromForm() {
       if (_ex && _ex.signatures && _ex.signatures.signedAt) return _ex.irlMoisRevision != null ? _ex.irlMoisRevision : null;
       return parseInt(v('b-irlMois'), 10) || null;
     })(),
+    // Audit passe 2 N5 — date du CHANGEMENT de mois de révision d'un bail existant : les cycles de
+    // la nouvelle série ne reprennent pas les marques de l'ancienne (aucune variation sautée).
+    irlMoisRevisionDepuis: (function(){
+      const _ex = DB.baux[_bref];
+      if (!_ex || !_ex.debut) return null;                      // bail neuf : rien à tracer
+      if (_ex.signatures && _ex.signatures.signedAt) return _ex.irlMoisRevisionDepuis || null;
+      const avant = parseInt(_ex.irlMoisRevision, 10) || null;
+      const apres = parseInt(v('b-irlMois'), 10) || null;
+      return (avant !== apres) ? _todayIsoLocal() : (_ex.irlMoisRevisionDepuis || null);
+    })(),
     // Audit C3 — version de la clause 5.2 : un bail enregistré non signé porte la clause v2 ; un
     // bail signé garde ce qu'il avait (jamais réécrit).
     clauseIrlV: (function(){
@@ -21034,6 +21063,18 @@ function _bailSigned(bail){ return !!(bail && bail.signatures && bail.signatures
 // ré-affiche à l'identique). Bail non signé : la date de révision convenue (le 1er d'un mois —
 // R1 : mois du début, reporté au mois suivant si le bail ne commence pas un 1er), et plus de
 // « sans notification préalable » (art. 17-1 : la révision prend effet à compter de la DEMANDE).
+/** IRL-REVISION C3/N4 — la version de la clause 5.2 d'un bail : 2 = nouvelle, 1 = texte d'origine.
+ *  · signé : celle posée à la signature (absente = signé avant le changement = 1) ;
+ *  · signature à distance EN COURS : celle mémorisée à l'envoi (absente = envoi d'avant = 1) —
+ *    le PDF final doit reprendre ce que le locataire a relu ;
+ *  · sinon (brouillon) : 2. */
+function _bailClauseVersion(b){
+  if (!b) return 2;
+  if (_bailSigned(b)) return b.clauseIrlV === 2 ? 2 : 1;
+  const rs = b.signatures && b.signatures.remoteSession;
+  if (rs && !['completed', 'expired', 'error'].includes(rs.status)) return rs.clauseIrlV === 2 ? 2 : 1;
+  return 2;
+}
 function _bailClauseRevisionIRL(bail, log){
   const b = bail || {};
   // ⚠️ Texte d'origine EXACT (« annuellement à la date anniversaire du bail ») : les générateurs
@@ -21043,8 +21084,9 @@ function _bailClauseRevisionIRL(bail, log){
   // clause. Le marqueur `clauseIrlV: 2` est posé sur tout bail NON signé dont un document est
   // produit (donc AVANT sa signature) ou qui est enregistré ; un bail signé sans marqueur = texte
   // d'origine. (Hors empreinte légale : js/core/bail-content-hash.js hashe une liste blanche.)
-  if (_bailSigned(b) && b.clauseIrlV !== 2) return { quand: 'annuellement à la date anniversaire du bail', sansNotif: ', sans notification préalable' };
-  if (!_bailSigned(b) && b.clauseIrlV !== 2 && b.ref && DB.baux && DB.baux[b.ref] === b) b.clauseIrlV = 2;
+  // Audit passe 2 N4 — plus AUCUNE écriture pendant un rendu : la version est posée au moment de
+  // la signature (sur place : popup ; à distance : mémorisée à l'envoi, reprise à la fin).
+  if (_bailClauseVersion(b) !== 2) return { quand: 'annuellement à la date anniversaire du bail', sansNotif: ', sans notification préalable' };
   const C = (typeof window !== 'undefined') ? window.IrlCalendrier : null;
   const debut = String(b.debut || (log && log.debut) || '').slice(0, 10);
   const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
@@ -23229,6 +23271,7 @@ function previewBailData(bail, log, ref, opts) {
     +'var _SIGS='+sigsJson+';'
     +'var _BAIL_STRUCTURE='+bailStructureJson+';'
     +'var _BAIL_REF='+JSON.stringify(ref)+';' /* v13.02 : persistance signatures */
+    +'var _CLAUSE_IRL_V='+JSON.stringify(_bailClauseVersion(bail))+';' /* IRL-REVISION N4 : version de la clause 5.2 affichée à la signature */
     +'var _BAIL_REMOTE_SIGN='+(opts&&opts.remoteSign?'true':'false')+';' /* Task 6 BAIL-SIGNATURE-DISTANCE : bailleur in-app, locataires à distance */
     +'var _BAIL_REMOTE_SIGID_MAP='+JSON.stringify((typeof window!=='undefined'&&window.BailSignSigid&&window.BailSignSigid.buildRemoteSigIdMap)?window.BailSignSigid.buildRemoteSigIdMap(bail.locataires):[])+';' /* B1 : sigId distant aligné relais (présentiel→null) */
     +'var _BAIL_BAILLEUR_MODES='+JSON.stringify(_d2aBModes)+';' /* D2a : "pres"|"dist"|"no" par index gérant */
@@ -23856,6 +23899,7 @@ function previewBailData(bail, log, ref, opts) {
        donc une remoteSession résiduelle (envoi distant antérieur/expiré) est intentionnellement
        écrasée. C'est voulu : signer en présentiel clôt tout envoi distant pending sur ce bail. */
     +      'window.opener.DB.baux[_BAIL_REF].signatures=sigData;'
+    +      'window.opener.DB.baux[_BAIL_REF].clauseIrlV=_CLAUSE_IRL_V;'
     /* v13.38 BUG-DRIVE-OVERWRITE Fix 1 : stamp _modifiedAt pour merge timestamp-aware.
        Sans ce stamp, bail._modifiedAt reste à son ancienne valeur et le prochain
        _driveLoadEntityFiles fait gagner Drive (qui n'a pas la signature). */
@@ -23899,6 +23943,7 @@ function previewBailData(bail, log, ref, opts) {
     +      'var dbLS=JSON.parse(raw);'
     +      'if(!dbLS.baux||!dbLS.baux[_BAIL_REF]){alert("⚠️ Bail "+_BAIL_REF+" introuvable en localStorage. Signatures non sauvegardées.");return;}'
     +      'dbLS.baux[_BAIL_REF].signatures=sigData;'
+    +      'dbLS.baux[_BAIL_REF].clauseIrlV=_CLAUSE_IRL_V;'
     /* v13.38 BUG-DRIVE-OVERWRITE Fix 1 (path 2) : stamp _modifiedAt pour merge timestamp-aware */
     +      'dbLS.baux[_BAIL_REF]._modifiedAt=nowISO;'
     +      'localStorage.setItem(_BAIL_LS_KEY,JSON.stringify(dbLS));'
@@ -25844,9 +25889,10 @@ function computeIRLRevision(log, opts) {
   // au mois suivant si le bail ne commence pas un 1er) ; R5 — le JOURNAL du lot dit si le cycle
   // est déjà validé (programmé) : sans lui, une révision à effet futur restait « en retard ».
   // Audit I8 — bail garage : son contrat dit « date anniversaire », le mois convenu ne s'y applique pas.
-  const _moisRev = (bail && bail.type !== 'garage') ? bail.irlMoisRevision : null;
+  const _moisRev = (bail && (typeof _bailTypeEff === 'function' ? _bailTypeEff(bail, log) : bail.type) !== 'garage') ? bail.irlMoisRevision : null;
   const _journal = (DB.irlHistorique || []).filter(h => h && !h._deleted && h.ref === log.ref);
   const _calIn = { debut, todayISO: today, moisRevision: _moisRev,
+    moisRevisionDepuis: (bail && bail.irlMoisRevisionDepuis) || '',   // passe 2 N5
     derniereApplicationIso: log.irlDerniereApplication || '', journal: _journal };
 
   // v13.31 IRL-DPE-FG : check DPE avant tout calcul (loi Climat 2021-1104, art. 23,
@@ -25917,16 +25963,19 @@ function computeIRLRevision(log, opts) {
   const _anRef = (IRLC && typeof IRLC.anneeReference === 'function')
     ? IRLC.anneeReference({ journal: _journal, debut, bailIrl: bail && bail.irl }) : null;
   const _idx = (IRLC && typeof IRLC.indiceDuCycle === 'function') ? IRLC.indiceDuCycle(T, cal.effetPrevuIso, _anRef) : null;
-  const N = (_idx && _idx.annee != null) ? _idx.annee : cal.cycleAnnee;
+  // La règle « référence + 1 » ne vaut que pour un cycle À PROPOSER : un cycle programmé ou fait a
+  // SA propre révision pour référence — l'appliquer là le ferait passer pour « indice manquant ».
+  const _aProposer = (cal.etat === 'a-preparer' || cal.etat === 'en-retard');
+  const _nBrut = (IRLC && typeof IRLC.anneeIndice === 'function') ? IRLC.anneeIndice(T, cal.effetPrevuIso) : null;
+  const N = (_aProposer && _idx && _idx.annee != null) ? _idx.annee
+    : (_nBrut != null ? _nBrut : cal.cycleAnnee);
   // Un cycle « perdu » (prescription) dont l'indice était déjà dans le loyer n'a rien perdu.
   const _perdue = (cal.perdue && IRLC && typeof IRLC.indiceDuCycle === 'function'
     && IRLC.indiceDuCycle(T, cal.perdue.effetIso, _anRef).dejaIndexe) ? null : cal.perdue;
-  if (_idx && _idx.dejaIndexe && (cal.etat === 'a-preparer' || cal.etat === 'en-retard')) {
-    return { muet: true, etat: 'deja-indexe', T, N, anneeRef: _anRef, isApplicable: false,
-      premiereAnniv: premiereAnnivD, effetPrevuIso: cal.effetPrevuIso, rappelYm: cal.rappelYm,
-      joursAvantEffet: cal.joursAvantEffet, perdue: _perdue,
-      message: `Loyer déjà indexé sur l'IRL T${T} ${_anRef} — aucun indice plus récent publié à la date de révision (${fd(cal.effetPrevuIso)})` };
-  }
+  // Audit passe 2 N1 — plus de sortie muette « déjà indexé » : elle faisait perdre toute l'année
+  // aux baux commencés un 1er janvier/avril/juillet/octobre (indice de base = dernier publié au
+  // jour près). N vaut alors ref + 1 : « indice manquant » tant qu'il n'est pas publié, révision
+  // proposée dès sa publication (effet à compter de la demande). Jamais deux fois la même variation.
   const valN  = irlVal(T, N);
   const valN1 = irlVal(T, N-1);
   if(!valN || !valN1) {
@@ -26135,7 +26184,8 @@ function _baremeRecordRevision(log, ref, newHC, dateEffetIso, opts) {
     // fourni par les appelants (applyIRL/batch) ; repli sur la date d'effet si absent (jamais en prod).
     // Audit I6 — JAMAIS la date d'effet en repli : une date d'effet tardive tombe dans la fenêtre du
     // cycle SUIVANT et le ferait passer pour fait. Sans clé de cycle, la marque ne bouge pas.
-    if (opts.cycleMarker) log.irlDerniereApplication = opts.cycleMarker;
+    // … et jamais une marque PLUS ANCIENNE que celle en place (cycle éteint appliqué après coup).
+    if (opts.cycleMarker && !(String(log.irlDerniereApplication || '') > String(opts.cycleMarker))) log.irlDerniereApplication = opts.cycleMarker;
     if (typeof _pushLoyerTheoFromLive === 'function') _pushLoyerTheoFromLive(log);
   }
 }
@@ -26488,13 +26538,28 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
   // Et elle doit être posée AVANT de lire la révision : sans elle, `_irlModeLecture` renvoie
   // le mode honnête, `rev` est l'objet muet, et l'entrée d'historique perd ses indices — la
   // seule révision qui aurait besoin d'être traçable serait la seule à ne pas l'être.
+  let _fAppl = null;
   if (_irlForcageEnAttente && _irlForcageEnAttente.ref === ref) {
     const f = _irlForcageEnAttente;
+    _fAppl = f;
     _irlSetForcage(ref, { cycle: f.cycle, le: f.le, par: f.par, motif: f.motif });
     _irlForcageEnAttente = null;
   }
   const rev = computeIRLRevision(log, _irlModeLecture(log));
-  const annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
+  let annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
+  // Audit passe 2 N7 — un CYCLE ÉTEINT appliqué « quand même » : l'entrée porte la clé et les
+  // indices de CE cycle (ceux qui ont servi à calculer newHC), pas ceux du cycle courant — sinon
+  // le cycle courant était consommé et la lettre affichait des indices faux.
+  let _iRef = rev?.irlRef, _iVig = rev?.irlVigueur;
+  if (_fAppl && _fAppl.motif === 'cycle-eteint' && _fAppl.cycle && rev && rev.T) {
+    const _C = (typeof window !== 'undefined') ? window.IrlCalendrier : null;
+    const _n = (_C && typeof _C.anneeIndice === 'function') ? _C.anneeIndice(rev.T, _fAppl.cycle) : null;
+    if (_n != null) {
+      annivIso = String(_fAppl.cycle).slice(0, 10);
+      _iRef = { key: `T${rev.T} ${_n - 1}`, val: irlVal(rev.T, _n - 1) };
+      _iVig = { key: `T${rev.T} ${_n}`, val: irlVal(rev.T, _n) };
+    }
+  }
   const todayLocal = _todayIsoLocal();
   const futureApplication = dateEffetIso > todayLocal;
   const ancienHC = log.hc;                   // capturé AVANT toute mutation (M1 audit)
@@ -26506,10 +26571,10 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
     ancienHC:        ancienHC,
     nouveauHC:       newHC,
     diff:            Math.round((newHC - ancienHC) * 100) / 100,
-    irlRef:          rev?.irlRef?.key    || '',
-    irlRefVal:       rev?.irlRef?.val    || '',
-    irlVigueur:      rev?.irlVigueur?.key || '',
-    irlVigueurVal:   rev?.irlVigueur?.val || '',
+    irlRef:          _iRef?.key    || '',
+    irlRefVal:       _iRef?.val    || '',
+    irlVigueur:      _iVig?.key || '',
+    irlVigueurVal:   _iVig?.val || '',
     dateRevision:    annivIso,              // ANNIVERSAIRE = clé de cycle IRL (dejaApplique / rappels / reset), inchangé
     dateEffet:       dateEffetIso,          // Q1 : date d'EFFET du nouveau loyer (lue par _loyerHCAtDate + barème), non rétroactive
     dateApplication: dateEffetIso,          // = date d'effet (déclenche l'application auto au boot)
@@ -26520,7 +26585,7 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
 
   // Barème (période 'irl' datée à la date d'effet) + application immédiate du loyer si l'effet est arrivé.
   // cycleMarker = anniversaire → irlDerniereApplication reste la clé de cycle (pas la date d'effet).
-  _baremeRecordRevision(log, ref, newHC, dateEffetIso, { source: 'irl', note: rev?.irlVigueur?.key || '', applyNow: !futureApplication, cycleMarker: annivIso });
+  _baremeRecordRevision(log, ref, newHC, dateEffetIso, { source: 'irl', note: _iVig?.key || '', applyNow: !futureApplication, cycleMarker: annivIso });
 
   // Toujours reset le flag lettre envoyée (la révision est validée — cycle complet)
   delete log.irlLettreEnvoyee;
@@ -26567,6 +26632,10 @@ function _applyPendingIRLRevisions() {
     if (rev.dateApplication > todayIso) continue;  // pas encore
     const log = (DB.logements||[]).find(l => l && !l._deleted && l.ref === rev.ref);
     if (!log) { rev.pendingApply = false; rev.appliedAt = todayIso; continue; }
+    // IRL-REVISION (audit passe 2) — une révision du bail PRÉCÉDENT du lot (clé de cycle antérieure
+    // au début du bail en cours) ne s'applique jamais au nouveau locataire.
+    const _bCur = DB.baux[rev.ref];
+    if (_bCur && _bCur.debut && rev.dateRevision && String(rev.dateRevision).slice(0, 10) < String(_bCur.debut).slice(0, 10)) continue;
     // Vérification cohérence avant mutation : log.hc doit toujours être ancienHC.
     if (Number(log.hc) !== Number(rev.ancienHC)) {
       console.warn('[IRL pending apply] log.hc divergent de rev.ancienHC pour', rev.ref,
@@ -30300,7 +30369,6 @@ function _lyMotifMuet(rev) {
   if (rev.etat === 'trop-jeune') return `Bail de moins d'un an — première révision au ${rev.effetPrevuIso ? fd(rev.effetPrevuIso) : (rev.premiereAnniv ? rev.premiereAnniv.toLocaleDateString('fr-FR') : '–')}`;
   if (rev.etat === 'indice-manquant') return `Indice ${rev.missingKey} pas encore publié par l'INSEE`;
   if (rev.etat === 'mobilite') return 'Bail mobilité — la révision du loyer est interdite pendant le bail';
-  if (rev.etat === 'deja-indexe') return rev.message || 'Loyer déjà indexé sur le dernier indice publié — rien à réviser';
   return '—';
 }
 function _lyPastilleMuet(rev) {
@@ -30309,7 +30377,6 @@ function _lyPastilleMuet(rev) {
   if (rev.etat === 'trop-jeune') return rev.joursAvantEffet != null ? `Dans ${rev.joursAvantEffet} j` : 'Bail < 1 an';
   if (rev.etat === 'indice-manquant') return 'Indice manquant';
   if (rev.etat === 'mobilite') return 'Bail mobilité';
-  if (rev.etat === 'deja-indexe') return 'Déjà indexé';
   return '—';
 }
 
@@ -53309,8 +53376,8 @@ function _pilBulkMajLoyersSimule(baux, dateApplication) {
       out.baux.push({ ref:log.ref, exclu:true, raison:'Indice IRL non disponible' });
       out.totalExclus++; continue;
     }
-    // Audit M12 — bail mobilité (révision interdite) et cycle déjà indexé : exclus, avec leur motif.
-    if (rev.etat === 'mobilite' || rev.etat === 'deja-indexe') {
+    // Audit M12 — bail mobilité (révision interdite) : exclu, avec son motif.
+    if (rev.etat === 'mobilite') {
       out.baux.push({ ref:log.ref, exclu:true, raison: rev.message || 'Non révisable' });
       out.totalExclus++; continue;
     }

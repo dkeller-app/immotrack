@@ -180,7 +180,11 @@ export function indiceDuCycle(T, effetIso, anneeRef) {
   const n = anneeIndice(T, effetIso);
   if (n == null) return { annee: null, dejaIndexe: false };
   const ref = parseInt(anneeRef, 10);
-  return { annee: n, dejaIndexe: Number.isFinite(ref) && n <= ref };
+  const deja = Number.isFinite(ref) && n <= ref;
+  // Audit passe 2 N1 — ne JAMAIS rendre le cycle muet : on attend l'indice SUIVANT la référence
+  // (ref + 1). Tant qu'il n'est pas publié → « indice manquant » ; dès sa publication la révision
+  // est proposée (effet à compter de la demande). Plus de double application, plus d'année perdue.
+  return { annee: deja ? ref + 1 : n, dejaIndexe: deja };
 }
 
 /**
@@ -215,7 +219,15 @@ export function cycleSuivant(debutIso, todayISO, moisConvenu) {
 function _marques(i, debut) {
   const out = [];
   const garde = (k) => _ok(k) && (!debut || k >= debut);
-  const d0 = String(i.derniereApplicationIso || '').slice(0, 10);
+  let d0 = String(i.derniereApplicationIso || '').slice(0, 10);
+  // Audit passe 2 N3 — une ANCIENNE marque peut être la date d'EFFET d'une révision (repli des
+  // versions précédentes) : si elle n'est la clé d'aucune entrée mais la date d'effet de l'une,
+  // c'est la clé de cycle de cette entrée qui vaut.
+  const jr = Array.isArray(i.journal) ? i.journal.filter((e) => e && !e._deleted) : [];
+  if (_ok(d0) && !jr.some((e) => String(e.dateRevision || '').slice(0, 10) === d0)) {
+    const e = jr.find((x) => String(x.dateEffet || x.dateApplication || '').slice(0, 10) === d0 && _ok(String(x.dateRevision || '').slice(0, 10)));
+    if (e) d0 = String(e.dateRevision).slice(0, 10);
+  }
   if (garde(d0)) out.push(d0);
   for (const e of (Array.isArray(i.journal) ? i.journal : [])) {
     if (!e || e._deleted) continue;
@@ -234,10 +246,15 @@ function _marques(i, debut) {
  * Audit I6 — borne haute : une marque postérieure (date d'effet d'une révision tardive posée en
  * repli) ne « fait » plus le cycle suivant à sa place.
  */
-function _traite(marques, debut, effetIso, moisConvenu) {
+function _traite(marques, debut, effetIso, moisConvenu, depuis) {
   if (!effetIso) return false;
   const prev = effetDuCycle(debut, _an(effetIso) - 1, moisConvenu);
-  return marques.some((d) => d > prev && d <= effetIso);
+  // Audit passe 2 N5 — la date de révision a CHANGÉ (bail en cours, mois convenu modifié) : pour un
+  // cycle de la nouvelle série, une marque d'avant le changement appartient à l'ancienne série et
+  // ne le « fait » pas (sinon une variation est sautée). La double application, elle, est écartée
+  // par l'indice de référence (anneeReference / indiceDuCycle).
+  const dp = _ok(depuis) ? String(depuis).slice(0, 10) : '';
+  return marques.some((d) => d > prev && d <= effetIso && !(dp && effetIso > dp && d < dp));
 }
 
 /**
@@ -275,6 +292,7 @@ function _programmeeDuLot(i, debut, today) {
  *   @param {string} input.debut         début du bail 'YYYY-MM-DD'
  *   @param {string} input.todayISO      date du jour 'YYYY-MM-DD'
  *   @param {number} [input.moisRevision]  mois de révision convenu au bail (1..12), sinon R1
+ *   @param {string} [input.moisRevisionDepuis]  date à laquelle ce mois a été changé (bail en cours)
  *   @param {string} [input.derniereApplicationIso]  `log.irlDerniereApplication`
  *   @param {Array}  [input.journal]     entrées `DB.irlHistorique` DE CE LOT
  *   @param {boolean} [input.gel]        DPE F ou G (I10) — décidé par l'appelant
@@ -300,7 +318,7 @@ export function etatRevision(input) {
   if (i.gel) return Object.assign(base, { etat: ETAT.GEL, muet: true });
 
   const marques = _marques(i, debut);
-  const fait = (effetIso) => _traite(marques, debut, effetIso, mc);
+  const fait = (effetIso) => _traite(marques, debut, effetIso, mc, i.moisRevisionDepuis);
 
   // R5 / audit I1 — une révision validée dont l'effet est à venir PRIME sur tout le reste.
   const prog = _programmeeDuLot(i, debut, today);

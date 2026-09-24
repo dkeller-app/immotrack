@@ -86,16 +86,22 @@ export function annulerRevisionProgrammee(input) {
   if (!want || !_ok(today)) return { ok: false, erreur: 'Données insuffisantes pour annuler la révision.' };
   // Audit I2 — TOUTES les entrées du lot encore en attente (les doublons d'avant le correctif
   // existent en prod) : en laisser une, c'est la voir s'appliquer quand même au jour de l'effet.
+  // Audit passe 2 N2 — seulement celles dont l'effet est ENCORE À VENIR : un vieux doublon périmé
+  // (jamais appliqué, bloqué par le contrôle de divergence) ne doit pas rendre l'annulation
+  // impossible. Refus uniquement s'il n'y a rien de programmé.
   const idxs = [];
-  hist.forEach((h, k) => { if (_vivante(h) && _nr(h.ref) === want && h.pendingApply) idxs.push(k); });
-  if (!idxs.length) return { ok: false, erreur: 'Aucune révision programmée pour ce lot.' };
-  const e = hist[idxs[idxs.length - 1]];     // la plus récente : celle que l'écran affiche
-  for (const k of idxs) {
-    const eff = _ymd(hist[k].dateEffet) || _ymd(hist[k].dateApplication);
-    if (!_ok(eff) || eff <= today) {
-      return { ok: false, erreur: "La date d'effet est atteinte : le nouveau loyer s'applique déjà. Corriger la date d'effet depuis l'historique du bail." };
-    }
+  hist.forEach((h, k) => {
+    if (!_vivante(h) || _nr(h.ref) !== want || !h.pendingApply) return;
+    const eff = _ymd(h.dateEffet) || _ymd(h.dateApplication);
+    if (_ok(eff) && eff > today) idxs.push(k);
+  });
+  if (!idxs.length) {
+    const atteinte = hist.some((h) => _vivante(h) && _nr(h.ref) === want && h.pendingApply);
+    return { ok: false, erreur: atteinte
+      ? "La date d'effet est atteinte : le nouveau loyer s'applique déjà. Corriger la date d'effet depuis l'historique du bail."
+      : 'Aucune révision programmée pour ce lot.' };
   }
+  const e = hist[idxs[idxs.length - 1]];     // la plus récente : celle que l'écran affiche
   // Audit M8 — horodaté comme les autres tombstones (resetIRLApply), pour la propagation.
   const stamp = today + 'T00:00:00.000Z';
   const irlHistorique = hist.map((h, k) => (idxs.includes(k) ? { ...h, _deleted: true, _deletedAt: stamp, _annuleeLe: today } : h));

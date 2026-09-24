@@ -459,14 +459,17 @@ describe('Audit C1/C2 — jamais deux fois la même variation d\'indice', () => 
     expect(anneeReference({ bailIrl: 'T2 2026', debut: '2026-09-15',
       journal: [{ dateRevision: '2026-03-01', irlVigueur: 'T4 2025' }] })).toBe(2026);
   });
-  it('C1 — bail du 1er mars T4, cycle 2025 appliqué en retard avec T4 2025 : au 01/03/2026, RIEN à réviser', () => {
-    expect(indiceDuCycle(4, '2026-03-01', 2025)).toEqual({ annee: 2025, dejaIndexe: true });
-    // un an plus tard, T4 2026 est publié : révision normale
+  it('C1 — bail du 1er mars T4, cycle 2025 appliqué en retard avec T4 2025 : au 01/03/2026 on attend T4 2026 (jamais T4 2025 deux fois)', () => {
+    // Passe 2 N1 : le cycle n'est plus rendu muet — il attend l'indice SUIVANT la référence.
+    expect(indiceDuCycle(4, '2026-03-01', 2025)).toEqual({ annee: 2026, dejaIndexe: true });
     expect(indiceDuCycle(4, '2027-03-01', 2025)).toEqual({ annee: 2026, dejaIndexe: false });
   });
-  it('C2 — bail signé sur T2 2026, date commune octobre : rien à réviser au 01/10/2026', () => {
-    expect(indiceDuCycle(2, '2026-10-01', 2026).dejaIndexe).toBe(true);
+  it('C2 — bail signé sur T2 2026, date commune octobre : au 01/10/2026 on attend T2 2027', () => {
+    expect(indiceDuCycle(2, '2026-10-01', 2026)).toEqual({ annee: 2027, dejaIndexe: true });
     expect(indiceDuCycle(2, '2027-10-01', 2026)).toEqual({ annee: 2027, dejaIndexe: false });
+  });
+  it('Passe 2 N1 — bail du 01/04/2025 sur T1 2025 : le cycle 2026 attend T1 2026, il n’est jamais perdu', () => {
+    expect(indiceDuCycle(1, '2026-04-01', 2025)).toEqual({ annee: 2026, dejaIndexe: true });
   });
   it('cas nominal : bail de septembre T2, cycles successifs', () => {
     expect(indiceDuCycle(2, '2024-09-01', 2023)).toEqual({ annee: 2024, dejaIndexe: false });
@@ -494,5 +497,27 @@ describe('Audit I3 — relocation : les marques du bail précédent ne valent ri
     const r = etatRevision({ debut: '2026-09-15', moisRevision: 10, todayISO: '2026-10-05', derniereApplicationIso: '2026-03-01' });
     expect(r.etat).toBe(ETAT.EN_RETARD);
     expect(r.effetPrevuIso).toBe('2026-10-01');
+  });
+});
+
+describe('Audit passe 2 N3 — une ancienne marque « date d’effet » est ramenée à la clé de son cycle', () => {
+  it('marque 2026-03-01 = date d’effet de l’entrée du cycle 2025-10 : le cycle 2026-10 reste à faire', () => {
+    const r = etatRevision({ debut: OHL, todayISO: '2026-10-05', derniereApplicationIso: '2026-03-01',
+      journal: [{ dateRevision: '2025-10-01', dateEffet: '2026-03-01', pendingApply: false }] });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+    expect(r.effetPrevuIso).toBe('2026-10-01');
+  });
+});
+
+describe('Audit passe 2 N5 — changer le mois de révision ne saute aucun cycle', () => {
+  it('révisé le 2025-09-01, passage en mars le 2025-11-10 : le cycle 2026-03-01 reste à faire', () => {
+    const r = etatRevision({ debut: '2023-09-01', moisRevision: 3, moisRevisionDepuis: '2025-11-10',
+      todayISO: '2026-03-10', derniereApplicationIso: '2025-09-01' });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+    expect(r.effetPrevuIso).toBe('2026-03-01');
+  });
+  it('sans changement déclaré, la même marque fait le cycle (comportement inchangé)', () => {
+    const r = etatRevision({ debut: '2023-09-01', moisRevision: 3, todayISO: '2026-03-10', derniereApplicationIso: '2025-09-01' });
+    expect(r.etat).toBe(ETAT.FAITE);
   });
 });

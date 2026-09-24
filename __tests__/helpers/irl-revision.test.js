@@ -149,3 +149,14 @@ describe('Audit I3 — relocation : jamais la révision du bail précédent', ()
     expect(entreeValideeDuCycle([ancienne], REF, '2026-10-01')).toBe(ancienne);   // sans borne : comportement historique
   });
 });
+
+describe('Audit passe 2 N2 — un vieux doublon périmé ne bloque pas l’annulation', () => {
+  it('entrée en attente à effet passé + révision programmée future : seule la future est annulée', () => {
+    const bareme1 = appliquerNouvellePeriode(BAREME0, { ref: REF, debut: '2026-10-01', hc: 606.82, ch: 60, source: 'irl', bailDebut: '2023-09-01' });
+    const perimee = { ...ENTREE, date: '2025-09-20', dateRevision: '2025-09-01', dateEffet: '2025-10-01', dateApplication: '2025-10-01' };
+    const r = annulerRevisionProgrammee({ irlHistorique: [perimee, ENTREE], bareme: bareme1, ref: REF, todayIso: '2026-09-25' });
+    expect(r.ok).toBe(true);
+    expect(r.irlHistorique[0]._deleted).toBeUndefined();
+    expect(r.irlHistorique[1]._deleted).toBe(true);
+  });
+});
