@@ -725,7 +725,8 @@ async function _genPdfIrlRevision(ctx) {
       if (!rev && typeof window.computeIRLRevision === 'function' && log.ref) {
         rev = window.computeIRLRevision(log);
       }
-      const built = window._buildIRLLetterHtml(log, bail, ent, rev);
+      // IRL-REVISION R6 : mêmes options que l'aperçu (date d'effet réelle, forçage confirmé).
+      const built = window._buildIRLLetterHtml(log, bail, ent, rev, c.letterOpts);
       if (built.error) {
         return { error: built.error, message: built.alertMsg || 'Lettre IRL non émissible' };
       }

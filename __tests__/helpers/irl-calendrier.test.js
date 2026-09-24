@@ -367,6 +367,17 @@ describe('D16 — douze mois glissants, un lot par ligne', () => {
     expect(r.mois.find(m => m.ym === '2026-09').nbFaite).toBe(1);
   });
 
+  it('une révision programmée tombe au mois où elle PREND EFFET, pas au mois de son cycle', () => {
+    // Cycle du 01/09 validé en retard le 24/09 → effet 01/10 : la tuile verte est en octobre.
+    const g = ganttRevisions([{ ref: 'P', libelle: 'P', etat: etatRevision({
+      debut: B1, todayISO: '2026-09-24', derniereApplicationIso: '2025-09-01',
+      journal: [{ dateRevision: '2026-09-01', dateEffet: '2026-10-01', pendingApply: true }]
+    }) }], '2026-09-24');
+    const cells = g.lignes[0].cells;
+    expect(cells.find(c => c.ym === '2026-10').kind).toBe('faite');
+    expect(cells.find(c => c.ym === '2026-09').kind).toBe('rappel');
+  });
+
   it('rubanRevisions agrège nbFaite pour le mois d\'application', () => {
     const g = ganttRevisions([lot('X', { debut: '2024-08-01', derniereApplicationIso: '2026-08-01' })], today);
     const ruban = rubanRevisions(g);

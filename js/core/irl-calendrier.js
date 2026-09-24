@@ -368,7 +368,10 @@ export function ganttRevisions(lots, todayISO) {
   };
   const lignes = (lots || []).map((l) => {
     const e = (l && l.etat) || {};
-    const effetYm = projete(String(e.effetPrevuIso || '').slice(0, 7));
+    // R5 — une révision PROGRAMMÉE tombe au mois où elle PREND EFFET (01/10 si validée le 24/09
+    // pour un cycle du 01/09), pas au mois de son cycle : c'est là que le loyer change.
+    const effSrc = (e.etat === ETAT.PROGRAMMEE && e.programmee && e.programmee.effetIso) ? e.programmee.effetIso : e.effetPrevuIso;
+    const effetYm = projete(String(effSrc || '').slice(0, 7));
     const rappelYm = effetYm ? moisRappel(effetYm + '-01') : '';
     // D17 — un lot non révisable (gelé, bail trop jeune, indice manquant) n'a ni bande de
     // rappel ni pavé d'effet : une seule case grise, qui dit pourquoi.
