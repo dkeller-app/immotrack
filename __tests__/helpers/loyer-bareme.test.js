@@ -103,6 +103,15 @@ describe('clampDateEffet — validation d\'une date d\'effet MODIFIÉE par l\'ut
   it('R2 — demande AVANT la date de révision : c\'est la date de révision qui borne', () => {
     expect(clampDateEffet('2026-08-01', { annivMoisPremierIso: '2026-10-01', demandeIso: '2026-09-10' }).effetIso).toBe('2026-10-01');
   });
+  it('Décision 25/09 — date LIBRE : le choix de l\'utilisateur, jour conservé, la demande ne borne pas', () => {
+    const r = clampDateEffet('2026-09-15', { libre: true, annivMoisPremierIso: '2026-09-01', demandeIso: '2026-09-24' });
+    expect(r.effetIso).toBe('2026-09-15');
+    expect(r.ajustee).toBe(false);
+  });
+  it('date LIBRE : jamais avant la date de révision, jamais sur un mois quittancé', () => {
+    expect(clampDateEffet('2026-08-10', { libre: true, annivMoisPremierIso: '2026-09-01' }).effetIso).toBe('2026-09-01');
+    expect(clampDateEffet('2026-09-15', { libre: true, annivMoisPremierIso: '2026-09-01', dernierMoisQuittanceYm: '2026-09' }).effetIso).toBe('2026-10-01');
+  });
   it('normalise toujours au 1er du mois', () => {
     expect(clampDateEffet('2026-09-17', { annivMoisPremierIso: '2026-03-01' }).effetIso).toBe('2026-09-01');
   });

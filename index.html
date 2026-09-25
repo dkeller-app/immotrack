@@ -26488,7 +26488,10 @@ function applyIRL(ref, newHC, opts) {
   el('iv-effet').value = dateEffetIso;
   // IRL-REVISION R2 — la date pré-remplie EST le minimum légal (date de révision, demande, mois
   // quittancé) : le sélecteur ne propose rien avant. Plus tard reste possible.
-  el('iv-effet').min = dateEffetIso;
+  // Plancher intangible seulement (date de révision, mois quittancé) : au-delà, c'est au choix.
+  el('iv-effet').min = (typeof window._baremeClampDateEffet === 'function' && annivIso)
+    ? window._baremeClampDateEffet('1900-01-01', { libre: true, annivMoisPremierIso: annivIso, dernierMoisQuittanceYm: _dernierMoisQuittanceYm(ref) || undefined }).effetIso
+    : dateEffetIso;
   // D18 — la fenêtre est conservée telle quelle. UNE chose est ajoutée : dire ce qui NE
   // change pas. C'est la question que tout le monde se pose devant une révision.
   // Audit M3 — dire la VRAIE raison du report : la demande tardive, un mois déjà quittancé, ou les deux.
@@ -26498,9 +26501,9 @@ function applyIRL(ref, newHC, opts) {
   if (_dqIv && annivIso && _dqIv >= annivIso.slice(0, 7)) _raisonsIv.push(`${escHtml(window.ymToMoisFr ? window.ymToMoisFr(_dqIv) : _dqIv)} est déjà quittancé`);
   el('iv-effet-hint').innerHTML = `Date de révision du bail : <b>${annivIso ? fd(annivIso) : '–'}</b>. `
     + (dateEffetIso > annivIso
-      ? `Date d'effet reportée — ${_raisonsIv.join(' ; ') || 'garde-fous'}. `
+      ? `Date proposée : ${_raisonsIv.join(' ; ') || 'garde-fous'}. `
       : 'Validée à temps : effet à la date de révision. ')
-    + 'Modifiable pour plus tard, jamais plus tôt ni sur un mois déjà quittancé.'
+    + 'Date au choix — jamais avant la date de révision ni sur un mois déjà quittancé. <b>Conseillé : le 1<sup>er</sup> du mois</b> (pas de prorata).'
     + '<br><b>Les mois passés ne changent pas</b> — aucune quittance déjà émise, aucun loyer déjà dû n\'est recalculé.';
   openM('ov-irl-valid');
 }
@@ -26517,14 +26520,25 @@ function _irlValidConfirm() {
   const rev = computeIRLRevision(log, _irlModeLecture(log));
   const annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
   if (typeof window !== 'undefined' && typeof window._baremeClampDateEffet === 'function') {
+    // IRL-REVISION (décision Didier 25/09) — la date d'effet est le CHOIX de l'utilisateur (`libre`) :
+    // on ne bloque que ce qui est intangible — avant la date de révision du cycle, un mois déjà
+    // quittancé (I-1). Le reste est DIT, jamais imposé : mois entiers conseillés, date antérieure à
+    // la demande (art. 17-1 : effet « à compter de sa demande » — le locataire peut la contester).
     const cl = window._baremeClampDateEffet(effet, {
+      libre: true,
       annivMoisPremierIso: annivIso ? window._premierDuMois(annivIso) : undefined,
-      // IRL-REVISION R2 — jamais avant la demande (art. 17-1 : « à compter de sa demande »).
-      demandeIso: _todayIsoLocal(),
       dernierMoisQuittanceYm: _dernierMoisQuittanceYm(ctx.ref) || undefined
     });
-    if (cl.ajustee) showToast(`Date d'effet ajustée au ${fd(cl.effetIso)} (jamais avant la date de révision ni la demande, jamais sur un mois quittancé, toujours un 1er du mois)`, 'warn', 6000);
+    if (cl.ajustee) showToast(`Date d'effet ajustée au ${fd(cl.effetIso)} : jamais avant la date de révision du bail, jamais sur un mois déjà quittancé.`, 'warn', 6000);
     effet = cl.effetIso;
+    const _demMin = (typeof window._premierDuMoisSuivant === 'function' && _todayIsoLocal().slice(8, 10) !== '01')
+      ? window._premierDuMoisSuivant(_todayIsoLocal()) : _todayIsoLocal();
+    if (annivIso && _todayIsoLocal() > annivIso && effet < _demMin) {
+      showToast(`Date d'effet antérieure à la demande : la loi fait courir la révision « à compter de sa demande » (art. 17-1) — le locataire peut contester.`, 'warn', 8000);
+    }
+    if (effet.slice(8, 10) !== '01') {
+      showToast(`Conseil : une révision au 1er du mois évite un loyer proratisé sur le mois d'effet.`, 'info', 7000);
+    }
   }
   // La date proposée Q1 a-t-elle été modifiée/ajustée ? (tracé dans l'historique)
   const defQ1 = (typeof window._baremeComputeDateEffetIRL === 'function')
@@ -26632,6 +26646,7 @@ function _applyPendingIRLRevisions() {
   // UTC), l'effet au 01/10 ne s'appliquait que le 02/10.
   const todayIso = _todayIsoLocal();
   let applied = 0;
+  const _irlAlertesGel = [];   // décision 25/09 : DPE F/G à la date d'effet → on prévient
   for (const rev of DB.irlHistorique) {
     if (!rev || rev._deleted || !rev.pendingApply) continue;   // une révision ANNULÉE ne s'applique jamais
     if (!rev.dateApplication) continue;
@@ -26648,11 +26663,18 @@ function _applyPendingIRLRevisions() {
         `(log.hc=${log.hc}, rev.ancienHC=${rev.ancienHC}) — application skip pour audit manuel`);
       continue;
     }
+    // IRL-REVISION (décision Didier 25/09) — DPE F/G constaté à la date d'effet : on PRÉVIENT, on ne
+    // bloque jamais (le barème porte déjà ce loyer depuis la validation).
+    try {
+      const _g = computeIRLRevision(log);
+      if (_g && _g.gelDpeFG) _irlAlertesGel.push(`${rev.ref} (DPE ${_g.dpe})`);
+    } catch (e) {}
     log.hc = Number(rev.nouveauHC);
     _pushLoyerTheoFromLive(log); // v15.233 B1 : application IRL auto → loyer théorique suit (Q2=b)
     // Clé de cycle = anniversaire (dateRevision), pas la date d'effet — cf applyIRL/_baremeRecordRevision.
-    // Audit I6 — la clé de cycle seulement, jamais la date d'effet en repli (cf _baremeRecordRevision).
-    if (rev.dateRevision) log.irlDerniereApplication = rev.dateRevision;
+    // Audit I6 — la clé de cycle seulement, jamais la date d'effet en repli (cf _baremeRecordRevision) ;
+    // et jamais une marque plus ancienne que celle en place (cycle éteint appliqué après coup).
+    if (rev.dateRevision && !(String(log.irlDerniereApplication || '') > String(rev.dateRevision))) log.irlDerniereApplication = rev.dateRevision;
     if (DB.baux[rev.ref]) DB.baux[rev.ref].hc = Number(rev.nouveauHC);
     rev.pendingApply = false;
     rev.appliedAt = todayIso;
@@ -26665,7 +26687,10 @@ function _applyPendingIRLRevisions() {
   if (applied > 0) {
     saveDB();
     if (typeof showToast === 'function') {
-      showToast(`✓ ${applied} révision${applied>1?'s':''} IRL appliquée${applied>1?'s':''} automatiquement (date anniversaire atteinte)`, 'ok', 5000);
+      showToast(`✓ ${applied} révision${applied>1?'s':''} IRL appliquée${applied>1?'s':''} automatiquement (date d'effet atteinte)`, 'ok', 5000);
+      if (_irlAlertesGel.length) {
+        showToast(`⚠ Révision appliquée sur un logement au DPE F ou G : ${_irlAlertesGel.join(', ')}. La loi Climat (art. 23) gèle le loyer de ces logements : le locataire peut refuser l'augmentation. Vérifier le DPE ou annuler par une correction.`, 'warn', 12000);
+      }
     }
   }
   return applied;
@@ -42343,7 +42368,8 @@ function _histoIrlCorrSave(){
     dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm==='function') ? _dernierMoisQuittanceYm(ctx.ref) : null
   });
   if(!r.ok){ showToast(r.erreur||'Correction impossible','err',6000); return; }
-  if(r.ajustee) showToast(`Date ajustée au ${fd(r.effetIso)} (1er du mois / mois quittancé)`, 'warn', 5000);
+  if(r.ajustee) showToast(`Date ajustée au ${fd(r.effetIso)} : jamais avant la date de révision du bail, jamais sur un mois déjà quittancé.`, 'warn', 6000);
+  else if(String(r.effetIso||'').slice(8,10) !== '01') showToast('Conseil : une révision au 1er du mois évite un loyer proratisé sur le mois d\'effet.', 'info', 6000);
   DB.irlHistorique = r.irlHistorique;
   DB.loyerBareme = r.bareme;
   // Cohérence du loyer VIVANT (log.hc / bail.hc) avec la nouvelle date d'effet :

@@ -109,9 +109,12 @@ export function redaterRevisionIRL(input) {
   // date de révision du cycle, pas avant la DEMANDE (date de validation — art. 17-1 : « prend effet
   // à compter de sa demande »), pas sur un mois quittancé. Avant : seul le mois quittancé bornait,
   // et le menu « ⋯ » d'une révision programmée ouvrait ce chemin.
+  // Décision Didier 25/09 (N6) : la date corrigée est LIBRE (le cas d'origine : la lettre est
+  // partie plus tôt que la validation dans l'app) — ni la demande ni le 1er du mois ne bornent ;
+  // restent intangibles la date de révision du cycle et le mois quittancé.
   const cl = clampDateEffet(i.nouvelleDateEffet, {
+    libre: true,
     annivMoisPremierIso: _ymd(hist[idx].dateRevision) || undefined,
-    demandeIso: _ymd(hist[idx].date) || undefined,
     dernierMoisQuittanceYm: i.dernierMoisQuittanceYm || undefined
   });
   const effet = cl.effetIso;

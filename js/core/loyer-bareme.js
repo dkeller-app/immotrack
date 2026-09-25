@@ -118,13 +118,18 @@ function _veille(iso) {
  */
 export function clampDateEffet(effetIso, opts) {
   const o = opts || {};
-  let effet = _premierDuMois(effetIso);
+  // IRL-REVISION (décision Didier 25/09) — `libre` : la date SAISIE par l'utilisateur est son choix.
+  // Le jour est conservé (pas de ramenée au 1er ; « mois entiers conseillés » est dit par l'écran,
+  // jamais imposé) et la demande ne borne pas. Restent INTANGIBLES : la date de révision du cycle,
+  // le dernier mois quittancé (I-1) et le début du bail.
+  const _libre = !!o.libre && /^\d{4}-\d{2}-\d{2}$/.test(_ymd(effetIso));
+  let effet = _libre ? _ymd(effetIso) : _premierDuMois(effetIso);
   const propose = effet;
   const annivMin = o.annivMoisPremierIso ? _premierDuMois(o.annivMoisPremierIso) : '';
   if (annivMin && effet < annivMin) effet = annivMin;
   // IRL-REVISION R2 — art. 17-1 : la révision « prend effet à compter de sa demande ». Une
   // date d'effet ne précède donc jamais la demande (1er du mois qui la suit, sauf demande un 1er).
-  const demandeMin = o.demandeIso ? _premierDuMoisOuSuivant(o.demandeIso) : '';
+  const demandeMin = (o.demandeIso && !_libre) ? _premierDuMoisOuSuivant(o.demandeIso) : '';
   if (demandeMin && effet < demandeMin) effet = demandeMin;
   if (o.dernierMoisQuittanceYm) {
     const minLibre = _premierDuMoisSuivant(o.dernierMoisQuittanceYm + '-01');
