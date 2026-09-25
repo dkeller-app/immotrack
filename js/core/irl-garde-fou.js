@@ -144,6 +144,17 @@ export function gardeFouRevision(rev, ctx) {
         + 'c’est la date qui n’est pas encore là.'
     };
   }
+  // Décision 25/09 (règle ANIL) — l'indice connu à la date de révision est déjà dans le loyer.
+  if (r.etat === 'rien-a-reviser') {
+    return {
+      kind: 'rien-a-reviser', peut: false,
+      pourquoi: 'L’indice à retenir est celui <b>connu à la date de révision</b>'
+        + (r.effetPrevuIso ? ` (${_fr(r.effetPrevuIso)})` : '')
+        + (r.T && r.N ? `, soit l’IRL T${r.T} ${r.N}` : '')
+        + ' : il est <b>déjà appliqué</b> au loyer (révision précédente). L’appliquer à nouveau augmenterait deux fois le loyer pour la même variation. '
+        + 'Rien à réviser cette année — la prochaine révision suit le calendrier normal.'
+    };
+  }
   if (r.etat === 'indice-manquant') {
     return {
       kind: GARDE.INDICE, peut: false,

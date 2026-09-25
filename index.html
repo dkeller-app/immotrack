@@ -25968,16 +25968,29 @@ function computeIRLRevision(log, opts) {
   // date de révision → rien à réviser pour ce cycle : muet, jamais « à préparer ».
   const _anRef = (IRLC && typeof IRLC.anneeReference === 'function')
     ? IRLC.anneeReference({ journal: _journal, debut, bailIrl: bail && bail.irl }) : null;
-  const _idx = (IRLC && typeof IRLC.indiceDuCycle === 'function') ? IRLC.indiceDuCycle(T, cal.effetPrevuIso, _anRef) : null;
+  // La référence vient-elle d'une RÉVISION du journal, ou seulement de l'indice de BASE du bail ?
+  const _refDuBail = !!(IRLC && typeof IRLC.anneeReference === 'function')
+    && IRLC.anneeReference({ journal: _journal, debut }) == null;
+  const _idx = (IRLC && typeof IRLC.indiceDuCycle === 'function') ? IRLC.indiceDuCycle(T, cal.effetPrevuIso, _anRef, _refDuBail) : null;
   // La règle « référence + 1 » ne vaut que pour un cycle À PROPOSER : un cycle programmé ou fait a
   // SA propre révision pour référence — l'appliquer là le ferait passer pour « indice manquant ».
   const _aProposer = (cal.etat === 'a-preparer' || cal.etat === 'en-retard');
+  // Un cycle « perdu » (prescription) dont l'indice était DÉJÀ dans le loyer n'a rien perdu (règle
+  // ANIL) ; en cas d'attente de l'indice suivant (exception indice de base), la perte est réelle : dite.
+  const _perdue = (cal.perdue && IRLC && typeof IRLC.indiceDuCycle === 'function'
+    && IRLC.indiceDuCycle(T, cal.perdue.effetIso, _anRef, _refDuBail).rienAReviser) ? null : cal.perdue;
+  // Décision Didier 25/09 (règle ANIL : l'indice CONNU À LA DATE DE RÉVISION) — cet indice est déjà
+  // dans le loyer (révision antérieure faite avec un indice publié après sa date) : rien à réviser
+  // pour ce cycle, on le DIT ; le calendrier redevient normal au cycle suivant.
+  if (_aProposer && _idx && _idx.rienAReviser) {
+    return { muet: true, etat: 'rien-a-reviser', T, N: _idx.annee, anneeRef: _anRef, isApplicable: false,
+      premiereAnniv: premiereAnnivD, effetPrevuIso: cal.effetPrevuIso, rappelYm: cal.rappelYm,
+      joursAvantEffet: cal.joursAvantEffet, perdue: _perdue,
+      message: `Rien à réviser pour la date du ${fd(cal.effetPrevuIso)} : l'indice connu à cette date (IRL T${T} ${_idx.annee}) est déjà appliqué au loyer. Prochaine révision l'an prochain.` };
+  }
   const _nBrut = (IRLC && typeof IRLC.anneeIndice === 'function') ? IRLC.anneeIndice(T, cal.effetPrevuIso) : null;
   const N = (_aProposer && _idx && _idx.annee != null) ? _idx.annee
     : (_nBrut != null ? _nBrut : cal.cycleAnnee);
-  // Un cycle « perdu » (prescription) dont l'indice était déjà dans le loyer n'a rien perdu.
-  const _perdue = (cal.perdue && IRLC && typeof IRLC.indiceDuCycle === 'function'
-    && IRLC.indiceDuCycle(T, cal.perdue.effetIso, _anRef).dejaIndexe) ? null : cal.perdue;
   // Audit passe 2 N1 — plus de sortie muette « déjà indexé » : elle faisait perdre toute l'année
   // aux baux commencés un 1er janvier/avril/juillet/octobre (indice de base = dernier publié au
   // jour près). N vaut alors ref + 1 : « indice manquant » tant qu'il n'est pas publié, révision
@@ -30400,6 +30413,7 @@ function _lyMotifMuet(rev) {
   if (rev.etat === 'trop-jeune') return `Bail de moins d'un an — première révision au ${rev.effetPrevuIso ? fd(rev.effetPrevuIso) : (rev.premiereAnniv ? rev.premiereAnniv.toLocaleDateString('fr-FR') : '–')}`;
   if (rev.etat === 'indice-manquant') return `Indice ${rev.missingKey} pas encore publié par l'INSEE`;
   if (rev.etat === 'mobilite') return 'Bail mobilité — la révision du loyer est interdite pendant le bail';
+  if (rev.etat === 'rien-a-reviser') return rev.message || 'Indice déjà appliqué — rien à réviser cette année';
   return '—';
 }
 function _lyPastilleMuet(rev) {
@@ -30408,6 +30422,7 @@ function _lyPastilleMuet(rev) {
   if (rev.etat === 'trop-jeune') return rev.joursAvantEffet != null ? `Dans ${rev.joursAvantEffet} j` : 'Bail < 1 an';
   if (rev.etat === 'indice-manquant') return 'Indice manquant';
   if (rev.etat === 'mobilite') return 'Bail mobilité';
+  if (rev.etat === 'rien-a-reviser') return 'Rien à réviser';
   return '—';
 }
 
@@ -53409,7 +53424,7 @@ function _pilBulkMajLoyersSimule(baux, dateApplication) {
       out.totalExclus++; continue;
     }
     // Audit M12 — bail mobilité (révision interdite) : exclu, avec son motif.
-    if (rev.etat === 'mobilite') {
+    if (rev.etat === 'mobilite' || rev.etat === 'rien-a-reviser') {
       out.baux.push({ ref:log.ref, exclu:true, raison: rev.message || 'Non révisable' });
       out.totalExclus++; continue;
     }

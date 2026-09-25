@@ -176,15 +176,23 @@ export function anneeReference(input) {
  *     aucun T2 plus récent → la révision anticipée n'a rien à appliquer.
  * @returns {{annee:number|null, dejaIndexe:boolean}}
  */
-export function indiceDuCycle(T, effetIso, anneeRef) {
+export function indiceDuCycle(T, effetIso, anneeRef, refVientDuBail) {
   const n = anneeIndice(T, effetIso);
-  if (n == null) return { annee: null, dejaIndexe: false };
+  if (n == null) return { annee: null, dejaIndexe: false, rienAReviser: false };
   const ref = parseInt(anneeRef, 10);
   const deja = Number.isFinite(ref) && n <= ref;
-  // Audit passe 2 N1 — ne JAMAIS rendre le cycle muet : on attend l'indice SUIVANT la référence
-  // (ref + 1). Tant qu'il n'est pas publié → « indice manquant » ; dès sa publication la révision
-  // est proposée (effet à compter de la demande). Plus de double application, plus d'année perdue.
-  return { annee: deja ? ref + 1 : n, dejaIndexe: deja };
+  // Décision Didier 25/09 (source : ANIL — « l'indice du même trimestre CONNU À LA DATE DE
+  // RÉVISION » ; exemple ANIL d'une demande tardive : même loyer révisé, seule la date d'effet
+  // change). L'indice est celui connu à la date de révision du cycle, jamais un indice publié plus
+  // tard. S'il est déjà dans le loyer (révision antérieure faite avec un indice publié après sa
+  // date), il n'y a RIEN À RÉVISER pour ce cycle ; le calendrier redevient normal au suivant.
+  // EXCEPTION (audit passe 2 N1) : la référence est l'indice de BASE du bail, choisi par l'ancienne
+  // table de publication (publié quelques jours après la signature) — on attend alors le même
+  // trimestre de l'année suivante (ref + 1), faute de quoi le bail perdrait sa 1re révision.
+  if (!deja) return { annee: n, dejaIndexe: false, rienAReviser: false };
+  return refVientDuBail
+    ? { annee: ref + 1, dejaIndexe: true, rienAReviser: false }
+    : { annee: n, dejaIndexe: true, rienAReviser: true };
 }
 
 /**

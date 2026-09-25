@@ -459,21 +459,21 @@ describe('Audit C1/C2 — jamais deux fois la même variation d\'indice', () => 
     expect(anneeReference({ bailIrl: 'T2 2026', debut: '2026-09-15',
       journal: [{ dateRevision: '2026-03-01', irlVigueur: 'T4 2025' }] })).toBe(2026);
   });
-  it('C1 — bail du 1er mars T4, cycle 2025 appliqué en retard avec T4 2025 : au 01/03/2026 on attend T4 2026 (jamais T4 2025 deux fois)', () => {
-    // Passe 2 N1 : le cycle n'est plus rendu muet — il attend l'indice SUIVANT la référence.
-    expect(indiceDuCycle(4, '2026-03-01', 2025)).toEqual({ annee: 2026, dejaIndexe: true });
-    expect(indiceDuCycle(4, '2027-03-01', 2025)).toEqual({ annee: 2026, dejaIndexe: false });
+  it('C1 (règle ANIL, décision 25/09) — bail de mars T4, cycle 2025 appliqué en retard avec T4 2025 : RIEN à réviser en 2026, normal en 2027', () => {
+    // Référence venue du JOURNAL : l'indice connu au 01/03/2026 (T4 2025) est déjà dans le loyer.
+    expect(indiceDuCycle(4, '2026-03-01', 2025, false)).toEqual({ annee: 2025, dejaIndexe: true, rienAReviser: true });
+    expect(indiceDuCycle(4, '2027-03-01', 2025, false)).toEqual({ annee: 2026, dejaIndexe: false, rienAReviser: false });
   });
-  it('C2 — bail signé sur T2 2026, date commune octobre : au 01/10/2026 on attend T2 2027', () => {
-    expect(indiceDuCycle(2, '2026-10-01', 2026)).toEqual({ annee: 2027, dejaIndexe: true });
-    expect(indiceDuCycle(2, '2027-10-01', 2026)).toEqual({ annee: 2027, dejaIndexe: false });
+  it('C2 — bail signé sur T2 2026 (dernier publié), date commune octobre : rien à réviser au 01/10/2026 si la référence vient d’une révision', () => {
+    expect(indiceDuCycle(2, '2026-10-01', 2026, false).rienAReviser).toBe(true);
+    expect(indiceDuCycle(2, '2027-10-01', 2026, false)).toEqual({ annee: 2027, dejaIndexe: false, rienAReviser: false });
   });
-  it('Passe 2 N1 — bail du 01/04/2025 sur T1 2025 : le cycle 2026 attend T1 2026, il n’est jamais perdu', () => {
-    expect(indiceDuCycle(1, '2026-04-01', 2025)).toEqual({ annee: 2026, dejaIndexe: true });
+  it('Exception N1 — référence = indice de BASE du bail (ancienne table) : bail du 01/04/2025 sur T1 2025, on attend T1 2026', () => {
+    expect(indiceDuCycle(1, '2026-04-01', 2025, true)).toEqual({ annee: 2026, dejaIndexe: true, rienAReviser: false });
   });
   it('cas nominal : bail de septembre T2, cycles successifs', () => {
-    expect(indiceDuCycle(2, '2024-09-01', 2023)).toEqual({ annee: 2024, dejaIndexe: false });
-    expect(indiceDuCycle(2, '2025-09-01', 2024)).toEqual({ annee: 2025, dejaIndexe: false });
+    expect(indiceDuCycle(2, '2024-09-01', 2023)).toEqual({ annee: 2024, dejaIndexe: false, rienAReviser: false });
+    expect(indiceDuCycle(2, '2025-09-01', 2024)).toEqual({ annee: 2025, dejaIndexe: false, rienAReviser: false });
   });
 });
 
