@@ -1,6 +1,12 @@
 # Propryo — Backlog actif
 
-## 🚦 MAIN = **v15.678** (`443cdbd`, 24/09) — 4 414 tests verts, mirrors à jour, CRLF intact, app lancée sans erreur console
+## 🚦 MAIN = **v15.679** (25/09) — IRL-REVISION poussé sur main à la demande de Didier (test sur main) · 4 494 tests verts, mirrors à jour, CRLF intact
+
+## 🚦 IRL-REVISION — v15.679 (branche `fix/irl-validation`, worktree `Immo-wt-irl-valid`) — SUR MAIN, ⏳ smoke Didier
+**Bug prod v15.678** : Loyers → Révisions → « Valider la révision » ne faisait rien (ligne « en retard · jamais appliqué » à vie, aucune lettre). **Cause** : entrée `pendingApply` écrite mais marque de cycle posée seulement à la date d'effet → validation invisible, doubles validations possibles.
+**Livré** : état « programmée » (+ annuler), lettre IRL générée à la validation ; pas de révision en cours de mois (report au 1er) ; rappel M-1 ; révision possible toute l'année, jamais rétroactive (calendrier grisé + mention art. 17-1 loi 89-462) ; indice = celui connu à la date de révision (ANIL), état « rien à réviser » ; champ « mois de révision » au bail + mois commun côté bailleur (trimestre proposé) ; bail < 1 an = avertissement non bloquant ; DPE F/G = message non bloquant ; option C (deux révisions dues à la suite) ; clause 5.2 sans « sans notification préalable » pour les nouveaux baux (versionnée `clauseIrlV`, baux signés intouchés). Module `js/core/irl-revision.js` + `irl-calendrier.js` étendu. CDC `docs/subjects/IRL-REVISION.md`. 6 passes d'audit code-reviewer, dernière « intégrable ».
+**Smoke à faire** : Réviser → Valider (ligne « programmée », lettre ouverte) · date passée tapée au clavier → remontée + message · annuler une programmée · champ mois de révision au bail · 3 formats.
+
 Dernier lot poussé : « le miroir n'est pas le DB » (R0-D deuxième domaine, détail plus bas). ⏳ **Smoke dû** : dépôt de garantie d'un bail clôturé avec EDL de sortie dégradé — la date limite recule d'un mois et la pénalité art. 22 baisse d'autant (branche légale qui était morte et qui s'allume).
 
 ## 🚦 CONGÉ — v15.677 (branche `claude/gallant-goldberg-71ca26`) — INTÉGRÉ dans `main` (repris par la synchro du 24/09)
