@@ -112,9 +112,12 @@ export function redaterRevisionIRL(input) {
   // Décision Didier 25/09 (N6) : la date corrigée est LIBRE (le cas d'origine : la lettre est
   // partie plus tôt que la validation dans l'app) — ni la demande ni le 1er du mois ne bornent ;
   // restent intangibles la date de révision du cycle et le mois quittancé.
+  // Décision Didier 25/09 (2ᵉ temps) : « on ne revient pas en arrière » — jamais avant la DEMANDE
+  // (date de validation de la révision), au jour près : révision rétroactive impossible (art. 17-1).
   const cl = clampDateEffet(i.nouvelleDateEffet, {
     libre: true,
     annivMoisPremierIso: _ymd(hist[idx].dateRevision) || undefined,
+    demandeIso: _ymd(hist[idx].date) || undefined,
     dernierMoisQuittanceYm: i.dernierMoisQuittanceYm || undefined
   });
   const effet = cl.effetIso;

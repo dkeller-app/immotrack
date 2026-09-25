@@ -129,7 +129,10 @@ export function clampDateEffet(effetIso, opts) {
   if (annivMin && effet < annivMin) effet = annivMin;
   // IRL-REVISION R2 — art. 17-1 : la révision « prend effet à compter de sa demande ». Une
   // date d'effet ne précède donc jamais la demande (1er du mois qui la suit, sauf demande un 1er).
-  const demandeMin = (o.demandeIso && !_libre) ? _premierDuMoisOuSuivant(o.demandeIso) : '';
+  // Décision Didier 25/09 (2ᵉ temps) — « on ne revient pas en arrière » : même en date libre, jamais
+  // avant la DEMANDE, au jour près (art. 17-1 : la révision « prend effet à compter de sa demande »).
+  const demandeMin = o.demandeIso
+    ? (_libre ? _ymd(o.demandeIso) : _premierDuMoisOuSuivant(o.demandeIso)) : '';
   if (demandeMin && effet < demandeMin) effet = demandeMin;
   if (o.dernierMoisQuittanceYm) {
     const minLibre = _premierDuMoisSuivant(o.dernierMoisQuittanceYm + '-01');

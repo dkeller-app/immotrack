@@ -85,18 +85,21 @@ describe('redaterRevisionIRL — corriger la date d\'effet depuis la timeline', 
     expect(r.ajustee).toBe(true);
   });
 
-  it('IRL-REVISION (décision Didier 25/09) — date LIBRE, mais jamais avant la date de révision du cycle', () => {
-    // Plancher intangible = date de révision (01/03/2026) : 2024-02-01 y est remonté.
+  it('IRL-REVISION (décision Didier 25/09) — date LIBRE, jamais avant la demande : révision rétroactive impossible', () => {
+    // Révision validée (demandée) le 20/06 : 2024-02-01 et 2026-04-15 sont remontés au 20/06.
     const r = redaterRevisionIRL({ irlHistorique: irlHist, bareme, ref: 'F-001',
       revisionDate: '2026-06-20', ancienEffet: '2026-07-01', nouvelleDateEffet: '2024-02-01' });
     expect(r.ok).toBe(true);
-    expect(r.effetIso).toBe('2026-03-01');
+    expect(r.effetIso).toBe('2026-06-20');
     expect(r.ajustee).toBe(true);
-    // Au-delà : le choix de l'utilisateur, jour compris (la lettre est partie le 15/04).
     const r2 = redaterRevisionIRL({ irlHistorique: irlHist, bareme, ref: 'F-001',
       revisionDate: '2026-06-20', ancienEffet: '2026-07-01', nouvelleDateEffet: '2026-04-15' });
-    expect(r2.effetIso).toBe('2026-04-15');
-    expect(r2.ajustee).toBe(false);
+    expect(r2.effetIso).toBe('2026-06-20');
+    // Au-delà de la demande : le choix de l'utilisateur, jour compris.
+    const r3 = redaterRevisionIRL({ irlHistorique: irlHist, bareme, ref: 'F-001',
+      revisionDate: '2026-06-20', ancienEffet: '2026-07-01', nouvelleDateEffet: '2026-08-15' });
+    expect(r3.effetIso).toBe('2026-08-15');
+    expect(r3.ajustee).toBe(false);
   });
 
   it('refuse de franchir la période suivante (chevauchement)', () => {
