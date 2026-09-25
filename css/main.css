@@ -3784,14 +3784,23 @@ textarea.field-modified-since-sig{
 .rg-logref{font-weight:600;color:var(--acc);cursor:pointer}
 .rg-logref:hover{text-decoration:underline}
 .rg-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;font-weight:700;white-space:nowrap}
-.rg-tag.dem{background:var(--bg-success,rgba(22,163,74,.12));color:var(--grn)}
-.rg-tag.rest{background:var(--bg-warning,rgba(234,88,12,.12));color:var(--ora)}
+/* Couleur du solde = son signe, comme sur téléphone (.rgph-tag) et dans les KPI : à demander (négatif) /
+   à restituer (positif). Tokens charte uniquement. */
+.rg-tag.dem{background:var(--neg-soft);color:var(--neg)}
+.rg-tag.rest{background:var(--pos-soft);color:var(--pos)}
 .rg-badge{font-size:10px;padding:1px 6px;border-radius:8px;background:var(--bor);color:var(--t2);vertical-align:middle}
-.rg-acts{white-space:nowrap}
-.rg-acts .btn{margin-left:4px}
-.rg-table tr.rg-total td{background:#0f1b30;color:#fff;font-weight:800;font-size:14px;border:0}
+/* Les actions (Détail · Clôturer · Envoyer · Décompte) et les en-têtes PEUVENT passer à la ligne : le
+   tableau (largeur 100 %) ne les replie que si la place manque (tablette, PC étroit avec barre latérale)
+   au lieu de déborder — sinon les montants du détail sortaient à droite (826 px pour 718 utiles à 768
+   avant même l'ajout de « Détail »). Sur un écran large, tout reste sur une ligne. */
+.rg-acts{white-space:normal;text-align:right}
+.rg-acts .btn{margin:2px 0 2px 4px}
+.rg-table>thead th{white-space:normal}
+/* Ligne TOTAL : surface neutre de la charte (plus d'aplat bleu nuit codé en dur, illisible en sombre). */
+.rg-table tr.rg-total td{background:var(--sur3);color:var(--t1);font-weight:800;font-size:14px;border:0;border-top:2px solid var(--bor)}
 .rg-table tr.rg-total td.num{font-size:15px}
-.rg-table tr.rg-total td.pos,.rg-table tr.rg-total td.neg{color:#fff}
+.rg-table tr.rg-total td.pos{color:var(--pos)}
+.rg-table tr.rg-total td.neg{color:var(--neg)}
 .rg-table tr.rg-det td{background:var(--sur2);padding:0}
 .rg-det-in{padding:8px 14px 14px 30px}
 .rg-det-h{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 6px}
@@ -3799,21 +3808,22 @@ textarea.field-modified-since-sig{
 .rg-det-tbl tr.rg-det-sum td{font-weight:700;border-top:1px solid var(--bor)}
 .rg-det-tbl tr.rg-det-solde td{font-weight:800}
 /* bandeau « charges non réparties » (Phase B) */
-.rg-trou-banner{background:var(--bg-danger,rgba(220,38,38,.10));border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:11px 14px;margin-bottom:12px}
-.rg-trou-h{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--red)}
+.rg-trou-banner{background:var(--neg-soft);border:1px solid var(--neg);border-radius:10px;padding:11px 14px;margin-bottom:12px}
+.rg-trou-h{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--neg)}
 .rg-trou-banner summary{cursor:pointer;font-size:12px;color:var(--t2);margin-top:6px;font-weight:600}
 .rg-trou-body{margin-top:4px}
 .rg-trou-im{font-size:12px;margin-top:8px;font-weight:700;color:var(--t1)}
 .rg-trou-l{font-size:11.5px;color:var(--t2);padding:2px 0 2px 14px}
 /* badges validation (Phase C) */
-.rg-badge-ok{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;background:var(--bg-success,rgba(22,163,74,.12));color:var(--grn);vertical-align:middle;margin-left:6px;white-space:nowrap}
-.rg-badge-todo{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;background:var(--bg-warning,rgba(234,88,12,.12));color:var(--ora);vertical-align:middle;margin-left:6px;white-space:nowrap}
+.rg-badge-ok{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;background:var(--pos-soft);color:var(--pos);vertical-align:middle;margin-left:6px;white-space:nowrap}
+/* « À émettre / à valider » = une action attend → corail outline (doctrine .badge.acc), comme sur téléphone. */
+.rg-badge-todo{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;background:transparent;color:var(--acc);border:1px solid var(--acc);vertical-align:middle;margin-left:6px;white-space:nowrap}
 /* vue globale immeuble (matrice) */
 .rg-glob-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .rg-glob-h b{font-size:15px}
 .rg-back{background:none;border:0;color:var(--acc);font:inherit;font-weight:600;cursor:pointer;font-size:13px;padding:0}
 .rg-mtx{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
-.rg-mtx th,.rg-mtx td{text-align:right;white-space:nowrap;padding:9px 10px;border-bottom:1px solid rgba(0,0,0,.05)}
+.rg-mtx th,.rg-mtx td{text-align:right;white-space:nowrap;padding:9px 10px;border-bottom:1px solid var(--bor2)}
 /* 1re colonne figée + libellé sur 2 lignes (v2 : libellés bancaires longs) */
 .rg-mtx th.c0,.rg-mtx td.c0{position:sticky;left:0;z-index:2;text-align:left;background:var(--sur);border-right:1px solid var(--bor);min-width:184px;max-width:184px;white-space:normal}
 .rg-mtx thead th{position:sticky;top:0;z-index:1;background:var(--sur2)}
@@ -3826,14 +3836,26 @@ textarea.field-modified-since-sig{
 .rg-mtx tbody tr.clk{cursor:pointer}
 .rg-mtx tbody tr.rg-mv.clk:hover td{background:var(--acc-bg)}
 .rg-mtx tbody tr.rg-mv.clk:hover td.c0{background:var(--acc-bg)}
-.rg-mtx tr.trou td{background:var(--bg-danger,rgba(220,38,38,.10))}
-.rg-mtx tr.trou td.c0{background:var(--bg-danger,rgba(220,38,38,.10))}
-.rg-mtx tr.trou td.c0 .rg-mtx-lib{color:var(--red)}
+.rg-mtx tr.trou td{background:var(--neg-soft)}
+.rg-mtx tr.trou td.c0{background:var(--neg-soft)}
+.rg-mtx tr.trou td.c0 .rg-mtx-lib{color:var(--neg)}
 .rg-mtx tr.sumc td{font-weight:700;border-top:2px solid var(--bor);background:var(--sur2)}
 .rg-mtx tr.sumc td.c0{background:var(--sur2)}
 .rg-mtx tr.prov td{color:var(--t2)}
-.rg-mtx tr.solde td{font-weight:800;border-top:1px solid var(--bor);background:#0f1b30;color:#fff}
-.rg-mtx tr.solde td.c0{background:#0f1b30;color:#fff}
+.rg-mtx tr.solde td{font-weight:800;border-top:2px solid var(--bor);background:var(--sur3);color:var(--t1)}
+.rg-mtx tr.solde td.c0{background:var(--sur3);color:var(--t1)}
+/* colonne « Bailleur (225) » — reste à charge = attente (--warn, charte) ; était un style inline. */
+.rg-mtx .col-bail{color:var(--warn)}
+/* en-tête de colonne-locataire = bouton → détail de ses factures (régression 25/09) */
+.rg-colbtn{display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;font:inherit;font-weight:700;color:var(--t1);background:none;border:0;padding:0;cursor:pointer;text-align:right}
+.rg-colbtn small{font-weight:400}
+.rg-colbtn-l{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:var(--acc);margin-top:2px}
+.rg-colbtn-l .uic{width:11px;height:11px}
+.rg-colbtn:hover .rg-colbtn-l,.rg-colbtn:focus-visible .rg-colbtn-l{text-decoration:underline}
+.rg-colbtn:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+/* arrivée depuis la vue globale : la ligne de détail ciblée se signale un instant — barre d'accent,
+   pas d'aplat corail (charte : corail = accent seulement) */
+.rg-table tr.rg-flash>td{box-shadow:inset 3px 0 0 var(--acc)}
 /* mobile : masquer les colonnes logements → liste (charge + total réparti) */
 @media(max-width:560px){
   .rg-mtx th:not(.c0):not(.col-tot),.rg-mtx td:not(.c0):not(.col-tot){display:none}
