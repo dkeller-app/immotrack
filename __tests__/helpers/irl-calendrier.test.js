@@ -584,3 +584,12 @@ describe('Audit passe 5 I-1 — dans le mois de rappel, un cycle suivant sans ob
     expect(r.sansObjet).toBe(true);
   });
 });
+
+describe('Passe 6 — une VRAIE marque l’emporte sur « sans objet »', () => {
+  it('cycle suivant réellement traité (renonciation au journal) + prédicat sans objet vrai → sansObjet false', () => {
+    const r = etatRevision({ debut: '2023-03-01', todayISO: '2026-02-15', derniereApplicationIso: '2025-03-01',
+      journal: [{ dateRevision: '2026-03-01', date: '2026-02-10', action: 'renonciation' }], sansObjet: () => true });
+    expect(r.etat).toBe(ETAT.FAITE);
+    expect(r.sansObjet).toBe(false);
+  });
+});

@@ -173,3 +173,20 @@ describe('redaterRevisionIRL — audit passe 5 (m3) : entrée legacy sans date d
     expect(r.ajustee).toBe(true);
   });
 });
+
+describe('redaterRevisionIRL — passe 6 : legacy sans date, aucune demande fabriquée (test discriminant)', () => {
+  it('sans quittance : une date après la date de révision est acceptée telle quelle ; avec date de demande elle serait remontée', () => {
+    const base = { ref: 'F-001', dateRevision: '2026-03-01', dateEffet: '2026-07-01', dateApplication: '2026-07-01', ancienHC: 500, nouveauHC: 505 };
+    const bareme = [
+      { ref: 'F-001', debut: '2024-03-01', fin: '2026-06-30', hc: 500, ch: 65, source: 'bail' },
+      { ref: 'F-001', debut: '2026-07-01', fin: null, hc: 505, ch: 65, source: 'irl' }
+    ];
+    const sansDate = redaterRevisionIRL({ irlHistorique: [base], bareme, ref: 'F-001', revisionDate: '2026-03-01',
+      ancienEffet: '2026-07-01', nouvelleDateEffet: '2026-04-15' });
+    expect(sansDate.effetIso).toBe('2026-04-15');
+    expect(sansDate.ajustee).toBe(false);
+    const avecDate = redaterRevisionIRL({ irlHistorique: [{ ...base, date: '2026-06-20' }], bareme, ref: 'F-001', revisionDate: '2026-06-20',
+      ancienEffet: '2026-07-01', nouvelleDateEffet: '2026-04-15' });
+    expect(avecDate.effetIso).toBe('2026-06-20');
+  });
+});
