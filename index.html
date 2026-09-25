@@ -26568,7 +26568,7 @@ function applyIRL(ref, newHC, opts) {
   // Audit M3 — dire la VRAIE raison du report : la demande tardive, un mois déjà quittancé, ou les deux.
   const _dqIv = _dernierMoisQuittanceYm(ref);
   const _raisonsIv = [];
-  if (annivIso && todayLocal > annivIso) _raisonsIv.push('demande faite après cette date : effet à compter de la demande, au 1<sup>er</sup> du mois qui suit (art. 17-1)');
+  if (annivIso && todayLocal > annivIso) _raisonsIv.push('demande faite après cette date : effet à compter de la demande (art. 17-1), proposé au 1<sup>er</sup> du mois qui suit');
   if (_dqIv && annivIso && _dqIv >= annivIso.slice(0, 7)) _raisonsIv.push(`${escHtml(window.ymToMoisFr ? window.ymToMoisFr(_dqIv) : _dqIv)} est déjà quittancé`);
   el('iv-effet-hint').innerHTML = `Date de révision du bail : <b>${annivIso ? fd(annivIso) : '–'}</b>. `
     + (dateEffetIso > annivIso
