@@ -1646,9 +1646,10 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div class="fg">
           <label title="Indice de Référence des Loyers — base INSEE (T4 1998 = 100), publié trimestriellement, sert au calcul de la révision annuelle">Trimestre IRL référence <span class="mu sm">(auto depuis date début)</span></label>
           <div style="display:flex;gap:6px;align-items:center">
-            <select class="inp" id="b-irl" style="flex:1"></select>
-            <button class="btn bs bb" onclick="autoIRLTrimestre()" title="Calculer depuis date début"><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Auto</button>
+            <select class="inp" id="b-irl" style="flex:1" onchange="this.dataset.manuel='1';_bIrlTrimestrePropose()"></select>
+            <button class="btn bs bb" onclick="el('b-irl').dataset.manuel='';autoIRLTrimestre();_bIrlTrimestrePropose()" title="Calculer depuis date début"><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Auto</button>
           </div>
+          <div class="mu sm" id="b-irl-hint" style="margin-top:4px;font-size:11.5px"></div>
         </div>
         <div class="fg"><label>Jour paiement</label><input class="inp" type="number" id="b-jpay" min="1" max="28" value="5"></div>
       </div>
@@ -3349,8 +3350,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     </div>
     <!-- IRL-REVISION R11 — date de révision COMMUNE : un bailleur de plusieurs lots regroupe ses
          révisions sur un même mois. Pré-remplit les NOUVEAUX baux seulement. -->
-    <div class="fg">
-      <label>Mois de révision IRL commun <span style="color:var(--t3);font-weight:normal;font-size:11px">(optionnel)</span></label>
+    <!-- Maquette 7a validée (25/09) : bloc « Révision des loyers » + commentaire « À quoi ça sert ? ». -->
+    <div class="fg" style="border:1px solid color-mix(in srgb,var(--acc) 35%,var(--bor));background:var(--acc-bg);border-radius:10px;padding:10px 12px">
+      <div style="font-weight:800;font-size:12.5px;margin-bottom:6px">📈 Révision des loyers</div>
+      <label>Mois de révision commun <span style="color:var(--t3);font-weight:normal;font-size:11px">(optionnel)</span></label>
       <select class="inp" id="ent-irl-mois">
         <option value="">Aucun — chaque bail suit sa date de début</option>
         <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
@@ -3358,7 +3361,15 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
         <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
       </select>
-      <div class="mu sm" style="margin-top:4px;font-size:11.5px">Pré-remplit la date de révision des <b>nouveaux</b> baux de ce bailleur (le 1<sup>er</sup> du mois choisi — art. 17-1 : « date convenue entre les parties »). Modifiable bail par bail. Les baux déjà signés ne changent pas.</div>
+      <div style="margin-top:8px;font-size:12px;color:var(--t2);background:var(--sur);border-radius:8px;padding:9px 11px;line-height:1.5">
+        <b>À quoi ça sert ?</b> Réviser tous les loyers de ce bailleur <b>le même mois</b> au lieu d'une date différente par bail : une seule série de lettres par an.
+        <ul style="margin:6px 0 0 18px">
+          <li>Pré-remplit la date de révision des <b>nouveaux</b> baux de ce bailleur — modifiable bail par bail.</li>
+          <li>Les baux <b>déjà signés</b> gardent leur date (celle du contrat).</li>
+          <li>Le trimestre IRL conseillé suit le mois choisi (le plus récent publié à cette date).</li>
+          <li>Base légale : art. 17-1 — la révision a lieu « à la date convenue entre les parties ».</li>
+        </ul>
+      </div>
     </div>
     <!-- v15.92 EM-5 EMAIL-FROM-PAR-ENTITE — adresse d'envoi des emails depuis cette entité -->
     <div class="fg">
@@ -19263,6 +19274,7 @@ function openBail(ref, opts) {
       : (_nouveau && _entB && _entB.irlMoisRevision ? _entB.irlMoisRevision : '');
     el('b-irlMois').value = _m ? String(_m) : '';
     el('b-irlMois').dataset.initial = _m ? String(_m) : '';
+    if (el('b-irl')) el('b-irl').dataset.manuel = '';
     // Audit I7 — la date commune du bailleur ne pré-remplit QUE un bail jamais enregistré.
     el('b-irlMois').dataset.nouveau = _nouveau ? '1' : '';
     el('b-irlMois').dataset.signe = (bail.signatures && bail.signatures.signedAt) ? '1' : '';
@@ -19985,11 +19997,16 @@ function _bIrlMoisHint() {
   const mois = C.moisRevision(debut, m);
   const premier = C.premierEffet(debut, m);
   const anticipe = C.premierEffetAnticipe(debut, m);
-  let txt = `Révision chaque 1er ${MOIS[mois - 1]}`;
+  // Maquette 7b — dire d'où vient la valeur quand c'est le mois commun du bailleur.
+  const _entH = (DB.entites || []).find(e => e && e.nom === v('b-entity'));
+  const _src = (m && s.dataset.nouveau === '1' && _entH && Number(_entH.irlMoisRevision) === m)
+    ? `Pré-rempli : mois commun de ${_entH.nom}. ` : '';
+  let txt = _src + `Révision chaque 1er ${MOIS[mois - 1]}`;
   if (!m && debut.slice(8, 10) !== '01') txt += ' (bail commencé en cours de mois : reportée au 1er du mois suivant)';
   txt += premier ? ` — première le ${fd(premier)}.` : '.';
   if (anticipe) txt += ` Le 1er ${MOIS[mois - 1]} ${anticipe.slice(0, 4)} tombe moins d'un an après le début du bail : la révision y sera proposée avec un avertissement.`;
   h.textContent = txt;
+  try { _bIrlTrimestrePropose(); } catch (e) {}
 }
 
 // IRL-REVISION R11 — au choix du bailleur d'un bail NON signé, sa date de révision commune
@@ -20000,6 +20017,29 @@ function _bIrlMoisDepuisBailleur() {
   const ent = (DB.entites || []).find(e => e && e.nom === v('b-entity'));
   if (ent && ent.irlMoisRevision) s.value = String(ent.irlMoisRevision);
   _bIrlMoisHint();
+}
+
+// Maquette 7b validée (25/09) — le TRIMESTRE IRL conseillé suit le mois de révision CHOISI : celui
+// dont l'indice est le plus récent au 1er de ce mois ; base = son dernier indice publié à la
+// signature. Nouveau bail seulement, jamais par-dessus un choix manuel ; mois « Auto » : règle de
+// la signature, inchangée (autoIRLTrimestre). Logique pure testée : IrlCalendrier.indiceBaseConseille.
+function _bIrlTrimestrePropose() {
+  const s = el('b-irlMois'), t = el('b-irl'), h = el('b-irl-hint');
+  if (!s || !t || !h) return;
+  const C = (typeof window !== 'undefined') ? window.IrlCalendrier : null;
+  const m = parseInt(s.value, 10);
+  if (!C || s.disabled || v('b-type') === 'garage' || !m) { h.textContent = ''; return; }
+  const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const cle = C.indiceBaseConseille(v('b-debut'), m);
+  if (!cle) { h.textContent = ''; return; }
+  const tq = cle.split(' ')[0];
+  if (s.dataset.nouveau !== '1' || t.dataset.manuel === '1') {
+    h.innerHTML = t.value === cle ? '' : `Conseillé pour une révision en ${MOIS[m - 1]} : <b>${escHtml(cle)}</b> (le plus récent publié au 1<sup>er</sup> ${MOIS[m - 1]}).`;
+    return;
+  }
+  if (![...t.options].some(o => o.value === cle)) { h.textContent = `Conseillé : ${cle} — absent de la table IRL (Paramètres).`; return; }
+  t.value = cle;
+  h.innerHTML = `<b style="color:var(--acc)">Proposé d'après le mois de révision</b> — ${tq} = l'indice le plus récent publié au 1<sup>er</sup> ${MOIS[m - 1]}. Base : ${escHtml(cle)}, dernier ${tq} publié à la signature. Modifiable.`;
 }
 
 // IRL-REVISION (audit I7) — changer la date de révision d'un bail EN COURS (enregistré, pas encore
@@ -26038,6 +26078,7 @@ function computeIRLRevision(log, opts) {
     etat: cal.etat, muet: !!cal.muet, effetPrevuIso: cal.effetPrevuIso,
     rappelYm: cal.rappelYm, joursAvantEffet: cal.joursAvantEffet, perdue: _perdue,
     programmee: cal.programmee || null, premiereAnticipeeIso: cal.premiereAnticipeeIso || '',
+    conflitSuivant: cal.conflitSuivant || null,   // maquette 5 (option C)
     // R12 — la révision PROPOSÉE est la toute première et tombe < 1 an après le début (date commune) :
     // le garde-fou avertit (case à cocher), jamais un verrou.
     moinsDunAn: !!(cal.premiereAnticipeeIso && cal.effetPrevuIso === cal.premiereAnticipeeIso), debutBail: debut
@@ -26489,7 +26530,9 @@ function applyIRL(ref, newHC, opts) {
   const _eff = (typeof window._baremeComputeDateEffetIRL === 'function')
     ? window._baremeComputeDateEffetIRL({ anniversaireIso: annivIso, validationIso: todayLocal, dernierMoisQuittanceYm: _dernierMoisQuittanceYm(ref) })
     : { effetIso: annivIso, ajustee: false };
-  const dateEffetIso = _eff.effetIso || annivIso;
+  // Maquette 5 (option C) — « Faire les deux » : la révision de l'année écoulée prend effet À LA
+  // DEMANDE (art. 17-1), le jour même, pour rester dans son année de contrat. Modifiable ensuite.
+  const dateEffetIso = (opts && /^\d{4}-\d{2}-\d{2}$/.test(String(opts.effetIso || ''))) ? opts.effetIso : (_eff.effetIso || annivIso);
 
   // HISTORIQUE-BAIL-ONGLET (17/07) : la date d'effet est ÉDITABLE dans une vraie modale de
   // validation (fini le confirm() figé) — pré-remplie Q1, re-validée par les MÊMES garde-fous
@@ -30184,7 +30227,61 @@ function _lyLigneRetard(e) {
  * La date de bail et les deux indices vivent dans la fenêtre de validation (`applyIRL`),
  * pas dans la liste — c'est là qu'on en a besoin pour décider.
  */
+/**
+ * Maquette 5 validée (option C, 25/09) — la révision de l'année écoulée n'est pas faite ET on est
+ * dans le mois de rappel de la suivante : deux hausses tomberaient en quelques jours (« une seule
+ * fois par an »). On montre l'enjeu chiffré et on fait CHOISIR ; rien n'est bloqué.
+ *  1 · Faire les deux : l'ancienne à la demande (aujourd'hui), la nouvelle à sa date.
+ *  2 · Renoncer à l'ancienne (skipIRL, art. 17-1) et préparer la nouvelle.
+ */
+function _lyLigneDecision({ e, rev }) {
+  const C = (typeof window !== 'undefined') ? window.IrlCalendrier : null;
+  const eff2 = rev.conflitSuivant.effetIso;
+  const T = rev.T;
+  const n2 = (C && typeof C.anneeIndice === 'function') ? C.anneeIndice(T, eff2) : null;
+  const v2 = n2 != null ? irlVal(T, n2) : null, v21 = n2 != null ? irlVal(T, n2 - 1) : null;
+  const r2 = (v2 && v21) ? v2 / v21 : null;
+  const an1 = String(rev.effetPrevuIso || '').slice(0, 4), an2 = String(eff2).slice(0, 4);
+  const today = _todayIsoLocal();
+  const h1 = rev.nouveauHC;
+  const h12 = r2 ? Math.round(h1 * r2 * 100) / 100 : null;
+  const h2 = r2 ? Math.round(e.log.hc * r2 * 100) / 100 : null;
+  const perte = (h12 != null && h2 != null) ? Math.round((h12 - h2) * 100) / 100 : null;
+  const i2 = r2 ? '' : ` (indice T${T} ${n2 != null ? n2 : ''} pas encore publié : montant connu à sa parution)`;
+  const R = _lyQ(e.ref);
+  const html = `<div class="ly2-r" style="background:var(--warn-soft)">
+    <div class="c1"><b>${escHtml(e.ref)}</b><span>${escHtml(e.log.locataire || '—')}</span></div>
+    <div class="c2"><span class="ly2-p wa">à décider</span> Révision <b>de ${fd(rev.effetPrevuIso)}</b> jamais faite · celle du <b>${fd(eff2)}</b> arrive</div>
+    <div class="c3"><span class="ly2-p nu">${fmt(e.log.hc).replace(' €', '')}</span> → <b>${fmt(h1)}</b></div>
+    <div class="c4"><button class="btn bs bb" onclick="_lyMenuRev(event,'${R}')" title="Plus d'actions" aria-label="Plus d'actions">⋯</button></div></div>
+    <div class="ly2-dec" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;padding:10px 12px;background:var(--sur2);border-top:1px solid var(--bor)">
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+        <div><b>1 · Faire les deux</b> <span class="ly2-p nu">aucune variation perdue</span></div>
+        <div class="mu" style="font-size:12px;line-height:1.5">${an1} : <b>${fmt(e.log.hc)} → ${fmt(h1)}</b>, effet à la demande (<b>${fd(today)}</b>)<br>${an2} : ${h12 != null ? `<b>${fmt(h1)} → ${fmt(h12)}</b>` : '—'}, effet au <b>${fd(eff2)}</b>${i2}</div>
+        <div style="font-size:11.5px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:6px 8px">⚠ Deux hausses à quelques jours d'écart : la loi dit « une fois par an » — le locataire peut contester.</div>
+        <button class="btn bp bb" style="align-self:flex-start" onclick="applyIRL('${R}',${h1},{effetIso:'${today}'})">Faire la révision ${an1} maintenant</button></div>
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+        <div><b>2 · Ne faire que celle du ${fd(eff2)}</b> <span class="ly2-p nu">simple, incontestable</span></div>
+        <div class="mu" style="font-size:12px;line-height:1.5">${an2} : ${h2 != null ? `<b>${fmt(e.log.hc)} → ${fmt(h2)}</b>` : '—'}, effet au <b>${fd(eff2)}</b>${i2}<br>${an1} : <b>renoncée</b> (art. 17-1)</div>
+        <div style="font-size:11.5px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:6px 8px">${perte != null ? `≈ <b>${fmt(perte)}/mois</b> de moins pour toujours (la variation de ${an1} n'est jamais appliquée).` : `La variation de ${an1} n'est jamais appliquée.`}</div>
+        <button class="btn bs bb" style="align-self:flex-start" onclick="_lyRenoncerPuisPreparer('${R}')">Renoncer à ${an1}, préparer ${an2}</button></div>
+    </div>`;
+  return { log: e.log, html };
+}
+
+/** Option C, choix 2 : renoncer au cycle écoulé (geste existant skipIRL, confirmé), puis préparer le suivant. */
+function _lyRenoncerPuisPreparer(ref) {
+  const log = (DB.logements || []).find(l => l.ref === ref);
+  if (!log) return;
+  const avant = (DB.irlHistorique || []).length;
+  skipIRL(ref);
+  if ((DB.irlHistorique || []).length === avant) return;          // renonciation annulée
+  const r = computeIRLRevision(log);
+  if (r && r.isApplicable && r.nouveauHC) applyIRL(ref, r.nouveauHC);
+}
+
 function _lyLigneRev({ e, rev }, tard) {
+  if (tard && rev.conflitSuivant) return _lyLigneDecision({ e, rev });
   const pct = ((rev.variation || 0) * 100).toFixed(2).replace('.', ',');
   const effet = rev.effetPrevuIso ? fd(rev.effetPrevuIso) : '–';
   // Bloc « Révisions » fusionné (KPI §4) : la ligne EN RETARD porte une pastille rouge visible —

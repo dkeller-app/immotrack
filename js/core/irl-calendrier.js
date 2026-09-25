@@ -142,6 +142,29 @@ export function anneeIndice(T, effetIso) {
 }
 
 /**
+ * Maquette 7b (validée 25/09) — le trimestre IRL CONSEILLÉ pour un mois de révision : celui dont
+ * l'indice est le plus récent au 1er de ce mois (publication mi-avril/juillet/octobre/janvier).
+ * Février–avril → T4 · mai–juillet → T1 · août–octobre → T2 · novembre–janvier → T3.
+ * Une PROPOSITION : le trimestre reste un choix du contrat (art. 17-1).
+ * @returns {number|null}
+ */
+export function trimestreConseille(mois) {
+  const m = parseInt(mois, 10);
+  if (!(m >= 1 && m <= 12)) return null;
+  return [3, 4, 4, 4, 1, 1, 1, 2, 2, 2, 3, 3][m - 1];
+}
+
+/**
+ * L'indice de BASE conseillé : le trimestre conseillé, dans sa dernière année PUBLIÉE à la date de
+ * signature (INSEE : « le dernier indice publié à la date de signature »). 'T3 2024' ; '' si invalide.
+ */
+export function indiceBaseConseille(signatureIso, moisRev) {
+  const t = trimestreConseille(moisRev);
+  const a = t ? anneeIndice(t, signatureIso) : null;
+  return (t && a != null) ? `T${t} ${a}` : '';
+}
+
+/**
  * Audit C1/C2 — L'INDICE DE RÉFÉRENCE du bail : l'année de l'indice « en vigueur » de sa dernière
  * révision (appliquée, programmée ou renoncée — une renonciation consomme aussi son année), à
  * défaut celle de l'indice de base du bail (`bail.irl`, ex. « T2 2023 »). Les entrées antérieures
@@ -321,7 +344,8 @@ export function etatRevision(input) {
   const base = {
     etat: ETAT.RIEN, muet: false, cycleAnnee: null, effetPrevuIso: '', rappelYm: '',
     joursAvantEffet: null, premiereEffetIso: premierEffet(debut, mc),
-    premiereAnticipeeIso: premierEffetAnticipe(debut, mc), programmee: null, perdue: null
+    premiereAnticipeeIso: premierEffetAnticipe(debut, mc), programmee: null, perdue: null,
+    conflitSuivant: null
   };
   if (!_ok(debut) || !_ok(today)) return base;
 
@@ -397,9 +421,14 @@ export function etatRevision(input) {
         effetPrevuIso: cur.effetIso, rappelYm: cur.rappelYm, perdue
       });
     }
+    // Maquette 5 (option C, validée 25/09) — la révision de l'année écoulée n'est toujours pas faite
+    // et on est dans le mois de rappel de la SUIVANTE : deux hausses tomberaient en quelques jours
+    // (« une seule fois par an »). Signalé ; l'écran fait choisir, rien n'est bloqué.
+    const conflit = (suivant && today.slice(0, 7) === suivant.rappelYm) ? { effetIso: suivant.effetIso } : null;
     return Object.assign(base, {
       etat: ETAT.EN_RETARD, cycleAnnee: cur.annee, effetPrevuIso: cur.effetIso,
-      rappelYm: cur.rappelYm, joursAvantEffet: _joursEntre(today, cur.effetIso), perdue
+      rappelYm: cur.rappelYm, joursAvantEffet: _joursEntre(today, cur.effetIso), perdue,
+      conflitSuivant: conflit
     });
   }
 

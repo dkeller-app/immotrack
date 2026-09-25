@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ETAT, ETATS_MUETS, effetDuCycle, moisRappel, premierEffet, premierEffetAnticipe,
-  moisRevisionParDefaut, moisRevision, anneeIndice, anneeReference, indiceDuCycle,
+  moisRevisionParDefaut, moisRevision, anneeIndice, anneeReference, indiceDuCycle, trimestreConseille, indiceBaseConseille,
   cycleEnCours, cycleSuivant, etatRevision, ganttRevisions, rubanRevisions
 } from '../../js/core/irl-calendrier.js';
 
@@ -527,5 +527,32 @@ describe('Audit passe 3 N9 — une marque qui EST une date de cycle n’est jama
     const r = etatRevision({ debut: '2023-10-01', todayISO: '2026-02-10', derniereApplicationIso: '2025-10-01',
       journal: [{ dateRevision: '2024-10-01', dateEffet: '2025-10-01', pendingApply: false }] });
     expect(r.etat).toBe(ETAT.FAITE);
+  });
+});
+
+describe('Maquette 7b validée (25/09) — trimestre IRL conseillé selon le mois de révision', () => {
+  it('le trimestre dont l’indice est le plus récent au 1er du mois de révision', () => {
+    expect([1,2,3,4,5,6,7,8,9,10,11,12].map(trimestreConseille)).toEqual([3,4,4,4,1,1,1,2,2,2,3,3]);
+    expect(trimestreConseille(0)).toBeNull();
+  });
+  it('l’indice de base = dernier indice de ce trimestre publié à la signature', () => {
+    expect(indiceBaseConseille('2025-09-15', 1)).toBe('T3 2024');   // T3 2025 paraît mi-octobre
+    expect(indiceBaseConseille('2025-11-10', 1)).toBe('T3 2025');
+    expect(indiceBaseConseille('2025-03-01', 3)).toBe('T4 2024');   // exemple INSEE
+    expect(indiceBaseConseille('nope', 1)).toBe('');
+  });
+});
+
+describe('Maquette 5 validée (option C) — deux révisions tombent en même temps', () => {
+  it('cycle en retard + mois de rappel du suivant : le lot est « à décider » (conflitSuivant)', () => {
+    const r = etatRevision({ debut: '2023-10-01', todayISO: '2026-09-24', derniereApplicationIso: '2024-10-01' });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+    expect(r.effetPrevuIso).toBe('2025-10-01');
+    expect(r.conflitSuivant).toEqual({ effetIso: '2026-10-01' });
+  });
+  it('hors du mois de rappel : révision en retard ordinaire, pas de conflit', () => {
+    const r = etatRevision({ debut: '2023-10-01', todayISO: '2026-08-24', derniereApplicationIso: '2024-10-01' });
+    expect(r.etat).toBe(ETAT.EN_RETARD);
+    expect(r.conflitSuivant).toBeNull();
   });
 });
