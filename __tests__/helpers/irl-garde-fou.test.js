@@ -169,3 +169,14 @@ describe('Audit M4 — l\'avertissement « < 1 an » n\'est jamais escamoté par
     expect(g.consequence).not.toContain('moins d’un an');
   });
 });
+
+describe('Règle ANIL (25/09) — « rien à réviser » : explication, aucun bouton', () => {
+  it('pas de geste, la raison citée (indice connu à la date de révision déjà appliqué)', () => {
+    const g = gardeFouRevision({ etat: 'rien-a-reviser', T: 4, N: 2025, effetPrevuIso: '2026-03-01' });
+    expect(g.kind).toBe(GARDE.RIEN_A_REVISER);
+    expect(g.peut).toBe(false);
+    expect(g.pourquoi).toContain('connu à la date de révision');
+    expect(g.pourquoi).toContain('T4 2025');
+    expect(revisionForcable({ etat: 'rien-a-reviser' })).toBe(false);
+  });
+});

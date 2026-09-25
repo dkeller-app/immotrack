@@ -353,7 +353,11 @@ export function etatRevision(input) {
   if (i.gel) return Object.assign(base, { etat: ETAT.GEL, muet: true });
 
   const marques = _marques(i, debut, mc);
-  const fait = (effetIso) => _traite(marques, debut, effetIso, mc, i.moisRevisionDepuis);
+  // Audit passe 4 (C2/I1) — un cycle SANS OBJET (règle ANIL : l'indice connu à sa date est déjà dans
+  // le loyer) compte comme TRAITÉ : il n'est ni « en retard » ni « perdu », et il ne masque plus le
+  // rappel du cycle suivant. Le prédicat vient de l'appelant (il connaît trimestre et référence).
+  const sansObjet = (effetIso) => typeof i.sansObjet === 'function' && !!effetIso && !!i.sansObjet(effetIso);
+  const fait = (effetIso) => _traite(marques, debut, effetIso, mc, i.moisRevisionDepuis) || sansObjet(effetIso);
 
   // R5 / audit I1 — une révision validée dont l'effet est à venir PRIME sur tout le reste.
   const prog = _programmeeDuLot(i, debut, today);
@@ -407,7 +411,7 @@ export function etatRevision(input) {
   let perdue = null;
   const precedentIso = effetDuCycle(debut, cur.annee - 1, mc);
   if (precedentIso && precedentIso >= base.premiereEffetIso
-      && !_traiteOuDepasse(marques, debut, precedentIso, mc)
+      && !_traiteOuDepasse(marques, debut, precedentIso, mc) && !sansObjet(precedentIso)
       && today >= _plusUnAn(precedentIso)) {
     perdue = { annee: cur.annee - 1, effetIso: precedentIso };
   }
@@ -447,7 +451,7 @@ export function etatRevision(input) {
     });
   }
 
-  const r = etatTraite(cur, { perdue });
+  const r = etatTraite(cur, { perdue, sansObjet: sansObjet(cur.effetIso) && !_traite(marques, debut, cur.effetIso, mc, i.moisRevisionDepuis) });
   // FAITE : le compte à rebours porte sur le cycle suivant (comportement historique).
   if (r.etat === ETAT.FAITE) r.joursAvantEffet = suivant ? _joursEntre(today, suivant.effetIso) : null;
   return r;

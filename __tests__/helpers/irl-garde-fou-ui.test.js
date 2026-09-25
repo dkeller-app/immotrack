@@ -24,7 +24,8 @@ describe('V20 — les refus durs de la révision ont disparu', () => {
     expect(has("saisir le DPE avant d\\'appliquer la révision.")).toBe(false);
   });
   it('applyIRL ouvre la fenêtre d\'avertissement au lieu de s\'arrêter', () => {
-    expect(has('if (g) { _gfOuvrir(ref); return; }')).toBe(true);
+    // Audit passe 4 I3 : la date d'effet demandée (option C, « à la demande ») traverse le garde-fou.
+    expect(has('if (g) { _gfOuvrir(ref, (opts && opts.effetIso) ? { effetIso: opts.effetIso } : undefined); return; }')).toBe(true);
     expect(has('function applyIRL(ref, newHC, opts) {')).toBe(true);
   });
   it('la lettre de révision peut partir « quand même » une fois la confirmation cochée', () => {

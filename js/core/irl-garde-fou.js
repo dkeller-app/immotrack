@@ -24,7 +24,8 @@ export const GARDE = Object.freeze({
   CYCLE_ETEINT: 'cycle-eteint',  // cycle non appliqué, éteint par le délai d'un an (art. 17-1)
   MOINS_UN_AN: 'moins-un-an',    // IRL-REVISION R12 : date commune < 1 an après le début du bail
   TROP_JEUNE: 'trop-jeune',      // pas un verrou : la date n'est pas arrivée
-  INDICE: 'indice-manquant'      // pas un verrou : l'INSEE n'a rien publié
+  INDICE: 'indice-manquant',     // pas un verrou : l'INSEE n'a rien publié
+  RIEN_A_REVISER: 'rien-a-reviser' // règle ANIL : l'indice connu à la date de révision est déjà appliqué
 });
 
 // Audit M4 — un seul avertissement s'affiche (le plus fort) : s'il n'est pas « bail < 1 an », il le
@@ -147,7 +148,7 @@ export function gardeFouRevision(rev, ctx) {
   // Décision 25/09 (règle ANIL) — l'indice connu à la date de révision est déjà dans le loyer.
   if (r.etat === 'rien-a-reviser') {
     return {
-      kind: 'rien-a-reviser', peut: false,
+      kind: GARDE.RIEN_A_REVISER, peut: false,
       pourquoi: 'L’indice à retenir est celui <b>connu à la date de révision</b>'
         + (r.effetPrevuIso ? ` (${_fr(r.effetPrevuIso)})` : '')
         + (r.T && r.N ? `, soit l’IRL T${r.T} ${r.N}` : '')

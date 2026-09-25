@@ -556,3 +556,21 @@ describe('Maquette 5 validée (option C) — deux révisions tombent en même te
     expect(r.conflitSuivant).toBeNull();
   });
 });
+
+describe('Audit passe 4 (C2/I1) — un cycle « sans objet » (règle ANIL) compte comme traité', () => {
+  // Bail du 01/10/2025, base T3 2025 ; cycle 2026 appliqué avec T3 2026 ; le cycle 2027 n'a rien à réviser.
+  const so = (e) => e === '2027-10-01';
+  it('en septembre 2028, le rappel du cycle 2028 apparaît (le cycle 2027 ne le masque plus)', () => {
+    const r = etatRevision({ debut: '2025-10-01', todayISO: '2028-09-15', derniereApplicationIso: '2026-10-01', sansObjet: so });
+    expect(r.etat).toBe(ETAT.A_PREPARER);
+    expect(r.effetPrevuIso).toBe('2028-10-01');
+    expect(r.conflitSuivant).toBeNull();
+  });
+  it('en cours de cycle 2027 : « fait », signalé sans objet, jamais « en retard » ni « perdu »', () => {
+    const r = etatRevision({ debut: '2025-10-01', todayISO: '2027-12-01', derniereApplicationIso: '2026-10-01', sansObjet: so });
+    expect(r.etat).toBe(ETAT.FAITE);
+    expect(r.sansObjet).toBe(true);
+    const r2 = etatRevision({ debut: '2025-10-01', todayISO: '2028-11-01', derniereApplicationIso: '2028-10-01', sansObjet: so });
+    expect(r2.perdue).toBeNull();
+  });
+});

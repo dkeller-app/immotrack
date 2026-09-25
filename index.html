@@ -17127,6 +17127,7 @@ function openBailHist(i) {
     el('b-irlMois').value = b.irlMoisRevision ? String(b.irlMoisRevision) : '';
     el('b-irlMois').dataset.nouveau = ''; el('b-irlMois').dataset.signe = '1'; el('b-irlMois').disabled = true;
     const _h = el('b-irlMois-hint'); if (_h) _h.textContent = 'Bail archivé : lecture seule.';
+    if (el('b-irl-hint')) el('b-irl-hint').textContent = '';   // M3 (passe 4)
   }
   el('b-debut').value = b.debut||''; el('b-fin').value = b.fin||'';
   el('b-notes').value = b.notes||'';
@@ -20013,7 +20014,7 @@ function _bIrlMoisHint() {
 // pré-remplit le champ s'il est encore sur « Auto ». Un choix déjà fait n'est jamais écrasé.
 function _bIrlMoisDepuisBailleur() {
   const s = el('b-irlMois');
-  if (!s || s.disabled || s.value || s.dataset.nouveau !== '1' || v('b-type') === 'garage') return;
+  if (!s || s.disabled || s.value || s.dataset.nouveau !== '1' || v('b-type') === 'garage' || v('b-typeContrat') === 'repris') return;   // M5 (passe 4) : un bail repris garde SON contrat
   const ent = (DB.entites || []).find(e => e && e.nom === v('b-entity'));
   if (ent && ent.irlMoisRevision) s.value = String(ent.irlMoisRevision);
   _bIrlMoisHint();
@@ -20030,10 +20031,10 @@ function _bIrlTrimestrePropose() {
   const m = parseInt(s.value, 10);
   if (!C || s.disabled || v('b-type') === 'garage' || !m) { h.textContent = ''; return; }
   const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-  const cle = C.indiceBaseConseille(v('b-debut'), m);
+  const cle = C.indiceBaseConseille(v('b-dateSignature') || v('b-debut'), m);   // M6 (passe 4)
   if (!cle) { h.textContent = ''; return; }
   const tq = cle.split(' ')[0];
-  if (s.dataset.nouveau !== '1' || t.dataset.manuel === '1') {
+  if (s.dataset.nouveau !== '1' || t.dataset.manuel === '1' || v('b-typeContrat') === 'repris') {
     h.innerHTML = t.value === cle ? '' : `Conseillé pour une révision en ${MOIS[m - 1]} : <b>${escHtml(cle)}</b> (le plus récent publié au 1<sup>er</sup> ${MOIS[m - 1]}).`;
     return;
   }
@@ -20057,7 +20058,7 @@ function _bIrlMoisChange() {
 
 // Déclencheur sur changement date début
 function onBailDebutChange() {
-  autoIRLTrimestre();
+  if (!(el('b-irl') && el('b-irl').dataset.manuel === '1')) autoIRLTrimestre();   // M2 (passe 4)
   try { _bIrlMoisHint(); } catch (e) {}
   if(v('b-entity')) autoFinBail();
   // Recalcule plafond aussi (durée change avec date début/fin)
@@ -25937,7 +25938,23 @@ function computeIRLRevision(log, opts) {
   // Audit I8 — bail garage : son contrat dit « date anniversaire », le mois convenu ne s'y applique pas.
   const _moisRev = (bail && (typeof _bailTypeEff === 'function' ? _bailTypeEff(bail, log) : bail.type) !== 'garage') ? bail.irlMoisRevision : null;
   const _journal = (DB.irlHistorique || []).filter(h => h && !h._deleted && h.ref === log.ref);
+  // Trimestre inscrit au contrat (art. 17-1 loi 89-462)
+  const bailIRL = bail?.irl || '';
+  const TFromContract = bailIRL ? parseInt(bailIRL.replace(/T(\d).*/,'$1')) : 0;
+  const T = (TFromContract >= 1 && TFromContract <= 4)
+    ? TFromContract
+    : Math.ceil((moisAnniv+1)/3);
+  // Indice de RÉFÉRENCE (dernière révision du bail, à défaut son indice de base) — calculé AVANT le
+  // calendrier, qui en a besoin pour reconnaître les cycles « sans objet » (audit passe 4 C2/I1).
+  const _anRef = (IRLC && typeof IRLC.anneeReference === 'function')
+    ? IRLC.anneeReference({ journal: _journal, debut, bailIrl: bail && bail.irl }) : null;
+  // La référence vient-elle d'une RÉVISION du journal, ou seulement de l'indice de BASE du bail ?
+  const _refDuBail = !!(IRLC && typeof IRLC.anneeReference === 'function')
+    && IRLC.anneeReference({ journal: _journal, debut }) == null;
   const _calIn = { debut, todayISO: today, moisRevision: _moisRev,
+    // Règle ANIL : un cycle dont l'indice connu à sa date est déjà dans le loyer est SANS OBJET.
+    sansObjet: (IRLC && typeof IRLC.indiceDuCycle === 'function')
+      ? (effIso) => IRLC.indiceDuCycle(T, effIso, _anRef, _refDuBail).rienAReviser : null,
     moisRevisionDepuis: (bail && bail.irlMoisRevisionDepuis) || '',   // passe 2 N5
     derniereApplicationIso: log.irlDerniereApplication || '', journal: _journal };
 
@@ -25978,13 +25995,6 @@ function computeIRLRevision(log, opts) {
     }, _quand);
   }
 
-  // Trimestre inscrit au contrat (art. 17-1 loi 89-462)
-  const bailIRL = bail?.irl || '';
-  const TFromContract = bailIRL ? parseInt(bailIRL.replace(/T(\d).*/,'$1')) : 0;
-  const T = (TFromContract >= 1 && TFromContract <= 4)
-    ? TFromContract
-    : Math.ceil((moisAnniv+1)/3);
-
   const cal = _calNu;
 
   // D17 — bail de moins d'un an : visible, muet.
@@ -26006,27 +26016,26 @@ function computeIRLRevision(log, opts) {
   // appliquée deux fois (révision faite en retard avec l'indice de l'année, puis cycle suivant sur
   // le même indice ; ou date commune juste après la signature). Rien de plus récent publié à la
   // date de révision → rien à réviser pour ce cycle : muet, jamais « à préparer ».
-  const _anRef = (IRLC && typeof IRLC.anneeReference === 'function')
-    ? IRLC.anneeReference({ journal: _journal, debut, bailIrl: bail && bail.irl }) : null;
-  // La référence vient-elle d'une RÉVISION du journal, ou seulement de l'indice de BASE du bail ?
-  const _refDuBail = !!(IRLC && typeof IRLC.anneeReference === 'function')
-    && IRLC.anneeReference({ journal: _journal, debut }) == null;
   const _idx = (IRLC && typeof IRLC.indiceDuCycle === 'function') ? IRLC.indiceDuCycle(T, cal.effetPrevuIso, _anRef, _refDuBail) : null;
   // La règle « référence + 1 » ne vaut que pour un cycle À PROPOSER : un cycle programmé ou fait a
   // SA propre révision pour référence — l'appliquer là le ferait passer pour « indice manquant ».
   const _aProposer = (cal.etat === 'a-preparer' || cal.etat === 'en-retard');
   // Un cycle « perdu » (prescription) dont l'indice était DÉJÀ dans le loyer n'a rien perdu (règle
   // ANIL) ; en cas d'attente de l'indice suivant (exception indice de base), la perte est réelle : dite.
+  // Audit passe 4 I2 — masqué dès que l'indice du cycle était DÉJÀ dans le loyer : sans objet (règle
+  // ANIL) OU attente de l'indice suivant (exception indice de base : le cycle suivant récupère la
+  // variation, rien n'est perdu). Sinon « Appliquer quand même » appliquerait une variation sans fondement.
   const _perdue = (cal.perdue && IRLC && typeof IRLC.indiceDuCycle === 'function'
-    && IRLC.indiceDuCycle(T, cal.perdue.effetIso, _anRef, _refDuBail).rienAReviser) ? null : cal.perdue;
+    && IRLC.indiceDuCycle(T, cal.perdue.effetIso, _anRef, _refDuBail).dejaIndexe) ? null : cal.perdue;
   // Décision Didier 25/09 (règle ANIL : l'indice CONNU À LA DATE DE RÉVISION) — cet indice est déjà
-  // dans le loyer (révision antérieure faite avec un indice publié après sa date) : rien à réviser
-  // pour ce cycle, on le DIT ; le calendrier redevient normal au cycle suivant.
-  if (_aProposer && _idx && _idx.rienAReviser) {
-    return { muet: true, etat: 'rien-a-reviser', T, N: _idx.annee, anneeRef: _anRef, isApplicable: false,
+  // dans le loyer : cycle SANS OBJET, reconnu par le calendrier (compté traité : il ne masque plus le
+  // rappel du suivant). On le DIT ; le calendrier redevient normal au cycle suivant.
+  if (cal.etat === 'faite' && cal.sansObjet) {
+    const _nSo = (IRLC && typeof IRLC.anneeIndice === 'function') ? IRLC.anneeIndice(T, cal.effetPrevuIso) : null;
+    return { muet: true, etat: 'rien-a-reviser', T, N: _nSo, anneeRef: _anRef, isApplicable: false,
       premiereAnniv: premiereAnnivD, effetPrevuIso: cal.effetPrevuIso, rappelYm: cal.rappelYm,
       joursAvantEffet: cal.joursAvantEffet, perdue: _perdue,
-      message: `Rien à réviser pour la date du ${fd(cal.effetPrevuIso)} : l'indice connu à cette date (IRL T${T} ${_idx.annee}) est déjà appliqué au loyer. Prochaine révision l'an prochain.` };
+      message: `Rien à réviser pour la date du ${fd(cal.effetPrevuIso)} : l'indice connu à cette date (IRL T${T} ${_nSo}) est déjà appliqué au loyer. Prochaine révision l'an prochain.` };
   }
   const _nBrut = (IRLC && typeof IRLC.anneeIndice === 'function') ? IRLC.anneeIndice(T, cal.effetPrevuIso) : null;
   const N = (_aProposer && _idx && _idx.annee != null) ? _idx.annee
@@ -26078,7 +26087,10 @@ function computeIRLRevision(log, opts) {
     etat: cal.etat, muet: !!cal.muet, effetPrevuIso: cal.effetPrevuIso,
     rappelYm: cal.rappelYm, joursAvantEffet: cal.joursAvantEffet, perdue: _perdue,
     programmee: cal.programmee || null, premiereAnticipeeIso: cal.premiereAnticipeeIso || '',
-    conflitSuivant: cal.conflitSuivant || null,   // maquette 5 (option C)
+    // Maquette 5 (option C) — seulement si le cycle SUIVANT aura réellement une variation à appliquer
+    // une fois celui-ci fait (référence = N) : sinon il n'y a qu'une hausse, pas de choix (audit passe 4 C2).
+    conflitSuivant: (cal.conflitSuivant && !(IRLC && typeof IRLC.indiceDuCycle === 'function'
+      && IRLC.indiceDuCycle(T, cal.conflitSuivant.effetIso, N, false).rienAReviser)) ? cal.conflitSuivant : null,
     // R12 — la révision PROPOSÉE est la toute première et tombe < 1 an après le début (date commune) :
     // le garde-fou avertit (case à cocher), jamais un verrou.
     moinsDunAn: !!(cal.premiereAnticipeeIso && cal.effetPrevuIso === cal.premiereAnticipeeIso), debutBail: debut
@@ -26455,7 +26467,7 @@ function _gfOuvrir(ref, opts) {
   const _cycleApplique = (g.kind === 'cycle-eteint' && rev && rev.perdue && rev.perdue.effetIso)
     ? String(rev.perdue.effetIso).slice(0, 10)
     : ((rev && rev.effetPrevuIso) || '');
-  _gfCtx = { ref, hc, kind: g.kind, cycle: _cycleApplique };
+  _gfCtx = { ref, hc, kind: g.kind, cycle: _cycleApplique, effetIso: (opts && opts.effetIso) || '' };
   openM('ov-irl-garde');
 }
 
@@ -26474,7 +26486,7 @@ function _gfForcer() {
   }
   closeM('ov-irl-garde');
   _gfCtx = null;
-  applyIRL(c.ref, c.hc, { force: true, motif: c.kind, cycle: c.cycle });
+  applyIRL(c.ref, c.hc, { force: true, motif: c.kind, cycle: c.cycle, effetIso: c.effetIso || undefined });
 }
 
 function applyIRL(ref, newHC, opts) {
@@ -26503,7 +26515,7 @@ function applyIRL(ref, newHC, opts) {
     // détournée vers l'avertissement d'un cycle éteint qu'on ne lui a pas demandé d'appliquer.
     const g = (typeof window !== 'undefined' && typeof window.gardeFouRevision === 'function')
       ? window.gardeFouRevision(rev0, { gainMensuel: _gfGainCycle(log, rev0), fmtMontant: fmt }) : null;
-    if (g) { _gfOuvrir(ref); return; }
+    if (g) { _gfOuvrir(ref, (opts && opts.effetIso) ? { effetIso: opts.effetIso } : undefined); return; }   // I3 (passe 4) : la date « à la demande » survit
   }
   const _forceIrl = !!(opts && opts.force);
   const rev = computeIRLRevision(log, { force: _forceIrl });
@@ -26587,8 +26599,7 @@ function _irlValidConfirm() {
     });
     if (cl.ajustee) showToast(`Date d'effet ajustée au ${fd(cl.effetIso)} : jamais avant la date de révision du bail, jamais sur un mois déjà quittancé.`, 'warn', 6000);
     effet = cl.effetIso;
-    const _demMin = (typeof window._premierDuMoisSuivant === 'function' && _todayIsoLocal().slice(8, 10) !== '01')
-      ? window._premierDuMoisSuivant(_todayIsoLocal()) : _todayIsoLocal();
+    const _demMin = _todayIsoLocal();   // M1 (passe 4) : un effet le jour de la demande n'est pas antérieur
     if (annivIso && _todayIsoLocal() > annivIso && effet < _demMin) {
       showToast(`Date d'effet antérieure à la demande : la loi fait courir la révision « à compter de sa demande » (art. 17-1) — le locataire peut contester.`, 'warn', 8000);
     }
@@ -26723,7 +26734,7 @@ function _applyPendingIRLRevisions() {
     // bloque jamais (le barème porte déjà ce loyer depuis la validation).
     try {
       const _g = computeIRLRevision(log);
-      if (_g && _g.gelDpeFG) _irlAlertesGel.push(`${rev.ref} (DPE ${_g.dpe})`);
+      if (_g && _g.gelDpeFG && !_irlForcePourCycle(rev.ref, rev.dateRevision)) _irlAlertesGel.push(`${rev.ref} (DPE ${_g.dpe})`);   // M7 (passe 4)
     } catch (e) {}
     log.hc = Number(rev.nouveauHC);
     _pushLoyerTheoFromLive(log); // v15.233 B1 : application IRL auto → loyer théorique suit (Q2=b)
@@ -26761,6 +26772,7 @@ function skipIRL(ref) {
   _pushIRLHistorique(log, rev.irlRef, rev.irlVigueur, rev.dateRevision, log.hc, 'renonciation');
   log.irlDerniereApplication = _isoLocal(rev.dateRevision);
   if(DB.baux[ref]) DB.baux[ref].irlDerniereApplication = log.irlDerniereApplication;
+  _stamp(log); if (DB.baux[ref]) _stamp(DB.baux[ref]);   // P1 (passe 4) : entités syncées modifiées
   saveDB(); refreshAllIRL(); showToast(`Révision abandonnée pour ${ref}`, 'warn');
 }
 
@@ -30243,6 +30255,11 @@ function _lyLigneDecision({ e, rev }) {
   const r2 = (v2 && v21) ? v2 / v21 : null;
   const an1 = String(rev.effetPrevuIso || '').slice(0, 4), an2 = String(eff2).slice(0, 4);
   const today = _todayIsoLocal();
+  // I3 (passe 4) — la date RÉELLE : « aujourd'hui », sauf mois déjà quittancé (report au mois libre).
+  const effet1 = (typeof window._baremeClampDateEffet === 'function')
+    ? window._baremeClampDateEffet(today, { libre: true, annivMoisPremierIso: rev.effetPrevuIso, dernierMoisQuittanceYm: _dernierMoisQuittanceYm(e.ref) || undefined }).effetIso
+    : today;
+  const combine = effet1 >= eff2;
   const h1 = rev.nouveauHC;
   const h12 = r2 ? Math.round(h1 * r2 * 100) / 100 : null;
   const h2 = r2 ? Math.round(e.log.hc * r2 * 100) / 100 : null;
@@ -30257,9 +30274,9 @@ function _lyLigneDecision({ e, rev }) {
     <div class="ly2-dec" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;padding:10px 12px;background:var(--sur2);border-top:1px solid var(--bor)">
       <div style="background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
         <div><b>1 · Faire les deux</b> <span class="ly2-p nu">aucune variation perdue</span></div>
-        <div class="mu" style="font-size:12px;line-height:1.5">${an1} : <b>${fmt(e.log.hc)} → ${fmt(h1)}</b>, effet à la demande (<b>${fd(today)}</b>)<br>${an2} : ${h12 != null ? `<b>${fmt(h1)} → ${fmt(h12)}</b>` : '—'}, effet au <b>${fd(eff2)}</b>${i2}</div>
-        <div style="font-size:11.5px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:6px 8px">⚠ Deux hausses à quelques jours d'écart : la loi dit « une fois par an » — le locataire peut contester.</div>
-        <button class="btn bp bb" style="align-self:flex-start" onclick="applyIRL('${R}',${h1},{effetIso:'${today}'})">Faire la révision ${an1} maintenant</button></div>
+        <div class="mu" style="font-size:12px;line-height:1.5">${an1} : <b>${fmt(e.log.hc)} → ${fmt(h1)}</b>, ${combine ? `effet au <b>${fd(effet1)}</b> (mois en cours déjà quittancé)` : `effet à la demande (<b>${fd(effet1)}</b>)`}<br>${an2} : ${h12 != null ? `<b>${fmt(h1)} → ${fmt(h12)}</b>` : '—'}, effet au <b>${fd(eff2)}</b>${i2}</div>
+        <div style="font-size:11.5px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:6px 8px">${combine ? 'Les deux tombent à la même date : une seule hausse combinée — valider la 2ᵉ le jour même pour qu’elle s’applique aussi à cette date.' : '⚠ Deux hausses à quelques jours d’écart : la loi dit « une fois par an » — le locataire peut contester.'}</div>
+        <button class="btn bp bb" style="align-self:flex-start" onclick="applyIRL('${R}',${h1},{effetIso:'${effet1}'})">Faire la révision ${an1} maintenant</button></div>
       <div style="background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
         <div><b>2 · Ne faire que celle du ${fd(eff2)}</b> <span class="ly2-p nu">simple, incontestable</span></div>
         <div class="mu" style="font-size:12px;line-height:1.5">${an2} : ${h2 != null ? `<b>${fmt(e.log.hc)} → ${fmt(h2)}</b>` : '—'}, effet au <b>${fd(eff2)}</b>${i2}<br>${an1} : <b>renoncée</b> (art. 17-1)</div>
@@ -30278,6 +30295,7 @@ function _lyRenoncerPuisPreparer(ref) {
   if ((DB.irlHistorique || []).length === avant) return;          // renonciation annulée
   const r = computeIRLRevision(log);
   if (r && r.isApplicable && r.nouveauHC) applyIRL(ref, r.nouveauHC);
+  else showToast(`Révision renoncée. Rien d'autre à préparer pour l'instant${r && r.message ? ' : ' + r.message : '.'}`, 'info', 7000);
 }
 
 function _lyLigneRev({ e, rev }, tard) {
