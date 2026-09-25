@@ -369,10 +369,13 @@ export function etatRevision(input) {
     });
   }
   // Un cycle traité (et plus rien de programmé) : FAIT.
+  // Audit passe 5 I-1 — le drapeau « sans objet » est posé ICI, pour TOUTES les sorties « traité »
+  // (cycle en cours, premier cycle, cycle suivant dans son mois de rappel).
   const etatTraite = (cycle, extra) => Object.assign(base, {
     etat: ETAT.FAITE, cycleAnnee: cycle.annee,
     effetPrevuIso: cycle.effetIso, rappelYm: cycle.rappelYm,
-    joursAvantEffet: _joursEntre(today, cycle.effetIso)
+    joursAvantEffet: _joursEntre(today, cycle.effetIso),
+    sansObjet: sansObjet(cycle.effetIso) && !_traite(marques, debut, cycle.effetIso, mc, i.moisRevisionDepuis)
   }, extra || {});
 
   const suivant = cycleSuivant(debut, today, mc);
@@ -451,7 +454,7 @@ export function etatRevision(input) {
     });
   }
 
-  const r = etatTraite(cur, { perdue, sansObjet: sansObjet(cur.effetIso) && !_traite(marques, debut, cur.effetIso, mc, i.moisRevisionDepuis) });
+  const r = etatTraite(cur, { perdue });
   // FAITE : le compte à rebours porte sur le cycle suivant (comportement historique).
   if (r.etat === ETAT.FAITE) r.joursAvantEffet = suivant ? _joursEntre(today, suivant.effetIso) : null;
   return r;

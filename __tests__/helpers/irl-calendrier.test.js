@@ -574,3 +574,13 @@ describe('Audit passe 4 (C2/I1) — un cycle « sans objet » (règle ANIL) comp
     expect(r2.perdue).toBeNull();
   });
 });
+
+describe('Audit passe 5 I-1 — dans le mois de rappel, un cycle suivant sans objet est dit « sans objet »', () => {
+  it('bail du 01/03 T4, cycle 2025 fait en retard avec T4 2025 : le 15/02/2026, cycle 2026 sansObjet (pas « appliqué »)', () => {
+    const so = (e) => e === '2026-03-01';
+    const r = etatRevision({ debut: '2023-03-01', todayISO: '2026-02-15', derniereApplicationIso: '2025-03-01', sansObjet: so });
+    expect(r.etat).toBe(ETAT.FAITE);
+    expect(r.effetPrevuIso).toBe('2026-03-01');
+    expect(r.sansObjet).toBe(true);
+  });
+});

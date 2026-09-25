@@ -114,6 +114,9 @@ export function redaterRevisionIRL(input) {
   // restent intangibles la date de révision du cycle et le mois quittancé.
   // Décision Didier 25/09 (2ᵉ temps) : « on ne revient pas en arrière » — jamais avant la DEMANDE
   // (date de validation de la révision), au jour près : révision rétroactive impossible (art. 17-1).
+  // Audit passe 5 (m3) — entrée legacy SANS `date` (demande inconnue) : pas de plancher « demande »
+  // inventé ; restent la date de révision du cycle et le mois quittancé. Choix assumé : l'app ne
+  // connaît pas la demande, elle ne la fabrique pas (test « legacy sans date »).
   const cl = clampDateEffet(i.nouvelleDateEffet, {
     libre: true,
     annivMoisPremierIso: _ymd(hist[idx].dateRevision) || undefined,

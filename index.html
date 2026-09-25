@@ -11032,7 +11032,7 @@ function _pilIrlDot(l) {
     if (!_lotEstLoue(l) || !l.debut || typeof computeIRLRevision !== 'function') return 'na';
     const rev = computeIRLRevision(l);
     if (!rev || rev.insuffisant || rev.pasEncoreApplicable) return 'na';
-    if (rev.dejaApplique) return 'ok';
+    if (rev.dejaApplique || rev.etat === 'rien-a-reviser') return 'ok';   // rien à réviser = à jour
     if (rev.isApplicable && rev.diff !== 0) return 'ko';   // exigible, non appliquée
     return 'na';
   } catch (e) { return 'na'; }
@@ -26033,6 +26033,7 @@ function computeIRLRevision(log, opts) {
   if (cal.etat === 'faite' && cal.sansObjet) {
     const _nSo = (IRLC && typeof IRLC.anneeIndice === 'function') ? IRLC.anneeIndice(T, cal.effetPrevuIso) : null;
     return { muet: true, etat: 'rien-a-reviser', T, N: _nSo, anneeRef: _anRef, isApplicable: false,
+      dateRevision: new Date(cal.effetPrevuIso + 'T00:00:00'),
       premiereAnniv: premiereAnnivD, effetPrevuIso: cal.effetPrevuIso, rappelYm: cal.rappelYm,
       joursAvantEffet: cal.joursAvantEffet, perdue: _perdue,
       message: `Rien à réviser pour la date du ${fd(cal.effetPrevuIso)} : l'indice connu à cette date (IRL T${T} ${_nSo}) est déjà appliqué au loyer. Prochaine révision l'an prochain.` };
@@ -26575,16 +26576,37 @@ function applyIRL(ref, newHC, opts) {
       : 'Validée à temps : effet à la date de révision. ')
     + 'Date modifiable pour plus tard (le calendrier grise les dates impossibles). <b>Conseillé : le 1<sup>er</sup> du mois</b> (pas de prorata).'
     + '<br><b>Révision rétroactive impossible</b> : la révision du loyer prend effet à compter de la demande (article 17-1 de la loi n° 89-462 du 6 juillet 1989). '
-    + `Aucune date antérieure au <b>${fd(el('iv-effet').min || dateEffetIso)}</b> ne peut être retenue ; les mois passés ne sont pas recalculés.`;
+    + `Aucune date antérieure au <b>${fd(el('iv-effet').min || dateEffetIso)}</b> ne peut être retenue`
+    // Audit passe 5 (m1) — si le plancher n'est pas la demande, dire pourquoi.
+    + ((el('iv-effet').min || '') > todayLocal
+      ? (_dqIv && typeof window._baremeClampDateEffet === 'function'
+          && window._baremeClampDateEffet('1900-01-01', { libre: true, dernierMoisQuittanceYm: _dqIv }).effetIso === el('iv-effet').min ? ` (${escHtml(window.ymToMoisFr ? window.ymToMoisFr(_dqIv) : _dqIv)} déjà quittancé)` : ' (date de révision du bail)')
+      : '')
+    + ' ; les mois passés ne sont pas recalculés.';
   openM('ov-irl-valid');
 }
 
 let _irlValidCtx = null;
 /** AUDIT I4 — le forçage confirmé mais PAS ENCORE validé : la modale peut être annulée. */
 let _irlForcageEnAttente = null;
-/** Décision Didier 25/09 — LA mention légale d'une date d'effet remontée (validation ET correction). */
-function _irlMsgRetroactif(dateMinIso) {
-  return `Révision rétroactive impossible : la révision du loyer prend effet à compter de la demande (article 17-1 de la loi n° 89-462 du 6 juillet 1989). Date d'effet retenue : ${fd(dateMinIso)}.`;
+/** Décision Didier 25/09 — LA mention d'une date d'effet remontée (validation ET correction).
+ *  Audit passe 5 (m1) : on dit la VRAIE raison du plancher qui a joué — la demande (art. 17-1),
+ *  un mois déjà quittancé, ou la date de révision du bail. Sans contexte : la mention légale. */
+function _irlMsgRetroactif(dateMinIso, p) {
+  const q = p || {};
+  const qYm = String(q.dernierMoisQuittanceYm || '');
+  let apresQuitt = '';
+  if (/^\d{4}-\d{2}$/.test(qYm)) {
+    const y = +qYm.slice(0, 4), m = +qYm.slice(5, 7);
+    apresQuitt = (m === 12 ? (y + 1) + '-01' : y + '-' + String(m + 1).padStart(2, '0')) + '-01';
+  }
+  if (!p || dateMinIso === String(q.demandeIso || '').slice(0, 10)) {
+    return `Révision rétroactive impossible : la révision du loyer prend effet à compter de la demande (article 17-1 de la loi n° 89-462 du 6 juillet 1989). Date d'effet retenue : ${fd(dateMinIso)}.`;
+  }
+  if (apresQuitt && dateMinIso === apresQuitt) {
+    return `Le loyer de ${escHtml(window.ymToMoisFr ? window.ymToMoisFr(qYm) : qYm)} est déjà quittancé et ne peut plus être modifié. Date d'effet retenue : ${fd(dateMinIso)}.`;
+  }
+  return `La révision ne peut pas prendre effet avant la date de révision prévue au bail. Date d'effet retenue : ${fd(dateMinIso)}.`;
 }
 
 function _irlValidConfirm() {
@@ -26606,7 +26628,7 @@ function _irlValidConfirm() {
       demandeIso: _todayIsoLocal(),
       dernierMoisQuittanceYm: _dernierMoisQuittanceYm(ctx.ref) || undefined
     });
-    if (cl.ajustee) showToast(_irlMsgRetroactif(cl.effetIso), 'warn', 9000);
+    if (cl.ajustee) showToast(_irlMsgRetroactif(cl.effetIso, { demandeIso: _todayIsoLocal(), dernierMoisQuittanceYm: _dernierMoisQuittanceYm(ctx.ref) }), 'warn', 9000);
     effet = cl.effetIso;
     if (effet.slice(8, 10) !== '01') {
       showToast(`Conseil : une révision au 1er du mois évite un loyer proratisé sur le mois d'effet.`, 'info', 7000);
@@ -30279,8 +30301,8 @@ function _lyLigneDecision({ e, rev }) {
     <div class="ly2-dec" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;padding:10px 12px;background:var(--sur2);border-top:1px solid var(--bor)">
       <div style="background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
         <div><b>1 · Faire les deux</b> <span class="ly2-p nu">aucune variation perdue</span></div>
-        <div class="mu" style="font-size:12px;line-height:1.5">${an1} : <b>${fmt(e.log.hc)} → ${fmt(h1)}</b>, ${combine ? `effet au <b>${fd(effet1)}</b> (mois en cours déjà quittancé)` : `effet à la demande (<b>${fd(effet1)}</b>)`}<br>${an2} : ${h12 != null ? `<b>${fmt(h1)} → ${fmt(h12)}</b>` : '—'}, effet au <b>${fd(eff2)}</b>${i2}</div>
-        <div style="font-size:11.5px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:6px 8px">${combine ? 'Les deux tombent à la même date : une seule hausse combinée — valider la 2ᵉ le jour même pour qu’elle s’applique aussi à cette date.' : '⚠ Deux hausses à quelques jours d’écart : la loi dit « une fois par an » — le locataire peut contester.'}</div>
+        <div class="mu" style="font-size:12px;line-height:1.5">${an1} : <b>${fmt(e.log.hc)} → ${fmt(h1)}</b>, ${effet1 > today ? `effet au <b>${fd(effet1)}</b> (mois déjà quittancé : 1<sup>er</sup> mois libre)` : `effet à la demande (<b>${fd(effet1)}</b>)`}<br>${an2} : ${h12 != null ? `<b>${fmt(h1)} → ${fmt(h12)}</b>` : '—'}, effet au <b>${fd(eff2)}</b>${i2}</div>
+        <div style="font-size:11.5px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:6px 8px">${combine ? 'Les deux tombent à la même date : une seule hausse combinée. La 2ᵉ se valide ensuite, à part — sa date d’effet sera la sienne (jamais avant sa propre demande).' : '⚠ Deux hausses à quelques jours d’écart : la loi dit « une fois par an » — le locataire peut contester.'}</div>
         <button class="btn bp bb" style="align-self:flex-start" onclick="applyIRL('${R}',${h1},{effetIso:'${effet1}'})">Faire la révision ${an1} maintenant</button></div>
       <div style="background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
         <div><b>2 · Ne faire que celle du ${fd(eff2)}</b> <span class="ly2-p nu">simple, incontestable</span></div>
@@ -42493,7 +42515,10 @@ function _histoIrlCorrOpen(ref, revisionDate, ancienEffet){
   try {
     const _nr = s => String(s == null ? '' : s).trim().toLowerCase();
     const _h = (DB.irlHistorique || []).find(h => h && !h._deleted && _nr(h.ref) === _nr(ref)
-      && (String(h.date || '').slice(0, 10) === String(revisionDate).slice(0, 10) || String(h.dateRevision || '').slice(0, 10) === String(revisionDate).slice(0, 10)));
+      && (String(h.date || '').slice(0, 10) === String(revisionDate).slice(0, 10) || String(h.dateRevision || '').slice(0, 10) === String(revisionDate).slice(0, 10))
+      // Audit passe 5 (m2) — même clé que redaterRevisionIRL : la bonne révision, pas la première du cycle.
+      && (!ancienEffet || String(h.dateEffet || '').slice(0, 10) === String(ancienEffet).slice(0, 10) || String(h.dateApplication || '').slice(0, 10) === String(ancienEffet).slice(0, 10)));
+    _histoIrlCorrCtx.demandeIso = String((_h && _h.date) || revisionDate || '').slice(0, 10);
     const _min = (typeof window._baremeClampDateEffet === 'function')
       ? window._baremeClampDateEffet('1900-01-01', { libre: true, annivMoisPremierIso: _h && _h.dateRevision, demandeIso: (_h && _h.date) || revisionDate,
           dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm === 'function' ? _dernierMoisQuittanceYm(ref) : null) || undefined }).effetIso : '';
@@ -42515,7 +42540,7 @@ function _histoIrlCorrSave(){
     dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm==='function') ? _dernierMoisQuittanceYm(ctx.ref) : null
   });
   if(!r.ok){ showToast(r.erreur||'Correction impossible','err',6000); return; }
-  if(r.ajustee) showToast(_irlMsgRetroactif(r.effetIso), 'warn', 9000);
+  if(r.ajustee) showToast(_irlMsgRetroactif(r.effetIso, { demandeIso: ctx.demandeIso || String(ctx.revisionDate||'').slice(0,10), dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm==='function') ? _dernierMoisQuittanceYm(ctx.ref) : null }), 'warn', 9000);
   else if(String(r.effetIso||'').slice(8,10) !== '01') showToast('Conseil : une révision au 1er du mois évite un loyer proratisé sur le mois d\'effet.', 'info', 6000);
   DB.irlHistorique = r.irlHistorique;
   DB.loyerBareme = r.bareme;

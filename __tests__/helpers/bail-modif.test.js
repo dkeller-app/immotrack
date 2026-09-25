@@ -158,3 +158,18 @@ describe('redaterRevisionIRL — M2 : période barème introuvable = refus expli
     expect(r.erreur).toMatch(/introuvable/i);
   });
 });
+
+describe('redaterRevisionIRL — audit passe 5 (m3) : entrée legacy sans date de demande', () => {
+  it('pas de plancher « demande » inventé : bornée par la date de révision du cycle et le mois quittancé', () => {
+    const hist = [{ ref: 'F-001', dateRevision: '2026-03-01', dateEffet: '2026-07-01', dateApplication: '2026-07-01', ancienHC: 500, nouveauHC: 505 }];
+    const bareme = [
+      { ref: 'F-001', debut: '2024-03-01', fin: '2026-06-30', hc: 500, ch: 65, source: 'bail' },
+      { ref: 'F-001', debut: '2026-07-01', fin: null, hc: 505, ch: 65, source: 'irl' }
+    ];
+    const r = redaterRevisionIRL({ irlHistorique: hist, bareme, ref: 'F-001', revisionDate: '2026-03-01',
+      ancienEffet: '2026-07-01', nouvelleDateEffet: '2026-01-10', dernierMoisQuittanceYm: '2026-04' });
+    expect(r.ok).toBe(true);
+    expect(r.effetIso).toBe('2026-05-01');
+    expect(r.ajustee).toBe(true);
+  });
+});
