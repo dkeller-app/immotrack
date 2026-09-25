@@ -106,45 +106,182 @@ describe('1 · comportement du détail (factures d’un locataire)', () => {
   });
 });
 
-describe('2 · le détail est atteignable depuis chaque vue, par un contrôle libellé', () => {
-  it('liste PC (rRegul) : le détail est rendu par _rgDetailLocHtml et ouvert par un bouton « Détail »', () => {
-    const code = codeSeul(corpsDe(html, 'rRegul'));
-    expect(code).toContain('_rgDetailLocHtml(');
-    expect(code, 'bouton libellé « Détail » absent de la ligne logement').toMatch(/_rgToggleDet\([^)]*\)[^<]*>[\s\S]{0,80}Détail/);
+// ── Faux DOM minimal : juste ce que touchent _rgOuvrirDetailLoc / _rgToggleDet / _rgPhToggleDet ──
+function faux({ cls = [], id = '', enfants = {}, attrs = {}, display = 'none' } = {}) {
+  const s = new Set(cls);
+  const e = {
+    id, attrs: { ...attrs }, style: { display }, scrolled: 0, focused: false,
+    classList: { contains: (c) => s.has(c), add: (c) => s.add(c), remove: (c) => s.delete(c), toggle: (c) => (s.has(c) ? (s.delete(c), false) : (s.add(c), true)), [Symbol.iterator]: () => s[Symbol.iterator]() },
+    querySelector: (sel) => enfants[sel] || null,
+    closest: (sel) => enfants['closest:' + sel] || null,
+    getAttribute: (n) => e.attrs[n], setAttribute: (n, v) => { e.attrs[n] = String(v); },
+    scrollIntoView() { e.scrolled++; }, focus() { e.focused = true; },
+  };
+  return e;
+}
+// Vrai moteur de correspondance des sélecteurs d'attribut produits par la fonction (guillemets échappés).
+const RE_SEL = /^(tr\.rg-det|\.rgph-lc|tr\.rg-imm)\[data-(ek|imm)="((?:\\.|[^"\\])*)"\]$/;
+function hote(lignes) {
+  return {
+    querySelector(sel) {
+      const m = RE_SEL.exec(sel);
+      if (!m) throw new Error('sélecteur inattendu : ' + sel);
+      const val = m[3].replace(/\\(.)/g, '$1');
+      const l = lignes().find((x) => x.sel === m[1] && x.attr === m[2] && x.val === val);
+      return l ? l.el : null;
+    },
+  };
+}
+function chargerOuvrir(env) {
+  const src = corpsDe(html, '_rgOuvrirDetailLoc');
+  if (!src) return null;
+  // eslint-disable-next-line no-new-func
+  return new Function('el', '_isPhone', '_rgBackToList', 'rRegul', '_rgToggleImm', '_rgDetAria', 'showToast', 'window', 'requestAnimationFrame', 'setTimeout',
+    src + '\nreturn _rgOuvrirDetailLoc;')(env.el, env.isPhone, env.back, env.rRegul, env.toggleImm, env.aria, env.toast, {}, (cb) => cb(), () => 0);
+}
+// Clé d'occupation historique réelle (`ref|h0`) + guillemet et crochet pour éprouver l'échappement.
+const CLE = 'TIL-A1|h0"]x';
+const IMM = 'Rue "des" Tilleuls';
+
+describe('2 · le détail est atteignable depuis chaque vue — comportement', () => {
+  it('PC : ouvrir depuis la vue globale revient à la liste, déplie l’immeuble, montre la bonne ligne et pose le focus', () => {
+    const titre = faux();
+    const det = faux({ cls: ['rg-det', 'rgim0'], id: 'rgim0d0', enfants: { '.rg-det-h': titre } });
+    const imm = faux({ cls: ['rg-imm'] });
+    const appels = { back: 0, toggle: [], aria: [] };
+    const host = hote(() => [{ sel: 'tr.rg-det', attr: 'ek', val: CLE, el: det }, { sel: 'tr.rg-imm', attr: 'imm', val: IMM, el: imm }]);
+    const ouvrir = chargerOuvrir({
+      el: (id) => (id === 'reg-cards' ? host : id === 'reg-imm' ? { value: '' } : null),
+      isPhone: () => false, back: () => { appels.back++; }, rRegul: () => {},
+      toggleImm: (c, row) => { appels.toggle.push([c, row]); row.classList.add('rg-open'); },
+      aria: (id, o) => appels.aria.push([id, o]), toast: () => { throw new Error('ne doit pas signaler d’échec'); },
+    });
+    expect(ouvrir).toBeTypeOf('function');
+    ouvrir(IMM, CLE);
+    expect(appels.back).toBe(1);
+    expect(appels.toggle).toEqual([['rgim0', imm]]);
+    expect(det.style.display).toBe('');
+    expect(appels.aria).toContainEqual(['rgim0d0', true]);
+    expect(det.classList.contains('rg-flash')).toBe(true);
+    expect(det.scrolled).toBeGreaterThanOrEqual(1);
+    expect(titre.focused).toBe(true);
   });
 
-  it('liste TÉLÉPHONE (_regRenderPhone) : chaque carte porte le détail et un bouton libellé pour l’ouvrir', () => {
-    const code = codeSeul(corpsDe(html, '_regRenderPhone'));
-    expect(code, 'le rendu téléphone ne rend plus le détail des factures').toContain('_rgDetailLocHtml(');
-    expect(code).toMatch(/Détail des charges/);
+  it('PC : immeuble déjà déplié → on ne le replie pas', () => {
+    const det = faux({ cls: ['rg-det', 'rgim3'], id: 'rgim3d1' });
+    const imm = faux({ cls: ['rg-imm', 'rg-open'] });
+    let toggles = 0;
+    const host = hote(() => [{ sel: 'tr.rg-det', attr: 'ek', val: CLE, el: det }, { sel: 'tr.rg-imm', attr: 'imm', val: IMM, el: imm }]);
+    chargerOuvrir({ el: (id) => (id === 'reg-cards' ? host : null), isPhone: () => false, back: () => {}, rRegul: () => {}, toggleImm: () => { toggles++; }, aria: () => {}, toast: () => {} })(IMM, CLE);
+    expect(toggles).toBe(0);
+    expect(det.style.display).toBe('');
   });
 
-  it('vue globale PC (_rgShowGlobal) : chaque colonne-locataire ouvre son détail', () => {
-    const code = codeSeul(corpsDe(html, '_rgShowGlobal'));
-    expect(code).toContain('_rgOuvrirDetailLoc(');
+  it('TÉLÉPHONE : la carte du locataire s’ouvre (hidden=false, aria-expanded=true) et défile à l’écran', () => {
+    const btn = faux({ attrs: { 'aria-expanded': 'false' } });
+    const bloc = { hidden: true };
+    const carte = faux({ cls: ['rgph-lc'], enfants: { '.rgph-detbtn': btn, '.rgph-det': bloc } });
+    const host = hote(() => [{ sel: '.rgph-lc', attr: 'ek', val: CLE, el: carte }]);
+    chargerOuvrir({ el: (id) => (id === 'reg-cards' ? host : null), isPhone: () => true, back: () => {}, rRegul: () => {}, toggleImm: () => {}, aria: () => {}, toast: () => {} })(IMM, CLE);
+    expect(bloc.hidden).toBe(false);
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+    expect(carte.scrolled).toBeGreaterThanOrEqual(1);
   });
 
-  it('vue globale TÉLÉPHONE (_rgShowGlobalPhone) : chaque ligne du récap par lot ouvre son détail', () => {
+  it('filtre immeuble différent → recalé sur l’immeuble de la vue globale puis ligne retrouvée', () => {
+    const det = faux({ cls: ['rg-det', 'rgim0'], id: 'rgim0d0' });
+    const select = { value: 'Autre immeuble' };
+    let rendus = 0;
+    const host = hote(() => (rendus ? [{ sel: 'tr.rg-det', attr: 'ek', val: CLE, el: det }] : []));
+    chargerOuvrir({ el: (id) => (id === 'reg-cards' ? host : id === 'reg-imm' ? select : null), isPhone: () => false, back: () => {}, rRegul: () => { rendus++; }, toggleImm: () => {}, aria: () => {}, toast: () => {} })(IMM, CLE);
+    expect(select.value).toBe(IMM);
+    expect(det.style.display).toBe('');
+  });
+
+  it('introuvable → message à l’utilisateur, pas d’échec silencieux ni d’exception', () => {
+    let msg = '';
+    const host = hote(() => []);
+    chargerOuvrir({ el: (id) => (id === 'reg-cards' ? host : { value: '' }), isPhone: () => false, back: () => {}, rRegul: () => {}, toggleImm: () => {}, aria: () => {}, toast: (m) => { msg = m; } })(IMM, CLE);
+    expect(msg).toMatch(/n'apparaît pas/);
+  });
+
+  it('bouton téléphone « Détail des charges » : _rgPhToggleDet ouvre puis referme, aria-expanded suit', () => {
+    const bloc = { hidden: true };
+    const carte = faux({ enfants: { '.rgph-det': bloc } });
+    const btn = faux({ enfants: { 'closest:.rgph-lc': carte } });
+    const src = corpsDe(html, '_rgPhToggleDet');
+    // eslint-disable-next-line no-new-func
+    const toggle = new Function(src + '\nreturn _rgPhToggleDet;')();
+    toggle(btn);
+    expect(bloc.hidden).toBe(false);
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+    toggle(btn);
+    expect(bloc.hidden).toBe(true);
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('bouton PC « Détail » : _rgToggleDet bascule la ligne ET met à jour aria-expanded du bouton qui la contrôle', () => {
+    const ligne = { style: { display: 'none' } };
+    const bouton = faux({ attrs: { 'aria-expanded': 'false' } });
+    const document = { getElementById: (id) => (id === 'rgim0d0' ? ligne : null), querySelectorAll: (sel) => (sel === '[aria-controls="rgim0d0"]' ? [bouton] : []) };
+    // eslint-disable-next-line no-new-func
+    const f = new Function('document', corpsDe(html, '_rgToggleDet') + '\n' + corpsDe(html, '_rgDetAria') + '\nreturn _rgToggleDet;')(document);
+    f('rgim0d0');
+    expect(ligne.style.display).toBe('');
+    expect(bouton.getAttribute('aria-expanded')).toBe('true');
+    f('rgim0d0');
+    expect(ligne.style.display).toBe('none');
+    expect(bouton.getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
+describe('2b · contrat : ce que cherche _rgOuvrirDetailLoc est bien ce que produisent les listes', () => {
+  // Les sélecteurs sont lus DANS la fonction : renommer un attribut d'un seul côté casse ce test.
+  const PRODUCTEUR = { '.rgph-lc': '_regRenderPhone', 'tr.rg-det': 'rRegul', 'tr.rg-imm': 'rRegul' };
+  const selecteurs = () => [...codeSeul(corpsDe(html, '_rgOuvrirDetailLoc') || '').matchAll(/'([\w.-]+)\[data-([\w-]+)="'/g)].map((m) => [m[1], m[2]]);
+
+  it('la fonction cherche les trois cibles attendues (carte téléphone, ligne détail, ligne immeuble)', () => {
+    expect(selecteurs().map((s) => s.join('|')).sort()).toEqual(['.rgph-lc|ek', 'tr.rg-det|ek', 'tr.rg-imm|imm']);
+  });
+
+  it('chaque cible est produite avec le MÊME attribut sur le MÊME élément', () => {
+    for (const [sel, attr] of selecteurs()) {
+      const [, tag, cls] = /^(\w*)\.([\w-]+)$/.exec(sel);
+      const code = codeSeul(corpsDe(html, PRODUCTEUR[sel]));
+      const re = new RegExp('<' + (tag || '\\w+') + '\\s[^>]*class="(?:[^"]*\\s)?' + cls + '(?:\\s[^"]*)?"[^>]*\\sdata-' + attr + '="\\$\\{');
+      expect(code, `${PRODUCTEUR[sel]} ne produit pas ${sel}[data-${attr}]`).toMatch(re);
+    }
+  });
+
+  it('les deux vues globales passent l’entryKey de l’occupation au clic (et plus rien d’autre)', () => {
+    for (const [nom, cls] of [['_rgShowGlobal', 'rg-colbtn'], ['_rgShowGlobalPhone', 'rgvg-lot']]) {
+      const code = codeSeul(corpsDe(html, nom));
+      const re = new RegExp('class="' + cls + '"[^>]*data-imm="\\$\\{escHtml\\(immNom\\)\\}"[^>]*data-ek="\\$\\{escHtml\\(e\\.entryKey\\)\\}"[^>]*onclick="_rgOuvrirDetailLoc\\(this\\.dataset\\.imm,this\\.dataset\\.ek\\)"');
+      expect(code, nom).toMatch(re);
+    }
+  });
+
+  it('les listes rendent bien le détail partagé et un contrôle libellé pour l’ouvrir', () => {
+    const pc = codeSeul(corpsDe(html, 'rRegul'));
+    expect(pc).toMatch(/<tr class="rg-det [^"]*"[^>]*>\s*<td colspan="5">\$\{_rgDetailLocHtml\(r\)\}/);
+    expect(pc).toMatch(/aria-expanded="false" aria-controls="\$\{did\}" onclick="event\.stopPropagation\(\);_rgToggleDet\('\$\{did\}'\)"[^>]*>[^<]*\$\{_uiIcon\('receipt'\)\} Détail</);
+    const tel = codeSeul(corpsDe(html, '_regRenderPhone'));
+    expect(tel).toMatch(/class="rgph-detbtn" aria-expanded="false" onclick="_rgPhToggleDet\(this\)"[^>]*>[\s\S]{0,60}Détail des charges/);
+    expect(tel).toMatch(/<div class="rgph-det" hidden>\$\{_rgDetailLocHtml\(r\)\}<\/div>/);
+  });
+
+  it('récap par lot téléphone : pas d’aria-label qui masquerait les montants au lecteur d’écran', () => {
     const code = codeSeul(corpsDe(html, '_rgShowGlobalPhone'));
-    expect(code).toContain('_rgOuvrirDetailLoc(');
-    expect(code).toMatch(/Détail/);
-  });
-
-  it('_rgOuvrirDetailLoc revient à la liste puis ouvre le détail du bon locataire', () => {
-    const code = codeSeul(corpsDe(html, '_rgOuvrirDetailLoc') || '');
-    expect(code, '_rgOuvrirDetailLoc absent').not.toBe('');
-    expect(code).toMatch(/_rgBackToList\(|rRegul\(/);
-    expect(code).toMatch(/entryKey|data-ek/);
-    expect(code).toMatch(/scrollIntoView/);
+    expect(code).not.toMatch(/class="rgvg-lot"[^>]*aria-label=/);
   });
 });
 
 describe('3 · charte : plus de couleur codée en dur dans l’écran Charges', () => {
   const HEX = /#[0-9a-fA-F]{3,8}\b/;
 
-  it('main.css — aucune règle .rg-* ne code une couleur en dur (hex / rgba)', () => {
+  it('main.css — aucune règle .rg-* / .rgc-* (liste, vue globale, clôture) ne code une couleur en dur', () => {
     const fautes = css.split('\n')
-      .filter((l) => /^\s*\.rg-/.test(l))
+      .filter((l) => /^\s*\.rgc?-/.test(l))
       .filter((l) => HEX.test(l) || /rgba\(/.test(l));
     expect(fautes, fautes.join('\n')).toEqual([]);
   });

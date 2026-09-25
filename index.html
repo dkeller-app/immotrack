@@ -27081,9 +27081,17 @@ function rRegulInit() {
 function _rgToggleImm(cls, row){
   const open = row.classList.toggle('rg-open');
   document.querySelectorAll('tr.rg-log.'+cls).forEach(r=>{ r.style.display = open ? '' : 'none'; });
-  if(!open) document.querySelectorAll('tr.rg-det.'+cls).forEach(r=>{ r.style.display='none'; });
+  if(!open) document.querySelectorAll('tr.rg-det.'+cls).forEach(r=>{ r.style.display='none'; if(typeof _rgDetAria==='function') _rgDetAria(r.id, false); });
 }
-function _rgToggleDet(id){ const r=document.getElementById(id); if(r) r.style.display = (r.style.display==='none') ? '' : 'none'; }
+function _rgToggleDet(id){
+  const r=document.getElementById(id); if(!r) return;
+  r.style.display = (r.style.display==='none') ? '' : 'none';
+  _rgDetAria(id, r.style.display!=='none');
+}
+// État d'ouverture exposé aux technologies d'assistance (bouton « Détail » qui contrôle la ligne).
+function _rgDetAria(id, ouvert){
+  document.querySelectorAll('[aria-controls="'+id+'"]').forEach(b=>b.setAttribute('aria-expanded', String(!!ouvert)));
+}
 
 // CHARGES — détail d'une occupation : les factures (mouvements) imputées au locataire + totaux, TELS QUE
 // computeRegul les fournit (aucun recalcul d'argent — R-0). Extrait tel quel du bloc « Ce qu'il y a
@@ -27095,7 +27103,7 @@ function _rgDetailLocHtml(r){
   const rows = (r.details||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(d=>
     `<tr><td data-l="Date">${escHtml(fd(d.date)||d.date||'')}</td><td data-l="Mouvement">${escHtml(d.lib||'')}</td><td class="mu sm" data-l="Répartition">${escHtml(d.repartition||'')}</td><td class="num" data-l="Quote-part">${fmt(d.montant)}</td></tr>`).join('');
   return `<div class="rg-det-in">
-    <div class="rg-det-h">Ce qu'il y a derrière — ${escHtml(r.ref||'')} <span class="mu sm">${escHtml(r.loc||'')}</span></div>
+    <div class="rg-det-h" tabindex="-1">Ce qu'il y a derrière — ${escHtml(r.ref||'')} <span class="mu sm">${escHtml(r.loc||'')}</span></div>
     <table class="tbl rg-det-tbl">
       <thead><tr><th>Date</th><th>Mouvement</th><th>Répartition</th><th class="num">Quote-part</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="4" class="mu sm">Aucune charge répartie sur cette période.</td></tr>'}
@@ -27126,7 +27134,7 @@ function _rgOuvrirDetailLoc(immNom, entryKey){
   let cible = trouver();
   // Un filtre immeuble différent masquerait la ligne : on le cale sur l'immeuble de la vue globale.
   if(!cible && el('reg-imm') && el('reg-imm').value && el('reg-imm').value !== immNom){ el('reg-imm').value = immNom; rRegul(); cible = trouver(); }
-  if(!cible) return;
+  if(!cible){ if(typeof showToast==='function') showToast('Ce locataire n\'apparaît pas dans la liste sur cette période','warn'); return; }
   if(_isPhone()){
     const b = cible.querySelector('.rgph-detbtn'), d = cible.querySelector('.rgph-det');
     if(d && d.hidden){ d.hidden = false; if(b) b.setAttribute('aria-expanded','true'); }
@@ -27135,7 +27143,11 @@ function _rgOuvrirDetailLoc(immNom, entryKey){
     const imRow = el('reg-cards').querySelector('tr.rg-imm[data-imm="'+q(immNom)+'"]');
     if(cls && imRow && !imRow.classList.contains('rg-open')) _rgToggleImm(cls, imRow);
     cible.style.display = '';
+    if(cible.id) _rgDetAria(cible.id, true);
   }
+  // La liste a été entièrement re-rendue : le focus clavier retombait sur <body>. On le pose sur le titre du détail.
+  const titre = cible.querySelector('.rg-det-h');
+  if(titre){ try{ titre.focus({preventScroll:true}); }catch(e){} }
   cible.classList.add('rg-flash');
   setTimeout(()=>cible.classList.remove('rg-flash'), 1800);
   // Défilement INSTANTANÉ (le conteneur qui défile diffère selon le format : fenêtre au PC, #pc au
@@ -27944,7 +27956,7 @@ function _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, val
   }).join('') : '';
   const lotRecap = entries.map(e=>{ const s=e.provisions-e.charges;
     // Chaque lot mène à SON détail (factures) — régression 25/09 : le récap par lot ne menait nulle part.
-    return `<button type="button" class="rgvg-lot" data-imm="${escHtml(immNom)}" data-ek="${escHtml(e.entryKey)}" aria-label="Détail des charges — ${escHtml(e.ref)}${e.loc?' · '+escHtml(e.loc):''}" onclick="_rgOuvrirDetailLoc(this.dataset.imm,this.dataset.ek)"><span class="ref">${escHtml(e.ref)}${e.loc?`<small>${escHtml(e.loc)}</small>`:''}</span><span class="sums"><span>Charges<b>${f(e.charges)}</b></span><span>Prov.<b>${f(e.provisions)}</b></span><span>Solde<b class="${s>=0?'pos':'neg'}">${s>=0?'+':''}${f(s)}</b></span></span><span class="go">${_uiIcon('receipt',13)}Détail des charges</span></button>`;
+    return `<button type="button" class="rgvg-lot" data-imm="${escHtml(immNom)}" data-ek="${escHtml(e.entryKey)}" onclick="_rgOuvrirDetailLoc(this.dataset.imm,this.dataset.ek)"><span class="ref">${escHtml(e.ref)}${e.loc?`<small>${escHtml(e.loc)}</small>`:''}</span><span class="sums"><span>Charges<b>${f(e.charges)}</b></span><span>Prov.<b>${f(e.provisions)}</b></span><span>Solde<b class="${s>=0?'pos':'neg'}">${s>=0?'+':''}${f(s)}</b></span></span><span class="go">${_uiIcon('receipt',13)}Détail des charges</span></button>`;
   }).join('');
   const bailLine = (bail && bail.total>0) ? `<div class="rgvg-bailline">${_uiIcon('bank',15)} Part bailleur (non récupérable → 2044)<b>${f(bail.total)}</b></div>` : '';
   const nJust = (typeof _rgJustifFactures==='function') ? _rgJustifFactures(immNom).length : 0;
@@ -28275,7 +28287,7 @@ function rRegul() {
       <div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${fmt(totNonRep)} de charges récupérables non réparties</b> — à corriger avant d'envoyer les décomptes</div>
       <details><summary>Voir le détail</summary><div class="rg-trou-body">
       ${nonRepArr.map(n=>`<div class="rg-trou-im"><b>${escHtml(n.imm)}</b> · ${fmt(n.total)}</div>`+
-        n.lines.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(l=>`<div class="rg-trou-l">${escHtml(l.date||'')} · ${escHtml(l.lib||'')} · <b>${fmt(l.montant)}</b> <span class="mu sm">— ${escHtml(l.motif||'')}</span></div>`).join('')
+        n.lines.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(l=>`<div class="rg-trou-l">${escHtml(fd(l.date)||l.date||'')} ·${escHtml(l.lib||'')} · <b>${fmt(l.montant)}</b> <span class="mu sm">— ${escHtml(l.motif||'')}</span></div>`).join('')
       ).join('')}
       </div></details></div>` : '';
   // TÉLÉPHONE (≤767) : KPIs compacts + décompte en CARTES (par immeuble → logements), à partir des
@@ -28298,7 +28310,7 @@ function rRegul() {
         ${bailleurArr.map(b => {
           const segRows = b.segments.slice().sort((a,b) => (a.date||'').localeCompare(b.date||'')).map(seg => `
             <tr>
-              <td>${escHtml(seg.date||'—')}</td>
+              <td>${escHtml(fd(seg.date)||seg.date||'—')}</td>
               <td>${escHtml(seg.lib||'')}</td>
               <td class="mu sm">${escHtml(seg.cc||'—')}</td>
               <td class="mu sm" style="font-style:italic">${escHtml(seg.motif||'—')}</td>
@@ -28367,14 +28379,14 @@ function rRegul() {
         <td class="num" data-l="Provisions">${fmt(r.provisions)}</td><td class="num" data-l="Charges réelles">${fmt(r.charges)}</td>
         <td class="num" data-l="Solde">${tag}</td>
         <td class="num rg-acts">
-          <button class="btn bs bb" onclick="event.stopPropagation();_rgToggleDet('${did}')" title="Voir les factures réparties sur ce locataire">${_uiIcon('receipt')} Détail</button>
+          <button class="btn bs bb" aria-expanded="false" aria-controls="${did}" onclick="event.stopPropagation();_rgToggleDet('${did}')" title="Voir les factures réparties sur ce locataire">${_uiIcon('receipt')} Détail</button>
           ${(parti && !r.isHistorique)?`<button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();_rgClotureLocataire(this.dataset.entryKey)" title="Clôturer ce locataire parti : estimation N‑1 + retenue dépôt de garantie">${_uiIcon('flag')} Clôturer</button>`:''}
           <button class="btn bs bb" data-entry-key="${ekEsc}" ${imVal?'':'disabled'} onclick="event.stopPropagation();envoyerDecompteParEmail(this.dataset.entryKey)" title="${imVal?'Télécharger le décompte (PDF)':'Valide l’immeuble (Vue globale) avant d’envoyer'}">${_uiIcon('mail')} Envoyer</button>
           <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();openRegulDoc(this.dataset.entryKey)" title="Décompte détaillé (PDF)">${_uiIcon('doc-text')} Décompte</button></td></tr>`;
       body += `<tr class="rg-det ${cls}" id="${did}" data-ek="${ekEsc}" style="display:none"><td colspan="5">${_rgDetailLocHtml(r)}</td></tr>`;
     });
   });
-  const totRow = `<tr class="rg-total"><td>TOTAL — solde net locataires</td><td class="num">${fmt(totProv)}</td><td class="num">${fmt(totChar)}</td><td class="num">${totSolde>=0?'+':''}${fmt(totSolde)}</td><td></td></tr>`;
+  const totRow = `<tr class="rg-total"><td>TOTAL — solde net locataires</td><td class="num">${fmt(totProv)}</td><td class="num">${fmt(totChar)}</td><td class="num ${totSolde>=0?'pos':'neg'}">${totSolde>=0?'+':''}${fmt(totSolde)}</td><td></td></tr>`;
   el('reg-cards').innerHTML = nonRepBanner + `
     <div class="rg-wrap"><table class="tbl rg-table">
       <thead><tr><th>Immeuble / logement</th><th class="num">Provisions</th><th class="num">Charges réelles</th><th class="num">Solde</th><th></th></tr></thead>
