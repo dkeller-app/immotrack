@@ -1,5 +1,13 @@
 # Propryo — Backlog actif
 
+## 🚦 MAIN = **v15.681** (27/09) — AVENANT temps 1 déployé · 4 532 tests verts, CRLF intact
+
+## 🚦 AVENANT — temps 1 ✅ v15.681 (branche `fix/avenant-temps1`, worktree `Immo-wt-avenant-fix`) — SUR MAIN, ⏳ smoke Didier
+**Incident Didier 27/09** : avenant « départ d'un colocataire » → pas de signature, 2-4 pages, bail non modifié, historique vide. **Audit complet des 12 objets** : `mockups/AVENANT-AUDIT/RAPPORT.md`.
+**Livré (sans design)** : journal `DB.bailEvents` créé au démarrage (la trace était jetée) · carte « Avenant n° X » dans l'historique du bail (appliqué / document seulement / verrou) · loyer/charges reportés sur la fiche logement (l'IRL et la synchro n'effacent plus la hausse) · « Appliqué » seulement si le montant change · saisies conservées quand on coche un 2ᵉ objet (le sortant n'est plus réinitialisé) · numérotation par bail (bail + journal) · montants : vide = en vigueur, charges 0 ok, loyer 0 / négatif refusés · échec de sauvegarde (hors ligne, quota, exception) → tout restauré + message vrai (plus de faux ✓) · bail garage bloqué · départ/remplacement masqués si un seul locataire · « bail en date du » si non signé ou signé bailleur seul · plus d'acte de cautionnement à l'ancien garant · rappel « Enregistrer » après le PDF. Modules purs `avenantMontant` / `avenantNumeroSuivant` (`js/core/avenant.js`, testés). Audit code-reviewer « intégrable », findings corrigés.
+**Smoke à faire** : avenant départ coloc (2 locataires) → carte dans l'historique · avenant loyer → fiche logement + dû au mois d'effet · 2ᵉ avenant = n° 2 · 3 formats.
+**Temps 2 (à faire, maquette → CDC → code)** : signature de l'avenant (réutiliser la chaîne du bail) · moteur PDF (cadres coupés, page vide, `<h3>`) · composition de colocation datée (entrée/sortie/fin de solidarité) · avenants rangés hors de la ligne verrouillée du bail signé (aujourd'hui perdus au rechargement cloud) · liste des avenants + statut + retéléchargement · caution/durée/annexe/paiement appliqués · avenant garage.
+
 ## 🚦 MAIN = **v15.679** (25/09) — IRL-REVISION poussé sur main à la demande de Didier (test sur main) · 4 494 tests verts, mirrors à jour, CRLF intact
 
 ## 🚦 IRL-REVISION — v15.679 (branche `fix/irl-validation`, worktree `Immo-wt-irl-valid`) — SUR MAIN, ⏳ smoke Didier
