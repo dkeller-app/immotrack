@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.680</title>
+<title>Propryo v15.681</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.680">
+<link rel="stylesheet" href="css/main.css?v=15.681">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.680</em>
+      <em>v15.681</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4270,7 +4270,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.680';
+const IMMOTRACK_VERSION = '15.681';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -5778,6 +5778,10 @@ function _applyDataDefaults() {
   // Collection top-level NON table-backée → transite par le blob espace_config (comme irlHistorique).
   // Alimentée par les writers (saveBail/applyIRL/clôture) ; la migration de l'existant = étape 3.
   if(!DB.loyerBareme) DB.loyerBareme = [];
+  // AUDIT AVENANT 27/09 — journal des événements du bail (avenants, modif DG, corrections…).
+  // N'était créé qu'à la volée par 3 actions : un compte qui ne les avait jamais faites perdait
+  // EN SILENCE la trace de chaque avenant (écrivain `if(Array.isArray(DB.bailEvents))`).
+  if(!Array.isArray(DB.bailEvents)) DB.bailEvents = [];
   // Migration dashLayout
   if(!DB.params.dashLayout) DB.params.dashLayout = null;
   // ── Migration Agenda ───────────────────────────────────────
@@ -24917,7 +24921,9 @@ function exportBailWord(bail, log, ref) {
 var _avenantState = { ref:'', no:1, sel:{}, locNames:[] };
 var _AVENANT_OBJETS = [
  {k:'coloc', tt:'Colocataire', f:[
-   {id:'act',l:'Situation',t:'select',o:['Départ (séparation), sans remplaçant','Ajout d\'un colocataire','Remplacement (départ + arrivée)']},
+   // AUDIT AVENANT 27/09 — locataire UNIQUE : son départ = fin de bail (Congé / Assistant de départ),
+   // son remplacement = nouveau bail. Seul l'ajout d'un colocataire relève d'un avenant.
+   {id:'act',l:'Situation',t:'select',o:function(){ return (_avenantState.locNames||[]).length>1 ? ['Départ (séparation), sans remplaçant','Ajout d\'un colocataire','Remplacement (départ + arrivée)'] : ['Ajout d\'un colocataire']; }},
    {id:'sortant',l:'Colocataire sortant',t:'select',o:function(){return _avenantState.locNames;}},
    {id:'entrant',l:'Colocataire entrant',t:'text',v:''}],
    note:'Départ seul : solidarité + caution du sortant éteintes au plus tard 6 mois après le congé. Ajout / remplacement : nouvelle caution pour l\'entrant.'},
@@ -24973,9 +24979,17 @@ function _avenantCtx(){
   var bail=DB.baux&&DB.baux[_avenantState.ref]; if(!bail) return null;
   var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
   var locs=(bail.locataires&&bail.locataires.length)?bail.locataires.map(function(l){return l.nom||'';}).filter(Boolean):(bail.nom?[bail.nom]:[]);
-  var dateBail=(bail.signatures&&bail.signatures.signedAt)?bail.signatures.signedAt:(bail.dateSignaturePrevue||bail.debut||'');
+  // AUDIT AVENANT 27/09 — `signedAt` est un instant UTC : `.slice(0,10)` datait de la VEILLE un bail
+  // signé après 22 h (heure de Paris). Sans signature dans l'app (bail papier / repris), l'acte ne doit
+  // PAS affirmer « signé le <date de début> » : `bailSigne` pilote la formulation dans le module.
+  // Un bail signé par le bailleur SEUL (mode 'bailleur-seul', locataire en attente) a déjà un
+  // `signedAt` mais n'est pas un contrat conclu : même règle que le certificat de preuve.
+  var _sg=bail.signatures||{}, _sgAt=_sg.signedAt;
+  var _sgComplet=!!_sgAt && _sg.mode!=='bailleur-seul';
+  var _sgD=_sgAt?new Date(_sgAt):null;
+  var dateBail=_sgComplet?((_sgD&&!isNaN(_sgD))?_isoLocal(_sgD):String(_sgAt).slice(0,10)):(bail.dateSignaturePrevue||bail.debut||'');
   return { no:_avenantState.no, bailleur:ent.nom||bail.entity||'Le bailleur', locataires:locs,
-    bien:bail.adrBien||'', dateBail:dateBail, loyer0:Number(bail.hc)||0,
+    bien:bail.adrBien||'', dateBail:dateBail, bailSigne:_sgComplet, loyer0:Number(bail.hc)||0,
     effetIso:v('av-effet')||'', ville:v('av-ville')||bail.villeSignature||'' };
 }
 function _avenantFldHtml(k,fd){ var id='av-'+k+'-'+fd.id; var opts=(typeof fd.o==='function')?fd.o():fd.o;
@@ -24991,9 +25005,18 @@ function _avenantBuildGrid(){ var g=document.getElementById('av-objgrid'); if(!g
     return '<div class="av-obj'+(on?' on':'')+'" data-o="'+o.k+'" onclick="_avenantToggle(\''+o.k+'\')"><span class="av-cb">'+(on?'✓':'')+'</span>'+o.tt+'</div>';
   }).join(''); }
 function _avenantBuildGroups(){ var c=document.getElementById('av-groups'); if(!c)return;
+  // AUDIT AVENANT 27/09 — le re-rendu repartait des valeurs PAR DÉFAUT : cocher un 2ᵉ objet
+  // remettait le « colocataire sortant » sur le 1ᵉʳ locataire (mauvaise personne désignée) et
+  // effaçait les saisies. On mémorise les valeurs en cours et on les restaure après re-rendu.
+  var saisies={};
+  c.querySelectorAll('input[id^="av-"],select[id^="av-"],textarea[id^="av-"]').forEach(function(e){ saisies[e.id]=e.value; });
   c.innerHTML=_AVENANT_OBJETS.filter(function(o){return _avenantState.sel[o.k];}).map(function(o){
     return '<div class="av-grp"><h4>'+o.tt+'</h4>'+o.f.map(function(fd){return _avenantFldHtml(o.k,fd);}).join('')+(o.dyn?'<div id="av-'+o.k+'-fb"></div>':'')+(o.note?'<div class="av-note">'+o.note+'</div>':'')+'</div>';
-  }).join(''); }
+  }).join('');
+  Object.keys(saisies).forEach(function(id){ var e=document.getElementById(id); if(!e) return;
+    if(e.tagName==='SELECT'){ for(var i=0;i<e.options.length;i++){ if(e.options[i].value===saisies[id]){ e.selectedIndex=i; break; } } }
+    else e.value=saisies[id];
+  }); }
 function _avenantLoyerFeedback(){ var fb=document.getElementById('av-loyer-fb'); if(!fb)return;
   var motif=(document.getElementById('av-loyer-motif')||{}).value||'';
   var bail=DB.baux&&DB.baux[_avenantState.ref];
@@ -25015,7 +25038,7 @@ function _avenantDocPageHtml(ref){
   var r=window.buildAvenantHtml(ctx);
   return _docPage(ent, {
     titre:'AVENANT N° '+(ctx.no||1)+' AU CONTRAT DE BAIL D\'HABITATION',
-    ctx:'Loi n° 89-462 du 6 juillet 1989 — portant modification du bail signé le '+(function(d){var p=String(d||'').slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'…';})(ctx.dateBail),
+    ctx:'Loi n° 89-462 du 6 juillet 1989 — portant modification du bail '+(ctx.bailSigne===false?'du ':'signé le ')+(function(d){var p=String(d||'').slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'…';})(ctx.dateBail),
     corps:r.html, ref:escHtml(ref), date:(v('av-effet')?'Effet du '+fd(v('av-effet')):''),
     withStyle:false
   });
@@ -25027,7 +25050,12 @@ function _avenantRender(){ var prev=document.getElementById('av-preview'); if(!p
 }
 function _avenantOpen(ref){
   var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
-  _avenantState={ ref:ref, no:((bail.avenants&&bail.avenants.length)||0)+1, sel:{}, locNames:[], forfaitOk:false };
+  // AUDIT AVENANT 27/09 — le modèle est rédigé pour un bail d'HABITATION (loi 89-462, en-tête,
+  // garde-fou DPE) : sur un bail garage (Code civil) il produirait un acte juridiquement faux.
+  if(bail.type==='garage'){ showToast('Avenant pour un bail garage : pas encore disponible (le modèle actuel est rédigé pour un bail d\'habitation). Pour un changement de loyer, utiliser « Modifier le bail ».','warn',8000); return; }
+  // Numérotation : max des avenants connus DU BAIL COURANT (sur le bail ET dans le journal, qui survit
+  // à un bail signé verrouillé au cloud) + 1 → plus de « n° 1 » répété (module pur, testé).
+  _avenantState={ ref:ref, no:window.avenantNumeroSuivant(bail, DB.bailEvents, ref), sel:{}, locNames:[], forfaitOk:false };
   _avenantState.locNames=(bail.locataires&&bail.locataires.length)?bail.locataires.map(function(l){return l.nom||'';}).filter(Boolean):(bail.nom?[bail.nom]:[]);
   // Forfait de charges licite seulement en meublé (et variantes) ou en colocation (art. 8-1 / 25-9).
   _avenantState.forfaitOk=(['meuble','etudiant','mobilite'].indexOf(bail.type)>=0)||_avenantState.locNames.length>1;
@@ -25061,10 +25089,10 @@ function _avenantOpen(ref){
        '<div class="av-objgrid" id="av-objgrid"></div>'+
        '<div id="av-groups"></div>'+
        '<div class="av-grp"><h4>Effet & signature</h4>'+
-         '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Date d\'effet</label><input class="inp" type="date" id="av-effet" value="'+escHtml(td())+'" oninput="_avenantRender()"></div>'+
+         '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Date d\'effet</label><input class="inp" type="date" id="av-effet" value="'+escHtml((typeof _todayIsoLocal==='function')?_todayIsoLocal():td())+'" oninput="_avenantRender()"></div>'+
          '<div class="fld"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Fait à</label><input class="inp" id="av-ville" value="'+escHtml(bail.villeSignature||'')+'" oninput="_avenantRender()"></div>'+
        '</div>'+
-       '<div class="av-note" style="background:#e6f1fb;border-color:#cfe0f6;color:#185fa5;margin-top:10px">À l\'enregistrement, un changement de <b>loyer</b> ou de <b>charges</b> est automatiquement daté dans le barème (date d\'effet) → le dû et la régularisation se recalculent à partir de cette date. La signature électronique de l\'avenant arrivera dans une prochaine version.</div>'+
+       '<div class="av-note" style="background:#e6f1fb;border-color:#cfe0f6;color:#185fa5;margin-top:10px"><b>Appliqué aux données du bail :</b> seuls le <b>loyer</b> et les <b>charges</b> (datés dans le barème à la date d\'effet → dû et régularisation recalculés). <b>Les autres objets</b> (colocataire, caution, durée, annexe, paiement…) <b>produisent le document à signer seulement</b> : leur prise en compte dans l\'app arrive avec la refonte des avenants. Signature électronique : à venir — faire signer le PDF. <b>Enregistrer l\'avenant</b> pour l\'inscrire dans l\'historique du bail (télécharger le PDF ne l\'enregistre pas).</div>'+
      '</div>'+
      '<div class="av-prevwrap"><div id="av-preview"></div></div>'+
    '</div>'+
@@ -25090,11 +25118,18 @@ function _avenantChampsOk(objets, verbe){
 function _avenantSave(ref){
   var bail=DB.baux&&DB.baux[ref]; if(!bail)return;
   var objets=_avenantCollect();
-  if(!objets.length){ showToast('Coche au moins un objet de modification.','warn'); return; }
+  if(!objets.length){ showToast('Cocher au moins un objet de modification.','warn'); return; }
   if(!_avenantChampsOk(objets,'Enregistrer')) return;
-  var effet=v('av-effet')||td();
+  var effet=v('av-effet')||((typeof _todayIsoLocal==='function')?_todayIsoLocal():td());
   var loyerAny=objets.find(function(o){return o.k==='loyer';});
   var chargesAny=objets.find(function(o){return o.k==='charges';});
+  // AUDIT AVENANT 27/09 — montants (module pur `avenantMontant`) : un champ VIDE garde le montant en
+  // vigueur ; charges à 0 € valables (charges supprimées) ; loyer à 0 € refusé ; négatif/illisible refusé.
+  // (Avant : `parseFloat(x)||prev` rendait 0 € impossible et acceptait -50 €.)
+  var _mHc=loyerAny?window.avenantMontant(loyerAny.data.nouveau, Number(bail.hc)||0, {strictPositif:true}):null;
+  var _mCh=chargesAny?window.avenantMontant(chargesAny.data.montant, Number(bail.ch)||0):null;
+  if(_mHc&&!_mHc.ok){ showToast('Nouveau loyer invalide : saisir un montant supérieur à 0 (ou laisser vide pour garder le loyer en vigueur).','err',6000); return; }
+  if(_mCh&&!_mCh.ok){ showToast('Montant des charges invalide : saisir un montant positif ou nul (ou laisser vide pour garder les charges en vigueur).','err',6000); return; }
   // Loyer : on ALERTE (jamais on ne bloque — l'utilisateur décide). Les avertissements sérieux
   // (DPE F/G, baisse incohérente, dépassement en zone encadrée) sont confirmés ; les infos (zone
   // non tendue = pas de plafond) ne le sont pas.
@@ -25117,15 +25152,23 @@ function _avenantSave(ref){
     if(ajuste){ if(el('av-effet')) el('av-effet').value=effet; showToast('Date d\'effet ajustée au '+fd(effet)+' (1ᵉʳ du mois / mois déjà quittancé / début du bail).','warn',6000); }
   }
   var docHtml=_avenantDocPageHtml(ref); var built=window.buildAvenantHtml(Object.assign(_avenantCtx(),{objets:objets}));
+  var log=(DB.logements||[]).find(function(l){ return l && !l._deleted && l.ref===ref; });
+  // AUDIT AVENANT 27/09 — instantané AVANT mutation : si la sauvegarde échoue (hors ligne, quota),
+  // on remet tout en l'état au lieu d'afficher un faux « enregistré ✓ » sur des données en mémoire.
+  var _snap={ bail:JSON.parse(JSON.stringify(bail)), bareme:JSON.parse(JSON.stringify(DB.loyerBareme||[])),
+              nEvents:(DB.bailEvents||[]).length, log:log?JSON.parse(JSON.stringify(log)):null, logIdx:log?DB.logements.indexOf(log):-1 };
+  // Bail signé scellé au cloud (`signatures.locked`, store-sync) : la LIGNE du bail n'est plus poussée.
+  // Le barème et le journal (config) le sont, eux → on applique ce qui peut l'être et on le DIT.
+  var _verrou=!!(bail.signatures&&bail.signatures.locked);
   bail.avenants=bail.avenants||[];
   var rec={ no:_avenantState.no, dateEffet:effet, ville:v('av-ville')||'', objets:objets, html:docHtml, createdAt:(new Date()).toISOString() };
   bail.avenants.push(rec);
 
   // PROPAGATION loyer/charges dans les calculs (barème daté — MÊME mécanisme que « Modifier le bail »).
+  var prevHc=Number(bail.hc)||0, prevCh=Number(bail.ch)||0;
+  var newHc=_mHc?_mHc.v:prevHc;
+  var newCh=_mCh?_mCh.v:prevCh;
   if(loyerAny||chargesAny){
-    var prevHc=Number(bail.hc)||0, prevCh=Number(bail.ch)||0;
-    var newHc=loyerAny?(parseFloat(String(loyerAny.data.nouveau).replace(',','.'))||prevHc):prevHc;
-    var newCh=chargesAny?(parseFloat(String(chargesAny.data.montant).replace(',','.'))||prevCh):prevCh;
     // Ne date une période QUE si un terme change réellement (évite une période redondante à montant identique).
     if(newHc!==prevHc || newCh!==prevCh){
       // Couvre le passé au tarif PRÉCÉDENT jusqu'à la date d'effet (sinon duMois applique le nouveau au passé)…
@@ -25137,7 +25180,13 @@ function _avenantSave(ref){
         DB.loyerBareme=window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], { ref:ref, debut:effet, hc:newHc, ch:newCh, source:'manuel', bailDebut:bail.debut, note:'Avenant n° '+rec.no+(loyerAny&&chargesAny?' (loyer + charges)':loyerAny?' (loyer)':' (charges)') });
       }
       bail.hc=newHc; bail.ch=newCh; // termes courants du bail alignés (l'historique est porté par le barème)
-      if(Array.isArray(DB.bailEvents)) DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:effet, type:'modif', avenant:rec.no, hcAvant:prevHc, hcApres:newHc, chAvant:prevCh, chApres:newCh });
+      // AUDIT AVENANT 27/09 — la fiche logement porte AUSSI hc/ch (même alignement que saveBail) :
+      // sinon `_syncLogToBail` (enregistrement du logement, démarrage) remettait l'ANCIEN loyer sur le
+      // bail, et la révision IRL suivante (calculée sur log.hc) EFFAÇAIT la hausse votée par avenant.
+      if(log){ log.hc=newHc; log.ch=newCh; if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); if(typeof _stamp==='function') _stamp(log); }
+      // (Plus d'événement 'modif' ici : la carte « Modification du loyer » est DÉJÀ dérivée de la
+      //  période de barème ci-dessus (source 'manuel', note « Avenant n° X ») — il faisait doublon
+      //  et s'affichait cassé : « Loyer – HC + – à compter du – ».)
     }
     // Statut forfait de charges (art. 23-1) : enregistré sur le bail pour un usage FUTUR par la
     // régularisation. ⚠ Non encore lu par le moteur de régul (chantier Charges) → un forfait posé
@@ -25146,13 +25195,44 @@ function _avenantSave(ref){
   }
 
   if(typeof _stamp==='function') _stamp(bail);
-  if(Array.isArray(DB.bailEvents)){ DB.bailEvents.push({ ref:ref, bailDebut:bail.debut||'', date:effet, type:'avenant', no:rec.no, objets:objets.map(function(o){return o.k;}) }); }
-  if(typeof _auditLog==='function') _auditLog('avenant','bail',ref,'n°'+rec.no+' objets='+objets.map(function(o){return o.k;}).join(',')+((loyerAny||chargesAny)?' [barème daté au '+effet+']':''));
-  if(typeof saveDB==='function') saveDB();
-  var toastMsg='Avenant n° '+rec.no+' enregistré ✓'+((loyerAny||chargesAny)?' — loyer/charges appliqués au '+fd(effet):'');
-  showToast(toastMsg,'ok');
+  // AUDIT AVENANT 27/09 — trace TOUJOURS écrite (le journal est créé s'il manque) et complète :
+  // id + horodatage (dédup / suppression possibles), objets, ce qui est APPLIQUÉ vs document seul.
+  if(!Array.isArray(DB.bailEvents)) DB.bailEvents=[];
+  // « Appliqué » = un montant a RÉELLEMENT changé (période datée au barème). Loyer laissé vide / identique,
+  // ou passage au forfait seul (pas encore lu par la régularisation) → document seulement, et on le dit.
+  var _estApplique=function(o){ return (o.k==='loyer'&&newHc!==prevHc)||(o.k==='charges'&&newCh!==prevCh); };
+  var _appliques=objets.filter(_estApplique).map(function(o){ return _AV_LBL[o.k]||o.k; });
+  var _docSeul=objets.filter(function(o){ return !_estApplique(o); }).map(function(o){ return _AV_LBL[o.k]||o.k; });
+  var ev={ id:'ev_av_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), ref:ref, bailDebut:bail.debut||'', date:effet,
+           type:'avenant', no:rec.no, objets:objets.map(function(o){ return o.k; }), appliques:_appliques, docSeul:_docSeul, verrou:_verrou };
+  if(typeof _stamp==='function') _stamp(ev);
+  DB.bailEvents.push(ev);
+  // Sauvegarde ÉTIQUETÉE et VÉRIFIÉE : hors ligne (écriture refusée) ou quota → on remet tout en
+  // l'état, et on le dit. Fini le « enregistré ✓ » sur des données restées en mémoire.
+  // Une exception dans saveDB est traitée comme un échec (sinon rien n'était restauré).
+  var _ok; try { _ok=(typeof saveDB==='function')?saveDB({quoi:'avenant'}):true; } catch(_e){ console.warn('[avenant] saveDB', _e); _ok=false; }
+  if(_ok===false){
+    DB.baux[ref]=_snap.bail; DB.loyerBareme=_snap.bareme; DB.bailEvents.length=_snap.nEvents;
+    if(_snap.log && _snap.logIdx>=0) DB.logements[_snap.logIdx]=_snap.log;
+    // Stockage plein : saveDB a déjà pris l'état MODIFIÉ comme base d'annulation → la réaligner sur
+    // l'état restauré (sinon « Annuler » l'action suivante ressusciterait l'avenant refusé).
+    if(typeof _undoOnSaveDBSuccess==='function') _undoOnSaveDBSuccess();
+    showToast('Avenant NON enregistré : la sauvegarde a échoué — rien n\'a été modifié. '+(window.__immoHorsLigne?'Hors ligne : réessayer une fois la connexion rétablie.':'Stockage indisponible ou plein : libérer de l\'espace puis réessayer.')+' Le PDF reste disponible.','err',9000);
+    return;
+  }
+  // Journal d'audit APRÈS succès (jamais d'entrée pour un avenant qui n'a pas abouti).
+  if(typeof _auditLog==='function'){ _auditLog('avenant','bail',ref,'n°'+rec.no+' objets='+objets.map(function(o){return o.k;}).join(',')+(_appliques.length?' [barème daté au '+effet+']':'')); if(typeof saveDB==='function') saveDB({quoi:'avenant'}); }
+  // Message VRAI : ce qui est appliqué au bail / ce qui reste dans le document seulement.
+  var toastMsg='Avenant n° '+rec.no+' enregistré dans l\'historique du bail.'
+    +(_appliques.length?' Appliqué au '+fd(effet)+' : '+_appliques.join(', ').toLowerCase()+'.':'')
+    +(_docSeul.length?' Document seulement (non appliqué aux données du bail) : '+_docSeul.join(', ').toLowerCase()+'.':'')
+    +(_verrou?' Bail signé verrouillé : le document de l\'avenant n\'est pas encore conservé dans l\'app — conserver le PDF signé.':'')
+    // (Plus de proposition d'ouvrir l'acte de cautionnement : il était généré avec l'ANCIEN garant et
+    //  les ANCIENS locataires. Mention DANS le même message : un 2ᵉ toast écrasait le premier.)
+    +(built.caution?' Un acte de cautionnement est à établir séparément pour la nouvelle caution (l\'acte généré par l\'app reprend encore l\'ancien garant).':'');
+  var _alerte=_docSeul.length||_verrou||built.caution;
+  showToast(toastMsg,_alerte?'warn':'ok',_alerte?14000:5000);
   closeM('ov-avenant'); // toujours fermer après un enregistrement réussi (évite un doublon au re-clic)
-  if(built.caution){ setTimeout(function(){ if(confirm2('Cet avenant appelle un nouvel acte de cautionnement. L\'ouvrir maintenant ?')){ if(typeof genActeCautionnementRef==='function') genActeCautionnementRef(ref); } },150); }
   if(typeof refreshAllIRL==='function') refreshAllIRL();
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
 }
@@ -25176,7 +25256,7 @@ async function _avenantSortiePdf(ref){
   // différemment, apprennent à cliquer sans lire — et c'est la première qu'on cesse de lire.
   if(!_avManqueChamps.length && !_acteMentionsOk(docHtml,_acteVerbePdf())) return;
   if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
-  await _pdfSortie({
+  var _sortie = await _pdfSortie({
     fileName:'Avenant_n'+_avenantState.no+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf',
     desc:'PDF (avenant au bail)',
     genererAvant:true,
@@ -25184,6 +25264,11 @@ async function _avenantSortiePdf(ref){
     texte:'Avenant n° '+_avenantState.no+' au contrat de bail — '+(bail.adrBien||ref),
     genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); }
   });
+  // AUDIT AVENANT 27/09 — tirer le PDF n'enregistre RIEN : sans ce rappel, un avenant signé sur
+  // papier pouvait n'avoir aucune existence dans l'app (pas d'historique, pas de loyer appliqué).
+  // Un seul message (showToast n'a qu'un emplacement) : il reprend où est parti le fichier.
+  var _ouPdf={ enregistre:'✅ PDF enregistré.', telecharge:'📥 PDF dans les Téléchargements.', partage:'PDF partagé.' }[_sortie];
+  if(_ouPdf) showToast(_ouPdf+' Penser à « Enregistrer l\'avenant » pour l\'inscrire dans l\'historique du bail.','info',8000);
 }
 
 // ═══════════════ CONGÉ & RÉSILIATION (loi 89-462) ═══════════════
@@ -42567,6 +42652,16 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
   if(t==='periode-annulee'){
     return `<div class="hl-card" style="opacity:.85" data-dot="d-bail"><div class="tt"><h4>Période annulée par la clôture</h4><span class="hl-badge b-warn">⊘ annulée</span></div>
       <div class="hl-desc">La période prévue à partir du <b>${fd(ev.date)}</b> (<b>${fmt(ev.avant)}</b>) ne s'appliquera jamais : le bail a été clôturé au <b>${fd(ev.dateEffet)}</b>.</div></div>`;
+  }
+  // AUDIT AVENANT 27/09 — un avenant tombait dans la carte générique « Événement » VIDE (elle lit
+  // dateEffet/motif, l'avenant écrit date/no/objets). Carte dédiée : n°, objets, appliqué vs document.
+  if(t==='avenant'){
+    const _lbl=(typeof _AV_LBL!=='undefined')?_AV_LBL:{};
+    const _objs=(Array.isArray(ev.objets)?ev.objets:[]).map(k=>_lbl[k]||k);
+    const _app=Array.isArray(ev.appliques)?ev.appliques:null;
+    const _doc=Array.isArray(ev.docSeul)?ev.docSeul:null;
+    return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4>Avenant n° ${escHtml(String(ev.no||'?'))}</h4><span class="hl-badge b-man">avenant</span></div>
+      <div class="hl-desc">Effet au <b>${escHtml(fd(ev.date))}</b>.${_objs.length?' Objet'+(_objs.length>1?'s':'')+' : '+escHtml(_objs.join(', '))+'.':''}${_app&&_app.length?' <b>Appliqué</b> : '+escHtml(_app.join(', ').toLowerCase())+'.':''}${_doc&&_doc.length?' <span class="mu">Document seulement : '+escHtml(_doc.join(', ').toLowerCase())+'.</span>':''}${ev.verrou?' <span class="mu">(bail signé verrouillé — conserver le PDF signé)</span>':''}</div></div>`;
   }
   // Traces génériques (DB.bailEvents : modif-dg, corrections…)
   const titre = t==='modif-dg' ? 'Dépôt de garantie modifié' : (t==='correction' ? 'Correction' : 'Événement');
