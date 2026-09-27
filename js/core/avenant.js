@@ -305,3 +305,45 @@ export function avenantChampsManquants(objets) {
   });
   return out;
 }
+
+/**
+ * Lecture d'un montant saisi dans l'avenant (loyer ou charges).
+ * Champ VIDE → montant en vigueur conservé ; montant négatif / illisible → refusé.
+ * 0 € est valable pour les charges (charges supprimées), pas pour le loyer (`strictPositif`).
+ * @param {*} raw valeur saisie
+ * @param {number} prev montant en vigueur
+ * @param {{strictPositif?:boolean}} [opts]
+ * @returns {{ok:true, v:number}|{ok:false}}
+ */
+export function avenantMontant(raw, prev, opts) {
+  const s = String(raw == null ? '' : raw).trim().replace(/\s/g, '').replace(',', '.');
+  if (s === '') return { ok: true, v: prev };
+  const n = parseFloat(s);
+  if (!isFinite(n) || n < 0) return { ok: false };
+  if (opts && opts.strictPositif && !(n > 0)) return { ok: false };
+  return { ok: true, v: Math.round(n * 100) / 100 };
+}
+
+/**
+ * Numéro du prochain avenant d'un bail : max des numéros connus + 1.
+ * Sources : `bail.avenants[]` ET le journal `DB.bailEvents` (type 'avenant'), qui survit à un bail
+ * signé verrouillé au cloud. Le journal est tenu PAR LOGEMENT : seuls les événements du bail COURANT
+ * comptent (même `bailDebut`, ou datés à partir de son début) — sinon le 1ᵉʳ avenant d'un nouveau
+ * locataire reprendrait la numérotation du bail précédent.
+ * @param {object} bail
+ * @param {Array} events DB.bailEvents
+ * @param {string} ref réf du logement
+ * @returns {number}
+ */
+export function avenantNumeroSuivant(bail, events, ref) {
+  let max = 0;
+  const b = bail || {};
+  (b.avenants || []).forEach(a => { max = Math.max(max, Number(a && a.no) || 0); });
+  const debut = String(b.debut || '');
+  (Array.isArray(events) ? events : []).forEach(e => {
+    if (!e || e._deleted || e.type !== 'avenant' || e.ref !== ref) return;
+    const memeBail = String(e.bailDebut || '') === debut || (!!debut && String(e.date || '') >= debut);
+    if (memeBail) max = Math.max(max, Number(e.no) || 0);
+  });
+  return max + 1;
+}
