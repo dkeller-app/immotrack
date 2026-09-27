@@ -182,3 +182,24 @@ describe('buildAvenantHtml — assemblage', () => {
     expect(r.caution).toBe(false);
   });
 });
+
+// AUDIT AVENANT 27/09 — bail sans signature dans l'app (papier / repris) : pas de « signé le ».
+describe('mention du bail modifié', () => {
+  const base = { bailleur: 'SCI', locataires: ['A', 'B'], bien: 'rue X', dateBail: '2023-01-01', effetIso: '2026-01-01', ville: 'Colmar',
+                 objets: [{ k: 'clause', data: { titre: 'T', texte: 'x' } }] };
+  it('bail signé dans l\'app → « signé le »', () => {
+    expect(buildAvenantHtml({ ...base, bailSigne: true }).html).toMatch(/Contrat d'habitation signé le/);
+  });
+  it('bail NON signé dans l\'app → « en date du » (jamais « signé le » affirmé à tort)', () => {
+    const h = buildAvenantHtml({ ...base, bailSigne: false }).html;
+    expect(h).toMatch(/Contrat d'habitation en date du/);
+    expect(h).not.toMatch(/signé le/);
+  });
+  it('rétrocompat : bailSigne absent → « signé le » (comportement historique)', () => {
+    expect(buildAvenantHtml({ ...base }).html).toMatch(/signé le/);
+  });
+  it('une dateBail non-date est échappée (plus de rendu brut)', () => {
+    const h = buildAvenantHtml({ ...base, dateBail: '<img src=x onerror=1>' }).html;
+    expect(h).not.toMatch(/<img/);
+  });
+});

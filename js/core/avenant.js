@@ -250,7 +250,9 @@ export function buildAvenantHtml(ctx) {
     '<p class="pro-lead" style="font-variant:small-caps;letter-spacing:.03em">Entre les soussignés :</p>' +
     '<p>' + b(ctx.bailleur || '…') + ', ci-après « le bailleur », d\'une part,</p>' +
     '<p>Et ' + b(locs.join(' & ') || '…') + ', ci-après « le(s) locataire(s) », d\'autre part,</p>' +
-    '<table class="pro-kv"><tr><td>Bail modifié</td><td>Contrat d\'habitation signé le <strong>' + frDate(ctx.dateBail) + '</strong></td></tr>' +
+    // AUDIT 27/09 : pas de « signé le » pour un bail sans signature dans l'app (bail papier / repris) ;
+    // date ÉCHAPPÉE (une valeur non-date était rendue brute).
+    '<table class="pro-kv"><tr><td>Bail modifié</td><td>Contrat d\'habitation ' + (ctx.bailSigne === false ? 'en date du' : 'signé le') + ' <strong>' + esc(frDate(ctx.dateBail)) + '</strong></td></tr>' +
     '<tr><td>Logement</td><td>' + esc(ctx.bien || '…') + '</td></tr>' +
     '<tr><td>Loyer mensuel HC en vigueur</td><td>' + num(ctx.loyer0) + ' €</td></tr></table>' +
     '<p style="font-variant:small-caps;letter-spacing:.03em">Il a été préalablement exposé ce qui suit :</p>' +
