@@ -104,7 +104,8 @@
   .pro-doc .pro-encart{background:${T.FOND_BLOC};border-radius:2.5mm;padding:2.4mm 3.4mm;margin:0 0 4mm;font-size:8pt;color:${T.GRIS_MENTION};line-height:1.45}
   .pro-doc .pro-encart b{color:${T.ENCRE};font-weight:600}
   .pro-doc .pro-lieu{font-size:9pt;color:#3c4658;margin:0 0 1mm}
-  /* 3 cadres × 56 mm + 2 × 6 mm = 180 mm (zone utile) : même géométrie que le PDF natif */
+  /* 3 cadres × 56 mm + 2 × 6 mm = 180 mm (zone utile) : même rangée de 3 que le PDF natif
+     (le PDF élargit à 70 mm quand il n'y a qu'1 ou 2 cadres) */
   .pro-doc .pro-signzone{padding-top:3mm;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6mm}
   .pro-doc .pro-signzone.duo{justify-content:space-between}
   .pro-doc .pro-sigcase{page-break-inside:avoid}

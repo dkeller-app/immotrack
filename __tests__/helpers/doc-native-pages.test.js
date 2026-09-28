@@ -30,7 +30,8 @@ function avenantHtml(locs, objets) {
 /** Chaque ligne de signature (trait court de cadre) a son libellé sur la MÊME page, juste dessous. */
 function cadresEntiers(log) {
   const traits = log.filter(e => e.op === 'line' && e.w > 40 && e.w < 80);
-  return traits.every(t => log.some(e => e.op === 'text' && e.page === t.page && e.y > t.y && e.y < t.y + 8 && e.x >= t.x - 1 && e.x <= t.x + t.w));
+  // + le cadre reste DANS la page (l'ancien moteur posait le 3ᵉ cadre à x = 171 mm, hors page).
+  return traits.every(t => t.x + t.w <= 195.01 && log.some(e => e.op === 'text' && e.page === t.page && e.y > t.y && e.y < t.y + 8 && e.x >= t.x - 1 && e.x <= t.x + t.w));
 }
 
 const para = (n) => '<p>' + 'Paragraphe de remplissage destiné à pousser le contenu vers le bas de la page. '.repeat(n) + '</p>';
@@ -80,6 +81,36 @@ describe('moteur doc-native : ce que voit l\'utilisateur', () => {
       const trait = log.find(e => e.op === 'line' && e.w === 70);
       expect(lieu.page).toBe(trait.page);   // « Fait à » jamais séparé de son cadre
     }
+  });
+  it('le cadre reste sur la page de « Fait à » dès qu\'il y tient (le blanc APRÈS le cadre ne compte pas)', () => {
+    // Audit lot 1 : le blanc posé après le cadre était compté → page en plus (lettre IRL, reçu).
+    // Hauteur d'une rangée : 8 (air) + 11 (espace de signature) + 2 + libellé 2 lignes en 8 pt (6,9) = 27,9 mm.
+    const LIEU = docLieu('Fait à Lyon, le 28/09/2026');
+    const CADRE = docSignzone([{ sig: '', label: 'Le bailleur<br><strong>SCI Les Tilleuls</strong>' }]);
+    let verifies = 0;
+    for (const r of remplissages()) {
+      const sans = render(doc(r + LIEU)).log.find(e => e.op === 'text' && /Fait à Lyon/.test(e.t));
+      const tient = sans.y + 4.2 + 0.5 + PDF_NATIVE.PARAGRAPH_GAP + 27.9 <= PDF_NATIVE.PAGE_H - PDF_NATIVE.MARGIN_BOTTOM;
+      const avec = render(doc(r + LIEU + CADRE)).log.find(e => e.op === 'text' && /Fait à Lyon/.test(e.t));
+      if (tient) { expect(avec.page).toBe(sans.page); verifies++; }
+    }
+    expect(verifies).toBeGreaterThan(10);
+  });
+  it('une mention longue APRÈS le cadre ne sépare jamais « Fait à » de son cadre', () => {
+    const corps = para(3) + docLieu('Fait à Lyon, le 28/09/2026') + docSignzone([{ sig: '', label: 'Le bailleur' }]) + mention(400);
+    const { log } = render(doc(corps));
+    const lieu = log.find(e => e.op === 'text' && /Fait à Lyon/.test(e.t));
+    const trait = log.find(e => e.op === 'line' && e.w === 70);
+    expect(lieu.page).toBe(1);
+    expect(trait.page).toBe(1);
+  });
+  it('paraphes : 9 parties → toutes les cases dans la page', () => {
+    let corps = ''; for (let i = 0; i < 70; i++) corps += para(1);
+    const pdf = tracedPdf();
+    const noms = Array.from({ length: 9 }, (_, i) => 'P' + (i + 1));
+    renderDocToPdf(pdf, {}, parseDocDoc(doc(corps)), PDF_NATIVE, { paraphes: noms });
+    const lbl = pdf.__log.find(e => e.op === 'text' && e.t === 'Paraphes');
+    expect(lbl.x).toBeGreaterThan(PDF_NATIVE.MARGIN_LEFT);
   });
   it('pagination « Page p / N » sur chaque page quand demandée ; absente sinon (aspect des quittances)', () => {
     let corps = ''; for (let i = 0; i < 70; i++) corps += para(1);

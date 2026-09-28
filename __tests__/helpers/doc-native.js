@@ -455,16 +455,22 @@ export function renderDocToPdf(pdf, ent, parsed, PN, opts) {
     const b = blocks[i];
     // Garder ensemble « Fait à… », le titre « Signatures » et les cadres (D6) : on mesure la
     // séquence qui mène aux cadres et on change de page UNE fois si elle ne tient pas.
+    // La mesure S'ARRÊTE à la zone de signature (audit : une mention longue après le cadre poussait
+    // « Fait à » et le cadre sur des pages différentes) et ne compte pas le blanc posé APRÈS le
+    // cadre, qui n'a pas à tenir dans la page (audit : page en plus sur quittance / IRL / reçu).
     if (b.t === 'lieu' || b.t === 'h3' || b.t === 'signzone') {
       let j = i, h = 0, withSig = false;
-      while (j < blocks.length && ['lieu', 'h3', 'signzone', 'mention'].indexOf(blocks[j].t) >= 0) {
-        if (blocks[j].t === 'mention' && !withSig) break;
+      while (j < blocks.length && !withSig && ['lieu', 'h3', 'signzone'].indexOf(blocks[j].t) >= 0) {
         h += blockH(blocks[j]); if (blocks[j].t === 'signzone') withSig = true; j++;
       }
-      if (withSig) y = PN.newPageIfNeeded(pdf, y, Math.min(h, usable));
+      if (withSig) y = PN.newPageIfNeeded(pdf, y, Math.min(h - PN.PARAGRAPH_GAP, usable));
     }
-    // Un titre d'article ne reste jamais seul en bas de page : il part avec le début de son texte.
-    if (b.t === 'h3') y = PN.newPageIfNeeded(pdf, y, Math.min(h3H(b) + 12, usable));
+    // Un titre d'article ne reste jamais seul en bas de page : il part avec le début de son texte
+    // (ou avec la hauteur minimale d'un tableau, 40 mm, si c'est un tableau qui suit).
+    if (b.t === 'h3') {
+      const suite = blocks[i + 1] && blocks[i + 1].t === 'tbl' ? 40 : 12;
+      y = PN.newPageIfNeeded(pdf, y, Math.min(h3H(b) + suite, usable));
+    }
     y = PN.newPageIfNeeded(pdf, y, b.t === 'tbl' ? 40 : 14);
     switch (b.t) {
       case 'h3':
@@ -615,7 +621,8 @@ export function renderDocToPdf(pdf, ent, parsed, PN, opts) {
     // Cases de paraphe (acte de plusieurs pages) : une par partie, en bas à droite, sauf sur la
     // dernière page qui porte les signatures.
     if (surParaphe) {
-      const cw = 16, ch = 8, cg = 3;
+      // Largeur adaptée au nombre de parties : tout tient entre la marge gauche (+ « Paraphes ») et la droite.
+      const cg = 3, ch = 8, cw = Math.min(16, (W - 22 - (paraphes.length - 1) * cg) / paraphes.length);
       let cx = right - paraphes.length * cw - (paraphes.length - 1) * cg;
       const cy = PN.PAGE_H - 13.5;
       pdf.setFontSize(6); pdf.setTextColor(PN.COLOR_MUTED[0], PN.COLOR_MUTED[1], PN.COLOR_MUTED[2]);
