@@ -25050,15 +25050,17 @@ var _AVENANT_OBJETS = [
    // AUDIT AVENANT 27/09 — locataire UNIQUE : son départ = fin de bail (Congé / Assistant de départ),
    // son remplacement = nouveau bail. Seul l'ajout d'un colocataire relève d'un avenant.
    {id:'act',l:'Situation',t:'select',o:function(){ return (_avenantState.locNames||[]).length>1 ? ['Départ (séparation), sans remplaçant','Ajout d\'un colocataire','Remplacement (départ + arrivée)'] : ['Ajout d\'un colocataire']; }},
-   {id:'sortant',l:'Colocataire sortant',t:'select',o:function(){return _avenantState.locNames;}},
+   // `si(situation)` : champ affiché seulement quand il a un sens (retour Didier 28/09 : un départ sans
+   // remplaçant ne demande rien sur un entrant ; un ajout ne demande ni sortant ni caution sortante).
+   {id:'sortant',l:'Colocataire sortant',t:'select',o:function(){return _avenantState.locNames;}, si:function(a){ return !/^Ajout/.test(a); }},
    // Caution dont l'engagement PREND FIN avec ce départ, NOMMÉE dans l'acte (art. 8-1 VI al. 2 : l'acte
    // de cautionnement désigne le colocataire dont la fin de solidarité met fin à l'engagement — y compris
    // quand une caution garantit TOUS les colocataires). Premier choix neutre : jamais désignée par défaut.
-   {id:'cautionSortant',l:'Caution dont l\'engagement prend fin avec ce départ',t:'select',o:function(){ return ['— À préciser'].concat(_avenantState.garants||[]).concat(['Aucune caution']); }},
+   {id:'cautionSortant',l:'Caution dont l\'engagement prend fin avec ce départ',t:'select',o:function(){ return ['— À préciser'].concat(_avenantState.garants||[]).concat(['Aucune caution']); }, si:function(a){ return !/^Ajout/.test(a); }},
    // Civilité : accorde le texte (« adjointe », « Elle déclare », « tenue »). Celle des locataires
    // en place vient du bail (bail.locataires[].civilite).
-   {id:'civEntrant',l:'Civilité du colocataire entrant',t:'select',o:['—','M.','Mme']},
-   {id:'entrant',l:'Colocataire entrant',t:'text',v:''}],
+   {id:'civEntrant',l:'Civilité du colocataire entrant',t:'select',o:['—','M.','Mme'], si:function(a){ return !/^Départ/.test(a); }},
+   {id:'entrant',l:'Colocataire entrant',t:'text',v:'', si:function(a){ return !/^Départ/.test(a); }}],
    note:'Départ seul : solidarité du sortant éteinte au plus tard 6 mois après le congé. Caution : choisir celle que l\'acte de cautionnement rattache à ce colocataire, même si elle garantit les deux ; si l\'acte désigne l\'autre colocataire, choisir « Aucune caution » (son engagement continue). Ajout / remplacement : nouvelle caution pour l\'entrant.'},
  {k:'caution', tt:'Garant / caution', f:[
    {id:'act',l:'Action',t:'select',o:['Ajout d\'une caution','Remplacement de la caution','Mainlevée (fin de caution)']},
@@ -25154,7 +25156,22 @@ function _avenantBuildGroups(){ var c=document.getElementById('av-groups'); if(!
   Object.keys(saisies).forEach(function(id){ var e=document.getElementById(id); if(!e) return;
     if(e.tagName==='SELECT'){ for(var i=0;i<e.options.length;i++){ if(e.options[i].value===saisies[id]){ e.selectedIndex=i; break; } } }
     else e.value=saisies[id];
-  }); }
+  });
+  _avenantChampsSituation(); }
+// Champs conditionnels (`si`) : masqués — jamais supprimés — selon la situation choisie (champ `act`
+// de l'objet). Changer de situation ne perd donc aucune saisie ; le texte de l'avenant, lui, ne lit
+// que les champs utiles à la situation (module avenant.js).
+function _avenantChampsSituation(){
+  _AVENANT_OBJETS.forEach(function(o){
+    if(!_avenantState.sel[o.k]) return;
+    var act=(document.getElementById('av-'+o.k+'-act')||{}).value||'';
+    o.f.forEach(function(fd){
+      if(typeof fd.si!=='function') return;
+      var e=document.getElementById('av-'+o.k+'-'+fd.id); var w=e&&e.closest('.fld'); if(!w) return;
+      w.style.display=fd.si(act)?'':'none';
+    });
+  });
+}
 function _avenantLoyerFeedback(){ var fb=document.getElementById('av-loyer-fb'); if(!fb)return;
   var motif=(document.getElementById('av-loyer-motif')||{}).value||'';
   var bail=DB.baux&&DB.baux[_avenantState.ref];
@@ -25183,6 +25200,7 @@ function _avenantDocPageHtml(ref){
   });
 }
 function _avenantRender(){ var prev=document.getElementById('av-preview'); if(!prev)return;
+  _avenantChampsSituation();   // la situation vient peut-être de changer : champs affichés à jour
   var ref=el('ov-avenant-ref')?el('ov-avenant-ref').value:_avenantState.ref;
   _docRenderSandboxed(prev, _avenantDocPageHtml(ref||_avenantState.ref), 'Aperçu de l’avenant', _avenantFrameCss());
   _avenantLoyerFeedback();
