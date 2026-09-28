@@ -2,7 +2,7 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantNumeroSuivant } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantNumeroSuivant, avenantEntrant } from '../../js/core/avenant.js';
 
 describe('avenantMontant — lecture des montants saisis', () => {
   it('champ vide → montant en vigueur conservé', () => {
@@ -214,14 +214,44 @@ describe('buildAvenantHtml — assemblage', () => {
       { k: 'loyer', data: { motif: 'Travaux d\'amélioration réalisés par le bailleur', desc: 'double vitrage', cout: 9000, nouveau: 690 } }
     ]
   };
-  it('préambule + articles numérotés + clôture', () => {
+  it('parties en blocs + articles numérotés + clôture (AVENANT-REFONTE §7)', () => {
     const r = buildAvenantHtml(ctx);
-    expect(r.html).toMatch(/Entre les soussignés/);
-    expect(r.html).toMatch(/Ceci exposé/);
+    expect(r.html).toMatch(/class="pro-parties"/);
+    expect(r.html).toMatch(/<h2>Le bailleur<\/h2><span class="pro-qui">SCI des Tilleuls/);
+    expect(r.html).toMatch(/<h2>Les locataires<\/h2><span class="pro-qui">MARTIN Sophie<br>DUBOIS Léa/);
     expect(r.html).toMatch(/Article I —/);
     expect(r.html).toMatch(/Prise d\'effet/);
     expect(r.html).toMatch(/Stipulations inchangées/);
-    expect(r.html).toMatch(/Lu et approuvé/);
+    expect(r.html).not.toMatch(/class="pro-kv"/);   // plus de tableau qui répète le titre
+  });
+  it('non-novation dite UNE fois (préambule), plus dans « Stipulations inchangées »', () => {
+    const r = buildAvenantHtml(Object.assign({}, ctx, { objets: [{ k: 'clause', data: { titre: 'T', texte: 'x' } }] }));
+    expect((r.html.match(/novation/g) || []).length).toBe(1);
+  });
+  it('« Fait le » = date de l\'acte, jamais la date d\'effet ; ligne à remplir tant que non signé', () => {
+    const sans = buildAvenantHtml(ctx).html;
+    expect(sans).toMatch(/class="pro-lieu">Fait à Strasbourg, le ____/);
+    expect(sans).not.toMatch(/Fait à Strasbourg, le 01\/10\/2026/);
+    const avec = buildAvenantHtml(Object.assign({}, ctx, { dateActeIso: '2026-09-28' })).html;
+    expect(avec).toMatch(/Fait à Strasbourg, le 28\/09\/2026/);
+  });
+  it('UNE seule zone de signature, bailleur d\'abord, sortant désigné comme tel, entrant ajouté', () => {
+    const h = buildAvenantHtml(Object.assign({}, ctx, { representant: 'Didier Keller, gérant' })).html;
+    expect((h.match(/class="pro-signzone/g) || []).length).toBe(1);
+    const roles = [...h.matchAll(/<div class="pro-signbox">([^<]*)<br>/g)].map(m => m[1]);
+    expect(roles).toEqual(['Le bailleur', 'Le locataire', 'Le colocataire sortant', 'Le colocataire entrant']);
+    expect(h).toMatch(/représenté par Didier Keller, gérant/);
+    expect(h).toMatch(/<div class="pro-sigspace"><\/div>/);   // espace de signature au-dessus du filet
+  });
+  it('images de signature posées dans leur cadre quand elles sont fournies (data-URL validée)', () => {
+    const h = buildAvenantHtml(Object.assign({}, ctx, { signatures: ['data:image/png;base64,AAA='] })).html;
+    expect(h).toMatch(/<div class="pro-sigspace"><img src="data:image\/png;base64,AAA="><\/div><div class="pro-signbox">Le bailleur/);
+  });
+  it('signature autre qu\'une image data-URL (HTML, javascript:, SVG) → ignorée (HTML conservé et partagé SCI)', () => {
+    const h = buildAvenantHtml(Object.assign({}, ctx, { signatures: [
+      '<img src=x onerror=alert(1)>', 'javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,AA"onerror="x'] })).html;
+    expect(h).not.toMatch(/onerror|javascript:|svg\+xml/);
+    expect((h.match(/<div class="pro-sigspace"><\/div>/g) || []).length).toBe(4);
   });
   it('signale la caution + expose le colocataire entrant comme signataire', () => {
     const r = buildAvenantHtml(ctx);
@@ -238,15 +268,112 @@ describe('buildAvenantHtml — assemblage', () => {
 });
 
 // AUDIT AVENANT 27/09 — bail sans signature dans l'app (papier / repris) : pas de « signé le ».
+describe('accords : singulier / pluriel selon les colocataires qui restent, genre selon la civilité (retour 28/09)', () => {
+  const locDetail = [{ nom: 'Alice Martin', civilite: 'Mme' }, { nom: 'Bruno Leroy', civilite: 'M.' }, { nom: 'Chloé Dubois', civilite: 'Mme' }];
+  const art = (data, locs) => avenantArticle('coloc', data, { locataires: locs, locDetail }).html;
+  it('départ, UNE colocataire reste → singulier, féminin, civilités réelles, plus de « (s) » ni de « / »', () => {
+    const h = art({ act: 'Départ (séparation), sans remplaçant', sortant: 'Bruno Leroy' }, ['Alice Martin', 'Bruno Leroy']);
+    expect(h).toMatch(/^M\. <strong>Bruno Leroy<\/strong> cesse/);
+    expect(h).toMatch(/caution pour lui prennent fin/);
+    expect(h).toMatch(/Mme <strong>Alice Martin<\/strong>, qui demeure dans les lieux, poursuit le bail aux conditions initiales et fait son affaire personnelle/);
+    expect(h).toMatch(/au colocataire sortant\.$/);
+    expect(h).not.toMatch(/\(s\)|\(e\)|M\. \/ Mme|poursuit \/|fait \/|Il \/ elle/);
+  });
+  it('départ, DEUX colocataires restent → pluriel avec leurs noms', () => {
+    const h = art({ act: 'Départ (séparation), sans remplaçant', sortant: 'Bruno Leroy' }, ['Alice Martin', 'Bruno Leroy', 'Chloé Dubois']);
+    expect(h).toMatch(/Les colocataires qui demeurent dans les lieux, Mme <strong>Alice Martin<\/strong> et Mme <strong>Chloé Dubois<\/strong>, poursuivent le bail aux conditions initiales et font leur affaire personnelle/);
+  });
+  it('sortante → « pour elle », « à la colocataire sortante »', () => {
+    const h = art({ act: 'Départ (séparation), sans remplaçant', sortant: 'Alice Martin' }, ['Alice Martin', 'Bruno Leroy']);
+    expect(h).toMatch(/^Mme <strong>Alice Martin<\/strong> cesse/);
+    expect(h).toMatch(/caution pour elle/);
+    expect(h).toMatch(/M\. <strong>Bruno Leroy<\/strong>, qui demeure dans les lieux, poursuit/);
+    expect(h).toMatch(/à la colocataire sortante\.$/);
+  });
+  it('remplacement par une entrante → « substituée », « Elle déclare », « tenue », avec la colocataire en place nommée', () => {
+    const h = art({ act: 'Remplacement (départ + arrivée)', sortant: 'Bruno Leroy', entrant: 'Emma Petit', civEntrant: 'Mme' }, ['Alice Martin', 'Bruno Leroy']);
+    expect(h).toMatch(/Mme <strong>Emma Petit<\/strong> est substituée au colocataire sortant/);
+    expect(h).toMatch(/Elle déclare/);
+    expect(h).toMatch(/indivisiblement tenue, avec Mme <strong>Alice Martin<\/strong>, du paiement/);
+  });
+  it('ajout d\'un entrant → « adjoint », pas de phrase sur la restitution au sortant (il n\'y en a pas)', () => {
+    const h = art({ act: 'Ajout d\'un colocataire', entrant: 'Hugo Bernard', civEntrant: 'M.' }, ['Alice Martin']);
+    expect(h).toMatch(/M\. <strong>Hugo Bernard<\/strong> est adjoint au contrat/);
+    expect(h).toMatch(/Il déclare/);
+    expect(h).toMatch(/Mme <strong>Alice Martin<\/strong>, qui demeure dans les lieux, poursuit le bail aux conditions initiales\.$/);
+    expect(h).not.toMatch(/dépôt de garantie/);
+  });
+  it('civilité inconnue → formes neutres conservées (jamais un genre deviné)', () => {
+    const h = avenantArticle('coloc', { act: 'Remplacement (départ + arrivée)', sortant: 'X', entrant: 'Y', civEntrant: '—' }, { locataires: ['X', 'Z'], locDetail: [] }).html;
+    expect(h).toMatch(/^M\. \/ Mme <strong>X<\/strong>/);
+    expect(h).toMatch(/substitué\(e\)/);
+    expect(h).toMatch(/Il \/ elle déclare/);
+  });
+  it('caution : « déchargée » pour Mme, « du locataire » / « des locataires » selon le bail, société sans civilité', () => {
+    const ml = avenantArticle('caution', { act: 'Mainlevée (fin de caution)', civ: 'Mme', nom: 'Paule Martin' }, { locataires: ['A'] }).html;
+    expect(ml).toMatch(/souscrit par Mme <strong>Paule Martin<\/strong>, qui se trouve déchargée/);
+    const aj = avenantArticle('caution', { act: 'Ajout d\'une caution', civ: '—', nom: 'Action Logement', plafond: 1000 }, { locataires: ['A', 'B'] }).html;
+    expect(aj).toMatch(/: <strong>Action Logement<\/strong> s'engage/);
+    expect(aj).toMatch(/obligations des locataires/);
+  });
+  it('cautions nommées (retour 28/09) : celle du sortant prend fin, celle qui reste est maintenue', () => {
+    const h = avenantArticle('coloc', { act: 'Départ (séparation), sans remplaçant', sortant: 'Bruno Leroy', cautionSortant: 'Jean Leroy' },
+      { locataires: ['Alice Martin', 'Bruno Leroy'], locDetail, garants: ['Paul Martin', 'Jean Leroy'] }).html;
+    expect(h).toMatch(/sa solidarité et celle de la personne qui s'est portée caution pour lui, <strong>Jean Leroy<\/strong>, prennent fin/);
+    expect(h).toMatch(/L'engagement de <strong>Paul Martin<\/strong>, caution, n'est pas modifié par le présent avenant et demeure régi par son acte de cautionnement\./);
+  });
+  it('« Aucune caution » → seule la solidarité du sortant (singulier), cautions du bail maintenues', () => {
+    const h = avenantArticle('coloc', { act: 'Départ (séparation), sans remplaçant', sortant: 'Bruno Leroy', cautionSortant: 'Aucune caution' },
+      { locataires: ['Alice Martin', 'Bruno Leroy'], locDetail, garants: ['Paul Martin'] }).html;
+    expect(h).toMatch(/1989, sa solidarité prend fin au plus tard/);
+    expect(h).toMatch(/L'engagement de <strong>Paul Martin<\/strong>, caution, n'est pas modifié/);
+  });
+  it('caution non précisée → formule générique, et on ne prétend rien sur les autres cautions', () => {
+    const h = avenantArticle('coloc', { act: 'Départ (séparation), sans remplaçant', sortant: 'Bruno Leroy', cautionSortant: '— À préciser' },
+      { locataires: ['Alice Martin', 'Bruno Leroy'], locDetail, garants: ['Paul Martin', 'Jean Leroy'] }).html;
+    expect(h).toMatch(/celle de la personne qui s'est portée caution pour lui prennent fin/);
+    expect(h).not.toMatch(/n'est pas modifié|ne sont pas modifiés|À préciser/);
+  });
+  it('homonymes : seul le 1er « Jean Martin » part, l\'autre reste nommé avec SA civilité', () => {
+    const ld = [{ nom: 'Jean Martin', civilite: 'Mme' }, { nom: 'Jean Martin', civilite: 'M.' }, { nom: 'Léa Roy', civilite: 'Mme' }];
+    const locs = ['Jean Martin', 'Jean Martin', 'Léa Roy'];
+    const h = avenantArticle('coloc', { act: 'Départ (séparation), sans remplaçant', sortant: 'Jean Martin' }, { locataires: locs, locDetail: ld }).html;
+    expect(h).toMatch(/^Mme <strong>Jean Martin<\/strong> cesse/);
+    expect(h).toMatch(/caution pour elle/);
+    expect(h).toMatch(/M\. <strong>Jean Martin<\/strong> et Mme <strong>Léa Roy<\/strong>, poursuivent/);
+    const doc = buildAvenantHtml({ bailleur: 'SCI', locataires: locs, locDetail: ld, effetIso: '2026-09-30', ville: 'Lyon',
+      objets: [{ k: 'coloc', data: { act: 'Départ (séparation), sans remplaçant', sortant: 'Jean Martin' } }] }).html;
+    const roles = [...doc.matchAll(/<div class="pro-signbox">([^<]*)<br>/g)].map(m => m[1]);
+    expect(roles).toEqual(['Le bailleur', 'La colocataire sortante', 'Le locataire', 'La locataire']);
+  });
+  it('ajout avec plusieurs colocataires : « Les colocataires en place » (personne ne « demeure », personne ne part)', () => {
+    const h = art({ act: 'Ajout d\'un colocataire', entrant: 'Hugo Bernard', civEntrant: 'M.' }, ['Alice Martin', 'Bruno Leroy']);
+    expect(h).toMatch(/Les colocataires en place, Mme <strong>Alice Martin<\/strong> et M\. <strong>Bruno Leroy<\/strong>, poursuivent le bail aux conditions initiales\.$/);
+  });
+  it('entrant saisi avec des espaces seuls → pas d\'entrant (ni cadre vide, ni case de paraphe)', () => {
+    expect(avenantEntrant([{ k: 'coloc', data: { act: 'Ajout d\'un colocataire', entrant: '   ' } }])).toBe('');
+    expect(avenantEntrant([{ k: 'coloc', data: { act: 'Ajout d\'un colocataire', entrant: ' Hugo ' } }])).toBe('Hugo');
+    expect(avenantEntrant([{ k: 'coloc', data: { act: 'Départ (séparation), sans remplaçant', entrant: 'Hugo' } }])).toBe('');
+  });
+  it('document : « La locataire », « La colocataire sortante » dans les parties et les cadres', () => {
+    const h = buildAvenantHtml({ bailleur: 'SCI', locataires: ['Alice Martin', 'Bruno Leroy'], locDetail, effetIso: '2026-09-30', ville: 'Lyon',
+      objets: [{ k: 'coloc', data: { act: 'Départ (séparation), sans remplaçant', sortant: 'Alice Martin' } }] }).html;
+    const roles = [...h.matchAll(/<div class="pro-signbox">([^<]*)<br>/g)].map(m => m[1]);
+    expect(roles).toEqual(['Le bailleur', 'La colocataire sortante', 'Le locataire']);
+    const seule = buildAvenantHtml({ bailleur: 'SCI', locataires: ['Alice Martin'], locDetail, effetIso: '2026-09-30', ville: 'Lyon', objets: [] }).html;
+    expect(seule).toMatch(/<h2>La locataire<\/h2>/);
+  });
+});
+
 describe('mention du bail modifié', () => {
   const base = { bailleur: 'SCI', locataires: ['A', 'B'], bien: 'rue X', dateBail: '2023-01-01', effetIso: '2026-01-01', ville: 'Colmar',
                  objets: [{ k: 'clause', data: { titre: 'T', texte: 'x' } }] };
   it('bail signé dans l\'app → « signé le »', () => {
-    expect(buildAvenantHtml({ ...base, bailSigne: true }).html).toMatch(/Contrat d'habitation signé le/);
+    expect(buildAvenantHtml({ ...base, bailSigne: true }).html).toMatch(/Bail d'habitation signé le/);
   });
   it('bail NON signé dans l\'app → « en date du » (jamais « signé le » affirmé à tort)', () => {
     const h = buildAvenantHtml({ ...base, bailSigne: false }).html;
-    expect(h).toMatch(/Contrat d'habitation en date du/);
+    expect(h).toMatch(/Bail d'habitation en date du/);
     expect(h).not.toMatch(/signé le/);
   });
   it('rétrocompat : bailSigne absent → « signé le » (comportement historique)', () => {

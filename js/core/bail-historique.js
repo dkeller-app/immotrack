@@ -44,7 +44,8 @@ function _pushEv(rail, ev, dateTri) {
 /**
  * Construit les chapitres de l'historique du bail d'un lot.
  * @param {{ref:string, today:string, bailCourant:Object|null, bauxHistorique:Array,
- *          bareme:Array, irlHistorique:Array, bailEvents:Array}} input
+ *          bareme:Array, irlHistorique:Array, bailEvents:Array, bailJournal?:Array}} input
+ *   bailJournal = DB.baux_evenements (modifications d'un bail signé hors avenant, migration 0054)
  * @returns {{chapitres:Array}}
  */
 export function construireHistoriqueBail(input) {
@@ -213,6 +214,18 @@ export function construireHistoriqueBail(input) {
     if (e.type === 'modif' && e.avenant != null) continue;
     const c = _byBailDebut(e.bailDebut) || _byRange(e.date) || chapitres[0];
     _pushEv(c.rail, { ...e, type: e.type || 'trace' }, e.date);
+  }
+
+  // ── BAIL-SIGNE-MODIFS (28/09) — modifications d'un bail signé hors avenant (journal
+  //    DB.baux_evenements, table 0054). Une carte par enregistrement ; les champs financiers
+  //    (loyer / charges / dépôt) sont déjà une carte du barème → retirés de celle-ci.
+  for (const e of (i.bailJournal || [])) {
+    if (!e || e._deleted || e.type !== 'modification' || _nr(String(e.ref || '').split('@@')[0]) !== want) continue;
+    const changements = (e.changements || []).filter((ch) => ch && !ch.fin);
+    if (!changements.length) continue;
+    const c = _byBailDebut(e.bailDebut) || _byRange(e.date) || chapitres[0];
+    if (!c) continue;
+    _pushEv(c.rail, { ...e, changements, type: 'modification' }, e.date);
   }
 
   // ── Tri final du rail : date décroissante, à date égale par poids (période > événements > bail-debut).

@@ -131,7 +131,9 @@ async function _ensureNativePdfLibs() {
   return _getJsPdfClass() && _autotableReady();
 }
 
-async function _docHtmlToNativeBlob(html, ent) {
+// `opts` (facultatif) est transmis au moteur : { pagination, paraphes } — utilisé par l'avenant
+// (AVENANT-REFONTE §7). Sans `opts`, rendu inchangé (quittances, décomptes, lettres IRL, congés).
+async function _docHtmlToNativeBlob(html, ent, opts) {
   if (typeof window === 'undefined' || !window.DocNative || typeof window.DocNative.parseDocDoc !== 'function') {
     throw new Error('doc-native-not-loaded');
   }
@@ -148,7 +150,7 @@ async function _docHtmlToNativeBlob(html, ent) {
     window.MontantDoc.hardenJsPdfText(pdf);
   }
   const parsed = window.DocNative.parseDocDoc(html);
-  window.DocNative.renderDocToPdf(pdf, ent || {}, parsed, window.DocNative.PDF_NATIVE);
+  window.DocNative.renderDocToPdf(pdf, ent || {}, parsed, window.DocNative.PDF_NATIVE, opts || {});
   return pdf.output('blob');
 }
 

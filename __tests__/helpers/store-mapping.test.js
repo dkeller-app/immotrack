@@ -178,3 +178,27 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     expect(() => mapToRow('bidon', {}, ctx())).toThrow()
   })
 })
+
+describe('mapToRow — journal des baux signés (baux_evenements, migration 0054)', () => {
+  const e = { id: 'bj_1', ref: 'F-1', bailDebut: '2025-01-01', signedAt: '2025-01-02T10:00:00Z', date: '2026-09-28T09:30:00.000Z', type: 'modification', changements: [{ champ: 'notes', apres: 'x' }] }
+  it('rattaché à la ligne du bail (même id déterministe), type, dates, legacy_raw complet', () => {
+    const r = mapToRow('baux_evenements', e, ctx())
+    expect(r.id).toBe('uuid:bailevt|bj_1')
+    expect(r.bail_id).toBe('uuid:bail|f-1')          // = id de la ligne baux (detUuid('bail', ref))
+    expect(r.type_evenement).toBe('modification')
+    expect(r.date_evenement).toBe('2026-09-28')
+    expect(r.bail_debut).toBe('2025-01-01')
+    expect(r.legacy_id).toBe('bj_1')
+    expect(r.legacy_raw).toEqual(e)
+  })
+  it('clé désambiguïsée « ref@@espace » → ref nue ; type inconnu → autre ; tag d\'espace retiré', () => {
+    const r = mapToRow('baux_evenements', { ...e, ref: 'F-1@@ESP2', type: 'bizarre', _espaceId: 'ESP2' }, ctx())
+    expect(r.bail_id).toBe('uuid:bail|f-1')
+    expect(r.type_evenement).toBe('autre')
+    expect(r.legacy_raw._espaceId).toBeUndefined()
+  })
+  it('logement inconnu ou date absente → null (skippé et retenté, jamais une FK violée en boucle)', () => {
+    expect(mapToRow('baux_evenements', { ...e, ref: 'INCONNU' }, ctx())).toBe(null)
+    expect(mapToRow('baux_evenements', { ...e, date: '' }, ctx())).toBe(null)
+  })
+})

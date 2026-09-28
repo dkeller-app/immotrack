@@ -38,6 +38,9 @@ const ARRAY_TABLES = {
   entites: 'entites', logements: 'logements', baux_historique: 'baux_historique',
   mouvements: 'mouvements', quittances: 'quittances', edl: 'edl', documents: 'documents',
   assurances: 'mrh', agenda: 'agenda', candidats: 'candidats',
+  // Journal des baux SIGNÉS (migration 0054) : modifications hors avenant, à côté de la ligne
+  // verrouillée du bail (js/core/bail-modifications.js). Même nom côté table et côté app.
+  baux_evenements: 'baux_evenements',
 }
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // collection legacy → table Supabase (mrh = la table assurances ; sinon identique).
@@ -107,6 +110,16 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
   async function hydrate() {
     const db = {}
     for (const [table, coll] of Object.entries(ARRAY_TABLES)) {
+      // Journal des baux signés : TOLÉRANT. Si le client est en ligne avant la migration 0054 (colonne
+      // legacy_raw absente), une erreur ici ferait échouer TOUT le chargement cloud, pour tous les comptes.
+      // On le dit en console et on continue sans journal (les baux s'affichent dans leur état signé).
+      if (table === 'baux_evenements') {
+        let rowsJ = []
+        try { rowsJ = await fetchTable(table) } catch (e) { console.warn('[SupabaseStore] journal des baux indisponible (migration 0054 appliquée ?) :', e && e.message); rowsJ = [] }
+        db[coll] = rowsJ.map(r => r && r.legacy_raw).filter(lr => lr != null)
+        captureVersions(rowsJ)
+        continue
+      }
       const rows = await fetchTable(table)
       db[coll] = rows.map(r => r && r.legacy_raw).filter(lr => lr != null)
       captureVersions(rows)
