@@ -207,6 +207,10 @@ export function construireHistoriqueBail(input) {
   // ── Traces hors barème (modif DG, corrections…) — DB.bailEvents, append-only.
   for (const e of (i.bailEvents || [])) {
     if (!e || e._deleted || _nr(e.ref) !== want) continue;
+    // AUDIT AVENANT 27/09 — les avenants (≤ v15.680) écrivaient AUSSI un 'modif' {avenant, hcAvant…} :
+    // doublon de la carte déjà dérivée de la période de barème 'manuel', et rendu cassé
+    // (« Loyer – HC + – »). On les écarte ; l'événement 'avenant' et la période restent.
+    if (e.type === 'modif' && e.avenant != null) continue;
     const c = _byBailDebut(e.bailDebut) || _byRange(e.date) || chapitres[0];
     _pushEv(c.rail, { ...e, type: e.type || 'trace' }, e.date);
   }

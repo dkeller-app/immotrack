@@ -2,7 +2,61 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantNumeroSuivant } from '../../js/core/avenant.js';
+
+describe('avenantMontant — lecture des montants saisis', () => {
+  it('champ vide → montant en vigueur conservé', () => {
+    expect(avenantMontant('', 750)).toEqual({ ok: true, v: 750 });
+    expect(avenantMontant('  ', 80)).toEqual({ ok: true, v: 80 });
+    expect(avenantMontant(null, 80)).toEqual({ ok: true, v: 80 });
+  });
+  it('charges à 0 € acceptées (charges supprimées)', () => {
+    expect(avenantMontant('0', 80)).toEqual({ ok: true, v: 0 });
+  });
+  it('loyer à 0 € refusé (strictPositif)', () => {
+    expect(avenantMontant('0', 750, { strictPositif: true })).toEqual({ ok: false });
+    expect(avenantMontant('', 750, { strictPositif: true })).toEqual({ ok: true, v: 750 });
+  });
+  it('négatif ou illisible refusé', () => {
+    expect(avenantMontant('-50', 80)).toEqual({ ok: false });
+    expect(avenantMontant('abc', 80)).toEqual({ ok: false });
+  });
+  it('virgule décimale et espaces, arrondi au centime', () => {
+    expect(avenantMontant('1 234,567', 0)).toEqual({ ok: true, v: 1234.57 });
+  });
+});
+
+describe('avenantNumeroSuivant — numérotation par bail', () => {
+  const bail = { debut: '2025-09-01', avenants: [] };
+  it('aucun avenant → n° 1', () => {
+    expect(avenantNumeroSuivant(bail, [], 'F-001')).toBe(1);
+    expect(avenantNumeroSuivant(bail, undefined, 'F-001')).toBe(1);
+  });
+  it('max des avenants du bail et du journal + 1', () => {
+    const b = { debut: '2025-09-01', avenants: [{ no: 1 }] };
+    const ev = [{ type: 'avenant', ref: 'F-001', bailDebut: '2025-09-01', no: 3, date: '2026-01-01' }];
+    expect(avenantNumeroSuivant(b, ev, 'F-001')).toBe(4);
+  });
+  it('les avenants du bail PRÉCÉDENT du même logement ne comptent pas', () => {
+    const ev = [
+      { type: 'avenant', ref: 'F-001', bailDebut: '2022-01-01', no: 1, date: '2023-01-01' },
+      { type: 'avenant', ref: 'F-001', bailDebut: '2022-01-01', no: 2, date: '2024-01-01' },
+    ];
+    expect(avenantNumeroSuivant(bail, ev, 'F-001')).toBe(1);
+  });
+  it('bail dont la date de début a été corrigée : un avenant daté après le début compte', () => {
+    const ev = [{ type: 'avenant', ref: 'F-001', bailDebut: '2025-08-15', no: 1, date: '2026-02-01' }];
+    expect(avenantNumeroSuivant(bail, ev, 'F-001')).toBe(2);
+  });
+  it('autre logement, autre type ou supprimé → ignorés', () => {
+    const ev = [
+      { type: 'avenant', ref: 'F-002', bailDebut: '2025-09-01', no: 5 },
+      { type: 'modif', ref: 'F-001', bailDebut: '2025-09-01', no: 6 },
+      { type: 'avenant', ref: 'F-001', bailDebut: '2025-09-01', no: 7, _deleted: true },
+    ];
+    expect(avenantNumeroSuivant(bail, ev, 'F-001')).toBe(1);
+  });
+});
 
 describe('champ vide → marqueur « à compléter » (jamais un « … » final)', () => {
   it('clause sans texte → marqueur av-todo, pas de …', () => {
@@ -180,5 +234,26 @@ describe('buildAvenantHtml — assemblage', () => {
     const r = buildAvenantHtml(Object.assign({}, ctx, { objets: [] }));
     expect(r.nbArticles).toBe(2);
     expect(r.caution).toBe(false);
+  });
+});
+
+// AUDIT AVENANT 27/09 — bail sans signature dans l'app (papier / repris) : pas de « signé le ».
+describe('mention du bail modifié', () => {
+  const base = { bailleur: 'SCI', locataires: ['A', 'B'], bien: 'rue X', dateBail: '2023-01-01', effetIso: '2026-01-01', ville: 'Colmar',
+                 objets: [{ k: 'clause', data: { titre: 'T', texte: 'x' } }] };
+  it('bail signé dans l\'app → « signé le »', () => {
+    expect(buildAvenantHtml({ ...base, bailSigne: true }).html).toMatch(/Contrat d'habitation signé le/);
+  });
+  it('bail NON signé dans l\'app → « en date du » (jamais « signé le » affirmé à tort)', () => {
+    const h = buildAvenantHtml({ ...base, bailSigne: false }).html;
+    expect(h).toMatch(/Contrat d'habitation en date du/);
+    expect(h).not.toMatch(/signé le/);
+  });
+  it('rétrocompat : bailSigne absent → « signé le » (comportement historique)', () => {
+    expect(buildAvenantHtml({ ...base }).html).toMatch(/signé le/);
+  });
+  it('une dateBail non-date est échappée (plus de rendu brut)', () => {
+    const h = buildAvenantHtml({ ...base, dateBail: '<img src=x onerror=1>' }).html;
+    expect(h).not.toMatch(/<img/);
   });
 });

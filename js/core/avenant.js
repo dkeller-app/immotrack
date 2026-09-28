@@ -250,7 +250,9 @@ export function buildAvenantHtml(ctx) {
     '<p class="pro-lead" style="font-variant:small-caps;letter-spacing:.03em">Entre les soussignés :</p>' +
     '<p>' + b(ctx.bailleur || '…') + ', ci-après « le bailleur », d\'une part,</p>' +
     '<p>Et ' + b(locs.join(' & ') || '…') + ', ci-après « le(s) locataire(s) », d\'autre part,</p>' +
-    '<table class="pro-kv"><tr><td>Bail modifié</td><td>Contrat d\'habitation signé le <strong>' + frDate(ctx.dateBail) + '</strong></td></tr>' +
+    // AUDIT 27/09 : pas de « signé le » pour un bail sans signature dans l'app (bail papier / repris) ;
+    // date ÉCHAPPÉE (une valeur non-date était rendue brute).
+    '<table class="pro-kv"><tr><td>Bail modifié</td><td>Contrat d\'habitation ' + (ctx.bailSigne === false ? 'en date du' : 'signé le') + ' <strong>' + esc(frDate(ctx.dateBail)) + '</strong></td></tr>' +
     '<tr><td>Logement</td><td>' + esc(ctx.bien || '…') + '</td></tr>' +
     '<tr><td>Loyer mensuel HC en vigueur</td><td>' + num(ctx.loyer0) + ' €</td></tr></table>' +
     '<p style="font-variant:small-caps;letter-spacing:.03em">Il a été préalablement exposé ce qui suit :</p>' +
@@ -302,4 +304,46 @@ export function avenantChampsManquants(objets) {
     if (miss.length) out.push({ k: o.k, champs: miss });
   });
   return out;
+}
+
+/**
+ * Lecture d'un montant saisi dans l'avenant (loyer ou charges).
+ * Champ VIDE → montant en vigueur conservé ; montant négatif / illisible → refusé.
+ * 0 € est valable pour les charges (charges supprimées), pas pour le loyer (`strictPositif`).
+ * @param {*} raw valeur saisie
+ * @param {number} prev montant en vigueur
+ * @param {{strictPositif?:boolean}} [opts]
+ * @returns {{ok:true, v:number}|{ok:false}}
+ */
+export function avenantMontant(raw, prev, opts) {
+  const s = String(raw == null ? '' : raw).trim().replace(/\s/g, '').replace(',', '.');
+  if (s === '') return { ok: true, v: prev };
+  const n = parseFloat(s);
+  if (!isFinite(n) || n < 0) return { ok: false };
+  if (opts && opts.strictPositif && !(n > 0)) return { ok: false };
+  return { ok: true, v: Math.round(n * 100) / 100 };
+}
+
+/**
+ * Numéro du prochain avenant d'un bail : max des numéros connus + 1.
+ * Sources : `bail.avenants[]` ET le journal `DB.bailEvents` (type 'avenant'), qui survit à un bail
+ * signé verrouillé au cloud. Le journal est tenu PAR LOGEMENT : seuls les événements du bail COURANT
+ * comptent (même `bailDebut`, ou datés à partir de son début) — sinon le 1ᵉʳ avenant d'un nouveau
+ * locataire reprendrait la numérotation du bail précédent.
+ * @param {object} bail
+ * @param {Array} events DB.bailEvents
+ * @param {string} ref réf du logement
+ * @returns {number}
+ */
+export function avenantNumeroSuivant(bail, events, ref) {
+  let max = 0;
+  const b = bail || {};
+  (b.avenants || []).forEach(a => { max = Math.max(max, Number(a && a.no) || 0); });
+  const debut = String(b.debut || '');
+  (Array.isArray(events) ? events : []).forEach(e => {
+    if (!e || e._deleted || e.type !== 'avenant' || e.ref !== ref) return;
+    const memeBail = String(e.bailDebut || '') === debut || (!!debut && String(e.date || '') >= debut);
+    if (memeBail) max = Math.max(max, Number(e.no) || 0);
+  });
+  return max + 1;
 }

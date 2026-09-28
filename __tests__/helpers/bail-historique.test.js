@@ -274,3 +274,28 @@ describe('I-DATE surface 7 — une restitution de DG n’est datée que par son 
     expect(item.dateTri).toBe('2024-01-01');      // = la SIGNATURE : à trier, pas à montrer
   });
 });
+
+// AUDIT AVENANT 27/09 — l'historique doit montrer l'avenant, sans le doublon 'modif' cassé.
+describe('avenants dans l\'historique', () => {
+  it('un événement « avenant » entre dans la frise avec son n° et ses objets', () => {
+    const av = { id: 'ev_av_1', ref: 'F-001', bailDebut: '2024-03-01', date: '2026-06-01', type: 'avenant', no: 2,
+                 objets: ['coloc', 'charges'], appliques: ['Charges'], docSeul: ['Colocataire'] };
+    const h = build({ bailEvents: [av] });
+    const ev = h.chapitres[0].rail.find(r => r.kind === 'evenement' && r.ev.type === 'avenant').ev;
+    expect(ev.no).toBe(2);
+    expect(ev.objets).toEqual(['coloc', 'charges']);
+    expect(ev.docSeul).toEqual(['Colocataire']);
+  });
+  it('le « modif » legacy écrit par un avenant (≤ v15.680) est écarté — la période de barème porte déjà la carte', () => {
+    const legacy = { ref: 'F-001', bailDebut: '2024-03-01', date: '2026-06-01', type: 'modif', avenant: 1,
+                     hcAvant: 505.15, hcApres: 520, chAvant: 65, chApres: 70 };
+    const h = build({ bailEvents: [legacy] });
+    const modifsDeTrace = h.chapitres[0].rail.filter(r => r.kind === 'evenement' && r.ev.type === 'modif' && r.ev.avenant != null);
+    expect(modifsDeTrace).toHaveLength(0);
+  });
+  it('une trace « modif-dg » (non liée à un avenant) reste affichée', () => {
+    const dg = { ref: 'F-001', bailDebut: '2024-03-01', date: '2026-05-10', type: 'modif-dg', avant: 500, apres: 600 };
+    const h = build({ bailEvents: [dg] });
+    expect(h.chapitres[0].rail.some(r => r.kind === 'evenement' && r.ev.type === 'modif-dg')).toBe(true);
+  });
+});
