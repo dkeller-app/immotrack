@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.685</title>
+<title>Propryo v15.688</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.685">
+<link rel="stylesheet" href="css/main.css?v=15.688">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.685</em>
+      <em>v15.688</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -1738,10 +1738,13 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         </div>
       </div>
       <div id="b-encadrement-fields" style="display:none">
+        <!-- CONTRAT-TYPE-2026-10 — IV.A.1° b) : « montant du loyer de référence : […] €/m2 / Montant du
+             loyer de référence majoré : […] €/m2 » — les DEUX montants de l'arrêté préfectoral. -->
         <div class="fg2">
+          <div class="fg"><label>Loyer de référence (€/m²/mois)</label><input class="inp" type="number" id="b-loyerRef" min="0" step="0.01" placeholder="Arrêté préfectoral"></div>
           <div class="fg"><label>Loyer de référence majoré (€/m²/mois)</label><input class="inp" type="number" id="b-loyerRefMajore" min="0" step="0.01" placeholder="Arrêté préfectoral"></div>
-          <div class="fg"><label>Complément de loyer (€/mois)</label><input class="inp" type="number" id="b-complementLoyer" min="0" step="0.01" placeholder="0 = néant"></div>
         </div>
+        <div class="fg"><label>Complément de loyer (€/mois)</label><input class="inp" type="number" id="b-complementLoyer" min="0" step="0.01" placeholder="0 = néant"></div>
         <div class="fg">
           <label>Justification du complément de loyer</label>
           <input class="inp" id="b-complementJustif" placeholder="Caractéristiques exceptionnelles justifiant le complément...">
@@ -1757,9 +1760,17 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
           <option value="moinsde18">Moins de 18 mois (mention obligatoire)</option>
         </select>
       </div>
-      <div class="fg" id="b-precedent-details-wrap" style="display:none">
-        <label>Dernier loyer précédent locataire (€ + date)</label>
-        <input class="inp" id="b-precedentLoyerDetail" placeholder="ex: 650 € HC — versé le 05/03/2026 — dernière révision 01/2025">
+      <!-- CONTRAT-TYPE-2026-10 — IV.A.1° c) : « montant du dernier loyer acquitté par le précédent
+           locataire, date de versement et date de la dernière révision du loyer » (3 données). -->
+      <div id="b-precedent-details-wrap" style="display:none">
+        <div class="fg">
+          <label>Dernier loyer acquitté par le précédent locataire</label>
+          <input class="inp" id="b-precedentLoyerDetail" placeholder="ex: 650 € hors charges">
+        </div>
+        <div class="fg2">
+          <div class="fg"><label>Date de versement de ce loyer</label><input class="inp" type="date" id="b-precedentLoyerDateVers"></div>
+          <div class="fg"><label>Date de la dernière révision du loyer</label><input class="inp" type="date" id="b-precedentLoyerDateRev"></div>
+        </div>
       </div>
       <!-- v13.23 BAIL-TRAVAUX-INTERLOC : champ travaux d'amélioration entre 2 locataires.
            Visible si zone tendue OU encadrement OU précédent < 18 mois (cas où la
@@ -2443,6 +2454,18 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
            l'écran et sa valeur est reversée dans log.lot par une migration douce (js/core/biens-migration.js). -->
       <div class="logmod-section-title">🧾 Fiscalité &amp; charges communes</div>
       <div class="fg"><label>N° identifiant fiscal du logement</label><input class="inp" id="log-numFiscal" placeholder="Déclaration d’occupation des locaux"></div>
+      <!-- CONTRAT-TYPE-2026-10 — II.B du contrat type (décret n° 2026-596) : « Le cas échéant, Servitude
+           de résidence principale ». Donnée du bien (figée au bailSnapshot à la signature). Cochée →
+           mention au §3 du bail + motif de résiliation au §12. -->
+      <div class="fg" style="margin-top:6px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;min-height:44px">
+          <input type="checkbox" id="log-servitudeRP" style="width:18px;height:18px;cursor:pointer">
+          <span>Servitude de résidence principale <span class="mu sm" style="font-weight:400">(art. L. 151-14-1 du code de l'urbanisme)</span></span>
+        </label>
+        <div class="mu sm" style="font-size:11px;color:var(--t3);margin-left:26px;margin-top:2px">
+          À cocher seulement si ce logement est soumis à cette obligation : le bail le mentionnera et en fera un motif de résiliation.
+        </div>
+      </div>
       <div class="fg2">
         <div class="fg">
           <label>Tantièmes (millièmes) <span class="mu sm">copro</span></label>
@@ -4270,7 +4293,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.685';
+const IMMOTRACK_VERSION = '15.688';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -5293,7 +5316,7 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <p><strong>Désignation de l'ensemble immobilier :</strong></p>
 <p>Dans un ensemble immobilier situé au {{ADRESSE_BIEN}}, un appartement à usage d'habitation de type {{TYPE_LOGEMENT}} situé au {{ETAGE}} de {{SURFACE}} m² habitables.</p>
 <table>
-<tr><td style="background:#f0f0f0;font-weight:bold;width:40%">Surface habitable (loi Carrez)</td><td>{{SURFACE}} m²</td></tr>
+<tr><td style="background:#f0f0f0;font-weight:bold;width:40%">{{SURFACE_LIBELLE}}</td><td>{{SURFACE}} m²</td></tr>
 <tr><td style="background:#f0f0f0;font-weight:bold">Nombre de pièces principales</td><td>{{NB_PIECES}} pièces</td></tr>
 <tr><td style="background:#f0f0f0;font-weight:bold">Désignation des pièces</td><td>{{PIECES_DESC}}</td></tr>
 <tr><td style="background:#f0f0f0;font-weight:bold">Locaux et équipements accessoires à usage privatif du locataire</td><td>{{LOCAUX_PRIVATIFS}}</td></tr>
@@ -5308,11 +5331,11 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <tr><td style="background:#f0f0f0;font-weight:bold">Équipements cuisine</td><td>{{EQUIP_CUISINE}}</td></tr>
 <tr><td style="background:#f0f0f0;font-weight:bold">Équipements sanitaires</td><td>{{EQUIP_SANITAIRES}}</td></tr>
 <tr><td style="background:#f0f0f0;font-weight:bold">Eau chaude sanitaire</td><td>{{ECS}}</td></tr>
-<tr><td style="background:#f0f0f0;font-weight:bold">Technologies de l'information</td><td>{{TECH_INFO}}</td></tr>
+<tr><td style="background:#f0f0f0;font-weight:bold">Technologies de l'information</td><td>{{TECH_INFO}}</td></tr>{{NIVEAU_PERFORMANCE_ROW}}
 </table>
 <p>Le logement remplissant les conditions d'habitation imposées par la loi. Le LOCATAIRE déclare en avoir exacte et parfaite connaissance pour l'avoir visité préalablement et reconnaît que le bien correspond aux caractéristiques de logement décent définies par le décret n° 2002-120 du 30 janvier 2002.</p>
 <p>Le LOCATAIRE s'oblige à respecter l'ensemble des obligations pouvant résulter des dispositions de l'état descriptif de division, du règlement de copropriété et du règlement intérieur de l'ensemble immobilier.</p>
-<p class="note"><em>Rappel (loi Climat et Résilience) : à compter du 1<sup>er</sup> janvier 2025, niveau de performance minimal = classe F du DPE ; classe E à compter du 1<sup>er</sup> janvier 2028 ; classe D à compter du 1<sup>er</sup> janvier 2034.</em></p>
+{{RAPPEL_DECENCE}}
 
 <h2>2 — Dossier de Diagnostic Technique (DDT)</h2>
 <p>Les diagnostics suivants sont annexés au présent bail conformément aux articles L. 271-4 et suivants du CCH. Il est précisé que le locataire ne peut se prévaloir à l'encontre du propriétaire des informations contenues dans ces diagnostics.</p>
@@ -5376,7 +5399,7 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <p>Lorsque le LOCATAIRE en fera la demande, le BAILLEUR lui remettra gratuitement une quittance portant le détail des sommes versées. Dans tous les cas de paiement partiel, le BAILLEUR délivrera un reçu.</p>
 
 <h3>5.4 — Dépenses énergétiques</h3>
-<p>Conformément au décret n° 2020-1609 du 17 décembre 2020, le montant estimé des dépenses annuelles d'énergie pour un usage standard du logement est de <strong>{{DEPENSES_ENERGIE}}</strong> (source : diagnostic de performance énergétique).</p>
+<p>{{DEPENSES_ENERGIE_PHRASE}}</p>
 
 <h3>5.5 — Précédent locataire</h3>
 <p>{{PRECEDENT_LOC_SECTION}}</p>
@@ -5485,13 +5508,7 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <p>Le LOCATAIRE doit laisser effectuer dans les locaux loués et les parties communes les travaux d'amélioration, de mise en conformité ou d'entretien nécessaires, quelle qu'en soit la durée, sans pouvoir prétendre à une indemnité pour la gêne occasionnée, sauf si ces travaux durent plus de quarante (40) jours ouvrés, auquel cas il peut demander une réduction de loyer proportionnelle à la durée et à l'importance de la privation de jouissance.</p>
 
 <h2>12 — Clause résolutoire</h2>
-<p>Conformément à l'article 24 de la loi n° 89-462 du 6 juillet 1989 modifiée par la loi n° 2023-668 du 27 juillet 2023, le bail sera résilié de plein droit dans les cas suivants :</p>
-<ol>
-<li><strong>Non-paiement du loyer ou des charges</strong> (provisions ou régularisation annuelle) : <strong>six (6) semaines</strong> après un commandement de payer demeuré infructueux ;</li>
-<li><strong>Non-versement du dépôt de garantie</strong> : <strong>six (6) semaines</strong> après un commandement demeuré infructueux ;</li>
-<li><strong>Défaut d'assurance des risques locatifs</strong> : <strong>un (1) mois</strong> après un commandement d'assurer demeuré infructueux (article 7 de la loi du 6 juillet 1989) ;</li>
-<li><strong>Troubles de voisinage</strong> : constatés par une décision de justice passée en force de chose jugée.</li>
-</ol>
+{{CLAUSE_RESOLUTOIRE_MOTIFS}}
 
 <h3>Conditions de forme du commandement de payer</h3>
 <p>Le commandement de payer est délivré par commissaire de justice. Il reproduit, <strong>à peine de nullité</strong>, les dispositions du présent article ainsi que des trois premiers alinéas de l'article 6 de la loi n° 90-449 du 31 mai 1990 visant la mise en œuvre du droit au logement, en mentionnant la faculté pour le locataire de saisir le <strong>Fonds de Solidarité pour le Logement (FSL)</strong> de son département, dont l'adresse de saisine est précisée.</p>
@@ -5555,7 +5572,7 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <tr><td>6</td><td>{{DOC_CAUTION}}</td><td>{{STATUT_CAUTION}}</td></tr>
 <tr><td>7</td><td>Liste des réparations locatives (décret n° 87-712)</td><td>Annexe A</td></tr>
 <tr><td>8</td><td>Liste des charges récupérables (décret n° 87-713)</td><td>Annexe B</td></tr>
-<tr><td>9</td><td>Autorisation préalable de mise en location (zones dégradées EPCI — CCH L.634-3)</td><td>N/A — non applicable</td></tr>
+<tr><td>9</td><td>Autorisation préalable de mise en location (zones dégradées EPCI — CCH L.634-3)</td><td>{{STATUT_AUTORISATION_PREALABLE}}</td></tr>
 </table>
 
 <div class="paraph-band" style="margin-top:30px">
@@ -7856,7 +7873,7 @@ async function _onRemoteBailReady(ref, pdfDataUrl, anchors, totalPages, clauseIr
   try {
     window.__remoteBailStaging = window.__remoteBailStaging || {};
     // IRL-REVISION N11 — la version de clause 5.2 IMPRIMÉE dans ce PDF (celle de la popup).
-    window.__remoteBailStaging[ref] = { pdfDataUrl, anchors, totalPages, at: Date.now(), clauseIrlV: clauseIrlV === 2 ? 2 : 1 };
+    window.__remoteBailStaging[ref] = { pdfDataUrl, anchors, totalPages, at: Date.now(), clauseIrlV: _bailClauseVersionNorm(clauseIrlV) };
     console.log('[remoteSign] PDF prêt', ref, (anchors || []).length, 'ancres,', totalPages, 'pages');
     if (typeof _emitRemoteSignSession === 'function') {
       await _emitRemoteSignSession(ref); // défini Task 9
@@ -8380,7 +8397,7 @@ async function _emitRemoteSignSession(ref) {
     status: 'sent', createdAt: new Date().toISOString(),
     signers: signers.map(s => ({ sigId: s.sigId, role: s.role, nom: s.nom, email: s.email, distant: s.distant, signedAt: null, notifiedAt: null })),
     lastPolledAt: null,
-    clauseIrlV: (staging && staging.clauseIrlV === 2) ? 2 : 1   // IRL-REVISION N4/N11 : la version IMPRIMÉE dans le PDF envoyé
+    clauseIrlV: _bailClauseVersionNorm(staging && staging.clauseIrlV)   // IRL-REVISION N4/N11 (+ contrat type 2026) : la version IMPRIMÉE dans le PDF envoyé
   };
   bail._modifiedAt = new Date().toISOString();
   saveDB();
@@ -8711,7 +8728,7 @@ async function _completeRemoteSign(ref, state) {
   prevRemote.ownerToken = null; // audit M5 : session relais supprimée → le token n'a plus d'usage, ne pas le conserver/synchroniser
   // IRL-REVISION N4 — la version de clause relue par le locataire (celle de l'envoi) est gravée.
   // N10 — écrite EXPLICITEMENT (un 2 laissé par un enregistrement ultérieur ne doit pas survivre).
-  bail.clauseIrlV = (rs && rs.clauseIrlV === 2) ? 2 : 1;
+  bail.clauseIrlV = _bailClauseVersionNorm(rs && rs.clauseIrlV);
   bail.signatures = Object.assign({}, bail.signatures, {
     mode: 'distance',
     signedAt: completedAt,
@@ -17165,6 +17182,7 @@ function openBailHist(i) {
   if(el('b-premiereLoc')) { el('b-premiereLoc').value = b.premiereLoc||'premiere'; togglePremiereLoc(); }
   if(el('b-dernierLoyerPrec')) el('b-dernierLoyerPrec').value = b.dernierLoyerPrec||'';
   if(el('b-loyerRefMajore')) el('b-loyerRefMajore').value = b.loyerRefMajore||'';
+  if(el('b-loyerRef')) el('b-loyerRef').value = b.loyerRef||'';   // CONTRAT-TYPE-2026-10
   if(el('b-complementLoyer')) el('b-complementLoyer').value = b.complementLoyer||'';
   if(el('b-complementJustif')) el('b-complementJustif').value = b.complementJustif||'';
   if(el('b-plafondCaution')) el('b-plafondCaution').value = b.plafondCaution||'';
@@ -17208,6 +17226,8 @@ function openBailHist(i) {
   el('b-depensesEnergie').value = b.depensesEnergie||''; // BAIL-only (pas de pendant log)
   el('b-precedentLoc').value = b.precedentLoc||'plusde18';
   el('b-precedentLoyerDetail').value = b.precedentLoyerDetail||'';
+  if(el('b-precedentLoyerDateVers')) el('b-precedentLoyerDateVers').value = b.precedentLoyerDateVers||'';   // CONTRAT-TYPE-2026-10
+  if(el('b-precedentLoyerDateRev'))  el('b-precedentLoyerDateRev').value  = b.precedentLoyerDateRev||'';
   // v13.23 BAIL-TRAVAUX-INTERLOC : load + visibilité conditionnelle
   if(el('b-travaux-inter-loc')) el('b-travaux-inter-loc').value = b.travaux_inter_loc||'';
   if(typeof toggleTravauxInterLoc==='function') toggleTravauxInterLoc();
@@ -19083,6 +19103,7 @@ function copyBailFrom(srcRef, fromHist) {
     hc:'b-hc', ch:'b-ch', dg:'b-dg', jpay:'b-jpay', // v15.249 B6 (D-B5) : fiscal:'b-fiscal' retiré
     premiereLoc:'b-premiereLoc', dernierLoyerPrec:'b-dernierLoyerPrec',
     loyerRefMajore:'b-loyerRefMajore', complementLoyer:'b-complementLoyer',
+    loyerRef:'b-loyerRef',   // CONTRAT-TYPE-2026-10
     complementJustif:'b-complementJustif',
     notes:'b-notes',
     // Étape 3 — Le bien : v15.232 ARCHI-DB-DOUBLONS 4b — le bien physique a pour source unique le
@@ -19094,6 +19115,7 @@ function copyBailFrom(srcRef, fromHist) {
     adrBien:'b-adrBien', ftype:'b-ftype', etage:'b-etage', surf:'b-surf',
     depensesEnergie:'b-depensesEnergie',
     precedentLoc:'b-precedentLoc', precedentLoyerDetail:'b-precedentLoyerDetail',
+    precedentLoyerDateVers:'b-precedentLoyerDateVers', precedentLoyerDateRev:'b-precedentLoyerDateRev',   // CONTRAT-TYPE-2026-10
     // Étape 4 — Diagnostics & finaliser (champs propres au bail)
     diag:'b-diag', diagSoc:'b-diagSoc',
     villeSignature:'b-villeSign',
@@ -19380,10 +19402,13 @@ function openBail(ref, opts) {
   if(el('b-premiereLoc')) { el('b-premiereLoc').value = bail.premiereLoc||'premiere'; togglePremiereLoc(); }
   if(el('b-dernierLoyerPrec')) el('b-dernierLoyerPrec').value = bail.dernierLoyerPrec||'';
   if(el('b-loyerRefMajore')) el('b-loyerRefMajore').value = bail.loyerRefMajore||'';
+  if(el('b-loyerRef')) el('b-loyerRef').value = bail.loyerRef||'';   // CONTRAT-TYPE-2026-10
   if(el('b-complementLoyer')) el('b-complementLoyer').value = bail.complementLoyer||'';
   if(el('b-complementJustif')) el('b-complementJustif').value = bail.complementJustif||'';
   el('b-precedentLoc').value = bail.precedentLoc||'plusde18';
   el('b-precedentLoyerDetail').value = bail.precedentLoyerDetail||'';
+  if(el('b-precedentLoyerDateVers')) el('b-precedentLoyerDateVers').value = bail.precedentLoyerDateVers||'';   // CONTRAT-TYPE-2026-10
+  if(el('b-precedentLoyerDateRev'))  el('b-precedentLoyerDateRev').value  = bail.precedentLoyerDateRev||'';
   const pdw2 = el('b-precedent-details-wrap');
   if(pdw2) pdw2.style.display = (bail.precedentLoc==='moinsde18') ? '' : 'none';
   // v13.23 BAIL-TRAVAUX-INTERLOC : load + visibilité conditionnelle
@@ -19565,10 +19590,13 @@ const _BAIL_FIELD_MAP = [
   ['b-premiereLoc','premiereLoc','text'],
   ['b-dernierLoyerPrec','dernierLoyerPrec','text'],
   ['b-loyerRefMajore','loyerRefMajore','text'],
+  ['b-loyerRef','loyerRef','text'],   // CONTRAT-TYPE-2026-10
   ['b-complementLoyer','complementLoyer','text'],
   ['b-complementJustif','complementJustif','text'],
   ['b-precedentLoc','precedentLoc','text'],
   ['b-precedentLoyerDetail','precedentLoyerDetail','text'],
+  ['b-precedentLoyerDateVers','precedentLoyerDateVers','text'],   // CONTRAT-TYPE-2026-10
+  ['b-precedentLoyerDateRev','precedentLoyerDateRev','text'],
   ['b-travaux-inter-loc','travaux_inter_loc','text'],
   ['b-dpe','dpe','text'],
   ['b-ges','ges','text'],
@@ -20951,7 +20979,9 @@ function previewSignedBailRef(ref) {
     return;
   }
   // Reconstitue : snapshot pour le contenu + signatures complètes pour hydrate PDF
-  const signedBail = Object.assign({}, bail.signatures.bailSnapshot, { signatures: bail.signatures });
+  // CONTRAT-TYPE-2026-10 — la version des clauses est celle GRAVÉE à la signature (bail.clauseIrlV),
+  // pas celle que portait le brouillon photographié (enregistré avant, il peut en porter une autre).
+  const signedBail = Object.assign({}, bail.signatures.bailSnapshot, { signatures: bail.signatures, clauseIrlV: bail.clauseIrlV });
   previewBailData(signedBail, log, ref, { useSnapshot: true });
 }
 // v15.408 BUG-LOCATAIRE-UX-PACK — « Aperçu bail » sur un bail SIGNÉ ouvre le PDF signé
@@ -21024,6 +21054,7 @@ function getBailDataFromForm() {
     premiereLoc: v('b-premiereLoc')||'premiere',
     dernierLoyerPrec: pf('b-dernierLoyerPrec'),
     loyerRefMajore: pf('b-loyerRefMajore'),
+    loyerRef: pf('b-loyerRef'),   // CONTRAT-TYPE-2026-10 — loyer de référence (non majoré)
     complementLoyer: pf('b-complementLoyer'),
     complementJustif: v('b-complementJustif'),
     ..._bailLegacyGarantFields(),
@@ -21058,7 +21089,7 @@ function getBailDataFromForm() {
       const _ex = DB.baux[_bref];
       if (_ex && _ex.signatures && _ex.signatures.signedAt) return _ex.clauseIrlV != null ? _ex.clauseIrlV : null;
       // N10 — non signé : la version que le bail AFFICHE (1 si une signature à distance d'avant est en cours).
-      return _ex ? _bailClauseVersion(_ex) : 2;
+      return _bailClauseVersion(_ex || null);   // bail neuf : la version courante
     })(),
     // v15.249 B6 (D-B5) : `fiscal: v('b-fiscal')` retiré (champ supprimé). La valeur historique
     // existante est préservée au save (carryover dans saveBail) → aucune perte sur bail signé.
@@ -21074,6 +21105,8 @@ function getBailDataFromForm() {
     dateSignaturePrevue: v('b-dateSignature'), // v15.344 — date de signature saisie (gravée à la signature)
     depensesEnergie: v('b-depensesEnergie'),
     precedentLoc: v('b-precedentLoc'), precedentLoyerDetail: v('b-precedentLoyerDetail'),
+    // CONTRAT-TYPE-2026-10 — date de versement + date de la dernière révision du dernier loyer.
+    precedentLoyerDateVers: v('b-precedentLoyerDateVers'), precedentLoyerDateRev: v('b-precedentLoyerDateRev'),
     travaux_inter_loc: v('b-travaux-inter-loc'),
     diag: v('b-diag'), diagSoc: v('b-diagSoc'),
     notes: v('b-notes'),
@@ -21227,18 +21260,36 @@ function _bailSigned(bail){ return !!(bail && bail.signatures && bail.signatures
 // ré-affiche à l'identique). Bail non signé : la date de révision convenue (le 1er d'un mois —
 // R1 : mois du début, reporté au mois suivant si le bail ne commence pas un 1er), et plus de
 // « sans notification préalable » (art. 17-1 : la révision prend effet à compter de la DEMANDE).
-/** IRL-REVISION C3/N4 — la version de la clause 5.2 d'un bail : 2 = nouvelle, 1 = texte d'origine.
- *  · signé : celle posée à la signature (absente = signé avant le changement = 1) ;
- *  · signature à distance EN COURS : celle mémorisée à l'envoi (absente = envoi d'avant = 1) —
- *    le PDF final doit reprendre ce que le locataire a relu ;
- *  · sinon (brouillon) : 2. */
+/** IRL-REVISION C3/N4 + CONTRAT-TYPE-2026-10 — la version des clauses d'un bail (marqueur
+ *  `clauseIrlV`, posé à la signature) : 1 = texte d'origine ; 2 = clause 5.2 révisée ;
+ *  3 = 2 + contrat type issu du décret n° 2026-596 (js/core/contrat-type.js).
+ *  · signé : celle posée à la signature (absente = signé avant tout changement = 1) ;
+ *  · signature à distance EN COURS : celle mémorisée à l'envoi — le PDF final doit reprendre ce
+ *    que le locataire a relu ;
+ *  · sinon (brouillon) : la version courante.
+ *  Source unique : ContratType.versionClausesBail. Module absent (file://, échec de chargement) :
+ *  on garde l'ancien comportement (2 pour un brouillon) — le bail affiche alors le modèle
+ *  précédent de façon COHÉRENTE et est marqué comme tel, jamais un mélange. */
 function _bailClauseVersion(b){
+  const CT = (typeof window !== 'undefined') ? window.ContratType : null;
+  if (CT && typeof CT.versionClausesBail === 'function') return CT.versionClausesBail(b);
+  // Repli : un marqueur 3 déjà gravé n'est JAMAIS rabattu (le brouillon, lui, reste en 2).
   if (!b) return 2;
-  if (_bailSigned(b)) return b.clauseIrlV === 2 ? 2 : 1;
+  if (_bailSigned(b)) return _bailClauseVersionNorm(b.clauseIrlV);
   const rs = b.signatures && b.signatures.remoteSession;
-  if (rs && !['completed', 'expired', 'error'].includes(rs.status)) return rs.clauseIrlV === 2 ? 2 : 1;
+  if (rs && !['completed', 'expired', 'error'].includes(rs.status)) return _bailClauseVersionNorm(rs.clauseIrlV);
   return 2;
 }
+/** La version portée par une valeur brute (session à distance, staging, popup) : 1, 2 ou 3.
+ *  Même sans module, 3 reste 3 : sinon une finalisation à distance graverait 1 pour de bon. */
+function _bailClauseVersionNorm(v){
+  const CT = (typeof window !== 'undefined') ? window.ContratType : null;
+  if (CT && typeof CT.normaliserVersionClauses === 'function') return CT.normaliserVersionClauses(v);
+  const n = Number(v);
+  return (n === 2 || n === 3) ? n : 1;
+}
+/** CONTRAT-TYPE-2026-10 — le bail suit-il le contrat type issu du décret n° 2026-596 ? */
+function _bailContratType2026(b){ return _bailClauseVersion(b) >= 3; }
 function _bailClauseRevisionIRL(bail, log){
   const b = bail || {};
   // ⚠️ Texte d'origine EXACT (« annuellement à la date anniversaire du bail ») : les générateurs
@@ -21250,7 +21301,7 @@ function _bailClauseRevisionIRL(bail, log){
   // d'origine. (Hors empreinte légale : js/core/bail-content-hash.js hashe une liste blanche.)
   // Audit passe 2 N4 — plus AUCUNE écriture pendant un rendu : la version est posée au moment de
   // la signature (sur place : popup ; à distance : mémorisée à l'envoi, reprise à la fin).
-  if (_bailClauseVersion(b) !== 2) return { quand: 'annuellement à la date anniversaire du bail', sansNotif: ', sans notification préalable' };
+  if (_bailClauseVersion(b) < 2) return { quand: 'annuellement à la date anniversaire du bail', sansNotif: ', sans notification préalable' };
   const C = (typeof window !== 'undefined') ? window.IrlCalendrier : null;
   const debut = String(b.debut || (log && log.debut) || '').slice(0, 10);
   const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
@@ -21377,6 +21428,14 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   const isGarage    = bailType === 'garage';
   const isAutre     = bailType === 'autre';
   const isFurnished = isMeuble || isEtudiant || isMobilite;  // logement meublé (3 variantes)
+
+  // CONTRAT-TYPE-2026-10 — le bail suit-il le contrat type issu du décret n° 2026-596 ?
+  // Brouillon : oui. Signé : selon la version gravée à la signature (jamais réécrit). `_ct26` vrai
+  // implique que le module est chargé (sinon _bailClauseVersion plafonne à 2).
+  const CT = (typeof window !== 'undefined') ? window.ContratType : null;
+  const _ct26 = !!CT && _bailContratType2026(bail);
+  // Servitude de résidence principale (art. L. 151-14-1 C. urb.) : donnée du BIEN, figée au snapshot.
+  const _servitudeRP = _ct26 && !!_lbFill.servitudeRP;
 
   // Type de contrat (initial / renouvellement)
   const typeContratDetail = bail.typeContrat==='repris'
@@ -21713,7 +21772,9 @@ function buildBailStructure(bail, log, ref, ent, locs) {
       const _surfTxt = _surf ? S(_surf) + ' m²' : '–';
       const _nppTxt  = _npp  ? S(_npp)  + ' pièces' : '–';
       return [{ type:'table', rows:[
-        ['Surface habitable (loi Carrez)', _surfTxt],
+        // CONTRAT-TYPE-2026-10 — le modèle dit « surface habitable » (la loi Carrez mesure autre chose).
+        // Bail signé avant : libellé d'origine (document ré-affiché à l'identique).
+        [_ct26 ? CT.LIBELLE_SURFACE : 'Surface habitable (loi Carrez)', _surfTxt],
         ['Nombre de pièces principales', _nppTxt],
         ['Désignation des pièces', S(bail.piecesDesc||_lbFill.piecesDesc||'–')],
         // BUG-BAIL-ANNEXES-DUP : signé → 2 lignes inchangées (byte-identique) ; non signé → fusion.
@@ -21729,12 +21790,25 @@ function buildBailStructure(bail, log, ref, ent, locs) {
         ['Équipements cuisine', S(bail.equipCuisine||_lbFill.equipCuisine||'–')],
         ['Équipements sanitaires', S(bail.equipSanitaires||_lbFill.equipSanitaires||'–')],
         ['Eau chaude sanitaire', S(bail.ecs||_lbFill.ecsLabel||'–')],
-        ['Technologies de l\'information', S(bail.techInfo||_lbFill.techInfo||'–')]
+        ['Technologies de l\'information', S(bail.techInfo||_lbFill.techInfo||'–')],
+        // CONTRAT-TYPE-2026-10 — II.A « niveau de performance du logement : [classe du DPE] ».
+        ...(_ct26 ? [[CT.LIBELLE_NIVEAU_PERFORMANCE, (bail.dpe||_lbFill.dpe) ? 'Classe ' + S(bail.dpe||_lbFill.dpe) + ' du diagnostic de performance énergétique' : '–']] : [])
       ], columnStyles: { 0: { fontStyle:'bold', fillColor:[240,240,240], cellWidth:70 } } }];
     })()),
     { type:'p', text:'Le logement remplissant les conditions d\'habitation imposées par la loi. Le LOCATAIRE déclare en avoir exacte et parfaite connaissance pour l\'avoir visité préalablement et reconnaît que le bien correspond aux caractéristiques de logement décent définies par le décret n° 2002-120 du 30 janvier 2002.' },
     { type:'p', text:'Le LOCATAIRE s\'oblige à respecter l\'ensemble des obligations pouvant résulter des dispositions de l\'état descriptif de division, du règlement de copropriété et du règlement intérieur de l\'ensemble immobilier.' },
-    { type:'p-italic-note', text:'Rappel (loi Climat et Résilience) : à compter du 1er janvier 2025, niveau de performance minimal = classe F du DPE ; classe E à compter du 1er janvier 2028 ; classe D à compter du 1er janvier 2034.' },
+    // CONTRAT-TYPE-2026-10 — rappel du modèle VERBATIM (métropole + outre-mer + méthode DPE).
+    ...(_ct26 ? (function(){
+      const R = CT.rappelDecence(isFurnished);
+      return [
+        { type:'p-italic-note', text: R[0] },
+        { type:'p-italic-note', text: R.slice(1, 5).join(' ') },
+        { type:'p-italic-note', text: R.slice(5, 8).join(' ') },
+        { type:'p-italic-note', text: R[8] }
+      ];
+    })() : [
+      { type:'p-italic-note', text:'Rappel (loi Climat et Résilience) : à compter du 1er janvier 2025, niveau de performance minimal = classe F du DPE ; classe E à compter du 1er janvier 2028 ; classe D à compter du 1er janvier 2034.' }
+    ]),
 
     // ─── §1 bis Mise à disposition du mobilier (conditionnel : meublé / étudiant / mobilité) ──
     // v15.197 post-audit : refonte sobre + flou protective.
@@ -21778,6 +21852,8 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     // ─── §3 Destination du bien loué ─────────────────────────────────
     { type:'h2', text:'3 — Destination du bien loué' },
     { type:'p', text: destinationParagraphe },
+    // CONTRAT-TYPE-2026-10 — II.B « Le cas échéant, Servitude de résidence principale » (VERBATIM).
+    ...(_servitudeRP ? [{ type:'p-bold', text: CT.SERVITUDE_RESIDENCE_PRINCIPALE }] : []),
     { type:'p', text:'Le LOCATAIRE ne pourra en aucun cas faire du logement sa résidence secondaire, ni le proposer à la location saisonnière ou à la sous-location de courte durée (notamment via toute plateforme numérique de type Airbnb, Booking ou assimilée), même pour une seule nuit, sans autorisation écrite préalable du BAILLEUR. Toute infraction à cette clause constitue un changement de destination des locaux et un motif légitime et sérieux de résiliation du présent bail.' },
 
     // ─── §4 Durée du bail ────────────────────────────────────────────
@@ -21861,7 +21937,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     if (bail.encadrementLoyers) {
       const m2 = bail.surf>0 ? ((bail.hc||0)/bail.surf).toFixed(2) : '—';
       zoneTendueBlock = { type:'p-callout-warn', text:
-        `Encadrement du niveau des loyers — art. 140 loi ELAN du 23 novembre 2018. Le logement est situé dans une zone soumise à l'encadrement du niveau des loyers. Loyer de base : ${fmtN2(bail.hc)} €/mois — soit ${m2} €/m²/mois (surface : ${S(bail.surf||'–')} m²).${bail.loyerRefMajore ? ' Loyer de référence majoré : '+bail.loyerRefMajore+' €/m²/mois (arrêté préfectoral).' : ''} Complément de loyer : ${bail.complementLoyer>0 ? bail.complementLoyer+' €/mois'+(bail.complementJustif?' — Justification : '+bail.complementJustif:'') : 'Néant'}.` };
+        `Encadrement du niveau des loyers — art. 140 loi ELAN du 23 novembre 2018. Le logement est situé dans une zone soumise à l'encadrement du niveau des loyers. Loyer de base : ${fmtN2(bail.hc)} €/mois — soit ${m2} €/m²/mois (surface : ${S(bail.surf||'–')} m²).${(bail.loyerRefMajore && !_ct26) ? ' Loyer de référence majoré : '+bail.loyerRefMajore+' €/m²/mois (arrêté préfectoral).' : ''} Complément de loyer : ${bail.complementLoyer>0 ? bail.complementLoyer+' €/mois'+(bail.complementJustif?' — Justification : '+bail.complementJustif:'') : 'Néant'}.` };
     } else {
       const premLabel = bail.premiereLoc==='relocation'
         ? `Remise en location (logement vacant depuis moins de 18 mois) — le loyer ne peut excéder le dernier loyer du précédent locataire${bail.dernierLoyerPrec?' ('+bail.dernierLoyerPrec+' €/mois)':''}, révisé selon l'IRL (art. 17, II, 2° loi 89-462).`
@@ -21871,6 +21947,16 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   } else {
     zoneTendueBlock = { type:'p-italic-note', text:'Ce logement n\'est pas situé en zone de tension du marché locatif. Le loyer a été fixé librement entre les parties.' };
   }
+  // CONTRAT-TYPE-2026-10 — IV.A.1° b) : les lignes [Oui / Non] et les loyers de référence du
+  // modèle, AVANT le détail (en zone tendue seulement — « le cas échéant »).
+  const _ztLignes = _ct26 ? CT.lignesZoneTendue({
+    zoneTendue: !!bail.zoneTendue, encadrement: !!bail.encadrementLoyers,
+    loyerRef: bail.loyerRef, loyerRefMajore: bail.loyerRefMajore, fmt: fmtN2
+  }) : [];
+  const zoneTendueBlocks = [
+    ...(_ztLignes.length ? [{ type:'p', text: _ztLignes.join(' ') }] : []),
+    zoneTendueBlock
+  ];
 
   // Dépenses énergétiques (format intelligent)
   const fmtDepensesEnergie = s => {
@@ -21883,9 +21969,25 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     return t;
   };
   const depensesEnergie = fmtDepensesEnergie(bail.depensesEnergie);
+  // CONTRAT-TYPE-2026-10 — IV.G (nu) / IV.F (meublé) : phrase du modèle + année de référence des
+  // prix de l'énergie (donnée du DPE du bien, figée au snapshot). Montant : celui du bail, à défaut
+  // celui du DPE du bien. Rien d'inventé : vide → renvoi au DPE annexé.
+  const _depRaw = S(bail.depensesEnergie || _lbFill.dpeDepensesEnergie || '').trim();
+  const depensesEnergieTexte = _ct26
+    ? CT.texteDepensesEnergie(_depRaw ? fmtDepensesEnergie(_depRaw).replace(/ \(fourchette DPE\)$/, '') : '', _lbFill.dpeAnneePrix)
+    : `Conformément au décret n° 2020-1609 du 17 décembre 2020, le montant estimé des dépenses annuelles d'énergie pour un usage standard du logement est de ${depensesEnergie} (source : diagnostic de performance énergétique).`;
 
   // Précédent locataire conditionnel
-  const precedentLocText = bail.precedentLoc==='moinsde18'
+  // CONTRAT-TYPE-2026-10 — IV.A.1° c) : montant, date de versement ET date de la dernière révision.
+  const precedentLocText = _ct26
+    ? CT.textePrecedentLocataire({
+        moinsDe18: bail.precedentLoc === 'moinsde18',
+        montant: S(bail.precedentLoyerDetail || '').trim() || (bail.dernierLoyerPrec > 0 ? fmtN2(bail.dernierLoyerPrec) + ' €' : ''),
+        dateVersement: bail.precedentLoyerDateVers, dateRevision: bail.precedentLoyerDateRev,
+        // fd (minuit LOCAL), pas fd2 : new Date('AAAA-MM-JJ') est lu en UTC → la veille aux Antilles.
+        meuble: isFurnished, fmtDate: fd
+      })
+    : bail.precedentLoc==='moinsde18'
     ? `Le précédent locataire a quitté le logement moins de 18 mois avant la signature du présent bail. Dernier loyer acquitté : ${S(bail.precedentLoyerDetail||'à préciser')} (mention obligatoire — note 9 annexe 1 décret 2015-587).`
     : 'Le précédent locataire a quitté le logement plus de 18 mois avant la signature du présent bail — mention non obligatoire (note 9 annexe 1 décret 2015-587).';
 
@@ -21901,7 +22003,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
       ['Total en toutes lettres', totalLettres],
       ['Modalité de paiement', modalitePaiement]
     ], columnStyles: { 0: { fontStyle:'bold', fillColor:[240,240,240], cellWidth:70 } } },
-    zoneTendueBlock,
+    ...zoneTendueBlocks,
     { type:'p', text:'Tous paiements auront lieu par virement bancaire sur le compte suivant :' },
     { type:'table', rows:[
       ['Titulaire', nomSci],
@@ -21920,8 +22022,8 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     { type:'h3', text:'5.3 — Quittance' },
     { type:'p', text:'Lorsque le LOCATAIRE en fera la demande, le BAILLEUR lui remettra gratuitement une quittance portant le détail des sommes versées. Dans tous les cas de paiement partiel, le BAILLEUR délivrera un reçu.' },
 
-    { type:'h3', text:'5.4 — Dépenses énergétiques' },
-    { type:'p', text: `Conformément au décret n° 2020-1609 du 17 décembre 2020, le montant estimé des dépenses annuelles d'énergie pour un usage standard du logement est de ${depensesEnergie} (source : diagnostic de performance énergétique).` },
+    { type:'h3', text:'5.4 — Dépenses énergétiques' + (_ct26 ? ' (pour information)' : '') },
+    { type:'p', text: depensesEnergieTexte },
 
     { type:'h3', text:'5.5 — Précédent locataire' },
     { type:'p', text: precedentLocText },
@@ -22115,13 +22217,21 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // ─── §12 Clause résolutoire ─────────────────────────────────────
   out.push(
     { type:'h2', text:'12 — Clause résolutoire' },
-    { type:'p', text:'Conformément à l\'article 24 de la loi n° 89-462 du 6 juillet 1989 modifiée par la loi n° 2023-668 du 27 juillet 2023, le bail sera résilié de plein droit dans les cas suivants :' },
-    { type:'ol', items:[
-      'Non-paiement du loyer ou des charges (provisions ou régularisation annuelle) : six (6) semaines après un commandement de payer demeuré infructueux ;',
-      'Non-versement du dépôt de garantie : six (6) semaines après un commandement demeuré infructueux ;',
-      'Défaut d\'assurance des risques locatifs : un (1) mois après un commandement d\'assurer demeuré infructueux (article 7 de la loi du 6 juillet 1989) ;',
-      'Troubles de voisinage : constatés par une décision de justice passée en force de chose jugée.'
-    ] },
+    // CONTRAT-TYPE-2026-10 — VIII : la clause n'est plus « le cas échéant ». Texte IMPOSÉ en tête
+    // (VERBATIM), puis les autres motifs du modèle (+ servitude si le logement y est soumis).
+    ...(_ct26 ? [
+      { type:'p-bold', text: CT.CLAUSE_RESOLUTOIRE_TEXTE },
+      { type:'p', text:'Conformément à l\'article 24 de la loi n° 89-462 du 6 juillet 1989 modifiée par la loi n° 2023-668 du 27 juillet 2023, le contrat de location est également résilié de plein droit dans les cas suivants :' },
+      { type:'ol', items: CT.autresMotifsResolutoires(_servitudeRP) }
+    ] : [
+      { type:'p', text:'Conformément à l\'article 24 de la loi n° 89-462 du 6 juillet 1989 modifiée par la loi n° 2023-668 du 27 juillet 2023, le bail sera résilié de plein droit dans les cas suivants :' },
+      { type:'ol', items:[
+        'Non-paiement du loyer ou des charges (provisions ou régularisation annuelle) : six (6) semaines après un commandement de payer demeuré infructueux ;',
+        'Non-versement du dépôt de garantie : six (6) semaines après un commandement demeuré infructueux ;',
+        'Défaut d\'assurance des risques locatifs : un (1) mois après un commandement d\'assurer demeuré infructueux (article 7 de la loi du 6 juillet 1989) ;',
+        'Troubles de voisinage : constatés par une décision de justice passée en force de chose jugée.'
+      ] }
+    ]),
     { type:'h3', text:'Conditions de forme du commandement de payer' },
     { type:'p', text:'Le commandement de payer est délivré par commissaire de justice. Il reproduit, à peine de nullité, les dispositions du présent article ainsi que des trois premiers alinéas de l\'article 6 de la loi n° 90-449 du 31 mai 1990 visant la mise en œuvre du droit au logement, en mentionnant la faculté pour le locataire de saisir le Fonds de Solidarité pour le Logement (FSL) de son département, dont l\'adresse de saisine est précisée.' },
     { type:'h3', text:'Signification à la caution' },
@@ -22230,8 +22340,10 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   const _visaId = (bail.visale && S(bail.visale.visaId).trim()) ? S(bail.visale.visaId).trim() : '';
   const statutCaution = _visaId ? ('Garantie Visale — visa n° ' + _visaId + ' (§ 15)') : (bail.garant ? 'Ci-inclus (§ 15)' : 'Le cas échéant');
   // v15.193 BAIL-TYPES Étape 3 : ajout annexe 11 inventaire mobilier pour types meublés
+  // CONTRAT-TYPE-2026-10 — XI.D meublé : « un état des lieux, un inventaire et un état détaillé du
+  // mobilier » ; XI.E : l'autorisation préalable est « le cas échéant » (jamais « N/A » affirmé).
   const annexesRows = [
-    ['1', 'État des lieux d\'entrée', 'À établir'],
+    ['1', _ct26 ? CT.libelleAnnexeEtatDesLieux(isFurnished) : 'État des lieux d\'entrée', 'À établir'],
     ['2', 'Dossier de Diagnostic Technique (DDT) complet', 'Joint'],
     ['3', 'Notice d\'information droits et obligations des parties (arrêté du 29 mai 2015 modifié)', 'Annexée au présent bail'],
     ['4', 'Grille de vétusté', 'Ci-incluse (§ 8.2)'],
@@ -22239,7 +22351,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     ['6', _visaId ? 'Garantie Visale (Action Logement)' : 'Acte de cautionnement solidaire', statutCaution],
     ['7', 'Liste des réparations locatives (décret n° 87-712)', 'Annexe A'],
     ['8', 'Liste des charges récupérables (décret n° 87-713)', 'Annexe B'],
-    ['9', 'Autorisation préalable de mise en location (zones dégradées EPCI — CCH L.634-3)', 'N/A — non applicable'],
+    ['9', 'Autorisation préalable de mise en location (zones dégradées EPCI — CCH L.634-3)', _ct26 ? CT.STATUT_AUTORISATION_PREALABLE : 'N/A — non applicable'],
     ['10', 'Attestation d\'assurance multirisque habitation (MRH) du LOCATAIRE', 'À remettre lors de la remise des clés (§ 10.2)']
   ];
   // v15.199 : ligne 11 inventaire mobilier RETIREE du bail.
@@ -23250,7 +23362,9 @@ function previewBailData(bail, log, ref, opts) {
        4 lignes) alors que le bail live signé passe par la branche signée (5 lignes).
        On force le snapshot à être vu comme signé pour que le diff reste champ-par-champ
        (même nombre de lignes) au lieu de déclencher un faux "changement structurel". */
-    const snapStruct = buildBailStructure(Object.assign({}, snapBail, { signatures: bail.signatures }), log, ref, snapEnt, snapLocs);
+    // CONTRAT-TYPE-2026-10 — même version de clauses des deux côtés (celle gravée à la signature) :
+    // sinon tout passage versionné serait surligné « modifié » à tort.
+    const snapStruct = buildBailStructure(Object.assign({}, snapBail, { signatures: bail.signatures, clauseIrlV: bail.clauseIrlV }), log, ref, snapEnt, snapLocs);
     if (snapStruct.length === _bailStruct.length) {
       modifiedBlocks = new Set();
       _bailStruct.forEach((b, i) => {
@@ -24001,7 +24115,8 @@ function previewBailData(bail, log, ref, opts) {
     +        'periodeConstr:liveLog.periodeConstr,chauffage:liveLog.chauffage,ecs:liveLog.ecs,'
     +        'annexes:liveLog.annexes,lot:liveLog.lot,numFiscal:liveLog.numFiscal,'
     +        'mobilier:liveLog.mobilier,dpe:liveLog.dpe,etatRisques:liveLog.etatRisques,'
-    +        'equipements:liveLog.equipements,edlTemplate:liveLog.edlTemplate'
+    +        'equipements:liveLog.equipements,edlTemplate:liveLog.edlTemplate,'
+    +        'servitudeRP:!!liveLog.servitudeRP'   /* CONTRAT-TYPE-2026-10 — même liste que _captureBailSnapshot */
     +      '}));'
     +      'bailSnapshot.capturedAt=nowISO;'
     +      'var liveEnt=(srcDB.entites||[]).find(function(e){return e&&e.nom===liveLog.entity;});'
@@ -25644,6 +25759,24 @@ async function _congeSortiePdf(ref){
     genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); } });
 }
 
+// CONTRAT-TYPE-2026-10 — passages du modèle Word d'AVANT le décret n° 2026-596, recopiés
+// À L'IDENTIQUE du BAIL_TEMPLATE_DEFAULT d'origine. Double usage : (1) reconnaître un modèle
+// enregistré resté tel quel (→ jeton) ; (2) rendre ce texte-là pour un bail signé avant (Word
+// identique). Ne JAMAIS les retoucher : une virgule de différence et les deux usages cassent.
+const _BAIL_TMPL_2025 = {
+  rappel: '<p class="note"><em>Rappel (loi Climat et Résilience) : à compter du 1<sup>er</sup> janvier 2025, niveau de performance minimal = classe F du DPE ; classe E à compter du 1<sup>er</sup> janvier 2028 ; classe D à compter du 1<sup>er</sup> janvier 2034.</em></p>',
+  depenses: 'Conformément au décret n° 2020-1609 du 17 décembre 2020, le montant estimé des dépenses annuelles d\'énergie pour un usage standard du logement est de <strong>{{DEPENSES_ENERGIE}}</strong> (source : diagnostic de performance énergétique).',
+  resolutoire: [
+    '<p>Conformément à l\'article 24 de la loi n° 89-462 du 6 juillet 1989 modifiée par la loi n° 2023-668 du 27 juillet 2023, le bail sera résilié de plein droit dans les cas suivants :</p>',
+    '<ol>',
+    '<li><strong>Non-paiement du loyer ou des charges</strong> (provisions ou régularisation annuelle) : <strong>six (6) semaines</strong> après un commandement de payer demeuré infructueux ;</li>',
+    '<li><strong>Non-versement du dépôt de garantie</strong> : <strong>six (6) semaines</strong> après un commandement demeuré infructueux ;</li>',
+    '<li><strong>Défaut d\'assurance des risques locatifs</strong> : <strong>un (1) mois</strong> après un commandement d\'assurer demeuré infructueux (article 7 de la loi du 6 juillet 1989) ;</li>',
+    '<li><strong>Troubles de voisinage</strong> : constatés par une décision de justice passée en force de chose jugée.</li>',
+    '</ol>'
+  ].join('\n')
+};
+
 function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef, villeSig, mode) {
   // Utilise le template stocké dans DB.templates.bail (éditable par l'utilisateur)
   let tmpl = (DB.templates && DB.templates.bail) ? DB.templates.bail : BAIL_TEMPLATE_DEFAULT;
@@ -25663,6 +25796,19 @@ function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef,
     .replace('suivant la date de révision, sans notification préalable.', 'suivant la date de révision{{IRL_SANS_NOTIF}}.')
     .replace('Cette durée de 6 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).', '{{DUREE_PHRASE}}')
     .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}');
+  // CONTRAT-TYPE-2026-10 — même mécanisme : les passages du modèle d'AVANT le décret n° 2026-596,
+  // s'ils sont restés tels quels dans un modèle enregistré, remontent vers leurs jetons. Les jetons
+  // rendent le texte d'origine pour un bail signé avant (Word identique), le nouveau sinon.
+  tmpl = tmpl
+    .replace('>Surface habitable (loi Carrez)</td>', '>{{SURFACE_LIBELLE}}</td>')
+    .replace(_BAIL_TMPL_2025.rappel, '{{RAPPEL_DECENCE}}')
+    .replace('<p>' + _BAIL_TMPL_2025.depenses + '</p>', '<p>{{DEPENSES_ENERGIE_PHRASE}}</p>')
+    .replace(_BAIL_TMPL_2025.resolutoire, '{{CLAUSE_RESOLUTOIRE_MOTIFS}}')
+    .replace(_BAIL_TMPL_2025.resolutoire.split('\n').join('\r\n'), '{{CLAUSE_RESOLUTOIRE_MOTIFS}}')
+    .replace('<td>N/A — non applicable</td>', '<td>{{STATUT_AUTORISATION_PREALABLE}}</td>');
+  if (tmpl.indexOf('{{NIVEAU_PERFORMANCE_ROW}}') === -1) {
+    tmpl = tmpl.replace('<td>{{TECH_INFO}}</td></tr>', '<td>{{TECH_INFO}}</td></tr>{{NIVEAU_PERFORMANCE_ROW}}');
+  }
 
   const S = s => escHtml(String(s==null?'':s));
   const fd2 = s => s ? fd(s) : '—';
@@ -25724,6 +25870,11 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
   // Anciens baux signés gardent leurs tokens bail.X gelés → `bail.X || _lbFill.X` byte-identique.
   const _lbHtml = typeof _readLogForBail === 'function' ? _readLogForBail(bail, log) : {};
   const _lbFill = _lbHtml || {};
+  // CONTRAT-TYPE-2026-10 — même règle de version que le PDF (buildBailStructure).
+  const CT = (typeof window !== 'undefined') ? window.ContratType : null;
+  const _ct26 = !!CT && _bailContratType2026(bail);
+  const _servitudeRP = _ct26 && !!_lbFill.servitudeRP;
+  const _isFurnishedH = ['meuble', 'etudiant', 'mobilite'].includes(String(bail.type || 'nu').toLowerCase());
   const replacements = {
     'REF': S(ref||''),
     'LOCATAIRES': S(locNames),
@@ -25807,7 +25958,32 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     'ECS': S(bail.ecs||_lbFill.ecsLabel||'–'),
     'TECH_INFO': S(bail.techInfo||_lbFill.techInfo||'–'),
     'DEPENSES_ENERGIE': S(bail.depensesEnergie||'non renseigné'),
-    'PRECEDENT_LOC_SECTION': bail.precedentLoc==='moinsde18'
+    // CONTRAT-TYPE-2026-10 — jetons des passages modifiés : texte d'origine si signé avant, sinon modèle 2026.
+    'SURFACE_LIBELLE': _ct26 ? S(CT.LIBELLE_SURFACE) : 'Surface habitable (loi Carrez)',
+    'NIVEAU_PERFORMANCE_ROW': _ct26
+      ? '<tr><td style="background:#f0f0f0;font-weight:bold">' + S(CT.LIBELLE_NIVEAU_PERFORMANCE) + '</td><td>'
+        + ((bail.dpe||_lbFill.dpe) ? 'Classe ' + S(bail.dpe||_lbFill.dpe) + ' du diagnostic de performance énergétique' : '–') + '</td></tr>'
+      : '',
+    'RAPPEL_DECENCE': _ct26
+      ? '<p class="note"><em>' + CT.rappelDecence(_isFurnishedH).map(S).join('<br>') + '</em></p>'
+      : _BAIL_TMPL_2025.rappel,
+    'DEPENSES_ENERGIE_PHRASE': _ct26
+      ? S(CT.texteDepensesEnergie(String(bail.depensesEnergie || _lbFill.dpeDepensesEnergie || '').trim(), _lbFill.dpeAnneePrix))
+      : _BAIL_TMPL_2025.depenses.split('{{DEPENSES_ENERGIE}}').join(S(bail.depensesEnergie||'non renseigné')),
+    'CLAUSE_RESOLUTOIRE_MOTIFS': _ct26
+      ? '<p><strong>' + S(CT.CLAUSE_RESOLUTOIRE_TEXTE) + '</strong></p>\n'
+        + '<p>Conformément à l\'article 24 de la loi n° 89-462 du 6 juillet 1989 modifiée par la loi n° 2023-668 du 27 juillet 2023, le contrat de location est également résilié de plein droit dans les cas suivants :</p>\n'
+        + '<ol>\n' + CT.autresMotifsResolutoires(_servitudeRP).map(i => '<li>' + S(i) + '</li>').join('\n') + '\n</ol>'
+      : _BAIL_TMPL_2025.resolutoire,
+    'STATUT_AUTORISATION_PREALABLE': _ct26 ? S(CT.STATUT_AUTORISATION_PREALABLE) : 'N/A — non applicable',
+    'PRECEDENT_LOC_SECTION': _ct26
+      ? S(CT.textePrecedentLocataire({
+          moinsDe18: bail.precedentLoc === 'moinsde18',
+          montant: String(bail.precedentLoyerDetail || '').trim() || (bail.dernierLoyerPrec > 0 ? fmtN2(bail.dernierLoyerPrec) + ' €' : ''),
+          dateVersement: bail.precedentLoyerDateVers, dateRevision: bail.precedentLoyerDateRev,
+          meuble: _isFurnishedH, fmtDate: fd2
+        }))
+      : bail.precedentLoc==='moinsde18'
       ? `Le précédent locataire a quitté le logement moins de 18 mois avant la signature du présent bail. Dernier loyer acquitté : ${S(bail.precedentLoyerDetail||'à préciser')} (mention obligatoire — note 9 annexe 1 décret 2015-587).`
       : 'Le précédent locataire a quitté le logement plus de 18 mois avant la signature du présent bail — mention non obligatoire (note 9 annexe 1 décret 2015-587).',
     // v14.6 BUG-BAIL-TRAVAUX-NOSAVE : utiliser la valeur saisie au formulaire au lieu
@@ -25841,25 +26017,31 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     })(),
     // BUG-BAIL-ANNEXES-DUP : signé → locauxPrivatifs legacy inchangé (byte-identique) ; non signé → fusion annexes structurées.
     'LOCAUX_PRIVATIFS': S(_bailSigned(bail) ? (bail.locauxPrivatifs||_lbFill.locauxPrivatifs||'Néant') : _bailLocauxFused(bail,_lbFill)),
-    'DESTINATION_LOCAUX_SECTION': bail.destinationLocaux==='mixte'
+    'DESTINATION_LOCAUX_SECTION': (bail.destinationLocaux==='mixte'
       ? `<p>Le bien loué est destiné à l'<strong>usage d'habitation principale et à l'exercice d'une activité professionnelle libérale</strong> du LOCATAIRE, conformément à l'article 2 de la loi du 6 juillet 1989. Toute activité commerciale, enseigne extérieure ou réception de clientèle perturbant les voisins est interdite.</p>`
-      : `<p>Le bien loué est destiné <strong>exclusivement à l'habitation principale</strong> du LOCATAIRE, conformément à l'article 2 de la loi du 6 juillet 1989. Toute activité professionnelle, même libérale, ainsi que toute sous-location non autorisée sont strictement interdites.</p>`,
+      : `<p>Le bien loué est destiné <strong>exclusivement à l'habitation principale</strong> du LOCATAIRE, conformément à l'article 2 de la loi du 6 juillet 1989. Toute activité professionnelle, même libérale, ainsi que toute sous-location non autorisée sont strictement interdites.</p>`)
+      // CONTRAT-TYPE-2026-10 — II.B « Le cas échéant, Servitude de résidence principale » (VERBATIM).
+      + (_servitudeRP ? '\n<p><strong>' + S(CT.SERVITUDE_RESIDENCE_PRINCIPALE) + '</strong></p>' : ''),
     'ZONE_TENDUE_SECTION': (()=>{
+      // CONTRAT-TYPE-2026-10 — IV.A.1° b) : lignes [Oui / Non] + loyers de référence, en tête.
+      const _ztL = _ct26 ? CT.lignesZoneTendue({ zoneTendue: !!bail.zoneTendue, encadrement: !!bail.encadrementLoyers,
+        loyerRef: bail.loyerRef, loyerRefMajore: bail.loyerRefMajore, fmt: fmtN2 }) : [];
+      const _ztP = _ztL.length ? '<p>' + S(_ztL.join(' ')) + '</p>\n' : '';
       if(!bail.zoneTendue) return '<p class="note"><em>Ce logement n\'est pas situé en zone de tension du marché locatif. Le loyer a été fixé librement entre les parties.</em></p>';
       if(bail.encadrementLoyers){
         const m2=bail.surf>0?((bail.hc||0)/bail.surf).toFixed(2):'—';
-        return `<div style="margin:10px 0;padding:10px 14px;background:#fff8e1;border-left:3px solid #d97706;border-radius:4px;font-size:10.5pt">
+        return _ztP + `<div style="margin:10px 0;padding:10px 14px;background:#fff8e1;border-left:3px solid #d97706;border-radius:4px;font-size:10.5pt">
 <strong>Encadrement du niveau des loyers — art. 140 loi ELAN du 23 novembre 2018</strong><br>
 Le logement est situé dans une zone soumise à l'encadrement du niveau des loyers.<br>
 Loyer de base : ${fmtN2(bail.hc)} €/mois — soit ${m2} €/m²/mois (surface : ${S(bail.surf||'–')} m²).<br>
-${bail.loyerRefMajore ? 'Loyer de référence majoré : '+S(bail.loyerRefMajore)+' €/m²/mois (arrêté préfectoral).<br>' : ''}
+${(bail.loyerRefMajore && !_ct26) ? 'Loyer de référence majoré : '+S(bail.loyerRefMajore)+' €/m²/mois (arrêté préfectoral).<br>' : ''}
 Complément de loyer : ${bail.complementLoyer>0 ? S(bail.complementLoyer)+' €/mois'+(bail.complementJustif?' — Justification : '+S(bail.complementJustif):'') : 'Néant'}.
 </div>`;
       } else {
         const premLabel = bail.premiereLoc==='relocation'
           ? `Remise en location (logement vacant depuis moins de 18 mois) — le loyer ne peut excéder le dernier loyer du précédent locataire${bail.dernierLoyerPrec?' ('+S(bail.dernierLoyerPrec)+' €/mois)':''}, révisé selon l'IRL (art. 17, II, 2° loi 89-462).`
           : 'Première mise en location ou logement vacant depuis plus de 18 mois — loyer fixé librement entre les parties (art. 17, II, 1° loi 89-462).';
-        return `<div style="margin:10px 0;padding:10px 14px;background:#f0f4ff;border-left:3px solid #3b82f6;border-radius:4px;font-size:10.5pt">
+        return _ztP + `<div style="margin:10px 0;padding:10px 14px;background:#f0f4ff;border-left:3px solid #3b82f6;border-radius:4px;font-size:10.5pt">
 <strong>Modalités particulières de fixation du loyer — Zone tendue (art. 17 loi 89-462)</strong><br>
 ${premLabel}
 </div>`;
@@ -37182,7 +37364,10 @@ function _captureBailSnapshot(ref, bail, log) {
     // BIENS étape 5 — la liste des pièces devient une donnée CONTRACTUELLE (elle génère la clause
     // « Désignation des pièces »). Sans elle au snapshot, la clause d'un bail signé ne serait pas
     // figée : violation directe de l'immutabilité que tout le reste du snapshot protège.
-    edlTemplate: log.edlTemplate
+    edlTemplate: log.edlTemplate,
+    // CONTRAT-TYPE-2026-10 — servitude de résidence principale (L. 151-14-1 C. urb.) : elle génère
+    // une mention du bail (§3) et un motif de résiliation (§12) → donnée CONTRACTUELLE, figée ici.
+    servitudeRP: !!log.servitudeRP
   }));
   // v15.230 G2 (audit v15.230) — capture aussi snapshot.imm (deep copy de l'immeuble parent
   // au moment de la signature). Cf F1/G2 audit : permet à _readLogForBail de résoudre
@@ -37398,6 +37583,9 @@ function _readLogForBail(bail, log) {
     dpeAn:      (src.dpe && src.dpe.an) || '',
     dpeValConv: (src.dpe && src.dpe.valConv) || '',
     dpeValEner: (src.dpe && src.dpe.valEner) || '',
+    // CONTRAT-TYPE-2026-10 — dépenses d'énergie du DPE + année de référence des prix (IV.G / IV.F).
+    dpeDepensesEnergie: (src.dpe && src.dpe.depensesEnergie) || '',
+    dpeAnneePrix: (src.dpe && src.dpe.anneePrix) || '',
     // État des risques : sous-objet → flat
     erp:        (src.etatRisques && src.etatRisques.erp) || '',
     plomb:      (src.etatRisques && src.etatRisques.plomb) || '',
@@ -49206,6 +49394,10 @@ function _logDiagRenderTab() {
             <input class="inp" value="${escHtml(dpe.valEner||'')}" oninput="_logDiagSetField('dpe','valEner',this.value)" placeholder="ex 145"></div>
           <div class="fg"><label>💶 Dépenses estimées <span class="mu sm">(€/an)</span></label>
             <input class="inp" value="${escHtml(dpe.depensesEnergie||'')}" oninput="_logDiagSetField('dpe','depensesEnergie',this.value)" placeholder="ex 900 à 1 200 €"></div>
+          <!-- CONTRAT-TYPE-2026-10 — « estimation réalisée à partir des prix énergétiques de référence de
+               l'année : […] » (contrat type, IV.G nu / IV.F meublé) : l'année figure sur le DPE. -->
+          <div class="fg"><label>Année de référence des prix <span class="mu sm">(DPE)</span></label>
+            <input class="inp" inputmode="numeric" maxlength="4" value="${escHtml(dpe.anneePrix||'')}" oninput="_logDiagSetField('dpe','anneePrix',this.value)" placeholder="ex 2023"></div>
         </div>
       </td>
     </tr>`;
@@ -49426,6 +49618,11 @@ function _logDiagCommitToLog(log) {
   log.dpe.an      = dpe.an      || '';
   log.dpe.valConv = dpe.valConv || '';
   log.dpe.valEner = dpe.valEner || '';
+  // CONTRAT-TYPE-2026-10 — IV.G/IV.F du contrat type : montant des dépenses d'énergie + « année de
+  // référence des prix énergétiques » du DPE. Projetés ICI (log.dpe entre au bailSnapshot, pas
+  // log.diagnostics) pour que le bail signé les fige.
+  log.dpe.depensesEnergie = dpe.depensesEnergie || '';
+  log.dpe.anneePrix       = dpe.anneePrix       || '';
   log.dpeDate     = dpe.date    || log.dpeDate || '';
   // 4) Projection etatRisques (strings annexe bail). Si structuré vide → on PRÉSERVE
   //    l'éventuelle valeur legacy existante (jamais d'écrasement par du vide).
@@ -49589,6 +49786,7 @@ function openNewLog(ref) {
     setV('log-periodeConstr', _periodeLegale(log.periodeConstr, log.anneeConstruction));
     setV('log-lot', log.lot);
     setV('log-numFiscal', log.numFiscal);
+    setChk('log-servitudeRP', !!log.servitudeRP);   // CONTRAT-TYPE-2026-10
     // v14.59 GANTT-CHARGES : tantièmes / lot copro
     setV('log-tantiemes', log.tantiemes);
     // v14.61 CHARGES-COMMUNES : coche compte-charges (default true)
@@ -49642,7 +49840,7 @@ function openNewLog(ref) {
      'log-tantiemes',
      'log-chauf-autre','log-chauf-label','log-ecs-label'
     ].forEach(id => setV(id, ''));
-    ['log-chauf-elec','log-chauf-gaz','log-chauf-coll','log-ecs-elec','log-ecs-gaz','log-ecs-coll']
+    ['log-chauf-elec','log-chauf-gaz','log-chauf-coll','log-ecs-elec','log-ecs-gaz','log-ecs-coll','log-servitudeRP']
       .forEach(id => setChk(id, false));
     _logModalMobilierDraft = [];
     _logMobilierRender();
@@ -50551,6 +50749,8 @@ function saveParamLog() {
   log.periodeConstr = v('log-periodeConstr');
   log.lot = v('log-lot');
   log.numFiscal = v('log-numFiscal');
+  // CONTRAT-TYPE-2026-10 — servitude de résidence principale (L. 151-14-1 C. urb.) → §3 + §12 du bail.
+  log.servitudeRP = !!(el('log-servitudeRP') && el('log-servitudeRP').checked);
   // v14.59 GANTT-CHARGES : tantièmes copro pour répartition charges immeuble
   log.tantiemes = parseInt(v('log-tantiemes'), 10) || 0;
   // v14.61 CHARGES-COMMUNES : coche compte-charges (default true)
