@@ -154,6 +154,17 @@ const MAPPERS = {
   candidats(o, ctx) {
     return { id: ctx.detUuid('candidat', String(o.id)), legacy_id: String(o.id ?? ''), entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, logement_id: ctx.logementByRef.get(norm(o.logRef)) || null, ...base(o, ctx) }
   },
+  // Journal des baux signés (migration 0054, table baux_evenements de 0017). Rattaché au bail par la
+  // ref du logement : bail_id = même id déterministe que la ligne `baux` (detUuid('bail', ref)) ;
+  // bail_debut distingue les baux successifs d'un même logement. RLS par entité via entite_of_bail.
+  // Logement inconnu → null (skippé, retenté) plutôt qu'une FK violée en boucle.
+  baux_evenements(o, ctx) {
+    const ref = String(o.ref ?? '').split('@@')[0]
+    if (!ref || !ctx.logementByRef.get(norm(ref))) return null
+    const d = dateOnly(o.date); if (!d) return null
+    const type = ['resiliation', 'conge', 'renouvellement', 'revision_loyer', 'autre', 'modification', 'avenant'].includes(o.type) ? o.type : 'autre'
+    return { id: ctx.detUuid('bailevt', String(o.id)), legacy_id: String(o.id ?? ''), bail_id: ctx.detUuid('bail', norm(ref)), type_evenement: type, date_evenement: d, bail_debut: dateOnly(o.bailDebut), ...base(o, ctx) }
+  },
 }
 
 export { COLONNES_CLAUSES_BAIL_0046 }

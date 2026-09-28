@@ -118,6 +118,7 @@ import {
 } from './core/loyer-bareme.js';
 // HISTORIQUE-BAIL-ONGLET (17/07) - chapitres/rail de l'historique du bail (onglet Bail inline)
 import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './core/bail-historique.js';
+import { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journalDuBail, valeurLisible as bailModifValeur } from './core/bail-modifications.js';
 // HISTORIQUE-BAIL-ONGLET - popup de validation des modifications financieres du bail
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 // IRL-REVISION (R6/R7) — la lettre suit la révision VALIDÉE ; annuler une révision programmée.
@@ -538,6 +539,8 @@ window._premierDuMois = _premierDuMois;
 window._premierDuMoisSuivant = _premierDuMoisSuivant;
 window.reconstruireBaremeLot = reconstruireBaremeLot;   // étape 3 — migration de l'existant
 window._bailHistoConstruire = construireHistoriqueBail;   // HISTORIQUE-BAIL-ONGLET
+// Modifications d'un bail signé hors avenant (journal DB.baux_evenements, migration 0054)
+window.BailModifs = { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journalDuBail, valeurLisible: bailModifValeur };
 window._bailHistoEnVigueur = bailHistoEnVigueur;
 window._bailModifDetecterChangements = detecterChangementsFinanciers;
 window._bailModifDateEffetDefaut = dateEffetModifDefaut;

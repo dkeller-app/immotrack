@@ -38,6 +38,9 @@ const ARRAY_TABLES = {
   entites: 'entites', logements: 'logements', baux_historique: 'baux_historique',
   mouvements: 'mouvements', quittances: 'quittances', edl: 'edl', documents: 'documents',
   assurances: 'mrh', agenda: 'agenda', candidats: 'candidats',
+  // Journal des baux SIGNÉS (migration 0054) : modifications hors avenant, à côté de la ligne
+  // verrouillée du bail (js/core/bail-modifications.js). Même nom côté table et côté app.
+  baux_evenements: 'baux_evenements',
 }
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // collection legacy → table Supabase (mrh = la table assurances ; sinon identique).
