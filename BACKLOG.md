@@ -448,6 +448,15 @@ Didier veut **un audit sécurité complet, tous les trous** — pas seulement l'
 
 **Exécution : session de conception dédiée** → audit de toute la couche de persistance + court CDC (archi IndexedDB, migration des données, invariant save sacré, nettoyage rétroactif) → validation Didier → code sous **audit code-reviewer obligatoire** (données + persistance = sensible). Pas d'urgence à bâcler (Didier débloqué). Lié à [[project_persistance_multitenant]].
 
+## 🔴 P0 — FUSION DE DEUX SCI HOMONYMES (données réelles Didier, 28/09)
+
+**Incident** : deux bailleurs « SCI SMARTOSAURUS » = **la même SCI réelle** (même SIREN 994 086 379 ; l'un saisi en SIRET 994 086 379 00017, adresse « 10 B » / « 10 Bis sentier de la Luss »), **l'une dans l'espace partagé de Marion, l'autre copie privée de Didier**. Didier a renommé « SCI SMARTOSAURUS DIdier » → « SCI SMARTOSAURUS » : **fusion au niveau des DONNÉES**, pas seulement de l'affichage.
+**Cause (vérifiée)** : l'app relie logements / baux / baux_historique / quittances / mouvements SCI au bailleur **par son NOM** (22 jointures `l.entity === e.nom`, ex. `index.html:9733`) ; le renommage en cascade (`index.html:51830-51845`) a réécrit `entity` sur tous les enregistrements de la SCI renommée → indiscernables. **Aucun garde-fou** n'empêche un nom de bailleur identique à un autre (seul l'import d'acte en a un, `:48118`). ⚠️ **Ne PAS renommer pour revenir** (la cascade entraînerait les deux SCI). Discriminants de récupération : `_espaceId`, **horodatage identique** posé par la cascade (`_modifiedAt = ts`), journal d'audit (`_auditLog update entite`).
+**Décision Didier 28/09 : option B** = UNE seule SCI + dédoublonnage des logements Ferrette (6 + 6). Reco pilotage : **survivante = SCI de l'espace partagé** (vue par Didier ET Marion), la copie privée est absorbée puis retirée — confirmation de Didier sur pièces après le diagnostic.
+**Contraintes** : cross-espace (droits d'écriture du co-gérant dans l'espace de Marion, RLS 0050-0053) · **rien chez Marion effacé par erreur** · baux/EDL **signés verrouillés** · pour chaque paire de logements, survivant = celui qui porte le bail/EDL signé ; rapatrier mouvements, quittances, documents, photos ; **tombstones, jamais de suppression dure** · **sauvegarde avant toute écriture**, diagnostic en lecture seule d'abord, plan exact soumis au GO de Didier, audit code-reviewer. JAMAIS `supabase db push` (→ `node scripts/db-run.mjs migrate` si migration).
+**Correctifs structurels** : (1) immédiat — interdire un nom de bailleur déjà utilisé + détection SIREN/SIRET (comparer le SIREN = 9 premiers chiffres) à la création/modification ; (2) jointures par nom à cadrer par `_espaceId` ; (3) à terme — lier par **identifiant stable** (refonte ARCHI-DB-DOUBLONS).
+Session : « Isolation Storage/Realtime par-SCI » (connaît espaces + RLS).
+
 ## 📥 REMARQUES DIDIER 25/09 — 7 sujets, sessions en parallèle (routage validé)
 
 | # | Sujet | Constat / décision | Session |
