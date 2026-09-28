@@ -37,7 +37,9 @@ montées au cloud (antérieur à l'incident).
 - Cascade de renommage limitée à l'espace du bailleur quand un homonyme porte l'ancien nom.
 - Import d'acte : même règle (`_acteFindDupEntity`), création forcée sous un nom existant refusée.
 - 26 tests dont « renommer un bailleur avec le nom d'un autre est refusé ». Suite : 4 627 verts.
-- Audit code-reviewer : passe 1 « À CORRIGER » → corrigé (4a83908) ; passe 2 : voir BACKLOG.
+- Audit code-reviewer : passe 1 « À CORRIGER » → corrigé (4a83908) ; passe 2 « À CORRIGER »
+  (B-1 : nom « inchangé » comparé après normalisation rouvrait le P0) → corrigé (5db9267) ;
+  **passe 3 : SÛR** (cas A-E sondés sur le vrai saveEnt, 4 634 tests).
 
 ## À traiter par le pilotage (non codé ici)
 
@@ -51,4 +53,8 @@ montées au cloud (antérieur à l'incident).
 4. `_buildEntityPayload` filtre par nom même pour un bailleur supprimé : à vérifier.
 5. Audit log : la suppression de « F » (logement de l'espace de Marion) a été journalisée dans l'espace
    de Didier.
-6. Bail signé du 101 pointait une SCI supprimée (`5186…`) — même famille que « bail signé figé au cloud ».
+6. Homonymes dans un MÊME espace : indiscernables par le nom, renommer l'un déplace les biens de l'autre
+   (limite des jointures par nom, pas une régression).
+7. Homonymes créés hors de portée du contrôle local : deux appareils/espaces en parallèle puis sync,
+   restauration de sauvegarde, renommage vers le nom d'un bailleur supprimé (tombstone ignoré).
+8. Bail signé du 101 pointait une SCI supprimée (`5186…`) — même famille que « bail signé figé au cloud ».
