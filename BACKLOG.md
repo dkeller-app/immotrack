@@ -2,6 +2,13 @@
 
 ## 🚦 MAIN = **v15.683** (28/09) — AVENANT lot 1 déployé · 4 566 tests verts, CRLF intact
 
+## 🔒 RÉSERVATIONS (28/09) — à respecter par toutes les sessions
+- **Migration `0054` réservée** : table journal des baux signés (modifications hors avenant + avenants du lot 2), chantier « BAIL-SIGNE-MODIFS » (session avenant). Le chantier « clôture/relocation bail signé verrouillé » prend **0055+**.
+- **Version** : `main` = v15.683 (Avenant lot 1). ⚠ La branche `claude/stoic-poitras-2d84cb` (Charges bornes régul) s'est aussi numérotée v15.683 → à **renuméroter** à l'intégration. Prochaine livraison de la session avenant : v15.684.
+
+## 🚦 BAIL-SIGNE-MODIFS (28/09, GO Didier) — en cours
+**Incident** : bail Ferrette 101 (Harnist / Arslan) — modifications faites sur un bail signé introuvables. Causes : (1) ligne du bail signé verrouillée au cloud (`store-sync.js:295`) → modifs jamais poussées, perdues au rechargement ; (2) `saveBail` remet silencieusement ~40 champs descriptifs (`_ARCHI_V4B_DESC_FIELDS`) sur un bail signé. **Décision Didier** : sauvegarder les modifications + message « ne modifie pas le bail signé » + carte dans la timeline du bail (ancien → nouveau, date, auteur). Table cloud dédiée (migration 0054), réutilisée par les avenants (lot 2).
+
 ## 🚦 AVENANT lot 1 ✅ v15.683 (branche `feat/avenant-lot1-pdf`) — SUR MAIN, ⏳ smoke Didier
 **Moteur PDF partagé `doc-native`** (quittances, reçus, relances, décomptes, IRL, congés, avenant) : cadres de signature mesurés et posés entiers (rangée de 3), « Fait à » + cadres gardés ensemble, plus de page pour le seul pied, `h3` reconnu et gardé avec son texte, `pro-kv` en clé/valeur, « Page p / N » + paraphes en option (avenant seulement). Audit code-reviewer : ~1 850 rendus ancien vs nouveau moteur → 0 page en plus, 0 mot perdu, cadres identiques ; 3 pages « pied seul » supprimées. Banc réel `__tests__/helpers/_real-jspdf.js` (jsPDF de l'app sous Node).
 **Avenant** : 1 page (cas incident), texte resserré (parties en blocs, non-novation 1×, « Fait le » = date de l'acte), accords singulier/pluriel + masculin/féminin (civilités du bail ; civilité entrant/caution ajoutée), homonymes, **cautions nommées** (champ « Caution dont l'engagement prend fin avec ce départ » + cautions maintenues nommées), signatures data-URL validées. Modale : objet coché lisible en sombre.
