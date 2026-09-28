@@ -110,6 +110,16 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
   async function hydrate() {
     const db = {}
     for (const [table, coll] of Object.entries(ARRAY_TABLES)) {
+      // Journal des baux signés : TOLÉRANT. Si le client est en ligne avant la migration 0054 (colonne
+      // legacy_raw absente), une erreur ici ferait échouer TOUT le chargement cloud, pour tous les comptes.
+      // On le dit en console et on continue sans journal (les baux s'affichent dans leur état signé).
+      if (table === 'baux_evenements') {
+        let rowsJ = []
+        try { rowsJ = await fetchTable(table) } catch (e) { console.warn('[SupabaseStore] journal des baux indisponible (migration 0054 appliquée ?) :', e && e.message); rowsJ = [] }
+        db[coll] = rowsJ.map(r => r && r.legacy_raw).filter(lr => lr != null)
+        captureVersions(rowsJ)
+        continue
+      }
       const rows = await fetchTable(table)
       db[coll] = rows.map(r => r && r.legacy_raw).filter(lr => lr != null)
       captureVersions(rows)

@@ -119,3 +119,49 @@ describe('valeurLisible — carte de la timeline', () => {
     expect(valeurLisible('locataires.0.tel', '0612')).toBe('0612');
   });
 });
+
+describe('sécurité de la réapplication (audit 28/09) — le journal vient de données partagées', () => {
+  const entree = (changements) => ({ id: 'x', ref: 'F101', type: 'modification', signedAt: '2025-01-02T10:00:00Z', date: '2026-09-28', changements });
+  it('jamais le document signé, le bailleur, les signatures ni un champ inconnu', () => {
+    const baux = { F101: signe({ entity: 'SCI A' }) };
+    reappliquerJournalBaux(baux, [entree([
+      { champ: 'signatures.bailSnapshot.hc', apres: 9999 },
+      { champ: 'signatures.signedAt', apres: 'faux' },
+      { champ: 'entity', apres: 'AUTRE SCI' },
+      { champ: 'champInconnu', apres: 'x' },
+      { champ: 'locataires.0.nom', apres: 'AUTRE' },
+    ])]);
+    expect(baux.F101.signatures.bailSnapshot.hc).toBe(800);
+    expect(baux.F101.signatures.signedAt).toBe('2025-01-02T10:00:00Z');
+    expect(baux.F101.entity).toBe('SCI A');
+    expect(baux.F101.champInconnu).toBeUndefined();
+    expect(baux.F101.locataires[0].nom).toBe('HARNIST');
+  });
+  it('pas de pollution de prototype (__proto__, constructor, prototype)', () => {
+    const baux = { F101: signe() };
+    reappliquerJournalBaux(baux, [entree([
+      { champ: '__proto__.pollue', apres: 'oui' }, { champ: 'constructor.prototype.pollue', apres: 'oui' },
+      { champ: 'locataires.__proto__.pollue', apres: 'oui' } ])]);
+    expect(({}).pollue).toBeUndefined();
+    expect([].pollue).toBeUndefined();
+  });
+  it('champs suivis : toujours réappliqués ; copies de premier niveau du 1er locataire suivies', () => {
+    const baux = { F101: signe({ ddn: '1980-01-01' }) };
+    reappliquerJournalBaux(baux, [entree([{ champ: 'locataires.0.ddn', apres: '1981-02-02' }, { champ: 'notes', apres: 'ok' }])]);
+    expect(baux.F101.locataires[0].ddn).toBe('1981-02-02');
+    expect(baux.F101.ddn).toBe('1981-02-02');
+    expect(baux.F101.notes).toBe('ok');
+  });
+});
+
+describe('zéros en tête : un téléphone corrigé d\'un zéro est une modification', () => {
+  it('texte comparé comme texte, montants comparés comme nombres', () => {
+    expect(memeValeur('0612345678', '612345678', 'tel')).toBe(false);
+    expect(memeValeur('850', 850, 'hc')).toBe(true);
+    expect(memeValeur('0', '', 'notes')).toBe(false);
+    expect(memeValeur(0, '', 'dernierLoyerPrec')).toBe(true);
+    const prev = signe(), next = JSON.parse(JSON.stringify(prev));
+    next.locataires[0].tel = '612345678';
+    expect(diffModificationsBail(prev, next).map(c => c.champ)).toEqual(['locataires.0.tel']);
+  });
+});

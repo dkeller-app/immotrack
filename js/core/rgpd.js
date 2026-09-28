@@ -15,6 +15,7 @@
  *   - DB.edl[] : EDL d'entrée/sortie
  *   - DB.assurances[] / DB.mrh[] : contrats assurance liés
  *   - DB.irlHistorique[] : révisions IRL
+ *   - DB.baux_evenements[] : journal des modifications d'un bail signé (valeurs avant/après : tél., e-mail, naissance…)
  *
  * IMPORTANT : "effacement" RGPD ne signifie pas "delete physique immédiat".
  * Pour la cohérence Drive sync (multi-device), on utilise des tombstones
@@ -43,11 +44,12 @@ export function _findPersonalDataForRef(db, logRef) {
   const assurances = (db.assurances || []).filter(a => isAlive(a) && a.logement === logRef);
   const mrh = (db.mrh || []).filter(m => isAlive(m) && m.logement === logRef);
   const irlHistorique = (db.irlHistorique || []).filter(h => isAlive(h) && h.ref === logRef);
+  const journalBail = (db.baux_evenements || []).filter(e => isAlive(e) && String(e.ref || '').split('@@')[0] === logRef);
 
   // Compte total
   const totalRecords = (logement ? 1 : 0) + (bailCourant ? 1 : 0) +
                        bauxHistoriques.length + mouvements.length + quittances.length +
-                       edls.length + assurances.length + mrh.length + irlHistorique.length;
+                       edls.length + assurances.length + mrh.length + irlHistorique.length + journalBail.length;
 
   return {
     logRef,
@@ -60,6 +62,7 @@ export function _findPersonalDataForRef(db, logRef) {
     assurances,
     mrh,
     irlHistorique,
+    journalBail,
     totalRecords,
     collectedAt: new Date().toISOString()
   };
@@ -191,6 +194,17 @@ export function _planErasure(db, logRef) {
       entityId: h.date + '|' + h.ref,
       fields: ['locataire'],
       reason: 'IRL historique : conservation chronologie + anonymisation locataire'
+    });
+  });
+
+  // Journal des modifications d'un bail signé : contient les valeurs avant/après (données personnelles)
+  (data.journalBail || []).forEach(e => {
+    operations.push({
+      type: 'tombstone',
+      collection: 'baux_evenements',
+      entityId: e.id,
+      entityRef: logRef,
+      reason: 'Journal du bail : effacement (valeurs personnelles avant/après)'
     });
   });
 

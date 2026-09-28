@@ -397,3 +397,20 @@ describe('SupabaseStore.buildResolvers — INCLUT les tombstones (remove en casc
     expect(r.documentByLegacy.has('2')).toBe(true)
   })
 })
+
+describe('journal des baux signés (0054) — lecture tolérante', () => {
+  it('table baux_evenements en erreur (migration pas encore appliquée) → chargement quand même, journal vide', async () => {
+    const back = mockBackend({ logements: [{ ref: 'F-1' }] }, {})
+    const fetch0 = back.fetchTable
+    back.fetchTable = async (name) => { if (name === 'baux_evenements') throw new Error('column baux_evenements.legacy_raw does not exist'); return fetch0(name) }
+    const s = createSupabaseStore(back)
+    const db = await s.hydrate()
+    expect(db.baux_evenements).toEqual([])
+    expect(db.logements).toEqual([{ ref: 'F-1' }])
+  })
+  it('table disponible → entrées relues depuis legacy_raw', async () => {
+    const s = createSupabaseStore(mockBackend({ baux_evenements: [{ id: 'bj1', ref: 'F-1', type: 'modification' }] }, {}))
+    const db = await s.hydrate()
+    expect(db.baux_evenements).toEqual([{ id: 'bj1', ref: 'F-1', type: 'modification' }])
+  })
+})

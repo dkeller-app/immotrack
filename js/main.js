@@ -541,6 +541,10 @@ window.reconstruireBaremeLot = reconstruireBaremeLot;   // étape 3 — migratio
 window._bailHistoConstruire = construireHistoriqueBail;   // HISTORIQUE-BAIL-ONGLET
 // Modifications d'un bail signé hors avenant (journal DB.baux_evenements, migration 0054)
 window.BailModifs = { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journalDuBail, valeurLisible: bailModifValeur };
+// Course possible (audit 28/09) : le chargement cloud (hors ligne notamment) peut injecter le DB AVANT que
+// ce module soit exécuté → la réapplication de _applyDataDefaults n'a pas eu lieu. On la rejoue ici
+// (idempotente ; la ligne d'un bail verrouillé n'est jamais renvoyée au cloud, donc aucun envoi parasite).
+try { const _dbJ = appDbFrom(window); if (_dbJ && _dbJ.baux && Array.isArray(_dbJ.baux_evenements)) reappliquerJournalBaux(_dbJ.baux, _dbJ.baux_evenements); } catch (e) { console.warn('[BAIL-MODIFS] réapplication tardive', e); }
 window._bailHistoEnVigueur = bailHistoEnVigueur;
 window._bailModifDetecterChangements = detecterChangementsFinanciers;
 window._bailModifDateEffetDefaut = dateEffetModifDefaut;

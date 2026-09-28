@@ -19458,6 +19458,7 @@ function openBail(ref, opts) {
 function _bailEtatFormulaire() {
   return Object.assign({}, getBailDataFromForm(), {
     locataires: getBailLocs(),
+    signataires: getBailSignataireSelection(),   // pas suivi par le journal : sert au contrôle « changement de partie »
     quittanceDemandee: el('b-quittanceDemandee') ? el('b-quittanceDemandee').checked : false,
     finEffective: v('b-fin-effective'), finMotif: v('b-fin-motif'), locNouvelleAdr: v('b-loc-nouv-adr'),
     dgRestitue: pf('b-dg-restitue'), dgRetenu: pf('b-dg-retenu'), finNotes: v('b-fin-notes'),
@@ -20553,6 +20554,25 @@ function saveBail() {
   let _resetSignaturesAfterSave = false;
   if (!isNewBail) {
     const dbBail = DB.baux[editRef];
+    // Audit 28/09 — bail signé VERROUILLÉ au cloud : tout changement de PARTIE (locataire, garant,
+    // bailleur, co-signataires du bailleur) serait perdu au rechargement (ligne jamais réécrite) et ne
+    // relève pas d'une simple modification → avenant. Contrôlé même SANS snapshot (ancien bail signé :
+    // comparaison avec le bail en vigueur).
+    if (dbBail && dbBail.signatures && dbBail.signatures.locked) {
+      const _refCompo = dbBail.signatures.bailSnapshot || dbBail;
+      const _cc = _bailCompositionChanged(Object.assign({ locataires: locs }, _bailLegacyGarantFields()), _refCompo);
+      // Bailleur / co-signataires : comparés à l'état du FORMULAIRE à l'ouverture (cases cochées par
+      // défaut comprises) — comparer au bail stocké bloquerait à tort un bail qui n'a jamais stocké
+      // `signataires`. Sans état d'ouverture (appel direct) : comparaison au bail stocké pour le bailleur seul.
+      const _ini = (window._bailFormInitial && window._bailFormInitial.ref === editRef) ? window._bailFormInitial.data : null;
+      const _entChange = (v('b-entity') || '') !== ((_ini ? _ini.entity : dbBail.entity) || '');
+      const _sigChange = !!_ini && JSON.stringify(getBailSignataireSelection()) !== JSON.stringify(_ini.signataires || []);
+      if (_cc.changed || _entChange || _sigChange) {
+        const _quoi = _cc.changed ? _cc.what : (_entChange ? 'bailleur' : 'signataires du bailleur');
+        showToast('Bail signé : changer une partie (' + _quoi + ') passe par un avenant (menu du bail → « Créer un avenant… »). Rien n\'a été enregistré.', 'warn', 9000);
+        return;
+      }
+    }
     if (dbBail && dbBail.signatures && dbBail.signatures.bailSnapshot) {
       // BAIL-SIGNE-MODIFS (28/09) — garants lus dans la liste DYNAMIQUE du formulaire (#b-garants-list,
       // via _bailLegacyGarantFields). Les champs `b-garant` / `b-garant2` n'existent plus : v() rendait ''
@@ -20560,13 +20580,7 @@ function saveBail() {
       // proposait de réinitialiser les signatures (incident Ferrette 101).
       const futureBail = Object.assign({ locataires: locs }, _bailLegacyGarantFields());
       const compoCheck = _bailCompositionChanged(futureBail, dbBail.signatures.bailSnapshot);
-      // Bail signé VERROUILLÉ au cloud : sa ligne n'est plus jamais réécrite → une « réinitialisation des
-      // signatures » ici serait perdue au rechargement (le bail reviendrait signé, sans les changements).
-      // Changer une partie d'un bail signé passe par l'avenant (départ / ajout / remplacement, caution).
-      if (compoCheck.changed && dbBail.signatures.locked) {
-        showToast('Bail signé : changer un locataire ou un garant (' + compoCheck.what + ') passe par un avenant (menu du bail → « Créer un avenant… »). Rien n\'a été enregistré.', 'warn', 9000);
-        return;
-      }
+      // (Bail VERROUILLÉ au cloud : bloqué juste au-dessus, avant ce chemin de réinitialisation.)
       if (compoCheck.changed) {
         if (!confirm(`⚠️ Composition modifiée : ${compoCheck.what}.\n\nL'ajout / la suppression d'une partie au contrat constitue un NOUVEAU bail au sens juridique. Les signatures précédentes ne seront plus valides et seront automatiquement réinitialisées.\n\nContinuer ?`)) return;
         _resetSignaturesAfterSave = true;
@@ -20684,6 +20698,12 @@ function saveBail() {
   // signé (signatures.bailSnapshot, PDF archivé) ne change pas — et on le DIT avant d'enregistrer.
   let _journalModif = null, _journalSnap = null;
   const _BM = window.BailModifs;
+  // Module absent (chargement incomplet) sur un bail signé verrouillé : l'ancien chemin afficherait
+  // « Bail enregistré » sur des modifications perdues au rechargement → on refuse et on le dit.
+  if (!_BM && !isNewBail && DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.locked) {
+    showToast('Enregistrement impossible pour l\'instant (module non chargé) : recharger la page puis réessayer. Rien n\'a été modifié.', 'err', 8000);
+    return;
+  }
   if (!isNewBail && !_resetSignaturesAfterSave && _BM && DB.baux[ref] && _BM.bailSigneComplet(DB.baux[ref])) {
     // Référence = le formulaire tel qu'affiché à l'ouverture (valeurs par défaut comprises) ; repli sur
     // le bail stocké si le formulaire n'a pas été ouvert par openBail (appel direct).
@@ -20916,6 +20936,12 @@ function previewSignedBailRef(ref) {
   }
   const log = DB.logements.find(l => l.ref === ref);
   if (!bail.signatures.bailSnapshot) {
+    // BAIL-SIGNE-MODIFS — bail déjà modifié depuis sa signature (journal) : aucun snapshot ne sera
+    // recréé (il figerait un état jamais signé) → le dire, sans proposer un chemin qui ne ferait rien.
+    if (window.BailModifs && window.BailModifs.journalDuBail(DB.baux_evenements, ref, bail).length) {
+      showToast('Version signée d\'origine non disponible pour ce bail (signé avant v13.10, modifié depuis) : se reporter au PDF signé papier ou archivé.', 'info', 8000);
+      return;
+    }
     // v13.21 — pas de snapshot : on ne ment pas. On propose 2 options à l'utilisateur :
     // soit ouvrir Modifier bail (qui backfill le snapshot rétroactivement depuis l'état
     // courant), soit annuler. AUCUN affichage trompeur.
@@ -23430,7 +23456,15 @@ function previewBailData(bail, log, ref, opts) {
        Sur l'aperçu VIVANT d'un bail signé (modifié depuis, journal réappliqué), « PDF » aurait posé les
        signatures sur un contenu que personne n'a signé → PDF sans signatures (le bouton de signature
        reste verrouillé par _BAIL_SIGNED). La version signée s'ouvre par previewSignedBailRef. */
-    +'var _SAVED_SIGNATURES='+JSON.stringify((bail.signatures && (opts.useSnapshot || bail.signatures.mode==='bailleur-seul')) ? bail.signatures : null)+';' /* v13.03 : hydrate */
+    /* Audit : on ne retire les signatures QUE si ce bail a été réellement modifié depuis sa signature
+       (entrée de journal) et hors de tout flux de signature (file, distance, phase 2) — un bail archivé,
+       une signature en cours ou partielle, un ancien bail sans PDF gardent leur réinjection. */
+    +'var _SAVED_SIGNATURES='+JSON.stringify((function(){
+        const _sg = bail.signatures; if (!_sg) return null;
+        if (opts.useSnapshot || opts.signQueue || opts.remoteSign || opts.phase2 || _sg.mode === 'bailleur-seul') return _sg;
+        const _jr = (window.BailModifs && ref) ? window.BailModifs.journalDuBail(DB.baux_evenements, ref, bail) : [];
+        return _jr.length ? null : _sg;
+      })())+';' /* v13.03 : hydrate */
     /* FIL-ROUGE cleanup — _AUTO_SIGN / _AUTO_PHASE2 retirés (triggers + setters supprimés). */
     +'var _BAIL_SIGN_QUEUE='+JSON.stringify((opts&&opts.signQueue)||null)+';' /* FIL-ROUGE : sigIds présentiels ordonnés (chacun son tour) */
     +'var _BAIL_SIGN_DISTANTS='+JSON.stringify((opts&&opts.distants)||[])+';' /* FIL-ROUGE : signataires distants à relayer après les présentiels */

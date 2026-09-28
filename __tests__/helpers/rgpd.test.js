@@ -176,3 +176,19 @@ describe('_isEraseEligible', () => {
     expect(_isEraseEligible(mkDB(), 'X-XYZ').eligible).toBe(false);
   });
 });
+
+describe('RGPD — journal des modifications d\'un bail signé (0054)', () => {
+  const db = { logements: [{ ref: 'F101' }], baux: {}, baux_evenements: [
+    { id: 'bj1', ref: 'F101', type: 'modification', changements: [{ champ: 'locataires.0.tel', avant: '0612', apres: '0798' }] },
+    { id: 'bj2', ref: 'F101@@esp2', type: 'modification', changements: [] },
+    { id: 'bj3', ref: 'AUTRE', type: 'modification', changements: [] },
+    { id: 'bj4', ref: 'F101', type: 'modification', _deleted: true, changements: [] } ] };
+  it('collecté pour l\'export (données personnelles avant/après)', () => {
+    const d = _findPersonalDataForRef(db, 'F101');
+    expect(d.journalBail.map(e => e.id)).toEqual(['bj1', 'bj2']);
+  });
+  it('inclus dans le plan d\'effacement', () => {
+    const ops = _planErasure(db, 'F101').operations.filter(o => o.collection === 'baux_evenements');
+    expect(ops.map(o => o.entityId)).toEqual(['bj1', 'bj2']);
+  });
+});

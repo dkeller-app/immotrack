@@ -90,18 +90,23 @@ export const CHAMPS_LOCATAIRE = {
 // Égalité « métier » : vide / null / absent sont identiques ; nombres comparés en nombre ;
 // objets (visale) comparés par contenu. Évite les faux écarts (pf() rend 0 pour un champ vide…).
 function _vide(v) { return v == null || v === '' || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => _vide(v[k]))); }
-function _norm(v) {
+// Champs MONTANTS / NOMBRES : « 850 » et 850 identiques. Les autres restent du texte : un téléphone,
+// un code postal ou un n° d'emplacement qui ne diffère que d'un zéro en tête EST une modification.
+const CHAMPS_NUMERIQUES = new Set(['hc', 'ch', 'dg', 'dernierLoyerPrec', 'loyerRefMajore', 'complementLoyer', 'plafondCaution',
+  'surf', 'depensesEnergie', 'dgRestitue', 'dgRetenu', 'jpay', 'emplSurface']);
+function _norm(v, numerique) {
   if (_vide(v)) return '';
   if (typeof v === 'boolean') return v ? '1' : '';
   if (typeof v === 'number') return String(v);
-  if (typeof v === 'string') { const t = v.trim(); return /^-?\d+(?:[.,]\d+)?$/.test(t) ? String(Number(t.replace(',', '.'))) : t; }
+  if (typeof v === 'string') { const t = v.trim(); return (numerique && /^-?\d+(?:[.,]\d+)?$/.test(t)) ? String(Number(t.replace(',', '.'))) : t; }
   return JSON.stringify(v);
 }
-export function memeValeur(a, b) {
+export function memeValeur(a, b, champ) {
+  const numerique = champ == null || CHAMPS_NUMERIQUES.has(String(champ).split('.').pop());
   // false et vide : même chose (case décochée = rien de saisi)
-  const na = a === false ? '' : _norm(a), nb = b === false ? '' : _norm(b);
+  const na = a === false ? '' : _norm(a, numerique), nb = b === false ? '' : _norm(b, numerique);
   // 0 face à vide : pf('') rend 0 → pas une modification
-  if ((na === '0' && nb === '') || (na === '' && nb === '0')) return true;
+  if (numerique && ((na === '0' && nb === '') || (na === '' && nb === '0'))) return true;
   return na === nb;
 }
 
@@ -119,7 +124,7 @@ export function diffModificationsBail(prev, next) {
   const p = prev || {}, n = next || {}, out = [];
   for (const [k, def] of Object.entries(CHAMPS_BAIL)) {
     if (!(k in n)) continue;   // champ absent du formulaire (ex. champs garage d'un bail d'habitation)
-    if (memeValeur(p[k], n[k])) continue;
+    if (memeValeur(p[k], n[k], k)) continue;
     const c = { champ: k, libelle: def.l, avant: p[k] === undefined ? null : p[k], apres: n[k] === undefined ? null : n[k] };
     if (def.fin) c.fin = true;
     out.push(c);
@@ -127,7 +132,7 @@ export function diffModificationsBail(prev, next) {
   const lp = Array.isArray(p.locataires) ? p.locataires : [], ln = Array.isArray(n.locataires) ? n.locataires : [];
   for (let i = 0; i < Math.min(lp.length, ln.length); i++) {
     for (const [k, lib] of Object.entries(CHAMPS_LOCATAIRE)) {
-      if (memeValeur(lp[i] && lp[i][k], ln[i] && ln[i][k])) continue;
+      if (memeValeur(lp[i] && lp[i][k], ln[i] && ln[i][k], k)) continue;
       out.push({ champ: 'locataires.' + i + '.' + k, libelle: lib + ' de ' + _designation(ln[i]),
         avant: lp[i] && lp[i][k] !== undefined ? lp[i][k] : null, apres: ln[i] && ln[i][k] !== undefined ? ln[i][k] : null });
     }
@@ -135,7 +140,18 @@ export function diffModificationsBail(prev, next) {
   return out;
 }
 
+// Seuls les chemins SUIVIS sont réappliqués. Le journal vient de données partagées (cloud, SCI) :
+// un chemin arbitraire pourrait réécrire le document signé (signatures.bailSnapshot…), le bailleur
+// (entity) ou polluer Object.prototype (__proto__). Liste fermée, vérifiée à la réapplication.
+export function cheminAutorise(chemin) {
+  const c = String(chemin || '');
+  if (Object.prototype.hasOwnProperty.call(CHAMPS_BAIL, c)) return true;
+  const m = c.match(/^locataires\.(\d{1,2})\.([A-Za-z]+)$/);
+  return !!(m && Object.prototype.hasOwnProperty.call(CHAMPS_LOCATAIRE, m[2]));
+}
+
 function _poser(obj, chemin, valeur) {
+  if (!cheminAutorise(chemin)) return false;
   const parts = String(chemin).split('.');
   let o = obj;
   for (let i = 0; i < parts.length - 1; i++) {
@@ -174,7 +190,12 @@ export function reappliquerJournalBaux(baux, journal) {
     if (!bail || bail._deleted || !bailSigneComplet(bail)) continue;
     const entrees = journalDuBail(journal, cle, bail);
     if (!entrees.length) continue;
-    for (const e of entrees) for (const c of (e.changements || [])) if (c && c.champ) _poser(bail, c.champ, c.apres);
+    for (const e of entrees) for (const c of (e.changements || [])) {
+      if (!c || !c.champ || !_poser(bail, c.champ, c.apres)) continue;
+      // Copies de premier niveau du 1ᵉʳ locataire tenues par saveBail (repli des lecteurs anciens).
+      if (c.champ === 'locataires.0.ddn') bail.ddn = c.apres;
+      if (c.champ === 'locataires.0.lieuNaiss') bail.lieuNaiss = c.apres;
+    }
     n++;
   }
   return n;
