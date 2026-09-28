@@ -1,6 +1,12 @@
 # Propryo — Backlog actif
 
-## 🚦 MAIN = **v15.681** (27/09) — AVENANT temps 1 déployé · 4 532 tests verts, CRLF intact
+## 🚦 MAIN = **v15.683** (28/09) — AVENANT lot 1 déployé · 4 566 tests verts, CRLF intact
+
+## 🚦 AVENANT lot 1 ✅ v15.683 (branche `feat/avenant-lot1-pdf`) — SUR MAIN, ⏳ smoke Didier
+**Moteur PDF partagé `doc-native`** (quittances, reçus, relances, décomptes, IRL, congés, avenant) : cadres de signature mesurés et posés entiers (rangée de 3), « Fait à » + cadres gardés ensemble, plus de page pour le seul pied, `h3` reconnu et gardé avec son texte, `pro-kv` en clé/valeur, « Page p / N » + paraphes en option (avenant seulement). Audit code-reviewer : ~1 850 rendus ancien vs nouveau moteur → 0 page en plus, 0 mot perdu, cadres identiques ; 3 pages « pied seul » supprimées. Banc réel `__tests__/helpers/_real-jspdf.js` (jsPDF de l'app sous Node).
+**Avenant** : 1 page (cas incident), texte resserré (parties en blocs, non-novation 1×, « Fait le » = date de l'acte), accords singulier/pluriel + masculin/féminin (civilités du bail ; civilité entrant/caution ajoutée), homonymes, **cautions nommées** (champ « Caution dont l'engagement prend fin avec ce départ » + cautions maintenues nommées), signatures data-URL validées. Modale : objet coché lisible en sombre.
+**Smoke** : avenant départ coloc 2 locataires (1 page, accords, cautions) · quittance + lettre IRL (aspect inchangé) · modale en sombre.
+**Suivant** : lot 2 (stockage table 0054 + liste + statuts) — vérifier d'abord le chantier « clôture/relocation bail signé verrouillé ».
 
 ## 🚦 AVENANT — temps 1 ✅ v15.681 (branche `fix/avenant-temps1`, worktree `Immo-wt-avenant-fix`) — SUR MAIN, ⏳ smoke Didier
 **Incident Didier 27/09** : avenant « départ d'un colocataire » → pas de signature, 2-4 pages, bail non modifié, historique vide. **Audit complet des 12 objets** : `mockups/AVENANT-AUDIT/RAPPORT.md`.
