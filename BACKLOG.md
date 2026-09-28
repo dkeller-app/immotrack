@@ -1,5 +1,13 @@
 # Propryo — Backlog actif
 
+## 🚦 MAIN = **v15.683** (28/09) — CHARGES bornes régul déployé · 4 545 tests verts, CRLF intact · ⚠️ v15.682 réservé au DDT (`feat/ddt-bail`, non poussé)
+
+## 🚦 CHARGES — bornes d'occupation de la régul ✅ v15.683 (branche `claude/stoic-poitras-2d84cb`) — SUR MAIN, ⏳ smoke Didier
+**Bug Didier 27/09** : un bail couvrant 01/01 → 31/12/2026 s'affichait « 31/12/2025 → 30/12/2026 » (bail au 01/04 → « 31/03 »). **Cause** : dates à minuit local formatées par `toISOString()` (UTC) → la veille en heure de Paris. Pas qu'un affichage : ces bornes rattachent loyers (provisions), charges directes, parts de compteur, acompte de départ et impayés du solde de tout compte au bon occupant.
+**Livré** : `computeRegul/clipBail` et `_ccLogOccupations` (compteurs collectifs) corrigés ENSEMBLE via `_isoLocal` (corriger l'un sans l'autre rattachait la part du nouveau locataire à l'ancien) ; décalages en jours calendaires (plus de 23 h / 1 h aux changements d'heure). R-0 : aucun calcul changé, seuls les jours-frontières reviennent au bon occupant ; cas limite corrigé (fenêtre finissant le lendemain de l'heure d'été : 1 jour de vacance attribué à personne → bailleur). Retenues déjà enregistrées (`dgRetenu/dgRestitue`) non recalculées. Test `regul-bornes-fuseau.test.js` (13, TZ Paris). Audit code-reviewer « prêt ».
+**Smoke à faire** : Charges → dates d'occupation 01/01 → 31/12 · rotation de locataires avec une facture datée du dernier jour de l'ancien bail → sur l'ancien.
+**Reste (hors périmètre, tâche proposée)** : même défaut `toISOString` dans l'agenda (`agendaAutoSync`), le badge de vacance du Gantt immeuble, les échéances d'équipements.
+
 ## 🚦 MAIN = **v15.681** (27/09) — AVENANT temps 1 déployé · 4 532 tests verts, CRLF intact
 
 ## 🚦 AVENANT — temps 1 ✅ v15.681 (branche `fix/avenant-temps1`, worktree `Immo-wt-avenant-fix`) — SUR MAIN, ⏳ smoke Didier
