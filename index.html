@@ -11712,8 +11712,17 @@ function resetBailSignatures(ref) {
     return;
   }
   const dateStr = fd(bail.signatures.signedAt.slice(0,10));
-  if(!confirm(`⚠️ RÉINITIALISER LES SIGNATURES du bail ${ref} ?\n\nSigné le ${dateStr}\n${bail.signatures.nbParaphes||0} pages paraphées\n\nToutes les signatures (paraphes + signatures finales + cases « Lu et approuvé ») seront EFFACÉES.\nLe bail redeviendra modifiable.\n\nCette action est irréversible.`)) return;
-  if(!confirm(`Confirmation finale : effacer définitivement les signatures du bail ${ref} ?\n\n[OK] = oui, effacer\n[Annuler] = ne rien faire`)) return;
+  // Chantier clôture/relocation (décision II, Didier 28/09) — bail SCELLÉ au cloud (`locked`) : la version
+  // signée n'est jamais effacée. Au prochain envoi, sa ligne est ARCHIVÉE (intacte, preuve) et le bail en
+  // cours repart en brouillon sur sa propre ligne (store-sync.js, phase 0). Le message dit exactement ça.
+  const _scelle = !!bail.signatures.locked;
+  const _effet = _scelle
+    ? `La version signée est CONSERVÉE : elle est archivée telle quelle (preuve), mais n'est plus affichée comme bail en cours.\nLe bail en cours repart en brouillon, à faire signer de nouveau.`
+    : `Toutes les signatures (paraphes + signatures finales + cases « Lu et approuvé ») seront EFFACÉES.\nLe bail redeviendra modifiable.\n\nCette action est irréversible.`;
+  if(!confirm(`⚠️ RÉINITIALISER LES SIGNATURES du bail ${ref} ?\n\nSigné le ${dateStr}\n${bail.signatures.nbParaphes||0} pages paraphées\n\n${_effet}`)) return;
+  if(!confirm(_scelle
+    ? `Confirmation finale : archiver la version signée du bail ${ref} et repartir d'un brouillon à faire signer ?\n\n[OK] = oui\n[Annuler] = ne rien faire`
+    : `Confirmation finale : effacer définitivement les signatures du bail ${ref} ?\n\n[OK] = oui, effacer\n[Annuler] = ne rien faire`)) return;
   delete bail.signatures;
   // v14.71 : stamp _modifiedAt pour que le reset se propage aux autres devices via merge Drive
   if(typeof _stamp === 'function') _stamp(bail);
@@ -11724,7 +11733,9 @@ function resetBailSignatures(ref) {
   // voyait l'ancien état (avec bouton "Voir bail signé" + "Réinitialiser") → impression que rien
   // ne se passe. Maintenant : _refreshAfterMutation() rerend log-fiche / imm-fiche / ent-fiche.
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
-  showToast(`✅ Signatures du bail ${ref} réinitialisées — bail à nouveau modifiable`,'ok',5000);
+  showToast(_scelle
+    ? `✅ Version signée du bail ${ref} archivée (conservée) — le bail en cours est un brouillon à faire signer`
+    : `✅ Signatures du bail ${ref} réinitialisées — bail à nouveau modifiable`,'ok',_scelle?7000:5000);
 }
 
 // =================== DASHBOARD ===================
@@ -20185,7 +20196,12 @@ function _cleanupBailAgendaEvents(ref) {
 }
 
 function delBail(ref) {
-  if(!confirm2(`Supprimer le bail de ${ref} ?`)) return;
+  // Chantier clôture/relocation (décision II, Didier 28/09) — bail SCELLÉ au cloud : jamais détruit. Sa ligne
+  // est ARCHIVÉE au prochain envoi (preuve intacte) et il cesse d'être le bail en cours. On le dit.
+  const _scelle = !!(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.locked);
+  if(!confirm2(_scelle
+    ? `Supprimer le bail de ${ref} ?\n\nCe bail est signé : sa version signée est conservée (archivée telle quelle, comme preuve). Il ne sera plus le bail en cours du logement.`
+    : `Supprimer le bail de ${ref} ?`)) return;
   // BUG-DEL-FICHE-360 v14.26 : fermer la modale d'édition de bail si elle est ouverte
   // (cas où l'utilisateur supprime depuis l'intérieur du wizard) — défensif.
   closeM('ov-bail');
@@ -25385,7 +25401,9 @@ function _avenantSave(ref){
   var toastMsg='Avenant n° '+rec.no+' enregistré dans l\'historique du bail.'
     +(_appliques.length?' Appliqué au '+fd(effet)+' : '+_appliques.join(', ').toLowerCase()+'.':'')
     +(_docSeul.length?' Document seulement (non appliqué aux données du bail) : '+_docSeul.join(', ').toLowerCase()+'.':'')
-    +(_verrou?' Bail signé verrouillé : le document de l\'avenant n\'est pas encore conservé dans l\'app — conserver le PDF signé.':'')
+    // Chantier clôture/relocation (B2) : l'avenant d'un bail signé scellé est désormais conservé (journal
+    // automatique du bail, réappliqué au chargement) ; le bail signé, lui, ne change pas.
+    +(_verrou?' Bail signé : l\'avenant est conservé dans l\'app, le bail signé reste inchangé — conserver aussi le PDF signé de l\'avenant.':'')
     // (Plus de proposition d'ouvrir l'acte de cautionnement : il était généré avec l'ANCIEN garant et
     //  les ANCIENS locataires. Mention DANS le même message : un 2ᵉ toast écrasait le premier.)
     +(built.caution?' Un acte de cautionnement est à établir séparément pour la nouvelle caution (l\'acte généré par l\'app reprend encore l\'ancien garant).':'');
