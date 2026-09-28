@@ -48,6 +48,11 @@ function civiliteDe(ctx, nom) {
   const l = (Array.isArray(ctx && ctx.locDetail) ? ctx.locDetail : []).find(x => x && x.nom === nom);
   return l ? (l.civilite || '') : '';
 }
+/** Civilité du locataire en POSITION i (homonymes distingués) ; repli par nom si les listes divergent. */
+function civiliteA(ctx, i, nom) {
+  const l = (Array.isArray(ctx && ctx.locDetail) ? ctx.locDetail : [])[i];
+  return l && l.nom === nom ? (l.civilite || '') : civiliteDe(ctx, nom);
+}
 /** « A », « A et B », « A, B et C ». */
 function joinFr(arr) { return arr.length < 2 ? arr.join('') : arr.slice(0, -1).join(', ') + ' et ' + arr[arr.length - 1]; }
 
@@ -112,10 +117,14 @@ export function avenantArticle(k, d, ctx) {
       // Accords (retour Didier 28/09) : singulier / pluriel selon le nombre de colocataires qui
       // RESTENT, masculin / féminin selon la civilité. Civilité inconnue → formes neutres « (e) ».
       const locs = Array.isArray(ctx.locataires) ? ctx.locataires : [];
-      const civS = civiliteDe(ctx, d.sortant), gS = genre(civS);
+      // Le sortant est désigné par sa POSITION (1ʳᵉ occurrence) : deux colocataires homonymes ne
+      // disparaissent plus tous deux de l'acte, et chacun garde sa propre civilité (audit lot 1).
+      const iS = isAjout ? -1 : locs.indexOf(d.sortant);
+      const civS = iS >= 0 ? civiliteA(ctx, iS, locs[iS]) : civiliteDe(ctx, d.sortant), gS = genre(civS);
       const civE = d.civEntrant, gE = genre(civE);
-      const restants = isAjout ? locs : locs.filter(n => n !== d.sortant);
-      const nomsRestants = restants.map(n => personne(civiliteDe(ctx, n), n));
+      const restantsIdx = locs.map((_, i) => i).filter(i => i !== iS);
+      const restants = restantsIdx.map(i => locs[i]);
+      const nomsRestants = restantsIdx.map(i => personne(civiliteA(ctx, i, locs[i]), locs[i]));
       const auSortant = accord(gS, 'au colocataire sortant', 'à la colocataire sortante', 'au colocataire sortant');
       let h = '';
       if (!isAjout) {
@@ -133,7 +142,7 @@ export function avenantArticle(k, d, ctx) {
         h += nomsRestants[0] + ', qui demeure dans les lieux, poursuit le bail aux conditions initiales' +
           (isAjout ? '.' : ' et fait son affaire personnelle de la restitution éventuelle de la quote-part de dépôt de garantie ' + auSortant + '.');
       } else if (restants.length > 1) {
-        h += 'Les colocataires qui demeurent dans les lieux, ' + joinFr(nomsRestants) + ', poursuivent le bail aux conditions initiales' +
+        h += (isAjout ? 'Les colocataires en place, ' : 'Les colocataires qui demeurent dans les lieux, ') + joinFr(nomsRestants) + ', poursuivent le bail aux conditions initiales' +
           (isAjout ? '.' : ' et font leur affaire personnelle de la restitution éventuelle de la quote-part de dépôt de garantie ' + auSortant + '.');
       } else {
         h += 'Le ou les colocataires demeurant dans les lieux poursuivent le bail aux conditions initiales' +
@@ -280,9 +289,10 @@ export function buildAvenantHtml(ctx) {
   const colocAct = String(((coloc || {}).data || {}).act || '');
   const sortant = coloc && colocAct.indexOf('Ajout') !== 0 ? String(coloc.data.sortant || '').trim() : '';
   const signataires = [{ role: 'Le bailleur', nom: ctx.bailleur || '', sous: ctx.representant ? 'représenté par ' + ctx.representant : '' }];
-  locs.forEach(nom => {
-    const g = genre(civiliteDe(ctx, nom));
-    signataires.push({ role: sortant && nom === sortant ? accord(g, 'Le colocataire sortant', 'La colocataire sortante', 'Le colocataire sortant') : accord(g, 'Le locataire', 'La locataire', 'Le locataire'), nom });
+  const iSortant = sortant ? locs.indexOf(sortant) : -1;   // 1ʳᵉ occurrence seulement (homonymes)
+  locs.forEach((nom, i) => {
+    const g = genre(civiliteA(ctx, i, nom));
+    signataires.push({ role: i === iSortant ? accord(g, 'Le colocataire sortant', 'La colocataire sortante', 'Le colocataire sortant') : accord(g, 'Le locataire', 'La locataire', 'Le locataire'), nom });
   });
   if (entrant) {
     const gE = genre(((coloc || {}).data || {}).civEntrant);
@@ -326,7 +336,8 @@ export function buildAvenantHtml(ctx) {
 export function avenantEntrant(objets) {
   const c = (Array.isArray(objets) ? objets : []).find(o => o && o.k === 'coloc');
   const d = (c && c.data) || {};
-  return String(d.act || '').indexOf('Départ') !== 0 && d.entrant ? String(d.entrant) : '';
+  const nom = String(d.entrant == null ? '' : d.entrant).trim();
+  return String(d.act || '').indexOf('Départ') !== 0 && nom ? nom : '';
 }
 
 /**

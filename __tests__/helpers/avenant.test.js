@@ -2,7 +2,7 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantNumeroSuivant } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantNumeroSuivant, avenantEntrant } from '../../js/core/avenant.js';
 
 describe('avenantMontant — lecture des montants saisis', () => {
   it('champ vide → montant en vigueur conservé', () => {
@@ -315,6 +315,27 @@ describe('accords : singulier / pluriel selon les colocataires qui restent, genr
     const aj = avenantArticle('caution', { act: 'Ajout d\'une caution', civ: '—', nom: 'Action Logement', plafond: 1000 }, { locataires: ['A', 'B'] }).html;
     expect(aj).toMatch(/: <strong>Action Logement<\/strong> s'engage/);
     expect(aj).toMatch(/obligations des locataires/);
+  });
+  it('homonymes : seul le 1er « Jean Martin » part, l\'autre reste nommé avec SA civilité', () => {
+    const ld = [{ nom: 'Jean Martin', civilite: 'Mme' }, { nom: 'Jean Martin', civilite: 'M.' }, { nom: 'Léa Roy', civilite: 'Mme' }];
+    const locs = ['Jean Martin', 'Jean Martin', 'Léa Roy'];
+    const h = avenantArticle('coloc', { act: 'Départ (séparation), sans remplaçant', sortant: 'Jean Martin' }, { locataires: locs, locDetail: ld }).html;
+    expect(h).toMatch(/^Mme <strong>Jean Martin<\/strong> cesse/);
+    expect(h).toMatch(/caution pour elle/);
+    expect(h).toMatch(/M\. <strong>Jean Martin<\/strong> et Mme <strong>Léa Roy<\/strong>, poursuivent/);
+    const doc = buildAvenantHtml({ bailleur: 'SCI', locataires: locs, locDetail: ld, effetIso: '2026-09-30', ville: 'Lyon',
+      objets: [{ k: 'coloc', data: { act: 'Départ (séparation), sans remplaçant', sortant: 'Jean Martin' } }] }).html;
+    const roles = [...doc.matchAll(/<div class="pro-signbox">([^<]*)<br>/g)].map(m => m[1]);
+    expect(roles).toEqual(['Le bailleur', 'La colocataire sortante', 'Le locataire', 'La locataire']);
+  });
+  it('ajout avec plusieurs colocataires : « Les colocataires en place » (personne ne « demeure », personne ne part)', () => {
+    const h = art({ act: 'Ajout d\'un colocataire', entrant: 'Hugo Bernard', civEntrant: 'M.' }, ['Alice Martin', 'Bruno Leroy']);
+    expect(h).toMatch(/Les colocataires en place, Mme <strong>Alice Martin<\/strong> et M\. <strong>Bruno Leroy<\/strong>, poursuivent le bail aux conditions initiales\.$/);
+  });
+  it('entrant saisi avec des espaces seuls → pas d\'entrant (ni cadre vide, ni case de paraphe)', () => {
+    expect(avenantEntrant([{ k: 'coloc', data: { act: 'Ajout d\'un colocataire', entrant: '   ' } }])).toBe('');
+    expect(avenantEntrant([{ k: 'coloc', data: { act: 'Ajout d\'un colocataire', entrant: ' Hugo ' } }])).toBe('Hugo');
+    expect(avenantEntrant([{ k: 'coloc', data: { act: 'Départ (séparation), sans remplaçant', entrant: 'Hugo' } }])).toBe('');
   });
   it('document : « La locataire », « La colocataire sortante » dans les parties et les cadres', () => {
     const h = buildAvenantHtml({ bailleur: 'SCI', locataires: ['Alice Martin', 'Bruno Leroy'], locDetail, effetIso: '2026-09-30', ville: 'Lyon',
