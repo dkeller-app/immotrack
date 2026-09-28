@@ -24925,14 +24925,15 @@ var _AVENANT_OBJETS = [
    // son remplacement = nouveau bail. Seul l'ajout d'un colocataire relève d'un avenant.
    {id:'act',l:'Situation',t:'select',o:function(){ return (_avenantState.locNames||[]).length>1 ? ['Départ (séparation), sans remplaçant','Ajout d\'un colocataire','Remplacement (départ + arrivée)'] : ['Ajout d\'un colocataire']; }},
    {id:'sortant',l:'Colocataire sortant',t:'select',o:function(){return _avenantState.locNames;}},
-   // Caution du sortant, NOMMÉE dans l'acte (art. 8-1 VI : sa solidarité prend fin avec celle du sortant).
-   // Premier choix neutre : jamais de caution désignée par défaut (mauvaise personne sinon).
-   {id:'cautionSortant',l:'Caution du colocataire sortant',t:'select',o:function(){ return ['— À préciser'].concat(_avenantState.garants||[]).concat(['Aucune caution']); }},
+   // Caution dont l'engagement PREND FIN avec ce départ, NOMMÉE dans l'acte (art. 8-1 VI al. 2 : l'acte
+   // de cautionnement désigne le colocataire dont la fin de solidarité met fin à l'engagement — y compris
+   // quand une caution garantit TOUS les colocataires). Premier choix neutre : jamais désignée par défaut.
+   {id:'cautionSortant',l:'Caution dont l\'engagement prend fin avec ce départ',t:'select',o:function(){ return ['— À préciser'].concat(_avenantState.garants||[]).concat(['Aucune caution']); }},
    // Civilité : accorde le texte (« adjointe », « Elle déclare », « tenue »). Celle des locataires
    // en place vient du bail (bail.locataires[].civilite).
    {id:'civEntrant',l:'Civilité du colocataire entrant',t:'select',o:['—','M.','Mme']},
    {id:'entrant',l:'Colocataire entrant',t:'text',v:''}],
-   note:'Départ seul : solidarité + caution du sortant éteintes au plus tard 6 mois après le congé. Ajout / remplacement : nouvelle caution pour l\'entrant.'},
+   note:'Départ seul : solidarité du sortant éteinte au plus tard 6 mois après le congé. Caution : choisir celle que l\'acte de cautionnement rattache à ce colocataire, même si elle garantit les deux ; si l\'acte désigne l\'autre colocataire, choisir « Aucune caution » (son engagement continue). Ajout / remplacement : nouvelle caution pour l\'entrant.'},
  {k:'caution', tt:'Garant / caution', f:[
    {id:'act',l:'Action',t:'select',o:['Ajout d\'une caution','Remplacement de la caution','Mainlevée (fin de caution)']},
    {id:'civ',l:'Civilité de la caution',t:'select',o:['—','M.','Mme']},
