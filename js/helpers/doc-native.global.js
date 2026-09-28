@@ -235,7 +235,12 @@
     if (_hasClass(s, 'no-print') || _hasClass(s, 'alerte')) return { t: 'alerte', v: s, screenOnly: true };
     if (_hasClass(s, 'pro-parties')) return { t: 'parties', blocs: _parseParties(s) };
     if (_hasClass(s, 'pro-lignes')) return { t: 'lignes', rows: _parseLignes(s) };
+    // AVENANT-REFONTE §7 D7 — tableau clé / valeur : rendu en deux colonnes (clé en gras sur fond),
+    // pas en tableau autoTable dont la dernière colonne était alignée à droite.
+    if (_hasClass(s, 'pro-kv')) return { t: 'kv', rows: _parseTbl(s).rows };
     if (_hasClass(s, 'pro-tbl') || /^<table/i.test(s)) return Object.assign({ t: 'tbl' }, _parseTbl(s));
+    // AVENANT-REFONTE §7 D5 — titre d'article : il était rendu en texte courant (et signalé).
+    if (/^<h3[\s>]/i.test(s)) return { t: 'h3', v: _inner(s) };
     if (_hasClass(s, 'pro-acte')) return { t: 'acte', v: _inner(s) };
     if (_hasClass(s, 'pro-mention')) return { t: 'mention', v: _inner(s) };
     if (_hasClass(s, 'pro-encart')) return { t: 'encart', v: _inner(s) };
@@ -299,6 +304,7 @@
       case 'parties': return (b.blocs || []).map(p => [p.label, p.qui, htmlToText(p.corps)].filter(Boolean).join(' ')).join(' ');
       case 'lignes': return (b.rows || []).map(r => htmlToText(r.lab) + ' ' + htmlToText(r.val)).join(' ');
       case 'tbl': return [(b.head || []).map(htmlToText).join(' '), (b.rows || []).map(r => r.map(htmlToText).join(' ')).join(' '), (b.foot || []).map(htmlToText).join(' ')].join(' ');
+      case 'kv': return (b.rows || []).map(r => r.map(htmlToText).join(' ')).join(' ');
       case 'signzone': return (b.boxes || []).map(x => htmlToText(x.label)).join(' ');
       default: return htmlToText(b.v);
     }
@@ -445,19 +451,91 @@
    * @param {object} ent   entité bailleur (logo, nom)
    * @param {object} parsed sortie de parseDocDoc
    * @param {object} PN    PDF_NATIVE (injectable pour test)
+   * @param {object} [opts]
+   *   @param {boolean} [opts.pagination] pied (réf., date, « Page p / N ») sur CHAQUE page — sinon
+   *     pied sur la dernière page seulement, sans numéro (aspect historique des quittances).
+   *   @param {string[]} [opts.paraphes] libellés des cases de paraphe posées en bas de chaque page
+   *     sauf la dernière, seulement si le document fait plus d'une page.
    */
-  function renderDocToPdf(pdf, ent, parsed, PN) {
+  function renderDocToPdf(pdf, ent, parsed, PN, opts) {
     PN = PN || PDF_NATIVE;
+    opts = opts || {};
     const x = PN.MARGIN_LEFT, right = PN.PAGE_W - PN.MARGIN_RIGHT, W = PN.CONTENT_W;
+    const bodyBottom = PN.PAGE_H - PN.MARGIN_BOTTOM;
     let y = PN.MARGIN_TOP;
     try { y = PN.drawBrandzone(pdf, { logo: ent && ent.logo, sciNom: (ent && ent.nom) || '' }, y); } catch (e) { y = PN.MARGIN_TOP + 8; }
     if (parsed.titre) y = PN.drawTitle(pdf, 1, parsed.titre, x, y);
     if (parsed.ctx) y = PN.drawText(pdf, parsed.ctx, x, y, { size: PN.FONT_SIZE_NOTE, color: PN.COLOR_MUTED }) + 2;
 
-    for (const b of (parsed.blocks || [])) {
-      if (!b || b.screenOnly) continue;
+    // ── Mesures (mêmes tailles et polices que le tracé) : AVENANT-REFONTE §7 D1/D6. Avant, on
+    // réservait une hauteur forfaitaire (24 mm pour un cadre qui en prend ~31) : le cadre était
+    // coupé en bas de page, sa ligne sur une page et le nom du signataire sur la suivante.
+    const textH = (t, size, w, style) => {
+      pdf.setFont(PN.FONT_FAMILY, style || 'normal'); pdf.setFontSize(size);
+      return pdf.splitTextToSize(String(t || ''), w).length * size * 0.4 + 0.5;
+    };
+    const SIG_MAX_COLS = 3, SIG_GAP = 6, SIG_TOP = 8, SIG_SPACE = 11, SIG_UNDER = 2;
+    const sigGeom = (n) => {
+      const cols = Math.max(1, Math.min(n, SIG_MAX_COLS));
+      const bw = cols === 1 ? 70 : Math.min(70, (W - SIG_GAP * (cols - 1)) / cols);
+      return { cols, bw, step: cols === 1 ? 0 : (W - bw * cols) / (cols - 1) + bw };
+    };
+    const sigRows = (boxes) => {
+      const g = sigGeom((boxes || []).length);
+      const rows = [];
+      for (let i = 0; i < (boxes || []).length; i += g.cols) rows.push(boxes.slice(i, i + g.cols));
+      return { g, rows };
+    };
+    const sigRowH = (row, bw) => SIG_TOP + SIG_SPACE + SIG_UNDER
+      + Math.max.apply(null, row.map(bx => textH(htmlToText(bx.label), PN.FONT_SIZE_SMALL, bw)));
+    const h3H = (b) => PN.H3_GAP_BEFORE + textH(htmlToText(b.v), PN.FONT_SIZE_H3, W, 'bold') + PN.H3_GAP_AFTER;
+    const blockH = (b) => {
+      if (b.t === 'h3') return h3H(b);
+      if (b.t === 'lieu') return 8 + textH(htmlToText(b.v), PN.FONT_SIZE_BODY, W) + PN.PARAGRAPH_GAP;
+      if (b.t === 'signzone') {
+        const { g, rows } = sigRows(b.boxes);
+        return rows.reduce((s, r) => s + sigRowH(r, g.bw), 0) + PN.PARAGRAPH_GAP;
+      }
+      if (b.t === 'mention') return textH(htmlToText(b.v), PN.FONT_SIZE_NOTE, W) + PN.PARAGRAPH_GAP;
+      return textH(htmlToText(b.v), PN.FONT_SIZE_BODY, W) + PN.PARAGRAPH_GAP;
+    };
+    const usable = bodyBottom - PN.MARGIN_TOP;
+
+    const blocks = (parsed.blocks || []).filter(b => b && !b.screenOnly);
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      // Garder ensemble « Fait à… », le titre « Signatures » et les cadres (D6) : on mesure la
+      // séquence qui mène aux cadres et on change de page UNE fois si elle ne tient pas.
+      if (b.t === 'lieu' || b.t === 'h3' || b.t === 'signzone') {
+        let j = i, h = 0, withSig = false;
+        while (j < blocks.length && ['lieu', 'h3', 'signzone', 'mention'].indexOf(blocks[j].t) >= 0) {
+          if (blocks[j].t === 'mention' && !withSig) break;
+          h += blockH(blocks[j]); if (blocks[j].t === 'signzone') withSig = true; j++;
+        }
+        if (withSig) y = PN.newPageIfNeeded(pdf, y, Math.min(h, usable));
+      }
+      // Un titre d'article ne reste jamais seul en bas de page : il part avec le début de son texte.
+      if (b.t === 'h3') y = PN.newPageIfNeeded(pdf, y, Math.min(h3H(b) + 12, usable));
       y = PN.newPageIfNeeded(pdf, y, b.t === 'tbl' ? 40 : 14);
       switch (b.t) {
+        case 'h3':
+          y = PN.drawTitle(pdf, 3, htmlToText(b.v), x, y, { maxWidth: W });
+          break;
+        case 'kv': {
+          const kW = W * 0.44, pad = 2;
+          for (const r of (b.rows || [])) {
+            const k = htmlToText(r[0]), v = htmlToText(r[1]);
+            const rh = Math.max(textH(k, PN.FONT_SIZE_NOTE, kW - 2 * pad, 'bold'), textH(v, PN.FONT_SIZE_NOTE, W - kW - 2 * pad)) + 2 * pad;
+            y = PN.newPageIfNeeded(pdf, y, rh);
+            try { pdf.setFillColor(247, 248, 251); pdf.rect(x, y, kW, rh, 'F'); } catch (e) {}
+            PN.drawText(pdf, k, x + pad, y + pad, { size: PN.FONT_SIZE_NOTE, style: 'bold', color: PN.COLOR_TITLE, maxWidth: kW - 2 * pad });
+            PN.drawText(pdf, v, x + kW + pad, y + pad, { size: PN.FONT_SIZE_NOTE, maxWidth: W - kW - 2 * pad });
+            try { pdf.setDrawColor(228, 231, 238); pdf.setLineWidth(0.2); pdf.line(x, y + rh, x + W, y + rh); } catch (e) {}
+            y += rh;
+          }
+          y += PN.PARAGRAPH_GAP + 2;
+          break;
+        }
         case 'parties': {
           // Retour Didier : les parties doivent être CÔTE À CÔTE dans des cartouches gris, comme à
           // l'écran (.pro-parties{display:flex} / .pro-partie{background:#f7f8fb}) — plus empilées.
@@ -530,36 +608,35 @@
           y = PN.drawText(pdf, htmlToText(b.v), x, y) + PN.PARAGRAPH_GAP;
           break;
         case 'signzone': {
-          y = PN.newPageIfNeeded(pdf, y, 24);
-          y += 8;
-          const boxes = b.boxes || [];
-          const bw = 70, gap = 8;
-          let bx = boxes.length > 1 ? x : right - bw;
-          const yTop = y;
-          let maxY = y;
-          for (const box of boxes) {
-            let yy = yTop;
-            const src = _imgSrc(box.sig);
-            // Signature : ratio PRÉSERVÉ (avant : forcée à 58×10 mm → déformée). Ajustée dans une
-            // boîte max 58×11 mm, calée sur la ligne — comme à l'écran.
-            if (src) {
-              try {
-                let maxWsig = Math.min(bw, 58), maxHsig = 11, ratioSig = 1;
-                try { const prSig = pdf.getImageProperties(src); if (prSig && prSig.width && prSig.height) ratioSig = prSig.width / prSig.height; } catch (e) {}
-                let iw = maxWsig, ih = iw / ratioSig;
-                if (ih > maxHsig) { ih = maxHsig; iw = ih * ratioSig; }
-                pdf.addImage(src, 'PNG', bx, yy + (maxHsig - ih), iw, ih);
-              } catch (e) {}
+          // D1-D3 : une RANGÉE de cadres (3 au plus, 58-70 mm) est mesurée puis posée entière sur
+          // une seule page. Avant : cadres par 70 mm fixes, hauteur réservée trop courte, ligne et
+          // image non paginées → cadre coupé, nom du signataire seul en haut de la page suivante.
+          const { g, rows } = sigRows(b.boxes);
+          for (const row of rows) {
+            y = PN.newPageIfNeeded(pdf, y, Math.min(sigRowH(row, g.bw), usable));
+            const yTop = y + SIG_TOP;
+            let bx = row.length === 1 && g.cols === 1 ? right - g.bw : x;
+            for (const box of row) {
+              const src = _imgSrc(box.sig);
+              // Signature : ratio PRÉSERVÉ (avant : forcée à 58×10 mm → déformée). Ajustée dans une
+              // boîte max 58×11 mm, calée sur la ligne — comme à l'écran.
+              if (src) {
+                try {
+                  let maxWsig = Math.min(g.bw, 58), maxHsig = SIG_SPACE, ratioSig = 1;
+                  try { const prSig = pdf.getImageProperties(src); if (prSig && prSig.width && prSig.height) ratioSig = prSig.width / prSig.height; } catch (e) {}
+                  let iw = maxWsig, ih = iw / ratioSig;
+                  if (ih > maxHsig) { ih = maxHsig; iw = ih * ratioSig; }
+                  pdf.addImage(src, 'PNG', bx, yTop + (maxHsig - ih), iw, ih);
+                } catch (e) {}
+              }
+              pdf.setDrawColor(120, 120, 120); pdf.setLineWidth(0.2);
+              pdf.line(bx, yTop + SIG_SPACE, bx + g.bw, yTop + SIG_SPACE);
+              PN.drawText(pdf, htmlToText(box.label), bx, yTop + SIG_SPACE + SIG_UNDER, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, maxWidth: g.bw });
+              bx += g.step;
             }
-            yy += 11;
-            pdf.setDrawColor(120, 120, 120); pdf.setLineWidth(0.2);
-            pdf.line(bx, yy, bx + bw, yy);
-            yy += 2;
-            yy = PN.drawText(pdf, htmlToText(box.label), bx, yy, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, maxWidth: bw });
-            maxY = Math.max(maxY, yy);
-            bx += bw + gap;
+            y = y + sigRowH(row, g.bw);
           }
-          y = maxY + PN.PARAGRAPH_GAP;
+          y += PN.PARAGRAPH_GAP;
           break;
         }
         default:
@@ -567,19 +644,44 @@
       }
     }
 
-    // Pied EN BAS DE PAGE (retour Didier : il flottait au milieu, il doit être en bas). Réf. à
-    // gauche, date à droite, avec un filet de séparation — comme .pro-pied à l'écran. Si le contenu
-    // descend jusque dans la zone du pied, on le renvoie en bas de la page suivante.
-    let footY = PN.PAGE_H - PN.MARGIN_BOTTOM + 8;
-    if (y + 6 > footY) { pdf.addPage(); footY = PN.PAGE_H - PN.MARGIN_BOTTOM + 8; }
-    if (parsed.ref || parsed.date) {
-      try { pdf.setDrawColor(228, 231, 238); pdf.setLineWidth(0.2); pdf.line(x, footY - 4, x + W, footY - 4); } catch (e) {}
-      // pdf.text DIRECT (pas PN.drawText) : le pied vit dans la marge basse, SOUS la zone de contenu.
-      // PN.drawText refuserait d'y écrire (sa pagination le renverrait sur une page en trop).
-      pdf.setFont(PN.FONT_FAMILY, 'normal'); pdf.setFontSize(PN.FONT_SIZE_SMALL);
-      pdf.setTextColor(PN.COLOR_MUTED[0], PN.COLOR_MUTED[1], PN.COLOR_MUTED[2]);
-      if (parsed.ref) pdf.text(String(parsed.ref), x, footY, { baseline: 'top' });
-      if (parsed.date) pdf.text(String(parsed.date), x + W, footY, { align: 'right', baseline: 'top' });
+    // Pied EN BAS DE PAGE, dans la marge basse. D4 : le contenu ne descend jamais sous `bodyBottom`
+    // (drawText pagine avant) : le pied a toujours sa place, on ne crée PLUS de page pour lui seul.
+    const nPages = typeof pdf.getNumberOfPages === 'function' ? pdf.getNumberOfPages() : 1;
+    const paraphes = (opts.paraphes || []).filter(Boolean);
+    const avecParaphes = paraphes.length > 0 && nPages > 1;
+    const drawFoot = (p) => {
+      const surParaphe = avecParaphes && p < nPages;
+      const footY = bodyBottom + (surParaphe ? 5.5 : 8);
+      const pageLbl = opts.pagination ? 'Page ' + p + ' / ' + nPages : '';
+      if (parsed.ref || parsed.date || pageLbl) {
+        try { pdf.setDrawColor(228, 231, 238); pdf.setLineWidth(0.2); const fl = surParaphe ? 3 : 4; pdf.line(x, footY - fl, x + W, footY - fl); } catch (e) {}
+        // pdf.text DIRECT (pas PN.drawText) : le pied vit dans la marge basse, SOUS la zone de contenu.
+        // PN.drawText refuserait d'y écrire (sa pagination le renverrait sur une page en trop).
+        pdf.setFont(PN.FONT_FAMILY, 'normal'); pdf.setFontSize(PN.FONT_SIZE_SMALL);
+        pdf.setTextColor(PN.COLOR_MUTED[0], PN.COLOR_MUTED[1], PN.COLOR_MUTED[2]);
+        if (parsed.ref) pdf.text(String(parsed.ref), x, footY, { baseline: 'top' });
+        if (pageLbl) pdf.text(pageLbl, x + W / 2, footY, { align: 'center', baseline: 'top' });
+        if (parsed.date) pdf.text(String(parsed.date), x + W, footY, { align: 'right', baseline: 'top' });
+      }
+      // Cases de paraphe (acte de plusieurs pages) : une par partie, en bas à droite, sauf sur la
+      // dernière page qui porte les signatures.
+      if (surParaphe) {
+        const cw = 16, ch = 8, cg = 3;
+        let cx = right - paraphes.length * cw - (paraphes.length - 1) * cg;
+        const cy = PN.PAGE_H - 13.5;
+        pdf.setFontSize(6); pdf.setTextColor(PN.COLOR_MUTED[0], PN.COLOR_MUTED[1], PN.COLOR_MUTED[2]);
+        pdf.text('Paraphes', cx - 2, cy + ch / 2, { align: 'right', baseline: 'middle' });
+        for (const lbl of paraphes) {
+          try { pdf.setDrawColor(180, 180, 180); pdf.setLineWidth(0.2); pdf.rect(cx, cy, cw, ch, 'S'); } catch (e) {}
+          pdf.text(String(lbl), cx + cw / 2, cy + ch + 1, { align: 'center', baseline: 'top' });
+          cx += cw + cg;
+        }
+      }
+    };
+    if ((opts.pagination || avecParaphes) && typeof pdf.setPage === 'function') {
+      for (let p = 1; p <= nPages; p++) { pdf.setPage(p); drawFoot(p); }
+    } else {
+      drawFoot(nPages);
     }
     return pdf;
   }

@@ -90,12 +90,13 @@ export function docCss() {
 .pro-doc .pro-encart{background:${T.FOND_BLOC};border-radius:2.5mm;padding:2.4mm 3.4mm;margin:0 0 4mm;font-size:8pt;color:${T.GRIS_MENTION};line-height:1.45}
 .pro-doc .pro-encart b{color:${T.ENCRE};font-weight:600}
 .pro-doc .pro-lieu{font-size:9pt;color:#3c4658;margin:0 0 1mm}
-.pro-doc .pro-signzone{padding-top:3mm;display:flex;justify-content:flex-end;gap:8mm}
+/* 3 cadres × 56 mm + 2 × 6 mm = 180 mm (zone utile) : même géométrie que le PDF natif */
+.pro-doc .pro-signzone{padding-top:3mm;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6mm}
 .pro-doc .pro-signzone.duo{justify-content:space-between}
 .pro-doc .pro-sigcase{page-break-inside:avoid}
-.pro-doc .pro-sigspace{width:58mm;height:10mm;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
-.pro-doc .pro-sigspace img{max-height:10mm;max-width:58mm;display:block}
-.pro-doc .pro-signbox{width:58mm;border-top:.3mm solid #b8c0cd;padding-top:1.4mm;text-align:center;font-size:8.5pt;line-height:1.35;color:${T.GRIS}}
+.pro-doc .pro-sigspace{width:56mm;height:10mm;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.pro-doc .pro-sigspace img{max-height:10mm;max-width:56mm;display:block}
+.pro-doc .pro-signbox{width:56mm;border-top:.3mm solid #b8c0cd;padding-top:1.4mm;text-align:center;font-size:8.5pt;line-height:1.35;color:${T.GRIS}}
 .pro-doc .pro-pied{margin-top:4mm;padding-top:1.8mm;border-top:.2mm solid ${T.FILET};display:flex;justify-content:space-between;gap:6mm;font-size:7.5pt;color:${T.GRIS_PIED}}
 .pro-doc .pro-pied .ref{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;letter-spacing:.06em}
 .pro-doc .pro-alerte{border-radius:2.5mm;padding:2.4mm 3.4mm;margin:0 0 4mm;font-size:9pt;line-height:1.35}

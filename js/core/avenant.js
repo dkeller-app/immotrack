@@ -231,37 +231,46 @@ export function buildAvenantHtml(ctx) {
     arts += '<h3>Article ' + romain(n++) + ' — ' + a.titre + '</h3><p>' + a.html + (a.base ? ' <em style="color:#8b94a5">(' + a.base + ')</em>' : '') + '</p>';
   });
   arts += '<h3>Article ' + romain(n++) + ' — Prise d\'effet</h3><p>Le présent avenant prend effet le ' + b(effet) + '.</p>';
-  arts += '<h3>Article ' + romain(n++) + ' — Stipulations inchangées</h3><p>À l\'exception des modifications qui précèdent, l\'ensemble des clauses et conditions du bail initial demeure applicable et inchangé. Le présent avenant forme un tout indivisible avec le bail auquel il demeure annexé, et ne vaut ni novation ni conclusion d\'un nouveau bail.</p>';
+  // AVENANT-REFONTE §7 : la non-novation n'est dite qu'UNE fois (préambule) ; ici, l'essentiel.
+  arts += '<h3>Article ' + romain(n++) + ' — Stipulations inchangées</h3><p>Toutes les autres clauses et conditions du bail demeurent applicables et inchangées. Le présent avenant forme un tout indivisible avec le bail auquel il est annexé.</p>';
 
-  const signataires = locs.map(nom => ({ role: 'Le locataire', nom }));
+  // Rôles des signataires : le colocataire qui part signe aussi (il renonce à ses droits sur le
+  // logement) ; il est désigné comme tel, et non plus comme « Le locataire » parmi d'autres.
+  const coloc = objets.find(o => o.k === 'coloc');
+  const colocAct = String(((coloc || {}).data || {}).act || '');
+  const sortant = coloc && colocAct.indexOf('Ajout') !== 0 ? String(coloc.data.sortant || '').trim() : '';
+  const signataires = [{ role: 'Le bailleur', nom: ctx.bailleur || '', sous: ctx.representant ? 'représenté par ' + ctx.representant : '' }];
+  locs.forEach(nom => signataires.push({ role: sortant && nom === sortant ? 'Le colocataire sortant' : 'Le locataire', nom }));
   if (entrant) signataires.push({ role: 'Le colocataire entrant', nom: entrant });
-  signataires.push({ role: 'Le bailleur', nom: ctx.bailleur || '' });
-  // Zone de signature CANONIQUE `pro-signzone` (rendue nativement par DocNative → vrai PDF jsPDF,
-  // et stylée par _docCss à l'écran/impression). Groupée par 2 (duo) pour ne pas déborder A4.
-  const sigBoxes = signataires.map(s => '<div class="pro-signbox">' + s.role + '<br><strong>' + esc(s.nom) + '</strong><br><em>Lu et approuvé</em></div>');
-  let sigHtml = '';
-  for (let i = 0; i < sigBoxes.length; i += 2) {
-    const pair = sigBoxes.slice(i, i + 2);
-    sigHtml += '<div class="pro-signzone' + (pair.length > 1 ? ' duo' : '') + '">' + pair.join('') + '</div>';
-  }
+  // Zone de signature CANONIQUE (forme {sig,label} de docSignzone) : l'espace de signature est
+  // AU-DESSUS du filet, le libellé dessous. UNE seule zone : le moteur la pose par rangées de 3
+  // cadres, chaque rangée entière sur une page. `ctx.signatures[i]` = image déjà échappée (lot 3).
+  const sigs = Array.isArray(ctx.signatures) ? ctx.signatures : [];
+  const sigHtml = '<div class="pro-signzone' + (signataires.length > 1 ? ' duo' : '') + '">' +
+    signataires.map((s, i) => '<div class="pro-sigcase"><div class="pro-sigspace">' + (sigs[i] || '') + '</div>' +
+      '<div class="pro-signbox">' + s.role + '<br><strong>' + esc(s.nom) + '</strong>' + (s.sous ? '<br>' + esc(s.sous) : '') + '</div></div>').join('') +
+    '</div>';
+
+  // « Fait le » = date de l'ACTE (signature), jamais la date d'effet (audit 27/09). Inconnue tant
+  // que l'avenant n'est pas signé dans l'app : ligne à compléter à la main.
+  const dateActe = ctx.dateActeIso ? esc(frDate(ctx.dateActeIso)) : '____________________';
+  const qualite = locs.length > 1 ? 'Les locataires' : 'Le locataire';
 
   // CORPS au gabarit Propryo (.pro-doc) — l'habillage (bandeau logos, titre, pied) est posé par _docPage.
+  // Parties en blocs côte à côte (docParties) : fini le tableau qui répétait le titre.
   const html =
-    '<p class="pro-lead" style="font-variant:small-caps;letter-spacing:.03em">Entre les soussignés :</p>' +
-    '<p>' + b(ctx.bailleur || '…') + ', ci-après « le bailleur », d\'une part,</p>' +
-    '<p>Et ' + b(locs.join(' & ') || '…') + ', ci-après « le(s) locataire(s) », d\'autre part,</p>' +
-    // AUDIT 27/09 : pas de « signé le » pour un bail sans signature dans l'app (bail papier / repris) ;
-    // date ÉCHAPPÉE (une valeur non-date était rendue brute).
-    '<table class="pro-kv"><tr><td>Bail modifié</td><td>Contrat d\'habitation ' + (ctx.bailSigne === false ? 'en date du' : 'signé le') + ' <strong>' + esc(frDate(ctx.dateBail)) + '</strong></td></tr>' +
-    '<tr><td>Logement</td><td>' + esc(ctx.bien || '…') + '</td></tr>' +
-    '<tr><td>Loyer mensuel HC en vigueur</td><td>' + num(ctx.loyer0) + ' €</td></tr></table>' +
-    '<p style="font-variant:small-caps;letter-spacing:.03em">Il a été préalablement exposé ce qui suit :</p>' +
-    '<p>Les parties sont convenues d\'apporter au bail les modifications ci-après, sans que celles-ci n\'emportent novation ni conclusion d\'un nouveau bail.</p>' +
-    '<p style="font-variant:small-caps;letter-spacing:.03em">Ceci exposé, il a été convenu ce qui suit :</p>' +
+    '<div class="pro-parties">' +
+      '<div class="pro-partie"><h2>Le bailleur</h2><span class="pro-qui">' + esc(ctx.bailleur || '') + '</span>' +
+        (ctx.representant ? '<p>représenté par ' + esc(ctx.representant) + '</p>' : '') + '</div>' +
+      '<div class="pro-partie"><h2>' + qualite + '</h2><span class="pro-qui">' + (locs.length ? locs.map(esc).join('<br>') : TODO) + '</span>' +
+        '<p>' + champTxt(ctx.bien) + '</p></div>' +
+    '</div>' +
+    // AUDIT 27/09 : pas de « signé le » pour un bail sans signature complète dans l'app ; date échappée.
+    '<p>Bail d\'habitation ' + (ctx.bailSigne === false ? 'en date du' : 'signé le') + ' <strong>' + esc(frDate(ctx.dateBail)) + '</strong>, loyer mensuel hors charges en vigueur : <strong>' + esc(String(num(ctx.loyer0))) + ' €</strong>. Les parties conviennent d\'y apporter les modifications ci-après, qui n\'emportent ni novation ni conclusion d\'un nouveau bail.</p>' +
     arts +
     (caution ? '<p><strong>Rappel :</strong> la ou les cautions concernées doivent réitérer leur engagement par un nouvel acte de cautionnement couvrant les présentes modifications, à peine de décharge (art. 22-1 de la loi du 6 juillet 1989).</p>' : '') +
-    '<p style="margin-top:4mm">Fait à ' + esc(ctx.ville || '…') + ', le ' + effet + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
-    '<h3>Signatures</h3>' + sigHtml;
+    '<p class="pro-lieu">Fait à ' + champTxt(ctx.ville) + ', le ' + dateActe + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
+    sigHtml;
   return { html, caution, nbArticles: n - 1, entrant };
 }
 

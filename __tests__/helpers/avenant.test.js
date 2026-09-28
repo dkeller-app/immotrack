@@ -214,14 +214,38 @@ describe('buildAvenantHtml — assemblage', () => {
       { k: 'loyer', data: { motif: 'Travaux d\'amélioration réalisés par le bailleur', desc: 'double vitrage', cout: 9000, nouveau: 690 } }
     ]
   };
-  it('préambule + articles numérotés + clôture', () => {
+  it('parties en blocs + articles numérotés + clôture (AVENANT-REFONTE §7)', () => {
     const r = buildAvenantHtml(ctx);
-    expect(r.html).toMatch(/Entre les soussignés/);
-    expect(r.html).toMatch(/Ceci exposé/);
+    expect(r.html).toMatch(/class="pro-parties"/);
+    expect(r.html).toMatch(/<h2>Le bailleur<\/h2><span class="pro-qui">SCI des Tilleuls/);
+    expect(r.html).toMatch(/<h2>Les locataires<\/h2><span class="pro-qui">MARTIN Sophie<br>DUBOIS Léa/);
     expect(r.html).toMatch(/Article I —/);
     expect(r.html).toMatch(/Prise d\'effet/);
     expect(r.html).toMatch(/Stipulations inchangées/);
-    expect(r.html).toMatch(/Lu et approuvé/);
+    expect(r.html).not.toMatch(/class="pro-kv"/);   // plus de tableau qui répète le titre
+  });
+  it('non-novation dite UNE fois (préambule), plus dans « Stipulations inchangées »', () => {
+    const r = buildAvenantHtml(Object.assign({}, ctx, { objets: [{ k: 'clause', data: { titre: 'T', texte: 'x' } }] }));
+    expect((r.html.match(/novation/g) || []).length).toBe(1);
+  });
+  it('« Fait le » = date de l\'acte, jamais la date d\'effet ; ligne à remplir tant que non signé', () => {
+    const sans = buildAvenantHtml(ctx).html;
+    expect(sans).toMatch(/class="pro-lieu">Fait à Strasbourg, le ____/);
+    expect(sans).not.toMatch(/Fait à Strasbourg, le 01\/10\/2026/);
+    const avec = buildAvenantHtml(Object.assign({}, ctx, { dateActeIso: '2026-09-28' })).html;
+    expect(avec).toMatch(/Fait à Strasbourg, le 28\/09\/2026/);
+  });
+  it('UNE seule zone de signature, bailleur d\'abord, sortant désigné comme tel, entrant ajouté', () => {
+    const h = buildAvenantHtml(Object.assign({}, ctx, { representant: 'Didier Keller, gérant' })).html;
+    expect((h.match(/class="pro-signzone/g) || []).length).toBe(1);
+    const roles = [...h.matchAll(/<div class="pro-signbox">([^<]*)<br>/g)].map(m => m[1]);
+    expect(roles).toEqual(['Le bailleur', 'Le locataire', 'Le colocataire sortant', 'Le colocataire entrant']);
+    expect(h).toMatch(/représenté par Didier Keller, gérant/);
+    expect(h).toMatch(/<div class="pro-sigspace"><\/div>/);   // espace de signature au-dessus du filet
+  });
+  it('images de signature posées dans leur cadre quand elles sont fournies (lot signature)', () => {
+    const h = buildAvenantHtml(Object.assign({}, ctx, { signatures: ['<img src="data:image/png;base64,AAA">'] })).html;
+    expect(h).toMatch(/<div class="pro-sigspace"><img src="data:image\/png;base64,AAA"><\/div><div class="pro-signbox">Le bailleur/);
   });
   it('signale la caution + expose le colocataire entrant comme signataire', () => {
     const r = buildAvenantHtml(ctx);
@@ -242,11 +266,11 @@ describe('mention du bail modifié', () => {
   const base = { bailleur: 'SCI', locataires: ['A', 'B'], bien: 'rue X', dateBail: '2023-01-01', effetIso: '2026-01-01', ville: 'Colmar',
                  objets: [{ k: 'clause', data: { titre: 'T', texte: 'x' } }] };
   it('bail signé dans l\'app → « signé le »', () => {
-    expect(buildAvenantHtml({ ...base, bailSigne: true }).html).toMatch(/Contrat d'habitation signé le/);
+    expect(buildAvenantHtml({ ...base, bailSigne: true }).html).toMatch(/Bail d'habitation signé le/);
   });
   it('bail NON signé dans l\'app → « en date du » (jamais « signé le » affirmé à tort)', () => {
     const h = buildAvenantHtml({ ...base, bailSigne: false }).html;
-    expect(h).toMatch(/Contrat d'habitation en date du/);
+    expect(h).toMatch(/Bail d'habitation en date du/);
     expect(h).not.toMatch(/signé le/);
   });
   it('rétrocompat : bailSigne absent → « signé le » (comportement historique)', () => {
