@@ -19458,7 +19458,7 @@ function openBail(ref, opts) {
 function _bailEtatFormulaire() {
   return Object.assign({}, getBailDataFromForm(), {
     locataires: getBailLocs(),
-    signataires: getBailSignataireSelection(),   // pas suivi par le journal : sert au contrôle « changement de partie »
+    signataires: getBailSignataireSelection(),   // suivi par le journal (co-signataires du bailleur)
     quittanceDemandee: el('b-quittanceDemandee') ? el('b-quittanceDemandee').checked : false,
     finEffective: v('b-fin-effective'), finMotif: v('b-fin-motif'), locNouvelleAdr: v('b-loc-nouv-adr'),
     dgRestitue: pf('b-dg-restitue'), dgRetenu: pf('b-dg-retenu'), finNotes: v('b-fin-notes'),

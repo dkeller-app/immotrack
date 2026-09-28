@@ -88,7 +88,7 @@ export const CHAMPS_BAIL = {
   garageIndexBase: { l: 'Indice de base' },
   erpZoneRisque: { l: 'Zone à risque (ERP)' },
 };
-// Sous-champs d'un locataire (le NOM n'y est pas : changer un nom = changer une partie → avenant).
+// Sous-champs d'un locataire suivis (le NOM compris : jamais bloqué, un avenant reste conseillé).
 export const CHAMPS_LOCATAIRE = {
   nom: 'Nom', civilite: 'Civilité', ddn: 'Date de naissance', lieuNaiss: 'Lieu de naissance',
   tel: 'Téléphone', email: 'E-mail', adressePrecedente: 'Adresse précédente',
@@ -96,7 +96,7 @@ export const CHAMPS_LOCATAIRE = {
 
 // Égalité « métier » : vide / null / absent sont identiques ; nombres comparés en nombre ;
 // objets (visale) comparés par contenu. Évite les faux écarts (pf() rend 0 pour un champ vide…).
-function _vide(v) { return v == null || v === '' || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => _vide(v[k]))); }
+function _vide(v) { return v == null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => _vide(v[k]))); }
 // Champs MONTANTS / NOMBRES : « 850 » et 850 identiques. Les autres restent du texte : un téléphone,
 // un code postal ou un n° d'emplacement qui ne diffère que d'un zéro en tête EST une modification.
 const CHAMPS_NUMERIQUES = new Set(['hc', 'ch', 'dg', 'dernierLoyerPrec', 'loyerRefMajore', 'complementLoyer', 'plafondCaution',
@@ -134,7 +134,7 @@ function _designation(loc) {
 
 /**
  * Changements entre le bail en vigueur (`prev`) et le bail enregistré (`next`), champs suivis seulement.
- * Les locataires sont comparés PAR POSITION (la composition est inchangée : sinon, avenant).
+ * Locataires comparés PAR POSITION ; ajout / retrait → la liste entière (champ 'locataires').
  * @returns {Array<{champ, libelle, avant, apres, fin?:true}>}
  */
 export function diffModificationsBail(prev, next) {
@@ -163,8 +163,8 @@ export function diffModificationsBail(prev, next) {
 }
 
 // Seuls les chemins SUIVIS sont réappliqués. Le journal vient de données partagées (cloud, SCI) :
-// un chemin arbitraire pourrait réécrire le document signé (signatures.bailSnapshot…), le bailleur
-// (entity) ou polluer Object.prototype (__proto__). Liste fermée, vérifiée à la réapplication.
+// un chemin arbitraire pourrait réécrire le document signé (signatures.bailSnapshot…) ou polluer
+// Object.prototype (__proto__). Liste fermée, vérifiée à la réapplication ; parties forcées en texte.
 export function cheminAutorise(chemin) {
   const c = String(chemin || '');
   if (Object.prototype.hasOwnProperty.call(CHAMPS_BAIL, c)) return true;
@@ -176,6 +176,8 @@ export function cheminAutorise(chemin) {
 function _poser(obj, chemin, valeur) {
   if (!cheminAutorise(chemin)) return false;
   if (chemin === 'locataires') { obj.locataires = _locsPropres(valeur); return true; }
+  // Parties : toujours du TEXTE (jamais un objet injecté par le journal partagé).
+  if (chemin === 'entity' || chemin === 'garant' || chemin === 'garant2' || /^locataires\.\d+\.nom$/.test(chemin)) valeur = typeof valeur === 'string' ? valeur : '';
   if (chemin === 'signataires') { obj.signataires = (Array.isArray(valeur) ? valeur : []).filter(x => typeof x === 'string').slice(0, 20); return true; }
   const parts = String(chemin).split('.');
   let o = obj;

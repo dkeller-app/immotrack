@@ -197,3 +197,15 @@ describe('JAMAIS BLOQUER (28/09) — changements de partie enregistrés comme le
     expect(baux.F101.signataires).toEqual(['Didier', 'Marion']);
   });
 });
+
+describe('durcissements (relecture hotfix)', () => {
+  const entree = (changements) => ({ id: 'x', ref: 'F101', type: 'modification', signedAt: '2025-01-02T10:00:00Z', date: '2026-09-28', changements });
+  it('bailleur, garants, noms : toujours du texte', () => {
+    const baux = { F101: signe({ entity: 'SCI A' }) };
+    reappliquerJournalBaux(baux, [entree([{ champ: 'entity', apres: { toString: 'x' } }, { champ: 'garant', apres: ['a'] }, { champ: 'locataires.0.nom', apres: 42 }])]);
+    expect(baux.F101.entity).toBe(''); expect(baux.F101.garant).toBe(''); expect(baux.F101.locataires[0].nom).toBe('');
+  });
+  it('liste vide = vide (pas d\'entrée parasite « Signataires : (vide) → (aucun) »)', () => {
+    expect(diffModificationsBail(signe(), signe({ signataires: [] }))).toEqual([]);
+  });
+});
