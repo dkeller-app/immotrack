@@ -9737,6 +9737,45 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 [data-a11y]:focus-visible,
 [role="button"]:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:5px}
 
+/* VISALE-GMBI (docs/CDC-VISALE-GMBI.md) — choix de garantie, visa Visale, alerte déclaration d'occupation.
+   Jetons uniquement (clair / sombre suivent les thèmes). Cibles ≥ 44 px. */
+.gar-seg-lbl{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:8px}
+.gar-seg{display:flex;border:1px solid var(--bor);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.gar-seg [role="radio"]{flex:1;min-height:44px;border:0;border-right:1px solid var(--bor);background:var(--sur);color:var(--t2);font:600 13px var(--font,inherit);cursor:pointer;padding:0 8px}
+.gar-seg [role="radio"]:last-child{border-right:0}
+.gar-seg [role="radio"][aria-checked="true"]{background:var(--acc-bg);color:var(--acc);box-shadow:inset 0 -2px 0 var(--acc)}
+.gar-seg [role="radio"]:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+.visale-chk{gap:8px;min-height:44px;font-weight:600;font-size:13px;color:var(--t1);cursor:pointer}
+.visale-chk input{width:20px;height:20px;min-height:0}
+.visale-warn,.visale-ok{display:flex;gap:8px;align-items:flex-start;border-radius:var(--r);padding:9px 12px;font-size:12.5px;margin-top:10px;line-height:1.45}
+.visale-warn{border:1px solid var(--warn);background:var(--warn-soft);color:var(--t1)}
+.visale-warn .uic{color:var(--warn);flex:0 0 auto;margin-top:1px}
+.visale-ok{border:1px solid var(--pos);background:var(--pos-soft);color:var(--t1)}
+.visale-ok .uic{color:var(--pos);flex:0 0 auto;margin-top:1px}
+.visale-plaf{margin-top:10px;font-size:12px;color:var(--t2)}
+.visale-plaf summary{cursor:pointer;font-weight:600;color:var(--adv);list-style:none;min-height:32px;display:flex;align-items:center;gap:6px}
+.visale-plaf summary::-webkit-details-marker{display:none}
+.visale-plaf > div{margin-top:6px;line-height:1.55}
+.visale-plaf a{color:var(--adv);font-weight:600}
+.visale-card{border:1px solid var(--adv);background:var(--adv-bg);border-radius:var(--r);padding:10px 12px}
+.visale-card-h{font-weight:700;font-size:13px;color:var(--adv);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.visale-badge{background:var(--adv);color:var(--sur);font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px}
+.gmbi-box{border:1px solid var(--bor);border-radius:var(--rl,12px);background:var(--sur2);padding:12px 14px}
+.gmbi-h{font-weight:700;font-size:13px;color:var(--t1);display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.gmbi-pick{border:2px solid var(--acc);background:var(--acc-bg);border-radius:var(--r);padding:10px 12px;font-weight:600;font-size:13.5px;color:var(--t1)}
+.gmbi-pick small{display:block;font-weight:500;color:var(--t2);font-size:12px;margin-top:3px}
+.gmbi-sub{font-size:12px;font-weight:700;color:var(--t2);margin:10px 0 4px}
+.gmbi-opt{border:1px solid var(--bor);border-radius:var(--r);padding:8px 12px;font-size:12.5px;color:var(--t2);margin:6px 0;background:var(--sur)}
+#ov-gmbi .kv-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13.5px;align-items:baseline}
+#ov-gmbi .kv-grid .k{color:var(--t2);font-size:12.5px}
+#ov-gmbi .kv-grid .v{font-weight:600;color:var(--t1)}
+#ov-gmbi .m-foot .btn{min-height:44px;text-decoration:none}
+@media (max-width:767px){
+  #ov-gmbi .kv-grid{grid-template-columns:1fr;gap:0}
+  #ov-gmbi .kv-grid .v{margin-bottom:8px}
+  #ov-gmbi .m-foot .btn{flex:1 1 0;justify-content:center}
+}
+
 /* DOC-3 — cadre isolé des documents .pro-doc (iframe sandbox, cf. _docRenderSandboxed). */
 .doc-sandbox{display:block;width:100%;border:0;min-height:220px;background:#fff}
 

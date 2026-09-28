@@ -131,6 +131,9 @@ import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, lette
 // le document RENDU, et fondement légal quand l'absence emporte nullité (art. 15-I / 15-II).
 import { mentionsManquantes, emporteNullite, messageMentionsManquantes, sortieAutorisee } from './core/actes-mentions.js';
 import { MF_SEUIL, MF_ABATTEMENT, evaluerMicroFoncier } from './core/micro-foncier.js';
+// VISALE-GMBI — visa Visale (contrôles non bloquants) + alerte ponctuelle « déclaration d'occupation ».
+import * as Visale from './core/visale.js';
+import * as DeclarationOccupation from './core/declaration-occupation.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
@@ -794,6 +797,9 @@ window.EdlGarageModel = EdlGarageModel;
 window.EdlRelecture = EdlRelecture;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
 window.PwaInstall = PwaInstall;
+// VISALE-GMBI (docs/CDC-VISALE-GMBI.md)
+window.Visale = Visale;
+window.DeclarationOccupation = DeclarationOccupation;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
