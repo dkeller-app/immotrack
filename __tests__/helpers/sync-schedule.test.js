@@ -101,3 +101,15 @@ describe('planFlush — les cas un par un', () => {
     expect(r.at).toBe(1200);
   });
 });
+
+describe('flush programmé plus tard sans échec (delayMs, audit N1 28/09)', () => {
+  it('un délai long NON réessai ne pose aucun plancher : une modification fraîche part au debounce', () => {
+    const now = 1_000_000
+    const p1 = planFlush({ now, delay: 15 * 60 * 1000, isRetry: false, backoffUntil: 0 })
+    expect(p1.action).toBe('schedule')
+    expect(p1.backoffUntil).toBe(0)
+    const p2 = planFlush({ now: now + 1000, delay: FLUSH_DEBOUNCE_MS, hasTimer: true, flushDueAt: p1.at, backoffUntil: p1.backoffUntil })
+    expect(p2.action).toBe('schedule')
+    expect(p2.at).toBe(now + 1000 + FLUSH_DEBOUNCE_MS)
+  })
+})

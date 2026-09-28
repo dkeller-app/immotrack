@@ -413,7 +413,8 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
           // scellé. Sans nouvel enregistrement, aucun flush ne reviendrait à l'expiration du délai de garde
           // → le verrou ne serait posé qu'au prochain enregistrement. On programme ce flush.
           const reste = attenteArchiveRestante(db !== undefined ? db : getDB())
-          if (reste != null && typeof schedule === 'function') schedule(() => flush(), { retryDelayMs: reste })
+          // `delayMs` (pas `retryDelayMs`) : ce n'est pas un réessai → pas de plancher de backoff côté app.
+          if (reste != null && typeof schedule === 'function') schedule(() => flush(), { delayMs: reste })
         }
         return s
       })

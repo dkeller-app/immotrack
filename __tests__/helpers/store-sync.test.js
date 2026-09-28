@@ -996,8 +996,10 @@ describe('ARCHIVE AVANT SCEAU — suite audit (date saisie, relance, empreinte)'
     sync.seed()
     db.baux['F-1'].hc = 701
     await sync.flush()
-    const r = programmes.find(o => o && o.retryDelayMs > 60_000)
+    const r = programmes.find(o => o && o.delayMs > 60_000)
     expect(r).toBeTruthy()
+    // audit N1 : programmé comme un délai, JAMAIS comme un réessai (sinon plancher de backoff côté app)
+    expect(programmes.some(o => o && o.retryDelayMs > 60_000)).toBe(false)
   })
   it('O2 : l\'empreinte est figée dès la 1re passe ; une modification pendant l\'attente ne la change pas', async () => {
     const store = mockStore()
