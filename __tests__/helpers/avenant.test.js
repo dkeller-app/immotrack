@@ -316,6 +316,24 @@ describe('accords : singulier / pluriel selon les colocataires qui restent, genr
     expect(aj).toMatch(/: <strong>Action Logement<\/strong> s'engage/);
     expect(aj).toMatch(/obligations des locataires/);
   });
+  it('cautions nommées (retour 28/09) : celle du sortant prend fin, celle qui reste est maintenue', () => {
+    const h = avenantArticle('coloc', { act: 'Départ (séparation), sans remplaçant', sortant: 'Bruno Leroy', cautionSortant: 'Jean Leroy' },
+      { locataires: ['Alice Martin', 'Bruno Leroy'], locDetail, garants: ['Paul Martin', 'Jean Leroy'] }).html;
+    expect(h).toMatch(/sa solidarité et celle de la personne qui s'est portée caution pour lui, <strong>Jean Leroy<\/strong>, prennent fin/);
+    expect(h).toMatch(/L'engagement de <strong>Paul Martin<\/strong>, caution, n'est pas modifié par le présent avenant et demeure régi par son acte de cautionnement\./);
+  });
+  it('« Aucune caution » → seule la solidarité du sortant (singulier), cautions du bail maintenues', () => {
+    const h = avenantArticle('coloc', { act: 'Départ (séparation), sans remplaçant', sortant: 'Bruno Leroy', cautionSortant: 'Aucune caution' },
+      { locataires: ['Alice Martin', 'Bruno Leroy'], locDetail, garants: ['Paul Martin'] }).html;
+    expect(h).toMatch(/1989, sa solidarité prend fin au plus tard/);
+    expect(h).toMatch(/L'engagement de <strong>Paul Martin<\/strong>, caution, n'est pas modifié/);
+  });
+  it('caution non précisée → formule générique, et on ne prétend rien sur les autres cautions', () => {
+    const h = avenantArticle('coloc', { act: 'Départ (séparation), sans remplaçant', sortant: 'Bruno Leroy', cautionSortant: '— À préciser' },
+      { locataires: ['Alice Martin', 'Bruno Leroy'], locDetail, garants: ['Paul Martin', 'Jean Leroy'] }).html;
+    expect(h).toMatch(/celle de la personne qui s'est portée caution pour lui prennent fin/);
+    expect(h).not.toMatch(/n'est pas modifié|ne sont pas modifiés|À préciser/);
+  });
   it('homonymes : seul le 1er « Jean Martin » part, l\'autre reste nommé avec SA civilité', () => {
     const ld = [{ nom: 'Jean Martin', civilite: 'Mme' }, { nom: 'Jean Martin', civilite: 'M.' }, { nom: 'Léa Roy', civilite: 'Mme' }];
     const locs = ['Jean Martin', 'Jean Martin', 'Léa Roy'];

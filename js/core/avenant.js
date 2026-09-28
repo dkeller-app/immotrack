@@ -126,12 +126,31 @@ export function avenantArticle(k, d, ctx) {
       const restants = restantsIdx.map(i => locs[i]);
       const nomsRestants = restantsIdx.map(i => personne(civiliteA(ctx, i, locs[i]), locs[i]));
       const auSortant = accord(gS, 'au colocataire sortant', 'à la colocataire sortante', 'au colocataire sortant');
+      // Caution du sortant (retour Didier 28/09) : choisie parmi les garants du bail et NOMMÉE.
+      // Non précisée → formule générique ; « Aucune caution » → la phrase ne parle que du sortant.
+      const garants = (Array.isArray(ctx.garants) ? ctx.garants : []).map(g => String(g || '').trim()).filter(Boolean);
+      const cS = String(d.cautionSortant || '').trim();
+      const aucuneCaution = cS === 'Aucune caution';
+      const cautionNommee = garants.indexOf(cS) >= 0 ? cS : '';
+      const autresGarants = isAjout ? [] : garants.filter(g => g !== cautionNommee);
       let h = '';
       if (!isAjout) {
-        h += personne(civS, d.sortant) + ' cesse d\'être partie au contrat de bail à compter de la date d\'effet du présent avenant et libère les lieux à cette date, renonçant à tout droit d\'occupation sur le logement. Conformément à l\'article 8-1, VI de la loi du 6 juillet 1989, sa solidarité et celle de la personne qui s\'est portée caution pour ' + accord(gS, 'lui', 'elle', 'lui / elle') + ' prennent fin ' +
+        const pour = accord(gS, 'lui', 'elle', 'lui / elle');
+        h += personne(civS, d.sortant) + ' cesse d\'être partie au contrat de bail à compter de la date d\'effet du présent avenant et libère les lieux à cette date, renonçant à tout droit d\'occupation sur le logement. Conformément à l\'article 8-1, VI de la loi du 6 juillet 1989, ' +
+          (aucuneCaution ? 'sa solidarité prend fin '
+            : cautionNommee ? 'sa solidarité et celle de la personne qui s\'est portée caution pour ' + pour + ', ' + b(cautionNommee) + ', prennent fin '
+            : 'sa solidarité et celle de la personne qui s\'est portée caution pour ' + pour + ' prennent fin ') +
           (isDepart
             ? 'au plus tard à l\'expiration d\'un délai de six mois suivant la date d\'effet de son congé, à défaut de colocataire entrant inscrit au bail avant ce terme'
             : 'à la date d\'effet du présent avenant, un colocataire entrant lui étant substitué') + '. ';
+        // Les AUTRES cautions du bail sont nommées : leur engagement n'est pas touché par l'avenant
+        // (constat, sans rien modifier : il reste régi par leur acte de cautionnement).
+        // Seulement quand la caution du sortant est désignée : sinon on ne sait pas lesquelles restent.
+        if ((cautionNommee || aucuneCaution) && autresGarants.length) {
+          h += (autresGarants.length === 1
+            ? 'L\'engagement de ' + b(autresGarants[0]) + ', caution, n\'est pas modifié par le présent avenant et demeure régi par son acte de cautionnement. '
+            : 'Les engagements de ' + joinFr(autresGarants.map(b)) + ', cautions, ne sont pas modifiés par le présent avenant et demeurent régis par leurs actes de cautionnement. ');
+        }
       }
       if (!isDepart) {
         const avecEnPlace = restants.length === 1 ? 'avec ' + nomsRestants[0] : restants.length > 1 ? 'avec les colocataires en place' : 'avec le ou les colocataires en place';
@@ -271,7 +290,7 @@ export function buildAvenantHtml(ctx) {
   const effet = frDate(ctx.effetIso);
   const entrant = avenantEntrant(objets);
   // Les articles reçoivent la liste des locataires (accords singulier / pluriel, civilités).
-  const actx = { loyer0: ctx.loyer0, locataires: locs, locDetail: ctx.locDetail };
+  const actx = { loyer0: ctx.loyer0, locataires: locs, locDetail: ctx.locDetail, garants: ctx.garants };
   let n = 1, arts = '', caution = false;
   objets.forEach(o => {
     const a = avenantArticle(o.k, o.data, actx);

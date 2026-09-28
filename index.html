@@ -24925,6 +24925,9 @@ var _AVENANT_OBJETS = [
    // son remplacement = nouveau bail. Seul l'ajout d'un colocataire relève d'un avenant.
    {id:'act',l:'Situation',t:'select',o:function(){ return (_avenantState.locNames||[]).length>1 ? ['Départ (séparation), sans remplaçant','Ajout d\'un colocataire','Remplacement (départ + arrivée)'] : ['Ajout d\'un colocataire']; }},
    {id:'sortant',l:'Colocataire sortant',t:'select',o:function(){return _avenantState.locNames;}},
+   // Caution du sortant, NOMMÉE dans l'acte (art. 8-1 VI : sa solidarité prend fin avec celle du sortant).
+   // Premier choix neutre : jamais de caution désignée par défaut (mauvaise personne sinon).
+   {id:'cautionSortant',l:'Caution du colocataire sortant',t:'select',o:function(){ return ['— À préciser'].concat(_avenantState.garants||[]).concat(['Aucune caution']); }},
    // Civilité : accorde le texte (« adjointe », « Elle déclare », « tenue »). Celle des locataires
    // en place vient du bail (bail.locataires[].civilite).
    {id:'civEntrant',l:'Civilité du colocataire entrant',t:'select',o:['—','M.','Mme']},
@@ -24994,7 +24997,9 @@ function _avenantCtx(){
   var dateBail=_sgComplet?((_sgD&&!isNaN(_sgD))?_isoLocal(_sgD):String(_sgAt).slice(0,10)):(bail.dateSignaturePrevue||bail.debut||'');
   // Civilités du bail → accords du texte (« La locataire », « poursuit » / « poursuivent »…).
   var locDetail=(bail.locataires||[]).map(function(l){ return { nom:l.nom||'', civilite:l.civilite||'' }; });
-  return { no:_avenantState.no, bailleur:ent.nom||bail.entity||'Le bailleur', locataires:locs, locDetail:locDetail,
+  // Garants du bail (nommés dans l'avenant : caution du sortant / cautions maintenues).
+  var garants=(typeof _bailLegacyToGarants==='function'?_bailLegacyToGarants(bail):[]).map(function(g){ return g.nom||''; }).filter(Boolean);
+  return { no:_avenantState.no, bailleur:ent.nom||bail.entity||'Le bailleur', locataires:locs, locDetail:locDetail, garants:garants,
     bien:bail.adrBien||'', dateBail:dateBail, bailSigne:_sgComplet, loyer0:Number(bail.hc)||0,
     effetIso:v('av-effet')||'', ville:v('av-ville')||bail.villeSignature||'' };
 }
@@ -25062,7 +25067,8 @@ function _avenantOpen(ref){
   if(bail.type==='garage'){ showToast('Avenant pour un bail garage : pas encore disponible (le modèle actuel est rédigé pour un bail d\'habitation). Pour un changement de loyer, utiliser « Modifier le bail ».','warn',8000); return; }
   // Numérotation : max des avenants connus DU BAIL COURANT (sur le bail ET dans le journal, qui survit
   // à un bail signé verrouillé au cloud) + 1 → plus de « n° 1 » répété (module pur, testé).
-  _avenantState={ ref:ref, no:window.avenantNumeroSuivant(bail, DB.bailEvents, ref), sel:{}, locNames:[], forfaitOk:false };
+  _avenantState={ ref:ref, no:window.avenantNumeroSuivant(bail, DB.bailEvents, ref), sel:{}, locNames:[], forfaitOk:false,
+    garants:(typeof _bailLegacyToGarants==='function'?_bailLegacyToGarants(bail):[]).map(function(g){ return g.nom||''; }).filter(Boolean) };
   _avenantState.locNames=(bail.locataires&&bail.locataires.length)?bail.locataires.map(function(l){return l.nom||'';}).filter(Boolean):(bail.nom?[bail.nom]:[]);
   // Forfait de charges licite seulement en meublé (et variantes) ou en colocation (art. 8-1 / 25-9).
   _avenantState.forfaitOk=(['meuble','etudiant','mobilite'].indexOf(bail.type)>=0)||_avenantState.locNames.length>1;
