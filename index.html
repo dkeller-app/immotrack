@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.685</title>
+<title>Propryo v15.688</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.685">
+<link rel="stylesheet" href="css/main.css?v=15.688">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.685</em>
+      <em>v15.688</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4270,7 +4270,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.685';
+const IMMOTRACK_VERSION = '15.688';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -48010,19 +48010,13 @@ async function _acteProcessPdf(dataUrl, name) {
   }
 }
 
-/** Cherche un doublon d'entité par SIREN (prioritaire) puis par nom, dans DB.entites.
+/** Cherche un doublon d'entité par SIREN (prioritaire, SIRET compris) puis par nom, dans DB.entites.
  *  Ignore les tombstones (_deleted) : proposer de rattacher à une entité supprimée
- *  mènerait à un patrimoine invisible (filtré par _isAlive partout ailleurs). */
+ *  mènerait à un patrimoine invisible (filtré par _isAlive partout ailleurs).
+ *  Règle unique partagée avec saveEnt : js/core/entite-doublon.js. */
 function _acteFindDupEntity(siren, nom) {
-  const ents = (typeof DB !== 'undefined' && DB.entites) ? DB.entites : [];
-  const digits = String(siren || '').replace(/\D/g, '');
-  let dup = null;
-  if (digits.length === 9) dup = ents.find(e => !e._deleted && String(e.siren || '').replace(/\D/g, '') === digits);
-  if (!dup && nom) {
-    const k = String(nom).trim().toLowerCase();
-    if (k) dup = ents.find(e => !e._deleted && String(e.nom || '').trim().toLowerCase() === k);
-  }
-  return dup || null;
+  const d = _entiteDoublon((typeof DB !== 'undefined' && DB.entites) ? DB.entites : [], { nom, siren }, null);
+  return d.siren || d.nom || null;
 }
 
 /** Candidats immeuble existants pour l'adresse de l'acte, DANS l'entité effective (dupEntity). */
@@ -48572,6 +48566,10 @@ function _acteApply() {
       const e = d.entite || {};
       const nom = _acteNormNom(e.nom || '');
       if (!nom) { showToast('Nom du bailleur manquant — complète-le avant de valider.', 'err', 5000); return; }
+      // P0 28/09 : « créer une nouvelle entité quand même » ne peut pas réutiliser un nom existant
+      // (les biens sont reliés au bailleur par son nom → les deux fusionneraient). Cf. saveEnt.
+      const _dupNom = _entiteDoublon(DB.entites || [], { nom }, null).nom;
+      if (_dupNom) { showToast(`Un bailleur porte déjà le nom « ${_dupNom.nom} ». Rattacher à ce bailleur, ou changer le nom avant de créer.`, 'err', 6000); return; }
       const siege = [(e.adr || '').trim(), [(e.cp || '').trim(), (e.ville || '').trim()].filter(Boolean).join(' ')].filter(Boolean).join(', ');
       ent = {
         id: nid(), nom,
@@ -51823,6 +51821,14 @@ function saveEnt() {
   // repartait vers l'espace propre au flush.
   _preserverChampsExistants(ent, existing);
   if(!ent.nom){showToast('Nom requis','err');return;}
+  // P0 28/09 FUSION DE SCI HOMONYMES : biens, baux, quittances et mouvements sont reliés au bailleur
+  // par son NOM → un nom déjà porté par un autre bailleur (tous espaces confondus) mélangerait leurs
+  // données. Refus. Même SIREN (SIRET compris) = sans doute la même société → avertir, l'utilisateur
+  // décide (seulement si le SIREN est nouveau ou changé : pas de question à chaque enregistrement).
+  const _dup = _entiteDoublon(DB.entites || [], ent, existing);
+  if (_dup.nom) { showToast(`Un autre bailleur porte déjà le nom « ${_dup.nom.nom} ». Choisir un nom distinct (par exemple en ajoutant la ville).`, 'err', 6000); return; }
+  if (_dup.siren && !(existing && _sirenDe(existing.siren) === _sirenDe(ent.siren))
+      && !confirm2(`Le bailleur « ${_dup.siren.nom} » a déjà ce SIREN : c'est sans doute la même société.\n\nDeux fiches pour une même société séparent ses biens et ses comptes. Enregistrer quand même ?`)) return;
   _stamp(ent); // v13.18
   // v14.89 AUDIT-TRAIL : entité bailleur (RGPD si personne physique : nom, IBAN, gérant)
   if(id) {
