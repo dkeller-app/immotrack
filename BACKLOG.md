@@ -4,7 +4,8 @@
 
 ## 🔒 RÉSERVATIONS (28/09) — à respecter par toutes les sessions
 - **Migration `0054` réservée** : table journal des baux signés (modifications hors avenant + avenants du lot 2), chantier « BAIL-SIGNE-MODIFS » (session avenant). Le chantier « clôture/relocation bail signé verrouillé » prend **0055+**.
-- **Version** : `main` = v15.683 (Avenant lot 1). ⚠ La branche `claude/stoic-poitras-2d84cb` (Charges bornes régul) s'est aussi numérotée v15.683 → à **renuméroter** à l'intégration. Prochaine livraison de la session avenant : v15.684.
+- **v15.685 disputée (28/09)** : `fix/scellement-apres-archive` (session avenant) ET `feat/ddt-bail` (session signature) — les DEUX modifient `window.__immoArchiveBailPdf`. Règle convenue : le PREMIER mergé garde 15.685, l'autre rebase en 15.686 (rebase manuel de `__immoArchiveBailPdf`, garder `let bail = null;` avant le try et `_archiveBailTerminee` après la fusion DDT).
+- **Version** : `main` = v15.684 (Bail signé modifs). Historique : v15.683 = Avenant lot 1. ⚠ La branche `claude/stoic-poitras-2d84cb` (Charges bornes régul) s'est aussi numérotée v15.683 → à **renuméroter** à l'intégration. Prochaine livraison de la session avenant : v15.684.
 
 ## 🚦 MAIN = **v15.684** (28/09) — BAIL-SIGNE-MODIFS déployé · migration **0054 APPLIQUÉE** en base · 4 596 tests verts
 
