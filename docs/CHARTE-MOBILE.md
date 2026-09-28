@@ -1,6 +1,6 @@
 # CHARTE MOBILE — la barre « grade banque » de Propryo
 
-> **Statut : VALIDÉE par Didier le 25/09/2026 — 16 règles (M-1 → M-16).**
+> **Statut : VALIDÉE par Didier le 25/09/2026 — 17 règles (M-1 → M-17 ; M-17 ajoutée le 28/09).**
 > Gate permanent : tout chantier qui touche un écran mobile la passe **avant merge**, au même titre que
 > le smoke 3 formats et l'audit code-reviewer. Le pilotage la verse dans `docs/`.
 
@@ -273,6 +273,22 @@ de nav du bas n'est pas visible.
 
 ---
 
+## M-17 — Texte lisible : contraste mesuré dans les deux thèmes réels
+
+**Énoncé.** *(Didier 28/09.)* Tout texte visible est assez contrasté avec le fond sur lequel il est posé.
+Aucun gris « d'ambiance » n'échappe à la règle : libellés de champs, sous-lignes, aides, états non choisis.
+
+**Mesurable.** Contraste WCAG **≥ 4,5:1** pour le texte courant, **≥ 3:1** pour le gros texte (≥ 24 px, ou
+≥ 18,66 px en gras). Chaque token de texte (`--t1`, `--t2`, `--t3`) est mesuré sur **chaque fond** où il
+peut apparaître (`--sur`, `--sur2`, `--sur3`, `--bg`).
+
+**Vérifier.** Mesurer dans les **deux thèmes réels** de l'app : `sobre` (bouton « clair ») et `dark`
+(bouton « sombre »). ⚠️ « clair » et « sombre » sont les **libellés** des boutons, pas des valeurs de thème :
+une mesure faite avec `data-theme="clair"` (ou le `light` posé au démarrage) lit de faux tokens et ne vaut
+rien.
+
+---
+
 ## Fondations design (`design.md` fait foi)
 
 Ces points ne sont pas propres au mobile mais **conditionnent** la barre :
@@ -309,6 +325,7 @@ vrai navigateur à 375 px, clair et sombre, au volume réel** :
 - [ ] **M-14** zéro troncature `…` · tout texte en entier (ou libellé plus court qui tient)
 - [ ] **M-15** 3 rôles sans rouge · exceptions barres de progression (vert) et occupation (neutre)
 - [ ] **M-16** téléphone : couche = page plein écran · une étape · pied d'action collant · pas de nav du bas
+- [ ] **M-17** contraste texte ≥ 4,5:1 (gros texte ≥ 3:1) sur chaque fond, mesuré en `sobre` ET `dark`
 
 **Ne jamais casser un écran déjà conforme** : un chantier ne fait pas régresser une règle sur un écran qui
 la tenait avant lui.
@@ -318,4 +335,7 @@ la tenait avant lui.
 *Validée le 25/09/2026 par Didier. Décisions de validation : 16 règles (M-16 intégrée) ; version épurée
 (énoncé + mesurable, sans numéro de ligne ni défaut daté) ; M-2 réconciliée avec M-16 (sur téléphone, la
 couche est une page plein écran ; bottom-sheet réservé ≥ 768). Source de travail :
-`mockups/MOBILE-UX/CHARTE-MOBILE.md` (proposition Phase 1 du 01/09).*
+`mockups/MOBILE-UX/CHARTE-MOBILE.md` (proposition Phase 1 du 01/09).
+Ajout du 28/09 (Didier) : M-17 contraste mesuré. v15.688 met le thème **clair** en conformité (gris `--t3`
+`#5f6f86`). Écarts connus restants : thème **sombre** `--t3` `#8B95B5` = 4,19:1 sur `--sur3` ; écran de
+connexion (`--ink-3` #6e7888) et libellés de page de l'assistant de signature (#6e7888) ≈ 4,1:1.*

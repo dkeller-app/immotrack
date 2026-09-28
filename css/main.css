@@ -89,7 +89,9 @@
   --tbl-edge:rgba(0,0,0,.16); /* v15.144 ombre de scroll tables (clair) */
   --t1:#101521;
   --t2:#3c4658;
-  --t3:#6e7888;
+  /* v15.688 CHARTE M-17 : gris clair foncé #6e7888 → #5f6f86 = contraste ≥ 4,5:1 sur
+     tous les fonds clairs (sur 5,12 · sur2 4,82 · bg 4,69 · sur3 4,52). */
+  --t3:#5f6f86;
   /* Alias historiques de la palette sémantique (badges, pastilles). --blu a été renommé
      --acc en lot 0 (écart c2) : il contenait du corail, pas du bleu. */
   --grn:#16795e;
@@ -198,7 +200,7 @@
   --bor2:#eef0f5;
   --t1:#101521;
   --t2:#3c4658;
-  --t3:#6e7888;
+  --t3:#5f6f86; /* v15.688 CHARTE M-17 : ≥ 4,5:1 sur tous les fonds clairs */
   --acc:#ff5a3c;
   --acc2:#e8431f;
   --acc-soft:#ffe7e0;
@@ -6424,7 +6426,9 @@ body[data-dash-v4="on"] {
 /* En sobre/coloré : redonner du contraste cohérent avec le thème */
 html[data-theme="sobre"] body[data-dash-v4="on"] {
   --t2: #475569;
-  --t3: #64748b;
+  /* v15.688 CHARTE M-17 : #64748b ne faisait que 4,37:1 sur le fond de page (--bg) et
+     4,20:1 sur --sur3 → #5f6f86 = 4,69 / 4,52 (≥ 4,5 partout). Le sombre est inchangé. */
+  --t3: #5f6f86;
 }
 html[data-theme="colore"] body[data-dash-v4="on"] {
   --t2: #6b4a2a;
