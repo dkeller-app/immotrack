@@ -51797,6 +51797,11 @@ function sirenDe(v) {
   return ''
 }
 
+function appartientAEspace(x, scope, scopeIsOwn) {
+  const e = (x && x._espaceId != null) ? x._espaceId : null
+  return e === scope || (e == null && scopeIsOwn)
+}
+
 function trouverDoublonEntite(entites, cand, self) {
   const out = { nom: null, siren: null }
   if (!Array.isArray(entites) || !cand) return out
@@ -51855,12 +51860,14 @@ function saveEnt() {
   if(!ent.nom){showToast('Nom requis','err');return;}
   // P0 28/09 FUSION DE SCI HOMONYMES : biens, baux, quittances et mouvements sont reliés au bailleur
   // par son NOM → DONNER à un bailleur un nom déjà porté par un autre (tous espaces confondus)
-  // mélangerait leurs données : refus (intégrité, pas confort). Un nom INCHANGÉ ne crée aucune
-  // collision nouvelle → on enregistre et on signale seulement l'homonyme existant.
+  // mélangerait leurs données : refus (intégrité, pas confort). Un nom STRICTEMENT inchangé (à l'octet,
+  // comme les jointures) ne crée aucune collision nouvelle → on enregistre et on signale l'homonyme.
+  // ⚠️ Comparaison EXACTE, pas normalisée : « SCI Smarto » → « SCI SMARTO », ou un espace insécable
+  // hérité que nomNormalize retire, FERAIENT de deux bailleurs distincts un homonyme exact (audit 2).
   // Même SIREN (SIRET compris) = sans doute la même société → avertir, l'utilisateur décide
   // (seulement si le SIREN est nouveau ou changé : pas de question à chaque enregistrement).
   const _dup = trouverDoublonEntite(DB.entites || [], ent, existing);
-  const _nomChange = !existing || normNomEntite(existing.nom) !== normNomEntite(ent.nom);
+  const _nomChange = !existing || existing.nom !== ent.nom;
   if (_dup.nom && _nomChange) { showToast(`Un autre bailleur porte déjà le nom « ${_dup.nom.nom} ». Choisir un nom distinct (par exemple en ajoutant la ville).`, 'err', 6000); return; }
   if (_dup.siren && !(existing && sirenDe(existing.siren) === sirenDe(ent.siren))
       && !confirm2(`Le bailleur « ${_dup.siren.nom} » a déjà ce SIREN : c'est sans doute la même société.\n\nDeux fiches pour une même société séparent ses biens et ses comptes. Enregistrer quand même ?`)) return;
@@ -51887,8 +51894,13 @@ function saveEnt() {
     // SCI partagée + copie privée), la jointure par nom ne distingue plus leurs biens → la cascade ne
     // touche QUE l'espace du bailleur renommé (tag multi-espace _espaceId). Sinon, comportement
     // inchangé (toutes les fiches de l'ancien nom, tag ou pas).
-    const _homonyme = (DB.entites || []).some(e => e && e !== ent && e !== existing && !e._deleted && e.nom === prevNom);
-    const _perimetre = r => !_homonyme || (r._espaceId || null) === (existing._espaceId || null);
+    // Appartenance = règle store-multi (appartientAEspace) : un record NON tagué (créé en session)
+    // est de l'espace PROPRE → suit le renommage seulement si le bailleur renommé est de l'espace propre.
+    const _homonyme = (DB.entites || []).some(e => e && e !== ent && !e._deleted && e.nom === prevNom);
+    const _scope = (existing._espaceId != null) ? existing._espaceId : null;
+    const _own = (typeof window.__immoOwnEspaceId === 'function') ? window.__immoOwnEspaceId() : null;
+    const _scopeIsOwn = _scope == null || _scope === (_own != null ? _own : null);
+    const _perimetre = r => !_homonyme || appartientAEspace(r, _scope, _scopeIsOwn);
     (DB.logements || []).forEach(l => {
       if (l && !l._deleted && l.entity === prevNom && _perimetre(l)) { l.entity = ent.nom; l._modifiedAt = ts; renamed++; }
     });

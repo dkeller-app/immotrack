@@ -17,12 +17,13 @@
 // CONFIG (regulValidations, assurances) ne vivent QUE dans l'espace propre → re-keyées seulement si
 // `scopeIsOwn`. Mono-espace : aucun tag, `ownEspaceId` null → scope null → tout est « propre », inchangé.
 
+import { appartientAEspace } from './entite-doublon.js'
+
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
-const espOf = x => (x && x._espaceId != null) ? x._espaceId : null
 
 // Un record appartient-il à l'espace CIBLE du renommage ? Tagué → égalité stricte. Non tagué (créé en
-// session) → propre → ne compte que si la cible EST l'espace propre.
-const makeBelongs = (scope, scopeIsOwn) => x => { const e = espOf(x); return e === scope || (e == null && scopeIsOwn) }
+// session) → propre → ne compte que si la cible EST l'espace propre. Règle unique : entite-doublon.js.
+const makeBelongs = (scope, scopeIsOwn) => x => appartientAEspace(x, scope, scopeIsOwn)
 
 // Validation anti-collision : le nouveau nom ne doit pas être DÉJÀ porté par un AUTRE immeuble du MÊME
 // espace (même nom → même uuid déterministe → fusion silencieuse). Renvoie {ok,error}.

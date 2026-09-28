@@ -30,6 +30,15 @@ export function sirenDe(v) {
   return ''
 }
 
+// Un enregistrement appartient-il à l'espace `scope` ? Convention store-multi : tagué → égalité stricte ;
+// NON tagué (créé en session, pas encore re-tagué) → espace PROPRE → compte seulement si `scopeIsOwn`.
+// Mono-espace : aucun tag, scope null, scopeIsOwn vrai → tout appartient. (Source unique : saveEnt,
+// rename-immeuble.js.)
+export function appartientAEspace(x, scope, scopeIsOwn) {
+  const e = (x && x._espaceId != null) ? x._espaceId : null
+  return e === scope || (e == null && scopeIsOwn)
+}
+
 // Cherche un autre bailleur VIVANT de même nom et/ou de même SIREN que `cand` ({nom, siren}).
 // `self` = l'objet en cours d'édition, exclu PAR RÉFÉRENCE (c'est l'objet que la fiche remplacera).
 // Renvoie { nom: entité|null, siren: entité|null }.

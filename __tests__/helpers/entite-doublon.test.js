@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-import { normNomEntite, sirenDe, trouverDoublonEntite } from '../../js/core/entite-doublon.js';
+import { normNomEntite, sirenDe, trouverDoublonEntite, appartientAEspace } from '../../js/core/entite-doublon.js';
 
 describe('normNomEntite', () => {
   it('ignore casse, espaces multiples, espaces insécables et tirets typographiques', () => {
@@ -95,7 +95,7 @@ beforeAll(() => {
 });
 
 describe('non-divergence — le shadow inline d\'index.html est identique au module', () => {
-  it.each(['normNomEntite', 'sirenDe', 'trouverDoublonEntite'])('%s', name => {
+  it.each(['normNomEntite', 'sirenDe', 'appartientAEspace', 'trouverDoublonEntite'])('%s', name => {
     const mod = readFileSync(resolve(__dir, '../../js/core/entite-doublon.js'), 'utf8').replace(/\r/g, '').replace(/^export /gm, '');
     const inline = extractFn(html, name);
     expect(inline).toBeTruthy();
@@ -104,12 +104,14 @@ describe('non-divergence — le shadow inline d\'index.html est identique au mod
 });
 
 // logements par défaut : un bien par bailleur, taggé comme lui (multi-espace)
-function runSaveEnt({ entites, form, confirmAnswer = false, editId = '', logements }) {
+function runSaveEnt({ entites, form, confirmAnswer = false, editId = '', logements, extra = {}, ownEspaceId = null }) {
   const toasts = [], confirms = [], calls = { saveDB: 0, stamp: 0, audit: 0, closeM: 0 };
   const fields = { 'ent-edit-id': editId, 'ent-gerants': '', 'ent-type': 'SCI', 'ent-rcs': '', 'ent-siege': '', 'ent-iban': '', 'ent-bic': '', 'ent-email-envoi': '', ...form };
-  const DB = { entites, logements: logements || entites.map((e, i) => ({ ref: 'L' + (i + 1), entity: e.nom, _espaceId: e._espaceId })), baux: {}, baux_historique: [], quittances: [], mouvements: [] };
+  const DB = { entites, logements: logements || entites.map((e, i) => ({ ref: 'L' + (i + 1), entity: e.nom, _espaceId: e._espaceId })), baux: {}, baux_historique: [], quittances: [], mouvements: [], ...extra };
   const env = {
     DB,
+    window: { __immoOwnEspaceId: () => ownEspaceId },
+    appartientAEspace,
     el: id => (id in fields ? { value: fields[id] } : null),
     v: id => fields[id] ?? '',
     nid: () => 999,
@@ -165,6 +167,65 @@ describe('saveEnt — garde-fou nom / SIREN', () => {
     expect(calls.saveDB).toBe(1);
     expect(DB.entites[1].iban).toBe('FR76 NOUVEAU');
     expect(toasts.some(t => t.t === 'warn' && /même nom/.test(t.m))).toBe(true);
+  });
+
+  it('AUDIT 2 cas A — corriger la CASSE vers le nom exact d\'un autre bailleur est refusé', () => {
+    const m = { id: 1, nom: 'SCI SMARTOSAURUS', siren: '', _espaceId: 'M' };
+    const d = { id: 3, nom: 'SCI Smartosaurus', siren: '', _espaceId: 'D' };
+    const { DB, calls } = runSaveEnt({ entites: [m, d], editId: '3', form: { 'ent-nom': 'SCI SMARTOSAURUS', 'ent-siren': '' } });
+    expect(calls.saveDB).toBe(0);
+    expect(DB.entites[1].nom).toBe('SCI Smartosaurus');
+    expect(DB.logements[1].entity).toBe('SCI Smartosaurus');
+  });
+
+  it('AUDIT 2 cas B — nom hérité avec espace insécable, normalisé au simple enregistrement : refusé', () => {
+    const m = { id: 1, nom: 'SCI X', siren: '', _espaceId: 'M' };
+    const d = { id: 3, nom: 'SCI X', siren: '', _espaceId: 'D' };
+    const { DB, calls } = runSaveEnt({ entites: [m, d], editId: '3', form: { 'ent-nom': 'SCI X', 'ent-siren': '', 'ent-iban': 'FR76' } });
+    expect(calls.saveDB).toBe(0);
+    expect(DB.logements[1].entity).toBe('SCI X');
+  });
+
+  it('AUDIT 2 cas C — un bien créé en session (non tagué) suit le renommage du bailleur de l\'espace PROPRE', () => {
+    const m = { id: 1, nom: 'SCI S', siren: '', _espaceId: 'M' };
+    const d = { id: 3, nom: 'SCI S', siren: '', _espaceId: 'D' };
+    const logements = [{ ref: 'M1', entity: 'SCI S', _espaceId: 'M' }, { ref: 'D1', entity: 'SCI S', _espaceId: 'D' }, { ref: 'D2-neuf', entity: 'SCI S' }];
+    const { DB } = runSaveEnt({ entites: [m, d], editId: '3', logements, ownEspaceId: 'D', form: { 'ent-nom': 'SCI S Didier', 'ent-siren': '' } });
+    const by = r => DB.logements.find(l => l.ref === r).entity;
+    expect(by('D1')).toBe('SCI S Didier');
+    expect(by('D2-neuf')).toBe('SCI S Didier');
+    expect(by('M1')).toBe('SCI S');
+  });
+
+  it('… et ne suit PAS le renommage d\'un bailleur d\'un espace TIERS', () => {
+    const m = { id: 1, nom: 'SCI S', siren: '', _espaceId: 'M' };
+    const d = { id: 3, nom: 'SCI S', siren: '', _espaceId: 'D' };
+    const logements = [{ ref: 'M1', entity: 'SCI S', _espaceId: 'M' }, { ref: 'D2-neuf', entity: 'SCI S' }];
+    const { DB } = runSaveEnt({ entites: [m, d], editId: '1', logements, ownEspaceId: 'D', form: { 'ent-nom': 'SCI S Marion', 'ent-siren': '' } });
+    expect(DB.logements.find(l => l.ref === 'M1').entity).toBe('SCI S Marion');
+    expect(DB.logements.find(l => l.ref === 'D2-neuf').entity).toBe('SCI S');
+  });
+
+  it('périmètre appliqué à TOUTES les collections de la cascade (baux, historique, quittances, mouvements SCI)', () => {
+    const m = { id: 1, nom: 'SCI S', siren: '', _espaceId: 'M' };
+    const d = { id: 3, nom: 'SCI S', siren: '', _espaceId: 'D' };
+    const two = (k, v) => [{ [k]: v, _espaceId: 'M' }, { [k]: v, _espaceId: 'D' }];
+    const extra = {
+      baux: { BM: { entity: 'SCI S', _espaceId: 'M' }, BD: { entity: 'SCI S', _espaceId: 'D' } },
+      baux_historique: two('entity', 'SCI S'), quittances: two('entity', 'SCI S'), mouvements: two('qui', 'SCI:SCI S'),
+    };
+    const { DB } = runSaveEnt({ entites: [m, d], editId: '3', extra, ownEspaceId: 'D', form: { 'ent-nom': 'SCI S Didier', 'ent-siren': '' } });
+    expect([DB.baux.BM.entity, DB.baux.BD.entity]).toEqual(['SCI S', 'SCI S Didier']);
+    expect(DB.baux_historique.map(x => x.entity)).toEqual(['SCI S', 'SCI S Didier']);
+    expect(DB.quittances.map(x => x.entity)).toEqual(['SCI S', 'SCI S Didier']);
+    expect(DB.mouvements.map(x => x.qui)).toEqual(['SCI:SCI S', 'SCI:SCI S Didier']);
+  });
+
+  it('sans homonyme, la cascade reste globale (comportement historique, tags mêlés)', () => {
+    const e = { id: 1, nom: 'SCI ALTA', siren: '', _espaceId: 'M' };
+    const logements = [{ ref: 'A', entity: 'SCI ALTA', _espaceId: 'M' }, { ref: 'B', entity: 'SCI ALTA' }];
+    const { DB } = runSaveEnt({ entites: [e], editId: '1', logements, ownEspaceId: 'D', form: { 'ent-nom': 'SCI ALTA 2', 'ent-siren': '' } });
+    expect(DB.logements.map(l => l.entity)).toEqual(['SCI ALTA 2', 'SCI ALTA 2']);
   });
 
   it('renommer l\'un de deux homonymes ne déplace QUE les biens de son espace', () => {
