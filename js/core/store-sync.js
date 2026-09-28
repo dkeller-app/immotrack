@@ -72,6 +72,8 @@ const COLLECTIONS = [
   //    l'uuid. Sans copie → même doublon que logements, ici dans une table à valeur de PREUVE. Renommer un bien
   //    dont l'historique n'est pas signé (= la population renommable) dupliquerait la ligne d'archive. La copie fige.
   { coll: 'baux_historique', enumerate: db => (db.baux_historique || []).map(h => ({ ...h })), key: r => String(r.ref ?? '') + '|' + (r._archivedAt ?? '') + espTag(r), sources: db => db.baux_historique || [] },
+  // Journal des baux signés (0054) : APRÈS baux (FK composite bail_id → baux). Clé = id local unique.
+  { coll: 'baux_evenements', enumerate: db => db.baux_evenements || [],                 key: r => String(r.id) + espTag(r), sources: db => db.baux_evenements || [] },
   // documents AVANT mouvements : FK DURE mouvements_pj_fk (pj_document_id) → documents (la ligne
   // document doit exister avant l'insert d'un mouvement qui la référence). documents.parent_id est
   // polymorphe SANS FK dure → peut précéder ses parents sans violation. (Aligné sur l'ETL import.mjs.)

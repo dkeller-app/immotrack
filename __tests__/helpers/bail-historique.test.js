@@ -299,3 +299,27 @@ describe('avenants dans l\'historique', () => {
     expect(h.chapitres[0].rail.some(r => r.kind === 'evenement' && r.ev.type === 'modif-dg')).toBe(true);
   });
 });
+
+describe('modifications d\'un bail signé hors avenant (journal 0054) — incident Ferrette 101', () => {
+  const bail = { ref: 'F101', debut: '2025-01-01', fin: '2028-01-01', hc: 800, ch: 95, signatures: { signedAt: '2025-01-02T10:00:00Z', mode: 'avec-locataire' } };
+  const base = { ref: 'F101', today: '2026-09-28', bailCourant: bail, bauxHistorique: [], bareme: [], irlHistorique: [], bailEvents: [] };
+  const entree = (x) => Object.assign({ id: 'bj1', ref: 'F101', bailDebut: '2025-01-01', date: '2026-09-28T09:00:00Z', type: 'modification', auteur: 'Didier Keller',
+    changements: [{ champ: 'notes', libelle: 'Notes', avant: '', apres: 'x' }, { champ: 'hc', libelle: 'Loyer HC', avant: 800, apres: 850, fin: true }] }, x || {});
+  const evts = (r) => r.chapitres[0].rail.filter(x => x.kind === 'evenement').map(x => x.ev);
+  it('une carte « modification » par enregistrement, sans les champs financiers (déjà une carte du barème)', () => {
+    const r = construireHistoriqueBail({ ...base, bailJournal: [entree()] });
+    const m = evts(r).filter(e => e.type === 'modification');
+    expect(m.length).toBe(1);
+    expect(m[0].changements.map(c => c.champ)).toEqual(['notes']);
+    expect(m[0].auteur).toBe('Didier Keller');
+  });
+  it('seulement financier → pas de carte ; autre logement, supprimée ou autre type → ignorée', () => {
+    const r = construireHistoriqueBail({ ...base, bailJournal: [
+      entree({ id: 'a', changements: [{ champ: 'hc', avant: 1, apres: 2, fin: true }] }),
+      entree({ id: 'b', ref: 'AUTRE' }), entree({ id: 'c', _deleted: true }), entree({ id: 'd', type: 'avenant' }) ] });
+    expect(evts(r).filter(e => e.type === 'modification').length).toBe(0);
+  });
+  it('sans journal (appelant ancien) → aucun changement de comportement', () => {
+    expect(() => construireHistoriqueBail(base)).not.toThrow();
+  });
+});

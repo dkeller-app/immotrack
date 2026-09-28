@@ -908,3 +908,26 @@ describe('recordKey — la clé d’identité du moteur, exportée (lot 4bis)', 
     expect(recordKey('edl', null)).toBeNull()
   })
 })
+
+describe('journal des baux signés (0054) — incident Ferrette 101', () => {
+  it('bail signé VERROUILLÉ : la ligne du bail n\'est plus poussée, mais l\'entrée de journal l\'est (après baux)', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    db.baux = { 'F-1': { hc: 700, notes: '', signatures: { signedAt: '2026-01-01T00:00:00Z', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true } } }
+    db.baux_evenements = []
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    // « Modifier le bail » : le bail change en mémoire ET une entrée de journal est ajoutée.
+    db.baux['F-1'].notes = 'Animaux acceptés'
+    db.baux_evenements.push({ id: 'bj_1', ref: 'F-1', type: 'modification', date: '2026-09-28T09:00:00Z', signedAt: '2026-01-01T00:00:00Z', changements: [{ champ: 'notes', apres: 'Animaux acceptés' }] })
+    await sync.flush()
+    const ops = store.calls.map(c => c.op + ':' + c.coll)
+    expect(ops).toContain('upsert:baux_evenements')
+    expect(ops).not.toContain('upsert:baux')           // la ligne signée reste intacte
+  })
+  it('ordre parent → enfant : baux_evenements vient après baux', () => {
+    const i = SYNCED_COLLECTIONS.indexOf('baux'), j = SYNCED_COLLECTIONS.indexOf('baux_evenements')
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(j).toBeGreaterThan(i)
+  })
+})
