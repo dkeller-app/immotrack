@@ -15,6 +15,8 @@
 // mapping) : entites/immeubles par nom, logements par ref, baux par clé de map, le reste par id.
 import { TABLE_COLLECTIONS, LOCAL_USER_PARAM_KEYS } from './store-supabase.js'   // source unique des collections table-backées + params local-user
 import { bailContentHash } from './bail-content-hash.js'  // empreinte légale canonique des baux signés (verrou)
+import { bailHistCle } from './store-mapping.js'          // identité d'une archive (SOURCE UNIQUE avec l'id de ligne)
+import { entreeJournalAuto, memeBailSigne } from './bail-modifications.js'   // journal automatique d'un bail signé verrouillé (B2)
 
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 
@@ -65,13 +67,17 @@ const COLLECTIONS = [
   { coll: 'logements',       enumerate: db => (db.logements || []).map(l => ({ ...l })), key: r => norm(r.ref) + espTag(r), sources: db => db.logements || [] },
   // VERROU LÉGAL : `immutable` = un bail signé verrouillé. S'il est DÉJÀ verrouillé au baseline (déjà
   // synchronisé locked), le moteur ne le ré-upserte/supprime JAMAIS (le trigger DB refuserait → conflit).
+  // Depuis le chantier clôture/relocation (B2, migration 0055) : sa VIE est journalisée (baux_evenements),
+  // et quand il cesse d'être le bail courant (clôture, suppression, réinitialisation, relocation) sa
+  // ligne est ARCHIVÉE — seule écriture que le serveur accepte — cf. _doFlush phase 0.
   { coll: 'baux',            enumerate: db => Object.entries(db.baux || {}).map(([k, v]) => ({ __key: k, ...v })), key: r => norm(r.__key), immutable: r => !!(r && r.signatures && r.signatures.locked), sources: db => Object.entries(db.baux || {}).map(([k, v]) => ({ __key: k, __src: v, _espaceId: v && typeof v === 'object' ? v._espaceId : null })) },
-  // ⚠️ clé = identité EXACTE du mapping (store-mapping baux_historique : detUuid('bailhist', ref + '|' + _archivedAt)).
+  // ⚠️ clé = identité EXACTE du mapping (store-mapping bailHistCle : ref|_archivedAt[|_archiveId]).
   //    Keyer par `id` (non unique sur un log d'archive) regrouperait deux archives distinctes → perte silencieuse.
+  //    `_archiveId` n'est posé QU'EN CAS DE COLLISION (2 archives du même logement le même jour, cf. _identifierArchives).
   // ⚠️ SPREAD OBLIGATOIRE (audit BUG-RENAME-CLOUD-DUP) : `ref` (mutée EN PLACE par renameLogementRef) dérive
   //    l'uuid. Sans copie → même doublon que logements, ici dans une table à valeur de PREUVE. Renommer un bien
   //    dont l'historique n'est pas signé (= la population renommable) dupliquerait la ligne d'archive. La copie fige.
-  { coll: 'baux_historique', enumerate: db => (db.baux_historique || []).map(h => ({ ...h })), key: r => String(r.ref ?? '') + '|' + (r._archivedAt ?? '') + espTag(r), sources: db => db.baux_historique || [] },
+  { coll: 'baux_historique', enumerate: db => (db.baux_historique || []).map(h => ({ ...h })), key: r => bailHistCle(r) + espTag(r), sources: db => db.baux_historique || [] },
   // Journal des baux signés (0054) : APRÈS baux (FK composite bail_id → baux). Clé = id local unique.
   { coll: 'baux_evenements', enumerate: db => db.baux_evenements || [],                 key: r => String(r.id) + espTag(r), sources: db => db.baux_evenements || [] },
   // documents AVANT mouvements : FK DURE mouvements_pj_fk (pj_document_id) → documents (la ligne
@@ -154,7 +160,7 @@ export function recordKey(coll, rec) {
 // tant qu'un enregistrement toxique traîne. Pur (testable), tolérant à un résumé absent (flush qui throw).
 export const summaryHasCloudWrites = s => !!(s && (
   (s.upserts && s.upserts.length) || (s.revives && s.revives.length) ||
-  (s.removes && s.removes.length) || s.config === 'written'))
+  (s.removes && s.removes.length) || (s.archives && s.archives.length) || s.config === 'written'))
 const configSig = db => {
   const o = {}
   for (const k of Object.keys(db || {}).sort()) if (!CONFIG_EXCLUDED.has(k)) o[k] = db[k]
@@ -168,7 +174,14 @@ const configSig = db => {
   return JSON.stringify(o)
 }
 
-export function createStoreSync({ store, getDB, schedule, sealSigned = true, retryBaseMs = 2000, retryMaxMs = 60000 }) {
+// Identifiant opaque (ligne propre d'un bail, archive en collision, entrée de journal automatique).
+// Jamais dérivé d'une donnée métier : seule son unicité compte (il est persisté dans legacy_raw).
+const _uidDefaut = () => {
+  try { if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID() } catch (_e) { /* repli */ }
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
+}
+
+export function createStoreSync({ store, getDB, schedule, sealSigned = true, retryBaseMs = 2000, retryMaxMs = 60000, now = () => new Date(), newUid = _uidDefaut }) {
   if (!store || typeof store.upsert !== 'function' || typeof store.remove !== 'function')
     throw new Error('createStoreSync: store.upsert/remove requis')
   if (typeof getDB !== 'function') throw new Error('createStoreSync: getDB requis')
@@ -255,7 +268,9 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       // `locked` = état d'immutabilité CAPTURÉ ici (booléen STABLE), pas relu via la référence `rec` : le
       // rec partage `signatures` avec le bail vivant (spread shallow) ; muter `signatures.locked` en place
       // changerait rétroactivement le baseline → la 1ʳᵉ transition de verrouillage serait sautée à tort.
-      for (const rec of enumerate(db)) { if (isDeleted(rec)) continue; m.set(key(rec), { rec, sig: sig(rec), locked: immutable ? !!immutable(rec) : false }) }
+      // `sAt` (baux) = signature CAPTURÉE ici, même raison que `locked` : `signatures` est partagé avec le
+      // bail vivant ; relire rec.signatures.signedAt plus tard verrait une mutation en place.
+      for (const rec of enumerate(db)) { if (isDeleted(rec)) continue; m.set(key(rec), { rec, sig: sig(rec), locked: immutable ? !!immutable(rec) : false, sAt: (coll === 'baux' && rec.signatures && rec.signatures.signedAt) || null }) }
       snap.set(coll, m)
     }
     return snap
@@ -269,6 +284,107 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
     _removeConflicts.clear()   // M2 : baseline neuve (re-hydratation) → les conflits mémorisés sont périmés
   }
 
+  // ── CHANTIER CLÔTURE / RELOCATION D'UN BAIL SIGNÉ (option B2, validée Didier 28/09) ─────────────
+  // Défaut prouvé sur la base hébergée (supabase/tests/repro-bail-signe-cloture.test.mjs) : une fois
+  // scellé, un bail signé n'était plus JAMAIS écrit (ni retiré, ni remplacé, ni complété) — clôture,
+  // relocation, révision IRL, lien du PDF signé… perdus en silence au rechargement. Principe B2 : le
+  // contrat signé ne bouge jamais ; sa VIE va dans le journal ; quand il cesse d'être le bail courant,
+  // sa ligne est ARCHIVÉE (seule écriture acceptée par le serveur, migration 0055) et le bail suivant
+  // reçoit SA PROPRE ligne (`_bailUid`, store-mapping bailLigneCle).
+  const _bauxKey = k => norm(k)                                   // = clé de diff de COLLECTIONS.baux
+  const _bauxKeyFn = COLLECTIONS.find(c => c.coll === 'baux').key
+  const _uidDe = r => (r && r._bailUid) || null
+
+  // IDENTITÉ des baux, AVANT le snapshot (posée sur les objets VIVANTS → legacy_raw la porte) :
+  //  • absent du baseline (création, ou relocation vue d'un appareil frais) → `_bailUid` NEUF : sa propre
+  //    ligne. Indispensable : l'id historique du logement peut être tenu au cloud par un bail signé
+  //    ARCHIVÉ (immuable, jamais réanimable) → un insert sur cet id serait un conflit éternel ;
+  //  • baseline VERROUILLÉ, même signature → c'est LE bail signé : identité rétablie telle qu'au baseline
+  //    (un objet reconstruit ou restauré ne change jamais de ligne) ;
+  //  • baseline VERROUILLÉ, autre signature ou plus de signature → SUCCESSEUR (relocation, réinitialisation
+  //    des signatures) : `_bailUid` NEUF, l'ancienne ligne est archivée en phase 0 ;
+  //  • baseline NON verrouillé → même ligne (réédition, ou relocation d'un bail non signé réécrite comme
+  //    avant) ; un objet reconstruit sans `_bailUid` récupère celui du baseline.
+  function _identifierBaux(db) {
+    const base = baseline.get('baux')
+    for (const [k, bail] of Object.entries((db && db.baux) || {})) {
+      if (!bail || typeof bail !== 'object' || isDeleted(bail)) continue
+      const prev = base && base.get(_bauxKey(k))
+      if (!prev) { if (!bail._bailUid) bail._bailUid = newUid(); continue }
+      const pUid = _uidDe(prev.rec)
+      if (prev.locked) {
+        const sAt = bail.signatures && bail.signatures.signedAt
+        if (sAt && sAt === prev.sAt) { if (pUid) bail._bailUid = pUid; else delete bail._bailUid }
+        else if (!bail._bailUid || bail._bailUid === pUid) bail._bailUid = newUid()
+      } else if (!bail._bailUid && pUid) bail._bailUid = pUid
+    }
+  }
+
+  // ARCHIVES DU MÊME JOUR : deux archives d'un logement datées du même jour partageaient la clé — donc la
+  // LIGNE cloud — `ref|_archivedAt` : la seconde écrasait la première (prouvé sur la base hébergée le 28/09).
+  // On départage avec `_archiveId`, UNIQUEMENT en collision : une archive seule garde son identité
+  // historique ; celle déjà synchronisée (même contenu qu'au baseline) garde la sienne.
+  function _identifierArchives(db) {
+    const list = Array.isArray(db && db.baux_historique) ? db.baux_historique : []
+    const base = baseline.get('baux_historique')
+    const groupes = new Map()
+    for (const h of list) {
+      if (!h || typeof h !== 'object' || isDeleted(h) || h._archiveId) continue
+      const k = bailHistCle(h) + espTag(h)
+      let g = groupes.get(k); if (!g) { g = []; groupes.set(k, g) }
+      g.push(h)
+    }
+    for (const [k, g] of groupes) {
+      const prev = base && base.get(k)
+      if (g.length < 2) continue                                  // seule sur sa clé → identité historique
+      const ancre = (prev && g.find(h => sig({ ...h }) === prev.sig)) || g[0]
+      for (const h of g) if (h !== ancre) h._archiveId = newUid()
+    }
+  }
+
+  // JOURNAL : une entrée écrite ailleurs (« Modifier le bail », avenant) ne connaît pas la ligne propre de
+  // son bail. Avant son PREMIER envoi, on y reporte le `_bailUid` du bail concerné (même logement, même
+  // signature, même espace) → bail_id vise la bonne ligne. Une entrée déjà synchronisée n'est jamais retouchée.
+  function _rattacherJournal(db) {
+    const j = Array.isArray(db && db.baux_evenements) ? db.baux_evenements : null
+    if (!j || !j.length) return
+    const base = baseline.get('baux_evenements')
+    const baux = Object.entries((db && db.baux) || {})
+    for (const e of j) {
+      if (!e || typeof e !== 'object' || isDeleted(e) || e.bailUid || !e.signedAt) continue
+      if (base && base.has(String(e.id) + espTag(e))) continue
+      const t = baux.find(([k, b]) => b && typeof b === 'object' && !isDeleted(b) && b._bailUid && String(k).split('@@')[0] === e.ref
+        && b.signatures && b.signatures.signedAt === e.signedAt && (b._espaceId || null) === (e._espaceId || null))
+      if (t) e.bailUid = t[1]._bailUid
+    }
+  }
+
+  // VIE D'UN BAIL SIGNÉ VERROUILLÉ → JOURNAL AUTOMATIQUE. La ligne signée n'est jamais réécrite : tout
+  // écart entre l'état synchronisé (baseline + journal réappliqué) et l'état vivant — révision IRL, départ,
+  // dépôt de garantie, pièces de signature posées après scellement… (liste fermée, bail-modifications.js)
+  // — devient UNE entrée `baux_evenements` (source 'auto'), envoyée dans ce même flush et réappliquée au
+  // chargement sur tous les appareils. Idempotent : l'entrée présente, l'écart disparaît.
+  function _journaliserVerrouilles(db) {
+    const base = baseline.get('baux')
+    const faits = []
+    if (!base || !base.size) return faits
+    for (const [k, bail] of Object.entries((db && db.baux) || {})) {
+      if (!bail || typeof bail !== 'object' || isDeleted(bail)) continue
+      const dk = _bauxKey(k), prev = base.get(dk)
+      if (!prev || !prev.locked) continue
+      if (!bail.signatures || !prev.sAt || bail.signatures.signedAt !== prev.sAt) continue   // successeur : phase 0
+      if (prev.sig === sig({ __key: k, ...bail })) continue                                   // rien n'a bougé
+      const reference = JSON.parse(prev.sig); delete reference.__key                           // état synchronisé, copie PROFONDE
+      const d = now(); const date = (d instanceof Date ? d : new Date(d)).toISOString()
+      const e = entreeJournalAuto(k, bail, reference, db.baux_evenements || [], { date, id: 'bja_' + newUid() })
+      if (!e) continue
+      if (!Array.isArray(db.baux_evenements)) db.baux_evenements = []
+      db.baux_evenements.push(e)
+      faits.push({ coll: 'baux', key: dk, id: e.id })
+    }
+    return faits
+  }
+
   // _doFlush : diffe le DB courant vs baseline, applique upserts (parent→enfant) puis removes
   // (enfant→parent), met à jour le baseline sur succès uniquement. Renvoie un résumé.
   // ⚠️ NE PAS appeler directement (réentrance) → passer par flush() qui SÉRIALISE.
@@ -280,20 +396,67 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   // hors isolation À DESSEIN (fail-closed légal : ne jamais pousser un bail signé non scellé).
   const _errMsg = e => (e && e.message) || String(e)
   async function _doFlush(db) {
-    const summary = { upserts: [], revives: [], removes: [], conflicts: [], skipped: [], errors: [] }
+    const summary = { upserts: [], revives: [], removes: [], archives: [], journalises: [], conflicts: [], skipped: [], errors: [] }
     if (sealSigned) await sealSignedBaux(db)            // VERROU (pièce 2) — gouverné par l'option sealSigned (false en phase test)
     const suspended = _adoptAll(db)                     // D1b : réadoption des tags AVANT le snapshot (+ clés ambiguës → removes suspendus)
+    // B2 : identités (baux, archives en collision), journal rattaché à sa ligne, vie des baux verrouillés
+    // journalisée — TOUT avant le snapshot, qui voit ainsi l'état complet à envoyer.
+    _identifierBaux(db)
+    _identifierArchives(db)
+    _rattacherJournal(db)
+    summary.journalises = _journaliserVerrouilles(db)
     const current = snapshotOf(db)
+
+    // 0) BAUX QUI CESSENT D'ÊTRE LE BAIL COURANT — AVANT les upserts : le serveur n'admet qu'un bail courant
+    //    par logement (index baux_one_active_per_logement), l'ancienne ligne doit s'effacer d'abord.
+    //    • ligne VERROUILLÉE (bail signé) : ARCHIVÉE (migration 0055) — clôture, suppression, relocation,
+    //      réinitialisation des signatures. La ligne signée reste au cloud, intacte : c'est la preuve ;
+    //    • ligne NON verrouillée remplacée par un bail d'une AUTRE identité : suppression logique. (Un simple
+    //      retrait d'un bail non verrouillé reste en phase 2, inchangé.)
+    //    Échec → le successeur n'est PAS envoyé dans ce flush (il heurterait l'index) : il repartira avec
+    //    l'ancienne ligne. L'échec lui-même est déjà tracé (conflit / erreur / en attente).
+    const bloques = new Set()
+    {
+      const cur = current.get('baux'), base = baseline.get('baux'), susp = suspended.get('baux')
+      for (const [k, prev] of [...base]) {
+        const c = cur.get(k)
+        const successeur = !!c && _uidDe(c.rec) !== _uidDe(prev.rec)
+        if (c && !successeur) continue
+        if (!c && !prev.locked) continue                  // retrait ordinaire non signé → phase 2
+        if (susp && susp.has(_bareKey(_bauxKeyFn, prev.rec))) { if (c) bloques.add(k); continue }   // D1b : jamais sur devinette
+        const archiver = prev.locked
+        let res
+        try {
+          if (archiver && typeof store.archive !== 'function') res = { status: 'skipped' }
+          else res = archiver ? await store.archive('baux', prev.rec) : await store.remove('baux', prev.rec)
+        } catch (e) {
+          summary.errors.push({ op: archiver ? 'archive' : 'remove', coll: 'baux', key: k, message: _errMsg(e) })
+          if (c) bloques.add(k)
+          continue
+        }
+        const st = res && res.status
+        if (st === (archiver ? 'archived' : 'deleted')) {
+          base.delete(k); _removeConflicts.delete(_rcKey('baux', k))
+          ;(archiver ? summary.archives : summary.removes).push({ coll: 'baux', key: k })
+        } else {
+          if (c) bloques.add(k)
+          if (st === 'conflict') { _removeConflicts.add(_rcKey('baux', k)); summary.conflicts.push({ coll: 'baux', key: k }) }
+          else summary.skipped.push({ coll: 'baux', key: k })
+        }
+      }
+    }
 
     // 1) upserts (ajouts + modifs), dans l'ordre parent→enfant.
     for (const { coll } of COLLECTIONS) {
       const cur = current.get(coll), base = baseline.get(coll)
-      for (const [k, { rec, sig: s, locked: curLocked }] of cur) {
+      for (const [k, { rec, sig: s, locked: curLocked, sAt: curSAt }] of cur) {
         const prev = base.get(k)
         if (prev && prev.sig === s) continue               // inchangé
+        if (coll === 'baux' && bloques.has(k)) continue    // successeur en attente de l'archivage de l'ancienne ligne (phase 0)
         // VERROU : une ligne DÉJÀ verrouillée au baseline (`prev.locked`, figé au snapshot précédent) est
         // immuable → jamais ré-upsertée (le trigger refuserait → conflit). La 1ʳᵉ transition false→true
-        // (baseline NON verrouillé) passe : c'est elle qui POSE le verrou.
+        // (baseline NON verrouillé) passe : c'est elle qui POSE le verrou. Ses modifications ultérieures
+        // ne sont PAS perdues : _journaliserVerrouilles les a mises dans le journal (baux_evenements).
         if (prev && prev.locked) continue
         // B-REBAIL : `allowRevive` = INTENTION explicite de ré-ouvrir un tombstone. Vrai UNIQUEMENT pour un
         // AJOUT FRAIS (`!prev` — clé absente du baseline : relocation, ou record neuf), jamais pour une
@@ -306,7 +469,8 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         // 'revived' (B-REBAIL) = succès d'écriture MAIS tracé À PART (summary.revives) : un revive = une
         // ré-ouverture délibérée d'un slot (relocation / clé naturelle recréée), événement notable sur un
         // chemin juridiquement sensible → visible dans les logs/l'indicateur de sync, pas noyé dans les upserts.
-        if (OK_UPSERT.has(st)) { base.set(k, { rec, sig: s, locked: curLocked }); (st === 'revived' ? summary.revives : summary.upserts).push({ coll, key: k }) }
+        if (OK_UPSERT.has(st)) { base.set(k, { rec, sig: s, locked: curLocked, sAt: curSAt });   // sAt : la signature suit le baseline (sinon un bail tout juste scellé passerait pour un successeur)
+          (st === 'revived' ? summary.revives : summary.upserts).push({ coll, key: k }) }
         else if (st === 'conflict') summary.conflicts.push({ coll, key: k })   // baseline inchangé → retry
         else summary.skipped.push({ coll, key: k })                            // skipped (FK non résolue) → retry
       }
@@ -319,7 +483,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       const susp = suspended.get(coll)
       for (const [k, { rec, locked }] of [...base]) {
         if (cur.has(k)) continue
-        if (locked) continue                               // VERROU : un signé verrouillé (figé au baseline) ne se supprime pas
+        if (locked) continue                               // VERROU : un signé verrouillé ne se supprime JAMAIS — il s'archive (phase 0)
         // D1b (audit réserve 1) : un jumeau VIVANT non résolu (ambiguïté d'homonymie) porte cette
         // clé nue → remove SUSPENDU (fail-safe : jamais de destruction sur devinette ; converge à
         // la prochaine re-hydrate qui re-tague tout).
@@ -392,7 +556,10 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       const susp = suspended.get(coll)
       let live = null   // Set des clés vivantes, construit PARESSEUSEMENT (uniquement si baseline non vide)
       for (const [k, v] of base) {
-        if (v.locked) continue
+        // Bail signé verrouillé retiré (clôture, suppression) : son ARCHIVAGE est aussi fragile qu'une
+        // suppression (onglet fermé = bail ressuscité ailleurs) → flush immédiat lui aussi (B2). Les autres
+        // collections verrouillées (EDL) ne se retirent toujours pas → anti-boucle inchangé.
+        if (v.locked && coll !== 'baux') continue
         if (_removeConflicts.has(_rcKey(coll, k))) continue   // M2 : dernier essai = conflit → debounce normal (anti-neutralisation)
         if (susp && susp.has(_bareKey(key, v.rec))) continue  // D1b : remove suspendu (jumeau vivant non résolu)
         if (live === null) { live = new Set(); for (const rec of enumerate(db)) { if (!isDeleted(rec)) live.add(key(rec)) } }

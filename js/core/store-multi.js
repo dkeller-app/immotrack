@@ -112,9 +112,11 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
   }
   async function upsert(coll, rec, opts) { const r = _bareKey(rec); return _route(r).upsert(coll, r, opts) }
   async function remove(coll, rec) { const r = _bareKey(rec); return _route(r).remove(coll, r) }
+  // Archivage d'un bail (migration 0055) : routé comme remove → l'espace du PROPRIÉTAIRE du bail.
+  async function archive(coll, rec) { const r = _bareKey(rec); return _route(r).archive(coll, r) }
   async function persistConfig(db) { return own.store.persistConfig(db) }   // config = espace propre uniquement
 
-  return { hydrate, upsert, remove, persistConfig, stores }
+  return { hydrate, upsert, remove, archive, persistConfig, stores }
 }
 
 const _norm = s => String(s == null ? '' : s).trim().toLowerCase()

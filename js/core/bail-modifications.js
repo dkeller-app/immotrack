@@ -94,13 +94,44 @@ export const CHAMPS_LOCATAIRE = {
   tel: 'Téléphone', email: 'E-mail', adressePrecedente: 'Adresse précédente',
 };
 
+// VIE DU BAIL (chantier clôture/relocation, option B2 validée Didier 28/09) — champs écrits sur un bail
+// signé PAR D'AUTRES ÉCRANS que « Modifier le bail » (assistant de départ, restitution du dépôt de
+// garantie, régularisation, plan d'apurement, procédure, avenant, révision IRL, reprise). Ils ne sont
+// PAS dans CHAMPS_BAIL à dessein : le formulaire ne les porte pas, et les y mettre ferait apparaître
+// de faux écarts dans la confirmation de « Modifier le bail ». Ils sont journalisés AUTOMATIQUEMENT au
+// point de synchro (store-sync.js) quand la ligne du bail est verrouillée au cloud, réappliqués au
+// chargement comme les autres, et jamais affichés dans la carte « Modification » (chaque écran a déjà
+// sa propre trace : barème, bailEvents, assistant de départ). Liste FERMÉE : un champ absent d'ici
+// reste perdu au cloud sur un bail verrouillé — l'ajouter ici est le geste attendu.
+export const CHAMPS_VIE = {
+  depart: { l: 'Départ du locataire' },
+  dgRestitueAt: { l: 'Dépôt de garantie restitué le' },
+  dgRestitueMontant: { l: 'Montant du dépôt restitué' },
+  dgDetailRetenues: { l: 'Détail des retenues sur le dépôt' },
+  dgAdresseNonCommuniquee: { l: 'Adresse de restitution non communiquée' },
+  dgPenaliteArt22: { l: 'Pénalité de retard de restitution (art. 22)' },
+  locNouvIban: { l: 'IBAN du locataire sortant' },
+  estimExclues: { l: 'Charges exclues de l\'estimation' },
+  planApurement: { l: 'Plan d\'apurement' },
+  procedure: { l: 'Procédure' },
+  avenants: { l: 'Avenants' },
+  chForfait: { l: 'Charges au forfait' },
+  irlDerniereApplication: { l: 'Dernière révision IRL appliquée' },
+  reprisVerifie: { l: 'Bail repris vérifié' },
+  quittAutoGen: { l: 'Quittances automatiques' },
+};
+// Pièces de la SIGNATURE posées APRÈS le scellement (archivage du PDF signé, certificat de preuve —
+// `__immoArchiveBailPdf`). Seules ces sous-clés de `signatures` peuvent être journalisées : le reste
+// (signedAt, bailSnapshot, mode, empreinte des termes, verrou) est le document signé, intouchable.
+export const ARTEFACTS_SIGNATURE = ['cloudPdfKey', 'proof', 'contentHash', 'certRef'];
+
 // Égalité « métier » : vide / null / absent sont identiques ; nombres comparés en nombre ;
 // objets (visale) comparés par contenu. Évite les faux écarts (pf() rend 0 pour un champ vide…).
 function _vide(v) { return v == null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => _vide(v[k]))); }
 // Champs MONTANTS / NOMBRES : « 850 » et 850 identiques. Les autres restent du texte : un téléphone,
 // un code postal ou un n° d'emplacement qui ne diffère que d'un zéro en tête EST une modification.
 const CHAMPS_NUMERIQUES = new Set(['hc', 'ch', 'dg', 'dernierLoyerPrec', 'loyerRefMajore', 'complementLoyer', 'plafondCaution',
-  'surf', 'depensesEnergie', 'dgRestitue', 'dgRetenu', 'jpay', 'emplSurface']);
+  'surf', 'depensesEnergie', 'dgRestitue', 'dgRetenu', 'jpay', 'emplSurface', 'dgRestitueMontant']);
 function _norm(v, numerique) {
   if (_vide(v)) return '';
   if (typeof v === 'boolean') return v ? '1' : '';
@@ -162,12 +193,69 @@ export function diffModificationsBail(prev, next) {
   return out;
 }
 
+/**
+ * Écarts à JOURNALISER AUTOMATIQUEMENT entre l'état synchronisé d'un bail signé verrouillé
+ * (`prev` = ligne cloud + journal déjà réappliqué) et son état vivant (`next`). Couvre les champs du
+ * formulaire (CHAMPS_BAIL, y compris un champ RETIRÉ : écrit à null), les locataires, la vie du bail
+ * (CHAMPS_VIE, marqués `vie`) et les pièces de signature posées après scellement (marquées `vie`).
+ * @returns {Array<{champ, libelle, avant, apres, fin?:true, vie?:true}>}
+ */
+export function diffAutoBail(prev, next) {
+  const p = prev || {}, n = next || {};
+  // Un champ du formulaire présent avant et absent maintenant a été RETIRÉ : on le compare à null
+  // (diffModificationsBail ignore les clés absentes de `next`, règle propre au formulaire).
+  const nComplet = Object.assign({}, n);
+  for (const k of Object.keys(CHAMPS_BAIL)) if (k in p && !(k in n)) nComplet[k] = null;
+  const out = diffModificationsBail(p, nComplet);
+  for (const [k, def] of Object.entries(CHAMPS_VIE)) {
+    if (!(k in p) && !(k in n)) continue;
+    if (memeValeur(p[k], n[k], k)) continue;
+    out.push({ champ: k, libelle: def.l, avant: p[k] === undefined ? null : p[k], apres: n[k] === undefined ? null : n[k], vie: true });
+  }
+  const sp = (p.signatures && typeof p.signatures === 'object') ? p.signatures : {};
+  const sn = (n.signatures && typeof n.signatures === 'object') ? n.signatures : {};
+  for (const k of ARTEFACTS_SIGNATURE) {
+    if (memeValeur(sp[k], sn[k], k)) continue;
+    out.push({ champ: 'signatures.' + k, libelle: 'Pièce de signature (' + k + ')', avant: sp[k] === undefined ? null : sp[k], apres: sn[k] === undefined ? null : sn[k], vie: true });
+  }
+  return out;
+}
+
+/** Même signature (même `signedAt`, non vide) = même bail signé. Un autre `signedAt` = un autre bail. */
+export function memeBailSigne(a, b) {
+  const sa = a && a.signatures && a.signatures.signedAt, sb = b && b.signatures && b.signatures.signedAt;
+  return !!(sa && sb && sa === sb);
+}
+
+/**
+ * Entrée de journal AUTOMATIQUE pour un bail signé verrouillé, ou null si rien à journaliser.
+ * `reference` = état synchronisé (copie profonde, JAMAIS l'objet vivant) ; le journal existant y est
+ * réappliqué d'abord → une modification déjà journalisée (« Modifier le bail ») n'est jamais doublée.
+ * PUR : ne modifie ni `bail`, ni `reference` reçue, ni `journal`.
+ */
+export function entreeJournalAuto(cle, bail, reference, journal, { date, id } = {}) {
+  if (!bail || !reference || !memeBailSigne(reference, bail)) return null;
+  const ref = JSON.parse(JSON.stringify(reference));
+  reappliquerJournalBaux({ [cle]: ref }, journal);
+  const changements = diffAutoBail(ref, bail);
+  if (!changements.length) return null;
+  const e = { id, ref: String(cle || '').split('@@')[0], bailDebut: bail.debut || '', signedAt: bail.signatures.signedAt,
+    date, _modifiedAt: date, type: 'modification', source: 'auto', auteur: '', changements };
+  if (bail._bailUid) e.bailUid = bail._bailUid;
+  if (bail._espaceId != null) e._espaceId = bail._espaceId;   // routage vers l'espace du propriétaire (partage SCI)
+  return e;
+}
+
 // Seuls les chemins SUIVIS sont réappliqués. Le journal vient de données partagées (cloud, SCI) :
 // un chemin arbitraire pourrait réécrire le document signé (signatures.bailSnapshot…) ou polluer
 // Object.prototype (__proto__). Liste fermée, vérifiée à la réapplication ; parties forcées en texte.
 export function cheminAutorise(chemin) {
   const c = String(chemin || '');
   if (Object.prototype.hasOwnProperty.call(CHAMPS_BAIL, c)) return true;
+  if (Object.prototype.hasOwnProperty.call(CHAMPS_VIE, c)) return true;
+  // Pièces posées après scellement : 2 niveaux exactement, sous-clé de la liste fermée (jamais
+  // signatures.signedAt / bailSnapshot / locked…).
+  if (/^signatures\.[A-Za-z]+$/.test(c) && ARTEFACTS_SIGNATURE.includes(c.slice(11))) return true;
   if (c === 'locataires') return true;   // liste entière (ajout / retrait), nettoyée par _poser
   const m = c.match(/^locataires\.(\d{1,2})\.([A-Za-z]+)$/);
   return !!(m && Object.prototype.hasOwnProperty.call(CHAMPS_LOCATAIRE, m[2]));
@@ -179,6 +267,13 @@ function _poser(obj, chemin, valeur) {
   // Parties : toujours du TEXTE (jamais un objet injecté par le journal partagé).
   if (chemin === 'entity' || chemin === 'garant' || chemin === 'garant2' || /^locataires\.\d+\.nom$/.test(chemin)) valeur = typeof valeur === 'string' ? valeur : '';
   if (chemin === 'signataires') { obj.signataires = (Array.isArray(valeur) ? valeur : []).filter(x => typeof x === 'string').slice(0, 20); return true; }
+  // Pièces de signature : types attendus seulement (clé de fichier / empreinte = texte ; preuve /
+  // certificat = objet simple). Tout autre type est ignoré plutôt qu'injecté dans `signatures`.
+  if (chemin === 'signatures.cloudPdfKey' || chemin === 'signatures.contentHash') { if (valeur != null && typeof valeur !== 'string') return false; }
+  if (chemin === 'signatures.proof' || chemin === 'signatures.certRef') { if (valeur != null && (typeof valeur !== 'object' || Array.isArray(valeur))) return false; }
+  // Valeur structurée (objet / liste) venue du journal PARTAGÉ : copie de données pures (aucun prototype,
+  // aucune référence partagée entre le journal et le bail vivant).
+  if (valeur != null && typeof valeur === 'object') { try { valeur = JSON.parse(JSON.stringify(valeur)); } catch (_e) { return false; } }
   const parts = String(chemin).split('.');
   let o = obj;
   for (let i = 0; i < parts.length - 1; i++) {

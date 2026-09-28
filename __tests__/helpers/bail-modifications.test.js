@@ -209,3 +209,99 @@ describe('durcissements (relecture hotfix)', () => {
     expect(diffModificationsBail(signe(), signe({ signataires: [] }))).toEqual([]);
   });
 });
+
+// ── Chantier clôture/relocation (option B2, 28/09) — journal AUTOMATIQUE de la vie d'un bail signé
+//    verrouillé (départ, dépôt, IRL, pièces de signature posées après scellement).
+import { diffAutoBail, entreeJournalAuto, memeBailSigne, cheminAutorise, CHAMPS_VIE, ARTEFACTS_SIGNATURE } from '../../js/core/bail-modifications.js';
+
+describe('diffAutoBail — tout ce qui change sur un bail signé verrouillé, liste fermée', () => {
+  it('révision IRL (hc) + départ + DG restitué + lien du PDF signé ; vie/pièces marquées `vie`', () => {
+    const prev = signe();
+    const next = JSON.parse(JSON.stringify(prev));
+    next.hc = 812.4;
+    next.depart = { dateSortie: '2026-06-30', etape: 3 };
+    next.dgRestitueAt = '2026-07-15';
+    next.signatures.cloudPdfKey = 'esp/ent/files/bp_F101.pdf';
+    const d = diffAutoBail(prev, next);
+    expect(d.map(c => c.champ)).toEqual(['hc', 'depart', 'dgRestitueAt', 'signatures.cloudPdfKey']);
+    expect(d.find(c => c.champ === 'hc')).toMatchObject({ avant: 800, apres: 812.4, fin: true });
+    expect(d.find(c => c.champ === 'depart')).toMatchObject({ vie: true, avant: null });
+    expect(d.find(c => c.champ === 'signatures.cloudPdfKey')).toMatchObject({ vie: true, apres: 'esp/ent/files/bp_F101.pdf' });
+  });
+  it('champ du formulaire RETIRÉ → écrit à null (le formulaire, lui, ignore les absents)', () => {
+    const prev = signe({ notes: 'Animaux acceptés' });
+    const next = JSON.parse(JSON.stringify(prev)); delete next.notes;
+    expect(diffAutoBail(prev, next)).toEqual([{ champ: 'notes', libelle: 'Notes / conditions particulières', avant: 'Animaux acceptés', apres: null }]);
+  });
+  it('document signé et champs hors liste : JAMAIS journalisés', () => {
+    const prev = signe();
+    const next = JSON.parse(JSON.stringify(prev));
+    next.signatures.bailSnapshot = { hc: 1 }; next.signatures.signedAt = '2030-01-01'; next.signatures.locked = false
+    next._snapshotBackfilled = true; next.champInconnu = 'x'
+    expect(diffAutoBail(prev, next)).toEqual([]);
+  });
+  it('rien de changé → []', () => { expect(diffAutoBail(signe(), signe())).toEqual([]); });
+});
+
+describe('entreeJournalAuto — une entrée, jamais un doublon de « Modifier le bail »', () => {
+  const opts = { date: '2026-09-29T08:00:00.000Z', id: 'bja_1' };
+  it('entrée complète (ref nue, signature, bailUid, espace), source auto', () => {
+    const reference = signe({ _espaceId: 'E1' });
+    const bail = Object.assign(JSON.parse(JSON.stringify(reference)), { depart: { etape: 1 }, _bailUid: 'u7' });
+    const e = entreeJournalAuto('F101@@E1', bail, reference, [], opts);
+    expect(e).toMatchObject({ id: 'bja_1', ref: 'F101', signedAt: '2025-01-02T10:00:00Z', bailDebut: '2025-01-01', type: 'modification',
+      source: 'auto', auteur: '', date: opts.date, bailUid: 'u7', _espaceId: 'E1' });
+    expect(e.changements.map(c => c.champ)).toEqual(['depart']);
+  });
+  it('déjà journalisé par « Modifier le bail » (même valeur) → null', () => {
+    const reference = signe();
+    const bail = Object.assign(JSON.parse(JSON.stringify(reference)), { notes: 'Animaux acceptés' });
+    const journal = [{ id: 'bj_1', ref: 'F101', type: 'modification', signedAt: '2025-01-02T10:00:00Z', date: '2026-09-28', changements: [{ champ: 'notes', apres: 'Animaux acceptés' }] }];
+    expect(entreeJournalAuto('F101', bail, reference, journal, opts)).toBeNull();
+  });
+  it('autre bail (autre signature ou plus de signature) → null : c\'est un SUCCESSEUR, pas une modification', () => {
+    const reference = signe();
+    const draft = JSON.parse(JSON.stringify(reference)); delete draft.signatures;
+    expect(entreeJournalAuto('F101', draft, reference, [], opts)).toBeNull();
+    expect(memeBailSigne(reference, draft)).toBe(false);
+    expect(memeBailSigne(reference, JSON.parse(JSON.stringify(reference)))).toBe(true);
+  });
+  it('PUR : ni la référence ni le journal ne sont modifiés', () => {
+    const reference = signe(); const avant = JSON.stringify(reference)
+    const journal = [{ id: 'bj_1', ref: 'F101', type: 'modification', signedAt: '2025-01-02T10:00:00Z', date: '2026-09-28', changements: [{ champ: 'notes', apres: 'X' }] }]
+    const j0 = JSON.stringify(journal)
+    entreeJournalAuto('F101', Object.assign(signe(), { hc: 900 }), reference, journal, opts)
+    expect(JSON.stringify(reference)).toBe(avant); expect(JSON.stringify(journal)).toBe(j0)
+  });
+});
+
+describe('réapplication de la vie du bail (au chargement)', () => {
+  const entree = (changements) => ({ id: 'x', ref: 'F101', type: 'modification', signedAt: '2025-01-02T10:00:00Z', date: '2026-09-28', changements });
+  it('champs de vie + pièces de signature réappliqués ; types des pièces contrôlés', () => {
+    const baux = { F101: signe() };
+    reappliquerJournalBaux(baux, [entree([
+      { champ: 'depart', apres: { etape: 3 } }, { champ: 'signatures.cloudPdfKey', apres: 'k.pdf' },
+      { champ: 'signatures.proof', apres: ['pas', 'un', 'objet'] }, { champ: 'signatures.contentHash', apres: { x: 1 } },
+      { champ: 'signatures.certRef', apres: { cloudPdfKey: 'c.pdf' } },
+    ])]);
+    expect(baux.F101.depart).toEqual({ etape: 3 });
+    expect(baux.F101.signatures.cloudPdfKey).toBe('k.pdf');
+    expect(baux.F101.signatures.certRef).toEqual({ cloudPdfKey: 'c.pdf' });
+    expect(baux.F101.signatures.proof).toBeUndefined();
+    expect(baux.F101.signatures.contentHash).toBeUndefined();
+    expect(baux.F101.signatures.locked).toBe(true);
+  });
+  it('valeur structurée COPIÉE (aucune référence partagée journal ↔ bail)', () => {
+    const val = { etape: 1 }
+    const baux = { F101: signe() };
+    reappliquerJournalBaux(baux, [entree([{ champ: 'depart', apres: val }])]);
+    val.etape = 99
+    expect(baux.F101.depart.etape).toBe(1)
+  });
+  it('chemins autorisés : liste fermée de vie + pièces, jamais le reste de `signatures`', () => {
+    for (const k of Object.keys(CHAMPS_VIE)) expect(cheminAutorise(k)).toBe(true);
+    for (const k of ARTEFACTS_SIGNATURE) expect(cheminAutorise('signatures.' + k)).toBe(true);
+    for (const c of ['signatures.signedAt', 'signatures.bailSnapshot', 'signatures.locked', 'signatures.cloudPdfKey.x', 'signatures', '_bailUid', '__proto__', 'constructor'])
+      expect(cheminAutorise(c)).toBe(false);
+  });
+});

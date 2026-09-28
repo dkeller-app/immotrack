@@ -29,9 +29,13 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
   async function fetchTable(name) {
     const out = []
     for (let off = 0; ; off += pageSize) {
-      const { data, error } = await client.from(name)
+      let qy = client.from(name)
         .select('id, version, legacy_raw').eq('espace_id', espaceId).is('deleted_at', null)
-        .order('id', { ascending: true }).range(off, off + pageSize - 1)
+      // `baux` : seul le bail COURANT de chaque logement devient DB.baux[ref]. Un bail ARCHIVÉ (signé clôturé,
+      // supprimé, remplacé — migration 0055) reste au cloud comme preuve mais ne doit JAMAIS revenir comme
+      // bail en cours (défaut du 28/09 : le bail clôturé ressuscitait au rechargement, à côté de son archive).
+      if (name === 'baux') qy = qy.eq('archived', false)
+      const { data, error } = await qy.order('id', { ascending: true }).range(off, off + pageSize - 1)
       if (error) throw new Error('fetchTable ' + name + ': ' + error.message)
       if (!data || data.length === 0) break
       out.push(...data)
@@ -95,6 +99,17 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
       const { data, error } = await client.from(table)
         .update(set).eq('id', id).eq('version', expectedVersion).is('deleted_at', null).select('version')
       if (error) throw new Error('update ' + table + ': ' + error.message)
+      return data && data.length ? data[0].version : null
+    },
+    // ARCHIVAGE d'un bail (migration 0055) : UPDATE de la SEULE colonne `archived`, gardé par version,
+    // ligne vivante et non encore archivée. Sur un bail signé verrouillé, c'est la seule écriture que le
+    // trigger accepte (toute autre colonne envoyée ici la ferait refuser → on n'envoie QUE archived).
+    async archive(table, id, expectedVersion) {
+      const { data, error } = await client.from(table)
+        .update({ archived: true })
+        .eq('id', id).eq('espace_id', espaceId).eq('version', expectedVersion).is('deleted_at', null).eq('archived', false)
+        .select('version')
+      if (error) throw new Error('archive ' + table + ': ' + error.message)
       return data && data.length ? data[0].version : null
     },
     // Soft-delete gardé par version + deleted_at IS NULL (idempotent, jamais de DELETE physique).

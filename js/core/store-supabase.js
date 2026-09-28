@@ -8,7 +8,9 @@
 //
 // Dépendances INJECTÉES → testable offline ET branchable sur pg/supabase-js :
 //   fetchTable(name) → Promise<Array<{ legacy_raw, id?, version? }>>
-//     ⚠️ DOIT exclure les soft-deleted (deleted_at IS NOT NULL).
+//     ⚠️ DOIT exclure les soft-deleted (deleted_at IS NOT NULL) ET, pour `baux`, les ARCHIVÉS
+//        (archived = true, migration 0055 : un bail signé clôturé / remplacé n'est plus le bail courant).
+//   writer.archive(table,id,expVer)→newVer|null : UPDATE archived=true gardé par version (baux seulement).
 //   fetchConfig()    → Promise<object>   (espace_config.data, ou {})
 //   writer = { insert(table,row)→newVer|null, update(table,id,row,expVer)→newVer|null,
 //              softDelete(table,id,expVer)→newVer|null }   (null = CONFLIT : id déjà présent
@@ -167,7 +169,11 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
     }
     for (const l of (db.logements || [])) if (l && l.ref) logementByRef.set(norm(l.ref), detUuid('logement', norm(l.ref)))
     for (const d of (db.documents || [])) if (d && d.id != null) documentByLegacy.set(String(d.id), detUuid('document', String(d.id)))
-    return { entiteByNom, immeubleByNom, logementByRef, documentByLegacy }
+    // ref logement → `_bailUid` du bail COURANT (vivant) : rattachement RLS d'un document « bail »
+    // à la ligne propre du bail (store-mapping bailLigneCle). Absent → id historique du logement.
+    const bailUidByRef = new Map()
+    for (const [k, b] of Object.entries(db.baux || {})) if (b && !b._deleted && b._bailUid) bailUidByRef.set(norm(String(k).split('@@')[0]), b._bailUid)
+    return { entiteByNom, immeubleByNom, logementByRef, documentByLegacy, bailUidByRef }
   }
   const ctx = () => ({ espaceId, ownerId, detUuid, ...buildResolvers() })
 
@@ -223,6 +229,24 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
     return { status: 'deleted', id: row.id, version: nv }
   }
 
+  // archive : ARCHIVAGE d'un bail signé verrouillé (migration 0055 — seule écriture que le serveur
+  // accepte sur une telle ligne : archived false→true, rien d'autre). Clôture, suppression, réinitialisation
+  // des signatures ou relocation d'un bail signé : la ligne signée reste au cloud (preuve), elle cesse
+  // simplement d'être le bail courant du logement → le logement accepte le bail suivant. Gardé par version,
+  // comme remove : version inconnue ou périmée → conflit (re-hydratation), jamais une devinette.
+  async function archive(legacyColl, rec) {
+    if (legacyColl !== 'baux') return { status: 'skipped' }
+    if (typeof writer.archive !== 'function') throw new Error('archive: writer.archive (binding) requis')
+    const table = tableOf(legacyColl)
+    const row = mapToRow(table, rec, ctx())
+    if (!row) return { status: 'skipped' }
+    if (!_versions.has(row.id)) return { status: 'conflict', id: row.id }
+    const nv = await writer.archive(table, row.id, _versions.get(row.id))
+    if (nv == null) return { status: 'conflict', id: row.id }
+    _versions.set(row.id, nv)
+    return { status: 'archived', id: row.id, version: nv }
+  }
+
   // persistConfig : écrit le sous-ensemble CONFIG (complément des tables) dans espace_config.data.
   // Un seul blob jsonb par espace (pas de concurrence par ligne — l'espace_config a sa propre version
   // côté table mais le contenu est remplacé en entier). Faible volume, faible fréquence de conflit.
@@ -236,5 +260,5 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
     return { status: 'config-written' }
   }
 
-  return { hydrate, attach, upsert, remove, persistConfig, buildResolvers }
+  return { hydrate, attach, upsert, remove, archive, persistConfig, buildResolvers }
 }

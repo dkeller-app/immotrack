@@ -319,6 +319,14 @@ describe('modifications d\'un bail signé hors avenant (journal 0054) — incide
       entree({ id: 'b', ref: 'AUTRE' }), entree({ id: 'c', _deleted: true }), entree({ id: 'd', type: 'avenant' }) ] });
     expect(evts(r).filter(e => e.type === 'modification').length).toBe(0);
   });
+  it('journal AUTOMATIQUE de la vie du bail (`vie`) : pas de carte ; un champ du formulaire à côté garde la sienne', () => {
+    const r = construireHistoriqueBail({ ...base, bailJournal: [
+      entree({ id: 'v1', source: 'auto', auteur: '', changements: [{ champ: 'depart', avant: null, apres: { etape: 1 }, vie: true }, { champ: 'signatures.cloudPdfKey', avant: null, apres: 'k', vie: true }] }),
+      entree({ id: 'v2', source: 'auto', auteur: '', changements: [{ champ: 'depart', avant: null, apres: { etape: 2 }, vie: true }, { champ: 'notes', avant: '', apres: 'y' }] }) ] });
+    const m = evts(r).filter(e => e.type === 'modification');
+    expect(m.length).toBe(1);
+    expect(m[0].changements.map(c => c.champ)).toEqual(['notes']);
+  });
   it('sans journal (appelant ancien) → aucun changement de comportement', () => {
     expect(() => construireHistoriqueBail(base)).not.toThrow();
   });
