@@ -82,17 +82,32 @@ describe('trouverDoublonEntite', () => {
 
 // ── Comportement réel de saveEnt (fonction extraite d'index.html, exécutée avec des doublures) ──
 const __dir = dirname(fileURLToPath(import.meta.url));
-let saveEntSrc;
+let html, saveEntSrc, acteDupSrc;
+const extractFn = (src, name) => {
+  const start = src.indexOf(`function ${name}(`)
+  if (start === -1) return null
+  return src.slice(start, src.indexOf('\n}', start) + 2)
+}
 beforeAll(() => {
-  const html = readFileSync(resolve(__dir, '../../index.html'), 'utf8').replace(/\r/g, '');
-  const start = html.indexOf('function saveEnt() {');
-  saveEntSrc = html.slice(start, html.indexOf('\n}', start) + 2);
+  html = readFileSync(resolve(__dir, '../../index.html'), 'utf8').replace(/\r/g, '');
+  saveEntSrc = extractFn(html, 'saveEnt');
+  acteDupSrc = extractFn(html, '_acteFindDupEntity');
 });
 
-function runSaveEnt({ entites, form, confirmAnswer = false, editId = '' }) {
-  const toasts = [], confirms = [], calls = { saveDB: 0 };
+describe('non-divergence — le shadow inline d\'index.html est identique au module', () => {
+  it.each(['normNomEntite', 'sirenDe', 'trouverDoublonEntite'])('%s', name => {
+    const mod = readFileSync(resolve(__dir, '../../js/core/entite-doublon.js'), 'utf8').replace(/\r/g, '').replace(/^export /gm, '');
+    const inline = extractFn(html, name);
+    expect(inline).toBeTruthy();
+    expect(inline).toBe(extractFn(mod, name));
+  });
+});
+
+// logements par défaut : un bien par bailleur, taggé comme lui (multi-espace)
+function runSaveEnt({ entites, form, confirmAnswer = false, editId = '', logements }) {
+  const toasts = [], confirms = [], calls = { saveDB: 0, stamp: 0, audit: 0, closeM: 0 };
   const fields = { 'ent-edit-id': editId, 'ent-gerants': '', 'ent-type': 'SCI', 'ent-rcs': '', 'ent-siege': '', 'ent-iban': '', 'ent-bic': '', 'ent-email-envoi': '', ...form };
-  const DB = { entites, logements: [{ ref: 'L1', entity: entites[0] && entites[0].nom }], baux: {}, baux_historique: [], quittances: [], mouvements: [] };
+  const DB = { entites, logements: logements || entites.map((e, i) => ({ ref: 'L' + (i + 1), entity: e.nom, _espaceId: e._espaceId })), baux: {}, baux_historique: [], quittances: [], mouvements: [] };
   const env = {
     DB,
     el: id => (id in fields ? { value: fields[id] } : null),
@@ -100,9 +115,9 @@ function runSaveEnt({ entites, form, confirmAnswer = false, editId = '' }) {
     nid: () => 999,
     _entSigB64: undefined, _entLogoB64: undefined,
     _preserverChampsExistants: (a, b) => { if (b && b._espaceId) a._espaceId = b._espaceId; return a },
-    _entiteDoublon: trouverDoublonEntite, _sirenDe: sirenDe,
-    _stamp: () => {}, _auditLog: () => {},
-    saveDB: () => { calls.saveDB++ }, closeM: () => {}, rBailleurs: () => {}, _refreshAfterMutation: () => {},
+    normNomEntite, sirenDe, trouverDoublonEntite,
+    _stamp: () => { calls.stamp++ }, _auditLog: () => { calls.audit++ },
+    saveDB: () => { calls.saveDB++ }, closeM: () => { calls.closeM++ }, rBailleurs: () => {}, _refreshAfterMutation: () => {},
     showToast: (m, t) => toasts.push({ m, t }),
     confirm2: m => { confirms.push(m); return confirmAnswer },
     _frAfterSave: undefined,
@@ -112,15 +127,53 @@ function runSaveEnt({ entites, form, confirmAnswer = false, editId = '' }) {
   return { DB, toasts, confirms, calls };
 }
 
+describe('_acteFindDupEntity (import d\'acte) — réutilise la même règle', () => {
+  const run = (entites, siren, nom) => new Function('DB', 'trouverDoublonEntite', acteDupSrc + '\nreturn _acteFindDupEntity;')({ entites }, trouverDoublonEntite)(siren, nom);
+  const a = { id: 1, nom: 'SCI ALTA', siren: '111222333' }, b = { id: 2, nom: 'SCI BETA', siren: '444555666' };
+  it('SIRET de l\'acte → trouve le bailleur par ses 9 premiers chiffres', () => {
+    expect(run([a, b], '444 555 666 00012', 'SCI INCONNUE')).toBe(b);
+  });
+  it('SIREN prioritaire sur le nom', () => {
+    expect(run([a, b], '444555666', 'SCI ALTA')).toBe(b);
+  });
+  it('à défaut de SIREN, par nom (casse et espaces ignorés)', () => {
+    expect(run([a, b], '', ' sci  alta ')).toBe(a);
+  });
+  it('rien → null', () => {
+    expect(run([a, b], '', 'SCI GAMMA')).toBe(null);
+  });
+});
+
 describe('saveEnt — garde-fou nom / SIREN', () => {
   it('SCÉNARIO P0 — renommer un bailleur avec le nom d\'un autre est REFUSÉ, rien n\'est modifié', () => {
     const marion = { id: 1, nom: 'SCI SMARTOSAURUS', siren: '994086379', _espaceId: 'M' };
     const didier = { id: 3, nom: 'SCI SMARTOSAURUS DIdier', siren: '994 086 379 00017', _espaceId: 'D' };
     const { DB, toasts, calls } = runSaveEnt({ entites: [marion, didier], editId: '3', form: { 'ent-nom': 'SCI SMARTOSAURUS', 'ent-siren': didier.siren } });
     expect(calls.saveDB).toBe(0);
+    expect(calls.stamp).toBe(0);                                   // refus AVANT horodatage…
+    expect(calls.audit).toBe(0);                                   // …et avant journal d'audit
+    expect(calls.closeM).toBe(0);                                  // la fiche reste ouverte pour corriger
     expect(DB.entites[1].nom).toBe('SCI SMARTOSAURUS DIdier');   // pas renommé
-    expect(DB.logements[0].entity).toBe('SCI SMARTOSAURUS');      // cascade jamais lancée
+    expect(DB.logements[1].entity).toBe('SCI SMARTOSAURUS DIdier'); // cascade jamais lancée
     expect(toasts.some(t => t.t === 'err' && /déjà/.test(t.m))).toBe(true);
+  });
+
+  it('fiches DÉJÀ homonymes : modifier un autre champ sans changer le nom est enregistré, avec avertissement', () => {
+    const m = { id: 1, nom: 'SCI SMARTOSAURUS', siren: '994086379', _espaceId: 'M' };
+    const d = { id: 3, nom: 'SCI SMARTOSAURUS', siren: '994086379', _espaceId: 'D' };
+    const { DB, toasts, calls } = runSaveEnt({ entites: [m, d], editId: '3', form: { 'ent-nom': 'SCI SMARTOSAURUS', 'ent-siren': '994086379', 'ent-iban': 'FR76 NOUVEAU' } });
+    expect(calls.saveDB).toBe(1);
+    expect(DB.entites[1].iban).toBe('FR76 NOUVEAU');
+    expect(toasts.some(t => t.t === 'warn' && /même nom/.test(t.m))).toBe(true);
+  });
+
+  it('renommer l\'un de deux homonymes ne déplace QUE les biens de son espace', () => {
+    const m = { id: 1, nom: 'SCI SMARTOSAURUS', siren: '', _espaceId: 'M' };
+    const d = { id: 3, nom: 'SCI SMARTOSAURUS', siren: '', _espaceId: 'D' };
+    const { DB, calls } = runSaveEnt({ entites: [m, d], editId: '3', form: { 'ent-nom': 'SCI SMARTOSAURUS Didier', 'ent-siren': '' } });
+    expect(calls.saveDB).toBe(1);
+    expect(DB.logements.find(l => l._espaceId === 'D').entity).toBe('SCI SMARTOSAURUS Didier');
+    expect(DB.logements.find(l => l._espaceId === 'M').entity).toBe('SCI SMARTOSAURUS');   // Marion intacte
   });
 
   it('créer un bailleur avec un nom existant (autre casse) est refusé', () => {

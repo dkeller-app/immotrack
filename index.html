@@ -48013,9 +48013,9 @@ async function _acteProcessPdf(dataUrl, name) {
 /** Cherche un doublon d'entité par SIREN (prioritaire, SIRET compris) puis par nom, dans DB.entites.
  *  Ignore les tombstones (_deleted) : proposer de rattacher à une entité supprimée
  *  mènerait à un patrimoine invisible (filtré par _isAlive partout ailleurs).
- *  Règle unique partagée avec saveEnt : js/core/entite-doublon.js. */
+ *  Règle unique partagée avec saveEnt : js/core/entite-doublon.js (shadow inline avant saveEnt). */
 function _acteFindDupEntity(siren, nom) {
-  const d = _entiteDoublon((typeof DB !== 'undefined' && DB.entites) ? DB.entites : [], { nom, siren }, null);
+  const d = trouverDoublonEntite((typeof DB !== 'undefined' && DB.entites) ? DB.entites : [], { nom, siren }, null);
   return d.siren || d.nom || null;
 }
 
@@ -48568,7 +48568,7 @@ function _acteApply() {
       if (!nom) { showToast('Nom du bailleur manquant — complète-le avant de valider.', 'err', 5000); return; }
       // P0 28/09 : « créer une nouvelle entité quand même » ne peut pas réutiliser un nom existant
       // (les biens sont reliés au bailleur par son nom → les deux fusionneraient). Cf. saveEnt.
-      const _dupNom = _entiteDoublon(DB.entites || [], { nom }, null).nom;
+      const _dupNom = trouverDoublonEntite(DB.entites || [], { nom }, null).nom;
       if (_dupNom) { showToast(`Un bailleur porte déjà le nom « ${_dupNom.nom} ». Rattacher à ce bailleur, ou changer le nom avant de créer.`, 'err', 6000); return; }
       const siege = [(e.adr || '').trim(), [(e.cp || '').trim(), (e.ville || '').trim()].filter(Boolean).join(' ')].filter(Boolean).join(', ');
       ent = {
@@ -51777,6 +51777,38 @@ function _frRecapHtml(opts){
   return h;
 }
 
+// ─── P0 28/09 FUSION DE SCI HOMONYMES — shadow inline de js/core/entite-doublon.js ───
+// GARDER IDENTIQUE au module. __tests__/helpers/entite-doublon.test.js vérifie la non-divergence.
+// Inline (pas seulement exposé par js/main.js) : si le module ne charge pas (file://, 404 pendant un
+// déploiement, vieux cache hors ligne), le garde-fou doit rester actif — sans lui, le P0 se rouvre.
+function normNomEntite(s) {
+  return String(s == null ? '' : s)
+    .normalize('NFC')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function sirenDe(v) {
+  const d = String(v == null ? '' : v).replace(/\D/g, '')
+  if (d.length === 9) return d
+  if (d.length === 14) return d.slice(0, 9)
+  return ''
+}
+
+function trouverDoublonEntite(entites, cand, self) {
+  const out = { nom: null, siren: null }
+  if (!Array.isArray(entites) || !cand) return out
+  const n = normNomEntite(cand.nom), s = sirenDe(cand.siren)
+  for (const e of entites) {
+    if (!e || e === self || e._deleted) continue
+    if (!out.nom && n && normNomEntite(e.nom) === n) out.nom = e
+    if (!out.siren && s && sirenDe(e.siren) === s) out.siren = e
+  }
+  return out
+}
+
 function saveEnt() {
   const id=el('ent-edit-id').value;
   const existing = id ? DB.entites.find(e=>e.id===parseInt(id)) : null;
@@ -51822,12 +51854,15 @@ function saveEnt() {
   _preserverChampsExistants(ent, existing);
   if(!ent.nom){showToast('Nom requis','err');return;}
   // P0 28/09 FUSION DE SCI HOMONYMES : biens, baux, quittances et mouvements sont reliés au bailleur
-  // par son NOM → un nom déjà porté par un autre bailleur (tous espaces confondus) mélangerait leurs
-  // données. Refus. Même SIREN (SIRET compris) = sans doute la même société → avertir, l'utilisateur
-  // décide (seulement si le SIREN est nouveau ou changé : pas de question à chaque enregistrement).
-  const _dup = _entiteDoublon(DB.entites || [], ent, existing);
-  if (_dup.nom) { showToast(`Un autre bailleur porte déjà le nom « ${_dup.nom.nom} ». Choisir un nom distinct (par exemple en ajoutant la ville).`, 'err', 6000); return; }
-  if (_dup.siren && !(existing && _sirenDe(existing.siren) === _sirenDe(ent.siren))
+  // par son NOM → DONNER à un bailleur un nom déjà porté par un autre (tous espaces confondus)
+  // mélangerait leurs données : refus (intégrité, pas confort). Un nom INCHANGÉ ne crée aucune
+  // collision nouvelle → on enregistre et on signale seulement l'homonyme existant.
+  // Même SIREN (SIRET compris) = sans doute la même société → avertir, l'utilisateur décide
+  // (seulement si le SIREN est nouveau ou changé : pas de question à chaque enregistrement).
+  const _dup = trouverDoublonEntite(DB.entites || [], ent, existing);
+  const _nomChange = !existing || normNomEntite(existing.nom) !== normNomEntite(ent.nom);
+  if (_dup.nom && _nomChange) { showToast(`Un autre bailleur porte déjà le nom « ${_dup.nom.nom} ». Choisir un nom distinct (par exemple en ajoutant la ville).`, 'err', 6000); return; }
+  if (_dup.siren && !(existing && sirenDe(existing.siren) === sirenDe(ent.siren))
       && !confirm2(`Le bailleur « ${_dup.siren.nom} » a déjà ce SIREN : c'est sans doute la même société.\n\nDeux fiches pour une même société séparent ses biens et ses comptes. Enregistrer quand même ?`)) return;
   _stamp(ent); // v13.18
   // v14.89 AUDIT-TRAIL : entité bailleur (RGPD si personne physique : nom, IBAN, gérant)
@@ -51848,22 +51883,28 @@ function saveEnt() {
   if (existing && prevNom && prevNom !== ent.nom) {
     const ts = Date.now();
     let renamed = 0;
+    // P0 28/09 : si un AUTRE bailleur vivant porte encore l'ancien nom (homonymes déjà en base, ex.
+    // SCI partagée + copie privée), la jointure par nom ne distingue plus leurs biens → la cascade ne
+    // touche QUE l'espace du bailleur renommé (tag multi-espace _espaceId). Sinon, comportement
+    // inchangé (toutes les fiches de l'ancien nom, tag ou pas).
+    const _homonyme = (DB.entites || []).some(e => e && e !== ent && e !== existing && !e._deleted && e.nom === prevNom);
+    const _perimetre = r => !_homonyme || (r._espaceId || null) === (existing._espaceId || null);
     (DB.logements || []).forEach(l => {
-      if (l && !l._deleted && l.entity === prevNom) { l.entity = ent.nom; l._modifiedAt = ts; renamed++; }
+      if (l && !l._deleted && l.entity === prevNom && _perimetre(l)) { l.entity = ent.nom; l._modifiedAt = ts; renamed++; }
     });
     Object.values(DB.baux || {}).forEach(b => {
-      if (b && !b._deleted && b.entity === prevNom) { b.entity = ent.nom; b._modifiedAt = ts; renamed++; }
+      if (b && !b._deleted && b.entity === prevNom && _perimetre(b)) { b.entity = ent.nom; b._modifiedAt = ts; renamed++; }
     });
     (DB.baux_historique || []).forEach(b => {
-      if (b && !b._deleted && b.entity === prevNom) { b.entity = ent.nom; b._modifiedAt = ts; renamed++; }
+      if (b && !b._deleted && b.entity === prevNom && _perimetre(b)) { b.entity = ent.nom; b._modifiedAt = ts; renamed++; }
     });
     (DB.quittances || []).forEach(q => {
-      if (q && !q._deleted && q.entity === prevNom) { q.entity = ent.nom; q._modifiedAt = ts; renamed++; }
+      if (q && !q._deleted && q.entity === prevNom && _perimetre(q)) { q.entity = ent.nom; q._modifiedAt = ts; renamed++; }
     });
     // Mouvements globaux entité (qui === 'SCI:'+nom — pas attachés à un logement)
     const oldKey = 'SCI:' + prevNom, newKey = 'SCI:' + ent.nom;
     (DB.mouvements || []).forEach(m => {
-      if (m && !m._deleted && m.qui === oldKey) { m.qui = newKey; m._modifiedAt = ts; renamed++; }
+      if (m && !m._deleted && m.qui === oldKey && _perimetre(m)) { m.qui = newKey; m._modifiedAt = ts; renamed++; }
     });
     if (renamed > 0) {
       console.log(`[saveEnt v14.51] Cascade rename : ${renamed} record(s) "${prevNom}" → "${ent.nom}"`);
@@ -51873,7 +51914,8 @@ function saveEnt() {
 
   saveDB();closeM('ov-ent');rBailleurs();
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
-  showToast('Entité enregistrée','ok');
+  if (_dup.nom && !_nomChange) showToast(`Bailleur enregistré. Attention : un autre bailleur porte le même nom « ${_dup.nom.nom} » ; leurs biens peuvent se mélanger à l'affichage. Renommer l'un des deux.`, 'warn', 8000);
+  else showToast('Entité enregistrée','ok');
   if(typeof _frAfterSave==='function') _frAfterSave('ent', ent, !id); // fil rouge v2 (inerte hors parcours/édition)
 }
 

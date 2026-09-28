@@ -7,14 +7,15 @@
 // de TOUS les espaces visibles : la recherche porte sur l'ensemble.
 //
 // Source unique pour : saveEnt (fiche bailleur) et l'import d'acte (_acteFindDupEntity).
+// index.html en porte un SHADOW INLINE (toujours présent, même si js/main.js n'a pas chargé) :
+// GARDER IDENTIQUE. __tests__/helpers/entite-doublon.test.js vérifie la non-divergence.
 
 // Même normalisation que la saisie du nom dans saveEnt (NFC, tirets typographiques, espaces
 // insécables, espaces multiples) + casse : deux noms « identiques à l'œil » sont un doublon.
 export function normNomEntite(s) {
   return String(s == null ? '' : s)
     .normalize('NFC')
-    .replace(/[–—]/g, '-')
-    .replace(/ /g, ' ')
+    .replace(/[\u2013\u2014]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
@@ -30,8 +31,8 @@ export function sirenDe(v) {
 }
 
 // Cherche un autre bailleur VIVANT de même nom et/ou de même SIREN que `cand` ({nom, siren}).
-// `self` = l'objet en cours d'édition, exclu PAR RÉFÉRENCE (les ids legacy peuvent coïncider
-// entre deux espaces). Renvoie { nom: entité|null, siren: entité|null }.
+// `self` = l'objet en cours d'édition, exclu PAR RÉFÉRENCE (c'est l'objet que la fiche remplacera).
+// Renvoie { nom: entité|null, siren: entité|null }.
 export function trouverDoublonEntite(entites, cand, self) {
   const out = { nom: null, siren: null }
   if (!Array.isArray(entites) || !cand) return out
