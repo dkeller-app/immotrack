@@ -33,6 +33,13 @@ export const CHAMPS_BAIL = {
   loyerRefMajore: { l: 'Loyer de référence majoré' },
   complementLoyer: { l: 'Complément de loyer' },
   complementJustif: { l: 'Justification du complément de loyer' },
+  // JAMAIS BLOQUER (retour Didier 28/09) : un changement de PARTIE (garant, bailleur, co-signataires,
+  // locataires) est ENREGISTRÉ comme le reste — le bail signé ne change pas, l'app rappelle qu'un
+  // avenant est juridiquement nécessaire, l'utilisateur décide.
+  garant: { l: 'Garant' },
+  garant2: { l: '2ᵉ garant' },
+  entity: { l: 'Bailleur' },
+  signataires: { l: 'Signataires du bailleur' },
   adrGarant: { l: 'Adresse du garant' },
   ddnGarant: { l: 'Date de naissance du garant' },
   lieuGarant: { l: 'Lieu de naissance du garant' },
@@ -81,15 +88,15 @@ export const CHAMPS_BAIL = {
   garageIndexBase: { l: 'Indice de base' },
   erpZoneRisque: { l: 'Zone à risque (ERP)' },
 };
-// Sous-champs d'un locataire (le NOM n'y est pas : changer un nom = changer une partie → avenant).
+// Sous-champs d'un locataire suivis (le NOM compris : jamais bloqué, un avenant reste conseillé).
 export const CHAMPS_LOCATAIRE = {
-  civilite: 'Civilité', ddn: 'Date de naissance', lieuNaiss: 'Lieu de naissance',
+  nom: 'Nom', civilite: 'Civilité', ddn: 'Date de naissance', lieuNaiss: 'Lieu de naissance',
   tel: 'Téléphone', email: 'E-mail', adressePrecedente: 'Adresse précédente',
 };
 
 // Égalité « métier » : vide / null / absent sont identiques ; nombres comparés en nombre ;
 // objets (visale) comparés par contenu. Évite les faux écarts (pf() rend 0 pour un champ vide…).
-function _vide(v) { return v == null || v === '' || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => _vide(v[k]))); }
+function _vide(v) { return v == null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => _vide(v[k]))); }
 // Champs MONTANTS / NOMBRES : « 850 » et 850 identiques. Les autres restent du texte : un téléphone,
 // un code postal ou un n° d'emplacement qui ne diffère que d'un zéro en tête EST une modification.
 const CHAMPS_NUMERIQUES = new Set(['hc', 'ch', 'dg', 'dernierLoyerPrec', 'loyerRefMajore', 'complementLoyer', 'plafondCaution',
@@ -110,6 +117,16 @@ export function memeValeur(a, b, champ) {
   return na === nb;
 }
 
+// Liste de locataires réduite aux sous-champs suivis (aucune clé inconnue, aucun prototype).
+function _locsPropres(arr) {
+  return (Array.isArray(arr) ? arr : []).filter(l => l && typeof l === 'object').slice(0, 20).map(l => {
+    const o = {};
+    for (const k of Object.keys(CHAMPS_LOCATAIRE)) if (l[k] != null) o[k] = typeof l[k] === 'object' ? '' : l[k];
+    if (l.adressePrecedenteSameAsFirst != null) o.adressePrecedenteSameAsFirst = !!l.adressePrecedenteSameAsFirst;
+    return o;
+  });
+}
+
 function _designation(loc) {
   const civ = loc && (loc.civilite === 'M.' || loc.civilite === 'Mme') ? loc.civilite + ' ' : '';
   return civ + String((loc && loc.nom) || '').trim();
@@ -117,7 +134,7 @@ function _designation(loc) {
 
 /**
  * Changements entre le bail en vigueur (`prev`) et le bail enregistré (`next`), champs suivis seulement.
- * Les locataires sont comparés PAR POSITION (la composition est inchangée : sinon, avenant).
+ * Locataires comparés PAR POSITION ; ajout / retrait → la liste entière (champ 'locataires').
  * @returns {Array<{champ, libelle, avant, apres, fin?:true}>}
  */
 export function diffModificationsBail(prev, next) {
@@ -130,6 +147,11 @@ export function diffModificationsBail(prev, next) {
     out.push(c);
   }
   const lp = Array.isArray(p.locataires) ? p.locataires : [], ln = Array.isArray(n.locataires) ? n.locataires : [];
+  // Ajout / retrait d'un locataire : la LISTE entière est enregistrée (nettoyée à la réapplication).
+  if (lp.length !== ln.length) {
+    out.push({ champ: 'locataires', libelle: 'Locataires', avant: _locsPropres(lp), apres: _locsPropres(ln) });
+    return out;
+  }
   for (let i = 0; i < Math.min(lp.length, ln.length); i++) {
     for (const [k, lib] of Object.entries(CHAMPS_LOCATAIRE)) {
       if (memeValeur(lp[i] && lp[i][k], ln[i] && ln[i][k], k)) continue;
@@ -141,17 +163,22 @@ export function diffModificationsBail(prev, next) {
 }
 
 // Seuls les chemins SUIVIS sont réappliqués. Le journal vient de données partagées (cloud, SCI) :
-// un chemin arbitraire pourrait réécrire le document signé (signatures.bailSnapshot…), le bailleur
-// (entity) ou polluer Object.prototype (__proto__). Liste fermée, vérifiée à la réapplication.
+// un chemin arbitraire pourrait réécrire le document signé (signatures.bailSnapshot…) ou polluer
+// Object.prototype (__proto__). Liste fermée, vérifiée à la réapplication ; parties forcées en texte.
 export function cheminAutorise(chemin) {
   const c = String(chemin || '');
   if (Object.prototype.hasOwnProperty.call(CHAMPS_BAIL, c)) return true;
+  if (c === 'locataires') return true;   // liste entière (ajout / retrait), nettoyée par _poser
   const m = c.match(/^locataires\.(\d{1,2})\.([A-Za-z]+)$/);
   return !!(m && Object.prototype.hasOwnProperty.call(CHAMPS_LOCATAIRE, m[2]));
 }
 
 function _poser(obj, chemin, valeur) {
   if (!cheminAutorise(chemin)) return false;
+  if (chemin === 'locataires') { obj.locataires = _locsPropres(valeur); return true; }
+  // Parties : toujours du TEXTE (jamais un objet injecté par le journal partagé).
+  if (chemin === 'entity' || chemin === 'garant' || chemin === 'garant2' || /^locataires\.\d+\.nom$/.test(chemin)) valeur = typeof valeur === 'string' ? valeur : '';
+  if (chemin === 'signataires') { obj.signataires = (Array.isArray(valeur) ? valeur : []).filter(x => typeof x === 'string').slice(0, 20); return true; }
   const parts = String(chemin).split('.');
   let o = obj;
   for (let i = 0; i < parts.length - 1; i++) {
@@ -195,6 +222,8 @@ export function reappliquerJournalBaux(baux, journal) {
       // Copies de premier niveau du 1ᵉʳ locataire tenues par saveBail (repli des lecteurs anciens).
       if (c.champ === 'locataires.0.ddn') bail.ddn = c.apres;
       if (c.champ === 'locataires.0.lieuNaiss') bail.lieuNaiss = c.apres;
+      if (c.champ === 'locataires.0.nom') bail.nom = c.apres;
+      if (c.champ === 'locataires') { const l0 = (bail.locataires || [])[0] || {}; bail.nom = l0.nom || ''; bail.ddn = l0.ddn || ''; bail.lieuNaiss = l0.lieuNaiss || ''; }
     }
     n++;
   }
@@ -213,6 +242,8 @@ export function valeurLisible(champ, v) {
   const cle = String(champ).split('.').pop();
   if (_ENUMS[cle] && _ENUMS[cle][v]) return _ENUMS[cle][v];
   if (cle === 'visale' && typeof v === 'object') return String(v.visaId || '(vide)');
+  if (cle === 'locataires' && Array.isArray(v)) return v.map(l => _designation(l)).filter(Boolean).join(', ') || '(aucun)';
+  if (Array.isArray(v)) return v.map(String).join(', ') || '(aucun)';
   if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) { const [y, m, d] = v.split('-'); return d + '/' + m + '/' + y; }
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
