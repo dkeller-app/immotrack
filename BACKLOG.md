@@ -6,7 +6,15 @@
 - **Migration `0054` réservée** : table journal des baux signés (modifications hors avenant + avenants du lot 2), chantier « BAIL-SIGNE-MODIFS » (session avenant). Le chantier « clôture/relocation bail signé verrouillé » prend **0055+**.
 - **Version** : `main` = v15.683 (Avenant lot 1). ⚠ La branche `claude/stoic-poitras-2d84cb` (Charges bornes régul) s'est aussi numérotée v15.683 → à **renuméroter** à l'intégration. Prochaine livraison de la session avenant : v15.684.
 
-## 🚦 BAIL-SIGNE-MODIFS (28/09, GO Didier) — en cours
+## 🚦 MAIN = **v15.684** (28/09) — BAIL-SIGNE-MODIFS déployé · migration **0054 APPLIQUÉE** en base · 4 596 tests verts
+
+## 🚦 BAIL-SIGNE-MODIFS ✅ v15.684 (branche `feat/bail-signe-modifs`) — SUR MAIN, ⏳ smoke Didier
+**Livré** : modifications d'un bail signé ENREGISTRÉES dans `baux_evenements` (0017 étendue par 0054 : legacy_raw, legacy_id, bail_debut, types modification/avenant), réappliquées à chaque chargement (`js/core/bail-modifications.js`, liste fermée de champs), confirmation « le bail signé reste inchangé » + message avec « Créer un avenant », carte « Modification hors avenant » dans la timeline (ancien → nouveau, date, auteur). Faux « composition modifiée : garants (2 → 0) » corrigé (champs `b-garant` disparus). Changement de partie (locataire, garant, bailleur, co-signataires) sur bail verrouillé → renvoi avenant. Document signé protégé (signatures réinjectées seulement sur contenu non modifié ; pas de snapshot rétroactif sur bail modifié). RGPD : journal dans l'export et le plan d'effacement. Audit code-reviewer + contre-audit : intégrable. Simulation SQL 0054 : 10/10.
+**Smoke** : bail signé (Ferrette 101) → modifier téléphone / notes → message → recharger → modifications présentes + carte dans l'historique ; 2ᵉ appareil ; changer un locataire → renvoi avenant. Ressaisir les modifications perdues avant le correctif.
+**Restes (🟡)** : pas de vue « version signée » pour un bail archivé ; journal illisible (réseau) signalé en console seulement ; contrôle de type des valeurs réappliquées ; empreinte `sealSignedBaux` calculée sur le bail vivant (fenêtre étroite avant scellement) ; révision IRL / avenant / `_syncLogToBail` écrivent encore sur un bail verrouillé sans journal (→ lot 2 avenant).
+**Transmis à la session « Finition signature »** : bail à 2 locataires signé par un seul en présentiel enregistré `mode:'avec-locataire'` → compté « signé complet » et scellé (à vérifier).
+
+## (archive) BAIL-SIGNE-MODIFS (28/09, GO Didier) — en cours
 **Incident** : bail Ferrette 101 (Harnist / Arslan) — modifications faites sur un bail signé introuvables. Causes : (1) ligne du bail signé verrouillée au cloud (`store-sync.js:295`) → modifs jamais poussées, perdues au rechargement ; (2) `saveBail` remet silencieusement ~40 champs descriptifs (`_ARCHI_V4B_DESC_FIELDS`) sur un bail signé. **Décision Didier** : sauvegarder les modifications + message « ne modifie pas le bail signé » + carte dans la timeline du bail (ancien → nouveau, date, auteur). Table cloud dédiée (migration 0054), réutilisée par les avenants (lot 2).
 
 ## 🚦 AVENANT lot 1 ✅ v15.683 (branche `feat/avenant-lot1-pdf`) — SUR MAIN, ⏳ smoke Didier
