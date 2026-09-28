@@ -59,7 +59,8 @@ Conséquences retenues :
 
 - **Aujourd'hui** : champs `garant`/`garant2` (2 au maximum) sans lien avec un locataire (`index.html:20366-20380`). L'acte de cautionnement liste tous les locataires (`_cautionnementBlock` 52046).
 - **À faire** :
-  - chaque garant est **rattaché à un colocataire** (obligatoire à peine de nullité, art. 8-1 VI al. 2) ;
+  - chaque garant est **rattaché à un colocataire** (obligatoire à peine de nullité, art. 8-1 VI al. 2) — y compris une caution qui garantit **tous** les colocataires : l'acte désigne alors LE colocataire dont le départ met fin à son engagement (service-public F34661 : « Soit une caution s'engage pour l'ensemble des colocataires. L'acte de cautionnement doit indiquer le colocataire dont le départ du logement mettra fin à l'engagement de la caution. »). Modèle : `garant.colocataireDesigne` (un seul), `garant.portee` = « ce colocataire » | « tous les colocataires » ;
+  - 🔴 **défaut actuel** : l'acte généré (`_cautionnementBlock`) liste « Locataire(s) : A, B » sans désignation → nul en colocation ; priorité du lot 4 ;
   - saisie à la création du bail, et rattachement demandé au premier avenant pour un bail existant ;
   - l'acte de cautionnement nomme le colocataire garanti.
 - **Avenant, départ** : la caution du sortant est reprise automatiquement, nommée dans l'article, et son engagement prend fin avec la solidarité du sortant.
