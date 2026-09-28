@@ -215,6 +215,14 @@ describe('buildGarageStructure — sections conditionnelles', () => {
     const annexTable = withErp.find(b => b.type === 'table' && b.headers && b.headers[0] === 'N°');
     expect(JSON.stringify(annexTable.rows)).toMatch(/Joint \(zone à risque\)/);
   });
+
+  it('ERP : Annexe 2 = statut RÉEL du plan figé à la signature (erpAnnexeTxt) quand il existe', () => {
+    const out = build({ erpZoneRisque: true, erpAnnexeTxt: 'Non joint (fichier illisible)' });
+    const annexTable = out.find(b => b.type === 'table' && b.headers && b.headers[0] === 'N°');
+    const erpRow = annexTable.rows.find(r => r[0] === '2');
+    expect(erpRow[2]).toBe('Non joint (fichier illisible)');
+    expect(JSON.stringify(annexTable.rows)).not.toMatch(/Joint \(zone à risque\)/);
+  });
 });
 
 describe('buildGarageStructure — pagination (page-break avant Signatures et Annexes)', () => {

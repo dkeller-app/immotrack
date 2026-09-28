@@ -1100,7 +1100,10 @@ async function onLoggedIn(api, overlay, user) {
     const now = Date.now()
     const p = planFlush({
       now,
-      delay: (opts && opts.retryDelayMs) || FLUSH_DEBOUNCE_MS,
+      // `delayMs` = flush PROGRAMMÉ plus tard, sans échec (ex. fin d'attente d'archive d'un bail signé) :
+      // ce n'est PAS un réessai → aucun plancher de backoff posé (sinon les modifications fraîches de
+      // l'utilisateur attendraient jusqu'à 15 min, audit N1 du 28/09).
+      delay: (opts && (opts.retryDelayMs || opts.delayMs)) || FLUSH_DEBOUNCE_MS,
       isRetry: !!(opts && opts.retryDelayMs),
       immediate: !!(opts && opts.immediate),
       hasTimer: !!flushTimer,

@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.685</title>
+<title>Propryo v15.687</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.685">
+<link rel="stylesheet" href="css/main.css?v=15.687">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.685</em>
+      <em>v15.687</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4270,7 +4270,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.685';
+const IMMOTRACK_VERSION = '15.687';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7230,8 +7230,9 @@ function _buildPresentielProof(bail) {
 }
 
 window.__immoArchiveBailPdf = async function (ref, blob) {
+  let bail = null;   // déclaré hors du try : le catch reporte les références posées sur CET objet (audit J1)
   try {
-    const bail = DB.baux && DB.baux[ref];
+    bail = DB.baux && DB.baux[ref];
     if (!bail || !bail.signatures || !blob || typeof window.__immoCloudUpload !== 'function') return;
     const seg = _cloudEntiteSeg(_cloudEntiteNomForBail(ref));
     const complet = !!(bail.signatures.signedAt && bail.signatures.mode && bail.signatures.mode !== 'bailleur-seul');
@@ -7239,6 +7240,19 @@ window.__immoArchiveBailPdf = async function (ref, blob) {
     // Défense en profondeur (P2-3) : bail déjà archivé AVEC son certificat → ne pas ré-archiver un PDF
     // nu par-dessus (jamais rétrograder cloudPdfKey). Une re-signature repart d'un `signatures` neuf sans certRef.
     if (complet && bail.signatures.certRef && bail.signatures.cloudPdfKey) return;
+
+    // DDT annexé au bail — PRÉSENTIEL : pièces jointes fusionnées après les pages du bail, AVANT
+    // l'empreinte (contentHash les couvre) et avant la page certificat. Jamais bloquant.
+    if (bail.annexesDdt && Array.isArray(bail.annexesDdt.docs) && bail.annexesDdt.docs.length) {
+      try {
+        const _a = await _ddtAppendAnnexes(new Uint8Array(await blob.arrayBuffer()), bail);
+        if (_a.addedPages) blob = new Blob([_a.bytes], { type: 'application/pdf' });
+        if (_a.failed.length) { saveDB(); showToast(_ddtFusionAlertTxt(bail), 'warn', 9000); }
+      } catch (e) {
+        console.warn('[DDT annexes] archivage présentiel', e);
+        if (_ddtNoteFusionEchec(bail)) { saveDB(); showToast(_ddtFusionAlertTxt(bail), 'warn', 9000); }
+      }
+    }
 
     // P2 — bail signé EN PRÉSENCE et COMPLET (mode 'avec-locataire') : on rend le PDF AUTO-SUFFISANT en y
     // fusionnant la page « Certificat de preuve » (uniformisé avec le distant, Q5). Un bail PARTIEL
@@ -7263,13 +7277,31 @@ window.__immoArchiveBailPdf = async function (ref, blob) {
 
     const key = 'bp_' + String(ref).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now();
     const path = await _uploadCloudRetry(key, artifact, 'application/pdf', seg);   // parité robustesse avec le distant (retry + backoff)
-    if (!path) { console.warn('[Supabase] archive PDF bail échouée', ref); _downloadSignedBailFallback(artifact, ref); return; }
-    bail.signatures.cloudPdfKey = path;
-    if (typeof saveDB === 'function') saveDB();
+    if (!path) { console.warn('[Supabase] archive PDF bail échouée', ref); _archiveBailTerminee(ref, bail, null); _downloadSignedBailFallback(artifact, ref); return; }
+    _archiveBailTerminee(ref, bail, path);
     if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
     if (typeof _backupProposeAfterDoc === 'function') _backupProposeAfterDoc();   // bail archivé cloud → sauvegardable
-  } catch (e) { console.warn('[Supabase] __immoArchiveBailPdf', e); _downloadSignedBailFallback(blob, ref); }
+  } catch (e) { console.warn('[Supabase] __immoArchiveBailPdf', e); _archiveBailTerminee(ref, bail || (DB.baux && DB.baux[ref]), null); _downloadSignedBailFallback(blob, ref); }
 };
+// ARCHIVE AVANT SCEAU (28/09) — fin de l'archive d'un bail signé (succès OU échec) : le scellement cloud
+// (store-sync `archiveEnAttente`) attend ce signal pour verrouiller une signature en présence, afin que
+// cloudPdfKey / proof / contentHash / certRef partent AVEC la ligne scellée (après, elle est immuable).
+// Écrit sur le bail COURANT (une re-synchronisation pendant l'upload a pu remplacer l'objet) en reportant
+// les références calculées sur l'ancien objet ; saveDB déclenche le flush qui scelle.
+function _archiveBailTerminee(ref, bailInitial, path) {
+  try {
+    const cur = (DB.baux && DB.baux[ref]) || bailInitial;
+    if (!cur || !cur.signatures) return;
+    const src = (bailInitial && bailInitial.signatures) || {};
+    if (cur !== bailInitial) ['proof', 'contentHash', 'certRef'].forEach(k => { if (src[k] != null && cur.signatures[k] == null) cur.signatures[k] = src[k]; });
+    if (path) cur.signatures.cloudPdfKey = path;
+    cur.signatures.archiveTermine = true;
+    // Déjà verrouillé (scellé par un autre appareil, ou signature antérieure à ce correctif) : ces
+    // références ne partiront pas au cloud. On le signale au lieu de le taire (audit J2).
+    if (cur.signatures.locked) console.warn('[archive] bail ' + ref + ' déjà scellé : références d\'archive conservées sur cet appareil seulement (PDF bien stocké : ' + (path || 'échec d\'envoi') + ')');
+    if (typeof saveDB === 'function') saveDB();
+  } catch (e) { console.warn('[archive] fin d\'archive', e); }
+}
 window.__immoRender = function() {
   try { _renderSidebarFiltered(); } catch (e) { console.warn('[Supabase] sidebar', e); }
   try { _initSidebarV2(); } catch (e) {}
@@ -8354,11 +8386,23 @@ async function _emitRemoteSignSession(ref) {
   const bail = DB.baux[ref];
   if (!staging || !bail) throw new Error('Données d’émission manquantes');
   // 1) dataURL → bytes
-  const pdfBytes = _dataUrlToUint8(staging.pdfDataUrl);
+  let pdfBytes = _dataUrlToUint8(staging.pdfDataUrl);
+  // 1bis) DDT annexé au bail — pièces ajoutées APRÈS les pages du bail : les ancres (par page) ne
+  //    bougent pas ; le locataire les parcourt en lecture seule et « lecture terminée » les couvre.
+  //    Jamais bloquant : une pièce en échec est ignorée et signalée.
+  let _annexPages = 0;
+  try {
+    const _a = await _ddtAppendAnnexes(pdfBytes, bail);
+    pdfBytes = _a.bytes; _annexPages = _a.addedPages;
+    if (_a.failed.length) showToast(_ddtFusionAlertTxt(bail), 'warn', 9000);
+  } catch (e) {
+    console.warn('[DDT annexes] émission', e);
+    if (_ddtNoteFusionEchec(bail)) showToast(_ddtFusionAlertTxt(bail), 'warn', 9000);   // persisté avec la session ci-dessous
+  }
   // 2) manifeste : ancres mm BRUTES. NE PAS convertir mm→pt ici — le relais (stamp.js/
   //    rectFromJsPdf) convertit au tamponnage. Convertir des deux côtés plaçait les ancres
   //    hors-page (BUG-DOUBLE-CONVERSION 2026-06-15) → signature/paraphes locataire invisibles.
-  const manifest = window.BuildSignManifest.buildSignManifest(staging.anchors, staging.totalPages);
+  const manifest = window.BuildSignManifest.buildSignManifest(staging.anchors, staging.totalPages + _annexPages);
   // 4) embarquer le manifeste
   const stampedBytes = await _embedSignManifest(pdfBytes, manifest);
   const pdfBlob = new Blob([stampedBytes], { type: 'application/pdf' });
@@ -8747,6 +8791,208 @@ function _bsdLocataires(bail) {
     : [{ nom: bail.nom, email: bail.email }];
 }
 
+// ── DDT annexé au bail (loi 89-462 art. 3-3) — section « Pièces annexées au bail » de CETTE
+// modale (pas de modale ni de garde en plus : leçon SC1). Jamais bloquant. État local de la section ;
+// les pièces et les déclarations, elles, vivent sur le LOGEMENT (_ddtSetPiece / _ddtSetDetenu).
+let _bsdDdt = null;   // { ref, on:{key:bool}, open:key|null, sel:docId|null, naOpen:bool }
+function _bsdDdtInit(ref) {
+  _bsdDdt = { ref, on: {}, open: null, sel: null, naOpen: false };
+  // Modale masquée (✕, Annuler, lancement, retour) → la page pleine du téléphone part avec elle.
+  // Observer plutôt qu'un hook de closeM (window.closeM est remplacé au boot par le module).
+  const ov = document.getElementById('ov-send-b');
+  if (ov && typeof MutationObserver === 'function') {
+    new MutationObserver(() => { if (ov.classList.contains('hidden') || !ov.isConnected) _bsdDdtSheetRemove(); })
+      .observe(ov, { attributes: true, attributeFilter: ['class'] });
+  }
+  _bsdDdtRender();
+}
+function _bsdDdtCtx() {
+  if (!_bsdDdt) return null;
+  const bail = DB.baux[_bsdDdt.ref];
+  return bail ? { bail, log: DB.logements.find(l => l.ref === _bsdDdt.ref) || null } : null;
+}
+function _bsdDdtSheetRemove() { const s = document.getElementById('bsd-ddt-sheet'); if (s) s.remove(); }
+// Rotation / redimensionnement : page pleine (téléphone) ↔ panneau en ligne (≥ tablette) selon _isPhone().
+window.addEventListener('resize', () => { if (_bsdDdt && _bsdDdt.open) _bsdDdtRender(); });
+// Jamais bloquant : une erreur de cette section n'empêche ni l'ouverture de la modale ni « Lancer »
+// (repli honnête : _ddtFallbackPlan au lancement).
+function _bsdDdtRender() {
+  try { _bsdDdtRenderCore(); }
+  catch (e) {
+    console.warn('[DDT section]', e); _bsdDdtSheetRemove();
+    const host = document.getElementById('bsd-ddt');
+    if (host) host.innerHTML = `<div class="bsd-ddt-warn">${_uiIcon('warn', 13)} Pièces annexées indisponibles : elles seront notées « non jointes » au bail. La signature reste possible.</div>`;
+  }
+}
+function _bsdDdtRenderCore() {
+  const host = document.getElementById('bsd-ddt');
+  const c = _bsdDdtCtx();
+  const sheet = document.getElementById('bsd-ddt-sheet');
+  // Modale fermée/masquée (Annuler, ✕, retour navigateur) → jamais de page pleine orpheline.
+  if (!host || !c || !host.getClientRects().length) { if (sheet) sheet.remove(); return; }
+  // Reprise d'un bail partiellement signé : le plan est FIGÉ à la 1re signature (le § 17 déjà signé
+  // ne doit pas changer sous la signature du bailleur).
+  if (_ddtFrozen(c.bail)) { if (sheet) sheet.remove(); host.innerHTML = _bsdDdtFrozenHtml(c.bail.annexesDdt); return; }
+  const { rows, na } = _ddtAnnexRows(c.bail, c.log);
+  rows.forEach(r => {
+    // Cochée par défaut : pièce présente (= jointe) · pièce déclarée (= remise à CE locataire).
+    if ((r.statut === 'present' || r.statut === 'declare') && _bsdDdt.on[r.key] === undefined) _bsdDdt.on[r.key] = true;
+    // Vérifie le fichier dès l'affichage (1 fois/doc) : le §17 doit être exact AVANT « Lancer ».
+    if (r.doc && !_ddtCheckCache[String(r.doc.id)]) _ddtCheckPiece(r.doc).then(_bsdDdtRender);
+  });
+  host.innerHTML = _bsdDdtHtml(rows, na, c);
+  // Téléphone (M-16) : le choix du fichier est une PAGE PLEINE, rattachée au body
+  // (un ancêtre transformé casserait position:fixed).
+  const openRow = _bsdDdt.open ? rows.find(r => r.key === _bsdDdt.open) : null;
+  if (openRow && _isPhone()) {
+    let s = sheet;
+    if (!s) { s = document.createElement('div'); s.id = 'bsd-ddt-sheet'; s.className = 'bsd-ddt-sheet'; document.body.appendChild(s); }
+    s.innerHTML = `<div class="m-head"><button type="button" class="btn bs bsd-ddt-btn" onclick="_bsdDdtPickClose()">Retour</button><h3>Déposer · ${escHtml(openRow.label)}</h3></div><div class="m-body">${_bsdDdtPickerInner(openRow, c)}</div>`;
+  } else if (sheet) sheet.remove();
+}
+function _bsdDdtHtml(rows, na, c) {
+  let nJ = 0, nD = 0, nA = 0, nK = 0;
+  const phone = _isPhone();
+  const garage = c.bail.type === 'garage';
+  const picker = r => (_bsdDdt.open === r.key && !phone) ? `<div class="bsd-ddt-picker">${_bsdDdtPickerInner(r, c)}</div>` : '';
+  const body = rows.map(r => {
+    const k = r.key;
+    if (r.statut === 'present') {
+      const chk = _ddtCheckCache[String(r.doc.id)];
+      const pend = !chk || chk.st === 'pending', bad = !!(chk && chk.st === 'ko');
+      const on = _bsdDdt.on[k] !== false && !bad;
+      if (on) nJ++;
+      if (bad) nK++;
+      const meta = pend ? 'vérification du fichier…' : (bad ? 'illisible' : (chk.pages + ' p.' + (chk.kind === 'pdf-protege' ? ' · PDF protégé, joint en images' : '')));
+      return `<div class="bsd-ddt-row"><div class="bsd-ddt-line">
+          <label class="bsd-ddt-cbw"><input type="checkbox" class="bsd-ddt-cb" ${on ? 'checked' : ''} ${bad ? 'disabled' : ''} onchange="_bsdDdtToggle('${k}',this.checked)" aria-label="Joindre ${escHtml(r.label)}"></label>
+          <div class="bsd-ddt-main"><div class="bsd-ddt-title">${escHtml(r.label)}</div>
+            <div class="bsd-ddt-meta">${_uiIcon('doc', 12)} ${escHtml(r.doc.originalName || r.doc.name || 'document')} · ${meta}</div></div>
+          <span class="bsd-ddt-state"><span class="bsd-ddt-dot full"></span>Dans Propryo</span>
+          <button type="button" class="btn bs bsd-ddt-btn" onclick="_bsdDdtView('${k}')">${_uiIcon('eye', 14)}Voir</button>
+        </div>
+        ${bad ? `<div class="bsd-ddt-alert">${_uiIcon('warn', 14)}<span>Fichier illisible (${escHtml(chk.err || '')}) : il ne pourra pas être joint. Déposer une autre version.</span></div>` : ''}
+        ${!bad && r.expire ? `<div class="bsd-ddt-warn">${_uiIcon('warn', 13)} Diagnostic périmé : à renouveler (ne bloque pas la signature).</div>` : ''}
+        <div class="bsd-ddt-actions">${bad ? `<button type="button" class="bsd-ddt-lnk" onclick="_bsdDdtRetry('${k}')">Réessayer la vérification</button><span class="bsd-ddt-sep-dot">·</span>` : ''}<button type="button" class="bsd-ddt-lnk" onclick="_bsdDdtPick('${k}')">${bad ? 'Déposer une autre version' : 'Changer de fichier'}</button></div>
+        ${picker(r)}</div>`;
+    }
+    if (r.statut === 'declare') {
+      const on = _bsdDdt.on[k] !== false;
+      if (on) nD++; else nA++;
+      return `<div class="bsd-ddt-row"><div class="bsd-ddt-line">
+          <label class="bsd-ddt-cbw"><input type="checkbox" class="bsd-ddt-cb" ${on ? 'checked' : ''} onchange="_bsdDdtToggle('${k}',this.checked)" aria-label="${escHtml(r.label)} — remis à ce locataire hors application"></label>
+          <div class="bsd-ddt-main"><div class="bsd-ddt-title">${escHtml(r.label)}</div>
+            <div class="bsd-ddt-meta">${on ? 'Remis à ce locataire hors application — noté au bail' : 'Non remis à ce locataire — noté « non joint » au bail'}</div></div>
+          <span class="bsd-ddt-state"><span class="bsd-ddt-dot hollow"></span>Déclaré détenu</span>
+        </div>
+        ${on && r.expire ? `<div class="bsd-ddt-warn">${_uiIcon('warn', 13)} Diagnostic enregistré périmé : vérifier que la version remise est à jour (ne bloque pas la signature).</div>` : ''}
+        ${on && k === 'erp' ? `<div class="bsd-ddt-warn">${_uiIcon('warn', 13)} L'état des risques remis doit dater de moins de 6 mois.</div>` : ''}
+        <div class="bsd-ddt-actions"><button type="button" class="bsd-ddt-lnk" onclick="_bsdDdtUndeclare('${k}')">Annuler la déclaration</button><span class="bsd-ddt-sep-dot">·</span><button type="button" class="bsd-ddt-lnk" onclick="_bsdDdtPick('${k}')">Déposer quand même</button></div>
+        ${picker(r)}</div>`;
+    }
+    nA++;
+    const why = r.declPerime ? 'Déclaration à renouveler : diagnostic périmé'
+      : (r.applic === null ? 'Applicabilité à confirmer (information manquante sur le logement)' : r.legal);
+    const sug = r.suggest ? `<div class="bsd-ddt-meta">${_uiIcon('doc', 12)} Document repéré par la lecture des fichiers : ${escHtml(r.suggest.originalName || r.suggest.name || 'document')} — à confirmer via « Déposer ».</div>` : '';
+    return `<div class="bsd-ddt-row is-absent"><div class="bsd-ddt-line">
+        <label class="bsd-ddt-cbw"><input type="checkbox" class="bsd-ddt-cb" disabled aria-label="${escHtml(r.label)} — pièce absente"></label>
+        <div class="bsd-ddt-main"><div class="bsd-ddt-title">${escHtml(r.label)}</div><div class="bsd-ddt-meta">${escHtml(why)}</div>${sug}</div>
+        <span class="bsd-ddt-state is-none"><span class="bsd-ddt-dot none"></span>Absente</span>
+      </div>
+      <div class="bsd-ddt-alert">${_uiIcon('warn', 14)}<span>Document non présent : annexe obligatoire au bail (${garage ? 'art. L. 125-5 C. env.' : 'art. 3-3'}).</span></div>
+      ${c.log ? `<div class="bsd-ddt-actions">
+        <button type="button" class="btn bs bsd-ddt-btn" onclick="_bsdDdtPick('${k}')">${_uiIcon('upload', 14)}Déposer</button>
+        <button type="button" class="btn bs bsd-ddt-btn" onclick="_bsdDdtDeclare('${k}')">${_uiIcon('folder', 14)}Je l'ai déjà</button>
+      </div>` : ''}
+      ${picker(r)}</div>`;
+  }).join('');
+  const naLbl = na.map(k => { const e = _diagCatalogEntry(k); return e ? e.label : k; });
+  return `<div class="bsd-state-label">${_uiIcon('attach')} Pièces annexées au bail · ${garage ? 'état des risques' : 'diagnostics (DDT)'}</div>
+    <div class="bsd-ddt-head"><span class="bsd-ddt-legal">${garage ? 'Obligatoire en annexe si zone à risque (art. L. 125-5 C. env.).' : 'Obligatoires en annexe (loi 89-462, art. 3-3).'} Cochées = jointes au PDF du bail.</span>
+      <span class="bsd-ddt-count"><b>${nJ}</b> jointe${nJ > 1 ? 's' : ''} · <b>${nD}</b> déclarée${nD > 1 ? 's' : ''} · <b>${nA}</b> absente${nA > 1 ? 's' : ''}${nK ? ` · <b>${nK}</b> illisible${nK > 1 ? 's' : ''}` : ''}</span></div>
+    ${body}
+    ${na.length ? `<button type="button" class="bsd-ddt-na" onclick="_bsdDdtNa()"><span>Non concernés pour ce logement (${na.length})</span><span>${_bsdDdt.naOpen ? 'Masquer' : 'Afficher'}</span></button>
+      ${_bsdDdt.naOpen ? `<div class="bsd-ddt-na-list">${naLbl.map(escHtml).join(' · ')}</div>` : ''}` : ''}
+    <div class="bsd-ddt-never">${_uiIcon('shield', 13)} La signature n'est jamais bloquée : une pièce absente est notée « non jointe » au bail.</div>`;
+}
+// Choix du fichier : d'abord les documents DÉJÀ rangés sur le logement, puis l'ajout depuis l'appareil.
+function _bsdDdtPickerInner(r, c) {
+  const docs = c.log ? (DB.documents || []).filter(d => d && !d._deleted && d.parentType === 'logement' && String(d.parentId) === String(c.log.id)) : [];
+  const opts = docs.map(d => `<label class="bsd-ddt-opt"><input type="radio" name="bsd-ddt-pk" ${String(_bsdDdt.sel) === String(d.id) ? 'checked' : ''} onchange="_bsdDdtSel('${_lyQ(d.id)}')"> ${_uiIcon('doc', 14)} <span class="bsd-ddt-opt-n">${escHtml(d.originalName || d.name || 'document')}</span><span class="bsd-ddt-sz">${d.size ? _fmtSize(d.size) : ''}</span></label>`).join('');
+  return `<div class="bsd-ddt-pk-h">Rattacher un document au diagnostic « ${escHtml(r.label)} »</div>
+    ${docs.length ? `<div class="bsd-ddt-meta">Documents déjà rangés sur le logement :</div>${opts}
+      <div class="bsd-ddt-pk-f"><button type="button" class="btn bp bsd-ddt-btn" ${_bsdDdt.sel ? '' : 'disabled'} onclick="_bsdDdtPickConfirm('${r.key}')">${_uiIcon('attach', 14)}Rattacher</button></div>
+      <div class="bsd-ddt-sepl"></div>` : ''}
+    <label class="btn bs bsd-ddt-btn bsd-ddt-file">${_uiIcon('upload', 14)}Ajouter un fichier depuis l'appareil (PDF, JPG, PNG)
+      <input type="file" accept="application/pdf,image/jpeg,image/png" onchange="_bsdDdtUpload('${r.key}',this)"></label>
+    <div class="bsd-ddt-pk-f"><span class="bsd-ddt-meta">Le fichier reste rangé sur le logement.</span>
+      <button type="button" class="btn bs bsd-ddt-btn" onclick="_bsdDdtPickClose()">Annuler</button></div>`;
+}
+// Reprise (bail partiellement signé) : lecture seule du plan figé à la 1re signature.
+function _bsdDdtFrozenHtml(plan) {
+  if (!(plan && Array.isArray(plan.items))) {
+    return `<div class="bsd-state-label">${_uiIcon('attach')} Pièces annexées au bail</div>
+      <div class="bsd-ddt-frozen">${_uiIcon('lock', 13)} Bail déjà signé avant l'annexion automatique : aucune pièce ajoutée, le texte signé ne change pas.</div>`;
+  }
+  const rows = (plan.items || []).filter(it => it.statut !== 'na')
+    .map(it => `<div class="bsd-ddt-fz"><span>${escHtml(it.label)}</span><span>${escHtml(_ddtItemTxt(it))}</span></div>`).join('');
+  return `<div class="bsd-state-label">${_uiIcon('attach')} Pièces annexées au bail</div>
+    <div class="bsd-ddt-frozen">${_uiIcon('lock', 13)} Pièces figées à la 1re signature : le bail déjà signé ne change pas.</div>${rows}`;
+}
+function _bsdDdtRetry(key) {
+  const c = _bsdDdtCtx(); const doc = c && c.log ? _ddtPieceDoc(c.log, key) : null;
+  if (doc) { _ddtCheckPiece(doc, true).then(_bsdDdtRender); _bsdDdtRender(); }
+}
+function _bsdDdtToggle(key, on) { if (_bsdDdt) { _bsdDdt.on[key] = !!on; _bsdDdtRender(); } }
+function _bsdDdtNa() { if (_bsdDdt) { _bsdDdt.naOpen = !_bsdDdt.naOpen; _bsdDdtRender(); } }
+function _bsdDdtPick(key) {
+  if (!_bsdDdt) return;
+  const c = _bsdDdtCtx(); const s = c && c.log ? _ddtSuggestDoc(c.log, key) : null;
+  _bsdDdt.open = key; _bsdDdt.sel = s ? s.id : null;   // document repéré = présélectionné, JAMAIS rattaché sans confirmation
+  _bsdDdtRender();
+}
+function _bsdDdtPickClose() { if (_bsdDdt) { _bsdDdt.open = null; _bsdDdt.sel = null; _bsdDdtRender(); } }
+function _bsdDdtSel(id) { if (_bsdDdt) { _bsdDdt.sel = id; _bsdDdtRender(); } }
+function _bsdDdtView(key) {
+  const c = _bsdDdtCtx(); const doc = c && c.log ? _ddtPieceDoc(c.log, key) : null;
+  if (doc) _handleAttachmentOpen(doc.id);
+}
+// « Je l'ai déjà » : déclaré détenu HORS application, sur le logement → plus jamais redemandé.
+function _bsdDdtDeclare(key) {
+  const c = _bsdDdtCtx(); if (!c || !c.log) return;
+  _ddtSetDetenu(c.log, key, true); _bsdDdt.on[key] = true; saveDB(); _bsdDdtRender();
+  showToast('Noté : pièce détenue hors application. Elle ne sera plus redemandée pour ce logement.', 'ok', 4500);
+}
+function _bsdDdtUndeclare(key) {
+  const c = _bsdDdtCtx(); if (!c || !c.log) return;
+  _ddtSetDetenu(c.log, key, false); saveDB(); _bsdDdtRender();
+}
+function _bsdDdtPickConfirm(key) {
+  const c = _bsdDdtCtx(); if (!c || !c.log || !_bsdDdt.sel) return;
+  const doc = (DB.documents || []).find(d => d && !d._deleted && String(d.id) === String(_bsdDdt.sel));
+  if (!doc) { showToast('Document introuvable', 'err'); return; }
+  _ddtSetPiece(c.log, key, doc.id);
+  _bsdDdt.on[key] = true; _bsdDdt.open = null; _bsdDdt.sel = null;
+  saveDB(); _bsdDdtRender();
+  showToast('« ' + (doc.originalName || doc.name) + ' » rattaché au diagnostic.', 'ok', 3500);
+}
+async function _bsdDdtUpload(key, input) {
+  const c = _bsdDdtCtx(); const f = input && input.files && input.files[0];
+  if (!c || !c.log || !f) return;
+  const max = (typeof ATTACHMENT_DEFAULT_MAX_SIZE !== 'undefined') ? ATTACHMENT_DEFAULT_MAX_SIZE : 10 * 1024 * 1024;
+  if (f.size > max) { showToast('Fichier trop lourd : ' + (f.size / 1048576).toFixed(1) + ' Mo (max ' + (max / 1048576) + ' Mo)', 'err', 6000); input.value = ''; return; }
+  try {
+    const dataB64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('lecture du fichier échouée')); r.readAsDataURL(f); });
+    const doc = await _attachmentSaveForEntity(
+      { type: 'logement', id: c.log.id, ref: c.log.ref, logRef: c.log.ref, category: 'documents' },
+      { name: f.name, mime: f.type, size: f.size, dataB64 });
+    _ddtSetPiece(c.log, key, doc.id);
+    _bsdDdt.on[key] = true; _bsdDdt.open = null; _bsdDdt.sel = null;
+    saveDB(); _bsdDdtRender();
+    showToast('« ' + f.name + ' » déposé et rattaché au diagnostic.', 'ok', 3500);
+  } catch (e) { showToast('Dépôt impossible : ' + ((e && e.message) || 'erreur'), 'err', 6000); }
+}
+
 // _bsdSignerRow — scaffold d'UNE rangée signataire du modal d'envoi (bailleur OU locataire). DRY :
 // même squelette (.bsd-signer-row / ord / avatar / rôle / email), les contrôles spécifiques au rôle
 // (toggle présentiel locataire · case signataire + toggle distance bailleur) sont passés en `controls`,
@@ -8996,6 +9242,7 @@ async function openRemoteSignModal(ref) {
             ${bSection}
             <div class="bsd-state-label">${_uiIcon('key')} Côté locataires · distance par défaut</div>
             ${rows}
+            <div id="bsd-ddt" class="bsd-ddt"></div>
             <div class="bsd-banner bsd-banner-info" style="margin-top:8px">${_uiIcon('bulb')} <div>Pour chaque signataire : <b><span style="color:var(--grn,#16a34a)">${_uiIcon('person', 13)}</span> Présentiel</b> = signe ici, dans l'app (chacun son tour) · <b><span style="color:var(--pur,#7c3aed)">${_uiIcon('send', 13)}</span> À distance</b> = reçoit un lien par email. Un co-gérant peut être mis sur <b><span style="color:#94a3b8">${_uiIcon('close', 13)}</span> Ne signe pas</b>.</div></div>
           </div>
         </div>
@@ -9008,6 +9255,7 @@ async function openRemoteSignModal(ref) {
   const old = document.getElementById('ov-send-b'); if (old) old.remove();
   document.body.insertAdjacentHTML('beforeend', html);
   openM('ov-send-b');
+  _bsdDdtInit(ref);   // DDT annexé au bail — section « Pièces annexées » (vérifie les fichiers dès l'ouverture)
 }
 
 // FIL-ROUGE cleanup — _bsdSyncBailleurRow RETIRÉE : les bascules qu'elle synchronisait (bsd-bsign/
@@ -9073,6 +9321,28 @@ function _confirmBailSignatureFlow(ref) {
   if (!pendingPres.length && !plan.distants.length) {
     showToast('Ce bail est déjà signé', 'ok', 4000); if (typeof closeM === 'function') closeM('ov-send-b'); return;
   }
+
+  // DDT annexé au bail (art. 3-3) — plan FIGÉ sur le bail AVANT la génération : le §17 dit la réalité
+  // et l'instantané signé le fige. Aucun blocage : seule une vérification de fichier encore en cours
+  // fait patienter (window.open doit partir dans CE clic, on ne peut pas l'attendre ici).
+  // Reprise d'un bail partiellement signé : plan FIGÉ (jamais recalculé sous une signature existante).
+  try {
+    if (!_ddtFrozen(bail)) {
+      const _on = (_bsdDdt && _bsdDdt.ref === ref) ? _bsdDdt.on : {};
+      const _enCours = _ddtAnnexRows(bail, log).rows.filter(r => r.statut === 'present' && _on[r.key] !== false
+        && (!_ddtCheckCache[String(r.doc.id)] || _ddtCheckCache[String(r.doc.id)].st === 'pending'));
+      if (_enCours.length) {
+        // Attente BORNÉE (délai max de _ddtCheckPiece) ; une pièce jamais vérifiée (arrivée par synchro) est lancée ici.
+        _enCours.forEach(r => { if (!_ddtCheckCache[String(r.doc.id)]) _ddtCheckPiece(r.doc).then(_bsdDdtRender); });
+        showToast('Vérification des pièces jointes en cours (20 s max) — relancer dans un instant, ou décocher la pièce.', 'info', 5000);
+        return;
+      }
+      const _ddt = _ddtBuildAnnexPlan(bail, log, _on);
+      bail.annexesDdt = _ddt.plan;
+      if (_ddt.dropped.length) showToast('Volume trop important : ' + _ddt.dropped.join(', ') + ' non joint(s) au PDF — noté au bail.', 'warn', 7000);
+    }
+  } catch (e) { console.warn('[DDT plan]', e); if (!_ddtFrozen(bail)) bail.annexesDdt = _ddtFallbackPlan(); }
+  _bsdDdtSheetRemove();
 
   // Persiste les modes co-gérants (buildBailStructure/D2a) + le présentiel/email locataires (relais).
   if (bSigners.length) {
@@ -11724,6 +11994,7 @@ function resetBailSignatures(ref) {
     ? `Confirmation finale : archiver la version signée du bail ${ref} et repartir d'un brouillon à faire signer ?\n\n[OK] = oui\n[Annuler] = ne rien faire`
     : `Confirmation finale : effacer définitivement les signatures du bail ${ref} ?\n\n[OK] = oui, effacer\n[Annuler] = ne rien faire`)) return;
   delete bail.signatures;
+  delete bail.annexesDdt;   // DDT annexé : le plan suit les signatures ; recalculé au prochain lancement
   // v14.71 : stamp _modifiedAt pour que le reset se propage aux autres devices via merge Drive
   if(typeof _stamp === 'function') _stamp(bail);
   saveDB();
@@ -20632,6 +20903,8 @@ function saveBail() {
   // v13.11 — préserver les signatures sauf si reset forcé (composition changée)
   if (DB.baux[ref]?.signatures && !_resetSignaturesAfterSave) {
     bail.signatures = DB.baux[ref].signatures;
+    // DDT annexé : le plan figé à la signature suit les signatures (§ 17 déjà signé + alerte de fusion).
+    if (DB.baux[ref].annexesDdt) bail.annexesDdt = DB.baux[ref].annexesDdt;
   }
   // v15.232 ARCHI-DB-DOUBLONS Phase 4b — bail SIGNÉ : préserver les champs bien plats GELÉS.
   // getBailDataFromForm() ne les émet plus (le logement est désormais la source unique), mais un
@@ -21671,6 +21944,9 @@ function buildBailStructure(bail, log, ref, ent, locs) {
         hasCharges: !!(bail.ch > 0),
         hasGarant: !!bail.garant,
         erpZoneRisque: !!bail.erpZoneRisque,
+        // DDT annexé — statut RÉEL de l'ERP d'après le plan figé à la signature (sinon texte historique).
+        //   Plan sans ligne ERP (plan de repli) → « Non joint » : jamais « Joint » par défaut sous un plan.
+        erpAnnexeTxt: (() => { const p = bail.annexesDdt; if (!(p && Array.isArray(p.items))) return ''; const it = p.items.find(x => x.key === 'erp'); return it ? _ddtItemTxt(it) : 'Non joint'; })(),
         plusieursLocataires: locs.length >= 2
       },
       blocks: {
@@ -21779,7 +22055,12 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     // - DPE : date intégrée inline dans la cellule Résultat uniquement si renseignée,
     //   car la validité opposable (10 ans) intéresse directement le locataire.
     { type:'h2', text:'2 — Dossier de Diagnostic Technique (DDT)' },
-    { type:'p', text:'Les diagnostics suivants sont annexés au présent bail conformément aux articles L. 271-4 et suivants du CCH. Il est précisé que le locataire ne peut se prévaloir à l\'encontre du propriétaire des informations contenues dans ces diagnostics.' },
+    // DDT annexé (texte validé Didier 28/09) : avec un plan figé → art. 3-3 + renvoi au § 17 (jamais
+    // « sont annexés » quand une pièce n'est pas jointe). Anciens baux (sans plan) : texte historique inchangé.
+    { type:'p', text:((bail.annexesDdt && Array.isArray(bail.annexesDdt.items))
+        ? 'Le dossier de diagnostic technique prévu à l\'article 3-3 de la loi n° 89-462 du 6 juillet 1989 est annexé au présent bail selon l\'état détaillé au § 17.'
+        : 'Les diagnostics suivants sont annexés au présent bail conformément aux articles L. 271-4 et suivants du CCH.')
+      + ' Il est précisé que le locataire ne peut se prévaloir à l\'encontre du propriétaire des informations contenues dans ces diagnostics.' },
     { type:'table', headers:['Diagnostic','Résultat / Classe'], rows:[
       ['DPE — Performance énergétique', `Classe ${S(bail.dpe||_lbFill.dpe||'–')} — GES ${S(bail.ges||_lbFill.ges||'–')}` + ((bail.dpeDate||_lbFill.dpeDate) ? ` (établi le ${fd2(bail.dpeDate||_lbFill.dpeDate)})` : '')],
       ['État des risques et pollutions (ERP)', S(bail.erp||_lbFill.erp||'–')],
@@ -21789,7 +22070,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
       ['Diagnostic gaz — install. > 15 ans', S(bail.gaz||_lbFill.gaz||'–')],
       ['Diagnostic bruit — zone d\'exposition', S(bail.bruit||_lbFill.bruit||'–')]
     ], columnStyles: { 0: { cellWidth:75 } } },
-    { type:'p-italic-note', text:'Les diagnostics annexés portent leur date d\'établissement et leur durée de validité propres. Plan de prévention des risques naturels et technologiques : l\'état des risques est annexé. L\'immeuble n\'a subi aucun sinistre ayant donné lieu au versement d\'une indemnité au titre d\'une catastrophe naturelle ou technologique.' },
+    { type:'p-italic-note', text:'Les diagnostics annexés portent leur date d\'établissement et leur durée de validité propres. Plan de prévention des risques naturels et technologiques : ' + ((bail.annexesDdt && Array.isArray(bail.annexesDdt.items)) ? 'état des risques selon le § 17' : 'l\'état des risques est annexé') + '. L\'immeuble n\'a subi aucun sinistre ayant donné lieu au versement d\'une indemnité au titre d\'une catastrophe naturelle ou technologique.' },
 
     // ─── §3 Destination du bien loué ─────────────────────────────────
     { type:'h2', text:'3 — Destination du bien loué' },
@@ -22246,9 +22527,22 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   const _visaId = (bail.visale && S(bail.visale.visaId).trim()) ? S(bail.visale.visaId).trim() : '';
   const statutCaution = _visaId ? ('Garantie Visale — visa n° ' + _visaId + ' (§ 15)') : (bail.garant ? 'Ci-inclus (§ 15)' : 'Le cas échéant');
   // v15.193 BAIL-TYPES Étape 3 : ajout annexe 11 inventaire mobilier pour types meublés
+  // DDT annexé au bail (art. 3-3) — la ligne 2 dit la RÉALITÉ du plan figé à la signature
+  // (bail.annexesDdt) au lieu de « DDT complet — Joint » écrit en dur, même sans aucune pièce.
+  // Anciens baux (sans plan) : ligne historique inchangée.
+  const _ddtPlan = (bail.annexesDdt && Array.isArray(bail.annexesDdt.items)) ? bail.annexesDdt : null;
+  const _ddtTxt = _ddtItemTxt;
+  const _ddtRows = [];
+  if (_ddtPlan) {
+    const _vus = _ddtPlan.items.filter(it => it.statut !== 'na');
+    const _na = _ddtPlan.items.filter(it => it.statut === 'na');
+    _ddtRows.push(['2', 'Dossier de Diagnostic Technique (DDT)', _ddtPlan.docs && _ddtPlan.docs.length ? 'Pièces jointes à la suite du bail' : '—']);
+    _vus.forEach((it, i) => _ddtRows.push(['2' + 'abcdefghij'[i], it.label, _ddtTxt(it)]));
+    if (_na.length) _ddtRows.push(['2' + 'abcdefghij'[_vus.length], _na.map(it => it.label).join(' · '), 'Non concerné']);
+  } else _ddtRows.push(['2', 'Dossier de Diagnostic Technique (DDT) complet', 'Joint']);
   const annexesRows = [
     ['1', 'État des lieux d\'entrée', 'À établir'],
-    ['2', 'Dossier de Diagnostic Technique (DDT) complet', 'Joint'],
+    ..._ddtRows,
     ['3', 'Notice d\'information droits et obligations des parties (arrêté du 29 mai 2015 modifié)', 'Annexée au présent bail'],
     ['4', 'Grille de vétusté', 'Ci-incluse (§ 8.2)'],
     ['5', 'Règlement de copropriété + extraits applicables', 'Joint / N/A'],
@@ -23403,7 +23697,7 @@ function previewBailData(bail, log, ref, opts) {
   var toolbar = '<div id="toolbar" class="no-print">'
     +'<span class="ttl">\ud83d\udcdc Bail \u2014 '+titleLabel+'</span>'
     +'<span id="wiz-counter" class="wiz-counter">\ud83d\udcc4 Page 1 / '+N_PAGES+'</span>'
-    +'<button class="btn-wiz" onclick="startSignatureWizardV2()">\u270d\ufe0f D\u00e9marrer signature</button>'
+    +'<button class="btn-wiz" onclick="_wizPorteUnique()">\u270d\ufe0f D\u00e9marrer signature</button>'
     /* v13.22 \u2014 toolbar \u00e9pur\u00e9e : "Test" et "Pr\u00e9-render" (dev tools) retir\u00e9s.
        "PDF natif" conserv\u00e9 (re-t\u00e9l\u00e9chargement utile sur bail sign\u00e9). */
     +'<button class="btn-natif" onclick="genPDFNative()" style="background:#0ea5e9;color:#fff" title="Re-t\u00e9l\u00e9charger le PDF (avec signatures si bail sign\u00e9, sinon vierge)">\ud83d\udcc4 PDF</button>'
@@ -23588,6 +23882,13 @@ function previewBailData(bail, log, ref, opts) {
     +'}'
     /* === S2.signature.C (v12.94) — Wizard V2 sur images PDF physiques === */
     +'window._wizV2Pages=null;window._wizV2Current=1;window._wizV2Paraphes={};'
+    /* DDT annexé (art. 3-3) — « Démarrer signature » de l'APERÇU passe par la porte UNIQUE (modale
+       ov-send-b) : c'est elle qui fige les pièces annexées et le § 17. Signer ici court-circuitait le plan. */
+    +'function _wizPorteUnique(){'
+    +  'try{if(window.opener&&!window.opener.closed&&typeof window.opener.openBailSignatureFlow==="function"){'
+    +    'window.opener.openBailSignatureFlow(_BAIL_REF);window.opener.focus();window.close();return;}}catch(e){}'
+    +  'alert("Lancer la signature depuis Propryo : bouton « Signer » du bail.");'
+    +'}'
     /* v15.421 BUG-SIGN-MODE — _wizV2AskWithLocataire (modale « Locataire présent ? », legacy
        v12.95) RETIRÉE : « Signer le bail » signe désormais toujours le bailleur seul (cf. bloc
        startSignatureWizardV2 plus bas). Le locataire signe via l'envoi (D2a à distance ou
@@ -24070,6 +24371,10 @@ function previewBailData(bail, log, ref, opts) {
     +    'luApprouveBy:window._wizV2LuApprouveBy||{},'
     +    'mode:mode,'
     +    'signedAt:sigBaseISO,' /* v15.344 : date de signature (saisie manuelle ou instant courant) */
+    /* ARCHIVE AVANT SCEAU (audit 28/09) — instant TECHNIQUE de l'enregistrement (horloge de cet appareil),
+       distinct de signedAt qui peut être une date saisie à midi UTC : c'est lui que mesure le délai de
+       garde du scellement (store-sync archiveEnAttente). Hors empreinte légale (liste fermée). */
+    +    'persistedAt:nowISO,'
     +    'signedBailleurAt:signedBailleurAt,'
     +    'totalPages:(window._wizV2Pages||[]).length,'
     +    'nbParaphes:Object.keys(window._wizV2Paraphes||{}).length,'
@@ -43435,6 +43740,406 @@ function _ddtComplet(logement, dateRef) {
   return out;
 }
 
+// ── DDT annexé au bail (loi 89-462 art. 3-3) : PIÈCE ↔ DIAGNOSTIC ──────────────────────
+// La pièce d'un diagnostic = le document RATTACHÉ via log.diagnostics[key].pjDocId (champ du
+// modèle, jamais rempli avant). Un même PDF (DDT groupé) peut être la pièce de plusieurs diags.
+function _ddtPieceDoc(log, key) {
+  const info = _diagGet(log, key);
+  const id = info && info.pjDocId;
+  if (id == null || id === '') return null;
+  return (DB.documents || []).find(d => d && !d._deleted && String(d.id) === String(id)) || null;   // id = nid() (nombre) — comparaison robuste
+}
+// Entrée ÉCRIVABLE log.diagnostics[key]. Semée depuis _diagGet : pour le DPE legacy (log.dpe
+// seul), créer {pjDocId} nu masquerait le repli date/classe → DPE retomberait « à renseigner ».
+function _ddtDiagEntry(log, key) {
+  if (!log.diagnostics || typeof log.diagnostics !== 'object') log.diagnostics = {};
+  const cur = log.diagnostics[key];
+  if (cur && typeof cur === 'object') return cur;
+  const base = _diagGet(log, key);
+  return (log.diagnostics[key] = base ? Object.assign({}, base) : {});
+}
+// Rattache (docId) ou détache (null) la pièce. Une pièce déposée remplace la déclaration.
+function _ddtSetPiece(log, key, docId) {
+  if (!log || !key) return;
+  const info = _ddtDiagEntry(log, key);
+  if (docId) { info.pjDocId = docId; delete info.detenuHorsApp; delete info.pjSuggest; }
+  else delete info.pjDocId;
+  if (typeof _stamp === 'function') _stamp(log);
+}
+// « Je l'ai déjà » (règle R-2) : pièce détenue HORS application — une déclaration, pas une
+// preuve (pastille creuse). Stockée sur le LOGEMENT (le DDT est celui du bien, pas du bail).
+function _ddtSetDetenu(log, key, on) {
+  if (!log || !key) return;
+  const info = _ddtDiagEntry(log, key);
+  if (on) info.detenuHorsApp = { at: new Date().toISOString() };
+  else delete info.detenuHorsApp;
+  if (typeof _stamp === 'function') _stamp(log);
+}
+// Déclaration toujours valable ? Jamais redemandée, SAUF péremption réelle (fait nouveau). La
+// validité court depuis la date la plus récente : date du diagnostic OU date de la déclaration
+// (re-déclarer = « j'ai la version à jour »). Sans durée légale (amiante, bruit…) : jamais périmée.
+function _ddtDetenuValide(log, key) {
+  const info = _diagGet(log, key);
+  if (!(info && info.detenuHorsApp)) return false;
+  const dDecl = String(info.detenuHorsApp.at || '').slice(0, 10);
+  const base = [info.date || '', dDecl].sort().pop();
+  return !base || !_estDiagExpire(key, Object.assign({}, info, { date: base }));
+}
+// Lecture d'un PDF (coverage de _logDiagScanText, par MOTS-CLÉS) : SUGGESTION seulement, jamais un
+// rattachement — un DPE qui cite « amiante » ne doit pas devenir « Amiante : joint » au bail signé
+// (règle « suggéré · à vérifier », MODALE-LOGEMENT-CONSOLIDATION). Confirmée via « Déposer ».
+function _ddtLinkFromCoverage(diagMap, coverage, docId) {
+  if (!diagMap || !coverage || !docId) return 0;
+  let n = 0;
+  _DIAGS_CATALOG_INLINE.forEach(e => {
+    if (!coverage[e.key]) return;
+    const info = (diagMap[e.key] && typeof diagMap[e.key] === 'object') ? diagMap[e.key] : (diagMap[e.key] = {});
+    if (!info.pjDocId && !info.pjSuggest) { info.pjSuggest = docId; n++; }
+  });
+  return n;
+}
+function _ddtSuggestDoc(log, key) {
+  const info = _diagGet(log, key); const id = info && info.pjSuggest;
+  if (id == null || id === '' || (info && info.pjDocId)) return null;
+  return (DB.documents || []).find(d => d && !d._deleted && String(d.id) === String(id)) || null;
+}
+// Verrou = bail déjà signé par au moins une partie → le plan n'est JAMAIS (re)calculé, qu'il existe
+// ou non : un bail signé avant l'annexion automatique garde son § 17 historique (le locataire signe
+// exactement le texte que le bailleur a signé).
+function _ddtFrozen(bail) {
+  const f = bail && bail.signatures && bail.signatures.finales;
+  return !!(f && typeof f === 'object' && Object.keys(f).length);
+}
+// Libellé § 17 d'une ligne du plan (partagé bail habitation / garage / lecture seule de la modale).
+function _ddtItemTxt(it) {
+  if (it.statut === 'joint') return 'Joint en annexe (' + it.docName + ')';
+  if (it.statut === 'hors_app') return 'Remis hors application (déclaration du bailleur)';
+  if (it.statut === 'na') return 'Non concerné';
+  return 'Non joint' + (it.motif === 'volume' ? ' (volume du fichier)' : it.motif === 'illisible' ? ' (fichier illisible)'
+    : it.motif === 'delai' ? ' (vérification impossible)' : it.motif === 'erreur' ? ' (erreur technique)' : '');
+}
+// Repli si la section a planté : rien n'est affirmé joint (§ 17 honnête), la signature continue.
+function _ddtFallbackPlan() {
+  return { v: 1, at: new Date().toISOString(), items: [{ key: 'ddt', label: 'Diagnostics du DDT', statut: 'non_joint', motif: 'erreur' }], docs: [] };
+}
+
+// Diagnostics que l'art. 3-3 de la loi 89-462 fait ANNEXER au bail (Légifrance LEGIARTI000043978254) :
+// 1° DPE · 2° CREP · 3° amiante · 4° électricité et gaz · état des risques (zones L125-5 C. env.) ·
+// bruit (zones de PEB). Termites et mérule n'y figurent pas (diagnostics de VENTE, L271-4 CCH).
+const _DDT_ART33_KEYS = ['dpe', 'crep', 'amiante', 'gaz', 'elec', 'erp', 'bruit'];
+// Logement « d'applicabilité » : même période que celle IMPRIMÉE au bail
+// (bail.periodeConstr || héritée de l'immeuble) → la liste des annexes colle au texte signé.
+function _ddtApplicLog(bail, log) {
+  let per = (bail && bail.periodeConstr) || '';
+  if (!per && log && typeof _readLogForBail === 'function') {
+    try { per = (_readLogForBail(bail, log) || {})._immPeriodeConstr || ''; } catch (e) { per = ''; }
+  }
+  per = per || (log && log.periodeConstr) || '';
+  return Object.assign({}, log || {}, { periodeConstr: per, anneeConstruction: per ? 0 : (log && log.anneeConstruction) });
+}
+// Lignes de la section « Pièces annexées au bail ». Bail garage = ERP seul (DDT sans objet).
+// statut : 'present' (pièce rattachée) | 'declare' (« Je l'ai déjà » valable) | 'absent'.
+function _ddtAnnexRows(bail, log) {
+  const aLog = _ddtApplicLog(bail, log);
+  const garage = bail && bail.type === 'garage';
+  const rows = [], na = [];
+  _DIAGS_CATALOG_INLINE.forEach(e => {
+    if (garage && e.key !== 'erp') return;
+    if (!garage && !_DDT_ART33_KEYS.includes(e.key)) return;   // termites/mérule : hors art. 3-3 (cf. constante)
+    // Garage : l'ERP n'est dû qu'en zone à risque — même source que le texte du bail garage.
+    const applic = garage ? !!(bail && bail.erpZoneRisque) : (log ? _estDiagApplicable(e.key, aLog) : null);
+    const info = log ? _diagGet(log, e.key) : null;
+    if (applic === false || (info && info.na === true)) { na.push(e.key); return; }   // na = « non concerné » saisi (onglet Diagnostics)
+    const doc = log ? _ddtPieceDoc(log, e.key) : null;
+    const declOn = !!(info && info.detenuHorsApp);
+    const statut = doc ? 'present' : ((log && _ddtDetenuValide(log, e.key)) ? 'declare' : 'absent');
+    rows.push({ key: e.key, label: e.label, legal: e.legal || '', applic, doc, statut,
+      suggest: (!doc && log) ? _ddtSuggestDoc(log, e.key) : null,
+      expire: !!(info && info.date && _estDiagExpire(e.key, info)),
+      declPerime: declOn && statut === 'absent' });
+  });
+  return { rows, na };
+}
+// Vérifie qu'une pièce est FUSIONNABLE, AVANT le lancement (window.open doit partir dans le
+// clic : impossible de vérifier au moment de « Lancer »). La vérification FAIT la fusion à blanc
+// (même code que _ddtEmbedFile, dans un document jetable) → « ok » = la fusion passera, et `size`
+// = octets réellement ajoutés au PDF (pas la taille source : un PNG ou un PDF protégé rendu en
+// images grossit). Délai max : une vérification ne reste jamais « en cours » (jamais de blocage).
+const _ddtCheckCache = {};
+const DDT_CHECK_TIMEOUT_MS = 20000;
+function _ddtKindOf(bytes) {
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8) return 'img';                                                // JPEG
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'img';      // PNG
+  // %PDF : la norme tolère des octets parasites avant l'en-tête (jusqu'à 1024).
+  const lim = Math.min(bytes.length - 3, 1024);
+  for (let i = 0; i < lim; i++) if (bytes[i] === 0x25 && bytes[i + 1] === 0x50 && bytes[i + 2] === 0x44 && bytes[i + 3] === 0x46) return 'pdf';
+  return null;
+}
+// Délai max d'une opération réseau/fichier : l'erreur porte motif 'delai' (§ 17 : « vérification impossible »).
+function _ddtWithTimeout(p, ms, msg) {
+  let t;
+  return Promise.race([p, new Promise((_, rej) => { t = setTimeout(() => rej(Object.assign(new Error(msg), { motif: 'delai' })), ms); })])
+    .finally(() => clearTimeout(t));
+}
+async function _ddtDryRun(bytes) {
+  const kind0 = _ddtKindOf(bytes);
+  if (!kind0) throw new Error('format non pris en charge (PDF, JPG ou PNG)');
+  const PDFLib = await _loadPdfLib();
+  if (kind0 === 'img') {
+    const t = await PDFLib.PDFDocument.create();
+    await _ddtEmbedFile(t, PDFLib, bytes, 'img');
+    return { kind: 'img', pages: 1, size: (await t.save()).length };
+  }
+  const src = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+  if (!src.isEncrypted) {
+    const t = await PDFLib.PDFDocument.create();
+    await _ddtEmbedFile(t, PDFLib, bytes, 'pdf');
+    return { kind: 'pdf', pages: t.getPageCount(), size: (await t.save()).length };
+  }
+  // PDF protégé : pdf.js doit pouvoir l'OUVRIR (mot de passe d'ouverture = impossible). Taille
+  // ESTIMÉE (rendu complet trop long ici) sur 3 pages échantillons (1re, milieu, dernière — une
+  // couverture légère ne suffit pas) ; la fusion mesure ensuite les octets RÉELS et tranche.
+  await _ensurePdfjsLoaded();
+  let pdf;
+  try { pdf = await window.pdfjsLib.getDocument({ data: bytes.slice() }).promise; }
+  catch (e) { throw new Error((e && e.name === 'PasswordException') ? 'protégé par un mot de passe d\'ouverture' : 'PDF illisible'); }
+  try {
+    const n = pdf.numPages;
+    const idx = [...new Set([1, Math.ceil(n / 2), n])];
+    let max = 0;
+    for (const i of idx) max = Math.max(max, (await _ddtRenderPdfPage(pdf, i)).jpg.length);
+    return { kind: 'pdf-protege', pages: n, size: Math.round(n * max * 1.15) + 20000 };
+  } finally { try { await pdf.destroy(); } catch (e) {} }   // libère la copie gardée par le worker pdf.js
+}
+async function _ddtCheckPiece(doc, force) {
+  const k = String(doc.id);
+  const cur = _ddtCheckCache[k];
+  if (cur && (cur.st === 'pending' || !force)) return cur;
+  _ddtCheckCache[k] = { st: 'pending', t: Date.now() };
+  let res;
+  try {
+    const run = (async () => {
+      const dataUrl = await _attachmentLoadBinary(doc);
+      if (!dataUrl) throw new Error('fichier introuvable');
+      return _ddtDryRun(_dataUrlToUint8(dataUrl));
+    })();
+    res = Object.assign({ st: 'ok' }, await _ddtWithTimeout(run, DDT_CHECK_TIMEOUT_MS, 'vérification impossible : réseau trop lent'));
+  } catch (e) { res = { st: 'ko', err: (e && e.message) || 'illisible', motif: (e && e.motif) || 'illisible' }; }
+  return (_ddtCheckCache[k] = res);
+}
+// Volume max des pièces AJOUTÉES au PDF (octets RÉELS, mesurés pièce par pièce à la fusion). Le relais
+// refuse au-delà de 20 Mo (KV 25 Mio/valeur). Tamponnage relais : ~1,6 ms CPU par Mio (mesuré en local,
+// pdf-lib load+save) — à confirmer par un smoke réel sur l'offre Workers gratuite (limite CPU 10 ms).
+const DDT_ANNEX_BUDGET = 12 * 1024 * 1024;
+const DDT_PDF_MAX = 19 * 1024 * 1024;
+// Plan d'annexes FIGÉ sur le bail avant génération (→ §17 honnête + instantané signé).
+//   items : 1 ligne par diagnostic (joint | hors_app | non_joint | na) ; docs : fichiers DISTINCTS
+//   à fusionner, dans l'ordre, avec les diagnostics qu'ils couvrent (un DDT groupé = 1 fichier).
+function _ddtBuildAnnexPlan(bail, log, onMap) {
+  const { rows, na } = _ddtAnnexRows(bail, log);
+  const items = [], docs = [], seen = {};
+  let budget = 0; const dropped = [];
+  const decoches = [];
+  rows.forEach(r => {
+    const it = { key: r.key, label: r.label };
+    if (r.statut === 'declare') {   // case « remis à ce locataire » (cochée par défaut) — par bail
+      if (onMap[r.key] !== false) it.statut = 'hors_app';
+      else { it.statut = 'non_joint'; it.motif = 'decoche'; }
+    }
+    else if (r.statut === 'present' && onMap[r.key] !== false) {
+      const chk = _ddtCheckCache[String(r.doc.id)];
+      if (!chk || chk.st !== 'ok') { it.statut = 'non_joint'; it.motif = chk ? (chk.motif || 'illisible') : 'erreur'; }
+      else {
+        const k = String(r.doc.id);
+        if (!seen[k]) {
+          if (budget + (chk.size || 0) > DDT_ANNEX_BUDGET) { it.statut = 'non_joint'; it.motif = 'volume'; dropped.push(r.label); items.push(it); return; }
+          budget += chk.size || 0;
+          seen[k] = { docId: r.doc.id, name: r.doc.originalName || r.doc.name || 'document', kind: chk.kind, keys: [] };
+          docs.push(seen[k]);
+        }
+        seen[k].keys.push(r.key);
+        it.statut = 'joint'; it.docName = seen[k].name;
+      }
+    } else { it.statut = 'non_joint'; it.motif = r.statut === 'present' ? 'decoche' : 'absent'; if (r.statut === 'present') decoches.push([it, r]); }
+    items.push(it);
+  });
+  // DDT groupé : une ligne décochée dont le FICHIER est joint via une autre ligne EST jointe (vérité du PDF).
+  decoches.forEach(([it, r]) => { const s = seen[String(r.doc.id)]; if (s) { it.statut = 'joint'; it.docName = s.name; delete it.motif; s.keys.push(r.key); } });
+  na.forEach(k => { const e = _diagCatalogEntry(k); items.push({ key: k, label: e ? e.label : k, statut: 'na' }); });
+  return { plan: { v: 1, at: new Date().toISOString(), garage: !!(bail && bail.type === 'garage'), items, docs }, dropped };
+}
+// Ajoute au PDF du bail : 1 page de garde « Annexes — DDT » (fichiers + pages exactes) puis chaque
+// fichier. Ne dessine RIEN sur les pages du diagnostiqueur. Jamais bloquant. Appelé à l'émission
+// distante et à l'archivage présentiel.
+//   1) chaque pièce est PRÉPARÉE seule (PDF autonome : copie exacte, image mise en page, ou PDF
+//      protégé rendu en images — une seule fois) → octets RÉELS connus ;
+//   2) on retient les pièces dans l'ordre tant que le budget tient ;
+//   3) on assemble UNE fois (aucun objet orphelin d'une pièce en échec) ; au-delà du plafond relais,
+//      la pièce la plus lourde est retirée et on réassemble — jamais « tout ou rien ».
+async function _ddtAppendAnnexes(pdfBytes, bail) {
+  const plan = bail && bail.annexesDdt;
+  const docs = (plan && Array.isArray(plan.docs)) ? plan.docs : [];
+  if (!docs.length) return { bytes: pdfBytes, addedPages: 0, failed: [] };
+  if (docs.some(d => d.kind === 'pdf-protege') && typeof showToast === 'function')
+    showToast('Préparation des pièces annexées (PDF protégés : quelques secondes)…', 'info', 6000);
+  const PDFLib = await _loadPdfLib();
+  const preps = [], failed = [];
+  let used = 0;
+  for (const d of docs) {
+    try {
+      const p = await _ddtPrepare(PDFLib, d);
+      if (used + p.size > DDT_ANNEX_BUDGET) { failed.push({ d, motif: 'volume' }); continue; }
+      used += p.size; preps.push(p);
+    } catch (e) { console.warn('[DDT annexe]', d && d.name, e); failed.push({ d, motif: (e && e.motif) || 'illisible' }); }
+  }
+  let r;
+  for (;;) {
+    try { r = await _ddtAssemble(PDFLib, pdfBytes, bail, preps, failed); }
+    catch (e) {
+      console.warn('[DDT annexes] assemblage', e);
+      preps.splice(0).forEach(p => failed.push({ d: p.d, motif: 'erreur' }));
+      r = await _ddtAssemble(PDFLib, pdfBytes, bail, [], failed);
+      break;
+    }
+    if (r.bytes.length <= DDT_PDF_MAX || !preps.length) break;
+    let iMax = 0; preps.forEach((p, i) => { if (p.size > preps[iMax].size) iMax = i; });
+    failed.push({ d: preps[iMax].d, motif: 'volume' }); preps.splice(iMax, 1);
+  }
+  _ddtNoteFusion(bail, r.failed);
+  return r;
+}
+// Une pièce → PDF autonome prêt à copier (même _ddtEmbedFile que la vérification à blanc).
+async function _ddtPrepare(PDFLib, d) {
+  const doc = (DB.documents || []).find(x => x && !x._deleted && String(x.id) === String(d.docId));
+  const dataUrl = doc ? await _ddtWithTimeout(_attachmentLoadBinary(doc), DDT_CHECK_TIMEOUT_MS, 'fichier indisponible (délai dépassé)') : null;
+  if (!dataUrl) throw new Error('fichier introuvable');
+  const t = await PDFLib.PDFDocument.create();
+  await _ddtEmbedFile(t, PDFLib, _dataUrlToUint8(dataUrl), d.kind);
+  if (!t.getPageCount()) throw new Error('aucune page');
+  const pdf = await t.save();
+  return { d, pdf, size: pdf.length };
+}
+// Trace DURABLE sur le bail des pièces prévues mais non jointes (affichée sur la fiche du bail).
+function _ddtNoteFusion(bail, failed) {
+  if (!bail || !bail.annexesDdt) return;
+  bail.annexesDdt.fusion = { at: new Date().toISOString(), failed: (failed || []).map(f => ({ name: f.name, motif: f.motif })) };
+  bail._modifiedAt = new Date().toISOString();
+}
+// Échec GLOBAL (bibliothèque PDF, bail illisible…) : toutes les pièces prévues sont notées non jointes.
+function _ddtNoteFusionEchec(bail) {
+  const docs = (bail && bail.annexesDdt && Array.isArray(bail.annexesDdt.docs)) ? bail.annexesDdt.docs : [];
+  if (docs.length) _ddtNoteFusion(bail, docs.map(d => ({ name: d.name, motif: 'erreur' })));
+  return docs.length > 0;
+}
+function _ddtFusionAlertTxt(bail) {
+  const f = bail && bail.annexesDdt && bail.annexesDdt.fusion;
+  if (!f || !Array.isArray(f.failed) || !f.failed.length) return '';
+  return f.failed.length + ' pièce' + (f.failed.length > 1 ? 's' : '') + ' du DDT non jointe' + (f.failed.length > 1 ? 's' : '')
+    + ' au PDF signé (' + f.failed.map(x => x.name).join(', ') + ') : à remettre au locataire séparément.';
+}
+const _DDT_MOTIF_TXT = { volume: 'volume trop important', delai: 'fichier indisponible (délai dépassé)', erreur: 'erreur technique', illisible: 'fichier illisible' };
+// La page de garde est TOUJOURS produite dès que le plan prévoit des pièces : elle liste les pièces
+// jointes (pages exactes) ET celles qui n'ont pas pu l'être malgré le § 17 — le PDF signé ne peut
+// donc jamais affirmer une remise sans en porter la correction.
+async function _ddtAssemble(PDFLib, pdfBytes, bail, preps, failed) {
+  const out = await PDFLib.PDFDocument.load(pdfBytes);
+  const font = await out.embedFont(PDFLib.StandardFonts.Helvetica);
+  const fontB = await out.embedFont(PDFLib.StandardFonts.HelveticaBold);
+  const coverIdx = out.getPageCount();
+  const cover = out.addPage([595.28, 841.89]);
+  const placed = [];
+  for (const p of preps) {
+    const src = await PDFLib.PDFDocument.load(p.pdf);
+    const first = out.getPageCount();
+    (await out.copyPages(src, src.getPageIndices())).forEach(pg => out.addPage(pg));
+    placed.push({ d: p.d, from: first + 1, to: out.getPageCount() });
+  }
+  const safe = t => (window.MontantDoc && window.MontantDoc.pdfSafeText) ? window.MontantDoc.pdfSafeText(t) : String(t);
+  const lbl = k => { const e = _diagCatalogEntry(k); return e ? e.label : k; };
+  const MAXW = 495;
+  // Découpe au mot (et au caractère pour un nom de fichier sans espace) : aucune ligne ne déborde.
+  const wrap = (t, size, f, maxW) => {
+    const lines = []; let cur = '';
+    safe(t).split(' ').forEach(w => {
+      while (f.widthOfTextAtSize(w, size) > maxW && w.length > 1) {
+        // Mot trop long (nom de fichier) : coupé pour remplir la place restante de la ligne en cours.
+        const pre = cur ? cur + ' ' : '';
+        const avail = maxW - f.widthOfTextAtSize(pre, size);
+        let i = w.length - 1; while (i > 1 && f.widthOfTextAtSize(w.slice(0, i), size) > avail) i--;
+        lines.push(pre + w.slice(0, i)); cur = ''; w = w.slice(i);
+      }
+      const nx = cur ? cur + ' ' + w : w;
+      if (cur && f.widthOfTextAtSize(nx, size) > maxW) { lines.push(cur); cur = w; } else cur = nx;
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  };
+  let y = 780;
+  const line = (t, size, bold, indent) => {
+    const f = bold ? fontB : font, x = 50 + (indent || 0);
+    wrap(t, size, f, MAXW - (indent || 0)).forEach(l => { if (y > 40) cover.drawText(l, { x, y, size, font: f }); y -= size + 4; });
+    y -= 4;
+  };
+  line('ANNEXES AU BAIL ' + (bail.ref || ''), 15, true);
+  line(bail.type === 'garage' ? 'État des risques (art. L. 125-5 du code de l\'environnement)'
+    : 'Dossier de diagnostic technique (loi n° 89-462 du 6 juillet 1989, art. 3-3)', 11, false);
+  y -= 8;
+  placed.forEach((p, i) => {
+    line((i + 1) + '. ' + p.d.name + ' — pages ' + p.from + ' à ' + p.to, 11, true);
+    line((p.d.keys || []).map(lbl).join(' · '), 9, false, 14);
+  });
+  if (failed.length) {
+    y -= 8;
+    line('Pièces prévues au § 17 mais NON jointes à ce document :', 11, true);
+    failed.forEach(f => line('- ' + f.d.name + ' (' + (f.d.keys || []).map(lbl).join(' · ') + ') : '
+      + (_DDT_MOTIF_TXT[f.motif] || _DDT_MOTIF_TXT.illisible), 10, false, 8));
+    line('Ces pièces sont à remettre au locataire séparément.', 10, false);
+  }
+  return { bytes: await out.save(), addedPages: out.getPageCount() - coverIdx,
+    failed: failed.map(f => ({ name: f.d.name, keys: f.d.keys || [], motif: f.motif })) };
+}
+// Rendu d'une page de PDF protégé → JPEG (échelle 1,3 · qualité 0,72 : lisible, ~2× plus léger que 1,6/0,82).
+async function _ddtRenderPdfPage(pdf, i) {
+  const pg = await pdf.getPage(i);
+  const vp1 = pg.getViewport({ scale: 1 });
+  const vp = pg.getViewport({ scale: 1.3 });
+  const cv = document.createElement('canvas');
+  cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+  const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+  await pg.render({ canvasContext: ctx, viewport: vp }).promise;
+  const jpg = _dataUrlToUint8(cv.toDataURL('image/jpeg', 0.72));
+  cv.width = cv.height = 0;
+  return { jpg, w: vp1.width, h: vp1.height };
+}
+// Un fichier → pages du document cible. PDF lisible = copie exacte des pages ; PDF protégé =
+// rendu page à page par pdf.js (pdf-lib ne déchiffre pas) ; JPG/PNG = une page A4 ajustée.
+async function _ddtEmbedFile(out, PDFLib, bytes, kind) {
+  if (kind === 'img') {
+    const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
+    const img = isPng ? await out.embedPng(bytes) : await out.embedJpg(bytes);
+    const W = 595.28, H = 841.89, m = 28;
+    const s = Math.min((W - 2 * m) / img.width, (H - 2 * m) / img.height, 1);
+    const pg = out.addPage([W, H]);
+    pg.drawImage(img, { x: (W - img.width * s) / 2, y: (H - img.height * s) / 2, width: img.width * s, height: img.height * s });
+    return;
+  }
+  if (kind === 'pdf') {
+    const src = await PDFLib.PDFDocument.load(bytes);
+    (await out.copyPages(src, src.getPageIndices())).forEach(p => out.addPage(p));
+    return;
+  }
+  // PDF protégé → rendu JPEG par pdf.js (qui ouvre les PDF à mot de passe propriétaire)
+  await _ensurePdfjsLoaded();
+  const pdf = await window.pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+  try {
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const r = await _ddtRenderPdfPage(pdf, i);
+      const jpg = await out.embedJpg(r.jpg);
+      out.addPage([r.w, r.h]).drawImage(jpg, { x: 0, y: 0, width: r.w, height: r.h });
+    }
+  } finally { try { await pdf.destroy(); } catch (e) {} }
+}
+
 // PC-REFONTE — badge de statut ÉCRAN : line-icon + classe tokenisée (dark-safe).
 // Le print continue d'utiliser _DIAG_STATUT_LABEL (hex, papier blanc).
 const _LOGDIAG_ST_UI = {
@@ -44451,6 +45156,7 @@ function _renderLogFichePanelDocuments(log, ref) {
         <div class="logf-doc-info">
           <div class="logf-doc-name">Bail signé — ${escHtml(bail.nom || (bail.locataires?.[0]?.nom) || '—')}</div>
           <div class="logf-doc-meta">Signé le ${fd(sigSign)}${bail.debut?` · début ${fd(bail.debut)}`:''}</div>
+          ${_ddtFusionAlertTxt(bail) ? `<div class="logf-doc-alert">${_uiIcon('warn', 13)}<span>${escHtml(_ddtFusionAlertTxt(bail))}</span></div>` : ''}
         </div>
         <div class="logf-doc-actions">
           <button class="btn bs bb" onclick="previewSignedBailRef('${_lyQ(ref)}')" title="Voir le bail tel que signé (snapshot figé)">${_uiIcon('eye')} Aperçu</button>
@@ -46927,7 +47633,11 @@ function _logDiagSyntheticLog() {
   const _n = v => { const n = parseInt(v,10); return Number.isFinite(n) && n>0 ? n : null; };
   return {
     diagnostics:           _logDiagDraft.diag,
-    anneeConstruction:     _n(c.anneeConstruction),
+    // La PÉRIODE pilote plomb/amiante (v15.676) : sans elle, l'onglet ne voyait que l'année
+    // (mise à 0 quand on choisit une période) → CREP/amiante « à renseigner » à tort, en
+    // désaccord avec _ddtComplet / la signature qui lisent la période.
+    periodeConstr:         c.periodeConstr || '',
+    anneeConstruction:     _n(c.anneeConstruction),   // _periodeLegale arbitre (année d'abord), comme _ddtComplet / garde saveBail
     installationGazAnnee:  _n(c.installationGazAnnee),
     installationElecAnnee: _n(c.installationElecAnnee),
     zoneRisques:  c.zoneRisques !== false,
@@ -46981,6 +47691,8 @@ function _logDiagSetResult(key, code) {
 function _logDiagSetCtx(field, val) {
   if(!_logDiagDraft) return;
   _logDiagDraft.ctx[field] = val;
+  // Choisir une période purge l'année (même geste qu'à l'enregistrement) : l'onglet montre ce qui sera enregistré.
+  if(field === 'periodeConstr' && val) _logDiagDraft.ctx.anneeConstruction = '';
   // v15.252 FEAT-GEORISQUES-ERP — un toggle manuel de la case ERP fige le choix :
   // l'auto-détection ne réécrira plus jamais zoneRisques pour ce logement.
   if(field === 'zoneRisques') _logDiagDraft.ctx._manualZoneRisques = true;
@@ -49419,6 +50131,14 @@ function _logDiagCommitToLog(log) {
       clean[e.key] = info;
     }
   });
+  // DDT annexé au bail — SUGGÈRE chaque PDF LU pour ses diagnostics (détection par mots-clés : jamais
+  // un rattachement sans confirmation). Seulement les documents persistés DE CE logement ; les dépôts d'un bien
+  // neuf (pendingDocs) sont rattachés au flush de saveParamLog, une fois leur id connu.
+  Object.keys(_logDiagDocScans || {}).forEach(docId => {
+    const doc = (DB.documents || []).find(d => d && !d._deleted && String(d.id) === String(docId)   // nid() = nombre, clé de scan = string
+      && d.parentType === 'logement' && String(d.parentId) === String(log.id));
+    if (doc) _ddtLinkFromCoverage(clean, _logDiagDocScans[docId].coverage, doc.id);
+  });
   log.diagnostics = clean;
   // v15.252 FEAT-GEORISQUES-ERP — préserve le cache de détection ERP (hors catalogue diag,
   // sinon écrasé par `clean`). Sert à éviter un re-fetch réseau à chaque réouverture.
@@ -50674,10 +51394,14 @@ function saveParamLog() {
     let ok = 0;
     for (const d of pend) {
       try {
-        await _attachmentSaveForEntity(
+        const saved = await _attachmentSaveForEntity(
           { type:'logement', id: log.id, ref: log.ref, logRef: log.ref, category:'documents' },
           { name: d.name, mime: d.mime, size: d.size, dataB64: d.dataB64 }
         );
+        // DDT annexé au bail — le PDF lu à l'étape de saisie est SUGGÉRÉ pour ses diagnostics (confirmé via « Déposer »).
+        const _sc = _logDiagDocScans && _logDiagDocScans[d.tmpId];
+        if (saved && _sc && _sc.coverage && _ddtLinkFromCoverage(log.diagnostics || (log.diagnostics = {}), _sc.coverage, saved.id)
+            && typeof _stamp === 'function') _stamp(log);
         ok++;
       } catch(e) { console.error('[Bug1 flush PJ]', e); }
     }
@@ -61900,6 +62624,68 @@ window.addEventListener('DOMContentLoaded', ()=>{
   @media(max-width:599px){
     .bsd-signer-row{grid-template-columns:24px 1fr}
     .bsd-signer-row .bsd-av{display:none}
+  }
+  /* DDT annexé au bail (art. 3-3) — section « Pièces annexées au bail » */
+  .bsd-ddt-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin:-2px 0 8px}
+  .bsd-ddt-legal{font-size:11.5px;color:var(--t3)}
+  .bsd-ddt-count{font-size:11.5px;color:var(--t3);font-weight:600}
+  .bsd-ddt-count b{color:var(--t1)}
+  .bsd-ddt-row{border:1px solid var(--bor);border-radius:var(--r,8px);background:var(--sur2);margin-bottom:8px;padding:10px 12px}
+  .bsd-ddt-line{display:flex;align-items:center;gap:10px}
+  .bsd-ddt-cb{width:20px;height:20px;flex:none;accent-color:var(--acc);cursor:pointer}
+  .bsd-ddt-cbw{display:inline-flex;flex:none;cursor:pointer}
+  .bsd-ddt-cb:disabled{cursor:not-allowed;opacity:.45}
+  .bsd-ddt-main{flex:1;min-width:0}
+  .bsd-ddt-title{font-size:13px;font-weight:600;color:var(--t1)}
+  .bsd-ddt-row.is-absent .bsd-ddt-title{color:var(--t2)}
+  .bsd-ddt-meta{font-size:11.5px;color:var(--t3);overflow-wrap:anywhere}
+  .bsd-ddt-state{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;white-space:nowrap;color:var(--grn)}
+  .bsd-ddt-state.is-none{color:var(--t3)}
+  .bsd-ddt-dot{width:10px;height:10px;border-radius:50%;flex:none;box-sizing:border-box}
+  .bsd-ddt-dot.full{background:var(--grn)}
+  .bsd-ddt-dot.hollow{border:2px solid var(--grn);background:transparent}
+  .bsd-ddt-dot.none{border:2px solid var(--t3);opacity:.5}
+  .bsd-ddt-alert{margin:8px 0 0 30px;background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn);border-radius:7px;padding:7px 10px;font-size:12px;display:flex;gap:7px;align-items:flex-start}
+  .bsd-ddt-warn{margin:6px 0 0 30px;font-size:11.5px;color:var(--warn);display:flex;gap:6px;align-items:center}
+  .bsd-ddt-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0 0 30px}
+  .bsd-ddt-btn{min-height:34px;font-size:12.5px}
+  .bsd-ddt-lnk{background:none;border:0;padding:0;cursor:pointer;color:var(--adv);font:inherit;font-size:12px;font-weight:600}
+  .bsd-ddt-sep-dot{color:var(--t3)}
+  .bsd-ddt-picker{margin:10px 0 0 30px;border:1px solid var(--bor);border-radius:var(--r,8px);background:var(--sur);padding:10px}
+  .bsd-ddt-pk-h{font-size:12.5px;font-weight:700;color:var(--t1);margin-bottom:6px}
+  .bsd-ddt-opt{display:flex;align-items:center;gap:9px;padding:7px 6px;border-radius:6px;cursor:pointer;font-size:12.5px;color:var(--t2)}
+  .bsd-ddt-opt:hover{background:var(--sur2)}
+  .bsd-ddt-opt input{accent-color:var(--acc);width:17px;height:17px;flex:none}
+  .bsd-ddt-opt-n{flex:1;min-width:0;overflow-wrap:anywhere}
+  .bsd-ddt-sz{font-size:11px;color:var(--t3);white-space:nowrap}
+  .bsd-ddt-sepl{height:1px;background:var(--bor);margin:8px 0}
+  .bsd-ddt-file{position:relative;cursor:pointer;white-space:normal;max-width:100%;text-align:left;box-sizing:border-box}
+  .bsd-ddt-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .bsd-ddt-pk-f{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .bsd-ddt-na{display:flex;justify-content:space-between;width:100%;border:1px dashed var(--bor);border-radius:var(--r,8px);padding:8px 12px;font:inherit;font-size:12px;color:var(--t3);background:transparent;cursor:pointer;text-align:left}
+  .bsd-ddt-na-list{font-size:12px;color:var(--t3);padding:6px 12px 2px}
+  .bsd-ddt-never{font-size:11.5px;color:var(--t3);margin-top:8px;display:flex;gap:6px;align-items:center}
+  /* Téléphone (M-16) : choix du fichier en page pleine, au-dessus de la modale */
+  .bsd-ddt-sheet{position:fixed;inset:0;z-index:2147483000;background:var(--sur);display:flex;flex-direction:column}
+  .bsd-ddt-sheet .m-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bor)}
+  .bsd-ddt-sheet .m-head h3{margin:0;font-size:15px;color:var(--t1)}
+  .bsd-ddt-sheet .m-body{flex:1;overflow:auto;padding:14px}
+  body:has(.bsd-ddt-sheet) #toast{z-index:2147483001}   /* erreurs de dépôt visibles AU-DESSUS de la page pleine */
+  .bsd-ddt-frozen{font-size:12px;color:var(--t2);display:flex;gap:6px;align-items:center;margin:0 0 8px}
+  .bsd-ddt-fz{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bor)}
+  .bsd-ddt-fz span:last-child{color:var(--t3);text-align:right}
+  .logf-doc-alert{margin-top:4px;font-size:12px;color:var(--warn);display:flex;gap:6px;align-items:flex-start}
+  @media(max-width:767px){
+    .bsd-ddt-alert,.bsd-ddt-warn,.bsd-ddt-actions,.bsd-ddt-picker{margin-left:0}
+    .bsd-ddt-actions .btn{flex:1;justify-content:center;min-height:44px}
+    .bsd-ddt-line{flex-wrap:wrap}
+    .bsd-ddt-state{order:3;flex-basis:100%;padding-left:30px}   /* pastille pleine/creuse gardée (info clé), sous le titre */
+    .bsd-ddt-opt{min-height:44px}
+    /* Cibles tactiles ≥ 44 px (M-charte) : case, liens d'action, « Voir », repli « Non concernés » */
+    .bsd-ddt-cb{width:24px;height:24px;margin:0}
+    .bsd-ddt-cbw{padding:10px;margin:-10px -4px -10px -10px}   /* zone cliquable 44 × 44 autour de la case */
+    .bsd-ddt-lnk{min-height:44px;padding:0 6px;font-size:13px}
+    .bsd-ddt-line .bsd-ddt-btn,.bsd-ddt-na{min-height:44px}
   }
 </style>
 

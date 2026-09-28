@@ -281,7 +281,7 @@
     out.push({ type: 'p', text: 'Le BAILLEUR fait élection de domicile à son siège ; le LOCATAIRE ' + (has(c.locDomicile) ? 'à son domicile sis ' + S(c.locDomicile) : 'à l\'adresse de l\'emplacement loué') + '. Toute correspondance y est valablement notifiée.' });
     if (c.erpZoneRisque) {
       out.push({ type: 'h3', text: 'État des risques' });
-      out.push({ type: 'p', text: 'L\'emplacement étant situé dans une zone couverte par un plan de prévention des risques (ou en zone sismique / radon), un état des risques (art. L. 125-5 du Code de l\'environnement) de moins de six mois est annexé au présent contrat (Annexe 2).' });
+      out.push({ type: 'p', text: 'L\'emplacement étant situé dans une zone couverte par un plan de prévention des risques (ou en zone sismique / radon), un état des risques (art. L. 125-5 du Code de l\'environnement) de moins de six mois est annexé au présent contrat ' + (c.erpAnnexeTxt ? 'selon l\'état détaillé à l\'Annexe 2.' : '(Annexe 2).') });
     }
     out.push({ type: 'h3', text: 'Protection des données (RGPD)' });
     out.push({ type: 'p', text: 'Les données personnelles collectées sont traitées pour les seuls besoins de l\'exécution du contrat et conservées pendant sa durée augmentée des délais de prescription. Chaque partie dispose d\'un droit d\'accès et de rectification ; toute réclamation peut être portée devant la CNIL (www.cnil.fr).' });
@@ -296,7 +296,7 @@
     out.push({ type: 'h2', text: 'Annexes' });
     const annexRows = [
       ['1', 'État des lieux simplifié (entrée / sortie)', 'À établir'],
-      ['2', 'État des risques (art. L. 125-5 C. env.)', c.erpZoneRisque ? 'Joint (zone à risque)' : 'N/A — hors zone à risque'],
+      ['2', 'État des risques (art. L. 125-5 C. env.)', c.erpAnnexeTxt || (c.erpZoneRisque ? 'Joint (zone à risque)' : 'N/A — hors zone à risque')],
       ['3', 'Acte de cautionnement solidaire', c.hasGarant ? 'Joint' : 'N/A — sans garant']
     ];
     out.push({ type: 'table', headers: ['N°', 'Document', 'Statut'], rows: annexRows, columnStyles: { 0: { halign: 'center', cellWidth: 10 } } });

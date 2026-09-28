@@ -118,6 +118,41 @@ const isDeleted = rec => !!(rec && rec._deleted)
 // de signature dans index.html). Idempotent : un bail déjà scellé (hash + locked) est ignoré ; un hash
 // existant n'est JAMAIS recalculé (immutabilité). Async (crypto.subtle) ; appelé AVANT le snapshot du flush
 // → le diff voit l'état scellé et POSE le verrou ; les flushs suivants l'excluent (déjà locked, pièce 4).
+// ARCHIVE AVANT SCEAU (28/09, défaut mesuré en base) — signature EN PRÉSENCE complète : la fenêtre de
+// signature persiste les signatures (→ flush 800 ms) PUIS génère le PDF, fusionne le certificat et
+// l'envoie au stockage (plusieurs secondes), et n'écrit qu'ENSUITE cloudPdfKey / proof / contentHash /
+// certRef sur `bail.signatures`. Scellé entre les deux, le bail était déjà verrouillé : ces références
+// ne partaient jamais au cloud (PDF et certificat orphelins, introuvables au rechargement ou sur un
+// autre appareil). On attend donc la fin de l'archive (`archiveTermine`, posé par __immoArchiveBailPdf,
+// succès OU échec) ou une référence d'archive — avec un délai de garde, pour qu'une fenêtre fermée avant
+// la génération du PDF ne laisse jamais un bail signé sans verrou. La signature à distance n'est pas
+// concernée (`_completeRemoteSign` pose tout, verrou compris, en une fois : mode 'distance').
+export const ARCHIVE_GARDE_MS = 15 * 60 * 1000
+export function archiveEnAttente(sg, now) {
+  if (!sg || sg.mode !== 'avec-locataire' || sg.archiveTermine) return false
+  if (sg.cloudPdfKey || (sg.pdfRef && sg.pdfRef.cloudPdfKey) || sg.driveWebViewLink || sg.driveFileId) return false
+  // Instant TECHNIQUE de l'enregistrement (`persistedAt`, posé par la fenêtre de signature) : `signedAt`
+  // peut être une DATE SAISIE (midi UTC, voire passée ou future) → il ne mesure pas le temps écoulé.
+  // Repli sur signedAt pour une signature enregistrée avant ce correctif.
+  const t = Date.parse(sg.persistedAt || sg.signedAt)
+  if (!isFinite(t)) return false
+  const ecart = (now == null ? Date.now() : now) - t
+  return ecart >= -ARCHIVE_GARDE_MS && ecart < ARCHIVE_GARDE_MS   // horodatage aberrant (futur lointain) → ne pas attendre
+}
+
+/** Délai restant avant la fin de l'attente d'archive le plus proche (ms), ou null s'il n'y en a pas. */
+export function attenteArchiveRestante(db, now) {
+  const t0 = now == null ? Date.now() : now
+  let min = null
+  for (const bail of Object.values((db && db.baux) || {})) {
+    const sg = bail && bail.signatures
+    if (!sg || (sg.contentHashTerms && sg.locked) || !archiveEnAttente(sg, t0)) continue
+    const reste = Date.parse(sg.persistedAt || sg.signedAt) + ARCHIVE_GARDE_MS - t0
+    if (min == null || reste < min) min = reste
+  }
+  return min == null ? null : Math.max(1000, min + 1000)
+}
+
 async function sealSignedBaux(db) {
   for (const bail of Object.values((db && db.baux) || {})) {
     const sg = bail && bail.signatures
@@ -128,6 +163,9 @@ async function sealSignedBaux(db) {
     // (avec-locataire, distance, et les baux legacy déjà bilatéraux). `signedAt` ≠ « signé par tous ».
     if (sg.mode === 'bailleur-seul') continue
     if (sg.contentHashTerms && sg.locked) continue      // déjà scellé → idempotent
+    // Présentiel : archive du PDF en cours → le VERROU attend. L'EMPREINTE, elle, est figée dès maintenant
+    // (audit O2) : calculée plus tard, elle intégrerait une modification faite pendant l'attente.
+    if (archiveEnAttente(sg)) { if (!sg.contentHashTerms) sg.contentHashTerms = await bailContentHash(bail); continue }
     if (!sg.contentHashTerms) sg.contentHashTerms = await bailContentHash(bail)   // empreinte figée (jamais recalculée)
     if (!sg.signatureSource) sg.signatureSource = 'immotrack'
     sg.locked = true
@@ -533,7 +571,15 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         if (_hasRetryable(s)) {
           _failStreak++
           if (typeof schedule === 'function') schedule(() => flush(), { retryDelayMs: Math.min(retryBaseMs * 2 ** (_failStreak - 1), retryMaxMs) })
-        } else _failStreak = 0
+        } else {
+          _failStreak = 0
+          // ARCHIVE AVANT SCEAU (audit O1) : un bail signé en présence attend la fin de l'archive pour être
+          // scellé. Sans nouvel enregistrement, aucun flush ne reviendrait à l'expiration du délai de garde
+          // → le verrou ne serait posé qu'au prochain enregistrement. On programme ce flush.
+          const reste = attenteArchiveRestante(db !== undefined ? db : getDB())
+          // `delayMs` (pas `retryDelayMs`) : ce n'est pas un réessai → pas de plancher de backoff côté app.
+          if (reste != null && typeof schedule === 'function') schedule(() => flush(), { delayMs: reste })
+        }
         return s
       })
     _chain = p.catch(() => {})   // la chaîne survit aux erreurs (un flush qui throw ne bloque pas les suivants)
