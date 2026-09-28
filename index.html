@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.686</title>
+<title>Propryo v15.687</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.686">
+<link rel="stylesheet" href="css/main.css?v=15.687">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.686</em>
+      <em>v15.687</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4270,7 +4270,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.686';
+const IMMOTRACK_VERSION = '15.687';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7230,8 +7230,9 @@ function _buildPresentielProof(bail) {
 }
 
 window.__immoArchiveBailPdf = async function (ref, blob) {
+  let bail = null;   // déclaré hors du try : le catch reporte les références posées sur CET objet (audit J1)
   try {
-    const bail = DB.baux && DB.baux[ref];
+    bail = DB.baux && DB.baux[ref];
     if (!bail || !bail.signatures || !blob || typeof window.__immoCloudUpload !== 'function') return;
     const seg = _cloudEntiteSeg(_cloudEntiteNomForBail(ref));
     const complet = !!(bail.signatures.signedAt && bail.signatures.mode && bail.signatures.mode !== 'bailleur-seul');
@@ -7276,13 +7277,31 @@ window.__immoArchiveBailPdf = async function (ref, blob) {
 
     const key = 'bp_' + String(ref).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now();
     const path = await _uploadCloudRetry(key, artifact, 'application/pdf', seg);   // parité robustesse avec le distant (retry + backoff)
-    if (!path) { console.warn('[Supabase] archive PDF bail échouée', ref); _downloadSignedBailFallback(artifact, ref); return; }
-    bail.signatures.cloudPdfKey = path;
-    if (typeof saveDB === 'function') saveDB();
+    if (!path) { console.warn('[Supabase] archive PDF bail échouée', ref); _archiveBailTerminee(ref, bail, null); _downloadSignedBailFallback(artifact, ref); return; }
+    _archiveBailTerminee(ref, bail, path);
     if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
     if (typeof _backupProposeAfterDoc === 'function') _backupProposeAfterDoc();   // bail archivé cloud → sauvegardable
-  } catch (e) { console.warn('[Supabase] __immoArchiveBailPdf', e); _downloadSignedBailFallback(blob, ref); }
+  } catch (e) { console.warn('[Supabase] __immoArchiveBailPdf', e); _archiveBailTerminee(ref, bail || (DB.baux && DB.baux[ref]), null); _downloadSignedBailFallback(blob, ref); }
 };
+// ARCHIVE AVANT SCEAU (28/09) — fin de l'archive d'un bail signé (succès OU échec) : le scellement cloud
+// (store-sync `archiveEnAttente`) attend ce signal pour verrouiller une signature en présence, afin que
+// cloudPdfKey / proof / contentHash / certRef partent AVEC la ligne scellée (après, elle est immuable).
+// Écrit sur le bail COURANT (une re-synchronisation pendant l'upload a pu remplacer l'objet) en reportant
+// les références calculées sur l'ancien objet ; saveDB déclenche le flush qui scelle.
+function _archiveBailTerminee(ref, bailInitial, path) {
+  try {
+    const cur = (DB.baux && DB.baux[ref]) || bailInitial;
+    if (!cur || !cur.signatures) return;
+    const src = (bailInitial && bailInitial.signatures) || {};
+    if (cur !== bailInitial) ['proof', 'contentHash', 'certRef'].forEach(k => { if (src[k] != null && cur.signatures[k] == null) cur.signatures[k] = src[k]; });
+    if (path) cur.signatures.cloudPdfKey = path;
+    cur.signatures.archiveTermine = true;
+    // Déjà verrouillé (scellé par un autre appareil, ou signature antérieure à ce correctif) : ces
+    // références ne partiront pas au cloud. On le signale au lieu de le taire (audit J2).
+    if (cur.signatures.locked) console.warn('[archive] bail ' + ref + ' déjà scellé : références d\'archive conservées sur cet appareil seulement (PDF bien stocké : ' + (path || 'échec d\'envoi') + ')');
+    if (typeof saveDB === 'function') saveDB();
+  } catch (e) { console.warn('[archive] fin d\'archive', e); }
+}
 window.__immoRender = function() {
   try { _renderSidebarFiltered(); } catch (e) { console.warn('[Supabase] sidebar', e); }
   try { _initSidebarV2(); } catch (e) {}
@@ -24336,6 +24355,10 @@ function previewBailData(bail, log, ref, opts) {
     +    'luApprouveBy:window._wizV2LuApprouveBy||{},'
     +    'mode:mode,'
     +    'signedAt:sigBaseISO,' /* v15.344 : date de signature (saisie manuelle ou instant courant) */
+    /* ARCHIVE AVANT SCEAU (audit 28/09) — instant TECHNIQUE de l'enregistrement (horloge de cet appareil),
+       distinct de signedAt qui peut être une date saisie à midi UTC : c'est lui que mesure le délai de
+       garde du scellement (store-sync archiveEnAttente). Hors empreinte légale (liste fermée). */
+    +    'persistedAt:nowISO,'
     +    'signedBailleurAt:signedBailleurAt,'
     +    'totalPages:(window._wizV2Pages||[]).length,'
     +    'nbParaphes:Object.keys(window._wizV2Paraphes||{}).length,'
