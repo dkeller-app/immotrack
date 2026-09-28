@@ -7276,13 +7276,28 @@ window.__immoArchiveBailPdf = async function (ref, blob) {
 
     const key = 'bp_' + String(ref).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now();
     const path = await _uploadCloudRetry(key, artifact, 'application/pdf', seg);   // parité robustesse avec le distant (retry + backoff)
-    if (!path) { console.warn('[Supabase] archive PDF bail échouée', ref); _downloadSignedBailFallback(artifact, ref); return; }
-    bail.signatures.cloudPdfKey = path;
-    if (typeof saveDB === 'function') saveDB();
+    if (!path) { console.warn('[Supabase] archive PDF bail échouée', ref); _archiveBailTerminee(ref, bail, null); _downloadSignedBailFallback(artifact, ref); return; }
+    _archiveBailTerminee(ref, bail, path);
     if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
     if (typeof _backupProposeAfterDoc === 'function') _backupProposeAfterDoc();   // bail archivé cloud → sauvegardable
-  } catch (e) { console.warn('[Supabase] __immoArchiveBailPdf', e); _downloadSignedBailFallback(blob, ref); }
+  } catch (e) { console.warn('[Supabase] __immoArchiveBailPdf', e); _archiveBailTerminee(ref, DB.baux && DB.baux[ref], null); _downloadSignedBailFallback(blob, ref); }
 };
+// ARCHIVE AVANT SCEAU (28/09) — fin de l'archive d'un bail signé (succès OU échec) : le scellement cloud
+// (store-sync `archiveEnAttente`) attend ce signal pour verrouiller une signature en présence, afin que
+// cloudPdfKey / proof / contentHash / certRef partent AVEC la ligne scellée (après, elle est immuable).
+// Écrit sur le bail COURANT (une re-synchronisation pendant l'upload a pu remplacer l'objet) en reportant
+// les références calculées sur l'ancien objet ; saveDB déclenche le flush qui scelle.
+function _archiveBailTerminee(ref, bailInitial, path) {
+  try {
+    const cur = (DB.baux && DB.baux[ref]) || bailInitial;
+    if (!cur || !cur.signatures) return;
+    const src = (bailInitial && bailInitial.signatures) || {};
+    if (cur !== bailInitial) ['proof', 'contentHash', 'certRef'].forEach(k => { if (src[k] != null && cur.signatures[k] == null) cur.signatures[k] = src[k]; });
+    if (path) cur.signatures.cloudPdfKey = path;
+    cur.signatures.archiveTermine = true;
+    if (typeof saveDB === 'function') saveDB();
+  } catch (e) { console.warn('[archive] fin d\'archive', e); }
+}
 window.__immoRender = function() {
   try { _renderSidebarFiltered(); } catch (e) { console.warn('[Supabase] sidebar', e); }
   try { _initSidebarV2(); } catch (e) {}

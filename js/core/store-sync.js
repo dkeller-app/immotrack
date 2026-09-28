@@ -112,6 +112,24 @@ const isDeleted = rec => !!(rec && rec._deleted)
 // de signature dans index.html). Idempotent : un bail déjà scellé (hash + locked) est ignoré ; un hash
 // existant n'est JAMAIS recalculé (immutabilité). Async (crypto.subtle) ; appelé AVANT le snapshot du flush
 // → le diff voit l'état scellé et POSE le verrou ; les flushs suivants l'excluent (déjà locked, pièce 4).
+// ARCHIVE AVANT SCEAU (28/09, défaut mesuré en base) — signature EN PRÉSENCE complète : la fenêtre de
+// signature persiste les signatures (→ flush 800 ms) PUIS génère le PDF, fusionne le certificat et
+// l'envoie au stockage (plusieurs secondes), et n'écrit qu'ENSUITE cloudPdfKey / proof / contentHash /
+// certRef sur `bail.signatures`. Scellé entre les deux, le bail était déjà verrouillé : ces références
+// ne partaient jamais au cloud (PDF et certificat orphelins, introuvables au rechargement ou sur un
+// autre appareil). On attend donc la fin de l'archive (`archiveTermine`, posé par __immoArchiveBailPdf,
+// succès OU échec) ou une référence d'archive — avec un délai de garde, pour qu'une fenêtre fermée avant
+// la génération du PDF ne laisse jamais un bail signé sans verrou. La signature à distance n'est pas
+// concernée (`_completeRemoteSign` pose tout, verrou compris, en une fois : mode 'distance').
+export const ARCHIVE_GARDE_MS = 15 * 60 * 1000
+export function archiveEnAttente(sg, now) {
+  if (!sg || sg.mode !== 'avec-locataire' || sg.archiveTermine) return false
+  if (sg.cloudPdfKey || (sg.pdfRef && sg.pdfRef.cloudPdfKey) || sg.driveWebViewLink || sg.driveFileId) return false
+  const t = Date.parse(sg.signedAt)
+  if (!isFinite(t)) return false
+  return ((now == null ? Date.now() : now) - t) < ARCHIVE_GARDE_MS
+}
+
 async function sealSignedBaux(db) {
   for (const bail of Object.values((db && db.baux) || {})) {
     const sg = bail && bail.signatures
@@ -122,6 +140,7 @@ async function sealSignedBaux(db) {
     // (avec-locataire, distance, et les baux legacy déjà bilatéraux). `signedAt` ≠ « signé par tous ».
     if (sg.mode === 'bailleur-seul') continue
     if (sg.contentHashTerms && sg.locked) continue      // déjà scellé → idempotent
+    if (archiveEnAttente(sg)) continue                 // présentiel : archive du PDF en cours → sceller après
     if (!sg.contentHashTerms) sg.contentHashTerms = await bailContentHash(bail)   // empreinte figée (jamais recalculée)
     if (!sg.signatureSource) sg.signatureSource = 'immotrack'
     sg.locked = true

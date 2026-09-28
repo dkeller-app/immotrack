@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createStoreSync, SYNCED_COLLECTIONS, summaryHasCloudWrites } from '../../js/core/store-sync.js'
+import { createStoreSync, SYNCED_COLLECTIONS, summaryHasCloudWrites, archiveEnAttente, ARCHIVE_GARDE_MS } from '../../js/core/store-sync.js'
 import { mapToRow } from '../../js/core/store-mapping.js'
 import { createSupabaseStore, TABLE_COLLECTIONS } from '../../js/core/store-supabase.js'
 
@@ -929,5 +929,41 @@ describe('journal des baux signés (0054) — incident Ferrette 101', () => {
     const i = SYNCED_COLLECTIONS.indexOf('baux'), j = SYNCED_COLLECTIONS.indexOf('baux_evenements')
     expect(i).toBeGreaterThanOrEqual(0)
     expect(j).toBeGreaterThan(i)
+  })
+})
+
+describe('ARCHIVE AVANT SCEAU (28/09) — signature en présence : sceller APRÈS l\'archive du PDF', () => {
+  const now = Date.parse('2026-09-28T10:00:00Z')
+  it('archiveEnAttente : présentiel complet récent sans référence d\'archive → attendre', () => {
+    const sg = { mode: 'avec-locataire', signedAt: '2026-09-28T09:59:00Z' }
+    expect(archiveEnAttente(sg, now)).toBe(true)
+  })
+  it('ne plus attendre : archive terminée (succès ou échec), référence présente, délai de garde dépassé, autre mode', () => {
+    expect(archiveEnAttente({ mode: 'avec-locataire', signedAt: '2026-09-28T09:59:00Z', archiveTermine: true }, now)).toBe(false)
+    expect(archiveEnAttente({ mode: 'avec-locataire', signedAt: '2026-09-28T09:59:00Z', cloudPdfKey: 'p' }, now)).toBe(false)
+    expect(archiveEnAttente({ mode: 'avec-locataire', signedAt: '2026-09-28T09:59:00Z', driveWebViewLink: 'x' }, now)).toBe(false)
+    expect(archiveEnAttente({ mode: 'avec-locataire', signedAt: new Date(now - ARCHIVE_GARDE_MS - 1000).toISOString() }, now)).toBe(false)
+    expect(archiveEnAttente({ mode: 'distance', signedAt: '2026-09-28T09:59:00Z' }, now)).toBe(false)
+    expect(archiveEnAttente({ mode: 'avec-locataire', signedAt: 'pas une date' }, now)).toBe(false)
+  })
+  it('flux complet : 1er flush = ligne poussée NON verrouillée ; fin d\'archive → scellée AVEC cloudPdfKey / preuve', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    db.baux = { 'F-1': { hc: 700, signatures: { signedAt: new Date().toISOString(), mode: 'avec-locataire' } } }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.baux['F-1'].hc = 700   // (état signé tout juste persisté par la fenêtre de signature)
+    db.baux['F-1'].signatures.finales = { 'bailleur-0': 'x', 'loc-0': 'y' }
+    await sync.flush()
+    const up1 = store.calls.filter(c => c.op === 'upsert' && c.coll === 'baux').pop()
+    expect(up1.rec.signatures.locked).toBeFalsy()          // pas scellé : l'archive est en cours
+    store.calls.length = 0
+    // __immoArchiveBailPdf terminé : références posées + signal de fin
+    Object.assign(db.baux['F-1'].signatures, { cloudPdfKey: 'esp/files/bp_F_1', proof: { a: 1 }, contentHash: 'h', certRef: { cloudPdfKey: 'c' }, archiveTermine: true })
+    await sync.flush()
+    const up2 = store.calls.filter(c => c.op === 'upsert' && c.coll === 'baux').pop()
+    expect(up2.rec.signatures.locked).toBe(true)           // scellé maintenant…
+    expect(up2.rec.signatures.cloudPdfKey).toBe('esp/files/bp_F_1')   // …AVEC les références d'archive
+    expect(up2.rec.signatures.proof).toEqual({ a: 1 })
   })
 })
