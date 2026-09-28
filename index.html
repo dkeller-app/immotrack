@@ -7230,8 +7230,9 @@ function _buildPresentielProof(bail) {
 }
 
 window.__immoArchiveBailPdf = async function (ref, blob) {
+  let bail = null;   // déclaré hors du try : le catch reporte les références posées sur CET objet (audit J1)
   try {
-    const bail = DB.baux && DB.baux[ref];
+    bail = DB.baux && DB.baux[ref];
     if (!bail || !bail.signatures || !blob || typeof window.__immoCloudUpload !== 'function') return;
     const seg = _cloudEntiteSeg(_cloudEntiteNomForBail(ref));
     const complet = !!(bail.signatures.signedAt && bail.signatures.mode && bail.signatures.mode !== 'bailleur-seul');
@@ -7280,7 +7281,7 @@ window.__immoArchiveBailPdf = async function (ref, blob) {
     _archiveBailTerminee(ref, bail, path);
     if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
     if (typeof _backupProposeAfterDoc === 'function') _backupProposeAfterDoc();   // bail archivé cloud → sauvegardable
-  } catch (e) { console.warn('[Supabase] __immoArchiveBailPdf', e); _archiveBailTerminee(ref, DB.baux && DB.baux[ref], null); _downloadSignedBailFallback(blob, ref); }
+  } catch (e) { console.warn('[Supabase] __immoArchiveBailPdf', e); _archiveBailTerminee(ref, bail || (DB.baux && DB.baux[ref]), null); _downloadSignedBailFallback(blob, ref); }
 };
 // ARCHIVE AVANT SCEAU (28/09) — fin de l'archive d'un bail signé (succès OU échec) : le scellement cloud
 // (store-sync `archiveEnAttente`) attend ce signal pour verrouiller une signature en présence, afin que
@@ -7295,6 +7296,9 @@ function _archiveBailTerminee(ref, bailInitial, path) {
     if (cur !== bailInitial) ['proof', 'contentHash', 'certRef'].forEach(k => { if (src[k] != null && cur.signatures[k] == null) cur.signatures[k] = src[k]; });
     if (path) cur.signatures.cloudPdfKey = path;
     cur.signatures.archiveTermine = true;
+    // Déjà verrouillé (scellé par un autre appareil, ou signature antérieure à ce correctif) : ces
+    // références ne partiront pas au cloud. On le signale au lieu de le taire (audit J2).
+    if (cur.signatures.locked) console.warn('[archive] bail ' + ref + ' déjà scellé : références d\'archive conservées sur cet appareil seulement (PDF bien stocké : ' + (path || 'échec d\'envoi') + ')');
     if (typeof saveDB === 'function') saveDB();
   } catch (e) { console.warn('[archive] fin d\'archive', e); }
 }
@@ -24351,6 +24355,10 @@ function previewBailData(bail, log, ref, opts) {
     +    'luApprouveBy:window._wizV2LuApprouveBy||{},'
     +    'mode:mode,'
     +    'signedAt:sigBaseISO,' /* v15.344 : date de signature (saisie manuelle ou instant courant) */
+    /* ARCHIVE AVANT SCEAU (audit 28/09) — instant TECHNIQUE de l'enregistrement (horloge de cet appareil),
+       distinct de signedAt qui peut être une date saisie à midi UTC : c'est lui que mesure le délai de
+       garde du scellement (store-sync archiveEnAttente). Hors empreinte légale (liste fermée). */
+    +    'persistedAt:nowISO,'
     +    'signedBailleurAt:signedBailleurAt,'
     +    'totalPages:(window._wizV2Pages||[]).length,'
     +    'nbParaphes:Object.keys(window._wizV2Paraphes||{}).length,'

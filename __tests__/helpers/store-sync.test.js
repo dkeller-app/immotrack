@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createStoreSync, SYNCED_COLLECTIONS, summaryHasCloudWrites, archiveEnAttente, ARCHIVE_GARDE_MS } from '../../js/core/store-sync.js'
+import { createStoreSync, SYNCED_COLLECTIONS, summaryHasCloudWrites, archiveEnAttente, ARCHIVE_GARDE_MS, attenteArchiveRestante } from '../../js/core/store-sync.js'
 import { mapToRow } from '../../js/core/store-mapping.js'
 import { createSupabaseStore, TABLE_COLLECTIONS } from '../../js/core/store-supabase.js'
 
@@ -965,5 +965,55 @@ describe('ARCHIVE AVANT SCEAU (28/09) — signature en présence : sceller APRÈ
     expect(up2.rec.signatures.locked).toBe(true)           // scellé maintenant…
     expect(up2.rec.signatures.cloudPdfKey).toBe('esp/files/bp_F_1')   // …AVEC les références d'archive
     expect(up2.rec.signatures.proof).toEqual({ a: 1 })
+  })
+})
+
+describe('ARCHIVE AVANT SCEAU — suite audit (date saisie, relance, empreinte)', () => {
+  const now = Date.parse('2026-09-28T15:00:00Z')
+  it('R1 : date de signature SAISIE (midi UTC, veille) mais enregistrement à l\'instant → attendre (persistedAt)', () => {
+    const sg = { mode: 'avec-locataire', signedAt: '2026-09-27T12:00:00.000Z', persistedAt: '2026-09-28T14:59:30.000Z' }
+    expect(archiveEnAttente(sg, now)).toBe(true)
+    // sans persistedAt (signature antérieure au correctif) : repli sur signedAt, pas d'attente
+    expect(archiveEnAttente({ mode: 'avec-locataire', signedAt: '2026-09-27T12:00:00.000Z' }, now)).toBe(false)
+    // date saisie dans le FUTUR, sans persistedAt : pas d'attente indéfinie
+    expect(archiveEnAttente({ mode: 'avec-locataire', signedAt: '2026-12-01T12:00:00.000Z' }, now)).toBe(false)
+  })
+  it('O1 : délai restant jusqu\'à l\'expiration de l\'attente la plus proche (null si aucune)', () => {
+    const db = { baux: {
+      A: { signatures: { mode: 'avec-locataire', signedAt: 'x', persistedAt: new Date(now - 60_000).toISOString() } },
+      B: { signatures: { mode: 'distance', signedAt: new Date(now).toISOString() } } } }
+    const r = attenteArchiveRestante(db, now)
+    expect(r).toBeGreaterThan(ARCHIVE_GARDE_MS - 60_000)
+    expect(r).toBeLessThanOrEqual(ARCHIVE_GARDE_MS - 60_000 + 1000)
+    expect(attenteArchiveRestante({ baux: { B: db.baux.B } }, now)).toBe(null)
+  })
+  it('O1 : un flush pendant l\'attente PROGRAMME un flush à l\'expiration (sans nouvel enregistrement)', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    db.baux = { 'F-1': { hc: 700, signatures: { signedAt: new Date().toISOString(), persistedAt: new Date().toISOString(), mode: 'avec-locataire' } } }
+    const programmes = []
+    const sync = createStoreSync({ store, getDB: () => db, schedule: (fn, opts) => programmes.push(opts) })
+    sync.seed()
+    db.baux['F-1'].hc = 701
+    await sync.flush()
+    const r = programmes.find(o => o && o.retryDelayMs > 60_000)
+    expect(r).toBeTruthy()
+  })
+  it('O2 : l\'empreinte est figée dès la 1re passe ; une modification pendant l\'attente ne la change pas', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    db.baux = { 'F-1': { hc: 700, signatures: { signedAt: new Date().toISOString(), persistedAt: new Date().toISOString(), mode: 'avec-locataire' } } }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.baux['F-1'].hc = 700.5
+    await sync.flush()
+    const h1 = db.baux['F-1'].signatures.contentHashTerms
+    expect(h1).toBeTruthy()
+    expect(db.baux['F-1'].signatures.locked).toBeFalsy()
+    db.baux['F-1'].hc = 999                       // modification pendant l'attente
+    Object.assign(db.baux['F-1'].signatures, { cloudPdfKey: 'k', archiveTermine: true })
+    await sync.flush()
+    expect(db.baux['F-1'].signatures.locked).toBe(true)
+    expect(db.baux['F-1'].signatures.contentHashTerms).toBe(h1)   // empreinte du contenu SIGNÉ
   })
 })
