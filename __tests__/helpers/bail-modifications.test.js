@@ -40,12 +40,12 @@ describe('diffModificationsBail — ce qui a changé, avec libellés du formulai
     const d = diffModificationsBail(signe({ hc: 850 }), signe({ hc: 900 }));
     expect(d).toEqual([{ champ: 'hc', libelle: 'Loyer HC', avant: 850, apres: 900, fin: true }]);
   });
-  it('champs internes, gelés ou de composition jamais suivis (nom, signatures, entity, irlMoisRevision, mobilier…)', () => {
-    for (const k of ['nom', 'signatures', 'entity', 'irlMoisRevision', 'clauseIrlV', 'mobilier', 'signataires', 'dateSignaturePrevue', 'garant', 'garant2', '_modifiedAt', 'ref']) {
+  it('champs internes ou gelés jamais suivis (signatures, irlMoisRevision, mobilier, copies de premier niveau…)', () => {
+    for (const k of ['nom', 'signatures', 'irlMoisRevision', 'clauseIrlV', 'mobilier', 'dateSignaturePrevue', '_modifiedAt', 'ref']) {
       expect(CHAMPS_BAIL[k]).toBeUndefined();
     }
     const prev = signe(), next = JSON.parse(JSON.stringify(prev));
-    next.entity = 'Autre SCI'; next._modifiedAt = 'x'; next.locataires[1].nom = 'AUTRE';
+    next._modifiedAt = 'x'; next.nom = 'copie'; next.mobilier = ['x'];
     expect(diffModificationsBail(prev, next)).toEqual([]);
   });
   it('champ absent du formulaire (ex. champs garage sur un bail d\'habitation) → ignoré', () => {
@@ -127,15 +127,13 @@ describe('sécurité de la réapplication (audit 28/09) — le journal vient de 
     reappliquerJournalBaux(baux, [entree([
       { champ: 'signatures.bailSnapshot.hc', apres: 9999 },
       { champ: 'signatures.signedAt', apres: 'faux' },
-      { champ: 'entity', apres: 'AUTRE SCI' },
       { champ: 'champInconnu', apres: 'x' },
-      { champ: 'locataires.0.nom', apres: 'AUTRE' },
+      { champ: 'locataires.0.piege', apres: 'AUTRE' },
     ])]);
     expect(baux.F101.signatures.bailSnapshot.hc).toBe(800);
     expect(baux.F101.signatures.signedAt).toBe('2025-01-02T10:00:00Z');
-    expect(baux.F101.entity).toBe('SCI A');
     expect(baux.F101.champInconnu).toBeUndefined();
-    expect(baux.F101.locataires[0].nom).toBe('HARNIST');
+    expect(baux.F101.locataires[0].piege).toBeUndefined();
   });
   it('pas de pollution de prototype (__proto__, constructor, prototype)', () => {
     const baux = { F101: signe() };
@@ -163,5 +161,39 @@ describe('zéros en tête : un téléphone corrigé d\'un zéro est une modifica
     const prev = signe(), next = JSON.parse(JSON.stringify(prev));
     next.locataires[0].tel = '612345678';
     expect(diffModificationsBail(prev, next).map(c => c.champ)).toEqual(['locataires.0.tel']);
+  });
+});
+
+describe('JAMAIS BLOQUER (28/09) — changements de partie enregistrés comme le reste', () => {
+  const entree = (changements) => ({ id: 'x', ref: 'F101', type: 'modification', signedAt: '2025-01-02T10:00:00Z', date: '2026-09-28', changements });
+  it('garants, bailleur, nom d\'un locataire : dans le diff et réappliqués', () => {
+    const prev = signe({ garant: '', garant2: '', entity: 'SCI A' });
+    const next = JSON.parse(JSON.stringify(prev));
+    next.garant = 'Paul Martin'; next.garant2 = 'Jean Dubois'; next.locataires[0].nom = 'HARNIST Jean';
+    const d = diffModificationsBail(prev, next).map(c => c.champ);
+    expect(d).toEqual(expect.arrayContaining(['garant', 'garant2', 'locataires.0.nom']));
+    const baux = { F101: signe() };
+    reappliquerJournalBaux(baux, [entree([{ champ: 'garant', apres: 'Paul Martin' }, { champ: 'locataires.0.nom', apres: 'HARNIST Jean' }])]);
+    expect(baux.F101.garant).toBe('Paul Martin');
+    expect(baux.F101.locataires[0].nom).toBe('HARNIST Jean');
+    expect(baux.F101.nom).toBe('HARNIST Jean');   // copie de premier niveau suivie
+  });
+  it('ajout / retrait d\'un locataire : la liste entière, nettoyée des clés inconnues', () => {
+    const prev = signe(), next = JSON.parse(JSON.stringify(prev));
+    next.locataires.push({ civilite: 'Mme', nom: 'DUBOIS', tel: '07', piege: '<script>' });
+    const d = diffModificationsBail(prev, next);
+    expect(d.map(c => c.champ)).toEqual(['locataires']);
+    expect(d[0].apres[2]).toEqual({ civilite: 'Mme', nom: 'DUBOIS', tel: '07' });
+    const baux = { F101: signe() };
+    reappliquerJournalBaux(baux, [entree([{ champ: 'locataires', apres: [{ nom: 'A', __proto__: { x: 1 }, signatures: 'x' }, 'pas un objet', { nom: 'B' }] }])]);
+    expect(baux.F101.locataires).toEqual([{ nom: 'A' }, { nom: 'B' }]);
+    expect(baux.F101.nom).toBe('A');
+    expect(({}).x).toBeUndefined();
+  });
+  it('document signé toujours intouchable ; signataires = liste de textes', () => {
+    const baux = { F101: signe() };
+    reappliquerJournalBaux(baux, [entree([{ champ: 'signatures.bailSnapshot.hc', apres: 1 }, { champ: 'signataires', apres: ['Didier', { x: 1 }, 'Marion'] }])]);
+    expect(baux.F101.signatures.bailSnapshot.hc).toBe(800);
+    expect(baux.F101.signataires).toEqual(['Didier', 'Marion']);
   });
 });

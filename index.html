@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.684</title>
+<title>Propryo v15.685</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.684">
+<link rel="stylesheet" href="css/main.css?v=15.685">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.684</em>
+      <em>v15.685</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4270,7 +4270,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.684';
+const IMMOTRACK_VERSION = '15.685';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -19706,7 +19706,10 @@ function _highlightBailFormDiffs(bail) {
     if (wasBackfilled) html += ` <span style="font-weight:normal;color:#666">(snapshot initialisé rétroactivement)</span>`;
     if (modCount > 0) html += ` — ${modCount} champ(s) modifié(s) depuis la signature (surlignés ci-dessous, hover pour la valeur signée).`;
     if (compoCheck.changed) {
-      html += `<br>⚠️ <b>Composition modifiée</b> (${compoCheck.what}) — au save, les signatures seront automatiquement réinitialisées (ajout/suppression de partie = nouveau bail).`;
+      // Bail verrouillé au cloud : rien n'est réinitialisé — le changement est enregistré dans l'historique.
+      html += bail.signatures.locked
+        ? `<br>⚠️ <b>Composition différente de la version signée</b> (${escHtml(compoCheck.what)}) — enregistrée dans l'historique du bail, le bail signé reste inchangé ; juridiquement, un avenant signé est nécessaire.`
+        : `<br>⚠️ <b>Composition modifiée</b> (${escHtml(compoCheck.what)}) — au save, les signatures seront automatiquement réinitialisées (ajout/suppression de partie = nouveau bail).`;
     }
     nb.innerHTML = html;
     if (titleEl && titleEl.parentNode) titleEl.parentNode.insertBefore(nb, titleEl.nextSibling);
@@ -20554,33 +20557,20 @@ function saveBail() {
   let _resetSignaturesAfterSave = false;
   if (!isNewBail) {
     const dbBail = DB.baux[editRef];
-    // Audit 28/09 — bail signé VERROUILLÉ au cloud : tout changement de PARTIE (locataire, garant,
-    // bailleur, co-signataires du bailleur) serait perdu au rechargement (ligne jamais réécrite) et ne
-    // relève pas d'une simple modification → avenant. Contrôlé même SANS snapshot (ancien bail signé :
-    // comparaison avec le bail en vigueur).
-    if (dbBail && dbBail.signatures && dbBail.signatures.locked) {
-      const _refCompo = dbBail.signatures.bailSnapshot || dbBail;
-      const _cc = _bailCompositionChanged(Object.assign({ locataires: locs }, _bailLegacyGarantFields()), _refCompo);
-      // Bailleur / co-signataires : comparés à l'état du FORMULAIRE à l'ouverture (cases cochées par
-      // défaut comprises) — comparer au bail stocké bloquerait à tort un bail qui n'a jamais stocké
-      // `signataires`. Sans état d'ouverture (appel direct) : comparaison au bail stocké pour le bailleur seul.
-      const _ini = (window._bailFormInitial && window._bailFormInitial.ref === editRef) ? window._bailFormInitial.data : null;
-      const _entChange = (v('b-entity') || '') !== ((_ini ? _ini.entity : dbBail.entity) || '');
-      const _sigChange = !!_ini && JSON.stringify(getBailSignataireSelection()) !== JSON.stringify(_ini.signataires || []);
-      if (_cc.changed || _entChange || _sigChange) {
-        const _quoi = _cc.changed ? _cc.what : (_entChange ? 'bailleur' : 'signataires du bailleur');
-        showToast('Bail signé : changer une partie (' + _quoi + ') passe par un avenant (menu du bail → « Créer un avenant… »). Rien n\'a été enregistré.', 'warn', 9000);
-        return;
-      }
-    }
-    if (dbBail && dbBail.signatures && dbBail.signatures.bailSnapshot) {
+    // JAMAIS BLOQUER (retour Didier 28/09 : « on a dit qu'on ne bloque jamais »). Bail signé VERROUILLÉ au
+    // cloud : un changement de PARTIE (locataire, garant, bailleur, co-signataires) est ENREGISTRÉ dans le
+    // journal comme toute modification (le bail signé ne change pas, ses signatures sont conservées) ; la
+    // confirmation du journal rappelle qu'un avenant est juridiquement nécessaire — l'utilisateur décide.
+    // Le chemin « réinitialiser les signatures » ci-dessous est réservé au bail NON verrouillé : sur un bail
+    // verrouillé, la réinitialisation serait perdue au rechargement (ligne jamais réécrite).
+    if (dbBail && dbBail.signatures && dbBail.signatures.bailSnapshot && !dbBail.signatures.locked) {
       // BAIL-SIGNE-MODIFS (28/09) — garants lus dans la liste DYNAMIQUE du formulaire (#b-garants-list,
       // via _bailLegacyGarantFields). Les champs `b-garant` / `b-garant2` n'existent plus : v() rendait ''
       // → sur un bail signé AVEC garant(s), CHAQUE enregistrement concluait « garants (2 → 0) » et
       // proposait de réinitialiser les signatures (incident Ferrette 101).
       const futureBail = Object.assign({ locataires: locs }, _bailLegacyGarantFields());
       const compoCheck = _bailCompositionChanged(futureBail, dbBail.signatures.bailSnapshot);
-      // (Bail VERROUILLÉ au cloud : bloqué juste au-dessus, avant ce chemin de réinitialisation.)
+      // (Bail VERROUILLÉ au cloud : jamais ce chemin — ses changements de partie vont au journal, ci-dessus.)
       if (compoCheck.changed) {
         if (!confirm(`⚠️ Composition modifiée : ${compoCheck.what}.\n\nL'ajout / la suppression d'une partie au contrat constitue un NOUVEAU bail au sens juridique. Les signatures précédentes ne seront plus valides et seront automatiquement réinitialisées.\n\nContinuer ?`)) return;
         _resetSignaturesAfterSave = true;
@@ -20713,7 +20703,11 @@ function saveBail() {
       const _sgPrev = DB.baux[ref].signatures;
       const _dSig = (function(){ const d = new Date(_sgPrev.signedAt); return isNaN(d) ? '' : fd(_isoLocal(d)); })();
       const _liste = _chg.slice(0, 6).map(function(c){ return '• ' + c.libelle + ' : ' + _BM.valeurLisible(c.champ, c.avant) + ' → ' + _BM.valeurLisible(c.champ, c.apres); }).join('\n') + (_chg.length > 6 ? '\n• … et ' + (_chg.length - 6) + ' autre(s)' : '');
-      if (!confirm2('Bail signé' + (_dSig ? ' le ' + _dSig : '') + ' : les modifications sont enregistrées dans l\'app (fiche, quittances, relances…) et dans l\'historique du bail.\n\nLe bail signé reste inchangé. Pour leur donner une valeur contractuelle, établir un avenant.\n\n' + _liste + '\n\nEnregistrer ?')) return;
+      // Changement de PARTIE dans CET enregistrement → rappel explicite (jamais un blocage).
+      const _partie = _chg.some(function(c){ return /^(garant2?|entity|signataires|locataires)$|^locataires\.\d+\.nom$/.test(c.champ); });
+      if (!confirm2('Bail signé' + (_dSig ? ' le ' + _dSig : '') + ' : les modifications sont enregistrées dans l\'app (fiche, quittances, relances…) et dans l\'historique du bail.\n\nLe bail signé reste inchangé. Pour leur donner une valeur contractuelle, établir un avenant.'
+        + (_partie ? '\n\n⚠ Changement de partie (locataire, garant ou bailleur) : juridiquement, il doit être formalisé par un avenant signé.' : '')
+        + '\n\n' + _liste + '\n\nEnregistrer ?')) return;
       const _logPrev = DB.logements.find(l => l.ref === ref);
       _journalSnap = { bail: JSON.parse(JSON.stringify(DB.baux[ref])), log: _logPrev ? JSON.parse(JSON.stringify(_logPrev)) : null,
         logIdx: _logPrev ? DB.logements.indexOf(_logPrev) : -1, bareme: JSON.parse(JSON.stringify(DB.loyerBareme || [])),
