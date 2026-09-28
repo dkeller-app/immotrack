@@ -34,6 +34,28 @@ function _vide(x) { return String(x == null ? '' : x).trim() === ''; }
 function champ(x) { return _vide(x) ? TODO : '<strong>' + esc(x) + '</strong>'; }   // valeur en gras, sinon marqueur
 function champTxt(x) { return _vide(x) ? TODO : esc(x); }                              // idem sans gras
 function num(x) { return Number(x) || 0; }
+// ── Accords grammaticaux (retour Didier 28/09) ──────────────────────────────
+// Civilité du bail : 'M.' | 'Mme' | '' (inconnue). Inconnue → formes neutres « (e) », « Il / elle ».
+function genre(civ) { return civ === 'Mme' ? 'f' : civ === 'M.' ? 'm' : ''; }
+function accord(g, masc, fem, neutre) { return g === 'f' ? fem : g === 'm' ? masc : neutre; }
+/** « Mme Alice Martin » ; civilité inconnue → « M. / Mme … », ou rien (`sansDefaut` : une caution peut être une société). */
+function personne(civ, nom, sansDefaut) {
+  const c = (civ === 'M.' || civ === 'Mme') ? civ + ' ' : (sansDefaut ? '' : 'M. / Mme ');
+  return c + champ(nom);
+}
+/** Civilité d'un locataire du bail d'après son nom (ctx.locDetail = bail.locataires). */
+function civiliteDe(ctx, nom) {
+  const l = (Array.isArray(ctx && ctx.locDetail) ? ctx.locDetail : []).find(x => x && x.nom === nom);
+  return l ? (l.civilite || '') : '';
+}
+/** Civilité du locataire en POSITION i (homonymes distingués) ; repli par nom si les listes divergent. */
+function civiliteA(ctx, i, nom) {
+  const l = (Array.isArray(ctx && ctx.locDetail) ? ctx.locDetail : [])[i];
+  return l && l.nom === nom ? (l.civilite || '') : civiliteDe(ctx, nom);
+}
+/** « A », « A et B », « A, B et C ». */
+function joinFr(arr) { return arr.length < 2 ? arr.join('') : arr.slice(0, -1).join(', ') + ' et ' + arr[arr.length - 1]; }
+
 function frDate(iso) {
   if (!iso) return '…';
   const p = String(iso).slice(0, 10).split('-');
@@ -92,26 +114,70 @@ export function avenantArticle(k, d, ctx) {
       const act = String(d.act || '');
       const isAjout = act.indexOf('Ajout') === 0;
       const isDepart = act.indexOf('Départ') === 0;
+      // Accords (retour Didier 28/09) : singulier / pluriel selon le nombre de colocataires qui
+      // RESTENT, masculin / féminin selon la civilité. Civilité inconnue → formes neutres « (e) ».
+      const locs = Array.isArray(ctx.locataires) ? ctx.locataires : [];
+      // Le sortant est désigné par sa POSITION (1ʳᵉ occurrence) : deux colocataires homonymes ne
+      // disparaissent plus tous deux de l'acte, et chacun garde sa propre civilité (audit lot 1).
+      const iS = isAjout ? -1 : locs.indexOf(d.sortant);
+      const civS = iS >= 0 ? civiliteA(ctx, iS, locs[iS]) : civiliteDe(ctx, d.sortant), gS = genre(civS);
+      const civE = d.civEntrant, gE = genre(civE);
+      const restantsIdx = locs.map((_, i) => i).filter(i => i !== iS);
+      const restants = restantsIdx.map(i => locs[i]);
+      const nomsRestants = restantsIdx.map(i => personne(civiliteA(ctx, i, locs[i]), locs[i]));
+      const auSortant = accord(gS, 'au colocataire sortant', 'à la colocataire sortante', 'au colocataire sortant');
+      // Caution du sortant (retour Didier 28/09) : choisie parmi les garants du bail et NOMMÉE.
+      // Non précisée → formule générique ; « Aucune caution » → la phrase ne parle que du sortant.
+      const garants = (Array.isArray(ctx.garants) ? ctx.garants : []).map(g => String(g || '').trim()).filter(Boolean);
+      const cS = String(d.cautionSortant || '').trim();
+      const aucuneCaution = cS === 'Aucune caution';
+      const cautionNommee = garants.indexOf(cS) >= 0 ? cS : '';
+      const autresGarants = isAjout ? [] : garants.filter(g => g !== cautionNommee);
       let h = '';
       if (!isAjout) {
-        h += 'M. / Mme ' + champ(d.sortant) + ' cesse d\'être partie au contrat de bail à compter de la date d\'effet du présent avenant et libère les lieux à cette date, renonçant à tout droit d\'occupation sur le logement. Conformément à l\'article 8-1, VI de la loi du 6 juillet 1989, sa solidarité et celle de la personne qui s\'est portée caution pour lui prennent fin ' +
+        const pour = accord(gS, 'lui', 'elle', 'lui / elle');
+        h += personne(civS, d.sortant) + ' cesse d\'être partie au contrat de bail à compter de la date d\'effet du présent avenant et libère les lieux à cette date, renonçant à tout droit d\'occupation sur le logement. Conformément à l\'article 8-1, VI de la loi du 6 juillet 1989, ' +
+          (aucuneCaution ? 'sa solidarité prend fin '
+            : cautionNommee ? 'sa solidarité et celle de la personne qui s\'est portée caution pour ' + pour + ', ' + b(cautionNommee) + ', prennent fin '
+            : 'sa solidarité et celle de la personne qui s\'est portée caution pour ' + pour + ' prennent fin ') +
           (isDepart
             ? 'au plus tard à l\'expiration d\'un délai de six mois suivant la date d\'effet de son congé, à défaut de colocataire entrant inscrit au bail avant ce terme'
             : 'à la date d\'effet du présent avenant, un colocataire entrant lui étant substitué') + '. ';
+        // Les AUTRES cautions du bail sont nommées : leur engagement n'est pas touché par l'avenant
+        // (constat, sans rien modifier : il reste régi par leur acte de cautionnement).
+        // Seulement quand la caution du sortant est désignée : sinon on ne sait pas lesquelles restent.
+        if ((cautionNommee || aucuneCaution) && autresGarants.length) {
+          h += (autresGarants.length === 1
+            ? 'L\'engagement de ' + b(autresGarants[0]) + ', caution, n\'est pas modifié par le présent avenant et demeure régi par son acte de cautionnement. '
+            : 'Les engagements de ' + joinFr(autresGarants.map(b)) + ', cautions, ne sont pas modifiés par le présent avenant et demeurent régis par leurs actes de cautionnement. ');
+        }
       }
       if (!isDepart) {
-        h += 'M. / Mme ' + champ(d.entrant) + ' est ' + (isAjout ? 'adjoint(e) au' : 'substitué(e) au colocataire sortant et devient partie au') +
-          ' contrat de bail à compter de la date d\'effet. Il / elle déclare avoir pris connaissance du bail initial et de ses annexes, en accepter sans réserve l\'ensemble des clauses et conditions, et devient solidairement et indivisiblement tenu(e), avec le(s) colocataire(s) en place, du paiement des loyers, charges et accessoires ainsi que de l\'exécution de toutes les obligations du bail. Un acte de cautionnement distinct est régularisé pour garantir ses engagements. ';
+        const avecEnPlace = restants.length === 1 ? 'avec ' + nomsRestants[0] : restants.length > 1 ? 'avec les colocataires en place' : 'avec le ou les colocataires en place';
+        h += personne(civE, d.entrant) + ' est ' + (isAjout ? accord(gE, 'adjoint', 'adjointe', 'adjoint(e)') + ' au' : accord(gE, 'substitué', 'substituée', 'substitué(e)') + ' ' + auSortant + ' et devient partie au') +
+          ' contrat de bail à compter de la date d\'effet. ' + accord(gE, 'Il', 'Elle', 'Il / elle') + ' déclare avoir pris connaissance du bail initial et de ses annexes, en accepter sans réserve l\'ensemble des clauses et conditions, et devient solidairement et indivisiblement ' + accord(gE, 'tenu', 'tenue', 'tenu(e)') + ', ' + avecEnPlace + ', du paiement des loyers, charges et accessoires ainsi que de l\'exécution de toutes les obligations du bail. Un acte de cautionnement distinct est régularisé pour garantir ses engagements. ';
       }
-      h += 'Le(s) colocataire(s) demeurant dans les lieux poursuit / poursuivent le bail aux conditions initiales et fait / font leur affaire personnelle de la restitution éventuelle de la quote-part de dépôt de garantie au colocataire sortant.';
+      if (restants.length === 1) {
+        h += nomsRestants[0] + ', qui demeure dans les lieux, poursuit le bail aux conditions initiales' +
+          (isAjout ? '.' : ' et fait son affaire personnelle de la restitution éventuelle de la quote-part de dépôt de garantie ' + auSortant + '.');
+      } else if (restants.length > 1) {
+        h += (isAjout ? 'Les colocataires en place, ' : 'Les colocataires qui demeurent dans les lieux, ') + joinFr(nomsRestants) + ', poursuivent le bail aux conditions initiales' +
+          (isAjout ? '.' : ' et font leur affaire personnelle de la restitution éventuelle de la quote-part de dépôt de garantie ' + auSortant + '.');
+      } else {
+        h += 'Le ou les colocataires demeurant dans les lieux poursuivent le bail aux conditions initiales' +
+          (isAjout ? '.' : ' et font leur affaire personnelle de la restitution éventuelle de la quote-part de dépôt de garantie ' + auSortant + '.');
+      }
       return { titre: 'Modification de la colocation', html: h, base: 'art. 8-1, VI, loi du 6 juillet 1989', caution: !isDepart };
     }
     case 'caution': {
       const act = String(d.act || '');
       const ml = act.indexOf('Mainlevée') === 0;
+      const gC = genre(d.civ);
+      const nL = Array.isArray(ctx.locataires) ? ctx.locataires.length : 0;
+      const desLocs = nL === 1 ? 'du locataire' : nL > 1 ? 'des locataires' : 'du ou des locataires';
       const h = ml
-        ? 'Le bailleur donne mainlevée pleine et entière de l\'engagement de caution souscrit par ' + champ(d.nom) + ', qui se trouve déchargé(e) de toute obligation au titre du bail à compter de la date d\'effet du présent avenant.'
-        : act + ' : ' + champ(d.nom) + ' s\'engage en qualité de caution solidaire à garantir l\'exécution de l\'ensemble des obligations du / des locataire(s), dans la limite de ' + b(num(d.plafond) + ' €') + ', pour la durée du bail et de son ou ses renouvellements. Cet engagement, conforme à l\'article 22-1 de la loi du 6 juillet 1989, fait l\'objet d\'un acte de cautionnement distinct portant les mentions requises, annexé au présent avenant.';
+        ? 'Le bailleur donne mainlevée pleine et entière de l\'engagement de caution souscrit par ' + personne(d.civ, d.nom, true) + ', qui se trouve ' + accord(gC, 'déchargé', 'déchargée', 'déchargé(e)') + ' de toute obligation au titre du bail à compter de la date d\'effet du présent avenant.'
+        : act + ' : ' + personne(d.civ, d.nom, true) + ' s\'engage en qualité de caution solidaire à garantir l\'exécution de l\'ensemble des obligations ' + desLocs + ', dans la limite de ' + b(num(d.plafond) + ' €') + ', pour la durée du bail et de son ou ses renouvellements. Cet engagement, conforme à l\'article 22-1 de la loi du 6 juillet 1989, fait l\'objet d\'un acte de cautionnement distinct portant les mentions requises, annexé au présent avenant.';
       return { titre: 'Cautionnement', html: h, base: 'art. 22-1, loi du 6 juillet 1989', caution: !ml };
     }
     case 'loyer': {
@@ -222,47 +288,75 @@ export function buildAvenantHtml(ctx) {
   const locs = Array.isArray(ctx.locataires) ? ctx.locataires : [];
   const objets = Array.isArray(ctx.objets) ? ctx.objets : [];
   const effet = frDate(ctx.effetIso);
-  let n = 1, arts = '', caution = false, entrant = '';
+  const entrant = avenantEntrant(objets);
+  // Les articles reçoivent la liste des locataires (accords singulier / pluriel, civilités).
+  const actx = { loyer0: ctx.loyer0, locataires: locs, locDetail: ctx.locDetail, garants: ctx.garants };
+  let n = 1, arts = '', caution = false;
   objets.forEach(o => {
-    const a = avenantArticle(o.k, o.data, { loyer0: ctx.loyer0 });
+    const a = avenantArticle(o.k, o.data, actx);
     if (!a) return;
     if (a.caution) caution = true;
-    if (o.k === 'coloc' && String((o.data || {}).act || '').indexOf('Départ') !== 0 && (o.data || {}).entrant) entrant = o.data.entrant;
     arts += '<h3>Article ' + romain(n++) + ' — ' + a.titre + '</h3><p>' + a.html + (a.base ? ' <em style="color:#8b94a5">(' + a.base + ')</em>' : '') + '</p>';
   });
   arts += '<h3>Article ' + romain(n++) + ' — Prise d\'effet</h3><p>Le présent avenant prend effet le ' + b(effet) + '.</p>';
-  arts += '<h3>Article ' + romain(n++) + ' — Stipulations inchangées</h3><p>À l\'exception des modifications qui précèdent, l\'ensemble des clauses et conditions du bail initial demeure applicable et inchangé. Le présent avenant forme un tout indivisible avec le bail auquel il demeure annexé, et ne vaut ni novation ni conclusion d\'un nouveau bail.</p>';
+  // AVENANT-REFONTE §7 : la non-novation n'est dite qu'UNE fois (préambule) ; ici, l'essentiel.
+  arts += '<h3>Article ' + romain(n++) + ' — Stipulations inchangées</h3><p>Toutes les autres clauses et conditions du bail demeurent applicables et inchangées. Le présent avenant forme un tout indivisible avec le bail auquel il est annexé.</p>';
 
-  const signataires = locs.map(nom => ({ role: 'Le locataire', nom }));
-  if (entrant) signataires.push({ role: 'Le colocataire entrant', nom: entrant });
-  signataires.push({ role: 'Le bailleur', nom: ctx.bailleur || '' });
-  // Zone de signature CANONIQUE `pro-signzone` (rendue nativement par DocNative → vrai PDF jsPDF,
-  // et stylée par _docCss à l'écran/impression). Groupée par 2 (duo) pour ne pas déborder A4.
-  const sigBoxes = signataires.map(s => '<div class="pro-signbox">' + s.role + '<br><strong>' + esc(s.nom) + '</strong><br><em>Lu et approuvé</em></div>');
-  let sigHtml = '';
-  for (let i = 0; i < sigBoxes.length; i += 2) {
-    const pair = sigBoxes.slice(i, i + 2);
-    sigHtml += '<div class="pro-signzone' + (pair.length > 1 ? ' duo' : '') + '">' + pair.join('') + '</div>';
+  // Rôles des signataires : le colocataire qui part signe aussi (il renonce à ses droits sur le
+  // logement) ; il est désigné comme tel, et non plus comme « Le locataire » parmi d'autres.
+  const coloc = objets.find(o => o.k === 'coloc');
+  const colocAct = String(((coloc || {}).data || {}).act || '');
+  const sortant = coloc && colocAct.indexOf('Ajout') !== 0 ? String(coloc.data.sortant || '').trim() : '';
+  const signataires = [{ role: 'Le bailleur', nom: ctx.bailleur || '', sous: ctx.representant ? 'représenté par ' + ctx.representant : '' }];
+  const iSortant = sortant ? locs.indexOf(sortant) : -1;   // 1ʳᵉ occurrence seulement (homonymes)
+  locs.forEach((nom, i) => {
+    const g = genre(civiliteA(ctx, i, nom));
+    signataires.push({ role: i === iSortant ? accord(g, 'Le colocataire sortant', 'La colocataire sortante', 'Le colocataire sortant') : accord(g, 'Le locataire', 'La locataire', 'Le locataire'), nom });
+  });
+  if (entrant) {
+    const gE = genre(((coloc || {}).data || {}).civEntrant);
+    signataires.push({ role: accord(gE, 'Le colocataire entrant', 'La colocataire entrante', 'Le colocataire entrant'), nom: entrant });
   }
+  // Zone de signature CANONIQUE (forme {sig,label} de docSignzone) : l'espace de signature est
+  // AU-DESSUS du filet, le libellé dessous. UNE seule zone : le moteur la pose par rangées de 3
+  // cadres, chaque rangée entière sur une page. `ctx.signatures[i]` = data-URL d'image (lot 3),
+  // VALIDÉE ici : le HTML de l'avenant est conservé et partagé (SCI) — jamais de HTML injecté tel quel.
+  const sigs = Array.isArray(ctx.signatures) ? ctx.signatures : [];
+  const sigImg = (u) => (typeof u === 'string' && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(u)) ? '<img src="' + esc(u) + '">' : '';
+  const sigHtml = '<div class="pro-signzone' + (signataires.length > 1 ? ' duo' : '') + '">' +
+    signataires.map((s, i) => '<div class="pro-sigcase"><div class="pro-sigspace">' + sigImg(sigs[i]) + '</div>' +
+      '<div class="pro-signbox">' + s.role + '<br><strong>' + esc(s.nom) + '</strong>' + (s.sous ? '<br>' + esc(s.sous) : '') + '</div></div>').join('') +
+    '</div>';
+
+  // « Fait le » = date de l'ACTE (signature), jamais la date d'effet (audit 27/09). Inconnue tant
+  // que l'avenant n'est pas signé dans l'app : ligne à compléter à la main.
+  const dateActe = ctx.dateActeIso ? esc(frDate(ctx.dateActeIso)) : '____________________';
+  const qualite = locs.length > 1 ? 'Les locataires' : accord(genre(civiliteDe(ctx, locs[0])), 'Le locataire', 'La locataire', 'Le locataire');
 
   // CORPS au gabarit Propryo (.pro-doc) — l'habillage (bandeau logos, titre, pied) est posé par _docPage.
+  // Parties en blocs côte à côte (docParties) : fini le tableau qui répétait le titre.
   const html =
-    '<p class="pro-lead" style="font-variant:small-caps;letter-spacing:.03em">Entre les soussignés :</p>' +
-    '<p>' + b(ctx.bailleur || '…') + ', ci-après « le bailleur », d\'une part,</p>' +
-    '<p>Et ' + b(locs.join(' & ') || '…') + ', ci-après « le(s) locataire(s) », d\'autre part,</p>' +
-    // AUDIT 27/09 : pas de « signé le » pour un bail sans signature dans l'app (bail papier / repris) ;
-    // date ÉCHAPPÉE (une valeur non-date était rendue brute).
-    '<table class="pro-kv"><tr><td>Bail modifié</td><td>Contrat d\'habitation ' + (ctx.bailSigne === false ? 'en date du' : 'signé le') + ' <strong>' + esc(frDate(ctx.dateBail)) + '</strong></td></tr>' +
-    '<tr><td>Logement</td><td>' + esc(ctx.bien || '…') + '</td></tr>' +
-    '<tr><td>Loyer mensuel HC en vigueur</td><td>' + num(ctx.loyer0) + ' €</td></tr></table>' +
-    '<p style="font-variant:small-caps;letter-spacing:.03em">Il a été préalablement exposé ce qui suit :</p>' +
-    '<p>Les parties sont convenues d\'apporter au bail les modifications ci-après, sans que celles-ci n\'emportent novation ni conclusion d\'un nouveau bail.</p>' +
-    '<p style="font-variant:small-caps;letter-spacing:.03em">Ceci exposé, il a été convenu ce qui suit :</p>' +
+    '<div class="pro-parties">' +
+      '<div class="pro-partie"><h2>Le bailleur</h2><span class="pro-qui">' + esc(ctx.bailleur || '') + '</span>' +
+        (ctx.representant ? '<p>représenté par ' + esc(ctx.representant) + '</p>' : '') + '</div>' +
+      '<div class="pro-partie"><h2>' + qualite + '</h2><span class="pro-qui">' + (locs.length ? locs.map(esc).join('<br>') : TODO) + '</span>' +
+        '<p>' + champTxt(ctx.bien) + '</p></div>' +
+    '</div>' +
+    // AUDIT 27/09 : pas de « signé le » pour un bail sans signature complète dans l'app ; date échappée.
+    '<p>Bail d\'habitation ' + (ctx.bailSigne === false ? 'en date du' : 'signé le') + ' <strong>' + esc(frDate(ctx.dateBail)) + '</strong>, loyer mensuel hors charges en vigueur : <strong>' + esc(String(num(ctx.loyer0))) + ' €</strong>. Les parties conviennent d\'y apporter les modifications ci-après, qui n\'emportent ni novation ni conclusion d\'un nouveau bail.</p>' +
     arts +
     (caution ? '<p><strong>Rappel :</strong> la ou les cautions concernées doivent réitérer leur engagement par un nouvel acte de cautionnement couvrant les présentes modifications, à peine de décharge (art. 22-1 de la loi du 6 juillet 1989).</p>' : '') +
-    '<p style="margin-top:4mm">Fait à ' + esc(ctx.ville || '…') + ', le ' + effet + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
-    '<h3>Signatures</h3>' + sigHtml;
+    '<p class="pro-lieu">Fait à ' + champTxt(ctx.ville) + ', le ' + dateActe + ', en autant d\'exemplaires originaux que de parties, chacune reconnaissant en avoir reçu un.</p>' +
+    sigHtml;
   return { html, caution, nbArticles: n - 1, entrant };
+}
+
+/** Nom du colocataire entrant (ajout ou remplacement), '' sinon. Source unique (document + paraphes). */
+export function avenantEntrant(objets) {
+  const c = (Array.isArray(objets) ? objets : []).find(o => o && o.k === 'coloc');
+  const d = (c && c.data) || {};
+  const nom = String(d.entrant == null ? '' : d.entrant).trim();
+  return String(d.act || '').indexOf('Départ') !== 0 && nom ? nom : '';
 }
 
 /**

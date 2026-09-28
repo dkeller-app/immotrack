@@ -122,7 +122,7 @@ import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './cor
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 // IRL-REVISION (R6/R7) — la lettre suit la révision VALIDÉE ; annuler une révision programmée.
 import * as IrlRevision from './core/irl-revision.js';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantNumeroSuivant } from './core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantNumeroSuivant, avenantEntrant } from './core/avenant.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
 import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase } from './core/bail-duree.js';
 import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause, congeMotifDetail, congeDateEffet, congeMentionPreavis } from './core/conge.js';
@@ -666,6 +666,7 @@ window.avenantRomain = avenantRomain;
 window.avenantChampsManquants = avenantChampsManquants;
 window.avenantMontant = avenantMontant;
 window.avenantNumeroSuivant = avenantNumeroSuivant;
+window.avenantEntrant = avenantEntrant;
 // Congé & résiliation (loi 89-462)
 window.CONGE_MOTIFS = CONGE_MOTIFS;
 window.REPRISE_LIENS = REPRISE_LIENS;
