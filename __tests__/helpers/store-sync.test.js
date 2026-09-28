@@ -1241,3 +1241,116 @@ describe('ARCHIVE AVANT SCEAU — suite audit (date saisie, relance, empreinte)'
     expect(db.baux['F-1'].signatures.contentHashTerms).toBe(h1)   // empreinte du contenu SIGNÉ
   })
 })
+
+// ── Suite d'audit v15.688 (code-reviewer) ────────────────────────────────────────────────────────────
+describe('B2 — suites d\'audit v15.688', () => {
+  const SIG = { signedAt: '2025-01-01T10:00:00Z', mode: 'avec-locataire', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }
+  const dupont = (x) => Object.assign({ entity: 'SCI A', hc: 600, ch: 40, debut: '2025-01-01', locataires: [{ nom: 'Dupont' }], signatures: { ...SIG } }, x || {})
+  const mk = (db, overrides) => {
+    const store = mockStore(overrides)
+    let n = 0
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'n' + (++n), now: () => new Date('2026-09-29T08:00:00Z'), schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()
+    return { store, sync, sched, bx: () => store.calls.filter(c => c.coll === 'baux').map(c => c.op + ':' + (c.rec._bailUid || '-')) }
+  }
+
+  it('C2 — « Annuler » après la suppression d\'un bail scellé DÉJÀ archivé : il revient sur une ligne NEUVE (jamais réécrire la ligne archivée)', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'X' }) }, baux_evenements: [] }
+    const { sync, bx, store } = mk(db)
+    const snapshot = JSON.parse(JSON.stringify(db.baux['F-1']))
+    delete db.baux['F-1']
+    await sync.flush()
+    expect(bx()).toEqual(['archive:X'])
+    store.calls.length = 0
+    db.baux['F-1'] = snapshot                                   // _undoUndo : restauration de l'instantané
+    const s = await sync.flush()
+    expect(db.baux['F-1']._bailUid).toBe('n1')                  // ≠ X (archivée, immuable)
+    expect(bx()).toEqual(['upsert:n1'])
+    expect(store.calls.find(c => c.coll === 'baux').opts).toEqual({ allowRevive: true })
+    expect(s.errors).toEqual([])
+  })
+
+  it('C2 — réinitialisation puis « Annuler » (le brouillon est au baseline) : brouillon retiré, signé revenu sur une ligne NEUVE', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'X' }) }, baux_evenements: [] }
+    const { sync, bx, store } = mk(db)
+    const snapshot = JSON.parse(JSON.stringify(db.baux['F-1']))
+    delete db.baux['F-1'].signatures
+    await sync.flush()
+    expect(bx()).toEqual(['archive:X', 'upsert:n1'])            // signé archivé, brouillon n1
+    store.calls.length = 0
+    db.baux['F-1'] = snapshot                                   // Ctrl+Z
+    await sync.flush()
+    expect(bx()).toEqual(['remove:n1', 'upsert:n2'])            // brouillon supprimé (logiquement), copie signée sur n2
+  })
+
+  it('C2 — bail scellé restauré d\'une sauvegarde alors que le baseline porte un AUTRE bail scellé : archive l\'actuel, ligne neuve pour le restauré', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'M', signatures: { ...SIG, signedAt: '2026-10-01T10:00:00Z' } }) }, baux_evenements: [] }
+    const { sync, bx } = mk(db)
+    db.baux['F-1'] = dupont({ _bailUid: 'X' })                 // ancien bail signé, sa ligne X est archivée au cloud
+    await sync.flush()
+    expect(bx()).toEqual(['archive:M', 'upsert:n1'])
+  })
+
+  it('C2 — le PREMIER scellement d\'un bail garde sa ligne (transition false→true, même identité)', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': { entity: 'SCI A', hc: 600, _bailUid: 'U', signatures: { signedAt: '2026-01-01T00:00:00Z', mode: 'avec-locataire' } } }, baux_evenements: [] }
+    const store = mockStore()
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'zz', sealSigned: false })
+    sync.seed()
+    db.baux['F-1'].signatures.locked = true; db.baux['F-1'].signatures.signatureSource = 'externe'
+    await sync.flush()
+    expect(store.calls.filter(c => c.coll === 'baux').map(c => c.op + ':' + c.rec._bailUid)).toEqual(['upsert:U'])
+  })
+
+  it('I1 — preuve de signature en présence (LISTE) : réappliquée, et pas une nouvelle entrée à chaque flush', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont() }, baux_evenements: [] }
+    const { sync } = mk(db)
+    db.baux['F-1'].signatures.proof = [{ nom: 'Dupont', role: 'locataire', when: '2025-01-01T10:00:00Z' }]
+    db.baux['F-1'].signatures.cloudPdfKey = 'k.pdf'
+    await sync.flush()
+    await sync.flush()
+    await sync.flush()
+    expect(db.baux_evenements).toHaveLength(1)
+    const { reappliquerJournalBaux } = await import('../../js/core/bail-modifications.js')
+    const autre = { 'F-1': dupont() }
+    reappliquerJournalBaux(autre, db.baux_evenements)
+    expect(autre['F-1'].signatures.proof).toEqual([{ nom: 'Dupont', role: 'locataire', when: '2025-01-01T10:00:00Z' }])
+    expect(autre['F-1'].signatures.cloudPdfKey).toBe('k.pdf')
+  })
+
+  it('I2 — entrée « Modifier le bail » sans bailUid, bail clôturé AVANT son 1ᵉʳ envoi : rattachée à la ligne du baseline', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'X' }) }, baux_historique: [], baux_evenements: [] }
+    const { sync, store } = mk(db)
+    db.baux_evenements.push({ id: 'bj_9', ref: 'F-1', type: 'modification', signedAt: SIG.signedAt, date: '2026-09-28', changements: [{ champ: 'notes', apres: 'x' }] })
+    db.baux['F-1'] = { ref: 'F-1', _deleted: true }            // clôturé dans la foulée
+    await sync.flush()
+    expect(db.baux_evenements[0].bailUid).toBe('X')
+    const up = store.calls.find(c => c.coll === 'baux_evenements')
+    expect(mapToRow('baux_evenements', up.rec, realCtx()).bail_id).toBe('uuid:bail|f-1|X')
+  })
+
+  it('I3 — archivage en ERREUR persistante : plus de flush IMMÉDIAT à chaque enregistrement (backoff seul)', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont() }, baux_evenements: [] }
+    const { sync, sched } = mk(db, { 'archive|baux:F-1': { throws: 'ROW_LOCKED_IMMUTABLE' } })
+    delete db.baux['F-1']
+    sync.markDirty()
+    expect(sched.at(-1).opts).toMatchObject({ immediate: true })
+    await sched.at(-1).fn()
+    const nAvant = sched.length
+    sync.markDirty()
+    const dernier = sched.slice(nAvant).at(-1)
+    expect(dernier.opts && dernier.opts.immediate).toBeFalsy()
+  })
+
+  it('M4 — vie du bail : un type inattendu venu du journal partagé est IGNORÉ (jamais injecté)', async () => {
+    const { reappliquerJournalBaux } = await import('../../js/core/bail-modifications.js')
+    const baux = { 'F-1': dupont({ depart: { etape: 1 } }) }
+    reappliquerJournalBaux(baux, [{ id: 'x', ref: 'F-1', type: 'modification', signedAt: SIG.signedAt, date: '2026-09-28', changements: [
+      { champ: 'depart', apres: 'pas un objet' }, { champ: 'avenants', apres: { pas: 'une liste' } }, { champ: 'dgRestitueAt', apres: 42 },
+      { champ: 'dgRestitueMontant', apres: '812,50' }, { champ: 'reprisVerifie', apres: true }, { champ: 'depart', apres: null } ] }])
+    const b = baux['F-1']
+    expect(b.depart).toBeNull()                                 // null accepté (champ retiré)
+    expect(b.avenants).toBeUndefined(); expect(b.dgRestitueAt).toBeUndefined()
+    expect(b.dgRestitueMontant).toBe('812,50'); expect(b.reprisVerifie).toBe(true)
+  })
+})

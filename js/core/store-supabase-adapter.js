@@ -110,7 +110,14 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
         .eq('id', id).eq('espace_id', espaceId).eq('version', expectedVersion).is('deleted_at', null).eq('archived', false)
         .select('version')
       if (error) throw new Error('archive ' + table + ': ' + error.message)
-      return data && data.length ? data[0].version : null
+      if (data && data.length) return data[0].version
+      // IDEMPOTENT (audit v15.688, I4) : 0 ligne peut vouloir dire « DÉJÀ archivée » (par un autre appareil,
+      // ou par ce flush avant une coupure réseau). Le but est atteint → succès, avec la version actuelle.
+      // Sinon (version périmée d'une ligne vivante, ligne supprimée) → null = conflit, comme avant.
+      const { data: cur, error: e2 } = await client.from(table)
+        .select('version, archived, deleted_at').eq('id', id).eq('espace_id', espaceId).maybeSingle()
+      if (e2) throw new Error('archive ' + table + ' (relecture): ' + e2.message)
+      return (cur && cur.archived === true && cur.deleted_at == null) ? cur.version : null
     },
     // Soft-delete gardé par version + deleted_at IS NULL (idempotent, jamais de DELETE physique).
     async softDelete(table, id, expectedVersion) {

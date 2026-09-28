@@ -25,7 +25,7 @@ const U = { email: `bail-signe-${RUN}@example.test`, pass: 'Test-Passw0rd!C' }
 const anonClient = () => createClient(URL, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
 
 const ENT = 'SCI Repro'
-const REF = 'Repro - 001', REF2 = 'Repro - 002'
+const REF = 'Repro - 001', REF2 = 'Repro - 002', REF3 = 'Repro - 003'
 const signe = (nom, debut) => ({
   entity: ENT, locataires: [{ nom }], hc: 600, ch: 40, dg: 600, debut, fin: '2028-01-01',
   signatures: { signedAt: debut + 'T10:00:00Z', mode: 'avec-locataire', bailSnapshot: { log: { ref: REF } } },
@@ -70,13 +70,13 @@ describe('BAIL SIGNÉ — vie, clôture, relocation (vrai Postgres, 0055 requise
     A = await device()
     espaceId = A.esp.espaceId
     A.DB.entites = [{ nom: ENT, immeubles: [] }]
-    A.DB.logements = [{ id: 1, ref: REF, entity: ENT, locataire: 'Dupont' }, { id: 2, ref: REF2, entity: ENT, locataire: 'Durand' }]
-    A.DB.baux = { [REF]: signe('Dupont', '2025-01-01'), [REF2]: signe('Durand', '2025-02-01') }
+    A.DB.logements = [{ id: 1, ref: REF, entity: ENT, locataire: 'Dupont' }, { id: 2, ref: REF2, entity: ENT, locataire: 'Durand' }, { id: 3, ref: REF3, entity: ENT, locataire: 'Bernard' }]
+    A.DB.baux = { [REF]: signe('Dupont', '2025-01-01'), [REF2]: signe('Durand', '2025-02-01'), [REF3]: signe('Bernard', '2025-03-01') }
     A.DB.baux_evenements = []
     const s = await A.boot.flush()
     expect(s.errors).toEqual([])
     const b = await rows('baux', espaceId)
-    expect(b).toHaveLength(2)
+    expect(b).toHaveLength(3)
     expect(b.every(r => r.locked && !r.archived)).toBe(true)
   })
 
@@ -149,5 +149,17 @@ describe('BAIL SIGNÉ — vie, clôture, relocation (vrai Postgres, 0055 requise
     const hist = (await rows('baux_historique', espaceId)).filter(r => r.legacy_ref === REF && !r.deleted_at)
     expect(hist.length).toBeGreaterThanOrEqual(3)            // Dupont (28/09), Martin (31/03), + l'archive du même jour
     expect(new Set(hist.map(r => r.id)).size).toBe(hist.length)
+  })
+
+  it('8. deux appareils clôturent le MÊME bail signé : l\'archivage est idempotent (pas de conflit sur la ligne bail)', async () => {
+    const J = await device(), K = await device()
+    cloturer(J.DB, REF3, '2026-12-31', '2026-12-31')
+    const sJ = await J.boot.flush()
+    expect(bx(sJ).archives).toEqual([{ coll: 'baux', key: REF3.toLowerCase() }])
+    cloturer(K.DB, REF3, '2026-12-31', '2026-12-31')
+    const sK = await K.boot.flush()
+    expect(sK.errors).toEqual([])
+    expect(bx(sK).archives).toEqual([{ coll: 'baux', key: REF3.toLowerCase() }])   // déjà archivée ailleurs → succès
+    expect(sK.conflicts.filter(c => c.coll === 'baux')).toEqual([])
   })
 })

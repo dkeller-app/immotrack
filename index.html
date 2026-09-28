@@ -7298,7 +7298,8 @@ function _archiveBailTerminee(ref, bailInitial, path) {
     cur.signatures.archiveTermine = true;
     // Déjà verrouillé (scellé par un autre appareil, ou signature antérieure à ce correctif) : ces
     // références ne partiront pas au cloud. On le signale au lieu de le taire (audit J2).
-    if (cur.signatures.locked) console.warn('[archive] bail ' + ref + ' déjà scellé : références d\'archive conservées sur cet appareil seulement (PDF bien stocké : ' + (path || 'échec d\'envoi') + ')');
+    // v15.688 : elles partent désormais par le journal automatique du bail (store-sync, réappliqué partout).
+    if (cur.signatures.locked) console.info('[archive] bail ' + ref + ' déjà scellé : références d\'archive envoyées par le journal du bail (PDF stocké : ' + (path || 'échec d\'envoi') + ')');
     if (typeof saveDB === 'function') saveDB();
   } catch (e) { console.warn('[archive] fin d\'archive', e); }
 }
@@ -11987,7 +11988,7 @@ function resetBailSignatures(ref) {
   // cours repart en brouillon sur sa propre ligne (store-sync.js, phase 0). Le message dit exactement ça.
   const _scelle = !!bail.signatures.locked;
   const _effet = _scelle
-    ? `La version signée est CONSERVÉE : elle est archivée telle quelle (preuve), mais n'est plus affichée comme bail en cours.\nLe bail en cours repart en brouillon, à faire signer de nouveau.`
+    ? `La version signée est CONSERVÉE : elle est archivée telle quelle (preuve), mais n'est plus affichée comme bail en cours (elle n'est pas encore consultable dans l'app — garder le PDF signé).\nLe bail en cours repart en brouillon, à faire signer de nouveau.`
     : `Toutes les signatures (paraphes + signatures finales + cases « Lu et approuvé ») seront EFFACÉES.\nLe bail redeviendra modifiable.\n\nCette action est irréversible.`;
   if(!confirm(`⚠️ RÉINITIALISER LES SIGNATURES du bail ${ref} ?\n\nSigné le ${dateStr}\n${bail.signatures.nbParaphes||0} pages paraphées\n\n${_effet}`)) return;
   if(!confirm(_scelle
@@ -20471,7 +20472,7 @@ function delBail(ref) {
   // est ARCHIVÉE au prochain envoi (preuve intacte) et il cesse d'être le bail en cours. On le dit.
   const _scelle = !!(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.locked);
   if(!confirm2(_scelle
-    ? `Supprimer le bail de ${ref} ?\n\nCe bail est signé : sa version signée est conservée (archivée telle quelle, comme preuve). Il ne sera plus le bail en cours du logement.`
+    ? `Supprimer le bail de ${ref} ?\n\nCe bail est signé : sa version signée est conservée (archivée telle quelle, comme preuve — pas encore consultable dans l'app, garder le PDF signé). Il ne sera plus le bail en cours du logement.`
     : `Supprimer le bail de ${ref} ?`)) return;
   // BUG-DEL-FICHE-360 v14.26 : fermer la modale d'édition de bail si elle est ouverte
   // (cas où l'utilisateur supprime depuis l'intérieur du wizard) — défensif.
@@ -20899,9 +20900,15 @@ function saveBail() {
     showToast('Garantie : choisissez soit un ou plusieurs garants, soit la garantie Visale — pas les deux (supprimez le garant ou videz le n° de visa).','err',7000);
     return;
   }
-  if(DB.baux[ref]?.cloture) bail.cloture = DB.baux[ref].cloture;
+  // NOUVEAU BAIL (isNewBail) sur un logement occupé : archiverBail LAISSE l'ancien bail dans DB.baux[ref]
+  // jusqu'au remplacement ci-dessous. Rien de l'ancien ne doit passer au nouveau — ni clôture, ni
+  // SIGNATURES (le nouveau locataire apparaissait « signé » à la date de l'ancien), ni champs figés, ni
+  // date de signature prévue. Audit v15.688 (C1) : avec la synchro B2, l'héritage des signatures faisait
+  // du nouveau bail une « modification » du bail signé précédent → écrit au cloud sur l'ancien contrat.
+  const _existantHeritable = isNewBail ? null : DB.baux[ref];
+  if(_existantHeritable?.cloture) bail.cloture = _existantHeritable.cloture;
   // v13.11 — préserver les signatures sauf si reset forcé (composition changée)
-  if (DB.baux[ref]?.signatures && !_resetSignaturesAfterSave) {
+  if (_existantHeritable?.signatures && !_resetSignaturesAfterSave) {
     bail.signatures = DB.baux[ref].signatures;
     // DDT annexé : le plan figé à la signature suit les signatures (§ 17 déjà signé + alerte de fusion).
     if (DB.baux[ref].annexesDdt) bail.annexesDdt = DB.baux[ref].annexesDdt;
@@ -20913,7 +20920,7 @@ function saveBail() {
   // de la migration V4b (qui ne purge JAMAIS un bail signé). Sans cela, un simple re-save (édition
   // d'un champ financier/notes) effacerait ces champs et l'Aperçu courant dériverait du document
   // signé. Le snapshot légal (previewSignedBailRef) n'est de toute façon jamais impacté.
-  if (DB.baux[ref]?.signatures?.signedAt && !_resetSignaturesAfterSave
+  if (_existantHeritable?.signatures?.signedAt && !_resetSignaturesAfterSave
       && typeof _ARCHI_V4B_DESC_FIELDS !== 'undefined') {
     const _oldSigned = DB.baux[ref];
     _ARCHI_V4B_DESC_FIELDS.forEach(k => { if (k in _oldSigned) bail[k] = _oldSigned[k]; });
@@ -20924,7 +20931,7 @@ function saveBail() {
   if (DB.baux[ref] && DB.baux[ref].fiscal != null && DB.baux[ref].fiscal !== '') bail.fiscal = DB.baux[ref].fiscal;
   // v15.344 — préserver dateSignaturePrevue si le champ est vide au save (bail signé : input masqué
   // → v('b-dateSignature')='' ; ne jamais effacer la date de signature déjà fixée).
-  if (!bail.dateSignaturePrevue && DB.baux[ref] && DB.baux[ref].dateSignaturePrevue) bail.dateSignaturePrevue = DB.baux[ref].dateSignaturePrevue;
+  if (!bail.dateSignaturePrevue && _existantHeritable && _existantHeritable.dateSignaturePrevue) bail.dateSignaturePrevue = _existantHeritable.dateSignaturePrevue;
   // HISTORIQUE-BAIL-ONGLET (17/07, décision user ④) — ÉDITION d'un bail avec changement
   // d'un terme FINANCIER (hc/ch/dg) : popup de validation obligatoire (ancien → nouveau,
   // date d'effet Q1, motif). Le save est suspendu ; _bailValidConfirm relance saveBail
@@ -21008,6 +21015,9 @@ function saveBail() {
         changements: _chg };
       // Partage SCI : l'entrée part dans l'espace du PROPRIÉTAIRE du bail (routage store-multi par tag).
       if (DB.baux[ref]._espaceId != null) _journalModif._espaceId = DB.baux[ref]._espaceId;
+      // Ligne cloud PROPRE du bail (v15.688, `_bailUid`) : l'entrée la vise dès sa création (clé étrangère
+      // bail_id) — même si le bail est clôturé ou remplacé avant l'envoi. Absent = ligne historique.
+      if (DB.baux[ref]._bailUid) _journalModif.bailUid = DB.baux[ref]._bailUid;
     }
   }
   _stamp(bail); // v13.18 : timestamp de modif pour merge Drive intelligent

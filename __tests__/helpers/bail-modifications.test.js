@@ -281,7 +281,7 @@ describe('réapplication de la vie du bail (au chargement)', () => {
     const baux = { F101: signe() };
     reappliquerJournalBaux(baux, [entree([
       { champ: 'depart', apres: { etape: 3 } }, { champ: 'signatures.cloudPdfKey', apres: 'k.pdf' },
-      { champ: 'signatures.proof', apres: ['pas', 'un', 'objet'] }, { champ: 'signatures.contentHash', apres: { x: 1 } },
+      { champ: 'signatures.proof', apres: 'pas un objet ni une liste' }, { champ: 'signatures.contentHash', apres: { x: 1 } },
       { champ: 'signatures.certRef', apres: { cloudPdfKey: 'c.pdf' } },
     ])]);
     expect(baux.F101.depart).toEqual({ etape: 3 });

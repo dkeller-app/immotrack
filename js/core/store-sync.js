@@ -16,7 +16,7 @@
 import { TABLE_COLLECTIONS, LOCAL_USER_PARAM_KEYS } from './store-supabase.js'   // source unique des collections table-backées + params local-user
 import { bailContentHash } from './bail-content-hash.js'  // empreinte légale canonique des baux signés (verrou)
 import { bailHistCle } from './store-mapping.js'          // identité d'une archive (SOURCE UNIQUE avec l'id de ligne)
-import { entreeJournalAuto, memeBailSigne } from './bail-modifications.js'   // journal automatique d'un bail signé verrouillé (B2)
+import { entreeJournalAuto } from './bail-modifications.js'   // journal automatique d'un bail signé verrouillé (B2)
 
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 
@@ -343,18 +343,29 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   //    des signatures) : `_bailUid` NEUF, l'ancienne ligne est archivée en phase 0 ;
   //  • baseline NON verrouillé → même ligne (réédition, ou relocation d'un bail non signé réécrite comme
   //    avant) ; un objet reconstruit sans `_bailUid` récupère celui du baseline.
+  //  • AUDIT v15.688 (C2) — un bail SCELLÉ qui n'est PAS la ligne du baseline (restauré par « Annuler »
+  //    après une suppression / une réinitialisation, ou par une restauration de sauvegarde) reçoit
+  //    TOUJOURS une ligne NEUVE : sa ligne d'origine a pu être archivée entre-temps — immuable, jamais
+  //    réécrite ni réanimée → un update/insert dessus échouait sans fin, et le bail disparaissait au
+  //    rechargement. Une ligne neuve est toujours acceptée (l'INSERT d'un signé n'est pas intercepté) ;
+  //    la ligne archivée reste la preuve. Un bail NON scellé garde son identité (sa ligne ne peut être
+  //    que vivante ou supprimée — réanimable par le chemin B-REBAIL).
   function _identifierBaux(db) {
     const base = baseline.get('baux')
     for (const [k, bail] of Object.entries((db && db.baux) || {})) {
       if (!bail || typeof bail !== 'object' || isDeleted(bail)) continue
       const prev = base && base.get(_bauxKey(k))
-      if (!prev) { if (!bail._bailUid) bail._bailUid = newUid(); continue }
+      const scelle = !!(bail.signatures && bail.signatures.locked)
+      if (!prev) { if (!bail._bailUid || scelle) bail._bailUid = newUid(); continue }
       const pUid = _uidDe(prev.rec)
       if (prev.locked) {
         const sAt = bail.signatures && bail.signatures.signedAt
         if (sAt && sAt === prev.sAt) { if (pUid) bail._bailUid = pUid; else delete bail._bailUid }
-        else if (!bail._bailUid || bail._bailUid === pUid) bail._bailUid = newUid()
-      } else if (!bail._bailUid && pUid) bail._bailUid = pUid
+        else if (!bail._bailUid || bail._bailUid === pUid || scelle) bail._bailUid = newUid()
+      } else {
+        if (!bail._bailUid && pUid) bail._bailUid = pUid
+        if (scelle && _uidDe(bail) !== pUid) bail._bailUid = newUid()   // scellé venu d'ailleurs : ligne neuve
+      }
     }
   }
 
@@ -393,7 +404,14 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       if (base && base.has(String(e.id) + espTag(e))) continue
       const t = baux.find(([k, b]) => b && typeof b === 'object' && !isDeleted(b) && b._bailUid && String(k).split('@@')[0] === e.ref
         && b.signatures && b.signatures.signedAt === e.signedAt && (b._espaceId || null) === (e._espaceId || null))
-      if (t) e.bailUid = t[1]._bailUid
+      if (t) { e.bailUid = t[1]._bailUid; continue }
+      // Audit v15.688 (I2) : le bail a pu être clôturé / remplacé AVANT le 1er envoi de l'entrée → sa ligne
+      // est celle du BASELINE (même logement, même signature, même espace). Sans uid nulle part → ligne historique.
+      const bb = baseline.get('baux')
+      if (bb) for (const [bk, v] of bb) {
+        const r = v.rec
+        if (r && r._bailUid && String(r.__key || bk).split('@@')[0] === e.ref && v.sAt === e.signedAt && (r._espaceId || null) === (e._espaceId || null)) { e.bailUid = r._bailUid; break }
+      }
     }
   }
 
@@ -469,6 +487,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
           else res = archiver ? await store.archive('baux', prev.rec) : await store.remove('baux', prev.rec)
         } catch (e) {
           summary.errors.push({ op: archiver ? 'archive' : 'remove', coll: 'baux', key: k, message: _errMsg(e) })
+          _removeConflicts.add(_rcKey('baux', k))   // audit I3 : échec persistant → plus de flush IMMÉDIAT à chaque enregistrement (retry par backoff)
           if (c) bloques.add(k)
           continue
         }
@@ -479,7 +498,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         } else {
           if (c) bloques.add(k)
           if (st === 'conflict') { _removeConflicts.add(_rcKey('baux', k)); summary.conflicts.push({ coll: 'baux', key: k }) }
-          else summary.skipped.push({ coll: 'baux', key: k })
+          else { _removeConflicts.add(_rcKey('baux', k)); summary.skipped.push({ coll: 'baux', key: k }) }   // audit I3 : idem
         }
       }
     }

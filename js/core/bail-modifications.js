@@ -104,25 +104,33 @@ export const CHAMPS_LOCATAIRE = {
 // sa propre trace : barème, bailEvents, assistant de départ). Liste FERMÉE : un champ absent d'ici
 // reste perdu au cloud sur un bail verrouillé — l'ajouter ici est le geste attendu.
 export const CHAMPS_VIE = {
-  depart: { l: 'Départ du locataire' },
-  dgRestitueAt: { l: 'Dépôt de garantie restitué le' },
-  dgRestitueMontant: { l: 'Montant du dépôt restitué' },
-  dgDetailRetenues: { l: 'Détail des retenues sur le dépôt' },
-  dgAdresseNonCommuniquee: { l: 'Adresse de restitution non communiquée' },
-  dgPenaliteArt22: { l: 'Pénalité de retard de restitution (art. 22)' },
-  locNouvIban: { l: 'IBAN du locataire sortant' },
-  estimExclues: { l: 'Charges exclues de l\'estimation' },
-  planApurement: { l: 'Plan d\'apurement' },
-  procedure: { l: 'Procédure' },
-  avenants: { l: 'Avenants' },
-  chForfait: { l: 'Charges au forfait' },
-  irlDerniereApplication: { l: 'Dernière révision IRL appliquée' },
-  reprisVerifie: { l: 'Bail repris vérifié' },
-  quittAutoGen: { l: 'Quittances automatiques' },
+  depart: { l: 'Départ du locataire', t: 'objet' },
+  dgRestitueAt: { l: 'Dépôt de garantie restitué le', t: 'texte' },
+  dgRestitueMontant: { l: 'Montant du dépôt restitué', t: 'nombre' },
+  dgDetailRetenues: { l: 'Détail des retenues sur le dépôt', t: 'texte' },
+  dgAdresseNonCommuniquee: { l: 'Adresse de restitution non communiquée', t: 'booleen' },
+  dgPenaliteArt22: { l: 'Pénalité de retard de restitution (art. 22)', t: 'nombre' },
+  locNouvIban: { l: 'IBAN du locataire sortant', t: 'texte' },
+  estimExclues: { l: 'Charges exclues de l\'estimation', t: 'liste' },
+  planApurement: { l: 'Plan d\'apurement', t: 'objet' },
+  procedure: { l: 'Procédure', t: 'objet' },
+  avenants: { l: 'Avenants', t: 'liste' },
+  chForfait: { l: 'Charges au forfait', t: 'booleen' },
+  irlDerniereApplication: { l: 'Dernière révision IRL appliquée', t: 'texte' },
+  reprisVerifie: { l: 'Bail repris vérifié', t: 'booleen' },
+  quittAutoGen: { l: 'Quittances automatiques', t: 'booleen' },
 };
 // Pièces de la SIGNATURE posées APRÈS le scellement (archivage du PDF signé, certificat de preuve —
 // `__immoArchiveBailPdf`). Seules ces sous-clés de `signatures` peuvent être journalisées : le reste
 // (signedAt, bailSnapshot, mode, empreinte des termes, verrou) est le document signé, intouchable.
+function _typeVieOk(t, v) {
+  if (t === 'objet') return typeof v === 'object' && !Array.isArray(v);
+  if (t === 'liste') return Array.isArray(v);
+  if (t === 'texte') return typeof v === 'string';
+  if (t === 'nombre') return (typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && /^-?\d+(?:[.,]\d+)?$/.test(v.trim()));
+  if (t === 'booleen') return typeof v === 'boolean';
+  return false;
+}
 export const ARTEFACTS_SIGNATURE = ['cloudPdfKey', 'proof', 'contentHash', 'certRef'];
 
 // Égalité « métier » : vide / null / absent sont identiques ; nombres comparés en nombre ;
@@ -270,7 +278,13 @@ function _poser(obj, chemin, valeur) {
   // Pièces de signature : types attendus seulement (clé de fichier / empreinte = texte ; preuve /
   // certificat = objet simple). Tout autre type est ignoré plutôt qu'injecté dans `signatures`.
   if (chemin === 'signatures.cloudPdfKey' || chemin === 'signatures.contentHash') { if (valeur != null && typeof valeur !== 'string') return false; }
-  if (chemin === 'signatures.proof' || chemin === 'signatures.certRef') { if (valeur != null && (typeof valeur !== 'object' || Array.isArray(valeur))) return false; }
+  // proof : la LISTE des signataires (_buildPresentielProof) ou un objet (audit v15.688, I1 : une liste était
+  // rejetée → preuve jamais réappliquée, et une entrée de journal ajoutée à chaque flush) ; certRef : objet.
+  if (chemin === 'signatures.proof') { if (valeur != null && typeof valeur !== 'object') return false; }
+  if (chemin === 'signatures.certRef') { if (valeur != null && (typeof valeur !== 'object' || Array.isArray(valeur))) return false; }
+  // Vie du bail : TYPE attendu seulement (audit v15.688, M4 : le journal est partagé — un type inattendu
+  // casserait les écrans qui lisent ces champs). Refusé = ignoré, jamais injecté.
+  if (Object.prototype.hasOwnProperty.call(CHAMPS_VIE, chemin) && valeur != null && !_typeVieOk(CHAMPS_VIE[chemin].t, valeur)) return false;
   // Valeur structurée (objet / liste) venue du journal PARTAGÉ : copie de données pures (aucun prototype,
   // aucune référence partagée entre le journal et le bail vivant).
   if (valeur != null && typeof valeur === 'object') { try { valeur = JSON.parse(JSON.stringify(valeur)); } catch (_e) { return false; } }
