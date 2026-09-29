@@ -111,7 +111,7 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
         .select('version')
       if (error) throw new Error('archive ' + table + ': ' + error.message)
       if (data && data.length) return data[0].version
-      // IDEMPOTENT (audit v15.688, I4) : 0 ligne peut vouloir dire « DÉJÀ archivée » (par un autre appareil,
+      // IDEMPOTENT (audit v15.690, I4) : 0 ligne peut vouloir dire « DÉJÀ archivée » (par un autre appareil,
       // ou par ce flush avant une coupure réseau). Le but est atteint → succès, avec la version actuelle.
       // Sinon (version périmée d'une ligne vivante, ligne supprimée) → null = conflit, comme avant.
       const { data: cur, error: e2 } = await client.from(table)

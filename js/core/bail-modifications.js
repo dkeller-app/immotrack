@@ -251,7 +251,7 @@ export function entreeJournalAuto(cle, bail, reference, journal, { date, id } = 
     date, _modifiedAt: date, type: 'modification', source: 'auto', auteur: '', changements };
   if (bail._bailUid) e.bailUid = bail._bailUid;
   if (bail._espaceId != null) e._espaceId = bail._espaceId;   // routage vers l'espace du propriétaire (partage SCI)
-  // CONVERGENCE (contre-audit v15.688, m-2) : l'entrée est rejouée sur la référence ; un changement que la
+  // CONVERGENCE (contre-audit v15.690, m-2) : l'entrée est rejouée sur la référence ; un changement que la
   // réapplication REFUSE (type inattendu, montant NaN…) ne convergerait jamais → il serait re-journalisé à
   // CHAQUE flush, sans fin. On ne garde que ce qui converge ; le reste est signalé, jamais bouclé.
   const essai = JSON.parse(JSON.stringify(ref));
@@ -291,11 +291,11 @@ function _poser(obj, chemin, valeur) {
   // Pièces de signature : types attendus seulement (clé de fichier / empreinte = texte ; preuve /
   // certificat = objet simple). Tout autre type est ignoré plutôt qu'injecté dans `signatures`.
   if (chemin === 'signatures.cloudPdfKey' || chemin === 'signatures.contentHash') { if (valeur != null && typeof valeur !== 'string') return false; }
-  // proof : la LISTE des signataires (_buildPresentielProof) ou un objet (audit v15.688, I1 : une liste était
+  // proof : la LISTE des signataires (_buildPresentielProof) ou un objet (audit v15.690, I1 : une liste était
   // rejetée → preuve jamais réappliquée, et une entrée de journal ajoutée à chaque flush) ; certRef : objet.
   if (chemin === 'signatures.proof') { if (valeur != null && typeof valeur !== 'object') return false; }
   if (chemin === 'signatures.certRef') { if (valeur != null && (typeof valeur !== 'object' || Array.isArray(valeur))) return false; }
-  // Vie du bail : TYPE attendu seulement (audit v15.688, M4 : le journal est partagé — un type inattendu
+  // Vie du bail : TYPE attendu seulement (audit v15.690, M4 : le journal est partagé — un type inattendu
   // casserait les écrans qui lisent ces champs). Refusé = ignoré, jamais injecté.
   if (Object.prototype.hasOwnProperty.call(CHAMPS_VIE, chemin) && valeur != null && !_typeVieOk(CHAMPS_VIE[chemin].t, valeur)) return false;
   // Valeur structurée (objet / liste) venue du journal PARTAGÉ : copie de données pures (aucun prototype,
@@ -333,7 +333,7 @@ export function journalDuBail(journal, cle, bail) {
  * pour les écrans qui décident si le bail en vigueur diffère du document signé (signatures réinjectées,
  * « version signée d'origine », snapshot rétroactif). Le journal AUTOMATIQUE de la vie du bail (départ,
  * dépôt, pièces de signature… : changements `vie`) ne change pas les termes signés → il n'y compte pas (contre-audit
- * v15.688, I-2). La réapplication, elle, utilise TOUTES les entrées (journalDuBail).
+ * v15.690, I-2). La réapplication, elle, utilise TOUTES les entrées (journalDuBail).
  */
 export function modificationsDuBail(journal, cle, bail) {
   return journalDuBail(journal, cle, bail).filter(e => (e.changements || []).some(c => c && !c.vie));

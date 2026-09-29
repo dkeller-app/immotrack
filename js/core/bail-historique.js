@@ -220,7 +220,7 @@ export function construireHistoriqueBail(input) {
   //    DB.baux_evenements, table 0054). Une carte par enregistrement ; les champs financiers
   //    (loyer / charges / dépôt) sont déjà une carte du barème → retirés de celle-ci.
   for (const e of (i.bailJournal || [])) {
-    // source 'auto' (journal AUTOMATIQUE, v15.688) : trace technique de synchro — la donnée est conservée et
+    // source 'auto' (journal AUTOMATIQUE, v15.690) : trace technique de synchro — la donnée est conservée et
     // réappliquée, mais pas de carte (valeurs par défaut du formulaire, IRL, départ… ont leur propre trace).
     if (!e || e._deleted || e.type !== 'modification' || e.source === 'auto' || _nr(String(e.ref || '').split('@@')[0]) !== want) continue;
     // `vie` (journal AUTOMATIQUE, chantier clôture/relocation) : départ, dépôt de garantie, IRL, pièces

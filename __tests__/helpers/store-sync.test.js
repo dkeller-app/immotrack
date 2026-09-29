@@ -1242,8 +1242,8 @@ describe('ARCHIVE AVANT SCEAU — suite audit (date saisie, relance, empreinte)'
   })
 })
 
-// ── Suite d'audit v15.688 (code-reviewer) ────────────────────────────────────────────────────────────
-describe('B2 — suites d\'audit v15.688', () => {
+// ── Suite d'audit v15.690 (code-reviewer) ────────────────────────────────────────────────────────────
+describe('B2 — suites d\'audit v15.690', () => {
   const SIG = { signedAt: '2025-01-01T10:00:00Z', mode: 'avec-locataire', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }
   const dupont = (x) => Object.assign({ entity: 'SCI A', hc: 600, ch: 40, debut: '2025-01-01', locataires: [{ nom: 'Dupont' }], signatures: { ...SIG } }, x || {})
   const mk = (db, overrides) => {
@@ -1355,8 +1355,8 @@ describe('B2 — suites d\'audit v15.688', () => {
   })
 })
 
-// ── Contre-audit v15.688 ─────────────────────────────────────────────────────────────────────────────
-describe('B2 — contre-audit v15.688', () => {
+// ── Contre-audit v15.690 ─────────────────────────────────────────────────────────────────────────────
+describe('B2 — contre-audit v15.690', () => {
   const SIG = { signedAt: '2025-01-01T10:00:00Z', mode: 'avec-locataire', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }
   const dupont = (x) => Object.assign({ entity: 'SCI A', hc: 600, ch: 40, debut: '2025-01-01', locataires: [{ nom: 'Dupont' }], signatures: { ...SIG } }, x || {})
 

@@ -343,14 +343,14 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   //    des signatures) : `_bailUid` NEUF, l'ancienne ligne est archivée en phase 0 ;
   //  • baseline NON verrouillé → même ligne (réédition, ou relocation d'un bail non signé réécrite comme
   //    avant) ; un objet reconstruit sans `_bailUid` récupère celui du baseline.
-  //  • AUDIT v15.688 (C2) — un bail SCELLÉ qui n'est PAS la ligne du baseline (restauré par « Annuler »
+  //  • AUDIT v15.690 (C2) — un bail SCELLÉ qui n'est PAS la ligne du baseline (restauré par « Annuler »
   //    après une suppression / une réinitialisation, ou par une restauration de sauvegarde) reçoit
   //    TOUJOURS une ligne NEUVE : sa ligne d'origine a pu être archivée entre-temps — immuable, jamais
   //    réécrite ni réanimée → un update/insert dessus échouait sans fin, et le bail disparaissait au
   //    rechargement. Une ligne neuve est toujours acceptée (l'INSERT d'un signé n'est pas intercepté) ;
   //    la ligne archivée reste la preuve. Un bail NON scellé garde son identité (sa ligne ne peut être
   //    que vivante ou supprimée — réanimable par le chemin B-REBAIL).
-  // Contre-audit v15.688 (I-1) : un uid MIS ICI et pas encore confirmé par un insert réussi est STABLE
+  // Contre-audit v15.690 (I-1) : un uid MIS ICI et pas encore confirmé par un insert réussi est STABLE
   // d'un flush à l'autre — sinon un insert en échec (réseau) re-tirait un uid à chaque flush, et une entrée
   // de journal (ou un document) rattachée entre-temps visait une ligne qui n'existerait jamais (FK
   // baux_evenements_bail_fk → erreur retentée sans fin). Seul un uid VENU D'AILLEURS (restauration,
@@ -413,7 +413,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       const t = baux.find(([k, b]) => b && typeof b === 'object' && !isDeleted(b) && b._bailUid && String(k).split('@@')[0] === e.ref
         && b.signatures && b.signatures.signedAt === e.signedAt && (b._espaceId || null) === (e._espaceId || null))
       if (t) { e.bailUid = t[1]._bailUid; continue }
-      // Audit v15.688 (I2) : le bail a pu être clôturé / remplacé AVANT le 1er envoi de l'entrée → sa ligne
+      // Audit v15.690 (I2) : le bail a pu être clôturé / remplacé AVANT le 1er envoi de l'entrée → sa ligne
       // est celle du BASELINE (même logement, même signature, même espace). Sans uid nulle part → ligne historique.
       const bb = baseline.get('baux')
       if (bb) for (const [bk, v] of bb) {
