@@ -24,6 +24,11 @@ export async function renderPageInto(pdf, pageNum, container, { scale = 1.3 } = 
   canvas.className = 'pdf-page';
   container.innerHTML = '';
   container.appendChild(canvas);
-  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  try {
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  } catch (e) {
+    canvas.width = 0; canvas.height = 0; canvas.remove();   // Safari iOS : mémoire du canvas rendue à 0 × 0
+    throw e;
+  }
   return canvas;
 }

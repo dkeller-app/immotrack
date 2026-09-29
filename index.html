@@ -24273,7 +24273,7 @@ function previewBailData(bail, log, ref, opts) {
     +    'var n=page.pageNum;'
     +    'html+="<section class=\\"wizV2-pg\\" id=\\"wizV2-pg-"+n+"\\"><div class=\\"wizV2-pg-no\\">Page "+n+" / "+pages.length+"</div>";'
     /* width/height : la page a sa hauteur AVANT le décodage de l'image → « Aller à la page N » tombe juste. */
-    +    'html+="<img src=\\""+page.imgDataUrl+"\\" class=\\"wizV2-img\\" width=\\""+Math.round(page.width||893)+"\\" height=\\""+Math.round(page.height||1263)+"\\" alt=\\"Page "+n+"\\">";'
+    +    'html+="<img src=\\""+page.imgDataUrl+"\\" class=\\"wizV2-img\\" loading=\\"lazy\\" width=\\""+Math.round(page.width||893)+"\\" height=\\""+Math.round(page.height||1263)+"\\" alt=\\"Page "+n+"\\">";'
     +    'if(page.noParaphe){'
     +      'var msg="Page sans paraphe.";'
     +      'if(page.kind==="signatures"){msg="✍ <b>Page des signatures.</b> Vous signerez à la <b>dernière étape</b>, après le paraphe des pages : la signature est reportée automatiquement ici.";}'
@@ -24313,7 +24313,8 @@ function previewBailData(bail, log, ref, opts) {
     +  'document.body.appendChild(sh);'
     +  'var c=sh.querySelector("canvas");initPad(c);'
     +  'var onKey=function(e){if(e.key==="Escape")close();};document.addEventListener("keydown",onKey);'
-    +  'var close=function(){document.removeEventListener("keydown",onKey);sh.remove();};'
+    +  'var _opener=document.activeElement;'
+    +  'var close=function(){document.removeEventListener("keydown",onKey);sh.remove();if(_opener&&_opener.isConnected)_opener.focus();};'
     +  'setTimeout(function(){var ok=sh.querySelector(".wizV2-sheet-ok");if(ok)ok.focus();},0);'
     +  'sh.querySelector(".wizV2-sheet-back").onclick=close;sh.querySelector(".wizV2-sheet-x").onclick=close;'
     +  'sh.querySelector(".wizV2-sheet-clr").onclick=function(){c.getContext("2d").clearRect(0,0,c.width,c.height);};'

@@ -1,6 +1,6 @@
 import { initPad } from '/sign/pad.js';
 import { loadDocument, renderPageInto } from '/sign/viewer.js';
-import { readingPlanFor } from '/sign/stamp.js?v=6';   // versionné : readingPlanFor n'existe pas dans un stamp.js en cache
+import { readingPlanFor } from '/sign/stamp.js?v=6';   // versionné : readingPlanFor n'existe pas dans un stamp.js en cache — ⚠️ garder = ASSET_VERSION (relay/src/sign-page.js)
 import { buildMentionLines, buildProofObject } from '/sign/proof.js';
 
 const S = window.__SIGN__ || {};
@@ -206,7 +206,9 @@ async function startReading() {
     plan = readingPlanFor(probe, { sigId: S.sigId, side: S.side });
     // Aucune case (ni paraphe ni signature) pour CE signataire = document incohérent : on s'arrête
     // plutôt que de laisser « signer » un PDF qui ne porterait aucune trace de lui.
-    if (!plan.paraphes.length && !plan.signatures.length) {
+    // Même règle que le serveur (422 « nothing-stamped ») : sans case de SIGNATURE pour ce signataire,
+    // on s'arrête ici — pas après qu'il a paraphé tout le bail.
+    if (!plan.signatures.length) {
       master = null;
       return fail('Ce document ne prévoit aucune case de signature pour vous. Contactez l\'expéditeur du bail.');
     }
@@ -311,9 +313,10 @@ async function drawPage(n) {
     const w = holder.clientWidth || 600;
     const scale = (w / page.getViewport({ scale: 1 }).width) * Math.min(window.devicePixelRatio || 1, 2);
     const tmp = document.createElement('div');
-    canvas = await renderPageInto(pdf, n, tmp, { scale });
+    canvas = await renderPageInto(pdf, n, tmp, { scale });   // en cas d'échec, viewer.js libère son canvas
     page.cleanup();
   } catch (e) {
+    if (drawn.has(n) || !visible.has(n)) return;   // un autre rendu a réussi, ou la page est sortie
     holder.innerHTML = '<p class="pg-err">Affichage de la page impossible. Faites défiler pour réessayer, ou téléchargez le document.</p>';
     return;
   }
@@ -428,7 +431,7 @@ function updateReadUI() {
   const prog = app.querySelector('#read-prog');
   prog.innerHTML = '';
   if (tot) {
-    prog.appendChild(h(`<div class="rp"><span class="rp-lbl" aria-live="polite">Paraphes ${done} / ${tot}</span><div class="rp-track"><div class="rp-fill${done === tot ? ' is-done' : ''}" style="width:${Math.round(done / tot * 100)}%"></div></div>${nx ? `<button type="button" class="rp-next">Page à parapher ↓</button>` : `<span class="rp-ok">✓ Bail paraphé</span>`}</div>`));
+    prog.appendChild(h(`<div class="rp"><span class="rp-lbl">Paraphes ${done} / ${tot}</span><div class="rp-track"><div class="rp-fill${done === tot ? ' is-done' : ''}" style="width:${Math.round(done / tot * 100)}%"></div></div>${nx ? `<button type="button" class="rp-next">Page à parapher ↓</button>` : `<span class="rp-ok">✓ Bail paraphé</span>`}</div>`));
     const rn = prog.querySelector('.rp-next'); if (rn) rn.onclick = () => goToPage(nx);
   }
   const bar = app.querySelector('#read-bar');
