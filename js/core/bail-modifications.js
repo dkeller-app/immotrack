@@ -31,6 +31,7 @@ export const CHAMPS_BAIL = {
   premiereLoc: { l: 'Situation lors de cette mise en location' },
   dernierLoyerPrec: { l: 'Dernier loyer HC du précédent locataire' },
   loyerRefMajore: { l: 'Loyer de référence majoré' },
+  loyerRef: { l: 'Loyer de référence' },   // CONTRAT-TYPE-2026-10
   complementLoyer: { l: 'Complément de loyer' },
   complementJustif: { l: 'Justification du complément de loyer' },
   // JAMAIS BLOQUER (retour Didier 28/09) : un changement de PARTIE (garant, bailleur, co-signataires,
@@ -64,6 +65,8 @@ export const CHAMPS_BAIL = {
   depensesEnergie: { l: 'Dépenses énergétiques estimées' },
   precedentLoc: { l: 'Précédent locataire parti depuis' },
   precedentLoyerDetail: { l: 'Dernier loyer du précédent locataire' },
+  precedentLoyerDateVers: { l: 'Date de versement du dernier loyer du précédent locataire' },   // CONTRAT-TYPE-2026-10
+  precedentLoyerDateRev: { l: 'Date de la dernière révision du loyer du précédent locataire' },
   travaux_inter_loc: { l: 'Travaux depuis le précédent locataire' },
   diag: { l: 'Date du diagnostic' },
   diagSoc: { l: 'Société de diagnostic' },
@@ -99,7 +102,7 @@ export const CHAMPS_LOCATAIRE = {
 function _vide(v) { return v == null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => _vide(v[k]))); }
 // Champs MONTANTS / NOMBRES : « 850 » et 850 identiques. Les autres restent du texte : un téléphone,
 // un code postal ou un n° d'emplacement qui ne diffère que d'un zéro en tête EST une modification.
-const CHAMPS_NUMERIQUES = new Set(['hc', 'ch', 'dg', 'dernierLoyerPrec', 'loyerRefMajore', 'complementLoyer', 'plafondCaution',
+const CHAMPS_NUMERIQUES = new Set(['hc', 'ch', 'dg', 'dernierLoyerPrec', 'loyerRefMajore', 'loyerRef', 'complementLoyer', 'plafondCaution',
   'surf', 'depensesEnergie', 'dgRestitue', 'dgRetenu', 'jpay', 'emplSurface']);
 function _norm(v, numerique) {
   if (_vide(v)) return '';

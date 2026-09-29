@@ -241,6 +241,8 @@ import {
 
 // CDC-QUITTANCES-IRL etape 5 - LE calendrier des revisions (D12/D13/D15/D16/D17).
 import * as IrlCalendrier from './core/irl-calendrier.js';
+// CONTRAT-TYPE-2026-10 - mentions du contrat type (decret 2026-596) + version des clauses d'un bail.
+import * as ContratType from './core/contrat-type.js';
 // CDC-QUITTANCES-IRL D22/I15 - coeur de comptage de la pastille menu Loyers (pur, teste).
 import { loyersBadgeCount, loyersBadgeBreakdown } from './core/loyers-badge.js';
 
@@ -656,6 +658,8 @@ window.ymRange = ymRange;
 
 // IRL - LE calendrier des revisions : namespace expose (etatRevision, ganttRevisions, ETAT...).
 window.IrlCalendrier = IrlCalendrier;
+// Contrat type (decret 2026-596) : textes verbatim + versionClausesBail (lue par _bailClauseVersion).
+window.ContratType = ContratType;
 window.GroupByImm = GroupByImm;
 window.IrlInsee = IrlInsee;
 window.migrerIdsMenuLoyers = migrerIdsMenuLoyers;

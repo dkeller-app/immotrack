@@ -209,7 +209,13 @@ describe('chaînage vers le bail — la liste devient une donnée CONTRACTUELLE'
     // Sans ça, la désignation d'un bail SIGNÉ ne serait pas figée : violation directe de
     // l'immutabilité que tout le reste du snapshot protège.
     expect(indexHtml).toContain('edlTemplate: log.edlTemplate');
-    expect(indexHtml).toContain("'equipements:liveLog.equipements,edlTemplate:liveLog.edlTemplate'");
+    expect(indexHtml).toContain("'equipements:liveLog.equipements,edlTemplate:liveLog.edlTemplate,'");
+  });
+
+  it('IMMUTABILITÉ — la servitude de résidence principale entre au bailSnapshot (les 2 chemins)', () => {
+    // CONTRAT-TYPE-2026-10 : elle génère une mention (§3) et un motif de résiliation (§12).
+    expect(indexHtml).toContain('servitudeRP: !!log.servitudeRP');
+    expect(indexHtml).toContain("'servitudeRP:!!liveLog.servitudeRP'");
   });
 
   it('le repli est silencieux quand le module n\'est pas chargé (file://)', () => {
