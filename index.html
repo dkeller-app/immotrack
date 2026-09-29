@@ -9031,6 +9031,19 @@ async function openRemoteSignModal(ref) {
 // bsd-bdist) sont remplacées par le sélecteur _bsdModeSeg/_bsdSetMode. Plus aucun appelant.
 
 
+// CONTRAT-TYPE-2026-10 — les mentions « à compléter » du bail tel qu'il sera signé (même rendu que
+// le PDF : buildBailStructure). Rien si le module n'est pas chargé ou si le rendu échoue : un
+// avertissement ne doit jamais empêcher de signer.
+function _bailMentionsACompleter(bail, log, ref) {
+  try {
+    const CT = (typeof window !== 'undefined') ? window.ContratType : null;
+    if (!CT || typeof CT.mentionsACompleter !== 'function') return [];
+    const ent = (DB.entites || []).find(e => e.nom === bail.entity) || {};
+    const locs = bail.locataires || (bail.nom ? [{ nom: bail.nom, ddn: bail.ddn, lieuNaiss: bail.lieuNaiss }] : []);
+    return CT.mentionsACompleter(buildBailStructure(bail, log, ref, ent, locs));
+  } catch (e) { console.warn('[contrat-type] mentions à compléter', e); return []; }
+}
+
 // FIL-ROUGE — point d'entrée UNIQUE de la signature. Lit la matrice de présence de la modale
 // ov-send-b, construit le plan (buildSignaturePlan), puis lance la
 // signature présentielle CHACUN SON TOUR (popup + file _wizV2SoloSigner alignée sur les ids _SIGS :
@@ -9089,6 +9102,18 @@ function _confirmBailSignatureFlow(ref) {
   const pendingPres = plan.presentiels.filter(s => !_already[s.id]);
   if (!pendingPres.length && !plan.distants.length) {
     showToast('Ce bail est déjà signé', 'ok', 4000); if (typeof closeM === 'function') closeM('ov-send-b'); return;
+  }
+  // CONTRAT-TYPE-2026-10 — avertissement AU BAILLEUR SEUL (ici, dans son app : jamais dans le
+  // document, jamais sur la page du locataire) si des mentions du bail restent « à compléter ».
+  // Jamais bloquant : il décide. Pas sur une reprise (déjà signé en partie : texte figé).
+  if (!Object.keys(_already).length && !_bailSigned(bail)) {
+    const _manques = _bailMentionsACompleter(bail, log, ref);
+    if (_manques.length && !confirm2(
+      'Avant de lancer la signature — mentions du bail encore à compléter :\n\n'
+      + _manques.map(m => '• ' + m.section + ' : ' + m.mention).join('\n')
+      + '\n\nLe bail sera signé tel quel, avec « à compléter » à ces endroits.\n'
+      + 'OK = signer quand même · Annuler = revenir compléter le bail.'
+    )) return;
   }
 
   // Persiste les modes co-gérants (buildBailStructure/D2a) + le présentiel/email locataires (relais).

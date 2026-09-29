@@ -195,3 +195,56 @@ export function libelleAnnexeEtatDesLieux(meuble) {
 }
 /** [D'APRÈS LE MODÈLE] « E. Le cas échéant, Une autorisation préalable de mise en location » : jamais « N/A » affirmé. */
 export const STATUT_AUTORISATION_PREALABLE = 'Le cas échéant';
+
+// ── Avertissement AU BAILLEUR avant signature ─────────────────────────────────────────────────
+
+/** Les marqueurs qu'un bail peut imprimer quand une donnée manque (jamais une valeur inventée). */
+export const MARQUEURS_A_COMPLETER = ['[à compléter]', '[JJ/MM/AAAA]', 'à préciser]', 'À compléter par avenant'];
+
+/**
+ * Les mentions encore « à compléter » d'un bail rendu (structure de blocs de buildBailStructure) :
+ * une entrée par endroit, rattachée à sa section (dernier titre `h2`). Sert UNIQUEMENT à avertir
+ * le bailleur avant qu'il lance la signature — jamais affiché au locataire, jamais bloquant.
+ * @param {Array<{type:string,text?:string,items?:string[],rows?:string[][],segments?:{text:string}[]}>} blocks
+ * @returns {{section:string, mention:string}[]}
+ */
+export function mentionsACompleter(blocks) {
+  const out = [];
+  const vus = new Set();
+  let section = '';
+  const aMarqueur = t => MARQUEURS_A_COMPLETER.some(m => String(t).includes(m));
+  // Le libellé de la mention : ce qui précède le marqueur, depuis la dernière ponctuation forte.
+  const libelle = t => {
+    const s = String(t);
+    const i = Math.min(...MARQUEURS_A_COMPLETER.map(m => { const k = s.indexOf(m); return k === -1 ? Infinity : k; }));
+    const avant = s.slice(0, i).replace(/[\s:–—-]+$/, '');
+    const coupe = Math.max(avant.lastIndexOf('. '), avant.lastIndexOf(' ; '), avant.lastIndexOf(' / '));
+    const lib = (coupe === -1 ? avant : avant.slice(coupe + 2)).replace(/^[\s;/]+/, '').replace(/[\s[(—–-]+$/, '').trim() || s.slice(0, 60);
+    return lib.length > 70 ? '…' + lib.slice(-69).replace(/^\S*\s/, '') : lib;
+  };
+  const noter = (mention) => {
+    const cle = section + '|' + mention;
+    if (vus.has(cle)) return;
+    vus.add(cle);
+    out.push({ section, mention });
+  };
+  for (const b of (blocks || [])) {
+    if (!b) continue;
+    if (b.type === 'h2') { section = String(b.text || ''); continue; }
+    if (b.type === 'table' && Array.isArray(b.rows)) {
+      for (const r of b.rows) {
+        if (Array.isArray(r) && r.slice(1).some(aMarqueur)) noter(String(r[0]));
+      }
+      continue;
+    }
+    const textes = [];
+    if (b.text) textes.push(b.text);
+    if (Array.isArray(b.items)) textes.push(...b.items);
+    if (Array.isArray(b.segments)) textes.push(b.segments.map(s => s && s.text || '').join(''));
+    for (const t of textes) {
+      // Une phrase peut porter plusieurs manques (« … : [à compléter] ; date … : [à compléter] »).
+      String(t).split(/ ; | \/ (?=[A-ZÉÈÀ])|\. (?=[A-ZÉÈÀ])/).forEach(part => { if (aMarqueur(part)) noter(libelle(part)); });
+    }
+  }
+  return out;
+}

@@ -6,8 +6,37 @@ import {
   VERSION_CLAUSES_ACTUELLE, normaliserVersionClauses, versionClausesBail, suitContratType2026,
   rappelDecence, SERVITUDE_RESIDENCE_PRINCIPALE, lignesZoneTendue, textePrecedentLocataire,
   texteDepensesEnergie, CLAUSE_RESOLUTOIRE_TEXTE, autresMotifsResolutoires,
-  libelleAnnexeEtatDesLieux, STATUT_AUTORISATION_PREALABLE, LIBELLE_SURFACE
+  libelleAnnexeEtatDesLieux, STATUT_AUTORISATION_PREALABLE, LIBELLE_SURFACE, mentionsACompleter
 } from '../../js/core/contrat-type.js';
+
+describe('mentionsACompleter — avertissement au bailleur avant signature', () => {
+  const blocs = [
+    { type: 'h2', text: '1 — Désignation du logement' },
+    { type: 'table', rows: [['Surface habitable', '45 m²'], ['Numéro fiscal', 'À compléter par avenant']] },
+    { type: 'h2', text: '4 — Durée du bail' },
+    { type: 'p-mixed', segments: [{ text: 'Le présent contrat est conclu pour une durée initiale de ' }, { text: '6 (six) ans' }, { text: ' et prendra fin le ' }, { text: '[JJ/MM/AAAA]' }, { text: '.' }] },
+    { type: 'h2', text: '5 — Loyer' },
+    { type: 'p', text: lignesZoneTendue({ zoneTendue: true, encadrement: true }).join(' ') },
+    { type: 'p', text: textePrecedentLocataire({ moinsDe18: true, montant: '650 €' }) },
+    { type: 'h2', text: '12 — Clause résolutoire' },
+    { type: 'p', text: 'Rien à compléter ici.' }
+  ];
+  it('une entrée par manque, rattachée à sa section, avec son libellé', () => {
+    const m = mentionsACompleter(blocs);
+    expect(m).toEqual([
+      { section: '1 — Désignation du logement', mention: 'Numéro fiscal' },
+      { section: '4 — Durée du bail', mention: '…est conclu pour une durée initiale de 6 (six) ans et prendra fin le' },
+      { section: '5 — Loyer', mention: 'Montant du loyer de référence' },
+      { section: '5 — Loyer', mention: 'Montant du loyer de référence majoré' },
+      { section: '5 — Loyer', mention: 'date de versement' },
+      { section: '5 — Loyer', mention: 'date de la dernière révision du loyer' }
+    ]);
+  });
+  it('bail complet → aucune mention ; entrée vide → []', () => {
+    expect(mentionsACompleter([{ type: 'h2', text: '1' }, { type: 'p', text: 'Tout est rempli.' }])).toEqual([]);
+    expect(mentionsACompleter(null)).toEqual([]);
+  });
+});
 
 describe('version des clauses — un bail signé n\'est jamais réécrit', () => {
   it('brouillon → version courante (3)', () => {
