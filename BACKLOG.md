@@ -1,5 +1,7 @@
 # Propryo — Backlog actif
 
+## 🚦 MAIN = **v15.690** (29/09) — CONTRAT-TYPE-2026-10 intégré (décret n° 2026-596, en vigueur le 01/10/2026) · 4 650 tests verts · conflit résolu avec le DDT (annexes : ligne 1 contrat type + lignes 2x DDT)
+
 ## 🚦 MAIN = **v15.683** (28/09) — AVENANT lot 1 déployé · 4 566 tests verts, CRLF intact
 
 ## 🔒 RÉSERVATIONS (28/09) — à respecter par toutes les sessions
