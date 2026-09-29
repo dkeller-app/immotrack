@@ -1,6 +1,6 @@
 import { initPad } from '/sign/pad.js';
 import { loadDocument, renderPageInto } from '/sign/viewer.js';
-import { stampSignature, paraphePagesFor, signaturePagesFor } from '/sign/stamp.js';
+import { readingPlanFor } from '/sign/stamp.js';
 import { buildMentionLines, buildProofObject } from '/sign/proof.js';
 
 const S = window.__SIGN__ || {};
@@ -23,11 +23,8 @@ function fail(msg) { app.innerHTML = ''; app.appendChild(h(`<div class="state-ca
 
 let master;                 // Uint8Array intacts (jamais passés à PDF.js)
 let pdf;                    // doc PDF.js (lecture)
-let paraphePages = [];      // pages 1-based à parapher pour ce sigId
-let signaturePages = [];    // pages 1-based portant une zone de signature (rappel UX A3)
-let curPage = 1;            // page courante en lecture
 let signerName = '';
-const paraphesByPage = {};  // {page → dataURL} — une image distincte par page paraphée
+const paraphesByPage = {};  // {page → dataURL} — le paraphe apposé sur chaque page (clic par page)
 let signaturePad = null;    // pad de la signature finale (distinct des paraphes)
 let emailVerified = false;          // confirmation anti-transfert (§5 #2), autorité serveur
 let consentElectronic = false;      // case « procédé électronique » (acte de volonté)
@@ -65,13 +62,15 @@ function buildUI() {
       </section>
 
       <section id="step-read" class="step" hidden>
-        <div class="scroll"><div id="pdf-page">Chargement du document…</div></div>
+        <div class="read-prog" id="read-prog"></div>
+        <div class="scroll" id="read-scroll"><div id="pdf-doc" class="pdf-doc">Chargement du document…</div></div>
         <div class="actionbar" id="read-bar"></div>
       </section>
 
       <section id="step-sign" class="step" hidden>
         <div class="scroll">
           <h1>Votre signature</h1>
+          <p id="sig-recap" class="recap" hidden></p>
           <p>Tracez votre <strong>signature complète</strong> ci-dessous (distincte de vos paraphes).</p>
           <div class="pad-wrap"><canvas id="sig-pad" width="600" height="200"></canvas></div>
           <label class="chk"><input id="luSign" type="checkbox"> <strong>« Lu et approuvé »</strong> — je reconnais avoir lu l'intégralité du bail et en approuver les termes.</label>
@@ -79,6 +78,7 @@ function buildUI() {
         <div class="actionbar">
           <p id="busy" class="busy-line" hidden>Traitement…</p>
           <div class="bar-btns">
+            <button id="sig-back" class="ghost">‹ Revoir le bail</button>
             <button id="sig-clr" class="ghost">Effacer</button>
             <button id="submit" class="primary">Signer et envoyer</button>
           </div>
@@ -180,6 +180,7 @@ function buildUI() {
     show('step-read'); await startReading();
   };
   app.querySelector('#sig-clr').onclick = () => signaturePad && signaturePad.clear();
+  app.querySelector('#sig-back').onclick = () => show('step-read');   // paraphes et position conservés
   // Q4 — écran de signature FUSIONNÉ : un seul bouton « Signer et envoyer » (plus d'écran
   // « Confirmer l'envoi » intermédiaire). On conserve les validations d'avant (signature tracée +
   // « Lu et approuvé » cochée), puis doSubmit directement. Preuve inchangée (openedAt/
@@ -202,82 +203,192 @@ async function startReading() {
     master = new Uint8Array(await r.arrayBuffer());
     pdf = await loadDocument(master.slice()); // copie : PDF.js détache le buffer
     const probe = await PDFLib.PDFDocument.load(master); // master intact pour le tamponnage final
-    paraphePages = paraphePagesFor(probe, { sigId: S.sigId, side: S.side });
-    signaturePages = signaturePagesFor(probe, { sigId: S.sigId, side: S.side });
-    curPage = 1;
+    plan = readingPlanFor(probe, { sigId: S.sigId, side: S.side });
+    await buildDoc();
   }
-  await renderReadStep();
+  updateReadUI();
 }
 
-async function renderReadStep() {
-  await renderPageInto(pdf, curPage, app.querySelector('#pdf-page'));
-  // A2 : à chaque changement de page, on remonte la zone de lecture en haut (sinon on
-  // reste scrollé en bas après avoir paraphé la page précédente).
-  const sc = app.querySelector('#step-read .scroll');
-  if (sc) sc.scrollTop = 0;
-  window.scrollTo(0, 0);
+// ── Document DÉFILANT (29/09, validé Didier) ─────────────────────────────────────────────────
+// Tout le document défile ; chaque page du bail porte un bouton « Parapher » posé EXACTEMENT sur sa
+// case (ancre du manifeste). Le paraphe est tracé UNE fois, puis apposé d'un clic, page par page, avec
+// l'heure (preuve de lecture). Les annexes (au-delà de la dernière page du bail) sont repliées :
+// consultables, jamais à parapher. Base légale vérifiée : C. civ. art. 1366 / 1367 — aucun texte
+// n'impose la lecture page par page ; l'intégrité reste garantie par l'empreinte du PDF.
+let plan = null;                  // readingPlanFor : { paraphes, signatures, lastBailPage, pageCount }
+let parapheImg = null;            // dataURL du paraphe tracé une fois
+const parapheTimes = {};          // { page → ISO } : heure de chaque paraphe
+const slots = {};                 // page → élément .pg (emplacement de page)
+let annexOpen = false;
+let io = null;
+
+const hhmm = (iso) => { const d = new Date(iso); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const nextToParaphe = () => { const a = plan.paraphes.find((p) => !paraphesByPage[p.page]); return a ? a.page : 0; };
+const pct = (v) => (v * 100).toFixed(3) + '%';
+
+async function buildDoc() {
+  const doc = app.querySelector('#pdf-doc');
+  doc.innerHTML = '';
   const total = pdf.numPages;
-  const needsParaphe = paraphePages.includes(curPage);
-  const isLast = curPage >= total;
-  const nextLabel = isLast ? 'Terminer la lecture' : 'Page suivante';
+  const last = Math.min(plan.lastBailPage || total, total);
+  // Taille de chaque page (sans rendu) : l'emplacement a la bonne proportion avant d'être dessiné.
+  for (let i = 1; i <= total; i++) {
+    const vp = (await pdf.getPage(i)).getViewport({ scale: 1 });
+    const pg = h(`<section class="pg" id="pg-${i}" data-page="${i}" style="aspect-ratio:${vp.width}/${vp.height}"><div class="pg-canvas"></div><span class="pg-no">Page ${i} / ${total}</span></section>`);
+    if (i > last) { pg.classList.add('pg-annex'); pg.hidden = true; }
+    slots[i] = pg;
+    doc.appendChild(pg);
+    if (i === last && last < total) doc.appendChild(await annexBlock(last, total));
+  }
+  // Cases de paraphe et rappel de la zone de signature, posés sur les pages.
+  for (const a of plan.paraphes) {
+    // Case agrandie à ≥ 44 px (cible tactile) et gardée DANS la page : sur téléphone, la case du PDF
+    // (en bas de page, ~24 px) ferait déborder le bouton hors de la page, où il serait coupé.
+    const W = `max(${pct(a.width)}, 124px)`, H = `max(${pct(a.height)}, 46px)`;
+    const slot = h(`<div class="par-slot" style="width:${W};height:${H};left:min(${pct(a.left)}, calc(100% - ${W}));top:min(${pct(a.top)}, calc(100% - ${H} - 4px))"></div>`);
+    slot.dataset.page = a.page;
+    slots[a.page] && slots[a.page].appendChild(slot);
+    renderParSlot(a.page);
+  }
+  for (const a of plan.signatures) {
+    if (!slots[a.page]) continue;
+    slots[a.page].appendChild(h(`<div class="sig-slot" style="left:${pct(a.left)};top:${pct(a.top)};width:${pct(a.width)};height:${pct(a.height)}"><span>Votre signature : à la dernière étape</span></div>`));
+  }
+  // Rendu PARESSEUX (un bail + 75 pages d'annexes ne tiennent pas en mémoire sur un téléphone) :
+  // on dessine les pages proches de l'écran et on libère celles qui s'en éloignent.
+  const root = app.querySelector('#read-scroll');
+  io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const holder = e.target.querySelector('.pg-canvas');
+      if (e.isIntersecting) { if (!holder.firstChild) drawPage(+e.target.dataset.page, holder); }
+      else if (holder.firstChild) holder.innerHTML = '';
+    }
+  }, { root, rootMargin: '1500px 0px' });
+  Object.values(slots).forEach((s) => io.observe(s));
+}
+
+async function drawPage(n, holder) {
+  const page = await pdf.getPage(n);
+  const w = holder.clientWidth || 600;
+  const scale = (w / page.getViewport({ scale: 1 }).width) * Math.min(window.devicePixelRatio || 1, 2);
+  const tmp = document.createElement('div');
+  await renderPageInto(pdf, n, tmp, { scale });
+  if (holder.isConnected && !holder.firstChild) holder.appendChild(tmp.firstChild);
+}
+
+async function annexBlock(last, total) {
+  const n = total - last;
+  // Sommaire des fichiers : lu sur la page de garde des annexes (« 1. fichier — pages X à Y »).
+  let items = [];
+  try {
+    const tc = await (await pdf.getPage(last + 1)).getTextContent();
+    items = tc.items.map((it) => it.str.trim()).filter((s) => /^\d+\.\s.+\s—\spages\s\d+\sà\s\d+$/.test(s));
+  } catch { items = []; }
+  const list = items.length ? `<ol>${items.map((s) => `<li>${esc(s.replace(/^\d+\.\s/, ''))}</li>`).join('')}</ol>` : '';
+  const block = h(`<div class="ann" id="annexes">
+      <h2>Annexes au bail</h2>
+      <p class="ann-sub">Pages ${last + 1} à ${total} (${n} page${n > 1 ? 's' : ''}) · consultation libre, aucun paraphe demandé</p>
+      ${list}
+      <div class="ann-btns"><button type="button" class="line" id="ann-toggle">Afficher les annexes</button>
+        <a class="line btn-a" id="ann-dl" download="bail-${esc(S.bailRef || 'document')}.pdf">Télécharger le document complet (PDF)</a></div>
+      <p class="ann-legal">Ces pièces font partie du document que vous signez : vous en recevez un exemplaire avec le bail.</p>
+    </div>`);
+  block.querySelector('#ann-dl').href = URL.createObjectURL(new Blob([master], { type: 'application/pdf' }));
+  block.querySelector('#ann-toggle').onclick = () => {
+    annexOpen = !annexOpen;
+    for (let i = last + 1; i <= total; i++) slots[i].hidden = !annexOpen;
+    block.querySelector('#ann-toggle').textContent = annexOpen ? 'Replier les annexes' : 'Afficher les annexes';
+  };
+  return block;
+}
+
+function renderParSlot(page) {
+  const slot = slots[page] && slots[page].querySelector('.par-slot');
+  if (!slot) return;
+  slot.innerHTML = '';
+  if (paraphesByPage[page]) {
+    slot.className = 'par-slot is-done';
+    slot.appendChild(h(`<div class="par-done"><img alt="Paraphe" src="${paraphesByPage[page]}"><small>Paraphé · ${hhmm(parapheTimes[page])}</small></div>`));
+  } else {
+    slot.className = 'par-slot' + (nextToParaphe() === page ? ' is-next' : '');
+    const b = h(`<button type="button" class="par-btn">Parapher</button>`);
+    b.onclick = () => paraphePage(page);
+    slot.appendChild(b);
+  }
+}
+
+function paraphePage(page) {
+  if (!parapheImg) { openParapheSheet(page); return; }
+  paraphesByPage[page] = parapheImg;
+  parapheTimes[page] = new Date().toISOString();
+  const prevNext = page;
+  renderParSlot(prevNext);
+  const nx = nextToParaphe(); if (nx) renderParSlot(nx);
+  updateReadUI();
+}
+
+// Paraphe tracé UNE fois — dialogue (≥ 600 px) ou page pleine (téléphone).
+function openParapheSheet(page) {
+  const sheet = h(`<div class="par-sheet" role="dialog" aria-modal="true" aria-labelledby="par-title">
+      <div class="par-card">
+        <div class="par-head"><button type="button" class="ghost par-back">‹ Retour</button><h2 id="par-title">Votre paraphe</h2><button type="button" class="ghost par-x">Fermer</button></div>
+        <div class="par-body">
+          <p>Tracez vos <strong>initiales une seule fois</strong>. Ensuite, un clic sur « Parapher » les appose sur chaque page, page par page, avec l'heure.</p>
+          <div class="pad-wrap"><canvas id="par-pad" width="600" height="220"></canvas></div>
+          <p class="hint">Votre paraphe n'est jamais apposé sans votre clic sur la page concernée.</p>
+        </div>
+        <div class="par-foot"><button type="button" class="ghost" id="par-clr">Effacer</button><button type="button" class="primary" id="par-ok">Valider et parapher la page ${page}</button></div>
+      </div></div>`);
+  document.body.appendChild(sheet);
+  const pad = initPad(sheet.querySelector('#par-pad'), { clearBtn: sheet.querySelector('#par-clr') });
+  const close = () => sheet.remove();
+  sheet.querySelector('.par-back').onclick = close;
+  sheet.querySelector('.par-x').onclick = close;
+  sheet.querySelector('#par-ok').onclick = () => {
+    if (pad.isEmpty()) { alert('Tracez votre paraphe avant de valider.'); return; }
+    parapheImg = pad.toDataURL();
+    close();
+    paraphePage(page);
+  };
+}
+
+function goToPage(page) {
+  const sc = app.querySelector('#read-scroll'), el = slots[page];
+  if (!sc || !el) return;
+  const slot = el.querySelector('.par-slot');
+  const target = slot || el;
+  const top = target.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - sc.clientHeight / 2;
+  sc.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+
+// Barre de progression (haut) + barre d'action (bas).
+function updateReadUI() {
+  const tot = plan.paraphes.length, done = plan.paraphes.filter((a) => paraphesByPage[a.page]).length;
+  const nx = nextToParaphe();
+  const prog = app.querySelector('#read-prog');
+  prog.innerHTML = '';
+  if (tot) {
+    prog.appendChild(h(`<div class="rp"><span class="rp-lbl">Paraphes ${done} / ${tot}</span><div class="rp-track"><div class="rp-fill${done === tot ? ' is-done' : ''}" style="width:${Math.round(done / tot * 100)}%"></div></div>${nx ? `<button type="button" class="rp-next">Page à parapher ↓</button>` : `<span class="rp-ok">✓ Bail paraphé</span>`}</div>`));
+    const rn = prog.querySelector('.rp-next'); if (rn) rn.onclick = () => goToPage(nx);
+  }
   const bar = app.querySelector('#read-bar');
   bar.innerHTML = '';
-  bar.appendChild(h(`<div class="progress">Page ${curPage} / ${total}${needsParaphe ? ' · à parapher' : ' · lecture seule'}</div>`));
-
-  // A3 : la page qui porte la zone de signature est atteinte en lecture (avant la fin).
-  // On rappelle que la signature se trace à la dernière étape — sans réordonner le PDF (intégrité légale).
-  if (!needsParaphe && signaturePages.includes(curPage)) {
-    bar.appendChild(h(`<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:13px;color:#92400e;margin:6px 0">📝 La zone de signature figure sur cette page, mais vous <strong>tracerez votre signature à la dernière étape</strong>, après avoir tout lu. Continuez la lecture.</div>`));
-  }
-
-  // Q3 — la zone d'action (pad de paraphe + bouton) est enfermée dans un conteneur RÉVÉLÉ : elle
-  // reste cachée tant que la page n'a pas été lue jusqu'en bas ; seul l'indice « ↓ Faites défiler »
-  // est visible. À l'arrivée en bas, elle apparaît (fondu + glissé) puis reste ACQUISE (latch) :
-  // on ne la re-cache jamais — révéler agrandit la barre, ce qui réduit la zone de lecture et
-  // ferait repasser « plus en bas » en boucle si on re-cachait.
-  const zone = h(`<div class="sign-reveal is-hidden"></div>`);
-  let parPad = null;
-  if (needsParaphe) {
-    zone.appendChild(h(`<div class="pad-wrap small"><canvas id="par-pad" width="320" height="90"></canvas></div>`));
-    zone.appendChild(h(`<div class="bar-btns"><button id="par-clr" class="ghost">Effacer</button><button id="par-next" class="primary" disabled>${nextLabel}</button></div>`));
+  if (nx) {
+    bar.appendChild(h(`<div class="progress">${done} / ${tot} pages paraphées · le bouton « Parapher » est sur chaque page</div>`));
+    const b = h(`<button class="primary">Aller à la page ${nx} à parapher ↓</button>`);
+    b.onclick = () => goToPage(nx);
+    bar.appendChild(b);
   } else {
-    zone.appendChild(h(`<div class="bar-btns"><button id="par-next" class="primary" disabled>${nextLabel}</button></div>`));
+    bar.appendChild(h(`<div class="progress">${tot ? `Les ${tot} pages du bail sont paraphées` : 'Lecture du document'}${plan.lastBailPage < plan.pageCount ? ' · les annexes restent consultables' : ''}</div>`));
+    const b = h(`<button class="primary is-ok">Continuer vers la signature</button>`);
+    b.onclick = () => {
+      readCompletedAt = new Date().toISOString();
+      const rc = app.querySelector('#sig-recap');
+      if (rc) { rc.hidden = !tot; rc.textContent = `✓ ${tot} page${tot > 1 ? 's' : ''} du bail paraphée${tot > 1 ? 's' : ''}.`; }
+      show('step-sign'); ensureSignaturePad();
+    };
+    bar.appendChild(b);
   }
-  bar.appendChild(zone);
-  if (needsParaphe) parPad = initPad(app.querySelector('#par-pad'), { clearBtn: app.querySelector('#par-clr') });
-  app.querySelector('#par-next').onclick = () => {
-    if (needsParaphe) {
-      if (parPad.isEmpty()) { alert('Veuillez parapher cette page avant de continuer.'); return; }
-      paraphesByPage[curPage] = parPad.toDataURL();
-    }
-    advancePage(isLast);
-  };
-
-  // (4) Lecture forcée : la zone reste cachée tant que la page n'a pas été défilée jusqu'en bas
-  // (on s'assure que le signataire a vu toute la page avant de parapher/continuer).
-  // Révélation : le bouton reste `disabled` tant que la zone est cachée (gate robuste au clavier /
-  // lecteur d'écran, pas seulement un clip CSS — P2-1) ; on ne l'active qu'ici, à l'arrivée en bas.
-  const revealZone = () => {
-    zone.classList.remove('is-hidden'); zone.classList.add('is-in');
-    const pn = zone.querySelector('#par-next'); if (pn) pn.disabled = false;
-  };
-  if (sc) {
-    const hint = h(`<div class="scroll-hint" style="font-size:12px;color:#92400e;margin-top:6px;text-align:center">↓ Faites défiler la page jusqu'en bas pour ${needsParaphe ? 'pouvoir parapher' : 'continuer'}.</div>`);
-    bar.appendChild(hint);
-    const atBottom = () => sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 8;
-    const reveal = () => { revealZone(); hint.style.display = 'none'; sc.onscroll = null; };  // latch
-    const sync = () => { if (atBottom()) reveal(); };
-    sc.onscroll = sync;
-    sync(); // page courte (pas de défilement requis) → révélée d'emblée
-  } else {
-    revealZone();   // défensif : pas de zone défilante → zone visible d'emblée
-  }
-}
-
-function advancePage(isLast) {
-  if (isLast) { readCompletedAt = new Date().toISOString(); show('step-sign'); ensureSignaturePad(); return; }
-  curPage++;
-  renderReadStep();
 }
 
 function ensureSignaturePad() {
@@ -298,7 +409,7 @@ async function doSubmit() {
     const r = await fetch(`/api/sessions/${SID}/signed`, {
       method: 'POST',
       headers: { 'X-Sign-Token': TOKEN, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson(proof) },
-      body: JSON.stringify({ signaturePngDataUrl: signaturePad.toDataURL(), paraphesByPage })
+      body: JSON.stringify({ signaturePngDataUrl: signaturePad.toDataURL(), paraphesByPage, parapheTimes })
     });
     if (r.status === 403) return fail('Ce n\'est pas (ou plus) votre tour de signer.');
     if (r.status === 410) return fail('Ce document est déjà signé.');

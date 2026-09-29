@@ -263,7 +263,9 @@ app.post('/api/sessions/:id/signed', async (c) => {
   const dateISO = new Date().toISOString();
   // Preuve client optionnelle (acte de volonté + horodatages d'étape), base64url(JSON UTF-8).
   // Décodage défensif : un en-tête malformé est ignoré, jamais bloquant.
-  const clientProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
+  const decodedProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
+  // Heures de paraphe : dans le CORPS (validé ci-dessus), pas dans l'en-tête borné à 4 Ko.
+  const clientProof = body.parapheTimes ? Object.assign({}, decodedProof || {}, { parapheTimes: body.parapheTimes }) : decodedProof;
 
   // Tamponnage CÔTÉ SERVEUR depuis l'original → substitution du document impossible.
   let signedBytes, stamp;
@@ -325,6 +327,7 @@ app.get('/api/sessions/:id', async (c) => {
         luApprouve: sg.proof.luApprouve ?? null,
         openedAt: sg.proof.openedAt || null,
         readCompletedAt: sg.proof.readCompletedAt || null,
+        parapheTimes: sg.proof.parapheTimes || null,
         ip: sg.proof.ip || null,
         userAgent: sg.proof.userAgent || null
       } : null
