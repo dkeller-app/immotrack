@@ -21224,7 +21224,7 @@ function saveBail() {
   // liste le garant → contradiction). Garde dure ; le grisage réactif du wizard guide déjà l'user.
   // VISALE-GMBI : le choix explicite de la garantie rend ce cas impossible depuis l'interface ; s'il
   // survient quand même (données anciennes), on AVERTIT au lieu de bloquer (jamais bloquer un enregistrement).
-  if (bail.garant && bail.visale && String(bail.visale.visaId||'').trim()) {
+  if (!_pendingVal && bail.garant && bail.visale && String(bail.visale.visaId||'').trim()) {
     if (!confirm2('Ce bail porte à la fois un garant et une garantie Visale.\n\nLe cumul est interdit : le cautionnement est nul si le bailleur a souscrit une autre garantie (art. 22-1 loi n° 89-462), et Visale ne peut pas être cumulée avec une autre caution.\n\nEnregistrer quand même ?')) return;
   }
   // VISALE-GMBI : contrôles du visa rappelés à l'enregistrement (le loyer se saisit APRÈS la garantie).
