@@ -118,7 +118,7 @@ import {
 } from './core/loyer-bareme.js';
 // HISTORIQUE-BAIL-ONGLET (17/07) - chapitres/rail de l'historique du bail (onglet Bail inline)
 import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './core/bail-historique.js';
-import { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journalDuBail, valeurLisible as bailModifValeur } from './core/bail-modifications.js';
+import { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journalDuBail, modificationsDuBail, valeurLisible as bailModifValeur } from './core/bail-modifications.js';
 // HISTORIQUE-BAIL-ONGLET - popup de validation des modifications financieres du bail
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 // IRL-REVISION (R6/R7) — la lettre suit la révision VALIDÉE ; annuler une révision programmée.
@@ -540,7 +540,7 @@ window._premierDuMoisSuivant = _premierDuMoisSuivant;
 window.reconstruireBaremeLot = reconstruireBaremeLot;   // étape 3 — migration de l'existant
 window._bailHistoConstruire = construireHistoriqueBail;   // HISTORIQUE-BAIL-ONGLET
 // Modifications d'un bail signé hors avenant (journal DB.baux_evenements, migration 0054)
-window.BailModifs = { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journalDuBail, valeurLisible: bailModifValeur };
+window.BailModifs = { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journalDuBail, modificationsDuBail, valeurLisible: bailModifValeur };
 // Course possible (audit 28/09) : le chargement cloud (hors ligne notamment) peut injecter le DB AVANT que
 // ce module soit exécuté → la réapplication de _applyDataDefaults n'a pas eu lieu. On la rejoue ici
 // (idempotente ; la ligne d'un bail verrouillé n'est jamais renvoyée au cloud, donc aucun envoi parasite).

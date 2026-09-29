@@ -1354,3 +1354,68 @@ describe('B2 — suites d\'audit v15.688', () => {
     expect(b.dgRestitueMontant).toBe('812,50'); expect(b.reprisVerifie).toBe(true)
   })
 })
+
+// ── Contre-audit v15.688 ─────────────────────────────────────────────────────────────────────────────
+describe('B2 — contre-audit v15.688', () => {
+  const SIG = { signedAt: '2025-01-01T10:00:00Z', mode: 'avec-locataire', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }
+  const dupont = (x) => Object.assign({ entity: 'SCI A', hc: 600, ch: 40, debut: '2025-01-01', locataires: [{ nom: 'Dupont' }], signatures: { ...SIG } }, x || {})
+
+  it('I-1 — insert du bail restauré en ÉCHEC (réseau) : l\'uid reste STABLE au flush suivant, et l\'entrée de journal vise la ligne réellement créée', async () => {
+    let echec = true
+    const store = mockStore()
+    const up0 = store.upsert
+    store.upsert = async (coll, rec, opts) => {
+      if (coll === 'baux' && echec) { echec = false; store.calls.push({ op: 'upsert', coll, rec, opts }); throw new Error('réseau') }
+      return up0(coll, rec, opts)
+    }
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'X' }) }, baux_evenements: [] }
+    let n = 0
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'n' + (++n) })
+    sync.seed()
+    const snapshot = JSON.parse(JSON.stringify(db.baux['F-1']))
+    delete db.baux['F-1']
+    await sync.flush()                                          // archive X
+    db.baux['F-1'] = snapshot                                   // « Annuler »
+    const s1 = await sync.flush()                               // insert n1 → échec réseau
+    expect(s1.errors).toMatchObject([{ op: 'upsert', coll: 'baux' }])
+    expect(db.baux['F-1']._bailUid).toBe('n1')
+    // « Modifier le bail » entre-temps : l'entrée prend l'uid courant
+    db.baux_evenements.push({ id: 'bj_1', ref: 'F-1', type: 'modification', signedAt: SIG.signedAt, date: '2026-09-29', bailUid: db.baux['F-1']._bailUid, changements: [{ champ: 'notes', apres: 'x' }] })
+    db.baux['F-1'].notes = 'x'
+    store.calls.length = 0
+    const s2 = await sync.flush()
+    expect(s2.errors).toEqual([])
+    expect(db.baux['F-1']._bailUid).toBe('n1')                  // PAS re-tiré
+    const upB = store.calls.find(c => c.op === 'upsert' && c.coll === 'baux')
+    const upJ = store.calls.find(c => c.op === 'upsert' && c.coll === 'baux_evenements')
+    expect(mapToRow('baux', upB.rec, realCtx()).id).toBe('uuid:bail|f-1|n1')
+    expect(mapToRow('baux_evenements', upJ.rec, realCtx()).bail_id).toBe('uuid:bail|f-1|n1')
+    // la ligne écrite, un nouvel « Annuler » d'un scellé venu d'ailleurs reste traité comme tel (C2 intact)
+    store.calls.length = 0
+    await sync.flush()
+    expect(store.calls).toEqual([])
+  })
+
+  it('m-2 — valeur refusée à la réapplication (type inattendu) : pas une nouvelle entrée à chaque flush', async () => {
+    const store = mockStore()
+    const db = { ...baseDB(), baux: { 'F-1': dupont() }, baux_evenements: [] }
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'u' })
+    sync.seed()
+    db.baux['F-1'].depart = 'texte au lieu d\'un objet'          // refusé par le contrôle de type (M4)
+    db.baux['F-1'].dgRestitueAt = '2026-07-15'                  // valide
+    await sync.flush(); await sync.flush(); await sync.flush()
+    expect(db.baux_evenements).toHaveLength(1)
+    expect(db.baux_evenements[0].changements.map(c => c.champ)).toEqual(['dgRestitueAt'])
+  })
+})
+
+describe('I-2 — modificationsDuBail : la vie du bail ne compte pas comme « modifié depuis la signature »', () => {
+  it('entrées purement `vie` ignorées ; une entrée avec un terme modifié compte', async () => {
+    const { modificationsDuBail } = await import('../../js/core/bail-modifications.js')
+    const bail = { signatures: { signedAt: 'S1', mode: 'avec-locataire' } }
+    const e = (id, changements) => ({ id, ref: 'F-1', type: 'modification', signedAt: 'S1', date: '2026-09-2' + id, changements })
+    const j = [e('1', [{ champ: 'depart', vie: true }, { champ: 'signatures.cloudPdfKey', vie: true }]), e('2', [{ champ: 'notes' }])]
+    expect(modificationsDuBail(j.slice(0, 1), 'F-1', bail)).toEqual([])
+    expect(modificationsDuBail(j, 'F-1', bail).map(x => x.id)).toEqual(['2'])
+  })
+})

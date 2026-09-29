@@ -350,21 +350,29 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   //    rechargement. Une ligne neuve est toujours acceptée (l'INSERT d'un signé n'est pas intercepté) ;
   //    la ligne archivée reste la preuve. Un bail NON scellé garde son identité (sa ligne ne peut être
   //    que vivante ou supprimée — réanimable par le chemin B-REBAIL).
+  // Contre-audit v15.688 (I-1) : un uid MIS ICI et pas encore confirmé par un insert réussi est STABLE
+  // d'un flush à l'autre — sinon un insert en échec (réseau) re-tirait un uid à chaque flush, et une entrée
+  // de journal (ou un document) rattachée entre-temps visait une ligne qui n'existerait jamais (FK
+  // baux_evenements_bail_fk → erreur retentée sans fin). Seul un uid VENU D'AILLEURS (restauration,
+  // « Annuler ») sur un bail scellé est remplacé. Retiré de l'ensemble dès que la ligne est écrite.
+  const _uidsEnAttente = new Set()
+  const _poserUid = b => { b._bailUid = newUid(); _uidsEnAttente.add(b._bailUid) }
   function _identifierBaux(db) {
     const base = baseline.get('baux')
     for (const [k, bail] of Object.entries((db && db.baux) || {})) {
       if (!bail || typeof bail !== 'object' || isDeleted(bail)) continue
       const prev = base && base.get(_bauxKey(k))
       const scelle = !!(bail.signatures && bail.signatures.locked)
-      if (!prev) { if (!bail._bailUid || scelle) bail._bailUid = newUid(); continue }
+      const etranger = scelle && !_uidsEnAttente.has(bail._bailUid)   // scellé portant un uid venu d'ailleurs
+      if (!prev) { if (!bail._bailUid || etranger) _poserUid(bail); continue }
       const pUid = _uidDe(prev.rec)
       if (prev.locked) {
         const sAt = bail.signatures && bail.signatures.signedAt
         if (sAt && sAt === prev.sAt) { if (pUid) bail._bailUid = pUid; else delete bail._bailUid }
-        else if (!bail._bailUid || bail._bailUid === pUid || scelle) bail._bailUid = newUid()
+        else if (!bail._bailUid || bail._bailUid === pUid || etranger) _poserUid(bail)
       } else {
         if (!bail._bailUid && pUid) bail._bailUid = pUid
-        if (scelle && _uidDe(bail) !== pUid) bail._bailUid = newUid()   // scellé venu d'ailleurs : ligne neuve
+        if (etranger && _uidDe(bail) !== pUid) _poserUid(bail)   // scellé venu d'ailleurs : ligne neuve
       }
     }
   }
@@ -477,7 +485,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       for (const [k, prev] of [...base]) {
         const c = cur.get(k)
         const successeur = !!c && _uidDe(c.rec) !== _uidDe(prev.rec)
-        if (c && !successeur) continue
+        if (c && !successeur) { _removeConflicts.delete(_rcKey('baux', k)); continue }   // contre-audit m-3 : bail revenu → trace d'échec d'archivage effacée
         if (!c && !prev.locked) continue                  // retrait ordinaire non signé → phase 2
         if (susp && susp.has(_bareKey(_bauxKeyFn, prev.rec))) { if (c) bloques.add(k); continue }   // D1b : jamais sur devinette
         const archiver = prev.locked
@@ -526,7 +534,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         // 'revived' (B-REBAIL) = succès d'écriture MAIS tracé À PART (summary.revives) : un revive = une
         // ré-ouverture délibérée d'un slot (relocation / clé naturelle recréée), événement notable sur un
         // chemin juridiquement sensible → visible dans les logs/l'indicateur de sync, pas noyé dans les upserts.
-        if (OK_UPSERT.has(st)) { base.set(k, { rec, sig: s, locked: curLocked, sAt: curSAt });   // sAt : la signature suit le baseline (sinon un bail tout juste scellé passerait pour un successeur)
+        if (OK_UPSERT.has(st)) { base.set(k, { rec, sig: s, locked: curLocked, sAt: curSAt }); if (coll === 'baux' && rec._bailUid) _uidsEnAttente.delete(rec._bailUid);   // sAt : la signature suit le baseline (sinon un bail tout juste scellé passerait pour un successeur)
           (st === 'revived' ? summary.revives : summary.upserts).push({ coll, key: k }) }
         else if (st === 'conflict') summary.conflicts.push({ coll, key: k })   // baseline inchangé → retry
         else summary.skipped.push({ coll, key: k })                            // skipped (FK non résolue) → retry

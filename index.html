@@ -19707,7 +19707,7 @@ function openBail(ref, opts) {
   // (assume non modifié), permettant de tracer toutes les modifs ULTÉRIEURES.
   // BAIL-SIGNE-MODIFS — jamais si le journal a déjà modifié ce bail : le snapshot figerait comme
   // « signé » un état qui ne l'a jamais été (les modifications ont été réappliquées au chargement).
-  const _journalDeCeBail = (window.BailModifs && bail.signatures) ? window.BailModifs.journalDuBail(DB.baux_evenements, ref, bail) : [];
+  const _journalDeCeBail = (window.BailModifs && bail.signatures) ? (window.BailModifs.modificationsDuBail || window.BailModifs.journalDuBail)(DB.baux_evenements, ref, bail) : [];
   if (bail.signatures && bail.signatures.signedAt && !bail.signatures.bailSnapshot && !_journalDeCeBail.length) {
     const snap = JSON.parse(JSON.stringify(bail));
     delete snap.signatures;
@@ -21231,7 +21231,7 @@ function previewSignedBailRef(ref) {
   if (!bail.signatures.bailSnapshot) {
     // BAIL-SIGNE-MODIFS — bail déjà modifié depuis sa signature (journal) : aucun snapshot ne sera
     // recréé (il figerait un état jamais signé) → le dire, sans proposer un chemin qui ne ferait rien.
-    if (window.BailModifs && window.BailModifs.journalDuBail(DB.baux_evenements, ref, bail).length) {
+    if (window.BailModifs && (window.BailModifs.modificationsDuBail || window.BailModifs.journalDuBail)(DB.baux_evenements, ref, bail).length) {
       showToast('Version signée d\'origine non disponible pour ce bail (signé avant v13.10, modifié depuis) : se reporter au PDF signé papier ou archivé.', 'info', 8000);
       return;
     }
@@ -23776,7 +23776,7 @@ function previewBailData(bail, log, ref, opts) {
     +'var _SAVED_SIGNATURES='+JSON.stringify((function(){
         const _sg = bail.signatures; if (!_sg) return null;
         if (opts.useSnapshot || opts.signQueue || opts.remoteSign || opts.phase2 || _sg.mode === 'bailleur-seul') return _sg;
-        const _jr = (window.BailModifs && ref) ? window.BailModifs.journalDuBail(DB.baux_evenements, ref, bail) : [];
+        const _jr = (window.BailModifs && ref) ? (window.BailModifs.modificationsDuBail || window.BailModifs.journalDuBail)(DB.baux_evenements, ref, bail) : [];
         return _jr.length ? null : _sg;
       })())+';' /* v13.03 : hydrate */
     /* FIL-ROUGE cleanup — _AUTO_SIGN / _AUTO_PHASE2 retirés (triggers + setters supprimés). */

@@ -245,12 +245,25 @@ export function entreeJournalAuto(cle, bail, reference, journal, { date, id } = 
   if (!bail || !reference || !memeBailSigne(reference, bail)) return null;
   const ref = JSON.parse(JSON.stringify(reference));
   reappliquerJournalBaux({ [cle]: ref }, journal);
-  const changements = diffAutoBail(ref, bail);
+  let changements = diffAutoBail(ref, bail);
   if (!changements.length) return null;
   const e = { id, ref: String(cle || '').split('@@')[0], bailDebut: bail.debut || '', signedAt: bail.signatures.signedAt,
     date, _modifiedAt: date, type: 'modification', source: 'auto', auteur: '', changements };
   if (bail._bailUid) e.bailUid = bail._bailUid;
   if (bail._espaceId != null) e._espaceId = bail._espaceId;   // routage vers l'espace du propriétaire (partage SCI)
+  // CONVERGENCE (contre-audit v15.688, m-2) : l'entrée est rejouée sur la référence ; un changement que la
+  // réapplication REFUSE (type inattendu, montant NaN…) ne convergerait jamais → il serait re-journalisé à
+  // CHAQUE flush, sans fin. On ne garde que ce qui converge ; le reste est signalé, jamais bouclé.
+  const essai = JSON.parse(JSON.stringify(ref));
+  if (e._espaceId != null) essai._espaceId = e._espaceId; else delete essai._espaceId;   // même espace que l'entrée (appariement strict)
+  reappliquerJournalBaux({ [cle]: essai }, [e]);
+  const residu = new Set(diffAutoBail(essai, bail).map(c => c.champ));
+  if (residu.size) {
+    changements = changements.filter(c => !residu.has(c.champ));
+    try { console.warn('[journal auto] bail ' + e.ref + ' : non journalisable (valeur refusée) → ' + [...residu].join(', ')); } catch (_e) { /* console absente */ }
+  }
+  if (!changements.length) return null;
+  e.changements = changements;
   return e;
 }
 
@@ -313,6 +326,17 @@ export function journalDuBail(journal, cle, bail) {
     .filter(e => e && !e._deleted && e.type === 'modification' && e.ref === ref && sAt && e.signedAt === sAt
       && (e._espaceId || null) === esp)
     .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+}
+
+/**
+ * Entrées qui MODIFIENT LE CONTENU du bail depuis sa signature (au moins un changement hors « vie ») —
+ * pour les écrans qui décident si le bail en vigueur diffère du document signé (signatures réinjectées,
+ * « version signée d'origine », snapshot rétroactif). Le journal AUTOMATIQUE de la vie du bail (départ,
+ * dépôt, pièces de signature… : changements `vie`) ne change pas les termes signés → il n'y compte pas (contre-audit
+ * v15.688, I-2). La réapplication, elle, utilise TOUTES les entrées (journalDuBail).
+ */
+export function modificationsDuBail(journal, cle, bail) {
+  return journalDuBail(journal, cle, bail).filter(e => (e.changements || []).some(c => c && !c.vie));
 }
 
 /**
