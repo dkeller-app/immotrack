@@ -1541,6 +1541,13 @@ button .uic:only-child, .btn .uic:only-child{margin-right:0}
   .logf-hero-compact{grid-template-columns:84px 1fr;gap:12px}
   .logf-hero-compact .logf-photos-mini{width:84px;height:84px;font-size:32px}
 }
+/* Téléphone : une piste 1fr vaut minmax(auto,1fr) — le min-content d'UN descendant insécable (puce,
+ * bouton nowrap) élargissait la colonne, donc TOUS les panneaux, au-delà de la page (overflow-x:hidden
+ * → côté droit coupé). min-width:0 borne la piste à la page ; un élément trop large ne déborde plus que
+ * de son propre panneau (et se corrige à la source). PC / tablette inchangés. */
+@media (max-width:767px){
+  .logf-panels>*{min-width:0}
+}
 @media (max-width:600px){
   .logf-hero{padding:14px}
   .logf-row{grid-template-columns:1fr;gap:2px;padding:7px 0}

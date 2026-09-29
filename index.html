@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.698</title>
+<title>Propryo v15.699</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.698">
+<link rel="stylesheet" href="css/main.css?v=15.699">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.698</em>
+      <em>v15.699</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4322,7 +4322,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.698';
+const IMMOTRACK_VERSION = '15.699';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -47078,9 +47078,13 @@ function _ensureLogFichePhCss(){
     '.logf-ph-chip.arch{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}',
     '.logf-ph-l2{font-size:12.5px;color:var(--t2);margin-top:3px;font-weight:600}',
     '.logf-ph-l3{font-size:11.5px;color:var(--t3);margin-top:1px}',
-    '.logf-ph-strip{display:flex;background:var(--sur);border:1px solid var(--bor);border-radius:12px;overflow:hidden;margin-top:2px}',
-    '.logf-ph-strip .c{flex:1;padding:9px 6px;text-align:center;border-left:1px solid var(--bor)}',
-    '.logf-ph-strip .c:first-child{border-left:0}',
+    // Montants insécables (espaces insécables) : à 320 px, ou à 375 px avec un gros dépôt / solde, les 4 cellules
+    // dépassaient et overflow:hidden coupait le « Solde » (M-7, M-14). Chaque cellule garde sa largeur
+    // naturelle (min-width:max-content) et passe à la ligne seulement si elle ne tient pas ; quand tout tient,
+    // rendu identique. Séparateurs en ombre haut/gauche : l'overflow du bandeau masque celles du bord, ils
+    // restent donc justes après un retour à la ligne.
+    '.logf-ph-strip{display:flex;flex-wrap:wrap;background:var(--sur);border:1px solid var(--bor);border-radius:12px;overflow:hidden;margin-top:2px}',
+    '.logf-ph-strip .c{flex:1;min-width:max-content;padding:9px 6px;text-align:center;box-shadow:-1px -1px 0 var(--bor)}',
     '.logf-ph-strip .c .v{font-weight:800;color:var(--t1);font-size:14px;line-height:1.1}',
     '.logf-ph-strip .c .v.k-ok{color:var(--grn)}',
     '.logf-ph-strip .c .v.k-warn{color:var(--red)}',
@@ -63721,6 +63725,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
 .hl-period.upcoming .tag{background:var(--warn-soft,rgba(178,122,18,.13));border:1px dashed rgba(178,122,18,.45);color:var(--warn)}
 .hl-nextchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--warn);
   background:var(--warn-soft,rgba(178,122,18,.13));border-radius:999px;padding:5px 12px;white-space:nowrap}
+/* Téléphone : la puce porte une note libre (« — Avenant n° 1 (charges) ») ; en nowrap elle imposait sa
+ * largeur à la grille .logf-panels → TOUS les panneaux de l'onglet Bail débordaient (404 px pour 325).
+ * Elle passe à la ligne, en entier (M-7 zéro débordement, M-14 jamais de troncature). */
+@media(max-width:767px){.hl-nextchip{white-space:normal}}
 .hl-lnk{font-size:12px;color:var(--acc);font-weight:700;cursor:pointer}
 /* ── accordéons « un bail = un chapitre » (HISTORIQUE-BAIL-ONGLET) ── */
 .hbc{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
