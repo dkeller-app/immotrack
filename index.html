@@ -8745,7 +8745,17 @@ async function _regenBailCertificate(ref) {
 // certificat, archivage, DELETE relais best-effort, ecriture finale immuable + verrou.
 // NB : ne PAS appeler saveDB() ici — l'appelant (_pollOneRemoteSession via _pollRemoteSignSessions)
 // fait saveDB()+_refreshAfterMutation() apres mutation.
+// VERROU par bail (audit 29/09) : pendant les étapes longues (PDF, certificat, archivage — parfois > 30 s
+// sur mobile), le statut reste « en attente » ; un poll forcé, le poll suivant ou le pré-vol de relance
+// relançaient une 2e complétion (double archivage, 2e écriture signée au signedAt différent).
 async function _completeRemoteSign(ref, state) {
+  window.__remoteCompleting = window.__remoteCompleting || {};
+  if (window.__remoteCompleting[ref]) return;
+  window.__remoteCompleting[ref] = true;
+  try { return await _completeRemoteSignCore(ref, state); }
+  finally { delete window.__remoteCompleting[ref]; }
+}
+async function _completeRemoteSignCore(ref, state) {
   const bail = DB.baux[ref];
   if (!bail || !bail.signatures || !bail.signatures.remoteSession) return;
   const rs = bail.signatures.remoteSession;
@@ -8831,15 +8841,22 @@ async function _completeRemoteSign(ref, state) {
   // 6) Persistance PUIS suppression relais. Local d'abord (survit à un rechargement), puis cloud (les
   //    autres appareils voient « signé »). Le DELETE n'est fait QUE si le cloud a accepté ce bail ; sinon
   //    la session reste (purge automatique à 14 j par le relais) et un autre appareil peut encore la lire.
-  try { saveDB(); } catch (e) { console.warn('[remoteSign] saveDB complétion', e); }
-  let _synced = !window.__immoSupabaseMode;   // hors cloud : la sauvegarde locale suffit
-  if (!_synced && typeof window.__immoFlush === 'function') {
+  let _saveOk = false;
+  try { _saveOk = saveDB() !== false; } catch (e) { console.warn('[remoteSign] saveDB complétion', e); }
+  let _synced = !window.__immoSupabaseMode && _saveOk;   // hors cloud : il faut que la sauvegarde locale ait réussi
+  if (window.__immoSupabaseMode && typeof window.__immoFlush === 'function') {
     try {
       const sum = await window.__immoFlush();
-      const touches = (arr) => Array.isArray(arr) && arr.some((x) => x && x.coll === 'baux' && String(x.key || '').indexOf(String(ref)) !== -1);
+      // Clé de diff du moteur = norm(ref) (store-sync.js : trim + minuscules) → égalité STRICTE, pas indexOf.
+      const k = String(ref).trim().toLowerCase();
+      const touches = (arr) => Array.isArray(arr) && arr.some((x) => x && x.coll === 'baux' && String(x.key) === k);
       _synced = !!sum && !touches(sum.conflicts) && !touches(sum.errors) && !touches(sum.skipped) && sum.config !== 'error';
     } catch (e) { console.warn('[remoteSign] flush complétion', e); _synced = false; }
   }
+  // Preuve POSITIVE : une ré-hydratation concurrente (conflit → le serveur gagne) peut avoir remplacé DB
+  // pendant le flush ; un résumé vide ne prouve alors rien. On exige que CE bail porte encore NOTRE état signé.
+  const _cur = DB.baux && DB.baux[ref];
+  _synced = _synced && !!(_cur && _cur.signatures && _cur.signatures.locked && _cur.signatures.signedAt === completedAt);
   if (_synced) {
     try { await _bsRelayDeleteSession(base, _delSessionId, _delToken); }
     catch (e) { console.warn('[remoteSign] DELETE relais', e); }
