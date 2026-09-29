@@ -189,36 +189,76 @@ describe('contrôle en direct, « Remettre », mise à jour après passage par l
   it('retouche libre autour des mentions : rien n\'est signalé', () => {
     const r = gen();
     const retouche = r.texte.replace('À louer à Strasbourg', 'Joli T2 à louer à Strasbourg').replace('POINTS FORTS', 'LES PLUS');
-    expect(controlerTexte(retouche, r).retirees).toBe(0);
+    const c = controlerTexte(retouche, r);
+    expect(c.retirees + c.modifiees + c.manquantes).toBe(0);
   });
-  it('« Remettre » réinsère la phrase exacte après la mention précédente', () => {
+  it('valeur changée à la main → « modifie » (pas « retirée »), « Rétablir » REMPLACE la ligne', () => {
     const r = gen();
-    const sans = r.texte.replace('Dépôt de garantie : 700 €\n', '');
-    const remis = remettreMention(sans, r, 'dg');
+    const retouche = r.texte.replace('Dépôt de garantie : 700 €', 'Dépôt de garantie : 900 €');
+    const c = controlerTexte(retouche, r);
+    expect(c.controle.find(x => x.key === 'dg').etat).toBe('modifie');
+    expect(c.controle.find(x => x.key === 'dg').detail).toContain('diffère de la fiche');
+    const remis = remettreMention(retouche, r, 'dg');
     expect(remis).toBe(r.texte);
+    expect(remis.match(/Dépôt de garantie/g)).toHaveLength(1);
+  });
+  it('emplacement complété à la main dans le texte → « modifie », jamais doublé', () => {
+    const r = gen({ dpe: {} });
+    const saisi = r.texte.replace(/Classe énergie : .*$/m, 'Classe énergie : C · Classe climat : C');
+    const c = controlerTexte(saisi, r);
+    expect(c.controle.find(x => x.key === 'dpe').etat).toBe('modifie');
+    expect(remettreMention(saisi, r, 'dpe').match(/^Classe énergie/gm)).toHaveLength(1);
+  });
+  it('sous-chaîne : « 1 700 € TTC honoraires… » ne vaut pas « 700 € TTC honoraires… » (contre-audit 4)', () => {
+    const r = gen({ mandataire: true, log: d103({ honorairesHclRef: 700 }) });
+    const retouche = r.texte.replace('700 € TTC honoraires charge locataire', '1 700 € TTC honoraires charge locataire');
+    expect(controlerTexte(retouche, r).controle.find(x => x.key === 'hcl').etat).toBe('modifie');
   });
   it('« Remettre » sans aucune autre mention : sous INFORMATIONS, sinon ajoute la rubrique', () => {
     const r = gen();
     expect(remettreMention('INFORMATIONS\nautre', r, 'loyer')).toBe('INFORMATIONS\nLoyer : 800 € par mois charges comprises\nautre');
     expect(remettreMention('Mon texte', r, 'georisques')).toBe('Mon texte\n\nINFORMATIONS\n' + TXT_GEORISQUES);
   });
-  it('après saisie du DPE : les emplacements sont remplacés, les retouches restent', () => {
+  it('« Remettre » insère sous INFORMATIONS même si une mention a été recopiée dans l\'accroche (contre-audit 5)', () => {
+    const r = gen();
+    const t = 'Surface habitable : 50 m²\n' + r.texte.replace('Dépôt de garantie : 700 €\n', '');
+    const remis = remettreMention(t, r, 'dg');
+    expect(remis.split('\n')[0]).toBe('Surface habitable : 50 m²');
+    expect(remis.split('\n')[1]).not.toBe('Dépôt de garantie : 700 €');
+    expect(remis).toContain('Charges : 100 € par mois — provision avec régularisation annuelle\nDépôt de garantie : 700 €');
+  });
+  it('après saisie du DPE : emplacements remplacés, retouches gardées', () => {
     const avant = gen({ dpe: {} });
-    const retouche = avant.texte.replace('À louer à Strasbourg', 'Joli T2 à louer à Strasbourg');
+    const retouche = avant.texte.replace('POINTS FORTS', 'LES PLUS');
     const apres = gen({ dpe: Object.assign({}, DPE_D, { classe: 'F' }) });
-    const t = majMentions(retouche, avant, apres);
-    expect(t).toContain('Joli T2 à louer à Strasbourg');
+    const { texte: t, aRelire } = majMentions(retouche, avant, apres);
+    expect(t).toContain('LES PLUS');
     expect(t).toContain('Classe énergie : F · Classe climat : D');
     expect(t).toContain('Logement à consommation énergétique excessive : classe F.');
     expect(t).not.toContain('À COMPLÉTER');
-    expect(controlerTexte(t, apres).retirees).toBe(0);
+    expect(aRelire).toEqual([]);
+    const c = controlerTexte(t, apres); expect(c.retirees + c.modifiees).toBe(0);
   });
-  it('classe F corrigée en D : la mention F périmée disparaît', () => {
+  it('classe F corrigée en D : la mention F périmée disparaît (ligne entière)', () => {
     const f = gen({ dpe: Object.assign({}, DPE_D, { classe: 'F' }) });
-    const d = gen();
-    const t = majMentions(f.texte, f, d);
-    expect(t).not.toContain('consommation énergétique excessive');
-    expect(t).toBe(d.texte);
+    expect(majMentions(f.texte, f, gen()).texte).toBe(gen().texte);
+  });
+  it('mention disparue : seule la LIGNE identique est retirée, jamais une phrase de l\'utilisateur (contre-audit 3)', () => {
+    const m = gen({ log: d103({ typeUsage: 'habitation-meuble' }) });
+    const retouche = m.texte.replace(/^À louer.*$/m, 'Location meublée idéale pour étudiant.');
+    const { texte: t } = majMentions(retouche, m, gen());
+    expect(t).toContain('Location meublée idéale pour étudiant.');
+    expect(t.split('\n').filter(l => l === 'Location meublée')).toHaveLength(0);
+  });
+  it('surface changée : accroche non retouchée → mise à jour ; accroche retouchée → « à relire »', () => {
+    const a = gen(); const b = gen({ log: d103({ surf: 55 }) });
+    const r1 = majMentions(a.texte, a, b);
+    expect(r1.texte.split('\n')[0]).toContain('de 55 m²');
+    expect(r1.aRelire).toEqual([]);
+    const r2 = majMentions(a.texte.replace('À louer', 'Superbe T2 à louer'), a, b);
+    expect(r2.texte.split('\n')[0]).toContain('de 50 m²');
+    expect(r2.aRelire).toEqual(['accroche']);
+    expect(r2.texte).toContain('Surface habitable : 55 m²');
   });
 });
 

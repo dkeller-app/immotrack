@@ -2837,13 +2837,13 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div id="an-dpe-warn" class="an-ban" style="display:none"></div>
       <div id="an-manques" class="an-ban warn" style="display:none"></div>
       <div class="fg"><label for="an-titre" class="an-lab">Titre <span class="an-hint">modifiable</span></label>
-        <input class="inp" id="an-titre" maxlength="100"></div>
+        <input class="inp" id="an-titre" maxlength="100" oninput="_annonceTexteMaj()"></div>
       <!-- Texte UNIQUE (retour Didier 29/09) : une textarea libre ; derrière elle, un calque miroir
            (#an-texte-bd) surligne les emplacements « [À COMPLÉTER : …] » sans rendre le texte non éditable. -->
       <div class="fg"><label for="an-texte" class="an-lab">Texte de l'annonce <span class="an-hint">tout est modifiable</span></label>
         <div class="an-ed-wrap"><div class="an-ed-bd" id="an-texte-bd" aria-hidden="true"></div>
         <textarea class="inp an-ed" id="an-texte" spellcheck="true" oninput="_annonceTexteMaj()" onscroll="_annonceSyncScroll()"></textarea></div>
-        <div class="an-cnt" id="an-cnt"></div></div>
+        <div class="an-cnt"><button type="button" class="an-go" onclick="_annonceRepartir()">Repartir du texte proposé</button><span id="an-cnt"></span></div></div>
     </div>
     <div class="an-col-c" id="an-col-c">
       <div class="an-chk-h"><span class="an-sc" id="an-sc"></span><span class="an-chk-t" id="an-chk-t"></span></div>
@@ -48092,12 +48092,12 @@ let _logDiagSrcOpen = false;    // toggle global « afficher les phrases source 
 const _LOGDIAG_SG_FIELDS = ['date', 'cabinet', 'result', 'depenses', 'anneePrix'];
 function _logDiagSgHasAny(e) { return !!e && _LOGDIAG_SG_FIELDS.some(f => e[f]); }
 /** Vide, dans le brouillon, la valeur réelle portée par une suggestion (champ ✨ → champ du diag). */
-function _logDiagSgClearValue(info, field) {
+function _logDiagSgClearValue(info, field, sg) {
   if (!info) return;
   if (field === 'date') info.date = '';
   else if (field === 'cabinet') info.diagnostiqueur = '';
   else if (field === 'result') { delete info.presence; delete info.conforme; info.na = false; }
-  else if (field === 'depenses') info.depensesEnergie = '';
+  else if (field === 'depenses') info.depensesEnergie = (sg && sg.prev) || '';   // rend le chiffre remplacé (ex. ADEME)
   else if (field === 'anneePrix') info.anneePrix = '';
 }
 
@@ -50174,8 +50174,9 @@ function _logDiagApplySuggestions(text, coverage, srcName) {
     const _depVide = !String(dInfo.depensesEnergie || '').trim();
     const _depRemplacable = _depVide || !window.DpeTexte.estFourchette(dInfo.depensesEnergie);
     if (_cout.depenses && _depRemplacable && !dEntry.depenses) {
+      const _prev = _depVide ? '' : String(dInfo.depensesEnergie);
       dInfo.depensesEnergie = _cout.depenses;
-      dEntry.depenses = { src: _cout.depensesSrc, name: srcName || '' };
+      dEntry.depenses = { src: _cout.depensesSrc, name: srcName || '', prev: _prev };
       n++;
     }
     if (_cout.annees && !String(dInfo.anneePrix || '').trim() && !dEntry.anneePrix) {
@@ -50209,7 +50210,7 @@ function _logDiagSuggestValidate(key, field) {
 /** Efface une suggestion (vide la valeur dans le brouillon + retire le badge). */
 function _logDiagSuggestClear(key, field) {
   const e = _logDiagSuggest[key]; if (!e) return;
-  _logDiagSgClearValue(_logDiagDraft && _logDiagDraft.diag[key], field);
+  _logDiagSgClearValue(_logDiagDraft && _logDiagDraft.diag[key], field, e[field]);
   delete e[field];
   if (!_logDiagSgHasAny(e) && !e.resultAmbiguous) delete _logDiagSuggest[key];
   _logDiagRenderTab();
@@ -50230,7 +50231,7 @@ function _logDiagSuggestClearAll() {
   Object.keys(_logDiagSuggest).forEach(k => {
     const e = _logDiagSuggest[k];
     const info = _logDiagDraft && _logDiagDraft.diag[k];
-    _LOGDIAG_SG_FIELDS.forEach(f => { if (e[f]) _logDiagSgClearValue(info, f); delete e[f]; });
+    _LOGDIAG_SG_FIELDS.forEach(f => { if (e[f]) _logDiagSgClearValue(info, f, e[f]); delete e[f]; });
     if (!e.resultAmbiguous) delete _logDiagSuggest[k];
   });
   _logDiagRenderTab();
@@ -50469,7 +50470,7 @@ function _logDiagRenderTab() {
     const sgE = _logDiagSuggest[e.key];
     if (!sgE) return;
     const info = D[e.key];
-    _LOGDIAG_SG_FIELDS.forEach(f => { if (sgE[f]) _logDiagSgClearValue(info, f); });
+    _LOGDIAG_SG_FIELDS.forEach(f => { if (sgE[f]) _logDiagSgClearValue(info, f, sgE[f]); });
     delete _logDiagSuggest[e.key];
   });
 
@@ -51532,7 +51533,10 @@ function _logpReadFromForm() {
 // le contrôle le relit à chaque frappe (présent / « [À COMPLÉTER : …] » / retiré → « Remettre »).
 // Moteur PUR : js/helpers/annonce-generator.global.js (window.AnnonceGenerator).
 // ════════════════════════════════════════════════════════════════════
-let _annonceCtx = { log: null, imm: null, immIdx: -1, ent: null, includeDossier: true, result: null };
+let _annonceCtx = { log: null, imm: null, immIdx: -1, ent: null, includeDossier: true, result: null, aRelire: [] };
+// Brouillon par logement (mémoire de session) : « Compléter → », une fermeture ou un passage par la fiche
+// ne perdent jamais les retouches ; à la réouverture seules les mentions sont mises à jour (R5).
+const _annonceBrouillons = {};
 
 /** DPE du logement : diagnostics.dpe (canonique) complété par la copie legacy log.dpe. */
 function _annonceDpe(log) {
@@ -51571,7 +51575,8 @@ function openAnnonce(ref) {
     if (!ok) return;
   }
   const immA = _annonceImm(log, imm);
-  _annonceCtx = { log, imm: immA, immIdx, ent, includeDossier: true, result: null };
+  const br = _annonceBrouillons[ref] || null;
+  _annonceCtx = { log, imm: immA, immIdx, ent, includeDossier: br ? br.includeDossier : true, result: null, aRelire: [] };
   const sub = el('m-annonce-sub');
   if (sub) sub.textContent = [log.ref, AG.natureBien(log, immA), (log.surf ? AG.montant(AG.nombre(log.surf)) + ' m²' : ''), AG.communeLabel(immA)].filter(Boolean).join(' · ');
   const setV = (id, v) => { const e = el(id); if (e) e.value = (v == null ? '' : v); };
@@ -51585,7 +51590,7 @@ function openAnnonce(ref) {
   btn('an-btn-inviter', 'link', 'Inviter un candidat');
   btn('an-btn-pdf', 'download', 'Télécharger l\'affiche PDF');
   btn('an-btn-copy', 'doc', 'Copier le texte');
-  const dcb = el('an-doss'); if (dcb) dcb.checked = true;
+  const dcb = el('an-doss'); if (dcb) dcb.checked = _annonceCtx.includeDossier;
   _annonceGoStep(1);
   _annonceStep1Maj();
   openM('ov-annonce');
@@ -51598,8 +51603,25 @@ function _annonceGoStep(n) {
   show('an-step2', !one); show('an-foot2', !one);
   const tt = el('m-annonce-title');
   if (tt) tt.textContent = one ? 'Créer une annonce — confirmer le loyer' : 'Créer une annonce';
-  // Étape 2 : 1re fois = texte complet ; retour depuis l'étape 1 = seules les mentions changent.
-  if (!one) _annonceRegen(!!(_annonceCtx.result && el('an-texte') && el('an-texte').value));
+  if (one) return;
+  // Étape 2 : brouillon existant pour ce logement → on le reprend, seules les mentions changent (R5) ;
+  // retour depuis l'étape 1 → idem ; sinon texte complet.
+  const br = _annonceCtx.log ? _annonceBrouillons[_annonceCtx.log.ref] : null;
+  if (!_annonceCtx.result && br) {
+    const ta = el('an-texte'), ti = el('an-titre');
+    if (ta) ta.value = br.texte; if (ti) ti.value = br.titre;
+    _annonceCtx.result = br.result;
+  }
+  _annonceRegen(!!(_annonceCtx.result && el('an-texte') && el('an-texte').value));
+}
+
+/** « Repartir du texte proposé » : abandonne les retouches de ce logement (confirmation). */
+function _annonceRepartir() {
+  const log = _annonceCtx.log; if (!log) return;
+  if (!confirm2('Repartir du texte proposé ?\n\nLes retouches faites dans le texte de cette annonce seront perdues.')) return;
+  delete _annonceBrouillons[log.ref];
+  _annonceCtx.result = null;
+  _annonceRegen(false);
 }
 
 /** Étape 1 : total + « Continuer » actif seulement si HC ET charges sont saisis (0 accepté). */
@@ -51653,8 +51675,13 @@ function _annonceRegen(garder) {
   const avant = _annonceCtx.result;
   const r = _annonceGenerer();
   const ta = el('an-texte'); const ti = el('an-titre');
-  if (garder && avant && ta && ta.value) ta.value = AG.majMentions(ta.value, avant, r);
-  else { if (ta) ta.value = r.texte; if (ti) ti.value = r.titre; }
+  if (garder && avant && ta && ta.value) {
+    const maj = AG.majMentions(ta.value, avant, r);
+    ta.value = maj.texte;
+    _annonceCtx.aRelire = maj.aRelire || [];
+    if (ti && ti.value === avant.titre) ti.value = r.titre;          // titre non retouché → suit la fiche
+    else if (ti && avant.titre !== r.titre && _annonceCtx.aRelire.indexOf('titre') < 0) _annonceCtx.aRelire.push('titre');
+  } else { if (ta) ta.value = r.texte; if (ti) ti.value = r.titre; _annonceCtx.aRelire = []; }
   _annonceCtx.result = r;
   const hors = r.mode === 'hors-habitation';
   const dr = el('an-doss-row'); if (dr) dr.style.display = hors ? 'none' : '';
@@ -51701,6 +51728,9 @@ function _annonceTexteMaj() {
   _annonceSyncScroll();
   _annonceRenderControle(r, c);
   const nb = el('an-cnt'); if (nb) nb.textContent = t.length + ' caractères';
+  // Brouillon de session pour ce logement (jamais persisté en base).
+  const log = _annonceCtx.log;
+  if (log) _annonceBrouillons[log.ref] = { texte: t, titre: (el('an-titre') && el('an-titre').value) || r.titre, result: r, includeDossier: _annonceCtx.includeDossier };
 }
 
 function _annonceSyncScroll() {
@@ -51712,14 +51742,16 @@ function _annonceSyncScroll() {
 function _annonceRenderControle(r, c) {
   const hors = r.mode === 'hors-habitation';
   const n = c.controle.filter(x => x.etat !== 'na').length;
-  const ko = c.manquantes, ret = c.retirees;
-  const alerte = c.controle.some(x => x.etat === 'warn');
-  const pb = ko + ret;
+  const ko = c.manquantes, ret = c.retirees, mod = c.modifiees || 0;
+  const alerte = c.controle.some(x => x.etat === 'warn') || (_annonceCtx.aRelire || []).length > 0;
+  const pb = ko + ret + mod;
   const sc = el('an-sc');
   if (sc) { sc.textContent = pb ? String(pb) : (n + '/' + n); sc.className = 'an-sc ' + (pb ? 'ko' : 'ok'); }
   const tx = el('an-chk-t');
   if (tx) tx.textContent = pb
-    ? (ko ? (ko > 1 ? ko + ' mentions à compléter' : '1 mention à compléter') + ' (marquées [À COMPLÉTER] dans le texte)' : '') + (ko && ret ? ' · ' : '') + (ret ? (ret > 1 ? ret + ' mentions retirées du texte' : '1 mention retirée du texte') : '') + '.'
+    ? [ko ? (ko > 1 ? ko + ' mentions à compléter' : '1 mention à compléter') + ' (marquées [À COMPLÉTER] dans le texte)' : '',
+       ret ? (ret > 1 ? ret + ' mentions retirées du texte' : '1 mention retirée du texte') : '',
+       mod ? (mod > 1 ? mod + ' mentions différentes de la fiche' : '1 mention différente de la fiche') : ''].filter(Boolean).join(' · ') + '.'
     : (hors ? 'Hors habitation : informations complètes.' : 'Toutes les mentions obligatoires sont dans le texte.');
   // Tablette : le contrôle ne se replie que si tout est vraiment bon (ni manque, ni retrait, ni alerte).
   const col = el('an-col-c'); if (col) col.classList.toggle('allok', !pb && !alerte);
@@ -51731,6 +51763,7 @@ function _annonceRenderControle(r, c) {
     const ic = x.etat === 'ok' ? _uiIcon('check', 11) : x.etat === 'na' ? '–' : _uiIcon('warn', 11);
     let act = '';
     if (x.etat === 'retire') act = '<button type="button" class="an-go" onclick="_annonceRemettre(\'' + x.key + '\')">Remettre</button>';
+    else if (x.etat === 'modifie') act = '<button type="button" class="an-go" onclick="_annonceRemettre(\'' + x.key + '\')">Rétablir</button>';
     else if ((x.etat === 'ko' || x.etat === 'warn') && x.cible) act = '<button type="button" class="an-go" onclick="_annonceCompleter(\'' + x.cible + '\')">Compléter →</button>';
     const sel = x.etat === 'ko' ? ' onclick="_annonceMontrerManque(\'' + x.key + '\')" role="button" tabindex="0"' : '';
     return '<li class="' + x.etat + '"><span class="an-ic">' + ic + '</span><span class="an-tx"' + sel + '>' + escHtml(x.label)
@@ -51741,6 +51774,10 @@ function _annonceRenderControle(r, c) {
     const parts = [];
     if (ko) parts.push('<b>' + (ko > 1 ? ko + ' informations obligatoires manquent.' : '1 information obligatoire manque.') + '</b> Leurs emplacements sont marqués <b>[À COMPLÉTER]</b> dans le texte ; les compléter avant de publier.');
     if (ret) parts.push('<b>' + (ret > 1 ? ret + ' mentions obligatoires ont été retirées du texte.' : '1 mention obligatoire a été retirée du texte.') + '</b> « Remettre » la réinsère à sa place.');
+    if (mod) parts.push('<b>' + (mod > 1 ? mod + ' mentions ne correspondent plus à la fiche.' : '1 mention ne correspond plus à la fiche.') + '</b> « Rétablir » remet la valeur de la fiche ; sinon corriger la fiche.');
+    const LIBR = { accroche: 'la phrase d\'accroche', logement: 'LE LOGEMENT', points: 'les POINTS FORTS', dossier: 'le DOSSIER', titre: 'le titre' };
+    const rl = (_annonceCtx.aRelire || []).map(k => LIBR[k] || k);
+    if (rl.length) parts.push('<b>À relire</b> (retouché à la main, la fiche a changé depuis) : ' + escHtml(rl.join(', ')) + '.');
     ban.innerHTML = parts.length ? _uiIcon('warn', 15) + '<span>' + parts.join(' ') + ' Le texte reste copiable.</span>' : '';
     ban.style.display = parts.length ? '' : 'none';
   }
@@ -51753,10 +51790,14 @@ function _annonceMontrerManque(key) {
   const r = _annonceCtx.result; const ta = el('an-texte');
   if (!r || !ta) return;
   const m = r.mentions.find(x => x.key === key); if (!m) return;
-  const p = ta.value.indexOf(m.texte); if (p < 0) return;
-  const i = ta.value.indexOf('[À COMPLÉTER', p);
-  const j = i >= 0 ? ta.value.indexOf(']', i) : -1;
-  if (i < 0 || j < 0) return;
+  // Ligne de la mention : identique, sinon même libellé (texte retouché autour).
+  const v = ta.value; let deb = 0, p = -1;
+  v.split('\n').some(l => { if (l.replace(/\s+$/, '') === m.texte || (m.libelle && l.indexOf(m.libelle) === 0)) { p = deb; return true; } deb += l.length + 1; return false; });
+  if (p < 0) return;
+  const finLigne = v.indexOf('\n', p) < 0 ? v.length : v.indexOf('\n', p);
+  const i = v.indexOf('[À COMPLÉTER', p);
+  const j = i >= 0 ? v.indexOf(']', i) : -1;
+  if (i < 0 || j < 0 || i > finLigne) return;
   ta.focus(); ta.setSelectionRange(i, j + 1);
 }
 

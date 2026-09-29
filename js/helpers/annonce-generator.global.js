@@ -312,7 +312,11 @@
     const dpe = ctx.dpe || {};
     const lignes = [];
     const controle = [];
-    const L = (key, texte, manquant) => lignes.push({ key, texte, manquant: !!manquant });
+    const libSurface = (hors ? 'Surface' : 'Surface habitable') + ' : ';
+    const LIB = { loyer: 'Loyer : ', charges: 'Charges : ', meuble: 'Location meublée', dg: 'Dépôt de garantie : ',
+      honorairesEdl: "Honoraires d'état des lieux à la charge du locataire : ", hcl: '', surface: libSurface, commune: 'Commune : ',
+      dpe: 'Classe énergie : ', excessif: TXT_EXCESSIF, depenses: TXT_DEPENSES, georisques: 'Les informations sur les risques auxquels ce bien est exposé' };
+    const L = (key, texte, manquant) => lignes.push({ key, texte, libelle: LIB[key] || '', manquant: !!manquant });
     const C = (key, label, etat, detail, cible) => controle.push({ key, label, etat, detail: detail || '', cible: cible || '' });
 
     const hc = nombre(log.loyerHcRef);
@@ -479,94 +483,146 @@
     const hors = estHorsHabitation(log);
     const ctx = { dpe: a.dpe || {}, composition: a.composition || '', mandataire: !!a.mandataire, aujourdhui: a.aujourdhui || '' };
     const { lignes, controle } = genererMentions(log, imm, ctx);
-    const blocs = [genererAccroche(log, imm, ctx)];
+    // Blocs GÉNÉRÉS (hors INFORMATIONS), mémorisés : majMentions ne les remplace que s'ils n'ont pas été retouchés.
+    const blocs = { accroche: genererAccroche(log, imm, ctx), logement: '', points: '', dossier: '' };
     if (!hors) {
       const compo = _composition(ctx.composition);
-      if (compo) blocs.push(RUBRIQUES.logement + '\n' + compo);
+      if (compo) blocs.logement = RUBRIQUES.logement + '\n' + compo;
       const pf = pointsForts(log);
-      if (pf.length) blocs.push(RUBRIQUES.points + '\n' + pf.map(p => '- ' + p).join('\n'));
-      if (a.includeDossier !== false) blocs.push(genererDossier(log));
+      if (pf.length) blocs.points = RUBRIQUES.points + '\n' + pf.map(p => '- ' + p).join('\n');
+      if (a.includeDossier !== false) blocs.dossier = genererDossier(log);
       else {
         const gar = garanties(log);
-        if (gar.length) blocs.push('Garanties acceptées : ' + gar.join(' ou ') + '.');
+        if (gar.length) blocs.dossier = 'Garanties acceptées : ' + gar.join(' ou ') + '.';
       }
     }
-    blocs.push(RUBRIQUES.infos + '\n' + lignes.map(l => l.texte).join('\n'));
-    const texte = blocs.join('\n\n');
-    const r = { mode: hors ? 'hors-habitation' : 'habitation', titre: genererTitre(log, imm), texte, mentions: lignes, controle };
+    const infos = RUBRIQUES.infos + '\n' + lignes.map(l => l.texte).join('\n');
+    const texte = [blocs.accroche, blocs.logement, blocs.points, blocs.dossier, infos].filter(Boolean).join('\n\n');
+    const r = { mode: hors ? 'hors-habitation' : 'habitation', titre: genererTitre(log, imm), texte, blocs, mentions: lignes, controle };
     return Object.assign(r, controlerTexte(texte, r));
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // Contrôle EN DIRECT du texte retouché
+  // Contrôle EN DIRECT du texte retouché — comparaison LIGNE PAR LIGNE
   // ═══════════════════════════════════════════════════════════════
+  const _norme = (l) => String(l).replace(/\s+$/, '');
+
+  /** Repère la ligne d'une mention : 'exacte' (identique), 'modifiee' (même libellé, autre valeur), ou rien. */
+  function _cherche(lignes, m, depuis) {
+    let mod = -1;
+    for (let i = depuis || 0; i < lignes.length; i++) {
+      const l = _norme(lignes[i]);
+      if (l === m.texte) return { etat: 'exacte', i };
+      if (mod < 0 && _memeLibelle(l, m)) mod = i;
+    }
+    return mod >= 0 ? { etat: 'modifiee', i: mod } : null;
+  }
+  function _memeLibelle(ligne, m) {
+    if (m.key === 'hcl') return ligne.indexOf(TXT_HCL) >= 0;
+    const lib = m.libelle || '';
+    return !!lib && ligne.indexOf(lib) === 0;
+  }
+  function _debutInfos(lignes) {
+    const i = lignes.findIndex(l => _norme(l) === RUBRIQUES.infos);
+    return i < 0 ? 0 : i;
+  }
+
   /**
-   * Relit le texte : chaque mention attendue est-elle présente ?
-   *   présente sans emplacement → état du moteur (ok / warn) ; présente avec [À COMPLÉTER] → 'ko' ;
-   *   absente → 'retire' (« retirée du texte · Remettre »).
-   * @returns {{ controle: object[], manquantes: number, retirees: number, emplacements: number }}
+   * Relit le texte, ligne par ligne :
+   *   ligne identique → état du moteur (ok / warn ; ko si elle porte encore « [À COMPLÉTER] ») ;
+   *   ligne au même libellé mais autre valeur → 'modifie' (« diffère de la fiche · Rétablir ») ;
+   *   aucune ligne → 'retire' (« retirée du texte · Remettre »).
+   * Recherche d'abord sous INFORMATIONS, puis dans tout le texte.
    */
   function controlerTexte(texte, annonce) {
     const t = String(texte == null ? '' : texte);
+    const lignes = t.split('\n');
+    const d = _debutInfos(lignes);
     const parKey = {};
     (annonce.mentions || []).forEach(m => { parKey[m.key] = m; });
     const controle = (annonce.controle || []).map(c => {
       const m = parKey[c.key];
       if (!m || c.etat === 'na') return Object.assign({}, c);
-      if (t.indexOf(m.texte) < 0) return Object.assign({}, c, { etat: 'retire', detail: 'retirée du texte' });
+      const f = _cherche(lignes, m, d) || _cherche(lignes, m, 0);
+      if (!f) return Object.assign({}, c, { etat: 'retire', detail: 'retirée du texte' });
+      if (f.etat === 'modifiee') return Object.assign({}, c, { etat: 'modifie', detail: 'diffère de la fiche' + (m.manquant ? '' : ' (' + m.texte.slice((m.libelle || '').length).slice(0, 40) + ')') });
       return Object.assign({}, c);
     });
     return {
       controle,
       manquantes: controle.filter(c => c.etat === 'ko').length,
       retirees: controle.filter(c => c.etat === 'retire').length,
+      modifiees: controle.filter(c => c.etat === 'modifie').length,
       emplacements: (t.match(RE_MANQUE) || []).length
     };
   }
 
   /**
-   * Réinsère la phrase exacte d'une mention retirée : après la mention précédente (ordre du moteur)
-   * encore présente, sinon juste sous le titre INFORMATIONS, sinon en fin de texte sous ce titre.
+   * « Remettre » / « Rétablir » : la phrase exacte de la fiche.
+   *   ligne modifiée (même libellé) → REMPLACÉE (jamais de doublon contradictoire) ;
+   *   sinon insérée sous INFORMATIONS, après la dernière mention précédente présente (ordre du moteur),
+   *   sinon juste sous le titre INFORMATIONS, sinon en fin de texte sous ce titre.
    */
   function remettreMention(texte, annonce, key) {
-    const t = String(texte == null ? '' : texte);
+    const lignes = String(texte == null ? '' : texte).split('\n');
     const liste = annonce.mentions || [];
-    const i = liste.findIndex(m => m.key === key);
-    if (i < 0 || t.indexOf(liste[i].texte) >= 0) return t;
-    const phrase = liste[i].texte;
-    for (let j = i - 1; j >= 0; j--) {
-      const p = t.indexOf(liste[j].texte);
-      if (p >= 0) { const fin = p + liste[j].texte.length; return t.slice(0, fin) + '\n' + phrase + t.slice(fin); }
+    const k = liste.findIndex(m => m.key === key);
+    if (k < 0) return lignes.join('\n');
+    const m = liste[k];
+    const d = _debutInfos(lignes);
+    const f = _cherche(lignes, m, d) || _cherche(lignes, m, 0);
+    if (f && f.etat === 'exacte') return lignes.join('\n');
+    if (f && f.etat === 'modifiee') { lignes[f.i] = m.texte; return lignes.join('\n'); }
+    for (let j = k - 1; j >= 0; j--) {
+      const p = _cherche(lignes, liste[j], d);
+      if (p && p.etat === 'exacte') { lignes.splice(p.i + 1, 0, m.texte); return lignes.join('\n'); }
     }
-    const h = t.indexOf(RUBRIQUES.infos);
-    if (h >= 0) { const fin = h + RUBRIQUES.infos.length; return t.slice(0, fin) + '\n' + phrase + t.slice(fin); }
-    return t.replace(/\s+$/, '') + '\n\n' + RUBRIQUES.infos + '\n' + phrase;
+    const h = lignes.findIndex(l => _norme(l) === RUBRIQUES.infos);
+    if (h >= 0) { lignes.splice(h + 1, 0, m.texte); return lignes.join('\n'); }
+    return lignes.join('\n').replace(/\s+$/, '') + '\n\n' + RUBRIQUES.infos + '\n' + m.texte;
   }
 
   /**
-   * Après un passage par la fiche (DPE saisi, loyer modifié…) : remplace chaque phrase de mention
-   * de l'ancienne version par la nouvelle, là où elle se trouve ; les retouches restent intactes.
-   * Une mention nouvelle (absente de l'ancienne version) est ajoutée à sa place par remettreMention.
+   * Après un passage par la fiche : met le texte retouché à jour SANS toucher aux retouches.
+   *  - mentions : ligne identique à l'ancienne version → remplacée ; mention nouvelle → insérée à sa
+   *    place ; mention disparue → sa LIGNE ENTIÈRE retirée (jamais un morceau de phrase de l'utilisateur) ;
+   *  - blocs générés (accroche, logement, points forts, dossier) : remplacés s'ils sont restés
+   *    identiques à leur version générée ; sinon signalés « à relire » s'ils ont changé.
+   * @returns {{ texte: string, aRelire: string[] }}  aRelire ⊂ ['accroche','logement','points','dossier']
    */
   function majMentions(texte, ancienne, nouvelle) {
     let t = String(texte == null ? '' : texte);
+    const aRelire = [];
+    const ab = ancienne.blocs || {}, nb = nouvelle.blocs || {};
+    ['accroche', 'logement', 'points', 'dossier'].forEach(k => {
+      const o = ab[k] || '', n = nb[k] || '';
+      if (o === n) return;
+      if (o && t.indexOf(o) >= 0) t = n ? t.replace(o, n) : t.replace(o + '\n\n', '').replace('\n\n' + o, '').replace(o, '');
+      else if (o || n) aRelire.push(k);
+    });
+    let lignes = t.split('\n');
     const avant = {};
     (ancienne.mentions || []).forEach(m => { avant[m.key] = m.texte; });
-    (nouvelle.mentions || []).forEach(m => {
-      const old = avant[m.key];
-      if (old && old !== m.texte && t.indexOf(old) >= 0) t = t.split(old).join(m.texte);
-    });
-    // Mentions qui n'existaient pas avant (ex. « Logement à consommation énergétique excessive »).
-    (nouvelle.mentions || []).forEach(m => {
-      if (!avant[m.key] && t.indexOf(m.texte) < 0) t = remettreMention(t, nouvelle, m.key);
-    });
-    // Mentions qui ont disparu (ex. classe F corrigée en D) : la phrase périmée est retirée.
     const nouv = {};
     (nouvelle.mentions || []).forEach(m => { nouv[m.key] = true; });
+    // Mentions disparues : ligne entière identique, retirée.
     (ancienne.mentions || []).forEach(m => {
-      if (!nouv[m.key] && t.indexOf(m.texte) >= 0) t = t.split(m.texte + '\n').join('').split('\n' + m.texte).join('').split(m.texte).join('');
+      if (!nouv[m.key]) lignes = lignes.filter(l => _norme(l) !== m.texte);
     });
-    return t;
+    // Mentions changées : ligne identique à l'ancienne version → nouvelle version.
+    (nouvelle.mentions || []).forEach(m => {
+      const old = avant[m.key];
+      if (old && old !== m.texte) {
+        const i = lignes.findIndex(l => _norme(l) === old);
+        if (i >= 0) lignes[i] = m.texte;
+      }
+    });
+    t = lignes.join('\n');
+    // Mentions nouvelles : insérées à leur place.
+    (nouvelle.mentions || []).forEach(m => {
+      if (!avant[m.key]) t = remettreMention(t, nouvelle, m.key);
+    });
+    return { texte: t, aRelire };
   }
 
   // ─── EXPORT GLOBAL ───────────────────────────────────────────────

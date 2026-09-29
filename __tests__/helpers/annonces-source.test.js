@@ -74,6 +74,17 @@ describe('texte unique (maquette v2)', () => {
     expect(js).toContain('AG.remettreMention(ta.value, r, key)');
     expect(js).toContain('AG.majMentions(ta.value, avant, r)');
   });
+  it('contre-audit : brouillon par logement (R5), « Rétablir » pour une valeur modifiée, « Repartir »', () => {
+    expect(js).toContain('const _annonceBrouillons = {};');
+    expect(js).toContain('_annonceBrouillons[log.ref] = { texte: t');
+    expect(js).toContain(">Rétablir</button>");
+    expect(js).toContain('function _annonceRepartir()');
+    expect(modale).toContain('onclick="_annonceRepartir()"');
+  });
+  it('DPE : « effacer » une fourchette proposée rend le chiffre remplacé', () => {
+    expect(html).toContain("info.depensesEnergie = (sg && sg.prev) || '';");
+    expect(html).toContain('prev: _prev');
+  });
   it('re-score des candidats : une seule source', () => {
     expect(html.split('x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x))').length - 1).toBe(1);
   });
