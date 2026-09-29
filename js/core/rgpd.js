@@ -16,6 +16,7 @@
  *   - DB.assurances[] / DB.mrh[] : contrats assurance liés
  *   - DB.irlHistorique[] : révisions IRL
  *   - DB.baux_evenements[] : journal des modifications d'un bail signé (valeurs avant/après : tél., e-mail, naissance…)
+ *     et registre des avenants (type 'avenant' : noms des parties, document de l'avenant)
  *
  * IMPORTANT : "effacement" RGPD ne signifie pas "delete physique immédiat".
  * Pour la cohérence Drive sync (multi-device), on utilise des tombstones

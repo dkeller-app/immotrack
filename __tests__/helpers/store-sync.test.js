@@ -1419,3 +1419,44 @@ describe('I-2 — modificationsDuBail : la vie du bail ne compte pas comme « mo
     expect(modificationsDuBail(j, 'F-1', bail).map(x => x.id)).toEqual(['2'])
   })
 })
+
+// ── AVENANT-REFONTE lot 2 (audit I1) : un avenant peut viser un bail NON signé, neuf ou successeur ──
+describe('registre des avenants : rattachement à la ligne du bail avant le 1er envoi', () => {
+  const SIG = { signedAt: '2025-01-01T10:00:00Z', mode: 'avec-locataire', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }
+  const setup = () => {
+    const store = mockStore()
+    const db = { ...baseDB(), baux: { 'F-1': { entity: 'SCI A', hc: 600, ch: 40, debut: '2025-01-01', locataires: [{ nom: 'Dupont' }], signatures: { ...SIG } } }, baux_historique: [], baux_evenements: [] }
+    let n = 0
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'u' + (++n), now: () => new Date('2026-09-29T08:00:00Z') })
+    sync.seed()
+    return { store, db, sync }
+  }
+  const envoye = (store) => store.calls.filter(c => c.op === 'upsert' && c.coll === 'baux_evenements').map(c => c.rec)
+  it('successeur non signé : l\'avenant (uid recopié du bail précédent) est recalé sur la ligne PROPRE du successeur', async () => {
+    const { store, db, sync } = setup()
+    const b = db.baux['F-1']; Object.assign(b, { finEffective: '2026-09-30', cloture: true, ref: 'F-1', _archivedAt: '2026-09-28' })
+    db.baux_historique.push({ ...b })
+    db.baux['F-1'] = { entity: 'SCI A', hc: 650, ch: 40, debut: '2026-10-01', locataires: [{ nom: 'Martin' }] }
+    db.baux_evenements.push({ id: 'av_1', type: 'avenant', ref: 'F-1', bailDebut: '2026-10-01', bailUid: 'PERIME', date: '2026-11-01', no: 1, statut: 'a_signer' })
+    await sync.flush()
+    const uid = db.baux['F-1']._bailUid
+    expect(uid).toBeTruthy()
+    expect(envoye(store).find(r => r.id === 'av_1').bailUid).toBe(uid)
+  })
+  it('bail sans ligne propre : uid retiré → ligne historique du logement ; entrée déjà envoyée : jamais retouchée', async () => {
+    const { store, db, sync } = setup()
+    db.baux_evenements.push({ id: 'av_2', type: 'avenant', ref: 'F-1', bailDebut: '2025-01-01', bailUid: 'PERIME', date: '2026-11-01', no: 1, statut: 'brouillon' })
+    await sync.flush()
+    expect(envoye(store).find(r => r.id === 'av_2').bailUid).toBeUndefined()
+    db.baux_evenements[0].bailUid = 'MANUEL'; db.baux_evenements[0].statut = 'a_signer'
+    await sync.flush()
+    expect(envoye(store).filter(r => r.id === 'av_2').pop().bailUid).toBe('MANUEL')
+  })
+  it('N1 : avenant créé pendant que le bail avait perdu son tag d\'espace → prend l\'espace de l\'unique bail candidat', async () => {
+    const { db, sync } = setup()
+    db.baux['F-1']._espaceId = 'E1'
+    db.baux_evenements.push({ id: 'av_3', type: 'avenant', ref: 'F-1', bailDebut: '2025-01-01', date: '2026-11-01', no: 1, statut: 'a_signer' })
+    await sync.flush()
+    expect(db.baux_evenements.find(e => e.id === 'av_3')._espaceId).toBe('E1')
+  })
+})

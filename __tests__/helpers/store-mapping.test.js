@@ -201,6 +201,14 @@ describe('mapToRow — journal des baux signés (baux_evenements, migration 0054
     expect(mapToRow('baux_evenements', { ...e, ref: 'INCONNU' }, ctx())).toBe(null)
     expect(mapToRow('baux_evenements', { ...e, date: '' }, ctx())).toBe(null)
   })
+  it('AVENANT-REFONTE lot 2 : un avenant du registre part en type « avenant », rattaché à la ligne de son bail', () => {
+    const av = { id: 'av_1', type: 'avenant', ref: 'F-1', bailDebut: '2025-01-01', bailUid: 'u1', no: 2, statut: 'a_signer', date: '2026-11-01', objets: [{ k: 'charges', data: { montant: '130' } }], html: '<p/>' }
+    const r = mapToRow('baux_evenements', av, ctx())
+    expect(r.type_evenement).toBe('avenant')
+    expect(r.bail_id).toBe('uuid:bail|f-1|u1')
+    expect(r.date_evenement).toBe('2026-11-01')
+    expect(r.legacy_raw).toEqual(av)
+  })
 })
 
 describe('identité des lignes baux / archives / journal (chantier clôture-relocation, 28/09)', () => {
