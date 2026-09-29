@@ -51,20 +51,15 @@ const PAIRS = [
     src: '__tests__/helpers/annonce-generator.js',
     dst: 'js/helpers/annonce-generator.global.js',
     globalName: 'AnnonceGenerator',
+    // Chantier ANNONCES (CDC validé 29/09/2026) : moteur factuel + mentions obligatoires.
     exports: [
-      'setSeed', 'rand', 'pick', 'seedFromString',
-      'MAP_EXPO', 'MAP_VUE', 'MAP_LUM', 'MAP_CALM', 'MAP_CAR',
-      'TONS_VALIDES', 'FORMATS_VALIDES',
-      'etageLabel', 'adjLifestyle', 'surfTxt', 'dpeClasse',
-      'formaterDateFr', 'garantiesLabel',
-      'BANQUE_TITRES', 'BANQUE_ACCROCHES',
-      'genererTitre', 'genererAccroche', 'genererDescription', 'genererAtouts',
-      'genererQuartier', 'genererDossier', 'genererAnnonce',
+      'TXT_GEORISQUES', 'TXT_DEPENSES', 'TXT_EXCESSIF', 'TXT_HCL',
+      'USAGES_HORS_HABITATION', 'USAGES_MEUBLES', 'PIECES_LIBELLES',
+      'nombre', 'montant', 'estHorsHabitation', 'estMeuble', 'etageLabel', 'communeLabel', 'dateFr', 'natureBien',
+      'genererTitre', 'genererDescription', 'genererMentions', 'genererDossier', 'genererAnnonce',
     ],
-    // Vérifications spécifiques (tpl counts)
     sanity: [
-      { name: 'BANQUE_TITRES tpl', pattern: /BANQUE_TITRES\s*=\s*Object\.freeze\(\{[\s\S]*?\}\);/, marker: /tpl\s*:/g },
-      { name: 'BANQUE_ACCROCHES tpl', pattern: /BANQUE_ACCROCHES\s*=\s*Object\.freeze\(\{[\s\S]*?\}\);/, marker: /tpl\s*:/g },
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
     ]
   },
   {
