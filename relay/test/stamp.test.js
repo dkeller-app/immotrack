@@ -144,6 +144,24 @@ describe('readingPlanFor (document défilant)', () => {
     expect(plan.signatures).toEqual([]);
     expect(plan.lastBailPage).toBe(1);
   });
+  it('annexes DÉCLARÉES par l\'app (manifeste.annexes) : 1re page d\'annexe respectée + liste restituée', async () => {
+    const doc = await makeDoc(6);
+    const annexes = { from: 4, items: [{ label: 'DPE', statut: 'joint', docName: 'dpe.pdf', from: 5, to: 6 }, { label: 'Électricité', statut: 'hors_app' }] };
+    embedInDoc(doc, { v: 1, totalPages: 6, annexes, anchors: [
+      { sigId: 'loc-0', kind: 'paraphe', page: 1, x: 125, y: 279.5, w: 70, h: 14 },
+      { sigId: 'loc-0', kind: 'signature', page: 3, x: 110, y: 210, w: 90, h: 30 }
+    ] });
+    const plan = readingPlanFor(doc, { sigId: 'loc-0' });
+    expect(plan.lastBailPage).toBe(3);
+    expect(plan.annexes.items.map((i) => i.statut)).toEqual(['joint', 'hors_app']);
+  });
+  it('annexes.from incohérent (avant une ancre) : ignoré, déduction par les ancres', async () => {
+    const doc = await makeDoc(4);
+    embedInDoc(doc, { v: 1, totalPages: 4, annexes: { from: 2, items: [] }, anchors: [
+      { sigId: 'loc-0', kind: 'signature', page: 3, x: 110, y: 210, w: 90, h: 30 }
+    ] });
+    expect(readingPlanFor(doc, { sigId: 'loc-0' }).lastBailPage).toBe(3);
+  });
   it('repli sans manifeste : toutes les pages sont du bail', async () => {
     const doc = await makeDoc(3);
     const plan = readingPlanFor(doc, { sigId: 'loc-0', side: 'locataire' });

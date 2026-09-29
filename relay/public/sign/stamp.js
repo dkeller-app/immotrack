@@ -54,8 +54,15 @@ export function readingPlanFor(pdfDoc, { sigId, side }) {
     .sort((a, b) => a.page - b.page)
     .filter((a, i, arr) => i === 0 || arr[i - 1].page !== a.page);   // 1 case par page
   const signatures = anchors.filter((a) => a.kind === 'signature' && inRange(a)).map(box);
-  const lastBailPage = Math.min(pageCount, Math.max(0, ...all.filter(inRange).map((a) => a.page)) || pageCount);
-  return { paraphes, signatures, lastBailPage, pageCount };
+  let lastBailPage = Math.min(pageCount, Math.max(0, ...all.filter(inRange).map((a) => a.page)) || pageCount);
+  // Annexes DÉCLARÉES par l'app (manifeste.annexes : liste des pièces du DDT + 1re page d'annexe) :
+  // prévaut sur la déduction par les ancres dès que la 1re page est cohérente.
+  const annexes = (manifest && manifest.annexes && typeof manifest.annexes === 'object') ? manifest.annexes : null;
+  const from = annexes && Number(annexes.from);
+  if (from && from > 1 && from <= pageCount && from - 1 >= Math.max(0, ...paraphes.map((a) => a.page), ...signatures.map((a) => a.page))) {
+    lastBailPage = from - 1;
+  }
+  return { paraphes, signatures, lastBailPage, pageCount, annexes };
 }
 
 export async function stampSignature(

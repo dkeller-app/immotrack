@@ -1,7 +1,7 @@
 import { initPad } from '/sign/pad.js';
 import { loadDocument, renderPageInto } from '/sign/viewer.js';
-import { readingPlanFor } from '/sign/stamp.js?v=6';   // versionné : readingPlanFor n'existe pas dans un stamp.js en cache — ⚠️ garder = ASSET_VERSION (relay/src/sign-page.js)
-import { buildMentionLines, buildProofObject } from '/sign/proof.js';
+import { readingPlanFor } from '/sign/stamp.js?v=7';   // versionné : readingPlanFor n'existe pas dans un stamp.js en cache — ⚠️ garder = ASSET_VERSION (relay/src/sign-page.js)
+import { buildMentionLines, buildProofObject } from '/sign/proof.js?v=7';   // idem (annexesRecuesAt)
 
 const S = window.__SIGN__ || {};
 const TOKEN = window.__SIGN_TOKEN__;
@@ -30,6 +30,7 @@ let emailVerified = false;          // confirmation anti-transfert (§5 #2), aut
 let consentElectronic = false;      // case « procédé électronique » (acte de volonté)
 let luApprouve = false;             // case « je reconnais signer ce bail »
 let readCompletedAt = null;         // fin de lecture (§5 #3)
+let annexesRecuesAt = null;         // accusé de réception des annexes (DDT, loi 89-462 art. 3-3), case obligatoire
 const openedAt = new Date().toISOString();  // ouverture du lien (§5 #3)
 
 function buildUI() {
@@ -65,6 +66,17 @@ function buildUI() {
         <div class="read-prog" id="read-prog" aria-live="polite"></div>
         <div class="scroll" id="read-scroll"><div id="pdf-doc" class="pdf-doc">Chargement du document…</div></div>
         <div class="actionbar" id="read-bar"></div>
+      </section>
+
+      <section id="step-annexes" class="step" hidden>
+        <div class="scroll"><div class="ann-step">
+          <h1>Annexes au bail</h1>
+          <p class="ann-lead">Le dossier de diagnostic technique est annexé à votre bail (loi n° 89-462, art. 3-3). Voici les pièces : celles qui sont jointes figurent à la suite du bail, dans le document que vous signez.</p>
+          <div class="ann-card"><h2 id="ann-step-title">Dossier de diagnostic technique</h2><div id="ann-step-list"></div>
+            <div class="ann-btns"><button type="button" class="line" id="ann-step-view">Consulter les annexes</button><button type="button" class="line" id="ann-step-dl">Télécharger le document complet (PDF)</button></div></div>
+          <label class="ann-ack" id="ann-ack-lbl"><input type="checkbox" id="ann-ack"><span><strong>J'ai reçu les annexes jointes au bail</strong> (dossier de diagnostic technique), qui font partie du document que je signe.<small>Obligatoire pour signer · l'heure est enregistrée dans la preuve de signature.</small></span></label>
+        </div></div>
+        <div class="actionbar"><div class="bar-btns"><button id="ann-back" class="ghost">‹ Revoir le bail</button><button id="ann-next" class="primary" disabled>Continuer vers la signature</button></div></div>
       </section>
 
       <section id="step-sign" class="step" hidden>
@@ -344,20 +356,87 @@ async function annexBlock(last, total) {
       ${items.length ? '<p class="ann-legal">Sommaire indicatif, repris de la page de garde des annexes.</p>' : ''}
       <p class="ann-legal">Ces pièces font partie du document que vous signez : vous en recevez un exemplaire avec le bail.</p>
     </div>`);
-  // Copie du PDF créée AU CLIC puis libérée (pas 20 Mo gardés en mémoire dès l'ouverture).
-  block.querySelector('#ann-dl').onclick = () => {
-    const url = URL.createObjectURL(new Blob([master], { type: 'application/pdf' }));
-    const a = document.createElement('a');
-    a.href = url; a.download = `bail-${String(S.bailRef || 'document').replace(/[^\w.-]+/g, '_')}.pdf`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
-  };
-  block.querySelector('#ann-toggle').onclick = () => {
-    annexOpen = !annexOpen;
-    for (let i = last + 1; i <= total; i++) slots[i].hidden = !annexOpen;
-    block.querySelector('#ann-toggle').textContent = annexOpen ? 'Replier les annexes' : 'Afficher les annexes';
-  };
+  block.querySelector('#ann-dl').onclick = downloadFull;
+  block.querySelector('#ann-toggle').onclick = () => setAnnexOpen(!annexOpen);
   return block;
+}
+// Copie du PDF créée AU CLIC puis libérée (pas 20 Mo gardés en mémoire dès l'ouverture).
+function downloadFull() {
+  const url = URL.createObjectURL(new Blob([master], { type: 'application/pdf' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `bail-${String(S.bailRef || 'document').replace(/[^\w.-]+/g, '_')}.pdf`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+function setAnnexOpen(on) {
+  annexOpen = !!on;
+  for (let i = plan.lastBailPage + 1; i <= pdf.numPages; i++) if (slots[i]) slots[i].hidden = !annexOpen;
+  const t = app.querySelector('#ann-toggle');
+  if (t) t.textContent = annexOpen ? 'Replier les annexes' : 'Afficher les annexes';
+}
+
+// ── Écran « Annexes au bail » AVANT la signature (validé Didier 29/09 : case OBLIGATOIRE) ────────────
+// Liste = manifeste de l'app (statut de chaque pièce, repris du § 17 : jointe + pages / remise hors
+// application / non jointe) ; à défaut (ancien envoi), sommaire lu sur la page de garde (pièces jointes).
+const ANN_TAG = { joint: ['j', 'Joint'], hors_app: ['h', 'Remis hors application'], non_joint: ['n', 'Non joint'] };
+let coverItems = null;
+async function annexItems() {
+  const m = plan.annexes;
+  if (m && Array.isArray(m.items) && m.items.length) {
+    return m.items.map((it) => ({
+      label: String(it.label || ''), statut: ANN_TAG[it.statut] ? it.statut : 'non_joint',
+      detail: it.statut === 'joint'
+        ? `${it.docName ? it.docName + ' · ' : ''}${it.from ? (it.to && it.to !== it.from ? `pages ${it.from} à ${it.to}` : `page ${it.from}`) : ''}`
+        : (it.statut === 'hors_app' ? 'remis hors application (déclaration du bailleur)' : 'non joint au document')
+    }));
+  }
+  if (coverItems === null) {
+    coverItems = [];
+    if (plan.lastBailPage < plan.pageCount) {
+      try {
+        const tc = await (await pdf.getPage(plan.lastBailPage + 1)).getTextContent();
+        coverItems = tc.items.map((x) => x.str.trim()).filter((s) => /^\d+\.\s.+\s—\spages\s\d+\sà\s\d+$/.test(s))
+          .map((s) => ({ label: s.replace(/^\d+\.\s/, '').replace(/\s—\spages.*$/, ''), statut: 'joint', detail: (s.match(/pages\s\d+\sà\s\d+$/) || [''])[0] }));
+      } catch { coverItems = []; }
+    }
+  }
+  return coverItems;
+}
+function hasAnnexStep() {
+  const m = plan.annexes;
+  if (m && Array.isArray(m.items)) return m.items.some((it) => it.statut === 'joint' || it.statut === 'hors_app');
+  return plan.lastBailPage < plan.pageCount;
+}
+async function showAnnexStep() {
+  const items = await annexItems();
+  const pages = plan.pageCount - plan.lastBailPage;
+  app.querySelector('#ann-step-title').textContent = 'Dossier de diagnostic technique' + (pages > 0 ? ` · ${pages} page${pages > 1 ? 's' : ''}` : '');
+  app.querySelector('#ann-step-list').innerHTML = items.length
+    ? items.map((it) => `<div class="ann-pc"><div class="ann-pc-t"><b>${esc(it.label)}</b><small>${esc(it.detail)}</small></div><span class="ann-tag ${ANN_TAG[it.statut][0]}">${ANN_TAG[it.statut][1]}</span></div>`).join('')
+    : '<p class="ann-legal">Les pièces figurent à la suite du bail dans le document.</p>';
+  const view = app.querySelector('#ann-step-view');
+  view.hidden = !(plan.lastBailPage < plan.pageCount);
+  view.onclick = () => { show('step-read'); setAnnexOpen(true); const el = app.querySelector('#annexes'); if (el) el.scrollIntoView({ block: 'start' }); };
+  app.querySelector('#ann-step-dl').onclick = downloadFull;
+  const cb = app.querySelector('#ann-ack'), next = app.querySelector('#ann-next'), lbl = app.querySelector('#ann-ack-lbl');
+  const sync = () => { next.disabled = !cb.checked; lbl.classList.toggle('is-ok', cb.checked); };
+  cb.onchange = sync; sync();
+  app.querySelector('#ann-back').onclick = () => show('step-read');
+  next.onclick = () => {
+    if (!cb.checked) return;
+    annexesRecuesAt = annexesRecuesAt || new Date().toISOString();
+    goSign();
+  };
+  show('step-annexes');
+}
+function goSign() {
+  const tot = plan.paraphes.length;
+  const rc = app.querySelector('#sig-recap');
+  if (rc) {
+    rc.hidden = !tot && !annexesRecuesAt;
+    rc.textContent = [tot ? `✓ ${tot} page${tot > 1 ? 's' : ''} du bail paraphée${tot > 1 ? 's' : ''}` : '', annexesRecuesAt ? '✓ annexes reçues' : ''].filter(Boolean).join(' · ') + '.';
+  }
+  show('step-sign'); ensureSignaturePad();
 }
 
 function renderParSlot(page) {
@@ -446,9 +525,7 @@ function updateReadUI() {
     const b = h(`<button class="primary is-ok">Continuer vers la signature</button>`);
     b.onclick = () => {
       readCompletedAt = new Date().toISOString();
-      const rc = app.querySelector('#sig-recap');
-      if (rc) { rc.hidden = !tot; rc.textContent = `✓ ${tot} page${tot > 1 ? 's' : ''} du bail paraphée${tot > 1 ? 's' : ''}.`; }
-      show('step-sign'); ensureSignaturePad();
+      if (hasAnnexStep()) showAnnexStep(); else goSign();   // annexes du DDT → accusé de réception AVANT la signature
     };
     bar.appendChild(b);
   }
@@ -467,7 +544,7 @@ async function doSubmit() {
     // de signature (+ paraphes par page) — jamais les octets du document (anti-substitution).
     const proof = buildProofObject({
       signerName, role: S.role, sigId: S.sigId, dateISO,
-      consentElectronic, luApprouve, openedAt, readCompletedAt
+      consentElectronic, luApprouve, openedAt, readCompletedAt, annexesRecuesAt
     });
     const r = await fetch(`/api/sessions/${SID}/signed`, {
       method: 'POST',

@@ -115,6 +115,7 @@ function sanitizeClientProof(raw) {
     luApprouve: raw.luApprouve === true,
     openedAt: str(raw.openedAt, 40),
     readCompletedAt: str(raw.readCompletedAt, 40),
+    annexesRecuesAt: str(raw.annexesRecuesAt, 40),
     parapheTimes: times(raw.parapheTimes)
   };
 }
@@ -150,6 +151,7 @@ export async function recordSignature(env, sessionId, { signedBytes, proof, clie
     luApprouve: client ? client.luApprouve : null,
     openedAt: client ? client.openedAt : null,
     readCompletedAt: client ? client.readCompletedAt : null,
+    annexesRecuesAt: client ? client.annexesRecuesAt : null,
     parapheTimes: client ? client.parapheTimes : null
   };
 

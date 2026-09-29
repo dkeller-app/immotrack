@@ -332,6 +332,7 @@ app.get('/api/sessions/:id', async (c) => {
         luApprouve: sg.proof.luApprouve ?? null,
         openedAt: sg.proof.openedAt || null,
         readCompletedAt: sg.proof.readCompletedAt || null,
+        annexesRecuesAt: sg.proof.annexesRecuesAt || null,
         parapheTimes: sg.proof.parapheTimes || null,
         ip: sg.proof.ip || null,
         userAgent: sg.proof.userAgent || null
