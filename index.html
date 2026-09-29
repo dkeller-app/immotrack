@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.691</title>
+<title>Propryo v15.692</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.691">
+<link rel="stylesheet" href="css/main.css?v=15.692">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.691</em>
+      <em>v15.692</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4322,7 +4322,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.691';
+const IMMOTRACK_VERSION = '15.692';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -49259,19 +49259,13 @@ async function _acteProcessPdf(dataUrl, name) {
   }
 }
 
-/** Cherche un doublon d'entité par SIREN (prioritaire) puis par nom, dans DB.entites.
+/** Cherche un doublon d'entité par SIREN (prioritaire, SIRET compris) puis par nom, dans DB.entites.
  *  Ignore les tombstones (_deleted) : proposer de rattacher à une entité supprimée
- *  mènerait à un patrimoine invisible (filtré par _isAlive partout ailleurs). */
+ *  mènerait à un patrimoine invisible (filtré par _isAlive partout ailleurs).
+ *  Règle unique partagée avec saveEnt : js/core/entite-doublon.js (shadow inline avant saveEnt). */
 function _acteFindDupEntity(siren, nom) {
-  const ents = (typeof DB !== 'undefined' && DB.entites) ? DB.entites : [];
-  const digits = String(siren || '').replace(/\D/g, '');
-  let dup = null;
-  if (digits.length === 9) dup = ents.find(e => !e._deleted && String(e.siren || '').replace(/\D/g, '') === digits);
-  if (!dup && nom) {
-    const k = String(nom).trim().toLowerCase();
-    if (k) dup = ents.find(e => !e._deleted && String(e.nom || '').trim().toLowerCase() === k);
-  }
-  return dup || null;
+  const d = trouverDoublonEntite((typeof DB !== 'undefined' && DB.entites) ? DB.entites : [], { nom, siren }, null);
+  return d.siren || d.nom || null;
 }
 
 /** Candidats immeuble existants pour l'adresse de l'acte, DANS l'entité effective (dupEntity). */
@@ -49821,6 +49815,10 @@ function _acteApply() {
       const e = d.entite || {};
       const nom = _acteNormNom(e.nom || '');
       if (!nom) { showToast('Nom du bailleur manquant — complète-le avant de valider.', 'err', 5000); return; }
+      // P0 28/09 : « créer une nouvelle entité quand même » ne peut pas réutiliser un nom existant
+      // (les biens sont reliés au bailleur par son nom → les deux fusionneraient). Cf. saveEnt.
+      const _dupNom = trouverDoublonEntite(DB.entites || [], { nom }, null).nom;
+      if (_dupNom) { showToast(`Un bailleur porte déjà le nom « ${_dupNom.nom} ». Rattacher à ce bailleur, ou changer le nom avant de créer.`, 'err', 6000); return; }
       const siege = [(e.adr || '').trim(), [(e.cp || '').trim(), (e.ville || '').trim()].filter(Boolean).join(' ')].filter(Boolean).join(', ');
       ent = {
         id: nid(), nom,
@@ -53052,6 +53050,43 @@ function _frRecapHtml(opts){
   return h;
 }
 
+// ─── P0 28/09 FUSION DE SCI HOMONYMES — shadow inline de js/core/entite-doublon.js ───
+// GARDER IDENTIQUE au module. __tests__/helpers/entite-doublon.test.js vérifie la non-divergence.
+// Inline (pas seulement exposé par js/main.js) : si le module ne charge pas (file://, 404 pendant un
+// déploiement, vieux cache hors ligne), le garde-fou doit rester actif — sans lui, le P0 se rouvre.
+function normNomEntite(s) {
+  return String(s == null ? '' : s)
+    .normalize('NFC')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function sirenDe(v) {
+  const d = String(v == null ? '' : v).replace(/\D/g, '')
+  if (d.length === 9) return d
+  if (d.length === 14) return d.slice(0, 9)
+  return ''
+}
+
+function appartientAEspace(x, scope, scopeIsOwn) {
+  const e = (x && x._espaceId != null) ? x._espaceId : null
+  return e === scope || (e == null && scopeIsOwn)
+}
+
+function trouverDoublonEntite(entites, cand, self) {
+  const out = { nom: null, siren: null }
+  if (!Array.isArray(entites) || !cand) return out
+  const n = normNomEntite(cand.nom), s = sirenDe(cand.siren)
+  for (const e of entites) {
+    if (!e || e === self || e._deleted) continue
+    if (!out.nom && n && normNomEntite(e.nom) === n) out.nom = e
+    if (!out.siren && s && sirenDe(e.siren) === s) out.siren = e
+  }
+  return out
+}
+
 function saveEnt() {
   const id=el('ent-edit-id').value;
   const existing = id ? DB.entites.find(e=>e.id===parseInt(id)) : null;
@@ -53096,6 +53131,19 @@ function saveEnt() {
   // repartait vers l'espace propre au flush.
   _preserverChampsExistants(ent, existing);
   if(!ent.nom){showToast('Nom requis','err');return;}
+  // P0 28/09 FUSION DE SCI HOMONYMES : biens, baux, quittances et mouvements sont reliés au bailleur
+  // par son NOM → DONNER à un bailleur un nom déjà porté par un autre (tous espaces confondus)
+  // mélangerait leurs données : refus (intégrité, pas confort). Un nom STRICTEMENT inchangé (à l'octet,
+  // comme les jointures) ne crée aucune collision nouvelle → on enregistre et on signale l'homonyme.
+  // ⚠️ Comparaison EXACTE, pas normalisée : « SCI Smarto » → « SCI SMARTO », ou un espace insécable
+  // hérité que nomNormalize retire, FERAIENT de deux bailleurs distincts un homonyme exact (audit 2).
+  // Même SIREN (SIRET compris) = sans doute la même société → avertir, l'utilisateur décide
+  // (seulement si le SIREN est nouveau ou changé : pas de question à chaque enregistrement).
+  const _dup = trouverDoublonEntite(DB.entites || [], ent, existing);
+  const _nomChange = !existing || existing.nom !== ent.nom;
+  if (_dup.nom && _nomChange) { showToast(`Un autre bailleur porte déjà le nom « ${_dup.nom.nom} ». Choisir un nom distinct (par exemple en ajoutant la ville).`, 'err', 6000); return; }
+  if (_dup.siren && !(existing && sirenDe(existing.siren) === sirenDe(ent.siren))
+      && !confirm2(`Le bailleur « ${_dup.siren.nom} » a déjà ce SIREN : c'est sans doute la même société.\n\nDeux fiches pour une même société séparent ses biens et ses comptes. Enregistrer quand même ?`)) return;
   _stamp(ent); // v13.18
   // v14.89 AUDIT-TRAIL : entité bailleur (RGPD si personne physique : nom, IBAN, gérant)
   if(id) {
@@ -53115,22 +53163,33 @@ function saveEnt() {
   if (existing && prevNom && prevNom !== ent.nom) {
     const ts = Date.now();
     let renamed = 0;
+    // P0 28/09 : si un AUTRE bailleur vivant porte encore l'ancien nom (homonymes déjà en base, ex.
+    // SCI partagée + copie privée), la jointure par nom ne distingue plus leurs biens → la cascade ne
+    // touche QUE l'espace du bailleur renommé (tag multi-espace _espaceId). Sinon, comportement
+    // inchangé (toutes les fiches de l'ancien nom, tag ou pas).
+    // Appartenance = règle store-multi (appartientAEspace) : un record NON tagué (créé en session)
+    // est de l'espace PROPRE → suit le renommage seulement si le bailleur renommé est de l'espace propre.
+    const _homonyme = (DB.entites || []).some(e => e && e !== ent && !e._deleted && e.nom === prevNom);
+    const _scope = (existing._espaceId != null) ? existing._espaceId : null;
+    const _own = (typeof window.__immoOwnEspaceId === 'function') ? window.__immoOwnEspaceId() : null;
+    const _scopeIsOwn = _scope == null || _scope === (_own != null ? _own : null);
+    const _perimetre = r => !_homonyme || appartientAEspace(r, _scope, _scopeIsOwn);
     (DB.logements || []).forEach(l => {
-      if (l && !l._deleted && l.entity === prevNom) { l.entity = ent.nom; l._modifiedAt = ts; renamed++; }
+      if (l && !l._deleted && l.entity === prevNom && _perimetre(l)) { l.entity = ent.nom; l._modifiedAt = ts; renamed++; }
     });
     Object.values(DB.baux || {}).forEach(b => {
-      if (b && !b._deleted && b.entity === prevNom) { b.entity = ent.nom; b._modifiedAt = ts; renamed++; }
+      if (b && !b._deleted && b.entity === prevNom && _perimetre(b)) { b.entity = ent.nom; b._modifiedAt = ts; renamed++; }
     });
     (DB.baux_historique || []).forEach(b => {
-      if (b && !b._deleted && b.entity === prevNom) { b.entity = ent.nom; b._modifiedAt = ts; renamed++; }
+      if (b && !b._deleted && b.entity === prevNom && _perimetre(b)) { b.entity = ent.nom; b._modifiedAt = ts; renamed++; }
     });
     (DB.quittances || []).forEach(q => {
-      if (q && !q._deleted && q.entity === prevNom) { q.entity = ent.nom; q._modifiedAt = ts; renamed++; }
+      if (q && !q._deleted && q.entity === prevNom && _perimetre(q)) { q.entity = ent.nom; q._modifiedAt = ts; renamed++; }
     });
     // Mouvements globaux entité (qui === 'SCI:'+nom — pas attachés à un logement)
     const oldKey = 'SCI:' + prevNom, newKey = 'SCI:' + ent.nom;
     (DB.mouvements || []).forEach(m => {
-      if (m && !m._deleted && m.qui === oldKey) { m.qui = newKey; m._modifiedAt = ts; renamed++; }
+      if (m && !m._deleted && m.qui === oldKey && _perimetre(m)) { m.qui = newKey; m._modifiedAt = ts; renamed++; }
     });
     if (renamed > 0) {
       console.log(`[saveEnt v14.51] Cascade rename : ${renamed} record(s) "${prevNom}" → "${ent.nom}"`);
@@ -53140,7 +53199,8 @@ function saveEnt() {
 
   saveDB();closeM('ov-ent');rBailleurs();
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
-  showToast('Entité enregistrée','ok');
+  if (_dup.nom && !_nomChange) showToast(`Bailleur enregistré. Attention : un autre bailleur porte le même nom « ${_dup.nom.nom} » ; leurs biens peuvent se mélanger à l'affichage. Renommer l'un des deux.`, 'warn', 8000);
+  else showToast('Entité enregistrée','ok');
   if(typeof _frAfterSave==='function') _frAfterSave('ent', ent, !id); // fil rouge v2 (inerte hors parcours/édition)
 }
 
