@@ -33442,6 +33442,8 @@ function _edlActive(e) { return _isAlive(e); }
 // (saveBailClore / terminerBail), DB.baux[ref] devient un tombstone { ref, _deleted, … } SANS `cloture` :
 // tester `!b.cloture` seul le prenait pour un bail actif (re-bail → confirm « Locataire actuel : ? » +
 // archiverBail poussait le tombstone dans baux_historique ; lot clôturé absent des vacants).
+// ≠ _bienActiveBail, VOLONTAIREMENT : un bail qui porte une `finEffective` (départ saisi, pas encore
+// clôturé) reste « en cours » ici — au re-bail il DOIT encore être archivé, sinon il serait écrasé.
 function _bailEnCours(b) { return !!(b && !b._deleted && !b.cloture); }
 
 /* v15.186 — Helper tombstone centralisé. Crée un objet tombstone propre :
