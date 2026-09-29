@@ -20,6 +20,8 @@
  * Module PUR : aucune lecture de DB ni de l'horloge (dates injectées).
  */
 
+import { avenantMontant } from './avenant.js';
+
 export const STATUTS = {
   brouillon: { l: 'Brouillon', ton: 'mute' },
   a_signer: { l: 'À signer', ton: 'warn' },
@@ -225,4 +227,67 @@ function _titreObjet(o, libelles) {
 export function titreAvenant(av, libelles) {
   const objs = (av && Array.isArray(av.objets) ? av.objets : []).map((o) => _titreObjet(typeof o === 'object' ? o : { k: o }, libelles)).filter(Boolean);
   return 'Avenant n° ' + ((av && av.no) || '?') + (objs.length ? ' — ' + objs.join(' · ') : '');
+}
+
+// ── LOT 3 — APPLICATION À LA SIGNATURE (décision B, CDC §1 B / §5) ─────────────────────────────────
+// Un avenant enregistré à partir du lot 3 porte `aLaSignature:true` : rien ne change dans le bail avant
+// qu'il soit signé par toutes les parties ; ses changements sont alors datés à sa date d'effet. Les
+// avenants antérieurs (lot 2 / v15.681) ont déjà appliqué loyer et charges à l'enregistrement : on ne
+// les réapplique jamais (`appliques` le dit).
+
+// Valeurs du formulaire d'avenant → valeurs du bail (`destinationLocaux` : 'habitation' | 'mixte').
+const _DESTINATION = { "usage exclusif d'habitation": 'habitation', 'usage mixte (habitation et activité professionnelle)': 'mixte' };
+const _isoDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) && !isNaN(new Date(String(s) + 'T00:00:00Z'));
+
+/**
+ * Ce que la signature de l'avenant change dans le bail — PUR, rien n'est écrit.
+ * @param {{objets:Array, bail:Object, libelles?:Object}} p
+ * @returns {{hc:number|null, ch:number|null, champs:Array<{champ,apres}>, appliques:string[], docSeul:string[], alertes:string[]}}
+ *   hc / ch : nouveaux montants à dater au barème (null = inchangé) ; champs : autres champs du bail.
+ */
+export function planApplication({ objets, bail, libelles } = {}) {
+  const b = bail || {};
+  const L = (k) => (libelles && libelles[k]) || k;
+  const hc0 = Number(b.hc) || 0, ch0 = Number(b.ch) || 0;
+  let hc = hc0, ch = ch0;
+  const champs = [], appliques = [], docSeul = [], alertes = [];
+  const pose = (champ, apres) => { if (String(b[champ] == null ? '' : b[champ]) !== String(apres)) champs.push({ champ, apres }); };
+  for (const o of (Array.isArray(objets) ? objets : [])) {
+    const k = o && o.k; const d = (o && o.data) || {};
+    let applique = false;
+    if (k === 'loyer') {
+      const m = avenantMontant(d.nouveau, hc0, { strictPositif: true });
+      if (!m.ok) alertes.push('Nouveau loyer illisible : non appliqué.');
+      else if (m.v !== hc0) { hc += m.v - hc0; applique = true; }
+    } else if (k === 'charges') {
+      const m = avenantMontant(d.montant, ch0);
+      if (!m.ok) alertes.push('Montant des charges illisible : non appliqué.');
+      else if (m.v !== ch0) { ch = m.v; applique = true; }
+      const forfait = String(d.mode || '').toLowerCase().indexOf('forfait') >= 0;
+      if (!!b.chForfait !== forfait) { champs.push({ champ: 'chForfait', apres: forfait }); applique = true; }
+    } else if (k === 'annexe') {
+      // Supplément de loyer d'une dépendance ajoutée (ou retirée) : porté par le loyer, daté au barème.
+      const sup = avenantMontant(d.sup, 0);
+      if (!sup.ok) alertes.push('Loyer supplémentaire de l\'annexe illisible : non appliqué.');
+      else if (sup.v > 0) { hc += /^Retrait/.test(String(d.act || '')) ? -sup.v : sup.v; appliques.push(L(k) + ' (loyer supplémentaire)'); continue; }
+    } else if (k === 'duree') {
+      if (_isoDate(d.fin)) { pose('fin', d.fin); applique = true; }
+      else alertes.push('Nouveau terme du bail absent : non appliqué.');
+    } else if (k === 'paiement') {
+      // Seul le JOUR est une donnée du bail ; mode et IBAN restent dans le document (l'IBAN appartient au
+      // bailleur, pas à ce bail : le changer ici toucherait tous ses baux).
+      const j = parseInt(String(d.jour || '').trim(), 10);
+      if (j >= 1 && j <= 31 && String(j) === String(d.jour).trim()) { pose('jpay', String(j)); appliques.push('Jour de paiement'); }
+      else alertes.push('Jour de paiement invalide : non appliqué.');
+      if (String(d.rib || '').trim() || d.mode) docSeul.push('Mode de paiement / IBAN');
+      continue;
+    } else if (k === 'destination') {
+      const v = Object.prototype.hasOwnProperty.call(_DESTINATION, d.dest) ? _DESTINATION[d.dest] : null;
+      if (v) { pose('destinationLocaux', v); applique = true; }
+    }
+    (applique ? appliques : docSeul).push(L(k));
+  }
+  hc = Math.round(hc * 100) / 100;
+  if (hc <= 0 && hc !== hc0) { alertes.push('Le loyer obtenu serait nul ou négatif : non appliqué.'); hc = hc0; }
+  return { hc: hc !== hc0 ? hc : null, ch: ch !== ch0 ? ch : null, champs, appliques, docSeul, alertes };
 }
