@@ -12115,7 +12115,7 @@ function _gmbiAfficher(a) {
        ${(a.motifs || []).map(m => `<div class="gmbi-opt">${escHtml(m)}</div>`).join('')}
        <div class="mu sm" style="margin-top:6px">Si un nouveau locataire arrive avant la déclaration, déclarer directement le nouvel occupant.</div>`
     : `<div class="gmbi-pick">${escHtml(a.categorie)}<small>Occupé à titre gratuit : <b>Non</b>${a.loyerHC ? ` · loyer mensuel hors charges : <b>${escHtml(fmt(a.loyerHC))}</b> (facultatif)` : ''}</small></div>`;
-  const ech = a.echeance ? fd(a.echeance) : '';
+  const ech = a.echeance ? '1er juillet ' + String(a.echeance).slice(0, 4) : '';
   el('gmbi-body').innerHTML = `
     <div class="mu sm" style="margin-bottom:10px">${escHtml(a.ref)}</div>
     <p style="margin:0 0 12px">À déclarer sur impots.gouv, service « Gérer mes biens immobiliers »${ech ? `, <b>avant le ${escHtml(ech)}</b>` : ''}. Il est possible de déclarer dès maintenant.</p>

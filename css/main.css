@@ -9774,6 +9774,11 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   #ov-gmbi .kv-grid{grid-template-columns:1fr;gap:0}
   #ov-gmbi .kv-grid .v{margin-bottom:8px}
   #ov-gmbi .m-foot .btn{flex:1 1 0;justify-content:center}
+  /* M-16 : page plein écran (100 % largeur et hauteur), corps défilant, pied collant en bas. */
+  #ov-gmbi{padding:0 !important}
+  #ov-gmbi .modal{width:100% !important;max-width:none !important;height:100dvh;border-radius:0;display:flex;flex-direction:column;margin:0}
+  #ov-gmbi .m-body{flex:1 1 auto;overflow-y:auto;max-height:none}
+  #ov-gmbi .m-foot{margin-top:auto;border-radius:0}
 }
 
 /* DOC-3 — cadre isolé des documents .pro-doc (iframe sandbox, cf. _docRenderSandboxed). */
