@@ -26055,7 +26055,9 @@ function _avenantSignePapierOk(ref, id){
   if(!d){ showToast('Indiquer la date de signature.','warn'); return; }
   var auj=(typeof _todayIsoLocal==='function')?_todayIsoLocal():td();
   if(d>auj && !confirm2('La date de signature ('+fd(d)+') est dans le futur. Enregistrer quand même ?')) return;
-  if(!_avenantMarquerSigne(ref, av, { signeLe:d, signeMode:'papier' })) return;
+  var _okSig=_avenantMarquerSigne(ref, av, { signeLe:d, signeMode:'papier' });
+  // Refus parce que l'avenant n'est plus « À signer » (signé / annulé ailleurs) : la fenêtre n'a plus d'objet.
+  if(!_okSig){ var _cur=_avenantTrouver(ref, id); if(!_cur||_cur.statut!=='a_signer') closeM('ov-avenant-papier'); return; }
   closeM('ov-avenant-papier');
 }
 // Passage à « Signé » (papier aujourd'hui, sur l'appareil ensuite) : UNE porte. Un avenant enregistré à

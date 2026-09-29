@@ -216,7 +216,7 @@ export function construireHistoriqueBail(input) {
     const c = _byBailDebut(e.bailDebut) || _byRange(e.date) || chapitres[0];
     if (!c) continue;
     avRegistre.add(chapitres.indexOf(c) + '|' + (Number(e.no) || 0));
-    _pushEv(c.rail, { ...e, type: 'avenant', registre: true }, e.date);
+    _pushEv(c.rail, { ...e, type: 'avenant', registre: true }, e.effetApplique || e.date);   // placée à la date réellement appliquée
   }
 
   // ── Traces hors barème (modif DG, corrections…) — DB.bailEvents, append-only.
