@@ -1810,6 +1810,18 @@ button .uic:only-child, .btn .uic:only-child{margin-right:0}
 }
 .logf-doc-meta .logf-equip-badge{vertical-align:middle;margin-right:4px}
 .logf-doc-actions{display:flex;gap:6px;flex-shrink:0}
+/* AVENANT-REFONTE lot 2 — cartes d'avenant (onglet Bail) : le titre nomme les personnes et les montants,
+ * il se replie au lieu d'être coupé ; les gestes passent sous le texte quand la place manque. */
+.logf-av-card .logf-doc-name,.logf-av-card .logf-doc-meta{white-space:normal;overflow:visible}
+.logf-av-card .logf-doc-name.annule{text-decoration:line-through;color:var(--t3)}
+.logf-av-card .logf-doc-actions{flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:1180px){
+  .logf-av-card{grid-template-columns:40px 1fr}
+  .logf-av-card .logf-doc-actions{grid-column:2/-1;justify-content:flex-start}
+}
+@media (max-width:767px){
+  .logf-av-card .logf-doc-actions .btn,.logf-av-head .btn.bs{min-height:44px}
+}
 .logf-doc-empty{
   text-align:center;color:var(--t3);font-style:italic;
   padding:18px 14px;background:var(--sur2);border-radius:var(--r);

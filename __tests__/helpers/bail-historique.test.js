@@ -333,3 +333,28 @@ describe('modifications d\'un bail signé hors avenant (journal 0054) — incide
     expect(() => construireHistoriqueBail(base)).not.toThrow();
   });
 });
+
+describe('avenants du registre (AVENANT-REFONTE lot 2)', () => {
+  const bail = { ref: 'F101', debut: '2025-01-01', fin: '2028-01-01', hc: 800, ch: 95 };
+  const base = { ref: 'F101', today: '2026-09-29', bailCourant: bail, bauxHistorique: [], bareme: [], irlHistorique: [] };
+  const av = (x) => Object.assign({ id: 'av1', type: 'avenant', ref: 'F101', bailDebut: '2025-01-01', date: '2026-10-01', no: 1, statut: 'a_signer', objets: [{ k: 'charges', data: { montant: '95' } }] }, x || {});
+  const avs = (r) => r.chapitres[0].rail.filter(x => x.kind === 'evenement' && x.ev.type === 'avenant').map(x => x.ev);
+  it('une carte par avenant enregistré (à signer, signé, annulé), avec son statut', () => {
+    const r = construireHistoriqueBail({ ...base, bailEvents: [], bailJournal: [av(), av({ id: 'av2', no: 2, statut: 'signe' }), av({ id: 'av3', no: 3, statut: 'annule' })] });
+    expect(avs(r).map(e => [e.no, e.statut, e.registre])).toEqual([[1, 'a_signer', true], [2, 'signe', true], [3, 'annule', true]]);
+  });
+  it('brouillon, supprimé ou autre logement : pas de carte', () => {
+    const r = construireHistoriqueBail({ ...base, bailEvents: [], bailJournal: [av({ statut: 'brouillon' }), av({ id: 'x', no: 2, _deleted: true }), av({ id: 'y', no: 3, ref: 'AUTRE' })] });
+    expect(avs(r)).toHaveLength(0);
+  });
+  it('trace ancienne (DB.bailEvents) reprise dans le registre : une seule carte, celle du registre', () => {
+    const ancien = { ref: 'F101', bailDebut: '2025-01-01', date: '2026-10-01', type: 'avenant', no: 1, objets: ['charges'] };
+    const r = construireHistoriqueBail({ ...base, bailEvents: [ancien], bailJournal: [av({ statut: 'signe' })] });
+    expect(avs(r).map(e => e.statut)).toEqual(['signe']);
+  });
+  it('trace ancienne non reprise : toujours affichée (aucune perte)', () => {
+    const ancien = { ref: 'F101', bailDebut: '2025-01-01', date: '2026-04-01', type: 'avenant', no: 1, objets: ['charges'] };
+    const r = construireHistoriqueBail({ ...base, bailEvents: [ancien], bailJournal: [av({ id: 'av2', no: 2 })] });
+    expect(avs(r).map(e => e.no).sort()).toEqual([1, 2]);
+  });
+});

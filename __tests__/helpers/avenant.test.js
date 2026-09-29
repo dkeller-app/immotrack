@@ -2,7 +2,7 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantNumeroSuivant, avenantEntrant } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantEntrant } from '../../js/core/avenant.js';
 
 describe('avenantMontant — lecture des montants saisis', () => {
   it('champ vide → montant en vigueur conservé', () => {
@@ -23,38 +23,6 @@ describe('avenantMontant — lecture des montants saisis', () => {
   });
   it('virgule décimale et espaces, arrondi au centime', () => {
     expect(avenantMontant('1 234,567', 0)).toEqual({ ok: true, v: 1234.57 });
-  });
-});
-
-describe('avenantNumeroSuivant — numérotation par bail', () => {
-  const bail = { debut: '2025-09-01', avenants: [] };
-  it('aucun avenant → n° 1', () => {
-    expect(avenantNumeroSuivant(bail, [], 'F-001')).toBe(1);
-    expect(avenantNumeroSuivant(bail, undefined, 'F-001')).toBe(1);
-  });
-  it('max des avenants du bail et du journal + 1', () => {
-    const b = { debut: '2025-09-01', avenants: [{ no: 1 }] };
-    const ev = [{ type: 'avenant', ref: 'F-001', bailDebut: '2025-09-01', no: 3, date: '2026-01-01' }];
-    expect(avenantNumeroSuivant(b, ev, 'F-001')).toBe(4);
-  });
-  it('les avenants du bail PRÉCÉDENT du même logement ne comptent pas', () => {
-    const ev = [
-      { type: 'avenant', ref: 'F-001', bailDebut: '2022-01-01', no: 1, date: '2023-01-01' },
-      { type: 'avenant', ref: 'F-001', bailDebut: '2022-01-01', no: 2, date: '2024-01-01' },
-    ];
-    expect(avenantNumeroSuivant(bail, ev, 'F-001')).toBe(1);
-  });
-  it('bail dont la date de début a été corrigée : un avenant daté après le début compte', () => {
-    const ev = [{ type: 'avenant', ref: 'F-001', bailDebut: '2025-08-15', no: 1, date: '2026-02-01' }];
-    expect(avenantNumeroSuivant(bail, ev, 'F-001')).toBe(2);
-  });
-  it('autre logement, autre type ou supprimé → ignorés', () => {
-    const ev = [
-      { type: 'avenant', ref: 'F-002', bailDebut: '2025-09-01', no: 5 },
-      { type: 'modif', ref: 'F-001', bailDebut: '2025-09-01', no: 6 },
-      { type: 'avenant', ref: 'F-001', bailDebut: '2025-09-01', no: 7, _deleted: true },
-    ];
-    expect(avenantNumeroSuivant(bail, ev, 'F-001')).toBe(1);
   });
 });
 

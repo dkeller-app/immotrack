@@ -380,7 +380,8 @@ describe('fiche logement — étape 8', () => {
   it('P1-8bis — les états des lieux sont rendus HORS du bloc « bail en cours »', () => {
     // À l'intérieur du `if(bail)`, un logement vacant perdrait ses EDL passés et son template —
     // exactement le moment où l'on consulte l'EDL de sortie.
-    expect(html).toContain('${currentSection}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}');
+    // AVENANT-REFONTE lot 2 : le bloc Avenants s'insère entre « Bail en cours » et l'historique (bail actif seulement).
+    expect(html).toContain("${currentSection}${bail?_renderAvenantsBail(ref):''}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}");
   });
 
   it('les photos sont rendues dans l\'onglet Documents', () => {
