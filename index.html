@@ -8627,12 +8627,14 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
   } catch (e) { console.warn('[certificat] bandeau', e); }
   line('Certificat de preuve de signature electronique', 16, true); y -= 8;
   line('Bailleur : ' + (_entCert.nom || bail.entity || '-'));
-  line('Bail : ' + (bail.ref || ''));
+  // AVENANT-REFONTE lot 3b : même certificat pour un autre document signé (avenant) — libellé et
+  // désignation passés par l'appelant ; le bail garde exactement son texte.
+  line((opts && opts.docLabel) || ('Bail : ' + (bail.ref || '')));
   line('Date de completion : ' + (completedAt ? new Date(completedAt) : new Date()).toLocaleString('fr-FR'));
   line('Mode : ' + (_docMode === 'mixte' ? 'mixte (signature en presence + signature electronique a distance)'
                     : _docMode === 'presentiel' ? 'signature manuscrite en presence (presentiel)'
                     : 'signature electronique a distance (verification email/OTP + relais)'));
-  line('Empreinte SHA-256 du bail signe (' + (_presentielOnly ? 'calculee' : 'scellee') + ' a la signature, hors present certificat) :', 10);
+  line('Empreinte SHA-256 ' + ((opts && opts.docDe) || 'du bail') + ' signe (' + (_presentielOnly ? 'calculee' : 'scellee') + ' a la signature, hors present certificat) :', 10);
   line(contentHash || '', 8);
   line(_presentielOnly ? 'Calculee par l\'application au moment de la signature (signature en presence).' : 'Attestee par le serveur au moment de la signature (cf. empreinte par signataire ci-dessous).', 7); y -= 10;
   line('Signataires :', 13, true); y -= 4;
@@ -26027,38 +26029,200 @@ function _avenantAnnuler(ref, id){
   showToast('Avenant n° '+av.no+' annulé.','ok');
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
 }
-// « Signé sur papier » : toutes les parties ont signé l'exemplaire imprimé (§8, lot 2 ; le dépôt du
-// scan et la signature dans l'app arrivent au lot 3). La date est demandée, jamais devinée.
+// Fenêtre simple créée à la demande (papier, aperçu, signature sur l'appareil).
 function _avenantOvSimple(id){
   var ov=document.getElementById(id);
   if(!ov){ ov=document.createElement('div'); ov.id=id; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'"+id+"')"); document.body.appendChild(ov); }
   return ov;
 }
+// « Signé sur papier » (maquette AVENANT-REFONTE s4) : date de la dernière signature + « Déposer le scan » OU
+// « Je l'ai déjà, sans le déposer » — le dépôt n'est jamais imposé, et reste possible plus tard depuis la carte.
+var _avenantPapierFichier=null;
 function _avenantSignePapier(ref, id){
   var av=_avenantTrouver(ref, id); if(!av||!window.AvenantRegistre.transitionPermise(av,'signe')) return;
+  _avenantPapierFichier=null;
   var auj=(typeof _todayIsoLocal==='function')?_todayIsoLocal():td();
   var ov=_avenantOvSimple('ov-avenant-papier');
-  ov.innerHTML='<div class="modal" style="max-width:480px;width:96%" onclick="event.stopPropagation()">'+
+  ov.innerHTML='<div class="modal" style="max-width:520px;width:96%" onclick="event.stopPropagation()">'+
     '<div class="m-head"><h3>Avenant n° '+escHtml(String(av.no))+' signé sur papier</h3><button class="m-close" onclick="closeM(\'ov-avenant-papier\')" aria-label="Fermer">✕</button></div>'+
     '<div class="m-body">'+
       '<p style="margin:0 0 12px;font-size:14px;line-height:1.5">À utiliser une fois l\'exemplaire imprimé signé par <b>toutes les parties</b> (bailleur, locataires et, le cas échéant, colocataire entrant). Conserver l\'original signé.</p>'+
       '<div class="fld"><label for="av-pap-date">Date de la dernière signature</label><input class="inp" type="date" id="av-pap-date" value="'+escHtml(auj)+'" max="'+escHtml(auj)+'"></div>'+
+      '<div class="logf-doc-card" style="border-style:dashed;margin-top:12px">'+
+        '<div class="logf-doc-icon">'+_monoSvg('<path d="M6 3h9l3 3v15H6V3Z"/><path d="M12 10v6M9 13l3-3 3 3"/>',22)+'</div>'+
+        '<div class="logf-doc-info"><div class="logf-doc-name">Déposer le scan signé</div><div class="logf-doc-meta" id="av-pap-fichier">PDF ou photo, 10 Mo au plus</div></div>'+
+        '<div class="logf-doc-actions"><label class="btn bs bb" style="min-height:44px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">'+_uiIcon('upload')+' Déposer'+
+          '<input type="file" accept="application/pdf,image/*" style="display:none" onchange="_avenantPapierChoisir(this)"></label></div>'+
+      '</div>'+
+      '<label style="display:flex;gap:10px;align-items:flex-start;margin-top:10px;cursor:pointer;min-height:44px">'+
+        '<input type="radio" name="av-pap-scan" id="av-pap-detenu" checked style="margin-top:3px;width:18px;height:18px">'+
+        '<span><b>Je l\'ai déjà, sans le déposer</b><br><span style="font-size:12.5px;color:var(--t3)">L\'avenant passe en « Signé » ; aucun fichier conservé dans l\'app (dépôt possible plus tard).</span></span></label>'+
     '</div>'+
     '<div class="m-foot"><button class="btn bs" onclick="closeM(\'ov-avenant-papier\')">Fermer</button>'+
       '<button class="btn bp" onclick="_avenantSignePapierOk(\''+_lyQ(ref)+'\',\''+_lyQ(id)+'\')">'+_uiIcon('check')+' Enregistrer la signature</button></div>'+
   '</div>';
   openM('ov-avenant-papier');
 }
-function _avenantSignePapierOk(ref, id){
+// Lecture du fichier choisi (même contrôle de taille que les autres dépôts) ; il n'est envoyé qu'à l'enregistrement.
+function _avenantLireFichier(input){
+  var f=input&&input.files&&input.files[0]; if(!f) return Promise.resolve(null);
+  var max=(typeof ATTACHMENT_DEFAULT_MAX_SIZE!=='undefined')?ATTACHMENT_DEFAULT_MAX_SIZE:10*1024*1024;
+  if(f.size>max){ showToast('Fichier trop lourd : '+(f.size/1048576).toFixed(1)+' Mo (10 Mo au plus).','err',6000); input.value=''; return Promise.resolve(null); }
+  return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(e){ res({ name:f.name, mime:f.type, size:f.size, dataB64:e.target.result }); }; r.onerror=function(){ rej(new Error('lecture du fichier échouée')); }; r.readAsDataURL(f); });
+}
+async function _avenantPapierChoisir(input){
+  try { _avenantPapierFichier=await _avenantLireFichier(input); } catch(e){ _avenantPapierFichier=null; showToast('Fichier illisible : '+((e&&e.message)||'erreur'),'err',6000); }
+  var lbl=el('av-pap-fichier'); if(lbl) lbl.textContent=_avenantPapierFichier?('Choisi : '+_avenantPapierFichier.name):'PDF ou photo, 10 Mo au plus';
+  var r=el('av-pap-detenu'); if(r) r.checked=!_avenantPapierFichier;
+}
+// Rattache le scan à l'avenant (pièce jointe du bail, envoyée au cloud comme les autres pièces).
+async function _avenantRattacherScan(ref, id, fichier){
+  var av=_avenantTrouver(ref, id); if(!av) return false;
+  var doc;
+  try { doc=await _attachmentSaveForEntity({ type:'bail', id:av.id, ref:String(ref).split('@@')[0], logRef:String(ref).split('@@')[0], category:'bail' }, fichier); }
+  catch(e){ showToast('Dépôt du scan impossible : '+((e&&e.message)||'erreur')+'. Le déposer plus tard depuis la carte de l\'avenant.','err',9000); return false; }
+  var cur=_avenantTrouver(ref, id); if(!cur) return false;
+  var maj=JSON.parse(JSON.stringify(cur)); delete maj.virtuel; maj.scanDocId=doc.id; delete maj.scanDetenu;
+  if(!_avenantRegistreEcrire(maj,'avenant-scan')) return false;
+  return true;
+}
+async function _avenantSignePapierOk(ref, id){
   var av=_avenantTrouver(ref, id); if(!av) return;
   var d=v('av-pap-date');
   if(!d){ showToast('Indiquer la date de signature.','warn'); return; }
   var auj=(typeof _todayIsoLocal==='function')?_todayIsoLocal():td();
   if(d>auj && !confirm2('La date de signature ('+fd(d)+') est dans le futur. Enregistrer quand même ?')) return;
-  var _okSig=_avenantMarquerSigne(ref, av, { signeLe:d, signeMode:'papier' });
+  var fichier=_avenantPapierFichier;
+  var sig={ signeLe:d, signeMode:'papier' };
+  if(!fichier) sig.scanDetenu={ at:(new Date()).toISOString() };
+  var _okSig=_avenantMarquerSigne(ref, av, sig);
   // Refus parce que l'avenant n'est plus « À signer » (signé / annulé ailleurs) : la fenêtre n'a plus d'objet.
   if(!_okSig){ var _cur=_avenantTrouver(ref, id); if(!_cur||_cur.statut!=='a_signer') closeM('ov-avenant-papier'); return; }
   closeM('ov-avenant-papier');
+  _avenantPapierFichier=null;
+  // Signature d'abord (jamais bloquée par le dépôt), scan ensuite : un échec du dépôt laisse l'avenant signé.
+  if(fichier && await _avenantRattacherScan(ref, id, fichier)){
+    showToast('Scan de l\'avenant n° '+av.no+' déposé.','ok',4000);
+    if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
+  }
+}
+// Dépôt du scan APRÈS coup (avenant signé sur papier sans scan).
+function _avenantDeposerScan(ref, id){
+  var inp=document.createElement('input'); inp.type='file'; inp.accept='application/pdf,image/*';
+  inp.onchange=async function(){
+    var f=null; try { f=await _avenantLireFichier(inp); } catch(e){ showToast('Fichier illisible.','err'); return; }
+    if(f && await _avenantRattacherScan(ref, id, f)){ showToast('Scan déposé.','ok',4000); if(typeof _refreshAfterMutation==='function') _refreshAfterMutation(); }
+  };
+  inp.click();
+}
+function _avenantVoirScan(ref, id){
+  var av=_avenantTrouver(ref, id);
+  if(!av||!av.scanDocId){ showToast('Aucun scan déposé pour cet avenant.','warn'); return; }
+  if(typeof _handleAttachmentOpen==='function') _handleAttachmentOpen(av.scanDocId);
+}
+// ── SIGNATURE SUR CET APPAREIL (AVENANT-REFONTE lot 3b, CDC §8) ─────────────────────────────────────────
+// Chaque partie signe à son tour, dans l'ordre des cadres du document ENREGISTRÉ (qui fait foi). Puis :
+// images posées dans ce document (avenantHtmlSigne, validées) → PDF (moteur DocNative) → empreinte SHA-256 →
+// certificat de preuve (celui du bail, libellé « avenant ») fusionné en fin de PDF → envoi au cloud, sinon
+// copie téléchargée sur l'appareil (jamais une signature sans pièce) → statut « Signé » (_avenantMarquerSigne,
+// qui applique l'avenant au bail). Pad de signature : celui de l'EDL (_edlInitSig / _edlGetSig), réutilisé.
+var _avSig=null;
+function _avenantSigneAppareil(ref, id){
+  var av=_avenantTrouver(ref, id); if(!av||!window.AvenantRegistre.transitionPermise(av,'signe')) return;
+  if(!av.html){ showToast('Document indisponible pour cet avenant : le faire signer sur papier.','warn',6000); return; }
+  var parties=(typeof window.avenantPartiesSignature==='function')?window.avenantPartiesSignature(av.html):[];
+  if(!parties.length){ showToast('Aucun cadre de signature dans le document : le faire signer sur papier.','warn',6000); return; }
+  _avSig={ ref:ref, id:id, no:av.no, parties:parties, sigs:parties.map(function(){ return null; }), lu:[], at:[], i:0, enCours:false };
+  _avenantOvSimple('ov-avenant-signe');
+  openM('ov-avenant-signe');   // ouvrir AVANT de dessiner le cadre : le canevas se mesure à l'affichage
+  _avenantSigneRender();
+}
+function _avenantSigneRender(){
+  var s=_avSig; if(!s) return;
+  var p=s.parties[s.i], n=s.parties.length, dernier=s.i===n-1;
+  var ov=_avenantOvSimple('ov-avenant-signe');
+  ov.innerHTML='<div class="modal" style="max-width:640px;width:96%" onclick="event.stopPropagation()">'+
+    '<div class="m-head"><h3>Signer l\'avenant n° '+escHtml(String(s.no))+' — '+(s.i+1)+' / '+n+'</h3><button class="m-close" onclick="_avenantSigneFermer()" aria-label="Fermer">✕</button></div>'+
+    '<div class="m-body">'+
+      '<p style="margin:0 0 4px;font-size:15px;line-height:1.5"><b>'+escHtml(p.nom||'')+'</b></p>'+
+      '<p style="margin:0 0 10px;font-size:13px;color:var(--t3)">'+escHtml(p.role||'')+(p.sous?' · '+escHtml(p.sous):'')+'</p>'+
+      '<p style="margin:0 0 10px;font-size:14px;line-height:1.5">Remettre l\'appareil à cette personne : lire l\'avenant, puis signer dans le cadre. '+
+        '<span class="hl-lnk" style="display:inline-flex;min-height:44px;align-items:center;cursor:pointer" onclick="_avenantVoir(\''+_lyQ(s.ref)+'\',\''+_lyQ(s.id)+'\')">'+_uiIcon('eye')+' Relire l\'avenant</span></p>'+
+      '<canvas id="av-sig-pad" width="600" height="260" style="display:block;width:100%;height:auto;max-height:38vh;border:1.5px dashed var(--bor2);border-radius:var(--r);background:white;touch-action:none;cursor:crosshair"></canvas>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px">'+
+        '<label style="display:flex;gap:8px;align-items:center;min-height:44px;cursor:pointer;font-size:14px"><input type="checkbox" id="av-sig-lu" style="width:18px;height:18px"'+(s.lu[s.i]?' checked':'')+'> Lu et approuvé</label>'+
+        '<button class="btn bs" style="min-height:44px" onclick="_edlClearSig(\'av-sig-pad\')">'+_uiIcon('close')+' Effacer</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="m-foot">'+
+      (s.i>0?'<button class="btn bs" style="min-height:44px" onclick="_avenantSigneNav(-1)">Précédent</button>':'<button class="btn bs" style="min-height:44px" onclick="_avenantSigneFermer()">Annuler</button>')+
+      '<button class="btn bp" id="av-sig-ok" style="min-height:44px" onclick="_avenantSigneValider()">'+_uiIcon('sign')+' '+(dernier?'Valider et terminer':'Valider et passer au suivant')+'</button>'+
+    '</div>'+
+  '</div>';
+  _edlInitSig('av-sig-pad');
+  if(s.sigs[s.i]) _edlDrawSig('av-sig-pad', s.sigs[s.i]);
+}
+function _avenantSigneFermer(){
+  if(_avSig && _avSig.enCours) return;   // PDF en cours de préparation : on ne perd pas le travail en cours
+  if(_avSig && _avSig.sigs.some(Boolean) && !confirm2('Abandonner ? Les signatures déjà tracées sont perdues et l\'avenant reste « À signer ».')) return;
+  _avSig=null; closeM('ov-avenant-signe');
+}
+function _avenantSigneNav(d){
+  var s=_avSig; if(!s||s.enCours) return;
+  var img=_edlGetSig('av-sig-pad'); if(img){ s.sigs[s.i]=img; s.lu[s.i]=!!(el('av-sig-lu')&&el('av-sig-lu').checked); }
+  s.i=Math.max(0, Math.min(s.parties.length-1, s.i+d));
+  _avenantSigneRender();
+}
+function _avenantSigneValider(){
+  var s=_avSig; if(!s||s.enCours) return;
+  var img=_edlGetSig('av-sig-pad');
+  if(!img){ showToast('Signer dans le cadre avant de valider.','warn'); return; }
+  s.sigs[s.i]=img; s.lu[s.i]=!!(el('av-sig-lu')&&el('av-sig-lu').checked); s.at[s.i]=(new Date()).toISOString();
+  if(s.i<s.parties.length-1){ s.i++; _avenantSigneRender(); return; }
+  _avenantSigneTerminer();
+}
+async function _avenantSigneTerminer(){
+  var s=_avSig; if(!s||s.enCours) return;
+  var av=_avenantTrouver(s.ref, s.id);
+  if(!av||av.statut!=='a_signer'){ showToast('L\'avenant n\'est plus « À signer » : rien n\'a été enregistré.','warn',7000); _avSig=null; closeM('ov-avenant-signe'); return; }
+  var bail=DB.baux&&DB.baux[s.ref]; if(!bail) return;
+  var auj=(typeof _todayIsoLocal==='function')?_todayIsoLocal():td();
+  var htmlSigne=window.avenantHtmlSigne(av.html, s.sigs, auj);
+  if(!htmlSigne){ showToast('Document de l\'avenant incohérent (cadres de signature) : rien n\'a été enregistré. Le faire signer sur papier.','err',9000); return; }
+  s.enCours=true;
+  var btn=el('av-sig-ok'); if(btn){ btn.disabled=true; btn.textContent='Préparation du PDF signé…'; }
+  var ent=(DB.entites||[]).find(function(e){ return e && e.nom===bail.entity; })||{};
+  var safe=String(s.ref).replace(/[^A-Za-z0-9_-]/g,'_');
+  var full=null, hash='', proof=[], pdfKey=null;
+  try {
+    var paraphes=(Array.isArray(av.paraphes)&&av.paraphes.every(function(x){ return typeof x==='string'; }))?av.paraphes:_avenantParaphesPour(bail, av.objets);
+    var blob=await window._docHtmlToNativeBlob(htmlSigne, ent, { pagination:true, paraphes:paraphes });
+    hash=await _sha256Hex(await blob.arrayBuffer());
+    proof=s.parties.map(function(p,i){ return { sigId:'av-'+i, nom:p.nom, role:p.role, mode:'presentiel', signedAt:s.at[i], luApprouve:!!s.lu[i] }; });
+    var cert=await _buildBailCertificatePdf(bail, proof, hash, (new Date()).toISOString(), { presentiel:true, docLabel:'Avenant n° '+av.no+' au bail '+String(s.ref).split('@@')[0], docDe:'de l\'avenant' });
+    full=await _mergeCertificateIntoBail(blob, cert);
+    if(typeof window.__immoCloudUpload==='function')
+      pdfKey=await _uploadCloudRetry('ap_'+safe+'_'+String(av.id).replace(/[^A-Za-z0-9_-]/g,'_')+'_'+hash.slice(0,12), full, 'application/pdf', _cloudEntiteSeg(_cloudEntiteNomForBail(s.ref)));
+  } catch(err){
+    console.warn('[avenant] signature sur l\'appareil', err);
+    s.enCours=false; if(btn){ btn.disabled=false; btn.textContent='Valider et terminer'; }
+    showToast('PDF signé impossible à produire : rien n\'a été enregistré. Réessayer, ou faire signer sur papier.','err',9000);
+    return;
+  }
+  // Toujours une pièce : sans cloud (ou envoi échoué), le PDF signé est téléchargé sur l'appareil.
+  if(!pdfKey && full) _downloadBlobAs(full, 'Avenant_n'+av.no+'_'+safe+'_signe.pdf');
+  var sig={ signeLe:auj, signeMode:'appareil', contentHash:hash, proof:proof };
+  if(pdfKey) sig.pdfKey=pdfKey;
+  s.enCours=false;
+  if(!_avenantMarquerSigne(s.ref, av, sig)){ if(btn){ btn.disabled=false; btn.textContent='Valider et terminer'; } return; }
+  _avSig=null; closeM('ov-avenant-signe');
+  if(!pdfKey) setTimeout(function(){ showToast('PDF signé téléchargé sur cet appareil (envoi au cloud indisponible) : le conserver avec le bail.','warn',9000); }, 6500);
+}
+// PDF signé (cloud) ; à défaut, le document enregistré.
+function _avenantPdfSigne(ref, id){
+  var av=_avenantTrouver(ref, id); if(!av) return;
+  if(av.pdfKey) return _openCloudBailPdf(ref, av.pdfKey);
+  return _avenantPdf(ref, id);
 }
 // Passage à « Signé » (papier aujourd'hui, sur l'appareil ensuite) : UNE porte. Un avenant enregistré à
 // partir du lot 3 (`aLaSignature`) est APPLIQUÉ au bail à ce moment-là, daté à sa date d'effet ; un avenant
@@ -26150,6 +26314,7 @@ function _avenantGesteNo(ref, no, geste, id){
   if(!av){ showToast('Avenant introuvable.','warn'); return; }
   if(geste==='voir') return _avenantVoir(ref, av.id);
   if(geste==='pdf') return _avenantPdf(ref, av.id);
+  if(geste==='signe-appareil') return _avenantSigneAppareil(ref, av.id);
   if(geste==='signe-papier') return _avenantSignePapier(ref, av.id);
 }
 function _renderAvenantsBail(ref){
@@ -26161,7 +26326,11 @@ function _renderAvenantsBail(ref){
     supprimer:['trash','Supprimer','_avenantSupprimerBrouillon',''],
     voir:['eye','Voir','_avenantVoir',' bb'],
     pdf:['download','PDF','_avenantPdf',' bb'],
-    'signe-papier':['sign','Signé sur papier','_avenantSignePapier',' bb'],
+    'signe-appareil':['sign','Signer sur cet appareil','_avenantSigneAppareil',' bb'],
+    'signe-papier':['doc','Signé sur papier','_avenantSignePapier',''],
+    'pdf-signe':['download','PDF signé','_avenantPdfSigne',' bb'],
+    scan:['doc','Scan signé','_avenantVoirScan',' bb'],
+    'deposer-scan':['upload','Déposer le scan','_avenantDeposerScan',''],
     annuler:['close','Annuler l\'avenant','_avenantAnnuler','']
   };
   var cartes=_avenantListe(ref).map(function(av){
@@ -43985,7 +44154,10 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     const _idArg=ev.registre&&ev.id!=null?",'"+_lyQ(ev.id)+"'":'';
     if(c.statut!=='clos'){
       if(aDoc) liens.push(`<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'voir'${_idArg})">${_uiIcon('eye')} Revoir l'avenant</span>`, `<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'pdf'${_idArg})">${_uiIcon('download')} PDF</span>`);
-      if(statut==='a_signer') liens.push(`<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'signe-papier'${_idArg})">${_uiIcon('sign')} Signé sur papier</span>`);
+      if(statut==='a_signer'){
+        if(aDoc) liens.push(`<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'signe-appareil'${_idArg})">${_uiIcon('sign')} Signer sur cet appareil</span>`);
+        liens.push(`<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'signe-papier'${_idArg})">${_uiIcon('doc')} Signé sur papier</span>`);
+      }
     }
     return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4${annule?' style="text-decoration:line-through"':''}>${escHtml(titre)}</h4><span class="hl-badge ${badge}">${escHtml(lblSt)}</span></div>
       <div class="hl-desc">Effet au <b>${escHtml(fd(ev.effetApplique||ev.date))}</b>.${annule?' <span class="mu">Annulé : jamais appliqué.</span>':''}${!annule&&_app&&_app.length?' <b>Appliqué</b> : '+escHtml(_app.join(', ').toLowerCase())+'.':''}${statut==='a_signer'&&!(_app&&_app.length)&&Array.isArray(ev.prevus)&&ev.prevus.length?' <span class="mu">Appliqué à la signature : '+escHtml(ev.prevus.join(', ').toLowerCase())+'.</span>':''}${!annule&&_doc&&_doc.length?' <span class="mu">Document seulement : '+escHtml(_doc.join(', ').toLowerCase())+'.</span>':''}${ev.verrou&&!annule?' <span class="mu">(bail signé : conserver le PDF signé de l\'avenant)</span>':''}</div>${liens.length?`<div class="hl-foot">${liens.join('')}</div>`:''}</div>`;

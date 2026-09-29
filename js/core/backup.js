@@ -125,6 +125,12 @@ export function collectBackupFiles(db, lastBackupAt) {
     push(s.cloudPdfKey, _safeName('bail-' + ref + '.pdf'), 'document', s.signedAt || b._modifiedAt, ref, 'bail')
     if (s.certRef) push(s.certRef.cloudPdfKey, _safeName('certificat-' + ref + '.pdf'), 'document', s.signedAt || b._modifiedAt, ref, 'bail')
   }
+  // AVENANT-REFONTE lot 3b : PDF signé d'un avenant (registre = journal du bail, type 'avenant').
+  for (const e of (db && db.baux_evenements) || []) {
+    if (!e || e._deleted || e.type !== 'avenant' || !e.pdfKey) continue
+    const ref = String(e.ref || '').split('@@')[0]
+    push(e.pdfKey, _safeName('avenant-' + (e.no || '') + '-' + ref + '.pdf'), 'document', e.statutLe || e._modifiedAt, ref, 'bail')
+  }
   for (const e of (db && db.edl) || []) {
     push(e.cloudPdfKey, _safeName('edl-' + (e.id || '') + '.pdf'), 'document', e._modifiedAt, e.logement, 'edl')
     // Photos EDL — on parcourt EXACTEMENT les mêmes emplacements que _edlPreloadPhotos (index.html).

@@ -417,3 +417,43 @@ export function avenantMontant(raw, prev, opts) {
   if (opts && opts.strictPositif && !(n > 0)) return { ok: false };
   return { ok: true, v: Math.round(n * 100) / 100 };
 }
+
+// ── AVENANT-REFONTE lot 3b — signature d'un avenant FIGÉ (jamais régénéré depuis le bail actuel) ────────
+const _SIGCASE = /<div class="pro-sigcase"><div class="pro-sigspace">([\s\S]*?)<\/div><div class="pro-signbox">([\s\S]*?)<\/div><\/div>/g;
+const _txt = (h) => String(h == null ? '' : h).replace(/<[^>]*>/g, '')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').trim();
+const _SIG_OK = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
+
+/**
+ * Parties qui signent, lues dans le document de l'avenant tel qu'il a été enregistré (cadres de
+ * signature, dans l'ordre) : c'est le document qui fait foi, pas le bail d'aujourd'hui.
+ * @returns {Array<{role:string, nom:string, sous:string}>} texte brut (à échapper par l'appelant)
+ */
+export function avenantPartiesSignature(html) {
+  const out = [];
+  const s = String(html == null ? '' : html);
+  let m;
+  _SIGCASE.lastIndex = 0;
+  while ((m = _SIGCASE.exec(s))) {
+    const parts = m[2].split(/<br\s*\/?>/i);
+    out.push({ role: _txt(parts[0]), nom: _txt(parts[1]), sous: _txt(parts.slice(2).join(' ')) });
+  }
+  return out;
+}
+
+/**
+ * Document signé : chaque image (data-URL PNG/JPEG VALIDÉE — le document est partagé, jamais de HTML
+ * injecté tel quel) posée dans le cadre de même rang ; la date de l'acte remplace la ligne à compléter.
+ * Retourne null si le nombre de signatures ne correspond pas aux cadres (document incohérent).
+ */
+export function avenantHtmlSigne(html, sigs, dateActeIso) {
+  const s = String(html == null ? '' : html);
+  const liste = Array.isArray(sigs) ? sigs : [];
+  const n = avenantPartiesSignature(s).length;
+  if (!n || liste.length !== n || !liste.every(u => typeof u === 'string' && _SIG_OK.test(u))) return null;
+  let i = 0;
+  _SIGCASE.lastIndex = 0;
+  let out = s.replace(_SIGCASE, (all, space, box) => '<div class="pro-sigcase"><div class="pro-sigspace"><img src="' + esc(liste[i++]) + '"></div><div class="pro-signbox">' + box + '</div></div>');
+  if (dateActeIso) out = out.replace('____________________', esc(frDate(dateActeIso)));
+  return out;
+}

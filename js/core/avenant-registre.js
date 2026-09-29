@@ -179,17 +179,23 @@ export function avecStatut(av, statut, now, extra) {
   if (statut === 'signe') {
     e.signeLe = _ymd((extra && extra.signeLe) || now);
     e.signeMode = (extra && extra.signeMode) || 'papier';
+    // Pièces de la signature (lot 3b) : scan déposé ou déclaré détenu, PDF signé et certificat au cloud,
+    // empreinte et preuve par signataire. Liste FERMÉE : rien d'autre n'entre par cette porte.
+    for (const k of PIECES_SIGNATURE) if (extra && extra[k] != null) e[k] = JSON.parse(JSON.stringify(extra[k]));
   }
   return e;
 }
+export const PIECES_SIGNATURE = ['scanDocId', 'scanDetenu', 'pdfKey', 'certKey', 'contentHash', 'proof'];
 
 /** Gestes proposés sur une carte (l'écran n'affiche que ceux-là). */
 export function actionsAvenant(av) {
   if (!av) return [];
   const a = [];
   if (av.statut === 'brouillon') return ['reprendre', 'supprimer'];
-  if (av.html) a.push('voir', 'pdf');
-  if (transitionPermise(av, 'signe')) a.push('signe-papier');
+  if (av.html) a.push('voir', av.pdfKey ? 'pdf-signe' : 'pdf');
+  if (av.scanDocId) a.push('scan');
+  else if (av.statut === 'signe' && av.signeMode === 'papier') a.push('deposer-scan');   // déposer plus tard, jamais imposé
+  if (transitionPermise(av, 'signe')) { if (av.html) a.push('signe-appareil'); a.push('signe-papier'); }
   if (transitionPermise(av, 'annule')) a.push('annuler');
   return a;
 }
