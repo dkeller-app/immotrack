@@ -47,7 +47,7 @@ export const CHAMPS_BAIL = {
   adrGarant2: { l: 'Adresse du 2ᵉ garant' },
   ddnGarant2: { l: 'Date de naissance du 2ᵉ garant' },
   lieuGarant2: { l: 'Lieu de naissance du 2ᵉ garant' },
-  visale: { l: 'Garantie Visale (n° de visa)' },
+  visale: { l: 'Garantie Visale (visa)' },
   withMandataire: { l: 'Mandataire' },
   plafondCaution: { l: 'Plafond de l\'engagement de caution' },
   hc: { l: 'Loyer HC', fin: true },
@@ -150,7 +150,16 @@ function _norm(v, numerique) {
   if (typeof v === 'string') { const t = v.trim(); return (numerique && /^-?\d+(?:[.,]\d+)?$/.test(t)) ? String(Number(t.replace(',', '.'))) : t; }
   return JSON.stringify(v);
 }
+// VISALE-GMBI : un visa se compare par ses champs RENSEIGNÉS — l'ancienne forme { visaId } et la forme
+// complète { visaId, beneficiaires:'', loyerMax:null, validite:'', cautionValidee:false } sont le même visa.
+function _visaleUtile(v) {
+  if (!v || typeof v !== 'object') return v;
+  const o = {};
+  for (const k of Object.keys(v).sort()) { const x = v[k]; if (x == null || x === '' || x === false) continue; o[k] = typeof x === 'string' ? x.trim() : x; }
+  return Object.keys(o).length ? o : null;
+}
 export function memeValeur(a, b, champ) {
+  if (champ != null && String(champ).split('.').pop() === 'visale') { a = _visaleUtile(a); b = _visaleUtile(b); }
   const numerique = champ == null || CHAMPS_NUMERIQUES.has(String(champ).split('.').pop());
   // false et vide : même chose (case décochée = rien de saisi)
   const na = a === false ? '' : _norm(a, numerique), nb = b === false ? '' : _norm(b, numerique);
@@ -377,7 +386,15 @@ export function valeurLisible(champ, v) {
   if (v === true) return 'Oui';
   const cle = String(champ).split('.').pop();
   if (_ENUMS[cle] && _ENUMS[cle][v]) return _ENUMS[cle][v];
-  if (cle === 'visale' && typeof v === 'object') return String(v.visaId || '(vide)');
+  if (cle === 'visale' && typeof v === 'object') {
+    if (!v.visaId) return '(vide)';
+    const parts = ['n° ' + v.visaId];
+    if (v.beneficiaires) parts.push(String(v.beneficiaires));
+    if (Number(v.loyerMax) > 0) parts.push('loyer max ' + v.loyerMax + ' €');
+    if (v.validite) parts.push('valable jusqu’au ' + valeurLisible('', v.validite));
+    if (v.cautionValidee === true) parts.push('cautionnement validé');
+    return parts.length === 1 ? String(v.visaId) : parts.join(' · ');   // n° seul : affichage historique inchangé
+  }
   if (cle === 'locataires' && Array.isArray(v)) return v.map(l => _designation(l)).filter(Boolean).join(', ') || '(aucun)';
   if (Array.isArray(v)) return v.map(String).join(', ') || '(aucun)';
   if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) { const [y, m, d] = v.split('-'); return d + '/' + m + '/' + y; }

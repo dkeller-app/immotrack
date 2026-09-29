@@ -12100,6 +12100,9 @@ function saveBailClore() {
 // bloquant : toute erreur est avalée, l'enregistrement du bail est déjà fait.
 function _gmbiAfficher(a) {
   if (!a || !el('ov-gmbi') || !el('gmbi-body')) return;
+  // Rien de rétroactif (décision Didier 25/09) : un bail ancien saisi après coup, ou un vieux bail
+  // clôturé en retard, dont la campagne de déclaration est close → pas d'alerte (audit I-4).
+  if (a.echeance && a.echeance <= td()) return;
   const D = window.DeclarationOccupation;
   const vac = a.kind === 'sortie';
   const occ = a.occupants || [];
@@ -18460,9 +18463,10 @@ async function _relayPullCandidatures(opts) {
           .forEach(k => { cand[k] = partial[k]; });
         // VISALE-GMBI : le dossier en ligne ne porte que le n° de visa — même n° = on garde ce que le
         // bailleur a recopié du visa (loyer max, validité) ; n° différent = nouveau visa.
-        cand.visale = (partial.visale && window.Visale)
-          ? window.Visale.visaleFusionner(cand.visale, partial.visale)
-          : (partial.visale || null);
+        cand.visale = !partial.visale ? null
+          : window.Visale ? window.Visale.visaleFusionner(cand.visale, partial.visale)
+          // Module absent (audit m-6) : même n° → le visa recopié par le bailleur est conservé.
+          : (cand.visale && String(cand.visale.visaId || '').trim() === String(partial.visale.visaId || '').trim() ? cand.visale : partial.visale);
         if (cand.statut !== 'refuse' && cand.statut !== 'converti' && cand.statut !== 'valide') cand.statut = 'enCours';
         if (typeof _auditLog === 'function') { try { _auditLog('update', 'candidat', cand.id, 'complément déposé (lien en ligne)'); } catch (e) {} }
         updated++;
@@ -19698,6 +19702,7 @@ function openBail(ref, opts) {
   // VISALE-GMBI : visa complet + choix de garantie déduit des données chargées ('aucune' pour un nouveau bail).
   _visaleEcrire('b', bail.visale);
   _garSetMode('b', _garModeDepuis(_bailLegacyToGarants(bail).some(g => String(g.nom||'').trim()), bail.visale));
+  setTimeout(() => _visaleCtrl('b'), 0); // loyer HC/charges remplis plus loin dans openBail (audit m-2)
 
   // Conditions
   fillSel('b-entity', DB.entites, e2=>e2.nom, e2=>e2.nom);
@@ -20852,6 +20857,7 @@ function _garMode(p) {
 }
 function _garSetMode(p, mode) {
   const seg = el(p + '-gar-seg'); if (!seg) return;
+  const _avant = _garMode(p);
   seg.querySelectorAll('[role="radio"]').forEach(b => b.setAttribute('aria-checked', b.dataset.m === mode ? 'true' : 'false'));
   const gw = el(p + '-garants-wrap'); if (gw) gw.classList.toggle('hidden', mode !== 'garant');
   const vw = el(p + '-visale-wrap'); if (vw) vw.classList.toggle('hidden', mode !== 'visale');
@@ -20859,12 +20865,18 @@ function _garSetMode(p, mode) {
     // Le plafond de caution n'a de sens qu'avec des garants : renderBailGarants le ré-affiche.
     const pw = el('b-plafond-wrap');
     if (mode === 'garant') renderBailGarants(_bailGarantsDom());
-    else if (pw) pw.style.display = 'none';
+    else {
+      if (pw) pw.style.display = 'none';
+      // Quitter « Garant(s) » retire la caution : son plafond part avec (contenu légal du bail, audit m-1).
+      // Pas à l'ouverture d'un bail (_avant ≠ 'garant') : on ne touche jamais une donnée existante sans geste.
+      if (_avant === 'garant' && el('b-plafondCaution')) el('b-plafondCaution').value = '';
+    }
   }
   if (mode === 'visale') { _visaleMount(p); _visaleCtrl(p); }
 }
 function _garModeDepuis(garantPresent, visale) {
-  if (window.Visale && window.Visale.visaleRenseigne(visale)) return 'visale';
+  // Repli sans module (audit I-3) : un visa présent reste « Visale » — sinon il serait effacé à l'enregistrement.
+  if (window.Visale ? window.Visale.visaleRenseigne(visale) : !!(visale && String(visale.visaId || '').trim())) return 'visale';
   return garantPresent ? 'garant' : 'aucune';
 }
 
@@ -20902,7 +20914,8 @@ function _visaleLire(p) {
     cautionValidee: p === 'b' ? !!(el('b-visa-caution') && el('b-visa-caution').checked) : false,
   };
   if (V) return V.visaleNormaliser(raw);
-  return String(raw.visaId || '').trim() ? { visaId: String(raw.visaId).trim() } : null;   // module absent : n° seul
+  // Module absent (audit m-7) : on garde tous les champs saisis tels quels, sans les perdre.
+  return String(raw.visaId || '').trim() ? { ...raw, visaId: String(raw.visaId).trim() } : null;
 }
 function _visaleEcrire(p, vis) {
   _visaleMount(p);
@@ -21210,12 +21223,17 @@ function saveBail() {
   if (bail.garant && bail.visale && String(bail.visale.visaId||'').trim()) {
     if (!confirm2('Ce bail porte à la fois un garant et une garantie Visale.\n\nLe cumul est interdit : le cautionnement est nul si le bailleur a souscrit une autre garantie (art. 22-1 loi n° 89-462), et Visale ne peut pas être cumulée avec une autre caution.\n\nEnregistrer quand même ?')) return;
   }
-  // VISALE-GMBI : contrôles du visa rappelés à l'enregistrement (le loyer se saisit après la garantie).
-  try {
-    const _vc = window.Visale ? window.Visale.visaleControle(bail.visale, { loyerCC: (Number(bail.hc)||0) + (Number(bail.ch)||0), aujourdhui: td() }) : null;
-    if (_vc && _vc.depasse) showToast(`Visale : loyer charges comprises ${fmt(_vc.depasse.loyerCC)} supérieur au visa (${fmt(_vc.depasse.loyerMax)}). Un nouveau visa est nécessaire.`, 'warn', 8000);
-    if (_vc && _vc.expire && (isNewBail || !(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.signedAt))) showToast(`Visale : visa expiré depuis le ${fd(_vc.expire.validite)}. Un nouveau visa est nécessaire avant la signature.`, 'warn', 8000);
-  } catch (e) { console.warn('[VISALE] contrôle', e); }
+  // VISALE-GMBI : contrôles du visa rappelés à l'enregistrement (le loyer se saisit APRÈS la garantie).
+  // Un seul avertissement non bloquant (confirm2) : un toast serait écrasé par « Bail enregistré ».
+  {
+    let _vc = null;
+    try { _vc = window.Visale ? window.Visale.visaleControle(bail.visale, { loyerCC: (Number(bail.hc)||0) + (Number(bail.ch)||0), aujourdhui: td() }) : null; }
+    catch (e) { console.warn('[VISALE] contrôle', e); }
+    const _vMsg = [];
+    if (_vc && _vc.depasse) _vMsg.push(`• Loyer charges comprises ${fmt(_vc.depasse.loyerCC)}, supérieur au loyer maximum du visa (${fmt(_vc.depasse.loyerMax)}) : le visa ne couvre pas ce loyer.`);
+    if (_vc && _vc.expire && (isNewBail || !(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.signedAt))) _vMsg.push(`• Visa expiré depuis le ${fd(_vc.expire.validite)} : le bail doit être signé avant la fin de validité du visa.`);
+    if (_vMsg.length && !confirm2('Garantie Visale :\n\n' + _vMsg.join('\n') + '\n\nLe locataire doit demander un nouveau visa sur visale.fr.\n\nEnregistrer quand même ?')) return;
+  }
   // NOUVEAU BAIL (isNewBail) sur un logement occupé : archiverBail LAISSE l'ancien bail dans DB.baux[ref]
   // jusqu'au remplacement ci-dessous. Rien de l'ancien ne doit passer au nouveau — ni clôture, ni
   // SIGNATURES (le nouveau locataire apparaissait « signé » à la date de l'ancien), ni champs figés, ni

@@ -9753,7 +9753,7 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .visale-ok{border:1px solid var(--pos);background:var(--pos-soft);color:var(--t1)}
 .visale-ok .uic{color:var(--pos);flex:0 0 auto;margin-top:1px}
 .visale-plaf{margin-top:10px;font-size:12px;color:var(--t2)}
-.visale-plaf summary{cursor:pointer;font-weight:600;color:var(--adv);list-style:none;min-height:32px;display:flex;align-items:center;gap:6px}
+.visale-plaf summary{cursor:pointer;font-weight:600;color:var(--adv);list-style:none;min-height:44px;display:flex;align-items:center;gap:6px}
 .visale-plaf summary::-webkit-details-marker{display:none}
 .visale-plaf > div{margin-top:6px;line-height:1.55}
 .visale-plaf a{color:var(--adv);font-weight:600}
