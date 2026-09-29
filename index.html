@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.695</title>
+<title>Propryo v15.697</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.695">
+<link rel="stylesheet" href="css/main.css?v=15.697">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.695</em>
+      <em>v15.697</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4322,7 +4322,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.695';
+const IMMOTRACK_VERSION = '15.697';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -11990,7 +11990,7 @@ function _bindBailDirtyTracking() {
 function openBailClore(ref) {
   if(!ref) return;
   const bail = DB.baux[ref];
-  if(!bail) { showToast('Bail introuvable','err'); return; }
+  if(!_isAlive(bail)) { showToast('Bail introuvable','err'); return; } // v15.697 : tombstone = déjà clôturé
   el('b-clore-ref').value = ref;
   el('m-bail-clore-title').textContent = 'Clôturer le bail '+ref;
   // Pré-remplir avec les valeurs existantes si elles ont été saisies par le passé
@@ -12007,7 +12007,7 @@ function saveBailClore() {
   const ref = el('b-clore-ref').value;
   if(!ref) { showToast('Aucun bail sélectionné','err'); return; }
   const bail = DB.baux[ref];
-  if(!bail) { showToast('Bail introuvable','err'); return; }
+  if(!_isAlive(bail)) { showToast('Bail introuvable','err'); return; } // v15.697 : tombstone = déjà clôturé
   // Validations bloquantes
   const finEff = v('b-fin-effective');
   const motif  = v('b-fin-motif');
@@ -17693,7 +17693,8 @@ function _openImmBlockMenu(evt, entNom, immNom, entId, immId) {
  *  cautionnement / PDF Drive / Réinitialiser sigs). Ré-injecte les actions
  *  perdues du legacy rBaux. */
 function openBailMenu(evt, ref, full) {
-  const bail = DB.baux && DB.baux[ref];
+  // v15.697 : un tombstone (bail clôturé) n'offre ni Clôturer ni Supprimer — re-clôturer le poussait dans l'historique.
+  const bail = (DB.baux && _isAlive(DB.baux[ref])) ? DB.baux[ref] : null;
   const refEsc = _lyQ(ref);
   const items = [];
   // v15.x DÉGRAISSAGE FICHE — `full` (appel depuis la fiche bail) déporte Modifier + Aperçu dans le menu.
@@ -18014,7 +18015,7 @@ function rCandidats(){
 
 // Un logement est vacant s'il n'a pas de bail actif (non clôturé).
 function _logementsVacants(){
-  return (DB.logements||[]).filter(l=>l && !l._deleted && !(DB.baux[l.ref] && !DB.baux[l.ref].cloture));
+  return (DB.logements||[]).filter(l=>l && !l._deleted && !_bailEnCours(DB.baux[l.ref]));
 }
 // "Choix + ajout libre" (règle gravée) : révèle le champ texte quand contrat = Autre.
 function _candContratToggle(){
@@ -19207,7 +19208,8 @@ function rBaux() {
     const adrEsc = adrFull ? `<span style="font-weight:400;color:var(--t2,#6b7280);font-size:11px;margin-left:6px">· ${escHtml(adrFull)}</span>` : '';
 
     const locCards = g.logs.map(l => {
-      const bail = DB.baux[l.ref];
+      // v15.697 : tombstone (bail clôturé) = pas de bail — sinon « Tacite reconduction » + menu Clôturer sur un lot vacant.
+      const bail = _isAlive(DB.baux[l.ref]) ? DB.baux[l.ref] : null;
       const locDisplay = (bail && Array.isArray(bail.locataires) && bail.locataires.length)
         ? bail.locataires.map(x => x.nom).filter(Boolean).join(', ')
         : (l.locataire || '');
@@ -20504,6 +20506,9 @@ function onBailLoyerChange() {
 function terminerBail() {
   const ref = v('b-ref') || v('b-edit-ref');
   if(!ref) { showToast('Sélectionner un logement','err'); return; }
+  // v15.697 : sans bail vivant (tombstone d'un bail déjà clôturé, ou aucun bail), rien à clôturer —
+  // sinon on poussait le tombstone (ou un squelette vide) dans baux_historique.
+  if(!_isAlive(DB.baux[ref])) { showToast('Aucun bail en cours sur ce logement','err'); return; }
   const finEff = v('b-fin-effective');
   if(!finEff) { showToast('Date de fin effective requise','err'); return; }
   if(!confirm2(`Clôturer le bail de ${ref} au ${fd(finEff)} ?\nLe logement sera marqué comme vacant et le bail archivé.`)) return;
@@ -20915,7 +20920,7 @@ function saveBail() {
   const isNewBail = !editRef;
   if(isNewBail) {
     const bailExistant = DB.baux[ref];
-    if(bailExistant && !bailExistant.cloture) {
+    if(_bailEnCours(bailExistant)) { // v15.697 : un tombstone (bail clôturé) n'est pas un bail actif
       const ancLoc = (bailExistant.locataires||[{nom:bailExistant.nom||'?'}]).map(l=>l.nom).join(', ');
       if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.\n\nConfirmer la création du nouveau bail ?`)) return;
       archiverBail(ref, _debut); // C4 : clôture l'ancien bail à la veille du nouveau (fin du dû doublé)
@@ -21246,7 +21251,7 @@ function _baremeCloturerLot(ref, finEff) {
 // Archiver le bail actif dans DB.baux_historique
 function archiverBail(ref, nouveauDebut) {
   const bail = DB.baux[ref];
-  if(!bail) return;
+  if(!bail || bail._deleted) return; // v15.697 : un tombstone est déjà archivé — jamais dans l'historique
   if(!DB.baux_historique) DB.baux_historique = [];
   // C4 (AUDIT-SUIVI-LOYERS) : au re-bail sur logement occupé, poser finEffective = veille du
   // NOUVEAU bail. Sans ça, la fin CONTRACTUELLE (souvent future ou vide) chevauche le nouveau
@@ -33433,6 +33438,11 @@ let _edlMobElements = [];
    les tombstones. _edlActive reste comme alias rétrocompatible. */
 function _isAlive(o) { return o && !o._deleted; }
 function _edlActive(e) { return _isAlive(e); }
+// v15.697 BAIL-TOMBSTONE — un bail EN COURS = présent, vivant, non clôturé. Après « Clôturer ce bail »
+// (saveBailClore / terminerBail), DB.baux[ref] devient un tombstone { ref, _deleted, … } SANS `cloture` :
+// tester `!b.cloture` seul le prenait pour un bail actif (re-bail → confirm « Locataire actuel : ? » +
+// archiverBail poussait le tombstone dans baux_historique ; lot clôturé absent des vacants).
+function _bailEnCours(b) { return !!(b && !b._deleted && !b.cloture); }
 
 /* v15.186 — Helper tombstone centralisé. Crée un objet tombstone propre :
  *   { _deleted: true, _deletedAt: now, _modifiedAt: now, ...preserveFields }
