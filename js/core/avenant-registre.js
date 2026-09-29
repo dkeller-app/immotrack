@@ -185,14 +185,15 @@ export function avecStatut(av, statut, now, extra) {
   }
   return e;
 }
-export const PIECES_SIGNATURE = ['scanDocId', 'scanDetenu', 'pdfKey', 'certKey', 'contentHash', 'proof'];
+export const PIECES_SIGNATURE = ['scanDocId', 'scanDetenu', 'pdfDocId', 'pdfKey', 'contentHash', 'proof'];
 
 /** Gestes proposés sur une carte (l'écran n'affiche que ceux-là). */
 export function actionsAvenant(av) {
   if (!av) return [];
   const a = [];
   if (av.statut === 'brouillon') return ['reprendre', 'supprimer'];
-  if (av.html) a.push('voir', av.pdfKey ? 'pdf-signe' : 'pdf');
+  // PDF SIGNÉ (pièce jointe du bail, ou clé cloud) quand il existe ; sinon le document enregistré, non signé.
+  if (av.html) a.push('voir', (av.pdfDocId || av.pdfKey) ? 'pdf-signe' : 'pdf');
   if (av.scanDocId) a.push('scan');
   else if (av.statut === 'signe' && av.signeMode === 'papier') a.push('deposer-scan');   // déposer plus tard, jamais imposé
   if (transitionPermise(av, 'signe')) { if (av.html) a.push('signe-appareil'); a.push('signe-papier'); }

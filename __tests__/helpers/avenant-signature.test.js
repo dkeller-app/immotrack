@@ -45,3 +45,21 @@ describe('avenantHtmlSigne', () => {
     expect(html).toBe(avant);
   });
 });
+
+describe('audit lot 3b', () => {
+  it('I5 : document forgé (cadres ouverts non fermés) → analyse en temps linéaire', () => {
+    const forge = '<div class="pro-sigcase"><div class="pro-sigspace">'.repeat(4000) + 'x';
+    const t0 = Date.now();
+    expect(avenantPartiesSignature(forge)).toEqual([]);
+    expect(avenantPartiesSignature(forge + '</div>')).toEqual([]);   // une seule fermeture, tout au bout
+    expect(avenantPartiesSignature(forge.replace(/sigspace">/g, 'sigspace"></div><div class="pro-signbox">'))).toEqual([]);
+    expect(Date.now() - t0).toBeLessThan(500);
+  });
+  it('M1 : des soulignés saisis dans une clause ne reçoivent pas la date ; « Fait le » oui', () => {
+    const h = buildAvenantHtml(ctx({ objets: [{ k: 'clause', data: { titre: 'Parking', texte: 'Place n° ____________________ attribuée.' } }] })).html;
+    const n = avenantPartiesSignature(h).length;
+    const s = avenantHtmlSigne(h, Array(n).fill(PNG), '2026-09-29');
+    expect(s).toContain(', le 29/09/2026, en autant');
+    expect(s).toContain('____________________');   // celui de la clause, intact
+  });
+});

@@ -419,7 +419,36 @@ export function avenantMontant(raw, prev, opts) {
 }
 
 // ── AVENANT-REFONTE lot 3b — signature d'un avenant FIGÉ (jamais régénéré depuis le bail actuel) ────────
-const _SIGCASE = /<div class="pro-sigcase"><div class="pro-sigspace">([\s\S]*?)<\/div><div class="pro-signbox">([\s\S]*?)<\/div><\/div>/g;
+// Les cadres de signature sont repérés par un analyseur LINÉAIRE (recherche de chaînes, curseur qui ne
+// recule jamais) et non par une expression régulière : un document forgé, venu du partage SCI, ne peut pas
+// geler l'onglet (audit lot 3b I5).
+const _OUV = '<div class="pro-sigcase"><div class="pro-sigspace">';
+const _MIL = '</div><div class="pro-signbox">';
+const _FIN = '</div></div>';
+/** Cadres du document, dans l'ordre : [{debut, fin, space, box}] (positions dans la chaîne). */
+function _cadres(s) {
+  const out = [];
+  let pos = 0, ferme = -1;   // `ferme` = 1er '</div>' connu après la dernière ouverture (amorti linéaire)
+  for (;;) {
+    const o = s.indexOf(_OUV, pos);
+    if (o < 0) break;
+    const d = o + _OUV.length;
+    if (ferme < d) ferme = s.indexOf('</div>', d);
+    if (ferme < 0) break;                                   // plus aucune fermeture : aucun cadre complet
+    if (s.startsWith(_MIL, ferme)) {
+      const b = ferme + _MIL.length;
+      const f = s.indexOf('</div>', b);
+      if (f < 0) break;
+      if (s.startsWith(_FIN, f)) {
+        out.push({ debut: o, fin: f + _FIN.length, space: s.slice(d, ferme), box: s.slice(b, f) });
+        pos = f + _FIN.length; ferme = -1;
+        continue;
+      }
+    }
+    pos = d;   // ouverture sans cadre complet : on repart juste après
+  }
+  return out;
+}
 const _txt = (h) => String(h == null ? '' : h).replace(/<[^>]*>/g, '')
   .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').trim();
 const _SIG_OK = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
@@ -430,15 +459,10 @@ const _SIG_OK = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
  * @returns {Array<{role:string, nom:string, sous:string}>} texte brut (à échapper par l'appelant)
  */
 export function avenantPartiesSignature(html) {
-  const out = [];
-  const s = String(html == null ? '' : html);
-  let m;
-  _SIGCASE.lastIndex = 0;
-  while ((m = _SIGCASE.exec(s))) {
-    const parts = m[2].split(/<br\s*\/?>/i);
-    out.push({ role: _txt(parts[0]), nom: _txt(parts[1]), sous: _txt(parts.slice(2).join(' ')) });
-  }
-  return out;
+  return _cadres(String(html == null ? '' : html)).map((c) => {
+    const parts = c.box.split(/<br\s*\/?>/i);
+    return { role: _txt(parts[0]), nom: _txt(parts[1]), sous: _txt(parts.slice(2).join(' ')) };
+  });
 }
 
 /**
@@ -449,11 +473,15 @@ export function avenantPartiesSignature(html) {
 export function avenantHtmlSigne(html, sigs, dateActeIso) {
   const s = String(html == null ? '' : html);
   const liste = Array.isArray(sigs) ? sigs : [];
-  const n = avenantPartiesSignature(s).length;
-  if (!n || liste.length !== n || !liste.every(u => typeof u === 'string' && _SIG_OK.test(u))) return null;
-  let i = 0;
-  _SIGCASE.lastIndex = 0;
-  let out = s.replace(_SIGCASE, (all, space, box) => '<div class="pro-sigcase"><div class="pro-sigspace"><img src="' + esc(liste[i++]) + '"></div><div class="pro-signbox">' + box + '</div></div>');
-  if (dateActeIso) out = out.replace('____________________', esc(frDate(dateActeIso)));
+  const cadres = _cadres(s);
+  if (!cadres.length || liste.length !== cadres.length || !liste.every(u => typeof u === 'string' && _SIG_OK.test(u))) return null;
+  let out = '', pos = 0;
+  cadres.forEach((c, i) => {
+    out += s.slice(pos, c.debut) + _OUV + '<img src="' + esc(liste[i]) + '">' + _MIL + c.box + _FIN;
+    pos = c.fin;
+  });
+  out += s.slice(pos);
+  // La ligne « Fait à …, le ____ , en autant… » précisément — jamais des soulignés saisis dans une clause.
+  if (dateActeIso) out = out.replace(', le ____________________, en autant', ', le ' + esc(frDate(dateActeIso)) + ', en autant');
   return out;
 }
