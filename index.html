@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.690</title>
+<title>Propryo v15.691</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.690">
+<link rel="stylesheet" href="css/main.css?v=15.691">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.690</em>
+      <em>v15.691</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4322,7 +4322,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.690';
+const IMMOTRACK_VERSION = '15.691';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7344,7 +7344,8 @@ function _archiveBailTerminee(ref, bailInitial, path) {
     cur.signatures.archiveTermine = true;
     // Déjà verrouillé (scellé par un autre appareil, ou signature antérieure à ce correctif) : ces
     // références ne partiront pas au cloud. On le signale au lieu de le taire (audit J2).
-    if (cur.signatures.locked) console.warn('[archive] bail ' + ref + ' déjà scellé : références d\'archive conservées sur cet appareil seulement (PDF bien stocké : ' + (path || 'échec d\'envoi') + ')');
+    // v15.690 : elles partent désormais par le journal automatique du bail (store-sync, réappliqué partout).
+    if (cur.signatures.locked) console.info('[archive] bail ' + ref + ' déjà scellé : références d\'archive envoyées par le journal du bail (PDF stocké : ' + (path || 'échec d\'envoi') + ')');
     if (typeof saveDB === 'function') saveDB();
   } catch (e) { console.warn('[archive] fin d\'archive', e); }
 }
@@ -12053,8 +12054,17 @@ function resetBailSignatures(ref) {
     return;
   }
   const dateStr = fd(bail.signatures.signedAt.slice(0,10));
-  if(!confirm(`⚠️ RÉINITIALISER LES SIGNATURES du bail ${ref} ?\n\nSigné le ${dateStr}\n${bail.signatures.nbParaphes||0} pages paraphées\n\nToutes les signatures (paraphes + signatures finales + cases « Lu et approuvé ») seront EFFACÉES.\nLe bail redeviendra modifiable.\n\nCette action est irréversible.`)) return;
-  if(!confirm(`Confirmation finale : effacer définitivement les signatures du bail ${ref} ?\n\n[OK] = oui, effacer\n[Annuler] = ne rien faire`)) return;
+  // Chantier clôture/relocation (décision II, Didier 28/09) — bail SCELLÉ au cloud (`locked`) : la version
+  // signée n'est jamais effacée. Au prochain envoi, sa ligne est ARCHIVÉE (intacte, preuve) et le bail en
+  // cours repart en brouillon sur sa propre ligne (store-sync.js, phase 0). Le message dit exactement ça.
+  const _scelle = !!bail.signatures.locked;
+  const _effet = _scelle
+    ? `La version signée est CONSERVÉE : elle est archivée telle quelle (preuve), mais n'est plus affichée comme bail en cours (elle n'est pas encore consultable dans l'app — garder le PDF signé).\nLe bail en cours repart en brouillon, à faire signer de nouveau.`
+    : `Toutes les signatures (paraphes + signatures finales + cases « Lu et approuvé ») seront EFFACÉES.\nLe bail redeviendra modifiable.\n\nCette action est irréversible.`;
+  if(!confirm(`⚠️ RÉINITIALISER LES SIGNATURES du bail ${ref} ?\n\nSigné le ${dateStr}\n${bail.signatures.nbParaphes||0} pages paraphées\n\n${_effet}`)) return;
+  if(!confirm(_scelle
+    ? `Confirmation finale : archiver la version signée du bail ${ref} et repartir d'un brouillon à faire signer ?\n\n[OK] = oui\n[Annuler] = ne rien faire`
+    : `Confirmation finale : effacer définitivement les signatures du bail ${ref} ?\n\n[OK] = oui, effacer\n[Annuler] = ne rien faire`)) return;
   delete bail.signatures;
   delete bail.annexesDdt;   // DDT annexé : le plan suit les signatures ; recalculé au prochain lancement
   // v14.71 : stamp _modifiedAt pour que le reset se propage aux autres devices via merge Drive
@@ -12066,7 +12076,9 @@ function resetBailSignatures(ref) {
   // voyait l'ancien état (avec bouton "Voir bail signé" + "Réinitialiser") → impression que rien
   // ne se passe. Maintenant : _refreshAfterMutation() rerend log-fiche / imm-fiche / ent-fiche.
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
-  showToast(`✅ Signatures du bail ${ref} réinitialisées — bail à nouveau modifiable`,'ok',5000);
+  showToast(_scelle
+    ? `✅ Version signée du bail ${ref} archivée (conservée) — le bail en cours est un brouillon à faire signer`
+    : `✅ Signatures du bail ${ref} réinitialisées — bail à nouveau modifiable`,'ok',_scelle?7000:5000);
 }
 
 // =================== DASHBOARD ===================
@@ -19774,7 +19786,7 @@ function openBail(ref, opts) {
   // (assume non modifié), permettant de tracer toutes les modifs ULTÉRIEURES.
   // BAIL-SIGNE-MODIFS — jamais si le journal a déjà modifié ce bail : le snapshot figerait comme
   // « signé » un état qui ne l'a jamais été (les modifications ont été réappliquées au chargement).
-  const _journalDeCeBail = (window.BailModifs && bail.signatures) ? window.BailModifs.journalDuBail(DB.baux_evenements, ref, bail) : [];
+  const _journalDeCeBail = (window.BailModifs && bail.signatures) ? (window.BailModifs.modificationsDuBail || window.BailModifs.journalDuBail)(DB.baux_evenements, ref, bail) : [];
   if (bail.signatures && bail.signatures.signedAt && !bail.signatures.bailSnapshot && !_journalDeCeBail.length) {
     const snap = JSON.parse(JSON.stringify(bail));
     delete snap.signatures;
@@ -20538,7 +20550,12 @@ function _cleanupBailAgendaEvents(ref) {
 }
 
 function delBail(ref) {
-  if(!confirm2(`Supprimer le bail de ${ref} ?`)) return;
+  // Chantier clôture/relocation (décision II, Didier 28/09) — bail SCELLÉ au cloud : jamais détruit. Sa ligne
+  // est ARCHIVÉE au prochain envoi (preuve intacte) et il cesse d'être le bail en cours. On le dit.
+  const _scelle = !!(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.locked);
+  if(!confirm2(_scelle
+    ? `Supprimer le bail de ${ref} ?\n\nCe bail est signé : sa version signée est conservée (archivée telle quelle, comme preuve — pas encore consultable dans l'app, garder le PDF signé). Il ne sera plus le bail en cours du logement.`
+    : `Supprimer le bail de ${ref} ?`)) return;
   // BUG-DEL-FICHE-360 v14.26 : fermer la modale d'édition de bail si elle est ouverte
   // (cas où l'utilisateur supprime depuis l'intérieur du wizard) — défensif.
   closeM('ov-bail');
@@ -20965,9 +20982,15 @@ function saveBail() {
     showToast('Garantie : choisissez soit un ou plusieurs garants, soit la garantie Visale — pas les deux (supprimez le garant ou videz le n° de visa).','err',7000);
     return;
   }
-  if(DB.baux[ref]?.cloture) bail.cloture = DB.baux[ref].cloture;
+  // NOUVEAU BAIL (isNewBail) sur un logement occupé : archiverBail LAISSE l'ancien bail dans DB.baux[ref]
+  // jusqu'au remplacement ci-dessous. Rien de l'ancien ne doit passer au nouveau — ni clôture, ni
+  // SIGNATURES (le nouveau locataire apparaissait « signé » à la date de l'ancien), ni champs figés, ni
+  // date de signature prévue. Audit v15.690 (C1) : avec la synchro B2, l'héritage des signatures faisait
+  // du nouveau bail une « modification » du bail signé précédent → écrit au cloud sur l'ancien contrat.
+  const _existantHeritable = isNewBail ? null : DB.baux[ref];
+  if(_existantHeritable?.cloture) bail.cloture = _existantHeritable.cloture;
   // v13.11 — préserver les signatures sauf si reset forcé (composition changée)
-  if (DB.baux[ref]?.signatures && !_resetSignaturesAfterSave) {
+  if (_existantHeritable?.signatures && !_resetSignaturesAfterSave) {
     bail.signatures = DB.baux[ref].signatures;
     // DDT annexé : le plan figé à la signature suit les signatures (§ 17 déjà signé + alerte de fusion).
     if (DB.baux[ref].annexesDdt) bail.annexesDdt = DB.baux[ref].annexesDdt;
@@ -20979,7 +21002,7 @@ function saveBail() {
   // de la migration V4b (qui ne purge JAMAIS un bail signé). Sans cela, un simple re-save (édition
   // d'un champ financier/notes) effacerait ces champs et l'Aperçu courant dériverait du document
   // signé. Le snapshot légal (previewSignedBailRef) n'est de toute façon jamais impacté.
-  if (DB.baux[ref]?.signatures?.signedAt && !_resetSignaturesAfterSave
+  if (_existantHeritable?.signatures?.signedAt && !_resetSignaturesAfterSave
       && typeof _ARCHI_V4B_DESC_FIELDS !== 'undefined') {
     const _oldSigned = DB.baux[ref];
     _ARCHI_V4B_DESC_FIELDS.forEach(k => { if (k in _oldSigned) bail[k] = _oldSigned[k]; });
@@ -20990,7 +21013,7 @@ function saveBail() {
   if (DB.baux[ref] && DB.baux[ref].fiscal != null && DB.baux[ref].fiscal !== '') bail.fiscal = DB.baux[ref].fiscal;
   // v15.344 — préserver dateSignaturePrevue si le champ est vide au save (bail signé : input masqué
   // → v('b-dateSignature')='' ; ne jamais effacer la date de signature déjà fixée).
-  if (!bail.dateSignaturePrevue && DB.baux[ref] && DB.baux[ref].dateSignaturePrevue) bail.dateSignaturePrevue = DB.baux[ref].dateSignaturePrevue;
+  if (!bail.dateSignaturePrevue && _existantHeritable && _existantHeritable.dateSignaturePrevue) bail.dateSignaturePrevue = _existantHeritable.dateSignaturePrevue;
   // HISTORIQUE-BAIL-ONGLET (17/07, décision user ④) — ÉDITION d'un bail avec changement
   // d'un terme FINANCIER (hc/ch/dg) : popup de validation obligatoire (ancien → nouveau,
   // date d'effet Q1, motif). Le save est suspendu ; _bailValidConfirm relance saveBail
@@ -21074,6 +21097,9 @@ function saveBail() {
         changements: _chg };
       // Partage SCI : l'entrée part dans l'espace du PROPRIÉTAIRE du bail (routage store-multi par tag).
       if (DB.baux[ref]._espaceId != null) _journalModif._espaceId = DB.baux[ref]._espaceId;
+      // Ligne cloud PROPRE du bail (v15.690, `_bailUid`) : l'entrée la vise dès sa création (clé étrangère
+      // bail_id) — même si le bail est clôturé ou remplacé avant l'envoi. Absent = ligne historique.
+      if (DB.baux[ref]._bailUid) _journalModif.bailUid = DB.baux[ref]._bailUid;
     }
   }
   _stamp(bail); // v13.18 : timestamp de modif pour merge Drive intelligent
@@ -21287,7 +21313,7 @@ function previewSignedBailRef(ref) {
   if (!bail.signatures.bailSnapshot) {
     // BAIL-SIGNE-MODIFS — bail déjà modifié depuis sa signature (journal) : aucun snapshot ne sera
     // recréé (il figerait un état jamais signé) → le dire, sans proposer un chemin qui ne ferait rien.
-    if (window.BailModifs && window.BailModifs.journalDuBail(DB.baux_evenements, ref, bail).length) {
+    if (window.BailModifs && (window.BailModifs.modificationsDuBail || window.BailModifs.journalDuBail)(DB.baux_evenements, ref, bail).length) {
       showToast('Version signée d\'origine non disponible pour ce bail (signé avant v13.10, modifié depuis) : se reporter au PDF signé papier ou archivé.', 'info', 8000);
       return;
     }
@@ -23918,7 +23944,7 @@ function previewBailData(bail, log, ref, opts) {
     +'var _SAVED_SIGNATURES='+JSON.stringify((function(){
         const _sg = bail.signatures; if (!_sg) return null;
         if (opts.useSnapshot || opts.signQueue || opts.remoteSign || opts.phase2 || _sg.mode === 'bailleur-seul') return _sg;
-        const _jr = (window.BailModifs && ref) ? window.BailModifs.journalDuBail(DB.baux_evenements, ref, bail) : [];
+        const _jr = (window.BailModifs && ref) ? (window.BailModifs.modificationsDuBail || window.BailModifs.journalDuBail)(DB.baux_evenements, ref, bail) : [];
         return _jr.length ? null : _sg;
       })())+';' /* v13.03 : hydrate */
     /* FIL-ROUGE cleanup — _AUTO_SIGN / _AUTO_PHASE2 retirés (triggers + setters supprimés). */
@@ -25859,7 +25885,9 @@ function _avenantSave(ref){
   var toastMsg='Avenant n° '+rec.no+' enregistré dans l\'historique du bail.'
     +(_appliques.length?' Appliqué au '+fd(effet)+' : '+_appliques.join(', ').toLowerCase()+'.':'')
     +(_docSeul.length?' Document seulement (non appliqué aux données du bail) : '+_docSeul.join(', ').toLowerCase()+'.':'')
-    +(_verrou?' Bail signé verrouillé : le document de l\'avenant n\'est pas encore conservé dans l\'app — conserver le PDF signé.':'')
+    // Chantier clôture/relocation (B2) : l'avenant d'un bail signé scellé est désormais conservé (journal
+    // automatique du bail, réappliqué au chargement) ; le bail signé, lui, ne change pas.
+    +(_verrou?' Bail signé : l\'avenant est conservé dans l\'app, le bail signé reste inchangé — conserver aussi le PDF signé de l\'avenant.':'')
     // (Plus de proposition d'ouvrir l'acte de cautionnement : il était généré avec l'ANCIEN garant et
     //  les ANCIENS locataires. Mention DANS le même message : un 2ᵉ toast écrasait le premier.)
     +(built.caution?' Un acte de cautionnement est à établir séparément pour la nouvelle caution (l\'acte généré par l\'app reprend encore l\'ancien garant).':'');

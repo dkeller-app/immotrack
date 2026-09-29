@@ -103,6 +103,8 @@ function mockWriter() {
     async softDelete(table, id, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer) return null; c.version++; c.row = { ...c.row, deleted_at: 'x' }; this.deletes.push([table, id]); return c.version },
     // reviveTombstone : ré-ouvre UNIQUEMENT un tombstone (deleted_at posé), REFUSE un locked, sinon null
     // (WHERE id=? AND deleted_at IS NOT NULL [AND locked=false] RETURNING version). touch_row bumpe version.
+    // archive (0055) : UPDATE archived=true gardé par version, ligne vivante et non archivée ; touch_row bumpe version.
+    async archive(table, id, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer || c.row.deleted_at || c.row.archived) return null; c.version++; c.row = { ...c.row, archived: true }; (this.archives = this.archives || []).push([table, id]); return c.version },
     async reviveTombstone(table, id, row) { const c = T(table).get(id); if (!c || !c.row.deleted_at || c.row.locked) return null; c.version++; c.row = { ...row, deleted_at: null }; this.revives.push([table, id]); return c.version },
   }
 }
@@ -412,5 +414,37 @@ describe('journal des baux signés (0054) — lecture tolérante', () => {
     const s = createSupabaseStore(mockBackend({ baux_evenements: [{ id: 'bj1', ref: 'F-1', type: 'modification' }] }, {}))
     const db = await s.hydrate()
     expect(db.baux_evenements).toEqual([{ id: 'bj1', ref: 'F-1', type: 'modification' }])
+  })
+})
+
+describe('SupabaseStore.archive — bail signé verrouillé (migration 0055)', () => {
+  const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+  it('archive la ligne DU BAIL (id historique ou ligne propre), gardé par la version trackée', async () => {
+    const w = mockWriter(); const s = storeWith(w, db)
+    await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 600 })                        // v1, ligne historique
+    const r = await s.archive('baux', { __key: 'F-1', entity: 'SCI A', hc: 600 })
+    expect(r).toEqual({ status: 'archived', id: 'uuid:bail|f-1', version: 2 })
+    await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 650, _bailUid: 'u1' }, { allowRevive: true })   // successeur : insert, ligne propre
+    expect(w.inserts).toContainEqual(['baux', 'uuid:bail|f-1|u1'])
+  })
+  it('version inconnue (ligne non hydratée) ou périmée → conflit, jamais de devinette', async () => {
+    const w = mockWriter(); const s = storeWith(w, db)
+    expect((await s.archive('baux', { __key: 'F-1', entity: 'SCI A' })).status).toBe('conflict')
+    await s.upsert('baux', { __key: 'F-1', entity: 'SCI A' })
+    w._tbl.get('baux').get('uuid:bail|f-1').version = 7
+    expect((await s.archive('baux', { __key: 'F-1', entity: 'SCI A' })).status).toBe('conflict')
+  })
+  it('seulement pour baux ; FK non résolue → skipped', async () => {
+    const w = mockWriter(); const s = storeWith(w, db)
+    expect((await s.archive('logements', { ref: 'F-1', entity: 'SCI A' })).status).toBe('skipped')
+    expect((await s.archive('baux', { __key: 'INCONNU', entity: 'SCI A' })).status).toBe('skipped')
+  })
+  it('résolveur bailUidByRef : un document « bail » se rattache à la ligne PROPRE du bail courant', async () => {
+    const w = mockWriter()
+    const s = storeWith(w, { ...db, baux: { 'F-1': { hc: 1, _bailUid: 'u1' }, 'F-2': { _deleted: true, _bailUid: 'z' } }, documents: [] })
+    const r = s.buildResolvers()
+    expect(r.bailUidByRef.get('f-1')).toBe('u1'); expect(r.bailUidByRef.has('f-2')).toBe(false)
+    await s.upsert('documents', { id: 5, parentType: 'bail', parentRef: 'F-1' })
+    expect(w._tbl.get('documents').get('uuid:document|5').row.parent_id).toBe('uuid:bail|f-1|u1')
   })
 })

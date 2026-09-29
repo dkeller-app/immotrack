@@ -10,6 +10,7 @@ function makeFakeStore(hydrateDb) {
     async hydrate() { return JSON.parse(JSON.stringify(hydrateDb)) },
     async upsert(coll, rec) { calls.upsert.push([coll, rec]) },
     async remove(coll, rec) { calls.remove.push([coll, rec]) },
+    async archive(coll, rec) { (calls.archive = calls.archive || []).push([coll, rec]) },
     async persistConfig() { calls.persistConfig++ },
     attach(view) { calls.attach.push(view) },
   }
@@ -210,5 +211,15 @@ describe('resolveEntiteOwner / resolveEspaceOfSeg — résolution Storage par-SC
     const solo = [{ nom: 'SCI A', _espaceId: 'A' }]
     expect(resolveEntiteOwner(solo, { A: 'oA' }, 'SCI A', 'oA')).toBe('oA')
     expect(resolveEspaceOfSeg(solo, { A: 'oA' }, det, det('oA')('entite', 'sci a'), 'oA', 'A')).toBe('A')
+  })
+})
+
+describe('createMultiStore.archive — routé vers l\'espace du bail, réf nue', () => {
+  it('bail tiers à clé désambiguïsée → store du tiers, __key nue', async () => {
+    const { multi, storeA, storeB } = setup()
+    await multi.hydrate()
+    await multi.archive('baux', { __key: 'L1@@B', _espaceId: 'B', hc: 500 })
+    expect(storeB.calls.archive).toEqual([['baux', { __key: 'L1', _espaceId: 'B', hc: 500 }]])
+    expect(storeA.calls.archive).toBeUndefined()
   })
 })

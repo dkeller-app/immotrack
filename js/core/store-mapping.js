@@ -58,6 +58,17 @@ const clausesBail = o => (COLONNES_CLAUSES_BAIL_0046
 
 const base = (o, ctx) => ({ espace_id: ctx.espaceId, created_by: ctx.ownerId, legacy_raw: jb(stripTag(o)) })
 
+// IDENTITÉ D'UNE LIGNE `baux` (chantier clôture/relocation, 28/09). Historiquement UNE ligne par
+// logement (detUuid('bail', ref)) : un bail signé verrouillé occupait donc le logement pour toujours.
+// Désormais un bail peut porter `_bailUid` (posé par store-sync au premier envoi d'un bail NEUF ou d'un
+// SUCCESSEUR d'un bail signé) → sa propre ligne. Sans `_bailUid` (tous les baux existants) : l'id
+// historique, inchangé → aucune migration des lignes en place. SOURCE UNIQUE : la ligne du bail, la
+// clé de rattachement RLS d'un document « bail » et le bail_id d'une entrée de journal passent ici.
+export const bailLigneCle = (ref, uid) => norm(ref) + (uid ? '|' + String(uid) : '')
+// Idem pour une archive `baux_historique` : `_archiveId` n'est posé qu'en cas de COLLISION (deux
+// archives du même logement le même jour — la clé historique `ref|_archivedAt` les confondait).
+export const bailHistCle = o => String(o.ref ?? '') + '|' + (o._archivedAt ?? '') + (o._archiveId ? '|' + String(o._archiveId) : '')
+
 const MAPPERS = {
   entites(o, ctx) {
     if (!o.nom || !String(o.nom).trim()) return null
@@ -87,7 +98,9 @@ const MAPPERS = {
     // jamais le document rendu par l'app (aucun risque sur les lignes existantes ; c'est fail-closed →
     // ouvert, jamais l'inverse). Un membre PLEIN passait déjà (has_entite_write court-circuite is_full_*).
     // 'bail' : keyé par la ref logement (parentRef) → id de ligne bail → résolveur entite_of_bail EXISTANT.
-    else if (o.parentType === 'bail') pid = o.parentRef ? ctx.detUuid('bail', norm(o.parentRef)) : null
+    // (bail à `_bailUid` : le résolveur `bailUidByRef` donne la ligne du bail COURANT du logement ;
+    // absent → id historique — même entité dans les deux cas, seule compte la résolution RLS.)
+    else if (o.parentType === 'bail') pid = o.parentRef ? ctx.detUuid('bail', bailLigneCle(o.parentRef, ctx.bailUidByRef && ctx.bailUidByRef.get(norm(o.parentRef)))) : null
     // assurance/mrh/equipement/quittance/candidat : résolus VIA LE LOGEMENT (logRef) → parent_id = uuid de
     // ligne logement ; le résolveur RLS fait entite_of_logement(parent_id). logRef absent/inconnu (candidat
     // rattaché à une SCI sans bien précis, saisie libre) → null → fail-closed (owner-only), jamais un throw.
@@ -129,13 +142,13 @@ const MAPPERS = {
     // aucun hash : la contrainte ne vise que 'immotrack'.)
     const src = (rawSrc === 'immotrack' && hash == null) ? null : rawSrc
     const locked = !!sg.locked && src != null && (src !== 'immotrack' || hash != null)
-    return { id: ctx.detUuid('bail', norm(o.__key)), legacy_ref: o.__key, logement_id: log, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, type_bail: null, hc: num(o.hc), ch: num(o.ch), dg: num(o.dg), jour_paiement: num(o.jpay), date_debut: dateOnly(o.debut), date_fin: dateOnly(o.fin), date_fin_effective: dateOnly(o.finEffective), locataires: jb(o.locataires ?? []), garants: jb(o.signataires ?? null), signatures: jb(o.signatures ?? null), signed_at: sig ? ts(sig.signedAt) : null, content_hash: hash, signature_source: src, locked, notes: o.notes ?? null, quitt_auto_gen: !!o.quittAutoGen, ...base(o, ctx) }
+    return { id: ctx.detUuid('bail', bailLigneCle(o.__key, o._bailUid)), legacy_ref: o.__key, logement_id: log, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, type_bail: null, hc: num(o.hc), ch: num(o.ch), dg: num(o.dg), jour_paiement: num(o.jpay), date_debut: dateOnly(o.debut), date_fin: dateOnly(o.fin), date_fin_effective: dateOnly(o.finEffective), locataires: jb(o.locataires ?? []), garants: jb(o.signataires ?? null), signatures: jb(o.signatures ?? null), signed_at: sig ? ts(sig.signedAt) : null, content_hash: hash, signature_source: src, locked, notes: o.notes ?? null, quitt_auto_gen: !!o.quittAutoGen, ...base(o, ctx) }
   },
   baux_historique(o, ctx) {
     // archived_at est NOT NULL ; fallback déterministe (jamais null, jamais clock-dépendant) —
     // identique à l'ETL import.mjs. La CLÉ d'id reste `ref|_archivedAt??''` (matche les rows importées).
     const archived_at = ts(o._archivedAt) || ts(o._modifiedAt) || '1970-01-01T00:00:00.000Z'
-    return { id: ctx.detUuid('bailhist', String(o.ref ?? '') + '|' + (o._archivedAt ?? '')), legacy_ref: o.ref ?? null, logement_id: ctx.logementByRef.get(norm(o.ref)) || null, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, archived_at, bail_snapshot: jb(o), ...base(o, ctx) }
+    return { id: ctx.detUuid('bailhist', bailHistCle(o)), legacy_ref: o.ref ?? null, logement_id: ctx.logementByRef.get(norm(o.ref)) || null, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, archived_at, bail_snapshot: jb(o), ...base(o, ctx) }
   },
   edl(o, ctx) {
     const log = ctx.logementByRef.get(norm(o.logement)); if (!log) return null
@@ -163,7 +176,9 @@ const MAPPERS = {
     if (!ref || !ctx.logementByRef.get(norm(ref))) return null
     const d = dateOnly(o.date); if (!d) return null
     const type = ['resiliation', 'conge', 'renouvellement', 'revision_loyer', 'autre', 'modification', 'avenant'].includes(o.type) ? o.type : 'autre'
-    return { id: ctx.detUuid('bailevt', String(o.id)), legacy_id: String(o.id ?? ''), bail_id: ctx.detUuid('bail', norm(ref)), type_evenement: type, date_evenement: d, bail_debut: dateOnly(o.bailDebut), ...base(o, ctx) }
+    // bail_id : la ligne du bail CONCERNÉ — `bailUid` (posé à la création de l'entrée, ou par store-sync)
+    // pour un bail à ligne propre ; absent → ligne historique du logement (toutes les entrées existantes).
+    return { id: ctx.detUuid('bailevt', String(o.id)), legacy_id: String(o.id ?? ''), bail_id: ctx.detUuid('bail', bailLigneCle(ref, o.bailUid)), type_evenement: type, date_evenement: d, bail_debut: dateOnly(o.bailDebut), ...base(o, ctx) }
   },
 }
 

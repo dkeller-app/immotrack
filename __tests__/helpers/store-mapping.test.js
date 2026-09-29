@@ -202,3 +202,26 @@ describe('mapToRow — journal des baux signés (baux_evenements, migration 0054
     expect(mapToRow('baux_evenements', { ...e, date: '' }, ctx())).toBe(null)
   })
 })
+
+describe('identité des lignes baux / archives / journal (chantier clôture-relocation, 28/09)', () => {
+  it('bail SANS _bailUid → id historique du logement (aucune migration) ; AVEC → sa propre ligne ; _bailUid gardé dans legacy_raw', () => {
+    expect(mapToRow('baux', { __key: 'F-1', entity: 'SCI A' }, ctx()).id).toBe('uuid:bail|f-1')
+    const r = mapToRow('baux', { __key: 'F-1', entity: 'SCI A', _bailUid: 'u1' }, ctx())
+    expect(r.id).toBe('uuid:bail|f-1|u1'); expect(r.legacy_ref).toBe('F-1'); expect(r.legacy_raw._bailUid).toBe('u1')
+  })
+  it('entrée de journal : bail_id = ligne du bail concerné (bailUid) ou ligne historique', () => {
+    const e = { id: 'bj', ref: 'F-1', date: '2026-09-28', type: 'modification' }
+    expect(mapToRow('baux_evenements', e, ctx()).bail_id).toBe('uuid:bail|f-1')
+    expect(mapToRow('baux_evenements', { ...e, bailUid: 'u1' }, ctx()).bail_id).toBe('uuid:bail|f-1|u1')
+  })
+  it('document « bail » : ligne propre du bail courant si le résolveur la connaît, sinon historique', () => {
+    const d = { id: 1, parentType: 'bail', parentRef: 'F-1' }
+    expect(mapToRow('documents', d, ctx()).parent_id).toBe('uuid:bail|f-1')
+    expect(mapToRow('documents', d, { ...ctx(), bailUidByRef: new Map([['f-1', 'u1']]) }).parent_id).toBe('uuid:bail|f-1|u1')
+  })
+  it('archive : _archiveId (collision du même jour) départage l\'id ; absent → id historique', () => {
+    const h = { ref: 'F-1', _archivedAt: '2026-09-28' }
+    expect(mapToRow('baux_historique', h, ctx()).id).toBe('uuid:bailhist|F-1|2026-09-28')
+    expect(mapToRow('baux_historique', { ...h, _archiveId: 'a1' }, ctx()).id).toBe('uuid:bailhist|F-1|2026-09-28|a1')
+  })
+})

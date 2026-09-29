@@ -45,6 +45,13 @@ async function bailRow(espaceId) {
   return (data && data[0]) || null
 }
 
+// Ligne du bail d'un locataire donné (plusieurs lignes par logement depuis B2 : une par bail).
+async function bailRowDe(espaceId, nom) {
+  const { data } = await adminClient().from('baux').select('id, version, deleted_at, legacy_raw')
+    .eq('espace_id', espaceId).order('created_at', { ascending: true })
+  return (data || []).find(r => r.legacy_raw && r.legacy_raw.locataires && r.legacy_raw.locataires[0] && r.legacy_raw.locataires[0].nom === nom) || null
+}
+
 let espaceId = null
 
 beforeAll(async () => { await createUser(U.email, U.pass) })
@@ -76,19 +83,23 @@ describe('B-REBAIL-TOMBSTONE — re-location Misslin→Baysang sur le VRAI Postg
     expect(row.deleted_at).not.toBeNull()                     // le slot est un TOMBSTONE
   })
 
-  it('🎯 appareil FRAIS : bail Baysang créé sur le même logement → REVIVIFIÉ (v+1), pas rejeté', async () => {
+  // 28/09 (chantier clôture/relocation, option B2) : un bail NEUF reçoit SA PROPRE ligne (`_bailUid`, store-sync).
+  // Raison : l'id historique du logement peut être tenu par un bail SIGNÉ ARCHIVÉ (immuable, jamais réanimable) ;
+  // un appareil frais ne peut pas le savoir → la réouverture du slot finissait en conflit éternel. Le tombstone
+  // de l'ancien bail RESTE supprimé ; le nouveau bail monte sur sa ligne, sans conflit (objectif B-REBAIL tenu).
+  it('🎯 appareil FRAIS : bail Baysang créé sur le même logement → MONTE sur sa propre ligne, pas rejeté', async () => {
     const C = await device()                                  // session fraîche : hydrate EXCLUT le tombstone
     expect(C.DB.baux[REF]).toBeUndefined()                    // le bail supprimé n'est pas hydraté (cas prod 13/07)
     const tombstone = await bailRow(espaceId)
     C.DB.baux[REF] = { ...BAYSANG }                           // relocation : nouveau bail sur Ferrette-001
     const s = await C.boot.flush()
     expect(s.errors).toEqual([]); expect(s.conflicts).toEqual([]); expect(s.skipped).toEqual([])
-    expect(s.revives).toContainEqual({ coll: 'baux', key: REF.toLowerCase() })   // 'revived' tracé À PART (distinct des upserts)
-    expect(s.upserts).toEqual([])                                                // la relocation n'est PAS un upsert banal
-    const row = await bailRow(espaceId)
-    expect(row.id).toBe(tombstone.id)                         // MÊME ligne (même id déterministe)
-    expect(row.deleted_at).toBeNull()                         // slot RÉ-OUVERT
-    expect(Number(row.version)).toBe(Number(tombstone.version) + 1)   // v+1
+    expect(s.upserts).toContainEqual({ coll: 'baux', key: REF.toLowerCase() })   // insert frais
+    expect(s.revives).toEqual([])
+    const row = await bailRowDe(espaceId, 'Baysang')
+    expect(row.id).not.toBe(tombstone.id)                     // SA ligne
+    expect(row.deleted_at).toBeNull()
+    expect((await bailRowDe(espaceId, 'Misslin')).deleted_at).not.toBeNull()   // l'ancien reste supprimé (pas de résurrection)
     expect(row.legacy_raw.locataires[0].nom).toBe('Baysang')         // nouveau payload
     expect(row.legacy_raw.hc).toBe(495)
   })
@@ -114,7 +125,7 @@ describe('B-REBAIL-TOMBSTONE — re-location Misslin→Baysang sur le VRAI Postg
     const sEdit = await D.boot.flush()
     expect(sEdit.conflicts).toContainEqual({ coll: 'baux', key: REF.toLowerCase() })
     expect(sEdit.upserts).toEqual([])
-    const row = await bailRow(espaceId)
+    const row = await bailRowDe(espaceId, 'Baysang')
     expect(row.deleted_at).not.toBeNull()                     // RESTE supprimé (pas de résurrection)
     expect(row.legacy_raw.hc).not.toBe(999)                   // l'édition périmée n'a pas écrasé
   })

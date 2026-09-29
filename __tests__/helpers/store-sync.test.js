@@ -23,12 +23,19 @@ function mockStore(overrides = {}) {
       if (overrides[k].throws) throw new Error(overrides[k].throws)
       return overrides[k]
     }
-    return op === 'upsert' ? { status: 'inserted', id: k, version: 1 } : { status: 'deleted', id: k, version: 2 }
+    return op === 'upsert' ? { status: 'inserted', id: k, version: 1 } : op === 'archive' ? { status: 'archived', id: k, version: 3 } : { status: 'deleted', id: k, version: 2 }
   }
   return {
     calls,
     upsert: async (coll, rec, opts) => { calls.push({ op: 'upsert', coll, rec, opts }); return reply('upsert', coll, rec) },
     remove: async (coll, rec) => { calls.push({ op: 'remove', coll, rec }); return reply('remove', coll, rec) },
+    // Archivage d'un bail (migration 0055). Override par clé 'archive|baux:F3' (sinon partagé avec remove).
+    archive: async (coll, rec) => {
+      calls.push({ op: 'archive', coll, rec })
+      const o = overrides['archive|' + keyOf(coll, rec)]
+      if (o) { if (o.throws) throw new Error(o.throws); return o }
+      return reply('archive', coll, rec)
+    },
   }
 }
 
@@ -51,11 +58,12 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(summary.removes).toEqual([])
   })
 
-  it('VERROU LÉGAL : un bail verrouillé au baseline = jamais ré-upserté/supprimé ; la transition false→true POSE le verrou', async () => {
+  it('VERROU LÉGAL (B2, 28/09) : la transition false→true POSE le verrou ; ensuite la ligne n\'est JAMAIS réécrite — la modif part au JOURNAL, le retrait ARCHIVE', async () => {
+    // Réécrit le 28/09 : ce test figeait le DÉFAUT (modif et suppression d'un signé perdues sans signal).
     const store = mockStore()
-    const db = baseDB()
+    const db = { ...baseDB(), logements: [{ ref: 'F3', entity: 'SCI A' }], baux_evenements: [] }
     db.baux = { F3: { hc: 700, signatures: { signedAt: '2026-01-01T00:00:00Z', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: false } } }
-    const sync = createStoreSync({ store, getDB: () => db })
+    const sync = createStoreSync({ store, getDB: () => db, now: () => new Date('2026-09-29T08:00:00Z') })
     sync.seed()                                   // baseline : F3 NON verrouillé
     const bx = () => store.calls.filter(c => c.coll === 'baux').map(c => c.op + ':' + c.rec.__key)
 
@@ -64,17 +72,34 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     await sync.flush()
     expect(bx()).toEqual(['upsert:F3'])
 
-    // (2) F3 désormais verrouillé au baseline → une modif (illégitime) NE doit PAS ré-upserter (trigger refuserait)
+    // (2) F3 verrouillé → une modif (révision IRL) : la LIGNE n'est pas réécrite (le trigger refuserait)…
     store.calls.length = 0
-    db.baux.F3.hc = 999
-    await sync.flush()
+    db.baux.F3.hc = 712
+    const s2 = await sync.flush()
     expect(bx()).toEqual([])
+    // … mais elle n'est plus perdue : une entrée de journal automatique part dans le même flush.
+    expect(db.baux_evenements).toHaveLength(1)
+    expect(db.baux_evenements[0]).toMatchObject({ ref: 'F3', type: 'modification', source: 'auto', signedAt: '2026-01-01T00:00:00Z', date: '2026-09-29T08:00:00.000Z' })
+    expect(db.baux_evenements[0].changements).toEqual([{ champ: 'hc', libelle: 'Loyer HC', avant: 700, apres: 712, fin: true }])
+    expect(store.calls.map(c => c.op + ':' + c.coll)).toEqual(['upsert:baux_evenements'])
+    expect(s2.journalises).toEqual([{ coll: 'baux', key: 'f3', id: db.baux_evenements[0].id }])
+    // idempotent : rien de plus au flush suivant
+    store.calls.length = 0
+    await sync.flush()
+    expect(store.calls).toEqual([])
+    expect(db.baux_evenements).toHaveLength(1)
 
-    // (3) suppression d'un signé verrouillé → NE doit PAS remove
+    // (3) retrait d'un signé verrouillé (clôture / suppression) → ARCHIVÉ (jamais supprimé)
     store.calls.length = 0
     delete db.baux.F3
+    const s3 = await sync.flush()
+    expect(bx()).toEqual(['archive:F3'])
+    expect(s3.archives).toEqual([{ coll: 'baux', key: 'f3' }])
+    expect(s3.removes).toEqual([])
+    // l'ancienne ligne a quitté le baseline → plus rien au flush suivant (pas de boucle)
+    store.calls.length = 0
     await sync.flush()
-    expect(bx()).toEqual([])
+    expect(store.calls).toEqual([])
   })
 
   it('VERROU pièce 2 : un bail signé NON scellé (ex. présentiel : signedAt sans locked) est SCELLÉ au flush (empreinte + verrou) puis poussé, idempotent ensuite', async () => {
@@ -542,8 +567,8 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(store.calls.filter(c => c.op === 'remove' && c.coll === 'mouvements')).toHaveLength(1)
   })
 
-  it('markDirty : la suppression d\'un bail VERROUILLÉ au baseline ne déclenche PAS l\'immédiat (le flush ne ferait rien → anti-boucle)', async () => {
-    const store = mockStore()
+  it('markDirty (B2) : le retrait d\'un bail VERROUILLÉ déclenche l\'immédiat (archivage) ; après un CONFLIT d\'archivage, retour au debounce (anti-boucle)', async () => {
+    const store = mockStore({ 'archive|baux:F3': { status: 'conflict' } })
     const db = baseDB()
     db.baux = { F3: { hc: 700, signatures: { signedAt: '2026-01-01T00:00:00Z', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true } } }
     const sched = []
@@ -552,7 +577,11 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     delete db.baux.F3
     sync.markDirty()
     expect(sched).toHaveLength(1)
-    expect(sched[0].opts && sched[0].opts.immediate).toBeFalsy()
+    expect(sched[0].opts).toMatchObject({ immediate: true })
+    const s = await sched[0].fn()
+    expect(s.conflicts).toEqual([{ coll: 'baux', key: 'f3' }])
+    sync.markDirty()
+    expect(sched.at(-1).opts && sched.at(-1).opts.immediate).toBeFalsy()
   })
 
   it('RETRY BACKOFF : un flush avec erreurs re-programme un flush via schedule({retryDelayMs}) — délai doublé à chaque échec, plafonné, remis à zéro au succès', async () => {
@@ -932,6 +961,199 @@ describe('journal des baux signés (0054) — incident Ferrette 101', () => {
   })
 })
 
+// ── CHANTIER CLÔTURE / RELOCATION D'UN BAIL SIGNÉ (option B2, 28/09) ────────────────────────────────
+// Défaut prouvé sur la base hébergée (supabase/tests/repro-bail-signe-cloture.test.mjs) : clôture,
+// relocation, IRL, lien du PDF… d'un bail signé scellé perdus EN SILENCE au rechargement.
+describe('B2 — bail signé : archivage, ligne propre du successeur, journal automatique', () => {
+  const SIG = { signedAt: '2025-01-01T10:00:00Z', mode: 'avec-locataire', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }
+  const dupont = () => ({ entity: 'SCI A', hc: 600, ch: 40, debut: '2025-01-01', locataires: [{ nom: 'Dupont' }], signatures: { ...SIG } })
+  const martin = () => ({ entity: 'SCI A', hc: 650, ch: 40, debut: '2026-10-01', locataires: [{ nom: 'Martin' }] })
+  const setup = (overrides) => {
+    const store = mockStore(overrides)
+    const db = { ...baseDB(), baux: { 'F-1': dupont() }, baux_historique: [], baux_evenements: [] }
+    let n = 0
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'u' + (++n), now: () => new Date('2026-09-29T08:00:00Z') })
+    sync.seed()
+    return { store, db, sync, bx: () => store.calls.filter(c => c.coll === 'baux').map(c => c.op + ':' + c.rec.__key + ':' + (c.rec._bailUid || '-')) }
+  }
+  // Geste EXACT de saveBailClore (index.html) : archive + tombstone + logement vacant.
+  const cloturer = (db, ref) => {
+    const b = db.baux[ref]; Object.assign(b, { finEffective: '2026-09-30', cloture: true, ref, _archivedAt: '2026-09-28' })
+    db.baux_historique.push({ ...b })
+    db.baux[ref] = { ref, _deleted: true, _archivedAt: '2026-09-28' }
+  }
+
+  it('CLÔTURE : la ligne signée est ARCHIVÉE (pas supprimée), l\'archive monte', async () => {
+    const { store, db, sync, bx } = setup()
+    cloturer(db, 'F-1')
+    const s = await sync.flush()
+    expect(bx()).toEqual(['archive:F-1:-'])                    // ligne historique du logement (bail existant, sans _bailUid)
+    expect(s.archives).toEqual([{ coll: 'baux', key: 'f-1' }])
+    expect(store.calls.some(c => c.op === 'upsert' && c.coll === 'baux_historique')).toBe(true)
+    expect(s.errors).toEqual([]); expect(s.conflicts).toEqual([]); expect(s.skipped).toEqual([])
+  })
+
+  it('RELOCATION même flush : archive l\'ancienne ligne PUIS insère le successeur sur SA PROPRE ligne', async () => {
+    const { db, sync, bx, store } = setup()
+    cloturer(db, 'F-1')
+    db.baux['F-1'] = martin()
+    const s = await sync.flush()
+    expect(bx()).toEqual(['archive:F-1:-', 'upsert:F-1:u1'])   // ordre : l'index n'admet qu'un bail courant
+    expect(db.baux['F-1']._bailUid).toBe('u1')
+    const up = store.calls.find(c => c.op === 'upsert' && c.coll === 'baux')
+    expect(up.opts).toEqual({ allowRevive: true })             // ajout frais
+    expect(mapToRow('baux', up.rec, realCtx()).id).toBe('uuid:bail|f-1|u1')   // ≠ 'uuid:bail|f-1' (ligne archivée)
+    expect(s.archives).toHaveLength(1); expect(s.upserts).toContainEqual({ coll: 'baux', key: 'f-1' })
+    store.calls.length = 0
+    await sync.flush()
+    expect(store.calls).toEqual([])                            // état stable
+  })
+
+  it('RELOCATION sans clôture (nouveau bail sur logement occupé, archiverBail) : même traitement', async () => {
+    const { db, sync, bx } = setup()
+    db.baux_historique.push({ ...db.baux['F-1'], ref: 'F-1', _archivedAt: '2026-09-28', _archivedAuto: true })
+    db.baux['F-1'] = martin()
+    await sync.flush()
+    expect(bx()).toEqual(['archive:F-1:-', 'upsert:F-1:u1'])
+  })
+
+  it('archivage en CONFLIT : le successeur ATTEND (aucun insert qui heurterait l\'index), identité stable', async () => {
+    const { db, sync, bx } = setup({ 'archive|baux:F-1': { status: 'conflict' } })
+    db.baux['F-1'] = martin()
+    const s = await sync.flush()
+    expect(bx()).toEqual(['archive:F-1:-'])
+    expect(s.conflicts).toEqual([{ coll: 'baux', key: 'f-1' }])
+    expect(s.upserts).toEqual([])
+    expect(db.baux['F-1']._bailUid).toBe('u1')
+    await sync.flush()
+    expect(db.baux['F-1']._bailUid).toBe('u1')                 // pas re-tiré à chaque flush
+  })
+
+  it('archivage en ERREUR (réseau) : successeur retenu, erreur isolée + retry ; au flush suivant tout part', async () => {
+    let echoue = true
+    const store = mockStore()
+    const archive0 = store.archive
+    store.archive = async (coll, rec) => { if (echoue) { store.calls.push({ op: 'archive', coll, rec }); throw new Error('réseau') } return archive0(coll, rec) }
+    const db = { ...baseDB(), baux: { 'F-1': dupont() }, baux_historique: [], baux_evenements: [] }
+    let k = 0
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'v' + (++k), schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()
+    db.baux['F-1'] = martin()
+    const s1 = await sync.flush()
+    expect(s1.errors).toMatchObject([{ op: 'archive', coll: 'baux', key: 'f-1' }])
+    expect(store.calls.filter(c => c.op === 'upsert' && c.coll === 'baux')).toEqual([])
+    expect(sched.at(-1).opts).toMatchObject({ retryDelayMs: 2000 })
+    echoue = false; store.calls.length = 0
+    await sync.flush()
+    expect(store.calls.filter(c => c.coll === 'baux').map(c => c.op + ':' + (c.rec._bailUid || '-'))).toEqual(['archive:-', 'upsert:v1'])
+  })
+
+  it('RÉINITIALISER LES SIGNATURES d\'un bail scellé (décision II) : signé archivé, brouillon sur sa propre ligne', async () => {
+    const { db, sync, bx } = setup()
+    delete db.baux['F-1'].signatures                           // geste resetBailSignatures (même objet)
+    await sync.flush()
+    expect(bx()).toEqual(['archive:F-1:-', 'upsert:F-1:u1'])
+  })
+
+  it('même bail signé REFAIT (objet reconstruit sans _bailUid) : identité rétablie, jamais de nouvelle ligne ; sa vie part au journal', async () => {
+    const { db, sync, bx } = setup()
+    cloturer(db, 'F-1'); db.baux['F-1'] = martin()
+    await sync.flush()                                         // successeur u1
+    db.baux['F-1'].signatures = { signedAt: '2026-10-01T09:00:00Z', mode: 'avec-locataire' }
+    await sync.flush()                                         // scellement : transition false→true (upsert, même ligne u1)
+    expect(db.baux['F-1'].signatures.locked).toBe(true)
+    const avant = bx().length
+    const { _bailUid, ...reconstruit } = db.baux['F-1']
+    db.baux['F-1'] = { ...reconstruit, depart: { etape: 1 } }
+    await sync.flush()
+    expect(db.baux['F-1']._bailUid).toBe('u1')                 // rétabli
+    expect(bx().slice(avant)).toEqual([])                      // ni archivage ni nouvelle ligne
+    const e = db.baux_evenements.at(-1)
+    expect(e).toMatchObject({ source: 'auto', bailUid: 'u1', signedAt: '2026-10-01T09:00:00Z' })
+    expect(e.changements.map(c => c.champ)).toEqual(['depart'])
+  })
+
+  it('bail NEUF (clé absente du baseline) : ligne propre ; bail existant NON signé réédité : ligne et identité inchangées', async () => {
+    const { db, sync } = setup()
+    db.logements.push({ ref: 'F-2', entity: 'SCI A' })
+    db.baux['F-2'] = martin()
+    await sync.flush()
+    expect(db.baux['F-2']._bailUid).toBe('u1')
+    const store2 = mockStore()
+    const db2 = { ...baseDB(), baux: { 'F-1': martin() } }
+    const s2 = createStoreSync({ store: store2, getDB: () => db2, newUid: () => 'x' })
+    s2.seed()
+    db2.baux['F-1'] = { ...martin(), hc: 700 }                 // saveBail reconstruit l'objet
+    await s2.flush()
+    expect(db2.baux['F-1']._bailUid).toBeUndefined()
+    expect(store2.calls.map(c => c.op + ':' + c.coll)).toEqual(['upsert:baux'])
+    expect(store2.calls[0].opts).toEqual({ allowRevive: false })   // édition, pas un ajout
+  })
+
+  it('JOURNAL AUTO : lien du PDF signé posé APRÈS le scellement (course présentielle) → journalisé, jamais perdu', async () => {
+    const { db, sync, store } = setup()
+    db.baux['F-1'].signatures.cloudPdfKey = 'esp/ent/files/bp_F_1.pdf'
+    db.baux['F-1'].signatures.proof = { v: 1 }
+    await sync.flush()
+    expect(store.calls.filter(c => c.coll === 'baux')).toEqual([])
+    const e = db.baux_evenements.at(-1)
+    expect(e.changements.map(c => c.champ)).toEqual(['signatures.cloudPdfKey', 'signatures.proof'])
+    expect(e.changements.every(c => c.vie)).toBe(true)
+  })
+
+  it('JOURNAL AUTO : pas de doublon avec « Modifier le bail » (entrée explicite déjà présente)', async () => {
+    const { db, sync, store } = setup()
+    db.baux['F-1'].notes = 'Animaux acceptés'
+    db.baux_evenements.push({ id: 'bj_1', ref: 'F-1', type: 'modification', signedAt: SIG.signedAt, date: '2026-09-28T09:00:00Z', changements: [{ champ: 'notes', apres: 'Animaux acceptés' }] })
+    await sync.flush()
+    expect(db.baux_evenements).toHaveLength(1)
+    expect(store.calls.map(c => c.op + ':' + c.coll)).toEqual(['upsert:baux_evenements'])
+  })
+
+  it('JOURNAL AUTO : champ hors liste fermée (document signé, champ inconnu) → rien (jamais d\'écriture parasite)', async () => {
+    const { db, sync, store } = setup()
+    db.baux['F-1'].signatures.bailSnapshot = { log: { ref: 'F-1' } }   // backfill au démarrage (_captureBailSnapshot)
+    db.baux['F-1']._snapshotBackfilled = true
+    await sync.flush()
+    expect(db.baux_evenements).toEqual([])
+    expect(store.calls).toEqual([])
+  })
+
+  it('JOURNAL : une entrée « Modifier le bail » d\'un bail à ligne propre reçoit son bailUid avant le 1ᵉʳ envoi (FK) ; une entrée déjà envoyée n\'est pas retouchée', async () => {
+    const store = mockStore()
+    const db = { ...baseDB(), baux: { 'F-1': { ...dupont(), _bailUid: 'u9' } }, baux_evenements: [{ id: 'old', ref: 'F-1', type: 'modification', signedAt: SIG.signedAt, date: '2026-01-01', changements: [] }] }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.baux_evenements.push({ id: 'bj_2', ref: 'F-1', type: 'modification', signedAt: SIG.signedAt, date: '2026-09-28', changements: [{ champ: 'notes', apres: 'x' }] })
+    db.baux['F-1'].notes = 'x'
+    await sync.flush()
+    expect(db.baux_evenements.find(e => e.id === 'bj_2').bailUid).toBe('u9')
+    expect(db.baux_evenements.find(e => e.id === 'old').bailUid).toBeUndefined()
+    expect(mapToRow('baux_evenements', db.baux_evenements.find(e => e.id === 'bj_2'), realCtx()).bail_id).toBe('uuid:bail|f-1|u9')
+  })
+
+  it('ARCHIVES DU MÊME JOUR (prouvé en base : la 2ᵉ écrasait la 1ʳᵉ) : départagées, l\'archive déjà envoyée garde sa ligne', async () => {
+    const store = mockStore()
+    const h1 = { ref: 'F-1', _archivedAt: '2026-09-28', entity: 'SCI A', locataires: [{ nom: 'Dupont' }] }
+    const db = { ...baseDB(), baux_historique: [h1] }
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'a1' })
+    sync.seed()
+    db.baux_historique.push({ ref: 'F-1', _archivedAt: '2026-09-28', entity: 'SCI A', locataires: [{ nom: 'Martin' }] })
+    await sync.flush()
+    expect(h1._archiveId).toBeUndefined()
+    expect(db.baux_historique[1]._archiveId).toBe('a1')
+    const ups = store.calls.filter(c => c.coll === 'baux_historique')
+    expect(ups.map(c => c.op)).toEqual(['upsert'])
+    expect(mapToRow('baux_historique', ups[0].rec, realCtx()).id).toBe('uuid:bailhist|F-1|2026-09-28|a1')
+    expect(mapToRow('baux_historique', h1, realCtx()).id).toBe('uuid:bailhist|F-1|2026-09-28')   // seule : identité historique
+  })
+
+  it('summaryHasCloudWrites compte un archivage', () => {
+    expect(summaryHasCloudWrites({ archives: [{ coll: 'baux', key: 'f-1' }] })).toBe(true)
+  })
+})
+
 describe('ARCHIVE AVANT SCEAU (28/09) — signature en présence : sceller APRÈS l\'archive du PDF', () => {
   const now = Date.parse('2026-09-28T10:00:00Z')
   it('archiveEnAttente : présentiel complet récent sans référence d\'archive → attendre', () => {
@@ -1017,5 +1239,183 @@ describe('ARCHIVE AVANT SCEAU — suite audit (date saisie, relance, empreinte)'
     await sync.flush()
     expect(db.baux['F-1'].signatures.locked).toBe(true)
     expect(db.baux['F-1'].signatures.contentHashTerms).toBe(h1)   // empreinte du contenu SIGNÉ
+  })
+})
+
+// ── Suite d'audit v15.690 (code-reviewer) ────────────────────────────────────────────────────────────
+describe('B2 — suites d\'audit v15.690', () => {
+  const SIG = { signedAt: '2025-01-01T10:00:00Z', mode: 'avec-locataire', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }
+  const dupont = (x) => Object.assign({ entity: 'SCI A', hc: 600, ch: 40, debut: '2025-01-01', locataires: [{ nom: 'Dupont' }], signatures: { ...SIG } }, x || {})
+  const mk = (db, overrides) => {
+    const store = mockStore(overrides)
+    let n = 0
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'n' + (++n), now: () => new Date('2026-09-29T08:00:00Z'), schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()
+    return { store, sync, sched, bx: () => store.calls.filter(c => c.coll === 'baux').map(c => c.op + ':' + (c.rec._bailUid || '-')) }
+  }
+
+  it('C2 — « Annuler » après la suppression d\'un bail scellé DÉJÀ archivé : il revient sur une ligne NEUVE (jamais réécrire la ligne archivée)', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'X' }) }, baux_evenements: [] }
+    const { sync, bx, store } = mk(db)
+    const snapshot = JSON.parse(JSON.stringify(db.baux['F-1']))
+    delete db.baux['F-1']
+    await sync.flush()
+    expect(bx()).toEqual(['archive:X'])
+    store.calls.length = 0
+    db.baux['F-1'] = snapshot                                   // _undoUndo : restauration de l'instantané
+    const s = await sync.flush()
+    expect(db.baux['F-1']._bailUid).toBe('n1')                  // ≠ X (archivée, immuable)
+    expect(bx()).toEqual(['upsert:n1'])
+    expect(store.calls.find(c => c.coll === 'baux').opts).toEqual({ allowRevive: true })
+    expect(s.errors).toEqual([])
+  })
+
+  it('C2 — réinitialisation puis « Annuler » (le brouillon est au baseline) : brouillon retiré, signé revenu sur une ligne NEUVE', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'X' }) }, baux_evenements: [] }
+    const { sync, bx, store } = mk(db)
+    const snapshot = JSON.parse(JSON.stringify(db.baux['F-1']))
+    delete db.baux['F-1'].signatures
+    await sync.flush()
+    expect(bx()).toEqual(['archive:X', 'upsert:n1'])            // signé archivé, brouillon n1
+    store.calls.length = 0
+    db.baux['F-1'] = snapshot                                   // Ctrl+Z
+    await sync.flush()
+    expect(bx()).toEqual(['remove:n1', 'upsert:n2'])            // brouillon supprimé (logiquement), copie signée sur n2
+  })
+
+  it('C2 — bail scellé restauré d\'une sauvegarde alors que le baseline porte un AUTRE bail scellé : archive l\'actuel, ligne neuve pour le restauré', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'M', signatures: { ...SIG, signedAt: '2026-10-01T10:00:00Z' } }) }, baux_evenements: [] }
+    const { sync, bx } = mk(db)
+    db.baux['F-1'] = dupont({ _bailUid: 'X' })                 // ancien bail signé, sa ligne X est archivée au cloud
+    await sync.flush()
+    expect(bx()).toEqual(['archive:M', 'upsert:n1'])
+  })
+
+  it('C2 — le PREMIER scellement d\'un bail garde sa ligne (transition false→true, même identité)', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': { entity: 'SCI A', hc: 600, _bailUid: 'U', signatures: { signedAt: '2026-01-01T00:00:00Z', mode: 'avec-locataire' } } }, baux_evenements: [] }
+    const store = mockStore()
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'zz', sealSigned: false })
+    sync.seed()
+    db.baux['F-1'].signatures.locked = true; db.baux['F-1'].signatures.signatureSource = 'externe'
+    await sync.flush()
+    expect(store.calls.filter(c => c.coll === 'baux').map(c => c.op + ':' + c.rec._bailUid)).toEqual(['upsert:U'])
+  })
+
+  it('I1 — preuve de signature en présence (LISTE) : réappliquée, et pas une nouvelle entrée à chaque flush', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont() }, baux_evenements: [] }
+    const { sync } = mk(db)
+    db.baux['F-1'].signatures.proof = [{ nom: 'Dupont', role: 'locataire', when: '2025-01-01T10:00:00Z' }]
+    db.baux['F-1'].signatures.cloudPdfKey = 'k.pdf'
+    await sync.flush()
+    await sync.flush()
+    await sync.flush()
+    expect(db.baux_evenements).toHaveLength(1)
+    const { reappliquerJournalBaux } = await import('../../js/core/bail-modifications.js')
+    const autre = { 'F-1': dupont() }
+    reappliquerJournalBaux(autre, db.baux_evenements)
+    expect(autre['F-1'].signatures.proof).toEqual([{ nom: 'Dupont', role: 'locataire', when: '2025-01-01T10:00:00Z' }])
+    expect(autre['F-1'].signatures.cloudPdfKey).toBe('k.pdf')
+  })
+
+  it('I2 — entrée « Modifier le bail » sans bailUid, bail clôturé AVANT son 1ᵉʳ envoi : rattachée à la ligne du baseline', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'X' }) }, baux_historique: [], baux_evenements: [] }
+    const { sync, store } = mk(db)
+    db.baux_evenements.push({ id: 'bj_9', ref: 'F-1', type: 'modification', signedAt: SIG.signedAt, date: '2026-09-28', changements: [{ champ: 'notes', apres: 'x' }] })
+    db.baux['F-1'] = { ref: 'F-1', _deleted: true }            // clôturé dans la foulée
+    await sync.flush()
+    expect(db.baux_evenements[0].bailUid).toBe('X')
+    const up = store.calls.find(c => c.coll === 'baux_evenements')
+    expect(mapToRow('baux_evenements', up.rec, realCtx()).bail_id).toBe('uuid:bail|f-1|X')
+  })
+
+  it('I3 — archivage en ERREUR persistante : plus de flush IMMÉDIAT à chaque enregistrement (backoff seul)', async () => {
+    const db = { ...baseDB(), baux: { 'F-1': dupont() }, baux_evenements: [] }
+    const { sync, sched } = mk(db, { 'archive|baux:F-1': { throws: 'ROW_LOCKED_IMMUTABLE' } })
+    delete db.baux['F-1']
+    sync.markDirty()
+    expect(sched.at(-1).opts).toMatchObject({ immediate: true })
+    await sched.at(-1).fn()
+    const nAvant = sched.length
+    sync.markDirty()
+    const dernier = sched.slice(nAvant).at(-1)
+    expect(dernier.opts && dernier.opts.immediate).toBeFalsy()
+  })
+
+  it('M4 — vie du bail : un type inattendu venu du journal partagé est IGNORÉ (jamais injecté)', async () => {
+    const { reappliquerJournalBaux } = await import('../../js/core/bail-modifications.js')
+    const baux = { 'F-1': dupont({ depart: { etape: 1 } }) }
+    reappliquerJournalBaux(baux, [{ id: 'x', ref: 'F-1', type: 'modification', signedAt: SIG.signedAt, date: '2026-09-28', changements: [
+      { champ: 'depart', apres: 'pas un objet' }, { champ: 'avenants', apres: { pas: 'une liste' } }, { champ: 'dgRestitueAt', apres: 42 },
+      { champ: 'dgRestitueMontant', apres: '812,50' }, { champ: 'reprisVerifie', apres: true }, { champ: 'depart', apres: null } ] }])
+    const b = baux['F-1']
+    expect(b.depart).toBeNull()                                 // null accepté (champ retiré)
+    expect(b.avenants).toBeUndefined(); expect(b.dgRestitueAt).toBeUndefined()
+    expect(b.dgRestitueMontant).toBe('812,50'); expect(b.reprisVerifie).toBe(true)
+  })
+})
+
+// ── Contre-audit v15.690 ─────────────────────────────────────────────────────────────────────────────
+describe('B2 — contre-audit v15.690', () => {
+  const SIG = { signedAt: '2025-01-01T10:00:00Z', mode: 'avec-locataire', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }
+  const dupont = (x) => Object.assign({ entity: 'SCI A', hc: 600, ch: 40, debut: '2025-01-01', locataires: [{ nom: 'Dupont' }], signatures: { ...SIG } }, x || {})
+
+  it('I-1 — insert du bail restauré en ÉCHEC (réseau) : l\'uid reste STABLE au flush suivant, et l\'entrée de journal vise la ligne réellement créée', async () => {
+    let echec = true
+    const store = mockStore()
+    const up0 = store.upsert
+    store.upsert = async (coll, rec, opts) => {
+      if (coll === 'baux' && echec) { echec = false; store.calls.push({ op: 'upsert', coll, rec, opts }); throw new Error('réseau') }
+      return up0(coll, rec, opts)
+    }
+    const db = { ...baseDB(), baux: { 'F-1': dupont({ _bailUid: 'X' }) }, baux_evenements: [] }
+    let n = 0
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'n' + (++n) })
+    sync.seed()
+    const snapshot = JSON.parse(JSON.stringify(db.baux['F-1']))
+    delete db.baux['F-1']
+    await sync.flush()                                          // archive X
+    db.baux['F-1'] = snapshot                                   // « Annuler »
+    const s1 = await sync.flush()                               // insert n1 → échec réseau
+    expect(s1.errors).toMatchObject([{ op: 'upsert', coll: 'baux' }])
+    expect(db.baux['F-1']._bailUid).toBe('n1')
+    // « Modifier le bail » entre-temps : l'entrée prend l'uid courant
+    db.baux_evenements.push({ id: 'bj_1', ref: 'F-1', type: 'modification', signedAt: SIG.signedAt, date: '2026-09-29', bailUid: db.baux['F-1']._bailUid, changements: [{ champ: 'notes', apres: 'x' }] })
+    db.baux['F-1'].notes = 'x'
+    store.calls.length = 0
+    const s2 = await sync.flush()
+    expect(s2.errors).toEqual([])
+    expect(db.baux['F-1']._bailUid).toBe('n1')                  // PAS re-tiré
+    const upB = store.calls.find(c => c.op === 'upsert' && c.coll === 'baux')
+    const upJ = store.calls.find(c => c.op === 'upsert' && c.coll === 'baux_evenements')
+    expect(mapToRow('baux', upB.rec, realCtx()).id).toBe('uuid:bail|f-1|n1')
+    expect(mapToRow('baux_evenements', upJ.rec, realCtx()).bail_id).toBe('uuid:bail|f-1|n1')
+    // la ligne écrite, un nouvel « Annuler » d'un scellé venu d'ailleurs reste traité comme tel (C2 intact)
+    store.calls.length = 0
+    await sync.flush()
+    expect(store.calls).toEqual([])
+  })
+
+  it('m-2 — valeur refusée à la réapplication (type inattendu) : pas une nouvelle entrée à chaque flush', async () => {
+    const store = mockStore()
+    const db = { ...baseDB(), baux: { 'F-1': dupont() }, baux_evenements: [] }
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'u' })
+    sync.seed()
+    db.baux['F-1'].depart = 'texte au lieu d\'un objet'          // refusé par le contrôle de type (M4)
+    db.baux['F-1'].dgRestitueAt = '2026-07-15'                  // valide
+    await sync.flush(); await sync.flush(); await sync.flush()
+    expect(db.baux_evenements).toHaveLength(1)
+    expect(db.baux_evenements[0].changements.map(c => c.champ)).toEqual(['dgRestitueAt'])
+  })
+})
+
+describe('I-2 — modificationsDuBail : la vie du bail ne compte pas comme « modifié depuis la signature »', () => {
+  it('entrées purement `vie` ignorées ; une entrée avec un terme modifié compte', async () => {
+    const { modificationsDuBail } = await import('../../js/core/bail-modifications.js')
+    const bail = { signatures: { signedAt: 'S1', mode: 'avec-locataire' } }
+    const e = (id, changements) => ({ id, ref: 'F-1', type: 'modification', signedAt: 'S1', date: '2026-09-2' + id, changements })
+    const j = [e('1', [{ champ: 'depart', vie: true }, { champ: 'signatures.cloudPdfKey', vie: true }]), e('2', [{ champ: 'notes' }])]
+    expect(modificationsDuBail(j.slice(0, 1), 'F-1', bail)).toEqual([])
+    expect(modificationsDuBail(j, 'F-1', bail).map(x => x.id)).toEqual(['2'])
   })
 })
