@@ -20915,7 +20915,7 @@ function _visaleLire(p) {
   };
   if (V) return V.visaleNormaliser(raw);
   // Module absent (audit m-7) : on garde tous les champs saisis tels quels, sans les perdre.
-  return String(raw.visaId || '').trim() ? { ...raw, visaId: String(raw.visaId).trim() } : null;
+  return String(raw.visaId || '').trim() ? { ...raw, visaId: String(raw.visaId).trim(), loyerMax: Number(raw.loyerMax) > 0 ? Number(raw.loyerMax) : null } : null;
 }
 function _visaleEcrire(p, vis) {
   _visaleMount(p);
@@ -21153,12 +21153,16 @@ function saveBail() {
     if (_bx && !_bx._deleted && !_bx.cloture) _gmbiPrec = { ..._bx };
     else _gmbiPrec = (DB.baux_historique || []).filter(h => h && h.ref === ref).slice(-1)[0] || null;
   }
+  // VISALE-GMBI (contre-audit B-1) : l'archivage de l'ancien bail est DIFFÉRÉ après les dernières
+  // confirmations (garantie Visale) — annuler l'une d'elles ne doit rien laisser à moitié écrit
+  // (ancien bail archivé + barème clos alors que le nouveau n'est pas enregistré).
+  let _archiverAncien = false;
   if(isNewBail) {
     const bailExistant = DB.baux[ref];
     if(bailExistant && !bailExistant.cloture) {
       const ancLoc = (bailExistant.locataires||[{nom:bailExistant.nom||'?'}]).map(l=>l.nom).join(', ');
       if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.\n\nConfirmer la création du nouveau bail ?`)) return;
-      archiverBail(ref, _debut); // C4 : clôture l'ancien bail à la veille du nouveau (fin du dû doublé)
+      _archiverAncien = true;
     }
   }
 
@@ -21225,7 +21229,8 @@ function saveBail() {
   }
   // VISALE-GMBI : contrôles du visa rappelés à l'enregistrement (le loyer se saisit APRÈS la garantie).
   // Un seul avertissement non bloquant (confirm2) : un toast serait écrasé par « Bail enregistré ».
-  {
+  // 2ᵉ passage après la popup de validation financière (_pendingVal) : déjà confirmé, on ne redemande pas.
+  if (!_pendingVal) {
     let _vc = null;
     try { _vc = window.Visale ? window.Visale.visaleControle(bail.visale, { loyerCC: (Number(bail.hc)||0) + (Number(bail.ch)||0), aujourdhui: td() }) : null; }
     catch (e) { console.warn('[VISALE] contrôle', e); }
@@ -21234,6 +21239,7 @@ function saveBail() {
     if (_vc && _vc.expire && (isNewBail || !(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.signedAt))) _vMsg.push(`• Visa expiré depuis le ${fd(_vc.expire.validite)} : le bail doit être signé avant la fin de validité du visa.`);
     if (_vMsg.length && !confirm2('Garantie Visale :\n\n' + _vMsg.join('\n') + '\n\nLe locataire doit demander un nouveau visa sur visale.fr.\n\nEnregistrer quand même ?')) return;
   }
+  if (_archiverAncien) archiverBail(ref, _debut); // C4 : clôture l'ancien bail à la veille du nouveau (fin du dû doublé)
   // NOUVEAU BAIL (isNewBail) sur un logement occupé : archiverBail LAISSE l'ancien bail dans DB.baux[ref]
   // jusqu'au remplacement ci-dessous. Rien de l'ancien ne doit passer au nouveau — ni clôture, ni
   // SIGNATURES (le nouveau locataire apparaissait « signé » à la date de l'ancien), ni champs figés, ni
