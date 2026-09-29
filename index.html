@@ -2424,6 +2424,32 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
           <select class="inp" id="logp-loc-irlRef"><option value="">— Non renseigné —</option></select>
         </div>
       </div>
+      <!-- ANNONCES (CDC 29/09/2026, D8 + mode de règlement des charges) — mentions d'annonce :
+           « dans tous les cas les modalités de règlement » des charges (arrêté du 21 avril 2022, 2°),
+           honoraires d'état des lieux « le cas échéant » (6°), honoraires charge locataire si un
+           mandataire est configuré (arrêté du 10 janvier 2017, art. 4-I-6°). Lus par _logpReadFromForm
+           (lecture partielle) ; jamais poussés par le bail, donc jamais grisés. -->
+      <div class="fg2">
+        <div class="fg">
+          <label>Mode de règlement des charges</label>
+          <select class="inp" id="logp-loc-chModalite">
+            <option value="">— À préciser —</option>
+            <option value="provision">Provision + régularisation annuelle</option>
+            <option value="forfait">Forfait</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Honoraires d'état des lieux à la charge du locataire (€ TTC) <span class="mu sm" style="font-weight:400">(facultatif)</span></label>
+          <input class="inp" type="number" min="0" step="0.01" id="logp-loc-honoEdl" placeholder="vide = aucun">
+        </div>
+      </div>
+      <div class="fg2" id="logp-loc-hcl-row" style="display:none">
+        <div class="fg">
+          <label>Honoraires charge locataire (€ TTC) <span class="mu sm" style="font-weight:400">(mandataire)</span></label>
+          <input class="inp" type="number" min="0" step="0.01" id="logp-loc-honoHcl" placeholder="ex : 600">
+        </div>
+        <div class="fg"></div>
+      </div>
       <div class="fg2">
         <div class="fg">
           <label>Date de disponibilité</label>
@@ -4267,8 +4293,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <button class="btn bp" onclick="printRegulDoc()"><span data-uic="printer"></span> Imprimer</button>
   </div>
 </div></div>
-<!-- v15.230 LOG-ANNONCE Étape 4 — module générateur d'annonces (window.AnnonceGenerator) -->
+<!-- ANNONCES (CDC 29/09/2026) — générateur d'annonces conformes (window.AnnonceGenerator) -->
 <script src="js/helpers/annonce-generator.global.js"></script>
+<!-- ANNONCES (D7) — fourchette + années des prix lues dans le texte d'un DPE (window.DpeTexte) -->
+<script src="js/helpers/dpe-texte.global.js"></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 — parser/formatter d'adresse FR (window.AdresseParser) -->
 <script src="js/helpers/adresse-parser.global.js"></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 Commit 2 — résolveur bien hérite imm (window.LogImmResolver) -->
@@ -48066,6 +48094,20 @@ let _logDiagDocScans = {};      // docId → { name, textLen, numeroDpe, coverag
 // (liste des champs encore non vérifiés) pour persister le badge ✨ à la réouverture.
 let _logDiagSuggest = {};
 let _logDiagSrcOpen = false;    // toggle global « afficher les phrases source »
+// ANNONCES (D7) — LISTE UNIQUE des champs « ✨ à vérifier ». Avant : 'date','cabinet','result'
+// recopiés sur 9 sites (restauration, saisie, compteur, valider, effacer, tout valider, tout
+// effacer, auto-cicatrisation, commit). depenses / anneePrix (DPE, lus dans le PDF) s'ajoutent ici.
+const _LOGDIAG_SG_FIELDS = ['date', 'cabinet', 'result', 'depenses', 'anneePrix'];
+function _logDiagSgHasAny(e) { return !!e && _LOGDIAG_SG_FIELDS.some(f => e[f]); }
+/** Vide, dans le brouillon, la valeur réelle portée par une suggestion (champ ✨ → champ du diag). */
+function _logDiagSgClearValue(info, field) {
+  if (!info) return;
+  if (field === 'date') info.date = '';
+  else if (field === 'cabinet') info.diagnostiqueur = '';
+  else if (field === 'result') { delete info.presence; delete info.conforme; info.na = false; }
+  else if (field === 'depenses') info.depensesEnergie = '';
+  else if (field === 'anneePrix') info.anneePrix = '';
+}
 
 // Type de contrôle « Résultat » par diagnostic dans la table groupée
 const _LOGDIAG_RESULT_KIND = {
@@ -48110,10 +48152,8 @@ function _logDiagInitDraft(log) {
     const sg = diag[k] && Array.isArray(diag[k]._sg) ? diag[k]._sg : null;
     if (sg && sg.length) {
       const e = {};
-      if (sg.includes('date'))    e.date    = { src: '' };
-      if (sg.includes('cabinet')) e.cabinet = { src: '' };
-      if (sg.includes('result'))  e.result  = { code: '', src: '' };
-      if (e.date || e.cabinet || e.result) _logDiagSuggest[k] = e;
+      _LOGDIAG_SG_FIELDS.forEach(f => { if (sg.includes(f)) e[f] = (f === 'result') ? { code: '', src: '' } : { src: '' }; });
+      if (_logDiagSgHasAny(e)) _logDiagSuggest[k] = e;
     }
     if (diag[k]) delete diag[k]._sg;
   });
@@ -48173,7 +48213,8 @@ function _logDiagSetField(key, field, val) {
   const info = _logDiagDraft.diag[key] || (_logDiagDraft.diag[key] = {});
   info[field] = val;
   // v15.240 B2 v2-c2 — saisie manuelle = prise en main → la suggestion n'est plus « à vérifier ».
-  _logDiagDismissSuggestion(key, field === 'date' ? 'date' : field === 'diagnostiqueur' ? 'cabinet' : null);
+  _logDiagDismissSuggestion(key, field === 'date' ? 'date' : field === 'diagnostiqueur' ? 'cabinet'
+    : field === 'depensesEnergie' ? 'depenses' : field === 'anneePrix' ? 'anneePrix' : null);
   if(field === 'date') _logDiagRenderTab();
 }
 
@@ -48183,7 +48224,7 @@ function _logDiagDismissSuggestion(key, field) {
   const e = _logDiagSuggest[key]; if(!e) return;
   delete e[field];
   if(field === 'result') delete e.resultAmbiguous;
-  if(!e.date && !e.cabinet && !e.result && !e.resultAmbiguous) delete _logDiagSuggest[key];
+  if(!_logDiagSgHasAny(e) && !e.resultAmbiguous) delete _logDiagSuggest[key];
 }
 
 /** Met à jour le « Résultat » d'un diagnostic (code compact) → champs structurés. */
@@ -48410,6 +48451,10 @@ async function _logDiagFetchAdeme() {
 
     // ── Garde-fou 2 : données ADEME ≠ saisie existante ──────────────────────
     const dpe = D.dpe || {};
+    // ANNONCES (D7) — l'ADEME ne donne qu'UN chiffre (cout_total_5_usages) ; le DPE imprime une
+    // FOURCHETTE « entre X € et Y € par an ». Une fourchette déjà présente (lue dans le PDF ou
+    // saisie) prime : l'import ne la remplace pas et ne demande pas à l'écraser.
+    if (cand.depensesEnergie && window.DpeTexte && window.DpeTexte.estFourchette(dpe.depensesEnergie)) cand.depensesEnergie = '';
     const FIELDS = [
       ['classe', 'Classe énergie'],
       ['ges',    'Classe GES'],
@@ -50126,6 +50171,25 @@ function _logDiagApplySuggestions(text, coverage, srcName) {
       n++;
     }
   }
+  // ANNONCES (D7) — estimation des coûts annuels (fourchette) + années de référence des prix,
+  // imprimées sur le DPE et absentes de l'API ADEME. Proposées « ✨ à vérifier », champ vide seulement.
+  const _cout = (window.DpeTexte && typeof window.DpeTexte.lireCoutsDpe === 'function')
+    ? window.DpeTexte.lireCoutsDpe(text) : null;
+  if (_cout && (_cout.depenses || _cout.annees)) {
+    const dInfo = D.dpe || (D.dpe = {});
+    const dEntry = _logDiagSuggest.dpe || {};
+    if (_cout.depenses && !String(dInfo.depensesEnergie || '').trim() && !dEntry.depenses) {
+      dInfo.depensesEnergie = _cout.depenses;
+      dEntry.depenses = { src: _cout.depensesSrc, name: srcName || '' };
+      n++;
+    }
+    if (_cout.annees && !String(dInfo.anneePrix || '').trim() && !dEntry.anneePrix) {
+      dInfo.anneePrix = _cout.annees;
+      dEntry.anneePrix = { src: _cout.anneesSrc, name: srcName || '' };
+      n++;
+    }
+    if (_logDiagSgHasAny(dEntry)) _logDiagSuggest.dpe = dEntry;
+  }
   return n;
 }
 
@@ -50134,7 +50198,7 @@ function _logDiagPendingCount() {
   let n = 0;
   Object.keys(_logDiagSuggest || {}).forEach(k => {
     const e = _logDiagSuggest[k] || {};
-    if (e.date) n++; if (e.cabinet) n++; if (e.result) n++;
+    _LOGDIAG_SG_FIELDS.forEach(f => { if (e[f]) n++; });
   });
   return n;
 }
@@ -50143,21 +50207,16 @@ function _logDiagPendingCount() {
 function _logDiagSuggestValidate(key, field) {
   const e = _logDiagSuggest[key]; if (!e) return;
   delete e[field];
-  if (!e.date && !e.cabinet && !e.result && !e.resultAmbiguous) delete _logDiagSuggest[key];
+  if (!_logDiagSgHasAny(e) && !e.resultAmbiguous) delete _logDiagSuggest[key];
   _logDiagRenderTab();
 }
 
 /** Efface une suggestion (vide la valeur dans le brouillon + retire le badge). */
 function _logDiagSuggestClear(key, field) {
   const e = _logDiagSuggest[key]; if (!e) return;
-  const info = _logDiagDraft && _logDiagDraft.diag[key];
-  if (info) {
-    if (field === 'date')    info.date = '';
-    if (field === 'cabinet') info.diagnostiqueur = '';
-    if (field === 'result')  { delete info.presence; delete info.conforme; info.na = false; }
-  }
+  _logDiagSgClearValue(_logDiagDraft && _logDiagDraft.diag[key], field);
   delete e[field];
-  if (!e.date && !e.cabinet && !e.result && !e.resultAmbiguous) delete _logDiagSuggest[key];
+  if (!_logDiagSgHasAny(e) && !e.resultAmbiguous) delete _logDiagSuggest[key];
   _logDiagRenderTab();
 }
 
@@ -50165,7 +50224,7 @@ function _logDiagSuggestClear(key, field) {
 function _logDiagSuggestValidateAll() {
   Object.keys(_logDiagSuggest).forEach(k => {
     const e = _logDiagSuggest[k];
-    delete e.date; delete e.cabinet; delete e.result;
+    _LOGDIAG_SG_FIELDS.forEach(f => { delete e[f]; });
     if (!e.resultAmbiguous) delete _logDiagSuggest[k];
   });
   _logDiagRenderTab();
@@ -50176,12 +50235,7 @@ function _logDiagSuggestClearAll() {
   Object.keys(_logDiagSuggest).forEach(k => {
     const e = _logDiagSuggest[k];
     const info = _logDiagDraft && _logDiagDraft.diag[k];
-    if (info) {
-      if (e.date)    info.date = '';
-      if (e.cabinet) info.diagnostiqueur = '';
-      if (e.result)  { delete info.presence; delete info.conforme; info.na = false; }
-    }
-    delete e.date; delete e.cabinet; delete e.result;
+    _LOGDIAG_SG_FIELDS.forEach(f => { if (e[f]) _logDiagSgClearValue(info, f); delete e[f]; });
     if (!e.resultAmbiguous) delete _logDiagSuggest[k];
   });
   _logDiagRenderTab();
@@ -50420,11 +50474,7 @@ function _logDiagRenderTab() {
     const sgE = _logDiagSuggest[e.key];
     if (!sgE) return;
     const info = D[e.key];
-    if (info) {
-      if (sgE.date)    info.date = '';
-      if (sgE.cabinet) info.diagnostiqueur = '';
-      if (sgE.result)  { delete info.presence; delete info.conforme; info.na = false; }
-    }
+    _LOGDIAG_SG_FIELDS.forEach(f => { if (sgE[f]) _logDiagSgClearValue(info, f); });
     delete _logDiagSuggest[e.key];
   });
 
@@ -50452,11 +50502,19 @@ function _logDiagRenderTab() {
           <div class="fg"><label>Conso énergie <span class="mu sm">(kWh/m²/an)</span></label>
             <input class="inp" value="${escHtml(dpe.valEner||'')}" oninput="_logDiagSetField('dpe','valEner',this.value)" placeholder="ex 145"></div>
           <div class="fg"><label>💶 Dépenses estimées <span class="mu sm">(€/an)</span></label>
-            <input class="inp" value="${escHtml(dpe.depensesEnergie||'')}" oninput="_logDiagSetField('dpe','depensesEnergie',this.value)" placeholder="ex 900 à 1 200 €"></div>
+            ${(_logDiagSuggest.dpe && _logDiagSuggest.dpe.depenses)
+              ? `<div class="logdiag-sg-cell"><div class="logdiag-sg-val"><input class="inp logdiag-sg" value="${escHtml(dpe.depensesEnergie||'')}" oninput="_logDiagSetField('dpe','depensesEnergie',this.value)" placeholder="ex entre 900 € et 1 200 € par an"><span class="logdiag-sg-badge">${_uiIcon('sparkle',11)} suggéré</span></div>${_logDiagSgAnnot('dpe','depenses', _logDiagSuggest.dpe.depenses.src)}</div>`
+              : `<input class="inp" value="${escHtml(dpe.depensesEnergie||'')}" oninput="_logDiagSetField('dpe','depensesEnergie',this.value)" placeholder="ex entre 900 € et 1 200 € par an">`}</div>
           <!-- CONTRAT-TYPE-2026-10 — « estimation réalisée à partir des prix énergétiques de référence de
                l'année : […] » (contrat type, IV.G nu / IV.F meublé) : l'année figure sur le DPE. -->
-          <div class="fg"><label>Année de référence des prix <span class="mu sm">(DPE)</span></label>
-            <input class="inp" inputmode="numeric" maxlength="4" value="${escHtml(dpe.anneePrix||'')}" oninput="_logDiagSetField('dpe','anneePrix',this.value)" placeholder="ex 2023"></div>
+          <!-- ANNONCES (D7) — les DPE récents impriment PLUSIEURS années (« Prix moyens des énergies
+               indexés sur les années 2021, 2022, 2023 », vérifié sur 3 DPE réels) : champ texte, plus
+               limité à 4 chiffres. Même champ pour le bail (contrat type) et l'annonce (R126-23). -->
+          <div class="fg"><label>Année(s) de référence des prix <span class="mu sm">(DPE)</span></label>
+            ${(_logDiagSuggest.dpe && _logDiagSuggest.dpe.anneePrix)
+              ? `<div class="logdiag-sg-cell"><div class="logdiag-sg-val"><input class="inp logdiag-sg" value="${escHtml(dpe.anneePrix||'')}" oninput="_logDiagSetField('dpe','anneePrix',this.value)" placeholder="ex 2021, 2022, 2023"><span class="logdiag-sg-badge">${_uiIcon('sparkle',11)} suggéré</span></div>${_logDiagSgAnnot('dpe','anneePrix', _logDiagSuggest.dpe.anneePrix.src)}</div>`
+              : `<input class="inp" value="${escHtml(dpe.anneePrix||'')}" oninput="_logDiagSetField('dpe','anneePrix',this.value)" placeholder="ex 2021, 2022, 2023">`}
+            <div class="mu sm" style="font-size:10.5px;margin-top:3px">Sur le DPE, juste sous l'estimation des coûts annuels.</div></div>
         </div>
       </td>
     </tr>`;
@@ -50648,7 +50706,7 @@ function _logDiagCommitToLog(log) {
       //   date/na/classe, pas _sg) → n'affecte pas l'annexe DDT ni le snapshot signé. Effacé champ
       //   par champ à la validation / saisie manuelle ; sert à re-afficher le badge à la réouverture.
       const sg = _logDiagSuggest[e.key];
-      if(sg) { const fields = ['date','cabinet','result'].filter(f => sg[f]); if(fields.length) info._sg = fields; }
+      if(sg) { const fields = _LOGDIAG_SG_FIELDS.filter(f => sg[f]); if(fields.length) info._sg = fields; }
       clean[e.key] = info;
     }
   });
@@ -51192,6 +51250,20 @@ function _logpFillFromLog(log) {
   ['logp-loc-hcRef','logp-loc-chRef','logp-loc-dgRef','logp-loc-irlRef'].forEach(id => { const e = el(id); if (e) e.disabled = _bailActif; });
   const _theoNote = el('logp-loc-theo-note'); if (_theoNote) _theoNote.style.display = _bailActif ? '' : 'none';
   // BIENS étape 2 : DG/IRL ont rejoint l'onglet Identité, la note de grisage logp-loc-theo-note les couvre.
+  // ANNONCES — mentions d'annonce (jamais poussées par le bail : restent modifiables).
+  setV('logp-loc-chModalite', log.chargesModalite || '');
+  setV('logp-loc-honoEdl', log.honorairesEdlRef);
+  setV('logp-loc-honoHcl', log.honorairesHclRef);
+  // Honoraires charge locataire : seulement si un mandataire est configuré (ou déjà saisis).
+  const _hclRow = el('logp-loc-hcl-row');
+  if (_hclRow) _hclRow.style.display = (_annonceMandataireActif() || (log.honorairesHclRef != null && String(log.honorairesHclRef).trim() !== '')) ? '' : 'none';
+}
+
+/** ANNONCES (D8) — un mandataire loi Hoguet est configuré (Référentiel → Mandataire), même
+ *  prédicat que le bail (withMandataire && actif && nom), sans le choix propre à un bail. */
+function _annonceMandataireActif() {
+  const m = DB && DB.params && DB.params.mandataire;
+  return !!(m && m.actif && String(m.nom || '').trim());
 }
 
 function _logpToggleSurface(key) {
@@ -51451,6 +51523,10 @@ function _logpReadFromForm() {
   if (el('logp-loc-chRef'))  out['chargesRef'] = v('logp-loc-chRef');
   if (el('logp-loc-dgRef'))  out['dgRef']      = v('logp-loc-dgRef');
   if (el('logp-loc-irlRef')) out['irlRef']     = v('logp-loc-irlRef');
+  // ANNONCES — mode de règlement des charges + honoraires (mentions d'annonce, CDC §5.1).
+  if (el('logp-loc-chModalite')) out['chargesModalite']  = v('logp-loc-chModalite');
+  if (el('logp-loc-honoEdl'))    out['honorairesEdlRef'] = v('logp-loc-honoEdl');
+  if (el('logp-loc-honoHcl'))    out['honorairesHclRef'] = v('logp-loc-honoHcl');
 
   return { equipementsCommuns, log: out };
 }

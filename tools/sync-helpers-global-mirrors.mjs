@@ -47,6 +47,17 @@ const PAIRS = [
     ]
   },
   {
+    // Chantier ANNONCES (D7) — fourchette + années des prix lues dans le texte d'un DPE.
+    name: 'dpe-texte',
+    src: '__tests__/helpers/dpe-texte.js',
+    dst: 'js/helpers/dpe-texte.global.js',
+    globalName: 'DpeTexte',
+    exports: ['lireCoutsDpe', 'estFourchette'],
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
     name: 'annonce-generator',
     src: '__tests__/helpers/annonce-generator.js',
     dst: 'js/helpers/annonce-generator.global.js',
