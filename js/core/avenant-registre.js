@@ -251,43 +251,66 @@ export function planApplication({ objets, bail, libelles } = {}) {
   const hc0 = Number(b.hc) || 0, ch0 = Number(b.ch) || 0;
   let hc = hc0, ch = ch0;
   const champs = [], appliques = [], docSeul = [], alertes = [];
-  const pose = (champ, apres) => { if (String(b[champ] == null ? '' : b[champ]) !== String(apres)) champs.push({ champ, apres }); };
+  // Libellés qui dépendent du LOYER FINAL (loyer, supplément d'annexe) : décidés après le contrôle « loyer ≤ 0 ».
+  const surLoyer = [];
+  // Vrai seulement si le champ CHANGE réellement (valeur absente = valeur par défaut du formulaire du bail) :
+  // un champ identique n'est ni journalisé ni annoncé « appliqué » (audit lot 3a, M2).
+  const DEFAUTS = { destinationLocaux: 'habitation' };
+  const pose = (champ, apres) => {
+    const avant = (b[champ] == null || b[champ] === '') && _own(DEFAUTS, champ) ? DEFAUTS[champ] : b[champ];
+    if (String(avant == null ? '' : avant) === String(apres)) return false;
+    champs.push({ champ, apres }); return true;
+  };
   for (const o of (Array.isArray(objets) ? objets : [])) {
     const k = o && o.k; const d = (o && o.data) || {};
-    let applique = false;
     if (k === 'loyer') {
       const m = avenantMontant(d.nouveau, hc0, { strictPositif: true });
-      if (!m.ok) alertes.push('Nouveau loyer illisible : non appliqué.');
-      else if (m.v !== hc0) { hc += m.v - hc0; applique = true; }
+      if (!m.ok) { alertes.push('Nouveau loyer illisible : non appliqué.'); docSeul.push(L(k)); }
+      else if (m.v !== hc0) { hc += m.v - hc0; surLoyer.push(L(k)); }
+      else docSeul.push(L(k));
     } else if (k === 'charges') {
       const m = avenantMontant(d.montant, ch0);
+      let applique = false;
       if (!m.ok) alertes.push('Montant des charges illisible : non appliqué.');
       else if (m.v !== ch0) { ch = m.v; applique = true; }
+      (applique ? appliques : docSeul).push(L(k));
+      // Forfait de charges : ENREGISTRÉ sur le bail, mais la régularisation ne le lit pas encore → jamais annoncé
+      // « appliqué » (audit lot 3a, I2 ; CDC §5 : mode daté lu par la régularisation = chantier Charges).
       const forfait = String(d.mode || '').toLowerCase().indexOf('forfait') >= 0;
-      if (!!b.chForfait !== forfait) { champs.push({ champ: 'chForfait', apres: forfait }); applique = true; }
+      if (!!b.chForfait !== forfait) {
+        champs.push({ champ: 'chForfait', apres: forfait });
+        docSeul.push(forfait ? 'Passage au forfait de charges' : 'Retour aux provisions');
+        if (forfait) alertes.push('Forfait de charges enregistré sur le bail, pas encore pris en compte par la régularisation des charges.');
+      }
     } else if (k === 'annexe') {
       // Supplément de loyer d'une dépendance ajoutée (ou retirée) : porté par le loyer, daté au barème.
       const sup = avenantMontant(d.sup, 0);
-      if (!sup.ok) alertes.push('Loyer supplémentaire de l\'annexe illisible : non appliqué.');
-      else if (sup.v > 0) { hc += /^Retrait/.test(String(d.act || '')) ? -sup.v : sup.v; appliques.push(L(k) + ' (loyer supplémentaire)'); continue; }
+      if (!sup.ok) { alertes.push('Loyer supplémentaire de l\'annexe illisible : non appliqué.'); docSeul.push(L(k)); }
+      else if (sup.v > 0) { hc += /^Retrait/.test(String(d.act || '')) ? -sup.v : sup.v; surLoyer.push(L(k) + ' (loyer supplémentaire)'); }
+      else docSeul.push(L(k));
     } else if (k === 'duree') {
-      if (_isoDate(d.fin)) { pose('fin', d.fin); applique = true; }
-      else alertes.push('Nouveau terme du bail absent : non appliqué.');
+      if (!_isoDate(d.fin)) { alertes.push('Nouveau terme du bail absent : non appliqué.'); docSeul.push(L(k)); }
+      else (pose('fin', d.fin) ? appliques : docSeul).push(L(k));
     } else if (k === 'paiement') {
-      // Seul le JOUR est une donnée du bail ; mode et IBAN restent dans le document (l'IBAN appartient au
-      // bailleur, pas à ce bail : le changer ici toucherait tous ses baux).
-      const j = parseInt(String(d.jour || '').trim(), 10);
-      if (j >= 1 && j <= 31 && String(j) === String(d.jour).trim()) { pose('jpay', String(j)); appliques.push('Jour de paiement'); }
-      else alertes.push('Jour de paiement invalide : non appliqué.');
-      if (String(d.rib || '').trim() || d.mode) docSeul.push('Mode de paiement / IBAN');
-      continue;
+      // Seul le JOUR est une donnée du bail (1 à 28, comme le formulaire du bail) ; le mode et l'IBAN restent
+      // dans le document (l'IBAN appartient au bailleur, pas à ce bail : le changer ici toucherait tous ses baux).
+      const brut = String(d.jour == null ? '' : d.jour).trim();
+      const j = parseInt(brut, 10);
+      if (j >= 1 && j <= 28 && String(j) === brut) { if (pose('jpay', String(j))) appliques.push('Jour de paiement'); }
+      else alertes.push('Jour de paiement invalide (1 à 28) : non appliqué.');
+      if (String(d.rib || '').trim()) docSeul.push('IBAN du bailleur');
     } else if (k === 'destination') {
-      const v = Object.prototype.hasOwnProperty.call(_DESTINATION, d.dest) ? _DESTINATION[d.dest] : null;
-      if (v) { pose('destinationLocaux', v); applique = true; }
+      const v = (typeof d.dest === 'string' && _own(_DESTINATION, d.dest)) ? _DESTINATION[d.dest] : null;
+      ((v && pose('destinationLocaux', v)) ? appliques : docSeul).push(L(k));
+    } else {
+      docSeul.push(L(k));
     }
-    (applique ? appliques : docSeul).push(L(k));
   }
   hc = Math.round(hc * 100) / 100;
-  if (hc <= 0 && hc !== hc0) { alertes.push('Le loyer obtenu serait nul ou négatif : non appliqué.'); hc = hc0; }
+  if (hc <= 0 && hc !== hc0) {
+    // Loyer final refusé : ni le loyer ni le supplément ne sont appliqués — et on ne le prétend pas (audit lot 3a, M1).
+    alertes.push('Le loyer obtenu serait nul ou négatif : non appliqué.');
+    hc = hc0; docSeul.push(...surLoyer);
+  } else appliques.push(...surLoyer);
   return { hc: hc !== hc0 ? hc : null, ch: ch !== ch0 ? ch : null, champs, appliques, docSeul, alertes };
 }

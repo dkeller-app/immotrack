@@ -25755,7 +25755,7 @@ function _avenantOpen(ref, opts){
          '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Date d\'effet</label><input class="inp" type="date" id="av-effet" value="'+escHtml((typeof _todayIsoLocal==='function')?_todayIsoLocal():td())+'" oninput="_avenantRender()"></div>'+
          '<div class="fld"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Fait à</label><input class="inp" id="av-ville" value="'+escHtml(bail.villeSignature||'')+'" oninput="_avenantRender()"></div>'+
        '</div>'+
-       '<div class="av-note" style="background:#e6f1fb;border-color:#cfe0f6;color:#185fa5;margin-top:10px"><b>Enregistrer l\'avenant</b> : il passe « À signer » dans l\'onglet Bail (document figé, télécharger le PDF ne l\'enregistre pas). <b>Rien ne change dans le bail avant la signature de toutes les parties.</b> Une fois signé, l\'app applique, datés à la date d\'effet : <b>loyer</b>, <b>charges</b>, loyer supplémentaire d\'une <b>annexe</b>, <b>terme du bail</b>, <b>jour de paiement</b>, <b>destination</b>. Colocataire, caution, travaux, sous-location, clause, correction, mode de paiement et IBAN : document seulement. Signature dans l\'app : à venir — faire signer le PDF, puis le marquer « Signé sur papier ». <b>Brouillon</b> : rien n\'est enregistré au bail, à reprendre plus tard.</div>'+
+       '<div class="av-note" style="background:#e6f1fb;border-color:#cfe0f6;color:#185fa5;margin-top:10px"><b>Enregistrer l\'avenant</b> : il passe « À signer » dans l\'onglet Bail (document figé, télécharger le PDF ne l\'enregistre pas). <b>Rien ne change dans le bail avant la signature de toutes les parties.</b> Une fois signé, l\'app applique au bail : <b>loyer</b>, <b>charges</b> et loyer supplémentaire d\'une <b>annexe</b> (datés à la date d\'effet), <b>terme du bail</b>, <b>jour de paiement</b>, <b>destination</b>. Colocataire, caution, travaux, sous-location, clause, correction, mode de paiement, IBAN et passage au forfait de charges (pas encore pris en compte par la régularisation) : document seulement. Signature dans l\'app : à venir — faire signer le PDF, puis le marquer « Signé sur papier ». <b>Brouillon</b> : rien n\'est enregistré au bail, à reprendre plus tard.</div>'+
      '</div>'+
      '<div class="av-prevwrap"><div id="av-preview"></div></div>'+
    '</div>'+
@@ -25811,7 +25811,10 @@ function _avenantSave(ref, opts){
   // AUDIT ARGENT — la date d'effet qui pilote le barème doit passer les MÊMES garde-fous que
   // « Modifier le bail » (_bailValidConfirm) : 1er du mois, jamais avant le début du bail, jamais
   // dans un mois déjà quittancé, jamais avant la dernière période vivante. Sinon dû faux / passé réécrit.
-  if((loyerAny||chargesAny) && typeof window._baremeClampDateEffet==='function'){
+  // Audit lot 3a (M3) : la date est recalée dès qu'un MONTANT sera daté au barème — supplément d'annexe compris —
+  // pour que le document dise la date réellement appliquée à la signature.
+  var _planDate=window.AvenantRegistre.planApplication({ objets:objets, bail:bail, libelles:_AV_LBL });
+  if((_planDate.hc!=null||_planDate.ch!=null) && typeof window._baremeClampDateEffet==='function'){
     var dq=(typeof _dernierMoisQuittanceYm==='function')?_dernierMoisQuittanceYm(ref):null;
     var cl=window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm:dq||undefined, debutBailIso:bail.debut||undefined });
     var effetOk=cl.effetIso, ajuste=!!cl.ajustee;
@@ -25904,12 +25907,18 @@ function _avenantAppliquer(ref, av){
     var x={ champ:c.champ, libelle:_AV_CHAMP_LBL[c.champ]||c.champ, avant:bail[c.champ]===undefined?null:bail[c.champ], apres:c.apres };
     if(c.champ==='chForfait') x.vie=true;   // vie du bail (liste CHAMPS_VIE) : pas une clause du document signé
     chg.push(x); bail[c.champ]=c.apres;
+    // Audit lot 3a (I1) : la fiche logement porte AUSSI la date de fin (comme saveBail) — sinon `_syncLogToBail`
+    // remettait l'ancien terme sur le bail au prochain enregistrement du logement, et la prorogation était perdue.
+    if(c.champ==='fin'){
+      var lg=(DB.logements||[]).find(function(l){ return l && !l._deleted && l.ref===ref; });
+      if(lg){ lg.fin=c.apres; if(typeof _stamp==='function') _stamp(lg); }
+    }
   });
   if(chg.length){
     if(typeof _stamp==='function') _stamp(bail);
     if(window.BailModifs && window.BailModifs.bailSigneComplet(bail)){
       var _ci=window.__immoCloudInfo||{};
-      var je={ id:'bj_av_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), ref:String(ref).split('@@')[0], bailDebut:bail.debut||'',
+      var je={ id:'bj_av_'+av.id, ref:String(ref).split('@@')[0], bailDebut:bail.debut||'',
         signedAt:bail.signatures.signedAt, date:(new Date()).toISOString(), type:'modification', source:'avenant', avenantId:av.id, avenantNo:av.no,
         auteur:_ci.displayName||_ci.email||((typeof _appUserName==='function')?_appUserName():'')||'', changements:chg };
       if(bail._espaceId!=null) je._espaceId=bail._espaceId;
@@ -26055,27 +26064,43 @@ function _avenantSignePapierOk(ref, id){
 // Bail, barème, fiche logement et journal : instantané, et retour arrière complet si la sauvegarde échoue.
 function _avenantMarquerSigne(ref, av, sig){
   var bail=DB.baux&&DB.baux[ref]; if(!bail||!av) return false;
+  // Toujours l'état COURANT du registre (jamais la copie tenue par l'écran appelant) : une copie périmée
+  // ne réécrit pas un avenant déjà signé ou annulé ailleurs.
+  var cur=_avenantTrouver(ref, av.id);
+  if(!cur||cur.statut!=='a_signer'){ showToast('L\'avenant n° '+av.no+' n\'est plus « À signer » ('+(cur?window.AvenantRegistre.statutDe(cur).l.toLowerCase():'introuvable')+') : rien n\'a été modifié.','warn',7000); return false; }
+  av=cur;
   var e=window.AvenantRegistre.avecStatut(av,'signe',(new Date()).toISOString(),sig);
   if(!e) return false;
   var log=(DB.logements||[]).find(function(l){ return l && !l._deleted && l.ref===ref; });
   var snap={ bail:JSON.parse(JSON.stringify(bail)), bareme:JSON.parse(JSON.stringify(DB.loyerBareme||[])), journal:(DB.baux_evenements||[]).slice(),
              log:log?JSON.parse(JSON.stringify(log)):null, logIdx:log?DB.logements.indexOf(log):-1 };
+  var restaurer=function(){
+    DB.baux[ref]=snap.bail; DB.loyerBareme=snap.bareme; DB.baux_evenements=snap.journal;
+    if(snap.log && snap.logIdx>=0) DB.logements[snap.logIdx]=snap.log;
+  };
   var res=null;
-  if(av.aLaSignature && !(Array.isArray(av.appliques)&&av.appliques.length)){
-    res=_avenantAppliquer(ref, av);
+  // Audit lot 3a (M5) : jamais deux fois — une copie « À signer » périmée (autre appareil, synchro partielle)
+  // ne réapplique pas un avenant dont l'entrée de journal existe déjà.
+  var dejaApplique=(DB.baux_evenements||[]).some(function(x){ return x && !x._deleted && x.type==='modification' && x.avenantId===av.id; });
+  if(av.aLaSignature && !dejaApplique && !(Array.isArray(av.appliques)&&av.appliques.length)){
+    // Effet antérieur au mois en cours : le dû des mois écoulés change — l'app prévient, l'utilisateur décide.
+    var _p=window.AvenantRegistre.planApplication({ objets:av.objets, bail:bail, libelles:_AV_LBL });
+    var _mois=(typeof _todayIsoLocal==='function'?_todayIsoLocal():td()).slice(0,7)+'-01';
+    if((_p.hc!=null||_p.ch!=null) && av.date && av.date<_mois
+       && !confirm2('Avenant n° '+av.no+' : date d\'effet au '+fd(av.date)+', antérieure au mois en cours. Les montants dus depuis cette date seront recalculés (mois déjà quittancés exceptés) : un complément ou un trop-perçu est à régler avec le locataire.\n\nEnregistrer la signature ?')) return false;
+    // Audit lot 3a (M6) : une exception en cours d'application ne laisse jamais bail et barème à moitié modifiés.
+    try { res=_avenantAppliquer(ref, av); }
+    catch(err){ console.warn('[avenant] application', err); restaurer(); showToast('Signature NON enregistrée : erreur pendant l\'application de l\'avenant au bail — rien n\'a été modifié.','err',9000); return false; }
     e.appliques=res.appliques; e.docSeul=res.docSeul; e.appliqueLe=e.statutLe; e.effetApplique=res.effet;
   }
   if(typeof _stamp==='function') _stamp(e);
   _avenantRegistrePoser(e);
-  if(!_avenantSauver('avenant-signature', function(){
-    DB.baux[ref]=snap.bail; DB.loyerBareme=snap.bareme; DB.baux_evenements=snap.journal;
-    if(snap.log && snap.logIdx>=0) DB.logements[snap.logIdx]=snap.log;
-  })) return false;
+  if(!_avenantSauver('avenant-signature', restaurer)) return false;
   if(typeof _auditLog==='function'){ _auditLog('avenant-signe','bail',ref,'n°'+av.no+' '+(sig.signeMode||'')+(res&&res.change?' [appliqué au '+res.effet+']':'')); if(typeof saveDB==='function') saveDB({quoi:'avenant'}); }
   var msg='Avenant n° '+av.no+' signé le '+fd(e.signeLe)+'.';
   if(res){
     msg+=res.appliques.length?' Appliqué au bail au '+fd(res.effet)+' : '+res.appliques.join(', ').toLowerCase()+'.':' Rien à appliquer aux données du bail.';
-    if(res.ajuste) msg+=' Date d\'effet ajustée au '+fd(res.effet)+' (1ᵉʳ du mois / mois déjà quittancé / début du bail).';
+    if(res.ajuste) msg+=' Date d\'effet ajustée au '+fd(res.effet)+' (1ᵉʳ du mois, mois déjà quittancé, début du bail ou période plus récente du barème — révision IRL par exemple).';
     if(res.docSeul.length) msg+=' Document seulement : '+res.docSeul.join(', ').toLowerCase()+'.';
     if(res.alertes.length) msg+=' '+res.alertes.join(' ');
   }
@@ -26142,7 +26167,7 @@ function _renderAvenantsBail(ref){
     var annule=av.statut==='annule';
     var lbl=(av.statut==='signe'&&av.signeLe)?'Signé le '+fd(av.signeLe):st.l;
     var meta=[];
-    if(av.date) meta.push('Effet au '+fd(av.date));
+    if(av.effetApplique||av.date) meta.push('Effet au '+fd(av.effetApplique||av.date));
     if(av.statut==='brouillon') meta.push('rien n\'est appliqué au bail · modifiable');
     else if(annule) meta.push('jamais appliqué');
     else {
@@ -43961,7 +43986,7 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
       if(statut==='a_signer') liens.push(`<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'signe-papier'${_idArg})">${_uiIcon('sign')} Signé sur papier</span>`);
     }
     return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4${annule?' style="text-decoration:line-through"':''}>${escHtml(titre)}</h4><span class="hl-badge ${badge}">${escHtml(lblSt)}</span></div>
-      <div class="hl-desc">Effet au <b>${escHtml(fd(ev.date))}</b>.${annule?' <span class="mu">Annulé : jamais appliqué.</span>':''}${!annule&&_app&&_app.length?' <b>Appliqué</b> : '+escHtml(_app.join(', ').toLowerCase())+'.':''}${statut==='a_signer'&&!(_app&&_app.length)&&Array.isArray(ev.prevus)&&ev.prevus.length?' <span class="mu">Appliqué à la signature : '+escHtml(ev.prevus.join(', ').toLowerCase())+'.</span>':''}${!annule&&_doc&&_doc.length?' <span class="mu">Document seulement : '+escHtml(_doc.join(', ').toLowerCase())+'.</span>':''}${ev.verrou&&!annule?' <span class="mu">(bail signé : conserver le PDF signé de l\'avenant)</span>':''}</div>${liens.length?`<div class="hl-foot">${liens.join('')}</div>`:''}</div>`;
+      <div class="hl-desc">Effet au <b>${escHtml(fd(ev.effetApplique||ev.date))}</b>.${annule?' <span class="mu">Annulé : jamais appliqué.</span>':''}${!annule&&_app&&_app.length?' <b>Appliqué</b> : '+escHtml(_app.join(', ').toLowerCase())+'.':''}${statut==='a_signer'&&!(_app&&_app.length)&&Array.isArray(ev.prevus)&&ev.prevus.length?' <span class="mu">Appliqué à la signature : '+escHtml(ev.prevus.join(', ').toLowerCase())+'.</span>':''}${!annule&&_doc&&_doc.length?' <span class="mu">Document seulement : '+escHtml(_doc.join(', ').toLowerCase())+'.</span>':''}${ev.verrou&&!annule?' <span class="mu">(bail signé : conserver le PDF signé de l\'avenant)</span>':''}</div>${liens.length?`<div class="hl-foot">${liens.join('')}</div>`:''}</div>`;
   }
   // BAIL-SIGNE-MODIFS (28/09) — modification d'un bail signé hors avenant : ancien → nouveau par champ,
   // date, auteur ; rappel que le bail signé ne change pas + accès à l'avenant (bail courant seulement).

@@ -1459,4 +1459,11 @@ describe('registre des avenants : rattachement à la ligne du bail avant le 1er 
     await sync.flush()
     expect(db.baux_evenements.find(e => e.id === 'av_3')._espaceId).toBe('E1')
   })
+  it('lot 3a M7 : modification (avenant signé / Modifier le bail) sans tag d\'espace → espace de l\'unique bail signé correspondant', async () => {
+    const { db, sync } = setup()
+    db.baux['F-1']._espaceId = 'E1'
+    db.baux_evenements.push({ id: 'bj_av_x', type: 'modification', source: 'avenant', ref: 'F-1', bailDebut: '2025-01-01', signedAt: SIG.signedAt, date: '2026-09-29T10:00:00Z', changements: [{ champ: 'jpay', apres: '8' }] })
+    await sync.flush()
+    expect(db.baux_evenements.find(e => e.id === 'bj_av_x')._espaceId).toBe('E1')
+  })
 })
