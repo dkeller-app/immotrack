@@ -297,6 +297,33 @@ describe('routes bailleur (ownerToken)', () => {
     expect(st.signers[0].proof.annexesRecuesAt).toBe('2026-09-29T10:00:00.000Z');
   });
 
+  it('annexes : pièces NON jointes seulement → aucun accusé exigé (aligné sur la page, pas d\'écran)', async () => {
+    const { sessionId } = await createWithAnnexes([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }], { from: null, items: [{ label: 'Gaz', statut: 'non_joint' }] });
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson({ signerName: 'Jean' }) }, body: signedBody(1)
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('annexes : pièce REMISE HORS APPLICATION seulement → accusé exigé (409)', async () => {
+    const { sessionId } = await createWithAnnexes([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }], { from: null, items: [{ label: 'Élec', statut: 'hors_app' }] });
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson({ signerName: 'Jean' }) }, body: signedBody(1)
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it('annexes : accusé qui n\'est pas une date ISO → 409', async () => {
+    const { sessionId } = await createWithAnnexes([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }], ANN);
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson({ signerName: 'Jean', annexesRecuesAt: 'x' }) }, body: signedBody(1)
+    });
+    expect(res.status).toBe(409);
+  });
+
   it('annexes du DDT : un signataire côté bailleur (co-gérant à distance) n\'a pas à accuser réception', async () => {
     const { sessionId } = await createWithAnnexes([{ role: 'bailleur', email: 'g@b.fr', tel: '', ordre: 1 }], ANN);
     const token = await signTokenOf(sessionId);

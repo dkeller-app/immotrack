@@ -43,7 +43,7 @@ function buildUI() {
       <section id="step-consent" class="step">
         <div class="scroll">
           <h1>Avant de signer</h1>
-          <label>Vos nom et prénom<br><input id="name" type="text" autocomplete="name" placeholder="Jean Dupont"></label>
+          <label>Vos nom et prénom<br><input id="name" type="text" autocomplete="name" maxlength="120" placeholder="Jean Dupont"></label>
           <label for="email">Confirmez votre adresse email</label>
           <div class="email-row">
             <input id="email" type="email" autocomplete="email" placeholder="vous@exemple.fr">
@@ -421,7 +421,7 @@ async function showAnnexStep() {
   app.querySelector('#ann-step-dl').onclick = downloadFull;
   // Texte exact : « jointes au bail » seulement si au moins une pièce est dans le document ; sinon les
   // pièces ont été remises hors application (déclaration du bailleur).
-  app.querySelector('#ann-ack-txt').innerHTML = items.some((it) => it.statut === 'joint')
+  app.querySelector('#ann-ack-txt').innerHTML = (items.some((it) => it.statut === 'joint') || (!plan.annexes && plan.lastBailPage < plan.pageCount))
     ? '<strong>J\'ai reçu les annexes jointes au bail</strong> (dossier de diagnostic technique), qui font partie du document que je signe.'
     : '<strong>J\'ai reçu les pièces du dossier de diagnostic technique</strong>, remises hors application par le bailleur.';
   const cb = app.querySelector('#ann-ack'), next = app.querySelector('#ann-next'), lbl = app.querySelector('#ann-ack-lbl');
@@ -559,7 +559,7 @@ async function doSubmit() {
     });
     if (r.status === 403) return fail('Ce n\'est pas (ou plus) votre tour de signer.');
     if (r.status === 410) return fail('Ce document est déjà signé.');
-    if (r.status === 409) return fail('Signature non enregistrée : l\'accusé de réception des annexes manque. Rechargez la page et cochez « J\'ai reçu les annexes ».');
+    if (r.status === 409) return fail('Signature non enregistrée : l\'accusé de réception des annexes manque. Rechargez la page et cochez la case d\'accusé de réception des annexes.');
     if (r.status === 422) return fail('Signature impossible : ce document ne prévoit aucune case de signature pour vous. Contactez l\'expéditeur du bail.');
     if (!r.ok) throw new Error('http ' + r.status);
     show('step-done');

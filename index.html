@@ -8656,8 +8656,13 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
     if (p.openedAt) line('   document ouvert le : ' + p.openedAt, 8);
     if (p.readCompletedAt) line('   lecture terminee le : ' + p.readCompletedAt, 8);
     if (p.annexesRecuesAt) line('   annexes (dossier de diagnostic technique) recues le : ' + p.annexesRecuesAt, 8);
-    else if (p.role === 'locataire' && bail && bail.annexesDdt && Array.isArray(bail.annexesDdt.items)
-      && bail.annexesDdt.items.some((it) => it && (it.statut === 'joint' || it.statut === 'hors_app'))) {
+    else if (p.role === 'locataire' && bail && bail.annexesDdt && Array.isArray(bail.annexesDdt.items) && (() => {
+      // À distance, une pièce « jointe » dont la fusion a échoué a été déclarée NON jointe au relais :
+      // l'écran (et donc l'accusé) n'était pas demandé pour elle → pas de faux « non enregistré ».
+      const _failed = new Set(((bail.annexesDdt.fusion && bail.annexesDdt.fusion.failed) || []).map((f) => f && f.name));
+      return bail.annexesDdt.items.some((it) => it && (it.statut === 'hors_app'
+        || (it.statut === 'joint' && !(p.mode === 'distance' && _failed.has(it.docName)))));
+    })()) {
       line('   accuse de reception des annexes : non enregistre', 8);   // bail avec pièces du DDT, accusé absent
     }
     // Document défilant : paraphe page par page, avec l'heure (déclarée par l'appareil du signataire).
@@ -24419,7 +24424,7 @@ function previewBailData(bail, log, ref, opts) {
     /* Texte exact : « jointes au PDF » seulement si au moins une pièce l'est ; sinon remises hors application. */
     +  'var _hasJ=_BAIL_ANNEXES.some(function(it){return it.statut==="joint";});'
     +  'ov.innerHTML="<div class=\\"wizV2-card\\"><div class=\\"wizV2-page-label\\">Annexes au bail — avant votre signature</div>"'
-    +    '+"<p class=\\"wizV2-ann-lead\\">Le dossier de diagnostic technique est annexé au bail (loi n° 89-462, art. 3-3). "+(_hasJ?"Les pièces jointes figureront dans le PDF du bail signé qui vous sera remis.":"Les pièces ci-dessous vous sont remises hors application par le bailleur.")+"</p>"'
+    +    '+"<p class=\\"wizV2-ann-lead\\">Le dossier de diagnostic technique est annexé au bail (loi n° 89-462, art. 3-3). "+(_hasJ?"Les pièces jointes figureront dans le PDF du bail signé qui vous sera remis.":"Les pièces marquées « Remis hors application » vous sont remises par le bailleur.")+"</p>"'
     +    '+"<div class=\\"wizV2-ann-list\\">"+rows+"</div>"'
     +    '+"<label class=\\"wizV2-ann-ack\\" id=\\"wizV2-ann-lbl\\"><input type=\\"checkbox\\" id=\\"wizV2-ann-ack\\"><span>"+(_hasJ?"<b>J\\u2019ai reçu les annexes jointes au bail</b> (dossier de diagnostic technique), qui font partie du document que je signe.":"<b>J\\u2019ai reçu les pièces du dossier de diagnostic technique</b>, remises hors application par le bailleur.")+"<small>"+names+" · obligatoire pour signer · l\\u2019heure est enregistrée dans la preuve de signature.</small></span></label></div>";'
     +  'var cb=document.getElementById("wizV2-ann-ack"),nx=document.getElementById("wiz-next-btn"),pv=document.getElementById("wiz-prev-btn");'
