@@ -3,7 +3,9 @@ import { SELF, env } from 'cloudflare:test';
 import { emailHash } from '../src/crypto-utils.js';
 import { verifyToken } from '../src/tokens.js';
 import { appToken } from './_auth.js';
-import { makeBailBytes, signedBody } from './_fixtures.js';
+import { makeBailBytes, signedBody, b64urlJson } from './_fixtures.js';
+import { PDFDocument } from 'pdf-lib';
+import { embedInDoc } from '../public/sign/manifest.js';
 
 describe('GET /health', () => {
   it('répond 200 avec ok:true', async () => {
@@ -213,6 +215,51 @@ describe('routes bailleur (ownerToken)', () => {
     });
     const r2 = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': ownerToken } });
     expect((await r2.json()).status).toBe('completed');
+  });
+
+  it('preuve : heures de paraphe conservées quand l\'en-tête est lisible', async () => {
+    const { sessionId, ownerToken } = await createWithOwner([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const token = await signTokenOf(sessionId);
+    const body = JSON.parse(signedBody(2));
+    body.parapheTimes = { 1: '2026-09-29T15:43:12.836Z', 2: '2026-09-29T15:43:33.945Z' };
+    await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST',
+      headers: { 'X-Sign-Token': token, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson({ signerName: 'Jean', consentElectronic: true, luApprouve: true }) },
+      body: JSON.stringify(body)
+    });
+    const st = await (await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': ownerToken } })).json();
+    expect(st.signers[0].proof.parapheTimes).toEqual(body.parapheTimes);
+    expect(st.signers[0].proof.consentElectronic).toBe(true);
+  });
+
+  it('preuve : sans en-tête, les heures seules ne créent pas un faux « consentement : non »', async () => {
+    const { sessionId, ownerToken } = await createWithOwner([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const token = await signTokenOf(sessionId);
+    const body = JSON.parse(signedBody(2));
+    body.parapheTimes = { 1: '2026-09-29T15:43:12.836Z' };
+    await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const st = await (await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': ownerToken } })).json();
+    expect(st.signers[0].proof.consentElectronic).toBeNull();
+  });
+
+  it('422 si aucune signature ne peut être apposée (aucune ancre pour ce signataire)', async () => {
+    const doc = await PDFDocument.create(); doc.addPage([595.28, 841.89]);
+    embedInDoc(doc, { v: 1, totalPages: 1, anchors: [{ sigId: 'bailleur-0', kind: 'signature', page: 1, x: 15, y: 210, w: 90, h: 30 }] });
+    const form = new FormData();
+    form.set('pdf', new Blob([await doc.save()], { type: 'application/pdf' }), 'b.pdf');
+    form.set('meta', JSON.stringify({ bailRef: 'B', signers: [{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }] }));
+    const { sessionId, ownerToken } = await (await SELF.fetch('https://relay.test/sessions', {
+      method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form
+    })).json();
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json' }, body: signedBody(1)
+    });
+    expect(res.status).toBe(422);
+    const st = await (await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': ownerToken } })).json();
+    expect(st.status).toBe('pending');   // rien d'enregistré
   });
 
   it('GET /result : 409 tant que pending, PDF quand completed', async () => {

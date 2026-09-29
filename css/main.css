@@ -1541,6 +1541,13 @@ button .uic:only-child, .btn .uic:only-child{margin-right:0}
   .logf-hero-compact{grid-template-columns:84px 1fr;gap:12px}
   .logf-hero-compact .logf-photos-mini{width:84px;height:84px;font-size:32px}
 }
+/* Téléphone : une piste 1fr vaut minmax(auto,1fr) — le min-content d'UN descendant insécable (puce,
+ * bouton nowrap) élargissait la colonne, donc TOUS les panneaux, au-delà de la page (overflow-x:hidden
+ * → côté droit coupé). min-width:0 borne la piste à la page ; un élément trop large ne déborde plus que
+ * de son propre panneau (et se corrige à la source). PC / tablette inchangés. */
+@media (max-width:767px){
+  .logf-panels>*{min-width:0}
+}
 @media (max-width:600px){
   .logf-hero{padding:14px}
   .logf-row{grid-template-columns:1fr;gap:2px;padding:7px 0}
@@ -1810,6 +1817,18 @@ button .uic:only-child, .btn .uic:only-child{margin-right:0}
 }
 .logf-doc-meta .logf-equip-badge{vertical-align:middle;margin-right:4px}
 .logf-doc-actions{display:flex;gap:6px;flex-shrink:0}
+/* AVENANT-REFONTE lot 2 — cartes d'avenant (onglet Bail) : le titre nomme les personnes et les montants,
+ * il se replie au lieu d'être coupé ; les gestes passent sous le texte quand la place manque. */
+.logf-av-card .logf-doc-name,.logf-av-card .logf-doc-meta{white-space:normal;overflow:visible}
+.logf-av-card .logf-doc-name.annule{text-decoration:line-through;color:var(--t3)}
+.logf-av-card .logf-doc-actions{flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:1180px){
+  .logf-av-card{grid-template-columns:40px 1fr}
+  .logf-av-card .logf-doc-actions{grid-column:2/-1;justify-content:flex-start}
+}
+@media (max-width:767px){
+  .logf-av-card .logf-doc-actions .btn,.logf-av-head .btn.bs{min-height:44px}
+}
 .logf-doc-empty{
   text-align:center;color:var(--t3);font-style:italic;
   padding:18px 14px;background:var(--sur2);border-radius:var(--r);

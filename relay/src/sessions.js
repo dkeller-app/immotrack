@@ -114,8 +114,18 @@ function sanitizeClientProof(raw) {
     consentElectronic: raw.consentElectronic === true,
     luApprouve: raw.luApprouve === true,
     openedAt: str(raw.openedAt, 40),
-    readCompletedAt: str(raw.readCompletedAt, 40)
+    readCompletedAt: str(raw.readCompletedAt, 40),
+    parapheTimes: times(raw.parapheTimes)
   };
+}
+// { page → ISO } : clés numériques, 300 max, chaînes bornées ; null si absent ou vide.
+function times(t) {
+  if (!t || typeof t !== 'object' || Array.isArray(t)) return null;
+  const out = {};
+  for (const k of Object.keys(t).slice(0, 300)) {
+    if (/^\d+$/.test(k) && typeof t[k] === 'string') out[k] = t[k].slice(0, 40);
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 export async function recordSignature(env, sessionId, { signedBytes, proof, clientProof }) {
@@ -139,7 +149,8 @@ export async function recordSignature(env, sessionId, { signedBytes, proof, clie
     consentElectronic: client ? client.consentElectronic : null,
     luApprouve: client ? client.luApprouve : null,
     openedAt: client ? client.openedAt : null,
-    readCompletedAt: client ? client.readCompletedAt : null
+    readCompletedAt: client ? client.readCompletedAt : null,
+    parapheTimes: client ? client.parapheTimes : null
   };
 
   // Le PDF signé écrase l'original pour le prochain signataire (signature par-dessus)

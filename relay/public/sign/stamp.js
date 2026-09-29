@@ -38,6 +38,26 @@ export function signaturePagesFor(pdfDoc, { sigId, side }) {
   return [...new Set(pages)].sort((a, b) => a - b);
 }
 
+// Plan de LECTURE du document défilant (page de signature) : pour CE signataire, les cases de
+// paraphe (page + boîte en % de la page A4 → bouton « Parapher » posé exactement dessus), ses zones
+// de signature, et la dernière page du BAIL (dernière page portant une ancre, tous signataires
+// confondus) : au-delà commencent les annexes (DDT), consultables sans paraphe.
+// Ancres en mm, repère jsPDF haut-gauche, page 210 × 297 (cf. coords.js) — aucune conversion ici.
+export function readingPlanFor(pdfDoc, { sigId, side }) {
+  const { anchors } = resolveAnchors(pdfDoc, { sigId, side });
+  const manifest = readFromDoc(pdfDoc);
+  const all = (manifest && Array.isArray(manifest.anchors)) ? manifest.anchors : anchors;
+  const pageCount = pdfDoc.getPageCount();
+  const box = (a) => ({ page: a.page, left: a.x / 210, top: a.y / 297, width: a.w / 210, height: a.h / 297 });
+  const inRange = (a) => a.page >= 1 && a.page <= pageCount;
+  const paraphes = anchors.filter((a) => a.kind === 'paraphe' && inRange(a)).map(box)
+    .sort((a, b) => a.page - b.page)
+    .filter((a, i, arr) => i === 0 || arr[i - 1].page !== a.page);   // 1 case par page
+  const signatures = anchors.filter((a) => a.kind === 'signature' && inRange(a)).map(box);
+  const lastBailPage = Math.min(pageCount, Math.max(0, ...all.filter(inRange).map((a) => a.page)) || pageCount);
+  return { paraphes, signatures, lastBailPage, pageCount };
+}
+
 export async function stampSignature(
   pdfDoc,
   { sigId, signaturePngDataUrl, paraphesByPage = {}, mentionLines = [], side },
@@ -49,16 +69,18 @@ export async function stampSignature(
   const pad = mmToPt(1);
   const pageCount = pdfDoc.getPageCount();
 
-  // Une image de signature (tracé unique) + N images de paraphe distinctes (1 par page), embarquées à la demande.
+  // Une image de signature (tracé unique) + les images de paraphe, embarquées à la demande. Cache par
+  // IMAGE (pas par page) : un paraphe tracé une fois puis apposé sur 27 pages n'est stocké qu'une fois.
   const sigPng = signaturePngDataUrl ? await pdfDoc.embedPng(dataUrlToBytes(signaturePngDataUrl)) : null;
   const paraCache = new Map();
   async function paraPngFor(page) {
-    if (!paraphesByPage[page]) return null;
-    if (!paraCache.has(page)) paraCache.set(page, await pdfDoc.embedPng(dataUrlToBytes(paraphesByPage[page])));
-    return paraCache.get(page);
+    const url = paraphesByPage[page];
+    if (!url) return null;
+    if (!paraCache.has(url)) paraCache.set(url, await pdfDoc.embedPng(dataUrlToBytes(url)));
+    return paraCache.get(url);
   }
 
-  let stamped = 0, skipped = 0;
+  let stamped = 0, skipped = 0, signed = 0;
   for (const a of anchors) {
     if (a.page < 1 || a.page > pageCount) { skipped++; continue; }
     const img = a.kind === 'signature' ? sigPng : await paraPngFor(a.page);
@@ -79,6 +101,7 @@ export async function stampSignature(
       }
     }
     stamped++;
+    if (a.kind === 'signature') signed++;
   }
-  return { stamped, skipped, usedFallback };
+  return { stamped, skipped, usedFallback, signed };
 }

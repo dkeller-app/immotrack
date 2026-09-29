@@ -263,7 +263,11 @@ app.post('/api/sessions/:id/signed', async (c) => {
   const dateISO = new Date().toISOString();
   // Preuve client optionnelle (acte de volonté + horodatages d'étape), base64url(JSON UTF-8).
   // Décodage défensif : un en-tête malformé est ignoré, jamais bloquant.
-  const clientProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
+  const decodedProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
+  // Heures de paraphe : dans le CORPS (validé ci-dessus), pas dans l'en-tête borné à 4 Ko.
+  // Fusion SEULEMENT si l'en-tête est lisible : sinon la preuve dirait « consentement : non » au lieu de « inconnu ».
+  const _times = body.parapheTimes && Object.keys(body.parapheTimes).length ? body.parapheTimes : null;
+  const clientProof = decodedProof && _times ? Object.assign({}, decodedProof, { parapheTimes: _times }) : decodedProof;
 
   // Tamponnage CÔTÉ SERVEUR depuis l'original → substitution du document impossible.
   let signedBytes, stamp;
@@ -279,6 +283,9 @@ app.post('/api/sessions/:id/signed', async (c) => {
   } catch (e) {
     return c.json({ error: 'stamp-failed' }, 500);
   }
+  // Aucune signature apposée (aucune ancre de signature pour ce signataire, ou image absente) :
+  // on refuse plutôt que d'enregistrer un signataire « fait » sans aucune trace dans le PDF.
+  if (!stamp || !stamp.signed) return c.json({ error: 'nothing-stamped' }, 422);
 
   const proof = {
     ip: c.req.header('CF-Connecting-IP') || '',
@@ -325,6 +332,7 @@ app.get('/api/sessions/:id', async (c) => {
         luApprouve: sg.proof.luApprouve ?? null,
         openedAt: sg.proof.openedAt || null,
         readCompletedAt: sg.proof.readCompletedAt || null,
+        parapheTimes: sg.proof.parapheTimes || null,
         ip: sg.proof.ip || null,
         userAgent: sg.proof.userAgent || null
       } : null
