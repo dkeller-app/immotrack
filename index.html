@@ -8850,7 +8850,10 @@ async function _completeRemoteSignCore(ref, state) {
       // Clé de diff du moteur = norm(ref) (store-sync.js : trim + minuscules) → égalité STRICTE, pas indexOf.
       const k = String(ref).trim().toLowerCase();
       const touches = (arr) => Array.isArray(arr) && arr.some((x) => x && x.coll === 'baux' && String(x.key) === k);
-      _synced = !!sum && !touches(sum.conflicts) && !touches(sum.errors) && !touches(sum.skipped) && sum.config !== 'error';
+      // + trace POSITIVE d'envoi (upsert/revive) : un bail écarté sans trace (étiquette d'espace ambiguë) ne
+      //   passe pas pour synchronisé. Faux négatif possible (déjà poussé par un flush voisin) = sens sûr.
+      _synced = !!sum && !touches(sum.conflicts) && !touches(sum.errors) && !touches(sum.skipped) && sum.config !== 'error'
+        && (touches(sum.upserts) || touches(sum.revives));
     } catch (e) { console.warn('[remoteSign] flush complétion', e); _synced = false; }
   }
   // Preuve POSITIVE : une ré-hydratation concurrente (conflit → le serveur gagne) peut avoir remplacé DB
