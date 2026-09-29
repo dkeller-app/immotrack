@@ -337,5 +337,6 @@ la tenait avant lui.
 couche est une page plein écran ; bottom-sheet réservé ≥ 768). Source de travail :
 `mockups/MOBILE-UX/CHARTE-MOBILE.md` (proposition Phase 1 du 01/09).
 Ajout du 28/09 (Didier) : M-17 contraste mesuré. v15.688 met le thème **clair** en conformité (gris `--t3`
-`#5f6f86`). Écarts connus restants : thème **sombre** `--t3` `#8B95B5` = 4,19:1 sur `--sur3` ; écran de
-connexion (`--ink-3` #6e7888) et libellés de page de l'assistant de signature (#6e7888) ≈ 4,1:1.*
+`#5f6f86`). v15.694 complète : thème **sombre** `--t3` `#929cbb`, barre latérale `--t3` `#818ca1` (les deux
+thèmes), écran de connexion `--ink-3` `#5f6f86`, libellés de page de l'assistant de signature `#5f6f86`.
+Tous les tokens de texte gris passent désormais ≥ 4,5:1 dans les deux thèmes réels.*

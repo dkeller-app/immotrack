@@ -1676,7 +1676,7 @@ function injectStyles() {
     --bg:#f4f5f8;
     --bg-grad:radial-gradient(120% 100% at 92% -8%,#fff4f1 0%,#f5f6f9 38%,#f1f2f6 100%);
     --surface:#ffffff; --surface-2:#f7f8fb;
-    --ink:#101521; --ink-2:#3c4658; --ink-3:#6e7888;
+    --ink:#101521; --ink-2:#3c4658; --ink-3:#5f6f86; /* v15.694 CHARTE M-17 : #6e7888 (4,09) → 4,69:1 sur --bg */
     --line:#e4e7ee; --line-2:#eef0f5;
     --neutral-soft:#eef1f6; --neutral-ink:#42506a;
     --accent:#ff5a3c; --accent-2:#e8431f; --accent-soft:#ffe7e0; --accent-on:#ffffff;

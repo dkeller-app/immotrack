@@ -6421,7 +6421,9 @@ body[data-dash-v4="on"] {
   --v4-rad: 14px;
   /* v15.37 fix retour user : bump contraste --t2/--t3 pour V4 (dark trop pâle) */
   --t2: #CDD4E5;
-  --t3: #8B95B5;
+  /* v15.694 CHARTE M-17 (sombre) : #8B95B5 → #929cbb = ≥ 4,5:1 sur tous les fonds sombres
+     (sur 5,83 · sur2 5,19 · sur3 4,56 · bg 6,62). Le clair est surchargé plus bas (sobre). */
+  --t3: #929cbb;
 }
 /* En sobre/coloré : redonner du contraste cohérent avec le thème */
 html[data-theme="sobre"] body[data-dash-v4="on"] {
@@ -7962,7 +7964,10 @@ body[data-dash-v4="on"] .sb-nav {
   --bor2: rgba(255,255,255,.06);
   --t1: #e6ebf3;
   --t2: #aab4c6;
-  --t3: #6c778c;
+  /* v15.694 CHARTE M-17 : titres de section / version / rôle / e-mail du menu compte
+     #6c778c (3,77:1) → #818ca1 : ≥ 5,02 sur le dégradé, 4,70 sur --sur (menu compte PC),
+     4,51 sur --sur2 en bas de barre (pied survolé / menu ouvert). */
+  --t3: #818ca1;
   --neutral-soft: rgba(255,255,255,.08);
   --neutral-ink: #cdd6e3;
   /* Les 5 couleurs sémantiques suivent le chrome, pas le thème de la page. Sans ça, en
@@ -7999,7 +8004,7 @@ html[data-theme="colore"] body[data-dash-v4="on"] .sb-nav {
 html[data-theme="dark"] body[data-dash-v4="on"] .sb-nav {
   background: #10131a !important;
   background-image: linear-gradient(180deg,#12151d 0%,#0d1016 100%) !important;
-  --t1: #f2f5fa; --t2: #9aa6b8; --t3: #737e93;
+  --t1: #f2f5fa; --t2: #9aa6b8; --t3: #818ca1; /* v15.694 M-17 : #737e93 (4,46) → ≥ 4,51 partout (sur 4,70, pied survolé 4,77) */
 }
 body[data-dash-v4="on"] .v4s-sb-logo {
   font-family: var(--display);
