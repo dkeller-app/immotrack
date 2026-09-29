@@ -1452,4 +1452,11 @@ describe('registre des avenants : rattachement à la ligne du bail avant le 1er 
     await sync.flush()
     expect(envoye(store).filter(r => r.id === 'av_2').pop().bailUid).toBe('MANUEL')
   })
+  it('N1 : avenant créé pendant que le bail avait perdu son tag d\'espace → prend l\'espace de l\'unique bail candidat', async () => {
+    const { db, sync } = setup()
+    db.baux['F-1']._espaceId = 'E1'
+    db.baux_evenements.push({ id: 'av_3', type: 'avenant', ref: 'F-1', bailDebut: '2025-01-01', date: '2026-11-01', no: 1, statut: 'a_signer' })
+    await sync.flush()
+    expect(db.baux_evenements.find(e => e.id === 'av_3')._espaceId).toBe('E1')
+  })
 })

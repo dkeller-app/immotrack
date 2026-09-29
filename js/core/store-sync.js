@@ -415,6 +415,14 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       // début, même espace) : son uid, ou la ligne historique s'il n'en a pas (audit lot 2, I1).
       if (e.type === 'avenant') {
         if (base && base.has(String(e.id) + espTag(e))) continue
+        // Bail réécrit juste avant (« Modifier le bail » : `DB.baux[ref] = {…}`) → il a perdu son tag d'espace
+        // jusqu'à _adoptAll, et l'avenant créé entre-temps est parti SANS espace. Un seul bail candidat (même
+        // logement, même début) et tagué : l'entrée prend son espace avant le 1er envoi (contre-audit lot 2, N1).
+        if (e._espaceId == null) {
+          const cands = baux.filter(([k, b]) => b && typeof b === 'object' && !isDeleted(b) && String(k).split('@@')[0] === String(e.ref || '').split('@@')[0]
+            && String(b.debut || '').slice(0, 10) === String(e.bailDebut || '').slice(0, 10))
+          if (cands.length === 1 && cands[0][1]._espaceId != null) e._espaceId = cands[0][1]._espaceId
+        }
         const t = baux.find(([k, b]) => b && typeof b === 'object' && !isDeleted(b) && String(k).split('@@')[0] === String(e.ref || '').split('@@')[0]
           && String(b.debut || '').slice(0, 10) === String(e.bailDebut || '').slice(0, 10) && (b._espaceId || null) === (e._espaceId || null))
         if (t) { if (t[1]._bailUid) e.bailUid = t[1]._bailUid; else delete e.bailUid }
