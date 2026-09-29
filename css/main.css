@@ -10148,8 +10148,11 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   #ov-annonce .an-col-c.allok .an-chk-h{display:none}
   #ov-annonce .an-col-c.allok .an-chk-sum{display:flex}
 }
-/* Téléphone : page plein écran (règle globale .ov .modal), pied collant, CTA primaire d'abord. */
+/* Téléphone : PAGE plein écran (M-16, même mécanisme que « Avant de signer » de l'EDL : l'overlay perd
+   sa marge, la modale prend 100 % de l'écran), pied collant, CTA primaire d'abord. */
 @media (max-width:767px){
+  #ov-annonce{padding:0;align-items:stretch}
+  #ov-annonce .an-modal{width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;border:0 !important;border-radius:0 !important}
   #ov-annonce .an-body{padding:12px}
   #ov-annonce .an-step2{padding:0}
   #ov-annonce .an-col-t,#ov-annonce .an-col-c{padding:12px}
@@ -10157,10 +10160,10 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   #ov-annonce .an-ed{height:60vh}
   #ov-annonce .an-tg{min-height:44px}
   #ov-annonce .an-chk-sum .btn{min-height:44px}
-  #ov-annonce .an-foot{display:grid;grid-template-columns:1fr 1fr;padding:10px 12px}
+  #ov-annonce .an-foot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:10px 12px}
   #ov-annonce .an-foot .an-sp{display:none}
   #ov-annonce .an-foot .an-foot-hint{grid-column:1 / -1;order:-2}
-  #ov-annonce .an-foot .btn{width:100%;min-height:44px;justify-content:center}
+  #ov-annonce .an-foot .btn{width:100%;min-width:0;min-height:44px;justify-content:center;white-space:normal;text-align:center;line-height:1.25}
   #ov-annonce .an-foot .btn.bp{grid-column:1 / -1;order:-1}
   #ov-annonce .an-go{min-height:44px;padding:0 6px}
   #ov-annonce .an-chk li{align-items:center}
