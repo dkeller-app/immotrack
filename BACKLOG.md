@@ -1,5 +1,7 @@
 # Propryo — Backlog actif
 
+## 🚦 MAIN = **v15.692** (29/09) — garde-fou doublon de bailleur intégré (`10ac47ed`) · 4 729 tests verts, CRLF intact · créer ou renommer un bailleur sous un nom déjà porté → **refusé** (jointures par nom, cf FUSION-SCI-HOMONYMES) ; même SIREN → confirmation ; import d'acte idem. ⚠️ Seule exception assumée à « jamais bloquer » (intégrité des données, pas un rappel légal) — convertible en confirmation si Didier le préfère. **Smoke** : créer un bailleur « SCI X » alors qu'il existe → message ; renommer avec le nom d'un autre → message ; même SIREN → confirmation.
+
 ## 🚦 MAIN = **v15.691** (29/09) — B2 « bail signé figé au cloud » intégré · migration **0055 APPLIQUÉE** avant le front (sim 18/18) · test d'intégration vrai Postgres 8/8 (clôture, relocation, appareil frais, réinitialisation, double archive) · 4 696 tests verts · conflit `CHAMPS_NUMERIQUES` résolu (loyerRef + dgRestitueMontant). **Smoke** : clôturer un bail signé → recharger → plus « en cours », archive présente ; relouer → nouveau bail conservé au rechargement / 2ᵉ appareil.
 
 ## 🚦 MAIN = **v15.690** (29/09) — CONTRAT-TYPE-2026-10 intégré (décret n° 2026-596, en vigueur le 01/10/2026) · 4 650 tests verts · conflit résolu avec le DDT (annexes : ligne 1 contrat type + lignes 2x DDT)
