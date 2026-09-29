@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.688</title>
+<title>Propryo v15.690</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.688">
+<link rel="stylesheet" href="css/main.css?v=15.690">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.688</em>
+      <em>v15.690</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -3778,14 +3778,21 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   <div class="m-head" style="flex-shrink:0">
     <div>
       <h3 id="m-edl-title" style="margin:0">État des lieux</h3>
-      <div class="mu sm">Décret n°2016-382 du 30 mars 2016 — Art. 3-2 loi n°89-462 du 6 juillet 1989</div>
+      <!-- EDL-TÉLÉPHONE charte (25/09) — sur téléphone l'en-tête porte le NOM DE L'ÉTAPE (titre) et
+           « Entrée · F-001 » (sous-titre) ; la mention légale quitte l'en-tête (elle est rappelée dans
+           Infos et Signatures, et reste dans le PDF). Masqué sur PC/tablette (CSS). -->
+      <div class="edl-ph-title" id="edl-ph-title"></div>
+      <div class="edl-ph-sub" id="edl-ph-sub"></div>
+      <div class="mu sm edl-legal-head">Décret n°2016-382 du 30 mars 2016 — Art. 3-2 loi n°89-462 du 6 juillet 1989</div>
       <!-- EDL TERRAIN lot 1 : l'état des lieux s'autosauve, l'en-tête le dit. -->
       <div class="mu sm" id="edl-autosave-etat" style="margin-top:2px"></div>
       <!-- EDL TERRAIN lot 3 : « 34 / 77 photos à l'abri », visible en permanence. -->
       <div class="mu sm" id="edl-photos-abri" style="margin-top:2px"></div>
     </div>
+    <!-- Actions de la pièce courante (renommer, ajouter un élément, supprimer) — téléphone, étape pièce. -->
+    <button type="button" class="edl-ph-more" id="edl-ph-more" onclick="_edlOpenActions('piece',_edlCurPieceIdx())" aria-label="Actions de la pièce : renommer, ajouter un élément, supprimer" style="display:none"><span data-uic="dots"></span></button>
     <!-- Fermer ENREGISTRE (CDC §1) : aucune popup « voulez-vous enregistrer ? ». -->
-    <button class="m-close" onclick="edlCloseModal()"><span data-uic="close"></span></button>
+    <button class="m-close" onclick="edlCloseModal()" aria-label="Fermer l'état des lieux (enregistré)"><span data-uic="close"></span></button>
   </div>
 
   <!-- v14.42 EDL-AUDIT-CRITIQUE Phase 4b : bandeau verrouillage EDL signé.
@@ -3816,38 +3823,39 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
           <input class="inp" type="date" id="edl-date-sortie" style="width:140px;display:none" disabled oninput="_edlUpdateLegalTexts()">
         </label>
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn bs" onclick="edlLoadRef('Entrée')" style="font-size:12px" title="Reprendre toutes les données du dernier EDL d'entrée">📥 EDL entrée</button>
-          <button class="btn bs" onclick="edlLoadRef('Sortie')" style="font-size:12px" title="Reprendre toutes les données du dernier EDL de sortie">📤 EDL sortie</button>
+          <button class="btn bs" onclick="edlLoadRef('Entrée')" style="font-size:12px" title="Reprendre toutes les données du dernier EDL d'entrée"><span data-uic="download"></span> Reprendre l’entrée</button>
+          <button class="btn bs" onclick="edlLoadRef('Sortie')" style="font-size:12px" title="Reprendre toutes les données du dernier EDL de sortie"><span data-uic="download"></span> Reprendre la sortie</button>
         </div>
       </div>
       <!-- Logement + caractéristiques -->
       <div class="g2 mb8">
         <div class="fg"><label style="font-size:11px">Logement *</label>
-          <select class="inp" id="edl-log" onchange="onEDLLogChange()"><option value="">— Sélectionner —</option></select></div>
+          <select class="inp" id="edl-log" onchange="onEDLLogChange()"><option value="">— Sélectionner —</option></select><div class="edl-log-card" id="edl-log-card"></div></div>
         <div class="fg"><label style="font-size:11px">Type de bien</label>
           <select class="inp" id="edl-ltype"><option>Appartement</option><option>Maison</option><option>Local commercial</option><option>Autre</option></select></div>
         <div class="fg"><label style="font-size:11px">Surface (m²)</label><input class="inp" id="edl-surf" type="number" style="width:80px"></div>
         <div class="fg"><label style="font-size:11px">Nb pièces</label><input class="inp" id="edl-npp" type="number" style="width:60px"></div>
       </div>
-      <div class="fg mb8"><label style="font-size:11px">Adresse précise</label><input class="inp" id="edl-adr" style="width:100%" oninput="_edlUpdateLegalTexts()"></div>
+      <div class="fg mb8"><label style="font-size:11px">Adresse précise</label><textarea class="inp edl-1l" id="edl-adr" rows="1" style="width:100%" oninput="_edlUpdateLegalTexts()"></textarea></div>
       <!-- Bailleur / Locataire -->
       <div class="g2">
         <div style="border:1px solid var(--bor);border-radius:var(--r);padding:8px">
           <div style="font-weight:700;color:var(--acc);font-size:12px;margin-bottom:6px">Bailleur (ou son mandataire)</div>
-          <div class="fg mb4"><label style="font-size:11px">Dénomination</label><input class="inp" id="edl-bailleur-nom" style="width:100%"></div>
-          <div class="fg mb4"><label style="font-size:11px">Adresse / Siège</label><input class="inp" id="edl-bailleur-adr" style="width:100%"></div>
-          <div class="fg"><label style="font-size:11px">Représentant</label><input class="inp" id="edl-gerant" value="" style="width:100%"></div>
+          <div class="fg mb4"><label style="font-size:11px">Dénomination</label><textarea class="inp edl-1l" id="edl-bailleur-nom" rows="1" style="width:100%"></textarea></div>
+          <div class="fg mb4"><label style="font-size:11px">Adresse / Siège</label><textarea class="inp edl-1l" id="edl-bailleur-adr" rows="1" style="width:100%"></textarea></div>
+          <div class="fg"><label style="font-size:11px">Représentant</label><textarea class="inp edl-1l" id="edl-gerant" rows="1" style="width:100%"></textarea></div>
         </div>
         <div style="border:1px solid var(--bor);border-radius:var(--r);padding:8px">
           <div style="font-weight:700;color:var(--acc);font-size:12px;margin-bottom:6px">Locataire(s)</div>
-          <div class="fg mb4"><label style="font-size:11px">Nom et prénom</label><input class="inp" id="edl-loc" style="width:100%"></div>
-          <div class="fg mb4"><label style="font-size:11px">Adresse actuelle</label><input class="inp" id="edl-loc-adr" style="width:100%"></div>
+          <div class="fg mb4"><label style="font-size:11px">Nom et prénom</label><textarea class="inp edl-1l" id="edl-loc" rows="1" style="width:100%"></textarea></div>
+          <div class="fg mb4"><label style="font-size:11px">Adresse actuelle</label><textarea class="inp edl-1l" id="edl-loc-adr" rows="1" style="width:100%"></textarea></div>
           <div class="fg" id="edl-nouv-adr-wrap" style="display:none">
             <label style="font-size:11px">Nouvelle adresse <span style="color:var(--red)">*obligatoire</span></label>
-            <input class="inp" id="edl-loc-nouv-adr" style="width:100%">
+            <textarea class="inp edl-1l" id="edl-loc-nouv-adr" rows="1" style="width:100%"></textarea>
           </div>
         </div>
       </div>
+      <p class="edl-legal-foot">Décret n° 2016-382 du 30 mars 2016 — art. 3-2 de la loi n° 89-462 du 6 juillet 1989.</p>
     </div>
 
     <!-- §1 ter — v15.205 BAIL-TYPES Phase B option A enrichie : Inventaire mobilier
@@ -3861,7 +3869,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       </label>
       <div class="mu sm" style="margin-top:4px;color:#78350f;font-size:11.5px">
         Pré-coché automatiquement si bail meublé/étudiant/mobilité associé. À l'activation, les 11 catégories
-        obligatoires sont injectées comme éléments — vous pouvez les renommer, les supprimer, ou ajouter
+        obligatoires sont injectées comme éléments, modifiables : les renommer, les supprimer, ou en ajouter
         librement (TV, lampe d'appoint, micro-ondes spécifique…). Chaque élément accepte des photos
         d'entrée et de sortie comme les pièces EDL.
       </div>
@@ -3911,13 +3919,13 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <button type="button" class="btn bs" onclick="edlAddDaafPhoto()" style="font-size:11.5px"><span data-uic="camera"></span>Ajouter une photo</button>
         <div id="edl-cpt-daaf-thumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
         <div id="edl-daaf-warning" class="mu sm" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;border:1px solid #dc2626;border-radius:var(--rl);color:#7f1d1d;font-size:11.5px;line-height:1.5">
-          <span data-uic="warn"></span> <strong>Risque juridique</strong> : sans photo datée du détecteur, vous n'aurez aucune preuve de sa présence à l'entrée du locataire en cas d'incendie.
+          <span data-uic="warn"></span> <strong>Risque juridique</strong> : sans photo datée du détecteur, aucune preuve de sa présence à l'entrée du locataire en cas d'incendie.
           L'absence de DAAF expose le bailleur à des sanctions pénales (loi 2010-238).
         </div>
       </div>
       <div class="fg" style="margin-top:10px">
         <label style="font-size:11.5px;font-weight:600">Notes / observations</label>
-        <input class="inp" id="edl-daaf-notes" placeholder="Marque, emplacement (entrée, palier, chambre…), test bouton OK, etc." style="width:100%">
+        <textarea class="inp edl-1l" id="edl-daaf-notes" rows="1" placeholder="Marque, emplacement (entrée, palier, chambre…), test bouton OK, etc." style="width:100%"></textarea>
       </div>
     </div>
 
@@ -3937,58 +3945,58 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
           <tr>
             <td><span data-uic="bolt"></span> Élec.</td>
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-elec-num" style="width:86px" placeholder="N°"></td>
-            <td data-label="↘ Entrée — Relevé"><span style="font-size:11px">HP</span><input class="inp" id="edl-cpt-elec-hp" style="width:62px" placeholder="kWh">
+            <td data-label="Relevé à l’entrée"><span style="font-size:11px">HP</span><input class="inp" id="edl-cpt-elec-hp" style="width:62px" placeholder="kWh">
                 <span style="font-size:11px">HC</span><input class="inp" id="edl-cpt-elec-hc" style="width:62px" placeholder="kWh"></td>
-            <td data-label="📷 Photos entrée" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('elec')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
+            <td data-label="Photos à l’entrée" style="text-align:center">
+              <button type="button" class="edl-addph" onclick="edlCptAddPhoto('elec')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px" aria-label="Ajouter une photo du compteur"><span data-uic="camera" data-uic-size="14"></span><span class="edl-addph-lbl">Ajouter une photo</span></button>
               <div id="edl-cpt-elec-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
-            <td data-label="↗ Sortie — Relevé" class="edl-col-s"><span style="font-size:11px">HP</span><input class="inp" id="edl-cpt-elec-hp-s" style="width:62px" placeholder="kWh">
+            <td data-label="Relevé à la sortie" class="edl-col-s"><span style="font-size:11px">HP</span><input class="inp" id="edl-cpt-elec-hp-s" style="width:62px" placeholder="kWh">
                 <span style="font-size:11px">HC</span><input class="inp" id="edl-cpt-elec-hc-s" style="width:62px" placeholder="kWh"></td>
-            <td data-label="📷 Photos sortie" class="edl-col-s" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('elecS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
+            <td data-label="Photos à la sortie" class="edl-col-s" style="text-align:center">
+              <button type="button" class="edl-addph" onclick="edlCptAddPhoto('elecS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px" aria-label="Ajouter une photo du compteur"><span data-uic="camera" data-uic-size="14"></span><span class="edl-addph-lbl">Ajouter une photo</span></button>
               <div id="edl-cpt-elecS-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
           </tr>
           <tr>
             <td><span data-uic="fire"></span> Gaz</td>
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-gaz-num" style="width:86px" placeholder="N°"></td>
-            <td data-label="↘ Entrée — Relevé"><input class="inp" id="edl-cpt-gaz" style="width:80px" placeholder="m³"></td>
-            <td data-label="📷 Photos entrée" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('gaz')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
+            <td data-label="Relevé à l’entrée"><input class="inp" id="edl-cpt-gaz" style="width:80px" placeholder="m³"></td>
+            <td data-label="Photos à l’entrée" style="text-align:center">
+              <button type="button" class="edl-addph" onclick="edlCptAddPhoto('gaz')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px" aria-label="Ajouter une photo du compteur"><span data-uic="camera" data-uic-size="14"></span><span class="edl-addph-lbl">Ajouter une photo</span></button>
               <div id="edl-cpt-gaz-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
-            <td data-label="↗ Sortie — Relevé" class="edl-col-s"><input class="inp" id="edl-cpt-gaz-s" style="width:80px" placeholder="m³"></td>
-            <td data-label="📷 Photos sortie" class="edl-col-s" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('gazS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
+            <td data-label="Relevé à la sortie" class="edl-col-s"><input class="inp" id="edl-cpt-gaz-s" style="width:80px" placeholder="m³"></td>
+            <td data-label="Photos à la sortie" class="edl-col-s" style="text-align:center">
+              <button type="button" class="edl-addph" onclick="edlCptAddPhoto('gazS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px" aria-label="Ajouter une photo du compteur"><span data-uic="camera" data-uic-size="14"></span><span class="edl-addph-lbl">Ajouter une photo</span></button>
               <div id="edl-cpt-gazS-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
           </tr>
           <tr>
             <td><span data-uic="water"></span> Eau chaude</td>
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-eau-c-num" style="width:86px" placeholder="N°"></td>
-            <td data-label="↘ Entrée — Relevé"><input class="inp" id="edl-cpt-eau-c" style="width:80px" placeholder="m³"></td>
-            <td data-label="📷 Photos entrée" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('eauC')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
+            <td data-label="Relevé à l’entrée"><input class="inp" id="edl-cpt-eau-c" style="width:80px" placeholder="m³"></td>
+            <td data-label="Photos à l’entrée" style="text-align:center">
+              <button type="button" class="edl-addph" onclick="edlCptAddPhoto('eauC')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px" aria-label="Ajouter une photo du compteur"><span data-uic="camera" data-uic-size="14"></span><span class="edl-addph-lbl">Ajouter une photo</span></button>
               <div id="edl-cpt-eauC-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
-            <td data-label="↗ Sortie — Relevé" class="edl-col-s"><input class="inp" id="edl-cpt-eau-c-s" style="width:80px" placeholder="m³"></td>
-            <td data-label="📷 Photos sortie" class="edl-col-s" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('eauCS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
+            <td data-label="Relevé à la sortie" class="edl-col-s"><input class="inp" id="edl-cpt-eau-c-s" style="width:80px" placeholder="m³"></td>
+            <td data-label="Photos à la sortie" class="edl-col-s" style="text-align:center">
+              <button type="button" class="edl-addph" onclick="edlCptAddPhoto('eauCS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px" aria-label="Ajouter une photo du compteur"><span data-uic="camera" data-uic-size="14"></span><span class="edl-addph-lbl">Ajouter une photo</span></button>
               <div id="edl-cpt-eauCS-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
           </tr>
           <tr>
             <td><span data-uic="water"></span> Eau froide</td>
             <td data-label="N° / Réf."><input class="inp" id="edl-cpt-eau-f-num" style="width:86px" placeholder="N°"></td>
-            <td data-label="↘ Entrée — Relevé"><input class="inp" id="edl-cpt-eau-f" style="width:80px" placeholder="m³"></td>
-            <td data-label="📷 Photos entrée" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('eauF')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
+            <td data-label="Relevé à l’entrée"><input class="inp" id="edl-cpt-eau-f" style="width:80px" placeholder="m³"></td>
+            <td data-label="Photos à l’entrée" style="text-align:center">
+              <button type="button" class="edl-addph" onclick="edlCptAddPhoto('eauF')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px" aria-label="Ajouter une photo du compteur"><span data-uic="camera" data-uic-size="14"></span><span class="edl-addph-lbl">Ajouter une photo</span></button>
               <div id="edl-cpt-eauF-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
-            <td data-label="↗ Sortie — Relevé" class="edl-col-s"><input class="inp" id="edl-cpt-eau-f-s" style="width:80px" placeholder="m³"></td>
-            <td data-label="📷 Photos sortie" class="edl-col-s" style="text-align:center">
-              <button type="button" onclick="edlCptAddPhoto('eauFS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px"><span data-uic="camera" data-uic-size="14"></span></button>
+            <td data-label="Relevé à la sortie" class="edl-col-s"><input class="inp" id="edl-cpt-eau-f-s" style="width:80px" placeholder="m³"></td>
+            <td data-label="Photos à la sortie" class="edl-col-s" style="text-align:center">
+              <button type="button" class="edl-addph" onclick="edlCptAddPhoto('eauFS')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:1px 5px" aria-label="Ajouter une photo du compteur"><span data-uic="camera" data-uic-size="14"></span><span class="edl-addph-lbl">Ajouter une photo</span></button>
               <div id="edl-cpt-eauFS-thumbs" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px"></div>
             </td>
           </tr>
@@ -4136,6 +4144,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       </div>
       <!-- Finalisation MOBILE : plus de bouton flottant ici — l'action « ✅ Enregistrer l'état
            des lieux » est portée par le CENTRE DU RAIL sur l'étape fin (place cohérente, #3 26/08). -->
+      <p class="edl-legal-foot">Décret n° 2016-382 du 30 mars 2016 — art. 3-2 de la loi n° 89-462 du 6 juillet 1989.</p>
     </div>
 
   </div><!-- fin scroll -->
@@ -4158,12 +4167,19 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
        cf. avertissement §A.1 hérité du bug de prod). Le bouton du milieu ouvre la
        feuille des pièces. Masqué par défaut ; affiché par _edlSyncParcours(). -->
   <div id="edl-rail" class="edl-rail" style="display:none">
-    <button id="edl-rail-prev" class="edl-rail-arrow" onclick="_edlRailNav(-1)" aria-label="Étape précédente" title="Étape précédente">←</button>
+    <!-- EDL-TÉLÉPHONE charte (25/09) — sur téléphone le pied a DEUX ÉTAGES : la progression
+         (« Étape 7 sur 13 · Cuisine · 25 sur 25 remplis », un tap ouvre le Sommaire en page
+         entière) + une barre, puis « Précédent / Suivant » en toutes lettres (Suivant = seule
+         action corail ; il devient « Signer » sur la relecture et « Enregistrer » à la fin).
+         La tablette garde le rail compact (bouton central). -->
+    <button type="button" id="edl-rail-prog" class="edl-rail-prog" onclick="_edlOpenPieceSheet()" aria-label="Ouvrir le sommaire des étapes"><span class="edl-rail-prog-ic" data-uic="list"></span><span class="edl-rail-prog-t" id="edl-rail-prog-t"></span><span class="edl-rail-prog-go" aria-hidden="true">›</span></button>
+    <div class="edl-rail-bar" aria-hidden="true"><i id="edl-rail-barfill"></i></div>
+    <button id="edl-rail-prev" class="edl-rail-arrow" onclick="_edlRailNav(-1)" aria-label="Étape précédente" title="Étape précédente"><span class="edl-rail-arr">←</span><span class="edl-rail-arr-lbl">‹ Précédent</span></button>
     <button id="edl-rail-mid" class="edl-rail-mid" onclick="_edlOpenPieceSheet()" aria-label="Choisir une étape" title="Toutes les étapes">
       <span class="edl-rail-jump">⤒</span>
       <span class="edl-rail-txt"><span id="edl-rail-label" class="edl-rail-label">Étape</span><span id="edl-rail-global" class="edl-rail-global"></span></span>
     </button>
-    <button id="edl-rail-next" class="edl-rail-arrow" onclick="_edlRailNav(1)" aria-label="Étape suivante" title="Étape suivante">→</button>
+    <button id="edl-rail-next" class="edl-rail-arrow" onclick="_edlRailNav(1)" aria-label="Étape suivante" title="Étape suivante"><span class="edl-rail-arr">→</span><span class="edl-rail-arr-lbl" id="edl-rail-next-lbl">Suivant ›</span></button>
   </div>
 
   <!-- La feuille des pièces (§A.1) : monte du bas, chaque pièce avec son avancement
@@ -4196,9 +4212,22 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="edl-sm-body" id="edl-sm-body"></div>
       <div class="edl-sm-actions">
         <button class="edl-sm-btn back" id="edl-sm-back" onclick="_edlCloseSignConfirm()">Revenir corriger</button>
-        <button class="edl-sm-btn go" onclick="_edlConfirmSign()">Confirmer et signer</button>
+        <button class="edl-sm-btn go" id="edl-sm-go" onclick="_edlConfirmSign()">Confirmer et signer</button>
       </div>
     </div>
+  </div>
+
+  <!-- EDL-TÉLÉPHONE charte (25/09, M-16) — une PAGE plein écran au-dessus de l'étape : actions de
+       la pièce (renommer, ajouter un élément, supprimer), de l'élément (renommer, supprimer), choix
+       du logement. Barre du haut (retour + titre), corps qui défile, pied d'action collant. Une seule
+       page à la fois ; son contenu est construit par _edlOpenActions / _edlOpenLogPage. -->
+  <div id="edl-page" class="edl-page" style="display:none" role="dialog" aria-modal="true" aria-labelledby="edl-page-title">
+    <div class="edl-page-head">
+      <button type="button" class="edl-page-back" onclick="_edlClosePage()" aria-label="Retour"><span aria-hidden="true">‹</span> Retour</button>
+      <div class="edl-page-title" id="edl-page-title"></div>
+    </div>
+    <div class="edl-page-body" id="edl-page-body"></div>
+    <div class="edl-page-foot" id="edl-page-foot"></div>
   </div>
 </div></div>
 
@@ -4270,7 +4299,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.688';
+const IMMOTRACK_VERSION = '15.690';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7298,7 +7327,7 @@ function _archiveBailTerminee(ref, bailInitial, path) {
     cur.signatures.archiveTermine = true;
     // Déjà verrouillé (scellé par un autre appareil, ou signature antérieure à ce correctif) : ces
     // références ne partiront pas au cloud. On le signale au lieu de le taire (audit J2).
-    // v15.688 : elles partent désormais par le journal automatique du bail (store-sync, réappliqué partout).
+    // v15.690 : elles partent désormais par le journal automatique du bail (store-sync, réappliqué partout).
     if (cur.signatures.locked) console.info('[archive] bail ' + ref + ' déjà scellé : références d\'archive envoyées par le journal du bail (PDF stocké : ' + (path || 'échec d\'envoi') + ')');
     if (typeof saveDB === 'function') saveDB();
   } catch (e) { console.warn('[archive] fin d\'archive', e); }
@@ -20903,7 +20932,7 @@ function saveBail() {
   // NOUVEAU BAIL (isNewBail) sur un logement occupé : archiverBail LAISSE l'ancien bail dans DB.baux[ref]
   // jusqu'au remplacement ci-dessous. Rien de l'ancien ne doit passer au nouveau — ni clôture, ni
   // SIGNATURES (le nouveau locataire apparaissait « signé » à la date de l'ancien), ni champs figés, ni
-  // date de signature prévue. Audit v15.688 (C1) : avec la synchro B2, l'héritage des signatures faisait
+  // date de signature prévue. Audit v15.690 (C1) : avec la synchro B2, l'héritage des signatures faisait
   // du nouveau bail une « modification » du bail signé précédent → écrit au cloud sur l'ancien contrat.
   const _existantHeritable = isNewBail ? null : DB.baux[ref];
   if(_existantHeritable?.cloture) bail.cloture = _existantHeritable.cloture;
@@ -21015,7 +21044,7 @@ function saveBail() {
         changements: _chg };
       // Partage SCI : l'entrée part dans l'espace du PROPRIÉTAIRE du bail (routage store-multi par tag).
       if (DB.baux[ref]._espaceId != null) _journalModif._espaceId = DB.baux[ref]._espaceId;
-      // Ligne cloud PROPRE du bail (v15.688, `_bailUid`) : l'entrée la vise dès sa création (clé étrangère
+      // Ligne cloud PROPRE du bail (v15.690, `_bailUid`) : l'entrée la vise dès sa création (clé étrangère
       // bail_id) — même si le bail est clôturé ou remplacé avant l'envoi. Absent = ligne historique.
       if (DB.baux[ref]._bailUid) _journalModif.bailUid = DB.baux[ref]._bailUid;
     }
@@ -33467,13 +33496,14 @@ function rEDLList() {
     // n'existe. Ce n'est pas un autre magasin — c'est le même EDL, en cours.
     const brouillon = (e.signatures && (e.signatures.bailleur || e.signatures.locataire))
       ? '' : '<span class="badge gry" title="État des lieux en cours — il s\'enregistre tout seul">Brouillon</span>';
+    const _np = (e.pieces||[]).length;
     return `<tr data-edl-id="${e.id}">
-      <td><b>${escHtml(e.logement||'–')}</b></td><td>${escHtml(e.locataire||'–')}</td>
+      <td class="edl-lcell-log"><b>${escHtml(e.logement||'–')}</b><button type="button" class="edl-lmore" onclick="_edlListMore(${e.id})" aria-label="Plus d'actions : supprimer l'état des lieux">${_uiIcon('dots')}</button></td><td>${escHtml(e.locataire||'–')}</td>
       <td><span class="badge ${e.type==='Entrée'?'grn':'info'}">${e.type}</span> ${brouillon}</td>
       <td>${fd(e.date)}</td>
-      <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${abri}</td>
+      <td class="mu sm">${_np} pièce${_np>1?'s':''} · ${nb} élément${nb>1?'s':''}${sig}${abri}</td>
       <td class="act-cell">
-        <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier l'état des lieux">${_uiIcon('edit')}Modifier</button>
+        <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier l'état des lieux">${_uiIcon('edit')}${brouillon ? 'Reprendre' : 'Modifier'}</button>
         <button class="btn bs bb" onclick="edlOpenView(${e.id})" title="Voir l'état des lieux (lecture seule)">${_uiIcon('eye')}Voir l'EDL</button>
         ${nph ? `<button class="btn bs bb" onclick="edlOpenGallery(${e.id})" title="Voir toutes les photos en grand (cloud en priorité)">${_uiIcon('camera')}Photos</button>` : ''}
         <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="${_share ? 'Envoyer au locataire (WhatsApp, mail…)' : 'Télécharger le PDF (Enregistrer sous)'}">${_share ? _uiIcon('share')+'Partager' : _uiIcon('download')+'Télécharger'}</button>
@@ -33482,6 +33512,29 @@ function rEDLList() {
   }).join('')||`<tr><td colspan="6" style="text-align:center;padding:44px 20px;color:var(--t3)">${_uiIcon('doc-text',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun état des lieux pour l'instant</b><span style="color:var(--t2);font-size:12.5px">Créez le premier à l'entrée ou à la sortie d'un locataire.</span><div style="margin-top:14px"><button class="btn bp bb" onclick="openNewEDL()">${_uiIcon('plus',14)} Nouvel EDL</button></div></td></tr>`;
   _edlKickListUploads(list);
 }
+
+// EDL-TÉLÉPHONE charte (25/09, M-4 / M-15 / M-16) — sur téléphone « Supprimer » quitte la carte (un
+// seul bouton corail à l'écran, plus de rouge) : ⋮ ouvre une PAGE de confirmation plein écran.
+// La suppression reste delEDL (tombstone + annulation), la confirmation native n'est pas redemandée.
+function _edlListMore(id) {
+  const e = (DB.edl || []).find(x => x.id === id && !x._deleted); if (!e) return;
+  let pg = el('edl-lpage');
+  if (!pg) {
+    pg = document.createElement('div'); pg.id = 'edl-lpage'; pg.className = 'edl-page edl-lpage';
+    pg.setAttribute('role', 'dialog'); pg.setAttribute('aria-modal', 'true');
+    document.body.appendChild(pg);
+  }
+  const titre = `${e.logement || ''} — ${e.type || ''}${e.date ? ' du ' + fd(e.date) : ''}`;
+  pg.innerHTML = `<div class="edl-page-head"><button type="button" class="edl-page-back" onclick="_edlListMoreClose()" aria-label="Retour"><span aria-hidden="true">‹</span> Retour</button><div class="edl-page-title">${escHtml(titre)}</div></div>
+    <div class="edl-page-body"><p class="edl-page-q">Supprimer cet état des lieux ?</p><p class="edl-page-note">${escHtml(e.logement || '')}${e.locataire ? ' · ' + escHtml(e.locataire) : ''}. La suppression peut être annulée juste après.</p></div>
+    <div class="edl-page-foot"><button type="button" class="btn edl-page-sec" onclick="_edlListMoreClose()">Annuler</button><button type="button" class="btn edl-page-danger" onclick="_edlListMoreClose();delEDL(${id},{confirme:true})">${_uiIcon('trash')} Supprimer</button></div>`;
+  pg.style.display = 'flex';
+  // audit M5 : quitter la liste (navigation, retour) ferme la page, qui vit sur <body>
+  const fermer = () => _edlListMoreClose();
+  window.addEventListener('hashchange', fermer, { once: true });
+  window.addEventListener('popstate', fermer, { once: true });
+}
+function _edlListMoreClose() { const pg = el('edl-lpage'); if (pg) pg.style.display = 'none'; }
 
 // ── Ouverture ─────────────────────────────────────────────────
 /* EDL TERRAIN lot 4bis, invariant 30 — QUAND poser la question du doublon.
@@ -33847,7 +33900,7 @@ function _edlMobRender() {
   const cnt = el('edl-mob-count');
   if (cnt) cnt.textContent = _edlMobElements.length;
   if (!_edlMobElements.length) {
-    list.innerHTML = '<div class="mu sm" style="padding:12px;text-align:center;color:#92400e;background:#fffaf0;border:1px dashed #f5d28e;border-radius:6px">Aucun élément. Cliquez « + Ajouter un élément » ou « ↺ Restaurer 11 catégories ».</div>';
+    list.innerHTML = '<div class="mu sm" style="padding:12px;text-align:center;color:#92400e;background:#fffaf0;border:1px dashed #f5d28e;border-radius:6px">Aucun élément. Utiliser « + Ajouter un élément » ou « ↺ Restaurer 11 catégories ».</div>';
     return;
   }
   // Afficher les colonnes Entrée/Sortie selon le type d'EDL (les 2 toujours visibles pour
@@ -33857,7 +33910,7 @@ function _edlMobRender() {
     const _ph = (arr, side) => (arr || []).map((ph, phi) =>
       '<div style="position:relative;display:inline-block">'
       + '<img src="' + escHtml(_photoCache[ph.idbKey] || _EDL_PH_VIDE) + '" data-ph="' + escHtml(ph.idbKey || '') + '" alt="" class="edl-thumb" onclick="edlMobViewPhoto(' + idx + ',\'' + side + '\',' + phi + ')">'
-      + '<button type="button" class="edl-delphoto" onclick="edlMobDelPhoto(' + idx + ',\'' + side + '\',' + phi + ')" title="Supprimer">' + _uiIcon('close') + '</button>'
+      + '<button type="button" class="edl-delphoto" onclick="edlMobDelPhoto(' + idx + ',\'' + side + '\',' + phi + ')" aria-label="Supprimer la photo"><span class="edl-dp-i">' + _uiIcon('close') + '</span></button>'
       + '</div>'
     ).join('');
     return ''
@@ -34040,12 +34093,15 @@ function onEDLLogChange() {
   try { _edlSyncGarageForRef(ref); } catch(e) { console.warn('[EDL garage] sync', e); }
   _edlRenderPieces();
   if (ref && avaitSaisie && typeof showToast === 'function') {
-    showToast('Logement rattaché — vos saisies sont conservées.', 'ok', 3500);
+    showToast('Logement rattaché — les saisies sont conservées.', 'ok', 3500);
   }
+  _edlRenderLogCard();   // audit M3
 }
 
 function edlTypeChange() {
   _edlSortie=el('edl-type-sortie').checked;
+  // Un nouvel EDL dit sa nature dès le titre (il restait « Nouvel état des lieux » en sortie).
+  if (!(el('edl-edit-id') && el('edl-edit-id').value) && el('m-edl-title')) el('m-edl-title').textContent = _edlSortie ? 'Nouvel état des lieux de sortie' : 'Nouvel état des lieux d’entrée';
   _edlApplySortieVis();
   _edlRenderPieces();
   _edlUpdateLegalTexts(); // v14.12.7 : la date affichée dépend du type
@@ -34082,7 +34138,7 @@ function _edlUpdateLegalTexts() {
 
 async function edlLoadRef(type) {
   const ref=v('edl-log');
-  if(!ref){showToast('Sélectionnez un logement d\'abord','err');return;}
+  if(!ref){showToast('Sélectionner d\'abord un logement','err');return;}
   const found=DB.edl.filter(_edlActive).filter(e=>e.logement===ref&&e.type===type).sort((a,b)=>b.date.localeCompare(a.date));
   if(!found.length){showToast('Aucun EDL '+type+' trouvé pour '+ref,'warn');return;}
   const src=found[0];
@@ -34190,7 +34246,7 @@ async function edlLoadRef(type) {
 
   let bannerMsg;
   if(_edlSortie===true && type==='Entrée')
-    bannerMsg=`<b>${_uiIcon('list')} EDL Entrée du ${fd(srcDate)}</b> chargé — remplissez les colonnes <b>État sortie</b>`;
+    bannerMsg=`<b>${_uiIcon('list')} EDL Entrée du ${fd(srcDate)}</b> chargé — constater l'état de sortie de chaque élément`;
   else if(_edlSortie===false && type==='Sortie')
     bannerMsg=`<b>${_uiIcon('list')} EDL Sortie du ${fd(srcDate)}</b> chargé — états et observations repris &nbsp;<button onclick="edlClearAllObs()" style="padding:2px 8px;font-size:10px;border:none;border-radius:10px;background:rgba(255,255,255,.25);color:white;cursor:pointer">${_uiIcon('trash')}Vider obs</button>`;
   else
@@ -34276,6 +34332,9 @@ function _edlRenderAll(sigs) {
   _edlApplyNumericInputs(); // lot 5 P4 : pavé numérique pour les relevés
   _edlBindVisualViewport();  // lot 5 P5 : le rail suit le clavier
   _edlBindResize();          // EDL-TÉLÉPHONE : re-synchroniser le parcours au franchissement du seuil 1024
+  _edlBindAutosize();        // EDL-TÉLÉPHONE charte : les zones de texte grandissent (M-14)
+  _edlClosePage();
+  _edlRenderLogCard();       // audit M3 : sans dépendre du rail (modules du parcours absents)
   _edlRenderPieces();
   _edlFillPieceSelect();
   _edlApplySortieVis();
@@ -34286,6 +34345,9 @@ function _edlRenderAll(sigs) {
     if(sigs?.bailleur)  _edlDrawSig('edl-sig-bailleur',  sigs.bailleur);
     if(sigs?.locataire) _edlDrawSig('edl-sig-locataire', sigs.locataire);
   }, 50);
+  // 2e audit I-B : _edlRenderAll tourne AVANT openM('ov-edl') (modale encore display:none) →
+  // les zones d'Infos n'ont pas pu être mesurées. Mesure à la frame suivante, modale ouverte.
+  requestAnimationFrame(() => { _edl1lNormalize(); _edlAutosizeAll(); });
 }
 
 // Options du sélecteur « pièce à ajouter » — SOURCE UNIQUE (barre PC + feuille des étapes
@@ -34294,8 +34356,8 @@ function _edlPieceSelectOptions() {
   const existing=_edlP.map(p=>p.nom);
   const nCh=existing.filter(n=>n.startsWith('Chambre')).length;
   return '<option value="">Pièce à ajouter…</option>'+
-    '<option value="__custom">✏️ Pièce personnalisée (nom libre)</option>'+
-    `<option value="__ch">🛏 Chambre ${nCh+1}</option>`+
+    '<option value="__custom">Pièce personnalisée (nom libre)</option>'+
+    `<option value="__ch">Chambre ${nCh+1}</option>`+
     EDL_EXTRA.filter(p=>!p.nom.startsWith('Chambre')&&!existing.includes(p.nom)).map(p=>`<option value="${escHtml(p.nom)}">${escHtml(p.nom)}</option>`).join('');
 }
 function _edlFillPieceSelect() {
@@ -34411,6 +34473,8 @@ function _edlSyncParcours() {
   const _cs = steps[_edlCurStep];
   if (_cs && _cs.group === 'relecture') _edlRenderRelecture();
   _edlApplyStepVisibility();
+  _edl1lNormalize();   // audit M1 : une valeur d'une ligne, même remplie par le code (import, reprise)
+  _edlAutosizeAll();   // charte M-14 : l'étape affichée, zones de texte à la hauteur de leur contenu
   const phone = _edlPhoneMode();
   const rail = el('edl-rail');
   // rail visible seulement si les modules sont là (sinon boutons inertes, file://)
@@ -34463,11 +34527,47 @@ function _edlUpdateRail() {
       if (jump) jump.textContent = '⤒';
     }
   }
+  // EDL-TÉLÉPHONE charte (25/09) — pied à deux étages (téléphone ≤ 767) : progression + barre,
+  // puis « Précédent / Suivant ». Sur relecture « Suivant » DEVIENT « Signer l'état des lieux »,
+  // à la fin « Enregistrer l'état des lieux » : l'action reste au même endroit (bas droite, corail).
+  const ph = _edlPagePhone();
+  const pt = el('edl-rail-prog-t');
+  if (pt) {
+    const gtxt = String(S.stepGlobalLabelFromSteps(steps, _edlCurStep) || '').replace(' / ', ' sur ');
+    let det = s ? s.nom : '';
+    if (s && s.kind === 'piece') {
+      const st = P.statsPiece(_edlP[s.pieceIdx], _edlSortie);
+      det += ` · ${st.remplis} sur ${st.total} ${_edlSortie ? 'constatés' : 'remplis'}` + (_edlSortie && st.ecarts ? ` · ${st.ecarts} écart${st.ecarts > 1 ? 's' : ''}` : '');
+    }
+    pt.innerHTML = (gtxt ? `<b>${escHtml(gtxt)}</b>` : '') + (det ? (gtxt ? ' · ' : '') + escHtml(det) : '');
+  }
+  const bf = el('edl-rail-barfill'); if (bf) bf.style.width = Math.round(((_edlCurStep + 1) / N) * 100) + '%';
+  if (next) {
+    const nl = el('edl-rail-next-lbl');
+    const grp2 = s && s.group;
+    // 2e audit M3 : le nom lu par le lecteur d'écran suit l'action réelle du bouton.
+    const nomNext = t => { next.setAttribute('aria-label', t); next.title = t; };
+    if (ph && grp2 === 'relecture') {
+      next.disabled = false; next.onclick = () => _edlOpenSignConfirm();
+      if (nl) nl.innerHTML = `${_uiIcon('sign')} Signer l'état des lieux`;
+      nomNext("Signer l'état des lieux");
+    } else if (ph && grp2 === 'fin') {
+      next.disabled = false; next.onclick = () => _edlFinalize();
+      if (nl) nl.innerHTML = `${_uiIcon('check')} Enregistrer l'état des lieux`;
+      nomNext("Enregistrer l'état des lieux");
+    } else {
+      next.onclick = () => _edlRailNav(1);
+      if (nl) nl.textContent = 'Suivant ›';
+      nomNext('Étape suivante');
+    }
+  }
+  _edlUpdatePhoneHead(s);
 }
 function _edlGoStep(idx) {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
   const N = _edlSteps().length;
   _edlCurStep = P ? P.indexClamp(idx, N) : 0;
+  _edlClosePage();
   _edlSyncParcours();
   _edlClosePieceSheet();
   // ramener le haut de l'étape dans le cadre (le body de la modale, pas la page)
@@ -34499,8 +34599,8 @@ function _edlOpenPieceSheet() {
       if (st.complete) done = ' done';
     }
     const tag = s.kind === 'piece'
-      ? '<span class="edl-sheet-tag pce">pièce</span>'
-      : '<span class="edl-sheet-tag adm">admin</span>';
+      ? '<span class="edl-sheet-tag pce">Pièce</span>'
+      : '<span class="edl-sheet-tag adm">Administratif</span>';
     return `<button class="edl-sheet-row${done}${i === _edlCurStep ? ' cur' : ''}" onclick="_edlGoStep(${i})">
       <span class="edl-sheet-nom">${i + 1}. ${escHtml(s.nom)}</span>
       <span class="edl-sheet-meta">${meta}${tag}</span>
@@ -34517,6 +34617,7 @@ function _edlBindResize() {
   if (_edlResizeBound || typeof window === 'undefined') return;
   _edlResizeBound = true;
   window.addEventListener('resize', () => {
+    if (!_edlPagePhone()) { _edlClosePage(); if (typeof _edlListMoreClose === 'function') _edlListMoreClose(); }   // audit M2
     const ov = el('ov-edl'); if (ov && !ov.classList.contains('hidden')) _edlSyncParcours();
   });
 }
@@ -34589,7 +34690,7 @@ function _edlRenderRelecture() {
         right = `<span class="trans">${x.etatE ? escHtml(x.etatE) : '<span class="att">—</span>'}</span>`;
         if (x.obsE) obs += `<span class="obs e">${escHtml(x.obsE)}</span>`;
       }
-      lines += `<div class="edl-rl-li${flagged ? ' flag' : ''}"${flagged ? ` onclick="_edlGoToElement(${pi},${ei})"` : ''}><span class="nm">${escHtml(x.nom)}${obs}${flagged ? '<span class="fix">' + _uiIcon('edit') + ' corriger →</span>' : ''}</span>${right}</div>`;
+      lines += `<div class="edl-rl-li${flagged ? ' flag' : ''}"${flagged ? ` onclick="_edlGoToElement(${pi},${ei})"` : ''}><span class="nm">${escHtml(x.nom)}${obs}${flagged ? '<span class="fix">' + _uiIcon('edit') + ' Corriger</span>' : ''}</span>${right}</div>`;
     });
     const flag = isS ? R.lignesSignalees([p]).length : 0;
     const badge = isS ? (flag ? `<span class="edl-rl-badge ko">${flag} à voir</span>` : '<span class="edl-rl-badge ok">RAS</span>') : '';
@@ -34598,7 +34699,7 @@ function _edlRenderRelecture() {
   // AUDIT 26/08 — récap des sections ADMIN (détecteur / compteurs / clés) : on pouvait signer sans
   // les avoir revues. Résumé compact, read-only, avant l'inventaire des pièces.
   const _daafSt = (typeof _edlDaafState !== 'undefined' && _edlDaafState && _edlDaafState.statut) || null;
-  const _daafLbl = { present: '<span style="color:#16a34a">'+_uiIcon('check')+'</span> présent et fonctionnel', defaut: '<span style="color:#d97706">'+_uiIcon('warn')+'</span> présent, à vérifier', absent: '<span style="color:#dc2626">'+_uiIcon('close')+'</span> absent' }[_daafSt] || '— non renseigné';
+  const _daafLbl = { present: '<span style="color:var(--pos)">'+_uiIcon('check')+'</span> présent et fonctionnel', defaut: '<span style="color:var(--acc)">'+_uiIcon('warn')+'</span> présent, à vérifier', absent: '<span style="color:var(--acc)">'+_uiIcon('close')+'</span> absent' }[_daafSt] || '— non renseigné';
   const _cptCount = ['edl-cpt-elec-hp','edl-cpt-elec-hc','edl-cpt-gaz','edl-cpt-eau-c','edl-cpt-eau-f'].filter(id => (typeof v === 'function' && v(id))).length;
   const _clesCount = ((typeof _edlGetCles === 'function' ? _edlGetCles() : []) || []).filter(c => c && (c.type || c.nb || c.nbS)).length;
   const adminHtml = `<div class="edl-rl-admin">
@@ -34610,7 +34711,7 @@ function _edlRenderRelecture() {
     <div class="edl-rl-title">Relecture avant signature</div>
     <div class="edl-rl-hint">${isS ? 'Vérifier tout avant de signer. Les états identiques entrée/sortie sont conformes ; seuls les changements sont des écarts.' : 'Relecture du constat d\'entrée. Vérifier chaque état et chaque observation avant de signer.'}</div>
     ${chips}${alertHtml}${adminHtml}${roomHtml}
-    <div class="edl-rl-after">Quand tout est vérifié, touchez <b>« Signer l'état des lieux »</b> en bas : un récapitulatif s'affiche, puis viennent l'engagement et les signatures.</div>
+    <div class="edl-rl-after">Quand tout est vérifié : <b>« Signer l'état des lieux »</b>, en bas. Un récapitulatif s'affiche, puis viennent l'engagement et les signatures.</div>
   </div>`;
 }
 // Le pop-up de confirmation « en connaissance de cause ».
@@ -34629,7 +34730,8 @@ function _edlOpenSignConfirm() {
     ? '<p>Cet état des lieux est complet et sans écart. En signant, les parties reconnaissent son exactitude.</p>'
     : '<p>Cet état des lieux comporte :</p><ul>' + recap.points.map(p => `<li><b>${escHtml(p.texte)}</b></li>`).join('') + '</ul><p>En signant, les parties reconnaissent l\'état des lieux et ces éléments <b>en connaissance de cause</b>.</p>';
   const bd = el('edl-sm-body'); if (bd) bd.innerHTML = body;
-  const back = el('edl-sm-back'); if (back) back.style.display = recap.clean ? 'none' : '';
+  const back = el('edl-sm-back'); if (back) { back.style.display = ''; back.textContent = recap.clean ? 'Revenir' : 'Revenir corriger'; }
+  const go = el('edl-sm-go'); if (go) go.textContent = recap.clean ? 'Confirmer et signer' : 'Signer en connaissance de cause';
   const m = el('edl-sign-confirm'); if (m) m.style.display = 'flex';
 }
 function _edlCloseSignConfirm() { const m = el('edl-sign-confirm'); if (m) m.style.display = 'none'; }
@@ -34651,10 +34753,10 @@ async function _edlFinalize() {
     _edlGoStep(0); // étape Infos
     const champId = !log ? 'edl-log' : (_edlSortie ? 'edl-date-sortie' : 'edl-date-entree');
     setTimeout(() => {
-      const f = el(champId);
-      if (f) { try { f.focus(); } catch (e) {} f.style.outline = '2px solid var(--red)'; setTimeout(() => { f.style.outline = ''; }, 2800); }
+      const f = (champId === 'edl-log' && _edlPagePhone()) ? el('edl-log-card') : el(champId);   // audit M4
+      if (f) { try { f.focus(); } catch (e) {} f.style.outline = '2px solid var(--acc)'; setTimeout(() => { f.style.outline = ''; }, 2800); if (f.scrollIntoView) f.scrollIntoView({ block: 'center' }); }
     }, 360);
-    if (typeof showToast === 'function') showToast(!log ? 'Sélectionnez d\'abord le logement (étape « Infos »)' : 'Indiquez la date (étape « Infos »)', 'warn', 4000);
+    if (typeof showToast === 'function') showToast(!log ? 'Sélectionner d\'abord le logement (étape « Infos »)' : 'Indiquer la date (étape « Infos »)', 'warn', 4000);
     return;
   }
   // #5 (retour Didier 26/08) — une fois signé/enregistré, le PDF doit APPARAÎTRE directement.
@@ -34666,12 +34768,16 @@ async function _edlFinalize() {
   if (typeof closeM === 'function') closeM('ov-edl');
 }
 
+// EDL-TÉLÉPHONE charte (25/09, M-10) — sur téléphone l'état s'écrit EN TOUTES LETTRES (le sens de
+// N/B/U/M/– ne tenait que dans un title=, invisible au doigt, et dans une légende repliée). Le PC
+// garde la lettre (tableau dense) : les deux libellés sont rendus, le CSS choisit (.edl-ab / .edl-wd).
+const EDL_MOT = {'Neuf':'Neuf',"Bon état":'Bon',"État d'usage":'Usage','Mauvais état':'Mauvais','Absent':'Absent'};
 function _edlBtns(pi,ei,field,cur) {
   return EDL_ETATS.map((et,idx)=>{
     const c=EDL_CSSVAR[et],active=cur===et;
     return `<button onclick="edlEtat(${pi},${ei},'${field}',${idx},this)"
       style="padding:3px 10px;border-radius:10px;border:${active?`2px solid ${c}`:'1px solid var(--bor)'};background:${active?_edlEtatBg(et):'transparent'};color:${active?c:'var(--t2)'};font-size:12px;cursor:pointer;font-weight:${active?700:400};margin:1px;min-width:32px"
-      title="${et} — ${EDL_DESC[et]}">${EDL_ABBREV[et]}</button>`;
+      title="${et} — ${EDL_DESC[et]}" aria-label="${et}" aria-pressed="${active?'true':'false'}"><span class="edl-ab">${EDL_ABBREV[et]}</span><span class="edl-wd">${EDL_MOT[et]}</span></button>`;
   }).join('');
 }
 
@@ -34694,12 +34800,14 @@ function _edlPhotoCell(pi,ei,side) {
     return `<div style="position:relative;display:inline-block;margin:1px;vertical-align:top">
       <img src="${escHtml(_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE)}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlViewPhoto(${pi},${ei},'${side}',${phi})" title="${escHtml(ph.name||'')}${ph._source?' ['+ph._source+' '+fd(ph._sourceDate)+']':''}">
       ${srcBadge}
-      ${locked?'':`<button class="edl-delphoto" onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" aria-label="Supprimer la photo">${_uiIcon('close')}</button>`}
+      ${locked?'':`<button class="edl-delphoto" onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" aria-label="Supprimer la photo"><span class="edl-dp-i">${_uiIcon('close')}</span></button>`}
     </div>`;
   }).join('');
+  // EDL-TÉLÉPHONE charte (M-8, M-10) — le bouton d'ajout porte son libellé (« Ajouter une photo »,
+  // « Photo » s'il y en a déjà) : visible sur téléphone, le PC garde l'icône dense.
   return `<td style="padding:4px;text-align:center;vertical-align:top;min-width:60px">
     <div>${thumbs}</div>
-    ${locked?'':`<button onclick="edlAddPhoto(${pi},${ei},'${side}')" style="margin-top:2px;background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:2px 6px;white-space:nowrap">${_uiIcon('camera')}${photos.length?' +':''}</button>`}
+    ${locked?'':`<button class="edl-addph" onclick="edlAddPhoto(${pi},${ei},'${side}')" style="margin-top:2px;background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:2px 6px;white-space:nowrap" aria-label="Ajouter une photo">${_uiIcon('camera')}<span class="edl-addph-pc">${photos.length?' +':''}</span><span class="edl-addph-lbl">${photos.length?'Photo':'Ajouter une photo'}</span></button>`}
   </td>`;
 }
 
@@ -34736,21 +34844,25 @@ function _edlRefreshVerdict(pi, ei) {
 function _edlElemRow(pi,ei,x,isSortie) {
   const inp='width:100%;background:transparent;border:none;color:var(--t1);font-size:12px;padding:1px 2px';
   const ta='width:100%;background:transparent;border:none;color:var(--t1);font-size:11px;resize:vertical;min-height:26px';
-  const del=`<td style="width:20px"><button onclick="edlRemoveElem(${pi},${ei})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px">${_uiIcon('close')}</button></td>`;
+  const del=`<td style="width:20px"><button onclick="edlRemoveElem(${pi},${ei})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px" aria-label="Supprimer l'élément">${_uiIcon('close')}</button></td>`;
+  // EDL-TÉLÉPHONE charte (M-14, M-16) — sur téléphone le nom s'affiche EN ENTIER (un <input> le
+  // coupait : « Meubles bas (portes, étagères, tir… ») ; renommer / supprimer passent par la page
+  // d'actions de l'élément (⋮). Le PC garde le champ éditable et la croix (CSS : .edl-el-in / .edl-el-txt).
+  const nomTd=`<td class="edl-cell-nom"><input class="edl-el-in" style="${inp}" value="${escHtml(x.nom)}" onchange="edlElemNom(${pi},${ei},this.value)" placeholder="Élément"><span class="edl-el-txt">${escHtml(x.nom)||'Élément sans nom'}</span><button type="button" class="edl-el-more" onclick="_edlOpenActions('elem',${pi},${ei})" aria-label="Actions sur l'élément : renommer, supprimer">${_uiIcon('dots')}</button></td>`;
   if(isSortie) return `<tr>
-    <td><input style="${inp}" value="${escHtml(x.nom)}" onchange="edlElemNom(${pi},${ei},this.value)" placeholder="Élément"></td>
+    ${nomTd}
     <td class="edl-cell-etatE" style="text-align:center"><span class="edl-etatE-view">${_edlEtatPastille(x.etatE)}</span>${_edlBtns(pi,ei,'etatE',x.etatE)}</td>
     <td class="edl-cell-obsE"><textarea readonly aria-label="Observation d'entrée (signée, lecture seule)" style="${ta}" placeholder="—">${escHtml(x.obsE||'')}</textarea></td>
     ${_edlPhotoCell(pi,ei,'E')}
     <td style="text-align:center">${_edlBtns(pi,ei,'etatS',x.etatS)}</td>
-    <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsS',this.value)" placeholder="...">${escHtml(x.obsS||'')}</textarea></td>
+    <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsS',this.value)" placeholder="Observation de sortie">${escHtml(x.obsS||'')}</textarea></td>
     ${_edlPhotoCell(pi,ei,'S')}
     <td class="edl-verdict-cell" data-vpi="${pi}" data-vei="${ei}" style="text-align:center;white-space:nowrap">${_edlVerdictInner(x)}</td>
     ${del}</tr>`;
   return `<tr>
-    <td><input style="${inp}" value="${escHtml(x.nom)}" onchange="edlElemNom(${pi},${ei},this.value)" placeholder="Élément"></td>
+    ${nomTd}
     <td style="text-align:center">${_edlBtns(pi,ei,'etatE',x.etatE)}</td>
-    <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsE',this.value)" placeholder="Observations...">${escHtml(x.obsE||'')}</textarea></td>
+    <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsE',this.value)" placeholder="Ajouter une observation">${escHtml(x.obsE||'')}</textarea></td>
     ${_edlPhotoCell(pi,ei,'E')}
     ${del}</tr>`;
 }
@@ -34812,6 +34924,7 @@ function edlEtat(pi,ei,field,idx,btn) {
     b.style.background=active?_edlEtatBg(et):'transparent';
     b.style.color=active?c:'var(--t2)';
     b.style.fontWeight=active?700:400;
+    b.setAttribute('aria-pressed', active?'true':'false');
   });
   _edlRefreshVerdict(pi,ei); // lot 7 : le verdict est déduit, il se recalcule au clic
   // lot 5 : la pastille d'avancement de la pièce bouge quand un état change
@@ -34830,13 +34943,195 @@ function edlObs(pi,ei,f,v2){
 function edlPieceNom(pi,v2){if(_edlP[pi])_edlP[pi].nom=v2;}
 function edlAddElem(pi){if(!_edlP[pi])return;_edlP[pi].elements.push({nom:'',etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]});_edlRenderPieces();}
 function edlRemoveElem(pi,ei){if(!_edlP[pi])return;_edlP[pi].elements.splice(ei,1);_edlRenderPieces();}
-function edlRemovePiece(pi){if(!confirm2('Supprimer cette pièce ?'))return;_edlP.splice(pi,1);_edlRenderPieces();_edlFillPieceSelect();}
+function edlRemovePiece(pi, opts){if(!(opts && opts.confirme) && !confirm2('Supprimer cette pièce ?'))return;_edlP.splice(pi,1);_edlRenderPieces();_edlFillPieceSelect();}
 // §2.6 — pilule « ✎ Renommer la pièce » (téléphone) : donne le focus au titre éditable (le
 // nom reste écrit via edlPieceNom à la validation). Pas de pop-up partiel (règle mobile).
 function _edlRenamePiece(pi){
   const blk=document.querySelector(`#edl-pieces-section .edl-piece-block[data-pidx="${pi}"]`);
   const inp=blk&&blk.querySelector('.edl-piece-name');
   if(inp){inp.focus();try{inp.select();}catch(_){}}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * EDL-TÉLÉPHONE — CHARTE MOBILE (25/09, maquette MAQUETTE-375 validée).
+ * Téléphone (≤ 767 px) uniquement : tablette et PC inchangés.
+ *  - M-16 : les actions de gestion (renommer / ajouter / supprimer une pièce ou un élément)
+ *    s'ouvrent en PAGE plein écran (#edl-page), jamais au-dessus du premier élément.
+ *  - M-14 : les champs longs passent à la ligne (textarea .edl-1l qui grandit, Entrée bloquée
+ *    pour garder une valeur sur une ligne) ; les observations grandissent avec le texte.
+ * Les écritures passent par les handlers existants (edlPieceNom, edlElemNom, edlAddElem,
+ * edlRemoveElem) : aucune règle métier nouvelle.
+ * ═════════════════════════════════════════════════════════════════════════ */
+function _edlPagePhone() { return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:767px)').matches; }
+let _edlPageCtx = null;
+function _edlShowPage(title, bodyHtml, footHtml) {
+  const pg = el('edl-page'); if (!pg) return;
+  el('edl-page-title').textContent = title;
+  el('edl-page-body').innerHTML = bodyHtml;
+  const ft = el('edl-page-foot'); ft.innerHTML = footHtml || ''; ft.style.display = footHtml ? '' : 'none';
+  pg.style.display = 'flex';
+  el('edl-page-body').scrollTop = 0;
+  _edlAutosizeAll(pg);
+}
+function _edlClosePage() { const pg = el('edl-page'); if (pg) pg.style.display = 'none'; _edlPageCtx = null; }
+const _edlPageFootNom = `<button type="button" class="btn edl-page-sec" onclick="_edlClosePage()">Annuler</button><button type="button" class="btn bp edl-page-pri" onclick="_edlActSaveName()">Enregistrer le nom</button>`;
+function _edlOpenActions(kind, pi, ei) {
+  const p = _edlP[pi]; if (!p) return;
+  if (kind === 'piece') {
+    _edlPageCtx = { kind, pi };
+    const n = (p.elements || []).length;
+    _edlShowPage('Actions — ' + (p.nom || 'Pièce'),
+      `<label class="edl-page-lab" for="edl-page-nom">Nom de la pièce</label>
+       <textarea class="inp edl-1l edl-page-fld" id="edl-page-nom" rows="1">${escHtml(p.nom || '')}</textarea>
+       <div class="edl-page-list"><button type="button" class="edl-page-row" onclick="_edlActAddElem()">${_uiIcon('plus')}<span>Ajouter un élément</span></button></div>
+       <button type="button" class="edl-page-del" onclick="_edlActAskDelete()">${_uiIcon('trash')} Supprimer la pièce</button>
+       <p class="edl-page-note">${n} élément${n > 1 ? 's' : ''} dans cette pièce.</p>`,
+      _edlPageFootNom);
+  } else {
+    const x = p.elements && p.elements[ei]; if (!x) return;
+    _edlPageCtx = { kind, pi, ei };
+    _edlShowPage(x.nom || 'Élément sans nom',
+      `<p class="edl-page-note">${escHtml(p.nom || '')} · élément ${ei + 1} sur ${p.elements.length}</p>
+       <label class="edl-page-lab" for="edl-page-nom">Nom de l'élément</label>
+       <textarea class="inp edl-1l edl-page-fld" id="edl-page-nom" rows="1" placeholder="Nom de l'élément">${escHtml(x.nom || '')}</textarea>
+       <button type="button" class="edl-page-del" onclick="_edlActAskDelete()">${_uiIcon('trash')} Supprimer l'élément</button>`,
+      _edlPageFootNom);
+  }
+}
+function _edlActSaveName() {
+  const c = _edlPageCtx; if (!c) return;
+  const f = el('edl-page-nom'); const val = f ? f.value.replace(/\s*\n\s*/g, ' ').trim() : '';
+  if (c.kind === 'piece') edlPieceNom(c.pi, val || (_edlP[c.pi] && _edlP[c.pi].nom) || '');
+  else edlElemNom(c.pi, c.ei, val);
+  _edlClosePage();
+  _edlRenderPieces();
+  _edlAutosaveTrigger('bouton');   // audit I1 : même enregistrement automatique que sur PC
+  if (typeof showToast === 'function') showToast('Nom enregistré', 'ok', 2000);
+}
+function _edlActAddElem() {
+  const c = _edlPageCtx; if (!c || !_edlP[c.pi]) return;
+  edlAddElem(c.pi);                                  // handler existant (rend la pièce)
+  _edlAutosaveTrigger('bouton');                    // audit I1
+  const ei = _edlP[c.pi].elements.length - 1;
+  _edlOpenActions('elem', c.pi, ei);                 // nommer tout de suite le nouvel élément
+  el('edl-page-title').textContent = 'Nouvel élément';
+  const f = el('edl-page-nom'); if (f) setTimeout(() => { try { f.focus(); } catch (e) {} }, 60);
+}
+function _edlActAskDelete() {
+  const c = _edlPageCtx; if (!c) return;
+  const p = _edlP[c.pi]; if (!p) return;
+  const quoi = c.kind === 'piece'
+    ? `Supprimer la pièce « ${escHtml(p.nom || 'sans nom')} » et ses ${(p.elements || []).length} éléments ?`
+    : `Supprimer l'élément « ${escHtml((p.elements[c.ei] && p.elements[c.ei].nom) || 'sans nom')} » ?`;
+  el('edl-page-title').textContent = c.kind === 'piece' ? 'Supprimer la pièce' : "Supprimer l'élément";
+  el('edl-page-body').innerHTML = `<p class="edl-page-q">${quoi}</p><p class="edl-page-note">Les états, observations et photos ${c.kind === 'piece' ? 'de cette pièce' : 'de cet élément'} seront retirés de l'état des lieux.</p>`;
+  el('edl-page-foot').innerHTML = `<button type="button" class="btn edl-page-sec" onclick="_edlClosePage()">Annuler</button><button type="button" class="btn edl-page-danger" onclick="_edlActDelete()">${_uiIcon('trash')} Supprimer</button>`;
+  el('edl-page-foot').style.display = '';
+}
+function _edlActDelete() {
+  const c = _edlPageCtx; if (!c || !_edlP[c.pi]) return;
+  _edlClosePage();
+  if (c.kind === 'piece') {
+    // la confirmation a été donnée sur la page : même fonction que le PC, sans 2e question.
+    edlRemovePiece(c.pi, { confirme: true });
+    if (typeof showToast === 'function') showToast('Pièce supprimée', 'ok', 2200);
+  } else {
+    edlRemoveElem(c.pi, c.ei);
+    if (typeof showToast === 'function') showToast('Élément supprimé', 'ok', 2200);
+  }
+  _edlAutosaveTrigger('bouton');   // audit I1 : la suppression part aussi à l'enregistrement automatique
+}
+// Zones de texte qui GRANDISSENT avec le contenu (fin des valeurs coupées, M-14).
+function _edlAutosize(ta) {
+  if (!ta || ta.tagName !== 'TEXTAREA') return;
+  // audit B1 : téléphone seulement. Hors téléphone on EFFACE une hauteur posée sur téléphone
+  // (rotation, fenêtre élargie) : le champ reprend la hauteur d'un <input>. Pas de recalcul.
+  // 2e audit I-A : seule la hauteur posée ICI (marquée data-edl-as) est effacée — jamais celle
+  // que l'utilisateur donne avec la poignée de redimensionnement sur PC.
+  if (!_edlPagePhone()) { if (ta.dataset.edlAs) { ta.style.height = ''; delete ta.dataset.edlAs; } return; }
+  if (ta.offsetParent === null) return;   // étape masquée : sera mesurée quand elle s'affichera
+  ta.style.height = 'auto';
+  ta.style.height = (ta.scrollHeight + (ta.offsetHeight - ta.clientHeight)) + 'px';
+  ta.dataset.edlAs = '1';
+}
+function _edl1lNormalize() {
+  const ov = el('ov-edl'); if (!ov) return;
+  ov.querySelectorAll('textarea.edl-1l').forEach(t => {
+    if (t.value.indexOf('\n') < 0) return;
+    t.value = t.value.replace(/\s*\n\s*/g, ' ');
+    // 2e audit M1 : les clés sont lues dans _edlCles via onchange, pas dans le DOM → prévenir.
+    t.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+function _edlAutosizeAll(root) {
+  const r = root || el('ov-edl'); if (!r) return;
+  r.querySelectorAll('textarea').forEach(_edlAutosize);
+}
+let _edlAutosizeBound = false;
+function _edlBindAutosize() {
+  if (_edlAutosizeBound) return;
+  const ov = el('ov-edl'); if (!ov) return;
+  _edlAutosizeBound = true;
+  ov.addEventListener('input', e => {
+    const t = e.target; if (!t || t.tagName !== 'TEXTAREA') return;
+    // Un ex-champ d'une ligne garde une valeur d'UNE ligne, même après un collage multi-lignes
+    // (l'adresse, le locataire… partent tels quels dans le PDF et les en-têtes).
+    if (t.classList.contains('edl-1l') && /\n/.test(t.value)) {
+      const pos = t.selectionStart; t.value = t.value.replace(/\s*\n\s*/g, ' ');
+      try { t.setSelectionRange(Math.min(pos, t.value.length), Math.min(pos, t.value.length)); } catch (_) {}
+    }
+    _edlAutosize(t);
+  });
+  // Les ex-champs d'une ligne restent une ligne de données : Entrée ne crée pas de saut.
+  ov.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || !e.target || !e.target.classList || !e.target.classList.contains('edl-1l')) return;
+    e.preventDefault();
+    if (e.target.id === 'edl-page-nom') { _edlActSaveName(); return; }   // audit M6 : Entrée VALIDE le nom
+    // Téléphone : Entrée referme le clavier. PC/tablette : rien, comme l'<input> d'avant (2e audit M5).
+    if (_edlPagePhone()) { try { e.target.blur(); } catch (_) {} }
+  });
+}
+// Logement : sur téléphone une CARTE lisible en entier remplace le <select> natif (qui coupait
+// « F-001 – Marie-Charlotte de La Fonta… »). Le <select> reste la source de vérité (caché en CSS) :
+// choisir dans la page = poser sa valeur + déclencher son onchange existant (onEDLLogChange).
+function _edlRenderLogCard() {
+  const card = el('edl-log-card'), sel = el('edl-log'); if (!card || !sel) return;
+  const ref = sel.value;
+  if (!ref) { card.innerHTML = `<button type="button" class="btn edl-log-pick" onclick="_edlOpenLogPage()">Choisir le logement</button>`; return; }
+  const lg = (DB.logements || []).find(l => l.ref === ref) || {};
+  const opt = sel.options[sel.selectedIndex];
+  const occ = lg.locataire || ((opt && opt.text.indexOf(' – ') > 0) ? opt.text.split(' – ').slice(1).join(' – ') : '');
+  const det = [lg.imm, lg.type, lg.surf ? lg.surf + ' m²' : ''].filter(Boolean).join(' · ');
+  card.innerHTML = `<div class="edl-log-card-x"><b>${escHtml(ref)}</b>${occ ? `<div class="edl-log-card-l2">${escHtml(occ)}</div>` : ''}${det ? `<div class="edl-log-card-l3">${escHtml(det)}</div>` : ''}</div><button type="button" class="btn edl-log-change" onclick="_edlOpenLogPage()">Changer</button>`;
+}
+function _edlOpenLogPage() {
+  const sel = el('edl-log'); if (!sel) return;
+  // audit I2 (XSS) : aucune valeur de logement dans l'attribut onclick — seulement l'INDEX de l'option,
+  // la valeur est relue dans le <select> au clic (une référence est une saisie libre, partageable).
+  const rows = [...sel.options].map((o, i) => o.value ?
+    `<button type="button" class="edl-page-row${o.value === sel.value ? ' cur' : ''}" onclick="_edlPickLogIdx(${i})"><span>${escHtml(o.text)}</span></button>` : '').join('');
+  _edlPageCtx = { kind: 'log' };
+  _edlShowPage('Choisir le logement', rows ? `<div class="edl-page-list">${rows}</div>` : '<p class="edl-page-note">Aucun logement disponible.</p>', '');
+}
+function _edlPickLogIdx(i) {
+  const sel = el('edl-log'); const o = sel && sel.options[+i];
+  if (o && o.value) _edlPickLog(o.value); else _edlClosePage();
+}
+function _edlPickLog(ref) {
+  const sel = el('edl-log'); if (!sel) return;
+  _edlClosePage();
+  if (sel.value === ref) return;
+  sel.value = ref;
+  try { sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { onEDLLogChange(); }
+  _edlRenderLogCard();
+}
+// En-tête téléphone : nom de l'étape + « Entrée · F-001 » + ⋮ sur une pièce.
+function _edlUpdatePhoneHead(s) {
+  _edlRenderLogCard();
+  const t = el('edl-ph-title'), sub = el('edl-ph-sub'), more = el('edl-ph-more');
+  if (t) t.textContent = s ? s.nom : '';
+  if (sub) { const lg = (typeof v === 'function') ? v('edl-log') : ''; sub.textContent = (_edlSortie ? 'Sortie' : 'Entrée') + (lg ? ' · ' + lg : ''); }
+  if (more) more.style.display = (_edlPagePhone() && s && s.kind === 'piece') ? '' : 'none';
 }
 /* v14.10 EDL : insère une pièce dans _edlP en respectant l'ordre logique.
    Si "Extérieurs / Communs" existe (depuis v14.7), insère JUSTE AVANT elle.
@@ -35667,7 +35962,7 @@ async function _pdfSortie(o) {
       return 'enregistre';
     }
       _downloadBlobAs(blob, fileName);
-    showToast('📥 PDF dans vos Téléchargements (' + ko + ' KB)', 'ok', 4000);
+    showToast('PDF enregistré dans les Téléchargements (' + ko + ' KB)', 'ok', 4000);
     return 'telecharge';
   } catch (e) {
     console.error('[_pdfSortie] écriture', e);
@@ -35760,7 +36055,7 @@ async function _edlSharePhotos(id) {
     }
     // 6) Repli (Firefox/Safari) : téléchargement de chaque photo dans le dossier par défaut.
     files.forEach(f => _downloadBlobAs(f, f.name));
-    showToast(`📥 ${files.length} photo(s) dans vos Téléchargements`, 'ok', 4000);
+    showToast(`${files.length} photo(s) enregistrée(s) dans les Téléchargements`, 'ok', 4000);
   } catch (e) {
     console.error('[_edlSharePhotos] fail:', e);
     showToast('Erreur photos : ' + (e.message || e), 'err');
@@ -35969,8 +36264,8 @@ function _edlPhotoErreurStockage(f, e) {
   console.error('[edl photo]', e);
   if (plein) {
     const attente = (typeof _edlPhotosEnAttente === 'function') ? _edlPhotosEnAttente() : 0;
-    showToast("Ton téléphone n'a plus de place : la photo" + nom + " n'a pas été ajoutée."
-      + (attente ? ' Envoie les ' + attente + ' photos en attente ou libère de l\'espace.' : ' Libère de l\'espace, puis reprends.'),
+    showToast("Le téléphone n'a plus de place : la photo" + nom + " n'a pas été ajoutée."
+      + (attente ? ' Envoyer les ' + attente + ' photos en attente ou libérer de l\'espace.' : ' Libérer de l\'espace, puis reprendre.'),
       'err', 10000);
   } else {
     showToast('Photo' + nom + ' non ajoutée : ' + ((e && e.message) || 'erreur inconnue'), 'err', 8000);
@@ -36525,22 +36820,22 @@ function _edlRedrawCles() {
     return `<div style="text-align:center;padding:2px">
       ${arr.map((ph,phi)=>`<div style="position:relative;display:inline-block;margin:1px">
         <img src="${escHtml(_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE)}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlCleViewPhoto(${i},${phi},'${side}')" title="${escHtml(ph.name||'')}">
-        <button class="edl-delphoto" onclick="edlCleDelPhoto(${i},${phi},'${side}')" aria-label="Supprimer la photo">${_uiIcon('close')}</button>
+        <button class="edl-delphoto" onclick="edlCleDelPhoto(${i},${phi},'${side}')" aria-label="Supprimer la photo"><span class="edl-dp-i">${_uiIcon('close')}</span></button>
       </div>`).join('')}
-      <button onclick="edlCleAddPhoto(${i},'${side}')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:10px;padding:1px 5px;display:block;margin:2px auto">${_uiIcon('camera', 14)}</button>
+      <button class="edl-addph" onclick="edlCleAddPhoto(${i},'${side}')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:10px;padding:1px 5px;display:block;margin:2px auto" aria-label="Ajouter une photo">${_uiIcon('camera', 14)}<span class="edl-addph-lbl">${arr.length?'Photo':'Ajouter une photo'}</span></button>
     </div>`;
   };
   const _dS = _edlSortie ? '' : 'none';
   // Masquer/afficher en-têtes Sortie des clés
   ['edl-cle-th-nbs','edl-cle-th-phs'].forEach(id=>{const x=el(id);if(x)x.style.display=_dS;});
   el('edl-cles-body').innerHTML = _edlCles.map((c,i)=>`<tr>
-    <td data-label="Type de clé / accès"><input class="inp" style="width:100%" value="${escHtml(c.type)}" placeholder="Type" onchange="_edlCles[${i}].type=this.value"></td>
-    <td data-label="Nb Entrée" style="text-align:center"><input class="inp" type="number" min="0" style="width:48px;text-align:center" value="${c.nb}" onchange="_edlCles[${i}].nb=this.value"></td>
-    <td data-label="📷 Photos entrée" style="padding:2px">${_th(c.photos,i,'E')}</td>
-    <td data-label="Nb Sortie" style="text-align:center;display:${_dS}"><input class="inp" type="number" min="0" style="width:48px;text-align:center" value="${c.nbS}" onchange="_edlCles[${i}].nbS=this.value"></td>
-    <td data-label="📷 Photos sortie" style="padding:2px;display:${_dS}">${_th(c.photosS,i,'S')}</td>
-    <td data-label="Commentaires"><input class="inp" style="width:100%" value="${escHtml(c.obs)}" placeholder="Commentaires" onchange="_edlCles[${i}].obs=this.value"></td>
-    <td><button onclick="edlRemoveCle(${i})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:15px">${_uiIcon('close')}</button></td>
+    <td data-label="Type de clé / accès"><textarea class="inp edl-1l" rows="1" style="width:100%" placeholder="Type" onchange="_edlCles[${i}].type=this.value">${escHtml(c.type)}</textarea></td>
+    <td data-label="Remises à l’entrée" style="text-align:center"><input class="inp" type="number" min="0" style="width:48px;text-align:center" value="${c.nb}" onchange="_edlCles[${i}].nb=this.value"></td>
+    <td data-label="Photos à l’entrée" style="padding:2px">${_th(c.photos,i,'E')}</td>
+    <td data-label="Rendues à la sortie" style="text-align:center;display:${_dS}"><input class="inp" type="number" min="0" style="width:48px;text-align:center" value="${c.nbS}" onchange="_edlCles[${i}].nbS=this.value"></td>
+    <td data-label="Photos à la sortie" style="padding:2px;display:${_dS}">${_th(c.photosS,i,'S')}</td>
+    <td data-label="Commentaire"><textarea class="inp edl-1l" rows="1" style="width:100%" placeholder="Commentaire" onchange="_edlCles[${i}].obs=this.value">${escHtml(c.obs)}</textarea></td>
+    <td class="edl-cle-delcell"><button class="edl-cle-del" onclick="edlRemoveCle(${i})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:15px" aria-label="Supprimer cette clé">${_uiIcon('close')}<span class="edl-cle-del-lbl">Supprimer cette clé</span></button></td>
   </tr>`).join('');
   _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
 }
@@ -36845,7 +37140,7 @@ function _edlResetSignatureUI() {
     "Cette action invalidera la signature actuelle et déverrouillera l'EDL " +
     "pour modification. La signature signée précédemment ne sera plus " +
     "valide juridiquement.\n\n" +
-    "⚠️ Si l'EDL signé a été remis aux locataires (PDF), vous devrez " +
+    "⚠️ Si l'EDL signé a été remis aux locataires (PDF), il faudra " +
     "leur demander de signer à nouveau le document modifié.\n\n" +
     "Continuer ?"
   )) return;
@@ -36875,7 +37170,7 @@ function _edlCptRenderThumbs(key){
   wrap.innerHTML=(_edlCptPhotos[key]||[]).map((ph,phi)=>
     `<div style="position:relative;display:inline-block">
       <img src="${escHtml(_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE)}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlCptViewPhoto('${key}',${phi})" title="${escHtml(ph.name||'')}">
-      <button class="edl-delphoto" onclick="edlCptDelPhoto('${key}',${phi})" aria-label="Supprimer la photo">${_uiIcon('close')}</button>
+      <button class="edl-delphoto" onclick="edlCptDelPhoto('${key}',${phi})" aria-label="Supprimer la photo"><span class="edl-dp-i">${_uiIcon('close')}</span></button>
     </div>`
   ).join('');
   _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
@@ -37199,8 +37494,9 @@ function saveEDL(opts){
     return null;
   }
 }
-function delEDL(id){
-  if(!confirm2('Supprimer cet EDL ?'))return;
+function delEDL(id, opts){
+  // opts.confirme : la confirmation a déjà été donnée sur la page « Supprimer » (téléphone, M-16).
+  if(!(opts && opts.confirme) && !confirm2('Supprimer cet EDL ?'))return;
   // v14.4 BUG-EDL-DELETE-NOSYNC : tombstone au lieu de splice.
   // Sans tombstone, la suppression n'est PAS propagée à Drive ni aux autres devices :
   // au prochain pull, l'EDL réapparaît sur les autres devices car le merge fait

@@ -89,7 +89,9 @@
   --tbl-edge:rgba(0,0,0,.16); /* v15.144 ombre de scroll tables (clair) */
   --t1:#101521;
   --t2:#3c4658;
-  --t3:#6e7888;
+  /* v15.688 CHARTE M-17 : gris clair foncé #6e7888 → #5f6f86 = contraste ≥ 4,5:1 sur
+     tous les fonds clairs (sur 5,12 · sur2 4,82 · bg 4,69 · sur3 4,52). */
+  --t3:#5f6f86;
   /* Alias historiques de la palette sémantique (badges, pastilles). --blu a été renommé
      --acc en lot 0 (écart c2) : il contenait du corail, pas du bleu. */
   --grn:#16795e;
@@ -198,7 +200,7 @@
   --bor2:#eef0f5;
   --t1:#101521;
   --t2:#3c4658;
-  --t3:#6e7888;
+  --t3:#5f6f86; /* v15.688 CHARTE M-17 : ≥ 4,5:1 sur tous les fonds clairs */
   --acc:#ff5a3c;
   --acc2:#e8431f;
   --acc-soft:#ffe7e0;
@@ -6424,7 +6426,9 @@ body[data-dash-v4="on"] {
 /* En sobre/coloré : redonner du contraste cohérent avec le thème */
 html[data-theme="sobre"] body[data-dash-v4="on"] {
   --t2: #475569;
-  --t3: #64748b;
+  /* v15.688 CHARTE M-17 : #64748b ne faisait que 4,37:1 sur le fond de page (--bg) et
+     4,20:1 sur --sur3 → #5f6f86 = 4,69 / 4,52 (≥ 4,5 partout). Le sombre est inchangé. */
+  --t3: #5f6f86;
 }
 html[data-theme="colore"] body[data-dash-v4="on"] {
   --t2: #6b4a2a;
@@ -9735,3 +9739,323 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 
 /* DOC-3 — cadre isolé des documents .pro-doc (iframe sandbox, cf. _docRenderSandboxed). */
 .doc-sandbox{display:block;width:100%;border:0;min-height:220px;background:#fff}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════
+   EDL-TÉLÉPHONE — CHARTE MOBILE (25/09, docs/CHARTE-MOBILE.md ; maquette
+   mockups/EDL-TELEPHONE/MAQUETTE-375.html validée, variante A « cartes compactes »).
+   Audit mesuré à 375 px (AUDIT-375.html) : texte de lecture jusqu'à 9,5 px, 10 valeurs coupées,
+   47 types de cibles < 44 px. Ce bloc corrige le TÉLÉPHONE (≤ 767 px) seulement : la tablette
+   (768–1023) garde les cartes du bloc « B) FORMULAIRE EDL », le PC (≥ 1024) son tableau.
+   Placé en fin de fichier : il passe après toutes les règles EDL existantes.
+   ════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* Éléments ajoutés pour le téléphone : invisibles ailleurs. */
+.edl-wd,.edl-el-txt,.edl-el-more,.edl-addph-lbl,.edl-ph-title,.edl-ph-sub,.edl-rail-prog,.edl-rail-bar,
+.edl-rail-arr-lbl,.edl-log-card,.edl-cle-del-lbl,.edl-legal-foot,.edl-lmore{display:none}
+@media (min-width:768px){ #ov-edl .edl-ph-more{display:none !important} }
+/* Ex-champs d'une ligne devenus <textarea class="inp edl-1l"> : hors téléphone ils gardent l'ALLURE
+   d'un champ (une ligne, sans poignée) — sinon la règle globale textarea.inp (70 px, resize) les
+   étirait sur PC et tablette (audit B1). Le téléphone les laisse passer à la ligne (bloc ≤ 767). */
+#ov-edl textarea.inp.edl-1l{min-height:0;resize:none;overflow:hidden;white-space:pre;overflow-wrap:normal}
+.edl-page{display:none}
+
+@media (max-width:767px){
+  /* ── Couleurs (M-15 : pas de rouge — le corail marque « Mauvais », l'écart, la suppression) ── */
+  #ov-edl{--e-mauvais:var(--acc)}
+
+  /* ── En-tête : le nom de l'étape en titre, « Entrée · F-001 · Enregistré à … » dessous ── */
+  #ov-edl .m-head{padding:8px 4px 8px 14px !important;align-items:center !important;gap:2px;min-height:64px}
+  #ov-edl .m-head > div:first-child{flex:1;min-width:0}
+  #ov-edl #m-edl-title,#ov-edl .edl-legal-head{display:none !important}
+  #ov-edl .edl-ph-title{display:block;font:800 18px/1.2 var(--display);color:var(--t1);margin:0}
+  #ov-edl .edl-ph-sub{display:inline;font:400 14px/1.35 var(--font);color:var(--t2)}
+  #ov-edl #edl-autosave-etat{display:inline !important;font-size:14px !important;color:var(--t2);margin:0 !important}
+  #ov-edl #edl-autosave-etat:not(:empty)::before{content:' · '}
+  #ov-edl #edl-photos-abri{font-size:14px !important;color:var(--t2)}
+  #ov-edl .edl-ph-more,#ov-edl .m-head .m-close{flex:none;width:44px;height:44px;min-width:44px;display:flex;align-items:center;
+    justify-content:center;border-radius:12px;background:none;border:none;color:var(--t1);padding:0 !important;font-size:20px;cursor:pointer}
+  #ov-edl .edl-ph-more svg,#ov-edl .m-head .m-close svg{width:22px;height:22px}
+
+  /* ── Pied d'action à deux étages : progression (→ Sommaire) + barre, puis Précédent / Suivant ── */
+  #ov-edl .edl-rail{flex-wrap:wrap;gap:0 10px !important;padding:4px 12px calc(10px + env(safe-area-inset-bottom,0px)) !important}
+  #ov-edl .edl-rail-prog{display:flex;order:1;align-items:center;gap:8px;width:100%;min-height:44px;background:none;border:none;
+    color:var(--t2);font:400 14px/1.3 var(--font);text-align:left;padding:0 4px;cursor:pointer}
+  #ov-edl .edl-rail-prog-t{flex:1;min-width:0}
+  #ov-edl .edl-rail-prog-t b{color:var(--t1);font-weight:700}
+  #ov-edl .edl-rail-prog-ic{display:inline-flex;color:var(--t2)}
+  #ov-edl .edl-rail-prog-go{font-size:22px;line-height:1;color:var(--t2)}
+  #ov-edl .edl-rail-bar{display:block;order:2;width:calc(100% - 8px);height:4px;margin:0 4px 8px;border-radius:4px;background:var(--sur3);overflow:hidden}
+  #ov-edl .edl-rail-bar i{display:block;height:100%;width:0;background:var(--pos);border-radius:4px;transition:width .2s}
+  #ov-edl .edl-rail-mid{display:none !important}
+  #ov-edl #edl-rail-prev{order:3}
+  #ov-edl #edl-rail-next{order:4}
+  #ov-edl .edl-rail-arrow{flex:1 1 0 !important;min-height:48px;display:flex;align-items:center;justify-content:center;
+    padding:4px 10px;font:700 16px/1.2 var(--font);border-radius:12px;text-align:center}
+  #ov-edl .edl-rail-arr{display:none}
+  #ov-edl .edl-rail-arr-lbl{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+  #ov-edl .edl-rail-arr-lbl svg{width:20px;height:20px;flex:none}
+  #ov-edl #edl-rail-prev{background:transparent;color:var(--t1);border:1px solid var(--bor)}
+  #ov-edl #edl-rail-next{background:var(--acc);border:1px solid var(--acc);color:var(--cta-text)}
+  #ov-edl #edl-rail-next:disabled{background:var(--sur2);border-color:var(--bor);color:var(--t2)}
+
+  /* ── Page plein écran au-dessus de l'étape (actions pièce / élément, choix du logement) ── */
+  #ov-edl > .modal{position:relative}
+  #ov-edl .edl-page{position:absolute;inset:0;z-index:80;flex-direction:column;background:var(--bg)}
+  .edl-page.edl-lpage{position:fixed;inset:0;z-index:1001;flex-direction:column;background:var(--bg)}
+  .edl-page-head{flex:none;display:flex;align-items:center;gap:6px;min-height:64px;padding:8px 14px 8px 4px;
+    background:var(--sur);border-bottom:1px solid var(--bor)}
+  .edl-page-back{flex:none;min-height:44px;min-width:44px;display:inline-flex;align-items:center;gap:4px;padding:0 10px;
+    background:none;border:none;border-radius:12px;color:var(--t1);font:600 16px var(--font);cursor:pointer}
+  .edl-page-back span{font-size:26px;line-height:1}
+  .edl-page-title{flex:1;min-width:0;font:800 18px/1.25 var(--display);color:var(--t1);overflow-wrap:anywhere}
+  .edl-page-body{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:16px}
+  .edl-page-foot{flex:none;display:flex;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
+    background:var(--sur);border-top:1px solid var(--bor)}
+  .edl-page-foot .btn{flex:1 1 0;min-height:48px;justify-content:center;font:700 16px var(--font);border-radius:12px}
+  .edl-page-foot .edl-page-sec{background:transparent;border:1px solid var(--bor);color:var(--t1)}
+  .edl-page-foot .edl-page-pri{background:var(--acc);border:1px solid var(--acc);color:var(--cta-text)}
+  .edl-page-foot .edl-page-danger{background:transparent;border:1px solid var(--acc);color:var(--acc)}
+  .edl-page-lab{display:block;font:600 14px var(--font);color:var(--t2);margin:0 0 6px}
+  .edl-page-fld{width:100%;min-height:48px;font-size:16px;line-height:1.35;padding:12px 14px;border-radius:12px;resize:none}
+  .edl-page-list{display:flex;flex-direction:column;gap:0;margin:16px 0;background:var(--sur);border:1px solid var(--bor);
+    border-radius:16px;overflow:hidden}
+  .edl-page-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;background:none;border:none;
+    border-top:1px solid var(--bor);color:var(--t1);font:400 16px/1.35 var(--font);text-align:left;cursor:pointer}
+  .edl-page-row:first-child{border-top:none}
+  .edl-page-row.cur{background:var(--acc-soft);font-weight:700}
+  .edl-page-row svg{width:22px;height:22px;flex:none;color:var(--t2)}
+  .edl-page-del{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin-top:4px;
+    background:transparent;border:1px solid var(--acc);border-radius:12px;color:var(--acc);font:700 16px var(--font);cursor:pointer}
+  .edl-page-del svg{width:20px;height:20px}
+  .edl-page-note{font:400 15px/1.45 var(--font);color:var(--t2);margin:12px 0 0}
+  .edl-page-q{font:700 17px/1.4 var(--font);color:var(--t1);margin:0}
+
+  /* ── Pièce : la gestion quitte le haut de l'écran (⋮ de l'en-tête) ; légende inutile (états en mots) ── */
+  #edl-pieces-section .edl-piece-head,#edl-pieces-section > .edl-legend{display:none !important}
+  #edl-pieces-section .edl-piece-block{border:none !important;margin:0 !important;overflow:visible !important;border-radius:0 !important}
+  #edl-pieces-section .tbl-wrap table.tbl tbody{display:block}
+  /* chaque élément = une carte */
+  #edl-pieces-section .tbl-wrap table.tbl tr{background:var(--sur) !important;border:1px solid var(--bor) !important;
+    border-radius:16px;margin:0 0 10px;padding:12px 12px 14px 14px !important}
+  /* nom en entier (plus de champ qui coupe) + ⋮ (renommer / supprimer en page) */
+  #edl-pieces-section .tbl-wrap table.tbl td.edl-cell-nom{display:flex !important;align-items:flex-start;gap:4px;
+    padding:0 !important;margin:0 !important;border:none !important}
+  #edl-pieces-section .tbl-wrap table.tbl td.edl-cell-nom .edl-el-in{display:none !important}
+  #edl-pieces-section .edl-el-txt{display:block;flex:1;min-width:0;padding-top:11px;font:700 16px/1.3 var(--font);color:var(--t1);overflow-wrap:anywhere}
+  #edl-pieces-section .edl-el-more{display:flex;flex:none;align-items:center;justify-content:center;width:44px;height:44px;
+    margin:-2px -6px 0 0;background:none;border:none;border-radius:12px;color:var(--t2);cursor:pointer}
+  #edl-pieces-section .edl-el-more svg{width:22px;height:22px}
+  #edl-pieces-section .tbl-wrap table.tbl td[style*="width:20px"]{display:none !important}
+  /* états en toutes lettres, 5 cases égales de 44 px */
+  #ov-edl .edl-ab{display:none}
+  #ov-edl .edl-wd{display:inline}
+  #edl-pieces-section .tbl-wrap table.tbl td:nth-child(2){display:grid !important;grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:4px !important;padding:10px 0 0 !important}
+  #edl-pieces-section .tbl-wrap table.tbl td:nth-child(2)::before{content:none !important}
+  #edl-pieces-section .tbl-wrap table.tbl td button[onclick^="edlEtat"]{min-width:0 !important;min-height:44px !important;
+    margin:0 !important;padding:0 2px !important;font-size:14px !important;border-radius:10px !important;letter-spacing:-.1px}
+  #edl-pieces-section .tbl-wrap table.tbl td button[onclick^="edlEtat"][aria-pressed="false"]{background:var(--sur2) !important}
+  /* observation : zone qui grandit avec le texte */
+  #edl-pieces-section .tbl-wrap table.tbl td:nth-child(3){padding:8px 0 0 !important}
+  #edl-pieces-section .tbl-wrap table.tbl td:nth-child(3)::before{content:none !important}
+  #edl-pieces-section .tbl-wrap table.tbl td textarea{min-height:44px !important;padding:11px 12px !important;border-radius:12px !important;
+    resize:none !important;overflow:hidden;line-height:1.35 !important;font-size:16px !important;color:var(--t1) !important}
+  /* photos : vignettes 64 px, ajout libellé 44 px, suppression par zone de 44 px */
+  #edl-pieces-section .tbl-wrap table.tbl td[style*="vertical-align:top"]{padding:10px 0 0 !important}
+  #edl-pieces-section .tbl-wrap table.tbl td[style*="vertical-align:top"]::before{content:none !important}
+  #edl-pieces-section .tbl-wrap table.tbl td[style*="vertical-align:top"] > div:first-child{display:flex;flex-wrap:wrap;gap:10px}
+  #ov-edl .edl-thumb{width:64px !important;height:64px !important;border-radius:10px;object-fit:cover}
+  #ov-edl .edl-addph{display:inline-flex !important;align-items:center;gap:8px;min-height:44px !important;margin:10px 0 0 !important;
+    padding:0 14px !important;border:1px dashed color-mix(in srgb,var(--t2) 55%,transparent) !important;border-radius:12px !important;
+    background:transparent !important;color:var(--t1) !important;font:600 15px var(--font) !important}
+  #ov-edl .edl-addph svg{width:20px;height:20px}
+  #ov-edl .edl-addph-lbl{display:inline}
+  #ov-edl .edl-addph-pc{display:none}
+  #ov-edl .edl-delphoto{top:-12px !important;right:-12px !important;width:44px !important;height:44px !important;padding:4px !important;
+    background:transparent !important;box-shadow:none !important;align-items:flex-start !important;justify-content:flex-end !important}
+  #ov-edl .edl-dp-i{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--sur);
+    border:1px solid var(--bor);color:var(--t1);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  #ov-edl .edl-dp-i svg{width:14px;height:14px}
+
+  /* ── Sortie : verdict d'abord, référence d'entrée en lecture, sortie à constater (liseré corail) ── */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl tbody tr{
+    grid-template-areas:'nom' 'verdict' 'etatE' 'obsE' 'photoE' 'etatS' 'obsS' 'photoS' !important;padding:12px 12px 14px 14px !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-nom{padding:0 !important;margin:0 !important;border:none !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell{border-top:none !important;margin:2px 0 10px !important;padding:0 !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell::before{content:none !important}
+  #ov-edl .edl-vbadge{font:700 14px var(--font) !important;padding:3px 11px}
+  #ov-edl .edl-vbadge.vc-ok{color:var(--pos);border-color:var(--pos);background:color-mix(in srgb,var(--pos) 10%,transparent)}
+  #ov-edl .edl-vbadge.vc-ko{color:var(--acc);border-color:var(--acc);background:var(--acc-soft);font-weight:700}
+  #ov-edl .edl-vbadge.vc-att{color:var(--t2);border-color:var(--bor);background:var(--sur2)}
+  #ov-edl .edl-vwarn{display:block;max-width:none !important;margin-top:6px;font:600 14px/1.35 var(--font) !important;color:var(--acc)}
+  #ov-edl .edl-pastille{font:700 14px var(--font) !important;padding:4px 12px}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2)::before{content:'Entrée — référence signée' !important;
+    font:600 14px var(--font) !important;text-transform:none !important;letter-spacing:0 !important;color:var(--t2) !important;margin-bottom:8px !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE::before{content:'Observation à l’entrée' !important;
+    font:600 14px var(--font) !important;text-transform:none !important;letter-spacing:0 !important;color:var(--t2) !important;margin:8px 0 2px !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE textarea{border:none !important;background:transparent !important;
+    padding:0 !important;min-height:0 !important;font-style:normal !important;color:var(--t1) !important;opacity:1 !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4)::before{content:'Photos à l’entrée' !important;
+    font:600 14px var(--font) !important;text-transform:none !important;letter-spacing:0 !important;color:var(--t2) !important;margin:8px 0 6px !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5),
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6),
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7){
+    background:color-mix(in srgb,var(--acc) 5%,transparent) !important;border-left:4px solid var(--acc) !important;
+    border-right:1px solid color-mix(in srgb,var(--acc) 30%,transparent) !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5){display:grid !important;grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:4px !important;border-top:1px solid color-mix(in srgb,var(--acc) 30%,transparent) !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5)::before{content:'Sortie — à constater' !important;grid-column:1 / -1;
+    font:600 14px var(--font) !important;text-transform:none !important;letter-spacing:0 !important;color:var(--t1) !important;margin:0 0 4px !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5) button{flex:none !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6)::before{content:none !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7)::before{content:'Photos à la sortie' !important;
+    font:600 14px var(--font) !important;text-transform:none !important;letter-spacing:0 !important;color:var(--t2) !important;margin:6px 0 4px !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7){border-bottom:1px solid color-mix(in srgb,var(--acc) 30%,transparent) !important}
+  #ov-edl #edl-ref-banner{font-size:15px !important;line-height:1.45;background:var(--sur2) !important;color:var(--t1) !important;
+    border:1px solid var(--bor) !important;border-radius:12px !important;padding:12px !important}
+
+  /* ── Infos / compteurs / clés / détecteur : libellés lisibles, cibles de 44 px ── */
+  #ov-edl label{font-size:14px !important;line-height:1.35}
+  #ov-edl .fg > label,#ov-edl label[style*="font-size:11px"],#ov-edl label[style*="font-size:11.5px"]{font-weight:600;color:var(--t2)}
+  #ov-edl textarea.inp.edl-1l{resize:none;overflow:hidden;min-height:48px;line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere}
+  #ov-edl .edl-cpt-tbl td[data-label]::before,#ov-edl .edl-cles-tbl td[data-label]::before{font:600 14px var(--font) !important;
+    text-transform:none !important;letter-spacing:0 !important;color:var(--t2) !important;margin-bottom:6px !important}
+  #ov-edl .edl-cpt-tbl td > span[style*="font-size:11px"]{font-size:14px !important;font-weight:600}
+  #ov-edl .edl-cpt-tbl td button[onclick*="edlCptAddPhoto"]{min-height:44px !important}
+  /* cases et boutons radio : la ligne entière est la cible (44 px), la case est lisible (22 px) */
+  #ov-edl input[type="checkbox"],#ov-edl input[type="radio"]{width:22px !important;height:22px !important;flex:none;margin:0;accent-color:var(--acc)}
+  #ov-edl label:has(> input[type="checkbox"]),#ov-edl label:has(> input[type="radio"]){display:flex !important;align-items:center;gap:12px;
+    min-height:44px;font-size:16px !important;font-weight:500 !important;color:var(--t1) !important;cursor:pointer}
+  #ov-edl > .modal div[style*="border-top:1px solid var(--bor)"] > .flex-c.mb4{flex-direction:row !important;flex-wrap:wrap;align-items:center !important;gap:8px !important}
+  #ov-edl > .modal div[style*="border-top:1px solid var(--bor)"] > .flex-c.mb4 > label:has(> input[type="checkbox"]){width:auto !important;
+    padding:0 16px !important;border:1px solid var(--bor);border-radius:999px;background:var(--sur)}
+  #ov-edl > .modal div[style*="border-top:1px solid var(--bor)"] > .flex-c.mb4 > label:has(> input:checked){border:2px solid var(--t1);background:var(--sur3);font-weight:700 !important}
+  #ov-edl [data-edl-step="daaf"] label:has(> input[type="radio"]){min-height:56px;padding:8px 14px;margin:0 0 8px;border:1px solid var(--bor);
+    border-radius:14px;background:var(--sur)}
+  #ov-edl [data-edl-step="daaf"] label:has(> input:checked){border:2px solid var(--t1)}
+  /* sections détecteur / mobilier : fonds jaunes codés en dur (illisibles en sombre) → surfaces du thème */
+  #ov-edl #edl-daaf-section,#ov-edl #edl-mobilier-section{background:var(--sur) !important;border-color:var(--bor) !important;color:var(--t1)}
+  #ov-edl #edl-daaf-section [style*="background:#"],#ov-edl #edl-mobilier-section [style*="background:#"]{background:var(--sur2) !important;border-color:var(--bor) !important;color:var(--t1) !important}
+  #ov-edl #edl-daaf-section [style*="color:#"],#ov-edl #edl-mobilier-section [style*="color:#"]{color:var(--t1) !important}
+  #ov-edl #edl-daaf-section [style*="font-size:1"],#ov-edl #edl-mobilier-section [style*="font-size:1"]{font-size:15px !important;line-height:1.45}
+  /* l'alerte « Risque juridique » reste une ALERTE (corail), pas un encart gris (audit M8) */
+  #ov-edl #edl-daaf-warning{background:var(--acc-soft) !important;border:1px solid color-mix(in srgb,var(--acc) 45%,transparent) !important;color:var(--t1) !important;border-radius:12px}
+  #ov-edl #edl-daaf-warning *{color:var(--t1) !important}
+  /* suppression d'une clé : un bouton libellé de 44 px, en bas de sa carte (plus de croix sur le libellé) */
+  #ov-edl .edl-cles-tbl tr td.edl-cle-delcell{position:static !important;padding:8px 0 0 !important}
+  #ov-edl .edl-cles-tbl tr td.edl-cle-delcell > button.edl-cle-del{width:auto !important;height:auto !important;min-height:44px;display:inline-flex !important;
+    align-items:center;gap:8px;padding:0 14px !important;border:1px solid var(--acc) !important;border-radius:12px;background:transparent !important;
+    color:var(--acc) !important;font:600 15px var(--font) !important}
+  #ov-edl .edl-cle-del-lbl{display:inline}
+  #ov-edl .btn.bs{min-height:44px;font-size:15px !important}
+  /* logement : une carte lisible en entier (le <select> reste la source, caché) */
+  #ov-edl select#edl-log{display:none !important}
+  #ov-edl .edl-log-card{display:flex;align-items:flex-start;gap:10px;padding:12px 12px 12px 14px;border:1px solid var(--bor);border-radius:14px;background:var(--sur)}
+  #ov-edl .edl-log-card-x{flex:1;min-width:0;font-size:15px;color:var(--t1);overflow-wrap:anywhere}
+  #ov-edl .edl-log-card-x b{font:800 17px var(--display)}
+  #ov-edl .edl-log-card-l2{font-size:15px;margin-top:2px}
+  #ov-edl .edl-log-card-l3{font-size:14px;color:var(--t2);margin-top:2px}
+  #ov-edl .edl-log-change,#ov-edl .edl-log-pick{flex:none;min-height:44px;padding:0 14px;font:600 15px var(--font);border-radius:12px}
+  #ov-edl .edl-log-pick{flex:1;background:var(--acc);border-color:var(--acc);color:var(--cta-text)}
+  /* mention légale : quitte l'en-tête, rappelée en bas d'Infos et des Signatures */
+  #ov-edl .edl-legal-foot{display:block;font:400 14px/1.45 var(--font);color:var(--t2);margin:14px 0 2px}
+  /* textes des signatures et de l'engagement */
+  #ov-edl #edl-engagement-titre{font-size:16px !important}
+  #ov-edl #edl-engagement-txt1,#ov-edl #edl-engagement-txt2,#ov-edl #edl-faitle-text,#ov-edl #edl-sigintro-text{font-size:15px !important;line-height:1.5 !important}
+  #ov-edl [data-edl-step="fin"] div[style*="font-size:11px"],#ov-edl [data-edl-step="fin"] div[style*="font-size:12px"]{font-size:14px !important}
+  #ov-edl [data-edl-step="fin"] .btn{min-height:44px;font-size:15px !important}
+
+  /* ── Sommaire des étapes : PAGE plein écran (était un volet sur la moitié basse, M-16) ── */
+  #ov-edl .edl-piece-sheet{background:var(--bg);align-items:stretch}
+  #ov-edl .edl-sheet-panel{max-width:none;max-height:none;height:100%;border-radius:0;border:none;box-shadow:none}
+  #ov-edl .edl-sheet-head{min-height:64px;padding:8px 4px 8px 16px}
+  #ov-edl .edl-sheet-head b{font:800 18px var(--display);color:var(--t1)}
+  #ov-edl .edl-sheet-close{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;color:var(--t1)}
+  #ov-edl .edl-sheet-row{min-height:56px;border-radius:12px}
+  #ov-edl .edl-sheet-nom{font:600 16px/1.3 var(--font);white-space:normal;overflow:visible;text-overflow:clip}
+  #ov-edl .edl-sheet-tag{font:600 14px var(--font);text-transform:none;letter-spacing:0;padding:0;background:none !important;color:var(--t2) !important}
+  #ov-edl .edl-pcount,#ov-edl .edl-pecart{font-size:14px;padding:2px 10px}
+  #ov-edl .edl-pecart{color:var(--acc);border-color:var(--acc);background:var(--acc-soft)}
+  #ov-edl .edl-sheet-add-lbl{font:600 14px var(--font);text-transform:none;letter-spacing:0;color:var(--t2)}
+  #ov-edl .edl-sheet-add-row .btn{min-height:48px;font-size:15px}
+
+  /* ── Relecture : tout lisible (≥ 14 px), écart en corail, « Corriger » de 44 px ── */
+  #ov-edl .edl-rl-title{font:800 20px var(--display)}
+  #ov-edl .edl-rl-hint{font-size:15px;color:var(--t2)}
+  #ov-edl .edl-rl-chip .n{font:800 24px var(--display)}
+  #ov-edl .edl-rl-chip .l{font-size:14px;text-transform:none;letter-spacing:0;color:var(--t2)}
+  #ov-edl .edl-rl-chip.ko .n{color:var(--acc)}
+  #ov-edl .edl-rl-chip.att .n{color:var(--t1)}
+  #ov-edl .edl-rl-banner{font-size:15px;background:var(--acc-soft);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+  #ov-edl .edl-rl-banner b{color:var(--t1)}
+  #ov-edl .edl-rl-arow{font-size:15px;min-height:44px}
+  #ov-edl .edl-rl-sech{font-size:16px;min-height:52px}
+  #ov-edl .edl-rl-secnom{white-space:normal;overflow:visible}
+  #ov-edl .edl-rl-badge{font:700 14px var(--font)}
+  #ov-edl .edl-rl-badge.ko{color:var(--acc);border-color:var(--acc);background:var(--acc-soft)}
+  #ov-edl .edl-rl-badge.ok{color:var(--pos);border-color:var(--pos);background:color-mix(in srgb,var(--pos) 10%,transparent)}
+  #ov-edl .edl-rl-li{font-size:15px;flex-wrap:wrap}
+  #ov-edl .edl-rl-li.flag{min-height:44px}
+  #ov-edl .edl-rl-li .obs{font-size:14px;color:var(--t2)}
+  #ov-edl .edl-rl-li .obs.s{color:var(--t1)}
+  #ov-edl .edl-rl-li .trans{font-size:14px;white-space:normal}
+  #ov-edl .edl-rl-li .trans .att{color:var(--t2)}
+  #ov-edl .edl-rl-li .vb{font:700 14px var(--font);padding:2px 9px}
+  #ov-edl .edl-rl-li .vb.ko{color:var(--acc);border-color:var(--acc);background:var(--acc-soft)}
+  #ov-edl .edl-rl-li .vb.att{color:var(--t2);border-color:var(--bor);background:var(--sur2)}
+  #ov-edl .edl-rl-li .fix{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:6px;padding:0 14px;border:1px solid var(--bor);
+    border-radius:12px;background:var(--sur);color:var(--t1);font:600 15px var(--font)}
+  #ov-edl .edl-rl-after{font-size:15px;color:var(--t2)}
+
+  /* ── « Avant de signer » : PAGE plein écran (était un pop-up, M-16) ── */
+  #ov-edl .edl-signmodal{padding:0;background:var(--bg);align-items:stretch}
+  #ov-edl .edl-sm-box{max-width:none;width:100%;height:100%;border:none;border-radius:0;display:flex;flex-direction:column;
+    padding:20px 16px calc(12px + env(safe-area-inset-bottom,0px))}
+  #ov-edl .edl-sm-title{font:800 20px var(--display)}
+  #ov-edl .edl-sm-body{flex:1;overflow-y:auto;font-size:16px;line-height:1.5}
+  #ov-edl .edl-sm-actions{flex-direction:row;gap:10px}
+  #ov-edl .edl-sm-btn{flex:1 1 0;min-height:48px;font:700 16px var(--font);border-radius:12px}
+  #ov-edl .edl-sm-btn.go{background:var(--acc);color:var(--cta-text)}
+  #ov-edl .edl-sm-btn.back{background:transparent;color:var(--t1)}
+  /* ── Compléments après mesure (25/09) ── */
+  /* titres de section : encre, pas corail (M-15 : le corail dit « action », pas « titre ») */
+  #ov-edl [data-edl-step] div[style*="color:var(--acc)"][style*="font-weight:700"]{font:800 17px/1.3 var(--display) !important;color:var(--t1) !important;margin-bottom:10px !important}
+  /* libellés des équipements (Chauffage, Entretien, Radiateurs, Ancien occupant) : 14–15 px */
+  #ov-edl [data-edl-step="compteurs"] [style*="font-size:12px"],#ov-edl [data-edl-step="compteurs"] [style*="font-size:10px"]{font-size:15px !important;color:var(--t1) !important;line-height:1.45}
+  #ov-edl [data-edl-step="compteurs"] b{font-weight:700}
+  /* puces (chauffage, eau chaude, technologies) : 44 px */
+  #ov-edl > .modal div[style*="border-top:1px solid var(--bor)"] > .flex-c.mb4 > label:has(> input[type="checkbox"]){min-height:44px !important;padding:0 16px !important}
+  /* « Reprendre l’entrée / la sortie » : 44 px */
+  #ov-edl > .modal div[style*="margin-left:auto"] > .btn{min-height:44px !important}
+  /* zones de texte : police de l’app (le navigateur prenait une chasse fixe) */
+  #ov-edl textarea{font-family:var(--font) !important}
+
+  /* détecteur : chaque choix sur UNE ligne, pleine largeur (le texte passait sous le rond) */
+  #ov-edl [data-edl-step="daaf"] label:has(> input[type="radio"]){width:100% !important;box-sizing:border-box}
+  #ov-edl label:has(> input[type="radio"]) > span,#ov-edl label:has(> input[type="checkbox"]) > span{flex:1 1 auto;min-width:0}
+  /* « Reprendre l’entrée / la sortie » : l’un sous l’autre (côte à côte, le second était rogné) */
+  #ov-edl > .modal div[style*="margin-left:auto"]{grid-template-columns:1fr !important}
+  #ov-edl > .modal div[style*="margin-left:auto"] > .btn{white-space:normal !important}
+  /* relecture : le titre est déjà dans l’en-tête */
+  #ov-edl .edl-rl-title{display:none}
+
+  /* sommaire : étape faite = coche dessinée (plus de caractère ✓) */
+  #ov-edl .edl-sheet-row.done .edl-sheet-nom::before{content:'';display:inline-block;width:6px;height:12px;margin:0 12px 3px 4px;
+    border:solid var(--pos);border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+
+  /* ── Liste des EDL : un seul corail (« Nouvel état des lieux »), locataires en entier, Supprimer derrière ⋮ ── */
+  #p-edl #edl-f-log{min-height:44px !important;font-size:16px}
+  #p-edl .tbl tr{border-left:1px solid var(--bor) !important;border-radius:16px !important;padding:14px !important}
+  #p-edl .tbl tr td.edl-lcell-log{display:flex !important;align-items:flex-start;gap:6px;font:800 18px/1.3 var(--display) !important}
+  #p-edl .tbl tr td.edl-lcell-log b{flex:1;min-width:0;padding-top:10px}
+  #p-edl .edl-lmore{display:flex;flex:none;align-items:center;justify-content:center;width:44px;height:44px;margin:0 -6px 0 0;
+    background:none;border:none;border-radius:12px;color:var(--t2);cursor:pointer}
+  #p-edl .edl-lmore svg{width:22px;height:22px}
+  #p-edl .tbl tr td:nth-child(2){font-size:15px !important;color:var(--t1) !important;white-space:normal !important;overflow:visible !important;text-overflow:clip !important;overflow-wrap:anywhere}
+  #p-edl .tbl tr td:nth-child(4){font-size:14px !important;color:var(--t2) !important}
+  #p-edl .tbl tr td:nth-child(5){font-size:14px !important;color:var(--t2) !important}
+  #p-edl .badge{font-size:14px}
+  #p-edl .tbl tr td.act-cell .btn{min-height:44px !important;font-size:15px !important;white-space:normal !important;overflow:visible !important;text-overflow:clip !important}
+  #p-edl .tbl tr td.act-cell .btn:nth-child(1){grid-column:auto !important;background:var(--sur2) !important;color:var(--t1) !important;border:1px solid var(--bor) !important}
+  #p-edl .tbl tr td.act-cell .btn.br{display:none !important}
+}
