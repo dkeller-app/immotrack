@@ -10091,27 +10091,32 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 #ov-annonce .an-col-c{padding:14px 16px;background:var(--sur2);min-width:0}
 #ov-annonce .an-lab{display:flex;align-items:baseline;gap:7px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);margin-bottom:6px}
 #ov-annonce .an-hint{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:600;font-size:11px;color:var(--t2)}
-#ov-annonce .an-desc{min-height:190px;resize:vertical;line-height:1.55;white-space:pre-wrap;font-family:inherit}
-#ov-annonce .an-lock{border:1px solid var(--bor);border-left:3px solid var(--info);border-radius:var(--r);background:var(--sur2);padding:10px 12px}
-#ov-annonce .an-lock-doss{border-left-color:var(--pos)}
-#ov-annonce .an-lock-h{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--t2);margin-bottom:6px}
-#ov-annonce .an-lock-txt{font-size:13px;line-height:1.6;color:var(--t1);white-space:pre-wrap}
-#ov-annonce .an-ment.an-fort{font-weight:800}
-#ov-annonce .an-miss{color:var(--neg);background:var(--neg-soft);font-weight:700;border-radius:4px;padding:0 3px}
+/* Texte UNIQUE : textarea transparente au-dessus d'un calque miroir qui surligne les emplacements
+   « [À COMPLÉTER : …] ». Mêmes police / marges / retour à la ligne / gouttière de défilement des deux
+   côtés, sinon le surlignage glisse. Ambre + pointillés (pas de rouge, M-15) ; texte lisible (M-17). */
+#ov-annonce .an-ed-wrap{position:relative;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r)}
+#ov-annonce .an-ed-wrap:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+#ov-annonce .an-ed,#ov-annonce .an-ed-bd{font-family:inherit;font-size:13px;font-weight:400;line-height:1.6;letter-spacing:normal;padding:10px 12px;margin:0;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:4;scrollbar-gutter:stable;box-sizing:border-box}
+#ov-annonce .an-ed-bd{position:absolute;inset:0;overflow:hidden;color:transparent;pointer-events:none;border:0}
+#ov-annonce .an-ed{position:relative;display:block;width:100%;height:480px;min-height:260px;resize:vertical;overflow-y:auto;background:transparent;border:0;box-shadow:none;outline:none;color:var(--t1);caret-color:var(--t1)}
+#ov-annonce .an-ed-bd .an-miss{color:transparent;background:var(--warn-soft);border-radius:3px;outline:1px dashed var(--warn);outline-offset:0}
+#ov-annonce .an-cnt{font-size:11px;color:var(--t2);text-align:right;margin-top:4px}
+#ov-annonce .an-foot-hint.w{color:var(--warn);font-weight:700}
 
 /* Contrôle */
 #ov-annonce .an-chk-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 #ov-annonce .an-sc{font-size:20px;font-weight:800}
 #ov-annonce .an-sc.ok{color:var(--pos)}
-#ov-annonce .an-sc.ko{color:var(--neg)}
+#ov-annonce .an-sc.ko{color:var(--warn)}
 #ov-annonce .an-chk-t{font-size:12px;color:var(--t2);line-height:1.35}
 #ov-annonce .an-chk{list-style:none;margin:0;padding:0;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur);overflow:hidden}
 #ov-annonce .an-chk li{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;border-bottom:1px solid var(--bor2);font-size:12.5px;line-height:1.35;color:var(--t1)}
 #ov-annonce .an-chk li:last-child{border-bottom:0}
 #ov-annonce .an-ic{flex:none;width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-top:1px;font-weight:800}
 #ov-annonce .an-chk li.ok .an-ic{background:var(--pos-soft);color:var(--pos)}
-#ov-annonce .an-chk li.ko .an-ic{background:var(--neg-soft);color:var(--neg)}
-#ov-annonce .an-chk li.warn .an-ic{background:var(--warn-soft);color:var(--warn)}
+#ov-annonce .an-chk li.ko .an-ic{background:var(--warn-soft);color:var(--warn)}
+#ov-annonce .an-chk li.warn .an-ic,#ov-annonce .an-chk li.retire .an-ic{background:var(--warn-soft);color:var(--warn)}
+#ov-annonce .an-chk li.ko .an-tx{cursor:pointer}
 #ov-annonce .an-chk li.na{color:var(--t2)}
 #ov-annonce .an-chk li.na .an-ic{background:var(--sur3);color:var(--t2)}
 #ov-annonce .an-tx{flex:1;min-width:0}
@@ -10134,8 +10139,9 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 #ov-annonce .an-ban.warn > svg{color:var(--warn)}
 
 /* Tablette : une colonne, le contrôle AU-DESSUS, replié en une ligne quand tout est bon. */
-@media (max-width:900px){
+@media (max-width:899.98px){
   #ov-annonce .an-step2{grid-template-columns:1fr}
+  #ov-annonce .an-go{min-height:44px;padding:0 6px}
   #ov-annonce .an-col-t{order:2;border-right:0}
   #ov-annonce .an-col-c{order:1;border-bottom:1px solid var(--bor)}
   #ov-annonce .an-col-c.allok .an-chk,
@@ -10145,8 +10151,12 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 /* Téléphone : page plein écran (règle globale .ov .modal), pied collant, CTA primaire d'abord. */
 @media (max-width:767px){
   #ov-annonce .an-body{padding:12px}
+  #ov-annonce .an-step2{padding:0}
   #ov-annonce .an-col-t,#ov-annonce .an-col-c{padding:12px}
-  #ov-annonce .inp{font-size:16px}
+  #ov-annonce .inp,#ov-annonce .an-ed,#ov-annonce .an-ed-bd{font-size:16px}
+  #ov-annonce .an-ed{height:60vh}
+  #ov-annonce .an-tg{min-height:44px}
+  #ov-annonce .an-chk-sum .btn{min-height:44px}
   #ov-annonce .an-foot{display:grid;grid-template-columns:1fr 1fr;padding:10px 12px}
   #ov-annonce .an-foot .an-sp{display:none}
   #ov-annonce .an-foot .an-foot-hint{grid-column:1 / -1;order:-2}

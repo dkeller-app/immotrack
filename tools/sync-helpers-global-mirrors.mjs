@@ -64,10 +64,12 @@ const PAIRS = [
     globalName: 'AnnonceGenerator',
     // Chantier ANNONCES (CDC validé 29/09/2026) : moteur factuel + mentions obligatoires.
     exports: [
-      'TXT_GEORISQUES', 'TXT_DEPENSES', 'TXT_EXCESSIF', 'TXT_HCL',
-      'USAGES_HORS_HABITATION', 'USAGES_MEUBLES', 'PIECES_LIBELLES',
-      'nombre', 'montant', 'estHorsHabitation', 'estMeuble', 'etageLabel', 'communeLabel', 'dateFr', 'natureBien',
-      'genererTitre', 'genererDescription', 'genererMentions', 'genererDossier', 'genererAnnonce',
+      'TXT_GEORISQUES', 'TXT_DEPENSES', 'TXT_EXCESSIF', 'TXT_HCL', 'RUBRIQUES', 'DOSSIER_PIECES', 'TXT_DOSSIERFACILE',
+      'USAGES_HORS_HABITATION', 'USAGES_MEUBLES', 'MANQUE', 'RE_MANQUE',
+      'nombre', 'montant', 'estHorsHabitation', 'estMeuble', 'etageLabel', 'villeAArrondissements', 'commune', 'communeLabel',
+      'dateFr', 'natureBien', 'depensesTexte', 'pointsForts', 'garanties',
+      'genererTitre', 'genererAccroche', 'genererMentions', 'genererDossier', 'genererAnnonce',
+      'controlerTexte', 'remettreMention', 'majMentions',
     ],
     sanity: [
       { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }

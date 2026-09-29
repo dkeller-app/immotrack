@@ -1,22 +1,24 @@
 /**
- * Module annonce-generator — annonce de location CONFORME (chantier ANNONCES, CDC validé 29/09/2026)
+ * Module annonce-generator — annonce de location CONFORME (chantier ANNONCES, CDC validé 29/09/2026,
+ * révisé le 29/09 après maquette v2 : UN SEUL TEXTE modifiable, format B sans emojis).
  *
- * Remplace le générateur LOG-ANNONCE (v15.207) : 4 tons « storytelling », format SMS et banques de
- * phrases lisant log.presentation / log.quartier (plus jamais saisis) sont RETIRÉS (décision D2).
- * Le moteur ne lit QUE des données saisies : une ligne dont la donnée est vide est omise, jamais
- * inventée (l'ancien moteur écrivait « douche italienne » et « cuisine équipée » par défaut).
+ * Le moteur produit UN texte complet — accroche, LE LOGEMENT, POINTS FORTS, DOSSIER À PRÉPARER,
+ * INFORMATIONS — que l'utilisateur retouche librement. Les mentions obligatoires sont des phrases
+ * CONNUES (libellé légal + valeur de la fiche) : controlerTexte() les cherche dans le texte à chaque
+ * frappe (présente / à compléter / retirée), remettreMention() réinsère une phrase retirée,
+ * majMentions() remplace les phrases (et emplacements « À COMPLÉTER ») après un passage par la fiche,
+ * sans toucher aux retouches.
  *
- * Module PUR : l'appelant résout ce qui dépend de l'app et le passe en argument —
- *   dpe          ← _diagGet(log,'dpe')                         { classe, ges, depensesEnergie, anneePrix }
+ * Ne lit QUE des données saisies (aucun adjectif inventé). Module PUR : l'appelant fournit
+ *   dpe          ← _diagGet(log,'dpe')                         { classe, ges, depensesEnergie, anneePrix, na }
  *   composition  ← BiensPieces.designationPieces(pieces)       « Séjour, Cuisine, 1 chambre, … »
- *   periode      ← _periodeLegale(periodeConstr, annee)        'Avant 1949' | 'De 1949 à 1997' | 'Après 1997' | ''
- *   pieces       ← PIECES_REQUISES (js/core/candidature.js)    ['identite','domicile','situation','ressources']
+ *   imm          ← immeuble, commune résolue par LogImmResolver (ville / codePostal)
  *   mandataire   ← un mandataire est configuré (Référentiel)   booléen
  *
- * Mentions : libellés VERBATIM des textes (mockups/ANNONCES/AUDIT.md partie 2) —
- *   arrêté du 21 avril 2022 (art. 2-1 loi 89-462), arrêté du 10 janvier 2017 art. 4 (mandataire),
- *   CCH L126-33 / R126-21 à R126-24, arrêté du 22 décembre 2021, C. env. R125-25.
- * Donnée manquante → marqueur « [… à compléter] » dans le texte (D3 : rien n'est bloqué).
+ * Libellés VERBATIM (mockups/ANNONCES/AUDIT.md partie 2) : arrêté du 21 avril 2022 (art. 2-1 loi 89-462),
+ * arrêté du 10 janvier 2017 art. 4 (mandataire), CCH L126-33 / R126-21 à R126-24, arrêté du
+ * 22 décembre 2021, C. env. R125-25. Dossier : liste autorisée (décret n° 2015-1437, service-public F1169).
+ * Donnée manquante → emplacement « [À COMPLÉTER : …] » dans le texte (D3 : rien n'est bloqué).
  */
 
 // ═══════════════════════════════════════════════════════════════
@@ -27,18 +29,24 @@ export const TXT_DEPENSES = 'Montant estimé des dépenses annuelles d\'énergie
 export const TXT_EXCESSIF = 'Logement à consommation énergétique excessive : ';
 export const TXT_HCL = 'honoraires charge locataire';
 
+/** Rubriques du format B (sans emojis). */
+export const RUBRIQUES = Object.freeze({ logement: 'LE LOGEMENT', points: 'POINTS FORTS', dossier: 'DOSSIER À PRÉPARER', infos: 'INFORMATIONS' });
+
+/** Dossier : pièces de la liste autorisée (décret n° 2015-1437, service-public.fr F1169), version courte validée. */
+export const DOSSIER_PIECES = Object.freeze([
+  'Pièce d\'identité',
+  'Justificatif de domicile',
+  'Contrat de travail (ou justificatif d\'activité)',
+  '3 dernières fiches de paie',
+  'Dernier avis d\'imposition',
+  'Pour un garant : les mêmes pièces'
+]);
+export const TXT_DOSSIERFACILE = 'Le dossier peut être constitué sur DossierFacile, service public gratuit.';
+
 /** Usages hors loi 89-462 (garage, box, parking, local pro, autre). */
 export const USAGES_HORS_HABITATION = Object.freeze(['garage', 'local-pro', 'autre']);
 /** Usages meublés : bail meublé, bail mobilité (meublé par définition), bail étudiant. */
 export const USAGES_MEUBLES = Object.freeze(['habitation-meuble', 'mobilite', 'etudiant']);
-
-/** Libellés des catégories de pièces autorisées (décret n° 2015-1437), clés = PIECES_REQUISES. */
-export const PIECES_LIBELLES = Object.freeze({
-  identite: 'une pièce d\'identité',
-  domicile: 'un justificatif de domicile',
-  situation: 'un justificatif de situation professionnelle',
-  ressources: 'un ou plusieurs justificatifs de ressources'
-});
 
 const GARANTIES_LIBELLES = Object.freeze({
   caution_solidaire: 'caution solidaire',
@@ -50,10 +58,15 @@ const GARANTIES_LIBELLES = Object.freeze({
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ═══════════════════════════════════════════════════════════════
-// Helpers de lecture et de formatage
+// Helpers
 // ═══════════════════════════════════════════════════════════════
 const _s = (x) => String(x == null ? '' : x).trim();
 const _rempli = (x) => _s(x) !== '';
+const _maj = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+
+/** Emplacement d'une donnée manquante, dans le texte même. */
+export const MANQUE = (quoi) => '[À COMPLÉTER : ' + quoi + ']';
+export const RE_MANQUE = /\[À COMPLÉTER : [^\]]*\]/g;
 
 /** Nombre saisi ou null (champ vide ≠ 0 : un 0 saisi est une valeur). */
 export function nombre(x) {
@@ -91,18 +104,33 @@ export function etageLabel(etage) {
   return (n === 1 ? '1er' : n + 'e') + ' étage';
 }
 
-/** Commune + arrondissement (Paris, Lyon, Marseille — art. L. 2511-3 CGCT) depuis le code postal. */
-export function communeLabel(imm, log) {
-  const ville = _s(imm && imm.ville);
-  if (!ville) return '';
+/** Paris / Lyon / Marseille : ville à arrondissements (art. L. 2511-3 CGCT). */
+export function villeAArrondissements(ville) {
+  return /^(paris|lyon|marseille)\b/i.test(_s(ville));
+}
+
+/**
+ * Commune + arrondissement depuis le code postal. Paris 16e a DEUX codes (75016 et 75116).
+ * Renvoie { texte, manque } : manque = true quand l'arrondissement d'une des 3 villes est indéductible.
+ */
+export function commune(imm) {
+  const ville = _s(imm && imm.ville).replace(/\s+\d.*$/, '');
+  if (!ville) return { texte: '', manque: false };
+  if (!villeAArrondissements(ville)) return { texte: ville, manque: false };
   const cp = _s(imm && imm.codePostal);
   const v = ville.toLowerCase();
   let n = null;
-  if (/^paris/.test(v) && /^750\d\d$/.test(cp)) n = +cp.slice(3);
+  if (/^paris/.test(v) && /^75(0\d\d|116)$/.test(cp)) n = cp === '75116' ? 16 : +cp.slice(3);
   else if (/^lyon/.test(v) && /^6900\d$/.test(cp)) n = +cp.slice(4);
   else if (/^marseille/.test(v) && /^130\d\d$/.test(cp)) n = +cp.slice(3);
-  if (n && n >= 1 && n <= 20) return ville.replace(/\s+\d.*$/, '') + ' ' + (n === 1 ? '1er' : n + 'e') + ' arrondissement';
-  return ville;
+  const max = /^paris/.test(v) ? 20 : /^lyon/.test(v) ? 9 : 16;
+  if (n && n >= 1 && n <= max) return { texte: ville + ' ' + (n === 1 ? '1er' : n + 'e') + ' arrondissement', manque: false };
+  return { texte: ville + ' ' + MANQUE('arrondissement'), manque: true };
+}
+
+/** Compatibilité : libellé seul (sans l'état « manque »). */
+export function communeLabel(imm) {
+  return commune(imm).texte;
 }
 
 /** '2026-11-01' → « 1er novembre 2026 ». */
@@ -114,21 +142,6 @@ export function dateFr(iso) {
   return (j === 1 ? '1er' : String(j)) + ' ' + MOIS[mo - 1] + ' ' + m[1];
 }
 
-function _liste(arr) {
-  const a = arr.filter(Boolean);
-  if (a.length <= 1) return a.join('');
-  return a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1];
-}
-
-function _periodeTexte(periode) {
-  switch (_s(periode)) {
-    case 'Avant 1949': return 'avant 1949';
-    case 'De 1949 à 1997': return 'entre 1949 et 1997';
-    case 'Après 1997': return 'après 1997';
-    default: return '';
-  }
-}
-
 function _estMaison(log, imm) {
   return _s(imm && imm.typeHabitat) === 'Maison individuelle' || /^maison/i.test(_s(log && log.type));
 }
@@ -137,125 +150,20 @@ function _estMaison(log, imm) {
 export function natureBien(log, imm) {
   const type = _s(log && log.type);
   if (estHorsHabitation(log)) return type || 'Local';
-  if (/^(studio|maison|appartement|duplex|triplex|loft|chambre)/i.test(type)) return type.charAt(0).toUpperCase() + type.slice(1);
+  if (/^(studio|maison|appartement|duplex|triplex|loft|chambre)/i.test(type)) return _maj(type);
   const nature = _estMaison(log, imm) ? 'Maison' : 'Appartement';
   return type ? nature + ' ' + type : nature;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Titre
-// ═══════════════════════════════════════════════════════════════
-export function genererTitre(log, imm) {
-  log = log || {}; imm = imm || {};
-  const surf = nombre(log.surf);
-  const ext = log.exterieurs || {};
-  const premierExt = ext.balcon && ext.balcon.present ? 'balcon'
-    : ext.terrasse && ext.terrasse.present ? 'terrasse'
-    : ext.loggia && ext.loggia.present ? 'loggia'
-    : ext.jardin_privatif && ext.jardin_privatif.present ? 'jardin' : '';
-  const parts = [natureBien(log, imm)];
-  if (surf) parts.push(montant(surf) + ' m²');
-  if (!estHorsHabitation(log)) {
-    if (estMeuble(log)) parts.push('meublé');
-    if (premierExt) parts.push('avec ' + premierExt);
-  }
-  const commune = communeLabel(imm, log);
-  return parts.join(' ') + (commune ? ' — ' + commune : '');
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Description (uniquement des données saisies)
-// ═══════════════════════════════════════════════════════════════
-const CUISINE_LIBELLES = [['four', 'four'], ['plaques', 'plaques de cuisson'], ['hotte', 'hotte'],
-  ['lave_vaisselle', 'lave-vaisselle'], ['micro_ondes', 'micro-ondes'], ['frigo', 'réfrigérateur']];
-const SANITAIRES_LIBELLES = [['bain', 'baignoire'], ['douche', 'douche'], ['wc_separe', 'WC séparé'],
-  ['lave_linge', 'lave-linge'], ['seche_linge', 'sèche-linge']];
-const ANNEXES_LIBELLES = [['cave', 'cave'], ['grenier', 'grenier'], ['parking', 'parking'], ['garage', 'garage'],
-  ['buanderie', 'buanderie'], ['cellier', 'cellier'], ['localVelos', 'local vélos'], ['atelier', 'atelier']];
-
-function _extLibelle(nom, o) {
-  const s = nombre(o && o.surface);
-  return s && s > 0 ? nom + ' de ' + montant(s) + ' m²' : nom;
-}
-
-export function genererDescription(log, imm, ctx) {
-  log = log || {}; imm = imm || {}; ctx = ctx || {};
-  const lignes = [];
-  const surf = nombre(log.surf);
-  const etage = etageLabel(log.etage);
-
-  if (estHorsHabitation(log)) {
-    let l = natureBien(log, imm) + (surf ? ' de ' + montant(surf) + ' m²' : '');
-    if (etage) l += ' au ' + etage;
-    if (_rempli(log.numApt)) l += ', n° ' + _s(log.numApt);
-    lignes.push(l + '.');
-  } else {
-    const maison = _estMaison(log, imm);
-    const ec = imm.equipementsCommuns || {};
-    const periode = _periodeTexte(ctx.periode);
-    let l = natureBien(log, imm) + (surf ? ' de ' + montant(surf) + ' m²' : '');
-    if (maison) {
-      if (periode) l += ', construite ' + periode;
-    } else {
-      if (etage) l += ' au ' + etage;
-      if (ec.ascenseur) l += ' avec ascenseur';
-      const copro = _s(imm.regimeJuridique) === 'Copropriété';
-      if (copro) l += ', dans une copropriété' + (periode ? ' construite ' + periode : '');
-      else if (periode) l += ', dans un immeuble construit ' + periode;
-    }
-    lignes.push(l + '.');
-
-    if (_rempli(ctx.composition)) lignes.push('Composition : ' + _s(ctx.composition) + '.');
-
-    const eq = log.equipements || {};
-    const cu = eq.cuisine || {};
-    const cuListe = CUISINE_LIBELLES.filter(([k]) => cu[k]).map(([, v]) => v)
-      .concat((Array.isArray(cu.customs) ? cu.customs : []).map(_s).filter(Boolean));
-    if (cu.equipee || cuListe.length) lignes.push('Cuisine' + (cu.equipee ? ' équipée' : '') + (cuListe.length ? ' : ' + cuListe.join(', ') : '') + '.');
-    const sa = eq.sanitaires || {};
-    const saListe = SANITAIRES_LIBELLES.filter(([k]) => sa[k]).map(([, v]) => v);
-    if (saListe.length) lignes.push('Sanitaires : ' + saListe.join(', ') + '.');
-
-    const ext = log.exterieurs || {};
-    const extListe = [
-      ext.balcon && ext.balcon.present && _extLibelle('balcon', ext.balcon),
-      ext.terrasse && ext.terrasse.present && _extLibelle('terrasse', ext.terrasse),
-      ext.loggia && ext.loggia.present && 'loggia',
-      ext.jardin_privatif && ext.jardin_privatif.present && _extLibelle('jardin privatif', ext.jardin_privatif)
-    ].filter(Boolean);
-    if (extListe.length) lignes.push((extListe.length > 1 ? 'Extérieurs : ' : 'Extérieur : ') + extListe.join(', ') + '.');
-
-    const an = log.annexes || {};
-    const anListe = ANNEXES_LIBELLES.filter(([k]) => an[k] && an[k].present).map(([k, v]) => {
-      if (k === 'parking' && an.parking.type === 'box') return 'box';
-      return v;
-    }).concat((Array.isArray(an.customs) ? an.customs : []).map(_s).filter(Boolean));
-    if (anListe.length) lignes.push((anListe.length > 1 ? 'Annexes : ' : 'Annexe : ') + anListe.join(', ') + '.');
-
-    if (eq.technologies && eq.technologies.fibre) lignes.push('Fibre optique.');
-  }
-
-  const fin = [];
-  const li = log.locationInfo || {};
-  const dispo = dateFr(li.disponibilite);
-  if (dispo) fin.push(_s(li.disponibilite) <= _s(ctx.aujourdhui) ? 'Disponible immédiatement.' : 'Disponible le ' + dispo + '.');
-  if (!estHorsHabitation(log)) {
-    const gar = (Array.isArray(li.garanties_acceptees) ? li.garanties_acceptees : [])
-      .map(k => GARANTIES_LIBELLES[k]).filter(Boolean);
-    if (gar.length) fin.push('Garanties acceptées : ' + gar.join(' ou ') + '.');
-  }
-  return lignes.join('\n') + (fin.length ? '\n\n' + fin.join('\n') : '');
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Mentions obligatoires + contrôle
-// ═══════════════════════════════════════════════════════════════
-const MANQUE = (quoi) => '[' + quoi + ' à compléter]';
-
-function _depensesTexte(dep) {
-  let d = _s(dep).replace(/\.$/, '');
-  if (d && !/\ban\b/i.test(d)) d += ' par an';
-  return d;
+/** Même règle que le bail (fmtDepensesEnergie, index.html) : « 900 à 1200 » → fourchette, nombre seul → « € par an ». */
+export function depensesTexte(s) {
+  const t = _s(s).replace(/\s*\(fourchette DPE\)\s*$/i, '').replace(/\.$/, '');
+  if (!t) return '';
+  const m = t.match(/^\s*(\d[\d ]*(?:[.,]\d+)?)\s*(?:€|eur[os]*)?\s*(?:et|-|–|—|à|a)\s*(\d[\d ]*(?:[.,]\d+)?)\s*(?:€|eur[os]*)?\s*$/i);
+  if (m) return 'entre ' + m[1].trim() + ' € et ' + m[2].trim() + ' € par an';
+  if (/€|euro|par\s*an/i.test(t)) return t;
+  if (/^\d[\d ]*(?:[.,]\d+)?$/.test(t)) return t + ' € par an';
+  return t;
 }
 
 function _anneesTexte(annees) {
@@ -266,9 +174,121 @@ function _anneesTexte(annees) {
     : 'Année de référence des prix de l\'énergie : ' + a + '.';
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Titre
+// ═══════════════════════════════════════════════════════════════
+function _premierExterieur(log) {
+  const ext = log.exterieurs || {};
+  return ext.balcon && ext.balcon.present ? 'balcon'
+    : ext.terrasse && ext.terrasse.present ? 'terrasse'
+    : ext.loggia && ext.loggia.present ? 'loggia'
+    : ext.jardin_privatif && ext.jardin_privatif.present ? 'jardin' : '';
+}
+
+export function genererTitre(log, imm) {
+  log = log || {}; imm = imm || {};
+  const surf = nombre(log.surf);
+  const parts = [natureBien(log, imm)];
+  if (surf) parts.push(montant(surf) + ' m²');
+  if (!estHorsHabitation(log)) {
+    if (estMeuble(log)) parts.push('meublé');
+    const ext = _premierExterieur(log);
+    if (ext) parts.push('avec ' + ext);
+  }
+  const c = commune(imm);
+  return parts.join(' ') + (c.texte && !c.manque ? ' — ' + c.texte : (c.texte ? ' — ' + _s(imm.ville) : ''));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Accroche + rubriques (uniquement des données saisies)
+// ═══════════════════════════════════════════════════════════════
+const CUISINE_LIBELLES = [['four', 'four'], ['plaques', 'plaques de cuisson'], ['hotte', 'hotte'],
+  ['lave_vaisselle', 'lave-vaisselle'], ['micro_ondes', 'micro-ondes'], ['frigo', 'réfrigérateur']];
+const SANITAIRES_LIBELLES = [['bain', 'baignoire'], ['douche', 'douche'], ['wc_separe', 'WC séparé'],
+  ['lave_linge', 'lave-linge'], ['seche_linge', 'sèche-linge']];
+const ANNEXES_LIBELLES = [['cave', 'cave'], ['grenier', 'grenier'], ['parking', 'parking'], ['garage', 'garage'],
+  ['buanderie', 'buanderie'], ['cellier', 'cellier'], ['localVelos', 'local vélos'], ['atelier', 'atelier']];
+
+function _et(arr) {
+  const a = arr.filter(Boolean);
+  return a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1];
+}
+
+function _extLibelle(nom, o) {
+  const s = nombre(o && o.surface);
+  return s && s > 0 ? nom + ' de ' + montant(s) + ' m²' : nom;
+}
+
+/** Phrase d'accroche factuelle : « À louer à Strasbourg : appartement T2 de 50 m² avec balcon, au 2e étage avec ascenseur. Disponible le … » */
+export function genererAccroche(log, imm, ctx) {
+  log = log || {}; imm = imm || {}; ctx = ctx || {};
+  const hors = estHorsHabitation(log);
+  const surf = nombre(log.surf);
+  const etage = etageLabel(log.etage);
+  const nat = natureBien(log, imm);
+  let bien = (/^[A-Z]{2,}|^T\d/.test(nat) ? nat : nat.charAt(0).toLowerCase() + nat.slice(1)) + (surf ? ' de ' + montant(surf) + ' m²' : '');
+  if (hors) {
+    if (etage) bien += ' au ' + etage;
+    if (_rempli(log.numApt)) bien += ', n° ' + _s(log.numApt);
+  } else {
+    if (estMeuble(log)) bien += ' meublé';
+    const ext = _premierExterieur(log);
+    if (ext) bien += ' avec ' + ext;
+    if (!_estMaison(log, imm) && etage) bien += ', au ' + etage + ((imm.equipementsCommuns || {}).ascenseur ? ' avec ascenseur' : '');
+  }
+  const c = commune(imm);
+  const ville = c.texte && !c.manque ? c.texte : _s(imm.ville);
+  let phrase = 'À louer' + (ville ? ' à ' + ville : '') + ' : ' + bien + '.';
+  const li = log.locationInfo || {};
+  const dispo = dateFr(li.disponibilite);
+  if (dispo) phrase += _s(li.disponibilite) <= _s(ctx.aujourdhui) ? ' Disponible immédiatement.' : ' Disponible le ' + dispo + '.';
+  return phrase;
+}
+
+/** « Séjour, Cuisine, 1 chambre, Salle d'eau, WC » → « Séjour, cuisine, 1 chambre, salle d'eau, WC. » */
+function _composition(c) {
+  const parts = _s(c).split(/\s*,\s*/).filter(Boolean);
+  if (!parts.length) return '';
+  return parts.map((p, i) => i === 0 ? _maj(p) : (/^[A-Z]{2,}/.test(p) ? p : p.charAt(0).toLowerCase() + p.slice(1))).join(', ') + '.';
+}
+
+/** Puces « POINTS FORTS » : extérieurs, cuisine, sanitaires, annexes, fibre — rien d'autre. */
+export function pointsForts(log) {
+  log = log || {};
+  const out = [];
+  const ext = log.exterieurs || {};
+  if (ext.balcon && ext.balcon.present) out.push(_maj(_extLibelle('balcon', ext.balcon)));
+  if (ext.terrasse && ext.terrasse.present) out.push(_maj(_extLibelle('terrasse', ext.terrasse)));
+  if (ext.loggia && ext.loggia.present) out.push('Loggia');
+  if (ext.jardin_privatif && ext.jardin_privatif.present) out.push(_maj(_extLibelle('jardin privatif', ext.jardin_privatif)));
+  const eq = log.equipements || {};
+  const cu = eq.cuisine || {};
+  const cuListe = CUISINE_LIBELLES.filter(([k]) => cu[k]).map(([, v]) => v)
+    .concat((Array.isArray(cu.customs) ? cu.customs : []).map(_s).filter(Boolean));
+  if (cu.equipee || cuListe.length) out.push('Cuisine' + (cu.equipee ? ' équipée' : '') + (cuListe.length ? ' : ' + cuListe.join(', ') : ''));
+  const sa = eq.sanitaires || {};
+  const saListe = SANITAIRES_LIBELLES.filter(([k]) => sa[k]).map(([, v]) => v);
+  if (saListe.length) out.push(_maj(_et(saListe)));
+  const an = log.annexes || {};
+  ANNEXES_LIBELLES.filter(([k]) => an[k] && an[k].present).forEach(([k, v]) => {
+    out.push(_maj(k === 'parking' && an.parking.type === 'box' ? 'box' : v));
+  });
+  (Array.isArray(an.customs) ? an.customs : []).map(_s).filter(Boolean).forEach(c => out.push(_maj(c)));
+  if (eq.technologies && eq.technologies.fibre) out.push('Fibre optique');
+  return out;
+}
+
+export function garanties(log) {
+  const li = (log && log.locationInfo) || {};
+  return (Array.isArray(li.garanties_acceptees) ? li.garanties_acceptees : []).map(k => GARANTIES_LIBELLES[k]).filter(Boolean);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Mentions obligatoires + contrôle
+// ═══════════════════════════════════════════════════════════════
 /**
  * Construit les mentions ET la liste de contrôle, dans l'ordre du CDC §3.3 / §4.
- * @returns {{ lignes: {key:string, texte:string, manquant:boolean, fort?:boolean}[],
+ * @returns {{ lignes: {key:string, texte:string, manquant:boolean}[],
  *             controle: {key:string, label:string, etat:'ok'|'ko'|'na'|'warn', detail:string, cible:string}[] }}
  */
 export function genererMentions(log, imm, ctx) {
@@ -278,6 +298,7 @@ export function genererMentions(log, imm, ctx) {
   const dpe = ctx.dpe || {};
   const lignes = [];
   const controle = [];
+  const L = (key, texte, manquant) => lignes.push({ key, texte, manquant: !!manquant });
   const C = (key, label, etat, detail, cible) => controle.push({ key, label, etat, detail: detail || '', cible: cible || '' });
 
   const hc = nombre(log.loyerHcRef);
@@ -285,50 +306,53 @@ export function genererMentions(log, imm, ctx) {
   const dg = nombre(log.dgRef);
   const modalite = _s(log.chargesModalite);
 
-  // ── Loyer (1°) ──
+  // ── Loyer (1°) — le montant CC exige les charges ; tant qu'elles sont vides, le loyer n'est pas complet.
   if (hc == null) {
-    lignes.push({ key: 'loyer', texte: 'Loyer : ' + MANQUE('loyer'), manquant: true, fort: true });
+    L('loyer', 'Loyer : ' + MANQUE('loyer'), true);
     C('loyer', hors ? 'Loyer' : 'Loyer charges comprises', 'ko', 'loyer non renseigné', 'loyer');
   } else if (hors) {
-    lignes.push({ key: 'loyer', texte: 'Loyer : ' + montant(hc) + ' € par mois' + (ch ? ' + charges ' + montant(ch) + ' € par mois' : ''), manquant: false, fort: true });
+    L('loyer', 'Loyer : ' + montant(hc) + ' € par mois' + (ch ? ' + charges ' + montant(ch) + ' € par mois' : ''));
     C('loyer', 'Loyer', 'ok', montant(hc) + ' € par mois', 'loyer');
+  } else if (ch == null) {
+    L('loyer', 'Loyer : ' + MANQUE('loyer charges comprises'), true);
+    C('loyer', 'Loyer charges comprises', 'ko', 'charges non renseignées', 'loyer');
   } else {
-    const total = hc + (ch || 0);
-    lignes.push({ key: 'loyer', texte: 'Loyer : ' + montant(total) + ' € par mois' + (ch ? ' charges comprises' : ''), manquant: false, fort: true });
+    const total = hc + ch;
+    L('loyer', 'Loyer : ' + montant(total) + ' € par mois' + (ch ? ' charges comprises' : ''));
     C('loyer', 'Loyer charges comprises', 'ok', montant(total) + ' € par mois', 'loyer');
   }
 
   // ── Charges + modalité (2°) — habitation ──
   if (!hors) {
     if (ch === 0) {
-      lignes.push({ key: 'charges', texte: 'Charges : aucune', manquant: false });
+      L('charges', 'Charges : aucune');
       C('charges', 'Charges et modalité', 'ok', 'aucune charge', 'identite');
     } else if (ch == null) {
-      lignes.push({ key: 'charges', texte: 'Charges : ' + MANQUE('montant des charges'), manquant: true });
+      L('charges', 'Charges : ' + MANQUE('montant des charges'), true);
       C('charges', 'Charges et modalité', 'ko', 'montant non renseigné', 'loyer');
     } else {
       const mod = modalite === 'forfait' ? 'forfait' : modalite === 'provision' ? 'provision avec régularisation annuelle' : '';
-      lignes.push({ key: 'charges', texte: 'Charges : ' + montant(ch) + ' € par mois — ' + (mod || MANQUE('modalité des charges')), manquant: !mod });
-      C('charges', 'Charges et modalité', mod ? 'ok' : 'ko', mod ? montant(ch) + ' € · ' + (modalite === 'forfait' ? 'forfait' : 'provision') : 'modalité non renseignée', 'identite');
+      L('charges', 'Charges : ' + montant(ch) + ' € par mois — ' + (mod || MANQUE('mode de règlement des charges')), !mod);
+      C('charges', 'Charges et modalité', mod ? 'ok' : 'ko', mod ? montant(ch) + ' € · ' + (modalite === 'forfait' ? 'forfait' : 'provision') : 'mode de règlement non renseigné', 'identite');
     }
   }
 
   // ── Meublé (5°) ──
   if (!hors) {
-    if (meuble) { lignes.push({ key: 'meuble', texte: 'Location meublée', manquant: false }); C('meuble', 'Location meublée', 'ok', 'oui', ''); }
+    if (meuble) { L('meuble', 'Location meublée'); C('meuble', 'Location meublée', 'ok', 'oui', ''); }
     else C('meuble', 'Meublé', 'na', 'location vide', '');
   }
 
   // ── Dépôt de garantie (4°) ──
   if (dg == null) {
     if (!hors) {
-      lignes.push({ key: 'dg', texte: 'Dépôt de garantie : ' + MANQUE('montant'), manquant: true });
+      L('dg', 'Dépôt de garantie : ' + MANQUE('montant'), true);
       C('dg', 'Dépôt de garantie', 'ko', 'non renseigné', 'identite');
     }
   } else if (dg === 0) {
-    if (!hors) { lignes.push({ key: 'dg', texte: 'Dépôt de garantie : aucun', manquant: false }); C('dg', 'Dépôt de garantie', 'ok', 'aucun', 'identite'); }
+    if (!hors) { L('dg', 'Dépôt de garantie : aucun'); C('dg', 'Dépôt de garantie', 'ok', 'aucun', 'identite'); }
   } else {
-    lignes.push({ key: 'dg', texte: 'Dépôt de garantie : ' + montant(dg) + ' €', manquant: false });
+    L('dg', 'Dépôt de garantie : ' + montant(dg) + ' €');
     let etat = 'ok', detail = montant(dg) + ' €';
     if (!hors && hc) {
       const usage = _s(log.typeUsage);
@@ -342,7 +366,7 @@ export function genererMentions(log, imm, ctx) {
   // ── Honoraires (arr. 2022 6° ; arr. 2017 4-I-6°) ──
   const hEdl = nombre(log.honorairesEdlRef);
   if (!hors && hEdl && hEdl > 0) {
-    lignes.push({ key: 'honorairesEdl', texte: 'Honoraires d\'état des lieux à la charge du locataire : ' + montant(hEdl) + ' € TTC', manquant: false });
+    L('honorairesEdl', 'Honoraires d\'état des lieux à la charge du locataire : ' + montant(hEdl) + ' € TTC');
     C('honorairesEdl', 'Honoraires d\'état des lieux', 'ok', montant(hEdl) + ' € TTC', 'identite');
   } else if (!hors) {
     C('honorairesEdl', 'Honoraires d\'état des lieux', 'na', 'aucun renseigné', 'identite');
@@ -351,11 +375,11 @@ export function genererMentions(log, imm, ctx) {
     const hcl = nombre(log.honorairesHclRef);
     if (hcl == null) {
       if (!hors) {
-        lignes.push({ key: 'hcl', texte: MANQUE('montant TTC') + ' ' + TXT_HCL, manquant: true });
+        L('hcl', MANQUE('montant TTC') + ' ' + TXT_HCL, true);
         C('hcl', 'Honoraires charge locataire', 'ko', 'mandataire configuré — montant non renseigné', 'identite');
       }
     } else {
-      lignes.push({ key: 'hcl', texte: montant(hcl) + ' € TTC ' + TXT_HCL, manquant: false });
+      L('hcl', montant(hcl) + ' € TTC ' + TXT_HCL);
       C('hcl', 'Honoraires charge locataire', 'ok', montant(hcl) + ' € TTC', 'identite');
     }
   }
@@ -364,21 +388,21 @@ export function genererMentions(log, imm, ctx) {
   const surf = nombre(log.surf);
   const libSurf = hors ? 'Surface' : 'Surface habitable';
   if (surf && surf > 0) {
-    lignes.push({ key: 'surface', texte: libSurf + ' : ' + montant(surf) + ' m²', manquant: false });
+    L('surface', libSurf + ' : ' + montant(surf) + ' m²');
     C('surface', libSurf, 'ok', montant(surf) + ' m²', 'identite');
   } else {
-    lignes.push({ key: 'surface', texte: libSurf + ' : ' + MANQUE('surface'), manquant: true });
+    L('surface', libSurf + ' : ' + MANQUE('surface'), true);
     C('surface', libSurf, 'ko', 'non renseignée', 'identite');
   }
 
-  // ── Commune (7°) ──
-  const commune = communeLabel(imm, log);
-  if (commune) {
-    lignes.push({ key: 'commune', texte: 'Commune : ' + commune, manquant: false });
-    C('commune', /arrondissement/.test(commune) ? 'Commune + arrondissement' : 'Commune', 'ok', commune, 'immeuble');
+  // ── Commune (+ arrondissement « le cas échéant », 7°) ──
+  const c = commune(imm);
+  if (c.texte && !c.manque) {
+    L('commune', 'Commune : ' + c.texte);
+    C('commune', /arrondissement/.test(c.texte) ? 'Commune + arrondissement' : 'Commune', 'ok', c.texte, 'immeuble');
   } else {
-    lignes.push({ key: 'commune', texte: 'Commune : ' + MANQUE('commune'), manquant: true });
-    C('commune', 'Commune', 'ko', 'non renseignée', 'immeuble');
+    L('commune', 'Commune : ' + (c.texte || MANQUE('commune')), true);
+    C('commune', c.texte ? 'Commune + arrondissement' : 'Commune', 'ko', c.texte ? 'arrondissement non déductible du code postal' : 'non renseignée', 'immeuble');
   }
 
   // ── DPE : classes (L126-33, R126-21/22) ──
@@ -386,74 +410,147 @@ export function genererMentions(log, imm, ctx) {
   const ges = _s(dpe.ges).toUpperCase();
   const garage = _s(log.typeUsage) === 'garage';
   if (classe && ges) {
-    lignes.push({ key: 'dpe', texte: 'Classe énergie : ' + classe + ' · Classe climat : ' + ges, manquant: false });
+    L('dpe', 'Classe énergie : ' + classe + ' · Classe climat : ' + ges);
     C('dpe', 'Classes énergie et climat', 'ok', classe + ' · ' + ges, 'dpe');
-  } else if (garage) {
-    C('dpe', 'DPE', 'na', 'non concerné — non chauffé (R126-15 f)', 'dpe');
+  } else if (dpe.na === true || (garage && !classe && !ges)) {
+    C('dpe', 'DPE', 'na', garage ? 'non concerné — non chauffé (R126-15 f)' : 'déclaré non concerné', 'dpe');
   } else {
-    const quoi = !classe && !ges ? 'classes énergie et climat' : !classe ? 'classe énergie' : 'classe climat';
-    lignes.push({ key: 'dpe', texte: 'Classe énergie : ' + (classe || MANQUE(quoi)) + (classe ? ' · Classe climat : ' + (ges || MANQUE('classe climat')) : ''), manquant: true });
-    C('dpe', 'Classes énergie et climat', 'ko', 'DPE non renseigné', 'dpe');
+    L('dpe', 'Classe énergie : ' + (classe || MANQUE('classe énergie du DPE')) + ' · Classe climat : ' + (ges || MANQUE('classe climat du DPE')), true);
+    C('dpe', 'Classes énergie et climat', 'ko', classe || ges ? 'une classe manque' : 'DPE non renseigné', 'dpe');
   }
 
   // ── Habitation seulement : F/G (R126-24) + dépenses (R126-23) ──
-  if (!hors) {
+  if (!hors && dpe.na !== true) {
     if (classe === 'F' || classe === 'G') {
-      lignes.push({ key: 'excessif', texte: TXT_EXCESSIF + 'classe ' + classe + '.', manquant: false });
+      L('excessif', TXT_EXCESSIF + 'classe ' + classe + '.');
       C('excessif', 'Mention classe ' + classe, 'ok', 'ajoutée', '');
     }
-    const dep = _depensesTexte(dpe.depensesEnergie);
+    const dep = depensesTexte(dpe.depensesEnergie);
     const ann = _anneesTexte(dpe.anneePrix);
     if (dep && ann) {
-      lignes.push({ key: 'depenses', texte: TXT_DEPENSES + dep + '. ' + ann, manquant: false });
+      L('depenses', TXT_DEPENSES + dep + '. ' + ann);
       C('depenses', 'Dépenses d\'énergie + années des prix', 'ok', dep.replace(/^entre\s+/i, '') + ' · ' + _s(dpe.anneePrix), 'dpe');
     } else {
-      const quoi = !dep && !ann ? 'montant et années de référence des prix' : !dep ? 'montant' : 'années de référence des prix';
-      lignes.push({ key: 'depenses', texte: TXT_DEPENSES + (dep ? dep + '. ' : '') + MANQUE(quoi), manquant: true });
-      C('depenses', 'Dépenses d\'énergie + années des prix', 'ko', 'à compléter : ' + quoi, 'dpe');
+      const quoi = !dep && !ann ? 'montant et années de référence des prix indiqués sur le DPE' : !dep ? 'montant indiqué sur le DPE' : 'années de référence des prix indiquées sur le DPE';
+      L('depenses', TXT_DEPENSES + (dep ? dep + '. ' : '') + MANQUE(quoi), true);
+      C('depenses', 'Dépenses d\'énergie + années des prix', 'ko', !dep && !ann ? 'DPE non renseigné' : 'à compléter : ' + (!dep ? 'montant' : 'années des prix'), 'dpe');
     }
   }
 
   // ── Géorisques (R125-25) — toujours (D10) ──
-  lignes.push({ key: 'georisques', texte: TXT_GEORISQUES, manquant: false });
-  C('georisques', 'Géorisques', 'ok', 'phrase ajoutée', '');
+  L('georisques', TXT_GEORISQUES);
+  C('georisques', 'Géorisques', 'ok', 'présent', '');
 
   return { lignes, controle };
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Pièces du dossier (décret n° 2015-1437 — liste limitative)
+// Texte unique (format B)
 // ═══════════════════════════════════════════════════════════════
-export function genererDossier(pieces) {
-  const libs = (Array.isArray(pieces) ? pieces : []).map(k => PIECES_LIBELLES[k]).filter(Boolean);
-  if (!libs.length) return '';
-  return 'Pièces demandées (liste autorisée, décret n° 2015-1437) : ' + libs.join(', ') + '.\n'
-    + 'Le dossier peut être constitué sur DossierFacile, service public gratuit.';
+export function genererDossier(log) {
+  const lignes = [RUBRIQUES.dossier].concat(DOSSIER_PIECES.map(p => '- ' + p));
+  const gar = garanties(log);
+  if (gar.length) lignes.push('Garanties acceptées : ' + gar.join(' ou ') + '.');
+  lignes.push(TXT_DOSSIERFACILE);
+  return lignes.join('\n');
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Orchestrateur
-// ═══════════════════════════════════════════════════════════════
 /**
- * @param {object} args { log, imm, dpe, composition, periode, pieces, mandataire, includeDossier, aujourdhui }
- * @returns {{ mode:'habitation'|'hors-habitation', titre:string, description:string,
- *   blocTitre:string, mentions:object[], controle:object[], dossier:string, manquantes:number, texte:string }}
+ * @param {object} args { log, imm, dpe, composition, mandataire, includeDossier, aujourdhui }
+ * @returns {{ mode, titre, texte, mentions, controle, manquantes }}
  */
 export function genererAnnonce(args) {
   const a = args || {};
   const log = a.log || {}; const imm = a.imm || {};
   const hors = estHorsHabitation(log);
-  const ctx = { dpe: a.dpe || {}, composition: a.composition || '', periode: a.periode || '', mandataire: !!a.mandataire, aujourdhui: a.aujourdhui || '' };
-  const titre = genererTitre(log, imm);
-  const description = genererDescription(log, imm, ctx);
+  const ctx = { dpe: a.dpe || {}, composition: a.composition || '', mandataire: !!a.mandataire, aujourdhui: a.aujourdhui || '' };
   const { lignes, controle } = genererMentions(log, imm, ctx);
-  const dossier = (!hors && a.includeDossier !== false) ? genererDossier(a.pieces) : '';
-  const manquantes = controle.filter(c => c.etat === 'ko').length;
-  const texte = [description, lignes.map(l => l.texte).join('\n'), dossier].filter(s => _rempli(s)).join('\n\n');
+  const blocs = [genererAccroche(log, imm, ctx)];
+  if (!hors) {
+    const compo = _composition(ctx.composition);
+    if (compo) blocs.push(RUBRIQUES.logement + '\n' + compo);
+    const pf = pointsForts(log);
+    if (pf.length) blocs.push(RUBRIQUES.points + '\n' + pf.map(p => '- ' + p).join('\n'));
+    if (a.includeDossier !== false) blocs.push(genererDossier(log));
+    else {
+      const gar = garanties(log);
+      if (gar.length) blocs.push('Garanties acceptées : ' + gar.join(' ou ') + '.');
+    }
+  }
+  blocs.push(RUBRIQUES.infos + '\n' + lignes.map(l => l.texte).join('\n'));
+  const texte = blocs.join('\n\n');
+  const r = { mode: hors ? 'hors-habitation' : 'habitation', titre: genererTitre(log, imm), texte, mentions: lignes, controle };
+  return Object.assign(r, controlerTexte(texte, r));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Contrôle EN DIRECT du texte retouché
+// ═══════════════════════════════════════════════════════════════
+/**
+ * Relit le texte : chaque mention attendue est-elle présente ?
+ *   présente sans emplacement → état du moteur (ok / warn) ; présente avec [À COMPLÉTER] → 'ko' ;
+ *   absente → 'retire' (« retirée du texte · Remettre »).
+ * @returns {{ controle: object[], manquantes: number, retirees: number, emplacements: number }}
+ */
+export function controlerTexte(texte, annonce) {
+  const t = String(texte == null ? '' : texte);
+  const parKey = {};
+  (annonce.mentions || []).forEach(m => { parKey[m.key] = m; });
+  const controle = (annonce.controle || []).map(c => {
+    const m = parKey[c.key];
+    if (!m || c.etat === 'na') return Object.assign({}, c);
+    if (t.indexOf(m.texte) < 0) return Object.assign({}, c, { etat: 'retire', detail: 'retirée du texte' });
+    return Object.assign({}, c);
+  });
   return {
-    mode: hors ? 'hors-habitation' : 'habitation',
-    titre, description,
-    blocTitre: hors ? 'Informations' : 'Mentions obligatoires',
-    mentions: lignes, controle, dossier, manquantes, texte
+    controle,
+    manquantes: controle.filter(c => c.etat === 'ko').length,
+    retirees: controle.filter(c => c.etat === 'retire').length,
+    emplacements: (t.match(RE_MANQUE) || []).length
   };
+}
+
+/**
+ * Réinsère la phrase exacte d'une mention retirée : après la mention précédente (ordre du moteur)
+ * encore présente, sinon juste sous le titre INFORMATIONS, sinon en fin de texte sous ce titre.
+ */
+export function remettreMention(texte, annonce, key) {
+  const t = String(texte == null ? '' : texte);
+  const liste = annonce.mentions || [];
+  const i = liste.findIndex(m => m.key === key);
+  if (i < 0 || t.indexOf(liste[i].texte) >= 0) return t;
+  const phrase = liste[i].texte;
+  for (let j = i - 1; j >= 0; j--) {
+    const p = t.indexOf(liste[j].texte);
+    if (p >= 0) { const fin = p + liste[j].texte.length; return t.slice(0, fin) + '\n' + phrase + t.slice(fin); }
+  }
+  const h = t.indexOf(RUBRIQUES.infos);
+  if (h >= 0) { const fin = h + RUBRIQUES.infos.length; return t.slice(0, fin) + '\n' + phrase + t.slice(fin); }
+  return t.replace(/\s+$/, '') + '\n\n' + RUBRIQUES.infos + '\n' + phrase;
+}
+
+/**
+ * Après un passage par la fiche (DPE saisi, loyer modifié…) : remplace chaque phrase de mention
+ * de l'ancienne version par la nouvelle, là où elle se trouve ; les retouches restent intactes.
+ * Une mention nouvelle (absente de l'ancienne version) est ajoutée à sa place par remettreMention.
+ */
+export function majMentions(texte, ancienne, nouvelle) {
+  let t = String(texte == null ? '' : texte);
+  const avant = {};
+  (ancienne.mentions || []).forEach(m => { avant[m.key] = m.texte; });
+  (nouvelle.mentions || []).forEach(m => {
+    const old = avant[m.key];
+    if (old && old !== m.texte && t.indexOf(old) >= 0) t = t.split(old).join(m.texte);
+  });
+  // Mentions qui n'existaient pas avant (ex. « Logement à consommation énergétique excessive »).
+  (nouvelle.mentions || []).forEach(m => {
+    if (!avant[m.key] && t.indexOf(m.texte) < 0) t = remettreMention(t, nouvelle, m.key);
+  });
+  // Mentions qui ont disparu (ex. classe F corrigée en D) : la phrase périmée est retirée.
+  const nouv = {};
+  (nouvelle.mentions || []).forEach(m => { nouv[m.key] = true; });
+  (ancienne.mentions || []).forEach(m => {
+    if (!nouv[m.key] && t.indexOf(m.texte) >= 0) t = t.split(m.texte + '\n').join('').split('\n' + m.texte).join('').split(m.texte).join('');
+  });
+  return t;
 }

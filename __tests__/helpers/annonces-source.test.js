@@ -20,7 +20,8 @@ describe('D1 — le loyer de l\'annonce est le loyer souhaité, jamais l\'ancien
   });
   it('l\'étape 1 écrit par le chemin de l\'onglet Identité (_logpPushLoyerRef) puis _stamp + saveDB', () => {
     const cont = bloc('function _annonceStep1Continuer(', '\nfunction _annonceToggleDossier(');
-    expect(cont).toContain('_logpPushLoyerRef(log, partial, !!_bienActiveBail(log.ref))');
+    expect(cont).toContain('_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))');
+    expect(cont).toContain('_rescoreCandidatsDuLogement(log.ref)');
     expect(cont).toContain('_stamp(log)');
     expect(cont).toContain('saveDB()');
     expect(cont).toContain('_appReadOnly');
@@ -29,7 +30,7 @@ describe('D1 — le loyer de l\'annonce est le loyer souhaité, jamais l\'ancien
 
 describe('D6 — classe G : avertir (confirm2 + rappel légal), jamais bloquer', () => {
   it('confirmation avant génération', () => {
-    expect(openAnnonce).toContain("dpe.classe === 'G'");
+    expect(openAnnonce).toContain("_annonceDpe(log).classe === 'G'");
     expect(openAnnonce).toContain('confirm2(');
     expect(openAnnonce).toContain('art. 6 loi n° 89-462');
   });
@@ -57,6 +58,24 @@ describe('D9 / D10 — aucune adresse web ajoutée au texte copié', () => {
   it('l\'adresse DossierFacile n\'apparaît que dans l\'affiche PDF', () => {
     const pdf = bloc('function _annoncePDF(', '// v15.233 MODALE-LOGEMENT B1');
     expect(pdf).toContain('www.dossierfacile.fr');
+  });
+});
+
+describe('texte unique (maquette v2)', () => {
+  it('une seule zone de texte + calque des emplacements, plus de bloc verrouillé', () => {
+    expect(modale).toContain('id="an-texte"');
+    expect(modale).toContain('id="an-texte-bd"');
+    expect(modale).not.toContain('an-mentions');
+    expect(modale).not.toContain('an-lock');
+  });
+  it('contrôle en direct à chaque frappe, Remettre, mise à jour des mentions au retour de la fiche', () => {
+    expect(modale).toContain('oninput="_annonceTexteMaj()"');
+    expect(js).toContain('AG.controlerTexte(t, r)');
+    expect(js).toContain('AG.remettreMention(ta.value, r, key)');
+    expect(js).toContain('AG.majMentions(ta.value, avant, r)');
+  });
+  it('re-score des candidats : une seule source', () => {
+    expect(html.split('x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x))').length - 1).toBe(1);
   });
 });
 
