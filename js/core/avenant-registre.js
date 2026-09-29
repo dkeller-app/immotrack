@@ -43,14 +43,27 @@ export const cleNue = (k) => String(k == null ? '' : k).split('@@')[0];
  *  (date de début — un logement garde la même clé au fil des baux), même espace si l'entrée en porte un. */
 function _memeBail(e, cle, bail, { strictEspace }) {
   if (!e || e._deleted || e.type !== 'avenant') return false;
-  if (cleNue(e.ref) !== cleNue(cle)) return false;
+  // Registre : clé nue + espace strict. Trace ancienne (DB.bailEvents, non taguée) : réf COMPLÈTE, comme
+  // l'ancien avenantNumeroSuivant — la clé nue confondrait deux espaces qui ont le même logement.
+  if (strictEspace ? cleNue(e.ref) !== cleNue(cle) : String(e.ref == null ? '' : e.ref) !== String(cle == null ? '' : cle)) return false;
   const esp = (bail && bail._espaceId) || null;
   const eEsp = e._espaceId == null ? null : e._espaceId;
   if (strictEspace ? eEsp !== esp : (eEsp != null && eEsp !== esp)) return false;
   const debut = _ymd(bail && bail.debut);
   // Même début de bail, ou daté à partir du début du bail (date de début corrigée après coup, trace
   // ancienne sans bailDebut). Un avenant du bail PRÉCÉDENT est daté avant le début du bail courant.
-  return (!!e.bailDebut && _ymd(e.bailDebut) === debut) || (!!debut && _ymd(e.date) >= debut);
+  return _ymd(e.bailDebut) === debut || (!!debut && _ymd(e.date) >= debut);
+}
+
+/** Rattachement d'une entrée à son bail : espace (routage, partage SCI), ligne cloud (`bailUid`),
+ *  signature (`signedAt`, lu par store-sync). Commun aux entrées neuves et aux avenants anciens repris :
+ *  sans lui, une entrée reprise sur un bail tagué d'un espace ne serait jamais retrouvée (audit C1). */
+function _rattachement(b) {
+  const r = {};
+  if (b && b._espaceId != null) r._espaceId = b._espaceId;
+  if (b && b._bailUid) r.bailUid = b._bailUid;
+  if (b && b.signatures && b.signatures.signedAt) r.signedAt = b.signatures.signedAt;
+  return r;
 }
 
 /** Entrées de REGISTRE du bail (hors supprimées), triées par numéro croissant. */
@@ -91,8 +104,8 @@ export function listeAvenants({ journal, bailEvents, cle, bail } = {}) {
     const objets = Array.isArray(a.objets) ? a.objets : [];
     anciens.set(no, {
       id: idAvenantRepris(cle, b, no), type: 'avenant', virtuel: true, ref: cleNue(cle), bailDebut: _ymd(b.debut),
-      no, statut: 'a_signer', date: _ymd(a.dateEffet), ville: a.ville || '', objets, html: a.html || null,
-      createdAt: a.createdAt || null, appliques: _appliquesDeduits(objets), docSeul: null,
+      no, statut: 'a_signer', date: _ymd(a.dateEffet), ville: a.ville || '', objets, html: typeof a.html === 'string' ? a.html : null,
+      createdAt: a.createdAt || null, appliques: _appliquesDeduits(objets), docSeul: null, ..._rattachement(b),
     });
   }
   for (const e of (Array.isArray(bailEvents) ? bailEvents : [])) {
@@ -113,6 +126,7 @@ export function listeAvenants({ journal, bailEvents, cle, bail } = {}) {
       id: idAvenantRepris(cle, b, no), type: 'avenant', virtuel: true, ref: cleNue(cle), bailDebut: _ymd(b.debut),
       no, statut: 'a_signer', date: _ymd(e.date), ville: '', objets, html: null, createdAt: null,
       appliques: appliques || _appliquesDeduits(objets), docSeul: Array.isArray(e.docSeul) ? e.docSeul.slice() : null,
+      ..._rattachement(b),
     });
   }
   return reg.concat([...anciens.values()]).sort((a, b2) => (Number(b2.no) || 0) - (Number(a.no) || 0));
@@ -135,17 +149,17 @@ export function nouvelAvenant({ id, cle, bail, no, statut, date, ville, objets, 
     appliques: (appliques || []).slice(), docSeul: (docSeul || []).slice(),
     createdAt: now, statutLe: now, _modifiedAt: now,
   };
-  if (b._espaceId != null) e._espaceId = b._espaceId;
-  // Rattachement à la ligne cloud du bail (store-sync `_rattacherJournal` : signature + uid).
-  if (b._bailUid) e.bailUid = b._bailUid;
-  if (b.signatures && b.signatures.signedAt) e.signedAt = b.signatures.signedAt;
-  return e;
+  // Rattachement à la ligne cloud du bail (store-sync `_rattacherJournal` le recale avant le 1er envoi).
+  return Object.assign(e, _rattachement(b));
 }
 
 /** Peut-on passer de `av.statut` à `statut` ? Annuler exige que rien n'ait été appliqué au bail. */
+const _own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+/** Libellé / ton d'un statut (statut inconnu ou malformé → « À signer », jamais d'exception). */
+export function statutDe(av) { return (av && typeof av.statut === 'string' && _own(STATUTS, av.statut)) ? STATUTS[av.statut] : STATUTS.a_signer; }
 export function transitionPermise(av, statut) {
-  if (!av || !TRANSITIONS[av.statut] || !TRANSITIONS[av.statut].includes(statut)) return false;
-  if (statut === 'annule' && (av.appliques || []).length) return false;
+  if (!av || typeof av.statut !== 'string' || !_own(TRANSITIONS, av.statut) || !TRANSITIONS[av.statut].includes(statut)) return false;
+  if (statut === 'annule' && Array.isArray(av.appliques) && av.appliques.length) return false;
   return true;
 }
 

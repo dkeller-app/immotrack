@@ -358,3 +358,14 @@ describe('avenants du registre (AVENANT-REFONTE lot 2)', () => {
     expect(avs(r).map(e => e.no).sort()).toEqual([1, 2]);
   });
 });
+
+describe('avenants — audit lot 2 (M3) : date de début du bail corrigée après coup', () => {
+  it('trace ancienne (ancien début) + entrée reprise (début actuel) du même avenant : UNE carte', () => {
+    const bail = { ref: 'F101', debut: '2025-01-01', hc: 800, ch: 95 };
+    const ancien = { ref: 'F101', bailDebut: '2024-12-15', date: '2025-06-01', type: 'avenant', no: 1, objets: ['charges'] };
+    const repris = { id: 'av_rep', type: 'avenant', ref: 'F101', bailDebut: '2025-01-01', date: '2025-06-01', no: 1, statut: 'signe', objets: [] };
+    const r = construireHistoriqueBail({ ref: 'F101', today: '2026-09-29', bailCourant: bail, bauxHistorique: [], bareme: [], irlHistorique: [], bailEvents: [ancien], bailJournal: [repris] });
+    const avs = r.chapitres[0].rail.filter(x => x.kind === 'evenement' && x.ev.type === 'avenant').map(x => x.ev.statut);
+    expect(avs).toEqual(['signe']);
+  });
+});

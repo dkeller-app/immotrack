@@ -25877,6 +25877,8 @@ function _avenantSave(ref, opts){
     date:effet, ville:v('av-ville')||'', objets:objets, html:docHtml, appliques:_appliques, docSeul:_docSeul, now:(new Date()).toISOString() });
   if(_brou&&_brou.createdAt) entree.createdAt=_brou.createdAt;
   if(_verrou) entree.verrou=true;
+  // Parties qui paraphent CE document (figées avec lui : le PDF retéléchargé ne dépend plus du bail actuel).
+  entree.paraphes=_avenantParaphes(objets);
   _avenantRegistrePoser(entree);
   // Sauvegarde ÉTIQUETÉE et VÉRIFIÉE : hors ligne (écriture refusée) ou quota → on remet tout en
   // l'état, et on le dit. Fini le « enregistré ✓ » sur des données restées en mémoire.
@@ -25954,19 +25956,26 @@ function _avenantEcrireBrouillon(ref, bail, objets, effet){
 }
 // Remet un brouillon dans le formulaire : objets cochés, saisies, date d'effet, lieu de signature.
 function _avenantRestaurer(av){
-  (av.objets||[]).forEach(function(o){ if(o&&o.k&&_avenantObjById(o.k)) _avenantState.sel[o.k]=true; });
+  (Array.isArray(av.objets)?av.objets:[]).forEach(function(o){ if(o&&o.k&&_avenantObjById(o.k)) _avenantState.sel[o.k]=true; });
   _avenantBuildGrid(); _avenantBuildGroups();
-  (av.objets||[]).forEach(function(o){
-    var d=(o&&o.data)||{};
+  var perdus=[];   // choix du brouillon qui n'existent plus (colocataire parti, caution retirée…)
+  (Array.isArray(av.objets)?av.objets:[]).forEach(function(o){
+    var d=(o&&o.data)||{}; var def=_avenantObjById(o&&o.k);
     Object.keys(d).forEach(function(fid){
       var e=document.getElementById('av-'+o.k+'-'+fid); if(!e) return;
-      if(e.tagName==='SELECT'){ for(var i=0;i<e.options.length;i++){ if(e.options[i].value===d[fid]){ e.selectedIndex=i; break; } } }
+      if(e.tagName==='SELECT'){
+        var trouve=false;
+        for(var i=0;i<e.options.length;i++){ if(e.options[i].value===d[fid]){ e.selectedIndex=i; trouve=true; break; } }
+        if(!trouve&&d[fid]){ var fd0=def&&def.f.find(function(x){return x.id===fid;}); perdus.push((fd0?fd0.l:fid)+' : « '+d[fid]+' »'); }
+      }
       else e.value=d[fid]==null?'':d[fid];
     });
   });
   if(av.date&&el('av-effet')) el('av-effet').value=av.date;
   if(av.ville&&el('av-ville')) el('av-ville').value=av.ville;
   _avenantChampsSituation();
+  // Jamais un autre nom en silence dans un acte : on dit ce qui n'a pas pu être repris.
+  if(perdus.length) showToast('Brouillon repris, mais ces choix n\'existent plus dans le bail et sont à refaire : '+perdus.join(' ; ')+'.','warn',10000);
 }
 function _avenantReprendre(ref, id){ _avenantOpen(ref, {brouillonId:id}); }
 function _avenantSupprimerBrouillon(ref, id){
@@ -25982,9 +25991,10 @@ function _avenantSupprimerBrouillon(ref, id){
 function _avenantAnnuler(ref, id){
   var av=_avenantTrouver(ref, id); if(!av) return;
   if(!window.AvenantRegistre.transitionPermise(av,'annule')){
-    showToast((av.appliques||[]).length
-      ? 'L\'avenant n° '+av.no+' a déjà modifié le bail ('+av.appliques.join(', ').toLowerCase()+') : pour revenir en arrière, établir un nouvel avenant.'
-      : 'L\'avenant n° '+av.no+' est '+((window.AvenantRegistre.STATUTS[av.statut]||{}).l||'').toLowerCase()+' : son statut est définitif.','warn',8000);
+    var _apl=Array.isArray(av.appliques)?av.appliques:[];
+    showToast(_apl.length
+      ? 'L\'avenant n° '+av.no+' a déjà modifié le bail ('+_apl.join(', ').toLowerCase()+') : pour revenir en arrière, établir un nouvel avenant.'
+      : 'L\'avenant n° '+av.no+' est '+window.AvenantRegistre.statutDe(av).l.toLowerCase()+' : son statut est définitif.','warn',8000);
     return;
   }
   if(!confirm2('Annuler l\'avenant n° '+av.no+' ?\n\nIl reste dans la liste, barré, et ne sera jamais appliqué. Si le document a déjà été remis aux parties, les prévenir.')) return;
@@ -26052,14 +26062,16 @@ async function _avenantPdf(ref, id){
     fileName:'Avenant_n'+av.no+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf',
     desc:'PDF (avenant au bail)', genererAvant:true,
     titre:'Avenant n° '+av.no+' au bail', texte:'Avenant n° '+av.no+' au contrat de bail — '+(bail.adrBien||ref),
-    genererBlob:function(){ return window._docHtmlToNativeBlob(av.html, ent, { pagination:true, paraphes:_avenantParaphesPour(bail, av.objets) }); }
+    genererBlob:function(){ return window._docHtmlToNativeBlob(av.html, ent, { pagination:true, paraphes:(Array.isArray(av.paraphes)&&av.paraphes.every(function(x){return typeof x==='string';}))?av.paraphes:_avenantParaphesPour(bail, av.objets) }); }
   });
 }
 // Bloc « Avenants » de l'onglet Bail (maquette AVENANT-REFONTE §9) : une carte par avenant, statut,
 // effet, ce qui a été appliqué, et seulement les gestes permis par son statut.
-// Cartes de l'historique : elles connaissent le numéro de l'avenant, pas son identifiant.
-function _avenantGesteNo(ref, no, geste){
-  var av=_avenantListe(ref).find(function(a){ return Number(a.no)===Number(no); });
+// Cartes de l'historique : identifiant pour une entrée du registre ; numéro pour une trace ancienne
+// (son identifiant de reprise dépend de la clé du bail, que la carte ne connaît pas).
+function _avenantGesteNo(ref, no, geste, id){
+  var l=_avenantListe(ref);
+  var av=(id&&l.find(function(a){ return a.id===id; }))||(!id&&l.find(function(a){ return Number(a.no)===Number(no); }))||null;
   if(!av){ showToast('Avenant introuvable.','warn'); return; }
   if(geste==='voir') return _avenantVoir(ref, av.id);
   if(geste==='pdf') return _avenantPdf(ref, av.id);
@@ -26078,7 +26090,7 @@ function _renderAvenantsBail(ref){
     annuler:['close','Annuler l\'avenant','_avenantAnnuler','']
   };
   var cartes=_avenantListe(ref).map(function(av){
-    var st=R.STATUTS[av.statut]||R.STATUTS.a_signer;
+    var st=R.statutDe(av);
     var annule=av.statut==='annule';
     var lbl=(av.statut==='signe'&&av.signeLe)?'Signé le '+fd(av.signeLe):st.l;
     var meta=[];
@@ -26086,7 +26098,7 @@ function _renderAvenantsBail(ref){
     if(av.statut==='brouillon') meta.push('rien n\'est appliqué au bail · modifiable');
     else if(annule) meta.push('jamais appliqué');
     else {
-      if((av.appliques||[]).length) meta.push('appliqué : '+av.appliques.join(', ').toLowerCase());
+      if(Array.isArray(av.appliques)&&av.appliques.length) meta.push('appliqué : '+av.appliques.join(', ').toLowerCase());
       if(av.statut==='signe'&&av.signeMode==='papier') meta.push('sur papier');
     }
     if(av.virtuel&&!av.html) meta.push('document non conservé');
@@ -43885,7 +43897,7 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     const _objets=(Array.isArray(ev.objets)?ev.objets:[]).map(o=>(o&&typeof o==='object')?o:{k:o});
     const titre=R?R.titreAvenant({no:ev.no, objets:_objets}, _lbl):('Avenant n° '+(ev.no||'?'));
     const statut=ev.registre?ev.statut:'a_signer';
-    const st=(R&&R.STATUTS[statut])||{l:'À signer'};
+    const st=R?R.statutDe({statut}):{l:'À signer'};
     const badge=statut==='signe'?'b-irl':(statut==='annule'?'b-man':'b-warn');
     const lblSt=(statut==='signe'&&ev.signeLe)?'Signé le '+fd(ev.signeLe):st.l;
     const _app=Array.isArray(ev.appliques)?ev.appliques:null;
@@ -43894,9 +43906,10 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     // Gestes : bail courant seulement (les avenants d'un bail clos se consultent sur son archive).
     const aDoc=!!ev.html||((c.bail&&c.bail.avenants)||[]).some(a=>a&&Number(a.no)===Number(ev.no)&&a.html);
     const liens=[];
+    const _idArg=ev.registre&&ev.id!=null?",'"+_lyQ(ev.id)+"'":'';
     if(c.statut!=='clos'){
-      if(aDoc) liens.push(`<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'voir')">${_uiIcon('eye')} Revoir l'avenant</span>`, `<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'pdf')">${_uiIcon('download')} PDF</span>`);
-      if(statut==='a_signer') liens.push(`<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'signe-papier')">${_uiIcon('sign')} Signé sur papier</span>`);
+      if(aDoc) liens.push(`<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'voir'${_idArg})">${_uiIcon('eye')} Revoir l'avenant</span>`, `<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'pdf'${_idArg})">${_uiIcon('download')} PDF</span>`);
+      if(statut==='a_signer') liens.push(`<span class="hl-lnk" onclick="_avenantGesteNo('${refSafe}',${Number(ev.no)||0},'signe-papier'${_idArg})">${_uiIcon('sign')} Signé sur papier</span>`);
     }
     return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4${annule?' style="text-decoration:line-through"':''}>${escHtml(titre)}</h4><span class="hl-badge ${badge}">${escHtml(lblSt)}</span></div>
       <div class="hl-desc">Effet au <b>${escHtml(fd(ev.date))}</b>.${annule?' <span class="mu">Annulé : jamais appliqué.</span>':''}${!annule&&_app&&_app.length?' <b>Appliqué</b> : '+escHtml(_app.join(', ').toLowerCase())+'.':''}${!annule&&_doc&&_doc.length?' <span class="mu">Document seulement : '+escHtml(_doc.join(', ').toLowerCase())+'.</span>':''}${ev.verrou&&!annule?' <span class="mu">(bail signé : conserver le PDF signé de l\'avenant)</span>':''}</div>${liens.length?`<div class="hl-foot">${liens.join('')}</div>`:''}</div>`;

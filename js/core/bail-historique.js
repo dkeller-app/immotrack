@@ -208,20 +208,24 @@ export function construireHistoriqueBail(input) {
   // ── AVENANT-REFONTE lot 2 (29/09) — avenants du REGISTRE (journal DB.baux_evenements, type 'avenant').
   //    Les brouillons n'ont rien modifié : pas de carte. Un avenant ancien (trace 'avenant' de
   //    DB.bailEvents) repris dans le registre n'est affiché qu'une fois : le registre fait foi.
+  //    Appariement par CHAPITRE (bail) + numéro : une date de début corrigée après coup ne doit pas
+  //    faire apparaître deux cartes pour le même avenant (audit lot 2, M3).
   const avRegistre = new Set();
   for (const e of (i.bailJournal || [])) {
-    if (!e || e._deleted || e.type !== 'avenant' || _nr(String(e.ref || '').split('@@')[0]) !== want) continue;
-    avRegistre.add(_ymd(e.bailDebut) + '|' + (Number(e.no) || 0));
-    if (e.statut === 'brouillon') continue;
+    if (!e || e._deleted || e.type !== 'avenant' || e.statut === 'brouillon' || _nr(String(e.ref || '').split('@@')[0]) !== want) continue;
     const c = _byBailDebut(e.bailDebut) || _byRange(e.date) || chapitres[0];
     if (!c) continue;
+    avRegistre.add(chapitres.indexOf(c) + '|' + (Number(e.no) || 0));
     _pushEv(c.rail, { ...e, type: 'avenant', registre: true }, e.date);
   }
 
   // ── Traces hors barème (modif DG, corrections…) — DB.bailEvents, append-only.
   for (const e of (i.bailEvents || [])) {
     if (!e || e._deleted || _nr(e.ref) !== want) continue;
-    if (e.type === 'avenant' && avRegistre.has(_ymd(e.bailDebut) + '|' + (Number(e.no) || 0))) continue;
+    if (e.type === 'avenant') {
+      const ca = _byBailDebut(e.bailDebut) || _byRange(e.date) || chapitres[0];
+      if (avRegistre.has(chapitres.indexOf(ca) + '|' + (Number(e.no) || 0))) continue;
+    }
     // AUDIT AVENANT 27/09 — les avenants (≤ v15.680) écrivaient AUSSI un 'modif' {avenant, hcAvant…} :
     // doublon de la carte déjà dérivée de la période de barème 'manuel', et rendu cassé
     // (« Loyer – HC + – »). On les écarte ; l'événement 'avenant' et la période restent.

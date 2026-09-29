@@ -2,7 +2,7 @@
  * Tests — AVENANT-REFONTE lot 2 : registre des avenants (js/core/avenant-registre.js).
  */
 import { describe, it, expect } from 'vitest';
-import { STATUTS, avenantsDuBail, listeAvenants, numeroSuivant, nouvelAvenant, transitionPermise, avecStatut, actionsAvenant, titreAvenant, idAvenantRepris } from '../../js/core/avenant-registre.js';
+import { STATUTS, statutDe, avenantsDuBail, listeAvenants, numeroSuivant, nouvelAvenant, transitionPermise, avecStatut, actionsAvenant, titreAvenant, idAvenantRepris } from '../../js/core/avenant-registre.js';
 
 const NOW = '2026-09-29T10:00:00.000Z';
 const LBL = { coloc: 'Colocataire', caution: 'Garant / caution', loyer: 'Loyer', charges: 'Charges', travaux: 'Travaux' };
@@ -183,5 +183,33 @@ describe('numeroSuivant — cas repris de avenantNumeroSuivant (v15.681)', () =>
       { type: 'avenant', ref: 'F-001', bailDebut: '2025-09-01', no: 7, _deleted: true },
     ];
     expect(numeroSuivant({ bailEvents: ev, cle: 'F-001', bail: bail })).toBe(1);
+  });
+});
+
+describe('audit lot 2 — rattachement, données malformées, traces anciennes', () => {
+  it('C1 : un avenant ancien repris sur un bail tagué d\'un espace est RETROUVÉ avec son nouveau statut', () => {
+    const b = { debut: '2025-09-01', _espaceId: 'E1', _bailUid: 'u9', signatures: { signedAt: '2025-08-20T10:00:00Z' }, avenants: [{ no: 1, dateEffet: '2026-01-01', objets: [] }] };
+    const av = listeAvenants({ cle: 'F-001@@E1', bail: b })[0];
+    expect(av).toMatchObject({ _espaceId: 'E1', bailUid: 'u9', signedAt: '2025-08-20T10:00:00Z' });
+    const signe = avecStatut(av, 'signe', NOW, { signeLe: '2026-01-05' });
+    const l = listeAvenants({ journal: [signe], cle: 'F-001@@E1', bail: b });
+    expect(l).toHaveLength(1);
+    expect(l[0]).toMatchObject({ statut: 'signe' });
+    expect(l[0].virtuel).toBeUndefined();
+  });
+  it('M1 : statut malformé (« constructor ») ou appliques non-tableau → aucune exception', () => {
+    expect(() => actionsAvenant({ statut: 'constructor' })).not.toThrow();
+    expect(transitionPermise({ statut: 'toString' }, 'signe')).toBe(false);
+    expect(transitionPermise({ statut: 'a_signer', appliques: 'Loyer' }, 'signe')).toBe(true);
+    expect(STATUTS.constructor).toBeDefined();   // piège : les clés héritées existent sur un objet littéral
+  });
+  it('M2 : bail sans date de début — les traces sans bailDebut comptent toujours', () => {
+    const ev = [{ type: 'avenant', ref: 'F-001', bailDebut: '', no: 2 }];
+    expect(numeroSuivant({ bailEvents: ev, cle: 'F-001', bail: { debut: '' } })).toBe(3);
+  });
+  it('M2 : trace ancienne d\'un AUTRE espace (réf « F-001@@E2 ») jamais rattachée à F-001@@E1', () => {
+    const ev = [{ type: 'avenant', ref: 'F-001@@E2', bailDebut: '2025-09-01', no: 4 }];
+    expect(numeroSuivant({ bailEvents: ev, cle: 'F-001@@E1', bail: { debut: '2025-09-01', _espaceId: 'E1' } })).toBe(1);
+    expect(numeroSuivant({ bailEvents: ev, cle: 'F-001@@E2', bail: { debut: '2025-09-01', _espaceId: 'E2' } })).toBe(5);
   });
 });
