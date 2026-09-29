@@ -262,6 +262,50 @@ describe('routes bailleur (ownerToken)', () => {
     expect(st.status).toBe('pending');   // rien d'enregistré
   });
 
+  async function createWithAnnexes(signers, annexes) {
+    const doc = await PDFDocument.create(); doc.addPage([595.28, 841.89]); doc.addPage([595.28, 841.89]);
+    embedInDoc(doc, { v: 1, totalPages: 2, annexes, anchors: [
+      { sigId: 'bailleur-0', kind: 'signature', page: 1, x: 15, y: 210, w: 90, h: 30 },
+      { sigId: 'loc-0', kind: 'signature', page: 1, x: 110, y: 210, w: 90, h: 30 }
+    ] });
+    const form = new FormData();
+    form.set('pdf', new Blob([await doc.save()], { type: 'application/pdf' }), 'b.pdf');
+    form.set('meta', JSON.stringify({ bailRef: 'B', signers }));
+    return (await SELF.fetch('https://relay.test/sessions', { method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form })).json();
+  }
+  const ANN = { from: 2, items: [{ label: 'DPE', statut: 'joint', docName: 'dpe.pdf', from: 2, to: 2 }] };
+
+  it('annexes du DDT : 409 si le locataire n\'a pas accusé réception, rien d\'enregistré', async () => {
+    const { sessionId, ownerToken } = await createWithAnnexes([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }], ANN);
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson({ signerName: 'Jean' }) }, body: signedBody(1)
+    });
+    expect(res.status).toBe(409);
+    const st = await (await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': ownerToken } })).json();
+    expect(st.status).toBe('pending');
+  });
+
+  it('annexes du DDT : accusé valide → signé, heure restituée', async () => {
+    const { sessionId, ownerToken } = await createWithAnnexes([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }], ANN);
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson({ signerName: 'Jean', annexesRecuesAt: '2026-09-29T10:00:00.000Z' }) }, body: signedBody(1)
+    });
+    expect(res.status).toBe(200);
+    const st = await (await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': ownerToken } })).json();
+    expect(st.signers[0].proof.annexesRecuesAt).toBe('2026-09-29T10:00:00.000Z');
+  });
+
+  it('annexes du DDT : un signataire côté bailleur (co-gérant à distance) n\'a pas à accuser réception', async () => {
+    const { sessionId } = await createWithAnnexes([{ role: 'bailleur', email: 'g@b.fr', tel: '', ordre: 1 }], ANN);
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson({ signerName: 'Gérant' }) }, body: signedBody(1)
+    });
+    expect(res.status).toBe(200);
+  });
+
   it('GET /result : 409 tant que pending, PDF quand completed', async () => {
     const { sessionId, ownerToken } = await createWithOwner([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
     const pending = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/result`, { headers: { 'X-Owner-Token': ownerToken } });

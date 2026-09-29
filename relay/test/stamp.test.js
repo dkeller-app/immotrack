@@ -155,6 +155,13 @@ describe('readingPlanFor (document défilant)', () => {
     expect(plan.lastBailPage).toBe(3);
     expect(plan.annexes.items.map((i) => i.statut)).toEqual(['joint', 'hors_app']);
   });
+  it('le manifeste PRÉVAUT : ancres jusqu\'à la page 2, annexes à partir de la page 4 → bail = pages 1-3', async () => {
+    const doc = await makeDoc(6);
+    embedInDoc(doc, { v: 1, totalPages: 6, annexes: { from: 4, items: [{ label: 'DPE', statut: 'joint', from: 5, to: 6 }] }, anchors: [
+      { sigId: 'loc-0', kind: 'signature', page: 2, x: 110, y: 210, w: 90, h: 30 }
+    ] });
+    expect(readingPlanFor(doc, { sigId: 'loc-0' }).lastBailPage).toBe(3);
+  });
   it('annexes.from incohérent (avant une ancre) : ignoré, déduction par les ancres', async () => {
     const doc = await makeDoc(4);
     embedInDoc(doc, { v: 1, totalPages: 4, annexes: { from: 2, items: [] }, anchors: [

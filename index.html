@@ -8656,6 +8656,10 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
     if (p.openedAt) line('   document ouvert le : ' + p.openedAt, 8);
     if (p.readCompletedAt) line('   lecture terminee le : ' + p.readCompletedAt, 8);
     if (p.annexesRecuesAt) line('   annexes (dossier de diagnostic technique) recues le : ' + p.annexesRecuesAt, 8);
+    else if (p.role === 'locataire' && bail && bail.annexesDdt && Array.isArray(bail.annexesDdt.items)
+      && bail.annexesDdt.items.some((it) => it && (it.statut === 'joint' || it.statut === 'hors_app'))) {
+      line('   accuse de reception des annexes : non enregistre', 8);   // bail avec pièces du DDT, accusé absent
+    }
     // Document défilant : paraphe page par page, avec l'heure (déclarée par l'appareil du signataire).
     if (p.parapheTimes && typeof p.parapheTimes === 'object') {
       const _pts = Object.keys(p.parapheTimes).map((k) => p.parapheTimes[k]).filter(Boolean).sort();
@@ -24412,10 +24416,12 @@ function previewBailData(bail, log, ref, opts) {
     +  'var names=_wizV2AnnexLocs().map(function(s){return _wizV2Esc(s.nomCourt||s.id);}).join(", ");'
     +  'var rows=_BAIL_ANNEXES.map(function(it){var t=TAG[it.statut]||TAG.non_joint;'
     +    'return "<div class=\\"wizV2-ann-pc\\"><div><b>"+_wizV2Esc(it.label)+"</b>"+(it.statut==="joint"&&it.docName?"<small>"+_wizV2Esc(it.docName)+"</small>":"")+"</div><span class=\\"wizV2-ann-tag\\" style=\\"background:"+t[0]+";color:"+t[1]+"\\">"+t[2]+"</span></div>";}).join("");'
+    /* Texte exact : « jointes au PDF » seulement si au moins une pièce l'est ; sinon remises hors application. */
+    +  'var _hasJ=_BAIL_ANNEXES.some(function(it){return it.statut==="joint";});'
     +  'ov.innerHTML="<div class=\\"wizV2-card\\"><div class=\\"wizV2-page-label\\">Annexes au bail — avant votre signature</div>"'
-    +    '+"<p class=\\"wizV2-ann-lead\\">Le dossier de diagnostic technique est annexé au bail (loi n° 89-462, art. 3-3). Ces pièces sont jointes au PDF du bail signé qui vous sera remis.</p>"'
+    +    '+"<p class=\\"wizV2-ann-lead\\">Le dossier de diagnostic technique est annexé au bail (loi n° 89-462, art. 3-3). "+(_hasJ?"Les pièces jointes figureront dans le PDF du bail signé qui vous sera remis.":"Les pièces ci-dessous vous sont remises hors application par le bailleur.")+"</p>"'
     +    '+"<div class=\\"wizV2-ann-list\\">"+rows+"</div>"'
-    +    '+"<label class=\\"wizV2-ann-ack\\" id=\\"wizV2-ann-lbl\\"><input type=\\"checkbox\\" id=\\"wizV2-ann-ack\\"><span><b>J\\u2019ai reçu les annexes jointes au bail</b> (dossier de diagnostic technique), qui font partie du document que je signe.<small>"+names+" · obligatoire pour signer · l\\u2019heure est enregistrée dans la preuve de signature.</small></span></label></div>";'
+    +    '+"<label class=\\"wizV2-ann-ack\\" id=\\"wizV2-ann-lbl\\"><input type=\\"checkbox\\" id=\\"wizV2-ann-ack\\"><span>"+(_hasJ?"<b>J\\u2019ai reçu les annexes jointes au bail</b> (dossier de diagnostic technique), qui font partie du document que je signe.":"<b>J\\u2019ai reçu les pièces du dossier de diagnostic technique</b>, remises hors application par le bailleur.")+"<small>"+names+" · obligatoire pour signer · l\\u2019heure est enregistrée dans la preuve de signature.</small></span></label></div>";'
     +  'var cb=document.getElementById("wizV2-ann-ack"),nx=document.getElementById("wiz-next-btn"),pv=document.getElementById("wiz-prev-btn");'
     +  'if(pv){pv.style.visibility="";pv.disabled=false;}'
     +  'var sync=function(){if(nx){nx.disabled=!cb.checked;nx.textContent="Continuer vers la signature →";nx.style.background="";}document.getElementById("wizV2-ann-lbl").classList.toggle("is-ok",cb.checked);};'
@@ -24495,6 +24501,7 @@ function previewBailData(bail, log, ref, opts) {
     +  '}'
     /* v12.96 → v12.98 — étape finale : valider sigs + checkbox lu/approuvé puis générer PDF */
     +  'if(cur>pages.length){'
+    +    'if(_wizV2NeedsAnnex()){_wizV2RenderAnnexes();return;}' /* défense : pas de signature sans accusé des annexes */
     /* v13.01 — valider chaque signature ET sa case "Lu et approuvé" associée */
     +    'var sigs=_wizV2GetSigs();'
     +    'var captured={};var luBy={};var allSigned=true;var allLu=true;var firstFail=null;'

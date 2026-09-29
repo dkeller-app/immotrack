@@ -59,7 +59,8 @@ export function readingPlanFor(pdfDoc, { sigId, side }) {
   // prévaut sur la déduction par les ancres dès que la 1re page est cohérente.
   const annexes = (manifest && manifest.annexes && typeof manifest.annexes === 'object') ? manifest.annexes : null;
   const from = annexes && Number(annexes.from);
-  if (from && from > 1 && from <= pageCount && from - 1 >= Math.max(0, ...paraphes.map((a) => a.page), ...signatures.map((a) => a.page))) {
+  // Garde : jamais sous une page portant une ancre de N'IMPORTE QUEL signataire (manifeste incohérent).
+  if (Number.isInteger(from) && from > 1 && from <= pageCount && from - 1 >= Math.max(0, ...all.filter(inRange).map((a) => a.page))) {
     lastBailPage = from - 1;
   }
   return { paraphes, signatures, lastBailPage, pageCount, annexes };

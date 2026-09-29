@@ -115,7 +115,7 @@ function sanitizeClientProof(raw) {
     luApprouve: raw.luApprouve === true,
     openedAt: str(raw.openedAt, 40),
     readCompletedAt: str(raw.readCompletedAt, 40),
-    annexesRecuesAt: str(raw.annexesRecuesAt, 40),
+    annexesRecuesAt: (typeof raw.annexesRecuesAt === 'string' && raw.annexesRecuesAt.length <= 40 && !isNaN(Date.parse(raw.annexesRecuesAt))) ? raw.annexesRecuesAt : null,   // date ISO valide ou rien
     parapheTimes: times(raw.parapheTimes)
   };
 }

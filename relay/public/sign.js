@@ -74,7 +74,7 @@ function buildUI() {
           <p class="ann-lead">Le dossier de diagnostic technique est annexé à votre bail (loi n° 89-462, art. 3-3). Voici les pièces : celles qui sont jointes figurent à la suite du bail, dans le document que vous signez.</p>
           <div class="ann-card"><h2 id="ann-step-title">Dossier de diagnostic technique</h2><div id="ann-step-list"></div>
             <div class="ann-btns"><button type="button" class="line" id="ann-step-view">Consulter les annexes</button><button type="button" class="line" id="ann-step-dl">Télécharger le document complet (PDF)</button></div></div>
-          <label class="ann-ack" id="ann-ack-lbl"><input type="checkbox" id="ann-ack"><span><strong>J'ai reçu les annexes jointes au bail</strong> (dossier de diagnostic technique), qui font partie du document que je signe.<small>Obligatoire pour signer · l'heure est enregistrée dans la preuve de signature.</small></span></label>
+          <label class="ann-ack" id="ann-ack-lbl"><input type="checkbox" id="ann-ack"><span><span id="ann-ack-txt"><strong>J'ai reçu les annexes jointes au bail</strong> (dossier de diagnostic technique), qui font partie du document que je signe.</span><small>Obligatoire pour signer · l'heure est enregistrée dans la preuve de signature.</small></span></label>
         </div></div>
         <div class="actionbar"><div class="bar-btns"><button id="ann-back" class="ghost">‹ Revoir le bail</button><button id="ann-next" class="primary" disabled>Continuer vers la signature</button></div></div>
       </section>
@@ -403,6 +403,7 @@ async function annexItems() {
   return coverItems;
 }
 function hasAnnexStep() {
+  if (S.side !== 'locataire') return false;   // le bailleur (co-gérant à distance) fournit les pièces : pas d'accusé
   const m = plan.annexes;
   if (m && Array.isArray(m.items)) return m.items.some((it) => it.statut === 'joint' || it.statut === 'hors_app');
   return plan.lastBailPage < plan.pageCount;
@@ -418,6 +419,11 @@ async function showAnnexStep() {
   view.hidden = !(plan.lastBailPage < plan.pageCount);
   view.onclick = () => { show('step-read'); setAnnexOpen(true); const el = app.querySelector('#annexes'); if (el) el.scrollIntoView({ block: 'start' }); };
   app.querySelector('#ann-step-dl').onclick = downloadFull;
+  // Texte exact : « jointes au bail » seulement si au moins une pièce est dans le document ; sinon les
+  // pièces ont été remises hors application (déclaration du bailleur).
+  app.querySelector('#ann-ack-txt').innerHTML = items.some((it) => it.statut === 'joint')
+    ? '<strong>J\'ai reçu les annexes jointes au bail</strong> (dossier de diagnostic technique), qui font partie du document que je signe.'
+    : '<strong>J\'ai reçu les pièces du dossier de diagnostic technique</strong>, remises hors application par le bailleur.';
   const cb = app.querySelector('#ann-ack'), next = app.querySelector('#ann-next'), lbl = app.querySelector('#ann-ack-lbl');
   const sync = () => { next.disabled = !cb.checked; lbl.classList.toggle('is-ok', cb.checked); };
   cb.onchange = sync; sync();
@@ -553,6 +559,7 @@ async function doSubmit() {
     });
     if (r.status === 403) return fail('Ce n\'est pas (ou plus) votre tour de signer.');
     if (r.status === 410) return fail('Ce document est déjà signé.');
+    if (r.status === 409) return fail('Signature non enregistrée : l\'accusé de réception des annexes manque. Rechargez la page et cochez « J\'ai reçu les annexes ».');
     if (r.status === 422) return fail('Signature impossible : ce document ne prévoit aucune case de signature pour vous. Contactez l\'expéditeur du bail.');
     if (!r.ok) throw new Error('http ' + r.status);
     show('step-done');

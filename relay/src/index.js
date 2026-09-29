@@ -278,9 +278,12 @@ app.post('/api/sessions/:id/signed', async (c) => {
       signaturePngDataUrl: body.signaturePngDataUrl,
       paraphesByPage: body.paraphesByPage || {},
       signerName: clientProof ? clientProof.signerName : null,
-      dateISO
+      dateISO,
+      annexesRecuesAt: clientProof ? clientProof.annexesRecuesAt : null
     }));
   } catch (e) {
+    // Locataire sans accusé de réception des annexes (DDT) : 409 — distinct du 422 « aucune case ».
+    if (e && e.code === 'annexes-ack-required') return c.json({ error: 'annexes-ack-required' }, 409);
     return c.json({ error: 'stamp-failed' }, 500);
   }
   // Aucune signature apposée (aucune ancre de signature pour ce signataire, ou image absente) :
