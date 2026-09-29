@@ -133,6 +133,17 @@ describe('readingPlanFor (document défilant)', () => {
     expect(plan.lastBailPage).toBe(2);                                // ancre la plus basse, tous signataires
     expect(plan.pageCount).toBe(5);
   });
+  it('ancres hors page ignorées ; aucune ancre pour ce signataire → listes vides', async () => {
+    const doc = await makeDoc(2);
+    embedInDoc(doc, { v: 1, totalPages: 2, anchors: [
+      { sigId: 'bailleur-0', kind: 'paraphe', page: 1, x: 15, y: 279.5, w: 70, h: 14 },
+      { sigId: 'loc-0', kind: 'paraphe', page: 9, x: 125, y: 279.5, w: 70, h: 14 }
+    ] });
+    const plan = readingPlanFor(doc, { sigId: 'loc-0' });
+    expect(plan.paraphes).toEqual([]);
+    expect(plan.signatures).toEqual([]);
+    expect(plan.lastBailPage).toBe(1);
+  });
   it('repli sans manifeste : toutes les pages sont du bail', async () => {
     const doc = await makeDoc(3);
     const plan = readingPlanFor(doc, { sigId: 'loc-0', side: 'locataire' });

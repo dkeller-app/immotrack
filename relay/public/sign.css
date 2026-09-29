@@ -8,6 +8,8 @@
   --encre: #101521; --txt: #3c4658; --sec: #6e7888;
   --accent: #ff5a3c; --accent-h: #e8431f; --halo: #ffe7e0;   /* corail = accent unique (CTA, zone active) */
   --ok: #16a34a; --err: #b00020;
+  --paper: #ffffff; --par-bg: #fff8f6; --ok-bg: rgba(232,246,238,.92);   /* page du document, case à parapher, case paraphée */
+  --note-line: #fcd34d; --note-bg: rgba(255,251,235,.85); --note-ink: #92400e;
 }
 * { box-sizing: border-box; }
 /* [hidden] doit l'emporter sur .step{display:flex} — le masquage des étapes en dépend. */
@@ -100,23 +102,26 @@ button.ghost { background: transparent; border-color: transparent; color: var(--
 .rp-next { min-height: 36px; padding: 6px 10px; font-size: 13px; border: 0; background: transparent; color: var(--accent-h); white-space: nowrap; }
 .rp-ok { font-size: 13px; font-weight: 700; color: var(--ok); white-space: nowrap; }
 .pdf-doc { max-width: 780px; margin: 0 auto; }
-.pg { position: relative; background: #fff; border-radius: 6px; box-shadow: 0 2px 10px rgba(16,21,33,.10); margin: 0 auto 14px; overflow: hidden; }
+.pg { position: relative; background: var(--paper); border-radius: 6px; box-shadow: 0 2px 10px rgba(16,21,33,.10); margin: 0 auto 14px; overflow: hidden; }
+/* Proportion de la page par --ar (hauteur/largeur) : padding, compatible Safari iOS 14 (sans aspect-ratio). */
+.pg::before { content: ""; display: block; padding-top: calc(var(--ar, 1.4142) * 100%); }
+.pg-err { position: absolute; inset: 0; margin: 0; display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; font-size: 14px; color: var(--sec); }
 .pg-canvas, .pg-canvas canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .pg .pdf-page { margin: 0; border-radius: 0; box-shadow: none; }
 .pg-no { position: absolute; top: 6px; right: 8px; font-size: 11px; color: var(--sec); background: rgba(255,255,255,.85); padding: 1px 6px; border-radius: 10px; }
 .pg-annex { box-shadow: 0 1px 6px rgba(16,21,33,.08); }
 /* Case de paraphe : la zone de l'ancre ; le bouton (≥ 44 px) est centré dessus et peut la déborder. */
 .par-slot { position: absolute; display: flex; align-items: center; justify-content: center; }
-.par-btn { min-height: 44px; min-width: 120px; padding: 8px 14px; border: 2px dashed var(--accent); background: #fff8f6; color: var(--accent-h); font-size: 15px; font-weight: 800; box-shadow: 0 2px 8px rgba(255,90,60,.18); white-space: nowrap; }
+.par-btn { min-height: 44px; min-width: 120px; padding: 8px 14px; border: 2px dashed var(--accent); background: var(--par-bg); color: var(--accent-h); font-size: 15px; font-weight: 800; box-shadow: 0 2px 8px rgba(255,90,60,.18); white-space: nowrap; }
 .par-btn:hover { background: var(--halo); }
 .par-slot.is-next .par-btn { box-shadow: 0 0 0 4px var(--halo); animation: par-pulse 1.6s ease-in-out infinite; }
 @keyframes par-pulse { 50% { box-shadow: 0 0 0 8px rgba(255,90,60,.14); } }
 @media (prefers-reduced-motion: reduce) { .par-slot.is-next .par-btn { animation: none; } }
-.par-done { width: 100%; height: 100%; min-height: 34px; border: 2px solid var(--ok); border-radius: 7px; background: rgba(232,246,238,.92); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px; }
+.par-done { width: 100%; height: 100%; min-height: 34px; border: 2px solid var(--ok); border-radius: 7px; background: var(--ok-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px; }
 .par-done img { max-width: 90%; max-height: 70%; object-fit: contain; }
 .par-done small { font-size: 11px; font-weight: 700; color: var(--ok); line-height: 1.1; }
-.sig-slot { position: absolute; border: 1.5px dashed #fcd34d; border-radius: 7px; background: rgba(255,251,235,.85); display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; }
-.sig-slot span { font-size: 12px; font-weight: 600; color: #92400e; }
+.sig-slot { position: absolute; border: 1.5px dashed var(--note-line); border-radius: 7px; background: var(--note-bg); display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; }
+.sig-slot span { font-size: 12px; font-weight: 600; color: var(--note-ink); }
 /* Bloc annexes */
 .ann { background: var(--sur); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 4px auto 16px; }
 .ann h2 { margin: 0 0 2px; font: 800 17px "Schibsted Grotesk","Inter",system-ui,sans-serif; color: var(--encre); }

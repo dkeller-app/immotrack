@@ -1,6 +1,6 @@
 import { initPad } from '/sign/pad.js';
 import { loadDocument, renderPageInto } from '/sign/viewer.js';
-import { readingPlanFor } from '/sign/stamp.js';
+import { readingPlanFor } from '/sign/stamp.js?v=6';   // versionné : readingPlanFor n'existe pas dans un stamp.js en cache
 import { buildMentionLines, buildProofObject } from '/sign/proof.js';
 
 const S = window.__SIGN__ || {};
@@ -62,7 +62,7 @@ function buildUI() {
       </section>
 
       <section id="step-read" class="step" hidden>
-        <div class="read-prog" id="read-prog"></div>
+        <div class="read-prog" id="read-prog" aria-live="polite"></div>
         <div class="scroll" id="read-scroll"><div id="pdf-doc" class="pdf-doc">Chargement du document…</div></div>
         <div class="actionbar" id="read-bar"></div>
       </section>
@@ -204,6 +204,12 @@ async function startReading() {
     pdf = await loadDocument(master.slice()); // copie : PDF.js détache le buffer
     const probe = await PDFLib.PDFDocument.load(master); // master intact pour le tamponnage final
     plan = readingPlanFor(probe, { sigId: S.sigId, side: S.side });
+    // Aucune case (ni paraphe ni signature) pour CE signataire = document incohérent : on s'arrête
+    // plutôt que de laisser « signer » un PDF qui ne porterait aucune trace de lui.
+    if (!plan.paraphes.length && !plan.signatures.length) {
+      master = null;
+      return fail('Ce document ne prévoit aucune case de signature pour vous. Contactez l\'expéditeur du bail.');
+    }
     await buildDoc();
   }
   updateReadUI();
@@ -228,18 +234,21 @@ const pct = (v) => (v * 100).toFixed(3) + '%';
 
 async function buildDoc() {
   const doc = app.querySelector('#pdf-doc');
-  doc.innerHTML = '';
+  const frag = document.createDocumentFragment();   // le message « Chargement… » reste affiché jusqu'au bout
   const total = pdf.numPages;
   const last = Math.min(plan.lastBailPage || total, total);
   // Taille de chaque page (sans rendu) : l'emplacement a la bonne proportion avant d'être dessiné.
+  // Proportion par `--ar` + padding (et non aspect-ratio, absent de Safari iOS 14).
   for (let i = 1; i <= total; i++) {
     const vp = (await pdf.getPage(i)).getViewport({ scale: 1 });
-    const pg = h(`<section class="pg" id="pg-${i}" data-page="${i}" style="aspect-ratio:${vp.width}/${vp.height}"><div class="pg-canvas"></div><span class="pg-no">Page ${i} / ${total}</span></section>`);
+    const pg = h(`<section class="pg" id="pg-${i}" data-page="${i}" style="--ar:${(vp.height / vp.width).toFixed(5)}"><div class="pg-canvas"></div><span class="pg-no">Page ${i} / ${total}</span></section>`);
     if (i > last) { pg.classList.add('pg-annex'); pg.hidden = true; }
     slots[i] = pg;
-    doc.appendChild(pg);
-    if (i === last && last < total) doc.appendChild(await annexBlock(last, total));
+    frag.appendChild(pg);
+    if (i === last && last < total) frag.appendChild(await annexBlock(last, total));
   }
+  doc.innerHTML = '';
+  doc.appendChild(frag);
   // Cases de paraphe et rappel de la zone de signature, posés sur les pages.
   for (const a of plan.paraphes) {
     // Case agrandie à ≥ 44 px (cible tactile) et gardée DANS la page : sur téléphone, la case du PDF
@@ -255,25 +264,63 @@ async function buildDoc() {
     slots[a.page].appendChild(h(`<div class="sig-slot" style="left:${pct(a.left)};top:${pct(a.top)};width:${pct(a.width)};height:${pct(a.height)}"><span>Votre signature : à la dernière étape</span></div>`));
   }
   // Rendu PARESSEUX (un bail + 75 pages d'annexes ne tiennent pas en mémoire sur un téléphone) :
-  // on dessine les pages proches de l'écran et on libère celles qui s'en éloignent.
+  // on dessine les pages proches de l'écran et on LIBÈRE celles qui s'en éloignent (canvas remis à
+  // 0 × 0 : Safari iOS ne rend la mémoire d'un canvas qu'à ce prix). 2 rendus à la fois au plus ;
+  // un rendu qui se termine pour une page déjà sortie est jeté.
   const root = app.querySelector('#read-scroll');
   io = new IntersectionObserver((entries) => {
     for (const e of entries) {
-      const holder = e.target.querySelector('.pg-canvas');
-      if (e.isIntersecting) { if (!holder.firstChild) drawPage(+e.target.dataset.page, holder); }
-      else if (holder.firstChild) holder.innerHTML = '';
+      const n = +e.target.dataset.page;
+      if (e.isIntersecting) { visible.add(n); queueDraw(n); }
+      else { visible.delete(n); releasePage(n); }
     }
-  }, { root, rootMargin: '1500px 0px' });
+  }, { root, rootMargin: '1200px 0px' });
   Object.values(slots).forEach((s) => io.observe(s));
 }
 
-async function drawPage(n, holder) {
-  const page = await pdf.getPage(n);
-  const w = holder.clientWidth || 600;
-  const scale = (w / page.getViewport({ scale: 1 }).width) * Math.min(window.devicePixelRatio || 1, 2);
-  const tmp = document.createElement('div');
-  await renderPageInto(pdf, n, tmp, { scale });
-  if (holder.isConnected && !holder.firstChild) holder.appendChild(tmp.firstChild);
+const visible = new Set();        // pages dans la zone de rendu
+const drawn = new Set();          // pages dont le canvas est affiché
+const queue = [];
+let drawing = 0;
+const MAX_DRAW = 2;
+function releaseCanvas(c) { if (c) { c.width = 0; c.height = 0; c.remove(); } }
+function releasePage(n) {
+  const holder = slots[n] && slots[n].querySelector('.pg-canvas');
+  if (holder) releaseCanvas(holder.querySelector('canvas'));
+  drawn.delete(n);
+}
+function queueDraw(n) {
+  if (drawn.has(n) || queue.includes(n)) return;
+  queue.push(n);
+  pump();
+}
+function pump() {
+  while (drawing < MAX_DRAW && queue.length) {
+    const n = queue.shift();
+    if (!visible.has(n) || drawn.has(n)) continue;
+    drawing++;
+    drawPage(n).finally(() => { drawing--; pump(); });
+  }
+}
+async function drawPage(n) {
+  const holder = slots[n] && slots[n].querySelector('.pg-canvas');
+  if (!holder) return;
+  let canvas = null;
+  try {
+    const page = await pdf.getPage(n);
+    const w = holder.clientWidth || 600;
+    const scale = (w / page.getViewport({ scale: 1 }).width) * Math.min(window.devicePixelRatio || 1, 2);
+    const tmp = document.createElement('div');
+    canvas = await renderPageInto(pdf, n, tmp, { scale });
+    page.cleanup();
+  } catch (e) {
+    holder.innerHTML = '<p class="pg-err">Affichage de la page impossible. Faites défiler pour réessayer, ou téléchargez le document.</p>';
+    return;
+  }
+  if (!visible.has(n) || drawn.has(n) || !holder.isConnected) { releaseCanvas(canvas); return; }
+  holder.querySelectorAll('.pg-err').forEach((x) => x.remove());
+  holder.appendChild(canvas);
+  drawn.add(n);
 }
 
 async function annexBlock(last, total) {
@@ -290,10 +337,18 @@ async function annexBlock(last, total) {
       <p class="ann-sub">Pages ${last + 1} à ${total} (${n} page${n > 1 ? 's' : ''}) · consultation libre, aucun paraphe demandé</p>
       ${list}
       <div class="ann-btns"><button type="button" class="line" id="ann-toggle">Afficher les annexes</button>
-        <a class="line btn-a" id="ann-dl" download="bail-${esc(S.bailRef || 'document')}.pdf">Télécharger le document complet (PDF)</a></div>
+        <button type="button" class="line" id="ann-dl">Télécharger le document complet (PDF)</button></div>
+      ${items.length ? '<p class="ann-legal">Sommaire indicatif, repris de la page de garde des annexes.</p>' : ''}
       <p class="ann-legal">Ces pièces font partie du document que vous signez : vous en recevez un exemplaire avec le bail.</p>
     </div>`);
-  block.querySelector('#ann-dl').href = URL.createObjectURL(new Blob([master], { type: 'application/pdf' }));
+  // Copie du PDF créée AU CLIC puis libérée (pas 20 Mo gardés en mémoire dès l'ouverture).
+  block.querySelector('#ann-dl').onclick = () => {
+    const url = URL.createObjectURL(new Blob([master], { type: 'application/pdf' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `bail-${String(S.bailRef || 'document').replace(/[^\w.-]+/g, '_')}.pdf`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  };
   block.querySelector('#ann-toggle').onclick = () => {
     annexOpen = !annexOpen;
     for (let i = last + 1; i <= total; i++) slots[i].hidden = !annexOpen;
@@ -311,7 +366,7 @@ function renderParSlot(page) {
     slot.appendChild(h(`<div class="par-done"><img alt="Paraphe" src="${paraphesByPage[page]}"><small>Paraphé · ${hhmm(parapheTimes[page])}</small></div>`));
   } else {
     slot.className = 'par-slot' + (nextToParaphe() === page ? ' is-next' : '');
-    const b = h(`<button type="button" class="par-btn">Parapher</button>`);
+    const b = h(`<button type="button" class="par-btn" aria-label="Parapher la page ${page}">Parapher</button>`);
     b.onclick = () => paraphePage(page);
     slot.appendChild(b);
   }
@@ -339,9 +394,13 @@ function openParapheSheet(page) {
         </div>
         <div class="par-foot"><button type="button" class="ghost" id="par-clr">Effacer</button><button type="button" class="primary" id="par-ok">Valider et parapher la page ${page}</button></div>
       </div></div>`);
+  if (document.querySelector('.par-sheet')) return;   // pas de double feuille (double clic)
+  const opener = document.activeElement;
   document.body.appendChild(sheet);
   const pad = initPad(sheet.querySelector('#par-pad'), { clearBtn: sheet.querySelector('#par-clr') });
-  const close = () => sheet.remove();
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => { document.removeEventListener('keydown', onKey); sheet.remove(); if (opener && opener.isConnected) opener.focus(); };
+  document.addEventListener('keydown', onKey);
   sheet.querySelector('.par-back').onclick = close;
   sheet.querySelector('.par-x').onclick = close;
   sheet.querySelector('#par-ok').onclick = () => {
@@ -350,6 +409,7 @@ function openParapheSheet(page) {
     close();
     paraphePage(page);
   };
+  sheet.querySelector('#par-ok').focus();
 }
 
 function goToPage(page) {
@@ -368,7 +428,7 @@ function updateReadUI() {
   const prog = app.querySelector('#read-prog');
   prog.innerHTML = '';
   if (tot) {
-    prog.appendChild(h(`<div class="rp"><span class="rp-lbl">Paraphes ${done} / ${tot}</span><div class="rp-track"><div class="rp-fill${done === tot ? ' is-done' : ''}" style="width:${Math.round(done / tot * 100)}%"></div></div>${nx ? `<button type="button" class="rp-next">Page à parapher ↓</button>` : `<span class="rp-ok">✓ Bail paraphé</span>`}</div>`));
+    prog.appendChild(h(`<div class="rp"><span class="rp-lbl" aria-live="polite">Paraphes ${done} / ${tot}</span><div class="rp-track"><div class="rp-fill${done === tot ? ' is-done' : ''}" style="width:${Math.round(done / tot * 100)}%"></div></div>${nx ? `<button type="button" class="rp-next">Page à parapher ↓</button>` : `<span class="rp-ok">✓ Bail paraphé</span>`}</div>`));
     const rn = prog.querySelector('.rp-next'); if (rn) rn.onclick = () => goToPage(nx);
   }
   const bar = app.querySelector('#read-bar');
@@ -413,6 +473,7 @@ async function doSubmit() {
     });
     if (r.status === 403) return fail('Ce n\'est pas (ou plus) votre tour de signer.');
     if (r.status === 410) return fail('Ce document est déjà signé.');
+    if (r.status === 422) return fail('Signature impossible : ce document ne prévoit aucune case de signature pour vous. Contactez l\'expéditeur du bail.');
     if (!r.ok) throw new Error('http ' + r.status);
     show('step-done');
   } catch (e) {

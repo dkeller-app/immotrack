@@ -80,7 +80,7 @@ export async function stampSignature(
     return paraCache.get(url);
   }
 
-  let stamped = 0, skipped = 0;
+  let stamped = 0, skipped = 0, signed = 0;
   for (const a of anchors) {
     if (a.page < 1 || a.page > pageCount) { skipped++; continue; }
     const img = a.kind === 'signature' ? sigPng : await paraPngFor(a.page);
@@ -101,6 +101,7 @@ export async function stampSignature(
       }
     }
     stamped++;
+    if (a.kind === 'signature') signed++;
   }
-  return { stamped, skipped, usedFallback };
+  return { stamped, skipped, usedFallback, signed };
 }

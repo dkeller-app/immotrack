@@ -7271,7 +7271,10 @@ function _buildPresentielProof(bail) {
       role = 'locataire';
       when = sig.signedLocataireAt || sig.signedAt || null;
     }
-    return { sigId, nom, role, mode: 'presentiel', signedAt: when, luApprouve: !!luBy[sigId] };   // signature en présence : pas d'email/OTP/IP ni pdfSha256
+    // Document défilant : heures de paraphe de CE signataire, { page → ISO } (sig.parapheTimes = { page → { sigId → ISO } }).
+    const pt = {};
+    Object.keys(sig.parapheTimes || {}).forEach((pg) => { const t = sig.parapheTimes[pg] && sig.parapheTimes[pg][sigId]; if (t) pt[pg] = t; });
+    return { sigId, nom, role, mode: 'presentiel', signedAt: when, luApprouve: !!luBy[sigId], parapheTimes: Object.keys(pt).length ? pt : null };   // signature en présence : pas d'email/OTP/IP ni pdfSha256
   });
 }
 
@@ -8646,6 +8649,11 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
     if (p.consentElectronic) line('   consentement signature electronique : oui', 9);
     if (p.openedAt) line('   document ouvert le : ' + p.openedAt, 8);
     if (p.readCompletedAt) line('   lecture terminee le : ' + p.readCompletedAt, 8);
+    // Document défilant : paraphe page par page, avec l'heure (déclarée par l'appareil du signataire).
+    if (p.parapheTimes && typeof p.parapheTimes === 'object') {
+      const _pts = Object.keys(p.parapheTimes).map((k) => p.parapheTimes[k]).filter(Boolean).sort();
+      if (_pts.length) line('   pages paraphees : ' + _pts.length + ' (de ' + _pts[0] + ' a ' + _pts[_pts.length - 1] + ', heure de l\'appareil du signataire)', 8);
+    }
     if (p.pdfSha256) line('   empreinte du document signe par ce signataire : ' + p.pdfSha256, 8);
     y -= 6;
   });
@@ -8765,6 +8773,7 @@ async function _completeRemoteSign(ref, state) {
       signedAt: pr.signedAt || local.signedAt || null,
       openedAt: pr.openedAt || null,
       readCompletedAt: pr.readCompletedAt || null,
+      parapheTimes: pr.parapheTimes || null,   // document défilant : heure de chaque paraphe { page → ISO }
       consentElectronic: pr.consentElectronic == null ? null : pr.consentElectronic,
       luApprouve: pr.luApprouve == null ? null : pr.luApprouve,
       ip: pr.ip || null,
@@ -24197,7 +24206,9 @@ function previewBailData(bail, log, ref, opts) {
        Réutilise _SIGS (nomCourt), l'overlay, .wizV2-card et .btn-wiz déjà présents. Corail = accent charte. */
     +'function _wizV2ShowHandoff(prevSigId,nextSigId){'
     +  'var ov=document.getElementById("wizV2-overlay");if(!ov)return;'
-    +  'var nm=function(id){var s=_SIGS.filter(function(x){return x.id===id;})[0];return s?(s.nomCourt||s.id):id;};'
+    +  'var nm=function(id){var s=_SIGS.filter(function(x){return x.id===id;})[0];return _wizV2Esc(s?(s.nomCourt||s.id):id);};'
+    /* Écran de passage : la barre du bas (Précédent / Sauvegarder) n'a pas de sens ici → masquée. */
+    +  'var nv=document.querySelector(".wiz-nav");if(nv)nv.style.display="none";'
     +  'ov.innerHTML="<div class=\\"wizV2-card\\" style=\\"text-align:center;padding:34px 18px\\">"'
     +    '+"<div style=\\"font-size:44px\\">\\u2705</div>"'
     +    '+"<h2 style=\\"margin:8px 0 4px\\">"+nm(prevSigId)+" a sign\\u00e9</h2>"'
@@ -24214,6 +24225,7 @@ function previewBailData(bail, log, ref, opts) {
        _wizV2Paraphes[page][sigId] = PNG. Base légale : C. civ. 1366/1367 (aucune lecture page par page
        imposée). */
     +'function _wizV2Hhmm(iso){var d=new Date(iso);return ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);}'
+    +'function _wizV2Esc(v){return String(v==null?"":v).replace(/[&<>"\']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","\'":"&#39;"}[c];});}'
     +'function _wizV2Missing(){'
     +  'var pages=window._wizV2Pages||[],sigs=_wizV2GetSigs();'
     +  'for(var i=0;i<pages.length;i++){if(pages[i].noParaphe)continue;var got=window._wizV2Paraphes[pages[i].pageNum]||{};'
@@ -24228,8 +24240,8 @@ function previewBailData(bail, log, ref, opts) {
     +'function _wizV2ParBar(n){'
     +  'var sigs=_wizV2GetSigs(),got=window._wizV2Paraphes[n]||{},tm=window._wizV2ParapheTimes[n]||{},mis=_wizV2Missing(),h="";'
     +  'sigs.forEach(function(s){'
-    +    'if(got[s.id]){h+="<div class=\\"wizV2-par-done\\"><img src=\\""+got[s.id]+"\\" alt=\\"Paraphe\\"><small>Paraphé"+(tm[s.id]?" · "+_wizV2Hhmm(tm[s.id]):"")+(sigs.length>1?" · "+s.nomCourt:"")+"</small></div>";}'
-    +    'else{var nx=mis&&mis.page===n&&mis.sigId===s.id;h+="<button type=\\"button\\" class=\\"wizV2-par-btn"+(nx?" is-next":"")+"\\" onclick=\\"_wizV2Parapher("+n+",\'"+s.id+"\')\\">✍ Parapher"+(sigs.length>1?" — "+s.nomCourt:"")+"</button>";}'
+    +    'if(got[s.id]){h+="<div class=\\"wizV2-par-done\\"><img src=\\""+got[s.id]+"\\" alt=\\"Paraphe\\"><small>Paraphé"+(tm[s.id]?" · "+_wizV2Hhmm(tm[s.id]):"")+(sigs.length>1?" · "+_wizV2Esc(s.nomCourt):"")+"</small></div>";}'
+    +    'else{var nx=mis&&mis.page===n&&mis.sigId===s.id;h+="<button type=\\"button\\" class=\\"wizV2-par-btn"+(nx?" is-next":"")+"\\" aria-label=\\"Parapher la page "+n+(sigs.length>1?" — "+_wizV2Esc(s.nomCourt):"")+"\\" onclick=\\"_wizV2Parapher("+n+",\'"+s.id+"\')\\">✍ Parapher"+(sigs.length>1?" — "+_wizV2Esc(s.nomCourt):"")+"</button>";}'
     +  '});'
     +  'return h;'
     +'}'
@@ -24248,6 +24260,7 @@ function previewBailData(bail, log, ref, opts) {
     +'}'
     +'function _wizV2Render(){'
     +  'var ov=document.getElementById("wizV2-overlay");if(!ov)return;'
+    +  'var _nv=document.querySelector(".wiz-nav");if(_nv)_nv.style.display="";' /* ré-affichée après l'écran de passage */
     +  'var pages=window._wizV2Pages,cur=window._wizV2Current;'
     /* v12.96 — étape finale : si cur > pages.length, afficher la page de confirmation (checkbox lu/approuvé). */
     +  'if(cur>pages.length){var pv=document.getElementById("wiz-prev-btn");if(pv)pv.style.visibility="";var nt=document.getElementById("wiz-next-btn");if(nt)nt.style.background="";return _wizV2RenderFinal();}'
@@ -24259,7 +24272,8 @@ function previewBailData(bail, log, ref, opts) {
     +  'pages.forEach(function(page){'
     +    'var n=page.pageNum;'
     +    'html+="<section class=\\"wizV2-pg\\" id=\\"wizV2-pg-"+n+"\\"><div class=\\"wizV2-pg-no\\">Page "+n+" / "+pages.length+"</div>";'
-    +    'html+="<img src=\\""+page.imgDataUrl+"\\" class=\\"wizV2-img\\" loading=\\"lazy\\" alt=\\"Page "+n+"\\">";'
+    /* width/height : la page a sa hauteur AVANT le décodage de l'image → « Aller à la page N » tombe juste. */
+    +    'html+="<img src=\\""+page.imgDataUrl+"\\" class=\\"wizV2-img\\" width=\\""+Math.round(page.width||893)+"\\" height=\\""+Math.round(page.height||1263)+"\\" alt=\\"Page "+n+"\\">";'
     +    'if(page.noParaphe){'
     +      'var msg="Page sans paraphe.";'
     +      'if(page.kind==="signatures"){msg="✍ <b>Page des signatures.</b> Vous signerez à la <b>dernière étape</b>, après le paraphe des pages : la signature est reportée automatiquement ici.";}'
@@ -24288,8 +24302,9 @@ function previewBailData(bail, log, ref, opts) {
     +  '_wizV2UpdateNav();'
     +'}'
     +'function _wizV2OpenParSheet(n,sigId){'
-    +  'var s=_SIGS.filter(function(x){return x.id===sigId;})[0];var nom=s?(s.nomCourt||s.id):sigId;'
-    +  'var sh=document.createElement("div");sh.className="wizV2-sheet";sh.setAttribute("role","dialog");sh.setAttribute("aria-modal","true");'
+    +  'if(document.querySelector(".wizV2-sheet"))return;' /* pas de double feuille (double clic) */
+    +  'var s=_SIGS.filter(function(x){return x.id===sigId;})[0];var nom=_wizV2Esc(s?(s.nomCourt||s.id):sigId);'
+    +  'var sh=document.createElement("div");sh.className="wizV2-sheet";sh.setAttribute("role","dialog");sh.setAttribute("aria-modal","true");sh.setAttribute("aria-label","Paraphe");'
     +  'sh.innerHTML="<div class=\\"wizV2-sheet-card\\"><div class=\\"wizV2-sheet-head\\"><button type=\\"button\\" class=\\"wizV2-sheet-back\\">‹ Retour</button><b>Paraphe — "+nom+"</b><button type=\\"button\\" class=\\"wizV2-sheet-x\\">Fermer</button></div>"'
     +    '+"<div class=\\"wizV2-sheet-body\\"><p>Tracez vos <b>initiales une seule fois</b>. Ensuite, un clic sur « Parapher » les appose sur chaque page, page par page, avec l\\u2019heure.</p>"'
     +    '+"<canvas class=\\"wizV2-pad-canvas wizV2-sheet-pad\\" width=\\"560\\" height=\\"180\\"></canvas>"'
@@ -24297,7 +24312,9 @@ function previewBailData(bail, log, ref, opts) {
     +    '+"<div class=\\"wizV2-sheet-foot\\"><button type=\\"button\\" class=\\"wizV2-sheet-clr\\">Effacer</button><button type=\\"button\\" class=\\"wizV2-sheet-ok\\">Valider et parapher la page "+n+"</button></div></div>";'
     +  'document.body.appendChild(sh);'
     +  'var c=sh.querySelector("canvas");initPad(c);'
-    +  'var close=function(){sh.remove();};'
+    +  'var onKey=function(e){if(e.key==="Escape")close();};document.addEventListener("keydown",onKey);'
+    +  'var close=function(){document.removeEventListener("keydown",onKey);sh.remove();};'
+    +  'setTimeout(function(){var ok=sh.querySelector(".wizV2-sheet-ok");if(ok)ok.focus();},0);'
     +  'sh.querySelector(".wizV2-sheet-back").onclick=close;sh.querySelector(".wizV2-sheet-x").onclick=close;'
     +  'sh.querySelector(".wizV2-sheet-clr").onclick=function(){c.getContext("2d").clearRect(0,0,c.width,c.height);};'
     +  'sh.querySelector(".wizV2-sheet-ok").onclick=function(){'
@@ -24366,30 +24383,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'var next=document.getElementById("wiz-next-btn");'
     +  'if(next)next.textContent="✓ Sauvegarder";'
     +'}'
-    +'function _wizV2CaptureCurrent(){'
-    /* Capture les canvas paraphes de la page courante. Retourne true si OK ou no-paraphe, false si pad vide. */
-    +  'var pages=window._wizV2Pages,cur=window._wizV2Current;'
-    +  'if(cur>pages.length)return true;' /* étape finale : rien à capturer */
-    +  'var page=pages[cur-1];if(page.noParaphe)return true;'
-    +  'var ov=document.getElementById("wizV2-overlay");if(!ov)return true;'
-    +  'var canvases=ov.querySelectorAll("canvas.wizV2-pad-canvas");'
-    /* SIGNATURE-SMOKE S1 — une page « à parapher » SANS aucun pad ne doit plus être franchissable :
-       sinon le parcours se déroule en silence et le PDF sort sans le moindre paraphe. */
-    +  'if(!canvases.length){alert("⛔ Aucune case de paraphe sur cette page — signature interrompue.\\n\\nLes signataires du bailleur sont introuvables dans le document. Fermez cette fenêtre, vérifiez la fiche de l\'entité, puis relancez la signature.");return false;}'
-    +  'var captured={};var allSigned=true;'
-    +  'canvases.forEach(function(c){'
-    +    'var data=c.getContext("2d").getImageData(0,0,c.width,c.height).data;'
-    +    'var hasInk=false;for(var i=3;i<data.length;i+=4){if(data[i]>0){hasInk=true;break;}}'
-    +    'if(!hasInk)allSigned=false;'
-    +    'else captured[c.getAttribute("data-sig")]=c.toDataURL("image/png");'
-    +  '});'
-    +  'if(!allSigned)return false;'
-    /* v13.08 — merge au lieu de remplacer : en phase 2, _wizV2Paraphes[cur]
-       contient déjà les paraphes bailleur (hydratés). Le locataire ajoute
-       les siens. En phase normale, captured est complet (bailleur+loc). */
-    +  'window._wizV2Paraphes[cur]=Object.assign({},window._wizV2Paraphes[cur]||{},captured);'
-    +  'return true;'
-    +'}'
+    /* _wizV2CaptureCurrent retirée (document défilant : le paraphe est capturé au clic, _wizV2Parapher). */
     +'function _wizV2Next(){'
     +  'var pages=window._wizV2Pages,cur=window._wizV2Current;'
     /* v12.96 → v12.98 — étape finale : valider sigs + checkbox lu/approuvé puis générer PDF */
