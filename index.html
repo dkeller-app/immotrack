@@ -2806,82 +2806,65 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   </div>
 </div></div>
 
-<!-- v15.230 LOG-ANNONCE Étape 4 — MODAL ANNONCE LOCATION -->
+<!-- ANNONCES (CDC validé 29/09/2026) — MODALE « Créer une annonce » en 2 étapes.
+     Étape 1 (D1) : confirmer le loyer souhaité HC + charges ; une modification met à jour la fiche.
+     Étape 2 : titre + description modifiables, mentions obligatoires VERROUILLÉES (se corrigent
+     dans la fiche), contrôle mention par mention (D3 : rien n'est bloqué, le manque est marqué).
+     Téléphone : page plein écran (règle globale .ov .modal ≤ 767 px, M-16), pied collant. -->
 <div class="ov hidden" id="ov-annonce" onclick="closeBg(event,'ov-annonce')">
-<div class="modal xl" style="max-width:1100px;width:96vw;max-height:96vh;display:flex;flex-direction:column" onclick="event.stopPropagation()">
-  <div class="m-head" style="flex-shrink:0">
-    <div>
-      <h3 id="m-annonce-title">📢 Créer une annonce de location</h3>
-      <div class="mu sm" id="m-annonce-sub">Génération sans IA · texte plat prêt pour Leboncoin / SeLoger / PAP</div>
+<div class="modal xl an-modal" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="m-annonce-title">
+  <div class="m-head">
+    <div style="min-width:0">
+      <h3 id="m-annonce-title">Créer une annonce</h3>
+      <div class="mu sm" id="m-annonce-sub"></div>
     </div>
-    <button class="m-close" onclick="closeM('ov-annonce')">✕</button>
+    <button class="m-close" onclick="closeM('ov-annonce')" aria-label="Fermer">✕</button>
   </div>
-  <div style="overflow-y:auto;flex:1;padding:12px 16px;background:var(--sur2)">
-    <!-- Switcher format/ton/dossier -->
-    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:10px 12px;margin-bottom:12px;display:grid;grid-template-columns:1fr;gap:6px">
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
-        <span style="font-size:11px;color:var(--t2);font-weight:600;width:60px">Format</span>
-        <button type="button" class="btn bs bb act" id="an-fmt-leboncoin" onclick="_annonceSetFormat('leboncoin')">📋 Leboncoin</button>
-        <button type="button" class="btn bs" id="an-fmt-detaille" onclick="_annonceSetFormat('detaille')">📄 Détaillé (SeLoger/PAP)</button>
-        <button type="button" class="btn bs" id="an-fmt-sms" onclick="_annonceSetFormat('sms')">📱 SMS court</button>
-      </div>
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
-        <span style="font-size:11px;color:var(--t2);font-weight:600;width:60px">Ton</span>
-        <button type="button" class="btn bs" id="an-ton-factuel" onclick="_annonceSetTon('factuel')">📋 Factuel</button>
-        <button type="button" class="btn bs bb act" id="an-ton-storytelling" onclick="_annonceSetTon('storytelling')">✨ Storytelling</button>
-        <button type="button" class="btn bs" id="an-ton-convivial" onclick="_annonceSetTon('convivial')">😊 Convivial</button>
-        <button type="button" class="btn bs" id="an-ton-haut-gamme" onclick="_annonceSetTon('haut-gamme')">💎 Haut de gamme</button>
-        <button type="button" class="btn bb" style="background:var(--acc);color:#fff;margin-left:auto" onclick="_annonceRegen()">🔄 Régénérer</button>
-      </div>
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
-        <span style="font-size:11px;color:var(--t2);font-weight:600;width:60px">Dossier</span>
-        <button type="button" class="btn bs bb act" id="an-doss-on" onclick="_annonceToggleDossier(true)">📂 Inclure</button>
-        <button type="button" class="btn bs" id="an-doss-off" onclick="_annonceToggleDossier(false)">∅ Sans</button>
-      </div>
+
+  <!-- Étape 1 sur 2 — Confirmer le loyer -->
+  <div class="an-body" id="an-step1">
+    <div class="fg2">
+      <div class="fg"><label for="an-hc">Loyer hors charges (€)</label><input class="inp" type="number" min="0" step="0.01" id="an-hc" oninput="_annonceStep1Maj()" placeholder="À saisir"></div>
+      <div class="fg"><label for="an-ch">Charges (€)</label><input class="inp" type="number" min="0" step="0.01" id="an-ch" oninput="_annonceStep1Maj()" placeholder="À saisir"></div>
     </div>
+    <div class="an-total"><span>Loyer affiché dans l'annonce</span><b id="an-total">—</b></div>
+    <div class="an-info" id="an-step1-info"></div>
+  </div>
 
-    <!-- Titre -->
-    <div style="background:#3b82f6;color:#fff;padding:10px 14px;border-radius:6px;margin-bottom:10px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;opacity:0.85">Titre Leboncoin (60-80 c. recommandé)</div>
-      <div id="an-titre" style="font-weight:700;font-size:16px;margin-top:3px">—</div>
-      <div id="an-titre-ct" style="font-size:11px;opacity:0.85;margin-top:3px">—</div>
+  <!-- Étape 2 sur 2 — L'annonce -->
+  <div class="an-body an-step2" id="an-step2" style="display:none">
+    <div class="an-col-t">
+      <div id="an-dpe-warn" class="an-ban" style="display:none"></div>
+      <div class="fg"><label for="an-titre" class="an-lab">Titre <span class="an-hint">modifiable</span></label>
+        <input class="inp" id="an-titre" maxlength="100"></div>
+      <div class="fg"><label for="an-desc" class="an-lab">Description <span class="an-hint">modifiable · rédigée d'après la fiche du logement</span></label>
+        <textarea class="inp an-desc" id="an-desc" rows="9"></textarea></div>
+      <div class="fg"><div class="an-lab" id="an-bloc-titre">Mentions obligatoires</div>
+        <div class="an-lock"><div class="an-lock-h" id="an-lock-h"></div><div class="an-lock-txt" id="an-mentions"></div></div></div>
+      <div class="fg" id="an-dossier-wrap" style="display:none"><div class="an-lab">Pièces du dossier de candidature</div>
+        <div class="an-lock an-lock-doss"><div class="an-lock-txt" id="an-dossier"></div></div></div>
     </div>
-
-    <!-- v15.230 F5 : avertissement DPE F/G/E (loi Climat 2021-1104) — masqué par défaut -->
-    <div id="an-dpe-warn" style="display:none;border:1px solid;border-radius:6px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;line-height:1.5"></div>
-
-    <!-- Stats + texte -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px">
-        <div style="background:var(--sur2);padding:8px 12px;border-bottom:1px solid var(--bor);font-size:11.5px;font-weight:600">👁 Aperçu visuel</div>
-        <div id="an-preview" style="padding:14px;font-size:13px;line-height:1.65;white-space:pre-wrap;max-height:520px;overflow-y:auto">—</div>
-      </div>
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px">
-        <div style="background:var(--sur2);padding:8px 12px;border-bottom:1px solid var(--bor);font-size:11.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
-          <span>📋 Texte brut à copier-coller</span>
-          <span id="an-stats" style="font-size:10.5px;color:var(--t2);font-weight:500">—</span>
-        </div>
-        <textarea id="an-raw" readonly style="width:100%;height:520px;padding:12px;border:none;font-family:'Segoe UI',sans-serif;font-size:12.5px;line-height:1.65;background:#fafaf7;resize:vertical">—</textarea>
-      </div>
-    </div>
-
-    <!-- Case anti-mensonge obligatoire -->
-    <div style="background:var(--amb-bg, #fef3c7);border:1px solid #f59e0b;border-radius:6px;padding:10px 12px;margin-top:12px">
-      <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:12.5px;color:#78350f">
-        <input type="checkbox" id="an-verifie" onchange="_annonceToggleVerifie()" style="margin-top:2px">
-        <span><strong>Je certifie l'exactitude</strong> des informations de l'annonce. Je m'engage à ne pas exagérer ni omettre de défaut majeur connu (loi Hoguet n° 70-9 du 2 janv. 1970 + art. L. 121-1 Code de la consommation sur les pratiques commerciales trompeuses).</span>
-      </label>
+    <div class="an-col-c" id="an-col-c">
+      <div class="an-chk-h"><span class="an-sc" id="an-sc"></span><span class="an-chk-t" id="an-chk-t"></span></div>
+      <div class="an-chk-sum" id="an-chk-sum"></div>
+      <ul class="an-chk" id="an-chk"></ul>
+      <label class="an-tg" id="an-doss-row"><input type="checkbox" id="an-doss" checked onchange="_annonceToggleDossier(this.checked)">
+        <span>Ajouter la liste des pièces du dossier<small>4 catégories autorisées + DossierFacile</small></span></label>
+      <div class="an-src" id="an-src"></div>
     </div>
   </div>
-  <div class="m-foot" style="background:var(--sur2);padding:10px 16px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;flex-shrink:0">
-    <div style="font-size:11px;color:var(--t2)">💾 Données saisies dans l'onglet « 📢 Présentation » de la fiche logement</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button type="button" class="btn bs" onclick="closeM('ov-annonce')">Fermer</button>
-      <button type="button" id="an-btn-copy" class="btn bs" disabled onclick="_annonceCopy()" title="Cocher la case ci-dessus pour activer">📋 Copier le texte</button>
-      <button type="button" id="an-btn-pdf" class="btn bs" disabled onclick="_annoncePDF()" title="Cocher la case ci-dessus pour activer">📄 Télécharger PDF</button>
-      <button type="button" id="an-btn-email" class="btn bp" disabled onclick="_annonceEmail()" title="Cocher la case ci-dessus pour activer">✉ Envoyer par email</button>
-      <button type="button" class="btn bs" onclick="openInviteCandidat({logRef:(window._annonceCtx&&_annonceCtx.log)?_annonceCtx.log.ref:''})" title="Inviter un candidat à déposer son dossier pour ce bien">🔗 Inviter un candidat</button>
-    </div>
+
+  <div class="m-foot an-foot" id="an-foot1">
+    <span class="an-sp"></span>
+    <button type="button" class="btn bs" onclick="closeM('ov-annonce')">Annuler</button>
+    <button type="button" class="btn bp" id="an-btn-continuer" onclick="_annonceStep1Continuer()" disabled>Continuer</button>
+  </div>
+  <div class="m-foot an-foot" id="an-foot2" style="display:none">
+    <span class="an-foot-hint" id="an-foot-hint"></span>
+    <span class="an-sp"></span>
+    <button type="button" class="btn bs" id="an-btn-inviter" onclick="openInviteCandidat({logRef:(window._annonceCtx&&_annonceCtx.log)?_annonceCtx.log.ref:''})"></button>
+    <button type="button" class="btn bs" id="an-btn-pdf" onclick="_annoncePDF()"></button>
+    <button type="button" class="btn bp" id="an-btn-copy" onclick="_annonceCopy()"></button>
   </div>
 </div></div>
 
@@ -46964,6 +46947,8 @@ function rLogFiche() {
     const phActions =
       `<button class="btn bs" onclick="openNewLog('${refSafe}')">${_ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>')}Modifier le bien</button>`
       + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_ic('<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>')}Inviter un candidat</button>` : '')
+      // ANNONCES — même porte que sur PC (logement vacant non archivé).
+      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openAnnonce('${refSafe}')" title="Rédiger une annonce de location avec les mentions obligatoires">${_ic('<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>')}Créer une annonce</button>` : '')
       + (isArchived
           ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">${_ic('<path d="M3 12a9 9 0 109-9 9 9 0 00-8 5"/><path d="M3 3v5h5"/>')}Restaurer</button>`
           : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">${_ic('<path d="M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M2 4h20v4H2z"/><path d="M10 12h4"/>')}Archiver</button>`)
@@ -47011,11 +46996,11 @@ function rLogFiche() {
           ${/* BIENS (P1-13, retour user 11/08) — « ＋ Ajouter un bien » RETIRÉ d'ici : un bien ne contient pas un bien. L'ajout part du bailleur ou de l'immeuble, par le fil rouge, qui est déjà la porte unique. _frStartFromLog perd son seul appelant. */''}
           <button class="btn bs" onclick="openNewLog('${refSafe}')">${_uiIcon('edit')} Modifier le bien</button>
           ${(!isArchived && !_bienActiveBail(ref)) ? `
-            <!-- BIENS (P1-9, décision 7 du 11/08) — les 2 boutons Annonce et l'onglet Présentation
-                 sont débranchés. Le module js/helpers/annonce-generator.global.js et ses tests RESTENT
-                 (le CDC classe les annonces « OUT après V1 », pas « supprimées ») : réactiver = remettre
-                 un bouton ici. log.presentation / log.quartier gardent leurs colonnes et leurs valeurs. -->
+            <!-- ANNONCES (CDC validé 29/09/2026) — porte UNIQUE « Créer une annonce » : logement vacant
+                 non archivé, tous usages (habitation ou garage / local, P-1). La ligne de la liste des
+                 biens reste sans bouton. log.presentation / log.quartier ne sont plus lus. -->
             <button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_uiIcon('link')} Inviter un candidat</button>
+            <button class="btn bs bb" onclick="openAnnonce('${refSafe}')" title="Rédiger une annonce de location avec les mentions obligatoires">${_uiIcon('send')} Créer une annonce</button>
           ` : ''}
           ${isArchived
             ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">${_uiIcon('refresh')} Restaurer</button>`
@@ -51532,186 +51517,302 @@ function _logpReadFromForm() {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// v15.230 LOG-ANNONCE Étape 4 — Modale annonce + génération
+// ANNONCES (CDC validé 29/09/2026) — modale « Créer une annonce » en 2 étapes.
+// Moteur PUR : js/helpers/annonce-generator.global.js (window.AnnonceGenerator). Ici : lecture des
+// données de l'app (DPE, composition, période, pièces, mandataire), étape 1 (écriture du loyer
+// souhaité dans la fiche, D1), rendu du texte + du contrôle, copier, affiche PDF.
 // ════════════════════════════════════════════════════════════════════
-let _annonceCtx = { log: null, imm: null, bail: null, format: 'leboncoin', ton: 'storytelling', includeDossier: true, counter: 0 };
+let _annonceCtx = { log: null, imm: null, immIdx: -1, ent: null, includeDossier: true, result: null };
 
-/** Ouvre la modale d'annonce pour un logement donné.
- * @param {string} ref — ref logement */
+/** DPE du logement pour l'annonce : diagnostics.dpe (canonique) complété par la copie legacy log.dpe. */
+function _annonceDpe(log) {
+  const d = (typeof _diagGet === 'function' ? _diagGet(log, 'dpe') : null) || {};
+  const lg = (log && log.dpe && typeof log.dpe === 'object') ? log.dpe : {};
+  const pick = (k) => String(d[k] || lg[k] || '').trim();
+  return { classe: pick('classe').toUpperCase(), ges: pick('ges').toUpperCase(), depensesEnergie: pick('depensesEnergie'), anneePrix: pick('anneePrix') };
+}
+
+/** Ouvre la modale d'annonce (logement vacant, non archivé — cf. porte de la fiche logement). */
 function openAnnonce(ref) {
   const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === ref);
   if (!log) { showToast('Logement introuvable', 'err'); return; }
   if (!window.AnnonceGenerator) { showToast('Module annonce non chargé', 'err'); return; }
-  const ent = (DB.entites || []).find(e => e && e.nom === log.entity);
-  const imm = ent && Array.isArray(ent.immeubles) ? ent.immeubles.find(i => i && i.nom === log.imm) : null;
-  // FAMILLE « écritures destructrices » (audit) — ces trois lignes travaillaient sur une RÉFÉRENCE
-  // VIVANTE de DB.baux[ref] : ouvrir la modale « Annonce » MODIFIAIT le bail en base. Deux dégâts
-  // mesurés, tous deux silencieux, sur un bail dont la provision vaut 0 (`!bail.ch` est vrai pour
-  // 0) : soit bail.ch prenait log.chargesRef — un montant que le locataire ne doit pas, reporté
-  // ensuite au barème au prochain enregistrement, sans popup puisque le formulaire affiche déjà
-  // cette valeur ; soit bail.ch devenait '' et la première révision IRL inscrivait 0 € de charges.
-  // L'annonce est un écran de LECTURE : elle travaille sur une copie.
-  const bail = Object.assign({}, (DB.baux || {})[ref] || {});
-  // Si pas de bail actif : le loyer THÉORIQUE (v15.249 B5 / D-B9) alimente l'annonce, sinon legacy log.hc.
-  if (!bail.hc) bail.hc = log.loyerHcRef || log.hc || '';
-  if (!bail.ch) bail.ch = log.chargesRef || log.ch || '';
-  if (!bail.dg) bail.dg = log.dgRef || log.dg || '';
-
-  _annonceCtx = { log, imm: imm || { ville: '', codePostal: '', adr: log.adr || '' }, bail, format: 'leboncoin', ton: 'storytelling', includeDossier: true, counter: 0 };
-  // Reset UI
-  document.querySelectorAll('#ov-annonce [id^=an-fmt-]').forEach(b => b.classList.remove('act'));
-  const fb = el('an-fmt-leboncoin'); if (fb) fb.classList.add('act');
-  document.querySelectorAll('#ov-annonce [id^=an-ton-]').forEach(b => b.classList.remove('act'));
-  const tb = el('an-ton-storytelling'); if (tb) tb.classList.add('act');
-  document.querySelectorAll('#ov-annonce [id^=an-doss-]').forEach(b => b.classList.remove('act'));
-  const db = el('an-doss-on'); if (db) db.classList.add('act');
-  const ck = el('an-verifie'); if (ck) ck.checked = false;
-  _annonceToggleVerifie();
-  const tt = el('m-annonce-title');
-  if (tt) tt.textContent = `📢 Créer une annonce — ${log.ref}`;
+  const ent = (DB.entites || []).find(e => e && e.nom === log.entity) || null;
+  const immIdx = ent && Array.isArray(ent.immeubles) ? ent.immeubles.findIndex(i => i && i.nom === log.imm) : -1;
+  const imm = immIdx >= 0 ? ent.immeubles[immIdx] : null;
+  const AG = window.AnnonceGenerator;
+  // D6 — classe G (habitation) : avertir avec le rappel légal, l'utilisateur décide (jamais bloquer).
+  const dpe = _annonceDpe(log);
+  if (dpe.classe === 'G' && !AG.estHorsHabitation(log)) {
+    const ok = confirm2('LOGEMENT CLASSÉ G\n\nDepuis le 1er janvier 2025, un logement classé G n\'est plus un logement décent et ne peut plus être loué comme résidence principale (art. 6 loi n° 89-462 du 6 juillet 1989).\n\nSi un nouveau DPE a été réalisé ou si la classe saisie est erronée, la corriger dans la fiche DPE.\n\nCréer l\'annonce quand même ?');
+    if (!ok) return;
+  }
+  _annonceCtx = { log, imm: imm || { ville: '', codePostal: '' }, immIdx, ent, includeDossier: true, result: null };
   const sub = el('m-annonce-sub');
-  if (sub) sub.textContent = `${log.type || ''} ${log.surf || ''}m² · ${(imm && imm.ville) || ''} · sans IA, prêt copier-coller`;
-  _annonceRegen();
+  if (sub) sub.textContent = [log.ref, AG.natureBien(log, _annonceCtx.imm), (log.surf ? AG.montant(AG.nombre(log.surf)) + ' m²' : ''), AG.communeLabel(_annonceCtx.imm, log)].filter(Boolean).join(' · ');
+  // Étape 1 : loyer souhaité de la fiche (jamais l'ancien bail — D1).
+  const setV = (id, v) => { const e = el(id); if (e) e.value = (v == null ? '' : v); };
+  setV('an-hc', log.loyerHcRef); setV('an-ch', log.chargesRef);
+  const ro = (typeof _appReadOnly !== 'undefined' && _appReadOnly);
+  ['an-hc', 'an-ch'].forEach(id => { const e = el(id); if (e) e.disabled = !!ro; });
+  const info = el('an-step1-info');
+  if (info) info.textContent = 'Repris du loyer souhaité de la fiche ' + log.ref + '. Toute modification ici met à jour la fiche du logement.';
+  // Libellés des boutons (libellé + icône ligne, jamais d'icône seule).
+  const btn = (id, ic, txt) => { const b = el(id); if (b) b.innerHTML = _uiIcon(ic) + ' ' + txt; };
+  btn('an-btn-inviter', 'link', 'Inviter un candidat');
+  btn('an-btn-pdf', 'download', 'Télécharger l\'affiche PDF');
+  btn('an-btn-copy', 'doc', 'Copier le texte');
+  const dcb = el('an-doss'); if (dcb) dcb.checked = true;
+  _annonceGoStep(1);
+  _annonceStep1Maj();
   openM('ov-annonce');
 }
 
-function _annonceSetFormat(f) {
-  _annonceCtx.format = f;
-  document.querySelectorAll('#ov-annonce [id^=an-fmt-]').forEach(b => b.classList.remove('act'));
-  const btn = el('an-fmt-' + f); if (btn) btn.classList.add('act');
-  _annonceRegen();
+function _annonceGoStep(n) {
+  const one = n === 1;
+  const show = (id, on) => { const e = el(id); if (e) e.style.display = on ? '' : 'none'; };
+  show('an-step1', one); show('an-foot1', one);
+  show('an-step2', !one); show('an-foot2', !one);
+  const tt = el('m-annonce-title');
+  if (tt) tt.textContent = one ? 'Créer une annonce — confirmer le loyer' : 'Créer une annonce';
+  if (!one) _annonceRegen();
 }
 
-function _annonceSetTon(t) {
-  _annonceCtx.ton = t;
-  document.querySelectorAll('#ov-annonce [id^=an-ton-]').forEach(b => b.classList.remove('act'));
-  const btn = el('an-ton-' + t); if (btn) btn.classList.add('act');
-  _annonceRegen();
+/** Étape 1 : total affiché + « Continuer » actif seulement si HC ET charges sont saisis (0 accepté). */
+function _annonceStep1Maj() {
+  const AG = window.AnnonceGenerator; if (!AG) return;
+  const hc = AG.nombre(el('an-hc') && el('an-hc').value);
+  const ch = AG.nombre(el('an-ch') && el('an-ch').value);
+  const ok = hc != null && hc >= 0 && ch != null && ch >= 0;
+  const t = el('an-total');
+  if (t) t.textContent = ok ? AG.montant(hc + ch) + ' € par mois' + (ch ? ' charges comprises' : '') : '—';
+  const b = el('an-btn-continuer'); if (b) b.disabled = !ok;
+}
+
+/** Étape 1 → 2. Si le loyer a changé : écrit le loyer souhaité par le MÊME chemin que l'onglet
+ *  Identité (_logpPushLoyerRef + re-score des candidats), _stamp, journal, saveDB. */
+function _annonceStep1Continuer() {
+  const AG = window.AnnonceGenerator; const log = _annonceCtx.log;
+  if (!AG || !log) return;
+  const hcS = el('an-hc') ? el('an-hc').value : '';
+  const chS = el('an-ch') ? el('an-ch').value : '';
+  const hc = AG.nombre(hcS), ch = AG.nombre(chS);
+  if (hc == null || ch == null) return;
+  const change = AG.nombre(log.loyerHcRef) !== hc || AG.nombre(log.chargesRef) !== ch;
+  const ro = (typeof _appReadOnly !== 'undefined' && _appReadOnly);
+  if (change && !ro) {
+    log.loyerHcRef = hcS; log.chargesRef = chS;
+    const partial = { loyerHcRef: hcS, chargesRef: chS };
+    if (_logpPushLoyerRef(log, partial, !!_bienActiveBail(log.ref))) {
+      (DB.candidats || []).filter(x => x && !x._deleted && x.logRef === log.ref).forEach(x => {
+        try { x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x)); _stamp(x); } catch (e) {}
+      });
+    }
+    _stamp(log);
+    try { _auditLog('update', 'logement', log.id, log.ref); } catch (e) {}
+    saveDB();
+    try { _refreshAfterMutation(); } catch (e) {}
+    showToast('Loyer souhaité mis à jour dans la fiche ' + log.ref, 'ok', 3000);
+  }
+  _annonceGoStep(2);
 }
 
 function _annonceToggleDossier(on) {
   _annonceCtx.includeDossier = !!on;
-  document.querySelectorAll('#ov-annonce [id^=an-doss-]').forEach(b => b.classList.remove('act'));
-  const btn = el(on ? 'an-doss-on' : 'an-doss-off'); if (btn) btn.classList.add('act');
-  _annonceRegen();
+  _annonceRegen(true);
 }
 
-function _annonceRegen() {
-  _annonceCtx.counter++;
-  if (!window.AnnonceGenerator) return;
-  const result = window.AnnonceGenerator.genererAnnonce(_annonceCtx.log, _annonceCtx.imm, _annonceCtx.bail, {
-    format: _annonceCtx.format, ton: _annonceCtx.ton, includeDossier: _annonceCtx.includeDossier, counter: _annonceCtx.counter
+/** Génère l'annonce et rend l'étape 2. keepEdits : ne pas écraser titre/description modifiés. */
+function _annonceRegen(keepEdits) {
+  const AG = window.AnnonceGenerator; const log = _annonceCtx.log;
+  if (!AG || !log) return;
+  const imm = _annonceCtx.imm || {};
+  const r = AG.genererAnnonce({
+    log, imm, dpe: _annonceDpe(log),
+    composition: (typeof _lbDesignationPieces === 'function') ? _lbDesignationPieces(log) : '',
+    periode: (typeof _periodeLegale === 'function') ? _periodeLegale(imm.periodeConstr || log.periodeConstr || '', imm.annee || log.anneeConstruction || 0) : '',
+    pieces: window.PIECES_REQUISES || [],
+    mandataire: _annonceMandataireActif(),
+    includeDossier: _annonceCtx.includeDossier,
+    aujourdhui: (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : new Date().toISOString().slice(0, 10)
   });
-  const titre = el('an-titre'); if (titre) titre.textContent = result.titre || '—';
-  const ct = el('an-titre-ct'); if (ct) {
-    const len = (result.titre || '').length;
-    const couleur = len > 80 ? '#fca5a5' : (len > 65 ? '#fde047' : '#86efac');
-    ct.innerHTML = `<span style="color:${couleur}">${len} c.</span> · Leboncoin recommande 60-80`;
+  _annonceCtx.result = r;
+  const hors = r.mode === 'hors-habitation';
+  if (!keepEdits) {
+    const t = el('an-titre'); if (t) t.value = r.titre;
+    const d = el('an-desc'); if (d) d.value = r.description;
   }
-  const prev = el('an-preview'); if (prev) prev.textContent = result.body || '';
-  const raw = el('an-raw'); if (raw) raw.value = result.body || '';
-  const stats = el('an-stats'); if (stats && result.stats) {
-    stats.innerHTML = `${result.stats.caracteres} c. · ${result.stats.mots} mots · <span style="color:var(--gre)">gen #${_annonceCtx.counter}</span>`;
-  }
-  // v15.230 F5 : avertissement DPE F/G (loi Climat 2021-1104 + décret 2021-19).
-  // Calendrier interdiction location : G interdit depuis 01/01/2025, F dès 01/01/2028, E dès 01/01/2034.
+  const bt = el('an-bloc-titre'); if (bt) bt.textContent = r.blocTitre;
+  const lh = el('an-lock-h');
+  if (lh) lh.innerHTML = _uiIcon('lock', 13) + ' ' + (hors ? 'Informations ajoutées automatiquement' : 'Ajoutées automatiquement') + ' — se corrigent dans la fiche du logement';
+  const mm = el('an-mentions');
+  if (mm) mm.innerHTML = r.mentions.map(m => {
+    const t = escHtml(m.texte).replace(/\[([^\]]*à compléter)\]/g, '<span class="an-miss">[$1]</span>');
+    return '<div class="an-ment' + (m.fort ? ' an-fort' : '') + '">' + t + '</div>';
+  }).join('');
+  const dw = el('an-dossier-wrap'); const dd = el('an-dossier');
+  if (dw) dw.style.display = r.dossier ? '' : 'none';
+  if (dd) dd.textContent = r.dossier || '';
+  const dr = el('an-doss-row'); if (dr) dr.style.display = hors ? 'none' : '';
+  _annonceRenderControle(r);
   _annonceShowDpeWarn();
+  const src = el('an-src');
+  if (src) src.textContent = hors
+    ? 'Garage, box, local : loi n° 89-462 non applicable. DPE : CCH L126-33, R126-15 ; Géorisques : C. env. R125-25.'
+    : 'Mentions : loi n° 89-462 art. 2-1 et arrêté du 21 avril 2022 ; DPE : CCH L126-33, R126-21 à R126-24 ; Géorisques : C. env. R125-25.';
 }
 
-/** v15.230 F5 : affiche/masque l'avertissement DPE F/G dans la modale annonce. */
+/** Le contrôle : une ligne par mention, « Compléter → » vers le bon champ. */
+function _annonceRenderControle(r) {
+  const n = r.controle.filter(c => c.etat !== 'na').length;
+  const ko = r.manquantes;
+  const hors = r.mode === 'hors-habitation';
+  const sc = el('an-sc');
+  if (sc) { sc.textContent = ko ? String(ko) : (n + '/' + n); sc.className = 'an-sc ' + (ko ? 'ko' : 'ok'); }
+  const t = el('an-chk-t');
+  if (t) t.textContent = ko
+    ? (ko > 1 ? 'mentions manquantes' : 'mention manquante') + '. Le texte reste copiable ; le manque y est marqué en rouge.'
+    : (hors ? 'Hors habitation : informations complètes.' : 'Toutes les mentions obligatoires sont présentes.');
+  const col = el('an-col-c'); if (col) col.classList.toggle('allok', !ko);
+  const sum = el('an-chk-sum');
+  if (sum) sum.innerHTML = _uiIcon('check', 15) + ' ' + (hors ? 'Informations' : 'Mentions obligatoires') + ' : ' + n + '/' + n
+    + ' <button type="button" class="btn bs" onclick="document.getElementById(\'an-col-c\').classList.remove(\'allok\')">Détail</button>';
+  const ul = el('an-chk');
+  if (ul) ul.innerHTML = r.controle.map(c => {
+    const ic = c.etat === 'ok' ? _uiIcon('check', 11) : c.etat === 'na' ? '–' : _uiIcon('warn', 11);
+    const go = (c.etat === 'ko' || c.etat === 'warn') && c.cible
+      ? '<button type="button" class="an-go" onclick="_annonceCompleter(\'' + c.cible + '\')">Compléter →</button>' : '';
+    return '<li class="' + c.etat + '"><span class="an-ic">' + ic + '</span><span class="an-tx">' + escHtml(c.label)
+      + '<small>' + escHtml(c.detail) + '</small></span>' + go + '</li>';
+  }).join('');
+  const h = el('an-foot-hint');
+  if (h) h.textContent = ko ? ko + ' mention' + (ko > 1 ? 's' : '') + ' à compléter avant de publier' : 'Prêt à publier.';
+}
+
+/** « Compléter → » : ouvre le champ à la source (le texte d'annonce ne se corrige pas ici). */
+function _annonceCompleter(cible) {
+  const log = _annonceCtx.log; if (!log) return;
+  if (cible === 'loyer') { _annonceGoStep(1); return; }
+  closeM('ov-annonce');
+  if (cible === 'immeuble' && _annonceCtx.ent && _annonceCtx.immIdx >= 0) { editImm(_annonceCtx.immIdx, +_annonceCtx.ent.id); return; }
+  openLogModalOnTab(log.ref, cible === 'dpe' ? 'diag' : 'ident');
+}
+
+/** Bandeau DPE (calendrier de décence, art. 6 loi 89-462) — jamais bloquant. */
 function _annonceShowDpeWarn() {
   const w = el('an-dpe-warn');
   if (!w) return;
-  const cl = (_annonceCtx.log && _annonceCtx.log.dpe && _annonceCtx.log.dpe.classe) || '';
-  if (cl === 'G') {
-    w.style.display = '';
-    w.innerHTML = '🚫 <strong>DPE G — location interdite depuis le 1er janvier 2025</strong> (loi Climat 2021-1104, décret 2021-19). Mettre ce bien en location constitue une infraction. Travaux énergétiques obligatoires avant remise en location.';
-    w.style.background = '#fee2e2'; w.style.borderColor = '#dc2626'; w.style.color = '#7f1d1d';
-  } else if (cl === 'F') {
-    w.style.display = '';
-    w.innerHTML = '⚠️ <strong>DPE F — interdiction de location au 1er janvier 2028</strong> (loi Climat 2021-1104). Planifier les travaux énergétiques sans tarder. Pour information du candidat, ce bien sera classé « passoire thermique » au sens de la loi.';
-    w.style.background = '#fef3c7'; w.style.borderColor = '#f59e0b'; w.style.color = '#78350f';
-  } else if (cl === 'E') {
-    w.style.display = '';
-    w.innerHTML = _uiIcon('info') + ' <strong>DPE E — interdiction de location au 1er janvier 2034</strong> (loi Climat 2021-1104). Travaux énergétiques recommandés pour anticiper l\'échéance.';
-    w.style.background = '#dbeafe'; w.style.borderColor = '#3b82f6'; w.style.color = '#1e3a8a';
-  } else {
-    w.style.display = 'none';
-    w.innerHTML = '';
-  }
+  const log = _annonceCtx.log;
+  const hors = log && window.AnnonceGenerator && window.AnnonceGenerator.estHorsHabitation(log);
+  const cl = (log && !hors) ? _annonceDpe(log).classe : '';
+  const lien = ' <button type="button" class="an-go" onclick="_annonceCompleter(\'dpe\')">Ouvrir la fiche DPE</button>';
+  let html = '', cls = '';
+  if (cl === 'G') { cls = 'neg'; html = _uiIcon('warn', 15) + '<span><b>Classe G :</b> ce logement ne peut plus être loué comme résidence principale depuis le <b>1er janvier 2025</b> (art. 6 loi n° 89-462).' + lien + '</span>'; }
+  else if (cl === 'F') { cls = 'warn'; html = _uiIcon('warn', 15) + '<span><b>Classe F :</b> ce logement ne pourra plus être loué comme résidence principale à compter du <b>1er janvier 2028</b> (art. 6 loi n° 89-462). L\'annonce reste possible jusque-là.</span>'; }
+  else if (cl === 'E') { cls = 'info'; html = _uiIcon('info', 15) + '<span><b>Classe E :</b> location comme résidence principale interdite à compter du <b>1er janvier 2034</b> (art. 6 loi n° 89-462).</span>'; }
+  w.className = 'an-ban ' + cls;
+  w.innerHTML = html;
+  w.style.display = html ? '' : 'none';
 }
 
-function _annonceToggleVerifie() {
-  const ok = !!(el('an-verifie') && el('an-verifie').checked);
-  ['an-btn-copy', 'an-btn-pdf', 'an-btn-email'].forEach(id => {
-    const b = el(id); if (b) {
-      b.disabled = !ok;
-      b.title = ok ? '' : 'Cocher la case ci-dessus pour activer';
-    }
-  });
+/** Texte copié : description (telle que modifiée) + mentions + pièces. Aucune adresse web ajoutée (D9/D10). */
+function _annonceTexte() {
+  const r = _annonceCtx.result; if (!r) return '';
+  const desc = ((el('an-desc') && el('an-desc').value) || '').trim();
+  return [desc, r.mentions.map(m => m.texte).join('\n'), r.dossier].filter(s => String(s || '').trim()).join('\n\n');
 }
 
-function _annonceCopy() {
-  const raw = el('an-raw'); if (!raw) return;
-  raw.select();
+async function _annonceCopy() {
+  const txt = _annonceTexte();
+  if (!txt) return;
+  const ko = _annonceCtx.result ? _annonceCtx.result.manquantes : 0;
+  const msg = ko ? 'Texte copié — ' + ko + ' mention' + (ko > 1 ? 's' : '') + ' encore marquée' + (ko > 1 ? 's' : '') + ' « à compléter »' : 'Texte copié — le titre se copie depuis son champ';
   try {
-    document.execCommand('copy');
-    showToast('📋 Annonce copiée dans le presse-papier — collez-la dans Leboncoin / SeLoger / PAP', 'ok', 4000);
-  } catch (e) { showToast('Erreur copie : ' + (e.message || e), 'err'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(txt); showToast(msg, ko ? 'warn' : 'ok', 4000); return; }
+  } catch (e) { /* repli ci-dessous */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = txt; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    showToast(msg, ko ? 'warn' : 'ok', 4000);
+  } catch (e) { showToast('Copie impossible : ' + (e.message || e), 'err'); }
 }
 
+/** Affiche A4 (une page visée) : gros loyer, description, échelles énergie/climat EN COULEUR
+ *  (R126-22), mentions (≥ taille du texte, R126-21/23/24), pièces + adresse DossierFacile. */
 function _annoncePDF() {
-  // v15.230 Étape 5 : génération PDF natif simple
   if (typeof jspdf === 'undefined' && !(window.jspdf && window.jspdf.jsPDF)) {
-    showToast('PDF : libs en chargement... réessayez dans 2s', 'warn');
+    showToast('PDF : libs en chargement... réessayer dans 2 s', 'warn');
     if (typeof _ensurePDFLibsLoaded === 'function') { _ensurePDFLibsLoaded().then(() => _annoncePDF()); }
     return;
   }
+  const r = _annonceCtx.result; const log = _annonceCtx.log;
+  if (!r || !log) return;
   try {
     const jsPDFCls = window.jspdf.jsPDF;
     const pdf = window.MontantDoc.hardenJsPdfText(new jsPDFCls({ unit: 'mm', format: 'a4', orientation: 'portrait' }));   /* S3 */
-    const M = 15, PW = 210, CW = PW - 2 * M;
+    const M = 15, PW = 210, CW = PW - 2 * M, BOT = 282;
     let y = 18;
-    // DOCS-UNIFIES — l'annonce part vers des candidats : elle porte le bandeau d'identité
-    // du bailleur comme tous les autres documents émis (même helper, aucune règle recopiée).
-    y = _pdfDrawBrandzone(pdf, _entiteDeLogement(_annonceCtx.log), M, y, PW - M);
-    pdf.setFont('helvetica', 'bold').setFontSize(13).setTextColor(20, 40, 80);
-    const titre = (el('an-titre') && el('an-titre').textContent) || '';
-    const titreLines = pdf.splitTextToSize(titre, CW);
-    titreLines.forEach(l => { pdf.text(l, M, y); y += 6; });
+    const saut = (h) => { if (y + h > BOT) { pdf.addPage(); y = 18; } };
+    const para = (txt, size, style, rgb, lh) => {
+      pdf.setFont('helvetica', style || 'normal').setFontSize(size).setTextColor(rgb[0], rgb[1], rgb[2]);
+      pdf.splitTextToSize(String(txt || ''), CW).forEach(l => { saut(lh); pdf.text(l, M, y); y += lh; });
+    };
+    // DOCS-UNIFIES — bandeau d'identité du bailleur (même helper que tous les documents émis).
+    y = _pdfDrawBrandzone(pdf, _entiteDeLogement(log), M, y, PW - M);
+    const titre = (el('an-titre') && el('an-titre').value) || r.titre;
+    para(titre, 15, 'bold', [16, 21, 33], 6.4);
+    y += 2;
+    const loyer = r.mentions.find(m => m.key === 'loyer');
+    if (loyer) para(loyer.texte.replace(/^Loyer : /, ''), 20, 'bold', [16, 21, 33], 8);
+    const charges = r.mentions.find(m => m.key === 'charges');
+    if (charges) para(charges.texte, 10, 'normal', [60, 70, 88], 4.8);
+    y += 3;
+    para((el('an-desc') && el('an-desc').value) || r.description, 10, 'normal', [40, 40, 40], 4.6);
     y += 4;
-    pdf.setFont('helvetica', 'normal').setFontSize(10).setTextColor(40, 40, 40);
-    const body = (el('an-raw') && el('an-raw').value) || '';
-    const lines = pdf.splitTextToSize(body, CW);
-    for (const ln of lines) {
-      if (y > 280) { pdf.addPage(); y = 18; }
-      pdf.text(ln, M, y); y += 4.4;
+    // Échelles DPE en couleur (échelle usuelle de l'étiquette DPE ; libellés « classe énergie / climat » = R126-21).
+    const dpe = _annonceDpe(log);
+    if (dpe.classe && dpe.ges) {
+      const ENER = { A: [0, 156, 109], B: [82, 177, 83], C: [120, 189, 118], D: [244, 231, 15], E: [240, 180, 15], F: [235, 130, 53], G: [215, 34, 31] };
+      const CLIM = { A: [164, 219, 248], B: [140, 180, 211], C: [119, 146, 177], D: [95, 111, 148], E: [75, 77, 120], F: [56, 47, 92], G: [40, 27, 53] };
+      const sombreE = { C: 1, D: 1, E: 1 }, sombreC = { A: 1, B: 1 };
+      saut(46);
+      const bloc = (x0, lib, cur, map, sombre) => {
+        pdf.setFont('helvetica', 'bold').setFontSize(9).setTextColor(60, 70, 88);
+        pdf.text(lib + ' : ' + cur, x0, y);
+        'ABCDEFG'.split('').forEach((k, i) => {
+          const w = 20 + i * 6, yy = y + 3 + i * 5.2, h = k === cur ? 5 : 4.2;
+          const c = map[k]; pdf.setFillColor(c[0], c[1], c[2]); pdf.rect(x0, yy, w, h, 'F');
+          if (k === cur) { pdf.setDrawColor(16, 21, 33); pdf.setLineWidth(0.6); pdf.rect(x0 - 0.4, yy - 0.4, w + 0.8, h + 0.8, 'S'); }
+          const t = sombre[k] ? [16, 21, 33] : [255, 255, 255];
+          pdf.setFont('helvetica', 'bold').setFontSize(k === cur ? 9 : 7.5).setTextColor(t[0], t[1], t[2]);
+          pdf.text(k, x0 + 1.6, yy + h - 1.1);
+        });
+      };
+      bloc(M, 'CLASSE ÉNERGIE', dpe.classe, ENER, sombreE);
+      bloc(M + CW / 2, 'CLASSE CLIMAT', dpe.ges, CLIM, sombreC);
+      y += 43;
     }
-    // Footer
+    pdf.setDrawColor(228, 231, 238); pdf.setLineWidth(0.3); saut(4); pdf.line(M, y, PW - M, y); y += 5;
+    r.mentions.filter(m => m.key !== 'loyer' && m.key !== 'charges').forEach(m => {
+      para(m.texte, 10, m.key === 'excessif' ? 'bold' : 'normal', [16, 21, 33], 4.8);
+    });
+    if (r.dossier) {
+      y += 3;
+      para(r.dossier + ' (www.dossierfacile.fr)', 9, 'normal', [60, 70, 88], 4.4);
+    }
     const total = pdf.internal.pages.length - 1;
     for (let p = 1; p <= total; p++) {
       pdf.setPage(p);
       pdf.setFont('helvetica', 'italic').setFontSize(8).setTextColor(120, 120, 120);
-      pdf.text(`Annonce générée par Propryo · ${new Date().toLocaleDateString('fr-FR')} · Page ${p} / ${total}`, PW / 2, 290, { align: 'center' });
+      pdf.text('Établie avec Propryo d\'après la fiche du logement · ' + new Date().toLocaleDateString('fr-FR') + (total > 1 ? ' · Page ' + p + ' / ' + total : ''), PW / 2, 290, { align: 'center' });
     }
-    const ref = (_annonceCtx.log && _annonceCtx.log.ref) || 'annonce';
-    pdf.save(`Annonce_${ref.replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
-    showToast('📄 PDF téléchargé', 'ok', 3000);
+    pdf.save('Annonce_' + String(log.ref || 'annonce').replace(/[^a-zA-Z0-9_-]/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.pdf');
+    showToast('Affiche PDF téléchargée', 'ok', 3000);
   } catch (e) {
     console.error('[annoncePDF]', e);
     showToast('Erreur génération PDF : ' + (e.message || e), 'err');
   }
-}
-
-function _annonceEmail() {
-  // Ouvre le client mail avec le texte de l'annonce
-  const titre = (el('an-titre') && el('an-titre').textContent) || 'Annonce de location';
-  const body = (el('an-raw') && el('an-raw').value) || '';
-  const subj = encodeURIComponent(titre);
-  const corps = encodeURIComponent(body);
-  const url = `mailto:?subject=${subj}&body=${corps}`;
-  try { window.location.href = url; } catch (e) { window.open(url, '_blank'); }
-  showToast('✉ Email préparé dans votre client mail', 'ok', 3000);
 }
 
 // v15.233 MODALE-LOGEMENT B1 — propagation valeur LIVE (bail/IRL) → loyer THÉORIQUE du logement.
