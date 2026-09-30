@@ -64,6 +64,37 @@ describe('recordSignature (machine d\'état)', () => {
     expect(updated.status).toBe('pending');
   });
 
+  it('conserve l\'heure de chaque paraphe (page → ISO), filtrée et bornée', async () => {
+    const { sessionId } = await newSession([{ role: 'locataire', emailHash: 'h', tel: '', ordre: 1 }]);
+    const signedBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 9]);
+    const updated = await recordSignature(env, sessionId, {
+      signedBytes,
+      proof: { ip: 'x', userAgent: 'y', signedAt: 'z' },
+      clientProof: { signerName: 'Jean', parapheTimes: { 1: '2026-09-29T15:43:12.836Z', 2: '2026-09-29T15:43:33.945Z', abc: 'ignoré' } }
+    });
+    expect(updated.signers[0].proof.parapheTimes).toEqual({ 1: '2026-09-29T15:43:12.836Z', 2: '2026-09-29T15:43:33.945Z' });
+  });
+
+  it('conserve l\'accusé de réception des annexes (annexesRecuesAt)', async () => {
+    const { sessionId } = await newSession([{ role: 'locataire', emailHash: 'h', tel: '', ordre: 1 }]);
+    const updated = await recordSignature(env, sessionId, {
+      signedBytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 7]),
+      proof: { ip: 'x', userAgent: 'y', signedAt: 'z' },
+      clientProof: { signerName: 'Jean', annexesRecuesAt: '2026-09-29T09:59:00Z' }
+    });
+    expect(updated.signers[0].proof.annexesRecuesAt).toBe('2026-09-29T09:59:00Z');
+  });
+
+  it('parapheTimes vaut null quand absent', async () => {
+    const { sessionId } = await newSession([{ role: 'locataire', emailHash: 'h', tel: '', ordre: 1 }]);
+    const updated = await recordSignature(env, sessionId, {
+      signedBytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 8]),
+      proof: { ip: 'x', userAgent: 'y', signedAt: 'z' },
+      clientProof: { signerName: 'Jean' }
+    });
+    expect(updated.signers[0].proof.parapheTimes).toBeNull();
+  });
+
   it('refuse une 2e signature sur une session déjà completed', async () => {
     const { sessionId } = await newSession([{ role: 'locataire', emailHash: 'h', tel: '', ordre: 1 }]);
     const signedBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 1]);

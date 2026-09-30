@@ -48,6 +48,12 @@ describe('buildProofObject', () => {
     });
   });
 
+  it('capture l\'accusé de réception des annexes (DDT)', () => {
+    const p = buildProofObject({ signerName: 'J', role: 'locataire', sigId: 'loc-0', dateISO: '2026-09-29T10:00:00Z', annexesRecuesAt: '2026-09-29T09:59:00Z' });
+    expect(p.annexesRecuesAt).toBe('2026-09-29T09:59:00Z');
+    expect(buildProofObject({ signerName: 'J', role: 'locataire', sigId: 'loc-0', dateISO: 'x' }).annexesRecuesAt).toBeNull();
+  });
+
   it('met les horodatages d\'étape à null quand absents', () => {
     const p = buildProofObject({
       signerName: 'X', role: 'bailleur', sigId: 'bailleur-0',

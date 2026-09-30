@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validatePdfUpload, validateSigners, MAX_PDF_BYTES, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta, MAX_PIECE_BYTES } from '../src/validate.js';
+import { validatePdfUpload, validateSigners, MAX_PDF_BYTES, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta, MAX_PIECE_BYTES, validateSignPayload } from '../src/validate.js';
 
 const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
 
@@ -142,4 +142,17 @@ describe('validateCandidatureMeta', () => {
   it('rejette un logRef vide', () => expect(validateCandidatureMeta({ logRef:'', expDays:14 }).reason).toBe('bad-logref'));
   it('rejette un logRef trop long', () => expect(validateCandidatureMeta({ logRef:'x'.repeat(201), expDays:14 }).reason).toBe('bad-logref'));
   it('rejette un expDays hors {7,14,30}', () => expect(validateCandidatureMeta({ logRef:'L1', expDays:99 }).reason).toBe('bad-expdays'));
+});
+
+describe('validateSignPayload — heures de paraphe (document défilant)', () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  const base = { signaturePngDataUrl: PNG, paraphesByPage: { 1: PNG, 2: PNG } };
+  it('accepte parapheTimes page → ISO', () => expect(validateSignPayload({ ...base, parapheTimes: { 1: '2026-09-29T15:43:12.836Z', 2: '2026-09-29T15:43:33.945Z' } }).ok).toBe(true));
+  it("accepte l'absence de parapheTimes", () => expect(validateSignPayload(base).ok).toBe(true));
+  it('rejette une clé non numérique', () => expect(validateSignPayload({ ...base, parapheTimes: { x: '2026' } }).reason).toBe('bad-paraphe-times'));
+  it('rejette une valeur non chaîne ou trop longue', () => {
+    expect(validateSignPayload({ ...base, parapheTimes: { 1: 12 } }).reason).toBe('bad-paraphe-times');
+    expect(validateSignPayload({ ...base, parapheTimes: { 1: 'x'.repeat(41) } }).reason).toBe('bad-paraphe-times');
+  });
+  it('rejette un tableau', () => expect(validateSignPayload({ ...base, parapheTimes: ['a'] }).reason).toBe('bad-paraphe-times'));
 });

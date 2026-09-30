@@ -17,7 +17,7 @@ export function buildMentionLines({ signerName, role, dateISO }) {
 }
 
 export function buildProofObject({
-  signerName, role, sigId, dateISO, consentElectronic, luApprouve, openedAt, readCompletedAt
+  signerName, role, sigId, dateISO, consentElectronic, luApprouve, openedAt, readCompletedAt, annexesRecuesAt
 }) {
   return {
     sigId,
@@ -28,6 +28,8 @@ export function buildProofObject({
     luApprouve: !!luApprouve,
     // Horodatage par étape (§5 #3 du dossier de preuve) : ouverture du lien + fin de lecture.
     openedAt: openedAt || null,
-    readCompletedAt: readCompletedAt || null
+    readCompletedAt: readCompletedAt || null,
+    // Accusé de réception des annexes (DDT, loi 89-462 art. 3-3) — case obligatoire avant la signature.
+    annexesRecuesAt: annexesRecuesAt || null
   };
 }

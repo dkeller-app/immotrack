@@ -139,5 +139,15 @@ export function validateSignPayload(body) {
       if (!isPngDataUrl(p[k], MAX_SIG_IMG_BYTES)) return { ok: false, reason: 'bad-paraphe-image' };
     }
   }
+  // Heure de chaque paraphe (page → ISO), preuve de lecture page par page. Optionnel.
+  const t = body.parapheTimes;
+  if (t != null) {
+    if (typeof t !== 'object' || Array.isArray(t)) return { ok: false, reason: 'bad-paraphe-times' };
+    const keys = Object.keys(t);
+    if (keys.length > 300) return { ok: false, reason: 'too-many-paraphe-times' };
+    for (const k of keys) {
+      if (!/^\d+$/.test(k) || typeof t[k] !== 'string' || t[k].length > 40) return { ok: false, reason: 'bad-paraphe-times' };
+    }
+  }
   return { ok: true };
 }

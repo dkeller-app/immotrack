@@ -105,6 +105,7 @@ app.post('/sessions', async (c) => {
   for (const s of meta.signers) {
     signers.push({
       role: s.role,
+      nom: typeof s.nom === 'string' ? s.nom : '',
       emailHash: await emailHash(s.email),
       tel: s.tel || '',
       ordre: s.ordre
@@ -194,7 +195,8 @@ app.post('/api/sessions/:id/verify-email', async (c) => {
   // Match OK → génère + envoie un code OTP (email fourni par le signataire, jamais persisté en clair).
   const code = generateCode();
   const h = await hashCode(sessionId, code);
-  await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS);
+  // Même règle que makeSender : hors EMAIL_MODE=resend, le code est affiché (mode test), jamais envoyé.
+  await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS, c.env.EMAIL_MODE === 'resend' ? 'email' : 'ecran-test');
   const sent = await makeSender(c.env).send({ to: email, code, bailRef: guard.session.bailRef });
   // Audit point 7 : en mode resend, un échec d'envoi (ni sent ni devCode) doit remonter une erreur
   // explicite — sinon le signataire attend un code jamais reçu, sans recours.
@@ -216,7 +218,7 @@ app.post('/api/sessions/:id/verify-otp', async (c) => {
   if (!otpUsable(signer.otp, Date.now())) return c.json({ verified: false, reason: 'expired-or-locked' }, 400);
   const ok = await verifyCode(sessionId, input, signer.otp.hash);
   if (!ok) { await recordOtpAttempt(c.env, sessionId); return c.json({ verified: false }); }
-  await recordOtpVerified(c.env, sessionId);
+  await recordOtpVerified(c.env, sessionId, { delivery: c.env.EMAIL_MODE === 'resend' ? 'email' : 'ecran-test' });
   return c.json({ verified: true });
 });
 
@@ -263,7 +265,11 @@ app.post('/api/sessions/:id/signed', async (c) => {
   const dateISO = new Date().toISOString();
   // Preuve client optionnelle (acte de volonté + horodatages d'étape), base64url(JSON UTF-8).
   // Décodage défensif : un en-tête malformé est ignoré, jamais bloquant.
-  const clientProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
+  const decodedProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
+  // Heures de paraphe : dans le CORPS (validé ci-dessus), pas dans l'en-tête borné à 4 Ko.
+  // Fusion SEULEMENT si l'en-tête est lisible : sinon la preuve dirait « consentement : non » au lieu de « inconnu ».
+  const _times = body.parapheTimes && Object.keys(body.parapheTimes).length ? body.parapheTimes : null;
+  const clientProof = decodedProof && _times ? Object.assign({}, decodedProof, { parapheTimes: _times }) : decodedProof;
 
   // Tamponnage CÔTÉ SERVEUR depuis l'original → substitution du document impossible.
   let signedBytes, stamp;
@@ -274,11 +280,17 @@ app.post('/api/sessions/:id/signed', async (c) => {
       signaturePngDataUrl: body.signaturePngDataUrl,
       paraphesByPage: body.paraphesByPage || {},
       signerName: clientProof ? clientProof.signerName : null,
-      dateISO
+      dateISO,
+      annexesRecuesAt: clientProof ? clientProof.annexesRecuesAt : null
     }));
   } catch (e) {
+    // Locataire sans accusé de réception des annexes (DDT) : 409 — distinct du 422 « aucune case ».
+    if (e && e.code === 'annexes-ack-required') return c.json({ error: 'annexes-ack-required' }, 409);
     return c.json({ error: 'stamp-failed' }, 500);
   }
+  // Aucune signature apposée (aucune ancre de signature pour ce signataire, ou image absente) :
+  // on refuse plutôt que d'enregistrer un signataire « fait » sans aucune trace dans le PDF.
+  if (!stamp || !stamp.signed) return c.json({ error: 'nothing-stamped' }, 422);
 
   const proof = {
     ip: c.req.header('CF-Connecting-IP') || '',
@@ -315,16 +327,20 @@ app.get('/api/sessions/:id', async (c) => {
       emailVerifiedAt: sg.emailVerifiedAt || null,
       otpVerifiedAt: sg.otpVerifiedAt || null,   // OTP : email CONTRÔLÉ (code saisi) → certificat app
       otpChannel: sg.otpChannel || null,
+      otpDelivery: sg.otpDelivery || null,   // 'email' | 'ecran-test' (mode dev) — absent = session antérieure
       // Dossier de preuve complet exposé au propriétaire (§5 #1/#3/#6/#8).
       proof: sg.proof ? {
         signedAt: sg.proof.signedAt,
         pdfSha256: sg.proof.pdfSha256,
         emailVerifiedAt: sg.proof.emailVerifiedAt || null,
         signerName: sg.proof.signerName || null,
+        nameSource: sg.proof.nameSource || null,
         consentElectronic: sg.proof.consentElectronic ?? null,
         luApprouve: sg.proof.luApprouve ?? null,
         openedAt: sg.proof.openedAt || null,
         readCompletedAt: sg.proof.readCompletedAt || null,
+        annexesRecuesAt: sg.proof.annexesRecuesAt || null,
+        parapheTimes: sg.proof.parapheTimes || null,
         ip: sg.proof.ip || null,
         userAgent: sg.proof.userAgent || null
       } : null

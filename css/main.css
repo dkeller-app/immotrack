@@ -1541,6 +1541,13 @@ button .uic:only-child, .btn .uic:only-child{margin-right:0}
   .logf-hero-compact{grid-template-columns:84px 1fr;gap:12px}
   .logf-hero-compact .logf-photos-mini{width:84px;height:84px;font-size:32px}
 }
+/* Téléphone : une piste 1fr vaut minmax(auto,1fr) — le min-content d'UN descendant insécable (puce,
+ * bouton nowrap) élargissait la colonne, donc TOUS les panneaux, au-delà de la page (overflow-x:hidden
+ * → côté droit coupé). min-width:0 borne la piste à la page ; un élément trop large ne déborde plus que
+ * de son propre panneau (et se corrige à la source). PC / tablette inchangés. */
+@media (max-width:767px){
+  .logf-panels>*{min-width:0}
+}
 @media (max-width:600px){
   .logf-hero{padding:14px}
   .logf-row{grid-template-columns:1fr;gap:2px;padding:7px 0}
@@ -6433,7 +6440,9 @@ body[data-dash-v4="on"] {
   --v4-rad: 14px;
   /* v15.37 fix retour user : bump contraste --t2/--t3 pour V4 (dark trop pâle) */
   --t2: #CDD4E5;
-  --t3: #8B95B5;
+  /* v15.694 CHARTE M-17 (sombre) : #8B95B5 → #929cbb = ≥ 4,5:1 sur tous les fonds sombres
+     (sur 5,83 · sur2 5,19 · sur3 4,56 · bg 6,62). Le clair est surchargé plus bas (sobre). */
+  --t3: #929cbb;
 }
 /* En sobre/coloré : redonner du contraste cohérent avec le thème */
 html[data-theme="sobre"] body[data-dash-v4="on"] {
@@ -7974,7 +7983,10 @@ body[data-dash-v4="on"] .sb-nav {
   --bor2: rgba(255,255,255,.06);
   --t1: #e6ebf3;
   --t2: #aab4c6;
-  --t3: #6c778c;
+  /* v15.694 CHARTE M-17 : titres de section / version / rôle / e-mail du menu compte
+     #6c778c (3,77:1) → #818ca1 : ≥ 5,02 sur le dégradé, 4,70 sur --sur (menu compte PC),
+     4,51 sur --sur2 en bas de barre (pied survolé / menu ouvert). */
+  --t3: #818ca1;
   --neutral-soft: rgba(255,255,255,.08);
   --neutral-ink: #cdd6e3;
   /* Les 5 couleurs sémantiques suivent le chrome, pas le thème de la page. Sans ça, en
@@ -8011,7 +8023,7 @@ html[data-theme="colore"] body[data-dash-v4="on"] .sb-nav {
 html[data-theme="dark"] body[data-dash-v4="on"] .sb-nav {
   background: #10131a !important;
   background-image: linear-gradient(180deg,#12151d 0%,#0d1016 100%) !important;
-  --t1: #f2f5fa; --t2: #9aa6b8; --t3: #737e93;
+  --t1: #f2f5fa; --t2: #9aa6b8; --t3: #818ca1; /* v15.694 M-17 : #737e93 (4,46) → ≥ 4,51 partout (sur 4,70, pied survolé 4,77) */
 }
 body[data-dash-v4="on"] .v4s-sb-logo {
   font-family: var(--display);
@@ -9749,6 +9761,50 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 [data-a11y]:focus-visible,
 [role="button"]:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:5px}
 
+/* VISALE-GMBI (docs/CDC-VISALE-GMBI.md) — choix de garantie, visa Visale, alerte déclaration d'occupation.
+   Jetons uniquement (clair / sombre suivent les thèmes). Cibles ≥ 44 px. */
+.gar-seg-lbl{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:8px}
+.gar-seg{display:flex;border:1px solid var(--bor);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.gar-seg [role="radio"]{flex:1;min-height:44px;border:0;border-right:1px solid var(--bor);background:var(--sur);color:var(--t2);font:600 13px var(--font,inherit);cursor:pointer;padding:0 8px}
+.gar-seg [role="radio"]:last-child{border-right:0}
+.gar-seg [role="radio"][aria-checked="true"]{background:var(--acc-bg);color:var(--acc);box-shadow:inset 0 -2px 0 var(--acc)}
+.gar-seg [role="radio"]:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+.visale-chk{gap:8px;min-height:44px;font-weight:600;font-size:13px;color:var(--t1);cursor:pointer}
+.visale-chk input{width:20px;height:20px;min-height:0}
+.visale-warn,.visale-ok{display:flex;gap:8px;align-items:flex-start;border-radius:var(--r);padding:9px 12px;font-size:12.5px;margin-top:10px;line-height:1.45}
+.visale-warn{border:1px solid var(--warn);background:var(--warn-soft);color:var(--t1)}
+.visale-warn .uic{color:var(--warn);flex:0 0 auto;margin-top:1px}
+.visale-ok{border:1px solid var(--pos);background:var(--pos-soft);color:var(--t1)}
+.visale-ok .uic{color:var(--pos);flex:0 0 auto;margin-top:1px}
+.visale-plaf{margin-top:10px;font-size:12px;color:var(--t2)}
+.visale-plaf summary{cursor:pointer;font-weight:600;color:var(--adv);list-style:none;min-height:44px;display:flex;align-items:center;gap:6px}
+.visale-plaf summary::-webkit-details-marker{display:none}
+.visale-plaf > div{margin-top:6px;line-height:1.55}
+.visale-plaf a{color:var(--adv);font-weight:600}
+.visale-card{border:1px solid var(--adv);background:var(--adv-bg);border-radius:var(--r);padding:10px 12px}
+.visale-card-h{font-weight:700;font-size:13px;color:var(--adv);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.visale-badge{background:var(--adv);color:var(--sur);font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px}
+.gmbi-box{border:1px solid var(--bor);border-radius:var(--rl,12px);background:var(--sur2);padding:12px 14px}
+.gmbi-h{font-weight:700;font-size:13px;color:var(--t1);display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.gmbi-pick{border:2px solid var(--acc);background:var(--acc-bg);border-radius:var(--r);padding:10px 12px;font-weight:600;font-size:13.5px;color:var(--t1)}
+.gmbi-pick small{display:block;font-weight:500;color:var(--t2);font-size:12px;margin-top:3px}
+.gmbi-sub{font-size:12px;font-weight:700;color:var(--t2);margin:10px 0 4px}
+.gmbi-opt{border:1px solid var(--bor);border-radius:var(--r);padding:8px 12px;font-size:12.5px;color:var(--t2);margin:6px 0;background:var(--sur)}
+#ov-gmbi .kv-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13.5px;align-items:baseline}
+#ov-gmbi .kv-grid .k{color:var(--t2);font-size:12.5px}
+#ov-gmbi .kv-grid .v{font-weight:600;color:var(--t1)}
+#ov-gmbi .m-foot .btn{min-height:44px;text-decoration:none}
+@media (max-width:767px){
+  #ov-gmbi .kv-grid{grid-template-columns:1fr;gap:0}
+  #ov-gmbi .kv-grid .v{margin-bottom:8px}
+  #ov-gmbi .m-foot .btn{flex:1 1 0;justify-content:center}
+  /* M-16 : page plein écran (100 % largeur et hauteur), corps défilant, pied collant en bas. */
+  #ov-gmbi{padding:0 !important}
+  #ov-gmbi .modal{width:100% !important;max-width:none !important;height:100dvh;border-radius:0;display:flex;flex-direction:column;margin:0}
+  #ov-gmbi .m-body{flex:1 1 auto;overflow-y:auto;max-height:none}
+  #ov-gmbi .m-foot{margin-top:auto;border-radius:0}
+}
+
 /* DOC-3 — cadre isolé des documents .pro-doc (iframe sandbox, cf. _docRenderSandboxed). */
 .doc-sandbox{display:block;width:100%;border:0;min-height:220px;background:#fff}
 
@@ -10070,4 +10126,109 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   #p-edl .tbl tr td.act-cell .btn{min-height:44px !important;font-size:15px !important;white-space:normal !important;overflow:visible !important;text-overflow:clip !important}
   #p-edl .tbl tr td.act-cell .btn:nth-child(1){grid-column:auto !important;background:var(--sur2) !important;color:var(--t1) !important;border:1px solid var(--bor) !important}
   #p-edl .tbl tr td.act-cell .btn.br{display:none !important}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ANNONCES (CDC validé 29/09/2026) — modale « Créer une annonce » (#ov-annonce).
+   Maquette : mockups/ANNONCES/index.html (PC 2 colonnes · tablette 1 colonne, contrôle au-dessus,
+   replié quand tout est bon · téléphone page plein écran M-16, pied collant, cibles 44 px).
+   Jetons uniquement : les deux thèmes réels (sobre / dark) suivent sans règle dédiée.
+   ═══════════════════════════════════════════════════════════════════════ */
+#ov-annonce .an-modal{max-width:1100px;width:96vw;max-height:94vh;display:flex;flex-direction:column;padding:0;overflow:hidden}
+#ov-annonce .m-head{flex-shrink:0}
+#ov-annonce .an-body{flex:1;overflow-y:auto;padding:14px 16px;min-height:0}
+#ov-annonce .an-foot{flex-shrink:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--bor);background:var(--sur2)}
+#ov-annonce .an-sp{flex:1}
+#ov-annonce .an-foot-hint{font-size:12px;color:var(--t2)}
+
+/* Étape 1 — confirmer le loyer */
+#ov-annonce #an-step1{max-width:560px;width:100%;margin:0 auto}
+#ov-annonce .an-total{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:6px;padding:10px 12px;border-radius:var(--r);background:var(--sur2);border:1px solid var(--bor)}
+#ov-annonce .an-total span{font-size:12.5px;color:var(--t2)}
+#ov-annonce .an-total b{font-size:17px;color:var(--t1)}
+#ov-annonce .an-info{font-size:12.5px;color:var(--t2);line-height:1.45;margin-top:12px;padding-left:10px;border-left:3px solid var(--info)}
+
+/* Étape 2 — texte | contrôle */
+#ov-annonce .an-step2{display:grid;grid-template-columns:minmax(0,1fr) 320px;padding:0}
+#ov-annonce .an-col-t{padding:14px 16px;border-right:1px solid var(--bor);min-width:0}
+#ov-annonce .an-col-c{padding:14px 16px;background:var(--sur2);min-width:0}
+#ov-annonce .an-lab{display:flex;align-items:baseline;gap:7px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);margin-bottom:6px}
+#ov-annonce .an-hint{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:600;font-size:11px;color:var(--t2)}
+/* Texte UNIQUE : textarea transparente au-dessus d'un calque miroir qui surligne les emplacements
+   « [À COMPLÉTER : …] ». Mêmes police / marges / retour à la ligne / gouttière de défilement des deux
+   côtés, sinon le surlignage glisse. Ambre + pointillés (pas de rouge, M-15) ; texte lisible (M-17). */
+#ov-annonce .an-ed-wrap{position:relative;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r)}
+#ov-annonce .an-ed-wrap:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+#ov-annonce .an-ed,#ov-annonce .an-ed-bd{font-family:inherit;font-size:13px;font-weight:400;line-height:1.6;letter-spacing:normal;padding:10px 12px;margin:0;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:4;scrollbar-gutter:stable;box-sizing:border-box}
+#ov-annonce .an-ed-bd{position:absolute;inset:0;overflow:hidden;color:transparent;pointer-events:none;border:0}
+#ov-annonce .an-ed{position:relative;display:block;width:100%;height:480px;min-height:260px;resize:vertical;overflow-y:auto;background:transparent;border:0;box-shadow:none;outline:none;color:var(--t1);caret-color:var(--t1)}
+#ov-annonce .an-ed-bd .an-miss{color:transparent;background:var(--warn-soft);border-radius:3px;outline:1px dashed var(--warn);outline-offset:0}
+#ov-annonce .an-cnt{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--t2);margin-top:4px}
+#ov-annonce .an-foot-hint.w{color:var(--t1);font-weight:700}   /* M-17 : ambre trop pâle sur fond clair → encre, en gras */
+
+/* Contrôle */
+#ov-annonce .an-chk-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+#ov-annonce .an-sc{font-size:20px;font-weight:800}
+#ov-annonce .an-sc.ok{color:var(--pos)}
+#ov-annonce .an-sc.ko{color:var(--warn)}
+#ov-annonce .an-chk-t{font-size:12px;color:var(--t2);line-height:1.35}
+#ov-annonce .an-chk{list-style:none;margin:0;padding:0;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur);overflow:hidden}
+#ov-annonce .an-chk li{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;border-bottom:1px solid var(--bor2);font-size:12.5px;line-height:1.35;color:var(--t1)}
+#ov-annonce .an-chk li:last-child{border-bottom:0}
+#ov-annonce .an-ic{flex:none;width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-top:1px;font-weight:800}
+#ov-annonce .an-chk li.ok .an-ic{background:var(--pos-soft);color:var(--pos)}
+#ov-annonce .an-chk li.ko .an-ic{background:var(--warn-soft);color:var(--warn)}
+#ov-annonce .an-chk li.warn .an-ic,#ov-annonce .an-chk li.retire .an-ic{background:var(--warn-soft);color:var(--warn)}
+#ov-annonce .an-chk li.ko .an-tx{cursor:pointer}
+#ov-annonce .an-chk li.na{color:var(--t2)}
+#ov-annonce .an-chk li.na .an-ic{background:var(--sur3);color:var(--t2)}
+#ov-annonce .an-tx{flex:1;min-width:0}
+#ov-annonce .an-tx small{display:block;color:var(--t2);font-size:11px}
+#ov-annonce .an-go{flex:none;background:none;border:0;padding:2px 4px;min-height:28px;color:var(--acc);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
+#ov-annonce .an-go:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#ov-annonce .an-chk-sum{display:none;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--pos);background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:6px 10px}
+#ov-annonce .an-chk-sum .btn{margin-left:auto}
+#ov-annonce .an-tg{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--bor2);font-size:12.5px;color:var(--t1);cursor:pointer}
+#ov-annonce .an-tg input{width:18px;height:18px;flex:none;accent-color:var(--acc)}
+#ov-annonce .an-tg small{display:block;color:var(--t2);font-size:11px}
+#ov-annonce .an-src{font-size:11px;color:var(--t2);margin-top:10px;line-height:1.4}
+
+/* Bandeaux DPE (calendrier de décence) */
+#ov-annonce .an-ban{display:flex;gap:9px;align-items:flex-start;border-radius:var(--r);padding:9px 11px;font-size:12.5px;line-height:1.45;margin-bottom:12px;border:1px solid var(--bor);color:var(--t1)}
+#ov-annonce .an-ban.neg{background:var(--neg-soft);border-color:var(--neg)}
+#ov-annonce .an-ban.warn{background:var(--warn-soft);border-color:var(--warn)}
+#ov-annonce .an-ban.info{background:var(--info-soft);border-color:var(--info)}
+#ov-annonce .an-ban.neg > svg{color:var(--neg)}
+#ov-annonce .an-ban.warn > svg{color:var(--warn)}
+
+/* Tablette : une colonne, le contrôle AU-DESSUS, replié en une ligne quand tout est bon. */
+@media (max-width:899.98px){
+  #ov-annonce .an-step2{grid-template-columns:1fr}
+  #ov-annonce .an-go{min-height:44px;padding:0 6px}
+  #ov-annonce .an-col-t{order:2;border-right:0}
+  #ov-annonce .an-col-c{order:1;border-bottom:1px solid var(--bor)}
+  #ov-annonce .an-col-c.allok .an-chk,
+  #ov-annonce .an-col-c.allok .an-chk-h{display:none}
+  #ov-annonce .an-col-c.allok .an-chk-sum{display:flex}
+}
+/* Téléphone : PAGE plein écran (M-16, même mécanisme que « Avant de signer » de l'EDL : l'overlay perd
+   sa marge, la modale prend 100 % de l'écran), pied collant, CTA primaire d'abord. */
+@media (max-width:767px){
+  #ov-annonce{padding:0;align-items:stretch}
+  #ov-annonce .an-modal{width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;border:0 !important;border-radius:0 !important}
+  #ov-annonce .an-body{padding:12px}
+  #ov-annonce .an-step2{padding:0}
+  #ov-annonce .an-col-t,#ov-annonce .an-col-c{padding:12px}
+  #ov-annonce .inp,#ov-annonce .an-ed,#ov-annonce .an-ed-bd{font-size:16px}
+  #ov-annonce .an-ed{height:60vh}
+  #ov-annonce .an-tg{min-height:44px}
+  #ov-annonce .an-chk-sum .btn{min-height:44px}
+  #ov-annonce .an-foot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:10px 12px}
+  #ov-annonce .an-foot .an-sp{display:none}
+  #ov-annonce .an-foot .an-foot-hint{grid-column:1 / -1;order:-2}
+  #ov-annonce .an-foot .btn{width:100%;min-width:0;min-height:44px;justify-content:center;white-space:normal;text-align:center;line-height:1.25}
+  #ov-annonce .an-foot .btn.bp{grid-column:1 / -1;order:-1}
+  #ov-annonce .an-go{min-height:44px;padding:0 6px}
+  #ov-annonce .an-chk li{align-items:center}
+  #ov-annonce .an-hint{display:none}
 }

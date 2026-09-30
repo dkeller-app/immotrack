@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { embedInDoc } from '../public/sign/manifest.js';
-import { dataUrlToBytes, stampSignature, paraphePagesFor } from '../public/sign/stamp.js';
+import { dataUrlToBytes, stampSignature, paraphePagesFor, readingPlanFor } from '../public/sign/stamp.js';
 
 // 1×1 PNG transparent valide.
 const PNG_1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -110,5 +110,122 @@ describe('stampSignature (repli sans manifeste)', () => {
     }, { rgb });
     expect(res.stamped).toBe(4); // 3 paraphes + 1 signature
     expect(res.usedFallback).toBe(true);
+  });
+});
+
+describe('readingPlanFor (document défilant)', () => {
+  it('cases de paraphe du signataire en % de la page + dernière page du BAIL (annexes au-delà)', async () => {
+    const doc = await makeDoc(5);   // 2 pages de bail + page de garde + 2 pages d'annexes
+    embedInDoc(doc, {
+      v: 1, totalPages: 5,
+      anchors: [
+        { sigId: 'loc-0', kind: 'paraphe', page: 1, x: 125, y: 279.5, w: 70, h: 14 },
+        { sigId: 'loc-0', kind: 'paraphe', page: 1, x: 125, y: 279.5, w: 70, h: 14 },
+        { sigId: 'loc-0', kind: 'signature', page: 2, x: 120, y: 210, w: 90, h: 30 },
+        { sigId: 'bailleur-0', kind: 'paraphe', page: 2, x: 15, y: 279.5, w: 70, h: 14 }
+      ]
+    });
+    const plan = readingPlanFor(doc, { sigId: 'loc-0' });
+    expect(plan.paraphes.map((a) => a.page)).toEqual([1]);            // dédupliqué
+    expect(plan.paraphes[0].left).toBeCloseTo(125 / 210);
+    expect(plan.paraphes[0].top).toBeCloseTo(279.5 / 297);
+    expect(plan.signatures.map((a) => a.page)).toEqual([2]);
+    expect(plan.lastBailPage).toBe(2);                                // ancre la plus basse, tous signataires
+    expect(plan.pageCount).toBe(5);
+  });
+  it('ancres hors page ignorées ; aucune ancre pour ce signataire → listes vides', async () => {
+    const doc = await makeDoc(2);
+    embedInDoc(doc, { v: 1, totalPages: 2, anchors: [
+      { sigId: 'bailleur-0', kind: 'paraphe', page: 1, x: 15, y: 279.5, w: 70, h: 14 },
+      { sigId: 'loc-0', kind: 'paraphe', page: 9, x: 125, y: 279.5, w: 70, h: 14 }
+    ] });
+    const plan = readingPlanFor(doc, { sigId: 'loc-0' });
+    expect(plan.paraphes).toEqual([]);
+    expect(plan.signatures).toEqual([]);
+    expect(plan.lastBailPage).toBe(1);
+  });
+  it('annexes DÉCLARÉES par l\'app (manifeste.annexes) : 1re page d\'annexe respectée + liste restituée', async () => {
+    const doc = await makeDoc(6);
+    const annexes = { from: 4, items: [{ label: 'DPE', statut: 'joint', docName: 'dpe.pdf', from: 5, to: 6 }, { label: 'Électricité', statut: 'hors_app' }] };
+    embedInDoc(doc, { v: 1, totalPages: 6, annexes, anchors: [
+      { sigId: 'loc-0', kind: 'paraphe', page: 1, x: 125, y: 279.5, w: 70, h: 14 },
+      { sigId: 'loc-0', kind: 'signature', page: 3, x: 110, y: 210, w: 90, h: 30 }
+    ] });
+    const plan = readingPlanFor(doc, { sigId: 'loc-0' });
+    expect(plan.lastBailPage).toBe(3);
+    expect(plan.annexes.items.map((i) => i.statut)).toEqual(['joint', 'hors_app']);
+  });
+  it('le manifeste PRÉVAUT : ancres jusqu\'à la page 2, annexes à partir de la page 4 → bail = pages 1-3', async () => {
+    const doc = await makeDoc(6);
+    embedInDoc(doc, { v: 1, totalPages: 6, annexes: { from: 4, items: [{ label: 'DPE', statut: 'joint', from: 5, to: 6 }] }, anchors: [
+      { sigId: 'loc-0', kind: 'signature', page: 2, x: 110, y: 210, w: 90, h: 30 }
+    ] });
+    expect(readingPlanFor(doc, { sigId: 'loc-0' }).lastBailPage).toBe(3);
+  });
+  it('annexes.from incohérent (avant une ancre) : ignoré, déduction par les ancres', async () => {
+    const doc = await makeDoc(4);
+    embedInDoc(doc, { v: 1, totalPages: 4, annexes: { from: 2, items: [] }, anchors: [
+      { sigId: 'loc-0', kind: 'signature', page: 3, x: 110, y: 210, w: 90, h: 30 }
+    ] });
+    expect(readingPlanFor(doc, { sigId: 'loc-0' }).lastBailPage).toBe(3);
+  });
+  it("ordre de lecture : sigStart = 1re page de signature, annexStart = 1re page après la dernière case", async () => {
+    const doc = await makeDoc(8);   // bail 1-3 (3 = signatures), annexes 4-8
+    embedInDoc(doc, { v: 1, totalPages: 8, annexes: { from: 6, items: [] }, anchors: [
+      { sigId: 'loc-0', kind: 'paraphe', page: 1, x: 125, y: 279.5, w: 70, h: 14 },
+      { sigId: 'loc-0', kind: 'paraphe', page: 2, x: 125, y: 279.5, w: 70, h: 14 },
+      { sigId: 'bailleur-0', kind: 'signature', page: 3, x: 15, y: 210, w: 90, h: 30 },
+      { sigId: 'loc-0', kind: 'signature', page: 3, x: 110, y: 210, w: 90, h: 30 }
+    ] });
+    const plan = readingPlanFor(doc, { sigId: 'loc-0' });
+    expect(plan.sigStart).toBe(3);
+    expect(plan.lastAnchorPage).toBe(3);
+    expect(plan.annexStart).toBe(4);   // annexes du bail (4-5) ET DDT (6-8) : tout ce qui suit la dernière case
+    expect(plan.lastBailPage).toBe(5); // inchangé (compat)
+  });
+  it('aucune page après la dernière case → annexStart 0', async () => {
+    const doc = await makeDoc(2);
+    embedInDoc(doc, { v: 1, totalPages: 2, anchors: [{ sigId: 'loc-0', kind: 'signature', page: 2, x: 110, y: 210, w: 90, h: 30 }] });
+    const plan = readingPlanFor(doc, { sigId: 'loc-0' });
+    expect(plan.annexStart).toBe(0);
+    expect(plan.sigStart).toBe(2);
+  });
+  it('repli sans manifeste : toutes les pages sont du bail', async () => {
+    const doc = await makeDoc(3);
+    const plan = readingPlanFor(doc, { sigId: 'loc-0', side: 'locataire' });
+    expect(plan.paraphes.map((a) => a.page)).toEqual([1, 2, 3]);
+    expect(plan.lastBailPage).toBe(3);
+  });
+});
+
+describe('stampSignature — un même paraphe apposé sur plusieurs pages', () => {
+  it("n'embarque l'image qu'une fois (cache par image)", async () => {
+    const doc = await makeDoc(3);
+    embedInDoc(doc, { v: 1, totalPages: 3, anchors: [1, 2, 3].map((page) => ({ sigId: 'loc-0', kind: 'paraphe', page, x: 125, y: 279.5, w: 70, h: 14 })) });
+    let embeds = 0; const orig = doc.embedPng.bind(doc); doc.embedPng = async (b) => { embeds++; return orig(b); };
+    const res = await stampSignature(doc, { sigId: 'loc-0', signaturePngDataUrl: null, paraphesByPage: { 1: PNG_1x1, 2: PNG_1x1, 3: PNG_1x1 } }, { rgb });
+    expect(res.stamped).toBe(3);
+    expect(embeds).toBe(1);
+  });
+});
+
+describe('winAnsiSafe — nom du bail hors WinAnsi (audit v15.703 P0-1)', () => {
+  it('ramène les lettres à leur base, garde les accents français, « ? » en dernier recours', async () => {
+    const { winAnsiSafe } = await import('../public/sign/stamp.js');
+    expect(winAnsiSafe('Ștefan POPESCU')).toBe('Stefan POPESCU');
+    expect(winAnsiSafe('Łukasz Wójcik')).toBe('Lukasz Wójcik');
+    expect(winAnsiSafe('Şahin Yılmaz')).toBe('Sahin Yilmaz');
+    expect(winAnsiSafe('Nguyễn Văn')).toBe('Nguyen Van');
+    expect(winAnsiSafe('« Lu et approuvé » — Hélène Çağlar')).toBe('« Lu et approuvé » — Hélène Çaglar');
+    expect(winAnsiSafe('A B')).toBe('A B');
+    expect(winAnsiSafe('王')).toBe('?');
+  });
+  it('stampSignature ne lève plus sur ces noms (sinon la signature était impossible)', async () => {
+    const doc = await makeDoc(1);
+    embedInDoc(doc, { v: 1, totalPages: 1, anchors: [{ sigId: 'loc-0', kind: 'signature', page: 1, x: 110, y: 210, w: 90, h: 30 }] });
+    const res = await stampSignature(doc, { sigId: 'loc-0', signaturePngDataUrl: PNG_1x1, paraphesByPage: {},
+      mentionLines: ['Signé électroniquement', 'par Ștefan Łukasz Yılmaz 王 (locataire)'] }, { rgb });
+    expect(res.signed).toBe(1);
+    expect((await doc.save()).length).toBeGreaterThan(0);
   });
 });

@@ -133,6 +133,9 @@ import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, lette
 // le document RENDU, et fondement légal quand l'absence emporte nullité (art. 15-I / 15-II).
 import { mentionsManquantes, emporteNullite, messageMentionsManquantes, sortieAutorisee } from './core/actes-mentions.js';
 import { MF_SEUIL, MF_ABATTEMENT, evaluerMicroFoncier } from './core/micro-foncier.js';
+// VISALE-GMBI — visa Visale (contrôles non bloquants) + alerte ponctuelle « déclaration d'occupation ».
+import * as Visale from './core/visale.js';
+import * as DeclarationOccupation from './core/declaration-occupation.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
@@ -298,6 +301,11 @@ import {
 import {
   FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip
 } from './core/backup.js';
+
+// STOCKAGE lot 1 (docs/CDC-STOCKAGE.md) — registre du stockage local : save sacré (éviction +
+// nouvel essai sur quota), nettoyage de démarrage, purge des copies. Exposé sous window._stockage ;
+// l'exécution sur le vrai localStorage vit inline (_miroirEcrire, _stockageNettoyer).
+import * as Stockage from './core/stockage-local.js';
 
 // RESET-CLOUD UX — cœur PUR du « ⚠️ Vider mon espace cloud » (gating UI, saisie du nom,
 // messages d'erreur RPC). Exposé sous window._espacePurge ; l'orchestration IMPURE (modale,
@@ -765,6 +773,9 @@ window._applyReclaimedSession = applyReclaimedSession;
 // SAUVEGARDE (Chantier 3) — cœur pur exposé en bloc sous window._bk pour le code inline.
 window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip };
 
+// STOCKAGE lot 1 — registre du stockage local (voir import en tête).
+window._stockage = Stockage;
+
 // RESET-CLOUD UX — cœur pur du « Vider mon espace cloud » (voir import en tête).
 window._espacePurge = { confirmNameMatches, purgeUiState, purgeErrorMessage };
 // RENOMMER UN BIEN — cœur pur exposé pour le code inline (validation + garde-fou + report des 11 rattachements).
@@ -798,6 +809,9 @@ window.EdlGarageModel = EdlGarageModel;
 window.EdlRelecture = EdlRelecture;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
 window.PwaInstall = PwaInstall;
+// VISALE-GMBI (docs/CDC-VISALE-GMBI.md)
+window.Visale = Visale;
+window.DeclarationOccupation = DeclarationOccupation;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {

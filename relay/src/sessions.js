@@ -15,6 +15,9 @@ export async function createSession(env, { bailRef, pdfBytes, signers, createdBy
     .sort((a, b) => a.ordre - b.ordre)
     .map((s) => ({
       role: s.role,
+      // Nom déclaré par l'app (celui du bail) : repris sur la page de signature, NON modifiable, et
+      // tamponné sur le PDF. Borné (KV). Absent (ancienne app) → saisie libre, comme avant.
+      nom: typeof s.nom === 'string' ? s.nom.trim().slice(0, 120) : '',
       emailHash: s.emailHash,
       tel: s.tel || '',
       ordre: s.ordre,
@@ -67,25 +70,31 @@ export async function recordReclaim(env, sessionId, userId) {
 }
 
 // OTP : pose le code (hashé) envoyé au signataire courant ; les tentatives repartent à 0.
-export async function recordOtpSent(env, sessionId, hash, expiresAt) {
+// delivery : mode de remise décidé À L'ENVOI (audit P2-4) — 'email' (Resend) ou 'ecran-test' (code affiché).
+export async function recordOtpSent(env, sessionId, hash, expiresAt, delivery) {
   const session = await getMeta(env, sessionId);
   if (!session) throw new Error('session-not-found');
   const signer = session.signers[session.currentIndex];
   if (!signer) throw new Error('signer-not-found');
-  signer.otp = { hash, expiresAt, attempts: 0 };
+  signer.otp = { hash, expiresAt, attempts: 0, delivery: delivery === 'email' ? 'email' : 'ecran-test' };
   await putMeta(env, sessionId, session);
   return session;
 }
 
 // OTP : marque l'identité vérifiée (autorité serveur) ; pose aussi emailVerifiedAt (l'OTP prouve
 // l'email) et consomme le code (hash → null, plus rejouable).
-export async function recordOtpVerified(env, sessionId) {
+// otpDelivery : comment le code a RÉELLEMENT été remis — 'email' (envoi Resend) ou 'ecran-test' (mode dev :
+// le code s'affiche sur la page). Le certificat le dit tel quel : « reçu par e-mail » seulement si 'email'.
+export async function recordOtpVerified(env, sessionId, { delivery } = {}) {
   const session = await getMeta(env, sessionId);
   if (!session) throw new Error('session-not-found');
   const signer = session.signers[session.currentIndex];
   if (!signer) throw new Error('signer-not-found');
   signer.otpVerifiedAt = new Date().toISOString();
   signer.otpChannel = 'email';
+  // Remise enregistrée à l'envoi du code (fait foi) ; paramètre = repli pour un code envoyé avant ce correctif.
+  const _d = (signer.otp && signer.otp.delivery) || delivery;
+  signer.otpDelivery = _d === 'email' ? 'email' : 'ecran-test';
   if (!signer.emailVerifiedAt) signer.emailVerifiedAt = signer.otpVerifiedAt;
   if (signer.otp) signer.otp.hash = null;
   await putMeta(env, sessionId, session);
@@ -114,8 +123,19 @@ function sanitizeClientProof(raw) {
     consentElectronic: raw.consentElectronic === true,
     luApprouve: raw.luApprouve === true,
     openedAt: str(raw.openedAt, 40),
-    readCompletedAt: str(raw.readCompletedAt, 40)
+    readCompletedAt: str(raw.readCompletedAt, 40),
+    annexesRecuesAt: (typeof raw.annexesRecuesAt === 'string' && raw.annexesRecuesAt.length <= 40 && !isNaN(Date.parse(raw.annexesRecuesAt))) ? raw.annexesRecuesAt : null,   // date ISO valide ou rien
+    parapheTimes: times(raw.parapheTimes)
   };
+}
+// { page → ISO } : clés numériques, 300 max, chaînes bornées ; null si absent ou vide.
+function times(t) {
+  if (!t || typeof t !== 'object' || Array.isArray(t)) return null;
+  const out = {};
+  for (const k of Object.keys(t).slice(0, 300)) {
+    if (/^\d+$/.test(k) && typeof t[k] === 'string') out[k] = t[k].slice(0, 40);
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 export async function recordSignature(env, sessionId, { signedBytes, proof, clientProof }) {
@@ -135,11 +155,15 @@ export async function recordSignature(env, sessionId, { signedBytes, proof, clie
     // Autorité serveur (posé par recordEmailVerified) — pas de confiance au client.
     emailVerifiedAt: signer.emailVerifiedAt || null,
     // Acte de volonté + horodatages d'étape capturés côté client (null si absent).
-    signerName: client ? client.signerName : null,
+    // Nom repris du bail (autorité : la session) ; saisie du signataire seulement pour une ancienne session.
+    signerName: signer.nom || (client ? client.signerName : null),
+    nameSource: signer.nom ? 'bail' : (client && client.signerName ? 'saisi' : null),
     consentElectronic: client ? client.consentElectronic : null,
     luApprouve: client ? client.luApprouve : null,
     openedAt: client ? client.openedAt : null,
-    readCompletedAt: client ? client.readCompletedAt : null
+    readCompletedAt: client ? client.readCompletedAt : null,
+    annexesRecuesAt: client ? client.annexesRecuesAt : null,
+    parapheTimes: client ? client.parapheTimes : null
   };
 
   // Le PDF signé écrase l'original pour le prochain signataire (signature par-dessus)

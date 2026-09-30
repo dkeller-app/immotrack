@@ -127,8 +127,16 @@ const MIRROR_TAG_KEY = 'immotrack_v4_tag'  // = cache-purge.MIRROR_TAG_KEY (cont
 // (au lieu du défaut sb-<projectref>-auth-token, dérivé de l'URL) → purge FIABLE au logout / changement
 // de compte (cf. cache-purge.authStorageKeys). __immoSupaToken (worker de signature) lit getSession qui
 // relit ce storage → inchangé pour l'appelant.
+// Constante LOCALE, volontairement : un import statique de cache-purge.js rendrait l'écran de
+// connexion dépendant de ce module (s'il manque, l'entrée entière ne se charge pas et la page reste
+// blanche — le mode dégradé M-b disparaît). Égalité avec cache-purge.AUTH_STORAGE_KEY (lue par le
+// registre du stockage local) verrouillée par __tests__/helpers/stockage-purges-cablage.test.js.
 const AUTH_STORAGE_KEY = 'immo-supabase-auth'
-let _cachePurge = null           // module cache-purge (importé au boot, best-effort)
+let _cachePurge = null         // module cache-purge (importé au boot, best-effort)
+// STOCKAGE lot 1 (docs/CDC-STOCKAGE.md) — registre du stockage local : écriture du miroir avec éviction
+// sur quota (S-1) et purge des copies complètes de la base au logout / changement d'utilisateur (S-7).
+// Import best-effort comme ses voisins : sans lui, comportement d'AVANT le lot (écriture directe).
+let _stockageLocal = null
 let _teardownSession = null      // dépose de session ({flush}) — posée au boot, utilisée par logout + purge espace
 let _hasCloudWrites = null       // summaryHasCloudWrites (store-sync) — M4 : émission Realtime honnête
 // EDL TERRAIN lot 4bis — deux appareils, un état des lieux. Imports best-effort
@@ -159,6 +167,66 @@ function _purgeAuthTokenKeys() {
     // F14.2 : le token peut vivre en localStorage (PWA) OU sessionStorage (navigateur) → purge les DEUX.
     keys.forEach(k => { try { localStorage.removeItem(k) } catch (e) {}; try { sessionStorage.removeItem(k) } catch (e) {} })
   } catch (e) {}
+}
+
+// STOCKAGE lot 1 (S-7) — purge des copies complètes de la base (classe `copie` du registre,
+// js/core/stockage-local.js). Appelée au logout et quand le miroir n'appartient pas à l'utilisateur
+// qui se connecte. Ne touche QUE les clés reconnues par le registre. Module absent : rien (le
+// nettoyage de démarrage, même registre, les retire aussi). Ne throw jamais.
+function _purgerCopiesLocales(motif) {
+  try {
+    if (!_stockageLocal) return
+    const parties = _stockageLocal.purgerCopies(localStorage)
+    if (parties.length) console.info('[Supabase] purge (' + motif + ') : ' + parties.length + ' copie(s) locale(s) de la base retirée(s)')
+  } catch (e) { console.warn('[Supabase] purge des copies locales', e) }
+}
+
+// P1.3 volet RGPD — purge du cache local au LOGIN, selon le propriétaire du miroir résiduel.
+// Extraite telle quelle de `onLoggedIn` (STOCKAGE lot 1, audit point 3) pour être exécutable par un
+// test : lit le verdict de l'ANCIEN tag ; tout sauf 'same' → miroir + horodatage + copies complètes
+// de la base retirés. SYNCHRONE. Rend le verdict, que l'appelant retient pour F1 (EDL TERRAIN lot 4).
+// N'ÉCRIT PAS le nouveau tag : l'ordre de l'appelant est le contrat —
+//   1. _purgerCacheAuLogin  2. si 'other-user' : await _deletePhotosDb()  3. _ecrireTagEtEspacesLogin.
+// Le nouveau tag n'est posé qu'APRÈS la suppression des photos d'autrui : si le processus meurt
+// pendant la suppression, l'ancien tag est toujours là, le login suivant rend encore 'other-user' et
+// la purge est rejouée (F14.1). Peut lever (l'appelant l'attrape, comme avant).
+function _purgerCacheAuLogin({ user, esp }) {
+  // (audit M-b) SANS le module (import raté) : verdict 'untagged' forcé → miroir purgé quand même
+  // (fail-safe RGPD ; seule la purge IDB 'other-user', qui exige la PREUVE du tag, devient inerte).
+  const cls = _cachePurge ? _cachePurge.classifyMirrorTag(localStorage.getItem(MIRROR_TAG_KEY), user.id, esp.espaceId) : 'untagged'
+  if (cls !== 'same') {
+    try { localStorage.removeItem(MIRROR_KEY) } catch (e) {}
+    // STOCKAGE lot 1 (CDC §3.6) : l'horodatage part AVEC le miroir (même règle que le logout) —
+    // orphelin, il ferait croire à F1 qu'il reste du travail hors ligne.
+    try { if (_offlineBoot) localStorage.removeItem(_offlineBoot.MIROIR_ECRIT_KEY) } catch (e) {}
+    // S-7 : les copies complètes de la base d'un autre utilisateur/espace ne survivent pas non plus.
+    _purgerCopiesLocales('changement de propriétaire du miroir')
+  }
+  return cls
+}
+
+// P1.3 volet RGPD — le tag du miroir et les espaces autorisés du login courant. Appelée par
+// `onLoggedIn` APRÈS la purge IndexedDB éventuelle (voir `_purgerCacheAuLogin`, ci-dessus).
+function _ecrireTagEtEspacesLogin({ user, esp }) {
+  try { localStorage.setItem(MIRROR_TAG_KEY, _cachePurge ? _cachePurge.mirrorTag(user.id, esp.espaceId) : JSON.stringify({ userId: user.id, espaceId: esp.espaceId })) } catch (e) {}
+  // EDL TERRAIN lot 4 — on MÉMORISE les espaces auxquels ce login donne accès.
+  // Hors ligne on ne peut rien demander au serveur : sans cette liste, le
+  // miroir serait affiché en entier, espaces révoqués compris (incident du
+  // 12/07). Le tag ne suffit pas, il n'enregistre que l'espace PROPRE (F13).
+  try { if (_offlineBoot) localStorage.setItem(_offlineBoot.ESPACES_KEY, JSON.stringify(Object.keys(_espaceOwners || {}))) } catch (e) {}
+}
+
+// STOCKAGE lot 1 (S-1) — écriture du miroir avec éviction sur quota. Même décision que l'écrivain
+// inline `_miroirEcrire` d'index.html (même module) : un rebase au login ne peut plus échouer à cause
+// d'une copie héritée. Rend true si écrit. Module absent : écriture directe (comportement d'avant).
+function _ecrireMiroir(json) {
+  try {
+    if (!_stockageLocal) { localStorage.setItem(MIRROR_KEY, json); return true }
+    const r = _stockageLocal.ecrireAvecLiberation(localStorage, [[MIRROR_KEY, json]])
+    if (r.liberees.length) console.info('[Supabase] miroir : ' + r.liberees.length + ' clé(s) jetable(s) libérée(s) (' + r.caracteresLiberes + ' caractères)')
+    if (!r.ok) console.warn('[Supabase] miroir non écrit', r.erreur)
+    return r.ok
+  } catch (e) { console.warn('[Supabase] miroir non écrit', e); return false }
 }
 
 // EDL TERRAIN lot 4, F2 — LE SEUL endroit qui annonce un refus de déconnexion.
@@ -317,6 +385,10 @@ async function boot() {
     // RGPD n'a pas de raison d'exister, et un horodatage orphelin ferait croire à
     // F1, au prochain login, qu'il reste du travail hors ligne à rejouer.
     try { if (_offlineBoot) { localStorage.removeItem(_offlineBoot.MIROIR_ECRIT_KEY); localStorage.removeItem(_offlineBoot.FLUSH_OK_KEY); localStorage.removeItem(_offlineBoot.ESPACES_KEY) } } catch (e) {}
+    // STOCKAGE lot 1 (S-7) : les COPIES COMPLÈTES de la base (anciennes sauvegardes avant migration,
+    // ancien Drive, base illisible) sont des miroirs sous un autre nom — elles contournaient cette
+    // purge et restaient lisibles après la déconnexion sur un poste partagé.
+    _purgerCopiesLocales('logout')
     // BUG-LOGIN-DOUBLE volet sécurité : le token de session (persistSession:true) DOIT partir aussi.
     _purgeAuthTokenKeys()
     // IndexedDB photos : purgée SEULEMENT si aucun binaire « idb-only » (sans copie Supabase Storage).
@@ -370,6 +442,7 @@ async function boot() {
   // la preuve du tag) et la rétention IDB au logout (exige l'inventaire) deviennent inertes, et l'émission
   // Realtime retombe sur l'ancienne condition « flush 100 % propre ».
   try { _cachePurge = await import('../core/cache-purge.js') } catch (e) { console.warn('[Supabase] cache-purge', e) }
+  try { _stockageLocal = await import('../core/stockage-local.js') } catch (e) { console.warn('[Supabase] stockage-local', e) }
   try { _offlineBoot = await import('../core/offline-boot.js') } catch (e) { console.warn('[Supabase] offline-boot', e) }
   try { const _ss = await import('../core/store-sync.js'); _hasCloudWrites = _ss.summaryHasCloudWrites; _recordKey = _ss.recordKey } catch (e) { console.warn('[Supabase] store-sync helpers', e) }
   try { _edlConflit = await import('../core/edl-conflit.js') } catch (e) { console.warn('[Supabase] edl-conflit', e) }
@@ -1292,22 +1365,16 @@ async function onLoggedIn(api, overlay, user) {
     // 'other-user' (prouvé par le tag) → IndexedDB photos purgée aussi : ce sont les binaires d'AUTRUI —
     // la RGPD prime. 'untagged'/'other-espace' : IndexedDB ÉPARGNÉE (peut contenir les seuls exemplaires
     // de preuves du même user, cf. matrice §3b du design 2026-07-13). Best-effort, jamais bloquant.
+    // STOCKAGE lot 1 (audit, point 3) : la séquence vit dans une FONCTION NOMMÉE au niveau du module
+    // (`_purgerCacheAuLogin`, définie plus haut dans ce fichier) pour être EXÉCUTÉE par un test — même
+    // raison que F1. Appel SYNCHRONE : son retour est le verdict de l'ANCIEN tag, retenu ici pour F1
+    // (EDL TERRAIN lot 4). ORDRE CONTRACTUEL (F14.1) : purge des photos d'autrui TERMINÉE, puis
+    // seulement le nouveau tag — un processus tué pendant la suppression laisse l'ancien tag, et la
+    // purge est rejouée au login suivant.
     try {
-      // (audit M-b) SANS le module (import raté) : verdict 'untagged' forcé → miroir purgé quand même
-      // (fail-safe RGPD ; seule la purge IDB 'other-user', qui exige la PREUVE du tag, devient inerte).
-      const cls = _cachePurge ? _cachePurge.classifyMirrorTag(localStorage.getItem(MIRROR_TAG_KEY), user.id, esp.espaceId) : 'untagged'
-      // EDL TERRAIN lot 4 (F1) — on RETIENT ce verdict AVANT la réécriture du tag
-      // juste en dessous. Relu après, il rendrait forcément 'same' : F1 croirait
-      // vérifier l'appartenance du miroir alors qu'il ne vérifierait plus rien.
-      _tagMiroirAvantLogin = cls
-      if (cls !== 'same') { try { localStorage.removeItem(MIRROR_KEY) } catch (e) {} }
-      if (cls === 'other-user') await _deletePhotosDb()
-      try { localStorage.setItem(MIRROR_TAG_KEY, _cachePurge ? _cachePurge.mirrorTag(user.id, esp.espaceId) : JSON.stringify({ userId: user.id, espaceId: esp.espaceId })) } catch (e) {}
-      // EDL TERRAIN lot 4 — on MÉMORISE les espaces auxquels ce login donne accès.
-      // Hors ligne on ne peut rien demander au serveur : sans cette liste, le
-      // miroir serait affiché en entier, espaces révoqués compris (incident du
-      // 12/07). Le tag ne suffit pas, il n'enregistre que l'espace PROPRE (F13).
-      try { if (_offlineBoot) localStorage.setItem(_offlineBoot.ESPACES_KEY, JSON.stringify(Object.keys(_espaceOwners || {}))) } catch (e) {}
+      _tagMiroirAvantLogin = _purgerCacheAuLogin({ user, esp })
+      if (_tagMiroirAvantLogin === 'other-user') await _deletePhotosDb()
+      _ecrireTagEtEspacesLogin({ user, esp })
     } catch (e) { console.warn('[Supabase] purge cache au login', e) }
     api.wireStores({ espaces: _espaces, getDB: () => liveDB, schedule })   // MULTI-ESPACE : 1 store/espace agrégé (N=1 = mono)
     // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des
@@ -1390,7 +1457,7 @@ async function onLoggedIn(api, overlay, user) {
       _lastHydrateAt = Date.now()                 // P1.3 : référence de fraîcheur pour le re-pull visibilité
       // P1.3 volet RGPD : le miroir est RE-BASÉ immédiatement sur la vue AUTORISÉE courante (RLS) — l'ancien
       // contenu (potentiellement un périmètre révoqué depuis) ne survit jamais à un login, même sans saveDB.
-      try { localStorage.setItem(MIRROR_KEY, JSON.stringify(db)) } catch (e) {}
+      try { _ecrireMiroir(JSON.stringify(db)) } catch (e) {}   // STOCKAGE lot 1 : éviction sur quota (S-1)
       window.__immoMarkDirty = () => { _dirtySeq++; api.markDirty() }   // 2c : le garde saveDB l'appelle → debounce → flush cloud (+_dirtySeq : détection de saisie pendant un re-pull, audit I-1)
       // RESTAURATION LOCALE : flush COMPLET synchrone + awaitable (renvoie le résumé {upserts,removes,conflicts,skipped}).
       // Utilisé par _backupRestoreRun (index.html) : après avoir muté DB EN PLACE = instantané, on pousse tout vers
@@ -1676,7 +1743,7 @@ function injectStyles() {
     --bg:#f4f5f8;
     --bg-grad:radial-gradient(120% 100% at 92% -8%,#fff4f1 0%,#f5f6f9 38%,#f1f2f6 100%);
     --surface:#ffffff; --surface-2:#f7f8fb;
-    --ink:#101521; --ink-2:#3c4658; --ink-3:#6e7888;
+    --ink:#101521; --ink-2:#3c4658; --ink-3:#5f6f86; /* v15.694 CHARTE M-17 : #6e7888 (4,09) → 4,69:1 sur --bg */
     --line:#e4e7ee; --line-2:#eef0f5;
     --neutral-soft:#eef1f6; --neutral-ink:#42506a;
     --accent:#ff5a3c; --accent-2:#e8431f; --accent-soft:#ffe7e0; --accent-on:#ffffff;

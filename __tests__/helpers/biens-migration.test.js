@@ -106,10 +106,12 @@ describe('BIENS étape 4 — la modale logement est bien passée à 3 onglets', 
     expect(html).not.toContain("log.numLot = v('log-numLot')");
   });
 
-  it('les boutons Annonce sont débranchés mais le module reste', () => {
-    const appels = (html.match(/openAnnonce\(/g) || []).length;
-    expect(appels, 'seule la définition doit rester').toBe(1);
-    expect(html).toContain('function openAnnonce(');   // moteur conservé, sans porte d'entrée
+  it('ANNONCES (CDC 29/09/2026) : une seule porte, la fiche logement (PC + téléphone), pas la liste', () => {
+    expect(html).toContain('function openAnnonce(');
+    // 2 appels : fiche PC + fiche téléphone (même porte). La ligne de liste reste sans bouton.
+    const appels = (html.match(/onclick="openAnnonce\('\$\{refSafe\}'\)"/g) || []).length;
+    expect(appels).toBe(2);
+    expect(html).toContain("const annonceBtn = '';");
     expect(html).not.toContain("openLogModalOnTab('${refSafe}','presentation')");
   });
 });

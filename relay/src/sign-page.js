@@ -4,7 +4,7 @@ import { computeSigId, sideOf } from '../public/sign/sigid.js';
 // le rafraîchissement navigateur. Sans ça, Safari (et autres) réutilisent le CSS/JS
 // en cache mémoire malgré `must-revalidate` lors d'un rechargement « doux ». À incrémenter
 // à chaque modif de sign.css ou sign.js tant qu'on n'a pas de hash de contenu (déploiement).
-const ASSET_VERSION = '5';
+const ASSET_VERSION = '8';
 
 // Sérialise pour insertion dans <script> : échappe < pour neutraliser </script>.
 function jsonForScript(v) {
@@ -24,6 +24,7 @@ export function renderSignPage({ session, signToken }) {
   const data = {
     sigId: computeSigId(session.signers, idx),
     role: signer.role,
+    name: signer.nom || '',   // nom repris du bail (non modifiable sur la page)
     side: sideOf(signer.role),
     bailRef: session.bailRef || '',
     rank: idx + 1,

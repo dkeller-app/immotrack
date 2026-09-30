@@ -1,7 +1,8 @@
 import { initPad } from '/sign/pad.js';
 import { loadDocument, renderPageInto } from '/sign/viewer.js';
-import { stampSignature, paraphePagesFor, signaturePagesFor } from '/sign/stamp.js';
-import { buildMentionLines, buildProofObject } from '/sign/proof.js';
+import { readingPlanFor } from '/sign/stamp.js?v=8';   // versionné : readingPlanFor n'existe pas dans un stamp.js en cache — ⚠️ garder = ASSET_VERSION (relay/src/sign-page.js)
+import { buildProofObject } from '/sign/proof.js?v=8';   // idem (annexesRecuesAt)
+import { annexGroups, annexAckDue } from '/sign/annexes.js?v=8';
 
 const S = window.__SIGN__ || {};
 const TOKEN = window.__SIGN_TOKEN__;
@@ -23,17 +24,19 @@ function fail(msg) { app.innerHTML = ''; app.appendChild(h(`<div class="state-ca
 
 let master;                 // Uint8Array intacts (jamais passés à PDF.js)
 let pdf;                    // doc PDF.js (lecture)
-let paraphePages = [];      // pages 1-based à parapher pour ce sigId
-let signaturePages = [];    // pages 1-based portant une zone de signature (rappel UX A3)
-let curPage = 1;            // page courante en lecture
 let signerName = '';
-const paraphesByPage = {};  // {page → dataURL} — une image distincte par page paraphée
+const paraphesByPage = {};  // {page → dataURL} — le paraphe apposé sur chaque page (clic par page)
 let signaturePad = null;    // pad de la signature finale (distinct des paraphes)
 let emailVerified = false;          // confirmation anti-transfert (§5 #2), autorité serveur
 let consentElectronic = false;      // case « procédé électronique » (acte de volonté)
 let luApprouve = false;             // case « je reconnais signer ce bail »
 let readCompletedAt = null;         // fin de lecture (§5 #3)
+let annexesRecuesAt = null;         // « Je reconnais avoir reçu les annexes… » (loi 89-462 art. 3 et 3-3), case obligatoire du locataire
 const openedAt = new Date().toISOString();  // ouverture du lien (§5 #3)
+// Nom du signataire repris du bail (déclaré par l'app à l'envoi), NON modifiable (validé Didier 30/09) :
+// le nom tapé librement permettait « Signé électroniquement par <n'importe qui> (locataire) ».
+// Ancienne session sans nom déclaré → saisie libre, comme avant.
+const fixedName = typeof S.name === 'string' ? S.name.trim() : '';
 
 function buildUI() {
   app.innerHTML = '';
@@ -45,7 +48,10 @@ function buildUI() {
       <section id="step-consent" class="step">
         <div class="scroll">
           <h1>Avant de signer</h1>
-          <label>Vos nom et prénom<br><input id="name" type="text" autocomplete="name" placeholder="Jean Dupont"></label>
+          ${fixedName
+            ? `<label>Votre nom (repris du bail)<br><input id="name" type="text" maxlength="120" value="${esc(fixedName)}" readonly aria-readonly="true"></label>
+          <p class="hint">Ce n'est pas vous ? Ne signez pas et prévenez l'expéditeur du bail.</p>`
+            : '<label>Vos nom et prénom<br><input id="name" type="text" autocomplete="name" maxlength="120" placeholder="Jean Dupont"></label>'}
           <label for="email">Confirmez votre adresse email</label>
           <div class="email-row">
             <input id="email" type="email" autocomplete="email" placeholder="vous@exemple.fr">
@@ -65,20 +71,23 @@ function buildUI() {
       </section>
 
       <section id="step-read" class="step" hidden>
-        <div class="scroll"><div id="pdf-page">Chargement du document…</div></div>
+        <div class="read-prog" id="read-prog" aria-live="polite"></div>
+        <div class="scroll" id="read-scroll"><div id="pdf-doc" class="pdf-doc">Chargement du document…</div></div>
         <div class="actionbar" id="read-bar"></div>
       </section>
 
       <section id="step-sign" class="step" hidden>
         <div class="scroll">
           <h1>Votre signature</h1>
+          <p id="sig-recap" class="recap" hidden></p>
           <p>Tracez votre <strong>signature complète</strong> ci-dessous (distincte de vos paraphes).</p>
           <div class="pad-wrap"><canvas id="sig-pad" width="600" height="200"></canvas></div>
-          <label class="chk"><input id="luSign" type="checkbox"> <strong>« Lu et approuvé »</strong> — je reconnais avoir lu l'intégralité du bail et en approuver les termes.</label>
+          <label class="chk"><input id="luSign" type="checkbox"> <span><strong>« Lu et approuvé »</strong> — je reconnais avoir lu l'intégralité du bail et en approuver les termes.</span></label>
         </div>
         <div class="actionbar">
           <p id="busy" class="busy-line" hidden>Traitement…</p>
           <div class="bar-btns">
+            <button id="sig-back" class="ghost">‹ Revoir le bail</button>
             <button id="sig-clr" class="ghost">Effacer</button>
             <button id="submit" class="primary">Signer et envoyer</button>
           </div>
@@ -128,9 +137,11 @@ function buildUI() {
         email.readOnly = true; email.classList.remove('is-err');
         verifyBtn.hidden = true;
         otpRow.hidden = false; otpCode.focus();
-        setStatus('ok', '📨 Un code à 6 chiffres vous a été envoyé par email. Saisissez-le ci-dessous.');
+        // Mode test (envoi par e-mail pas encore activé) : le dire tel quel — le certificat le dira aussi.
+        setStatus('ok', data.devCode ? 'Mode test : le code s\'affiche ci-dessous au lieu d\'être envoyé par e-mail.'
+          : '📨 Un code à 6 chiffres vous a été envoyé par e-mail. Saisissez-le ci-dessous.');
         otpHint.hidden = !data.devCode;
-        if (data.devCode) otpHint.textContent = '🧪 Mode test : votre code est ' + data.devCode;
+        if (data.devCode) otpHint.textContent = 'Code : ' + data.devCode;
       } else {
         emailVerified = false;
         email.classList.remove('is-ok'); email.classList.add('is-err');
@@ -158,7 +169,7 @@ function buildUI() {
         emailVerified = true;
         otpRow.hidden = true; otpHint.hidden = true;
         email.classList.add('is-ok');
-        setStatus('ok', '✓ Identité vérifiée — c\'est bien vous.');
+        setStatus('ok', '✓ Code validé.');
       } else if (data.reason === 'expired-or-locked') {
         otpHint.hidden = false; otpHint.textContent = 'Code expiré ou trop de tentatives. Cliquez « Confirmer » pour recevoir un nouveau code.';
         otpRow.hidden = true; verifyBtn.hidden = false; email.readOnly = false;
@@ -180,6 +191,7 @@ function buildUI() {
     show('step-read'); await startReading();
   };
   app.querySelector('#sig-clr').onclick = () => signaturePad && signaturePad.clear();
+  app.querySelector('#sig-back').onclick = () => show('step-read');   // paraphes et position conservés
   // Q4 — écran de signature FUSIONNÉ : un seul bouton « Signer et envoyer » (plus d'écran
   // « Confirmer l'envoi » intermédiaire). On conserve les validations d'avant (signature tracée +
   // « Lu et approuvé » cochée), puis doSubmit directement. Preuve inchangée (openedAt/
@@ -202,82 +214,331 @@ async function startReading() {
     master = new Uint8Array(await r.arrayBuffer());
     pdf = await loadDocument(master.slice()); // copie : PDF.js détache le buffer
     const probe = await PDFLib.PDFDocument.load(master); // master intact pour le tamponnage final
-    paraphePages = paraphePagesFor(probe, { sigId: S.sigId, side: S.side });
-    signaturePages = signaturePagesFor(probe, { sigId: S.sigId, side: S.side });
-    curPage = 1;
+    plan = readingPlanFor(probe, { sigId: S.sigId, side: S.side });
+    // Aucune case (ni paraphe ni signature) pour CE signataire = document incohérent : on s'arrête
+    // plutôt que de laisser « signer » un PDF qui ne porterait aucune trace de lui.
+    // Même règle que le serveur (422 « nothing-stamped ») : sans case de SIGNATURE pour ce signataire,
+    // on s'arrête ici — pas après qu'il a paraphé tout le bail.
+    if (!plan.signatures.length) {
+      master = null;
+      return fail('Ce document ne prévoit aucune case de signature pour vous. Contactez l\'expéditeur du bail.');
+    }
+    await buildDoc();
   }
-  await renderReadStep();
+  updateReadUI();
 }
 
-async function renderReadStep() {
-  await renderPageInto(pdf, curPage, app.querySelector('#pdf-page'));
-  // A2 : à chaque changement de page, on remonte la zone de lecture en haut (sinon on
-  // reste scrollé en bas après avoir paraphé la page précédente).
-  const sc = app.querySelector('#step-read .scroll');
-  if (sc) sc.scrollTop = 0;
-  window.scrollTo(0, 0);
+// ── Document DÉFILANT (29/09, validé Didier) ─────────────────────────────────────────────────
+// Tout le document défile ; chaque page du bail porte un bouton « Parapher » posé EXACTEMENT sur sa
+// case (ancre du manifeste). Le paraphe est tracé UNE fois, puis apposé d'un clic, page par page, avec
+// l'heure (preuve de lecture). Base légale vérifiée : C. civ. art. 1366 / 1367 — aucun texte
+// n'impose la lecture page par page ; l'intégrité reste garantie par l'empreinte du PDF.
+//
+// ORDRE DE LECTURE (30/09, validé Didier) : les annexes (annexes du bail, notice, pièces du DDT) sont
+// présentées AVANT la page des signatures, dans un bloc où chacune se déplie sur place. Le locataire
+// coche « Je reconnais avoir reçu les annexes… et en avoir pris connaissance » : sans cette case, la
+// page des signatures reste masquée. Le fichier PDF garde son ordre (annexes après la page des
+// signatures) : seul l'affichage change, aucune case ne bouge.
+let plan = null;                  // readingPlanFor : { paraphes, signatures, pageCount, annexes, sigStart, annexStart, … }
+let parapheImg = null;            // dataURL du paraphe tracé une fois
+const parapheTimes = {};          // { page → ISO } : heure de chaque paraphe
+const slots = {};                 // page → élément .pg (emplacement de page)
+let groups = [];                  // annexGroups(plan) : les annexes listées dans le bloc
+let ackDue = false;               // case d'accusé des annexes demandée à CE signataire
+let sigPagesLocked = [];          // pages « Signatures » masquées tant que la case n'est pas cochée
+let io = null;
+
+const hhmm = (iso) => { const d = new Date(iso); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const nextToParaphe = () => { const a = plan.paraphes.find((p) => !paraphesByPage[p.page]); return a ? a.page : 0; };
+const pct = (v) => (v * 100).toFixed(3) + '%';
+
+async function buildDoc() {
+  const doc = app.querySelector('#pdf-doc');
+  const frag = document.createDocumentFragment();   // le message « Chargement… » reste affiché jusqu'au bout
   const total = pdf.numPages;
-  const needsParaphe = paraphePages.includes(curPage);
-  const isLast = curPage >= total;
-  const nextLabel = isLast ? 'Terminer la lecture' : 'Page suivante';
+  // Taille de chaque page (sans rendu) : l'emplacement a la bonne proportion avant d'être dessiné.
+  // Proportion par `--ar` + padding (et non aspect-ratio, absent de Safari iOS 14).
+  for (let i = 1; i <= total; i++) {
+    const vp = (await pdf.getPage(i)).getViewport({ scale: 1 });
+    slots[i] = h(`<section class="pg" id="pg-${i}" data-page="${i}" style="--ar:${(vp.height / vp.width).toFixed(5)}"><div class="pg-canvas"></div><span class="pg-no">Page ${i} / ${total}</span></section>`);
+  }
+  groups = annexGroups(plan);
+  ackDue = annexAckDue(S.side, groups);
+  const bailEnd = plan.annexStart ? plan.annexStart - 1 : total;           // dernière page portant une case
+  const sigStart = plan.sigStart && plan.sigStart <= bailEnd ? plan.sigStart : 0;
+  const block = groups.length ? annexSection() : null;
+  for (let i = 1; i <= bailEnd; i++) {
+    if (block && i === sigStart) frag.appendChild(block);                  // le bloc AVANT la page des signatures
+    frag.appendChild(slots[i]);
+    if (ackDue && sigStart && i >= sigStart) sigPagesLocked.push(i);
+  }
+  if (block && !sigStart) frag.appendChild(block);
+  doc.innerHTML = '';
+  doc.appendChild(frag);
+  applySigLock();
+  // Cases de paraphe et rappel de la zone de signature, posés sur les pages.
+  for (const a of plan.paraphes) {
+    // Case agrandie à ≥ 44 px (cible tactile) et gardée DANS la page : sur téléphone, la case du PDF
+    // (en bas de page, ~24 px) ferait déborder le bouton hors de la page, où il serait coupé.
+    const W = `max(${pct(a.width)}, 124px)`, H = `max(${pct(a.height)}, 46px)`;
+    const slot = h(`<div class="par-slot" style="width:${W};height:${H};left:min(${pct(a.left)}, calc(100% - ${W}));top:min(${pct(a.top)}, calc(100% - ${H} - 4px))"></div>`);
+    slot.dataset.page = a.page;
+    slots[a.page] && slots[a.page].appendChild(slot);
+    renderParSlot(a.page);
+  }
+  for (const a of plan.signatures) {
+    if (!slots[a.page]) continue;
+    slots[a.page].appendChild(h(`<div class="sig-slot" style="left:${pct(a.left)};top:${pct(a.top)};width:${pct(a.width)};height:${pct(a.height)}"><span>Votre signature : à la dernière étape</span></div>`));
+  }
+  // Rendu PARESSEUX (un bail + 75 pages d'annexes ne tiennent pas en mémoire sur un téléphone) :
+  // on dessine les pages proches de l'écran et on LIBÈRE celles qui s'en éloignent (canvas remis à
+  // 0 × 0 : Safari iOS ne rend la mémoire d'un canvas qu'à ce prix). 2 rendus à la fois au plus ;
+  // un rendu qui se termine pour une page déjà sortie est jeté. Une page masquée (annexe repliée,
+  // page des signatures verrouillée) n'intersecte pas : elle n'est pas dessinée.
+  const root = app.querySelector('#read-scroll');
+  io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const n = +e.target.dataset.page;
+      if (e.isIntersecting) { visible.add(n); queueDraw(n); }
+      else { visible.delete(n); releasePage(n); }
+    }
+  }, { root, rootMargin: '1200px 0px' });
+  Object.values(slots).forEach((s) => io.observe(s));
+}
+
+const visible = new Set();        // pages dans la zone de rendu
+const drawn = new Set();          // pages dont le canvas est affiché
+const queue = [];
+let drawing = 0;
+const MAX_DRAW = 2;
+function releaseCanvas(c) { if (c) { c.width = 0; c.height = 0; c.remove(); } }
+function releasePage(n) {
+  const holder = slots[n] && slots[n].querySelector('.pg-canvas');
+  if (holder) releaseCanvas(holder.querySelector('canvas'));
+  drawn.delete(n);
+}
+function queueDraw(n) {
+  if (drawn.has(n) || queue.includes(n)) return;
+  queue.push(n);
+  pump();
+}
+function pump() {
+  while (drawing < MAX_DRAW && queue.length) {
+    const n = queue.shift();
+    if (!visible.has(n) || drawn.has(n)) continue;
+    drawing++;
+    drawPage(n).finally(() => { drawing--; pump(); });
+  }
+}
+async function drawPage(n) {
+  const holder = slots[n] && slots[n].querySelector('.pg-canvas');
+  if (!holder) return;
+  let canvas = null;
+  try {
+    const page = await pdf.getPage(n);
+    const w = holder.clientWidth || 600;
+    const scale = (w / page.getViewport({ scale: 1 }).width) * Math.min(window.devicePixelRatio || 1, 2);
+    const tmp = document.createElement('div');
+    canvas = await renderPageInto(pdf, n, tmp, { scale });   // en cas d'échec, viewer.js libère son canvas
+    page.cleanup();
+  } catch (e) {
+    if (drawn.has(n) || !visible.has(n)) return;   // un autre rendu a réussi, ou la page est sortie
+    holder.innerHTML = '<p class="pg-err">Affichage de la page impossible. Faites défiler pour réessayer, ou téléchargez le document.</p>';
+    return;
+  }
+  if (!visible.has(n) || drawn.has(n) || !holder.isConnected) { releaseCanvas(canvas); return; }
+  holder.querySelectorAll('.pg-err').forEach((x) => x.remove());
+  holder.appendChild(canvas);
+  drawn.add(n);
+}
+
+// ── Bloc « Annexes au bail », AVANT la page des signatures ──────────────────────────────────────
+const ANN_TAG = { joint: ['j', 'Jointe'], hors_app: ['h', 'Remise hors application'], non_joint: ['n', 'Non jointe'] };
+const pagesTxt = (p) => (p.length > 1 ? `pages ${p[0]} à ${p[p.length - 1]}` : `page ${p[0]}`);
+function annexDetail(g) {
+  const pre = [g.ref, g.docName].filter(Boolean).join(' · ');
+  const tail = g.statut === 'joint' ? (g.pages.length ? pagesTxt(g.pages) : 'jointe au document')
+    : g.statut === 'hors_app' ? "fournie par le bailleur en dehors de l'application" : 'non fournie avec le bail';
+  return pre ? `${pre} · ${tail}` : tail;
+}
+function annexSection() {
+  // Périmètre de la case (audit v15.703 P1-1) : « les annexes listées ci-dessus » = celles JOINTES au document
+  // ou REMISES par le bailleur. Les pièces NON fournies sont listées SOUS la case, à part : le locataire ne
+  // reconnaît pas avoir reçu une pièce qu'on ne lui a jamais remise.
+  const recues = groups.filter((g) => g.statut !== 'non_joint');
+  const manquantes = groups.filter((g) => g.statut === 'non_joint');
+  const blk = h(`<section class="ann" id="annexes" aria-labelledby="ann-title">
+      <h2 id="ann-title">Annexes au bail</h2>
+      <p class="ann-sub">Elles font partie du contrat. Chacune peut être ouverte ici avant de signer.</p>
+      <div class="ann-list" id="ann-list-recues"></div>
+      <div class="ann-btns"><button type="button" class="line" id="ann-dl">Télécharger le bail et ses annexes (PDF)</button></div>
+      ${ackDue
+        ? `<label class="ann-ack" id="ann-ack-lbl"><input type="checkbox" id="ann-ack"><span><strong>Je reconnais avoir reçu les annexes listées ci-dessus et en avoir pris connaissance.</strong><small>Obligatoire pour accéder à la page de signature · la date et l'heure sont enregistrées dans le certificat de signature.</small></span></label>
+      <p class="ann-lock" id="ann-lock">La page des signatures s'affiche une fois la case cochée.</p>`
+        : (S.side !== 'locataire' ? '<p class="ann-legal">Côté bailleur, aucun accusé de réception des annexes n\'est demandé.</p>' : '')}
+      ${manquantes.length ? `<div class="ann-missing"><h3>Non fournies avec le bail</h3><p class="ann-legal">Ces pièces ne font pas partie du document que vous signez.</p><div class="ann-list" id="ann-list-manquantes"></div></div>` : ''}
+    </section>`);
+  const card = (g, gi) => {
+    const t = ANN_TAG[g.statut];
+    const c = h(`<div class="ann-it">
+        <div class="ann-it-h"><div class="ann-pc-t"><b>${esc(g.label)} <span class="ann-tag ${t[0]}">${t[1]}</span></b><small>${esc(annexDetail(g))}</small></div>
+          ${g.pages.length ? `<button type="button" class="line ann-read" aria-expanded="false" aria-controls="ann-pg-${gi}">Lire</button>` : ''}</div>
+        <div class="ann-pages" id="ann-pg-${gi}" hidden></div>
+      </div>`);
+    const holder = c.querySelector('.ann-pages');
+    g.pages.forEach((p) => { if (slots[p]) { slots[p].classList.add('pg-annex'); holder.appendChild(slots[p]); } });
+    const btn = c.querySelector('.ann-read');
+    if (btn) btn.onclick = () => {
+      const open = holder.hidden;
+      holder.hidden = !open;
+      btn.textContent = open ? 'Masquer' : 'Lire';
+      btn.setAttribute('aria-expanded', String(open));
+      if (!open) scrollToEl(c);   // replié : on revient sur l'annexe, pas au milieu du vide
+    };
+    return c;
+  };
+  recues.forEach((g, i) => blk.querySelector('#ann-list-recues').appendChild(card(g, 'r' + i)));
+  manquantes.forEach((g, i) => blk.querySelector('#ann-list-manquantes').appendChild(card(g, 'm' + i)));
+  blk.querySelector('#ann-dl').onclick = downloadFull;
+  const cb = blk.querySelector('#ann-ack');
+  if (cb) cb.onchange = () => {
+    // Heure de la case COCHÉE (décocher l'efface : la preuve date l'accusé réellement donné).
+    annexesRecuesAt = cb.checked ? new Date().toISOString() : null;
+    blk.querySelector('#ann-ack-lbl').classList.toggle('is-ok', cb.checked);
+    applySigLock();
+    updateReadUI();
+  };
+  return blk;
+}
+function applySigLock() {
+  const locked = ackDue && !annexesRecuesAt;
+  sigPagesLocked.forEach((p) => { if (slots[p]) slots[p].hidden = locked; });
+  const note = app.querySelector('#ann-lock');
+  if (note) note.hidden = !locked || !sigPagesLocked.length;
+}
+// Copie du PDF créée AU CLIC puis libérée (pas 20 Mo gardés en mémoire dès l'ouverture).
+function downloadFull() {
+  const url = URL.createObjectURL(new Blob([master], { type: 'application/pdf' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `bail-${String(S.bailRef || 'document').replace(/[^\w.-]+/g, '_')}.pdf`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+function goSign() {
+  const tot = plan.paraphes.length;
+  const rc = app.querySelector('#sig-recap');
+  if (rc) {
+    rc.hidden = !tot && !annexesRecuesAt;
+    rc.textContent = [tot ? `✓ ${tot} page${tot > 1 ? 's' : ''} du bail paraphée${tot > 1 ? 's' : ''}` : '', annexesRecuesAt ? '✓ annexes reçues' : ''].filter(Boolean).join(' · ') + '.';
+  }
+  show('step-sign'); ensureSignaturePad();
+}
+
+function renderParSlot(page) {
+  const slot = slots[page] && slots[page].querySelector('.par-slot');
+  if (!slot) return;
+  slot.innerHTML = '';
+  if (paraphesByPage[page]) {
+    slot.className = 'par-slot is-done';
+    slot.appendChild(h(`<div class="par-done"><img alt="Paraphe" src="${paraphesByPage[page]}"><small>Paraphé · ${hhmm(parapheTimes[page])}</small></div>`));
+  } else {
+    slot.className = 'par-slot' + (nextToParaphe() === page ? ' is-next' : '');
+    const b = h(`<button type="button" class="par-btn" aria-label="Parapher la page ${page}">Parapher</button>`);
+    b.onclick = () => paraphePage(page);
+    slot.appendChild(b);
+  }
+}
+
+function paraphePage(page) {
+  if (!parapheImg) { openParapheSheet(page); return; }
+  paraphesByPage[page] = parapheImg;
+  parapheTimes[page] = new Date().toISOString();
+  const prevNext = page;
+  renderParSlot(prevNext);
+  const nx = nextToParaphe(); if (nx) renderParSlot(nx);
+  updateReadUI();
+}
+
+// Paraphe tracé UNE fois — dialogue (≥ 600 px) ou page pleine (téléphone).
+function openParapheSheet(page) {
+  const sheet = h(`<div class="par-sheet" role="dialog" aria-modal="true" aria-labelledby="par-title">
+      <div class="par-card">
+        <div class="par-head"><button type="button" class="ghost par-back">‹ Retour</button><h2 id="par-title">Votre paraphe</h2><button type="button" class="ghost par-x">Fermer</button></div>
+        <div class="par-body">
+          <p>Tracez vos <strong>initiales une seule fois</strong>. Ensuite, un clic sur « Parapher » les appose sur chaque page, page par page, avec l'heure.</p>
+          <div class="pad-wrap"><canvas id="par-pad" width="600" height="220"></canvas></div>
+          <p class="hint">Votre paraphe n'est jamais apposé sans votre clic sur la page concernée.</p>
+        </div>
+        <div class="par-foot"><button type="button" class="ghost" id="par-clr">Effacer</button><button type="button" class="primary" id="par-ok">Valider et parapher la page ${page}</button></div>
+      </div></div>`);
+  if (document.querySelector('.par-sheet')) return;   // pas de double feuille (double clic)
+  const opener = document.activeElement;
+  document.body.appendChild(sheet);
+  const pad = initPad(sheet.querySelector('#par-pad'), { clearBtn: sheet.querySelector('#par-clr') });
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => { document.removeEventListener('keydown', onKey); sheet.remove(); if (opener && opener.isConnected) opener.focus(); };
+  document.addEventListener('keydown', onKey);
+  sheet.querySelector('.par-back').onclick = close;
+  sheet.querySelector('.par-x').onclick = close;
+  sheet.querySelector('#par-ok').onclick = () => {
+    if (pad.isEmpty()) { alert('Tracez votre paraphe avant de valider.'); return; }
+    parapheImg = pad.toDataURL();
+    close();
+    paraphePage(page);
+  };
+  sheet.querySelector('#par-ok').focus();
+}
+
+function scrollToEl(target) {
+  const sc = app.querySelector('#read-scroll');
+  if (!sc || !target) return;
+  const top = target.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - sc.clientHeight / 2;
+  sc.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+function goToPage(page) {
+  const el = slots[page];
+  if (!el) return;
+  if (el.hidden) { goToAck(); return; }   // page des signatures encore verrouillée : la case d'abord
+  scrollToEl(el.querySelector('.par-slot') || el);
+}
+function goToAck() {
+  const lbl = app.querySelector('#ann-ack-lbl');
+  scrollToEl(lbl || app.querySelector('#annexes'));
+  if (lbl) { lbl.classList.remove('is-flash'); void lbl.offsetWidth; lbl.classList.add('is-flash'); }
+}
+
+// Barre de progression (haut) + barre d'action (bas).
+function updateReadUI() {
+  const tot = plan.paraphes.length, done = plan.paraphes.filter((a) => paraphesByPage[a.page]).length;
+  const nx = nextToParaphe();
+  const ackMissing = ackDue && !annexesRecuesAt;
+  const prog = app.querySelector('#read-prog');
+  prog.innerHTML = '';
+  if (tot) {
+    prog.appendChild(h(`<div class="rp"><span class="rp-lbl">Paraphes ${done} / ${tot}</span><div class="rp-track"><div class="rp-fill${done === tot ? ' is-done' : ''}" style="width:${Math.round(done / tot * 100)}%"></div></div>${nx ? `<button type="button" class="rp-next">Page à parapher ↓</button>` : `<span class="rp-ok">✓ Bail paraphé</span>`}</div>`));
+    const rn = prog.querySelector('.rp-next'); if (rn) rn.onclick = () => goToPage(nx);
+  }
   const bar = app.querySelector('#read-bar');
   bar.innerHTML = '';
-  bar.appendChild(h(`<div class="progress">Page ${curPage} / ${total}${needsParaphe ? ' · à parapher' : ' · lecture seule'}</div>`));
-
-  // A3 : la page qui porte la zone de signature est atteinte en lecture (avant la fin).
-  // On rappelle que la signature se trace à la dernière étape — sans réordonner le PDF (intégrité légale).
-  if (!needsParaphe && signaturePages.includes(curPage)) {
-    bar.appendChild(h(`<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:13px;color:#92400e;margin:6px 0">📝 La zone de signature figure sur cette page, mais vous <strong>tracerez votre signature à la dernière étape</strong>, après avoir tout lu. Continuez la lecture.</div>`));
-  }
-
-  // Q3 — la zone d'action (pad de paraphe + bouton) est enfermée dans un conteneur RÉVÉLÉ : elle
-  // reste cachée tant que la page n'a pas été lue jusqu'en bas ; seul l'indice « ↓ Faites défiler »
-  // est visible. À l'arrivée en bas, elle apparaît (fondu + glissé) puis reste ACQUISE (latch) :
-  // on ne la re-cache jamais — révéler agrandit la barre, ce qui réduit la zone de lecture et
-  // ferait repasser « plus en bas » en boucle si on re-cachait.
-  const zone = h(`<div class="sign-reveal is-hidden"></div>`);
-  let parPad = null;
-  if (needsParaphe) {
-    zone.appendChild(h(`<div class="pad-wrap small"><canvas id="par-pad" width="320" height="90"></canvas></div>`));
-    zone.appendChild(h(`<div class="bar-btns"><button id="par-clr" class="ghost">Effacer</button><button id="par-next" class="primary" disabled>${nextLabel}</button></div>`));
+  if (nx && !(slots[nx] && slots[nx].hidden)) {
+    bar.appendChild(h(`<div class="progress">${done} / ${tot} pages paraphées · le bouton « Parapher » est sur chaque page</div>`));
+    const b = h(`<button class="primary">Aller à la page ${nx} à parapher ↓</button>`);
+    b.onclick = () => goToPage(nx);
+    bar.appendChild(b);
+  } else if (ackMissing) {
+    bar.appendChild(h(`<div class="progress">${tot && !nx ? `Les ${tot} pages du bail sont paraphées · ` : ''}reste la case des annexes, avant la page des signatures</div>`));
+    const b = h('<button class="primary">Aller à la case des annexes ↓</button>');
+    b.onclick = goToAck;
+    bar.appendChild(b);
   } else {
-    zone.appendChild(h(`<div class="bar-btns"><button id="par-next" class="primary" disabled>${nextLabel}</button></div>`));
+    bar.appendChild(h(`<div class="progress">${tot ? `Les ${tot} pages du bail sont paraphées` : 'Lecture du document'}${annexesRecuesAt ? ' · annexes reçues' : ''}</div>`));
+    const b = h(`<button class="primary is-ok">Continuer vers la signature</button>`);
+    b.onclick = () => {
+      readCompletedAt = new Date().toISOString();
+      goSign();
+    };
+    bar.appendChild(b);
   }
-  bar.appendChild(zone);
-  if (needsParaphe) parPad = initPad(app.querySelector('#par-pad'), { clearBtn: app.querySelector('#par-clr') });
-  app.querySelector('#par-next').onclick = () => {
-    if (needsParaphe) {
-      if (parPad.isEmpty()) { alert('Veuillez parapher cette page avant de continuer.'); return; }
-      paraphesByPage[curPage] = parPad.toDataURL();
-    }
-    advancePage(isLast);
-  };
-
-  // (4) Lecture forcée : la zone reste cachée tant que la page n'a pas été défilée jusqu'en bas
-  // (on s'assure que le signataire a vu toute la page avant de parapher/continuer).
-  // Révélation : le bouton reste `disabled` tant que la zone est cachée (gate robuste au clavier /
-  // lecteur d'écran, pas seulement un clip CSS — P2-1) ; on ne l'active qu'ici, à l'arrivée en bas.
-  const revealZone = () => {
-    zone.classList.remove('is-hidden'); zone.classList.add('is-in');
-    const pn = zone.querySelector('#par-next'); if (pn) pn.disabled = false;
-  };
-  if (sc) {
-    const hint = h(`<div class="scroll-hint" style="font-size:12px;color:#92400e;margin-top:6px;text-align:center">↓ Faites défiler la page jusqu'en bas pour ${needsParaphe ? 'pouvoir parapher' : 'continuer'}.</div>`);
-    bar.appendChild(hint);
-    const atBottom = () => sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 8;
-    const reveal = () => { revealZone(); hint.style.display = 'none'; sc.onscroll = null; };  // latch
-    const sync = () => { if (atBottom()) reveal(); };
-    sc.onscroll = sync;
-    sync(); // page courte (pas de défilement requis) → révélée d'emblée
-  } else {
-    revealZone();   // défensif : pas de zone défilante → zone visible d'emblée
-  }
-}
-
-function advancePage(isLast) {
-  if (isLast) { readCompletedAt = new Date().toISOString(); show('step-sign'); ensureSignaturePad(); return; }
-  curPage++;
-  renderReadStep();
 }
 
 function ensureSignaturePad() {
@@ -293,15 +554,17 @@ async function doSubmit() {
     // de signature (+ paraphes par page) — jamais les octets du document (anti-substitution).
     const proof = buildProofObject({
       signerName, role: S.role, sigId: S.sigId, dateISO,
-      consentElectronic, luApprouve, openedAt, readCompletedAt
+      consentElectronic, luApprouve, openedAt, readCompletedAt, annexesRecuesAt
     });
     const r = await fetch(`/api/sessions/${SID}/signed`, {
       method: 'POST',
       headers: { 'X-Sign-Token': TOKEN, 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson(proof) },
-      body: JSON.stringify({ signaturePngDataUrl: signaturePad.toDataURL(), paraphesByPage })
+      body: JSON.stringify({ signaturePngDataUrl: signaturePad.toDataURL(), paraphesByPage, parapheTimes })
     });
     if (r.status === 403) return fail('Ce n\'est pas (ou plus) votre tour de signer.');
     if (r.status === 410) return fail('Ce document est déjà signé.');
+    if (r.status === 409) return fail('Signature non enregistrée : l\'accusé de réception des annexes manque. Rechargez la page et cochez la case « Je reconnais avoir reçu les annexes », avant la page des signatures.');
+    if (r.status === 422) return fail('Signature impossible : ce document ne prévoit aucune case de signature pour vous. Contactez l\'expéditeur du bail.');
     if (!r.ok) throw new Error('http ' + r.status);
     show('step-done');
   } catch (e) {
