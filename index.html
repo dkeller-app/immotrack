@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.704</title>
+<title>Propryo v15.706</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.704">
+<link rel="stylesheet" href="css/main.css?v=15.706">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.704</em>
+      <em>v15.706</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4348,7 +4348,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.704';
+const IMMOTRACK_VERSION = '15.706';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -4671,7 +4671,7 @@ function _loadDemoDataset() {
     agenda: [], params: {}, irlTable: {}
   };
   try {
-    localStorage.setItem(KEY, JSON.stringify(demoDB));
+    _miroirEcrire(JSON.stringify(demoDB));   // STOCKAGE lot 1 : l'écrivain unique du miroir (éviction sur quota)
     console.info('[SANDBOX] Dataset démo chargé : 1 SCI · 1 immeuble · 4 logements · 2 baux · ' + mvts.length + ' mvts');
   } catch(e) {
     console.error('[SANDBOX] Échec chargement dataset', e);
@@ -5924,28 +5924,33 @@ function initDB() {
   // polluer les vraies données. Plus aucune injection auto → DB.entites/logements
   // restent vides au 1er boot, le user est guidé par l'onboarding pour
   // soit charger des données démo opt-in, soit connecter son Drive.
-  // La const driveUsed est gardée car référencée par d'autres garde-fous boot.
-  const driveUsed = _isTestMode
-    ? true  // mode test : on neutralise toujours les démos prod
-    : (!!localStorage.getItem('_driveLastSync') || !!localStorage.getItem('_driveGlobalFileId'));
+  // STOCKAGE lot 1 : la const `driveUsed` (jamais lue) et l'invite de restauration Drive (modale
+  // `m-drive-restore-prompt` absente du document) sont retirées — code mort depuis le retrait de Drive.
+  // Les clés `_driveLastSync` / `_driveGlobalFileId` sont des clés RETIRÉES du registre
+  // (js/core/stockage-local.js), supprimées au démarrage par _stockageNettoyer().
   // v14.84 DB-CORRUPT-FALLBACK : détection + alerte explicite + log diagnostique
   if (raw) {
     try { DB = JSON.parse(raw); }
     catch(e) {
       console.error('[initDB] DB localStorage corrompue — JSON parse échoué', e);
-      // Sauvegarde le payload corrompu pour analyse post-mortem
-      try { localStorage.setItem(KEY + '_corrupt_backup_' + Date.now(), raw); } catch(_) {}
+      // Sauvegarde le payload corrompu pour analyse post-mortem. STOCKAGE lot 1 (S-2) : plus JAMAIS
+      // en localStorage (c'était une copie complète, horodatée, jamais purgée, qui mangeait le budget du
+      // save principal) → IndexedDB `immotrack_backup` (helper existant _idbPutRaw), UNE seule entrée
+      // par namespace, écrasée à chaque occurrence. Sans elle, le saveDB() de fin d'initDB écraserait
+      // la seule trace du contenu illisible.
+      // `_copieIllisible` : la promesse de conservation (bornée dans le temps) — le message dit la vérité
+      // sur son sort, et il s'affiche TOUJOURS, même si IndexedDB ne répond jamais.
+      const _copieIllisible = _conserverBaseIllisible(raw);
       DB = {};
-      // Alerte utilisateur (différée pour laisser initDB finir)
+      // Alerte utilisateur (différée pour laisser initDB finir). STOCKAGE lot 1 : le texte ne renvoie
+      // plus vers Drive (retiré) ; il dit où est la copie, ou qu'elle n'a pas pu être conservée.
       setTimeout(() => {
-        if (typeof showToast === 'function') {
-          showToast('⚠ Base de données corrompue — restauration recommandée via Drive sync ou backup', 'err', 12000);
-        }
-        // Si user a déjà utilisé Drive, propose la restauration manuelle
-        const hadDrive = !!localStorage.getItem('_driveLastSync') || !!localStorage.getItem('_driveGlobalFileId');
-        if (hadDrive && typeof openM === 'function' && document.getElementById('m-drive-restore-prompt')) {
-          openM('m-drive-restore-prompt');
-        }
+        _copieIllisible.then(conservee => {
+          if (typeof showToast !== 'function') return;
+          showToast(conservee
+            ? "⚠ Base locale illisible : une copie a été conservée dans l'IndexedDB de cet appareil (base « immotrack_backup »). Restaurer une sauvegarde de sécurité pour retrouver les données."
+            : "⚠ Base locale illisible, et sa copie n'a pas pu être conservée sur cet appareil. Restaurer une sauvegarde de sécurité pour retrouver les données.", 'err', 12000);
+        });
       }, 1500);
     }
   }
@@ -6081,7 +6086,7 @@ function initDB() {
     if (!('conduitFumee' in l.equipements)) l.equipements.conduitFumee = false;
   });
   // ── v14.14 ARCHI-DB-DOUBLONS Phase 2 — migration data log/bail ─────────
-  // (idempotente, marqueur DB._migratedArchiV1, backup auto, toast utilisateur)
+  // (idempotente, marqueur DB._migratedArchiV1, toast utilisateur ; filet pré-migration neutralisé — STOCKAGE lot 1)
   // Décisions Q1-Q8 cf docs/subjects/ARCHI-DB-DOUBLONS.md
   try { _migrateArchiV1IfNeeded(); } catch(e) { console.error('[ARCHI] migration error', e); }
   // ── v15.209 LOG-ANNONCE Étape 2 — schéma DB enrichi pour générateur annonces.
@@ -6882,7 +6887,10 @@ function saveDB(opts) {
     // Invariant 19l : un saveDB qui échoue sur quota renvoie FAUX et le dit.
     let _miroirOk = true;
     try {
-      localStorage.setItem(KEY, JSON.stringify(DB));
+      // STOCKAGE lot 1 (S-1) : l'écrivain UNIQUE du miroir libère les copies/clés retirées et
+      // réessaie une fois sur quota — le save n'est plus bloqué par une donnée secondaire.
+      // `horodater` : miroir + `_ecrit_at` écrits ENSEMBLE (même règle qu'avant, ci-dessous).
+      //
       // EDL TERRAIN lot 4 (F1) : on horodate la derniere ecriture du miroir.
       // Au prochain demarrage EN LIGNE, si cette date est posterieure au dernier
       // flush reussi, le travail fait hors ligne est remonte AVANT l'hydratation
@@ -6894,7 +6902,7 @@ function saveDB(opts) {
       // suivant, F1 croirait a du travail non flushe et rejouerait un miroir
       // perime sur les vraies donnees. Contrat encode par
       // __tests__/helpers/saveDB-miroir-horodate.test.js.
-      localStorage.setItem(KEY + '_ecrit_at', String(Date.now()));
+      _miroirEcrire(JSON.stringify(DB), { horodater: true });
     }
     catch (e) { _miroirOk = false; _saveDBQuotaWarn(e); }
     if (typeof window.__immoMarkDirty === 'function') window.__immoMarkDirty();
@@ -6928,7 +6936,7 @@ function saveDB(opts) {
   const data = JSON.stringify(DB);
   let _ecrit = true;
   try {
-    localStorage.setItem(KEY, data);
+    _miroirEcrire(data);   // STOCKAGE lot 1 (S-1) : éviction + nouvel essai sur quota
   } catch(e) {
     // F8 / invariant 19l : on ne prétend PAS avoir écrit.
     _ecrit = false;
@@ -6952,6 +6960,74 @@ function _saveDBQuotaWarn(e) {
   if (typeof showToast === 'function') {
     showToast("⚠️ Mémoire pleine : cette modification n'est PAS enregistrée sur cet appareil. Libère de l'espace, puis reprends.", 'err', 10000);
   }
+}
+
+/* ═══ STOCKAGE lot 1 — L'ÉCRIVAIN UNIQUE DU MIROIR (CDC docs/CDC-STOCKAGE.md §3.2) ═══
+   Incident du 28/08 : « Mémoire pleine » sur une base de quelques centaines de Ko,
+   parce que des COPIES COMPLÈTES de la base (sauvegardes avant migration, ancien
+   Drive) remplissaient le localStorage et que rien ne les retirait jamais.
+
+   Tous les écrivains de `KEY` passent ICI (saveDB ×2, restauration, beforeunload,
+   dataset démo) : un seul endroit sait gérer le quota. La décision (quoi libérer,
+   dans quel ordre, combien d'essais) vit dans js/core/stockage-local.js, testé ;
+   ici, on ne fait qu'appliquer son verdict au vrai localStorage.
+
+   Contrat : écrit `KEY` (et `KEY_ecrit_at` si `opts.horodater`), ou LÈVE l'erreur
+   du navigateur — les appelants gardent leur try/catch et leur message (F8, 19l).
+   Module absent (ouverture en file://, les modules ES y sont bloqués) : écriture
+   directe, exactement le comportement d'avant ce lot. */
+function _miroirEcrire(json, opts) {
+  const paires = [[KEY, json]];
+  if (opts && opts.horodater) paires.push([KEY + '_ecrit_at', String(Date.now())]);
+  const S = (typeof window !== 'undefined') ? window._stockage : null;
+  if (!S || typeof S.ecrireAvecLiberation !== 'function') {
+    localStorage.setItem(KEY, json);
+    if (paires.length > 1) localStorage.setItem(KEY + '_ecrit_at', paires[1][1]);
+    return true;
+  }
+  const r = S.ecrireAvecLiberation(localStorage, paires);
+  if (r.liberees.length) {
+    console.info('[stockage] save sur quota : ' + r.liberees.length + ' clé(s) jetable(s) libérée(s), '
+      + r.caracteresLiberes + ' caractères', r.liberees);
+  }
+  if (!r.ok) throw r.erreur;
+  return true;
+}
+
+/* STOCKAGE lot 1 — conservation de la base ILLISIBLE (initDB) dans IndexedDB `immotrack_backup`
+   (helper existant _idbPutRaw), une seule entrée par namespace. Rend une promesse de booléen
+   « copie conservée ? », BORNÉE : sur certains iOS le premier `indexedDB.open` ne répond jamais —
+   sans borne, le message de base illisible ne s'afficherait jamais et l'utilisateur verrait une
+   base vide sans explication. Au-delà du délai : `false` (« copie non conservée »), le sens prudent
+   — une écriture qui aboutirait plus tard ne fait qu'ajouter une copie non annoncée. */
+function _conserverBaseIllisible(raw, delaiMs) {
+  const delai = (typeof delaiMs === 'number') ? delaiMs : 3000;
+  let ecriture;
+  try {
+    ecriture = Promise.resolve(_idbPutRaw('corrompu:' + KEY, { at: new Date().toISOString(), raw }))
+      .then(() => true, err => { console.warn('[initDB] copie de la base illisible non conservée', err); return false; });
+  } catch (err) {
+    console.warn('[initDB] copie de la base illisible non conservée (IndexedDB indisponible)', err);
+    return Promise.resolve(false);
+  }
+  const expiration = new Promise(res => setTimeout(() => {
+    res(false);
+  }, delai));
+  return Promise.race([ecriture, expiration]);
+}
+
+/* STOCKAGE lot 1 (S-5, D3 A) — nettoyage de démarrage : les copies complètes héritées
+   (`immotrack_backup_*`, `_driveBackupBeforeSync`, sauvegardes de base corrompue) et
+   les clés retirées disparaissent à l'ouverture, dans les deux namespaces. Les comptes
+   existants se réparent sans console. Idempotent. Jamais une clé non reconnue par le
+   registre (l'origine github.io est partagée). Module absent : rien. */
+function _stockageNettoyer() {
+  const S = (typeof window !== 'undefined') ? window._stockage : null;
+  if (!S || typeof S.nettoyer !== 'function') return;
+  try {
+    const r = S.nettoyer(localStorage);
+    if (r.supprimees.length) console.info('[stockage] nettoyage au démarrage : ' + r.supprimees.length + ' clé(s), ' + r.caracteres + ' caractères libérés', r.supprimees);
+  } catch (e) { console.warn('[stockage] nettoyage au démarrage', e); }
 }
 
 /* ═══ EDL TERRAIN lot 4bis — DEUX APPAREILS, UN ÉTAT DES LIEUX ══════════════
@@ -29737,10 +29813,11 @@ function computeRegul(from, to) {
     const occStart = debutD < fromD ? fromD : debutD;
     const occEnd   = finD   > toD   ? toD   : finD;
     const occDays  = Math.max(0, Math.round((occEnd - occStart) / 86400000) + 1);
+    // Format LOCAL : occStart/occEnd sont à minuit local, toISOString() donnerait la veille en UTC+ (Paris)
     return {
       occDays,
-      debutOcc: occDays > 0 ? occStart.toISOString().slice(0,10) : '',
-      finOcc:   occDays > 0 ? occEnd.toISOString().slice(0,10)   : ''
+      debutOcc: occDays > 0 ? _isoLocal(occStart) : '',
+      finOcc:   occDays > 0 ? _isoLocal(occEnd)   : ''
     };
   }
 
@@ -39228,27 +39305,25 @@ function _readLogForBail(bail, log) {
   });
 }
 
-// Backup automatique avant migration majeure. Réutilise pattern DRIVE-2C livré v13.17.
-// Stocke dans localStorage avec timestamp pour permettre rollback.
+// Filet avant migration majeure — NEUTRALISÉ (STOCKAGE lot 1, CDC docs/CDC-STOCKAGE.md §3.4, S-2).
+// Avant : la base entière sérialisée sous la clé `immotrack_backup_<label>_<date>` — une COPIE
+// COMPLÈTE de la base par migration, par jour et par appareil, jamais purgée, qui partageait le
+// budget (~5 Mo) du save principal : c'est la cause de l'incident « Mémoire pleine » du 28/08.
+// En boot cloud, ces migrations tournent d'ailleurs sur une base VIDE (avant l'hydratation) : la
+// copie ne protégeait rien. Plus aucune écriture localStorage ici. Le filet IndexedDB avec rotation
+// (1 par migration, 3 au plus, 30 jours, purgé au logout — D2 C) arrive au lot 2, à cet endroit.
+// Les anciennes copies sont retirées au démarrage par _stockageNettoyer().
 function _backupBeforeMigration(label) {
-  try {
-    // v15.232 S3 (audit) — préfixe sandbox via _lsKey : en mode test, le backup doit rester
-    // dans le namespace sandbox et non polluer le localStorage prod. _lsKey est l'identité en prod.
-    const key = (typeof _lsKey === 'function' ? _lsKey(`immotrack_backup_${label}_${td()}`) : `immotrack_backup_${label}_${td()}`);
-    localStorage.setItem(key, JSON.stringify(DB));
-    console.log('[ARCHI] Backup pré-migration créé :', key);
-    return key;
-  } catch(e) {
-    console.error('[ARCHI] Backup échec', e);
-    return null;
-  }
+  console.info('[ARCHI] filet pré-migration « ' + label + ' » : aucune copie locale (STOCKAGE lot 1, filet IndexedDB au lot 2)');
+  return null;
 }
 
-// Migration ARCHI-DB-DOUBLONS Phase 2 — auto au boot, idempotente, avec backup.
+// Migration ARCHI-DB-DOUBLONS Phase 2 — auto au boot, idempotente.
 // Implémente les décisions Q4=B (migration hard) + Q4bis (typeUsage) + Q5=A (snapshot)
 // + Q7=A (auto au boot).
 // Étapes :
-//   1. Backup auto via _backupBeforeMigration('archi-v1')
+//   1. Point d'accroche du filet pré-migration _backupBeforeMigration('archi-v1') — NEUTRALISÉ
+//      depuis STOCKAGE lot 1 (aucune copie locale) ; filet IndexedDB avec rotation au lot 2.
 //   2. Pour chaque bail signé : enrichir bailSnapshot.log si manquant
 //   3. Pour chaque log : copier champs bien depuis bail courant si absents
 //   4. Pour chaque log : déduire log.typeUsage depuis le contexte
@@ -39272,7 +39347,7 @@ function _archiV1MarkDone() {
 function _migrateArchiV1IfNeeded() {
   if(!DB.logements) return; // initDB pas encore prête, sera rappelée plus tard
 
-  // Backup et toast UNE SEULE FOIS (premier boot, marqueur localStorage)
+  // Filet pré-migration (neutralisé, STOCKAGE lot 1) et toast UNE SEULE FOIS (premier boot, marqueur localStorage)
   // L'enrichissement des logements/snapshots tourne à CHAQUE boot (idempotent via if(!log.X))
   // → robuste pour les nouveaux logements créés entre Phase 2 et Phase 3+,
   //    pour les imports JSON cross-device, ET pour le mode lecture seule Drive.
@@ -39454,7 +39529,7 @@ function _migrateArchiV1IfNeeded() {
     setTimeout(() => {
       try {
         showToast(
-          `🔧 Migration architecture v14.14 effectuée : ${nbLogsEnrichis} bien(s) enrichi(s), ${nbBauxSnapshotEnrichis} bail(s) signé(s) snapshot enrichi(s). Backup auto créé.`,
+          `🔧 Migration architecture v14.14 effectuée : ${nbLogsEnrichis} bien(s) enrichi(s), ${nbBauxSnapshotEnrichis} bail(s) signé(s) snapshot enrichi(s).`,
           'ok', 9000
         );
       } catch(e) {}
@@ -39486,8 +39561,8 @@ function _migrateArchiV1IfNeeded() {
 // la modale Logement) AVANT suppression. annexes/dpe/etatRisques/chauffage/ecs sont déjà
 // backfillés losslessly par la Phase V1.
 //
-// Idempotent : une fois les champs retirés, plus rien à faire. Backup auto + toast au premier
-// run (marqueur localStorage propre, indépendant d'archi-v1).
+// Idempotent : une fois les champs retirés, plus rien à faire. Toast au premier run (marqueur
+// localStorage propre, indépendant d'archi-v1) ; filet pré-migration neutralisé (STOCKAGE lot 1, IndexedDB au lot 2).
 const _ARCHI_V4B_KEY = _lsKey('immotrack_archi_v4b_done');
 function _archiV4bIsDone() {
   try { return localStorage.getItem(_ARCHI_V4B_KEY) === '1'; } catch(e) { return false; }
@@ -39558,7 +39633,7 @@ function _migrateArchiV4bIfNeeded() {
     setTimeout(() => {
       try {
         showToast(
-          `🔧 Migration v15.232 (bien = logement) : ${nbBauxNettoyes} bail(s) nettoyé(s), ${nbEquipMigres} équipement(s) texte migré(s). Backup auto créé.`,
+          `🔧 Migration v15.232 (bien = logement) : ${nbBauxNettoyes} bail(s) nettoyé(s), ${nbEquipMigres} équipement(s) texte migré(s).`,
           'ok', 9000
         );
       } catch(e) {}
@@ -42694,6 +42769,9 @@ function _ccLogOccupations(log, periodFrom, periodTo) {
   const fromMs = new Date(periodFrom + 'T00:00:00').getTime();
   const toMs = new Date(periodTo + 'T00:00:00').getTime();
   const totalDays = Math.max(1, Math.round((toMs - fromMs) / 86400000) + 1);
+  // Décalage en jours CALENDAIRES (± 24 h de ms tombe à 23 h / 1 h aux changements d'heure) ;
+  // dates formatées en LOCAL (_isoLocal) : toISOString() donnerait la veille en UTC+ (Paris).
+  const _jourDecale = (ms, n) => { const d = new Date(ms); d.setDate(d.getDate() + n); return d; };
   const segments = [];
   // Bails : courant + historique (même structure que _getAllBailsForLog)
   const bails = (typeof _getAllBailsForLog === 'function') ? _getAllBailsForLog(log.ref) : [];
@@ -42708,23 +42786,23 @@ function _ccLogOccupations(log, periodFrom, periodTo) {
     // Période avant ce bail (si gap depuis cursor) → vacance bailleur
     if(bDebMs > cursorMs) {
       const vacDays = Math.round((bDebMs - cursorMs) / 86400000);
-      if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: new Date(cursorMs).toISOString().slice(0,10), fin: new Date(bDebMs - 86400000).toISOString().slice(0,10), occDays: vacDays, isBailleur: true });
+      if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: _isoLocal(new Date(cursorMs)), fin: _isoLocal(_jourDecale(bDebMs, -1)), occDays: vacDays, isBailleur: true });
     }
     // Période du bail
     const occDays = Math.round((bFinMs - bDebMs) / 86400000) + 1;
     if(occDays > 0) segments.push({
       bailId: b._type === 'current' ? 'current' : 'hist',
       locataire: b.nom || '—',
-      debut: new Date(bDebMs).toISOString().slice(0,10),
-      fin: new Date(bFinMs).toISOString().slice(0,10),
+      debut: _isoLocal(new Date(bDebMs)),
+      fin: _isoLocal(new Date(bFinMs)),
       occDays, isBailleur: false
     });
-    cursorMs = Math.max(cursorMs, bFinMs + 86400000);
+    cursorMs = Math.max(cursorMs, _jourDecale(bFinMs, 1).getTime());
   }
   // Vacance résiduelle après le dernier bail
   if(cursorMs <= toMs) {
     const vacDays = Math.round((toMs - cursorMs) / 86400000) + 1;
-    if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: new Date(cursorMs).toISOString().slice(0,10), fin: periodTo, occDays: vacDays, isBailleur: true });
+    if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: _isoLocal(new Date(cursorMs)), fin: periodTo, occDays: vacDays, isBailleur: true });
   }
   // Si aucun bail du tout : tout en vacance bailleur
   if(segments.length === 0) segments.push({ bailId: null, locataire: '—', debut: periodFrom, fin: periodTo, occDays: totalDays, isBailleur: true });
@@ -45914,7 +45992,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.704 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.706 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -61924,7 +62002,7 @@ async function _backupRestoreRun(dir, snapName) {
       if (ok) {
         // Succès : cloud = mémoire = instantané. Miroir localStorage écrit DIRECTEMENT (sans markDirty →
         // pas de flush fantôme re-planifié, audit IMPORTANT 1). Puis re-render (pas de reload → pas de re-login).
-        try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) {}
+        try { _miroirEcrire(JSON.stringify(DB)); } catch (e) { console.warn('[restore] copie locale non mise à jour', e); }   // STOCKAGE lot 1 : écrivain unique
         if (typeof window.__immoRender === 'function') window.__immoRender();
         showToast('✓ Restauration effectuée', 'ok', 6000);
       } else {
@@ -63642,7 +63720,7 @@ window.addEventListener('beforeunload', ()=>{
   // sur l'écran de connexion ne doit pas écraser le miroir prod avec ce vide.
   if (_CLOUD_BOOT) return;
   // localStorage toujours synchrone (mode test)
-  try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch(e){}
+  try { _miroirEcrire(JSON.stringify(DB)); } catch(e){}   // STOCKAGE lot 1 : écrivain unique (éviction sur quota)
 });
 
 // v13.05 — sync localStorage → DB en mémoire quand un autre window/popup écrit.
@@ -63938,6 +64016,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
     const _t1 = el('edl-engagement-txt1');  if(_t1) _t1.textContent = EDL_ENGAGEMENT_TXT1;
     const _t2 = el('edl-engagement-txt2');  if(_t2) _t2.textContent = EDL_ENGAGEMENT_TXT2;
   } catch(e) { console.warn('[EDL engagement] inject fail:', e); }
+  // STOCKAGE lot 1 (S-5, D3 A) : retirer les copies héritées AVANT le premier save d'initDB.
+  _stockageNettoyer();
   initDB();
   // v15.04 USER-PROFILE-FILTERS Phase 3 : applique le filtre sidebar selon le profil
   // (no-op si tous les modules sont CORE et override vide).
