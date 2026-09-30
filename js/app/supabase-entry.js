@@ -183,12 +183,13 @@ function _purgerCopiesLocales(motif) {
 
 // P1.3 volet RGPD — purge du cache local au LOGIN, selon le propriétaire du miroir résiduel.
 // Extraite telle quelle de `onLoggedIn` (STOCKAGE lot 1, audit point 3) pour être exécutable par un
-// test : tout sauf 'same' → miroir + horodatage + copies complètes de la base retirés ; puis tag et
-// espaces autorisés réécrits. SYNCHRONE : aucun `await` entre la lecture de l'ancien tag et sa
-// réécriture. Rend le verdict de l'ANCIEN tag, que l'appelant retient pour F1 (EDL TERRAIN lot 4 :
-// relu après la réécriture, il rendrait toujours 'same'). La purge IndexedDB des photos d'un autre
-// utilisateur ('other-user') est lancée par l'appelant, sur ce verdict. Peut lever (l'appelant
-// l'attrape, comme avant).
+// test : lit le verdict de l'ANCIEN tag ; tout sauf 'same' → miroir + horodatage + copies complètes
+// de la base retirés. SYNCHRONE. Rend le verdict, que l'appelant retient pour F1 (EDL TERRAIN lot 4).
+// N'ÉCRIT PAS le nouveau tag : l'ordre de l'appelant est le contrat —
+//   1. _purgerCacheAuLogin  2. si 'other-user' : await _deletePhotosDb()  3. _ecrireTagEtEspacesLogin.
+// Le nouveau tag n'est posé qu'APRÈS la suppression des photos d'autrui : si le processus meurt
+// pendant la suppression, l'ancien tag est toujours là, le login suivant rend encore 'other-user' et
+// la purge est rejouée (F14.1). Peut lever (l'appelant l'attrape, comme avant).
 function _purgerCacheAuLogin({ user, esp }) {
   // (audit M-b) SANS le module (import raté) : verdict 'untagged' forcé → miroir purgé quand même
   // (fail-safe RGPD ; seule la purge IDB 'other-user', qui exige la PREUVE du tag, devient inerte).
@@ -201,13 +202,18 @@ function _purgerCacheAuLogin({ user, esp }) {
     // S-7 : les copies complètes de la base d'un autre utilisateur/espace ne survivent pas non plus.
     _purgerCopiesLocales('changement de propriétaire du miroir')
   }
+  return cls
+}
+
+// P1.3 volet RGPD — le tag du miroir et les espaces autorisés du login courant. Appelée par
+// `onLoggedIn` APRÈS la purge IndexedDB éventuelle (voir `_purgerCacheAuLogin`, ci-dessus).
+function _ecrireTagEtEspacesLogin({ user, esp }) {
   try { localStorage.setItem(MIRROR_TAG_KEY, _cachePurge ? _cachePurge.mirrorTag(user.id, esp.espaceId) : JSON.stringify({ userId: user.id, espaceId: esp.espaceId })) } catch (e) {}
   // EDL TERRAIN lot 4 — on MÉMORISE les espaces auxquels ce login donne accès.
   // Hors ligne on ne peut rien demander au serveur : sans cette liste, le
   // miroir serait affiché en entier, espaces révoqués compris (incident du
   // 12/07). Le tag ne suffit pas, il n'enregistre que l'espace PROPRE (F13).
   try { if (_offlineBoot) localStorage.setItem(_offlineBoot.ESPACES_KEY, JSON.stringify(Object.keys(_espaceOwners || {}))) } catch (e) {}
-  return cls
 }
 
 // STOCKAGE lot 1 (S-1) — écriture du miroir avec éviction sur quota. Même décision que l'écrivain
@@ -1362,11 +1368,13 @@ async function onLoggedIn(api, overlay, user) {
     // STOCKAGE lot 1 (audit, point 3) : la séquence vit dans une FONCTION NOMMÉE au niveau du module
     // (`_purgerCacheAuLogin`, définie plus haut dans ce fichier) pour être EXÉCUTÉE par un test — même
     // raison que F1. Appel SYNCHRONE : son retour est le verdict de l'ANCIEN tag, retenu ici pour F1
-    // (EDL TERRAIN lot 4). La purge IndexedDB 'other-user' suit, dans la même tâche : la requête de
-    // suppression part immédiatement après la réécriture du tag, sans tour de boucle entre les deux.
+    // (EDL TERRAIN lot 4). ORDRE CONTRACTUEL (F14.1) : purge des photos d'autrui TERMINÉE, puis
+    // seulement le nouveau tag — un processus tué pendant la suppression laisse l'ancien tag, et la
+    // purge est rejouée au login suivant.
     try {
       _tagMiroirAvantLogin = _purgerCacheAuLogin({ user, esp })
       if (_tagMiroirAvantLogin === 'other-user') await _deletePhotosDb()
+      _ecrireTagEtEspacesLogin({ user, esp })
     } catch (e) { console.warn('[Supabase] purge cache au login', e) }
     api.wireStores({ espaces: _espaces, getDB: () => liveDB, schedule })   // MULTI-ESPACE : 1 store/espace agrégé (N=1 = mono)
     // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des

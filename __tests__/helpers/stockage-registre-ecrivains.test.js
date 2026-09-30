@@ -111,32 +111,47 @@ function regionsJs(fichier, src) {
   return out;
 }
 
-const MOTS_DE_BLOC = new Set(['if', 'for', 'while', 'switch', 'catch', 'with']);
+// `for await (…) {` : `await` précède la parenthèse d'un bloc de boucle (audit lot 1, 3e passe).
+const MOTS_DE_BLOC = new Set(['if', 'for', 'while', 'switch', 'catch', 'with', 'await']);
+const estMot = j => !!j && /^[\w$]+$/.test(j.v);
 
-/** Une paire d'accolades est-elle le corps d'une FONCTION ? Si oui, son nom (ou ''). */
-function classerAccolade(src, o) {
-  let i = o - 1;
-  while (i >= 0 && /\s/.test(src[i])) i--;
-  const avant = src.slice(Math.max(0, i - 400), i + 1);
-  if (avant.endsWith('=>')) {
-    const m = avant.match(/([\w$.]+)\s*[:=]\s*(?:async\s*)?(?:\([^()]*\)|[\w$]+)\s*=>$/);
-    return { fn: true, nom: m ? m[1] : '' };
+/** Le nom affecté devant une fonction anonyme / fléchée : `nom = …`, `nom: …` (`async` toléré). */
+function nomAffecte(avant) {
+  const t = avant.slice();
+  if (t.length && t[t.length - 1].v === 'async') t.pop();
+  const op = t[t.length - 1], nom = t[t.length - 2];
+  return op && (op.v === '=' || op.v === ':') && estMot(nom) ? nom.v : '';
+}
+
+/**
+ * Une paire d'accolades est-elle le corps d'une FONCTION ? Décidé sur les JETONS SIGNIFICATIFS qui
+ * précèdent l'accolade (fournis par parcourirJs : commentaires et chaînes exclus — un commentaire
+ * terminé par « _miroirEcrire(json) » ne fait plus d'un bloc nu une fonction).
+ * Rend { fn, nom, entete } ; `entete` = texte littéral `function nom(` pour une déclaration nommée.
+ */
+function classerAccolade(src, avant) {
+  const dernier = avant[avant.length - 1];
+  if (!dernier) return { fn: false, nom: '', entete: '' };
+  if (dernier.v === '=>') {
+    // (params) => {   |   x => {
+    const precedent = avant[avant.length - 2];
+    const avantParams = precedent && precedent.v === ')' && precedent.groupe ? precedent.groupe.avant : avant.slice(0, -2);
+    return { fn: true, nom: nomAffecte(avantParams), entete: '' };
   }
-  if (src[i] !== ')') return { fn: false, nom: '' };
-  let prof = 0, j = i;
-  for (; j >= 0; j--) { if (src[j] === ')') prof++; else if (src[j] === '(') { prof--; if (prof === 0) break; } }
-  const tete = src.slice(Math.max(0, j - 400), j);
-  let m;
-  if ((m = tete.match(/function\s*\*?\s*([\w$]*)\s*$/))) {
-    if (m[1]) return { fn: true, nom: m[1] };
-    const a = tete.match(/([\w$.]+)\s*[:=]\s*(?:async\s+)?function\s*\*?\s*$/);
-    return { fn: true, nom: a ? a[1] : '' };
+  if (dernier.v !== ')' || !dernier.groupe) return { fn: false, nom: '', entete: '' };
+  const t = dernier.groupe.avant;                 // jetons avant la parenthèse ouvrante
+  const t1 = t[t.length - 1], t2 = t[t.length - 2], t3 = t[t.length - 3];
+  if (!t1) return { fn: false, nom: '', entete: '' };
+  if (t1.v === 'function') return { fn: true, nom: nomAffecte(t.slice(0, -1)), entete: '' };        // function (…) {
+  if (estMot(t1) && (t2 && t2.v === 'function')) {                                                 // function nom(…) {
+    return { fn: true, nom: t1.v, entete: src.slice(t2.i, dernier.groupe.i + 1) };
   }
-  if ((m = tete.match(/([\w$]+)\s*$/))) {
-    if (MOTS_DE_BLOC.has(m[1])) return { fn: false, nom: '' };
-    return { fn: true, nom: m[1] };            // méthode abrégée `nom(…) {` (objet ou classe)
+  if (estMot(t1) && t2 && t2.v === '*' && t3 && t3.v === 'function') return { fn: true, nom: t1.v, entete: '' };   // function* nom(
+  if (estMot(t1)) {
+    if (MOTS_DE_BLOC.has(t1.v)) return { fn: false, nom: '', entete: '' };
+    return { fn: true, nom: t1.v, entete: '' };                                                    // méthode abrégée `nom(…) {`
   }
-  return { fn: false, nom: '' };
+  return { fn: false, nom: '', entete: '' };
 }
 
 /** Analyse une source : paires d'accolades de code, classées fonction / bloc. */
@@ -145,9 +160,9 @@ function analyser(fichier, src) {
   const paires = [];
   for (const [d, f] of regions) {
     const pile = [];
-    parcourirJs(src, d, f, (i, c) => {
-      if (c === '{') pile.push(i);
-      else { const o = pile.pop(); if (o != null) paires.push({ o, c: i, ...classerAccolade(src, o) }); }
+    parcourirJs(src, d, f, (i, c, ctx) => {
+      if (c === '{') pile.push({ o: i, ...classerAccolade(src, ctx.avant) });
+      else { const p = pile.pop(); if (p) paires.push({ ...p, c: i }); }
     });
   }
   paires.sort((a, b) => a.o - b.o);
@@ -226,7 +241,7 @@ function inventorier(sources) {
       const f = fonctionDe(a, m.index);
       out.push({
         fichier: s.fichier, ligne: s.src.slice(0, m.index).split('\n').length,
-        fonction: f ? f.nom : '', cleExpr, valeurExpr, cles: resoudre(cleExpr, a, m.index),
+        fonction: f ? f.nom : '', entete: f ? f.entete : '', cleExpr, valeurExpr, cles: resoudre(cleExpr, a, m.index),
       });
     }
   }
@@ -251,9 +266,11 @@ function fautesS1(ecrivains) {
   // La règle porte sur la CLÉ (classe « principal »), pas sur l'expression de la valeur.
   // Écrivains autorisés : `_miroirEcrire` (index.html), `_ecrireMiroir` (supabase-entry.js), et la
   // popup de signature (`_BAIL_LS_KEY` — page GÉNÉRÉE, sans accès aux fonctions de l'app).
+  // L'exemption exige un en-tête LITTÉRAL `function _miroirEcrire(` / `function _ecrireMiroir(` :
+  // un nom déduit (méthode, affectation, commentaire) n'exempte rien.
   return principaux(ecrivains)
-    .filter(e => !(e.fichier === 'index.html' && e.fonction === '_miroirEcrire'))
-    .filter(e => !(e.fichier.includes('supabase-entry') && e.fonction === '_ecrireMiroir'))
+    .filter(e => !(e.fichier === 'index.html' && e.entete === 'function _miroirEcrire('))
+    .filter(e => !(e.fichier.includes('supabase-entry') && e.entete === 'function _ecrireMiroir('))
     .filter(e => e.cleExpr !== '_BAIL_LS_KEY')
     .map(e => `${e.fichier}:${e.ligne} (${e.fonction || 'hors fonction'}) setItem(${e.cleExpr}, ${e.valeurExpr})`);
 }
@@ -289,6 +306,45 @@ describe('G1 — registre des écrivains du stockage local (inventaire RÉEL de 
 
 describe('G1 — le détecteur SAIT ÉCHOUER (sources synthétiques des audits)', () => {
   const src = (fichier, lignes) => [{ fichier, src: lignes.join('\n') }];
+
+  it('REVUE 3e passe — bloc nu précédé d’un commentaire terminé par « _miroirEcrire(json) » : pas une fonction → S-1 échoue', () => {
+    const e = inventorier(src('index.html', [
+      '<script>',
+      "const KEY = 'immotrack_v4';",
+      '// écrire comme _miroirEcrire(json)',
+      '{',
+      '  localStorage.setItem(KEY, JSON.stringify(DB));',
+      '}',
+      '</script>',
+    ]));
+    expect(e).toHaveLength(1);
+    expect(e[0].fonction).toBe('');
+    expect(fautesS1(e)).toEqual([expect.stringContaining('hors fonction')]);
+  });
+
+  it('un nom `_miroirEcrire` NON déclaré littéralement (méthode, affectation) n’exempte rien → S-1 échoue', () => {
+    const e = inventorier(src('index.html', [
+      '<script>',
+      "const KEY = 'immotrack_v4';",
+      'const o = { _miroirEcrire(json) { localStorage.setItem(KEY, json); } };',
+      'const _miroirEcrireBis = (json) => { localStorage.setItem(KEY, json); };',
+      'window._miroirEcrire = function (json) { localStorage.setItem(KEY, json); };',
+      '</script>',
+    ]));
+    expect(e.map(x => x.fonction)).toEqual(['_miroirEcrire', '_miroirEcrireBis', '_miroirEcrire']);
+    expect(fautesS1(e)).toHaveLength(3);
+  });
+
+  it('`for await (…) {` est un bloc, pas une fonction', () => {
+    const e = inventorier(src('js/core/boucle.js', [
+      'async function f(liste) {',
+      "  const k = 'immotrack_theme';",
+      "  for await (const x of liste) { localStorage.setItem(k, '1'); }",
+      '}',
+    ]));
+    expect(e[0].fonction).toBe('f');
+    expect(e[0].cles).toEqual(['immotrack_theme']);
+  });
 
   it('écrivain `setItem(KEY, data)` avec `data = JSON.stringify(DB)` hors de l’écrivain unique → S-1 échoue', () => {
     const e = inventorier(src('js/core/fautif.js', [

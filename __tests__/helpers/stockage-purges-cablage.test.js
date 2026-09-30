@@ -108,6 +108,7 @@ describe('Logout — _teardownSession purge les copies de la base (S-7)', () => 
 });
 
 describe('Connexion — _purgerCacheAuLogin selon le propriétaire du miroir (CDC §3.6, S-7)', () => {
+  /** Les deux vraies fonctions du login, branchées sur le stockage de test. */
   function monter(st) {
     const deps = {
       console: muet, localStorage: st, MIRROR_KEY: OfflineBoot.MIROIR_KEY, MIRROR_TAG_KEY: CachePurge.MIRROR_TAG_KEY,
@@ -115,44 +116,66 @@ describe('Connexion — _purgerCacheAuLogin selon le propriétaire du miroir (CD
       _purgerCopiesLocales: purgeur(st),
     };
     const noms = Object.keys(deps);
-    return new Function(...noms, 'return ' + extraireFonction(SRC, '_purgerCacheAuLogin'))(...noms.map(n => deps[n]));
+    return new Function(...noms, extraireFonction(SRC, '_purgerCacheAuLogin') + '\n' + extraireFonction(SRC, '_ecrireTagEtEspacesLogin')
+      + '\nreturn { _purgerCacheAuLogin, _ecrireTagEtEspacesLogin };')(...noms.map(n => deps[n]));
   }
+  const TAG_A = { userId: 'u-a', espaceId: 'e-a' };
 
-  it('autre utilisateur : SYNCHRONE, rend le verdict de l’ANCIEN tag ; miroir, horodatage et copies partent', () => {
+  it('_purgerCacheAuLogin, autre utilisateur : SYNCHRONE, verdict de l’ANCIEN tag ; purge miroir, horodatage, copies ; N’ÉCRIT PAS le tag', () => {
     const st = fauxStockageQuota({ initial: ETAT() });
-    const cls = monter(st)({ user: { id: 'u-b' }, esp: { espaceId: 'e-b' } });
+    const cls = monter(st)._purgerCacheAuLogin({ user: { id: 'u-b' }, esp: { espaceId: 'e-b' } });
     expect(cls).toBe('other-user');                                        // une valeur, pas une promesse
     for (const k of ['immotrack_v4', 'immotrack_v4_ecrit_at', ...COPIES]) expect(st.getItem(k), k).toBeNull();
-    expect(JSON.parse(st.getItem('immotrack_v4_tag'))).toEqual({ userId: 'u-b', espaceId: 'e-b' });   // tag réécrit APRÈS lecture
-    expect(JSON.parse(st.getItem('immotrack_v4_espaces'))).toEqual(['e-b']);
+    expect(JSON.parse(st.getItem('immotrack_v4_tag'))).toEqual(TAG_A);   // toujours l'ancien tag
+    expect(JSON.parse(st.getItem('immotrack_v4_espaces'))).toEqual(['e']);
     for (const k of ['immotrack_theme_mode', 'autre_app_panier', 'RELAY_APP_KEY']) expect(st.getItem(k), k).toBe(ETAT()[k]);
   });
 
-  it('même utilisateur, même espace : verdict « same », rien n’est purgé (le miroir et F1 sont préservés)', () => {
+  it('_purgerCacheAuLogin, même utilisateur : verdict « same », rien n’est purgé (le miroir et F1 sont préservés)', () => {
     const st = fauxStockageQuota({ initial: ETAT() });
-    expect(monter(st)({ user: { id: 'u-a' }, esp: { espaceId: 'e-a' } })).toBe('same');
+    expect(monter(st)._purgerCacheAuLogin({ user: { id: 'u-a' }, esp: { espaceId: 'e-a' } })).toBe('same');
     expect(st.getItem('immotrack_v4')).toBe(ETAT().immotrack_v4);
     expect(st.getItem('immotrack_v4_ecrit_at')).toBe('1700000000000');
   });
 
-  it('CÂBLAGE dans onLoggedIn : le verdict retenu pour F1 est celui de l’ANCIEN tag, et la purge photos suit', async () => {
-    // Le bloc `try { … }` d'onLoggedIn qui appelle _purgerCacheAuLogin, EXÉCUTÉ tel quel. S'il cessait
-    // de retenir le verdict, F1 recevrait 'untagged' et ne remonterait plus les EDL hors ligne.
+  it('_ecrireTagEtEspacesLogin : nouveau tag et espaces autorisés', () => {
+    const st = fauxStockageQuota({ initial: ETAT() });
+    monter(st)._ecrireTagEtEspacesLogin({ user: { id: 'u-b' }, esp: { espaceId: 'e-b' } });
+    expect(JSON.parse(st.getItem('immotrack_v4_tag'))).toEqual({ userId: 'u-b', espaceId: 'e-b' });
+    expect(JSON.parse(st.getItem('immotrack_v4_espaces'))).toEqual(['e-b']);
+  });
+
+  it('CÂBLAGE dans onLoggedIn (F1 + F14.1) : verdict de l’ANCIEN tag retenu ; la suppression des photos voit encore l’ANCIEN tag ; nouveau tag APRÈS', async () => {
+    // Le vrai bloc `try { … }` d'onLoggedIn, EXÉCUTÉ tel quel. Deux menaces :
+    //  - verdict non retenu → F1 reçoit 'untagged' et ne remonte plus les EDL hors ligne ;
+    //  - nouveau tag écrit AVANT la fin de la suppression → processus tué pendant la suppression =
+    //    verdict 'same' au login suivant, les photos d'autrui restent (F14.1).
     const i = SRC.indexOf('_tagMiroirAvantLogin = _purgerCacheAuLogin(');
     expect(i).toBeGreaterThan(0);
     const bloc = accolades(SRC, SRC.lastIndexOf('try {', i) + 4);
     const executer = async (st, user, esp) => {
-      let photos = 0;
+      const tagsVusParLaSuppression = [];
+      const fns = monter(st);
       const deps = {
-        _purgerCacheAuLogin: monter(st), _deletePhotosDb: async () => { photos++; }, user, esp, console: muet,
+        _purgerCacheAuLogin: fns._purgerCacheAuLogin, _ecrireTagEtEspacesLogin: fns._ecrireTagEtEspacesLogin,
+        _deletePhotosDb: async () => {
+          tagsVusParLaSuppression.push(JSON.parse(st.getItem('immotrack_v4_tag')));
+          await new Promise(r => setTimeout(r, 5));                       // la suppression prend du temps…
+          tagsVusParLaSuppression.push(JSON.parse(st.getItem('immotrack_v4_tag')));   // …et le tag n'a pas bougé
+        },
+        user, esp, console: muet,
       };
       const noms = Object.keys(deps);
       const verdict = await new Function(...noms, "let _tagMiroirAvantLogin = 'untagged'; return (async () => { try "
         + bloc + ' catch (e) {} return _tagMiroirAvantLogin; })()')(...noms.map(n => deps[n]));
-      return { verdict, photos };
+      return { verdict, tagsVusParLaSuppression, tagFinal: JSON.parse(st.getItem('immotrack_v4_tag')) };
     };
-    expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-b' }, { espaceId: 'e-b' })).toEqual({ verdict: 'other-user', photos: 1 });
-    expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-a' }, { espaceId: 'e-a' })).toEqual({ verdict: 'same', photos: 0 });
+    expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-b' }, { espaceId: 'e-b' })).toEqual({
+      verdict: 'other-user', tagsVusParLaSuppression: [TAG_A, TAG_A], tagFinal: { userId: 'u-b', espaceId: 'e-b' },
+    });
+    expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-a' }, { espaceId: 'e-a' })).toEqual({
+      verdict: 'same', tagsVusParLaSuppression: [], tagFinal: TAG_A,
+    });
   });
 });
 
