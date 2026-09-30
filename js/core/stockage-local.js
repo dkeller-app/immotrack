@@ -121,10 +121,23 @@ export function lireCles(storage) {
   return out;
 }
 
-/** [{ cle, taille }] pour chaque clé présente. */
+/** [{ cle, taille }] pour chaque clé présente. (Lit TOUTES les valeurs : diagnostic seulement.) */
 export function lireEntrees(storage) {
+  return entreesDe(storage, lireCles(storage));
+}
+
+/**
+ * [{ cle, taille }] des seules clés JETABLES. Les clés sont filtrées AVANT toute lecture : ni le
+ * miroir (jusqu'à plusieurs Mo), ni les préférences, ni les clés d'autres pages de l'origine ne
+ * sont lus — le chemin du save sur quota ne paie que ce qu'il peut libérer.
+ */
+export function lireEntreesJetables(storage) {
+  return entreesDe(storage, lireCles(storage).filter(estEvincable));
+}
+
+function entreesDe(storage, cles) {
   const out = [];
-  for (const cle of lireCles(storage)) {
+  for (const cle of cles) {
     let v = null;
     try { v = storage.getItem(cle); } catch (_e) { v = null; }
     out.push({ cle, taille: tailleStockage(cle, v) });
@@ -146,14 +159,21 @@ export function planLiberation(entrees) {
     .map(e => e.cle);
 }
 
-/** Supprime une liste de clés ; rend le nombre de caractères libérés. */
-function supprimer(storage, cles) {
+/**
+ * Supprime une liste de clés (appelée UNIQUEMENT avec des clés jetables) ; rend le nombre de
+ * caractères libérés. `tailles` (Map clé → taille) évite de relire une valeur déjà mesurée.
+ */
+function supprimer(storage, cles, tailles) {
   let caracteres = 0;
   const faites = [];
   for (const cle of cles) {
-    let v = null;
-    try { v = storage.getItem(cle); } catch (_e) { v = null; }
-    try { storage.removeItem(cle); faites.push(cle); caracteres += tailleStockage(cle, v); } catch (_e) { /* on continue */ }
+    let t = tailles && tailles.has(cle) ? tailles.get(cle) : null;
+    if (t == null) {
+      let v = null;
+      try { v = storage.getItem(cle); } catch (_e) { v = null; }
+      t = tailleStockage(cle, v);
+    }
+    try { storage.removeItem(cle); faites.push(cle); caracteres += t; } catch (_e) { /* on continue */ }
   }
   return { faites, caracteres };
 }
@@ -173,9 +193,10 @@ export function ecrireAvecLiberation(storage, paires) {
     return { ok: true, liberees: [], caracteresLiberes: 0, erreur: null };
   } catch (e) {
     if (!estQuotaDepasse(e)) return { ok: false, liberees: [], caracteresLiberes: 0, erreur: e };
-    const plan = planLiberation(lireEntrees(storage));
+    const entrees = lireEntreesJetables(storage);          // seules les valeurs jetables sont lues
+    const plan = planLiberation(entrees);
     if (!plan.length) return { ok: false, liberees: [], caracteresLiberes: 0, erreur: e };
-    const { faites, caracteres } = supprimer(storage, plan);
+    const { faites, caracteres } = supprimer(storage, plan, new Map(entrees.map(x => [x.cle, x.taille])));
     try {
       ecrire();
       return { ok: true, liberees: faites, caracteresLiberes: caracteres, erreur: null };

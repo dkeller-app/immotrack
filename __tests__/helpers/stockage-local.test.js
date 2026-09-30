@@ -266,3 +266,34 @@ describe('purgerCopies — S-7 : aucune copie de la base ne survit à la déconn
     expect(st.getItem('RELAY_APP_KEY')).not.toBeNull();
   });
 });
+
+describe('Coût de l’éviction — les valeurs NON jetables ne sont jamais lues (audit lot 1, point 4)', () => {
+  // Le save sur quota ne doit pas relire le miroir (jusqu'à plusieurs Mo), les préférences, le jeton,
+  // ni les clés des autres pages de l'origine : seules les valeurs qu'il peut libérer l'intéressent.
+  function espionner(st) {
+    const lus = new Map();
+    const getItem = st.getItem.bind(st);
+    st.getItem = (k) => { lus.set(k, (lus.get(k) || 0) + 1); return getItem(k); };
+    return lus;
+  }
+  const NON_JETABLES = ['autre_app_panier', '_test_immotrack_v4', 'immotrack_theme_mode', 'immo-supabase-auth',
+    'RELAY_APP_KEY', 'immotrack_v4_tag'];
+
+  it('ecrireAvecLiberation sur quota : aucune lecture non jetable, chaque jetable lue une seule fois', () => {
+    const st = fauxStockageQuota({ quota: 5_242_880, initial: { ...HERITAGE(), 'immotrack_v4': chaine(900_000) } });
+    const lus = espionner(st);
+    const r = ecrireAvecLiberation(st, [['immotrack_v4', chaine(2_200_000)]]);
+    expect(r.ok).toBe(true);
+    for (const k of [...NON_JETABLES, 'immotrack_v4']) expect(lus.get(k) || 0, k).toBe(0);
+    for (const k of r.liberees) expect(lus.get(k), k).toBe(1);
+  });
+
+  it('nettoyer et purgerCopies : aucune lecture non jetable', () => {
+    for (const geste of [nettoyer, purgerCopies]) {
+      const st = fauxStockageQuota({ initial: { ...HERITAGE(), 'immotrack_v4': chaine(900_000) } });
+      const lus = espionner(st);
+      geste(st);
+      for (const k of [...NON_JETABLES, 'immotrack_v4']) expect(lus.get(k) || 0, `${geste.name} ${k}`).toBe(0);
+    }
+  });
+});

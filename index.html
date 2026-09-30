@@ -5938,14 +5938,22 @@ function initDB() {
       // save principal) → IndexedDB `immotrack_backup` (helper existant _idbPutRaw), UNE seule entrée
       // par namespace, écrasée à chaque occurrence. Sans elle, le saveDB() de fin d'initDB écraserait
       // la seule trace du contenu illisible.
-      try { _idbPutRaw('corrompu:' + KEY, { at: new Date().toISOString(), raw }).catch(err => console.warn('[initDB] copie de la base illisible non conservée', err)); }
-      catch (_) { /* IndexedDB indisponible : rien de plus à faire */ }
+      // `_copieIllisible` : la promesse de conservation — le message dit la vérité sur son sort.
+      let _copieIllisible = Promise.resolve(false);
+      try {
+        _copieIllisible = _idbPutRaw('corrompu:' + KEY, { at: new Date().toISOString(), raw })
+          .then(() => true, err => { console.warn('[initDB] copie de la base illisible non conservée', err); return false; });
+      } catch (_) { /* IndexedDB indisponible : _copieIllisible reste « non conservée » */ }
       DB = {};
-      // Alerte utilisateur (différée pour laisser initDB finir)
+      // Alerte utilisateur (différée pour laisser initDB finir). STOCKAGE lot 1 : le texte ne renvoie
+      // plus vers Drive (retiré) ; il dit où est la copie, ou qu'elle n'a pas pu être conservée.
       setTimeout(() => {
-        if (typeof showToast === 'function') {
-          showToast('⚠ Base de données corrompue — restauration recommandée via Drive sync ou backup', 'err', 12000);
-        }
+        _copieIllisible.then(conservee => {
+          if (typeof showToast !== 'function') return;
+          showToast(conservee
+            ? "⚠ Base locale illisible : une copie a été conservée dans l'IndexedDB de cet appareil (base « immotrack_backup »). Restaurer une sauvegarde de sécurité pour retrouver les données."
+            : "⚠ Base locale illisible, et sa copie n'a pas pu être conservée sur cet appareil. Restaurer une sauvegarde de sécurité pour retrouver les données.", 'err', 12000);
+        });
       }, 1500);
     }
   }
@@ -6081,7 +6089,7 @@ function initDB() {
     if (!('conduitFumee' in l.equipements)) l.equipements.conduitFumee = false;
   });
   // ── v14.14 ARCHI-DB-DOUBLONS Phase 2 — migration data log/bail ─────────
-  // (idempotente, marqueur DB._migratedArchiV1, backup auto, toast utilisateur)
+  // (idempotente, marqueur DB._migratedArchiV1, toast utilisateur ; filet pré-migration neutralisé — STOCKAGE lot 1)
   // Décisions Q1-Q8 cf docs/subjects/ARCHI-DB-DOUBLONS.md
   try { _migrateArchiV1IfNeeded(); } catch(e) { console.error('[ARCHI] migration error', e); }
   // ── v15.209 LOG-ANNONCE Étape 2 — schéma DB enrichi pour générateur annonces.
@@ -39179,11 +39187,12 @@ function _backupBeforeMigration(label) {
   return null;
 }
 
-// Migration ARCHI-DB-DOUBLONS Phase 2 — auto au boot, idempotente, avec backup.
+// Migration ARCHI-DB-DOUBLONS Phase 2 — auto au boot, idempotente.
 // Implémente les décisions Q4=B (migration hard) + Q4bis (typeUsage) + Q5=A (snapshot)
 // + Q7=A (auto au boot).
 // Étapes :
-//   1. Backup auto via _backupBeforeMigration('archi-v1')
+//   1. Point d'accroche du filet pré-migration _backupBeforeMigration('archi-v1') — NEUTRALISÉ
+//      depuis STOCKAGE lot 1 (aucune copie locale) ; filet IndexedDB avec rotation au lot 2.
 //   2. Pour chaque bail signé : enrichir bailSnapshot.log si manquant
 //   3. Pour chaque log : copier champs bien depuis bail courant si absents
 //   4. Pour chaque log : déduire log.typeUsage depuis le contexte
@@ -39207,7 +39216,7 @@ function _archiV1MarkDone() {
 function _migrateArchiV1IfNeeded() {
   if(!DB.logements) return; // initDB pas encore prête, sera rappelée plus tard
 
-  // Backup et toast UNE SEULE FOIS (premier boot, marqueur localStorage)
+  // Filet pré-migration (neutralisé, STOCKAGE lot 1) et toast UNE SEULE FOIS (premier boot, marqueur localStorage)
   // L'enrichissement des logements/snapshots tourne à CHAQUE boot (idempotent via if(!log.X))
   // → robuste pour les nouveaux logements créés entre Phase 2 et Phase 3+,
   //    pour les imports JSON cross-device, ET pour le mode lecture seule Drive.
@@ -39421,8 +39430,8 @@ function _migrateArchiV1IfNeeded() {
 // la modale Logement) AVANT suppression. annexes/dpe/etatRisques/chauffage/ecs sont déjà
 // backfillés losslessly par la Phase V1.
 //
-// Idempotent : une fois les champs retirés, plus rien à faire. Backup auto + toast au premier
-// run (marqueur localStorage propre, indépendant d'archi-v1).
+// Idempotent : une fois les champs retirés, plus rien à faire. Toast au premier run (marqueur
+// localStorage propre, indépendant d'archi-v1) ; filet pré-migration neutralisé (STOCKAGE lot 1, IndexedDB au lot 2).
 const _ARCHI_V4B_KEY = _lsKey('immotrack_archi_v4b_done');
 function _archiV4bIsDone() {
   try { return localStorage.getItem(_ARCHI_V4B_KEY) === '1'; } catch(e) { return false; }

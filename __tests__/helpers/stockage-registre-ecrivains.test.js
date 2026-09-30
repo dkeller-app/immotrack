@@ -24,6 +24,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, relative } from 'node:path';
 import { classerCle } from '../../js/core/stockage-local.js';
+import { MIROIR_KEY, MIROIR_ECRIT_KEY, FLUSH_OK_KEY, ESPACES_KEY } from '../../js/core/offline-boot.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -72,19 +73,74 @@ function decouper(expr, sep) {
 }
 
 /**
- * Clés dont l'expression ne se déduit pas du texte (clé construite dans une page
- * générée). Toute entrée ici doit être justifiée ; un nouvel écrivain illisible
- * fait échouer la suite tant qu'il n'y est pas ajouté.
+ * Clés dont l'expression ne se déduit pas du texte du MÊME fichier : clé construite dans une
+ * page générée, alias d'import, membre d'un module importé. Les valeurs viennent des VRAIS
+ * modules (importés ci-dessus), pas d'un texte recopié. Toute entrée ici doit être justifiée ;
+ * un nouvel écrivain illisible fait échouer la suite tant qu'il n'y est pas ajouté.
  */
 const RESOLUTIONS_MANUELLES = {
   // Popup de signature (code GÉNÉRÉ en chaîne, repli « Path 2 » quand l'opener est perdu) :
   // `var _BAIL_LS_KEY=` + JSON.stringify(KEY) → le miroir lui-même, dans son namespace.
   '_BAIL_LS_KEY': ['immotrack_v4', '_test_immotrack_v4'],
+  // js/app/supabase-entry.js : `import { MIROIR_KEY as MIRROR_KEY } from '../core/offline-boot.js'`.
+  'MIRROR_KEY': [MIROIR_KEY],
+  // js/app/supabase-entry.js : `_offlineBoot = await import('../core/offline-boot.js')`.
+  '_offlineBoot.ESPACES_KEY': [ESPACES_KEY],
+  '_offlineBoot.FLUSH_OK_KEY': [FLUSH_OK_KEY],
+  '_offlineBoot.MIROIR_ECRIT_KEY': [MIROIR_ECRIT_KEY],
 };
 
 let SOURCES;       // [{ fichier, src }]
-let ECRIVAINS;     // [{ fichier, ligne, cleExpr, valeurExpr, cles:[...] | null }]
+let ECRIVAINS;     // [{ fichier, ligne, fonction, cleExpr, valeurExpr, cles:[...] | null }]
 
+/**
+ * En-tête de fonction : déclaration (`function nom(`) ou fonction affectée
+ * (`nom = function (`, `nom = (…) =>`, `nom = x =>`, `async` compris).
+ */
+const DECLARATION = /^[ \t]*(?:export\s+)?(?:async\s+)?function\s*\*?\s*([\w$]*)\s*\(/;
+const AFFECTEE = /([\w$.]+)\s*=\s*(?:async\s*)?(?:function\b[^(]*\(|\([^()]*\)\s*=>|[\w$]+\s*=>)/;
+const _entetes = new Map();   // src → [{ debut, nom }] triés (calculés UNE fois, ligne par ligne)
+function entetesDe(src) {
+  if (_entetes.has(src)) return _entetes.get(src);
+  const out = [];
+  let pos = 0;
+  for (const ligne of src.split('\n')) {
+    // Les lignes géantes (bibliothèques base64 inlinées) ne portent pas d'en-tête utile : on les saute.
+    if (ligne.length < 2000) {
+      let m = ligne.match(DECLARATION);
+      if (m) out.push({ debut: pos, nom: m[1] || '' });
+      else if ((m = ligne.match(AFFECTEE))) out.push({ debut: pos, nom: m[1] });
+    }
+    pos += ligne.length + 1;
+  }
+  _entetes.set(src, out);
+  return out;
+}
+
+/** La fonction englobante d'une position : le dernier en-tête de fonction dont la ligne la précède. */
+function fonctionEnglobante(src, index) {
+  let derniere = null;
+  for (const e of entetesDe(src)) { if (e.debut >= index) break; derniere = e; }
+  return derniere;
+}
+
+const sansCommentaire = s => s.replace(/\r/g, '').replace(/\s+\/\/.*$/, '').trim();   // fichiers en CRLF
+
+/** Dernière occurrence (avant `fin`) d'un motif global ; rend { valeur, index } ou null. */
+function derniereAvant(re, src, debut, fin) {
+  re.lastIndex = debut;
+  let m, r = null;
+  while ((m = re.exec(src)) && m.index < fin) r = { valeur: m[1], index: m.index };
+  return r;
+}
+
+/**
+ * Résout l'expression d'une clé en valeurs concrètes. PORTÉE STRICTE (audit lot 1, point 2) :
+ * une définition n'est acceptée que si elle est dans le MÊME fichier et AVANT l'appel —
+ * d'abord dans la fonction englobante, puis au niveau supérieur du fichier (déclaration en
+ * colonne 0). Jamais une définition homonyme d'un autre fichier ou d'une autre fonction :
+ * sinon « non résolue », et le test échoue (sauf RESOLUTIONS_MANUELLES).
+ */
 function resoudre(expr, ctx, profondeur = 0) {
   if (profondeur > 8) return null;
   expr = deparen(expr);
@@ -110,36 +166,23 @@ function resoudre(expr, ctx, profondeur = 0) {
     }
     return acc;
   }
-  // appel d'un helper sans argument : `function nom() { return EXPR; }`
+  // helper sans argument du MÊME fichier, déclaré AVANT l'appel : `function nom() { return EXPR; }`
   if ((m = expr.match(/^([A-Za-z_$][\w$]*)\(\)$/))) {
-    for (const { src } of SOURCES) {
-      const d = src.match(new RegExp('function ' + m[1] + '\\(\\)\\s*\\{\\s*return ([^;]+);'));
-      if (d) return resoudre(d[1], ctx, profondeur + 1);
-    }
-    return null;
+    const d = derniereAvant(new RegExp('^function ' + m[1] + '\\(\\)\\s*\\{\\s*return ([^;]+);', 'gm'), ctx.src, 0, ctx.index);
+    return d ? resoudre(sansCommentaire(d.valeur), { src: ctx.src, index: d.index }, profondeur + 1) : null;
   }
-  // identifiant ou membre (`_offlineBoot.X` → X) : définition la plus proche AVANT l'écrivain,
-  // sinon n'importe où (const/let/var/export const), sinon alias d'import `X as NOM`.
-  if ((m = expr.match(/^(?:[A-Za-z_$][\w$]*\.)?([A-Za-z_$][\w$]*)$/))) {
+  // identifiant nu (les membres `module.X` passent par RESOLUTIONS_MANUELLES)
+  if ((m = expr.match(/^([A-Za-z_$][\w$]*)$/))) {
     const nom = m[1];
-    const def = new RegExp('(?:const|let|var)\\s+' + nom + '\\s*=\\s*([^;\\n]+)', 'g');
-    const sansCommentaire = s => s.replace(/\s+\/\/.*$/, '');
-    const avant = ctx.src.slice(Math.max(0, ctx.index - 1500), ctx.index);
-    let dernier = null, x;
-    while ((x = def.exec(avant))) dernier = x[1];
-    if (dernier) {
-      const r = resoudre(sansCommentaire(dernier), { src: ctx.src, index: ctx.index }, profondeur + 1);
-      if (r) return r;
+    // 1) dans la fonction englobante, avant l'appel
+    const f = fonctionEnglobante(ctx.src, ctx.index);
+    if (f) {
+      const d = derniereAvant(new RegExp('(?:const|let|var)\\s+' + nom + '\\s*=\\s*([^;\\n]+)', 'g'), ctx.src, f.debut, ctx.index);
+      if (d) return resoudre(sansCommentaire(d.valeur), { src: ctx.src, index: d.index }, profondeur + 1);
     }
-    for (const s of [ctx, ...(SOURCES || [])]) {
-      def.lastIndex = 0;
-      const y = def.exec(s.src);
-      if (y) { const r = resoudre(sansCommentaire(y[1]), { src: s.src, index: y.index }, profondeur + 1); if (r) return r; }
-    }
-    for (const s of (SOURCES || [])) {
-      const a = s.src.match(new RegExp('\\b([A-Za-z_$][\\w$]*) as ' + nom + '\\b'));
-      if (a) return resoudre(a[1], ctx, profondeur + 1);
-    }
+    // 2) au niveau supérieur du même fichier (colonne 0), avant l'appel
+    const t = derniereAvant(new RegExp('^(?:export\\s+)?(?:const|let|var)\\s+' + nom + '\\s*=\\s*([^;\\n]+)', 'gm'), ctx.src, 0, ctx.index);
+    if (t) return resoudre(sansCommentaire(t.valeur), { src: ctx.src, index: t.index }, profondeur + 1);
     return null;
   }
   return null;
@@ -156,7 +199,8 @@ beforeAll(() => {
     while ((m = re.exec(s.src))) {
       const [cleExpr, valeurExpr] = argumentsDe(s.src, m.index + m[0].length);
       const ligne = s.src.slice(0, m.index).split('\n').length;
-      ECRIVAINS.push({ fichier: s.fichier, ligne, cleExpr, valeurExpr, cles: resoudre(cleExpr, { src: s.src, index: m.index }) });
+      const f = fonctionEnglobante(s.src, m.index);
+      ECRIVAINS.push({ fichier: s.fichier, ligne, fonction: f ? f.nom : '', cleExpr, valeurExpr, cles: resoudre(cleExpr, { src: s.src, index: m.index }) });
     }
   }
 });
@@ -186,13 +230,21 @@ describe('G1 — registre des écrivains du stockage local', () => {
     expect(fautes).toEqual([]);
   });
 
-  it('S-1 — la base n’est jamais sérialisée directement vers localStorage : l’écrivain unique libère la place', () => {
-    // Seule exception : la popup de signature (page GÉNÉRÉE, sans accès aux fonctions de l'app).
-    const fautes = ECRIVAINS
-      .filter(e => /JSON\.stringify\(\s*(DB|db|dbLS|demoDB|cloudDB|window\.DB)\b/.test(e.valeurExpr || ''))
+  it('S-1 — la base (clé de classe « principal ») ne s’écrit QUE par l’écrivain unique, qui libère la place', () => {
+    // La règle porte sur la CLÉ, pas sur l'expression de la valeur (audit lot 1, point 1) : l'ancien
+    // `localStorage.setItem(KEY, data)` avec `data = JSON.stringify(DB)` doit être attrapé.
+    // Écrivains autorisés : `_miroirEcrire` (index.html), `_ecrireMiroir` (supabase-entry.js), et la
+    // popup de signature (`_BAIL_LS_KEY` — page GÉNÉRÉE, sans accès aux fonctions de l'app).
+    const principaux = ECRIVAINS.filter(e => (e.cles || []).some(k => classerCle(k) === 'principal'));
+    const fautes = principaux
+      .filter(e => !(e.fichier === 'index.html' && e.fonction === '_miroirEcrire'))
+      .filter(e => !(e.fichier.includes('supabase-entry') && e.fonction === '_ecrireMiroir'))
       .filter(e => e.cleExpr !== '_BAIL_LS_KEY')
-      .map(e => `${e.fichier}:${e.ligne} setItem(${e.cleExpr}, ${e.valeurExpr})`);
+      .map(e => `${e.fichier}:${e.ligne} (${e.fonction || 'hors fonction'}) setItem(${e.cleExpr}, ${e.valeurExpr})`);
     expect(fautes).toEqual([]);
+    // Aujourd'hui : exactement ces trois sites (le repli direct de chaque écrivain + la popup).
+    expect(principaux.map(e => e.fonction === '_miroirEcrire' || e.fonction === '_ecrireMiroir' ? e.fonction : e.cleExpr).sort())
+      .toEqual(['_BAIL_LS_KEY', '_ecrireMiroir', '_miroirEcrire']);
   });
 
   it('le résolveur lui-même : les formes rencontrées donnent les bonnes clés', () => {
@@ -202,5 +254,26 @@ describe('G1 — registre des écrivains du stockage local', () => {
     expect(resoudre("(typeof _lsKey === 'function' ? _lsKey('immBlocksCollapsed') : 'immBlocksCollapsed')", ctx).sort())
       .toEqual(['_test_immBlocksCollapsed', 'immBlocksCollapsed']);
     expect(classerCle(resoudre("KEY + '_corrupt_backup_' + Date.now()", ctx)[0])).toBe('copie');
+  });
+
+  it('portée stricte : jamais une définition d’une autre fonction, d’un autre fichier, ou APRÈS l’appel', () => {
+    const src = [
+      "function a() {",
+      "  const k = 'immo_appareil_id';",
+      "  localStorage.setItem(k, '1');",
+      "}",
+      "function b() {",
+      "  localStorage.setItem(k, '1');",          // `k` n'est défini que dans a() → non résolu
+      "  localStorage.setItem(PLUS_TARD, '1');",  // défini après l'appel → non résolu
+      "}",
+      "const PLUS_TARD = 'immotrack_theme';",
+    ].join('\n');
+    const appel = (n) => { let i = -1; for (let j = 0; j < n; j++) i = src.indexOf('localStorage.setItem(', i + 1); return { src, index: i }; };
+    expect(resoudre('k', appel(1))).toEqual(['immo_appareil_id']);
+    expect(resoudre('k', appel(2))).toBeNull();
+    expect(resoudre('PLUS_TARD', appel(3))).toBeNull();
+    // Une définition homonyme présente dans un AUTRE fichier de l'app n'est jamais retenue.
+    expect(SOURCES.some(s => /const k = _lsKey\('immo_appareil_id'\)/.test(s.src))).toBe(true);
+    expect(resoudre('k', { src: "function c() {\n  localStorage.setItem(k, '1');\n}", index: 17 })).toBeNull();
   });
 });
