@@ -8,6 +8,7 @@ import { buildAvenantHtml, avenantPartiesSignature, avenantHtmlSigne, avenantHtm
 import { tracedPdf } from './_real-jspdf.js';
 import { parseDocDoc, renderDocToPdf, PDF_NATIVE } from './doc-native.js';
 import { docPage } from './doc-template.js';
+import { sortieAutorisee } from '../../js/core/actes-mentions.js';
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 const CONSIGNE = 'Précéder la signature de la mention manuscrite :<br>« Lu et approuvé »';
@@ -110,5 +111,29 @@ describe('PDF (moteur réel de l\'app) : mention imprimée par signataire', () =
       expect(t.y - c.y).toBeGreaterThan(18);   // consigne + 18 mm pour la mention manuscrite et la signature
     });
     expect(pages).toBe(1);
+  });
+});
+
+// Audit du lot 3 : un avenant qui contient encore « ‹à compléter› » (bien, « Fait à ») ne part pas à la
+// signature sans avertissement. L'app réutilise la décision commune des actes (sortieAutorisee, appelée
+// par _acteMentionsOk) : elle AVERTIT et l'utilisateur décide (jamais bloquer).
+describe('« ‹à compléter› » avant de faire signer (sortieAutorisee, réutilisé)', () => {
+  const incomplet = buildAvenantHtml({ no: 1, bailleur: 'SCI Les Tilleuls', locataires: ['Alice Martin'], bien: '',
+    dateBail: '2025-01-01', bailSigne: true, loyer0: 800, effetIso: '2026-11-01', ville: '',
+    objets: [{ k: 'loyer', data: { motif: 'Accord des parties', nouveau: '850' } }] }).html;
+  it('document incomplet : question posée, « Faire signer quand même ? » ; refus → pas de signature', () => {
+    const questions = [];
+    expect(sortieAutorisee(incomplet, 'Faire signer', (m) => { questions.push(m); return false; })).toBe(false);
+    expect(questions).toHaveLength(1);
+    expect(questions[0]).toContain('‹à compléter›');
+    expect(questions[0]).toContain('Faire signer quand même ?');
+  });
+  it('l\'utilisateur confirme → la signature continue (jamais bloquer)', () => {
+    expect(sortieAutorisee(incomplet, 'Faire signer', () => true)).toBe(true);
+  });
+  it('document complet : aucune question', () => {
+    let posee = false;
+    expect(sortieAutorisee(avenant(['Alice Martin']), 'Faire signer', () => { posee = true; return false; })).toBe(true);
+    expect(posee).toBe(false);
   });
 });

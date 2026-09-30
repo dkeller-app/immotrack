@@ -400,6 +400,9 @@ function _imgSrc(html) {
  * Recherche de chaînes (pas d'expression régulière) : le document peut venir du partage SCI.
  * @returns {{t:string, consigne:boolean}|null}
  */
+// Témoin lu par la signature d'un avenant : ce moteur trace la mention au-dessus de la signature. Un
+// moteur plus ancien (cache) l'ignorerait ; l'app refuse alors de produire un PDF signé (échec fermé).
+export const SIG_MENTION_SUPPORT = true;
 function _sigMention(html) {
   const s = String(html || '');
   const o = s.indexOf('<em class="pro-sigmention');

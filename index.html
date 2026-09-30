@@ -26820,9 +26820,21 @@ function _avenantVoirScan(ref, id){
 // (_avenantMarquerSigne, qui applique l'avenant au bail). Jamais « Signé » sans le PDF signé conservé.
 // Pad de signature : celui de l'EDL (_edlInitSig / _edlGetSig), réutilisé, trait épaissi pour le PDF.
 var _avSig=null;
+// Modules de CETTE version (js/main.js + moteur PDF) : un ancien fichier servi par le cache produirait un
+// document sans « Lu et approuvé » (ou une TypeError). Échec FERMÉ : rien n'est produit, on le dit.
+function _avenantModulesOk(){
+  var ok=typeof window.avenantSignatureManque==='function' && typeof window.avenantHtmlAImprimer==='function'
+    && typeof window.avenantHtmlSigne==='function' && !!(window.DocNative && window.DocNative.SIG_MENTION_SUPPORT===true);
+  if(!ok) showToast('Module non chargé : rafraîchir la page (Ctrl+F5)','err',8000);
+  return ok;
+}
 function _avenantSigneAppareil(ref, id){
   var av=_avenantTrouver(ref, id); if(!av||!window.AvenantRegistre.transitionPermise(av,'signe')) return;
   if(!av.html){ showToast('Document indisponible pour cet avenant : le faire signer sur papier.','warn',6000); return; }
+  if(!_avenantModulesOk()) return;
+  // Mentions restées « ‹à compléter› » (bien, « Fait à », champs des objets) : l'app avertit AVANT de faire
+  // signer, l'utilisateur décide (règle « jamais bloquer ») — même contrôle que les autres actes.
+  if(!_acteMentionsOk(av.html,'Faire signer')) return;
   var parties=(typeof window.avenantPartiesSignature==='function')?window.avenantPartiesSignature(av.html):[];
   if(!parties.length){ showToast('Aucun cadre de signature dans le document : le faire signer sur papier.','warn',6000); return; }
   // Effet antérieur au mois en cours : prévenir AVANT de faire signer (audit lot 3b, I1) — jamais après.
@@ -26878,6 +26890,7 @@ function _avenantSigneNav(d){
 }
 function _avenantSigneValider(){
   var s=_avSig; if(!s||s.enCours) return;
+  if(!_avenantModulesOk()) return;
   var img=_edlGetSig('av-sig-pad'), lu=!!(el('av-sig-lu')&&el('av-sig-lu').checked);
   // Signature tracée ET « Lu et approuvé » coché, comme pour le bail (décision 30/09) : sinon, refus.
   var manque=window.avenantSignatureManque(!!img, lu);
@@ -26898,6 +26911,7 @@ async function _avenantSigneTerminer(){
   var bail=DB.baux&&DB.baux[s.ref];
   if(!bail){ showToast('Bail introuvable : rien n\'a été enregistré.','err',7000); return; }
   var auj=(typeof _todayIsoLocal==='function')?_todayIsoLocal():td();
+  if(!_avenantModulesOk()) return;
   // Chaque partie : signature ET « Lu et approuvé » (jamais un PDF signé sans la mention de chacun).
   var iManque=s.parties.findIndex(function(p,i){ return !!window.avenantSignatureManque(!!s.sigs[i], s.lu[i]===true); });
   if(iManque>=0){
@@ -26906,6 +26920,8 @@ async function _avenantSigneTerminer(){
   }
   var htmlSigne=window.avenantHtmlSigne(av.html, s.sigs, auj, s.lu);
   if(!htmlSigne){ showToast('Document de l\'avenant incohérent (cadres de signature) : rien n\'a été enregistré. Le faire signer sur papier.','err',9000); return; }
+  // Défense : une mention « Lu et approuvé » par signataire dans le document signé, sinon rien n'est produit.
+  if(htmlSigne.split('<em class="pro-sigmention">').length-1!==s.parties.length){ showToast('Mention « Lu et approuvé » absente du document signé : rien n\'a été enregistré. Rafraîchir la page (Ctrl+F5).','err',9000); return; }
   s.enCours=true;
   var btn=el('av-sig-ok');
   var rendre=function(){ s.enCours=false; if(btn){ btn.disabled=false; btn.textContent='Valider et terminer'; } };
@@ -27042,6 +27058,7 @@ function _avenantMarquerSigne(ref, av, sig, opts){
 function _avenantVoir(ref, id){
   var av=_avenantTrouver(ref, id);
   if(!av||!av.html){ showToast('Document indisponible pour cet avenant : il a été enregistré avant la conservation des documents.','warn',6000); return; }
+  if(!_avenantModulesOk()) return;
   var titre=window.AvenantRegistre.titreAvenant(av, _AV_LBL);
   var ov=_avenantOvSimple('ov-avenant-voir');
   document.body.appendChild(ov);   // au-dessus de la fenêtre de signature (même z-index : l'ordre du DOM décide)
@@ -27060,6 +27077,9 @@ async function _avenantPdf(ref, id){
   if(!av||!av.html){ showToast('Document indisponible pour cet avenant : il a été enregistré avant la conservation des documents.','warn',6000); return; }
   var bail=DB.baux&&DB.baux[ref]; if(!bail){ showToast('Bail introuvable','err'); return; }
   if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
+  if(!_avenantModulesOk()) return;
+  // Mentions restées « ‹à compléter› » : avertir avant de produire le PDF, l'utilisateur décide.
+  if(!_acteMentionsOk(av.html,_acteVerbePdf())) return;
   var ent=(DB.entites||[]).find(function(e){return e.nom===bail.entity;})||{};
   await _pdfSortie({
     fileName:'Avenant_n'+av.no+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf',
