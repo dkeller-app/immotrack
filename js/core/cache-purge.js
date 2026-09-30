@@ -39,6 +39,9 @@ export function classifyMirrorTag(raw, userId, espaceId) {
 // aggravation RGPD au-delà du miroir de données (cause C-C). supabase-js écrit aussi, pendant un flux
 // PKCE (Google SSO / reset), un `${storageKey}-code-verifier` transitoire → on purge les deux.
 // Fail-safe : storageKey absent/non-chaîne → [] (rien à purger, jamais de throw).
+// La clé elle-même vit ICI (source unique) : supabase-entry la passe au client, le registre du
+// stockage local (js/core/stockage-local.js) la reconnaît comme jeton de session.
+export const AUTH_STORAGE_KEY = 'immo-supabase-auth'
 export function authStorageKeys(storageKey) {
   if (!storageKey || typeof storageKey !== 'string') return []
   return [storageKey, storageKey + '-code-verifier']

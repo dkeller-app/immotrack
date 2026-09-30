@@ -302,6 +302,11 @@ import {
   FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip
 } from './core/backup.js';
 
+// STOCKAGE lot 1 (docs/CDC-STOCKAGE.md) — registre du stockage local : save sacré (éviction +
+// nouvel essai sur quota), nettoyage de démarrage, purge des copies. Exposé sous window._stockage ;
+// l'exécution sur le vrai localStorage vit inline (_miroirEcrire, _stockageNettoyer).
+import * as Stockage from './core/stockage-local.js';
+
 // RESET-CLOUD UX — cœur PUR du « ⚠️ Vider mon espace cloud » (gating UI, saisie du nom,
 // messages d'erreur RPC). Exposé sous window._espacePurge ; l'orchestration IMPURE (modale,
 // export JSON préalable, appel RPC via __immoPurgeEspace) vit inline dans index.html.
@@ -765,6 +770,9 @@ window._applyReclaimedSession = applyReclaimedSession;
 
 // SAUVEGARDE (Chantier 3) — cœur pur exposé en bloc sous window._bk pour le code inline.
 window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip };
+
+// STOCKAGE lot 1 — registre du stockage local (voir import en tête).
+window._stockage = Stockage;
 
 // RESET-CLOUD UX — cœur pur du « Vider mon espace cloud » (voir import en tête).
 window._espacePurge = { confirmNameMatches, purgeUiState, purgeErrorMessage };
