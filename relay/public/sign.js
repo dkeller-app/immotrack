@@ -362,36 +362,43 @@ function annexDetail(g) {
   return pre ? `${pre} · ${tail}` : tail;
 }
 function annexSection() {
+  // Périmètre de la case (audit v15.703 P1-1) : « les annexes listées ci-dessus » = celles JOINTES au document
+  // ou REMISES par le bailleur. Les pièces NON fournies sont listées SOUS la case, à part : le locataire ne
+  // reconnaît pas avoir reçu une pièce qu'on ne lui a jamais remise.
+  const recues = groups.filter((g) => g.statut !== 'non_joint');
+  const manquantes = groups.filter((g) => g.statut === 'non_joint');
   const blk = h(`<section class="ann" id="annexes" aria-labelledby="ann-title">
       <h2 id="ann-title">Annexes au bail</h2>
       <p class="ann-sub">Elles font partie du contrat. Chacune peut être ouverte ici avant de signer.</p>
-      <div class="ann-list"></div>
+      <div class="ann-list" id="ann-list-recues"></div>
       <div class="ann-btns"><button type="button" class="line" id="ann-dl">Télécharger le bail et ses annexes (PDF)</button></div>
       ${ackDue
         ? `<label class="ann-ack" id="ann-ack-lbl"><input type="checkbox" id="ann-ack"><span><strong>Je reconnais avoir reçu les annexes listées ci-dessus et en avoir pris connaissance.</strong><small>Obligatoire pour accéder à la page de signature · la date et l'heure sont enregistrées dans le certificat de signature.</small></span></label>
       <p class="ann-lock" id="ann-lock">La page des signatures s'affiche une fois la case cochée.</p>`
-        : '<p class="ann-legal">Côté bailleur, aucun accusé de réception des annexes n\'est demandé.</p>'}
+        : (S.side !== 'locataire' ? '<p class="ann-legal">Côté bailleur, aucun accusé de réception des annexes n\'est demandé.</p>' : '')}
+      ${manquantes.length ? `<div class="ann-missing"><h3>Non fournies avec le bail</h3><p class="ann-legal">Ces pièces ne font pas partie du document que vous signez.</p><div class="ann-list" id="ann-list-manquantes"></div></div>` : ''}
     </section>`);
-  const list = blk.querySelector('.ann-list');
-  groups.forEach((g, gi) => {
+  const card = (g, gi) => {
     const t = ANN_TAG[g.statut];
-    const card = h(`<div class="ann-it">
+    const c = h(`<div class="ann-it">
         <div class="ann-it-h"><div class="ann-pc-t"><b>${esc(g.label)} <span class="ann-tag ${t[0]}">${t[1]}</span></b><small>${esc(annexDetail(g))}</small></div>
           ${g.pages.length ? `<button type="button" class="line ann-read" aria-expanded="false" aria-controls="ann-pg-${gi}">Lire</button>` : ''}</div>
         <div class="ann-pages" id="ann-pg-${gi}" hidden></div>
       </div>`);
-    const holder = card.querySelector('.ann-pages');
+    const holder = c.querySelector('.ann-pages');
     g.pages.forEach((p) => { if (slots[p]) { slots[p].classList.add('pg-annex'); holder.appendChild(slots[p]); } });
-    const btn = card.querySelector('.ann-read');
+    const btn = c.querySelector('.ann-read');
     if (btn) btn.onclick = () => {
       const open = holder.hidden;
       holder.hidden = !open;
       btn.textContent = open ? 'Masquer' : 'Lire';
       btn.setAttribute('aria-expanded', String(open));
-      if (!open) scrollToEl(card);   // replié : on revient sur l'annexe, pas au milieu du vide
+      if (!open) scrollToEl(c);   // replié : on revient sur l'annexe, pas au milieu du vide
     };
-    list.appendChild(card);
-  });
+    return c;
+  };
+  recues.forEach((g, i) => blk.querySelector('#ann-list-recues').appendChild(card(g, 'r' + i)));
+  manquantes.forEach((g, i) => blk.querySelector('#ann-list-manquantes').appendChild(card(g, 'm' + i)));
   blk.querySelector('#ann-dl').onclick = downloadFull;
   const cb = blk.querySelector('#ann-ack');
   if (cb) cb.onchange = () => {

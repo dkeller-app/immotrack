@@ -19,7 +19,7 @@ describe('recordOtpSent', () => {
     const id = await freshSession();
     await recordOtpSent(env, id, 'deadbeef', 1_111);
     const s = await loadSession(env, id);
-    expect(s.signers[0].otp).toEqual({ hash: 'deadbeef', expiresAt: 1_111, attempts: 0 });
+    expect(s.signers[0].otp).toEqual({ hash: 'deadbeef', expiresAt: 1_111, attempts: 0, delivery: 'ecran-test' });
   });
 });
 
@@ -49,11 +49,17 @@ describe('recordOtpVerified', () => {
 });
 
 describe('recordOtpVerified — remise réelle du code', () => {
-  it('delivery email → otpDelivery email', async () => {
+  it('code ENVOYÉ par e-mail → otpDelivery email', async () => {
     const id = await freshSession();
-    await recordOtpSent(env, id, 'deadbeef', 1_111);
-    await recordOtpVerified(env, id, { delivery: 'email' });
+    await recordOtpSent(env, id, 'deadbeef', 1_111, 'email');
+    await recordOtpVerified(env, id);
     expect((await loadSession(env, id)).signers[0].otpDelivery).toBe('email');
+  });
+  it("la remise décidée à l'envoi fait foi (mode changé entre envoi et saisie)", async () => {
+    const id = await freshSession();
+    await recordOtpSent(env, id, 'deadbeef', 1_111, 'ecran-test');
+    await recordOtpVerified(env, id, { delivery: 'email' });
+    expect((await loadSession(env, id)).signers[0].otpDelivery).toBe('ecran-test');
   });
 });
 

@@ -8635,9 +8635,19 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
     const indent = (/^ */.exec(raw) || [''])[0], safe = window.MontantDoc.pdfSafeText(raw.trim());
     const rows = [];
     let cur = '';
+    // Un « mot » plus large que la page (e-mail très long) est découpé en morceaux.
+    const words = [];
     safe.trim().split(/\s+/).forEach((w) => {
+      while (w.length > 1 && f.widthOfTextAtSize(indent + '  ' + w, size) > maxW) {
+        let k = w.length - 1;
+        while (k > 1 && f.widthOfTextAtSize(indent + '  ' + w.slice(0, k), size) > maxW) k--;
+        words.push(w.slice(0, k)); w = w.slice(k);
+      }
+      words.push(w);
+    });
+    words.forEach((w) => {
       const next = cur ? cur + ' ' + w : w;
-      if (cur && f.widthOfTextAtSize(indent + next, size) > maxW) { rows.push(cur); cur = w; } else cur = next;
+      if (cur && f.widthOfTextAtSize(indent + '  ' + next, size) > maxW) { rows.push(cur); cur = w; } else cur = next;
     });
     rows.push(cur);
     rows.forEach((r, i) => {
@@ -8692,14 +8702,14 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
   line('Date de complétion : ' + _dt(completedAt || new Date().toISOString()));
   line('Mode : ' + (_docMode === 'mixte' ? 'mixte (signature en présence + signature électronique à distance)'
                     : _docMode === 'presentiel' ? 'signature manuscrite en présence'
-                    : 'signature électronique à distance (e-mail + code, serveur de signature Propryo)'));
+                    : 'signature électronique à distance (serveur de signature Propryo)'));   // la vérification réelle est détaillée par signataire
   line('Empreinte SHA-256 du bail signé (' + (_presentielOnly ? 'calculée' : 'scellée') + ' à la signature, hors présent certificat) :', 10);
   line(contentHash || '', 8);
   line(_presentielOnly ? 'Calculée par l\'application au moment de la signature (signature en présence).' : 'Attestée par le serveur au moment de la signature (voir l\'empreinte par signataire ci-dessous).', 7); y -= 10;
   line('Signataires :', 13, true); y -= 4;
   (proof || []).forEach(p => {
     line('- ' + (p.nom || '') + ' (' + (p.role || '') + ')', 11, true);
-    if (p.mode) line('   mode : ' + (p.mode === 'presentiel' ? 'signature manuscrite en présence' : 'signature électronique à distance (e-mail + code)'), 9);
+    if (p.mode) line('   mode : ' + (p.mode === 'presentiel' ? 'signature manuscrite en présence' : 'signature électronique à distance'), 9);
     // Nom : repris du bail (non modifiable) depuis v15.703 ; avant, saisi librement par le signataire.
     if (p.nameSource === 'bail') line('   nom repris du bail (non modifiable par le signataire)', 9);
     else if (p.signerName && String(p.signerName).trim() && String(p.signerName).trim() !== String(p.nom || '').trim()) line('   nom saisi par le signataire : ' + String(p.signerName).trim(), 9);
@@ -24038,6 +24048,9 @@ function previewBailData(bail, log, ref, opts) {
     +'.wizV2-ann-pages{background:#f7f8fb;border-top:1px solid #e4e7ee;padding:8px}'
     +'.wizV2-ann-pages[hidden],#wizV2-sig-wrap[hidden]{display:none}'
     +'.wizV2-ann-lock{margin:10px 0 0;font-size:13px;color:#5f6f86;text-align:center}'
+    +'.wizV2-ann-missing{margin:16px 0 0;padding-top:12px;border-top:1px solid #e4e7ee}'
+    +'.wizV2-ann-missing h4{margin:0 0 2px;font-size:15px;color:#101521}'
+    +'.wizV2-ann-note{margin:0 0 8px;font-size:13px;color:#5f6f86}'
     +'.wizV2-ann .wizV2-ann-ack{margin-top:10px;background:#fff8f6}'
     +'.wizV2-ann-ack{display:flex;gap:12px;align-items:flex-start;background:#ffe7e0;border:1.5px solid #ff5a3c;border-radius:12px;padding:14px;cursor:pointer}'
     +'.wizV2-ann-ack input{width:24px;height:24px;flex:none;margin-top:1px;accent-color:#ff5a3c}'
@@ -24526,22 +24539,28 @@ function previewBailData(bail, log, ref, opts) {
     +'function _wizV2AnnexBlockHtml(grp,pr){'
     +  'var TAG={joint:["#e8f6ee","#15803d","Jointe"],hors_app:["#f3f4f6","#5f6f86","Remise hors application"],non_joint:["#fff7ed","#b45309","Non jointe"]};'
     +  'var tot=(window._wizV2Pages||[]).length,h="<section class=\\"wizV2-ann\\" id=\\"wizV2-ann\\"><h3>Annexes au bail</h3><p class=\\"wizV2-ann-lead\\">Elles font partie du contrat. Chacune peut être ouverte ici avant de signer.</p>";'
-    +  'grp.forEach(function(g,i){var t=TAG[g.statut];'
+    /* Périmètre de la case (audit v15.703 P1-1) : « les annexes listées ci-dessus » = jointes ou remises ;
+       les pièces NON fournies sont listées SOUS la case, à part (on ne reconnaît pas avoir reçu une pièce
+       qu'on ne vous a jamais remise). */
+    +  'var card=function(g,i){var t=TAG[g.statut];'
     +    'var det=g.pages.length?((g.ref?g.ref+" · ":"")+(g.pages.length>1?"pages "+g.pages[0].pageNum+" à "+g.pages[g.pages.length-1].pageNum:"page "+g.pages[0].pageNum))'
     +      ':(g.statut==="joint"?((g.docName?g.docName+" · ":"")+"jointe au PDF du bail signé"):(g.statut==="hors_app"?"fournie par le bailleur en dehors de l\\u2019application":"non fournie avec le bail"));'
-    +    'h+="<div class=\\"wizV2-ann-it\\"><div class=\\"wizV2-ann-it-h\\"><div><b>"+_wizV2Esc(g.label)+" <span class=\\"wizV2-ann-tag\\" style=\\"background:"+t[0]+";color:"+t[1]+"\\">"+t[2]+"</span></b><small>"+_wizV2Esc(det)+"</small></div>";'
-    +    'if(g.pages.length)h+="<button type=\\"button\\" class=\\"wizV2-ann-read\\" id=\\"wizV2-ann-rd-"+i+"\\" aria-expanded=\\"false\\" onclick=\\"_wizV2AnnToggle("+i+")\\">Lire</button>";'
-    +    'h+="</div>";'
-    +    'if(g.pages.length){h+="<div class=\\"wizV2-ann-pages\\" id=\\"wizV2-ann-pg-"+i+"\\" hidden>";g.pages.forEach(function(p){h+=_wizV2PageHtml(p,tot,pr);});h+="</div>";}'
-    +    'h+="</div>";'
-    +  '});'
+    +    'var c="<div class=\\"wizV2-ann-it\\"><div class=\\"wizV2-ann-it-h\\"><div><b>"+_wizV2Esc(g.label)+" <span class=\\"wizV2-ann-tag\\" style=\\"background:"+t[0]+";color:"+t[1]+"\\">"+t[2]+"</span></b><small>"+_wizV2Esc(det)+"</small></div>";'
+    +    'if(g.pages.length)c+="<button type=\\"button\\" class=\\"wizV2-ann-read\\" id=\\"wizV2-ann-rd-"+i+"\\" aria-expanded=\\"false\\" onclick=\\"_wizV2AnnToggle("+i+")\\">Lire</button>";'
+    +    'c+="</div>";'
+    +    'if(g.pages.length){c+="<div class=\\"wizV2-ann-pages\\" id=\\"wizV2-ann-pg-"+i+"\\" hidden>";g.pages.forEach(function(p){c+=_wizV2PageHtml(p,tot,pr);});c+="</div>";}'
+    +    'return c+"</div>";'
+    +  '};'
+    +  'var rec="",man="";grp.forEach(function(g,i){if(g.statut==="non_joint")man+=card(g,i);else rec+=card(g,i);});'
+    +  'h+=rec;'
     +  'var locs=_wizV2AnnexLocs(),by=window._wizV2AnnexAckBy||{};'
     +  'if(_wizV2AnnexDue()&&locs.length){'
     +    'locs.forEach(function(s){var on=!!by[s.id];'
     +      'h+="<label class=\\"wizV2-ann-ack"+(on?" is-ok":"")+"\\" id=\\"wizV2-ann-lbl-"+s.id+"\\"><input type=\\"checkbox\\""+(on?" checked":"")+" onchange=\\"_wizV2AnnAck(\'"+s.id+"\',this.checked)\\"><span><b>Je reconnais avoir reçu les annexes listées ci-dessus et en avoir pris connaissance"+(locs.length>1?" — "+_wizV2Esc(s.nomCourt||s.id):"")+".</b><small>Obligatoire pour accéder à la page des signatures · la date et l\\u2019heure sont enregistrées dans le certificat de signature.</small></span></label>";'
     +    '});'
     +    'h+="<p class=\\"wizV2-ann-lock\\" id=\\"wizV2-ann-lock\\""+(_wizV2NeedsAnnex()?"":" hidden")+">La page des signatures s\\u2019affiche une fois la case cochée.</p>";'
-    +  '}else{h+="<p class=\\"wizV2-ann-lock\\">Côté bailleur, aucun accusé de réception des annexes n\\u2019est demandé.</p>";}'
+    +  '}else if(!locs.length){h+="<p class=\\"wizV2-ann-lock\\">Côté bailleur, aucun accusé de réception des annexes n\\u2019est demandé.</p>";}'
+    +  'if(man)h+="<div class=\\"wizV2-ann-missing\\"><h4>Non fournies avec le bail</h4><p class=\\"wizV2-ann-note\\">Ces pièces ne font pas partie du document signé.</p>"+man+"</div>";'
     +  'return h+"</section>";'
     +'}'
     +'function _wizV2AnnToggle(i){'
@@ -24714,7 +24733,7 @@ function previewBailData(bail, log, ref, opts) {
     +    'window._wizV2FinalSignatures=Object.assign({},window._wizV2FinalSignatures||{},partial);'
     +    'window._wizV2LuApprouveBy=Object.assign({},window._wizV2LuApprouveBy||{},luPartial);'
     /* Document défilant : retour au document, positionné sur la dernière page (paraphes conservés). */
-    +    'window._wizV2Current=pages.length;_wizV2Render();'
+    +    'var _sp=pages.filter(function(p){return p.kind==="signatures";})[0];window._wizV2Current=_sp?_sp.pageNum:pages.length;_wizV2Render();'   /* retour sur la page des signatures (la dernière page est une annexe repliée) */
     +  '}'
     +'}'
     +'function _wizV2Exit(){'

@@ -70,12 +70,13 @@ export async function recordReclaim(env, sessionId, userId) {
 }
 
 // OTP : pose le code (hashé) envoyé au signataire courant ; les tentatives repartent à 0.
-export async function recordOtpSent(env, sessionId, hash, expiresAt) {
+// delivery : mode de remise décidé À L'ENVOI (audit P2-4) — 'email' (Resend) ou 'ecran-test' (code affiché).
+export async function recordOtpSent(env, sessionId, hash, expiresAt, delivery) {
   const session = await getMeta(env, sessionId);
   if (!session) throw new Error('session-not-found');
   const signer = session.signers[session.currentIndex];
   if (!signer) throw new Error('signer-not-found');
-  signer.otp = { hash, expiresAt, attempts: 0 };
+  signer.otp = { hash, expiresAt, attempts: 0, delivery: delivery === 'email' ? 'email' : 'ecran-test' };
   await putMeta(env, sessionId, session);
   return session;
 }
@@ -91,7 +92,9 @@ export async function recordOtpVerified(env, sessionId, { delivery } = {}) {
   if (!signer) throw new Error('signer-not-found');
   signer.otpVerifiedAt = new Date().toISOString();
   signer.otpChannel = 'email';
-  signer.otpDelivery = delivery === 'email' ? 'email' : 'ecran-test';
+  // Remise enregistrée à l'envoi du code (fait foi) ; paramètre = repli pour un code envoyé avant ce correctif.
+  const _d = (signer.otp && signer.otp.delivery) || delivery;
+  signer.otpDelivery = _d === 'email' ? 'email' : 'ecran-test';
   if (!signer.emailVerifiedAt) signer.emailVerifiedAt = signer.otpVerifiedAt;
   if (signer.otp) signer.otp.hash = null;
   await putMeta(env, sessionId, session);
@@ -154,7 +157,7 @@ export async function recordSignature(env, sessionId, { signedBytes, proof, clie
     // Acte de volonté + horodatages d'étape capturés côté client (null si absent).
     // Nom repris du bail (autorité : la session) ; saisie du signataire seulement pour une ancienne session.
     signerName: signer.nom || (client ? client.signerName : null),
-    nameSource: signer.nom ? 'bail' : 'saisi',
+    nameSource: signer.nom ? 'bail' : (client && client.signerName ? 'saisi' : null),
     consentElectronic: client ? client.consentElectronic : null,
     luApprouve: client ? client.luApprouve : null,
     openedAt: client ? client.openedAt : null,

@@ -142,6 +142,9 @@ button.ghost:disabled, button.line:disabled { opacity: .45; cursor: not-allowed;
 .ann-read { flex: none; min-height: 44px; padding: 8px 14px; font-size: 14px; }
 .ann-pages { background: var(--inset); border-top: 1px solid var(--line); padding: 10px; }
 .ann-pages .pg { margin-bottom: 10px; }
+.ann-missing { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.ann-missing h3 { margin: 0 0 2px; font-size: 15px; color: var(--encre); }
+.ann-missing .ann-legal { margin: 0 0 10px; }
 .ann-lock { margin: 10px 0 0; font-size: 13px; color: var(--sec); text-align: center; }
 .ann-pc-t { flex: 1; min-width: 0; }
 .ann-pc-t b { display: block; color: var(--encre); font-size: 14.5px; overflow-wrap: anywhere; }

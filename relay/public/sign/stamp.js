@@ -2,6 +2,28 @@
 // Paraphe ≠ signature : deux entrées distinctes (signaturePngDataUrl + paraphesByPage{page→dataURL}).
 import { rectFromJsPdf, mmToPt, fallbackAnchors } from './coords.js';
 import { readFromDoc } from './manifest.js';
+// Texte tamponné avec la police standard Helvetica (encodage WinAnsi) : pdf-lib LÈVE sur tout caractère
+// hors WinAnsi (« Ștefan », « Łukasz », « Yılmaz », espace fine U+202F…). Depuis v15.703 le nom vient du
+// bail et n'est plus modifiable : une exception ici rendait la signature IMPOSSIBLE (500 à chaque essai).
+// On ramène chaque caractère à sa lettre de base (Ș → S, ł → l), « ? » en dernier recours. Seule la
+// MENTION tamponnée est concernée : la preuve garde le nom exact.
+const WINANSI_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+const LETTRE_BASE = { 'ł': 'l', 'Ł': 'L', 'ı': 'i', 'đ': 'd', 'Đ': 'D', 'ħ': 'h', 'Ħ': 'H', 'ŀ': 'l', 'Ŀ': 'L', 'ŧ': 't', 'Ŧ': 'T' };
+const enWinAnsi = (ch) => {
+  const c = ch.codePointAt(0);
+  return (c >= 0x20 && c <= 0x7e) || (c >= 0xa0 && c <= 0xff) || WINANSI_EXTRA.includes(ch);
+};
+export function winAnsiSafe(text) {
+  return Array.from(String(text == null ? '' : text).normalize('NFC').replace(/[ -​  　]/g, ' '))
+    .map((ch) => {
+      if (enWinAnsi(ch)) return ch;
+      if (LETTRE_BASE[ch]) return LETTRE_BASE[ch];
+      const base = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      return base && Array.from(base).every(enWinAnsi) ? base : '?';
+    })
+    .join('');
+}
+
 
 export function dataUrlToBytes(dataUrl) {
   const comma = dataUrl.indexOf(',');
@@ -115,7 +137,7 @@ export async function stampSignature(
       const size = 7;
       let ty = r.y - mmToPt(2); // juste sous la boîte (origine bas-gauche)
       for (const line of mentionLines) {
-        page.drawText(line, { x: r.x, y: ty, size, font, color: rgb(0.42, 0.42, 0.42) });
+        page.drawText(winAnsiSafe(line), { x: r.x, y: ty, size, font, color: rgb(0.42, 0.42, 0.42) });
         ty -= size + 2;
       }
     }

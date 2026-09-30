@@ -74,9 +74,10 @@ describe('_collectSide — le nom RÉEL du bail part au relais, jamais le libell
 
 describe('_buildBailCertificatePdf — texte du certificat', () => {
   // pdf-lib simulé : on capture chaque ligne écrite (le rendu PDF lui-même est couvert ailleurs).
+  const widths = [];   // largeur (métrique simulée : 0,5 × taille par caractère) de chaque ligne écrite
   async function certText(proof, opts = {}) {
-    const lines = [];
-    const fakePage = { drawText: (t) => lines.push(t), drawSvgPath() {}, drawCircle() {}, drawLine() {} };
+    const lines = []; widths.length = 0;
+    const fakePage = { drawText: (t, o) => { lines.push(t); widths.push(String(t).length * o.size * 0.5); }, drawSvgPath() {}, drawCircle() {}, drawLine() {} };
     const PDFLib = {
       PDFDocument: { create: async () => ({ addPage: () => fakePage, embedFont: async () => ({ widthOfTextAtSize: (t, s) => String(t).length * s * 0.5 }), save: async () => new Uint8Array([1]) }) },
       StandardFonts: { Helvetica: 'H', HelveticaBold: 'HB' },
@@ -132,8 +133,9 @@ describe('_buildBailCertificatePdf — texte du certificat', () => {
   });
 
   it('une ligne trop longue est coupée, pas écrite hors de la page', async () => {
-    const t = await certText([{ ...base, email: 'une.adresse.tres.longue.pour.tester.le.retour.a.la.ligne@exemple-de-domaine-long.fr' }]);
-    const longest = Math.max(...t.split('\n').map((l) => l.length * 9 * 0.5));
-    expect(longest).toBeLessThanOrEqual(515 + 9 * 0.5 * 64);   // seule une empreinte (sans espace) peut rester d'un bloc
+    const t = await certText([{ ...base, email: 'une.adresse.tres.longue.pour.tester.le.retour.a.la.ligne.et.meme.plus.longue.que.la.page.entiere.du.certificat@exemple-de-domaine-long.fr' }]);
+    expect(t.replace(/\n\s*/g, '')).toContain('certificat@exemple-de-domaine-long.fr');   // rien de perdu à la coupe
+    const longest = Math.max(...widths);
+    expect(longest).toBeLessThanOrEqual(515);   // même un mot sans espace plus large que la page est coupé
   });
 });

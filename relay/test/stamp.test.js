@@ -208,3 +208,24 @@ describe('stampSignature — un même paraphe apposé sur plusieurs pages', () =
     expect(embeds).toBe(1);
   });
 });
+
+describe('winAnsiSafe — nom du bail hors WinAnsi (audit v15.703 P0-1)', () => {
+  it('ramène les lettres à leur base, garde les accents français, « ? » en dernier recours', async () => {
+    const { winAnsiSafe } = await import('../public/sign/stamp.js');
+    expect(winAnsiSafe('Ștefan POPESCU')).toBe('Stefan POPESCU');
+    expect(winAnsiSafe('Łukasz Wójcik')).toBe('Lukasz Wójcik');
+    expect(winAnsiSafe('Şahin Yılmaz')).toBe('Sahin Yilmaz');
+    expect(winAnsiSafe('Nguyễn Văn')).toBe('Nguyen Van');
+    expect(winAnsiSafe('« Lu et approuvé » — Hélène Çağlar')).toBe('« Lu et approuvé » — Hélène Çaglar');
+    expect(winAnsiSafe('A B')).toBe('A B');
+    expect(winAnsiSafe('王')).toBe('?');
+  });
+  it('stampSignature ne lève plus sur ces noms (sinon la signature était impossible)', async () => {
+    const doc = await makeDoc(1);
+    embedInDoc(doc, { v: 1, totalPages: 1, anchors: [{ sigId: 'loc-0', kind: 'signature', page: 1, x: 110, y: 210, w: 90, h: 30 }] });
+    const res = await stampSignature(doc, { sigId: 'loc-0', signaturePngDataUrl: PNG_1x1, paraphesByPage: {},
+      mentionLines: ['Signé électroniquement', 'par Ștefan Łukasz Yılmaz 王 (locataire)'] }, { rgb });
+    expect(res.signed).toBe(1);
+    expect((await doc.save()).length).toBeGreaterThan(0);
+  });
+});

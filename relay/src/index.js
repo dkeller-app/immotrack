@@ -195,7 +195,8 @@ app.post('/api/sessions/:id/verify-email', async (c) => {
   // Match OK → génère + envoie un code OTP (email fourni par le signataire, jamais persisté en clair).
   const code = generateCode();
   const h = await hashCode(sessionId, code);
-  await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS);
+  // Même règle que makeSender : hors EMAIL_MODE=resend, le code est affiché (mode test), jamais envoyé.
+  await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS, c.env.EMAIL_MODE === 'resend' ? 'email' : 'ecran-test');
   const sent = await makeSender(c.env).send({ to: email, code, bailRef: guard.session.bailRef });
   // Audit point 7 : en mode resend, un échec d'envoi (ni sent ni devCode) doit remonter une erreur
   // explicite — sinon le signataire attend un code jamais reçu, sans recours.
