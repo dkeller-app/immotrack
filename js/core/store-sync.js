@@ -428,6 +428,14 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         if (t) { if (t[1]._bailUid) e.bailUid = t[1]._bailUid; else delete e.bailUid }
         continue
       }
+      // Même réparation d'ESPACE pour une modification pas encore envoyée (« Modifier le bail », avenant signé —
+      // audit lot 3a, M7) : bail réécrit juste avant, momentanément sans tag → l'entrée prend l'espace de
+      // l'unique bail signé correspondant (même logement, même signature).
+      if (e._espaceId == null && e.signedAt && !(base && base.has(String(e.id) + espTag(e)))) {
+        const cands = baux.filter(([k, b]) => b && typeof b === 'object' && !isDeleted(b) && String(k).split('@@')[0] === String(e.ref || '').split('@@')[0]
+          && b.signatures && b.signatures.signedAt === e.signedAt)
+        if (cands.length === 1 && cands[0][1]._espaceId != null) e._espaceId = cands[0][1]._espaceId
+      }
       if (e.bailUid || !e.signedAt) continue
       if (base && base.has(String(e.id) + espTag(e))) continue
       const t = baux.find(([k, b]) => b && typeof b === 'object' && !isDeleted(b) && b._bailUid && String(k).split('@@')[0] === e.ref

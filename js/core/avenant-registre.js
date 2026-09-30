@@ -20,6 +20,8 @@
  * Module PUR : aucune lecture de DB ni de l'horloge (dates injectées).
  */
 
+import { avenantMontant, avenantObjetApplique, regimeForfaitObjet } from './avenant.js';
+
 export const STATUTS = {
   brouillon: { l: 'Brouillon', ton: 'mute' },
   a_signer: { l: 'À signer', ton: 'warn' },
@@ -183,17 +185,24 @@ export function avecStatut(av, statut, now, extra) {
   if (statut === 'signe') {
     e.signeLe = _ymd((extra && extra.signeLe) || now);
     e.signeMode = (extra && extra.signeMode) || 'papier';
+    // Pièces de la signature (lot 3b) : scan déposé ou déclaré détenu, PDF signé et certificat au cloud,
+    // empreinte et preuve par signataire. Liste FERMÉE : rien d'autre n'entre par cette porte.
+    for (const k of PIECES_SIGNATURE) if (extra && extra[k] != null) e[k] = JSON.parse(JSON.stringify(extra[k]));
   }
   return e;
 }
+export const PIECES_SIGNATURE = ['scanDocId', 'scanDetenu', 'pdfDocId', 'pdfKey', 'contentHash', 'proof'];
 
 /** Gestes proposés sur une carte (l'écran n'affiche que ceux-là). */
 export function actionsAvenant(av) {
   if (!av) return [];
   const a = [];
   if (av.statut === 'brouillon') return ['reprendre', 'supprimer'];
-  if (av.html) a.push('voir', 'pdf');
-  if (transitionPermise(av, 'signe')) a.push('signe-papier');
+  // PDF SIGNÉ (pièce jointe du bail, ou clé cloud) quand il existe ; sinon le document enregistré, non signé.
+  if (av.html) a.push('voir', (av.pdfDocId || av.pdfKey) ? 'pdf-signe' : 'pdf');
+  if (av.scanDocId) a.push('scan');
+  else if (av.statut === 'signe' && av.signeMode === 'papier') a.push('deposer-scan');   // déposer plus tard, jamais imposé
+  if (transitionPermise(av, 'signe')) { if (av.html) a.push('signe-appareil'); a.push('signe-papier'); }
   if (transitionPermise(av, 'annule')) a.push('annuler');
   return a;
 }
@@ -249,4 +258,96 @@ export function debutsBauxClos(historique, cle, bail) {
     if (d && d !== debut && !out.includes(d)) out.push(d);
   }
   return out;
+}
+
+// ── LOT 3 — APPLICATION À LA SIGNATURE (décision B, CDC §1 B / §5) ─────────────────────────────────
+// Un avenant enregistré à partir du lot 3 porte `aLaSignature:true` : rien ne change dans le bail avant
+// qu'il soit signé par toutes les parties ; ses changements sont alors datés à sa date d'effet. Les
+// avenants antérieurs (lot 2 / v15.681) ont déjà appliqué loyer et charges à l'enregistrement : on ne
+// les réapplique jamais (`appliques` le dit).
+
+// Valeurs du formulaire d'avenant → valeurs du bail (`destinationLocaux` : 'habitation' | 'mixte').
+const _DESTINATION = { "usage exclusif d'habitation": 'habitation', 'usage mixte (habitation et activité professionnelle)': 'mixte' };
+const _isoDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) && !isNaN(new Date(String(s) + 'T00:00:00Z'));
+
+/**
+ * Ce que la signature de l'avenant change dans le bail — PUR, rien n'est écrit.
+ * @param {{objets:Array, bail:Object, libelles?:Object, forfaitAvant?:boolean}} p
+ *   forfaitAvant : régime de charges EN VIGUEUR à la date d'effet sans cet avenant (timeline des avenants,
+ *   `bailForfaitActifLe`) ; absent → flag du bail (`chForfait`, non daté).
+ * @returns {{hc:number|null, ch:number|null, regime:boolean, champs:Array<{champ,apres}>, appliques:string[], docSeul:string[], alertes:string[]}}
+ *   hc / ch : nouveaux montants à dater au barème (null = inchangé) ; regime : le régime des charges change
+ *   (forfait ↔ provisions, lu par la régularisation à la date d'effet) ; champs : autres champs du bail.
+ */
+export function planApplication({ objets, bail, libelles, forfaitAvant } = {}) {
+  const b = bail || {};
+  const L = (k) => (libelles && libelles[k]) || k;
+  const hc0 = Number(b.hc) || 0, ch0 = Number(b.ch) || 0;
+  let hc = hc0, ch = ch0;
+  const champs = [], appliques = [], docSeul = [], alertes = [];
+  let regime = false;
+  // Libellés qui dépendent du LOYER FINAL (loyer, supplément d'annexe) : décidés après le contrôle « loyer ≤ 0 ».
+  const surLoyer = [];
+  // Vrai seulement si le champ CHANGE réellement (valeur absente = valeur par défaut du formulaire du bail) :
+  // un champ identique n'est ni journalisé ni annoncé « appliqué » (audit lot 3a, M2).
+  const DEFAUTS = { destinationLocaux: 'habitation' };
+  const pose = (champ, apres) => {
+    const avant = (b[champ] == null || b[champ] === '') && _own(DEFAUTS, champ) ? DEFAUTS[champ] : b[champ];
+    if (String(avant == null ? '' : avant) === String(apres)) return false;
+    champs.push({ champ, apres }); return true;
+  };
+  for (const o of (Array.isArray(objets) ? objets : [])) {
+    const k = o && o.k; const d = (o && o.data) || {};
+    if (k === 'loyer') {
+      const m = avenantMontant(d.nouveau, hc0, { strictPositif: true });
+      if (!m.ok) { alertes.push('Nouveau loyer illisible : non appliqué.'); docSeul.push(L(k)); }
+      else if (m.v !== hc0) { hc += m.v - hc0; surLoyer.push(L(k)); }
+      else docSeul.push(L(k));
+    } else if (k === 'charges') {
+      const m = avenantMontant(d.montant, ch0);
+      if (!m.ok) alertes.push('Montant des charges illisible : non appliqué.');
+      else if (m.v !== ch0) ch = m.v;
+      // Forfait de charges (art. 23-1) : le régime est DATÉ par l'avenant et lu par la régularisation
+      // (bailForfaitActifLe) — un changement de régime est donc « appliqué », comme un montant.
+      const forfait = regimeForfaitObjet(o);
+      const avant = typeof forfaitAvant === 'boolean' ? forfaitAvant : !!b.chForfait;
+      const change = forfait !== null && forfait !== avant;
+      if (change) regime = true;
+      const montantApplique = m.ok && m.v !== ch0;
+      if (montantApplique) appliques.push(L(k));
+      if (change) appliques.push(forfait ? 'Passage au forfait de charges' : 'Retour aux provisions');
+      if (!avenantObjetApplique(o, { prevCh: ch0, newCh: montantApplique ? m.v : ch0, prevForfait: avant, newForfait: forfait === null ? avant : forfait })) docSeul.push(L(k));
+      // Flag courant du bail (non daté) tenu aligné sur le dernier régime signé.
+      if (forfait !== null && !!b.chForfait !== forfait) champs.push({ champ: 'chForfait', apres: forfait });
+    } else if (k === 'annexe') {
+      // Supplément de loyer d'une dépendance ajoutée (ou retirée) : porté par le loyer, daté au barème.
+      const sup = avenantMontant(d.sup, 0);
+      if (!sup.ok) { alertes.push('Loyer supplémentaire de l\'annexe illisible : non appliqué.'); docSeul.push(L(k)); }
+      else if (sup.v > 0) { hc += /^Retrait/.test(String(d.act || '')) ? -sup.v : sup.v; surLoyer.push(L(k) + ' (loyer supplémentaire)'); }
+      else docSeul.push(L(k));
+    } else if (k === 'duree') {
+      if (!_isoDate(d.fin)) { alertes.push('Nouveau terme du bail absent : non appliqué.'); docSeul.push(L(k)); }
+      else (pose('fin', d.fin) ? appliques : docSeul).push(L(k));
+    } else if (k === 'paiement') {
+      // Seul le JOUR est une donnée du bail (1 à 28, comme le formulaire du bail) ; le mode et l'IBAN restent
+      // dans le document (l'IBAN appartient au bailleur, pas à ce bail : le changer ici toucherait tous ses baux).
+      const brut = String(d.jour == null ? '' : d.jour).trim();
+      const j = parseInt(brut, 10);
+      if (j >= 1 && j <= 28 && String(j) === brut) { if (pose('jpay', String(j))) appliques.push('Jour de paiement'); }
+      else alertes.push('Jour de paiement invalide (1 à 28) : non appliqué.');
+      if (String(d.rib || '').trim()) docSeul.push('IBAN du bailleur');
+    } else if (k === 'destination') {
+      const v = (typeof d.dest === 'string' && _own(_DESTINATION, d.dest)) ? _DESTINATION[d.dest] : null;
+      ((v && pose('destinationLocaux', v)) ? appliques : docSeul).push(L(k));
+    } else {
+      docSeul.push(L(k));
+    }
+  }
+  hc = Math.round(hc * 100) / 100;
+  if (hc <= 0 && hc !== hc0) {
+    // Loyer final refusé : ni le loyer ni le supplément ne sont appliqués — et on ne le prétend pas (audit lot 3a, M1).
+    alertes.push('Le loyer obtenu serait nul ou négatif : non appliqué.');
+    hc = hc0; docSeul.push(...surLoyer);
+  } else appliques.push(...surLoyer);
+  return { hc: hc !== hc0 ? hc : null, ch: ch !== ch0 ? ch : null, regime, champs, appliques, docSeul, alertes };
 }

@@ -18,6 +18,7 @@ import { describe, it, expect } from 'vitest';
 import {
   htmlToText, htmlToWords, splitTopLevelBlocks, parseDocDoc, docWords, renderDocToPdf, PDF_NATIVE
 } from './doc-native.js';
+import { tracedPdf } from './_real-jspdf.js';
 import {
   docParties, docActe, docLignes, docMention, docEncart, docLieu, docSignzone, docPage
 } from './doc-template.js';
@@ -255,4 +256,37 @@ describe('Non-régression — AUCUN contenu de premier niveau avalé en silence 
     expect(foot.y).toBeGreaterThan(270);
     expect(calls.some(c => c.s === '__PAGE__')).toBe(false);
   });
+});
+
+// ── Non-régression AVENANT lot 3 (« Lu et approuvé ») : une rangée de signature SANS mention garde
+// exactement sa géométrie. Valeurs relevées avec le moteur d'AVANT la mention (339fe778), vrai jsPDF :
+// trait de signature (page, y) et nombre de pages, pour une quittance plus ou moins remplie (dont le
+// passage du cadre à la page suivante), avec ou sans image de signature du bailleur.
+describe('quittance : rangée de signature sans mention inchangée (non-régression lot 3)', () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  const para = '<p>' + 'Paragraphe de remplissage destiné à pousser le contenu vers le bas de la page. ' + '</p>';
+  const quittance = (n, sig) => docPage({ titre: 'QUITTANCE DE LOYER', ctx: 'Période du 01/09/2026 au 30/09/2026', corps:
+    para.repeat(n) + docLignes([{ lab: 'Loyer', val: '650,00 €' }, { lab: 'Charges', val: '150,00 €' }, { lab: 'Total', val: '800,00 €', tot: true }])
+    + docMention('Cette quittance annule tous les reçus précédents.') + docLieu('Fait à Lyon, le 30/09/2026')
+    + docSignzone([{ sig: sig ? '<img src="' + PNG + '">' : '', label: 'Le bailleur<br><strong>SCI Les Tilleuls</strong>' }]),
+    ref: 'Q-2026-09', date: 'Émise le 30/09/2026', withStyle: false });
+  // [paragraphes de remplissage, pages, page du trait, y du trait (mm)] — moteur 339fe778
+  const ATTENDU = [[0, 1, 1, 115.5], [20, 1, 1, 259.5], [26, 2, 2, 55.8], [28, 2, 2, 67.2], [30, 2, 2, 86.2], [34, 2, 2, 115]];
+  for (const [n, pages, page, y] of ATTENDU) {
+    for (const sig of [false, true]) {
+      it(n + ' paragraphes, ' + (sig ? 'avec' : 'sans') + ' image : ' + pages + ' page(s), trait page ' + page + ' à ' + y + ' mm', () => {
+        const pdf = tracedPdf();
+        renderDocToPdf(pdf, { nom: 'SCI Les Tilleuls' }, parseDocDoc(quittance(n, sig)), PDF_NATIVE);
+        expect(pdf.getNumberOfPages()).toBe(pages);
+        const traits = pdf.__log.filter(e => e.op === 'line' && e.w === 70);
+        expect(traits).toHaveLength(1);
+        expect(traits[0].page).toBe(page);
+        expect(traits[0].y).toBeCloseTo(y, 1);
+        const lib = pdf.__log.find(e => e.op === 'text' && /^Le bailleur/.test(e.t));
+        expect(lib.page).toBe(page);
+        expect(lib.y).toBeCloseTo(y + 2, 1);   // libellé juste sous le trait, comme avant
+        expect(pdf.__log.some(e => e.op === 'text' && /Lu et approuv|Précéder la signature/.test(e.t))).toBe(false);
+      });
+    }
+  }
 });

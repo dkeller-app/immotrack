@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
   forfaitAvenantsDuBail, occNonForfaitJours, forfaitIntervalles, appliquerForfaitOccupation,
-  periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique,
+  periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique, avenantApplicationAffichee,
 } from '../../js/core/regul-forfait.js';
 import * as AvenantRegistre from '../../js/core/avenant-registre.js';
 import { listeAvenants, numeroSuivant, debutsBauxClos } from '../../js/core/avenant-registre.js';
@@ -197,6 +197,25 @@ describe('avenantObjetApplique — « appliqué » ou « document seulement »',
   });
 });
 
+describe('avenantApplicationAffichee — texte vrai d\'un avenant lot 2 « forfait seul » (données non réécrites)', () => {
+  const b = { ref: 'L1', debut: '2025-01-01', chForfait: true };
+  const lot2 = { id: 'a1', no: 1, statut: 'a_signer', date: '2026-07-01', appliques: [], docSeul: ['Charges'], objets: [{ k: 'charges', data: { mode: FORFAIT, montant: '100' } }] };
+  it('lot 2 enregistré « document seulement : charges » mais honoré par la régul → affiché appliqué', () => {
+    expect(avenantApplicationAffichee(lot2, { bail: b, avenants: [lot2] })).toEqual({ appliques: ['Passage au forfait de charges'], docSeul: [] });
+    expect(lot2.appliques).toEqual([]);   // donnée intacte
+  });
+  it('« À signer » du lot 3 (pas encore appliqué) : affichage inchangé', () => {
+    const av = Object.assign({}, lot2, { aLaSignature: true, prevus: ['Passage au forfait de charges'] });
+    expect(avenantApplicationAffichee(av, { bail: b, avenants: [av] })).toEqual({ appliques: [], docSeul: ['Charges'] });
+  });
+  it('annulé : affichage inchangé ; déjà au forfait (régime inchangé) : inchangé', () => {
+    const ann = Object.assign({}, lot2, { statut: 'annule' });
+    expect(avenantApplicationAffichee(ann, { bail: b, avenants: [ann] }).appliques).toEqual([]);
+    const avant = Object.assign({}, lot2, { id: 'a0', no: 0, date: '2026-01-01' });
+    expect(avenantApplicationAffichee(lot2, { bail: b, avenants: [avant, lot2] }).appliques).toEqual([]);
+  });
+});
+
 // ── Câblage réel : computeRegul + _forfaitAvenantsDuBail + _rgYearChargesDetail + _rgN1Charges
 //    extraits d'index.html, branchés sur le module (comme main.js le fait sur window). ─────────────
 describe('câblage index.html — computeRegul / base N-1 réelles', () => {
@@ -243,6 +262,23 @@ describe('câblage index.html — computeRegul / base N-1 réelles', () => {
     expect(r26.charges).toBe(1200);
     expect(r26.forfait).toBeUndefined();
     expect(_rgN1Charges('L1').total).toBe(1200);
+  });
+
+  it('lot 3 : forfait « À signer » → régul inchangée ; signé → forfait honoré dès effetApplique', () => {
+    const av = { id: 'av3', type: 'avenant', ref: 'L1', bailDebut: '2025-01-01', no: 1, statut: 'a_signer', aLaSignature: true, date: '2026-07-01',
+      objets: [{ k: 'charges', data: { mode: FORFAIT, montant: '100' } }] };
+    const DB = { logements: [{ ref: 'L1', imm: 'I' }], baux: { L1: { ref: 'L1', debut: '2025-01-01', ch: 100, type: 'meuble' } }, baux_historique: [],
+      mouvements: mvts('L1', [2026]), entites: [], bailEvents: [], baux_evenements: [av] };
+    const { computeRegul } = charger(DB);
+    const avant = computeRegul('2026-01-01', '2026-12-31').entries.L1;
+    expect(avant.charges).toBe(1200); expect(avant.provisions).toBe(1200); expect(avant.forfait).toBeUndefined();
+    // Signature : statut « Signé », date réellement appliquée recalée au 1ᵉʳ septembre.
+    DB.baux_evenements = [Object.assign({}, av, { statut: 'signe', signeLe: '2026-08-20', effetApplique: '2026-09-01' })];
+    DB.baux.L1.chForfait = true;
+    const apres = computeRegul('2026-01-01', '2026-12-31').entries.L1;
+    expect(apres.charges).toBe(800);       // janvier → août
+    expect(apres.provisions).toBe(800);
+    expect(periodeForfaitLibelle(apres.forfait)).toBe('du 01/09/2026 au 31/12/2026');
   });
 
   it('🔴2 : bail A clos avec avenant forfait « À signer » au 01/01/2026, bail B nu au 01/01/2026 → régul de B intacte', () => {

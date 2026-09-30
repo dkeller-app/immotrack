@@ -10,7 +10,7 @@
  * PUR : aucune lecture de DB, du DOM ni de l'horloge. index.html injecte les données et appelle ces
  * fonctions (exposées sur window par main.js). Tests : __tests__/helpers/regul-forfait.test.js
  */
-import { bailForfaitActifLe, forfaitEtapes, forfaitPertinent } from './avenant.js';
+import { bailForfaitActifLe, forfaitEtapes, forfaitPertinent, avenantObjetApplique, avenantApplique, regimeForfaitObjet, effetAvenant } from './avenant.js';
 import { listeAvenants } from './avenant-registre.js';
 
 const _ymd = (s) => String(s == null ? '' : s).slice(0, 10);
@@ -143,13 +143,38 @@ export function baseChargesLogement(entries) {
   return { total: _r2(moves.reduce((s, m) => s + m.montant, 0)), moves };
 }
 
+// Règle « appliqué » d'un objet d'avenant : définie dans avenant.js (utilisée aussi par planApplication).
+export { avenantObjetApplique };
+
+const _REGIMES = ['Passage au forfait de charges', 'Retour aux provisions'];
 /**
- * Un objet d'avenant est-il APPLIQUÉ au bail (et non « document seulement ») ? Loyer : le montant change.
- * Charges : le montant change OU le régime change (forfait ↔ provisions, lu par la régularisation).
+ * Ce que la carte d'un avenant AFFICHE comme appliqué / document seulement — sans réécrire la donnée.
+ * Un avenant appliqué qui CHANGE le régime des charges (forfait ↔ provisions) est honoré par la
+ * régularisation à sa date d'effet : il est « appliqué », même enregistré avant que la régularisation ne
+ * lise le forfait (lot 2 : `appliques:[]`, « Document seulement : charges »).
+ * Le régime « sans cet avenant » ignore le flag `chForfait` du bail : seul un avenant le pose, et c'est
+ * justement celui-ci qui l'a posé.
+ * @param {object} av  entrée du registre (ou avenant repris)
+ * @param {{bail:object, avenants:Array, libelleCharges?:string}} ctx  avenants du bail (liste du registre)
+ * @returns {{appliques:string[], docSeul:string[]}}
  */
-export function avenantObjetApplique(o, { prevHc, newHc, prevCh, newCh, prevForfait, newForfait } = {}) {
-  if (!o) return false;
-  if (o.k === 'loyer') return newHc !== prevHc;
-  if (o.k === 'charges') return newCh !== prevCh || !!newForfait !== !!prevForfait;
-  return false;
+export function avenantApplicationAffichee(av, { bail, avenants, libelleCharges = 'Charges' } = {}) {
+  const app = Array.isArray(av && av.appliques) ? av.appliques.slice() : [];
+  const doc = Array.isArray(av && av.docSeul) ? av.docSeul.slice() : [];
+  const same = { appliques: app, docSeul: doc };
+  if (!av || !bail || !avenantApplique(av)) return same;
+  if (!(Array.isArray(av.objets) ? av.objets : []).some((o) => regimeForfaitObjet(o) !== null)) return same;
+  const eff = effetAvenant(av);
+  if (!eff) return same;
+  const liste = Array.isArray(avenants) ? avenants : [];
+  const sansFlag = Object.assign({}, bail, { chForfait: false });
+  const avec = bailForfaitActifLe(sansFlag, eff, liste.some((x) => x && x.id === av.id) ? liste : liste.concat([av]));
+  const sans = bailForfaitActifLe(sansFlag, eff, liste.filter((x) => x && x.id !== av.id));
+  if (avec === sans) return same;
+  const lbl = avec ? _REGIMES[0] : _REGIMES[1];
+  return {
+    appliques: app.filter((x) => !_REGIMES.includes(x)).concat([lbl]),
+    // « Charges » en document seul : le montant n'a pas changé, mais le régime, lui, est appliqué.
+    docSeul: doc.filter((x) => !_REGIMES.includes(x) && x !== libelleCharges),
+  };
 }

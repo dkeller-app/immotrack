@@ -278,6 +278,20 @@ export function avenantArticle(k, d, ctx) {
   }
 }
 
+// ── « Lu et approuvé » (décision Didier 30/09 : obligatoire et imprimée, comme sur le bail) ─────────────
+// Signé dans l'app : la mention est imprimée au-dessus de chaque signature (comme drawSignatureBlock pour
+// le bail). Pas encore signé (document à imprimer) : la consigne de l'acte de cautionnement, au-dessus de
+// l'espace où chaque partie signe à la main. Le moteur PDF (doc-native) lit `pro-sigmention`.
+export const LU_APPROUVE = '« Lu et approuvé »';
+// Consigne sur deux lignes : la mention à recopier n'est jamais coupée en fin de ligne.
+const CONSIGNE_LU_APPROUVE = 'Précéder la signature de la mention manuscrite :<br>' + LU_APPROUVE;
+/** Contenu de l'espace de signature d'un cadre : mention + image validée, ou consigne à la main. */
+function _sigspaceHtml(imgHtml) {
+  return imgHtml
+    ? '<em class="pro-sigmention">' + LU_APPROUVE + '</em>' + imgHtml
+    : '<em class="pro-sigmention pro-sigconsigne">' + CONSIGNE_LU_APPROUVE + '</em>';
+}
+
 /**
  * Assemble le document HTML complet de l'avenant.
  * @param {object} ctx - { no, bailleur, locataires:[nom], bien, dateBail, loyer0, effetIso, ville, objets:[{k,data}] }
@@ -324,7 +338,7 @@ export function buildAvenantHtml(ctx) {
   const sigs = Array.isArray(ctx.signatures) ? ctx.signatures : [];
   const sigImg = (u) => (typeof u === 'string' && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(u)) ? '<img src="' + esc(u) + '">' : '';
   const sigHtml = '<div class="pro-signzone' + (signataires.length > 1 ? ' duo' : '') + '">' +
-    signataires.map((s, i) => '<div class="pro-sigcase"><div class="pro-sigspace">' + sigImg(sigs[i]) + '</div>' +
+    signataires.map((s, i) => '<div class="pro-sigcase"><div class="pro-sigspace">' + _sigspaceHtml(sigImg(sigs[i])) + '</div>' +
       '<div class="pro-signbox">' + s.role + '<br><strong>' + esc(s.nom) + '</strong>' + (s.sous ? '<br>' + esc(s.sous) : '') + '</div></div>').join('') +
     '</div>';
 
@@ -432,12 +446,24 @@ export function avenantMontant(raw, prev, opts) {
 // les avenants anciens (`bail.avenants[]` : { dateEffet, objets }). L'appelant passe la liste
 // du registre (`avenants`) ; sans elle, on relit `bail.avenants[]` (ancien modèle).
 
-// Statuts d'un avenant dont les changements ne sont PAS appliqués au bail : brouillon (rien n'est
-// appliqué) et annulé (jamais appliqué). Lot 2 : loyer et charges s'appliquent dès l'enregistrement
-// (« À signer ») — si l'application passe à la signature (lot 3), c'est ICI qu'on ne retiendra que « signé ».
-export const STATUTS_AVENANT_NON_APPLIQUES = ['brouillon', 'annule'];
+/**
+ * L'avenant est-il APPLIQUÉ au bail (ses changements font foi à sa date d'effet) ?
+ *  - « Signé » : oui ;
+ *  - « À signer » enregistré AVANT le lot 3 (pas de `aLaSignature`) : oui — lot 2 / v15.681 appliquaient
+ *    loyer et charges dès l'enregistrement, et ces avenants restent honorés ;
+ *  - « À signer » du lot 3 (`aLaSignature`) : non, rien ne s'applique avant la signature de toutes les parties ;
+ *  - brouillon, annulé : non ;
+ *  - avenant ancien sans statut (`bail.avenants[]` brut) : oui (il a été appliqué à l'enregistrement).
+ */
+export function avenantApplique(a) {
+  if (!a) return false;
+  if (a.statut == null) return true;
+  return a.statut === 'signe' || (a.statut === 'a_signer' && !a.aLaSignature);
+}
 
-function _effetAvenant(a) { return String((a && (a.date || a.dateEffet)) || '').slice(0, 10); }
+// Date d'effet RÉELLEMENT appliquée : la signature (lot 3) peut recaler la date (1ᵉʳ du mois, mois déjà
+// quittancé…) et la pose dans `effetApplique` ; sinon la date d'effet écrite dans l'avenant.
+function _effetAvenant(a) { return String((a && (a.effetApplique || a.date || a.dateEffet)) || '').slice(0, 10); }
 /** Mode de charges porté par l'avenant (texte), ou null s'il ne change pas le régime des charges. */
 function _modeCharges(a) {
   const o = a && Array.isArray(a.objets)
@@ -450,8 +476,9 @@ function _modeCharges(a) {
  * Étapes datées du régime de charges, dans l'ordre d'application (date d'effet, puis n°) :
  * [{ date, forfait }]. `null` si AUCUN avenant — quel que soit son statut — ne porte de régime de
  * charges : le flag `bail.chForfait` fait alors foi (forfait d'origine / données anciennes). Dès qu'un
- * avenant de charges existe, la timeline fait foi : un avenant annulé ou en brouillon n'y compte pas,
- * et le flag (posé à l'enregistrement, jamais retiré à l'annulation) n'est plus lu.
+ * avenant de charges existe, la timeline fait foi : seul un avenant APPLIQUÉ y compte (`avenantApplique` :
+ * signé, ou « À signer » d'avant le lot 3) — brouillon, annulé et « À signer » du lot 3 non ; le flag
+ * (non daté, jamais retiré à l'annulation) n'est plus lu. Date = `effetApplique` sinon date d'effet.
  * @param {object} bail
  * @param {Array} [avenants] avenants du bail (registre) ; absent → `bail.avenants[]`
  */
@@ -461,7 +488,7 @@ export function forfaitEtapes(bail, avenants) {
   const charges = src.filter(a => a && _effetAvenant(a) && _modeCharges(a) !== null);
   if (!charges.length) return null;
   return charges
-    .filter(a => STATUTS_AVENANT_NON_APPLIQUES.indexOf(a.statut) < 0)
+    .filter(avenantApplique)
     .slice()
     .sort((x, y) => _effetAvenant(x).localeCompare(_effetAvenant(y)) || ((Number(x.no) || 0) - (Number(y.no) || 0)))
     .map(a => ({ date: _effetAvenant(a), forfait: _modeCharges(a).toLowerCase().indexOf('forfait') >= 0 }));
@@ -502,3 +529,121 @@ export function forfaitEffetAu(bail, toIso, avenants) {
 export function forfaitPertinent(bail, avenants) {
   return !!bail && (bail.chForfait === true || forfaitEtapes(bail, avenants) !== null);
 }
+
+// ── AVENANT-REFONTE lot 3b — signature d'un avenant FIGÉ (jamais régénéré depuis le bail actuel) ────────
+// Les cadres de signature sont repérés par un analyseur LINÉAIRE (recherche de chaînes, curseur qui ne
+// recule jamais) et non par une expression régulière : un document forgé, venu du partage SCI, ne peut pas
+// geler l'onglet (audit lot 3b I5).
+const _OUV = '<div class="pro-sigcase"><div class="pro-sigspace">';
+const _MIL = '</div><div class="pro-signbox">';
+const _FIN = '</div></div>';
+/** Cadres du document, dans l'ordre : [{debut, fin, space, box}] (positions dans la chaîne). */
+function _cadres(s) {
+  const out = [];
+  let pos = 0, ferme = -1;   // `ferme` = 1er '</div>' connu après la dernière ouverture (amorti linéaire)
+  for (;;) {
+    const o = s.indexOf(_OUV, pos);
+    if (o < 0) break;
+    const d = o + _OUV.length;
+    if (ferme < d) ferme = s.indexOf('</div>', d);
+    if (ferme < 0) break;                                   // plus aucune fermeture : aucun cadre complet
+    if (s.startsWith(_MIL, ferme)) {
+      const b = ferme + _MIL.length;
+      const f = s.indexOf('</div>', b);
+      if (f < 0) break;
+      if (s.startsWith(_FIN, f)) {
+        out.push({ debut: o, fin: f + _FIN.length, space: s.slice(d, ferme), box: s.slice(b, f) });
+        pos = f + _FIN.length; ferme = -1;
+        continue;
+      }
+    }
+    pos = d;   // ouverture sans cadre complet : on repart juste après
+  }
+  return out;
+}
+const _txt = (h) => String(h == null ? '' : h).replace(/<[^>]*>/g, '')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').trim();
+const _SIG_OK = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
+
+/**
+ * Parties qui signent, lues dans le document de l'avenant tel qu'il a été enregistré (cadres de
+ * signature, dans l'ordre) : c'est le document qui fait foi, pas le bail d'aujourd'hui.
+ * @returns {Array<{role:string, nom:string, sous:string}>} texte brut (à échapper par l'appelant)
+ */
+export function avenantPartiesSignature(html) {
+  return _cadres(String(html == null ? '' : html)).map((c) => {
+    const parts = c.box.split(/<br\s*\/?>/i);
+    return { role: _txt(parts[0]), nom: _txt(parts[1]), sous: _txt(parts.slice(2).join(' ')) };
+  });
+}
+
+/**
+ * Document signé : chaque image (data-URL PNG/JPEG VALIDÉE — le document est partagé, jamais de HTML
+ * injecté tel quel) posée dans le cadre de même rang ; la date de l'acte remplace la ligne à compléter.
+ * « Lu et approuvé » (décision 30/09) : `lus[i]` doit valoir true pour CHAQUE cadre ; la mention est alors
+ * imprimée au-dessus de chaque signature (elle remplace la consigne du document à imprimer).
+ * Retourne null si le nombre de signatures ne correspond pas aux cadres (document incohérent) ou si une
+ * partie n'a pas coché « Lu et approuvé » (signature non valable).
+ */
+export function avenantHtmlSigne(html, sigs, dateActeIso, lus) {
+  const s = String(html == null ? '' : html);
+  const liste = Array.isArray(sigs) ? sigs : [];
+  const cadres = _cadres(s);
+  if (!cadres.length || liste.length !== cadres.length || !liste.every(u => typeof u === 'string' && _SIG_OK.test(u))) return null;
+  if (!Array.isArray(lus) || lus.length !== cadres.length || !lus.every(x => x === true)) return null;
+  let out = '', pos = 0;
+  cadres.forEach((c, i) => {
+    out += s.slice(pos, c.debut) + _OUV + _sigspaceHtml('<img src="' + esc(liste[i]) + '">') + _MIL + c.box + _FIN;
+    pos = c.fin;
+  });
+  out += s.slice(pos);
+  // La ligne « Fait à …, le ____ , en autant… » précisément — jamais des soulignés saisis dans une clause.
+  if (dateActeIso) out = out.replace(', le ____________________, en autant', ', le ' + esc(frDate(dateActeIso)) + ', en autant');
+  return out;
+}
+
+/**
+ * Document à imprimer (signature sur papier) : chaque cadre dont l'espace de signature est VIDE reçoit la
+ * consigne « Précéder la signature de la mention manuscrite… ». Sert aux avenants enregistrés avant la
+ * décision du 30/09 (document figé sans consigne) ; un cadre déjà rempli (consigne, signature) est laissé tel quel.
+ */
+export function avenantHtmlAImprimer(html) {
+  const s = String(html == null ? '' : html);
+  const cadres = _cadres(s);
+  let out = '', pos = 0;
+  cadres.forEach((c) => {
+    out += s.slice(pos, c.debut) + (c.space.trim() ? s.slice(c.debut, c.fin) : _OUV + _sigspaceHtml('') + _MIL + c.box + _FIN);
+    pos = c.fin;
+  });
+  return out + s.slice(pos);
+}
+
+/**
+ * Signature d'une partie sur l'appareil (règle du bail, décision 30/09) : valable seulement tracée ET
+ * « Lu et approuvé » coché. Retourne ce qui manque (texte à l'infinitif) ou null si elle est valable.
+ */
+export function avenantSignatureManque(signe, lu) {
+  if (signe && lu) return null;
+  if (!signe && !lu) return 'signer ET cocher ' + LU_APPROUVE;
+  return signe ? 'cocher ' + LU_APPROUVE : 'signer';
+}
+
+/**
+ * Un objet d'avenant est-il APPLIQUÉ au bail (et non « document seulement ») ? Loyer : le montant change.
+ * Charges : le montant change OU le régime change (forfait ↔ provisions, lu par la régularisation).
+ */
+export function avenantObjetApplique(o, { prevHc, newHc, prevCh, newCh, prevForfait, newForfait } = {}) {
+  if (!o) return false;
+  if (o.k === 'loyer') return newHc !== prevHc;
+  if (o.k === 'charges') return newCh !== prevCh || !!newForfait !== !!prevForfait;
+  return false;
+}
+
+/** Régime demandé par un objet « charges » : true = forfait, false = provisions, null = pas de régime. */
+export function regimeForfaitObjet(o) {
+  if (!o || o.k !== 'charges' || !o.data || String(o.data.mode || '').trim() === '') return null;
+  return String(o.data.mode).toLowerCase().indexOf('forfait') >= 0;
+}
+
+/** Date d'effet réellement appliquée d'un avenant (`effetApplique`, sinon date d'effet écrite). */
+export function effetAvenant(a) { return _effetAvenant(a); }

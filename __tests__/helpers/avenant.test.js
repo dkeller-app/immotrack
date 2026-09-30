@@ -2,7 +2,7 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantEntrant, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, forfaitEtapes } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantEntrant, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, forfaitEtapes, avenantApplique, effetAvenant, regimeForfaitObjet } from '../../js/core/avenant.js';
 import { listeAvenants } from '../../js/core/avenant-registre.js';
 
 describe('avenantMontant — lecture des montants saisis', () => {
@@ -190,6 +190,46 @@ describe('forfaitEffetAu / forfaitPertinent / forfaitEtapes', () => {
   });
 });
 
+describe('avenantApplique — lot 3 : un avenant ne s\'applique qu\'une fois signé', () => {
+  it('signé → appliqué ; « À signer » du lot 3 (aLaSignature) → non', () => {
+    expect(avenantApplique({ statut: 'signe', aLaSignature: true })).toBe(true);
+    expect(avenantApplique({ statut: 'a_signer', aLaSignature: true })).toBe(false);
+  });
+  it('« À signer » d\'avant le lot 3 (lot 2 / v15.681, appliqué à l\'enregistrement) → reste honoré', () => {
+    expect(avenantApplique({ statut: 'a_signer' })).toBe(true);
+  });
+  it('brouillon, annulé → non ; avenant ancien sans statut → oui', () => {
+    expect(avenantApplique({ statut: 'brouillon' })).toBe(false);
+    expect(avenantApplique({ statut: 'annule' })).toBe(false);
+    expect(avenantApplique({ dateEffet: '2026-01-01' })).toBe(true);
+    expect(avenantApplique(null)).toBe(false);
+  });
+});
+
+describe('forfait daté × lot 3 — avant / après signature, date réellement appliquée', () => {
+  const lot3 = (extra) => Object.assign({ no: 1, statut: 'a_signer', aLaSignature: true, date: '2026-07-15', objets: [{ k: 'charges', data: { mode: 'Passage au forfait de charges' } }] }, extra);
+  const bail = { debut: '2024-01-01', chForfait: true };
+  it('« À signer » du lot 3 : forfait NON honoré (même avec le flag vrai)', () => {
+    expect(bailForfaitActifLe(bail, '2026-09-01', [lot3()])).toBe(false);
+  });
+  it('signé : honoré à effetApplique (date recalée au 1ᵉʳ du mois suivant), pas à la date écrite', () => {
+    const av = lot3({ statut: 'signe', effetApplique: '2026-08-01' });
+    expect(effetAvenant(av)).toBe('2026-08-01');
+    expect(bailForfaitActifLe(bail, '2026-07-20', [av])).toBe(false);
+    expect(bailForfaitActifLe(bail, '2026-08-01', [av])).toBe(true);
+  });
+  it('sans effetApplique : date d\'effet écrite (date, puis dateEffet)', () => {
+    expect(effetAvenant({ date: '2026-07-01' })).toBe('2026-07-01');
+    expect(effetAvenant({ dateEffet: '2025-03-01' })).toBe('2025-03-01');
+  });
+  it('regimeForfaitObjet : forfait / provisions / sans régime', () => {
+    expect(regimeForfaitObjet({ k: 'charges', data: { mode: 'Passage au forfait de charges' } })).toBe(true);
+    expect(regimeForfaitObjet({ k: 'charges', data: { mode: 'Révision du montant des provisions' } })).toBe(false);
+    expect(regimeForfaitObjet({ k: 'charges', data: { montant: 90 } })).toBe(null);
+    expect(regimeForfaitObjet({ k: 'loyer', data: { mode: 'forfait' } })).toBe(null);
+  });
+});
+
 describe('champ vide → marqueur « à compléter » (jamais un « … » final)', () => {
   it('clause sans texte → marqueur av-todo, pas de …', () => {
     const a = avenantArticle('clause', { titre: 'Animal', texte: '' });
@@ -373,17 +413,19 @@ describe('buildAvenantHtml — assemblage', () => {
     const roles = [...h.matchAll(/<div class="pro-signbox">([^<]*)<br>/g)].map(m => m[1]);
     expect(roles).toEqual(['Le bailleur', 'Le locataire', 'Le colocataire sortant', 'Le colocataire entrant']);
     expect(h).toMatch(/représenté par Didier Keller, gérant/);
-    expect(h).toMatch(/<div class="pro-sigspace"><\/div>/);   // espace de signature au-dessus du filet
+    // espace de signature au-dessus du filet, avec la consigne « Lu et approuvé » (décision 30/09)
+    expect(h).toContain('<div class="pro-sigspace"><em class="pro-sigmention pro-sigconsigne">Précéder la signature de la mention manuscrite :<br>« Lu et approuvé »</em></div>');
   });
   it('images de signature posées dans leur cadre quand elles sont fournies (data-URL validée)', () => {
     const h = buildAvenantHtml(Object.assign({}, ctx, { signatures: ['data:image/png;base64,AAA='] })).html;
-    expect(h).toMatch(/<div class="pro-sigspace"><img src="data:image\/png;base64,AAA="><\/div><div class="pro-signbox">Le bailleur/);
+    expect(h).toContain('<div class="pro-sigspace"><em class="pro-sigmention">« Lu et approuvé »</em><img src="data:image/png;base64,AAA="></div><div class="pro-signbox">Le bailleur');
   });
   it('signature autre qu\'une image data-URL (HTML, javascript:, SVG) → ignorée (HTML conservé et partagé SCI)', () => {
     const h = buildAvenantHtml(Object.assign({}, ctx, { signatures: [
       '<img src=x onerror=alert(1)>', 'javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,AA"onerror="x'] })).html;
     expect(h).not.toMatch(/onerror|javascript:|svg\+xml/);
-    expect((h.match(/<div class="pro-sigspace"><\/div>/g) || []).length).toBe(4);
+    expect(h.split('<div class="pro-sigspace"><em class="pro-sigmention pro-sigconsigne">').length - 1).toBe(4);   // aucune image : la consigne papier
+    expect(h).not.toContain('<img');
   });
   it('signale la caution + expose le colocataire entrant comme signataire', () => {
     const r = buildAvenantHtml(ctx);
