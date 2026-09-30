@@ -30093,10 +30093,11 @@ function computeRegul(from, to) {
     const occStart = debutD < fromD ? fromD : debutD;
     const occEnd   = finD   > toD   ? toD   : finD;
     const occDays  = Math.max(0, Math.round((occEnd - occStart) / 86400000) + 1);
+    // Format LOCAL : occStart/occEnd sont à minuit local, toISOString() donnerait la veille en UTC+ (Paris)
     return {
       occDays,
-      debutOcc: occDays > 0 ? occStart.toISOString().slice(0,10) : '',
-      finOcc:   occDays > 0 ? occEnd.toISOString().slice(0,10)   : ''
+      debutOcc: occDays > 0 ? _isoLocal(occStart) : '',
+      finOcc:   occDays > 0 ? _isoLocal(occEnd)   : ''
     };
   }
 
@@ -42997,6 +42998,9 @@ function _ccLogOccupations(log, periodFrom, periodTo) {
   const fromMs = new Date(periodFrom + 'T00:00:00').getTime();
   const toMs = new Date(periodTo + 'T00:00:00').getTime();
   const totalDays = Math.max(1, Math.round((toMs - fromMs) / 86400000) + 1);
+  // Décalage en jours CALENDAIRES (± 24 h de ms tombe à 23 h / 1 h aux changements d'heure) ;
+  // dates formatées en LOCAL (_isoLocal) : toISOString() donnerait la veille en UTC+ (Paris).
+  const _jourDecale = (ms, n) => { const d = new Date(ms); d.setDate(d.getDate() + n); return d; };
   const segments = [];
   // Bails : courant + historique (même structure que _getAllBailsForLog)
   const bails = (typeof _getAllBailsForLog === 'function') ? _getAllBailsForLog(log.ref) : [];
@@ -43011,23 +43015,23 @@ function _ccLogOccupations(log, periodFrom, periodTo) {
     // Période avant ce bail (si gap depuis cursor) → vacance bailleur
     if(bDebMs > cursorMs) {
       const vacDays = Math.round((bDebMs - cursorMs) / 86400000);
-      if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: new Date(cursorMs).toISOString().slice(0,10), fin: new Date(bDebMs - 86400000).toISOString().slice(0,10), occDays: vacDays, isBailleur: true });
+      if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: _isoLocal(new Date(cursorMs)), fin: _isoLocal(_jourDecale(bDebMs, -1)), occDays: vacDays, isBailleur: true });
     }
     // Période du bail
     const occDays = Math.round((bFinMs - bDebMs) / 86400000) + 1;
     if(occDays > 0) segments.push({
       bailId: b._type === 'current' ? 'current' : 'hist',
       locataire: b.nom || '—',
-      debut: new Date(bDebMs).toISOString().slice(0,10),
-      fin: new Date(bFinMs).toISOString().slice(0,10),
+      debut: _isoLocal(new Date(bDebMs)),
+      fin: _isoLocal(new Date(bFinMs)),
       occDays, isBailleur: false
     });
-    cursorMs = Math.max(cursorMs, bFinMs + 86400000);
+    cursorMs = Math.max(cursorMs, _jourDecale(bFinMs, 1).getTime());
   }
   // Vacance résiduelle après le dernier bail
   if(cursorMs <= toMs) {
     const vacDays = Math.round((toMs - cursorMs) / 86400000) + 1;
-    if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: new Date(cursorMs).toISOString().slice(0,10), fin: periodTo, occDays: vacDays, isBailleur: true });
+    if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: _isoLocal(new Date(cursorMs)), fin: periodTo, occDays: vacDays, isBailleur: true });
   }
   // Si aucun bail du tout : tout en vacance bailleur
   if(segments.length === 0) segments.push({ bailId: null, locataire: '—', debut: periodFrom, fin: periodTo, occDays: totalDays, isBailleur: true });
