@@ -123,7 +123,7 @@ import { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journa
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 // IRL-REVISION (R6/R7) — la lettre suit la révision VALIDÉE ; annuler une révision programmée.
 import * as IrlRevision from './core/irl-revision.js';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, avenantApplique } from './core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, avenantApplique, regimeForfaitObjet } from './core/avenant.js';
 // AVENANT-REFONTE lot 2 — registre des avenants (journal baux_evenements, type 'avenant') : statuts, liste, numérotation.
 import * as AvenantRegistre from './core/avenant-registre.js';
 // Forfait de charges (art. 23-1) dans la régularisation : post-traitement, intervalles, base N-1 (pur, testé).
@@ -700,6 +700,7 @@ window.bailForfaitActifLe = bailForfaitActifLe;
 window.forfaitEffetAu = forfaitEffetAu;
 window.forfaitPertinent = forfaitPertinent;
 window.avenantApplique = avenantApplique;
+window.regimeForfaitObjet = regimeForfaitObjet;
 window.forfaitAvenantsDuBail = forfaitAvenantsDuBail;
 window.occNonForfaitJours = occNonForfaitJours;
 window.forfaitIntervalles = forfaitIntervalles;

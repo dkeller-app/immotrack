@@ -83,6 +83,11 @@ export function appliquerForfaitOccupation(e, { from, to, avenants } = {}) {
   const bl = e && e.bail;
   if (!bl || !forfaitPertinent(bl, avenants)) return e;
   const debutW = _ymd(e.debutOcc) || _ymd(from), finW = _ymd(e.finOcc) || _ymd(to);
+  // Aucun intervalle au forfait ne recoupe l'OCCUPATION → rien à retirer, aucun repère. Une charge datée
+  // après le départ (imputée à ce bail par repli) ne rend pas « au forfait » une occupation qui ne l'a
+  // jamais été — et le décompte n'imprime jamais une période au forfait vide (contre-audit 30/09).
+  const intervalles = forfaitIntervalles(bl, debutW, finW, avenants);
+  if (!intervalles.length) return e;
   const keptDet = [], exclusDetails = [], keptMois = [], exclusMois = [];
   let excluCharges = 0, excluProvisions = 0;
   (e.details || []).forEach((d) => {
@@ -93,8 +98,6 @@ export function appliquerForfaitOccupation(e, { from, to, avenants } = {}) {
     if (m && m.mois && bailForfaitActifLe(bl, m.mois + '-01', avenants)) { excluProvisions += Number(m.ch) || 0; exclusMois.push(m); }
     else keptMois.push(m);
   });
-  const intervalles = forfaitIntervalles(bl, debutW, finW, avenants);
-  if (!intervalles.length && !exclusDetails.length && !exclusMois.length) return e;
   if (exclusDetails.length || exclusMois.length) {
     e.details = keptDet; e.charges = _r2(keptDet.reduce((s, d) => s + (Number(d.montant) || 0), 0));
     e.moisDetails = keptMois; e.provisions = _r2(keptMois.reduce((s, m) => s + (Number(m.ch) || 0), 0));
@@ -102,7 +105,7 @@ export function appliquerForfaitOccupation(e, { from, to, avenants } = {}) {
   const toute = intervalles.length === 1 && intervalles[0].du <= debutW && intervalles[0].au >= finW;
   e.forfait = {
     intervalles, toute, partiel: !toute,
-    effet: intervalles.length ? intervalles[0].du : '',
+    effet: intervalles[0].du,
     excluCharges: _r2(excluCharges), excluProvisions: _r2(excluProvisions),
     exclusDetails, exclusMois,
   };

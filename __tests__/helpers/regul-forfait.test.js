@@ -281,6 +281,30 @@ describe('câblage index.html — computeRegul / base N-1 réelles', () => {
     expect(periodeForfaitLibelle(apres.forfait)).toBe('du 01/09/2026 au 31/12/2026');
   });
 
+  it('contre-audit : bail clos au 31/03, forfait au 01/06, charges importées APRÈS le départ (imputées par repli) → rien retiré, aucun repère vide', () => {
+    const mv = [];
+    for (let m = 1; m <= 12; m++) { const mm = String(m).padStart(2, '0');
+      if (m <= 3) mv.push({ id: 'l' + m, date: `2026-${mm}-05`, cat: 'Loyers', cr: 600, db: 0, qui: 'L7' });
+      mv.push({ id: 'c' + m, date: `2026-${mm}-15`, cat: 'Charges', cr: 0, db: 100, qui: 'L7', lib: 'Charges ' + mm }); }
+    const DB = {
+      logements: [{ ref: 'L7', imm: 'I' }], baux: {}, bailEvents: [], entites: [], mouvements: mv,
+      baux_historique: [{ ref: 'L7', debut: '2025-01-01', finEffective: '2026-03-31', ch: 100, type: 'meuble' }],
+      baux_evenements: [av(1, '2026-06-01', FORFAIT, { ref: 'L7', statut: 'signe', effetApplique: '2026-06-01' })],
+    };
+    const e = charger(DB).computeRegul('2026-01-01', '2026-12-31').entries['L7|h0'];
+    expect(e.finOcc).toBe('2026-03-31');
+    expect(e.forfait).toBeUndefined();           // avant : intervalles:[] et 700 € exclus → « (vide) » au PDF
+    expect(e.charges).toBe(1200);
+    expect(periodeForfaitLibelle(e.forfait)).toBe('');
+  });
+  it('module : forfait qui ne recoupe pas l\'occupation → aucune exclusion, même d\'une charge datée pendant le forfait', () => {
+    const occ = occupation(bail(), 2026, { au: 3 });
+    occ.details.push({ date: '2026-07-15', lib: 'Imputée par repli', montant: 100, mvId: 'x' }); occ.charges += 100;
+    const e = appliquerForfaitOccupation(occ, { from: '2026-01-01', to: '2026-12-31', avenants: [av(1, '2026-06-01', FORFAIT)] });
+    expect(e.forfait).toBeUndefined();
+    expect(e.charges).toBe(400);
+  });
+
   it('🔴2 : bail A clos avec avenant forfait « À signer » au 01/01/2026, bail B nu au 01/01/2026 → régul de B intacte', () => {
     const DB = {
       logements: [{ ref: 'L2', imm: 'I' }],

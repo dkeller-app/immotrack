@@ -26492,7 +26492,7 @@ function _avenantSave(ref, opts){
   // date d'effet) → même recalage (1ᵉʳ du mois, mois déjà quittancé, début du bail). La borne du barème
   // (dernière période vivante) ne vaut que pour un MONTANT daté au barème.
   var _planDate=window.AvenantRegistre.planApplication({ objets:objets, bail:bail, libelles:_AV_LBL, forfaitAvant:_forfaitAvantAvenant(ref, bail, effet, _avenantState.brouillonId) });
-  if((_planDate.hc!=null||_planDate.ch!=null||_planDate.regime) && typeof window._baremeClampDateEffet==='function'){
+  if((_planDate.hc!=null||_planDate.ch!=null||_planDate.regime||_avenantPorteRegime(objets)) && typeof window._baremeClampDateEffet==='function'){
     var dq=(typeof _dernierMoisQuittanceYm==='function')?_dernierMoisQuittanceYm(ref):null;
     var cl=window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm:dq||undefined, debutBailIso:bail.debut||undefined });
     var effetOk=cl.effetIso, ajuste=!!cl.ajustee;
@@ -26558,10 +26558,11 @@ function _avenantAppliquer(ref, av){
   var plan=window.AvenantRegistre.planApplication({ objets:av.objets, bail:bail, libelles:_AV_LBL, forfaitAvant:_forfaitAvantAvenant(ref, bail, effet, av.id) });
   var chg=[];
   var prevHc=Number(bail.hc)||0, prevCh=Number(bail.ch)||0;
-  // Recalage de la date d'effet : dès qu'un montant est daté au barème OU que le régime des charges change
-  // (le forfait est lu par la régularisation à `effetApplique` — jamais en milieu de mois ni sur un mois
-  // déjà quittancé). La borne « dernière période du barème » ne vaut que pour un montant.
-  if((plan.hc!=null||plan.ch!=null||plan.regime) && typeof window._baremeClampDateEffet==='function'){
+  // Recalage de la date d'effet : dès qu'un montant est daté au barème OU que l'avenant porte un régime de
+  // charges (le forfait est lu par la régularisation à `effetApplique` — jamais en milieu de mois ni sur un
+  // mois déjà quittancé). Le régime se juge à la date RECALÉE (plus bas) : le recalage peut franchir une étape.
+  // La borne « dernière période du barème » ne vaut que pour un montant.
+  if((plan.hc!=null||plan.ch!=null||plan.regime||_avenantPorteRegime(av.objets)) && typeof window._baremeClampDateEffet==='function'){
     var dq=(typeof _dernierMoisQuittanceYm==='function')?_dernierMoisQuittanceYm(ref):null;
     var cl=window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm:dq||undefined, debutBailIso:bail.debut||undefined });
     var effetOk=cl.effetIso; ajuste=!!cl.ajustee;
@@ -26569,6 +26570,8 @@ function _avenantAppliquer(ref, av){
     if(bmin && effetOk && effetOk<bmin){ effetOk=bmin; ajuste=true; }
     if(effetOk && effetOk!==effet){ effet=effetOk; ajuste=true; }
   }
+  // Date recalée : le changement de régime est réévalué à la VRAIE date d'effet (contre-audit 30/09).
+  if(ajuste) plan=window.AvenantRegistre.planApplication({ objets:av.objets, bail:bail, libelles:_AV_LBL, forfaitAvant:_forfaitAvantAvenant(ref, bail, effet, av.id) });
   if(plan.hc!=null||plan.ch!=null){
     var newHc=plan.hc!=null?plan.hc:prevHc, newCh=plan.ch!=null?plan.ch:prevCh;
     // Couvre le passé au tarif PRÉCÉDENT jusqu'à la date d'effet, puis pose la période de l'avenant.
@@ -29391,6 +29394,11 @@ function _avenantAffichage(bail, cle, av, finIso){
   if(!bail||!av||typeof window.avenantApplicationAffichee!=='function') return dflt;
   return window.avenantApplicationAffichee(av, { bail:bail, avenants:_forfaitAvenantsDuBail(bail, cle, finIso)||[], libelleCharges:(_AV_LBL&&_AV_LBL.charges)||'Charges' });
 }
+// L'avenant porte-t-il un régime de charges (forfait / provisions) ? Sa date d'effet est alors une étape
+// datée de la régularisation : recalée comme un montant, que le régime change ou non à la date écrite.
+function _avenantPorteRegime(objets){
+  return typeof window.regimeForfaitObjet==='function' && (Array.isArray(objets)?objets:[]).some(function(o){ return window.regimeForfaitObjet(o)!==null; });
+}
 // Régime de charges EN VIGUEUR à `effetIso` SANS l'avenant `avId` (timeline des avenants appliqués) :
 // ce à quoi un avenant de charges se compare pour savoir si son régime CHANGE (planApplication).
 // undefined si le module est absent → planApplication retombe sur le flag du bail.
@@ -30066,6 +30074,11 @@ function _rgShowGlobal(immNom){
   const rowSolde=entries.map(e=>{const s=e.provisions-e.charges;return `<td class="num">${s>=0?'+':''}${f(s)}</td>`;}).join('');
   const sumCharges=entries.reduce((s,e)=>s+e.charges,0), sumProv=entries.reduce((s,e)=>s+e.provisions,0);
   const hasTrou=!!(nonRep&&nonRep.total>0.005);
+  // Forfait de charges (art. 23-1) : part des charges réelles retirée de la régul (non régularisable) —
+  // dite ici pour que la matrice s'explique (la facture ne « disparaît » pas). Aucun calcul : entry.forfait.
+  const forfPart=e=>(e.forfait&&e.forfait.excluCharges)||0;
+  const sumForf=Math.round(entries.reduce((s,e)=>s+forfPart(e),0)*100)/100;
+  const forfRow=sumForf>0.005?`<tr class="forf"><td class="c0">Part au forfait<small>charges non régularisables (art. 23-1)</small></td>${entries.map(e=>`<td class="num">${forfPart(e)?f(forfPart(e)):'<span class="z">—</span>'}</td>`).join('')}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${f(sumForf)}</td></tr>`:'';
   const validated=_rgIsValidated(immNom);
   const banner=hasTrou?`<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${f(nonRep.total)} de charges non réparties</b> — corrige avant de valider cet immeuble</div></div>`:'';
   // TÉLÉPHONE (≤767) : la matrice charge×lots (illisible en N colonnes) devient des CARTES-CHARGE
@@ -30081,6 +30094,7 @@ function _rgShowGlobal(immNom){
       <tbody>
         ${mvRows||`<tr><td colspan="${entries.length+3}" class="mu sm">Aucune charge répartie sur la période.</td></tr>`}
         ${trouRows}
+        ${forfRow}
         <tr class="sumc"><td class="c0">Total charges réelles</td>${rowCharges}<td class="num col-bail">${bail&&bail.total?f(bail.total):'<span class="z">—</span>'}</td><td class="num col-tot">${f(sumCharges)}</td></tr>
         <tr class="prov"><td class="c0">Provisions appelées</td>${rowProv}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${f(sumProv)}</td></tr>
         <tr class="solde"><td class="c0">Solde</td>${rowSolde}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${(sumProv-sumCharges)>=0?'+':''}${f(sumProv-sumCharges)}</td></tr>
@@ -30123,6 +30137,9 @@ function _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, val
     return `<button type="button" class="rgvg-lot" data-imm="${escHtml(immNom)}" data-ek="${escHtml(e.entryKey)}" onclick="_rgOuvrirDetailLoc(this.dataset.imm,this.dataset.ek)"><span class="ref">${escHtml(e.ref)}${e.loc?`<small>${escHtml(e.loc)}</small>`:''}</span><span class="sums"><span>Charges<b>${f(e.charges)}</b></span><span>Prov.<b>${f(e.provisions)}</b></span><span>Solde<b class="${s>=0?'pos':'neg'}">${s>=0?'+':''}${f(s)}</b></span></span><span class="go">${_uiIcon('receipt',13)}Détail des charges</span></button>`;
   }).join('');
   const bailLine = (bail && bail.total>0) ? `<div class="rgvg-bailline">${_uiIcon('bank',15)} Part bailleur (non récupérable → 2044)<b>${f(bail.total)}</b></div>` : '';
+  // Forfait de charges (art. 23-1) : part des charges réelles retirée de la régul (non régularisable).
+  const sumForf = Math.round(entries.reduce((s,e)=>s+((e.forfait&&e.forfait.excluCharges)||0),0)*100)/100;
+  const forfLine = sumForf>0.005 ? `<div class="rgvg-bailline">Part au forfait (charges non régularisables, art. 23-1)<b>${f(sumForf)}</b></div>` : '';
   const nJust = (typeof _rgJustifFactures==='function') ? _rgJustifFactures(immNom).length : 0;
   const foot = `<div class="rgvg-foot">
     <button type="button" class="valid" data-imm="${escHtml(immNom)}" ${hasTrou?'disabled':''} onclick="_rgValidate(this.dataset.imm)">${_uiIcon('check',16)}Valider la régul de l'immeuble</button>
@@ -30134,7 +30151,7 @@ function _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, val
     + banner
     + `<div class="rgvg-list">${cards||`<div class="rgph-empty">Aucune charge répartie sur la période.</div>`}${trouCards}</div>`
     + (lotRecap?`<div class="rgvg-sec">Récap par lot</div>${lotRecap}`:'')
-    + bailLine + foot;
+    + bailLine + forfLine + foot;
 }
 
 // CDC Charges Lot 5 (mockup 13) — paquet de justificatifs .zip. Réutilise _mvPjResolve (résolution PJ),
