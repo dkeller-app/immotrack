@@ -2424,6 +2424,32 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
           <select class="inp" id="logp-loc-irlRef"><option value="">— Non renseigné —</option></select>
         </div>
       </div>
+      <!-- ANNONCES (CDC 29/09/2026, D8 + mode de règlement des charges) — mentions d'annonce :
+           « dans tous les cas les modalités de règlement » des charges (arrêté du 21 avril 2022, 2°),
+           honoraires d'état des lieux « le cas échéant » (6°), honoraires charge locataire si un
+           mandataire est configuré (arrêté du 10 janvier 2017, art. 4-I-6°). Lus par _logpReadFromForm
+           (lecture partielle) ; jamais poussés par le bail, donc jamais grisés. -->
+      <div class="fg2">
+        <div class="fg">
+          <label>Mode de règlement des charges</label>
+          <select class="inp" id="logp-loc-chModalite">
+            <option value="">— À préciser —</option>
+            <option value="provision">Provision + régularisation annuelle</option>
+            <option value="forfait">Forfait</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Honoraires d'état des lieux à la charge du locataire (€ TTC) <span class="mu sm" style="font-weight:400">(facultatif)</span></label>
+          <input class="inp" type="number" min="0" step="0.01" id="logp-loc-honoEdl" placeholder="vide = aucun">
+        </div>
+      </div>
+      <div class="fg2" id="logp-loc-hcl-row" style="display:none">
+        <div class="fg">
+          <label>Honoraires charge locataire (€ TTC) <span class="mu sm" style="font-weight:400">(mandataire)</span></label>
+          <input class="inp" type="number" min="0" step="0.01" id="logp-loc-honoHcl" placeholder="ex : 600">
+        </div>
+        <div class="fg"></div>
+      </div>
       <div class="fg2">
         <div class="fg">
           <label>Date de disponibilité</label>
@@ -2780,82 +2806,66 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   </div>
 </div></div>
 
-<!-- v15.230 LOG-ANNONCE Étape 4 — MODAL ANNONCE LOCATION -->
+<!-- ANNONCES (CDC validé 29/09/2026) — MODALE « Créer une annonce » en 2 étapes.
+     Étape 1 (D1) : confirmer le loyer souhaité HC + charges ; une modification met à jour la fiche.
+     Étape 2 : titre + description modifiables, mentions obligatoires VERROUILLÉES (se corrigent
+     dans la fiche), contrôle mention par mention (D3 : rien n'est bloqué, le manque est marqué).
+     Téléphone : page plein écran (règle globale .ov .modal ≤ 767 px, M-16), pied collant. -->
 <div class="ov hidden" id="ov-annonce" onclick="closeBg(event,'ov-annonce')">
-<div class="modal xl" style="max-width:1100px;width:96vw;max-height:96vh;display:flex;flex-direction:column" onclick="event.stopPropagation()">
-  <div class="m-head" style="flex-shrink:0">
-    <div>
-      <h3 id="m-annonce-title">📢 Créer une annonce de location</h3>
-      <div class="mu sm" id="m-annonce-sub">Génération sans IA · texte plat prêt pour Leboncoin / SeLoger / PAP</div>
+<div class="modal xl an-modal" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="m-annonce-title">
+  <div class="m-head">
+    <div style="min-width:0">
+      <h3 id="m-annonce-title">Créer une annonce</h3>
+      <div class="mu sm" id="m-annonce-sub"></div>
     </div>
-    <button class="m-close" onclick="closeM('ov-annonce')">✕</button>
+    <button class="m-close" onclick="closeM('ov-annonce')" aria-label="Fermer">✕</button>
   </div>
-  <div style="overflow-y:auto;flex:1;padding:12px 16px;background:var(--sur2)">
-    <!-- Switcher format/ton/dossier -->
-    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:10px 12px;margin-bottom:12px;display:grid;grid-template-columns:1fr;gap:6px">
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
-        <span style="font-size:11px;color:var(--t2);font-weight:600;width:60px">Format</span>
-        <button type="button" class="btn bs bb act" id="an-fmt-leboncoin" onclick="_annonceSetFormat('leboncoin')">📋 Leboncoin</button>
-        <button type="button" class="btn bs" id="an-fmt-detaille" onclick="_annonceSetFormat('detaille')">📄 Détaillé (SeLoger/PAP)</button>
-        <button type="button" class="btn bs" id="an-fmt-sms" onclick="_annonceSetFormat('sms')">📱 SMS court</button>
-      </div>
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
-        <span style="font-size:11px;color:var(--t2);font-weight:600;width:60px">Ton</span>
-        <button type="button" class="btn bs" id="an-ton-factuel" onclick="_annonceSetTon('factuel')">📋 Factuel</button>
-        <button type="button" class="btn bs bb act" id="an-ton-storytelling" onclick="_annonceSetTon('storytelling')">✨ Storytelling</button>
-        <button type="button" class="btn bs" id="an-ton-convivial" onclick="_annonceSetTon('convivial')">😊 Convivial</button>
-        <button type="button" class="btn bs" id="an-ton-haut-gamme" onclick="_annonceSetTon('haut-gamme')">💎 Haut de gamme</button>
-        <button type="button" class="btn bb" style="background:var(--acc);color:#fff;margin-left:auto" onclick="_annonceRegen()">🔄 Régénérer</button>
-      </div>
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
-        <span style="font-size:11px;color:var(--t2);font-weight:600;width:60px">Dossier</span>
-        <button type="button" class="btn bs bb act" id="an-doss-on" onclick="_annonceToggleDossier(true)">📂 Inclure</button>
-        <button type="button" class="btn bs" id="an-doss-off" onclick="_annonceToggleDossier(false)">∅ Sans</button>
-      </div>
+
+  <!-- Étape 1 sur 2 — Confirmer le loyer -->
+  <div class="an-body" id="an-step1">
+    <div class="fg2">
+      <div class="fg"><label for="an-hc">Loyer hors charges (€)</label><input class="inp" type="number" min="0" step="0.01" id="an-hc" oninput="_annonceStep1Maj()" placeholder="À saisir"></div>
+      <div class="fg"><label for="an-ch">Charges (€)</label><input class="inp" type="number" min="0" step="0.01" id="an-ch" oninput="_annonceStep1Maj()" placeholder="À saisir"></div>
     </div>
+    <div class="an-total"><span>Loyer affiché dans l'annonce</span><b id="an-total">—</b></div>
+    <div class="an-info" id="an-step1-info"></div>
+  </div>
 
-    <!-- Titre -->
-    <div style="background:#3b82f6;color:#fff;padding:10px 14px;border-radius:6px;margin-bottom:10px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;opacity:0.85">Titre Leboncoin (60-80 c. recommandé)</div>
-      <div id="an-titre" style="font-weight:700;font-size:16px;margin-top:3px">—</div>
-      <div id="an-titre-ct" style="font-size:11px;opacity:0.85;margin-top:3px">—</div>
+  <!-- Étape 2 sur 2 — L'annonce -->
+  <div class="an-body an-step2" id="an-step2" style="display:none">
+    <div class="an-col-t">
+      <div id="an-dpe-warn" class="an-ban" style="display:none"></div>
+      <div id="an-manques" class="an-ban warn" style="display:none"></div>
+      <div class="fg"><label for="an-titre" class="an-lab">Titre <span class="an-hint">modifiable</span></label>
+        <input class="inp" id="an-titre" maxlength="100" oninput="_annonceTexteMaj()"></div>
+      <!-- Texte UNIQUE (retour Didier 29/09) : une textarea libre ; derrière elle, un calque miroir
+           (#an-texte-bd) surligne les emplacements « [À COMPLÉTER : …] » sans rendre le texte non éditable. -->
+      <div class="fg"><label for="an-texte" class="an-lab">Texte de l'annonce <span class="an-hint">tout est modifiable</span></label>
+        <div class="an-ed-wrap"><div class="an-ed-bd" id="an-texte-bd" aria-hidden="true"></div>
+        <textarea class="inp an-ed" id="an-texte" spellcheck="true" oninput="_annonceTexteMaj()" onscroll="_annonceSyncScroll()"></textarea></div>
+        <div class="an-cnt"><button type="button" class="an-go" onclick="_annonceRepartir()">Repartir du texte proposé</button><span id="an-cnt"></span></div></div>
     </div>
-
-    <!-- v15.230 F5 : avertissement DPE F/G/E (loi Climat 2021-1104) — masqué par défaut -->
-    <div id="an-dpe-warn" style="display:none;border:1px solid;border-radius:6px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;line-height:1.5"></div>
-
-    <!-- Stats + texte -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px">
-        <div style="background:var(--sur2);padding:8px 12px;border-bottom:1px solid var(--bor);font-size:11.5px;font-weight:600">👁 Aperçu visuel</div>
-        <div id="an-preview" style="padding:14px;font-size:13px;line-height:1.65;white-space:pre-wrap;max-height:520px;overflow-y:auto">—</div>
-      </div>
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px">
-        <div style="background:var(--sur2);padding:8px 12px;border-bottom:1px solid var(--bor);font-size:11.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
-          <span>📋 Texte brut à copier-coller</span>
-          <span id="an-stats" style="font-size:10.5px;color:var(--t2);font-weight:500">—</span>
-        </div>
-        <textarea id="an-raw" readonly style="width:100%;height:520px;padding:12px;border:none;font-family:'Segoe UI',sans-serif;font-size:12.5px;line-height:1.65;background:#fafaf7;resize:vertical">—</textarea>
-      </div>
-    </div>
-
-    <!-- Case anti-mensonge obligatoire -->
-    <div style="background:var(--amb-bg, #fef3c7);border:1px solid #f59e0b;border-radius:6px;padding:10px 12px;margin-top:12px">
-      <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:12.5px;color:#78350f">
-        <input type="checkbox" id="an-verifie" onchange="_annonceToggleVerifie()" style="margin-top:2px">
-        <span><strong>Je certifie l'exactitude</strong> des informations de l'annonce. Je m'engage à ne pas exagérer ni omettre de défaut majeur connu (loi Hoguet n° 70-9 du 2 janv. 1970 + art. L. 121-1 Code de la consommation sur les pratiques commerciales trompeuses).</span>
-      </label>
+    <div class="an-col-c" id="an-col-c">
+      <div class="an-chk-h"><span class="an-sc" id="an-sc"></span><span class="an-chk-t" id="an-chk-t"></span></div>
+      <div class="an-chk-sum" id="an-chk-sum"></div>
+      <ul class="an-chk" id="an-chk"></ul>
+      <label class="an-tg" id="an-doss-row"><input type="checkbox" id="an-doss" checked onchange="_annonceToggleDossier(this.checked)">
+        <span>Liste des pièces du dossier<small>liste autorisée (décret n° 2015-1437)</small></span></label>
+      <div class="an-src" id="an-src"></div>
     </div>
   </div>
-  <div class="m-foot" style="background:var(--sur2);padding:10px 16px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;flex-shrink:0">
-    <div style="font-size:11px;color:var(--t2)">💾 Données saisies dans l'onglet « 📢 Présentation » de la fiche logement</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button type="button" class="btn bs" onclick="closeM('ov-annonce')">Fermer</button>
-      <button type="button" id="an-btn-copy" class="btn bs" disabled onclick="_annonceCopy()" title="Cocher la case ci-dessus pour activer">📋 Copier le texte</button>
-      <button type="button" id="an-btn-pdf" class="btn bs" disabled onclick="_annoncePDF()" title="Cocher la case ci-dessus pour activer">📄 Télécharger PDF</button>
-      <button type="button" id="an-btn-email" class="btn bp" disabled onclick="_annonceEmail()" title="Cocher la case ci-dessus pour activer">✉ Envoyer par email</button>
-      <button type="button" class="btn bs" onclick="openInviteCandidat({logRef:(window._annonceCtx&&_annonceCtx.log)?_annonceCtx.log.ref:''})" title="Inviter un candidat à déposer son dossier pour ce bien">🔗 Inviter un candidat</button>
-    </div>
+
+  <div class="m-foot an-foot" id="an-foot1">
+    <span class="an-sp"></span>
+    <button type="button" class="btn bs" onclick="closeM('ov-annonce')">Annuler</button>
+    <button type="button" class="btn bp" id="an-btn-continuer" onclick="_annonceStep1Continuer()" disabled>Continuer</button>
+  </div>
+  <div class="m-foot an-foot" id="an-foot2" style="display:none">
+    <span class="an-foot-hint" id="an-foot-hint"></span>
+    <span class="an-sp"></span>
+    <button type="button" class="btn bs" id="an-btn-inviter" onclick="openInviteCandidat({logRef:(window._annonceCtx&&_annonceCtx.log)?_annonceCtx.log.ref:''})"></button>
+    <button type="button" class="btn bs" id="an-btn-pdf" onclick="_annoncePDF()"></button>
+    <button type="button" class="btn bp" id="an-btn-copy" onclick="_annonceCopy()"></button>
   </div>
 </div></div>
 
@@ -4267,8 +4277,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <button class="btn bp" onclick="printRegulDoc()"><span data-uic="printer"></span> Imprimer</button>
   </div>
 </div></div>
-<!-- v15.230 LOG-ANNONCE Étape 4 — module générateur d'annonces (window.AnnonceGenerator) -->
+<!-- ANNONCES (CDC 29/09/2026) — générateur d'annonces conformes (window.AnnonceGenerator) -->
 <script src="js/helpers/annonce-generator.global.js"></script>
+<!-- ANNONCES (D7) — fourchette + années des prix lues dans le texte d'un DPE (window.DpeTexte) -->
+<script src="js/helpers/dpe-texte.global.js"></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 — parser/formatter d'adresse FR (window.AdresseParser) -->
 <script src="js/helpers/adresse-parser.global.js"></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 Commit 2 — résolveur bien hérite imm (window.LogImmResolver) -->
@@ -18908,6 +18920,14 @@ function toggleCandidatPiecesVerifiees(id){
   saveDB(); rCandidats(); openFicheCandidat(id);
 }
 
+// Le loyer d'un bien vacant a changé → recalcule le score stocké de TOUS ses candidats (ratio).
+// Source unique (était recopiée : loyer du bien, saveParamLog, annonce étape 1 — audit ANNONCES).
+function _rescoreCandidatsDuLogement(ref){
+  (DB.candidats||[]).filter(x=>x && !x._deleted && x.logRef===ref).forEach(x=>{
+    try{ x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x)); _stamp(x); }catch(e){}
+  });
+}
+
 // Loyer attendu d'un candidat (cascade logement → ancien locataire → invitation) via le helper
 // pur loyerAttenduForLog. Rassemble bail courant (DB.baux) + historiques (DB.baux_historique).
 function _loyerAttenduForCand(c){
@@ -18969,9 +18989,7 @@ function saveLoyerBien(){
   try{ if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); }catch(e){} // LOYER-REFERENCE : hc→loyerHcRef ET ch→chargesRef
   const cid = _lbCtx.candId;
   // Le loyer du logement impacte le ratio de TOUS ses candidats → on recalcule leurs scores stockés.
-  (DB.candidats||[]).filter(x=>x && !x._deleted && x.logRef===log.ref).forEach(x=>{
-    try{ x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x)); _stamp(x); }catch(e){}
-  });
+  _rescoreCandidatsDuLogement(log.ref);
   try{ if(typeof _auditLog==='function') _auditLog('update','logement',log.ref, before+' € → '+hc+' € (loyer de référence HC, bien vacant)'); }catch(e){}
   saveDB();
   closeM('ov-loyer-bien');
@@ -47396,6 +47414,8 @@ function rLogFiche() {
     const phActions =
       `<button class="btn bs" onclick="openNewLog('${refSafe}')">${_ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>')}Modifier le bien</button>`
       + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_ic('<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>')}Inviter un candidat</button>` : '')
+      // ANNONCES — même porte que sur PC (logement vacant non archivé).
+      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openAnnonce('${refSafe}')" title="Rédiger une annonce de location avec les mentions obligatoires">${_ic('<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>')}Créer une annonce</button>` : '')
       + (isArchived
           ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">${_ic('<path d="M3 12a9 9 0 109-9 9 9 0 00-8 5"/><path d="M3 3v5h5"/>')}Restaurer</button>`
           : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">${_ic('<path d="M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M2 4h20v4H2z"/><path d="M10 12h4"/>')}Archiver</button>`)
@@ -47443,11 +47463,11 @@ function rLogFiche() {
           ${/* BIENS (P1-13, retour user 11/08) — « ＋ Ajouter un bien » RETIRÉ d'ici : un bien ne contient pas un bien. L'ajout part du bailleur ou de l'immeuble, par le fil rouge, qui est déjà la porte unique. _frStartFromLog perd son seul appelant. */''}
           <button class="btn bs" onclick="openNewLog('${refSafe}')">${_uiIcon('edit')} Modifier le bien</button>
           ${(!isArchived && !_bienActiveBail(ref)) ? `
-            <!-- BIENS (P1-9, décision 7 du 11/08) — les 2 boutons Annonce et l'onglet Présentation
-                 sont débranchés. Le module js/helpers/annonce-generator.global.js et ses tests RESTENT
-                 (le CDC classe les annonces « OUT après V1 », pas « supprimées ») : réactiver = remettre
-                 un bouton ici. log.presentation / log.quartier gardent leurs colonnes et leurs valeurs. -->
+            <!-- ANNONCES (CDC validé 29/09/2026) — porte UNIQUE « Créer une annonce » : logement vacant
+                 non archivé, tous usages (habitation ou garage / local, P-1). La ligne de la liste des
+                 biens reste sans bouton. log.presentation / log.quartier ne sont plus lus. -->
             <button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_uiIcon('link')} Inviter un candidat</button>
+            <button class="btn bs bb" onclick="openAnnonce('${refSafe}')" title="Rédiger une annonce de location avec les mentions obligatoires">${_uiIcon('send')} Créer une annonce</button>
           ` : ''}
           ${isArchived
             ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">${_uiIcon('refresh')} Restaurer</button>`
@@ -48526,6 +48546,20 @@ let _logDiagDocScans = {};      // docId → { name, textLen, numeroDpe, coverag
 // (liste des champs encore non vérifiés) pour persister le badge ✨ à la réouverture.
 let _logDiagSuggest = {};
 let _logDiagSrcOpen = false;    // toggle global « afficher les phrases source »
+// ANNONCES (D7) — LISTE UNIQUE des champs « ✨ à vérifier ». Avant : 'date','cabinet','result'
+// recopiés sur 9 sites (restauration, saisie, compteur, valider, effacer, tout valider, tout
+// effacer, auto-cicatrisation, commit). depenses / anneePrix (DPE, lus dans le PDF) s'ajoutent ici.
+const _LOGDIAG_SG_FIELDS = ['date', 'cabinet', 'result', 'depenses', 'anneePrix'];
+function _logDiagSgHasAny(e) { return !!e && _LOGDIAG_SG_FIELDS.some(f => e[f]); }
+/** Vide, dans le brouillon, la valeur réelle portée par une suggestion (champ ✨ → champ du diag). */
+function _logDiagSgClearValue(info, field, sg) {
+  if (!info) return;
+  if (field === 'date') info.date = '';
+  else if (field === 'cabinet') info.diagnostiqueur = '';
+  else if (field === 'result') { delete info.presence; delete info.conforme; info.na = false; }
+  else if (field === 'depenses') info.depensesEnergie = (sg && sg.prev) || '';   // rend le chiffre remplacé (ex. ADEME)
+  else if (field === 'anneePrix') info.anneePrix = '';
+}
 
 // Type de contrôle « Résultat » par diagnostic dans la table groupée
 const _LOGDIAG_RESULT_KIND = {
@@ -48570,10 +48604,8 @@ function _logDiagInitDraft(log) {
     const sg = diag[k] && Array.isArray(diag[k]._sg) ? diag[k]._sg : null;
     if (sg && sg.length) {
       const e = {};
-      if (sg.includes('date'))    e.date    = { src: '' };
-      if (sg.includes('cabinet')) e.cabinet = { src: '' };
-      if (sg.includes('result'))  e.result  = { code: '', src: '' };
-      if (e.date || e.cabinet || e.result) _logDiagSuggest[k] = e;
+      _LOGDIAG_SG_FIELDS.forEach(f => { if (sg.includes(f)) e[f] = (f === 'result') ? { code: '', src: '' } : { src: '' }; });
+      if (_logDiagSgHasAny(e)) _logDiagSuggest[k] = e;
     }
     if (diag[k]) delete diag[k]._sg;
   });
@@ -48633,7 +48665,8 @@ function _logDiagSetField(key, field, val) {
   const info = _logDiagDraft.diag[key] || (_logDiagDraft.diag[key] = {});
   info[field] = val;
   // v15.240 B2 v2-c2 — saisie manuelle = prise en main → la suggestion n'est plus « à vérifier ».
-  _logDiagDismissSuggestion(key, field === 'date' ? 'date' : field === 'diagnostiqueur' ? 'cabinet' : null);
+  _logDiagDismissSuggestion(key, field === 'date' ? 'date' : field === 'diagnostiqueur' ? 'cabinet'
+    : field === 'depensesEnergie' ? 'depenses' : field === 'anneePrix' ? 'anneePrix' : null);
   if(field === 'date') _logDiagRenderTab();
 }
 
@@ -48643,7 +48676,7 @@ function _logDiagDismissSuggestion(key, field) {
   const e = _logDiagSuggest[key]; if(!e) return;
   delete e[field];
   if(field === 'result') delete e.resultAmbiguous;
-  if(!e.date && !e.cabinet && !e.result && !e.resultAmbiguous) delete _logDiagSuggest[key];
+  if(!_logDiagSgHasAny(e) && !e.resultAmbiguous) delete _logDiagSuggest[key];
 }
 
 /** Met à jour le « Résultat » d'un diagnostic (code compact) → champs structurés. */
@@ -48870,6 +48903,10 @@ async function _logDiagFetchAdeme() {
 
     // ── Garde-fou 2 : données ADEME ≠ saisie existante ──────────────────────
     const dpe = D.dpe || {};
+    // ANNONCES (D7) — l'ADEME ne donne qu'UN chiffre (cout_total_5_usages) ; le DPE imprime une
+    // FOURCHETTE « entre X € et Y € par an ». Une fourchette déjà présente (lue dans le PDF ou
+    // saisie) prime : l'import ne la remplace pas et ne demande pas à l'écraser.
+    if (cand.depensesEnergie && window.DpeTexte && window.DpeTexte.estFourchette(dpe.depensesEnergie)) cand.depensesEnergie = '';
     const FIELDS = [
       ['classe', 'Classe énergie'],
       ['ges',    'Classe GES'],
@@ -50586,6 +50623,29 @@ function _logDiagApplySuggestions(text, coverage, srcName) {
       n++;
     }
   }
+  // ANNONCES (D7) — estimation des coûts annuels (fourchette) + années de référence des prix,
+  // imprimées sur le DPE et absentes de l'API ADEME. Proposées « ✨ à vérifier », champ vide seulement.
+  const _cout = (window.DpeTexte && typeof window.DpeTexte.lireCoutsDpe === 'function')
+    ? window.DpeTexte.lireCoutsDpe(text) : null;
+  if (_cout && (_cout.depenses || _cout.annees)) {
+    const dInfo = D.dpe || (D.dpe = {});
+    const dEntry = _logDiagSuggest.dpe || {};
+    // Champ vide, OU chiffre unique (import ADEME antérieur) : la fourchette du DPE prime (CDC §5.3).
+    const _depVide = !String(dInfo.depensesEnergie || '').trim();
+    const _depRemplacable = _depVide || !window.DpeTexte.estFourchette(dInfo.depensesEnergie);
+    if (_cout.depenses && _depRemplacable && !dEntry.depenses) {
+      const _prev = _depVide ? '' : String(dInfo.depensesEnergie);
+      dInfo.depensesEnergie = _cout.depenses;
+      dEntry.depenses = { src: _cout.depensesSrc, name: srcName || '', prev: _prev };
+      n++;
+    }
+    if (_cout.annees && !String(dInfo.anneePrix || '').trim() && !dEntry.anneePrix) {
+      dInfo.anneePrix = _cout.annees;
+      dEntry.anneePrix = { src: _cout.anneesSrc, name: srcName || '' };
+      n++;
+    }
+    if (_logDiagSgHasAny(dEntry)) _logDiagSuggest.dpe = dEntry;
+  }
   return n;
 }
 
@@ -50594,7 +50654,7 @@ function _logDiagPendingCount() {
   let n = 0;
   Object.keys(_logDiagSuggest || {}).forEach(k => {
     const e = _logDiagSuggest[k] || {};
-    if (e.date) n++; if (e.cabinet) n++; if (e.result) n++;
+    _LOGDIAG_SG_FIELDS.forEach(f => { if (e[f]) n++; });
   });
   return n;
 }
@@ -50603,21 +50663,16 @@ function _logDiagPendingCount() {
 function _logDiagSuggestValidate(key, field) {
   const e = _logDiagSuggest[key]; if (!e) return;
   delete e[field];
-  if (!e.date && !e.cabinet && !e.result && !e.resultAmbiguous) delete _logDiagSuggest[key];
+  if (!_logDiagSgHasAny(e) && !e.resultAmbiguous) delete _logDiagSuggest[key];
   _logDiagRenderTab();
 }
 
 /** Efface une suggestion (vide la valeur dans le brouillon + retire le badge). */
 function _logDiagSuggestClear(key, field) {
   const e = _logDiagSuggest[key]; if (!e) return;
-  const info = _logDiagDraft && _logDiagDraft.diag[key];
-  if (info) {
-    if (field === 'date')    info.date = '';
-    if (field === 'cabinet') info.diagnostiqueur = '';
-    if (field === 'result')  { delete info.presence; delete info.conforme; info.na = false; }
-  }
+  _logDiagSgClearValue(_logDiagDraft && _logDiagDraft.diag[key], field, e[field]);
   delete e[field];
-  if (!e.date && !e.cabinet && !e.result && !e.resultAmbiguous) delete _logDiagSuggest[key];
+  if (!_logDiagSgHasAny(e) && !e.resultAmbiguous) delete _logDiagSuggest[key];
   _logDiagRenderTab();
 }
 
@@ -50625,7 +50680,7 @@ function _logDiagSuggestClear(key, field) {
 function _logDiagSuggestValidateAll() {
   Object.keys(_logDiagSuggest).forEach(k => {
     const e = _logDiagSuggest[k];
-    delete e.date; delete e.cabinet; delete e.result;
+    _LOGDIAG_SG_FIELDS.forEach(f => { delete e[f]; });
     if (!e.resultAmbiguous) delete _logDiagSuggest[k];
   });
   _logDiagRenderTab();
@@ -50636,12 +50691,7 @@ function _logDiagSuggestClearAll() {
   Object.keys(_logDiagSuggest).forEach(k => {
     const e = _logDiagSuggest[k];
     const info = _logDiagDraft && _logDiagDraft.diag[k];
-    if (info) {
-      if (e.date)    info.date = '';
-      if (e.cabinet) info.diagnostiqueur = '';
-      if (e.result)  { delete info.presence; delete info.conforme; info.na = false; }
-    }
-    delete e.date; delete e.cabinet; delete e.result;
+    _LOGDIAG_SG_FIELDS.forEach(f => { if (e[f]) _logDiagSgClearValue(info, f, e[f]); delete e[f]; });
     if (!e.resultAmbiguous) delete _logDiagSuggest[k];
   });
   _logDiagRenderTab();
@@ -50880,11 +50930,7 @@ function _logDiagRenderTab() {
     const sgE = _logDiagSuggest[e.key];
     if (!sgE) return;
     const info = D[e.key];
-    if (info) {
-      if (sgE.date)    info.date = '';
-      if (sgE.cabinet) info.diagnostiqueur = '';
-      if (sgE.result)  { delete info.presence; delete info.conforme; info.na = false; }
-    }
+    _LOGDIAG_SG_FIELDS.forEach(f => { if (sgE[f]) _logDiagSgClearValue(info, f, sgE[f]); });
     delete _logDiagSuggest[e.key];
   });
 
@@ -50912,11 +50958,19 @@ function _logDiagRenderTab() {
           <div class="fg"><label>Conso énergie <span class="mu sm">(kWh/m²/an)</span></label>
             <input class="inp" value="${escHtml(dpe.valEner||'')}" oninput="_logDiagSetField('dpe','valEner',this.value)" placeholder="ex 145"></div>
           <div class="fg"><label>💶 Dépenses estimées <span class="mu sm">(€/an)</span></label>
-            <input class="inp" value="${escHtml(dpe.depensesEnergie||'')}" oninput="_logDiagSetField('dpe','depensesEnergie',this.value)" placeholder="ex 900 à 1 200 €"></div>
+            ${(_logDiagSuggest.dpe && _logDiagSuggest.dpe.depenses)
+              ? `<div class="logdiag-sg-cell"><div class="logdiag-sg-val"><input class="inp logdiag-sg" value="${escHtml(dpe.depensesEnergie||'')}" oninput="_logDiagSetField('dpe','depensesEnergie',this.value)" placeholder="ex entre 900 € et 1 200 € par an"><span class="logdiag-sg-badge">${_uiIcon('sparkle',11)} suggéré</span></div>${_logDiagSgAnnot('dpe','depenses', _logDiagSuggest.dpe.depenses.src)}</div>`
+              : `<input class="inp" value="${escHtml(dpe.depensesEnergie||'')}" oninput="_logDiagSetField('dpe','depensesEnergie',this.value)" placeholder="ex entre 900 € et 1 200 € par an">`}</div>
           <!-- CONTRAT-TYPE-2026-10 — « estimation réalisée à partir des prix énergétiques de référence de
                l'année : […] » (contrat type, IV.G nu / IV.F meublé) : l'année figure sur le DPE. -->
-          <div class="fg"><label>Année de référence des prix <span class="mu sm">(DPE)</span></label>
-            <input class="inp" inputmode="numeric" maxlength="4" value="${escHtml(dpe.anneePrix||'')}" oninput="_logDiagSetField('dpe','anneePrix',this.value)" placeholder="ex 2023"></div>
+          <!-- ANNONCES (D7) — les DPE récents impriment PLUSIEURS années (« Prix moyens des énergies
+               indexés sur les années 2021, 2022, 2023 », vérifié sur 3 DPE réels) : champ texte, plus
+               limité à 4 chiffres. Même champ pour le bail (contrat type) et l'annonce (R126-23). -->
+          <div class="fg"><label>Année(s) de référence des prix <span class="mu sm">(DPE)</span></label>
+            ${(_logDiagSuggest.dpe && _logDiagSuggest.dpe.anneePrix)
+              ? `<div class="logdiag-sg-cell"><div class="logdiag-sg-val"><input class="inp logdiag-sg" value="${escHtml(dpe.anneePrix||'')}" oninput="_logDiagSetField('dpe','anneePrix',this.value)" placeholder="ex 2021, 2022, 2023"><span class="logdiag-sg-badge">${_uiIcon('sparkle',11)} suggéré</span></div>${_logDiagSgAnnot('dpe','anneePrix', _logDiagSuggest.dpe.anneePrix.src)}</div>`
+              : `<input class="inp" value="${escHtml(dpe.anneePrix||'')}" oninput="_logDiagSetField('dpe','anneePrix',this.value)" placeholder="ex 2021, 2022, 2023">`}
+            <div class="mu sm" style="font-size:10.5px;margin-top:3px">Sur le DPE, juste sous l'estimation des coûts annuels.</div></div>
         </div>
       </td>
     </tr>`;
@@ -51108,7 +51162,7 @@ function _logDiagCommitToLog(log) {
       //   date/na/classe, pas _sg) → n'affecte pas l'annexe DDT ni le snapshot signé. Effacé champ
       //   par champ à la validation / saisie manuelle ; sert à re-afficher le badge à la réouverture.
       const sg = _logDiagSuggest[e.key];
-      if(sg) { const fields = ['date','cabinet','result'].filter(f => sg[f]); if(fields.length) info._sg = fields; }
+      if(sg) { const fields = _LOGDIAG_SG_FIELDS.filter(f => sg[f]); if(fields.length) info._sg = fields; }
       clean[e.key] = info;
     }
   });
@@ -51652,6 +51706,20 @@ function _logpFillFromLog(log) {
   ['logp-loc-hcRef','logp-loc-chRef','logp-loc-dgRef','logp-loc-irlRef'].forEach(id => { const e = el(id); if (e) e.disabled = _bailActif; });
   const _theoNote = el('logp-loc-theo-note'); if (_theoNote) _theoNote.style.display = _bailActif ? '' : 'none';
   // BIENS étape 2 : DG/IRL ont rejoint l'onglet Identité, la note de grisage logp-loc-theo-note les couvre.
+  // ANNONCES — mentions d'annonce (jamais poussées par le bail : restent modifiables).
+  setV('logp-loc-chModalite', log.chargesModalite || '');
+  setV('logp-loc-honoEdl', log.honorairesEdlRef);
+  setV('logp-loc-honoHcl', log.honorairesHclRef);
+  // Honoraires charge locataire : seulement si un mandataire est configuré (ou déjà saisis).
+  const _hclRow = el('logp-loc-hcl-row');
+  if (_hclRow) _hclRow.style.display = (_annonceMandataireActif() || (log.honorairesHclRef != null && String(log.honorairesHclRef).trim() !== '')) ? '' : 'none';
+}
+
+/** ANNONCES (D8) — un mandataire loi Hoguet est configuré (Référentiel → Mandataire), même
+ *  prédicat que le bail (withMandataire && actif && nom), sans le choix propre à un bail. */
+function _annonceMandataireActif() {
+  const m = DB && DB.params && DB.params.mandataire;
+  return !!(m && m.actif && String(m.nom || '').trim());
 }
 
 function _logpToggleSurface(key) {
@@ -51911,191 +51979,410 @@ function _logpReadFromForm() {
   if (el('logp-loc-chRef'))  out['chargesRef'] = v('logp-loc-chRef');
   if (el('logp-loc-dgRef'))  out['dgRef']      = v('logp-loc-dgRef');
   if (el('logp-loc-irlRef')) out['irlRef']     = v('logp-loc-irlRef');
+  // ANNONCES — mode de règlement des charges + honoraires (mentions d'annonce, CDC §5.1).
+  if (el('logp-loc-chModalite')) out['chargesModalite']  = v('logp-loc-chModalite');
+  if (el('logp-loc-honoEdl'))    out['honorairesEdlRef'] = v('logp-loc-honoEdl');
+  if (el('logp-loc-honoHcl'))    out['honorairesHclRef'] = v('logp-loc-honoHcl');
 
   return { equipementsCommuns, log: out };
 }
 
 // ════════════════════════════════════════════════════════════════════
-// v15.230 LOG-ANNONCE Étape 4 — Modale annonce + génération
+// ANNONCES (CDC validé 29/09/2026, révisé maquette v2) — « Créer une annonce » en 2 étapes.
+// Étape 1 : confirmer le loyer souhaité (écrit dans la fiche, D1). Étape 2 : UN SEUL TEXTE, libre ;
+// le contrôle le relit à chaque frappe (présent / « [À COMPLÉTER : …] » / retiré → « Remettre »).
+// Moteur PUR : js/helpers/annonce-generator.global.js (window.AnnonceGenerator).
 // ════════════════════════════════════════════════════════════════════
-let _annonceCtx = { log: null, imm: null, bail: null, format: 'leboncoin', ton: 'storytelling', includeDossier: true, counter: 0 };
+let _annonceCtx = { log: null, imm: null, immIdx: -1, ent: null, includeDossier: true, result: null, aRelire: [] };
+// Brouillon par logement (mémoire de session) : « Compléter → », une fermeture ou un passage par la fiche
+// ne perdent jamais les retouches ; à la réouverture seules les mentions sont mises à jour (R5).
+const _annonceBrouillons = {};
 
-/** Ouvre la modale d'annonce pour un logement donné.
- * @param {string} ref — ref logement */
+/** DPE du logement : diagnostics.dpe (canonique) complété par la copie legacy log.dpe. */
+function _annonceDpe(log) {
+  const d = (typeof _diagGet === 'function' ? _diagGet(log, 'dpe') : null) || {};
+  const lg = (log && log.dpe && typeof log.dpe === 'object') ? log.dpe : {};
+  const pick = (k) => String(d[k] || lg[k] || '').trim();
+  return { classe: pick('classe').toUpperCase(), ges: pick('ges').toUpperCase(), depensesEnergie: pick('depensesEnergie'), anneePrix: pick('anneePrix'), na: d.na === true };
+}
+
+/** Commune : résolveur d'adresse existant (immeuble d'abord, sinon adresse du logement découpée). */
+function _annonceImm(log, imm) {
+  const base = Object.assign({}, imm || {});
+  if (base.ville) return base;
+  const R = window.LogImmResolver, P = window.AdresseParser;
+  const a = (R && typeof R.resolveAddressForLog === 'function') ? R.resolveAddressForLog(log, imm) : { full: log.adr || '' };
+  if (a && a.ville) return Object.assign(base, { ville: a.ville, codePostal: a.codePostal || base.codePostal || '' });
+  if (a && a.full && P && typeof P.parseAdresse === 'function') {
+    const p = P.parseAdresse(a.full);
+    if (p.ville) return Object.assign(base, { ville: p.ville, codePostal: p.codePostal || '' });
+  }
+  return base;
+}
+
+/** Ouvre la modale d'annonce (logement vacant, non archivé — porte de la fiche logement). */
 function openAnnonce(ref) {
   const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === ref);
   if (!log) { showToast('Logement introuvable', 'err'); return; }
   if (!window.AnnonceGenerator) { showToast('Module annonce non chargé', 'err'); return; }
-  const ent = (DB.entites || []).find(e => e && e.nom === log.entity);
-  const imm = ent && Array.isArray(ent.immeubles) ? ent.immeubles.find(i => i && i.nom === log.imm) : null;
-  // FAMILLE « écritures destructrices » (audit) — ces trois lignes travaillaient sur une RÉFÉRENCE
-  // VIVANTE de DB.baux[ref] : ouvrir la modale « Annonce » MODIFIAIT le bail en base. Deux dégâts
-  // mesurés, tous deux silencieux, sur un bail dont la provision vaut 0 (`!bail.ch` est vrai pour
-  // 0) : soit bail.ch prenait log.chargesRef — un montant que le locataire ne doit pas, reporté
-  // ensuite au barème au prochain enregistrement, sans popup puisque le formulaire affiche déjà
-  // cette valeur ; soit bail.ch devenait '' et la première révision IRL inscrivait 0 € de charges.
-  // L'annonce est un écran de LECTURE : elle travaille sur une copie.
-  const bail = Object.assign({}, (DB.baux || {})[ref] || {});
-  // Si pas de bail actif : le loyer THÉORIQUE (v15.249 B5 / D-B9) alimente l'annonce, sinon legacy log.hc.
-  if (!bail.hc) bail.hc = log.loyerHcRef || log.hc || '';
-  if (!bail.ch) bail.ch = log.chargesRef || log.ch || '';
-  if (!bail.dg) bail.dg = log.dgRef || log.dg || '';
-
-  _annonceCtx = { log, imm: imm || { ville: '', codePostal: '', adr: log.adr || '' }, bail, format: 'leboncoin', ton: 'storytelling', includeDossier: true, counter: 0 };
-  // Reset UI
-  document.querySelectorAll('#ov-annonce [id^=an-fmt-]').forEach(b => b.classList.remove('act'));
-  const fb = el('an-fmt-leboncoin'); if (fb) fb.classList.add('act');
-  document.querySelectorAll('#ov-annonce [id^=an-ton-]').forEach(b => b.classList.remove('act'));
-  const tb = el('an-ton-storytelling'); if (tb) tb.classList.add('act');
-  document.querySelectorAll('#ov-annonce [id^=an-doss-]').forEach(b => b.classList.remove('act'));
-  const db = el('an-doss-on'); if (db) db.classList.add('act');
-  const ck = el('an-verifie'); if (ck) ck.checked = false;
-  _annonceToggleVerifie();
-  const tt = el('m-annonce-title');
-  if (tt) tt.textContent = `📢 Créer une annonce — ${log.ref}`;
+  const ent = (DB.entites || []).find(e => e && e.nom === log.entity) || null;
+  const immIdx = ent && Array.isArray(ent.immeubles) ? ent.immeubles.findIndex(i => i && i.nom === log.imm) : -1;
+  const imm = immIdx >= 0 ? ent.immeubles[immIdx] : null;
+  const AG = window.AnnonceGenerator;
+  // D6 — classe G (habitation) : avertir avec le rappel légal, l'utilisateur décide (jamais bloquer).
+  if (_annonceDpe(log).classe === 'G' && !AG.estHorsHabitation(log)) {
+    const ok = confirm2('LOGEMENT CLASSÉ G\n\nDepuis le 1er janvier 2025, un logement classé G n\'est plus un logement décent et ne peut plus être loué comme résidence principale (art. 6 loi n° 89-462 du 6 juillet 1989).\n\nSi un nouveau DPE a été réalisé ou si la classe saisie est erronée, la corriger dans la fiche DPE.\n\nCréer l\'annonce quand même ?');
+    if (!ok) return;
+  }
+  const immA = _annonceImm(log, imm);
+  const br = _annonceBrouillons[ref] || null;
+  _annonceCtx = { log, imm: immA, immIdx, ent, includeDossier: br ? br.includeDossier : true, result: null, aRelire: [] };
   const sub = el('m-annonce-sub');
-  if (sub) sub.textContent = `${log.type || ''} ${log.surf || ''}m² · ${(imm && imm.ville) || ''} · sans IA, prêt copier-coller`;
-  _annonceRegen();
+  if (sub) sub.textContent = [log.ref, AG.natureBien(log, immA), (log.surf ? AG.montant(AG.nombre(log.surf)) + ' m²' : ''), AG.communeLabel(immA)].filter(Boolean).join(' · ');
+  const setV = (id, v) => { const e = el(id); if (e) e.value = (v == null ? '' : v); };
+  setV('an-hc', log.loyerHcRef); setV('an-ch', log.chargesRef);
+  setV('an-texte', ''); setV('an-titre', '');
+  const ro = (typeof _appReadOnly !== 'undefined' && _appReadOnly);
+  ['an-hc', 'an-ch'].forEach(id => { const e = el(id); if (e) e.disabled = !!ro; });
+  const info = el('an-step1-info');
+  if (info) info.textContent = 'Repris du loyer souhaité de la fiche ' + log.ref + '. Toute modification ici met à jour la fiche du logement.';
+  const btn = (id, ic, txt) => { const b = el(id); if (b) b.innerHTML = _uiIcon(ic) + ' ' + txt; };
+  btn('an-btn-inviter', 'link', 'Inviter un candidat');
+  btn('an-btn-pdf', 'download', 'Télécharger l\'affiche PDF');
+  btn('an-btn-copy', 'doc', 'Copier le texte');
+  const dcb = el('an-doss'); if (dcb) dcb.checked = _annonceCtx.includeDossier;
+  _annonceGoStep(1);
+  _annonceStep1Maj();
   openM('ov-annonce');
 }
 
-function _annonceSetFormat(f) {
-  _annonceCtx.format = f;
-  document.querySelectorAll('#ov-annonce [id^=an-fmt-]').forEach(b => b.classList.remove('act'));
-  const btn = el('an-fmt-' + f); if (btn) btn.classList.add('act');
-  _annonceRegen();
+function _annonceGoStep(n) {
+  const one = n === 1;
+  const show = (id, on) => { const e = el(id); if (e) e.style.display = on ? '' : 'none'; };
+  show('an-step1', one); show('an-foot1', one);
+  show('an-step2', !one); show('an-foot2', !one);
+  const tt = el('m-annonce-title');
+  if (tt) tt.textContent = one ? 'Créer une annonce — confirmer le loyer' : 'Créer une annonce';
+  if (one) return;
+  // Étape 2 : brouillon existant pour ce logement → on le reprend, seules les mentions changent (R5) ;
+  // retour depuis l'étape 1 → idem ; sinon texte complet.
+  const br = _annonceCtx.log ? _annonceBrouillons[_annonceCtx.log.ref] : null;
+  if (!_annonceCtx.result && br) {
+    const ta = el('an-texte'), ti = el('an-titre');
+    if (ta) ta.value = br.texte; if (ti) ti.value = br.titre;
+    _annonceCtx.result = br.result;
+  }
+  _annonceRegen(!!(_annonceCtx.result && el('an-texte') && el('an-texte').value));
 }
 
-function _annonceSetTon(t) {
-  _annonceCtx.ton = t;
-  document.querySelectorAll('#ov-annonce [id^=an-ton-]').forEach(b => b.classList.remove('act'));
-  const btn = el('an-ton-' + t); if (btn) btn.classList.add('act');
-  _annonceRegen();
+/** « Repartir du texte proposé » : abandonne les retouches de ce logement (confirmation). */
+function _annonceRepartir() {
+  const log = _annonceCtx.log; if (!log) return;
+  if (!confirm2('Repartir du texte proposé ?\n\nLes retouches faites dans le texte de cette annonce seront perdues.')) return;
+  delete _annonceBrouillons[log.ref];
+  _annonceCtx.result = null;
+  _annonceRegen(false);
 }
 
-function _annonceToggleDossier(on) {
-  _annonceCtx.includeDossier = !!on;
-  document.querySelectorAll('#ov-annonce [id^=an-doss-]').forEach(b => b.classList.remove('act'));
-  const btn = el(on ? 'an-doss-on' : 'an-doss-off'); if (btn) btn.classList.add('act');
-  _annonceRegen();
+/** Étape 1 : total + « Continuer » actif seulement si HC ET charges sont saisis (0 accepté). */
+function _annonceStep1Maj() {
+  const AG = window.AnnonceGenerator; if (!AG) return;
+  const hc = AG.nombre(el('an-hc') && el('an-hc').value);
+  const ch = AG.nombre(el('an-ch') && el('an-ch').value);
+  const ok = hc != null && hc >= 0 && ch != null && ch >= 0;
+  const t = el('an-total');
+  if (t) t.textContent = ok ? AG.montant(hc + ch) + ' € par mois' + (ch ? ' charges comprises' : '') : '—';
+  const b = el('an-btn-continuer'); if (b) b.disabled = !ok;
 }
 
-function _annonceRegen() {
-  _annonceCtx.counter++;
-  if (!window.AnnonceGenerator) return;
-  const result = window.AnnonceGenerator.genererAnnonce(_annonceCtx.log, _annonceCtx.imm, _annonceCtx.bail, {
-    format: _annonceCtx.format, ton: _annonceCtx.ton, includeDossier: _annonceCtx.includeDossier, counter: _annonceCtx.counter
+/** Étape 1 → 2 : si le loyer a changé, l'écrit par le chemin de l'onglet Identité. */
+function _annonceStep1Continuer() {
+  const AG = window.AnnonceGenerator; const log = _annonceCtx.log;
+  if (!AG || !log) return;
+  const hcS = el('an-hc') ? el('an-hc').value : '';
+  const chS = el('an-ch') ? el('an-ch').value : '';
+  const hc = AG.nombre(hcS), ch = AG.nombre(chS);
+  if (hc == null || ch == null) return;
+  const change = AG.nombre(log.loyerHcRef) !== hc || AG.nombre(log.chargesRef) !== ch;
+  const ro = (typeof _appReadOnly !== 'undefined' && _appReadOnly);
+  if (change && !ro) {
+    log.loyerHcRef = hcS; log.chargesRef = chS;
+    if (_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))) _rescoreCandidatsDuLogement(log.ref);
+    _stamp(log);
+    try { _auditLog('update', 'logement', log.id, log.ref); } catch (e) {}
+    saveDB();
+    try { _refreshAfterMutation(); } catch (e) {}
+    showToast('Loyer souhaité mis à jour dans la fiche ' + log.ref, 'ok', 3000);
+  }
+  _annonceGoStep(2);
+}
+
+function _annonceGenerer() {
+  const AG = window.AnnonceGenerator; const log = _annonceCtx.log;
+  return AG.genererAnnonce({
+    log, imm: _annonceCtx.imm || {}, dpe: _annonceDpe(log),
+    composition: (typeof _lbDesignationPieces === 'function') ? _lbDesignationPieces(log) : '',
+    mandataire: _annonceMandataireActif(),
+    includeDossier: _annonceCtx.includeDossier,
+    aujourdhui: (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : new Date().toISOString().slice(0, 10)
   });
-  const titre = el('an-titre'); if (titre) titre.textContent = result.titre || '—';
-  const ct = el('an-titre-ct'); if (ct) {
-    const len = (result.titre || '').length;
-    const couleur = len > 80 ? '#fca5a5' : (len > 65 ? '#fde047' : '#86efac');
-    ct.innerHTML = `<span style="color:${couleur}">${len} c.</span> · Leboncoin recommande 60-80`;
-  }
-  const prev = el('an-preview'); if (prev) prev.textContent = result.body || '';
-  const raw = el('an-raw'); if (raw) raw.value = result.body || '';
-  const stats = el('an-stats'); if (stats && result.stats) {
-    stats.innerHTML = `${result.stats.caracteres} c. · ${result.stats.mots} mots · <span style="color:var(--gre)">gen #${_annonceCtx.counter}</span>`;
-  }
-  // v15.230 F5 : avertissement DPE F/G (loi Climat 2021-1104 + décret 2021-19).
-  // Calendrier interdiction location : G interdit depuis 01/01/2025, F dès 01/01/2028, E dès 01/01/2034.
-  _annonceShowDpeWarn();
 }
 
-/** v15.230 F5 : affiche/masque l'avertissement DPE F/G dans la modale annonce. */
+/** (Re)génère. garder = conserver le texte retouché et n'y remplacer que les mentions. */
+function _annonceRegen(garder) {
+  const AG = window.AnnonceGenerator; const log = _annonceCtx.log;
+  if (!AG || !log) return;
+  const avant = _annonceCtx.result;
+  const r = _annonceGenerer();
+  const ta = el('an-texte'); const ti = el('an-titre');
+  if (garder && avant && ta && ta.value) {
+    const maj = AG.majMentions(ta.value, avant, r);
+    ta.value = maj.texte;
+    _annonceCtx.aRelire = maj.aRelire || [];
+    if (ti && ti.value === avant.titre) ti.value = r.titre;          // titre non retouché → suit la fiche
+    else if (ti && avant.titre !== r.titre && _annonceCtx.aRelire.indexOf('titre') < 0) _annonceCtx.aRelire.push('titre');
+  } else { if (ta) ta.value = r.texte; if (ti) ti.value = r.titre; _annonceCtx.aRelire = []; }
+  _annonceCtx.result = r;
+  const hors = r.mode === 'hors-habitation';
+  const dr = el('an-doss-row'); if (dr) dr.style.display = hors ? 'none' : '';
+  const src = el('an-src');
+  if (src) src.textContent = hors
+    ? 'Garage, box, local : loi n° 89-462 non applicable. DPE : CCH L126-33, R126-15 ; Géorisques : C. env. R125-25.'
+    : 'Contrôle relu à chaque frappe. Mentions : loi n° 89-462 art. 2-1 et arrêté du 21 avril 2022 ; DPE : CCH L126-33, R126-21 à R126-24 ; Géorisques : C. env. R125-25.';
+  _annonceShowDpeWarn();
+  _annonceTexteMaj();
+}
+
+/** Interrupteur « pièces du dossier » : ajoute / retire le bloc dans le texte, sans toucher au reste. */
+function _annonceToggleDossier(on) {
+  const AG = window.AnnonceGenerator; const log = _annonceCtx.log; const ta = el('an-texte');
+  if (!AG || !log || !ta) return;
+  _annonceCtx.includeDossier = !!on;
+  const bloc = AG.genererDossier(log);
+  const gar = AG.garanties(log);
+  const garLigne = gar.length ? 'Garanties acceptées : ' + gar.join(' ou ') + '.' : '';
+  let t = ta.value;
+  if (!on) {
+    if (t.indexOf(bloc) >= 0) t = t.replace(bloc, garLigne).replace(/\n{3,}/g, '\n\n');
+    else showToast('La liste des pièces a été retouchée : la retirer directement dans le texte.', 'info', 5000);
+  } else if (t.indexOf(AG.RUBRIQUES.dossier) < 0) {
+    if (garLigne && t.indexOf(garLigne + '\n\n' + AG.RUBRIQUES.infos) >= 0) t = t.replace(garLigne + '\n\n' + AG.RUBRIQUES.infos, bloc + '\n\n' + AG.RUBRIQUES.infos);
+    else {
+      const h = t.indexOf(AG.RUBRIQUES.infos);
+      t = h >= 0 ? t.slice(0, h) + bloc + '\n\n' + t.slice(h) : t.replace(/\s+$/, '') + '\n\n' + bloc;
+    }
+  }
+  ta.value = t;
+  _annonceCtx.result = _annonceGenerer();
+  _annonceTexteMaj();
+}
+
+/** Relecture en direct : calque des emplacements, contrôle, bandeau, compteur. */
+function _annonceTexteMaj() {
+  const AG = window.AnnonceGenerator; const r = _annonceCtx.result; const ta = el('an-texte');
+  if (!AG || !r || !ta) return;
+  const t = ta.value;
+  const c = AG.controlerTexte(t, r);
+  const bd = el('an-texte-bd');
+  if (bd) bd.innerHTML = escHtml(t).replace(/\[À COMPLÉTER : [^\]]*\]/g, m => '<mark class="an-miss">' + m + '</mark>') + '\n';
+  _annonceSyncScroll();
+  _annonceRenderControle(r, c);
+  const nb = el('an-cnt'); if (nb) nb.textContent = t.length + ' caractères';
+  // Brouillon de session pour ce logement (jamais persisté en base).
+  const log = _annonceCtx.log;
+  if (log) _annonceBrouillons[log.ref] = { texte: t, titre: (el('an-titre') && el('an-titre').value) || r.titre, result: r, includeDossier: _annonceCtx.includeDossier };
+}
+
+function _annonceSyncScroll() {
+  const ta = el('an-texte'), bd = el('an-texte-bd');
+  if (ta && bd) bd.scrollTop = ta.scrollTop;
+}
+
+/** Contrôle : ✓ / à compléter (« Compléter → ») / retirée (« Remettre »). */
+function _annonceRenderControle(r, c) {
+  const hors = r.mode === 'hors-habitation';
+  const n = c.controle.filter(x => x.etat !== 'na').length;
+  const ko = c.manquantes, ret = c.retirees, mod = c.modifiees || 0;
+  const alerte = c.controle.some(x => x.etat === 'warn') || (_annonceCtx.aRelire || []).length > 0;
+  const pb = ko + ret + mod;
+  const sc = el('an-sc');
+  if (sc) { sc.textContent = pb ? String(pb) : (n + '/' + n); sc.className = 'an-sc ' + (pb ? 'ko' : 'ok'); }
+  const tx = el('an-chk-t');
+  if (tx) tx.textContent = pb
+    ? [ko ? (ko > 1 ? ko + ' mentions à compléter' : '1 mention à compléter') + ' (marquées [À COMPLÉTER] dans le texte)' : '',
+       ret ? (ret > 1 ? ret + ' mentions retirées du texte' : '1 mention retirée du texte') : '',
+       mod ? (mod > 1 ? mod + ' mentions différentes de la fiche' : '1 mention différente de la fiche') : ''].filter(Boolean).join(' · ') + '.'
+    : (hors ? 'Hors habitation : informations complètes.' : 'Toutes les mentions obligatoires sont dans le texte.');
+  // Tablette : le contrôle ne se replie que si tout est vraiment bon (ni manque, ni retrait, ni alerte).
+  const col = el('an-col-c'); if (col) col.classList.toggle('allok', !pb && !alerte);
+  const sum = el('an-chk-sum');
+  if (sum) sum.innerHTML = _uiIcon('check', 15) + ' ' + (hors ? 'Informations' : 'Mentions obligatoires') + ' : ' + n + '/' + n
+    + ' <button type="button" class="btn bs" onclick="document.getElementById(\'an-col-c\').classList.remove(\'allok\')">Détail</button>';
+  const ul = el('an-chk');
+  if (ul) ul.innerHTML = c.controle.map(x => {
+    const ic = x.etat === 'ok' ? _uiIcon('check', 11) : x.etat === 'na' ? '–' : _uiIcon('warn', 11);
+    let act = '';
+    if (x.etat === 'retire') act = '<button type="button" class="an-go" onclick="_annonceRemettre(\'' + x.key + '\')">Remettre</button>';
+    else if (x.etat === 'modifie') act = '<button type="button" class="an-go" onclick="_annonceRemettre(\'' + x.key + '\')">Rétablir</button>';
+    else if ((x.etat === 'ko' || x.etat === 'warn') && x.cible) act = '<button type="button" class="an-go" onclick="_annonceCompleter(\'' + x.cible + '\')">Compléter →</button>';
+    const sel = x.etat === 'ko' ? ' onclick="_annonceMontrerManque(\'' + x.key + '\')" role="button" tabindex="0"' : '';
+    return '<li class="' + x.etat + '"><span class="an-ic">' + ic + '</span><span class="an-tx"' + sel + '>' + escHtml(x.label)
+      + '<small>' + escHtml(x.detail) + '</small></span>' + act + '</li>';
+  }).join('');
+  const ban = el('an-manques');
+  if (ban) {
+    const parts = [];
+    if (ko) parts.push('<b>' + (ko > 1 ? ko + ' informations obligatoires manquent.' : '1 information obligatoire manque.') + '</b> Leurs emplacements sont marqués <b>[À COMPLÉTER]</b> dans le texte ; les compléter avant de publier.');
+    if (ret) parts.push('<b>' + (ret > 1 ? ret + ' mentions obligatoires ont été retirées du texte.' : '1 mention obligatoire a été retirée du texte.') + '</b> « Remettre » la réinsère à sa place.');
+    if (mod) parts.push('<b>' + (mod > 1 ? mod + ' mentions ne correspondent plus à la fiche.' : '1 mention ne correspond plus à la fiche.') + '</b> « Rétablir » remet la valeur de la fiche ; sinon corriger la fiche.');
+    const LIBR = { accroche: 'la phrase d\'accroche', logement: 'LE LOGEMENT', points: 'les POINTS FORTS', dossier: 'le DOSSIER', titre: 'le titre' };
+    const rl = (_annonceCtx.aRelire || []).map(k => LIBR[k] || k);
+    if (rl.length) parts.push('<b>À relire</b> (retouché à la main, la fiche a changé depuis) : ' + escHtml(rl.join(', ')) + '.');
+    ban.innerHTML = parts.length ? _uiIcon('warn', 15) + '<span>' + parts.join(' ') + ' Le texte reste copiable.</span>' : '';
+    ban.style.display = parts.length ? '' : 'none';
+  }
+  const h = el('an-foot-hint');
+  if (h) { h.textContent = pb ? pb + ' mention' + (pb > 1 ? 's' : '') + ' à reprendre avant de publier' : 'Prêt à publier.'; h.classList.toggle('w', !!pb); }
+}
+
+/** Sélectionne, dans le texte, l'emplacement « [À COMPLÉTER] » d'une mention. */
+function _annonceMontrerManque(key) {
+  const r = _annonceCtx.result; const ta = el('an-texte');
+  if (!r || !ta) return;
+  const m = r.mentions.find(x => x.key === key); if (!m) return;
+  // Ligne de la mention : identique, sinon même libellé (texte retouché autour).
+  const v = ta.value; let deb = 0, p = -1;
+  v.split('\n').some(l => { if (l.replace(/\s+$/, '') === m.texte || (m.libelle && l.indexOf(m.libelle) === 0)) { p = deb; return true; } deb += l.length + 1; return false; });
+  if (p < 0) return;
+  const finLigne = v.indexOf('\n', p) < 0 ? v.length : v.indexOf('\n', p);
+  const i = v.indexOf('[À COMPLÉTER', p);
+  const j = i >= 0 ? v.indexOf(']', i) : -1;
+  if (i < 0 || j < 0 || i > finLigne) return;
+  ta.focus(); ta.setSelectionRange(i, j + 1);
+}
+
+/** « Remettre » : réinsère la phrase exacte d'une mention retirée. */
+function _annonceRemettre(key) {
+  const AG = window.AnnonceGenerator; const r = _annonceCtx.result; const ta = el('an-texte');
+  if (!AG || !r || !ta) return;
+  ta.value = AG.remettreMention(ta.value, r, key);
+  _annonceTexteMaj();
+}
+
+/** « Compléter → » : ouvre le champ à la source ; au retour, seules les mentions sont mises à jour. */
+function _annonceCompleter(cible) {
+  const log = _annonceCtx.log; if (!log) return;
+  if (cible === 'loyer') { _annonceGoStep(1); return; }
+  closeM('ov-annonce');
+  if (cible === 'immeuble' && _annonceCtx.ent && _annonceCtx.immIdx >= 0) { editImm(_annonceCtx.immIdx, +_annonceCtx.ent.id); return; }
+  openLogModalOnTab(log.ref, cible === 'dpe' ? 'diag' : 'ident');
+}
+
+/** Bandeau DPE (calendrier de décence, art. 6 loi 89-462) — jamais bloquant. */
 function _annonceShowDpeWarn() {
   const w = el('an-dpe-warn');
   if (!w) return;
-  const cl = (_annonceCtx.log && _annonceCtx.log.dpe && _annonceCtx.log.dpe.classe) || '';
-  if (cl === 'G') {
-    w.style.display = '';
-    w.innerHTML = '🚫 <strong>DPE G — location interdite depuis le 1er janvier 2025</strong> (loi Climat 2021-1104, décret 2021-19). Mettre ce bien en location constitue une infraction. Travaux énergétiques obligatoires avant remise en location.';
-    w.style.background = '#fee2e2'; w.style.borderColor = '#dc2626'; w.style.color = '#7f1d1d';
-  } else if (cl === 'F') {
-    w.style.display = '';
-    w.innerHTML = '⚠️ <strong>DPE F — interdiction de location au 1er janvier 2028</strong> (loi Climat 2021-1104). Planifier les travaux énergétiques sans tarder. Pour information du candidat, ce bien sera classé « passoire thermique » au sens de la loi.';
-    w.style.background = '#fef3c7'; w.style.borderColor = '#f59e0b'; w.style.color = '#78350f';
-  } else if (cl === 'E') {
-    w.style.display = '';
-    w.innerHTML = _uiIcon('info') + ' <strong>DPE E — interdiction de location au 1er janvier 2034</strong> (loi Climat 2021-1104). Travaux énergétiques recommandés pour anticiper l\'échéance.';
-    w.style.background = '#dbeafe'; w.style.borderColor = '#3b82f6'; w.style.color = '#1e3a8a';
-  } else {
-    w.style.display = 'none';
-    w.innerHTML = '';
-  }
+  const log = _annonceCtx.log;
+  const hors = log && window.AnnonceGenerator && window.AnnonceGenerator.estHorsHabitation(log);
+  const cl = (log && !hors) ? _annonceDpe(log).classe : '';
+  const lien = ' <button type="button" class="an-go" onclick="_annonceCompleter(\'dpe\')">Ouvrir la fiche DPE</button>';
+  let html = '', cls = '';
+  if (cl === 'G') { cls = 'neg'; html = _uiIcon('warn', 15) + '<span><b>Classe G :</b> ce logement ne peut plus être loué comme résidence principale depuis le <b>1er janvier 2025</b> (art. 6 loi n° 89-462).' + lien + '</span>'; }
+  else if (cl === 'F') { cls = 'warn'; html = _uiIcon('warn', 15) + '<span><b>Classe F :</b> ce logement ne pourra plus être loué comme résidence principale à compter du <b>1er janvier 2028</b> (art. 6 loi n° 89-462). L\'annonce reste possible jusque-là.</span>'; }
+  else if (cl === 'E') { cls = 'info'; html = _uiIcon('info', 15) + '<span><b>Classe E :</b> location comme résidence principale interdite à compter du <b>1er janvier 2034</b> (art. 6 loi n° 89-462).</span>'; }
+  w.className = 'an-ban ' + cls;
+  w.innerHTML = html;
+  w.style.display = html ? '' : 'none';
 }
 
-function _annonceToggleVerifie() {
-  const ok = !!(el('an-verifie') && el('an-verifie').checked);
-  ['an-btn-copy', 'an-btn-pdf', 'an-btn-email'].forEach(id => {
-    const b = el(id); if (b) {
-      b.disabled = !ok;
-      b.title = ok ? '' : 'Cocher la case ci-dessus pour activer';
-    }
-  });
+/** Texte copié = le texte tel qu'à l'écran. */
+function _annonceTexte() {
+  return ((el('an-texte') && el('an-texte').value) || '').trim();
 }
 
-function _annonceCopy() {
-  const raw = el('an-raw'); if (!raw) return;
-  raw.select();
+async function _annonceCopy() {
+  const AG = window.AnnonceGenerator; const r = _annonceCtx.result;
+  const txt = _annonceTexte();
+  if (!txt) return;
+  const c = (AG && r) ? AG.controlerTexte(txt, r) : { manquantes: 0, retirees: 0 };
+  const pb = c.manquantes + c.retirees;
+  const msg = pb ? 'Texte copié — ' + pb + ' mention' + (pb > 1 ? 's' : '') + ' obligatoire' + (pb > 1 ? 's' : '') + ' encore à reprendre' : 'Texte copié — le titre se copie depuis son champ';
   try {
-    document.execCommand('copy');
-    showToast('📋 Annonce copiée dans le presse-papier — collez-la dans Leboncoin / SeLoger / PAP', 'ok', 4000);
-  } catch (e) { showToast('Erreur copie : ' + (e.message || e), 'err'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(txt); showToast(msg, pb ? 'warn' : 'ok', 4000); return; }
+  } catch (e) { /* repli ci-dessous */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = txt; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    showToast(msg, pb ? 'warn' : 'ok', 4000);
+  } catch (e) { showToast('Copie impossible : ' + (e.message || e), 'err'); }
 }
 
+/** Affiche A4 depuis le texte à l'écran : rubriques en gras, loyer en avant, échelles DPE EN COULEUR
+ *  (R126-22), adresse DossierFacile ajoutée ici seulement (D9). */
 function _annoncePDF() {
-  // v15.230 Étape 5 : génération PDF natif simple
   if (typeof jspdf === 'undefined' && !(window.jspdf && window.jspdf.jsPDF)) {
-    showToast('PDF : libs en chargement... réessayez dans 2s', 'warn');
+    showToast('PDF : libs en chargement... réessayer dans 2 s', 'warn');
     if (typeof _ensurePDFLibsLoaded === 'function') { _ensurePDFLibsLoaded().then(() => _annoncePDF()); }
     return;
   }
+  const AG = window.AnnonceGenerator; const r = _annonceCtx.result; const log = _annonceCtx.log;
+  if (!AG || !r || !log) return;
   try {
     const jsPDFCls = window.jspdf.jsPDF;
     const pdf = window.MontantDoc.hardenJsPdfText(new jsPDFCls({ unit: 'mm', format: 'a4', orientation: 'portrait' }));   /* S3 */
-    const M = 15, PW = 210, CW = PW - 2 * M;
+    const M = 15, PW = 210, CW = PW - 2 * M, BOT = 282;
     let y = 18;
-    // DOCS-UNIFIES — l'annonce part vers des candidats : elle porte le bandeau d'identité
-    // du bailleur comme tous les autres documents émis (même helper, aucune règle recopiée).
-    y = _pdfDrawBrandzone(pdf, _entiteDeLogement(_annonceCtx.log), M, y, PW - M);
-    pdf.setFont('helvetica', 'bold').setFontSize(13).setTextColor(20, 40, 80);
-    const titre = (el('an-titre') && el('an-titre').textContent) || '';
-    const titreLines = pdf.splitTextToSize(titre, CW);
-    titreLines.forEach(l => { pdf.text(l, M, y); y += 6; });
-    y += 4;
-    pdf.setFont('helvetica', 'normal').setFontSize(10).setTextColor(40, 40, 40);
-    const body = (el('an-raw') && el('an-raw').value) || '';
-    const lines = pdf.splitTextToSize(body, CW);
-    for (const ln of lines) {
-      if (y > 280) { pdf.addPage(); y = 18; }
-      pdf.text(ln, M, y); y += 4.4;
+    const saut = (h) => { if (y + h > BOT) { pdf.addPage(); y = 18; } };
+    const para = (txt, size, style, rgb, lh) => {
+      pdf.setFont('helvetica', style || 'normal').setFontSize(size).setTextColor(rgb[0], rgb[1], rgb[2]);
+      pdf.splitTextToSize(String(txt || ''), CW).forEach(l => { saut(lh); pdf.text(l, M, y); y += lh; });
+    };
+    y = _pdfDrawBrandzone(pdf, _entiteDeLogement(log), M, y, PW - M);   // DOCS-UNIFIES — bandeau bailleur
+    para((el('an-titre') && el('an-titre').value) || r.titre, 15, 'bold', [16, 21, 33], 6.4);
+    y += 2;
+    const rubriques = Object.values(AG.RUBRIQUES);
+    _annonceTexte().replace(AG.TXT_DOSSIERFACILE, AG.TXT_DOSSIERFACILE.replace(/\.$/, '') + ' (www.dossierfacile.fr).').split('\n').forEach(l => {
+      if (!l.trim()) { y += 2.5; return; }
+      if (rubriques.indexOf(l.trim()) >= 0) { y += 1; para(l.trim(), 10.5, 'bold', [16, 21, 33], 5.4); return; }
+      if (/^Loyer : /.test(l)) { para(l, 13, 'bold', [16, 21, 33], 6); return; }
+      para(l, 10, /^Logement à consommation énergétique excessive/.test(l) ? 'bold' : 'normal', [40, 40, 40], 4.6);
+    });
+    const dpe = _annonceDpe(log);
+    if (dpe.classe && dpe.ges && !AG.estHorsHabitation(log)) {
+      // Échelles en couleur (étiquette DPE usuelle) ; libellés « classe énergie / classe climat » = R126-21.
+      const ENER = { A: [0, 156, 109], B: [82, 177, 83], C: [120, 189, 118], D: [244, 231, 15], E: [240, 180, 15], F: [235, 130, 53], G: [215, 34, 31] };
+      const CLIM = { A: [164, 219, 248], B: [140, 180, 211], C: [119, 146, 177], D: [95, 111, 148], E: [75, 77, 120], F: [56, 47, 92], G: [40, 27, 53] };
+      const sombreE = { C: 1, D: 1, E: 1 }, sombreC = { A: 1, B: 1 };
+      y += 4; saut(46);
+      const bloc = (x0, lib, cur, map, sombre) => {
+        pdf.setFont('helvetica', 'bold').setFontSize(9).setTextColor(60, 70, 88);
+        pdf.text(lib + ' : ' + cur, x0, y);
+        'ABCDEFG'.split('').forEach((k, i) => {
+          const w = 20 + i * 6, yy = y + 3 + i * 5.2, h = k === cur ? 5 : 4.2;
+          const c = map[k]; pdf.setFillColor(c[0], c[1], c[2]); pdf.rect(x0, yy, w, h, 'F');
+          if (k === cur) { pdf.setDrawColor(16, 21, 33); pdf.setLineWidth(0.6); pdf.rect(x0 - 0.4, yy - 0.4, w + 0.8, h + 0.8, 'S'); }
+          const t = sombre[k] ? [16, 21, 33] : [255, 255, 255];
+          pdf.setFont('helvetica', 'bold').setFontSize(k === cur ? 9 : 7.5).setTextColor(t[0], t[1], t[2]);
+          pdf.text(k, x0 + 1.6, yy + h - 1.1);
+        });
+      };
+      bloc(M, 'CLASSE ÉNERGIE', dpe.classe, ENER, sombreE);
+      bloc(M + CW / 2, 'CLASSE CLIMAT', dpe.ges, CLIM, sombreC);
+      y += 43;
     }
-    // Footer
     const total = pdf.internal.pages.length - 1;
     for (let p = 1; p <= total; p++) {
       pdf.setPage(p);
       pdf.setFont('helvetica', 'italic').setFontSize(8).setTextColor(120, 120, 120);
-      pdf.text(`Annonce générée par Propryo · ${new Date().toLocaleDateString('fr-FR')} · Page ${p} / ${total}`, PW / 2, 290, { align: 'center' });
+      pdf.text('Établie avec Propryo d\'après la fiche du logement · ' + new Date().toLocaleDateString('fr-FR') + (total > 1 ? ' · Page ' + p + ' / ' + total : ''), PW / 2, 290, { align: 'center' });
     }
-    const ref = (_annonceCtx.log && _annonceCtx.log.ref) || 'annonce';
-    pdf.save(`Annonce_${ref.replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
-    showToast('📄 PDF téléchargé', 'ok', 3000);
+    pdf.save('Annonce_' + String(log.ref || 'annonce').replace(/[^a-zA-Z0-9_-]/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.pdf');
+    showToast('Affiche PDF téléchargée', 'ok', 3000);
   } catch (e) {
     console.error('[annoncePDF]', e);
     showToast('Erreur génération PDF : ' + (e.message || e), 'err');
   }
-}
-
-function _annonceEmail() {
-  // Ouvre le client mail avec le texte de l'annonce
-  const titre = (el('an-titre') && el('an-titre').textContent) || 'Annonce de location';
-  const body = (el('an-raw') && el('an-raw').value) || '';
-  const subj = encodeURIComponent(titre);
-  const corps = encodeURIComponent(body);
-  const url = `mailto:?subject=${subj}&body=${corps}`;
-  try { window.location.href = url; } catch (e) { window.open(url, '_blank'); }
-  showToast('✉ Email préparé dans votre client mail', 'ok', 3000);
 }
 
 // v15.233 MODALE-LOGEMENT B1 — propagation valeur LIVE (bail/IRL) → loyer THÉORIQUE du logement.
@@ -52344,9 +52631,7 @@ function saveParamLog() {
     const _lrOcc = !!_bienActiveBail(log.ref);
     if (_logpPushLoyerRef(log, presa.log, _lrOcc)) {
       // le loyer courant du bien vacant a changé → recalcule le score de ses candidats (ratio)
-      (DB.candidats||[]).filter(x=>x && !x._deleted && x.logRef===log.ref).forEach(x=>{
-        try{ x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x)); _stamp(x); }catch(e){}
-      });
+      _rescoreCandidatsDuLogement(log.ref);
     }
     // Propage equipementsCommuns vers l'immeuble parent — UNIQUEMENT si le bloc était dans le DOM.
     // (P0-2 : la modale Immeuble porte déjà ces cases ; ici c'est le doublon, qui ne doit surtout

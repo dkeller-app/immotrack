@@ -1,813 +1,394 @@
 /**
- * Tests du module annonce-generator — LOG-ANNONCE Étape 1 (v15.207)
+ * Tests du moteur d'annonces CONFORMES — chantier ANNONCES (CDC 29/09/2026 + maquette v2 : texte
+ * unique, format B sans emojis, dossier court).
  *
- * Vérifie :
- *  - Banques figées (immutables) + cohérence (4 tons + 3 formats valides)
- *  - PRNG seedé (déterminisme par seed donné)
- *  - Helpers de formatage (etageLabel, MAP_EXPO, adjLifestyle)
- *  - Générateurs de sections (titre, accroche, description, atouts, quartier, dossier)
- *  - Orchestrateur `genererAnnonce` : 3 formats × 4 tons × cas avec/sans options
- *  - Règle anti-mensonge : aucun adjectif émis si donnée absente
+ * Garde-fous :
+ *  - VERBATIM : chaque libellé imposé est comparé à la chaîne relue sur Légifrance (AUDIT.md partie 2).
+ *  - ANTI-INVENTION : jamais d'équipement, d'adjectif, ni de « copropriété construite entre… ».
+ *  - D1 : loyer = loyer souhaité (loyerHcRef/chargesRef/dgRef), jamais l'ancien bail.
+ *  - D3 : manque = emplacement « [À COMPLÉTER : …] » dans le texte, jamais d'exception.
+ *  - Texte unique : contrôle en direct, « Remettre », mise à jour après passage par la fiche.
  */
-
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
-  // Constantes
-  TONS_VALIDES, FORMATS_VALIDES,
-  MAP_EXPO, MAP_VUE, MAP_LUM, MAP_CALM, MAP_CAR,
-  BANQUE_TITRES, BANQUE_ACCROCHES,
-  // PRNG
-  setSeed, rand, pick, seedFromString,
-  // Helpers
-  etageLabel, adjLifestyle, formaterDateFr, garantiesLabel,
-  // Générateurs
-  genererTitre, genererAccroche, genererDescription, genererAtouts,
-  genererQuartier, genererDossier, genererAnnonce,
+  TXT_GEORISQUES, TXT_DEPENSES, TXT_EXCESSIF, TXT_HCL, RUBRIQUES, DOSSIER_PIECES, TXT_DOSSIERFACILE,
+  MANQUE, nombre, montant, etageLabel, commune, communeLabel, dateFr, natureBien, estMeuble, estHorsHabitation,
+  depensesTexte, pointsForts, genererTitre, genererAccroche, genererMentions, genererDossier, genererAnnonce,
+  controlerTexte, remettreMention, majMentions,
 } from './annonce-generator.js';
 
-// ═══════════════════════════════════════════════════════════════
-// Fixtures
-// ═══════════════════════════════════════════════════════════════
-function makeLog(overrides = {}) {
-  return {
-    ref: 'TEST-001', type: 'T3', surf: 65, npp: 3, etage: '4',
-    typeUsage: 'habitation-nu',
-    dpe: { classe: 'C', valConv: 95, ges: 'C' },
-    equipements: {
-      cuisine: { equipee: true, four: true, plaques: true, hotte: true, lave_vaisselle: true, micro_ondes: true, customs: ['Cuisine américaine ouverte sur séjour'] },
-      sanitaires: { bain: true, douche: true, wc_separe: true, lave_linge: true },
-      technologies: { fibre: true, tnt: true }
-    },
-    annexes: {
-      cave: { present: true, num: '7' },
-      parking: { present: true, num: '14', type: 'box' },
-      customs: []
-    },
-    exterieurs: {
-      balcon: { present: true, surface: 8 },
-      terrasse: { present: false },
-      jardin_privatif: { present: false }
-    },
-    presentation: {
-      exposition: 'sud', vue: 'degagee', luminosite: 'tres-lumineux',
-      calme: 'rue-calme', caractere_ancien: 'moulures-parquet'
-    },
-    quartier: {
-      transports: { tramway: 4, gare: 8 },
-      commerces: { boulangerie: 'dans la rue', supermarche: 3, pharmacie: 5 },
-      services: { ecoles_primaires: true, college: true, parc: true, restaurants: true },
-      reperes: ['Cathédrale (3 min)', 'Place Kléber (5 min)'],
-      caractere: ['centre-historique', 'quartier-residentiel']
-    },
-    locationInfo: { disponibilite: '2026-06-15', garanties_acceptees: ['caution_solidaire', 'visale'] },
-    ...overrides
-  };
+function d103(o = {}) {
+  return Object.assign({
+    ref: 'D-103', type: 'T2', surf: 50, etage: '2e', typeUsage: 'habitation-nu',
+    loyerHcRef: 700, chargesRef: 100, dgRef: 700, chargesModalite: 'provision',
+    hc: 999, ch: 999, dg: 999,   // anciennes valeurs (ex-bail) : ne doivent JAMAIS apparaître
+    equipements: { cuisine: { equipee: true, four: true, plaques: true, frigo: true }, sanitaires: { douche: true, wc_separe: true }, technologies: { fibre: true } },
+    exterieurs: { balcon: { present: true, surface: 4 } },
+    annexes: { cave: { present: true } },
+    locationInfo: { disponibilite: '2026-11-01', garanties_acceptees: ['visale', 'caution_solidaire'] },
+  }, o);
 }
+const IMM = { ville: 'Strasbourg', codePostal: '67000', regimeJuridique: 'Copropriété', typeHabitat: 'Immeuble collectif', equipementsCommuns: { ascenseur: true }, periodeConstr: 'De 1949 à 1997' };
+const DPE_D = { classe: 'D', ges: 'D', depensesEnergie: 'entre 890 € et 1 240 € par an', anneePrix: '2021, 2022, 2023' };
 
-function makeImm(overrides = {}) {
-  return {
-    nom: 'Mésange', adr: '12 rue de la Mésange', codePostal: '67000', ville: 'Strasbourg',
-    periodeConstr: 'Avant 1949', regimeJuridique: 'Copropriété',
-    equipementsCommuns: { ascenseur: true, interphone: true, digicode: true, local_velos: true },
-    ...overrides
-  };
+function gen(o = {}) {
+  return genererAnnonce(Object.assign({
+    log: d103(), imm: IMM, dpe: DPE_D, composition: 'Séjour, Cuisine, 1 chambre, Salle d\'eau, WC',
+    mandataire: false, includeDossier: true, aujourdhui: '2026-09-29'
+  }, o));
 }
-
-function makeBail(overrides = {}) {
-  return { hc: 950, ch: 80, dg: 950, ...overrides };
-}
+const ligne = (r, key) => (r.mentions.find(m => m.key === key) || {}).texte;
+const ctl = (r, key) => r.controle.find(c => c.key === key);
 
 // ═══════════════════════════════════════════════════════════════
-// Constantes & banques
+describe('libellés imposés — verbatim Légifrance', () => {
+  it('Géorisques = C. env. R125-25', () => {
+    expect(TXT_GEORISQUES).toBe('Les informations sur les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques : www.georisques.gouv.fr');
+  });
+  it('dépenses d\'énergie = R126-23', () => {
+    expect(TXT_DEPENSES).toBe('Montant estimé des dépenses annuelles d\'énergie pour un usage standard : ');
+  });
+  it('consommation excessive = R126-24 + arrêté du 22/12/2021', () => {
+    expect(TXT_EXCESSIF).toBe('Logement à consommation énergétique excessive : ');
+    expect(ligne(gen({ dpe: Object.assign({}, DPE_D, { classe: 'F' }) }), 'excessif')).toBe('Logement à consommation énergétique excessive : classe F.');
+    expect(ligne(gen({ dpe: Object.assign({}, DPE_D, { classe: 'G' }) }), 'excessif')).toBe('Logement à consommation énergétique excessive : classe G.');
+  });
+  it('« honoraires charge locataire » (arr. 10/01/2017 4-I-6°)', () => { expect(TXT_HCL).toBe('honoraires charge locataire'); });
+  it('« classe énergie » / « classe climat » (R126-21)', () => { expect(ligne(gen(), 'dpe')).toBe('Classe énergie : D · Classe climat : D'); });
+  it('« par mois » + « charges comprises » (arr. 21/04/2022 1°)', () => { expect(ligne(gen(), 'loyer')).toBe('Loyer : 800 € par mois charges comprises'); });
+});
+
 // ═══════════════════════════════════════════════════════════════
-describe('Constantes et banques', () => {
-  it('TONS_VALIDES contient 4 tons', () => {
-    expect(TONS_VALIDES).toHaveLength(4);
-    expect(TONS_VALIDES).toEqual(['factuel', 'storytelling', 'convivial', 'haut-gamme']);
+describe('D-103 — texte unique au format B (maquette v2 §1)', () => {
+  const r = gen();
+  it('titre', () => { expect(r.titre).toBe('Appartement T2 50 m² avec balcon — Strasbourg'); });
+  it('texte complet, sans emoji, dans l\'ordre validé', () => {
+    expect(r.texte).toBe([
+      'À louer à Strasbourg : appartement T2 de 50 m² avec balcon, au 2e étage avec ascenseur. Disponible le 1er novembre 2026.',
+      '',
+      'LE LOGEMENT',
+      'Séjour, cuisine, 1 chambre, salle d\'eau, WC.',
+      '',
+      'POINTS FORTS',
+      '- Balcon de 4 m²',
+      '- Cuisine équipée : four, plaques de cuisson, réfrigérateur',
+      '- Douche et WC séparé',
+      '- Cave',
+      '- Fibre optique',
+      '',
+      'DOSSIER À PRÉPARER',
+      '- Pièce d\'identité',
+      '- Justificatif de domicile',
+      '- Contrat de travail (ou justificatif d\'activité)',
+      '- 3 dernières fiches de paie',
+      '- Dernier avis d\'imposition',
+      '- Pour un garant : les mêmes pièces',
+      'Garanties acceptées : Visale ou caution solidaire.',
+      'Le dossier peut être constitué sur DossierFacile, service public gratuit.',
+      '',
+      'INFORMATIONS',
+      'Loyer : 800 € par mois charges comprises',
+      'Charges : 100 € par mois — provision avec régularisation annuelle',
+      'Dépôt de garantie : 700 €',
+      'Surface habitable : 50 m²',
+      'Commune : Strasbourg',
+      'Classe énergie : D · Classe climat : D',
+      'Montant estimé des dépenses annuelles d\'énergie pour un usage standard : entre 890 € et 1 240 € par an. Prix moyens des énergies indexés sur les années 2021, 2022, 2023.',
+      TXT_GEORISQUES
+    ].join('\n'));
   });
-
-  it('FORMATS_VALIDES contient 3 formats', () => {
-    expect(FORMATS_VALIDES).toHaveLength(3);
-    expect(FORMATS_VALIDES).toEqual(['leboncoin', 'detaille', 'sms']);
+  it('aucun emoji, aucune mention de copropriété ni de période de construction', () => {
+    expect(r.texte).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+    expect(r.texte).not.toMatch(/copropriété|construit|1949|1997/i);
   });
-
-  it('MAPS de traduction sont figées (Object.freeze)', () => {
-    expect(Object.isFrozen(MAP_EXPO)).toBe(true);
-    expect(Object.isFrozen(MAP_VUE)).toBe(true);
-    expect(Object.isFrozen(MAP_LUM)).toBe(true);
-    expect(Object.isFrozen(MAP_CALM)).toBe(true);
-    expect(Object.isFrozen(MAP_CAR)).toBe(true);
+  it('tout est présent', () => {
+    expect(r.manquantes).toBe(0); expect(r.retirees).toBe(0); expect(r.emplacements).toBe(0);
   });
-
-  it('BANQUE_TITRES a une entrée par ton avec au moins 5 variantes', () => {
-    expect(Object.isFrozen(BANQUE_TITRES)).toBe(true);
-    for (const ton of TONS_VALIDES) {
-      expect(BANQUE_TITRES[ton]).toBeDefined();
-      expect(BANQUE_TITRES[ton].length).toBeGreaterThanOrEqual(5);
-      // Chaque variante a `si` (function) et `tpl` (function)
-      BANQUE_TITRES[ton].forEach((v, idx) => {
-        expect(typeof v.si).toBe('function');
-        expect(typeof v.tpl).toBe('function');
-      });
-    }
+  it('D1 : aucune trace des anciennes valeurs (999)', () => { expect(r.texte).not.toContain('999'); });
+  it('dossier : uniquement des pièces de la liste autorisée, sans RIB ni « moins de 3 mois »', () => {
+    expect(DOSSIER_PIECES).toHaveLength(6);
+    expect(r.texte).not.toMatch(/RIB|relevé|moins de 3 mois|< ?3 mois/i);
   });
-
-  it('BANQUE_ACCROCHES a une entrée par ton avec au moins 3 variantes', () => {
-    for (const ton of TONS_VALIDES) {
-      expect(BANQUE_ACCROCHES[ton]).toBeDefined();
-      expect(BANQUE_ACCROCHES[ton].length).toBeGreaterThanOrEqual(3);
-    }
-  });
-
-  it('BANQUE_TITRES storytelling a au moins 10 variantes (différenciant prouvé)', () => {
-    expect(BANQUE_TITRES.storytelling.length).toBeGreaterThanOrEqual(10);
+  it('seule adresse web : celle que la loi impose (Géorisques)', () => {
+    expect(r.texte.match(/www\.|https?:/g)).toEqual(['www.']);
   });
 });
 
 // ═══════════════════════════════════════════════════════════════
-// PRNG
-// ═══════════════════════════════════════════════════════════════
-describe('PRNG (Mulberry32)', () => {
-  beforeEach(() => setSeed(42));
-
-  it('rand() retourne un nombre entre 0 et 1', () => {
-    for (let i = 0; i < 100; i++) {
-      const r = rand();
-      expect(r).toBeGreaterThanOrEqual(0);
-      expect(r).toBeLessThan(1);
-    }
-  });
-
-  it('même seed = même séquence (déterminisme)', () => {
-    setSeed(42);
-    const seq1 = [rand(), rand(), rand()];
-    setSeed(42);
-    const seq2 = [rand(), rand(), rand()];
-    expect(seq1).toEqual(seq2);
-  });
-
-  it('seeds différents = séquences différentes', () => {
-    setSeed(42);
-    const seq1 = [rand(), rand(), rand()];
-    setSeed(123);
-    const seq2 = [rand(), rand(), rand()];
-    expect(seq1).not.toEqual(seq2);
-  });
-
-  it('pick(arr) retourne un élément du tableau', () => {
-    const arr = ['a', 'b', 'c', 'd', 'e'];
-    for (let i = 0; i < 50; i++) {
-      expect(arr).toContain(pick(arr));
-    }
-  });
-
-  it('pick([]) retourne chaîne vide (defensive)', () => {
-    expect(pick([])).toBe('');
-    expect(pick(null)).toBe('');
-    expect(pick(undefined)).toBe('');
-  });
-
-  it('seedFromString : déterministe par string + counter', () => {
-    expect(seedFromString('TEST-001', 0)).toBe(seedFromString('TEST-001', 0));
-    expect(seedFromString('TEST-001', 1)).not.toBe(seedFromString('TEST-001', 0));
-    expect(seedFromString('TEST-002', 0)).not.toBe(seedFromString('TEST-001', 0));
-  });
-
-  it('seedFromString gère string vide / null', () => {
-    expect(seedFromString('', 0)).toBeGreaterThan(0);
-    expect(seedFromString(null, 5)).toBeGreaterThan(0);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Helpers de formatage
-// ═══════════════════════════════════════════════════════════════
-describe('etageLabel', () => {
-  it('RDC → "rez-de-chaussée"', () => {
-    expect(etageLabel('0')).toBe('rez-de-chaussée');
-    expect(etageLabel(0)).toBe('rez-de-chaussée');
-    expect(etageLabel('RDC')).toBe('rez-de-chaussée');
-    expect(etageLabel('rdc')).toBe('rez-de-chaussée');
-  });
-
-  it('1er → "1er étage"', () => {
-    expect(etageLabel('1')).toBe('1er étage');
-    expect(etageLabel(1)).toBe('1er étage');
-  });
-
-  it('2+ → "Nème étage"', () => {
-    expect(etageLabel('4')).toBe('4ème étage');
-    expect(etageLabel(7)).toBe('7ème étage');
-  });
-
-  it('valeurs falsy → chaîne vide', () => {
-    expect(etageLabel(null)).toBe('');
-    expect(etageLabel(undefined)).toBe('');
-    expect(etageLabel('')).toBe('');
-  });
-});
-
-describe('adjLifestyle (adjectif selon surface)', () => {
-  beforeEach(() => setSeed(1));
-
-  it('surface > 100 → adj "généreux/spacieux/vastes"', () => {
-    const adj = adjLifestyle({ surf: 120 });
-    expect(['généreusement dimensionné', 'spacieux', 'aux volumes confortables']).toContain(adj);
-  });
-
-  it('surface 70-100 → adj intermediaires', () => {
-    const adj = adjLifestyle({ surf: 80 });
-    expect(['agréablement spacieux', 'aux belles proportions', 'parfaitement agencé']).toContain(adj);
-  });
-
-  it('surface 45-70 → adj fonctionnels', () => {
-    const adj = adjLifestyle({ surf: 50 });
-    expect(['fonctionnel', 'à l\'agencement réfléchi', 'bien pensé']).toContain(adj);
-  });
-
-  it('surface < 45 → adj cosy/compact', () => {
-    const adj = adjLifestyle({ surf: 25 });
-    expect(['cosy', 'au format idéal pour un pied-à-terre', 'intelligemment optimisé']).toContain(adj);
-  });
-});
-
-describe('formaterDateFr', () => {
-  it('formate ISO → fr long', () => {
-    expect(formaterDateFr('2026-06-15')).toMatch(/15 juin 2026/);
-  });
-
-  it('null/undefined/"" → chaîne vide', () => {
-    expect(formaterDateFr(null)).toBe('');
-    expect(formaterDateFr(undefined)).toBe('');
-    expect(formaterDateFr('')).toBe('');
-  });
-});
-
-describe('garantiesLabel', () => {
-  it('1 garantie → label seul', () => {
-    expect(garantiesLabel(['caution_solidaire'])).toBe('Caution solidaire');
-  });
-
-  it('plusieurs → joint avec " ou "', () => {
-    expect(garantiesLabel(['caution_solidaire', 'visale'])).toBe('Caution solidaire ou Visale (gratuit, Action Logement)');
-  });
-
-  it('vide / non-array → chaîne vide', () => {
-    expect(garantiesLabel([])).toBe('');
-    expect(garantiesLabel(null)).toBe('');
-    expect(garantiesLabel(undefined)).toBe('');
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Générateurs de sections
-// ═══════════════════════════════════════════════════════════════
-describe('genererTitre', () => {
-  beforeEach(() => setSeed(seedFromString('TEST-001', 0)));
-
-  it('produit un titre non vide pour bien complet', () => {
-    const t = genererTitre(makeLog(), makeImm(), 'storytelling');
-    expect(t).toBeTruthy();
-    expect(t.length).toBeGreaterThan(20);
-  });
-
-  it.each(TONS_VALIDES)('produit un titre pour le ton "%s"', (ton) => {
-    const t = genererTitre(makeLog(), makeImm(), ton);
-    expect(t).toBeTruthy();
-    expect(t).toContain('Strasbourg'); // imm.ville
-  });
-
-  it('ton invalide → fallback storytelling', () => {
-    const t = genererTitre(makeLog(), makeImm(), 'xyz-invalide');
-    expect(t).toBeTruthy();
-  });
-
-  it('titre storytelling est < 100 caractères (recommandation LeBonCoin)', () => {
-    setSeed(1);
-    for (let i = 0; i < 20; i++) {
-      const t = genererTitre(makeLog(), makeImm(), 'storytelling');
-      expect(t.length).toBeLessThan(100);
-    }
-  });
-
-  it('même seed = même titre (déterminisme)', () => {
-    setSeed(42);
-    const t1 = genererTitre(makeLog(), makeImm(), 'storytelling');
-    setSeed(42);
-    const t2 = genererTitre(makeLog(), makeImm(), 'storytelling');
-    expect(t1).toBe(t2);
-  });
-
-  it('seeds différents → titres potentiellement différents', () => {
-    const titres = new Set();
-    for (let i = 0; i < 30; i++) {
-      setSeed(i * 7919);
-      titres.add(genererTitre(makeLog(), makeImm(), 'storytelling'));
-    }
-    expect(titres.size).toBeGreaterThan(3); // au moins 4 variations différentes sur 30 essais
-  });
-
-  it('bien minimal (que type+surf+ville) → fallback safe', () => {
-    const log = { type: 'T2', surf: 40, npp: 2, etage: '1' };
-    const imm = { ville: 'Lyon', codePostal: '69000' };
-    const t = genererTitre(log, imm, 'storytelling');
-    expect(t).toBeTruthy();
-    expect(t).toContain('Lyon');
-  });
-});
-
-describe('genererAccroche', () => {
-  beforeEach(() => setSeed(seedFromString('TEST-001', 0)));
-
-  it('produit accroche non vide', () => {
-    const a = genererAccroche(makeLog(), makeImm(), 'storytelling');
-    expect(a).toBeTruthy();
-    expect(a.length).toBeGreaterThan(50);
-  });
-
-  it.each(TONS_VALIDES)('produit accroche pour le ton "%s"', (ton) => {
-    const a = genererAccroche(makeLog(), makeImm(), ton);
-    expect(a).toBeTruthy();
-  });
-
-  it('cas vue mer → mentionne "mer" en storytelling', () => {
-    const log = makeLog({ presentation: { ...makeLog().presentation, vue: 'mer-montagne' } });
-    setSeed(1);
-    // Tester plusieurs seeds pour tomber sur la variante mer
-    let found = false;
-    for (let i = 0; i < 20; i++) {
-      setSeed(i);
-      const a = genererAccroche(log, makeImm({ ville: 'Biarritz' }), 'storytelling');
-      if (/mer/i.test(a)) { found = true; break; }
-    }
-    expect(found).toBe(true);
-  });
-
-  it('mode factuel utilise "loi Carrez" ou structure neutre', () => {
-    setSeed(1);
-    const a = genererAccroche(makeLog(), makeImm(), 'factuel');
-    expect(a).toMatch(/T3|Appartement|pièces|m²/);
-  });
-});
-
-describe('genererDescription', () => {
-  it.each(TONS_VALIDES)('produit description pour le ton "%s"', (ton) => {
-    const d = genererDescription(makeLog(), ton);
-    expect(d).toBeTruthy();
-    expect(d.length).toBeGreaterThan(30);
-  });
-
-  it('inclut les équipements cuisine si présents (storytelling)', () => {
-    const log = makeLog();
-    setSeed(1);
-    const d = genererDescription(log, 'storytelling');
-    expect(d.toLowerCase()).toMatch(/cuisine/);
-  });
-
-  it('respecte le nombre de chambres (npp - 1)', () => {
-    const log = makeLog({ npp: 5 });
-    const d = genererDescription(log, 'storytelling');
-    expect(d).toMatch(/4 chambres/);
-  });
-
-  it('cas 1 chambre (T2)', () => {
-    const log = makeLog({ npp: 2 });
-    const d = genererDescription(log, 'storytelling');
-    expect(d.toLowerCase()).toMatch(/chambre/);
-  });
-});
-
-describe('genererAtouts (règle anti-mensonge)', () => {
-  it('génère atouts pour bien complet', () => {
-    const atouts = genererAtouts(makeLog(), makeImm());
-    expect(atouts.length).toBeGreaterThanOrEqual(5);
-  });
-
-  it('NE génère PAS d\'atout balcon si absent', () => {
-    const log = makeLog({ exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: false } } });
-    const atouts = genererAtouts(log, makeImm());
-    expect(atouts.filter(a => /balcon/i.test(a))).toHaveLength(0);
-  });
-
-  it('NE génère PAS d\'atout exposition si pas renseignée', () => {
-    const log = makeLog({ presentation: { ...makeLog().presentation, exposition: '' } });
-    const atouts = genererAtouts(log, makeImm());
-    expect(atouts.filter(a => /exposition|plein sud|sud-est/i.test(a))).toHaveLength(0);
-  });
-
-  it('NE génère PAS d\'atout ascenseur si l\'immeuble n\'en a pas', () => {
-    const log = makeLog({ etage: '5' });
-    const imm = makeImm({ equipementsCommuns: { ascenseur: false } });
-    const atouts = genererAtouts(log, imm);
-    expect(atouts.filter(a => /ascenseur/i.test(a))).toHaveLength(0);
-  });
-
-  it('NE génère PAS d\'atout fibre si pas présente', () => {
-    const log = makeLog();
-    log.equipements.technologies.fibre = false;
-    const atouts = genererAtouts(log, makeImm());
-    expect(atouts.filter(a => /fibre/i.test(a))).toHaveLength(0);
-  });
-
-  it('génère un atout par élément réellement présent', () => {
-    const log = makeLog();
-    const atouts = genererAtouts(log, makeImm());
-    // Exposition sud
-    expect(atouts.some(a => /plein sud/i.test(a))).toBe(true);
-    // Balcon 8 m²
-    expect(atouts.some(a => /balcon/i.test(a) && /8/.test(a))).toBe(true);
-    // Cave + parking
-    expect(atouts.some(a => /cave/i.test(a) || /parking/i.test(a) || /box/i.test(a))).toBe(true);
-    // Fibre
-    expect(atouts.some(a => /fibre/i.test(a))).toBe(true);
-    // Caractère ancien
-    expect(atouts.some(a => /caractère|moulures|parquet/i.test(a))).toBe(true);
-  });
-});
-
-describe('genererQuartier', () => {
-  it('exploite log.quartier.transports', () => {
-    const q = genererQuartier(makeLog(), makeImm(), 'storytelling');
-    expect(q).toMatch(/tramway|gare/i);
-  });
-
-  it('exploite log.quartier.reperes', () => {
-    const q = genererQuartier(makeLog(), makeImm(), 'storytelling');
-    expect(q).toMatch(/Cathédrale/i);
-  });
-
-  it('fallback si pas de quartier saisi', () => {
-    const log = makeLog({ quartier: null });
-    const q = genererQuartier(log, makeImm(), 'storytelling');
-    expect(q).toContain('Strasbourg');
-  });
-
-  it('quartier mode factuel utilise "Repères" au lieu de "À deux pas"', () => {
-    const q = genererQuartier(makeLog(), makeImm(), 'factuel');
-    expect(q).toMatch(/Repères/);
-  });
-});
-
-describe('genererDossier', () => {
-  it('retourne 7 pièces standard', () => {
-    const d = genererDossier(makeLog());
-    expect(d.pieces).toHaveLength(7);
-  });
-
-  it('chaque pièce commence par ✓', () => {
-    const d = genererDossier(makeLog());
-    d.pieces.forEach(p => expect(p).toMatch(/^✓ /));
-  });
-
-  it('inclut DossierFacile dans l\'astuce', () => {
-    const d = genererDossier(makeLog());
-    expect(d.astuce).toMatch(/DossierFacile/i);
-  });
-
-  it('mentionne le garant (clause loi ALUR)', () => {
-    const d = genererDossier(makeLog());
-    expect(d.pieces.join(' ')).toMatch(/garant/i);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Orchestrateur principal
-// ═══════════════════════════════════════════════════════════════
-describe('genererAnnonce — orchestrateur', () => {
-  it('produit titre + body non vides', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail());
-    expect(r.titre).toBeTruthy();
-    expect(r.body).toBeTruthy();
-    expect(r.stats.caracteres).toBeGreaterThan(500);
-  });
-
-  it.each(FORMATS_VALIDES)('produit annonce pour le format "%s"', (format) => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail(), { format });
-    expect(r.titre).toBeTruthy();
-    expect(r.body).toBeTruthy();
-    expect(r.format).toBe(format);
-  });
-
-  it.each(TONS_VALIDES)('produit annonce pour le ton "%s"', (ton) => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail(), { ton });
-    expect(r.titre).toBeTruthy();
-    expect(r.body).toBeTruthy();
-    expect(r.ton).toBe(ton);
-  });
-
-  it('format SMS est court (~200-400 c.)', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail(), { format: 'sms' });
-    expect(r.stats.caracteres).toBeLessThan(500);
-  });
-
-  it('format leboncoin contient les 4 sections clés', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail(), { format: 'leboncoin' });
-    expect(r.body).toContain('LE BIEN');
-    expect(r.body).toContain('LES ATOUTS');
-    expect(r.body).toContain('LE QUARTIER');
-    expect(r.body).toContain('PRATIQUE');
-  });
-
-  it('format detaille ajoute "PROFIL RECHERCHÉ"', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail(), { format: 'detaille' });
-    expect(r.body).toContain('PROFIL RECHERCHÉ');
-  });
-
-  it('includeDossier: true ajoute la section dossier', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail(), { includeDossier: true });
-    expect(r.body).toContain('DOSSIER À FOURNIR');
-    expect(r.body).toContain('DossierFacile');
-  });
-
-  it('includeDossier: false omet la section dossier', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail(), { includeDossier: false });
-    expect(r.body).not.toContain('DOSSIER À FOURNIR');
-  });
-
-  it('affiche le loyer total + détail HC + charges', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), { hc: 950, ch: 80, dg: 950 });
-    expect(r.body).toMatch(/950 € HC/);
-    expect(r.body).toMatch(/80 € charges/);
-    expect(r.body).toMatch(/1030 € CC|1 030 € CC/);
-  });
-
-  it('même seed = même annonce (déterminisme)', () => {
-    const r1 = genererAnnonce(makeLog(), makeImm(), makeBail(), { seed: 12345 });
-    const r2 = genererAnnonce(makeLog(), makeImm(), makeBail(), { seed: 12345 });
-    expect(r1.titre).toBe(r2.titre);
-    expect(r1.body).toBe(r2.body);
-  });
-
-  it('counter différent = annonce potentiellement différente', () => {
-    const titres = new Set();
-    for (let i = 0; i < 20; i++) {
-      titres.add(genererAnnonce(makeLog(), makeImm(), makeBail(), { counter: i }).titre);
-    }
-    expect(titres.size).toBeGreaterThan(2);
-  });
-
-  it('aucun mensonge : pas de "plein sud" si exposition vide', () => {
-    const log = makeLog({ presentation: { ...makeLog().presentation, exposition: '' } });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'leboncoin', seed: 1 });
-    expect(r.body).not.toMatch(/plein sud/i);
-  });
-
-  it('aucun mensonge : pas de "balcon" si absent', () => {
-    const log = makeLog({ exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: false } } });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'leboncoin', seed: 1 });
-    expect(r.body).not.toMatch(/balcon/i);
-  });
-
-  it('input null/undefined : ne plante pas (defensive)', () => {
-    expect(() => genererAnnonce(null, null, null)).not.toThrow();
-    expect(() => genererAnnonce(undefined, undefined, undefined)).not.toThrow();
-    expect(() => genererAnnonce({}, {}, {})).not.toThrow();
-  });
-
-  it('garanties Visale : présente dans le bloc Pratique', () => {
-    const log = makeLog({ locationInfo: { disponibilite: '2026-06-15', garanties_acceptees: ['visale'] } });
-    const r = genererAnnonce(log, makeImm(), makeBail());
-    expect(r.body).toMatch(/Visale/);
-  });
-
-  it('format invalide → fallback leboncoin', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail(), { format: 'xyz' });
-    expect(r.format).toBe('leboncoin');
-  });
-
-  it('ton invalide → fallback storytelling', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), makeBail(), { ton: 'xyz' });
-    expect(r.ton).toBe('storytelling');
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Cas pathologiques (post-audit v15.207 — bugs 1/2/3)
-// ═══════════════════════════════════════════════════════════════
-describe('Cas pathologiques (post-audit)', () => {
-  it('balcon présent SANS surface saisie → pas de "undefined m²"', () => {
-    const log = makeLog({ exterieurs: { balcon: { present: true /* surface manque */ }, terrasse: { present: false }, jardin_privatif: { present: false } } });
-    for (let seed = 1; seed <= 30; seed++) {
-      const r = genererAnnonce(log, makeImm(), makeBail(), { seed });
-      expect(r.titre).not.toMatch(/undefined/i);
-      expect(r.body).not.toMatch(/undefined/i);
-      expect(r.titre).not.toMatch(/NaN/);
-      expect(r.body).not.toMatch(/NaN/);
-    }
-  });
-
-  it('jardin présent SANS surface saisie → pas de "undefined m²"', () => {
-    const log = makeLog({ type: 'Maison', npp: 5, exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: true /* surface manque */ } } });
-    for (let seed = 1; seed <= 30; seed++) {
-      const r = genererAnnonce(log, makeImm(), makeBail(), { seed });
-      expect(r.titre).not.toMatch(/undefined/i);
-      expect(r.body).not.toMatch(/undefined/i);
-    }
-  });
-
-  it('terrasse présente surface = 0 → pas de "0 m²"', () => {
-    const log = makeLog({ exterieurs: { balcon: { present: false }, terrasse: { present: true, surface: 0 }, jardin_privatif: { present: false } } });
-    for (let seed = 1; seed <= 30; seed++) {
-      const r = genererAnnonce(log, makeImm(), makeBail(), { seed });
-      expect(r.titre).not.toMatch(/\b0 m²/);
-    }
-  });
-
-  it('dpe entier manquant (log.dpe = null) → ne plante pas', () => {
-    const log = makeLog({ dpe: null });
-    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
-    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1 });
-    expect(r.body).not.toMatch(/undefined/i);
-  });
-
-  it('dpe = {} vide → ne plante pas + aucune mention DPE', () => {
-    const log = makeLog({ dpe: {} });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1, includeDossier: false });
-    expect(r.body).not.toMatch(/undefined/i);
-    expect(r.body).not.toMatch(/Classe \./);  // "Classe ." (vide) ne doit pas apparaître
-  });
-
-  it('presentation = null → ne plante pas + pas d\'invention', () => {
-    const log = makeLog({ presentation: null });
-    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
-    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1 });
-    expect(r.body).not.toMatch(/plein sud|baigné de lumière|moulures/i);
-  });
-
-  it('equipements = null → ne plante pas', () => {
-    const log = makeLog({ equipements: null });
-    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
-  });
-
-  it('exterieurs = null → ne plante pas', () => {
-    const log = makeLog({ exterieurs: null });
-    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
-  });
-
-  it('annexes = null → ne plante pas', () => {
-    const log = makeLog({ annexes: null });
-    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
-  });
-
-  it('ville avec accents/apostrophes (Saint-Étienne, l\'Île-Rousse)', () => {
-    const r1 = genererAnnonce(makeLog(), makeImm({ ville: 'Saint-Étienne', codePostal: '42000' }), makeBail(), { seed: 1 });
-    expect(r1.titre).toContain('Saint-Étienne');
-    const r2 = genererAnnonce(makeLog(), makeImm({ ville: "l'Île-Rousse", codePostal: '20220' }), makeBail(), { seed: 1 });
-    expect(r2.body).toContain("l'Île-Rousse");
-  });
-
-  it('T1 (npp=1) → 0 chambre, pas d\'erreur sur "Math.max(0, npp-1)"', () => {
-    const log = makeLog({ type: 'T1', surf: 25, npp: 1 });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1 });
-    expect(r.body).not.toMatch(/-1 chambres/);
-    expect(r.body).not.toMatch(/0 chambres? confortables?/);
-  });
-
-  it('npp = 0 (Studio) → ne génère pas "0 chambre" disgracieux', () => {
-    const log = makeLog({ type: 'Studio', surf: 22, npp: 0 });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1 });
-    expect(r.body).not.toMatch(/-1 chambres/);
-  });
-
-  it('surf = 0 → adj lifestyle "cosy" (pas crash)', () => {
-    const log = makeLog({ surf: 0 });
-    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
-  });
-
-  it('loyer hc=0 et ch=0 → annonce sans total bizarre', () => {
-    const r = genererAnnonce(makeLog(), makeImm(), { hc: 0, ch: 0, dg: 0 }, { seed: 1 });
-    expect(r.body).toMatch(/0 €/);
-    expect(r.body).not.toMatch(/undefined/i);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Cas multi-villes (différenciation prouvée)
-// ═══════════════════════════════════════════════════════════════
-describe('Cas multi-villes (couverture diversifiée)', () => {
-  it('cas Paris 11e sans extérieur', () => {
-    const log = makeLog({ ref: 'PARIS-11', type: 'T2', surf: 42, npp: 2, etage: '3',
-      exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: false } },
-      presentation: { exposition: 'sud-est', vue: 'cour', luminosite: 'lumineux', calme: 'cour-interieure', caractere_ancien: 'moulures-parquet' }
+describe('anti-invention', () => {
+  const vide = { ref: 'V-1', type: 'T2', surf: 50, typeUsage: 'habitation-nu', loyerHcRef: 700, chargesRef: 100, dgRef: 700, chargesModalite: 'provision',
+    equipements: { cuisine: {}, sanitaires: {}, technologies: {} }, exterieurs: { balcon: {} }, annexes: { cave: {}, customs: [] },
+    presentation: { exposition: 'sud', vue: 'mer-montagne' }, quartier: { reperes: ['Cathédrale'] }, locationInfo: {} };
+  const r = gen({ log: vide, composition: '' });
+  it('ni LE LOGEMENT ni POINTS FORTS sans donnée ; rien de presentation/quartier', () => {
+    expect(r.texte).not.toContain(RUBRIQUES.logement);
+    expect(r.texte).not.toContain(RUBRIQUES.points);
+    expect(r.texte).not.toMatch(/cuisine|douche|balcon|cave|fibre|sud|mer|Cathédrale/i);
+    expect(r.texte.split('\n')[0]).toBe('À louer à Strasbourg : appartement T2 de 50 m², au 2e étage avec ascenseur.'.replace(', au 2e étage avec ascenseur', ''));
+  });
+  it('jamais « undefined », « null », « NaN », « 0 chambre »', () => {
+    [gen({ log: {}, imm: {}, dpe: {} }), r, gen({ log: { typeUsage: 'garage' }, imm: {}, dpe: {} })].forEach(x => {
+      expect(x.titre + x.texte).not.toMatch(/undefined|null|NaN|0 chambre/);
     });
-    const imm = makeImm({ adr: '47 rue de la Roquette', codePostal: '75011', ville: 'Paris' });
-    const r = genererAnnonce(log, imm, { hc: 1450, ch: 90, dg: 1450 }, { ton: 'storytelling', seed: 1 });
-    expect(r.body).toContain('Paris');
-    expect(r.body).not.toMatch(/balcon/i); // pas d'invention
   });
-
-  it('cas Maison Toulouse avec jardin', () => {
-    const log = makeLog({ ref: 'TLS-MAISON', type: 'Maison', surf: 120, npp: 5, etage: '0',
-      dpe: { classe: 'A', valConv: 55, ges: 'A' },
-      exterieurs: { balcon: { present: false }, terrasse: { present: true, surface: 18 }, jardin_privatif: { present: true, surface: 350 } },
-      presentation: { exposition: 'sud', vue: 'jardin', luminosite: 'tres-lumineux', calme: 'quartier-residentiel', caractere_ancien: '' }
-    });
-    const imm = makeImm({ adr: '14 impasse des Glycines', codePostal: '31100', ville: 'Toulouse', periodeConstr: 'Depuis 2005', regimeJuridique: 'Monopropriété', equipementsCommuns: {} });
-    const r = genererAnnonce(log, imm, { hc: 1850, ch: 0 }, { ton: 'storytelling', seed: 1 });
-    expect(r.body).toContain('Toulouse');
-    expect(r.body).toMatch(/jardin/i);
-    expect(r.body).toMatch(/350/);
-  });
-
-  it('cas Studio meublé Lyon (étudiant)', () => {
-    const log = makeLog({ ref: 'LY-STUDIO', type: 'Studio', surf: 24, npp: 1, etage: '2',
-      typeUsage: 'habitation-meuble',
-      equipements: { cuisine: { equipee: true, plaques: true, micro_ondes: true, customs: [] }, sanitaires: { douche: true, lave_linge: true }, technologies: { fibre: true } },
-      exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: false } },
-      presentation: { exposition: 'est', luminosite: 'lumineux', calme: 'cour-interieure' }
-    });
-    const imm = makeImm({ ville: 'Lyon', codePostal: '69004' });
-    const r = genererAnnonce(log, imm, { hc: 550, ch: 60 }, { ton: 'convivial', seed: 1 });
-    expect(r.titre.toLowerCase()).toMatch(/studio|24m²|meublé/);
+  it('arguments absents : pas d\'exception', () => {
+    expect(() => genererAnnonce()).not.toThrow();
+    expect(() => genererAnnonce({ log: null, imm: null, dpe: null })).not.toThrow();
   });
 });
 
 // ═══════════════════════════════════════════════════════════════
-// v15.211 — Post-audit code-reviewer (F2/F3/F4)
+describe('D3 — manques : emplacements « [À COMPLÉTER : …] » dans le texte (maquette v2 §2)', () => {
+  it('DPE vide : classes + dépenses marquées, contrôle ko → fiche DPE', () => {
+    const r = gen({ dpe: {} });
+    expect(ligne(r, 'dpe')).toBe('Classe énergie : [À COMPLÉTER : classe énergie du DPE] · Classe climat : [À COMPLÉTER : classe climat du DPE]');
+    expect(ligne(r, 'depenses')).toBe(TXT_DEPENSES + '[À COMPLÉTER : montant et années de référence des prix indiqués sur le DPE]');
+    expect(ctl(r, 'dpe').etat).toBe('ko'); expect(ctl(r, 'dpe').cible).toBe('dpe');
+    expect(r.manquantes).toBe(2); expect(r.emplacements).toBe(3);
+  });
+  it('une seule classe saisie : l\'autre marquée', () => {
+    expect(ligne(gen({ dpe: Object.assign({}, DPE_D, { ges: '' }) }), 'dpe')).toBe('Classe énergie : D · Classe climat : [À COMPLÉTER : classe climat du DPE]');
+  });
+  it('mode de règlement des charges absent', () => {
+    const r = gen({ log: d103({ chargesModalite: '' }) });
+    expect(ligne(r, 'charges')).toBe('Charges : 100 € par mois — [À COMPLÉTER : mode de règlement des charges]');
+    expect(ctl(r, 'charges').cible).toBe('identite');
+  });
+  it('années des prix absentes', () => {
+    expect(ligne(gen({ dpe: { classe: 'D', ges: 'D', depensesEnergie: 'entre 1 € et 2 € par an' } }), 'depenses'))
+      .toBe(TXT_DEPENSES + 'entre 1 € et 2 € par an. [À COMPLÉTER : années de référence des prix indiquées sur le DPE]');
+  });
+  it('charges vides : le loyer charges comprises n\'est pas complet (audit mineur 6)', () => {
+    const r = gen({ log: d103({ chargesRef: '' }) });
+    expect(ligne(r, 'loyer')).toBe('Loyer : [À COMPLÉTER : loyer charges comprises]');
+    expect(ctl(r, 'loyer').etat).toBe('ko');
+  });
+  it('loyer souhaité absent : jamais repris de log.hc', () => {
+    const r = gen({ log: d103({ loyerHcRef: '', chargesRef: '' }) });
+    expect(ligne(r, 'loyer')).toBe('Loyer : [À COMPLÉTER : loyer]');
+    expect(r.texte).not.toContain('999');
+  });
+  it('charges à 0 = « aucune », pas un manque', () => {
+    const r = gen({ log: d103({ chargesRef: 0, chargesModalite: '' }) });
+    expect(ligne(r, 'loyer')).toBe('Loyer : 700 € par mois');
+    expect(ligne(r, 'charges')).toBe('Charges : aucune');
+  });
+  it('forfait', () => { expect(ligne(gen({ log: d103({ chargesModalite: 'forfait' }) }), 'charges')).toBe('Charges : 100 € par mois — forfait'); });
+});
+
 // ═══════════════════════════════════════════════════════════════
-describe('Audit v15.211 — F2 format SMS sans "balcon m²"', () => {
-  it('SMS avec balcon SANS surface → "balcon" sans "m²" résiduel', () => {
-    const log = makeLog({
-      exterieurs: { balcon: { present: true }, terrasse: { present: false }, jardin_privatif: { present: false } }
-    });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
-    expect(r.body).toContain('balcon');
-    expect(r.body).not.toMatch(/balcon\s+m²/);
+describe('contrôle en direct, « Remettre », mise à jour après passage par la fiche', () => {
+  it('mention supprimée à la main → « retire » (maquette v2 §3)', () => {
+    const r = gen();
+    const retouche = r.texte.replace('Dépôt de garantie : 700 €\n', '').replace('\n' + TXT_GEORISQUES, '');
+    const c = controlerTexte(retouche, r);
+    expect(c.retirees).toBe(2);
+    expect(c.controle.find(x => x.key === 'dg').etat).toBe('retire');
+    expect(c.controle.find(x => x.key === 'georisques').detail).toBe('retirée du texte');
   });
-
-  it('SMS avec jardin SANS surface → "jardin" sans "m²" résiduel', () => {
-    const log = makeLog({
-      exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: true } }
-    });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
-    expect(r.body).toContain('jardin');
-    expect(r.body).not.toMatch(/jardin\s+m²/);
+  it('retouche libre autour des mentions : rien n\'est signalé', () => {
+    const r = gen();
+    const retouche = r.texte.replace('À louer à Strasbourg', 'Joli T2 à louer à Strasbourg').replace('POINTS FORTS', 'LES PLUS');
+    const c = controlerTexte(retouche, r);
+    expect(c.retirees + c.modifiees + c.manquantes).toBe(0);
   });
-
-  it('SMS avec terrasse SANS surface → "terrasse" sans "m²" résiduel', () => {
-    const log = makeLog({
-      exterieurs: { balcon: { present: false }, terrasse: { present: true }, jardin_privatif: { present: false } }
-    });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
-    expect(r.body).toContain('terrasse');
-    expect(r.body).not.toMatch(/terrasse\s+m²/);
+  it('valeur changée à la main → « modifie » (pas « retirée »), « Rétablir » REMPLACE la ligne', () => {
+    const r = gen();
+    const retouche = r.texte.replace('Dépôt de garantie : 700 €', 'Dépôt de garantie : 900 €');
+    const c = controlerTexte(retouche, r);
+    expect(c.controle.find(x => x.key === 'dg').etat).toBe('modifie');
+    expect(c.controle.find(x => x.key === 'dg').detail).toContain('diffère de la fiche');
+    const remis = remettreMention(retouche, r, 'dg');
+    expect(remis).toBe(r.texte);
+    expect(remis.match(/Dépôt de garantie/g)).toHaveLength(1);
   });
-
-  it('SMS avec balcon AVEC surface → "balcon 8 m²" propre', () => {
-    const log = makeLog({
-      exterieurs: { balcon: { present: true, surface: 8 }, terrasse: { present: false }, jardin_privatif: { present: false } }
-    });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
-    expect(r.body).toMatch(/balcon\s+8\s+m²/);
+  it('emplacement complété à la main dans le texte → « modifie », jamais doublé', () => {
+    const r = gen({ dpe: {} });
+    const saisi = r.texte.replace(/Classe énergie : .*$/m, 'Classe énergie : C · Classe climat : C');
+    const c = controlerTexte(saisi, r);
+    expect(c.controle.find(x => x.key === 'dpe').etat).toBe('modifie');
+    expect(remettreMention(saisi, r, 'dpe').match(/^Classe énergie/gm)).toHaveLength(1);
   });
-
-  it('SMS sans aucun extérieur → ne mentionne ni balcon ni terrasse ni jardin', () => {
-    const log = makeLog({
-      exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: false } }
-    });
-    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
-    expect(r.body).not.toMatch(/balcon|terrasse|jardin/i);
+  it('sous-chaîne : « 1 700 € TTC honoraires… » ne vaut pas « 700 € TTC honoraires… » (contre-audit 4)', () => {
+    const r = gen({ mandataire: true, log: d103({ honorairesHclRef: 700 }) });
+    const retouche = r.texte.replace('700 € TTC honoraires charge locataire', '1 700 € TTC honoraires charge locataire');
+    expect(controlerTexte(retouche, r).controle.find(x => x.key === 'hcl').etat).toBe('modifie');
+  });
+  it('« Remettre » sans aucune autre mention : sous INFORMATIONS, sinon ajoute la rubrique', () => {
+    const r = gen();
+    expect(remettreMention('INFORMATIONS\nautre', r, 'loyer')).toBe('INFORMATIONS\nLoyer : 800 € par mois charges comprises\nautre');
+    expect(remettreMention('Mon texte', r, 'georisques')).toBe('Mon texte\n\nINFORMATIONS\n' + TXT_GEORISQUES);
+  });
+  it('« Remettre » insère sous INFORMATIONS même si une mention a été recopiée dans l\'accroche (contre-audit 5)', () => {
+    const r = gen();
+    const t = 'Surface habitable : 50 m²\n' + r.texte.replace('Dépôt de garantie : 700 €\n', '');
+    const remis = remettreMention(t, r, 'dg');
+    expect(remis.split('\n')[0]).toBe('Surface habitable : 50 m²');
+    expect(remis.split('\n')[1]).not.toBe('Dépôt de garantie : 700 €');
+    expect(remis).toContain('Charges : 100 € par mois — provision avec régularisation annuelle\nDépôt de garantie : 700 €');
+  });
+  it('après saisie du DPE : emplacements remplacés, retouches gardées', () => {
+    const avant = gen({ dpe: {} });
+    const retouche = avant.texte.replace('POINTS FORTS', 'LES PLUS');
+    const apres = gen({ dpe: Object.assign({}, DPE_D, { classe: 'F' }) });
+    const { texte: t, aRelire } = majMentions(retouche, avant, apres);
+    expect(t).toContain('LES PLUS');
+    expect(t).toContain('Classe énergie : F · Classe climat : D');
+    expect(t).toContain('Logement à consommation énergétique excessive : classe F.');
+    expect(t).not.toContain('À COMPLÉTER');
+    expect(aRelire).toEqual([]);
+    const c = controlerTexte(t, apres); expect(c.retirees + c.modifiees).toBe(0);
+  });
+  it('classe F corrigée en D : la mention F périmée disparaît (ligne entière)', () => {
+    const f = gen({ dpe: Object.assign({}, DPE_D, { classe: 'F' }) });
+    expect(majMentions(f.texte, f, gen()).texte).toBe(gen().texte);
+  });
+  it('mention disparue : seule la LIGNE identique est retirée, jamais une phrase de l\'utilisateur (contre-audit 3)', () => {
+    const m = gen({ log: d103({ typeUsage: 'habitation-meuble' }) });
+    const retouche = m.texte.replace(/^À louer.*$/m, 'Location meublée idéale pour étudiant.');
+    const { texte: t } = majMentions(retouche, m, gen());
+    expect(t).toContain('Location meublée idéale pour étudiant.');
+    expect(t.split('\n').filter(l => l === 'Location meublée')).toHaveLength(0);
+  });
+  it('surface changée : accroche non retouchée → mise à jour ; accroche retouchée → « à relire »', () => {
+    const a = gen(); const b = gen({ log: d103({ surf: 55 }) });
+    const r1 = majMentions(a.texte, a, b);
+    expect(r1.texte.split('\n')[0]).toContain('de 55 m²');
+    expect(r1.aRelire).toEqual([]);
+    const r2 = majMentions(a.texte.replace('À louer', 'Superbe T2 à louer'), a, b);
+    expect(r2.texte.split('\n')[0]).toContain('de 50 m²');
+    expect(r2.aRelire).toEqual(['accroche']);
+    expect(r2.texte).toContain('Surface habitable : 55 m²');
   });
 });
 
-describe('Audit v15.211 — F3 retrait "loi Carrez" pour location', () => {
-  it('factuel/detaille ne mentionne JAMAIS "loi Carrez" (Carrez = vente copro)', () => {
-    const log = makeLog({ typeUsage: 'habitation-nue' });
-    // On force ton=factuel + plusieurs seeds pour couvrir les 3 templates factuel
-    for (let s = 0; s < 30; s++) {
-      const r = genererAnnonce(log, makeImm(), makeBail(), { ton: 'factuel', format: 'detaille', seed: s });
-      expect(r.body).not.toMatch(/loi\s+Carrez/i);
-    }
+// ═══════════════════════════════════════════════════════════════
+describe('meublé Lyon 3e, classe F', () => {
+  const lyon = { ville: 'Lyon', codePostal: '69003', typeHabitat: 'Immeuble collectif', equipementsCommuns: {} };
+  const r = gen({ log: d103({ surf: 42, etage: '4', typeUsage: 'habitation-meuble', loyerHcRef: 850, chargesRef: 90, dgRef: 1580, exterieurs: {}, annexes: {} }), imm: lyon,
+    dpe: { classe: 'F', ges: 'E', depensesEnergie: 'entre 1 510 € et 2 080 € par an', anneePrix: '2021, 2022, 2023' } });
+  it('titre, accroche, mentions', () => {
+    expect(r.titre).toBe('Appartement T2 42 m² meublé — Lyon 3e arrondissement');
+    expect(r.texte.split('\n')[0]).toBe('À louer à Lyon 3e arrondissement : appartement T2 de 42 m² meublé, au 4e étage. Disponible le 1er novembre 2026.');
+    expect(ligne(r, 'meuble')).toBe('Location meublée');
+    expect(ligne(r, 'excessif')).toBe('Logement à consommation énergétique excessive : classe F.');
+    expect(ctl(r, 'dg').etat).toBe('ok');
   });
+  it('D5 : aucune mention d\'encadrement', () => { expect(r.texte).not.toMatch(/encadrement|loyer de référence|complément de loyer/i); });
+});
 
-  it('factuel meublé peut mentionner "loi Boutin" (art. 78 loi 2009-323)', () => {
-    const log = makeLog({ typeUsage: 'habitation-meuble' });
-    let trouve = false;
-    for (let s = 0; s < 30 && !trouve; s++) {
-      const r = genererAnnonce(log, makeImm(), makeBail(), { ton: 'factuel', format: 'detaille', seed: s });
-      if (/loi\s+Boutin/i.test(r.body)) trouve = true;
-    }
-    expect(trouve).toBe(true);
+// ═══════════════════════════════════════════════════════════════
+describe('commune et arrondissement (audit important 1)', () => {
+  it('Paris 16e : 75016 ET 75116', () => {
+    expect(communeLabel({ ville: 'Paris', codePostal: '75016' })).toBe('Paris 16e arrondissement');
+    expect(communeLabel({ ville: 'Paris', codePostal: '75116' })).toBe('Paris 16e arrondissement');
   });
-
-  it('factuel mentionne "surface habitable" sans qualifier juridique trompeur', () => {
-    const log = makeLog({ typeUsage: 'habitation-nue' });
-    let trouve = false;
-    for (let s = 0; s < 30 && !trouve; s++) {
-      const r = genererAnnonce(log, makeImm(), makeBail(), { ton: 'factuel', format: 'detaille', seed: s });
-      if (/surface\s+habitable/i.test(r.body)) trouve = true;
-    }
-    expect(trouve).toBe(true);
+  it('arrondissements', () => {
+    expect(communeLabel({ ville: 'Paris', codePostal: '75001' })).toBe('Paris 1er arrondissement');
+    expect(communeLabel({ ville: 'Marseille', codePostal: '13008' })).toBe('Marseille 8e arrondissement');
+    expect(communeLabel({ ville: 'Lyon', codePostal: '69003' })).toBe('Lyon 3e arrondissement');
+    expect(communeLabel({ ville: 'Strasbourg', codePostal: '67000' })).toBe('Strasbourg');
+    expect(communeLabel({ ville: 'Villeurbanne', codePostal: '69100' })).toBe('Villeurbanne');
+  });
+  it('Paris / Lyon / Marseille sans code exploitable : arrondissement marqué, contrôle ko', () => {
+    expect(commune({ ville: 'Paris', codePostal: '' })).toEqual({ texte: 'Paris ' + MANQUE('arrondissement'), manque: true });
+    expect(commune({ ville: 'Lyon', codePostal: '69100' }).manque).toBe(true);
+    const r = gen({ imm: { ville: 'Paris', codePostal: '75999' } });
+    expect(ligne(r, 'commune')).toBe('Commune : Paris [À COMPLÉTER : arrondissement]');
+    expect(ctl(r, 'commune').etat).toBe('ko');
+    expect(r.titre).toBe('Appartement T2 50 m² avec balcon — Paris');
   });
 });
 
-describe('Audit v15.211 — F4 étage absent ne produit pas "situé au  d\'un immeuble"', () => {
-  it('factuel sans étage → pas de "situé au  d\'un" (double espace) ni "situé au ,"', () => {
-    const log = makeLog({ etage: '' });
-    for (let s = 0; s < 30; s++) {
-      const r = genererAnnonce(log, makeImm(), makeBail(), { ton: 'factuel', format: 'detaille', seed: s });
-      expect(r.body).not.toMatch(/situé au\s+d'un/i);
-      expect(r.body).not.toMatch(/situé au\s+,/i);
-    }
+// ═══════════════════════════════════════════════════════════════
+describe('dépenses : même règle que le bail (audit important 2)', () => {
+  it('nombre seul → « € par an »', () => { expect(depensesTexte('1250')).toBe('1250 € par an'); });
+  it('« 900 à 1200 » → fourchette', () => { expect(depensesTexte('900 à 1200')).toBe('entre 900 € et 1200 € par an'); });
+  it('valeur avec € conservée, suffixe du bail retiré', () => {
+    expect(depensesTexte('1234 €')).toBe('1234 €');
+    expect(depensesTexte('entre 1 € et 2 € par an (fourchette DPE)')).toBe('entre 1 € et 2 € par an');
+  });
+  it('dans l\'annonce', () => {
+    expect(ligne(gen({ dpe: { classe: 'D', ges: 'D', depensesEnergie: '1250', anneePrix: '2023' } }), 'depenses'))
+      .toBe(TXT_DEPENSES + '1250 € par an. Année de référence des prix de l\'énergie : 2023.');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+describe('dépôt de garantie (avertissement, jamais bloquant)', () => {
+  it('nu > 1 mois (art. 22)', () => { const c = ctl(gen({ log: d103({ dgRef: 1400 }) }), 'dg'); expect(c.etat).toBe('warn'); expect(c.detail).toContain('art. 22'); });
+  it('meublé > 2 mois (art. 25-6)', () => { expect(ctl(gen({ log: d103({ typeUsage: 'habitation-meuble', dgRef: 1500 }) }), 'dg').detail).toContain('25-6'); });
+  it('bail mobilité (art. 25-17)', () => { expect(ctl(gen({ log: d103({ typeUsage: 'mobilite', dgRef: 300 }) }), 'dg').detail).toContain('25-17'); });
+  it('0 = « aucun »', () => { expect(ligne(gen({ log: d103({ dgRef: 0 }) }), 'dg')).toBe('Dépôt de garantie : aucun'); });
+});
+
+// ═══════════════════════════════════════════════════════════════
+describe('honoraires (D8)', () => {
+  it('particulier sans honoraires : aucune ligne', () => { expect(gen().texte).not.toMatch(/honoraires/i); });
+  it('état des lieux', () => { expect(ligne(gen({ log: d103({ honorairesEdlRef: 150 }) }), 'honorairesEdl')).toBe('Honoraires d\'état des lieux à la charge du locataire : 150 € TTC'); });
+  it('mandataire sans montant', () => {
+    const r = gen({ mandataire: true });
+    expect(ligne(r, 'hcl')).toBe('[À COMPLÉTER : montant TTC] honoraires charge locataire');
+    expect(ctl(r, 'hcl').etat).toBe('ko');
+  });
+  it('mandataire avec montant', () => { expect(ligne(gen({ mandataire: true, log: d103({ honorairesHclRef: 605 }) }), 'hcl')).toBe('605 € TTC honoraires charge locataire'); });
+});
+
+// ═══════════════════════════════════════════════════════════════
+describe('hors habitation (P-1)', () => {
+  const box = { ref: 'G-12', type: 'Box', surf: 14, etage: '-1', numApt: '12', typeUsage: 'garage', loyerHcRef: 95, chargesRef: '', dgRef: 95, locationInfo: { disponibilite: '2026-11-01', garanties_acceptees: ['visale'] } };
+  const r = gen({ log: box, dpe: {} });
+  it('texte : accroche + INFORMATIONS, rien de la loi 89 ni du dossier', () => {
+    expect(r.mode).toBe('hors-habitation');
+    expect(r.titre).toBe('Box 14 m² — Strasbourg');
+    expect(r.texte).toBe([
+      'À louer à Strasbourg : box de 14 m² au niveau -1, n° 12. Disponible le 1er novembre 2026.',
+      '', 'INFORMATIONS', 'Loyer : 95 € par mois', 'Dépôt de garantie : 95 €', 'Surface : 14 m²', 'Commune : Strasbourg', TXT_GEORISQUES
+    ].join('\n'));
+  });
+  it('garage : DPE non concerné ; avec classes saisies : affichées', () => {
+    expect(ctl(r, 'dpe').etat).toBe('na'); expect(r.manquantes).toBe(0);
+    expect(ligne(gen({ log: box, dpe: { classe: 'E', ges: 'C' } }), 'dpe')).toBe('Classe énergie : E · Classe climat : C');
+  });
+  it('local pro sans DPE : requis ; DPE déclaré non concerné : na (audit mineur 9)', () => {
+    const lp = Object.assign({}, box, { type: 'Local commercial', typeUsage: 'local-pro' });
+    expect(ctl(gen({ log: lp, dpe: {} }), 'dpe').etat).toBe('ko');
+    expect(ctl(gen({ log: lp, dpe: { na: true } }), 'dpe').etat).toBe('na');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+describe('helpers', () => {
+  it('montant / nombre', () => {
+    expect(montant(1580)).toBe('1 580'); expect(montant(812.7)).toBe('812,70');
+    expect(nombre('')).toBe(null); expect(nombre('0')).toBe(0); expect(nombre('12,5')).toBe(12.5);
+  });
+  it('etageLabel', () => {
+    expect(etageLabel('RDC')).toBe('rez-de-chaussée'); expect(etageLabel('1')).toBe('1er étage');
+    expect(etageLabel('2e')).toBe('2e étage'); expect(etageLabel('-1')).toBe('niveau -1'); expect(etageLabel('Sous-sol')).toBe('');
+  });
+  it('dateFr', () => { expect(dateFr('2026-11-01')).toBe('1er novembre 2026'); expect(dateFr('x')).toBe(''); });
+  it('natureBien / estMeuble / estHorsHabitation', () => {
+    expect(natureBien({ type: 'T4' }, { typeHabitat: 'Maison individuelle' })).toBe('Maison T4');
+    expect(natureBien({ type: 'studio' }, {})).toBe('Studio');
+    expect(estMeuble({ typeUsage: 'mobilite' })).toBe(true); expect(estHorsHabitation({ typeUsage: 'autre' })).toBe(true);
+  });
+  it('pointsForts : sanitaires « et », box de parking, annexes perso', () => {
+    expect(pointsForts({ equipements: { sanitaires: { bain: true, douche: true, wc_separe: true } }, annexes: { parking: { present: true, type: 'box' }, customs: ['jardin partagé'] } }))
+      .toEqual(['Baignoire, douche et WC séparé', 'Box', 'Jardin partagé']);
+  });
+  it('disponibilité passée → « Disponible immédiatement »', () => {
+    expect(genererAccroche(d103({ locationInfo: { disponibilite: '2026-09-01' } }), IMM, { aujourdhui: '2026-09-29' })).toContain('Disponible immédiatement.');
+  });
+  it('dossier désactivé : garanties conservées', () => {
+    const t = gen({ includeDossier: false }).texte;
+    expect(t).not.toContain(RUBRIQUES.dossier);
+    expect(t).toContain('Garanties acceptées : Visale ou caution solidaire.');
+    expect(t).not.toContain(TXT_DOSSIERFACILE);
+  });
+  it('genererDossier / genererTitre / genererMentions exposés', () => {
+    expect(genererDossier({}).split('\n')[0]).toBe('DOSSIER À PRÉPARER');
+    expect(genererTitre(d103(), IMM)).toBe('Appartement T2 50 m² avec balcon — Strasbourg');
+    expect(genererMentions(d103(), IMM, { dpe: DPE_D }).lignes.length).toBe(8);
   });
 });

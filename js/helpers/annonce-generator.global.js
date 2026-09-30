@@ -13,580 +13,651 @@
   'use strict';
 
   /**
-   * Module annonce-generator — Génération d'annonces de location sans IA
-   * (LOG-ANNONCE Étape 1, v15.207)
+   * Module annonce-generator — annonce de location CONFORME (chantier ANNONCES, CDC validé 29/09/2026,
+   * révisé le 29/09 après maquette v2 : UN SEUL TEXTE modifiable, format B sans emojis).
    *
-   * Approche : templating local intelligent.
-   *   - Banques de phrases conditionnelles (titre, accroche, description, atouts)
-   *   - PRNG seedé (Mulberry32) pour variations déterministes par bien + counter
-   *   - 4 tons modulables : factuel / storytelling / convivial / haut-gamme
-   *   - 3 formats : leboncoin (texte plat) / detaille / sms
-   *   - Zéro coût récurrent, offline, < 5 ms
+   * Le moteur produit UN texte complet — accroche, LE LOGEMENT, POINTS FORTS, DOSSIER À PRÉPARER,
+   * INFORMATIONS — que l'utilisateur retouche librement. Les mentions obligatoires sont des phrases
+   * CONNUES (libellé légal + valeur de la fiche) : controlerTexte() les cherche dans le texte à chaque
+   * frappe (présente / à compléter / retirée), remettreMention() réinsère une phrase retirée,
+   * majMentions() remplace les phrases (et emplacements « À COMPLÉTER ») après un passage par la fiche,
+   * sans toucher aux retouches.
    *
-   * Règle anti-mensonge : un adjectif/atout n'est émis QUE si la donnée
-   * correspondante est présente dans `log`. Énumérations restreintes aux
-   * valeurs positives (exposition, vue, luminosité, calme).
+   * Ne lit QUE des données saisies (aucun adjectif inventé). Module PUR : l'appelant fournit
+   *   dpe          ← _diagGet(log,'dpe')                         { classe, ges, depensesEnergie, anneePrix, na }
+   *   composition  ← BiensPieces.designationPieces(pieces)       « Séjour, Cuisine, 1 chambre, … »
+   *   imm          ← immeuble, commune résolue par LogImmResolver (ville / codePostal)
+   *   mandataire   ← un mandataire est configuré (Référentiel)   booléen
    *
-   * Refs : LOG-ANNONCE.md (backlog) · règle UX D1 « choix + ajout libre toujours »
+   * Libellés VERBATIM (mockups/ANNONCES/AUDIT.md partie 2) : arrêté du 21 avril 2022 (art. 2-1 loi 89-462),
+   * arrêté du 10 janvier 2017 art. 4 (mandataire), CCH L126-33 / R126-21 à R126-24, arrêté du
+   * 22 décembre 2021, C. env. R125-25. Dossier : liste autorisée (décret n° 2015-1437, service-public F1169).
+   * Donnée manquante → emplacement « [À COMPLÉTER : …] » dans le texte (D3 : rien n'est bloqué).
    */
 
   // ═══════════════════════════════════════════════════════════════
-  // PRNG (Mulberry32) — déterministe pour un seed donné
+  // Libellés imposés par les textes (ne pas reformuler)
   // ═══════════════════════════════════════════════════════════════
-  let _seed = 1;
-  function setSeed(s) { _seed = (s | 0) || 1; }
-  function rand() {
-    let t = _seed += 0x6D2B79F5;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  const TXT_GEORISQUES = 'Les informations sur les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques : www.georisques.gouv.fr';
+  const TXT_DEPENSES = 'Montant estimé des dépenses annuelles d\'énergie pour un usage standard : ';
+  const TXT_EXCESSIF = 'Logement à consommation énergétique excessive : ';
+  const TXT_HCL = 'honoraires charge locataire';
+
+  /** Rubriques du format B (sans emojis). */
+  const RUBRIQUES = Object.freeze({ logement: 'LE LOGEMENT', points: 'POINTS FORTS', dossier: 'DOSSIER À PRÉPARER', infos: 'INFORMATIONS' });
+
+  /** Dossier : pièces de la liste autorisée (décret n° 2015-1437, service-public.fr F1169), version courte validée. */
+  const DOSSIER_PIECES = Object.freeze([
+    'Pièce d\'identité',
+    'Justificatif de domicile',
+    'Contrat de travail (ou justificatif d\'activité)',
+    '3 dernières fiches de paie',
+    'Dernier avis d\'imposition',
+    'Pour un garant : les mêmes pièces'
+  ]);
+  const TXT_DOSSIERFACILE = 'Le dossier peut être constitué sur DossierFacile, service public gratuit.';
+
+  /** Usages hors loi 89-462 (garage, box, parking, local pro, autre). */
+  const USAGES_HORS_HABITATION = Object.freeze(['garage', 'local-pro', 'autre']);
+  /** Usages meublés : bail meublé, bail mobilité (meublé par définition), bail étudiant. */
+  const USAGES_MEUBLES = Object.freeze(['habitation-meuble', 'mobilite', 'etudiant']);
+
+  const GARANTIES_LIBELLES = Object.freeze({
+    caution_solidaire: 'caution solidaire',
+    visale: 'Visale',
+    gli: 'garantie loyers impayés (GLI)',
+    garant_perso: 'garant personnel'
+  });
+
+  const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+  // ═══════════════════════════════════════════════════════════════
+  // Helpers
+  // ═══════════════════════════════════════════════════════════════
+  const _s = (x) => String(x == null ? '' : x).trim();
+  const _rempli = (x) => _s(x) !== '';
+  const _maj = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+
+  /** Emplacement d'une donnée manquante, dans le texte même. */
+  const MANQUE = (quoi) => '[À COMPLÉTER : ' + quoi + ']';
+  const RE_MANQUE = /\[À COMPLÉTER : [^\]]*\]/g;
+
+  /** Nombre saisi ou null (champ vide ≠ 0 : un 0 saisi est une valeur). */
+  function nombre(x) {
+    if (!_rempli(x)) return null;
+    const n = Number(String(x).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
   }
-  function pick(arr) {
-    if (!arr || !arr.length) return '';
-    return arr[Math.floor(rand() * arr.length)];
+
+  /** 1580 → « 1 580 », 812.7 → « 812,70 ». Espace simple (copier-coller sans surprise). */
+  function montant(n) {
+    const v = Number(n) || 0;
+    const entier = Math.round(v * 100) % 100 === 0;
+    const [ent, dec] = (entier ? Math.round(v).toString() : v.toFixed(2)).split('.');
+    const groupes = ent.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return dec ? groupes + ',' + dec : groupes;
   }
 
-  // Seed à partir d'une string (ref logement)
-  function seedFromString(s, counter = 0) {
-    let hash = 0;
-    if (!s) return counter || 1;
-    for (let i = 0; i < s.length; i++) hash = (hash + s.charCodeAt(i) * 7919) | 0;
-    return Math.abs(hash + (counter | 0) * 7919) || 1;
+  function estHorsHabitation(log) {
+    return USAGES_HORS_HABITATION.indexOf(_s(log && log.typeUsage)) >= 0;
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // MAPS DE TRADUCTION (valeurs énum → libellés français)
-  // ═══════════════════════════════════════════════════════════════
-  const MAP_EXPO = Object.freeze({
-    'sud': 'plein sud', 'sud-est': 'sud-est', 'sud-ouest': 'sud-ouest',
-    'est': 'est', 'ouest': 'ouest',
-    'traversant-eo': 'traversant est-ouest', 'double-ns': 'double exposition nord-sud',
-    'nord': 'nord'
-  });
+  function estMeuble(log) {
+    return USAGES_MEUBLES.indexOf(_s(log && log.typeUsage)) >= 0;
+  }
 
-  const MAP_VUE = Object.freeze({
-    'degagee': 'vue dégagée', 'jardin': 'sur jardin',
-    'cour': 'sur cour intérieure', 'parc': 'sur parc',
-    'monument': 'sur monument', 'mer-montagne': 'vue mer/montagne'
-  });
-
-  const MAP_LUM = Object.freeze({
-    'lumineux': 'lumineux', 'tres-lumineux': 'très lumineux',
-    'traversant': 'traversant', 'baigne-lumiere': 'baigné de lumière'
-  });
-
-  const MAP_CALM = Object.freeze({
-    'rue-calme': 'rue calme', 'cour-interieure': 'côté cour au calme',
-    'quartier-residentiel': 'quartier résidentiel',
-    'quartier-verdoyant': 'quartier verdoyant'
-  });
-
-  const MAP_CAR = Object.freeze({
-    'moulures-parquet': 'moulures et parquet ancien',
-    'cheminee-deco': 'cheminée décorative',
-    'hauts-plafonds': 'hauts plafonds',
-    'batisse-caractere': 'bâtisse de caractère'
-  });
-
-  const TONS_VALIDES = Object.freeze(['factuel', 'storytelling', 'convivial', 'haut-gamme']);
-  const FORMATS_VALIDES = Object.freeze(['leboncoin', 'detaille', 'sms']);
-
-  // ═══════════════════════════════════════════════════════════════
-  // HELPERS DE FORMATAGE
-  // ═══════════════════════════════════════════════════════════════
+  /** « 2e étage », « rez-de-chaussée », « niveau -1 » ; '' si inexploitable. */
   function etageLabel(etage) {
-    if (etage == null || etage === '') return '';
-    const n = parseInt(etage, 10);
-    if (n === 0 || /^rdc/i.test(String(etage))) return 'rez-de-chaussée';
-    if (n === 1) return '1er étage';
-    return n + 'ème étage';
+    const e = _s(etage);
+    if (!e) return '';
+    if (/^(rdc|rez)/i.test(e)) return 'rez-de-chaussée';
+    if (/^-\s*\d+/.test(e)) return 'niveau ' + e.replace(/\s+/g, '');
+    const n = parseInt(e, 10);
+    if (!Number.isFinite(n) || n < 0) return '';
+    if (n === 0) return 'rez-de-chaussée';
+    return (n === 1 ? '1er' : n + 'e') + ' étage';
   }
 
-  function adjLifestyle(log) {
-    const s = (log && log.surf) || 0;
-    if (s > 100) return pick(['généreusement dimensionné', 'spacieux', 'aux volumes confortables']);
-    if (s > 70)  return pick(['agréablement spacieux', 'aux belles proportions', 'parfaitement agencé']);
-    if (s > 45)  return pick(['fonctionnel', 'à l\'agencement réfléchi', 'bien pensé']);
-    return pick(['cosy', 'au format idéal pour un pied-à-terre', 'intelligemment optimisé']);
-  }
-
-  /**
-   * Formatte une surface d'extérieur (balcon/terrasse/jardin) défensivement.
-   * Si surface absente ou 0 → retourne chaîne vide (au lieu de "undefined m²" ou "0 m²").
-   * Cf audit v15.207 (bug 1).
-   */
-  function surfTxt(ext, withSpace = true) {
-    if (!ext || typeof ext !== 'object') return '';
-    const s = +ext.surface;
-    if (!s || s <= 0) return '';
-    return (withSpace ? ' ' : '') + s + ' m²';
+  /** Paris / Lyon / Marseille : ville à arrondissements (art. L. 2511-3 CGCT). */
+  function villeAArrondissements(ville) {
+    return /^(paris|lyon|marseille)\b/i.test(_s(ville));
   }
 
   /**
-   * Retourne la classe DPE en safe access (fallback chaîne vide).
-   * Cf audit v15.207 (bug 2).
+   * Commune + arrondissement depuis le code postal. Paris 16e a DEUX codes (75016 et 75116).
+   * Renvoie { texte, manque } : manque = true quand l'arrondissement d'une des 3 villes est indéductible.
    */
-  function dpeClasse(log) {
-    return (log && log.dpe && log.dpe.classe) || '';
+  function commune(imm) {
+    const ville = _s(imm && imm.ville).replace(/\s+\d.*$/, '');
+    if (!ville) return { texte: '', manque: false };
+    if (!villeAArrondissements(ville)) return { texte: ville, manque: false };
+    const cp = _s(imm && imm.codePostal);
+    const v = ville.toLowerCase();
+    let n = null;
+    if (/^paris/.test(v) && /^75(0\d\d|116)$/.test(cp)) n = cp === '75116' ? 16 : +cp.slice(3);
+    else if (/^lyon/.test(v) && /^6900\d$/.test(cp)) n = +cp.slice(4);
+    else if (/^marseille/.test(v) && /^130\d\d$/.test(cp)) n = +cp.slice(3);
+    const max = /^paris/.test(v) ? 20 : /^lyon/.test(v) ? 9 : 16;
+    if (n && n >= 1 && n <= max) return { texte: ville + ' ' + (n === 1 ? '1er' : n + 'e') + ' arrondissement', manque: false };
+    return { texte: ville + ' ' + MANQUE('arrondissement'), manque: true };
   }
 
-  function formaterDateFr(d) {
-    if (!d) return '';
-    try {
-      return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    } catch (e) { return String(d); }
+  /** Compatibilité : libellé seul (sans l'état « manque »). */
+  function communeLabel(imm) {
+    return commune(imm).texte;
   }
 
-  function garantiesLabel(g) {
-    if (!Array.isArray(g) || !g.length) return '';
-    const m = {
-      'caution_solidaire': 'Caution solidaire',
-      'visale': 'Visale (gratuit, Action Logement)',
-      'gli': 'GLI',
-      'garant_perso': 'Garant personnel'
-    };
-    return g.map(x => m[x] || x).join(' ou ');
+  /** '2026-11-01' → « 1er novembre 2026 ». */
+  function dateFr(iso) {
+    const m = _s(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return '';
+    const j = +m[3], mo = +m[2];
+    if (mo < 1 || mo > 12 || j < 1 || j > 31) return '';
+    return (j === 1 ? '1er' : String(j)) + ' ' + MOIS[mo - 1] + ' ' + m[1];
+  }
+
+  function _estMaison(log, imm) {
+    return _s(imm && imm.typeHabitat) === 'Maison individuelle' || /^maison/i.test(_s(log && log.type));
+  }
+
+  /** « Appartement T2 », « Maison T4 », « Studio » — le type saisi prime s'il nomme déjà la nature. */
+  function natureBien(log, imm) {
+    const type = _s(log && log.type);
+    if (estHorsHabitation(log)) return type || 'Local';
+    if (/^(studio|maison|appartement|duplex|triplex|loft|chambre)/i.test(type)) return _maj(type);
+    const nature = _estMaison(log, imm) ? 'Maison' : 'Appartement';
+    return type ? nature + ' ' + type : nature;
+  }
+
+  /** Même règle que le bail (fmtDepensesEnergie, index.html) : « 900 à 1200 » → fourchette, nombre seul → « € par an ». */
+  function depensesTexte(s) {
+    const t = _s(s).replace(/\s*\(fourchette DPE\)\s*$/i, '').replace(/\.$/, '');
+    if (!t) return '';
+    const m = t.match(/^\s*(\d[\d ]*(?:[.,]\d+)?)\s*(?:€|eur[os]*)?\s*(?:et|-|–|—|à|a)\s*(\d[\d ]*(?:[.,]\d+)?)\s*(?:€|eur[os]*)?\s*$/i);
+    if (m) return 'entre ' + m[1].trim() + ' € et ' + m[2].trim() + ' € par an';
+    if (/€|euro|par\s*an/i.test(t)) return t;
+    if (/^\d[\d ]*(?:[.,]\d+)?$/.test(t)) return t + ' € par an';
+    return t;
+  }
+
+  function _anneesTexte(annees) {
+    const a = _s(annees).replace(/\.$/, '');
+    if (!a) return '';
+    return /[,;]|\bet\b/.test(a)
+      ? 'Prix moyens des énergies indexés sur les années ' + a + '.'
+      : 'Année de référence des prix de l\'énergie : ' + a + '.';
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // BANQUE DE TITRES (par ton)
+  // Titre
   // ═══════════════════════════════════════════════════════════════
-  const BANQUE_TITRES = Object.freeze({
-    storytelling: [
-      { si: (l) => l.presentation?.exposition === 'sud' && l.exterieurs?.balcon?.present,
-        tpl: (l, i) => `✨ Coup de cœur ${l.type} ${l.surf}m² plein sud + balcon - ${i.ville}` },
-      { si: (l) => l.presentation?.vue === 'mer-montagne',
-        tpl: (l, i) => `🌊 Vue mer ${l.type} ${l.surf}m² + terrasse - ${i.ville}` },
-      { si: (l) => l.exterieurs?.jardin_privatif?.present && l.type === 'Maison',
-        tpl: (l, i) => `🌿 Belle maison ${l.surf}m² avec jardin${surfTxt(l.exterieurs.jardin_privatif)} - ${i.ville}` },
-      { si: (l) => l.presentation?.caractere_ancien === 'moulures-parquet' && l.exterieurs?.balcon?.present,
-        tpl: (l, i) => `🏛 ${l.type} de caractère ${l.surf}m² + balcon - ${i.ville} centre` },
-      { si: (l) => l.presentation?.exposition === 'sud',
-        tpl: (l, i) => `☀️ ${l.type} ${l.surf}m² plein sud - ${i.ville} centre` },
-      { si: (l) => l.presentation?.caractere_ancien,
-        tpl: (l, i) => `🏛 Charme de l'ancien - ${l.type} ${l.surf}m² ${i.ville}` },
-      { si: (l) => l.exterieurs?.terrasse?.present && (+l.exterieurs.terrasse.surface > 15),
-        tpl: (l, i) => `🌞 ${l.type} ${l.surf}m² + terrasse${surfTxt(l.exterieurs.terrasse)} - ${i.ville}` },
-      { si: (l) => l.exterieurs?.balcon?.present,
-        tpl: (l, i) => `🌿 ${l.type} ${l.surf}m² avec balcon - ${i.ville}` },
-      { si: (l) => l.presentation?.luminosite === 'baigne-lumiere',
-        tpl: (l, i) => `🌞 ${l.type} baigné de lumière ${l.surf}m² - ${i.ville}` },
-      { si: (l) => l.presentation?.luminosite && MAP_LUM[l.presentation.luminosite],
-        tpl: (l, i) => `🌞 ${l.type} ${l.surf}m² ${MAP_LUM[l.presentation.luminosite]} - ${i.ville}` },
-      { si: (l, i) => parseInt(l.etage, 10) >= 4 && i.equipementsCommuns?.ascenseur,
-        tpl: (l, i) => `🌆 ${l.type} ${l.surf}m² ${etageLabel(l.etage)} ascenseur - ${i.ville}` },
-      { si: (l) => l.presentation?.calme === 'rue-calme',
-        tpl: (l, i) => `🤫 Havre de paix ${l.type} ${l.surf}m² - ${i.ville}` },
-      { si: (l) => l.typeUsage === 'habitation-meuble',
-        tpl: (l, i) => `🛋 ${l.type} meublé ${l.surf}m² ${i.ville}` },
-      { si: (l) => dpeClasse(l) && dpeClasse(l) <= 'B' && l.exterieurs?.jardin_privatif?.present,
-        tpl: (l, i) => `🌱 ${l.type} ${l.surf}m² DPE ${dpeClasse(l)} + jardin - ${i.ville}` },
-      { si: (l) => dpeClasse(l) === 'A',
-        tpl: (l, i) => `⚡ ${l.type} ${l.surf}m² DPE A - basse conso - ${i.ville}` },
-    ],
-    factuel: [
-      { si: () => true, tpl: (l, i) => `${l.type} ${l.surf}m² ${l.npp} pièces - ${i.ville} ${i.codePostal}` },
-      { si: (l) => l.exterieurs?.balcon?.present, tpl: (l, i) => `${l.type} ${l.surf}m² avec balcon - ${i.ville}` },
-      { si: (l) => l.exterieurs?.jardin_privatif?.present, tpl: (l, i) => `${l.type} ${l.surf}m² + jardin${surfTxt(l.exterieurs.jardin_privatif)} - ${i.ville}` },
-      { si: (l) => parseInt(l.etage, 10) >= 1, tpl: (l, i) => `${l.type} ${l.surf}m² ${etageLabel(l.etage)} - ${i.ville}` },
-      { si: (l) => l.typeUsage === 'habitation-meuble', tpl: (l, i) => `${l.type} meublé ${l.surf}m² - ${i.ville}` },
-      { si: () => true, tpl: (l, i) => `Location ${l.type} ${l.surf}m² - ${i.ville}` },
-    ],
-    convivial: [
-      { si: (l) => l.exterieurs?.jardin_privatif?.present, tpl: (l, i) => `🏡 Votre future maison ${l.surf}m² avec jardin - ${i.ville}` },
-      { si: (l) => l.exterieurs?.balcon?.present && l.presentation?.exposition === 'sud', tpl: (l, i) => `☕ Cosy ${l.type} ${l.surf}m² + balcon ensoleillé - ${i.ville}` },
-      { si: (l) => l.npp >= 3, tpl: (l, i) => `👨‍👩‍👧 ${l.type} familial ${l.surf}m² - ${i.ville} ${i.codePostal}` },
-      { si: (l) => l.typeUsage === 'habitation-meuble' && l.surf < 35, tpl: (l, i) => `🎒 Joli studio meublé ${l.surf}m² étudiants OK - ${i.ville}` },
-      { si: (l) => l.presentation?.caractere_ancien, tpl: (l, i) => `🏛 Le charme de l'ancien à votre service - ${l.type} ${l.surf}m² - ${i.ville}` },
-      { si: () => true, tpl: (l, i) => `🏠 Bel appart ${l.type} ${l.surf}m² qui n'attend que vous - ${i.ville}` },
-    ],
-    'haut-gamme': [
-      { si: (l) => l.presentation?.vue === 'mer-montagne', tpl: (l, i) => `🌊 Exceptionnel ${l.type} ${l.surf}m² vue mer - ${i.ville}` },
-      { si: (l) => l.exterieurs?.terrasse?.present && (+l.exterieurs.terrasse.surface > 20), tpl: (l, i) => `💎 ${l.type} d'exception ${l.surf}m² + terrasse - ${i.ville}` },
-      { si: (l, i) => i.equipementsCommuns?.gardien && i.equipementsCommuns?.videosurv, tpl: (l, i) => `🔐 ${l.type} ${l.surf}m² résidence sécurisée - ${i.ville}` },
-      { si: (l) => l.presentation?.caractere_ancien && l.exterieurs?.balcon?.present, tpl: (l, i) => `🎩 Élégant ${l.type} de caractère ${l.surf}m² - ${i.ville}` },
-      { si: (l) => dpeClasse(l) === 'A', tpl: (l, i) => `🌿 ${l.type} ${l.surf}m² basse conso A - ${i.ville}` },
-      { si: () => true, tpl: (l, i) => `🎯 ${l.type} de standing ${l.surf}m² - ${i.ville}` },
-    ]
-  });
-
-  // ═══════════════════════════════════════════════════════════════
-  // BANQUE D'ACCROCHES (par ton)
-  // ═══════════════════════════════════════════════════════════════
-  const BANQUE_ACCROCHES = Object.freeze({
-    storytelling: [
-      { si: (l) => l.presentation?.exposition === 'sud' && l.exterieurs?.balcon?.present,
-        tpl: (l, i) => `Vous cherchez un cocon lumineux en plein cœur de ${i.ville} ? Coup de cœur garanti pour ce ${l.type} ${adjLifestyle(l)}, idéalement situé ${pick(['à deux pas du centre', 'au calme d\'une rue paisible', 'dans un quartier vivant et résidentiel'])}, baigné de soleil tout au long de la journée grâce à son ${MAP_EXPO[l.presentation.exposition] || 'exposition idéale'}.` },
-      { si: (l) => l.exterieurs?.jardin_privatif?.present,
-        tpl: (l, i) => `Imaginez vos petits-déjeuners dans le jardin, vos dîners d'été en terrasse, vos enfants courant pieds nus dans l'herbe. Cette ${l.type === 'Maison' ? 'maison' : 'résidence'} ${adjLifestyle(l)} de ${l.surf} m² avec son jardin privatif${surfTxt(l.exterieurs.jardin_privatif)} ${l.exterieurs.terrasse?.present ? `et sa terrasse${surfTxt(l.exterieurs.terrasse)} ` : ''}vous offre tout cet art de vivre.` },
-      { si: (l) => l.presentation?.vue === 'mer-montagne',
-        tpl: (l, i) => `Réveillez-vous chaque matin face à la mer. Ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² au ${etageLabel(l.etage)} ${l.exterieurs?.terrasse?.present ? `avec terrasse${surfTxt(l.exterieurs.terrasse)} ` : ''}offre une ${MAP_VUE[l.presentation.vue] || 'belle vue'} qui transforme chaque jour en moment privilégié.` },
-      { si: (l) => l.presentation?.caractere_ancien === 'moulures-parquet' && l.presentation?.luminosite,
-        tpl: (l, i) => `Le charme de l'ancien intact, le confort moderne au quotidien. Niché au cœur de ${i.ville}, ce ${l.type} ${adjLifestyle(l)} conjugue ${MAP_CAR[l.presentation.caractere_ancien] || 'caractère préservé'} et une luminosité ${MAP_LUM[l.presentation.luminosite] || 'remarquable'}. Une rare opportunité pour les amateurs d'authenticité.` },
-      { si: (l) => l.typeUsage === 'habitation-meuble' && l.surf < 35,
-        tpl: (l, i) => `Étudiants, jeunes actifs : voici votre futur pied-à-terre à ${i.ville}. Ce ${l.type === 'Studio' ? 'studio' : l.type} ${adjLifestyle(l)} de ${l.surf} m² entièrement meublé et équipé vous attend, ${l.presentation?.calme === 'cour-interieure' ? 'au calme d\'une cour intérieure' : 'parfaitement situé'} pour conjuguer études/travail et qualité de vie.` },
-      { si: (l, i) => parseInt(l.etage, 10) >= 4 && i.equipementsCommuns?.ascenseur && l.presentation?.vue,
-        tpl: (l, i) => `Au ${etageLabel(l.etage)} avec ascenseur, ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² offre une ${MAP_VUE[l.presentation.vue]} et ${l.presentation?.luminosite ? `une luminosité ${MAP_LUM[l.presentation.luminosite]}` : 'un cadre apaisant'}, idéal pour ceux qui cherchent un cocon en hauteur.` },
-      { si: (l) => l.npp >= 4,
-        tpl: (l, i) => `La famille s'agrandit ? Vous cherchez un cocon pour grandir, partager, recevoir ? Cette ${l.type === 'Maison' ? 'belle maison' : 'généreuse résidence'} de ${l.surf} m² à ${i.ville} déploie ses ${l.npp} pièces ${l.exterieurs?.jardin_privatif?.present ? `avec son jardin${surfTxt(l.exterieurs.jardin_privatif)} ` : ''}pour répondre à vos rêves de vie de famille.` },
-      { si: (l) => dpeClasse(l) && dpeClasse(l) <= 'B',
-        tpl: (l, i) => `Bien performant, conscience tranquille. Avec son DPE classe ${dpeClasse(l)}${l.dpe?.valConv ? ` (${l.dpe.valConv} kWh/m²/an)` : ''}, ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² conjugue confort moderne et factures maîtrisées. Un choix pensé pour aujourd'hui ET pour demain.` },
-    ],
-    factuel: [
-      // v15.211 F3+F4 : "loi Carrez" supprimée (Carrez = vente copro, pas location)
-      // — pour location nue → surface habitable (R.156-1 CCH), meublé → loi Boutin
-      // (art. 78 loi 2009-323) ; F4 : `situé au ${etageLabel(l.etage)}` ne génère
-      // plus "situé au  d'un immeuble" si étage absent.
-      { si: () => true, tpl: (l, i) => {
-          const etL = etageLabel(l.etage);
-          const meuble = l.typeUsage === 'habitation-meuble';
-          const etTxt = etL ? `, situé au ${etL}${i.equipementsCommuns?.ascenseur ? ' (avec ascenseur)' : ''}` : (i.equipementsCommuns?.ascenseur ? ' (immeuble avec ascenseur)' : '');
-          return `${meuble ? 'Logement meublé' : 'Appartement'} de type ${l.type} d'une surface habitable de ${l.surf} m²${meuble ? ' (loi Boutin)' : ''} composé de ${l.npp} pièces principales${etTxt}, dans un immeuble en ${(i.regimeJuridique || 'monopropriété').toLowerCase()}, ${i.codePostal || ''} ${i.ville || ''}.`.replace(/\s+/g, ' ').trim();
-        } },
-      { si: (l) => l.exterieurs?.balcon?.present || l.exterieurs?.terrasse?.present || l.exterieurs?.jardin_privatif?.present,
-        tpl: (l, i) => {
-          const etL = etageLabel(l.etage);
-          // v15.211 F2/F4 : utilise surfTxt() pour éviter "balcon  m²" si surface vide
-          const exts = [
-            l.exterieurs.balcon?.present && `balcon${surfTxt(l.exterieurs.balcon)}`,
-            l.exterieurs.terrasse?.present && `terrasse${surfTxt(l.exterieurs.terrasse)}`,
-            l.exterieurs.jardin_privatif?.present && `jardin${surfTxt(l.exterieurs.jardin_privatif)}`,
-          ].filter(Boolean).join(' et ');
-          const expo = MAP_EXPO[l.presentation?.exposition];
-          return `${l.type} ${l.surf} m², ${l.npp} pièces${etL ? ', ' + etL : ''}${expo ? `, exposition ${expo}` : ''}. Avec ${exts}.`;
-        } },
-      { si: () => true, tpl: (l, i) => {
-          const etL = etageLabel(l.etage);
-          return `${l.type} de ${l.surf} m², ${l.npp} pièces principales${etL ? ', ' + etL : ''}, situé à ${i.adr || ''}, ${i.codePostal || ''} ${i.ville || ''}.`.replace(/\s+/g, ' ').trim();
-        } },
-    ],
-    convivial: [
-      { si: (l) => l.exterieurs?.jardin_privatif?.present, tpl: (l, i) => `Une jolie maison pleine de promesses vous attend à ${i.ville} ! ${l.surf} m² baignés de soleil, un jardin${surfTxt(l.exterieurs.jardin_privatif)} pour les enfants et les week-ends entre amis, et tout le confort dont vous rêvez.` },
-      { si: (l) => l.presentation?.exposition === 'sud' && l.exterieurs?.balcon?.present, tpl: (l, i) => `Un balcon plein sud + un appart' lumineux à ${i.ville}, vous en pensez quoi ? Ce ${l.type} de ${l.surf} m² au ${etageLabel(l.etage)} a tout pour devenir votre prochain chez-vous : exposition idéale, cuisine équipée, vraie qualité de vie.` },
-      { si: (l) => l.typeUsage === 'habitation-meuble', tpl: (l, i) => `Vous arrivez à ${i.ville} et vous cherchez un pied-à-terre tout prêt ? Voici votre solution : ${l.type === 'Studio' ? 'studio' : l.type} meublé de ${l.surf} m², tout équipé, posez vos valises et vous êtes chez vous.` },
-      { si: (l) => l.npp >= 3, tpl: (l, i) => `Voici LA bonne adresse pour votre famille à ${i.ville}. ${l.type} ${adjLifestyle(l)} de ${l.surf} m² avec ${l.npp} pièces, ${l.exterieurs?.balcon?.present || l.exterieurs?.terrasse?.present || l.exterieurs?.jardin_privatif?.present ? 'un extérieur' : 'tout le confort'} et un super quartier autour.` },
-      { si: () => true, tpl: (l, i) => `On vous présente votre future adresse à ${i.ville} : un ${l.type} ${adjLifestyle(l)} de ${l.surf} m² avec ${l.presentation?.luminosite ? 'beaucoup de lumière' : 'tous les atouts'} pour bien vivre au quotidien.` },
-    ],
-    'haut-gamme': [
-      { si: (l) => l.presentation?.vue === 'mer-montagne' && l.exterieurs?.terrasse?.present, tpl: (l, i) => `Pour les amateurs d'exception. Ce ${l.type} de ${l.surf} m² au ${etageLabel(l.etage)} d'une résidence ${i.equipementsCommuns?.gardien ? 'gardiennée' : 'de standing'} offre une vue mer panoramique sublimée par une terrasse${surfTxt(l.exterieurs.terrasse)}. Confort absolu, prestations soignées, adresse rare.` },
-      { si: (l) => l.exterieurs?.jardin_privatif?.present && l.surf > 100, tpl: (l, i) => `Une demeure de standing dans un cadre privilégié. Cette ${l.type === 'Maison' ? 'maison' : 'propriété'} de ${l.surf} m² conjugue espaces généreux, finitions soignées et jardin privatif${surfTxt(l.exterieurs.jardin_privatif)}.` },
-      { si: (l) => l.presentation?.caractere_ancien && l.surf > 60, tpl: (l, i) => `Le ${l.type} d'exception que vous cherchiez : ${l.surf} m² de caractère préservé (${MAP_CAR[l.presentation.caractere_ancien]}), une adresse prestigieuse à ${i.ville}, et un niveau de prestations digne des plus exigeants.` },
-      { si: (l, i) => i.equipementsCommuns?.gardien || i.equipementsCommuns?.videosurv, tpl: (l, i) => `Une adresse confidentielle et sécurisée. Résidence ${i.equipementsCommuns.gardien ? 'gardiennée' : 'sous vidéosurveillance'}, ce ${l.type} de ${l.surf} m² offre ${l.presentation?.exposition === 'sud' ? 'l\'exposition plein sud' : 'le confort'} et la sérénité que vous attendez.` },
-      { si: () => true, tpl: (l, i) => `${l.type} de prestige de ${l.surf} m² à ${i.ville}, ${l.presentation?.luminosite ? `${MAP_LUM[l.presentation.luminosite]}` : 'aux belles proportions'}, ${l.equipements?.cuisine?.equipee ? 'cuisine équipée haut de gamme' : 'finitions soignées'}, à découvrir.` },
-    ]
-  });
-
-  // ═══════════════════════════════════════════════════════════════
-  // GÉNÉRATEURS DE SECTIONS
-  // ═══════════════════════════════════════════════════════════════
-  function _filterCandidates(banque, log, imm) {
-    return banque.filter(c => {
-      try { return c.si(log, imm); } catch (e) { return false; }
-    });
-  }
-
-  function genererTitre(log, imm, ton = 'storytelling') {
-    const banque = BANQUE_TITRES[ton] || BANQUE_TITRES.storytelling;
-    const candidats = _filterCandidates(banque, log, imm);
-    if (!candidats.length) return `${log.type || 'Bien'} ${log.surf || ''}m² à louer - ${imm.ville || ''}`.trim();
-    return pick(candidats).tpl(log, imm);
-  }
-
-  function genererAccroche(log, imm, ton = 'storytelling') {
-    const banque = BANQUE_ACCROCHES[ton] || BANQUE_ACCROCHES.storytelling;
-    const candidats = _filterCandidates(banque, log, imm);
-    if (!candidats.length) return `${log.type || 'Bien'} ${log.surf || ''}m² à ${imm.ville || ''}.`;
-    return pick(candidats).tpl(log, imm);
-  }
-
-  function genererDescription(log, ton = 'storytelling') {
-    const cuisine = log.equipements?.cuisine || {};
-    const sanits = log.equipements?.sanitaires || {};
-    const nbChambres = Math.max(0, (log.npp || 1) - 1);
-
-    if (ton === 'factuel') {
-      return `Composition : entrée, séjour${log.surf > 50 ? ' spacieux' : ''}, cuisine ${cuisine.equipee ? 'équipée' : 'non équipée'}, ${nbChambres} chambre${nbChambres > 1 ? 's' : ''}, salle de bain ${sanits.bain && sanits.douche ? 'avec baignoire et douche' : ''}${sanits.wc_separe ? ', WC séparé' : ''}.`;
-    }
-
-    if (ton === 'convivial') {
-      return `À l'intérieur, vous trouverez un séjour ${adjLifestyle(log)} qui appelle aux longues soirées entre amis ou aux dimanches paisibles, ${cuisine.equipee ? 'une cuisine entièrement équipée pour mijoter vos meilleures recettes' : 'une cuisine prête à accueillir vos équipements'}, ${nbChambres > 1 ? `${nbChambres} jolies chambres` : 'une chambre confortable'}, et une salle de bain ${sanits.bain && sanits.douche ? 'avec baignoire ET douche italienne' : 'fonctionnelle'}${sanits.wc_separe ? ', WC séparé pour le confort de tous' : ''}.`;
-    }
-
-    if (ton === 'haut-gamme') {
-      const cuisineOuverte = (cuisine.customs || []).find(c => /ouverte/i.test(c));
-      return `L'appartement déploie un séjour aux volumes ${log.surf > 70 ? 'généreux' : 'soignés'} ouvert sur une ${cuisineOuverte ? 'cuisine américaine entièrement équipée' : 'cuisine équipée haut de gamme'}${cuisine.lave_vaisselle ? ' (lave-vaisselle intégré)' : ''}. ${nbChambres > 1 ? `${nbChambres} chambres confortables` : 'Une chambre principale'}, salle d'eau ${sanits.bain && sanits.douche ? 'équipée d\'une baignoire et d\'une douche à l\'italienne' : 'aux finitions soignées'}${sanits.wc_separe ? ', WC indépendant' : ''}.`;
-    }
-
-    // Storytelling (défaut)
-    const cuisineOuverte = (cuisine.customs || []).find(c => /ouverte/i.test(c));
-    const equipsLst = [cuisine.four && 'four', cuisine.plaques && 'plaques', cuisine.lave_vaisselle && 'lave-vaisselle', cuisine.micro_ondes && 'micro-ondes'].filter(Boolean);
-    const ouvertures = [
-      `Côté salon, ${log.surf > 70 ? 'imaginez vos dîners entre amis ' : 'on s\'imagine vite '}dans ce séjour ${adjLifestyle(log)} ${cuisineOuverte ? 'ouvert sur une cuisine américaine entièrement équipée' : cuisine.equipee ? 'avec sa cuisine équipée' : ''}${cuisine.lave_vaisselle ? ` (${equipsLst.join(', ')} — tout est là)` : ''}.`,
-      `Le séjour ${adjLifestyle(log)} accueille vos moments du quotidien ${cuisineOuverte ? 'autour d\'une cuisine ouverte entièrement équipée' : 'avec cuisine équipée attenante'}${cuisine.lave_vaisselle ? ` (${equipsLst.join(', ')})` : ''}.`,
-      `${log.surf > 60 ? 'Le séjour spacieux, ouvert sur la cuisine,' : 'Le coin séjour, ouvert sur la cuisine équipée,'} est pensé pour partager les moments du quotidien.`
-    ];
-    const chambresPhrases = nbChambres > 1 ? [
-      `Côté nuit, ${nbChambres} chambres confortables offrent à chacun son espace.`,
-      `${nbChambres} chambres confortables ${log.exterieurs?.balcon?.present ? `(dont une donnant ${log.presentation?.calme === 'cour-interieure' ? 'côté cour calme' : 'sur le balcon'})` : ''} accueillent vos nuits paisibles.`,
-      `Les ${nbChambres} chambres, ${adjLifestyle(log)}, garantissent le repos après la journée.`
-    ] : [
-      `Une chambre confortable ${log.presentation?.calme === 'cour-interieure' ? 'côté cour intérieure pour un sommeil au calme' : 'pour des nuits paisibles'}.`,
-      `Une chambre principale ${log.presentation?.luminosite ? 'baignée de lumière' : 'confortable'} pour vos moments de récupération.`,
-    ];
-    const sdbPhrases = [
-      `Salle de bain ${sanits.bain && sanits.douche ? 'avec baignoire ET douche italienne (rare !)' : sanits.douche ? 'avec douche italienne' : sanits.bain ? 'avec baignoire' : 'fonctionnelle'}${sanits.wc_separe ? ', et WC séparé pour le confort de tous' : ''}.`,
-      `Pour le quotidien : salle de bain ${sanits.bain && sanits.douche ? 'équipée d\'une baignoire et d\'une douche italienne' : 'avec ' + (sanits.bain ? 'baignoire' : 'douche italienne')}${sanits.wc_separe ? ', WC indépendant' : ''}.`,
-    ];
-    return `${pick(ouvertures)} ${pick(chambresPhrases)} ${pick(sdbPhrases)}`;
-  }
-
-  function genererAtouts(log, imm) {
-    const atouts = [];
-    const p = log.presentation || {};
+  function _premierExterieur(log) {
     const ext = log.exterieurs || {};
+    return ext.balcon && ext.balcon.present ? 'balcon'
+      : ext.terrasse && ext.terrasse.present ? 'terrasse'
+      : ext.loggia && ext.loggia.present ? 'loggia'
+      : ext.jardin_privatif && ext.jardin_privatif.present ? 'jardin' : '';
+  }
+
+  function genererTitre(log, imm) {
+    log = log || {}; imm = imm || {};
+    const surf = nombre(log.surf);
+    const parts = [natureBien(log, imm)];
+    if (surf) parts.push(montant(surf) + ' m²');
+    if (!estHorsHabitation(log)) {
+      if (estMeuble(log)) parts.push('meublé');
+      const ext = _premierExterieur(log);
+      if (ext) parts.push('avec ' + ext);
+    }
+    const c = commune(imm);
+    return parts.join(' ') + (c.texte && !c.manque ? ' — ' + c.texte : (c.texte ? ' — ' + _s(imm.ville) : ''));
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Accroche + rubriques (uniquement des données saisies)
+  // ═══════════════════════════════════════════════════════════════
+  const CUISINE_LIBELLES = [['four', 'four'], ['plaques', 'plaques de cuisson'], ['hotte', 'hotte'],
+    ['lave_vaisselle', 'lave-vaisselle'], ['micro_ondes', 'micro-ondes'], ['frigo', 'réfrigérateur']];
+  const SANITAIRES_LIBELLES = [['bain', 'baignoire'], ['douche', 'douche'], ['wc_separe', 'WC séparé'],
+    ['lave_linge', 'lave-linge'], ['seche_linge', 'sèche-linge']];
+  const ANNEXES_LIBELLES = [['cave', 'cave'], ['grenier', 'grenier'], ['parking', 'parking'], ['garage', 'garage'],
+    ['buanderie', 'buanderie'], ['cellier', 'cellier'], ['localVelos', 'local vélos'], ['atelier', 'atelier']];
+
+  function _et(arr) {
+    const a = arr.filter(Boolean);
+    return a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1];
+  }
+
+  function _extLibelle(nom, o) {
+    const s = nombre(o && o.surface);
+    return s && s > 0 ? nom + ' de ' + montant(s) + ' m²' : nom;
+  }
+
+  /** Phrase d'accroche factuelle : « À louer à Strasbourg : appartement T2 de 50 m² avec balcon, au 2e étage avec ascenseur. Disponible le … » */
+  function genererAccroche(log, imm, ctx) {
+    log = log || {}; imm = imm || {}; ctx = ctx || {};
+    const hors = estHorsHabitation(log);
+    const surf = nombre(log.surf);
+    const etage = etageLabel(log.etage);
+    const nat = natureBien(log, imm);
+    let bien = (/^[A-Z]{2,}|^T\d/.test(nat) ? nat : nat.charAt(0).toLowerCase() + nat.slice(1)) + (surf ? ' de ' + montant(surf) + ' m²' : '');
+    if (hors) {
+      if (etage) bien += ' au ' + etage;
+      if (_rempli(log.numApt)) bien += ', n° ' + _s(log.numApt);
+    } else {
+      if (estMeuble(log)) bien += ' meublé';
+      const ext = _premierExterieur(log);
+      if (ext) bien += ' avec ' + ext;
+      if (!_estMaison(log, imm) && etage) bien += ', au ' + etage + ((imm.equipementsCommuns || {}).ascenseur ? ' avec ascenseur' : '');
+    }
+    const c = commune(imm);
+    const ville = c.texte && !c.manque ? c.texte : _s(imm.ville);
+    let phrase = 'À louer' + (ville ? ' à ' + ville : '') + ' : ' + bien + '.';
+    const li = log.locationInfo || {};
+    const dispo = dateFr(li.disponibilite);
+    if (dispo) phrase += _s(li.disponibilite) <= _s(ctx.aujourdhui) ? ' Disponible immédiatement.' : ' Disponible le ' + dispo + '.';
+    return phrase;
+  }
+
+  /** « Séjour, Cuisine, 1 chambre, Salle d'eau, WC » → « Séjour, cuisine, 1 chambre, salle d'eau, WC. » */
+  function _composition(c) {
+    const parts = _s(c).split(/\s*,\s*/).filter(Boolean);
+    if (!parts.length) return '';
+    return parts.map((p, i) => i === 0 ? _maj(p) : (/^[A-Z]{2,}/.test(p) ? p : p.charAt(0).toLowerCase() + p.slice(1))).join(', ') + '.';
+  }
+
+  /** Puces « POINTS FORTS » : extérieurs, cuisine, sanitaires, annexes, fibre — rien d'autre. */
+  function pointsForts(log) {
+    log = log || {};
+    const out = [];
+    const ext = log.exterieurs || {};
+    if (ext.balcon && ext.balcon.present) out.push(_maj(_extLibelle('balcon', ext.balcon)));
+    if (ext.terrasse && ext.terrasse.present) out.push(_maj(_extLibelle('terrasse', ext.terrasse)));
+    if (ext.loggia && ext.loggia.present) out.push('Loggia');
+    if (ext.jardin_privatif && ext.jardin_privatif.present) out.push(_maj(_extLibelle('jardin privatif', ext.jardin_privatif)));
     const eq = log.equipements || {};
-    const ann = log.annexes || {};
-    const ec = imm.equipementsCommuns || {};
-
-    if (p.exposition === 'sud') atouts.push('Exposition plein sud — lumière généreuse toute la journée');
-    else if (p.exposition && p.exposition !== 'nord') atouts.push(`Exposition ${MAP_EXPO[p.exposition]} — belle luminosité`);
-
-    if (p.luminosite === 'baigne-lumiere') atouts.push('Appartement baigné de lumière (rares vis-à-vis)');
-
-    if (ext.balcon?.present) {
-      const taille = ext.balcon.surface ? `de ${ext.balcon.surface} m² ` : '';
-      const calme = p.calme === 'cour-interieure' ? ' côté cour au calme' : p.calme === 'rue-calme' ? ' donnant sur rue calme' : '';
-      atouts.push(`Balcon privatif ${taille}${calme}`.trim());
-    }
-    if (ext.terrasse?.present) {
-      const taille = ext.terrasse.surface ? `de ${ext.terrasse.surface} m² ` : '';
-      atouts.push(`Terrasse ${taille}${p.exposition === 'sud' || p.exposition === 'sud-ouest' ? '(idéale pour les repas d\'été)' : ''}`.trim());
-    }
-    if (ext.jardin_privatif?.present) {
-      const taille = ext.jardin_privatif.surface ? `de ${ext.jardin_privatif.surface} m² ` : '';
-      atouts.push(`Jardin privatif ${taille}(rare en ${imm.ville})`.trim());
-    }
-
-    const etage = parseInt(log.etage, 10);
-    if (etage >= 3 && ec.ascenseur) atouts.push(`${etageLabel(log.etage)} avec ascenseur`);
-    else if (etage === 0) atouts.push('Rez-de-chaussée surélevé — accès direct, idéal seniors/PMR');
-
-    const sec = [ec.interphone && 'interphone', ec.digicode && 'digicode', ec.videosurv && 'vidéosurveillance', ec.gardien && 'gardien'].filter(Boolean);
-    if (sec.length) atouts.push(`Immeuble sécurisé (${sec.join(', ')})`);
-
-    if (eq.cuisine?.equipee) {
-      const eqList = [eq.cuisine.four && 'four', eq.cuisine.plaques && 'plaques induction', eq.cuisine.hotte && 'hotte', eq.cuisine.lave_vaisselle && 'lave-vaisselle', eq.cuisine.micro_ondes && 'micro-ondes'].filter(Boolean);
-      atouts.push(`Cuisine entièrement équipée${eqList.length ? ' (' + eqList.join(', ') + ')' : ''}`);
-    }
-
-    if (eq.sanitaires?.bain && eq.sanitaires?.douche) atouts.push('Salle de bain avec baignoire ET douche italienne (rare)');
-    if (eq.sanitaires?.wc_separe) atouts.push('WC séparé');
-
-    if (ann.cave?.present && ann.parking?.present) atouts.push(`Cave ${ann.cave.num ? `n° ${ann.cave.num}` : ''} et ${ann.parking.type === 'box' ? 'box' : 'parking'} ${ann.parking.num ? `n° ${ann.parking.num}` : ''} inclus`.replace(/\s+/g, ' ').trim());
-    else if (ann.cave?.present) atouts.push(`Cave incluse${ann.cave.num ? ` (n° ${ann.cave.num})` : ''}`);
-    else if (ann.parking?.present) atouts.push(`${ann.parking.type === 'box' ? 'Box parking' : 'Place de parking'}${ann.parking.num ? ` n° ${ann.parking.num}` : ''} inclus`);
-    if (Array.isArray(ann.customs)) ann.customs.forEach(c => atouts.push(c));
-
-    if (eq.technologies?.fibre) atouts.push('Fibre optique installée');
-
-    if (p.caractere_ancien) atouts.push(`Charme de l'ancien (${MAP_CAR[p.caractere_ancien]}) avec confort moderne`);
-
-    if (log.dpe?.classe && log.dpe.classe <= 'B') atouts.push(`DPE ${log.dpe.classe} (${log.dpe.valConv || '?'} kWh/m²/an) — charges énergétiques maîtrisées`);
-
-    return atouts;
+    const cu = eq.cuisine || {};
+    const cuListe = CUISINE_LIBELLES.filter(([k]) => cu[k]).map(([, v]) => v)
+      .concat((Array.isArray(cu.customs) ? cu.customs : []).map(_s).filter(Boolean));
+    if (cu.equipee || cuListe.length) out.push('Cuisine' + (cu.equipee ? ' équipée' : '') + (cuListe.length ? ' : ' + cuListe.join(', ') : ''));
+    const sa = eq.sanitaires || {};
+    const saListe = SANITAIRES_LIBELLES.filter(([k]) => sa[k]).map(([, v]) => v);
+    if (saListe.length) out.push(_maj(_et(saListe)));
+    const an = log.annexes || {};
+    ANNEXES_LIBELLES.filter(([k]) => an[k] && an[k].present).forEach(([k, v]) => {
+      out.push(_maj(k === 'parking' && an.parking.type === 'box' ? 'box' : v));
+    });
+    (Array.isArray(an.customs) ? an.customs : []).map(_s).filter(Boolean).forEach(c => out.push(_maj(c)));
+    if (eq.technologies && eq.technologies.fibre) out.push('Fibre optique');
+    return out;
   }
 
-  function genererQuartier(log, imm, ton = 'storytelling') {
-    const q = log.quartier;
-    if (!q || typeof q !== 'object') return `Situé ${imm.adr || ''}, ${imm.codePostal || ''} ${imm.ville || ''}.`.trim();
-
-    const phrases = [];
-    const T = q.transports || {};
-    const transports = [];
-    if (T.metro)    transports.push(`métro à ${T.metro} min`);
-    if (T.tramway)  transports.push(`tramway à ${T.tramway} min`);
-    if (T.bus)      transports.push(`bus à ${T.bus} min`);
-    if (T.gare)     transports.push(`gare SNCF à ${T.gare} min`);
-    if (transports.length) phrases.push(`Côté transports : ${transports.join(', ')}.`);
-
-    const C = q.commerces || {};
-    const comm = [];
-    if (C.boulangerie) comm.push(`boulangerie ${typeof C.boulangerie === 'string' ? C.boulangerie : `à ${C.boulangerie} min`}`);
-    if (C.supermarche) comm.push(`supermarché à ${C.supermarche} min`);
-    if (C.pharmacie)   comm.push(`pharmacie à ${C.pharmacie} min`);
-    if (C.marche)      comm.push(`marché ${C.marche}`);
-    if (comm.length) phrases.push(`Tous commerces de proximité : ${comm.join(', ')}.`);
-
-    const S = q.services || {};
-    const services = [];
-    if (S.ecoles_primaires) services.push('écoles maternelle/primaire à pied');
-    if (S.college)          services.push('collège');
-    if (S.lycee)            services.push('lycée');
-    if (S.parc)             services.push('parc/espace vert');
-    if (S.restaurants)      services.push('restaurants');
-    if (S.sport)            services.push('salle de sport');
-    if (services.length) phrases.push(`Services à proximité : ${services.join(', ')}.`);
-
-    if (Array.isArray(q.reperes) && q.reperes.length) {
-      if (ton === 'storytelling' || ton === 'haut-gamme') phrases.push(`À deux pas : ${q.reperes.join(' · ')}.`);
-      else phrases.push(`Repères du quartier : ${q.reperes.join(', ')}.`);
-    }
-
-    const carac = q.caractere || [];
-    const caracMap = { 'centre-historique': 'centre historique', 'quartier-residentiel': 'quartier résidentiel', 'quartier-etudiant': 'quartier étudiant', 'quartier-affaires': 'quartier d\'affaires', 'bord-de-mer': 'bord de mer', 'proche-nature': 'proche nature', 'quartier-festif': 'quartier vivant et festif', 'haut-de-gamme': 'quartier haut de gamme' };
-    if (carac.length) {
-      const labels = carac.map(c => caracMap[c]).filter(Boolean);
-      if (ton === 'storytelling') phrases.push(`Vivre dans ce ${labels[0]} c'est conjuguer ${labels.length > 1 ? labels.slice(1).join(' et ') + ' et qualité de vie' : 'authenticité et confort'}.`);
-      else phrases.push(`Quartier ${labels.join(', ')}.`);
-    }
-
-    return phrases.join(' ');
-  }
-
-  function genererDossier(_log) {
-    return {
-      pieces: [
-        '✓ Pièce d\'identité (CNI recto-verso ou passeport)',
-        '✓ Justificatif de domicile actuel < 3 mois',
-        '✓ 3 dernières fiches de paie',
-        '✓ Dernier avis d\'imposition complet',
-        '✓ Contrat de travail (CDI/CDD) ou attestation employeur',
-        '✓ RIB français à votre nom',
-        '✓ Si garant : mêmes pièces + 3 dernières fiches de paie du garant'
-      ],
-      astuce: '💡 Astuce : utilisez DossierFacile.fr (service gratuit de l\'État) — dossier numérique unique certifié, prêt à transmettre en 1 clic.'
-    };
+  function garanties(log) {
+    const li = (log && log.locationInfo) || {};
+    return (Array.isArray(li.garanties_acceptees) ? li.garanties_acceptees : []).map(k => GARANTIES_LIBELLES[k]).filter(Boolean);
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // ORCHESTRATEUR PRINCIPAL
+  // Mentions obligatoires + contrôle
   // ═══════════════════════════════════════════════════════════════
-  function genererAnnonce(log, imm, bail, opts = {}) {
-    if (!log) log = {};
-    if (!imm) imm = {};
-    if (!bail) bail = {};
-    const ton = TONS_VALIDES.includes(opts.ton) ? opts.ton : 'storytelling';
-    const format = FORMATS_VALIDES.includes(opts.format) ? opts.format : 'leboncoin';
-    const includeDossier = opts.includeDossier !== false;
+  /**
+   * Construit les mentions ET la liste de contrôle, dans l'ordre du CDC §3.3 / §4.
+   * @returns {{ lignes: {key:string, texte:string, manquant:boolean}[],
+   *             controle: {key:string, label:string, etat:'ok'|'ko'|'na'|'warn', detail:string, cible:string}[] }}
+   */
+  function genererMentions(log, imm, ctx) {
+    log = log || {}; imm = imm || {}; ctx = ctx || {};
+    const hors = estHorsHabitation(log);
+    const meuble = estMeuble(log);
+    const dpe = ctx.dpe || {};
+    const lignes = [];
+    const controle = [];
+    const libSurface = (hors ? 'Surface' : 'Surface habitable') + ' : ';
+    const LIB = { loyer: 'Loyer : ', charges: 'Charges : ', meuble: 'Location meublée', dg: 'Dépôt de garantie : ',
+      honorairesEdl: "Honoraires d'état des lieux à la charge du locataire : ", hcl: '', surface: libSurface, commune: 'Commune : ',
+      dpe: 'Classe énergie : ', excessif: TXT_EXCESSIF, depenses: TXT_DEPENSES, georisques: 'Les informations sur les risques auxquels ce bien est exposé' };
+    const L = (key, texte, manquant) => lignes.push({ key, texte, libelle: LIB[key] || '', manquant: !!manquant });
+    const C = (key, label, etat, detail, cible) => controle.push({ key, label, etat, detail: detail || '', cible: cible || '' });
 
-    // Seed déterministe par ref + counter
-    if (opts.seed != null) setSeed(opts.seed);
-    else setSeed(seedFromString(log.ref || 'X', opts.counter || 0));
+    const hc = nombre(log.loyerHcRef);
+    const ch = nombre(log.chargesRef);
+    const dg = nombre(log.dgRef);
+    const modalite = _s(log.chargesModalite);
 
-    const titre = genererTitre(log, imm, ton);
-    const hc = +bail.hc || 0;
-    const ch = +bail.ch || 0;
-    const dg = +bail.dg || 0;
-    const total = hc + ch;
-
-    // === MODE SMS court (~280c) ===
-    if (format === 'sms') {
-      // v15.211 F2 : `balcon ${surface || ''}m²` produisait "balcon m²" si surface absente.
-      // → utilise surfTxt() qui retourne "" ou " XX m²" (defensive).
-      const parts = [`📍 ${log.type || 'Bien'} ${log.surf || ''}m² ${imm.ville || ''}`.replace(/\s+/g, ' ').trim()];
-      if (log.presentation?.exposition === 'sud') parts.push('plein sud');
-      if (log.exterieurs?.balcon?.present) {
-        const s = surfTxt(log.exterieurs.balcon, false);
-        parts.push(s ? `balcon ${s}` : 'balcon');
-      }
-      if (log.exterieurs?.jardin_privatif?.present) {
-        const s = surfTxt(log.exterieurs.jardin_privatif, false);
-        parts.push(s ? `jardin ${s}` : 'jardin');
-      }
-      if (log.exterieurs?.terrasse?.present) {
-        const s = surfTxt(log.exterieurs.terrasse, false);
-        parts.push(s ? `terrasse ${s}` : 'terrasse');
-      }
-      if (log.equipements?.cuisine?.equipee) parts.push('cuisine équipée');
-      if (log.presentation?.caractere_ancien) parts.push("charme ancien");
-      if (log.annexes?.parking?.present) parts.push('parking');
-      parts.push(`${total}€ CC`);
-      if (log.locationInfo?.disponibilite) parts.push(`libre ${formaterDateFr(log.locationInfo.disponibilite)}`);
-      if (log.dpe?.classe) parts.push(`DPE ${log.dpe.classe}`);
-      const body = parts.join(' · ');
-      return {
-        titre, body,
-        stats: { caracteres: body.length, mots: body.split(/\s+/).length, titreLen: titre.length },
-        format: 'sms', ton
-      };
+    // ── Loyer (1°) — le montant CC exige les charges ; tant qu'elles sont vides, le loyer n'est pas complet.
+    if (hc == null) {
+      L('loyer', 'Loyer : ' + MANQUE('loyer'), true);
+      C('loyer', hors ? 'Loyer' : 'Loyer charges comprises', 'ko', 'loyer non renseigné', 'loyer');
+    } else if (hors) {
+      L('loyer', 'Loyer : ' + montant(hc) + ' € par mois' + (ch ? ' + charges ' + montant(ch) + ' € par mois' : ''));
+      C('loyer', 'Loyer', 'ok', montant(hc) + ' € par mois', 'loyer');
+    } else if (ch == null) {
+      L('loyer', 'Loyer : ' + MANQUE('loyer charges comprises'), true);
+      C('loyer', 'Loyer charges comprises', 'ko', 'charges non renseignées', 'loyer');
+    } else {
+      const total = hc + ch;
+      L('loyer', 'Loyer : ' + montant(total) + ' € par mois' + (ch ? ' charges comprises' : ''));
+      C('loyer', 'Loyer charges comprises', 'ok', montant(total) + ' € par mois', 'loyer');
     }
 
-    // === MODES LEBONCOIN / DETAILLE (texte plat) ===
-    const SEP = '━━━━━━━━━━━━━━━━━━━━━━━━';
-    const accroche = genererAccroche(log, imm, ton);
-    const description = genererDescription(log, ton);
-    const atouts = genererAtouts(log, imm);
-    const quartier = genererQuartier(log, imm, ton);
-
-    const lines = [];
-    lines.push(SEP, '🏠 LE BIEN', '', accroche, '', description, '');
-    lines.push(SEP, '✨ LES ATOUTS', '');
-    atouts.forEach(a => lines.push('✓ ' + a));
-    lines.push('');
-    lines.push(SEP, '📍 LE QUARTIER', '', quartier, '');
-
-    if (format === 'detaille') {
-      lines.push(SEP, '👥 PROFIL RECHERCHÉ', '');
-      if (log.typeUsage === 'habitation-meuble' && log.surf < 35) lines.push('Idéal étudiant, jeune actif, mobilité professionnelle.');
-      else if (log.npp >= 4) lines.push('Idéal pour famille avec stabilité professionnelle. Bien adapté à la vie de famille.');
-      else lines.push('Bien convient à couple, jeune cadre, profession libérale.');
-      lines.push('Nous recherchons un locataire sérieux et soigneux.');
-      lines.push('');
+    // ── Charges + modalité (2°) — habitation ──
+    if (!hors) {
+      if (ch === 0) {
+        L('charges', 'Charges : aucune');
+        C('charges', 'Charges et modalité', 'ok', 'aucune charge', 'identite');
+      } else if (ch == null) {
+        L('charges', 'Charges : ' + MANQUE('montant des charges'), true);
+        C('charges', 'Charges et modalité', 'ko', 'montant non renseigné', 'loyer');
+      } else {
+        const mod = modalite === 'forfait' ? 'forfait' : modalite === 'provision' ? 'provision avec régularisation annuelle' : '';
+        L('charges', 'Charges : ' + montant(ch) + ' € par mois — ' + (mod || MANQUE('mode de règlement des charges')), !mod);
+        C('charges', 'Charges et modalité', mod ? 'ok' : 'ko', mod ? montant(ch) + ' € · ' + (modalite === 'forfait' ? 'forfait' : 'provision') : 'mode de règlement non renseigné', 'identite');
+      }
     }
 
-    if (includeDossier) {
-      const doss = genererDossier(log);
-      lines.push(SEP, '📂 DOSSIER À FOURNIR', '', 'Pour étudier votre candidature, merci de joindre :');
-      doss.pieces.forEach(p => lines.push(p));
-      lines.push('', doss.astuce, '');
+    // ── Meublé (5°) ──
+    if (!hors) {
+      if (meuble) { L('meuble', 'Location meublée'); C('meuble', 'Location meublée', 'ok', 'oui', ''); }
+      else C('meuble', 'Meublé', 'na', 'location vide', '');
     }
 
-    lines.push(SEP, '💰 PRATIQUE', '');
-    lines.push(`Loyer : ${hc} € HC + ${ch} € charges = ${total} € CC/mois`);
-    if (dg) lines.push(`Dépôt de garantie : ${dg} €`);
-    if (log.locationInfo?.disponibilite) lines.push(`Disponibilité : ${formaterDateFr(log.locationInfo.disponibilite)}`);
-    const garanties = garantiesLabel(log.locationInfo?.garanties_acceptees);
-    if (garanties) lines.push(`Garanties acceptées : ${garanties}`);
-    lines.push('Honoraires : aucun (annonce directe propriétaire)');
-    if (log.dpe?.classe) lines.push(`DPE : Classe ${log.dpe.classe}${log.dpe.valConv ? ` (${log.dpe.valConv} kWh/m²/an)` : ''}${log.dpe.ges ? ` — GES ${log.dpe.ges}` : ''}`);
+    // ── Dépôt de garantie (4°) ──
+    if (dg == null) {
+      if (!hors) {
+        L('dg', 'Dépôt de garantie : ' + MANQUE('montant'), true);
+        C('dg', 'Dépôt de garantie', 'ko', 'non renseigné', 'identite');
+      }
+    } else if (dg === 0) {
+      if (!hors) { L('dg', 'Dépôt de garantie : aucun'); C('dg', 'Dépôt de garantie', 'ok', 'aucun', 'identite'); }
+    } else {
+      L('dg', 'Dépôt de garantie : ' + montant(dg) + ' €');
+      let etat = 'ok', detail = montant(dg) + ' €';
+      if (!hors && hc) {
+        const usage = _s(log.typeUsage);
+        if (usage === 'mobilite') { etat = 'warn'; detail += ' — aucun dépôt en bail mobilité (art. 25-17)'; }
+        else if (meuble && dg > 2 * hc) { etat = 'warn'; detail += ' — au-delà de 2 mois de loyer (art. 25-6)'; }
+        else if (!meuble && dg > hc) { etat = 'warn'; detail += ' — au-delà d\'1 mois de loyer (art. 22)'; }
+      }
+      C('dg', 'Dépôt de garantie', etat, detail, 'identite');
+    }
 
-    lines.push('', SEP, '', 'Contact : par messagerie du site uniquement. Merci de préciser votre situation professionnelle et le nombre d\'occupants dès votre 1er message.');
+    // ── Honoraires (arr. 2022 6° ; arr. 2017 4-I-6°) ──
+    const hEdl = nombre(log.honorairesEdlRef);
+    if (!hors && hEdl && hEdl > 0) {
+      L('honorairesEdl', 'Honoraires d\'état des lieux à la charge du locataire : ' + montant(hEdl) + ' € TTC');
+      C('honorairesEdl', 'Honoraires d\'état des lieux', 'ok', montant(hEdl) + ' € TTC', 'identite');
+    } else if (!hors) {
+      C('honorairesEdl', 'Honoraires d\'état des lieux', 'na', 'aucun renseigné', 'identite');
+    }
+    if (ctx.mandataire) {
+      const hcl = nombre(log.honorairesHclRef);
+      if (hcl == null) {
+        if (!hors) {
+          L('hcl', MANQUE('montant TTC') + ' ' + TXT_HCL, true);
+          C('hcl', 'Honoraires charge locataire', 'ko', 'mandataire configuré — montant non renseigné', 'identite');
+        }
+      } else {
+        L('hcl', montant(hcl) + ' € TTC ' + TXT_HCL);
+        C('hcl', 'Honoraires charge locataire', 'ok', montant(hcl) + ' € TTC', 'identite');
+      }
+    }
 
-    const body = lines.join('\n');
+    // ── Surface (8°) ──
+    const surf = nombre(log.surf);
+    const libSurf = hors ? 'Surface' : 'Surface habitable';
+    if (surf && surf > 0) {
+      L('surface', libSurf + ' : ' + montant(surf) + ' m²');
+      C('surface', libSurf, 'ok', montant(surf) + ' m²', 'identite');
+    } else {
+      L('surface', libSurf + ' : ' + MANQUE('surface'), true);
+      C('surface', libSurf, 'ko', 'non renseignée', 'identite');
+    }
+
+    // ── Commune (+ arrondissement « le cas échéant », 7°) ──
+    const c = commune(imm);
+    if (c.texte && !c.manque) {
+      L('commune', 'Commune : ' + c.texte);
+      C('commune', /arrondissement/.test(c.texte) ? 'Commune + arrondissement' : 'Commune', 'ok', c.texte, 'immeuble');
+    } else {
+      L('commune', 'Commune : ' + (c.texte || MANQUE('commune')), true);
+      C('commune', c.texte ? 'Commune + arrondissement' : 'Commune', 'ko', c.texte ? 'arrondissement non déductible du code postal' : 'non renseignée', 'immeuble');
+    }
+
+    // ── DPE : classes (L126-33, R126-21/22) ──
+    const classe = _s(dpe.classe).toUpperCase();
+    const ges = _s(dpe.ges).toUpperCase();
+    const garage = _s(log.typeUsage) === 'garage';
+    if (classe && ges) {
+      L('dpe', 'Classe énergie : ' + classe + ' · Classe climat : ' + ges);
+      C('dpe', 'Classes énergie et climat', 'ok', classe + ' · ' + ges, 'dpe');
+    } else if (dpe.na === true || (garage && !classe && !ges)) {
+      C('dpe', 'DPE', 'na', garage ? 'non concerné — non chauffé (R126-15 f)' : 'déclaré non concerné', 'dpe');
+    } else {
+      L('dpe', 'Classe énergie : ' + (classe || MANQUE('classe énergie du DPE')) + ' · Classe climat : ' + (ges || MANQUE('classe climat du DPE')), true);
+      C('dpe', 'Classes énergie et climat', 'ko', classe || ges ? 'une classe manque' : 'DPE non renseigné', 'dpe');
+    }
+
+    // ── Habitation seulement : F/G (R126-24) + dépenses (R126-23) ──
+    if (!hors && dpe.na !== true) {
+      if (classe === 'F' || classe === 'G') {
+        L('excessif', TXT_EXCESSIF + 'classe ' + classe + '.');
+        C('excessif', 'Mention classe ' + classe, 'ok', 'ajoutée', '');
+      }
+      const dep = depensesTexte(dpe.depensesEnergie);
+      const ann = _anneesTexte(dpe.anneePrix);
+      if (dep && ann) {
+        L('depenses', TXT_DEPENSES + dep + '. ' + ann);
+        C('depenses', 'Dépenses d\'énergie + années des prix', 'ok', dep.replace(/^entre\s+/i, '') + ' · ' + _s(dpe.anneePrix), 'dpe');
+      } else {
+        const quoi = !dep && !ann ? 'montant et années de référence des prix indiqués sur le DPE' : !dep ? 'montant indiqué sur le DPE' : 'années de référence des prix indiquées sur le DPE';
+        L('depenses', TXT_DEPENSES + (dep ? dep + '. ' : '') + MANQUE(quoi), true);
+        C('depenses', 'Dépenses d\'énergie + années des prix', 'ko', !dep && !ann ? 'DPE non renseigné' : 'à compléter : ' + (!dep ? 'montant' : 'années des prix'), 'dpe');
+      }
+    }
+
+    // ── Géorisques (R125-25) — toujours (D10) ──
+    L('georisques', TXT_GEORISQUES);
+    C('georisques', 'Géorisques', 'ok', 'présent', '');
+
+    return { lignes, controle };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Texte unique (format B)
+  // ═══════════════════════════════════════════════════════════════
+  function genererDossier(log) {
+    const lignes = [RUBRIQUES.dossier].concat(DOSSIER_PIECES.map(p => '- ' + p));
+    const gar = garanties(log);
+    if (gar.length) lignes.push('Garanties acceptées : ' + gar.join(' ou ') + '.');
+    lignes.push(TXT_DOSSIERFACILE);
+    return lignes.join('\n');
+  }
+
+  /**
+   * @param {object} args { log, imm, dpe, composition, mandataire, includeDossier, aujourdhui }
+   * @returns {{ mode, titre, texte, mentions, controle, manquantes }}
+   */
+  function genererAnnonce(args) {
+    const a = args || {};
+    const log = a.log || {}; const imm = a.imm || {};
+    const hors = estHorsHabitation(log);
+    const ctx = { dpe: a.dpe || {}, composition: a.composition || '', mandataire: !!a.mandataire, aujourdhui: a.aujourdhui || '' };
+    const { lignes, controle } = genererMentions(log, imm, ctx);
+    // Blocs GÉNÉRÉS (hors INFORMATIONS), mémorisés : majMentions ne les remplace que s'ils n'ont pas été retouchés.
+    const blocs = { accroche: genererAccroche(log, imm, ctx), logement: '', points: '', dossier: '' };
+    if (!hors) {
+      const compo = _composition(ctx.composition);
+      if (compo) blocs.logement = RUBRIQUES.logement + '\n' + compo;
+      const pf = pointsForts(log);
+      if (pf.length) blocs.points = RUBRIQUES.points + '\n' + pf.map(p => '- ' + p).join('\n');
+      if (a.includeDossier !== false) blocs.dossier = genererDossier(log);
+      else {
+        const gar = garanties(log);
+        if (gar.length) blocs.dossier = 'Garanties acceptées : ' + gar.join(' ou ') + '.';
+      }
+    }
+    const infos = RUBRIQUES.infos + '\n' + lignes.map(l => l.texte).join('\n');
+    const texte = [blocs.accroche, blocs.logement, blocs.points, blocs.dossier, infos].filter(Boolean).join('\n\n');
+    const r = { mode: hors ? 'hors-habitation' : 'habitation', titre: genererTitre(log, imm), texte, blocs, mentions: lignes, controle };
+    return Object.assign(r, controlerTexte(texte, r));
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Contrôle EN DIRECT du texte retouché — comparaison LIGNE PAR LIGNE
+  // ═══════════════════════════════════════════════════════════════
+  const _norme = (l) => String(l).replace(/\s+$/, '');
+
+  /** Repère la ligne d'une mention : 'exacte' (identique), 'modifiee' (même libellé, autre valeur), ou rien. */
+  function _cherche(lignes, m, depuis) {
+    let mod = -1;
+    for (let i = depuis || 0; i < lignes.length; i++) {
+      const l = _norme(lignes[i]);
+      if (l === m.texte) return { etat: 'exacte', i };
+      if (mod < 0 && _memeLibelle(l, m)) mod = i;
+    }
+    return mod >= 0 ? { etat: 'modifiee', i: mod } : null;
+  }
+  function _memeLibelle(ligne, m) {
+    if (m.key === 'hcl') return ligne.indexOf(TXT_HCL) >= 0;
+    const lib = m.libelle || '';
+    return !!lib && ligne.indexOf(lib) === 0;
+  }
+  function _debutInfos(lignes) {
+    const i = lignes.findIndex(l => _norme(l) === RUBRIQUES.infos);
+    return i < 0 ? 0 : i;
+  }
+
+  /**
+   * Relit le texte, ligne par ligne :
+   *   ligne identique → état du moteur (ok / warn ; ko si elle porte encore « [À COMPLÉTER] ») ;
+   *   ligne au même libellé mais autre valeur → 'modifie' (« diffère de la fiche · Rétablir ») ;
+   *   aucune ligne → 'retire' (« retirée du texte · Remettre »).
+   * Recherche d'abord sous INFORMATIONS, puis dans tout le texte.
+   */
+  function controlerTexte(texte, annonce) {
+    const t = String(texte == null ? '' : texte);
+    const lignes = t.split('\n');
+    const d = _debutInfos(lignes);
+    const parKey = {};
+    (annonce.mentions || []).forEach(m => { parKey[m.key] = m; });
+    const controle = (annonce.controle || []).map(c => {
+      const m = parKey[c.key];
+      if (!m || c.etat === 'na') return Object.assign({}, c);
+      const f = _cherche(lignes, m, d) || _cherche(lignes, m, 0);
+      if (!f) return Object.assign({}, c, { etat: 'retire', detail: 'retirée du texte' });
+      if (f.etat === 'modifiee') return Object.assign({}, c, { etat: 'modifie', detail: 'diffère de la fiche' + (m.manquant ? '' : ' (' + m.texte.slice((m.libelle || '').length).slice(0, 40) + ')') });
+      return Object.assign({}, c);
+    });
     return {
-      titre, body,
-      stats: { caracteres: body.length, mots: body.split(/\s+/).length, titreLen: titre.length },
-      format, ton
+      controle,
+      manquantes: controle.filter(c => c.etat === 'ko').length,
+      retirees: controle.filter(c => c.etat === 'retire').length,
+      modifiees: controle.filter(c => c.etat === 'modifie').length,
+      emplacements: (t.match(RE_MANQUE) || []).length
     };
+  }
+
+  /**
+   * « Remettre » / « Rétablir » : la phrase exacte de la fiche.
+   *   ligne modifiée (même libellé) → REMPLACÉE (jamais de doublon contradictoire) ;
+   *   sinon insérée sous INFORMATIONS, après la dernière mention précédente présente (ordre du moteur),
+   *   sinon juste sous le titre INFORMATIONS, sinon en fin de texte sous ce titre.
+   */
+  function remettreMention(texte, annonce, key) {
+    const lignes = String(texte == null ? '' : texte).split('\n');
+    const liste = annonce.mentions || [];
+    const k = liste.findIndex(m => m.key === key);
+    if (k < 0) return lignes.join('\n');
+    const m = liste[k];
+    const d = _debutInfos(lignes);
+    const f = _cherche(lignes, m, d) || _cherche(lignes, m, 0);
+    if (f && f.etat === 'exacte') return lignes.join('\n');
+    if (f && f.etat === 'modifiee') { lignes[f.i] = m.texte; return lignes.join('\n'); }
+    for (let j = k - 1; j >= 0; j--) {
+      const p = _cherche(lignes, liste[j], d);
+      if (p && p.etat === 'exacte') { lignes.splice(p.i + 1, 0, m.texte); return lignes.join('\n'); }
+    }
+    const h = lignes.findIndex(l => _norme(l) === RUBRIQUES.infos);
+    if (h >= 0) { lignes.splice(h + 1, 0, m.texte); return lignes.join('\n'); }
+    return lignes.join('\n').replace(/\s+$/, '') + '\n\n' + RUBRIQUES.infos + '\n' + m.texte;
+  }
+
+  /**
+   * Après un passage par la fiche : met le texte retouché à jour SANS toucher aux retouches.
+   *  - mentions : ligne identique à l'ancienne version → remplacée ; mention nouvelle → insérée à sa
+   *    place ; mention disparue → sa LIGNE ENTIÈRE retirée (jamais un morceau de phrase de l'utilisateur) ;
+   *  - blocs générés (accroche, logement, points forts, dossier) : remplacés s'ils sont restés
+   *    identiques à leur version générée ; sinon signalés « à relire » s'ils ont changé.
+   * @returns {{ texte: string, aRelire: string[] }}  aRelire ⊂ ['accroche','logement','points','dossier']
+   */
+  function majMentions(texte, ancienne, nouvelle) {
+    let t = String(texte == null ? '' : texte);
+    const aRelire = [];
+    const ab = ancienne.blocs || {}, nb = nouvelle.blocs || {};
+    ['accroche', 'logement', 'points', 'dossier'].forEach(k => {
+      const o = ab[k] || '', n = nb[k] || '';
+      if (o === n) return;
+      if (o && t.indexOf(o) >= 0) t = n ? t.replace(o, n) : t.replace(o + '\n\n', '').replace('\n\n' + o, '').replace(o, '');
+      else if (o || n) aRelire.push(k);
+    });
+    let lignes = t.split('\n');
+    const avant = {};
+    (ancienne.mentions || []).forEach(m => { avant[m.key] = m.texte; });
+    const nouv = {};
+    (nouvelle.mentions || []).forEach(m => { nouv[m.key] = true; });
+    // Mentions disparues : ligne entière identique, retirée.
+    (ancienne.mentions || []).forEach(m => {
+      if (!nouv[m.key]) lignes = lignes.filter(l => _norme(l) !== m.texte);
+    });
+    // Mentions changées : ligne identique à l'ancienne version → nouvelle version.
+    (nouvelle.mentions || []).forEach(m => {
+      const old = avant[m.key];
+      if (old && old !== m.texte) {
+        const i = lignes.findIndex(l => _norme(l) === old);
+        if (i >= 0) lignes[i] = m.texte;
+      }
+    });
+    t = lignes.join('\n');
+    // Mentions nouvelles : insérées à leur place.
+    (nouvelle.mentions || []).forEach(m => {
+      if (!avant[m.key]) t = remettreMention(t, nouvelle, m.key);
+    });
+    return { texte: t, aRelire };
   }
 
   // ─── EXPORT GLOBAL ───────────────────────────────────────────────
   global.AnnonceGenerator = {
-    setSeed: setSeed,
-    rand: rand,
-    pick: pick,
-    seedFromString: seedFromString,
-    MAP_EXPO: MAP_EXPO,
-    MAP_VUE: MAP_VUE,
-    MAP_LUM: MAP_LUM,
-    MAP_CALM: MAP_CALM,
-    MAP_CAR: MAP_CAR,
-    TONS_VALIDES: TONS_VALIDES,
-    FORMATS_VALIDES: FORMATS_VALIDES,
+    TXT_GEORISQUES: TXT_GEORISQUES,
+    TXT_DEPENSES: TXT_DEPENSES,
+    TXT_EXCESSIF: TXT_EXCESSIF,
+    TXT_HCL: TXT_HCL,
+    RUBRIQUES: RUBRIQUES,
+    DOSSIER_PIECES: DOSSIER_PIECES,
+    TXT_DOSSIERFACILE: TXT_DOSSIERFACILE,
+    USAGES_HORS_HABITATION: USAGES_HORS_HABITATION,
+    USAGES_MEUBLES: USAGES_MEUBLES,
+    MANQUE: MANQUE,
+    RE_MANQUE: RE_MANQUE,
+    nombre: nombre,
+    montant: montant,
+    estHorsHabitation: estHorsHabitation,
+    estMeuble: estMeuble,
     etageLabel: etageLabel,
-    adjLifestyle: adjLifestyle,
-    surfTxt: surfTxt,
-    dpeClasse: dpeClasse,
-    formaterDateFr: formaterDateFr,
-    garantiesLabel: garantiesLabel,
-    BANQUE_TITRES: BANQUE_TITRES,
-    BANQUE_ACCROCHES: BANQUE_ACCROCHES,
+    villeAArrondissements: villeAArrondissements,
+    commune: commune,
+    communeLabel: communeLabel,
+    dateFr: dateFr,
+    natureBien: natureBien,
+    depensesTexte: depensesTexte,
+    pointsForts: pointsForts,
+    garanties: garanties,
     genererTitre: genererTitre,
     genererAccroche: genererAccroche,
-    genererDescription: genererDescription,
-    genererAtouts: genererAtouts,
-    genererQuartier: genererQuartier,
+    genererMentions: genererMentions,
     genererDossier: genererDossier,
-    genererAnnonce: genererAnnonce
+    genererAnnonce: genererAnnonce,
+    controlerTexte: controlerTexte,
+    remettreMention: remettreMention,
+    majMentions: majMentions
   };
 })(typeof window !== 'undefined' ? window : globalThis);
