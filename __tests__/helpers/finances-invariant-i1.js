@@ -21,7 +21,7 @@
 
 import { duMois } from '../../js/core/loyer-du-mois.js';
 import { appliquerNouvellePeriode, periodeInitialeBail } from '../../js/core/loyer-bareme.js';
-import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
+import { _computeFinancesMonthly, _computeDetteBail } from '../../js/core/finances-monthly.js';
 import { computeExigibiliteWindow } from '../../js/core/finances-window.js';
 
 const _r2 = (n) => Math.round(n * 100) / 100;
@@ -130,6 +130,21 @@ export function surfacesSocle(opts) {
       let cum = 0;
       for (const m of w.months) { if (m.ym > ym) break; cum += duMois(ctx, m.ym).total; }
       return _r2(cum);
+    },
+
+    // 4. R0-C (lot 1) — la RETENUE SUR DÉPÔT DE GARANTIE : dette de loyer du bail arrêtée à la fin
+    //    du mois examiné (acte opposable, art. 22 loi 89-462). C'est la surface que l'audit global
+    //    a trouvée HORS du harnais pendant qu'elle violait I-1 (`(hc + ch) × nbMois`).
+    'retenue sur dépôt · dette du bail (_computeDetteBail)': (ctx, ym) => {
+      const b = (ctx.bails || [])[0];
+      if (!b) return null;
+      const jours = new Date(Number(String(ym).slice(0, 4)), Number(String(ym).slice(5, 7)), 0).getDate();
+      const fin = ym + '-' + String(jours).padStart(2, '0');
+      const fp = mouvements.filter((m) => m.qui === ctx.ref && (m.cr || 0) > 0 && catLigne(m.cat))
+        .map((m) => String(m.date).slice(0, 7)).sort()[0] || null;
+      const d = _computeDetteBail({ ref: ctx.ref, ctx, bailDebut: b.debut, fin, mouvements, catLigne,
+        today: todayFor(ym), premierVersementYm: fp });
+      return d ? { loyer: d.loyer, charge: d.charge, avance: d.avance } : null;
     }
   };
 }

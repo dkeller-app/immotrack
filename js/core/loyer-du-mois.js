@@ -135,9 +135,13 @@ function _occupation(bails) {
  * @param {Object} ctx { ref, bails:[{debut,fin,finEffective,archive,hc,ch,_deleted}],
  *                       bareme:[{ref,debut,fin,hc,ch,_deleted}] }
  * @param {string} ym 'YYYY-MM'
+ * @param {{segmentDebut?:string}} [opts] R0-C : `segmentDebut` ('YYYY-MM-DD', début d'un bail)
+ *        restreint le dû au SEUL segment d'occupation de ce bail — après la troncature C4 par le
+ *        bail suivant. Un mois de rotation porte ainsi la part de chaque locataire au jour près.
+ *        Sans option : la somme de tous les segments (comportement historique inchangé).
  * @returns {{hc:number, ch:number, total:number, source:'bareme'|'bail'|'vacance'}}
  */
-export function duMois(ctx, ym) {
+export function duMois(ctx, ym, opts) {
   const empty = { hc: 0, ch: 0, total: 0, source: 'vacance' };
   if (!ctx || !/^\d{4}-\d{2}$/.test(String(ym || ''))) return empty;
   ym = String(ym);
@@ -151,7 +155,9 @@ export function duMois(ctx, ym) {
   const periods = _baremeOfLot(ctx.bareme, ctx.ref);
 
   let hc = 0, ch = 0, usedBareme = false, occupied = false;
+  const seul = (opts && opts.segmentDebut) ? String(opts.segmentDebut).slice(0, 10) : null;
   for (const seg of _occupation(ctx.bails)) {
+    if (seul && seg.debut !== seul) continue;
     const d0 = seg.debut > first ? seg.debut : first;
     const d1 = (seg.end && seg.end < last) ? seg.end : last;
     if (d0 > d1) continue;
@@ -293,6 +299,40 @@ export function _debutSuivi(ctx, firstPaymentYm) {
   const candYm = cand.debut.slice(0, 7);
   const janSuivi = fp.slice(0, 4) + '-01';
   return candYm > janSuivi ? candYm : janSuivi;
+}
+
+/**
+ * R0-C · Q1 (décision Didier 30/09, docs/CDC-R0C.md) — LE dû d'un mois DANS LE SUIVI du lot.
+ * Le maître Finances ne comptait rien avant le 1ᵉʳ versement du lot : le 1ᵉʳ locataire qui ne
+ * payait pas ses premiers mois avait une dette INVISIBLE. Désormais le dû part du début du suivi
+ * `_debutSuivi` (entrée du bail, bornée au 1ᵉʳ janvier de l'année du 1ᵉʳ versement — un bail
+ * repris à l'achat ne fabrique pas de dette sur les années sans données). Une seule règle, lue
+ * par le maître (`_finBailHcChAt`) ET par la dette de restitution (`_computeDetteBail`).
+ * @param {Object} ctx même contexte que duMois
+ * @param {string} ym 'YYYY-MM'
+ * @param {string|null} debutDu 'YYYY-MM' (sortie de `_debutSuivi`) ; null = rien à suivre
+ * @param {Object} [opts] transmis à duMois (segmentDebut)
+ */
+export function duMoisSuivi(ctx, ym, debutDu, opts) {
+  if (!debutDu || !/^\d{4}-\d{2}$/.test(String(ym || '')) || String(ym) < String(debutDu)) {
+    return { hc: 0, ch: 0, total: 0, source: 'vacance' };
+  }
+  return duMois(ctx, ym, opts);
+}
+
+/** Adaptateur collections brutes → duMoisSuivi (même forme que duMoisFromRaw). */
+export function duMoisSuiviFromRaw(ref, ym, raw, debutDu) {
+  return duMoisSuivi({ ref, bails: bailsFromRaw(ref, raw), bareme: (raw && raw.bareme) || [] }, ym, debutDu);
+}
+
+/**
+ * R0-C — segments d'occupation normalisés d'un lot (vivants, triés, TRONQUÉS C4), exposés
+ * tels que duMois les voit : c'est la même définition qui borne le dû et qui rattache les
+ * encaissements à un bail (Q4). Aucune seconde règle d'occupation.
+ * @returns {Array<{debut:string, end:string|null, hc:number, ch:number}>}
+ */
+export function segmentsOccupation(bails) {
+  return _occupation(bails).map((s) => ({ ...s }));
 }
 
 /**

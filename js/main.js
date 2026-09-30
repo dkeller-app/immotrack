@@ -76,7 +76,7 @@ import {
 
 // B4 — sous-P&L mensuel (modèle prêt entier en charge)
 import {
-  _computeFinancesMonthly
+  _computeFinancesMonthly, _computeDetteBail
 } from './core/finances-monthly.js';
 
 // REFONTE FINANCES étape 2 — LE résolveur de périmètre unique (P-1/P-2/P-3) + les deux
@@ -105,7 +105,7 @@ import {
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
+import { duMois, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import { computeEntretienStatut } from './core/entretien-statut.js';
 import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES } from './core/pilotage-familles.js';
@@ -487,6 +487,9 @@ window._finPoidsMensuels = _finPoidsMensuelsM;
 
 // B4 — sous-P&L mensuel (prêt entier en charge + base 2044 conditionnelle)
 window._computeFinancesMonthly = _computeFinancesMonthly;
+// R0-C lot 1 — dette d'UN bail lue dans le maître (restitution du dépôt, art. 22) : consommée
+// au lot 2 par `_finDetteBail` (déclaration de fonction inline, jamais un const).
+window._computeDetteBail = _computeDetteBail;
 
 // REFONTE FINANCES étape 2 — socle périmètre + fenêtres (jamais window.MOIS_FR : le
 // `const MOIS_FR` lexical d'index.html masquerait la propriété — piège documenté).
@@ -524,6 +527,8 @@ window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
 // Les surfaces basculeront dessus à l'étape 4 ; ici le barème est ALIMENTÉ par les writers.
 window.duMois = duMois;
 window.duMoisFromRaw = duMoisFromRaw;
+// R0-C · Q1 — dû borné au début du suivi du lot (`_debutSuivi`) : LE dû lu par le maître Finances.
+window.duMoisSuiviFromRaw = duMoisSuiviFromRaw;
 window.bailsFromRaw = bailsFromRaw;
 // Même piège que l'historique IRL ci-dessus (le miroir rendait []), mais AUCUN impact aujourd'hui :
 // ce câblage n'a pas de consommateur. Le seul appelant de `_baremeOfLot` est `loyer-du-mois.js`
