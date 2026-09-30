@@ -1,6 +1,8 @@
 # CDC STOCKAGE — FIGÉ 30/09/2026 (GO Didier)
 
 > **Décisions validées en bloc par Didier le 30/09 (recos de l'audit)** : D1 **B** · D2 **C** · D3 **A** · D4 **B** · D5 **A** · D6 **A** (puis **C** si le journal > 30 % de la base après mesure) · D7 **B**. Là où le texte ci-dessous dit « à trancher », c'est tranché ici. Lot 3 = maquette validée AVANT code. Audit détaillé : `mockups/STOCKAGE/AUDIT.md`.
+>
+> **Écarts actés par le pilotage (lot 1, 30/09)** : (1) pas de repli inline du registre dans index.html — prod et sandbox servies en http ; module absent = comportement d'avant le lot (prouvé par test). (2) `RELAY_APP_KEY` classée `secret_residuel` (intouchable), pas `retiree` — traitement du secret = sujet séparé. (3) La sauvegarde de base illisible (legacy/sandbox) va en IndexedDB `corrompu:<clé>` ; sa purge/rotation rejoint le lot 2.
 
 > P0 bloquant commercial « Mémoire pleine » — suite de l'audit `mockups/STOCKAGE/AUDIT.md` (même dossier).
 > Direction validée par Didier (BACKLOG, section « 🔴 P0 — RÉSILIENCE DU STOCKAGE ») : save principal sacré et
