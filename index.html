@@ -8820,7 +8820,8 @@ async function _ingestSignedBailArtifacts(pdfBlob, certBlob, bail, proof, conten
 
 // Régénère le certificat de preuve d'un bail signé à distance dont l'archivage cloud avait échoué
 // (certRef.cloudPdfKey null) puis le TÉLÉCHARGE. Reconstruction déterministe depuis proof+contentHash
-// (persistés, immuables) → certificat identique. AUCUNE écriture sur le bail VERROUILLÉ (immuabilité OK).
+// (persistés, immuables) → mêmes faits et même empreinte ; la mise en forme suit la version de l'app
+// (depuis v15.703 : accents, dates en heure de Paris). AUCUNE écriture sur le bail VERROUILLÉ (immuabilité OK).
 async function _regenBailCertificate(ref) {
   const bail = DB.baux && DB.baux[ref];
   const sig = bail && bail.signatures;
