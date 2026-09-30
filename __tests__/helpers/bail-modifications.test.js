@@ -305,3 +305,20 @@ describe('réapplication de la vie du bail (au chargement)', () => {
       expect(cheminAutorise(c)).toBe(false);
   });
 });
+
+// VISALE-GMBI (audit I-1) : l'ancienne forme { visaId } et la forme complète normalisée sont le même
+// visa — aucun faux « V1 → V1 » au journal d'un bail signé ; un vrai champ saisi reste un changement.
+describe('memeValeur / valeurLisible — visa Visale', () => {
+  const complet = { visaId: 'V1', beneficiaires: '', loyerMax: null, validite: '', cautionValidee: false };
+  it('legacy { visaId } ≡ forme normalisée vide', () => {
+    expect(memeValeur({ visaId: 'V1' }, complet, 'visale')).toBe(true);
+  });
+  it('loyer max saisi = changement', () => {
+    expect(memeValeur({ visaId: 'V1' }, { ...complet, loyerMax: 900 }, 'visale')).toBe(false);
+  });
+  it('lisible : sous-champs renseignés', () => {
+    expect(valeurLisible('visale', { visaId: 'V1', loyerMax: 900, validite: '2026-12-14', cautionValidee: true }))
+      .toBe('n° V1 · loyer max 900 € · valable jusqu’au 14/12/2026 · cautionnement validé');
+    expect(valeurLisible('visale', { visaId: 'V1' })).toBe('V1');
+  });
+});

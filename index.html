@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.703</title>
+<title>Propryo v15.704</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.703">
+<link rel="stylesheet" href="css/main.css?v=15.704">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.703</em>
+      <em>v15.704</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -1549,6 +1549,12 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
            bail.locataires[0].adressePrecedente). -->
       <input type="hidden" id="b-adrLoc">
       <hr style="border:none;border-top:1px solid var(--bor);margin:18px 0 14px">
+      <div class="gar-seg-lbl">Garantie du locataire</div>
+      <div class="gar-seg" id="b-gar-seg" role="radiogroup" aria-label="Garantie du locataire">
+        <button type="button" role="radio" data-m="aucune" onclick="_garSetMode('b','aucune')">Aucune</button>
+        <button type="button" role="radio" data-m="garant" onclick="_garSetMode('b','garant')">Garant(s)</button>
+        <button type="button" role="radio" data-m="visale" onclick="_garSetMode('b','visale')">Visale</button>
+      </div>
       <div id="b-garants-wrap">
         <div class="flex-b mb8">
           <span style="font-size:13px;font-weight:600;color:var(--t1)"><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg> Garants <span class="mu sm" style="font-weight:400">— facultatif (mutuellement exclusif avec une GLI)</span></span>
@@ -1557,10 +1563,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div id="b-garants-list"></div>
       </div>
       <div id="b-visale-wrap" style="margin-top:10px">
-        <div class="fg">
-          <label><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg> Garantie Visale <span class="mu sm" style="font-weight:400">— caution d'État Action Logement · alternative à un garant physique (aucun acte de cautionnement)</span></label>
-          <input class="inp" id="b-visa" placeholder="N° de visa Visale (ex. V-2026-XXXXXXXX)" oninput="_bailGarantieToggle()">
-        </div>
+        <div class="mu sm" style="margin-bottom:8px">Caution d'État Action Logement, gratuite, à la place d'un garant physique (aucun acte de cautionnement). Recopier les informations du visa remis par le locataire.</div>
+        <div id="b-visale-fields"></div>
       </div>
       <div class="fg2" id="b-plafond-wrap" style="display:none">
         <div class="fg">
@@ -2153,16 +2157,26 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       </select>
       <input class="inp hidden" id="cand-contrat-autre" placeholder="Préciser le type de contrat" style="margin-top:6px">
     </div>
-    <div class="ct">Garant (optionnel)</div>
-    <div class="fg2">
-      <div class="fg"><label>Nom du garant</label><input class="inp" id="cand-gnom"></div>
-      <div class="fg"><label>Date de naissance</label><input class="inp" type="date" id="cand-gddn"></div>
+    <div class="ct">Garantie</div>
+    <div class="gar-seg" id="cand-gar-seg" role="radiogroup" aria-label="Garantie du candidat">
+      <button type="button" role="radio" data-m="aucune" onclick="_garSetMode('cand','aucune')">Aucune</button>
+      <button type="button" role="radio" data-m="garant" onclick="_garSetMode('cand','garant')">Garant</button>
+      <button type="button" role="radio" data-m="visale" onclick="_garSetMode('cand','visale')">Visale</button>
     </div>
-    <div class="fg2">
-      <div class="fg"><label>Adresse</label><input class="inp" id="cand-gadr"></div>
-      <div class="fg"><label>Lieu de naissance</label><input class="inp" id="cand-glieu"></div>
+    <div id="cand-garants-wrap">
+      <div class="fg2">
+        <div class="fg"><label>Nom du garant</label><input class="inp" id="cand-gnom"></div>
+        <div class="fg"><label>Date de naissance</label><input class="inp" type="date" id="cand-gddn"></div>
+      </div>
+      <div class="fg2">
+        <div class="fg"><label>Adresse</label><input class="inp" id="cand-gadr"></div>
+        <div class="fg"><label>Lieu de naissance</label><input class="inp" id="cand-glieu"></div>
+      </div>
     </div>
-    <div class="fg"><label>N° de visa Visale <span class="mu sm" style="font-weight:400">(caution d'État, à la place d'un garant — gratuit)</span></label><input class="inp" id="cand-visa" placeholder="ex : V-2026-XXXXXXXX"></div>
+    <div id="cand-visale-wrap">
+      <div class="mu sm" style="margin-bottom:8px">Caution d'État Action Logement, gratuite, à la place d'un garant. Recopier les informations du visa remis par le candidat.</div>
+      <div id="cand-visale-fields"></div>
+    </div>
     <div class="ct">Dossier</div>
     <div class="flex-c" style="gap:18px;flex-wrap:wrap">
       <label class="flex-c" style="gap:6px;cursor:pointer"><input type="checkbox" id="cand-pieces"> Pièces complètes</label>
@@ -4334,7 +4348,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.703';
+const IMMOTRACK_VERSION = '15.704';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -9439,6 +9453,7 @@ async function openRemoteSignModal(ref) {
             ${bSection}
             <div class="bsd-state-label">${_uiIcon('key')} Côté locataires · distance par défaut</div>
             ${rows}
+            <div id="bsd-visale"></div>
             <div id="bsd-ddt" class="bsd-ddt"></div>
             <div class="bsd-banner bsd-banner-info" style="margin-top:8px">${_uiIcon('bulb')} <div>Pour chaque signataire : <b><span style="color:var(--grn,#16a34a)">${_uiIcon('person', 13)}</span> Présentiel</b> = signe ici, dans l'app (chacun son tour) · <b><span style="color:var(--pur,#7c3aed)">${_uiIcon('send', 13)}</span> À distance</b> = reçoit un lien par email. Un co-gérant peut être mis sur <b><span style="color:#94a3b8">${_uiIcon('close', 13)}</span> Ne signe pas</b>.</div></div>
           </div>
@@ -9452,7 +9467,39 @@ async function openRemoteSignModal(ref) {
   const old = document.getElementById('ov-send-b'); if (old) old.remove();
   document.body.insertAdjacentHTML('beforeend', html);
   openM('ov-send-b');
+  _bsdVisaleInit(ref); // VISALE-GMBI : rappel non bloquant « activer le cautionnement avant de signer »
   _bsdDdtInit(ref);   // DDT annexé au bail — section « Pièces annexées » (vérifie les fichiers dès l'ouverture)
+}
+
+// VISALE-GMBI — rappel NON BLOQUANT dans « qui signe, et comment ? » : Visale refuse toute caution
+// une fois le bail signé (« le contrat de cautionnement doit être validé avant la signature du bail »,
+// visale.fr). Cocher la case l'enregistre sur le visa du bail et fait passer le bandeau au vert.
+function _bsdVisaleInit(ref) {
+  const host = el('bsd-visale'); if (!host) return;
+  const bail = DB.baux[ref];
+  const V = window.Visale;
+  const vis = (bail && V) ? V.visaleNormaliser(bail.visale) : null;
+  if (!vis) { host.innerHTML = ''; return; }
+  const q = _lyQ(ref);
+  host.innerHTML = vis.cautionValidee
+    ? `<div class="bsd-banner bsd-banner-ok">${_uiIcon('check')} <div>Cautionnement Visale validé sur visale.fr (visa n° ${escHtml(vis.visaId)}).</div></div>`
+    : `<div class="bsd-banner bsd-banner-warn">${_uiIcon('shield')} <div><b>Activer le cautionnement Visale avant de signer le bail.</b><br>
+        Visale refuse toute caution une fois le bail signé. Valider le contrat de cautionnement sur l'espace bailleur visale.fr
+        (visa n° ${escHtml(vis.visaId)}${vis.beneficiaires ? ', au nom de ' + escHtml(vis.beneficiaires) : ''}), puis cocher la case. Le bail peut être signé sans : c'est un rappel, pas un blocage.
+        <div class="flex-c" style="gap:10px;flex-wrap:wrap;margin-top:8px">
+          <a class="btn bs" href="https://www.visale.fr" target="_blank" rel="noopener">${_uiIcon('external')}Ouvrir visale.fr</a>
+          <label class="flex-c visale-chk"><input type="checkbox" onchange="_bsdVisaleValider('${q}', this.checked)"> Cautionnement validé sur visale.fr</label>
+        </div></div></div>`;
+}
+function _bsdVisaleValider(ref, on) {
+  const bail = DB.baux[ref]; const V = window.Visale;
+  if (!bail || !V) return;
+  const vis = V.visaleNormaliser(bail.visale); if (!vis) return;
+  vis.cautionValidee = !!on;
+  bail.visale = vis;
+  _stamp(bail);
+  saveDB();
+  _bsdVisaleInit(ref);
 }
 
 // FIL-ROUGE cleanup — _bsdSyncBailleurRow RETIRÉE : les bascules qu'elle synchronisait (bsd-bsign/
@@ -12193,6 +12240,57 @@ function saveBailClore() {
   if (typeof _rPeriodPage === 'function') _rPeriodPage();
   if (typeof rBiens === 'function') rBiens();
   showToast(`Bail ${ref} clôturé au ${fd(finEff)}`,'ok');
+  _gmbiAlerterSortie(ref, bail, finEff);
+}
+
+// ── VISALE-GMBI : alerte PONCTUELLE « déclaration d'occupation » (impots.gouv) ──────────────
+// Aucune API DGFiP : l'app dit QUOI déclarer, au moment du changement de locataire, une seule
+// fois. Rien n'est persisté (pas de bulle Pilotage, pas d'état « fait »). Le contenu vient du
+// module pur js/core/declaration-occupation.js (échéance, catégorie Cerfa, motifs). Jamais
+// bloquant : toute erreur est avalée, l'enregistrement du bail est déjà fait.
+function _gmbiAfficher(a) {
+  if (!a || !el('ov-gmbi') || !el('gmbi-body')) return;
+  // Rien de rétroactif (décision Didier 25/09) : un bail ancien saisi après coup, ou un vieux bail
+  // clôturé en retard, dont la campagne de déclaration est close → pas d'alerte (audit I-4).
+  if (a.echeance && a.echeance <= td()) return;
+  const D = window.DeclarationOccupation;
+  const vac = a.kind === 'sortie';
+  const occ = a.occupants || [];
+  const kv = (k, v) => `<div class="k">${k}</div><div class="v">${v}</div>`;
+  const occHtml = vac
+    ? (occ.length ? kv('Dernier occupant', escHtml(occ.map(o => o.nom).join(', '))) : '') + kv('Date de sortie', escHtml(fd(a.date)))
+    : occ.map(o => kv('Occupant', escHtml(o.nom))
+        + kv('Né(e) le', (o.ddn ? escHtml(fd(o.ddn)) : '<span class="mu">à compléter</span>') + (o.lieuNaiss ? ' à ' + escHtml(o.lieuNaiss) : ''))).join('')
+      + kv('Date d\'entrée dans les lieux', escHtml(fd(a.date)));
+  const cat = vac
+    ? `<div class="gmbi-pick">${escHtml(a.categorie)} depuis le ${escHtml(fd(a.date))}</div>
+       <div class="gmbi-sub">Motif à choisir sur impots.gouv, parmi :</div>
+       ${(a.motifs || []).map(m => `<div class="gmbi-opt">${escHtml(m)}</div>`).join('')}
+       <div class="mu sm" style="margin-top:6px">Si un nouveau locataire arrive avant la déclaration, déclarer directement le nouvel occupant.</div>`
+    : `<div class="gmbi-pick">${escHtml(a.categorie)}<small>Occupé à titre gratuit : <b>Non</b>${a.loyerHC ? ` · loyer mensuel hors charges : <b>${escHtml(fmt(a.loyerHC))}</b> (facultatif)` : ''}</small></div>`;
+  const ech = a.echeance ? '1er juillet ' + String(a.echeance).slice(0, 4) : '';
+  el('gmbi-body').innerHTML = `
+    <div class="mu sm" style="margin-bottom:10px">${escHtml(a.ref)}</div>
+    <p style="margin:0 0 12px">À déclarer sur impots.gouv, service « Gérer mes biens immobiliers »${ech ? `, <b>avant le ${escHtml(ech)}</b>` : ''}. Il est possible de déclarer dès maintenant.</p>
+    <div class="gmbi-box"><div class="gmbi-h">${_uiIcon('check')} Catégorie à sélectionner</div>${cat}</div>
+    <div class="kv-grid" style="margin-top:12px">${occHtml}</div>
+    <div class="mu sm" style="margin-top:12px;line-height:1.55">Art. 1418 CGI : déclaration avant le 1er juillet en cas de changement d'occupation. Amende de 150 € par local non déclaré (art. 1770 terdecies CGI). Particulier : espace particulier › Biens immobiliers. Société (SCI…) : espace professionnel › Démarches › « Gérer mes biens immobiliers ». Un garage loué séparément se déclare comme un local distinct.</div>`;
+  const lk = el('gmbi-link'); if (lk && D && D.GMBI_URL) lk.href = D.GMBI_URL;
+  openM('ov-gmbi');
+}
+function _gmbiAlerterSortie(ref, bail, dateSortie) {
+  try {
+    const D = window.DeclarationOccupation; if (!D) return;
+    const log = (DB.logements || []).find(l => l && l.ref === ref);
+    _gmbiAfficher(D.gmbiAlerteSortie({ log, bail, dateSortie }));
+  } catch (e) { console.warn('[GMBI] alerte sortie', e); }
+}
+function _gmbiAlerterEntree(ref, bail, precedent) {
+  try {
+    const D = window.DeclarationOccupation; if (!D) return;
+    const log = (DB.logements || []).find(l => l && l.ref === ref);
+    _gmbiAfficher(D.gmbiAlerteEntree({ log, bail, precedent }));
+  } catch (e) { console.warn('[GMBI] alerte entrée', e); }
 }
 
 /* v13.02 — réinitialisation des signatures d'un bail (double confirm).
@@ -18195,6 +18293,7 @@ function openAddCandidat(){
   ['cand-civ','cand-nom','cand-prenom','cand-ddn','cand-lieu','cand-datedeb','cand-tel','cand-email','cand-adrprec','cand-revenus','cand-employeur','cand-contrat','cand-contrat-autre','cand-gnom','cand-gddn','cand-gadr','cand-glieu','cand-visa'].forEach(id=>{ if(el(id)) el(id).value=''; });
   ['cand-pieces'].forEach(id=>{ if(el(id)) el(id).checked=false; });
   _candContratToggle();
+  _visaleEcrire('cand', null); _garSetMode('cand', 'aucune'); // VISALE-GMBI
   openM('ov-candidat');
 }
 function saveCandidat(){
@@ -18212,8 +18311,9 @@ function saveCandidat(){
     ddn:v('cand-ddn'), lieuNaiss:v('cand-lieu'), dateDebutSouhaitee:v('cand-datedeb'),
     tel:v('cand-tel'), email:v('cand-email'), adressePrecedente:v('cand-adrprec'),
     revenus:pf('cand-revenus'), employeur:v('cand-employeur'), contrat,
-    garant: garantNom ? { nom:garantNom, adresse:v('cand-gadr'), ddn:v('cand-gddn'), lieu:v('cand-glieu') } : null,
-    visale: v('cand-visa').trim() ? { visaId: v('cand-visa').trim() } : null,
+    // VISALE-GMBI : seules les données de la garantie retenue sont enregistrées.
+    garant: (garantNom && _garMode('cand') !== 'aucune' && _garMode('cand') !== 'visale') ? { nom:garantNom, adresse:v('cand-gadr'), ddn:v('cand-gddn'), lieu:v('cand-glieu') } : null,
+    visale: (_garMode('cand') === null || _garMode('cand') === 'visale') ? _visaleLire('cand') : null,
     piecesCompletes: el('cand-pieces')?.checked||false
   });
   if(!cand.nom){ showToast('Nom requis','err'); return; }
@@ -18510,8 +18610,14 @@ async function _relayPullCandidatures(opts) {
         // Complément : le dossier re-soumis fait foi pour les champs déclarés ; on préserve
         // id / source / dateCreation / décisions manuelles (statut terminal, piecesVerifiees, score).
         ['civilite','nom','prenom','ddn','lieuNaiss','tel','email','adressePrecedente',
-         'revenus','employeur','contrat','garant','visale','piecesCompletes']
+         'revenus','employeur','contrat','garant','piecesCompletes']
           .forEach(k => { cand[k] = partial[k]; });
+        // VISALE-GMBI : le dossier en ligne ne porte que le n° de visa — même n° = on garde ce que le
+        // bailleur a recopié du visa (loyer max, validité) ; n° différent = nouveau visa.
+        cand.visale = !partial.visale ? null
+          : window.Visale ? window.Visale.visaleFusionner(cand.visale, partial.visale)
+          // Module absent (audit m-6) : même n° → le visa recopié par le bailleur est conservé.
+          : (cand.visale && String(cand.visale.visaId || '').trim() === String(partial.visale.visaId || '').trim() ? cand.visale : partial.visale);
         if (cand.statut !== 'refuse' && cand.statut !== 'converti' && cand.statut !== 'valide') cand.statut = 'enCours';
         if (typeof _auditLog === 'function') { try { _auditLog('update', 'candidat', cand.id, 'complément déposé (lien en ligne)'); } catch (e) {} }
         updated++;
@@ -19144,21 +19250,27 @@ function openFicheCandidat(id){
   const g = c.garant;
   const hasGarant = !!(g && String(g.nom||'').trim());
   const vis = (c.visale && String(c.visale.visaId||'').trim()) ? c.visale : null;
-  // Rappel d'éligibilité Visale (barème 2026), repliable. Chiffres en dur + lien officiel :
-  // on renvoie à visale.fr pour la valeur qui fait foi (barème susceptible d'évoluer chaque année).
-  const _visaleEligibilite = `<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:#1b6ec2;font-weight:600;list-style:none">${_uiIcon('info')} Rappel d'éligibilité Visale</summary>
-    <div class="mu sm" style="font-size:11.5px;line-height:1.55;margin-top:6px">
-      <b>Qui</b> : jeunes 18–30 ans (tous) · salariés +30 ans si revenus ≤ 1 710 €/mois net (ou embauche/mutation &lt; 6 mois) · étudiants, alternants, saisonniers.<br>
-      <b>Logement</b> : loyer charges comprises ≤ 1 940 € (Île-de-France) / 1 575 € (grandes agglos, DROM) / 1 365 € ailleurs, et ≤ 50 % des revenus.<br>
-      <b>Couvre</b> 36 mois d'impayés + dégradations (2 mois). <b>Gratuit</b> locataire &amp; bailleur.
-      <a href="https://www.visale.fr" target="_blank" rel="noopener" style="color:#1b6ec2;font-weight:600">vérifier sur visale.fr →</a> <span style="color:var(--mut)">· barème 2026, susceptible d'évoluer</span>
+  // VISALE-GMBI : rappel d'éligibilité repliable ; plafonds lus dans la source unique (js/core/visale.js).
+  const _VP = window.Visale && window.Visale.VISALE_PLAFONDS;
+  const _visaleEligibilite = `<details class="visale-plaf"><summary>${_uiIcon('info')} Rappel d'éligibilité Visale</summary>
+    <div>
+      <b>Qui</b> : jeunes de 18 à 30 ans · salariés de plus de 30 ans sous conditions de revenus · étudiants, alternants, saisonniers, bail mobilité.<br>
+      ${_VP ? `<b>Logement</b> : loyer charges comprises au plus ${_VP.zones.map(z => escHtml(fmt(z.max)) + ' ' + escHtml(z.lbl)).join(' · ')}, et au plus 50 % des revenus (barème du ${escHtml(fd(_VP.dateEffet))}).<br>` : ''}
+      <b>Couvre</b> jusqu'à 36 mois d'impayés et les dégradations (2 mois). Gratuit pour le locataire et le bailleur.
+      <a href="https://www.visale.fr" target="_blank" rel="noopener">Vérifier sur visale.fr</a>
     </div></details>`;
-  const _visaleCard = vis ? `<div style="border:1px solid #bcd9f2;background:#eff4fb;border-radius:10px;padding:10px 12px;margin-bottom:${hasGarant?'8px':'0'}">
-      <div style="font-weight:700;font-size:13px;color:#1b6ec2;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${_uiIcon('shield')} Garantie Visale <span style="background:#1b6ec2;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px">Caution d'État</span></div>
+  const _visN = (vis && window.Visale) ? window.Visale.visaleNormaliser(vis) : vis;
+  const _visCtl = (_visN && window.Visale) ? window.Visale.visaleControle(_visN, { loyerCC: _visaleLoyerCCBien(c.logRef), aujourdhui: td() }) : null;
+  const _visaleCard = vis ? `<div class="visale-card" style="margin-bottom:${hasGarant?'8px':'0'}">
+      <div class="visale-card-h">${_uiIcon('shield')} Garantie Visale <span class="visale-badge">Caution d'État</span></div>
       <div class="kv-grid" style="margin-top:6px">
-        <div class="k">N° de visa</div><div class="v">${escHtml(vis.visaId)}</div>
-        <div class="k">Coût bailleur</div><div class="v" style="color:var(--grn,#16a34a);font-weight:600">Gratuit · couvre 36 mois</div>
+        <div class="k">N° de visa</div><div class="v">${escHtml(_visN.visaId)}</div>
+        ${_visN.beneficiaires ? `<div class="k">Locataire(s) sur le visa</div><div class="v">${escHtml(_visN.beneficiaires)}</div>` : ''}
+        <div class="k">Loyer maximum couvert</div><div class="v">${_visN.loyerMax ? escHtml(fmt(_visN.loyerMax)) + ' charges comprises' : '<span class="mu">à compléter</span>'}</div>
+        <div class="k">Validité</div><div class="v">${_visN.validite ? 'jusqu’au ' + escHtml(fd(_visN.validite)) : '<span class="mu">à compléter</span>'}</div>
       </div>
+      ${_visCtl && _visCtl.depasse ? `<div class="visale-warn">${_uiIcon('warn')}<div><b>Loyer du bien supérieur au visa.</b> ${escHtml(fmt(_visCtl.depasse.loyerCC))} charges comprises pour un visa couvrant ${escHtml(fmt(_visCtl.depasse.loyerMax))} : un nouveau visa est nécessaire.</div></div>` : ''}
+      ${_visCtl && _visCtl.expire ? `<div class="visale-warn">${_uiIcon('warn')}<div><b>Visa expiré</b> depuis le ${escHtml(fd(_visCtl.expire.validite))} : un nouveau visa est nécessaire avant la signature.</div></div>` : ''}
       ${_visaleEligibilite}
     </div>` : '';
   const _garantPhys = hasGarant ? `<div class="kv-grid">
@@ -19314,7 +19426,8 @@ function _editCandidatFromFiche(id){
   _candContratToggle();
   const gg = c.garant||{};
   set('cand-gnom',gg.nom); set('cand-gddn',gg.ddn); set('cand-gadr',gg.adresse); set('cand-glieu',gg.lieu);
-  set('cand-visa', (c.visale && c.visale.visaId) ? c.visale.visaId : '');
+  _visaleEcrire('cand', c.visale);
+  _garSetMode('cand', _garModeDepuis(!!String(gg.nom||'').trim(), c.visale));
   if(el('cand-pieces')) el('cand-pieces').checked = !!c.piecesCompletes;
   openM('ov-candidat');
 }
@@ -19672,8 +19785,9 @@ function convertCandidatToBail(id){
   renderBailLocs([ _candidatVersLocataire(c) ]);     // mapping identité 1:1
   const g = _candidatVersGarant(c);
   renderBailGarants(g ? [g] : []);
-  // Phase 3 : candidat avec garantie Visale → pré-remplir le n° de visa du bail (pas de garant physique).
-  if(el('b-visa')) el('b-visa').value = (c.visale && c.visale.visaId) || '';
+  // VISALE-GMBI : le visa complet du candidat passe au bail, avec le choix de garantie correspondant.
+  _visaleEcrire('b', c.visale);
+  _garSetMode('b', _garModeDepuis(!!(c.garant && String(c.garant.nom||'').trim()), c.visale));
   try{ if(typeof _bailGarantieToggle==='function') _bailGarantieToggle(); }catch(e){}
   _pendingCandidatConv = id;                          // hook consommé par saveBail (après openBail → pas écrasé)
   showToast('Bail pré-rempli depuis le candidat et le logement — vérifiez loyer, dates et clauses.','ok',5000);
@@ -19743,8 +19857,10 @@ function openBail(ref, opts) {
   // Garants (UI dynamique — chargée depuis champs legacy bail.garant + bail.garant2)
   if(el('b-withMandataire')) { el('b-withMandataire').checked = !!bail.withMandataire; toggleBailMandataire(!!bail.withMandataire); }
   renderBailGarants(_bailLegacyToGarants(bail));
-  if(el('b-visa')) el('b-visa').value = (bail.visale && bail.visale.visaId) || ''; // Phase 3 : garantie Visale ('' pour un nouveau bail)
-  try{ if(typeof _bailGarantieToggle==='function') _bailGarantieToggle(); }catch(e){} // grisage exclusivité selon l'état chargé
+  // VISALE-GMBI : visa complet + choix de garantie déduit des données chargées ('aucune' pour un nouveau bail).
+  _visaleEcrire('b', bail.visale);
+  _garSetMode('b', _garModeDepuis(_bailLegacyToGarants(bail).some(g => String(g.nom||'').trim()), bail.visale));
+  setTimeout(() => _visaleCtrl('b'), 0); // loyer HC/charges remplis plus loin dans openBail (audit m-2)
 
   // Conditions
   fillSel('b-entity', DB.entites, e2=>e2.nom, e2=>e2.nom);
@@ -20692,6 +20808,7 @@ function terminerBail() {
   // v14.48 GANTT-PREAVIS : nettoyer les events auto fin-de-bail + préavis du bail clôturé
   try { _cleanupBailAgendaEvents(ref); agendaAutoSync(); } catch(e) { console.warn('[terminerBail] agenda cleanup', e); }
   showToast(`Bail ${ref} clôturé au ${fd(finEff)}`,'ok');
+  _gmbiAlerterSortie(ref, bail, finEff);
 }
 
 // v14.48 GANTT-PREAVIS — supprimer les auto-events agenda liés à un ref de bail
@@ -20890,33 +21007,148 @@ function renderBailGarants(garants) {
   try{ if(typeof _bailGarantieToggle==='function') _bailGarantieToggle(); }catch(e){}
 }
 
-// Phase 3 — exclusivité garantie du bail : garant(s) physique(s) OU Visale. Grise visuellement la
-// section non retenue (le garde DUR est dans saveBail). Appelé au rendu des garants, à la saisie du
-// n° de visa (oninput) et à l'ouverture du bail.
+// VISALE-GMBI — choix EXPLICITE de la garantie (« Aucune / Garant / Visale »), candidature (p='cand')
+// et bail (p='b'). Remplace le grisage de la phase 3 : la section non retenue est masquée, et SEULES
+// les données du choix retenu sont enregistrées (getBailGarants / getBailDataFromForm / saveCandidat).
+// Garant + Visale ensemble est donc impossible depuis l'interface (art. 22-1 loi 89-462, FAQ Visale).
+function _garMode(p) {
+  const seg = el(p + '-gar-seg'); if (!seg) return null;   // pas de sélecteur → comportement historique
+  const on = seg.querySelector('[aria-checked="true"]');
+  return on ? on.dataset.m : 'aucune';
+}
+function _garSetMode(p, mode) {
+  const seg = el(p + '-gar-seg'); if (!seg) return;
+  const _avant = _garMode(p);
+  seg.querySelectorAll('[role="radio"]').forEach(b => b.setAttribute('aria-checked', b.dataset.m === mode ? 'true' : 'false'));
+  const gw = el(p + '-garants-wrap'); if (gw) gw.classList.toggle('hidden', mode !== 'garant');
+  const vw = el(p + '-visale-wrap'); if (vw) vw.classList.toggle('hidden', mode !== 'visale');
+  if (p === 'b') {
+    // Le plafond de caution n'a de sens qu'avec des garants : renderBailGarants le ré-affiche.
+    const pw = el('b-plafond-wrap');
+    if (mode === 'garant') renderBailGarants(_bailGarantsDom());
+    else {
+      if (pw) pw.style.display = 'none';
+      // Quitter « Garant(s) » retire la caution : son plafond part avec (contenu légal du bail, audit m-1).
+      // Pas à l'ouverture d'un bail (_avant ≠ 'garant') : on ne touche jamais une donnée existante sans geste.
+      if (_avant === 'garant' && el('b-plafondCaution')) el('b-plafondCaution').value = '';
+    }
+  }
+  if (mode === 'visale') { _visaleMount(p); _visaleCtrl(p); }
+}
+function _garModeDepuis(garantPresent, visale) {
+  // Repli sans module (audit I-3) : un visa présent reste « Visale » — sinon il serait effacé à l'enregistrement.
+  if (window.Visale ? window.Visale.visaleRenseigne(visale) : !!(visale && String(visale.visaId || '').trim())) return 'visale';
+  return garantPresent ? 'garant' : 'aucune';
+}
+
+// Champs du visa (source unique pour les deux formulaires) : n°, locataire(s), loyer maximum
+// charges comprises, validité ; case « cautionnement validé » côté bail seulement.
+function _visaleMount(p) {
+  const host = el(p + '-visale-fields');
+  if (!host || host.dataset.m) return;
+  host.dataset.m = '1';
+  const bail = p === 'b';
+  host.innerHTML = `
+    <div class="fg2">
+      <div class="fg"><label for="${p}-visa">N° de visa</label><input class="inp" id="${p}-visa" placeholder="ex. V-2026-XXXXXXXX" oninput="_visaleCtrl('${p}')"></div>
+      <div class="fg"><label for="${p}-visa-benef">Locataire(s) sur le visa</label><input class="inp" id="${p}-visa-benef" placeholder="Nom(s) inscrit(s) sur le visa">
+        <div class="mu sm" style="margin-top:3px">Doivent correspondre aux locataires du bail, sinon le cautionnement est nul.</div></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label for="${p}-visa-max">Loyer maximum couvert, charges comprises (€)</label><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="${p}-visa-max" oninput="_visaleCtrl('${p}')"></div>
+      <div class="fg"><label for="${p}-visa-valid">Date de validité du visa</label><input class="inp" type="date" id="${p}-visa-valid" oninput="_visaleCtrl('${p}')">
+        <div class="mu sm" style="margin-top:3px">Le bail doit être signé avant cette date.</div></div>
+    </div>
+    ${bail ? `<label class="flex-c visale-chk"><input type="checkbox" id="b-visa-caution"> Cautionnement validé sur visale.fr</label>
+    <div class="mu sm">À faire sur l'espace bailleur visale.fr, avant la signature du bail. Tant que ce n'est pas coché, l'écran de signature le rappelle.</div>` : ''}
+    <div id="${p}-visa-ctrl"></div>`;
+  // Le contrôle suit le loyer : bail = champs HC/charges du formulaire ; candidature = bien visé.
+  const refresh = () => _visaleCtrl(p);
+  (bail ? ['b-hc', 'b-ch'] : ['cand-logref']).forEach(id => { const e = el(id); if (e) { e.addEventListener('input', refresh); e.addEventListener('change', refresh); } });
+}
+function _visaleLire(p) {
+  _visaleMount(p);
+  const V = window.Visale;
+  const raw = {
+    visaId: v(p + '-visa'), beneficiaires: v(p + '-visa-benef'),
+    loyerMax: v(p + '-visa-max'), validite: v(p + '-visa-valid'),
+    cautionValidee: p === 'b' ? !!(el('b-visa-caution') && el('b-visa-caution').checked) : false,
+  };
+  if (V) return V.visaleNormaliser(raw);
+  // Module absent (audit m-7) : on garde tous les champs saisis tels quels, sans les perdre.
+  return String(raw.visaId || '').trim() ? { ...raw, visaId: String(raw.visaId).trim(), loyerMax: Number(raw.loyerMax) > 0 ? Number(raw.loyerMax) : null } : null;
+}
+function _visaleEcrire(p, vis) {
+  _visaleMount(p);
+  const V = window.Visale;
+  const x = (V ? V.visaleNormaliser(vis) : vis) || {};
+  const set = (id, val) => { const e = el(id); if (e) e.value = val == null ? '' : val; };
+  set(p + '-visa', x.visaId || ''); set(p + '-visa-benef', x.beneficiaires || '');
+  set(p + '-visa-max', x.loyerMax || ''); set(p + '-visa-valid', x.validite || '');
+  if (p === 'b' && el('b-visa-caution')) el('b-visa-caution').checked = !!x.cautionValidee;
+  _visaleCtrl(p);
+}
+function _visaleLoyerCC(p) {
+  if (p === 'b') return pf('b-hc') + pf('b-ch');
+  return _visaleLoyerCCBien(v('cand-logref'));
+}
+// Loyer charges comprises attendu d'un bien : même cascade que la conversion candidat → bail
+// (convertCandidatToBail) — loyer attendu + charges du bien.
+function _visaleLoyerCCBien(logRef) {
+  if (!logRef) return 0;
+  const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === logRef);
+  const la = (typeof _loyerAttenduForCand === 'function') ? _loyerAttenduForCand({ logRef }) : null;
+  const hc = (la && la.loyer > 0) ? la.loyer : (log ? Number(log.hc) || 0 : 0);
+  const ch = log ? (Number(log.ch) || Number(log.chargesRef) || 0) : 0;
+  return hc > 0 ? hc + ch : 0;
+}
+// Contrôles NON BLOQUANTS (loyer CC > loyer max du visa, visa expiré) + rappel des plafonds.
+function _visaleCtrl(p) {
+  const box = el(p + '-visa-ctrl'); if (!box) return;
+  const V = window.Visale;
+  const vis = _visaleLire(p);
+  if (!V || !vis) { box.innerHTML = ''; return; }
+  const cc = _visaleLoyerCC(p);
+  const r = V.visaleControle(vis, { loyerCC: cc, aujourdhui: td() });
+  let h = '';
+  if (r.depasse) h += `<div class="visale-warn">${_uiIcon('warn')}<div><b>Loyer supérieur au visa.</b> Loyer charges comprises ${escHtml(fmt(r.depasse.loyerCC))}, pour un visa couvrant ${escHtml(fmt(r.depasse.loyerMax))}. Le visa ne pourra pas être activé pour ce loyer : le locataire doit demander un nouveau visa sur visale.fr.</div></div>`;
+  else if (vis.loyerMax && cc > 0) h += `<div class="visale-ok">${_uiIcon('check')}<div>Loyer charges comprises ${escHtml(fmt(cc))}, dans la limite du visa (${escHtml(fmt(vis.loyerMax))}).</div></div>`;
+  // Bail déjà signé : la validité du visa ne compte plus (elle ne vaut que jusqu'à la signature).
+  const _signe = p === 'b' && (() => { const r0 = v('b-edit-ref'); const b0 = r0 && DB.baux[r0]; return !!(b0 && b0.signatures && b0.signatures.signedAt); })();
+  if (r.expire && !_signe) h += `<div class="visale-warn">${_uiIcon('warn')}<div><b>Visa expiré.</b> Il était valable jusqu'au ${escHtml(fd(r.expire.validite))}. Le bail doit être signé avant la fin de validité : le locataire doit demander un nouveau visa sur visale.fr.</div></div>`;
+  const P = V.VISALE_PLAFONDS;
+  h += `<details class="visale-plaf"><summary>${_uiIcon('info')} Plafonds Visale depuis le ${escHtml(fd(P.dateEffet))}</summary>
+    <div>Loyer charges comprises, au plus 50 % des revenus du locataire : ${P.zones.map(z => `${escHtml(fmt(z.max))} ${escHtml(z.lbl)}`).join(' · ')}. Étudiants au forfait : ${P.zones.map(z => escHtml(fmt(z.etudiant))).join(' / ')}. Le plafond qui fait foi est celui inscrit sur le visa. <a href="${escHtml(P.source)}" target="_blank" rel="noopener">visale.fr</a></div></details>`;
+  box.innerHTML = h;
+}
+document.addEventListener('DOMContentLoaded', () => { try { _visaleMount('b'); _visaleMount('cand'); } catch (e) { console.warn('[VISALE] mount', e); } });
+
+// Nom historique conservé (appelé au rendu des garants et à l'ouverture du bail) : ne grise plus
+// rien, rafraîchit le contrôle Visale.
 function _bailGarantieToggle(){
-  const visaEl = el('b-visa');
-  const hasVisa = !!(visaEl && String(visaEl.value||'').trim());
-  const gw = el('b-garants-wrap'); if(gw) gw.style.opacity = hasVisa ? '.5' : '';
-  const addBtn = el('b-add-garant-btn'); if(addBtn) addBtn.disabled = hasVisa;
-  const garNoms = el('b-garants-list') ? [...el('b-garants-list').querySelectorAll('.gar-nom')] : [];
-  const hasGarant = garNoms.some(i => String(i.value||'').trim());
-  const vw = el('b-visale-wrap'); if(vw) vw.style.opacity = hasGarant ? '.5' : '';
+  if (_garMode('b') === 'visale') _visaleCtrl('b');
 }
 
 function addGarant() {
-  const cur = getBailGarants();
+  const cur = _bailGarantsDom();
   if(cur.length >= 2) { showToast('Maximum 2 garants','warn'); return; }
   cur.push({nom:'',adresse:'',ddn:'',lieu:''});
   renderBailGarants(cur);
 }
 
 function removeGarant(i) {
-  const cur = getBailGarants();
+  const cur = _bailGarantsDom();
   cur.splice(i,1);
   renderBailGarants(cur);
 }
 
+// Garants du bail tels qu'enregistrés : aucun si la garantie retenue n'est pas « Garant(s) ».
 function getBailGarants() {
+  const m = _garMode('b');
+  if (m && m !== 'garant') return [];
+  return _bailGarantsDom();
+}
+function _bailGarantsDom() {
   const c = el('b-garants-list') || document;
   const noms  = [...c.querySelectorAll('.gar-nom')].map(e=>e.value);
   const adrs  = [...c.querySelectorAll('.gar-adr')].map(e=>e.value);
@@ -21074,12 +21306,24 @@ function saveBail() {
   // Protection contre l'écrasement d'un bail actif avec un locataire différent
   const editRef = v('b-edit-ref'); // vide si nouveau bail, rempli si modification
   const isNewBail = !editRef;
+  // VISALE-GMBI : occupants AVANT ce nouveau bail (bail actif archivé juste après, sinon le dernier
+  // bail clos du lot) — même locataire (renouvellement par nouveau bail) = pas de changement à déclarer.
+  let _gmbiPrec = null;
+  if (isNewBail) {
+    const _bx = DB.baux[ref];
+    if (_bx && !_bx._deleted && !_bx.cloture) _gmbiPrec = { ..._bx };
+    else _gmbiPrec = (DB.baux_historique || []).filter(h => h && h.ref === ref).slice(-1)[0] || null;
+  }
+  // VISALE-GMBI (contre-audit B-1) : l'archivage de l'ancien bail est DIFFÉRÉ après les dernières
+  // confirmations (garantie Visale) — annuler l'une d'elles ne doit rien laisser à moitié écrit
+  // (ancien bail archivé + barème clos alors que le nouveau n'est pas enregistré).
+  let _archiverAncien = false;
   if(isNewBail) {
     const bailExistant = DB.baux[ref];
     if(_bailEnCours(bailExistant)) { // v15.697 : un tombstone (bail clôturé) n'est pas un bail actif
       const ancLoc = (bailExistant.locataires||[{nom:bailExistant.nom||'?'}]).map(l=>l.nom).join(', ');
       if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.\n\nConfirmer la création du nouveau bail ?`)) return;
-      archiverBail(ref, _debut); // C4 : clôture l'ancien bail à la veille du nouveau (fin du dû doublé)
+      _archiverAncien = true;
     }
   }
 
@@ -21139,10 +21383,24 @@ function saveBail() {
   // Phase 3 : exclusivité de la garantie (doc légal cohérent). Un bail a soit un/des garant(s)
   // physique(s), soit la garantie Visale — jamais les deux (sinon §15 dit Visale mais l'en-tête
   // liste le garant → contradiction). Garde dure ; le grisage réactif du wizard guide déjà l'user.
-  if (bail.garant && bail.visale && String(bail.visale.visaId||'').trim()) {
-    showToast('Garantie : choisissez soit un ou plusieurs garants, soit la garantie Visale — pas les deux (supprimez le garant ou videz le n° de visa).','err',7000);
-    return;
+  // VISALE-GMBI : le choix explicite de la garantie rend ce cas impossible depuis l'interface ; s'il
+  // survient quand même (données anciennes), on AVERTIT au lieu de bloquer (jamais bloquer un enregistrement).
+  if (!_pendingVal && bail.garant && bail.visale && String(bail.visale.visaId||'').trim()) {
+    if (!confirm2('Ce bail porte à la fois un garant et une garantie Visale.\n\nLe cumul est interdit : le cautionnement est nul si le bailleur a souscrit une autre garantie (art. 22-1 loi n° 89-462), et Visale ne peut pas être cumulée avec une autre caution.\n\nEnregistrer quand même ?')) return;
   }
+  // VISALE-GMBI : contrôles du visa rappelés à l'enregistrement (le loyer se saisit APRÈS la garantie).
+  // Un seul avertissement non bloquant (confirm2) : un toast serait écrasé par « Bail enregistré ».
+  // 2ᵉ passage après la popup de validation financière (_pendingVal) : déjà confirmé, on ne redemande pas.
+  if (!_pendingVal) {
+    let _vc = null;
+    try { _vc = window.Visale ? window.Visale.visaleControle(bail.visale, { loyerCC: (Number(bail.hc)||0) + (Number(bail.ch)||0), aujourdhui: td() }) : null; }
+    catch (e) { console.warn('[VISALE] contrôle', e); }
+    const _vMsg = [];
+    if (_vc && _vc.depasse) _vMsg.push(`• Loyer charges comprises ${fmt(_vc.depasse.loyerCC)}, supérieur au loyer maximum du visa (${fmt(_vc.depasse.loyerMax)}) : le visa ne couvre pas ce loyer.`);
+    if (_vc && _vc.expire && (isNewBail || !(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.signedAt))) _vMsg.push(`• Visa expiré depuis le ${fd(_vc.expire.validite)} : le bail doit être signé avant la fin de validité du visa.`);
+    if (_vMsg.length && !confirm2('Garantie Visale :\n\n' + _vMsg.join('\n') + '\n\nLe locataire doit demander un nouveau visa sur visale.fr.\n\nEnregistrer quand même ?')) return;
+  }
+  if (_archiverAncien) archiverBail(ref, _debut); // C4 : clôture l'ancien bail à la veille du nouveau (fin du dû doublé)
   // NOUVEAU BAIL (isNewBail) sur un logement occupé : archiverBail LAISSE l'ancien bail dans DB.baux[ref]
   // jusqu'au remplacement ci-dessous. Rien de l'ancien ne doit passer au nouveau — ni clôture, ni
   // SIGNATURES (le nouveau locataire apparaissait « signé » à la date de l'ancien), ni champs figés, ni
@@ -21377,6 +21635,8 @@ function saveBail() {
   // LOG-CANDIDATS Phase 6 : si ce save finalise une conversion candidat, migrer
   // les pièces + archiver le candidat. Consommé une seule fois (reset immédiat).
   if (_pendingCandidatConv) { const _cc = _pendingCandidatConv; _pendingCandidatConv = null; _finalizeCandidatConversion(_cc, ref); }
+  // VISALE-GMBI : 1er enregistrement d'un nouveau bail = arrivée d'un occupant → alerte ponctuelle.
+  if (isNewBail) _gmbiAlerterEntree(ref, DB.baux[ref], _gmbiPrec);
 }
 
 // AUDIT 24/08 (I3) — CLÔTURER LE BARÈME EN LE DISANT. Une clôture ARRÊTE le barème du lot :
@@ -21572,7 +21832,7 @@ function getBailDataFromForm() {
     complementLoyer: pf('b-complementLoyer'),
     complementJustif: v('b-complementJustif'),
     ..._bailLegacyGarantFields(),
-    visale: (el('b-visa') && v('b-visa').trim()) ? { visaId: v('b-visa').trim() } : null, // Phase 3 : garantie Visale (caution d'État)
+    visale: (_garMode('b') === null || _garMode('b') === 'visale') ? _visaleLire('b') : null, // VISALE-GMBI : visa complet, seulement si Visale est la garantie retenue
     withMandataire: el('b-withMandataire') ? el('b-withMandataire').checked : false,
     plafondCaution: pf('b-plafondCaution'),
     entity: v('b-entity'), hc: pf('b-hc'), ch: pf('b-ch'), dg: pf('b-dg'),
@@ -45543,7 +45803,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.676 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.704 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -64099,6 +64359,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   .bsd-banner{border-radius:var(--r,8px);padding:10px 12px;font-size:12px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
   .bsd-banner-warn{background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn)}
   .bsd-banner-info{background:var(--adv-bg);border:1px solid var(--adv);color:var(--adv)}
+  .bsd-banner-ok{background:var(--pos-soft);border:1px solid var(--pos);color:var(--pos)}
   .bsd-state-label{font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
   .bsd-spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:bsd-sp .7s linear infinite;vertical-align:middle}
   @keyframes bsd-sp{to{transform:rotate(360deg)}}
@@ -64391,6 +64652,22 @@ window.addEventListener('DOMContentLoaded', ()=>{
     <div class="m-foot">
       <button class="btn bs" onclick="closeM('ov-bail-valid')">Annuler</button>
       <button class="btn bp" onclick="_bailValidConfirm()">Valider la modification</button>
+    </div>
+  </div>
+</div>
+
+<!-- VISALE-GMBI : alerte PONCTUELLE « déclaration d'occupation » au changement de locataire
+     (docs/CDC-VISALE-GMBI.md). Rien n'est persisté : « Compris » ferme, point. -->
+<div class="ov hidden" id="ov-gmbi" onclick="closeBg(event,'ov-gmbi')">
+  <div class="modal" style="max-width:560px;width:96%">
+    <div class="m-head">
+      <h3>Changement d'occupation à déclarer</h3>
+      <button class="m-close" onclick="closeM('ov-gmbi')" aria-label="Fermer">✕</button>
+    </div>
+    <div class="m-body" id="gmbi-body"></div>
+    <div class="m-foot">
+      <button class="btn bs" onclick="closeM('ov-gmbi')">Compris</button>
+      <a class="btn bp" id="gmbi-link" href="https://www.impots.gouv.fr/particulier/la-declaration-doccupation" target="_blank" rel="noopener"><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg>Ouvrir impots.gouv</a>
     </div>
   </div>
 </div>
