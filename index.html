@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.702</title>
+<title>Propryo v15.703</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -53,7 +53,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.702">
+<link rel="stylesheet" href="css/main.css?v=15.703">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.702</em>
+      <em>v15.703</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4334,7 +4334,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.702';
+const IMMOTRACK_VERSION = '15.703';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7333,7 +7333,7 @@ window.__immoArchiveBailPdf = async function (ref, blob) {
         bail.signatures.contentHash = contentHash;
         const certKey = 'bc_' + String(ref).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now();
         const certPath = await _uploadCloudRetry(certKey, certBlob, 'application/pdf', seg);   // copie séparée du certificat — best-effort (retry, ne lève pas)
-        bail.signatures.certRef = { cloudPdfKey: certPath || null };
+        bail.signatures.certRef = { cloudPdfKey: certPath || null, merged: true };   // fusion réussie (ligne ci-dessus) : certificat en dernière page du PDF
       } catch (e) { console.warn('[présentiel] fusion certificat→bail échouée, PDF nu conservé', e); artifact = blob; }
     }
 
@@ -7947,11 +7947,12 @@ function _refreshAfterMutation() {
 // (dataURL) + ancres mm capturées + nb pages. Phase 3 (Task 9) complétera l'émission
 // (manifeste pdf-lib + POST session relais + emails). Ici : staging + log + appel
 // guardé de _emitRemoteSignSession (défini Task 9) pour rester inerte mais branché.
-async function _onRemoteBailReady(ref, pdfDataUrl, anchors, totalPages, clauseIrlV) {
+async function _onRemoteBailReady(ref, pdfDataUrl, anchors, totalPages, clauseIrlV, sections) {
   try {
     window.__remoteBailStaging = window.__remoteBailStaging || {};
     // IRL-REVISION N11 — la version de clause 5.2 IMPRIMÉE dans ce PDF (celle de la popup).
-    window.__remoteBailStaging[ref] = { pdfDataUrl, anchors, totalPages, at: Date.now(), clauseIrlV: _bailClauseVersionNorm(clauseIrlV) };
+    // sections (30/09) : page de début des annexes du bail (annexe-a / annexe-b / notice), relevée par genPDFNative.
+    window.__remoteBailStaging[ref] = { pdfDataUrl, anchors, totalPages, at: Date.now(), clauseIrlV: _bailClauseVersionNorm(clauseIrlV), sections: (sections && typeof sections === 'object') ? sections : null };
     console.log('[remoteSign] PDF prêt', ref, (anchors || []).length, 'ancres,', totalPages, 'pages');
     if (typeof _emitRemoteSignSession === 'function') {
       await _emitRemoteSignSession(ref); // défini Task 9
@@ -8404,14 +8405,22 @@ function _renderRemoteSignBadge(bail, ref) {
     // l'archivage avait échoué → on propose de le RÉGÉNÉRER + télécharger (cf _regenBailCertificate).
     const certRegen = (!certKey && !certLegacy && Array.isArray(sig.proof) && sig.contentHash);
     const refSafe = String(ref);   // `ref` est déjà échappé par l'appelant (_renderLogFichePanelBail passe refSafe) — ne pas ré-échapper (double-escape)
-    const cloudBtn = (keyArg, title, label) => '<button class="btn bs bb" onclick="_openCloudBailPdf(\'' + refSafe + '\'' + keyArg + ')" style="background:#0ea5e9;color:#fff" title="' + title + '">' + label + '</button>';
-    const legacyBtn = (u, title, label) => '<button class="btn bs bb" onclick="window.open(\'' + _lyQ(u) + '\',\'_blank\',\'noopener\')" style="background:#0ea5e9;color:#fff" title="' + title + '">' + label + '</button>';
+    // Boutons secondaires de la charte (plus de bleu codé en dur ni d'emoji) : libellé + line-icon.
+    const cloudBtn = (keyArg, title, label) => '<button class="btn bs bb" onclick="_openCloudBailPdf(\'' + refSafe + '\'' + keyArg + ')" title="' + title + '">' + _uiIcon('doc', 14) + label + '</button>';
+    const legacyBtn = (u, title, label) => '<button class="btn bs bb" onclick="window.open(\'' + _lyQ(u) + '\',\'_blank\',\'noopener\')" title="' + title + '">' + _uiIcon('doc', 14) + label + '</button>';
+    // Certificat FUSIONNÉ en dernière page du PDF signé (certRef.merged, v15.703) : un seul bouton — le
+    // bouton « Certificat » séparé faisait doublon (Didier 30/09). Anciens baux (PDF sans certificat, ou
+    // fusion en échec) : bouton Certificat conservé.
+    if (pdfKey && sig.certRef && sig.certRef.merged === true) {
+      return pill('#dcfce7', '#16a34a', '#166534', '🔒 Signé à distance')
+        + cloudBtn('', 'Ouvrir le bail signé, certificat de preuve en dernière page', 'Bail signé (PDF + certificat)');
+    }
     return pill('#dcfce7', '#16a34a', '#166534', '🔒 Signé à distance')
-      + (pdfKey ? cloudBtn('', 'Ouvrir le PDF du bail signé', '📄 PDF signé')
-         : (pdfLegacy ? legacyBtn(pdfLegacy, 'Ouvrir le PDF du bail signé', '📄 PDF signé') : ''))
-      + (certKey ? cloudBtn(', \'' + _lyQ(certKey) + '\'', 'Ouvrir le certificat de preuve de signature', '📜 Certificat')
-         : (certLegacy ? legacyBtn(certLegacy, 'Ouvrir le certificat de preuve de signature', '📜 Certificat')
-            : (certRegen ? '<button class="btn bs bb" onclick="_regenBailCertificate(\'' + refSafe + '\')" style="background:#0ea5e9;color:#fff" title="Régénérer et télécharger le certificat de preuve (archivage en ligne indisponible)">📜 Régénérer le certificat</button>' : '')));
+      + (pdfKey ? cloudBtn('', 'Ouvrir le PDF du bail signé', 'PDF signé')
+         : (pdfLegacy ? legacyBtn(pdfLegacy, 'Ouvrir le PDF du bail signé', 'PDF signé') : ''))
+      + (certKey ? cloudBtn(', \'' + _lyQ(certKey) + '\'', 'Ouvrir le certificat de preuve de signature', 'Certificat')
+         : (certLegacy ? legacyBtn(certLegacy, 'Ouvrir le certificat de preuve de signature', 'Certificat')
+            : (certRegen ? '<button class="btn bs bb" onclick="_regenBailCertificate(\'' + refSafe + '\')" title="Régénérer et télécharger le certificat de preuve (archivage en ligne indisponible)">' + _uiIcon('doc', 14) + 'Régénérer le certificat</button>' : '')));
   }
   if (rs.status === 'unreachable') {
     // §3 (audit 2026-07-15) — 404 NON terminal : base injoignable / mauvaise URL (auto-guérie par §1/§2),
@@ -8466,18 +8475,23 @@ async function _emitRemoteSignSession(ref) {
   //    rectFromJsPdf) convertit au tamponnage. Convertir des deux côtés plaçait les ancres
   //    hors-page (BUG-DOUBLE-CONVERSION 2026-06-15) → signature/paraphes locataire invisibles.
   const manifest = window.BuildSignManifest.buildSignManifest(staging.anchors, staging.totalPages + _annexPages);
-  // Annexes DÉCLARÉES au relais : écran « Annexes au bail » (accusé de réception obligatoire) avant la signature.
+  // Annexes DÉCLARÉES au relais, présentées AVANT la page des signatures (accusé de réception obligatoire du
+  // locataire) : d'abord les annexes du bail lui-même (A, B, notice : pages relevées à la génération), puis les
+  // pièces du DDT (statut réel après fusion + pages). « from » reste la page de garde du DDT.
   try {
+    const _bailAnn = _bailAnnexManifestItems(staging.sections, staging.totalPages);
     const _ann = _ddtManifestAnnexes(bail.annexesDdt, _fusion);
-    if (_ann) { if (_ann.from == null && _annexPages) _ann.from = staging.totalPages + 1; manifest.annexes = _ann; }
-  } catch (e) { console.warn('[DDT annexes] manifeste', e); }
+    if (_ann && _ann.from == null && _annexPages) _ann.from = staging.totalPages + 1;
+    if (_bailAnn.length || _ann) manifest.annexes = { from: _ann ? _ann.from : null, items: _bailAnn.concat(_ann ? _ann.items : []) };
+  } catch (e) { console.warn('[annexes] manifeste', e); }
   // 4) embarquer le manifeste
   const stampedBytes = await _embedSignManifest(pdfBytes, manifest);
   const pdfBlob = new Blob([stampedBytes], { type: 'application/pdf' });
   // 5) signataires distants (ordre = ordre tableau) — défini Task 10
   const signers = _collectRemoteSigners(bail);
   // 6) créer la session relais
-  const meta = { bailRef: ref, signers: signers.map(s => ({ sigId: s.sigId, role: s.role, nom: s.nom, email: s.email, ordre: s.ordre })) };
+  // nom = nom du bail, repris NON modifiable sur la page de signature (vide → saisie libre, comme avant).
+  const meta = { bailRef: ref, signers: signers.map(s => ({ sigId: s.sigId, role: s.role, nom: s.nomBail || '', email: s.email, ordre: s.ordre })) };
   const { sessionId, signUrl, ownerToken } = await _bsRelayCreateSession(pdfBlob, meta);
   // 7) persister l'état remoteSession
   bail.signatures = bail.signatures || {};
@@ -8610,13 +8624,27 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
   let y = 800;
   const ensure = (need) => { if (y < (need || 60)) { page = doc.addPage([595.28, 841.89]); y = 800; } };
   const line = (t, size = 11, bold = false) => {
-    ensure(size + 12);
     /* AUDIT 13/08 — pdf-lib + StandardFonts.Helvetica LÈVE « WinAnsi cannot encode … » sur tout
        caractère hors WinAnsi (locataire « Nguyễn », nom collé contenant U+202F…). L'exception
        remontait dans _completeRemoteSign SANS être gardée : le bail restait « en attente » à vie
-       alors qu'il était signé côté relais. On assainit AVANT d'écrire. */
-    page.drawText(window.MontantDoc.pdfSafeText(t), { x: 40, y, size, font: bold ? fontB : font });
-    y -= size + 6;
+       alors qu'il était signé côté relais. On assainit AVANT d'écrire. Les accents français sont
+       dans WinAnsi : ils passent tels quels (30/09 : le texte du certificat était écrit sans accents).
+       Retour à la ligne sur la largeur utile (515 pt) : une ligne longue ne sort plus de la page. */
+    // Retrait lu sur le texte BRUT : pdfSafeText réduit les espaces de tête à un seul.
+    const f = bold ? fontB : font, maxW = 515, raw = String(t == null ? '' : t);
+    const indent = (/^ */.exec(raw) || [''])[0], safe = window.MontantDoc.pdfSafeText(raw.trim());
+    const rows = [];
+    let cur = '';
+    safe.trim().split(/\s+/).forEach((w) => {
+      const next = cur ? cur + ' ' + w : w;
+      if (cur && f.widthOfTextAtSize(indent + next, size) > maxW) { rows.push(cur); cur = w; } else cur = next;
+    });
+    rows.push(cur);
+    rows.forEach((r, i) => {
+      ensure(size + 12);
+      page.drawText((i ? indent + '  ' : indent) + r, { x: 40, y, size, font: f });
+      y -= size + 6;
+    });
   };
   // S4 — bandeau d'identité. pdf-lib n'embarque pas d'image ici (le logo du bailleur est un
   // data-URL de format libre) : la gauche reste VIDE, comme sur tous les autres documents
@@ -8646,28 +8674,50 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
     page.drawLine({ start: { x: 40, y }, end: { x: W - 40, y }, thickness: 0.6, color: PDFLib.rgb(.89, .91, .93) });
     y -= 16;
   } catch (e) { console.warn('[certificat] bandeau', e); }
-  line('Certificat de preuve de signature electronique', 16, true); y -= 8;
+  // Dates lisibles, en heure de Paris (le certificat affichait des ISO bruts « 2026-09-30T10:26:04.610Z »).
+  const _parisOpts = { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  const _dt = (iso) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    const p = {};
+    new Intl.DateTimeFormat('fr-FR', _parisOpts).formatToParts(d).forEach((x) => { p[x.type] = x.value; });
+    return p.day + '/' + p.month + '/' + p.year + ' à ' + p.hour + ':' + p.minute + ':' + p.second + ' (heure de Paris)';
+  };
+  const _day = (iso) => { const s = _dt(iso); return s.slice(0, 10); };
+  const _hms = (iso) => { const s = _dt(iso); return s.slice(13, 21); };
+  line('Certificat de preuve de signature électronique', 16, true); y -= 8;
   line('Bailleur : ' + (_entCert.nom || bail.entity || '-'));
   line('Bail : ' + (bail.ref || ''));
-  line('Date de completion : ' + (completedAt ? new Date(completedAt) : new Date()).toLocaleString('fr-FR'));
-  line('Mode : ' + (_docMode === 'mixte' ? 'mixte (signature en presence + signature electronique a distance)'
-                    : _docMode === 'presentiel' ? 'signature manuscrite en presence (presentiel)'
-                    : 'signature electronique a distance (verification email/OTP + relais)'));
-  line('Empreinte SHA-256 du bail signe (' + (_presentielOnly ? 'calculee' : 'scellee') + ' a la signature, hors present certificat) :', 10);
+  line('Date de complétion : ' + _dt(completedAt || new Date().toISOString()));
+  line('Mode : ' + (_docMode === 'mixte' ? 'mixte (signature en présence + signature électronique à distance)'
+                    : _docMode === 'presentiel' ? 'signature manuscrite en présence'
+                    : 'signature électronique à distance (e-mail + code, serveur de signature Propryo)'));
+  line('Empreinte SHA-256 du bail signé (' + (_presentielOnly ? 'calculée' : 'scellée') + ' à la signature, hors présent certificat) :', 10);
   line(contentHash || '', 8);
-  line(_presentielOnly ? 'Calculee par l\'application au moment de la signature (signature en presence).' : 'Attestee par le serveur au moment de la signature (cf. empreinte par signataire ci-dessous).', 7); y -= 10;
+  line(_presentielOnly ? 'Calculée par l\'application au moment de la signature (signature en présence).' : 'Attestée par le serveur au moment de la signature (voir l\'empreinte par signataire ci-dessous).', 7); y -= 10;
   line('Signataires :', 13, true); y -= 4;
   (proof || []).forEach(p => {
     line('- ' + (p.nom || '') + ' (' + (p.role || '') + ')', 11, true);
-    if (p.mode) line('   mode : ' + (p.mode === 'presentiel' ? 'signature manuscrite en presence' : 'signature electronique a distance (email/OTP)'), 9);
-    if (p.email) line('   email : ' + p.email + (p.emailVerifiedAt ? ' - verifie le ' + p.emailVerifiedAt : ''), 9);
-    if (p.otpVerifiedAt) line('   identite verifiee par code (' + (p.otpChannel || 'email') + ') le ' + p.otpVerifiedAt, 9);
-    line('   signe le : ' + (p.signedAt || '-') + (p.ip ? ' - IP ' + p.ip : ''), 9);
-    if (p.luApprouve) line('   mention "Lu et approuve" : oui', 9);
-    if (p.consentElectronic) line('   consentement signature electronique : oui', 9);
-    if (p.openedAt) line('   document ouvert le : ' + p.openedAt, 8);
-    if (p.readCompletedAt) line('   lecture terminee le : ' + p.readCompletedAt, 8);
-    if (p.annexesRecuesAt) line('   annexes (dossier de diagnostic technique) recues le : ' + p.annexesRecuesAt, 8);
+    if (p.mode) line('   mode : ' + (p.mode === 'presentiel' ? 'signature manuscrite en présence' : 'signature électronique à distance (e-mail + code)'), 9);
+    // Nom : repris du bail (non modifiable) depuis v15.703 ; avant, saisi librement par le signataire.
+    if (p.nameSource === 'bail') line('   nom repris du bail (non modifiable par le signataire)', 9);
+    else if (p.signerName && String(p.signerName).trim() && String(p.signerName).trim() !== String(p.nom || '').trim()) line('   nom saisi par le signataire : ' + String(p.signerName).trim(), 9);
+    if (p.email) line('   e-mail : ' + p.email, 9);
+    if (p.email && p.emailVerifiedAt) line('   adresse saisie par le signataire identique à celle d\'envoi : le ' + _dt(p.emailVerifiedAt), 9);
+    // Code de vérification : on écrit ce qui s'est RÉELLEMENT passé (30/09 : le certificat disait « identité
+    // vérifiée par code (email) » alors qu'en mode test le code s'affichait à l'écran, sans aucun e-mail).
+    if (p.otpVerifiedAt) {
+      if (p.otpDelivery === 'email') line('   code reçu par e-mail et saisi le ' + _dt(p.otpVerifiedAt) + ' : adresse e-mail vérifiée', 9);
+      else if (p.otpDelivery === 'ecran-test') line('   code affiché à l\'écran (mode test) et saisi le ' + _dt(p.otpVerifiedAt) + ' : adresse e-mail NON vérifiée', 9);
+      else line('   code saisi le ' + _dt(p.otpVerifiedAt) + ' (mode de remise du code non enregistré)', 9);
+    }
+    line('   signé le : ' + _dt(p.signedAt) + (p.ip ? ' — IP ' + p.ip : ''), 9);
+    if (p.luApprouve) line('   mention « Lu et approuvé » : oui', 9);
+    if (p.consentElectronic) line('   consentement à la signature électronique : oui', 9);
+    if (p.openedAt) line('   document ouvert le : ' + _dt(p.openedAt), 8);
+    if (p.readCompletedAt) line('   lecture terminée le : ' + _dt(p.readCompletedAt), 8);
+    if (p.annexesRecuesAt) line('   annexes au bail : réception et prise de connaissance reconnues le ' + _dt(p.annexesRecuesAt), 8);
     else if (p.role === 'locataire' && bail && bail.annexesDdt && Array.isArray(bail.annexesDdt.items) && (() => {
       // À distance, une pièce « jointe » dont la fusion a échoué a été déclarée NON jointe au relais :
       // l'écran (et donc l'accusé) n'était pas demandé pour elle → pas de faux « non enregistré ».
@@ -8675,14 +8725,18 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, o
       return bail.annexesDdt.items.some((it) => it && (it.statut === 'hors_app'
         || (it.statut === 'joint' && !(p.mode === 'distance' && _failed.has(it.docName)))));
     })()) {
-      line('   accuse de reception des annexes : non enregistre', 8);   // bail avec pièces du DDT, accusé absent
+      line('   accusé de réception des annexes : non enregistré', 8);   // bail avec pièces du DDT, accusé absent
     }
     // Document défilant : paraphe page par page, avec l'heure (déclarée par l'appareil du signataire).
     if (p.parapheTimes && typeof p.parapheTimes === 'object') {
       const _pts = Object.keys(p.parapheTimes).map((k) => p.parapheTimes[k]).filter(Boolean).sort();
-      if (_pts.length) line('   pages paraphees : ' + _pts.length + ' (de ' + _pts[0] + ' a ' + _pts[_pts.length - 1] + ', heure de l\'appareil du signataire)', 8);
+      if (_pts.length) {
+        const a = _pts[0], b = _pts[_pts.length - 1];
+        const when = _day(a) === _day(b) ? 'le ' + _day(a) + ', de ' + _hms(a) + ' à ' + _hms(b) : 'du ' + _dt(a) + ' au ' + _dt(b);
+        line('   pages paraphées : ' + _pts.length + ' (' + when + ', heure de Paris, horloge de l\'appareil du signataire)', 8);
+      }
     }
-    if (p.pdfSha256) line('   empreinte du document signe par ce signataire : ' + p.pdfSha256, 8);
+    if (p.pdfSha256) line('   empreinte du document signé par ce signataire : ' + p.pdfSha256, 8);
     y -= 6;
   });
   const bytes = await doc.save();
@@ -8808,6 +8862,9 @@ async function _completeRemoteSignCore(ref, state) {
       emailVerifiedAt: ss.emailVerifiedAt || pr.emailVerifiedAt || null,
       otpVerifiedAt: ss.otpVerifiedAt || pr.otpVerifiedAt || null,   // OTP : email CONTRÔLÉ (code saisi)
       otpChannel: ss.otpChannel || pr.otpChannel || null,
+      otpDelivery: ss.otpDelivery || null,   // 'email' | 'ecran-test' (mode test : code affiché) — absent = relais antérieur
+      signerName: pr.signerName || null,     // nom tapé (ancienne page) ou repris du bail
+      nameSource: pr.nameSource || null,     // 'bail' (non modifiable, v15.703) | 'saisi'
       signedAt: pr.signedAt || local.signedAt || null,
       openedAt: pr.openedAt || null,
       readCompletedAt: pr.readCompletedAt || null,
@@ -8843,6 +8900,8 @@ async function _completeRemoteSignCore(ref, state) {
   catch (e) { console.warn('[remoteSign] fusion certificat→bail échouée, PDF nu conservé', e); }
   // 4) Archivage (couture) + DELETE relais best-effort. Le certificat SÉPARÉ (certRef) reste archivé.
   const { pdfRef, certRef } = await _ingestSignedBailArtifacts(bailArtifact, certBlob, bail, proof, contentHash);
+  // Certificat réellement fusionné en dernière page du PDF archivé → la fiche n'affiche qu'un bouton.
+  if (certRef) certRef.merged = bailArtifact !== pdfBlob;
   // ORDRE (smoke D-207, 29/09) : l'état « signé » est ÉCRIT et SYNCHRONISÉ AVANT la suppression de la
   // session relais. Avant, le DELETE partait d'abord : un onglet suspendu entre les deux (iPhone qui change
   // d'app, fermeture) perdait la complétion — session effacée, bail resté « en attente », badge
@@ -9226,7 +9285,8 @@ function _collectSide(out, items, prefix, role, distantFn, labelFn) {
   let rank = 0;
   (items || []).forEach((it, i) => {
     if (!distantFn(it)) return;
-    out.push({ sigId: prefix + '-' + rank, role: role, nom: (it && it.nom) || labelFn(i, rank), email: ((it && it.email) || '').trim(), distant: true, ordre: out.length + 1 });
+    // nomBail : le nom RÉEL du bail (jamais le libellé de repli « Locataire 1 ») — le relais l'impose au signataire.
+    out.push({ sigId: prefix + '-' + rank, role: role, nom: (it && it.nom) || labelFn(i, rank), nomBail: (it && it.nom) ? String(it.nom).trim() : '', email: ((it && it.email) || '').trim(), distant: true, ordre: out.length + 1 });
     rank++;
   });
 }
@@ -23965,6 +24025,20 @@ function previewBailData(bail, log, ref, opts) {
     +'.wizV2-ann-pc b{display:block;color:#101521;font-size:14px;overflow-wrap:anywhere}'
     +'.wizV2-ann-pc small{color:#5f6f86;font-size:12.5px;overflow-wrap:anywhere}'
     +'.wizV2-ann-tag{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap}'
+    /* Bloc « Annexes au bail » avant la page des signatures (30/09) */
+    +'.wizV2-ann{background:#fff;border:1px solid #e4e7ee;border-radius:12px;padding:14px;margin:0 0 14px;box-shadow:0 2px 10px rgba(16,21,33,.06)}'
+    +'.wizV2-ann h3{margin:0 0 2px;font-size:17px;color:#101521}'
+    +'.wizV2-ann-it{border:1px solid #e4e7ee;border-radius:10px;margin:0 0 8px;overflow:hidden}'
+    +'.wizV2-ann-it-h{display:flex;gap:10px;align-items:center;padding:10px 12px;min-height:48px}'
+    +'.wizV2-ann-it-h>div{flex:1;min-width:0}'
+    +'.wizV2-ann-it-h b{display:block;color:#101521;font-size:14.5px;overflow-wrap:anywhere}'
+    +'.wizV2-ann-it-h small{color:#5f6f86;font-size:12.5px;overflow-wrap:anywhere}'
+    +'.wizV2-ann-it-h .wizV2-ann-tag{margin-left:4px}'
+    +'.wizV2-ann-read{flex:none;min-height:44px;padding:8px 14px;border:1.5px solid #ff5a3c;background:#fff;color:#c2410c;font-weight:700;font-size:14px;border-radius:9px;cursor:pointer}'
+    +'.wizV2-ann-pages{background:#f7f8fb;border-top:1px solid #e4e7ee;padding:8px}'
+    +'.wizV2-ann-pages[hidden],#wizV2-sig-wrap[hidden]{display:none}'
+    +'.wizV2-ann-lock{margin:10px 0 0;font-size:13px;color:#5f6f86;text-align:center}'
+    +'.wizV2-ann .wizV2-ann-ack{margin-top:10px;background:#fff8f6}'
     +'.wizV2-ann-ack{display:flex;gap:12px;align-items:flex-start;background:#ffe7e0;border:1.5px solid #ff5a3c;border-radius:12px;padding:14px;cursor:pointer}'
     +'.wizV2-ann-ack input{width:24px;height:24px;flex:none;margin-top:1px;accent-color:#ff5a3c}'
     +'.wizV2-ann-ack span{font-size:14.5px;color:#101521}'
@@ -24260,7 +24334,7 @@ function previewBailData(bail, log, ref, opts) {
        uniquement en signature fraîche (ni phase2, ni reprise). */
     +    'if(!opts.phase2&&!_BAIL_SIGNED){window._wizV2Paraphes={};window._wizV2FinalSignatures={};window._wizV2LuApprouveBy={};window._wizV2ParapheTimes={};}'
     +    'window._wizV2ParapheTimes=window._wizV2ParapheTimes||{};window._wizV2ParapheImg={};' /* paraphe tracé une fois PAR signataire, dans cette popup */
-    +    'window._wizV2AnnexAckBy=(!opts.phase2&&!_BAIL_SIGNED)?{}:(window._wizV2AnnexAckBy||{});window._wizV2OnAnnex=false;' /* accusés de réception des annexes (locataires) */
+    +    'window._wizV2AnnexAckBy=(!opts.phase2&&!_BAIL_SIGNED)?{}:(window._wizV2AnnexAckBy||{});' /* accusés de réception des annexes (locataires) */
     +    'window._wizMode=true;' /* compat genPDFNative existant */
     +    'document.body.classList.add("wizV2-mode");'
     +    'if(!document.getElementById("wizV2-overlay")){'
@@ -24341,47 +24415,55 @@ function previewBailData(bail, log, ref, opts) {
     +  'return h;'
     +'}'
     +'function _wizV2UpdateNav(){'
-    +  'var c=_wizV2Counts(),mis=_wizV2Missing();'
+    +  'var c=_wizV2Counts(),mis=_wizV2Missing(),ann=!mis&&_wizV2NeedsAnnex();'
     +  'var counter=document.getElementById("wiz-counter");'
     +  'if(counter)counter.textContent="✍ Paraphes "+c.done+" / "+c.tot;'
     +  'var prev=document.getElementById("wiz-prev-btn");if(prev){prev.disabled=true;prev.style.visibility="hidden";}'
     +  'var next=document.getElementById("wiz-next-btn");'
-    +  'if(next){next.textContent=mis?("Aller à la page "+mis.page+" à parapher ↓"):"Continuer vers la signature →";next.style.background=mis?"":"#16a34a";}'
+    /* Annexes AVANT la page des signatures (30/09) : tout paraphé mais case des annexes non cochée → on y mène. */
+    +  'if(next){next.textContent=mis?("Aller à la page "+mis.page+" à parapher ↓"):(ann?"Cocher la case des annexes ↓":"Continuer vers la signature →");next.style.background=(mis||ann)?"":"#16a34a";}'
     +'}'
     +'function _wizV2ScrollToPage(n){'
     +  'var ov=document.getElementById("wizV2-overlay"),el=document.getElementById("wizV2-pg-"+n);if(!ov||!el)return;'
     +  'var bar=el.querySelector(".wizV2-parbar")||el;'
     +  'ov.scrollTo({top:Math.max(0,bar.offsetTop-ov.clientHeight/2),behavior:"smooth"});'
     +'}'
+    /* Une page du document (image + barre de paraphe ou note). Commune au fil du bail et au bloc des annexes. */
+    +'function _wizV2PageHtml(page,total,pr){'
+    +  'var n=page.pageNum,h="";'
+    +  'h+="<section class=\\"wizV2-pg"+(page.kind==="signatures"?" wizV2-pg-sig":"")+"\\" id=\\"wizV2-pg-"+n+"\\"><div class=\\"wizV2-pg-no\\">Page "+n+" / "+total+"</div>";'
+    /* width/height : la page a sa hauteur AVANT le décodage de l'image → « Aller à la page N » tombe juste. */
+    +  'h+="<img src=\\""+page.imgDataUrl+"\\" class=\\"wizV2-img\\" loading=\\"lazy\\" width=\\""+Math.round(page.width||893)+"\\" height=\\""+Math.round(page.height||1263)+"\\" alt=\\"Page "+n+"\\">";'
+    +  'if(page.noParaphe){'
+    +    'if(page.kind==="signatures"){h+="<div class=\\"wizV2-pg-note\\">✍ <b>Page des signatures.</b> Vous signerez à la <b>dernière étape</b>, après le paraphe des pages : la signature est reportée automatiquement ici.</div>";}'
+    +  '}else if(!pr.error){'
+    +    'h+="<div class=\\"wizV2-parbar\\" id=\\"wizV2-parbar-"+n+"\\">"+_wizV2ParBar(n)+"</div>";'
+    +  '}'
+    +  'return h+"</section>";'
+    +'}'
+    /* ORDRE DE LECTURE (30/09, validé Didier — même traitement qu'à distance) : pages du bail → bloc
+       « Annexes au bail » (annexes A/B, notice : dépliables ; pièces du DDT : statut) → page des signatures.
+       Tant qu'un LOCATAIRE présent n'a pas coché « Je reconnais avoir reçu les annexes… », la page des
+       signatures reste masquée. Le PDF, lui, garde son ordre (annexes après le § des signatures). */
     +'function _wizV2Render(){'
     +  'var ov=document.getElementById("wizV2-overlay");if(!ov)return;'
     +  'var _nv=document.querySelector(".wiz-nav");if(_nv)_nv.style.display="";' /* ré-affichée après l'écran de passage */
-    +  'window._wizV2OnAnnex=false;var _nb=document.getElementById("wiz-next-btn");if(_nb)_nb.disabled=false;' /* retour depuis l'écran Annexes */
     +  'var pages=window._wizV2Pages,cur=window._wizV2Current;'
     /* v12.96 — étape finale : si cur > pages.length, afficher la page de confirmation (checkbox lu/approuvé). */
     +  'if(cur>pages.length){var pv=document.getElementById("wiz-prev-btn");if(pv)pv.style.visibility="";var nt=document.getElementById("wiz-next-btn");if(nt)nt.style.background="";return _wizV2RenderFinal();}'
     +  'var _pr=_wizV2PadResult();'
     +  'var html="<div class=\\"wizV2-doc\\">";'
-    +  'html+="<div class=\\"wizV2-intro\\">Faites défiler le bail. Sur chaque page à parapher, cliquez <b>« Parapher »</b> : vous tracez votre paraphe une seule fois, il est ensuite apposé page par page, avec l\\u2019heure.</div>";'
+    +  'html+="<div class=\\"wizV2-intro\\">Faites défiler le bail. Sur chaque page à parapher, cliquez <b>« Parapher »</b> : vous tracez votre paraphe une seule fois, il est ensuite apposé page par page, avec l\\u2019heure. Les annexes sont présentées juste avant la page des signatures.</div>";'
     /* S1 — filet visuel : liste de signataires vide → erreur affichée, jamais un parcours muet. */
     +  'if(_pr.error){html+="<div class=\\"wizV2-no-paraphe\\" style=\\"background:#fee2e2;border-color:#dc2626;color:#991b1b\\">⛔ <b>Aucune case de paraphe à afficher.</b><br>"+_pr.error.message+"</div>";}'
+    +  'var grp=_wizV2AnnexGroups(),blk=grp.length?_wizV2AnnexBlockHtml(grp,_pr):"",placed=false,locked=_wizV2NeedsAnnex();'
     +  'pages.forEach(function(page){'
-    +    'var n=page.pageNum;'
-    +    'html+="<section class=\\"wizV2-pg\\" id=\\"wizV2-pg-"+n+"\\"><div class=\\"wizV2-pg-no\\">Page "+n+" / "+pages.length+"</div>";'
-    /* width/height : la page a sa hauteur AVANT le décodage de l'image → « Aller à la page N » tombe juste. */
-    +    'html+="<img src=\\""+page.imgDataUrl+"\\" class=\\"wizV2-img\\" loading=\\"lazy\\" width=\\""+Math.round(page.width||893)+"\\" height=\\""+Math.round(page.height||1263)+"\\" alt=\\"Page "+n+"\\">";'
-    +    'if(page.noParaphe){'
-    +      'var msg="Page sans paraphe.";'
-    +      'if(page.kind==="signatures"){msg="✍ <b>Page des signatures.</b> Vous signerez à la <b>dernière étape</b>, après le paraphe des pages : la signature est reportée automatiquement ici.";}'
-    +      'else if(page.kind==="annexe-a"){msg="Annexe A — liste des réparations locatives (décret 87-712) · sans paraphe.";}'
-    +      'else if(page.kind==="annexe-b"){msg="Annexe B — liste des charges récupérables (décret 87-713) · sans paraphe.";}'
-    +      'else if(page.kind==="notice"){msg="Notice d\\u2019information (arrêté du 29 mai 2015 modifié) · sans paraphe.";}'
-    +      'html+="<div class=\\"wizV2-pg-note\\">"+msg+"</div>";'
-    +    '}else if(!_pr.error){'
-    +      'html+="<div class=\\"wizV2-parbar\\" id=\\"wizV2-parbar-"+n+"\\">"+_wizV2ParBar(n)+"</div>";'
-    +    '}'
-    +    'html+="</section>";'
+    +    'if(_WIZV2_ANNK[page.kind])return;' /* pages d'annexe : dans le bloc, pas dans le fil */
+    +    'if(page.kind==="signatures"&&!placed){html+=blk;placed=true;html+="<div id=\\"wizV2-sig-wrap\\""+(locked?" hidden":"")+">";}'
+    +    'html+=_wizV2PageHtml(page,pages.length,_pr);'
     +  '});'
+    +  'if(placed)html+="</div>";'
+    +  'if(!placed)html+=blk;'
     +  'html+="</div>";'
     +  'ov.innerHTML=html;'
     +  '_wizV2UpdateNav();'
@@ -24422,39 +24504,70 @@ function previewBailData(bail, log, ref, opts) {
     +  '};'
     +'}'
     /* v12.96 → v12.98 — étape finale : signatures finales + confirmation lu/approuvé */
-    /* ÉCRAN « ANNEXES AU BAIL » (validé Didier 29/09) : avant la signature finale d'un LOCATAIRE présent,
-       liste des pièces du DDT (statut du § 17) + case OBLIGATOIRE « J'ai reçu les annexes » ; l'heure est
-       enregistrée (signatures.annexesRecuesBy[sigId]) et imprimée au certificat. Le bailleur n'y passe pas. */
+    /* BLOC « ANNEXES AU BAIL » AVANT LA PAGE DES SIGNATURES (30/09, validé Didier — remplace l'écran séparé
+       du 29/09) : annexes du bail (A, B, notice : pages dépliables sur place) + pièces du DDT (statut du § 17)
+       + case OBLIGATOIRE pour chaque LOCATAIRE présent « Je reconnais avoir reçu les annexes… et en avoir
+       pris connaissance » ; l'heure est enregistrée (signatures.annexesRecuesBy[sigId]) et imprimée au
+       certificat. Le bailleur voit le bloc, sans case. */
+    +'var _WIZV2_ANNK={"annexe-a":["Annexe A — Réparations locatives","Décret n° 87-712"],"annexe-b":["Annexe B — Charges récupérables","Décret n° 87-713"],"notice":["Notice d\\u2019information","Arrêté du 29 mai 2015"]};'
     +'function _wizV2AnnexLocs(){return _wizV2GetSigs().filter(function(s){return /^loc-/.test(s.id);});}'
+    +'function _wizV2AnnexGroups(){'
+    +  'var out=[],byK={};'
+    +  '(window._wizV2Pages||[]).forEach(function(p){var k=_WIZV2_ANNK[p.kind];if(!k)return;if(!byK[p.kind]){byK[p.kind]={label:k[0],ref:k[1],statut:"joint",docName:"",pages:[]};out.push(byK[p.kind]);}byK[p.kind].pages.push(p);});'
+    +  '((typeof _BAIL_ANNEXES!=="undefined"&&_BAIL_ANNEXES)||[]).forEach(function(it){out.push({label:String(it.label||""),ref:"",statut:(it.statut==="joint"||it.statut==="hors_app")?it.statut:"non_joint",docName:it.docName||"",pages:[]});});'
+    +  'return out;'
+    +'}'
+    +'function _wizV2AnnexDue(){return _wizV2AnnexGroups().some(function(g){return g.statut==="joint"||g.statut==="hors_app";});}'
     +'function _wizV2NeedsAnnex(){'
-    +  'var items=(typeof _BAIL_ANNEXES!=="undefined"&&_BAIL_ANNEXES)||[];'
-    +  'if(!items.some(function(it){return it.statut==="joint"||it.statut==="hors_app";}))return false;'
+    +  'if(!_wizV2AnnexDue())return false;'
     +  'var by=window._wizV2AnnexAckBy||{};'
     +  'return _wizV2AnnexLocs().some(function(s){return !by[s.id];});'
     +'}'
-    +'function _wizV2RenderAnnexes(){'
+    +'function _wizV2AnnexBlockHtml(grp,pr){'
+    +  'var TAG={joint:["#e8f6ee","#15803d","Jointe"],hors_app:["#f3f4f6","#5f6f86","Remise hors application"],non_joint:["#fff7ed","#b45309","Non jointe"]};'
+    +  'var tot=(window._wizV2Pages||[]).length,h="<section class=\\"wizV2-ann\\" id=\\"wizV2-ann\\"><h3>Annexes au bail</h3><p class=\\"wizV2-ann-lead\\">Elles font partie du contrat. Chacune peut être ouverte ici avant de signer.</p>";'
+    +  'grp.forEach(function(g,i){var t=TAG[g.statut];'
+    +    'var det=g.pages.length?((g.ref?g.ref+" · ":"")+(g.pages.length>1?"pages "+g.pages[0].pageNum+" à "+g.pages[g.pages.length-1].pageNum:"page "+g.pages[0].pageNum))'
+    +      ':(g.statut==="joint"?((g.docName?g.docName+" · ":"")+"jointe au PDF du bail signé"):(g.statut==="hors_app"?"fournie par le bailleur en dehors de l\\u2019application":"non fournie avec le bail"));'
+    +    'h+="<div class=\\"wizV2-ann-it\\"><div class=\\"wizV2-ann-it-h\\"><div><b>"+_wizV2Esc(g.label)+" <span class=\\"wizV2-ann-tag\\" style=\\"background:"+t[0]+";color:"+t[1]+"\\">"+t[2]+"</span></b><small>"+_wizV2Esc(det)+"</small></div>";'
+    +    'if(g.pages.length)h+="<button type=\\"button\\" class=\\"wizV2-ann-read\\" id=\\"wizV2-ann-rd-"+i+"\\" aria-expanded=\\"false\\" onclick=\\"_wizV2AnnToggle("+i+")\\">Lire</button>";'
+    +    'h+="</div>";'
+    +    'if(g.pages.length){h+="<div class=\\"wizV2-ann-pages\\" id=\\"wizV2-ann-pg-"+i+"\\" hidden>";g.pages.forEach(function(p){h+=_wizV2PageHtml(p,tot,pr);});h+="</div>";}'
+    +    'h+="</div>";'
+    +  '});'
+    +  'var locs=_wizV2AnnexLocs(),by=window._wizV2AnnexAckBy||{};'
+    +  'if(_wizV2AnnexDue()&&locs.length){'
+    +    'locs.forEach(function(s){var on=!!by[s.id];'
+    +      'h+="<label class=\\"wizV2-ann-ack"+(on?" is-ok":"")+"\\" id=\\"wizV2-ann-lbl-"+s.id+"\\"><input type=\\"checkbox\\""+(on?" checked":"")+" onchange=\\"_wizV2AnnAck(\'"+s.id+"\',this.checked)\\"><span><b>Je reconnais avoir reçu les annexes listées ci-dessus et en avoir pris connaissance"+(locs.length>1?" — "+_wizV2Esc(s.nomCourt||s.id):"")+".</b><small>Obligatoire pour accéder à la page des signatures · la date et l\\u2019heure sont enregistrées dans le certificat de signature.</small></span></label>";'
+    +    '});'
+    +    'h+="<p class=\\"wizV2-ann-lock\\" id=\\"wizV2-ann-lock\\""+(_wizV2NeedsAnnex()?"":" hidden")+">La page des signatures s\\u2019affiche une fois la case cochée.</p>";'
+    +  '}else{h+="<p class=\\"wizV2-ann-lock\\">Côté bailleur, aucun accusé de réception des annexes n\\u2019est demandé.</p>";}'
+    +  'return h+"</section>";'
+    +'}'
+    +'function _wizV2AnnToggle(i){'
+    +  'var b=document.getElementById("wizV2-ann-rd-"+i),p=document.getElementById("wizV2-ann-pg-"+i);if(!b||!p)return;'
+    +  'var open=p.hidden;p.hidden=!open;b.textContent=open?"Masquer":"Lire";b.setAttribute("aria-expanded",String(open));'
+    +'}'
+    /* Heure de la case COCHÉE ; décocher l'efface (la preuve date l'accusé réellement donné). */
+    +'function _wizV2AnnAck(sid,on){'
+    +  'window._wizV2AnnexAckBy=window._wizV2AnnexAckBy||{};'
+    +  'if(on)window._wizV2AnnexAckBy[sid]=new Date().toISOString();else delete window._wizV2AnnexAckBy[sid];'
+    +  'var l=document.getElementById("wizV2-ann-lbl-"+sid);if(l)l.classList.toggle("is-ok",!!on);'
+    +  'var need=_wizV2NeedsAnnex(),w=document.getElementById("wizV2-sig-wrap"),n=document.getElementById("wizV2-ann-lock");'
+    +  'if(w)w.hidden=need;if(n)n.hidden=!need;'
+    +  '_wizV2UpdateNav();'
+    +'}'
+    +'function _wizV2GoAck(){'
     +  'var ov=document.getElementById("wizV2-overlay");if(!ov)return;'
-    +  'window._wizV2OnAnnex=true;'
-    +  'var TAG={joint:["#e8f6ee","#15803d","Joint au PDF du bail"],hors_app:["#f3f4f6","#5f6f86","Remis hors application"],non_joint:["#fff7ed","#b45309","Non joint"]};'
-    +  'var names=_wizV2AnnexLocs().map(function(s){return _wizV2Esc(s.nomCourt||s.id);}).join(", ");'
-    +  'var rows=_BAIL_ANNEXES.map(function(it){var t=TAG[it.statut]||TAG.non_joint;'
-    +    'return "<div class=\\"wizV2-ann-pc\\"><div><b>"+_wizV2Esc(it.label)+"</b>"+(it.statut==="joint"&&it.docName?"<small>"+_wizV2Esc(it.docName)+"</small>":"")+"</div><span class=\\"wizV2-ann-tag\\" style=\\"background:"+t[0]+";color:"+t[1]+"\\">"+t[2]+"</span></div>";}).join("");'
-    /* Texte exact : « jointes au PDF » seulement si au moins une pièce l'est ; sinon remises hors application. */
-    +  'var _hasJ=_BAIL_ANNEXES.some(function(it){return it.statut==="joint";});'
-    +  'ov.innerHTML="<div class=\\"wizV2-card\\"><div class=\\"wizV2-page-label\\">Annexes au bail — avant votre signature</div>"'
-    +    '+"<p class=\\"wizV2-ann-lead\\">Le dossier de diagnostic technique est annexé au bail (loi n° 89-462, art. 3-3). "+(_hasJ?"Les pièces jointes figureront dans le PDF du bail signé qui vous sera remis.":"Les pièces marquées « Remis hors application » vous sont remises par le bailleur.")+"</p>"'
-    +    '+"<div class=\\"wizV2-ann-list\\">"+rows+"</div>"'
-    +    '+"<label class=\\"wizV2-ann-ack\\" id=\\"wizV2-ann-lbl\\"><input type=\\"checkbox\\" id=\\"wizV2-ann-ack\\"><span>"+(_hasJ?"<b>J\\u2019ai reçu les annexes jointes au bail</b> (dossier de diagnostic technique), qui font partie du document que je signe.":"<b>J\\u2019ai reçu les pièces du dossier de diagnostic technique</b>, remises hors application par le bailleur.")+"<small>"+names+" · obligatoire pour signer · l\\u2019heure est enregistrée dans la preuve de signature.</small></span></label></div>";'
-    +  'var cb=document.getElementById("wizV2-ann-ack"),nx=document.getElementById("wiz-next-btn"),pv=document.getElementById("wiz-prev-btn");'
-    +  'if(pv){pv.style.visibility="";pv.disabled=false;}'
-    +  'var sync=function(){if(nx){nx.disabled=!cb.checked;nx.textContent="Continuer vers la signature →";nx.style.background="";}document.getElementById("wizV2-ann-lbl").classList.toggle("is-ok",cb.checked);};'
-    +  'cb.onchange=sync;sync();'
-    +  'var counter=document.getElementById("wiz-counter");if(counter)counter.textContent="Annexes au bail";'
+    +  'var by=window._wizV2AnnexAckBy||{},s=_wizV2AnnexLocs().filter(function(x){return !by[x.id];})[0];'
+    +  'var el=(s&&document.getElementById("wizV2-ann-lbl-"+s.id))||document.getElementById("wizV2-ann");if(!el)return;'
+    +  'var top=el.getBoundingClientRect().top-ov.getBoundingClientRect().top+ov.scrollTop-ov.clientHeight/2;'
+    +  'ov.scrollTo({top:Math.max(0,top),behavior:"smooth"});'
+    +  'el.style.boxShadow="0 0 0 4px #ffe7e0";setTimeout(function(){el.style.boxShadow="";},1400);'
     +'}'
     +'function _wizV2RenderFinal(){'
     +  'var ov=document.getElementById("wizV2-overlay");if(!ov)return;'
-    +  'if(_wizV2NeedsAnnex())return _wizV2RenderAnnexes();'
-    +  'window._wizV2OnAnnex=false;var _nxb=document.getElementById("wiz-next-btn");if(_nxb)_nxb.disabled=false;'
+    +  'if(_wizV2NeedsAnnex()){window._wizV2Current=1;_wizV2Render();setTimeout(_wizV2GoAck,80);return;}'   /* défense : case des annexes d'abord */
     +  'var pages=window._wizV2Pages;'
     +  'var sigs=_wizV2GetSigs();'
     +  'var nbParaphees=Object.keys(window._wizV2Paraphes||{}).length;'
@@ -24514,17 +24627,9 @@ function previewBailData(bail, log, ref, opts) {
     /* _wizV2CaptureCurrent retirée (document défilant : le paraphe est capturé au clic, _wizV2Parapher). */
     +'function _wizV2Next(){'
     +  'var pages=window._wizV2Pages,cur=window._wizV2Current;'
-    /* Écran « Annexes au bail » : case obligatoire → heure enregistrée pour chaque locataire courant, puis signature. */
-    +  'if(window._wizV2OnAnnex){'
-    +    'var _acb=document.getElementById("wizV2-ann-ack");'
-    +    'if(!_acb||!_acb.checked){alert("Cochez « J\\u2019ai reçu les annexes jointes au bail » pour continuer vers la signature.");return;}'
-    +    'window._wizV2AnnexAckBy=window._wizV2AnnexAckBy||{};var _at=new Date().toISOString();'
-    +    '_wizV2AnnexLocs().forEach(function(s){if(!window._wizV2AnnexAckBy[s.id])window._wizV2AnnexAckBy[s.id]=_at;});'
-    +    'window._wizV2OnAnnex=false;_wizV2RenderFinal();_wizV2ScrollTop();return;'
-    +  '}'
     /* v12.96 → v12.98 — étape finale : valider sigs + checkbox lu/approuvé puis générer PDF */
     +  'if(cur>pages.length){'
-    +    'if(_wizV2NeedsAnnex()){_wizV2RenderAnnexes();return;}' /* défense : pas de signature sans accusé des annexes */
+    +    'if(_wizV2NeedsAnnex()){window._wizV2Current=1;_wizV2Render();setTimeout(_wizV2GoAck,80);return;}' /* défense : pas de signature sans accusé des annexes */
     /* v13.01 — valider chaque signature ET sa case "Lu et approuvé" associée */
     +    'var sigs=_wizV2GetSigs();'
     +    'var captured={};var luBy={};var allSigned=true;var allLu=true;var firstFail=null;'
@@ -24584,6 +24689,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'if(_pr.error){alert("⛔ Signature impossible — "+_pr.error.message);return;}'
     +  'var mis=_wizV2Missing();'
     +  'if(mis){_wizV2ScrollToPage(mis.page);return;}'
+    +  'if(_wizV2NeedsAnnex()){_wizV2GoAck();return;}'   /* tout paraphé : la case des annexes, avant la page des signatures */
     +  'window._wizV2Current=pages.length+1;'
     +  '_wizV2Render();_wizV2ScrollTop();'
     +'}'
@@ -25300,6 +25406,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'var pdf=new jsPDFCls({unit:"mm",format:"a4",orientation:"portrait"});'
     +  'hardenJsPdfText(pdf);'   /* S3 : tout texte assaini avant encodage WinAnsi */
     +  'var x=PDF_NATIVE.MARGIN_LEFT,y=PDF_NATIVE.MARGIN_TOP;'
+    +  'var _secPages={};' /* 30/09 : page de début des sections (annexes A/B, notice) → manifeste : écran des annexes à distance */
     +  'for(var i=0;i<_BAIL_STRUCTURE.length;i++){'
     +    'var item=_BAIL_STRUCTURE[i];'
     /* v12.88 : revert addPage forcé v12.87 (donnait 26 pages, trop). Pagination
@@ -25309,7 +25416,7 @@ function previewBailData(bail, log, ref, opts) {
        reportée à l'utilisateur (1=physique, 2=section, 3=global). */
     +    'y=PDF_NATIVE.newPageIfNeeded(pdf,y,item.type==="table"?40:15);'
     +    'if(item.type==="h1"){y=PDF_NATIVE.drawTitle(pdf,1,item.text,x,y);}'
-    +    'else if(item.type==="h2"){y=PDF_NATIVE.drawTitle(pdf,2,item.text,x,y);}'
+    +    'else if(item.type==="h2"){y=PDF_NATIVE.drawTitle(pdf,2,item.text,x,y);var _sk=(typeof _sectionKindFromTitle==="function")?_sectionKindFromTitle(item.text):null;if(_sk&&_secPages[_sk]==null)_secPages[_sk]=pdf.internal.getNumberOfPages();}'
     +    'else if(item.type==="h3"){y=PDF_NATIVE.drawTitle(pdf,3,item.text,x,y);}'
     +    'else if(item.type==="p"){y=PDF_NATIVE.drawText(pdf,item.text,x,y)+PDF_NATIVE.PARAGRAPH_GAP;}'
     +    'else if(item.type==="p-bold"){y=PDF_NATIVE.drawText(pdf,item.text,x,y,{style:"bold"})+PDF_NATIVE.PARAGRAPH_GAP;}'
@@ -25516,7 +25623,7 @@ function previewBailData(bail, log, ref, opts) {
     +      'var _fr=new FileReader();'
     +      '_fr.onload=function(){'
     +        'if(window.opener&&!window.opener.closed&&typeof window.opener._onRemoteBailReady==="function"){'
-    +          'window.opener._onRemoteBailReady(_BAIL_REF,_fr.result,_remoteAnchors,_remoteTotalPages,_CLAUSE_IRL_V);'
+    +          'window.opener._onRemoteBailReady(_BAIL_REF,_fr.result,_remoteAnchors,_remoteTotalPages,_CLAUSE_IRL_V,_secPages);'
     +        '}else{alert("Fenêtre principale Propryo introuvable. Envoi pour signature impossible.");}'
     +        'try{window.close();}catch(e){}'
     +      '};'
@@ -45078,6 +45185,24 @@ async function _ddtAssemble(PDFLib, pdfBytes, bail, preps, failed) {
 // Liste des annexes pour le MANIFESTE du relais (écran « Annexes au bail » avant la signature à distance) :
 // statut RÉEL de chaque pièce du plan après fusion (une pièce prévue « jointe » mais en échec = non jointe),
 // pages exactes dans le document envoyé. Sans pièce du DDT dans le plan → null (pas d'écran).
+// Annexes du BAIL lui-même (annexe A, annexe B, notice d'information) : page de début de chaque section relevée
+// par genPDFNative ; chacune court jusqu'à la section suivante (ou la fin du bail). Section absente (bail garage…)
+// → rien. Déclarées « jointes » : elles sont dans le document signé.
+const _BAIL_ANNEX_SECTIONS = [
+  { kind: 'annexe-a', label: 'Annexe A — Réparations locatives', ref: 'Décret n° 87-712' },
+  { kind: 'annexe-b', label: 'Annexe B — Charges récupérables', ref: 'Décret n° 87-713' },
+  { kind: 'notice', label: "Notice d'information", ref: 'Arrêté du 29 mai 2015' }
+];
+function _bailAnnexManifestItems(sections, totalPages) {
+  const sec = (sections && typeof sections === 'object') ? sections : {};
+  const ok = (n) => Number.isInteger(n) && n >= 1 && n <= totalPages;
+  const starts = Object.keys(sec).map((k) => +sec[k]).filter(ok);
+  return _BAIL_ANNEX_SECTIONS.filter((d) => ok(+sec[d.kind])).map((d) => {
+    const from = +sec[d.kind];
+    const next = starts.filter((n) => n > from).sort((a, b) => a - b)[0];
+    return { label: d.label, ref: d.ref, statut: 'joint', from, to: next ? next - 1 : totalPages };
+  });
+}
 function _ddtManifestAnnexes(plan, fusion) {
   const items = ((plan && plan.items) || []).filter(it => it.statut !== 'na');
   if (!items.length) return null;
