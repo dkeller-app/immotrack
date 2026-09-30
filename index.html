@@ -26430,7 +26430,7 @@ function _avenantOpen(ref, opts){
          '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Date d\'effet</label><input class="inp" type="date" id="av-effet" value="'+escHtml((typeof _todayIsoLocal==='function')?_todayIsoLocal():td())+'" oninput="_avenantRender()"></div>'+
          '<div class="fld"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">Fait à</label><input class="inp" id="av-ville" value="'+escHtml(bail.villeSignature||'')+'" oninput="_avenantRender()"></div>'+
        '</div>'+
-       '<div class="av-note" style="background:#e6f1fb;border-color:#cfe0f6;color:#185fa5;margin-top:10px"><b>Enregistrer l\'avenant</b> : il passe « À signer » dans l\'onglet Bail (document figé, télécharger le PDF ne l\'enregistre pas). <b>Rien ne change dans le bail avant la signature de toutes les parties.</b> Une fois signé, l\'app applique au bail : <b>loyer</b>, <b>charges</b> et loyer supplémentaire d\'une <b>annexe</b> (datés à la date d\'effet), <b>terme du bail</b>, <b>jour de paiement</b>, <b>destination</b>. Colocataire, caution, travaux, sous-location, clause, correction, mode de paiement, IBAN et passage au forfait de charges (pas encore pris en compte par la régularisation) : document seulement. Signature dans l\'app : à venir — faire signer le PDF, puis le marquer « Signé sur papier ». <b>Brouillon</b> : rien n\'est enregistré au bail, à reprendre plus tard.</div>'+
+       '<div class="av-note" style="background:#e6f1fb;border-color:#cfe0f6;color:#185fa5;margin-top:10px"><b>Enregistrer l\'avenant</b> : il passe « À signer » dans l\'onglet Bail (document figé, télécharger le PDF ne l\'enregistre pas). <b>Rien ne change dans le bail avant la signature de toutes les parties.</b> Une fois signé, l\'app applique au bail : <b>loyer</b>, <b>charges</b> et loyer supplémentaire d\'une <b>annexe</b> (datés à la date d\'effet), <b>terme du bail</b>, <b>jour de paiement</b>, <b>destination</b>. Colocataire, caution, travaux, sous-location, clause, correction, mode de paiement, IBAN et passage au forfait de charges (pas encore pris en compte par la régularisation) : document seulement. Signature : sur cet appareil (chaque partie signe et coche « Lu et approuvé ») ou sur papier (faire précéder chaque signature de la mention manuscrite « Lu et approuvé », puis marquer l\'avenant « Signé sur papier »). <b>Brouillon</b> : rien n\'est enregistré au bail, à reprendre plus tard.</div>'+
      '</div>'+
      '<div class="av-prevwrap"><div id="av-preview"></div></div>'+
    '</div>'+
@@ -26719,7 +26719,7 @@ function _avenantSignePapier(ref, id){
   ov.innerHTML='<div class="modal" style="max-width:520px;width:96%" onclick="event.stopPropagation()">'+
     '<div class="m-head"><h3>Avenant n° '+escHtml(String(av.no))+' signé sur papier</h3><button class="m-close" onclick="closeM(\'ov-avenant-papier\')" aria-label="Fermer">✕</button></div>'+
     '<div class="m-body">'+
-      '<p style="margin:0 0 12px;font-size:14px;line-height:1.5">À utiliser une fois l\'exemplaire imprimé signé par <b>toutes les parties</b> (bailleur, locataires et, le cas échéant, colocataire entrant). Conserver l\'original signé.</p>'+
+      '<p style="margin:0 0 12px;font-size:14px;line-height:1.5">À utiliser une fois l\'exemplaire imprimé signé par <b>toutes les parties</b> (bailleur, locataires et, le cas échéant, colocataire entrant), chacune ayant précédé sa signature de la mention manuscrite « Lu et approuvé ». Conserver l\'original signé.</p>'+
       '<div class="fld"><label for="av-pap-date">Date de la dernière signature</label><input class="inp" type="date" id="av-pap-date" value="'+escHtml(auj)+'" max="'+escHtml(auj)+'"></div>'+
       '<div class="logf-doc-card" style="border-style:dashed;margin-top:12px">'+
         '<div class="logf-doc-icon">'+_monoSvg('<path d="M6 3h9l3 3v15H6V3Z"/><path d="M12 10v6M9 13l3-3 3 3"/>',22)+'</div>'+
@@ -26847,7 +26847,10 @@ function _avenantSigneRender(){
       // Proportions tenues (aspect-ratio) : la signature n'est jamais déformée, même en paysage.
       '<canvas id="av-sig-pad" width="600" height="260" style="display:block;aspect-ratio:600/260;width:min(100%, calc(38vh * 600 / 260));height:auto;margin:0 auto;border:1.5px dashed var(--bor);border-radius:var(--r);background:white;touch-action:none;cursor:crosshair"></canvas>'+
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px">'+
-        '<label style="display:flex;gap:8px;align-items:center;min-height:44px;cursor:pointer;font-size:14px"><input type="checkbox" id="av-sig-lu" style="width:18px;height:18px"'+(s.lu[s.i]?' checked':'')+'> Lu et approuvé</label>'+
+        // « Lu et approuvé » OBLIGATOIRE (décision 30/09, règle du bail) : sans la case, la signature n'est pas validée.
+        '<label id="av-sig-lu-lbl" style="display:flex;gap:10px;align-items:flex-start;min-height:44px;cursor:pointer;font-size:14px;line-height:1.4;padding:4px 6px;border-radius:var(--r)">'+
+          '<input type="checkbox" id="av-sig-lu" aria-required="true" style="width:22px;height:22px;flex-shrink:0;margin-top:1px"'+(s.lu[s.i]?' checked':'')+'>'+
+          '<span><b>« Lu et approuvé »</b> <span style="color:var(--red)" aria-hidden="true">*</span><br><span style="font-size:12.5px;color:var(--t3)">Obligatoire — mention imprimée au-dessus de la signature</span></span></label>'+
         '<button class="btn bs" style="min-height:44px" onclick="_edlClearSig(\'av-sig-pad\')">'+_uiIcon('close')+' Effacer</button>'+
       '</div>'+
     '</div>'+
@@ -26868,15 +26871,23 @@ function _avenantSigneFermer(){
 }
 function _avenantSigneNav(d){
   var s=_avSig; if(!s||s.enCours) return;
-  var img=_edlGetSig('av-sig-pad'); if(img){ s.sigs[s.i]=img; s.lu[s.i]=!!(el('av-sig-lu')&&el('av-sig-lu').checked); }
+  var img=_edlGetSig('av-sig-pad'); if(img) s.sigs[s.i]=img;
+  s.lu[s.i]=!!(el('av-sig-lu')&&el('av-sig-lu').checked);
   s.i=Math.max(0, Math.min(s.parties.length-1, s.i+d));
   _avenantSigneRender();
 }
 function _avenantSigneValider(){
   var s=_avSig; if(!s||s.enCours) return;
-  var img=_edlGetSig('av-sig-pad');
-  if(!img){ showToast('Signer dans le cadre avant de valider.','warn'); return; }
-  s.sigs[s.i]=img; s.lu[s.i]=!!(el('av-sig-lu')&&el('av-sig-lu').checked); s.at[s.i]=(new Date()).toISOString();
+  var img=_edlGetSig('av-sig-pad'), lu=!!(el('av-sig-lu')&&el('av-sig-lu').checked);
+  // Signature tracée ET « Lu et approuvé » coché, comme pour le bail (décision 30/09) : sinon, refus.
+  var manque=window.avenantSignatureManque(!!img, lu);
+  if(manque){
+    showToast('Pour valider cette signature : '+manque+'.','warn',6000);
+    var cible=lu?el('av-sig-pad'):el('av-sig-lu-lbl');
+    if(cible){ cible.style.boxShadow='0 0 0 3px var(--red)'; setTimeout(function(){ cible.style.boxShadow=''; },2000); }
+    return;
+  }
+  s.sigs[s.i]=img; s.lu[s.i]=true; s.at[s.i]=(new Date()).toISOString();
   if(s.i<s.parties.length-1){ s.i++; _avenantSigneRender(); return; }
   _avenantSigneTerminer();
 }
@@ -26887,7 +26898,13 @@ async function _avenantSigneTerminer(){
   var bail=DB.baux&&DB.baux[s.ref];
   if(!bail){ showToast('Bail introuvable : rien n\'a été enregistré.','err',7000); return; }
   var auj=(typeof _todayIsoLocal==='function')?_todayIsoLocal():td();
-  var htmlSigne=window.avenantHtmlSigne(av.html, s.sigs, auj);
+  // Chaque partie : signature ET « Lu et approuvé » (jamais un PDF signé sans la mention de chacun).
+  var iManque=s.parties.findIndex(function(p,i){ return !!window.avenantSignatureManque(!!s.sigs[i], s.lu[i]===true); });
+  if(iManque>=0){
+    showToast('Signature de '+(s.parties[iManque].nom||'une partie')+' incomplète : '+window.avenantSignatureManque(!!s.sigs[iManque], s.lu[iManque]===true)+'.','warn',7000);
+    s.i=iManque; _avenantSigneRender(); return;
+  }
+  var htmlSigne=window.avenantHtmlSigne(av.html, s.sigs, auj, s.lu);
   if(!htmlSigne){ showToast('Document de l\'avenant incohérent (cadres de signature) : rien n\'a été enregistré. Le faire signer sur papier.','err',9000); return; }
   s.enCours=true;
   var btn=el('av-sig-ok');
@@ -27035,7 +27052,8 @@ function _avenantVoir(ref, id){
       '<button class="btn bp" onclick="_avenantPdf(\''+_lyQ(ref)+'\',\''+_lyQ(id)+'\')">'+_uiIcon('download')+' PDF</button></div>'+
   '</div>';
   openM('ov-avenant-voir');   // DOC-3 : ouvrir AVANT de rendre
-  _docRenderSandboxed(el('av-voir-doc'), av.html, titre, _avenantFrameCss());
+  // Document à imprimer : consigne « Lu et approuvé » posée dans les cadres vides (avenants enregistrés avant le 30/09).
+  _docRenderSandboxed(el('av-voir-doc'), window.avenantHtmlAImprimer(av.html), titre, _avenantFrameCss());
 }
 async function _avenantPdf(ref, id){
   var av=_avenantTrouver(ref, id);
@@ -27047,7 +27065,7 @@ async function _avenantPdf(ref, id){
     fileName:'Avenant_n'+av.no+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf',
     desc:'PDF (avenant au bail)', genererAvant:true,
     titre:'Avenant n° '+av.no+' au bail', texte:'Avenant n° '+av.no+' au contrat de bail — '+(bail.adrBien||ref),
-    genererBlob:function(){ return window._docHtmlToNativeBlob(av.html, ent, { pagination:true, paraphes:(Array.isArray(av.paraphes)&&av.paraphes.every(function(x){return typeof x==='string';}))?av.paraphes
+    genererBlob:function(){ return window._docHtmlToNativeBlob(window.avenantHtmlAImprimer(av.html), ent, { pagination:true, paraphes:(Array.isArray(av.paraphes)&&av.paraphes.every(function(x){return typeof x==='string';}))?av.paraphes
       // repli : les parties du DOCUMENT (jamais le bail d'aujourd'hui)
       :((typeof window.avenantPartiesSignature==='function'&&window.avenantPartiesSignature(av.html).map(function(p){ return p.role; }))||[]) }); }
   });

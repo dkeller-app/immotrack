@@ -209,17 +209,19 @@ describe('buildAvenantHtml — assemblage', () => {
     const roles = [...h.matchAll(/<div class="pro-signbox">([^<]*)<br>/g)].map(m => m[1]);
     expect(roles).toEqual(['Le bailleur', 'Le locataire', 'Le colocataire sortant', 'Le colocataire entrant']);
     expect(h).toMatch(/représenté par Didier Keller, gérant/);
-    expect(h).toMatch(/<div class="pro-sigspace"><\/div>/);   // espace de signature au-dessus du filet
+    // espace de signature au-dessus du filet, avec la consigne « Lu et approuvé » (décision 30/09)
+    expect(h).toContain('<div class="pro-sigspace"><em class="pro-sigmention pro-sigconsigne">Précéder la signature de la mention manuscrite :<br>« Lu et approuvé »</em></div>');
   });
   it('images de signature posées dans leur cadre quand elles sont fournies (data-URL validée)', () => {
     const h = buildAvenantHtml(Object.assign({}, ctx, { signatures: ['data:image/png;base64,AAA='] })).html;
-    expect(h).toMatch(/<div class="pro-sigspace"><img src="data:image\/png;base64,AAA="><\/div><div class="pro-signbox">Le bailleur/);
+    expect(h).toContain('<div class="pro-sigspace"><em class="pro-sigmention">« Lu et approuvé »</em><img src="data:image/png;base64,AAA="></div><div class="pro-signbox">Le bailleur');
   });
   it('signature autre qu\'une image data-URL (HTML, javascript:, SVG) → ignorée (HTML conservé et partagé SCI)', () => {
     const h = buildAvenantHtml(Object.assign({}, ctx, { signatures: [
       '<img src=x onerror=alert(1)>', 'javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,AA"onerror="x'] })).html;
     expect(h).not.toMatch(/onerror|javascript:|svg\+xml/);
-    expect((h.match(/<div class="pro-sigspace"><\/div>/g) || []).length).toBe(4);
+    expect(h.split('<div class="pro-sigspace"><em class="pro-sigmention pro-sigconsigne">').length - 1).toBe(4);   // aucune image : la consigne papier
+    expect(h).not.toContain('<img');
   });
   it('signale la caution + expose le colocataire entrant comme signataire', () => {
     const r = buildAvenantHtml(ctx);

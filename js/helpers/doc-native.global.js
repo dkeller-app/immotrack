@@ -445,6 +445,24 @@
   }
 
   /**
+   * Mention posée AU-DESSUS de la signature (avenant, décision 30/09) : « Lu et approuvé » une fois signé
+   * (comme drawSignatureBlock pour le bail), ou la consigne « Précéder la signature de la mention
+   * manuscrite… » sur le document à imprimer (`pro-sigconsigne` : un espace plus haut pour écrire à la main).
+   * Recherche de chaînes (pas d'expression régulière) : le document peut venir du partage SCI.
+   * @returns {{t:string, consigne:boolean}|null}
+   */
+  function _sigMention(html) {
+    const s = String(html || '');
+    const o = s.indexOf('<em class="pro-sigmention');
+    if (o < 0) return null;
+    const g = s.indexOf('>', o);
+    const f = g < 0 ? -1 : s.indexOf('</em>', g);
+    if (f < 0) return null;
+    const t = htmlToText(s.slice(g + 1, f));
+    return t ? { t, consigne: s.slice(o, g).indexOf('pro-sigconsigne') >= 0 } : null;
+  }
+
+  /**
    * Rejoue un document parsé (parseDocDoc) en texte natif. Le bandeau est tracé en vectoriel
    * depuis `ent` ; les signatures bailleur restent des images posées par addImage (comme l'EDL).
    * @param {object} pdf   instance jsPDF déjà blindée (MontantDoc.hardenJsPdfText)
@@ -486,7 +504,19 @@
       for (let i = 0; i < (boxes || []).length; i += g.cols) rows.push(boxes.slice(i, i + g.cols));
       return { g, rows };
     };
-    const sigRowH = (row, bw) => SIG_TOP + SIG_SPACE + SIG_UNDER
+    // Mention au-dessus de la signature (« Lu et approuvé » / consigne papier) : hauteur de la plus haute
+    // de la rangée, posée dans le blanc au-dessus du cadre (3 mm gardés au-dessus d'elle) : une rangée sans
+    // mention garde exactement sa hauteur (quittances, reçus…) ; une consigne papier ouvre un espace plus
+    // haut (mention manuscrite + signature).
+    const SIG_SPACE_PAPIER = 18, SIG_MENTION_GAP = 1, SIG_MENTION_TOP = 3;
+    const sigMentionSize = (m) => (m.consigne ? PN.FONT_SIZE_SMALL : PN.FONT_SIZE_NOTE);
+    const sigMentionH = (row, bw) => Math.max(0, ...row.map(bx => {
+      const m = _sigMention(bx.sig);
+      return m ? textH(m.t, sigMentionSize(m), bw, 'italic') + SIG_MENTION_GAP : 0;
+    }));
+    const sigSpace = (row) => (row.some(bx => { const m = _sigMention(bx.sig); return m && m.consigne && !_imgSrc(bx.sig); }) ? SIG_SPACE_PAPIER : SIG_SPACE);
+    const sigTopH = (row, bw) => Math.max(SIG_TOP, SIG_MENTION_TOP + sigMentionH(row, bw));
+    const sigRowH = (row, bw) => sigTopH(row, bw) + sigSpace(row) + SIG_UNDER
       + Math.max.apply(null, row.map(bx => textH(htmlToText(bx.label), PN.FONT_SIZE_SMALL, bw)));
     const h3H = (b) => PN.H3_GAP_BEFORE + textH(htmlToText(b.v), PN.FONT_SIZE_H3, W, 'bold') + PN.H3_GAP_AFTER;
     const blockH = (b) => {
@@ -620,10 +650,14 @@
           const { g, rows } = sigRows(b.boxes);
           for (const row of rows) {
             y = PN.newPageIfNeeded(pdf, y, Math.min(sigRowH(row, g.bw), usable));
-            const yTop = y + SIG_TOP;
+            const yTop = y + sigTopH(row, g.bw);                // haut de l'espace de signature
+            const yMention = yTop - sigMentionH(row, g.bw);     // mention juste au-dessus
+            const space = sigSpace(row);
             let bx = row.length === 1 && g.cols === 1 ? right - g.bw : x;
             for (const box of row) {
               const src = _imgSrc(box.sig);
+              const mention = _sigMention(box.sig);
+              if (mention) PN.drawText(pdf, mention.t, bx, yMention, { size: sigMentionSize(mention), style: 'italic', color: [60, 60, 60], maxWidth: g.bw });
               // Signature : ratio PRÉSERVÉ (avant : forcée à 58×10 mm → déformée). Ajustée dans une
               // boîte max 58×11 mm, calée sur la ligne — comme à l'écran.
               if (src) {
@@ -636,8 +670,8 @@
                 } catch (e) {}
               }
               pdf.setDrawColor(120, 120, 120); pdf.setLineWidth(0.2);
-              pdf.line(bx, yTop + SIG_SPACE, bx + g.bw, yTop + SIG_SPACE);
-              PN.drawText(pdf, htmlToText(box.label), bx, yTop + SIG_SPACE + SIG_UNDER, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, maxWidth: g.bw });
+              pdf.line(bx, yTop + space, bx + g.bw, yTop + space);
+              PN.drawText(pdf, htmlToText(box.label), bx, yTop + space + SIG_UNDER, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, maxWidth: g.bw });
               bx += g.step;
             }
             y = y + sigRowH(row, g.bw);

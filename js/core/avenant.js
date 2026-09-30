@@ -278,6 +278,20 @@ export function avenantArticle(k, d, ctx) {
   }
 }
 
+// ── « Lu et approuvé » (décision Didier 30/09 : obligatoire et imprimée, comme sur le bail) ─────────────
+// Signé dans l'app : la mention est imprimée au-dessus de chaque signature (comme drawSignatureBlock pour
+// le bail). Pas encore signé (document à imprimer) : la consigne de l'acte de cautionnement, au-dessus de
+// l'espace où chaque partie signe à la main. Le moteur PDF (doc-native) lit `pro-sigmention`.
+export const LU_APPROUVE = '« Lu et approuvé »';
+// Consigne sur deux lignes : la mention à recopier n'est jamais coupée en fin de ligne.
+const CONSIGNE_LU_APPROUVE = 'Précéder la signature de la mention manuscrite :<br>' + LU_APPROUVE;
+/** Contenu de l'espace de signature d'un cadre : mention + image validée, ou consigne à la main. */
+function _sigspaceHtml(imgHtml) {
+  return imgHtml
+    ? '<em class="pro-sigmention">' + LU_APPROUVE + '</em>' + imgHtml
+    : '<em class="pro-sigmention pro-sigconsigne">' + CONSIGNE_LU_APPROUVE + '</em>';
+}
+
 /**
  * Assemble le document HTML complet de l'avenant.
  * @param {object} ctx - { no, bailleur, locataires:[nom], bien, dateBail, loyer0, effetIso, ville, objets:[{k,data}] }
@@ -324,7 +338,7 @@ export function buildAvenantHtml(ctx) {
   const sigs = Array.isArray(ctx.signatures) ? ctx.signatures : [];
   const sigImg = (u) => (typeof u === 'string' && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(u)) ? '<img src="' + esc(u) + '">' : '';
   const sigHtml = '<div class="pro-signzone' + (signataires.length > 1 ? ' duo' : '') + '">' +
-    signataires.map((s, i) => '<div class="pro-sigcase"><div class="pro-sigspace">' + sigImg(sigs[i]) + '</div>' +
+    signataires.map((s, i) => '<div class="pro-sigcase"><div class="pro-sigspace">' + _sigspaceHtml(sigImg(sigs[i])) + '</div>' +
       '<div class="pro-signbox">' + s.role + '<br><strong>' + esc(s.nom) + '</strong>' + (s.sous ? '<br>' + esc(s.sous) : '') + '</div></div>').join('') +
     '</div>';
 
@@ -468,20 +482,50 @@ export function avenantPartiesSignature(html) {
 /**
  * Document signé : chaque image (data-URL PNG/JPEG VALIDÉE — le document est partagé, jamais de HTML
  * injecté tel quel) posée dans le cadre de même rang ; la date de l'acte remplace la ligne à compléter.
- * Retourne null si le nombre de signatures ne correspond pas aux cadres (document incohérent).
+ * « Lu et approuvé » (décision 30/09) : `lus[i]` doit valoir true pour CHAQUE cadre ; la mention est alors
+ * imprimée au-dessus de chaque signature (elle remplace la consigne du document à imprimer).
+ * Retourne null si le nombre de signatures ne correspond pas aux cadres (document incohérent) ou si une
+ * partie n'a pas coché « Lu et approuvé » (signature non valable).
  */
-export function avenantHtmlSigne(html, sigs, dateActeIso) {
+export function avenantHtmlSigne(html, sigs, dateActeIso, lus) {
   const s = String(html == null ? '' : html);
   const liste = Array.isArray(sigs) ? sigs : [];
   const cadres = _cadres(s);
   if (!cadres.length || liste.length !== cadres.length || !liste.every(u => typeof u === 'string' && _SIG_OK.test(u))) return null;
+  if (!Array.isArray(lus) || lus.length !== cadres.length || !lus.every(x => x === true)) return null;
   let out = '', pos = 0;
   cadres.forEach((c, i) => {
-    out += s.slice(pos, c.debut) + _OUV + '<img src="' + esc(liste[i]) + '">' + _MIL + c.box + _FIN;
+    out += s.slice(pos, c.debut) + _OUV + _sigspaceHtml('<img src="' + esc(liste[i]) + '">') + _MIL + c.box + _FIN;
     pos = c.fin;
   });
   out += s.slice(pos);
   // La ligne « Fait à …, le ____ , en autant… » précisément — jamais des soulignés saisis dans une clause.
   if (dateActeIso) out = out.replace(', le ____________________, en autant', ', le ' + esc(frDate(dateActeIso)) + ', en autant');
   return out;
+}
+
+/**
+ * Document à imprimer (signature sur papier) : chaque cadre dont l'espace de signature est VIDE reçoit la
+ * consigne « Précéder la signature de la mention manuscrite… ». Sert aux avenants enregistrés avant la
+ * décision du 30/09 (document figé sans consigne) ; un cadre déjà rempli (consigne, signature) est laissé tel quel.
+ */
+export function avenantHtmlAImprimer(html) {
+  const s = String(html == null ? '' : html);
+  const cadres = _cadres(s);
+  let out = '', pos = 0;
+  cadres.forEach((c) => {
+    out += s.slice(pos, c.debut) + (c.space.trim() ? s.slice(c.debut, c.fin) : _OUV + _sigspaceHtml('') + _MIL + c.box + _FIN);
+    pos = c.fin;
+  });
+  return out + s.slice(pos);
+}
+
+/**
+ * Signature d'une partie sur l'appareil (règle du bail, décision 30/09) : valable seulement tracée ET
+ * « Lu et approuvé » coché. Retourne ce qui manque (texte à l'infinitif) ou null si elle est valable.
+ */
+export function avenantSignatureManque(signe, lu) {
+  if (signe && lu) return null;
+  if (!signe && !lu) return 'signer ET cocher ' + LU_APPROUVE;
+  return signe ? 'cocher ' + LU_APPROUVE : 'signer';
 }

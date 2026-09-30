@@ -123,7 +123,7 @@ import { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journa
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 // IRL-REVISION (R6/R7) — la lettre suit la révision VALIDÉE ; annuler une révision programmée.
 import * as IrlRevision from './core/irl-revision.js';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne } from './core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque } from './core/avenant.js';
 // AVENANT-REFONTE lot 2 — registre des avenants (journal baux_evenements, type 'avenant') : statuts, liste, numérotation.
 import * as AvenantRegistre from './core/avenant-registre.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
@@ -690,6 +690,9 @@ window.AvenantRegistre = AvenantRegistre;
 window.avenantEntrant = avenantEntrant;
 window.avenantPartiesSignature = avenantPartiesSignature;   // lot 3b : parties lues dans le document enregistré
 window.avenantHtmlSigne = avenantHtmlSigne;
+// « Lu et approuvé » obligatoire et imprimé (décision 30/09) : consigne papier + validation par partie.
+window.avenantHtmlAImprimer = avenantHtmlAImprimer;
+window.avenantSignatureManque = avenantSignatureManque;
 // Congé & résiliation (loi 89-462)
 window.CONGE_MOTIFS = CONGE_MOTIFS;
 window.REPRISE_LIENS = REPRISE_LIENS;

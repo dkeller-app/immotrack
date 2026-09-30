@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildAvenantHtml, avenantPartiesSignature, avenantHtmlSigne } from '../../js/core/avenant.js';
 
+const LUS3 = [true, true, true];
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 const ctx = (x) => Object.assign({ no: 2, bailleur: 'SCI Les <Tilleuls> & Co', locataires: ['Alice Martin', 'Bruno Leroy'],
   locDetail: [{ nom: 'Alice Martin', civilite: 'Mme' }, { nom: 'Bruno Leroy', civilite: 'M.' }], garants: [],
@@ -27,21 +28,21 @@ describe('avenantPartiesSignature — le document fait foi', () => {
 describe('avenantHtmlSigne', () => {
   const html = buildAvenantHtml(ctx()).html;
   it('une image par cadre, dans l\'ordre ; date de l\'acte à la place de la ligne à compléter', () => {
-    const s = avenantHtmlSigne(html, [PNG, PNG, PNG], '2026-09-29');
+    const s = avenantHtmlSigne(html, [PNG, PNG, PNG], '2026-09-29', LUS3);
     expect((s.match(/<img src="data:image\/png/g) || []).length).toBe(3);
     expect(s).toContain('29/09/2026');
     expect(s).not.toContain('____________________');
     expect(avenantPartiesSignature(s).map(x => x.nom)).toEqual(['SCI Les <Tilleuls> & Co', 'Alice Martin', 'Bruno Leroy']);
   });
   it('nombre de signatures différent des cadres, ou image non conforme → null (jamais un document incohérent)', () => {
-    expect(avenantHtmlSigne(html, [PNG, PNG], '2026-09-29')).toBeNull();
-    expect(avenantHtmlSigne(html, [PNG, PNG, '"><script>alert(1)</script>'], '2026-09-29')).toBeNull();
-    expect(avenantHtmlSigne(html, [PNG, PNG, 'data:image/svg+xml;base64,AAAA'], '2026-09-29')).toBeNull();
+    expect(avenantHtmlSigne(html, [PNG, PNG], '2026-09-29', [true, true])).toBeNull();
+    expect(avenantHtmlSigne(html, [PNG, PNG, '"><script>alert(1)</script>'], '2026-09-29', LUS3)).toBeNull();
+    expect(avenantHtmlSigne(html, [PNG, PNG, 'data:image/svg+xml;base64,AAAA'], '2026-09-29', LUS3)).toBeNull();
     expect(avenantHtmlSigne('<p>sans cadre</p>', [], '2026-09-29')).toBeNull();
   });
   it('le document d\'origine n\'est pas modifié', () => {
     const avant = String(html);
-    avenantHtmlSigne(html, [PNG, PNG, PNG], '2026-09-29');
+    avenantHtmlSigne(html, [PNG, PNG, PNG], '2026-09-29', LUS3);
     expect(html).toBe(avant);
   });
 });
@@ -58,7 +59,7 @@ describe('audit lot 3b', () => {
   it('M1 : des soulignés saisis dans une clause ne reçoivent pas la date ; « Fait le » oui', () => {
     const h = buildAvenantHtml(ctx({ objets: [{ k: 'clause', data: { titre: 'Parking', texte: 'Place n° ____________________ attribuée.' } }] })).html;
     const n = avenantPartiesSignature(h).length;
-    const s = avenantHtmlSigne(h, Array(n).fill(PNG), '2026-09-29');
+    const s = avenantHtmlSigne(h, Array(n).fill(PNG), '2026-09-29', Array(n).fill(true));
     expect(s).toContain(', le 29/09/2026, en autant');
     expect(s).toContain('____________________');   // celui de la clause, intact
   });
