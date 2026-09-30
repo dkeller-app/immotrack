@@ -18,8 +18,6 @@ import { planFlush, FLUSH_DEBOUNCE_MS } from '../core/sync-schedule.js'
 // mode test). Elle était redéclarée ici ET dans le module ; deux définitions
 // d'une même clé de stockage finissent toujours par diverger.
 import { MIROIR_KEY as MIRROR_KEY } from '../core/offline-boot.js'
-// STOCKAGE lot 1 (audit, point 5) — clé du jeton de session : SOURCE UNIQUE dans cache-purge.js.
-import { AUTH_STORAGE_KEY } from '../core/cache-purge.js'
 import { makeDetUuid } from '../core/det-uuid.js'   // P0-4 : id d'audit DÉTERMINISTE (anti-doublons, DRY)
 // LE lecteur du DB vivant (getter d'abord, repli sur le miroir, try/catch). Ce fichier portait déjà
 // le bon geste à la main ; on appelle le helper testé plutôt que d'en garder deux copies.
@@ -129,10 +127,12 @@ const MIRROR_TAG_KEY = 'immotrack_v4_tag'  // = cache-purge.MIRROR_TAG_KEY (cont
 // (au lieu du défaut sb-<projectref>-auth-token, dérivé de l'URL) → purge FIABLE au logout / changement
 // de compte (cf. cache-purge.authStorageKeys). __immoSupaToken (worker de signature) lit getSession qui
 // relit ce storage → inchangé pour l'appelant.
-// La constante vient de js/core/cache-purge.js (import STATIQUE en tête : source unique, aussi lue par
-// le registre du stockage local). Import statique sûr au chargement : cache-purge.js n'importe rien et
-// n'a aucun effet de bord au niveau module — même patron que MIROIR_KEY importée d'offline-boot.js.
-let _cachePurge = null          // module cache-purge (importé au boot, best-effort)
+// Constante LOCALE, volontairement : un import statique de cache-purge.js rendrait l'écran de
+// connexion dépendant de ce module (s'il manque, l'entrée entière ne se charge pas et la page reste
+// blanche — le mode dégradé M-b disparaît). Égalité avec cache-purge.AUTH_STORAGE_KEY (lue par le
+// registre du stockage local) verrouillée par __tests__/helpers/stockage-purges-cablage.test.js.
+const AUTH_STORAGE_KEY = 'immo-supabase-auth'
+let _cachePurge = null         // module cache-purge (importé au boot, best-effort)
 // STOCKAGE lot 1 (docs/CDC-STOCKAGE.md) — registre du stockage local : écriture du miroir avec éviction
 // sur quota (S-1) et purge des copies complètes de la base au logout / changement d'utilisateur (S-7).
 // Import best-effort comme ses voisins : sans lui, comportement d'AVANT le lot (écriture directe).
@@ -183,18 +183,16 @@ function _purgerCopiesLocales(motif) {
 
 // P1.3 volet RGPD — purge du cache local au LOGIN, selon le propriétaire du miroir résiduel.
 // Extraite telle quelle de `onLoggedIn` (STOCKAGE lot 1, audit point 3) pour être exécutable par un
-// test : tout sauf 'same' → miroir + horodatage + copies complètes de la base retirés ; 'other-user'
-// → IndexedDB photos purgée ; puis tag et espaces autorisés réécrits. `retenirVerdict(cls)` est
-// appelé AVANT la réécriture du tag (EDL TERRAIN lot 4, F1 : relu après, il rendrait toujours 'same').
-// Rend le verdict. Peut lever (l'appelant l'attrape, comme avant).
-async function _purgerCacheAuLogin({ user, esp, retenirVerdict }) {
+// test : tout sauf 'same' → miroir + horodatage + copies complètes de la base retirés ; puis tag et
+// espaces autorisés réécrits. SYNCHRONE : aucun `await` entre la lecture de l'ancien tag et sa
+// réécriture. Rend le verdict de l'ANCIEN tag, que l'appelant retient pour F1 (EDL TERRAIN lot 4 :
+// relu après la réécriture, il rendrait toujours 'same'). La purge IndexedDB des photos d'un autre
+// utilisateur ('other-user') est lancée par l'appelant, sur ce verdict. Peut lever (l'appelant
+// l'attrape, comme avant).
+function _purgerCacheAuLogin({ user, esp }) {
   // (audit M-b) SANS le module (import raté) : verdict 'untagged' forcé → miroir purgé quand même
   // (fail-safe RGPD ; seule la purge IDB 'other-user', qui exige la PREUVE du tag, devient inerte).
   const cls = _cachePurge ? _cachePurge.classifyMirrorTag(localStorage.getItem(MIRROR_TAG_KEY), user.id, esp.espaceId) : 'untagged'
-  // EDL TERRAIN lot 4 (F1) — on RETIENT ce verdict AVANT la réécriture du tag
-  // juste en dessous. Relu après, il rendrait forcément 'same' : F1 croirait
-  // vérifier l'appartenance du miroir alors qu'il ne vérifierait plus rien.
-  if (typeof retenirVerdict === 'function') retenirVerdict(cls)
   if (cls !== 'same') {
     try { localStorage.removeItem(MIRROR_KEY) } catch (e) {}
     // STOCKAGE lot 1 (CDC §3.6) : l'horodatage part AVEC le miroir (même règle que le logout) —
@@ -203,7 +201,6 @@ async function _purgerCacheAuLogin({ user, esp, retenirVerdict }) {
     // S-7 : les copies complètes de la base d'un autre utilisateur/espace ne survivent pas non plus.
     _purgerCopiesLocales('changement de propriétaire du miroir')
   }
-  if (cls === 'other-user') await _deletePhotosDb()
   try { localStorage.setItem(MIRROR_TAG_KEY, _cachePurge ? _cachePurge.mirrorTag(user.id, esp.espaceId) : JSON.stringify({ userId: user.id, espaceId: esp.espaceId })) } catch (e) {}
   // EDL TERRAIN lot 4 — on MÉMORISE les espaces auxquels ce login donne accès.
   // Hors ligne on ne peut rien demander au serveur : sans cette liste, le
@@ -1363,10 +1360,13 @@ async function onLoggedIn(api, overlay, user) {
     // la RGPD prime. 'untagged'/'other-espace' : IndexedDB ÉPARGNÉE (peut contenir les seuls exemplaires
     // de preuves du même user, cf. matrice §3b du design 2026-07-13). Best-effort, jamais bloquant.
     // STOCKAGE lot 1 (audit, point 3) : la séquence vit dans une FONCTION NOMMÉE au niveau du module
-    // (`_purgerCacheAuLogin`, ci-dessous) pour être EXÉCUTÉE par un test — même raison que F1.
-    // Comportement strictement identique ; le verdict est retenu au même instant qu'avant.
+    // (`_purgerCacheAuLogin`, définie plus haut dans ce fichier) pour être EXÉCUTÉE par un test — même
+    // raison que F1. Appel SYNCHRONE : son retour est le verdict de l'ANCIEN tag, retenu ici pour F1
+    // (EDL TERRAIN lot 4). La purge IndexedDB 'other-user' suit, dans la même tâche : la requête de
+    // suppression part immédiatement après la réécriture du tag, sans tour de boucle entre les deux.
     try {
-      await _purgerCacheAuLogin({ user, esp, retenirVerdict: cls => { _tagMiroirAvantLogin = cls } })
+      _tagMiroirAvantLogin = _purgerCacheAuLogin({ user, esp })
+      if (_tagMiroirAvantLogin === 'other-user') await _deletePhotosDb()
     } catch (e) { console.warn('[Supabase] purge cache au login', e) }
     api.wireStores({ espaces: _espaces, getDB: () => liveDB, schedule })   // MULTI-ESPACE : 1 store/espace agrégé (N=1 = mono)
     // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des

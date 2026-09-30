@@ -26,8 +26,19 @@
  *
  * Aucune API navigateur n'est appelée ici en dehors du `storage` reçu.
  */
-import { MIROIR_KEY, MIROIR_ECRIT_KEY, FLUSH_OK_KEY, ESPACES_KEY } from './offline-boot.js';
-import { MIRROR_TAG_KEY, AUTH_STORAGE_KEY } from './cache-purge.js';
+
+// Les clés du miroir et de la session. Constantes LOCALES, volontairement, sans import :
+// js/main.js importe ce module STATIQUEMENT ; un import de offline-boot.js ou de cache-purge.js
+// ici rendrait TOUT main.js (et ses ~40 exports vers l'app) dépendant de ces deux fichiers — un
+// seul des deux en 404 et main.js entier ne se charge plus (constaté au ré-audit du lot 1, même
+// cause que la régression de l'écran de connexion). Égalité avec les exports de offline-boot.js et
+// cache-purge.js verrouillée par __tests__/helpers/stockage-local.test.js.
+export const MIROIR_KEY = 'immotrack_v4';
+export const MIROIR_ECRIT_KEY = 'immotrack_v4_ecrit_at';
+export const FLUSH_OK_KEY = 'immotrack_v4_flush_at';
+export const ESPACES_KEY = 'immotrack_v4_espaces';
+export const MIRROR_TAG_KEY = 'immotrack_v4_tag';
+export const AUTH_STORAGE_KEY = 'immo-supabase-auth';
 
 const echap = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** Clé exacte, en prod seulement (clés écrites sans `_lsKey`). */

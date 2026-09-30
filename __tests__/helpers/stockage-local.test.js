@@ -41,6 +41,14 @@ const HERITAGE = () => ({
   'immotrack_v4_tag': '{"userId":"u","espaceId":"e"}',
 });
 
+describe('Constantes locales du registre = exports des modules qui les possèdent (pas d’import : main.js)', () => {
+  it('égalité avec offline-boot.js et cache-purge.js', async () => {
+    const L = await import('../../js/core/stockage-local.js');
+    expect([L.MIROIR_KEY, L.MIROIR_ECRIT_KEY, L.FLUSH_OK_KEY, L.ESPACES_KEY]).toEqual([MIROIR_KEY, MIROIR_ECRIT_KEY, FLUSH_OK_KEY, ESPACES_KEY]);
+    expect([L.MIRROR_TAG_KEY, L.AUTH_STORAGE_KEY]).toEqual([MIRROR_TAG_KEY, AUTH_STORAGE_KEY]);
+  });
+});
+
 describe('classerCle — le registre reconnaît chaque clé de l’app', () => {
   it('le miroir et son horodatage, dans les deux namespaces', () => {
     expect(classerCle(MIROIR_KEY)).toBe('principal');

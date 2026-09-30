@@ -21,22 +21,10 @@ import { dirname, resolve } from 'node:path';
 import * as Stockage from '../../js/core/stockage-local.js';
 import { ecritureAutoriseeHorsLigne } from '../../js/core/offline-boot.js';
 import { fauxStockageQuota, chaine } from './_faux-stockage-quota.js';
+import { extraireFonction } from './_extraction-source.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const QUOTA = 5_242_880;   // ~10 Mio stockés en UTF-16 : le quota d'une origine sous Chromium
-
-/** Extrait le corps complet d'une déclaration `function <nom>(` par appariement d'accolades. */
-function extraireFonction(src, nom) {
-  const debut = src.indexOf('function ' + nom + '(');
-  if (debut < 0) throw new Error('fonction introuvable dans index.html : ' + nom);
-  const ouvre = src.indexOf('{', debut);
-  let prof = 0, i = ouvre;
-  for (; i < src.length; i++) {
-    if (src[i] === '{') prof++;
-    else if (src[i] === '}') { prof--; if (prof === 0) { i++; break; } }
-  }
-  return src.slice(debut, i);
-}
 
 // L'état d'un compte réel avant correctif (mesures du 28/08) + ce qui doit survivre.
 const HERITAGE = () => ({
@@ -173,6 +161,46 @@ describe('Entrée cloud (js/app/supabase-entry.js) — rebase du miroir au login
     expect(() => _purgerCopiesLocales('logout')).not.toThrow();
     expect(st.cles().sort()).toEqual(Object.keys(HERITAGE()).sort());
     expect(_ecrireMiroir('{}')).toBe(true);                               // stockage libre : écriture directe
+  });
+});
+
+describe('Base illisible — _conserverBaseIllisible : le message s’affiche TOUJOURS (audit lot 1, point 3)', () => {
+  // Sur certains iOS, le premier `indexedDB.open` ne répond jamais : sans borne, la promesse de
+  // conservation ne se résolvait jamais, aucun message, une base vide sans explication.
+  const monter = (idbPutRaw) => {
+    const html = readFileSync(resolve(repoRoot, 'index.html'), 'utf8');
+    return new Function('_idbPutRaw', 'KEY', 'console', extraireFonction(html, '_conserverBaseIllisible') + '\nreturn _conserverBaseIllisible;')(
+      idbPutRaw, '_test_immotrack_v4', { warn() {} });
+  };
+
+  it('IndexedDB qui ne répond JAMAIS : la promesse se résout à « non conservée » après le délai', async () => {
+    const debut = Date.now();
+    const r = await monter(() => new Promise(() => {}))('{illisible', 40);
+    expect(r).toBe(false);
+    expect(Date.now() - debut).toBeGreaterThanOrEqual(35);
+  });
+
+  it('délai par défaut ≈ 3 s (borne, pas une attente infinie)', async () => {
+    const vus = [];
+    const origine = globalThis.setTimeout;
+    globalThis.setTimeout = (fn, ms) => { vus.push(ms); return origine(fn, 0); };
+    try { expect(await monter(() => new Promise(() => {}))('{illisible')).toBe(false); }
+    finally { globalThis.setTimeout = origine; }
+    expect(vus).toContain(3000);
+  });
+
+  it('écriture réussie : « conservée », et c’est bien la base illisible qui est écrite sous sa clé', async () => {
+    const ecrits = [];
+    const r = await monter((k, v) => { ecrits.push([k, v]); return Promise.resolve(); })('{illisible', 1000);
+    expect(r).toBe(true);
+    expect(ecrits).toHaveLength(1);
+    expect(ecrits[0][0]).toBe('corrompu:_test_immotrack_v4');
+    expect(ecrits[0][1].raw).toBe('{illisible');
+  });
+
+  it('écriture refusée ou IndexedDB absent : « non conservée », sans lever', async () => {
+    expect(await monter(() => Promise.reject(new Error('QuotaExceededError')))('{x', 1000)).toBe(false);
+    expect(await monter(() => { throw new ReferenceError('indexedDB is not defined'); })('{x', 1000)).toBe(false);
   });
 });
 

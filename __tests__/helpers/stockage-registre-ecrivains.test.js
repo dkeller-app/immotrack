@@ -2,22 +2,27 @@
  * __tests__/helpers/stockage-registre-ecrivains.test.js — CDC-STOCKAGE lot 1, gate G1.
  *
  * LE GARDE-FOU PERMANENT : « aucune sauvegarde n'écrit dans le stockage dont
- * dépend le save principal » (S-2) et « toute clé écrite est déclarée » (S-3).
+ * dépend le save principal » (S-2), « toute clé écrite est déclarée » (S-3) et
+ * « la base ne s'écrit que par l'écrivain unique, qui sait libérer la place » (S-1).
  *
  * L'incident du 28/08 est né d'un `localStorage.setItem(<clé datée>,
  * JSON.stringify(DB))` ajouté un jour par un chantier, que personne n'a revu
  * ensuite. Ce test inventorie TOUS les écrivains `localStorage.setItem(` de
  * l'app (index.html + js/, hors vendor), RÉSOUT la clé de chacun en valeurs
- * concrètes, puis EXÉCUTE le registre (`classerCle`) sur chacune :
- *   - une clé que le registre ne connaît pas fait échouer la suite ;
- *   - une clé de classe `copie` (copie complète de la base) fait échouer la suite ;
- *   - une sérialisation de la base passée directement à `localStorage.setItem`
- *     fait échouer la suite : le miroir s'écrit par l'écrivain unique
- *     (`_miroirEcrire` / `ecrireAvecLiberation`), qui sait libérer la place.
+ * concrètes selon la PORTÉE LEXICALE réelle, puis EXÉCUTE le registre
+ * (`classerCle`) sur chacune.
+ *
+ * Portée (audits lot 1) : les fonctions et blocs sont délimités par APPARIEMENT
+ * D'ACCOLADES (chaînes, commentaires et regex ignorés — helper commun
+ * `_extraction-source.js`). Une définition `const/let/var` n'est retenue que si
+ * elle est dans le MÊME fichier, AVANT l'appel, et que son bloc CONTIENT l'appel
+ * (ou qu'elle est au niveau supérieur). Un appel placé après la fermeture d'une
+ * fonction n'appartient pas à cette fonction.
  *
  * C'est un invariant de CODEBASE (comme scripts/check-inline-js.mjs) : il ne
  * vérifie pas qu'une ligne précise existe, il vérifie qu'AUCUN écrivain ne
- * viole la règle — y compris ceux qu'un chantier futur ajoutera.
+ * viole la règle — y compris ceux qu'un chantier futur ajoutera. Les sources
+ * synthétiques en fin de fichier prouvent qu'il sait échouer.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -25,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, relative } from 'node:path';
 import { classerCle } from '../../js/core/stockage-local.js';
 import { MIROIR_KEY, MIROIR_ECRIT_KEY, FLUSH_OK_KEY, ESPACES_KEY } from '../../js/core/offline-boot.js';
+import { parcourirJs } from './_extraction-source.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -90,58 +96,85 @@ const RESOLUTIONS_MANUELLES = {
   '_offlineBoot.MIROIR_ECRIT_KEY': [MIROIR_ECRIT_KEY],
 };
 
-let SOURCES;       // [{ fichier, src }]
-let ECRIVAINS;     // [{ fichier, ligne, fonction, cleExpr, valeurExpr, cles:[...] | null }]
+// ── Analyse de portée ─────────────────────────────────────────────────────────────────────────
 
-/**
- * En-tête de fonction : déclaration (`function nom(`) ou fonction affectée
- * (`nom = function (`, `nom = (…) =>`, `nom = x =>`, `async` compris).
- */
-const DECLARATION = /^[ \t]*(?:export\s+)?(?:async\s+)?function\s*\*?\s*([\w$]*)\s*\(/;
-const AFFECTEE = /([\w$.]+)\s*=\s*(?:async\s*)?(?:function\b[^(]*\(|\([^()]*\)\s*=>|[\w$]+\s*=>)/;
-const _entetes = new Map();   // src → [{ debut, nom }] triés (calculés UNE fois, ligne par ligne)
-function entetesDe(src) {
-  if (_entetes.has(src)) return _entetes.get(src);
+/** Les régions JavaScript d'un fichier : tout le fichier pour un .js, les <script> inline pour un .html. */
+function regionsJs(fichier, src) {
+  if (!fichier.endsWith('.html')) return [[0, src.length]];
+  // Les commentaires HTML sont neutralisés (mêmes longueurs, positions conservées) : ils peuvent
+  // contenir le mot « <script> » (même précaution que scripts/check-inline-js.mjs).
+  const neutre = src.replace(/<!--[\s\S]*?-->/g, m => ' '.repeat(m.length));
   const out = [];
-  let pos = 0;
-  for (const ligne of src.split('\n')) {
-    // Les lignes géantes (bibliothèques base64 inlinées) ne portent pas d'en-tête utile : on les saute.
-    if (ligne.length < 2000) {
-      let m = ligne.match(DECLARATION);
-      if (m) out.push({ debut: pos, nom: m[1] || '' });
-      else if ((m = ligne.match(AFFECTEE))) out.push({ debut: pos, nom: m[1] });
-    }
-    pos += ligne.length + 1;
-  }
-  _entetes.set(src, out);
+  const re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+  let m;
+  while ((m = re.exec(neutre))) { const debut = m.index + m[0].indexOf('>') + 1; out.push([debut, debut + m[1].length]); }
   return out;
 }
 
-/** La fonction englobante d'une position : le dernier en-tête de fonction dont la ligne la précède. */
-function fonctionEnglobante(src, index) {
-  let derniere = null;
-  for (const e of entetesDe(src)) { if (e.debut >= index) break; derniere = e; }
-  return derniere;
+const MOTS_DE_BLOC = new Set(['if', 'for', 'while', 'switch', 'catch', 'with']);
+
+/** Une paire d'accolades est-elle le corps d'une FONCTION ? Si oui, son nom (ou ''). */
+function classerAccolade(src, o) {
+  let i = o - 1;
+  while (i >= 0 && /\s/.test(src[i])) i--;
+  const avant = src.slice(Math.max(0, i - 400), i + 1);
+  if (avant.endsWith('=>')) {
+    const m = avant.match(/([\w$.]+)\s*[:=]\s*(?:async\s*)?(?:\([^()]*\)|[\w$]+)\s*=>$/);
+    return { fn: true, nom: m ? m[1] : '' };
+  }
+  if (src[i] !== ')') return { fn: false, nom: '' };
+  let prof = 0, j = i;
+  for (; j >= 0; j--) { if (src[j] === ')') prof++; else if (src[j] === '(') { prof--; if (prof === 0) break; } }
+  const tete = src.slice(Math.max(0, j - 400), j);
+  let m;
+  if ((m = tete.match(/function\s*\*?\s*([\w$]*)\s*$/))) {
+    if (m[1]) return { fn: true, nom: m[1] };
+    const a = tete.match(/([\w$.]+)\s*[:=]\s*(?:async\s+)?function\s*\*?\s*$/);
+    return { fn: true, nom: a ? a[1] : '' };
+  }
+  if ((m = tete.match(/([\w$]+)\s*$/))) {
+    if (MOTS_DE_BLOC.has(m[1])) return { fn: false, nom: '' };
+    return { fn: true, nom: m[1] };            // méthode abrégée `nom(…) {` (objet ou classe)
+  }
+  return { fn: false, nom: '' };
+}
+
+/** Analyse une source : paires d'accolades de code, classées fonction / bloc. */
+function analyser(fichier, src) {
+  const regions = regionsJs(fichier, src);
+  const paires = [];
+  for (const [d, f] of regions) {
+    const pile = [];
+    parcourirJs(src, d, f, (i, c) => {
+      if (c === '{') pile.push(i);
+      else { const o = pile.pop(); if (o != null) paires.push({ o, c: i, ...classerAccolade(src, o) }); }
+    });
+  }
+  paires.sort((a, b) => a.o - b.o);
+  return { fichier, src, regions, paires };
+}
+
+const contient = (p, pos) => p.o < pos && pos < p.c;
+/** Le bloc le plus INTÉRIEUR qui contient `pos` (null = niveau supérieur). */
+function blocDe(a, pos) { let r = null; for (const p of a.paires) { if (p.o >= pos) break; if (contient(p, pos) && (!r || p.o > r.o)) r = p; } return r; }
+/** La fonction la plus intérieure qui contient `pos` (null = hors fonction). */
+function fonctionDe(a, pos) { let r = null; for (const p of a.paires) { if (p.o >= pos) break; if (p.fn && contient(p, pos) && (!r || p.o > r.o)) r = p; } return r; }
+const dansJs = (a, pos) => a.regions.some(([d, f]) => d <= pos && pos < f);
+/** Une définition en `d` est-elle visible à l'appel `p` ? (même fichier, avant, son bloc contient l'appel) */
+function visible(a, d, p) {
+  if (!(d < p) || !dansJs(a, d)) return false;
+  const b = blocDe(a, d);
+  return !b || contient(b, p);
 }
 
 const sansCommentaire = s => s.replace(/\r/g, '').replace(/\s+\/\/.*$/, '').trim();   // fichiers en CRLF
 
-/** Dernière occurrence (avant `fin`) d'un motif global ; rend { valeur, index } ou null. */
-function derniereAvant(re, src, debut, fin) {
-  re.lastIndex = debut;
-  let m, r = null;
-  while ((m = re.exec(src)) && m.index < fin) r = { valeur: m[1], index: m.index };
-  return r;
-}
-
 /**
- * Résout l'expression d'une clé en valeurs concrètes. PORTÉE STRICTE (audit lot 1, point 2) :
- * une définition n'est acceptée que si elle est dans le MÊME fichier et AVANT l'appel —
- * d'abord dans la fonction englobante, puis au niveau supérieur du fichier (déclaration en
- * colonne 0). Jamais une définition homonyme d'un autre fichier ou d'une autre fonction :
- * sinon « non résolue », et le test échoue (sauf RESOLUTIONS_MANUELLES).
+ * Résout l'expression d'une clé en valeurs concrètes, dans l'analyse `a` du fichier, pour un
+ * appel en `pos`. PORTÉE STRICTE : définition du même fichier, avant l'appel, visible depuis
+ * l'appel. Sinon « non résolue » (null), sauf RESOLUTIONS_MANUELLES.
  */
-function resoudre(expr, ctx, profondeur = 0) {
+function resoudre(expr, a, pos, profondeur = 0) {
   if (profondeur > 8) return null;
   expr = deparen(expr);
   let m;
@@ -149,131 +182,196 @@ function resoudre(expr, ctx, profondeur = 0) {
   if ((m = expr.match(/^`([^`$\\]*)`$/))) return [m[1]];
   if ((m = expr.match(/^_lsKey\(\s*(['"])([^'"]*)\1\s*\)$/))) return [m[2], '_test_' + m[2]];
   if (Object.prototype.hasOwnProperty.call(RESOLUTIONS_MANUELLES, expr)) return RESOLUTIONS_MANUELLES[expr];
-  // ternaire : union des deux branches
   const q = decouper(expr, ' ? ');
   if (q.length === 2) {
     const b = decouper(q[1], ' : ');
-    if (b.length === 2) { const a = resoudre(b[0], ctx, profondeur + 1), c = resoudre(b[1], ctx, profondeur + 1); return a && c ? [...new Set([...a, ...c])] : null; }
+    if (b.length === 2) { const x = resoudre(b[0], a, pos, profondeur + 1), y = resoudre(b[1], a, pos, profondeur + 1); return x && y ? [...new Set([...x, ...y])] : null; }
   }
-  // concaténation : produit cartésien (Date.now() / String(...) → '0')
   const plus = decouper(expr, ' + ');
   if (plus.length > 1) {
     let acc = [''];
     for (const p of plus) {
-      const r = /^(Date\.now\(\)|String\(.*\))$/.test(p) ? ['0'] : resoudre(p, ctx, profondeur + 1);
+      const r = /^(Date\.now\(\)|String\(.*\))$/.test(p) ? ['0'] : resoudre(p, a, pos, profondeur + 1);
       if (!r) return null;
-      acc = acc.flatMap(a => r.map(x => a + x));
+      acc = acc.flatMap(x => r.map(y => x + y));
     }
     return acc;
   }
-  // helper sans argument du MÊME fichier, déclaré AVANT l'appel : `function nom() { return EXPR; }`
+  // helper sans argument : `function nom() { return EXPR; }` du même fichier, déclaré avant et visible
   if ((m = expr.match(/^([A-Za-z_$][\w$]*)\(\)$/))) {
-    const d = derniereAvant(new RegExp('^function ' + m[1] + '\\(\\)\\s*\\{\\s*return ([^;]+);', 'gm'), ctx.src, 0, ctx.index);
-    return d ? resoudre(sansCommentaire(d.valeur), { src: ctx.src, index: d.index }, profondeur + 1) : null;
+    const re = new RegExp('function ' + m[1] + '\\(\\)\\s*\\{\\s*return ([^;]+);', 'g');
+    let x, retenue = null;
+    while ((x = re.exec(a.src)) && x.index < pos) if (visible(a, x.index, pos)) retenue = x;
+    return retenue ? resoudre(sansCommentaire(retenue[1]), a, retenue.index, profondeur + 1) : null;
   }
-  // identifiant nu (les membres `module.X` passent par RESOLUTIONS_MANUELLES)
+  // identifiant nu : dernière définition visible
   if ((m = expr.match(/^([A-Za-z_$][\w$]*)$/))) {
-    const nom = m[1];
-    // 1) dans la fonction englobante, avant l'appel
-    const f = fonctionEnglobante(ctx.src, ctx.index);
-    if (f) {
-      const d = derniereAvant(new RegExp('(?:const|let|var)\\s+' + nom + '\\s*=\\s*([^;\\n]+)', 'g'), ctx.src, f.debut, ctx.index);
-      if (d) return resoudre(sansCommentaire(d.valeur), { src: ctx.src, index: d.index }, profondeur + 1);
-    }
-    // 2) au niveau supérieur du même fichier (colonne 0), avant l'appel
-    const t = derniereAvant(new RegExp('^(?:export\\s+)?(?:const|let|var)\\s+' + nom + '\\s*=\\s*([^;\\n]+)', 'gm'), ctx.src, 0, ctx.index);
-    if (t) return resoudre(sansCommentaire(t.valeur), { src: ctx.src, index: t.index }, profondeur + 1);
-    return null;
+    const re = new RegExp('(?:const|let|var)\\s+' + m[1] + '\\s*=\\s*([^;\\n]+)', 'g');
+    let x, retenue = null;
+    while ((x = re.exec(a.src)) && x.index < pos) if (visible(a, x.index, pos)) retenue = x;
+    return retenue ? resoudre(sansCommentaire(retenue[1]), a, retenue.index, profondeur + 1) : null;
   }
   return null;
 }
 
+/** Tous les écrivains `localStorage.setItem(` d'un ensemble de sources [{ fichier, src }]. */
+function inventorier(sources) {
+  const out = [];
+  for (const s of sources) {
+    const a = analyser(s.fichier, s.src);
+    const re = /localStorage\.setItem\(/g;
+    let m;
+    while ((m = re.exec(s.src))) {
+      const [cleExpr, valeurExpr] = argumentsDe(s.src, m.index + m[0].length);
+      const f = fonctionDe(a, m.index);
+      out.push({
+        fichier: s.fichier, ligne: s.src.slice(0, m.index).split('\n').length,
+        fonction: f ? f.nom : '', cleExpr, valeurExpr, cles: resoudre(cleExpr, a, m.index),
+      });
+    }
+  }
+  return out;
+}
+
+// ── Les trois règles ──────────────────────────────────────────────────────────────────────────
+function fautesS3(ecrivains) {
+  const fautes = [];
+  for (const e of ecrivains) {
+    if (!e.cles) { fautes.push(`${e.fichier}:${e.ligne} clé non résolue « ${e.cleExpr} »`); continue; }
+    for (const k of e.cles) if (classerCle(k) === 'inconnue') fautes.push(`${e.fichier}:${e.ligne} clé « ${k} » absente du registre (js/core/stockage-local.js)`);
+  }
+  return fautes;
+}
+function fautesS2(ecrivains) {
+  return ecrivains.filter(e => (e.cles || []).some(k => classerCle(k) === 'copie'))
+    .map(e => `${e.fichier}:${e.ligne} écrit une copie de la base (« ${e.cleExpr} »)`);
+}
+const principaux = ecrivains => ecrivains.filter(e => (e.cles || []).some(k => classerCle(k) === 'principal'));
+function fautesS1(ecrivains) {
+  // La règle porte sur la CLÉ (classe « principal »), pas sur l'expression de la valeur.
+  // Écrivains autorisés : `_miroirEcrire` (index.html), `_ecrireMiroir` (supabase-entry.js), et la
+  // popup de signature (`_BAIL_LS_KEY` — page GÉNÉRÉE, sans accès aux fonctions de l'app).
+  return principaux(ecrivains)
+    .filter(e => !(e.fichier === 'index.html' && e.fonction === '_miroirEcrire'))
+    .filter(e => !(e.fichier.includes('supabase-entry') && e.fonction === '_ecrireMiroir'))
+    .filter(e => e.cleExpr !== '_BAIL_LS_KEY')
+    .map(e => `${e.fichier}:${e.ligne} (${e.fonction || 'hors fonction'}) setItem(${e.cleExpr}, ${e.valeurExpr})`);
+}
+
+let SOURCES, ECRIVAINS;
 beforeAll(() => {
   const fichiers = [join(repoRoot, 'index.html'), ...fichiersJs(join(repoRoot, 'js'))];
   SOURCES = fichiers.map(f => ({ fichier: relative(repoRoot, f), src: readFileSync(f, 'utf8') }));
-  ECRIVAINS = [];
-  const re = /localStorage\.setItem\(/g;
-  for (const s of SOURCES) {
-    let m;
-    re.lastIndex = 0;
-    while ((m = re.exec(s.src))) {
-      const [cleExpr, valeurExpr] = argumentsDe(s.src, m.index + m[0].length);
-      const ligne = s.src.slice(0, m.index).split('\n').length;
-      const f = fonctionEnglobante(s.src, m.index);
-      ECRIVAINS.push({ fichier: s.fichier, ligne, fonction: f ? f.nom : '', cleExpr, valeurExpr, cles: resoudre(cleExpr, { src: s.src, index: m.index }) });
-    }
-  }
+  ECRIVAINS = inventorier(SOURCES);
 });
 
-describe('G1 — registre des écrivains du stockage local', () => {
-  it('l’inventaire trouve bien les écrivains (garde contre un faux vert)', () => {
-    expect(ECRIVAINS.length).toBeGreaterThan(30);
+describe('G1 — registre des écrivains du stockage local (inventaire RÉEL de l’app)', () => {
+  it('l’inventaire trouve les écrivains attendus (garde contre un faux vert)', () => {
+    expect(ECRIVAINS.length).toBeGreaterThanOrEqual(39);
     expect(ECRIVAINS.some(e => e.fichier === 'index.html')).toBe(true);
     expect(ECRIVAINS.some(e => e.fichier.includes('supabase-entry'))).toBe(true);
   });
 
-  it('S-3 — chaque clé écrite se résout et est reconnue par le registre', () => {
-    const fautes = [];
-    for (const e of ECRIVAINS) {
-      if (!e.cles) { fautes.push(`${e.fichier}:${e.ligne} clé non résolue « ${e.cleExpr} »`); continue; }
-      for (const k of e.cles) {
-        const c = classerCle(k);
-        if (c === 'inconnue') fautes.push(`${e.fichier}:${e.ligne} clé « ${k} » absente du registre (js/core/stockage-local.js)`);
-      }
-    }
-    expect(fautes).toEqual([]);
+  it('S-3 — chaque clé écrite se résout (portée stricte) et est reconnue par le registre', () => {
+    expect(fautesS3(ECRIVAINS)).toEqual([]);
   });
 
   it('S-2 — aucune clé de classe « copie » n’a d’écrivain', () => {
-    const fautes = ECRIVAINS.filter(e => (e.cles || []).some(k => classerCle(k) === 'copie'))
-      .map(e => `${e.fichier}:${e.ligne} écrit une copie de la base (« ${e.cleExpr} »)`);
-    expect(fautes).toEqual([]);
+    expect(fautesS2(ECRIVAINS)).toEqual([]);
   });
 
-  it('S-1 — la base (clé de classe « principal ») ne s’écrit QUE par l’écrivain unique, qui libère la place', () => {
-    // La règle porte sur la CLÉ, pas sur l'expression de la valeur (audit lot 1, point 1) : l'ancien
-    // `localStorage.setItem(KEY, data)` avec `data = JSON.stringify(DB)` doit être attrapé.
-    // Écrivains autorisés : `_miroirEcrire` (index.html), `_ecrireMiroir` (supabase-entry.js), et la
-    // popup de signature (`_BAIL_LS_KEY` — page GÉNÉRÉE, sans accès aux fonctions de l'app).
-    const principaux = ECRIVAINS.filter(e => (e.cles || []).some(k => classerCle(k) === 'principal'));
-    const fautes = principaux
-      .filter(e => !(e.fichier === 'index.html' && e.fonction === '_miroirEcrire'))
-      .filter(e => !(e.fichier.includes('supabase-entry') && e.fonction === '_ecrireMiroir'))
-      .filter(e => e.cleExpr !== '_BAIL_LS_KEY')
-      .map(e => `${e.fichier}:${e.ligne} (${e.fonction || 'hors fonction'}) setItem(${e.cleExpr}, ${e.valeurExpr})`);
-    expect(fautes).toEqual([]);
-    // Aujourd'hui : exactement ces trois sites (le repli direct de chaque écrivain + la popup).
-    expect(principaux.map(e => e.fonction === '_miroirEcrire' || e.fonction === '_ecrireMiroir' ? e.fonction : e.cleExpr).sort())
+  it('S-1 — la base ne s’écrit QUE par l’écrivain unique (et la popup de signature)', () => {
+    expect(fautesS1(ECRIVAINS)).toEqual([]);
+    expect(principaux(ECRIVAINS).map(e => e.fonction === '_miroirEcrire' || e.fonction === '_ecrireMiroir' ? e.fonction : e.cleExpr).sort())
       .toEqual(['_BAIL_LS_KEY', '_ecrireMiroir', '_miroirEcrire']);
   });
+});
 
-  it('le résolveur lui-même : les formes rencontrées donnent les bonnes clés', () => {
-    const src = "const KEY = _isTestMode ? '_test_immotrack_v4' : 'immotrack_v4';   // commentaire\n";
-    const ctx = { src, index: src.length };
-    expect(resoudre("KEY + '_ecrit_at'", ctx).sort()).toEqual(['_test_immotrack_v4_ecrit_at', 'immotrack_v4_ecrit_at']);
-    expect(resoudre("(typeof _lsKey === 'function' ? _lsKey('immBlocksCollapsed') : 'immBlocksCollapsed')", ctx).sort())
-      .toEqual(['_test_immBlocksCollapsed', 'immBlocksCollapsed']);
-    expect(classerCle(resoudre("KEY + '_corrupt_backup_' + Date.now()", ctx)[0])).toBe('copie');
+describe('G1 — le détecteur SAIT ÉCHOUER (sources synthétiques des audits)', () => {
+  const src = (fichier, lignes) => [{ fichier, src: lignes.join('\n') }];
+
+  it('écrivain `setItem(KEY, data)` avec `data = JSON.stringify(DB)` hors de l’écrivain unique → S-1 échoue', () => {
+    const e = inventorier(src('js/core/fautif.js', [
+      "const KEY = 'immotrack_v4';",
+      'export function fautif(DB) {',
+      '  const data = JSON.stringify(DB);',
+      '  localStorage.setItem(KEY, data);',
+      '}',
+    ]));
+    expect(fautesS1(e)).toHaveLength(1);
   });
 
-  it('portée stricte : jamais une définition d’une autre fonction, d’un autre fichier, ou APRÈS l’appel', () => {
-    const src = [
-      "function a() {",
+  it('REVUE 1 — `setItem` de haut niveau placé APRÈS `_miroirEcrire` : il n’en fait pas partie → S-1 échoue', () => {
+    const e = inventorier(src('index.html', [
+      '<script>',
+      "const KEY = 'immotrack_v4';",
+      'function _miroirEcrire(json) {',
+      '  localStorage.setItem(KEY, json);',
+      '}',
+      'localStorage.setItem(KEY, JSON.stringify(DB));',
+      '</script>',
+    ]));
+    expect(e.map(x => x.fonction)).toEqual(['_miroirEcrire', '']);
+    expect(fautesS1(e)).toHaveLength(1);
+    expect(fautesS1(e)[0]).toContain('hors fonction');
+  });
+
+  it('REVUE 2 — méthode d’objet `ecrire() {` : le `const k` de la fonction PRÉCÉDENTE n’est pas visible → S-3 échoue', () => {
+    const e = inventorier(src('js/core/methode.js', [
+      'function avant() {',
       "  const k = 'immo_appareil_id';",
       "  localStorage.setItem(k, '1');",
-      "}",
-      "function b() {",
-      "  localStorage.setItem(k, '1');",          // `k` n'est défini que dans a() → non résolu
-      "  localStorage.setItem(PLUS_TARD, '1');",  // défini après l'appel → non résolu
-      "}",
+      '}',
+      'const o = {',
+      '  ecrire() {',
+      "    localStorage.setItem(k, '1');",
+      '  },',
+      '};',
+    ]));
+    expect(e[0].cles).toEqual(['immo_appareil_id']);
+    expect(e[1].fonction).toBe('ecrire');
+    expect(fautesS3(e)).toEqual([expect.stringContaining('clé non résolue « k »')]);
+  });
+
+  it('REVUE 3 — en-tête sur une ligne de plus de 2000 caractères : pas de reprise du `const` précédent → S-3 échoue', () => {
+    const e = inventorier(src('js/core/longue.js', [
+      'function avant() {',
+      "  const k = 'immo_appareil_id';",
+      '}',
+      "function fautive() { const remplissage = '" + 'x'.repeat(2500) + "'; localStorage.setItem(k, '1'); }",
+    ]));
+    expect(e[0].fonction).toBe('fautive');
+    expect(fautesS3(e)).toEqual([expect.stringContaining('clé non résolue « k »')]);
+  });
+
+  it('définition APRÈS l’appel, ou dans un bloc qui ne contient pas l’appel → non résolue', () => {
+    const e = inventorier(src('js/core/portee.js', [
+      'function f(x) {',
+      "  if (x) { const k = 'immotrack_theme'; }",
+      "  localStorage.setItem(k, '1');",
+      "  localStorage.setItem(PLUS_TARD, '1');",
+      '}',
       "const PLUS_TARD = 'immotrack_theme';",
-    ].join('\n');
-    const appel = (n) => { let i = -1; for (let j = 0; j < n; j++) i = src.indexOf('localStorage.setItem(', i + 1); return { src, index: i }; };
-    expect(resoudre('k', appel(1))).toEqual(['immo_appareil_id']);
-    expect(resoudre('k', appel(2))).toBeNull();
-    expect(resoudre('PLUS_TARD', appel(3))).toBeNull();
-    // Une définition homonyme présente dans un AUTRE fichier de l'app n'est jamais retenue.
-    expect(SOURCES.some(s => /const k = _lsKey\('immo_appareil_id'\)/.test(s.src))).toBe(true);
-    expect(resoudre('k', { src: "function c() {\n  localStorage.setItem(k, '1');\n}", index: 17 })).toBeNull();
+    ]));
+    expect(e.map(x => x.cles)).toEqual([null, null]);
+  });
+
+  it('les formes légitimes restent résolues (niveau supérieur, ternaire, concaténation, helper)', () => {
+    const e = inventorier(src('js/core/formes.js', [
+      "const KEY = _isTestMode ? '_test_immotrack_v4' : 'immotrack_v4';   // commentaire",
+      "function _menuKey() { return (typeof _lsKey === 'function') ? _lsKey('immo_menu_on') : 'immo_menu_on'; }",
+      'function g() {',
+      "  localStorage.setItem(KEY + '_ecrit_at', '1');",
+      "  localStorage.setItem(_menuKey(), '[]');",
+      "  const k = _lsKey('immo_appareil_id');",
+      "  if (true) { localStorage.setItem(k, 'ap-1'); }",
+      '}',
+    ]));
+    expect(e.map(x => (x.cles || []).slice().sort())).toEqual([
+      ['_test_immotrack_v4_ecrit_at', 'immotrack_v4_ecrit_at'],
+      ['_test_immo_menu_on', 'immo_menu_on'],
+      ['_test_immo_appareil_id', 'immo_appareil_id'],
+    ]);
+    expect(fautesS3(e)).toEqual([]);
   });
 });

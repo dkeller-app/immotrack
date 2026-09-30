@@ -19,27 +19,11 @@ import * as Stockage from '../../js/core/stockage-local.js';
 import * as CachePurge from '../../js/core/cache-purge.js';
 import * as OfflineBoot from '../../js/core/offline-boot.js';
 import { fauxStockageQuota, chaine } from './_faux-stockage-quota.js';
+import { accolades, extraireFonction } from './_extraction-source.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const muet = { info() {}, warn() {}, log() {} };
 
-function accolades(src, ouvre) {
-  let prof = 0, i = ouvre;
-  for (; i < src.length; i++) {
-    if (src[i] === '{') prof++;
-    else if (src[i] === '}') { prof--; if (prof === 0) { i++; break; } }
-  }
-  return src.slice(ouvre, i);
-}
-function extraireFonction(src, nom) {
-  const debut = src.indexOf('function ' + nom + '(');
-  if (debut < 0) throw new Error('fonction introuvable : ' + nom);
-  // Saute la liste des paramètres (qui peut contenir une déstructuration `{ … }`).
-  let i = src.indexOf('(', debut), prof = 0;
-  for (; i < src.length; i++) { if (src[i] === '(') prof++; else if (src[i] === ')') { prof--; if (prof === 0) break; } }
-  const ouvre = src.indexOf('{', i);
-  return src.slice(debut, ouvre) + accolades(src, ouvre);
-}
 /** Le corps de `_teardownSession = async ({ … }) => { … }` (affectée dans boot()). */
 function extraireTeardown(src) {
   const debut = src.indexOf('_teardownSession = async (');
@@ -125,40 +109,61 @@ describe('Logout — _teardownSession purge les copies de la base (S-7)', () => 
 
 describe('Connexion — _purgerCacheAuLogin selon le propriétaire du miroir (CDC §3.6, S-7)', () => {
   function monter(st) {
-    const trace = { photos: 0 };
     const deps = {
       console: muet, localStorage: st, MIRROR_KEY: OfflineBoot.MIROIR_KEY, MIRROR_TAG_KEY: CachePurge.MIRROR_TAG_KEY,
       _offlineBoot: OfflineBoot, _cachePurge: CachePurge, _espaceOwners: { 'e-b': 'u-b' },
-      _purgerCopiesLocales: purgeur(st), _deletePhotosDb: async () => { trace.photos++; },
+      _purgerCopiesLocales: purgeur(st),
     };
     const noms = Object.keys(deps);
-    const fn = new Function(...noms, 'return async ' + extraireFonction(SRC, '_purgerCacheAuLogin'))(...noms.map(n => deps[n]));
-    return { fn, trace };
+    return new Function(...noms, 'return ' + extraireFonction(SRC, '_purgerCacheAuLogin'))(...noms.map(n => deps[n]));
   }
 
-  it('autre utilisateur : miroir, horodatage ET copies partent ; verdict retenu AVANT la réécriture du tag', async () => {
+  it('autre utilisateur : SYNCHRONE, rend le verdict de l’ANCIEN tag ; miroir, horodatage et copies partent', () => {
     const st = fauxStockageQuota({ initial: ETAT() });
-    const { fn, trace } = monter(st);
-    let verdictVu = null, tagAuMomentDuVerdict = null;
-    const cls = await fn({ user: { id: 'u-b' }, esp: { espaceId: 'e-b' },
-      retenirVerdict: c => { verdictVu = c; tagAuMomentDuVerdict = st.getItem('immotrack_v4_tag'); } });
-    expect(cls).toBe('other-user');
-    expect(verdictVu).toBe('other-user');
-    expect(JSON.parse(tagAuMomentDuVerdict).userId).toBe('u-a');                 // l'ANCIEN tag
+    const cls = monter(st)({ user: { id: 'u-b' }, esp: { espaceId: 'e-b' } });
+    expect(cls).toBe('other-user');                                        // une valeur, pas une promesse
     for (const k of ['immotrack_v4', 'immotrack_v4_ecrit_at', ...COPIES]) expect(st.getItem(k), k).toBeNull();
-    expect(trace.photos).toBe(1);
-    expect(JSON.parse(st.getItem('immotrack_v4_tag'))).toEqual({ userId: 'u-b', espaceId: 'e-b' });
+    expect(JSON.parse(st.getItem('immotrack_v4_tag'))).toEqual({ userId: 'u-b', espaceId: 'e-b' });   // tag réécrit APRÈS lecture
     expect(JSON.parse(st.getItem('immotrack_v4_espaces'))).toEqual(['e-b']);
     for (const k of ['immotrack_theme_mode', 'autre_app_panier', 'RELAY_APP_KEY']) expect(st.getItem(k), k).toBe(ETAT()[k]);
   });
 
-  it('même utilisateur, même espace : rien n’est purgé (le miroir et F1 sont préservés)', async () => {
+  it('même utilisateur, même espace : verdict « same », rien n’est purgé (le miroir et F1 sont préservés)', () => {
     const st = fauxStockageQuota({ initial: ETAT() });
-    const { fn, trace } = monter(st);
-    const cls = await fn({ user: { id: 'u-a' }, esp: { espaceId: 'e-a' } });
-    expect(cls).toBe('same');
+    expect(monter(st)({ user: { id: 'u-a' }, esp: { espaceId: 'e-a' } })).toBe('same');
     expect(st.getItem('immotrack_v4')).toBe(ETAT().immotrack_v4);
     expect(st.getItem('immotrack_v4_ecrit_at')).toBe('1700000000000');
-    expect(trace.photos).toBe(0);
+  });
+
+  it('CÂBLAGE dans onLoggedIn : le verdict retenu pour F1 est celui de l’ANCIEN tag, et la purge photos suit', async () => {
+    // Le bloc `try { … }` d'onLoggedIn qui appelle _purgerCacheAuLogin, EXÉCUTÉ tel quel. S'il cessait
+    // de retenir le verdict, F1 recevrait 'untagged' et ne remonterait plus les EDL hors ligne.
+    const i = SRC.indexOf('_tagMiroirAvantLogin = _purgerCacheAuLogin(');
+    expect(i).toBeGreaterThan(0);
+    const bloc = accolades(SRC, SRC.lastIndexOf('try {', i) + 4);
+    const executer = async (st, user, esp) => {
+      let photos = 0;
+      const deps = {
+        _purgerCacheAuLogin: monter(st), _deletePhotosDb: async () => { photos++; }, user, esp, console: muet,
+      };
+      const noms = Object.keys(deps);
+      const verdict = await new Function(...noms, "let _tagMiroirAvantLogin = 'untagged'; return (async () => { try "
+        + bloc + ' catch (e) {} return _tagMiroirAvantLogin; })()')(...noms.map(n => deps[n]));
+      return { verdict, photos };
+    };
+    expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-b' }, { espaceId: 'e-b' })).toEqual({ verdict: 'other-user', photos: 1 });
+    expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-a' }, { espaceId: 'e-a' })).toEqual({ verdict: 'same', photos: 0 });
   });
 });
+
+describe('Clé du jeton de session : la constante LOCALE de supabase-entry.js = cache-purge.AUTH_STORAGE_KEY', () => {
+  it('égalité (la constante locale garde l’écran de connexion indépendant de cache-purge.js)', () => {
+    // La déclaration est EXÉCUTÉE telle qu'écrite dans le fichier, puis comparée à l'export du module.
+    const m = SRC.match(/^const AUTH_STORAGE_KEY = ([^\r\n]+)$/m);
+    expect(m).not.toBeNull();
+    const locale = new Function('return (' + m[1].replace(/\s+\/\/.*$/, '') + ');')();
+    expect(locale).toBe(CachePurge.AUTH_STORAGE_KEY);
+    expect(Stockage.classerCle(locale)).toBe('session');
+  });
+});
+
