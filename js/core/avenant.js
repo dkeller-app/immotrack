@@ -417,3 +417,88 @@ export function avenantMontant(raw, prev, opts) {
   if (opts && opts.strictPositif && !(n > 0)) return { ok: false };
   return { ok: true, v: Math.round(n * 100) / 100 };
 }
+
+// ── Forfait de charges (art. 23-1) : timeline reconstruite depuis les avenants ──────────
+// Le forfait de charges N'EST PAS régularisable (art. 23-1 loi 89-462). L'avenant pose
+// `bail.chForfait`, mais ce flag est NON DATÉ : régulariser un exercice antérieur à la
+// signature (N-1, usage courant) ne doit PAS être court-circuité. On reconstruit donc l'état
+// forfait À LA DATE demandée depuis les avenants (chaque objet charges porte data.mode :
+// « … forfait … » = ON, « … provisions … » = OFF), ce qui gère N-1, l'année de transition et
+// un retour aux provisions. Utilisé par computeRegul pour exclure les charges/provisions
+// datées pendant une période au forfait. Pur (aucune DB / DOM).
+//
+// AVENANT-REFONTE lot 2 (portage v15.704) : les avenants vivent dans le REGISTRE du bail
+// (journal `baux_evenements`, type 'avenant' : { date (= effet), statut, no, objets }), plus
+// les avenants anciens (`bail.avenants[]` : { dateEffet, objets }). L'appelant passe la liste
+// du registre (`avenants`) ; sans elle, on relit `bail.avenants[]` (ancien modèle).
+
+// Statuts d'un avenant dont les changements ne sont PAS appliqués au bail : brouillon (rien n'est
+// appliqué) et annulé (jamais appliqué). Lot 2 : loyer et charges s'appliquent dès l'enregistrement
+// (« À signer ») — si l'application passe à la signature (lot 3), c'est ICI qu'on ne retiendra que « signé ».
+export const STATUTS_AVENANT_NON_APPLIQUES = ['brouillon', 'annule'];
+
+function _effetAvenant(a) { return String((a && (a.date || a.dateEffet)) || '').slice(0, 10); }
+/** Mode de charges porté par l'avenant (texte), ou null s'il ne change pas le régime des charges. */
+function _modeCharges(a) {
+  const o = a && Array.isArray(a.objets)
+    ? a.objets.find(x => x && x.k === 'charges' && x.data && String(x.data.mode || '').trim() !== '')
+    : null;
+  return o ? String(o.data.mode) : null;
+}
+
+/**
+ * Étapes datées du régime de charges, dans l'ordre d'application (date d'effet, puis n°) :
+ * [{ date, forfait }]. `null` si AUCUN avenant — quel que soit son statut — ne porte de régime de
+ * charges : le flag `bail.chForfait` fait alors foi (forfait d'origine / données anciennes). Dès qu'un
+ * avenant de charges existe, la timeline fait foi : un avenant annulé ou en brouillon n'y compte pas,
+ * et le flag (posé à l'enregistrement, jamais retiré à l'annulation) n'est plus lu.
+ * @param {object} bail
+ * @param {Array} [avenants] avenants du bail (registre) ; absent → `bail.avenants[]`
+ */
+export function forfaitEtapes(bail, avenants) {
+  if (!bail) return null;
+  const src = Array.isArray(avenants) ? avenants : (Array.isArray(bail.avenants) ? bail.avenants : []);
+  const charges = src.filter(a => a && _effetAvenant(a) && _modeCharges(a) !== null);
+  if (!charges.length) return null;
+  return charges
+    .filter(a => STATUTS_AVENANT_NON_APPLIQUES.indexOf(a.statut) < 0)
+    .slice()
+    .sort((x, y) => _effetAvenant(x).localeCompare(_effetAvenant(y)) || ((Number(x.no) || 0) - (Number(y.no) || 0)))
+    .map(a => ({ date: _effetAvenant(a), forfait: _modeCharges(a).toLowerCase().indexOf('forfait') >= 0 }));
+}
+
+/** Le bail est-il au forfait de charges à `dateIso` ? Régime d'origine (avant le 1er avenant charges) = provisions. */
+export function bailForfaitActifLe(bail, dateIso, avenants) {
+  if (!bail || !dateIso) return false;
+  const d = String(dateIso).slice(0, 10);
+  const etapes = forfaitEtapes(bail, avenants);
+  // Pas de timeline charges → fallback sur le flag global (forfait day-1 / legacy).
+  if (etapes === null) return bail.chForfait === true;
+  let etat = false;
+  for (const e of etapes) {
+    if (e.date > d) break;
+    etat = e.forfait;
+  }
+  return etat;
+}
+
+/**
+ * Date d'effet du forfait en vigueur à `toIso` (début de la période continue au forfait), '' si le bail
+ * n'est pas au forfait à cette date ou s'il l'est sans avenant (forfait d'origine : « toute la période »).
+ */
+export function forfaitEffetAu(bail, toIso, avenants) {
+  const etapes = forfaitEtapes(bail, avenants);
+  if (!etapes || !toIso) return '';
+  const t = String(toIso).slice(0, 10);
+  let eff = '';
+  for (const e of etapes) {
+    if (e.date > t) break;
+    eff = e.forfait ? (eff || e.date) : '';
+  }
+  return eff;
+}
+
+/** Faut-il examiner le forfait de ce bail (flag posé ou avenant de charges) ? Court-circuit de computeRegul. */
+export function forfaitPertinent(bail, avenants) {
+  return !!bail && (bail.chForfait === true || forfaitEtapes(bail, avenants) !== null);
+}

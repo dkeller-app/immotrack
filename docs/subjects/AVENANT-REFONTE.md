@@ -74,7 +74,7 @@ Conséquences retenues :
 | Colocataire | Composition : sortie datée + fin de solidarité (date d'effet du congé + 6 mois, ou date d'entrée d'un nouveau colocataire) ; entrant avec sa date d'entrée |
 | Garant / caution | Garants rattachés (§4) |
 | Loyer, charges | Barème daté + `log.hc/ch` (mécanisme actuel, déplacé au moment de la signature) |
-| Forfait de charges | Mode de charges daté, **lu par la régularisation** (reprendre `bailForfaitActifLe`, codé sur la branche `claude/admiring-galileo-1fb6e1` mais jamais mergé) |
+| Forfait de charges | Mode de charges daté, **lu par la régularisation** : `bailForfaitActifLe(bail, date, avenants)` (`js/core/avenant.js`) lit le registre ; statuts appliqués = tous sauf brouillon et annulé (`STATUTS_AVENANT_NON_APPLIQUES`) — à restreindre à « signé » quand l'application passera à la signature |
 | Annexe / dépendance | Désignation du bien loué ; supplément de loyer au barème |
 | Durée | Date de fin du bail (échéances, préavis, alertes) |
 | Paiement / RIB | Jour de paiement, IBAN du bailleur |
