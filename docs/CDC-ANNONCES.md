@@ -1,6 +1,6 @@
 # CDC ANNONCES — génération d'annonces de location conformes
 
-> **Statut : FIGÉ et INTÉGRÉ en v15.701 (29/09/2026).** Décisions D1 → D10 + P-1 à P-3 + révisions R1 → R7 (maquette v2) tranchées par Didier du 25 au 29/09/2026. Branche `feat/annonces` (lots 1-6), audit + contre-audit code-reviewer traités, testé dans l'app réelle (PC / tablette / téléphone, sobre / dark). Reste : smoke Didier téléphone.
+> **Statut : FIGÉ et INTÉGRÉ en v15.702 (30/09/2026 — renuméroté : v15.701 pris par « Annexes avant signature »).** Décisions D1 → D10 + P-1 à P-3 + révisions R1 → R7 (maquette v2) tranchées par Didier du 25 au 29/09/2026. Branche `feat/annonces` (lots 1-6), audit + contre-audit code-reviewer traités, testé dans l'app réelle (PC / tablette / téléphone, sobre / dark). Reste : smoke Didier téléphone.
 > Pièces jointes : `docs/subjects/ANNONCES-AUDIT.md` (ex-`AUDIT.md`) (audit du générateur + textes de loi cités mot pour mot) · maquettes locales (non versionnées) `mockups/ANNONCES/index.html` (v1) et `mockups/ANNONCES/v2-texte-unique.html` (v2, fait foi).
 > Lignes `index.html` relevées sur `main` @ `711d6f33` (29/09) ; elles bougent, **les noms de fonctions font foi**.
 

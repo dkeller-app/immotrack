@@ -1,6 +1,6 @@
 # LOG-ANNONCE — Bouton "Générer annonce" pour logements vacants (mode "qui fait rêver")
 
-> ⚠️ **Remplacé par [docs/CDC-ANNONCES.md](../CDC-ANNONCES.md) — v15.701 (29/09/2026)** : moteur réécrit (texte unique factuel + mentions obligatoires vérifiées sur Légifrance). Ce qui suit est l'historique LOG-ANNONCE (v15.207-211).
+> ⚠️ **Remplacé par [docs/CDC-ANNONCES.md](../CDC-ANNONCES.md) — v15.702 (30/09/2026)** : moteur réécrit (texte unique factuel + mentions obligatoires vérifiées sur Légifrance). Ce qui suit est l'historique LOG-ANNONCE (v15.207-211).
 
 **Status** : ✅ **Livré v15.207-211 (2026-05-27)** post-audit · **Prio** : P2 · **Taille réelle** : ~8h (5 étapes + audit + 6 fixes)
 **Détecté** : 2026-05-01 · **Enrichi** : 2026-05-15 (mode Leboncoin évocateur) · **Livré** : 2026-05-27
