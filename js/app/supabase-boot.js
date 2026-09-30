@@ -62,14 +62,19 @@ export function createBoot(client) {
         // modes, et il vient du module testé.
         const s = _sync ? await _sync.flush() : null
         const c = classerResumeFlush(s)
-        let miroirPresent = false, miroirEcritA = 0, dernierFlushA = 0
+        let miroirPresent = false, miroirEcritA = 0, dernierFlushA = 0, miroirProtege = false
         try {
           // STOCKAGE lot 4 : le miroir peut vivre en IndexedDB (exposé par supabase-entry, qui l'initialise).
           miroirPresent = !!localStorage.getItem(MIROIR_KEY)
             || !!(typeof window !== 'undefined' && typeof window.__immoMiroirPresent === 'function' && window.__immoMiroirPresent())
-          miroirEcritA = parseInt(localStorage.getItem(MIROIR_ECRIT_KEY) || '0', 10) || 0
+          // Heure du dernier travail : MAX entre `_ecrit_at` et `travailA` (IndexedDB, audit O4) ;
+          // miroir protégé (illisible, travail peut-être non remonté, audit R1) → refus.
+          const _mi = (typeof window !== 'undefined' && typeof window.__immoMiroirEtat === 'function') ? window.__immoMiroirEtat() : null
+          miroirEcritA = Math.max(parseInt(localStorage.getItem(MIROIR_ECRIT_KEY) || '0', 10) || 0, (_mi && Number(_mi.travailA)) || 0)
+          miroirProtege = !!(_mi && _mi.protege)
           dernierFlushA = parseInt(localStorage.getItem(FLUSH_OK_KEY) || '0', 10) || 0
         } catch (e) {}
+        if (miroirProtege) return { ok: false, raison: 'miroir-illisible', enAttente: 1, quoi: c.quoi, resume: s }
         const v = verdictDeconnexion({
           forcer: false,
           moteurPresent: !!_sync,

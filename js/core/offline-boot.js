@@ -200,6 +200,10 @@ export function messageDeconnexionRefusee({ enAttente = 0, raison = '', quoi = n
     // sans fin. On nomme le vrai problème pour que quelqu'un puisse le traiter.
     cause = 'Une modification' + nomme + " ne peut pas être envoyée — ce n'est pas le réseau."
       + " Elle restera bloquée tant que sa cause n'est pas corrigée.";
+  } else if (raison === 'miroir-illisible') {
+    // STOCKAGE lot 4 (audit R1) : la copie de l'appareil n'a pas pu être relue ; elle peut porter un
+    // état des lieux fait hors ligne pas encore remonté. La déconnexion l'effacerait.
+    cause = "La copie de cet appareil n'a pas pu être relue : elle peut contenir un état des lieux fait hors ligne, pas encore remonté.";
   } else if (raison === 'flush-impossible') {
     cause = "L'envoi au cloud n'a pas pu aboutir — le plus souvent, c'est le réseau." + nomme;
   } else {
@@ -207,7 +211,9 @@ export function messageDeconnexionRefusee({ enAttente = 0, raison = '', quoi = n
   }
   const remede = raison === 'blocage-chronique'
     ? 'Signale-le : se déconnecter maintenant perdrait cette modification.'
-    : 'Reconnecte-toi à un réseau et attends que la pastille affiche « Enregistré ».';
+    : raison === 'miroir-illisible'
+      ? "Recharger l'application pour relire la copie, puis attendre que la pastille affiche « Enregistré »."
+      : 'Reconnecte-toi à un réseau et attends que la pastille affiche « Enregistré ».';
   const texte = titre + '\n\n' + cause + '\n\n' + remede + '\n\n'
     + 'Se déconnecter QUAND MÊME perdrait ce travail : la déconnexion efface la copie locale, '
     + "et les photos déjà prises resteraient sur l'appareil sans état des lieux pour les relier.";

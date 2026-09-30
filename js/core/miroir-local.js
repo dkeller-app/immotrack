@@ -10,38 +10,51 @@
  * la moitié du plafond pour UN propriétaire. Un grand compte ne tiendrait plus.
  *
  * ═══ LE CONTRAT : ZÉRO PERTE D'EDL FAIT HORS LIGNE ═════════════════════════
- * IndexedDB est ASYNCHRONE : entre `saveDB` et la fin de la transaction, une
- * fermeture brutale de l'app peut perdre la dernière écriture. Les seules
- * écritures possibles hors ligne sont celles de l'EDL (invariant 19a), et F1 ne
- * remonte que les EDL. Donc :
- *   - la BASE COMPLÈTE part en IndexedDB (écrivain à coalescence, jamais plus
- *     d'une transaction en vol) ;
- *   - les ENREGISTREMENTS D'EDL pas encore engagés en IndexedDB sont écrits
- *     SYNCHRONEMENT dans un petit JOURNAL `localStorage` (avec l'horodatage
- *     `_ecrit_at`, comme avant), puis retirés du journal dès que la transaction
- *     IndexedDB qui les porte est terminée.
- * Toute lecture du miroir = base IndexedDB + journal superposé (le plus récent
- * gagne, par `_modifiedAt`). Un EDL enregistré est donc toujours sur le disque
- * au retour de `saveDB`, exactement comme avant ce lot.
+ * Trois mécanismes, qui se couvrent l'un l'autre :
+ *   1. La BASE COMPLÈTE part en IndexedDB (écritures `durability: 'strict'`, par
+ *      une FILE SÉRIE : une transaction en vol au plus, plus une en attente).
+ *      L'enregistrement porte `travailA` (heure du dernier travail local) et le
+ *      `tag` de son propriétaire : F1 et la garde lisent le MAX entre
+ *      `_ecrit_at` (localStorage) et `travailA` (IndexedDB).
+ *   2. Les enregistrements d'EDL pas encore ENGAGÉS en IndexedDB sont écrits
+ *      SYNCHRONEMENT dans un petit journal `localStorage`, après `_ecrit_at`.
+ *      Ce qui est garanti — mesuré au 3e audit, pas supposé :
+ *        - onglet fermé, rechargé, ou processus de l'onglet planté : l'EDL est
+ *          relu (journal) même si la transaction IndexedDB n'a pas abouti ;
+ *        - NAVIGATEUR ENTIER tué dans les ~2 s : Chromium peut perdre les
+ *          écritures localStorage récentes (journal ET `_ecrit_at`) ; l'EDL est
+ *          alors relu depuis IndexedDB, et F1 le voit grâce à `travailA`.
+ *   3. Un miroir IndexedDB ILLISIBLE n'est JAMAIS traité comme absent : état
+ *      tri-valué (base / absente / illisible). Illisible alors que du travail
+ *      n'est pas remonté → mode PROTÉGÉ : aucune écriture ne l'écrase sans avoir
+ *      relu et FUSIONNÉ ses EDL, le dernier envoi réussi n'avance plus, la
+ *      déconnexion est refusée.
+ * Le transfert localStorage → IndexedDB FUSIONNE les EDL (jamais d'écrasement
+ * sur la seule foi d'un horodatage) ; un miroir d'un autre propriétaire (tag)
+ * n'est ni servi ni fusionné.
  *
  * ═══ REPLI ═════════════════════════════════════════════════════════════════
- * IndexedDB absent, refusé (navigation privée selon les navigateurs), muet
- * (certains iOS au premier `open`), ou qui échoue en écriture → le miroir
- * complet repart en `localStorage` (comportement du lot 1, éviction comprise),
- * et le repli est SIGNALÉ (callback `signaler`, affiché par l'app).
- *
- * Décisions testables ici (adaptateurs injectés) ; l'IndexedDB réel est un
- * adaptateur (`adaptateurIndexedDB`) vérifié dans le navigateur.
+ * IndexedDB absent, refusé, muet (> 3 s, `open` comme `databases()`), ou en
+ * échec d'écriture → le miroir complet repart en `localStorage` (lot 1,
+ * éviction comprise) et le repli est SIGNALÉ. Avant toute lecture pour F1,
+ * IndexedDB est RETENTÉ.
  */
-import { ecrireAvecLiberation, MIROIR_KEY, MIROIR_ECRIT_KEY } from './stockage-local.js';
+import { ecrireAvecLiberation, MIROIR_KEY, MIROIR_ECRIT_KEY, MIRROR_TAG_KEY } from './stockage-local.js';
 
 export const MIROIR_IDB = 'immotrack_miroir';
 export const MIROIR_STORE = 'miroir';
 export const MIROIR_ENREG = 'courant';
 /** Le journal synchrone des EDL pas encore engagés en IndexedDB (clé du registre, classe « principal »). */
 export const JOURNAL_EDL_KEY = MIROIR_KEY + '_edl_attente';
-/** Délai au-delà duquel un `indexedDB.open` muet est traité comme un refus (repli annoncé). */
+/** Délai au-delà duquel une opération IndexedDB muette est traitée comme un refus. */
 export const DELAI_OUVERTURE_MS = 3000;
+
+/** Une promesse bornée dans le temps : au-delà, rejet `indexeddb-muet`. */
+function avecDelai(p, ms) {
+  let minuterie;
+  const delai = new Promise((_r, rej) => { minuterie = setTimeout(() => rej(new Error('indexeddb-muet')), ms); });
+  return Promise.race([Promise.resolve(p), delai]).finally(() => clearTimeout(minuterie));
+}
 
 // ── Adaptateur IndexedDB réel ────────────────────────────────────────────────────────────────
 
@@ -92,12 +105,14 @@ export function adaptateurIndexedDB(fabrique, { nom = MIROIR_IDB, delaiMs = DELA
     /**
      * La base existe-t-elle, SANS la créer ? (`indexedDB.open` crée la base : l'appeler au démarrage
      * recréerait une base vide juste après la purge RGPD du logout.) true / false, ou null si le
-     * navigateur ne sait pas le dire (`databases()` absent) — l'appelant ouvre alors normalement.
+     * navigateur ne sait pas le dire ou ne répond pas (`databases()` absent ou MUET : borné, audit O2).
      * Lève si IndexedDB est refusé.
      */
     existe: async () => {
       if (typeof fabrique.databases !== 'function') return null;
-      const liste = await fabrique.databases();
+      let liste;
+      try { liste = await avecDelai(fabrique.databases(), delaiMs); }
+      catch (e) { if (e && e.message === 'indexeddb-muet') return null; throw e; }
       return Array.isArray(liste) && liste.some(d => d && d.name === nom);
     },
     lire: () => operer('readonly', s => s.get(MIROIR_ENREG)),
@@ -112,218 +127,363 @@ export function adaptateurIndexedDB(fabrique, { nom = MIROIR_IDB, delaiMs = DELA
   };
 }
 
-// ── Le miroir ─────────────────────────────────────────────────────────────────────────────────
+// ── Identité et fusion des EDL ────────────────────────────────────────────────────────────────
 
 const cleEdl = r => String(r && r.id) + '@@' + ((r && r._espaceId) || '');
 const dateDe = r => Date.parse((r && r._modifiedAt) || '') || 0;
 
-/** Superpose les EDL du journal sur une base (le plus récent gagne ; absent → ajouté). */
+/**
+ * Index d'une liste d'EDL : par clé complète (id + espace), et par id quand il est UNIQUE dans la
+ * liste — un EDL dont le tag d'espace a changé est reconnu, sans doublon (audit, point 🟡).
+ */
+function indexer(liste) {
+  const parCle = new Map(), parId = new Map();
+  liste.forEach((r, i) => {
+    if (!r) return;
+    parCle.set(cleEdl(r), i);
+    const id = String(r.id);
+    parId.set(id, parId.has(id) ? -1 : i);
+  });
+  return {
+    trouver(r) {
+      const i = parCle.get(cleEdl(r));
+      if (i != null) return i;
+      const j = parId.get(String(r && r.id));
+      return (j != null && j >= 0) ? j : null;
+    },
+    ajouter(r, i) { parCle.set(cleEdl(r), i); const id = String(r.id); parId.set(id, parId.has(id) ? -1 : i); },
+  };
+}
+
+/**
+ * Superpose les EDL du JOURNAL : ils gagnent SANS CONDITION. Par construction, le journal ne contient
+ * que du travail local non engagé — plus récent que ce qu'il remplace, quelle que soit l'horloge qui
+ * a posé les `_modifiedAt` (audit O1 : horloges d'appareils décalées). Absent → ajouté.
+ */
 export function superposerJournal(db, journal) {
   const edlJ = journal && Array.isArray(journal.edl) ? journal.edl : [];
   if (!edlJ.length) return db;
   const base = db && typeof db === 'object' ? db : {};
   const liste = Array.isArray(base.edl) ? base.edl.slice() : [];
-  const index = new Map(liste.map((r, i) => [cleEdl(r), i]));
+  const ix = indexer(liste);
   for (const r of edlJ) {
     if (!r) continue;
-    const i = index.get(cleEdl(r));
-    if (i == null) { index.set(cleEdl(r), liste.length); liste.push(r); }
-    else if (dateDe(r) >= dateDe(liste[i])) liste[i] = r;
+    const i = ix.trouver(r);
+    if (i == null) { ix.ajouter(r, liste.length); liste.push(r); }
+    else liste[i] = r;
   }
   return Object.assign({}, base, { edl: liste });
 }
 
 /**
- * @param {object} o
- * @param {object|null} o.idb       adaptateur { lire, ecrire, effacer, supprimerBase } (ou null : pas d'IndexedDB)
- * @param {Storage} o.stockage       localStorage (journal, horodatage, repli)
- * @param {object} [o.cles]          { miroir, ecritA, journal }
- * @param {Function} [o.horloge]
- * @param {Function} [o.signaler]    ({ type, erreur }) → l'app l'affiche ('repli', 'echec-ecriture', 'transfert-echec')
+ * Fusion de deux listes d'EDL (transfert, écriture protégée) : UNION ; sur un même EDL, le plus
+ * récent par `_modifiedAt` gagne, à égalité la liste PRINCIPALE gagne. Aucun EDL ne disparaît.
  */
-export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now(), signaler = () => {} }) {
-  const K = { miroir: cles.miroir || MIROIR_KEY, ecritA: cles.ecritA || MIROIR_ECRIT_KEY, journal: cles.journal || JOURNAL_EDL_KEY };
+export function fusionnerEdl(principale, autre) {
+  const liste = Array.isArray(principale) ? principale.slice() : [];
+  const ix = indexer(liste);
+  for (const r of (Array.isArray(autre) ? autre : [])) {
+    if (!r) continue;
+    const i = ix.trouver(r);
+    if (i == null) { ix.ajouter(r, liste.length); liste.push(r); }
+    else if (dateDe(r) > dateDe(liste[i])) liste[i] = r;
+  }
+  return liste;
+}
+
+const carteEdl = db => { const m = new Map(); for (const r of (db && Array.isArray(db.edl) ? db.edl : [])) if (r) m.set(cleEdl(r), JSON.stringify(r)); return m; };
+
+// ── Le miroir ─────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @param {object} o
+ * @param {object|null} o.idb       adaptateur { existe?, lire, ecrire, effacer, supprimerBase } (ou null)
+ * @param {Storage} o.stockage       localStorage (journal, horodatage, tag, repli)
+ * @param {object} [o.cles]          { miroir, ecritA, journal, tag }
+ * @param {Function} [o.horloge]
+ * @param {Function} [o.signaler]    ({ type, erreur }) → l'app l'affiche
+ * @param {number} [o.delaiMs]       borne des opérations IndexedDB (3 s)
+ */
+export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now(), signaler = () => {}, delaiMs = DELAI_OUVERTURE_MS }) {
+  const K = {
+    miroir: cles.miroir || MIROIR_KEY, ecritA: cles.ecritA || MIROIR_ECRIT_KEY,
+    journal: cles.journal || JOURNAL_EDL_KEY, tag: cles.tag || MIRROR_TAG_KEY,
+  };
   let backend = null;           // null (pas initialisé) | 'indexeddb' | 'localStorage'
-  let presentIdb = false;       // un enregistrement existe en IndexedDB
+  let idbIncertain = false;     // IndexedDB n'a pas pu être LU : son contenu est INCONNU (jamais « absent »)
+  let presentIdb = false;       // un enregistrement de CE propriétaire existe en IndexedDB
   let ferme = false;            // après la purge du logout : plus aucune écriture
+  let protege = false;          // miroir illisible porteur possible de travail non remonté
   let engages = new Map();      // cleEdl → JSON de l'EDL tel qu'engagé en IndexedDB
   let dernier = null;           // la base à écrire (référence vivante, la plus récente)
-  let enVol = null;             // promesse de la boucle d'écriture en cours
-  let aRefaire = false;
+  let travailBase = 0;          // `travailA` lu dans l'enregistrement au démarrage
+  let travailSession = 0;       // heure du dernier travail local de la session (écritures horodatées)
+  let gen = 0;                  // génération : oublier / vider rendent caduques les écritures d'avant
+  let file = Promise.resolve(); // FILE SÉRIE de toutes les opérations IndexedDB
+  let ecritureEnFile = false;
   let avertir = signaler;
 
+  const tagCourant = () => { try { return stockage.getItem(K.tag) || null; } catch (_e) { return null; } };
+  const estAMoi = enr => !!enr && ((enr.tag || null) === tagCourant());
+  const lireIdb = () => avecDelai(idb.lire(), delaiMs);
+  const enFile = (op) => { const p = file.then(op); file = p.catch(() => {}); return p; };
   const lireJournal = () => { try { return JSON.parse(stockage.getItem(K.journal) || 'null'); } catch (_e) { return null; } };
   const edlEnAttente = (db) => (db && Array.isArray(db.edl) ? db.edl : []).filter(r => r && engages.get(cleEdl(r)) !== JSON.stringify(r));
+  const travail = () => Math.max(travailBase, travailSession);
+  const ok = { ok: true, liberees: [], caracteresLiberes: 0, erreur: null };
 
-  /** Écrit (ou retire) le journal des EDL non engagés + l'horodatage, SYNCHRONEMENT. */
-  function ecrireJournal(db, ecritA, avecHorodatage) {
+  /** Le journal des EDL non engagés (ou son retrait). SANS l'horodatage : écrit à part, AVANT (O3). */
+  function ecrireJournal(db, ecritA) {
     const attente = edlEnAttente(db);
-    const paires = [];
-    if (attente.length) paires.push([K.journal, JSON.stringify({ ecritA, edl: attente })]);
-    if (avecHorodatage) paires.push([K.ecritA, String(ecritA)]);
-    if (!attente.length) { try { stockage.removeItem(K.journal); } catch (_e) {} }
-    return paires.length ? ecrireAvecLiberation(stockage, paires) : { ok: true, liberees: [], caracteresLiberes: 0, erreur: null };
+    if (!attente.length) { try { stockage.removeItem(K.journal); } catch (_e) {} return ok; }
+    return ecrireAvecLiberation(stockage, [[K.journal, JSON.stringify({ ecritA, edl: attente })]]);
   }
 
-  function ecrireLocal(db, ecritA) {
-    const r = ecrireAvecLiberation(stockage, [[K.miroir, JSON.stringify(db)], [K.ecritA, String(ecritA)]]);
+  function ecrireLocal(db, ecritA, horodater) {
+    if (horodater) { const r1 = ecrireAvecLiberation(stockage, [[K.ecritA, String(ecritA)]]); if (!r1.ok) throw r1.erreur; }
+    const r = ecrireAvecLiberation(stockage, [[K.miroir, JSON.stringify(db)]]);
     if (!r.ok) throw r.erreur;
     return true;
   }
 
   function basculerRepli(motif, erreur) {
     backend = 'localStorage';
-    avertir({ type: motif, erreur });
+    if (motif) avertir({ type: motif, erreur });
   }
 
-  function lancer() {
-    if (enVol) { aRefaire = true; return enVol; }
-    enVol = (async () => {
-      await null;                                           // après le retour de saveDB (même tâche, microtâche)
-      do {
-        aRefaire = false;
-        if (ferme || backend !== 'indexeddb' || !dernier) break;
-        const cible = dernier;
-        const ecritA = horloge();
-        const json = JSON.stringify(cible);
-        const eng = new Map();
-        for (const r of (Array.isArray(cible.edl) ? cible.edl : [])) if (r) eng.set(cleEdl(r), JSON.stringify(r));
-        try {
-          await idb.ecrire({ v: 1, ecritA, json });
-          presentIdb = true;
-          engages = eng;
-          if (!ferme) ecrireJournal(dernier, parseInt(stockage.getItem(K.ecritA) || '0', 10) || ecritA, false);
-        } catch (e) {
-          // IndexedDB refuse l'écriture : le journal garde les EDL ; le miroir complet repart en local.
-          basculerRepli('echec-ecriture', e);
-          try { ecrireLocal(dernier, horloge()); try { stockage.removeItem(K.journal); } catch (_e) {} }
-          catch (e2) { avertir({ type: 'echec-repli', erreur: e2 }); }
-          break;
+  /** Planifie UNE écriture de la base (coalescée : jamais plus d'une en attente). */
+  function planifierEcriture() {
+    if (ecritureEnFile) return file;
+    ecritureEnFile = true;
+    const g = gen;
+    return enFile(async () => {
+      ecritureEnFile = false;                              // une demande ultérieure replanifie
+      if (g !== gen || ferme || backend !== 'indexeddb' || !dernier) return;
+      const cible = dernier;
+      let aEcrire = cible;
+      if (protege) {
+        // Miroir porteur possible de travail non remonté : on RELIT et on FUSIONNE ses EDL avant
+        // d'écrire. Illisible → on n'écrit pas (le journal garde les EDL de la session).
+        let enr;
+        try { enr = await lireIdb(); } catch (_e) { return; }
+        if (g !== gen) return;
+        if (enr && enr.json && estAMoi(enr)) {
+          let ancienne = null;
+          try { ancienne = JSON.parse(enr.json); } catch (_e) { return; }
+          aEcrire = Object.assign({}, cible, { edl: fusionnerEdl(cible.edl, ancienne && ancienne.edl) });
+          travailBase = Math.max(travailBase, Number(enr.travailA) || 0);
         }
-      } while (aRefaire);
-    })().finally(() => { enVol = null; });
-    return enVol;
+      }
+      const json = JSON.stringify(aEcrire);
+      const eng = carteEdl(cible);
+      try {
+        await idb.ecrire({ v: 2, ecritA: horloge(), travailA: travail(), tag: tagCourant(), json });
+      } catch (e) {
+        if (g !== gen) return;
+        // IndexedDB refuse l'écriture : le journal garde les EDL ; le miroir complet repart en local.
+        basculerRepli('echec-ecriture', e);
+        try { ecrireLocal(dernier, horloge(), false); try { stockage.removeItem(K.journal); } catch (_e) {} }
+        catch (e2) { avertir({ type: 'echec-repli', erreur: e2 }); }
+        return;
+      }
+      if (g !== gen) return;                                // oublié / vidé pendant la transaction
+      presentIdb = true; idbIncertain = false;
+      engages = eng;
+      if (!ferme && dernier) {
+        // Ce qui a été modifié PENDANT la transaction reste au journal jusqu'à la suivante.
+        const r = ecrireJournal(dernier, horloge());
+        if (!r.ok) avertir({ type: 'echec-repli', erreur: r.erreur });
+      }
+    });
   }
 
-  return {
+  const api = {
     /** Le backend actif : null (pas encore initialisé), 'indexeddb' ou 'localStorage'. */
     backend: () => backend,
     pret: () => backend !== null && !ferme,
     /** Brancher l'affichage des signaux (repli, échec) une fois l'app prête. */
     surSignal(fn) { if (typeof fn === 'function') avertir = fn; },
+    /** Heure du dernier travail local connu (enregistrement IndexedDB + session) — F1 et garde en prennent le MAX avec `_ecrit_at`. */
+    travailA: travail,
+    /** Mode protégé : un miroir illisible porte peut-être du travail non remonté. */
+    protege: () => protege,
+    /** F1 a trouvé le miroir illisible alors que du travail n'est pas remonté. */
+    proteger() { protege = true; },
+    /** IndexedDB au contenu inconnu (lecture impossible) ? */
+    incertain: () => idbIncertain,
+    /** Repli décidé au démarrage sur un IndexedDB MUET : nouvelle tentative (avant F1). Sinon, rien. */
+    async retenterSiIncertain() {
+      if (backend === 'localStorage' && idbIncertain && idb && !ferme) await api.initialiser({ reessai: true });
+    },
 
     /**
-     * Ouvre IndexedDB et TRANSFÈRE un miroir `localStorage` existant : écrire, RELIRE, COMPARER,
-     * puis seulement supprimer la clé locale. Tout échec → rien n'est supprimé, repli local annoncé.
+     * Ouvre IndexedDB et TRANSFÈRE un miroir `localStorage` existant en FUSIONNANT les EDL : écrire,
+     * RELIRE, COMPARER, puis seulement supprimer la clé locale. Tout échec → rien n'est supprimé.
+     * `reessai` : nouvelle tentative (avant F1) après un repli décidé au démarrage.
      */
-    async initialiser() {
-      if (backend) return { backend, transfert: 'deja' };
+    async initialiser({ reessai = false } = {}) {
+      if (backend && !reessai) return { backend, transfert: 'deja' };
       if (!idb) { basculerRepli('repli', new Error('indexeddb-absent')); return { backend, transfert: 'aucun' }; }
+      const brut = stockage.getItem(K.miroir);
       // Rien à transférer et aucune base : on n'OUVRE pas (ouvrir crée la base — elle réapparaîtrait,
       // vide, juste après la purge du logout). Ouverture différée à la première écriture.
-      if (stockage.getItem(K.miroir) == null && typeof idb.existe === 'function') {
-        let existe;
-        try { existe = await idb.existe(); }
-        catch (e) { basculerRepli('repli', e); return { backend, transfert: 'aucun' }; }
-        if (existe === false) { backend = 'indexeddb'; presentIdb = false; return { backend, transfert: 'aucun' }; }
+      if (brut == null && typeof idb.existe === 'function') {
+        let existe = null;
+        try { existe = await idb.existe(); } catch (_e) { existe = null; }
+        if (existe === false) { backend = 'indexeddb'; idbIncertain = false; presentIdb = false; return { backend, transfert: 'aucun' }; }
       }
       let enr;
-      try { enr = await idb.lire(); }
-      catch (e) { basculerRepli('repli', e); return { backend, transfert: 'aucun' }; }
-      presentIdb = !!(enr && enr.json);
+      try { enr = await lireIdb(); }
+      catch (e) {
+        // REFUS (IndexedDB interdit : navigation privée, réglage) : rien n'a pu y être écrit, il est
+        // absent pour nous. Toute AUTRE erreur (muet, erreur interne) : son contenu est INCONNU.
+        const refus = !!e && (e.name === 'SecurityError' || e.name === 'InvalidStateError');
+        idbIncertain = !refus;
+        basculerRepli(reessai ? null : 'repli', e);
+        return { backend, transfert: 'aucun' };
+      }
+      idbIncertain = false;
+      // Tag du miroir PERDU (navigateur tué : Chromium perd les écritures localStorage récentes, 3e audit
+      // O4) alors que l'enregistrement IndexedDB porte le sien : on le RESTAURE. Sans lui, le miroir de
+      // CE propriétaire passerait pour celui d'un autre et serait effacé au login (F1 ne le verrait pas).
+      // Aucun risque RGPD de plus : ce tag a été écrit par l'app, pour ce même appareil ; si le tag local
+      // EXISTE et diffère, c'est bien un autre propriétaire et rien n'est restauré.
+      if (enr && enr.tag && !tagCourant()) { try { stockage.setItem(K.tag, enr.tag); } catch (_e) {} }
+      // Un enregistrement d'un AUTRE propriétaire (ou sans tag) n'est jamais servi ni fusionné (RGPD).
+      const aMoi = estAMoi(enr) && !!(enr && enr.json);
+      let baseIdb = null;
+      if (aMoi) { try { baseIdb = JSON.parse(enr.json); } catch (_e) { baseIdb = null; } }
+      presentIdb = !!baseIdb;
+      if (baseIdb) { travailBase = Math.max(travailBase, Number(enr.travailA) || 0); engages = carteEdl(baseIdb); }
       let transfert = 'aucun';
-      const brut = stockage.getItem(K.miroir);
       if (brut != null) {
-        const ecritLs = parseInt(stockage.getItem(K.ecritA) || '0', 10) || 0;
-        if (!presentIdb || (Number(enr.ecritA) || 0) < ecritLs) {
+        let baseLs = null;
+        try { baseLs = JSON.parse(brut); } catch (_e) { baseLs = null; }
+        if (baseLs) {
+          const ecritLs = parseInt(stockage.getItem(K.ecritA) || '0', 10) || 0;
+          let cible;
+          if (baseIdb && (Number(enr.ecritA) || 0) >= ecritLs && ecritLs) {
+            cible = Object.assign({}, baseIdb, { edl: fusionnerEdl(baseIdb.edl, baseLs.edl) });   // IndexedDB plus récent
+            transfert = 'local-perime';
+          } else {
+            cible = baseIdb ? Object.assign({}, baseLs, { edl: fusionnerEdl(baseLs.edl, baseIdb.edl) }) : baseLs;
+            transfert = baseIdb ? 'fusion' : 'fait';
+          }
+          const json = JSON.stringify(cible);
+          const travailT = Math.max(travailBase, ecritLs);
           try {
-            await idb.ecrire({ v: 1, ecritA: ecritLs || horloge(), json: brut });
-            const relu = await idb.lire();
-            if (!relu || relu.json !== brut) throw new Error('transfert-non-conforme');
-            presentIdb = true;
-            transfert = 'fait';
+            await avecDelai(idb.ecrire({ v: 2, ecritA: Math.max(Number(enr && enr.ecritA) || 0, ecritLs) || horloge(), travailA: travailT, tag: tagCourant(), json }), delaiMs);
+            const relu = await lireIdb();
+            if (!relu || relu.json !== json) throw new Error('transfert-non-conforme');
           } catch (e) {
-            basculerRepli('transfert-echec', e);           // la clé locale RESTE : rien n'est perdu
+            basculerRepli('transfert-echec', e);             // la clé locale RESTE : rien n'est perdu
             return { backend, transfert: 'echec' };
           }
-        } else transfert = 'local-perime';
-        try { stockage.removeItem(K.miroir); } catch (_e) {}
+          presentIdb = true; travailBase = travailT; engages = carteEdl(cible);
+          try { stockage.removeItem(K.miroir); } catch (_e) {}
+        }
       }
       backend = 'indexeddb';
       return { backend, transfert };
     },
 
     /**
-     * Écriture DEMANDÉE par saveDB. SYNCHRONE pour ce qui compte : journal des EDL non engagés +
-     * horodatage (ou miroir complet en repli). La base complète part ensuite en IndexedDB, coalescée.
-     * Contrat identique à `_miroirEcrire` : rend true, ou LÈVE l'erreur de stockage.
-     * `opts.horodater === false` : n'avance pas `_ecrit_at` (rebase au login, restauration — l'état
-     * écrit EST celui du cloud, il n'y a pas de travail local à remonter), comme avant ce lot.
+     * Écriture DEMANDÉE par saveDB. SYNCHRONE pour ce qui compte : `_ecrit_at` d'abord, dans son
+     * propre setItem, puis le journal des EDL non engagés (ou, en repli, le miroir complet). La base
+     * complète part ensuite en IndexedDB, coalescée. Contrat identique à `_miroirEcrire` : rend true,
+     * ou LÈVE l'erreur de stockage (l'écriture IndexedDB est planifiée quoi qu'il arrive).
+     * `opts.horodater === false` : rebase / restauration — l'état écrit EST celui du cloud.
      */
     ecrire(db, opts) {
       if (ferme) return true;
       const horodater = !(opts && opts.horodater === false);
       const ecritA = horloge();
-      if (backend !== 'indexeddb') {
-        if (horodater) return ecrireLocal(db, ecritA);
-        const r0 = ecrireAvecLiberation(stockage, [[K.miroir, JSON.stringify(db)]]);
-        if (!r0.ok) throw r0.erreur;
-        return true;
-      }
+      if (horodater) travailSession = ecritA;
+      if (backend !== 'indexeddb') return ecrireLocal(db, ecritA, horodater);
       dernier = db;
-      const r = ecrireJournal(db, ecritA, horodater);
-      lancer();
-      if (!r.ok) throw r.erreur;
+      const r1 = horodater ? ecrireAvecLiberation(stockage, [[K.ecritA, String(ecritA)]]) : ok;
+      const r2 = ecrireJournal(db, ecritA);
+      planifierEcriture();
+      if (!r1.ok) throw r1.erreur;
+      if (!r2.ok) throw r2.erreur;
       return true;
     },
 
-    /** La vue du miroir : base (IndexedDB, sinon local) + journal des EDL superposé. null si rien. */
-    async lire() {
+    /**
+     * La vue du miroir, TRI-VALUÉE (audit R1) :
+     *   { etat: 'base' | 'absente' | 'illisible', db }
+     * `db` = ce qui a pu être lu (IndexedDB, sinon la clé locale) + journal superposé ; `illisible`
+     * signale qu'IndexedDB peut porter davantage (il n'a pas pu être lu) — jamais confondu avec « absent ».
+     * Après un repli décidé au démarrage, IndexedDB est RETENTÉ d'abord.
+     */
+    async lireEtat() {
+      await api.retenterSiIncertain();
+      let etat = 'absente';
       let db = null;
-      // `presentIdb` faux = aucune base connue : ne pas l'ouvrir (ce serait la créer).
-      if (backend !== 'localStorage' && idb && (presentIdb || backend === null)) {
-        try { const enr = await idb.lire(); if (enr && enr.json) db = JSON.parse(enr.json); } catch (_e) { db = null; }
-      }
-      if (!db) { try { const brut = stockage.getItem(K.miroir); if (brut) db = JSON.parse(brut); } catch (_e) { db = null; } }
+      if (backend === 'indexeddb' && idb && (presentIdb || idbIncertain)) {
+        let enr, lu = false;
+        for (let essai = 0; essai < 2 && !lu; essai++) {
+          try { enr = await lireIdb(); lu = true; } catch (_e) { /* nouvel essai */ }
+        }
+        if (!lu) etat = 'illisible';
+        else if (enr && enr.json && estAMoi(enr)) {
+          try { db = JSON.parse(enr.json); etat = 'base'; } catch (_e) { etat = 'illisible'; }
+          travailBase = Math.max(travailBase, Number(enr.travailA) || 0);
+        }
+      } else if (idbIncertain) etat = 'illisible';
+      try {
+        const brut = stockage.getItem(K.miroir);
+        if (brut) {
+          const loc = JSON.parse(brut);
+          if (loc) db = db ? Object.assign({}, db, { edl: fusionnerEdl(db.edl, loc.edl) }) : loc;
+          if (etat === 'absente') etat = 'base';
+        }
+      } catch (_e) { /* clé locale illisible : on garde ce qu'on a */ }
       const j = lireJournal();
-      if (j && Array.isArray(j.edl) && j.edl.length) db = superposerJournal(db, j);
-      return db;
+      if (j && Array.isArray(j.edl) && j.edl.length) {
+        db = superposerJournal(db, j);
+        if (etat === 'absente') etat = 'base';
+      }
+      return { etat, db };
     },
 
-    /** Y a-t-il un miroir sur l'appareil ? (synchrone : IndexedDB connu, journal ou clé locale) */
+    /** La base à afficher (démarrage hors ligne) : `lireEtat().db`. */
+    async lire() { return (await api.lireEtat()).db; },
+
+    /** Y a-t-il (peut-être) un miroir sur l'appareil ? Synchrone. Un IndexedDB illisible COMPTE. */
     present() {
-      if (presentIdb) return true;
+      if (presentIdb || idbIncertain) return true;
       try { return !!stockage.getItem(K.journal) || !!stockage.getItem(K.miroir); } catch (_e) { return false; }
     },
 
-    /** Attend la fin des écritures en vol (tests, purge). */
-    async attendre() { while (enVol) { try { await enVol; } catch (_e) {} } },
+    /** Attend la fin de la file IndexedDB (tests, purge, ordre F14.1 au login). */
+    async attendre() { let f; do { f = file; await f; } while (f !== file); },
 
     /**
-     * Changement d'utilisateur au LOGIN (synchrone) : journal et clé locale retirés tout de suite ;
-     * l'effacement IndexedDB est mis en file AVANT toute écriture suivante (même connexion, ordre des
-     * transactions) — le rebase du login qui suit écrit donc bien après.
+     * Changement d'utilisateur au LOGIN (synchrone pour le journal et la clé locale). L'effacement
+     * IndexedDB est mis en file APRÈS la transaction en vol et AVANT toute écriture suivante, quel
+     * que soit le backend (au mieux, borné) : en repli aussi, la base de l'ancien propriétaire part.
+     * Les écritures d'avant deviennent caduques (génération).
      */
     oublier() {
-      dernier = null; engages = new Map(); presentIdb = false;
+      gen++; dernier = null; engages = new Map(); presentIdb = false; idbIncertain = false;
+      travailBase = 0; travailSession = 0; protege = false; ecritureEnFile = false;
       try { stockage.removeItem(K.journal); } catch (_e) {}
       try { stockage.removeItem(K.miroir); } catch (_e) {}
-      if (idb && backend === 'indexeddb') {
-        const p = (enVol || Promise.resolve()).then(() => idb.effacer()).catch(e => avertir({ type: 'echec-effacement', erreur: e }));
-        return p;
-      }
-      return Promise.resolve();
+      if (!idb) return Promise.resolve();
+      return enFile(() => avecDelai(idb.effacer(), delaiMs).catch(e => avertir({ type: 'echec-effacement', erreur: e })));
     },
 
     /** Logout (RGPD) : plus aucune écriture, base IndexedDB SUPPRIMÉE, journal et clé locale retirés. */
     async vider() {
-      ferme = true; dernier = null; engages = new Map(); presentIdb = false;
+      ferme = true; gen++; dernier = null; engages = new Map(); presentIdb = false; idbIncertain = false; protege = false;
       try { stockage.removeItem(K.journal); } catch (_e) {}
       try { stockage.removeItem(K.miroir); } catch (_e) {}
-      while (enVol) { try { await enVol; } catch (_e) {} }
-      if (idb) await idb.supprimerBase();
+      if (idb) await enFile(() => idb.supprimerBase());
+      await api.attendre();
     },
   };
+  return api;
 }
 
 // ── L'instance de l'app (partagée par js/main.js → index.html et par supabase-entry.js) ─────────

@@ -6997,9 +6997,11 @@ function _miroirEcrire(json, opts) {
 /* ═══ STOCKAGE lot 4 — le miroir en MODE CLOUD passe en IndexedDB (CDC §3.8, D4 B) ═══
    L'écriture est confiée au miroir de js/core/miroir-local.js (exposé par js/main.js sous
    window._miroirLocal, initialisé par supabase-entry AVANT tout lecteur) :
-     - SYNCHRONE : les enregistrements d'EDL pas encore engagés en IndexedDB + `_ecrit_at`, dans un
-       petit journal localStorage → un EDL enregistré est sur le disque au retour de saveDB
-       (zéro perte d'EDL hors ligne, même si l'app est tuée pendant la transaction) ;
+     - SYNCHRONE : `_ecrit_at`, puis les enregistrements d'EDL pas encore engagés en IndexedDB, dans
+       un petit journal localStorage. Ils survivent à un onglet fermé, rechargé ou planté pendant la
+       transaction IndexedDB. Si le NAVIGATEUR ENTIER est tué dans les ~2 s, Chromium peut perdre ces
+       écritures localStorage (mesuré au 3e audit) : l'EDL est alors relu depuis IndexedDB, dont
+       l'enregistrement porte `travailA` — F1 et la garde de déconnexion en prennent le MAX ;
      - ASYNCHRONE, coalescée : la base complète en IndexedDB (plus de plafond à ~5 Mo).
    Miroir pas prêt (module absent, initialisation pas faite) → écrivain local du lot 1, inchangé.
    Même contrat que `_miroirEcrire` : rend true, ou LÈVE (les appelants gardent F8 / 19l).

@@ -8,7 +8,8 @@
  * localStorage de laboratoire à quota du lot 1.
  */
 import { describe, it, expect } from 'vitest';
-import { creerMiroir, superposerJournal, JOURNAL_EDL_KEY } from '../../js/core/miroir-local.js';
+import { creerMiroir, superposerJournal, fusionnerEdl, JOURNAL_EDL_KEY } from '../../js/core/miroir-local.js';
+import * as OB from '../../js/core/offline-boot.js';
 import { fauxStockageQuota, chaine } from './_faux-stockage-quota.js';
 
 /** IndexedDB de laboratoire : un enregistrement, des écritures qu'on peut suspendre ou faire échouer. */
@@ -75,12 +76,24 @@ describe('Pas de base et rien à transférer : IndexedDB n’est PAS ouvert (sin
     await m.attendre();
     expect(idb.journal).toEqual(['ecrire']);
   });
-  it('`databases()` refusé (IndexedDB interdit) : repli annoncé', async () => {
+  it('IndexedDB interdit (`databases()` puis `open` refusés, SecurityError) : repli annoncé, et IndexedDB n’est PAS « incertain »', async () => {
     const signaux = [];
-    const idb = Object.assign(fauxIdb(), { existe: async () => { throw new Error('SecurityError'); } });
+    const refus = () => { const e = new Error('refus'); e.name = 'SecurityError'; return e; };
+    const idb = Object.assign(fauxIdb(), { existe: async () => { throw refus(); }, lire: async () => { throw refus(); } });
     const m = creerMiroir({ idb, stockage: fauxStockageQuota(), signaler: s => signaux.push(s.type) });
     expect((await m.initialiser()).backend).toBe('localStorage');
     expect(signaux).toEqual(['repli']);
+    expect(m.incertain()).toBe(false);
+    expect(m.present()).toBe(false);                                       // rien n'a pu y être écrit
+  });
+  it('O2 — `databases()` MUET : borné (null), le démarrage continue par une ouverture normale', async () => {
+    const idb = Object.assign(fauxIdb({ initial: { v: 1, ecritA: 1, json: JSON.stringify(base()) } }), { existe: () => new Promise(() => {}) });
+    // L'adaptateur réel borne `databases()` ; ici on vérifie aussi la borne de l'adaptateur réel :
+    const { adaptateurIndexedDB } = await import('../../js/core/miroir-local.js');
+    const ad = adaptateurIndexedDB({ databases: () => new Promise(() => {}) }, { delaiMs: 30 });
+    expect(await ad.existe()).toBeNull();
+    const m = creerMiroir({ idb: Object.assign(idb, { existe: ad.existe }), stockage: fauxStockageQuota(), delaiMs: 30 });
+    expect((await m.initialiser()).backend).toBe('indexeddb');
   });
   it('navigateur qui ne sait pas dire si la base existe (null) : ouverture normale', async () => {
     const idb = Object.assign(fauxIdb(), { existe: async () => null });
@@ -126,13 +139,13 @@ describe('Transfert localStorage → IndexedDB : écrire, relire, comparer, PUIS
     expect(st.getItem('immotrack_v4')).toBe(brut);
   });
 
-  it('miroir IndexedDB PLUS RÉCENT que la clé locale : la clé locale (périmée) est libérée, IndexedDB intact', async () => {
+  it('miroir IndexedDB PLUS RÉCENT que la clé locale : base IndexedDB gardée, les EDL de la clé locale FUSIONNÉS (rien ne disparaît)', async () => {
     const idb = fauxIdb({ initial: { v: 1, ecritA: 200, json: JSON.stringify(base([edl(2, 2)])) } });
     const st = fauxStockageQuota({ initial: { immotrack_v4: JSON.stringify(base([edl(1, 1)])), immotrack_v4_ecrit_at: '100' } });
     const m = creerMiroir({ idb, stockage: st });
     expect((await m.initialiser()).transfert).toBe('local-perime');
     expect(st.getItem('immotrack_v4')).toBeNull();
-    expect((await m.lire()).edl.map(r => r.id)).toEqual([2]);
+    expect((await m.lire()).edl.map(r => r.id)).toEqual([2, 1]);
   });
 });
 
@@ -188,11 +201,35 @@ describe('ZÉRO PERTE — un EDL enregistré est sur le disque AU RETOUR de ecri
     db.edl[0] = edl(1, 2000, { note: 'modifié pendant le vol' });            // l'autosave suivant…
     m.ecrire(db);                                                           // …est coalescé
     expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl[0].note).toBe('modifié pendant le vol');
+    // 1re transaction terminée (ancienne version) — la 2e est suspendue à son tour :
+    idb.suspendues.shift()();
+    await flush(); await flush();
+    expect(idb.enr && JSON.parse(idb.enr.json).edl[0].note).toBeUndefined();          // IndexedDB : v1 seulement
+    expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl[0].note).toBe('modifié pendant le vol');   // la v2 RESTE au journal
+    expect(idb.suspendues).toHaveLength(1);                                           // la 2e transaction est en vol
     idb.reglages.suspendre = false;
-    idb.suspendues.shift()();                                              // 1re transaction terminée (ancienne version)
+    idb.suspendues.shift()();
     await m.attendre();
     expect(JSON.parse(idb.enr.json).edl[0].note).toBe('modifié pendant le vol');   // la 2e l'a engagée
     expect(st.getItem(JOURNAL_EDL_KEY)).toBeNull();
+  });
+
+  it('la base REMPLACÉE pendant une transaction (re-pull : nouvel objet) : la version en attente reste au journal', async () => {
+    const st = fauxStockageQuota();
+    const idb = fauxIdb();
+    const m = creerMiroir({ idb, stockage: st });
+    await m.initialiser();
+    idb.reglages.suspendre = true;
+    m.ecrire(base([edl(1, 1000)]));                                         // objet A, transaction en vol
+    await flush();
+    m.ecrire(base([edl(1, 2000, { note: 'v2 dans un NOUVEL objet' })]));    // objet B (DB réassigné)
+    idb.suspendues.shift()();                                              // la transaction de A se termine
+    await flush(); await flush();
+    expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl[0].note).toBe('v2 dans un NOUVEL objet');
+    idb.reglages.suspendre = false;
+    idb.suspendues.shift()();
+    await m.attendre();
+    expect(JSON.parse(idb.enr.json).edl[0].note).toBe('v2 dans un NOUVEL objet');
   });
 
   it('journal refusé par un stockage local plein de clés non jetables : ecrire() LÈVE (19l), et IndexedDB reçoit quand même', async () => {
@@ -236,11 +273,28 @@ describe('Écrivain à coalescence', () => {
 });
 
 describe('lire — superposition du journal', () => {
-  it('le plus récent gagne, un EDL inconnu est ajouté, un journal plus ancien n’écrase rien', () => {
-    const b = base([edl(1, 2000, { v: 'base' }), edl(2, 1000, { v: 'base' })]);
-    const r = superposerJournal(b, { edl: [edl(1, 1000, { v: 'journal-ancien' }), edl(2, 3000, { v: 'journal' }), edl(3, 1, { v: 'nouveau' })] });
-    expect(r.edl.map(x => [x.id, x.v])).toEqual([[1, 'base'], [2, 'journal'], [3, 'nouveau']]);
-    expect(b.edl[1].v).toBe('base');                                       // pas de mutation de l'entrée
+  it('O1 — le journal gagne SANS CONDITION (horloges décalées : un _modifiedAt « plus ancien » n’est pas une saisie plus ancienne)', () => {
+    // EDL hydraté à 10:10 (horloge d'un autre appareil EN AVANCE) ; cet appareil le modifie à 10:05 hors ligne.
+    const b = base([edl(1, Date.UTC(2026, 8, 30, 10, 10), { v: 'hydraté' }), edl(2, 1000, { v: 'base' })]);
+    const r = superposerJournal(b, { edl: [edl(1, Date.UTC(2026, 8, 30, 10, 5), { v: 'SAISIE HORS LIGNE' }), edl(3, 1, { v: 'nouveau' })] });
+    expect(r.edl.map(x => [x.id, x.v])).toEqual([[1, 'SAISIE HORS LIGNE'], [2, 'base'], [3, 'nouveau']]);
+    expect(b.edl[0].v).toBe('hydraté');                                    // pas de mutation de l'entrée
+  });
+  it('tag d’espace changé : le même EDL est reconnu par son id (unique), sans doublon', () => {
+    const b = base([edl(5, 1, { _espaceId: 'e-a', v: 'ancien' })]);
+    const r = superposerJournal(b, { edl: [edl(5, 2, { _espaceId: 'e-b', v: 'retagué' })] });
+    expect(r.edl.map(x => [x.id, x._espaceId, x.v])).toEqual([[5, 'e-b', 'retagué']]);
+    expect(fusionnerEdl([edl(5, 1, { _espaceId: 'e-a' })], [edl(5, 2, { _espaceId: 'e-b' })])).toHaveLength(1);
+  });
+  it('id PARTAGÉ par deux espaces : la clé complète départage, rien n’est écrasé à tort', () => {
+    const b = base([edl(5, 1, { _espaceId: 'e-a', v: 'A' }), edl(5, 1, { _espaceId: 'e-b', v: 'B' })]);
+    const r = superposerJournal(b, { edl: [edl(5, 2, { _espaceId: 'e-c', v: 'C' })] });
+    expect(r.edl.map(x => x.v)).toEqual(['A', 'B', 'C']);
+  });
+  it('fusion (transfert) : le plus récent gagne ; à ÉGALITÉ, la liste principale gagne ; aucun EDL ne disparaît', () => {
+    const f = fusionnerEdl([edl(1, 2000, { v: 'principal' }), edl(2, 1000, { v: 'principal' }), edl(3, 5, { v: 'p' })],
+      [edl(1, 1000, { v: 'autre' }), edl(2, 3000, { v: 'autre' }), edl(3, 5, { v: 'a' }), edl(4, 1, { v: 'autre' })]);
+    expect(f.map(x => [x.id, x.v])).toEqual([[1, 'principal'], [2, 'autre'], [3, 'p'], [4, 'autre']]);
   });
   it('journal sans base (IndexedDB perdu) : F1 voit quand même les EDL', () => {
     expect(superposerJournal(null, { edl: [edl(9, 1)] }).edl.map(x => x.id)).toEqual([9]);

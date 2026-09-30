@@ -10,7 +10,8 @@
  * Ce qui exige un vrai compte cloud (connexion, hydratation, envoi réel) est couvert ici par le code
  * réel de F1 / du démarrage hors ligne / de la garde et de la purge, avec des doubles pour le réseau.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
+import { createBoot } from '../../js/app/supabase-boot.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -130,6 +131,14 @@ describe('_refusDeconnexionLocale — un miroir IndexedDB compte (plus de clé l
       'return ' + extraireFonction(ENTRY, '_refusDeconnexionLocale'))({ __immoHorsLigne: true }, st, 'immotrack_v4', OfflineBoot, muet, moduleMiroir(m));
     expect(fn({ api: { sync: null }, forcer: false })).toMatchObject({ ok: false, raison: 'hors-ligne-non-synchronise' });
   });
+  it('`_ecrit_at` perdu (navigateur tué) : `travailA` en IndexedDB suffit à refuser (O4)', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: '1000' } });
+    const m = creerMiroir({ idb: fauxIdb({ v: 2, ecritA: 3000, travailA: 3000, tag: null, json: JSON.stringify(base()) }), stockage: st });
+    await m.initialiser();
+    const fn = new Function('window', 'localStorage', 'MIRROR_KEY', '_offlineBoot', 'console', '_miroirLocal',
+      'return ' + extraireFonction(ENTRY, '_refusDeconnexionLocale'))({ __immoHorsLigne: true }, st, 'immotrack_v4', OfflineBoot, muet, moduleMiroir(m));
+    expect(fn({ api: { sync: null }, forcer: false })).toMatchObject({ ok: false, raison: 'hors-ligne-non-synchronise' });
+  });
 });
 
 // ── Purges ───────────────────────────────────────────────────────────────────────────────────
@@ -164,6 +173,32 @@ describe('Purges RGPD du miroir IndexedDB', () => {
     expect(idb.enr).toBeNull();
   });
 
+  it('ordre F14.1 dans onLoggedIn : l’effacement IndexedDB de l’ancien propriétaire est TERMINÉ avant la pose du nouveau tag', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_tag: JSON.stringify({ userId: 'u-a', espaceId: 'e-a' }) } });
+    let liberer;
+    const idb = fauxIdb({ v: 2, ecritA: 1, tag: st.getItem('immotrack_v4_tag'), json: JSON.stringify(base([edl(1, 1)])) });
+    idb.effacer = () => new Promise(res => { liberer = () => { idb.ops.push('effacer-fini'); res(); }; });
+    const m = creerMiroir({ idb, stockage: st });
+    await m.initialiser();
+    const i = ENTRY.indexOf('_tagMiroirAvantLogin = _purgerCacheAuLogin(');
+    const bloc = accolades(ENTRY, ENTRY.lastIndexOf('try {', i) + 4);
+    const purgeDeps = { console: muet, localStorage: st, MIRROR_KEY: 'immotrack_v4', MIRROR_TAG_KEY: CachePurge.MIRROR_TAG_KEY,
+      _offlineBoot: OfflineBoot, _cachePurge: CachePurge, _purgerCopiesLocales: () => {}, _miroirLocal: moduleMiroir(m) };
+    const noms = Object.keys(purgeDeps);
+    const purger = new Function(...noms, 'return ' + extraireFonction(ENTRY, '_purgerCacheAuLogin'))(...noms.map(n => purgeDeps[n]));
+    const deps = {
+      _purgerCacheAuLogin: purger, _deletePhotosDb: async () => {}, user: { id: 'u-b' }, esp: { espaceId: 'e-b' }, console: muet,
+      _miroirLocal: moduleMiroir(m), _ecrireTagEtEspacesLogin: () => idb.ops.push('tag:' + (idb.ops.includes('effacer-fini') ? 'APRÈS effacement' : 'AVANT effacement')),
+    };
+    const n2 = Object.keys(deps);
+    const p = new Function(...n2, "let _tagMiroirAvantLogin = 'untagged'; return (async () => { try " + bloc + ' catch (e) {} return _tagMiroirAvantLogin; })()')(...n2.map(n => deps[n]));
+    await flush(); await flush();
+    expect(idb.ops.filter(x => x.startsWith('tag:'))).toEqual([]);          // le tag attend l'effacement
+    liberer();
+    expect(await p).toBe('other-user');
+    expect(idb.ops.filter(x => x.startsWith('tag:'))).toEqual(['tag:APRÈS effacement']);
+  });
+
   it('changement d’utilisateur au login : `_purgerCacheAuLogin` oublie le miroir IndexedDB et le journal', async () => {
     const st = fauxStockageQuota({ initial: { immotrack_v4_tag: JSON.stringify({ userId: 'u-a', espaceId: 'e-a' }), [JOURNAL_EDL_KEY]: '{"edl":[{"id":1}]}' } });
     const idb = fauxIdb({ v: 1, ecritA: 1, json: JSON.stringify(base([edl(1, 1)])) });
@@ -184,6 +219,81 @@ describe('Purges RGPD du miroir IndexedDB', () => {
 });
 
 // ── Écrivains ────────────────────────────────────────────────────────────────────────────────
+// ── R1 dans le câblage : F1 sur un miroir ILLISIBLE ──────────────────────────────────────────
+describe('R1 — F1 sur un miroir IndexedDB illisible : protégé, dernier envoi figé, déconnexion refusée', () => {
+  it('F1 remonte ce qui est lisible, protège le miroir et N’AVANCE PAS `_flush_at` ; la garde refuse ensuite', async () => {
+    const st = fauxStockageQuota({ initial: {
+      immotrack_v4_ecrit_at: '5000', immotrack_v4_flush_at: '1000', immotrack_v4_tag: TAG,
+      [JOURNAL_EDL_KEY]: JSON.stringify({ ecritA: 5000, edl: [edl(8, 4000)] }),
+    } });
+    const disque = fauxIdb({ v: 2, ecritA: 4000, tag: TAG, json: JSON.stringify(base([edl(42, 3000)])) });
+    const m = creerMiroir({ idb: disque, stockage: st, delaiMs: 20 });
+    await m.initialiser();
+    disque.lire = async () => { throw new Error('UnknownError'); };           // IndexedDB illisible au moment de F1
+    const { lancer, seq } = monterF1({ stockage: st, miroirLocal: moduleMiroir(m) });
+    const r = await lancer();
+    expect(seq.flushe.edl.map(x => x.id)).toEqual([8]);                     // le lisible (journal) remonte
+    expect(r.envoiOk).toBe(true);
+    expect(m.protege()).toBe(true);
+    expect(st.getItem('immotrack_v4_flush_at')).toBe('1000');               // F1 réessaiera au prochain démarrage
+    const refus = new Function('window', 'localStorage', 'MIRROR_KEY', '_offlineBoot', 'console', '_miroirLocal',
+      'return ' + extraireFonction(ENTRY, '_refusDeconnexionLocale'))({ __immoHorsLigne: false }, st, 'immotrack_v4', OfflineBoot, muet, moduleMiroir(m));
+    expect(refus({ api: { sync: {} }, forcer: false })).toMatchObject({ ok: false, raison: 'miroir-illisible' });   // même EN LIGNE, moteur présent
+  });
+
+  it('F1 : `_ecrit_at` perdu (navigateur tué) mais `travailA` en IndexedDB → F1 pousse quand même (O4)', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: '1000', immotrack_v4_tag: TAG } });
+    const m = creerMiroir({ idb: fauxIdb({ v: 2, ecritA: 4000, travailA: 4000, tag: TAG, json: JSON.stringify(base([edl(55, 3000)])) }), stockage: st });
+    await m.initialiser();
+    const { lancer, seq } = monterF1({ stockage: st, miroirLocal: moduleMiroir(m) });
+    expect((await lancer()).ajoutes).toBe(1);
+    expect(seq.flushe.edl.map(x => x.id)).toEqual([55]);
+  });
+});
+
+describe('Message du refus « miroir-illisible »', () => {
+  it('dit ce qui se passe et quoi faire (pas le texte générique du réseau)', () => {
+    const m = OfflineBoot.messageDeconnexionRefusee({ enAttente: 1, raison: 'miroir-illisible' });
+    expect(m.texte).toContain('La copie de cet appareil n\'a pas pu être relue');
+    expect(m.texte).toContain('Recharger l\'application pour relire la copie');
+  });
+});
+
+// ── Garde de déconnexion de supabase-boot (module séparé : lit ce que supabase-entry expose) ──
+describe('supabase-boot — la garde de déconnexion compte le miroir IndexedDB (M7)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  function client(journal) {
+    return {
+      auth: { signOut: async () => { journal.push('signOut'); return { error: null }; }, getUser: async () => ({ data: { user: null } }), getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
+      from: () => ({}), channel: () => ({ on() { return this; }, subscribe() { return this; } }),
+    };
+  }
+  it('hors ligne, miroir SEULEMENT en IndexedDB, travail non parti : logout REFUSÉ, rien n’est déconnecté', async () => {
+    vi.stubGlobal('localStorage', fauxStockageQuota({ initial: { immotrack_v4_ecrit_at: '2000', immotrack_v4_flush_at: '1000' } }));
+    vi.stubGlobal('window', { __immoHorsLigne: true, __immoMiroirPresent: () => true, __immoMiroirEtat: () => ({ present: true, protege: false, travailA: 0 }) });
+    const journal = [];
+    const r = await createBoot(client(journal)).logout();
+    expect(r).toMatchObject({ ok: false, raison: 'hors-ligne-non-synchronise' });
+    expect(journal).toEqual([]);
+  });
+  it('`_ecrit_at` perdu : `travailA` (IndexedDB) suffit à refuser (O4)', async () => {
+    vi.stubGlobal('localStorage', fauxStockageQuota({ initial: { immotrack_v4_flush_at: '1000' } }));
+    vi.stubGlobal('window', { __immoHorsLigne: true, __immoMiroirPresent: () => true, __immoMiroirEtat: () => ({ present: true, protege: false, travailA: 3000 }) });
+    const journal = [];
+    expect(await createBoot(client(journal)).logout()).toMatchObject({ ok: false });
+    expect(journal).toEqual([]);
+  });
+  it('miroir PROTÉGÉ : refus « miroir-illisible » ; sans miroir, la déconnexion passe', async () => {
+    vi.stubGlobal('localStorage', fauxStockageQuota());
+    vi.stubGlobal('window', { __immoMiroirPresent: () => true, __immoMiroirEtat: () => ({ present: true, protege: true, travailA: 0 }) });
+    expect(await createBoot(client([])).logout()).toMatchObject({ ok: false, raison: 'miroir-illisible' });
+    vi.stubGlobal('window', { __immoMiroirPresent: () => false, __immoMiroirEtat: () => ({ present: false, protege: false, travailA: 0 }) });
+    const journal = [];
+    expect(await createBoot(client(journal)).logout()).toEqual({ ok: true });
+    expect(journal).toEqual(['signOut']);
+  });
+});
+
 describe('Écrivains rebranchés', () => {
   it('rebase au login (`_ecrireMiroir`) : en IndexedDB, SANS avancer `_ecrit_at` (l’état écrit est celui du cloud)', async () => {
     const st = fauxStockageQuota({ initial: { immotrack_v4_ecrit_at: '123' } });
