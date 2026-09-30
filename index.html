@@ -60041,6 +60041,7 @@ function rFinances() {
 // Réutilise STD_CATEGORIES + DB.baux/DB.logements — pas de nouvelle logique métier, simple split.
 // hc/ch DÛ du mois pour un lot (proraté). Source unique du dû loyer/charges, consommée par la
 // cascade cumulative (_computeLoyerChargeAlloc) via _finLoyersHC ET _finMonthly.
+// REPLI file:// SEULEMENT depuis R0-C · Q1 (le chemin normal lit `_finLotDebutDu` ci-dessous).
 // Mois de démarrage (0-11) du lot dans l'année = 1er versement (fallback bail le plus ancien),
 // MÉMOÏSÉ par (lot, année, génération DB) — _getLogementStartMi scanne les mouvements, on l'appelle
 // une fois par lot et pas par (lot, mois). null = pas encore démarré cette année.
@@ -60054,11 +60055,45 @@ function _finLotStartMi(qui, yr) {
   _finLotStartCache.map[key] = v;
   return v;
 }
+// R0-C · Q1 (décision Didier 30/09, docs/CDC-R0C.md) — le dû part du DÉBUT DU BAIL, pas du 1ᵉʳ
+// versement. Début du suivi du lot = `_debutSuivi` (js/core/loyer-du-mois.js) : entrée du bail,
+// bornée au 1ᵉʳ janvier de l'année du 1ᵉʳ versement (un bail repris à l'achat ne fabrique pas de
+// dette sur les années sans données) ; aucun versement → début du bail OUVERT, sinon rien à suivre.
+// C'est LA même règle que l'onglet Loyers (`_loyerEtatLot`) et que la dette de restitution
+// (`_computeDetteBail`) : Finances cesse d'ignorer les premiers mois impayés d'un bail.
+// 1ᵉʳ versement : même prédicat que `_loyerEtatLot` (vivant, crédit, catégorie de loyer, daté).
+// MÉMOÏSÉ par (lot, génération DB) : une passe sur les mouvements par lot, pas par (lot, mois).
+let _finLotDebutDuCache = { gen: -1, map: {} };
+function _finLotDebutDu(qui) {
+  const gen = window._dbGen || 0;
+  if (_finLotDebutDuCache.gen !== gen) _finLotDebutDuCache = { gen, map: {} };
+  if (Object.prototype.hasOwnProperty.call(_finLotDebutDuCache.map, qui)) return _finLotDebutDuCache.map[qui];
+  const isLoy = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
+  let fp = null;
+  for (const m of (DB.mouvements || [])) {
+    if (!m || m._deleted || m.qui !== qui || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
+    const ym = String(m.date).slice(0, 7);
+    if (/^\d{4}-\d{2}$/.test(ym) && (!fp || ym < fp)) fp = ym;
+  }
+  const ctx = { ref: qui, bails: window.bailsFromRaw(qui, _finDuRaw(qui)), bareme: DB.loyerBareme || [] };
+  const v = window._debutSuivi(ctx, fp);
+  _finLotDebutDuCache.map[qui] = v;
+  return v;
+}
+// Collections brutes du dû d'un lot — MÊME forme que `_duMoisLot` (bail courant tolérant + archivés + barème).
+function _finDuRaw(qui) {
+  return { currentBail: _findBailByRefTolerant(qui), bauxHistorique: DB.baux_historique || [], bareme: DB.loyerBareme || [] };
+}
 function _finBailHcChAt(qui, ym) {
   if (!qui || !ym) return { hc: 0, ch: 0 };   // non ventilé / SCI / immeuble → pas de bail → tout en loyer
+  // Q1 : dû borné au début du suivi (résolveur unique duMois via duMoisSuiviFromRaw).
+  if (typeof window.duMoisSuiviFromRaw === 'function' && typeof window._debutSuivi === 'function'
+      && typeof window.bailsFromRaw === 'function') {
+    const d = window.duMoisSuiviFromRaw(qui, ym, _finDuRaw(qui), _finLotDebutDu(qui));
+    return { hc: d.hc || 0, ch: d.ch || 0 };
+  }
+  // Repli file:// (modules non chargés) : ancienne règle « premier versement = date de départ ».
   const y = parseInt(ym.slice(0, 4), 10), m0 = parseInt(ym.slice(5, 7), 10) - 1;
-  // Règle « premier versement = date de départ » (user 2026-07-13) : AUCUN dû avant le démarrage
-  // effectif du lot → tue le retard fantôme des mois hors suivi. Parité _computeExpectedRent (borné firstMi).
   const startMi = _finLotStartMi(qui, y);
   if (startMi == null || m0 < startMi) return { hc: 0, ch: 0 };
   return (typeof _getActiveBailHcChProratedSplit === 'function') ? _getActiveBailHcChProratedSplit(qui, y, m0) : { hc: 0, ch: 0 };
@@ -60171,6 +60206,9 @@ function _finMonthly(yr, scope, win) {
     scopeWeight: _finScopeWeight,
     catLigne: _finCatLigne,
     loyerDue: _finBailHcChAt,                   // dû {hc,ch} proraté du mois → cascade CUMULATIVE dans le module (arriérés avant avance, user 2026-07-09)
+    // R0-C · Q1 : la pré-passe d'ouverture N-1 démarre au début du suivi du lot (sinon les mois dus
+    // AVANT le 1ᵉʳ versement tomberaient hors de l'ouverture). Absent en file:// (repli historique).
+    debutDu: (typeof window._debutSuivi === 'function' && typeof window.bailsFromRaw === 'function') ? _finLotDebutDu : undefined,
     activeLots: _finActiveLotsInScope(yr, scope), // lots à bail actif sans mouvement → retard « zéro paiement » visible (user 2026-07-12)
     // M-1 : les résolveurs passent par la catégorie MÈRE — un alias de « Prêt » est une
     // échéance, un alias de « Charges récupérables » un transit, etc. (héritage cash-flow).
