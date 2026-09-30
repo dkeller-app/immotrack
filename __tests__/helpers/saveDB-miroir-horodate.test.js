@@ -56,7 +56,10 @@ let faireSaveDB;
 
 beforeAll(() => {
   const html = readFileSync(resolve(repoRoot, 'index.html'), 'utf8');
-  const src = extraireFonction(html, 'saveDB');
+  // STOCKAGE lot 1 : saveDB écrit le miroir par l'écrivain unique `_miroirEcrire`. Sans module
+  // `window._stockage` (cas de ce fichier), il écrit directement — le comportement testé ici.
+  // Le save avec éviction sur quota est EXÉCUTÉ par stockage-save-sacre.test.js.
+  const src = extraireFonction(html, 'saveDB') + '\n' + extraireFonction(html, '_miroirEcrire');
   // Les dépendances optionnelles de saveDB sont toutes gardées par
   // `typeof x === 'function'` : sur un identifiant non déclaré, `typeof` rend
   // 'undefined' sans lever. On n'a donc à fournir que les dépendances DURES.
@@ -208,7 +211,7 @@ describe('saveDB — invariant 19k : l’autosave ne prend AUCUNE capture d’an
     const st = fauxStockage();
     const vus = [];
     const html = readFileSync(resolve(repoRoot, 'index.html'), 'utf8');
-    const src = extraireFonction(html, 'saveDB');
+    const src = extraireFonction(html, 'saveDB') + '\n' + extraireFonction(html, '_miroirEcrire');
     const usine = new Function(
       'window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', '_saveDBQuotaWarn',
       '_undoOnSaveDB', '_undoOnSaveDBSuccess', '_auditFlushPending',
