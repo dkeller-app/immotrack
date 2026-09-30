@@ -41,7 +41,7 @@ export const cleNue = (k) => String(k == null ? '' : k).split('@@')[0];
 
 /** Vrai si l'entrée `e` (registre ou trace ancienne) concerne CE bail : même logement, même bail
  *  (date de début — un logement garde la même clé au fil des baux), même espace si l'entrée en porte un. */
-function _memeBail(e, cle, bail, { strictEspace }) {
+function _memeBail(e, cle, bail, { strictEspace, debutsClos }) {
   if (!e || e._deleted || e.type !== 'avenant') return false;
   // Registre : clé nue + espace strict. Trace ancienne (DB.bailEvents, non taguée) : réf COMPLÈTE, comme
   // l'ancien avenantNumeroSuivant — la clé nue confondrait deux espaces qui ont le même logement.
@@ -50,6 +50,12 @@ function _memeBail(e, cle, bail, { strictEspace }) {
   const eEsp = e._espaceId == null ? null : e._espaceId;
   if (strictEspace ? eEsp !== esp : (eEsp != null && eEsp !== esp)) return false;
   const debut = _ymd(bail && bail.debut);
+  const eDebut = _ymd(e.bailDebut);
+  // Avenant d'un bail CLOS du même logement (son `bailDebut` = le début de ce bail clos) : il appartient
+  // à ce bail, jamais au suivant — même daté après le début du bail courant (effet au lendemain de la
+  // clôture, avenant resté « À signer »). Sans cette règle, un passage au forfait d'un bail meublé clos
+  // excluait de la régul les charges d'un nouveau bail nu (audit 30/09).
+  if (eDebut && eDebut !== debut && Array.isArray(debutsClos) && debutsClos.some((d) => _ymd(d) === eDebut)) return false;
   // Même début de bail, ou daté à partir du début du bail (date de début corrigée après coup, trace
   // ancienne sans bailDebut). Un avenant du bail PRÉCÉDENT est daté avant le début du bail courant.
   return _ymd(e.bailDebut) === debut || (!!debut && _ymd(e.date) >= debut);
@@ -67,9 +73,9 @@ function _rattachement(b) {
 }
 
 /** Entrées de REGISTRE du bail (hors supprimées), triées par numéro croissant. */
-export function avenantsDuBail(journal, cle, bail) {
+export function avenantsDuBail(journal, cle, bail, debutsClos) {
   return (Array.isArray(journal) ? journal : [])
-    .filter((e) => _memeBail(e, cle, bail, { strictEspace: true }))
+    .filter((e) => _memeBail(e, cle, bail, { strictEspace: true, debutsClos }))
     .sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
 }
 
@@ -93,9 +99,9 @@ function _appliquesDeduits(objets) {
  * (`virtuel:true`, statut « À signer » : l'app n'a jamais su s'ils avaient été signés).
  * Ordre : numéro décroissant (le plus récent en tête).
  */
-export function listeAvenants({ journal, bailEvents, cle, bail } = {}) {
+export function listeAvenants({ journal, bailEvents, cle, bail, debutsClos } = {}) {
   const b = bail || {};
-  const reg = avenantsDuBail(journal, cle, b);
+  const reg = avenantsDuBail(journal, cle, b, debutsClos);
   const pris = new Set(reg.map((e) => Number(e.no) || 0));
   const anciens = new Map();   // no → avenant reconstitué
   for (const a of (Array.isArray(b.avenants) ? b.avenants : [])) {
@@ -109,7 +115,7 @@ export function listeAvenants({ journal, bailEvents, cle, bail } = {}) {
     });
   }
   for (const e of (Array.isArray(bailEvents) ? bailEvents : [])) {
-    if (!_memeBail(e, cle, b, { strictEspace: false })) continue;
+    if (!_memeBail(e, cle, b, { strictEspace: false, debutsClos })) continue;
     const no = Number(e.no) || 0;
     if (!no || pris.has(no)) continue;
     const prev = anciens.get(no);
@@ -225,4 +231,22 @@ function _titreObjet(o, libelles) {
 export function titreAvenant(av, libelles) {
   const objs = (av && Array.isArray(av.objets) ? av.objets : []).map((o) => _titreObjet(typeof o === 'object' ? o : { k: o }, libelles)).filter(Boolean);
   return 'Avenant n° ' + ((av && av.no) || '?') + (objs.length ? ' — ' + objs.join(' · ') : '');
+}
+
+/**
+ * Débuts des baux CLOS du logement (`DB.baux_historique`), à passer en `debutsClos` à listeAvenants /
+ * numeroSuivant : un avenant rattaché à l'un d'eux n'est jamais attribué au bail courant. Même espace
+ * quand l'archive en porte un (partage SCI) ; le début du bail courant lui-même n'est jamais renvoyé.
+ */
+export function debutsBauxClos(historique, cle, bail) {
+  const esp = (bail && bail._espaceId) || null;
+  const debut = _ymd(bail && bail.debut);
+  const out = [];
+  for (const h of (Array.isArray(historique) ? historique : [])) {
+    if (!h || h._deleted || cleNue(h.ref) !== cleNue(cle)) continue;
+    if (h._espaceId != null && h._espaceId !== esp) continue;
+    const d = _ymd(h.debut);
+    if (d && d !== debut && !out.includes(d)) out.push(d);
+  }
+  return out;
 }

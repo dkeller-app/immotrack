@@ -126,6 +126,8 @@ import * as IrlRevision from './core/irl-revision.js';
 import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent } from './core/avenant.js';
 // AVENANT-REFONTE lot 2 — registre des avenants (journal baux_evenements, type 'avenant') : statuts, liste, numérotation.
 import * as AvenantRegistre from './core/avenant-registre.js';
+// Forfait de charges (art. 23-1) dans la régularisation : post-traitement, intervalles, base N-1 (pur, testé).
+import { forfaitAvenantsDuBail, occNonForfaitJours, forfaitIntervalles, appliquerForfaitOccupation, periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique } from './core/regul-forfait.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
 import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase } from './core/bail-duree.js';
 import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause, congeMotifDetail, congeDateEffet, congeMentionPreavis } from './core/conge.js';
@@ -692,6 +694,13 @@ window.avenantEntrant = avenantEntrant;
 window.bailForfaitActifLe = bailForfaitActifLe;
 window.forfaitEffetAu = forfaitEffetAu;
 window.forfaitPertinent = forfaitPertinent;
+window.forfaitAvenantsDuBail = forfaitAvenantsDuBail;
+window.occNonForfaitJours = occNonForfaitJours;
+window.forfaitIntervalles = forfaitIntervalles;
+window.appliquerForfaitOccupation = appliquerForfaitOccupation;
+window.periodeForfaitLibelle = periodeForfaitLibelle;
+window.baseChargesLogement = baseChargesLogement;
+window.avenantObjetApplique = avenantObjetApplique;
 // Congé & résiliation (loi 89-462)
 window.CONGE_MOTIFS = CONGE_MOTIFS;
 window.REPRISE_LIENS = REPRISE_LIENS;
