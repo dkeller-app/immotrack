@@ -105,6 +105,7 @@ app.post('/sessions', async (c) => {
   for (const s of meta.signers) {
     signers.push({
       role: s.role,
+      nom: typeof s.nom === 'string' ? s.nom : '',
       emailHash: await emailHash(s.email),
       tel: s.tel || '',
       ordre: s.ordre
@@ -216,7 +217,7 @@ app.post('/api/sessions/:id/verify-otp', async (c) => {
   if (!otpUsable(signer.otp, Date.now())) return c.json({ verified: false, reason: 'expired-or-locked' }, 400);
   const ok = await verifyCode(sessionId, input, signer.otp.hash);
   if (!ok) { await recordOtpAttempt(c.env, sessionId); return c.json({ verified: false }); }
-  await recordOtpVerified(c.env, sessionId);
+  await recordOtpVerified(c.env, sessionId, { delivery: c.env.EMAIL_MODE === 'resend' ? 'email' : 'ecran-test' });
   return c.json({ verified: true });
 });
 
@@ -325,12 +326,14 @@ app.get('/api/sessions/:id', async (c) => {
       emailVerifiedAt: sg.emailVerifiedAt || null,
       otpVerifiedAt: sg.otpVerifiedAt || null,   // OTP : email CONTRÔLÉ (code saisi) → certificat app
       otpChannel: sg.otpChannel || null,
+      otpDelivery: sg.otpDelivery || null,   // 'email' | 'ecran-test' (mode dev) — absent = session antérieure
       // Dossier de preuve complet exposé au propriétaire (§5 #1/#3/#6/#8).
       proof: sg.proof ? {
         signedAt: sg.proof.signedAt,
         pdfSha256: sg.proof.pdfSha256,
         emailVerifiedAt: sg.proof.emailVerifiedAt || null,
         signerName: sg.proof.signerName || null,
+        nameSource: sg.proof.nameSource || null,
         consentElectronic: sg.proof.consentElectronic ?? null,
         luApprouve: sg.proof.luApprouve ?? null,
         openedAt: sg.proof.openedAt || null,

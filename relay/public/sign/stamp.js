@@ -63,7 +63,18 @@ export function readingPlanFor(pdfDoc, { sigId, side }) {
   if (Number.isInteger(from) && from > 1 && from <= pageCount && from - 1 >= Math.max(0, ...all.filter(inRange).map((a) => a.page))) {
     lastBailPage = from - 1;
   }
-  return { paraphes, signatures, lastBailPage, pageCount, annexes };
+  // Ordre de LECTURE (30/09, validé Didier) : les annexes se lisent AVANT la page des signatures.
+  //  • sigStart = 1re page portant une case de signature (tous signataires) — la page « Signatures » ;
+  //  • lastAnchorPage = dernière page portant une case (paraphe ou signature) ;
+  //  • annexStart = 1re page après la dernière case : tout ce qui suit (annexes du bail, notice, DDT)
+  //    est une annexe, sans case. 0 = aucune page d'annexe.
+  // Le fichier PDF, lui, garde son ordre (annexes après la page des signatures, usage d'un acte).
+  const onPage = all.filter(inRange);
+  const lastAnchorPage = Math.max(0, ...onPage.map((a) => a.page));
+  const sigPages = onPage.filter((a) => a.kind === 'signature').map((a) => a.page);
+  const sigStart = sigPages.length ? Math.min(...sigPages) : 0;
+  const annexStart = lastAnchorPage && lastAnchorPage < pageCount ? lastAnchorPage + 1 : 0;
+  return { paraphes, signatures, lastBailPage, pageCount, annexes, sigStart, lastAnchorPage, annexStart };
 }
 
 export async function stampSignature(

@@ -43,7 +43,7 @@ export async function stampSignedPdf(
     throw Object.assign(new Error('annexes-ack-required'), { code: 'annexes-ack-required' });
   }
   const mentionLines = buildMentionLines({
-    signerName: signerName || signer.role,
+    signerName: signer.nom || signerName || signer.role,   // nom du bail d'abord : le signataire ne le choisit pas
     role: signer.role,
     dateISO
   });

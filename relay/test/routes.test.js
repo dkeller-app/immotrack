@@ -395,3 +395,34 @@ describe('aller-retour complet — gestion (bailleur + locataire ordonnés)', ()
     expect(result.status).toBe(200);
   });
 });
+
+describe('Nom du signataire repris du bail (30/09)', () => {
+  async function create(signers) {
+    const form = new FormData();
+    form.set('pdf', new Blob([await makeBailBytes(2)], { type: 'application/pdf' }), 'b.pdf');
+    form.set('meta', JSON.stringify({ bailRef: 'B', signers }));
+    return (await SELF.fetch('https://relay.test/sessions', { method: 'POST', headers: { Authorization: 'Bearer ' + (await appToken()) }, body: form })).json();
+  }
+  const tokenOf = (html) => html.match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
+  it('la page reçoit le nom ; la preuve garde le nom du bail même si le client en envoie un autre', async () => {
+    const { sessionId, ownerToken } = await create([{ role: 'locataire', nom: 'BERLENGA Baptiste', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const html = await (await SELF.fetch('https://relay.test/s/' + sessionId)).text();
+    expect(html).toContain('"name":"BERLENGA Baptiste"');
+    const res = await SELF.fetch('https://relay.test/api/sessions/' + sessionId + '/signed', {
+      method: 'POST', headers: { 'X-Sign-Token': tokenOf(html), 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson({ signerName: 'Didier Keller' }) }, body: signedBody(2)
+    });
+    expect(res.status).toBe(200);
+    const st = await (await SELF.fetch('https://relay.test/api/sessions/' + sessionId, { headers: { 'X-Owner-Token': ownerToken } })).json();
+    expect(st.signers[0].proof.signerName).toBe('BERLENGA Baptiste');
+    expect(st.signers[0].proof.nameSource).toBe('bail');
+  });
+  it('ancienne app (pas de nom) : saisie du signataire conservée, marquée « saisi »', async () => {
+    const { sessionId, ownerToken } = await create([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const html = await (await SELF.fetch('https://relay.test/s/' + sessionId)).text();
+    await SELF.fetch('https://relay.test/api/sessions/' + sessionId + '/signed', {
+      method: 'POST', headers: { 'X-Sign-Token': tokenOf(html), 'content-type': 'application/json', 'X-Sign-Proof': b64urlJson({ signerName: 'Jean Dupont' }) }, body: signedBody(2)
+    });
+    const st = await (await SELF.fetch('https://relay.test/api/sessions/' + sessionId, { headers: { 'X-Owner-Token': ownerToken } })).json();
+    expect(st.signers[0].proof).toMatchObject({ signerName: 'Jean Dupont', nameSource: 'saisi' });
+  });
+});

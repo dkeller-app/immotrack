@@ -169,6 +169,27 @@ describe('readingPlanFor (document défilant)', () => {
     ] });
     expect(readingPlanFor(doc, { sigId: 'loc-0' }).lastBailPage).toBe(3);
   });
+  it("ordre de lecture : sigStart = 1re page de signature, annexStart = 1re page après la dernière case", async () => {
+    const doc = await makeDoc(8);   // bail 1-3 (3 = signatures), annexes 4-8
+    embedInDoc(doc, { v: 1, totalPages: 8, annexes: { from: 6, items: [] }, anchors: [
+      { sigId: 'loc-0', kind: 'paraphe', page: 1, x: 125, y: 279.5, w: 70, h: 14 },
+      { sigId: 'loc-0', kind: 'paraphe', page: 2, x: 125, y: 279.5, w: 70, h: 14 },
+      { sigId: 'bailleur-0', kind: 'signature', page: 3, x: 15, y: 210, w: 90, h: 30 },
+      { sigId: 'loc-0', kind: 'signature', page: 3, x: 110, y: 210, w: 90, h: 30 }
+    ] });
+    const plan = readingPlanFor(doc, { sigId: 'loc-0' });
+    expect(plan.sigStart).toBe(3);
+    expect(plan.lastAnchorPage).toBe(3);
+    expect(plan.annexStart).toBe(4);   // annexes du bail (4-5) ET DDT (6-8) : tout ce qui suit la dernière case
+    expect(plan.lastBailPage).toBe(5); // inchangé (compat)
+  });
+  it('aucune page après la dernière case → annexStart 0', async () => {
+    const doc = await makeDoc(2);
+    embedInDoc(doc, { v: 1, totalPages: 2, anchors: [{ sigId: 'loc-0', kind: 'signature', page: 2, x: 110, y: 210, w: 90, h: 30 }] });
+    const plan = readingPlanFor(doc, { sigId: 'loc-0' });
+    expect(plan.annexStart).toBe(0);
+    expect(plan.sigStart).toBe(2);
+  });
   it('repli sans manifeste : toutes les pages sont du bail', async () => {
     const doc = await makeDoc(3);
     const plan = readingPlanFor(doc, { sigId: 'loc-0', side: 'locataire' });

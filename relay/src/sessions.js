@@ -15,6 +15,9 @@ export async function createSession(env, { bailRef, pdfBytes, signers, createdBy
     .sort((a, b) => a.ordre - b.ordre)
     .map((s) => ({
       role: s.role,
+      // Nom déclaré par l'app (celui du bail) : repris sur la page de signature, NON modifiable, et
+      // tamponné sur le PDF. Borné (KV). Absent (ancienne app) → saisie libre, comme avant.
+      nom: typeof s.nom === 'string' ? s.nom.trim().slice(0, 120) : '',
       emailHash: s.emailHash,
       tel: s.tel || '',
       ordre: s.ordre,
@@ -79,13 +82,16 @@ export async function recordOtpSent(env, sessionId, hash, expiresAt) {
 
 // OTP : marque l'identité vérifiée (autorité serveur) ; pose aussi emailVerifiedAt (l'OTP prouve
 // l'email) et consomme le code (hash → null, plus rejouable).
-export async function recordOtpVerified(env, sessionId) {
+// otpDelivery : comment le code a RÉELLEMENT été remis — 'email' (envoi Resend) ou 'ecran-test' (mode dev :
+// le code s'affiche sur la page). Le certificat le dit tel quel : « reçu par e-mail » seulement si 'email'.
+export async function recordOtpVerified(env, sessionId, { delivery } = {}) {
   const session = await getMeta(env, sessionId);
   if (!session) throw new Error('session-not-found');
   const signer = session.signers[session.currentIndex];
   if (!signer) throw new Error('signer-not-found');
   signer.otpVerifiedAt = new Date().toISOString();
   signer.otpChannel = 'email';
+  signer.otpDelivery = delivery === 'email' ? 'email' : 'ecran-test';
   if (!signer.emailVerifiedAt) signer.emailVerifiedAt = signer.otpVerifiedAt;
   if (signer.otp) signer.otp.hash = null;
   await putMeta(env, sessionId, session);
@@ -146,7 +152,9 @@ export async function recordSignature(env, sessionId, { signedBytes, proof, clie
     // Autorité serveur (posé par recordEmailVerified) — pas de confiance au client.
     emailVerifiedAt: signer.emailVerifiedAt || null,
     // Acte de volonté + horodatages d'étape capturés côté client (null si absent).
-    signerName: client ? client.signerName : null,
+    // Nom repris du bail (autorité : la session) ; saisie du signataire seulement pour une ancienne session.
+    signerName: signer.nom || (client ? client.signerName : null),
+    nameSource: signer.nom ? 'bail' : 'saisi',
     consentElectronic: client ? client.consentElectronic : null,
     luApprouve: client ? client.luApprouve : null,
     openedAt: client ? client.openedAt : null,

@@ -42,7 +42,29 @@ describe('recordOtpVerified', () => {
     const s = await loadSession(env, id);
     expect(typeof s.signers[0].otpVerifiedAt).toBe('string');
     expect(s.signers[0].otpChannel).toBe('email');
+    expect(s.signers[0].otpDelivery).toBe('ecran-test');   // par défaut : mode test (code affiché), jamais « e-mail »
     expect(typeof s.signers[0].emailVerifiedAt).toBe('string');
     expect(s.signers[0].otp.hash).toBeNull();
+  });
+});
+
+describe('recordOtpVerified — remise réelle du code', () => {
+  it('delivery email → otpDelivery email', async () => {
+    const id = await freshSession();
+    await recordOtpSent(env, id, 'deadbeef', 1_111);
+    await recordOtpVerified(env, id, { delivery: 'email' });
+    expect((await loadSession(env, id)).signers[0].otpDelivery).toBe('email');
+  });
+});
+
+describe('createSession — nom du bail', () => {
+  it('nom conservé (borné à 120), absent → chaîne vide', async () => {
+    const { session } = await createSession(env, { bailRef: 'X', pdfBytes: new Uint8Array([1]), signers: [
+      { emailHash: 'h1', role: 'locataire', ordre: 1, nom: '  BERLENGA Baptiste  ' },
+      { emailHash: 'h2', role: 'locataire', ordre: 2, nom: 'x'.repeat(300) },
+      { emailHash: 'h3', role: 'locataire', ordre: 3 }
+    ] });
+    expect(session.signers.map((s) => s.nom.length)).toEqual([17, 120, 0]);
+    expect(session.signers[0].nom).toBe('BERLENGA Baptiste');
   });
 });

@@ -7,6 +7,7 @@
   --bg: #f4f5f8; --sur: #ffffff; --inset: #f7f8fb; --line: #e4e7ee;
   --encre: #101521; --txt: #3c4658; --sec: #6e7888;
   --accent: #ff5a3c; --accent-h: #e8431f; --halo: #ffe7e0;   /* corail = accent unique (CTA, zone active) */
+  --accent-ink: #c2410c;   /* corail FONCÉ pour le texte des boutons secondaires : 5,2:1 sur blanc (M-17) ; #ff5a3c n'atteint que 3,1:1 */
   --ok: #16a34a; --err: #b00020;
   --paper: #ffffff; --par-bg: #fff8f6; --ok-bg: rgba(232,246,238,.92);   /* page du document, case à parapher, case paraphée */
   --note-line: #fcd34d; --note-bg: rgba(255,251,235,.85); --note-ink: #92400e;
@@ -63,7 +64,11 @@ button { min-height: 46px; min-width: 44px; padding: 12px 18px; font-size: 16px;
 button.primary { background: var(--accent); color: #fff; border-color: var(--accent); width: 100%; }
 button.primary:hover { background: var(--accent-h); border-color: var(--accent-h); }
 button.primary:disabled { opacity: .45; cursor: not-allowed; }
-button.ghost { background: transparent; border-color: transparent; color: var(--sec); }
+/* Boutons secondaires (30/09, Didier : « pas assez visibles, pourquoi pas en corail ? ») : contour corail +
+   texte corail foncé. Un seul bouton PLEIN corail par écran (charte M-4) : .primary. */
+button.ghost, button.line { background: var(--sur); border: 1.5px solid var(--accent); color: var(--accent-ink); }
+button.ghost:hover, button.line:hover { background: var(--halo); }
+button.ghost:disabled, button.line:disabled { opacity: .45; cursor: not-allowed; }
 
 #pdf-page { text-align: center; }
 .pdf-page { display: block; width: 100%; height: auto; margin: 0 auto 12px; border-radius: 6px; box-shadow: 0 2px 10px rgba(16,21,33,.10); }
@@ -126,27 +131,30 @@ button.ghost { background: transparent; border-color: transparent; color: var(--
 .ann { background: var(--sur); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 4px auto 16px; }
 .ann h2 { margin: 0 0 2px; font: 800 17px "Schibsted Grotesk","Inter",system-ui,sans-serif; color: var(--encre); }
 .ann-sub { margin: 0 0 10px; font-size: 13.5px; color: var(--sec); }
-.ann ol { margin: 0 0 12px; padding-left: 20px; font-size: 14px; overflow-wrap: anywhere; }
-.ann li { margin: 3px 0; }
 .ann-btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.ann-btns .line, .btn-a { flex: 1; min-width: 200px; min-height: 46px; display: inline-flex; align-items: center; justify-content: center; text-align: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--sur); color: var(--encre); font-size: 15px; font-weight: 700; text-decoration: none; }
+.ann-btns .line { flex: 1; min-width: 200px; min-height: 46px; display: inline-flex; align-items: center; justify-content: center; text-align: center; padding: 10px 14px; font-size: 15px; }
 .ann-legal { margin: 10px 0 0; font-size: 12.5px; color: var(--sec); }
 .actionbar .primary.is-ok { background: var(--ok); border-color: var(--ok); }
-/* Écran « Annexes au bail » avant la signature (case obligatoire) */
-.ann-step { max-width: 680px; margin: 0 auto; }
-.ann-lead { margin: 0 0 14px; font-size: 14.5px; }
-.ann-card { background: var(--sur); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 0 0 14px; }
-.ann-card h2 { margin: 0 0 6px; font-size: 14.5px; font-weight: 700; color: var(--encre); }
-.ann-pc { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--line); }
-.ann-pc:first-child { border-top: 0; }
+/* Bloc « Annexes au bail » AVANT la page des signatures (30/09) : chaque annexe se déplie sur place. */
+.ann-list { margin: 0 0 12px; }
+.ann-it { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 8px; overflow: hidden; }
+.ann-it-h { display: flex; gap: 10px; align-items: center; padding: 10px 12px; min-height: 48px; }
+.ann-read { flex: none; min-height: 44px; padding: 8px 14px; font-size: 14px; }
+.ann-pages { background: var(--inset); border-top: 1px solid var(--line); padding: 10px; }
+.ann-pages .pg { margin-bottom: 10px; }
+.ann-lock { margin: 10px 0 0; font-size: 13px; color: var(--sec); text-align: center; }
 .ann-pc-t { flex: 1; min-width: 0; }
-.ann-pc-t b { display: block; color: var(--encre); font-size: 14px; overflow-wrap: anywhere; }
+.ann-pc-t b { display: block; color: var(--encre); font-size: 14.5px; overflow-wrap: anywhere; }
+.ann-pc-t .ann-tag { margin-left: 4px; vertical-align: 1px; }
 .ann-pc-t small { color: var(--sec); font-size: 12.5px; overflow-wrap: anywhere; }
 .ann-tag { font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
 .ann-tag.j { background: var(--ok-bg); color: var(--ok); }
 .ann-tag.h { background: var(--inset); color: var(--sec); border: 1px solid var(--line); }
 .ann-tag.n { background: var(--note-bg); color: var(--note-ink); }
-.ann-ack { display: flex; gap: 12px; align-items: flex-start; background: var(--halo); border: 1.5px solid var(--accent); border-radius: 12px; padding: 14px; cursor: pointer; margin: 0; }
+.ann-ack { display: flex; gap: 12px; align-items: flex-start; background: var(--par-bg); border: 1.5px solid var(--accent); border-radius: 12px; padding: 14px; cursor: pointer; margin: 12px 0 0; }
+.ann-ack.is-flash { animation: ack-flash 1.2s ease-out 1; }
+@keyframes ack-flash { 0% { box-shadow: 0 0 0 8px var(--halo); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .ann-ack.is-flash { animation: none; } }
 .ann-ack input { width: 24px; height: 24px; flex: none; margin-top: 1px; }
 .ann-ack span { font-size: 14.5px; color: var(--encre); }
 .ann-ack small { display: block; color: var(--sec); font-size: 12.5px; margin-top: 4px; }
