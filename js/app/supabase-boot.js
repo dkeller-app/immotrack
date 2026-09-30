@@ -64,7 +64,9 @@ export function createBoot(client) {
         const c = classerResumeFlush(s)
         let miroirPresent = false, miroirEcritA = 0, dernierFlushA = 0
         try {
+          // STOCKAGE lot 4 : le miroir peut vivre en IndexedDB (exposé par supabase-entry, qui l'initialise).
           miroirPresent = !!localStorage.getItem(MIROIR_KEY)
+            || !!(typeof window !== 'undefined' && typeof window.__immoMiroirPresent === 'function' && window.__immoMiroirPresent())
           miroirEcritA = parseInt(localStorage.getItem(MIROIR_ECRIT_KEY) || '0', 10) || 0
           dernierFlushA = parseInt(localStorage.getItem(FLUSH_OK_KEY) || '0', 10) || 0
         } catch (e) {}

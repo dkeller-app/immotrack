@@ -61,6 +61,9 @@ export const REGISTRE = [
 
   // ── la base et son état
   { motif: deuxNs(MIROIR_KEY), classe: 'principal', note: 'miroir / base legacy (KEY)', exemples: ['immotrack_v4', '_test_immotrack_v4'] },
+  // STOCKAGE lot 4 — journal SYNCHRONE des EDL pas encore engagés dans le miroir IndexedDB
+  // (js/core/miroir-local.js). Donnée vivante (zéro perte d'EDL hors ligne) : jamais évinçable.
+  { motif: exacte(MIROIR_KEY + '_edl_attente'), classe: 'principal', note: 'journal des EDL non engagés en IndexedDB (lot 4)', exemples: ['immotrack_v4_edl_attente'] },
   { motif: deuxNs(MIROIR_ECRIT_KEY), classe: 'etat', note: 'dernière écriture réussie du miroir (F1)', exemples: ['immotrack_v4_ecrit_at', '_test_immotrack_v4_ecrit_at'] },
   { motif: exacte(FLUSH_OK_KEY), classe: 'etat', note: 'dernier flush cloud réussi (F1)', exemples: ['immotrack_v4_flush_at'] },
   { motif: exacte(ESPACES_KEY), classe: 'etat', note: 'espaces autorisés hors ligne', exemples: ['immotrack_v4_espaces'] },
