@@ -137,6 +137,9 @@ let _cachePurge = null         // module cache-purge (importé au boot, best-eff
 // sur quota (S-1) et purge des copies complètes de la base au logout / changement d'utilisateur (S-7).
 // Import best-effort comme ses voisins : sans lui, comportement d'AVANT le lot (écriture directe).
 let _stockageLocal = null
+// STOCKAGE lot 4 (docs/CDC-STOCKAGE.md §3.8) — miroir cloud en IndexedDB + journal synchrone des EDL
+// (js/core/miroir-local.js). Import best-effort : sans lui, le miroir reste en localStorage (lot 1).
+let _miroirLocal = null
 let _teardownSession = null      // dépose de session ({flush}) — posée au boot, utilisée par logout + purge espace
 let _hasCloudWrites = null       // summaryHasCloudWrites (store-sync) — M4 : émission Realtime honnête
 // EDL TERRAIN lot 4bis — deux appareils, un état des lieux. Imports best-effort
@@ -201,6 +204,10 @@ function _purgerCacheAuLogin({ user, esp }) {
     try { if (_offlineBoot) localStorage.removeItem(_offlineBoot.MIROIR_ECRIT_KEY) } catch (e) {}
     // S-7 : les copies complètes de la base d'un autre utilisateur/espace ne survivent pas non plus.
     _purgerCopiesLocales('changement de propriétaire du miroir')
+    // STOCKAGE lot 4 : le miroir IndexedDB et le journal des EDL suivent la même règle. `oublier` est
+    // SYNCHRONE pour le journal ; l'effacement IndexedDB est mis en file AVANT le rebase du login
+    // (même connexion, ordre des transactions). Module absent : rien à effacer (le miroir est local).
+    try { if (typeof _miroirLocal !== 'undefined' && _miroirLocal) _miroirLocal.miroir().oublier() } catch (e) {}
   }
   return cls
 }
@@ -219,8 +226,13 @@ function _ecrireTagEtEspacesLogin({ user, esp }) {
 // STOCKAGE lot 1 (S-1) — écriture du miroir avec éviction sur quota. Même décision que l'écrivain
 // inline `_miroirEcrire` d'index.html (même module) : un rebase au login ne peut plus échouer à cause
 // d'une copie héritée. Rend true si écrit. Module absent : écriture directe (comportement d'avant).
-function _ecrireMiroir(json) {
+// STOCKAGE lot 4 : miroir cloud prêt → IndexedDB (sans avancer `_ecrit_at` : l'état écrit EST celui
+// du cloud). Accepte la base (objet) ou sa sérialisation (chaîne).
+function _ecrireMiroir(base) {
   try {
+    const M = (typeof _miroirLocal !== 'undefined' && _miroirLocal) ? _miroirLocal.miroir() : null
+    if (M && M.pret()) return M.ecrire(typeof base === 'string' ? JSON.parse(base) : base, { horodater: false })
+    const json = typeof base === 'string' ? base : JSON.stringify(base)
     if (!_stockageLocal) { localStorage.setItem(MIRROR_KEY, json); return true }
     const r = _stockageLocal.ecrireAvecLiberation(localStorage, [[MIRROR_KEY, json]])
     if (r.liberees.length) console.info('[Supabase] miroir : ' + r.liberees.length + ' clé(s) jetable(s) libérée(s) (' + r.caracteresLiberes + ' caractères)')
@@ -389,6 +401,10 @@ async function boot() {
     // ancien Drive, base illisible) sont des miroirs sous un autre nom — elles contournaient cette
     // purge et restaient lisibles après la déconnexion sur un poste partagé.
     _purgerCopiesLocales('logout')
+    // STOCKAGE lot 4 (RGPD) : le miroir IndexedDB `immotrack_miroir` est SUPPRIMÉ, le journal des EDL
+    // retiré, et plus aucune écriture n'est acceptée avant le rechargement. Attendu AVANT le reload.
+    // La garde ci-dessus (refus tant que du travail n'est pas parti) s'applique AVANT ce point.
+    try { if (typeof _miroirLocal !== 'undefined' && _miroirLocal) await _miroirLocal.miroir().vider() } catch (e) { console.warn('[Supabase] purge du miroir IndexedDB', e) }
     // BUG-LOGIN-DOUBLE volet sécurité : le token de session (persistSession:true) DOIT partir aussi.
     _purgeAuthTokenKeys()
     // IndexedDB photos : purgée SEULEMENT si aucun binaire « idb-only » (sans copie Supabase Storage).
@@ -444,6 +460,45 @@ async function boot() {
   try { _cachePurge = await import('../core/cache-purge.js') } catch (e) { console.warn('[Supabase] cache-purge', e) }
   try { _stockageLocal = await import('../core/stockage-local.js') } catch (e) { console.warn('[Supabase] stockage-local', e) }
   try { _offlineBoot = await import('../core/offline-boot.js') } catch (e) { console.warn('[Supabase] offline-boot', e) }
+  // STOCKAGE lot 4 — le miroir cloud passe en IndexedDB. Initialisé ICI, AVANT tout lecteur (démarrage
+  // hors ligne, F1, garde de déconnexion) et avant toute écriture cloud : ouvre IndexedDB et TRANSFÈRE
+  // un miroir localStorage existant (écrire, relire, comparer, puis seulement supprimer). Refus ou
+  // échec → repli localStorage ANNONCÉ. Échec de l'import → comportement du lot 1, inchangé.
+  try {
+    _miroirLocal = await import('../core/miroir-local.js')
+    const M = _miroirLocal.miroir()
+    const _dejaDit = new Set()
+    const TEXTES = {
+      'repli': 'Copie hors ligne en mode réduit : ce navigateur refuse IndexedDB (navigation privée ?). Le travail hors ligne reste enregistré sur cet appareil, dans la limite d’environ 5 Mo.',
+      'transfert-echec': 'Copie hors ligne en mode réduit : le transfert vers IndexedDB n’a pas abouti. Rien n’est perdu : la copie locale est conservée.',
+      'echec-ecriture': 'Copie hors ligne : IndexedDB a refusé l’écriture, bascule sur le stockage local de cet appareil.',
+      'echec-repli': 'Copie hors ligne non mise à jour : stockage de cet appareil plein.',
+      'copie-incomplete': 'Copie hors ligne incomplète sur cet appareil : la base ne tient pas dans le stockage local. Les états des lieux saisis sont conservés.',
+    }
+    M.surSignal(s => {
+      console.warn('[Supabase] miroir local :', s.type, s.erreur)
+      const t = TEXTES[s.type]
+      if (!t || _dejaDit.has(s.type)) return
+      _dejaDit.add(s.type)
+      try { if (typeof window.showToast === 'function') window.showToast(t, s.type === 'echec-repli' ? 'err' : 'warn', 9000) } catch (e) {}
+    })
+    const r = await M.initialiser()
+    console.info('[Supabase] miroir local :', r.backend, '— transfert :', r.transfert)
+    try { window.__immoCrumb && window.__immoCrumb('miroir:' + r.backend + ':' + r.transfert) } catch (e) {}
+    // Lu par la garde de déconnexion de supabase-boot.js (module séparé) : un miroir IndexedDB compte.
+    window.__immoMiroirPresent = () => { try { return M.present() } catch (e) { return false } }
+    // Idem pour le reste de ce que la garde doit savoir : miroir protégé (illisible avec du travail non
+    // remonté) et heure du dernier travail local connu en IndexedDB (`travailA`, audit O4).
+    window.__immoMiroirEtat = () => { try { return { present: M.present(), protege: M.protege(), travailA: M.travailA() } } catch (e) { return null } }
+    // D7 B — stockage PERSISTANT demandé seulement par l'app INSTALLÉE (usage terrain, EDL hors ligne) :
+    // accordé sans question par Chromium aux apps installées ; ailleurs, on ne sollicite personne.
+    if (typeof _standalone !== 'undefined' && _standalone && navigator.storage && typeof navigator.storage.persist === 'function') {
+      navigator.storage.persisted()
+        .then(deja => deja || navigator.storage.persist())
+        .then(ok => console.info('[Supabase] stockage persistant :', ok ? 'accordé' : 'refusé'))
+        .catch(() => {})
+    }
+  } catch (e) { console.warn('[Supabase] miroir-local', e); _miroirLocal = null }
   try { const _ss = await import('../core/store-sync.js'); _hasCloudWrites = _ss.summaryHasCloudWrites; _recordKey = _ss.recordKey } catch (e) { console.warn('[Supabase] store-sync helpers', e) }
   try { _edlConflit = await import('../core/edl-conflit.js') } catch (e) { console.warn('[Supabase] edl-conflit', e) }
 
@@ -864,8 +919,12 @@ async function acceptInviteFlow(api, client, overlay, token) {
  */
 async function onHorsLigne(api, overlay, session) {
   try {
-    const raw = localStorage.getItem(MIRROR_KEY)
-    let db = raw ? JSON.parse(raw) : null
+    // STOCKAGE lot 4 : le miroir est lu là où il vit — IndexedDB + journal des EDL non engagés
+    // (miroir prêt), sinon la clé locale (repli, module absent) comme avant.
+    let db = null
+    const _M = (typeof _miroirLocal !== 'undefined' && _miroirLocal) ? _miroirLocal.miroir() : null
+    if (_M && _M.pret()) db = await _M.lire()
+    else { const raw = localStorage.getItem(MIRROR_KEY); db = raw ? JSON.parse(raw) : null }
     // ⚠️ RGPD — le miroir est filtré AVANT d'être affiché. Il ne suffit pas de
     // protéger la remontée : Logements, Locataires et les fiches 360 sont
     // OUVERTS hors ligne, et le miroir peut contenir un espace dont on a été
@@ -879,6 +938,17 @@ async function onHorsLigne(api, overlay, session) {
       // Rien de lisible : on retombe sur le comportement d'aujourd'hui.
       try { window.__immoCrumb && window.__immoCrumb('hors-ligne-abandon:miroir-vide') } catch (e) {}
       return wireLoginForm(api, overlay)
+    }
+    // STOCKAGE lot 4 (contre-audit Q3) — copie hors ligne INCOMPLÈTE : seuls les états des lieux du
+    // journal ont pu être gardés (base trop grande pour le stockage local pendant un repli protégé).
+    // Pas de formulaire muet : on dit ce qui se passe et quoi faire. Les EDL restent sur l'appareil.
+    if (Object.keys(db).every(k => k === 'edl')) {
+      try { window.__immoCrumb && window.__immoCrumb('hors-ligne-abandon:copie-incomplete') } catch (e) {}
+      const _r = wireLoginForm(api, overlay)
+      try {
+        if (typeof showError === 'function') showError(overlay, 'Copie hors ligne incomplète sur cet appareil : se connecter au réseau pour continuer ; les états des lieux saisis sont conservés.')
+      } catch (e) {}
+      return _r
     }
     // F3 (invariant 19h) — LE DRAPEAU D'ABORD. saveDB teste `__immoSupabaseMode`
     // avant `_CLOUD_BOOT` ; sans lui, la branche boot-cloud sort en n'écrivant
@@ -902,6 +972,11 @@ async function onHorsLigne(api, overlay, session) {
     // données affichées (invariant 19c).
     let ecritA = 0
     try { ecritA = parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0 } catch (e) {}
+    // STOCKAGE lot 4 (contre-audit) — la dernière copie complète n'a pas pu être écrite (grand compte,
+    // repli protégé) : la base affichée est ANCIENNE, et `_ecrit_at` (récent) ferait croire le contraire.
+    // Le bandeau le dit ; l'app reste ouverte (les EDL du journal sont superposés, la saisie continue).
+    let _copieAncienne = false
+    try { _copieAncienne = !!(_M && typeof _M.copieIncomplete === 'function' && _M.copieIncomplete()) } catch (e) {}
     try {
       if (typeof window.__immoEntrerHorsLigne === 'function') {
         // On passe les FONCTIONS du module, pas des listes recopiées : index.html
@@ -910,7 +985,9 @@ async function onHorsLigne(api, overlay, session) {
         window.__immoEntrerHorsLigne({
           donneesDu: ecritA || Date.now(),
           email: (session && session.user && session.user.email) || '',
-          libelle: _offlineBoot.libelleDonneesDu(ecritA || Date.now()),
+          libelle: _copieAncienne
+            ? 'Copie hors ligne ancienne sur cet appareil : se connecter au réseau pour la mettre à jour ; les états des lieux saisis sont conservés.'
+            : _offlineBoot.libelleDonneesDu(ecritA || Date.now()),
           ongletDisponible: id => _offlineBoot.ongletDisponibleHorsLigne(id),
           motifOnglet: id => _offlineBoot.motifOnglet(id),
           motif: quoi => _offlineBoot.motifIndisponible(quoi),
@@ -948,13 +1025,20 @@ async function onHorsLigne(api, overlay, session) {
 function _refusDeconnexionLocale({ api, forcer }) {
   if (forcer || !_offlineBoot) return null
   try {
-    const miroir = localStorage.getItem(MIRROR_KEY)
+    // STOCKAGE lot 4 : un miroir IndexedDB (ou son journal d'EDL, ou un IndexedDB illisible) compte
+    // comme un miroir présent ; l'heure du dernier travail est le MAX entre `_ecrit_at` et `travailA`
+    // (IndexedDB), qui survit quand Chromium perd les écritures localStorage récentes (audit O4).
+    const _M = (typeof _miroirLocal !== 'undefined' && _miroirLocal) ? _miroirLocal.miroir() : null
+    // Miroir PROTÉGÉ (illisible alors que du travail n'est pas remonté, audit R1) : la déconnexion
+    // l'effacerait. Refus, quel que soit l'état du réseau.
+    if (_M && _M.protege()) return { ok: false, raison: 'miroir-illisible', enAttente: 1 }
+    const miroir = !!localStorage.getItem(MIRROR_KEY) || !!(_M && _M.present())
     const v = _offlineBoot.verdictDeconnexion({
       forcer: false,
       moteurPresent: !!(api && api.sync),
       horsLigne: !!window.__immoHorsLigne,
       miroirPresent: !!miroir,
-      miroirEcritA: parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0,
+      miroirEcritA: Math.max(parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0, (_M && _M.travailA()) || 0),
       dernierFlushA: parseInt(localStorage.getItem(_offlineBoot.FLUSH_OK_KEY) || '0', 10) || 0,
     })
     if (v.peut) return null
@@ -989,16 +1073,49 @@ function _refusDeconnexionLocale({ api, forcer }) {
  */
 async function _remonterTravailHorsLigne({ api, db, setSync, tagMiroir, espacesAutorises }) {
   const rien = { db, dbServeur: null, ajoutes: 0, majs: 0, envoiOk: true }
+  // Le miroir est résolu HORS du `try` : le `catch` en a besoin (contre-audit C1).
+  const _M = (typeof _miroirLocal !== 'undefined' && _miroirLocal) ? _miroirLocal.miroir() : null
   try {
     if (!_offlineBoot) return rien
-    const ecritA = parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0
+    // STOCKAGE lot 4 : un repli décidé au démarrage sur un IndexedDB MUET est RETENTÉ avant toute
+    // lecture (audit R1) ; l'heure du dernier travail est le MAX entre `_ecrit_at` et `travailA`
+    // (enregistrement IndexedDB) — Chromium peut perdre les écritures localStorage récentes (O4).
+    if (_M && _M.pret()) await _M.retenterSiIncertain()
+    // Contre-audit C2 : IndexedDB TOUJOURS illisible après la nouvelle tentative → son contenu est
+    // INCONNU, donc `travailA` aussi (navigateur tué + IndexedDB muet : `_ecrit_at` perdu, travailA
+    // illisible). Un contenu inconnu est traité comme du travail POSSIBLE : mode protégé AVANT toute
+    // sortie anticipée (le rebase fusionnera, `_flush_at` reste figé, la déconnexion est refusée).
+    if (_M && _M.pret() && _M.incertain()) {
+      _M.proteger()
+      console.warn('[Supabase] F1 — copie de l’appareil illisible : protégée jusqu’au prochain démarrage')
+      try { window.__immoCrumb && window.__immoCrumb('f1-miroir-incertain') } catch (e) {}
+    }
+    const ecritA = Math.max(parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0, (_M && _M.travailA()) || 0)
     const flushA = parseInt(localStorage.getItem(_offlineBoot.FLUSH_OK_KEY) || '0', 10) || 0
     // ⚠️ `tagMiroir` est le verdict d'AVANT le login : `onLoggedIn` réécrit le tag
     // du miroir avec l'utilisateur et l'espace courants. Le relire ici rendrait
     // forcément 'same' — une tautologie, pas une protection (constat d'audit).
     if (!_offlineBoot.doitPousserAvantHydratation({ tagMiroir, miroirEcritA: ecritA, dernierFlushA: flushA })) return rien
-    const raw = localStorage.getItem(MIRROR_KEY)
-    const miroir = raw ? JSON.parse(raw) : null
+    // STOCKAGE lot 4 : IndexedDB + journal synchrone des EDL (un EDL enregistré hors ligne dont la
+    // transaction IndexedDB n'a pas abouti — app tuée — est dans le journal : il remonte quand même).
+    // Lecture TRI-VALUÉE : un IndexedDB ILLISIBLE n'est jamais « absent ». Il met le miroir en mode
+    // PROTÉGÉ : on remonte ce qui est lisible, aucune écriture ne l'écrase sans relire et fusionner ses
+    // EDL, le dernier envoi réussi n'avance plus (F1 réessaiera au démarrage suivant), et la
+    // déconnexion est refusée.
+    let miroir = null
+    let _illisible = false
+    if (_M && _M.pret()) {
+      const _e = await _M.lireEtat()
+      miroir = _e.db
+      if (_e.etat === 'illisible') {
+        _illisible = true
+        _M.proteger()
+        console.warn('[Supabase] F1 — copie de l’appareil illisible : protégée jusqu’au prochain démarrage')
+        try { window.__immoCrumb && window.__immoCrumb('f1-miroir-illisible') } catch (e) {}
+        try { setSync && setSync('warn', 'Copie de l’appareil illisible — recharger l’app') } catch (e) {}
+      }
+    }
+    else { const raw = localStorage.getItem(MIRROR_KEY); miroir = raw ? JSON.parse(raw) : null }
     // RGPD — on ne reverse JAMAIS un EDL d'un espace qu'on n'a plus. Le tag du
     // miroir n'enregistre que l'espace PROPRE (faille F13 du CDC) : après
     // révocation d'un partage il rend 'same', le miroir n'est donc pas purgé, et
@@ -1025,7 +1142,9 @@ async function _remonterTravailHorsLigne({ api, db, setSync, tagMiroir, espacesA
     // train de se reproduire elle-même.
     const badF1 = sF1 ? (((sF1.errors && sF1.errors.length) || 0) + ((sF1.conflicts && sF1.conflicts.length) || 0) + ((sF1.skipped && sF1.skipped.length) || 0)) : 0
     if (!badF1) {
-      try { localStorage.setItem(_offlineBoot.FLUSH_OK_KEY, String(Date.now())) } catch (e) {}
+      // Miroir protégé : une partie n'a pas pu être lue, donc pas envoyée — le dernier envoi « réussi »
+      // n'avance pas, sinon F1 croirait tout remonté au démarrage suivant (audit R1).
+      if (!_illisible) { try { localStorage.setItem(_offlineBoot.FLUSH_OK_KEY, String(Date.now())) } catch (e) {} }
     } else {
       console.warn('[Supabase] F1 — le travail hors ligne n’est PAS remonté', sF1)
       try { window.__immoCrumb && window.__immoCrumb('f1-echec:' + badF1) } catch (e) {}
@@ -1034,6 +1153,11 @@ async function _remonterTravailHorsLigne({ api, db, setSync, tagMiroir, espacesA
     return { db: vivant, dbServeur, ajoutes: f.ajoutes.length, majs: f.majs.length, envoiOk: !badF1 }
   } catch (e) {
     console.warn('[Supabase] F1 remontée hors ligne', e)
+    // Contre-audit C1 : l'envoi (ou la lecture) de F1 a LEVÉ — p. ex. `sealSignedBaux`, non isolé par
+    // enregistrement. On rend la base du cloud, mais le miroir peut porter un EDL jamais remonté :
+    // mode PROTÉGÉ, sinon le rebase qui suit l'écraserait et `_flush_at` avancerait au premier flush.
+    try { if (_M) _M.proteger() } catch (_e) {}
+    try { window.__immoCrumb && window.__immoCrumb('f1-exception') } catch (_e) {}
     return rien
   }
 }
@@ -1129,7 +1253,10 @@ async function onLoggedIn(api, overlay, user) {
       if (!bad) backoffUntil = 0
       // F1 : horodate le dernier flush RÉUSSI. C'est lui qu'on comparera à la
       // dernière écriture du miroir, au prochain démarrage en ligne.
-      if (!bad && _offlineBoot) { try { localStorage.setItem(_offlineBoot.FLUSH_OK_KEY, String(Date.now())) } catch (e) {} }
+      // STOCKAGE lot 4 (R1) : miroir PROTÉGÉ (illisible, travail peut-être non remonté) → le dernier
+      // envoi réussi n'avance pas : F1 doit encore le relire au prochain démarrage.
+      const _Mp = (typeof _miroirLocal !== 'undefined' && _miroirLocal) ? _miroirLocal.miroir() : null
+      if (!bad && _offlineBoot && !(_Mp && _Mp.protege())) { try { localStorage.setItem(_offlineBoot.FLUSH_OK_KEY, String(Date.now())) } catch (e) {} }
       // SYNCHRO LIVE (M4, audit v15.460) : signale aux AUTRES appareils dès que le flush a RÉELLEMENT
       // écrit quelque chose (upserts/removes/config) — un poison isolé (P1.2) n'étouffe plus le signal.
       // Repli sans le helper (import raté) : ancienne condition « flush 100 % propre ».
@@ -1374,6 +1501,9 @@ async function onLoggedIn(api, overlay, user) {
     try {
       _tagMiroirAvantLogin = _purgerCacheAuLogin({ user, esp })
       if (_tagMiroirAvantLogin === 'other-user') await _deletePhotosDb()
+      // STOCKAGE lot 4 : l'effacement du miroir IndexedDB de l'ancien propriétaire (mis en file par
+      // `_purgerCacheAuLogin`) est TERMINÉ avant la pose du nouveau tag — même ordre F14.1 que les photos.
+      if (_tagMiroirAvantLogin !== 'same' && typeof _miroirLocal !== 'undefined' && _miroirLocal) await _miroirLocal.miroir().attendre()
       _ecrireTagEtEspacesLogin({ user, esp })
     } catch (e) { console.warn('[Supabase] purge cache au login', e) }
     api.wireStores({ espaces: _espaces, getDB: () => liveDB, schedule })   // MULTI-ESPACE : 1 store/espace agrégé (N=1 = mono)
@@ -1457,7 +1587,7 @@ async function onLoggedIn(api, overlay, user) {
       _lastHydrateAt = Date.now()                 // P1.3 : référence de fraîcheur pour le re-pull visibilité
       // P1.3 volet RGPD : le miroir est RE-BASÉ immédiatement sur la vue AUTORISÉE courante (RLS) — l'ancien
       // contenu (potentiellement un périmètre révoqué depuis) ne survit jamais à un login, même sans saveDB.
-      try { _ecrireMiroir(JSON.stringify(db)) } catch (e) {}   // STOCKAGE lot 1 : éviction sur quota (S-1)
+      try { _ecrireMiroir(db) } catch (e) {}   // STOCKAGE lot 1 (éviction sur quota) + lot 4 (IndexedDB)
       window.__immoMarkDirty = () => { _dirtySeq++; api.markDirty() }   // 2c : le garde saveDB l'appelle → debounce → flush cloud (+_dirtySeq : détection de saisie pendant un re-pull, audit I-1)
       // RESTAURATION LOCALE : flush COMPLET synchrone + awaitable (renvoie le résumé {upserts,removes,conflicts,skipped}).
       // Utilisé par _backupRestoreRun (index.html) : après avoir muté DB EN PLACE = instantané, on pousse tout vers

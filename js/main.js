@@ -123,9 +123,11 @@ import { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journa
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 // IRL-REVISION (R6/R7) — la lettre suit la révision VALIDÉE ; annuler une révision programmée.
 import * as IrlRevision from './core/irl-revision.js';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque } from './core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, avenantApplique, regimeForfaitObjet, forfaitChargesPrevu, avertissementForfaitCharges, referenceForfaitCharges } from './core/avenant.js';
 // AVENANT-REFONTE lot 2 — registre des avenants (journal baux_evenements, type 'avenant') : statuts, liste, numérotation.
 import * as AvenantRegistre from './core/avenant-registre.js';
+// Forfait de charges (art. 25-10 / 8-1, V) dans la régularisation : post-traitement, intervalles, base N-1 (pur, testé).
+import { forfaitAvenantsDuBail, occNonForfaitJours, forfaitIntervalles, appliquerForfaitOccupation, periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique, avenantApplicationAffichee } from './core/regul-forfait.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
 import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase } from './core/bail-duree.js';
 import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause, congeMotifDetail, congeDateEffet, congeMentionPreavis } from './core/conge.js';
@@ -306,6 +308,9 @@ import {
 // nouvel essai sur quota), nettoyage de démarrage, purge des copies. Exposé sous window._stockage ;
 // l'exécution sur le vrai localStorage vit inline (_miroirEcrire, _stockageNettoyer).
 import * as Stockage from './core/stockage-local.js';
+// STOCKAGE lot 4 (docs/CDC-STOCKAGE.md §3.8) — miroir cloud en IndexedDB + journal synchrone des EDL.
+// MÊME module (même URL) que celui importé par supabase-entry.js → même instance `miroir()`.
+import * as MiroirLocal from './core/miroir-local.js';
 
 // RESET-CLOUD UX — cœur PUR du « ⚠️ Vider mon espace cloud » (gating UI, saisie du nom,
 // messages d'erreur RPC). Exposé sous window._espacePurge ; l'orchestration IMPURE (modale,
@@ -693,6 +698,23 @@ window.avenantHtmlSigne = avenantHtmlSigne;
 // « Lu et approuvé » obligatoire et imprimé (décision 30/09) : consigne papier + validation par partie.
 window.avenantHtmlAImprimer = avenantHtmlAImprimer;
 window.avenantSignatureManque = avenantSignatureManque;
+// Forfait de charges (art. 25-10 / 8-1, V) : état forfait daté (registre des avenants), lu par computeRegul pour ne pas régulariser un forfait
+window.bailForfaitActifLe = bailForfaitActifLe;
+window.forfaitEffetAu = forfaitEffetAu;
+window.forfaitPertinent = forfaitPertinent;
+window.avenantApplique = avenantApplique;
+window.regimeForfaitObjet = regimeForfaitObjet;
+window.forfaitChargesPrevu = forfaitChargesPrevu;
+window.avertissementForfaitCharges = avertissementForfaitCharges;
+window.referenceForfaitCharges = referenceForfaitCharges;
+window.forfaitAvenantsDuBail = forfaitAvenantsDuBail;
+window.occNonForfaitJours = occNonForfaitJours;
+window.forfaitIntervalles = forfaitIntervalles;
+window.appliquerForfaitOccupation = appliquerForfaitOccupation;
+window.periodeForfaitLibelle = periodeForfaitLibelle;
+window.baseChargesLogement = baseChargesLogement;
+window.avenantObjetApplique = avenantObjetApplique;
+window.avenantApplicationAffichee = avenantApplicationAffichee;
 // Congé & résiliation (loi 89-462)
 window.CONGE_MOTIFS = CONGE_MOTIFS;
 window.REPRISE_LIENS = REPRISE_LIENS;
@@ -778,6 +800,8 @@ window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildMani
 
 // STOCKAGE lot 1 — registre du stockage local (voir import en tête).
 window._stockage = Stockage;
+// STOCKAGE lot 4 — miroir cloud (lu par _miroirEcrireCloud dans index.html).
+window._miroirLocal = MiroirLocal;
 
 // RESET-CLOUD UX — cœur pur du « Vider mon espace cloud » (voir import en tête).
 window._espacePurge = { confirmNameMatches, purgeUiState, purgeErrorMessage };
