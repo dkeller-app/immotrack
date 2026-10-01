@@ -74,7 +74,7 @@ Conséquences retenues :
 | Colocataire | Composition : sortie datée + fin de solidarité (date d'effet du congé + 6 mois, ou date d'entrée d'un nouveau colocataire) ; entrant avec sa date d'entrée |
 | Garant / caution | Garants rattachés (§4) |
 | Loyer, charges | Barème daté + `log.hc/ch` (mécanisme actuel, déplacé au moment de la signature) |
-| Forfait de charges | Mode de charges daté, **lu par la régularisation** (reprendre `bailForfaitActifLe`, codé sur la branche `claude/admiring-galileo-1fb6e1` mais jamais mergé) |
+| Forfait de charges | Fondement : **art. 25-10** (meublé) / **art. 8-1, V** (colocation), via `referenceForfaitCharges` — jamais l'art. 23-1 (partage des économies de charges). Mode de charges daté, **lu par la régularisation** : `bailForfaitActifLe(bail, date, avenants)` (`js/core/avenant.js`) lit le registre ; prédicat `avenantApplique` : **signé**, ou **« À signer » d'avant le lot 3** (sans `aLaSignature` : lot 2 / v15.681 appliquaient à l'enregistrement, ils restent honorés) ; un « À signer » du lot 3 n'est **pas** honoré avant signature ; brouillon et annulé jamais. Date = `effetApplique` (recalée à la signature) sinon date d'effet. Un changement de régime compte « appliqué » (`planApplication` le compare à la timeline, pas au flag) et la date d'effet est recalée comme pour un montant. **Ne pas restreindre à « signé » seul** : les avenants lot 2 déjà appliqués perdraient leur forfait |
 | Annexe / dépendance | Désignation du bien loué ; supplément de loyer au barème |
 | Durée | Date de fin du bail (échéances, préavis, alertes) |
 | Paiement / RIB | Jour de paiement, IBAN du bailleur |

@@ -36,11 +36,40 @@ describe('planApplication — loyer, charges, annexe (barème daté)', () => {
     const p = plan([{ k: 'annexe', data: { act: 'Retrait', sup: '900' } }]);
     expect(p.hc).toBeNull(); expect(p.alertes.join(' ')).toMatch(/nul ou négatif/);
   });
-  it('passage au forfait de charges : posé sur le bail (même sans changement de montant)', () => {
+  it('passage au forfait de charges au même montant : APPLIQUÉ (daté, lu par la régularisation), sans alerte', () => {
     const p = plan([{ k: 'charges', data: { mode: 'Passage au forfait de charges', montant: '' } }]);
-    expect(p.ch).toBeNull(); expect(p.champs).toEqual([{ champ: 'chForfait', apres: true }]);
-    // audit 3a I2 : la régularisation ne lit pas encore le forfait → jamais annoncé « appliqué »
-    expect(p.appliques).toEqual([]); expect(p.docSeul).toContain('Passage au forfait de charges'); expect(p.alertes.join(' ')).toMatch(/régularisation/);
+    expect(p.ch).toBeNull(); expect(p.regime).toBe(true);
+    expect(p.champs).toEqual([{ champ: 'chForfait', apres: true }]);
+    expect(p.appliques).toEqual(['Passage au forfait de charges']);
+    expect(p.docSeul).toEqual([]);
+    expect(p.alertes).toEqual([]);
+  });
+});
+
+describe('planApplication — régime des charges comparé à la TIMELINE (forfaitAvant), pas au flag', () => {
+  const forf = [{ k: 'charges', data: { mode: 'Passage au forfait de charges', montant: '' } }];
+  const prov = [{ k: 'charges', data: { mode: 'Passage aux provisions avec régularisation', montant: '' } }];
+  it('flag déjà vrai (posé par un avenant antérieur) mais timeline aux provisions à la date d\'effet → changement de régime', () => {
+    const p = planApplication({ objets: forf, bail: Object.assign({}, bail, { chForfait: true }), libelles: LBL, forfaitAvant: false });
+    expect(p.regime).toBe(true); expect(p.appliques).toEqual(['Passage au forfait de charges']);
+    expect(p.champs).toEqual([]);   // flag déjà aligné
+  });
+  it('déjà au forfait à la date d\'effet : régime inchangé → document seulement', () => {
+    const p = planApplication({ objets: forf, bail, libelles: LBL, forfaitAvant: true });
+    expect(p.regime).toBe(false); expect(p.appliques).toEqual([]); expect(p.docSeul).toEqual(['Charges']);
+  });
+  it('retour aux provisions', () => {
+    const p = planApplication({ objets: prov, bail: Object.assign({}, bail, { chForfait: true }), libelles: LBL, forfaitAvant: true });
+    expect(p.regime).toBe(true); expect(p.appliques).toEqual(['Retour aux provisions']);
+    expect(p.champs).toEqual([{ champ: 'chForfait', apres: false }]);
+  });
+  it('forfait + nouveau montant : les deux sont appliqués', () => {
+    const p = planApplication({ objets: [{ k: 'charges', data: { mode: 'Passage au forfait de charges', montant: '90' } }], bail, libelles: LBL, forfaitAvant: false });
+    expect(p.ch).toBe(90); expect(p.appliques).toEqual(['Charges', 'Passage au forfait de charges']); expect(p.docSeul).toEqual([]);
+  });
+  it('révision des provisions (pas de changement de régime) : comportement inchangé', () => {
+    const p = planApplication({ objets: [{ k: 'charges', data: { mode: 'Révision du montant des provisions', montant: '120' } }], bail, libelles: LBL, forfaitAvant: false });
+    expect(p.regime).toBe(false); expect(p.docSeul).toEqual(['Charges']);
   });
 });
 

@@ -26269,9 +26269,11 @@ var _AVENANT_OBJETS = [
    {id:'dpe',l:'Classe DPE du logement',t:'select',o:['A à E','F (passoire)','G (passoire)']},
    {id:'nouveau',l:'Nouveau loyer HC (€)',t:'num',v:''}]},
  {k:'charges', tt:'Charges', f:[
-   {id:'mode',l:'Nature',t:'select',o:function(){ return _avenantState.forfaitOk ? ['Révision du montant des provisions','Passage au forfait de charges','Passage aux provisions avec régularisation'] : ['Révision du montant des provisions','Passage aux provisions avec régularisation']; }},
+   // Décision Didier 01/10 : le forfait reste proposé partout ; sur un bail nu à un seul locataire, l'enregistrement
+   // AVERTIT (avertissementForfaitCharges, rappel légal) et l'utilisateur décide — jamais bloquer.
+   {id:'mode',l:'Nature',t:'select',o:['Révision du montant des provisions','Passage au forfait de charges','Passage aux provisions avec régularisation']},
    {id:'montant',l:'Nouveau montant mensuel (€)',t:'num',v:''}],
-   note:'Le forfait de charges n\'est proposé que pour un bail meublé ou une colocation (art. 8-1 / 25-9) ; sinon seules les provisions (régularisables) sont possibles.'},
+   note:'Le forfait de charges (non régularisable) est prévu par la loi pour une location meublée (art. 25-10) ou une colocation (art. 8-1, V) ; ailleurs, les charges se récupèrent par provisions régularisées (art. 23).'},
  {k:'annexe', tt:'Annexe / dépendance', f:[
    {id:'act',l:'Action',t:'select',o:['Adjonction','Retrait']},
    {id:'type',l:'Type',t:'select',o:['un garage','une cave','une place de stationnement','un jardin privatif']},
@@ -26325,7 +26327,8 @@ function _avenantCtx(){
   var garants=(typeof _bailLegacyToGarants==='function'?_bailLegacyToGarants(bail):[]).map(function(g){ return g.nom||''; }).filter(Boolean);
   return { no:_avenantState.no, bailleur:ent.nom||bail.entity||'Le bailleur', locataires:locs, locDetail:locDetail, garants:garants,
     bien:bail.adrBien||'', dateBail:dateBail, bailSigne:_sgComplet, loyer0:Number(bail.hc)||0,
-    effetIso:v('av-effet')||'', ville:v('av-ville')||bail.villeSignature||'' };
+    effetIso:v('av-effet')||'', ville:v('av-ville')||bail.villeSignature||'',
+    typeBail:bail.type||'' };   // fondement du forfait de charges : art. 25-10 (meublé) / 8-1, V (colocation)
 }
 function _avenantFldHtml(k,fd){ var id='av-'+k+'-'+fd.id; var opts=(typeof fd.o==='function')?fd.o():fd.o;
   if(opts) return '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+fd.l+'</label><select class="inp" id="'+id+'" oninput="_avenantRender()">'+opts.map(function(x){return '<option>'+escHtml(x)+'</option>';}).join('')+'</select></div>';
@@ -26411,11 +26414,10 @@ function _avenantOpen(ref, opts){
   if(opts&&opts.brouillonId&&(!_brouillon||_brouillon.statut!=='brouillon')){ showToast('Brouillon introuvable (supprimé ou déjà enregistré).','warn'); return; }
   // Numérotation : max des avenants connus DU BAIL COURANT (registre, brouillons compris, et avenants
   // anciens du bail / du journal) + 1 → plus de « n° 1 » répété (module pur, testé).
-  _avenantState={ ref:ref, no:_brouillon?_brouillon.no:window.AvenantRegistre.numeroSuivant(_avenantArgs(ref)), brouillonId:_brouillon?_brouillon.id:null, sel:{}, locNames:[], forfaitOk:false,
+  _avenantState={ ref:ref, no:_brouillon?_brouillon.no:window.AvenantRegistre.numeroSuivant(_avenantArgs(ref)), brouillonId:_brouillon?_brouillon.id:null, sel:{}, locNames:[],
     garants:(typeof _bailLegacyToGarants==='function'?_bailLegacyToGarants(bail):[]).map(function(g){ return g.nom||''; }).filter(Boolean) };
   _avenantState.locNames=(bail.locataires&&bail.locataires.length)?bail.locataires.map(function(l){return l.nom||'';}).filter(Boolean):(bail.nom?[bail.nom]:[]);
-  // Forfait de charges licite seulement en meublé (et variantes) ou en colocation (art. 8-1 / 25-9).
-  _avenantState.forfaitOk=(['meuble','etudiant','mobilite'].indexOf(bail.type)>=0)||_avenantState.locNames.length>1;
+  // (Forfait de charges : plus de filtre du choix ici — l'enregistrement avertit, cf. avertissementForfaitCharges.)
   var ov=_avenantOv();
   var who=escHtml((_avenantState.locNames.join(' & ')||'—')+' · '+(bail.adrBien||ref));
   ov.innerHTML=''+
@@ -26485,6 +26487,10 @@ function _avenantSave(ref, opts){
   // montants, date d'effet) sont passés à l'enregistrement définitif.
   if(opts&&opts.brouillon){ _avenantEcrireBrouillon(ref, bail, objets, effet); return; }
   if(!_avenantChampsOk(objets,'Enregistrer')) return;
+  // Forfait de charges sur un bail nu à un seul locataire : la loi ne le prévoit pas (art. 25-10 / 8-1, V).
+  // On AVERTIT avec le rappel légal, l'utilisateur décide (règle « jamais bloquer un enregistrement »).
+  var _avForf=(typeof window.avertissementForfaitCharges==='function')?window.avertissementForfaitCharges(objets, { typeBail:bail.type, nbLocataires:_avenantState.locNames.length }):null;
+  if(_avForf && !confirm2(_avForf+'\n\nEnregistrer quand même ?')) return;
   var loyerAny=objets.find(function(o){return o.k==='loyer';});
   var chargesAny=objets.find(function(o){return o.k==='charges';});
   // AUDIT AVENANT 27/09 — montants (module pur `avenantMontant`) : un champ VIDE garde le montant en
@@ -26508,12 +26514,15 @@ function _avenantSave(ref, opts){
   // dans un mois déjà quittancé, jamais avant la dernière période vivante. Sinon dû faux / passé réécrit.
   // Audit lot 3a (M3) : la date est recalée dès qu'un MONTANT sera daté au barème — supplément d'annexe compris —
   // pour que le document dise la date réellement appliquée à la signature.
-  var _planDate=window.AvenantRegistre.planApplication({ objets:objets, bail:bail, libelles:_AV_LBL });
-  if((_planDate.hc!=null||_planDate.ch!=null) && typeof window._baremeClampDateEffet==='function'){
+  // Forfait de charges (art. 25-10 / 8-1, V) : un changement de régime est lui aussi daté (lu par la régularisation à la
+  // date d'effet) → même recalage (1ᵉʳ du mois, mois déjà quittancé, début du bail). La borne du barème
+  // (dernière période vivante) ne vaut que pour un MONTANT daté au barème.
+  var _planDate=window.AvenantRegistre.planApplication({ objets:objets, bail:bail, libelles:_AV_LBL, forfaitAvant:_forfaitAvantAvenant(ref, bail, effet, _avenantState.brouillonId) });
+  if((_planDate.hc!=null||_planDate.ch!=null||_planDate.regime||_avenantPorteRegime(objets)) && typeof window._baremeClampDateEffet==='function'){
     var dq=(typeof _dernierMoisQuittanceYm==='function')?_dernierMoisQuittanceYm(ref):null;
     var cl=window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm:dq||undefined, debutBailIso:bail.debut||undefined });
     var effetOk=cl.effetIso, ajuste=!!cl.ajustee;
-    var bmin=(typeof window._bailModifBorneMinEffet==='function')?window._bailModifBorneMinEffet(DB.loyerBareme||[], ref):'';
+    var bmin=(_planDate.hc!=null||_planDate.ch!=null)&&(typeof window._bailModifBorneMinEffet==='function')?window._bailModifBorneMinEffet(DB.loyerBareme||[], ref):'';
     if(bmin && effetOk && effetOk<bmin){ effetOk=bmin; ajuste=true; }
     if(effetOk && effetOk!==effet){ effet=effetOk; ajuste=true; }
     if(ajuste){ if(el('av-effet')) el('av-effet').value=effet; showToast('Date d\'effet ajustée au '+fd(effet)+' (1ᵉʳ du mois / mois déjà quittancé / début du bail).','warn',6000); }
@@ -26527,7 +26536,7 @@ function _avenantSave(ref, opts){
   // AVENANT-REFONTE lot 3 — DÉCISION B : un avenant ne s'applique qu'une fois SIGNÉ par toutes les parties,
   // daté à sa date d'effet. Enregistrer ne change RIEN au bail : on annonce seulement ce que la signature
   // appliquera (module pur `planApplication`) et ce qui restera dans le document seul.
-  var _plan=window.AvenantRegistre.planApplication({ objets:objets, bail:bail, libelles:_AV_LBL });
+  var _plan=window.AvenantRegistre.planApplication({ objets:objets, bail:bail, libelles:_AV_LBL, forfaitAvant:_forfaitAvantAvenant(ref, bail, effet, _avenantState.brouillonId) });
   // Entrée du registre : un brouillon repris garde son identifiant et sa date de création.
   var _brou=_avenantState.brouillonId?_avenantTrouver(ref, _avenantState.brouillonId):null;
   if(_brou && _brou.statut!=='brouillon') _brou=null;
@@ -26570,19 +26579,26 @@ function _avenantSave(ref, opts){
 var _AV_CHAMP_LBL={ hc:'Loyer HC', ch:'Charges mensuelles', fin:'Date de fin du bail', jpay:'Jour de paiement', destinationLocaux:'Destination des locaux', chForfait:'Charges au forfait' };
 function _avenantAppliquer(ref, av){
   var bail=DB.baux&&DB.baux[ref];
-  var plan=window.AvenantRegistre.planApplication({ objets:av.objets, bail:bail, libelles:_AV_LBL });
   var effet=av.date||((typeof _todayIsoLocal==='function')?_todayIsoLocal():td()), ajuste=false;
+  // Forfait de charges : régime en vigueur à la date d'effet SANS cet avenant (timeline des avenants signés).
+  var plan=window.AvenantRegistre.planApplication({ objets:av.objets, bail:bail, libelles:_AV_LBL, forfaitAvant:_forfaitAvantAvenant(ref, bail, effet, av.id) });
   var chg=[];
   var prevHc=Number(bail.hc)||0, prevCh=Number(bail.ch)||0;
+  // Recalage de la date d'effet : dès qu'un montant est daté au barème OU que l'avenant porte un régime de
+  // charges (le forfait est lu par la régularisation à `effetApplique` — jamais en milieu de mois ni sur un
+  // mois déjà quittancé). Le régime se juge à la date RECALÉE (plus bas) : le recalage peut franchir une étape.
+  // La borne « dernière période du barème » ne vaut que pour un montant.
+  if((plan.hc!=null||plan.ch!=null||plan.regime||_avenantPorteRegime(av.objets)) && typeof window._baremeClampDateEffet==='function'){
+    var dq=(typeof _dernierMoisQuittanceYm==='function')?_dernierMoisQuittanceYm(ref):null;
+    var cl=window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm:dq||undefined, debutBailIso:bail.debut||undefined });
+    var effetOk=cl.effetIso; ajuste=!!cl.ajustee;
+    var bmin=(plan.hc!=null||plan.ch!=null)&&(typeof window._bailModifBorneMinEffet==='function')?window._bailModifBorneMinEffet(DB.loyerBareme||[], ref):'';
+    if(bmin && effetOk && effetOk<bmin){ effetOk=bmin; ajuste=true; }
+    if(effetOk && effetOk!==effet){ effet=effetOk; ajuste=true; }
+  }
+  // Date recalée : le changement de régime est réévalué à la VRAIE date d'effet (contre-audit 30/09).
+  if(ajuste) plan=window.AvenantRegistre.planApplication({ objets:av.objets, bail:bail, libelles:_AV_LBL, forfaitAvant:_forfaitAvantAvenant(ref, bail, effet, av.id) });
   if(plan.hc!=null||plan.ch!=null){
-    if(typeof window._baremeClampDateEffet==='function'){
-      var dq=(typeof _dernierMoisQuittanceYm==='function')?_dernierMoisQuittanceYm(ref):null;
-      var cl=window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm:dq||undefined, debutBailIso:bail.debut||undefined });
-      var effetOk=cl.effetIso; ajuste=!!cl.ajustee;
-      var bmin=(typeof window._bailModifBorneMinEffet==='function')?window._bailModifBorneMinEffet(DB.loyerBareme||[], ref):'';
-      if(bmin && effetOk && effetOk<bmin){ effetOk=bmin; ajuste=true; }
-      if(effetOk && effetOk!==effet){ effet=effetOk; ajuste=true; }
-    }
     var newHc=plan.hc!=null?plan.hc:prevHc, newCh=plan.ch!=null?plan.ch:prevCh;
     // Couvre le passé au tarif PRÉCÉDENT jusqu'à la date d'effet, puis pose la période de l'avenant.
     if(typeof window._baremeGarantirCouverture==='function')
@@ -26630,7 +26646,11 @@ function _avenantAppliquer(ref, av){
 // (DB.baux_evenements → table cloud baux_evenements, type 'avenant'), jamais la ligne du bail.
 // Les avenants anciens (bail.avenants[] / DB.bailEvents) sont lus sans être recopiés ; ils ne
 // deviennent une entrée du registre qu'au premier changement de statut.
-function _avenantArgs(ref){ return { journal:DB.baux_evenements||[], bailEvents:DB.bailEvents||[], cle:ref, bail:(DB.baux&&DB.baux[ref])||null }; }
+// `debutsClos` : un avenant d'un bail CLOS du logement (DB.baux_historique) n'est jamais rattaché au bail
+// courant — liste, numérotation et forfait (audit 30/09 : avenant « À signer » du bail précédent).
+function _avenantArgs(ref){ var b=(DB.baux&&DB.baux[ref])||null;
+  return { journal:DB.baux_evenements||[], bailEvents:DB.bailEvents||[], cle:ref, bail:b,
+    debutsClos:(window.AvenantRegistre&&typeof window.AvenantRegistre.debutsBauxClos==='function')?window.AvenantRegistre.debutsBauxClos(DB.baux_historique||[], ref, b):[] }; }
 function _avenantListe(ref){
   var b=DB.baux&&DB.baux[ref];
   if(!b||b._deleted||!window.AvenantRegistre) return [];
@@ -26709,8 +26729,10 @@ function _avenantSupprimerBrouillon(ref, id){
 }
 function _avenantAnnuler(ref, id){
   var av=_avenantTrouver(ref, id); if(!av) return;
-  if(!window.AvenantRegistre.transitionPermise(av,'annule')){
-    var _apl=Array.isArray(av.appliques)?av.appliques:[];
+  // Forfait de charges : un changement de régime honoré par la régularisation est appliqué (données non réécrites).
+  var _avChk=Object.assign({}, av, { appliques:_avenantAffichage(DB.baux&&DB.baux[ref], ref, av, '').appliques });
+  if(!window.AvenantRegistre.transitionPermise(_avChk,'annule')){
+    var _apl=_avChk.appliques;
     showToast(_apl.length
       ? 'L\'avenant n° '+av.no+' a déjà modifié le bail ('+_apl.join(', ').toLowerCase()+') : pour revenir en arrière, établir un nouvel avenant.'
       : 'L\'avenant n° '+av.no+' est '+window.AvenantRegistre.statutDe(av).l.toLowerCase()+' : son statut est définitif.','warn',8000);
@@ -27022,10 +27044,14 @@ function _avenantRetroMessage(ref, av){
   var bail=DB.baux&&DB.baux[ref]; if(!bail||!av||!av.aLaSignature||!av.date) return null;
   if(Array.isArray(av.appliques)&&av.appliques.length) return null;
   if((DB.baux_evenements||[]).some(function(x){ return x && !x._deleted && x.type==='modification' && x.avenantId===av.id; })) return null;   // déjà appliqué
-  var p=window.AvenantRegistre.planApplication({ objets:av.objets, bail:bail, libelles:_AV_LBL });
+  var p=window.AvenantRegistre.planApplication({ objets:av.objets, bail:bail, libelles:_AV_LBL, forfaitAvant:_forfaitAvantAvenant(ref, bail, av.date, av.id) });
   var mois=(typeof _todayIsoLocal==='function'?_todayIsoLocal():td()).slice(0,7)+'-01';
-  if((p.hc==null&&p.ch==null) || av.date>=mois) return null;
-  return 'Avenant n° '+av.no+' : date d\'effet au '+fd(av.date)+', antérieure au mois en cours. Les montants dus depuis cette date seront recalculés (mois déjà quittancés exceptés) : un complément ou un trop-perçu est à régler avec le locataire.';
+  if((p.hc==null&&p.ch==null&&!p.regime) || av.date>=mois) return null;
+  var txt='Avenant n° '+av.no+' : date d\'effet au '+fd(av.date)+', antérieure au mois en cours.';
+  if(p.hc!=null||p.ch!=null) txt+=' Les montants dus depuis cette date seront recalculés (mois déjà quittancés exceptés) : un complément ou un trop-perçu est à régler avec le locataire.';
+  // Forfait de charges (art. 25-10 / 8-1, V) : la régularisation des exercices déjà écoulés change aussi.
+  if(p.regime) txt+=' Le régime des charges change à cette date ('+(p.appliques.indexOf('Retour aux provisions')>=0?'retour aux provisions, régularisables':'forfait, non régularisable')+') : la régularisation des charges depuis cette date en tient compte, y compris sur un exercice déjà régularisé à reprendre avec le locataire.';
+  return txt;
 }
 function _avenantMarquerSigne(ref, av, sig, opts){
   var bail=DB.baux&&DB.baux[ref]; if(!bail||!av) return false;
@@ -27150,12 +27176,14 @@ function _renderAvenantsBail(ref){
     if(av.statut==='brouillon') meta.push('rien n\'est appliqué au bail · modifiable');
     else if(annule) meta.push('jamais appliqué');
     else {
-      if(Array.isArray(av.appliques)&&av.appliques.length) meta.push('appliqué : '+av.appliques.join(', ').toLowerCase());
+      var _aff=_avenantAffichage(bail, ref, av, '');   // forfait : texte vrai sans réécrire la donnée
+      if(_aff.appliques.length) meta.push('appliqué : '+_aff.appliques.join(', ').toLowerCase());
       else if(av.statut==='a_signer'&&Array.isArray(av.prevus)&&av.prevus.length) meta.push('appliqué à la signature : '+av.prevus.join(', ').toLowerCase());
       if(av.statut==='signe'&&av.signeMode==='papier') meta.push('sur papier');
     }
     if(av.virtuel&&!av.html) meta.push('document non conservé');
-    var acts=R.actionsAvenant(av).map(function(a){ var b=BTN[a]; if(!b) return '';
+    // Un changement de régime de charges honoré par la régularisation compte comme appliqué : plus d'« Annuler ».
+    var acts=R.actionsAvenant(Object.assign({}, av, { appliques:_avenantAffichage(bail, ref, av, '').appliques })).map(function(a){ var b=BTN[a]; if(!b) return '';
       return '<button class="btn bs'+b[3]+'" onclick="'+b[2]+'(\''+rq+'\',\''+_lyQ(av.id)+'\')">'+_uiIcon(b[0])+' '+escHtml(b[1])+'</button>'; }).join('');
     return '<div class="logf-doc-card logf-av-card">'+
       '<div class="logf-doc-icon">'+_monoSvg('<path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 12h6M9 16h4"/>',22)+'</div>'+
@@ -29196,6 +29224,27 @@ function _rgDetAria(id, ouvert){
 // derrière » de rRegul pour être partagé par la liste PC, la liste téléphone et l'ouverture depuis la
 // vue globale (régression 25/09 : le rendu téléphone v15.637 ne menait plus à ce détail).
 // Les data-l servent à l'empilement téléphone ; le PC garde le tableau.
+// Forfait de charges : référence légale selon le bail — art. 25-10 (meublé), art. 8-1, V (colocation), la loi
+// seule si indéterminable (js/core/avenant.js `referenceForfaitCharges`, source unique ; jamais l'art. 23-1,
+// qui est le partage des économies de charges). `bail` null → référence générique (vue d'un immeuble).
+function _rgForfaitRef(bail){
+  var gen={ article:'', citation:'loi n° 89-462 du 6 juillet 1989 (forfait de charges)' };
+  if(typeof window.referenceForfaitCharges!=='function') return gen;
+  return window.referenceForfaitCharges({ typeBail:bail&&bail.type, nbLocataires:(bail&&Array.isArray(bail.locataires))?bail.locataires.length:0 });
+}
+// Forfait de charges : PÉRIODE(S) au forfait de l'occupation (`entry.forfait.intervalles`,
+// posés par computeRegul) — « sur toute la période » ou « du 01/03/2026 au 31/08/2026 ». Source unique
+// des badge, ligne de détail, panneau de clôture et documents. Texte brut (à échapper).
+function _rgForfaitPeriode(f){
+  if(!f) return '';
+  return (typeof window.periodeForfaitLibelle==='function') ? window.periodeForfaitLibelle(f) : '';
+}
+// Libellé court (badge PC, carte téléphone).
+function _rgForfaitLibelle(f){
+  if(!f) return '';
+  const p=_rgForfaitPeriode(f);
+  return 'Forfait'+(p?' '+p:'')+' — non régularisable';
+}
 function _rgDetailLocHtml(r){
   const solde = (r.provisions||0) - (r.charges||0);
   const rows = (r.details||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(d=>
@@ -29207,6 +29256,7 @@ function _rgDetailLocHtml(r){
       <tbody>${rows || '<tr><td colspan="4" class="mu sm">Aucune charge répartie sur cette période.</td></tr>'}
         <tr class="rg-det-sum"><td colspan="3">Total charges réparties</td><td class="num">${fmt(r.charges)}</td></tr>
         <tr class="rg-det-prov"><td colspan="3">Provisions versées</td><td class="num">${fmt(r.provisions)}</td></tr>
+        ${r.forfait ? `<tr class="rg-det-forfait"><td colspan="4" class="mu sm">Forfait de charges (${escHtml(_rgForfaitRef(r.bail).citation)}) ${escHtml(_rgForfaitPeriode(r.forfait))} — non régularisable. Exclus : ${fmt(r.forfait.excluCharges)} de charges réelles, ${fmt(r.forfait.excluProvisions)} de provisions.</td></tr>` : ''}
         <tr class="rg-det-solde"><td colspan="3">Solde ${solde>=0?'(à restituer)':'(à demander)'}</td><td class="num">${solde>=0?'+':''}${fmt(solde)}</td></tr>
       </tbody>
     </table>
@@ -29299,19 +29349,12 @@ function _rgYearChargesDetail(ref, yearOffset){
   const res = computeRegul(clamp(from), clamp(to));
   const entries = Object.values(res.entries||{}).filter(e=>e.ref===ref);
   if(!entries.length) return { year:y, total:0, moves:[] };
-  const byMv = {};
-  entries.forEach(e=>(e.details||[]).forEach(d=>{
-    const k = (d.mvId!=null) ? ('id:'+d.mvId) : ((d.date||'')+'|'+(d.mvLib||d.lib||''));
-    if(!byMv[k]) byMv[k]={key:k, date:d.date||'', lib:(d.mvLib||d.lib||''), montant:0};
-    byMv[k].montant += (d.montant||0);
-  }));
-  const moves = Object.values(byMv)
-    .map(m=>({key:m.key, date:m.date, lib:m.lib, montant:Math.round(m.montant*100)/100}))
-    .filter(m=>m.montant>0)
-    .sort((a,b)=>b.montant-a.montant);
-  // total = somme des parts arrondies → cohérent avec la « base retenue » (pas de dérive de cents vs barre N-1)
-  const total = Math.round(moves.reduce((s,m)=>s+m.montant,0)*100)/100;
-  return { year:y, total, moves };
+  // Agrégation par mouvement : js/core/regul-forfait.js `baseChargesLogement` (pure, testée). Elle relit
+  // AUSSI les charges retirées au titre du forfait (`forfait.exclusDetails`) : la base estime les charges
+  // du LOGEMENT, elle ne dépend pas du régime de charges de l'an passé (audit 30/09 : base N-1 amputée).
+  if(typeof window.baseChargesLogement !== 'function') return null; // module absent : pas d'estimation (repli sur le réel)
+  const b = window.baseChargesLogement(entries);
+  return { year:y, total:b.total, moves:b.moves };
 }
 
 // Base d'estimation = charges récup N-1 du logement, + comparaison N-2/N-3 (repérer une année
@@ -29351,6 +29394,55 @@ function _rgClotureImpayes(ref, from, to){
 }
 
 // DEPART-ESTIM : calcul unifié de la clôture (partagé panneau + décompte estimatif) — DRY.
+// Forfait de charges (art. 25-10 / 8-1, V) : jours de [debutIso, finIso] (inclus) NON couverts par le
+// forfait. Source UNIQUE pour toute estimation N-1 (régul clôture + assistant départ) → n'estimer
+// que la fraction régularisable. Day-loop UTC (cohérent avec les bornes clipBail/toISOString) ;
+// repli = durée pleine si le module forfait est absent (statu quo, jamais de crash).
+// `avs` = avenants du bail (_forfaitAvenantsDuBail) : MÊME liste que computeRegul.
+// Calcul : js/core/regul-forfait.js `occNonForfaitJours` (pur, testé).
+function _occNonForfaitJours(bail, debutIso, finIso, avs){
+  if(!debutIso) return 0;
+  if(typeof window.occNonForfaitJours === 'function') return window.occNonForfaitJours(bail, debutIso, finIso, avs);
+  const t0 = Date.parse(debutIso+'T00:00:00Z'), t1 = Date.parse((finIso||debutIso)+'T00:00:00Z');
+  return (t1 >= t0) ? Math.round((t1 - t0)/86400000) + 1 : 0;
+}
+// Forfait de charges (art. 25-10 / 8-1, V) — avenants qui régissent CE bail, pour la timeline forfait
+// (js/core/avenant.js). AVENANT-REFONTE lot 2 : un avenant est une entrée du REGISTRE du bail
+// (DB.baux_evenements, type 'avenant'), les anciens (bail.avenants[], DB.bailEvents) étant relus par
+// AvenantRegistre.listeAvenants — source unique, statuts compris. `cle` = clé du logement (DB.baux).
+// `finIso` (bail clos) : un avenant d'un bail SUIVANT du même logement — daté après la fin de ce bail
+// et rattaché à un autre début de bail — n'est pas retenu ; un avenant d'un bail CLOS (bailDebut = début
+// d'un bail de DB.baux_historique) n'est jamais attribué au bail courant. Module absent → undefined : le
+// primitif relit alors bail.avenants[] (ancien modèle), jamais de crash.
+// Calcul : js/core/regul-forfait.js `forfaitAvenantsDuBail` (pur, testé).
+function _forfaitAvenantsDuBail(bail, cle, finIso){
+  if(!bail || typeof window.forfaitAvenantsDuBail !== 'function' || !window.AvenantRegistre) return undefined;
+  return window.forfaitAvenantsDuBail({ journal:DB.baux_evenements||[], bailEvents:DB.bailEvents||[], cle:cle, bail:bail, finIso:finIso,
+    debutsClos:window.AvenantRegistre.debutsBauxClos(DB.baux_historique||[], cle, bail) });
+}
+// Ce que la carte d'un avenant AFFICHE comme appliqué / document seulement (js/core/regul-forfait.js
+// `avenantApplicationAffichee`, pur, testé) : un changement de régime de charges honoré par la régularisation
+// est dit « appliqué », même sur un avenant du lot 2 enregistré « document seulement ». Donnée non réécrite.
+function _avenantAffichage(bail, cle, av, finIso){
+  var dflt={ appliques:Array.isArray(av&&av.appliques)?av.appliques:[], docSeul:Array.isArray(av&&av.docSeul)?av.docSeul:[] };
+  if(!bail||!av||typeof window.avenantApplicationAffichee!=='function') return dflt;
+  return window.avenantApplicationAffichee(av, { bail:bail, avenants:_forfaitAvenantsDuBail(bail, cle, finIso)||[], libelleCharges:(_AV_LBL&&_AV_LBL.charges)||'Charges' });
+}
+// L'avenant porte-t-il un régime de charges (forfait / provisions) ? Sa date d'effet est alors une étape
+// datée de la régularisation : recalée comme un montant, que le régime change ou non à la date écrite.
+function _avenantPorteRegime(objets){
+  return typeof window.regimeForfaitObjet==='function' && (Array.isArray(objets)?objets:[]).some(function(o){ return window.regimeForfaitObjet(o)!==null; });
+}
+// Régime de charges EN VIGUEUR à `effetIso` SANS l'avenant `avId` (timeline des avenants appliqués) :
+// ce à quoi un avenant de charges se compare pour savoir si son régime CHANGE (planApplication).
+// undefined si le module est absent → planApplication retombe sur le flag du bail.
+function _forfaitAvantAvenant(ref, bail, effetIso, avId){
+  if(!bail || !effetIso || typeof window.bailForfaitActifLe!=='function') return undefined;
+  var avs=_forfaitAvenantsDuBail(bail, ref, '');
+  if(Array.isArray(avs) && avId) avs=avs.filter(function(a){ return a && a.id!==avId; });
+  return window.bailForfaitActifLe(bail, effetIso, avs);
+}
+
 function _rgClotureCompute(entryKey){
   const res = computeRegul(window._regulFrom, window._regulTo);
   const entry = (res.entries||{})[entryKey];
@@ -29363,8 +29455,14 @@ function _rgClotureCompute(entryKey){
   const occN = entry.occDays || 0;
   const winDays = entry.totalDays || 365; // durée de la fenêtre régul (≠ 365 si période custom)
   const excl = new Set((bail.estimExclues)||[]);
+  // Forfait de charges (art. 25-10 / 8-1, V) : l'estimation N-1 (chemin utilisé au DÉPART, exercice non
+  // clos) projette des charges sans connaître les dates de forfait. On ne l'estime donc que sur
+  // la fraction d'occupation NON couverte par le forfait (source unique _occNonForfaitJours) —
+  // couvre le forfait partiel ET le forfait total sans aucun mouvement importé.
+  const forfaitAvs = _forfaitAvenantsDuBail(entry.bail, entry.ref, entry.isHistorique ? entry.fin : '');
+  const occNonForfait = (occN > 0) ? _occNonForfaitJours(bail, entry.debutOcc, entry.finOcc, forfaitAvs) : 0;
   const baseN1 = n1 ? Math.round(n1.moves.reduce((s,m)=> s + (excl.has(m.key)?0:m.montant), 0)*100)/100 : 0;
-  const estCharges = n1 ? Math.round(baseN1 * (occN/winDays) * 100)/100 : null;
+  const estCharges = n1 ? Math.round(baseN1 * (occNonForfait/winDays) * 100)/100 : null;
   const prov = entry.provisions || 0;
   const real = entry.charges || 0;
   // Phase C : acompte de charges déjà reçu (catégorie dédiée neutre) pour ce logement sur la fenêtre.
@@ -29401,14 +29499,14 @@ function _rgClotureCompute(entryKey){
   covered = Math.round(covered*100)/100;
   const restitTotal = Math.round(((dg - covered) + regulCredit)*100)/100;    // à restituer maintenant
   const resteADemander = Math.round(Math.max(0, totalDu - covered)*100)/100; // reste dû (régul après arrêté en copro)
-  return { entry, bail, log, dg, reg, n1, occN, winDays, excl, baseN1, estCharges, prov, real, acompte, estimated, chargesUsed, solde, du, max20, retenueSugg, dgRestit,
+  return { entry, bail, log, dg, reg, n1, occN, occNonForfait, forfaitAvs, winDays, excl, baseN1, estCharges, prov, real, acompte, estimated, chargesUsed, solde, du, max20, retenueSugg, dgRestit,
            impayes, reparations, regulDu, regulCredit, knownDebts, totalDu, retenueRegul, covered, restitTotal, resteADemander };
 }
 
 function _rgClotureLocataire(entryKey){
   const c = _rgClotureCompute(entryKey);
   if(!c){ if(typeof showToast==='function') showToast('Occupation introuvable','err'); return; }
-  const entry=c.entry, dg=c.dg, reg=c.reg, n1=c.n1, occN=c.occN, winDays=c.winDays, excl=c.excl,
+  const entry=c.entry, dg=c.dg, reg=c.reg, n1=c.n1, occN=c.occN, occNonForfait=(c.occNonForfait!=null?c.occNonForfait:c.occN), winDays=c.winDays, excl=c.excl,
         baseN1=c.baseN1, estCharges=c.estCharges, prov=c.prov, real=c.real, acompte=c.acompte, estimated=c.estimated,
         solde=c.solde, du=c.du, max20=c.max20, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit,
         impayes=c.impayes, reparations=c.reparations, regulDu=c.regulDu, regulCredit=c.regulCredit,
@@ -29438,7 +29536,7 @@ function _rgClotureLocataire(entryKey){
        <div class="rgc-mvh">Dépenses N‑1 (${escHtml(n1.year)}) — décoche un poste isolé pour l'exclure de la base</div>
        ${list}
        <div class="rgc-l"><span>Base retenue (postes cochés)</span><span class="mono">${f(baseN1)}</span></div>
-       <div class="rgc-l sub"><span>× prorata occupation — ${occN} j / ${winDays}</span><span class="mono">${f(estCharges)}</span></div>`;
+       <div class="rgc-l sub"><span>× prorata occupation${occNonForfait<occN?' hors forfait':''} — ${occNonForfait} j / ${winDays}</span><span class="mono">${f(estCharges)}</span></div>`;
   } else {
     chargeLines = `<div class="rgc-l"><span>Charges réelles imputées</span><span class="mono">${f(real)}</span></div>`;
   }
@@ -29476,6 +29574,7 @@ function _rgClotureLocataire(entryKey){
         <div class="rgc-l tot"><span><b>= Total dû par le locataire</b></span><span class="mono"><b>${f(totalDu)}</b></span></div>
       </div>
       <div class="rgc-blk"><div class="rgc-t">② Détail de la régularisation des charges — ${estimated?'estimation comparée':'réel'}</div>
+        ${entry.forfait?`<div class="rgc-l"><span class="mu sm">Charges au forfait (${escHtml(_rgForfaitRef(entry.bail).citation)}) ${escHtml(_rgForfaitPeriode(entry.forfait))} — non régularisable.</span><span></span></div>`:''}
         ${chargeLines}
         <div class="rgc-l"><span>− Provisions versées</span><span class="mono">${f(prov)}</span></div>
         ${acompte>0?`<div class="rgc-l"><span>− Acompte de charges déjà versé</span><span class="mono">${f(acompte)}</span></div>`:''}
@@ -29523,8 +29622,12 @@ function _rgOpenDecompteEstimatif(entryKey){
   if(!c){ if(typeof showToast==='function') showToast('Occupation introuvable','err'); return; }
   if(!c.estimated){ openRegulDoc(entryKey); return; } // pas d'historique N-1 → décompte réel classique
   const entry=c.entry, bail=c.bail, log=c.log, dg=c.dg, reg=c.reg, n1=c.n1,
-        occN=c.occN, winDays=c.winDays, baseN1=c.baseN1, estCharges=c.estCharges,
+        occN=c.occN, occNonForfait=(c.occNonForfait!=null?c.occNonForfait:c.occN), winDays=c.winDays, baseN1=c.baseN1, estCharges=c.estCharges,
         prov=c.prov, acompte=c.acompte, solde=c.solde, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit;
+  // Forfait de charges (art. 25-10 / 8-1, V) : la fraction d'occupation au forfait est exclue de l'estimation.
+  const forfaitMention = entry.forfait
+    ? `<p style="font-size:11px;margin-top:12px;padding:8px 11px;background:#eef4ff;border-left:3px solid #2563eb;border-radius:2px">ⓘ <b>Charges au forfait</b> (${escHtml(_rgForfaitRef(entry.bail).citation)}) <b>${escHtml(_rgForfaitPeriode(entry.forfait))}</b> : cette part <b>n'est pas régularisable</b>. L'estimation ne porte que sur la fraction d'occupation restée aux provisions${occNonForfait<occN?(' ('+occNonForfait+' j sur '+occN+' j occupés)'):''}.</p>`
+    : '';
   const f = v => fmtN(v) + ' €';
   const ent = (DB.entites||[]).find(e=>e && e.nom===((bail&&bail.entity)||log.entity)) || {};
   const cmpRows = [{l:'N‑3',v:n1.y3},{l:'N‑2',v:n1.y2},{l:'N‑1 ('+escHtml(n1.year)+')',v:n1.y1}]
@@ -29543,11 +29646,12 @@ function _rgOpenDecompteEstimatif(entryKey){
     <p>${escHtml(entry.loc||log.locataire||'–')}<br>${escHtml((bail&&bail.adrBien)||log.adr||'–')}</p>
     <p style="margin-top:16px"><b>Décompte ESTIMATIF de charges — provisoire</b><br>Logement ${escHtml(entry.ref)} · occupation ${entry.debutOcc?fd(entry.debutOcc):'—'} → ${entry.fin?fd(entry.fin):'—'} (${occN} j / ${winDays})</p>
     <p style="font-size:11px;margin-top:12px;padding:8px 11px;background:#fff8e6;border-left:3px solid #c9a000;border-radius:2px">⚠ <b>Document provisoire</b> : les charges réelles de l'année ne sont pas encore arrêtées. Estimation calculée sur l'historique (année précédente), proratisée à la durée d'occupation. Un <b>décompte définitif</b> suivra après l'arrêté des comptes (art. 23 loi 89‑462).</p>
+    ${forfaitMention}
     <p style="font-size:11px;margin-top:14px"><b>Base d'estimation — charges récupérables du logement par année</b></p>
     <table style="width:100%;border-collapse:collapse;margin:6px 0;font-size:12px">${cmpRows}</table>
     <table style="width:100%;border-collapse:collapse;margin:10px 0;font-size:12px">
       <tr><td style="padding:5px;border:1px solid #ccc">Base retenue (année précédente)</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(baseN1)}</td></tr>
-      <tr><td style="padding:5px;border:1px solid #ccc">Quote-part estimée (× ${occN}/${winDays})</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(estCharges)}</td></tr>
+      <tr><td style="padding:5px;border:1px solid #ccc">Quote-part estimée (× ${occNonForfait}/${winDays})</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(estCharges)}</td></tr>
       <tr><td style="padding:5px;border:1px solid #ccc">Provisions versées</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(prov)}</td></tr>
       ${acompte>0?`<tr><td style="padding:5px;border:1px solid #ccc">Acompte de charges déjà versé</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(acompte)}</td></tr>`:''}
       <tr style="font-weight:bold;background:${solde>=0?'#f0fff0':'#fff0f0'}"><td style="padding:5px;border:1px solid #ccc">SOLDE ${soldeLbl}</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${solde>=0?'+':''}${f(solde)}</td></tr>
@@ -29883,7 +29987,11 @@ function _departEstimDu(bail){
     const occEnd = (d.dateSortie < winTo) ? d.dateSortie : winTo;
     const days = (a,b)=>Math.max(0, Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000)+1);
     occ = days(occStart, occEnd);
-    est = Math.round(c.baseN1 * (occ/c.winDays) * 100)/100;
+    // Forfait de charges (art. 25-10 / 8-1, V) : n'estimer QUE la fraction d'occupation restée aux provisions
+    // (MÊME source que _rgClotureCompute) — sinon `c.prov` filtré du forfait − charges N-1 pleines
+    // sur-estimerait le dû et régulariserait le forfait sur l'écran de départ (audit money B1).
+    const occNF = _occNonForfaitJours(bail, occStart, occEnd, c.forfaitAvs);
+    est = Math.round(c.baseN1 * (occNF/c.winDays) * 100)/100;
     solde = Math.round((c.prov + acompte - est)*100)/100; // + = trop-perçu ; - = dû
   } else {
     // pas d'historique N-1 → on retombe sur les charges RÉELLES déjà imputées (comme le panneau clôture),
@@ -30000,6 +30108,11 @@ function _rgShowGlobal(immNom){
   const rowSolde=entries.map(e=>{const s=e.provisions-e.charges;return `<td class="num">${s>=0?'+':''}${f(s)}</td>`;}).join('');
   const sumCharges=entries.reduce((s,e)=>s+e.charges,0), sumProv=entries.reduce((s,e)=>s+e.provisions,0);
   const hasTrou=!!(nonRep&&nonRep.total>0.005);
+  // Forfait de charges (art. 25-10 / 8-1, V) : part des charges réelles retirée de la régul (non régularisable) —
+  // dite ici pour que la matrice s'explique (la facture ne « disparaît » pas). Aucun calcul : entry.forfait.
+  const forfPart=e=>(e.forfait&&e.forfait.excluCharges)||0;
+  const sumForf=Math.round(entries.reduce((s,e)=>s+forfPart(e),0)*100)/100;
+  const forfRow=sumForf>0.005?`<tr class="forf"><td class="c0">Part au forfait<small>charges non régularisables — ${escHtml(_rgForfaitRef(null).citation)}</small></td>${entries.map(e=>`<td class="num">${forfPart(e)?f(forfPart(e)):'<span class="z">—</span>'}</td>`).join('')}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${f(sumForf)}</td></tr>`:'';
   const validated=_rgIsValidated(immNom);
   const banner=hasTrou?`<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${f(nonRep.total)} de charges non réparties</b> — corrige avant de valider cet immeuble</div></div>`:'';
   // TÉLÉPHONE (≤767) : la matrice charge×lots (illisible en N colonnes) devient des CARTES-CHARGE
@@ -30015,6 +30128,7 @@ function _rgShowGlobal(immNom){
       <tbody>
         ${mvRows||`<tr><td colspan="${entries.length+3}" class="mu sm">Aucune charge répartie sur la période.</td></tr>`}
         ${trouRows}
+        ${forfRow}
         <tr class="sumc"><td class="c0">Total charges réelles</td>${rowCharges}<td class="num col-bail">${bail&&bail.total?f(bail.total):'<span class="z">—</span>'}</td><td class="num col-tot">${f(sumCharges)}</td></tr>
         <tr class="prov"><td class="c0">Provisions appelées</td>${rowProv}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${f(sumProv)}</td></tr>
         <tr class="solde"><td class="c0">Solde</td>${rowSolde}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${(sumProv-sumCharges)>=0?'+':''}${f(sumProv-sumCharges)}</td></tr>
@@ -30057,6 +30171,9 @@ function _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, val
     return `<button type="button" class="rgvg-lot" data-imm="${escHtml(immNom)}" data-ek="${escHtml(e.entryKey)}" onclick="_rgOuvrirDetailLoc(this.dataset.imm,this.dataset.ek)"><span class="ref">${escHtml(e.ref)}${e.loc?`<small>${escHtml(e.loc)}</small>`:''}</span><span class="sums"><span>Charges<b>${f(e.charges)}</b></span><span>Prov.<b>${f(e.provisions)}</b></span><span>Solde<b class="${s>=0?'pos':'neg'}">${s>=0?'+':''}${f(s)}</b></span></span><span class="go">${_uiIcon('receipt',13)}Détail des charges</span></button>`;
   }).join('');
   const bailLine = (bail && bail.total>0) ? `<div class="rgvg-bailline">${_uiIcon('bank',15)} Part bailleur (non récupérable → 2044)<b>${f(bail.total)}</b></div>` : '';
+  // Forfait de charges (art. 25-10 / 8-1, V) : part des charges réelles retirée de la régul (non régularisable).
+  const sumForf = Math.round(entries.reduce((s,e)=>s+((e.forfait&&e.forfait.excluCharges)||0),0)*100)/100;
+  const forfLine = sumForf>0.005 ? `<div class="rgvg-bailline">Part au forfait — charges non régularisables, ${escHtml(_rgForfaitRef(null).citation)}<b>${f(sumForf)}</b></div>` : '';
   const nJust = (typeof _rgJustifFactures==='function') ? _rgJustifFactures(immNom).length : 0;
   const foot = `<div class="rgvg-foot">
     <button type="button" class="valid" data-imm="${escHtml(immNom)}" ${hasTrou?'disabled':''} onclick="_rgValidate(this.dataset.imm)">${_uiIcon('check',16)}Valider la régul de l'immeuble</button>
@@ -30068,7 +30185,7 @@ function _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, val
     + banner
     + `<div class="rgvg-list">${cards||`<div class="rgph-empty">Aucune charge répartie sur la période.</div>`}${trouCards}</div>`
     + (lotRecap?`<div class="rgvg-sec">Récap par lot</div>${lotRecap}`:'')
-    + bailLine + foot;
+    + bailLine + forfLine + foot;
 }
 
 // CDC Charges Lot 5 (mockup 13) — paquet de justificatifs .zip. Réutilise _mvPjResolve (résolution PJ),
@@ -30346,6 +30463,22 @@ function computeRegul(from, to) {
     }
   });
 
+  // ── Forfait de charges (art. 25-10 / 8-1, V) : NON régularisable ────────────────────────────────
+  // On lit l'état forfait À LA DATE (avenants du bail : registre + anciens, statuts compris) et on retire
+  // de la régul les charges/provisions tombant PENDANT une période au forfait — SANS toucher une régul
+  // antérieure légitime (ex. exercice N-1 régularisé après la signature de l'avenant). Post-passe unique :
+  // tous les consommateurs de computeRegul héritent du filtrage (DRY). Calcul : js/core/regul-forfait.js
+  // `appliquerForfaitOccupation` (pur, testé) ; les lignes retirées restent lisibles dans
+  // `e.forfait.exclusDetails` (base N-1 = charges du LOGEMENT). Garde `typeof` = statu quo si le module
+  // n'est pas chargé (jamais de crash, y compris hors navigateur). Limite assumée (option A) : les
+  // provisions gardées restent valorisées en `bail.ch` plat (imprécision pré-existante, année straddle).
+  if (typeof window !== 'undefined' && typeof window.appliquerForfaitOccupation === 'function') {
+    Object.values(res).forEach(function(e){
+      if(!e.bail) return;
+      var avs=_forfaitAvenantsDuBail(e.bail, e.ref, e.isHistorique ? e.fin : '');
+      window.appliquerForfaitOccupation(e, { from:from, to:to, avenants:avs });
+    });
+  }
   // v14.73 : retour structuré { entries, bailleur } · v15.x Phase B : + nonReparti
   return { entries: res, bailleur: bailleur, nonReparti: nonReparti };
 }
@@ -30466,6 +30599,11 @@ function rRegul() {
       const did   = cls+'d'+li;
       const ekEsc = escHtml(r.entryKey);
       const badge = r.isHistorique ? ` <span class="rg-badge">Clôturé</span>` : '';
+      // Forfait de charges (art. 25-10 / 8-1, V) : non régularisable. Badge daté par les PÉRIODES au forfait de
+      // l'occupation (« du … au … », ou « sur toute la période »).
+      const forfaitBadge = r.forfait
+        ? ` <span class="rg-badge" style="background:var(--info-soft);color:var(--info)" title="Le forfait de charges (${escHtml(_rgForfaitRef(r.bail).citation)}) n'est pas régularisable">${escHtml(_rgForfaitLibelle(r.forfait))}</span>`
+        : '';
       const per   = r.debutOcc ? ` · ${fd(r.debutOcc)} → ${fd(r.finOcc||to)}` : '';
       const tag   = solde>=0
         ? `<span class="rg-tag rest">+${fmt(solde)} à restituer</span>`
@@ -30473,7 +30611,7 @@ function rRegul() {
       const parti = _rgIsParti(r);
       body += `<tr class="rg-log ${cls}" style="display:none">
         <td><input type="checkbox" class="regul-cb" data-ref="${ekEsc}" onclick="event.stopPropagation()">
-          <span class="rg-logref" onclick="_rgToggleDet('${did}')">${escHtml(r.ref)}</span>${badge}
+          <span class="rg-logref" onclick="_rgToggleDet('${did}')">${escHtml(r.ref)}</span>${badge}${forfaitBadge}
           <span class="mu sm">${escHtml(r.loc||'Vacant')}${per}</span></td>
         <td class="num" data-l="Provisions">${fmt(r.provisions)}</td><td class="num" data-l="Charges réelles">${fmt(r.charges)}</td>
         <td class="num" data-l="Solde">${tag}</td>
@@ -30530,6 +30668,7 @@ function _ensureRegulPhCss(){
     '#p-regul .rgph-lc-top{display:flex;align-items:baseline;gap:7px}',
     '#p-regul .rgph-ref{font-family:var(--display,inherit);font-weight:800;font-size:13.5px;flex:0 0 auto}',
     '#p-regul .rgph-clos{font-size:9px;font-weight:800;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:5px;padding:2px 5px;flex:0 0 auto}',
+    '#p-regul .rgph-forfait{margin-top:5px;font-size:12px;font-weight:600;color:var(--info);background:var(--info-soft);border-radius:6px;padding:4px 7px;line-height:1.35}',
     '#p-regul .rgph-loc{flex:1;min-width:0;font-size:11.5px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '#p-regul .rgph-more{flex:0 0 auto;min-height:0;color:var(--t3);background:none;border:0;padding:2px;margin:-2px -4px -2px 0;cursor:pointer;display:inline-flex}',
     '#p-regul .rgph-more .uic{width:18px;height:18px}',
@@ -30676,6 +30815,7 @@ function _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, ba
       const nFac=(r.details||[]).length;
       body+=`<div class="rgph-lc" data-ek="${ek}">
         <div class="rgph-lc-top"><span class="rgph-ref">${escHtml(r.ref)}</span>${clos}<span class="rgph-loc">${escHtml(r.loc||'Vacant')}${per}</span>${parti?`<button type="button" class="rgph-more" aria-label="Plus d'actions" onclick="this.closest('.rgph-lc').classList.toggle('open')">${_uiIcon('dots',18)}</button>`:''}</div>
+        ${r.forfait?`<div class="rgph-forfait">${escHtml(_rgForfaitLibelle(r.forfait))}</div>`:''}
         <div class="rgph-vals">
           <div class="rgph-v"><div class="k">Provisions</div><div class="n">${fmt(r.provisions)}</div></div>
           <div class="rgph-v"><div class="k">Charges réelles</div><div class="n">${fmt(r.charges)}</div></div>
@@ -30765,6 +30905,12 @@ function _buildDecompteHtml(entryKey, from, to) {
        </p>` : '';
   const clotureBadge = r.isHistorique
     ? `<span style="display:inline-block;font-size:10px;padding:2px 8px;background:#e0e0e0;border-radius:8px;color:#555;margin-left:8px">Bail clôturé</span>` : '';
+  // Forfait de charges (art. 25-10 / 8-1, V) : transparence sur le document remis au locataire — la part au
+  // forfait n'est pas régularisable et a été retirée du présent décompte (charges ET provisions).
+  const forfaitBandeau = r.forfait
+    ? `<p style="font-size:11px;margin-top:10px;padding:6px 10px;background:#eef4ff;border-left:3px solid #2563eb;border-radius:2px">
+        ⓘ <b>Charges au forfait</b> (${escHtml(_rgForfaitRef(r.bail).citation)}) <b>${escHtml(_rgForfaitPeriode(r.forfait))}</b> : cette part <b>n'est pas régularisable</b> et n'entre pas dans le présent décompte.${(r.forfait.excluCharges||r.forfait.excluProvisions)?` <em style="font-size:10px">Non pris en compte au titre du forfait : ${fmtN(r.forfait.excluCharges||0)} € de charges réelles, ${fmtN(r.forfait.excluProvisions||0)} € de provisions.</em>`:''}
+       </p>` : '';
   // DOCS-UNIFIES — gabarit unique (variante B). Le fond est repris MOT POUR MOT : objet,
   // article 23, tableau des charges réelles ligne à ligne, provisions/acompte/solde, les
   // quatre mentions légales obligatoires, le bandeau d'occupation partielle et son décret.
@@ -30777,6 +30923,7 @@ ${_dt('docParties', [
 ])}
     <p>Objet : Régularisation des charges locatives — ${escHtml(r.ref)}<br>Période du ${fd(from)} au ${fd(to)}</p>
     ${occBandeau}
+    ${forfaitBandeau}
     <p>Conformément à l'article 23 de la loi n°89-462 du 6 juillet 1989, nous vous adressons le décompte de régularisation des charges locatives pour la période mentionnée ci-dessus.</p>
     <table class="pro-tbl">
       <tr><th>Date</th><th>Libellé</th><th>Répartition</th><th class="num">Montant</th></tr>
@@ -44962,8 +45109,11 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     const st=R?R.statutDe({statut}):{l:'À signer'};
     const badge=statut==='signe'?'b-irl':(statut==='annule'?'b-man':'b-warn');
     const lblSt=(statut==='signe'&&ev.signeLe)?'Signé le '+fd(ev.signeLe):st.l;
-    const _app=Array.isArray(ev.appliques)?ev.appliques:null;
-    const _doc=Array.isArray(ev.docSeul)?ev.docSeul:null;
+    // Forfait de charges : texte VRAI sans réécrire la donnée (un changement de régime est honoré par la
+    // régularisation, même enregistré « document seulement » avant qu'elle ne lise le forfait).
+    const _aff=(ev.registre&&c.bail)?_avenantAffichage(c.bail, ev.ref, ev, c.statut==='clos'?(c.bail.finEffective||c.bail.fin||''):''):null;
+    const _app=_aff?_aff.appliques:(Array.isArray(ev.appliques)?ev.appliques:null);
+    const _doc=_aff?_aff.docSeul:(Array.isArray(ev.docSeul)?ev.docSeul:null);
     const annule=statut==='annule';
     // Gestes : bail courant seulement (les avenants d'un bail clos se consultent sur son archive).
     const aDoc=!!ev.html||((c.bail&&c.bail.avenants)||[]).some(a=>a&&Number(a.no)===Number(ev.no)&&a.html);
