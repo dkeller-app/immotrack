@@ -972,6 +972,11 @@ async function onHorsLigne(api, overlay, session) {
     // données affichées (invariant 19c).
     let ecritA = 0
     try { ecritA = parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0 } catch (e) {}
+    // STOCKAGE lot 4 (contre-audit) — la dernière copie complète n'a pas pu être écrite (grand compte,
+    // repli protégé) : la base affichée est ANCIENNE, et `_ecrit_at` (récent) ferait croire le contraire.
+    // Le bandeau le dit ; l'app reste ouverte (les EDL du journal sont superposés, la saisie continue).
+    let _copieAncienne = false
+    try { _copieAncienne = !!(_M && typeof _M.copieIncomplete === 'function' && _M.copieIncomplete()) } catch (e) {}
     try {
       if (typeof window.__immoEntrerHorsLigne === 'function') {
         // On passe les FONCTIONS du module, pas des listes recopiées : index.html
@@ -980,7 +985,9 @@ async function onHorsLigne(api, overlay, session) {
         window.__immoEntrerHorsLigne({
           donneesDu: ecritA || Date.now(),
           email: (session && session.user && session.user.email) || '',
-          libelle: _offlineBoot.libelleDonneesDu(ecritA || Date.now()),
+          libelle: _copieAncienne
+            ? 'Copie hors ligne ancienne sur cet appareil : se connecter au réseau pour la mettre à jour ; les états des lieux saisis sont conservés.'
+            : _offlineBoot.libelleDonneesDu(ecritA || Date.now()),
           ongletDisponible: id => _offlineBoot.ongletDisponibleHorsLigne(id),
           motifOnglet: id => _offlineBoot.motifOnglet(id),
           motif: quoi => _offlineBoot.motifIndisponible(quoi),

@@ -412,4 +412,34 @@ describe('Contre-audit 40fabad0 — invariants du mode protégé', () => {
     m.proteger();
     expect(() => m.ecrire(base([edl(1, '2026-09-30T10:00:00Z', { note: chaine(5_000) })]))).toThrow();
   });
+
+  it('Z5 — repli protégé sous quota : horodatage et journal passent AVANT la base complète (la base ne prend jamais leur place)', async () => {
+    const init = { immotrack_v4_tag: TAG, immotrack_v4_flush_at: '100' };
+    const u0 = Object.entries(init).reduce((n, [k, v]) => n + k.length + v.length, 0);
+    const st = fauxStockageQuota({ quota: u0 + 10_000, initial: init });   // la base (~9,2 k) tient SEULE, pas avec le journal (~3,1 k)
+    const signaux = [];
+    const m = creerMiroir({ idb: muetAuDemarrage(), stockage: st, horloge, delaiMs: 20, signaler: s => signaux.push(s.type) });
+    await m.initialiser();
+    m.proteger();
+    signaux.length = 0;
+    const db = Object.assign(base([edl(1, '2026-09-30T10:00:00Z', { note: chaine(3_000, 'y') })]), { mouvements: chaine(6_000) });
+    expect(m.ecrire(db)).toBe(true);
+    expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl.map(e => e.id)).toEqual([1]);
+    expect(+st.getItem('immotrack_v4_ecrit_at')).toBeGreaterThan(100);
+    expect(signaux).toEqual(['copie-incomplete']);
+  });
+
+  it('Z8 — repli protégé : le rebase SEUL écrit la copie hors ligne complète (démarrage hors ligne suivant, IndexedDB toujours muet)', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_tag: TAG, immotrack_v4_flush_at: '100' } });
+    const m = creerMiroir({ idb: muetAuDemarrage(), stockage: st, horloge, delaiMs: 20, signaler: () => {} });
+    await m.initialiser();
+    m.proteger();
+    m.ecrire(Object.assign(base([edl(1, '2026-09-29T10:00:00Z')]), { logements: [{ ref: 'A' }, { ref: 'B' }] }), { horodater: false });
+    const m2 = creerMiroir({ idb: muetAuDemarrage(), stockage: st, horloge, delaiMs: 20, signaler: () => {} });
+    await m2.initialiser();
+    const vu = await m2.lire();
+    expect(vu.logements.map(l => l.ref)).toEqual(['A', 'B']);
+    expect(vu.edl.map(e => e.id)).toEqual([1]);
+    expect(m2.copieIncomplete()).toBe(false);
+  });
 });

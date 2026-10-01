@@ -39,8 +39,9 @@
  * éviction comprise) et le repli est SIGNALÉ. Avant toute lecture pour F1,
  * IndexedDB est RETENTÉ. Repli PROTÉGÉ (IndexedDB au contenu inconnu) : journal
  * et horodatage d'abord, puis la base complète en local si elle TIENT ; sinon
- * la copie hors ligne est déclarée incomplète (signal + message au démarrage
- * hors ligne), les EDL restant au journal.
+ * la copie hors ligne est déclarée incomplète (signal, marque persistante,
+ * message au démarrage hors ligne), les EDL restant au journal. En mode protégé,
+ * la clé locale n'est JAMAIS réécrite sans relire et fusionner ses EDL (P10).
  *
  * ═══ LIMITES ASSUMÉES (mode protégé, contre-audit du 01/10) ══════════════════
  *   - Un rebase ou une restauration n'entre jamais au journal ; la version d'un
@@ -53,8 +54,10 @@
  *     défaire » : vider le journal à la restauration perdrait le premier.
  *     Résurrection d'un EDL plutôt que perte.
  *   - Copie hors ligne trop grande pour le stockage local : au démarrage hors
- *     ligne suivant, si IndexedDB est revenu, la base affichée est la dernière
- *     qu'il a reçue (avant la session protégée), EDL du journal superposés.
+ *     ligne suivant, la base affichée est une copie ANCIENNE (IndexedDB ou clé
+ *     locale d'avant la session protégée), EDL du journal superposés ; le
+ *     bandeau hors ligne le dit tant qu'une copie complète reçue du cloud n'a
+ *     pas été réécrite.
  */
 import { ecrireAvecLiberation, MIROIR_KEY, MIROIR_ECRIT_KEY, MIRROR_TAG_KEY } from './stockage-local.js';
 
@@ -63,6 +66,8 @@ export const MIROIR_STORE = 'miroir';
 export const MIROIR_ENREG = 'courant';
 /** Le journal synchrone des EDL pas encore engagés en IndexedDB (clé du registre, classe « principal »). */
 export const JOURNAL_EDL_KEY = MIROIR_KEY + '_edl_attente';
+/** Posée quand la copie hors ligne n'a pas pu être écrite en entier (repli protégé, base trop grande) ; retirée dès qu'une copie complète est écrite. */
+export const COPIE_INCOMPLETE_KEY = MIROIR_KEY + '_copie_incomplete';
 /** Délai au-delà duquel une opération IndexedDB muette est traitée comme un refus. */
 export const DELAI_OUVERTURE_MS = 3000;
 
@@ -225,6 +230,7 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
   const K = {
     miroir: cles.miroir || MIROIR_KEY, ecritA: cles.ecritA || MIROIR_ECRIT_KEY,
     journal: cles.journal || JOURNAL_EDL_KEY, tag: cles.tag || MIRROR_TAG_KEY,
+    incomplete: cles.incomplete || COPIE_INCOMPLETE_KEY,
   };
   let backend = null;           // null (pas initialisé) | 'indexeddb' | 'localStorage'
   let idbIncertain = false;     // IndexedDB n'a pas pu être LU : son contenu est INCONNU (jamais « absent »)
@@ -265,25 +271,53 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
   }
 
   /**
+   * Contre-audit P10 — en mode PROTÉGÉ, la clé locale peut porter un EDL fait hors ligne pendant un
+   * repli précédent (IndexedDB muet ou refusé) et jamais remonté (F1 a levé) : la base vivante, rendue
+   * par le cloud, ne le contient pas. Toute réécriture de la clé locale la RELIT donc et FUSIONNE ses
+   * EDL (union ; même EDL → le plus récent par `_modifiedAt`, à égalité la base vivante) — la même
+   * règle que l'écriture IndexedDB protégée et que F1 pour remonter. Hors mode protégé : inchangé.
+   */
+  function avecEdlCleLocale(db) {
+    if (!protege) return db;
+    let ancienne = null;
+    try { ancienne = JSON.parse(stockage.getItem(K.miroir) || 'null'); } catch (_e) { ancienne = null; }
+    if (!ancienne || !Array.isArray(ancienne.edl) || !ancienne.edl.length) return db;
+    return Object.assign({}, db, { edl: fusionnerEdl(db && db.edl, ancienne.edl) });
+  }
+  // La marque « copie incomplète » ne tombe que quand une copie COMPLÈTE de la base reçue du cloud
+  // pendant CETTE session (rebase vu) est écrite : une session hors ligne réécrit la copie ancienne,
+  // elle ne la rend pas plus récente.
+  let sessionCloud = false;
+  const marquerCopieComplete = (cloudInclus = sessionCloud) => { if (!cloudInclus) return; try { stockage.removeItem(K.incomplete); } catch (_e) {} };
+
+  /**
    * Repli protégé (IndexedDB inconnu) : la base complète en local, seulement si elle TIENT (éviction
-   * du lot 1 comprise). Échec → plus d'essai dans la session (pas de sérialisation de plusieurs Mo à
-   * chaque enregistrement pour rien), signal « copie-incomplete ». Une ancienne clé locale n'est PAS
-   * supprimée : elle peut porter des EDL d'un repli précédent. Ne lève jamais.
+   * du lot 1 comprise), EDL de la clé existante fusionnés (P10). Échec → la clé existante reste telle
+   * quelle (elle peut porter des EDL d'un repli précédent), plus d'essai dans la session (pas de
+   * sérialisation de plusieurs Mo à chaque enregistrement pour rien), signal « copie-incomplete » et
+   * marque persistante (le démarrage hors ligne suivant le dit). Ne lève jamais.
    */
   let baseLocaleTropGrande = false;
   function ecrireBaseLocaleSiTient(db) {
     if (baseLocaleTropGrande) return false;
     let json;
-    try { json = JSON.stringify(db); } catch (_e) { return false; }
+    try { json = JSON.stringify(avecEdlCleLocale(db)); } catch (_e) { return false; }
     const r = ecrireAvecLiberation(stockage, [[K.miroir, json]]);
-    if (!r.ok) { baseLocaleTropGrande = true; avertir({ type: 'copie-incomplete', erreur: r.erreur }); return false; }
+    if (!r.ok) {
+      baseLocaleTropGrande = true;
+      try { stockage.setItem(K.incomplete, String(horloge())); } catch (_e) {}
+      avertir({ type: 'copie-incomplete', erreur: r.erreur });
+      return false;
+    }
+    marquerCopieComplete();
     return true;
   }
 
   function ecrireLocal(db, ecritA, horodater) {
     if (horodater) { const r1 = ecrireAvecLiberation(stockage, [[K.ecritA, String(ecritA)]]); if (!r1.ok) throw r1.erreur; }
-    const r = ecrireAvecLiberation(stockage, [[K.miroir, JSON.stringify(db)]]);
+    const r = ecrireAvecLiberation(stockage, [[K.miroir, JSON.stringify(avecEdlCleLocale(db))]]);
     if (!r.ok) throw r.erreur;
+    marquerCopieComplete();
     return true;
   }
 
@@ -301,6 +335,7 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
       ecritureEnFile = false;                              // une demande ultérieure replanifie
       if (g !== gen || ferme || backend !== 'indexeddb' || !dernier) return;
       const cible = dernier;
+      const cloudInclus = sessionCloud;
       let aEcrire = cible;
       if (protege) {
         // Miroir porteur possible de travail non remonté : on RELIT et on FUSIONNE ses EDL avant
@@ -329,6 +364,7 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
       }
       if (g !== gen) return;                                // oublié / vidé pendant la transaction
       presentIdb = true; idbIncertain = false;
+      marquerCopieComplete(cloudInclus);
       engages = eng;
       if (!ferme && dernier) {
         // Ce qui a été modifié PENDANT la transaction reste au journal jusqu'à la suivante.
@@ -350,6 +386,8 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
     protege: () => protege,
     /** F1 a trouvé le miroir illisible alors que du travail n'est pas remonté. */
     proteger() { protege = true; },
+    /** La dernière copie hors ligne n'a pas pu être écrite en entier : celle de l'appareil est ANCIENNE. */
+    copieIncomplete() { try { return !!stockage.getItem(K.incomplete); } catch (_e) { return false; } },
     /** IndexedDB au contenu inconnu (lecture impossible) ? */
     incertain: () => idbIncertain,
     /** Repli décidé au démarrage sur un IndexedDB MUET : nouvelle tentative (avant F1). Sinon, rien. */
@@ -421,6 +459,8 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
             return { backend, transfert: 'echec' };
           }
           presentIdb = true; travailBase = travailT; engages = carteEdl(cible);
+          // Pas de marquerCopieComplete() : le transfert recopie une copie de l'appareil (peut-être
+          // ancienne), pas la base vivante d'une session.
           try { stockage.removeItem(K.miroir); } catch (_e) {}
         }
       }
@@ -438,6 +478,7 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
     ecrire(db, opts) {
       if (ferme) return true;
       const horodater = !(opts && opts.horodater === false);
+      if (!horodater) sessionCloud = true;
       const ecritA = horloge();
       if (horodater) travailSession = ecritA;
       if (backend !== 'indexeddb' && protege && idbIncertain) {
@@ -537,9 +578,10 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
      */
     oublier() {
       gen++; dernier = null; engages = new Map(); presentIdb = false; idbIncertain = false;
-      travailBase = 0; travailSession = 0; protege = false; ecritureEnFile = false;
+      travailBase = 0; travailSession = 0; protege = false; ecritureEnFile = false; sessionCloud = false; baseLocaleTropGrande = false;
       try { stockage.removeItem(K.journal); } catch (_e) {}
       try { stockage.removeItem(K.miroir); } catch (_e) {}
+      try { stockage.removeItem(K.incomplete); } catch (_e) {}
       if (!idb) return Promise.resolve();
       return enFile(() => avecDelai(idb.effacer(), delaiMs).catch(e => avertir({ type: 'echec-effacement', erreur: e })));
     },
@@ -549,6 +591,7 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
       ferme = true; gen++; dernier = null; engages = new Map(); presentIdb = false; idbIncertain = false; protege = false;
       try { stockage.removeItem(K.journal); } catch (_e) {}
       try { stockage.removeItem(K.miroir); } catch (_e) {}
+      try { stockage.removeItem(K.incomplete); } catch (_e) {}
       if (idb) await enFile(() => idb.supprimerBase());
       await api.attendre();
     },

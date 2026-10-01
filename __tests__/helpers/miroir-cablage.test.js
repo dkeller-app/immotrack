@@ -514,21 +514,78 @@ describe('P9 — en mode protégé, un rebase n’ajoute JAMAIS d’entrée au j
   });
 });
 
+// P10 : la clé locale d'un repli PRÉCÉDENT porte un EDL fait hors ligne, jamais remonté (F1 a levé).
+// En mode protégé, toute réécriture de la clé locale relit et fusionne ses EDL.
+describe('P10 — en mode protégé, la clé locale n’est jamais réécrite sans fusionner ses EDL', () => {
+  const flushA = String(Date.UTC(2026, 8, 29, 12));
+  const e77 = edl(77, Date.UTC(2026, 8, 30, 10), { v: 'hors-ligne' });
+  async function sessionsAB(st, idbA, idbB) {
+    // Session A — HORS LIGNE, repli NON protégé (F1 ne tourne pas hors ligne) : 77 va dans la clé locale.
+    const mA = creerMiroir({ idb: idbA, stockage: st, delaiMs: 20, signaler: () => {} });
+    await mA.initialiser();
+    expect(mA.backend()).toBe('localStorage');
+    mA.ecrire(base([]), { horodater: false });
+    mA.ecrire(base([e77]));
+    expect(st.getItem(JOURNAL_EDL_KEY)).toBeNull();
+    expect(JSON.parse(st.getItem('immotrack_v4')).edl.map(e => e.id)).toEqual([77]);
+    // Session B — EN LIGNE : F1 lit 77, l'envoi LÈVE (C1) → protégé ; rebase (cloud sans 77), puis une saisie.
+    const mB = creerMiroir({ idb: idbB, stockage: st, delaiMs: 20, signaler: () => {} });
+    await mB.initialiser();
+    const fB = monterF1({ stockage: st, miroirLocal: moduleMiroir(mB), flushLeve: true });
+    const rB = await fB.lancer();
+    expect(fB.seq.flushe.edl.map(e => e.id)).toEqual([77]);                // F1 l'avait bien vu
+    expect(mB.protege()).toBe(true);
+    rebase(st, mB)(rB.db);
+    mB.ecrire(Object.assign({}, rB.db, { edl: [edl(5, Date.UTC(2026, 9, 1, 9))] }));
+    expect(JSON.parse(st.getItem('immotrack_v4')).edl.map(e => e.id).sort((a, b) => a - b)).toEqual([5, 77]);
+  }
+
+  it('scénario de l’audit — IndexedDB muet en A et B, revenu en C : 77 est lu et remonté', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: flushA, immotrack_v4_tag: TAG } });
+    const enr = { v: 2, ecritA: 1, tag: TAG, json: JSON.stringify(base([])) };
+    const idbMuet = () => { const i = fauxIdb(enr); i.lire = async () => { throw new Error('indexeddb-muet'); }; i.ecrire = async () => { throw new Error('indexeddb-muet'); }; return i; };
+    await sessionsAB(st, idbMuet(), idbMuet());
+    const mC = creerMiroir({ idb: fauxIdb(enr), stockage: st });
+    expect((await mC.initialiser()).transfert).toBe('fusion');
+    expect((await mC.lire()).edl.map(e => e.id).sort((a, b) => a - b)).toEqual([5, 77]);
+    const fC = monterF1({ stockage: st, miroirLocal: moduleMiroir(mC) });
+    expect((await fC.lancer()).ajoutes).toBe(2);
+    expect(fC.seq.flushe.edl.find(e => e.id === 77).v).toBe('hors-ligne');
+  });
+
+  it('variante IndexedDB REFUSÉ (navigation privée) : la clé locale est la seule copie — 77 y reste et remonte', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: flushA, immotrack_v4_tag: TAG } });
+    const idbRefuse = () => { const i = fauxIdb(null); i.lire = async () => { const e = new Error('refus'); e.name = 'SecurityError'; throw e; }; return i; };
+    await sessionsAB(st, idbRefuse(), idbRefuse());
+    const mC = creerMiroir({ idb: idbRefuse(), stockage: st, delaiMs: 20, signaler: () => {} });
+    await mC.initialiser();
+    const fC = monterF1({ stockage: st, miroirLocal: moduleMiroir(mC) });
+    expect((await fC.lancer()).ajoutes).toBe(2);
+    expect(fC.seq.flushe.edl.map(e => e.id).sort((a, b) => a - b)).toEqual([5, 77]);
+  });
+});
+
 // Q3 : en repli protégé, la copie hors ligne reste utilisable quand elle tient ; sinon, le démarrage
 // hors ligne le DIT (plus de formulaire de connexion muet).
 describe('Q3 — repli protégé : copie hors ligne complète si elle tient, message dédié sinon', () => {
   function monterHorsLigne(st, m, { showError } = {}) {
     const vu = { injecte: null, formulaire: 0, erreurs: [] };
-    const win = { __immoSetDB: d => { vu.injecte = d; return true; }, __immoRender: () => {}, __immoEntrerHorsLigne: () => {}, __immoCrumb: () => {} };
+    const win = { __immoSetDB: d => { vu.injecte = d; return true; }, __immoRender: () => {}, __immoEntrerHorsLigne: o => { vu.bandeau = o; }, __immoCrumb: () => {} };
     const fn = new Function('window', 'localStorage', 'document', 'MIRROR_KEY', '_offlineBoot', '_liftDriveGate', 'wireLoginForm', 'console', '_miroirLocal', 'showError',
       'return async ' + extraireFonction(ENTRY, 'onHorsLigne'))(
       win, st, { documentElement: { removeAttribute() {} } }, 'immotrack_v4', OfflineBoot, () => {}, () => { vu.formulaire++; },
       muet, moduleMiroir(m), showError || ((_o, msg) => vu.erreurs.push(msg)));
-    return { lancer: () => fn({}, { remove() {} }, { user: { email: 'd@e.fr' } }), vu, win };
+    return { lancer: () => fn({}, { remove() {} }, { user: { email: 'd@e.fr' } }), vu, win, m };
   }
+  /** IndexedDB muet (lecture ET écriture) : sa base reste celle d'avant, intouchée. */
+  const m2Idb = () => {
+    const i = fauxIdb({ v: 2, ecritA: 1, travailA: 1, tag: TAG, json: JSON.stringify(base([])) });
+    i.lire = async () => { throw new Error('indexeddb-muet'); };
+    i.ecrire = async () => { throw new Error('indexeddb-muet'); };
+    return i;
+  };
   async function sessionProtegee(st, dbSession) {
-    const muetIdb = fauxIdb({ v: 2, ecritA: 1, travailA: 1, tag: TAG, json: JSON.stringify(base([])) });
-    muetIdb.lire = async () => { throw new Error('indexeddb-muet'); };
+    const muetIdb = m2Idb();
     const signaux = [];
     const m1 = creerMiroir({ idb: muetIdb, stockage: st, delaiMs: 20, signaler: s => signaux.push(s.type) });
     await m1.initialiser();
@@ -567,5 +624,33 @@ describe('Q3 — repli protégé : copie hors ligne complète si elle tient, mes
     expect(h.vu.formulaire).toBe(1);
     expect(h.vu.erreurs).toEqual(['Copie hors ligne incomplète sur cet appareil : se connecter au réseau pour continuer ; les états des lieux saisis sont conservés.']);
     expect(st.getItem(JOURNAL_EDL_KEY)).not.toBeNull();                     // rien n'est effacé
+  });
+
+  it('🟡 copie incomplète signalée, ANCIENNE base locale présente : le démarrage hors ligne ouvre l’app et le bandeau le dit ; une session hors ligne ne lève pas la marque, une copie complète venue du cloud oui', async () => {
+    const ancienne = JSON.stringify(Object.assign(base([]), { logements: [{ ref: 'ANCIEN' }] }));
+    const st = fauxStockageQuota({ quota: 50_000, initial: { immotrack_v4: ancienne, immotrack_v4_flush_at: '1000', immotrack_v4_tag: TAG, immotrack_v4_espaces: JSON.stringify(['e1']) } });
+    const { m2, signaux } = await sessionProtegee(st, { mouvements: 'x'.repeat(60_000) });
+    expect(signaux).toEqual(['copie-incomplete']);
+    expect(st.getItem('immotrack_v4')).toBe(ancienne);                      // l'ancienne copie n'est pas touchée
+    const MSG = 'Copie hors ligne ancienne sur cet appareil : se connecter au réseau pour la mettre à jour ; les états des lieux saisis sont conservés.';
+    const h = monterHorsLigne(st, m2);
+    await h.lancer();
+    expect(h.vu.injecte.logements.map(l => l.ref)).toEqual(['ANCIEN']);    // l'app reste utilisable…
+    expect(h.vu.injecte.edl.map(e => e.note)).toEqual(['visite']);         // …EDL de la session compris
+    expect(h.vu.bandeau.libelle).toBe(MSG);                                 // …et dit que la copie est ancienne
+    // Une saisie HORS LIGNE réécrit la copie ancienne : elle ne la rend pas récente.
+    m2.ecrire(Object.assign({}, h.vu.injecte, { edl: [...h.vu.injecte.edl, edl(10, Date.UTC(2026, 9, 1, 12))] }));
+    const h2 = monterHorsLigne(st, creerMiroir({ idb: m2Idb(), stockage: st, delaiMs: 20, signaler: () => {} }));
+    await h2.m.initialiser(); await h2.lancer();
+    expect(h2.vu.bandeau.libelle).toBe(MSG);
+    // Session EN LIGNE dont la base tient : copie complète venue du cloud → la marque tombe.
+    const m3 = creerMiroir({ idb: m2Idb(), stockage: st, delaiMs: 20, signaler: () => {} });
+    await m3.initialiser();
+    const r3 = await monterF1({ stockage: st, miroirLocal: moduleMiroir(m3), flushLeve: true }).lancer();
+    rebase(st, m3)(r3.db);
+    const h3 = monterHorsLigne(st, creerMiroir({ idb: m2Idb(), stockage: st, delaiMs: 20, signaler: () => {} }));
+    await h3.m.initialiser(); await h3.lancer();
+    expect(h3.vu.bandeau.libelle).toMatch(/^Hors ligne — /);
+    expect(h3.vu.injecte.edl.map(e => e.id).sort((a, b) => a - b)).toEqual([9, 10]);   // rien n'est perdu en route
   });
 });
