@@ -34,8 +34,13 @@ function split(html) {
   return { shell, parts, pdf }
 }
 
-// OURS = arbre courant : balises <script src="js/app/app-partN.js…" data-inline-part…> -> marqueurs.
-let ours = fs.readFileSync('index.html', 'latin1')
+// Les blobs git sont en LF, les copies de travail (index.html, app-part*.js : .gitattributes eol=crlf) en CRLF :
+// on aligne tout sur CRLF, sinon chaque ligne « diffère » et tout devient conflit.
+const crlf = t => t.replace(/\r?\n/g, '\r\n')
+
+// OURS = commit courant (HEAD), PAS la copie de travail : pendant une fusion en conflit, celle-ci contient déjà
+// les marqueurs de Git, qui se mélangeraient aux nôtres. Balises <script src="js/app/app-partN.js…"> -> marqueurs.
+let ours = crlf(git('show', 'HEAD:index.html'))
 const tags = {}
 ours = ours.replace(/<script src="js\/app\/(app-part(\d))\.js[^"]*" data-inline-part[^>]*><\/script>/g, (m, _n, k) => { tags[k] = m; return `<!--@@PART${k}@@-->` })
 if (Object.keys(tags).length !== 3) { console.error('index.html courant : les 3 balises app-part sont introuvables (arbre pas sur la nouvelle structure ?).'); process.exit(2) }
@@ -45,9 +50,6 @@ try { head = git('rev-parse', '-q', '--verify', 'MERGE_HEAD').trim() } catch { h
 if (!head) { console.error('Pas de fusion en cours (MERGE_HEAD absent). Lancer : git merge --no-commit --no-ff <branche>'); process.exit(2) }
 const baseRef = git('merge-base', 'HEAD', 'MERGE_HEAD').trim()
 
-// Les blobs git sont en LF, les copies de travail (index.html, app-part*.js : .gitattributes eol=crlf) en CRLF :
-// on aligne base/branche sur CRLF, sinon chaque ligne « diffère » et tout devient conflit.
-const crlf = t => t.replace(/\r?\n/g, '\r\n')
 const base = split(crlf(git('show', `${baseRef}:index.html`)))
 const theirs = split(crlf(git('show', `${head}:index.html`)))
 if (base.parts.length !== 3 || theirs.parts.length !== 3) {
@@ -62,7 +64,22 @@ function merge3(name, o, b, t) {
   const [fo, fb, ft] = ['ours', 'base', 'theirs'].map((k, i) => { const f = path.join(tmp, `${name}.${k}`); fs.writeFileSync(f, [o, b, t][i], 'latin1'); return f })
   const r = spawnSync('git', ['merge-file', '-p', '-L', 'perf/main', '-L', 'base', '-L', 'branche', fo, fb, ft], { maxBuffer: 1 << 30 })
   if (r.status < 0 || r.status === null) { console.error('git merge-file a échoué pour', name); process.exit(2) }
-  return { text: r.stdout.toString('latin1'), conflits: r.status }
+  return autoVersion({ text: r.stdout.toString('latin1'), conflits: r.status })
+}
+
+// Les conflits qui ne portent QUE sur un numéro de version (v15.709 / v15.710 : chaque branche « bumpe » la
+// version) se règlent seuls : on garde le plus récent.
+function autoVersion(r) {
+  if (!r.conflits) return r
+  const ver = s => (s.match(/15\.\d{3}/g) || []).map(v => +v.slice(3))
+  const re = /<<<<<<< perf\/main\r?\n([\s\S]*?)=======\r?\n([\s\S]*?)>>>>>>> branche\r?\n/g
+  let restants = 0
+  const text = r.text.replace(re, (m, a, b) => {
+    if (a.replace(/15\.\d{3}/g, 'X') === b.replace(/15\.\d{3}/g, 'X')) return Math.max(0, ...ver(a)) >= Math.max(0, ...ver(b)) ? a : b
+    restants++
+    return m
+  })
+  return { text, conflits: restants }
 }
 
 let total = 0
@@ -71,7 +88,7 @@ const rapport = []
 // 1. les 3 scripts applicatifs
 for (let i = 0; i < 3; i++) {
   const file = `js/app/app-part${i + 1}.js`
-  const cur = fs.readFileSync(file, 'latin1')
+  const cur = crlf(git('show', `HEAD:${file}`))
   const r = merge3(`part${i + 1}`, cur, base.parts[i], theirs.parts[i])
   fs.writeFileSync(file, r.text, 'latin1')
   total += r.conflits
