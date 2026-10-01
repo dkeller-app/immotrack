@@ -69,19 +69,45 @@ function merge3(name, o, b, t) {
 
 // Les conflits qui ne portent QUE sur un numéro de version (v15.709 / v15.710 : chaque branche « bumpe » la
 // version) se règlent seuls : on garde le plus récent.
-function autoVersion(r) {
+function autoVersion(r, labels = ['perf/main', 'branche']) {
   if (!r.conflits) return r
-  const ver = s => (s.match(/15\.\d{3}/g) || []).map(v => +v.slice(3))
-  const re = /<<<<<<< perf\/main\r?\n([\s\S]*?)=======\r?\n([\s\S]*?)>>>>>>> branche\r?\n/g
+  const V = /15\.\d{3}/g
+  const ver = s => (s.match(V) || []).map(v => +v.slice(3))
+  const norm = s => s.replace(V, 'X')
+  const esc = x => x.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&')
+  const re = new RegExp(String.raw`<<<<<<< ${esc(labels[0])}\r?\n([\s\S]*?)=======\r?\n([\s\S]*?)>>>>>>> ${esc(labels[1])}\r?\n`, 'g')
   let restants = 0
   const text = r.text.replace(re, (m, a, b) => {
-    if (a.replace(/15\.\d{3}/g, 'X') === b.replace(/15\.\d{3}/g, 'X')) return Math.max(0, ...ver(a)) >= Math.max(0, ...ver(b)) ? a : b
+    const max = Math.max(0, ...ver(a), ...ver(b))
+    const A = a.split(/\r?\n/).filter(Boolean).map(norm), B = b.split(/\r?\n/).filter(Boolean).map(norm)
+    // b ne contient que des lignes déjà présentes dans a (à la version près) : on garde a, version la plus récente
+    if (B.every(l => A.includes(l))) return a.replace(V, '15.' + String(max).padStart(3, '0'))
+    if (A.every(l => B.includes(l))) return b.replace(V, '15.' + String(max).padStart(3, '0'))
     restants++
     return m
   })
   return { text, conflits: restants }
 }
 
+
+// Autres fichiers que Git a laissés en conflit (ex. sw.js : CACHE_VER) : même résolution automatique des versions.
+function resoudreAutres() {
+  const restants = []
+  let n = 0
+  for (const f of git('diff', '--name-only', '--diff-filter=U').split(/\r?\n/).filter(Boolean)) {
+    if (f === 'index.html' || f.startsWith('js/app/app-part')) continue
+    const txt = fs.readFileSync(f, 'latin1')
+    const r = autoVersion({ text: txt, conflits: 1 }, ['HEAD', head7ou(f)])
+    fs.writeFileSync(f, r.text, 'latin1')
+    if (r.conflits) restants.push(`${f} (${r.conflits})`); else n++
+  }
+  return { n, restants }
+}
+function head7ou(f) {
+  // l'étiquette côté branche est le nom donné à `git merge` : on la lit dans le fichier
+  const m = /^>>>>>>> (.+)$/m.exec(fs.readFileSync(f, 'latin1'))
+  return m ? m[1].replace(/\r$/, '') : 'branche'
+}
 let total = 0
 const rapport = []
 
@@ -109,6 +135,10 @@ if (base.pdf !== theirs.pdf) {
   const f = path.join(tmp, 'pdf-libs.THEIRS.js'); fs.writeFileSync(f, theirs.pdf, 'latin1')
   rapport.push(`⚠ libs PDF modifiées par la branche : à reporter à la main dans js/vendor/pdf-libs.b64.js (version branche : ${f})`)
 }
+
+const autres = resoudreAutres()
+if (autres.n) rapport.push(`${autres.n} autre(s) fichier(s) en conflit de version résolu(s) automatiquement`)
+if (autres.restants.length) { rapport.push('⚠ conflits à résoudre à la main : ' + autres.restants.join(', ')); total += autres.restants.length }
 
 try { execFileSync('node', ['tools/stamp-app-parts.mjs'], { stdio: 'pipe' }) } catch (e) { rapport.push('⚠ tools/stamp-app-parts.mjs a échoué : à relancer à la main') }
 
