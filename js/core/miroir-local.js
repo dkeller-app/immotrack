@@ -58,6 +58,13 @@
  *     locale d'avant la session protégée), EDL du journal superposés ; le
  *     bandeau hors ligne le dit tant qu'une copie complète reçue du cloud n'a
  *     pas été réécrite.
+ *   - Espace RÉVOQUÉ pendant une session protégée : la fusion (clé locale comme
+ *     IndexedDB) garde sur l'appareil les EDL de cet espace qui y étaient déjà.
+ *     Le miroir ne connaît pas les espaces autorisés et ne filtre pas : ces EDL
+ *     ne sont ni affichés (démarrage hors ligne filtré) ni remontés (F1 filtré),
+ *     et disparaissent à la première écriture NON protégée (le rebase repart
+ *     alors de la vue autorisée, sans fusion), au changement d'utilisateur et à
+ *     la déconnexion. Filtrer ici dupliquerait la règle d'espaces d'offline-boot.
  */
 import { ecrireAvecLiberation, MIROIR_KEY, MIROIR_ECRIT_KEY, MIRROR_TAG_KEY } from './stockage-local.js';
 

@@ -443,3 +443,42 @@ describe('Contre-audit 40fabad0 — invariants du mode protégé', () => {
     expect(m2.copieIncomplete()).toBe(false);
   });
 });
+
+// ── Contre-audit de ed987c79 : invariants W4 à W6 ─────────────────────────────────────────────
+describe('Contre-audit ed987c79 — clé locale hors mode protégé, marque « copie incomplète » aux purges', () => {
+  const refuse = () => {
+    const i = fauxIdb({ enr: null }); i.existe = async () => null;
+    i.lire = async () => { const e = new Error('refus'); e.name = 'SecurityError'; throw e; };
+    return i;
+  };
+
+  it('W4 — hors mode protégé, le rebase REPART de la vue autorisée : un EDL de l’ancienne clé locale (espace révoqué) n’est pas fusionné', async () => {
+    const ancienne = JSON.stringify(base([edl(99, '2026-09-30T10:00:00Z', { _espaceId: 'revoque' })]));
+    const st = fauxStockageQuota({ initial: { immotrack_v4: ancienne, immotrack_v4_tag: TAG } });
+    const m = creerMiroir({ idb: refuse(), stockage: st, horloge, signaler: () => {} });
+    await m.initialiser();
+    expect(m.protege()).toBe(false);
+    m.ecrire(base([edl(1, '2026-09-30T11:00:00Z')]), { horodater: false });
+    expect(JSON.parse(st.getItem('immotrack_v4')).edl.map(e => e.id)).toEqual([1]);
+    m.ecrire(base([edl(1, '2026-09-30T12:00:00Z')]));                       // une saisie : idem
+    expect(JSON.parse(st.getItem('immotrack_v4')).edl.map(e => e.id)).toEqual([1]);
+  });
+
+  it('W5 — oublier() (changement d’utilisateur) retire la marque « copie incomplète »', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_tag: TAG, immotrack_v4_copie_incomplete: '123' } });
+    const m = creerMiroir({ idb: fauxIdb({ enr: null }), stockage: st, horloge });
+    await m.initialiser();
+    expect(m.copieIncomplete()).toBe(true);
+    await m.oublier();
+    expect(st.getItem('immotrack_v4_copie_incomplete')).toBeNull();
+    expect(m.copieIncomplete()).toBe(false);
+  });
+
+  it('W6 — vider() (déconnexion, RGPD) retire la marque « copie incomplète »', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_tag: TAG, immotrack_v4_copie_incomplete: '123' } });
+    const m = creerMiroir({ idb: fauxIdb({ enr: null }), stockage: st, horloge });
+    await m.initialiser();
+    await m.vider();
+    expect(st.getItem('immotrack_v4_copie_incomplete')).toBeNull();
+  });
+});
