@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { _computeDetteBail, _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
-import { duMois, duMoisSuivi, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi } from '../../js/core/loyer-du-mois.js';
+import { duMois, duMoisSuivi, _debutSuivi } from '../../js/core/loyer-du-mois.js';
 import { periodeInitialeBail, appliquerNouvellePeriode } from '../../js/core/loyer-bareme.js';
 
 /**
@@ -205,28 +205,5 @@ describe('maître — option `debutDu` : l\'ouverture N-1 couvre les mois dus AV
   it('l\'option ne touche pas la base fiscale de l\'exercice (loyers HC encaissés)', () => {
     expect(_computeFinancesMonthly({ ...base, debutDu: () => '2025-03' }).annual.loyersHC)
       .toBe(_computeFinancesMonthly(base).annual.loyersHC);
-  });
-});
-
-describe('duMoisSuiviFromRaw — ce que lit le maître de l\'app (bail courant + archivés + barème bruts)', () => {
-  // Forme exacte de `_finDuRaw` (index.html) : bail COURANT (fin contractuelle ignorée, tacite
-  // reconduction) + baux archivés du lot + barème. Le début du suivi se calcule sur les MÊMES baux.
-  const raw = {
-    currentBail: { ref: 'R', debut: '2025-01-01', fin: '2025-12-31', hc: 720, ch: 60 },
-    bauxHistorique: [{ ref: 'R', debut: '2023-01-01', fin: '2024-12-31', finEffective: '2024-12-31', hc: 700, ch: 60 }, { ref: 'AUTRE', debut: '2020-01-01', hc: 1, ch: 0 }],
-    bareme: []
-  };
-  const debut = _debutSuivi({ ref: 'R', bails: bailsFromRaw('R', raw), bareme: [] }, '2025-04');
-  it('rotation : le suivi démarre au 1ᵉʳ janvier de l\'année du 1ᵉʳ versement, le dû suit le bail de chaque mois', () => {
-    expect(debut).toBe('2025-01');
-    expect(duMoisSuiviFromRaw('R', '2024-12', raw, debut).total).toBe(0);
-    expect(duMoisSuiviFromRaw('R', '2025-02', raw, debut)).toMatchObject({ hc: 720, ch: 60 });
-    expect(duMoisSuiviFromRaw('R', '2026-09', raw, debut).hc).toBe(720);   // tacite reconduction : la fin papier ne coupe pas le dû
-  });
-  it('bail clos, aucun versement : rien à suivre, aucun dû (le lot sort de Finances)', () => {
-    const clos = { currentBail: null, bauxHistorique: [{ ref: 'D', debut: '2024-01-01', fin: '2024-12-31', finEffective: '2024-12-31', hc: 500, ch: 30 }], bareme: [] };
-    const d = _debutSuivi({ ref: 'D', bails: bailsFromRaw('D', clos), bareme: [] }, null);
-    expect(d).toBeNull();
-    expect(duMoisSuiviFromRaw('D', '2024-06', clos, d).total).toBe(0);
   });
 });
