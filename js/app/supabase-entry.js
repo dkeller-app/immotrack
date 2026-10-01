@@ -295,6 +295,7 @@ async function boot() {
     }
     window.__immoCrumb('entry-boot')
   } catch (_e) {}
+  try { sessionStorage.removeItem('imsb-part-reload') } catch (e) {}   // boot OK → réarme le reload auto de __immoPartFail
   injectStyles()
   const overlay = injectOverlay()
   _liftDriveGate()   // mode cloud : pas de gate Drive (sinon il masque l'overlay de login)
@@ -716,6 +717,7 @@ async function boot() {
   // déjà connecté (session persistée) → enchaîner direct. C'EST le chemin qui tue le double-login :
   // après un reload, la session persistée est retrouvée ici → Accueil sans re-saisir le mot de passe.
   const { user, error: _errAuth } = await api.currentUserOrError()
+  if (!user) { try { overlay.classList.remove('imsb-restoring') } catch (e) {} }   // pas de session valide → on montre le formulaire
   if (user) { try { window.__immoCrumb && window.__immoCrumb('already-connected') } catch (e) {} return onLoggedIn(api, overlay, user) }
 
   // ── EDL TERRAIN lot 4 — « on ne peut pas SE CONNECTER hors ligne, on peut
@@ -1629,6 +1631,7 @@ async function onLoggedIn(api, overlay, user) {
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
       try { window.__immoCrumb && window.__immoCrumb('accueil-revealed') } catch (e) {}   // login abouti : Accueil affiché
       overlay.remove()                            // dévoile l'app complète sur les données cloud
+      _prechargerLibsPdf()
       return
     }
     renderProof(overlay, api, user, esp, db)
@@ -1675,6 +1678,16 @@ function renderProof(overlay, api, user, esp, db, err) {
     }
     location.reload()
   }
+}
+
+// Perf — les libs PDF (~3,4 Mo, js/vendor/pdf-libs.b64.js) ne sont plus inlinées : on les charge en tâche de fond
+// dès que l'app est affichée, pour qu'elles soient prêtes (et en cache SW, donc dispo hors ligne) avant le premier
+// export PDF / aperçu de bail (qui ouvre une popup : il doit rester dans le geste de l'utilisateur).
+function _prechargerLibsPdf() {
+  try {
+    const go = () => { try { window.ensurePdfLibs && window.ensurePdfLibs().catch(() => {}) } catch (e) {} }
+    ;(window.requestIdleCallback || (f => setTimeout(f, 2500)))(go, { timeout: 8000 })
+  } catch (e) {}
 }
 
 function renderLoading(overlay, user) {
@@ -1756,6 +1769,7 @@ function setBusy(overlay, busy) {
 }
 function showError(overlay, msg) {
   const e = overlay.querySelector('#imsb-error'); if (!e) return
+  if (msg) overlay.classList.remove('imsb-restoring')
   if (msg) overlay.classList.add('imv-auth-open')  // rend l'erreur visible même si la modale était fermée
   e.textContent = msg; e.style.display = msg ? 'block' : 'none'
 }

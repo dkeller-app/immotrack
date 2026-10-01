@@ -1,16 +1,17 @@
 // Les ~3,8 Mo de code applicatif d'index.html vivent désormais dans js/app/app-part{1,2,3}.js (perf :
 // la page de connexion n'a plus à les télécharger). ~90 tests lisent encore « index.html » pour analyser
 // ce code : plutôt que de les réécrire un à un, on leur sert index.html ASSEMBLÉ — chaque balise
-// <script src="js/app/app-partN.js" data-inline-part> est remplacée par le contenu exact du fichier, en
+// <script src="js/app/app-partN.js" data-inline-part …> est remplacée par le contenu exact du fichier, en
 // <script> inline. Le texte rendu est identique, octet pour octet, à l'ancien index.html monolithique.
 import fs from 'node:fs'
 import path from 'node:path'
 import { syncBuiltinESMExports } from 'node:module'
+import { fileURLToPath } from 'node:url'
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', '..')
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')   // fileURLToPath : chemins avec espaces/accents
 const indexPath = path.join(root, 'index.html')
 const orig = fs.readFileSync.bind(fs)
-const re = /<script src="js\/app\/(app-part\d)\.js[^"]*" data-inline-part><\/script>/g
+const re = /<script src="js\/app\/(app-part\d)\.js[^"]*" data-inline-part[^>]*><\/script>/g
 
 function assembled(opts) {
   const enc = typeof opts === 'string' ? opts : (opts && opts.encoding)

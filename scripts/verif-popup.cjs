@@ -3,7 +3,9 @@
 // la popup window.open. Cet outil reconstruit la chaîne `scripts` et la new Function()-parse.
 const fs = require('fs');
 const path = process.argv[2] || 'index.html';
-const src = fs.readFileSync(path, 'utf8');
+// Perf étape 2 : le code applicatif vit dans js/app/app-part*.js -> on lit index.html « assemblé ».
+const src = fs.readFileSync(path, 'utf8').replace(/<script src="js\/app\/(app-part\d)\.js[^"]*" data-inline-part[^>]*><\/script>/g,
+  (_m, n) => '<script>' + fs.readFileSync(require('path').join(require('path').dirname(path), 'js', 'app', n + '.js'), 'utf8') + '</script>');
 const a = src.indexOf("var scripts = '<script>'");
 if (a < 0) { console.error('MARKER var scripts NOT FOUND'); process.exit(2); }
 const rhsStart = a + 'var scripts = '.length;

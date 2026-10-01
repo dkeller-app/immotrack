@@ -22188,7 +22188,7 @@ async function _annonceCopy() {
 function _annoncePDF() {
   if (typeof jspdf === 'undefined' && !(window.jspdf && window.jspdf.jsPDF)) {
     showToast('PDF : libs en chargement... réessayer dans 2 s', 'warn');
-    if (typeof _ensurePDFLibsLoaded === 'function') { _ensurePDFLibsLoaded().then(() => _annoncePDF()); }
+    if (typeof _ensurePDFLibsLoaded === 'function') { _ensurePDFLibsLoaded().then(() => _annoncePDF()).catch(e => { try { showToast('\u26a0 Libs PDF indisponibles (r\u00e9seau ?). R\u00e9essaie.', 'err', 5000) } catch (_) {} }); }
     return;
   }
   const AG = window.AnnonceGenerator; const r = _annonceCtx.result; const log = _annonceCtx.log;

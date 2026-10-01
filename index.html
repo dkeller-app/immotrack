@@ -39,21 +39,17 @@
 <script>
 /* Libs PDF (jsPDF, html2canvas, autotable, pdf.js, pdf-lib : ~3 Mo en base64) sorties d'index.html.
    Chargées A LA DEMANDE par window.ensurePdfLibs() (promesse unique), préchargées en tâche de fond
-   une fois l'app posée. Contrat inchangé : le fichier définit window._BAIL_PDF_LIBS = {jspdf, html2canvas,
+   dès la connexion réussie (supabase-entry : _prechargerLibsPdf). Contrat inchangé : le fichier définit window._BAIL_PDF_LIBS = {jspdf, html2canvas,
    autotable, pdfjs, pdfjsWorker, pdfLib} (base64), lu par les mêmes chargeurs qu'avant. */
 window.ensurePdfLibs=(function(){var p=null;return function(){
   if(window._BAIL_PDF_LIBS)return Promise.resolve(window._BAIL_PDF_LIBS);
   if(p)return p;
   p=new Promise(function(res,rej){var s=document.createElement('script');
-    s.src='js/vendor/pdf-libs.b64.js?v=c19eea9e';s.async=true;
+    s.src='js/vendor/pdf-libs.b64.js?v=20a9c05f';s.async=true;
     s.onload=function(){window._BAIL_PDF_LIBS?res(window._BAIL_PDF_LIBS):(p=null,rej(new Error('pdf-libs : fichier vide')))};
     s.onerror=function(){p=null;rej(new Error('pdf-libs : echec de chargement'))};
     document.head.appendChild(s)});
   return p}})();
-window.addEventListener('load',function(){setTimeout(function(){
-  var f=document.getElementById('imsb-form');
-  if(f&&f.offsetParent!==null)return; /* écran de connexion encore affiché : on ne charge rien */
-  window.ensurePdfLibs().catch(function(){})},12000)});
 </script>
 <!-- M5 — les 2 sous-ensembles LATIN sont préchargés : ils sont demandés par la toute
      première ligne de texte rendue, et sans ça le navigateur ne les découvre qu'après
@@ -63,7 +59,7 @@ window.addEventListener('load',function(){setTimeout(function(){
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
 <link rel="stylesheet" href="css/main.css?v=15.709">
-<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=a46c8f6c">
+<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=fe7e7e67">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -118,7 +114,7 @@ window.addEventListener('load',function(){setTimeout(function(){
     <img class="imsb-logo imsb-logo-l" src="brand-assets/propryo-logo-light.svg" alt="Propryo">
     <img class="imsb-logo imsb-logo-d" src="brand-assets/propryo-logo-dark.svg" alt="Propryo">
   </div>
-          <form id="imsb-form" class="imsb-mid" autocomplete="on">
+          <form id="imsb-form" class="imsb-mid" autocomplete="on" method="post" action="#" onsubmit="return false">
             <h2 class="imsb-h2">Connexion</h2>
             <p class="imsb-lead">Connecte-toi pour gérer tes locations.</p>
             <div class="imsb-err" id="imsb-error" style="display:none"></div>
@@ -156,7 +152,14 @@ window.addEventListener('load',function(){setTimeout(function(){
 try{if(localStorage.getItem('immo_theme')==='sombre')ov.classList.add('mode-sombre')}catch(e){}
 ov._pendingSubmit=false;
 var f=document.getElementById('imsb-form');
-if(f)f.onsubmit=function(e){e.preventDefault();ov._pendingSubmit=true;var b=document.getElementById('imsb-submit');if(b){b.disabled=true;b.innerHTML='<span class="imsb-spin imsb-spin-sm"></span> Chargement…'}};
+if(f)f.onsubmit=function(e){e.preventDefault();ov._pendingSubmit=true;var b=document.getElementById('imsb-submit');if(b){b.disabled=true;b.innerHTML='<span class="imsb-spin imsb-spin-sm"></span> Chargement\u2026'}};
+/* Session déjà stockée (PWA, rechargement d'onglet) : pas de flash du formulaire, on annonce le chargement.
+   supabase-entry retire la classe si la session est invalide ; filet de sécurité à 15 s. */
+try{if(localStorage.getItem('immo-supabase-auth')||sessionStorage.getItem('immo-supabase-auth')){ov.classList.add('imsb-restoring');setTimeout(function(){ov.classList.remove('imsb-restoring')},15000)}}catch(e){}
+/* Un script de l'app n'a pas pu se charger (réseau mobile…) : un seul rechargement automatique, puis message. */
+window.__immoPartFail=function(n){try{if(!sessionStorage.getItem('imsb-part-reload')){sessionStorage.setItem('imsb-part-reload','1');location.reload();return}}catch(e){}
+ov.classList.remove('imsb-restoring');var er=document.getElementById('imsb-error');if(er){er.style.display='block';er.textContent="Chargement incomplet de l'application ("+n+"). V\u00e9rifie ta connexion puis recharge la page."}
+var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textContent='Se connecter'}};
 })();
 </script>
 <div id="toast"></div>
@@ -4423,10 +4426,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js"></script>
-<script type="module" src="js/app/supabase-entry.js"></script>
-<script src="js/app/app-part1.js?v=09151615" data-inline-part></script>
-<script src="js/app/app-part2.js?v=ff741b6d" data-inline-part></script>
-<script src="js/app/app-part3.js?v=7d55738f" data-inline-part></script>
+<script type="module" src="js/app/supabase-entry.js" onerror="window.__immoPartFail&&window.__immoPartFail('supabase-entry')"></script>
+<script src="js/app/app-part1.js?v=842a9574" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=d7f8ceda" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=7d55738f" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">

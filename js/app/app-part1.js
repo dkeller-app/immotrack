@@ -3750,6 +3750,7 @@ function _loadPdfLib() {
       document.head.appendChild(s);
     } catch (e) { reject(e); }
   }));
+  _pdfLibPromise.catch(() => { _pdfLibPromise = null; });   // échec transitoire → réessayable sans recharger la page
   return _pdfLibPromise;
 }
 
