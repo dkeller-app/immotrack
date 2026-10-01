@@ -2,7 +2,7 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantEntrant, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, forfaitEtapes, avenantApplique, effetAvenant, regimeForfaitObjet } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantEntrant, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, forfaitEtapes, avenantApplique, effetAvenant, regimeForfaitObjet, forfaitChargesPrevu, avertissementForfaitCharges } from '../../js/core/avenant.js';
 import { listeAvenants } from '../../js/core/avenant-registre.js';
 
 describe('avenantMontant — lecture des montants saisis', () => {
@@ -227,6 +227,39 @@ describe('forfait daté × lot 3 — avant / après signature, date réellement 
     expect(regimeForfaitObjet({ k: 'charges', data: { mode: 'Révision du montant des provisions' } })).toBe(false);
     expect(regimeForfaitObjet({ k: 'charges', data: { montant: 90 } })).toBe(null);
     expect(regimeForfaitObjet({ k: 'loyer', data: { mode: 'forfait' } })).toBe(null);
+  });
+});
+
+describe('forfait de charges hors meublé / colocation — avertissement NON bloquant (décision 01/10)', () => {
+  const forfait = [{ k: 'charges', data: { mode: 'Passage au forfait de charges', montant: '80' } }];
+  const provisions = [{ k: 'charges', data: { mode: 'Révision du montant des provisions', montant: '80' } }];
+  it('bail nu à un seul locataire : avertit, avec le rappel légal (art. 25-10, art. 8-1 V, art. 23)', () => {
+    const m = avertissementForfaitCharges(forfait, { typeBail: 'nu', nbLocataires: 1 });
+    expect(m).toMatch(/bail nu à un seul locataire/);
+    expect(m).toMatch(/art. 25-10/);
+    expect(m).toMatch(/art. 8-1, V/);
+    expect(m).toMatch(/art. 23/);
+    expect(m).toMatch(/Vérifier/);   // ton neutre, à l'infinitif
+  });
+  it("meublé (et variantes) : n'avertit pas", () => {
+    for (const t of ['meuble', 'etudiant', 'mobilite']) expect(avertissementForfaitCharges(forfait, { typeBail: t, nbLocataires: 1 })).toBeNull();
+  });
+  it("colocation (bail nu, 2 locataires ou plus) : n'avertit pas", () => {
+    expect(avertissementForfaitCharges(forfait, { typeBail: 'nu', nbLocataires: 2 })).toBeNull();
+  });
+  it("pas de forfait (provisions, loyer seul, rien) : n'avertit pas", () => {
+    expect(avertissementForfaitCharges(provisions, { typeBail: 'nu', nbLocataires: 1 })).toBeNull();
+    expect(avertissementForfaitCharges([{ k: 'loyer', data: { nouveau: 700 } }], { typeBail: 'nu', nbLocataires: 1 })).toBeNull();
+    expect(avertissementForfaitCharges([], { typeBail: 'nu', nbLocataires: 1 })).toBeNull();
+  });
+  it('type de bail inconnu à un seul locataire : traité comme un bail nu (avertit)', () => {
+    expect(avertissementForfaitCharges(forfait, { nbLocataires: 1 })).not.toBeNull();
+  });
+  it('forfaitChargesPrevu', () => {
+    expect(forfaitChargesPrevu('meuble', 1)).toBe(true);
+    expect(forfaitChargesPrevu('nu', 3)).toBe(true);
+    expect(forfaitChargesPrevu('nu', 1)).toBe(false);
+    expect(forfaitChargesPrevu('', 0)).toBe(false);
   });
 });
 

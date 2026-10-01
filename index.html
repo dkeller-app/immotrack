@@ -26249,9 +26249,11 @@ var _AVENANT_OBJETS = [
    {id:'dpe',l:'Classe DPE du logement',t:'select',o:['A à E','F (passoire)','G (passoire)']},
    {id:'nouveau',l:'Nouveau loyer HC (€)',t:'num',v:''}]},
  {k:'charges', tt:'Charges', f:[
-   {id:'mode',l:'Nature',t:'select',o:function(){ return _avenantState.forfaitOk ? ['Révision du montant des provisions','Passage au forfait de charges','Passage aux provisions avec régularisation'] : ['Révision du montant des provisions','Passage aux provisions avec régularisation']; }},
+   // Décision Didier 01/10 : le forfait reste proposé partout ; sur un bail nu à un seul locataire, l'enregistrement
+   // AVERTIT (avertissementForfaitCharges, rappel légal) et l'utilisateur décide — jamais bloquer.
+   {id:'mode',l:'Nature',t:'select',o:['Révision du montant des provisions','Passage au forfait de charges','Passage aux provisions avec régularisation']},
    {id:'montant',l:'Nouveau montant mensuel (€)',t:'num',v:''}],
-   note:'Le forfait de charges n\'est proposé que pour un bail meublé ou une colocation (art. 8-1 / 25-9) ; sinon seules les provisions (régularisables) sont possibles.'},
+   note:'Le forfait de charges (non régularisable) est prévu par la loi pour une location meublée (art. 25-10) ou une colocation (art. 8-1, V) ; ailleurs, les charges se récupèrent par provisions régularisées (art. 23).'},
  {k:'annexe', tt:'Annexe / dépendance', f:[
    {id:'act',l:'Action',t:'select',o:['Adjonction','Retrait']},
    {id:'type',l:'Type',t:'select',o:['un garage','une cave','une place de stationnement','un jardin privatif']},
@@ -26391,11 +26393,10 @@ function _avenantOpen(ref, opts){
   if(opts&&opts.brouillonId&&(!_brouillon||_brouillon.statut!=='brouillon')){ showToast('Brouillon introuvable (supprimé ou déjà enregistré).','warn'); return; }
   // Numérotation : max des avenants connus DU BAIL COURANT (registre, brouillons compris, et avenants
   // anciens du bail / du journal) + 1 → plus de « n° 1 » répété (module pur, testé).
-  _avenantState={ ref:ref, no:_brouillon?_brouillon.no:window.AvenantRegistre.numeroSuivant(_avenantArgs(ref)), brouillonId:_brouillon?_brouillon.id:null, sel:{}, locNames:[], forfaitOk:false,
+  _avenantState={ ref:ref, no:_brouillon?_brouillon.no:window.AvenantRegistre.numeroSuivant(_avenantArgs(ref)), brouillonId:_brouillon?_brouillon.id:null, sel:{}, locNames:[],
     garants:(typeof _bailLegacyToGarants==='function'?_bailLegacyToGarants(bail):[]).map(function(g){ return g.nom||''; }).filter(Boolean) };
   _avenantState.locNames=(bail.locataires&&bail.locataires.length)?bail.locataires.map(function(l){return l.nom||'';}).filter(Boolean):(bail.nom?[bail.nom]:[]);
-  // Forfait de charges licite seulement en meublé (et variantes) ou en colocation (art. 8-1 / 25-9).
-  _avenantState.forfaitOk=(['meuble','etudiant','mobilite'].indexOf(bail.type)>=0)||_avenantState.locNames.length>1;
+  // (Forfait de charges : plus de filtre du choix ici — l'enregistrement avertit, cf. avertissementForfaitCharges.)
   var ov=_avenantOv();
   var who=escHtml((_avenantState.locNames.join(' & ')||'—')+' · '+(bail.adrBien||ref));
   ov.innerHTML=''+
@@ -26465,6 +26466,10 @@ function _avenantSave(ref, opts){
   // montants, date d'effet) sont passés à l'enregistrement définitif.
   if(opts&&opts.brouillon){ _avenantEcrireBrouillon(ref, bail, objets, effet); return; }
   if(!_avenantChampsOk(objets,'Enregistrer')) return;
+  // Forfait de charges sur un bail nu à un seul locataire : la loi ne le prévoit pas (art. 25-10 / 8-1, V).
+  // On AVERTIT avec le rappel légal, l'utilisateur décide (règle « jamais bloquer un enregistrement »).
+  var _avForf=(typeof window.avertissementForfaitCharges==='function')?window.avertissementForfaitCharges(objets, { typeBail:bail.type, nbLocataires:_avenantState.locNames.length }):null;
+  if(_avForf && !confirm2(_avForf+'\n\nEnregistrer quand même ?')) return;
   var loyerAny=objets.find(function(o){return o.k==='loyer';});
   var chargesAny=objets.find(function(o){return o.k==='charges';});
   // AUDIT AVENANT 27/09 — montants (module pur `avenantMontant`) : un champ VIDE garde le montant en

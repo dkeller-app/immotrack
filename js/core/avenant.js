@@ -647,3 +647,34 @@ export function regimeForfaitObjet(o) {
 
 /** Date d'effet réellement appliquée d'un avenant (`effetApplique`, sinon date d'effet écrite). */
 export function effetAvenant(a) { return _effetAvenant(a); }
+
+// ── Forfait de charges : où la loi le prévoit (décision Didier 01/10 : AVERTIR, jamais bloquer) ─────────
+// Loi n° 89-462 (Légifrance, relevé le 01/10/2026) :
+//  - art. 25-10 (location meublée, en vigueur depuis le 27/03/2014) : les charges « sont récupérées par le
+//    bailleur au choix des parties […] 2° Soit sous la forme d'un forfait versé simultanément au loyer » ;
+//  - art. 8-1, V (colocation, version en vigueur depuis le 01/07/2021) : « Les charges locatives accessoires
+//    au loyer principal d'un contrat de bail d'une colocation sont récupérées par le bailleur au choix des
+//    parties […] 2° Soit sous la forme d'un forfait versé simultanément au loyer ».
+// Hors de ces deux cas (bail nu à un seul locataire), seules les provisions avec régularisation (art. 23).
+// NB : « colocation » = 2 locataires ou plus, comme le reste de l'app ; la situation époux / PACS
+// (art. 8-1, I, qui l'exclut de la colocation) sera demandée au lot 4 de l'avenant.
+const TYPES_MEUBLES = ['meuble', 'etudiant', 'mobilite'];
+
+/** Le forfait de charges est-il prévu par la loi pour ce bail (meublé ou colocation) ? */
+export function forfaitChargesPrevu(typeBail, nbLocataires) {
+  return TYPES_MEUBLES.indexOf(String(typeBail || '')) >= 0 || (Number(nbLocataires) || 0) > 1;
+}
+
+/**
+ * Avertissement (NON bloquant) à l'enregistrement d'un avenant qui pose un forfait de charges sur un bail
+ * où la loi ne le prévoit pas (bail nu à un seul locataire). null si sans objet.
+ * @param {Array<{k,data}>} objets  objets de l'avenant
+ * @param {{typeBail:string, nbLocataires:number}} ctx
+ */
+export function avertissementForfaitCharges(objets, { typeBail, nbLocataires } = {}) {
+  const forfait = (Array.isArray(objets) ? objets : []).some((o) => regimeForfaitObjet(o) === true);
+  if (!forfait || forfaitChargesPrevu(typeBail, nbLocataires)) return null;
+  return 'Forfait de charges sur un bail nu à un seul locataire : la loi du 6 juillet 1989 ne prévoit le forfait '
+    + "qu'en location meublée (art. 25-10) ou en colocation (art. 8-1, V). Hors de ces cas, les charges se "
+    + "récupèrent par provisions avec régularisation annuelle (art. 23). Vérifier la nature du bail avant d'enregistrer.";
+}
