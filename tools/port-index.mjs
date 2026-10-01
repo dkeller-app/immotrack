@@ -45,8 +45,11 @@ try { head = git('rev-parse', '-q', '--verify', 'MERGE_HEAD').trim() } catch { h
 if (!head) { console.error('Pas de fusion en cours (MERGE_HEAD absent). Lancer : git merge --no-commit --no-ff <branche>'); process.exit(2) }
 const baseRef = git('merge-base', 'HEAD', 'MERGE_HEAD').trim()
 
-const base = split(git('show', `${baseRef}:index.html`))
-const theirs = split(git('show', `${head}:index.html`))
+// Les blobs git sont en LF, les copies de travail (index.html, app-part*.js : .gitattributes eol=crlf) en CRLF :
+// on aligne base/branche sur CRLF, sinon chaque ligne « diffère » et tout devient conflit.
+const crlf = t => t.replace(/\r?\n/g, '\r\n')
+const base = split(crlf(git('show', `${baseRef}:index.html`)))
+const theirs = split(crlf(git('show', `${head}:index.html`)))
 if (base.parts.length !== 3 || theirs.parts.length !== 3) {
   console.error(`Découpage inattendu (base : ${base.parts.length} parts, branche : ${theirs.parts.length}). Attendu : 3 gros scripts inline dans l'ancien index.html.`)
   process.exit(2)
