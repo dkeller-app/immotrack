@@ -166,7 +166,15 @@ export function jeuUnBail(seed) {
   mouvements.push({ date: debut.slice(0, 7) + '-11', cat: 'Loyers encaissés', qui: 'AUTRE-LOT', cr: 999, db: 0 });
   // Un encaissement daté dans le futur (post-daté) ne doit pas entrer dans la dette exigible.
   if (R() < 0.2) mouvements.push({ date: ymAdd(today.slice(0, 7), 1) + '-02', cat: 'Loyers encaissés', qui: ref, cr: 500, db: 0 });
-  return { ref, ctx, bailDebut: debut, fin, mouvements: mouvements.filter((m) => m.date <= '2027-12-31'), today };
+  // Q1 RÉVISÉ (Didier 01/10) : bien ACHETÉ LOUÉ — le bail a commencé chez le vendeur, 1 à 5 ans avant
+  // l'entrée en jouissance du bailleur actuel (date de l'acte, n'importe quel jour). Les relevés ne
+  // commencent qu'à cette date ; le dû ne doit jamais remonter avant elle.
+  let jouissance = null;
+  if (R() < 0.3) {
+    jouissance = debut;
+    bail.debut = ymAdd(debut.slice(0, 7), -(12 + Math.floor(R() * 49))) + '-' + pad(1 + Math.floor(R() * 27));
+  }
+  return { ref, ctx, bailDebut: bail.debut, fin, jouissance, mouvements: mouvements.filter((m) => m.date <= '2027-12-31'), today };
 }
 
 /**

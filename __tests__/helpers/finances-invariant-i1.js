@@ -140,10 +140,8 @@ export function surfacesSocle(opts) {
       if (!b) return null;
       const jours = new Date(Number(String(ym).slice(0, 4)), Number(String(ym).slice(5, 7)), 0).getDate();
       const fin = ym + '-' + String(jours).padStart(2, '0');
-      const fp = mouvements.filter((m) => m.qui === ctx.ref && (m.cr || 0) > 0 && catLigne(m.cat))
-        .map((m) => String(m.date).slice(0, 7)).sort()[0] || null;
       const d = _computeDetteBail({ ref: ctx.ref, ctx, bailDebut: b.debut, fin, mouvements, catLigne,
-        today: todayFor(ym), premierVersementYm: fp });
+        today: todayFor(ym) });
       return d ? { loyer: d.loyer, charge: d.charge, avance: d.avance } : null;
     }
   };

@@ -11,28 +11,30 @@ import { jeuUnBail, catLigne, premierVersementYm, estLoyer, ymRange } from './r0
  * CDC-FINANCES §0bis : un chiffre d'argent qui apparaît sur deux écrans est LE MÊME OCTET.
  * Sur 240 jeux générés (graine fixe) — entrée n'importe quel jour de 2021 à 2026, 0 à 3 IRL
  * réelles, bail ouvert ou clos, paiements exacts/partiels/absents/doublés/rattrapés sur
- * plusieurs exercices/payés le 28 du mois d'avant/contre-passés, 1ᵉʳ versement tardif (Q1),
- * dépôt de garantie et autre lot en bruit, encaissement post-daté — la dette du bail vaut, AU
+ * plusieurs exercices/payés le 28 du mois d'avant/contre-passés, 1ᵉʳ versement tardif, bien
+ * ACHETÉ LOUÉ (bail commencé chez le vendeur, entrée en jouissance n'importe quel jour — Q1
+ * révisé), dépôt de garantie et autre lot en bruit, encaissement post-daté — la dette du bail vaut, AU
  * CENTIME, le retard que Finances affiche pour ce lot sur l'exercice où le bail se termine
  * (Σ byLot[ref].months.loyerRetard, ouverture N-1 comprise UNE fois).
  *
- * Le maître reçoit ici exactement ce que l'app lui passe après Q1 : dû = duMoisSuivi (début du
- * suivi), pré-passe d'ouverture démarrée au début du suivi (`debutDu`).
+ * Le maître reçoit ici la règle Q1 RÉVISÉE (Didier 01/10) : dû = duMoisSuivi borné par l'entrée en
+ * jouissance du bailleur actuel (sinon depuis l'entrée du bail, jamais depuis le 1ᵉʳ relevé),
+ * pré-passe d'ouverture démarrée au début du dû (`debutDu`).
  */
 const SEEDS = Array.from({ length: 240 }, (_, i) => 7000 + i);
 
 function mesurer(seed) {
   const j = jeuUnBail(seed);
-  const fp = premierVersementYm(j.mouvements, j.ref);
-  const debutDu = _debutSuivi(j.ctx, fp);
+  const borne = j.jouissance || null;
+  const debutDu = (borne || j.bailDebut).slice(0, 7);
   const d = _computeDetteBail({ ref: j.ref, ctx: j.ctx, bailDebut: j.bailDebut, fin: j.fin, mouvements: j.mouvements,
-    catLigne, today: j.today, premierVersementYm: fp });
+    catLigne, today: j.today, debutSuivi: borne });
   if (!d || !d.to) return { j, d, maitre: { loyer: 0, charge: 0 }, annee: null };
   const annee = Number(d.to.slice(0, 4));
   const r = _computeFinancesMonthly({
     mouvements: j.mouvements, year: annee, window: computeConstatWindow({ year: annee, today: j.today, mouvements: j.mouvements }),
     today: j.today, catLigne, activeLots: [j.ref], debutDu: () => debutDu,
-    loyerDue: (q, ym) => (q === j.ref ? duMoisSuivi(j.ctx, ym, debutDu) : { hc: 0, ch: 0 })
+    loyerDue: (q, ym) => (q === j.ref ? duMoisSuivi(j.ctx, ym, borne) : { hc: 0, ch: 0 })
   });
   const b = r.byLot[j.ref];
   const s = (k) => (b ? Math.round(b.months.reduce((t, m) => t + m[k], 0) * 100) / 100 : 0);
@@ -48,7 +50,8 @@ describe('R0-C — dette de restitution == retard Finances du lot, au centime (2
     expect(RES.filter((x) => x.j.fin).length).toBeGreaterThan(40);
     expect(RES.filter((x) => !x.j.fin).length).toBeGreaterThan(40);
     expect(RES.filter((x) => x.j.ctx.bareme.length > 1).length).toBeGreaterThan(60);
-    // Q1 : le 1ᵉʳ versement arrive après le mois d'entrée (premiers mois dus avant tout paiement)
+    // Q1 révisé : biens achetés loués (borne de jouissance) ET premiers mois dus avant tout paiement
+    expect(RES.filter((x) => x.j.jouissance && x.d.suiviPartiel).length).toBeGreaterThan(40);
     expect(RES.filter((x) => { const fp = premierVersementYm(x.j.mouvements, x.j.ref); return fp && fp > x.j.bailDebut.slice(0, 7); }).length).toBeGreaterThan(30);
     // et l'ouverture N-1 est réellement exercée (dette reportée d'un exercice antérieur)
     expect(RES.filter((x) => x.d && x.d.from && x.annee && Number(x.d.from.slice(0, 4)) < x.annee && x.d.loyer > 0).length).toBeGreaterThan(40);
@@ -74,10 +77,9 @@ describe('R0-C — plusieurs baux sur un lot : écart ÉPINGLÉ jusqu\'au lot 4 
     { debut: '2025-01-01', finEffective: '2026-06-30', archive: true, hc: 700, ch: 50 }] };
   const mouvements = ymRange('2024-01', '2026-06').filter((ym) => ym !== '2024-11' && ym !== '2024-12')
     .map((ym) => ({ qui: ref, date: ym + '-05', cat: 'Loyers encaissés', cr: ym === '2025-03' ? 1500 : 750, db: 0 }));
-  const fp = premierVersementYm(mouvements, ref);
-  const debutDu = _debutSuivi(ctx, fp);
+  const debutDu = '2024-01';
   const today = '2026-09-30';
-  const bail = (debut, fin) => _computeDetteBail({ ref, ctx, bailDebut: debut, fin, mouvements, catLigne, today, premierVersementYm: fp });
+  const bail = (debut, fin) => _computeDetteBail({ ref, ctx, bailDebut: debut, fin, mouvements, catLigne, today });
 
   it('par bail : locataire 1 doit 1 400 € de loyer, locataire 2 ne doit rien et a 750 € de trop-perçu', () => {
     expect(bail('2024-01-01', '2024-12-31').loyer).toBe(1400);
@@ -85,7 +87,7 @@ describe('R0-C — plusieurs baux sur un lot : écart ÉPINGLÉ jusqu\'au lot 4 
   });
   it('Finances (par lot, avant le lot 4) : 650 € de loyer en retard — le net des deux locataires', () => {
     const r = _computeFinancesMonthly({ mouvements, year: 2026, window: computeConstatWindow({ year: 2026, today, mouvements }), today,
-      catLigne, activeLots: [ref], debutDu: () => debutDu, loyerDue: (q, ym) => duMoisSuivi(ctx, ym, debutDu) });
+      catLigne, activeLots: [ref], debutDu: () => debutDu, loyerDue: (q, ym) => duMoisSuivi(ctx, ym, null) });
     expect(r.byLot[ref].months.reduce((s, m) => s + m.loyerRetard, 0)).toBe(650);
   });
 });
@@ -103,33 +105,52 @@ describe('R0-C · Q8 — écart mesuré avec le moteur des relances (`_loyerEtat
     const months = ymRange(start, j.today.slice(0, 7)).map((ym) => { const d = duMois(j.ctx, ym); return { ym, hcDue: d.hc, chDue: d.ch, received: recu[ym] || 0 }; });
     return retardLot(etatMoisLot(months, {}), {}).resteLoyer;
   };
-  const OUVERTS = SEEDS.map(jeuUnBail).filter((j) => !j.fin && j.today === '2026-09-30');
+  // Lots suivis depuis l'entrée (pas d'achat loué) : la fenêtre des relances (_debutSuivi) et la règle
+  // Q1 révisée ne divergent alors que sur les écarts nommés ci-dessous.
+  const OUVERTS = Array.from({ length: 1000 }, (_, i) => 7000 + i).map(jeuUnBail).filter((j) => !j.fin && !j.jouissance && j.today === '2026-09-30');
   const res = OUVERTS.map((j) => {
     const fp = premierVersementYm(j.mouvements, j.ref);
-    const d = _computeDetteBail({ ref: j.ref, ctx: j.ctx, bailDebut: j.bailDebut, fin: null, mouvements: j.mouvements, catLigne, today: j.today, premierVersementYm: fp });
+    const d = _computeDetteBail({ ref: j.ref, ctx: j.ctx, bailDebut: j.bailDebut, fin: null, mouvements: j.mouvements, catLigne, today: j.today });
+    // Premiers mois impayés d'une année ANTÉRIEURE à celle du 1ᵉʳ versement : dus (Q1 révisé), hors
+    // de la fenêtre des relances (bornée au 1ᵉʳ janvier de l'année du 1ᵉʳ versement).
+    const anterieur = !!(fp && fp.slice(0, 4) > j.bailDebut.slice(0, 4));
     const contrePasse = j.mouvements.some((m) => m.qui === j.ref && estLoyer(m.cat) && (m.db || 0) > 0);
     // Loyer payé AVANT l'entrée (le 28 du mois d'avant) : le maître le rattache au bail (Q4),
     // la fenêtre des relances démarre au mois d'entrée et ne le voit pas.
     const avantEntree = j.mouvements.some((m) => m.qui === j.ref && estLoyer(m.cat) && (m.cr || 0) > 0 && m.date < j.bailDebut);
-    return { j, dette: d.loyer, relance: relance(j), contrePasse, avantEntree };
+    return { j, dette: d.loyer, relance: relance(j), contrePasse, avantEntree, anterieur };
   });
 
   it('sans contre-passation ni loyer payé avant l\'entrée : les deux moteurs réclament le même loyer', () => {
-    const simples = res.filter((x) => !x.contrePasse && !x.avantEntree);
+    const simples = res.filter((x) => !x.contrePasse && !x.avantEntree && !x.anterieur);
     expect(simples.length).toBeGreaterThan(10);
     simples.forEach((x) => expect(x.relance).toBe(x.dette));
   });
   it('ÉCART CONNU 1 : une contre-passation (rejet de prélèvement) est ignorée par les relances → elles réclament MOINS', () => {
-    const avec = res.filter((x) => x.contrePasse && !x.avantEntree);
+    const avec = res.filter((x) => x.contrePasse && !x.avantEntree && !x.anterieur);
     expect(avec.length).toBeGreaterThan(0);
     avec.forEach((x) => expect(x.relance).toBeLessThanOrEqual(x.dette));
     expect(avec.some((x) => x.relance < x.dette)).toBe(true);
   });
   it('ÉCART CONNU 2 : un loyer payé avant l\'entrée est ignoré par les relances → elles réclament PLUS', () => {
-    const avec = res.filter((x) => x.avantEntree && !x.contrePasse);
+    const avec = res.filter((x) => x.avantEntree && !x.contrePasse && !x.anterieur);
     expect(avec.length).toBeGreaterThan(0);
     avec.forEach((x) => expect(x.relance).toBeGreaterThanOrEqual(x.dette));
     expect(avec.some((x) => x.relance > x.dette)).toBe(true);
+  });
+});
+
+describe('R0-C · Q8 — ÉCART CONNU 3 : premiers mois impayés d\'une année antérieure au 1ᵉʳ versement', () => {
+  // Q1 révisé : le dû part de l'entrée du bail. La fenêtre des relances (_debutSuivi) commence au
+  // 1ᵉʳ janvier de l'année du 1ᵉʳ versement : elle ne réclame pas ces mois-là (elle réclame MOINS).
+  it('la relance ignore les premiers mois dus d\'une année sans versement', () => {
+    const ref = 'Q8', ctx = { ref, bareme: [], bails: [{ debut: '2025-11-01', archive: false, hc: 700, ch: 0 }] };
+    const mouvements = ymRange('2026-01', '2026-09').map((ym) => ({ qui: ref, date: ym + '-05', cat: 'Loyers encaissés', cr: 700, db: 0 }));
+    const d = _computeDetteBail({ ref, ctx, bailDebut: '2025-11-01', fin: null, mouvements, catLigne, today: '2026-09-30' });
+    const start = _debutSuivi(ctx, '2026-01');
+    const months = ymRange(start, '2026-09').map((ym) => ({ ym, hcDue: duMois(ctx, ym).hc, chDue: 0, received: 700 }));
+    expect(d.loyer).toBe(1400);
+    expect(retardLot(etatMoisLot(months, {}), {}).resteLoyer).toBe(0);
   });
 });
 
@@ -140,14 +161,14 @@ describe('R0-C — le harnais MORD : il aurait refusé la branche rejetée (feat
   // distinguerait pas de la bonne réponse ne prouverait rien.
   const rejetee = (x) => {
     const { j, d } = x;
-    const fp = premierVersementYm(j.mouvements, j.ref);
-    const debutDu = _debutSuivi(j.ctx, fp);
+    const borne = j.jouissance || null;
+    const debutDu = (borne || j.bailDebut).slice(0, 7);
     const f7 = j.bailDebut.slice(0, 7), t7 = d.to;
     let tot = 0;
     for (let y = Number(f7.slice(0, 4)); y <= Number(t7.slice(0, 4)); y++) {
       const r = _computeFinancesMonthly({ mouvements: j.mouvements, year: y, window: computeConstatWindow({ year: y, today: j.today, mouvements: j.mouvements }),
         today: j.today, catLigne, activeLots: [j.ref], debutDu: () => debutDu,
-        loyerDue: (q, ym) => (q === j.ref ? duMoisSuivi(j.ctx, ym, debutDu) : { hc: 0, ch: 0 }) });
+        loyerDue: (q, ym) => (q === j.ref ? duMoisSuivi(j.ctx, ym, borne) : { hc: 0, ch: 0 }) });
       const b = r.byLot[j.ref];
       if (b) b.months.forEach((m) => { if (m.ym >= f7 && m.ym <= t7 && m.loyerRetard > 0) tot += m.loyerRetard; });
     }

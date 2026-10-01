@@ -302,27 +302,43 @@ export function _debutSuivi(ctx, firstPaymentYm) {
 }
 
 /**
- * R0-C · Q1 (décision Didier 30/09, docs/CDC-R0C.md) — LE dû d'un mois DANS LE SUIVI du lot.
- * Le maître Finances ne comptait rien avant le 1ᵉʳ versement du lot : le 1ᵉʳ locataire qui ne
- * payait pas ses premiers mois avait une dette INVISIBLE. Désormais le dû part du début du suivi
- * `_debutSuivi` (entrée du bail, bornée au 1ᵉʳ janvier de l'année du 1ᵉʳ versement — un bail
- * repris à l'achat ne fabrique pas de dette sur les années sans données). Une seule règle, lue
- * par le maître (`_finBailHcChAt`) ET par la dette de restitution (`_computeDetteBail`).
+ * R0-C · Q1 RÉVISÉ (décision Didier 01/10, docs/CDC-R0C.md) — LE dû d'un mois, BORNÉ au début du
+ * suivi par le bailleur actuel. « Le dû part du début du bail, borné par la date d'entrée en
+ * jouissance du bailleur actuel (et par la date de début de suivi si une antériorité est saisie).
+ * Il ne part jamais d'une simple absence de relevés. » La règle « 1ᵉʳ janvier de l'année du 1ᵉʳ
+ * versement » (`_debutSuivi`) est ABANDONNÉE pour le dû : elle fabriquait des dettes sans donnée.
+ *
+ * La borne est fournie par l'appelant (où la date est saisie = décision de modèle, cf.
+ * mockups/R0C/DECISIONS-Q1.md) : ce résolveur ne la devine jamais.
  * @param {Object} ctx même contexte que duMois
  * @param {string} ym 'YYYY-MM'
- * @param {string|null} debutDu 'YYYY-MM' (sortie de `_debutSuivi`) ; null = rien à suivre
- * @param {Object} [opts] transmis à duMois (segmentDebut)
+ * @param {string|null} debutSuivi 'YYYY-MM-DD' (au jour : le mois de la borne est PRORATISÉ à partir
+ *        de ce jour) ou 'YYYY-MM' (1ᵉʳ du mois). null/absent = AUCUNE borne : dû depuis l'entrée du bail.
+ * @param {{segmentDebut?:string}} [opts] transmis à duMois ; `segmentDebut` désigne le bail par
+ *        son entrée RÉELLE (le recadrage à la borne est fait ici).
  */
-export function duMoisSuivi(ctx, ym, debutDu, opts) {
-  if (!debutDu || !/^\d{4}-\d{2}$/.test(String(ym || '')) || String(ym) < String(debutDu)) {
-    return { hc: 0, ch: 0, total: 0, source: 'vacance' };
-  }
-  return duMois(ctx, ym, opts);
+export function duMoisSuivi(ctx, ym, debutSuivi, opts) {
+  const vide = { hc: 0, ch: 0, total: 0, source: 'vacance' };
+  if (!/^\d{4}-\d{2}$/.test(String(ym || ''))) return vide;
+  if (!debutSuivi) return duMois(ctx, ym, opts);
+  const borne = String(debutSuivi).length === 7 ? String(debutSuivi) + '-01' : String(debutSuivi).slice(0, 10);
+  if (String(ym) < borne.slice(0, 7)) return vide;
+  if (String(ym) > borne.slice(0, 7) || borne.slice(8, 10) === '01') return duMois(ctx, ym, opts);
+  // Mois de la borne, entamé : chaque bail démarre au plus tôt à la borne (prorata au jour par duMois),
+  // un bail terminé avant elle n'a rien à devoir au bailleur actuel.
+  const seul = (opts && opts.segmentDebut) ? String(opts.segmentDebut).slice(0, 10) : null;
+  const bails = (ctx && ctx.bails || []).filter((b) => _isAlive(b) && b.debut).map((b) => {
+    const d = String(b.debut).slice(0, 10);
+    return d < borne ? Object.assign({}, b, { debut: borne, _debutReel: d }) : Object.assign({}, b, { _debutReel: d });
+  }).filter((b) => { const e = b.finEffective || (b.archive ? b.fin : null); return !e || String(e).slice(0, 10) >= borne; });
+  const cible = seul ? bails.find((b) => b._debutReel === seul) : null;
+  if (seul && !cible) return vide;
+  return duMois(Object.assign({}, ctx, { bails }), ym, seul ? { segmentDebut: String(cible.debut).slice(0, 10) } : opts);
 }
 
 /** Adaptateur collections brutes → duMoisSuivi (même forme que duMoisFromRaw). */
-export function duMoisSuiviFromRaw(ref, ym, raw, debutDu) {
-  return duMoisSuivi({ ref, bails: bailsFromRaw(ref, raw), bareme: (raw && raw.bareme) || [] }, ym, debutDu);
+export function duMoisSuiviFromRaw(ref, ym, raw, debutSuivi) {
+  return duMoisSuivi({ ref, bails: bailsFromRaw(ref, raw), bareme: (raw && raw.bareme) || [] }, ym, debutSuivi);
 }
 
 /**

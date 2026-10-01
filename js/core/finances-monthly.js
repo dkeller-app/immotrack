@@ -2,7 +2,7 @@ import { _computeLoyerChargeAlloc, _LOYER_TOLERANCE_JOUR, _loyerTodayLocal } fro
 // AUDIT-SUIVI-LOYERS étape 4 — le RETARD affiché passe au netting avance↔retard (une avance
 // couvre les mois suivants avant de laisser naître un retard) : fin des « retard ET avance
 // simultanés » (C2, scénario user « 2 loyers payés en janvier, rien en février »).
-import { _computeLoyerNetting, _debutSuivi, duMoisSuivi, segmentsOccupation } from './loyer-du-mois.js';
+import { _computeLoyerNetting, duMoisSuivi, segmentsOccupation } from './loyer-du-mois.js';
 // R0-C : la dette de restitution suit la MÊME fenêtre d'exigibilité que Finances (tolérance < 10).
 import { computeExigibiliteWindow } from './finances-window.js';
 
@@ -38,6 +38,14 @@ function _collecterLoyers211(mvts, catLigne, poids, garder) {
   });
   return { parLot, premierYm, lignes };
 }
+
+/** Même jour, un mois plus tôt (fin de mois recadrée : 31/03 → 28/02 ou 29/02). */
+const _isoMoinsUnMois = (iso) => {
+  const y = parseInt(iso.slice(0, 4), 10), m = parseInt(iso.slice(5, 7), 10), d = parseInt(iso.slice(8, 10), 10);
+  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+  const dd = Math.min(d, new Date(py, pm, 0).getDate());
+  return py + '-' + String(pm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+};
 
 const _ymPlus = (ym, k) => {
   let y = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(5, 7), 10) + k;
@@ -251,9 +259,10 @@ export function _computeFinancesMonthly(input) {
     return out;
   };
   const _preYms = _preYmsDepuis(_suiviStartYm);
-  // R0-C · Q1 — `debutDu(q)` (injecté, optionnel) : début du SUIVI du lot ('YYYY-MM', règle
-  // `_debutSuivi`). Le dû peut désormais précéder le 1ᵉʳ versement (premiers mois impayés d'un
-  // bail) : la pré-passe doit alors démarrer à ce début, sinon ces mois dus tombent hors de
+  // R0-C · Q1 — `debutDu(q)` (injecté, optionnel) : mois où le dû du lot commence ('YYYY-MM' :
+  // entrée du bail, bornée par l'entrée en jouissance / l'antériorité — Q1 révisé 01/10). Le dû
+  // peut précéder le 1ᵉʳ versement (premiers mois impayés d'un bail) : la pré-passe doit alors
+  // démarrer à ce début, sinon ces mois dus tombent hors de
   // l'ouverture et la dette reste invisible. Absent → comportement historique à l'identique.
   const debutDu = (typeof i.debutDu === 'function') ? i.debutDu : null;
   const _preYmsLot = (q) => {
@@ -382,15 +391,19 @@ export function _computeFinancesMonthly(input) {
  * __tests__/helpers/r0c-egalite-maitre.test.js (lots à un bail).
  *
  * Décisions Didier 30/09 intégrées :
- *   Q1 — le dû part du début du suivi (`_debutSuivi`) ; aucun suivi possible (aucun versement,
- *        aucun bail ouvert) → `suiviAbsent: true`, jamais un zéro muet.
+ *   Q1 RÉVISÉ (01/10) — le dû part de l'entrée du bail, borné par `debutSuivi` (jouissance du bailleur
+ *        actuel ou début de suivi d'une antériorité), jamais par une absence de relevés. Une part du
+ *        bail antérieure à la borne → `suiviPartiel: true` ; un bail achevé avant la borne →
+ *        `suiviAbsent: true` et montants `null` (dette inconnue, jamais un zéro muet).
  *   Q3 — `fin` = date de fin effective, sinon date de sortie (l'appelant choisit et avertit) ;
  *        elle borne le dû au jour près, même si le bail est encore ouvert.
  *   Q4 — un encaissement appartient au bail en vigueur à sa DATE ; la vacance qui suit un bail
  *        lui revient (arriéré réglé après la sortie), celle qui précède le 1ᵉʳ bail du lot aussi
  *        (loyer payé le 28 du mois d'avant). Date de bascule = entrée du bail suivant. Tout
  *        encaissement pris hors des dates d'occupation est listé dans `horsPeriode`.
- *   Q5 — le trop-perçu restant est rendu dans `avance`.
+ *        Un encaissement daté dans le mois qui précède l'entrée d'un bail voisin est listé dans
+ *        `aRattacher` : il peut solder une dette, jamais devenir un trop-perçu versé (🟠6).
+ *   Q5 — le trop-perçu restant est rendu dans `avance` (hors encaissements « à rattacher »).
  * Charges : `charge` est exposée, JAMAIS à retenir sur le dépôt (elles relèvent de la
  * régularisation — anti-double-compte).
  *
@@ -401,12 +414,16 @@ export function _computeFinancesMonthly(input) {
  * @param {string|null} [input.fin] fin du dû 'YYYY-MM-DD' (Q3) ; absente = fin du segment
  * @param {Array} input.mouvements
  * @param {function} input.catLigne cat → {ligne2044} | null (en prod `_finCatLigne`)
- * @param {string|null} input.premierVersementYm 1ᵉʳ versement de loyer du lot (règle `_debutSuivi`)
+ * @param {string|null} [input.debutSuivi] borne du suivi 'YYYY-MM-DD' : entrée en jouissance du bailleur
+ *        actuel / début de suivi d'une antériorité ; absente = depuis l'entrée du bail
  * @param {string} [input.today] horloge locale 'YYYY-MM-DD'
- * @returns {null | {loyer:number, charge:number, avance:number, mois:Array, from:string|null,
- *           to:string|null, debutDu:string|null, finDu:string|null,
- *           horsPeriode:Array<{date:string, montant:number}>, graceLast:boolean, suiviAbsent:boolean}}
- *          null = bail introuvable ou bornes incohérentes : dette INCONNUE (≠ 0).
+ * @returns {null | {loyer:number|null, charge:number|null, avance:number|null, avanceBrute:number|null,
+ *           mois:Array, from:string|null, to:string|null, debutSuivi:string|null, finDu:string|null,
+ *           horsPeriode:Array<{date:string, montant:number}>,
+ *           aRattacher:Array<{date:string, montant:number, compte:boolean, motif:string}>,
+ *           graceLast:boolean, suiviPartiel:boolean, suiviAbsent:boolean}}
+ *          null = bail introuvable ou bornes incohérentes : dette INCONNUE (≠ 0). Montants null +
+ *          `suiviAbsent` = le bail s'achève avant la borne de suivi : dette inconnue, aussi.
  */
 export function _computeDetteBail(input) {
   const i = input || {};
@@ -426,8 +443,17 @@ export function _computeDetteBail(input) {
   if (i.fin) { const f = String(i.fin).slice(0, 10); if (!finDu || f < finDu) finDu = f; }
   if (finDu && finDu < debut) return null;
 
-  // Q1 — début du suivi, sur le contexte COMPLET du lot (même règle que le maître).
-  const debutDu = _debutSuivi(ctx, i.premierVersementYm || null);
+  // Q1 RÉVISÉ (Didier 01/10) — borne de suivi FOURNIE par l'appelant : date d'entrée en jouissance du
+  // bailleur actuel, ou date de début de suivi d'une antériorité saisie. Sans borne, le dû part de
+  // l'entrée du bail. Jamais d'une absence de relevés.
+  const debutSuivi = i.debutSuivi ? (String(i.debutSuivi).length === 7 ? i.debutSuivi + '-01' : String(i.debutSuivi).slice(0, 10)) : null;
+  // 🟠5 — dette PARTIELLEMENT connue : la part du bail antérieure à la borne n'est pas calculée (elle
+  // relève d'une antériorité). Dette TOTALEMENT inconnue : le bail s'achève avant la borne → null.
+  const suiviPartiel = !!(debutSuivi && debutSuivi > debut);
+  if (debutSuivi && finDu && debutSuivi > finDu) {
+    return { loyer: null, charge: null, avance: null, avanceBrute: null, mois: [], from: null, to: null, debutSuivi, finDu,
+      horsPeriode: [], aRattacher: [], graceLast: false, suiviPartiel: true, suiviAbsent: true };
+  }
   // Dû de CE bail seul, sa fin portée à `finDu` (segmentDebut isole sa part d'un mois partagé).
   const ctxDu = {
     ref, bareme: ctx.bareme || [],
@@ -459,7 +485,7 @@ export function _computeDetteBail(input) {
   const yms = [];
   for (let ym = from; ym <= to && yms.length <= 1200; ym = _ymPlus(ym, 1)) yms.push(ym);
   const lignesMois = yms.map(ym => {
-    const d = duMoisSuivi(ctxDu, ym, debutDu, { segmentDebut: debut });
+    const d = duMoisSuivi(ctxDu, ym, debutSuivi, { segmentDebut: debut });
     return { ym, hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: recu[ym] || 0 };
   });
   const graceLast = !!W.graceLast && yms.length > 0 && yms[yms.length - 1] === moisCourant;
@@ -473,13 +499,44 @@ export function _computeDetteBail(input) {
     .filter(l => l.date < debut || (finDu && l.date > finDu))
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(l => ({ date: l.date, montant: round2(l.montant) }));
+  // 🟠6 — encaissements « à rattacher » : datés dans le mois qui précède l'entrée d'un bail VOISIN. La
+  // date les donne au bail en vigueur (Q4), mais c'est souvent le 1ᵉʳ loyer du locataire suivant
+  // (terme à échoir) : ils peuvent solder une dette, JAMAIS devenir un trop-perçu versé au locataire.
+  // Côté SORTANT (`compte: true`) : seule la part qui ferait un trop-perçu est en cause. On remonte les encaissements
+  // de la fenêtre du plus récent au plus ancien jusqu'à couvrir l'avance produite : ce sont eux qui
+  // « débordent » (le loyer normal du dernier mois, lui, a servi au dernier mois).
+  const avanceBrute = round2(r.avance || 0);
+  const aRattacher = [];
+  if (next && avanceBrute > 0.005) {
+    const seuil = _isoMoinsUnMois(next.debut);
+    let reste = avanceBrute;
+    col.lignes.filter(l => l.date >= seuil && l.date < next.debut && l.montant > 0)
+      .sort((x, y) => y.date.localeCompare(x.date))
+      .forEach(l => {
+        if (reste <= 0.005) return;
+        const m = round2(Math.min(reste, l.montant));
+        reste = round2(reste - m);
+        aRattacher.push({ date: l.date, montant: m, compte: true, motif: 'avant l’entrée du bail suivant' });
+      });
+  }
+  // Côté ENTRANT (`compte: false`, non comptés dans CE bail) : les mêmes encaissements, vus depuis le
+  // bail suivant (calculés sur le bail précédent, sans récursion au-delà d'un voisin).
+  if (aUnPrecedent && !i._sansVoisin) {
+    const prec = _computeDetteBail(Object.assign({}, i, { bailDebut: segs[k - 1].debut, fin: null, _sansVoisin: true }));
+    ((prec && prec.aRattacher) || []).forEach(x => aRattacher.push({ date: x.date, montant: x.montant, compte: false,
+      motif: 'avant l’entrée de ce bail' }));
+  }
+  aRattacher.sort((x, y) => x.date.localeCompare(y.date));
+  const enAttente = round2(aRattacher.filter(x => x.compte).reduce((t, x) => t + x.montant, 0));
   return {
     // Σ des résidus mensuels ARRONDIS au centime — exactement la règle d'agrégation du maître.
     loyer: round2(mois.reduce((s, m) => s + m.loyerRetard, 0)),
     charge: round2(mois.reduce((s, m) => s + m.chargeRetard, 0)),
-    avance: round2(r.avance || 0),
+    // Q5 — trop-perçu restituable : jamais celui qui viendrait d'un encaissement « à rattacher ».
+    avance: round2(Math.max(0, avanceBrute - enAttente)),
+    avanceBrute,
     mois, from: yms.length ? from : null, to: yms.length ? to : null,
-    debutDu, finDu, horsPeriode, graceLast,
-    suiviAbsent: !debutDu
+    debutSuivi, finDu, horsPeriode, aRattacher, graceLast,
+    suiviPartiel, suiviAbsent: false
   };
 }

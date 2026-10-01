@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { _computeDetteBail, _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
-import { duMois, duMoisSuivi, _debutSuivi } from '../../js/core/loyer-du-mois.js';
+import { duMois, duMoisSuivi, duMoisSuiviFromRaw } from '../../js/core/loyer-du-mois.js';
 import { periodeInitialeBail, appliquerNouvellePeriode } from '../../js/core/loyer-bareme.js';
 
 /**
@@ -9,8 +9,9 @@ import { periodeInitialeBail, appliquerNouvellePeriode } from '../../js/core/loy
  * `_computeDetteBail` : la cascade du maître (`_computeLoyerNetting`), sur la vie d'UN bail,
  * sans jamais semer d'ouverture — le passé du bail est DANS le calcul, pas reporté. C'est ce
  * qui supprime le double/triple comptage de l'ouverture N-1 de la branche rejetée.
- * Dû = duMois (barème historisé, prorata au jour) borné au segment du bail et au début du
- * suivi (Q1) ; encaissé = loyers (ligne 211, alias M-1 compris) rattachés par date (Q4).
+ * Dû = duMois (barème historisé, prorata au jour) borné au segment du bail et, s'il y en a une, à
+ * la borne de suivi (Q1 RÉVISÉ 01/10 : entrée en jouissance du bailleur actuel / antériorité) ;
+ * encaissé = loyers (ligne 211, alias M-1 compris) rattachés par date (Q4).
  */
 
 const LOYERS = { ligne2044: '211', type: 'recette' };
@@ -18,8 +19,7 @@ const catLigne = (c) => (c === 'Loyers encaissés' || c === 'Loyer F3' ? LOYERS 
 const pay = (qui, date, cr, cat = 'Loyers encaissés') => ({ qui, date, cr, db: 0, cat });
 const ymRange = (a, b) => { const o = []; let [y, m] = a.split('-').map(Number); const [Y, M] = b.split('-').map(Number);
   while (y < Y || (y === Y && m <= M)) { o.push(y + '-' + String(m).padStart(2, '0')); m++; if (m > 12) { m = 1; y++; } } return o; };
-const fp = (mvts, ref) => mvts.filter((m) => m.qui === ref && m.cr > 0 && catLigne(m.cat)).map((m) => m.date.slice(0, 7)).sort()[0] || null;
-const dette = (o) => _computeDetteBail({ catLigne, today: '2026-09-30', premierVersementYm: fp(o.mouvements, o.ref), ...o });
+const dette = (o) => _computeDetteBail({ catLigne, today: '2026-09-30', ...o });
 
 describe('duMois — option segmentDebut (dû d\'UN bail sur un mois partagé)', () => {
   const ctx = { ref: 'L', bareme: [], bails: [
@@ -35,19 +35,34 @@ describe('duMois — option segmentDebut (dû d\'UN bail sur un mois partagé)',
   });
 });
 
-describe('duMoisSuivi — Q1 : rien n\'est dû avant le début du suivi', () => {
-  const ctx = { ref: 'L', bareme: [], bails: [{ debut: '2025-03-01', archive: false, hc: 700, ch: 50 }] };
-  it('avant le début du suivi : zéro ; à partir de lui : le dû du barème', () => {
-    expect(duMoisSuivi(ctx, '2025-02', '2025-03').total).toBe(0);
-    expect(duMoisSuivi(ctx, '2025-03', '2025-03')).toEqual(duMois(ctx, '2025-03'));
+describe('duMoisSuivi — Q1 RÉVISÉ : borné par l\'entrée en jouissance, jamais par une absence de relevés', () => {
+  const ctx = { ref: 'L', bareme: [], bails: [{ debut: '2025-03-01', archive: false, hc: 620, ch: 0 }] };
+  it('sans borne : le dû part de l\'entrée du bail, qu\'il y ait des relevés ou non', () => {
+    expect(duMoisSuivi(ctx, '2025-03', null)).toEqual(duMois(ctx, '2025-03'));
+    expect(duMoisSuivi(ctx, '2025-02', null).total).toBe(0);
   });
-  it('sans début de suivi (aucun versement, aucun bail ouvert) : rien n\'est dû', () => {
-    expect(duMoisSuivi(ctx, '2025-05', null).total).toBe(0);
+  it('avant le mois de la borne : zéro ; après : le dû du barème', () => {
+    expect(duMoisSuivi(ctx, '2026-02', '2026-03-15').total).toBe(0);
+    expect(duMoisSuivi(ctx, '2026-04', '2026-03-15')).toEqual(duMois(ctx, '2026-04'));
   });
-  it('le début du suivi est celui de `_debutSuivi` : entrée du bail, bornée au 1ᵉʳ janvier de l\'année du 1ᵉʳ versement', () => {
-    expect(_debutSuivi(ctx, '2025-06')).toBe('2025-03');                 // premiers mois impayés : DUS
-    const repris = { ref: 'L', bareme: [], bails: [{ debut: '2019-04-01', archive: false, hc: 700, ch: 50 }] };
-    expect(_debutSuivi(repris, '2024-05')).toBe('2024-01');              // bail repris : pas de dette fantôme 2019-2023
+  it('mois de la borne : proratisé au jour (acte signé le 15/03 → 17 jours sur 31)', () => {
+    expect(duMoisSuivi(ctx, '2026-03', '2026-03-15').hc).toBe(340);
+    expect(duMoisSuivi(ctx, '2026-03', '2026-03').hc).toBe(620);      // 'YYYY-MM' = 1er du mois
+  });
+  it('segmentDebut désigne le bail par son entrée RÉELLE, même recadrée à la borne', () => {
+    expect(duMoisSuivi(ctx, '2026-03', '2026-03-15', { segmentDebut: '2025-03-01' }).hc).toBe(340);
+    expect(duMoisSuivi(ctx, '2026-03', '2026-03-15', { segmentDebut: '2024-01-01' }).total).toBe(0);
+  });
+  it('un bail terminé avant la borne n\'a rien à devoir au bailleur actuel', () => {
+    const rot = { ref: 'L', bareme: [], bails: [{ debut: '2025-01-01', finEffective: '2026-03-10', archive: true, hc: 620, ch: 0 },
+      { debut: '2026-03-11', archive: false, hc: 620, ch: 0 }] };
+    expect(duMoisSuivi(rot, '2026-03', '2026-03-15', { segmentDebut: '2025-01-01' }).total).toBe(0);
+    expect(duMoisSuivi(rot, '2026-03', '2026-03-15', { segmentDebut: '2026-03-11' }).hc).toBe(340);
+  });
+  it('duMoisSuiviFromRaw lit les collections brutes de l\'app (bail courant + archivés)', () => {
+    const raw = { currentBail: { ref: 'R', debut: '2018-03-16', fin: '2021-03-15', hc: 650, ch: 0 }, bauxHistorique: [], bareme: [] };
+    expect(duMoisSuiviFromRaw('R', '2026-02', raw, '2026-03-01').total).toBe(0);
+    expect(duMoisSuiviFromRaw('R', '2026-04', raw, '2026-03-01').hc).toBe(650);   // tacite reconduction
   });
 });
 
@@ -136,27 +151,36 @@ describe('_computeDetteBail — la définition exacte', () => {
   });
 });
 
-describe('_computeDetteBail — Q1 : le dû part du début du bail (règle `_debutSuivi`)', () => {
+describe('_computeDetteBail — Q1 RÉVISÉ et dette partiellement connue (🟠5)', () => {
   const ref = 'Q1';
-  it('les premiers mois non payés d\'un bail SONT une dette (le maître d\'avant les ignorait)', () => {
+  it('les premiers mois non payés d\'un bail SONT une dette, même sans aucun relevé', () => {
     const ctx = { ref, bareme: [], bails: [{ debut: '2025-03-01', finEffective: '2026-02-28', archive: true, hc: 700, ch: 0 }] };
     const mouvements = ymRange('2025-06', '2026-02').map((ym) => pay(ref, ym + '-05', 700));
     const d = dette({ ref, ctx, bailDebut: '2025-03-01', fin: '2026-02-28', mouvements });
-    expect(d.debutDu).toBe('2025-03');
     expect(d.loyer).toBe(3 * 700);                                         // mars, avril, mai 2025
+    expect(d.suiviPartiel).toBe(false);
   });
-  it('bail repris à l\'achat : rien avant le 1ᵉʳ janvier de l\'année du 1ᵉʳ versement', () => {
-    const ctx = { ref, bareme: [], bails: [{ debut: '2019-04-01', archive: false, hc: 700, ch: 0 }] };
-    const mouvements = ymRange('2024-05', '2026-09').map((ym) => pay(ref, ym + '-05', 700));
-    const d = dette({ ref, ctx, bailDebut: '2019-04-01', fin: null, mouvements });
-    expect(d.debutDu).toBe('2024-01');
-    expect(d.loyer).toBe(4 * 700);                                         // janvier → avril 2024
+  it('bien acheté loué (Ferrette) : rien n\'est dû avant l\'entrée en jouissance, et la dette est dite PARTIELLE', () => {
+    const ctx = { ref, bareme: [], bails: [{ debut: '2018-03-16', archive: false, hc: 650, ch: 0 }] };
+    const mouvements = [pay(ref, '2026-03-02', 650), pay(ref, '2026-04-02', 650)];
+    const sans = dette({ ref, ctx, bailDebut: '2018-03-16', fin: null, mouvements, today: '2026-04-16' });
+    const avec = dette({ ref, ctx, bailDebut: '2018-03-16', fin: null, mouvements, today: '2026-04-16', debutSuivi: '2026-03-01' });
+    expect(sans.loyer).toBeGreaterThan(60000);                            // sans la date : la règle compte tout depuis 2018
+    expect(avec.loyer).toBe(0);
+    expect(avec.suiviPartiel).toBe(true);
+    expect(avec.debutSuivi).toBe('2026-03-01');
   });
-  it('aucun encaissement de loyer sur le lot et bail clos : rien à suivre, et c\'est SIGNALÉ (jamais un zéro muet)', () => {
-    const ctx = { ref, bareme: [], bails: [{ debut: '2025-01-01', finEffective: '2025-12-31', archive: true, hc: 700, ch: 0 }] };
-    const d = dette({ ref, ctx, bailDebut: '2025-01-01', fin: '2025-12-31', mouvements: [] });
-    expect(d.loyer).toBe(0);
-    expect(d.suiviAbsent).toBe(true);
+  it('X-J · entrée le 15/11/2025, 1er loyer en janvier : novembre (proraté) et décembre restent dus', () => {
+    const ctx = { ref, bareme: [], bails: [{ debut: '2025-11-15', archive: false, hc: 900, ch: 0 }] };
+    const mouvements = ymRange('2026-01', '2026-09').map((ym) => pay(ref, ym + '-05', 900));
+    expect(dette({ ref, ctx, bailDebut: '2025-11-15', fin: null, mouvements }).loyer).toBe(480 + 900);
+  });
+  it('bail achevé AVANT la borne de suivi : dette inconnue → montants null et suiviAbsent (jamais un 0 muet)', () => {
+    const ctx = { ref, bareme: [], bails: [{ debut: '2021-01-01', finEffective: '2023-12-31', archive: true, hc: 600, ch: 0 },
+      { debut: '2024-03-01', archive: false, hc: 650, ch: 0 }] };
+    const mouvements = ymRange('2024-03', '2026-09').map((ym) => pay(ref, ym + '-05', 650));
+    const d = dette({ ref, ctx, bailDebut: '2021-01-01', fin: '2023-12-31', mouvements, debutSuivi: '2024-03-01' });
+    expect(d).toMatchObject({ loyer: null, charge: null, avance: null, suiviAbsent: true, suiviPartiel: true });
   });
 });
 
@@ -205,5 +229,59 @@ describe('maître — option `debutDu` : l\'ouverture N-1 couvre les mois dus AV
   it('l\'option ne touche pas la base fiscale de l\'exercice (loyers HC encaissés)', () => {
     expect(_computeFinancesMonthly({ ...base, debutDu: () => '2025-03' }).annual.loyersHC)
       .toBe(_computeFinancesMonthly(base).annual.loyersHC);
+  });
+});
+
+describe('_computeDetteBail — 🟠6 : un loyer payé AVANT l\'entrée du suivant est « à rattacher », jamais un trop-perçu versé', () => {
+  const ref = 'H';
+  it('bail contigu : le 1er loyer du nouveau locataire payé le 28/06 ne devient PAS une avance du sortant', () => {
+    const ctx = { ref, bareme: [], bails: [{ debut: '2024-01-01', finEffective: '2025-06-30', archive: true, hc: 700, ch: 50 },
+      { debut: '2025-07-01', archive: false, hc: 700, ch: 50 }] };
+    const mouvements = [...ymRange('2024-01', '2025-06').map((ym) => pay(ref, ym + '-05', 750)), pay(ref, '2025-06-28', 750),
+      ...ymRange('2025-08', '2026-09').map((ym) => pay(ref, ym + '-05', 750))];
+    const l1 = dette({ ref, ctx, bailDebut: '2024-01-01', fin: '2025-06-30', mouvements });
+    expect(l1.avanceBrute).toBe(750);
+    expect(l1.avance).toBe(0);                                            // rien n'est versé automatiquement
+    expect(l1.aRattacher).toEqual([{ date: '2025-06-28', montant: 750, compte: true, motif: 'avant l’entrée du bail suivant' }]);
+    const l2 = dette({ ref, ctx, bailDebut: '2025-07-01', fin: null, mouvements });
+    expect(l2.loyer).toBe(700);                                           // juillet, faute de rattachement
+    expect(l2.aRattacher).toEqual([{ date: '2025-06-28', montant: 750, compte: false, motif: 'avant l’entrée de ce bail' }]);
+  });
+  it('avec vacance : un loyer payé pendant la vacance, dans le mois avant l\'entrée du suivant, est aussi à rattacher', () => {
+    const ctx = { ref, bareme: [], bails: [{ debut: '2025-01-01', finEffective: '2025-06-30', archive: true, hc: 700, ch: 0 },
+      { debut: '2025-09-01', archive: false, hc: 800, ch: 0 }] };
+    const mouvements = [...ymRange('2025-01', '2025-06').map((ym) => pay(ref, ym + '-05', 700)), pay(ref, '2025-08-28', 800),
+      ...ymRange('2025-10', '2026-09').map((ym) => pay(ref, ym + '-05', 800))];
+    const l1 = dette({ ref, ctx, bailDebut: '2025-01-01', fin: '2025-06-30', mouvements });
+    expect(l1.avance).toBe(0);
+    expect(l1.aRattacher.map((x) => x.date)).toEqual(['2025-08-28']);
+    const l2 = dette({ ref, ctx, bailDebut: '2025-09-01', fin: null, mouvements });
+    expect(l2.aRattacher.map((x) => [x.date, x.compte])).toEqual([['2025-08-28', false]]);
+  });
+  it('un vrai trop-perçu du sortant (hors de la fenêtre) reste restituable', () => {
+    const ctx = { ref, bareme: [], bails: [{ debut: '2025-01-01', finEffective: '2025-06-30', archive: true, hc: 700, ch: 0 },
+      { debut: '2025-09-01', archive: false, hc: 800, ch: 0 }] };
+    const mouvements = [...ymRange('2025-01', '2025-06').map((ym) => pay(ref, ym + '-05', 700)), pay(ref, '2025-03-20', 300)];
+    expect(dette({ ref, ctx, bailDebut: '2025-01-01', fin: '2025-06-30', mouvements })).toMatchObject({ avance: 300, aRattacher: [] });
+  });
+});
+
+describe('_computeDetteBail — cas limites restants', () => {
+  const ref = 'R';
+  it('rotation EN COURS DE MOIS : chacun ne doit que sa part du mois partagé (segmentDebut)', () => {
+    const ctx = { ref, bareme: [], bails: [{ debut: '2025-01-01', finEffective: '2025-08-14', archive: true, hc: 620, ch: 0 },
+      { debut: '2025-08-15', archive: false, hc: 620, ch: 0 }] };
+    const mouvements = [...ymRange('2025-01', '2025-07').map((ym) => pay(ref, ym + '-05', 620)), pay(ref, '2025-08-05', 280),
+      pay(ref, '2025-08-20', 340), ...ymRange('2025-09', '2026-09').map((ym) => pay(ref, ym + '-05', 620))];
+    expect(dette({ ref, ctx, bailDebut: '2025-01-01', fin: '2025-08-14', mouvements })).toMatchObject({ loyer: 0, avance: 0 });
+    expect(dette({ ref, ctx, bailDebut: '2025-08-15', fin: null, mouvements })).toMatchObject({ loyer: 0, avance: 0 });
+    const l1 = dette({ ref, ctx, bailDebut: '2025-01-01', fin: '2025-08-14', mouvements });
+    expect(l1.mois.find((m) => m.ym === '2025-08').duHC).toBe(280);      // 620 × 14/31
+  });
+  it('une fin fournie APRÈS la fin effective ne prolonge pas le dû', () => {
+    const ctx = { ref, bareme: [], bails: [{ debut: '2026-01-01', finEffective: '2026-03-31', archive: true, hc: 600, ch: 0 }] };
+    const mouvements = ymRange('2026-01', '2026-03').map((ym) => pay(ref, ym + '-05', 600));
+    const d = dette({ ref, ctx, bailDebut: '2026-01-01', fin: '2026-05-31', mouvements });
+    expect(d).toMatchObject({ loyer: 0, finDu: '2026-03-31' });
   });
 });
