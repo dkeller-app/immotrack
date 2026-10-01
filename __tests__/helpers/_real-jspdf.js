@@ -16,7 +16,7 @@ let _Cls = null;
 
 function _lib(html, name) {
   const m = html.match(new RegExp('\\b' + name + ':\\s*"([A-Za-z0-9+/=]+)"'));
-  if (!m) throw new Error('lib ' + name + ' introuvable dans index.html');
+  if (!m) throw new Error('lib ' + name + ' introuvable dans js/vendor/pdf-libs.b64.js');
   return Buffer.from(m[1], 'base64').toString('utf8');
 }
 
@@ -24,7 +24,7 @@ function _lib(html, name) {
 export function realJsPdf() {
   if (_Cls) return _Cls;
   const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-  const html = readFileSync(join(root, 'index.html'), 'utf8');
+  const html = readFileSync(join(root, 'js', 'vendor', 'pdf-libs.b64.js'), 'utf8'); // libs PDF sorties d'index.html (chargées à la demande)
   if (typeof globalThis.window === 'undefined') globalThis.window = globalThis;
   vm.runInThisContext(_lib(html, 'jspdf'));
   const Cls = (globalThis.jspdf && globalThis.jspdf.jsPDF) || globalThis.jsPDF;
