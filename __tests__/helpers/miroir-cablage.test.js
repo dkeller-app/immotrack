@@ -51,9 +51,8 @@ const edl = (id, t, extra = {}) => ({ id, logement: 'A', type: 'Entrée', _modif
 const TAG = JSON.stringify({ userId: 'u1', espaceId: 'e1' });
 
 // ── F1 : la remontée des EDL hors ligne au démarrage EN LIGNE ─────────────────────────────────
-function monterF1({ stockage, miroirLocal, flushLeve = false }) {
+function monterF1({ stockage, miroirLocal, flushLeve = false, cloud = base([]) }) {
   const seq = [];
-  const cloud = base([]);
   const api = {
     seed: () => seq.push('seed'),
     flush: async (d) => {
@@ -325,7 +324,7 @@ describe('C2 — navigateur tué puis IndexedDB muet au démarrage suivant', () 
     m2.ecrire(Object.assign({}, r.db, { baux: { X: 1 } }));
     await monterRunFlush({ st, m: m2 })(propre);
     expect(st.getItem('immotrack_v4_flush_at')).toBe('1000');
-    expect(st.getItem('immotrack_v4')).toBeNull();                          // point 🟡 : pas de base complète en local
+    expect(JSON.parse(st.getItem('immotrack_v4')).baux).toEqual({ X: 1 }); // Q3 : copie hors ligne complète (elle tient)
     const refus = new Function('window', 'localStorage', 'MIRROR_KEY', '_offlineBoot', 'console', '_miroirLocal',
       'return ' + extraireFonction(ENTRY, '_refusDeconnexionLocale'))({}, st, 'immotrack_v4', OfflineBoot, muet, moduleMiroir(m2));
     expect(refus({ api: { sync: {} }, forcer: false })).toMatchObject({ raison: 'miroir-illisible' });
@@ -462,5 +461,111 @@ describe('Écrivains rebranchés', () => {
   it('le journal est reconnu par le registre (classe « principal » : jamais évincé)', () => {
     expect(Stockage.classerCle(JOURNAL_EDL_KEY)).toBe('principal');
     expect(Stockage.estEvincable(JOURNAL_EDL_KEY)).toBe(false);
+  });
+});
+
+// ── Contre-audit de 40fabad0 ─────────────────────────────────────────────────────────────────
+// P9 : un EDL qui EXISTE au cloud et a été MODIFIÉ hors ligne. En mode protégé, le rebase (l'état du
+// cloud) n'entre JAMAIS au journal — sinon la version cloud gagne sans condition au démarrage suivant.
+describe('P9 — en mode protégé, un rebase n’ajoute JAMAIS d’entrée au journal (quel que soit le backend)', () => {
+  const vOld = edl(42, Date.UTC(2026, 8, 29, 10), { v: 'cloud' });
+  const vOff = edl(42, Date.UTC(2026, 8, 30, 10), { v: 'hors-ligne' });
+  const flushA = String(Date.UTC(2026, 8, 29, 12));
+  const enrOff = () => ({ v: 2, ecritA: 1, travailA: Date.UTC(2026, 8, 30, 10), tag: TAG, json: JSON.stringify(base([vOff])) });
+
+  it('IndexedDB lisible, l’envoi de F1 lève (C1) : la version cloud ne remplace pas la saisie hors ligne ; démarrage suivant → F1 la met à jour au cloud', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: flushA, immotrack_v4_tag: TAG } });
+    const idb = fauxIdb(enrOff());
+    const m1 = creerMiroir({ idb, stockage: st });
+    await m1.initialiser();
+    const r1 = await monterF1({ stockage: st, miroirLocal: moduleMiroir(m1), flushLeve: true, cloud: base([vOld]) }).lancer();
+    expect(m1.protege()).toBe(true);
+    rebase(st, m1)(r1.db);                                                  // le login écrit l'état du cloud
+    expect(st.getItem(JOURNAL_EDL_KEY)).toBeNull();                         // rien au journal
+    // Une saisie AVANT la fin de l'écriture IndexedDB : seul le nouvel EDL entre au journal (la version
+    // cloud de l'EDL 42 est la référence des engagés, elle n'est pas « en attente »).
+    m1.ecrire(Object.assign({}, r1.db, { edl: [...r1.db.edl, edl(5, Date.UTC(2026, 9, 1, 9))] }));
+    expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl.map(e => e.id)).toEqual([5]);
+    await m1.attendre();
+    expect((await m1.lire()).edl.map(e => e.v || e.id)).toEqual(['hors-ligne', 5]);
+    const m2 = creerMiroir({ idb: fauxIdb(idb.enr), stockage: st });
+    await m2.initialiser();
+    const f2 = monterF1({ stockage: st, miroirLocal: moduleMiroir(m2), cloud: base([vOld]) });
+    expect(await f2.lancer()).toMatchObject({ majs: 1, ajoutes: 1 });
+    expect(f2.seq.flushe.edl.map(e => e.v || e.id)).toEqual(['hors-ligne', 5]);
+  });
+
+  it('repli (IndexedDB muet toute la session) : le rebase n’entre pas au journal ; démarrage suivant → la saisie hors ligne gagne et remonte', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: flushA, immotrack_v4_tag: TAG } });
+    const enr = enrOff();
+    const muetIdb = fauxIdb(enr); muetIdb.lire = async () => { throw new Error('indexeddb-muet'); };
+    const m1 = creerMiroir({ idb: muetIdb, stockage: st, delaiMs: 20, signaler: () => {} });
+    await m1.initialiser();
+    const r1 = await monterF1({ stockage: st, miroirLocal: moduleMiroir(m1), cloud: base([vOld]) }).lancer();
+    expect(m1.protege()).toBe(true);
+    rebase(st, m1)(r1.db);
+    expect(st.getItem(JOURNAL_EDL_KEY)).toBeNull();
+    const m2 = creerMiroir({ idb: fauxIdb(enr), stockage: st });
+    await m2.initialiser();
+    expect((await m2.lire()).edl.map(e => e.v)).toEqual(['hors-ligne']);
+    const f2 = monterF1({ stockage: st, miroirLocal: moduleMiroir(m2), cloud: base([vOld]) });
+    expect((await f2.lancer()).majs).toBe(1);
+    expect(f2.seq.flushe.edl.map(e => e.v)).toEqual(['hors-ligne']);
+  });
+});
+
+// Q3 : en repli protégé, la copie hors ligne reste utilisable quand elle tient ; sinon, le démarrage
+// hors ligne le DIT (plus de formulaire de connexion muet).
+describe('Q3 — repli protégé : copie hors ligne complète si elle tient, message dédié sinon', () => {
+  function monterHorsLigne(st, m, { showError } = {}) {
+    const vu = { injecte: null, formulaire: 0, erreurs: [] };
+    const win = { __immoSetDB: d => { vu.injecte = d; return true; }, __immoRender: () => {}, __immoEntrerHorsLigne: () => {}, __immoCrumb: () => {} };
+    const fn = new Function('window', 'localStorage', 'document', 'MIRROR_KEY', '_offlineBoot', '_liftDriveGate', 'wireLoginForm', 'console', '_miroirLocal', 'showError',
+      'return async ' + extraireFonction(ENTRY, 'onHorsLigne'))(
+      win, st, { documentElement: { removeAttribute() {} } }, 'immotrack_v4', OfflineBoot, () => {}, () => { vu.formulaire++; },
+      muet, moduleMiroir(m), showError || ((_o, msg) => vu.erreurs.push(msg)));
+    return { lancer: () => fn({}, { remove() {} }, { user: { email: 'd@e.fr' } }), vu, win };
+  }
+  async function sessionProtegee(st, dbSession) {
+    const muetIdb = fauxIdb({ v: 2, ecritA: 1, travailA: 1, tag: TAG, json: JSON.stringify(base([])) });
+    muetIdb.lire = async () => { throw new Error('indexeddb-muet'); };
+    const signaux = [];
+    const m1 = creerMiroir({ idb: muetIdb, stockage: st, delaiMs: 20, signaler: s => signaux.push(s.type) });
+    await m1.initialiser();
+    const r1 = await monterF1({ stockage: st, miroirLocal: moduleMiroir(m1) }).lancer();
+    expect(m1.protege()).toBe(true);
+    signaux.length = 0;
+    rebase(st, m1)(Object.assign({}, r1.db, dbSession));
+    m1.ecrire(Object.assign({}, r1.db, dbSession, { edl: [edl(9, Date.UTC(2026, 9, 1, 9), { note: 'visite' })] }));
+    // Démarrage suivant HORS LIGNE, IndexedDB toujours muet.
+    const m2 = creerMiroir({ idb: muetIdb, stockage: st, delaiMs: 20, signaler: () => {} });
+    await m2.initialiser();
+    return { m2, signaux };
+  }
+
+  it('la base TIENT : le démarrage hors ligne suivant ouvre l’app complète, EDL de la session compris', async () => {
+    const st = fauxStockageQuota({ quota: 5_242_880, initial: { immotrack_v4_flush_at: '1000', immotrack_v4_tag: TAG, immotrack_v4_espaces: JSON.stringify(['e1']) } });
+    const { m2, signaux } = await sessionProtegee(st, { logements: [{ ref: 'A' }, { ref: 'B' }] });
+    expect(signaux).toEqual([]);
+    const h = monterHorsLigne(st, m2);
+    await h.lancer();
+    expect(h.vu.formulaire).toBe(0);
+    expect(h.vu.injecte.logements.map(l => l.ref)).toEqual(['A', 'B']);
+    expect(h.vu.injecte.edl.map(e => e.note)).toEqual(['visite']);
+    expect(h.win.__immoHorsLigne).toBe(true);
+  });
+
+  it('la base NE TIENT PAS : signal « copie-incomplete », puis le démarrage hors ligne affiche le message dédié avec le formulaire (EDL conservés)', async () => {
+    const st = fauxStockageQuota({ quota: 50_000, initial: { immotrack_v4_flush_at: '1000', immotrack_v4_tag: TAG, immotrack_v4_espaces: JSON.stringify(['e1']) } });
+    const { m2, signaux } = await sessionProtegee(st, { mouvements: 'x'.repeat(60_000) });
+    expect(signaux).toEqual(['copie-incomplete']);
+    expect(st.getItem('immotrack_v4')).toBeNull();
+    expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl.map(e => e.note)).toEqual(['visite']);   // l'EDL est sur l'appareil
+    const h = monterHorsLigne(st, m2);
+    await h.lancer();
+    expect(h.vu.injecte).toBeNull();                                        // pas d'app à moitié vide
+    expect(h.vu.formulaire).toBe(1);
+    expect(h.vu.erreurs).toEqual(['Copie hors ligne incomplète sur cet appareil : se connecter au réseau pour continuer ; les états des lieux saisis sont conservés.']);
+    expect(st.getItem(JOURNAL_EDL_KEY)).not.toBeNull();                     // rien n'est effacé
   });
 });

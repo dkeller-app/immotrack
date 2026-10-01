@@ -69,9 +69,11 @@ describe('R1 — un IndexedDB illisible n’est JAMAIS « absent », et le trans
     m2.ecrire(base([]), { horodater: false });                              // rebase du login (repli : clé locale)
     m2.ecrire(base([edl(1, '2026-09-30T11:00:00.000Z')]));                  // une saisie ordinaire
     expect(m2.protege()).toBe(true);
-    // Repli + protégé + IndexedDB inconnu (contre-audit 🟡) : la base complète n'est PAS recopiée en
-    // local ; la saisie de la session est au journal, la base IndexedDB n'est pas touchée.
-    expect(st.getItem('immotrack_v4')).toBeNull();
+    // Repli + protégé + IndexedDB inconnu : la saisie de la session est au journal ; la base complète
+    // est AUSSI en local, car elle tient (contre-audit Q3 : copie hors ligne utilisable) ; la base
+    // IndexedDB n'est pas touchée.
+    expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl.map(e => e.id)).toEqual([1]);
+    expect(JSON.parse(st.getItem('immotrack_v4')).edl.map(e => e.id)).toEqual([1]);
     expect(edlDuDisque(disque)).toEqual([42]);
     // Démarrage 3 : IndexedDB OK → base IndexedDB (EDL 42) + journal (EDL 1) : rien n'est perdu.
     const m3 = creerMiroir({ idb: fauxIdb(disque), stockage: st, horloge });
@@ -310,21 +312,25 @@ describe('P3 — oublier() pendant une écriture en vol, rebase immédiat', () =
     expect(await m.lireEtat()).toEqual({ etat: 'absente', db: null });
   });
 
-  it('point 🟡 — repli + mode protégé + IndexedDB inconnu : un grand compte n’écrit QUE l’horodatage et les EDL (pas de « Mémoire pleine »)', async () => {
+  it('point 🟡 — repli + mode protégé + IndexedDB inconnu : un compte TROP GRAND pour le stockage local n’écrit QUE l’horodatage et les EDL (pas de « Mémoire pleine »), signal « copie-incomplete » une fois', async () => {
     const st = fauxStockageQuota({ quota: 5_242_880, initial: { immotrack_v4_tag: TAG, immotrack_v4_flush_at: '1' } });
     const idb = fauxIdb({ enr: null }); idb.r.lireEchoue = true; idb.existe = async () => null;   // base présente mais MUETTE
-    const m = creerMiroir({ idb, stockage: st, horloge, delaiMs: 20, signaler: () => {} });
+    const signaux = [];
+    const m = creerMiroir({ idb, stockage: st, horloge, delaiMs: 20, signaler: s => signaux.push(s.type) });
     await m.initialiser();
     expect(m.backend()).toBe('localStorage');
     expect(m.incertain()).toBe(true);
     m.proteger();
-    const grand = Object.assign(base([edl(1, '2026-09-30T10:00:00Z'), edl(2, '2026-09-30T10:00:00Z')]), { mouvements: chaine(3_000_000) });
-    m.ecrire(grand, { horodater: false });                                  // rebase (base du cloud, 3 M caractères)
+    signaux.length = 0;
+    const grand = Object.assign(base([edl(1, '2026-09-30T10:00:00Z'), edl(2, '2026-09-30T10:00:00Z')]), { mouvements: chaine(6_000_000) });
+    m.ecrire(grand, { horodater: false });                                  // rebase (base du cloud, 6 M caractères : ne tient pas)
     grand.edl = [edl(1, '2026-09-30T11:00:00Z', { note: 'visite' }), grand.edl[1]];   // seul l'EDL 1 change
     for (let i = 0; i < 3; i++) expect(m.ecrire(grand)).toBe(true);         // saisies de la session : aucune n'échoue
     expect(st.getItem('immotrack_v4')).toBeNull();
     expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl.map(e => e.note)).toEqual(['visite']);
     expect(st.usage()).toBeLessThan(10_000);
+    expect(signaux).toEqual(['copie-incomplete']);                         // dit UNE fois, pas à chaque saisie
+    expect(await m.lire()).toEqual({ edl: [grand.edl[0]] });               // hors ligne : journal seul → message dédié
   });
 
   it('effacement IndexedDB MUET : oublier() est borné (le login ne se fige pas)', async () => {
@@ -346,5 +352,64 @@ describe('Un stockage local plein ne rend pas le journal plus gros que nécessai
     await m.initialiser();
     expect(m.ecrire(base([edl(1, 'x', { s: chaine(20000) })]))).toBe(true);
     expect(st.getItem('_driveBackupBeforeSync')).toBeNull();
+  });
+});
+
+// ── Contre-audit de 40fabad0 : un test par invariant (mutations Y2, Y3, Y5, Y6) ─────────────────
+describe('Contre-audit 40fabad0 — invariants du mode protégé', () => {
+  const muetAuDemarrage = () => { const i = fauxIdb({ enr: null }); i.r.lireEchoue = true; i.existe = async () => null; return i; };
+
+  it('Y2 — journal cumulatif : la version VIVANTE d’un EDL remplace son entrée ancienne (jamais l’inverse)', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_tag: TAG } });
+    const disque = { enr: { v: 2, ecritA: 1, tag: TAG, json: JSON.stringify(base()) } };
+    const m = creerMiroir({ idb: fauxIdb(disque), stockage: st, horloge });
+    await m.initialiser();
+    m.proteger();
+    m.ecrire(base([edl(1, '2026-09-30T10:00:00Z', { note: 'v1' })]));
+    m.ecrire(base([edl(1, '2026-09-30T10:05:00Z', { note: 'v2' })]));     // même EDL, modifié ensuite
+    expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl.map(e => e.note)).toEqual(['v2']);
+    await m.attendre();
+    expect((await m.lire()).edl.map(e => e.note)).toEqual(['v2']);
+    expect(JSON.parse(disque.enr.json).edl.map(e => e.note)).toEqual(['v2']);
+  });
+
+  it('Y3 — repli protégé : chaque saisie pose `_ecrit_at` ; au démarrage suivant (IndexedDB revenu, `travailA` ancien), F1 pousse', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_tag: TAG, immotrack_v4_flush_at: '100' } });
+    const disque = { enr: { v: 2, ecritA: 50, travailA: 50, tag: TAG, json: JSON.stringify(base()) } };
+    const idb = fauxIdb(disque); idb.r.lireEchoue = true;
+    const m1 = creerMiroir({ idb, stockage: st, horloge: () => 5000, signaler: () => {} });
+    await m1.initialiser();
+    m1.proteger();
+    m1.ecrire(base([edl(1, '2026-09-30T10:00:00Z')]));
+    expect(st.getItem('immotrack_v4_ecrit_at')).toBe('5000');
+    const m2 = creerMiroir({ idb: fauxIdb(disque), stockage: st, horloge });
+    await m2.initialiser();
+    const ecritA = Math.max(+st.getItem('immotrack_v4_ecrit_at') || 0, m2.travailA());
+    expect(OB.doitPousserAvantHydratation({ tagMiroir: 'same', miroirEcritA: ecritA, dernierFlushA: 100 })).toBe(true);
+    expect((await m2.lire()).edl.map(e => e.id)).toEqual([1]);
+  });
+
+  it('Y5 — IndexedDB REFUSÉ (navigation privée) : le stockage local est la SEULE copie — elle est écrite, et une base qui ne tient pas est un ÉCHEC dit, jamais avalé', async () => {
+    const st = fauxStockageQuota({ quota: 200_000, initial: { immotrack_v4_tag: TAG } });
+    const idb = fauxIdb({ enr: null }); idb.existe = async () => null;
+    idb.lire = async () => { const e = new Error('refus'); e.name = 'SecurityError'; throw e; };
+    const m = creerMiroir({ idb, stockage: st, horloge, signaler: () => {} });
+    await m.initialiser();
+    expect(m.incertain()).toBe(false);
+    m.proteger();                                                           // F1 a levé (C1) : protégé quand même
+    expect(m.ecrire(base([edl(1, '2026-09-30T10:00:00Z')]))).toBe(true);
+    expect(JSON.parse(st.getItem('immotrack_v4')).edl.map(e => e.id)).toEqual([1]);
+    const grand = Object.assign(base([edl(1, '2026-09-30T11:00:00Z')]), { mouvements: chaine(300_000) });
+    expect(() => m.ecrire(grand)).toThrow();                                // saveDB l'annonce (« Mémoire pleine »)
+    expect((await m.lire()).edl.map(e => e.id)).toEqual([1]);
+  });
+
+  it('Y6 — repli protégé : un journal qui ne s’écrit pas fait ÉCHOUER l’enregistrement (saveDB ne dit pas « enregistré »)', async () => {
+    const st = fauxStockageQuota({ quota: 3_000, initial: { immotrack_v4_tag: TAG } });
+    const m = creerMiroir({ idb: muetAuDemarrage(), stockage: st, horloge, delaiMs: 20, signaler: () => {} });
+    await m.initialiser();
+    expect(m.incertain()).toBe(true);
+    m.proteger();
+    expect(() => m.ecrire(base([edl(1, '2026-09-30T10:00:00Z', { note: chaine(5_000) })]))).toThrow();
   });
 });

@@ -473,6 +473,7 @@ async function boot() {
       'transfert-echec': 'Copie hors ligne en mode réduit : le transfert vers IndexedDB n’a pas abouti. Rien n’est perdu : la copie locale est conservée.',
       'echec-ecriture': 'Copie hors ligne : IndexedDB a refusé l’écriture, bascule sur le stockage local de cet appareil.',
       'echec-repli': 'Copie hors ligne non mise à jour : stockage de cet appareil plein.',
+      'copie-incomplete': 'Copie hors ligne incomplète sur cet appareil : la base ne tient pas dans le stockage local. Les états des lieux saisis sont conservés.',
     }
     M.surSignal(s => {
       console.warn('[Supabase] miroir local :', s.type, s.erreur)
@@ -937,6 +938,17 @@ async function onHorsLigne(api, overlay, session) {
       // Rien de lisible : on retombe sur le comportement d'aujourd'hui.
       try { window.__immoCrumb && window.__immoCrumb('hors-ligne-abandon:miroir-vide') } catch (e) {}
       return wireLoginForm(api, overlay)
+    }
+    // STOCKAGE lot 4 (contre-audit Q3) — copie hors ligne INCOMPLÈTE : seuls les états des lieux du
+    // journal ont pu être gardés (base trop grande pour le stockage local pendant un repli protégé).
+    // Pas de formulaire muet : on dit ce qui se passe et quoi faire. Les EDL restent sur l'appareil.
+    if (Object.keys(db).every(k => k === 'edl')) {
+      try { window.__immoCrumb && window.__immoCrumb('hors-ligne-abandon:copie-incomplete') } catch (e) {}
+      const _r = wireLoginForm(api, overlay)
+      try {
+        if (typeof showError === 'function') showError(overlay, 'Copie hors ligne incomplète sur cet appareil : se connecter au réseau pour continuer ; les états des lieux saisis sont conservés.')
+      } catch (e) {}
+      return _r
     }
     // F3 (invariant 19h) — LE DRAPEAU D'ABORD. saveDB teste `__immoSupabaseMode`
     // avant `_CLOUD_BOOT` ; sans lui, la branche boot-cloud sort en n'écrivant

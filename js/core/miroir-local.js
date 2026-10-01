@@ -37,7 +37,24 @@
  * IndexedDB absent, refusé, muet (> 3 s, `open` comme `databases()`), ou en
  * échec d'écriture → le miroir complet repart en `localStorage` (lot 1,
  * éviction comprise) et le repli est SIGNALÉ. Avant toute lecture pour F1,
- * IndexedDB est RETENTÉ.
+ * IndexedDB est RETENTÉ. Repli PROTÉGÉ (IndexedDB au contenu inconnu) : journal
+ * et horodatage d'abord, puis la base complète en local si elle TIENT ; sinon
+ * la copie hors ligne est déclarée incomplète (signal + message au démarrage
+ * hors ligne), les EDL restant au journal.
+ *
+ * ═══ LIMITES ASSUMÉES (mode protégé, contre-audit du 01/10) ══════════════════
+ *   - Un rebase ou une restauration n'entre jamais au journal ; la version d'un
+ *     même EDL présente dans IndexedDB ou dans une clé locale est départagée par
+ *     `_modifiedAt` (fusion), comme partout ailleurs hors journal.
+ *   - Restauration d'une sauvegarde pendant une session protégée : les EDL du
+ *     journal, et ceux d'IndexedDB plus récents que l'instantané, sont
+ *     RÉAPPLIQUÉS au démarrage suivant (F1). Aucune garde simple ne distingue
+ *     « travail non remonté » de « version que la restauration voulait
+ *     défaire » : vider le journal à la restauration perdrait le premier.
+ *     Résurrection d'un EDL plutôt que perte.
+ *   - Copie hors ligne trop grande pour le stockage local : au démarrage hors
+ *     ligne suivant, si IndexedDB est revenu, la base affichée est la dernière
+ *     qu'il a reçue (avant la session protégée), EDL du journal superposés.
  */
 import { ecrireAvecLiberation, MIROIR_KEY, MIROIR_ECRIT_KEY, MIRROR_TAG_KEY } from './stockage-local.js';
 
@@ -247,6 +264,22 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
     return ecrireAvecLiberation(stockage, [[K.journal, JSON.stringify({ ecritA, edl: attente })]]);
   }
 
+  /**
+   * Repli protégé (IndexedDB inconnu) : la base complète en local, seulement si elle TIENT (éviction
+   * du lot 1 comprise). Échec → plus d'essai dans la session (pas de sérialisation de plusieurs Mo à
+   * chaque enregistrement pour rien), signal « copie-incomplete ». Une ancienne clé locale n'est PAS
+   * supprimée : elle peut porter des EDL d'un repli précédent. Ne lève jamais.
+   */
+  let baseLocaleTropGrande = false;
+  function ecrireBaseLocaleSiTient(db) {
+    if (baseLocaleTropGrande) return false;
+    let json;
+    try { json = JSON.stringify(db); } catch (_e) { return false; }
+    const r = ecrireAvecLiberation(stockage, [[K.miroir, json]]);
+    if (!r.ok) { baseLocaleTropGrande = true; avertir({ type: 'copie-incomplete', erreur: r.erreur }); return false; }
+    return true;
+  }
+
   function ecrireLocal(db, ecritA, horodater) {
     if (horodater) { const r1 = ecrireAvecLiberation(stockage, [[K.ecritA, String(ecritA)]]); if (!r1.ok) throw r1.erreur; }
     const r = ecrireAvecLiberation(stockage, [[K.miroir, JSON.stringify(db)]]);
@@ -408,30 +441,38 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
       const ecritA = horloge();
       if (horodater) travailSession = ecritA;
       if (backend !== 'indexeddb' && protege && idbIncertain) {
-        // Repli + mode protégé + IndexedDB au contenu INCONNU (contre-audit, point 🟡) : la base
-        // complète n'a pas à être recopiée en local — elle est au cloud (session en ligne), et la copie
-        // de l'appareil est dans IndexedDB, intouchée. Seuls comptent l'horodatage et les EDL, qui
-        // partent au journal synchrone. Sans cela, un grand compte (base de plusieurs Mo) déclencherait
-        // « Mémoire pleine » à chaque enregistrement de la session.
+        // Repli + mode protégé + IndexedDB au contenu INCONNU (la copie de l'appareil y est, intouchée).
+        // Ce qui compte d'abord : l'horodatage et les EDL de la session, au journal synchrone. Ensuite,
+        // la base complète en local QUAND ELLE TIENT (disponibilité hors ligne, contre-audit Q3) ; si
+        // elle ne tient pas (grand compte), pas de « Mémoire pleine » à chaque enregistrement : la copie
+        // hors ligne est déclarée incomplète, et le démarrage hors ligne le dit.
         dernier = db;
         if (!horodater) {
-          // Rebase / restauration : c'est l'état du CLOUD, pas du travail local. Il devient la référence
-          // des « engagés » : le journal ne portera ensuite QUE les EDL modifiés dans la session — jamais
-          // une version hydratée qui écraserait, par la superposition du journal, un EDL fait hors ligne
-          // resté dans l'IndexedDB illisible. Le journal existant est CONSERVÉ tel quel (mode protégé).
+          // Rebase / restauration (P9) : c'est l'état du CLOUD, jamais du travail local. Il devient la
+          // référence des « engagés » et n'entre JAMAIS au journal — sinon une version cloud gagnerait,
+          // par la superposition du journal, sur un EDL modifié hors ligne resté dans IndexedDB.
           engages = carteEdl(db);
+          ecrireBaseLocaleSiTient(db);
           return true;
         }
         const rh = ecrireAvecLiberation(stockage, [[K.ecritA, String(ecritA)]]);
         const rj = ecrireJournal(db, ecritA);
         if (!rh.ok) throw rh.erreur;
         if (!rj.ok) throw rj.erreur;
+        ecrireBaseLocaleSiTient(db);
         return true;
       }
       if (backend !== 'indexeddb') return ecrireLocal(db, ecritA, horodater);
       dernier = db;
       const r1 = horodater ? ecrireAvecLiberation(stockage, [[K.ecritA, String(ecritA)]]) : ok;
-      const r2 = ecrireJournal(db, ecritA);
+      let r2;
+      if (protege && !horodater) {
+        // P9 — mode protégé, QUEL QUE SOIT le backend : un rebase (ou une restauration) n'ajoute JAMAIS
+        // d'entrée au journal. La base écrite devient la référence des engagés ; le journal existant est
+        // conservé ; l'écriture IndexedDB protégée (relire + fusionner les EDL) est planifiée.
+        engages = carteEdl(db);
+        r2 = ok;
+      } else r2 = ecrireJournal(db, ecritA);
       planifierEcriture();
       if (!r1.ok) throw r1.erreur;
       if (!r2.ok) throw r2.erreur;
