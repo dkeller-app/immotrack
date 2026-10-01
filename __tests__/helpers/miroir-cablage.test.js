@@ -51,12 +51,16 @@ const edl = (id, t, extra = {}) => ({ id, logement: 'A', type: 'Entrée', _modif
 const TAG = JSON.stringify({ userId: 'u1', espaceId: 'e1' });
 
 // ── F1 : la remontée des EDL hors ligne au démarrage EN LIGNE ─────────────────────────────────
-function monterF1({ stockage, miroirLocal }) {
+function monterF1({ stockage, miroirLocal, flushLeve = false }) {
   const seq = [];
   const cloud = base([]);
   const api = {
     seed: () => seq.push('seed'),
-    flush: async (d) => { seq.push('flush'); seq.flushe = d; return { upserts: [], errors: [], conflicts: [], skipped: [] }; },
+    flush: async (d) => {
+      seq.push('flush'); seq.flushe = d;
+      if (flushLeve) throw new Error('sealSignedBaux : empreinte impossible');   // non isolé par enregistrement
+      return { upserts: [], errors: [], conflicts: [], skipped: [] };
+    },
   };
   const fn = new Function('window', 'localStorage', 'MIRROR_KEY', '_offlineBoot', '_recordKey', 'console', '_miroirLocal',
     'return async ' + extraireFonction(ENTRY, '_remonterTravailHorsLigne'))(
@@ -248,6 +252,123 @@ describe('R1 — F1 sur un miroir IndexedDB illisible : protégé, dernier envoi
     const { lancer, seq } = monterF1({ stockage: st, miroirLocal: moduleMiroir(m) });
     expect((await lancer()).ajoutes).toBe(1);
     expect(seq.flushe.edl.map(x => x.id)).toEqual([55]);
+  });
+});
+
+// ── Contre-audit C1 / C2 / X4 / X5 ───────────────────────────────────────────────────────────
+/** Le vrai rebase du login (`_ecrireMiroir`), branché sur le miroir. */
+function rebase(st, m) {
+  return new Function('_stockageLocal', 'localStorage', 'MIRROR_KEY', 'console', '_miroirLocal',
+    'return ' + extraireFonction(ENTRY, '_ecrireMiroir'))(Stockage, st, 'immotrack_v4', muet, moduleMiroir(m));
+}
+/** Le vrai `runFlush` d'onLoggedIn (fonction fléchée), avec des doubles pour le reste de la session. */
+function monterRunFlush({ st, m }) {
+  const debut = ENTRY.indexOf('const runFlush = async (fn) => {');
+  const corps = accolades(ENTRY, ENTRY.indexOf('=> {', debut) + 3);
+  const deps = {
+    flushTimer: null, setSync: () => {}, _sessionDead: () => {}, _deadShown: false, backoffUntil: 0,
+    _miroirLocal: m ? moduleMiroir(m) : null, _offlineBoot: OfflineBoot, localStorage: st, _liveChannel: null,
+    _hasCloudWrites: null, _auditCloudFlush: () => {}, _conflitsEdlEnAttente: [], _repullCloud: () => {},
+    navigator: { onLine: true }, console: muet,
+  };
+  const noms = Object.keys(deps);
+  return new Function(...noms, 'return async (fn) => ' + corps)(...noms.map(n => deps[n]));
+}
+const propre = async () => ({ upserts: [], errors: [], conflicts: [], skipped: [] });
+
+describe('C1 — l’envoi de F1 LÈVE : le rebase n’écrase pas le miroir, `_flush_at` reste figé', () => {
+  it('EDL engagé en IndexedDB : F1 rend la base du cloud mais PROTÈGE ; le vrai rebase FUSIONNE (EDL 42 conservé)', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_ecrit_at: '5000', immotrack_v4_flush_at: '1000', immotrack_v4_tag: TAG } });
+    const disque = fauxIdb({ v: 2, ecritA: 5000, travailA: 5000, tag: TAG, json: JSON.stringify(base([edl(42, 4000)])) });
+    const m = creerMiroir({ idb: disque, stockage: st });
+    await m.initialiser();
+    const { lancer } = monterF1({ stockage: st, miroirLocal: moduleMiroir(m), flushLeve: true });
+    const r = await lancer();
+    expect(r.db.edl).toEqual([]);                                          // la base du cloud, sans l'EDL
+    expect(m.protege()).toBe(true);
+    rebase(st, m)(r.db);
+    m.ecrire(Object.assign({}, r.db, { baux: { X: 1 } }));                  // un saveDB ordinaire
+    await m.attendre();
+    expect(JSON.parse(disque.enr.json).edl.map(e => e.id)).toEqual([42]);
+    await monterRunFlush({ st, m })(propre);                                // un flush propre de la session
+    expect(st.getItem('immotrack_v4_flush_at')).toBe('1000');              // figé : F1 réessaiera
+  });
+
+  it('EDL resté au JOURNAL seulement (app tuée avant la transaction) : il ne quitte jamais le journal', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_ecrit_at: '5000', immotrack_v4_flush_at: '1000', immotrack_v4_tag: TAG,
+      [JOURNAL_EDL_KEY]: JSON.stringify({ ecritA: 5000, edl: [edl(77, 4000)] }) } });
+    const disque = fauxIdb({ v: 2, ecritA: 900, travailA: 900, tag: TAG, json: JSON.stringify(base([])) });
+    const m = creerMiroir({ idb: disque, stockage: st });
+    await m.initialiser();
+    const r = await monterF1({ stockage: st, miroirLocal: moduleMiroir(m), flushLeve: true }).lancer();
+    rebase(st, m)(r.db);
+    m.ecrire(Object.assign({}, r.db, { edl: [edl(5, 6000)] }));             // une saisie de la session
+    await m.attendre();
+    const j = JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl.map(e => e.id).sort();
+    expect(j).toEqual([5, 77]);                                            // 77 TOUJOURS là
+    expect((await m.lire()).edl.map(e => e.id).sort()).toEqual([5, 77]);
+  });
+});
+
+describe('C2 — navigateur tué puis IndexedDB muet au démarrage suivant', () => {
+  it('IndexedDB RESTE muet : F1 protège avant la sortie anticipée ; rien n’écrase la base ; démarrage suivant → F1 pousse', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: '1000', immotrack_v4_tag: TAG } });   // `_ecrit_at` PERDU
+    const enr = { v: 2, ecritA: 5000, travailA: 5000, tag: TAG, json: JSON.stringify(base([edl(42, 4000)])) };
+    const muetIdb = fauxIdb(enr); muetIdb.lire = async () => { throw new Error('indexeddb-muet'); };
+    const m2 = creerMiroir({ idb: muetIdb, stockage: st, delaiMs: 20, signaler: () => {} });
+    await m2.initialiser();
+    expect(m2.incertain()).toBe(true);
+    const r = await monterF1({ stockage: st, miroirLocal: moduleMiroir(m2) }).lancer();
+    expect(r.ajoutes).toBe(0);                                              // rien de lisible à remonter…
+    expect(m2.protege()).toBe(true);                                        // …mais le miroir est PROTÉGÉ
+    rebase(st, m2)(r.db);
+    m2.ecrire(Object.assign({}, r.db, { baux: { X: 1 } }));
+    await monterRunFlush({ st, m: m2 })(propre);
+    expect(st.getItem('immotrack_v4_flush_at')).toBe('1000');
+    expect(st.getItem('immotrack_v4')).toBeNull();                          // point 🟡 : pas de base complète en local
+    const refus = new Function('window', 'localStorage', 'MIRROR_KEY', '_offlineBoot', 'console', '_miroirLocal',
+      'return ' + extraireFonction(ENTRY, '_refusDeconnexionLocale'))({}, st, 'immotrack_v4', OfflineBoot, muet, moduleMiroir(m2));
+    expect(refus({ api: { sync: {} }, forcer: false })).toMatchObject({ raison: 'miroir-illisible' });
+    expect(muetIdb.enr.json).toBe(enr.json);                                // la base IndexedDB n'a pas été touchée
+    // Démarrage 3 : IndexedDB revenu.
+    const m3 = creerMiroir({ idb: fauxIdb(enr), stockage: st });
+    await m3.initialiser();
+    const f3 = monterF1({ stockage: st, miroirLocal: moduleMiroir(m3) });
+    expect((await f3.lancer()).ajoutes).toBe(1);
+    expect(f3.seq.flushe.edl.map(e => e.id)).toEqual([42]);
+  });
+
+  it('X4 — IndexedDB muet au démarrage SEULEMENT et `_ecrit_at` perdu : F1 RETENTE, voit travailA et pousse tout de suite', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: '1000', immotrack_v4_tag: TAG } });
+    const enr = { v: 2, ecritA: 5000, travailA: 5000, tag: TAG, json: JSON.stringify(base([edl(42, 4000)])) };
+    const idb = fauxIdb(enr);
+    let muet = true;
+    const lireVrai = idb.lire;
+    idb.lire = async () => { if (muet) throw new Error('indexeddb-muet'); return lireVrai(); };
+    const m = creerMiroir({ idb, stockage: st, delaiMs: 20, signaler: () => {} });
+    await m.initialiser();
+    muet = false;                                                           // IndexedDB répond à nouveau
+    const f = monterF1({ stockage: st, miroirLocal: moduleMiroir(m) });
+    expect((await f.lancer()).ajoutes).toBe(1);
+    expect(f.seq.flushe.edl.map(e => e.id)).toEqual([42]);
+    expect(m.protege()).toBe(false);
+  });
+});
+
+describe('X5 — l’écrivain de `_flush_at` dans onLoggedIn (`runFlush`)', () => {
+  it('flush propre : `_flush_at` avance ; miroir PROTÉGÉ : il n’avance pas ; flush incomplet : il n’avance pas', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: '1000' } });
+    const m = creerMiroir({ idb: fauxIdb(null), stockage: st });
+    await m.initialiser();
+    await monterRunFlush({ st, m })(propre);
+    const apres = Number(st.getItem('immotrack_v4_flush_at'));
+    expect(apres).toBeGreaterThan(1000);
+    st.setItem('immotrack_v4_flush_at', '1000');
+    await monterRunFlush({ st, m })(async () => ({ upserts: [], errors: [{ message: 'x' }], conflicts: [], skipped: [] }));
+    expect(st.getItem('immotrack_v4_flush_at')).toBe('1000');
+    m.proteger();
+    await monterRunFlush({ st, m })(propre);
+    expect(st.getItem('immotrack_v4_flush_at')).toBe('1000');
   });
 });
 

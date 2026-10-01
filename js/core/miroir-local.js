@@ -234,7 +234,15 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
 
   /** Le journal des EDL non engagés (ou son retrait). SANS l'horodatage : écrit à part, AVANT (O3). */
   function ecrireJournal(db, ecritA) {
-    const attente = edlEnAttente(db);
+    let attente = edlEnAttente(db);
+    // Mode PROTÉGÉ : le journal peut porter un EDL fait hors ligne jamais engagé ni remonté (F1 a levé,
+    // ou IndexedDB est illisible). La base vivante — rendue par le cloud — ne le contient pas : il ne
+    // doit JAMAIS sortir du journal. Le journal devient CUMULATIF : les entrées existantes restent, la
+    // version vivante d'un même EDL les remplace (contre-audit C1/C2).
+    if (protege) {
+      const prec = lireJournal();
+      if (prec && Array.isArray(prec.edl) && prec.edl.length) attente = superposerJournal({ edl: prec.edl }, { edl: attente }).edl;
+    }
     if (!attente.length) { try { stockage.removeItem(K.journal); } catch (_e) {} return ok; }
     return ecrireAvecLiberation(stockage, [[K.journal, JSON.stringify({ ecritA, edl: attente })]]);
   }
@@ -399,6 +407,27 @@ export function creerMiroir({ idb, stockage, cles = {}, horloge = () => Date.now
       const horodater = !(opts && opts.horodater === false);
       const ecritA = horloge();
       if (horodater) travailSession = ecritA;
+      if (backend !== 'indexeddb' && protege && idbIncertain) {
+        // Repli + mode protégé + IndexedDB au contenu INCONNU (contre-audit, point 🟡) : la base
+        // complète n'a pas à être recopiée en local — elle est au cloud (session en ligne), et la copie
+        // de l'appareil est dans IndexedDB, intouchée. Seuls comptent l'horodatage et les EDL, qui
+        // partent au journal synchrone. Sans cela, un grand compte (base de plusieurs Mo) déclencherait
+        // « Mémoire pleine » à chaque enregistrement de la session.
+        dernier = db;
+        if (!horodater) {
+          // Rebase / restauration : c'est l'état du CLOUD, pas du travail local. Il devient la référence
+          // des « engagés » : le journal ne portera ensuite QUE les EDL modifiés dans la session — jamais
+          // une version hydratée qui écraserait, par la superposition du journal, un EDL fait hors ligne
+          // resté dans l'IndexedDB illisible. Le journal existant est CONSERVÉ tel quel (mode protégé).
+          engages = carteEdl(db);
+          return true;
+        }
+        const rh = ecrireAvecLiberation(stockage, [[K.ecritA, String(ecritA)]]);
+        const rj = ecrireJournal(db, ecritA);
+        if (!rh.ok) throw rh.erreur;
+        if (!rj.ok) throw rj.erreur;
+        return true;
+      }
       if (backend !== 'indexeddb') return ecrireLocal(db, ecritA, horodater);
       dernier = db;
       const r1 = horodater ? ecrireAvecLiberation(stockage, [[K.ecritA, String(ecritA)]]) : ok;

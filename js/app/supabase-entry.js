@@ -1054,13 +1054,23 @@ function _refusDeconnexionLocale({ api, forcer }) {
  */
 async function _remonterTravailHorsLigne({ api, db, setSync, tagMiroir, espacesAutorises }) {
   const rien = { db, dbServeur: null, ajoutes: 0, majs: 0, envoiOk: true }
+  // Le miroir est résolu HORS du `try` : le `catch` en a besoin (contre-audit C1).
+  const _M = (typeof _miroirLocal !== 'undefined' && _miroirLocal) ? _miroirLocal.miroir() : null
   try {
     if (!_offlineBoot) return rien
     // STOCKAGE lot 4 : un repli décidé au démarrage sur un IndexedDB MUET est RETENTÉ avant toute
     // lecture (audit R1) ; l'heure du dernier travail est le MAX entre `_ecrit_at` et `travailA`
     // (enregistrement IndexedDB) — Chromium peut perdre les écritures localStorage récentes (O4).
-    const _M = (typeof _miroirLocal !== 'undefined' && _miroirLocal) ? _miroirLocal.miroir() : null
     if (_M && _M.pret()) await _M.retenterSiIncertain()
+    // Contre-audit C2 : IndexedDB TOUJOURS illisible après la nouvelle tentative → son contenu est
+    // INCONNU, donc `travailA` aussi (navigateur tué + IndexedDB muet : `_ecrit_at` perdu, travailA
+    // illisible). Un contenu inconnu est traité comme du travail POSSIBLE : mode protégé AVANT toute
+    // sortie anticipée (le rebase fusionnera, `_flush_at` reste figé, la déconnexion est refusée).
+    if (_M && _M.pret() && _M.incertain()) {
+      _M.proteger()
+      console.warn('[Supabase] F1 — copie de l’appareil illisible : protégée jusqu’au prochain démarrage')
+      try { window.__immoCrumb && window.__immoCrumb('f1-miroir-incertain') } catch (e) {}
+    }
     const ecritA = Math.max(parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0, (_M && _M.travailA()) || 0)
     const flushA = parseInt(localStorage.getItem(_offlineBoot.FLUSH_OK_KEY) || '0', 10) || 0
     // ⚠️ `tagMiroir` est le verdict d'AVANT le login : `onLoggedIn` réécrit le tag
@@ -1124,6 +1134,11 @@ async function _remonterTravailHorsLigne({ api, db, setSync, tagMiroir, espacesA
     return { db: vivant, dbServeur, ajoutes: f.ajoutes.length, majs: f.majs.length, envoiOk: !badF1 }
   } catch (e) {
     console.warn('[Supabase] F1 remontée hors ligne', e)
+    // Contre-audit C1 : l'envoi (ou la lecture) de F1 a LEVÉ — p. ex. `sealSignedBaux`, non isolé par
+    // enregistrement. On rend la base du cloud, mais le miroir peut porter un EDL jamais remonté :
+    // mode PROTÉGÉ, sinon le rebase qui suit l'écraserait et `_flush_at` avancerait au premier flush.
+    try { if (_M) _M.proteger() } catch (_e) {}
+    try { window.__immoCrumb && window.__immoCrumb('f1-exception') } catch (_e) {}
     return rien
   }
 }

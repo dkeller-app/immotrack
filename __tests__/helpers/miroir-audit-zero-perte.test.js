@@ -69,12 +69,28 @@ describe('R1 — un IndexedDB illisible n’est JAMAIS « absent », et le trans
     m2.ecrire(base([]), { horodater: false });                              // rebase du login (repli : clé locale)
     m2.ecrire(base([edl(1, '2026-09-30T11:00:00.000Z')]));                  // une saisie ordinaire
     expect(m2.protege()).toBe(true);
-    // Démarrage 3 : IndexedDB OK → la clé locale (plus récente) est FUSIONNÉE, jamais écrasante.
+    // Repli + protégé + IndexedDB inconnu (contre-audit 🟡) : la base complète n'est PAS recopiée en
+    // local ; la saisie de la session est au journal, la base IndexedDB n'est pas touchée.
+    expect(st.getItem('immotrack_v4')).toBeNull();
+    expect(edlDuDisque(disque)).toEqual([42]);
+    // Démarrage 3 : IndexedDB OK → base IndexedDB (EDL 42) + journal (EDL 1) : rien n'est perdu.
     const m3 = creerMiroir({ idb: fauxIdb(disque), stockage: st, horloge });
     const r = await m3.initialiser();
-    expect(r.transfert).toBe('fusion');
+    expect(r.backend).toBe('indexeddb');
+    expect((await m3.lire()).edl.map(e => e.id).sort()).toEqual([1, 42]);
+    expect(Math.max(+st.getItem('immotrack_v4_ecrit_at'), m3.travailA())).toBeGreaterThan(100);   // F1 poussera
+  });
+  it('P1 ter — repli NON protégé (F1 n’a rien trouvé à protéger) : la clé locale complète reste écrite, et le transfert FUSIONNE ensuite', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_flush_at: '100', immotrack_v4_tag: TAG } });
+    const disque = { enr: { v: 2, ecritA: 50, tag: TAG, json: JSON.stringify(base([edl(42, '2026-09-30T10:00:00.000Z')])) } };
+    const idb2 = fauxIdb(disque); idb2.r.lireEchoue = true;
+    const m2 = creerMiroir({ idb: idb2, stockage: st, horloge, signaler: () => {} });
+    await m2.initialiser();
+    m2.ecrire(base([edl(1, '2026-09-30T11:00:00.000Z')]));                  // repli simple : miroir complet local
+    expect(JSON.parse(st.getItem('immotrack_v4')).edl.map(e => e.id)).toEqual([1]);
+    const m3 = creerMiroir({ idb: fauxIdb(disque), stockage: st, horloge });
+    expect((await m3.initialiser()).transfert).toBe('fusion');
     expect(edlDuDisque(disque).sort()).toEqual([1, 42]);
-    expect(m3.travailA()).toBeGreaterThan(100);                             // F1 poussera
   });
 
   it('P7 — une lecture IndexedDB en échec au moment de F1 (sans repli) : « illisible », jamais « absente »', async () => {
@@ -262,6 +278,53 @@ describe('P3 — oublier() pendant une écriture en vol, rebase immédiat', () =
     expect(st.getItem(JOURNAL_EDL_KEY)).toBeNull();
     libererEffacement(); await p;
     expect(disque.enr).toBeNull();
+  });
+
+  it('X3 — une écriture PLANIFIÉE avant oublier() n’est jamais exécutée : après l’effacement, seule l’écriture du nouvel utilisateur', async () => {
+    const st = fauxStockageQuota();
+    const disque = { enr: null };
+    const idb = fauxIdb(disque);
+    const ops = [];
+    const ecrireVrai = idb.ecrire.bind(idb), effacerVrai = idb.effacer.bind(idb);
+    idb.ecrire = (e) => { ops.push('ecrire:' + JSON.parse(e.json).edl.map(x => x.id).join(',')); return ecrireVrai(e); };
+    idb.effacer = () => { ops.push('effacer'); return effacerVrai(); };
+    const m = creerMiroir({ idb, stockage: st, horloge });
+    await m.initialiser();
+    idb.r.suspendre = true;
+    m.ecrire(base([edl(1, '2026-01-01T00:00:00Z')])); await tick();      // en vol
+    m.ecrire(base([edl(1, '2026-01-02T00:00:00Z')]));                     // PLANIFIÉE (pas encore lancée)
+    const p = m.oublier();
+    m.ecrire(base([edl(2, '2026-01-03T00:00:00Z')]), { horodater: false }); // rebase du nouvel utilisateur
+    idb.r.suspendre = false; idb.r.suspendues.shift()();
+    await p; await m.attendre();
+    expect(ops).toEqual(['ecrire:1', 'effacer', 'ecrire:2']);
+  });
+
+  it('X11 — le tag local change en cours de session : la base IndexedDB de l’ancien tag n’est plus servie', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_tag: TAG } });
+    const disque = { enr: { v: 2, ecritA: 1, tag: TAG, json: JSON.stringify(base([edl(1, 'x')])) } };
+    const m = creerMiroir({ idb: fauxIdb(disque), stockage: st, horloge });
+    await m.initialiser();
+    expect((await m.lireEtat()).etat).toBe('base');
+    st.setItem('immotrack_v4_tag', JSON.stringify({ userId: 'B', espaceId: 'eb' }));
+    expect(await m.lireEtat()).toEqual({ etat: 'absente', db: null });
+  });
+
+  it('point 🟡 — repli + mode protégé + IndexedDB inconnu : un grand compte n’écrit QUE l’horodatage et les EDL (pas de « Mémoire pleine »)', async () => {
+    const st = fauxStockageQuota({ quota: 5_242_880, initial: { immotrack_v4_tag: TAG, immotrack_v4_flush_at: '1' } });
+    const idb = fauxIdb({ enr: null }); idb.r.lireEchoue = true; idb.existe = async () => null;   // base présente mais MUETTE
+    const m = creerMiroir({ idb, stockage: st, horloge, delaiMs: 20, signaler: () => {} });
+    await m.initialiser();
+    expect(m.backend()).toBe('localStorage');
+    expect(m.incertain()).toBe(true);
+    m.proteger();
+    const grand = Object.assign(base([edl(1, '2026-09-30T10:00:00Z'), edl(2, '2026-09-30T10:00:00Z')]), { mouvements: chaine(3_000_000) });
+    m.ecrire(grand, { horodater: false });                                  // rebase (base du cloud, 3 M caractères)
+    grand.edl = [edl(1, '2026-09-30T11:00:00Z', { note: 'visite' }), grand.edl[1]];   // seul l'EDL 1 change
+    for (let i = 0; i < 3; i++) expect(m.ecrire(grand)).toBe(true);         // saisies de la session : aucune n'échoue
+    expect(st.getItem('immotrack_v4')).toBeNull();
+    expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl.map(e => e.note)).toEqual(['visite']);
+    expect(st.usage()).toBeLessThan(10_000);
   });
 
   it('effacement IndexedDB MUET : oublier() est borné (le login ne se fige pas)', async () => {
