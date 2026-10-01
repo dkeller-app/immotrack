@@ -64292,7 +64292,7 @@ function _pwaFermer(refus) {
 window.addEventListener('load', () => setTimeout(_pwaInviter, 6000));
 
 // PWA
-if('serviceWorker' in navigator && location.hostname.includes('github.io')){
+if('serviceWorker' in navigator && (location.hostname.includes('github.io') || location.hostname === 'app.propryo.fr')){
   window.addEventListener('load', () => {
     // Mémorise s'il y avait déjà un SW actif (= mise à jour, pas première install)
     const hadController = !!navigator.serviceWorker.controller;
