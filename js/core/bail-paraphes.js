@@ -6,24 +6,38 @@
 // local, la ligne cloud `baux.signatures` et les instantanés, cela faisait ≈ 0,5 M caractères par
 // bail à 2 signataires, dont 80 % de recopie (constat mockups/STOCKAGE/BAUX-POIDS.md).
 //
-// FORME STOCKÉE (nouveaux baux) :
+// QUAND COMPACTER (audit 01/10, 🔴 prouvé) : UNIQUEMENT quand le bail devient COMPLET (plus aucun
+// signataire, présent ou distant, en attente). Tant qu'il est PARTIEL, `paraphes` est écrit en entier,
+// comme avant. Raison : en cloud, un onglet ouvert avant un déploiement n'est jamais rechargé ; s'il
+// reprend un bail partiel compacté (ex. le locataire signe après le bailleur), l'ancien code relit
+// `paraphes` (vide), réécrit `signatures` sans `parapheImg`, et le paraphe du 1er signataire est
+// PERDU pour toujours, PDF final archivé compris. Un bail complet, lui, n'est plus réécrit par la
+// signature (seule la réinitialisation l'efface).
+//
+// FORME STOCKÉE d'un bail COMPLET (signatures.format = 2) :
 //   signatures.parapheImg   = { sigId → dataURL }            une image par signataire
 //   signatures.parapheTimes = { page → { sigId → ISO } }     existait déjà : pages paraphées + heure
 //   signatures.paraphes     = { page → { sigId → dataURL } } ne garde que les signataires dont les
 //                              paraphes NE SE RÉDUISENT PAS à une image unique (ancien bail repris,
-//                              page sans heure) ; {} dans le cas normal. Toujours présent : une
-//                              version antérieure de l'app (≤ v15.708, cache non rafraîchi) qui
-//                              le lit ne plante pas ; elle régénère seulement un PDF SANS paraphes
-//                              (vérifié). Le PDF archivé à la signature reste la pièce de référence.
-// FORME ANCIENNE (baux signés avant v15.709, VERROUILLÉS, jamais réécrits) : `paraphes` seul,
-// parfois avec des images différentes par page (avant v15.697). Elle se lit telle quelle.
+//                              page sans heure, page vide) ; {} dans le cas normal.
+// RISQUE RÉSIDUEL (assumé, cf. rapport) : un onglet resté en v15.708 ou avant qui ouvre un bail COMPLET
+// compacté lit `paraphes` vide. Il ne plante pas, mais « PDF » y produit un PDF SANS AUCUNE page de
+// paraphe ; si ce bail n'a pas de certificat archivé (certRef), ce PDF peut remplacer le PDF archivé
+// (cloudPdfKey). À partir de v15.709, le contrôle de version (js/core/version-app.js) bloque signature
+// et « PDF » dans un onglet périmé, et `format` fait refuser une forme future inconnue.
+// FORME ANCIENNE (baux signés avant v15.709, et tout bail partiel) : `paraphes` seul, parfois avec
+// des images différentes par page (avant v15.697). Elle se lit telle quelle et n'est jamais réécrite
+// sur un bail verrouillé.
 //
 // Les images n'entrent pas dans l'empreinte légale (bail-content-hash.js : liste blanche).
 //
 // ⚠️ Ces fonctions sont sérialisées par toString() dans la popup de signature (document
-// about:blank, cf. previewBailData) : AUCUNE variable libre hors d'elles-mêmes, sauf `parapheDe`
-// appelée par `parapheCarte` (injectée sous ce nom). __tests__/helpers/popup-signature-bundle.test.js
-// rejoue l'injection.
+// about:blank, cf. previewBailData). Variables libres autorisées, injectées SOUS CE NOM :
+// `parapheDe` (dans parapheCarte), `compacterParaphes`, `parapheCarte`, `FORMAT_SIGNATURES`.
+// __tests__/helpers/popup-signature-reel.test.js extrait et exécute le VRAI bundle d'index.html.
+
+/** Version de la forme de `signatures` que ce code sait lire et écrire. */
+export const FORMAT_SIGNATURES = 2;
 
 /**
  * Lecteur UNIQUE : image du paraphe du signataire `sigId` sur la page `page`, ou null.
@@ -109,4 +123,61 @@ export function compacterParaphes(carte, heures) {
     }
   }
   return { paraphes: paraphes, parapheImg: parapheImg };
+}
+
+/**
+ * Le code courant sait-il lire cette forme ? Une forme FUTURE (format > FORMAT_SIGNATURES) est
+ * refusée : la relire ou la réécrire avec ce code risquerait de perdre ce qu'il ne connaît pas.
+ */
+export function formatSignaturesConnu(sig) {
+  var f = sig && sig.format != null ? Number(sig.format) : 0;
+  return !(f > FORMAT_SIGNATURES);
+}
+
+/**
+ * Le bail est-il COMPLET après cet enregistrement ? `sigs` = signataires du document dans l'ordre
+ * (_SIGS : bailleurs puis 'loc-i'), `bailleurModes[i]` ∈ 'pres'|'dist'|'no' pour le i-ème bailleur
+ * (défaut 'pres'), `finales` = { sigId → signature finale enregistrée }. Un signataire exclu ('no')
+ * n'est pas attendu ; un distant l'est (il n'a pas de signature finale ici tant qu'il n'a pas signé).
+ */
+export function signaturesCompletes(sigs, bailleurModes, finales) {
+  var f = finales || {}, bi = 0, attendus = 0;
+  var liste = Array.isArray(sigs) ? sigs : [];
+  for (var i = 0; i < liste.length; i++) {
+    var id = liste[i] && liste[i].id;
+    if (!id) continue;
+    var mode = 'pres';
+    if (!/^loc-/.test(id)) { mode = (bailleurModes && bailleurModes[bi]) || 'pres'; bi++; }
+    if (mode === 'no') continue;
+    attendus++;
+    if (!f[id]) return false;
+  }
+  return attendus > 0;
+}
+
+/**
+ * Ce que l'enregistrement de la popup écrit pour les paraphes : bail PARTIEL → la carte entière
+ * (ancienne forme, lisible par toute version) ; bail COMPLET → forme compacte.
+ */
+export function ecrireParaphes(carte, heures, complet) {
+  if (complet) return compacterParaphes(carte, heures);
+  var c = carte || {}, out = {}, k, id;
+  for (k in c) {
+    if (!Object.prototype.hasOwnProperty.call(c, k) || !c[k] || typeof c[k] !== 'object') continue;
+    out[String(k)] = {};
+    for (id in c[k]) if (Object.prototype.hasOwnProperty.call(c[k], id) && c[k][id]) out[String(k)][id] = c[k][id];
+  }
+  return { paraphes: out };
+}
+
+/**
+ * Retour du relais (parcours mixte présents + distants) : le bail devient complet → champs à
+ * fusionner dans `signatures` pour le compacter. null si la forme est inconnue (on n'y touche pas).
+ */
+export function compacterSignatures(sig) {
+  var s = sig || {};
+  if (!formatSignaturesConnu(s)) return null;
+  if (!s.paraphes && !s.parapheImg) return { format: FORMAT_SIGNATURES };
+  var c = compacterParaphes(parapheCarte(s), s.parapheTimes);
+  return { paraphes: c.paraphes, parapheImg: c.parapheImg, format: FORMAT_SIGNATURES };
 }

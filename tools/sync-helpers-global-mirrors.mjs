@@ -59,6 +59,17 @@ const PAIRS = [
     ]
   },
   {
+    // PARAPHE-UNIQUE (audit 01/10) — contrôle « onglet périmé » avant de signer / régénérer un PDF signé.
+    name: 'version-app',
+    src: 'js/core/version-app.js',
+    dst: 'js/helpers/version-app.global.js',
+    globalName: 'VersionApp',
+    exports: '*',
+    sanity: [
+      { name: 'function declarations', pattern: /[sS]*/, marker: /^s*(?:exports+)?functions+w+/gm }
+    ]
+  },
+  {
     // Chantier ANNONCES (D7) — fourchette + années des prix lues dans le texte d'un DPE.
     name: 'dpe-texte',
     src: '__tests__/helpers/dpe-texte.js',

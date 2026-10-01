@@ -3,7 +3,7 @@
 // baux déjà signés à l'ancienne forme (paraphes[page][sigId]), qui sont verrouillés et ne sont
 // jamais réécrits.
 import { describe, it, expect } from 'vitest';
-import { parapheDe, parapheCarte, compacterParaphes } from '../../js/core/bail-paraphes.js';
+import { parapheDe, parapheCarte, compacterParaphes, FORMAT_SIGNATURES, formatSignaturesConnu, signaturesCompletes, ecrireParaphes, compacterSignatures } from '../../js/core/bail-paraphes.js';
 
 const B = 'data:image/png;base64,BAILLEUR';
 const L = 'data:image/png;base64,LOCATAIRE';
@@ -122,6 +122,15 @@ describe('compacterParaphes — écriture : une image par signataire', () => {
     expect(parapheCarte(json({ ...out, parapheTimes: heures }))).toEqual(json(carte));
   });
 
+  it('images DIFFÉRENTES par page AVEC une heure sur chacune de ces pages : restent explicites (mutation M2)', () => {
+    const carte = { 1: { 'bailleur-0': B }, 2: { 'bailleur-0': L2 }, 3: { 'bailleur-0': B } };
+    const heures = { 1: { 'bailleur-0': t(1) }, 2: { 'bailleur-0': t(2) }, 3: { 'bailleur-0': t(3) } };
+    const out = compacterParaphes(carte, heures);
+    expect(out.parapheImg).toEqual({});
+    expect(out.paraphes).toEqual(carte);
+    expect(parapheDe(json({ ...out, parapheTimes: heures }), 2, 'bailleur-0')).toBe(L2);
+  });
+
   it('image unique mais une page sans heure (bail d’avant les heures de paraphe) : conservé page par page', () => {
     const carte = { 1: { 'bailleur-0': B }, 2: { 'bailleur-0': B } };
     const out = compacterParaphes(carte, { 1: { 'bailleur-0': t(1) } });
@@ -166,5 +175,73 @@ describe('compacterParaphes — écriture : une image par signataire', () => {
     const avant = JSON.stringify([carte, heures]);
     compacterParaphes(carte, heures);
     expect(JSON.stringify([carte, heures])).toBe(avant);
+  });
+});
+
+describe('signaturesCompletes — le bail est-il complet après cet enregistrement ?', () => {
+  const SIGS = [{ id: 'bailleur-0' }, { id: 'bailleur-1' }, { id: 'loc-0' }, { id: 'loc-1' }];
+  const tous = { 'bailleur-0': B, 'bailleur-1': B, 'loc-0': L, 'loc-1': L2 };
+  it('tous les signataires attendus ont signé → complet', () => {
+    expect(signaturesCompletes(SIGS, ['pres', 'pres'], tous)).toBe(true);
+  });
+  it('un locataire n’a pas encore signé (présent suivant ou distant) → partiel', () => {
+    const { ['loc-1']: _x, ...sansLoc1 } = tous;
+    expect(signaturesCompletes(SIGS, ['pres', 'pres'], sansLoc1)).toBe(false);
+  });
+  it('co-gérant à distance pas encore signé → partiel ; co-gérant exclu (no) → non attendu', () => {
+    const { ['bailleur-1']: _x, ...sansB1 } = tous;
+    expect(signaturesCompletes(SIGS, ['pres', 'dist'], sansB1)).toBe(false);
+    expect(signaturesCompletes(SIGS, ['pres', 'no'], sansB1)).toBe(true);
+  });
+  it('bailleur seul signé (locataire plus tard) → partiel ; rien d’attendu → jamais complet', () => {
+    expect(signaturesCompletes(SIGS.slice(0, 1).concat({ id: 'loc-0' }), ['pres'], { 'bailleur-0': B })).toBe(false);
+    expect(signaturesCompletes([], [], {})).toBe(false);
+    expect(signaturesCompletes([{ id: 'bailleur-0' }], ['no'], {})).toBe(false);
+  });
+});
+
+describe('ecrireParaphes — branche PARTIEL / branche COMPLET', () => {
+  const { carte, heures } = carteEtHeures([['bailleur-0', B]]);
+  it('PARTIEL : la carte entière, ancienne forme, sans parapheImg (lisible par une version antérieure)', () => {
+    const out = ecrireParaphes(carte, heures, false);
+    expect(out).toEqual({ paraphes: json(carte) });
+    expect('parapheImg' in out).toBe(false);
+    // L'ancienne relecture (paraphes seul) retrouve chaque paraphe du 1er signataire.
+    for (let p = 1; p <= 9; p++) expect(out.paraphes[p]['bailleur-0']).toBe(B);
+  });
+  it('PARTIEL : une page vide (ancien bail repris) est conservée', () => {
+    expect(ecrireParaphes({ 1: { 'bailleur-0': B }, 2: {} }, {}, false).paraphes).toEqual({ 1: { 'bailleur-0': B }, 2: {} });
+  });
+  it('COMPLET : forme compacte', () => {
+    expect(ecrireParaphes(carte, heures, true)).toEqual({ paraphes: {}, parapheImg: { 'bailleur-0': B } });
+  });
+  it('n’altère pas la carte reçue', () => {
+    const avant = JSON.stringify(carte); ecrireParaphes(carte, heures, false); expect(JSON.stringify(carte)).toBe(avant);
+  });
+});
+
+describe('compacterSignatures — branche RETOUR DU RELAIS (parcours mixte)', () => {
+  it('bail mixte (présents en ancienne forme) → compacté, format 2, relecture identique', () => {
+    const { carte, heures } = carteEtHeures([['bailleur-0', B]]);
+    const sig = json({ paraphes: carte, parapheTimes: heures, finales: { 'bailleur-0': B } });
+    const patch = compacterSignatures(sig);
+    expect(patch).toEqual({ paraphes: {}, parapheImg: { 'bailleur-0': B }, format: FORMAT_SIGNATURES });
+    expect(parapheCarte({ ...sig, ...patch })).toEqual(json(carte));
+  });
+  it('100 % distant (aucun paraphe stocké) → seulement le format', () => {
+    expect(compacterSignatures({ finales: {} })).toEqual({ format: FORMAT_SIGNATURES });
+  });
+  it('forme FUTURE inconnue → null (on n’y touche pas)', () => {
+    expect(compacterSignatures({ format: FORMAT_SIGNATURES + 1, paraphes: { 1: { 'loc-0': L } } })).toBeNull();
+  });
+});
+
+describe('formatSignaturesConnu', () => {
+  it('absent, 2 ou inférieur → connu ; supérieur → refusé', () => {
+    expect(formatSignaturesConnu(undefined)).toBe(true);
+    expect(formatSignaturesConnu({})).toBe(true);
+    expect(formatSignaturesConnu({ format: 2 })).toBe(true);
+    expect(formatSignaturesConnu({ format: 3 })).toBe(false);
+    expect(formatSignaturesConnu({ format: '3' })).toBe(false);
   });
 });
