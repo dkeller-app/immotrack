@@ -9,3 +9,7 @@ css/main.css  text eol=crlf
 # Polices vendorisées : jamais de conversion de fin de ligne sur du binaire.
 *.woff2 binary
 *.woff  binary
+
+# Perf étape 2 — les 3 blocs de code applicatif sortis d'index.html gardent ses fins de ligne CRLF :
+# les tests lisent index.html « assemblé » (parts réinjectées) et découpent sur \r\n.
+js/app/app-part*.js text eol=crlf

@@ -18,5 +18,10 @@ while ((m = re.exec(stripped)) !== null) {
   try { new Function(code); ok++; }
   catch(e) { console.error('FAIL :', e.message); errors++; }
 }
+// Perf étape 2 — le code applicatif d'index.html vit dans js/app/app-part*.js : même contrôle de syntaxe.
+for (const n of fs.readdirSync('js/app').filter(f => /^app-part\d+\.js$/.test(f))) {
+  try { new Function(fs.readFileSync('js/app/' + n, 'utf8')); ok++; }
+  catch (e) { console.error('FAIL ' + n + ' :', e.message); errors++; }
+}
 console.log('Inline JS blocks valid :', ok, '| errors :', errors);
 process.exit(errors > 0 ? 1 : 0);
