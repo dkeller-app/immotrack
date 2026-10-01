@@ -133,9 +133,17 @@ describe('_applyDataDefaults — espace VIDE (blob = params seuls, cas Marion)',
     expect(db.piecesEDL).not.toBe(DEFAULT_PIECES);
   });
 
-  it('crée catConfig avec Loyers.inclYTD + annotations recuperable/deductible2044', () => {
+  it('crée catConfig VIDE : plus aucune réinjection de catConfig[« Loyers »] (NORMALISATION-LOYERS)', () => {
     const db = applyDataDefaults(freshCloudDB());
-    expect(db.catConfig['Loyers']).toEqual({ inclYTD: true, recuperable: null, deductible2044: null });
+    expect(db.catConfig).toEqual({});
+    expect('Loyers' in db.catConfig).toBe(false);
+  });
+
+  it('NORMALISATION-LOYERS : un catConfig nettoyé ne voit pas revenir « Loyers » au chargement suivant', () => {
+    const db = applyDataDefaults({ catConfig: { 'Perso': { inclYTD: true } } });
+    const encore = applyDataDefaults(db);   // 2e chargement (re-pull cloud, rechargement)
+    expect(Object.keys(encore.catConfig)).toEqual(['Perso']);
+    expect(indexHtml.includes("DB.catConfig['Loyers'] = {inclYTD:true}")).toBe(false);
   });
 
   it('crée les collections annexes : assurances, irlHistorique, agenda(+LastSync), equipements, dashLayout', () => {

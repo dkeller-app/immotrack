@@ -102,7 +102,9 @@ describe('R0-D — le PONT app→module (catCtxFromDb) est fidèle à l\'ancien 
 
   it('sans DB ni référentiel, le pont ne jette pas', () => {
     expect(() => catCtxFromDb(null, null)).not.toThrow();
-    expect(_isLoyerCategory('Loyers', catCtxFromDb(null, null))).toBe(true);
+    expect(_isLoyerCategory('Loyers encaissés', catCtxFromDb(null, null))).toBe(true);
+    // NORMALISATION-LOYERS : la catégorie héritée n'est plus tolérée, même sans contexte.
+    expect(_isLoyerCategory('Loyers', catCtxFromDb(null, null))).toBe(false);
   });
 
   it('une catégorie STD garde sa nature même si un alias prétend la remapper', () => {
@@ -198,8 +200,9 @@ describe('R0-D — compatibilité ascendante de la signature', () => {
     expect(_isChargeRecupCategory('Charges de copropriété', STD)).toBe(true);
   });
 
-  it('sans 2e argument, les libellés legacy restent reconnus', () => {
-    expect(_isLoyerCategory('Loyers')).toBe(true);
+  it('sans 2e argument : « Loyers » hérité refusé (normalisé en amont), « Charges » encore toléré (hors décision)', () => {
+    expect(_isLoyerCategory('Loyers')).toBe(false);
+    expect(_isLoyerCategory('Loyers encaissés')).toBe(true);
     expect(_isChargeRecupCategory('Charges')).toBe(true);
   });
 });

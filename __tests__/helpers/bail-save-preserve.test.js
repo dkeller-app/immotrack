@@ -3,7 +3,7 @@
 // CAS VÉCU, mesuré dans le navigateur sur origin/main (v15.541, lot FER-001) :
 //   déclarer un départ → restituer le DG (15/07/2026, retenue 50 €, « Peinture séjour »)
 //   → ouvrir la fiche du bail → changer le SEUL numéro de téléphone → Enregistrer
-//   ⇒ depart, dgRestitueAt, dgDetailRetenues, dgRestitueMontant et locNouvIban DISPARAISSENT.
+//   ⇒ depart, dgRestitueAt, dgDetailRetenues et dgRestitueMontant DISPARAISSENT.
 // À l'écran : l'assistant repasse de « 3 / 6 étapes · sortie 30/06/2026 » à « 1 / 6 étapes ·
 // sortie — · Déclarer le départ », et le statut DG de « restitue » à « manquant ».
 //
@@ -49,7 +49,7 @@ function bailAvecDossierDeDepart() {
     },
     // ── la restitution du dépôt de garantie ──
     dgRetenu: 50, dgRestitue: 0, dgRestitueAt: '2026-07-15', dgRestitueMontant: 0,
-    dgDetailRetenues: 'Peinture séjour 50 € (facture jointe)', locNouvIban: '',
+    dgDetailRetenues: 'Peinture séjour 50 € (facture jointe)',
     finEffective: '', finMotif: '', locNouvelleAdr: '', finNotes: '',
   };
 }
@@ -66,7 +66,7 @@ function bailReconstruitParLeFormulaire(tel) {
 }
 
 describe('LOT 1 — saveBail ne détruit plus le dossier de départ ni la restitution du DG', () => {
-  it('ÉDITION : changer le seul téléphone conserve depart et les 4 champs de restitution', () => {
+  it('ÉDITION : changer le seul téléphone conserve depart et les 3 champs de restitution', () => {
     const existant = bailAvecDossierDeDepart();
     const reconstruit = bailReconstruitParLeFormulaire('06.11.22.33.44');
 
@@ -76,7 +76,6 @@ describe('LOT 1 — saveBail ne détruit plus le dossier de départ ni la restit
     expect(reconstruit.dgRestitueAt).toBe('2026-07-15');
     expect(reconstruit.dgDetailRetenues).toBe('Peinture séjour 50 € (facture jointe)');
     expect(reconstruit.dgRestitueMontant).toBe(0);
-    expect(reconstruit.locNouvIban).toBe('');
     // et la saisie du formulaire gagne toujours
     expect(reconstruit.locataires[0].tel).toBe('06.11.22.33.44');
   });

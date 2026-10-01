@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 
 function isLoyerCategory(cat) {
   if (!cat) return false;
-  if (cat === 'Loyers') return true;
+  // NORMALISATION-LOYERS (01/10) : plus de tolérance de « Loyers » hérité (comme js/core/utils.js).
   return cat === 'Loyers encaissés';
 }
 
@@ -130,25 +130,25 @@ describe('_pilSoldeLocataire — cumul impayé', () => {
 
   it('À jour : 3 loyers attendus, 3 encaissés → solde 0', () => {
     const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers', cr:650 },
+      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
       { date:'2026-02-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-      { date:'2026-03-05', qui:'F-001', cat:'Loyers', cr:650 },
+      { date:'2026-03-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
     ];
     expect(pilSoldeLocataire(bail, log, mvts, '2026-03-15')).toBe(0);
   });
 
   it('Impayé partiel : 3 attendus, 2 encaissés → solde +650', () => {
     const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers', cr:650 },
-      { date:'2026-02-05', qui:'F-001', cat:'Loyers', cr:650 },
+      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
+      { date:'2026-02-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
     ];
     expect(pilSoldeLocataire(bail, log, mvts, '2026-03-15')).toBe(650);
   });
 
   it('Trop perçu : 1 attendu, 2 encaissés → solde -650', () => {
     const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers', cr:650 },
-      { date:'2026-01-15', qui:'F-001', cat:'Loyers', cr:650 },
+      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
+      { date:'2026-01-15', qui:'F-001', cat:'Loyers encaissés', cr:650 },
     ];
     expect(pilSoldeLocataire(bail, log, mvts, '2026-01-31')).toBe(-650);
   });
@@ -156,15 +156,15 @@ describe('_pilSoldeLocataire — cumul impayé', () => {
   it('Ne compte que les Loyers (pas les Travaux ou Assurances)', () => {
     const mvts = [
       { date:'2026-01-05', qui:'F-001', cat:'Travaux', cr:300 },
-      { date:'2026-01-15', qui:'F-001', cat:'Loyers', cr:650 },
+      { date:'2026-01-15', qui:'F-001', cat:'Loyers encaissés', cr:650 },
     ];
     expect(pilSoldeLocataire(bail, log, mvts, '2026-01-31')).toBe(0);
   });
 
   it('Ignore les mouvements _deleted', () => {
     const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers', cr:650 },
-      { date:'2026-02-05', qui:'F-001', cat:'Loyers', cr:650, _deleted:true },
+      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
+      { date:'2026-02-05', qui:'F-001', cat:'Loyers encaissés', cr:650, _deleted:true },
     ];
     expect(pilSoldeLocataire(bail, log, mvts, '2026-02-15')).toBe(650);
   });
@@ -181,8 +181,8 @@ describe('_pilSoldeLocataire — cumul impayé', () => {
     const finished = { debut:'2026-01-01', fin:'2026-02-28', hc:600, ch:50, ref:'F-001' };
     // 2 mois attendus à 650 = 1300, on encaisse 1300 → solde 0
     const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers', cr:650 },
-      { date:'2026-02-05', qui:'F-001', cat:'Loyers', cr:650 },
+      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
+      { date:'2026-02-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
     ];
     expect(pilSoldeLocataire(finished, log, mvts, '2026-12-31')).toBe(0);
   });
