@@ -299,3 +299,17 @@ describe('storedZip', () => {
     expect(count).toBe(3)
   })
 })
+
+describe('AVENANT-REFONTE lot 3b — PDF signé des avenants sauvegardé', () => {
+  it('avenant signé sur l\'appareil (pdfKey) inclus ; brouillon, supprimé, modification ignorés', () => {
+    const db = { baux_evenements: [
+      { id: 'a1', type: 'avenant', ref: 'L1', no: 2, statut: 'signe', pdfKey: 'esp/seg/files/ap_L1', statutLe: '2026-09-29T10:00:00Z' },
+      { id: 'a2', type: 'avenant', ref: 'L1', no: 3, statut: 'brouillon' },
+      { id: 'a3', type: 'avenant', ref: 'L1', no: 4, pdfKey: 'x', _deleted: true },
+      { id: 'm1', type: 'modification', ref: 'L1', pdfKey: 'y' },
+    ] }
+    const f = collectBackupFiles(db, null)
+    expect(f.map(x => x.key)).toEqual(['esp/seg/files/ap_L1'])
+    expect(f[0].name).toMatch(/avenant-2-L1\.pdf$/)
+  })
+})

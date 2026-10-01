@@ -109,8 +109,11 @@
   .pro-doc .pro-signzone{padding-top:3mm;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6mm}
   .pro-doc .pro-signzone.duo{justify-content:space-between}
   .pro-doc .pro-sigcase{page-break-inside:avoid}
-  .pro-doc .pro-sigspace{width:56mm;height:10mm;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+  .pro-doc .pro-sigspace{width:56mm;min-height:10mm;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;overflow:hidden}
   .pro-doc .pro-sigspace img{max-height:10mm;max-width:56mm;display:block}
+  .pro-doc .pro-sigmention{display:block;font-size:9pt;font-style:italic;color:${T.ENCRE};line-height:1.3;text-align:center;margin:0 0 .6mm}
+  .pro-doc .pro-sigmention.pro-sigconsigne{font-size:8pt;color:${T.GRIS_MENTION};margin-bottom:auto}
+  .pro-doc .pro-sigspace:has(.pro-sigconsigne){min-height:24mm}
   .pro-doc .pro-signbox{width:56mm;border-top:.3mm solid #b8c0cd;padding-top:1.4mm;text-align:center;font-size:8.5pt;line-height:1.35;color:${T.GRIS}}
   .pro-doc .pro-pied{margin-top:4mm;padding-top:1.8mm;border-top:.2mm solid ${T.FILET};display:flex;justify-content:space-between;gap:6mm;font-size:7.5pt;color:${T.GRIS_PIED}}
   .pro-doc .pro-pied .ref{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;letter-spacing:.06em}

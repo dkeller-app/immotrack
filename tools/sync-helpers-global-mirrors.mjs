@@ -237,7 +237,8 @@ const PAIRS = [
     globalName: 'DocNative',
     exports: [
       'htmlToText', 'htmlToWords', 'splitTopLevelBlocks', 'classifyBlock',
-      'parseDocDoc', 'docWords', 'PDF_NATIVE', 'renderDocToPdf', 'docHtmlToPdfBlob'
+      'parseDocDoc', 'docWords', 'PDF_NATIVE', 'renderDocToPdf', 'docHtmlToPdfBlob',
+      'SIG_MENTION_SUPPORT'   // AVENANT lot 3 : témoin « mention au-dessus de la signature »
     ],
     // Pas de sanity « function count » : le module importe 3 deps (PdfFlow/DocBrand) → 3
     // trampolines générés gonflent le compte de fonctions (comme log-immeuble-resolver).
