@@ -63,6 +63,7 @@ window.addEventListener('load',function(){setTimeout(function(){
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
 <link rel="stylesheet" href="css/main.css?v=15.709">
+<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=a46c8f6c">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -79,7 +80,7 @@ window.addEventListener('load',function(){setTimeout(function(){
       // anti-reload SW est armée dès le boot cloud (et plus seulement après le login, cf. handler
       // controllerchange plus bas) : un nouveau SW ne peut plus recharger la page pendant la fenêtre
       // post-login et détruire la session (= la « double connexion »).
-      if(!test){ document.documentElement.setAttribute('data-lpboot','1'); window.__immoCloudBoot = true; }
+      if(!test){ document.documentElement.setAttribute('data-lpboot','1'); document.documentElement.setAttribute('data-imsb','1'); window.__immoCloudBoot = true; }
     }catch(e){}
   })();
 </script>
@@ -89,6 +90,75 @@ window.addEventListener('load',function(){setTimeout(function(){
 </style>
 </head>
 <body>
+<div id="imsb-overlay" data-static>
+<div class="imsb-page">
+    <header class="imv-nav">
+      <div class="imsb-brand">
+    <img class="imsb-logo imsb-logo-l" src="brand-assets/propryo-logo-light.svg" alt="Propryo">
+    <img class="imsb-logo imsb-logo-d" src="brand-assets/propryo-logo-dark.svg" alt="Propryo">
+  </div>
+      <div class="imsb-nav-right">
+        <a href="https://www.propryo.fr" class="imv-nav-link imv-back">← Retour à propryo.fr</a>
+        <button type="button" id="imsb-theme" class="imsb-theme" aria-label="Basculer le thème clair / sombre" title="Clair / Sombre">
+          <span class="imsb-theme-ic imsb-theme-sun" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </span>
+          <span class="imsb-theme-ic imsb-theme-moon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </span>
+        </button>
+      </div>
+    </header>
+
+    <main class="imv-login">
+    <div class="imv-authwrap" id="imsb-authwrap">
+      <div class="imv-authcard">
+        <div id="imsb-left">
+          <div class="imsb-brand">
+    <img class="imsb-logo imsb-logo-l" src="brand-assets/propryo-logo-light.svg" alt="Propryo">
+    <img class="imsb-logo imsb-logo-d" src="brand-assets/propryo-logo-dark.svg" alt="Propryo">
+  </div>
+          <form id="imsb-form" class="imsb-mid" autocomplete="on">
+            <h2 class="imsb-h2">Connexion</h2>
+            <p class="imsb-lead">Connecte-toi pour gérer tes locations.</p>
+            <div class="imsb-err" id="imsb-error" style="display:none"></div>
+            <label class="imsb-flabel">Email</label>
+            <input class="imsb-input" id="imsb-email" type="email" placeholder="toi@exemple.fr" required autocomplete="username">
+            <label class="imsb-flabel">Mot de passe</label>
+            <input class="imsb-input" id="imsb-pass" type="password" placeholder="••••••••" required autocomplete="current-password">
+            <div class="imsb-forgot"><a href="#" id="imsb-forgot">Mot de passe oublié ?</a></div>
+            <button class="imsb-btn imsb-primary" id="imsb-submit" type="submit">Se connecter</button>
+            <p class="imsb-foot">Nouveau ? <a href="#" id="imsb-signup">Créer un compte · essai gratuit</a></p>
+          </form>
+        </div>
+        <p class="imv-trust imv-trust-login">
+          <span><span class="imv-s"></span>Hébergé en Europe</span>
+          <span><span class="imv-s"></span>Conforme RGPD</span>
+          <span><span class="imv-s"></span>Tes données t'appartiennent</span>
+        </p>
+      </div>
+    </div>
+    </main>
+
+    <footer class="imv-footer">
+      <span class="imv-foot-copy">© 2026 Propryo · Hébergé en Europe · RGPD</span>
+      <nav class="imv-foot-links" aria-label="Informations légales">
+        <a href="https://www.propryo.fr/mentions-legales/">Mentions légales</a><a href="https://www.propryo.fr/cgu/">CGU</a><a href="https://www.propryo.fr/cgv/">CGV</a><a href="https://www.propryo.fr/confidentialite/">Confidentialité</a><a href="https://www.propryo.fr/cookies/">Cookies</a>
+      </nav>
+    </footer>
+
+  </div>
+</div>
+<script>
+/* Écran de connexion statique : thème mémorisé + garde anti-submit natif, actifs AVANT les scripts de l'app
+   (js/app/supabase-entry.js adopte cet overlay et REJOUE la demande dès que le client est prêt). */
+(function(){var ov=document.getElementById('imsb-overlay');if(!ov)return;
+try{if(localStorage.getItem('immo_theme')==='sombre')ov.classList.add('mode-sombre')}catch(e){}
+ov._pendingSubmit=false;
+var f=document.getElementById('imsb-form');
+if(f)f.onsubmit=function(e){e.preventDefault();ov._pendingSubmit=true;var b=document.getElementById('imsb-submit');if(b){b.disabled=true;b.innerHTML='<span class="imsb-spin imsb-spin-sm"></span> Chargement…'}};
+})();
+</script>
 <div id="toast"></div>
 <div class="layout">
 <!-- SIDEBAR -->

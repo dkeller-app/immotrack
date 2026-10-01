@@ -13,3 +13,6 @@ css/main.css  text eol=crlf
 # Perf étape 2 — les 3 blocs de code applicatif sortis d'index.html gardent ses fins de ligne CRLF :
 # les tests lisent index.html « assemblé » (parts réinjectées) et découpent sur \r\n.
 js/app/app-part*.js text eol=crlf
+
+# Perf étape 3a — CSS de l écran de connexion
+css/login.css text eol=crlf
