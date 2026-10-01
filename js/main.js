@@ -308,6 +308,9 @@ import {
 // nouvel essai sur quota), nettoyage de démarrage, purge des copies. Exposé sous window._stockage ;
 // l'exécution sur le vrai localStorage vit inline (_miroirEcrire, _stockageNettoyer).
 import * as Stockage from './core/stockage-local.js';
+// STOCKAGE lot 4 (docs/CDC-STOCKAGE.md §3.8) — miroir cloud en IndexedDB + journal synchrone des EDL.
+// MÊME module (même URL) que celui importé par supabase-entry.js → même instance `miroir()`.
+import * as MiroirLocal from './core/miroir-local.js';
 
 // RESET-CLOUD UX — cœur PUR du « ⚠️ Vider mon espace cloud » (gating UI, saisie du nom,
 // messages d'erreur RPC). Exposé sous window._espacePurge ; l'orchestration IMPURE (modale,
@@ -797,6 +800,8 @@ window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildMani
 
 // STOCKAGE lot 1 — registre du stockage local (voir import en tête).
 window._stockage = Stockage;
+// STOCKAGE lot 4 — miroir cloud (lu par _miroirEcrireCloud dans index.html).
+window._miroirLocal = MiroirLocal;
 
 // RESET-CLOUD UX — cœur pur du « Vider mon espace cloud » (voir import en tête).
 window._espacePurge = { confirmNameMatches, purgeUiState, purgeErrorMessage };

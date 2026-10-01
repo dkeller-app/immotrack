@@ -45,7 +45,8 @@ const SURVIVANTS = ['immotrack_theme_mode', 'immo-supabase-auth', 'immotrack_v4_
 let usine, usineNettoyage;
 beforeAll(() => {
   const html = readFileSync(resolve(repoRoot, 'index.html'), 'utf8');
-  const src = extraireFonction(html, 'saveDB') + '\n' + extraireFonction(html, '_miroirEcrire');
+  const src = extraireFonction(html, 'saveDB') + '\n' + extraireFonction(html, '_miroirEcrire')
+    + '\n' + extraireFonction(html, '_miroirEcrireCloud');   // STOCKAGE lot 4 : écrivain du mode cloud (repli local sans module)
   usine = new Function('window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', '_saveDBQuotaWarn', src + '\nreturn saveDB;');
   usineNettoyage = new Function('window', 'localStorage', extraireFonction(html, '_stockageNettoyer') + '\nreturn _stockageNettoyer;');
 });
