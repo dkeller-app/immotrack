@@ -30188,11 +30188,23 @@ function computeRegul(from, to) {
   //  3) Charge sur immeuble sans compteur → fallback prorata jours, MAIS filtré par compteCharges:false.
 
   // v14.73 : on accumule la part bailleur (vacances + exclus) par immeuble pour la card UI + 2044
-  const bailleur = {}; // { 'imm': {imm, total, segments:[{date,lib,cc,montant,motif}]} }
+  // `total225` = ce que la 2044 réinjecte en ligne 225 : `total` moins les parts déjà déduites sur leur
+  // propre ligne (`seg.deja2044`, ex. charge de copropriété directe → 229) — jamais déduites deux fois.
+  const bailleur = {}; // { 'imm': {imm, total, total225, segments:[{date,lib,cc,montant,motif,deja2044?}]} }
   function _bailleurAdd(immNom, seg) {
-    if(!bailleur[immNom]) bailleur[immNom] = { imm: immNom, total: 0, segments: [] };
+    if(!bailleur[immNom]) bailleur[immNom] = { imm: immNom, total: 0, total225: 0, segments: [] };
     bailleur[immNom].total += seg.montant;
+    if(!seg.deja2044) bailleur[immNom].total225 += seg.montant;
     bailleur[immNom].segments.push(seg);
+  }
+
+  // Règle UNIQUE d'imputation d'une charge DATÉE : l'occupation dont [debutOcc, finOcc] (jours locaux,
+  // bornes incluses — jour de sortie compris) contient sa date. Aucune → null = VACANCE : la charge
+  // revient au bailleur, jamais à un locataire (avant : repli sur la 1ʳᵉ occupation du logement → le
+  // locataire parti, ou le suivant, payait les charges de la vacance).
+  function _occupationDuJour(candidates, date) {
+    const j = String(date||'').slice(0,10);
+    return candidates.find(e => e.debutOcc && e.finOcc && j >= e.debutOcc && j <= e.finOcc) || null;
   }
 
   // v15.x Phase B — charges récupérables NON RÉPARTIES (« trous ») : montant qui ne tombe
@@ -30273,7 +30285,10 @@ function computeRegul(from, to) {
           target = candidates.find(e => e.debutOcc && e.finOcc
             && !(p.fin < e.debutOcc || p.debut > e.finOcc));
         }
-        if(!target) target = candidates.find(e => m.date >= e.debutOcc && m.date <= e.finOcc) || candidates[0];
+        // Repli conservé ici : une part de compteur n'est pas une charge datée — les parts au prorata
+        // ont déjà leur segment (vacance → isBailleur plus haut) et une consommation relevée
+        // (sous-compteurs) appartient à l'occupant du logement, quelle que soit la date de la facture.
+        if(!target) target = _occupationDuJour(candidates, m.date) || candidates[0];
         const partR = Math.round(p.montant * 100) / 100;
         target.charges += partR;
         const cleLabel = (CC_REPARTITION_LABELS[p.methode]||{}).label || p.methode || cc.cleRepartition;
@@ -30292,7 +30307,16 @@ function computeRegul(from, to) {
     if(m.qui) {
       const candidates = Object.values(res).filter(e=>e.ref===m.qui);
       if(!candidates.length){ const _lg=(DB.logements||[]).find(l=>l.ref===m.qui); _nonRepAdd(_lg?_lg.imm:m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Logement « '+m.qui+' » sans bail actif sur la période'}); return; }
-      const target = candidates.find(e=>m.date>=e.debutOcc&&m.date<=e.finOcc) || candidates[0];
+      const target = _occupationDuJour(candidates, m.date);
+      if(!target){
+        // Vacance : datée hors de toute occupation → bailleur. Déjà déduite sur sa propre ligne 2044
+        // (résolveur unique _catLigne2044, ex. 229) → `deja2044` : pas réinjectée en 225.
+        const _l2044 = (typeof _catLigne2044==='function') ? (_catLigne2044(m.cat)||null) : null;
+        _bailleurAdd(candidates[0].imm || m.imm || '', { mvId:m.id, date:m.date, lib:m.lib, cc:'', ref:m.qui,
+          montant:Math.round((m.db||0)*100)/100, deja2044:_l2044,
+          motif:'Vacance '+m.qui+' — charge datée hors occupation'+(_l2044?' (déjà déduite ligne '+_l2044+')':'') });
+        return;
+      }
       target.charges += m.db;
       target.details.push({date:m.date, lib:m.lib, montant:m.db, repartition:'Direct', mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
       return;
@@ -40957,7 +40981,7 @@ function _computeComptaBailleur(ent, year, activeLogs) {
       const regul = computeRegul(yearStart, yearEnd);
       const bMap = regul.bailleur || {};
       Object.values(bMap).forEach(b => {
-        if(immsBailleur.includes(b.imm)) partBailleur += (b.total || 0);
+        if(immsBailleur.includes(b.imm)) partBailleur += (b.total225 || 0); // ligne 225 seule (hors parts déjà déduites ailleurs)
       });
     }
   } catch(e) { console.warn('[_computeComptaBailleur] partBailleur', e); }
@@ -41272,7 +41296,7 @@ function _legal2044WizardOpts(ent, year) {
     if (typeof computeRegul === 'function') {
       const regul = computeRegul(from, to);
       Object.values(regul.bailleur || {}).forEach(b => {
-        if (imms.includes(b.imm)) partBailleur225 += b.total || 0;
+        if (imms.includes(b.imm)) partBailleur225 += b.total225 || 0; // hors parts déjà déduites sur leur ligne
       });
     }
   } catch (e) { console.warn('[_legal2044WizardOpts] partBailleur', e); }
@@ -41316,7 +41340,7 @@ function _legal2044WizardData(ent, year) {
       const regul = computeRegul(opts.from, opts.to);
       Object.values(regul.bailleur || {}).forEach(b => {
         if (opts.imms.includes(b.imm)) {
-          (b.segments || []).forEach(seg => byLine['225'].mvts.push({
+          (b.segments || []).filter(seg => !seg.deja2044).forEach(seg => byLine['225'].mvts.push({
             date: seg.date, lib: seg.lib, montant: seg.montant, auto: true, motif: seg.motif, cc: seg.cc
           }));
         }
@@ -62382,7 +62406,7 @@ function _legal2044BuildOpts(yrArg, entArg) {
     if (typeof computeRegul === 'function') {
       const regul = computeRegul(from, to);
       Object.values(regul.bailleur || {}).forEach(b => {
-        if (!entityNom || imms.includes(b.imm)) partBailleur225 += b.total || 0;
+        if (!entityNom || imms.includes(b.imm)) partBailleur225 += b.total225 || 0; // hors parts déjà déduites sur leur ligne
       });
     }
   } catch (e) { console.warn('[_legal2044BuildOpts] partBailleur', e); }
