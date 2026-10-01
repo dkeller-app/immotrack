@@ -123,10 +123,10 @@ import { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journa
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 // IRL-REVISION (R6/R7) — la lettre suit la révision VALIDÉE ; annuler une révision programmée.
 import * as IrlRevision from './core/irl-revision.js';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, avenantApplique, regimeForfaitObjet, forfaitChargesPrevu, avertissementForfaitCharges } from './core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, avenantApplique, regimeForfaitObjet, forfaitChargesPrevu, avertissementForfaitCharges, referenceForfaitCharges } from './core/avenant.js';
 // AVENANT-REFONTE lot 2 — registre des avenants (journal baux_evenements, type 'avenant') : statuts, liste, numérotation.
 import * as AvenantRegistre from './core/avenant-registre.js';
-// Forfait de charges (art. 23-1) dans la régularisation : post-traitement, intervalles, base N-1 (pur, testé).
+// Forfait de charges (art. 25-10 / 8-1, V) dans la régularisation : post-traitement, intervalles, base N-1 (pur, testé).
 import { forfaitAvenantsDuBail, occNonForfaitJours, forfaitIntervalles, appliquerForfaitOccupation, periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique, avenantApplicationAffichee } from './core/regul-forfait.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
 import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase } from './core/bail-duree.js';
@@ -695,7 +695,7 @@ window.avenantHtmlSigne = avenantHtmlSigne;
 // « Lu et approuvé » obligatoire et imprimé (décision 30/09) : consigne papier + validation par partie.
 window.avenantHtmlAImprimer = avenantHtmlAImprimer;
 window.avenantSignatureManque = avenantSignatureManque;
-// Forfait de charges (art. 23-1) : état forfait daté (registre des avenants), lu par computeRegul pour ne pas régulariser un forfait
+// Forfait de charges (art. 25-10 / 8-1, V) : état forfait daté (registre des avenants), lu par computeRegul pour ne pas régulariser un forfait
 window.bailForfaitActifLe = bailForfaitActifLe;
 window.forfaitEffetAu = forfaitEffetAu;
 window.forfaitPertinent = forfaitPertinent;
@@ -703,6 +703,7 @@ window.avenantApplique = avenantApplique;
 window.regimeForfaitObjet = regimeForfaitObjet;
 window.forfaitChargesPrevu = forfaitChargesPrevu;
 window.avertissementForfaitCharges = avertissementForfaitCharges;
+window.referenceForfaitCharges = referenceForfaitCharges;
 window.forfaitAvenantsDuBail = forfaitAvenantsDuBail;
 window.occNonForfaitJours = occNonForfaitJours;
 window.forfaitIntervalles = forfaitIntervalles;

@@ -307,7 +307,7 @@ export function planApplication({ objets, bail, libelles, forfaitAvant } = {}) {
       const m = avenantMontant(d.montant, ch0);
       if (!m.ok) alertes.push('Montant des charges illisible : non appliqué.');
       else if (m.v !== ch0) ch = m.v;
-      // Forfait de charges (art. 23-1) : le régime est DATÉ par l'avenant et lu par la régularisation
+      // Forfait de charges (art. 25-10 / 8-1, V) : le régime est DATÉ par l'avenant et lu par la régularisation
       // (bailForfaitActifLe) — un changement de régime est donc « appliqué », comme un montant.
       const forfait = regimeForfaitObjet(o);
       const avant = typeof forfaitAvant === 'boolean' ? forfaitAvant : !!b.chForfait;

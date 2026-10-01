@@ -11,7 +11,9 @@
  *   - cautionnement : art. 22-1 ;
  *   - loyer / travaux d'amélioration : art. 17-1, II (accord exprès ; hausse annuelle ≤ 15 %
  *     du coût réel TTC des travaux ; travaux ≥ 1/2 année de loyer ; interdiction si DPE F/G) ;
- *   - charges : art. 23 (provisions, régularisation) / 23-1 (forfait, non régularisable) ;
+ *   - charges : art. 23 (provisions, régularisation) / forfait non régularisable : art. 25-10 (meublé),
+ *     art. 8-1, V (colocation) — `referenceForfaitCharges` (l'art. 23-1 est le partage des économies de
+ *     charges après travaux d'économie d'énergie, sans rapport avec le forfait) ;
  *   - sous-location / cession : art. 8 ; destination : art. 2.
  *
  * Tests Vitest miroir : __tests__/helpers/avenant.test.js
@@ -215,11 +217,14 @@ export function avenantArticle(k, d, ctx) {
     case 'charges': {
       const mode = String(d.mode || '');
       const forf = mode.toLowerCase().indexOf('forfait') >= 0;
+      // Fondement du forfait selon le bail : art. 25-10 (meublé) / art. 8-1, V (colocation) ; type inconnu → la
+      // loi seule, sans numéro inventé. (Jamais l'art. 23-1 : partage des économies de charges.)
+      const refForf = referenceForfaitCharges({ typeBail: ctx.typeBail, nbLocataires: Array.isArray(ctx.locataires) ? ctx.locataires.length : 0 });
       const h = 'Les modalités de règlement des charges récupérables sont modifiées comme suit : ' + b(mode.toLowerCase()) + '. Le montant ' + (forf ? 'du forfait' : 'des provisions mensuelles') + ' de charges est fixé à ' + b(num(d.montant) + ' €') + ' à compter de la date d\'effet. ' +
         (forf
-          ? 'Ce forfait, applicable aux locations meublées et aux colocations, n\'est pas soumis à régularisation et ne peut donner lieu à complément, conformément aux articles 8-1 et 23-1 de la loi du 6 juillet 1989.'
+          ? 'Ce forfait, applicable aux locations meublées et aux colocations, n\'est pas soumis à régularisation et ne peut donner lieu à complément, conformément ' + refForf.acte + '.'
           : 'Ces provisions donnent lieu à une régularisation annuelle au regard des charges réelles, sur justificatifs tenus à la disposition du locataire, conformément à l\'article 23 de la loi du 6 juillet 1989.');
-      return { titre: 'Charges locatives', html: h, base: forf ? 'art. 23-1, loi du 6 juillet 1989' : 'art. 23, loi du 6 juillet 1989' };
+      return { titre: 'Charges locatives', html: h, base: forf ? refForf.base : 'art. 23, loi du 6 juillet 1989' };
     }
     case 'annexe': {
       const add = String(d.act || 'Adjonction') === 'Adjonction';
@@ -304,7 +309,7 @@ export function buildAvenantHtml(ctx) {
   const effet = frDate(ctx.effetIso);
   const entrant = avenantEntrant(objets);
   // Les articles reçoivent la liste des locataires (accords singulier / pluriel, civilités).
-  const actx = { loyer0: ctx.loyer0, locataires: locs, locDetail: ctx.locDetail, garants: ctx.garants };
+  const actx = { loyer0: ctx.loyer0, locataires: locs, locDetail: ctx.locDetail, garants: ctx.garants, typeBail: ctx.typeBail };
   let n = 1, arts = '', caution = false;
   objets.forEach(o => {
     const a = avenantArticle(o.k, o.data, actx);
@@ -432,8 +437,8 @@ export function avenantMontant(raw, prev, opts) {
   return { ok: true, v: Math.round(n * 100) / 100 };
 }
 
-// ── Forfait de charges (art. 23-1) : timeline reconstruite depuis les avenants ──────────
-// Le forfait de charges N'EST PAS régularisable (art. 23-1 loi 89-462). L'avenant pose
+// ── Forfait de charges (art. 25-10 meublé / art. 8-1, V colocation) : timeline reconstruite depuis les avenants
+// Le forfait de charges N'EST PAS régularisable (loi 89-462 : art. 25-10 et 8-1, V). L'avenant pose
 // `bail.chForfait`, mais ce flag est NON DATÉ : régulariser un exercice antérieur à la
 // signature (N-1, usage courant) ne doit PAS être court-circuité. On reconstruit donc l'état
 // forfait À LA DATE demandée depuis les avenants (chaque objet charges porte data.mode :
@@ -659,6 +664,33 @@ export function effetAvenant(a) { return _effetAvenant(a); }
 // NB : « colocation » = 2 locataires ou plus, comme le reste de l'app ; la situation époux / PACS
 // (art. 8-1, I, qui l'exclut de la colocation) sera demandée au lot 4 de l'avenant.
 const TYPES_MEUBLES = ['meuble', 'etudiant', 'mobilite'];
+const LOI_1989 = 'loi n° 89-462 du 6 juillet 1989';
+
+/**
+ * Référence légale du FORFAIT de charges pour un bail — source UNIQUE (acte d'avenant, régularisation,
+ * décomptes, avertissement). Meublé → art. 25-10 ; colocation (2 locataires ou plus) → art. 8-1, V ;
+ * les deux → les deux ; type indéterminable (ou bail nu à un seul locataire, où la loi ne prévoit pas le
+ * forfait) → la loi seule, SANS numéro d'article inventé.
+ * @returns {{article:string, citation:string, acte:string, base:string}}
+ *   article : « art. 25-10 » / « art. 8-1, V » / « art. 8-1, V et 25-10 » / '' ;
+ *   citation : pour l'écran et les décomptes ; acte : suite de « conformément … » dans un acte ;
+ *   base : mention entre parenthèses sous un article d'avenant.
+ */
+export function referenceForfaitCharges({ typeBail, nbLocataires } = {}) {
+  const arts = [];
+  if ((Number(nbLocataires) || 0) > 1) arts.push('8-1, V');
+  if (TYPES_MEUBLES.indexOf(String(typeBail || '')) >= 0) arts.push('25-10');
+  if (!arts.length) {
+    return { article: '', citation: LOI_1989 + ' (forfait de charges)', acte: 'à la loi du 6 juillet 1989', base: 'loi du 6 juillet 1989' };
+  }
+  const article = 'art. ' + arts.join(' et ');
+  return {
+    article,
+    citation: article + ', ' + LOI_1989,
+    acte: (arts.length === 1 ? 'à l\'article ' + arts[0] : 'aux articles ' + arts.join(' et ')) + ' de la loi du 6 juillet 1989',
+    base: article + ', loi du 6 juillet 1989',
+  };
+}
 
 /** Le forfait de charges est-il prévu par la loi pour ce bail (meublé ou colocation) ? */
 export function forfaitChargesPrevu(typeBail, nbLocataires) {
@@ -674,7 +706,10 @@ export function forfaitChargesPrevu(typeBail, nbLocataires) {
 export function avertissementForfaitCharges(objets, { typeBail, nbLocataires } = {}) {
   const forfait = (Array.isArray(objets) ? objets : []).some((o) => regimeForfaitObjet(o) === true);
   if (!forfait || forfaitChargesPrevu(typeBail, nbLocataires)) return null;
+  // Articles tirés de la source unique (DRY) : meublé seul / colocation seule.
+  const meuble = referenceForfaitCharges({ typeBail: 'meuble', nbLocataires: 1 }).article;
+  const coloc = referenceForfaitCharges({ typeBail: 'nu', nbLocataires: 2 }).article;
   return 'Forfait de charges sur un bail nu à un seul locataire : la loi du 6 juillet 1989 ne prévoit le forfait '
-    + "qu'en location meublée (art. 25-10) ou en colocation (art. 8-1, V). Hors de ces cas, les charges se "
+    + "qu'en location meublée (" + meuble + ') ou en colocation (' + coloc + '). Hors de ces cas, les charges se '
     + "récupèrent par provisions avec régularisation annuelle (art. 23). Vérifier la nature du bail avant d'enregistrer.";
 }

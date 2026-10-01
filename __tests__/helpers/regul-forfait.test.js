@@ -1,5 +1,5 @@
 /**
- * Tests — FORFAIT DE CHARGES (art. 23-1) dans la RÉGULARISATION. Module js/core/regul-forfait.js
+ * Tests — FORFAIT DE CHARGES (art. 25-10 meublé / art. 8-1, V colocation) dans la RÉGULARISATION. Module js/core/regul-forfait.js
  * + câblage réel de computeRegul / _rgYearChargesDetail (fonctions extraites d'index.html).
  *
  * Audit 30/09 (portage régul/forfait) :

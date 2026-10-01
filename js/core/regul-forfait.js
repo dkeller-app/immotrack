@@ -1,5 +1,5 @@
 /**
- * core/regul-forfait.js — FORFAIT DE CHARGES (art. 23-1 loi n° 89-462) dans la RÉGULARISATION.
+ * core/regul-forfait.js — FORFAIT DE CHARGES (loi n° 89-462 : art. 25-10 meublé, art. 8-1, V colocation) dans la RÉGULARISATION.
  *
  * Le forfait de charges n'est pas régularisable. La régularisation (computeRegul, index.html) retire
  * donc, pour chaque occupation, les charges réelles et les provisions datées PENDANT une période au

@@ -2,7 +2,7 @@
  * Tests — AVENANT AU BAIL. Module js/core/avenant.js
  */
 import { describe, it, expect } from 'vitest';
-import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantEntrant, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, forfaitEtapes, avenantApplique, effetAvenant, regimeForfaitObjet, forfaitChargesPrevu, avertissementForfaitCharges } from '../../js/core/avenant.js';
+import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain, esc, avenantChampsManquants, avenantMontant, avenantEntrant, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, forfaitEtapes, avenantApplique, effetAvenant, regimeForfaitObjet, forfaitChargesPrevu, avertissementForfaitCharges, referenceForfaitCharges } from '../../js/core/avenant.js';
 import { listeAvenants } from '../../js/core/avenant-registre.js';
 
 describe('avenantMontant — lecture des montants saisis', () => {
@@ -27,7 +27,7 @@ describe('avenantMontant — lecture des montants saisis', () => {
   });
 });
 
-describe('bailForfaitActifLe — timeline forfait (art. 23-1)', () => {
+describe('bailForfaitActifLe — timeline forfait (art. 25-10 / 8-1, V)', () => {
   const chAvenant = (dateEffet, mode) => ({ no: 1, dateEffet, objets: [{ k: 'charges', data: { mode, montant: 80 } }] });
 
   it('aucun avenant + chForfait:true → forfait à toute date (fallback day-1/legacy)', () => {
@@ -263,6 +263,30 @@ describe('forfait de charges hors meublé / colocation — avertissement NON blo
   });
 });
 
+describe('referenceForfaitCharges — fondement légal du forfait (source unique)', () => {
+  it('meublé et variantes → art. 25-10', () => {
+    for (const t of ['meuble', 'etudiant', 'mobilite']) expect(referenceForfaitCharges({ typeBail: t, nbLocataires: 1 }).article).toBe('art. 25-10');
+    expect(referenceForfaitCharges({ typeBail: 'meuble', nbLocataires: 1 }).citation).toBe('art. 25-10, loi n° 89-462 du 6 juillet 1989');
+  });
+  it('colocation (2 locataires ou plus) → art. 8-1, V ; meublé en colocation → les deux', () => {
+    expect(referenceForfaitCharges({ typeBail: 'nu', nbLocataires: 2 }).citation).toBe('art. 8-1, V, loi n° 89-462 du 6 juillet 1989');
+    expect(referenceForfaitCharges({ typeBail: 'meuble', nbLocataires: 3 }).article).toBe('art. 8-1, V et 25-10');
+  });
+  it('indéterminable (type inconnu, ou bail nu à un seul locataire) → la loi seule, aucun numéro', () => {
+    for (const ctx of [{}, { typeBail: 'nu', nbLocataires: 1 }, { typeBail: '', nbLocataires: 0 }]) {
+      const r = referenceForfaitCharges(ctx);
+      expect(r.article).toBe('');
+      expect(r.citation).toBe('loi n° 89-462 du 6 juillet 1989 (forfait de charges)');
+    }
+  });
+  it('jamais l\'art. 23-1 (partage des économies de charges, sans rapport avec le forfait)', () => {
+    for (const ctx of [{}, { typeBail: 'meuble' }, { nbLocataires: 2 }, { typeBail: 'meuble', nbLocataires: 2 }]) {
+      expect(JSON.stringify(referenceForfaitCharges(ctx))).not.toMatch(/23-1/);
+    }
+    expect(avertissementForfaitCharges([{ k: 'charges', data: { mode: 'Passage au forfait de charges' } }], { typeBail: 'nu', nbLocataires: 1 })).not.toMatch(/23-1/);
+  });
+});
+
 describe('champ vide → marqueur « à compléter » (jamais un « … » final)', () => {
   it('clause sans texte → marqueur av-todo, pas de …', () => {
     const a = avenantArticle('clause', { titre: 'Animal', texte: '' });
@@ -390,10 +414,30 @@ describe('avenantArticle — autres objets', () => {
     expect(a.html).toMatch(/15 %/);
     expect(a.base).toMatch(/17-1/);
   });
-  it('charges forfait → art. 23-1 non régularisable', () => {
-    const a = avenantArticle('charges', { mode: 'Passage au forfait de charges', montant: 95 });
+  it('charges forfait, bail meublé → art. 25-10 (jamais 23-1), non régularisable', () => {
+    const a = avenantArticle('charges', { mode: 'Passage au forfait de charges', montant: 95 }, { typeBail: 'meuble', locataires: ['A'] });
     expect(a.html).toMatch(/n\'est pas soumis à régularisation/);
-    expect(a.base).toMatch(/23-1/);
+    expect(a.html).toMatch(/conformément à l'article 25-10 de la loi du 6 juillet 1989/);
+    expect(a.base).toBe('art. 25-10, loi du 6 juillet 1989');
+    expect(a.html + a.base).not.toMatch(/23-1/);
+  });
+  it('charges forfait, colocation → art. 8-1, V ; meublé en colocation → les deux', () => {
+    const c = avenantArticle('charges', { mode: 'Passage au forfait de charges', montant: 95 }, { typeBail: 'nu', locataires: ['A', 'B'] });
+    expect(c.html).toMatch(/conformément à l'article 8-1, V de la loi du 6 juillet 1989/);
+    expect(c.base).toBe('art. 8-1, V, loi du 6 juillet 1989');
+    const mc = avenantArticle('charges', { mode: 'Passage au forfait de charges', montant: 95 }, { typeBail: 'meuble', locataires: ['A', 'B'] });
+    expect(mc.html).toMatch(/conformément aux articles 8-1, V et 25-10 de la loi du 6 juillet 1989/);
+  });
+  it('charges forfait, type de bail inconnu → la loi seule, sans numéro d\'article inventé', () => {
+    const a = avenantArticle('charges', { mode: 'Passage au forfait de charges', montant: 95 });
+    expect(a.html).toMatch(/conformément à la loi du 6 juillet 1989\./);
+    expect(a.base).toBe('loi du 6 juillet 1989');
+    expect(a.html + a.base).not.toMatch(/art(icle)?\.? ?\d/);
+  });
+  it('acte complet (buildAvenantHtml) : le type du bail passe jusqu\'à l\'article', () => {
+    const r = buildAvenantHtml({ no: 1, bailleur: 'SCI X', locataires: ['A'], typeBail: 'meuble', effetIso: '2026-07-01', objets: [{ k: 'charges', data: { mode: 'Passage au forfait de charges', montant: 90 } }] });
+    expect(r.html).toMatch(/art\. 25-10, loi du 6 juillet 1989/);
+    expect(r.html).not.toMatch(/23-1/);
   });
   it('charges provisions → art. 23 régularisation', () => {
     const a = avenantArticle('charges', { mode: 'Révision du montant des provisions', montant: 95 });

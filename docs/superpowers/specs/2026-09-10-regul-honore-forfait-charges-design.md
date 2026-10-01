@@ -1,4 +1,9 @@
-# Design — La régularisation de charges honore le forfait (art. 23-1)
+# Design — La régularisation de charges honore le forfait (art. 25-10 / 8-1, V)
+
+> **Correction du 01/10/2026** : cette spec citait l'art. 23-1 comme fondement du forfait. C'est une erreur :
+> l'art. 23-1 de la loi 89-462 est la contribution du locataire au partage des économies de charges. Le forfait
+> de charges relève de l'**art. 25-10** (location meublée) et de l'**art. 8-1, V** (colocation). Référence
+> fournie par `referenceForfaitCharges` (`js/core/avenant.js`).
 
 **Statut** : validé en chat 10/09/2026 (GO Didier : « par date » + badge + option A). Chantier ARGENT.
 **Worktree** : `admiring-galileo-1fb6e1`. **Branche** : `claude/admiring-galileo-1fb6e1`.
@@ -6,7 +11,7 @@
 ## §0 — Problème
 
 L'avenant au bail pose `bail.chForfait` (index.html `_avenantSave`, ~24128) quand les charges
-passent « au forfait » (art. 23-1, non régularisable). Mais `computeRegul` (index.html ~26466)
+passent « au forfait » (art. 25-10 / 8-1, V, non régularisable). Mais `computeRegul` (index.html ~26466)
 **ne lit pas ce flag** → un bail au forfait serait quand même régularisé annuellement = illégal.
 
 Le flag seul est **insuffisant et dangereux** : il est non daté. Régulariser un exercice **N-1**
