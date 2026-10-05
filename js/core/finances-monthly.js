@@ -270,17 +270,38 @@ export function _computeFinancesMonthly(input) {
     if (d && /^\d{4}-\d{2}$/.test(String(d)) && (!_suiviStartYm || d < _suiviStartYm)) return _preYmsDepuis(String(d));
     return _preYms;
   };
+  // R0-C · Q1 RÉVISÉ — `ouverture(q)` (injecté, optionnel) : le SOLDE D'OUVERTURE noté sur le bail
+  // (antériorité : arriéré de loyer / de charges, ou avance, à la date de début du suivi), posé UNE
+  // fois à cette date. { ym:'YYYY-MM', loyer, charge, avance } | null. Avant l'exercice : semé dans la
+  // pré-passe (il est alors soldé, ou reporté, par le même netting que tout arriéré) ; dans l'exercice :
+  // ajouté à la position d'ouverture de l'exercice. Absent → comportement historique à l'identique.
+  const ouvertureOf = (typeof i.ouverture === 'function') ? i.ouverture : null;
+  const _ouv = (q) => {
+    const o = ouvertureOf ? ouvertureOf(q) : null;
+    if (!o || !/^\d{4}-\d{2}$/.test(String(o.ym || ''))) return null;
+    const v = { loyer: Math.max(0, Number(o.loyer) || 0), charge: Math.max(0, Number(o.charge) || 0), avance: Math.max(0, Number(o.avance) || 0) };
+    return (v.loyer + v.charge + v.avance) > 0.005 ? Object.assign({ ym: String(o.ym) }, v) : null;
+  };
   const _openingOf = (q) => {
     const yms = _preYmsLot(q);
-    if (!yms.length) return null;
-    const pm = yms.map(ym => {
-      const d = loyerDue(q, ym) || {};
-      return { hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: (preRecv[q] && preRecv[q][ym]) || 0 };
-    });
-    const pr = _computeLoyerNetting(pm, false);   // pas de tolérance sur le passé clos
-    if (pr.loyerArrear > 0.005 || pr.chargeArrear > 0.005) return { loyer: pr.loyerArrear, charge: pr.chargeArrear };
-    if (pr.avance > 0.005) return { avance: pr.avance };   // trop-perçu de N-1 reporté (audit C2 #1, CDC (b))
-    return null;
+    const ouv = _ouv(q);
+    const ouvAvant = ouv && ouv.ym < yr + '-01' ? ouv : null;
+    const ouvDans = ouv && ouv.ym >= yr + '-01' && ouv.ym <= yr + '-12' ? ouv : null;
+    let res = null;
+    if (yms.length) {
+      const pm = yms.map(ym => {
+        const d = loyerDue(q, ym) || {};
+        return { hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: (preRecv[q] && preRecv[q][ym]) || 0 };
+      });
+      const pr = _computeLoyerNetting(pm, false, ouvAvant);   // pas de tolérance sur le passé clos
+      if (pr.loyerArrear > 0.005 || pr.chargeArrear > 0.005) res = { loyer: pr.loyerArrear, charge: pr.chargeArrear };
+      else if (pr.avance > 0.005) res = { avance: pr.avance };   // trop-perçu de N-1 reporté (audit C2 #1, CDC (b))
+    }
+    if (ouvDans) {
+      res = res || {};
+      res = { loyer: (res.loyer || 0) + ouvDans.loyer, charge: (res.charge || 0) + ouvDans.charge, avance: (res.avance || 0) + ouvDans.avance };
+    }
+    return res;
   };
 
   const lotsEnRetard = [];       // R-2 : lots à retard résiduel > 0 (compteur « N impayés »)
@@ -416,6 +437,8 @@ export function _computeFinancesMonthly(input) {
  * @param {function} input.catLigne cat → {ligne2044} | null (en prod `_finCatLigne`)
  * @param {string|null} [input.debutSuivi] borne du suivi 'YYYY-MM-DD' : entrée en jouissance du bailleur
  *        actuel / début de suivi d'une antériorité ; absente = depuis l'entrée du bail
+ * @param {{loyer?:number, charge?:number, avance?:number}|null} [input.ouverture] solde d'ouverture de
+ *        l'antériorité notée sur CE bail (posé une fois, au début du suivi)
  * @param {string} [input.today] horloge locale 'YYYY-MM-DD'
  * @returns {null | {loyer:number|null, charge:number|null, avance:number|null, avanceBrute:number|null,
  *           mois:Array, from:string|null, to:string|null, debutSuivi:string|null, finDu:string|null,
@@ -489,7 +512,10 @@ export function _computeDetteBail(input) {
     return { ym, hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: recu[ym] || 0 };
   });
   const graceLast = !!W.graceLast && yms.length > 0 && yms[yms.length - 1] === moisCourant;
-  const r = _computeLoyerNetting(lignesMois, graceLast, null);   // AUCUNE ouverture : le passé est dans le calcul
+  // Aucune ouverture REPORTÉE (le passé du bail est dans le calcul) ; seule l'antériorité NOTÉE sur ce bail
+  // (Q1 révisé) est posée, une fois, au début du suivi.
+  const ouv = i.ouverture ? { loyer: Math.max(0, Number(i.ouverture.loyer) || 0), charge: Math.max(0, Number(i.ouverture.charge) || 0), avance: Math.max(0, Number(i.ouverture.avance) || 0) } : null;
+  const r = _computeLoyerNetting(lignesMois, graceLast, ouv);
   const mois = lignesMois.map((m, idx) => ({
     ym: m.ym, duHC: round2(m.hcDue), duCH: round2(m.chDue), encaisse: round2(m.received),
     loyerRetard: round2(r.retardMois[idx].loyer), chargeRetard: round2(r.retardMois[idx].charge),

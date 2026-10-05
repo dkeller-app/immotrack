@@ -170,9 +170,20 @@ export function jeuUnBail(seed) {
   // l'entrée en jouissance du bailleur actuel (date de l'acte, n'importe quel jour). Les relevés ne
   // commencent qu'à cette date ; le dû ne doit jamais remonter avant elle.
   let jouissance = null;
-  if (R() < 0.3) {
-    jouissance = debut;
+  const repris = R() < 0.3;
+  const arrivee = !repris && R() < 0.15;   // bail en cours à l'arrivée dans Propryo (pas d'achat)
+  if (repris || arrivee) {
+    if (repris) jouissance = debut;
     bail.debut = ymAdd(debut.slice(0, 7), -(12 + Math.floor(R() * 49))) + '-' + pad(1 + Math.floor(R() * 27));
+    // ANTÉRIORITÉ notée (maquette validée 05/10) : situation du locataire au début du suivi.
+    const x = R();
+    if (arrivee || x < 0.6) {
+      const sit = x < 0.25 ? 'a-jour' : (x < 0.45 ? 'avance' : 'arriere');
+      bail.anteriorite = { date: debut, situation: sit,
+        loyer: sit === 'arriere' ? _r2(bail.hc * (1 + Math.floor(R() * 3))) : 0,
+        charges: sit === 'arriere' && R() < 0.5 ? _r2(bail.ch * 2) : 0,
+        avance: sit === 'avance' ? _r2(bail.hc * (1 + Math.floor(R() * 2))) : 0, mois: [] };
+    }
   }
   return { ref, ctx, bailDebut: bail.debut, fin, jouissance, mouvements: mouvements.filter((m) => m.date <= '2027-12-31'), today };
 }

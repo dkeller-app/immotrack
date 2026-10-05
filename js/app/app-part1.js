@@ -9002,7 +9002,20 @@ function _getActiveBailHcChProratedSplit(ref, yr, monthIdx0) {
 /* Attendu total pour un logement sur l'année, cumulé par mois actif.
    Borné inférieurement par la date de démarrage effectif du logement.
    v15.19 : utilise _getActiveBailHcChProrated → prorata jours intra-mois. */
+// R0-C 🟠2 (audit 30/09) — UNE règle : l'attendu lit le dû de Finances (`_finBailHcChAt`, borné au
+// point de départ du suivi — date d'achat, antériorité, sinon date provisoire = l'ancienne borne du
+// 1ᵉʳ versement). Avant, il gardait sa propre borne (`_getLogementStartMi`) : les KPI Compta de la
+// fiche logement, `_computeComptaBailleur` (écran + CSV) et le widget hérité divergeaient de Finances
+// dès qu'une date était saisie. Repli file:// : l'ancien calcul.
 function _computeExpectedRent(ref, yr, lastVisibleMonth) {
+  if (typeof _finBailHcChAt === 'function') {
+    let total = 0;
+    for (let mi = 0; mi < lastVisibleMonth; mi++) {
+      const d = _finBailHcChAt(ref, yr + '-' + String(mi + 1).padStart(2, '0'));
+      total += (d.hc || 0) + (d.ch || 0);
+    }
+    return total;
+  }
   const firstMi = _getLogementStartMi(ref, yr);
   if(firstMi == null) return 0;
   let total = 0;

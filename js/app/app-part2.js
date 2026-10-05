@@ -29436,8 +29436,59 @@ function _finLotStartMi(qui, yr) {
   _finLotStartCache.map[key] = v;
   return v;
 }
+// R0-C · Q1 RÉVISÉ (Didier 01/10 → 05/10, docs/CDC-R0C.md) — LE point de départ des loyers suivis
+// d'un lot : date d'achat (`logement.detenuDepuis`, sinon `immeuble.dateAcquisition`) > antériorité
+// notée sur un bail (`bail.anteriorite`, avec son solde d'ouverture) > date PROVISOIRE (b) = 1ᵉʳ jour du
+// mois du 1ᵉʳ loyer encaissé (l'ancienne règle, `_getLogementStartIso` : rien ne bouge tant que
+// l'utilisateur ne confirme rien), « à confirmer ». Jamais l'absence de relevés. Règle pure :
+// js/core/anteriorite.js (`debutSuiviLot`). MÉMOÏSÉ par (lot, génération DB).
+let _finLotSuiviCache = { gen: -1, map: {} };
+// L'immeuble d'un lot (lien par NOM, comme partout : `logement.imm === immeuble.nom`), dans l'entité
+// du lot d'abord (deux bailleurs peuvent avoir un immeuble homonyme).
+function _finImmDuLot(log) {
+  if (!log || !log.imm) return null;
+  const ents = (DB.entites || []).filter(e => e && !e._deleted);
+  const own = ents.find(e => e.nom === log.entity);
+  const chercher = (e) => (e && Array.isArray(e.immeubles)) ? e.immeubles.find(im => im && !im._deleted && im.nom === log.imm) : null;
+  if (own) { const im = chercher(own); if (im) return im; }
+  for (const e of ents) { const im = chercher(e); if (im) return im; }
+  return null;
+}
+// Collections brutes du dû d'un lot — MÊME forme que `_duMoisLot` (bail courant tolérant + archivés + barème).
+function _finDuRaw(qui) {
+  return { currentBail: _findBailByRefTolerant(qui), bauxHistorique: DB.baux_historique || [], bareme: DB.loyerBareme || [] };
+}
+function _finLotSuivi(qui) {
+  if (!qui || !window._anteriorite || typeof window._anteriorite.debutSuiviLot !== 'function') return null;
+  const gen = window._dbGen || 0;
+  if (_finLotSuiviCache.gen !== gen) _finLotSuiviCache = { gen, map: {} };
+  if (Object.prototype.hasOwnProperty.call(_finLotSuiviCache.map, qui)) return _finLotSuiviCache.map[qui];
+  const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === qui) || null;
+  const imm = _finImmDuLot(log);
+  // Baux du lot AVEC leur antériorité (bailsFromRaw ne garde que les champs du dû).
+  const raw = _finDuRaw(qui), want = String(qui).trim().toLowerCase();
+  const bails = [];
+  if (raw.currentBail && !raw.currentBail._deleted && raw.currentBail.debut) bails.push({ debut: raw.currentBail.debut, finEffective: raw.currentBail.finEffective || null, archive: false, anteriorite: raw.currentBail.anteriorite || null });
+  (raw.bauxHistorique || []).forEach(b => { if (b && !b._deleted && b.debut && String(b.ref || '').trim().toLowerCase() === want) bails.push({ debut: b.debut, finEffective: b.finEffective || null, fin: b.fin || null, archive: true, anteriorite: b.anteriorite || null }); });
+  const iso = (typeof _getLogementStartIso === 'function') ? _getLogementStartIso(qui) : null;
+  const v = window._anteriorite.debutSuiviLot({
+    dateAcqLot: log && log.detenuDepuis, dateAcqImm: imm && imm.dateAcquisition, bails,
+    provisoireIso: iso ? String(iso).slice(0, 7) + '-01' : null
+  });
+  _finLotSuiviCache.map[qui] = v;
+  return v;
+}
 function _finBailHcChAt(qui, ym) {
   if (!qui || !ym) return { hc: 0, ch: 0 };   // non ventilé / SCI / immeuble → pas de bail → tout en loyer
+  // Q1 révisé : dû borné au point de départ du suivi (résolveur unique duMois, prorata au jour le
+  // mois de l'achat). Sans point de départ (ni loyer ni bail) : rien n'est dû — comme avant.
+  const _s = _finLotSuivi(qui);
+  if (_s && typeof window.duMoisSuiviFromRaw === 'function') {
+    if (!_s.date) return { hc: 0, ch: 0 };
+    const d = window.duMoisSuiviFromRaw(qui, ym, _finDuRaw(qui), _s.date);
+    return { hc: d.hc || 0, ch: d.ch || 0 };
+  }
+  // Repli file:// (modules non chargés) : l'ancienne règle « premier versement = date de départ ».
   const y = parseInt(ym.slice(0, 4), 10), m0 = parseInt(ym.slice(5, 7), 10) - 1;
   // Règle « premier versement = date de départ » (user 2026-07-13) : AUCUN dû avant le démarrage
   // effectif du lot → tue le retard fantôme des mois hors suivi. Parité _computeExpectedRent (borné firstMi).
@@ -29532,6 +29583,20 @@ function _finIsRecupACharge(m) {
   }
   return false;
 }
+// R0-C — la dette d'UN bail lue dans le maître (`_computeDetteBail`), avec le MÊME point de départ et
+// le MÊME solde d'ouverture que Finances. Brique sans écran : la restitution (lot 2) la lira.
+// `bailDebut` désigne le bail (son entrée) ; `fin` = fin du dû (Q3 : fin effective, sinon sortie).
+function _finDetteBail(ref, bailDebut, fin) {
+  if (typeof window._computeDetteBail !== 'function' || typeof window.bailsFromRaw !== 'function' || !ref || !bailDebut) return null;
+  const raw = _finDuRaw(ref), s = _finLotSuivi(ref);
+  const deb = String(bailDebut).slice(0, 10);
+  const o = s && s.ouverture && s.ouverture.bailDebut === deb ? s.ouverture : null;
+  return window._computeDetteBail({
+    ref, ctx: { ref, bails: window.bailsFromRaw(ref, raw), bareme: raw.bareme },
+    bailDebut: deb, fin: fin || null, mouvements: DB.mouvements || [], catLigne: _finCatLigne,
+    debutSuivi: s ? s.date : null, ouverture: o ? { loyer: o.loyer, charge: o.charge, avance: o.avance } : null
+  });
+}
 let _finMonthlyCache = { gen: -1, m: new Map() };
 function _finMonthly(yr, scope, win) {
   if (typeof window._computeFinancesMonthly !== 'function') return null;
@@ -29553,6 +29618,11 @@ function _finMonthly(yr, scope, win) {
     scopeWeight: _finScopeWeight,
     catLigne: _finCatLigne,
     loyerDue: _finBailHcChAt,                   // dû {hc,ch} proraté du mois → cascade CUMULATIVE dans le module (arriérés avant avance, user 2026-07-09)
+    // R0-C · Q1 révisé : la pré-passe d'ouverture démarre au point de départ SAISI (date d'achat ou
+    // antériorité) ; jamais pour la date provisoire (b), qui laisse le moteur exactement comme avant.
+    debutDu: q => { const s = _finLotSuivi(q); return (s && s.date && s.source !== 'provisoire') ? s.date.slice(0, 7) : null; },
+    // … et le solde d'ouverture de l'antériorité est posé UNE fois à cette date.
+    ouverture: q => { const s = _finLotSuivi(q); const o = s && s.ouverture; return o ? { ym: o.date.slice(0, 7), loyer: o.loyer, charge: o.charge, avance: o.avance } : null; },
     activeLots: _finActiveLotsInScope(yr, scope), // lots à bail actif sans mouvement → retard « zéro paiement » visible (user 2026-07-12)
     // M-1 : les résolveurs passent par la catégorie MÈRE — un alias de « Prêt » est une
     // échéance, un alias de « Charges récupérables » un transit, etc. (héritage cash-flow).

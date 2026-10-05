@@ -285,3 +285,35 @@ describe('_computeDetteBail — cas limites restants', () => {
     expect(d).toMatchObject({ loyer: 0, finDu: '2026-03-31' });
   });
 });
+
+describe('maître et dette — le solde d\'ouverture de l\'ANTÉRIORITÉ est posé UNE fois (Q1 révisé, 05/10)', () => {
+  const ref = 'ANT';
+  const ctx = { ref, bareme: [], bails: [{ debut: '2019-09-04', archive: false, hc: 650, ch: 0 }] };
+  const maitre = (year, borne, ouv, mouvements) => _computeFinancesMonthly({ mouvements, year, today: '2026-09-30', lastMonth: year === 2026 ? 9 : 12,
+    catLigne, activeLots: [ref], debutDu: () => borne.slice(0, 7), ouverture: () => ouv,
+    loyerDue: (q, ym) => duMoisSuivi(ctx, ym, borne) }).byLot[ref];
+  const tot = (b) => Math.round(b.months.reduce((s, m) => s + m.loyerRetard, 0) * 100) / 100;
+  it('arrivée au 01/01/2025 avec 1 300 € d\'arriéré, loyers payés ensuite : 1 300 € reportés, une seule fois, sur 2025 PUIS 2026', () => {
+    const mouvements = ymRange('2025-01', '2026-09').map((ym) => pay(ref, ym + '-05', 650));
+    const ouv = { ym: '2025-01', loyer: 1300, charge: 0, avance: 0 };
+    expect(tot(maitre(2025, '2025-01-01', ouv, mouvements))).toBe(1300);
+    expect(tot(maitre(2026, '2025-01-01', ouv, mouvements))).toBe(1300);        // reporté, pas doublé
+    const d = dette({ ref, ctx, bailDebut: '2019-09-04', fin: null, mouvements, debutSuivi: '2025-01-01', ouverture: { loyer: 1300, charge: 0, avance: 0 } });
+    expect(d.loyer).toBe(1300);
+  });
+  it('l\'arriéré noté est soldé par un rattrapage, comme tout arriéré (le plus ancien d\'abord)', () => {
+    const mouvements = [...ymRange('2025-01', '2026-09').map((ym) => pay(ref, ym + '-05', 650)), pay(ref, '2025-06-20', 1300)];
+    const ouv = { ym: '2025-01', loyer: 1300, charge: 0, avance: 0 };
+    expect(tot(maitre(2026, '2025-01-01', ouv, mouvements))).toBe(0);
+    expect(dette({ ref, ctx, bailDebut: '2019-09-04', fin: null, mouvements, debutSuivi: '2025-01-01', ouverture: { loyer: 1300 } }).loyer).toBe(0);
+  });
+  it('dans l\'exercice : suivi au 01/03/2026, 700 € d\'arriéré → 700 € en 2026', () => {
+    const mouvements = ymRange('2026-03', '2026-09').map((ym) => pay(ref, ym + '-05', 650));
+    expect(tot(maitre(2026, '2026-03-01', { ym: '2026-03', loyer: 700, charge: 0, avance: 0 }, mouvements))).toBe(700);
+  });
+  it('une avance notée couvre les premiers loyers dus avant tout retard', () => {
+    const mouvements = ymRange('2026-04', '2026-09').map((ym) => pay(ref, ym + '-05', 650));   // mars non payé…
+    expect(tot(maitre(2026, '2026-03-01', { ym: '2026-03', loyer: 0, charge: 0, avance: 650 }, mouvements))).toBe(0);   // …couvert par l'avance
+    expect(dette({ ref, ctx, bailDebut: '2019-09-04', fin: null, mouvements, debutSuivi: '2026-03-01', ouverture: { avance: 650 } })).toMatchObject({ loyer: 0, avance: 0 });
+  });
+});

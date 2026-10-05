@@ -4,6 +4,7 @@ import { computeConstatWindow } from '../../js/core/finances-window.js';
 import { duMoisSuivi, _debutSuivi, duMois } from '../../js/core/loyer-du-mois.js';
 import { etatMoisLot, retardLot } from '../../js/core/loyers-mois.js';
 import { jeuUnBail, catLigne, premierVersementYm, estLoyer, ymRange } from './r0c-jeux.js';
+import { debutSuiviLot } from '../../js/core/anteriorite.js';
 
 /**
  * R0-C lot 1 — HARNAIS D'ÉGALITÉ « dette de restitution = dette Finances bornée ».
@@ -25,15 +26,19 @@ const SEEDS = Array.from({ length: 240 }, (_, i) => 7000 + i);
 
 function mesurer(seed) {
   const j = jeuUnBail(seed);
-  const borne = j.jouissance || null;
+  // Même règle que l'app (js/core/anteriorite.js) : date d'achat > antériorité notée ; solde d'ouverture.
+  const suivi = debutSuiviLot({ dateAcqImm: j.jouissance, bails: j.ctx.bails, provisoireIso: null });
+  const borne = suivi.date;
   const debutDu = (borne || j.bailDebut).slice(0, 7);
+  const ouv = suivi.ouverture;
   const d = _computeDetteBail({ ref: j.ref, ctx: j.ctx, bailDebut: j.bailDebut, fin: j.fin, mouvements: j.mouvements,
-    catLigne, today: j.today, debutSuivi: borne });
+    catLigne, today: j.today, debutSuivi: borne, ouverture: ouv });
   if (!d || !d.to) return { j, d, maitre: { loyer: 0, charge: 0 }, annee: null };
   const annee = Number(d.to.slice(0, 4));
   const r = _computeFinancesMonthly({
     mouvements: j.mouvements, year: annee, window: computeConstatWindow({ year: annee, today: j.today, mouvements: j.mouvements }),
     today: j.today, catLigne, activeLots: [j.ref], debutDu: () => debutDu,
+    ouverture: () => (ouv ? { ym: ouv.date.slice(0, 7), loyer: ouv.loyer, charge: ouv.charge, avance: ouv.avance } : null),
     loyerDue: (q, ym) => (q === j.ref ? duMoisSuivi(j.ctx, ym, borne) : { hc: 0, ch: 0 })
   });
   const b = r.byLot[j.ref];
@@ -52,6 +57,9 @@ describe('R0-C — dette de restitution == retard Finances du lot, au centime (2
     expect(RES.filter((x) => x.j.ctx.bareme.length > 1).length).toBeGreaterThan(60);
     // Q1 révisé : biens achetés loués (borne de jouissance) ET premiers mois dus avant tout paiement
     expect(RES.filter((x) => x.j.jouissance && x.d.suiviPartiel).length).toBeGreaterThan(40);
+    // antériorités notées : arriéré et avance posés en ouverture (une seule fois)
+    expect(RES.filter((x) => x.j.ctx.bails[0].anteriorite && x.j.ctx.bails[0].anteriorite.situation === 'arriere').length).toBeGreaterThan(10);
+    expect(RES.filter((x) => x.j.ctx.bails[0].anteriorite && x.j.ctx.bails[0].anteriorite.situation === 'avance').length).toBeGreaterThan(5);
     expect(RES.filter((x) => { const fp = premierVersementYm(x.j.mouvements, x.j.ref); return fp && fp > x.j.bailDebut.slice(0, 7); }).length).toBeGreaterThan(30);
     // et l'ouverture N-1 est réellement exercée (dette reportée d'un exercice antérieur)
     expect(RES.filter((x) => x.d && x.d.from && x.annee && Number(x.d.from.slice(0, 4)) < x.annee && x.d.loyer > 0).length).toBeGreaterThan(40);
@@ -161,13 +169,15 @@ describe('R0-C — le harnais MORD : il aurait refusé la branche rejetée (feat
   // distinguerait pas de la bonne réponse ne prouverait rien.
   const rejetee = (x) => {
     const { j, d } = x;
-    const borne = j.jouissance || null;
+    const sv = debutSuiviLot({ dateAcqImm: j.jouissance, bails: j.ctx.bails, provisoireIso: null });
+    const borne = sv.date, ouv = sv.ouverture;
     const debutDu = (borne || j.bailDebut).slice(0, 7);
     const f7 = j.bailDebut.slice(0, 7), t7 = d.to;
     let tot = 0;
     for (let y = Number(f7.slice(0, 4)); y <= Number(t7.slice(0, 4)); y++) {
       const r = _computeFinancesMonthly({ mouvements: j.mouvements, year: y, window: computeConstatWindow({ year: y, today: j.today, mouvements: j.mouvements }),
         today: j.today, catLigne, activeLots: [j.ref], debutDu: () => debutDu,
+        ouverture: () => (ouv ? { ym: ouv.date.slice(0, 7), loyer: ouv.loyer, charge: ouv.charge, avance: ouv.avance } : null),
         loyerDue: (q, ym) => (q === j.ref ? duMoisSuivi(j.ctx, ym, borne) : { hc: 0, ch: 0 }) });
       const b = r.byLot[j.ref];
       if (b) b.months.forEach((m) => { if (m.ym >= f7 && m.ym <= t7 && m.loyerRetard > 0) tot += m.loyerRetard; });

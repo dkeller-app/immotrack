@@ -137,6 +137,8 @@ import { mentionsManquantes, emporteNullite, messageMentionsManquantes, sortieAu
 import { MF_SEUIL, MF_ABATTEMENT, evaluerMicroFoncier } from './core/micro-foncier.js';
 // VISALE-GMBI — visa Visale (contrôles non bloquants) + alerte ponctuelle « déclaration d'occupation ».
 import * as Visale from './core/visale.js';
+// R0-C · Q1 révisé — point de départ des loyers suivis (date d'achat / antériorité / provisoire).
+import * as Anteriorite from './core/anteriorite.js';
 import * as DeclarationOccupation from './core/declaration-occupation.js';
 
 import {
@@ -495,6 +497,8 @@ window._computeFinancesMonthly = _computeFinancesMonthly;
 // R0-C lot 1 — dette d'UN bail lue dans le maître (restitution du dépôt, art. 22) : consommée
 // au lot 2 par `_finDetteBail` (déclaration de fonction inline, jamais un const).
 window._computeDetteBail = _computeDetteBail;
+// R0-C · Q1 révisé : lu par _finLotSuivi (app-part2) et l'écran « Situation du locataire ».
+window._anteriorite = Anteriorite;
 
 // REFONTE FINANCES étape 2 — socle périmètre + fenêtres (jamais window.MOIS_FR : le
 // `const MOIS_FR` lexical d'index.html masquerait la propriété — piège documenté).
