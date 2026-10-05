@@ -1,5 +1,5 @@
-// Perf — sw.js : les URL JS/CSS à empreinte (?v=<8 hex>) sont servies CACHE-FIRST (zéro réseau bloquant), avec
-// revalidation en arrière-plan, ménage des anciennes versions et contrôle du type. Le SW ne tourne pas en local :
+// Perf — sw.js : les URL JS/CSS à empreinte (?v=<8 hex>) sont servies CACHE-FIRST (zéro réseau),
+// sans revalidation ni ménage (invariant empreinte = contenu), avec contrôle du type. Le SW ne tourne pas en local :
 // on exécute sw.js dans un bac à sable (vm) avec un faux `caches` / `fetch` pour en vérifier la logique.
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -49,13 +49,11 @@ function monde({ reseau = {}, cache = {} } = {}) {
 }
 
 describe('sw.js — branche cache-first des URL à empreinte', () => {
-  it('en cache : servi SANS attendre le réseau, puis revalidé en arrière-plan (cache: no-cache)', async () => {
-    const m = monde({ cache: { [ORIGIN + '/js/app/app-part1.js?v=a1b2c3d4']: 'ANCIEN' }, reseau: { [ORIGIN + '/js/app/app-part1.js?v=a1b2c3d4']: 'NOUVEAU' } })
+  it('en cache : servi depuis le cache SANS AUCUN appel réseau (pas de revalidation)', async () => {
+    const m = monde({ cache: { [ORIGIN + '/js/app/app-part1.js?v=a1b2c3d4']: 'CACHE' }, reseau: { [ORIGIN + '/js/app/app-part1.js?v=a1b2c3d4']: 'RESEAU' } })
     const res = await m.envoyer('/js/app/app-part1.js?v=a1b2c3d4')
-    expect(res.text).toBe('ANCIEN')                                  // réponse immédiate depuis le cache
-    expect(m.appels).toHaveLength(1)
-    expect(m.appels[0].opts).toEqual({ cache: 'no-cache' })          // revalidation d'arrière-plan
-    expect(m.store.get(ORIGIN + '/js/app/app-part1.js?v=a1b2c3d4')).toBe('NOUVEAU')   // cache rafraîchi
+    expect(res.text).toBe('CACHE')
+    expect(m.appels).toHaveLength(0)
   })
 
   it('pas en cache : réseau, puis mis en cache (visite suivante instantanée)', async () => {
@@ -65,15 +63,14 @@ describe('sw.js — branche cache-first des URL à empreinte', () => {
     expect(m.store.get(ORIGIN + '/js/helpers/dpe-texte.global.js?v=0f1e2d3c')).toBe('CODE')
   })
 
-  it('ménage : une nouvelle empreinte retire l’ancienne version du même fichier du cache', async () => {
+  it('deux versions : une ancienne empreinte demandée plus tard n’efface ni n’écrase la nouvelle', async () => {
+    // le serveur sert par CHEMIN : même contenu NEUF sous ?v=OLD et ?v=NEW — l'ancienne clé ne doit pas être polluée
     const m = monde({
-      cache: { [ORIGIN + '/js/app/app-part2.js?v=aaaaaaaa']: 'V1', [ORIGIN + '/js/app/app-part1.js?v=bbbbbbbb']: 'AUTRE' },
-      reseau: { [ORIGIN + '/js/app/app-part2.js?v=cccccccc']: 'V2' },
+      cache: { [ORIGIN + '/js/app/app-part2.js?v=cccccccc']: 'NEUF' },
+      reseau: { [ORIGIN + '/js/app/app-part2.js?v=aaaaaaaa']: 'NEUF-MAIS-SERVI-SOUS-ANCIEN-NOM' },
     })
-    await m.envoyer('/js/app/app-part2.js?v=cccccccc')
-    expect(m.store.has(ORIGIN + '/js/app/app-part2.js?v=aaaaaaaa')).toBe(false)   // ancienne empreinte purgée
-    expect(m.store.get(ORIGIN + '/js/app/app-part2.js?v=cccccccc')).toBe('V2')
-    expect(m.store.has(ORIGIN + '/js/app/app-part1.js?v=bbbbbbbb')).toBe(true)    // un autre fichier n'est pas touché
+    await m.envoyer('/js/app/app-part2.js?v=aaaaaaaa')
+    expect(m.store.get(ORIGIN + '/js/app/app-part2.js?v=cccccccc')).toBe('NEUF')   // l'entrée neuve n'est pas supprimée
   })
 
   it('un 404 ou un type inattendu (HTML de substitution) n’est jamais mis en cache', async () => {

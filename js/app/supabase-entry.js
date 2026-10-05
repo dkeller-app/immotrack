@@ -1700,7 +1700,7 @@ function _perfMark(nom) {
   try {
     performance.mark('immo:' + nom)
     if (nom !== 'app') return
-    const t = n => { const m = performance.getEntriesByName('immo:' + n, 'mark')[0]; return m ? Math.round(m.startTime) : null }
+    const t = n => { const ms = performance.getEntriesByName('immo:' + n, 'mark'); const m = ms[ms.length - 1]; return m ? Math.round(m.startTime) : '?' }
     const nav = performance.getEntriesByType('navigation')[0]
     console.info('[perf] page prête ' + (nav ? Math.round(nav.domContentLoadedEventEnd) : '?') + ' ms · session ' + t('session') + ' · espaces ' + t('espaces') + ' · données ' + t('donnees') + ' · app affichée ' + t('app') + ' ms')
   } catch (e) {}

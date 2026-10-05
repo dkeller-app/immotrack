@@ -67,27 +67,20 @@ self.addEventListener('fetch', e => {
   //    CACHE-FIRST, zéro aller-retour réseau (avant : chaque chargement revalidait les ~130 fichiers).
   //    Si le fichier change, son empreinte change, donc son URL : jamais de version périmée servie.
   //    (Les ?v=15.xxx de main.css ne sont PAS concernés : 8 hex dont au moins une lettre.)
-  //    Filet de sécurité : si on oublie de relancer tools/stamp-app-parts.mjs après une modif, l'URL ne change pas
-  //    → on revalide EN ARRIÈRE-PLAN (sans bloquer) : la copie en cache est rafraîchie pour la visite suivante.
-  //    Ménage : à chaque nouvelle empreinte, les anciennes versions du même fichier sont retirées du cache.
+  //    INVARIANT : empreinte dans l'URL = contenu du fichier. Pas de revalidation ni de ménage ici : GitHub Pages
+  //    sert par CHEMIN (il ignore ?v=), donc re-télécharger une ancienne empreinte rendrait le contenu NEUF, qu'on
+  //    écrirait sous la mauvaise clé (deux onglets sur deux versions). Le test app-parts-stamp.test.js garantit que
+  //    les empreintes sont à jour ; les anciennes entrées partent avec le bump de CACHE_VER (activate).
+  //    On ne met en cache que du JS/CSS réel (jamais un HTML de substitution).
   if (/\.(js|css)$/i.test(url.pathname) && /[?&]v=(?=[0-9]*[a-f])[0-9a-f]{8}$/.test(url.search)) {
     const garder = res => {
       const ct = (res && res.headers && res.headers.get('content-type')) || '';
       if (!(res && res.ok && res.type === 'basic' && /javascript|css/i.test(ct))) return;
-      const copie = res.clone();
-      caches.open(CACHE_VER).then(c => c.keys().then(ks => Promise.all(
-        ks.filter(k => { const u = new URL(k.url); return u.pathname === url.pathname && u.search !== url.search; }).map(k => c.delete(k))
-      )).then(() => c.put(request, copie))).catch(() => {});
+      const copie = res.clone();   // cloné AVANT de rendre `res` au navigateur
+      caches.open(CACHE_VER).then(c => c.put(request, copie)).catch(() => {});
     };
     e.respondWith(
-      caches.match(request).then(cached => {
-        if (cached) {
-          // revalidation « best effort » (pas de waitUntil : appelé hors du cycle synchrone de l'événement)
-          fetch(request, { cache: 'no-cache' }).then(garder).catch(() => {});
-          return cached;
-        }
-        return fetch(request).then(res => { garder(res); return res; });
-      })
+      caches.match(request).then(cached => cached || fetch(request).then(res => { garder(res); return res; }))
     );
     return;
   }
