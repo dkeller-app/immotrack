@@ -133,7 +133,8 @@ describe('Balayage — plus aucun module ne lit le miroir `window.DB`', () => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const p = resolve(dir, e.name);
       if (e.isDirectory()) out.push(...fichiersJs(p));
-      else if (e.name.endsWith('.js')) out.push(p);
+      // app-part*.js = code applicatif d'index.html (perf étape 2), lu via index.html assemblé : même périmètre qu'avant
+      else if (e.name.endsWith('.js') && !e.name.startsWith('app-part')) out.push(p);
     }
     return out;
   }

@@ -295,6 +295,7 @@ async function boot() {
     }
     window.__immoCrumb('entry-boot')
   } catch (_e) {}
+  try { sessionStorage.removeItem('imsb-part-reload') } catch (e) {}   // boot OK → réarme le reload auto de __immoPartFail
   injectStyles()
   const overlay = injectOverlay()
   _liftDriveGate()   // mode cloud : pas de gate Drive (sinon il masque l'overlay de login)
@@ -716,6 +717,7 @@ async function boot() {
   // déjà connecté (session persistée) → enchaîner direct. C'EST le chemin qui tue le double-login :
   // après un reload, la session persistée est retrouvée ici → Accueil sans re-saisir le mot de passe.
   const { user, error: _errAuth } = await api.currentUserOrError()
+  if (!user) { try { overlay.classList.remove('imsb-restoring') } catch (e) {} }   // pas de session valide → on montre le formulaire
   if (user) { try { window.__immoCrumb && window.__immoCrumb('already-connected') } catch (e) {} return onLoggedIn(api, overlay, user) }
 
   // ── EDL TERRAIN lot 4 — « on ne peut pas SE CONNECTER hors ligne, on peut
@@ -1629,6 +1631,7 @@ async function onLoggedIn(api, overlay, user) {
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
       try { window.__immoCrumb && window.__immoCrumb('accueil-revealed') } catch (e) {}   // login abouti : Accueil affiché
       overlay.remove()                            // dévoile l'app complète sur les données cloud
+      _prechargerLibsPdf()
       return
     }
     renderProof(overlay, api, user, esp, db)
@@ -1677,6 +1680,16 @@ function renderProof(overlay, api, user, esp, db, err) {
   }
 }
 
+// Perf — les libs PDF (~3,4 Mo, js/vendor/pdf-libs.b64.js) ne sont plus inlinées : on les charge en tâche de fond
+// dès que l'app est affichée, pour qu'elles soient prêtes (et en cache SW, donc dispo hors ligne) avant le premier
+// export PDF / aperçu de bail (qui ouvre une popup : il doit rester dans le geste de l'utilisateur).
+function _prechargerLibsPdf() {
+  try {
+    const go = () => { try { window.ensurePdfLibs && window.ensurePdfLibs().catch(() => {}) } catch (e) {} }
+    ;(window.requestIdleCallback || (f => setTimeout(f, 2500)))(go, { timeout: 8000 })
+  } catch (e) {}
+}
+
 function renderLoading(overlay, user) {
   overlay.classList.add('imv-auth-open')
   overlay.querySelector('#imsb-left').innerHTML = `${brand()}<div class="imsb-mid">
@@ -1703,78 +1716,18 @@ function _imsbCheck() {
 }
 
 function injectOverlay() {
-  const ov = document.createElement('div')
-  ov.id = 'imsb-overlay'
-  // Thème mémorisé (défaut clair). On l'applique AVANT le 1er paint pour éviter le flash.
+  // Perf étape 3a — l'écran de connexion est du HTML STATIQUE dans index.html (<div id="imsb-overlay">), peint
+  // avant les ~4 Mo de scripts de l'app. On l'ADOPTE (ce que l'utilisateur a déjà tapé est conservé) ; la
+  // structure n'est plus dupliquée ici. Structure : #imsb-overlay > .imsb-page > header.imv-nav
+  // + main.imv-login(#imsb-authwrap > #imsb-left) + footer.imv-footer.
+  // ⚠️ #imsb-left contient le formulaire #imsb-form (#imsb-email/#imsb-pass/#imsb-submit/#imsb-error/#imsb-forgot) :
+  //   renderLoading() et acceptInviteFlow() font `overlay.querySelector('#imsb-left').innerHTML = …`.
+  const ov = document.getElementById('imsb-overlay')
+  if (!ov) throw new Error("[ImmoSupabase] #imsb-overlay absent d'index.html (écran de connexion statique)")
+  // Thème mémorisé (défaut clair) — déjà appliqué par le script inline d'index.html ; idempotent.
   let theme = 'clair'
   try { const t = localStorage.getItem('immo_theme'); if (t === 'sombre' || t === 'clair') theme = t } catch (e) {}
   if (theme === 'sombre') ov.classList.add('mode-sombre')
-
-  // STRUCTURE — landing plein écran (vitrine cockpit) :
-  //   #imsb-overlay
-  //     .imsb-page (scroll/centrage)
-  //       nav (wordmark + toggle thème + liens)
-  //       .imsb-hero
-  //         .imsb-pitch ........ marketing (HORS #imsb-left → reste visible pendant chargement/invitation)
-  //         .imsb-right
-  //           .imsb-dash ....... aperçu dashboard (HORS #imsb-left)
-  //           #imsb-left ....... la COLONNE de connexion (login / chargement / invitation)
-  //
-  // ⚠️ #imsb-left contient le formulaire #imsb-form (#imsb-email/#imsb-pass/#imsb-submit/#imsb-error/#imsb-forgot).
-  //   renderLoading() et acceptInviteFlow() font `overlay.querySelector('#imsb-left').innerHTML = …`,
-  //   donc tout le marketing/aperçu DOIT rester en dehors de #imsb-left.
-  ov.innerHTML = `<div class="imsb-page">
-    <header class="imv-nav">
-      ${brand()}
-      <div class="imsb-nav-right">
-        <a href="https://www.propryo.fr" class="imv-nav-link imv-back">← Retour à propryo.fr</a>
-        <button type="button" id="imsb-theme" class="imsb-theme" aria-label="Basculer le thème clair / sombre" title="Clair / Sombre">
-          <span class="imsb-theme-ic imsb-theme-sun" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </span>
-          <span class="imsb-theme-ic imsb-theme-moon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          </span>
-        </button>
-      </div>
-    </header>
-
-    <main class="imv-login">
-    <div class="imv-authwrap" id="imsb-authwrap">
-      <div class="imv-authcard">
-        <div id="imsb-left">
-          ${brand()}
-          <form id="imsb-form" class="imsb-mid" autocomplete="on">
-            <h2 class="imsb-h2">Connexion</h2>
-            <p class="imsb-lead">Connecte-toi pour gérer tes locations.</p>
-            <div class="imsb-err" id="imsb-error" style="display:none"></div>
-            <label class="imsb-flabel">Email</label>
-            <input class="imsb-input" id="imsb-email" type="email" placeholder="toi@exemple.fr" required autocomplete="username">
-            <label class="imsb-flabel">Mot de passe</label>
-            <input class="imsb-input" id="imsb-pass" type="password" placeholder="••••••••" required autocomplete="current-password">
-            <div class="imsb-forgot"><a href="#" id="imsb-forgot">Mot de passe oublié ?</a></div>
-            <button class="imsb-btn imsb-primary" id="imsb-submit" type="submit">Se connecter</button>
-            <p class="imsb-foot">Nouveau ? <a href="#" id="imsb-signup">Créer un compte · essai gratuit</a></p>
-          </form>
-        </div>
-        <p class="imv-trust imv-trust-login">
-          <span><span class="imv-s"></span>Hébergé en Europe</span>
-          <span><span class="imv-s"></span>Conforme RGPD</span>
-          <span><span class="imv-s"></span>Tes données t'appartiennent</span>
-        </p>
-      </div>
-    </div>
-    </main>
-
-    <footer class="imv-footer">
-      <span class="imv-foot-copy">© 2026 Propryo · Hébergé en Europe · RGPD</span>
-      <nav class="imv-foot-links" aria-label="Informations légales">
-        <a href="https://www.propryo.fr/mentions-legales/">Mentions légales</a><a href="https://www.propryo.fr/cgu/">CGU</a><a href="https://www.propryo.fr/cgv/">CGV</a><a href="https://www.propryo.fr/confidentialite/">Confidentialité</a><a href="https://www.propryo.fr/cookies/">Cookies</a>
-      </nav>
-    </footer>
-
-  </div>`
-  document.body.appendChild(ov)
 
   // v15.422 BUG-LOGIN-PREMIERE-CONNEXION — GARDE ANTI-SUBMIT-NATIF. Le formulaire est visible
   // AVANT que wireLoginForm ait câblé le vrai onsubmit : boot() attend l'import CDN de
@@ -1783,13 +1736,15 @@ function injectOverlay() {
   // identifiants tapés disparaissaient (« la première connexion échoue »). Ici : on neutralise
   // le submit, on mémorise l'intention (_pendingSubmit) et on passe le bouton en attente ;
   // wireLoginForm REJOUE la demande dès qu'il est prêt (l'utilisateur n'a rien à refaire).
-  ov._pendingSubmit = false
-  const _earlyForm = ov.querySelector('#imsb-form')
-  if (_earlyForm) _earlyForm.onsubmit = (e) => {
-    e.preventDefault()
-    ov._pendingSubmit = true
-    const btn = ov.querySelector('#imsb-submit')
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="imsb-spin imsb-spin-sm"></span> Chargement…' }
+  if (ov._pendingSubmit === undefined) {   // repli : le script inline d'index.html n'a pas tourné
+    ov._pendingSubmit = false
+    const _earlyForm = ov.querySelector('#imsb-form')
+    if (_earlyForm) _earlyForm.onsubmit = (e) => {
+      e.preventDefault()
+      ov._pendingSubmit = true
+      const btn = ov.querySelector('#imsb-submit')
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="imsb-spin imsb-spin-sm"></span> Chargement…' }
+    }
   }
 
   // Toggle thème Clair/Sombre — bascule .mode-sombre sur #imsb-overlay, persisté (immo_theme).
@@ -1798,19 +1753,6 @@ function injectOverlay() {
     const dark = ov.classList.toggle('mode-sombre')
     try { localStorage.setItem('immo_theme', dark ? 'sombre' : 'clair') } catch (e) {}
   }
-
-  // Vitrine → la connexion est une MODALE révélée au clic (le formulaire n'est plus affiché en dur).
-  // #imsb-left reste dans le DOM et câblé ; on montre/cache juste sa modale via la classe imv-auth-open.
-  const _openAuth = () => ov.classList.add('imv-auth-open')
-  const _closeAuth = () => ov.classList.remove('imv-auth-open')
-  ;['imsb-open-login', 'imsb-open-signup', 'imsb-open-signup2'].forEach(id => {
-    const el = ov.querySelector('#' + id)
-    if (el) el.onclick = (e) => { e.preventDefault(); _openAuth() }
-  })
-  const _authClose = ov.querySelector('#imsb-authclose')
-  if (_authClose) _authClose.onclick = _closeAuth
-  const _authWrap = ov.querySelector('#imsb-authwrap')
-  if (_authWrap) _authWrap.onclick = (e) => { if (e.target === _authWrap) _closeAuth() }
 
   // Le lien « Créer un compte » (#imsb-signup) est câblé par wireLoginForm (bascule Connexion↔Inscription),
   // qui seul dispose de `api` pour appeler signUpEmail. Inscription gardée côté serveur par le hook allowlist.
@@ -1827,6 +1769,7 @@ function setBusy(overlay, busy) {
 }
 function showError(overlay, msg) {
   const e = overlay.querySelector('#imsb-error'); if (!e) return
+  if (msg) overlay.classList.remove('imsb-restoring')
   if (msg) overlay.classList.add('imv-auth-open')  // rend l'erreur visible même si la modale était fermée
   e.textContent = msg; e.style.display = msg ? 'block' : 'none'
 }
@@ -1838,288 +1781,12 @@ function traduireErreur(m) {
 const escapeHtml = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 
 function injectStyles() {
-  if (document.getElementById('imsb-style')) return
-  // CSS de la charte Propryo, SCOPÉ à #imsb-overlay (tokens via variables ; mode sombre = .mode-sombre).
-  // RÈGLE COULEUR : neutres = la base ; corail = accent SEULEMENT (CTA / liens / focus / point logo / 1 chiffre).
-  const css = `
-  /* ===== TOKENS — MODE CLAIR (défaut) ===== */
-  #imsb-overlay{
-    --bg:#f4f5f8;
-    --bg-grad:radial-gradient(120% 100% at 92% -8%,#fff4f1 0%,#f5f6f9 38%,#f1f2f6 100%);
-    --surface:#ffffff; --surface-2:#f7f8fb;
-    --ink:#101521; --ink-2:#3c4658; --ink-3:#5f6f86; /* v15.694 CHARTE M-17 : #6e7888 (4,09) → 4,69:1 sur --bg */
-    --line:#e4e7ee; --line-2:#eef0f5;
-    --neutral-soft:#eef1f6; --neutral-ink:#42506a;
-    --accent:#ff5a3c; --accent-2:#e8431f; --accent-soft:#ffe7e0; --accent-on:#ffffff;
-    --good:#1a8f6f; --good-soft:#dff3ec; --warn:#b27a12; --warn-soft:#f8eed6; --bad:#d23f3f; --bad-soft:#fbe4e2; --stars:#f0a13c;
-    --font:'Inter',system-ui,sans-serif;
-    --display:'Schibsted Grotesk','Inter',system-ui,sans-serif;
-    --display-w:800; --display-ls:-.035em; --display-lh:1.03;
-    --r-xs:9px; --r:13px; --r-md:15px; --r-lg:20px; --r-xl:26px; --pill:999px;
-    --shadow-sm:0 1px 2px rgba(16,21,33,.06);
-    --shadow-md:0 14px 36px -18px rgba(16,21,33,.20);
-    --shadow-lg:0 34px 78px -30px rgba(16,21,33,.26);
-    --btn-shadow:0 12px 26px -12px rgba(255,90,60,.55);
-    --dash-rotate:perspective(1700px) rotateY(-7deg) rotateX(1.5deg);
-    --logo-mark-bg:#101521; --frame-border:rgba(16,21,33,.10);
-    --mside-bg:#141925; --mside-fg:#aab4c6; --mside-on:rgba(255,90,60,.20); --mside-on-fg:#ffffff;
-    --mbody-bg:#f6f7fa; --mbar:#cfd5e2; --mbar-hl:#ff5a3c; --mbar-muted:#e2e6ee;
-  }
-  /* ===== TOKENS — MODE SOMBRE ===== */
-  #imsb-overlay.mode-sombre{
-    --bg:#14161d;
-    --bg-grad:radial-gradient(120% 100% at 90% -10%,#221a1c 0%,#14161d 42%,#11131a 100%);
-    --surface:#1e222c; --surface-2:#262b37;
-    --ink:#f2f5fa; --ink-2:#cdd6e3; --ink-3:#9aa6b8;
-    --line:rgba(255,255,255,.12); --line-2:rgba(255,255,255,.08);
-    --neutral-soft:rgba(255,255,255,.07); --neutral-ink:#aeb9cb;
-    --accent:#ff6a4a; --accent-2:#ff8163; --accent-soft:rgba(255,106,74,.18); --accent-on:#1a0d09;
-    --good:#3fd6a3; --good-soft:rgba(63,214,163,.16); --warn:#f1bd55; --warn-soft:rgba(241,189,85,.16); --bad:#ff7a7a; --bad-soft:rgba(255,122,122,.16); --stars:#ffb454;
-    --shadow-sm:0 0 0 1px rgba(255,255,255,.05);
-    --shadow-md:0 0 0 1px rgba(255,255,255,.09);
-    --shadow-lg:0 0 0 1px rgba(255,255,255,.11), 0 40px 90px -40px rgba(0,0,0,.7);
-    --btn-shadow:0 0 0 1px rgba(255,106,74,.45), 0 12px 30px -14px rgba(255,106,74,.5);
-    --logo-mark-bg:#262b37; --frame-border:rgba(255,255,255,.10);
-    --mside-bg:#10131a; --mside-fg:#9aa6b8; --mside-on:rgba(255,106,74,.20); --mside-on-fg:#ffffff;
-    --mbody-bg:#171a22; --mbar:#3a4150; --mbar-hl:#ff6a4a; --mbar-muted:#2b313d;
-  }
-
-  /* ===== ROOT / PAGE ===== */
-  #imsb-overlay{position:fixed;inset:0;z-index:2147483000;overflow:auto;
-    background:var(--bg);background-image:var(--bg-grad);color:var(--ink);
-    font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .25s}
-  #imsb-overlay *{box-sizing:border-box}
-  #imsb-overlay svg{display:block}
-  /* Ambiance « agence » : halos corail + bleu froid, profondeur premium (portée du mockup validé) */
-  #imsb-overlay::before{content:"";position:fixed;top:-18%;left:18%;width:48vw;height:48vw;
-    background:radial-gradient(circle at 50% 50%,var(--accent),transparent 62%);opacity:.13;filter:blur(40px);pointer-events:none;z-index:0}
-  #imsb-overlay::after{content:"";position:fixed;bottom:-24%;left:-12%;width:44vw;height:44vw;
-    background:radial-gradient(circle at 50% 50%,#6f8bff,transparent 60%);opacity:.07;filter:blur(48px);pointer-events:none;z-index:0}
-  #imsb-overlay.mode-sombre::before{opacity:.22}
-  #imsb-overlay.mode-sombre::after{opacity:.11}
-  .imsb-page{position:relative;z-index:1;max-width:1280px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:0 0 48px}
-
-  /* ===== NAV ===== */
-  .imsb-nav{display:flex;align-items:center;justify-content:space-between;padding:22px 44px;gap:20px}
-  .imsb-brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:var(--display-w);font-size:21px;letter-spacing:-.03em;color:var(--ink)}
-  /* Logo validé : marque = carré arrondi CONTOUR corail + point corail (jamais d'aplat, pas d'ombre). */
-  /* Logo = image SVG vectorisée ; on toggle la variante selon le thème de l'overlay. */
-  .imsb-logo{height:38px;width:auto;display:none;flex-shrink:0}
-  .imsb-logo-l{display:block}
-  #imsb-overlay.mode-sombre .imsb-logo-l{display:none}
-  #imsb-overlay.mode-sombre .imsb-logo-d{display:block}
-  .imsb-nav-right{display:flex;align-items:center;gap:24px}
-  .imsb-nav-links{display:flex;align-items:center;gap:28px;font-size:14.5px;font-weight:600;color:var(--ink-2)}
-  .imsb-nav-link:hover{color:var(--accent)}
-  /* toggle thème : icône neutre, halo corail au survol */
-  .imsb-theme{position:relative;width:40px;height:40px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);color:var(--ink-2);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);transition:.16s}
-  .imsb-theme:hover{color:var(--accent);border-color:var(--accent-soft)}
-  .imsb-theme-ic{position:absolute;display:flex}.imsb-theme-ic svg{width:19px;height:19px}
-  #imsb-overlay .imsb-theme-moon{display:none}#imsb-overlay .imsb-theme-sun{display:flex}
-  #imsb-overlay.mode-sombre .imsb-theme-sun{display:none}#imsb-overlay.mode-sombre .imsb-theme-moon{display:flex}
-
-  /* ===== HERO ===== */
-  .imsb-hero{flex:1;display:grid;grid-template-columns:.88fr 1.12fr;gap:36px;padding:16px 44px 40px;align-items:center}
-  .imsb-rate{display:inline-flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--pill);padding:5px 15px 5px 6px;box-shadow:var(--shadow-sm);margin-bottom:22px}
-  .imsb-avatars{display:flex}
-  .imsb-avatars span{width:25px;height:25px;border-radius:50%;border:2.5px solid var(--surface);margin-left:-9px;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#fff}
-  .imsb-avatars span:first-child{margin-left:0}
-  .imsb-avatars .av1{background:#5566aa}.imsb-avatars .av2{background:#3f8f7a}.imsb-avatars .av3{background:#7b6bb0}.imsb-avatars .av4{background:#ff5a3c}
-  .imsb-stars{color:var(--stars);letter-spacing:1px;font-size:13px}
-  .imsb-rate-txt{font-size:12px;font-weight:700;color:var(--ink-2)}
-  .imsb-h1{font-family:var(--display);font-weight:var(--display-w);font-size:47px;line-height:var(--display-lh);letter-spacing:var(--display-ls);color:var(--ink);margin:0}
-  .imsb-hl{color:var(--accent);position:relative;display:inline-block}
-  .imsb-hl::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:8px;background:var(--accent-soft);border-radius:8px;z-index:-1}
-  .imsb-sub{font-size:18px;color:var(--ink-2);font-weight:500;margin-top:16px;max-width:420px}
-  .imsb-piliers{display:flex;gap:12px;margin-top:24px}
-  .imsb-pil{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:15px 15px 14px;box-shadow:var(--shadow-sm)}
-  .imsb-pi-ic{width:34px;height:34px;border-radius:var(--r-xs);display:flex;align-items:center;justify-content:center;margin-bottom:10px;background:var(--neutral-soft);color:var(--neutral-ink)}
-  .imsb-pil h4{font-size:14px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;color:var(--ink);font-family:var(--display)}
-  .imsb-pil ul{list-style:none;display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
-  .imsb-pil li{font-size:12px;color:var(--ink-2);font-weight:600;display:flex;align-items:center;gap:7px}
-  .imsb-pil li svg{width:13px;height:13px;flex-shrink:0;color:var(--good)}
-  .imsb-actions{display:flex;align-items:center;gap:16px;margin-top:26px;flex-wrap:wrap}
-  .imsb-stat-saved{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.02em;line-height:1;font-family:var(--display)}
-  .imsb-stat-saved em{font-style:normal;color:var(--accent)}
-  .imsb-stat-saved span{display:block;font-size:12px;font-weight:600;color:var(--ink-3);letter-spacing:0;margin-top:3px}
-  .imsb-trustline{margin-top:18px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3);font-weight:600;flex-wrap:wrap}
-  .imsb-trustline svg{color:var(--neutral-ink);flex-shrink:0}
-  .imsb-dot{width:4px;height:4px;border-radius:50%;background:var(--line)}
-
-  /* ===== RIGHT : dashboard + colonne login (#imsb-left) ===== */
-  .imsb-right{position:relative}
-  .imsb-dash{border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid var(--frame-border);transform:var(--dash-rotate);transition:transform .4s ease}
-  /* #imsb-left = la carte de connexion, posée en surimpression du dashboard (login / chargement / invitation) */
-  #imsb-left{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:22px;display:flex;flex-direction:column}
-  /* le brand est répété dans #imsb-left (login/chargement/invitation) mais discret dans la carte */
-  #imsb-left .imsb-brand{margin-bottom:12px}
-  #imsb-left .imsb-logo{height:30px}
-  .imsb-mid{display:flex;flex-direction:column}
-  .imsb-h2{font-size:17px;font-weight:800;margin:0 0 4px;color:var(--ink);font-family:var(--display)}
-  .imsb-lead{color:var(--ink-3);font-size:12.5px;line-height:1.45;margin:0 0 14px}
-  .imsb-flabel{font-size:11.5px;font-weight:700;color:var(--ink-2);margin-bottom:6px}
-  .imsb-input{width:100%;border:1.5px solid var(--line);border-radius:var(--r);padding:11px 13px;font-size:14px;margin-bottom:11px;font-family:inherit;background:var(--surface-2);color:var(--ink);transition:.15s}
-  .imsb-input::placeholder{color:var(--ink-3)}
-  .imsb-input:focus{outline:none;border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 4px var(--accent-soft)}
-  .imsb-forgot{text-align:right;margin:-2px 0 13px}
-  .imsb-forgot a{font-size:12px;color:var(--accent);font-weight:700;text-decoration:none}
-  .imsb-btn{width:100%;border:none;cursor:pointer;font-family:inherit;font-size:14.5px;font-weight:700;border-radius:var(--r);padding:12px;display:flex;align-items:center;justify-content:center;gap:9px;transition:.18s}
-  .imsb-primary{background:var(--accent);color:var(--accent-on);box-shadow:var(--btn-shadow)}
-  .imsb-primary:hover{background:var(--accent-2);transform:translateY(-1px)}
-  .imsb-primary:disabled{opacity:.7;cursor:default;transform:none}
-  .imsb-ghost{background:var(--surface);color:var(--ink-2);border:1.5px solid var(--line);margin-top:6px}
-  .imsb-ghost:hover{color:var(--accent);border-color:var(--accent-soft)}
-  .imsb-foot{text-align:center;font-size:12px;color:var(--ink-3);margin-top:13px;font-weight:500}
-  .imsb-foot a{color:var(--accent);font-weight:700}
-  .imsb-err{background:var(--bad-soft);border:1px solid var(--bad);color:var(--bad);border-radius:var(--r);padding:9px 11px;font-size:12.5px;margin-bottom:12px}
-  .imsb-ok{background:var(--good-soft);border:1px solid var(--good);color:var(--good);border-radius:var(--r);padding:9px 11px;font-size:12.5px;font-weight:700;margin-bottom:12px}
-  .imsb-note{font-size:11.5px;color:var(--ink-3);line-height:1.45;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);padding:9px 11px;margin-top:10px}
-  .imsb-note code{background:var(--neutral-soft);padding:1px 5px;border-radius:4px;font-size:11px}
-  .imsb-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:12px}
-  .imsb-tbl td{padding:5px 4px;border-bottom:1px solid var(--line-2);color:var(--ink-2)}
-  .imsb-tbl .imsb-num{text-align:right;font-weight:700;color:var(--ink)}
-  .imsb-spin{width:24px;height:24px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:imsb-rot .7s linear infinite;margin:8px auto 12px}
-  .imsb-spin-sm{width:15px;height:15px;border-width:2.5px;border-top-color:var(--accent-on);margin:0;display:inline-block}
-  @keyframes imsb-rot{to{transform:rotate(360deg)}}
-
-  /* ===== APP MOCK (aperçu dashboard) ===== */
-  .imsb-mock{background:var(--mbody-bg);font-size:12px}
-  .imsb-mock-grid{display:grid;grid-template-columns:170px 1fr}
-  .imsb-mock-side{background:var(--mside-bg);color:var(--mside-fg);padding:16px 14px}
-  .imsb-m-brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:800;font-size:14px;margin-bottom:18px;font-family:var(--display)}
-  .imsb-mm{position:relative;width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center}
-  .imsb-mm::after{content:"";position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
-  .imsb-m-nav{display:flex;flex-direction:column;gap:3px}
-  .imsb-m-nav a{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-xs);font-size:12.5px;font-weight:600;color:var(--mside-fg)}
-  .imsb-m-nav a.on{background:var(--mside-on);color:var(--mside-on-fg)}
-  .imsb-m-nav a svg{width:15px;height:15px;opacity:.9}
-  .imsb-mock-body{padding:18px 20px;background:var(--mbody-bg)}
-  .imsb-mock-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-  .imsb-mock-head h4{font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-.02em;font-family:var(--display)}
-  .imsb-m-date{font-size:11.5px;color:var(--ink-3);font-weight:600}
-  .imsb-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
-  .imsb-kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px}
-  .imsb-k-lab{font-size:10px;color:var(--ink-3);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-  .imsb-k-val{font-size:19px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-top:5px;font-family:var(--display)}
-  .imsb-kpi.accent .imsb-k-val{color:var(--accent)}
-  .imsb-k-delta{font-size:10.5px;font-weight:700;margin-top:3px;color:var(--ink-3)}
-  .imsb-k-delta.up{color:var(--good)}.imsb-k-delta.down{color:var(--bad)}
-  .imsb-mock-cols{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}
-  .imsb-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
-  .imsb-p-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-  .imsb-p-head h5{font-size:13px;font-weight:800;color:var(--ink);font-family:var(--display)}
-  .imsb-p-tag{font-size:10.5px;font-weight:700;color:var(--ink-3)}
-  .imsb-chart{display:flex;align-items:flex-end;gap:9px;height:96px;padding-top:6px;border-bottom:1px solid var(--line-2)}
-  .imsb-bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%}
-  .imsb-bb{width:100%;border-radius:5px 5px 2px 2px;background:var(--mbar-muted)}
-  .imsb-bar.fill .imsb-bb{background:var(--mbar)}
-  .imsb-bar.hl .imsb-bb{background:var(--mbar-hl)}
-  .imsb-bl{font-size:9.5px;color:var(--ink-3);font-weight:700}
-  .imsb-loyers{display:flex;flex-direction:column;gap:9px}
-  .imsb-loyer{display:flex;align-items:center;gap:10px}
-  .imsb-l-av{width:30px;height:30px;border-radius:var(--r-xs);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
-  .imsb-l-info{flex:1;min-width:0}
-  .imsb-l-name{font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .imsb-l-meta{font-size:10.5px;color:var(--ink-3);font-weight:600}
-  .imsb-badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:var(--pill)}
-  .imsb-badge.b-paid{background:var(--good-soft);color:var(--good)}
-  .imsb-badge.b-wait{background:var(--warn-soft);color:var(--warn)}
-  .imsb-badge.b-late{background:var(--bad-soft);color:var(--bad)}
-  .imsb-dashbar{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--mside-bg);border-bottom:1px solid rgba(255,255,255,.07)}
-  .imsb-dots{display:flex;gap:6px}
-  .imsb-dots i{width:9px;height:9px;border-radius:50%;display:block}
-  .imsb-url{flex:1;text-align:center;font-size:10.5px;color:rgba(255,255,255,.5);font-weight:600}
-
-  /* ===== FOOTER LÉGAL (liens obligatoires LCEN/RGPD ; pages cibles à créer avec infos société) ===== */
-  .imsb-legal{display:flex;align-items:center;justify-content:space-between;gap:12px 22px;flex-wrap:wrap;margin:0 44px;padding:20px 0 0;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
-  .imsb-legal-copy{font-weight:600}
-  .imsb-legal-links{display:flex;flex-wrap:wrap;gap:8px 18px}
-  .imsb-legal-links a{color:var(--ink-3);text-decoration:none;font-weight:600;transition:color .15s}
-  .imsb-legal-links a:hover{color:var(--accent)}
-
-  /* ===== VITRINE (page d'accueil crafted — portee du mockup valide) ===== */
-  .imv-nav{display:flex;align-items:center;justify-content:space-between;padding:16px clamp(20px,5vw,56px);gap:20px}
-  .imv-mid{display:flex;gap:26px}
-  .imv-mid a{font-size:14px;font-weight:500;color:var(--ink-2);text-decoration:none;opacity:.85;transition:color .2s}
-  .imv-mid a:hover{color:var(--accent);opacity:1}
-  @media(max-width:840px){.imv-mid{display:none}}
-  .imv-nav-link{font-size:14px;font-weight:600;color:var(--ink);text-decoration:none;cursor:pointer}
-  .imv-nav-link:hover{color:var(--accent)}
-  .imv-btn-mini{font-size:13.5px;font-weight:700;padding:9px 16px;border-radius:var(--r-xs);background:var(--accent);color:var(--accent-on);text-decoration:none;cursor:pointer;box-shadow:var(--btn-shadow);transition:background .15s}
-  .imv-btn-mini:hover{background:var(--accent-2)}
-  @media(max-width:520px){.imv-btn-mini{display:none}}
-  .imv-hero{flex:1;display:flex;align-items:center;padding:clamp(12px,2vw,26px) clamp(20px,5vw,56px)}
-  .imv-hero-in{max-width:1180px;width:100%;margin:0 auto;display:grid;grid-template-columns:1.02fr .98fr;gap:clamp(32px,5vw,68px);align-items:center}
-  @media(max-width:880px){.imv-hero-in{grid-template-columns:1fr;gap:38px}}
-  .imv-eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-bottom:clamp(20px,3vw,30px)}
-  .imv-pip{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
-  .imv-h1{font-family:var(--display);font-weight:800;color:var(--ink);font-size:clamp(2.3rem,4.6vw,4rem);line-height:1.0;letter-spacing:-.035em;max-width:15ch;margin:0 0 clamp(16px,2vw,24px)}
-  .imv-h1 em{font-style:normal;color:var(--accent)}
-  .imv-triad{font-family:var(--display);font-weight:500;color:var(--ink-2);font-size:clamp(1.1rem,2vw,1.6rem);letter-spacing:-.01em;margin:0 0 clamp(26px,3.4vw,38px)}
-  .imv-triad b{color:var(--ink);font-weight:600}
-  .imv-triad i{font-style:normal;color:var(--accent);margin:0 .42em;font-weight:700}
-  .imv-cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:clamp(22px,3vw,30px)}
-  .imv-btn{font-family:inherit;font-weight:600;font-size:16px;border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:transform .15s,background .15s;text-decoration:none;display:inline-flex;align-items:center;gap:9px}
-  .imv-btn:active{transform:translateY(1px)}
-  .imv-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
-  .imv-btn-primary{background:var(--accent);color:var(--accent-on);padding:15px 28px;box-shadow:var(--btn-shadow)}
-  .imv-btn-primary:hover{background:var(--accent-2)}
-  .imv-btn-primary:hover svg{transform:translateX(3px)}
-  .imv-btn-ghost{background:var(--surface);color:var(--ink);padding:15px 22px;border-color:var(--line)}
-  .imv-btn-ghost:hover{border-color:var(--ink-3)}
-  .imv-trust{display:flex;gap:9px 18px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3)}
-  .imv-trust span{display:inline-flex;align-items:center;gap:8px}
-  .imv-s{width:4px;height:4px;border-radius:50%;background:var(--accent);opacity:.75}
-  .imv-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:clamp(20px,2.2vw,28px);box-shadow:var(--shadow-lg)}
-  .imv-panel-h{font-family:var(--display);font-weight:700;font-size:clamp(1.02rem,1.35vw,1.2rem);color:var(--ink);letter-spacing:-.015em;line-height:1.22;margin-bottom:16px}
-  .imv-panel-h em{font-style:normal;color:var(--accent)}
-  .imv-feat{list-style:none;display:flex;flex-direction:column;margin:0;padding:0}
-  .imv-feat li{display:flex;gap:14px;align-items:center;padding:13px 2px;border-bottom:1px solid var(--line)}
-  .imv-feat li:last-child{border-bottom:none}
-  .imv-fi{width:40px;height:40px;border-radius:12px;background:var(--neutral-soft);border:1px solid var(--line);display:grid;place-items:center;flex-shrink:0}
-  .imv-fi svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;opacity:.82}
-  .imv-feat b{display:block;font-family:var(--display);font-weight:600;font-size:15.5px;color:var(--ink);letter-spacing:-.01em}
-  .imv-feat small{display:block;font-size:12.5px;color:var(--ink-3);margin-top:2px}
-  .imv-panel-f{margin-top:16px;padding-top:15px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3);line-height:1.5}
-  .imv-panel-f b{color:var(--accent);font-weight:600}
-  .imv-footer{border-top:1px solid var(--line);margin:0 clamp(20px,5vw,56px);padding:14px 0 16px;display:flex;align-items:center;justify-content:space-between;gap:8px 22px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3)}
-  .imv-foot-copy{font-weight:600}
-  .imv-foot-links{display:flex;flex-wrap:wrap;gap:6px 16px}
-  .imv-foot-links a{color:var(--ink-3);text-decoration:none;font-weight:600;transition:color .15s}
-  .imv-foot-links a:hover{color:var(--accent)}
-  .imv-login{flex:1;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,32px) 20px}
-  .imv-authwrap{display:flex;align-items:center;justify-content:center;width:100%}
-  .imv-authcard{position:relative;width:100%;max-width:400px}
-  .imv-authcard #imsb-left{padding:30px 28px 24px}
-  .imv-trust-login{justify-content:center;margin-top:20px}
-  .imv-back{font-weight:500;color:var(--ink-3)}
-
-  /* ===== RESPONSIVE ===== */
-  @media(max-width:1020px){
-    .imsb-hero{grid-template-columns:1fr;gap:42px}
-    .imsb-dash{transform:none}
-    #imsb-left{position:static;width:100%;margin-top:18px;right:auto;bottom:auto}
-    .imsb-h1{font-size:42px}
-  }
-  @media(max-width:620px){
-    .imsb-nav{padding:16px 18px}
-    .imsb-nav-links{display:none}
-    .imsb-hero{padding:14px 18px 28px;gap:28px}
-    .imsb-h1{font-size:33px}
-    .imsb-sub{font-size:16px}
-    .imsb-piliers{flex-direction:column}
-    .imsb-kpis{grid-template-columns:repeat(2,1fr)}
-    .imsb-mock-cols{grid-template-columns:1fr}
-    .imsb-mock-side{display:none}
-    .imsb-mock-grid{grid-template-columns:1fr}
-    .imsb-legal{margin:0 18px;flex-direction:column;align-items:flex-start;gap:10px}
-  }`
-  const s = document.createElement('style'); s.id = 'imsb-style'; s.textContent = css
-  document.head.appendChild(s)
-
-  // LOT 1 — l'injection d'un SECOND lien Google Fonts est supprimée : Schibsted Grotesk
-  // et Inter sont vendorisées (css/fonts/, @font-face en tête de css/main.css), qui est
-  // chargée par index.html avant cet écran. Règle projet : aucun CDN au runtime.
+  // Le CSS de l'écran de connexion vit dans css/login.css, lié par <link id="imsb-style-link"> dans le <head>
+  // d'index.html (perf étape 3a : il est peint avant les scripts). Repli : si le lien est absent (page servie
+  // autrement), on l'ajoute ici. Aucun CDN au runtime (polices vendorisées dans css/main.css).
+  if (document.getElementById('imsb-style-link') || document.getElementById('imsb-style')) return
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.id = 'imsb-style-link'; l.href = 'css/login.css'
+  document.head.appendChild(l)
 }
 
 // ── Démarrage (en dernier : toutes les déclarations const/function sont initialisées) ───────────
