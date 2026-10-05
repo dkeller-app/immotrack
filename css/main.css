@@ -9179,8 +9179,18 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .loc-ech-b.err { color: var(--neg); font-weight: 700; }
 /* BAUX-ECHUS — alerte « bail arrivé à terme » : pleine largeur sous la ligne (PC, tablette, téléphone),
    ton neutre, jamais bloquante. Les deux gestes vivent dans .loc-actions-b. */
-.loc-terme-b { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.4; color: var(--t1); background: var(--warn-soft); border: 1px solid var(--bor); border-radius: 6px; padding: 6px 9px; white-space: normal; overflow-wrap: anywhere; }
-.loc-terme-b svg { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--warn); }
+.loc-terme-b { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; line-height: 1.4; color: var(--t1); background: var(--warn-soft); border: 1px solid var(--bor); border-radius: 6px; padding: 6px 9px; white-space: normal; overflow-wrap: anywhere; cursor: default; }
+.loc-terme-b .loc-terme-txt { flex: 1 1 280px; display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.loc-terme-b .loc-terme-txt svg { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--warn); }
+.loc-terme-b .loc-terme-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.loc-terme-b .loc-terme-acts button { padding: 5px 9px; background: var(--sur); border: 1px solid var(--bor); border-radius: 4px; font-size: 11px; font-weight: 600; color: var(--t1); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+.loc-terme-b .loc-terme-acts button svg { width: 14px; height: 14px; flex: none; }
+.loc-terme-b .loc-terme-acts button:hover { border-color: var(--acc); color: var(--acc); }
+@media (max-width: 767px) {
+  .loc-terme-b { margin-top: 10px; font-size: 13px; }
+  .loc-terme-b .loc-terme-acts { width: 100%; }
+  .loc-terme-b .loc-terme-acts button { flex: 1; min-height: 44px; padding: 10px 12px; font-size: 13px; justify-content: center; }
+}
 .loc-meta-bail-b { font-size: 11px; color: var(--t2, #6b7280); white-space: nowrap; }
 .loc-actions-b { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 .loc-actions-b button {

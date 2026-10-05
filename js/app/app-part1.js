@@ -15505,16 +15505,19 @@ function rBaux() {
       // BAUX-ECHUS — bail arrivé à terme sans reconduction (étudiant, mobilité ; garage repris, autre) et
       // sans départ déclaré : l'alerte dit ce que la loi dit, et propose les deux gestes existants.
       const terme = (!depState && bail && !bail.cloture && !bail._deleted) ? _bailAlerteTerme(bail, l) : null;
+      // Les deux gestes vivent DANS l'alerte (ligne pleine largeur) : la colonne d'actions de la carte ne
+      // s'élargit pas — sinon, sur PC, le nom du locataire se retrouvait écrasé mot par mot.
       const termeHtml = terme
-        ? `<div class="loc-terme-b" role="note">${_uiIcon('warn',13)} <span>${escHtml(terme.texte)}</span></div>`
+        ? `<div class="loc-terme-b" role="note"><span class="loc-terme-txt">${_uiIcon('warn',13)} <span>${escHtml(terme.texte)}</span></span>`
+          + `<span class="loc-terme-acts">`
+          + `<button onclick="event.stopPropagation();_bailNouveauApresTerme('${refEscJs}')" title="Signer un nouveau bail${terme.nouveauBailMeuble ? ' meublé' : ''} avec le même locataire" aria-label="Signer un nouveau bail">${_uiIcon('edit')} Nouveau bail</button>`
+          + `<button onclick="event.stopPropagation();_departDeclarer('${refEscJs}')" title="Déclarer le départ du locataire" aria-label="Déclarer le départ">${_ICON_DEPART} Déclarer le départ</button>`
+          + `</span></div>`
         : '';
       // v15.614 REFONTE-PC — bouton départ libellé (plus d'icône seule)
       const depActionBtn = depState
         ? `<button onclick="event.stopPropagation();_departOuvrir('${refEscJs}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">${_ICON_DEPART} Départ</button>`
-        : terme
-          ? `<button onclick="event.stopPropagation();_bailNouveauApresTerme('${refEscJs}')" title="Signer un nouveau bail${terme.nouveauBailMeuble ? ' meublé' : ''} avec le même locataire" aria-label="Signer un nouveau bail" class="loc-dep-prep">${_uiIcon('edit')} Nouveau bail</button>
-             <button onclick="event.stopPropagation();_departDeclarer('${refEscJs}')" title="Déclarer le départ du locataire" aria-label="Déclarer le départ" class="loc-dep-prep">${_ICON_DEPART} Déclarer le départ</button>`
-          : (bail && !bail.cloture && !bail._deleted && ech.urgent
+        : (!terme && bail && !bail.cloture && !bail._deleted && ech.urgent
             ? `<button onclick="event.stopPropagation();_departOuvrir('${refEscJs}')" title="Préparer le départ du locataire" aria-label="Préparer le départ" class="loc-dep-prep">${_ICON_DEPART} Départ</button>`
             : '');
       const rowDepCls = depState ? ' loc-depart' : (ech.urgent ? ' warn-soon' : '');
@@ -23271,7 +23274,12 @@ function _congeExtra(ref){
     _congeState.preavisPushed=false;
     if(pinfo){
       e.dateFin=fd(_congeDateEffetLocale(bail,log,pinfo,preavisMois));
-    } else { e.dateFin=bail.fin?fd(bail.fin):'‹échéance du bail›'; }
+    } else {
+      // BAUX-ECHUS — pas de préavis légal (étudiant, mobilité, garage, autre) : l'échéance selon LA règle du
+      // type (garage de l'app : la période reconduite en cours ; arrivé à terme : la fin du contrat).
+      var _echC=(typeof _bailEcheanceEffective==='function')?_bailEcheanceEffective(bail,log):null;
+      e.dateFin=_echC?fd(_echC):(bail.fin?fd(bail.fin):'‹échéance du bail›');
+    }
     e.mentionPreavis=window.congeMentionPreavis(preavisMois, typeBail);
   } else if(_congeState.kind==='conge_locataire'){
     var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
