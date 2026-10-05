@@ -238,6 +238,14 @@ export function _isEraseEligible(db, logRef) {
     return { eligible: true, reason: 'Aucun bail trouvé pour ce logement — pas de contrat à protéger', lastBailEnd: '' };
   }
 
+  // Un bail EN COURS non clôturé n'est jamais « terminé », quelle que soit sa date de fin
+  // contractuelle : un bail nu/meublé se reconduit tacitement (R0-E). Avant, un bail nu signé en
+  // 2019, échéance 2022, locataire toujours en place, devenait éligible à l'effacement complet.
+  const cb = data.bailCourant;
+  if (cb && !cb.cloture && !cb.finEffective) {
+    return { eligible: false, reason: 'Bail en cours (non clôturé) — effacement impossible avant sa clôture', lastBailEnd: '' };
+  }
+
   // Dernier bail terminé : on regarde le plus grand bail.fin
   const lastEnd = allBails
     .map(b => b.finEffective || b.fin || '')

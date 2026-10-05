@@ -43,7 +43,8 @@ const _isAlive = (x) => !!x && !x._deleted;
 
 /** computeRegul réelle, branchée sur un DB de test (catégories et moteur compteur stubés). */
 function chargerRegul(DB, calcCc = () => ({ parts: [], totaux: {} })) {
-  const src = corpsDe(html, 'computeRegul');
+  // + la lecture unique de la fin d'occupation d'un bail (tacite reconduction).
+  const src = [corpsDe(html, '_bailTypeHasTacite'), corpsDe(html, '_bailFinOccupation'), corpsDe(html, 'computeRegul')].join('\n');
   const iso = corpsDe(html, '_isoLocal');
   // eslint-disable-next-line no-new-func
   return new Function(

@@ -29,7 +29,8 @@ const corpsDe = (nom) => {
 
 /** Exécute la frise avec ses dépendances, `loyerDuLotA` COMPRIS. */
 function frise(db, activeLogs, avecLecteur = true) {
-  const src = [corpsDe('_renderImmFichePlanGantt'), corpsDe('_ctxLoyerLot'), corpsDe('_getAllBailsForLog')].join('\n');
+  const src = [corpsDe('_renderImmFichePlanGantt'), corpsDe('_ctxLoyerLot'), corpsDe('_getAllBailsForLog'),
+    corpsDe('_bailTypeHasTacite'), corpsDe('_bailFinOccupation')].join('\n');
   if (!corpsDe('_renderImmFichePlanGantt')) throw new Error('frise introuvable — le test ne teste plus rien');
   const esc = (x) => String(x == null ? '' : x);
   const deps = {

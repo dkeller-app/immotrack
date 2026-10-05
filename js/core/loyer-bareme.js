@@ -770,7 +770,10 @@ export function chapitrePour(periods, ref, dateIso, baux) {
     if (!b || b._deleted || !b.debut) continue;
     const bd = _ymd(b.debut);
     if (bd > d) continue;
-    const f = _ymd(b.finEffective || b.fin || '');
+    // Même lecture que le dû (`_occupation`, loyer-du-mois.js) : la fin CONTRACTUELLE d'un bail
+    // COURANT (`archive:false`) est ignorée — tacite reconduction ; seule `finEffective` le clôt.
+    // Avant : une correction datée après l'échéance d'un bail reconduit ne trouvait aucun bail.
+    const f = _ymd(b.finEffective || (b.archive === false ? '' : b.fin) || '');
     if (f && f < d) continue;
     if (bd > best) best = bd;
   }
