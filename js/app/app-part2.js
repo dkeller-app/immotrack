@@ -1416,6 +1416,16 @@ function _lyLigneQuittance(e) {
 }
 
 /** D9/D10 — UNE ligne par lot, quel que soit le nombre de mois, loyer ET charges. */
+/** R0-C C1 — « Encaissement du JJ/MM (montant) antérieur à la date d'achat : à vérifier avant de relancer ».
+ *  Rend '' s'il n'y a rien à signaler. */
+function _lyAVerifierTexte(etat) {
+  const av = (etat && etat.aVerifier) || [];
+  if (!av.length) return '';
+  const jm = (iso) => String(iso).slice(8, 10) + '/' + String(iso).slice(5, 7);
+  const liste = av.map(a => 'du ' + jm(a.date) + ' (' + fmt(a.montant) + ')').join(', ');
+  return (av.length > 1 ? 'Encaissements ' : 'Encaissement ') + liste + (av.length > 1 ? ' antérieurs' : ' antérieur')
+    + ' à la date d\'achat : à vérifier avant de relancer.';
+}
 function _lyLigneRetard(e) {
   const r = e.retard;
   const depuis = r.depuisYm ? window.ymToMoisFr(r.depuisYm) : '';
@@ -1436,7 +1446,7 @@ function _lyLigneRetard(e) {
     montant: `<b>${fmt(r.reste)}</b> ${pastille}`,
     actions: `<button class="btn bp bb" onclick="_lyRelance('${_lyQ(e.ref)}')">Relance</button>${btnRecu}
       <button class="btn bs bb" onclick="_impayesOuvrirSur('${_lyQ(e.ref)}')" title="Détail mois par mois">⋯</button>`
-  }) };
+  }) + (() => { const t = _lyAVerifierTexte(e.etat); return t ? `<div class="ly2-av" role="note">${_uiIcon('warn', 14)}<span>${escHtml(t)}</span></div>` : ''; })() };
 }
 
 /**
@@ -1952,6 +1962,9 @@ function _lyRelance(ref) {
   const tol = (typeof window._loyerToleranceActive === 'function') ? window._loyerToleranceActive(today) : false;
   const lignes = window.lignesRelance(etat, { toleranceActive: tol });
   if (!lignes.length) { showToast('Rien à réclamer — ce lot est à jour', 'info'); return; }
+  // R0-C C1 — avertissement, jamais bloquant : un versement d'avant la date d'achat est peut-être ce terme.
+  const _av = _lyAVerifierTexte(etat);
+  if (_av) showToast(_av, 'warn', 9000);
   const r = window.retardLot(etat, { toleranceActive: tol });
   const niveau = window.niveauRelance(r.depuisYm, today);
   // AUDIT #1 — l'entité suit le document : sans elle, le PDF sortait sans bandeau bailleur.

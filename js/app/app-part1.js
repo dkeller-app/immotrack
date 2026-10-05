@@ -9043,11 +9043,12 @@ function _loyerEtatLot(ref, opts) {
   const _s = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function') ? _finLotSuivi(ref) : null;
   const suivi = (_s && _s.source && _s.source !== 'provisoire') ? _s : null;   // (b) : seule une date SAISIE fait foi
   const borne = suivi ? suivi.date : null;
+  const avant = [];   // encaissements d'avant la date saisie : jamais imputés (A1), signalés après un achat (C1)
   for (const m of (DB.mouvements || [])) {
     if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
     const ym = String(m.date).slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) continue;
-    if (borne && String(m.date).slice(0, 10) < borne) continue;   // avant la date saisie : jamais imputé (A1)
+    if (borne && String(m.date).slice(0, 10) < borne) { avant.push({ date: String(m.date).slice(0, 10), montant: m.cr || 0 }); continue; }
     recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
     (srcParYm[ym] || (srcParYm[ym] = [])).push({ date: String(m.date).slice(0, 10), id: (m.id != null ? m.id : null), montant: m.cr || 0 });
     if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
@@ -9073,6 +9074,12 @@ function _loyerEtatLot(ref, opts) {
       })
     : [];
   const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast, opening });
+  // R0-C C1 — tant que le geste « rattacher » n'existe pas (lot 2) : un versement du mois qui précède une
+  // DATE D'ACHAT est peut-être le 1ᵉʳ terme, déjà sur le compte. Il n'est pas imputé, mais il est
+  // SIGNALÉ (onglet Loyers, relance) : jamais un impayé relancé sans le dire.
+  etat.aVerifier = (suivi && suivi.source === 'acquisition' && avant.length && typeof window._avantBorne === 'function')
+    ? window._avantBorne(avant, borne, { achat: true }).horsSuivi.filter(h => h.aRattacher).map(h => ({ date: h.date, montant: h.montant }))
+    : [];
   C.map[key] = etat;
   return etat;
 }

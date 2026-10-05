@@ -200,3 +200,55 @@ describe('🟠3 — HARNAIS : sur les jeux « relevés antérieurs à l\'antéri
     expect(ecarts).toEqual([]);
   });
 });
+
+describe('C1 — un versement d\'avant la date d\'achat est SIGNALÉ (onglet Loyers, relance), jamais imputé, jamais bloquant', () => {
+  // achat 01/03/2026 ; le loyer de mars a été versé le 27/02 sur le compte de l'acquéreur ; avril → septembre payés
+  const DBC1 = (src = { dateAcq: '2026-03-01' }) => {
+    const DB = lot(src);
+    DB.mouvements = [pay('L', '2026-01-05'), pay('L', '2026-02-27'), ...ymRange('2026-04', '2026-09').map((ym) => pay('L', ym + '-05'))];
+    return DB;
+  };
+  it('l\'état du lot porte le versement à vérifier ; mars reste dû (rien n\'est rattaché sans l\'utilisateur)', () => {
+    const e = monter(DBC1(), TODAY)._loyerEtatLot('L');
+    expect(e.aVerifier).toEqual([{ date: '2026-02-27', montant: 700 }]);   // le 05/01, hors du mois qui précède : rien
+    expect(e.reste).toBe(700);
+  });
+  it('rien à signaler avec une antériorité (la situation notée contient tout) ni sans date saisie', () => {
+    expect(monter(DBC1({ anteriorite: { date: '2026-03-01', situation: 'a-jour' } }), TODAY)._loyerEtatLot('L').aVerifier).toEqual([]);
+    expect(monter(DBC1({}), TODAY)._loyerEtatLot('L').aVerifier).toEqual([]);
+  });
+  // Le VRAI code de l'onglet Loyers (ligne d'impayé + relance), doubles de DOM.
+  const FL = ['escHtml'];
+  const FLY = ['_lyQ', '_lyRow', '_lyAVerifierTexte', '_lyLigneRetard', '_lyRelance'];
+  const SRCLY = FL.map((n) => extraireFonction(P1, n)).concat(FLY.map((n) => extraireFonction(P2, n))).join('\n');
+  const ecran = (etat) => {
+    const toasts = [], apercus = [];
+    const deps = {
+      window: { ymToMoisFr: (ym) => ym, lignesRelance, retardLot, niveauRelance: () => 'rappel-impaye-1', _loyerTodayLocal: () => TODAY, _loyerToleranceActive: () => false },
+      _loyerEtatLot: () => etat, fmt: (n) => n.toFixed(2).replace('.', ',') + ' €', _uiIcon: () => '<svg class="uic"></svg>',
+      showToast: (msg, type) => toasts.push({ msg, type }), _findBailByRefTolerant: () => ({}), DB: { entites: [], logements: [] },
+      _buildRelanceHtml: () => ({ html: 'relance' }), _lyPreviewEphemere: () => apercus.push('relance')
+    };
+    const noms = Object.keys(deps);
+    const api = new Function(...noms, SRCLY + '\nreturn { ' + FLY.join(', ') + ' };')(...noms.map((n) => deps[n]));
+    return { api, toasts, apercus };
+  };
+  it('la ligne d\'impayé porte la note « à vérifier avant de relancer » ; la relance avertit puis se fait quand même', () => {
+    const etat = monter(DBC1(), TODAY)._loyerEtatLot('L');
+    const { api, toasts, apercus } = ecran(etat);
+    const texte = 'Encaissement du 27/02 (700,00 €) antérieur à la date d\'achat : à vérifier avant de relancer.';
+    const ligne = api._lyLigneRetard({ ref: 'L', log: { ref: 'L', locataire: 'X' }, etat, retard: retardLot(etat, {}) });
+    expect(ligne.html).toContain('class="ly2-av" role="note"');
+    expect(ligne.html).toContain(texte.replace(/'/g, '&#39;'));
+    api._lyRelance('L');
+    expect(toasts).toEqual([{ msg: texte, type: 'warn' }]);
+    expect(apercus).toEqual(['relance']);   // jamais bloquant
+  });
+  it('sans versement à vérifier : ni note, ni avertissement', () => {
+    const etat = monter(DBC1({ anteriorite: { date: '2026-03-01', situation: 'a-jour' } }), TODAY)._loyerEtatLot('L');
+    const { api, toasts } = ecran(etat);
+    expect(api._lyLigneRetard({ ref: 'L', log: { ref: 'L' }, etat, retard: retardLot(etat, {}) }).html).not.toContain('ly2-av');
+    api._lyRelance('L');
+    expect(toasts).toEqual([]);
+  });
+});
