@@ -59,6 +59,8 @@ export function createBoot(client) {
   // se déconnecte juste après une modif), puis signOut + reset. L'app doit AUSSI annuler son timer de
   // debounce en attente (sinon un flush programmé tirerait après le reset). Best-effort (catch).
   async function logout(opts) {
+    _userRecent = null   // defense en profondeur : plus de memo de l'utilisateur apres une deconnexion
+
     // EDL TERRAIN lot 4, faille F2 (CDC §3ter, invariant 19g) — la déconnexion
     // DÉTRUISAIT le travail hors ligne : le flush ci-dessous échoue toujours sans
     // réseau, le code se contentait d'un console.warn (« la modif restée à quai est
