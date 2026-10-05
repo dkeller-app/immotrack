@@ -63,6 +63,23 @@ self.addEventListener('fetch', e => {
     return;
   }
 
+  // 1bis) Perf : fichier À EMPREINTE (?v=<sha1:8>, posé par tools/stamp-app-parts.mjs) = contenu immuable →
+  //    CACHE-FIRST, zéro aller-retour réseau (avant : chaque chargement revalidait les ~130 fichiers).
+  //    Si le fichier change, son empreinte change, donc son URL : jamais de version périmée servie.
+  //    (Les ?v=15.xxx de main.css ne sont PAS concernés : 8 hex exactement.)
+  if (/\.(js|css)$/i.test(url.pathname) && /[?&]v=[0-9a-f]{8}$/.test(url.search)) {
+    e.respondWith(
+      caches.match(request).then(cached => cached || fetch(request).then(res => {
+        if (res && res.ok && res.type === 'basic') {
+          const copie = res.clone();
+          caches.open(CACHE_VER).then(c => c.put(request, copie)).catch(() => {});
+        }
+        return res;
+      }))
+    );
+    return;
+  }
+
   // 2) v15.85 EM-1 : Modules JS/CSS same-origin → NETWORK-FIRST
   //    Évite que les fixes soient invisibles tant que CACHE_VER n'est pas bumpé.
   //    Cache reste alimenté pour offline (fallback transparent).
