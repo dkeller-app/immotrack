@@ -19,6 +19,7 @@ import { bailContentHash, bailLegalContent, canonicalStringify } from '../../js/
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
 import { _isLoyerCategory, catCtxFromDb } from '../../js/core/utils.js';
 import { reappliquerJournalBaux, CHAMPS_VIE } from '../../js/core/bail-modifications.js';
+import { createStoreSync } from '../../js/core/store-sync.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dir, '../..');
@@ -39,6 +40,12 @@ function referentiel() {
   const j = html.indexOf('\n];', i);
   if (i === -1 || j === -1) throw new Error('STD_CATEGORIES introuvable');
   return new Function(html.slice(i, j + 3) + '\nreturn STD_CATEGORIES;')();
+}
+/** Source de `window.__immoSetDB = function(cloudDB) {…};` (affectation, pas une déclaration). */
+function setDbSrc() {
+  const i = html.indexOf('window.__immoSetDB = function(cloudDB) {');
+  if (i === -1) throw new Error('__immoSetDB introuvable — le test ne teste plus rien');
+  return html.slice(i, html.indexOf('\n};', i) + 3);
 }
 const NL = { normaliser: normaliserDonneesLoyers };
 const silence = { info() {}, warn() {}, error() {} };
@@ -345,7 +352,9 @@ describe('plus aucune tolérance de « Loyers » dans le code', () => {
     expect(corpsDe('initDB')).toMatch(/_normaliserLoyers\('initDB'\)/);
     expect(corpsDe('_backupRestoreApply')).toMatch(/_normaliserLoyers\('restauration'\)/);
     expect(corpsDe('importJSON')).toMatch(/_normaliserLoyers\('import JSON', data\)/);
-    expect(corpsDe('_bootDataJobs')).toMatch(/_normaliserLoyers\('démarrage'\)/);
+    // Cloud : à CHAQUE hydratation (__immoSetDB), plus une seule fois dans _bootDataJobs (audit 05/10).
+    expect(setDbSrc()).toMatch(/_normaliserLoyers\('hydratation'\)/);
+    expect(corpsDe('_bootDataJobs')).not.toMatch(/_normaliserLoyers\(/);
     // initDB : AVANT les autres migrations de catégories, et AVANT la capture d'annulation
     // (sinon « Annuler » juste après le démarrage ramènerait « Loyers »).
     const init = corpsDe('initDB');
@@ -361,5 +370,169 @@ describe('écran de restitution du dépôt de garantie : plus d\'IBAN du locatai
     expect(ouvrir).not.toMatch(/dg-restit-iban|IBAN|locNouvIban/);
     expect(confirmer).not.toMatch(/dg-restit-iban|bail\.locNouvIban\s*=/);
     expect(confirmer).toMatch(/delete bail\.locNouvIban;/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// AUDIT 05/10 — partage SCI : seul l'ESPACE PROPRE est normalisé ; bail verrouillé : rien à persister.
+describe('espace propre (partage SCI) et bail verrouillé', () => {
+  const dbPartage = () => ({
+    mouvements: [
+      { id: 1, cat: 'Loyers', cr: 500, _espaceId: 'E-PROPRE' },
+      { id: 2, cat: 'Loyers', cr: 600 },                              // créé ici, pas encore tagué = propre
+      { id: 3, cat: 'Loyers', cr: 700, _espaceId: 'E-TIERS' },       // SCI partagée par un autre propriétaire
+    ],
+    baux: { 'T-01': { hc: 700, locNouvIban: 'FR76', _espaceId: 'E-TIERS' } },
+    baux_evenements: [{ id: 'j', _espaceId: 'E-TIERS', changements: [{ champ: 'locNouvIban', apres: 'FR76' }] }],
+    categories: ['Loyers'],
+  });
+  for (const role of ['écriture', 'lecture seule']) {
+    it(`associé en ${role} : les enregistrements du propriétaire ne sont JAMAIS modifiés`, () => {
+      // Le rôle n'entre pas dans la décision : ce n'est pas la config de l'associé qui doit classer les
+      // données du propriétaire, et en lecture seule la RLS refuserait l'envoi à chaque démarrage.
+      const db = dbPartage();
+      const tiersAvant = JSON.stringify([db.mouvements[2], db.baux, db.baux_evenements]);
+      const r = normaliserDonneesLoyers(db, { espacePropre: 'E-PROPRE', stamp: (o) => { o._modifiedAt = 'T'; } });
+      expect(db.mouvements[0].cat).toBe(CATEGORIE_LOYERS);
+      expect(db.mouvements[1].cat).toBe(CATEGORIE_LOYERS);
+      expect(JSON.stringify([db.mouvements[2], db.baux, db.baux_evenements])).toBe(tiersAvant);
+      expect(r.mouvements).toBe(2);
+      expect(r.horsEspace).toBe(3);   // 1 mouvement + 1 bail + 1 entrée de journal, laissés au propriétaire
+    });
+  }
+  it('espace propre inconnu (getter qui répond null) : seuls les enregistrements NON tagués sont normalisés', () => {
+    const db = dbPartage();
+    normaliserDonneesLoyers(db, { espacePropre: null });
+    expect(db.mouvements.map(m => m.cat)).toEqual(['Loyers', CATEGORIE_LOYERS, 'Loyers']);
+  });
+  it('hors mode cloud (pas d\'option) : tout est propre', () => {
+    const db = dbPartage();
+    normaliserDonneesLoyers(db);
+    expect(db.mouvements.every(m => m.cat === CATEGORIE_LOYERS)).toBe(true);
+  });
+  it('IBAN sur un bail VERROUILLÉ seul : purgé en mémoire, mais rien à persister (pas de saveDB à chaque démarrage)', () => {
+    const b = bailSigneAvecIban();   // signatures.locked = true
+    const r = normaliserDonneesLoyers({ baux: { 'A-01': b } });
+    expect('locNouvIban' in b).toBe(false);
+    expect(r.modifie).toBe(true);
+    expect(r.bauxVerrouilles).toBe(1);
+    expect(r.aPersister).toBe(false);
+    // Un bail non verrouillé, lui, part au cloud.
+    const r2 = normaliserDonneesLoyers({ baux: { 'B-01': { hc: 1, locNouvIban: 'FR76' } } });
+    expect(r2.aPersister).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// AUDIT 05/10 — hydratation cloud : vraie `__immoSetDB` d'index.html + vrai moteur de synchro (store-sync).
+describe('hydratation cloud (__immoSetDB à CHAQUE appel) : persiste, pousse, ne boucle pas', () => {
+  function cloud() {
+    const timers = [];
+    const compte = { saves: 0, dirty: 0, rendus: 0 };
+    const win = {
+      NormalisationLoyers: NL, __immoSupabaseMode: true, __immoOwnEspaceId: () => 'E-PROPRE',
+      __immoRerenderCurrent: () => { compte.rendus++; },
+    };
+    // saveDB du mode cloud : marque sale → l'envoi part (supabase-entry : __immoMarkDirty → flush).
+    const saveDB = () => { compte.saves++; if (typeof win.__immoMarkDirty === 'function') win.__immoMarkDirty(); };
+    const src = [corpsDe('_stamp'), corpsDe('_normaliserLoyers'), setDbSrc()].join('\n');
+    const api = new Function('window', 'console', 'setTimeout', 'saveDB', '_applyDataDefaults', '_applyParamDefaults',
+      'document', 'closeM', '_bootDataJobs', '_bootDataJobsDone',
+      `let DB = {};\n${src}\nreturn { get DB() { return DB; } };`
+    )(win, silence, (fn) => { timers.push(fn); }, saveDB, () => {}, () => {}, { querySelectorAll: () => [] }, () => {}, undefined, true);
+    const tick = () => { const t = timers.splice(0); t.forEach(f => f()); return t.length; };
+    return { win, api, compte, tick };
+  }
+  // Store simulé : enregistre chaque écriture ; un enregistrement d'un AUTRE espace = refus RLS (associé en lecture).
+  function storeRls() {
+    const calls = [];
+    const ok = (coll, rec) => { calls.push({ coll, rec }); if (rec && rec._espaceId === 'E-TIERS') throw new Error('42501 RLS'); return { status: 'updated', version: 2 }; };
+    return { calls, upsert: async (c, r) => ok(c, r), remove: async (c, r) => ok(c, r), archive: async (c, r) => ok(c, r) };
+  }
+  const serveur = () => ({
+    baux: {}, logements: [], entites: [],
+    mouvements: [
+      { id: 11, date: '2026-01-05', qui: 'A-01', cat: 'Loyers', cr: 550, db: 0, _espaceId: 'E-PROPRE' },
+      { id: 12, date: '2026-02-05', qui: 'A-01', cat: 'Loyers', cr: 550, db: 0, _espaceId: 'E-PROPRE' },
+      { id: 13, date: '2026-01-05', qui: 'T-01', cat: 'Loyers', cr: 700, db: 0, _espaceId: 'E-TIERS' },
+      { id: 14, date: '2026-01-10', qui: '', cat: 'Prêt', cr: 0, db: 400, _espaceId: 'E-PROPRE' },
+    ],
+    categories: ['Loyers'], catConfig: { Loyers: { inclYTD: true } }, params: {},
+  });
+
+  it('login : normalise APRÈS le seed, sauvegarde, pousse les seuls mouvements propres, re-rend la page', async () => {
+    const { win, compte, tick } = cloud();
+    const db = serveur();
+    expect(win.__immoSetDB(db)).toBe(true);
+    // supabase-entry, de façon SYNCHRONE juste après __immoSetDB : seed puis branchement du marquage sale.
+    expect(db.mouvements[0].cat).toBe('Loyers');            // pas encore normalisé : sinon la baseline l'avalerait
+    const store = storeRls();
+    const sync = createStoreSync({ store, getDB: () => db });
+    sync.seed();
+    win.__immoMarkDirty = () => { compte.dirty++; sync.markDirty(); };
+    tick();                                                 // setTimeout(0)
+    expect(compte.saves).toBe(1);                           // PERSISTE (la mutation « retrait du saveDB » échoue ici)
+    expect(compte.dirty).toBe(1);                           // marque sale → envoi
+    expect(compte.rendus).toBe(1);                          // le 1er rendu (données brutes) est remplacé
+    const s = await sync.flush();
+    const envoyes = store.calls.filter(c => c.coll === 'mouvements').map(c => c.rec.id).sort();
+    expect(envoyes).toEqual([11, 12]);                      // POUSSE les mouvements propres normalisés…
+    expect(store.calls.some(c => c.rec && c.rec._espaceId === 'E-TIERS')).toBe(false);   // …jamais ceux du tiers
+    expect((s.errors || []).length).toBe(0);                // aucun refus RLS (associé en lecture seule)
+    expect(db.mouvements.find(m => m.id === 13).cat).toBe('Loyers');
+  });
+
+  it('re-pull en cours de session (Realtime) : un « Loyers » reçu est normalisé sans recharger', () => {
+    const { win, compte, tick } = cloud();
+    const db1 = serveur();
+    db1.mouvements.forEach(m => { if (m._espaceId === 'E-PROPRE' && m.cat === 'Loyers') m.cat = CATEGORIE_LOYERS; });
+    db1.categories = [CATEGORIE_LOYERS]; db1.catConfig = {};
+    win.__immoSetDB(db1); tick();
+    expect(compte.saves).toBe(0);                           // rien d'hérité côté propre au login
+    const db2 = serveur();                                  // un vieil appareil a repoussé « Loyers »
+    win.__immoSetDB(db2); tick();
+    expect(db2.mouvements.filter(m => m._espaceId === 'E-PROPRE' && m.cat === 'Loyers')).toEqual([]);
+    expect(compte.saves).toBe(1);
+    expect(compte.rendus).toBe(1);
+  });
+
+  it('PAS DE BOUCLE : normaliser → pousser → recevoir l\'écho → ré-hydrater → plus rien à faire', async () => {
+    const { win, compte, tick } = cloud();
+    const db = serveur();
+    win.__immoSetDB(db);
+    const store = storeRls();
+    const sync = createStoreSync({ store, getDB: () => db });
+    sync.seed();
+    win.__immoMarkDirty = () => { compte.dirty++; sync.markDirty(); };
+    tick();
+    await sync.flush();
+    // L'écho Realtime : le serveur renvoie l'état poussé → ré-hydratation complète, 3 tours.
+    for (let i = 0; i < 3; i++) {
+      const echo = JSON.parse(JSON.stringify(db));
+      win.__immoSetDB(echo); tick();
+    }
+    expect(compte.saves).toBe(1);                           // une seule sauvegarde, au 1er tour
+    expect(compte.dirty).toBe(1);
+    expect(compte.rendus).toBe(1);
+  });
+
+  it('bail verrouillé portant un IBAN : aucune sauvegarde, aucun rendu, à chaque ré-hydratation', () => {
+    const { win, compte, tick } = cloud();
+    for (let i = 0; i < 3; i++) {
+      const db = { baux: { 'A-01': Object.assign(bailSigneAvecIban(), { _espaceId: 'E-PROPRE' }) }, logements: [], mouvements: [] };
+      win.__immoSetDB(db); tick();
+      expect('locNouvIban' in db.baux['A-01']).toBe(false);
+    }
+    expect(compte.saves).toBe(0);
+    expect(compte.rendus).toBe(0);
+  });
+
+  it('hors ligne : rien n\'est normalisé ni écrit', () => {
+    const { win, compte, tick } = cloud();
+    win.__immoHorsLigne = true;
+    const db = serveur();
+    win.__immoSetDB(db); tick();
+    expect(db.mouvements[0].cat).toBe('Loyers');
+    expect(compte.saves).toBe(0);
   });
 });

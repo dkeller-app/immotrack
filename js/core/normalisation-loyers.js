@@ -66,18 +66,36 @@ function _ibanDansSnapshot(b) {
   return !!(snap && typeof snap === 'object' && snap.locNouvIban != null && snap.locNouvIban !== '');
 }
 
+/** Bail verrouillé AU CLOUD (store-sync : `immutable` = signatures.locked) : sa ligne n'est jamais renvoyée. */
+function _verrouille(b) { return !!(b && b.signatures && typeof b.signatures === 'object' && b.signatures.locked); }
+
 /**
  * @param {object} db   le DB de l'app (muté EN PLACE : la restauration garde la référence vivante)
- * @param {{stamp?: Function}} [opts] `stamp` = `_stamp` de l'app (pose `_modifiedAt`)
- * @returns {{modifie:boolean, mouvements:number, reglesImport:number, categories:number,
- *   reglages:number, baux:number, historique:number, journal:number,
- *   ibanSnapshotsSignes:number, nomsSautes:string[]}}
+ * @param {{stamp?: Function, espacePropre?: string|null}} [opts]
+ *   `stamp` = `_stamp` de l'app (pose `_modifiedAt`).
+ *   `espacePropre` (mode cloud, partage SCI) : si la clé est PRÉSENTE, seuls les enregistrements de l'espace
+ *   propre (`_espaceId` absent ou égal) sont normalisés. Ceux d'une SCI partagée par un autre propriétaire
+ *   restent intacts : la configuration chargée (catégories, mappings) est celle de l'espace propre, pas la
+ *   sienne, et un associé en lecture seule se heurterait à la RLS à chaque envoi. C'est l'appareil du
+ *   propriétaire qui les normalise, avec SA configuration. La configuration elle-même est toujours propre
+ *   (store-multi.js : seule la config de l'espace propre est chargée).
+ * @returns {{modifie:boolean, aPersister:boolean, mouvements:number, reglesImport:number, categories:number,
+ *   reglages:number, baux:number, bauxVerrouilles:number, historique:number, journal:number,
+ *   horsEspace:number, ibanSnapshotsSignes:number, nomsSautes:string[]}}
+ *   `modifie` : quelque chose a changé en mémoire. `aPersister` : un changement qui PART au cloud — une
+ *   purge d'IBAN sur un bail verrouillé ne part jamais (la ligne n'est pas renvoyée) : elle ne justifie ni
+ *   sauvegarde ni nouveau rendu, sinon chaque ré-hydratation relancerait un saveDB inutile.
  */
 export function normaliserDonneesLoyers(db, opts) {
-  const stamp = (opts && typeof opts.stamp === 'function') ? opts.stamp : _tamponDefaut;
-  const r = { modifie: false, mouvements: 0, reglesImport: 0, categories: 0, reglages: 0,
-    baux: 0, historique: 0, journal: 0, ibanSnapshotsSignes: 0, nomsSautes: [] };
+  const o = opts || {};
+  const stamp = (typeof o.stamp === 'function') ? o.stamp : _tamponDefaut;
+  const filtrer = Object.prototype.hasOwnProperty.call(o, 'espacePropre');
+  const espace = filtrer ? (o.espacePropre == null ? null : o.espacePropre) : null;
+  const r = { modifie: false, aPersister: false, mouvements: 0, reglesImport: 0, categories: 0, reglages: 0,
+    baux: 0, bauxVerrouilles: 0, historique: 0, journal: 0, horsEspace: 0, ibanSnapshotsSignes: 0, nomsSautes: [] };
   if (!db || typeof db !== 'object') return r;
+  // Enregistrement de l'espace propre ? (hors mode cloud : tout est propre)
+  const propre = (rec) => !filtrer || rec._espaceId == null || rec._espaceId === espace;
 
   // ── 1. Catégories héritées → « Loyers encaissés » ─────────────────────────────────────────
   const noms = new Set();
@@ -87,7 +105,9 @@ export function normaliserDonneesLoyers(db, opts) {
   if (noms.size) {
     if (Array.isArray(db.mouvements)) {
       for (const m of db.mouvements) {
-        if (m && typeof m === 'object' && noms.has(m.cat)) { m.cat = CATEGORIE_LOYERS; stamp(m); r.mouvements++; }
+        if (!m || typeof m !== 'object' || !noms.has(m.cat)) continue;
+        if (!propre(m)) { r.horsEspace++; continue; }
+        m.cat = CATEGORIE_LOYERS; stamp(m); r.mouvements++;
       }
     }
     if (Array.isArray(db.importRules)) {
@@ -113,14 +133,21 @@ export function normaliserDonneesLoyers(db, opts) {
   }
 
   // ── 2. IBAN du locataire (RGPD) : la racine seulement, jamais le document signé ─────────────
+  // LIMITE ASSUMÉE : sur un bail VERROUILLÉ au cloud, la purge reste en mémoire (la ligne signée n'est
+  // jamais réécrite par l'app) ; l'IBAN y demeure dans `legacy_raw` tant que le filet SQL préparé
+  // (mockups/MIGRATION-LOYERS, non appliqué) ne passe pas. 0 cas au cloud au 01/10.
   if (db.baux && typeof db.baux === 'object') {
     for (const b of Object.values(db.baux)) {
-      if (_purgerIbanRacine(b, stamp)) r.baux++;
+      if (!b || typeof b !== 'object') continue;
+      if (Object.prototype.hasOwnProperty.call(b, 'locNouvIban') && !propre(b)) { r.horsEspace++; continue; }
+      if (_purgerIbanRacine(b, stamp)) { r.baux++; if (_verrouille(b)) r.bauxVerrouilles++; }
       if (_signe(b) && _ibanDansSnapshot(b)) r.ibanSnapshotsSignes++;
     }
   }
   if (Array.isArray(db.baux_historique)) {
     for (const b of db.baux_historique) {
+      if (!b || typeof b !== 'object') continue;
+      if (Object.prototype.hasOwnProperty.call(b, 'locNouvIban') && !propre(b)) { r.horsEspace++; continue; }
       if (_purgerIbanRacine(b, stamp)) r.historique++;
       if (_signe(b) && _ibanDansSnapshot(b)) r.ibanSnapshotsSignes++;
     }
@@ -133,6 +160,7 @@ export function normaliserDonneesLoyers(db, opts) {
       if (!e || typeof e !== 'object' || !Array.isArray(e.changements)) continue;
       const garde = e.changements.filter(c => !(c && c.champ === 'locNouvIban'));
       if (garde.length === e.changements.length) continue;
+      if (!propre(e)) { r.horsEspace++; continue; }
       e.changements = garde;
       if (!garde.length) e._deleted = true;
       stamp(e);
@@ -140,6 +168,8 @@ export function normaliserDonneesLoyers(db, opts) {
     }
   }
 
-  r.modifie = !!(r.mouvements || r.reglesImport || r.categories || r.reglages || r.baux || r.historique || r.journal);
+  r.aPersister = !!(r.mouvements || r.reglesImport || r.categories || r.reglages
+    || (r.baux - r.bauxVerrouilles) || r.historique || r.journal);
+  r.modifie = r.aPersister || r.bauxVerrouilles > 0;
   return r;
 }

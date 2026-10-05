@@ -2938,6 +2938,31 @@ window.__immoSetDB = function(cloudDB) {
   // sur les VRAIES données. setTimeout(0) OBLIGATOIRE : leurs mutations (saveDB → markDirty) doivent
   // arriver APRÈS le seed du sync (supabase-entry appelle seed() juste après __immoSetDB) — un appel
   // synchrone les ferait entrer dans la baseline « déjà synchronisé » = jamais poussées au cloud.
+  // NORMALISATION-LOYERS (audit 05/10) — à CHAQUE hydratation (login, re-pull Realtime / conflit / visibilité),
+  // pas une seule fois : un « Loyers » poussé par un appareil resté sur une ancienne version doit être
+  // normalisé dès sa réception, sinon l'onglet Loyers montre des impayés fantômes jusqu'au rechargement.
+  //  - setTimeout(0) : APRÈS le seed du sync (supabase-entry appelle seed() juste après ce retour), sinon la
+  //    valeur normalisée entrerait dans la baseline « déjà synchronisée » et ne partirait jamais ;
+  //  - programmé AVANT _bootDataJobs (même tick, ordre FIFO) : les jobs de boot voient des loyers normalisés ;
+  //  - hors ligne : rien (les écritures sont refusées, garde 19a) ;
+  //  - `aPersister` seulement → saveDB (marque sale → envoi) puis re-rendu de la page courante (le premier
+  //    rendu, calculé sur les données brutes, est remplacé). Une purge d'IBAN sur un bail verrouillé ne
+  //    part jamais au cloud : ni sauvegarde ni rendu pour elle.
+  //  - PAS DE BOUCLE : normaliser → envoyer → recevoir (Realtime) → ré-hydrater → normaliser ne trouve plus
+  //    rien (idempotent, `aPersister` faux) → aucun saveDB, aucun envoi. Les enregistrements d'un autre
+  //    espace ne sont jamais modifiés ici (filtre d'espace propre) : rien à renvoyer pour eux non plus.
+  try {
+    setTimeout(() => {
+      try {
+        if (window.__immoHorsLigne) return;
+        const _nl = _normaliserLoyers('hydratation');
+        if (_nl && _nl.aPersister) {
+          saveDB();
+          if (typeof window.__immoRerenderCurrent === 'function') window.__immoRerenderCurrent();
+        }
+      } catch (e) { console.warn('[normalisation loyers] hydratation', e); }
+    }, 0);
+  } catch (e) {}
   try { if (typeof _bootDataJobs === 'function' && !_bootDataJobsDone) setTimeout(() => { try { _bootDataJobs(); } catch (e) { console.warn('[Supabase] _bootDataJobs', e); } }, 0); } catch (e) {}
   return true;
 };
@@ -3283,8 +3308,16 @@ function _normaliserLoyers(source, db) {
     console.warn('[normalisation loyers] module absent (' + source + ') : données non normalisées');
     return null;
   }
-  const r = N.normaliser(db || DB, { stamp: _stamp });
-  if (r && r.modifie) {   // silencieux quand rien n'a changé (2e passage, démarrages suivants)
+  // Mode cloud (partage SCI) : seuls les enregistrements de l'ESPACE PROPRE sont normalisés. Ceux d'une SCI
+  // partagée par un autre propriétaire le sont par SON appareil, avec SA configuration (jamais celle d'un
+  // associé), et un associé en lecture seule n'essaie pas d'écrire ce que la RLS lui refuserait.
+  // Getter absent (mode local / sandbox) : aucun filtre, rien n'y est tagué d'un autre espace.
+  const opts = { stamp: _stamp };
+  if (window.__immoSupabaseMode && typeof window.__immoOwnEspaceId === 'function') {
+    try { opts.espacePropre = window.__immoOwnEspaceId(); } catch (e) { opts.espacePropre = null; }
+  }
+  const r = N.normaliser(db || DB, opts);
+  if (r && r.aPersister) {   // silencieux quand rien ne part (2e passage, bail verrouillé seul, démarrages suivants)
     console.info('[normalisation loyers] ' + source + ' : ' + r.mouvements + ' mouvement(s) → « Loyers encaissés », '
       + r.reglesImport + ' règle(s), ' + r.reglages + ' réglage(s), IBAN retiré de ' + (r.baux + r.historique) + ' bail(s) / '
       + r.journal + ' entrée(s) de journal'
