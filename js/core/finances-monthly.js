@@ -72,7 +72,7 @@ const _borneIso = (v) => {
  * @param {Array<{date:string, montant:number}>} lignes encaissements datés AVANT la borne
  * @param {string} borne 'YYYY-MM-DD'
  */
-function _avantBorne(lignes, borne) {
+export function _avantBorne(lignes, borne) {
   const seuil = _isoMoinsUnMois(borne);
   const reserve = { montant: 0, sources: [] };
   const horsSuivi = [];

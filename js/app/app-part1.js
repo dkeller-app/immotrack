@@ -9008,8 +9008,12 @@ function _duMoisLot(ref, ym) {
 // Le 7ᵉ moteur (_matcheMois, qui rattachait un paiement au mois de sa propre date) est
 // supprimé, pas corrigé (C3).
 //
-// Fenêtre de suivi = _debutSuivi → mois courant, la même borne que les 5 surfaces (B2) :
-// pas de dette fantôme sur des années sans données.
+// Fenêtre de suivi (R0-C, 2ᵉ audit 🟠3) = LE point de départ de Finances (`_finLotSuivi` →
+// js/core/anteriorite.js : date d'achat > antériorité notée > date provisoire (b)), le dû de Finances
+// (`_finBailHcChAt` : 1ᵉʳ terme exigible après l'achat), son solde d'ouverture, et la même règle pour
+// les encaissements d'avant (`_avantBorne` : réserve du mois qui précède, le reste n'est pas imputé).
+// L'onglet Loyers, les relances et les quittances lisent donc la même dette que Finances et la
+// restitution. Repli (modules absents) : l'ancienne fenêtre `_debutSuivi` (1ᵉʳ janvier).
 // Retourne null si le module n'est pas chargé (file://) — les appelants dégradent.
 function _loyerEtatLot(ref, opts) {
   opts = opts || {};
@@ -9032,27 +9036,44 @@ function _loyerEtatLot(ref, opts) {
   // imputés mois par mois. Le montant reste la seule chose qui DÉCIDE : les dates suivent.
   const srcParYm = {};
   let firstPaymentYm = null;
+  const suivi = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function' && typeof window._avantBorne === 'function')
+    ? _finLotSuivi(ref) : null;
+  const borne = suivi ? suivi.date : null;
+  const avant = [];   // encaissements datés avant le point de départ : jamais imputés (sauf réserve)
   for (const m of (DB.mouvements || [])) {
     if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
     const ym = String(m.date).slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+    if (borne && String(m.date).slice(0, 10) < borne) { avant.push({ date: String(m.date).slice(0, 10), montant: m.cr || 0 }); continue; }
     recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
     (srcParYm[ym] || (srcParYm[ym] = [])).push({ date: String(m.date).slice(0, 10), id: (m.id != null ? m.id : null), montant: m.cr || 0 });
     if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
   }
-  const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
-  const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
-  const startYm = (typeof window._debutSuivi === 'function')
-    ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
+  let startYm = null, duDe = (ym) => _duMoisLot(ref, ym), opening = null;
+  if (suivi) {
+    startYm = borne ? borne.slice(0, 7) : null;
+    duDe = (ym) => _finBailHcChAt(ref, ym);
+    const o = suivi.ouverture;
+    const reserve = borne ? window._avantBorne(avant, borne).reserve : null;
+    if (o || (reserve && reserve.montant > 0.005)) {
+      opening = Object.assign({ idx: 0, date: borne }, o ? { loyer: o.loyer, charge: o.charge, avance: o.avance } : {},
+        (reserve && reserve.montant > 0.005) ? { reserve } : {});
+    }
+  } else {
+    const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
+    const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
+    startYm = (typeof window._debutSuivi === 'function')
+      ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
+  }
   const endYm = ((typeof window._loyerTodayLocal === 'function')
     ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)).slice(0, 7);
   const months = (startYm && startYm <= endYm)
     ? window.ymRange(startYm, endYm).map(ym => {
-        const d = _duMoisLot(ref, ym);
+        const d = duDe(ym);
         return { ym, hcDue: d.hc || 0, chDue: d.ch || 0, received: recuParYm[ym] || 0, sources: srcParYm[ym] || [] };
       })
     : [];
-  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast });
+  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast, opening });
   C.map[key] = etat;
   return etat;
 }

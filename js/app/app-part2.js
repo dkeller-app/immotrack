@@ -1999,7 +1999,10 @@ ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
   const css = `.pro-doc{max-width:700px;margin:0 auto}\n${_docCss()}`;
   const html = _docPage(ent, {
     titre: ton.titre,
-    ctx: `${retard.nbMois} mois non soldé${retard.nbMois > 1 ? 's' : ''}${retard.depuisYm ? ' depuis ' + escHtml(window.ymToMoisFr(retard.depuisYm)) : ''}`,
+    // R0-C (2ᵉ audit 🟠3) : l'arriéré noté au début du suivi est nommé, pas compté comme un « mois ».
+    ctx: lignes.some(l => l.ouverture)
+      ? `${retard.nbMois ? retard.nbMois + ' mois non soldé' + (retard.nbMois > 1 ? 's' : '') + ' et ' : ''}un arriéré antérieur au suivi`
+      : `${retard.nbMois} mois non soldé${retard.nbMois > 1 ? 's' : ''}${retard.depuisYm ? ' depuis ' + escHtml(window.ymToMoisFr(retard.depuisYm)) : ''}`,
     corps, ref: escHtml(ref), date: `Émis le ${fd(todayIso)}`, withStyle: false
   });
   return { html, css, title: `Relance — ${escHtml(ref)}`, status: 'relance' };

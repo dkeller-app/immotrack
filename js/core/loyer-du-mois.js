@@ -462,13 +462,16 @@ export function _loyerArrearsPass(months, opts) {
     if (som < recvPos - 0.0000001) out.push({ date: null, id: null, reste: recvPos - som });
     return out;
   };
-  /** Prélève `amt` sur les fragments (FIFO) et l'impute au mois `idx`, poste `poste`. */
-  const drawTo = (idx, poste, amt) => {
+  // R0-C (2ᵉ audit 🟠3) — ce qui solde l'OUVERTURE (solde noté au début du suivi) est tracé à part :
+  // ce n'est le paiement d'aucun mois suivi (une quittance ne doit jamais le dater).
+  const imputOuv = [];
+  /** Prélève `amt` sur les fragments (FIFO) et l'impute au mois `idx` (ou à `dest`), poste `poste`. */
+  const drawTo = (idx, poste, amt, dest) => {
     let a = amt;
     while (a > 0.0000001 && frags.length) {
       const f = frags[0];
       const t = Math.min(a, f.reste);
-      if (t > 0.0000001) imput[idx].push({ date: f.date, id: f.id, montant: t, poste });
+      if (t > 0.0000001) (dest || imput[idx]).push({ date: f.date, id: f.id, montant: t, poste });
       f.reste -= t; a -= t;
       if (f.reste <= 0.0000001) frags.shift();
     }
@@ -491,7 +494,7 @@ export function _loyerArrearsPass(months, opts) {
       if (a <= 0.0000001) break;
       const t = Math.min(a, e.short);
       e.short -= t; a -= t;
-      drawTo(e.idx, poste, t);
+      drawTo(e.idx, poste, t, e.opening ? imputOuv : null);
     }
   };
 
@@ -560,7 +563,8 @@ export function _loyerArrearsPass(months, opts) {
   // la reporte telle quelle d'une passe à l'autre (`loyer`/`charge` vs `loyerSuivi`/`chargeSuivi`).
   if (_open) {
     const oR = (q) => _r2(q.filter((e) => e.opening).reduce((t, e) => t + e.short, 0));
-    res.ouvertureReste = { loyer: oR(loyerQ), charge: oR(chargeQ) };
+    res.ouvertureReste = { loyer: oR(loyerQ), charge: oR(chargeQ), idx: oIdx };
+    res.imputationsOuverture = imputOuv.filter((p) => p.montant > 0.005).map((p) => ({ date: p.date, id: p.id, montant: _r2(p.montant), poste: p.poste }));
   }
   return res;
 }
