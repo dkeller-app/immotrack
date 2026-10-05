@@ -249,12 +249,26 @@
         locataires: [loc('M.', 'Nicolas', 'Faure', '06 00 00 00 21', 'nicolas.faure@exemple.fr', '1984-08-08', 'Colmar')] })
     };
 
+    // ── Baux terminés (archivés, comme archiverBail) ────────────────────────────────────────────
+    function ancien(ref, type, debut, fin, finEff, hc, ch, dg, l) {
+      return { ref: ref, entity: SCI, type: type, typeContrat: 'nouveau', debut: debut, fin: fin, finEffective: finEff, hc: hc, ch: ch, dg: dg,
+        irl: '', jpay: '5', locataires: [l], nom: l.nom, finMotif: 'Congé du locataire', _archivedAt: finEff, _archivedAuto: false };
+    }
+    var bauxHistorique = [
+      ancien('D-102', 'nu', '2021-11-01', '2027-10-31', '2025-10-31', 880, 130, 880, loc('Mme', 'Sophie', 'Klein', '06 00 00 00 31', 'sophie.klein@exemple.fr', '1979-03-15', 'Colmar')),
+      ancien('D-104', 'meuble', '2024-10-01', '2025-09-30', '2025-09-30', 760, 100, 1520, loc('Mme', 'Inès', 'Moreau', '06 00 00 00 32', 'ines.moreau@exemple.fr', '2002-12-01', 'Metz')),
+      ancien('D-103', 'nu', '2022-09-01', '2028-08-31', '2026-08-31', 520, 60, 520, loc('M.', 'Thomas', 'Roy', '06 00 00 00 33', 'thomas.roy@exemple.fr', '1995-07-19', 'Mulhouse'))
+    ];
+
     // ── Historique des loyers (barème) + journal des révisions IRL ──────────────────────────────
     var loyerBareme = [
       { ref: 'D-101', debut: '2023-06-15', fin: '2024-09-30', hc: HC.D101[0], ch: 90, source: 'bail', bailDebut: '2023-06-15', note: '' },
       { ref: 'D-101', debut: '2024-10-01', fin: '2025-09-30', hc: HC.D101[1], ch: 90, source: 'irl', bailDebut: '2023-06-15', note: 'T1 2024' },
       { ref: 'D-101', debut: '2025-10-01', fin: null, hc: HC.D101[2], ch: 90, source: 'irl', bailDebut: '2023-06-15', note: 'T1 2025' },
+      { ref: 'D-102', debut: '2021-11-01', fin: '2025-10-31', hc: 880, ch: 130, source: 'bail', bailDebut: '2021-11-01', note: '' },
       { ref: 'D-102', debut: '2025-12-01', fin: null, hc: 900, ch: 130, source: 'bail', bailDebut: '2025-12-01', note: '' },
+      { ref: 'D-103', debut: '2022-09-01', fin: '2026-08-31', hc: 520, ch: 60, source: 'bail', bailDebut: '2022-09-01', note: '' },
+      { ref: 'D-104', debut: '2024-10-01', fin: '2025-09-30', hc: 760, ch: 100, source: 'bail', bailDebut: '2024-10-01', note: '' },
       { ref: 'D-104', debut: '2025-10-01', fin: null, hc: 780, ch: 100, source: 'bail', bailDebut: '2025-10-01', note: '' },
       { ref: 'P-201', debut: '2024-07-01', fin: '2025-06-30', hc: HC.P201[0], ch: 120, source: 'bail', bailDebut: '2024-07-01', note: '' },
       { ref: 'P-201', debut: '2025-07-01', fin: '2026-06-30', hc: HC.P201[1], ch: 120, source: 'irl', bailDebut: '2024-07-01', note: 'T1 2025' },
@@ -360,10 +374,10 @@
     loyers('D-101', IMM_SCI, 'M PIERRE MARTIN', 2025, 1, 2026, 9, 3);
     loyers('D-102', IMM_SCI, 'MME MARIE BERNARD', 2025, 12, 2026, 9, 6, ['2026-08', '2026-09']);   // impayé août + septembre
     loyers('D-104', IMM_SCI, 'M LUCAS PETIT', 2025, 10, 2026, 9, 2);
-    // D-103 : ancien locataire parti le 31/08/2026 (loyers jusqu'à août)
-    mois(2025, 1, 2026, 8).forEach(function (x) {
-      mv(iso(x.y, x.m, 4), 'VIR M THOMAS ROY LOYER ' + MOIS_FR[x.m - 1].toUpperCase() + ' ' + x.y, 'Loyers encaissés', 'D-103', IMM_SCI, x.y === 2025 ? 570 : 580);
-    });
+    // Anciens locataires (baux archivés) : D-102 jusqu'au 31/10/2025, D-104 jusqu'au 30/09/2025, D-103 jusqu'au 31/08/2026
+    loyers('D-102', IMM_SCI, 'MME SOPHIE KLEIN', 2025, 1, 2025, 10, 4);
+    loyers('D-104', IMM_SCI, 'MME INES MOREAU', 2025, 1, 2025, 9, 3);
+    loyers('D-103', IMM_SCI, 'M THOMAS ROY', 2025, 1, 2026, 8, 4);
     // SCI : charges
     mois(2025, 1, 2026, 9).forEach(function (x) {
       mv(iso(x.y, x.m, 10), 'ECHEANCE PRET IMMOBILIER N 4471', 'Prêt', '', IMM_SCI, -1180);
@@ -427,7 +441,7 @@
 
     // ── Compte bancaire de la SCI + règles d'import (le relevé OFX de démo s'y range tout seul) ──
     var bankAccounts = [{ id: 9001, label: 'Compte courant SCI', type: 'ofx', bailleur: SCI, mixte: false,
-      identifiers: ['acct:30004:00012345678'], createdAt: '2025-01-05T10:00:00.000Z', lastImport: '2026-09-30T18:00:00.000Z' }];
+      identifiers: ['acct:30004:00012345678'], createdAt: '2025-01-05T10:00:00.000Z', lastImport: null }];   // forme objet {fingerprints,…} posée par l'app au 1er import
     function regle(pattern, cat, qui, imm, sens) {
       return { pattern: pattern, sens: sens || '', compte: 9001, cat: cat, qui: qui || '', imm: imm || '', compteurCcId: '', bailleurDuCompte: false };
     }
@@ -440,7 +454,7 @@
     ];
 
     var db = {
-      entites: entites, logements: logements, baux: baux, baux_historique: [],
+      entites: entites, logements: logements, baux: baux, baux_historique: bauxHistorique,
       mouvements: mvts, quittances: quittances, edl: edls, mrh: mrh, assurances: assurances,
       candidats: candidats, documents: documents, agenda: [],
       loyerBareme: loyerBareme, irlHistorique: irlHistorique, importRules: importRules,
