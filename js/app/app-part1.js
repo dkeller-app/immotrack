@@ -15172,8 +15172,8 @@ function saveLoyerBien(){
   const hc = Math.max(0, Math.round(Number(v('lb-hc'))||0));
   const ch = Math.max(0, Math.round(Number(v('lb-ch'))||0));
   const before = Number(log.hc)||0;
-  log.hc = hc; log.ch = ch; _stamp(log);
-  try{ if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); }catch(e){} // LOYER-REFERENCE : hc→loyerHcRef ET ch→chargesRef
+  log.hc = hc; log.ch = ch; log.loyerHcRef = hc; log.chargesRef = ch; _stamp(log);   // saisie explicite du loyer de référence (le souhaité inclus)
+  try{ if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); }catch(e){} // LOYER-REFERENCE : dg / irl suivent
   const cid = _lbCtx.candId;
   // Le loyer du logement impacte le ratio de TOUS ses candidats → on recalcule leurs scores stockés.
   _rescoreCandidatsDuLogement(log.ref);

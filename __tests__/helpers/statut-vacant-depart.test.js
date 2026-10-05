@@ -537,3 +537,25 @@ describe('17 · badge « Locataires » de la barre latérale (VRAI _v4NavCounts)
     expect(m.fn._v4NavCounts().locs).toBe(2);
   });
 });
+describe('18 · loyer souhaité (VRAI _pushLoyerTheoFromLive) : jamais écrasé sur un lot vacant ou parti', () => {
+  const pousse = (baux, log) => { const DB = dbDe(baux); monter(DB, [...STATUT, '_pushLoyerTheoFromLive']).fn._pushLoyerTheoFromLive(log); return log; };
+  it('lot parti, souhaité saisi à l\'annonce : gardé', () => {
+    const l = pousse({ A1: DEPART }, { ref: 'A1', hc: 500, ch: 100, loyerHcRef: '650', chargesRef: '90' });
+    expect([l.loyerHcRef, l.chargesRef]).toEqual(['650', '90']);
+  });
+  it('lot vide, souhaité saisi : gardé ; lot parti sans souhaité : rempli par le loyer courant', () => {
+    expect(pousse({}, { ref: 'C3', hc: 300, loyerHcRef: '420' }).loyerHcRef).toBe('420');
+    expect(pousse({ A1: DEPART }, { ref: 'A1', hc: 500, ch: 100 }).loyerHcRef).toBe(500);
+  });
+  it('lot loué : le bail pousse son loyer (comportement B1 inchangé)', () => {
+    const l = pousse({ B2: BAIL }, { ref: 'B2', hc: 400, ch: 50, loyerHcRef: '999', chargesRef: '9' });
+    expect([l.loyerHcRef, l.chargesRef]).toEqual([400, 50]);
+  });
+  it('saisie explicite du loyer de référence sur un lot vide (VRAI saveLoyerBien) : le souhaité suit la saisie', () => {
+    const DB = dbDe({});
+    DB.logements[2].loyerHcRef = '300';
+    const m = monter(DB, [...STATUT, 'saveLoyerBien', '_pushLoyerTheoFromLive'], { _lbCtx: { logRef: 'C3' }, v: (id) => (id === 'lb-hc' ? '620' : '80'), _stamp: () => {}, saveDB: () => {} });
+    m.fn.saveLoyerBien();
+    expect([DB.logements[2].hc, DB.logements[2].loyerHcRef, DB.logements[2].chargesRef]).toEqual([620, 620, 80]);
+  });
+});

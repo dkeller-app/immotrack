@@ -22302,11 +22302,15 @@ function _annoncePDF() {
 // depuis log.hc (décision B1-a : Q1=a chaque save bail / Q2=b la révision IRL suit / Q3=a le bail
 // écrase une valeur manuelle). Garde non-vide : un champ live vide ne doit PAS effacer un théorique
 // existant. Appelé à chaque site où log.hc/ch/dg/irl est écrit depuis une source autoritaire.
+// Statut 06/10 : sur un lot VACANT ou PARTI (bail à clôturer), loyerHcRef / chargesRef portent le loyer SOUHAITÉ
+// du prochain bail (annonce, fiche du lot) : une écriture venue de l'ancien bail (avenant, révision IRL, édition
+// du bail parti) ne l'écrase pas s'il est saisi. Le nouveau bail, lui, rend le lot loué et pousse son loyer.
 function _pushLoyerTheoFromLive(log) {
   if(!log) return;
   const _hasv = vv => vv !== null && vv !== undefined && String(vv).trim() !== '';
-  if(_hasv(log.hc))  log.loyerHcRef = log.hc;
-  if(_hasv(log.ch))  log.chargesRef = log.ch;
+  const _souhaitGarde = !(typeof _bienIsBailActif === 'function' && _bienIsBailActif(log.ref));
+  if(_hasv(log.hc) && !(_souhaitGarde && _hasv(log.loyerHcRef)))  log.loyerHcRef = log.hc;
+  if(_hasv(log.ch) && !(_souhaitGarde && _hasv(log.chargesRef)))  log.chargesRef = log.ch;
   if(_hasv(log.dg))  log.dgRef      = log.dg;
   if(_hasv(log.irl)) log.irlRef     = log.irl;
 }
