@@ -46,9 +46,20 @@ export function moduleGraph(entries) {
 export const PRELOAD_ENTRIES = ['js/main.js', 'js/app/supabase-entry.js']
 export const PRELOAD_BEGIN = '<!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->'
 export const PRELOAD_END = '<!-- modulepreload:end -->'
+// Modules chargés par import() DYNAMIQUE avec un littéral relatif (ou new URL('…', import.meta.url)) dans l'entrée de
+// connexion : supabase-js (vendor), supabase-boot, store-sync, cache-purge… Sans preload, chacun n'est découvert
+// qu'au moment de son `await import(...)` — une dizaine d'allers-retours EN SÉRIE au démarrage.
+const DYN_RE = /import\(\s*(?:\/\*[^*]*\*\/\s*)?['"](\.[^'"]+)['"]\s*\)|new URL\(\s*['"](\.[^'"]+)['"]\s*,\s*import\.meta\.url\s*\)/g
+export function dynamicImports(rel) {
+  let src
+  try { src = fs.readFileSync(path.join(ROOT, rel), 'utf8') } catch { return [] }
+  src = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"`])\/\/[^\n]*/g, '$1')
+  return [...src.matchAll(DYN_RE)].map(m => path.posix.normalize(path.posix.join(path.posix.dirname(rel), m[1] || m[2])))
+    .filter(p => /\.m?js$/.test(p))
+}
 export function preloadBlock() {
   // les points d'entrée sont déjà des <script type="module"> : on ne les « preload » pas
-  const mods = moduleGraph(PRELOAD_ENTRIES).filter(m => !PRELOAD_ENTRIES.includes(m))
+  const mods = moduleGraph([...PRELOAD_ENTRIES, ...dynamicImports('js/app/supabase-entry.js')]).filter(m => !PRELOAD_ENTRIES.includes(m))
   return PRELOAD_BEGIN + '\r\n' + mods.map(m => `<link rel="modulepreload" href="${m}">`).join('\r\n') + '\r\n' + PRELOAD_END
 }
 

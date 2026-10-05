@@ -111,29 +111,39 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
 
   async function hydrate() {
     const db = {}
-    for (const [table, coll] of Object.entries(ARRAY_TABLES)) {
+    // PERF — les ~14 lectures (tables, baux, immeubles, config, config privée) sont INDÉPENDANTES : on les lance
+    // toutes ENSEMBLE (avant : l'une après l'autre, chaque aller-retour réseau attendait le précédent, ~1 à 2 s
+    // de chargement après la connexion). On les ASSEMBLE ensuite dans le MÊME ordre qu'avant (clés de `db`,
+    // captureVersions) : résultat identique. Un échec rejette toujours hydrate() (Promise.all), sauf le journal.
+    const entries = Object.entries(ARRAY_TABLES)
+    const lectures = entries.map(([table]) => {
       // Journal des baux signés : TOLÉRANT. Si le client est en ligne avant la migration 0054 (colonne
       // legacy_raw absente), une erreur ici ferait échouer TOUT le chargement cloud, pour tous les comptes.
       // On le dit en console et on continue sans journal (les baux s'affichent dans leur état signé).
       if (table === 'baux_evenements') {
-        let rowsJ = []
-        try { rowsJ = await fetchTable(table) } catch (e) { console.warn('[SupabaseStore] journal des baux indisponible (migration 0054 appliquée ?) :', e && e.message); rowsJ = [] }
-        db[coll] = rowsJ.map(r => r && r.legacy_raw).filter(lr => lr != null)
-        captureVersions(rowsJ)
-        continue
+        return Promise.resolve().then(() => fetchTable(table)).catch(e => { console.warn('[SupabaseStore] journal des baux indisponible (migration 0054 appliquée ?) :', e && e.message); return [] })
       }
-      const rows = await fetchTable(table)
+      return Promise.resolve().then(() => fetchTable(table))
+    })
+    const [tablesRows, bauxRows, immeublesRows, cfgBrut, cfgPrivBrut] = await Promise.all([
+      Promise.all(lectures),
+      Promise.resolve().then(() => fetchTable('baux')),
+      Promise.resolve().then(() => fetchTable('immeubles')),
+      Promise.resolve().then(() => fetchConfig()),
+      Promise.resolve().then(() => (typeof fetchConfigPrivate === 'function' ? fetchConfigPrivate() : null)),
+    ])
+    entries.forEach(([, coll], i) => {
+      const rows = tablesRows[i]
       db[coll] = rows.map(r => r && r.legacy_raw).filter(lr => lr != null)
       captureVersions(rows)
-    }
-    const bauxRows = await fetchTable('baux')
+    })
     db.baux = {}
     for (const r of bauxRows) { const lr = r && r.legacy_raw; if (!lr) continue; const { __key, ...rec } = lr; if (__key != null) db.baux[__key] = rec }
     captureVersions(bauxRows)
-    captureVersions(await fetchTable('immeubles'))   // versions seules (collection re-imbriquée dans entites)
+    captureVersions(immeublesRows)   // versions seules (collection re-imbriquée dans entites)
 
     // config (+ collections non-tablées) ; GARDE : ne JAMAIS écraser une collection métier.
-    const cfg = (await fetchConfig()) || {}
+    const cfg = cfgBrut || {}
     for (const [k, v] of Object.entries(cfg)) {
       if (TABLE_COLLECTIONS.has(k)) { console.warn('[SupabaseStore] clé config ignorée (collision collection métier) : ' + k); continue }
       db[k] = v
@@ -142,7 +152,7 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
     // propriétaire-privé ; un membre SCOPÉ → {} (RLS) → rien (fail-closed). `params` : greffe SHALLOW
     // ({...partagé, ...privé}) — correcte car les sous-clés partagées/privées sont DISJOINTES par
     // construction (splitConfig répartit chaque sous-clé dans l'un OU l'autre, jamais les deux).
-    const cfgPriv = (typeof fetchConfigPrivate === 'function' ? (await fetchConfigPrivate()) : null) || {}
+    const cfgPriv = cfgPrivBrut || {}
     for (const [k, v] of Object.entries(cfgPriv)) {
       if (TABLE_COLLECTIONS.has(k)) continue
       if (k === 'params' && db.params && typeof db.params === 'object' && v && typeof v === 'object') db.params = { ...db.params, ...v }
