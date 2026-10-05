@@ -109,7 +109,8 @@ describe('données (lot 2)', () => {
     expect(html).not.toContain('delete e.date; delete e.cabinet; delete e.result;');
   });
   it('lecture du PDF DPE branchée, fourchette prioritaire sur l\'ADEME', () => {
-    expect(html).toContain('<script src="js/helpers/dpe-texte.global.js"></script>');
+    // balise à empreinte (?v=) et différée (perf) : on vérifie le script, pas le détail des attributs
+    expect(html).toMatch(/<script src="js\/helpers\/dpe-texte\.global\.js(\?v=[0-9a-f]+)?"( defer)?><\/script>/);
     expect(html).toContain('window.DpeTexte.lireCoutsDpe(text)');
     expect(html).toContain('window.DpeTexte.estFourchette(dpe.depensesEnergie)');
   });
