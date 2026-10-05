@@ -26,6 +26,7 @@
  */
 
 import { premierMontantSaisi } from './loyer-bareme.js';
+import { finOccupationBail } from './fin-occupation.js';
 
 const _r2 = (n) => Math.round(n * 100) / 100;
 const _isAlive = (o) => !!o && !o._deleted;
@@ -254,6 +255,10 @@ export function duMoisFromRaw(ref, ym, raw) {
 // des baux inchangée sinon : à échoir est le défaut du bail).
 const _echu = (src, b) => ((src && (src.modalitePaiement === 'echu' || src.modalitePaiement === 'terme_echu')) ? Object.assign(b, { echu: true }) : b);
 
+// LA fin d'occupation d'un bail : js/core/fin-occupation.js (règle unique, ré-exportée ici pour main.js).
+export { finOccupationBail };
+
+
 /**
  * Normalisation des baux d'un lot depuis les collections BRUTES — extraite de duMoisFromRaw
  * pour être RÉUTILISÉE telle quelle par les autres consommateurs du même contexte
@@ -268,9 +273,10 @@ export function bailsFromRaw(ref, raw) {
   const bails = [];
   const cur = raw.currentBail;
   if (cur && !cur._deleted && cur.debut) {
-    // Bail COURANT : fin contractuelle IGNORÉE pour le dû (tacite reconduction) — on ne passe
-    // que finEffective à duMois, jamais `fin`, et archive:false.
-    bails.push(_echu(cur, { debut: cur.debut, finEffective: cur.finEffective || null, archive: false, hc: Number(cur.hc) || 0, ch: Number(cur.ch) || 0 }));
+    // Bail COURANT : sa fin d'occupation = LA règle (finOccupationBail) — fin contractuelle ignorée
+    // (tacite reconduction, bail échu non clôturé), arrêt à la clôture ou au DÉPART DÉCLARÉ. Passée comme
+    // finEffective (archive:false) : duMois proratise le mois de sortie au jour, comme une clôture.
+    bails.push(_echu(cur, { debut: cur.debut, finEffective: finOccupationBail(cur, false) || null, archive: false, hc: Number(cur.hc) || 0, ch: Number(cur.ch) || 0 }));
   }
   for (const b of (raw.bauxHistorique || [])) {
     if (!b || b._deleted || !b.debut || _nr(b.ref) !== want) continue;

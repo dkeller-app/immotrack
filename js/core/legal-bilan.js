@@ -13,6 +13,7 @@
 
 import { _compute2044 } from './legal-2044.js';
 import { periodeEnVigueurA } from './loyer-du-mois.js';
+import { finOccupationBail } from './fin-occupation.js';
 
 /**
  * Calcule le bilan annuel pour une entité (= un bailleur, personne morale ou physique).
@@ -292,9 +293,10 @@ export function loyerDuLotA(iso, ref, ctx) {
  */
 function _finDeBail(b, force, defaut) {
   if (!b) return defaut;
-  const finIso = b.finEffective || b.fin || b._archivedAt || null;
-  const termine = force || !!(b.cloture || b.finEffective);
-  return (termine && finIso) ? String(finIso).slice(0, 10) : defaut;
+  // LA règle de l'app (finOccupationBail, fin-occupation.js) : clôture, sinon départ déclaré, sinon ouvert.
+  // Repli `_archivedAt` pour un bail clos sans aucune date de fin (données anciennes).
+  const f = finOccupationBail(b, !!force) || ((force || b.cloture) && b._archivedAt ? String(b._archivedAt).slice(0, 10) : '');
+  return f || defaut;
 }
 
 // Arithmétique de jours en UTC : un jour y dure EXACTEMENT 86 400 000 ms, y compris les deux

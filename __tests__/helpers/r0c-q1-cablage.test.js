@@ -17,7 +17,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extraireFonction } from './_extraction-source.js';
 import * as Anteriorite from '../../js/core/anteriorite.js';
-import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw } from '../../js/core/loyer-du-mois.js';
+import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, finOccupationBail } from '../../js/core/loyer-du-mois.js';
 import { _computeFinancesMonthly, _computeDetteBail } from '../../js/core/finances-monthly.js';
 import { computeConstatWindow } from '../../js/core/finances-window.js';
 import { dbAppDe, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
@@ -25,7 +25,7 @@ import { dbAppDe, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
-const F1 = ['_findBailByRefTolerant', '_getAllBailsForLog', '_getLogementStartIso', '_getLogementStartMi', '_duMoisLot',
+const F1 = ['_bailTypeHasTacite', '_bailFinOccupation', '_findBailByRefTolerant', '_getAllBailsForLog', '_getLogementStartIso', '_getLogementStartMi', '_duMoisLot',
   '_getActiveBailHcChProratedSplit', '_getActiveBailHcChProrated', '_computeExpectedRent'];
 const F2 = ['_finLotStartMi', '_finImmDuLot', '_finDuRaw', '_finLotSuivi', '_finBailHcChAt', '_finActiveLotsInScope',
   '_finLotOccupe', '_finIsRecupACharge', '_finDetteBail', '_finMonthly'];
@@ -34,7 +34,7 @@ const SRC = F1.map((n) => extraireFonction(P1, n)).concat(F2.map((n) => extraire
 /** Monte le vrai code autour d'un DB ; `avecModule:false` = le même code SANS le module (= règle d'avant). */
 function monter(DB, { avecModule = true } = {}) {
   const window = {
-    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _computeFinancesMonthly, _computeDetteBail,
+    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _computeFinancesMonthly, _computeDetteBail, finOccupationBail,
     _anteriorite: avecModule ? Anteriorite : undefined
   };
   const deps = {

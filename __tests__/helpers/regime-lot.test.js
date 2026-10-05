@@ -1,5 +1,42 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { MEUBLE_TYPES, lotRegimeForYear, splitFonciereLots } from '../../js/core/regime-lot.js';
+import { finOccupationBail } from '../../js/core/loyer-du-mois.js';
+
+// R0-E : la VRAIE règle de fin d'occupation de l'app, injectée comme le font les builders 2044 (qui passent
+// `_bailFinOccupation`, l'inline qui délègue au module) : finOccupationBail (js/core/loyer-du-mois.js).
+let finOccupation;
+beforeAll(() => {
+  // L'inline d'index.html, branché sur le module comme main.js le fait sur window.
+  const html = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../index.html'), 'utf8').replace(/\r/g, '');
+  const corps = (n) => { const i = html.indexOf('\nfunction ' + n + '('); return html.slice(i, html.indexOf('\n}', i + 1) + 2); };
+  // eslint-disable-next-line no-new-func
+  finOccupation = new Function('window', corps('_bailFinOccupation') + '\nreturn _bailFinOccupation;')({ finOccupationBail });
+});
+
+describe('R0-E — un bail MEUBLÉ reconduit tacitement reste meublé (hors 2044) après sa 1re échéance', () => {
+  const lot = { ref: 'M1', typeUsage: 'habitation-nu' };   // l'usage du lot ne dit rien : seul le bail le dit
+  const courant = { type: 'meuble', debut: '2023-09-01', fin: '2024-08-31' };   // échéance passée, jamais clôturé
+
+  it('règle de l\'app injectée : exclu du foncier en 2026', () => {
+    const r = lotRegimeForYear({ currentBail: courant, histoBails: [], logement: lot, year: 2026, finOccupation });
+    expect(r.fonciere).toBe(false);
+    expect(r.mode).toBe('meuble');
+    expect(splitFonciereLots([lot], { baux: { M1: courant }, bauxHisto: [], year: 2026, finOccupation }).exclus.map((e) => e.ref)).toEqual(['M1']);
+  });
+
+  it('bail meublé ARCHIVÉ (clos) au 31/08/2024 : n\'occupe plus 2026 → le lot retombe sur son usage', () => {
+    const r = lotRegimeForYear({ currentBail: null, histoBails: [courant], logement: lot, year: 2026, finOccupation });
+    expect(r.mode).toBe('vacant');
+  });
+
+  it('tombstone de bail clôturé en bail courant : ne loue rien', () => {
+    const r = lotRegimeForYear({ currentBail: { ref: 'M1', _deleted: true }, histoBails: [], logement: lot, year: 2026, finOccupation });
+    expect(r.mode).toBe('vacant');
+  });
+});
 
 // Helpers de fabrication de baux (un bail = { type, debut, fin })
 const nu      = (debut, fin) => ({ type: 'nu',       debut, fin });

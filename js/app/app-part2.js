@@ -9952,7 +9952,8 @@ function _computeComptaBailleur(ent, year, activeLogs) {
     const bail = DB.baux[l.ref];
     if(bail && _isAlive(bail) && bail.debut) {
       const debut = new Date(Math.max(new Date(bail.debut).getTime(), new Date(yearStart).getTime()));
-      const fin   = bail.fin ? new Date(Math.min(new Date(bail.fin).getTime(), new Date(yearEnd).getTime())) : new Date(yearEnd);
+      const _finOcc = _bailFinOccupation(bail, false); // tacite reconduction : bail nu/meublé en cours = ouvert
+      const fin   = _finOcc ? new Date(Math.min(new Date(_finOcc).getTime(), new Date(yearEnd).getTime())) : new Date(yearEnd);
       const days = Math.max(0, Math.round((fin - debut) / 86400000) + 1);
       occJoursTotal += days;
     }
@@ -9977,15 +9978,15 @@ function _computeComptaBailleur(ent, year, activeLogs) {
   });
   const manqueAGagner = Math.max(0, loyerAttendu - loyerEncaisse);
 
-  // Part bailleur : appel computeRegul pour récupérer la map bailleur, filtrer immeubles du bailleur
+  // Part bailleur 2044 (ligne 225) : lecteur unique _rgSegments225 — immeubles du bailleur, périmètre
+  // FONCIER (lots meublés exclus, comme l'assistant 2044), hors parts déjà déduites sur leur ligne.
   let partBailleur = 0;
   try {
     if(typeof computeRegul === 'function') {
-      const regul = computeRegul(yearStart, yearEnd);
-      const bMap = regul.bailleur || {};
-      Object.values(bMap).forEach(b => {
-        if(immsBailleur.includes(b.imm)) partBailleur += (b.total || 0);
-      });
+      const _splitCb = (typeof window.splitFonciereLots === 'function')
+        ? window.splitFonciereLots(activeLogs || [], { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: yr, finOccupation: _bailFinOccupation })
+        : { fonciereRefs: refsBailleur };
+      partBailleur = _rgSegments225(computeRegul(yearStart, yearEnd), immsBailleur, _splitCb.fonciereRefs).total;
     }
   } catch(e) { console.warn('[_computeComptaBailleur] partBailleur', e); }
 
@@ -10083,7 +10084,7 @@ function _renderEntFichePanelComptaGlobale(ent, activeLogs) {
       <div class="kpi"><div class="kv ${soldeCls}">${fmt(data.totals.solde)}</div><div class="kl">Solde net</div></div>
       <div class="kpi"><div class="kv ${occCls}">${data.kpiOcc}<small>%</small></div><div class="kl">Occupation moy.</div></div>
       <div class="kpi"><div class="kv ${manqueCls}">${fmt(data.manqueAGagner)}</div><div class="kl">Manque à gagner</div></div>
-      <div class="kpi" title="Charges restées à charge bailleur (vacances + logements exclus)"><div class="kv ${data.partBailleur>0?'k-warn':''}">${fmt(data.partBailleur)}</div><div class="kl">Part bailleur 2044</div></div>
+      <div class="kpi" title="Charges récupérables restées à la charge du bailleur (vacance, logements exclus du compteur) — 2044 ligne 225, lots en location nue ; hors charges déjà déduites sur leur propre ligne (copropriété : 229)"><div class="kv ${data.partBailleur>0?'k-warn':''}">${fmt(data.partBailleur)}</div><div class="kl">Part bailleur 2044</div></div>
     </div>
 
     <!-- Sparkline -->
@@ -10289,21 +10290,16 @@ function _legal2044WizardOpts(ent, year) {
   const aliveLogs = (DB.logements||[]).filter(l => _isAlive(l) && !l.archived && l.entity === entityNom);
   // FEAT-REGIMES P0 : exclure les lots meublés (BIC) du périmètre foncier 2044 (cf builder panneau).
   const _split = (typeof window.splitFonciereLots === 'function')
-    ? window.splitFonciereLots(aliveLogs, { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: yr })
+    ? window.splitFonciereLots(aliveLogs, { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: yr, finOccupation: _bailFinOccupation })
     : { fonciereRefs: aliveLogs.map(l => l.ref), exclus: [], flagues: [] };
   const refs = _split.fonciereRefs;
   const nbLocaux = refs.length;
   const imms = (ent.immeubles||[]).filter(_isAlive).map(i => i.nom);
+  // Ligne 225 : lecteur unique _rgSegments225 (immeubles de l'entité, périmètre foncier, hors 229…).
   let partBailleur225 = 0;
   try {
-    if (typeof computeRegul === 'function') {
-      const regul = computeRegul(from, to);
-      Object.values(regul.bailleur || {}).forEach(b => {
-        if (imms.includes(b.imm)) partBailleur225 += b.total || 0;
-      });
-    }
+    if (typeof computeRegul === 'function') partBailleur225 = _rgSegments225(computeRegul(from, to), imms, refs).total;
   } catch (e) { console.warn('[_legal2044WizardOpts] partBailleur', e); }
-  partBailleur225 = Math.round(partBailleur225 * 100) / 100;
   // Mapping custom : on ne passe QUE les catégories non-STD (le module fige les STD).
   const fullMap = _get2044Mapping();
   const mapping = {};
@@ -10340,14 +10336,10 @@ function _legal2044WizardData(ent, year) {
   }
   try {
     if (typeof computeRegul === 'function' && opts.partBailleur225) {
-      const regul = computeRegul(opts.from, opts.to);
-      Object.values(regul.bailleur || {}).forEach(b => {
-        if (opts.imms.includes(b.imm)) {
-          (b.segments || []).forEach(seg => byLine['225'].mvts.push({
-            date: seg.date, lib: seg.lib, montant: seg.montant, auto: true, motif: seg.motif, cc: seg.cc
-          }));
-        }
-      });
+      // MÊMES segments que le total injecté (opts.partBailleur225) : lecteur unique _rgSegments225.
+      _rgSegments225(computeRegul(opts.from, opts.to), opts.imms, opts.refs).segments.forEach(seg => byLine['225'].mvts.push({
+        date: seg.date, lib: seg.lib, montant: seg.montant, auto: true, motif: seg.motif, cc: seg.cc
+      }));
     }
   } catch (e) { console.warn('[_legal2044WizardData] partBailleur seg', e); }
 
@@ -15278,7 +15270,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.712 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.713 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -26120,7 +26112,8 @@ function _dgOpenRestitution(ref) {
   // (le repli vit désormais dans _calculerSoldeDG ; on garde dgVerse pour l'AFFICHAGE + le
   // statut, dans cette surface où l'on restitue — donc le dépôt a bien été pris).
   const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
-  const _bailN = Object.assign({}, bail, { dgPaid: dgVerse });
+  // fin = fin d'OCCUPATION (_bailFinOccupation) : un bail nu/meublé reconduit n'est pas terminé à sa fin contractuelle.
+  const _bailN = Object.assign({}, bail, { dgPaid: dgVerse, fin: _bailFinOccupation(bail, false) });
   const dgInfo = _dgStatut(_bailN); // AUDIT #3 : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
   const solde = _calculerSoldeDG(_bailN, DB.mouvements || []);
   const delaiMois = _calculerDelaiRestitution(bail, DB.edl);
@@ -26249,12 +26242,12 @@ function _dgRestitRecalc(ref) {
   const autres = Math.max(0, parseFloat(v('dg-restit-autres')) || 0);
   const retenuesTotal = Math.round((reparations + autres) * 100) / 100;
   const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
-  const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal });
+  const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) });
   const solde = _calculerSoldeDG(tempBail, DB.mouvements || []);
   // Pénalité art. 22 (au crédit du locataire), recomputée avec le toggle adresse + la date saisie.
   const adresseKO = !!(el('dg-restit-adresse-ko') && el('dg-restit-adresse-ko').checked);
   const dateRestit = v('dg-restit-date') || '';
-  const penBail = Object.assign({}, bail, { dgRetenu: retenuesTotal, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestit || bail.dgRestitueAt });
+  const penBail = Object.assign({}, bail, { dgRetenu: retenuesTotal, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestit || bail.dgRestitueAt, fin: _bailFinOccupation(bail, false) });
   const pen = window._penaliteRetardDG ? window._penaliteRetardDG(penBail, dateRestit || undefined) : { penalite: 0, moisRetard: 0, enRetard: false, base: 0, exclue: false };
   const penMontant = Number(pen.penalite) || 0;
   const soldeFinal = Math.round((solde.soldeRestitue + penMontant) * 100) / 100;
@@ -26302,10 +26295,10 @@ function _dgConfirmerRestitution() {
   // porter au document une date qui n'était celle de rien.
   const dateRestitution = v('dg-restit-date') || '';
   const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
-  const solde = _calculerSoldeDG({ ...bail, dgPaid: dgVerse, dgRetenu: retenuesTotal }, DB.mouvements || []);
+  const solde = _calculerSoldeDG({ ...bail, dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) }, DB.mouvements || []);
   // Pénalité art. 22 (au crédit du locataire) — ajoutée au montant restitué.
   const pen = window._penaliteRetardDG
-    ? window._penaliteRetardDG({ ...bail, dgRetenu: retenuesTotal, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestitution || bail.dgRestitueAt }, dateRestitution || undefined)
+    ? window._penaliteRetardDG({ ...bail, dgRetenu: retenuesTotal, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestitution || bail.dgRestitueAt, fin: _bailFinOccupation(bail, false) }, dateRestitution || undefined)
     : { penalite: 0, moisRetard: 0 };
   const penMontant = Number(pen.penalite) || 0;
   const montantRestitue = Math.round((solde.soldeRestitue + penMontant) * 100) / 100;
@@ -29513,7 +29506,7 @@ function _finLotSuivi(qui) {
   // Baux du lot AVEC leur antériorité (bailsFromRaw ne garde que les champs du dû).
   const raw = _finDuRaw(qui), want = String(qui).trim().toLowerCase();
   const bails = [];
-  if (raw.currentBail && !raw.currentBail._deleted && raw.currentBail.debut) bails.push({ debut: raw.currentBail.debut, finEffective: raw.currentBail.finEffective || null, archive: false, anteriorite: raw.currentBail.anteriorite || null });
+  if (raw.currentBail && !raw.currentBail._deleted && raw.currentBail.debut) bails.push({ debut: raw.currentBail.debut, fin: raw.currentBail.fin || null, finEffective: raw.currentBail.finEffective || null, archive: false, depart: raw.currentBail.depart || null, cloture: !!raw.currentBail.cloture, anteriorite: raw.currentBail.anteriorite || null });
   (raw.bauxHistorique || []).forEach(b => { if (b && !b._deleted && b.debut && String(b.ref || '').trim().toLowerCase() === want) bails.push({ debut: b.debut, finEffective: b.finEffective || null, fin: b.fin || null, archive: true, anteriorite: b.anteriorite || null }); });
   const iso = (typeof _getLogementStartIso === 'function') ? _getLogementStartIso(qui) : null;
   const v = window._anteriorite.debutSuiviLot({
@@ -29616,14 +29609,22 @@ function _finWindows(yr, scope) {
 // y occupait le lot et peut rembourser la charge. Occupation = un bail couvre le mois (`_duMoisLot`, le
 // dû du barème SANS borne de suivi) ET le bailleur actuel possédait le lot (date d'achat connue). Avant
 // l'achat, rien n'est récupérable par lui.
-// ⚠️ FUSION : la branche fix/charges-hors-occupation introduit un helper UNIQUE de fin d'occupation
-// (tacite reconduction). Les deux tests d'occupation ci-dessous (`_finLotOccupe`) sont les lignes à
-// rebrancher sur ce helper.
-function _finLotOccupe(qui, ym) {
+// Occupation = MÊME lecture que la régularisation (computeRegul) : un bail de `_getAllBailsForLog(qui)` —
+// dont la fin vient de `_bailFinOccupation` (tacite reconduction, départ déclaré, clôture) — couvre la DATE
+// de la charge (lot précis : charge datée, comme le chemin 2 de la régul) ou le MOIS (niveau immeuble).
+// Avant (R0-C) : `_duMoisLot(qui, ym) > 0` — un mois occupé pour la régul mais « non dû » pour duMois
+// (ou l'inverse) rendait la charge récupérable ici et vacante là : ni récupérée, ni déduite.
+// Garde-fou conservé : avant la date d'achat (`_finLotSuivi().jouissance`), rien n'est récupérable par le
+// bailleur actuel.
+function _finLotOccupe(qui, quand) {
+  const q = String(quand || '');
+  const ym = q.slice(0, 7);
   const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(qui) : null;
   if (s && s.jouissance && ym < s.jouissance.slice(0, 7)) return false;
-  const d = _duMoisLot(qui, ym);
-  return ((d.hc || 0) + (d.ch || 0)) > 0.005;
+  const jour = q.length >= 10 ? q.slice(0, 10) : null;
+  const du = jour || (ym + '-01'), au = jour || (ym + '-31');
+  return (_getAllBailsForLog(qui) || []).some(b => b && b.debut
+    && String(b.debut).slice(0, 10) <= au && (!b.fin || String(b.fin).slice(0, 10) >= du));
 }
 function _finIsRecupACharge(m) {
   if (!m || !m.date) return false;
@@ -29632,7 +29633,7 @@ function _finIsRecupACharge(m) {
   if (qui && qui.indexOf('SCI:') !== 0) {
     const lg = (DB.logements || []).find(l => l && !l._deleted && l.ref === qui);
     if (lg && lg.compteCharges === false) return true;
-    return !_finLotOccupe(qui, ym);
+    return !_finLotOccupe(qui, String(m.date).slice(0, 10));   // à la DATE, comme la régularisation
   }
   if (!qui && m.imm) {
     const lots = (DB.logements || []).filter(l => l && !l._deleted && l.imm === m.imm && l.ref);
@@ -31506,7 +31507,7 @@ function _legal2044BuildOpts(yrArg, entArg) {
   // ET de nbLocaux (forfait 222). Les lots MIXTES (nu + meublé dans l'année) restent
   // inclus mais flagués « part meublée à retirer ». Décision par lot dans regime-lot.js.
   const _split = (typeof window.splitFonciereLots === 'function')
-    ? window.splitFonciereLots(scopeLogs, { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: parseInt(yr) })
+    ? window.splitFonciereLots(scopeLogs, { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: parseInt(yr), finOccupation: _bailFinOccupation })
     : { fonciereRefs: scopeLogs.map(l => l.ref), exclus: [], flagues: [] };
   const refs = _split.fonciereRefs;
   // Forfait gestion 222 = 20 €/local (notice 2044 § 222) → nb de logements FONCIERS.
@@ -31524,16 +31525,12 @@ function _legal2044BuildOpts(yrArg, entArg) {
   // Part bailleur des charges récupérables non récupérées (vacances + logements exclus
   // du compteur collectif) → ligne 225. Précalculée via computeRegul (même logique que
   // l'ancien wizard inline, cf V3-REFONTE-LOYERS chantier A).
+  // Lecteur unique _rgSegments225 : immeubles de l'entité (toutes si « Toutes »), périmètre foncier
+  // (lots meublés exclus), hors parts déjà déduites sur leur propre ligne (229…).
   let partBailleur225 = 0;
   try {
-    if (typeof computeRegul === 'function') {
-      const regul = computeRegul(from, to);
-      Object.values(regul.bailleur || {}).forEach(b => {
-        if (!entityNom || imms.includes(b.imm)) partBailleur225 += b.total || 0;
-      });
-    }
+    if (typeof computeRegul === 'function') partBailleur225 = _rgSegments225(computeRegul(from, to), entityNom ? imms : null, refs).total;
   } catch (e) { console.warn('[_legal2044BuildOpts] partBailleur', e); }
-  partBailleur225 = Math.round(partBailleur225 * 100) / 100;
 
   // M-2 / Z-2 : mapping des catégories perso (alias M-1 + magasins legacy) → la prévisualisation
   // 2044 de Finances honore les rattachements utilisateur, comme le wizard.

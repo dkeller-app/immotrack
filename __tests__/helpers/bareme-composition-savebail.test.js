@@ -236,6 +236,15 @@ describe('B2 — corriger une période sur un lot dont le bail est CLOS', () => 
     expect(vivantes(r.bareme).find((p) => p.debut === '2025-01-01')).toMatchObject({ hc: 677, bailDebut: '2023-09-01' });
   });
 
+  it('R0-E : bail COURANT reconduit après son échéance — la correction datée après l\'échéance trouve le bail', () => {
+    // Bail courant (archive:false) signé le 01/07/2023, échéance 30/06/2026, jamais clôturé :
+    // tacitement reconduit. Une correction de novembre 2026 doit trouver son chapitre.
+    const courant = [{ debut: '2023-07-01', fin: '2026-06-30', finEffective: null, hc: 700, ch: 90, archive: false }];
+    expect(chapitrePour([], REF, '2026-11-01', courant)).toBe('2023-07-01');
+    // Un bail ARCHIVÉ, lui, s'arrête bien à sa fin.
+    expect(chapitrePour([], REF, '2026-11-01', [{ ...courant[0], archive: true }])).toBe('');
+  });
+
   it('une date que RIEN ne couvre est refusée, pas écrite en silence', () => {
     const r = corrigerPeriode(base(), baux(), '2020-01-01', '2020-03-31', 500, 90);
     expect(r.refus).toBeTruthy();

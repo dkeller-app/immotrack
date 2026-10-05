@@ -15,6 +15,7 @@
  *
  * Fonctions PURES (aucune lecture de DB) — testées : __tests__/helpers/loyer-bareme.test.js.
  */
+import { finOccupationBail } from './fin-occupation.js';
 
 const _nr = (s) => String(s == null ? '' : s).trim().toLowerCase();
 const _ymd = (iso) => String(iso == null ? '' : iso).slice(0, 10);
@@ -770,7 +771,10 @@ export function chapitrePour(periods, ref, dateIso, baux) {
     if (!b || b._deleted || !b.debut) continue;
     const bd = _ymd(b.debut);
     if (bd > d) continue;
-    const f = _ymd(b.finEffective || b.fin || '');
+    // LA fin d'occupation (fin-occupation.js, la même que le dû) : bail archivé → sa fin ; bail COURANT
+    // (`archive:false`) → sa clôture ou son DÉPART DÉCLARÉ, jamais sa fin contractuelle (une correction
+    // datée après l'échéance d'un bail reconduit trouve son bail ; après le départ, plus de dû à corriger).
+    const f = _ymd(finOccupationBail(b, b.archive !== false));
     if (f && f < d) continue;
     if (bd > best) best = bd;
   }

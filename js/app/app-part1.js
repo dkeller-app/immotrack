@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.712';
+const IMMOTRACK_VERSION = '15.713';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -1958,6 +1958,27 @@ function _bailTypeHasTacite(type) {
   // tout type non explicitement non-reconductible bénéficie de la tacite. Défaut
   // sûr → un type legacy/importé inconnu n'est jamais marqué « échu » à tort.
   return t !== 'etudiant' && t !== 'mobilite' && t !== 'garage' && t !== 'autre';
+}
+
+// LA fin d'OCCUPATION d'un bail ('' = occupation ouverte) — lecture UNIQUE pour la régularisation
+// des charges, les compteurs collectifs et l'historique des baux d'un logement (_getAllBailsForLog).
+// Un bail ne se termine que par sa CLÔTURE : `finEffective`, ou sa fin si le bail est clôturé /
+// archivé (`clos` = ligne de DB.baux_historique). Bail en cours : sa fin contractuelle est IGNORÉE,
+// QUEL QUE SOIT SON TYPE (décision Didier 05/10) — nu / meublé reconduits tacitement ; étudiant,
+// mobilité, garage, autre échus mais non clôturés : occupés jusqu'à la clôture (alerte « bail échu »).
+// Avant : la fin contractuelle d'un bail nu reconduit coupait l'occupation → les mois suivants
+// devenaient une « vacance » portée par le bailleur (et réinjectée en 2044 ligne 225).
+// Départ DÉCLARÉ (`bail.depart.dateSortie`, assistant de départ — _departSaveDeclare) sur un bail encore
+// en cours : c'est lui qui borne l'occupation — sinon l'étape régularisation (occupation ouverte) et
+// l'étape restitution du DG (bornée au départ) donnaient deux soldes de tout compte.
+// LA règle vit dans le module pur js/core/loyer-du-mois.js (`finOccupationBail`, exposé par main.js) : le
+// dû (bailsFromRaw → duMois) et l'occupation lisent la MÊME. Repli DÉGRADÉ si les modules ne sont pas
+// chargés (file://, comme le repli prorata de _duMoisLot) : seule la clôture borne.
+function _bailFinOccupation(bail, clos) {
+  const W = (typeof window !== 'undefined') ? window : null;
+  if(W && typeof W.finOccupationBail === 'function') return W.finOccupationBail(bail, clos);
+  if(!bail) return '';
+  return String(bail.finEffective || ((clos || bail.cloture) ? (bail.fin || '') : '')).slice(0,10);
 }
 
 // v14.49 — Calcule la date de fin EFFECTIVE pour le préavis (avec tacite reconduction).
@@ -8827,7 +8848,7 @@ function _getAllBailsForLog(ref) {
   if(current && !current._deleted && current.debut) {
     bails.push({
       debut: current.debut,
-      fin: current.finEffective || current.fin || null,
+      fin: _bailFinOccupation(current, false) || null,   // tacite reconduction : bail nu/meublé en cours = ouvert
       hc: current.hc || 0,
       ch: current.ch || 0,
       nom: _bailNom(current),
@@ -8840,7 +8861,7 @@ function _getAllBailsForLog(ref) {
     DB.baux_historique.filter(b => b && !b._deleted && b.debut && (b.ref === ref || norm(b.ref) === want)).forEach(b => {
       bails.push({
         debut: b.debut,
-        fin: b.finEffective || b.fin || null,
+        fin: _bailFinOccupation(b, true) || null,
         hc: b.hc || 0,
         ch: b.ch || 0,
         nom: _bailNom(b),
@@ -24251,7 +24272,8 @@ function _migrationBailsForLot(ref) {
   const out = [];
   const cur = (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(ref) : (DB.baux || {})[ref];
   if (cur && !cur._deleted && cur.debut) {
-    out.push({ debut: cur.debut, fin: cur.fin || null, finEffective: cur.finEffective || null, hc: cur.hc, ch: cur.ch, archive: false });
+    // depart / cloture : lus par LA fin d'occupation (fin-occupation.js) dans chapitrePour ; ignorés par la migration.
+    out.push({ debut: cur.debut, fin: cur.fin || null, finEffective: cur.finEffective || null, hc: cur.hc, ch: cur.ch, archive: false, depart: cur.depart || null, cloture: !!cur.cloture });
   }
   for (const h of (DB.baux_historique || [])) {
     if (!h || h._deleted || !h.debut || _nrb(h.ref) !== want) continue;
@@ -25206,7 +25228,13 @@ function _rgYearChargesDetail(ref, yearOffset){
   // AUSSI les charges retirées au titre du forfait (`forfait.exclusDetails`) : la base estime les charges
   // du LOGEMENT, elle ne dépend pas du régime de charges de l'an passé (audit 30/09 : base N-1 amputée).
   if(typeof window.baseChargesLogement !== 'function') return null; // module absent : pas d'estimation (repli sur le réel)
-  const b = window.baseChargesLogement(entries);
+  // Charges directes datées pendant une VACANCE du logement (portées par le bailleur, plus par un
+  // locataire) : ce sont des charges du LOGEMENT → remises dans la base, sinon l'estimation d'un départ
+  // baisse dès que N-1 a connu une vacance. Jamais les parts « Logement exclu » d'un compteur.
+  const vac = Object.values(res.bailleur||{}).flatMap(bl=>bl.segments||[])
+    .filter(s=>s.horsOccupation && s.ref===ref)
+    .map(s=>({ date:s.date, lib:s.lib, mvLib:s.lib, montant:s.montant, mvId:s.mvId }));
+  const b = window.baseChargesLogement(vac.length ? entries.concat([{ details: vac }]) : entries);
   return { year:y, total:b.total, moves:b.moves };
 }
 
@@ -25534,7 +25562,8 @@ function _rgApplyRetenue(entryKey, retenue, restit){
   const reparations = c ? (Number(c.reparations)||0) : 0;
   const retenueRegul = c ? (Number(c.retenueRegul)||0) : (Number(retenue)||0);
   entry.bail.dgRetenu = Math.round((reparations + retenueRegul)*100)/100;
-  const sd = (typeof _calculerSoldeDG==='function') ? _calculerSoldeDG(entry.bail, DB.mouvements||[]) : null;
+  // Fin d'occupation résolue par computeRegul (_bailFinOccupation : tacite reconduction) — pas la fin contractuelle.
+  const sd = (typeof _calculerSoldeDG==='function') ? _calculerSoldeDG(Object.assign({}, entry.bail, { fin: entry.fin }), DB.mouvements||[]) : null;
   entry.bail.dgRestitue = sd ? sd.soldeRestitue
     : Math.max(0, Math.round(((Number(entry.bail.dgPaid)||Number(entry.bail.dg)||0) - entry.bail.dgRetenu)*100)/100);
   if(typeof _stamp==='function') _stamp(entry.bail); // v15.x : horodatage pour merge multi-device (cohérence convention bail)
@@ -25930,8 +25959,8 @@ function _rgShowGlobal(immNom){
   const nonRep=(result.nonReparti||{})[immNom];
   const f=fmt;
   // CDC É4 (mockup 07) — colonne « Bailleur (225) » : part non refacturée par facture (mvId).
-  const bailPerMv={};
-  ((bail&&bail.segments)||[]).forEach(s=>{ if(s&&s.mvId!=null) bailPerMv[s.mvId]=(bailPerMv[s.mvId]||0)+s.montant; });
+  const bailPerMv={}, bailLigneMv={};
+  ((bail&&bail.segments)||[]).forEach(s=>{ if(s&&s.mvId!=null){ bailPerMv[s.mvId]=(bailPerMv[s.mvId]||0)+s.montant; if(s.deja2044) bailLigneMv[s.mvId]=s.deja2044; } });
   // pivot : 1 ligne par mouvement, 1 colonne par occupation
   const mv={};
   entries.forEach(e=>(e.details||[]).forEach(d=>{
@@ -25940,6 +25969,17 @@ function _rgShowGlobal(immNom){
     mv[id].per[e.entryKey]=(mv[id].per[e.entryKey]||0)+d.montant;
     if(d.mvTotal) mv[id].total=d.mvTotal;
   }));
+  // Une charge portée ENTIÈREMENT par le bailleur (datée pendant une vacance) a aussi SA ligne — sinon la
+  // colonne « Bailleur » affichait un total sans aucune ligne pour l'expliquer.
+  ((bail&&bail.segments)||[]).forEach(sg=>{
+    if(!sg || sg.mvId==null || mv[sg.mvId]) return;
+    const src=(DB.mouvements||[]).find(x=>x && x.id===sg.mvId);
+    mv[sg.mvId]={mvId:sg.mvId, lib:sg.lib||'', date:sg.date, total:src?Math.round((+src.db||0)*100)/100:0, per:{}};
+  });
+  // Ligne 2044 de la part bailleur : 225 (charges récupérables non récupérées), ou la propre ligne de la
+  // charge si elle y est déjà déduite (ex. copropriété → 229). Lu par la matrice ET le rendu téléphone.
+  Object.values(mv).forEach(m=>{ m.bailLigne=(m.mvId!=null&&bailLigneMv[m.mvId])||'225'; });
+  const bailDeja=Object.keys(bailLigneMv).length>0;
   const mvArr=Object.values(mv).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   // Chaque colonne-locataire mène à SON détail (factures) — régression 25/09 : la vue globale ne menait nulle part.
   const colH=entries.map(e=>`<th class="num"><button type="button" class="rg-colbtn" data-imm="${escHtml(immNom)}" data-ek="${escHtml(e.entryKey)}" onclick="_rgOuvrirDetailLoc(this.dataset.imm,this.dataset.ek)" title="Voir les factures de ${escHtml(e.loc||e.ref)}">${escHtml(e.ref)}<small>${escHtml(e.loc||'Vacant')}</small><span class="rg-colbtn-l">${_uiIcon('receipt',11)} Détail</span></button></th>`).join('');
@@ -25948,7 +25988,7 @@ function _rgShowGlobal(immNom){
     return `<tr class="rg-mv${clk?' clk':''}"${clk?` onclick="openEditMv(${m.mvId})"`:''}>`
       + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(m.lib)}">${escHtml(m.lib)}</span><small>${escHtml(fd(m.date)||m.date||'')}${m.total?' · facture '+f(m.total):''}${clk?' · '+_uiIcon('edit',10):''}</small></td>`
       + entries.map(e=>`<td class="num">${m.per[e.entryKey]?f(m.per[e.entryKey]):'<span class="z">—</span>'}</td>`).join('')
-      + `<td class="num col-bail">${(m.mvId!=null&&bailPerMv[m.mvId])?f(bailPerMv[m.mvId]):'<span class="z">—</span>'}</td>`
+      + `<td class="num col-bail">${(m.mvId!=null&&bailPerMv[m.mvId])?f(bailPerMv[m.mvId])+(m.bailLigne!=='225'?`<small style="display:block;font-weight:400">déjà déduite en ${escHtml(m.bailLigne)}</small>`:''):'<span class="z">—</span>'}</td>`
       + `<td class="num col-tot">${f(rowSum)}</td></tr>`; }).join('');
   const trouRows=(nonRep&&nonRep.total>0.005)?nonRep.lines.map(l=>{ const clk=(l.mvId!=null);
     return `<tr class="trou${clk?' clk':''}"${clk?` onclick="openEditMv(${l.mvId})"`:''}>`
@@ -25977,7 +26017,7 @@ function _rgShowGlobal(immNom){
       ${validated?`<span class="rg-badge-ok">${_uiIcon('check',13)} validé</span>`:`<span class="rg-badge-todo">${_uiIcon('warn',13)} à valider</span>`}</div>
     ${banner}
     <div class="rg-wrap"><table class="tbl rg-mtx">
-      <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-bail" title="Part non refacturée aux locataires — reste à charge du bailleur (2044 ligne 225)">Bailleur (225)</th><th class="num col-tot">Réparti loc.</th></tr></thead>
+      <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-bail" title="Part non refacturée aux locataires — reste à charge du bailleur : 2044 ligne 225, ou la propre ligne de la charge quand elle y est déjà déduite (copropriété : 229)">Bailleur${bailDeja?'':' (225)'}</th><th class="num col-tot">Réparti loc.</th></tr></thead>
       <tbody>
         ${mvRows||`<tr><td colspan="${entries.length+3}" class="mu sm">Aucune charge répartie sur la période.</td></tr>`}
         ${trouRows}
@@ -26005,7 +26045,7 @@ function _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, val
     const clk=(m.mvId!=null);
     const rowSum=Math.round(Object.values(m.per).reduce((s,x)=>s+x,0)*100)/100;
     const lots = entries.map(e=> m.per[e.entryKey] ? `<div class="rgvg-l"><span class="lot"><b>${escHtml(e.ref)}</b>${e.loc?` · ${escHtml(e.loc)}`:''}</span><span class="qp">${f(m.per[e.entryKey])}</span></div>` : '').join('');
-    const bailPart = (m.mvId!=null && bailPerMv[m.mvId]) ? `<div class="rgvg-l bail"><span class="lot">Bailleur (225)</span><span class="qp">${f(bailPerMv[m.mvId])}</span></div>` : '';
+    const bailPart = (m.mvId!=null && bailPerMv[m.mvId]) ? `<div class="rgvg-l bail"><span class="lot">Bailleur (${m.bailLigne&&m.bailLigne!=='225'?'déjà déduite en '+escHtml(m.bailLigne):'225'})</span><span class="qp">${f(bailPerMv[m.mvId])}</span></div>` : '';
     return `<div class="rgvg-cc${clk?' clk':''}"${clk?` onclick="openEditMv(${m.mvId})"`:''}>
       <div class="rgvg-top"><span class="rgvg-lib">${escHtml(m.lib||'—')}</span><span class="rgvg-fac">${f(m.total||rowSum)}</span></div>
       <div class="rgvg-date">${_uiIcon('calendar',12)}${escHtml(fd(m.date)||m.date||'')}${m.total?` · facture ${f(m.total)}`:''}${clk?` · ${_uiIcon('edit',11)}`:''}</div>
@@ -26119,18 +26159,21 @@ function computeRegul(from, to) {
     const bailRaw = DB.baux[l.ref];
     const bail = (bailRaw && _isAlive(bailRaw)) ? bailRaw : null;
     if(bail) {
-      const clip = clipBail(bail.debut, bail.fin);
+      // Fin d'occupation (tacite reconduction : la fin contractuelle d'un bail nu/meublé en cours
+      // ne coupe pas l'occupation) — lecture unique _bailFinOccupation.
+      const finOcc = _bailFinOccupation(bail, false);
+      const clip = clipBail(bail.debut, finOcc);
       if(clip.occDays > 0) pool.push({
         entryKey: l.ref, ref: l.ref, imm: l.imm,
         loc: bail.locataires?.[0]?.nom || l.locataire || '–',
-        bail, debut: bail.debut, fin: bail.fin||'',
+        bail, debut: bail.debut, fin: finOcc,
         isHistorique: false, ...clip
       });
     }
 
     (DB.baux_historique||[]).forEach((hb, idx)=>{
       if(hb.ref !== l.ref) return;
-      const finEff = hb.finEffective || hb.fin || '';
+      const finEff = _bailFinOccupation(hb, true);
       const clip = clipBail(hb.debut, finEff);
       if(clip.occDays <= 0) return;
       pool.push({
@@ -26178,11 +26221,22 @@ function computeRegul(from, to) {
   //  3) Charge sur immeuble sans compteur → fallback prorata jours, MAIS filtré par compteCharges:false.
 
   // v14.73 : on accumule la part bailleur (vacances + exclus) par immeuble pour la card UI + 2044
-  const bailleur = {}; // { 'imm': {imm, total, segments:[{date,lib,cc,montant,motif}]} }
+  // Chaque segment porte le logement (`ref`) ; `deja2044` = ligne 2044 où la charge est déjà déduite
+  // (ex. copropriété directe → 229). La part à reporter en 225 se lit par _rgSegments225 (lecteur unique).
+  const bailleur = {}; // { 'imm': {imm, total, segments:[{date,lib,cc,ref,montant,motif,deja2044?,horsOccupation?}]} }
   function _bailleurAdd(immNom, seg) {
     if(!bailleur[immNom]) bailleur[immNom] = { imm: immNom, total: 0, segments: [] };
     bailleur[immNom].total += seg.montant;
     bailleur[immNom].segments.push(seg);
+  }
+
+  // Règle UNIQUE d'imputation d'une charge DATÉE : l'occupation dont [debutOcc, finOcc] (jours locaux,
+  // bornes incluses — jour de sortie compris) contient sa date. Aucune → null = VACANCE : la charge
+  // revient au bailleur, jamais à un locataire (avant : repli sur la 1ʳᵉ occupation du logement → le
+  // locataire parti, ou le suivant, payait les charges de la vacance).
+  function _occupationDuJour(candidates, date) {
+    const j = String(date||'').slice(0,10);
+    return candidates.find(e => e.debutOcc && e.finOcc && j >= e.debutOcc && j <= e.finOcc) || null;
   }
 
   // v15.x Phase B — charges récupérables NON RÉPARTIES (« trous ») : montant qui ne tombe
@@ -26233,7 +26287,7 @@ function computeRegul(from, to) {
           if(p.exclu && p.montant > 0) {
             _bailleurAdd(im.nom, {
               mvId: m.id,
-              date: m.date, lib: m.lib, cc: cc.nom||'Compteur',
+              date: m.date, lib: m.lib, cc: cc.nom||'Compteur', ref: p.ref,
               montant: Math.round(p.montant*100)/100,
               motif: 'Logement exclu : ' + (p.raison || 'compte-charges désactivé')
             });
@@ -26244,7 +26298,7 @@ function computeRegul(from, to) {
           // v14.73 : période vacante → reste à charge du bailleur (2044)
           _bailleurAdd(im.nom, {
             mvId: m.id,
-            date: m.date, lib: m.lib, cc: cc.nom||'Compteur',
+            date: m.date, lib: m.lib, cc: cc.nom||'Compteur', ref: p.ref,
             montant: Math.round(p.montant*100)/100,
             motif: `Vacance ${p.ref}${p.debut?' ('+fd(p.debut)+'→'+fd(p.fin||'')+')':''}`
           });
@@ -26254,7 +26308,7 @@ function computeRegul(from, to) {
         if(!candidates.length){
           // v15.x Phase C (audit) : part de compteur pour un logement sans bail sur la période
           // → reste à charge du bailleur (sinon perdue silencieusement).
-          _bailleurAdd(im.nom, { mvId:m.id, date:m.date, lib:m.lib, cc:cc.nom||'Compteur', montant:Math.round(p.montant*100)/100, motif:'Logement '+p.ref+' sans bail sur la période' });
+          _bailleurAdd(im.nom, { mvId:m.id, date:m.date, lib:m.lib, cc:cc.nom||'Compteur', ref:p.ref, montant:Math.round(p.montant*100)/100, motif:'Logement '+p.ref+' sans bail sur la période' });
           return;
         }
         // Match l'entrée res dont la période d'occupation chevauche la part (par locataire successif)
@@ -26263,7 +26317,10 @@ function computeRegul(from, to) {
           target = candidates.find(e => e.debutOcc && e.finOcc
             && !(p.fin < e.debutOcc || p.debut > e.finOcc));
         }
-        if(!target) target = candidates.find(e => m.date >= e.debutOcc && m.date <= e.finOcc) || candidates[0];
+        // Repli conservé ici : une part de compteur n'est pas une charge datée — les parts au prorata
+        // ont déjà leur segment (vacance → isBailleur plus haut) et une consommation relevée
+        // (sous-compteurs) appartient à l'occupant du logement, quelle que soit la date de la facture.
+        if(!target) target = _occupationDuJour(candidates, m.date) || candidates[0];
         const partR = Math.round(p.montant * 100) / 100;
         target.charges += partR;
         const cleLabel = (CC_REPARTITION_LABELS[p.methode]||{}).label || p.methode || cc.cleRepartition;
@@ -26282,7 +26339,16 @@ function computeRegul(from, to) {
     if(m.qui) {
       const candidates = Object.values(res).filter(e=>e.ref===m.qui);
       if(!candidates.length){ const _lg=(DB.logements||[]).find(l=>l.ref===m.qui); _nonRepAdd(_lg?_lg.imm:m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Logement « '+m.qui+' » sans bail actif sur la période'}); return; }
-      const target = candidates.find(e=>m.date>=e.debutOcc&&m.date<=e.finOcc) || candidates[0];
+      const target = _occupationDuJour(candidates, m.date);
+      if(!target){
+        // Vacance : datée hors de toute occupation → bailleur. Déjà déduite sur sa propre ligne 2044
+        // (résolveur unique _catLigne2044, ex. 229) → `deja2044` : pas réinjectée en 225.
+        const _l2044 = (typeof _catLigne2044==='function') ? (_catLigne2044(m.cat)||null) : null;
+        _bailleurAdd(candidates[0].imm || m.imm || '', { mvId:m.id, date:m.date, lib:m.lib, cc:'', ref:m.qui,
+          montant:Math.round((m.db||0)*100)/100, deja2044:_l2044, horsOccupation:true,
+          motif:'Vacance '+m.qui+' — charge datée hors occupation'+(_l2044?' (déjà déduite ligne '+_l2044+')':'') });
+        return;
+      }
       target.charges += m.db;
       target.details.push({date:m.date, lib:m.lib, montant:m.db, repartition:'Direct', mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
       return;
@@ -26334,6 +26400,32 @@ function computeRegul(from, to) {
   }
   // v14.73 : retour structuré { entries, bailleur } · v15.x Phase B : + nonReparti
   return { entries: res, bailleur: bailleur, nonReparti: nonReparti };
+}
+
+// LA part bailleur à reporter en ligne 225 de la 2044 FONCIÈRE — lecteur UNIQUE de `regul.bailleur`
+// (assistant 2044, prévisualisation Finances, indicateur compta). On écarte :
+//   • une part déjà déduite sur sa propre ligne (`seg.deja2044`, ex. copropriété directe → 229) ;
+//   • une part d'un logement HORS du périmètre foncier (`refs` : lot meublé → BIC/LMNP).
+// `imms` / `refs` absents (null) = pas de filtre. Rend les segments retenus et leur total.
+function _rgSegments225(regul, imms, refs) {
+  const segs = [];
+  Object.values((regul && regul.bailleur) || {}).forEach(b => {
+    if(imms && !imms.includes(b.imm)) return;
+    (b.segments || []).forEach(s => {
+      if(s.deja2044) return;
+      if(refs && s.ref && !refs.includes(s.ref)) return;
+      segs.push(s);
+    });
+  });
+  return { segments: segs, total: Math.round(segs.reduce((t, s) => t + (s.montant || 0), 0) * 100) / 100 };
+}
+// Ligne(s) 2044 de la part bailleur AFFICHÉE (carte Charges PC + téléphone) : selon son CONTENU —
+// « 225 », « 229 » (copropriété déjà déduite sur sa ligne), ou « 225 et 229 ». Texte brut.
+function _rgLignes2044Bailleur(bArr) {
+  const l = new Set();
+  (bArr || []).forEach(b => (b.segments || []).forEach(s => l.add(s.deja2044 || '225')));
+  const t = [...l].sort();
+  return t.length ? t.join(' et ') : '225';
 }
 
 function rRegul() {
@@ -26390,7 +26482,7 @@ function rRegul() {
     ? `<div style="margin:14px 0;padding:14px 16px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <span style="font-size:18px">${_uiIcon('bank',18)}</span>
-          <b style="font-size:14px">Part bailleur (charges non récupérables — déductibles 2044 ligne 224/227)</b>
+          <b style="font-size:14px">Part bailleur (charges récupérables non récupérées — 2044 ligne ${escHtml(_rgLignes2044Bailleur(bailleurArr))})</b>
         </div>
         ${bailleurArr.map(b => {
           const segRows = b.segments.slice().sort((a,b) => (a.date||'').localeCompare(b.date||'')).map(seg => `
@@ -26413,7 +26505,7 @@ function rRegul() {
           </details>`;
         }).join('')}
         <p class="mu sm" style="font-size:11px;margin-top:10px;font-style:italic">
-          ${_uiIcon('bulb',14)} Ces montants ne sont pas refacturés aux locataires. Ils correspondent aux périodes de vacance et aux logements exclus du compteur (garage, etc.). Reportez-les sur votre déclaration 2044 (ligne 224 ou 227 selon nature).
+          ${_uiIcon('bulb',14)} Ces montants ne sont pas refacturés aux locataires : périodes de vacance et logements exclus du compteur (garage, etc.). L'assistant 2044 les reporte en ligne 225 pour les lots en location nue — sauf une charge déjà déduite sur sa propre ligne (copropriété : 229), signalée « déjà déduite ».
         </p>
       </div>`
     : '';
@@ -26695,8 +26787,8 @@ function _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, ba
         .map(seg=>`<div class="rgph-bail-l"><span class="d">${escHtml(fd(seg.date)||'—')}</span><span class="lib">${escHtml(seg.lib||'')}${seg.motif?` <span class="mo">— ${escHtml(seg.motif)}</span>`:''}</span><b>${fmt(seg.montant)}</b></div>`).join('');
       return `<div class="rgph-bail-imm"><b>${escHtml(b.imm)}</b><b class="amt">${fmt(b.total)}</b></div>${segs}`;
     }).join('');
-    bailHtml=`<details class="rgph-bail"><summary><span class="uicw">${_uiIcon('bank',15)}</span><span class="tt">Part bailleur <span class="sub">non récupérable · déductible 2044</span></span><b>${fmt(totBail)}</b></summary>`
-      + `<div class="rgph-bail-body">${imms}<p class="rgph-bail-note">${_uiIcon('bulb',13)} Non refacturé aux locataires (vacance, lots exclus). À reporter en 2044 (ligne 224/227).</p></div></details>`;
+    bailHtml=`<details class="rgph-bail"><summary><span class="uicw">${_uiIcon('bank',15)}</span><span class="tt">Part bailleur <span class="sub">non récupérée · 2044 ligne ${escHtml(_rgLignes2044Bailleur(bArr))}</span></span><b>${fmt(totBail)}</b></summary>`
+      + `<div class="rgph-bail-body">${imms}<p class="rgph-bail-note">${_uiIcon('bulb',13)} Non refacturé aux locataires (vacance, lots exclus). 2044 : ligne 225 (location nue), sauf charge déjà déduite sur sa ligne (copropriété : 229).</p></div></details>`;
   }
   el('reg-cards').innerHTML = nonRepBanner + (body ? `<div class="rgph-list">${body}${total}${bailHtml}</div>` : `<div class="rgph-empty">Aucune donnée de régularisation sur la période.</div>${bailHtml}`);
 }

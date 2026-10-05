@@ -17,6 +17,7 @@
  *
  * PUR : aucune lecture de DB. L'app injecte les collections (app-part2 : `_finLotSuivi`).
  */
+import { finOccupationBail } from './fin-occupation.js';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const _r2 = (n) => Math.round(n * 100) / 100;
@@ -103,7 +104,8 @@ export function debutSuiviLot(i) {
     date = normaliserDate(o.provisoireIso);
     source = date ? 'provisoire' : null;
   }
-  const finDe = (b) => normaliserDate(b.finEffective) || (b.archive ? normaliserDate(b.fin) : null);
+  // LA fin d'occupation (fin-occupation.js) : bail archivé → sa fin ; bail courant → clôture ou départ déclaré.
+  const finDe = (b) => normaliserDate(finOccupationBail(b, !!b.archive)) || null;
   const bailsAvant = date
     ? bails.filter((b) => normaliserDate(b.debut) < date && (!finDe(b) || finDe(b) >= date)).map((b) => normaliserDate(b.debut)).sort()
     : [];
