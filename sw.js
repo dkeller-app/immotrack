@@ -66,16 +66,21 @@ self.addEventListener('fetch', e => {
   // 1bis) Perf : fichier À EMPREINTE (?v=<sha1:8>, posé par tools/stamp-app-parts.mjs) = contenu immuable →
   //    CACHE-FIRST, zéro aller-retour réseau (avant : chaque chargement revalidait les ~130 fichiers).
   //    Si le fichier change, son empreinte change, donc son URL : jamais de version périmée servie.
-  //    (Les ?v=15.xxx de main.css ne sont PAS concernés : 8 hex exactement.)
-  if (/\.(js|css)$/i.test(url.pathname) && /[?&]v=[0-9a-f]{8}$/.test(url.search)) {
+  //    (Les ?v=15.xxx de main.css ne sont PAS concernés : 8 hex dont au moins une lettre.)
+  //    INVARIANT : empreinte dans l'URL = contenu du fichier. Pas de revalidation ni de ménage ici : GitHub Pages
+  //    sert par CHEMIN (il ignore ?v=), donc re-télécharger une ancienne empreinte rendrait le contenu NEUF, qu'on
+  //    écrirait sous la mauvaise clé (deux onglets sur deux versions). Le test app-parts-stamp.test.js garantit que
+  //    les empreintes sont à jour ; les anciennes entrées partent avec le bump de CACHE_VER (activate).
+  //    On ne met en cache que du JS/CSS réel (jamais un HTML de substitution).
+  if (/\.(js|css)$/i.test(url.pathname) && /[?&]v=(?=[0-9]*[a-f])[0-9a-f]{8}$/.test(url.search)) {
+    const garder = res => {
+      const ct = (res && res.headers && res.headers.get('content-type')) || '';
+      if (!(res && res.ok && res.type === 'basic' && /javascript|css/i.test(ct))) return;
+      const copie = res.clone();   // cloné AVANT de rendre `res` au navigateur
+      caches.open(CACHE_VER).then(c => c.put(request, copie)).catch(() => {});
+    };
     e.respondWith(
-      caches.match(request).then(cached => cached || fetch(request).then(res => {
-        if (res && res.ok && res.type === 'basic') {
-          const copie = res.clone();
-          caches.open(CACHE_VER).then(c => c.put(request, copie)).catch(() => {});
-        }
-        return res;
-      }))
+      caches.match(request).then(cached => cached || fetch(request).then(res => { garder(res); return res; }))
     );
     return;
   }
