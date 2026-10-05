@@ -176,6 +176,17 @@ describe('R0-C · 2ᵉ audit — câblage : les mutations qui survivaient (B3, B
     expect(d).toMatchObject({ loyer: 1400, avance: 0, avanceBrute: 0 });
     expect(d.horsSuivi.length).toBe(17);   // 01/2024 → 05/2025 : jamais imputés
   });
+  it('A1 · date d\'achat 01/03/2026, mars versé le 25/02 sur le compte de l\'acquéreur : « à rattacher », jamais imputé', () => {
+    const DB = ferrette({ dateAcq: '2026-03-01' });
+    DB.mouvements = [pay('F-BAR', '2026-01-03'), pay('F-BAR', '2026-02-25'), ...ymRange('2026-04', '2026-09').map((ym) => pay('F-BAR', ym + '-02'))];
+    const d = monter(DB)._finDetteBail('F-BAR', '2018-03-16', null);
+    expect(d.horsSuivi).toEqual([{ date: '2026-01-03', montant: 650, aRattacher: false }, { date: '2026-02-25', montant: 650, aRattacher: true }]);
+    expect(d).toMatchObject({ loyer: 650, avance: 0 });   // mars reste dû tant que le versement n'est pas rattaché
+    // antériorité (même date) : rien « à rattacher », la situation notée contient tout
+    const DB2 = ferrette({ anteriorite: { date: '2026-03-01', situation: 'a-jour' } });
+    DB2.mouvements = DB.mouvements;
+    expect(monter(DB2)._finDetteBail('F-BAR', '2018-03-16', null).horsSuivi.some((h) => h.aRattacher)).toBe(false);
+  });
   it('B4b · `debutDu` transmis AU JOUR : date notée le 17/06/2025, le loyer du 05/06 n\'est pas imputé (il est dans le solde noté)', () => {
     const DB = ferrette({ anteriorite: { date: '2025-06-17', situation: 'arriere', loyer: 1400, charges: 0 } });
     DB.baux['F-BAR'].hc = 700;
