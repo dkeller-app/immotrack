@@ -6433,9 +6433,9 @@ function _v4NavCounts() {
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   if (typeof DB === 'undefined') return {logs:0, locs:0, loyers:0, baux:0};
   const logs = (DB.logements||[]).filter(aliveFn);
-  // R-0 : la barre latérale comptait les noms en cache. Un bail repris à l'achat n'en porte pas :
-  // la barre annonçait un locataire de moins que l'Accueil, pour le même parc.
-  const locs = logs.filter(_lotEstLoue).length;
+  // Badge « Locataires » = ce que la page Locataires liste (rBaux) : un lot dont le bail vivant porte un
+  // locataire — y compris un locataire parti dont le bail reste à clôturer (audit 06/10 : 1 contre 2).
+  const locs = logs.filter(l => { const a = _lotLocataireAffiche(l); return !!(a.bail && a.noms); }).length;
   const yr = String(new Date().getFullYear());
   const mo = (new Date().getMonth() + 1);
   const moStr = String(mo).padStart(2, '0');
@@ -15442,6 +15442,17 @@ function _editCandidatFromFiche(id){
   openM('ov-candidat');
 }
 
+// Le(s) locataire(s) affiché(s) d'un lot sur la page Locataires — son bail VIVANT (non tombstone, même parti,
+// tant qu'il n'est pas clôturé), sinon le nom en cache. '' = carte « vacant ». Source unique de la page (rBaux)
+// et de son badge dans la barre latérale (_v4NavCounts) : les deux comptent les mêmes locataires.
+function _lotLocataireAffiche(l) {
+  if(!l) return { bail: null, noms: '' };
+  const bail = _isAlive(DB.baux[l.ref]) ? DB.baux[l.ref] : null;
+  const noms = (bail && Array.isArray(bail.locataires) && bail.locataires.length)
+    ? bail.locataires.map(x => x.nom).filter(Boolean).join(', ')
+    : (l.locataire || '');
+  return { bail, noms };
+}
 function rBaux() {
   const fimm = v('baux-f');
   const search = v('baux-search').toLowerCase();
@@ -15488,10 +15499,7 @@ function rBaux() {
 
     const locCards = g.logs.map(l => {
       // v15.697 : tombstone (bail clôturé) = pas de bail — sinon « Tacite reconduction » + menu Clôturer sur un lot vacant.
-      const bail = _isAlive(DB.baux[l.ref]) ? DB.baux[l.ref] : null;
-      const locDisplay = (bail && Array.isArray(bail.locataires) && bail.locataires.length)
-        ? bail.locataires.map(x => x.nom).filter(Boolean).join(', ')
-        : (l.locataire || '');
+      const { bail, noms: locDisplay } = _lotLocataireAffiche(l);
       const isVacant = !bail || !locDisplay;
       const refEsc = escHtml(l.ref); const refEscJs = _lyQ(l.ref);
       const typeStr = `${escHtml(l.type || '')}${l.surf ? ' · ' + fmtN(l.surf) + 'm²' : ''}`;

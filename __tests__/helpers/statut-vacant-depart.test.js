@@ -530,3 +530,10 @@ describe('16 · fiche du bien d\'un lot parti (VRAI rLogFiche + panneaux réels)
     expect(h).toContain('Départ en cours — étape 1/6');
   });
 });
+describe('17 · badge « Locataires » de la barre latérale (VRAI _v4NavCounts) = la page Locataires (rBaux)', () => {
+  it('lot parti (bail à clôturer) + lot loué : 2, comme la page ; lot vide et bail clôturé : non comptés', () => {
+    const DB = dbDe({ A1: DEPART, B2: { ...BAIL, locataires: [{ nom: 'Bob' }] }, C3: { ref: 'C3', _deleted: true } });
+    const m = monter(DB, [...STATUT, '_v4NavCounts', '_lotLocataireAffiche'], { _isLoyerCategory: () => false });
+    expect(m.fn._v4NavCounts().locs).toBe(2);
+  });
+});
