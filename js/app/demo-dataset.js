@@ -223,6 +223,11 @@
       b.nom = b.locataires[0].nom; b.ddn = b.locataires[0].ddn; b.lieuNaiss = b.locataires[0].lieuNaiss;
       b.dateSignaturePrevue = o.dateSignature;
       b.signatures = signe(o.dateSignature, o.entity === SCI ? GERANTE : PERSO, b.locataires.map(function (l) { return l.nom; }));
+      // Baux fictifs : signés avec la version des clauses ACTUELLE (marqueur gravé à la signature,
+      // cf. js/core/contrat-type.js). Sans lui, l'app les lit comme signés avant tout changement
+      // (version 1) et ré-affiche les anciens textes — dont « Bailleur personne morale » sur le bail
+      // de Camille Mercier, personne physique. Version 4 = sous-titre du bail nu selon le bailleur.
+      b.clauseIrlV = 4;
       // Version signée = le bail TEL QUE SIGNÉ : loyer d'origine (avant révisions IRL).
       var snap = JSON.parse(JSON.stringify(b)); delete snap.signatures; delete snap.hcSigne;
       if (o.hcSigne != null) snap.hc = o.hcSigne;
