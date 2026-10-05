@@ -17,7 +17,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extraireFonction } from './_extraction-source.js';
 import * as Anteriorite from '../../js/core/anteriorite.js';
-import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw } from '../../js/core/loyer-du-mois.js';
+import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, finOccupationBail } from '../../js/core/loyer-du-mois.js';
 import { _computeFinancesMonthly, _computeDetteBail } from '../../js/core/finances-monthly.js';
 import { computeConstatWindow } from '../../js/core/finances-window.js';
 import { dbAppDe, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
@@ -34,7 +34,7 @@ const SRC = F1.map((n) => extraireFonction(P1, n)).concat(F2.map((n) => extraire
 /** Monte le vrai code autour d'un DB ; `avecModule:false` = le même code SANS le module (= règle d'avant). */
 function monter(DB, { avecModule = true } = {}) {
   const window = {
-    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _computeFinancesMonthly, _computeDetteBail,
+    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _computeFinancesMonthly, _computeDetteBail, finOccupationBail,
     _anteriorite: avecModule ? Anteriorite : undefined
   };
   const deps = {

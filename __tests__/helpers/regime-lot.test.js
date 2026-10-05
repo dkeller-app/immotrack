@@ -3,15 +3,17 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { MEUBLE_TYPES, lotRegimeForYear, splitFonciereLots } from '../../js/core/regime-lot.js';
+import { finOccupationBail } from '../../js/core/loyer-du-mois.js';
 
-// R0-E : la VRAIE règle de fin d'occupation de l'app (_bailFinOccupation, index.html), injectée
-// comme le font les builders 2044 — tacite reconduction des baux nu/meublé en cours.
+// R0-E : la VRAIE règle de fin d'occupation de l'app, injectée comme le font les builders 2044 (qui passent
+// `_bailFinOccupation`, l'inline qui délègue au module) : finOccupationBail (js/core/loyer-du-mois.js).
 let finOccupation;
 beforeAll(() => {
+  // L'inline d'index.html, branché sur le module comme main.js le fait sur window.
   const html = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../index.html'), 'utf8').replace(/\r/g, '');
   const corps = (n) => { const i = html.indexOf('\nfunction ' + n + '('); return html.slice(i, html.indexOf('\n}', i + 1) + 2); };
   // eslint-disable-next-line no-new-func
-  finOccupation = new Function(corps('_bailTypeHasTacite') + corps('_bailFinOccupation') + '\nreturn _bailFinOccupation;')();
+  finOccupation = new Function('window', corps('_bailFinOccupation') + '\nreturn _bailFinOccupation;')({ finOccupationBail });
 });
 
 describe('R0-E — un bail MEUBLÉ reconduit tacitement reste meublé (hors 2044) après sa 1re échéance', () => {

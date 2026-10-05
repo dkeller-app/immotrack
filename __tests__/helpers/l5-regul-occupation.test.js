@@ -18,6 +18,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extraireFonction } from './_extraction-source.js';
 import * as Anteriorite from '../../js/core/anteriorite.js';
+import { finOccupationBail } from '../../js/core/loyer-du-mois.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
@@ -33,7 +34,7 @@ const RECUP = 'Charges récupérables (eau, énergie…)';
 
 function monter(DB) {
   const deps = {
-    DB, window: { _dbGen: 1, _anteriorite: Anteriorite },
+    DB, window: { _dbGen: 1, _anteriorite: Anteriorite, finOccupationBail },
     _isAlive: (x) => !!x && !x._deleted,
     _isLoyerCategory: (c) => c === 'Loyers encaissés',
     _isChargeRecupCategory: (c) => c === RECUP,

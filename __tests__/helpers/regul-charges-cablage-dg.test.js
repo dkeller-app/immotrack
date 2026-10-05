@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import * as DG from '../../js/core/gestion-dg-impayes.js';
 import { baseChargesLogement } from '../../js/core/regul-forfait.js';
+import { finOccupationBail } from '../../js/core/loyer-du-mois.js';
 
 const html = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../index.html'), 'utf8').replace(/\r/g, '');
 function corpsDe(nom) {
@@ -58,6 +59,7 @@ function monter(sc, noms) {
   const el = (id) => (els[id] = els[id] || { id, value: '', checked: false, textContent: '', innerHTML: '', hidden: false });
   const unpaid = (debut, fin) => sc.impayes.filter((ym) => ym >= String(debut || '').slice(0, 7) && ym <= String(fin || AUJ).slice(0, 7)).length * 500;
   const W = {
+    finOccupationBail,
     _regulFrom: '2026-01-01', _regulTo: '2026-12-31',
     _rgClotureImpayes: (ref, debut, fin) => unpaid(debut, fin),
     _loyerEtatLot: () => ({}),

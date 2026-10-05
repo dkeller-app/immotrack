@@ -1971,13 +1971,14 @@ function _bailTypeHasTacite(type) {
 // Départ DÉCLARÉ (`bail.depart.dateSortie`, assistant de départ — _departSaveDeclare) sur un bail encore
 // en cours : c'est lui qui borne l'occupation — sinon l'étape régularisation (occupation ouverte) et
 // l'étape restitution du DG (bornée au départ) donnaient deux soldes de tout compte.
+// LA règle vit dans le module pur js/core/loyer-du-mois.js (`finOccupationBail`, exposé par main.js) : le
+// dû (bailsFromRaw → duMois) et l'occupation lisent la MÊME. Repli DÉGRADÉ si les modules ne sont pas
+// chargés (file://, comme le repli prorata de _duMoisLot) : seule la clôture borne.
 function _bailFinOccupation(bail, clos) {
+  const W = (typeof window !== 'undefined') ? window : null;
+  if(W && typeof W.finOccupationBail === 'function') return W.finOccupationBail(bail, clos);
   if(!bail) return '';
-  if(bail.finEffective) return String(bail.finEffective).slice(0,10);
-  const fin = bail.fin ? String(bail.fin).slice(0,10) : '';
-  if(clos || bail.cloture) return fin;
-  if(bail.depart && bail.depart.dateSortie) return String(bail.depart.dateSortie).slice(0,10);
-  return '';
+  return String(bail.finEffective || ((clos || bail.cloture) ? (bail.fin || '') : '')).slice(0,10);
 }
 
 // v14.49 — Calcule la date de fin EFFECTIVE pour le préavis (avec tacite reconduction).

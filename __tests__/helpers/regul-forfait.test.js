@@ -10,6 +10,7 @@
 process.env.TZ = 'Europe/Paris';
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import { finOccupationBail } from '../../js/core/loyer-du-mois.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -228,7 +229,7 @@ describe('câblage index.html — computeRegul / base N-1 réelles', () => {
   };
   function charger(DB) {
     const win = {
-      appliquerForfaitOccupation, forfaitAvenantsDuBail, AvenantRegistre, baseChargesLogement,
+      appliquerForfaitOccupation, forfaitAvenantsDuBail, AvenantRegistre, baseChargesLogement, finOccupationBail,
       _regulFrom: '2026-01-01', _regulTo: '2026-12-31',
     };
     const src = ['_isoLocal', '_bailTypeHasTacite', '_bailFinOccupation', 'computeRegul', '_forfaitAvenantsDuBail', '_rgYearChargesDetail', '_rgN1Charges'].map((n) => corpsDe(html, n)).join('\n');

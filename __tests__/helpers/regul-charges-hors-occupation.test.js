@@ -22,6 +22,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { finOccupationBail } from '../../js/core/loyer-du-mois.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dir, '../..');
@@ -59,11 +60,11 @@ function chargerRegul(DB, { conso = {} } = {}) {
   }).join('\n');
   // eslint-disable-next-line no-new-func
   return new Function(
-    'DB', '_isAlive', '_isLoyerCategory', '_isChargeRecupCategory', '_catLigne2044',
+    'window', 'DB', '_isAlive', '_isLoyerCategory', '_isChargeRecupCategory', '_catLigne2044',
     'CC_REPARTITION_LABELS', 'fd', 'fmtN', '_ccType', '_ccConsoLogPeriod',
     src + '\nreturn computeRegul;'
   )(
-    DB, _isAlive,
+    { finOccupationBail }, DB, _isAlive,
     (c) => c === 'Loyers encaissés',
     (c) => c === RECUP || c === COPRO,
     (c) => (c in LIGNE_2044 ? LIGNE_2044[c] : null),
@@ -336,7 +337,7 @@ describe('7 · 2044 de bout en bout (vraie prévisualisation Finances + vrai mot
     // eslint-disable-next-line no-new-func
     return new Function('DB', '_isAlive', 'v', 'window', 'computeRegul',
       corpsDe(html, '_rgSegments225') + '\n' + corpsDe(html, '_legal2044BuildOpts') + '\nreturn _legal2044BuildOpts;'
-    )(DB, _isAlive, () => '', {}, regul)('2026', 'SCI');
+    )(DB, _isAlive, () => '', { finOccupationBail }, regul)('2026', 'SCI');
   }
   const scenario = (cat) => {
     const db = dbDe({ historique: [hist('TIL-A1', '2024-01-01', '2026-03-31', 'Alice')], mouvements: chargesMensuelles('TIL-A1', 100, cat) });
@@ -424,8 +425,8 @@ describe('8 · tacite reconduction — la fin CONTRACTUELLE d\'un bail en cours 
   it('_getAllBailsForLog : un bail nu en cours est ouvert, un bail archivé garde sa fin', () => {
     const DB = dbDe({ baux: { 'TIL-A1': enCours('nu', '2023-07-01', '2026-06-30') }, historique: [hist('TIL-A1', '2020-01-01', '2023-06-30', 'Alice')] });
     // eslint-disable-next-line no-new-func
-    const bails = new Function('DB', ['_bailTypeHasTacite', '_bailFinOccupation', '_findBailByRefTolerant', '_getAllBailsForLog']
-      .map((n) => corpsDe(html, n)).join('\n') + '\nreturn _getAllBailsForLog;')(DB)('TIL-A1');
+    const bails = new Function('window', 'DB', ['_bailFinOccupation', '_findBailByRefTolerant', '_getAllBailsForLog']
+      .map((n) => corpsDe(html, n)).join('\n') + '\nreturn _getAllBailsForLog;')({ finOccupationBail }, DB)('TIL-A1');
     expect(bails.map((b) => [b.debut, b.fin])).toEqual([['2020-01-01', '2023-06-30'], ['2023-07-01', null]]);
   });
 });
@@ -446,7 +447,7 @@ beforeAll(async () => { ({ splitFonciereLots: splitReel } = await import('../../
 function lecteurs2044(DB, exclus = []) {
   const regul = chargerRegul(DB);
   const win = {
-    _compute2044: compute2044Mod,
+    _compute2044: compute2044Mod, finOccupationBail,
     splitFonciereLots: exclus === 'reel' ? splitReel
       : (logs) => ({ fonciereRefs: logs.map((l) => l.ref).filter((r) => !exclus.includes(r)), exclus: exclus.map((ref) => ({ ref })), flagues: [] }),
   };
@@ -570,7 +571,7 @@ describe('11 · base d\'estimation N-1 d\'un départ = charges du LOGEMENT (vaca
   beforeAll(async () => { ({ baseChargesLogement } = await import('../../js/core/regul-forfait.js')); });
   function baseN1(DB, ref, regulStub = null) {
     const regul = regulStub || chargerRegul(DB);
-    const win = { _regulFrom: '2026-01-01', _regulTo: '2026-12-31', baseChargesLogement };
+    const win = { _regulFrom: '2026-01-01', _regulTo: '2026-12-31', baseChargesLogement, finOccupationBail };
     // eslint-disable-next-line no-new-func
     return new Function('window', 'computeRegul', corpsDe(html, '_rgYearChargesDetail') + '\nreturn _rgYearChargesDetail;')(win, regul)(ref, 1);
   }

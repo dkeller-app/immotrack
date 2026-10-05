@@ -19,6 +19,7 @@
 process.env.TZ = 'Europe/Paris';
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import { finOccupationBail } from '../../js/core/loyer-du-mois.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -48,11 +49,11 @@ function chargerRegul(DB, calcCc = () => ({ parts: [], totaux: {} })) {
   const iso = corpsDe(html, '_isoLocal');
   // eslint-disable-next-line no-new-func
   return new Function(
-    'DB', '_isAlive', '_isLoyerCategory', '_isChargeRecupCategory', '_calcCcRepartition',
+    'window', 'DB', '_isAlive', '_isLoyerCategory', '_isChargeRecupCategory', '_calcCcRepartition',
     'CC_REPARTITION_LABELS', 'fd',
     iso + '\n' + src + '\nreturn computeRegul;'
   )(
-    DB, _isAlive,
+    { finOccupationBail }, DB, _isAlive,
     (c) => c === 'Loyers encaissés',
     (c) => c === 'Charges récupérables',
     calcCc,

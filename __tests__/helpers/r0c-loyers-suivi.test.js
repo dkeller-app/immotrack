@@ -15,7 +15,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extraireFonction } from './_extraction-source.js';
 import * as Anteriorite from '../../js/core/anteriorite.js';
-import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi } from '../../js/core/loyer-du-mois.js';
+import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi, finOccupationBail } from '../../js/core/loyer-du-mois.js';
 import { _computeFinancesMonthly, _computeDetteBail, _avantBorne } from '../../js/core/finances-monthly.js';
 import { computeConstatWindow } from '../../js/core/finances-window.js';
 import { etatMoisLot, ymRange as ymRangeCore, retardLot, lignesRelance, moisAQuittancer } from '../../js/core/loyers-mois.js';
@@ -32,7 +32,7 @@ const SRC = F1.map((n) => extraireFonction(P1, n)).concat(F2.map((n) => extraire
 
 function monter(DB, today, { avecModule = true } = {}) {
   const window = {
-    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi, etatMoisLot, ymRange: ymRangeCore,
+    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi, etatMoisLot, finOccupationBail, ymRange: ymRangeCore,
     _loyerTodayLocal: () => today,
     _computeFinancesMonthly: (i) => _computeFinancesMonthly({ today, ...i }), _computeDetteBail: (i) => _computeDetteBail({ today, ...i }),
     _anteriorite: avecModule ? Anteriorite : undefined, _avantBorne: avecModule ? _avantBorne : undefined
