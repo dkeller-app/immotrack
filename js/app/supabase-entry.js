@@ -311,6 +311,7 @@ async function boot() {
   try {
     ;({ createClient } = await import(/* @vite-ignore */ CDN))
     ;({ createBoot } = await import('./supabase-boot.js'))
+    _perfMark('imports')
   } catch (e) {
     console.error('[ImmoSupabase] import CDN/boot :', e)
     showError(overlay, 'Impossible de charger le service de connexion (réseau ?). Recharge la page pour réessayer.')
@@ -490,6 +491,7 @@ async function boot() {
       try { if (typeof window.showToast === 'function') window.showToast(t, s.type === 'echec-repli' ? 'err' : 'warn', 9000) } catch (e) {}
     })
     const r = await M.initialiser()
+    _perfMark('miroir')
     console.info('[Supabase] miroir local :', r.backend, '— transfert :', r.transfert)
     try { window.__immoCrumb && window.__immoCrumb('miroir:' + r.backend + ':' + r.transfert) } catch (e) {}
     // Lu par la garde de déconnexion de supabase-boot.js (module séparé) : un miroir IndexedDB compte.
@@ -1702,7 +1704,7 @@ function _perfMark(nom) {
     if (nom !== 'app') return
     const t = n => { const ms = performance.getEntriesByName('immo:' + n, 'mark'); const m = ms[ms.length - 1]; return m ? Math.round(m.startTime) : '?' }
     const nav = performance.getEntriesByType('navigation')[0]
-    console.info('[perf] page prête ' + (nav ? Math.round(nav.domContentLoadedEventEnd) : '?') + ' ms · session ' + t('session') + ' · espaces ' + t('espaces') + ' · données ' + t('donnees') + ' · app affichée ' + t('app') + ' ms')
+    console.info('[perf] page prête ' + (nav ? Math.round(nav.domContentLoadedEventEnd) : '?') + ' ms · modules ' + t('imports') + ' / miroir ' + t('miroir') + ' / session ' + t('session') + ' · espaces ' + t('espaces') + ' · données ' + t('donnees') + ' · app affichée ' + t('app') + ' ms')
   } catch (e) {}
 }
 
