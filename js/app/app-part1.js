@@ -8097,7 +8097,7 @@ function _clotureDgConfirmer(bail, dgRestitue, dgRetenu) {
 function _clotureDgAppliquer(bail, dgRestitue, dgRetenu) {
   bail.dgRestitue = dgRestitue;
   bail.dgRetenu   = dgRetenu;
-  if(!bail.dgRestitueAt && (Number(dgRestitue) > 0 || Number(dgRetenu) > 0)) bail.dgRestitueAt = td();
+  if(!bail.dgRestitueAt && (Number(dgRestitue) > 0 || Number(dgRetenu) > 0)) bail.dgRestitueAt = _todayIsoLocal();   // date LOCALE (td() = UTC : la veille après minuit)
 }
 
 function saveBailClore() {
