@@ -43,10 +43,10 @@ export const AUTH_STORAGE_KEY = 'immo-supabase-auth';
 const echap = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** Clé exacte, en prod seulement (clés écrites sans `_lsKey`). */
 const exacte = k => new RegExp('^' + echap(k) + '$');
-/** Clé exacte, dans les deux namespaces (clés écrites via `_lsKey` : `_test_` en sandbox). */
-const deuxNs = k => new RegExp('^(_test_)?' + echap(k) + '$');
+/** Clé exacte, dans tous les namespaces (clés écrites via `_lsKey` : `_test_` en sandbox, `_demo_` en mode démo). */
+const deuxNs = k => new RegExp('^(_test_|_demo_)?' + echap(k) + '$');
 /** Préfixe, dans les deux namespaces (le suffixe porte un libellé ou une date). */
-const prefixe = k => new RegExp('^(_test_)?' + echap(k) + '.+$');
+const prefixe = k => new RegExp('^(_test_|_demo_)?' + echap(k) + '.+$');
 
 /**
  * Le registre. L'ORDRE COMPTE : la première règle qui reconnaît la clé

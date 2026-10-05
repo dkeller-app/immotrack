@@ -161,12 +161,20 @@ const _isTestMode = (function() {
     if (typeof location !== 'undefined') {
       const path = (location.pathname || '').toLowerCase();
       if (path.endsWith('index-test.html') || path.endsWith('/test') || path.includes('-test.')) return true;
-      if (/[?&]sandbox=1/.test(location.search || '')) return true;
+      if (/[?&](sandbox|demo)=1/.test(location.search || '')) return true;
     }
   } catch(e){}
   return false;
 })();
-const KEY = _isTestMode ? '_test_immotrack_v4' : 'immotrack_v4';
+// COMPTE DÉMO (05/10) — `?demo=1` : harnais de test (cloud inerte, aucun login) avec son PROPRE
+// namespace `_demo_` (la démo ne lit ni n'écrase jamais le sandbox de dev `_test_`), un bandeau à la
+// marque, le jeu de données démo chargé si l'espace est vide, et l'horloge figée (script inline du
+// <head> d'index.html, posé AVANT tout autre script).
+const _isDemoMode = (function() {
+  try { return /[?&]demo=1/.test(location.search || ''); } catch(e){ return false; }
+})();
+const _NS_TEST = _isDemoMode ? '_demo_' : '_test_';
+const KEY = _isTestMode ? _NS_TEST + 'immotrack_v4' : 'immotrack_v4';
 // P1.3 (audit sync cloud 2026-07-12, cause C-C) : boot CLOUD = page SERVIE (http/https) hors harnais de
 // test — MÊME détection que le FLAG de supabase-entry.js et que le boot-gate du <head> (ne pas diverger).
 // En boot cloud : initDB ne lit PLUS le miroir localStorage (il devient write-only, pur filet de
@@ -175,7 +183,7 @@ const _CLOUD_BOOT = !_isTestMode && (location.protocol === 'http:' || location.p
 // Helper centralisé pour préfixer toutes les clés localStorage en mode test.
 // Toute lecture/écriture localStorage liée à Propryo DOIT passer par ce helper
 // ou avoir sa clé déjà préfixée pour garantir l'isolation prod ↔ sandbox.
-function _lsKey(k) { return _isTestMode ? '_test_' + k : k; }
+function _lsKey(k) { return _isTestMode ? _NS_TEST + k : k; }
 
 // v14.61 SANDBOX-MODE — Bandeau permanent en haut de page si mode test.
 // Met en évidence visuelle qu'on est dans un environnement isolé.
@@ -184,6 +192,7 @@ function _injectTestModeBanner() {
   // Bandeau via insertion en début de body
   const inject = () => {
     if (document.getElementById('sandbox-banner')) return;
+    if (_isDemoMode) { _injectDemoBanner(); return; }
     const div = document.createElement('div');
     div.id = 'sandbox-banner';
     div.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#f97316,#ea580c);color:#fff;text-align:center;font-weight:700;font-size:12.5px;padding:6px 12px;letter-spacing:.4px;font-family:sans-serif;box-shadow:0 2px 8px rgba(249,115,22,.4);display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;';
@@ -199,25 +208,7 @@ function _injectTestModeBanner() {
     const btnDemo = document.getElementById('sandbox-load-demo');
     if (btnDemo) btnDemo.addEventListener('click', () => {
       if (!confirm('Charger un dataset de démonstration ?\nÇa va REMPLACER toutes les données du sandbox actuel.')) return;
-      // v14.62 — vérification que l'écriture a bien eu lieu avant le reload
-      try {
-        _loadDemoDataset();
-        const verif = localStorage.getItem(KEY);
-        if (!verif) {
-          alert('❌ Échec d\'écriture du dataset — vérifie le quota localStorage');
-          return;
-        }
-        const parsed = JSON.parse(verif);
-        if (!parsed.logements || parsed.logements.length < 4) {
-          alert('❌ Dataset incomplet après écriture — abort.');
-          return;
-        }
-        console.info('[SANDBOX] Vérif OK : ' + parsed.logements.length + ' logements écrits, reload...');
-      } catch(e) {
-        alert('❌ Erreur : ' + e.message);
-        return;
-      }
-      location.reload();
+      _loadDemoDataset();
     });
     const btnReset = document.getElementById('sandbox-reset');
     if (btnReset) btnReset.addEventListener('click', () => {
@@ -238,97 +229,68 @@ function _injectTestModeBanner() {
   else document.addEventListener('DOMContentLoaded', inject);
 }
 
-// v14.61 SANDBOX-MODE — Charge un dataset de démonstration dans la sandbox.
-// 1 bailleur (SCI) + 1 immeuble (Test SCI Demo) + 4 logements + 2 baux courants
-// + quelques mouvements pour permettre de tester charges/régul/compta.
+// COMPTE DÉMO (05/10) — bandeau du mode démo (?demo=1) : discret, à la marque, et le geste utile entre
+// deux rendez-vous : « Recharger la démo » (remet l'histoire à zéro). Auto-chargement du jeu de données
+// UNIQUEMENT ici (espace `_demo_` vide) : le sandbox de dev `?sandbox=1` reste vide au démarrage
+// (règle « jamais d'auto-injection », il n'a que son bouton manuel).
+function _injectDemoBanner() {
+  const st = document.createElement('style');
+  st.textContent = '#sandbox-banner.demo-banner{position:fixed;top:0;left:0;right:0;z-index:99999;display:flex;align-items:center;justify-content:center;gap:12px;padding:4px 14px;background:var(--t1);color:var(--sur);font:500 12px/1.3 var(--font, Inter, system-ui, sans-serif);letter-spacing:.2px}'
+    + '#sandbox-banner.demo-banner .demo-dot{width:7px;height:7px;border-radius:50%;background:var(--cta);display:inline-block;margin-right:7px;vertical-align:1px}'
+    + '#sandbox-banner.demo-banner button{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:3px 11px;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;opacity:.9}'
+    + '#sandbox-banner.demo-banner button:hover{opacity:1}'
+    + '@media (pointer:coarse){#sandbox-banner.demo-banner button{min-height:44px}}';
+  document.head.appendChild(st);
+  const div = document.createElement('div');
+  div.id = 'sandbox-banner';
+  div.className = 'demo-banner';
+  div.innerHTML = '<span><span class="demo-dot" aria-hidden="true"></span>Mode démonstration</span>'
+    + '<button type="button" id="demo-reload"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Recharger la démo</button>';
+  document.body.appendChild(div);
+  document.body.style.paddingTop = (parseFloat(getComputedStyle(document.body).paddingTop)||0) + div.offsetHeight + 'px';
+  const rb = document.getElementById('demo-reload');
+  if (rb) rb.addEventListener('click', () => {
+    if (!confirm('Recharger la démo ?\nToutes les modifications faites pendant la démonstration seront effacées.')) return;
+    _loadDemoDataset();
+  });
+  // 1re ouverture sur cet appareil → chargement direct. Marqueur dédié : initDB a déjà écrit une base
+  // VIDE dans le miroir avant ce point, la présence du miroir ne prouve donc rien.
+  try { if (!localStorage.getItem(_lsKey('demo_charge'))) _loadDemoDataset(); } catch(e) {}
+}
+
+// Chargeur UNIQUE du jeu de données démo (mode démo ET bouton du sandbox). Le jeu de données vit dans
+// js/app/demo-dataset.js, chargé à la demande (aucun poids pour les autres utilisateurs). Il est écrit
+// tel quel dans le miroir local puis la page RECHARGE : initDB repasse alors toutes ses migrations et
+// ses défauts sur ces données, exactement comme au démarrage d'un vrai compte.
 function _loadDemoDataset() {
-  if (!_isTestMode) { console.warn('[SANDBOX] _loadDemoDataset refusé hors mode test'); return; }
-  const today = new Date();
-  const yr = today.getFullYear();
-  const isoToday = today.toISOString().slice(0,10);
-  const monthAgo = (m) => new Date(today.getFullYear(), today.getMonth() - m, 1).toISOString().slice(0,10);
-
-  const ent = {
-    id: 1, nom: 'SCI DEMO', type: 'SCI', siren: '999000111',
-    siege: '1 rue de la Demo, 67000 Strasbourg', gerant: 'Mme Demo',
-    iban: 'FR76...', bic: 'XXX',
-    immeubles: [{
-      id: 100, nom: 'Immeuble Demo', adr: '1 rue de la Demo, 67000 Strasbourg',
-      annee: 1980, regimeJuridique: 'Copropriété', driveFolderId: null,
-      compteursCollectifs: []
-    }],
-    entityId: 'eid_demo_001', members: [], driveFileId: null, driveFolderId: null
-  };
-
-  const logs = [
-    { id: 1001, ref: 'D-101', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T2', surf: 45,
-      etage: 'RDC', adr: '1 rue de la Demo · porte gauche', hc: 600, ch: 80, dg: 600,
-      tantiemes: 200, compteCharges: true, locataire: 'Pierre Demo',
-      tel:'06.00.00.00.01', mail:'pierre@demo.fr', debut:'2023-09-01', fin:'2026-08-31',
-      irl:'T1', notes:'Logement de démo · sandbox isolé' },
-    { id: 1002, ref: 'D-102', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T3', surf: 65,
-      etage: '1er', adr: '1 rue de la Demo · porte droite', hc: 850, ch: 120, dg: 850,
-      tantiemes: 280, compteCharges: true, locataire: 'Marie Demo',
-      tel:'06.00.00.00.02', mail:'marie@demo.fr', debut:'2024-03-01', fin:'2027-02-28',
-      irl:'T1', notes:'' },
-    { id: 1003, ref: 'D-103', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T2', surf: 50,
-      etage: '2e', adr: '1 rue de la Demo · porte gauche', hc: 700, ch: 100, dg: 700,
-      tantiemes: 220, compteCharges: true, locataire: '', /* vacant */
-      debut:'', fin:'', irl:'T1', notes:'Vacant — bon test régul part bailleur' },
-    { id: 1004, ref: 'D-Garage', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'Garage', surf: 12,
-      etage: 'Sous-sol', adr: '1 rue de la Demo', hc: 50, ch: 0, dg: 0,
-      tantiemes: 30, compteCharges: false /* exclu charges immeuble */, locataire: 'Pierre Demo',
-      tel:'06.00.00.00.01', mail:'pierre@demo.fr', debut:'2023-09-01', fin:'2026-08-31',
-      irl:'T1', notes:'Garage exclu de la répartition charges' }
-  ];
-
-  const baux = {
-    'D-101': {
-      ref:'D-101', debut:'2023-09-01', fin:'2026-08-31', hc:600, ch:80, dg:600,
-      typeContrat:'nu', entity:'SCI DEMO', irl:'T1 2023',
-      locataires:[{civilite:'M.', nom:'Pierre Demo', tel:'06.00.00.00.01', email:'pierre@demo.fr'}],
-      jpay:5
-    },
-    'D-102': {
-      ref:'D-102', debut:'2024-03-01', fin:'2027-02-28', hc:850, ch:120, dg:850,
-      typeContrat:'nu', entity:'SCI DEMO', irl:'T1 2024',
-      locataires:[{civilite:'Mme', nom:'Marie Demo', tel:'06.00.00.00.02', email:'marie@demo.fr'}],
-      jpay:5
+  if (!_isTestMode) { console.warn('[DEMO] _loadDemoDataset refusé hors mode test/démo'); return; }
+  const charger = () => new Promise((res, rej) => {
+    if (window.__demoDataset) return res(window.__demoDataset);
+    const sc = document.createElement('script');
+    sc.src = 'js/app/demo-dataset.js?v=' + encodeURIComponent(IMMOTRACK_VERSION);
+    sc.onload = () => window.__demoDataset ? res(window.__demoDataset) : rej(new Error('jeu de données démo absent'));
+    sc.onerror = () => rej(new Error('fichier js/app/demo-dataset.js introuvable'));
+    document.head.appendChild(sc);
+  });
+  charger().then(async (ds) => {
+    const { db, fichiers } = ds.construire();
+    // Binaires (photos d'EDL, PDF de diagnostics) → IndexedDB, comme une vraie pièce jointe.
+    for (const k of Object.keys(fichiers || {})) {
+      if (fichiers[k]) { try { await _idbPut(k, fichiers[k]); } catch(e) { console.warn('[DEMO] IndexedDB', k, e); } }
     }
-  };
-
-  const mvts = [];
-  let mid = 5000;
-  // Loyers encaissés sur les 6 derniers mois pour D-101 et D-102
-  for (let m = 5; m >= 0; m--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - m, 5);
-    mvts.push({ id: mid++, date: d.toISOString().slice(0,10),
-      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers', qui:'D-101', db:0, cr:680, fac:'' });
-    mvts.push({ id: mid++, date: d.toISOString().slice(0,10),
-      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers', qui:'D-102', db:0, cr:970, fac:'' });
-  }
-  // 1 facture eau collective (à répartir)
-  mvts.push({ id: mid++, date: monthAgo(2),
-    lib:'Facture eau immeuble (à répartir)', imm:'Immeuble Demo',
-    cat:'Charges', qui:'', db:280, cr:0, fac:'EAU-2025-Q3' });
-  // 1 facture taxe foncière (charges propriétaires)
-  mvts.push({ id: mid++, date: monthAgo(4),
-    lib:'Taxe foncière', imm:'Immeuble Demo',
-    cat:'Charges', qui:'', db:1500, cr:0, fac:'TF-2025' });
-
-  const demoDB = {
-    entites: [ent], logements: logs, baux,
-    mouvements: mvts, baux_historique: [], quittances: [], assurances: [], mrh: [],
-    edl: [], categories: ['Loyers','Charges','Travaux','Assurance','Autre'],
-    catConfig: { 'Loyers': { inclYTD: true } },
-    agenda: [], params: {}, irlTable: {}
-  };
-  try {
-    _miroirEcrire(JSON.stringify(demoDB));   // STOCKAGE lot 1 : l'écrivain unique du miroir (éviction sur quota)
-    console.info('[SANDBOX] Dataset démo chargé : 1 SCI · 1 immeuble · 4 logements · 2 baux · ' + mvts.length + ' mvts');
-  } catch(e) {
-    console.error('[SANDBOX] Échec chargement dataset', e);
-  }
+    // Repart d'un espace propre : on retire les clés de CE namespace seulement (démo ou sandbox).
+    const toDel = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(_NS_TEST) && !/_done$/.test(k)) toDel.push(k); }   // marqueurs de migration gardés (pas de toast « Migration… » à chaque rechargement)
+    toDel.forEach(k => localStorage.removeItem(k));
+    // La base EN MÉMOIRE devient aussi la démo : la page enregistre en partant (saveDB au déchargement),
+    // elle réécrirait sinon l'ancienne base par-dessus le jeu de données juste avant le rechargement.
+    DB = JSON.parse(JSON.stringify(db)); try { window.DB = DB; } catch(e) {}
+    _miroirEcrire(JSON.stringify(db));   // STOCKAGE lot 1 : l'écrivain unique du miroir
+    localStorage.setItem(_lsKey('demo_charge'), new Date().toISOString());
+    if (_isDemoMode) localStorage.setItem(_lsKey('immotrack_theme_mode'), 'sobre');   // présentation client : thème clair
+    console.info('[DEMO] Jeu de données chargé : ' + (db.entites||[]).length + ' bailleurs · ' + (db.logements||[]).length + ' lots · ' + (db.mouvements||[]).length + ' mouvements');
+    location.reload();
+  }).catch(e => { console.error('[DEMO] chargement', e); alert('Échec du chargement de la démo : ' + e.message); });
 }
 
 let DB = {};

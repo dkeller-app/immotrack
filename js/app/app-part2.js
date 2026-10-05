@@ -25831,7 +25831,7 @@ function _pilStatutDoc(bail, log, type, dateRef) {
     return _absent;
   }
   if (type === 'edl') {
-    const hasEdl = (DB.edls||[]).some(e => e && !e._deleted && e.logement === log.ref && (e.type === 'entree' || !e.type));
+    const hasEdl = (DB.edl||[]).some(e => e && !e._deleted && e.logement === log.ref && (e.type === 'entree' || e.type === 'Entrée' || !e.type));   // DB.edls n'a jamais existé (la collection est DB.edl ; type « Entrée »)
     return hasEdl ? _ok : _absent;
   }
   if (type === 'mrh') {
