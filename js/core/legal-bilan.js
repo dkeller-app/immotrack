@@ -13,7 +13,7 @@
 
 import { _compute2044 } from './legal-2044.js';
 import { periodeEnVigueurA } from './loyer-du-mois.js';
-import { finOccupationBail } from './fin-occupation.js';
+import { finOccupationBail, bailLoueAu } from './fin-occupation.js';
 
 /**
  * Calcule le bilan annuel pour une entité (= un bailleur, personne morale ou physique).
@@ -148,11 +148,14 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
  *         taux, ce n'est pas une créance.
  * @param {Object} db  DB (baux, baux_historique)
  * @param {Array} lots lots du périmètre (déjà filtrés par le socle)
- * @param {{from:string, to:string}} opts fenêtre ISO (YYYY-MM-DD, bornes incluses)
+ * @param {{from:string, to:string, today?:string}} opts fenêtre ISO (YYYY-MM-DD, bornes incluses) ; `today` = jour de
+ *        l'état « vacants du jour » (défaut : aujourd'hui, heure locale).
  */
 export function _computeOccupationLots(db, lots, opts) {
   const o = opts || {};
   const from = o.from, to = o.to;
+  const _d = new Date();
+  const today = o.today || (_d.getFullYear() + '-' + String(_d.getMonth() + 1).padStart(2, '0') + '-' + String(_d.getDate()).padStart(2, '0'));
   const isAlive = (e) => e && !e._deleted;
   const r2 = (n) => Math.round(n * 100) / 100;
   let occ = 0, louable = 0, manque = 0;
@@ -179,10 +182,15 @@ export function _computeOccupationLots(db, lots, opts) {
     // repris à l'achat ou une saisie en cours le laissent vide. Un lot loué apparaissait alors
     // dans la liste des vacants — et un lot réellement vide, dont le cache gardait l'ancien
     // locataire, n'y apparaissait pas. Un bail clôturé mais encore présent ne loue plus rien.
-    const loue = !!bailCourant && !bailCourant.cloture && !bailCourant.finEffective;
+    // Statut du jour = LA fonction de statut (fin-occupation.js `bailLoueAu`) : un départ déclaré passé rend
+    // le lot vacant (« vacant depuis » = la date de sortie), comme le compte des jours d'occupation ci-dessus.
+    const loue = bailLoueAu(bailCourant, today);
     if (!loue) {
-      const fins = hists.map((b) => b.finEffective || b.fin).filter(Boolean).sort();
-      vacantsJour.push({ ref: l.ref, depuis: fins.length ? fins[fins.length - 1] : null });
+      const fins = hists.map((b) => b.finEffective || b.fin).filter(Boolean);
+      const sortie = bailCourant ? finOccupationBail(bailCourant, false) : '';
+      if (sortie) fins.push(sortie);
+      fins.sort();
+      vacantsJour.push({ ref: l.ref, depuis: fins.length ? fins[fins.length - 1] : null, departDeclare: !!sortie });
     }
   });
   return {

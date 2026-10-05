@@ -26,3 +26,19 @@ export function finOccupationBail(bail, clos) {
   if (bail.depart && bail.depart.dateSortie) return String(bail.depart.dateSortie).slice(0, 10);
   return '';
 }
+
+/**
+ * LE statut LOUÉ d'un lot au jour `jourIso` — fonction UNIQUE (décision Didier 06/10).
+ * Loué ⇔ son bail courant est vivant, non clôturé (ni `cloture`, ni `finEffective`), et son occupation
+ * n'est pas terminée ce jour-là (finOccupationBail vide, ou ≥ jourIso). Un DÉPART DÉCLARÉ PASSÉ rend donc le
+ * lot VACANT alors que le bail reste ouvert (« Vacant (départ le …, bail à clôturer) »). Sans départ déclaré,
+ * statut identique à l'ancien (bail vivant non clôturé ⇒ loué, échéance contractuelle ignorée).
+ * @param {Object} bail bail COURANT du lot (DB.baux[ref]) ou null
+ * @param {string} jourIso 'YYYY-MM-DD'
+ * @returns {boolean}
+ */
+export function bailLoueAu(bail, jourIso) {
+  if (!bail || bail._deleted || bail.cloture || bail.finEffective) return false;
+  const f = finOccupationBail(bail, false);
+  return !f || f >= String(jourIso || '').slice(0, 10);
+}

@@ -89,7 +89,8 @@ describe('_logementsVacants — un lot dont le bail est clôturé est VACANT', (
       logements: [{ ref: 'A-1' }, { ref: 'A-2' }, { ref: 'A-3' }],
       baux: { 'A-1': tombstone('A-1'), 'A-2': bailActif('A-2') },
     };
-    const { fns } = sandbox(DB, ['_bailEnCours', '_logementsVacants']);
+    // Statut 06/10 : _logementsVacants lit LE statut (_bienIsBailActif → _bienActiveBail) ; sans module (ici) = bail ouvert.
+    const { fns } = sandbox(DB, ['_isAlive', '_bienActiveBail', '_bienIsBailActif', '_logementsVacants']);
     expect(fns._logementsVacants().map((l) => l.ref)).toEqual(['A-1', 'A-3']);
   });
 });

@@ -8074,7 +8074,7 @@ function setBiensTab(t) {
 function archiveLogement(ref) {
   const log = (DB.logements||[]).find(l=>l.ref===ref);
   if(!log) return;
-  if(_bienIsBailActif(ref)) {
+  if(_bienActiveBail(ref)) {   // bail encore OUVERT (même départ déclaré passé) : le clôturer d'abord
     showToast('Terminez d\'abord le bail en cours avant d\'archiver','err');
     return;
   }
@@ -8216,10 +8216,33 @@ function _confirmImmPicker() {
 // le locataire est en place (tacite reconduction, art. 10 loi 89-462). La règle unique
 // est celle actée en v15.343 (BUG-STATUT-TACITE) : seul clôturé / résilié (finEffective)
 // / supprimé rend le logement vacant.
+// ═══ STATUT LOUÉ / VACANT d'un lot — fonction UNIQUE (décision Didier 06/10) ═══
+// Loué ⇔ bail courant vivant, non clôturé, et occupation non terminée AUJOURD'HUI (règle unique
+// js/core/fin-occupation.js `bailLoueAu` : un départ déclaré PASSÉ rend le lot VACANT, bail encore ouvert —
+// libellé « Vacant (départ le JJ/MM/AAAA, bail à clôturer) », _lotStatutLibelle). Sans départ déclaré :
+// identique à l'ancien statut (échéance contractuelle ignorée, tacite reconduction).
+// ⚠️ Deux questions DIFFÉRENTES, deux fonctions :
+//   • « le lot est-il occupé ? » (statut affiché, compteurs, filtres, IRL, annonces, candidatures) → _bienIsBailActif ;
+//   • « un bail est-il encore OUVERT ? » (dépôt détenu, impayés, onglet Loyers, archivage, saisie d'un bail)
+//     → _bienActiveBail (le bail tant qu'il n'est pas clôturé), jamais ce statut.
+// Repli file:// (module non chargé) : statut d'avant (bail ouvert).
 function _bienIsBailActif(ref) {
-  return !!_bienActiveBail(ref);
+  const b = _bienActiveBail(ref);
+  if(!b) return false;
+  const W = (typeof window !== 'undefined') ? window : null;
+  if(W && typeof W.bailLoueAu === 'function') return W.bailLoueAu(b, (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : td());
+  return true;
+}
+// Le libellé du statut d'un lot : « Loué », « Vacant », ou — bail encore ouvert, départ déclaré passé —
+// « Vacant (départ le JJ/MM/AAAA, bail à clôturer) », pour inviter à clôturer. Texte brut (à échapper).
+function _lotStatutLibelle(ref) {
+  if(_bienIsBailActif(ref)) return 'Loué';
+  const b = _bienActiveBail(ref);
+  const d = b && b.depart && b.depart.dateSortie;
+  return d ? 'Vacant (départ le ' + fd(String(d).slice(0,10)) + ', bail à clôturer)' : 'Vacant';
 }
 
+// Le bail courant tant qu'il n'est pas CLÔTURÉ (« bail ouvert ») — PAS le statut loué (cf. _bienIsBailActif).
 function _bienActiveBail(ref) {
   const b = DB.baux && DB.baux[ref];
   if(!b || !_isAlive(b) || b.cloture || b.finEffective) return null;
@@ -9098,7 +9121,7 @@ function _aggregateBuilding(logs) {
   const types = new Set();
   logs.forEach(l => {
     if(l.type) types.add(l.type);
-    const bail = _bienActiveBail(l.ref);
+    const bail = _bienIsBailActif(l.ref) ? _bienActiveBail(l.ref) : null;   // statut : occupé aujourd'hui
     if(bail) {
       nbOccupes++;
       loyerHC += +(l.hc||bail.hc||0);
@@ -9149,7 +9172,7 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
   });
 
   const logRows = sortedLogs.map(l => {
-    const bail = _bienActiveBail(l.ref);
+    const bail = _bienIsBailActif(l.ref) ? _bienActiveBail(l.ref) : null;   // statut : occupé aujourd'hui
     const isVacant = !bail;
     const refEsc = escHtml(l.ref || ''); const refEscJs = _lyQ(l.ref || '');
     const typeEsc = escHtml(l.type || '—');
@@ -9181,7 +9204,8 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
         dotCls = 'orange';
       } else { locDisplay = escHtml(tenantName); dotCls = 'green'; }
     } else {
-      locDisplay = '<b style="color:var(--err)">VACANT</b>';
+      const _lib = _lotStatutLibelle(l.ref);   // « Vacant (départ le …, bail à clôturer) » si départ déclaré passé
+      locDisplay = _lib === 'Vacant' ? '<b style="color:var(--err)">VACANT</b>' : '<b style="color:var(--err)">' + escHtml(_lib) + '</b>';
       dotCls = 'red';
     }
 
@@ -9381,11 +9405,11 @@ function _ensureBiencPhCss(){
   document.head.appendChild(st);
 }
 function _renderLogementCardFlat(l) {
-  const bail = _bienActiveBail(l.ref);
+  const bail = _bienIsBailActif(l.ref) ? _bienActiveBail(l.ref) : null;   // statut : occupé aujourd'hui
   const occupied = !!bail;
   const ratioPct = occupied ? 100 : 0;
   const fillCls = occupied ? '' : 'empty';
-  const occupLabel = occupied ? 'Loué' : 'Vacant';
+  const occupLabel = escHtml(_lotStatutLibelle(l.ref));   // « Loué » / « Vacant » / « Vacant (départ le …, bail à clôturer) »
   const titleEsc = escHtml(l.ref || '—');
   const subtitleEsc = escHtml(l.locataire || (occupied ? 'Bail actif' : 'Aucun locataire'));
   const bailleurEsc = escHtml(l.entity || '—');
@@ -9488,7 +9512,7 @@ function _renderLogementsGroupedPhone(logs) {
     const ent = (!g.isoles && g.entNom) ? (DB.entites||[]).find(e => e.nom === g.entNom) : null;
     const im  = ent ? (ent.immeubles||[]).find(i => i && i.nom === g.immNom && !i._deleted) : null;
     const nbLots  = g.logs.length;
-    const nbLoues = g.logs.filter(l => _bienActiveBail(l.ref)).length;
+    const nbLoues = g.logs.filter(l => _bienIsBailActif(l.ref)).length;
     const ville = g.isoles ? '' : ((im && im.ville) || _extractVilleFromAdr(im && im.adr) || _extractVilleFromAdr(g.logs[0] && g.logs[0].adr) || '');
     const sub = [ville, `${nbLots} lot${nbLots>1?'s':''}`, `${nbLoues} loué${nbLoues>1?'s':''}`]
       .filter(Boolean).map(escHtml).join(' · ');
@@ -9607,7 +9631,7 @@ function exportBiensCSV() {
   const rows = rowsLogs.map(l => [
     l.ref,l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
     l.hc||0,l.ch||0,l.dg||0,l.locataire||'',l.debut||'',l.fin||'',
-    _bienIsBailActif(l.ref)?'Loué':'Vacant', l.irl||''
+    _lotStatutLibelle(l.ref), l.irl||''
   ]);
   const csv = [headers, ...rows].map(r => r.map(escCsv).join(';')).join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
@@ -11207,7 +11231,7 @@ function _renderLogFicheHeroStats(log, ref) {
       <div class="logf-stat"><div class="logf-stat-v">${fd(log.archivedAt)||'—'}</div><div class="logf-stat-l">Date archive</div></div>
     </div>`;
   }
-  const bail = _bienActiveBail(ref);
+  const bail = _bienIsBailActif(ref) ? _bienActiveBail(ref) : null;   // statut : occupé aujourd'hui
   const today = td();
 
   // ── KPI 1 : Loyer mensuel
@@ -11242,7 +11266,9 @@ function _renderLogFicheHeroStats(log, ref) {
       : `${months} mois`;
     dureeKPI = { v: txt, unit: '', label: tenant ? `Loué à ${tenant.length>14?tenant.slice(0,12)+'…':tenant}` : 'Loué', cls: 'k-ok' };
   } else {
-    const lastEnd = _getLastClosedBailEndIso(ref);
+    // Départ déclaré passé (bail encore ouvert) : vacant depuis la date de sortie.
+    const _ouvert = _bienActiveBail(ref);
+    const lastEnd = (_ouvert && _ouvert.depart && _ouvert.depart.dateSortie) ? String(_ouvert.depart.dateSortie).slice(0,10) : _getLastClosedBailEndIso(ref);
     if(lastEnd) {
       const days = _daysBetweenIso(lastEnd, today);
       const txt = days >= 60 ? `${Math.floor(days/30.44)} mois` : `${days} j`;
@@ -17188,12 +17214,12 @@ function _renderLogFichePhStrip(log, bail, ref){
   return cells;
 }
 function _renderLogFichePhHero(log, bail, ref){
-  const occupied = !!bail;   // rLogFiche passe déjà le bail actif résolu (ou null)
+  const occupied = _bienIsBailActif(ref);   // STATUT (le bail ouvert reste passé pour la bande dépôt / solde)
   const isArch   = !!log.archived;
   let chip;
   if(isArch)         chip = '<span class="logf-ph-chip arch"><span class="d"></span>Archivé</span>';
   else if(occupied)  chip = '<span class="logf-ph-chip loue"><span class="d"></span>Loué</span>';
-  else               chip = '<span class="logf-ph-chip vac"><span class="d"></span>Vacant</span>';
+  else               chip = '<span class="logf-ph-chip vac"><span class="d"></span>' + escHtml(_lotStatutLibelle(ref)) + '</span>';
   const l2 = [log.type, log.surf?(fmtN(log.surf)+' m²'):'', log.etage].filter(Boolean).map(escHtml).join(' · ');
   const l3 = [log.imm, log.adr].filter(Boolean).map(escHtml).join(' · ');
   const strip = _renderLogFichePhStrip(log, bail, ref);
@@ -17250,13 +17276,13 @@ function rLogFiche() {
     </div>`;
     return;
   }
-  const bail = _bienActiveBail(ref);
-  const occupied = !!bail;
+  const bail = _bienActiveBail(ref);   // bail OUVERT (panneaux bail, dépôt, solde : visibles jusqu'à la clôture)
+  const occupied = _bienIsBailActif(ref);   // STATUT : un départ déclaré passé = vacant
   const isArchived = !!log.archived;
   let statusBadge = '';
   if(isArchived)    statusBadge = '<span class="logf-badge b-mute">' + _uiIcon('archive') + ' Archivé</span>';
   else if(occupied) statusBadge = '<span class="logf-badge b-ok">● Loué</span>';
-  else              statusBadge = '<span class="logf-badge b-warn">○ Vacant</span>';
+  else              statusBadge = '<span class="logf-badge b-warn">○ ' + escHtml(_lotStatutLibelle(ref)) + '</span>';
 
   // v14.13 A1 — résolution drill-up : récupère l'entité du bailleur et l'immeuble parent
   // pour rendre le breadcrumb et le badge bailleur cliquables.
@@ -17334,7 +17360,7 @@ function rLogFiche() {
         <div class="logf-actions">
           ${/* BIENS (P1-13, retour user 11/08) — « ＋ Ajouter un bien » RETIRÉ d'ici : un bien ne contient pas un bien. L'ajout part du bailleur ou de l'immeuble, par le fil rouge, qui est déjà la porte unique. _frStartFromLog perd son seul appelant. */''}
           <button class="btn bs" onclick="openNewLog('${refSafe}')">${_uiIcon('edit')} Modifier le bien</button>
-          ${(!isArchived && !_bienActiveBail(ref)) ? `
+          ${(!isArchived && !occupied) ? `
             <!-- ANNONCES (CDC validé 29/09/2026) — porte UNIQUE « Créer une annonce » : logement vacant
                  non archivé, tous usages (habitation ou garage / local, P-1). La ligne de la liste des
                  biens reste sans bouton. log.presentation / log.quartier ne sont plus lus. -->
@@ -21991,7 +22017,7 @@ function _annonceStep1Continuer() {
   const ro = (typeof _appReadOnly !== 'undefined' && _appReadOnly);
   if (change && !ro) {
     log.loyerHcRef = hcS; log.chargesRef = chS;
-    if (_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))) _rescoreCandidatsDuLogement(log.ref);
+    if (_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, _bienIsBailActif(log.ref))) _rescoreCandidatsDuLogement(log.ref);
     _stamp(log);
     try { _auditLog('update', 'logement', log.id, log.ref); } catch (e) {}
     saveDB();
@@ -22512,7 +22538,7 @@ function saveParamLog() {
     // (_logpPushLoyerRef) : seules les valeurs réellement présentes dans le formulaire sont poussées,
     // et jamais sur un bien occupé (c'est le bail qui pilote log.hc/ch).
     // tombstone _deleted + cloture + finEffective (audit)
-    const _lrOcc = !!_bienActiveBail(log.ref);
+    const _lrOcc = _bienIsBailActif(log.ref);   // statut : un départ déclaré passé = vacant (loyer du prochain bail)
     if (_logpPushLoyerRef(log, presa.log, _lrOcc)) {
       // le loyer courant du bien vacant a changé → recalcule le score de ses candidats (ratio)
       _rescoreCandidatsDuLogement(log.ref);
@@ -26418,7 +26444,9 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   const CLL = { ok: 'payé', warn: 'partiel', imp: 'en retard', avance: 'payé d\'avance' };
   // R-0 : le BAIL decide, pas le cache. Un bail repris a l'achat faisait disparaitre le lot de
   // TOUTE la page Loyers — chips de retard et d'avance comprises.
-  const logs = (DB.logements || []).filter(aliveFn).filter(l => _lotEstLoue(l) && (!ent || l.entity === ent));
+  // Bail encore OUVERT (pas le statut « occupé ») : l'impayé d'un locataire parti reste visible jusqu'à la clôture.
+  const logs = (DB.logements || []).filter(aliveFn).filter(l => _lotBailOuvert(l) && (!ent || l.entity === ent));
+  const _lyStatut = (ref) => _bienIsBailActif(ref) ? '' : ' <span style="font-size:11px;color:var(--warn);font-weight:600">· ' + escHtml(_lotStatutLibelle(ref)) + '</span>';
   if (!logs.length) {
     return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Aucun logement occupé' + (ent ? ' pour ' + escHtml(ent) : '') + '.</div>', empty: true };
   }
@@ -26465,7 +26493,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     const items = rows.map(r => {
       const refA = escHtml(r.log.ref);
       const inner = '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 13px">'
-        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>'
+        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>' + _lyStatut(r.log.ref)
         + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div></div>'
         + '<div>' + chip(r.pos) + '</div></div>';
       return { log: r.log, html: inner };
@@ -26480,7 +26508,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = escHtml(r.log.ref);
       return '<div style="' + (i < rows.length - 1 ? 'border-bottom:1px solid var(--bor2)' : '') + (open ? ';background:var(--sur2)' : '') + '">'
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
-      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
+      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>' + _lyStatut(r.log.ref)
       +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
       + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.pos) + (r.pos.cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
       + '</div>'

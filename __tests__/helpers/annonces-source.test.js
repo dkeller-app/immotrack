@@ -20,7 +20,8 @@ describe('D1 — le loyer de l\'annonce est le loyer souhaité, jamais l\'ancien
   });
   it('l\'étape 1 écrit par le chemin de l\'onglet Identité (_logpPushLoyerRef) puis _stamp + saveDB', () => {
     const cont = bloc('function _annonceStep1Continuer(', '\nfunction _annonceToggleDossier(');
-    expect(cont).toContain('_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))');
+    // Statut 06/10 : « occupé » = LE statut (_bienIsBailActif) — un départ déclaré passé rend le lot vacant.
+    expect(cont).toContain('_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, _bienIsBailActif(log.ref))');
     expect(cont).toContain('_rescoreCandidatsDuLogement(log.ref)');
     expect(cont).toContain('_stamp(log)');
     expect(cont).toContain('saveDB()');

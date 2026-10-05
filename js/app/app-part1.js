@@ -6834,7 +6834,9 @@ function _v4ComputeLotStatus(log, yr, mo, mvs) {
   // cours, renvoyait `attendu: 0, recu: 0` et court-circuitait tout le moteur de loyer — juste
   // avant que l'Accueil téléphone n'additionne ces zéros en « encaissé » et « attendu » du mois
   // et de l'année. Le lot disparaissait des chiffres, comme dans la bulle Impayés (R0-B).
-  if (!_lotEstLoue(log)) {
+  // Statut 06/10 : un départ déclaré passé rend le lot vacant, mais son bail reste OUVERT et son argent
+  // (dû jusqu'à la sortie, impayés) reste suivi : la porte est le bail ouvert, pas le statut affiché.
+  if (!_lotBailOuvert(log)) {
     const theo = (Number(log.hc)||0) + (Number(log.ch)||0);
     return {cls:'vac', attendu:0, recu:0, label:(theo > 0 ? (theo + ' € théo') : '—'), ratio:0, prorata:0, vacant:true};
   }
@@ -7235,7 +7237,7 @@ function _renderAccueilPhone(ctx){
   else logs.forEach(function(l){ try{ encYTD += (_v4ComputeLotStatus(l, yr, '', ctx.mvsYTD).recu||0); }catch(e){} });
   var dg=0, nbDep=0;
   // R-0 : la porte d'entree etait `l.locataire` alors que le montant, lui, venait deja du bail.
-  logs.forEach(function(l){ if(_lotEstLoue(l)){ var d=_dgDuLot(l); if(d>0){ dg+=d; nbDep++; } } });
+  logs.forEach(function(l){ var d=_dgDetenuDuLot(l);   /* dépôt DÉTENU : reçu, pas encore restitué */ if(d>0){ dg+=d; nbDep++; } });
   var fams={total:0,familles:[]}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
   var aReg = fams.total||0, famBy={}; (fams.familles||[]).forEach(function(f){ famBy[f.id]=f; });
   var bits=[];
@@ -7487,11 +7489,13 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs, colRefs) {
   // R-0 : « ce lot est-il loue ? » se lit sur le BAIL. Sur le cache, un bail repris a l'achat
   // sortait en 'na' : ni pastille de paiement, ni euros, et le lot comptait comme vacant dans
   // le filtre de la matrice — alors que la bulle Impayes, elle, affiche sa dette.
-  const _loue = _lotEstLoue(l);
+  // Pastille de PAIEMENT : tant que le bail est ouvert (dette d'un locataire parti visible) ; l'action
+  // « Relouer » suit le STATUT (départ déclaré passé = vacant).
+  const _loue = _lotBailOuvert(l);
   const pay = (typeof window !== 'undefined' && typeof window.pilotagePay === 'function')
     ? window.pilotagePay(_loue, l.ref, impayeRefs, _soldeSigned)
     : (!_loue ? 'na' : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
-  const vacant = !_loue;
+  const vacant = !_lotEstLoue(l);
   // actions : relocation d'un vide + toute colonne ko/wn (geste « réclamer au vendeur » si repris)
   const actions = [];
   if (vacant) actions.push({ g: 'vacant', label: 'Relouer', cls: 'vac' });
@@ -7534,8 +7538,8 @@ function _renderPilotage(ctx) {
   const _cfr = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
   const encaisse = _cfr ? _cfr.recettes : null;
   // R-0 : lot LOUE selon le bail, et montant du bail en cours (revu a la relocation).
-  const _dgLots = scopeLogs.filter(l => _lotEstLoue(l) && _dgDuLot(l) > 0);
-  const dgTot = _dgLots.reduce((s, l) => s + _dgDuLot(l), 0);
+  const _dgLots = scopeLogs.filter(l => _dgDetenuDuLot(l) > 0);   // dépôt DÉTENU : reçu, pas encore restitué
+  const dgTot = _dgLots.reduce((s, l) => s + _dgDetenuDuLot(l), 0);
   const nbDg = _dgLots.length;
   const strip = [
     '<div class="pil-s1"><div class="k">Encaissé · ' + (mo ? _DMF[parseInt(mo) - 1] : yr) + '</div>'
@@ -8803,7 +8807,7 @@ function _buildOccDrill(ctx) {
         const _loue = (typeof _bienIsBailActif === 'function') ? _bienIsBailActif(l.ref) : !!l.locataire;
         const statut = _loue
           ? '<span style="color:var(--fg-success);font-weight:600">Occup\u00e9</span>'
-          : '<span style="color:var(--fg-danger);font-weight:600">Vacant</span>';
+          : '<span style="color:var(--fg-danger);font-weight:600">' + escHtml((typeof _lotStatutLibelle === 'function') ? _lotStatutLibelle(l.ref) : 'Vacant') + '</span>';
         const loyerTTC = (l.hc||0)+(l.ch||0);
         // Colonne ANNUALISÉE : ce n'est pas le manque de la période (le chiffre du haut), c'est
         // ce que coûterait une vacance sur douze mois. Le nom de colonne le dit désormais —
@@ -9761,11 +9765,20 @@ function _computeUnifiedTodo(ctx) {
  *
  * `_resyncLocatairesFromBaux` ne remplit ce champ que si le bail porte un nom, et la cloture le
  * VIDE. Un bail repris a l'achat, une saisie en cours, un locataire parti : le cache ment dans
- * les deux sens. Toute surface qui affiche de l'ARGENT doit passer par ici.
+ * les deux sens.
+ * Statut OCCUPÉ AUJOURD'HUI (décision Didier 06/10, _bienIsBailActif) : un départ déclaré passé rend le
+ * lot vacant. Une surface qui affiche de l'ARGENT encore dû par ce bail (dépôt détenu, impayés, onglet
+ * Loyers) lit _lotBailOuvert, pas ce statut.
  */
 function _lotEstLoue(l) {
   if (!l || !l.ref) return false;
   return (typeof _bienIsBailActif === 'function') ? _bienIsBailActif(l.ref) : !!l.locataire;
+}
+/** Le bail de ce lot est-il encore OUVERT (non clôturé) ? — dépôt détenu, impayés, onglet Loyers : un
+ *  départ déclaré ne clôt ni la restitution ni la dette. */
+function _lotBailOuvert(l) {
+  if (!l || !l.ref) return false;
+  return (typeof _bienActiveBail === 'function') ? !!_bienActiveBail(l.ref) : !!l.locataire;
 }
 
 /**
@@ -9779,6 +9792,20 @@ function _dgDuLot(l) {
   if (!l) return 0;
   const b = (typeof _bienActiveBail === 'function') ? _bienActiveBail(l.ref) : null;
   return Number((b && b.dg) || l.dg || 0) || 0;
+}
+/**
+ * LE dépôt DÉTENU d'un lot — règle UNIQUE des « Dépôts détenus » (bandeau PC, Accueil téléphone, widget).
+ * Détenu ⇔ reçu et PAS ENCORE RESTITUÉ : le bail est encore OUVERT (non clôturé — un départ déclaré, même
+ * passé, ne rend pas le dépôt : il reste dû au locataire dans le délai de l'article 22) et sa restitution
+ * n'est pas enregistrée (`dgRestitueAt`, le drapeau posé par _dgConfirmerRestitution). Montant : _dgDuLot.
+ * Jamais le statut « loué » : avant le 06/10, le filtre `_lotEstLoue` aurait fait disparaître le dépôt dès
+ * le départ déclaré. Bail clôturé : la clôture enregistre la restitution (formulaire) → plus détenu.
+ */
+function _dgDetenuDuLot(l) {
+  if (!l || !l.ref) return 0;
+  const b = (typeof _bienActiveBail === 'function') ? _bienActiveBail(l.ref) : null;
+  if (!b || b.dgRestitueAt) return 0;
+  return _dgDuLot(l);
 }
 
 /**
@@ -10737,13 +10764,13 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
   /* ── v2 Phase 3 FINAL — Dépôts de garantie (col 3 row 2, minimaliste)
      Affichage : total + count uniquement. Détail complet via drill-down. ── */
   if(id==='dg') {
-    const dgs = scopeLogs.filter(l => _lotEstLoue(l) && _dgDuLot(l) > 0).sort((a,b) => _dgDuLot(b) - _dgDuLot(a));
+    const dgs = scopeLogs.filter(l => _dgDetenuDuLot(l) > 0).sort((a,b) => _dgDetenuDuLot(b) - _dgDetenuDuLot(a));   // reçu, pas encore restitué
     // Les lignes du tableau passent par `_dgDuLot` : le TOTAL doit suivre la même source,
     // sinon la carte annonce une somme que son propre tableau contredit (mesuré : 3 100 € au
     // total pour 3 400 € de lignes).
-    const tot = dgs.reduce((s,l) => s+_dgDuLot(l), 0);
+    const tot = dgs.reduce((s,l) => s+_dgDetenuDuLot(l), 0);
     _DD['dg'] = {title:'Dépôts de garantie', html:'<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">DG</th></tr></thead><tbody>'
-      + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDuLot(l))+'</td></tr>').join('')
+      + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDetenuDuLot(l))+'</td></tr>').join('')
       + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+dgs.length+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
     // v15.38 DASH-REFONTE-GLOBALE-V4 CP3 — DG Bloomberg : eyebrow + valeur + count
     const body = '<button type="button" class="dw-kpi-click bb-card" '
@@ -14155,7 +14182,9 @@ function rCandidats(){
 
 // Un logement est vacant s'il n'a pas de bail actif (non clôturé).
 function _logementsVacants(){
-  return (DB.logements||[]).filter(l=>l && !l._deleted && !_bailEnCours(DB.baux[l.ref]));
+  // Statut 06/10 : un lot dont le départ déclaré est passé est VACANT (proposable à un candidat), même
+  // si son bail reste à clôturer. _bailEnCours (saveBail) garde, lui, « bail ouvert ».
+  return (DB.logements||[]).filter(l=>l && !l._deleted && !_bienIsBailActif(l.ref));
 }
 // "Choix + ajout libre" (règle gravée) : révèle le champ texte quand contrat = Autre.
 function _candContratToggle(){
@@ -15024,7 +15053,7 @@ function openLoyerBienModal(candId, logRef){
   const log = (DB.logements||[]).find(l=>l && !l._deleted && l.ref===ref);
   if(!log){ showToast('Logement introuvable — impossible de fixer le loyer.','warn'); return; }
   _lbCtx = { candId: c ? c.id : null, logRef: log.ref };
-  const occupied = !!_bienActiveBail(log.ref); // gère tombstone _deleted + cloture + finEffective (audit)
+  const occupied = _bienIsBailActif(log.ref); // statut : tombstone, clôture, finEffective, départ déclaré passé (le loyer de référence du prochain bail se saisit)
   const _refHc = Number(log.loyerHcRef)||Number(log.hc)||0; // loyer de référence (== log.hc pour un bien vacant)
   const _refCh = Number(log.chargesRef)||Number(log.ch)||0;
   const la = c ? _loyerAttenduForCand(c) : { loyer: _refHc };
@@ -15050,7 +15079,7 @@ function saveLoyerBien(){
   // Garde anti-désync (audit B1) : sur un bien OCCUPÉ, le loyer suit le bail / une révision IRL —
   // écrire log.hc seul désynchroniserait bail.hc + casserait la garde de révision IRL.
   // _bienActiveBail gère le tombstone (_deleted) + cloture + finEffective (audit LOYER-REFERENCE).
-  if(_bienActiveBail(log.ref)){ showToast('Bien occupé — le loyer se modifie via le bail ou une révision IRL.','warn',5000); return; }
+  if(_bienIsBailActif(log.ref)){ showToast('Bien occupé — le loyer se modifie via le bail ou une révision IRL.','warn',5000); return; }
   const hc = Math.max(0, Math.round(Number(v('lb-hc'))||0));
   const ch = Math.max(0, Math.round(Number(v('lb-ch'))||0));
   const before = Number(log.hc)||0;
@@ -15508,7 +15537,7 @@ function rBaux() {
 
 function getBailStatus(l) {
   // Le badge suit le BAIL : un bail repris sans nom affichait « Vacant » sur un lot loue.
-  if(!_lotEstLoue(l)) return {badge:`<span class="badge gry">Vacant</span>`};
+  if(!_lotEstLoue(l)) return {badge:`<span class="badge gry">${escHtml(_lotStatutLibelle(l.ref))}</span>`};
   const today = new Date();
   if(l.fin) {
     const fin = new Date(l.fin);
