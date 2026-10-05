@@ -26,6 +26,12 @@ describe('CORS', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED);
   });
 
+  it('autorise le domaine de production app.propryo.fr', async () => {
+    const o = 'https://app.propryo.fr';
+    const res = await app.request('/health', { headers: { Origin: o } }, env);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(o);
+  });
+
   it('reflète localhost et null (file://)', async () => {
     for (const o of ['http://localhost:5500', 'null']) {
       const res = await app.request('/health', { headers: { Origin: o } }, env);

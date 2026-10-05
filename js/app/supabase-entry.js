@@ -744,9 +744,11 @@ async function boot() {
 function wireLoginForm(api, overlay, prefillEmail) {
   // Bascule Connexion ↔ Inscription (self-service gardée par le hook allowlist côté serveur).
   // Réutilise les champs email/mdp du formulaire login (DRY) : seul le mode + le libellé changent.
-  let mode = 'login'  // 'login' | 'signup'
+  let mode = overlay._authMode || (/[?&]inscription/.test(location.search || '') ? 'signup' : 'login')  // 'login' | 'signup' (mémorisé : wireLoginForm peut être rappelé)
   const q = s => overlay.querySelector(s)
   const applyMode = () => {
+    const lead = q('#imsb-form .imsb-lead')
+    if (lead) lead.textContent = mode === 'signup' ? 'Essaie tout Propryo pendant 30 jours, sans carte bancaire.' : 'Connecte-toi pour gérer tes locations.'
     const h2 = q('#imsb-form .imsb-h2'), sub = q('#imsb-submit'), lnk = q('#imsb-signup'), pw = q('#imsb-pass')
     if (mode === 'signup') {
       if (h2) h2.textContent = 'Créer un compte'
@@ -759,8 +761,10 @@ function wireLoginForm(api, overlay, prefillEmail) {
       if (lnk) lnk.textContent = 'Créer un compte · essai gratuit'
       if (pw) { pw.setAttribute('autocomplete', 'current-password'); pw.placeholder = '••••••••' }
     }
+    overlay._authMode = mode
     showError(overlay, '')
   }
+  applyMode()
   const sgn = q('#imsb-signup')
   if (sgn) sgn.onclick = (e) => { e.preventDefault(); mode = (mode === 'login' ? 'signup' : 'login'); applyMode() }
 
@@ -1722,14 +1726,8 @@ function injectOverlay() {
   ov.innerHTML = `<div class="imsb-page">
     <header class="imv-nav">
       ${brand()}
-      <nav class="imv-mid">
-        <a href="#">Fonctionnalités</a>
-        <a href="#">Tarifs</a>
-        <a href="#">Sécurité</a>
-      </nav>
       <div class="imsb-nav-right">
-        <a href="#" class="imv-nav-link" id="imsb-open-login">Se connecter</a>
-        <a href="#" class="imv-btn-mini" id="imsb-open-signup">Créer un compte</a>
+        <a href="https://www.propryo.fr" class="imv-nav-link imv-back">← Retour à propryo.fr</a>
         <button type="button" id="imsb-theme" class="imsb-theme" aria-label="Basculer le thème clair / sombre" title="Clair / Sombre">
           <span class="imsb-theme-ic imsb-theme-sun" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -1741,48 +1739,9 @@ function injectOverlay() {
       </div>
     </header>
 
-    <main class="imv-hero">
-      <div class="imv-hero-in">
-        <div class="imv-copy">
-          <span class="imv-eyebrow"><span class="imv-pip"></span>Gestion locative · particuliers &amp; SCI</span>
-          <h1 class="imv-h1">Gérer son parc immobilier ne devrait pas être un <em>deuxième métier</em>.</h1>
-          <p class="imv-triad"><b>La gestion locative</b> — simplifiée <i>·</i> démystifiée <i>·</i> vulgarisée.</p>
-          <div class="imv-cta">
-            <a class="imv-btn imv-btn-primary" href="#" id="imsb-open-signup2">Créer un compte <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-            <a class="imv-btn imv-btn-ghost" href="#">Voir la démo</a>
-          </div>
-          <p class="imv-trust">
-            <span><span class="imv-s"></span>Hébergé en Europe</span>
-            <span><span class="imv-s"></span>Vos données vous appartiennent</span>
-            <span><span class="imv-s"></span>Sans engagement</span>
-          </p>
-        </div>
-
-        <aside class="imv-panel">
-          <div class="imv-panel-h">Du bail au bilan, <em>tout</em> le locatif maîtrisé.</div>
-          <ul class="imv-feat">
-            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M8 3h6l5 5v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg></span><div><b>Baux conformes</b><small>générés, signés, archivés</small></div></li>
-            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21z"/><path d="M9 8h6M9 12h4"/></svg></span><div><b>Quittances</b><small>envoyées automatiquement</small></div></li>
-            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="3.5"/></svg></span><div><b>États des lieux</b><small>horodatés, avec photos</small></div></li>
-            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-8"/><path d="M16 8h5v5"/></svg></span><div><b>Loyers &amp; charges</b><small>suivis et relancés</small></div></li>
-            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M9 3h6a1 1 0 0 1 1 1v1h1a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1V4a1 1 0 0 1 1-1z"/><path d="M9 13l2 2 4-4"/></svg></span><div><b>Déclaration 2044</b><small>pré-remplie</small></div></li>
-            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><path d="M16 4a3 3 0 0 1 0 6M21 20v-1a5 5 0 0 0-3-4.5"/></svg></span><div><b>Partage SCI</b><small>chacun son accès</small></div></li>
-          </ul>
-          <div class="imv-panel-f">Une seule app pour <b>toutes les situations</b> — nu, meublé, SCI, colocation.</div>
-        </aside>
-      </div>
-    </main>
-
-    <footer class="imv-footer">
-      <span class="imv-foot-copy">© 2026 Propryo · Hébergé en Europe · RGPD</span>
-      <nav class="imv-foot-links" aria-label="Informations légales">
-        <a href="#">Mentions légales</a><a href="#">CGU</a><a href="#">CGV</a><a href="#">Confidentialité</a><a href="#">Cookies</a><a href="#">Sous-traitance</a>
-      </nav>
-    </footer>
-
+    <main class="imv-login">
     <div class="imv-authwrap" id="imsb-authwrap">
       <div class="imv-authcard">
-        <button class="imv-authclose" id="imsb-authclose" type="button" aria-label="Fermer">✕</button>
         <div id="imsb-left">
           ${brand()}
           <form id="imsb-form" class="imsb-mid" autocomplete="on">
@@ -1798,8 +1757,22 @@ function injectOverlay() {
             <p class="imsb-foot">Nouveau ? <a href="#" id="imsb-signup">Créer un compte · essai gratuit</a></p>
           </form>
         </div>
+        <p class="imv-trust imv-trust-login">
+          <span><span class="imv-s"></span>Hébergé en Europe</span>
+          <span><span class="imv-s"></span>Conforme RGPD</span>
+          <span><span class="imv-s"></span>Tes données t'appartiennent</span>
+        </p>
       </div>
     </div>
+    </main>
+
+    <footer class="imv-footer">
+      <span class="imv-foot-copy">© 2026 Propryo · Hébergé en Europe · RGPD</span>
+      <nav class="imv-foot-links" aria-label="Informations légales">
+        <a href="https://www.propryo.fr/mentions-legales/">Mentions légales</a><a href="https://www.propryo.fr/cgu/">CGU</a><a href="https://www.propryo.fr/cgv/">CGV</a><a href="https://www.propryo.fr/confidentialite/">Confidentialité</a><a href="https://www.propryo.fr/cookies/">Cookies</a>
+      </nav>
+    </footer>
+
   </div>`
   document.body.appendChild(ov)
 
@@ -1849,7 +1822,8 @@ function setBusy(overlay, busy) {
   const btn = overlay.querySelector('#imsb-submit')
   if (!btn) return
   btn.disabled = busy
-  btn.innerHTML = busy ? '<span class="imsb-spin imsb-spin-sm"></span> Connexion…' : 'Se connecter'
+  const su = overlay._authMode === 'signup'
+  btn.innerHTML = busy ? '<span class="imsb-spin imsb-spin-sm"></span> ' + (su ? 'Création…' : 'Connexion…') : (su ? 'Créer mon compte' : 'Se connecter')
 }
 function showError(overlay, msg) {
   const e = overlay.querySelector('#imsb-error'); if (!e) return
@@ -2113,11 +2087,12 @@ function injectStyles() {
   .imv-foot-links{display:flex;flex-wrap:wrap;gap:6px 16px}
   .imv-foot-links a{color:var(--ink-3);text-decoration:none;font-weight:600;transition:color .15s}
   .imv-foot-links a:hover{color:var(--accent)}
-  .imv-authwrap{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(8,10,15,.55)}
-  #imsb-overlay.imv-auth-open .imv-authwrap{display:flex}
-  .imv-authcard{position:relative;width:100%;max-width:340px}
-  .imv-authclose{position:absolute;top:-42px;right:0;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);cursor:pointer;font-size:16px;line-height:1}
-  .imv-authclose:hover{color:var(--accent)}
+  .imv-login{flex:1;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,32px) 20px}
+  .imv-authwrap{display:flex;align-items:center;justify-content:center;width:100%}
+  .imv-authcard{position:relative;width:100%;max-width:400px}
+  .imv-authcard #imsb-left{padding:30px 28px 24px}
+  .imv-trust-login{justify-content:center;margin-top:20px}
+  .imv-back{font-weight:500;color:var(--ink-3)}
 
   /* ===== RESPONSIVE ===== */
   @media(max-width:1020px){
