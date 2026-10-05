@@ -66,16 +66,28 @@ self.addEventListener('fetch', e => {
   // 1bis) Perf : fichier À EMPREINTE (?v=<sha1:8>, posé par tools/stamp-app-parts.mjs) = contenu immuable →
   //    CACHE-FIRST, zéro aller-retour réseau (avant : chaque chargement revalidait les ~130 fichiers).
   //    Si le fichier change, son empreinte change, donc son URL : jamais de version périmée servie.
-  //    (Les ?v=15.xxx de main.css ne sont PAS concernés : 8 hex exactement.)
-  if (/\.(js|css)$/i.test(url.pathname) && /[?&]v=[0-9a-f]{8}$/.test(url.search)) {
+  //    (Les ?v=15.xxx de main.css ne sont PAS concernés : 8 hex dont au moins une lettre.)
+  //    Filet de sécurité : si on oublie de relancer tools/stamp-app-parts.mjs après une modif, l'URL ne change pas
+  //    → on revalide EN ARRIÈRE-PLAN (sans bloquer) : la copie en cache est rafraîchie pour la visite suivante.
+  //    Ménage : à chaque nouvelle empreinte, les anciennes versions du même fichier sont retirées du cache.
+  if (/\.(js|css)$/i.test(url.pathname) && /[?&]v=(?=[0-9]*[a-f])[0-9a-f]{8}$/.test(url.search)) {
+    const garder = res => {
+      const ct = (res && res.headers && res.headers.get('content-type')) || '';
+      if (!(res && res.ok && res.type === 'basic' && /javascript|css/i.test(ct))) return;
+      const copie = res.clone();
+      caches.open(CACHE_VER).then(c => c.keys().then(ks => Promise.all(
+        ks.filter(k => { const u = new URL(k.url); return u.pathname === url.pathname && u.search !== url.search; }).map(k => c.delete(k))
+      )).then(() => c.put(request, copie))).catch(() => {});
+    };
     e.respondWith(
-      caches.match(request).then(cached => cached || fetch(request).then(res => {
-        if (res && res.ok && res.type === 'basic') {
-          const copie = res.clone();
-          caches.open(CACHE_VER).then(c => c.put(request, copie)).catch(() => {});
+      caches.match(request).then(cached => {
+        if (cached) {
+          // revalidation « best effort » (pas de waitUntil : appelé hors du cycle synchrone de l'événement)
+          fetch(request, { cache: 'no-cache' }).then(garder).catch(() => {});
+          return cached;
         }
-        return res;
-      }))
+        return fetch(request).then(res => { garder(res); return res; });
+      })
     );
     return;
   }

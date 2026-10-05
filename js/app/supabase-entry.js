@@ -723,6 +723,7 @@ async function boot() {
   // déjà connecté (session persistée) → enchaîner direct. C'EST le chemin qui tue le double-login :
   // après un reload, la session persistée est retrouvée ici → Accueil sans re-saisir le mot de passe.
   const { user, error: _errAuth } = await api.currentUserOrError()
+  _perfMark('session')
   if (!user) { try { overlay.classList.remove('imsb-restoring') } catch (e) {} }   // pas de session valide → on montre le formulaire
   if (user) { try { window.__immoCrumb && window.__immoCrumb('already-connected') } catch (e) {} return onLoggedIn(api, overlay, user) }
 
@@ -1495,6 +1496,7 @@ async function onLoggedIn(api, overlay, user) {
   } catch (e) { console.warn('[Supabase] onAuthChange', e) }
   try {
     const _espaces = await api.resolveEspaces()
+    _perfMark('espaces')
     esp = _espaces.find(e => e.mine) || _espaces[0]   // espace PROPRE = primaire (Storage/Realtime/affichage + __immoCloudInfo)
     _cloudEspaceId = esp.espaceId   // espace propre : chemins Storage par défaut (entités neuves) + canal Realtime
     _cloudEspaceMine = !!esp.mine   // faux pour un associé invité (repli sur l'espace du propriétaire)
@@ -1553,6 +1555,7 @@ async function onLoggedIn(api, overlay, user) {
         })
     } catch (e) { console.warn('[Supabase] realtime subscribe', e) }
     let db = await api.hydrate()
+    _perfMark('donnees')
     // ── EDL TERRAIN lot 4, faille F1 (invariant 19f) ────────────────────────
     // Le miroir localStorage est en ÉCRITURE SEULE en mode cloud : personne ne
     // le relit jamais. Séquence vécue : EDL saisi hors ligne → l'app est fermée
@@ -1638,6 +1641,7 @@ async function onLoggedIn(api, overlay, user) {
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
       try { window.__immoCrumb && window.__immoCrumb('accueil-revealed') } catch (e) {}   // login abouti : Accueil affiché
       overlay.remove()                            // dévoile l'app complète sur les données cloud
+      _perfMark('app')
       _prechargerLibsPdf()
       return
     }
@@ -1690,6 +1694,18 @@ function renderProof(overlay, api, user, esp, db, err) {
 // Perf — les libs PDF (~3,4 Mo, js/vendor/pdf-libs.b64.js) ne sont plus inlinées : on les charge en tâche de fond
 // dès que l'app est affichée, pour qu'elles soient prêtes (et en cache SW, donc dispo hors ligne) avant le premier
 // export PDF / aperçu de bail (qui ouvre une popup : il doit rester dans le geste de l'utilisateur).
+// Chronométrage du démarrage (lecture seule, aucun effet) : marques performance.mark, résumé dans la console
+// à l'affichage de l'app → `[perf] …` (ms depuis le début du chargement de la page). Aide au diagnostic.
+function _perfMark(nom) {
+  try {
+    performance.mark('immo:' + nom)
+    if (nom !== 'app') return
+    const t = n => { const m = performance.getEntriesByName('immo:' + n, 'mark')[0]; return m ? Math.round(m.startTime) : null }
+    const nav = performance.getEntriesByType('navigation')[0]
+    console.info('[perf] page prête ' + (nav ? Math.round(nav.domContentLoadedEventEnd) : '?') + ' ms · session ' + t('session') + ' · espaces ' + t('espaces') + ' · données ' + t('donnees') + ' · app affichée ' + t('app') + ' ms')
+  } catch (e) {}
+}
+
 function _prechargerLibsPdf() {
   try {
     const go = () => { try { window.ensurePdfLibs && window.ensurePdfLibs().catch(() => {}) } catch (e) {} }
