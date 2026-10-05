@@ -1968,11 +1968,15 @@ function _bailTypeHasTacite(type) {
 // l'occupation sinon (étudiant, mobilité, garage, autre : pas de reconduction, « Échu »).
 // Avant : la fin contractuelle d'un bail nu reconduit coupait l'occupation → les mois suivants
 // devenaient une « vacance » portée par le bailleur (et réinjectée en 2044 ligne 225).
+// Départ DÉCLARÉ (`bail.depart.dateSortie`, assistant de départ — _departSaveDeclare) sur un bail encore
+// en cours : c'est lui qui borne l'occupation, avant la tacite reconduction — sinon l'étape régularisation
+// (occupation ouverte) et l'étape restitution du DG (bornée au départ) donnaient deux soldes de tout compte.
 function _bailFinOccupation(bail, clos) {
   if(!bail) return '';
   if(bail.finEffective) return String(bail.finEffective).slice(0,10);
   const fin = bail.fin ? String(bail.fin).slice(0,10) : '';
   if(clos || bail.cloture) return fin;
+  if(bail.depart && bail.depart.dateSortie) return String(bail.depart.dateSortie).slice(0,10);
   return _bailTypeHasTacite(bail.type) ? '' : fin;
 }
 
@@ -26373,6 +26377,14 @@ function _rgSegments225(regul, imms, refs) {
   });
   return { segments: segs, total: Math.round(segs.reduce((t, s) => t + (s.montant || 0), 0) * 100) / 100 };
 }
+// Ligne(s) 2044 de la part bailleur AFFICHÉE (carte Charges PC + téléphone) : selon son CONTENU —
+// « 225 », « 229 » (copropriété déjà déduite sur sa ligne), ou « 225 et 229 ». Texte brut.
+function _rgLignes2044Bailleur(bArr) {
+  const l = new Set();
+  (bArr || []).forEach(b => (b.segments || []).forEach(s => l.add(s.deja2044 || '225')));
+  const t = [...l].sort();
+  return t.length ? t.join(' et ') : '225';
+}
 
 function rRegul() {
   window._rgGlobalImm = null; // v15.x REGUL-REFRESH-LIVE : on affiche la liste (pas la vue globale)
@@ -26428,7 +26440,7 @@ function rRegul() {
     ? `<div style="margin:14px 0;padding:14px 16px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <span style="font-size:18px">${_uiIcon('bank',18)}</span>
-          <b style="font-size:14px">Part bailleur (charges récupérables non récupérées — 2044 ligne 225)</b>
+          <b style="font-size:14px">Part bailleur (charges récupérables non récupérées — 2044 ligne ${escHtml(_rgLignes2044Bailleur(bailleurArr))})</b>
         </div>
         ${bailleurArr.map(b => {
           const segRows = b.segments.slice().sort((a,b) => (a.date||'').localeCompare(b.date||'')).map(seg => `
@@ -26733,7 +26745,7 @@ function _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, ba
         .map(seg=>`<div class="rgph-bail-l"><span class="d">${escHtml(fd(seg.date)||'—')}</span><span class="lib">${escHtml(seg.lib||'')}${seg.motif?` <span class="mo">— ${escHtml(seg.motif)}</span>`:''}</span><b>${fmt(seg.montant)}</b></div>`).join('');
       return `<div class="rgph-bail-imm"><b>${escHtml(b.imm)}</b><b class="amt">${fmt(b.total)}</b></div>${segs}`;
     }).join('');
-    bailHtml=`<details class="rgph-bail"><summary><span class="uicw">${_uiIcon('bank',15)}</span><span class="tt">Part bailleur <span class="sub">non récupérée · 2044 ligne 225</span></span><b>${fmt(totBail)}</b></summary>`
+    bailHtml=`<details class="rgph-bail"><summary><span class="uicw">${_uiIcon('bank',15)}</span><span class="tt">Part bailleur <span class="sub">non récupérée · 2044 ligne ${escHtml(_rgLignes2044Bailleur(bArr))}</span></span><b>${fmt(totBail)}</b></summary>`
       + `<div class="rgph-bail-body">${imms}<p class="rgph-bail-note">${_uiIcon('bulb',13)} Non refacturé aux locataires (vacance, lots exclus). 2044 : ligne 225 (location nue), sauf charge déjà déduite sur sa ligne (copropriété : 229).</p></div></details>`;
   }
   el('reg-cards').innerHTML = nonRepBanner + (body ? `<div class="rgph-list">${body}${total}${bailHtml}</div>` : `<div class="rgph-empty">Aucune donnée de régularisation sur la période.</div>${bailHtml}`);
