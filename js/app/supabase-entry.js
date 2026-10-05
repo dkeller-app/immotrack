@@ -109,6 +109,9 @@ try { window.__immoAuditFlushCloud = _auditCloudFlush } catch (e) {}
 // DÉCOUPLAGE cloud↔Drive — espace courant (posé au login) pour résoudre les chemins Supabase Storage des
 // fichiers : `<espaceId>/files/<idbKey>`. Lu par le helper window.__immoCloudFileUrl (ouverture de documents).
 let _cloudEspaceId = null
+// L'espace « primaire » ci-dessus est-il VRAIMENT à l'utilisateur ? Un associé INVITÉ (sans espace à lui,
+// full_espace=false) reçoit l'espace du PROPRIÉTAIRE en repli (`_espaces[0]`) : celui-ci n'est pas « propre ».
+let _cloudEspaceMine = false
 let _cloudOwnerId = null  // owner de l'espace (posé au login) = namespace du detUuid → résout l'entite_id d'une SCI (chemin Storage par-SCI)
 let _supaClient = null   // client supabase (posé au boot) — pour le canal Realtime de synchro live
 let _makeDetUuid = null  // fabrique d'uuid déterministe (importée au boot) — pour window.__immoEntiteUuid
@@ -451,6 +454,9 @@ async function boot() {
   // ESPACE PROPRE (getter — posé au login) : sert au code inline à distinguer un renommage d'un objet de
   // l'espace propre (config own-only re-keyable, records non tagués = propres) d'un objet d'une SCI TIERS.
   window.__immoOwnEspaceId = () => _cloudEspaceId
+  // NORMALISATION-LOYERS (contre-audit 05/10) : l'espace primaire est-il À l'utilisateur (`mine`) ? Getter
+  // DÉDIÉ — __immoOwnEspaceId garde son sens (renommages, app-part2). Faux pour un associé invité.
+  window.__immoOwnEspaceMine = () => _cloudEspaceMine
   try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
   try { const m = await import('../core/store-multi.js'); _resolveEntiteOwner = m.resolveEntiteOwner; _resolveEspaceOfSeg = m.resolveEspaceOfSeg } catch (e) { console.warn('[Supabase] store-multi resolvers', e) }
   // P1.3 — décisions de purge (pur, testé) + prédicat M4 (le flush a-t-il réellement écrit ?). Best-effort
@@ -1491,6 +1497,7 @@ async function onLoggedIn(api, overlay, user) {
     const _espaces = await api.resolveEspaces()
     esp = _espaces.find(e => e.mine) || _espaces[0]   // espace PROPRE = primaire (Storage/Realtime/affichage + __immoCloudInfo)
     _cloudEspaceId = esp.espaceId   // espace propre : chemins Storage par défaut (entités neuves) + canal Realtime
+    _cloudEspaceMine = !!esp.mine   // faux pour un associé invité (repli sur l'espace du propriétaire)
     _cloudOwnerId = esp.ownerId     // namespace detUuid par défaut → window.__immoEntiteUuid (entités neuves)
     _espaceOwners = {}; _espaces.forEach(e => { _espaceOwners[e.espaceId] = e.ownerId })   // résolution par-SCI (Storage/uuid)
     // P1.3 volet RGPD — le miroir résiduel appartient-il à CE user/espace ? (tag posé au login précédent).

@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.710</title>
+<title>Propryo v15.711</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -58,7 +58,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.709">
+<link rel="stylesheet" href="css/main.css?v=15.711">
 <link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7976c7e3">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/core/utils.js">
@@ -105,6 +105,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/preserve-fields.js">
 <link rel="modulepreload" href="js/core/cover-photo.js">
 <link rel="modulepreload" href="js/core/biens-migration.js">
+<link rel="modulepreload" href="js/core/normalisation-loyers.js">
 <link rel="modulepreload" href="js/core/biens-pieces.js">
 <link rel="modulepreload" href="js/core/edl-photos.js">
 <link rel="modulepreload" href="js/core/edl-autosave.js">
@@ -145,7 +146,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <!-- modulepreload:end -->
 <!-- PARAPHE-UNIQUE (v15.710) : une image de paraphe par signataire + lecteur des deux formes (window.BailParaphes, source js/core/bail-paraphes.js). -->
 <script src="js/helpers/bail-paraphes.global.js?v=bc8c13ad" defer></script>
-<!-- PARAPHE-UNIQUE : contr�le � onglet p�rim� � avant de signer / r�g�n�rer le PDF d'un bail sign� (window.VersionApp, source js/core/version-app.js). -->
+<!-- PARAPHE-UNIQUE : contr�le � onglet p�rim� � avant de signer / r�g�n�rer le PDF d'un bail sign� (window.VersionApp, source js/core/version-app.js). -->
 <script src="js/helpers/version-app.global.js?v=97798663" defer></script>
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
@@ -258,7 +259,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.710</em>
+      <em>v15.711</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4497,7 +4498,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/irl-dpe-gate.global.js?v=722abf97" defer></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
-<script src="js/helpers/alert-rules.global.js?v=b880da16" defer></script>
+<script src="js/helpers/alert-rules.global.js?v=cc4d6d72" defer></script>
 <!-- v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (window.DashCtx) :
      scope + matchMv + mvs/mvsYTD/mvsPrev/refYrMo + KPIs occupation/totaux (ex-copiés rDash/rAccueil/renders) -->
 <script src="js/helpers/dash-ctx.global.js?v=956b0838" defer></script>
@@ -4513,9 +4514,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=800373d0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=e9651f74" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=ffa1a2d2" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/app-part1.js?v=f231e420" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=f703bca5" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">

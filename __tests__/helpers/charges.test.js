@@ -2,16 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { _isLoyerCategory, _isChargeRecupCategory, _countMatching } from './charges.js';
 
 describe('_isLoyerCategory', () => {
-  it('accepte legacy "Loyers"', () => {
-    expect(_isLoyerCategory('Loyers')).toBe(true);
+  // NORMALISATION-LOYERS (01/10) : la catégorie héritée « Loyers » n'est plus tolérée par le code ;
+  // les données sont normalisées en « Loyers encaissés » à chaque porte d'entrée (normalisation-loyers.test.js).
+  it('refuse la catégorie héritée "Loyers" (plus de tolérance)', () => {
+    expect(_isLoyerCategory('Loyers')).toBe(false);
   });
 
   it('accepte LEGAL-2044 "Loyers encaissés"', () => {
     expect(_isLoyerCategory('Loyers encaissés')).toBe(true);
   });
 
-  it('accepte LEGAL-2044 "Arriérés de loyers" (211)', () => {
-    expect(_isLoyerCategory('Arriérés de loyers')).toBe(true);
+  it('refuse l\'ancien libellé "Arriérés de loyers" (normalisé en "Loyers encaissés")', () => {
+    expect(_isLoyerCategory('Arriérés de loyers')).toBe(false);
   });
 
   it('rejette les autres recettes 211 si elles existent', () => {
@@ -110,17 +112,17 @@ describe('Scenario complet — BUG-CHARGE-001', () => {
     expect(chgModern).toBe(1);
   });
 
-  it('APRÈS FIX : compatibilité 100% avec legacy', () => {
+  it('NORMALISATION-LOYERS : un loyer hérité non normalisé n\'est plus compté (la normalisation passe avant)', () => {
     const provLeg = _countMatching(mvtsLegacy, m => _isLoyerCategory(m.cat) && m.cr > 0);
-    expect(provLeg).toBe(2);
+    expect(provLeg).toBe(0);
     const chgLeg = _countMatching(mvtsLegacy, m => _isChargeRecupCategory(m.cat) && m.db > 0);
     expect(chgLeg).toBe(1);
   });
 
-  it('APRÈS FIX : mix legacy + modern dans même DB → match les deux', () => {
+  it('NORMALISATION-LOYERS : dans un mix, seuls les loyers canoniques comptent', () => {
     const mvtsMix = [...mvtsLegacy, ...mvtsModern];
     const prov = _countMatching(mvtsMix, m => _isLoyerCategory(m.cat) && m.cr > 0);
-    expect(prov).toBe(4); // 2 legacy + 2 modern
+    expect(prov).toBe(2); // les 2 « Loyers encaissés » ; les « Loyers » hérités sont normalisés en amont
     const chg = _countMatching(mvtsMix, m => _isChargeRecupCategory(m.cat) && m.db > 0);
     expect(chg).toBe(2);
   });

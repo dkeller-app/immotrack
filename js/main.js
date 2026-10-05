@@ -172,6 +172,8 @@ import { _preserverChampsExistants, _preserverBailExistant, _preserverSaufChamps
 import { choisirCouverture } from './core/cover-photo.js';
 // BIENS — migrations douces du chantier (n° lot copro, …).
 import { migrerNumLotVersLot } from './core/biens-migration.js';
+// NORMALISATION-LOYERS (01/10) — « Loyers » / « Arriérés de loyers » → « Loyers encaissés » + IBAN locataire purgé.
+import { normaliserDonneesLoyers, homonymePerso as loyersHomonymePerso, CATEGORIE_LOYERS, CATEGORIES_LOYERS_HERITEES } from './core/normalisation-loyers.js';
 // BIENS etapes 5/6 — liste des pieces (kit derive de EDL_TPL/EDL_EXTRA, clauses de bail).
 import * as BiensPieces from './core/biens-pieces.js';
 
@@ -819,6 +821,9 @@ window._preserverSaufChampsPilotes = _preserverSaufChampsPilotes;
 window.choisirCouverture = choisirCouverture;
 // BIENS — migrations douces (appelees par _bootDataJobs ; idempotentes).
 window._biensMigration = { numLotVersLot: migrerNumLotVersLot };
+// NORMALISATION-LOYERS — appelée par index.html (_normaliserLoyers) : initDB, restauration, import JSON,
+// _bootDataJobs. Le module est différé mais s'exécute AVANT DOMContentLoaded, donc avant initDB.
+window.NormalisationLoyers = { normaliser: normaliserDonneesLoyers, homonymePerso: loyersHomonymePerso, CATEGORIE_LOYERS, CATEGORIES_LOYERS_HERITEES };
 // BIENS — liste des pieces + clauses generees (designation des pieces, parties communes).
 window.BiensPieces = BiensPieces;
 // EDL TERRAIN lot 0 — collecte des photos d'un EDL + selection « a la demande ».

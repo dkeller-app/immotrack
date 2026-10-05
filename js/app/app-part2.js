@@ -15262,7 +15262,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.710 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.711 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -21642,7 +21642,7 @@ function _preserverChampsExistants(reconstruit, existant) {
 // GARDER IDENTIQUE au module. __tests__/helpers/bail-save-preserve.test.js vérifie la
 // non-divergence. saveBail reconstruit son bail depuis le formulaire puis remplace l'ancien :
 // le dossier de départ (bail.depart) et la restitution du DG (dgRestitueAt / dgDetailRetenues /
-// dgRestitueMontant / locNouvIban) disparaissaient au moindre enregistrement. Gate isNewBail :
+// dgRestitueMontant) disparaissaient au moindre enregistrement. Gate isNewBail :
 // archiverBail laisse l'ancien bail en place au re-bail — sans gate, le nouveau locataire
 // hériterait du départ et des signatures du précédent.
 function _preserverBailExistant(reconstruit, existant, isNewBail) {
@@ -25776,7 +25776,7 @@ function saveAgendaEvt() {
 
 /**
  * Cumul impayé pour un bail à dateRef.
- * Loyer attendu × nb mois entre debut et dateRef (clip à fin du bail) - sum encaissés (cat = Loyers/_isLoyerCategory).
+ * Loyer attendu × nb mois entre debut et dateRef (clip à fin du bail) - sum encaissés (_isLoyerCategory).
  * Retourne > 0 si dette locataire, < 0 si trop-perçu, 0 si à jour.
  */
 function _pilSoldeLocataire(bail, log, mouvements, dateRef) {
@@ -25794,7 +25794,7 @@ function _pilSoldeLocataire(bail, log, mouvements, dateRef) {
   // Sum des encaissements liés à ce bail (m.qui === ref + cat = loyer)
   const encaisses = (mouvements||[]).filter(m =>
     m && !m._deleted && m.qui === ref && m.cr > 0 &&
-    (typeof _isLoyerCategory === 'function' ? _isLoyerCategory(m.cat) : m.cat === 'Loyers')
+    _isLoyerCategory(m.cat)   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
   ).reduce((s,m) => s + (m.cr||0), 0);
   return Math.round((attendu - encaisses) * 100) / 100;
 }
@@ -25806,7 +25806,7 @@ function _pilEncaisseMois(bail, log, mouvements, year, month) {
   const ym = `${year}-${String(month).padStart(2,'0')}`;
   return (mouvements||[]).filter(m =>
     m && !m._deleted && m.qui === ref && m.cr > 0 && m.date && m.date.startsWith(ym) &&
-    (typeof _isLoyerCategory === 'function' ? _isLoyerCategory(m.cat) : m.cat === 'Loyers')
+    _isLoyerCategory(m.cat)
   ).reduce((s,m) => s + (m.cr||0), 0);
 }
 
@@ -26174,11 +26174,6 @@ function _dgOpenRestitution(ref) {
       <textarea class="inp" id="dg-restit-detail-retenues" rows="2" placeholder="Ex : devis plombier joint, remarque particulière…" style="width:100%">${escHtml(bail.dgDetailRetenues||'')}</textarea>
     </div>
 
-    <div class="fg" style="margin-bottom:10px">
-      <label style="font-size:11.5px;font-weight:600">IBAN locataire (pour virement)</label>
-      <input class="inp" id="dg-restit-iban" value="${escHtml(bail.locNouvIban||'')}" placeholder="FR76 ..." style="width:100%">
-    </div>
-
     <div class="fg" style="margin-bottom:0">
       <label style="font-size:11.5px;font-weight:600">Date du virement de restitution</label>
       <input class="inp" type="date" id="dg-restit-date" value="${_dgDateVirement || ''}" style="width:180px" onchange="_dgRestitRecalc('${_lyQ(ref)}')">
@@ -26248,7 +26243,6 @@ function _dgConfirmerRestitution() {
   const autres = Math.max(0, parseFloat(v('dg-restit-autres')) || 0);
   const retenuesTotal = Math.round((reparations + autres) * 100) / 100;
   const detailRetenues = v('dg-restit-detail-retenues') || '';
-  const iban = v('dg-restit-iban') || '';
   const adresseKO = !!(el('dg-restit-adresse-ko') && el('dg-restit-adresse-ko').checked);
   // I-DATE : plus de repli silencieux sur `td()`. Une restitution de DG datée du jour de
   // l'édition fausse le délai de l'article 22 et la pénalité de 10 %/mois qui en découle.
@@ -26284,7 +26278,9 @@ function _dgConfirmerRestitution() {
   // (source cohérente pour recalculer la part régul à la prochaine ouverture — AUDIT #2).
   bail.dgRetenu = retenuesTotal;
   bail.dgDetailRetenues = detailRetenues;
-  bail.locNouvIban = iban;
+  // NORMALISATION-LOYERS (01/10, RGPD) : l'IBAN du locataire n'est plus demandé ni gardé. Un ancien
+  // IBAN encore porté par ce bail est retiré ici (la normalisation le retire aussi au chargement).
+  delete bail.locNouvIban;
   bail.dgRestitueAt = dateRestitution;
   bail.dgRestitueMontant = montantRestitue;
   bail.dgAdresseNonCommuniquee = adresseKO;
@@ -26337,7 +26333,7 @@ function _suiviDetailHtml(log, s, yr) {
   const solde = '<div style="padding:10px 14px;background:var(--sur3);border-top:1px solid var(--bor2);font-size:12px;color:var(--t2)">Attendu à date <b style="color:var(--t1)">' + fmt(s.attendu) + '</b> · reçu <b style="color:var(--t1)">' + fmt(s.recu) + '</b> · solde <b style="color:' + (s.solde >= 0 ? 'var(--pos)' : 'var(--neg)') + '">' + (s.solde >= 0 ? '+ ' : '− ') + fmt(Math.abs(s.solde)) + '</b> <span style="color:var(--t3)">· clique un mois pour ses paiements</span></div>';
   let drill = '';
   if (_suiviMonth) {
-    const isLoy = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
+    const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
     const ym = String(yr) + '-' + String(_suiviMonth).padStart(2, '0');
     const pays = (DB.mouvements || []).filter(m => m && !m._deleted && m.qui === log.ref && (m.cr || 0) > 0 && isLoy(m.cat) && m.date && m.date.startsWith(ym));
     const mObj = s.months.find(x => x.mi === _suiviMonth) || {};
@@ -31244,6 +31240,9 @@ function _backupRestoreApply(snap) {
     if (keepSecrets.bailSignAppKey != null) DB.params.bailSignAppKey = keepSecrets.bailSignAppKey;
     if (keepSecrets.bailSignRelayUrl != null) DB.params.bailSignRelayUrl = keepSecrets.bailSignRelayUrl;
   }
+  // NORMALISATION-LOYERS (01/10) : une sauvegarde d'avril remet ~50 mouvements « Loyers » hérités. On les
+  // normalise ICI, AVANT l'envoi (le flush pousse l'état normalisé) et avant le saveDB du mode local.
+  _normaliserLoyers('restauration');
 }
 
 async function _backupRestoreRun(dir, snapName) {
@@ -31839,6 +31838,8 @@ function importJSON(inp) {
       const _cleanProto=o=>{ if(!o||typeof o!=='object') return o; if(Array.isArray(o)){o.forEach(_cleanProto);return o;} for(const k of Object.keys(o)){ if(_DANGER.has(k)){delete o[k];continue;} _cleanProto(o[k]); } return o; };
       _cleanProto(data);
       if(!confirm2('Remplacer toute la base par ce fichier ?')) return;
+      // NORMALISATION-LOYERS (01/10) : même normalisation que la restauration, avant d'adopter la base.
+      _normaliserLoyers('import JSON', data);
       DB=data;
       saveDB();
       showToast('Import réussi','ok');

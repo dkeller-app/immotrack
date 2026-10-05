@@ -631,22 +631,27 @@ describe('EMAIL-AUTO extension v15.09 — Sortie & solde', () => {
     expect(r.attachments[0].name).toMatch(/EDL-sortie/);
   });
 
-  it('dg-restitution-integrale : virement IBAN + délai 1 mois', () => {
-    const ctx = { ...ctxAlpha(), dateEDLSortie: '2026-06-30',
-      ibanLocataire: 'FR76 1234 5678 ...', dateRestitution: '2026-07-25' };
+  it('dg-restitution-integrale : virement + délai 1 mois, SANS IBAN du locataire (RGPD)', () => {
+    const ctx = { ...ctxAlpha(), dateEDLSortie: '2026-06-30', dateRestitution: '2026-07-25' };
     const r = _emailCompose('dg-restitution-integrale', ctx);
+    expect(r.body).not.toMatch(/IBAN/);
+    expect(r.body).not.toMatch(/ibanLocataire/);
+    expect(r.body).toMatch(/virement bancaire/);
     expect(r.body).toMatch(/intégralité/);
     expect(r.body).toMatch(/2026-07-25/);
     expect(r.body).toMatch(/délai légal d'un mois/);
     expect(r.legalNote).toMatch(/10 %/);
   });
 
-  it('dg-restitution-partielle : retenues détaillées + IBAN', () => {
+  it('dg-restitution-partielle : retenues détaillées, SANS IBAN du locataire (RGPD)', () => {
     const ctx = { ...ctxAlpha(), dateEDLSortie: '2026-06-30',
       detailRetenues: '• Peinture séjour : 280 €\n• Joint salle de bain : 60 €',
       montantRetenu: '340', soldeRestitue: '900',
-      ibanLocataire: 'FR76 1234', dateRestitution: '2026-08-30' };
+      dateRestitution: '2026-08-30' };
     const r = _emailCompose('dg-restitution-partielle', ctx);
+    expect(r.body).not.toMatch(/IBAN/);
+    expect(r.body).not.toMatch(/ibanLocataire/);
+    expect(r.body).toMatch(/2026-08-30/);
     expect(r.body).toMatch(/Peinture séjour : 280/);
     expect(r.body).toMatch(/2 mois/);
     expect(r.legalNote).toMatch(/Justificatifs OBLIGATOIRES/);

@@ -190,7 +190,6 @@ export function _dpeInterdictionCalendrier() {
 /** Référentiel par défaut utilisé par les tests. En prod, on lui passe le STD_CATEGORIES global. */
 const STD_CATEGORIES_DEFAULT = [
   { nom: 'Loyers encaissés', ligne2044: '211', type: 'recette' },
-  { nom: 'Arriérés de loyers', ligne2044: '211', type: 'recette' },
   { nom: 'Charges de copropriété', ligne2044: '229', type: 'charge' },
   { nom: 'Charges récupérables non récupérées', ligne2044: '225', type: 'charge' },
   { nom: 'Régularisation provisions copro N-1', ligne2044: '230', type: 'charge' },
@@ -352,7 +351,9 @@ export function makeCatCtxCache() {
 /** True si cette catégorie compte comme "loyer encaissé" pour la régul. */
 export function _isLoyerCategory(cat, arg) {
   if (!cat) return false;
-  if (cat === 'Loyers') return true;
+  // NORMALISATION-LOYERS (01/10) : plus aucune tolérance de la catégorie héritée « Loyers ». Les données
+  // sont normalisées en « Loyers encaissés » à chaque porte d'entrée (js/core/normalisation-loyers.js :
+  // chargement, restauration, import JSON). Seul le référentiel, l'alias ou le mapping 211 rattachent.
   const ctx = _catCtx(arg);
   const mere = _catMere(cat, ctx);
   if (mere) return mere.type === 'recette' && mere.ligne2044 === '211';
