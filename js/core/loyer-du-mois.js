@@ -249,6 +249,11 @@ export function duMoisFromRaw(ref, ym, raw) {
   return duMois({ ref, bails: bailsFromRaw(ref, raw), bareme: (raw && raw.bareme) || [] }, ym);
 }
 
+// R0-C (2ᵉ audit 🟠2) — terme ÉCHU (`modalitePaiement` 'echu' / 'terme_echu') : seul cas où le terme
+// d'un mois est exigible APRÈS une borne posée en cours de mois. Marqué seulement s'il est vrai (forme
+// des baux inchangée sinon : à échoir est le défaut du bail).
+const _echu = (src, b) => ((src && (src.modalitePaiement === 'echu' || src.modalitePaiement === 'terme_echu')) ? Object.assign(b, { echu: true }) : b);
+
 /**
  * Normalisation des baux d'un lot depuis les collections BRUTES — extraite de duMoisFromRaw
  * pour être RÉUTILISÉE telle quelle par les autres consommateurs du même contexte
@@ -265,11 +270,11 @@ export function bailsFromRaw(ref, raw) {
   if (cur && !cur._deleted && cur.debut) {
     // Bail COURANT : fin contractuelle IGNORÉE pour le dû (tacite reconduction) — on ne passe
     // que finEffective à duMois, jamais `fin`, et archive:false.
-    bails.push({ debut: cur.debut, finEffective: cur.finEffective || null, archive: false, hc: Number(cur.hc) || 0, ch: Number(cur.ch) || 0 });
+    bails.push(_echu(cur, { debut: cur.debut, finEffective: cur.finEffective || null, archive: false, hc: Number(cur.hc) || 0, ch: Number(cur.ch) || 0 }));
   }
   for (const b of (raw.bauxHistorique || [])) {
     if (!b || b._deleted || !b.debut || _nr(b.ref) !== want) continue;
-    bails.push({ debut: b.debut, fin: b.fin || null, finEffective: b.finEffective || null, archive: true, hc: Number(b.hc) || 0, ch: Number(b.ch) || 0 });
+    bails.push(_echu(b, { debut: b.debut, fin: b.fin || null, finEffective: b.finEffective || null, archive: true, hc: Number(b.hc) || 0, ch: Number(b.ch) || 0 }));
   }
   return bails;
 }
@@ -312,10 +317,17 @@ export function _debutSuivi(ctx, firstPaymentYm) {
  * mockups/R0C/DECISIONS-Q1.md) : ce résolveur ne la devine jamais.
  * @param {Object} ctx même contexte que duMois
  * @param {string} ym 'YYYY-MM'
- * @param {string|null} debutSuivi 'YYYY-MM-DD' (au jour : le mois de la borne est PRORATISÉ à partir
- *        de ce jour) ou 'YYYY-MM' (1ᵉʳ du mois). null/absent = AUCUNE borne : dû depuis l'entrée du bail.
+ * @param {string|null} debutSuivi 'YYYY-MM-DD' ou 'YYYY-MM' (1ᵉʳ du mois). null/absent = AUCUNE borne : dû
+ *        depuis l'entrée du bail.
+ *        Borne posée en cours de mois (2ᵉ audit 🟠2, décision pilotage 05/10) : le dû envers le locataire
+ *        commence au PREMIER TERME EXIGIBLE APRÈS la borne, jamais au prorata des jours. Le terme d'un
+ *        bail à échoir commencé avant la borne était exigible avant elle (le 1ᵉʳ du mois, ou l'entrée du
+ *        bail) : il revient au vendeur, ce bail ne doit rien au bailleur actuel ce mois-là. Le terme d'un
+ *        bail à terme échu (`echu`) est exigible en fin de mois, après la borne : il est dû en entier.
+ *        Un bail entré à la borne ou après doit son terme, proratisé à son entrée comme toujours. Le
+ *        prorata vendeur/acquéreur (art. 586 C. civ., réglé chez le notaire) reste HORS de la dette.
  * @param {{segmentDebut?:string}} [opts] transmis à duMois ; `segmentDebut` désigne le bail par
- *        son entrée RÉELLE (le recadrage à la borne est fait ici).
+ *        son entrée (un bail sorti du mois de la borne y doit 0).
  */
 export function duMoisSuivi(ctx, ym, debutSuivi, opts) {
   const vide = { hc: 0, ch: 0, total: 0, source: 'vacance' };
@@ -324,16 +336,16 @@ export function duMoisSuivi(ctx, ym, debutSuivi, opts) {
   const borne = String(debutSuivi).length === 7 ? String(debutSuivi) + '-01' : String(debutSuivi).slice(0, 10);
   if (String(ym) < borne.slice(0, 7)) return vide;
   if (String(ym) > borne.slice(0, 7) || borne.slice(8, 10) === '01') return duMois(ctx, ym, opts);
-  // Mois de la borne, entamé : chaque bail démarre au plus tôt à la borne (prorata au jour par duMois),
-  // un bail terminé avant elle n'a rien à devoir au bailleur actuel.
+  // Mois de la borne, entamé : seul compte le terme exigible APRÈS elle (cf. ci-dessus). Un bail à échoir
+  // entré avant la borne sort du mois ; un bail à terme échu le garde en entier s'il court encore à la
+  // borne (sorti avant, son dernier terme était exigible avant elle) ; un bail entré à la borne ou après
+  // est inchangé. Les baux gardés ne sont pas recadrés : leurs segments restent ceux de duMois.
+  const finDe = (b) => { const e = b.finEffective || (b.archive ? b.fin : null); return e ? String(e).slice(0, 10) : null; };
+  const bails = (ctx && ctx.bails || []).filter((b) => _isAlive(b) && b.debut
+    && (String(b.debut).slice(0, 10) >= borne || (b.echu && (!finDe(b) || finDe(b) >= borne))));
   const seul = (opts && opts.segmentDebut) ? String(opts.segmentDebut).slice(0, 10) : null;
-  const bails = (ctx && ctx.bails || []).filter((b) => _isAlive(b) && b.debut).map((b) => {
-    const d = String(b.debut).slice(0, 10);
-    return d < borne ? Object.assign({}, b, { debut: borne, _debutReel: d }) : Object.assign({}, b, { _debutReel: d });
-  }).filter((b) => { const e = b.finEffective || (b.archive ? b.fin : null); return !e || String(e).slice(0, 10) >= borne; });
-  const cible = seul ? bails.find((b) => b._debutReel === seul) : null;
-  if (seul && !cible) return vide;
-  return duMois(Object.assign({}, ctx, { bails }), ym, seul ? { segmentDebut: String(cible.debut).slice(0, 10) } : opts);
+  if (seul && !bails.some((b) => String(b.debut).slice(0, 10) === seul)) return vide;
+  return duMois(Object.assign({}, ctx, { bails }), ym, opts);
 }
 
 /** Adaptateur collections brutes → duMoisSuivi (même forme que duMoisFromRaw). */
@@ -390,15 +402,39 @@ export function _loyerArrearsPass(months, opts) {
   // final » reste vrai, l'Accueil (qui lit ce total via Finances) ne ment plus sur un vieux dû.
   // Aucune imputation fiscale : c'est une dette, pas un dû/encaissement du mois (2044 en amont).
   const _open = opts && opts.opening;
+  // R0-C (2ᵉ audit 🔴1) — `opening.idx` : mois où l'ouverture est posée (début du suivi dans la
+  // fenêtre). Défaut 0 (début de fenêtre), comportement historique.
+  const oIdx = _open ? Math.max(0, Math.min(ms.length ? ms.length - 1 : 0, Number(_open.idx) || 0)) : 0;
   if (_open) {
     const oL = Math.max(0, Number(_open.loyer) || 0), oC = Math.max(0, Number(_open.charge) || 0);
-    if (oL > 0.005) loyerQ.push({ idx: 0, short: oL, due: oL, recv: 0, opening: true });
-    if (oC > 0.005) chargeQ.push({ idx: 0, short: oC, due: oC, recv: 0, opening: true });
+    if (oL > 0.005) loyerQ.push({ idx: oIdx, short: oL, due: oL, recv: 0, opening: true });
+    if (oC > 0.005) chargeQ.push({ idx: oIdx, short: oC, due: oC, recv: 0, opening: true });
+    // Manques NÉS DANS LE SUIVI reportés d'une passe précédente (pré-passe du maître) : ils suivent
+    // l'ouverture dans les files (même ordre FIFO qu'un calcul d'une traite) et, eux seuls, peuvent
+    // être soldés par la réserve (ci-dessous).
+    const sL = Math.max(0, Number(_open.loyerSuivi) || 0), sC = Math.max(0, Number(_open.chargeSuivi) || 0);
+    if (sL > 0.005) loyerQ.push({ idx: oIdx, short: sL, due: sL, recv: 0 });
+    if (sC > 0.005) chargeQ.push({ idx: oIdx, short: sC, due: sC, recv: 0 });
     // AVANCE d'ouverture (trop-perçu de N-1, ex. locataire à terme échoir qui paie janvier le 28/12) :
     // portée comme avance de départ → couvre les 1ers mois dus de l'année AVANT qu'un retard naisse.
     // Sinon l'Accueil afficherait un faux impayé sur un locataire qui a payé d'avance (audit C2 #1,
     // décision CDC (b) l.136). N'a de sens qu'avec le report (carry) — la politique du maître.
     if (carry) { const oA = Math.max(0, Number(_open.avance) || 0); if (oA > 0.005) avanceCarry = oA; }
+  }
+  // R0-C (2ᵉ audit 🔴1) — RÉSERVE : les encaissements datés dans le mois qui PRÉCÈDE le début du
+  // suivi. Le solde noté à cette date les contient déjà, sauf le terme payé d'avance (loyer du 1ᵉʳ
+  // mois suivi réglé le 28 du mois d'avant). Ils peuvent donc solder un manque NÉ DANS LE SUIVI et
+  // encore ouvert EN FIN DE PASSE — jamais l'ouverture (déjà nette d'eux), jamais devenir un
+  // trop-perçu, ni en libérer un : appliquée au fil des mois, elle aurait soldé un manque qu'un
+  // surplus ultérieur aurait recouvré, et ce surplus serait devenu une avance.
+  // `opening.reserve` = { montant, sources? } ; le reliquat est rendu (`reserveReste`).
+  let reserve = 0, resFrags = [];
+  if (_open && _open.reserve) {
+    reserve = Math.max(0, Number(_open.reserve.montant) || 0);
+    resFrags = (Array.isArray(_open.reserve.sources) ? _open.reserve.sources : [])
+      .filter((s) => s && (Number(s.montant) || 0) > 0)
+      .slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+      .map((s) => ({ date: s.date || null, id: (s.id != null ? s.id : null), reste: Number(s.montant) || 0 }));
   }
 
   // ── Traçabilité (lot 0) : le miroir en fragments du pool scalaire ──────────
@@ -437,6 +473,18 @@ export function _loyerArrearsPass(months, opts) {
       if (f.reste <= 0.0000001) frags.shift();
     }
   };
+  /** Même chose pour la réserve (fragments datés du mois qui précède le suivi). */
+  const drawReserve = (idx, poste, amt) => {
+    let a = amt;
+    while (a > 0.0000001 && resFrags.length) {
+      const f = resFrags[0];
+      const t = Math.min(a, f.reste);
+      if (t > 0.0000001) imput[idx].push({ date: f.date, id: f.id, montant: t, poste });
+      f.reste -= t; a -= t;
+      if (f.reste <= 0.0000001) resFrags.shift();
+    }
+    if (a > 0.0000001) imput[idx].push({ date: null, id: null, montant: a, poste });
+  };
   const recover = (q, amt, poste) => {
     let a = amt;
     for (const e of q) {
@@ -468,8 +516,23 @@ export function _loyerArrearsPass(months, opts) {
     if (carry) { avanceCarry = pool; out.avance = _r2(avanceCarry); }
     return out;
   });
+  // Réserve : en fin de passe, sur les seuls manques nés dans le suivi (loyer d'abord, plus anciens
+  // d'abord). Aucun manque restant ⇒ aucune avance n'est touchée (avance et manque ne coexistent pas).
+  if (reserve > 0.005) {
+    for (const [q, poste] of [[loyerQ, 'loyer'], [chargeQ, 'charge']]) {
+      for (const e of q) {
+        if (reserve <= 0.005) break;
+        if (e.opening || e.short <= 0.005) continue;
+        const t = Math.min(reserve, e.short);
+        e.short -= t; reserve -= t;
+        drawReserve(e.idx, poste, t);
+      }
+    }
+  }
   const clean = (q) => q.filter((e) => e.short > 0.005).map((e) => ({ idx: e.idx, short: _r2(e.short), due: _r2(e.due), recv: _r2(e.recv) }));
-  const last = perMonth.length ? perMonth[perMonth.length - 1] : { loyerArrear: 0, chargeArrear: 0 };
+  const last = perMonth.length
+    ? Object.assign({}, perMonth[perMonth.length - 1], { loyerArrear: _r2(sumQ(loyerQ)), chargeArrear: _r2(sumQ(chargeQ)) })
+    : { loyerArrear: 0, chargeArrear: 0 };
   // RÉSIDU par mois (colonnes P&L) : le manque ENCORE dû attribué à son mois d'origine
   // (net des rattrapages ET du netting). Invariant : Σ = arriéré final.
   const residual = (q) => { const a = ms.map(() => 0); q.forEach((e) => { if (e.short > 0.005 && e.idx >= 0 && e.idx < a.length) a[e.idx] = _r2(a[e.idx] + e.short); }); return a; };
@@ -492,6 +555,13 @@ export function _loyerArrearsPass(months, opts) {
   });
   const res = { months: perMonth, retardMois, imputations, loyerArrear: last.loyerArrear, chargeArrear: last.chargeArrear, causeLoyer: clean(loyerQ), causeCharge: clean(chargeQ) };
   if (carry) res.avance = _r2(avanceCarry);
+  if (_open && _open.reserve) res.reserveReste = _r2(reserve);
+  // Part de l'arriéré final qui vient encore de l'OUVERTURE (le reste est né dans le suivi) : le maître
+  // la reporte telle quelle d'une passe à l'autre (`loyer`/`charge` vs `loyerSuivi`/`chargeSuivi`).
+  if (_open) {
+    const oR = (q) => _r2(q.filter((e) => e.opening).reduce((t, e) => t + e.short, 0));
+    res.ouvertureReste = { loyer: oR(loyerQ), charge: oR(chargeQ) };
+  }
   return res;
 }
 

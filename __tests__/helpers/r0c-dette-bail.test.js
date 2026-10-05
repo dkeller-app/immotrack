@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { _computeDetteBail, _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
-import { duMois, duMoisSuivi, duMoisSuiviFromRaw } from '../../js/core/loyer-du-mois.js';
+import { duMois, duMoisSuivi, duMoisSuiviFromRaw, bailsFromRaw } from '../../js/core/loyer-du-mois.js';
 import { periodeInitialeBail, appliquerNouvellePeriode } from '../../js/core/loyer-bareme.js';
 
 /**
@@ -45,19 +45,51 @@ describe('duMoisSuivi — Q1 RÉVISÉ : borné par l\'entrée en jouissance, jam
     expect(duMoisSuivi(ctx, '2026-02', '2026-03-15').total).toBe(0);
     expect(duMoisSuivi(ctx, '2026-04', '2026-03-15')).toEqual(duMois(ctx, '2026-04'));
   });
-  it('mois de la borne : proratisé au jour (acte signé le 15/03 → 17 jours sur 31)', () => {
-    expect(duMoisSuivi(ctx, '2026-03', '2026-03-15').hc).toBe(340);
-    expect(duMoisSuivi(ctx, '2026-03', '2026-03').hc).toBe(620);      // 'YYYY-MM' = 1er du mois
+  // 2ᵉ audit 🟠2 (décision pilotage 05/10) : le dû envers le locataire part du PREMIER TERME EXIGIBLE
+  // APRÈS la borne. Plus aucun prorata au jour contre le locataire : le prorata vendeur/acquéreur
+  // (art. 586 C. civ.) se règle chez le notaire, hors de la dette.
+  it('mois de la borne, bail à ÉCHOIR entré avant : le terme était exigible le 1ᵉʳ, il revient au vendeur (0)', () => {
+    expect(duMoisSuivi(ctx, '2026-03', '2026-03-15').total).toBe(0);
+    expect(duMoisSuivi(ctx, '2026-04', '2026-03-15').hc).toBe(620);      // 1ᵉʳ terme exigible après l'achat
+    expect(duMoisSuivi(ctx, '2026-03', '2026-03').hc).toBe(620);         // 'YYYY-MM' = 1ᵉʳ du mois : terme entier
+    expect(duMoisSuivi(ctx, '2026-03', '2026-03-01').hc).toBe(620);
   });
-  it('segmentDebut désigne le bail par son entrée RÉELLE, même recadrée à la borne', () => {
-    expect(duMoisSuivi(ctx, '2026-03', '2026-03-15', { segmentDebut: '2025-03-01' }).hc).toBe(340);
+  it('mois de la borne, bail à TERME ÉCHU : le terme est exigible en fin de mois, après l\'achat — dû en entier', () => {
+    const echu = { ref: 'L', bareme: [], bails: [{ debut: '2025-03-01', archive: false, hc: 620, ch: 0, echu: true }] };
+    expect(duMoisSuivi(echu, '2026-03', '2026-03-15').hc).toBe(620);
+    expect(duMoisSuivi(echu, '2026-02', '2026-03-15').total).toBe(0);
+  });
+  it('segmentDebut désigne le bail par son entrée ; un bail sorti du mois de la borne y doit 0', () => {
+    expect(duMoisSuivi(ctx, '2026-03', '2026-03-15', { segmentDebut: '2025-03-01' }).total).toBe(0);
+    expect(duMoisSuivi(ctx, '2026-04', '2026-03-15', { segmentDebut: '2025-03-01' }).hc).toBe(620);
     expect(duMoisSuivi(ctx, '2026-03', '2026-03-15', { segmentDebut: '2024-01-01' }).total).toBe(0);
   });
-  it('un bail terminé avant la borne n\'a rien à devoir au bailleur actuel', () => {
+  it('rotation dans le mois de l\'achat : le sortant ne doit rien, l\'entrant entré APRÈS l\'achat doit son prorata d\'entrée', () => {
     const rot = { ref: 'L', bareme: [], bails: [{ debut: '2025-01-01', finEffective: '2026-03-10', archive: true, hc: 620, ch: 0 },
-      { debut: '2026-03-11', archive: false, hc: 620, ch: 0 }] };
+      { debut: '2026-03-20', archive: false, hc: 620, ch: 0 }] };
     expect(duMoisSuivi(rot, '2026-03', '2026-03-15', { segmentDebut: '2025-01-01' }).total).toBe(0);
-    expect(duMoisSuivi(rot, '2026-03', '2026-03-15', { segmentDebut: '2026-03-11' }).hc).toBe(340);
+    expect(duMoisSuivi(rot, '2026-03', '2026-03-15', { segmentDebut: '2026-03-20' }).hc).toBe(240);   // 12 j / 31
+    expect(duMoisSuivi(rot, '2026-03', '2026-03-15').hc).toBe(240);
+    // l'entrant entré AVANT l'achat (bail à échoir) : son 1ᵉʳ terme était exigible à son entrée → vendeur
+    const rot2 = { ref: 'L', bareme: [], bails: [{ debut: '2025-01-01', finEffective: '2026-03-04', archive: true, hc: 620, ch: 0 },
+      { debut: '2026-03-05', archive: false, hc: 620, ch: 0 }] };
+    expect(duMoisSuivi(rot2, '2026-03', '2026-03-15').total).toBe(0);
+  });
+  it('terme échu : un bail sorti AVANT l\'achat a vu son dernier terme exigible à sa sortie → vendeur', () => {
+    const rot = { ref: 'L', bareme: [], bails: [{ debut: '2025-01-01', finEffective: '2026-03-10', archive: true, hc: 620, ch: 0, echu: true },
+      { debut: '2026-03-20', archive: false, hc: 620, ch: 0, echu: true }] };
+    expect(duMoisSuivi(rot, '2026-03', '2026-03-15', { segmentDebut: '2025-01-01' }).total).toBe(0);
+    expect(duMoisSuivi(rot, '2026-03', '2026-03-15').hc).toBe(240);
+  });
+  it('bailsFromRaw marque le terme échu (modalitePaiement « echu » / « terme_echu »), et lui seul', () => {
+    const raw = (mp) => ({ currentBail: { ref: 'R', debut: '2018-03-16', hc: 650, ch: 0, modalitePaiement: mp }, bauxHistorique: [
+      { ref: 'R', debut: '2010-01-01', fin: '2018-03-15', hc: 500, ch: 0, modalitePaiement: 'terme_echu' }], bareme: [] });
+    expect(bailsFromRaw('R', raw('echu'))[0].echu).toBe(true);
+    expect(bailsFromRaw('R', raw('echeoir'))[0]).not.toHaveProperty('echu');
+    expect(bailsFromRaw('R', raw(undefined))[0]).not.toHaveProperty('echu');
+    expect(bailsFromRaw('R', raw('echeoir'))[1].echu).toBe(true);
+    expect(duMoisSuiviFromRaw('R', '2026-02', raw('echu'), '2026-02-15').hc).toBe(650);
+    expect(duMoisSuiviFromRaw('R', '2026-02', raw('echeoir'), '2026-02-15').total).toBe(0);
   });
   it('duMoisSuiviFromRaw lit les collections brutes de l\'app (bail courant + archivés)', () => {
     const raw = { currentBail: { ref: 'R', debut: '2018-03-16', fin: '2021-03-15', hc: 650, ch: 0 }, bauxHistorique: [], bareme: [] };
@@ -290,7 +322,7 @@ describe('maître et dette — le solde d\'ouverture de l\'ANTÉRIORITÉ est pos
   const ref = 'ANT';
   const ctx = { ref, bareme: [], bails: [{ debut: '2019-09-04', archive: false, hc: 650, ch: 0 }] };
   const maitre = (year, borne, ouv, mouvements) => _computeFinancesMonthly({ mouvements, year, today: '2026-09-30', lastMonth: year === 2026 ? 9 : 12,
-    catLigne, activeLots: [ref], debutDu: () => borne.slice(0, 7), ouverture: () => ouv,
+    catLigne, activeLots: [ref], debutDu: () => borne, ouverture: () => ouv,
     loyerDue: (q, ym) => duMoisSuivi(ctx, ym, borne) }).byLot[ref];
   const tot = (b) => Math.round(b.months.reduce((s, m) => s + m.loyerRetard, 0) * 100) / 100;
   it('arrivée au 01/01/2025 avec 1 300 € d\'arriéré, loyers payés ensuite : 1 300 € reportés, une seule fois, sur 2025 PUIS 2026', () => {

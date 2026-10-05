@@ -236,3 +236,54 @@ export function jeuMultiLots(seed) {
   }
   return { lots, mouvements };
 }
+
+/**
+ * 2ᵉ audit 🔴1 (05/10) — JEU « RELEVÉS ANTÉRIEURS À L'ANTÉRIORITÉ » (cas S1 et variantes). Le bail court
+ * depuis longtemps et ses loyers sont DÉJÀ importés (relevés depuis l'entrée, ou depuis un achat) ; la
+ * situation du locataire est notée APRÈS une partie de ces relevés, n'importe quel jour : à jour, arriéré
+ * (montant quelconque, déclaré), avance. Parfois un achat précède l'antériorité (la date la plus récente
+ * fait foi), parfois le terme est payé d'avance le 28 du mois qui précède la date notée. Générateur
+ * AJOUTÉ (les jeux existants et l'instantané figé ne bougent pas).
+ * @returns {{ref, ctx, bailDebut, fin, jouissance, ant, mouvements, today}}
+ */
+export function jeuAnteriorite(seed) {
+  const R = prng(seed);
+  const ref = 'ANT-' + seed;
+  const TODAYS = ['2026-09-30', '2026-09-05', '2026-12-31', '2026-06-10'];
+  const today = TODAYS[Math.floor(R() * TODAYS.length)];
+  const debut = (2021 + Math.floor(R() * 4)) + '-' + pad(1 + Math.floor(R() * 12)) + '-' + pad(R() < 0.6 ? 1 : 2 + Math.floor(R() * 26));
+  // date notée : 4 à 40 mois après l'entrée, au plus tard 2 mois avant aujourd'hui
+  let antYm = ymAdd(debut.slice(0, 7), 4 + Math.floor(R() * 37));
+  const maxYm = ymAdd(today.slice(0, 7), -2);
+  if (antYm > maxYm) antYm = maxYm;
+  const antDate = antYm + '-' + pad(R() < 0.6 ? 1 : 2 + Math.floor(R() * 26));
+  let fin = null;
+  if (R() < 0.35) {
+    const fy = ymAdd(antYm, 2 + Math.floor(R() * 12));
+    fin = fy >= today.slice(0, 7) ? null : (R() < 0.5 ? lastDay(fy) : fy + '-' + pad(1 + Math.floor(R() * 27)));
+  }
+  const { bail, bareme } = genBail(R, ref, debut, fin, !!fin);
+  const ctx = { ref, bails: [bail], bareme };
+  // achat AVANT la date notée (relevés depuis l'achat), sinon relevés depuis l'entrée du bail
+  let jouissance = null;
+  if (R() < 0.35) {
+    const jy = ymAdd(antYm, -(1 + Math.floor(R() * 12)));
+    jouissance = (jy > debut.slice(0, 7) ? jy : debut.slice(0, 7)) + '-' + pad(1 + Math.floor(R() * 27));
+    if (jouissance > antDate) jouissance = null;
+  }
+  const de = jouissance ? jouissance.slice(0, 7) : debut.slice(0, 7);
+  const a = [fin ? fin.slice(0, 7) : null, today.slice(0, 7)].filter(Boolean).sort()[0];
+  const mouvements = genPaiements(R, ref, ctx, de, a).filter((m) => !jouissance || m.date >= jouissance);
+  // terme du 1ᵉʳ mois suivi payé d'avance, le 28 du mois qui précède la date notée
+  if (R() < 0.3) mouvements.push({ date: ymAdd(antYm, -1) + '-28', cat: 'Loyers encaissés', qui: ref, cr: _r2(duMois(ctx, antYm).total || bail.hc), db: 0 });
+  mouvements.push({ date: debut, cat: 'Dépôt de garantie (reçu / restitué)', qui: ref, cr: bail.hc, db: 0 });
+  mouvements.push({ date: antYm + '-11', cat: 'Loyers encaissés', qui: 'AUTRE-LOT', cr: 999, db: 0 });
+  const x = R();
+  const sit = x < 0.35 ? 'a-jour' : (x < 0.55 ? 'avance' : 'arriere');
+  const ant = { date: antDate, situation: sit,
+    loyer: sit === 'arriere' ? _r2(bail.hc * (0.5 + Math.floor(R() * 6) / 2)) : 0,
+    charges: sit === 'arriere' && R() < 0.5 ? _r2(bail.ch * (1 + Math.floor(R() * 3))) : 0,
+    avance: sit === 'avance' ? _r2(bail.hc * (1 + Math.floor(R() * 2))) : 0, mois: [] };
+  bail.anteriorite = ant;
+  return { ref, ctx, bailDebut: bail.debut, fin, jouissance, ant, mouvements, today };
+}

@@ -108,11 +108,22 @@ describe('R0-C · Q1 révisé — le vrai _finBailHcChAt lit le point de départ
     expect(app._finBailHcChAt('F-BAR', '2026-02')).toEqual({ hc: 0, ch: 0 });
     expect(app._finBailHcChAt('F-BAR', '2026-03')).toEqual({ hc: 650, ch: 0 });
   });
-  it('date d\'achat le 15/03/2026 : mars proratisé au jour, rien avant ; `debutDu` transmis au moteur', () => {
+  it('date d\'achat le 15/03/2026 : dû à partir du 1ᵉʳ terme exigible APRÈS l\'achat (avril), rien avant (2ᵉ audit 🟠2)', () => {
     const app = monter(ferrette({ dateAcq: '2026-03-15' }));
     expect(app._finLotSuivi('F-BAR')).toMatchObject({ date: '2026-03-15', source: 'acquisition' });
-    expect(app._finBailHcChAt('F-BAR', '2026-03').hc).toBe(356.45);   // 650 × 17/31
+    expect(app._finBailHcChAt('F-BAR', '2026-03')).toEqual({ hc: 0, ch: 0 });   // terme du 01/03 : au vendeur
+    expect(app._finBailHcChAt('F-BAR', '2026-04')).toEqual({ hc: 650, ch: 0 });
     expect(app._finBailHcChAt('F-BAR', '2025-12')).toEqual({ hc: 0, ch: 0 });
+    // bail à TERME ÉCHU : le terme de mars est exigible fin mars, après l'achat → dû en entier
+    const DB = ferrette({ dateAcq: '2026-03-15' }); DB.baux['F-BAR'].modalitePaiement = 'echu';
+    expect(monter(DB)._finBailHcChAt('F-BAR', '2026-03')).toEqual({ hc: 650, ch: 0 });
+  });
+  it('S2 · achat le 15/02/2026, février payé au vendeur : aucune dette, ni dans Finances ni dans la dette du bail', () => {
+    const DB = ferrette({ dateAcq: '2026-02-15' });
+    const app = monter(DB);
+    const r = app._finMonthly(2026, null, computeConstatWindow({ year: 2026, today: TODAY, mouvements: DB.mouvements }));
+    expect(r.byLot['F-BAR'].annual.retard).toBe(0);
+    expect(app._finDetteBail('F-BAR', '2018-03-16', null)).toMatchObject({ loyer: 0, charge: 0, avance: 0 });
   });
   it('_finMonthly transmet debutDu et l\'ouverture SAISIS, jamais pour la date provisoire', () => {
     const DB = ferrette({ anteriorite: { date: '2026-03-01', situation: 'arriere', loyer: 1300, charges: 0, mois: ['2026-01', '2026-02'] } });
@@ -128,12 +139,65 @@ describe('R0-C · Q1 révisé — le vrai _finBailHcChAt lit le point de départ
     const att = app._computeExpectedRent('F-BAR', 2026, 9);
     const sigma = ymRange('2026-01', '2026-09').reduce((s, ym) => { const d = app._finBailHcChAt('F-BAR', ym); return s + d.hc + d.ch; }, 0);
     expect(att).toBe(sigma);
-    expect(att).toBe(356.45 + 6 * 650);
+    expect(att).toBe(6 * 650);   // avril → septembre (mars : terme exigible avant l'achat)
   });
   it('_finDetteBail : même point de départ et même solde d\'ouverture que Finances', () => {
     const app = monter(ferrette({ anteriorite: { date: '2026-03-01', situation: 'arriere', loyer: 1300, charges: 0 } }));
     const d = app._finDetteBail('F-BAR', '2018-03-16', null);
     expect(d).toMatchObject({ loyer: 1300, debutSuivi: '2026-03-01', suiviPartiel: true });
+  });
+});
+
+describe('R0-C · 2ᵉ audit — câblage : les mutations qui survivaient (B3, B4, B6) et S1', () => {
+  const pay = (qui, date, cr = 650) => ({ qui, date, cat: 'Loyers encaissés', cr, db: 0 });
+  const win = (DB, y = 2026) => computeConstatWindow({ year: y, today: TODAY, mouvements: DB.mouvements });
+  it('B4 · `debutDu` TRANSMIS : achat 01/10/2025, 1ᵉʳ loyer en février 2026 → octobre-janvier dus (2 600 €), pas seulement janvier', () => {
+    const DB = ferrette({ dateAcq: '2025-10-01' });
+    DB.mouvements = ymRange('2026-02', '2026-09').map((ym) => pay('F-BAR', ym + '-02'));
+    const r = monter(DB)._finMonthly(2026, null, win(DB));
+    expect(r.byLot['F-BAR'].annual.retard).toBe(2600);
+    expect(r.byLot['F-BAR'].months[0].loyerRetard).toBe(2600);   // 3 mois de 2025 reportés + janvier
+  });
+  it('B3 · `debutDu` JAMAIS transmis pour la date provisoire : un lot sans loyer reste exactement comme avant', () => {
+    // lot P payé depuis 06/2025 ; lot V : bail depuis 01/2024, aucun loyer encaissé, aucune date saisie
+    const DB = ferrette();
+    DB.logements.push({ ref: 'V', imm: 'Ferrette', entity: 'SCI S' });
+    DB.baux.V = { ref: 'V', debut: '2024-01-01', hc: 500, ch: 0 };
+    DB.mouvements = ymRange('2025-06', '2026-09').map((ym) => pay('F-BAR', ym + '-02'));
+    const neuf = monter(DB), ancien = monter(DB, { avecModule: false });
+    expect(neuf._finLotSuivi('V')).toMatchObject({ source: 'provisoire', date: '2024-01-01' });
+    for (const y of [2025, 2026]) expect(JSON.stringify(neuf._finMonthly(y, null, win(DB, y)))).toBe(JSON.stringify(ancien._finMonthly(y, null, win(DB, y))));
+    // la pré-passe part du 1ᵉʳ relevé (06/2025), pas de l'entrée du bail de V : 7 mois de 2025 reportés, pas 24
+    expect(neuf._finMonthly(2026, null, win(DB)).byLot.V.months[0].loyerRetard).toBe(7 * 500 + 500);
+  });
+  it('B6 · la dette d\'un bail ne reprend JAMAIS l\'ouverture notée sur un autre bail du lot', () => {
+    const DB = ferrette();
+    DB.baux_historique = [{ ref: 'F-BAR', debut: '2018-03-16', fin: '2026-05-31', finEffective: '2026-05-31', hc: 650, ch: 0,
+      anteriorite: { date: '2026-03-01', situation: 'arriere', loyer: 1300, charges: 0 } }];
+    DB.baux['F-BAR'] = { ref: 'F-BAR', debut: '2026-06-01', hc: 700, ch: 0 };
+    DB.mouvements = [...ymRange('2026-03', '2026-05').map((ym) => pay('F-BAR', ym + '-02')), ...ymRange('2026-06', '2026-09').map((ym) => pay('F-BAR', ym + '-02', 700))];
+    const app = monter(DB);
+    expect(app._finDetteBail('F-BAR', '2018-03-16', '2026-05-31')).toMatchObject({ loyer: 1300, avance: 0 });
+    expect(app._finDetteBail('F-BAR', '2026-06-01', null)).toMatchObject({ loyer: 0, charge: 0, avance: 0 });
+  });
+  it('S1 · arriéré de 1 400 € noté au 01/06/2025, loyers importés depuis 01/2024 : Finances = dette = 1 400 €, 0 d\'avance', () => {
+    const DB = ferrette({ anteriorite: { date: '2025-06-01', situation: 'arriere', loyer: 1400, charges: 0 } });
+    DB.baux['F-BAR'].hc = 700;
+    DB.mouvements = ymRange('2024-01', '2026-09').map((ym) => pay('F-BAR', ym + '-05', 700));
+    const app = monter(DB);
+    expect(app._finMonthly(2026, null, win(DB)).byLot['F-BAR'].annual.retard).toBe(1400);
+    expect(app._finMonthly(2025, null, win(DB, 2025)).byLot['F-BAR'].annual.retard).toBe(1400);
+    const d = app._finDetteBail('F-BAR', '2018-03-16', null);
+    expect(d).toMatchObject({ loyer: 1400, avance: 0, avanceBrute: 0 });
+    expect(d.horsSuivi.length).toBe(16);   // 01/2024 → 04/2025 : jamais imputés
+  });
+  it('B4b · `debutDu` transmis AU JOUR : date notée le 17/06/2025, le loyer du 05/06 n\'est pas imputé (il est dans le solde noté)', () => {
+    const DB = ferrette({ anteriorite: { date: '2025-06-17', situation: 'arriere', loyer: 1400, charges: 0 } });
+    DB.baux['F-BAR'].hc = 700;
+    DB.mouvements = ymRange('2024-01', '2026-09').map((ym) => pay('F-BAR', ym + '-05', 700));
+    const app = monter(DB);
+    expect(app._finMonthly(2026, null, win(DB)).byLot['F-BAR'].annual.retard).toBe(1400);
+    expect(app._finDetteBail('F-BAR', '2018-03-16', null)).toMatchObject({ loyer: 1400, avance: 0 });
   });
 });
 
@@ -159,5 +223,14 @@ describe('R0-C 🟠3 — L-5 (« restée à charge ») teste l\'OCCUPATION, plus
   it('niveau immeuble : « à charge » seulement si AUCUN lot n\'est occupé ce mois-là', () => {
     const app = monter(ferrette());
     expect(app._finIsRecupACharge({ qui: '', imm: 'Ferrette', date: '2026-02-10', cat: 'Eau (récupérable)', db: 300, cr: 0 })).toBe(false);
+  });
+  it('L3 · niveau immeuble, deux lots dont un VACANT : il suffit d\'un lot occupé pour que la charge soit récupérable', () => {
+    const DB = ferrette();
+    DB.logements.push({ ref: 'VIDE', imm: 'Ferrette', entity: 'SCI S' });   // aucun bail
+    const app = monter(DB);
+    const ch = (date) => ({ qui: '', imm: 'Ferrette', date, cat: 'Eau (récupérable)', db: 300, cr: 0 });
+    expect(app._finIsRecupACharge(ch('2026-04-10'))).toBe(false);
+    DB.baux['F-BAR'].finEffective = '2026-05-31';
+    expect(monter(DB)._finIsRecupACharge(ch('2026-07-10'))).toBe(true);    // plus aucun lot occupé
   });
 });

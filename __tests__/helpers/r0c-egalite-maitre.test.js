@@ -28,8 +28,11 @@ function mesurer(seed) {
   const j = jeuUnBail(seed);
   // Même règle que l'app (js/core/anteriorite.js) : date d'achat > antériorité notée ; solde d'ouverture.
   const suivi = debutSuiviLot({ dateAcqImm: j.jouissance, bails: j.ctx.bails, provisoireIso: null });
-  const borne = suivi.date;
-  const debutDu = (borne || j.bailDebut).slice(0, 7);
+  // Sans achat ni antériorité, le suivi part de l'entrée du bail (date que l'utilisateur confirmerait) :
+  // même borne, AU JOUR, pour le maître et la dette (2ᵉ audit 🔴1 : un encaissement daté avant elle n'est
+  // pas imputé, sauf la réserve du mois qui précède — le loyer payé le 28 du mois d'avant).
+  const borne = suivi.date || j.bailDebut;
+  const debutDu = borne;
   const ouv = suivi.ouverture;
   const d = _computeDetteBail({ ref: j.ref, ctx: j.ctx, bailDebut: j.bailDebut, fin: j.fin, mouvements: j.mouvements,
     catLigne, today: j.today, debutSuivi: borne, ouverture: ouv });
@@ -170,8 +173,8 @@ describe('R0-C — le harnais MORD : il aurait refusé la branche rejetée (feat
   const rejetee = (x) => {
     const { j, d } = x;
     const sv = debutSuiviLot({ dateAcqImm: j.jouissance, bails: j.ctx.bails, provisoireIso: null });
-    const borne = sv.date, ouv = sv.ouverture;
-    const debutDu = (borne || j.bailDebut).slice(0, 7);
+    const borne = sv.date || j.bailDebut, ouv = sv.ouverture;
+    const debutDu = borne;
     const f7 = j.bailDebut.slice(0, 7), t7 = d.to;
     let tot = 0;
     for (let y = Number(f7.slice(0, 4)); y <= Number(t7.slice(0, 4)); y++) {

@@ -29509,8 +29509,8 @@ function _finLotSuivi(qui) {
 }
 function _finBailHcChAt(qui, ym) {
   if (!qui || !ym) return { hc: 0, ch: 0 };   // non ventilé / SCI / immeuble → pas de bail → tout en loyer
-  // Q1 révisé : dû borné au point de départ du suivi (résolveur unique duMois, prorata au jour le
-  // mois de l'achat). Sans point de départ (ni loyer ni bail) : rien n'est dû — comme avant.
+  // Q1 révisé : dû borné au point de départ du suivi (résolveur unique duMois ; le mois de l'achat, dû à
+  // partir du 1ᵉʳ terme exigible après lui — 2ᵉ audit 🟠2). Sans point de départ (ni loyer ni bail) : rien n'est dû — comme avant.
   const _s = _finLotSuivi(qui);
   if (_s && typeof window.duMoisSuiviFromRaw === 'function') {
     if (!_s.date) return { hc: 0, ch: 0 };
@@ -29661,8 +29661,9 @@ function _finMonthly(yr, scope, win) {
     catLigne: _finCatLigne,
     loyerDue: _finBailHcChAt,                   // dû {hc,ch} proraté du mois → cascade CUMULATIVE dans le module (arriérés avant avance, user 2026-07-09)
     // R0-C · Q1 révisé : la pré-passe d'ouverture démarre au point de départ SAISI (date d'achat ou
-    // antériorité) ; jamais pour la date provisoire (b), qui laisse le moteur exactement comme avant.
-    debutDu: q => { const s = _finLotSuivi(q); return (s && s.date && s.source !== 'provisoire') ? s.date.slice(0, 7) : null; },
+    // antériorité), AU JOUR : un encaissement daté avant lui n'est jamais imputé (2ᵉ audit 🔴1) ;
+    // jamais pour la date provisoire (b), qui laisse le moteur exactement comme avant.
+    debutDu: q => { const s = _finLotSuivi(q); return (s && s.date && s.source !== 'provisoire') ? s.date : null; },
     // … et le solde d'ouverture de l'antériorité est posé UNE fois à cette date.
     ouverture: q => { const s = _finLotSuivi(q); const o = s && s.ouverture; return o ? { ym: o.date.slice(0, 7), loyer: o.loyer, charge: o.charge, avance: o.avance } : null; },
     activeLots: _finActiveLotsInScope(yr, scope), // lots à bail actif sans mouvement → retard « zéro paiement » visible (user 2026-07-12)
@@ -32236,8 +32237,10 @@ function _antRender(initial) {
   const debutBailFr = _antDateFr(bail.debut);
   corps += '<div class="fg ant-fld"><label for="ant-date">Suivi à partir du</label><input class="inp" type="date" id="ant-date" value="' + escHtml(date || '') + '" onchange="_antRender()">'
     + '<div class="ant-hint">' + (repris && s && s.jouissance
-      ? 'Date d\'achat de l\'immeuble (fiche immeuble). Le bail court depuis le ' + escHtml(debutBailFr) + ' ; aucun loyer n\'est dû au bailleur actuel avant le ' + escHtml(_antDateFr(s.jouissance)) + '.'
-      : 'Le bail court depuis le ' + escHtml(debutBailFr) + '. Propryo calcule les loyers dus à partir de cette date ; avant, il ne calcule rien.') + '</div></div>'
+      ? 'Date d\'achat de l\'immeuble (fiche immeuble). Le bail court depuis le ' + escHtml(debutBailFr) + ' ; le premier loyer dû au bailleur actuel est le premier terme exigible à compter du ' + escHtml(_antDateFr(s.jouissance)) + ' (le partage du mois de la vente se règle chez le notaire).'
+      : 'Le bail court depuis le ' + escHtml(debutBailFr) + '. Propryo calcule les loyers dus à partir de cette date ; avant, il ne calcule rien.')
+      // 2ᵉ audit 🔴1 : ce que deviennent les loyers déjà importés d'avant la date
+      + ' Les loyers encaissés avant cette date sont déjà dans la situation notée ci-dessous : ils ne sont pas recomptés. Seul un loyer versé dans le mois qui la précède (terme payé d\'avance) peut régler un loyer dû ensuite ; il ne devient jamais une avance.</div></div>'
     + '<div class="ant-lbl">Le ' + escHtml(dateFr) + ', le locataire :</div>'
     + '<div class="ant-seg" role="group" aria-label="Situation du locataire">' + seg('a-jour', 'check', 'était à jour') + seg('arriere', 'money', 'devait un arriéré') + seg('avance', 'send', 'avait payé d\'avance') + '</div>';
   if (E.situation === 'arriere') {
