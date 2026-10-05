@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.712';
+const IMMOTRACK_VERSION = '15.713';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7123,8 +7123,8 @@ function _accmGoto(id, ref, count){
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('biens'); break;
       case 'entretien':// entretien en retard DU lot → onglet Conformité de sa fiche
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('equipements'); break;
-      case 'regul':    // régularisation de charges → onglet Charges
-        go('regul'); break;
+      case 'regul':    // régularisation de charges → onglet Charges, sur l'exercice N-1 de l'alerte
+        _rgOuvrirAnnee(); break;
       default: go('loyers');
     }
   }catch(e){ console.warn('[accmGoto]', e); try{ go('loyers'); }catch(e2){} }
@@ -7692,7 +7692,7 @@ let _pilMtxFamActive = null;
 const _PIL_HORS = {
   depot:   { onglet: 'Locataires', go: () => go('baux') },
   finbail: { onglet: 'Locataires', go: () => go('baux') },
-  regul:   { onglet: 'Charges', go: () => go('regul') }
+  regul:   { onglet: 'Charges', go: () => _rgOuvrirAnnee() }   // alerte = régul N-1
 };
 function _pilCloseLayer() { const L = el('pil-layer'); if (L) L.innerHTML = ''; }
 
@@ -9605,15 +9605,16 @@ function _computeUnifiedTodo(ctx) {
   //    Non reprise dans À traiter par choix utilisateur (déjà visible ailleurs).
 
   // 7. Régularisation de charges à émettre — v15.424 DRY : règle CANONIQUE
-  // AlertRules.regulAEmettre (sémantique user : loué N-1 + aucune régul émise en N).
-  AlertRules.regulAEmettre(scopeLogs, DB.mouvements, today, _isLoyerCategory).forEach(it => {
+  // AlertRules.regulAEmettre (sémantique user : loué N-1 + régul N-1 ni validée ni émise).
+  // Signal « faite » = « Valider la régul de l'immeuble » (DB.regulValidations) — v15.713.
+  AlertRules.regulAEmettre(scopeLogs, DB.mouvements, today, _isLoyerCategory, DB.regulValidations).forEach(it => {
     out.push({
       type:'regul', severity:'info', score:40,
       title:'Régularisation '+it.annee+' à émettre',
       subtitle:it.ref+' — '+it.locataire,
       contextRef:it.ref,
       actionLabel:'Émettre régul',
-      actionFn:"go('regul',null)"
+      actionFn:"_rgOuvrirAnnee("+it.annee+")"
     });
   });
 
@@ -10203,7 +10204,7 @@ const _TODO_TYPE_META = {
   mrh:    {icon:'🛡',  label:'Assurances',       go:"go('baux',null)"},
   irl:    {icon:'📈',  label:'Révisions IRL',    go:"go('irl',null)"},
   equip:  {icon:'🔧',  label:'Équipements',      go:"go('equipements',null)"},
-  regul:  {icon:'⚖️', label:'Régularisations',  go:"go('regul',null)"},
+  regul:  {icon:'⚖️', label:'Régularisations',  go:"_rgOuvrirAnnee()"},   // alerte = régul N-1
   bail:   {icon:'📋',  label:'Baux à terme',     go:"go('baux',null)"},
   vacance:{icon:'🏚',  label:'Logements vacants',go:"go('biens',null)"},
   dpe:    {icon:'📐',  label:'DPE',              go:"go('biens',null)"},
@@ -10500,7 +10501,7 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
       +   quad(mrh,   _uiIcon('shield'), 'Assurances',  "go('baux',null)", 'Tout est à jour',    mrhSub)
       +   quad(irl,   _uiIcon('chart'), 'IRL',          "go('irl',null)",         'Aucune à appliquer', irlSub)
       +   quad(equip, _uiIcon('wrench'), 'Équipements', "go('equipements',null)", 'Aucune échéance',    eqSub)
-      +   quad(regul, _uiIcon('scale'), 'Régul',        "go('regul',null)",       'Aucune à émettre',   rgSub)
+      +   quad(regul, _uiIcon('scale'), 'Régul',        "_rgOuvrirAnnee()",       'Aucune à émettre',   rgSub)
       + '</div>';
 
     const status = maxSev === 'red' ? 'red' : maxSev === 'ora' ? 'ora' : 'blu';
@@ -10803,12 +10804,12 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
   if(id==='regul') {
     // v15.424 DRY : règle CANONIQUE AlertRules.regulAEmettre — FIX DIVERGENCE AVÉRÉE :
     // l'ancien widget acceptait une régul émise en N-1 et alertait même sans location N-1.
-    const missIt = AlertRules.regulAEmettre(scopeLogs, DB.mouvements, today, _isLoyerCategory);
+    const missIt = AlertRules.regulAEmettre(scopeLogs, DB.mouvements, today, _isLoyerCategory, DB.regulValidations);
     const miss = missIt.map(it=>scopeLogs.find(l=>l.ref===it.ref)).filter(Boolean);
     const anneeRegul = missIt.length ? missIt[0].annee : (today.getFullYear()-1);
     if(miss.length) _DD['regul'] = {title:'Régularisations à émettre — '+miss.length+' logement(s)', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Charges/mois</th></tr></thead><tbody>'
       +miss.map(l=>'<tr><td><b>'+l.ref+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td>'+fmt(l.ch||0)+'</td></tr>').join('')
-      +'</tbody></table><p style="margin-top:8px;font-size:12px;color:var(--t2)">Régularisation '+anneeRegul+' non émise. Accès direct : onglet Régularisation.</p>'};
+      +'</tbody></table><p style="margin-top:8px;font-size:12px;color:var(--t2)">Régularisation '+anneeRegul+' non émise. Une fois le décompte '+anneeRegul+' établi (onglet Charges, charges signalées réparties) : « Valider la régul de l&#39;immeuble ».</p>'};
     return wd(
       lbl('Régularisations à émettre')+wval(miss.length,miss.length>0?'var(--ora)':'var(--grn)')+wsub(miss.length>0?'logement(s) · régul. '+anneeRegul+' non émise':'Toutes régularisations à jour')
       +miss.slice(0,_maxItems).map(l=>ai('<b>'+l.ref+'</b> — '+escHtml((l.locataire||'').substring(0,30)),'ora')).join('')
@@ -25034,9 +25035,18 @@ function quickAddIRL(key, ref) {
 }
 
 // =================== RÉGULARISATION ===================
+// v15.713 — l'alerte « Régularisation N-1 à émettre » ouvre l'onglet Charges SUR N-1 : sans ça il
+// s'ouvrait sur l'année en cours, et « Valider la régul de l'immeuble » validait N (trop tôt) au lieu
+// de N-1 (l'alerte restait). Année cible à usage unique, consommée par rRegulInit.
+function _rgOuvrirAnnee(annee){
+  const y = Number(annee);
+  window._regulAnneeCible = (y >= 1900 && y <= 9999) ? y : (new Date().getFullYear() - 1);
+  go('regul');
+}
 function rRegulInit() {
   const today = new Date();
-  const yr = today.getFullYear();
+  const cible = window._regulAnneeCible; window._regulAnneeCible = null;
+  const yr = cible || today.getFullYear();
   el('p-regul-inner').innerHTML = `
     <div class="flex-b mb16">
       <div class="flex-c">

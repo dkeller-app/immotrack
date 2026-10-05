@@ -122,10 +122,37 @@
     return null
   }
 
+  /** Catégorie AUTO de la régul du SYNDIC (ligne 230) — n'est PAS la régul du locataire. */
+  const REGUL_COPRO_CAT = 'Régularisation provisions copro N-1'
+
+  /** La régul du locataire au titre de l'année `annee` est-elle VALIDÉE pour l'immeuble `imm` ?
+   *  Source = DB.regulValidations, posée par « Valider la régul de l'immeuble » (écran Charges) :
+   *  clé « <immeuble>|<du>|<au> » (ISO). Compte une période qui CONTIENT le 31/12 de `annee`
+   *  (exercice civil, ou décalé qui se termine après) — une période partielle (ex. jan→mars) ne
+   *  solde pas l'année. Le nom d'immeuble est lu jusqu'aux 2 derniers « | » (un « | » dans le nom tient). */
+  function regulValidee(regulValidations, imm, annee) {
+    if (!imm || !regulValidations || typeof regulValidations !== 'object') return false
+    const fin = annee + '-12-31'
+    return Object.keys(regulValidations).some(k => {
+      if (!regulValidations[k]) return false
+      const p = k.split('|')
+      if (p.length < 3) return false
+      const to = p.pop(), from = p.pop()
+      if (p.join('|') !== imm) return false
+      if (!/^\d{4}-\d{2}-\d{2}/.test(from) || !/^\d{4}-\d{2}-\d{2}/.test(to)) return false
+      return from.slice(0, 10) <= fin && to.slice(0, 10) >= fin
+    })
+  }
+
   /** Régularisation de charges à émettre — sémantique canonique (clarif user) :
-   *  logement avec charges, LOYERS PERÇUS en N-1, et AUCUNE régul émise en année courante N.
+   *  logement avec charges, LOYERS PERÇUS en N-1, et régul N-1 NI VALIDÉE NI ÉMISE.
+   *  Signaux « régul faite » (audit 05/10/2026 — aucune catégorie du référentiel ne porte la régul
+   *  du locataire, son solde se range en « Charges récupérables (eau, énergie…) ») :
+   *   1. la validation de l'immeuble (regulValidee) — LE signal de l'app ;
+   *   2. héritage : un mouvement du logement en N dont la catégorie (perso) contient « régularisation »,
+   *      hors la catégorie auto du syndic (REGUL_COPRO_CAT).
    *  → [{ref, locataire, annee (N-1), charges}] */
-  function regulAEmettre(scopeLogs, mouvements, today, isLoyerCategory) {
+  function regulAEmettre(scopeLogs, mouvements, today, isLoyerCategory, regulValidations) {
     const isLoyer = typeof isLoyerCategory === 'function' ? isLoyerCategory : (c => c === 'Loyers encaissés')   // NORMALISATION-LOYERS : jamais plus la catégorie héritée
     const mvs = (mouvements || []).filter(alive)
     const yrCur = today.getFullYear()
@@ -135,8 +162,9 @@
       .filter(l => mvs.some(m =>
         m.qui === l.ref && isLoyer(m.cat) && (m.cr || 0) > 0 &&
         m.date && m.date.startsWith(String(yrPrev))))
+      .filter(l => !regulValidee(regulValidations, l.imm, yrPrev))
       .filter(l => !mvs.some(m =>
-        m.qui === l.ref && m.cat && /r.gularisation/i.test(m.cat) &&
+        m.qui === l.ref && m.cat && m.cat !== REGUL_COPRO_CAT && /r.gularisation/i.test(m.cat) &&
         m.date && m.date.startsWith(String(yrCur))))
       .map(l => ({ ref: l.ref, locataire: l.locataire || '', annee: yrPrev, charges: l.ch || 0 }))
   }
@@ -159,6 +187,7 @@
     mrhEcheances: mrhEcheances,
     pnoEcheances: pnoEcheances,
     irlClassifier: irlClassifier,
+    regulValidee: regulValidee,
     regulAEmettre: regulAEmettre,
     bauxEcheance: bauxEcheance
   };

@@ -3,7 +3,7 @@
  * Couvre notamment les 3 DIVERGENCES tranchées (audit 2026-07-06).
  */
 import { describe, it, expect } from 'vitest'
-import { mrhManquante, mrhEcheances, pnoEcheances, irlClassifier, regulAEmettre, bauxEcheance } from './alert-rules.js'
+import { mrhManquante, mrhEcheances, pnoEcheances, irlClassifier, regulValidee, regulAEmettre, bauxEcheance } from './alert-rules.js'
 
 const TODAY = new Date('2026-07-06T00:00:00')
 
@@ -122,6 +122,56 @@ describe('regulAEmettre — sémantique canonique (clarif user)', () => {
   it('DIVERGENCE tranchée : pas de loyers perçus en N-1 → pas de régul due (l ancien widget alertait quand même)', () => {
     const mvs = []   // jamais loué en 2025 (entrée récente)
     expect(regulAEmettre(logs, mvs, TODAY, isLoyer)).toEqual([])
+  })
+})
+
+describe('regulAEmettre — signal réel « régul faite » (bug 05/10/2026)', () => {
+  const isLoyer = c => c === 'Loyers encaissés'
+  const logs = [{ ref: 'A', imm: 'Les Tilleuls', locataire: 'Dupont', ch: 50 }]
+  const loyerN1 = { qui: 'A', cat: 'Loyers encaissés', cr: 500, date: '2025-03-05' }
+  it('immeuble validé sur l exercice N-1 (« Valider la régul de l immeuble ») → plus d alerte', () => {
+    const val = { 'Les Tilleuls|2025-01-01|2025-12-31': { at: '2026-02-01T10:00:00.000Z' } }
+    expect(regulAEmettre(logs, [loyerN1], TODAY, isLoyer, val)).toEqual([])
+  })
+  it('validation d un AUTRE immeuble ou d une autre année → alerte maintenue', () => {
+    const val = {
+      'Autre|2025-01-01|2025-12-31': { at: 'x' },
+      'Les Tilleuls|2024-01-01|2024-12-31': { at: 'x' },
+      'Les Tilleuls|2026-01-01|2026-12-31': { at: 'x' },
+    }
+    expect(regulAEmettre(logs, [loyerN1], TODAY, isLoyer, val)).toHaveLength(1)
+  })
+  it('solde de régul rangé en « Charges récupérables » (référentiel) ne suffit pas seul ; sans validation → alerte', () => {
+    const mvs = [loyerN1, { qui: 'A', cat: 'Charges récupérables (eau, énergie…)', cr: 42, date: '2026-03-01' }]
+    expect(regulAEmettre(logs, mvs, TODAY, isLoyer, {})).toHaveLength(1)
+  })
+  it('catégorie auto du syndic « Régularisation provisions copro N-1 » ≠ régul du locataire', () => {
+    const mvs = [loyerN1, { qui: 'A', cat: 'Régularisation provisions copro N-1', cr: 80, date: '2026-04-01' }]
+    expect(regulAEmettre(logs, mvs, TODAY, isLoyer)).toHaveLength(1)
+  })
+  it('sans 5e argument (ancien appel) → comportement inchangé', () => {
+    expect(regulAEmettre(logs, [loyerN1], TODAY, isLoyer)).toHaveLength(1)
+  })
+})
+
+describe('regulValidee — période contenant le 31/12 de l année', () => {
+  it('exercice civil', () => {
+    expect(regulValidee({ 'I|2025-01-01|2025-12-31': { at: 'x' } }, 'I', 2025)).toBe(true)
+  })
+  it('exercice décalé se terminant après le 31/12 → compte ; se terminant avant → non', () => {
+    expect(regulValidee({ 'I|2025-07-01|2026-06-30': { at: 'x' } }, 'I', 2025)).toBe(true)
+    expect(regulValidee({ 'I|2024-07-01|2025-06-30': { at: 'x' } }, 'I', 2025)).toBe(false)
+  })
+  it('période partielle (jan→mars) → ne solde pas l année', () => {
+    expect(regulValidee({ 'I|2025-01-01|2025-03-31': { at: 'x' } }, 'I', 2025)).toBe(false)
+  })
+  it('nom d immeuble contenant « | », clé malformée, valeur vide, entrées absentes', () => {
+    expect(regulValidee({ 'A|B|2025-01-01|2025-12-31': { at: 'x' } }, 'A|B', 2025)).toBe(true)
+    expect(regulValidee({ 'I|2025': { at: 'x' } }, 'I', 2025)).toBe(false)
+    expect(regulValidee({ 'I||': { at: 'x' } }, 'I', 2025)).toBe(false)
+    expect(regulValidee({ 'I|2025-01-01|2025-12-31': null }, 'I', 2025)).toBe(false)
+    expect(regulValidee(undefined, 'I', 2025)).toBe(false)
+    expect(regulValidee({ '|2025-01-01|2025-12-31': { at: 'x' } }, '', 2025)).toBe(false)
   })
 })
 
