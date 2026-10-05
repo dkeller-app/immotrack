@@ -83,9 +83,10 @@ export function appliquerForfaitOccupation(e, { from, to, avenants } = {}) {
   const bl = e && e.bail;
   if (!bl || !forfaitPertinent(bl, avenants)) return e;
   const debutW = _ymd(e.debutOcc) || _ymd(from), finW = _ymd(e.finOcc) || _ymd(to);
-  // Aucun intervalle au forfait ne recoupe l'OCCUPATION → rien à retirer, aucun repère. Une charge datée
-  // après le départ (imputée à ce bail par repli) ne rend pas « au forfait » une occupation qui ne l'a
-  // jamais été — et le décompte n'imprime jamais une période au forfait vide (contre-audit 30/09).
+  // Aucun intervalle au forfait ne recoupe l'OCCUPATION → rien à retirer, aucun repère. Une ligne datée
+  // hors de l'occupation (cas défensif : computeRegul porte désormais une charge datée après le départ au
+  // bailleur, vacance) ne rend pas « au forfait » une occupation qui ne l'a jamais été — et le décompte
+  // n'imprime jamais une période au forfait vide (contre-audit 30/09).
   const intervalles = forfaitIntervalles(bl, debutW, finW, avenants);
   if (!intervalles.length) return e;
   const keptDet = [], exclusDetails = [], keptMois = [], exclusMois = [];

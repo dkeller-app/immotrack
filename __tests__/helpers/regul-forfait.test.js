@@ -231,7 +231,7 @@ describe('câblage index.html — computeRegul / base N-1 réelles', () => {
       appliquerForfaitOccupation, forfaitAvenantsDuBail, AvenantRegistre, baseChargesLogement,
       _regulFrom: '2026-01-01', _regulTo: '2026-12-31',
     };
-    const src = ['_isoLocal', 'computeRegul', '_forfaitAvenantsDuBail', '_rgYearChargesDetail', '_rgN1Charges'].map((n) => corpsDe(html, n)).join('\n');
+    const src = ['_isoLocal', '_bailTypeHasTacite', '_bailFinOccupation', 'computeRegul', '_forfaitAvenantsDuBail', '_rgYearChargesDetail', '_rgN1Charges'].map((n) => corpsDe(html, n)).join('\n');
     // eslint-disable-next-line no-new-func
     return new Function('window', 'DB', '_isAlive', '_isLoyerCategory', '_isChargeRecupCategory', '_calcCcRepartition', 'CC_REPARTITION_LABELS', 'fd',
       src + '\nreturn { computeRegul, _rgN1Charges };')(

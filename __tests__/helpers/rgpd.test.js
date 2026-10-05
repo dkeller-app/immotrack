@@ -141,16 +141,25 @@ describe('_isEraseEligible', () => {
     const db = mkDB();
     // dernier bail F-001 finit 2023-12-31, hist DURAND finit 2019-12-31
     // Si on est en 2026+, 2023-12-31 + 3 ans = 2026-12-31 → encore dans la fenêtre
-    // On force un bail terminé en 2020 pour test
-    db.baux['F-001'].fin = '2020-12-31';
+    // On force un bail CLÔTURÉ en 2020 pour test
+    Object.assign(db.baux['F-001'], { fin: '2020-12-31', finEffective: '2020-12-31', cloture: true });
     db.baux_historique = [];
     const r = _isEraseEligible(db, 'F-001');
     expect(r.eligible).toBe(true);
   });
 
+  it('R0-E : bail nu EN COURS dont l\'échéance contractuelle a plus de 3 ans → NON éligible (tacite reconduction)', () => {
+    const db = mkDB();
+    db.baux['F-001'].fin = '2020-12-31';   // jamais clôturé : le locataire est toujours là
+    db.baux_historique = [];
+    const r = _isEraseEligible(db, 'F-001');
+    expect(r.eligible).toBe(false);
+    expect(r.reason).toMatch(/en cours/i);
+  });
+
   it('non éligible si bail trop récent', () => {
     const db = mkDB();
-    db.baux['F-001'].fin = '2025-12-31';
+    Object.assign(db.baux['F-001'], { fin: '2025-12-31', finEffective: '2025-12-31', cloture: true });
     db.baux_historique = [];
     const r = _isEraseEligible(db, 'F-001');
     expect(r.eligible).toBe(false);
@@ -163,7 +172,7 @@ describe('_isEraseEligible', () => {
     db.baux_historique = [];
     const r = _isEraseEligible(db, 'F-001');
     expect(r.eligible).toBe(false);
-    expect(r.reason).toMatch(/actif|fin/i);
+    expect(r.reason).toMatch(/en cours|actif/i);
   });
 
   it('éligible si aucun bail trouvé', () => {
