@@ -11415,10 +11415,17 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
     //   3. bail.fin VIDE → calcul depuis debut + dureeMois (3 ans nu, 1 an meublé, etc.)
     // Avant v14.49 le helper retournait null si bail.fin vide (bug ZITO).
     const rawCurrent = DB.baux && DB.baux[log.ref];
-    const echeanceCalc = rawCurrent ? _bailEcheanceEffective(rawCurrent, log) : null;
-    // taciteEnd != bail.fin si tacite reconduction OU si bail.fin était vide
-    const taciteEnd = (echeanceCalc && echeanceCalc !== rawCurrent?.fin) ? echeanceCalc : null;
-    const isTaciteReconduction = !!taciteEnd;
+    // BAUX-ECHUS — LA règle du type (js/core/bail-echeance.js), la même que la pastille et l'agenda :
+    //   • reconduit (nu, meublé, garage de l'app) → la barre court jusqu'à la fin de la période en cours ;
+    //   • en cours sans date de fin saisie → la fin théorique (pas une « tacite reconduction ») ;
+    //   • arrivé à terme (étudiant, mobilité, garage repris, autre) → JAMAIS reconduit : le locataire est
+    //     toujours en place (rien n'est clôturé), la barre réelle court donc jusqu'à aujourd'hui, sans
+    //     projection, et le terme est dit dans l'infobulle — plus de « tacite reconduction » inventée.
+    const _echCur = rawCurrent ? _bailEcheance(rawCurrent, log) : null;
+    const isTaciteReconduction = !!(_echCur && _echCur.statut === 'reconduit' && _echCur.prochaine);
+    const _finSansSaisie = (_echCur && _echCur.statut === 'en_cours' && !rawCurrent.fin) ? _echCur.prochaine : null;
+    const taciteEnd = isTaciteReconduction ? _echCur.prochaine : _finSansSaisie;
+    const arriveATerme = !!(_echCur && _echCur.statut === 'arrive_a_terme');
 
     // Identifier le bail courant (dernier dans la liste si _type === 'current')
     // pour appliquer la tacite reconduction sur lui uniquement.
@@ -11429,10 +11436,13 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
       if(!debutMs) return null;
       // fin réelle si clôturé, sinon fin théorique (échéance) ; si tacite reconduction,
       // étendre la fin pour ce bail courant à la prochaine échéance anniversaire.
+      // b.fin du bail courant = la fin d'OCCUPATION (départ déclaré) : quand elle existe, elle fait foi.
       let finForThis = b.fin;
-      if(idx === currentBailIdx && isTaciteReconduction && taciteEnd) {
+      if(idx === currentBailIdx && taciteEnd && !b.fin) {
         finForThis = taciteEnd;
       }
+      const termeCourant = idx === currentBailIdx && arriveATerme && !b.fin;   // occupé au-delà du terme
+      if(termeCourant) finForThis = null;
       const finMs = finForThis ? new Date(finForThis + 'T00:00:00').getTime() : null;
       const realEndMs = finMs ? Math.min(finMs, todayMs) : todayMs;
       const projEndMs = finMs;
@@ -11444,7 +11454,8 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
           right: toPct(realEndMs),
           kind: 'real',
           bail: b,
-          ended: !isTaciteReconduction && finForThis && finForThis <= todayIso // bail clôturé
+          terme: termeCourant ? _echCur.finContrat : '',
+          ended: !termeCourant && !isTaciteReconduction && finForThis && finForThis <= todayIso // bail clôturé
         });
       }
       // Segment projection (de today à fin) : bail courant ou tacite reconduction
@@ -11490,7 +11501,9 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
       const occupied = bails.map((b, idx) => {
         const dMs = new Date(b.debut + 'T00:00:00').getTime();
         let fEnd;
-        if(idx === currentBailIdx && isTaciteReconduction && taciteEnd) {
+        if(idx === currentBailIdx && arriveATerme && !b.fin) {
+          fEnd = Infinity;   // arrivé à terme mais toujours occupé : jamais une vacance
+        } else if(idx === currentBailIdx && taciteEnd && !b.fin) {
           fEnd = new Date(taciteEnd + 'T00:00:00').getTime();
         } else {
           fEnd = b.fin ? new Date(b.fin + 'T00:00:00').getTime() : Infinity;
@@ -11671,6 +11684,8 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
       let kindSuffix = '';
       if(seg.kind === 'proj') {
         kindSuffix = seg.tacite ? ' (tacite reconduction → prochaine échéance)' : ' (échéance projetée)';
+      } else if(seg.terme) {
+        kindSuffix = ' (arrivé à terme le ' + fd(seg.terme) + ', non reconduit — locataire toujours en place)';
       } else if(seg.ended) {
         kindSuffix = ' (bail terminé)';
       }

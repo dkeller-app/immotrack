@@ -141,14 +141,27 @@
       .map(l => ({ ref: l.ref, locataire: l.locataire || '', annee: yrPrev, charges: l.ch || 0 }))
   }
 
-  /** Baux arrivant à terme (expirés ou < horizon jours). → [{ref, locataire, fin, jours, expire}] */
-  function bauxEcheance(scopeLogs, today, horizon = 90) {
+  /** Baux arrivant à terme (expirés ou < horizon jours). → [{ref, locataire, fin, jours, expire}]
+   *  BAUX-ECHUS — `echeanceDe(l)` (optionnel, INJECTÉ par l'app : la règle vit dans
+   *  js/core/bail-echeance.js) rend l'échéance selon LA règle du type : `{ fin }` = l'échéance à
+   *  venir d'un bail en cours ou reconduit (nu, meublé, garage de l'app), ou la fin du contrat d'un
+   *  bail arrivé à terme (étudiant, mobilité, garage repris, autre) ; null = rien à signaler
+   *  (clôturé, échéance inconnue). Sans lui : la date de fin du cache — un bail nu reconduit y
+   *  apparaissait « expiré » alors que la loi le prolonge. */
+  function bauxEcheance(scopeLogs, today, horizon = 90, echeanceDe) {
     const out = []
-    ;(scopeLogs || []).filter(l => l && l.fin && l.locataire).forEach(l => {
-      const jours = joursEntre(l.fin, today)
+    const avecRegle = typeof echeanceDe === 'function'
+    ;(scopeLogs || []).filter(l => l && l.locataire && (avecRegle || l.fin)).forEach(l => {
+      let fin = l.fin
+      if (avecRegle) {
+        const e = echeanceDe(l)
+        if (!e || !e.fin) return
+        fin = e.fin
+      }
+      const jours = joursEntre(fin, today)
       if (jours == null) return
-      if (jours < 0) out.push({ ref: l.ref, locataire: l.locataire, fin: l.fin, jours, expire: true })
-      else if (jours <= horizon) out.push({ ref: l.ref, locataire: l.locataire, fin: l.fin, jours, expire: false })
+      if (jours < 0) out.push({ ref: l.ref, locataire: l.locataire, fin, jours, expire: true })
+      else if (jours <= horizon) out.push({ ref: l.ref, locataire: l.locataire, fin, jours, expire: false })
     })
     return out.sort((a, b) => a.jours - b.jours)
   }

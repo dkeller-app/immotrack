@@ -322,6 +322,27 @@ const PAIRS = [
     globalName: 'BailGarage',
     exports: '*',
   },
+  {
+    // BAUX-ECHUS — régime du bailleur (art. 10 / art. 13) : dépendance de bail-echeance, et
+    // lu tel quel par la saisie du bail (autoFinBail) AVANT que js/main.js ne soit chargé.
+    name: 'bail-duree',
+    src: 'js/core/bail-duree.js',
+    dst: 'js/helpers/bail-duree.global.js',
+    globalName: 'BailDuree',
+    exports: '*',
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
+    // BAUX-ECHUS — LA règle d'échéance et de reconduction, une par type (pastille, agenda,
+    // frise, préavis, alerte « bail arrivé à terme »). Chargé APRÈS bail-duree.global.js.
+    name: 'bail-echeance',
+    src: 'js/core/bail-echeance.js',
+    dst: 'js/helpers/bail-echeance.global.js',
+    globalName: 'BailEcheance',
+    exports: '*',
+  },
 ];
 
 // `--check` : on NE RÉGÉNÈRE PAS, on VÉRIFIE. Le script n'avait qu'un mode écriture, donc
@@ -387,6 +408,7 @@ for (const p of PAIRS) {
                             depModule === 'pdf-flow' ? 'PdfFlow' :
                             depModule === 'doc-brand' ? 'DocBrand' :
                             depModule === 'montant-doc' ? 'MontantDoc' :
+                            depModule === 'bail-duree' ? 'BailDuree' :
                             null;
       if (!moduleGlobal) throw new Error(`[${p.name}] Dépendance inconnue : ./${depModule}.js`);
       depBlocks.push(`  // ─── DÉPENDANCES IMPORTÉES depuis ./${depModule}.js (résolues via global) ───\n` +

@@ -5,15 +5,24 @@ import { describe, it, expect } from 'vitest';
 import {
   CONGE_MOTIFS, CONGE_CAS_REDUITS, ART15_II_ALINEAS,
   letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis,
-  addMoisClamped, locataireProtege
+  addMoisClamped, locataireProtege, congeMentionPreavis
 } from '../../js/core/conge.js';
 
-describe('préavis bailleur (art. 15-I)', () => {
-  it('6 mois nu, 3 mois meublé/étudiant/mobilité', () => {
+describe('préavis bailleur (art. 15-I nu, art. 25-8 I meublé)', () => {
+  it('6 mois nu, 3 mois meublé', () => {
     expect(congeBailleurPreavisMois('nu')).toBe(6);
+    expect(congeBailleurPreavisMois('')).toBe(6);
     expect(congeBailleurPreavisMois('meuble')).toBe(3);
-    expect(congeBailleurPreavisMois('etudiant')).toBe(3);
-    expect(congeBailleurPreavisMois('mobilite')).toBe(3);
+  });
+  it('BAUX-ECHUS — aucun préavis légal : étudiant, mobilité (fin au terme), garage, autre (le contrat)', () => {
+    for (const t of ['etudiant', 'mobilite', 'garage', 'autre']) expect(congeBailleurPreavisMois(t)).toBe(null);
+  });
+  it('la lettre ne dit jamais « de null mois » : elle dit ce que dit la loi', () => {
+    expect(congeMentionPreavis(6, 'nu')).toMatch(/^Le délai de préavis légal applicable à ce congé est de 6 mois/);
+    expect(congeMentionPreavis(null, 'etudiant')).toMatch(/article 25-7 .* prend fin à son terme, sans qu'un congé soit nécessaire/);
+    expect(congeMentionPreavis(null, 'mobilite')).toMatch(/non renouvelable et non reconductible \(article 25-14/);
+    expect(congeMentionPreavis(null, 'garage')).toBe('Le délai de préavis applicable à ce congé est celui prévu au contrat de location.');
+    expect(congeMentionPreavis(null, 'mobilite')).not.toMatch(/null/);
   });
 });
 

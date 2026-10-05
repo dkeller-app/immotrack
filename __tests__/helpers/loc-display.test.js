@@ -68,102 +68,57 @@ describe('avatarInitials — filtre civilités', () => {
 });
 
 // ─── echeanceInfo ──────────────────────────────────────────────────
-describe('echeanceInfo — vert/orange/rouge + NaN safe', () => {
-  // Helper : crée un bail avec fin = today + n jours
-  const today = new Date();
-  const ymd = d => d.toISOString().slice(0, 10);
-  const futureBail = days => ({ fin: ymd(new Date(today.getTime() + days * 86400000)) });
+// BAUX-ECHUS — echeanceInfo délègue à LA règle du type (js/core/bail-echeance.js), comme l'app.
+describe('echeanceInfo — vert/orange/rouge + NaN safe (règle du type)', () => {
+  const AUJ = '2026-10-06';
+  const E = (b, fdFn) => echeanceInfo(b, fdFn, AUJ);
 
-  it('bail sans fin → tacite reconduction (ok)', () => {
-    expect(echeanceInfo({}).cls).toBe('ok');
-    expect(echeanceInfo({}).text).toBe('Tacite reconduction');
-    expect(echeanceInfo({}).urgent).toBe(false);
+  it('bail null → pastille vide (pas de « Tacite reconduction » sur un lot vacant)', () => {
+    expect(E(null)).toEqual({ cls: 'muted', text: '', urgent: false });
   });
 
-  it('bail null → tacite reconduction', () => {
-    expect(echeanceInfo(null).cls).toBe('ok');
+  it('bail sans début ni fin → « Échéance non renseignée »', () => {
+    expect(E({})).toEqual({ cls: 'muted', text: 'Échéance non renseignée', urgent: false });
+    expect(E({ fin: '' }).text).toBe('Échéance non renseignée');
+    expect(E({ fin: null }).text).toBe('Échéance non renseignée');
   });
 
-  it('bail fin dans 365j → ok (vert)', () => {
-    const r = echeanceInfo(futureBail(365));
-    expect(r.cls).toBe('ok');
-    expect(r.urgent).toBe(false);
+  it('bail fin dans 365 j → ok (vert) ; dans 45 j → warn (orange) + urgent', () => {
+    expect(E({ fin: '2027-10-06' })).toMatchObject({ cls: 'ok', urgent: false });
+    const r = E({ fin: '2026-11-20' });
+    expect(r).toMatchObject({ cls: 'warn', urgent: true });
+    expect(r.text).toBe('20/11/2026 (45j)');
   });
 
-  it('bail fin dans 45j → warn (orange) + urgent', () => {
-    const r = echeanceInfo(futureBail(45));
-    expect(r.cls).toBe('warn');
-    expect(r.urgent).toBe(true);
-    // Math.floor arrondit à 44 ou 45 selon l'heure d'exécution → tolérance
-    expect(r.text).toMatch(/\(4[45]j\)/);
+  it('bail NU / SANS type / MEUBLÉ échu → tacite reconduction (art. 10, art. 25-7 al. 3)', () => {
+    expect(E({ type: 'nu', fin: '2026-10-01' }).text).toBe('Tacite reconduction');
+    expect(E({ fin: '2026-10-01' }).text).toBe('Tacite reconduction');
+    expect(E({ type: 'meuble', fin: '2025-09-01' }).text).toBe('Tacite reconduction');
   });
 
-  // ── v15.343 BUG-STATUT-TACITE : échéance dépassée = tacite reconduction
-  //    (nu/meublé) et NON « échu », sauf types non reconductibles
-  //    (étudiant/mobilité/garage/autre). Source : isTaciteReconductionAllowed.
-  const pastBail = (days, type) => ({ type, fin: ymd(new Date(today.getTime() + days * 86400000)) });
-
-  it('bail NU fin il y a 5j → tacite reconduction (PAS échu)', () => {
-    const r = echeanceInfo(pastBail(-5, 'nu'));
-    expect(r.cls).toBe('ok');
-    expect(r.text).toBe('Tacite reconduction');
-    expect(r.urgent).toBe(false);
+  it('bail ÉTUDIANT / MOBILITÉ échu → « Arrivé à terme » (jamais reconduit)', () => {
+    expect(E({ type: 'etudiant', fin: '2026-10-01' })).toEqual({ cls: 'err', text: 'Arrivé à terme (01/10/2026)', urgent: true });
+    expect(E({ type: 'mobilite', fin: '2026-10-01' }).text).toBe('Arrivé à terme (01/10/2026)');
   });
 
-  it('bail SANS type fin il y a 5j → tacite reconduction (défaut nu)', () => {
-    const r = echeanceInfo(futureBail(-5));
-    expect(r.cls).toBe('ok');
-    expect(r.text).toBe('Tacite reconduction');
+  it("bail GARAGE de l'app échu → reconduit par son contrat ; garage repris → arrivé à terme", () => {
+    expect(E({ type: 'garage', debut: '2025-10-01', fin: '2026-09-30' }).text).toBe('Tacite reconduction');
+    expect(E({ type: 'garage', typeContrat: 'repris', debut: '2025-10-01', fin: '2026-09-30' }).cls).toBe('err');
   });
 
-  it('bail MEUBLÉ fin il y a 400j → tacite reconduction', () => {
-    const r = echeanceInfo(pastBail(-400, 'meuble'));
-    expect(r.cls).toBe('ok');
-    expect(r.text).toBe('Tacite reconduction');
-  });
-
-  it('bail ÉTUDIANT fin il y a 5j → échu réel (non reconductible)', () => {
-    const r = echeanceInfo(pastBail(-5, 'etudiant'));
-    expect(r.cls).toBe('err');
-    expect(r.urgent).toBe(true);
-    expect(r.text).toContain('Échu');
-  });
-
-  it('bail MOBILITÉ fin il y a 5j → échu réel (non reconductible)', () => {
-    const r = echeanceInfo(pastBail(-5, 'mobilite'));
-    expect(r.cls).toBe('err');
-    expect(r.text).toContain('Échu');
-  });
-
-  it('bail GARAGE fin il y a 5j → échu réel (régime libre, pas de tacite)', () => {
-    const r = echeanceInfo(pastBail(-5, 'garage'));
-    expect(r.cls).toBe('err');
-    expect(r.text).toContain('Échu');
-  });
-
-  it('bail type inconnu/legacy (importé) fin il y a 5j → tacite (défaut sûr, pas échu)', () => {
-    // Liste noire : un type non explicitement non-reconductible → tacite reconduction.
-    const r = echeanceInfo(pastBail(-5, 'colocation'));
-    expect(r.cls).toBe('ok');
-    expect(r.text).toBe('Tacite reconduction');
+  it('bail type inconnu/legacy (importé) échu → traité comme nu (tacite reconduction)', () => {
+    expect(E({ type: 'colocation', fin: '2026-10-01' }).text).toBe('Tacite reconduction');
   });
 
   it('date invalide → warn ⚠ Date invalide (PAS ok silencieux)', () => {
-    const r = echeanceInfo({ fin: 'pas-une-date' });
+    const r = E({ fin: 'pas-une-date' });
     expect(r.cls).toBe('warn');
     expect(r.urgent).toBe(true);
     expect(r.text).toContain('Date invalide');
   });
 
-  it('date string null/undefined dans bail.fin', () => {
-    expect(echeanceInfo({ fin: '' }).cls).toBe('ok'); // string vide = pas de fin
-    expect(echeanceInfo({ fin: null }).cls).toBe('ok');
-  });
-
   it('utilise fdFn formatter si fourni', () => {
-    const fd = iso => `[${iso}]`;
-    const r = echeanceInfo(futureBail(365), fd);
-    expect(r.text).toContain('[');
+    expect(E({ fin: '2027-10-06' }, iso => `[${iso}]`).text).toBe('[2027-10-06]');
   });
 });
 

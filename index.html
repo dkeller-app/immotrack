@@ -153,6 +153,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/bail-content-hash.js">
 <link rel="modulepreload" href="js/core/store-mapping.js">
 <link rel="modulepreload" href="js/core/fin-occupation.js">
+<link rel="modulepreload" href="js/core/bail-echeance.js">
 <link rel="modulepreload" href="js/core/entite-doublon.js">
 <!-- modulepreload:end -->
 <!-- PARAPHE-UNIQUE (v15.710) : une image de paraphe par signataire + lecteur des deux formes (window.BailParaphes, source js/core/bail-paraphes.js). -->
@@ -4517,7 +4518,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/irl-dpe-gate.global.js?v=722abf97" defer></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
-<script src="js/helpers/alert-rules.global.js?v=cc4d6d72" defer></script>
+<script src="js/helpers/alert-rules.global.js?v=2142271e" defer></script>
+<!-- BAUX-ECHUS — régime du bailleur (art. 10 / 13, window.BailDuree) puis LA règle d'échéance et de
+     reconduction, une par type (window.BailEcheance) : pastille, agenda, frise, préavis, alerte « arrivé à terme ».
+     BailDuree AVANT BailEcheance (sa dépendance). -->
+<script src="js/helpers/bail-duree.global.js?v=0a241f82" defer></script>
+<script src="js/helpers/bail-echeance.global.js?v=e75adb5a" defer></script>
 <!-- v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (window.DashCtx) :
      scope + matchMv + mvs/mvsYTD/mvsPrev/refYrMo + KPIs occupation/totaux (ex-copiés rDash/rAccueil/renders) -->
 <script src="js/helpers/dash-ctx.global.js?v=956b0838" defer></script>
@@ -4533,8 +4539,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=673033db" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=887548af" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=be398477" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=faa1a3d2" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

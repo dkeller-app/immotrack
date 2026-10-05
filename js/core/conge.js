@@ -13,6 +13,7 @@
  *
  * Tests Vitest miroir : __tests__/helpers/conge.test.js
  */
+import { preavisBailleurMois } from './bail-echeance.js';
 
 // Motifs du congé bailleur (art. 15-I).
 export const CONGE_MOTIFS = [
@@ -110,9 +111,15 @@ export function art15IIProDoc() {
     ART15_II_ALINEAS.map(a => '<p style="font-size:9pt;color:#3c4658">' + esc(a) + '</p>').join('');
 }
 
-/** Préavis du congé bailleur (mois) : 3 si meublé (ou variantes), sinon 6. */
+/**
+ * Préavis du congé bailleur (mois) — LA règle de js/core/bail-echeance.js : 6 mois nu (art. 15-I),
+ * 3 mois meublé (art. 25-8 I). null là où la loi de 1989 ne fait courir AUCUN préavis de congé
+ * bailleur : étudiant (art. 25-7 al. 4) et mobilité (art. 25-14 al. 1) prennent fin à leur terme
+ * sans congé ; garage et autre suivent leur contrat. (Avant : 3 mois pour étudiant / mobilité,
+ * 6 mois pour garage / autre — aucune base légale.)
+ */
 export function congeBailleurPreavisMois(typeBail) {
-  return ['meuble', 'etudiant', 'mobilite'].indexOf(String(typeBail || '')) >= 0 ? 3 : 6;
+  return preavisBailleurMois(String(typeBail || 'nu'));
 }
 
 /**
@@ -276,8 +283,21 @@ export function congeDateEffet(o) {
  * Hub écrivait la version courte — « de N mois avant le terme du bail » — alors qu'il n'avait
  * rien vérifié du tout. Une seule phrase, adossée à `congeDateEffet`, qui la rend vraie.
  */
-export function congeMentionPreavis(mois) {
+export function congeMentionPreavis(mois, typeBail) {
+  if (!(Number(mois) > 0)) return congeMentionSansPreavis(typeBail);
   return 'Le délai de préavis légal applicable à ce congé est de ' + mois
     + " mois ; il court à compter de la réception du présent congé et la date d'effet ci-dessus"
     + ' a été fixée pour le respecter.';
+}
+
+/**
+ * BAUX-ECHUS — là où la loi de 1989 ne fait courir AUCUN préavis de congé bailleur, la lettre ne
+ * peut pas annoncer « un délai de préavis légal de N mois » (avant : « de null mois », ou 3 et 6
+ * mois inventés). Elle dit ce que dit la loi, et rien de plus.
+ */
+export function congeMentionSansPreavis(typeBail) {
+  const t = String(typeBail || '');
+  if (t === 'etudiant') return "Le bail ayant été conclu pour une durée de neuf mois avec un étudiant, la reconduction tacite est inapplicable (article 25-7 de la loi n° 89-462 du 6 juillet 1989) : il prend fin à son terme, sans qu'un congé soit nécessaire.";
+  if (t === 'mobilite') return "Le bail mobilité est non renouvelable et non reconductible (article 25-14 de la loi n° 89-462 du 6 juillet 1989) : il prend fin à son terme, sans qu'un congé soit nécessaire.";
+  return 'Le délai de préavis applicable à ce congé est celui prévu au contrat de location.';
 }
