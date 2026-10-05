@@ -3313,8 +3313,17 @@ function _normaliserLoyers(source, db) {
   // associé), et un associé en lecture seule n'essaie pas d'écrire ce que la RLS lui refuserait.
   // Getter absent (mode local / sandbox) : aucun filtre, rien n'y est tagué d'un autre espace.
   const opts = { stamp: _stamp };
-  if (window.__immoSupabaseMode && typeof window.__immoOwnEspaceId === 'function') {
-    try { opts.espacePropre = window.__immoOwnEspaceId(); } catch (e) { opts.espacePropre = null; }
+  // Associé INVITÉ (sans espace à lui) : __immoOwnEspaceId répond l'espace du PROPRIÉTAIRE (repli) → on ne le
+  // transmet PAS (null = seuls les enregistrements non tagués). Sinon, en lecture seule, chaque écriture
+  // refusée (RLS : 0 ligne = « conflict ») relance un re-pull, donc une normalisation : boucle sans fin.
+  // Getter `mine` absent ou qui jette : prudence, null aussi.
+  if (window.__immoSupabaseMode) {
+    let _esp = null;
+    try {
+      const _mine = (typeof window.__immoOwnEspaceMine === 'function') && window.__immoOwnEspaceMine() === true;
+      if (_mine && typeof window.__immoOwnEspaceId === 'function') _esp = window.__immoOwnEspaceId();
+    } catch (e) { _esp = null; }
+    opts.espacePropre = (_esp == null) ? null : _esp;
   }
   const r = N.normaliser(db || DB, opts);
   if (r && r.aPersister) {   // silencieux quand rien ne part (2e passage, bail verrouillé seul, démarrages suivants)

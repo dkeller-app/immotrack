@@ -426,11 +426,13 @@ describe('espace propre (partage SCI) et bail verrouillé', () => {
 // ─────────────────────────────────────────────────────────────────────────────────────────
 // AUDIT 05/10 — hydratation cloud : vraie `__immoSetDB` d'index.html + vrai moteur de synchro (store-sync).
 describe('hydratation cloud (__immoSetDB à CHAQUE appel) : persiste, pousse, ne boucle pas', () => {
-  function cloud() {
+  // `espace` = réponse de __immoOwnEspaceId ; `mine` = __immoOwnEspaceMine (faux pour un associé INVITÉ, à qui
+  // supabase-entry donne en repli l'espace du PROPRIÉTAIRE : `_espaces.find(e => e.mine) || _espaces[0]`).
+  function cloud(espace = 'E-PROPRE', mine = true) {
     const timers = [];
     const compte = { saves: 0, dirty: 0, rendus: 0 };
     const win = {
-      NormalisationLoyers: NL, __immoSupabaseMode: true, __immoOwnEspaceId: () => 'E-PROPRE',
+      NormalisationLoyers: NL, __immoSupabaseMode: true, __immoOwnEspaceId: () => espace, __immoOwnEspaceMine: () => mine,
       __immoRerenderCurrent: () => { compte.rendus++; },
     };
     // saveDB du mode cloud : marque sale → l'envoi part (supabase-entry : __immoMarkDirty → flush).
@@ -443,10 +445,11 @@ describe('hydratation cloud (__immoSetDB à CHAQUE appel) : persiste, pousse, ne
     const tick = () => { const t = timers.splice(0); t.forEach(f => f()); return t.length; };
     return { win, api, compte, tick };
   }
-  // Store simulé : enregistre chaque écriture ; un enregistrement d'un AUTRE espace = refus RLS (associé en lecture).
+  // Store simulé : enregistre chaque écriture. RLS FIDÈLE (store-supabase-adapter.js / store-supabase.js) : un
+  // UPDATE refusé ne lève PAS d'erreur, il touche 0 ligne → `null` → statut 'conflict'.
   function storeRls() {
     const calls = [];
-    const ok = (coll, rec) => { calls.push({ coll, rec }); if (rec && rec._espaceId === 'E-TIERS') throw new Error('42501 RLS'); return { status: 'updated', version: 2 }; };
+    const ok = (coll, rec) => { calls.push({ coll, rec }); if (rec && rec._espaceId === 'E-TIERS') return { status: 'conflict' }; return { status: 'updated', version: 2 }; };
     return { calls, upsert: async (c, r) => ok(c, r), remove: async (c, r) => ok(c, r), archive: async (c, r) => ok(c, r) };
   }
   const serveur = () => ({
@@ -479,6 +482,7 @@ describe('hydratation cloud (__immoSetDB à CHAQUE appel) : persiste, pousse, ne
     expect(envoyes).toEqual([11, 12]);                      // POUSSE les mouvements propres normalisés…
     expect(store.calls.some(c => c.rec && c.rec._espaceId === 'E-TIERS')).toBe(false);   // …jamais ceux du tiers
     expect((s.errors || []).length).toBe(0);                // aucun refus RLS (associé en lecture seule)
+    expect((s.conflicts || []).length).toBe(0);             // ni « conflict » (= refus RLS réel, 0 ligne)
     expect(db.mouvements.find(m => m.id === 13).cat).toBe('Loyers');
   });
 
@@ -534,5 +538,147 @@ describe('hydratation cloud (__immoSetDB à CHAQUE appel) : persiste, pousse, ne
     win.__immoSetDB(db); tick();
     expect(db.mouvements[0].cat).toBe('Loyers');
     expect(compte.saves).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// CONTRE-AUDIT 05/10 — associé INVITÉ (aucun espace à lui) : pas de boucle conflit → re-pull → renormalise.
+// Serveur simulé avec versions et RLS fidèle (refus = 0 ligne = 'conflict'), session complète comme
+// supabase-entry : hydrate → __immoSetDB → seed → timer → flush → sur conflit, re-pull (= nouvelle hydratation).
+describe('associé invité (sans espace propre) : convergence, aucune boucle', () => {
+  function appareil(espace, mine) {
+    const timers = []; const c = { saves: 0, rendus: 0 };
+    const win = { NormalisationLoyers: NL, __immoSupabaseMode: true, __immoOwnEspaceId: () => espace,
+      __immoOwnEspaceMine: () => mine, __immoRerenderCurrent: () => { c.rendus++; } };
+    const saveDB = () => { c.saves++; if (win.__immoMarkDirty) win.__immoMarkDirty(); };
+    new Function('window', 'console', 'setTimeout', 'saveDB', '_applyDataDefaults', '_applyParamDefaults', 'document', 'closeM', '_bootDataJobs', '_bootDataJobsDone',
+      `let DB = {};\n${[corpsDe('_stamp'), corpsDe('_normaliserLoyers'), setDbSrc()].join('\n')}`)(win, silence, (fn) => timers.push(fn), saveDB, () => {}, () => {}, { querySelectorAll: () => [] }, () => {}, undefined, true);
+    return { win, c, tick: () => timers.splice(0).forEach(fn => fn()) };
+  }
+  function serveur(peutEcrire, config) {
+    const rows = new Map();
+    return {
+      rows,
+      put(rec) { rows.set(rec.id, { rec: JSON.parse(JSON.stringify(rec)), v: 1 }); },
+      hydrate() {
+        const db = { baux: {}, logements: [], entites: [], params: {}, ...JSON.parse(JSON.stringify(config || {})),
+          mouvements: [...rows.values()].map(r => JSON.parse(JSON.stringify(r.rec))) };
+        return { db, versions: new Map([...rows].map(([k, r]) => [k, r.v])) };
+      },
+      store(versions, st) {
+        return {
+          upsert: async (coll, rec) => {
+            const r = rows.get(rec.id);
+            if (!r || !peutEcrire(rec) || versions.get(rec.id) !== r.v) { st.conflits++; return { status: 'conflict' }; }
+            r.v++; r.rec = JSON.parse(JSON.stringify(rec)); versions.set(rec.id, r.v); st.ecritures++; return { status: 'updated' };
+          },
+          remove: async () => ({ status: 'skipped' }), archive: async () => ({ status: 'skipped' }),
+        };
+      },
+    };
+  }
+  async function session(dev, srv, max) {
+    const st = { conflits: 0, ecritures: 0, repulls: 0, flushes: 0 }; let sale = false, sync, db;
+    const pull = () => {
+      const h = srv.hydrate(); db = h.db;
+      dev.win.__immoSetDB(db);
+      sync = createStoreSync({ store: srv.store(h.versions, st), getDB: () => db }); sync.seed();
+      dev.win.__immoMarkDirty = () => { sale = true; };
+      dev.tick();
+    };
+    pull();
+    for (let i = 0; i < max && sale; i++) {
+      sale = false; st.flushes++;
+      const s = await sync.flush();
+      if (s.conflicts && s.conflicts.length) { st.repulls++; pull(); }   // supabase-entry : conflit → re-pull
+    }
+    return { st, db: () => db };
+  }
+  const loyers = (esp) => [1, 2, 3].map(id => ({ id, date: '2026-0' + id + '-05', qui: 'A-0' + id, cat: 'Loyers', cr: 500, db: 0, _espaceId: esp }));
+
+  it("invité en LECTURE SEULE (repli sur l'espace du propriétaire) : 0 envoi, 0 conflit, 0 re-pull", async () => {
+    const srv = serveur(() => false); loyers('E-PROPRIO').forEach(r => srv.put(r));
+    const dev = appareil('E-PROPRIO', false);
+    const { st, db } = await session(dev, srv, 6);
+    expect(st).toEqual({ conflits: 0, ecritures: 0, repulls: 0, flushes: 0 });
+    expect(dev.c.saves).toBe(0);
+    expect(db().mouvements.every(m => m.cat === 'Loyers')).toBe(true);   // laissés au propriétaire
+  });
+
+  it('AVANT le correctif (repli pris pour « propre ») : la même session boucle — le scénario est fidèle', async () => {
+    const srv = serveur(() => false); loyers('E-PROPRIO').forEach(r => srv.put(r));
+    const dev = appareil('E-PROPRIO', true);   // comme si l'espace de repli était « mine »
+    const { st } = await session(dev, srv, 6);
+    expect(st.repulls).toBe(6);                // jamais convergent : un re-pull à chaque tour
+    expect(st.conflits).toBe(18);
+  });
+
+  it('invité en ÉCRITURE à config vide : ne reclasse PAS un « Loyers » que le propriétaire rattache ailleurs', async () => {
+    // Le propriétaire a rattaché « Loyers » à une autre ligne dans SA config, invisible pour l'invité.
+    const srv = serveur(() => true, { categories: [CATEGORIE_LOYERS] });
+    loyers('E-PROPRIO').forEach(r => srv.put(r));
+    const dev = appareil('E-PROPRIO', false);
+    const { st } = await session(dev, srv, 6);
+    expect(st.ecritures).toBe(0);
+    expect([...srv.rows.values()].every(r => r.rec.cat === 'Loyers' && r.v === 1)).toBe(true);
+  });
+
+  it('propriétaire (mine) : normalise, écrit une fois, converge (la ré-hydratation suivante ne renvoie rien)', async () => {
+    const srv = serveur(() => true); loyers('E-P').forEach(r => srv.put(r));
+    const dev = appareil('E-P', true);
+    const { st } = await session(dev, srv, 6);
+    expect(st.ecritures).toBe(3);
+    expect(st.repulls).toBe(0);
+    const { st: st2 } = await session(dev, srv, 6);   // nouvelle hydratation (écho)
+    expect(st2.flushes).toBe(0);
+    expect([...srv.rows.values()].every(r => r.rec.cat === CATEGORIE_LOYERS && r.v === 2)).toBe(true);
+  });
+
+  it('deux appareils du propriétaire à jour : A écrit, B prend 1 conflit, se ré-hydrate sans réécrire, même résultat', async () => {
+    const srv = serveur(() => true); loyers('E-P').forEach(r => srv.put(r));
+    const A = appareil('E-P', true), B = appareil('E-P', true);
+    const sa = { conflits: 0, ecritures: 0 }, sb = { conflits: 0, ecritures: 0 };
+    const hA = srv.hydrate(), hB = srv.hydrate();
+    A.win.__immoSetDB(hA.db); const yA = createStoreSync({ store: srv.store(hA.versions, sa), getDB: () => hA.db }); yA.seed(); A.win.__immoMarkDirty = () => {};
+    B.win.__immoSetDB(hB.db); const yB = createStoreSync({ store: srv.store(hB.versions, sb), getDB: () => hB.db }); yB.seed(); B.win.__immoMarkDirty = () => {};
+    A.tick(); B.tick();
+    await yA.flush(); const rB = await yB.flush();
+    expect(sa.ecritures).toBe(3);
+    expect(rB.conflicts.length).toBe(3);
+    const { st } = await session(B, srv, 5);   // re-pull de B : déjà normalisé côté serveur → rien à renvoyer
+    expect(st.flushes).toBe(0);
+    expect([...srv.rows.values()].every(r => r.rec.cat === CATEGORIE_LOYERS && r.v === 2)).toBe(true);
+  });
+
+  it("getter `mine` absent : prudence, même comportement qu'un invité", async () => {
+    const srv = serveur(() => true); loyers('E-PROPRIO').forEach(r => srv.put(r));
+    const dev = appareil('E-PROPRIO', true);
+    delete dev.win.__immoOwnEspaceMine;
+    const { st } = await session(dev, srv, 6);
+    expect(st.ecritures).toBe(0);
+  });
+});
+
+// CONTRE-AUDIT 05/10 (🟡) — un nom encore porté par des mouvements d'un autre espace garde ses réglages.
+describe('réglages gardés tant que des mouvements hors espace portent le nom', () => {
+  it('« Loyers » encore chez le tiers : liste, catConfig, mappings gardés ; « Arriérés de loyers » nettoyé', () => {
+    const db = {
+      mouvements: [{ id: 1, cat: 'Loyers', _espaceId: 'E-P' }, { id: 2, cat: 'Loyers', _espaceId: 'E-T' },
+        { id: 3, cat: 'Arriérés de loyers', _espaceId: 'E-P' }],
+      categories: ['Loyers', 'Arriérés de loyers'],
+      catConfig: { Loyers: { inclYTD: true }, 'Arriérés de loyers': {} },
+      catMapping: { Loyers: '211' }, catAlias: { 'Arriérés de loyers': CATEGORIE_LOYERS },
+      params: { legal2044Mapping: { Loyers: '211', 'Arriérés de loyers': '211' } },
+    };
+    const r = normaliserDonneesLoyers(db, { espacePropre: 'E-P' });
+    expect(db.mouvements.map(m => m.cat)).toEqual([CATEGORIE_LOYERS, 'Loyers', CATEGORIE_LOYERS]);
+    expect(db.categories).toEqual(['Loyers', CATEGORIE_LOYERS]);
+    expect(db.catConfig).toEqual({ Loyers: { inclYTD: true } });
+    expect(db.catMapping).toEqual({ Loyers: '211' });
+    expect(db.catAlias).toEqual({});
+    expect(db.params.legal2044Mapping).toEqual({ Loyers: '211' });
+    expect(r.horsEspace).toBe(1);
+    // Le mouvement du tiers reste classé (mapping 211 gardé) en attendant son propriétaire.
+    expect(_isLoyerCategory('Loyers', catCtxFromDb(db, STD))).toBe(true);
   });
 });

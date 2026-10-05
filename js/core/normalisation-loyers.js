@@ -79,6 +79,9 @@ function _verrouille(b) { return !!(b && b.signatures && typeof b.signatures ===
  *   sienne, et un associé en lecture seule se heurterait à la RLS à chaque envoi. C'est l'appareil du
  *   propriétaire qui les normalise, avec SA configuration. La configuration elle-même est toujours propre
  *   (store-multi.js : seule la config de l'espace propre est chargée).
+ *   `espacePropre: null` (associé INVITÉ, sans espace à lui) : seuls les enregistrements NON tagués sont
+ *   touchés — jamais ceux du propriétaire (sinon : écriture refusée par la RLS = « conflict » → re-pull →
+ *   nouvelle normalisation → boucle sans fin ; ou reclassement avec une config vide).
  * @returns {{modifie:boolean, aPersister:boolean, mouvements:number, reglesImport:number, categories:number,
  *   reglages:number, baux:number, bauxVerrouilles:number, historique:number, journal:number,
  *   horsEspace:number, ibanSnapshotsSignes:number, nomsSautes:string[]}}
@@ -103,10 +106,14 @@ export function normaliserDonneesLoyers(db, opts) {
     if (homonymePerso(db, n)) r.nomsSautes.push(n); else noms.add(n);
   }
   if (noms.size) {
+    // Noms encore portés par des mouvements d'un AUTRE espace (laissés à leur propriétaire) : leurs réglages
+    // (liste, catConfig, mappings, alias) sont GARDÉS, pour qu'ils restent classés en attendant d'être
+    // normalisés par l'appareil du propriétaire (contre-audit 05/10).
+    const enAttente = new Set();
     if (Array.isArray(db.mouvements)) {
       for (const m of db.mouvements) {
         if (!m || typeof m !== 'object' || !noms.has(m.cat)) continue;
-        if (!propre(m)) { r.horsEspace++; continue; }
+        if (!propre(m)) { r.horsEspace++; enAttente.add(m.cat); continue; }
         m.cat = CATEGORIE_LOYERS; stamp(m); r.mouvements++;
       }
     }
@@ -115,9 +122,10 @@ export function normaliserDonneesLoyers(db, opts) {
         if (x && typeof x === 'object' && noms.has(x.cat)) { x.cat = CATEGORIE_LOYERS; r.reglesImport++; }
       }
     }
-    if (Array.isArray(db.categories) && db.categories.some(c => noms.has(c))) {
+    const aNettoyer = new Set([...noms].filter(n => !enAttente.has(n)));
+    if (Array.isArray(db.categories) && db.categories.some(c => aNettoyer.has(c))) {
       const avant = db.categories.length;
-      db.categories = db.categories.filter(c => !noms.has(c));
+      db.categories = db.categories.filter(c => !aNettoyer.has(c));
       r.categories = avant - db.categories.length;
       if (!db.categories.includes(CATEGORIE_LOYERS)) db.categories.push(CATEGORIE_LOYERS);
     }
@@ -126,7 +134,7 @@ export function normaliserDonneesLoyers(db, opts) {
     const params = (db.params && typeof db.params === 'object') ? db.params : null;
     for (const table of [db.catConfig, db.catMapping, db.catAlias, params && params.legal2044Mapping]) {
       if (!table || typeof table !== 'object') continue;
-      for (const n of noms) {
+      for (const n of aNettoyer) {
         if (Object.prototype.hasOwnProperty.call(table, n)) { delete table[n]; r.reglages++; }
       }
     }
