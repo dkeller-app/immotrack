@@ -303,9 +303,9 @@ function _loadDemoDataset() {
   for (let m = 5; m >= 0; m--) {
     const d = new Date(today.getFullYear(), today.getMonth() - m, 5);
     mvts.push({ id: mid++, date: d.toISOString().slice(0,10),
-      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers', qui:'D-101', db:0, cr:680, fac:'' });
+      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers encaissés', qui:'D-101', db:0, cr:680, fac:'' });
     mvts.push({ id: mid++, date: d.toISOString().slice(0,10),
-      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers', qui:'D-102', db:0, cr:970, fac:'' });
+      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers encaissés', qui:'D-102', db:0, cr:970, fac:'' });
   }
   // 1 facture eau collective (à répartir)
   mvts.push({ id: mid++, date: monthAgo(2),
@@ -319,8 +319,9 @@ function _loadDemoDataset() {
   const demoDB = {
     entites: [ent], logements: logs, baux,
     mouvements: mvts, baux_historique: [], quittances: [], assurances: [], mrh: [],
-    edl: [], categories: ['Loyers','Charges','Travaux','Assurance','Autre'],
-    catConfig: { 'Loyers': { inclYTD: true } },
+    // NORMALISATION-LOYERS (01/10) : la démo naît dans la catégorie canonique, plus dans « Loyers » hérité.
+    edl: [], categories: ['Loyers encaissés','Charges','Travaux','Assurance','Autre'],
+    catConfig: {},
     agenda: [], params: {}, irlTable: {}
   };
   try {
@@ -1485,9 +1486,10 @@ function _applyDataDefaults() {
   if (!DB.categories) DB.categories = [...DEFAULT_CATS];
   if (!DB.piecesEDL) DB.piecesEDL = {...DEFAULT_PIECES};
   if (!DB.params) DB.params = {};
-  // catConfig — config des catégories pour calcul réalisé YTD
+  // catConfig — annotations par catégorie. NORMALISATION-LOYERS (01/10) : plus de réinjection de
+  // catConfig['Loyers'] à chaque chargement (catégorie héritée, normalisée en « Loyers encaissés » ;
+  // le « réalisé » se déduit de la ligne 2044, cf _realiseInclCat — inclYTD n'est plus lu).
   if(!DB.catConfig) DB.catConfig = {};
-  if(!('Loyers' in DB.catConfig)) DB.catConfig['Loyers'] = {inclYTD:true};
   // v14.61 CHARGES-COMMUNES — préparation reporting bailleur (v14.64) et 2044 (v14.65) :
   // chaque catégorie peut être annotée { recuperable: true|false, deductible2044: 'ligne' }.
   // Default null = config UI à venir (Phase reporting), ne casse rien.
@@ -1607,6 +1609,10 @@ function initDB() {
       }, 1500);
     }
   }
+  // NORMALISATION-LOYERS (01/10) — « Loyers » / « Arriérés de loyers » → « Loyers encaissés », IBAN locataire
+  // purgé (RGPD). AVANT la capture d'annulation (sinon « Annuler » ramènerait la catégorie héritée) et AVANT
+  // _CAT_MIGRATION : c'est désormais le seul endroit qui traite les noms de loyer hérités.
+  _normaliserLoyers('initDB');
   // UNDO-OP v14.21 : capture l'état initial pour permettre l'undo de la 1re modif
   if (typeof _undoSnapshot === 'function') _undoLastSnapshot = _undoSnapshot();
   // v15.166 BUG-DEMO-INJECTION : plus d'auto-injection de démos en prod.
@@ -1641,8 +1647,9 @@ function initDB() {
   // V3-REFONTE-LOYERS — restructuration des catégories (consolidation 31→21) : re-tague les mouvements + règles
   // d'import vers les nouveaux noms (fusions/renommages) AVANT la migration douce. Idempotent (les anciens noms
   // disparaissent ensuite). CFE / taxe logements vacants (meublé) NON migrées → deviennent des catégories custom conservées.
+  // « Arriérés de loyers » n'est plus ici : _normaliserLoyers (ci-dessus) le traite avec « Loyers », en
+  // respectant une catégorie personnelle homonyme rattachée ailleurs (js/core/normalisation-loyers.js).
   const _CAT_MIGRATION = {
-    'Arriérés de loyers': 'Loyers encaissés',
     'Subventions ANAH': 'Recettes diverses',
     'Indemnité d\'assurance sinistre': 'Recettes diverses',
     'Recettes diverses (parking, antennes, pub, chasse)': 'Recettes diverses',
@@ -3261,6 +3268,30 @@ function _renderSidebarFiltered() {
 function _stamp(obj) {
   if(obj && typeof obj==='object') obj._modifiedAt = new Date().toISOString();
   return obj;
+}
+
+// NORMALISATION-LOYERS (01/10) — LE point d'appel unique de js/core/normalisation-loyers.js (pur, testé),
+// exposé par js/main.js sur window.NormalisationLoyers (un `let`/`const` de script n'est PAS sur window ;
+// le module, lui, l'y pose explicitement, et s'exécute avant DOMContentLoaded donc avant initDB).
+// « Loyers » et « Arriérés de loyers » (noms EXACTS) → « Loyers encaissés » ; `locNouvIban` retiré à la
+// racine des baux (jamais du document signé). `_stamp` sur chaque enregistrement modifié → la synchro
+// le propage. Ne sauvegarde PAS : l'appelant persiste (saveDB, flush de restauration, import).
+// `db` : la base à normaliser (défaut : le DB vivant). Renvoie le rapport du module, ou null.
+function _normaliserLoyers(source, db) {
+  const N = (typeof window !== 'undefined') ? window.NormalisationLoyers : null;
+  if (!N || typeof N.normaliser !== 'function') {
+    console.warn('[normalisation loyers] module absent (' + source + ') : données non normalisées');
+    return null;
+  }
+  const r = N.normaliser(db || DB, { stamp: _stamp });
+  if (r && r.modifie) {   // silencieux quand rien n'a changé (2e passage, démarrages suivants)
+    console.info('[normalisation loyers] ' + source + ' : ' + r.mouvements + ' mouvement(s) → « Loyers encaissés », '
+      + r.reglesImport + ' règle(s), ' + r.reglages + ' réglage(s), IBAN retiré de ' + (r.baux + r.historique) + ' bail(s) / '
+      + r.journal + ' entrée(s) de journal'
+      + (r.nomsSautes.length ? ' ; catégorie personnelle conservée : ' + r.nomsSautes.join(', ') : '')
+      + (r.ibanSnapshotsSignes ? ' ; IBAN laissé dans ' + r.ibanSnapshotsSignes + ' document(s) signé(s)' : ''));
+  }
+  return r;
 }
 
 // =================== UTILITIES ===================
@@ -6760,7 +6791,7 @@ function _v4ComputeLotStatus(log, yr, mo, mvs) {
     // (mvs = mouvements du mois sélectionné, passés par l'appelant) → tooltip d'explication.
     let coverNote = '';
     if ((m.cls === 'ok' || m.cls === 'avance') && Array.isArray(mvs)) {
-      const isLoy = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
+      const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
       const dated = mvs.filter(x => x.qui === log.ref && (x.cr||0) > 0 && isLoy(x.cat)).reduce((a, x) => a + (x.cr||0), 0);
       if (dated < m.due * 0.5) coverNote = 'Aucun paiement daté de ce mois — couvert par un paiement antérieur du locataire (avance)';
     }
@@ -6799,7 +6830,7 @@ function _suiviLoyerStrip(log, yr) {
   if (C.gen !== gen) { C.gen = gen; C.map = {}; }
   const key = log.ref + '|' + y;
   if (C.map[key]) return C.map[key];
-  const isLoy = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
+  const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   const monthlyFull = (Number(log.hc) || 0) + (Number(log.ch) || 0);
   // Total encaissé loyer sur l'année pour ce logement (le moteur alloue chronologiquement).
@@ -6827,7 +6858,7 @@ function _pilCollectFamilles(ctx) {
   const todayD = new Date(today + 'T00:00:00');
   const joursDepuis = (iso) => { if (!iso) return null; const d = new Date(String(iso).slice(0, 10) + 'T00:00:00'); return isNaN(d) ? null : Math.floor((todayD - d) / 86400000); };
   const AR = window.AlertRules || {};
-  const isLoyer = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
+  const isLoyer = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
   const src = { depot: [], irl: [], impaye: [], regul: [], finbail: [], document: [], entretien: [], vacant: [] };
 
   // ── IMPAYÉS (byLot / suivi — R-0) : montant dû, ancienneté = plus vieux mois impayé ──
@@ -8943,7 +8974,7 @@ function _loyerEtatLot(ref, opts) {
   if (C.gen !== gen) { C.gen = gen; C.map = {}; }
   if (C.map[key]) return C.map[key];
 
-  const isLoy = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
+  const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
   const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   const recuParYm = {};
   // LOT 0 (CDC-LOYERS-DESIGN §4) — on ne jette plus la date : `recuParYm` gardait le
@@ -17204,7 +17235,7 @@ function saveBail() {
   // Le bail est RECONSTRUIT de zéro (getBailDataFromForm + overlay) puis remplace l'ancien juste
   // en dessous : tout champ sans input y disparaissait SANS TOMBSTONE ET SANS UNDO. Mesuré en
   // prod : déclarer un départ, restituer le DG, puis corriger le seul téléphone effaçait
-  // bail.depart, dgRestitueAt, dgDetailRetenues, dgRestitueMontant et locNouvIban — l'assistant
+  // bail.depart, dgRestitueAt, dgDetailRetenues et dgRestitueMontant — l'assistant
   // repassait de « 3/6 étapes · sortie 30/06/2026 » à « Déclarer le départ » et le DG de
   // « ✓ Restitué » à « ❓ Non versé ». Correctif GÉNÉRIQUE : énumérer les champs à sauver laisse
   // repasser le bug au prochain champ ajouté ailleurs (les lignes nominatives ci-dessus —
@@ -25958,7 +25989,7 @@ function computeRegul(from, to) {
   });
 
   // Provisions : compter 1 mois distinct de loyer encaissé par entrée bail
-  // v14.82 BUG-CHARGE-001 : _isLoyerCategory match legacy 'Loyers' ET LEGAL-2044 'Loyers encaissés'
+  // v14.82 BUG-CHARGE-001 : _isLoyerCategory = ligne 211 (« Loyers encaissés », alias, mapping) ; plus de « Loyers » hérité (NORMALISATION-LOYERS)
   DB.mouvements
     .filter(m=>_isLoyerCategory(m.cat)&&m.cr>0&&m.date>=from&&m.date<=to&&m.qui)
     .forEach(m=>{

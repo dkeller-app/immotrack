@@ -701,7 +701,6 @@ Suite à l'état des lieux de sortie du {{dateEDLSortie}} qui n'a fait apparaît
 
 Montant restitué : {{bail.dg}} €
 Mode : virement bancaire
-IBAN destinataire : {{ibanLocataire}}
 Date prévue du virement : {{dateRestitution}}
 
 Conformément à l'article 22 de la loi n° 89-462 du 6 juillet 1989, ce remboursement intervient dans le délai légal d'un mois suivant la restitution des clés.
@@ -728,9 +727,8 @@ Décompte :
 - Total retenu : {{montantRetenu}} €
 - Solde restitué : {{soldeRestitue}} €
 
-Le solde sera viré sur le compte suivant :
-- IBAN : {{ibanLocataire}}
-- Date prévue du virement : {{dateRestitution}}
+Le solde sera versé par virement bancaire.
+Date prévue du virement : {{dateRestitution}}
 
 Vous trouverez en pièce jointe les factures / devis justifiant les retenues, conformément à l'article 22 de la loi du 6 juillet 1989.
 

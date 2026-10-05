@@ -45,7 +45,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
   if(window._BAIL_PDF_LIBS)return Promise.resolve(window._BAIL_PDF_LIBS);
   if(p)return p;
   p=new Promise(function(res,rej){var s=document.createElement('script');
-    s.src='js/vendor/pdf-libs.b64.js?v=20a9c05f';s.async=true;
+    s.src='js/vendor/pdf-libs.b64.js?v=c19eea9e';s.async=true;
     s.onload=function(){window._BAIL_PDF_LIBS?res(window._BAIL_PDF_LIBS):(p=null,rej(new Error('pdf-libs : fichier vide')))};
     s.onerror=function(){p=null;rej(new Error('pdf-libs : echec de chargement'))};
     document.head.appendChild(s)});
@@ -59,7 +59,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
 <link rel="stylesheet" href="css/main.css?v=15.709">
-<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=fe7e7e67">
+<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=370b6e68">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -4427,9 +4427,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js"></script>
 <script type="module" src="js/app/supabase-entry.js" onerror="window.__immoPartFail&&window.__immoPartFail('supabase-entry')"></script>
-<script src="js/app/app-part1.js?v=842a9574" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=d7f8ceda" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=7d55738f" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/app-part1.js?v=fdb1dcef" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=99c7f647" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=3bce69b7" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">
