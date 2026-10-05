@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.709';
+const IMMOTRACK_VERSION = '15.710';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -4690,7 +4690,13 @@ async function _completeRemoteSignCore(ref, state) {
   // IRL-REVISION N4 — la version de clause relue par le locataire (celle de l'envoi) est gravée.
   // N10 — écrite EXPLICITEMENT (un 2 laissé par un enregistrement ultérieur ne doit pas survivre).
   bail.clauseIrlV = _bailClauseVersionNorm(rs && rs.clauseIrlV);
-  bail.signatures = Object.assign({}, bail.signatures, {
+  // PARAPHE-UNIQUE (audit 01/10) — le bail devient COMPLET ici : les paraphes des signataires EN
+  // PRÉSENCE (écrits en entier tant que le bail était partiel) passent à la forme compacte, une image
+  // par signataire. Forme inconnue (future) ou module absent → on n'y touche pas. Hors empreinte légale.
+  let _parCompact = null;
+  try { _parCompact = window.BailParaphes ? window.BailParaphes.compacterSignatures(bail.signatures) : null; }
+  catch (e) { console.warn('[remoteSign] compactage des paraphes', e); _parCompact = null; }
+  bail.signatures = Object.assign({}, bail.signatures, _parCompact || {}, {
     mode: 'distance',
     signedAt: completedAt,
     signatureSource: 'immotrack',
@@ -17466,10 +17472,29 @@ function previewBail() {
 // présence (modale ov-send-b re-titrée) ; « Lancer la signature » appelle _confirmBailSignatureFlow
 // (présentiels chacun son tour + liens aux distants). Remplace « Signer le bail » / « Le locataire
 // signe » / « Envoyer en signature ». En cloud le relais est toujours configuré (présentiel-seul OK).
-function openBailSignatureFlow(ref) {
+async function openBailSignatureFlow(ref) {
   const bail = DB.baux[ref];
   if (!bail) { showToast('Bail introuvable', 'err'); return; }
+  if (!(await _appAJourPourSigner(bail))) return;   // PARAPHE-UNIQUE : onglet périmé / forme future
   openRemoteSignModal(ref);   // même modale = matrice de présence (co-gérants + locataires déjà construits)
+}
+// PARAPHE-UNIQUE (audit 01/10) — URL de sw.js : sa CACHE_VER porte la version SERVIE (js/core/version-app.js).
+function _swVersionUrl() {
+  try { return new URL('sw.js', location.href).href; } catch (e) { return 'sw.js'; }
+}
+// Avant de signer : (1) signatures d'une forme future → refus ; (2) version servie plus récente que cet
+// onglet (jamais rechargé après un déploiement en cloud) → refus, recharger. Réseau en échec → on continue.
+async function _appAJourPourSigner(bail) {
+  const VA = window.VersionApp, BP = window.BailParaphes;
+  if (bail && bail.signatures && BP && !BP.formatSignaturesConnu(bail.signatures)) {
+    showToast(VA ? VA.MSG_FORMAT_INCONNU : 'Recharger la page (Ctrl+F5).', 'err', 9000); return false;
+  }
+  if (!VA) return true;
+  // Lecture bornée (réponse ET corps) dans le module testé — même code que la popup.
+  if (await VA.versionServieRecente(_swVersionUrl(), IMMOTRACK_VERSION)) {
+    showToast(VA.MSG_VERSION_SIGNER, 'warn', 9000); return false;
+  }
+  return true;
 }
 /* v13.10 — "Voir bail signé" : ouvre l'aperçu en utilisant le snapshot figé
    au moment de la signature (signatures.bailSnapshot). Le bail "courant" peut
@@ -20113,7 +20138,7 @@ function previewBailData(bail, log, ref, opts) {
     +'<button class="btn-wiz" onclick="_wizPorteUnique()">\u270d\ufe0f D\u00e9marrer signature</button>'
     /* v13.22 \u2014 toolbar \u00e9pur\u00e9e : "Test" et "Pr\u00e9-render" (dev tools) retir\u00e9s.
        "PDF natif" conserv\u00e9 (re-t\u00e9l\u00e9chargement utile sur bail sign\u00e9). */
-    +'<button class="btn-natif" onclick="genPDFNative()" style="background:#0ea5e9;color:#fff" title="Re-t\u00e9l\u00e9charger le PDF (avec signatures si bail sign\u00e9, sinon vierge)">\ud83d\udcc4 PDF</button>'
+    +'<button class="btn-natif" onclick="_wizPdfNatif()"style="background:#0ea5e9;color:#fff" title="Re-t\u00e9l\u00e9charger le PDF (avec signatures si bail sign\u00e9, sinon vierge)">\ud83d\udcc4 PDF</button>'
     +'<button class="btn-cl" onclick="window.close()">\u2715 Fermer</button>'
     +'</div>'
     +'<div class="wiz-nav no-print">'
@@ -20155,6 +20180,26 @@ function previewBailData(bail, log, ref, opts) {
     +'var hasPdfUnsafeChars='+window.MontantDoc.hasPdfUnsafeChars.toString()+';'
     +'var pdfSafeText='+window.MontantDoc.pdfSafeText.toString()+';'
     +'var hardenJsPdfText='+window.MontantDoc.hardenJsPdfText.toString()+';'
+    /* PARAPHE-UNIQUE (v15.709) — persistance : une image de paraphe par signataire. parapheCarte relit
+       les DEUX formes (anciens baux verrouillés : paraphes[page][sigId]) ; compacterParaphes écrit. */
+    +'var FORMAT_SIGNATURES='+JSON.stringify(window.BailParaphes.FORMAT_SIGNATURES)+';'
+    +'var parapheDe='+window.BailParaphes.parapheDe.toString()+';'
+    +'var parapheCarte='+window.BailParaphes.parapheCarte.toString()+';'
+    +'var compacterParaphes='+window.BailParaphes.compacterParaphes.toString()+';'
+    /* Audit 01/10 : on ne compacte QUE quand le bail devient complet (un onglet périmé qui reprendrait
+       un bail partiel compacté perdrait le paraphe du 1er signataire) ; forme future refusée. */
+    +'var formatSignaturesConnu='+window.BailParaphes.formatSignaturesConnu.toString()+';'
+    +'var signaturesCompletes='+window.BailParaphes.signaturesCompletes.toString()+';'
+    +'var ecrireParaphes='+window.BailParaphes.ecrireParaphes.toString()+';'
+    /* Contrôle « onglet périmé » (js/core/version-app.js) : version servie lue dans sw.js, sans cache. */
+    +'var versionDepuisSw='+window.VersionApp.versionDepuisSw.toString()+';'
+    +'var versionPlusRecente='+window.VersionApp.versionPlusRecente.toString()+';'
+    +'var versionServieRecente='+window.VersionApp.versionServieRecente.toString()+';'
+    +'var MSG_VERSION_SIGNER='+JSON.stringify(window.VersionApp.MSG_VERSION_SIGNER)+';'
+    +'var MSG_VERSION_PDF='+JSON.stringify(window.VersionApp.MSG_VERSION_PDF)+';'
+    +'var MSG_FORMAT_INCONNU='+JSON.stringify(window.VersionApp.MSG_FORMAT_INCONNU)+';'
+    +'var _APP_VERSION='+JSON.stringify(typeof IMMOTRACK_VERSION!=='undefined'?IMMOTRACK_VERSION:'')+';'
+    +'var _VERSION_URL='+JSON.stringify(_swVersionUrl())+';'
     +'var _SIGS='+sigsJson+';'
     +'var _BAIL_STRUCTURE='+bailStructureJson+';'
     +'var _BAIL_REF='+JSON.stringify(ref)+';' /* v13.02 : persistance signatures */
@@ -20186,6 +20231,9 @@ function previewBailData(bail, log, ref, opts) {
         const _jr = (window.BailModifs && ref) ? (window.BailModifs.modificationsDuBail || window.BailModifs.journalDuBail)(DB.baux_evenements, ref, bail) : [];
         return _jr.length ? null : _sg;
       })())+';' /* v13.03 : hydrate */
+    /* PARAPHE-UNIQUE (audit 01/10) — signatures d'une forme FUTURE (format > FORMAT_SIGNATURES) : cette
+       version ne les relit pas et ne les réécrit pas (signer, enregistrer, « PDF » refusés). */
+    +'var _SIG_FORMAT_INCONNU='+JSON.stringify(!!(bail.signatures && !window.BailParaphes.formatSignaturesConnu(bail.signatures)))+';'
     /* FIL-ROUGE cleanup — _AUTO_SIGN / _AUTO_PHASE2 retirés (triggers + setters supprimés). */
     +'var _BAIL_SIGN_QUEUE='+JSON.stringify((opts&&opts.signQueue)||null)+';' /* FIL-ROUGE : sigIds présentiels ordonnés (chacun son tour) */
     +'var _BAIL_SIGN_DISTANTS='+JSON.stringify((opts&&opts.distants)||[])+';' /* FIL-ROUGE : signataires distants à relayer après les présentiels */
@@ -20301,6 +20349,20 @@ function previewBailData(bail, log, ref, opts) {
     +'window._wizV2Pages=null;window._wizV2Current=1;window._wizV2Paraphes={};'
     /* DDT annexé (art. 3-3) — « Démarrer signature » de l'APERÇU passe par la porte UNIQUE (modale
        ov-send-b) : c'est elle qui fige les pièces annexées et le § 17. Signer ici court-circuitait le plan. */
+    /* PARAPHE-UNIQUE (audit 01/10) — onglet périmé : en cloud, un onglet ouvert avant un déploiement n'est
+       jamais rechargé ; son code (celui de cette popup) peut ne pas savoir lire une forme plus récente des
+       signatures et l'écraser. Avant de signer ou de régénérer le PDF d'un bail signé, on lit la version
+       servie (sw.js, sans cache) ; plus récente → on n'ouvre pas. Réseau en échec → on continue. */
+    +'async function _wizVersionAJour(msg){'
+    +  'if(await versionServieRecente(_VERSION_URL,_APP_VERSION)){alert(msg);return false;}'
+    +  'return true;'
+    +'}'
+    /* Bouton « PDF » : sur un bail SIGNÉ, contrôle de version d'abord (brouillon : inchangé). */
+    +'async function _wizPdfNatif(){'
+    +  'if(_SIG_FORMAT_INCONNU){alert(MSG_FORMAT_INCONNU);return;}'
+    +  'if(_BAIL_SIGNED&&!(await _wizVersionAJour(MSG_VERSION_PDF)))return;'
+    +  'genPDFNative();'
+    +'}'
     +'function _wizPorteUnique(){'
     +  'try{if(window.opener&&!window.opener.closed&&typeof window.opener.openBailSignatureFlow==="function"){'
     +    'window.opener.openBailSignatureFlow(_BAIL_REF);window.opener.focus();window.close();return;}}catch(e){}'
@@ -20312,6 +20374,9 @@ function previewBailData(bail, log, ref, opts) {
        présentiel). Fonction supprimée : plus aucun appelant. */
     +'async function startSignatureWizardV2(opts){'
     +  'opts=opts||{};'
+    /* PARAPHE-UNIQUE (audit 01/10) — forme future ou onglet périmé : on ne démarre pas. */
+    +  'if(_SIG_FORMAT_INCONNU){alert(MSG_FORMAT_INCONNU);return;}'
+    +  'if(!(await _wizVersionAJour(MSG_VERSION_SIGNER)))return;'
     /* v13.08 — Phase 2 locataire : skip dialog + force locataire-only filtering.
        Le bail est déjà signé bailleur-seul, on ajoute juste les sigs locataire. */
     +  'if(opts.phase2){'
@@ -20420,9 +20485,10 @@ function previewBailData(bail, log, ref, opts) {
     /* DOCUMENT DÉFILANT (29/09, validé Didier — même traitement que la signature à distance) :
        tout le bail défile ; chaque page à parapher porte un bouton « Parapher — nom » par signataire.
        Le paraphe est tracé UNE fois par signataire (feuille), puis apposé d'un clic, page par page,
-       avec l'heure (_wizV2ParapheTimes). Contrat de données INCHANGÉ pour genPDFNative / la persistance :
-       _wizV2Paraphes[page][sigId] = PNG. Base légale : C. civ. 1366/1367 (aucune lecture page par page
-       imposée). */
+       avec l'heure (_wizV2ParapheTimes). En MÉMOIRE (popup, genPDFNative) : _wizV2Paraphes[page][sigId]
+       = PNG, inchangé. PERSISTÉ (PARAPHE-UNIQUE v15.709) : une image par signataire (compacterParaphes),
+       relue par parapheCarte (js/core/bail-paraphes.js). Base légale : C. civ. 1366/1367 (aucune lecture
+       page par page imposée). */
     +'function _wizV2Hhmm(iso){var d=new Date(iso);return ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);}'
     +'function _wizV2Esc(v){return String(v==null?"":v).replace(/[&<>"\']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","\'":"&#39;"}[c];});}'
     +'function _wizV2Missing(){'
@@ -20770,6 +20836,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'setTimeout(function(){t.style.transition="opacity .3s";t.style.opacity="0";setTimeout(function(){t.remove();},300);},durationMs||3000);'
     +'}'
     +'function _wizV2PersistSignatures(){'
+    +  'if(_SIG_FORMAT_INCONNU){alert(MSG_FORMAT_INCONNU);return;}'
     /* v13.08 — calcul du mode + timestamps par partie.
        - Phase 2 locataire : transition partiel → complet, garde signedBailleurAt
          original, ajoute signedLocataireAt = now.
@@ -20890,8 +20957,17 @@ function previewBailData(bail, log, ref, opts) {
     +    'if(_newImm&&!bailSnapshot.imm)bailSnapshot.imm=_newImm;'
     +    'if(_newCaptured&&!bailSnapshot.capturedAt)bailSnapshot.capturedAt=_newCaptured;'
     +  '}'
+    /* PARAPHE-UNIQUE (v15.709, audit 01/10) — le paraphe est tracé UNE fois par signataire. Bail COMPLET
+       (plus aucun signataire présent ni distant attendu) : on stocke son image UNE fois (parapheImg), les
+       pages paraphées étant parapheTimes. Bail PARTIEL : `paraphes` en entier, comme avant — un onglet
+       resté sur une version antérieure peut reprendre ce bail (signataire suivant) ; il ne sait relire que
+       `paraphes` et perdrait sinon le paraphe du 1er signataire. Le retour du relais compacte les baux
+       mixtes (_completeRemoteSignCore). */
+    +  'var _parComplet=signaturesCompletes(_SIGS,(typeof _BAIL_BAILLEUR_MODES!=="undefined"?_BAIL_BAILLEUR_MODES:[]),window._wizV2FinalSignatures||{});'
+    +  'var _parC=ecrireParaphes(window._wizV2Paraphes||{},window._wizV2ParapheTimes||{},_parComplet);'
     +  'var sigData={'
-    +    'paraphes:window._wizV2Paraphes||{},'
+    +    'format:FORMAT_SIGNATURES,'
+    +    'paraphes:_parC.paraphes,'
     +    'finales:window._wizV2FinalSignatures||{},'
     +    'luApprouveBy:window._wizV2LuApprouveBy||{},'
     +    'mode:mode,'
@@ -20909,6 +20985,7 @@ function previewBailData(bail, log, ref, opts) {
     +    'annexesRecuesBy:window._wizV2AnnexAckBy||{},'
     +    'bailSnapshot:bailSnapshot'
     +  '};'
+    +  'if(_parC.parapheImg)sigData.parapheImg=_parC.parapheImg;'
     +  'if(signedLocataireAt)sigData.signedLocataireAt=signedLocataireAt;'
     +  'var ok=false,via="";'
     /* Path 1 : window.opener (refresh UI immédiat) */
@@ -21708,8 +21785,13 @@ function previewBailData(bail, log, ref, opts) {
     /* v13.03 — bail déjà signé : hydrate _wizV2* depuis DB.signatures pour que
        "🚀 PDF natif" reproduise le PDF signé, et désactive le bouton "Démarrer
        signature" (passer par "Réinitialiser" sur la carte Propryo pour modifier). */
-    +'if(_BAIL_SIGNED&&_SAVED_SIGNATURES){'
-    +  'window._wizV2Paraphes=_SAVED_SIGNATURES.paraphes||{};'
+    /* PARAPHE-UNIQUE (audit 01/10) — forme future : ni relue ni régénérée ; signer et « PDF » sont refusés. */
+    +'if(_SIG_FORMAT_INCONNU){'
+    +  'alert(MSG_FORMAT_INCONNU);'
+    +  'var _bwFut=document.querySelector(".btn-wiz");if(_bwFut){_bwFut.disabled=true;_bwFut.title=MSG_FORMAT_INCONNU;}'
+    +'}else if(_BAIL_SIGNED&&_SAVED_SIGNATURES){'
+    /* PARAPHE-UNIQUE (v15.709) — carte page → signataire → image relue depuis l'une ou l'autre forme. */
+    +  'window._wizV2Paraphes=parapheCarte(_SAVED_SIGNATURES);'
     +  'window._wizV2FinalSignatures=_SAVED_SIGNATURES.finales||{};'
     +  'window._wizV2LuApprouveBy=_SAVED_SIGNATURES.luApprouveBy||{};'
     +  'window._wizV2ParapheTimes=_SAVED_SIGNATURES.parapheTimes||{};'
@@ -21721,7 +21803,7 @@ function previewBailData(bail, log, ref, opts) {
        Les images PNG ne sont pas nécessaires pour la regen PDF (juste les flags). */
     +  'window._wizV2Pages=[];'
     +  'for(var sp=1;sp<=(_SAVED_SIGNATURES.totalPages||0);sp++){'
-    +    'window._wizV2Pages.push({pageNum:sp,noParaphe:!_SAVED_SIGNATURES.paraphes[sp]});'
+    +    'window._wizV2Pages.push({pageNum:sp,noParaphe:!window._wizV2Paraphes[sp]});'
     +  '}'
     +  'console.log("[init] bail signe — hydrate",Object.keys(window._wizV2Paraphes).length,"paraphes +",Object.keys(window._wizV2FinalSignatures).length,"sigs finales");'
     +  'var btnWizInit=document.querySelector(".btn-wiz");'

@@ -47,6 +47,29 @@ const PAIRS = [
     ]
   },
   {
+    // PARAPHE-UNIQUE (v15.709) — une image de paraphe par signataire + lecteur des deux formes.
+    // L'app lit window.BailParaphes ; la popup de signature en reçoit les sources par toString().
+    name: 'bail-paraphes',
+    src: 'js/core/bail-paraphes.js',
+    dst: 'js/helpers/bail-paraphes.global.js',
+    globalName: 'BailParaphes',
+    exports: '*',
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
+    // PARAPHE-UNIQUE (audit 01/10) — contrôle « onglet périmé » avant de signer / régénérer un PDF signé.
+    name: 'version-app',
+    src: 'js/core/version-app.js',
+    dst: 'js/helpers/version-app.global.js',
+    globalName: 'VersionApp',
+    exports: '*',
+    sanity: [
+      { name: 'function declarations', pattern: /[sS]*/, marker: /^s*(?:exports+)?functions+w+/gm }
+    ]
+  },
+  {
     // Chantier ANNONCES (D7) — fourchette + années des prix lues dans le texte d'un DPE.
     name: 'dpe-texte',
     src: '__tests__/helpers/dpe-texte.js',
