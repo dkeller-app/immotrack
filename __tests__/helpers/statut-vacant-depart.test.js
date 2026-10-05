@@ -17,6 +17,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bailLoueAu, finOccupationBail } from '../../js/core/fin-occupation.js';
 import { _computeOccupationLots } from '../../js/core/legal-bilan.js';
+import { duMoisFromRaw } from '../../js/core/loyer-du-mois.js';
 import { extraireFonction } from './_extraction-source.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -358,5 +359,54 @@ describe('11 · fiche du lot, enregistrement (VRAI saveParamLog) : loyer souhait
     expect(essai('A1', { A1: DEPART }).occupe).toBe(true);
     expect(essai('B2', { B2: BAIL }).occupe).toBe(true);
     expect(essai('C3', {}).occupe).toBe(false);
+  });
+});
+describe('12 · relocation d\'un lot parti (VRAI archiverBail, appelé par saveBail) — audit 06/10', () => {
+  const rebail = (ancien, nouveauDebut) => {
+    const DB = dbDe({ A1: ancien });
+    const m = monter(DB, [...STATUT, 'archiverBail', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation'], {
+      _baremeCloturerLot: (ref, fin) => { DB._bareme = fin; },
+    });
+    m.fn.archiverBail('A1', nouveauDebut);
+    DB.baux.A1 = { ref: 'A1', type: 'nu', debut: nouveauDebut, hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nouveau' }] };
+    return DB;
+  };
+  const du = (DB, ym) => {
+    const d = duMoisFromRaw('A1', ym, { currentBail: DB.baux.A1, bauxHistorique: DB.baux_historique, bareme: [] });
+    return d ? Math.round((d.hc || 0) + (d.ch || 0)) : 0;
+  };
+  it('départ déclaré au 30/09, nouveau bail au 15/11 : l\'ancien bail finit le 30/09 — octobre n\'est dû par personne, novembre seulement par le nouveau (prorata)', () => {
+    const DB = rebail({ ...DEPART, ref: 'A1', fin: '2028-12-31' }, '2026-11-15');
+    expect(DB.baux_historique[0].finEffective).toBe('2026-09-30');
+    expect(DB._bareme).toBe('2026-09-30');
+    expect(du(DB, '2026-09')).toBe(600);
+    expect(du(DB, '2026-10')).toBe(0);
+    expect(du(DB, '2026-11')).toBe(Math.round(700 * 16 / 30));
+  });
+  it('sortie déclarée APRÈS le début du nouveau bail : l\'ancien bail finit la veille du nouveau', () => {
+    const DB = rebail({ ...BAIL, ref: 'A1', depart: { dateSortie: '2026-11-20' } }, '2026-11-15');
+    expect(DB.baux_historique[0].finEffective).toBe('2026-11-14');
+  });
+  it('sans départ déclaré : la veille du nouveau bail (comportement C4 inchangé) ; fin effective déjà posée : gardée', () => {
+    expect(rebail({ ...BAIL, ref: 'A1' }, '2026-11-15').baux_historique[0].finEffective).toBe('2026-11-14');
+    expect(rebail({ ...BAIL, ref: 'A1', finEffective: '2026-08-31' }, '2026-11-15').baux_historique[0].finEffective).toBe('2026-08-31');
+  });
+  it('règle (VRAI _finAncienBailAuRebail) : sortie le jour même du nouveau bail = veille + avertissement', () => {
+    const { fn } = monter(dbDe({}), ['_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation']);
+    expect(fn._finAncienBailAuRebail({ ...BAIL, depart: { dateSortie: '2026-11-15' } }, '2026-11-15')).toEqual({ fin: '2026-11-14', sortie: '2026-11-15', sortieApres: true });
+    expect(fn._finAncienBailAuRebail({ ...BAIL, depart: { dateSortie: '2026-11-14' } }, '2026-11-15')).toEqual({ fin: '2026-11-14', sortie: '2026-11-14', sortieApres: false });
+  });
+  it('formulaire en relocation (VRAI onBailRefChange) : début proposé = lendemain de la sortie déclarée ; sans départ : vide ; en édition : début du bail édité', () => {
+    const debut = (baux, edit) => {
+      const DB = dbDe(baux);
+      DB.logements[0].debut = '2023-07-01';
+      const m = monter(DB, ['onBailRefChange', '_isoDecaleJours', '_bailFinOccupation'], { _bailIsEdit: edit, _readLogForBail: () => ({}), _TU2BT: {} });
+      m.fn.onBailRefChange({ value: 'A1' });
+      return m.els['b-debut'].value;
+    };
+    expect(debut({ A1: DEPART }, false)).toBe('2026-10-01');
+    expect(debut({ A1: BAIL }, false)).toBe('');
+    expect(debut({}, false)).toBe('');
+    expect(debut({ A1: DEPART }, true)).toBe('2023-07-01');
   });
 });

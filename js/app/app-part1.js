@@ -1981,6 +1981,29 @@ function _bailFinOccupation(bail, clos) {
   return String(bail.finEffective || ((clos || bail.cloture) ? (bail.fin || '') : '')).slice(0,10);
 }
 
+// Décale une date ISO (YYYY-MM-DD) de n jours, en calendrier LOCAL ('' si la date est invalide).
+function _isoDecaleJours(iso, n) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if(!m) return '';
+  const d = new Date(+m[1], +m[2] - 1, +m[3] + (Number(n) || 0));
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// NOUVEAU BAIL sur un lot dont le bail est encore ouvert : date de FIN de l'ancien bail (archiverBail) — règle
+// unique, lue aussi par la confirmation de saveBail. Ordre : fin effective déjà posée (clôture explicite) >
+// fin d'occupation (départ déclaré — _bailFinOccupation, LA règle) > veille du nouveau bail. Sans ça, un lot
+// parti au 30/09 et reloué au 15/11 voyait son ancien locataire redevable d'octobre et de novembre (audit 06/10).
+// Une sortie déclarée qui ne précède pas le nouveau bail ne peut pas tenir (deux occupants le même jour) : la
+// veille du nouveau bail l'emporte, et la confirmation de saveBail le dit (`sortieApres`).
+function _finAncienBailAuRebail(bail, nouveauDebut) {
+  const veille = nouveauDebut ? _isoDecaleJours(nouveauDebut, -1) : '';
+  if(!bail) return { fin: veille || null, sortie: '', sortieApres: false };
+  if(bail.finEffective) return { fin: String(bail.finEffective).slice(0,10), sortie: '', sortieApres: false };
+  const sortie = _bailFinOccupation(bail, false);
+  if(sortie && veille && sortie > veille) return { fin: veille, sortie, sortieApres: true };
+  return { fin: sortie || veille || null, sortie, sortieApres: false };
+}
+
 // v14.49 — Calcule la date de fin EFFECTIVE pour le préavis (avec tacite reconduction).
 // Cas couverts :
 //   1. bail.fin renseignée + future → utilise bail.fin
@@ -16369,8 +16392,18 @@ function onBailRefChange(sel) {
     if(!el('b-dg').value && log.dgRef)      el('b-dg').value = log.dgRef;
   }
   if(!el('b-entity').value) el('b-entity').value = log.entity||'';
-  if(!el('b-debut').value && log.debut) {
-    el('b-debut').value = log.debut;
+  // Statut 06/10 : en NOUVEAU bail (relocation), log.debut est le début de l'ANCIEN bail — jamais proposé.
+  // On propose le lendemain de la fin d'occupation de l'ancien bail encore ouvert (départ déclaré), sinon rien.
+  // En édition, log.debut reste le début du bail édité.
+  let _debutPropose = '';
+  if(_bailIsEdit) _debutPropose = log.debut || '';
+  else {
+    const _anc = (typeof _isAlive === 'function' && _isAlive(DB.baux[ref])) ? DB.baux[ref] : null;
+    const _finAnc = _anc ? _bailFinOccupation(_anc, false) : '';
+    if(_finAnc) _debutPropose = _isoDecaleJours(_finAnc, 1);
+  }
+  if(!el('b-debut').value && _debutPropose) {
+    el('b-debut').value = _debutPropose;
     autoIRLTrimestre();
     autoFinBail();
   }
@@ -17249,7 +17282,12 @@ function saveBail() {
     const bailExistant = DB.baux[ref];
     if(_bailEnCours(bailExistant)) { // v15.697 : un tombstone (bail clôturé) n'est pas un bail actif
       const ancLoc = (bailExistant.locataires||[{nom:bailExistant.nom||'?'}]).map(l=>l.nom).join(', ');
-      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.\n\nConfirmer la création du nouveau bail ?`)) return;
+      // Statut 06/10 : l'ancien bail se termine à la sortie déclarée (ou la veille du nouveau) — _finAncienBailAuRebail.
+      const _fa = _finAncienBailAuRebail(bailExistant, _debut);
+      const _faTxt = _fa.sortieApres
+        ? `\n\n⚠️ La sortie déclarée de l'ancien locataire (${fd(_fa.sortie)}) n'est pas antérieure au début du nouveau bail (${fd(_debut)}) : l'ancien bail sera terminé la veille, le ${fd(_fa.fin)}.`
+        : (_fa.fin ? `\n\nL'ancien bail sera terminé le ${fd(_fa.fin)}${_fa.sortie ? ' (sortie déclarée)' : ' (veille du nouveau bail)'}.` : '');
+      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.${_faTxt}\n\nConfirmer la création du nouveau bail ?`)) return;
       _archiverAncien = true;
     }
   }
@@ -17596,18 +17634,12 @@ function archiverBail(ref, nouveauDebut) {
   const bail = DB.baux[ref];
   if(!bail || bail._deleted) return; // v15.697 : un tombstone est déjà archivé — jamais dans l'historique
   if(!DB.baux_historique) DB.baux_historique = [];
-  // C4 (AUDIT-SUIVI-LOYERS) : au re-bail sur logement occupé, poser finEffective = veille du
-  // NOUVEAU bail. Sans ça, la fin CONTRACTUELLE (souvent future ou vide) chevauche le nouveau
-  // bail → les DEUX loyers s'additionnent = dû DOUBLÉ (CAS 5 du harness), imputé à l'ancien
-  // locataire. Ne jamais écraser une finEffective déjà posée (clôture explicite « Clôturer bail »).
-  let finEff = bail.finEffective || null;
-  if (nouveauDebut && !finEff) {
-    const d = new Date(String(nouveauDebut).slice(0,10) + 'T00:00:00');
-    if (!isNaN(d.getTime())) {
-      d.setDate(d.getDate() - 1);
-      finEff = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    }
-  }
+  // C4 (AUDIT-SUIVI-LOYERS) : au re-bail sur logement occupé, poser finEffective. Sans ça, la fin
+  // CONTRACTUELLE (souvent future ou vide) chevauche le nouveau bail → les DEUX loyers s'additionnent = dû
+  // DOUBLÉ (CAS 5 du harness), imputé à l'ancien locataire. Ne jamais écraser une finEffective déjà posée
+  // (clôture explicite « Clôturer bail »). Statut 06/10 : un départ déclaré borne l'ancien bail à la date de
+  // sortie, pas à la veille du nouveau (_finAncienBailAuRebail).
+  const finEff = _finAncienBailAuRebail(bail, nouveauDebut).fin;
   DB.baux_historique.push({
     ...bail,
     ref,
