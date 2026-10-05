@@ -21840,15 +21840,10 @@ async function _appAJourPourSigner(bail) {
     showToast(VA ? VA.MSG_FORMAT_INCONNU : 'Recharger la page (Ctrl+F5).', 'err', 9000); return false;
   }
   if (!VA) return true;
-  try {
-    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const to = ctl ? setTimeout(() => { try { ctl.abort(); } catch (e) {} }, 4000) : 0;
-    const r = await fetch(_swVersionUrl(), { cache: 'no-store', signal: ctl ? ctl.signal : undefined });
-    if (to) clearTimeout(to);
-    if (r && r.ok && VA.versionPlusRecente(VA.versionDepuisSw(await r.text()), IMMOTRACK_VERSION)) {
-      showToast(VA.MSG_VERSION_SIGNER, 'warn', 9000); return false;
-    }
-  } catch (e) {}
+  // Lecture bornée (réponse ET corps) dans le module testé — même code que la popup.
+  if (await VA.versionServieRecente(_swVersionUrl(), IMMOTRACK_VERSION)) {
+    showToast(VA.MSG_VERSION_SIGNER, 'warn', 9000); return false;
+  }
   return true;
 }
 /* v13.10 — "Voir bail signé" : ouvre l'aperçu en utilisant le snapshot figé
@@ -24545,6 +24540,7 @@ function previewBailData(bail, log, ref, opts) {
     /* Contrôle « onglet périmé » (js/core/version-app.js) : version servie lue dans sw.js, sans cache. */
     +'var versionDepuisSw='+window.VersionApp.versionDepuisSw.toString()+';'
     +'var versionPlusRecente='+window.VersionApp.versionPlusRecente.toString()+';'
+    +'var versionServieRecente='+window.VersionApp.versionServieRecente.toString()+';'
     +'var MSG_VERSION_SIGNER='+JSON.stringify(window.VersionApp.MSG_VERSION_SIGNER)+';'
     +'var MSG_VERSION_PDF='+JSON.stringify(window.VersionApp.MSG_VERSION_PDF)+';'
     +'var MSG_FORMAT_INCONNU='+JSON.stringify(window.VersionApp.MSG_FORMAT_INCONNU)+';'
@@ -24704,14 +24700,7 @@ function previewBailData(bail, log, ref, opts) {
        signatures et l'écraser. Avant de signer ou de régénérer le PDF d'un bail signé, on lit la version
        servie (sw.js, sans cache) ; plus récente → on n'ouvre pas. Réseau en échec → on continue. */
     +'async function _wizVersionAJour(msg){'
-    +  'try{'
-    +    'var ctl=(typeof AbortController!=="undefined")?new AbortController():null;'
-    +    'var to=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},4000):0;'
-    +    'var r=await fetch(_VERSION_URL,{cache:"no-store",signal:ctl?ctl.signal:undefined});'
-    +    'if(to)clearTimeout(to);'
-    +    'if(!r||!r.ok)return true;'
-    +    'if(versionPlusRecente(versionDepuisSw(await r.text()),_APP_VERSION)){alert(msg);return false;}'
-    +  '}catch(e){}'
+    +  'if(await versionServieRecente(_VERSION_URL,_APP_VERSION)){alert(msg);return false;}'
     +  'return true;'
     +'}'
     /* Bouton « PDF » : sur un bail SIGNÉ, contrôle de version d'abord (brouillon : inchangé). */
