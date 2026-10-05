@@ -28,7 +28,7 @@ const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
 const F1 = ['_findBailByRefTolerant', '_getAllBailsForLog', '_getLogementStartIso', '_getLogementStartMi', '_duMoisLot',
   '_getActiveBailHcChProratedSplit', '_getActiveBailHcChProrated', '_computeExpectedRent'];
 const F2 = ['_finLotStartMi', '_finImmDuLot', '_finDuRaw', '_finLotSuivi', '_finBailHcChAt', '_finActiveLotsInScope',
-  '_finIsRecupACharge', '_finDetteBail', '_finMonthly'];
+  '_finLotOccupe', '_finIsRecupACharge', '_finDetteBail', '_finMonthly'];
 const SRC = F1.map((n) => extraireFonction(P1, n)).concat(F2.map((n) => extraireFonction(P2, n))).join('\n');
 
 /** Monte le vrai code autour d'un DB ; `avecModule:false` = le même code SANS le module (= règle d'avant). */
@@ -134,5 +134,30 @@ describe('R0-C · Q1 révisé — le vrai _finBailHcChAt lit le point de départ
     const app = monter(ferrette({ anteriorite: { date: '2026-03-01', situation: 'arriere', loyer: 1300, charges: 0 } }));
     const d = app._finDetteBail('F-BAR', '2018-03-16', null);
     expect(d).toMatchObject({ loyer: 1300, debutSuivi: '2026-03-01', suiviPartiel: true });
+  });
+});
+
+describe('R0-C 🟠3 — L-5 (« restée à charge ») teste l\'OCCUPATION, plus le dû suivi', () => {
+  const eau = (date, qui = 'F-BAR') => ({ qui, date, cat: 'Eau (récupérable)', cr: 0, db: 120 });
+  it('un mois occupé mais pas encore suivi (avant le 1ᵉʳ loyer encaissé) est RÉCUPÉRABLE, pas vacant', () => {
+    const DB = ferrette();   // bail depuis 2018, 1ᵉʳ loyer en mars 2026, aucune date d'achat
+    const app = monter(DB);
+    expect(app._finBailHcChAt('F-BAR', '2026-02')).toEqual({ hc: 0, ch: 0 });   // pas suivi…
+    expect(app._finIsRecupACharge(eau('2026-02-20'))).toBe(false);              // …mais occupé
+  });
+  it('avant la date d\'achat, la charge n\'est pas récupérable par le bailleur actuel', () => {
+    const app = monter(ferrette({ dateAcq: '2026-03-01' }));
+    expect(app._finIsRecupACharge(eau('2026-02-20'))).toBe(true);
+    expect(app._finIsRecupACharge(eau('2026-03-20'))).toBe(false);
+  });
+  it('un vrai mois de vacance (aucun bail) reste à charge ; un lot « compte charges » désactivé aussi', () => {
+    const DB = ferrette(); DB.baux['F-BAR'].finEffective = '2026-05-31';
+    expect(monter(DB)._finIsRecupACharge(eau('2026-07-10'))).toBe(true);
+    const DB2 = ferrette(); DB2.logements[0].compteCharges = false;
+    expect(monter(DB2)._finIsRecupACharge(eau('2026-04-10'))).toBe(true);
+  });
+  it('niveau immeuble : « à charge » seulement si AUCUN lot n\'est occupé ce mois-là', () => {
+    const app = monter(ferrette());
+    expect(app._finIsRecupACharge({ qui: '', imm: 'Ferrette', date: '2026-02-10', cat: 'Eau (récupérable)', db: 300, cr: 0 })).toBe(false);
   });
 });

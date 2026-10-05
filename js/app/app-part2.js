@@ -29566,6 +29566,20 @@ function _finWindows(yr, scope) {
 // mois. Elle bascule alors dans « Autres charges propriétaire » (ligne 225) — cash-flow réel
 // inchangé au centime (déplacement, pas ajout). Le détail fin par compteur reste l'affaire de
 // la page Régularisation (computeRegul), pas du P&L.
+// R0-C 🟠3 (audit 30/09) — L-5 teste l'OCCUPATION, plus le dû SUIVI : un mois « pas encore suivi »
+// (avant le 1ᵉʳ loyer encaissé, ou avant une date d'antériorité) n'est pas un mois VACANT — un locataire
+// y occupait le lot et peut rembourser la charge. Occupation = un bail couvre le mois (`_duMoisLot`, le
+// dû du barème SANS borne de suivi) ET le bailleur actuel possédait le lot (date d'achat connue). Avant
+// l'achat, rien n'est récupérable par lui.
+// ⚠️ FUSION : la branche fix/charges-hors-occupation introduit un helper UNIQUE de fin d'occupation
+// (tacite reconduction). Les deux tests d'occupation ci-dessous (`_finLotOccupe`) sont les lignes à
+// rebrancher sur ce helper.
+function _finLotOccupe(qui, ym) {
+  const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(qui) : null;
+  if (s && s.jouissance && ym < s.jouissance.slice(0, 7)) return false;
+  const d = _duMoisLot(qui, ym);
+  return ((d.hc || 0) + (d.ch || 0)) > 0.005;
+}
 function _finIsRecupACharge(m) {
   if (!m || !m.date) return false;
   const ym = String(m.date).slice(0, 7);
@@ -29573,13 +29587,12 @@ function _finIsRecupACharge(m) {
   if (qui && qui.indexOf('SCI:') !== 0) {
     const lg = (DB.logements || []).find(l => l && !l._deleted && l.ref === qui);
     if (lg && lg.compteCharges === false) return true;
-    const d = _finBailHcChAt(qui, ym);
-    return ((d.hc || 0) + (d.ch || 0)) <= 0.005;
+    return !_finLotOccupe(qui, ym);
   }
   if (!qui && m.imm) {
     const lots = (DB.logements || []).filter(l => l && !l._deleted && l.imm === m.imm && l.ref);
     if (!lots.length) return false;
-    return !lots.some(l => { const d = _finBailHcChAt(l.ref, ym); return ((d.hc || 0) + (d.ch || 0)) > 0.005; });
+    return !lots.some(l => _finLotOccupe(l.ref, ym));
   }
   return false;
 }
