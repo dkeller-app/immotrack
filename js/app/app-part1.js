@@ -1895,7 +1895,8 @@ function agendaId() {
 // Loi du 6 juillet 1989 (résidence principale) :
 //   - Bail nu (3 ans)        → préavis bailleur 6 mois avant échéance
 //   - Bail meublé (1 an)     → préavis bailleur 3 mois avant échéance
-//   - Bail mobilité (1-10m)  → pas de tacite reconduction, pas de préavis
+//   - Bail mobilité (1-10m)  → pas de tacite reconduction, pas de congé bailleur (art. 25-14)
+//   - Étudiant (9 m), garage, autre → pas de préavis bailleur avant échéance (BAUX-ECHUS, bail-echeance.js)
 // Source : `bail.typeContrat` ou `log.typeUsage` (renseigné dans la modale logement).
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -18023,6 +18024,7 @@ function _bailSigned(bail){ return !!(bail && bail.signatures && bail.signatures
  *  `clauseIrlV`, posé à la signature) : 1 = texte d'origine ; 2 = clause 5.2 révisée ;
  *  3 = 2 + contrat type issu du décret n° 2026-596 (js/core/contrat-type.js) ;
  *  4 = 3 + sous-titre du bail nu selon le bailleur réel (js/core/bail-duree.js).
+ *  5 = 4 + clauses de durée, congé et fin corrigées (BAUX-ECHUS, js/core/bail-clauses-fin.js).
  *  · signé : celle posée à la signature (absente = signé avant tout changement = 1) ;
  *  · signature à distance EN COURS : celle mémorisée à l'envoi — le PDF final doit reprendre ce
  *    que le locataire a relu ;
@@ -18040,13 +18042,13 @@ function _bailClauseVersion(b){
   if (rs && !['completed', 'expired', 'error'].includes(rs.status)) return _bailClauseVersionNorm(rs.clauseIrlV);
   return 2;
 }
-/** La version portée par une valeur brute (session à distance, staging, popup) : 1, 2, 3 ou 4.
+/** La version portée par une valeur brute (session à distance, staging, popup) : 1 à 5.
  *  Même sans module, 3 reste 3 : sinon une finalisation à distance graverait 1 pour de bon. */
 function _bailClauseVersionNorm(v){
   const CT = (typeof window !== 'undefined') ? window.ContratType : null;
   if (CT && typeof CT.normaliserVersionClauses === 'function') return CT.normaliserVersionClauses(v);
   const n = Number(v);
-  return (n === 2 || n === 3 || n === 4) ? n : 1;
+  return (n === 2 || n === 3 || n === 4 || n === 5) ? n : 1;
 }
 /** CONTRAT-TYPE-2026-10 — le bail suit-il le contrat type issu du décret n° 2026-596 ? */
 function _bailContratType2026(b){ return _bailClauseVersion(b) >= 3; }
@@ -18194,6 +18196,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // implique que le module est chargé (sinon _bailClauseVersion plafonne à 2).
   const CT = (typeof window !== 'undefined') ? window.ContratType : null;
   const _ct26 = !!CT && _bailContratType2026(bail);
+  // BAUX-ECHUS — clauses de durée, congé et fin corrigées (version de clauses 5, js/core/bail-clauses-fin.js :
+  // articles 10, 25-7, 25-8 I, 25-14, 25-15 de la loi de 1989 ; 1231-5 et 1736 à 1740 du Code civil). Un bail
+  // SIGNÉ en version ≤ 4 garde son texte d'origine, mot pour mot (les littéraux ci-dessous ne bougent pas).
+  const BCF = (typeof window !== 'undefined') ? window.BailClausesFin : null;
+  const _v5 = !!BCF && _bailClauseVersion(bail) >= 5;
   // Servitude de résidence principale (art. L. 151-14-1 C. urb.) : donnée du BIEN, figée au snapshot.
   const _servitudeRP = _ct26 && !!_lbFill.servitudeRP;
 
@@ -18256,7 +18263,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     dureePhrase = 'Cette durée de 9 mois — bail étudiant non reconductible — s\'applique conformément à l\'article 25-7 dernier alinéa de la loi du 6 juillet 1989. Le présent contrat ne fait pas l\'objet de tacite reconduction.';
   } else if (isMobilite) {
     dureeBail = '[de 1 à 10 mois — à préciser]';
-    dureePhrase = 'Cette durée s\'applique conformément à l\'article 25-14 de la loi du 6 juillet 1989 (loi ELAN du 23 novembre 2018, art. 107). Le bail mobilité est conclu pour une durée minimale d\'un mois et maximale de dix mois, non renouvelable et non reconductible.';
+    dureePhrase = _v5 ? BCF.DUREE_MOBILITE : 'Cette durée s\'applique conformément à l\'article 25-14 de la loi du 6 juillet 1989 (loi ELAN du 23 novembre 2018, art. 107). Le bail mobilité est conclu pour une durée minimale d\'un mois et maximale de dix mois, non renouvelable et non reconductible.';
   } else if (isGarage) {
     dureeBail = '[durée libre — à préciser]';
     dureePhrase = 'La durée est librement convenue entre les parties conformément à l\'article 1709 du Code civil. Le bail commercial, le bail rural et le statut de la loi du 6 juillet 1989 ne s\'appliquent pas à la location d\'un emplacement de stationnement isolé.';
@@ -18643,28 +18650,28 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     // v15.193 BAIL-TYPES Étape 3 : congé / tacite adapté au type
     ...(isMobilite ? [
       { type:'h3', text:'Congé / fin de bail mobilité' },
-      { type:'p', text:'Le LOCATAIRE peut résilier le contrat à tout moment avec un préavis d\'un (1) mois, notifié par lettre recommandée avec avis de réception ou par acte de commissaire de justice. Le BAILLEUR ne peut pas donner congé en cours de bail.' },
-      { type:'p-callout-warn', text:'Le bail mobilité ne peut être ni reconduit ni renouvelé. À l\'échéance, le LOCATAIRE doit quitter les lieux. Toute reconduction implicite entraîne la requalification en bail meublé d\'un an (art. 25-15 loi 89-462).' }
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MOBILITE : 'Le LOCATAIRE peut résilier le contrat à tout moment avec un préavis d\'un (1) mois, notifié par lettre recommandée avec avis de réception ou par acte de commissaire de justice. Le BAILLEUR ne peut pas donner congé en cours de bail.' },
+      { type:'p-callout-warn', text: _v5 ? BCF.FIN_MOBILITE : 'Le bail mobilité ne peut être ni reconduit ni renouvelé. À l\'échéance, le LOCATAIRE doit quitter les lieux. Toute reconduction implicite entraîne la requalification en bail meublé d\'un an (art. 25-15 loi 89-462).' }
     ] : isEtudiant ? [
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MEUBLE : 'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Fin de bail étudiant' },
-      { type:'p-callout-warn', text:'Le bail étudiant de 9 mois n\'est pas reconductible (art. 25-7 dernier alinéa loi 89-462). À l\'échéance, le LOCATAIRE doit quitter les lieux ou conclure un nouveau contrat. Aucune tacite reconduction n\'est applicable.' }
+      { type:'p-callout-warn', text: _v5 ? BCF.FIN_ETUDIANT : 'Le bail étudiant de 9 mois n\'est pas reconductible (art. 25-7 dernier alinéa loi 89-462). À l\'échéance, le LOCATAIRE doit quitter les lieux ou conclure un nouveau contrat. Aucune tacite reconduction n\'est applicable.' }
     ] : isFurnished ? [
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MEUBLE : 'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation. Il n\'aura que le droit d\'en demander la résiliation judiciaire pour inexécution d\'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Congé à l\'expiration du bail' },
-      { type:'p', text:'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins trois (3) mois avant l\'échéance si le congé émane du BAILLEUR, et un (1) mois avant si le congé émane du LOCATAIRE (art. 25-8 loi 89-462, bail meublé).' },
+      { type:'p', text: _v5 ? BCF.CONGE_EXPIRATION_MEUBLE : 'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins trois (3) mois avant l\'échéance si le congé émane du BAILLEUR, et un (1) mois avant si le congé émane du LOCATAIRE (art. 25-8 loi 89-462, bail meublé).' },
       { type:'p', text:'Le congé donné par le BAILLEUR doit être justifié soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux. À peine de nullité, il doit indiquer le motif allégué et, en cas de reprise, les noms et adresse du bénéficiaire.' },
       { type:'h3', text:'Proposition de renouvellement' },
       { type:'p', text:'Le BAILLEUR peut proposer au LOCATAIRE, au moins trois mois avant le terme du contrat, un nouveau contrat par référence aux loyers habituellement constatés dans le voisinage pour des logements meublés comparables.' },
       { type:'h3', text:'Tacite reconduction' },
-      { type:'p', text:'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée d\'un (1) an (art. 25-8 loi 89-462, bail meublé).' }
+      { type:'p', text: _v5 ? BCF.RECONDUCTION_MEUBLE : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée d\'un (1) an (art. 25-8 loi 89-462, bail meublé).' }
     ] : isGarage || isAutre ? [
       { type:'h3', text:'Conditions de résiliation' },
-      { type:'p', text:'Les conditions de préavis, congé et reconduction sont librement définies entre les parties dans les présentes ou par avenant. À défaut de précision, le droit commun des contrats s\'applique.' }
+      { type:'p', text: _v5 ? BCF.RESILIATION_AUTRE : 'Les conditions de préavis, congé et reconduction sont librement définies entre les parties dans les présentes ou par avenant. À défaut de précision, le droit commun des contrats s\'applique.' }
     ] : [
       // Bail nu (cas par défaut)
       { type:'h3', text:'Congé au cours du bail' },
@@ -18681,7 +18688,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
       { type:'h3', text:'Proposition de renouvellement' },
       { type:'p', text:'Le BAILLEUR peut proposer au LOCATAIRE, au moins six mois avant le terme du contrat, un nouveau contrat par référence aux loyers habituellement constatés dans le voisinage pour des logements comparables.' },
       { type:'h3', text:'Tacite reconduction' },
-      { type:'p', text:'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (' + dureeBail + ').' }
+      { type:'p', text: _v5 ? BCF.reconductionBailNu(ent.type||'') : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (' + dureeBail + ').' }
     ])
   ];
 
@@ -19022,7 +19029,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // ─── §13 Clause pénale ──────────────────────────────────────────
   out.push(
     { type:'h2', text:'13 — Clause pénale — Indemnité d\'occupation' },
-    { type:'p', text:'Il est stipulé à titre de clause pénale (articles 1226 et suivants du Code civil) qu\'en cas de maintien indu dans les lieux, le LOCATAIRE devra verser une indemnité par jour de retard égale à deux fois le loyer quotidien, du lendemain de cessation de la location jusqu\'à la restitution des clés, toute journée commencée étant intégralement due.' },
+    { type:'p', text:'Il est stipulé à titre de clause pénale (' + (_v5 ? BCF.CLAUSE_PENALE_REF : 'articles 1226 et suivants du Code civil') + ') qu\'en cas de maintien indu dans les lieux, le LOCATAIRE devra verser une indemnité par jour de retard égale à deux fois le loyer quotidien, du lendemain de cessation de la location jusqu\'à la restitution des clés, toute journée commencée étant intégralement due.' },
     { type:'p', text:'En cas de congé ou résiliation, si le LOCATAIRE se maintient, il sera redevable d\'une indemnité d\'occupation au moins égale au montant du dernier loyer, charges et accessoires.' }
   );
 
@@ -23449,7 +23456,12 @@ function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef,
     .replace('révisé annuellement à la date anniversaire du bail selon', 'révisé {{IRL_REVISION_QUAND}} selon')
     .replace('suivant la date de révision, sans notification préalable.', 'suivant la date de révision{{IRL_SANS_NOTIF}}.')
     .replace('Cette durée de 6 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).', '{{DUREE_PHRASE}}')
-    .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}');
+    .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}')
+    // BAUX-ECHUS — même mécanisme (correspondance EXACTE avec le modèle d'origine) pour la tacite
+    // reconduction du bail nu et la référence de la clause pénale : le jeton rend le texte d'origine
+    // pour un bail signé en version ≤ 4, la rédaction corrigée sinon (art. 10 al. 3 ; art. 1231-5 C. civ.).
+    .replace('<p>À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (6 ans).</p>', '<p>{{RECONDUCTION_NU_PHRASE}}</p>')
+    .replace('Il est stipulé à titre de clause pénale (articles 1226 et suivants du Code civil)', 'Il est stipulé à titre de clause pénale ({{CLAUSE_PENALE_REF}})');
   // CONTRAT-TYPE-2026-10 — même mécanisme : les passages du modèle d'AVANT le décret n° 2026-596,
   // s'ils sont restés tels quels dans un modèle enregistré, remontent vers leurs jetons. Les jetons
   // rendent le texte d'origine pour un bail signé avant (Word identique), le nouveau sinon.
@@ -23661,6 +23673,14 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     'PREAVIS_REDUIT': (typeof window.preavisReduitClause==='function')
       ? window.preavisReduitClause(true)
       : 'Ce délai est réduit à <strong>un (1) mois</strong> dans les cas prévus à l’article 15-I de la loi n° 89-462 du 6 juillet 1989.',
+    // BAUX-ECHUS — version de clauses 5 : reconduction 3 ou 6 ans (art. 10 al. 3) et clause pénale art. 1231-5 ;
+    // bail signé en version ≤ 4 : le texte d'origine du modèle, mot pour mot.
+    'RECONDUCTION_NU_PHRASE': (()=>{
+      const _BCFw = window.BailClausesFin; const ent2=DB.entites.find(e=>e.nom===bail.entity)||{};
+      return (_BCFw && _bailClauseVersion(bail) >= 5) ? S(_BCFw.reconductionBailNu(ent2.type||''))
+        : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (6 ans).';
+    })(),
+    'CLAUSE_PENALE_REF': (window.BailClausesFin && _bailClauseVersion(bail) >= 5) ? S(window.BailClausesFin.CLAUSE_PENALE_REF) : 'articles 1226 et suivants du Code civil',
     'MODALITE_PAIEMENT': bail.modalitePaiement==='echeoir'
       ? 'à terme à échoir (paiement en début de période)'
       : 'à terme échu (paiement en fin de période)',

@@ -560,7 +560,7 @@ Cordialement,
 
 Votre bail concernant le logement {{bail.adrBien}} arrive à son terme initial le {{dateFin}}.
 
-Conformément à l'article 10 de la loi n° 89-462 du 6 juillet 1989, sauf congé donné dans les formes légales par l'une ou l'autre des parties, votre bail sera **tacitement reconduit** pour une nouvelle période de 3 ans (ou 1 an pour un bail meublé) aux mêmes conditions.
+Sauf congé délivré dans les formes et délais légaux, votre bail sera **tacitement reconduit** : pour trois ans si le bailleur est une personne physique ou relève de l'article 13, pour six ans s'il est une personne morale (article 10 de la loi n° 89-462 du 6 juillet 1989), ou pour un an s'il s'agit d'un bail meublé (article 25-7 de la même loi).
 
 Nous restons à votre disposition pour toute discussion concernant cette reconduction.
 

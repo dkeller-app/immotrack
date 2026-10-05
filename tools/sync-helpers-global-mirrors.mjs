@@ -343,6 +343,15 @@ const PAIRS = [
     globalName: 'BailEcheance',
     exports: '*',
   },
+  {
+    // BAUX-ECHUS — clauses de durée, congé et fin corrigées (version de clauses 5), lues par
+    // buildBailStructure et le modèle Word. Chargé APRÈS bail-duree.global.js.
+    name: 'bail-clauses-fin',
+    src: 'js/core/bail-clauses-fin.js',
+    dst: 'js/helpers/bail-clauses-fin.global.js',
+    globalName: 'BailClausesFin',
+    exports: '*',
+  },
 ];
 
 // `--check` : on NE RÉGÉNÈRE PAS, on VÉRIFIE. Le script n'avait qu'un mode écriture, donc
