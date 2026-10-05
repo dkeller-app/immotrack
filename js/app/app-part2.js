@@ -67,7 +67,8 @@ const EMAIL_HUB_CATALOG = [
   { type:'notification-travaux-a-venir',       icon:'🛠', label:'Notification travaux à venir',          phase:'3. Vie du bail', ctxRequires:[] },
   { type:'notification-visite',                icon:'🚪', label:'Demande créneau pour visite',           phase:'3. Vie du bail', ctxRequires:[] },
   // Phase fin de bail
-  { type:'bail-renouvellement-3ans',           icon:'🔁', label:'Renouvellement 3 ans',                  phase:'4. Fin de bail', ctxRequires:['bail.fin'] },
+  // BAUX-ECHUS : libellé neutre (3 ou 6 ans nu, 1 an meublé) ; jamais pour un bail étudiant ou mobilité (non reconductibles).
+  { type:'bail-renouvellement-3ans',           icon:'🔁', label:'Renouvellement du bail',                phase:'4. Fin de bail', ctxRequires:['bail.fin'], typesBail:['nu','meuble'] },
   { type:'bail-conge-bailleur-6mois',          icon:'🚫', label:'Congé bailleur (LRAR)',                 phase:'4. Fin de bail', ctxRequires:['bail.fin'] },
   { type:'bail-preavis-recu',                  icon:'📭', label:'Accusé réception préavis locataire',    phase:'4. Fin de bail', ctxRequires:[] },
   // Phase sortie
@@ -237,7 +238,10 @@ function rEmailsPage(tab) {
       html += `<h4 style="margin:14px 0 6px;font-size:12px;color:var(--acc,#3b7ef6);font-weight:700">${escHtml(phase)}</h4>`;
       html += `<div class="em-templates-grid">`;
       for (const item of items) {
-        html += `<div class="em-tpl"><div class="ic">${item.icon}</div><div class="lbl">${escHtml(item.label)}</div><div class="phase">${escHtml(item.phase)}</div></div>`;
+        // BAUX-ECHUS — un modèle réservé à certains types de bail le dit (ex. renouvellement : nu, meublé).
+        const _TB = { nu: 'nu', meuble: 'meublé', etudiant: 'étudiant', mobilite: 'mobilité', garage: 'garage', autre: 'autre' };
+        const _tbTxt = Array.isArray(item.typesBail) ? ' · baux ' + item.typesBail.map(t => _TB[t] || t).join(', ') : '';
+        html += `<div class="em-tpl"><div class="ic">${item.icon}</div><div class="lbl">${escHtml(item.label)}</div><div class="phase">${escHtml(item.phase + _tbTxt)}</div></div>`;
       }
       html += `</div>`;
     }
