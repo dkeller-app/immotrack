@@ -10232,3 +10232,70 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   #ov-annonce .an-chk li{align-items:center}
   #ov-annonce .an-hint{display:none}
 }
+
+/* ═══ R0-C · Q1 révisé — date d'achat & « Situation du locataire » (maquette MAQUETTE-ANTERIORITE
+   validée 05/10). Tokens seulement ; thèmes réels sobre / dark ; téléphone = page plein écran (M-16). ═══ */
+.ant-hint{font-size:11.5px;color:var(--t2);margin-top:5px;line-height:1.5}
+.ant-acq input[type="date"]{max-width:220px}
+.ant-note,.ant-info{display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:10px 12px;margin:8px 0 12px;font-size:12px;line-height:1.55;color:var(--t1)}
+.ant-note{background:var(--acc-soft)}
+.ant-note>.uic{color:var(--acc);flex:none;margin-top:1px}
+.ant-info{background:var(--sur2);border:1px solid var(--bor)}
+.ant-info>.uic{color:var(--t2);flex:none;margin-top:1px}
+.ant-note-act{margin-top:8px}
+.ant-modal{max-width:680px;width:96%}
+.ant-modal .m-head h3{display:flex;align-items:center;gap:8px}
+.ant-back{display:none}
+.ant-ctxt{font-size:12px;color:var(--t2);margin:0 0 12px;line-height:1.55}
+.ant-blk{padding:14px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:6px}
+.ant-blk-t{font-weight:700;font-size:13.5px;margin-bottom:4px;display:flex;align-items:center;gap:7px}
+.ant-blk-s{font-size:12px;color:var(--t2);margin:0 0 12px;line-height:1.55}
+.ant-fld{margin-bottom:12px}
+.ant-fld input[type="date"]{max-width:220px}
+.ant-lbl{display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--t1)}
+.ant-euro{display:flex;align-items:center;gap:6px}
+.ant-euro .inp{text-align:right}
+.ant-court{max-width:240px}
+.ant-seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px}
+.ant-seg button{min-height:40px;border:1px solid var(--bor);background:var(--sur2);color:var(--t1);border-radius:10px;font:600 12.5px var(--font);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 8px;text-align:center}
+.ant-seg button.on{border-color:var(--acc);background:var(--acc-soft)}
+.ant-seg button.on .uic{color:var(--acc)}
+.ant-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ant-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--bor);background:var(--sur2);border-radius:999px;padding:5px 10px;font:500 12px var(--font);color:var(--t1);cursor:pointer;position:relative}
+.ant-chip.on{border-color:var(--acc);background:var(--acc-soft)}
+.ant-chip.add{border-style:dashed;background:none;font-weight:600}
+.ant-chip.add input[type="month"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.ant-effet{border-top:1px solid var(--bor);margin-top:4px;padding-top:12px}
+.ant-effet .ant-lbl{margin-bottom:8px}
+.ant-eff-l{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;padding:5px 0}
+.ant-eff-l .v{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ant-eff-l .s{display:block;font-size:11.5px;color:var(--t2);font-weight:400}
+@media (max-width:767px){
+  #ov-anteriorite{padding:0;align-items:stretch}
+  #ov-anteriorite .ant-modal{width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;border:0 !important;border-radius:0 !important;display:flex;flex-direction:column}
+  #ov-anteriorite .m-head{padding:10px 12px;gap:6px;justify-content:flex-start}
+  #ov-anteriorite .m-head .m-close{display:none}
+  #ov-anteriorite .ant-back{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;border:none;background:none;color:var(--t1)}
+  #ov-anteriorite .m-body{flex:1 1 auto;padding:12px;max-height:none;overflow-y:auto}
+  #ov-anteriorite .m-foot{display:grid;grid-template-columns:1fr;padding:10px 12px;border-radius:0}
+  #ov-anteriorite .m-foot .btn{width:100%;min-height:44px;justify-content:center;white-space:normal;text-align:center}
+  #ov-anteriorite .m-foot .btn.bs{display:none}
+  #ov-anteriorite .fg2{grid-template-columns:1fr}
+  #ov-anteriorite .ant-seg{grid-template-columns:1fr}
+  #ov-anteriorite .ant-seg button{justify-content:flex-start;padding:8px 12px}
+}
+/* Tactile (téléphone ET tablette, 2ᵉ audit 🟡) : champs à 16 px (pas de zoom iOS), cibles ≥ 44 px. */
+@media (max-width:1023px){
+  #ov-anteriorite .inp{font-size:16px;min-height:44px}
+  #ov-anteriorite .ant-seg button{min-height:44px}
+  #ov-anteriorite .ant-chip{min-height:44px}
+  #ov-anteriorite .m-foot .btn{min-height:44px}
+  #ov-anteriorite .m-close{min-width:44px;min-height:44px}
+  .ant-note .btn{min-height:44px}
+  #imm-dateAcq{font-size:16px;min-height:44px}
+}
+
+/* R0-C C1 — onglet Loyers : versement antérieur à la date d'achat, à vérifier avant de relancer (note, jamais bloquante). */
+#p-loyers .ly2-av{display:flex;gap:8px;align-items:flex-start;margin:0 12px 6px;padding:6px 10px;border-radius:8px;background:var(--warn-soft);color:var(--t1);font-size:12px;line-height:1.45;white-space:normal}
+#p-loyers .ly2-av>.uic{color:var(--warn);flex:none;margin-top:1px}
+@media (max-width:767px){#p-loyers .ly2-av{margin:0 10px 6px;font-size:13px}}
