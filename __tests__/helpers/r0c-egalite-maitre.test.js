@@ -30,7 +30,7 @@ function mesurer(seed) {
   const suivi = debutSuiviLot({ dateAcqImm: j.jouissance, bails: j.ctx.bails, provisoireIso: null });
   // Sans achat ni antériorité, le suivi part de l'entrée du bail (date que l'utilisateur confirmerait) :
   // même borne, AU JOUR, pour le maître et la dette (2ᵉ audit 🔴1 : un encaissement daté avant elle n'est
-  // pas imputé, sauf la réserve du mois qui précède — le loyer payé le 28 du mois d'avant).
+  // jamais imputé — 3ᵉ audit A1, plus de réserve).
   const borne = suivi.date || j.bailDebut;
   const debutDu = borne;
   const ouv = suivi.ouverture;

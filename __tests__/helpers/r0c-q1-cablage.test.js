@@ -174,7 +174,7 @@ describe('R0-C · 2ᵉ audit — câblage : les mutations qui survivaient (B3, B
     expect(app._finMonthly(2025, null, win(DB, 2025)).byLot['F-BAR'].annual.retard).toBe(1400);
     const d = app._finDetteBail('F-BAR', '2018-03-16', null);
     expect(d).toMatchObject({ loyer: 1400, avance: 0, avanceBrute: 0 });
-    expect(d.horsSuivi.length).toBe(16);   // 01/2024 → 04/2025 : jamais imputés
+    expect(d.horsSuivi.length).toBe(17);   // 01/2024 → 05/2025 : jamais imputés
   });
   it('B4b · `debutDu` transmis AU JOUR : date notée le 17/06/2025, le loyer du 05/06 n\'est pas imputé (il est dans le solde noté)', () => {
     const DB = ferrette({ anteriorite: { date: '2025-06-17', situation: 'arriere', loyer: 1400, charges: 0 } });

@@ -9011,7 +9011,7 @@ function _duMoisLot(ref, ym) {
 // Fenêtre de suivi (R0-C) — dès qu'une date est SAISIE (date d'achat ou antériorité notée), LE point
 // de départ de Finances (`_finLotSuivi` → js/core/anteriorite.js), le dû de Finances (`_finBailHcChAt` :
 // 1ᵉʳ terme exigible après l'achat), son solde d'ouverture, et la même règle pour les encaissements
-// d'avant (`_avantBorne`). L'onglet Loyers, les relances et les quittances lisent alors la même dette
+// d'avant : jamais imputés (3ᵉ audit A1). L'onglet Loyers, les relances et les quittances lisent alors la même dette
 // que Finances et la restitution.
 // Date PROVISOIRE (b) — rien de saisi : l'ancienne fenêtre `_debutSuivi` (1ᵉʳ janvier de l'année du
 // 1ᵉʳ versement), exactement comme le maître, qui ne reçoit jamais `debutDu` pour elle (3ᵉ audit A2/A3 :
@@ -9040,16 +9040,14 @@ function _loyerEtatLot(ref, opts) {
   // imputés mois par mois. Le montant reste la seule chose qui DÉCIDE : les dates suivent.
   const srcParYm = {};
   let firstPaymentYm = null;
-  const _s = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function' && typeof window._avantBorne === 'function')
-    ? _finLotSuivi(ref) : null;
+  const _s = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function') ? _finLotSuivi(ref) : null;
   const suivi = (_s && _s.source && _s.source !== 'provisoire') ? _s : null;   // (b) : seule une date SAISIE fait foi
   const borne = suivi ? suivi.date : null;
-  const avant = [];   // encaissements datés avant le point de départ : jamais imputés (sauf réserve)
   for (const m of (DB.mouvements || [])) {
     if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
     const ym = String(m.date).slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) continue;
-    if (borne && String(m.date).slice(0, 10) < borne) { avant.push({ date: String(m.date).slice(0, 10), montant: m.cr || 0 }); continue; }
+    if (borne && String(m.date).slice(0, 10) < borne) continue;   // avant la date saisie : jamais imputé (A1)
     recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
     (srcParYm[ym] || (srcParYm[ym] = [])).push({ date: String(m.date).slice(0, 10), id: (m.id != null ? m.id : null), montant: m.cr || 0 });
     if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
@@ -9059,11 +9057,7 @@ function _loyerEtatLot(ref, opts) {
     startYm = borne ? borne.slice(0, 7) : null;
     duDe = (ym) => _finBailHcChAt(ref, ym);
     const o = suivi.ouverture;
-    const reserve = borne ? window._avantBorne(avant, borne).reserve : null;
-    if (o || (reserve && reserve.montant > 0.005)) {
-      opening = Object.assign({ idx: 0, date: borne }, o ? { loyer: o.loyer, charge: o.charge, avance: o.avance } : {},
-        (reserve && reserve.montant > 0.005) ? { reserve } : {});
-    }
+    if (o) opening = { idx: 0, date: borne, loyer: o.loyer, charge: o.charge, avance: o.avance };
   } else {
     const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
     const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];

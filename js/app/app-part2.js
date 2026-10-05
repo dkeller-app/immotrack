@@ -29639,7 +29639,7 @@ function _finDetteBail(ref, bailDebut, fin) {
   return window._computeDetteBail({
     ref, ctx: { ref, bails: window.bailsFromRaw(ref, raw), bareme: raw.bareme },
     bailDebut: deb, fin: fin || null, mouvements: DB.mouvements || [], catLigne: _finCatLigne,
-    debutSuivi: s ? s.date : null, ouverture: o ? { loyer: o.loyer, charge: o.charge, avance: o.avance } : null
+    debutSuivi: s ? s.date : null, sourceSuivi: s ? s.source : null, ouverture: o ? { loyer: o.loyer, charge: o.charge, avance: o.avance } : null
   });
 }
 let _finMonthlyCache = { gen: -1, m: new Map() };
@@ -32244,7 +32244,7 @@ function _antRender(initial) {
       ? 'Date d\'achat de l\'immeuble (fiche immeuble). Le bail court depuis le ' + escHtml(debutBailFr) + ' ; le premier loyer dû au bailleur actuel est le premier terme exigible à compter du ' + escHtml(_antDateFr(s.jouissance)) + ' (le partage du mois de la vente se règle chez le notaire).'
       : 'Le bail court depuis le ' + escHtml(debutBailFr) + '. Propryo calcule les loyers dus à partir de cette date ; avant, il ne calcule rien.')
       // 2ᵉ audit 🔴1 : ce que deviennent les loyers déjà importés d'avant la date
-      + ' Les loyers encaissés avant cette date sont déjà dans la situation notée ci-dessous : ils ne sont pas recomptés. Seul un loyer versé dans le mois qui la précède (terme payé d\'avance) peut régler un loyer dû ensuite ; il ne devient jamais une avance.</div></div>'
+      + ' Les loyers encaissés avant cette date sont déjà dans la situation notée ci-dessous : ils ne sont pas recomptés. Un terme payé d\'avance avant cette date se note « avait payé d\'avance ».</div></div>'
     + '<div class="ant-lbl">Le ' + escHtml(dateFr) + ', le locataire :</div>'
     + '<div class="ant-seg" role="group" aria-label="Situation du locataire">' + seg('a-jour', 'check', 'était à jour') + seg('arriere', 'money', 'devait un arriéré') + seg('avance', 'send', 'avait payé d\'avance') + '</div>';
   if (E.situation === 'arriere') {

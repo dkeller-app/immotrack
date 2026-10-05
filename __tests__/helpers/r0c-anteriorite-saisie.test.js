@@ -98,5 +98,8 @@ describe('point légal et textes de l\'écran', () => {
     api.etat({ ref: 'F', bailDebut: '2018-03-16', suite: [], situation: 'a-jour', mois: [] });
     api._antRender(true);
     expect(champs['ov-anteriorite'].innerHTML).toContain('Les loyers encaissés avant cette date sont déjà dans la situation notée ci-dessous : ils ne sont pas recomptés.');
+    // 3ᵉ audit A1 : aucune réserve — un terme payé d'avance se note comme tel
+    expect(champs['ov-anteriorite'].innerHTML).toContain("Un terme payé d'avance avant cette date se note « avait payé d'avance ».");
+    expect(champs['ov-anteriorite'].innerHTML).not.toContain('mois qui la précède');
   });
 });

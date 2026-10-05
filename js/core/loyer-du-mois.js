@@ -409,32 +409,11 @@ export function _loyerArrearsPass(months, opts) {
     const oL = Math.max(0, Number(_open.loyer) || 0), oC = Math.max(0, Number(_open.charge) || 0);
     if (oL > 0.005) loyerQ.push({ idx: oIdx, short: oL, due: oL, recv: 0, opening: true });
     if (oC > 0.005) chargeQ.push({ idx: oIdx, short: oC, due: oC, recv: 0, opening: true });
-    // Manques NÉS DANS LE SUIVI reportés d'une passe précédente (pré-passe du maître) : ils suivent
-    // l'ouverture dans les files (même ordre FIFO qu'un calcul d'une traite) et, eux seuls, peuvent
-    // être soldés par la réserve (ci-dessous).
-    const sL = Math.max(0, Number(_open.loyerSuivi) || 0), sC = Math.max(0, Number(_open.chargeSuivi) || 0);
-    if (sL > 0.005) loyerQ.push({ idx: oIdx, short: sL, due: sL, recv: 0 });
-    if (sC > 0.005) chargeQ.push({ idx: oIdx, short: sC, due: sC, recv: 0 });
     // AVANCE d'ouverture (trop-perçu de N-1, ex. locataire à terme échoir qui paie janvier le 28/12) :
     // portée comme avance de départ → couvre les 1ers mois dus de l'année AVANT qu'un retard naisse.
     // Sinon l'Accueil afficherait un faux impayé sur un locataire qui a payé d'avance (audit C2 #1,
     // décision CDC (b) l.136). N'a de sens qu'avec le report (carry) — la politique du maître.
     if (carry) { const oA = Math.max(0, Number(_open.avance) || 0); if (oA > 0.005) avanceCarry = oA; }
-  }
-  // R0-C (2ᵉ audit 🔴1) — RÉSERVE : les encaissements datés dans le mois qui PRÉCÈDE le début du
-  // suivi. Le solde noté à cette date les contient déjà, sauf le terme payé d'avance (loyer du 1ᵉʳ
-  // mois suivi réglé le 28 du mois d'avant). Ils peuvent donc solder un manque NÉ DANS LE SUIVI et
-  // encore ouvert EN FIN DE PASSE — jamais l'ouverture (déjà nette d'eux), jamais devenir un
-  // trop-perçu, ni en libérer un : appliquée au fil des mois, elle aurait soldé un manque qu'un
-  // surplus ultérieur aurait recouvré, et ce surplus serait devenu une avance.
-  // `opening.reserve` = { montant, sources? } ; le reliquat est rendu (`reserveReste`).
-  let reserve = 0, resFrags = [];
-  if (_open && _open.reserve) {
-    reserve = Math.max(0, Number(_open.reserve.montant) || 0);
-    resFrags = (Array.isArray(_open.reserve.sources) ? _open.reserve.sources : [])
-      .filter((s) => s && (Number(s.montant) || 0) > 0)
-      .slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
-      .map((s) => ({ date: s.date || null, id: (s.id != null ? s.id : null), reste: Number(s.montant) || 0 }));
   }
 
   // ── Traçabilité (lot 0) : le miroir en fragments du pool scalaire ──────────
@@ -476,18 +455,6 @@ export function _loyerArrearsPass(months, opts) {
       if (f.reste <= 0.0000001) frags.shift();
     }
   };
-  /** Même chose pour la réserve (fragments datés du mois qui précède le suivi). */
-  const drawReserve = (idx, poste, amt) => {
-    let a = amt;
-    while (a > 0.0000001 && resFrags.length) {
-      const f = resFrags[0];
-      const t = Math.min(a, f.reste);
-      if (t > 0.0000001) imput[idx].push({ date: f.date, id: f.id, montant: t, poste });
-      f.reste -= t; a -= t;
-      if (f.reste <= 0.0000001) resFrags.shift();
-    }
-    if (a > 0.0000001) imput[idx].push({ date: null, id: null, montant: a, poste });
-  };
   const recover = (q, amt, poste) => {
     let a = amt;
     for (const e of q) {
@@ -519,19 +486,6 @@ export function _loyerArrearsPass(months, opts) {
     if (carry) { avanceCarry = pool; out.avance = _r2(avanceCarry); }
     return out;
   });
-  // Réserve : en fin de passe, sur les seuls manques nés dans le suivi (loyer d'abord, plus anciens
-  // d'abord). Aucun manque restant ⇒ aucune avance n'est touchée (avance et manque ne coexistent pas).
-  if (reserve > 0.005) {
-    for (const [q, poste] of [[loyerQ, 'loyer'], [chargeQ, 'charge']]) {
-      for (const e of q) {
-        if (reserve <= 0.005) break;
-        if (e.opening || e.short <= 0.005) continue;
-        const t = Math.min(reserve, e.short);
-        e.short -= t; reserve -= t;
-        drawReserve(e.idx, poste, t);
-      }
-    }
-  }
   const clean = (q) => q.filter((e) => e.short > 0.005).map((e) => ({ idx: e.idx, short: _r2(e.short), due: _r2(e.due), recv: _r2(e.recv) }));
   const last = perMonth.length
     ? Object.assign({}, perMonth[perMonth.length - 1], { loyerArrear: _r2(sumQ(loyerQ)), chargeArrear: _r2(sumQ(chargeQ)) })
@@ -558,9 +512,8 @@ export function _loyerArrearsPass(months, opts) {
   });
   const res = { months: perMonth, retardMois, imputations, loyerArrear: last.loyerArrear, chargeArrear: last.chargeArrear, causeLoyer: clean(loyerQ), causeCharge: clean(chargeQ) };
   if (carry) res.avance = _r2(avanceCarry);
-  if (_open && _open.reserve) res.reserveReste = _r2(reserve);
-  // Part de l'arriéré final qui vient encore de l'OUVERTURE (le reste est né dans le suivi) : le maître
-  // la reporte telle quelle d'une passe à l'autre (`loyer`/`charge` vs `loyerSuivi`/`chargeSuivi`).
+  // Part de l'arriéré final qui vient encore de l'OUVERTURE (le reste est né dans le suivi) : l'onglet
+  // Loyers la rend à part (`etatMoisLot` → `ouverture`), datée, jamais comme la dette d'un mois.
   if (_open) {
     const oR = (q) => _r2(q.filter((e) => e.opening).reduce((t, e) => t + e.short, 0));
     res.ouvertureReste = { loyer: oR(loyerQ), charge: oR(chargeQ), idx: oIdx };

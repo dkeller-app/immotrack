@@ -121,13 +121,19 @@ describe('🟠3 — onglet Loyers = Finances = dette du bail', () => {
     }
     expect(lots).toBeGreaterThan(50);
   });
-  it('terme payé d\'avance le 28 : la réserve solde le 1ᵉʳ mois suivi, daté du versement (quittance possible)', () => {
-    const DB = lot({ anteriorite: { date: '2025-06-01', situation: 'a-jour' } });
+  it('terme payé d\'avance le 28 : noté « avait payé d\'avance » (3ᵉ audit A1), il couvre juin — 0 partout, juin quittançable', () => {
+    const DB = lot({ anteriorite: { date: '2025-06-01', situation: 'avance', avance: 700 } });
     DB.mouvements = ymRange('2024-01', '2026-09').map((ym) => pay('L', ym + '-28'));
     const r = trois(monter(DB, '2026-10-20'), DB, '2026-10-20');
     expect(r).toMatchObject({ loyers: 0, finances: 0, dette: 0 });
+    expect(r.etat.byYm['2025-06'].solde).toBe(true);
     expect(r.etat.byYm['2026-10'].solde).toBe(true);
     expect(r.etat.avance).toBe(0);
+  });
+  it('… noté « à jour » à tort : le versement du 28/05 n\'est pas imputé (jamais de réserve) — le dernier terme apparaît dû, partout pareil', () => {
+    const DB = lot({ anteriorite: { date: '2025-06-01', situation: 'a-jour' } });
+    DB.mouvements = ymRange('2024-01', '2026-09').map((ym) => pay('L', ym + '-28'));
+    expect(trois(monter(DB, '2026-10-20'), DB, '2026-10-20')).toMatchObject({ loyers: 700, finances: 700, dette: 700 });
   });
   it('avance notée (560 €) : elle couvre les premiers mois, comme dans Finances', () => {
     const DB = lot({ anteriorite: { date: '2026-03-01', situation: 'avance', avance: 560 } });
@@ -158,7 +164,7 @@ describe('🟠3 — relances et quittances : l\'arriéré noté est une ligne à
   it('date notée en cours de mois (17/06/2025) : juin sans dû (terme au 01/06), l\'arriéré compte quand même', () => {
     const e = s1('2025-06-17');
     expect(e.byYm['2025-06'].vacance).toBe(true);
-    expect(retardLot(e, {})).toMatchObject({ enRetard: true, resteLoyer: 1400 });
+    expect(retardLot(e, { toleranceActive: true })).toMatchObject({ enRetard: true, resteLoyer: 1400 });
   });
   it('un arriéré noté soldé plus tard : le paiement qui le solde ne date AUCUN mois', () => {
     const DB = lot({ anteriorite: { date: '2025-06-01', situation: 'arriere', loyer: 700, charges: 0 } });
