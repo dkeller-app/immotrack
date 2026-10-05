@@ -16,3 +16,13 @@ js/app/app-part*.js text eol=crlf
 
 # Perf étape 3a — CSS de l écran de connexion
 css/login.css text eol=crlf
+
+# Libs PDF base64 (chargées à la demande) : jamais de conversion de fin de ligne, sinon leur empreinte ?v=
+# (test app-parts-stamp) dépend de la machine (CRLF sous Windows autocrlf, LF sur la CI Linux).
+js/vendor/pdf-libs.b64.js -text
+
+# Scripts Node de l outillage (shebang #!/usr/bin/env node) : toujours en LF, sinon sous Windows (autocrlf)
+# le shebang finit par  et l import du module plante (ex. test app-parts-stamp qui importe tools/stamp-app-parts.mjs).
+tools/*.mjs text eol=lf
+scripts/*.mjs text eol=lf
+scripts/*.cjs text eol=lf

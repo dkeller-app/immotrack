@@ -1171,6 +1171,8 @@ function _bootDataJobs() {
       if (_mig.migres > 0) { _mig.refs.forEach(r => { const l = (DB.logements||[]).find(x => x && x.ref === r); if (l) _stamp(l); }); saveDB(); }
     } catch(e) { console.warn('[migration N° lot copro]', e); }
   }
+  // NORMALISATION-LOYERS : plus d'appel ici (audit 05/10). En local, initDB a normalisé ; en cloud, __immoSetDB
+  // programme la normalisation à CHAQUE hydratation (login ET re-pulls), juste avant ces travaux de boot.
   // v15.10 Phase A6 — Audit migration baux existants : détecte des incohérences entre
   // log.hc et le montant attendu selon DB.irlHistorique (legacy avant v15.10).
   // Toast warn uniquement, pas de migration destructive (l'utilisateur audite manuellement).

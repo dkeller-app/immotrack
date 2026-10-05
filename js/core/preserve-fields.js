@@ -36,7 +36,7 @@ export function _preserverChampsExistants(reconstruit, existant) {
  * formulaire (getBailDataFromForm) puis remplace l'ancien : `DB.baux[ref] = bail`. Y passaient à
  * la trappe le DOSSIER DE DÉPART complet (bail.depart : congé, date de sortie, motif, avancement)
  * et la RESTITUTION DU DÉPÔT DE GARANTIE (dgRestitueAt — le drapeau lu par toutes les surfaces —,
- * dgDetailRetenues, dgRestitueMontant, locNouvIban). Un simple changement de téléphone suffisait.
+ * dgDetailRetenues, dgRestitueMontant). Un simple changement de téléphone suffisait.
  *
  * Le gate n'est PAS une commodité. `archiverBail` ne supprime pas DB.baux[ref] au re-bail : il en
  * pousse une copie dans baux_historique et laisse l'ancien bail en place jusqu'à l'écrasement.

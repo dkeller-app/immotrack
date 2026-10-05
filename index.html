@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.709</title>
+<title>Propryo v15.711</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -45,7 +45,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
   if(window._BAIL_PDF_LIBS)return Promise.resolve(window._BAIL_PDF_LIBS);
   if(p)return p;
   p=new Promise(function(res,rej){var s=document.createElement('script');
-    s.src='js/vendor/pdf-libs.b64.js?v=20a9c05f';s.async=true;
+    s.src='js/vendor/pdf-libs.b64.js?v=7f449393';s.async=true;
     s.onload=function(){window._BAIL_PDF_LIBS?res(window._BAIL_PDF_LIBS):(p=null,rej(new Error('pdf-libs : fichier vide')))};
     s.onerror=function(){p=null;rej(new Error('pdf-libs : echec de chargement'))};
     document.head.appendChild(s)});
@@ -58,8 +58,106 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.709">
-<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=fe7e7e67">
+<link rel="stylesheet" href="css/main.css?v=15.711">
+<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7976c7e3">
+<!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
+<link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
+<link rel="modulepreload" href="js/app/supabase-boot.js">
+<link rel="modulepreload" href="js/core/det-uuid.js">
+<link rel="modulepreload" href="js/core/store-multi.js">
+<link rel="modulepreload" href="js/core/cache-purge.js">
+<link rel="modulepreload" href="js/core/stockage-local.js">
+<link rel="modulepreload" href="js/core/offline-boot.js">
+<link rel="modulepreload" href="js/core/miroir-local.js">
+<link rel="modulepreload" href="js/core/store-sync.js">
+<link rel="modulepreload" href="js/core/edl-conflit.js">
+<link rel="modulepreload" href="js/core/utils.js">
+<link rel="modulepreload" href="js/core/idb.js">
+<link rel="modulepreload" href="js/components/toast.js">
+<link rel="modulepreload" href="js/components/modal.js">
+<link rel="modulepreload" href="js/core/audit-trail.js">
+<link rel="modulepreload" href="js/core/legal-2044.js">
+<link rel="modulepreload" href="js/core/regime-lot.js">
+<link rel="modulepreload" href="js/core/rgpd.js">
+<link rel="modulepreload" href="js/core/legal-bilan.js">
+<link rel="modulepreload" href="js/core/finances-monthly.js">
+<link rel="modulepreload" href="js/core/finances-scope.js">
+<link rel="modulepreload" href="js/core/finances-window.js">
+<link rel="modulepreload" href="js/core/finances-repartition.js">
+<link rel="modulepreload" href="js/core/loyer-statut.js">
+<link rel="modulepreload" href="js/core/loyer-du-mois.js">
+<link rel="modulepreload" href="js/core/loyer-migration.js">
+<link rel="modulepreload" href="js/core/entretien-statut.js">
+<link rel="modulepreload" href="js/core/pilotage-familles.js">
+<link rel="modulepreload" href="js/core/loyer-bareme.js">
+<link rel="modulepreload" href="js/core/bail-historique.js">
+<link rel="modulepreload" href="js/core/bail-modifications.js">
+<link rel="modulepreload" href="js/core/bail-modif.js">
+<link rel="modulepreload" href="js/core/irl-revision.js">
+<link rel="modulepreload" href="js/core/avenant.js">
+<link rel="modulepreload" href="js/core/avenant-registre.js">
+<link rel="modulepreload" href="js/core/regul-forfait.js">
+<link rel="modulepreload" href="js/core/bail-duree.js">
+<link rel="modulepreload" href="js/core/conge.js">
+<link rel="modulepreload" href="js/core/actes-mentions.js">
+<link rel="modulepreload" href="js/core/micro-foncier.js">
+<link rel="modulepreload" href="js/core/visale.js">
+<link rel="modulepreload" href="js/core/anteriorite.js">
+<link rel="modulepreload" href="js/core/declaration-occupation.js">
+<link rel="modulepreload" href="js/core/export-comptable.js">
+<link rel="modulepreload" href="js/core/dossier-comptable.js">
+<link rel="modulepreload" href="js/core/import-concurrents.js">
+<link rel="modulepreload" href="js/core/monitoring.js">
+<link rel="modulepreload" href="js/core/email-compose.js">
+<link rel="modulepreload" href="js/components/email-modal.js">
+<link rel="modulepreload" href="js/core/rename-logement.js">
+<link rel="modulepreload" href="js/core/rename-immeuble.js">
+<link rel="modulepreload" href="js/core/logp-partial.js">
+<link rel="modulepreload" href="js/core/preserve-fields.js">
+<link rel="modulepreload" href="js/core/cover-photo.js">
+<link rel="modulepreload" href="js/core/biens-migration.js">
+<link rel="modulepreload" href="js/core/normalisation-loyers.js">
+<link rel="modulepreload" href="js/core/biens-pieces.js">
+<link rel="modulepreload" href="js/core/edl-photos.js">
+<link rel="modulepreload" href="js/core/edl-autosave.js">
+<link rel="modulepreload" href="js/core/edl-parcours.js">
+<link rel="modulepreload" href="js/core/edl-steps.js">
+<link rel="modulepreload" href="js/core/edl-garage-model.js">
+<link rel="modulepreload" href="js/core/edl-relecture.js">
+<link rel="modulepreload" href="js/core/pwa-install.js">
+<link rel="modulepreload" href="js/core/email-send.js">
+<link rel="modulepreload" href="js/core/email-pdf-attachment.js">
+<link rel="modulepreload" href="js/core/attachments.js">
+<link rel="modulepreload" href="js/core/bank-import.js">
+<link rel="modulepreload" href="js/core/quittances-actives.js">
+<link rel="modulepreload" href="js/core/loyers-mois.js">
+<link rel="modulepreload" href="js/core/irl-calendrier.js">
+<link rel="modulepreload" href="js/core/contrat-type.js">
+<link rel="modulepreload" href="js/core/loyers-badge.js">
+<link rel="modulepreload" href="js/core/group-by-imm.js">
+<link rel="modulepreload" href="js/core/irl-insee.js">
+<link rel="modulepreload" href="js/core/nav-submenu.js">
+<link rel="modulepreload" href="js/core/gestion-dg-impayes.js">
+<link rel="modulepreload" href="js/core/vetuste-grille.js">
+<link rel="modulepreload" href="js/core/candidature.js">
+<link rel="modulepreload" href="js/core/relay-client.js">
+<link rel="modulepreload" href="js/core/backup.js">
+<link rel="modulepreload" href="js/core/espace-purge.js">
+<link rel="modulepreload" href="js/core/dates-defaut.js">
+<link rel="modulepreload" href="js/core/quittance-editeur.js">
+<link rel="modulepreload" href="js/core/irl-garde-fou.js">
+<link rel="modulepreload" href="js/core/login-breadcrumb.js">
+<link rel="modulepreload" href="js/core/sync-schedule.js">
+<link rel="modulepreload" href="js/core/store-supabase.js">
+<link rel="modulepreload" href="js/core/store-supabase-adapter.js">
+<link rel="modulepreload" href="js/core/bail-content-hash.js">
+<link rel="modulepreload" href="js/core/store-mapping.js">
+<link rel="modulepreload" href="js/core/entite-doublon.js">
+<!-- modulepreload:end -->
+<!-- PARAPHE-UNIQUE (v15.710) : une image de paraphe par signataire + lecteur des deux formes (window.BailParaphes, source js/core/bail-paraphes.js). -->
+<script src="js/helpers/bail-paraphes.global.js?v=bc8c13ad" defer></script>
+<!-- PARAPHE-UNIQUE : contr�le � onglet p�rim� � avant de signer / r�g�n�rer le PDF d'un bail sign� (window.VersionApp, source js/core/version-app.js). -->
+<script src="js/helpers/version-app.global.js?v=97798663" defer></script>
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
      supabase-entry.js) + #toast. Le gate est levé (retrait de data-lpboot) par _liftDriveGate() une fois
@@ -171,7 +269,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.709</em>
+      <em>v15.711</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4382,62 +4480,61 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   </div>
 </div></div>
 <!-- ANNONCES (CDC 29/09/2026) — générateur d'annonces conformes (window.AnnonceGenerator) -->
-<script src="js/helpers/annonce-generator.global.js"></script>
+<script src="js/helpers/annonce-generator.global.js?v=7e71330d" defer></script>
 <!-- ANNONCES (D7) — fourchette + années des prix lues dans le texte d'un DPE (window.DpeTexte) -->
-<script src="js/helpers/dpe-texte.global.js"></script>
+<script src="js/helpers/dpe-texte.global.js?v=d5c0fde2" defer></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 — parser/formatter d'adresse FR (window.AdresseParser) -->
-<script src="js/helpers/adresse-parser.global.js"></script>
+<script src="js/helpers/adresse-parser.global.js?v=5dbda94d" defer></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 Commit 2 — résolveur bien hérite imm (window.LogImmResolver) -->
-<script src="js/helpers/log-immeuble-resolver.global.js"></script>
+<script src="js/helpers/log-immeuble-resolver.global.js?v=96c42fbe" defer></script>
 <!-- v15.252 FEAT-GEORISQUES-ERP — détecteur ERP/IAL depuis l'adresse (window.GeorisquesErpDetector) -->
-<script src="js/helpers/georisques-erp-detector.global.js"></script>
-<script src="js/helpers/bail-sign-coords.global.js"></script>
-<script src="js/helpers/bail-sign-manifest.global.js"></script>
-<script src="js/helpers/build-sign-manifest.global.js"></script>
-<script src="js/helpers/bail-sign-sigid.global.js"></script>
-<script src="js/helpers/bail-sign-plan.global.js"></script>
+<script src="js/helpers/georisques-erp-detector.global.js?v=a327e583" defer></script>
+<script src="js/helpers/bail-sign-coords.global.js?v=36e93334" defer></script>
+<script src="js/helpers/bail-sign-manifest.global.js?v=640daca0" defer></script>
+<script src="js/helpers/build-sign-manifest.global.js?v=41b6c320" defer></script>
+<script src="js/helpers/bail-sign-sigid.global.js?v=0fe13714" defer></script>
+<script src="js/helpers/bail-sign-plan.global.js?v=23b8236b" defer></script>
 <!-- SIGNATURE-SMOKE S1 — dérivation UNIQUE des signataires bailleur (file de signature ET _SIGS du document) + garde anti-parcours muet. -->
-<script src="js/helpers/bail-signataires.global.js"></script>
+<script src="js/helpers/bail-signataires.global.js?v=a3dc3859" defer></script>
 <!-- SIGNATURE-SMOKE S3 — montants déterministes (jamais toLocaleString) + assainisseur de texte PDF (U+202F casse jsPDF). -->
-<script src="js/helpers/montant-doc.global.js"></script>
+<script src="js/helpers/montant-doc.global.js?v=c7e908c3" defer></script>
 <!-- SIGNATURE-SMOKE — flux de texte du PDF : couper un bloc avant la bande du pied (paraphes). -->
-<script src="js/helpers/pdf-flow.global.js"></script>
+<script src="js/helpers/pdf-flow.global.js?v=0119d31c" defer></script>
 <!-- S4 — bandeau d'identité des documents : logo du bailleur + logo Propryo. -->
-<script src="js/helpers/doc-brand.global.js"></script>
+<script src="js/helpers/doc-brand.global.js?v=467d7fb5" defer></script>
 <!-- CHANTIER BAIL-GARAGE — structure du bail garage/box/stockage (droit commun, Code civil).
      buildBailStructure y délègue pour bail.type==='garage' en injectant en-tête/identité/signatures. -->
-<script src="js/helpers/bail-garage.global.js"></script>
+<script src="js/helpers/bail-garage.global.js?v=fe8eae99" defer></script>
 <!-- DOCS-UNIFIES — gabarit unique des documents émis (variante B validée le 12/08) :
      feuille de style scopée .pro-doc + primitives titre/parties/lignes/mentions/pied. -->
-<script src="js/helpers/doc-template.global.js"></script>
+<script src="js/helpers/doc-template.global.js?v=5ce04e55" defer></script>
 <!-- CDC-QUITTANCES-IRL D26 — moteur d'écriture NATIF partagé (window.DocNative) : PDF_NATIVE (sous-ensemble
      document du moteur du bail) + pont HTML .pro-doc → texte natif. Après pdf-flow + doc-brand (ses deps). -->
-<script src="js/helpers/doc-native.global.js"></script>
+<script src="js/helpers/doc-native.global.js?v=e45e28df" defer></script>
 <!-- CDC-QUITTANCES-IRL D23/I16 — décision réglementaire DPE de la révision (window.IrlDpeGate) :
      gel F/G valide vs « à compléter » (absent ou périmé). Consommé par computeIRLRevision. -->
-<script src="js/helpers/irl-dpe-gate.global.js"></script>
+<script src="js/helpers/irl-dpe-gate.global.js?v=722abf97" defer></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
-<script src="js/helpers/alert-rules.global.js"></script>
+<script src="js/helpers/alert-rules.global.js?v=cc4d6d72" defer></script>
 <!-- v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (window.DashCtx) :
      scope + matchMv + mvs/mvsYTD/mvsPrev/refYrMo + KPIs occupation/totaux (ex-copiés rDash/rAccueil/renders) -->
-<script src="js/helpers/dash-ctx.global.js"></script>
+<script src="js/helpers/dash-ctx.global.js?v=956b0838" defer></script>
 <!-- Fil rouge « Ajouter un bien » v2 — modèle pur (complétude/arbre) + conducteur (machine à états) -->
-<script src="js/helpers/parcours-bien-model.global.js"></script>
-<script src="js/helpers/fil-rouge-conductor.global.js"></script>
+<script src="js/helpers/parcours-bien-model.global.js?v=e8029dcf" defer></script>
+<script src="js/helpers/fil-rouge-conductor.global.js?v=5c52240a" defer></script>
 <!-- Fil rouge COMPLET — rapprochement immeuble par adresse canon (import d'acte) -->
-<script src="js/helpers/acte-rapprochement.global.js"></script>
+<script src="js/helpers/acte-rapprochement.global.js?v=5ca1f0c1" defer></script>
 <!-- IMPORT BANCAIRE — mirror généré depuis js/core/bank-import.js.
      Remplace la RÉPLIQUE INLINE des helpers _bank* qui vivait dans ce fichier
      (bug 3 du CDC-IMPORT : moteur en double, divergence garantie à terme). -->
-<script src="js/helpers/bank-import.global.js"></script>
+<script src="js/helpers/bank-import.global.js?v=a5d8725d" defer></script>
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
-<script src="js/app/supabase-config.js"></script>
-<script type="module" src="js/app/supabase-entry.js" onerror="window.__immoPartFail&&window.__immoPartFail('supabase-entry')"></script>
-<script src="js/app/app-part1.js?v=d2db1829" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=6ad2bfec" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=7d55738f" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
+<script src="js/app/app-part1.js?v=dc5ea298" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=a122a01c" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">
@@ -5237,7 +5334,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   </div>
 </div>
 <!-- v14.85 ARCHI-MODULAR Phase 0 : bootstrap modulaire ES (CSS extrait dans css/main.css) -->
-<script src="js/vendor/qrcode-generator.js"></script>
+<script src="js/vendor/qrcode-generator.js?v=d350d6b2" defer></script>
+<script type="module" src="js/app/supabase-entry.js" onerror="window.__immoPartFail&&window.__immoPartFail('supabase-entry')"></script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

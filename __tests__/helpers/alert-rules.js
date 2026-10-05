@@ -112,7 +112,7 @@ export function irlClassifier(rev, log, today, isoLocal) {
  *  logement avec charges, LOYERS PERÇUS en N-1, et AUCUNE régul émise en année courante N.
  *  → [{ref, locataire, annee (N-1), charges}] */
 export function regulAEmettre(scopeLogs, mouvements, today, isLoyerCategory) {
-  const isLoyer = typeof isLoyerCategory === 'function' ? isLoyerCategory : (c => c === 'Loyers')
+  const isLoyer = typeof isLoyerCategory === 'function' ? isLoyerCategory : (c => c === 'Loyers encaissés')   // NORMALISATION-LOYERS : jamais plus la catégorie héritée
   const mvs = (mouvements || []).filter(alive)
   const yrCur = today.getFullYear()
   const yrPrev = yrCur - 1

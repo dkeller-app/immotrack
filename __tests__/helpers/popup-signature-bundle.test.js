@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import * as MD from './montant-doc.js';
 import * as BS from './bail-signataires.js';
 import * as PF from './pdf-flow.js';
+import * as BP from '../../js/core/bail-paraphes.js';
 
 // Réplique EXACTE de l'ordre d'injection de index.html (previewBailData, var scripts = '<script>').
 function buildPopupBundle() {
@@ -29,7 +30,11 @@ function buildPopupBundle() {
     'var isWinAnsiChar=' + MD.isWinAnsiChar.toString() + ';',
     'var hasPdfUnsafeChars=' + MD.hasPdfUnsafeChars.toString() + ';',
     'var pdfSafeText=' + MD.pdfSafeText.toString() + ';',
-    'var hardenJsPdfText=' + MD.hardenJsPdfText.toString() + ';'
+    'var hardenJsPdfText=' + MD.hardenJsPdfText.toString() + ';',
+    // PARAPHE-UNIQUE (v15.709) : lecteur des deux formes + écriture compacte.
+    'var parapheDe=' + BP.parapheDe.toString() + ';',
+    'var parapheCarte=' + BP.parapheCarte.toString() + ';',
+    'var compacterParaphes=' + BP.compacterParaphes.toString() + ';'
   ].join('');
 }
 
@@ -37,7 +42,8 @@ function buildPopupBundle() {
 // exactement comme dans la popup.
 function evalBundle() {
   const factory = new Function(buildPopupBundle()
-    + 'return {padSignersFor:_padSignersFor, pdfSafeText:pdfSafeText, hasPdfUnsafeChars:hasPdfUnsafeChars, hardenJsPdfText:hardenJsPdfText, splitBlockAcrossPages:_splitBlockAcrossPages};');
+    + 'return {padSignersFor:_padSignersFor, pdfSafeText:pdfSafeText, hasPdfUnsafeChars:hasPdfUnsafeChars, hardenJsPdfText:hardenJsPdfText, splitBlockAcrossPages:_splitBlockAcrossPages,'
+    + ' parapheDe:parapheDe, parapheCarte:parapheCarte, compacterParaphes:compacterParaphes};');
   return factory();
 }
 
@@ -88,6 +94,17 @@ describe('bundle injecté dans la popup de signature', () => {
     for (const c of popup.splitBlockAcrossPages(260, 10, 4, o)) {
       expect(c.y + (c.to - c.from) * 4).toBeLessThanOrEqual(272);
     }
+  });
+
+  it('PARAPHE-UNIQUE : la popup relit les deux formes et réécrit sans perte (variables libres injectées)', () => {
+    const popup = evalBundle();
+    const A = 'data:image/png;base64,A', Z = 'data:image/png;base64,Z';
+    const ancien = { paraphes: { 1: { 'bailleur-0': A, 'loc-0': Z }, 2: { 'bailleur-0': A, 'loc-0': Z } } };
+    expect(popup.parapheCarte(ancien)).toEqual(BP.parapheCarte(ancien));
+    const heures = { 1: { 'bailleur-0': 't1', 'loc-0': 't1' }, 2: { 'bailleur-0': 't2', 'loc-0': 't2' } };
+    const neuf = { ...popup.compacterParaphes(ancien.paraphes, heures), parapheTimes: heures };
+    expect(neuf.parapheImg).toEqual({ 'bailleur-0': A, 'loc-0': Z });
+    expect(popup.parapheCarte(JSON.parse(JSON.stringify(neuf)))).toEqual(JSON.parse(JSON.stringify(ancien.paraphes)));
   });
 
   it('aucune source injectée ne contient « </script » (cassure du document.write)', () => {
