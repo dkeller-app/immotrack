@@ -1,4 +1,19 @@
 # Propryo — Backlog actif
+## 🧭 PLAN DE SESSIONS (05/10, validé Didier) — vagues
+| Vague | Session | Prompt | Modèle | Branche |
+|---|---|---|---|---|
+| ▶ en cours | Finances — suivi des loyers | `PROMPT-SESSION-FINANCES-SUIVI-LOYERS.md` | Sonnet orchestrateur (+Opus phases 1/3, Fable contre-audit) | `feat/finances-suivi-unique` |
+| ▶ en cours | Règles de classement | `PROMPT-SESSION-REGLES-MOUVEMENTS.md` | Sonnet orchestrateur (+Opus modèle/migration) | `feat/regles-refonte` |
+| 1 ▶ lancée | Bail en cours (lot A + B1/B3/B4 + C2/C4) | `PROMPT-SESSION-BAIL-EN-COURS.md` | Sonnet orchestrateur (+Opus conception) | `feat/bail-en-cours` |
+| 1 ▶ lancée | Fusion des 2 SCI SMARTOSAURUS (données réelles) | `PROMPT-SESSION-FUSION-SCI.md` | Opus | `fix/fusion-sci` |
+| 1 ▶ lancée | Audit de sécurité (lecture seule) | `PROMPT-SESSION-AUDIT-SECURITE.md` | Opus (+agents Fable) | `audit/securite` |
+| 2 | IRL & courriers (C3, C6, C7) — après Bail en cours | à écrire | Sonnet (+Opus moteur IRL) | — |
+| 2 | Stockage IndexedDB (suite conception 30/09) — après Fusion SCI | à écrire | Opus | — |
+| 2 | Téléphone : EDL + vue Charges par locataire (25/09 #1 #2) | à écrire | Sonnet | — |
+| 3 | Écrans Accueil / Loyers 3 blocs / Logements / MRH (B2, C1, C5) — après Finances | à écrire | Sonnet | — |
+| 3 | Mise en production (propryo.fr, Resend, Stripe, OTP) — dépend de Didier | à écrire | Sonnet | — |
+**Pilotage** : intégration une par une, numéros de version attribués par le pilotage, smokes en attente.
+
 ## 🔥 RETOURS-2026-10-05 (Ferrette 101/102/103) — 🔍 DIAGNOSTIQUÉ, ⏳ GO Didier lot A
 **Lot A (bugs francs, correctifs rédigés)** : A1 `saveBail` boucle DDT ↔ popup financière → modif charges jamais enregistrée · A2 matrice « Signer le bail » sur bail signé (clés `signatures.bailleur/locataire` jamais écrites) · A3 « Faire l'EDL » (`DB.edls` au lieu de `DB.edl`) · A4 DPE joint → plomb/amiante détectés (mot « amiante » nu) · A5 CREP avec plomb 1 an au lieu de 6 ans (location) · A6 Diag rouge locataire en place (jugé à aujourd'hui au lieu de la conclusion du bail).
 **Lots B/C** : 3 blocs Loyers, libellé logement ≠ réf, DG versé hors mouvement, MRH (PJ avant save, Documents, fiche lecture), bail/EDL externes, fil rouge IRL + lettre, corriger/annuler une modif de bail, vue logements, civilités, date dans les titres. **Lot D (Mouvements)** : pas de catégorie assurance prêt, règle non appliquée à la ligne source ni aux mouvements en base, « Mémoriser la règle » sans contrôle (doublons), pas de règle depuis un mouvement enregistré, refonte règles à maquetter (règles non scopées au bailleur du compte, aperçu non décochable, clé = motif). **Lot E (Finances)** : avance non compensée vs retard compensé (C2 du 14/07 à moitié corrigé), 3 moteurs (Finances / Loyers-relance / bandeau), pas de « manque accepté », popups sans lien mouvement, graphique et tableau en sens inverse, 2 sélecteurs bailleur. Détail : `docs/subjects/RETOURS-2026-10-05.md`.
