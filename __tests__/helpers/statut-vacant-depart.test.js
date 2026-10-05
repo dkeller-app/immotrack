@@ -559,3 +559,23 @@ describe('18 · loyer souhaité (VRAI _pushLoyerTheoFromLive) : jamais écrasé 
     expect([DB.logements[2].hc, DB.logements[2].loyerHcRef, DB.logements[2].chargesRef]).toEqual([620, 620, 80]);
   });
 });
+describe('19 · tâche du dépôt d\'un bail archivé (VRAI _computeUnifiedTodo) : sévérité selon l\'échéance art. 22', () => {
+  const tache = (sortie) => {
+    const DB = dbDe({}); DB.baux_historique = [{ ...BAIL, ref: 'A1', depart: { dateSortie: sortie }, finEffective: sortie, _archivedAuto: true }];
+    const m = monter(DB, [...STATUT, '_computeUnifiedTodo', '_departDeadlineDG'], {
+      _departState: () => null, AlertRules: new Proxy({}, { get: () => () => [] }), EQUIP_RULES: [], _DIAGS_CATALOG_INLINE: [],
+      _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+    });
+    return (m.fn._computeUnifiedTodo({ scopeLogs: [DB.logements[0]] }) || []).find((x) => x && x.type === 'depart');
+  };
+  it('échéance dans 15 jours : orange « DG à restituer avant le … »', () => {
+    const t = tache('2026-08-20');
+    expect(t.severity).toBe('ora');
+    expect(t.subtitle).toContain('DG à restituer avant le 20/10/2026 (J‑15)');
+  });
+  it('échéance dépassée : rouge « DG en retard … (majoration) » ; lointaine : information', () => {
+    expect(tache('2026-07-01').severity).toBe('red');
+    expect(tache('2026-07-01').subtitle).toContain('DG en retard 34 j (majoration)');
+    expect(tache('2026-09-30').severity).toBe('info');
+  });
+});
