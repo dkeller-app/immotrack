@@ -23224,7 +23224,26 @@ var _CONGE_ACTS=[
  {k:'resiliation_amiable', tt:'Résiliation amiable', ds:'Protocole d\'accord (art. 1193)', tpl:'bail-resiliation-amiable'}
 ];
 function _congeOv(){ var ov=document.getElementById('ov-conge'); if(!ov){ ov=document.createElement('div'); ov.id='ov-conge'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-conge')"); document.body.appendChild(ov); } return ov; }
-function _congeTplOf(){ var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:''; }
+function _congeTplOf(){
+  // BAUX-ECHUS — le « congé du bailleur » dépend du type de bail : art. 15 (nu), art. 25-8 I (meublé),
+  // information de fin de bail (étudiant, mobilité), congé selon le contrat (garage, autre).
+  if(_congeState.kind==='conge_bailleur') return _congeModele(_congeState.ref).tpl;
+  var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:'';
+}
+// BAUX-ECHUS — le type EFFECTIF du bail : le même résolveur que la règle d'échéance (bail.type fait
+// autorité, repli log.typeUsage pour les baux d'avant v15.191), plus `bail.type || 'nu'`.
+function _congeTypeBail(ref){
+  var bail=(DB.baux&&DB.baux[ref])||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||null;
+  var BE=window.BailEcheance;
+  return (BE&&typeof BE.typeBailEffectif==='function')?BE.typeBailEffectif(bail,log):_bailTypeEff(bail,log);
+}
+/** La lettre « congé du bailleur » du bail (js/core/conge.js, congeBailleurModele). */
+function _congeModele(ref){
+  var t=_congeTypeBail(ref);
+  if(typeof window.congeBailleurModele==='function') return window.congeBailleurModele(t);
+  // Repli (module non chargé) : le congé du bail nu, comme avant.
+  return { tpl:'bail-conge-bailleur-6mois', titre:'Congé donné au locataire', fondement:'Loi n° 89-462 du 6 juillet 1989, article 15', motif:true, annexe15II:true, protege:'art. 15-III', dateLibre:false, fichier:'Conge-bailleur' };
+}
 /**
  * Le pont entre la DB (cycle de reconduction, préavis) et `congeDateEffet`, la fonction PURE
  * qui reporte la date d'effet au terme suivant quand le préavis ne tient plus.
@@ -23254,18 +23273,22 @@ function _congeDateEffetLocale(bail,log,pinfo,preavisMois){
 function _congeExtra(ref){
   var bail=DB.baux[ref]||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||{};
   // Date CIVILE (pas td(), qui est UTC : cf. `_congeDateEffetLocale`) — elle date l'acte.
-  var typeBail=bail.type||'nu';
+  var typeBail=_congeTypeBail(ref);   // BAUX-ECHUS : type EFFECTIF (repli log.typeUsage), plus `bail.type || 'nu'`
   var today=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
   // On reformate bail.debut en date FR (les modèles affichent {{bail.debut}}) sans toucher au texte des modèles Propryo.
   var e={ dateLettre: fd(today), bail: Object.assign({}, bail, { adrBien: bail.adrBien||log.adr||'', debut: bail.debut?fd(bail.debut):'‹début du bail›' }) };
   if(_congeState.kind==='conge_bailleur'){
-    var motif=v('cg-motif')||'reprise';
-    // Le motif et ses marqueurs viennent du générateur COMMUN (js/core/conge.js). Le Hub
-    // Communications appelle le même : c'est ce qui l'empêche de réinventer un congé sans prix.
-    var _md=window.congeMotifDetail({ motif:motif, prix:v('cg-prix'), conditions:v('cg-cond'),
-      benef:v('cg-benef'), benefAdr:v('cg-benefadr'), lien:v('cg-lien'), legitime:v('cg-legitime'),
-      art15Inline:false });  // le document porte les cinq alinéas en ANNEXE (art15IIProDoc)
-    e.motifConge=_md.motifConge; e.motifDetail=_md.motifDetail;
+    var _M=_congeModele(ref);
+    if(_M.motif){
+      var motif=v('cg-motif')||'reprise';
+      // Le motif et ses marqueurs viennent du générateur COMMUN (js/core/conge.js). Le Hub
+      // Communications appelle le même : c'est ce qui l'empêche de réinventer un congé sans prix.
+      // Meublé (art. 25-8, I) : « vente » sans prix ni préemption 15-II.
+      var _md=window.congeMotifDetail({ motif:motif, prix:v('cg-prix'), conditions:v('cg-cond'),
+        benef:v('cg-benef'), benefAdr:v('cg-benefadr'), lien:v('cg-lien'), legitime:v('cg-legitime'),
+        art15Inline:false, meuble: typeBail==='meuble' });  // nu : les cinq alinéas en ANNEXE (art15IIProDoc)
+      e.motifConge=_md.motifConge; e.motifDetail=_md.motifDetail;
+    } else { e.motifConge=''; e.motifDetail=''; }
     // Préavis bailleur (6 mois nu / 3 meublé) : la date d'effet doit être un TERME qui respecte
     // RÉELLEMENT le préavis. Si l'échéance la plus proche est déjà trop tardive, on reporte au terme
     // suivant — sinon le congé serait nul et la mention « préavis respecté » mensongère (audit P0-1).
@@ -23279,6 +23302,17 @@ function _congeExtra(ref){
       // type (garage de l'app : la période reconduite en cours ; arrivé à terme : la fin du contrat).
       var _echC=(typeof _bailEcheanceEffective==='function')?_bailEcheanceEffective(bail,log):null;
       e.dateFin=_echC?fd(_echC):(bail.fin?fd(bail.fin):'‹échéance du bail›');
+      if(_M.dateLibre){
+        // Garage / autre : la date d'effet est celle prévue au CONTRAT — saisie, sinon l'échéance si elle
+        // est à venir ; jamais une date passée (marqueur nommé : le garde-fou d'émission la signale).
+        var _effC=v('cg-effet-contrat');
+        e.dateFin=_effC?fd(_effC):((_echC&&_echC>=today)?fd(_echC):'‹date d\'effet›');
+      } else if(typeof window.congePhraseTerme==='function'){
+        // Étudiant / mobilité : information de fin de bail — terme au futur ou au passé, jamais une
+        // « date d'effet » antérieure à la lettre.
+        var _finT=_echC||(bail.fin?String(bail.fin).slice(0,10):'');
+        e.phraseTerme=window.congePhraseTerme(_finT?fd(_finT):'', _finT, today);
+      }
     }
     e.mentionPreavis=window.congeMentionPreavis(preavisMois, typeBail);
   } else if(_congeState.kind==='conge_locataire'){
@@ -23303,9 +23337,11 @@ function _congeDocHtml(ref){
   var ctx=(typeof _buildEmailCtxFromRef==='function')?_buildEmailCtxFromRef(ref,_congeExtra(ref)):_congeExtra(ref);
   var draft=(typeof window._emailCompose==='function')?window._emailCompose(_congeTplOf(),ctx):{body:''};
   var corps=window.letterToProDoc(draft.body||'');
-  if(_congeState.kind==='conge_bailleur' && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
-  var TIT={conge_bailleur:'Congé donné au locataire',conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
-  var LEG={conge_bailleur:'Loi n° 89-462 du 6 juillet 1989, article 15',conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
+  // BAUX-ECHUS — titre, fondement et annexe 15-II selon le type de bail (l'annexe 15-II : bail NU seulement).
+  var _M=_congeModele(ref);
+  if(_congeState.kind==='conge_bailleur' && _M.annexe15II && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
+  var TIT={conge_bailleur:_M.titre,conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
+  var LEG={conge_bailleur:_M.fondement,conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
   return _docPage(ent,{titre:TIT[_congeState.kind],ctx:LEG[_congeState.kind],corps:corps,ref:escHtml(ref),date:'',withStyle:false});
 }
 function _congeSubBailleur(motif){
@@ -23313,7 +23349,8 @@ function _congeSubBailleur(motif){
   // lien », à peine de nullité. L'adresse n'était collectée nulle part : le congé partait sans
   // elle, donc nul, et rien ne le signalait. Elle a son champ, et son marqueur quand elle manque.
   if(motif==='reprise') return _congeField('cg-benef','Bénéficiaire de la reprise','text','')+_congeField('cg-benefadr','Adresse du bénéficiaire','text','')+_congeField('cg-lien','Lien avec le bailleur',null,null,(window.REPRISE_LIENS||[]));
-  if(motif==='vente') return _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
+  // Meublé (art. 25-8, I) : ni offre de vente ni préemption — pas de prix ni de conditions à collecter.
+  if(motif==='vente') return (_congeTypeBail(_congeState.ref)==='meuble') ? '' : _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
   return _congeField('cg-legitime','Description du motif légitime et sérieux','text','');
 }
 function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+l+'</label>';
@@ -23321,10 +23358,21 @@ function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inte
   return '<div class="fld" style="margin-bottom:8px">'+lab+'<input class="inp" id="'+id+'" '+(t==='date'?'type="date"':t==='number'?'type="number"':'')+' value="'+escHtml(val||'')+'" oninput="_congeRender()"></div>'; }
 function _congeForm(){
   if(_congeState.kind==='conge_bailleur'){
+    var _M=_congeModele(_congeState.ref);
+    // BAUX-ECHUS — étudiant / mobilité : information de fin de bail, rien à saisir ; garage / autre : la
+    // date d'effet prévue au contrat (pas de motif) ; nu / meublé : le congé motivé.
+    if(!_M.motif){
+      if(_M.dateLibre){
+        var _echF=(typeof _bailEcheanceEffective==='function')?_bailEcheanceEffective(DB.baux[_congeState.ref]||{},(DB.logements||[]).find(function(l){return l&&l.ref===_congeState.ref;})||null):'';
+        var _todF=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
+        return _congeField('cg-effet-contrat','Date d\'effet (selon le préavis du contrat)','date',(_echF&&_echF>=_todF)?_echF:'')+'<div id="cg-alert"></div>';
+      }
+      return '<div id="cg-alert"></div>';
+    }
     var motif=v('cg-motif')||'reprise';
     return _congeField('cg-motif','Motif du congé',null,null,[{v:'reprise',t:'Reprise pour habiter'},{v:'vente',t:'Vente du logement'},{v:'legitime',t:'Motif légitime et sérieux'}])+
       '<div id="cg-sub" data-m="'+motif+'">'+_congeSubBailleur(motif)+'</div>'+
-      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé (art. 15-III)</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
+      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé ('+_M.protege+')</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
       '<div id="cg-alert"></div>';
   }
   if(_congeState.kind==='conge_locataire') return _congeField('cg-recu','Date de réception du congé','date',(typeof td==='function'?td():''))+_congeField('cg-cas','Cas de préavis réduit (1 mois)',null,null,(window.CONGE_CAS_REDUITS||[]))+'<div id="cg-alert"></div>';
@@ -23333,9 +23381,18 @@ function _congeForm(){
   return '';
 }
 function _congeRender(){
-  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_CONGE_ACTS.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
+  // BAUX-ECHUS — la vignette « congé du bailleur » dit ce que produit la lettre pour CE type de bail.
+  var _MR=_congeModele(_congeState.ref), _tbR=_congeTypeBail(_congeState.ref);
+  var _actsR=_CONGE_ACTS.map(function(a){
+    if(a.k!=='conge_bailleur') return a;
+    if(_MR.tpl==='bail-fin-terme-information') return Object.assign({},a,{tt:'Information de fin de bail',ds:'Fin au terme, sans congé (art. '+(_tbR==='etudiant'?'25-7':'25-14')+')'});
+    if(_MR.dateLibre) return Object.assign({},a,{ds:'Selon le contrat de location'});
+    if(_tbR==='meuble') return Object.assign({},a,{ds:'Reprise / vente / motif légitime (art. 25-8)'});
+    return a;
+  });
+  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_actsR.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
   var form=document.getElementById('cg-form'); if(form && form.dataset.k!==_congeState.kind){ form.innerHTML=_congeForm(); form.dataset.k=_congeState.kind; }
-  if(_congeState.kind==='conge_bailleur'){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
+  if(_congeState.kind==='conge_bailleur' && _MR.motif){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
   var prev=document.getElementById('cg-preview'); if(prev) _docRenderSandboxed(prev, _congeDocHtml(_congeState.ref), 'Aperçu du congé', _docCarteCss());
   // alerte locataire protégé (congé bailleur) — NON bloquante
   var al=document.getElementById('cg-alert');
@@ -23343,18 +23400,18 @@ function _congeRender(){
     if(_congeState.kind==='conge_bailleur'){
       // BAUX-ECHUS — étudiant / mobilité : le bail prend fin à son terme sans congé ; garage / autre :
       // le contrat. On le DIT (jamais bloquant) — le modèle reste disponible.
-      var _tbC=(DB.baux[_congeState.ref]||{}).type||'nu';
+      var _tbC=_tbR;
       if(typeof window.congeBailleurPreavisMois==='function' && !window.congeBailleurPreavisMois(_tbC)){
         html+='<div class="note" style="background:var(--info-soft);border:1px solid var(--bor);color:var(--t1);border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">'
           +((_tbC==='etudiant'||_tbC==='mobilite')
-            ? 'Bail '+(_tbC==='etudiant'?'étudiant (9 mois)':'mobilité')+' : il prend fin à son terme sans qu\'un congé soit nécessaire (article '+(_tbC==='etudiant'?'25-7':'25-14')+' de la loi du 6 juillet 1989). Ce modèle de congé est fondé sur l\'article 15.'
-            : 'Location hors loi du 6 juillet 1989 : le congé suit le contrat. Ce modèle de congé est fondé sur l\'article 15 de cette loi.')
+            ? 'Bail '+(_tbC==='etudiant'?'étudiant (9 mois)':'mobilité')+' : il prend fin à son terme sans qu\'un congé soit nécessaire (article '+(_tbC==='etudiant'?'25-7':'25-14')+' de la loi du 6 juillet 1989). La lettre informe le locataire de la fin du bail.'
+            : 'Location hors loi du 6 juillet 1989 : le congé suit le contrat (forme, préavis, date d\'effet). Indiquer la date d\'effet prévue au contrat.')
           +'</div>';
       }
       if(_congeState.preavisPushed) html+='<div class="note" style="background:#e6f1fb;border:1px solid #cfe0f6;color:#185fa5;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Date d\'effet reportée au terme suivant : le préavis légal ne pouvait plus être respecté pour l\'échéance la plus proche (un congé délivré trop tard est nul).</div>';
       if(document.getElementById('cg-protege') && document.getElementById('cg-protege').checked)
-        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé (art. 15-III) : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
-    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:(DB.baux[_congeState.ref]||{}).type||'nu', casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
+        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé ('+_MR.protege+') : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
+    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:_tbR, casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
     al.innerHTML=html; }
 }
 function _congePick(k){ _congeState.kind=k; var f=document.getElementById('cg-form'); if(f)f.dataset.k=''; _congeRender(); }
@@ -23426,7 +23483,7 @@ async function _congeSortiePdf(ref){
   var docHtml=_congeDocHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
   if(!_acteMentionsOk(docHtml,_acteVerbePdf())) return;
   if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
-  var noms={conge_bailleur:'Conge-bailleur',conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};
+  var noms={conge_bailleur:_congeModele(ref).fichier,conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};   // BAUX-ECHUS : « Information-fin-de-bail » pour étudiant / mobilité
   await _pdfSortie({ fileName:noms[_congeState.kind]+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf', desc:'PDF (acte)', genererAvant:true,
     titre:noms[_congeState.kind].replace(/-/g,' '), texte:'Acte — '+(bail.adrBien||ref),
     genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); } });

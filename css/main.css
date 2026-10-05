@@ -9178,7 +9178,8 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .loc-ech-b.warn { color: var(--warn); font-weight: 600; }
 .loc-ech-b.err { color: var(--neg); font-weight: 700; }
 /* BAUX-ECHUS — alerte « bail arrivé à terme » : pleine largeur sous la ligne (PC, tablette, téléphone),
-   ton neutre, jamais bloquante. Les deux gestes vivent dans .loc-actions-b. */
+   ton neutre, jamais bloquante. Les deux gestes vivent DANS l'alerte (.loc-terme-acts), pas dans
+   .loc-actions-b : la colonne d'actions de la carte ne s'élargit pas. */
 .loc-terme-b { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; line-height: 1.4; color: var(--t1); background: var(--warn-soft); border: 1px solid var(--bor); border-radius: 6px; padding: 6px 9px; white-space: normal; overflow-wrap: anywhere; cursor: default; }
 .loc-terme-b .loc-terme-txt { flex: 1 1 280px; display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
 .loc-terme-b .loc-terme-txt svg { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--warn); }

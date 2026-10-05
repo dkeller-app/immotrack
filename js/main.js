@@ -130,7 +130,7 @@ import * as AvenantRegistre from './core/avenant-registre.js';
 import { forfaitAvenantsDuBail, occNonForfaitJours, forfaitIntervalles, appliquerForfaitOccupation, periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique, avenantApplicationAffichee } from './core/regul-forfait.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
 import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase, sousTitreBailNu } from './core/bail-duree.js';
-import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause, congeMotifDetail, congeDateEffet, congeMentionPreavis } from './core/conge.js';
+import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause, congeMotifDetail, congeDateEffet, congeMentionPreavis, congeBailleurModele, congePhraseTerme } from './core/conge.js';
 // DOC-C — un acte ne part pas en PDF avec ses trous. Détection des mentions restées vides dans
 // le document RENDU, et fondement légal quand l'absence emporte nullité (art. 15-I / 15-II).
 import { mentionsManquantes, emporteNullite, messageMentionsManquantes, sortieAutorisee } from './core/actes-mentions.js';
@@ -751,6 +751,8 @@ window.congeBailleurPreavisMois = congeBailleurPreavisMois;
 window.congeMotifDetail = congeMotifDetail;
 window.congeDateEffet = congeDateEffet;
 window.congeMentionPreavis = congeMentionPreavis;
+window.congeBailleurModele = congeBailleurModele;   // BAUX-ECHUS : la lettre de congé selon le type de bail
+window.congePhraseTerme = congePhraseTerme;
 window.congeLocatairePreavis = congeLocatairePreavis;
 window.congeAddMois = congeAddMois;
 window.locataireProtege = locataireProtege;
