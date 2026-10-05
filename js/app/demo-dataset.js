@@ -14,8 +14,9 @@
  *     P-202  parking n° 12, Nicolas Faure    à jour · bail de parking
  *
  * Les mouvements bancaires s'arrêtent au 30/09 : le fichier d'exemple
- * PROPRYO-COM/6-presentation-demo/Propryo-demo-releve-SCI.ofx (1er → 5 octobre, compte de la SCI)
- * s'importe en direct pendant la démo. Les loyers sont dus le 10 : au jour de la démo, octobre n'est
+ * PROPRYO-COM/6-presentation-demo/Propryo-demo-releve-SCI-octobre-2026.ofx (1er → 5 octobre, compte de la SCI)
+ * s'importe en direct pendant la démo. Un loyer du mois n'est en retard qu'à partir du 10 (tolérance de
+ * l'app) : au jour de la démo, octobre n'est
  * pas encore exigible → tableau de bord « sous contrôle », seules les 3 actions voulues ressortent.
  *
  * Tous les noms sont fictifs. Les indices IRL sont ceux de la table de l'app (IRL_DEFAULT, INSEE).
@@ -191,7 +192,7 @@
       lot({ id: 1004, ref: 'D-104', imm: IMM_SCI, entity: SCI, type: 'T2 meublé', npp: 2, surf: 42, etage: '3e', meuble: true,
         adr: '12 rue des Tanneurs — 3e étage', hc: 780, ch: 100, dg: 1560, tantiemes: 190,
         locataire: 'Lucas Petit', tel: '06 00 00 00 04', mail: 'lucas.petit@exemple.fr',
-        debut: '2025-10-01', fin: '2027-09-30', irl: 'T2',
+        debut: '2026-04-01', fin: '2027-03-31', irl: 'T4',
         notes: 'DPE F : loyer gelé (pas de révision IRL possible).',
         diagnostics: diagsTanneurs('F', 'E', '362', '2025-06-01') }),
       lot({ id: 2001, ref: 'P-201', imm: IMM_PERSO, entity: PERSO, type: 'T3', npp: 3, surf: 68, etage: '2e',
@@ -237,8 +238,8 @@
       'D-102': bail({ ref: 'D-102', entity: SCI, type: 'nu', debut: '2025-12-01', fin: '2031-11-30', duree: 72,
         hc: 900, ch: 130, dg: 900, irl: 'T3 2025', dateSignature: '2025-11-24',
         locataires: [loc('Mme', 'Marie', 'Bernard', '06 00 00 00 02', 'marie.bernard@exemple.fr', '1987-09-03', 'Mulhouse')] }),
-      'D-104': bail({ ref: 'D-104', entity: SCI, type: 'meuble', debut: '2025-10-01', fin: '2026-09-30', duree: 12,
-        hc: 780, ch: 100, dg: 1560, irl: 'T2 2025', dateSignature: '2025-09-26',
+      'D-104': bail({ ref: 'D-104', entity: SCI, type: 'meuble', debut: '2026-04-01', fin: '2027-03-31', duree: 12,
+        hc: 780, ch: 100, dg: 1560, irl: 'T4 2025', dateSignature: '2026-03-27',
         locataires: [loc('M.', 'Lucas', 'Petit', '06 00 00 00 04', 'lucas.petit@exemple.fr', '2003-02-21', 'Belfort')] }),
       'P-201': bail({ ref: 'P-201', entity: PERSO, type: 'nu', debut: '2024-07-01', fin: '2027-06-30', duree: 36,
         hc: HC.P201[2], ch: 120, dg: 850, irl: 'T1 2024', dateSignature: '2024-06-21', hcSigne: HC.P201[0],
@@ -256,7 +257,7 @@
     }
     var bauxHistorique = [
       ancien('D-102', 'nu', '2021-11-01', '2027-10-31', '2025-10-31', 880, 130, 880, loc('Mme', 'Sophie', 'Klein', '06 00 00 00 31', 'sophie.klein@exemple.fr', '1979-03-15', 'Colmar')),
-      ancien('D-104', 'meuble', '2024-10-01', '2025-09-30', '2025-09-30', 760, 100, 1520, loc('Mme', 'Inès', 'Moreau', '06 00 00 00 32', 'ines.moreau@exemple.fr', '2002-12-01', 'Metz')),
+      ancien('D-104', 'meuble', '2024-04-01', '2025-03-31', '2026-03-31', 760, 100, 1520, loc('Mme', 'Inès', 'Moreau', '06 00 00 00 32', 'ines.moreau@exemple.fr', '2002-12-01', 'Metz')),
       ancien('D-103', 'nu', '2022-09-01', '2028-08-31', '2026-08-31', 520, 60, 520, loc('M.', 'Thomas', 'Roy', '06 00 00 00 33', 'thomas.roy@exemple.fr', '1995-07-19', 'Mulhouse'))
     ];
 
@@ -268,8 +269,8 @@
       { ref: 'D-102', debut: '2021-11-01', fin: '2025-10-31', hc: 880, ch: 130, source: 'bail', bailDebut: '2021-11-01', note: '' },
       { ref: 'D-102', debut: '2025-12-01', fin: null, hc: 900, ch: 130, source: 'bail', bailDebut: '2025-12-01', note: '' },
       { ref: 'D-103', debut: '2022-09-01', fin: '2026-08-31', hc: 520, ch: 60, source: 'bail', bailDebut: '2022-09-01', note: '' },
-      { ref: 'D-104', debut: '2024-10-01', fin: '2025-09-30', hc: 760, ch: 100, source: 'bail', bailDebut: '2024-10-01', note: '' },
-      { ref: 'D-104', debut: '2025-10-01', fin: null, hc: 780, ch: 100, source: 'bail', bailDebut: '2025-10-01', note: '' },
+      { ref: 'D-104', debut: '2024-04-01', fin: '2026-03-31', hc: 760, ch: 100, source: 'bail', bailDebut: '2024-04-01', note: '' },
+      { ref: 'D-104', debut: '2026-04-01', fin: null, hc: 780, ch: 100, source: 'bail', bailDebut: '2026-04-01', note: '' },
       { ref: 'P-201', debut: '2024-07-01', fin: '2025-06-30', hc: HC.P201[0], ch: 120, source: 'bail', bailDebut: '2024-07-01', note: '' },
       { ref: 'P-201', debut: '2025-07-01', fin: '2026-06-30', hc: HC.P201[1], ch: 120, source: 'irl', bailDebut: '2024-07-01', note: 'T1 2025' },
       { ref: 'P-201', debut: '2026-07-01', fin: null, hc: HC.P201[2], ch: 120, source: 'irl', bailDebut: '2024-07-01', note: 'T1 2026' },
@@ -302,7 +303,7 @@
         daaf: null, mobilierEnabled: false, mobilier: null, garage: false,
         signatures: { bailleur: signature(nomBailleur), locataire: signature(locataire), signedAt: dateIso + 'T09:30:00.000Z' } }, opts || {});
     }
-    var stamp = function (d) { return d.split('-').reverse().join('/') + '  10:4' + (d.length % 10); };
+    var stamp = function (d) { return d.split('-').reverse().join('/') + '  10:42'; };
     var edls = [
       edl(3001, 'D-101', 'Pierre Martin', '2023-06-15', 45, GERANTE, [
         { nom: 'Séjour', elements: [
@@ -324,13 +325,13 @@
         { nom: 'Chambre 2', elements: [ el('Murs / sol', "État d'usage", 'Trace de cheville au-dessus du radiateur.') ] },
         { nom: 'Salle de bain', elements: [ el('Sanitaires', 'Bon état', '') ] }
       ], { 'elec-num': '22345678901234', 'elec-hp': '04512', 'eau-f': '01207' }),
-      edl(3004, 'D-104', 'Lucas Petit', '2025-10-01', 42, GERANTE, [
-        { nom: 'Séjour', elements: [ el('Murs / sol', 'Bon état', '', [ph('D-104', 'sejour', 'Séjour meublé', piece({ wall: '#f0ebe3', floor: '#c7a374', sofa: '#7f95a3', tag: 'Séjour', stamp: stamp('2025-10-01') }))]) ] },
-        { nom: 'Chambre', elements: [ el('Lit / literie', 'Neuf', 'Matelas neuf.', [ph('D-104', 'chambre', 'Chambre', piece({ wall: '#ece7e2', floor: '#c39a63', bed: '#c8b7a6', tag: 'Chambre', stamp: stamp('2025-10-01') }))]) ] },
+      edl(3004, 'D-104', 'Lucas Petit', '2026-04-01', 42, GERANTE, [
+        { nom: 'Séjour', elements: [ el('Murs / sol', 'Bon état', '', [ph('D-104', 'sejour', 'Séjour meublé', piece({ wall: '#f0ebe3', floor: '#c7a374', sofa: '#7f95a3', tag: 'Séjour', stamp: stamp('2026-04-01') }))]) ] },
+        { nom: 'Chambre', elements: [ el('Lit / literie', 'Neuf', 'Matelas neuf.', [ph('D-104', 'chambre', 'Chambre', piece({ wall: '#ece7e2', floor: '#c39a63', bed: '#c8b7a6', tag: 'Chambre', stamp: stamp('2026-04-01') }))]) ] },
         { nom: 'Cuisine', elements: [ el('Électroménager', 'Bon état', 'Réfrigérateur, plaques, micro-ondes.') ] },
         { nom: 'Salle d\'eau', elements: [ el('Sanitaires', 'Bon état', '') ] }
       ], { 'elec-num': '32345678901234', 'elec-hp': '02210', 'eau-f': '00388' },
-        { compteursPhotos: { elec: [ph('D-104', 'compteur', 'Compteur électrique', compteur({ reading: '0 2 2 1 0', tag: 'Compteur électrique', stamp: stamp('2025-10-01') }))] } }),
+        { compteursPhotos: { elec: [ph('D-104', 'compteur', 'Compteur électrique', compteur({ reading: '0 2 2 1 0', tag: 'Compteur électrique', stamp: stamp('2026-04-01') }))] } }),
       edl(3005, 'P-201', 'Julien Lefèvre', '2024-07-01', 68, PERSO, [
         { nom: 'Séjour', elements: [ el('Murs / sol', 'Bon état', '', [ph('P-201', 'sejour', 'Séjour', piece({ wall: '#eef0ea', floor: '#b48b5c', sofa: '#9b8fb0', tag: 'Séjour', stamp: stamp('2024-07-01') }))]) ] },
         { nom: 'Cuisine', elements: [ el('Équipements', 'Bon état', '') ] },
@@ -344,12 +345,13 @@
     ];
 
     // ── Assurances : habitation des locataires + PNO des immeubles ───────────────────────────────
-    var mrh = ['D-101', 'D-102', 'D-104', 'P-201', 'P-202'].map(function (r) {
-      return { id: 'mrh_' + r, logement: r, assureur: 'Assurance Exemple', numero: 'MRH-' + r, echeance: '2027-06-30' };
+    var mrh = ['D-101', 'D-102', 'D-104', 'P-201', 'P-202'].map(function (r, i) {
+      var l = logements.filter(function (x) { return x.ref === r; })[0];
+      return { id: 8001 + i, logement: r, locataire: l.locataire, compagnie: 'Assurance Exemple', numContrat: 'MRH-' + r, echeance: '2027-06-30', notes: '' };
     });
     var assurances = [
-      { id: 'pno_sci', portee: 'immeuble', immeuble: IMM_SCI, entity: SCI, type: 'PNO', assureur: 'Assurance Exemple', numero: 'PNO-TAN-01', echeance: '2027-09-11', prime: 432 },
-      { id: 'pno_perso', portee: 'immeuble', immeuble: IMM_PERSO, entity: PERSO, type: 'PNO', assureur: 'Assurance Exemple', numero: 'PNO-PAR-02', echeance: '2027-01-31', prime: 190 }
+      { id: 8101, portee: 'immeuble', immeuble: IMM_SCI, logement: '', type: 'PNO', compagnie: 'Assurance Exemple', numContrat: 'PNO-TAN-01', notes: '', echeance: '2027-09-11', prime: 432 },
+      { id: 8102, portee: 'immeuble', immeuble: IMM_PERSO, logement: '', type: 'PNO', compagnie: 'Assurance Exemple', numContrat: 'PNO-PAR-02', notes: '', echeance: '2027-01-31', prime: 190 }
     ];
 
     // ── Mouvements bancaires (janvier 2025 → 30 septembre 2026) ──────────────────────────────────
@@ -373,10 +375,10 @@
     // SCI : loyers
     loyers('D-101', IMM_SCI, 'M PIERRE MARTIN', 2025, 1, 2026, 9, 3);
     loyers('D-102', IMM_SCI, 'MME MARIE BERNARD', 2025, 12, 2026, 9, 6, ['2026-08', '2026-09']);   // impayé août + septembre
-    loyers('D-104', IMM_SCI, 'M LUCAS PETIT', 2025, 10, 2026, 9, 2);
-    // Anciens locataires (baux archivés) : D-102 jusqu'au 31/10/2025, D-104 jusqu'au 30/09/2025, D-103 jusqu'au 31/08/2026
+    loyers('D-104', IMM_SCI, 'M LUCAS PETIT', 2026, 4, 2026, 9, 2);
+    // Anciens locataires (baux archivés) : D-102 jusqu'au 31/10/2025, D-104 jusqu'au 31/03/2026, D-103 jusqu'au 31/08/2026
     loyers('D-102', IMM_SCI, 'MME SOPHIE KLEIN', 2025, 1, 2025, 10, 4);
-    loyers('D-104', IMM_SCI, 'MME INES MOREAU', 2025, 1, 2025, 9, 3);
+    loyers('D-104', IMM_SCI, 'MME INES MOREAU', 2025, 1, 2026, 3, 3);
     loyers('D-103', IMM_SCI, 'M THOMAS ROY', 2025, 1, 2026, 8, 4);
     // SCI : charges
     mois(2025, 1, 2026, 9).forEach(function (x) {
@@ -408,7 +410,7 @@
     // ── Quittances (mois payés de 2026, locataires à jour) ───────────────────────────────────────
     var quittances = [], qid = 70000;
     [['D-101', 'Pierre Martin', SCI], ['D-104', 'Lucas Petit', SCI], ['P-201', 'Julien Lefèvre et Sarah Lefèvre', PERSO], ['P-202', 'Nicolas Faure', PERSO]].forEach(function (q) {
-      mois(2026, 1, 2026, 9).forEach(function (x) {
+      mois(2026, q[0] === 'D-104' ? 4 : 1, 2026, 9).forEach(function (x) {
         var p = loyerBareme.filter(function (b) { return b.ref === q[0] && b.debut <= iso(x.y, x.m, 15) && (!b.fin || b.fin >= iso(x.y, x.m, 15)); })[0];
         quittances.push({ id: qid++, logement: q[0], locataire: q[1], mois: MOIS_FR[x.m - 1] + ' ' + x.y, hc: p.hc, ch: p.ch, entity: q[2], date: iso(x.y, x.m, 8) });
       });

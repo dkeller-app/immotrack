@@ -70,6 +70,7 @@ export const REGISTRE = [
   { motif: exacte(ESPACES_KEY), classe: 'etat', note: 'espaces autorisés hors ligne', exemples: ['immotrack_v4_espaces'] },
   { motif: exacte(MIRROR_TAG_KEY), classe: 'etat', note: 'propriétaire du miroir (RGPD)', exemples: ['immotrack_v4_tag'] },
   { motif: deuxNs('immotrack_archi_v1_done'), classe: 'etat', note: 'marqueur de migration', exemples: ['immotrack_archi_v1_done'] },
+  { motif: deuxNs('demo_charge'), classe: 'etat', note: 'jeu de données démo déjà chargé (mode ?demo=1 / bouton sandbox)', exemples: ['_demo_demo_charge', '_test_demo_charge'] },
   { motif: deuxNs('immotrack_archi_v4b_done'), classe: 'etat', note: 'marqueur de migration', exemples: ['immotrack_archi_v4b_done'] },
   { motif: deuxNs('immo_appareil_id'), classe: 'etat', note: 'identité de l’appareil (EDL)', exemples: ['immo_appareil_id'] },
   { motif: exacte('immo_backup_lastAt'), classe: 'etat', note: 'sauvegarde de sécurité : dernière réussite', exemples: ['immo_backup_lastAt'] },

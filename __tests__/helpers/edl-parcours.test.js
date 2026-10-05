@@ -14,7 +14,7 @@ import {
   VERDICTS, verdictDe, elementRenseigne, aUneObs, aUnePhoto, avertObsSortie,
   progressionPiece, compterEcarts, compterAConstater, statsPiece, statsGlobales,
   railLabel, indexClamp, suivante, precedente, aSuivante, aPrecedente,
-  edlSortieQuiFaitFoi, troncaturePellicule, layoutVisionneuse,
+  edlSortieQuiFaitFoi, edlEntreeDuBail, troncaturePellicule, layoutVisionneuse,
   entreeVerrouillee, photoEntreeVerrouillee,
 } from '../../js/core/edl-parcours.js';
 
@@ -232,6 +232,35 @@ describe('navigation — bornée, jamais de boucle (§9 inv. 23-24)', () => {
     expect(aSuivante(7, 8)).toBe(false);
     expect(aSuivante(0, 8)).toBe(true);
     expect(aPrecedente(7, 8)).toBe(true);
+  });
+});
+
+describe("edlEntreeDuBail — conformité : l'entrée du bail EN COURS, jamais celle du locataire précédent", () => {
+  const bail = { ref: 'D-102', debut: '2025-12-01' };
+  it("logement reloué : l'entrée de l'ancien locataire ne compte pas", () => {
+    expect(edlEntreeDuBail(bail, [{ id: 1, logement: 'D-102', type: 'Entrée', date: '2021-11-01' }])).toBe(null);
+  });
+  it('entrée du bail en cours (même faite quelques jours avant le début) → trouvée', () => {
+    const edls = [
+      { id: 1, logement: 'D-102', type: 'Entrée', date: '2021-11-01' },
+      { id: 2, logement: 'D-102', type: 'Entrée', date: '2025-11-28' },
+    ];
+    expect(edlEntreeDuBail(bail, edls).id).toBe(2);
+  });
+  it('au-delà de la tolérance (31 j) avant le début → ignorée', () => {
+    expect(edlEntreeDuBail(bail, [{ logement: 'D-102', type: 'Entrée', date: '2025-10-20' }])).toBe(null);
+  });
+  it('ignore sorties, supprimés, autres logements ; garde un EDL sans type ni date (anciennes saisies)', () => {
+    expect(edlEntreeDuBail(bail, [
+      { logement: 'D-102', type: 'Sortie', date: '2026-01-10' },
+      { logement: 'D-102', type: 'Entrée', date: '2025-12-01', _deleted: true },
+      { logement: 'D-101', type: 'Entrée', date: '2025-12-01' },
+    ])).toBe(null);
+    expect(edlEntreeDuBail(bail, [{ id: 9, logement: 'D-102' }]).id).toBe(9);
+  });
+  it('bail sans ref → null ; bail sans début → toute entrée du logement', () => {
+    expect(edlEntreeDuBail({}, [{ logement: 'D-102', type: 'Entrée' }])).toBe(null);
+    expect(edlEntreeDuBail({ ref: 'D-102' }, [{ id: 3, logement: 'D-102', type: 'Entrée', date: '2019-01-01' }]).id).toBe(3);
   });
 });
 

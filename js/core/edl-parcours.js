@@ -190,6 +190,39 @@ export function layoutVisionneuse(largeur, seuil = 768) {
  * @param {Array} edls   la collection DB.edl
  * @returns {object|null} l'EDL de sortie qui fait foi, ou null
  */
+/**
+ * Pendant de `edlSortieQuiFaitFoi` pour l'ENTRÉE : l'EDL d'entrée du bail EN COURS.
+ * Le piège : sur un logement reloué, l'EDL d'entrée du locataire PRÉCÉDENT existe
+ * toujours — le compter rendrait la conformité « OK » pour un locataire qui n'a jamais
+ * eu d'état des lieux (faussement rassurant, le pire défaut pour cet écran).
+ * Fenêtre = [bail.debut − tolérance, +∞[ : l'EDL se fait souvent quelques jours avant
+ * la remise des clés. Le plus récent de la fenêtre gagne. Un EDL sans date ou sans
+ * type (anciennes saisies) reste candidat.
+ *
+ * @param {{ref?:string, debut?:string}} bail
+ * @param {Array} edls   la collection DB.edl
+ * @param {number} [toleranceJours=31]
+ * @returns {object|null}
+ */
+export function edlEntreeDuBail(bail, edls, toleranceJours = 31) {
+  if (!bail || !bail.ref) return null;
+  let borne = null;
+  if (bail.debut) {
+    const d = new Date(String(bail.debut).slice(0, 10) + 'T12:00:00Z');
+    if (!isNaN(d.getTime())) { d.setUTCDate(d.getUTCDate() - (Number(toleranceJours) || 0)); borne = d.toISOString().slice(0, 10); }
+  }
+  let best = null;
+  for (const e of (edls || [])) {
+    if (!e || e._deleted || e.logement !== bail.ref) continue;
+    if (e.type && e.type !== 'Entrée' && e.type !== 'entree') continue;
+    // une entrée antérieure à la fenêtre est celle du locataire PRÉCÉDENT
+    if (borne && e.date && String(e.date) < borne) continue;
+    if (!best) { best = e; continue; }
+    if (String(e.date || '') > String(best.date || '')) best = e;
+  }
+  return best;
+}
+
 export function edlSortieQuiFaitFoi(bail, edls) {
   if (!bail || !bail.ref) return null;
   const debut = bail.debut ? String(bail.debut) : null;

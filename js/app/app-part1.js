@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.710';
+const IMMOTRACK_VERSION = '15.711';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -278,16 +278,21 @@ function _loadDemoDataset() {
     for (const k of Object.keys(fichiers || {})) {
       if (fichiers[k]) { try { await _idbPut(k, fichiers[k]); } catch(e) { console.warn('[DEMO] IndexedDB', k, e); } }
     }
-    // Repart d'un espace propre : on retire les clés de CE namespace seulement (démo ou sandbox).
-    const toDel = [];
-    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(_NS_TEST) && !/_done$/.test(k)) toDel.push(k); }   // marqueurs de migration gardés (pas de toast « Migration… » à chaque rechargement)
-    toDel.forEach(k => localStorage.removeItem(k));
+    // ORDRE (audit) : on n'efface rien tant que la nouvelle base n'est pas écrite. Un échec d'écriture
+    // (quota) lève ici → l'espace et la base en mémoire restent intacts, et le marqueur n'est pas posé.
+    _miroirEcrire(JSON.stringify(db));   // STOCKAGE lot 1 : l'écrivain unique du miroir
     // La base EN MÉMOIRE devient aussi la démo : la page enregistre en partant (saveDB au déchargement),
     // elle réécrirait sinon l'ancienne base par-dessus le jeu de données juste avant le rechargement.
     DB = JSON.parse(JSON.stringify(db)); try { window.DB = DB; } catch(e) {}
-    _miroirEcrire(JSON.stringify(db));   // STOCKAGE lot 1 : l'écrivain unique du miroir
-    localStorage.setItem(_lsKey('demo_charge'), new Date().toISOString());
-    if (_isDemoMode) localStorage.setItem(_lsKey('immotrack_theme_mode'), 'sobre');   // présentation client : thème clair
+    // Puis on repart d'un espace propre : clés de CE namespace seulement (démo ou sandbox), sauf la base
+    // qu'on vient d'écrire et les marqueurs de migration (pas de toast « Migration… » à chaque rechargement).
+    const toDel = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(_NS_TEST) && k !== KEY && !/_done$/.test(k)) toDel.push(k); }
+    toDel.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+    try {
+      localStorage.setItem(_lsKey('demo_charge'), new Date().toISOString());
+      if (_isDemoMode) localStorage.setItem(_lsKey('immotrack_theme_mode'), 'sobre');   // présentation client : thème clair
+    } catch(e) { console.warn('[DEMO] marqueur / thème', e); }
     console.info('[DEMO] Jeu de données chargé : ' + (db.entites||[]).length + ' bailleurs · ' + (db.logements||[]).length + ' lots · ' + (db.mouvements||[]).length + ' mouvements');
     location.reload();
   }).catch(e => { console.error('[DEMO] chargement', e); alert('Échec du chargement de la démo : ' + e.message); });

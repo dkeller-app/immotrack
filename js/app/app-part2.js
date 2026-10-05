@@ -15262,7 +15262,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.710 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.711 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -25831,7 +25831,10 @@ function _pilStatutDoc(bail, log, type, dateRef) {
     return _absent;
   }
   if (type === 'edl') {
-    const hasEdl = (DB.edl||[]).some(e => e && !e._deleted && e.logement === log.ref && (e.type === 'entree' || e.type === 'Entrée' || !e.type));   // DB.edls n'a jamais existé (la collection est DB.edl ; type « Entrée »)
+    // DB.edls n'a jamais existé (la collection est DB.edl). L'EDL d'entrée DU BAIL EN COURS seulement :
+    // sur un logement reloué, celui du locataire précédent ne compte pas (résolveur unique, js/core/edl-parcours.js).
+    const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+    const hasEdl = !!((P && P.edlEntreeDuBail) ? P.edlEntreeDuBail(Object.assign({ ref: log.ref }, bail), DB.edl || []) : null);
     return hasEdl ? _ok : _absent;
   }
   if (type === 'mrh') {
