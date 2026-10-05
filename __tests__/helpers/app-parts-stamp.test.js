@@ -12,7 +12,8 @@ import crypto from 'node:crypto'
 import { preloadBlock, PRELOAD_BEGIN, PRELOAD_END } from '../../tools/stamp-app-parts.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const sha = async (rel) => crypto.createHash('sha1').update(await readFile(resolve(root, rel))).digest('hex').slice(0, 8)
+// sans retours chariot : même empreinte sous Windows (CRLF) et sur la CI Linux (LF) — voir tools/stamp-app-parts.mjs
+const sha = async (rel) => crypto.createHash('sha1').update((await readFile(resolve(root, rel))).toString('latin1').replace(/\r/g, '')).digest('hex').slice(0, 8)
 const indexHtml = async () => (await readFile(resolve(root, 'index.html'))).toString('latin1')
 
 describe('empreintes de cache-busting', () => {

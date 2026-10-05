@@ -45,7 +45,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
   if(window._BAIL_PDF_LIBS)return Promise.resolve(window._BAIL_PDF_LIBS);
   if(p)return p;
   p=new Promise(function(res,rej){var s=document.createElement('script');
-    s.src='js/vendor/pdf-libs.b64.js?v=20a9c05f';s.async=true;
+    s.src='js/vendor/pdf-libs.b64.js?v=7f449393';s.async=true;
     s.onload=function(){window._BAIL_PDF_LIBS?res(window._BAIL_PDF_LIBS):(p=null,rej(new Error('pdf-libs : fichier vide')))};
     s.onerror=function(){p=null;rej(new Error('pdf-libs : echec de chargement'))};
     document.head.appendChild(s)});
@@ -59,7 +59,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
 <link rel="stylesheet" href="css/main.css?v=15.709">
-<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=fe7e7e67">
+<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7976c7e3">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/core/utils.js">
 <link rel="modulepreload" href="js/core/idb.js">
@@ -4457,61 +4457,61 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   </div>
 </div></div>
 <!-- ANNONCES (CDC 29/09/2026) — générateur d'annonces conformes (window.AnnonceGenerator) -->
-<script src="js/helpers/annonce-generator.global.js?v=f00f418a" defer></script>
+<script src="js/helpers/annonce-generator.global.js?v=7e71330d" defer></script>
 <!-- ANNONCES (D7) — fourchette + années des prix lues dans le texte d'un DPE (window.DpeTexte) -->
-<script src="js/helpers/dpe-texte.global.js?v=2a2bcd2a" defer></script>
+<script src="js/helpers/dpe-texte.global.js?v=d5c0fde2" defer></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 — parser/formatter d'adresse FR (window.AdresseParser) -->
-<script src="js/helpers/adresse-parser.global.js?v=f1b9b058" defer></script>
+<script src="js/helpers/adresse-parser.global.js?v=5dbda94d" defer></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 Commit 2 — résolveur bien hérite imm (window.LogImmResolver) -->
-<script src="js/helpers/log-immeuble-resolver.global.js?v=7b869302" defer></script>
+<script src="js/helpers/log-immeuble-resolver.global.js?v=96c42fbe" defer></script>
 <!-- v15.252 FEAT-GEORISQUES-ERP — détecteur ERP/IAL depuis l'adresse (window.GeorisquesErpDetector) -->
-<script src="js/helpers/georisques-erp-detector.global.js?v=aed9fc50" defer></script>
-<script src="js/helpers/bail-sign-coords.global.js?v=b1678c20" defer></script>
-<script src="js/helpers/bail-sign-manifest.global.js?v=96246f22" defer></script>
-<script src="js/helpers/build-sign-manifest.global.js?v=d53b2f08" defer></script>
-<script src="js/helpers/bail-sign-sigid.global.js?v=f546c3d1" defer></script>
-<script src="js/helpers/bail-sign-plan.global.js?v=f4898d67" defer></script>
+<script src="js/helpers/georisques-erp-detector.global.js?v=a327e583" defer></script>
+<script src="js/helpers/bail-sign-coords.global.js?v=36e93334" defer></script>
+<script src="js/helpers/bail-sign-manifest.global.js?v=640daca0" defer></script>
+<script src="js/helpers/build-sign-manifest.global.js?v=41b6c320" defer></script>
+<script src="js/helpers/bail-sign-sigid.global.js?v=0fe13714" defer></script>
+<script src="js/helpers/bail-sign-plan.global.js?v=23b8236b" defer></script>
 <!-- SIGNATURE-SMOKE S1 — dérivation UNIQUE des signataires bailleur (file de signature ET _SIGS du document) + garde anti-parcours muet. -->
-<script src="js/helpers/bail-signataires.global.js?v=4746ce61" defer></script>
+<script src="js/helpers/bail-signataires.global.js?v=a3dc3859" defer></script>
 <!-- SIGNATURE-SMOKE S3 — montants déterministes (jamais toLocaleString) + assainisseur de texte PDF (U+202F casse jsPDF). -->
-<script src="js/helpers/montant-doc.global.js?v=9a58bb2f" defer></script>
+<script src="js/helpers/montant-doc.global.js?v=c7e908c3" defer></script>
 <!-- SIGNATURE-SMOKE — flux de texte du PDF : couper un bloc avant la bande du pied (paraphes). -->
-<script src="js/helpers/pdf-flow.global.js?v=89999634" defer></script>
+<script src="js/helpers/pdf-flow.global.js?v=0119d31c" defer></script>
 <!-- S4 — bandeau d'identité des documents : logo du bailleur + logo Propryo. -->
-<script src="js/helpers/doc-brand.global.js?v=81f07400" defer></script>
+<script src="js/helpers/doc-brand.global.js?v=467d7fb5" defer></script>
 <!-- CHANTIER BAIL-GARAGE — structure du bail garage/box/stockage (droit commun, Code civil).
      buildBailStructure y délègue pour bail.type==='garage' en injectant en-tête/identité/signatures. -->
-<script src="js/helpers/bail-garage.global.js?v=0ba3c96b" defer></script>
+<script src="js/helpers/bail-garage.global.js?v=fe8eae99" defer></script>
 <!-- DOCS-UNIFIES — gabarit unique des documents émis (variante B validée le 12/08) :
      feuille de style scopée .pro-doc + primitives titre/parties/lignes/mentions/pied. -->
-<script src="js/helpers/doc-template.global.js?v=f0378f60" defer></script>
+<script src="js/helpers/doc-template.global.js?v=5ce04e55" defer></script>
 <!-- CDC-QUITTANCES-IRL D26 — moteur d'écriture NATIF partagé (window.DocNative) : PDF_NATIVE (sous-ensemble
      document du moteur du bail) + pont HTML .pro-doc → texte natif. Après pdf-flow + doc-brand (ses deps). -->
-<script src="js/helpers/doc-native.global.js?v=63bd48f6" defer></script>
+<script src="js/helpers/doc-native.global.js?v=e45e28df" defer></script>
 <!-- CDC-QUITTANCES-IRL D23/I16 — décision réglementaire DPE de la révision (window.IrlDpeGate) :
      gel F/G valide vs « à compléter » (absent ou périmé). Consommé par computeIRLRevision. -->
-<script src="js/helpers/irl-dpe-gate.global.js?v=eead84e2" defer></script>
+<script src="js/helpers/irl-dpe-gate.global.js?v=722abf97" defer></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
-<script src="js/helpers/alert-rules.global.js?v=92ecd478" defer></script>
+<script src="js/helpers/alert-rules.global.js?v=b880da16" defer></script>
 <!-- v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (window.DashCtx) :
      scope + matchMv + mvs/mvsYTD/mvsPrev/refYrMo + KPIs occupation/totaux (ex-copiés rDash/rAccueil/renders) -->
-<script src="js/helpers/dash-ctx.global.js?v=dead3a1b" defer></script>
+<script src="js/helpers/dash-ctx.global.js?v=956b0838" defer></script>
 <!-- Fil rouge « Ajouter un bien » v2 — modèle pur (complétude/arbre) + conducteur (machine à états) -->
-<script src="js/helpers/parcours-bien-model.global.js?v=31892c8a" defer></script>
-<script src="js/helpers/fil-rouge-conductor.global.js?v=a097ae0b" defer></script>
+<script src="js/helpers/parcours-bien-model.global.js?v=3737498f" defer></script>
+<script src="js/helpers/fil-rouge-conductor.global.js?v=5c52240a" defer></script>
 <!-- Fil rouge COMPLET — rapprochement immeuble par adresse canon (import d'acte) -->
-<script src="js/helpers/acte-rapprochement.global.js?v=6c1e6c3f" defer></script>
+<script src="js/helpers/acte-rapprochement.global.js?v=5ca1f0c1" defer></script>
 <!-- IMPORT BANCAIRE — mirror généré depuis js/core/bank-import.js.
      Remplace la RÉPLIQUE INLINE des helpers _bank* qui vivait dans ce fichier
      (bug 3 du CDC-IMPORT : moteur en double, divergence garantie à terme). -->
-<script src="js/helpers/bank-import.global.js?v=efbbe0c4" defer></script>
+<script src="js/helpers/bank-import.global.js?v=a5d8725d" defer></script>
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
-<script src="js/app/supabase-config.js?v=0b192cc3" defer></script>
-<script src="js/app/app-part1.js?v=842a9574" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=d7f8ceda" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=7d55738f" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
+<script src="js/app/app-part1.js?v=39b850c6" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=d7615af9" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=ffa1a2d2" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">
@@ -5311,7 +5311,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   </div>
 </div>
 <!-- v14.85 ARCHI-MODULAR Phase 0 : bootstrap modulaire ES (CSS extrait dans css/main.css) -->
-<script src="js/vendor/qrcode-generator.js?v=0f94bf67" defer></script>
+<script src="js/vendor/qrcode-generator.js?v=d350d6b2" defer></script>
 <script type="module" src="js/app/supabase-entry.js" onerror="window.__immoPartFail&&window.__immoPartFail('supabase-entry')"></script>
 <script type="module" src="js/main.js"></script>
 </body>

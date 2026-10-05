@@ -14,7 +14,8 @@ import crypto from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const hash = (rel) => crypto.createHash('sha1').update(fs.readFileSync(path.join(ROOT, rel))).digest('hex').slice(0, 8)
+// Hash sur le contenu SANS retours chariot : même empreinte sous Windows (CRLF) et sur la CI Linux (LF).
+const hash = (rel) => crypto.createHash('sha1').update(fs.readFileSync(path.join(ROOT, rel)).toString('latin1').replace(/\r/g, '')).digest('hex').slice(0, 8)
 
 // ── graphe d'imports STATIQUES (import … from / export … from / import 'x'), pas les import() dynamiques ──────
 const IMPORT_RE = /(?:^|[\n;}])\s*(?:import|export)\s+(?:[^'"`;]*?\s+from\s+)?['"]([^'"]+)['"]/g
