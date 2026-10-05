@@ -480,7 +480,7 @@ describe('15 · clôture d\'un bail (VRAIS saveBailClore / terminerBail) : resti
     const vals = { 'b-clore-ref': 'A1', 'b-ref': 'A1', 'b-fin-effective': '2026-09-30', 'b-fin-motif': 'Congé du locataire' };
     const m = monter(DB, [...STATUT, fnNom, '_clotureDgConfirmer', '_clotureDgAppliquer'], {
       v: (id) => vals[id] || '', pf: (id) => Number(saisie[id] || 0), confirm2: (t) => { msgs.push(t); return msgs.length === 1 ? true : rep; },
-      _ART22_RESTITUTION: ['« art22-2mois »', '« art22-1mois »'], _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {},
+      _ART22_RESTITUTION: ['« art22-2mois »', '« art22-1mois »'], td: () => '2026-10-04' /* date UTC (veille) : dgRestitueAt doit être LOCALE */, _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {},
     });
     m.els['b-clore-ref'] = { value: 'A1' };
     m.fn[fnNom]();
