@@ -18269,7 +18269,8 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     dureeBail = '9 (neuf) mois';
     dureePhrase = 'Cette durée de 9 mois — bail étudiant non reconductible — s\'applique conformément à l\'article 25-7 dernier alinéa de la loi du 6 juillet 1989. Le présent contrat ne fait pas l\'objet de tacite reconduction.';
   } else if (isMobilite) {
-    dureeBail = '[de 1 à 10 mois — à préciser]';
+    // BAUX-ECHUS v5 : la durée RÉELLE tirée des dates du bail ; le marqueur seulement si une date manque.
+    dureeBail = (_v5 && BCF.dureeMobiliteLibelle(bail.debut, bail.fin)) || '[de 1 à 10 mois — à préciser]';
     dureePhrase = _v5 ? BCF.DUREE_MOBILITE : 'Cette durée s\'applique conformément à l\'article 25-14 de la loi du 6 juillet 1989 (loi ELAN du 23 novembre 2018, art. 107). Le bail mobilité est conclu pour une durée minimale d\'un mois et maximale de dix mois, non renouvelable et non reconductible.';
   } else if (isGarage) {
     dureeBail = '[durée libre — à préciser]';
@@ -18682,7 +18683,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     ] : [
       // Bail nu (cas par défaut)
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_NU : 'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.' },
       // Art. 15-I dans les termes de la loi, depuis le module : c'est le document SIGNÉ, il ne
       // peut pas énoncer une condition que la loi n'impose plus (cf. `preavisReduitClause`).
       { type:'p', text:(typeof window.preavisReduitClause==='function')
@@ -18690,7 +18691,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
         : 'Ce délai est réduit à un (1) mois dans les cas prévus à l\'article 15-I de la loi n° 89-462 du 6 juillet 1989.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation. Il n\'aura que le droit d\'en demander la résiliation judiciaire pour inexécution d\'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Congé à l\'expiration du bail' },
-      { type:'p', text:'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins six (6) mois avant l\'échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE.' },
+      { type:'p', text: _v5 ? BCF.CONGE_EXPIRATION_NU : 'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins six (6) mois avant l\'échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE.' },
       { type:'p', text:'Le congé donné par le BAILLEUR doit être justifié soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux. À peine de nullité, il doit indiquer le motif allégué et, en cas de reprise, les noms et adresse du bénéficiaire.' },
       { type:'h3', text:'Proposition de renouvellement' },
       { type:'p', text:'Le BAILLEUR peut proposer au LOCATAIRE, au moins six mois avant le terme du contrat, un nouveau contrat par référence aux loyers habituellement constatés dans le voisinage pour des logements comparables.' },

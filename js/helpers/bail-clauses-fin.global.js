@@ -73,6 +73,46 @@
   /** Location « autre » (hors loi de 1989) — conditions de résiliation. */
   const RESILIATION_AUTRE = 'Les conditions de préavis, congé et reconduction sont librement définies entre les parties dans les présentes ou par avenant. À défaut de stipulation, les règles du louage du Code civil s’appliquent, notamment ses articles 1736 à 1740.';
 
+  /** Art. 15, I — les formes du congé, mot pour mot (Légifrance, version en vigueur depuis le 29/07/2023). */
+  const FORMES_CONGE_ART15 = 'Le congé doit être notifié par lettre recommandée avec demande d’avis de réception, signifié par acte d’un commissaire de justice ou remis en main propre contre récépissé ou émargement (article 15, I ' + LOI + ').';
+
+  /** Bail nu — congé du locataire en cours de bail (art. 12 et 15, I) : préavis de trois mois, formes de l'art. 15, I. */
+  const CONGE_LOCATAIRE_NU = 'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois. ' + FORMES_CONGE_ART15;
+
+  /** Bail nu — congé à l'expiration (art. 15, I) : six mois bailleur, trois mois locataire, formes de l'art. 15, I. */
+  const CONGE_EXPIRATION_NU = 'La partie qui souhaite ne pas reconduire le bail doit notifier son intention au moins six (6) mois avant l’échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE. ' + FORMES_CONGE_ART15;
+
+  const _MOTS = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze', 'treize',
+    'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf', 'vingt', 'vingt et un', 'vingt-deux', 'vingt-trois',
+    'vingt-quatre', 'vingt-cinq', 'vingt-six', 'vingt-sept', 'vingt-huit', 'vingt-neuf', 'trente', 'trente et un'];
+  const _parse = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? { y: +m[1], mo: +m[2], d: +m[3] } : null; };
+  const _utc = (p) => Date.UTC(p.y, p.mo - 1, p.d);
+  function _plusMois(p, n) {
+    const t = p.y * 12 + (p.mo - 1) + n, y = Math.floor(t / 12), mo = t - y * 12 + 1;
+    return { y, mo, d: Math.min(p.d, new Date(Date.UTC(y, mo, 0)).getUTCDate()) };
+  }
+
+  /**
+   * Bail mobilité — la durée RÉELLE du contrat, tirée de ses dates (début et fin incluse) :
+   * « 6 (six) mois », « 1 (une) semaine », « 3 (trois) mois et 10 (dix) jours ». '' si une date
+   * manque ou si elles sont incohérentes : l'appelant garde alors son marqueur « à préciser ».
+   */
+  function dureeMobiliteLibelle(debutIso, finIso) {
+    const a = _parse(debutIso), f = _parse(finIso);
+    if (!a || !f) return '';
+    const fin1 = new Date(_utc(f) + 86400000);   // le lendemain de la fin (fin incluse dans la durée)
+    const L = { y: fin1.getUTCFullYear(), mo: fin1.getUTCMonth() + 1, d: fin1.getUTCDate() };
+    if (_utc(L) <= _utc(a)) return '';
+    let mois = 0;
+    while (mois < 240 && _utc(_plusMois(a, mois + 1)) <= _utc(L)) mois++;
+    const jours = Math.round((_utc(L) - _utc(_plusMois(a, mois))) / 86400000);
+    const nb = (n, un, une) => n + ' (' + (n === 1 ? (une || un) : (_MOTS[n] || String(n))) + ')';
+    if (!mois && jours % 7 === 0) { const s = jours / 7; return nb(s, 'un', 'une') + (s > 1 ? ' semaines' : ' semaine'); }
+    const pm = mois ? nb(mois, 'un') + ' mois' : '';
+    const pj = jours ? nb(jours, 'un') + (jours > 1 ? ' jours' : ' jour') : '';
+    return pm && pj ? pm + ' et ' + pj : (pm || pj);
+  }
+
   /** Clause pénale — la référence au Code civil en vigueur (art. 1231-5). Le reste de la clause est inchangé. */
   const CLAUSE_PENALE_REF = 'article 1231-5 du Code civil';
 
@@ -102,6 +142,10 @@
     FIN_MOBILITE: FIN_MOBILITE,
     DUREE_MOBILITE: DUREE_MOBILITE,
     RESILIATION_AUTRE: RESILIATION_AUTRE,
+    FORMES_CONGE_ART15: FORMES_CONGE_ART15,
+    CONGE_LOCATAIRE_NU: CONGE_LOCATAIRE_NU,
+    CONGE_EXPIRATION_NU: CONGE_EXPIRATION_NU,
+    dureeMobiliteLibelle: dureeMobiliteLibelle,
     CLAUSE_PENALE_REF: CLAUSE_PENALE_REF,
     reconductionBailNu: reconductionBailNu
   };

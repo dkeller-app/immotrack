@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import * as C from '../../js/core/bail-clauses-fin.js';
 
 const TOUS = [C.CONGE_LOCATAIRE_MEUBLE, C.CONGE_EXPIRATION_MEUBLE, C.RECONDUCTION_MEUBLE, C.FIN_ETUDIANT,
-  C.CONGE_LOCATAIRE_MOBILITE, C.FIN_MOBILITE, C.DUREE_MOBILITE, C.RESILIATION_AUTRE, C.CLAUSE_PENALE_REF,
+  C.CONGE_LOCATAIRE_MOBILITE, C.FIN_MOBILITE, C.CONGE_LOCATAIRE_NU, C.CONGE_EXPIRATION_NU, C.FORMES_CONGE_ART15, C.DUREE_MOBILITE, C.RESILIATION_AUTRE, C.CLAUSE_PENALE_REF,
   C.reconductionBailNu('Personne physique'), C.reconductionBailNu('Personne morale'), C.reconductionBailNu('')];
 
 describe('aucune citation fausse', () => {
@@ -83,5 +83,30 @@ describe('location « autre » et clause pénale', () => {
   });
   it('clause pénale : article 1231-5 du Code civil', () => {
     expect(C.CLAUSE_PENALE_REF).toBe('article 1231-5 du Code civil');
+  });
+});
+
+describe('bail nu v5 — formes du congé de l\'art. 15, I (mot pour mot)', () => {
+  const FORMES = 'Le congé doit être notifié par lettre recommandée avec demande d’avis de réception, signifié par acte d’un commissaire de justice ou remis en main propre contre récépissé ou émargement (article 15, I de la loi n° 89-462 du 6 juillet 1989).';
+  it('congé du locataire : trois mois + les trois formes, dont la remise en main propre', () => {
+    expect(C.CONGE_LOCATAIRE_NU).toBe('Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois. ' + FORMES);
+  });
+  it('congé à l\'expiration : six mois bailleur, trois mois locataire + les trois formes', () => {
+    expect(C.CONGE_EXPIRATION_NU).toMatch(/six \(6\) mois avant .* BAILLEUR, et trois \(3\) mois avant .* LOCATAIRE\. /);
+    expect(C.CONGE_EXPIRATION_NU.endsWith(FORMES)).toBe(true);
+  });
+});
+
+describe('bail mobilité v5 — la durée réelle tirée des dates', () => {
+  it('mois, semaines, mois et jours (fin incluse)', () => {
+    expect(C.dureeMobiliteLibelle('2026-01-01', '2026-06-30')).toBe('6 (six) mois');
+    expect(C.dureeMobiliteLibelle('2026-01-15', '2026-02-14')).toBe('1 (un) mois');
+    expect(C.dureeMobiliteLibelle('2026-01-01', '2026-01-07')).toBe('1 (une) semaine');
+    expect(C.dureeMobiliteLibelle('2026-01-01', '2026-01-14')).toBe('2 (deux) semaines');
+    expect(C.dureeMobiliteLibelle('2026-01-01', '2026-04-10')).toBe('3 (trois) mois et 10 (dix) jours');
+  });
+  it('date manquante ou incohérente → \'\' (l\'appelant garde son marqueur « à préciser »)', () => {
+    expect(C.dureeMobiliteLibelle('', '2026-06-30')).toBe('');
+    expect(C.dureeMobiliteLibelle('2026-03-01', '2026-02-01')).toBe('');
   });
 });
