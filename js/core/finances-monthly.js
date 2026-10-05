@@ -115,7 +115,12 @@ export function _computeFinancesMonthly(input) {
   const scopeWeight = i.scopeWeight || (() => 1);
   const catLigne = i.catLigne || (() => null);
   const isEcheance = i.isEcheance || (() => false);
-  const isGestionCharge = i.isGestionCharge || (() => false); // CFE / taxe logements vacants : charge proprio HORS 2044
+  const isGestionCharge = i.isGestionCharge || (() => false); // frais bancaires (seule catégorie à porter le drapeau) : charge proprio HORS 2044
+  // Dépenses réelles HORS 2044 qui doivent peser sur le cash-flow (décision Didier 05/10 : « toutes
+  // dépenses ou recettes doivent figurer dans cash flow ») : rend 'construction' (travaux
+  // d'agrandissement, non déductibles) ou 'nonDeductible' (péage, matériel…), sinon null. L'achat
+  // d'un bien, les apports d'associés, les dépôts et les virements internes n'y entrent PAS.
+  const chargeHorsFiscal = i.chargeHorsFiscal || (() => null);
   const isRecupCharge = i.isRecupCharge || (() => false);     // charges récupérables payées en direct (flag recup, ligne 2044 vide) : transit locataire
   // L-5 : une charge récupérable AVANCÉE n'est « récupérable » que si un locataire peut la
   // rembourser — mois de vacance / lot sans bail / lot non récupérable → elle RESTE À CHARGE
@@ -174,6 +179,7 @@ export function _computeFinancesMonthly(input) {
     nonAffecte: 0,                     // H-2 : encaissements de loyer SANS lot rattaché (comptés au total, détail faux)
     recupACharge: 0,                   // L-5 : charges récupérables restées à ta charge (sous-ensemble de `autres`)
     pret: 0, taxe: 0, travaux: 0, honoraires: 0, assurance: 0, autres: 0, gestionHF: 0, recup: 0, interets: 0,
+    construction: 0, nonDeductible: 0,   // dépenses réelles hors 2044 (05/10) — dans les charges, jamais dans base2044
     charges: 0, reel: 0, recupSolde: 0, cashflowNet: 0, cashflowReel: 0, base2044: 0,
     _loyerByLot: null   // { qui → total encaissé du mois } — cascadé au finalize (non exporté)
   });
@@ -211,6 +217,9 @@ export function _computeFinancesMonthly(input) {
     // CFE / taxe logements vacants (flag gestionCharge, cat special) : charge propriétaire RÉELLE
     // mais HORS base 2044. Captée avant catLigne (qui renverrait null pour une cat special).
     if (isGestionCharge(mv)) { b.gestionHF += (db - cr) * w; return; }
+    // Travaux d'agrandissement et dépenses non déductibles : sans ligne 2044, ils étaient JETÉS par
+    // le filtre ci-dessous — 12 500 € de travaux payés n'apparaissaient nulle part dans le cash-flow.
+    { const hf = chargeHorsFiscal(mv); if (hf === 'construction' || hf === 'nonDeductible') { b[hf] += (db - cr) * w; return; } }
     // Charges récupérables payées en direct (eau/énergie, flag recup, ligne 2044 vide) :
     // transit locataire, captées AVANT catLigne (qui renverrait null). Voir aussi 229/230 (copro).
     if (isRecupCharge(mv)) {
@@ -417,13 +426,14 @@ export function _computeFinancesMonthly(input) {
   });
   // (2) Champs dérivés (loyersHC/provisions/avance déjà posés : par cascade au mois, par somme à l'année).
   const finalizeDerived = b => {
-    b.charges = b.pret + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres + b.gestionHF;   // charges propriétaire : prêt entier + CFE/TLV
+    b.charges = b.pret + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres + b.gestionHF   // charges propriétaire : prêt entier + frais bancaires
+      + b.construction + b.nonDeductible;                                                          // + dépenses réelles hors 2044 (05/10)
     b.reel = b.loyersHC + b.recettesDiverses - b.charges;             // résultat propre (loyers HC + recettes diverses 213 − charges)
     b.recupSolde = b.provisions - b.recup;                            // transit locataire : + trop-perçu / − bailleur a avancé
     b.cashflowNet = b.reel;                                           // ton résultat propre (hors transit locataire)
     b.cashflowReel = b.reel + b.recupSolde;                           // vrai cash sur le compte (transit inclus)
     b.base2044 = b.loyersHC + b.recettesDiverses - (b.interets + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // 213 imposable ; capital ET gestionHF exclus
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
       .forEach(k => { b[k] = round2(b[k]); });
     return b;
   };
@@ -433,7 +443,7 @@ export function _computeFinancesMonthly(input) {
   // Agrégat annuel (Σ des mois — loyersHC/provisions/avance inclus, PAS de re-cascade)
   const annual = Object.assign({ ym: yr, mo: 0 }, blank());
   months.forEach(b => {
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets']
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets']
       .forEach(k => { annual[k] += b[k]; });   // retard : Σ des résidus mensuels = dette ouverte de fin de période
   });
   finalizeDerived(annual);

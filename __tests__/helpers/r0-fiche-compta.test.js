@@ -124,11 +124,27 @@ describe('_finLotCatRole — le référentiel répond, jamais le libellé', () =
     for (const c of vues) expect(M._finLotCatRole(c.nom), c.nom).toBe('charge');
   });
 
-  it('les postes « non déductibles » sortent du solde — et c’est assumé, pas un oubli', () => {
-    // Ce sont de vraies sorties d'argent que le moteur ne compte pas. La fiche suit le moteur.
+  it('les travaux d’agrandissement et les dépenses non déductibles COMPTENT en charge (Didier, 05/10)', () => {
+    // De vraies sorties d'argent, hors 2044 : le moteur les compte désormais, la fiche suit.
     for (const c of ['Travaux de construction / agrandissement (non déductible)', 'Divers (non déductible)']) {
-      expect(M._finLotEstCharge({ cat: c }), c).toBe(false);
+      expect(M._finLotEstCharge({ cat: c }), c).toBe(true);
     }
+  });
+
+  it('l’achat d’un bien, les apports, les dépôts et les virements internes restent HORS du solde', () => {
+    // Décision Didier du 05/10 : « je ne veux pas que l'achat entre en compte ».
+    for (const c of ['Acquisition / cession de bien', 'CCA / distribution SCI',
+      'Dépôt de garantie (reçu / restitué)', 'Virement interne (non déclarable)']) {
+      expect(M._finLotCatRole(c), c).toBe(null);
+    }
+  });
+
+  it('le drapeau `chargeHf` n’est porté QUE par ces deux catégories — l’achat ne peut pas s’y glisser', () => {
+    const portent = STD.filter(c => c.chargeHf).map(c => c.nom + ' → ' + c.chargeHf).sort();
+    expect(portent).toEqual([
+      'Divers (non déductible) → nonDeductible',
+      'Travaux de construction / agrandissement (non déductible) → construction'
+    ]);
   });
 
   it('aucune catégorie du référentiel ne fait planter le classifieur', () => {
