@@ -16,6 +16,9 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { finOccupationBail, duMoisFromRaw } from '../../js/core/loyer-du-mois.js';
 import { _computeOccupationLots } from '../../js/core/legal-bilan.js';
+import { finOccupationBail as regleSource } from '../../js/core/fin-occupation.js';
+import { chapitrePour } from '../../js/core/loyer-bareme.js';
+import { debutSuiviLot } from '../../js/core/anteriorite.js';
 import { extraireFonction } from './_extraction-source.js';
 
 const P1 = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../js/app/app-part1.js'), 'utf8');
@@ -88,4 +91,72 @@ describe('4 · le bilan / KPI d\'occupation (legal-bilan) suit la règle', () =>
   it('départ déclaré au 31/08 : 243 jours occupés en 2026', () => expect(occ({ ...NU, depart: { dateSortie: '2026-08-31' } })).toBe(243));
   it('étudiant échu non clôturé : 365 jours', () => expect(occ({ ...NU, type: 'etudiant' })).toBe(365));
   it('bail courant clôturé (drapeau) au 30/06 : 181 jours', () => expect(occ({ ...NU, cloture: true })).toBe(181));
+});
+
+describe('5 · une SEULE définition : loyer-du-mois ré-exporte fin-occupation', () => {
+  it('même fonction (aucune copie)', () => expect(finOccupationBail).toBe(regleSource));
+});
+
+describe('6 · chapitre d\'une correction de barème (chapitrePour) : même fin d\'occupation', () => {
+  // Forme réelle des baux passés à chapitrePour (_migrationBailsForLot) : archive + depart + cloture.
+  const courant = (extra = {}) => [{ debut: '2023-07-01', fin: '2026-06-30', finEffective: null, archive: false, depart: null, cloture: false, ...extra }];
+  it('bail courant reconduit : une correction après l\'échéance trouve son bail', () => {
+    expect(chapitrePour([], 'L1', '2026-11-01', courant())).toBe('2023-07-01');
+  });
+  it('départ déclaré au 31/08 : le 31/08 est couvert, le 01/09 n\'appartient plus au bail (plus de dû à corriger)', () => {
+    expect(chapitrePour([], 'L1', '2026-08-31', courant({ depart: { dateSortie: '2026-08-31' } }))).toBe('2023-07-01');
+    expect(chapitrePour([], 'L1', '2026-09-01', courant({ depart: { dateSortie: '2026-08-31' } }))).toBe('');
+  });
+  it('bail archivé : s\'arrête à sa fin', () => {
+    expect(chapitrePour([], 'L1', '2026-11-01', courant({ archive: true }))).toBe('');
+  });
+});
+
+describe('7 · date de suivi d\'un lot (debutSuiviLot) : un bail « en cours à la date » se lit par la même règle', () => {
+  // Date provisoire au 01/10/2026 : un bail commencé avant et encore occupé à cette date est « tronqué »
+  // (à confirmer) ; un bail dont le départ déclaré précède la date ne l'est plus.
+  const suivi = (bail) => debutSuiviLot({ bails: [{ debut: '2023-07-01', fin: '2026-06-30', archive: false, ...bail }], provisoireIso: '2026-10-01' });
+  it('bail reconduit (échéance passée, non clôturé) : encore en cours → à confirmer', () => {
+    expect(suivi({}).bailsAvant).toEqual(['2023-07-01']);
+    expect(suivi({}).aConfirmer).toBe(true);
+  });
+  it('départ déclaré au 31/08 : le bail n\'est plus en cours au 01/10 → rien à confirmer', () => {
+    expect(suivi({ depart: { dateSortie: '2026-08-31' } }).bailsAvant).toEqual([]);
+    expect(suivi({ depart: { dateSortie: '2026-08-31' } }).aConfirmer).toBe(false);
+  });
+});
+
+describe('8 · câblage : _finLotSuivi (app) transmet le départ déclaré à debutSuiviLot', () => {
+  const P2 = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../js/app/app-part2.js'), 'utf8');
+  function suiviApp(bail) {
+    const DB = { logements: [{ ref: 'L1' }], baux: { L1: { ref: 'L1', ...bail } }, baux_historique: [], mouvements: [], entites: [] };
+    const src = ['_finImmDuLot', '_finDuRaw', '_finLotSuivi'].map((n) => extraireFonction(P2, n)).join('\n');
+    // eslint-disable-next-line no-new-func
+    return new Function('DB', 'window', '_findBailByRefTolerant', '_getLogementStartIso',
+      'let _finLotSuiviCache = { gen: -1, map: {} };\n' + src + '\nreturn _finLotSuivi;')(
+      DB, { _dbGen: 1, _anteriorite: { debutSuiviLot } }, (r) => DB.baux[r], () => '2026-10-15')('L1');
+  }
+  it('bail reconduit : en cours à la date provisoire → à confirmer', () => {
+    expect(suiviApp({ debut: '2023-07-01', fin: '2026-06-30' }).aConfirmer).toBe(true);
+  });
+  it('départ déclaré au 31/08 : plus en cours au 01/10 → rien à confirmer', () => {
+    expect(suiviApp({ debut: '2023-07-01', fin: '2026-06-30', depart: { dateSortie: '2026-08-31' } }).aConfirmer).toBe(false);
+  });
+});
+
+describe('9 · câblage : _migrationBailsForLot (app) transmet le départ déclaré à chapitrePour', () => {
+  const P1b = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../js/app/app-part1.js'), 'utf8');
+  const baux = (bail) => {
+    const DB = { baux: { L1: { ref: 'L1', ...bail } }, baux_historique: [] };
+    // eslint-disable-next-line no-new-func
+    return new Function('DB', '_findBailByRefTolerant', extraireFonction(P1b, '_migrationBailsForLot') + '\nreturn _migrationBailsForLot;')(DB, (r) => DB.baux[r])('L1');
+  };
+  it('départ déclaré au 31/08 : correction au 01/09 sans bail, au 31/08 dans le bail', () => {
+    const b = baux({ debut: '2023-07-01', fin: '2026-06-30', depart: { dateSortie: '2026-08-31' } });
+    expect(chapitrePour([], 'L1', '2026-09-01', b)).toBe('');
+    expect(chapitrePour([], 'L1', '2026-08-31', b)).toBe('2023-07-01');
+  });
+  it('bail reconduit sans départ : correction après l\'échéance dans le bail', () => {
+    expect(chapitrePour([], 'L1', '2026-11-01', baux({ debut: '2023-07-01', fin: '2026-06-30' }))).toBe('2023-07-01');
+  });
 });

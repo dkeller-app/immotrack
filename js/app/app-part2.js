@@ -29506,7 +29506,7 @@ function _finLotSuivi(qui) {
   // Baux du lot AVEC leur antériorité (bailsFromRaw ne garde que les champs du dû).
   const raw = _finDuRaw(qui), want = String(qui).trim().toLowerCase();
   const bails = [];
-  if (raw.currentBail && !raw.currentBail._deleted && raw.currentBail.debut) bails.push({ debut: raw.currentBail.debut, finEffective: raw.currentBail.finEffective || null, archive: false, anteriorite: raw.currentBail.anteriorite || null });
+  if (raw.currentBail && !raw.currentBail._deleted && raw.currentBail.debut) bails.push({ debut: raw.currentBail.debut, fin: raw.currentBail.fin || null, finEffective: raw.currentBail.finEffective || null, archive: false, depart: raw.currentBail.depart || null, cloture: !!raw.currentBail.cloture, anteriorite: raw.currentBail.anteriorite || null });
   (raw.bauxHistorique || []).forEach(b => { if (b && !b._deleted && b.debut && String(b.ref || '').trim().toLowerCase() === want) bails.push({ debut: b.debut, finEffective: b.finEffective || null, fin: b.fin || null, archive: true, anteriorite: b.anteriorite || null }); });
   const iso = (typeof _getLogementStartIso === 'function') ? _getLogementStartIso(qui) : null;
   const v = window._anteriorite.debutSuiviLot({

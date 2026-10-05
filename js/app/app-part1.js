@@ -24272,7 +24272,8 @@ function _migrationBailsForLot(ref) {
   const out = [];
   const cur = (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(ref) : (DB.baux || {})[ref];
   if (cur && !cur._deleted && cur.debut) {
-    out.push({ debut: cur.debut, fin: cur.fin || null, finEffective: cur.finEffective || null, hc: cur.hc, ch: cur.ch, archive: false });
+    // depart / cloture : lus par LA fin d'occupation (fin-occupation.js) dans chapitrePour ; ignorés par la migration.
+    out.push({ debut: cur.debut, fin: cur.fin || null, finEffective: cur.finEffective || null, hc: cur.hc, ch: cur.ch, archive: false, depart: cur.depart || null, cloture: !!cur.cloture });
   }
   for (const h of (DB.baux_historique || [])) {
     if (!h || h._deleted || !h.debut || _nrb(h.ref) !== want) continue;
