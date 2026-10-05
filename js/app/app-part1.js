@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.711';
+const IMMOTRACK_VERSION = '15.712';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -9028,8 +9028,16 @@ function _duMoisLot(ref, ym) {
 // Le 7ᵉ moteur (_matcheMois, qui rattachait un paiement au mois de sa propre date) est
 // supprimé, pas corrigé (C3).
 //
-// Fenêtre de suivi = _debutSuivi → mois courant, la même borne que les 5 surfaces (B2) :
-// pas de dette fantôme sur des années sans données.
+// Fenêtre de suivi (R0-C) — dès qu'une date est SAISIE (date d'achat ou antériorité notée), LE point
+// de départ de Finances (`_finLotSuivi` → js/core/anteriorite.js), le dû de Finances (`_finBailHcChAt` :
+// 1ᵉʳ terme exigible après l'achat), son solde d'ouverture, et la même règle pour les encaissements
+// d'avant : jamais imputés (3ᵉ audit A1). L'onglet Loyers, les relances et les quittances lisent alors la même dette
+// que Finances et la restitution.
+// Date PROVISOIRE (b) — rien de saisi : l'ancienne fenêtre `_debutSuivi` (1ᵉʳ janvier de l'année du
+// 1ᵉʳ versement), exactement comme le maître, qui ne reçoit jamais `debutDu` pour elle (3ᵉ audit A2/A3 :
+// la borne provisoire tombe sur le mois du PAIEMENT, elle décalait les quittances — actes opposables —
+// et faisait naître des relances sur des baux clos). Rien ne bouge tant que rien n'est saisi.
+// Repli (modules absents) : la même ancienne fenêtre.
 // Retourne null si le module n'est pas chargé (file://) — les appelants dégradent.
 function _loyerEtatLot(ref, opts) {
   opts = opts || {};
@@ -9052,27 +9060,46 @@ function _loyerEtatLot(ref, opts) {
   // imputés mois par mois. Le montant reste la seule chose qui DÉCIDE : les dates suivent.
   const srcParYm = {};
   let firstPaymentYm = null;
+  const _s = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function') ? _finLotSuivi(ref) : null;
+  const suivi = (_s && _s.source && _s.source !== 'provisoire') ? _s : null;   // (b) : seule une date SAISIE fait foi
+  const borne = suivi ? suivi.date : null;
+  const avant = [];   // encaissements d'avant la date saisie : jamais imputés (A1), signalés après un achat (C1)
   for (const m of (DB.mouvements || [])) {
     if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
     const ym = String(m.date).slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+    if (borne && String(m.date).slice(0, 10) < borne) { avant.push({ date: String(m.date).slice(0, 10), montant: m.cr || 0 }); continue; }
     recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
     (srcParYm[ym] || (srcParYm[ym] = [])).push({ date: String(m.date).slice(0, 10), id: (m.id != null ? m.id : null), montant: m.cr || 0 });
     if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
   }
-  const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
-  const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
-  const startYm = (typeof window._debutSuivi === 'function')
-    ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
+  let startYm = null, duDe = (ym) => _duMoisLot(ref, ym), opening = null;
+  if (suivi) {
+    startYm = borne ? borne.slice(0, 7) : null;
+    duDe = (ym) => _finBailHcChAt(ref, ym);
+    const o = suivi.ouverture;
+    if (o) opening = { idx: 0, date: borne, loyer: o.loyer, charge: o.charge, avance: o.avance };
+  } else {
+    const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
+    const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
+    startYm = (typeof window._debutSuivi === 'function')
+      ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
+  }
   const endYm = ((typeof window._loyerTodayLocal === 'function')
     ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)).slice(0, 7);
   const months = (startYm && startYm <= endYm)
     ? window.ymRange(startYm, endYm).map(ym => {
-        const d = _duMoisLot(ref, ym);
+        const d = duDe(ym);
         return { ym, hcDue: d.hc || 0, chDue: d.ch || 0, received: recuParYm[ym] || 0, sources: srcParYm[ym] || [] };
       })
     : [];
-  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast });
+  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast, opening });
+  // R0-C C1 — tant que le geste « rattacher » n'existe pas (lot 2) : un versement du mois qui précède une
+  // DATE D'ACHAT est peut-être le 1ᵉʳ terme, déjà sur le compte. Il n'est pas imputé, mais il est
+  // SIGNALÉ (onglet Loyers, relance) : jamais un impayé relancé sans le dire.
+  etat.aVerifier = (suivi && suivi.source === 'acquisition' && avant.length && typeof window._avantBorne === 'function')
+    ? window._avantBorne(avant, borne, { achat: true }).horsSuivi.filter(h => h.aRattacher).map(h => ({ date: h.date, montant: h.montant }))
+    : [];
   C.map[key] = etat;
   return etat;
 }
@@ -9101,7 +9128,20 @@ function _getActiveBailHcChProratedSplit(ref, yr, monthIdx0) {
 /* Attendu total pour un logement sur l'année, cumulé par mois actif.
    Borné inférieurement par la date de démarrage effectif du logement.
    v15.19 : utilise _getActiveBailHcChProrated → prorata jours intra-mois. */
+// R0-C 🟠2 (audit 30/09) — UNE règle : l'attendu lit le dû de Finances (`_finBailHcChAt`, borné au
+// point de départ du suivi — date d'achat, antériorité, sinon date provisoire = l'ancienne borne du
+// 1ᵉʳ versement). Avant, il gardait sa propre borne (`_getLogementStartMi`) : les KPI Compta de la
+// fiche logement, `_computeComptaBailleur` (écran + CSV) et le widget hérité divergeaient de Finances
+// dès qu'une date était saisie. Repli file:// : l'ancien calcul.
 function _computeExpectedRent(ref, yr, lastVisibleMonth) {
+  if (typeof _finBailHcChAt === 'function') {
+    let total = 0;
+    for (let mi = 0; mi < lastVisibleMonth; mi++) {
+      const d = _finBailHcChAt(ref, yr + '-' + String(mi + 1).padStart(2, '0'));
+      total += (d.hc || 0) + (d.ch || 0);
+    }
+    return total;
+  }
   const firstMi = _getLogementStartMi(ref, yr);
   if(firstMi == null) return 0;
   let total = 0;

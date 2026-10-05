@@ -95,9 +95,11 @@ export function ymRange(startYm, endYm) {
  * @param {Array<{ym:string, hcDue:number, chDue:number, received:number,
  *                sources?:Array<{date:string, id?:string, montant:number}>}>} months
  *        chronologiques, ÉCHUS (l'appelant borne au mois courant).
- * @param {{graceLast?:boolean}} [opts] graceLast : neutralise le manque NEUF du
+ * @param {{graceLast?:boolean, opening?:Object}} [opts] graceLast : neutralise le manque NEUF du
  *        dernier mois (tolérance début de mois, `_loyerToleranceActive`). NE JAMAIS
  *        l'activer pour la quittançabilité (D6 : « au centime »).
+ *        opening (R0-C, 2ᵉ audit 🟠3) : le solde d'ouverture du suivi et la réserve du mois qui le
+ *        précède, EXACTEMENT ceux du maître Finances (`_loyerArrearsPass`, `opts.opening`).
  * @returns {{list:Array, byYm:Object, resteLoyer:number, resteCharge:number,
  *            reste:number, avance:number, nbMoisNonSoldes:number,
  *            premierMoisNonSolde:string|null}}
@@ -106,15 +108,20 @@ export function etatMoisLot(months, opts) {
   const ms = (months || []).filter((m) => m && /^\d{4}-\d{2}$/.test(String(m.ym)));
   const pass = _loyerArrearsPass(
     ms.map((m) => ({ hcDue: m.hcDue, chDue: m.chDue, received: m.received, sources: m.sources })),
-    { carry: true, graceLast: !!(opts && opts.graceLast) }
+    { carry: true, graceLast: !!(opts && opts.graceLast), opening: (opts && opts.opening) || null }
   );
+  // R0-C (2ᵉ audit 🟠3) — l'OUVERTURE (arriéré noté au début du suivi) n'est la dette d'aucun mois :
+  // elle est retirée du mois où la cascade la pose et rendue à part (`ouverture`), datée. Sinon le
+  // 1ᵉʳ mois suivi paraîtrait impayé (pas de quittance) et la relance l'appellerait « loyer de juin ».
+  const ouvR = (opts && opts.opening && pass.ouvertureReste) ? pass.ouvertureReste : null;
   const list = ms.map((m, i) => {
     const hcDue = Math.max(0, Number(m.hcDue) || 0);
     const chDue = Math.max(0, Number(m.chDue) || 0);
     const du = _r2(hcDue + chDue);
     const r = pass.retardMois[i] || { loyer: 0, charge: 0 };
-    const resteLoyer = _r2(r.loyer);
-    const resteCharge = _r2(r.charge);
+    const surOuv = !!ouvR && i === ouvR.idx;
+    const resteLoyer = _r2(Math.max(0, r.loyer - (surOuv ? ouvR.loyer : 0)));
+    const resteCharge = _r2(Math.max(0, r.charge - (surOuv ? ouvR.charge : 0)));
     const reste = _r2(resteLoyer + resteCharge);
     const vacance = du <= EPS_CENTIME;
     const solde = !vacance && reste <= EPS_CENTIME;
@@ -154,6 +161,11 @@ export function etatMoisLot(months, opts) {
     resteCharge: _r2(pass.chargeArrear),
     reste: _r2(pass.loyerArrear + pass.chargeArrear),
     avance: _r2(pass.avance || 0),
+    // R0-C : ce qui reste dû de l'arriéré NOTÉ au début du suivi (compris dans resteLoyer/resteCharge).
+    ouverture: ouvR && (ouvR.loyer + ouvR.charge) > EPS_CENTIME
+      ? { date: (opts.opening.date || null), ym: ms[ouvR.idx] ? String(ms[ouvR.idx].ym) : null, loyer: _r2(ouvR.loyer), charge: _r2(ouvR.charge),
+          paiements: (pass.imputationsOuverture || []).filter((p) => p.date) }
+      : null,
     nbMoisNonSoldes: nonSoldes.length,
     premierMoisNonSolde: nonSoldes.length ? nonSoldes[0].ym : null
   };
@@ -284,13 +296,16 @@ export function retardLot(etat, opts) {
   const dernierYm = list.length ? list[list.length - 1].ym : null;
   const retenus = list.filter((e) => !e.vacance && e.reste > EPS_CENTIME
     && !(tol && e.ym === dernierYm));
-  const resteLoyer = _r2(retenus.reduce((s, e) => s + e.resteLoyer, 0));
-  const resteCharge = _r2(retenus.reduce((s, e) => s + e.resteCharge, 0));
+  // R0-C : l'arriéré noté au début du suivi compte toujours (il n'est jamais « neuf »).
+  const ouv = (etat && etat.ouverture) || null;
+  const oL = ouv ? ouv.loyer : 0, oC = ouv ? ouv.charge : 0;
+  const resteLoyer = _r2(retenus.reduce((s, e) => s + e.resteLoyer, 0) + oL);
+  const resteCharge = _r2(retenus.reduce((s, e) => s + e.resteCharge, 0) + oC);
   return {
-    enRetard: retenus.length > 0,
+    enRetard: retenus.length > 0 || (oL + oC) > EPS_CENTIME,
     resteLoyer, resteCharge, reste: _r2(resteLoyer + resteCharge),
     nbMois: retenus.length,
-    depuisYm: retenus.length ? retenus[0].ym : null,
+    depuisYm: (oL + oC) > EPS_CENTIME && ouv.ym ? ouv.ym : (retenus.length ? retenus[0].ym : null),
     loyerSeul: resteLoyer > EPS_CENTIME && resteCharge <= EPS_CENTIME,
     chargesSeules: resteCharge > EPS_CENTIME && resteLoyer <= EPS_CENTIME
   };
@@ -307,6 +322,14 @@ export function lignesRelance(etat, opts) {
   const list = (etat && etat.list) ? etat.list : [];
   const dernierYm = list.length ? list[list.length - 1].ym : null;
   const out = [];
+  // R0-C : l'arriéré noté au début du suivi, en tête, sous son vrai nom (jamais « loyer de <mois> »).
+  const ouv = etat && etat.ouverture;
+  if (ouv) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ouv.date || ''));
+    const au = m ? ' au ' + m[3] + '/' + m[2] + '/' + m[1] : '';
+    if (ouv.loyer > EPS_CENTIME) out.push({ ym: ouv.ym, mois: ymToMoisFr(ouv.ym), libelle: 'Arriéré de loyer' + au + ' (situation notée)', montant: ouv.loyer, ouverture: true });
+    if (ouv.charge > EPS_CENTIME) out.push({ ym: ouv.ym, mois: ymToMoisFr(ouv.ym), libelle: 'Arriéré de charges' + au + ' (situation notée)', montant: ouv.charge, ouverture: true });
+  }
   for (const e of list) {
     if (e.vacance) continue;
     if (tol && e.ym === dernierYm) continue;
