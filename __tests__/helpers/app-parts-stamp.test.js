@@ -21,7 +21,8 @@ describe('empreintes de cache-busting', () => {
     const html = await indexHtml()
     const re = /<script src="(js\/(?:helpers\/[A-Za-z0-9._-]+\.global\.js|app\/supabase-config\.js|app\/app-part\d\.js|vendor\/qrcode-generator\.js))\?v=([0-9a-f]+)"/g
     const balises = [...html.matchAll(re)]
-    expect(balises.length, '24 helpers + config + 3 app-part + qrcode attendus').toBe(29)
+    // v15.710 : +2 helpers (bail-paraphes, version-app — PARAPHE-UNIQUE).
+    expect(balises.length, '26 helpers + config + 3 app-part + qrcode attendus').toBe(31)
     for (const [, rel, v] of balises) {
       expect(v, `${rel} a changé : lancer node tools/stamp-app-parts.mjs`).toBe(await sha(rel))
     }
