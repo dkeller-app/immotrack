@@ -387,11 +387,21 @@ describe('8 · tacite reconduction — la fin CONTRACTUELLE d\'un bail en cours 
     expect(res.entries['TIL-A1'].charges).toBe(1200);
   });
 
-  it('bail ÉTUDIANT (non reconductible) échu au 31/05, non clôturé : juin-décembre = vacance, au bailleur', () => {
+  // Décision Didier 05/10 (1 = A) : un bail non reconductible ÉCHU mais NON clôturé reste occupé jusqu'à
+  // la clôture, comme un bail nu ou meublé (une alerte « bail échu » invite à clôturer ou renouveler).
+  it('bail ÉTUDIANT échu au 31/05, non clôturé : reste occupé (toute l\'année au locataire, rien au bailleur)', () => {
     const res = chargerRegul(dbDe({ baux: { 'TIL-A1': enCours('etudiant', '2025-09-01', '2026-05-31') }, mouvements: chargesMensuelles('TIL-A1') }))(...ANNEE);
-    expect(res.entries['TIL-A1'].finOcc).toBe('2026-05-31');
-    expect(res.entries['TIL-A1'].charges).toBe(500);
-    expect(r2(res.bailleur[IMM].total)).toBe(700);
+    expect(res.entries['TIL-A1'].finOcc).toBe('2026-12-31');
+    expect(res.entries['TIL-A1'].charges).toBe(1200);
+    expect(res.bailleur).toEqual({});
+  });
+
+  it('mobilité / garage / autre échus non clôturés : occupés de même', () => {
+    for (const type of ['mobilite', 'garage', 'autre']) {
+      const res = chargerRegul(dbDe({ baux: { 'TIL-A1': enCours(type, '2025-09-01', '2026-02-28') }, mouvements: chargesMensuelles('TIL-A1') }))(...ANNEE);
+      expect(res.entries['TIL-A1'].charges).toBe(1200);
+      expect(res.bailleur).toEqual({});
+    }
   });
 
   it('bail CLÔTURÉ (historique) d\'un bail nu : sa fin borne l\'occupation, même sans finEffective', () => {

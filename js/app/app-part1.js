@@ -1963,21 +1963,21 @@ function _bailTypeHasTacite(type) {
 // LA fin d'OCCUPATION d'un bail ('' = occupation ouverte) — lecture UNIQUE pour la régularisation
 // des charges, les compteurs collectifs et l'historique des baux d'un logement (_getAllBailsForLog).
 // Un bail ne se termine que par sa CLÔTURE : `finEffective`, ou sa fin si le bail est clôturé /
-// archivé (`clos` = ligne de DB.baux_historique). Bail en cours : la fin contractuelle est IGNORÉE
-// s'il se reconduit tacitement (nu, meublé — l'app affiche « Tacite reconduction ») ; elle borne
-// l'occupation sinon (étudiant, mobilité, garage, autre : pas de reconduction, « Échu »).
+// archivé (`clos` = ligne de DB.baux_historique). Bail en cours : sa fin contractuelle est IGNORÉE,
+// QUEL QUE SOIT SON TYPE (décision Didier 05/10) — nu / meublé reconduits tacitement ; étudiant,
+// mobilité, garage, autre échus mais non clôturés : occupés jusqu'à la clôture (alerte « bail échu »).
 // Avant : la fin contractuelle d'un bail nu reconduit coupait l'occupation → les mois suivants
 // devenaient une « vacance » portée par le bailleur (et réinjectée en 2044 ligne 225).
 // Départ DÉCLARÉ (`bail.depart.dateSortie`, assistant de départ — _departSaveDeclare) sur un bail encore
-// en cours : c'est lui qui borne l'occupation, avant la tacite reconduction — sinon l'étape régularisation
-// (occupation ouverte) et l'étape restitution du DG (bornée au départ) donnaient deux soldes de tout compte.
+// en cours : c'est lui qui borne l'occupation — sinon l'étape régularisation (occupation ouverte) et
+// l'étape restitution du DG (bornée au départ) donnaient deux soldes de tout compte.
 function _bailFinOccupation(bail, clos) {
   if(!bail) return '';
   if(bail.finEffective) return String(bail.finEffective).slice(0,10);
   const fin = bail.fin ? String(bail.fin).slice(0,10) : '';
   if(clos || bail.cloture) return fin;
   if(bail.depart && bail.depart.dateSortie) return String(bail.depart.dateSortie).slice(0,10);
-  return _bailTypeHasTacite(bail.type) ? '' : fin;
+  return '';
 }
 
 // v14.49 — Calcule la date de fin EFFECTIVE pour le préavis (avec tacite reconduction).
