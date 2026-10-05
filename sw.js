@@ -14,7 +14,7 @@
 // Si oubli de bump : le SW continuera à servir l'ancienne version cache. Mais grâce
 // au network-first sur les JS, les nouveaux JS seront quand même fetched dès qu'online.
 
-const CACHE_VER = 'immotrack-v15.709';
+const CACHE_VER = 'immotrack-v15.711';
 
 // ── Install : skipWaiting immédiat + pré-cache offline fallback ──────────────
 self.addEventListener('install', e => {
@@ -60,6 +60,23 @@ self.addEventListener('fetch', e => {
   // 1) Navigation (index.html) → NETWORK-FIRST
   if (request.mode === 'navigate') {
     e.respondWith(_networkFirst(request));
+    return;
+  }
+
+  // 1bis) Perf : fichier À EMPREINTE (?v=<sha1:8>, posé par tools/stamp-app-parts.mjs) = contenu immuable →
+  //    CACHE-FIRST, zéro aller-retour réseau (avant : chaque chargement revalidait les ~130 fichiers).
+  //    Si le fichier change, son empreinte change, donc son URL : jamais de version périmée servie.
+  //    (Les ?v=15.xxx de main.css ne sont PAS concernés : 8 hex exactement.)
+  if (/\.(js|css)$/i.test(url.pathname) && /[?&]v=[0-9a-f]{8}$/.test(url.search)) {
+    e.respondWith(
+      caches.match(request).then(cached => cached || fetch(request).then(res => {
+        if (res && res.ok && res.type === 'basic') {
+          const copie = res.clone();
+          caches.open(CACHE_VER).then(c => c.put(request, copie)).catch(() => {});
+        }
+        return res;
+      }))
+    );
     return;
   }
 
