@@ -17311,9 +17311,9 @@ function rLogFiche() {
     const _ic = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:4px">${p}</svg>`;
     const phActions =
       `<button class="btn bs" onclick="openNewLog('${refSafe}')">${_ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>')}Modifier le bien</button>`
-      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_ic('<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>')}Inviter un candidat</button>` : '')
-      // ANNONCES — même porte que sur PC (logement vacant non archivé).
-      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openAnnonce('${refSafe}')" title="Rédiger une annonce de location avec les mentions obligatoires">${_ic('<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>')}Créer une annonce</button>` : '')
+      + ((!isArchived && !occupied) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_ic('<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>')}Inviter un candidat</button>` : '')
+      // ANNONCES — même porte que sur PC (logement vacant non archivé ; un départ déclaré passé = vacant, GO 06/10).
+      + ((!isArchived && !occupied) ? `<button class="btn bs bb" onclick="openAnnonce('${refSafe}')" title="Rédiger une annonce de location avec les mentions obligatoires">${_ic('<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>')}Créer une annonce</button>` : '')
       + (isArchived
           ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">${_ic('<path d="M3 12a9 9 0 109-9 9 9 0 00-8 5"/><path d="M3 3v5h5"/>')}Restaurer</button>`
           : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">${_ic('<path d="M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M2 4h20v4H2z"/><path d="M10 12h4"/>')}Archiver</button>`)
@@ -22017,7 +22017,9 @@ function _annonceStep1Continuer() {
   const ro = (typeof _appReadOnly !== 'undefined' && _appReadOnly);
   if (change && !ro) {
     log.loyerHcRef = hcS; log.chargesRef = chS;
-    if (_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, _bienIsBailActif(log.ref))) _rescoreCandidatsDuLogement(log.ref);
+    // Bail OUVERT, pas le statut : jamais de log.hc poussé tant que le bail du locataire sorti est ouvert
+    // (_syncLogToBail le recopierait dans son bail). Le loyer souhaité reste porté par loyerHcRef.
+    if (_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))) _rescoreCandidatsDuLogement(log.ref);
     _stamp(log);
     try { _auditLog('update', 'logement', log.id, log.ref); } catch (e) {}
     saveDB();
@@ -22538,7 +22540,9 @@ function saveParamLog() {
     // (_logpPushLoyerRef) : seules les valeurs réellement présentes dans le formulaire sont poussées,
     // et jamais sur un bien occupé (c'est le bail qui pilote log.hc/ch).
     // tombstone _deleted + cloture + finEffective (audit)
-    const _lrOcc = _bienIsBailActif(log.ref);   // statut : un départ déclaré passé = vacant (loyer du prochain bail)
+    // Bail OUVERT, pas le statut : sur un lot parti (bail à clôturer), le loyer poussé dans log.hc serait
+    // recopié dans le bail du locataire sorti par _syncLogToBail (juste après) — dû et impayés faussés.
+    const _lrOcc = !!_bienActiveBail(log.ref);
     if (_logpPushLoyerRef(log, presa.log, _lrOcc)) {
       // le loyer courant du bien vacant a changé → recalcule le score de ses candidats (ratio)
       _rescoreCandidatsDuLogement(log.ref);
@@ -25639,7 +25643,9 @@ function openEquipIntervention(ref, key) {
   // R-0 : le lot loué se lit sur le BAIL. Un bien acheté occupé était absent de la liste,
   // donc impossible à rattacher à une intervention. Le NOM affiché, lui, vient du cache
   // puis du bail — afficher un nom n'est pas décider (`_nomsDuBail`).
-  logSel.innerHTML = (DB.logements||[]).filter(_isAlive).filter(_lotEstLoue).map(l=>{
+  // Statut 06/10 : bail OUVERT — la remise en état après un départ déclaré (retenue sur le dépôt avant
+  // clôture) doit pouvoir se rattacher au lot, comme avant.
+  logSel.innerHTML = (DB.logements||[]).filter(_isAlive).filter(_lotBailOuvert).map(l=>{
     const _n = l.locataire || _nomsDuBail(_bienActiveBail(l.ref));
     return `<option value="${escHtml(l.ref)}">${escHtml(l.ref)}${_n ? ' — ' + escHtml(String(_n).substring(0,25)) : ''}</option>`;
   }).join('');

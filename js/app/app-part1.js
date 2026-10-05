@@ -10382,7 +10382,8 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
   // IRL ou un avenant, elles ne sont plus le loyer du mois.
   const _ymObj = (mo ? (yr + '-' + String(mo).padStart(2, '0'))
                      : ((typeof window._loyerTodayLocal === 'function' ? window._loyerTodayLocal() : new Date().toISOString().slice(0,10)).slice(0, 7)));
-  const objMens  = scopeLogs.filter(_lotEstLoue).reduce((s,l)=>{
+  // Statut 06/10 : population = bail OUVERT (le dû du mois, borné au départ par _duMoisLot, est de l'argent).
+  const objMens  = scopeLogs.filter(_lotBailOuvert).reduce((s,l)=>{
     const d = (typeof _duMoisLot === 'function') ? _duMoisLot(l.ref, _ymObj) : null;
     return s + (d ? ((d.hc||0)+(d.ch||0)) : ((l.hc||0)+(l.ch||0)));
   },0);
@@ -11197,7 +11198,7 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
       const refs = iL.map(l => l.ref);
       // R-0 : lots LOUES selon le bail. Un lot loue au cache vide sortait du total, et la
       // regularisation comparait alors des charges reelles a des provisions amputees.
-      const provTh = iL.filter(_lotEstLoue).reduce((s,l) => s+(l.ch||0), 0) * nbMois;
+      const provTh = iL.filter(_lotBailOuvert).reduce((s,l) => s+(l.ch||0), 0) * nbMois;   // bail OUVERT (argent), statut 06/10
       const chargesR = mvsYTD
         .filter(m => m.db > 0 && inclCh.has(m.cat) && (refs.includes(m.qui) || m.imm === immNom))
         .reduce((s,m) => s+(m.db||0), 0);
@@ -15053,7 +15054,10 @@ function openLoyerBienModal(candId, logRef){
   const log = (DB.logements||[]).find(l=>l && !l._deleted && l.ref===ref);
   if(!log){ showToast('Logement introuvable — impossible de fixer le loyer.','warn'); return; }
   _lbCtx = { candId: c ? c.id : null, logRef: log.ref };
-  const occupied = _bienIsBailActif(log.ref); // statut : tombstone, clôture, finEffective, départ déclaré passé (le loyer de référence du prochain bail se saisit)
+  // Verrou = bail OUVERT, pas le statut : sur un lot vacant après un départ déclaré, le bail du locataire sorti
+  // reste ouvert et _syncLogToBail recopierait log.hc dans SON bail (dû et impayés faussés). Levé à la clôture.
+  const occupied = !!_bienActiveBail(log.ref);
+  const _aCloturer = occupied && !_bienIsBailActif(log.ref);   // départ déclaré passé, bail à clôturer
   const _refHc = Number(log.loyerHcRef)||Number(log.hc)||0; // loyer de référence (== log.hc pour un bien vacant)
   const _refCh = Number(log.chargesRef)||Number(log.ch)||0;
   const la = c ? _loyerAttenduForCand(c) : { loyer: _refHc };
@@ -15064,7 +15068,8 @@ function openLoyerBienModal(candId, logRef){
   if(warn){
     if(occupied){
       warn.style.background='var(--sur2)'; warn.style.border='1px solid var(--bor)'; warn.style.color='var(--t2)';
-      warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passez par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
+      if(_aCloturer) warn.innerHTML = '🔒 <b>Bail à clôturer</b> — le bail du locataire sorti est encore ouvert et porte son loyer. Le loyer de référence du prochain bail se saisit après la clôture de ce bail.';
+      else warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passez par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
     } else {
       warn.style.background='rgba(234,88,12,.1)'; warn.style.border='1px solid rgba(234,88,12,.3)'; warn.style.color='#9a4a10';
       warn.innerHTML = '⚠ Ce loyer est celui du <b>logement</b> (bien vacant) : il sert au score du candidat et au futur bail. Il alimente aussi le tableau de bord et le P&amp;L.';
@@ -15079,7 +15084,8 @@ function saveLoyerBien(){
   // Garde anti-désync (audit B1) : sur un bien OCCUPÉ, le loyer suit le bail / une révision IRL —
   // écrire log.hc seul désynchroniserait bail.hc + casserait la garde de révision IRL.
   // _bienActiveBail gère le tombstone (_deleted) + cloture + finEffective (audit LOYER-REFERENCE).
-  if(_bienIsBailActif(log.ref)){ showToast('Bien occupé — le loyer se modifie via le bail ou une révision IRL.','warn',5000); return; }
+  // Bail OUVERT (pas le statut) : un départ déclaré passé garde le verrou jusqu'à la clôture (cf. openLoyerBienModal).
+  if(_bienActiveBail(log.ref)){ showToast(_bienIsBailActif(log.ref) ? 'Bien occupé — le loyer se modifie via le bail ou une révision IRL.' : 'Bail à clôturer — le loyer du prochain bail se saisit après la clôture.','warn',5000); return; }
   const hc = Math.max(0, Math.round(Number(v('lb-hc'))||0));
   const ch = Math.max(0, Math.round(Number(v('lb-ch'))||0));
   const before = Number(log.hc)||0;
