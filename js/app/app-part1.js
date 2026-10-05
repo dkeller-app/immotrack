@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.713';
+const IMMOTRACK_VERSION = '15.714';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -17947,7 +17947,8 @@ function _bailSigned(bail){ return !!(bail && bail.signatures && bail.signatures
 // « sans notification préalable » (art. 17-1 : la révision prend effet à compter de la DEMANDE).
 /** IRL-REVISION C3/N4 + CONTRAT-TYPE-2026-10 — la version des clauses d'un bail (marqueur
  *  `clauseIrlV`, posé à la signature) : 1 = texte d'origine ; 2 = clause 5.2 révisée ;
- *  3 = 2 + contrat type issu du décret n° 2026-596 (js/core/contrat-type.js).
+ *  3 = 2 + contrat type issu du décret n° 2026-596 (js/core/contrat-type.js) ;
+ *  4 = 3 + sous-titre du bail nu selon le bailleur réel (js/core/bail-duree.js).
  *  · signé : celle posée à la signature (absente = signé avant tout changement = 1) ;
  *  · signature à distance EN COURS : celle mémorisée à l'envoi — le PDF final doit reprendre ce
  *    que le locataire a relu ;
@@ -17965,13 +17966,13 @@ function _bailClauseVersion(b){
   if (rs && !['completed', 'expired', 'error'].includes(rs.status)) return _bailClauseVersionNorm(rs.clauseIrlV);
   return 2;
 }
-/** La version portée par une valeur brute (session à distance, staging, popup) : 1, 2 ou 3.
+/** La version portée par une valeur brute (session à distance, staging, popup) : 1, 2, 3 ou 4.
  *  Même sans module, 3 reste 3 : sinon une finalisation à distance graverait 1 pour de bon. */
 function _bailClauseVersionNorm(v){
   const CT = (typeof window !== 'undefined') ? window.ContratType : null;
   if (CT && typeof CT.normaliserVersionClauses === 'function') return CT.normaliserVersionClauses(v);
   const n = Number(v);
-  return (n === 2 || n === 3) ? n : 1;
+  return (n === 2 || n === 3 || n === 4) ? n : 1;
 }
 /** CONTRAT-TYPE-2026-10 — le bail suit-il le contrat type issu du décret n° 2026-596 ? */
 function _bailContratType2026(b){ return _bailClauseVersion(b) >= 3; }
@@ -18269,7 +18270,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
                      : isMobilite ? 'Loi n° 89-462 du 6 juillet 1989 — Art. 25-12 à 25-18 — Loi ELAN du 23 novembre 2018, art. 107'
                      : isGarage   ? 'Code civil — Art. 1709 et suivants — Location libre (hors loi 89-462)'
                      : isAutre    ? '⚠️ Contrat hors régime standard — Consultez un professionnel du droit'
-                     : 'Loi n° 89-462 du 6 juillet 1989 — Art. 10 — Bailleur personne morale';
+                     // Bail nu : selon le bailleur réel — sauf bail signé en version ≤ 3, ré-affiché
+                     // tel que signé (« Bailleur personne morale » pour tout bailleur, cf. bail-duree.js).
+                     : (typeof window.sousTitreBailNu==='function')
+                       ? window.sousTitreBailNu(ent.type||'', _bailClauseVersion(bail))
+                       : 'Loi n° 89-462 du 6 juillet 1989 — Art. 10 — Bailleur personne morale';
   // v15.200 : mention DG selon type — si DG vide/0, afficher "À régler — max X mois"
   // au lieu de "0,00 € (= 2 mois)" qui est incohérent et trompeur. Règle "se protéger".
   const _dgIsEmpty = !bail.dg || +bail.dg === 0;

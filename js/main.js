@@ -129,7 +129,7 @@ import * as AvenantRegistre from './core/avenant-registre.js';
 // Forfait de charges (art. 25-10 / 8-1, V) dans la régularisation : post-traitement, intervalles, base N-1 (pur, testé).
 import { forfaitAvenantsDuBail, occNonForfaitJours, forfaitIntervalles, appliquerForfaitOccupation, periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique, avenantApplicationAffichee } from './core/regul-forfait.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
-import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase } from './core/bail-duree.js';
+import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase, sousTitreBailNu } from './core/bail-duree.js';
 import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause, congeMotifDetail, congeDateEffet, congeMentionPreavis } from './core/conge.js';
 // DOC-C — un acte ne part pas en PDF avec ses trous. Détection des mentions restées vides dans
 // le document RENDU, et fondement légal quand l'absence emporte nullité (art. 15-I / 15-II).
@@ -737,6 +737,7 @@ window.CONGE_CAS_REDUITS = CONGE_CAS_REDUITS;
 window.regimeBailleur = regimeBailleur;
 window.dureeBailNuLabel = dureeBailNuLabel;
 window.dureeBailNuPhrase = dureeBailNuPhrase;
+window.sousTitreBailNu = sousTitreBailNu;
 window.PREAVIS_REDUIT_CAS = PREAVIS_REDUIT_CAS;
 window.preavisReduitClause = preavisReduitClause;
 window.ART15_II_ALINEAS = ART15_II_ALINEAS;
