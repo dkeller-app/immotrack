@@ -125,7 +125,7 @@ describe('actionsAvenant', () => {
     expect(actionsAvenant({ statut: 'brouillon', html: '<p/>' })).toEqual(['reprendre', 'supprimer']);
   });
   it('à signer : voir / pdf si document, signé sur papier, annuler si rien appliqué', () => {
-    expect(actionsAvenant({ statut: 'a_signer', html: '<p/>', appliques: [] })).toEqual(['voir', 'pdf', 'signe-papier', 'annuler']);
+    expect(actionsAvenant({ statut: 'a_signer', html: '<p/>', appliques: [] })).toEqual(['voir', 'pdf', 'signe-appareil', 'signe-papier', 'annuler']);
     expect(actionsAvenant({ statut: 'a_signer', html: null, appliques: ['Loyer'] })).toEqual(['signe-papier']);
   });
   it('signé / annulé : consultation seulement', () => {
@@ -211,5 +211,21 @@ describe('audit lot 2 — rattachement, données malformées, traces anciennes',
     const ev = [{ type: 'avenant', ref: 'F-001@@E2', bailDebut: '2025-09-01', no: 4 }];
     expect(numeroSuivant({ bailEvents: ev, cle: 'F-001@@E1', bail: { debut: '2025-09-01', _espaceId: 'E1' } })).toBe(1);
     expect(numeroSuivant({ bailEvents: ev, cle: 'F-001@@E2', bail: { debut: '2025-09-01', _espaceId: 'E2' } })).toBe(5);
+  });
+});
+
+describe('lot 3b — pièces de la signature et gestes', () => {
+  it("avecStatut garde les pièces de la signature (liste fermée), jamais d'autre champ", () => {
+    const e = avecStatut({ id: 'a', statut: 'a_signer', appliques: [] }, 'signe', NOW, { signeLe: '2026-09-29', signeMode: 'appareil', pdfKey: 'k', contentHash: 'h', proof: [{ nom: 'A' }], statut: 'annule', html: '<script>' });
+    expect(e).toMatchObject({ statut: 'signe', signeMode: 'appareil', pdfKey: 'k', contentHash: 'h', proof: [{ nom: 'A' }] });
+    expect(e.html).toBeUndefined();
+  });
+  it("signé sur papier sans scan : « Déposer le scan » ; avec scan : « Scan signé » ; signé sur l'appareil : « PDF signé »", () => {
+    expect(actionsAvenant({ statut: 'signe', signeMode: 'papier', html: '<p/>' })).toEqual(['voir', 'pdf', 'deposer-scan']);
+    expect(actionsAvenant({ statut: 'signe', signeMode: 'papier', html: '<p/>', scanDocId: 5 })).toEqual(['voir', 'pdf', 'scan']);
+    expect(actionsAvenant({ statut: 'signe', signeMode: 'appareil', html: '<p/>', pdfKey: 'k' })).toEqual(['voir', 'pdf-signe']);
+  });
+  it("sans document : pas de signature sur l'appareil, seulement sur papier", () => {
+    expect(actionsAvenant({ statut: 'a_signer', html: null, appliques: [] })).toEqual(['signe-papier', 'annuler']);
   });
 });

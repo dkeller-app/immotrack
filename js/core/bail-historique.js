@@ -216,7 +216,7 @@ export function construireHistoriqueBail(input) {
     const c = _byBailDebut(e.bailDebut) || _byRange(e.date) || chapitres[0];
     if (!c) continue;
     avRegistre.add(chapitres.indexOf(c) + '|' + (Number(e.no) || 0));
-    _pushEv(c.rail, { ...e, type: 'avenant', registre: true }, e.date);
+    _pushEv(c.rail, { ...e, type: 'avenant', registre: true }, e.effetApplique || e.date);   // placée à la date réellement appliquée
   }
 
   // ── Traces hors barème (modif DG, corrections…) — DB.bailEvents, append-only.
@@ -238,9 +238,10 @@ export function construireHistoriqueBail(input) {
   //    DB.baux_evenements, table 0054). Une carte par enregistrement ; les champs financiers
   //    (loyer / charges / dépôt) sont déjà une carte du barème → retirés de celle-ci.
   for (const e of (i.bailJournal || [])) {
+    // source 'avenant' (lot 3) : changements d'un avenant signé — la carte de l'avenant les porte déjà.
     // source 'auto' (journal AUTOMATIQUE, v15.690) : trace technique de synchro — la donnée est conservée et
     // réappliquée, mais pas de carte (valeurs par défaut du formulaire, IRL, départ… ont leur propre trace).
-    if (!e || e._deleted || e.type !== 'modification' || e.source === 'auto' || _nr(String(e.ref || '').split('@@')[0]) !== want) continue;
+    if (!e || e._deleted || e.type !== 'modification' || e.source === 'auto' || e.source === 'avenant' || _nr(String(e.ref || '').split('@@')[0]) !== want) continue;
     // `vie` (journal AUTOMATIQUE, chantier clôture/relocation) : départ, dépôt de garantie, IRL, pièces
     // de signature… ont déjà leur propre trace (assistant de départ, barème, bailEvents) → pas de carte.
     const changements = (e.changements || []).filter((ch) => ch && !ch.fin && !ch.vie);

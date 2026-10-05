@@ -39,7 +39,8 @@ function fichiersJs(dir) {
   for (const n of readdirSync(dir)) {
     const p = join(dir, n);
     if (statSync(p).isDirectory()) { if (n !== 'vendor') out.push(...fichiersJs(p)); }
-    else if (n.endsWith('.js')) out.push(p);
+    // app-part*.js = code applicatif d'index.html (perf étape 2) : déjà inclus via index.html assemblé
+    else if (n.endsWith('.js') && !n.startsWith('app-part')) out.push(p);
   }
   return out;
 }

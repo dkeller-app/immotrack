@@ -11,7 +11,9 @@
  *   - cautionnement : art. 22-1 ;
  *   - loyer / travaux d'amélioration : art. 17-1, II (accord exprès ; hausse annuelle ≤ 15 %
  *     du coût réel TTC des travaux ; travaux ≥ 1/2 année de loyer ; interdiction si DPE F/G) ;
- *   - charges : art. 23 (provisions, régularisation) / 23-1 (forfait, non régularisable) ;
+ *   - charges : art. 23 (provisions, régularisation) / forfait non régularisable : art. 25-10 (meublé),
+ *     art. 8-1, V (colocation) — `referenceForfaitCharges` (l'art. 23-1 est le partage des économies de
+ *     charges après travaux d'économie d'énergie, sans rapport avec le forfait) ;
  *   - sous-location / cession : art. 8 ; destination : art. 2.
  *
  * Tests Vitest miroir : __tests__/helpers/avenant.test.js
@@ -215,11 +217,14 @@ export function avenantArticle(k, d, ctx) {
     case 'charges': {
       const mode = String(d.mode || '');
       const forf = mode.toLowerCase().indexOf('forfait') >= 0;
+      // Fondement du forfait selon le bail : art. 25-10 (meublé) / art. 8-1, V (colocation) ; type inconnu → la
+      // loi seule, sans numéro inventé. (Jamais l'art. 23-1 : partage des économies de charges.)
+      const refForf = referenceForfaitCharges({ typeBail: ctx.typeBail, nbLocataires: Array.isArray(ctx.locataires) ? ctx.locataires.length : 0 });
       const h = 'Les modalités de règlement des charges récupérables sont modifiées comme suit : ' + b(mode.toLowerCase()) + '. Le montant ' + (forf ? 'du forfait' : 'des provisions mensuelles') + ' de charges est fixé à ' + b(num(d.montant) + ' €') + ' à compter de la date d\'effet. ' +
         (forf
-          ? 'Ce forfait, applicable aux locations meublées et aux colocations, n\'est pas soumis à régularisation et ne peut donner lieu à complément, conformément aux articles 8-1 et 23-1 de la loi du 6 juillet 1989.'
+          ? 'Ce forfait, applicable aux locations meublées et aux colocations, n\'est pas soumis à régularisation et ne peut donner lieu à complément, conformément ' + refForf.acte + '.'
           : 'Ces provisions donnent lieu à une régularisation annuelle au regard des charges réelles, sur justificatifs tenus à la disposition du locataire, conformément à l\'article 23 de la loi du 6 juillet 1989.');
-      return { titre: 'Charges locatives', html: h, base: forf ? 'art. 23-1, loi du 6 juillet 1989' : 'art. 23, loi du 6 juillet 1989' };
+      return { titre: 'Charges locatives', html: h, base: forf ? refForf.base : 'art. 23, loi du 6 juillet 1989' };
     }
     case 'annexe': {
       const add = String(d.act || 'Adjonction') === 'Adjonction';
@@ -278,6 +283,20 @@ export function avenantArticle(k, d, ctx) {
   }
 }
 
+// ── « Lu et approuvé » (décision Didier 30/09 : obligatoire et imprimée, comme sur le bail) ─────────────
+// Signé dans l'app : la mention est imprimée au-dessus de chaque signature (comme drawSignatureBlock pour
+// le bail). Pas encore signé (document à imprimer) : la consigne de l'acte de cautionnement, au-dessus de
+// l'espace où chaque partie signe à la main. Le moteur PDF (doc-native) lit `pro-sigmention`.
+export const LU_APPROUVE = '« Lu et approuvé »';
+// Consigne sur deux lignes : la mention à recopier n'est jamais coupée en fin de ligne.
+const CONSIGNE_LU_APPROUVE = 'Précéder la signature de la mention manuscrite :<br>' + LU_APPROUVE;
+/** Contenu de l'espace de signature d'un cadre : mention + image validée, ou consigne à la main. */
+function _sigspaceHtml(imgHtml) {
+  return imgHtml
+    ? '<em class="pro-sigmention">' + LU_APPROUVE + '</em>' + imgHtml
+    : '<em class="pro-sigmention pro-sigconsigne">' + CONSIGNE_LU_APPROUVE + '</em>';
+}
+
 /**
  * Assemble le document HTML complet de l'avenant.
  * @param {object} ctx - { no, bailleur, locataires:[nom], bien, dateBail, loyer0, effetIso, ville, objets:[{k,data}] }
@@ -290,7 +309,7 @@ export function buildAvenantHtml(ctx) {
   const effet = frDate(ctx.effetIso);
   const entrant = avenantEntrant(objets);
   // Les articles reçoivent la liste des locataires (accords singulier / pluriel, civilités).
-  const actx = { loyer0: ctx.loyer0, locataires: locs, locDetail: ctx.locDetail, garants: ctx.garants };
+  const actx = { loyer0: ctx.loyer0, locataires: locs, locDetail: ctx.locDetail, garants: ctx.garants, typeBail: ctx.typeBail };
   let n = 1, arts = '', caution = false;
   objets.forEach(o => {
     const a = avenantArticle(o.k, o.data, actx);
@@ -324,7 +343,7 @@ export function buildAvenantHtml(ctx) {
   const sigs = Array.isArray(ctx.signatures) ? ctx.signatures : [];
   const sigImg = (u) => (typeof u === 'string' && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(u)) ? '<img src="' + esc(u) + '">' : '';
   const sigHtml = '<div class="pro-signzone' + (signataires.length > 1 ? ' duo' : '') + '">' +
-    signataires.map((s, i) => '<div class="pro-sigcase"><div class="pro-sigspace">' + sigImg(sigs[i]) + '</div>' +
+    signataires.map((s, i) => '<div class="pro-sigcase"><div class="pro-sigspace">' + _sigspaceHtml(sigImg(sigs[i])) + '</div>' +
       '<div class="pro-signbox">' + s.role + '<br><strong>' + esc(s.nom) + '</strong>' + (s.sous ? '<br>' + esc(s.sous) : '') + '</div></div>').join('') +
     '</div>';
 
@@ -416,4 +435,281 @@ export function avenantMontant(raw, prev, opts) {
   if (!isFinite(n) || n < 0) return { ok: false };
   if (opts && opts.strictPositif && !(n > 0)) return { ok: false };
   return { ok: true, v: Math.round(n * 100) / 100 };
+}
+
+// ── Forfait de charges (art. 25-10 meublé / art. 8-1, V colocation) : timeline reconstruite depuis les avenants
+// Le forfait de charges N'EST PAS régularisable (loi 89-462 : art. 25-10 et 8-1, V). L'avenant pose
+// `bail.chForfait`, mais ce flag est NON DATÉ : régulariser un exercice antérieur à la
+// signature (N-1, usage courant) ne doit PAS être court-circuité. On reconstruit donc l'état
+// forfait À LA DATE demandée depuis les avenants (chaque objet charges porte data.mode :
+// « … forfait … » = ON, « … provisions … » = OFF), ce qui gère N-1, l'année de transition et
+// un retour aux provisions. Utilisé par computeRegul pour exclure les charges/provisions
+// datées pendant une période au forfait. Pur (aucune DB / DOM).
+//
+// AVENANT-REFONTE lot 2 (portage v15.704) : les avenants vivent dans le REGISTRE du bail
+// (journal `baux_evenements`, type 'avenant' : { date (= effet), statut, no, objets }), plus
+// les avenants anciens (`bail.avenants[]` : { dateEffet, objets }). L'appelant passe la liste
+// du registre (`avenants`) ; sans elle, on relit `bail.avenants[]` (ancien modèle).
+
+/**
+ * L'avenant est-il APPLIQUÉ au bail (ses changements font foi à sa date d'effet) ?
+ *  - « Signé » : oui ;
+ *  - « À signer » enregistré AVANT le lot 3 (pas de `aLaSignature`) : oui — lot 2 / v15.681 appliquaient
+ *    loyer et charges dès l'enregistrement, et ces avenants restent honorés ;
+ *  - « À signer » du lot 3 (`aLaSignature`) : non, rien ne s'applique avant la signature de toutes les parties ;
+ *  - brouillon, annulé : non ;
+ *  - avenant ancien sans statut (`bail.avenants[]` brut) : oui (il a été appliqué à l'enregistrement).
+ */
+export function avenantApplique(a) {
+  if (!a) return false;
+  if (a.statut == null) return true;
+  return a.statut === 'signe' || (a.statut === 'a_signer' && !a.aLaSignature);
+}
+
+// Date d'effet RÉELLEMENT appliquée : la signature (lot 3) peut recaler la date (1ᵉʳ du mois, mois déjà
+// quittancé…) et la pose dans `effetApplique` ; sinon la date d'effet écrite dans l'avenant.
+function _effetAvenant(a) { return String((a && (a.effetApplique || a.date || a.dateEffet)) || '').slice(0, 10); }
+/** Mode de charges porté par l'avenant (texte), ou null s'il ne change pas le régime des charges. */
+function _modeCharges(a) {
+  const o = a && Array.isArray(a.objets)
+    ? a.objets.find(x => x && x.k === 'charges' && x.data && String(x.data.mode || '').trim() !== '')
+    : null;
+  return o ? String(o.data.mode) : null;
+}
+
+/**
+ * Étapes datées du régime de charges, dans l'ordre d'application (date d'effet, puis n°) :
+ * [{ date, forfait }]. `null` si AUCUN avenant — quel que soit son statut — ne porte de régime de
+ * charges : le flag `bail.chForfait` fait alors foi (forfait d'origine / données anciennes). Dès qu'un
+ * avenant de charges existe, la timeline fait foi : seul un avenant APPLIQUÉ y compte (`avenantApplique` :
+ * signé, ou « À signer » d'avant le lot 3) — brouillon, annulé et « À signer » du lot 3 non ; le flag
+ * (non daté, jamais retiré à l'annulation) n'est plus lu. Date = `effetApplique` sinon date d'effet.
+ * @param {object} bail
+ * @param {Array} [avenants] avenants du bail (registre) ; absent → `bail.avenants[]`
+ */
+export function forfaitEtapes(bail, avenants) {
+  if (!bail) return null;
+  const src = Array.isArray(avenants) ? avenants : (Array.isArray(bail.avenants) ? bail.avenants : []);
+  const charges = src.filter(a => a && _effetAvenant(a) && _modeCharges(a) !== null);
+  if (!charges.length) return null;
+  return charges
+    .filter(avenantApplique)
+    .slice()
+    .sort((x, y) => _effetAvenant(x).localeCompare(_effetAvenant(y)) || ((Number(x.no) || 0) - (Number(y.no) || 0)))
+    .map(a => ({ date: _effetAvenant(a), forfait: _modeCharges(a).toLowerCase().indexOf('forfait') >= 0 }));
+}
+
+/** Le bail est-il au forfait de charges à `dateIso` ? Régime d'origine (avant le 1er avenant charges) = provisions. */
+export function bailForfaitActifLe(bail, dateIso, avenants) {
+  if (!bail || !dateIso) return false;
+  const d = String(dateIso).slice(0, 10);
+  const etapes = forfaitEtapes(bail, avenants);
+  // Pas de timeline charges → fallback sur le flag global (forfait day-1 / legacy).
+  if (etapes === null) return bail.chForfait === true;
+  let etat = false;
+  for (const e of etapes) {
+    if (e.date > d) break;
+    etat = e.forfait;
+  }
+  return etat;
+}
+
+/**
+ * Date d'effet du forfait en vigueur à `toIso` (début de la période continue au forfait), '' si le bail
+ * n'est pas au forfait à cette date ou s'il l'est sans avenant (forfait d'origine : « toute la période »).
+ */
+export function forfaitEffetAu(bail, toIso, avenants) {
+  const etapes = forfaitEtapes(bail, avenants);
+  if (!etapes || !toIso) return '';
+  const t = String(toIso).slice(0, 10);
+  let eff = '';
+  for (const e of etapes) {
+    if (e.date > t) break;
+    eff = e.forfait ? (eff || e.date) : '';
+  }
+  return eff;
+}
+
+/** Faut-il examiner le forfait de ce bail (flag posé ou avenant de charges) ? Court-circuit de computeRegul. */
+export function forfaitPertinent(bail, avenants) {
+  return !!bail && (bail.chForfait === true || forfaitEtapes(bail, avenants) !== null);
+}
+
+// ── AVENANT-REFONTE lot 3b — signature d'un avenant FIGÉ (jamais régénéré depuis le bail actuel) ────────
+// Les cadres de signature sont repérés par un analyseur LINÉAIRE (recherche de chaînes, curseur qui ne
+// recule jamais) et non par une expression régulière : un document forgé, venu du partage SCI, ne peut pas
+// geler l'onglet (audit lot 3b I5).
+const _OUV = '<div class="pro-sigcase"><div class="pro-sigspace">';
+const _MIL = '</div><div class="pro-signbox">';
+const _FIN = '</div></div>';
+/** Cadres du document, dans l'ordre : [{debut, fin, space, box}] (positions dans la chaîne). */
+function _cadres(s) {
+  const out = [];
+  let pos = 0, ferme = -1;   // `ferme` = 1er '</div>' connu après la dernière ouverture (amorti linéaire)
+  for (;;) {
+    const o = s.indexOf(_OUV, pos);
+    if (o < 0) break;
+    const d = o + _OUV.length;
+    if (ferme < d) ferme = s.indexOf('</div>', d);
+    if (ferme < 0) break;                                   // plus aucune fermeture : aucun cadre complet
+    if (s.startsWith(_MIL, ferme)) {
+      const b = ferme + _MIL.length;
+      const f = s.indexOf('</div>', b);
+      if (f < 0) break;
+      if (s.startsWith(_FIN, f)) {
+        out.push({ debut: o, fin: f + _FIN.length, space: s.slice(d, ferme), box: s.slice(b, f) });
+        pos = f + _FIN.length; ferme = -1;
+        continue;
+      }
+    }
+    pos = d;   // ouverture sans cadre complet : on repart juste après
+  }
+  return out;
+}
+const _txt = (h) => String(h == null ? '' : h).replace(/<[^>]*>/g, '')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').trim();
+const _SIG_OK = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
+
+/**
+ * Parties qui signent, lues dans le document de l'avenant tel qu'il a été enregistré (cadres de
+ * signature, dans l'ordre) : c'est le document qui fait foi, pas le bail d'aujourd'hui.
+ * @returns {Array<{role:string, nom:string, sous:string}>} texte brut (à échapper par l'appelant)
+ */
+export function avenantPartiesSignature(html) {
+  return _cadres(String(html == null ? '' : html)).map((c) => {
+    const parts = c.box.split(/<br\s*\/?>/i);
+    return { role: _txt(parts[0]), nom: _txt(parts[1]), sous: _txt(parts.slice(2).join(' ')) };
+  });
+}
+
+/**
+ * Document signé : chaque image (data-URL PNG/JPEG VALIDÉE — le document est partagé, jamais de HTML
+ * injecté tel quel) posée dans le cadre de même rang ; la date de l'acte remplace la ligne à compléter.
+ * « Lu et approuvé » (décision 30/09) : `lus[i]` doit valoir true pour CHAQUE cadre ; la mention est alors
+ * imprimée au-dessus de chaque signature (elle remplace la consigne du document à imprimer).
+ * Retourne null si le nombre de signatures ne correspond pas aux cadres (document incohérent) ou si une
+ * partie n'a pas coché « Lu et approuvé » (signature non valable).
+ */
+export function avenantHtmlSigne(html, sigs, dateActeIso, lus) {
+  const s = String(html == null ? '' : html);
+  const liste = Array.isArray(sigs) ? sigs : [];
+  const cadres = _cadres(s);
+  if (!cadres.length || liste.length !== cadres.length || !liste.every(u => typeof u === 'string' && _SIG_OK.test(u))) return null;
+  if (!Array.isArray(lus) || lus.length !== cadres.length || !lus.every(x => x === true)) return null;
+  let out = '', pos = 0;
+  cadres.forEach((c, i) => {
+    out += s.slice(pos, c.debut) + _OUV + _sigspaceHtml('<img src="' + esc(liste[i]) + '">') + _MIL + c.box + _FIN;
+    pos = c.fin;
+  });
+  out += s.slice(pos);
+  // La ligne « Fait à …, le ____ , en autant… » précisément — jamais des soulignés saisis dans une clause.
+  if (dateActeIso) out = out.replace(', le ____________________, en autant', ', le ' + esc(frDate(dateActeIso)) + ', en autant');
+  return out;
+}
+
+/**
+ * Document à imprimer (signature sur papier) : chaque cadre dont l'espace de signature est VIDE reçoit la
+ * consigne « Précéder la signature de la mention manuscrite… ». Sert aux avenants enregistrés avant la
+ * décision du 30/09 (document figé sans consigne) ; un cadre déjà rempli (consigne, signature) est laissé tel quel.
+ */
+export function avenantHtmlAImprimer(html) {
+  const s = String(html == null ? '' : html);
+  const cadres = _cadres(s);
+  let out = '', pos = 0;
+  cadres.forEach((c) => {
+    out += s.slice(pos, c.debut) + (c.space.trim() ? s.slice(c.debut, c.fin) : _OUV + _sigspaceHtml('') + _MIL + c.box + _FIN);
+    pos = c.fin;
+  });
+  return out + s.slice(pos);
+}
+
+/**
+ * Signature d'une partie sur l'appareil (règle du bail, décision 30/09) : valable seulement tracée ET
+ * « Lu et approuvé » coché. Retourne ce qui manque (texte à l'infinitif) ou null si elle est valable.
+ */
+export function avenantSignatureManque(signe, lu) {
+  if (signe && lu) return null;
+  if (!signe && !lu) return 'signer ET cocher ' + LU_APPROUVE;
+  return signe ? 'cocher ' + LU_APPROUVE : 'signer';
+}
+
+/**
+ * Un objet d'avenant est-il APPLIQUÉ au bail (et non « document seulement ») ? Loyer : le montant change.
+ * Charges : le montant change OU le régime change (forfait ↔ provisions, lu par la régularisation).
+ */
+export function avenantObjetApplique(o, { prevHc, newHc, prevCh, newCh, prevForfait, newForfait } = {}) {
+  if (!o) return false;
+  if (o.k === 'loyer') return newHc !== prevHc;
+  if (o.k === 'charges') return newCh !== prevCh || !!newForfait !== !!prevForfait;
+  return false;
+}
+
+/** Régime demandé par un objet « charges » : true = forfait, false = provisions, null = pas de régime. */
+export function regimeForfaitObjet(o) {
+  if (!o || o.k !== 'charges' || !o.data || String(o.data.mode || '').trim() === '') return null;
+  return String(o.data.mode).toLowerCase().indexOf('forfait') >= 0;
+}
+
+/** Date d'effet réellement appliquée d'un avenant (`effetApplique`, sinon date d'effet écrite). */
+export function effetAvenant(a) { return _effetAvenant(a); }
+
+// ── Forfait de charges : où la loi le prévoit (décision Didier 01/10 : AVERTIR, jamais bloquer) ─────────
+// Loi n° 89-462 (Légifrance, relevé le 01/10/2026) :
+//  - art. 25-10 (location meublée, en vigueur depuis le 27/03/2014) : les charges « sont récupérées par le
+//    bailleur au choix des parties […] 2° Soit sous la forme d'un forfait versé simultanément au loyer » ;
+//  - art. 8-1, V (colocation, version en vigueur depuis le 01/07/2021) : « Les charges locatives accessoires
+//    au loyer principal d'un contrat de bail d'une colocation sont récupérées par le bailleur au choix des
+//    parties […] 2° Soit sous la forme d'un forfait versé simultanément au loyer ».
+// Hors de ces deux cas (bail nu à un seul locataire), seules les provisions avec régularisation (art. 23).
+// NB : « colocation » = 2 locataires ou plus, comme le reste de l'app ; la situation époux / PACS
+// (art. 8-1, I, qui l'exclut de la colocation) sera demandée au lot 4 de l'avenant.
+const TYPES_MEUBLES = ['meuble', 'etudiant', 'mobilite'];
+const LOI_1989 = 'loi n° 89-462 du 6 juillet 1989';
+
+/**
+ * Référence légale du FORFAIT de charges pour un bail — source UNIQUE (acte d'avenant, régularisation,
+ * décomptes, avertissement). Meublé → art. 25-10 ; colocation (2 locataires ou plus) → art. 8-1, V ;
+ * les deux → les deux ; type indéterminable (ou bail nu à un seul locataire, où la loi ne prévoit pas le
+ * forfait) → la loi seule, SANS numéro d'article inventé.
+ * @returns {{article:string, citation:string, acte:string, base:string}}
+ *   article : « art. 25-10 » / « art. 8-1, V » / « art. 8-1, V et 25-10 » / '' ;
+ *   citation : pour l'écran et les décomptes ; acte : suite de « conformément … » dans un acte ;
+ *   base : mention entre parenthèses sous un article d'avenant.
+ */
+export function referenceForfaitCharges({ typeBail, nbLocataires } = {}) {
+  const arts = [];
+  if ((Number(nbLocataires) || 0) > 1) arts.push('8-1, V');
+  if (TYPES_MEUBLES.indexOf(String(typeBail || '')) >= 0) arts.push('25-10');
+  if (!arts.length) {
+    return { article: '', citation: LOI_1989 + ' (forfait de charges)', acte: 'à la loi du 6 juillet 1989', base: 'loi du 6 juillet 1989' };
+  }
+  const article = 'art. ' + arts.join(' et ');
+  return {
+    article,
+    citation: article + ', ' + LOI_1989,
+    acte: (arts.length === 1 ? 'à l\'article ' + arts[0] : 'aux articles ' + arts.join(' et ')) + ' de la loi du 6 juillet 1989',
+    base: article + ', loi du 6 juillet 1989',
+  };
+}
+
+/** Le forfait de charges est-il prévu par la loi pour ce bail (meublé ou colocation) ? */
+export function forfaitChargesPrevu(typeBail, nbLocataires) {
+  return TYPES_MEUBLES.indexOf(String(typeBail || '')) >= 0 || (Number(nbLocataires) || 0) > 1;
+}
+
+/**
+ * Avertissement (NON bloquant) à l'enregistrement d'un avenant qui pose un forfait de charges sur un bail
+ * où la loi ne le prévoit pas (bail nu à un seul locataire). null si sans objet.
+ * @param {Array<{k,data}>} objets  objets de l'avenant
+ * @param {{typeBail:string, nbLocataires:number}} ctx
+ */
+export function avertissementForfaitCharges(objets, { typeBail, nbLocataires } = {}) {
+  const forfait = (Array.isArray(objets) ? objets : []).some((o) => regimeForfaitObjet(o) === true);
+  if (!forfait || forfaitChargesPrevu(typeBail, nbLocataires)) return null;
+  // Articles tirés de la source unique (DRY) : meublé seul / colocation seule.
+  const meuble = referenceForfaitCharges({ typeBail: 'meuble', nbLocataires: 1 }).article;
+  const coloc = referenceForfaitCharges({ typeBail: 'nu', nbLocataires: 2 }).article;
+  return 'Forfait de charges sur un bail nu à un seul locataire : la loi du 6 juillet 1989 ne prévoit le forfait '
+    + "qu'en location meublée (" + meuble + ') ou en colocation (' + coloc + '). Hors de ces cas, les charges se '
+    + "récupèrent par provisions avec régularisation annuelle (art. 23). Vérifier la nature du bail avant d'enregistrer.";
 }

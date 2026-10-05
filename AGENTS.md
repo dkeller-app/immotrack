@@ -7,7 +7,7 @@
 
 ## 🎯 Le projet en 3 lignes
 
-ImmoTrack est une **app web vanilla JS de gestion locative immobilière**, monolithe HTML+CSS+JS dans un seul fichier `index.html` (~31 000 lignes). Architecture **offline-first** (IndexedDB + localStorage) avec sync **Google Drive optionnelle** (OAuth GIS browser-only). Pas de backend, pas de framework, pas de bundler. Maintenue en solo par Didier Keller (dev solo) et destinée à devenir un **SaaS commercial** (V1 prévue Q4 2026).
+ImmoTrack est une **app web vanilla JS de gestion locative immobilière**, HTML+CSS+JS : `index.html` (coquille ~0,4 Mo : écran de connexion statique + balises) et le code applicatif dans `js/app/app-part{1,2,3}.js` (~4 Mo, ex-scripts inline d'index.html, chargés en scripts classiques synchrones, même ordre). Architecture **offline-first** (IndexedDB + localStorage) avec sync **Google Drive optionnelle** (OAuth GIS browser-only). Pas de backend, pas de framework, pas de bundler. Maintenue en solo par Didier Keller (dev solo) et destinée à devenir un **SaaS commercial** (V1 prévue Q4 2026).
 
 ---
 
@@ -18,7 +18,7 @@ ImmoTrack est une **app web vanilla JS de gestion locative immobilière**, monol
 | Frontend | Vanilla JS (ES6+), HTML5, CSS3 (variables CSS, mode sombre, responsive) |
 | Storage | localStorage (DB JSON ~700 Ko) + IndexedDB (`immotrack_photos` pour photos EDL) |
 | Sync | Google Drive API v3 + OAuth Google Identity Services (GIS), scope `drive.file` |
-| PDF | jsPDF + html2canvas (inlinés en base64 dans `index.html` pour bypass CORS file://) |
+| PDF | jsPDF + html2canvas + pdf.js + pdf-lib (base64 dans `js/vendor/pdf-libs.b64.js`, chargés à la demande par `window.ensurePdfLibs()`, préchargés après connexion) |
 | Excel | SheetJS (xlsx) embarqué |
 | Charts | SVG natif + helpers `_mkSparkline`, `_mkMultiLineChart` |
 | PWA | Service Worker (`sw.js`) + manifest |
@@ -31,7 +31,8 @@ ImmoTrack est une **app web vanilla JS de gestion locative immobilière**, monol
 
 ```
 Immo/
-├── index.html              ← PROD (31k lignes monolithe). NE PAS toucher sans validation user.
+├── index.html              ← PROD (coquille ~0,4 Mo ; le code applicatif est dans js/app/app-part*.js). NE PAS toucher sans validation user.
+│                             ⚠️ Après toute modif de js/app/app-part*.js, css/login.css ou js/vendor/pdf-libs.b64.js : `node tools/stamp-app-parts.mjs` (empreintes ?v=, test app-parts-stamp). Les tests lisent un index.html « assemblé » (__tests__/setup/index-html-assembled.js).
 ├── index-test.html         ← SANDBOX bac à sable. C'est ICI qu'on modifie.
 ├── sw.js                   ← Service Worker PWA
 ├── package.json            ← Minimal (pas de deps npm, juste métadonnées)

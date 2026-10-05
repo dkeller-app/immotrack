@@ -45,6 +45,9 @@ export default defineConfig({
     reporters: ['default'],
 
     // Timeout par test (5s par défaut)
-    testTimeout: 5000
+    testTimeout: 5000,
+
+    // index.html « assemblé » (perf étape 2) : voir __tests__/setup/index-html-assembled.js
+    setupFiles: ['__tests__/setup/index-html-assembled.js']
   }
 })

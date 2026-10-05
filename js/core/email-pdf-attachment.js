@@ -113,6 +113,7 @@ async function _ensureNativePdfLibs() {
   }
   // Repli (contexte hors monolithe) : charge jsPDF puis, une seule fois, le plugin autotable.
   await _ensureJsPdfLoaded();
+  if (typeof window !== 'undefined' && typeof window.ensurePdfLibs === 'function') { try { await window.ensurePdfLibs(); } catch (err) { /* repli ci-dessous */ } }
   if (!_autotableReady() && typeof document !== 'undefined' && window._BAIL_PDF_LIBS && window._BAIL_PDF_LIBS.autotable) {
     await new Promise(resolve => {
       try {
@@ -172,7 +173,11 @@ function _ensureJsPdfLoaded() {
   // Pas de DOM/window (Vitest node sans jsdom) — impossible de charger
   if (typeof window === 'undefined' || typeof document === 'undefined') return Promise.resolve(false);
   if (typeof document.createElement !== 'function') return Promise.resolve(false);
-  // Pas de _BAIL_PDF_LIBS inliné → rien à décoder
+  // Libs PDF non chargées : on les demande (chargement à la demande, js/vendor/pdf-libs.b64.js), puis on réessaie
+  if (!window._BAIL_PDF_LIBS && typeof window.ensurePdfLibs === 'function') {
+    return window.ensurePdfLibs().then(() => _ensureJsPdfLoaded(), () => false);
+  }
+  // Pas de _BAIL_PDF_LIBS → rien à décoder
   if (!window._BAIL_PDF_LIBS || !window._BAIL_PDF_LIBS.jspdf) return Promise.resolve(false);
 
   return new Promise(resolve => {
