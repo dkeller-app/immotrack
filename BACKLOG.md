@@ -1,7 +1,7 @@
 # Propryo — Backlog actif
 ## 🔥 RETOURS-2026-10-05 (Ferrette 101/102/103) — 🔍 DIAGNOSTIQUÉ, ⏳ GO Didier lot A
 **Lot A (bugs francs, correctifs rédigés)** : A1 `saveBail` boucle DDT ↔ popup financière → modif charges jamais enregistrée · A2 matrice « Signer le bail » sur bail signé (clés `signatures.bailleur/locataire` jamais écrites) · A3 « Faire l'EDL » (`DB.edls` au lieu de `DB.edl`) · A4 DPE joint → plomb/amiante détectés (mot « amiante » nu) · A5 CREP avec plomb 1 an au lieu de 6 ans (location) · A6 Diag rouge locataire en place (jugé à aujourd'hui au lieu de la conclusion du bail).
-**Lots B/C** : 3 blocs Loyers, libellé logement ≠ réf, DG versé hors mouvement, MRH (PJ avant save, Documents, fiche lecture), bail/EDL externes, fil rouge IRL + lettre, corriger/annuler une modif de bail, vue logements, civilités, date dans les titres. Détail : `docs/subjects/RETOURS-2026-10-05.md`.
+**Lots B/C** : 3 blocs Loyers, libellé logement ≠ réf, DG versé hors mouvement, MRH (PJ avant save, Documents, fiche lecture), bail/EDL externes, fil rouge IRL + lettre, corriger/annuler une modif de bail, vue logements, civilités, date dans les titres. **Lot D (Mouvements)** : pas de catégorie assurance prêt, règle non appliquée à la ligne source ni aux mouvements en base, « Mémoriser la règle » sans contrôle (doublons), pas de règle depuis un mouvement enregistré, refonte règles à maquetter. Détail : `docs/subjects/RETOURS-2026-10-05.md`.
 
 
 ## 🚦 MAIN = **v15.699** (29/09) — FICHE BIEN TÉLÉPHONE : débordement corrigé (GO Didier, `e8de237c`), ⏳ smoke
