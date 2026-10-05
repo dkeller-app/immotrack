@@ -39,10 +39,11 @@
    *            1 mois (art. 25-8 I).
    *   etudiant JAMAIS reconduit (art. 25-7 al. 4) : il prend fin à son terme, sans congé.
    *   mobilite JAMAIS reconduit (art. 25-14 al. 1) : il prend fin à son terme, sans congé.
-   *   garage   reconduit si le CONTRAT le prévoit. Celui de l'app le prévoit (bail-garage §3 : « le
-   *            contrat se renouvelle par tacite reconduction pour des périodes successives d'une
-   *            durée équivalente »). Un bail REPRIS à l'achat n'a pas été rédigé par l'app : son
-   *            contrat n'est pas connu, il n'est donc pas reconduit ici.
+   *   garage   reconduit si le CONTRAT le prévoit. Le contrat garage de l'app le prévoit (bail-garage
+   *            §3 : « le contrat se renouvelle par tacite reconduction pour des périodes successives
+   *            d'une durée équivalente ») depuis son branchement le 04/09/2026. Seul un garage SIGNÉ
+   *            dans l'app à partir de cette date est donc reconduit ici. Signé avant, repris à l'achat,
+   *            jamais signé : le texte du contrat n'est pas établi → arrivé à terme, « contrat à vérifier ».
    *   autre    le contrat de l'app ne prévoit pas de reconduction (« librement définies entre les
    *            parties ») : il arrive à son terme.
    *
@@ -77,8 +78,30 @@
   function regleReconduction(bail, log) {
     const t = typeBailEffectif(bail, log);
     if (reconductionLegale(t)) return 'loi';
-    if (t === 'garage' && !(bail && bail.typeContrat === 'repris')) return 'contrat';
+    if (t === 'garage' && garageContratAppReconductible(bail)) return 'contrat';
     return null;
+  }
+
+  /** Date du branchement du contrat garage de l'app (bail-garage, clause de tacite reconduction §3). */
+  const DATE_CONTRAT_GARAGE_APP = '2026-09-04';
+
+  /** Date de signature 'YYYY-MM-DD' d'un bail signé dans l'app, '' sinon. */
+  function _dateSignature(bail) {
+    const s = bail && bail.signatures && bail.signatures.signedAt;
+    if (!s) return '';
+    if (typeof s === 'number') { const d = new Date(s); return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10); }
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(s));
+    return m ? m[1] : '';
+  }
+
+  /**
+   * Ce garage porte-t-il, À COUP SÛR, la clause de tacite reconduction du contrat de l'app ?
+   * Oui seulement s'il a été SIGNÉ dans l'app à partir du 04/09/2026 et n'est pas un bail repris.
+   */
+  function garageContratAppReconductible(bail) {
+    if (!bail || bail.typeContrat === 'repris') return false;
+    const d = _dateSignature(bail);
+    return !!d && d >= DATE_CONTRAT_GARAGE_APP;
   }
 
   /** Préavis du congé BAILLEUR avant l'échéance, en mois (null = pas de congé à délivrer par la loi de 1989). */
@@ -250,7 +273,7 @@
     const meuble = ech.type === 'etudiant' || ech.type === 'mobilite';
     const texte = meuble
       ? 'Bail arrivé à terme le ' + fd(ech.finContrat) + ', non reconductible : signer un nouveau bail meublé ou déclarer le départ.'
-      : 'Bail arrivé à terme le ' + fd(ech.finContrat) + ' : signer un nouveau bail ou déclarer le départ.';
+      : 'Bail arrivé à terme le ' + fd(ech.finContrat) + ', contrat à vérifier : signer un nouveau bail ou déclarer le départ.';
     return { type: ech.type, fin: ech.finContrat, texte, nouveauBailMeuble: meuble };
   }
 
@@ -272,7 +295,7 @@
     if (ech && ech.regle === 'loi') return 'Échéance du bail — prévoir renouvellement ou congé. Sans congé, le bail est reconduit (' + (ech.type === 'meuble' ? 'art. 25-7' : 'art. 10') + ' de la loi du 6 juillet 1989).';
     if (ech && ech.regle === 'contrat') return 'Échéance du bail — sans congé, le contrat se renouvelle par tacite reconduction pour une durée équivalente (clause du contrat).';
     if (ech && (ech.type === 'etudiant' || ech.type === 'mobilite')) return 'Fin du bail, non reconductible : signer un nouveau bail meublé ou déclarer le départ.';
-    return 'Fin du bail : signer un nouveau bail ou déclarer le départ.';
+    return 'Fin du bail, contrat à vérifier : signer un nouveau bail ou déclarer le départ.';
   }
 
   // ─── EXPORT GLOBAL ───────────────────────────────────────────────
@@ -281,6 +304,8 @@
     typeBailEffectif: typeBailEffectif,
     reconductionLegale: reconductionLegale,
     regleReconduction: regleReconduction,
+    DATE_CONTRAT_GARAGE_APP: DATE_CONTRAT_GARAGE_APP,
+    garageContratAppReconductible: garageContratAppReconductible,
     preavisBailleurMois: preavisBailleurMois,
     preavisLocataireMois: preavisLocataireMois,
     ajouterJours: ajouterJours,

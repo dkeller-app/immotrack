@@ -102,7 +102,8 @@ describe('echeanceInfo — vert/orange/rouge + NaN safe (règle du type)', () =>
   });
 
   it("bail GARAGE de l'app échu → reconduit par son contrat ; garage repris → arrivé à terme", () => {
-    expect(E({ type: 'garage', debut: '2025-10-01', fin: '2026-09-30' }).text).toBe('Tacite reconduction');
+    expect(E({ type: 'garage', debut: '2025-10-01', fin: '2026-09-30', signatures: { signedAt: '2026-09-10T10:00:00Z' } }).text).toBe('Tacite reconduction');
+    expect(E({ type: 'garage', debut: '2025-10-01', fin: '2026-09-30' }).cls).toBe('err');   // jamais signé : contrat à vérifier
     expect(E({ type: 'garage', typeContrat: 'repris', debut: '2025-10-01', fin: '2026-09-30' }).cls).toBe('err');
   });
 

@@ -31,9 +31,14 @@ describe('qui reconduit ? (une règle par type)', () => {
     expect(reconductionLegale('garage')).toBe(false);
     expect(reconductionLegale('autre')).toBe(false);
   });
-  it('le contrat : le garage rédigé par l\'app (clause de tacite reconduction) ; pas un bail repris', () => {
-    expect(regleReconduction({ type: 'garage' })).toBe('contrat');
-    expect(regleReconduction({ type: 'garage', typeContrat: 'repris' })).toBe(null);
+  it('le contrat : seul un garage SIGNÉ dans l\'app depuis le 04/09/2026 porte à coup sûr la clause de reconduction', () => {
+    expect(regleReconduction({ type: 'garage', signatures: { signedAt: '2026-09-04T08:00:00Z' } })).toBe('contrat');
+    expect(regleReconduction({ type: 'garage', signatures: { signedAt: '2026-09-10T10:00:00Z' } })).toBe('contrat');
+    expect(regleReconduction({ type: 'garage', signatures: { signedAt: Date.UTC(2026, 8, 20) } })).toBe('contrat');
+    expect(regleReconduction({ type: 'garage', signatures: { signedAt: '2026-09-03T23:00:00Z' } })).toBe(null);   // signé avant
+    expect(regleReconduction({ type: 'garage' })).toBe(null);                                                    // jamais signé
+    expect(regleReconduction({ type: 'garage', signatures: {} })).toBe(null);
+    expect(regleReconduction({ type: 'garage', typeContrat: 'repris', signatures: { signedAt: '2026-09-10T10:00:00Z' } })).toBe(null);           // repris
     expect(regleReconduction({ type: 'autre' })).toBe(null);
     expect(regleReconduction({ type: 'etudiant' })).toBe(null);
     expect(regleReconduction({ type: 'mobilite' })).toBe(null);
@@ -135,13 +140,17 @@ describe('échéance — étudiant et mobilité : jamais reconduits', () => {
 });
 
 describe('échéance — garage et autre : le contrat', () => {
-  it('garage de l\'app : reconduit pour une durée ÉQUIVALENTE (1 an → 1 an)', () => {
-    const b = { type: 'garage', debut: '2024-01-01', fin: '2024-12-31' };
+  it('garage signé dans l\'app : reconduit pour une durée ÉQUIVALENTE (1 an → 1 an)', () => {
+    const b = { type: 'garage', debut: '2024-01-01', fin: '2024-12-31', signatures: { signedAt: '2026-09-10T10:00:00Z' } };
     expect(echeanceBail(b, null, { todayIso: AUJ })).toMatchObject({ statut: 'reconduit', regle: 'contrat', prochaine: '2026-12-31' });
   });
   it('garage repris (contrat non rédigé par l\'app) → arrivé à terme', () => {
     const b = { type: 'garage', typeContrat: 'repris', debut: '2024-01-01', fin: '2024-12-31' };
     expect(echeanceBail(b, null, { todayIso: AUJ }).statut).toBe('arrive_a_terme');
+  });
+  it('garage signé AVANT le 04/09/2026 ou jamais signé → arrivé à terme (contrat à vérifier)', () => {
+    expect(echeanceBail({ type: 'garage', debut: '2024-01-01', fin: '2024-12-31', signatures: { signedAt: '2024-01-01T10:00:00Z' } }, null, { todayIso: AUJ }).statut).toBe('arrive_a_terme');
+    expect(echeanceBail({ type: 'garage', debut: '2024-01-01', fin: '2024-12-31' }, null, { todayIso: AUJ }).statut).toBe('arrive_a_terme');
   });
   it('autre → arrivé à terme ; garage sans date de fin → inconnue', () => {
     expect(echeanceBail({ type: 'autre', debut: '2024-01-01', fin: '2025-12-31' }, null, { todayIso: AUJ }).statut).toBe('arrive_a_terme');
@@ -153,7 +162,7 @@ describe('pastille d\'échéance', () => {
   const p = (b, o) => pastilleEcheance(echeanceBail(b, null, Object.assign({ todayIso: AUJ }, o)), { todayIso: AUJ });
   it('reconduit → « Tacite reconduction » ; arrivé à terme → « Arrivé à terme (date) » ; jamais « Échu »', () => {
     expect(p({ type: 'nu', debut: '2015-01-01', fin: '2023-12-31' }, { typeEntite: PHYS })).toEqual({ cls: 'ok', text: 'Tacite reconduction', urgent: false });
-    expect(p({ type: 'garage', debut: '2024-01-01', fin: '2024-12-31' })).toEqual({ cls: 'ok', text: 'Tacite reconduction', urgent: false });
+    expect(p({ type: 'garage', debut: '2024-01-01', fin: '2024-12-31', signatures: { signedAt: '2026-09-10T10:00:00Z' } })).toEqual({ cls: 'ok', text: 'Tacite reconduction', urgent: false });
     expect(p({ type: 'etudiant', debut: '2025-09-01', fin: '2026-05-31' })).toEqual({ cls: 'err', text: 'Arrivé à terme (31/05/2026)', urgent: true });
   });
   it('en cours : la date, orange avec les jours restants sous 90 j', () => {
@@ -174,11 +183,11 @@ describe('alerte « bail arrivé à terme » — neutre, à l\'infinitif, jamais
   });
   it('garage repris / autre : nouveau bail ou départ, sans rien affirmer de plus', () => {
     const a = alerteArriveATerme({ type: 'autre', debut: '2024-01-01', fin: '2025-12-31' }, null, { todayIso: AUJ });
-    expect(a.texte).toBe('Bail arrivé à terme le 31/12/2025 : signer un nouveau bail ou déclarer le départ.');
+    expect(a.texte).toBe('Bail arrivé à terme le 31/12/2025, contrat à vérifier : signer un nouveau bail ou déclarer le départ.');
   });
   it('aucune alerte : bail reconduit, en cours, départ déclaré, clôturé', () => {
     expect(alerteArriveATerme({ type: 'nu', debut: '2015-01-01', fin: '2023-12-31' }, null, { typeEntite: PHYS, todayIso: AUJ })).toBe(null);
-    expect(alerteArriveATerme({ type: 'garage', debut: '2024-01-01', fin: '2024-12-31' }, null, { todayIso: AUJ })).toBe(null);
+    expect(alerteArriveATerme({ type: 'garage', debut: '2024-01-01', fin: '2024-12-31', signatures: { signedAt: '2026-09-10T10:00:00Z' } }, null, { todayIso: AUJ })).toBe(null);
     expect(alerteArriveATerme({ type: 'etudiant', debut: '2026-09-01', fin: '2027-05-31' }, null, { todayIso: AUJ })).toBe(null);
     expect(alerteArriveATerme({ type: 'etudiant', debut: '2025-09-01', fin: '2026-05-31', depart: { dateSortie: '2026-11-01' } }, null, { todayIso: AUJ })).toBe(null);
     expect(alerteArriveATerme({ type: 'etudiant', debut: '2025-09-01', fin: '2026-05-31', cloture: true }, null, { todayIso: AUJ })).toBe(null);
@@ -203,7 +212,7 @@ describe('note d\'agenda « Fin de bail »', () => {
     expect(noteFinDeBail({ regle: 'loi', type: 'meuble' })).toMatch(/art\. 25-7/);
     expect(noteFinDeBail({ regle: 'contrat', type: 'garage' })).toMatch(/clause du contrat/);
     expect(noteFinDeBail({ regle: null, type: 'etudiant' })).not.toMatch(/reconduit\b/);
-    expect(noteFinDeBail({ regle: null, type: 'autre' })).toBe('Fin du bail : signer un nouveau bail ou déclarer le départ.');
+    expect(noteFinDeBail({ regle: null, type: 'autre' })).toBe('Fin du bail, contrat à vérifier : signer un nouveau bail ou déclarer le départ.');
   });
   it('dateFr', () => { expect(dateFr('2026-05-31')).toBe('31/05/2026'); expect(dateFr('x')).toBe(''); });
 });

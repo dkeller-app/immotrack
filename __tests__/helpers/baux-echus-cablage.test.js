@@ -48,7 +48,7 @@ describe('pastille d\'échéance (_locEcheanceInfo) — même règle que la fris
   const db = { entites: ENT, logements: LOGS(['N', 'E', 'G', 'GR', 'M', 'A']), baux: {
     N: { ref: 'N', type: 'nu', entity: 'Perso', debut: '2015-01-01', fin: '2023-12-31' },
     E: { ref: 'E', type: 'etudiant', debut: '2025-09-01', fin: '2026-05-31' },
-    G: { ref: 'G', type: 'garage', debut: '2024-01-01', fin: '2024-12-31' },
+    G: { ref: 'G', type: 'garage', debut: '2024-01-01', fin: '2024-12-31', signatures: { signedAt: '2026-09-10T10:00:00Z' } },
     GR: { ref: 'GR', type: 'garage', typeContrat: 'repris', debut: '2024-01-01', fin: '2024-12-31' },
     M: { ref: 'M', type: 'mobilite', debut: '2026-01-01' },
     A: { ref: 'A', type: 'autre', debut: '2024-01-01', fin: '2025-12-31' }
@@ -145,7 +145,9 @@ describe('alerte « bail arrivé à terme » (_bailAlerteTerme) — texte neutre
   });
   it('garage de l\'app (reconduit par son contrat) : aucune alerte', () => {
     const F = monter({ entites: ENT, logements: [], baux: {} });
-    expect(F._bailAlerteTerme({ type: 'garage', debut: '2024-01-01', fin: '2024-12-31' }, null)).toBe(null);
+    expect(F._bailAlerteTerme({ type: 'garage', debut: '2024-01-01', fin: '2024-12-31', signatures: { signedAt: '2026-09-10T10:00:00Z' } }, null)).toBe(null);
+    expect(F._bailAlerteTerme({ type: 'garage', debut: '2024-01-01', fin: '2024-12-31' }, null).texte)
+      .toBe('Bail arrivé à terme le 31/12/2024, contrat à vérifier : signer un nouveau bail ou déclarer le départ.');
   });
 });
 
