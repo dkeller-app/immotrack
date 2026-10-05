@@ -22131,7 +22131,14 @@ function exportBailWord(bail, log, ref) {
   // CHANTIER BAIL-GARAGE — genBailHTML (template Word) est un modèle loi 89 codé en dur, sans
   // conscience du type : pour un garage il produirait un bail d'habitation FAUX. Le PDF natif
   // (via buildBailStructure → route garage) reste le chemin officiel. On bloque le Word ici.
-  if (bail.type === 'garage') { showToast('Export Word indisponible pour un bail garage (droit commun) — utilisez le PDF.', 'warn', 6000); return; }
+  // BAUX-ECHUS — le modèle Word est un modèle de bail NU (durée 3/6 ans, art. 10, congé art. 15) : pour un
+  // meublé, un étudiant, une mobilité ou un « autre », il produirait des clauses fausses. Même traitement
+  // que le garage : le PDF natif (buildBailStructure, clauses par type) est le chemin officiel.
+  const _tWord = _bailTypeEff(bail, log);
+  if (_tWord !== 'nu') {
+    const _lblWord = { garage: 'garage (droit commun)', meuble: 'meublé', etudiant: 'étudiant', mobilite: 'mobilité', autre: '« autre » (régime libre)' }[_tWord] || _tWord;
+    showToast('Export Word indisponible pour un bail ' + _lblWord + ' — utilisez le PDF.', 'warn', 6000); return;
+  }
   const ent  = DB.entites.find(e=>e.nom===bail.entity)||{};
   const locs = bail.locataires || (bail.nom ? [{nom:bail.nom,ddn:bail.ddn,lieuNaiss:bail.lieuNaiss}] : []);
   const totalMensuel = (bail.hc||0)+(bail.ch||0);
