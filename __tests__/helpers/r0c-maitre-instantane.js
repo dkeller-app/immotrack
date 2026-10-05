@@ -58,7 +58,12 @@ export function calculerInstantane(compute = _computeFinancesMonthly) {
     const res = {};
     for (const year of [2023, 2024, 2025, 2026]) {
       const win = computeConstatWindow({ year, today: TODAY_INSTANTANE, mouvements });
-      const base = { mouvements, year, catLigne, isEcheance, isRecupCharge, loyerDue, activeLots: refs, today: TODAY_INSTANTANE };
+      // Résolveur des dépenses hors 2044 ACTIF, calqué sur la production (05/10) : les jeux contiennent
+      // des dépôts de garantie, des échéances de prêt et de l'eau récupérable — aucun ne doit basculer
+      // dans les nouveaux postes. Sans lui, l'instantané ne prouverait rien sur la branche réelle.
+      const chargeHorsFiscal = (m) => ({ 'Travaux de construction / agrandissement (non déductible)': 'construction',
+        'Divers (non déductible)': 'nonDeductible' })[m && m.cat] || null;
+      const base = { mouvements, year, catLigne, isEcheance, isRecupCharge, chargeHorsFiscal, loyerDue, activeLots: refs, today: TODAY_INSTANTANE };
       res[year] = {
         fenetre: forme(compute({ ...base, window: win })),
         numerique: forme(compute({ ...base, lastMonth: 7 })),

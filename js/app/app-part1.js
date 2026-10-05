@@ -10013,7 +10013,8 @@ function _dgNbDetenusDuLot(l) { return _dgDetenusDuLot(l).length; }
  * et ce que `_finMonthly` lui injecte, :56526-56532) :
  *   'loyer'   ligne 211 — loyers ET provisions de charges ;
  *   'recette' lignes 212/213/214 — recettes diverses, indemnités GLI, subventions ;
- *   'charge'  échéance de prêt entière, CFE/TLV, charges récupérables directes, 221→230 ;
+ *   'charge'  échéance de prêt entière, frais bancaires, charges récupérables directes, 221→230,
+ *             travaux d'agrandissement et dépenses non déductibles (drapeau `chargeHf`) ;
  *   null      hors résultat — exactement ce que le moteur ignore.
  *
  * « Travaux de construction / agrandissement » et « Divers (non déductible) » sont de VRAIES

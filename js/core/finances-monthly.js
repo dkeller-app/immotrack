@@ -214,8 +214,8 @@ export function _computeFinancesMonthly(input) {
 
     // Échéance de prêt (cat « Prêt ») = mensualité entière → ligne « Prêt » (jamais via catLigne).
     if (isEcheance(mv)) { b.pret += (db - cr) * w; return; }
-    // CFE / taxe logements vacants (flag gestionCharge, cat special) : charge propriétaire RÉELLE
-    // mais HORS base 2044. Captée avant catLigne (qui renverrait null pour une cat special).
+    // Frais bancaires (flag gestionCharge — seule catégorie du référentiel à le porter) : charge
+    // propriétaire RÉELLE mais HORS base 2044. Captée avant catLigne (qui renverrait null).
     if (isGestionCharge(mv)) { b.gestionHF += (db - cr) * w; return; }
     // Travaux d'agrandissement et dépenses non déductibles : sans ligne 2044, ils étaient JETÉS par
     // le filtre ci-dessous — 12 500 € de travaux payés n'apparaissaient nulle part dans le cash-flow.

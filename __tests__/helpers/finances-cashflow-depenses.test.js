@@ -125,6 +125,36 @@ describe('Le branchement RÉEL de l’app — `_finMonthly` lu dans le code, ré
   });
 });
 
+describe('Compte de résultat — une ligne de charge se montre dès qu’elle porte un montant QUELQUE PART', () => {
+  // L-4 : « Total charges propriétaire = somme exacte des lignes visibles ». Sur la seule année N,
+  // un chantier de l'an dernier (colonne N-1) ou un achat et son avoir dans l'année (colonnes
+  // mensuelles) étaient comptés dans le total mais leur ligne restait masquée.
+  it('les lignes conditionnelles testent N, N-1 et chaque mois — pas seulement l’annuel N', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const { dirname, resolve } = await import('node:path');
+    const html = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..', 'index.html'), 'utf8').replace(/\r/g, '');
+    const i = html.indexOf('function _finRenderPLv2('), j = html.indexOf('\n}', i);
+    expect(i, '_finRenderPLv2 introuvable').toBeGreaterThan(-1);
+    const corps = html.slice(i, j);
+    const helper = corps.match(/const _visible = k => (\[[^\]]+\])\.concat\(cur\.months \|\| \[\]\)\.some/);
+    expect(helper, 'le helper ne regarde plus N, N-1 et les mois').toBeTruthy();
+    expect(helper[1]).toBe('[a, p]');
+    for (const k of ['gestionHF', 'construction', 'nonDeductible', 'autres']) {
+      expect(corps, k + ' : la ligne redevient conditionnée au seul annuel N').toContain("_visible('" + k + "')");
+      expect(corps, k + ' : ancienne condition revenue').not.toContain('Math.abs((a && a.' + k + ') || 0) > 0.005 ?');
+    }
+  });
+
+  it('la règle elle-même : un montant en N-1 ou dans un seul mois rend la ligne visible', () => {
+    // Même expression que le code, exécutée : annuel N nul, N-1 non nul → visible.
+    const _visible = (a, p, months) => k => [a, p].concat(months || []).some(o => Math.abs((o && o[k]) || 0) > 0.005);
+    expect(_visible({ construction: 0 }, { construction: 12500 }, [])('construction')).toBe(true);
+    expect(_visible({ nonDeductible: 0 }, {}, [{ nonDeductible: 3000 }, { nonDeductible: -3000 }])('nonDeductible')).toBe(true);
+    expect(_visible({ construction: 0 }, {}, [{ construction: 0 }])('construction')).toBe(false);
+  });
+});
+
 describe('Compatibilité — sans le résolveur, rien ne change', () => {
   it('un appelant qui n’injecte pas `chargeHorsFiscal` garde l’ancien comportement', () => {
     // Les harnais et instantanés écrits avant le 05/10 n'injectent rien : ils doivent rester stables.

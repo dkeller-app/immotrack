@@ -29840,6 +29840,11 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
   if (!prev) prev = _finMonthly(yr - 1, scope, W ? W.n1 : lastMonth);   // N-1 sur la MÊME période
   if (!cur) { host.innerHTML = ''; return; }
   const a = cur.annual, p = (prev && prev.annual) || {};
+  // L-4 : une ligne de charge s'affiche dès qu'elle porte un montant QUELQUE PART dans le tableau —
+  // l'année N, la colonne N-1 ou un mois. Sur la seule année N, un chantier de l'an dernier (ou un
+  // achat et son avoir dans l'année) masquait la ligne alors que N-1 ou le mois la comptait dans le
+  // « Total charges propriétaire » : le total ne valait plus la somme des lignes visibles.
+  const _visible = k => [a, p].concat(cur.months || []).some(o => Math.abs((o && o[k]) || 0) > 0.005);
   // Colonnes N-1 (même période) + Var affichées SEULEMENT si l'entité a un historique sur la période.
   const hasN1 = !!(prev && prev.annual && ((prev.annual.loyersHC || 0) !== 0 || (prev.annual.charges || 0) !== 0 || (prev.annual.pret || 0) !== 0));
   const months = cur.months.slice().reverse();   // mois courant à gauche, on remonte à l'envers
@@ -29871,13 +29876,13 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     R('Travaux &amp; entretien', o => o.travaux, { charge: true, kind: 'travaux' }),
     R('Honoraires &amp; gestion', o => o.honoraires, { charge: true, kind: 'honoraires' }),
     R('Assurance PNO / GLI', o => o.assurance, { charge: true, kind: 'assurance' }),
-    ...(Math.abs((a && a.gestionHF) || 0) > 0.005 ? [R('Frais bancaires <span class="b4-x">hors 2044</span>', o => o.gestionHF, { charge: true, kind: 'gestionHF' })] : []),
+    ...(_visible('gestionHF') ? [R('Frais bancaires <span class="b4-x">hors 2044</span>', o => o.gestionHF, { charge: true, kind: 'gestionHF' })] : []),
     // 05/10 (Didier) : dépenses réelles hors 2044, jusqu'ici absentes du cash-flow.
-    ...(Math.abs((a && a.construction) || 0) > 0.005 ? [R('Travaux d\'agrandissement <span class="b4-x">non déductibles — hors 2044</span>', o => o.construction, { charge: true, kind: 'construction' })] : []),
-    ...(Math.abs((a && a.nonDeductible) || 0) > 0.005 ? [R('Dépenses non déductibles <span class="b4-x">péage, matériel… — hors 2044</span>', o => o.nonDeductible, { charge: true, kind: 'nonDeductible' })] : []),
+    ...(_visible('construction') ? [R('Travaux d\'agrandissement <span class="b4-x">non déductibles — hors 2044</span>', o => o.construction, { charge: true, kind: 'construction' })] : []),
+    ...(_visible('nonDeductible') ? [R('Dépenses non déductibles <span class="b4-x">péage, matériel… — hors 2044</span>', o => o.nonDeductible, { charge: true, kind: 'nonDeductible' })] : []),
     // L-2 : ces montants entraient dans le Total sans qu'aucune ligne ne les affiche — la somme
     // des lignes visibles ne pouvait pas égaler le total (constat 25).
-    ...(Math.abs((a && a.autres) || 0) > 0.005 ? [R('Autres charges propriétaire <span class="b4-x">2044 · 225/226' + (Math.abs((a && a.recupACharge) || 0) > 0.005 ? ' — dont récupérables restées à ta charge' : '') + '</span>', o => o.autres, { charge: true, kind: 'autres' })] : []),
+    ...(_visible('autres') ? [R('Autres charges propriétaire <span class="b4-x">2044 · 225/226' + (Math.abs((a && a.recupACharge) || 0) > 0.005 ? ' — dont récupérables restées à ta charge' : '') + '</span>', o => o.autres, { charge: true, kind: 'autres' })] : []),
     // L-4 : total VÉRIFIABLE À L'ŒIL = somme exacte des lignes visibles (les masquées valent 0).
     R('Total charges propriétaire <span class="b4-x">somme exacte des lignes visibles</span>', o => o.charges, { tot: true, neg: true }),
     { grp: 'Charges récupérables <span class="b4-x">(argent du locataire qui transite)</span>' },
