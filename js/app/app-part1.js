@@ -9669,7 +9669,7 @@ function _computeUnifiedTodo(ctx) {
     scopeLogs.forEach(l => {
       if(!l || !l.ref || l.archived) return;
       _DIAGS_CATALOG_INLINE.forEach(entry => {
-        if(_diagStatut(entry.key, l, today) !== 'expire') return;
+        if(!_diagExpireARefaire(entry.key, l, today)) return;   // A6 : jugé à la conclusion du bail en place
         const meta = (typeof _DIAG_UI_META !== 'undefined' && _DIAG_UI_META[entry.key]) ? _DIAG_UI_META[entry.key] : null;
         const label = meta ? meta.clean : (entry.label || entry.key);
         out.push({
@@ -17084,6 +17084,17 @@ function _bailValidConfirm(){
   saveBail();   // relance : cette fois _bailValidPending est consommé
 }
 
+// RETOURS-2026-10-05 A1 — faut-il (re)faire le contrôle DDT dans saveBail ? Pur, testé (diagnostics.test.js).
+// Non si la validation financière a déjà été franchie, ni sur un bail existant signé ou commencé.
+function _ddtControleSaveBail({ bailExistant, pendingVal, today }) {
+  if (pendingVal) return false;
+  if (!bailExistant || bailExistant._deleted) return true;                     // création
+  if (bailExistant.signatures && bailExistant.signatures.signedAt) return false; // déjà signé
+  const d = String(bailExistant.debut || '').slice(0, 10);
+  if (d && d <= String(today || '').slice(0, 10)) return false;                // déjà commencé
+  return true;                                                                  // brouillon pas encore commencé
+}
+
 function saveBail() {
   // M1 (audit 17/07) : consommer la validation EN TÊTE — si le save abandonne plus loin
   // (confirm composition, DDT, DPE, Visale, dates…), rien ne doit rester armé : la
@@ -17118,7 +17129,12 @@ function saveBail() {
   // mais on l'avertit et on trace.
   // On skip si le bail est en cours de modification de finalité (cloture, dates).
   const _logForDdt = (DB.logements||[]).find(l => l && !l._deleted && l.ref === ref);
-  if (_logForDdt && typeof _ddtComplet === 'function' && !_skipDdtCheckOnce) {
+  // RETOURS-2026-10-05 A1 : pas de 2ᵉ contrôle quand la popup de validation financière (_pendingVal) a déjà
+  // été franchie (sinon interblocage : « Continuer » → popup date d'effet → alerte DDT → …, modif jamais
+  // enregistrée), ni sur un bail existant déjà signé ou commencé (le DDT est dû à la signature, art. 3-3).
+  const _ddtBailExist = v('b-edit-ref') ? DB.baux[v('b-edit-ref')] : null;
+  if (_logForDdt && typeof _ddtComplet === 'function' && !_skipDdtCheckOnce
+      && _ddtControleSaveBail({ bailExistant: _ddtBailExist, pendingVal: _pendingVal, today: td() })) {
     const ddt = _ddtComplet(_logForDdt, new Date());
     if (!ddt.complet) {
       _ddtShowIncompletModal(ddt, ref);

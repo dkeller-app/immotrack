@@ -2955,7 +2955,7 @@ function _checkDiagRappelsAuLogin(source) {
     if (!l || !l.ref || l.archived) return;
     let any = false;
     _DIAGS_CATALOG_INLINE.forEach(entry => {
-      if (_diagStatut(entry.key, l, now) === 'expire') { nExp++; any = true; }
+      if (_diagExpireARefaire(entry.key, l, now)) { nExp++; any = true; }
     });
     if (any) nLogs++;
   });
@@ -14448,7 +14448,7 @@ function _periodeLegale(periode, annee){
 const _DIAGS_CATALOG_INLINE = [
   { key:'dpe',      label:'DPE — Performance énergétique', validityYears:10, icon:'🌡', legal:'Loi 2010-788',
     isApplicable: () => true },
-  { key:'crep',     label:'CREP — Plomb (saturnisme)', validityYears:null, validityIfPresence:1, icon:'⚠', legal:'Art. L1334-5 Code santé',
+  { key:'crep',     label:'CREP — Plomb (saturnisme)', validityYears:null, validityIfPresence:6, icon:'⚠', legal:'Art. L1334-5 Code santé',
     isApplicable: (log) => { const p=_periodeLegale(log?.periodeConstr, log?.anneeConstruction); return p ? (p==='Avant 1949') : null; } },
   { key:'amiante',  label:'Amiante (DAPP)', validityYears:null, icon:'🧪', legal:'Art. R1334-15',
     isApplicable: (log) => { const p=_periodeLegale(log?.periodeConstr, log?.anneeConstruction); return p ? (p!=='Après 1997') : null; } },
@@ -14516,7 +14516,8 @@ function _diagDateExpiration(diagKey, info) {
   const entry = _diagCatalogEntry(diagKey);
   if (!entry || !info || !info.date) return null;
   if (diagKey === 'crep') {
-    if (info.presence === true) return _diagAddYM(info.date, 1, 0);
+    // Location : 6 ans si plomb au-dessus du seuil (1 an = règle VENTE), illimité sinon (RETOURS-2026-10-05 A5).
+    if (info.presence === true) return _diagAddYM(info.date, entry.validityIfPresence || 6, 0);
     return null;
   }
   if (entry.validityYears == null) return null;
@@ -14549,6 +14550,21 @@ function _diagStatut(diagKey, logement, dateRef) {
   // on neutralise l'état intermédiaire (FEAT-GEORISQUES-ERP Phase 2, décision 1).
   if (diagKey === 'erp') return 'valide';
   return (expTs - refTs) <= threshold ? 'expirebientot' : 'valide';
+}
+
+// RETOURS-2026-10-05 A6 — un bail EN COURS ne subit pas les expirations de diagnostics (art. 3-3 : DDT dû
+// à la conclusion du bail et au renouvellement). Date de conclusion du bail en place : signature, sinon début.
+// Miroir pur testé : js/core/diagnostics.js (_ddtDateBailEnPlace / _diagExpireARefaire).
+function _ddtDateBailEnPlace(log) {
+  const bail = log && log.ref && DB.baux ? DB.baux[log.ref] : null;
+  if (!bail || bail._deleted || bail.cloture) return null;
+  const d = String((bail.signatures && bail.signatures.signedAt) || bail.debut || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+}
+// À refaire seulement si déjà périmé À LA CONCLUSION du bail en place ; sans bail en place : à la date du jour.
+function _diagExpireARefaire(diagKey, log, today) {
+  const d = _ddtDateBailEnPlace(log);
+  return _diagStatut(diagKey, log, d ? new Date(d + 'T00:00:00') : (today || new Date())) === 'expire';
 }
 
 function _ddtComplet(logement, dateRef) {
@@ -19008,8 +19024,10 @@ function _logDiagScanText(text) {
   const has = (...kw) => kw.some(k => compact.includes(k));
   const coverage = {
     dpe:      has('diagnosticdeperformance', 'performanceenergetique', 'etiquetteenergie', 'numerodpe'),
-    crep:     has('constatderisque', 'risquedexposition', 'expositionauplomb'),
-    amiante:  has('amiante'),
+    // RETOURS-2026-10-05 A4 : « risque d'exposition » seul est générique → exiger « plomb ».
+    crep:     has('plomb') && has('constatderisque', 'risquedexposition', 'expositionauplomb', 'crep'),
+    // « amiante » nu ne suffit pas (tout DPE le cite) → repérage / DAPP / dossier amiante / liste A-B.
+    amiante:  has('amiante') && has('reperage', 'dossieramiante', 'dapp', 'listea', 'listeb'),
     elec:     has('installationinterieuredelectricite', 'installationelectrique', 'diagnosticelectrique', 'etatdelinstallationelectrique'),
     gaz:      has('installationinterieuredegaz', 'installationinterieuregaz', 'installationdegaz', 'diagnosticgaz', 'etatdelinstallationgaz'),
     erp:      has('etatdesrisquesetpollutions', 'etatdesrisques', 'risquesetpollutions'),
@@ -19017,6 +19035,13 @@ function _logDiagScanText(text) {
     merule:   has('merule'),
     bruit:    has('nuisancessonoresaeriennes', 'plandexpositionaubruit', 'zonedebruit')
   };
+  // Si le PDF est d'abord un DPE (n° ADEME + titre DPE en tête, pas un dossier DDT combiné),
+  // il ne couvre QUE le DPE : ne rien suggérer pour les autres diagnostics.
+  const head = compact.slice(0, 2500);
+  if (numeroDpe && /diagnosticdeperformance|performanceenergetique/.test(head) && !head.includes('dossierdediagnostictechnique')) {
+    Object.keys(coverage).forEach(k => { if (k !== 'dpe') coverage[k] = false; });
+    coverage.dpe = true;
+  }
   return { numeroDpe, coverage, textLen: T.length };
 }
 
@@ -20419,6 +20444,8 @@ function _logDiagApplySuggestions(text, coverage, srcName) {
   const D = _logDiagDraft.diag;
   const sug = _logDiagExtractSuggestions(text);
   const cov = coverage || {};
+  // A4 : PDF qui ne couvre que le DPE → aucune suggestion pour les autres diagnostics.
+  if (cov.dpe && !Object.keys(cov).some(k => k !== 'dpe' && cov[k])) return 0;
   // Diags couverts par CE PDF, hors dpe (DPE = ADEME).
   let coveredKeys = Object.keys(cov).filter(k => cov[k] && k !== 'dpe');
   // Si un résultat / une ambiguïté a été détecté pour un diag non listé en coverage, le couvrir.
@@ -25826,12 +25853,16 @@ function _pilStatutDoc(bail, log, type, dateRef) {
   if (!bail || !log) return _absent;
 
   if (type === 'bail') {
-    if (bail.signatures && bail.signatures.bailleur && bail.signatures.locataire) return _ok;
+    if (bail.signatures && bail.signatures.signedAt) return _ok;
     if (bail.debut) return { statut:'partial', color:'#d97706', bg:'#fef3c7', label:'Non signé', txtColor:'#78350f' };
     return _absent;
   }
   if (type === 'edl') {
-    const hasEdl = (DB.edls||[]).some(e => e && !e._deleted && e.logement === log.ref && (e.type === 'entree' || !e.type));
+    // RETOURS-2026-10-05 A3 : la collection est DB.edl (pas DB.edls). Repli : un EDL déposé en PDF
+    // dans les documents du logement (nom « EDL » / « état des lieux »), en attendant l'« EDL externe » (C2).
+    const hasEdl = (DB.edl||[]).some(e => e && !e._deleted && e.logement === log.ref && (e.type === 'entree' || !e.type))
+      || (DB.documents||[]).some(d => d && !d._deleted && d.parentType === 'logement' && String(d.parentId) === String(log.id)
+          && /\bedl\b|etat\s*des\s*lieux/i.test(String(d.originalName || d.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')));
     return hasEdl ? _ok : _absent;
   }
   if (type === 'mrh') {
@@ -25867,7 +25898,8 @@ function _pilStatutDoc(bail, log, type, dateRef) {
   }
   if (type === 'ddt') {
     if (typeof _ddtComplet !== 'function') return _na;
-    const ddt = _ddtComplet(log, today);
+    const _dBail = _ddtDateBailEnPlace(log);   // A6 : jugé à la conclusion du bail en place
+    const ddt = _ddtComplet(log, _dBail ? new Date(_dBail + 'T00:00:00') : today);
     return ddt.complet ? _ok : { ...(_ko), label:`${ddt.manquants.length + ddt.expires.length} diag` };
   }
   return _na;
