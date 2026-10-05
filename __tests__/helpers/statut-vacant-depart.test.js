@@ -508,3 +508,25 @@ describe('15 · clôture d\'un bail (VRAIS saveBailClore / terminerBail) : resti
     });
   }
 });
+describe('16 · fiche du bien d\'un lot parti (VRAI rLogFiche + panneaux réels) : le bail OUVERT reste affiché', () => {
+  const rendu = (phone) => {
+    const DB = dbDe({ A1: DEPART });
+    const m = monter(DB, [...STATUT, 'rLogFiche', '_renderLogFichePhHero', '_renderLogFichePhStrip', '_renderLogFichePanelBail'], {
+      _currentLogFicheRef: 'A1', _isPhone: () => phone,
+      _departState: () => ({ doneCount: 1, total: 6, deadline: { iso: '2026-11-30', jours: 56 }, steps: [] }),
+      _duMoisLot: () => ({ total: 600 }), _lyEtatLot: () => ({ retard: { enRetard: true, reste: 600 } }),
+      window: { retardLot: () => ({}) },
+    });
+    m.fn.rLogFiche();
+    return m.els['log-fiche-content'].innerHTML;
+  };
+  it('PC : panneau « Départ en cours » du bail ouvert', () => {
+    expect(rendu(false)).toContain('Départ en cours — étape 1/6');
+  });
+  it('téléphone : bandeau chiffré « Dépôt 900 € » et « Solde -600 € », et « Départ en cours »', () => {
+    const h = rendu(true);
+    expect(h).toMatch(/900 €<\/div><div class="k">Dépôt/);
+    expect(h).toMatch(/-600 €<\/div><div class="k">Solde/);
+    expect(h).toContain('Départ en cours — étape 1/6');
+  });
+});
