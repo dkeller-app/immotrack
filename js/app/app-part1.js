@@ -9008,12 +9008,16 @@ function _duMoisLot(ref, ym) {
 // Le 7ᵉ moteur (_matcheMois, qui rattachait un paiement au mois de sa propre date) est
 // supprimé, pas corrigé (C3).
 //
-// Fenêtre de suivi (R0-C, 2ᵉ audit 🟠3) = LE point de départ de Finances (`_finLotSuivi` →
-// js/core/anteriorite.js : date d'achat > antériorité notée > date provisoire (b)), le dû de Finances
-// (`_finBailHcChAt` : 1ᵉʳ terme exigible après l'achat), son solde d'ouverture, et la même règle pour
-// les encaissements d'avant (`_avantBorne` : réserve du mois qui précède, le reste n'est pas imputé).
-// L'onglet Loyers, les relances et les quittances lisent donc la même dette que Finances et la
-// restitution. Repli (modules absents) : l'ancienne fenêtre `_debutSuivi` (1ᵉʳ janvier).
+// Fenêtre de suivi (R0-C) — dès qu'une date est SAISIE (date d'achat ou antériorité notée), LE point
+// de départ de Finances (`_finLotSuivi` → js/core/anteriorite.js), le dû de Finances (`_finBailHcChAt` :
+// 1ᵉʳ terme exigible après l'achat), son solde d'ouverture, et la même règle pour les encaissements
+// d'avant (`_avantBorne`). L'onglet Loyers, les relances et les quittances lisent alors la même dette
+// que Finances et la restitution.
+// Date PROVISOIRE (b) — rien de saisi : l'ancienne fenêtre `_debutSuivi` (1ᵉʳ janvier de l'année du
+// 1ᵉʳ versement), exactement comme le maître, qui ne reçoit jamais `debutDu` pour elle (3ᵉ audit A2/A3 :
+// la borne provisoire tombe sur le mois du PAIEMENT, elle décalait les quittances — actes opposables —
+// et faisait naître des relances sur des baux clos). Rien ne bouge tant que rien n'est saisi.
+// Repli (modules absents) : la même ancienne fenêtre.
 // Retourne null si le module n'est pas chargé (file://) — les appelants dégradent.
 function _loyerEtatLot(ref, opts) {
   opts = opts || {};
@@ -9036,8 +9040,9 @@ function _loyerEtatLot(ref, opts) {
   // imputés mois par mois. Le montant reste la seule chose qui DÉCIDE : les dates suivent.
   const srcParYm = {};
   let firstPaymentYm = null;
-  const suivi = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function' && typeof window._avantBorne === 'function')
+  const _s = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function' && typeof window._avantBorne === 'function')
     ? _finLotSuivi(ref) : null;
+  const suivi = (_s && _s.source && _s.source !== 'provisoire') ? _s : null;   // (b) : seule une date SAISIE fait foi
   const borne = suivi ? suivi.date : null;
   const avant = [];   // encaissements datés avant le point de départ : jamais imputés (sauf réserve)
   for (const m of (DB.mouvements || [])) {

@@ -19,7 +19,7 @@ import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi } from '..
 import { _computeFinancesMonthly, _computeDetteBail, _avantBorne } from '../../js/core/finances-monthly.js';
 import { computeConstatWindow } from '../../js/core/finances-window.js';
 import { etatMoisLot, ymRange as ymRangeCore, retardLot, lignesRelance, moisAQuittancer } from '../../js/core/loyers-mois.js';
-import { jeuAnteriorite, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
+import { jeuAnteriorite, dbAppDe, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
@@ -76,14 +76,50 @@ describe('🟠3 — onglet Loyers = Finances = dette du bail', () => {
     expect(r.etat.list[0].ym).toBe('2026-02');
     expect(r.etat.byYm['2026-02'].vacance).toBe(true);   // rien à quittancer, rien à relancer en février
   });
-  it('date provisoire (b) : la fenêtre part du 1ᵉʳ loyer encaissé, plus du 1ᵉʳ janvier (janvier-février ne sont plus réclamés)', () => {
+  it('date provisoire (b) : rien de saisi → l\'onglet Loyers garde EXACTEMENT l\'ancienne fenêtre (1ᵉʳ janvier), comme le maître garde la sienne', () => {
     const DB = lot();   // bail depuis 2018, aucune date saisie, 1ᵉʳ loyer le 05/03/2026
     DB.mouvements = ymRange('2026-03', '2026-09').map((ym) => pay('L', ym + '-05'));
-    const neuf = trois(monter(DB, TODAY), DB);
-    expect(neuf).toMatchObject({ loyers: 0, finances: 0, dette: 0 });
-    // le même code SANS module (repli) : l'ancienne fenêtre du 1ᵉʳ janvier réclamait janvier et février
-    const ancien = monter(DB, TODAY, { avecModule: false })._loyerEtatLot('L');
-    expect(ancien.reste).toBe(1400);
+    const app = monter(DB, TODAY);
+    expect(app._finLotSuivi('L')).toMatchObject({ source: 'provisoire', date: '2026-03-01' });
+    const neuf = app._loyerEtatLot('L'), ancien = monter(DB, TODAY, { avecModule: false })._loyerEtatLot('L');
+    expect(JSON.stringify(neuf)).toBe(JSON.stringify(ancien));
+    expect(neuf.list[0].ym).toBe('2026-01');
+    // écart (b) assumé jusqu'à ce que la date soit saisie : l'onglet Loyers réclame janvier-février, Finances non
+    expect(trois(app, DB)).toMatchObject({ loyers: 1400, finances: 0, dette: 0 });
+    // … la date d'achat saisie les aligne
+    DB.entites[0].immeubles[0].dateAcquisition = '2026-03-01';
+    expect(trois(monter(DB, TODAY), DB)).toMatchObject({ loyers: 0, finances: 0, dette: 0 });
+  });
+  it('A2 · loyer de janvier payé en rattrapage le 09/02 (F-002) : sans date saisie, la quittance de janvier reste due et datée du 09/02, mai impayé n\'est pas quittançable', () => {
+    const DB = lot({ debut: '2021-12-07', hc: 410 });
+    DB.mouvements = [pay('L', '2026-02-05', 410), pay('L', '2026-02-09', 410), pay('L', '2026-03-05', 410), pay('L', '2026-04-06', 410)];
+    const e = monter(DB, TODAY)._loyerEtatLot('L');
+    expect(JSON.stringify(e)).toBe(JSON.stringify(monter(DB, TODAY, { avecModule: false })._loyerEtatLot('L')));
+    expect(e.byYm['2026-01']).toMatchObject({ solde: true, datePaiement: '2026-02-09' });
+    expect(moisAQuittancer(e, [])).not.toContain('2026-05');
+  });
+  it('A3 · bail clos en 2024, jamais saisi, aucun loyer : aucune relance fantôme (rien ne bouge)', () => {
+    const DB = lot();
+    DB.baux = {};
+    DB.baux_historique = [{ ref: 'L', debut: '2023-04-01', fin: '2024-03-31', finEffective: '2024-03-31', hc: 530, ch: 0 }];
+    const neuf = monter(DB, TODAY)._loyerEtatLot('L'), ancien = monter(DB, TODAY, { avecModule: false })._loyerEtatLot('L');
+    expect(JSON.stringify(neuf)).toBe(JSON.stringify(ancien));
+    expect(lignesRelance(neuf, {})).toEqual([]);
+  });
+  it('(b) PREUVE sur 30 parcs multi-lots sans date saisie : l\'onglet Loyers, les relances et les quittances sont IDENTIQUES à l\'ancien chemin', () => {
+    let lots = 0;
+    for (let seed = 1000; seed < 1030; seed++) {
+      const DB = dbAppDe(seed);
+      const neuf = monter(DB, TODAY), ancien = monter(DB, TODAY, { avecModule: false });
+      for (const l of DB.logements) {
+        const a = neuf._loyerEtatLot(l.ref), b = ancien._loyerEtatLot(l.ref);
+        expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+        expect(lignesRelance(a, {})).toEqual(lignesRelance(b, {}));
+        expect(moisAQuittancer(a, [])).toEqual(moisAQuittancer(b, []));
+        lots++;
+      }
+    }
+    expect(lots).toBeGreaterThan(50);
   });
   it('terme payé d\'avance le 28 : la réserve solde le 1ᵉʳ mois suivi, daté du versement (quittance possible)', () => {
     const DB = lot({ anteriorite: { date: '2025-06-01', situation: 'a-jour' } });

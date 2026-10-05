@@ -237,6 +237,23 @@ export function jeuMultiLots(seed) {
   return { lots, mouvements };
 }
 
+/** Un parc multi-lots du générateur → DB de l'app (immeuble, logements, bail courant, archives, barème). */
+export function dbAppDe(seed, { dateAcq = null } = {}) {
+  const { lots, mouvements } = jeuMultiLots(seed);
+  const DB = { entites: [{ nom: 'SCI T', immeubles: [{ nom: 'Imm', dateAcquisition: dateAcq }] }], logements: [], baux: {}, baux_historique: [], loyerBareme: [], mouvements };
+  for (const l of lots) {
+    DB.logements.push({ ref: l.ref, imm: 'Imm', entity: 'SCI T' });
+    const bs = l.ctx.bails;
+    bs.forEach((b, k) => {
+      const last = k === bs.length - 1;
+      if (last && !b.finEffective) DB.baux[l.ref] = { ref: l.ref, debut: b.debut, hc: b.hc, ch: b.ch };
+      else DB.baux_historique.push({ ref: l.ref, debut: b.debut, finEffective: b.finEffective || null, fin: b.finEffective || null, hc: b.hc, ch: b.ch });
+    });
+    DB.loyerBareme.push(...l.ctx.bareme);
+  }
+  return DB;
+}
+
 /**
  * 2ᵉ audit 🔴1 (05/10) — JEU « RELEVÉS ANTÉRIEURS À L'ANTÉRIORITÉ » (cas S1 et variantes). Le bail court
  * depuis longtemps et ses loyers sont DÉJÀ importés (relevés depuis l'entrée, ou depuis un achat) ; la

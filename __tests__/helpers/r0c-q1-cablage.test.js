@@ -20,7 +20,7 @@ import * as Anteriorite from '../../js/core/anteriorite.js';
 import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw } from '../../js/core/loyer-du-mois.js';
 import { _computeFinancesMonthly, _computeDetteBail } from '../../js/core/finances-monthly.js';
 import { computeConstatWindow } from '../../js/core/finances-window.js';
-import { jeuMultiLots, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
+import { dbAppDe, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
@@ -50,22 +50,7 @@ function monter(DB, { avecModule = true } = {}) {
   return new Function(...noms, lets + SRC + exp)(...noms.map((n) => deps[n]));
 }
 
-/** Un parc multi-lots du générateur → DB de l'app (immeuble, logements, bail courant, archives, barème). */
-function dbDe(seed, { dateAcq = null } = {}) {
-  const { lots, mouvements } = jeuMultiLots(seed);
-  const DB = { entites: [{ nom: 'SCI T', immeubles: [{ nom: 'Imm', dateAcquisition: dateAcq }] }], logements: [], baux: {}, baux_historique: [], loyerBareme: [], mouvements };
-  for (const l of lots) {
-    DB.logements.push({ ref: l.ref, imm: 'Imm', entity: 'SCI T' });
-    const bs = l.ctx.bails;
-    bs.forEach((b, k) => {
-      const last = k === bs.length - 1;
-      if (last && !b.finEffective) DB.baux[l.ref] = { ref: l.ref, debut: b.debut, hc: b.hc, ch: b.ch };
-      else DB.baux_historique.push({ ref: l.ref, debut: b.debut, finEffective: b.finEffective || null, fin: b.finEffective || null, hc: b.hc, ch: b.ch });
-    });
-    DB.loyerBareme.push(...l.ctx.bareme);
-  }
-  return DB;
-}
+const dbDe = dbAppDe;
 const SEEDS = Array.from({ length: 30 }, (_, i) => 1000 + i);
 const TODAY = '2026-09-30';
 const mois = ymRange('2021-01', '2026-12');
