@@ -5,12 +5,12 @@
 | ▶ en cours | Finances — suivi des loyers | `PROMPT-SESSION-FINANCES-SUIVI-LOYERS.md` | Sonnet orchestrateur (+Opus phases 1/3, Fable contre-audit) | `feat/finances-suivi-unique` |
 | ▶ en cours | Règles de classement | `PROMPT-SESSION-REGLES-MOUVEMENTS.md` | Sonnet orchestrateur (+Opus modèle/migration) | `feat/regles-refonte` |
 | 1 ▶ lancée | Bail en cours (lot A + B1/B3/B4 + C2/C4) | `PROMPT-SESSION-BAIL-EN-COURS.md` | Sonnet orchestrateur (+Opus conception) | `feat/bail-en-cours` |
-| 1 ▶ lancée | Fusion des 2 SCI SMARTOSAURUS (données réelles) | `PROMPT-SESSION-FUSION-SCI.md` | Opus | `fix/fusion-sci` |
+| 1 ▶ lancée | Fusion des 2 SCI SMARTOSAURUS (données réelles) — puis : validation de régul partagée par SCI (migration) | `PROMPT-SESSION-FUSION-SCI.md` | Opus | `fix/fusion-sci` |
 | 1 ▶ lancée | Audit de sécurité (lecture seule) | `PROMPT-SESSION-AUDIT-SECURITE.md` | Opus (+agents Fable) | `audit/securite` |
 | 2 | IRL & courriers (C3, C6, C7) — après Bail en cours | à écrire | Sonnet (+Opus moteur IRL) | — |
 | 2 | Stockage IndexedDB (suite conception 30/09) — après Fusion SCI | à écrire | Opus | — |
 | 2 | Téléphone : EDL + vue Charges par locataire (25/09 #1 #2) | à écrire | Sonnet | — |
-| 3 | Écrans Accueil / Loyers 3 blocs / Logements / MRH (B2, C1, C5) — après Finances | à écrire | Sonnet | — |
+| 3 | Écrans Accueil / Loyers 3 blocs / Logements / MRH (B2, C1, C5) + vue Charges « (sans immeuble) » (régul) — après Finances | à écrire | Sonnet | — |
 | 3 | Mise en production (propryo.fr, Resend, Stripe, OTP) — dépend de Didier | à écrire | Sonnet | — |
 **Pilotage** : intégration une par une, numéros de version attribués par le pilotage, smokes en attente.
 
@@ -18,8 +18,8 @@
 **Livré** : l'alerte s'éteint quand on clique « Valider la régul de l'immeuble » (onglet Charges) pour N-1 ; l'alerte ouvre l'onglet Charges directement sur N-1. **Version v15.713 prise** par cette branche.
 **Smoke Didier** : Accueil → alerte Régul → onglet Charges sur 2025 → vue immeuble → Valider → l'alerte disparaît.
 **À arbitrer (Didier)** :
-1. **SCI partagée** : la validation est stockée dans la config propre à chaque utilisateur (`DB.regulValidations`). Un associé invité ne voit pas la validation du propriétaire : son alerte reste allumée, et le badge « validé » de l'écran Charges a le même défaut (préexistant). Choix : accepter, ou passer la validation en **donnée partagée de la SCI** (reco pilotage : partagée — c'est un fait de gestion de la SCI, pas une préférence ; à faire avec la session partage/isolation par SCI, migration à prévoir).
-2. **Logement sans immeuble** : son alerte ne peut pas s'éteindre, car la vue « (sans immeuble) » de l'écran Charges est vide (défaut préexistant, cas rare). → à corriger avec la vague « Écrans » ou un correctif ciblé Charges.
+1. **SCI partagée** : la validation est stockée dans la config propre à chaque utilisateur (`DB.regulValidations`). Un associé invité ne voit pas la validation du propriétaire : son alerte reste allumée, et le badge « validé » de l'écran Charges a le même défaut (préexistant). ✅ **DÉCIDÉ Didier 05/10 : validation = donnée PARTAGÉE de la SCI** (visible de tous les associés). Migration à prévoir (GO Didier avant application) → confié à la suite de la session « Fusion SCI » une fois la fusion terminée (connaît espaces + RLS), sinon session dédiée vague 2.
+2. **Logement sans immeuble** : son alerte ne peut pas s'éteindre, car la vue « (sans immeuble) » de l'écran Charges est vide (défaut préexistant, cas rare). ✅ **DÉCIDÉ Didier 05/10 : vague 3 « Écrans »** (vue « (sans immeuble) » de l'écran Charges à remplir).
 
 ## 🔥 RETOURS-2026-10-05 (Ferrette 101/102/103) — 🔍 DIAGNOSTIQUÉ, ⏳ GO Didier lot A
 **Lot A (bugs francs, correctifs rédigés)** : A1 `saveBail` boucle DDT ↔ popup financière → modif charges jamais enregistrée · A2 matrice « Signer le bail » sur bail signé (clés `signatures.bailleur/locataire` jamais écrites) · A3 « Faire l'EDL » (`DB.edls` au lieu de `DB.edl`) · A4 DPE joint → plomb/amiante détectés (mot « amiante » nu) · A5 CREP avec plomb 1 an au lieu de 6 ans (location) · A6 Diag rouge locataire en place (jugé à aujourd'hui au lieu de la conclusion du bail).
