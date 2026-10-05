@@ -16452,10 +16452,14 @@ function autoFinBail() {
   else if (type === 'mobilite') { return; }                  // v15.196 post-audit : loi ELAN art. 107 = 1-10 mois variable → user doit saisir manuellement la date de fin (cohérence avec PDF "[à préciser]")
   else if (type === 'garage') { return; }                    // v15.196 post-audit : durée libre code civil → user saisit manuellement (cohérence avec PDF "[durée libre — à préciser]")
   else if (type === 'autre') { return; }                     // pas de pré-remplissage
-  else {                                                      // 'nu' : 3 ans (perso) / 6 ans (SCI/personne morale)
+  else {                                                      // 'nu' : 3 ans / 6 ans selon le bailleur (art. 10 et 13)
+    // BAUX-ECHUS — le régime vient de bail-duree.js (DRY, même source que le PDF signé) : l'ancien test
+    // `includes('perso')` lisait « PERSOnne morale » comme une personne physique → 3 ans au lieu de 6.
     const entNom = v('b-entity');
     const ent = DB.entites.find(e=>e.nom===entNom);
-    ans = ent?.type?.toLowerCase().includes('perso') ? 3 : 6;
+    const RB = (window.BailDuree && typeof window.BailDuree.regimeBailleur === 'function') ? window.BailDuree.regimeBailleur
+      : (typeof window.regimeBailleur === 'function' ? window.regimeBailleur : null);
+    ans = RB ? RB((ent && ent.type) || '').ans : 6;
   }
   const d = new Date(debut+'T00:00:00');
   if (ans) d.setFullYear(d.getFullYear() + ans);

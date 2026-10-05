@@ -200,3 +200,33 @@ describe('frise d\'un immeuble (_renderImmFichePlanGantt) — même règle que l
     expect(html).toMatch(/tacite reconduction → prochaine échéance/);
   });
 });
+
+describe('saisie du bail — date de fin automatique (autoFinBail)', () => {
+  const lancer = (type, entType, debut = '2026-01-01', avecModule = true) => {
+    const champs = { 'b-debut': debut, 'b-type': type, 'b-entity': 'E', 'b-fin': '' };
+    const deps = {
+      v: (id) => champs[id] || '',
+      el: (id) => ({ get value() { return champs[id]; }, set value(x) { champs[id] = x; } }),
+      DB: { entites: [{ nom: 'E', type: entType }] },
+      window: avecModule ? { BailDuree } : {},
+    };
+    const noms = Object.keys(deps);
+    const src = [corpsDe('autoFinBail'), corpsDe('_isoLocal')].join('\n');
+    new Function(...noms, src + '\nreturn autoFinBail;')(...noms.map((n) => deps[n]))();
+    return champs['b-fin'];
+  };
+  it('« Personne morale » → 6 ans (avant : 3 ans, le fragment « perso » trompait le test)', () => {
+    expect(lancer('nu', 'Personne morale')).toBe('2031-12-31');
+  });
+  it('personne physique, SCI familiale, indivision → 3 ans (art. 10 et 13)', () => {
+    expect(lancer('nu', 'Personne physique')).toBe('2028-12-31');
+    expect(lancer('nu', 'SCI familiale')).toBe('2028-12-31');
+    expect(lancer('nu', 'Indivision')).toBe('2028-12-31');
+  });
+  it('meublé 1 an, étudiant 9 mois ; mobilité / garage : rien n\'est pré-rempli', () => {
+    expect(lancer('meuble', '')).toBe('2026-12-31');
+    expect(lancer('etudiant', '')).toBe('2026-09-30');
+    expect(lancer('mobilite', '')).toBe('');
+    expect(lancer('garage', '')).toBe('');
+  });
+});
