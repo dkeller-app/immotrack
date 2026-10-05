@@ -19784,7 +19784,11 @@ function _acteRenderVerif() {
   html += `<div class="acte-grid2" style="margin-top:12px">`;
   html += _acteFieldBlock('acte-f-imm-conten', 'Contenance cadastrale', imm.contenance, 'contenance', { ph: 'ex. 2 a 15 ca' });
   html += _acteFieldBlock('acte-f-imm-surf', 'Surface totale (m²)', imm.surfaceTotale, 'surfaceTotale', { ph: 'ex. 433,18' });
-  html += `</div></div></div>`;
+  html += `</div>`;
+  // R0-C · Q1 révisé : la date de l'acte = entrée en jouissance de l'acquéreur. Aucun loyer n'est dû au
+  // bailleur actuel avant elle (bien acheté loué). Non extraite automatiquement : à saisir.
+  html += `<div style="margin-top:12px">` + _acteFieldBlock('acte-f-imm-dateacq', 'Date de l’acte (entrée en jouissance)', imm.dateAcquisition, 'dateAcquisition', { ph: 'AAAA-MM-JJ' }) + `</div>`;
+  html += `</div></div>`;
 
   // RAPPROCHEMENT IMMEUBLE — candidats existants dans l'entité effective (dupEntity).
   // JAMAIS automatique : picker radio INLINE dans le bandeau (pas de 2e overlay), défaut = nouvel immeuble.
@@ -20101,6 +20105,7 @@ function _acteCollectVerif() {
   const prevDup = d.dupEntity || null;
   d.immeuble.adr = g('acte-f-imm-adr'); d.immeuble.cp = g('acte-f-imm-cp'); d.immeuble.ville = g('acte-f-imm-ville');
   d.immeuble.contenance = g('acte-f-imm-conten'); d.immeuble.surfaceTotale = g('acte-f-imm-surf');
+  d.immeuble.dateAcquisition = g('acte-f-imm-dateacq');   // R0-C · Q1 révisé
   _acteCollectLogements();
   // re-détection doublon après édition éventuelle du SIREN/nom
   d.dupEntity = _acteFindDupEntity(d.entite.siren, d.entite.nom);
@@ -20205,6 +20210,8 @@ function _acteApply() {
     // ── 2. IMMEUBLE — rattaché au choix user (dupImmeuble, Task 4) sinon créé.
     const im0 = d.immeuble || {};
     const immNom = ((im0.adr || '').trim() || (im0.ville || '').trim() || 'Immeuble importé');
+    // R0-C · Q1 révisé : date de l'acte = entrée en jouissance (null si absente ou invalide).
+    const _acqActe = window._anteriorite ? window._anteriorite.normaliserDate(im0.dateAcquisition) : null;
     let im = null, immCreated = false;
     // !entCreated = défense en profondeur : _acteCollectVerif invalide déjà dupImmeuble si forceNewEntity/dupEntity change ; cette garde couvre un draft stale.
     if (d.dupImmeuble && d.dupImmeuble.immId && !entCreated) {
@@ -20246,6 +20253,7 @@ function _acteApply() {
         regimeJuridique: (d.logements || []).length > 1 ? 'copropriete' : '',
         typeHabitat: '', nbLots: (d.logements || []).length || 0,
         valeurEstimee: 0, travaux: '', montantTravaux: 0,
+        dateAcquisition: _acqActe,                        // R0-C · Q1 révisé
         notes: notesParts.join('\n'),
         contenance: (im0.contenance || '').trim(),        // stockage prospectif
         surfaceTotale: (im0.surfaceTotale || '').trim(),  // stockage prospectif
@@ -20296,6 +20304,9 @@ function _acteApply() {
         numApt: (lg.numApt || '').trim(), tantiemes: parseTant(lg.tantiemes),
         notes: lg.designation ? ('Désignation acte : ' + lg.designation) : ''
       });
+      // R0-C · Q1 révisé : lots AJOUTÉS à un immeuble existant, achetés à une autre date que lui →
+      // exception par logement (la date de l'immeuble reste celle du premier achat).
+      if (!immCreated && _acqActe && _acqActe !== (im.dateAcquisition || null)) log.detenuDepuis = _acqActe;
       DB.logements.push(log);
       _rollback.push(() => { const i = DB.logements.indexOf(log); if (i >= 0) DB.logements.splice(i, 1); });
       if (typeof _auditLog === 'function') _auditLog('create', 'logement', log.id, ent.nom + '/' + log.ref);
@@ -22705,7 +22716,7 @@ function addImmForm(entIdOverride) {
   el('imm-edit-id').value = '';
   // Reset tous les champs scalaires
   ['imm-nom','imm-adr','imm-codePostal','imm-ville','imm-valeur','imm-nbLots',
-   'imm-travaux','imm-mtravaux','imm-notes',
+   'imm-travaux','imm-mtravaux','imm-notes','imm-dateAcq',
    'imm-syndic-nom','imm-syndic-tel','imm-syndic-email','imm-syndic-adr',
    'imm-ec-custom-input']
     .forEach(id => { const e = el(id); if(e) e.value = ''; });
@@ -22717,6 +22728,7 @@ function addImmForm(entIdOverride) {
     .forEach(k => { const c = el('imm-ec-' + k); if(c) c.checked = false; });
   _immEcCustomsDraft = [];
   _immEcRenderCustoms();
+  if (el('imm-acq-note')) el('imm-acq-note').innerHTML = '';   // R0-C : note « situations à noter »
   el('m-imm-title').textContent = 'Nouvel immeuble';
   _syncOvImmEntLabel();
   openM('ov-imm');
@@ -22749,6 +22761,8 @@ function editImm(idx, entIdOverride) {
     el('imm-ville').value = '';
   }
   el('imm-valeur').value = im.valeurEstimee||'';
+  if (el('imm-dateAcq')) el('imm-dateAcq').value = im.dateAcquisition||'';   // R0-C · Q1 révisé
+  if (typeof _immAcqNote === 'function') _immAcqNote();
   el('imm-nbLots').value = im.nbLots||'';
   el('imm-periodeConstr').value = _periodeLegale(im.periodeConstr, im.annee);   // migre les anciens buckets / l'année legacy → 3 tranches
   el('imm-regimeJuridique').value = im.regimeJuridique||'';
@@ -22877,6 +22891,9 @@ function saveImm() {
     typeHabitat: (el('imm-typeHabitat') ? el('imm-typeHabitat').value : (existingIm?.typeHabitat || '')),   // v15.249 B3
     nbLots: parseInt(el('imm-nbLots').value) || 0,
     valeurEstimee: parseFloat(el('imm-valeur').value) || 0,
+    // R0-C · Q1 révisé : date d'achat (entrée en jouissance). Vide = null (clé posée : un effacement
+    // n'est jamais « préservé » par _preserverChampsExistants).
+    dateAcquisition: (window._anteriorite && el('imm-dateAcq')) ? window._anteriorite.normaliserDate(el('imm-dateAcq').value) : (existingIm ? (existingIm.dateAcquisition || null) : null),
     travaux: el('imm-travaux').value,
     montantTravaux: parseFloat(el('imm-mtravaux').value) || 0,
     notes: el('imm-notes').value,
@@ -23056,10 +23073,10 @@ function _frInstallCloseHook(){
     orig(id);
     // Fil COMPLET : ov-bail surveillé aussi (étape completion : fermer le wizard bail = retour au fil).
     // ⚠️ ov-fr N'EST PAS un déclencheur (anti-boucle : fermer le fil ne doit jamais le rouvrir).
-    if(_frMode && (id==='ov-ent' || id==='ov-imm' || id==='ov-log' || id==='ov-acte' || id==='ov-bail')){
+    if(_frMode && (id==='ov-ent' || id==='ov-imm' || id==='ov-log' || id==='ov-acte' || id==='ov-bail' || id==='ov-anteriorite')){
       // anyOpen inclut les sous-modales du wizard bail (clôture, DPE interdit) : tant qu'elles
       // sont affichées, on ne considère pas le parcours comme « sans overlay ».
-      const anyOpen = ()=>['ov-ent','ov-imm','ov-log','ov-acte','ov-bail','ov-bail-clore','ov-dpe-interdit','ov-fr'].some(x=>{ const e=el(x); return e && !e.classList.contains('hidden'); });
+      const anyOpen = ()=>['ov-ent','ov-imm','ov-log','ov-acte','ov-bail','ov-bail-clore','ov-dpe-interdit','ov-fr','ov-anteriorite'].some(x=>{ const e=el(x); return e && !e.classList.contains('hidden'); });
       Promise.resolve().then(()=>{ // laisse un éventuel save→_frAfterSave (ou _frAfterActe) rouvrir la modale/écran suivant
         if(!_frMode || anyOpen()) return;
         // Étape completion : fermer une fiche/le bail (save OU annulation ✕) RAMÈNE au fil (recalcul
@@ -23478,7 +23495,16 @@ function _frCompModelFor(entId, immNames){
     const v=(typeof _dpeInterditLocationAuDate==='function')?_dpeInterditLocationAuDate(classe,_now):{interdit:false,raison:''};
     dpeParLot[l.ref]={ classe:classe, interdit:!!v.interdit, raison:v.raison||'' };
   });
-  return { ent, imm, imms, model: window.ParcoursBienModel.completionModel({entite:ent, immeubles:imms, logements:logs, bauxActifs, diagsParLot, dpeParLot}) };
+  // R0-C · Q1 révisé : point de départ des loyers suivis, par lot (date d'achat / situation à noter /
+  // date provisoire à confirmer) → tâches « Date d'achat » et « Situation du locataire ».
+  const suiviParLot={};
+  logs.forEach(function(l){
+    const s=(typeof _finLotSuivi==='function')?_finLotSuivi(l.ref):null, b=bauxActifs[l.ref];
+    if(!s||!s.date||!b) return;
+    const deb=String(b.debut||'').slice(0,10);
+    suiviParLot[l.ref]={ date:s.date, source:s.source, aConfirmer:!!s.aConfirmer, aNoter:(s.bailsAvant||[]).indexOf(deb)>=0, notee:!!(b.anteriorite&&b.anteriorite.date) };
+  });
+  return { ent, imm, imms, model: window.ParcoursBienModel.completionModel({entite:ent, immeubles:imms, logements:logs, bauxActifs, diagsParLot, dpeParLot, suiviParLot}) };
 }
 function _frCompModel(){
   const cm=_frCompModelFor(_frCtx.entId, _frScopeImms());
@@ -23521,6 +23547,9 @@ function _frCompTaskHtml(t, refA){
   let act='';
   if(t.status!=='done'&&t.action==='creer-bail') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'creer-bail\',\''+refA+'\')">✍️ Créer le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'vacant-assume\',\''+refA+'\')" title="Pas de locataire — assumé, jamais bloquant">Vacant assumé</button></span>';
   else if(t.status!=='done'&&t.action==='verifier-repris') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'verifier-repris\',\''+refA+'\')">📋 Ouvrir le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'repris-ok\',\''+refA+'\')" title="Bail repris relu et conforme">✓ Vérifié</button></span>';
+  // R0-C · Q1 révisé : date d'achat (nœud immeuble) et situation du locataire (nœud logement).
+  else if(t.status!=='done'&&t.action==='date-achat') act='<span class="go"><button class="fr-comp-btn" onclick="_frCompAction(\'date-achat\',\''+refA+'\')">'+((typeof _uiIcon==='function')?_uiIcon('calendar',15):'')+' Saisir la date d’achat</button></span>';
+  else if(t.status!=='done'&&t.action==='situation') act='<span class="go"><button class="fr-comp-btn" onclick="_frCompAction(\'situation\',\''+refA+'\')">'+((typeof _uiIcon==='function')?_uiIcon('money',15):'')+' Noter la situation</button></span>';
   // Revue I3 : une ligne `dep` n'est pas une obligation — pas de bandeau ⚖, texte en BLEU
   // (même code visuel que les diagnostics « à déterminer », dont elle est la cause).
   const det=t.detail?('<span'+(t.dep?' class="fr-comp-dep"':'')+'>'+(t.dep?'↳ ':'')+escHtml(t.detail)+'</span>'):'';
@@ -23628,6 +23657,10 @@ function _frCompAction(action, ref){
   // les appels legacy sans ref). Mémorisé pour suivre un éventuel renommage dans le périmètre.
   if(action==='imm'){ const nom=ref||_frCtx.immName; const ent=_frCurEnt(); const idx=ent?(ent.immeubles||[]).findIndex(i=>i&&!i._deleted&&i.nom===nom):-1; if(idx>=0){ _frCompImmEdit=nom; closeM('ov-fr'); _frCompGuard(()=>editImm(idx, ent.id)); } return; }
   if(action==='log'){ closeM('ov-fr'); _frCompGuard(()=>openNewLog(ref)); return; }
+  // R0-C · Q1 révisé : la date d'achat se saisit dans la fiche immeuble (même écran que « Compléter la
+  // fiche »), la situation du locataire dans son écran dédié — fermer l'un ou l'autre ramène au fil.
+  if(action==='date-achat'){ _frCompAction('imm', ref); setTimeout(()=>{ const f=el('imm-dateAcq'); if(f){ try{ f.scrollIntoView({block:'center'}); }catch(e){} f.focus(); } }, 80); return; }
+  if(action==='situation'){ closeM('ov-fr'); _frCompGuard(()=>_antOuvrir(ref)); return; }
   if(action==='creer-bail'||action==='verifier-repris'){ closeM('ov-fr'); _frCompGuard(()=>openBail(ref)); return; }
   // Décisions explicites SANS écran (décisions user gravées : vacant assumé possible, ✓ Vérifié explicite).
   if(action==='vacant-assume'){ const l=(DB.logements||[]).find(x=>x&&x.ref===ref&&!x._deleted); if(l){ l.vacantAssume=true; if(typeof _stamp==='function')_stamp(l); saveDB(); } _frShowFr('completion'); return; }
@@ -32115,4 +32148,206 @@ async function _espacePurgeRun() {
     showToast(ep.purgeErrorMessage(r.error), 'err', 8000);
     if (go) { go.textContent = '🛟 Sauvegarder puis vider l\'espace'; _espacePurgeCheckNom(); }
   }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// R0-C · Q1 RÉVISÉ — DATE D'ACHAT & ANTÉRIORITÉ (décisions Didier 01/10 → 05/10, docs/CDC-R0C.md ;
+// maquette mockups/R0C/MAQUETTE-ANTERIORITE.html VALIDÉE 05/10).
+// Deux saisies, une seule règle (js/core/anteriorite.js, lue par Finances via `_finLotSuivi`) :
+//   - la date d'achat de l'immeuble (fiche immeuble, fil rouge, import d'acte) ;
+//   - la situation du locataire au début du suivi, par bail (`bail.anteriorite`) : à jour, arriéré
+//     (loyer, charges facultatives, mois si connus) ou avance. Ce solde entre UNE fois dans la dette
+//     (Finances, bulle Impayés, restitution du dépôt).
+// Téléphone : page plein écran (M-16) — CSS `#ov-anteriorite` dans css/main.css.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+let _antEtat = null;   // { ref, bailDebut, suite:[refs], situation, mois:[] }
+
+function _antDateFr(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; }
+function _antMoisFr(ym) {
+  const M = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
+  return m ? M[parseInt(m[2], 10) - 1] + ' ' + m[1] : String(ym || '');
+}
+function _antEuro(n) { return (typeof fmt === 'function') ? fmt(Number(n) || 0) : (Number(n) || 0).toFixed(2) + ' €'; }
+
+/** Le bail dont la situation est à noter : celui en cours au début du suivi (le plus récent commencé
+ *  avant lui), sinon le bail courant. Rend { bail, courant:boolean } ou null. */
+function _antBailCible(ref, bailDebut) {
+  const alive = b => b && !b._deleted && b.debut;
+  const want = String(ref || '').trim().toLowerCase();
+  const cur = _findBailByRefTolerant(ref);
+  const hist = (DB.baux_historique || []).filter(b => alive(b) && String(b.ref || '').trim().toLowerCase() === want);
+  const tous = (alive(cur) ? [{ bail: cur, courant: true }] : []).concat(hist.map(b => ({ bail: b, courant: false })));
+  if (bailDebut) { const x = tous.find(t => String(t.bail.debut).slice(0, 10) === String(bailDebut).slice(0, 10)); if (x) return x; }
+  const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(ref) : null;
+  const avant = (s && s.bailsAvant) || [];
+  const cands = tous.filter(t => avant.indexOf(String(t.bail.debut).slice(0, 10)) >= 0)
+    .sort((a, b) => String(b.bail.debut).localeCompare(String(a.bail.debut)));
+  return cands[0] || tous.find(t => t.courant) || null;
+}
+
+/** Ouvre l'écran « Situation du locataire » d'un lot. opts.suite = lots suivants à enchaîner. */
+function _antOuvrir(ref, opts) {
+  const o = opts || {};
+  const cible = _antBailCible(ref, o.bailDebut);
+  if (!cible) { showToast('Aucun bail en cours sur ce logement', 'warn'); return; }
+  const a = cible.bail.anteriorite || null;
+  _antEtat = { ref, bailDebut: String(cible.bail.debut).slice(0, 10), suite: Array.isArray(o.suite) ? o.suite.slice() : [],
+    situation: (a && a.situation) || 'a-jour', mois: (a && Array.isArray(a.mois)) ? a.mois.slice() : [] };
+  let ov = el('ov-anteriorite');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'ov-anteriorite'; ov.className = 'ov hidden';
+    ov.setAttribute('onclick', "closeBg(event,'ov-anteriorite')");
+    document.body.appendChild(ov);
+  }
+  _antRender(true);
+  openM('ov-anteriorite');
+}
+
+/** Valeurs saisies (lues dans le DOM ; repli sur la valeur enregistrée au premier rendu). */
+function _antLire() {
+  const g = id => { const e = el(id); return e ? e.value : ''; };
+  return { date: g('ant-date'), loyer: g('ant-loyer'), charges: g('ant-charges'), avance: g('ant-avance') };
+}
+
+function _antRender(initial) {
+  const E = _antEtat; if (!E) return;
+  const ov = el('ov-anteriorite'); if (!ov) return;
+  const cible = _antBailCible(E.ref, E.bailDebut); if (!cible) return;
+  const bail = cible.bail, a = bail.anteriorite || null;
+  const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(E.ref) : null;
+  const repris = !!((s && s.jouissance) || bail.typeContrat === 'repris' || (bail.source && bail.source.import === 'acte'));
+  const prev = initial ? null : _antLire();
+  const dateDefaut = (a && a.date) || (s && s.jouissance) || (s && s.source === 'provisoire' ? s.date : '') || '';
+  const date = prev ? prev.date : dateDefaut;
+  const dateFr = _antDateFr(date) || 'cette date';
+  const val = (k) => prev ? prev[k] : (a && Number(a[k]) ? a[k] : '');
+  const loc = (bail.locataires && bail.locataires[0] && bail.locataires[0].nom) || bail.nom || '';
+  const titre = repris ? 'Reprise en cours de bail' : 'Début du suivi dans Propryo';
+  const ic = (n) => (typeof _uiIcon === 'function') ? _uiIcon(n, 17) : '';
+  const seg = (k, icon, lib) => '<button type="button" class="' + (E.situation === k ? 'on' : '') + '" aria-pressed="' + (E.situation === k) + '" onclick="_antSituation(\'' + k + '\')">' + ic(icon) + '<span>' + lib + '</span></button>';
+  let corps = '';
+  if (s && s.source === 'provisoire' && s.aConfirmer && !(a && a.date)) {
+    corps += '<div class="ant-note" role="note">' + ic('warn') + '<div><b>Date provisoire, à confirmer</b> : elle a été posée au 1ᵉʳ loyer encaissé (' + _antDateFr(s.date) + ') lors de la mise à jour de l\'app. Confirmer la date d\'achat ou de début du suivi, puis la situation du locataire à cette date.</div></div>';
+  }
+  const debutBailFr = _antDateFr(bail.debut);
+  corps += '<div class="fg ant-fld"><label for="ant-date">Suivi à partir du</label><input class="inp" type="date" id="ant-date" value="' + escHtml(date || '') + '" onchange="_antRender()">'
+    + '<div class="ant-hint">' + (repris && s && s.jouissance
+      ? 'Date d\'achat de l\'immeuble (fiche immeuble). Le bail court depuis le ' + escHtml(debutBailFr) + ' ; aucun loyer n\'est dû au bailleur actuel avant le ' + escHtml(_antDateFr(s.jouissance)) + '.'
+      : 'Le bail court depuis le ' + escHtml(debutBailFr) + '. Propryo calcule les loyers dus à partir de cette date ; avant, il ne calcule rien.') + '</div></div>'
+    + '<div class="ant-lbl">Le ' + escHtml(dateFr) + ', le locataire :</div>'
+    + '<div class="ant-seg" role="group" aria-label="Situation du locataire">' + seg('a-jour', 'check', 'était à jour') + seg('arriere', 'money', 'devait un arriéré') + seg('avance', 'send', 'avait payé d\'avance') + '</div>';
+  if (E.situation === 'arriere') {
+    corps += '<div class="fg2"><div class="fg ant-fld"><label for="ant-loyer">Loyer impayé, hors charges</label><div class="ant-euro"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="ant-loyer" value="' + escHtml(String(val('loyer'))) + '" oninput="_antEffet()"><span>€</span></div></div>'
+      + '<div class="fg ant-fld"><label for="ant-charges">Charges impayées (facultatif)</label><div class="ant-euro"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="ant-charges" value="' + escHtml(String(val('charges'))) + '" oninput="_antEffet()"><span>€</span></div></div></div>'
+      + '<div class="fg ant-fld"><span class="ant-lbl">Mois concernés (si connus)</span><div class="ant-chips">'
+      + E.mois.map(m => '<button type="button" class="ant-chip on" onclick="_antMoisRetirer(\'' + m + '\')" aria-label="Retirer ' + escHtml(_antMoisFr(m)) + '">' + escHtml(_antMoisFr(m)) + ic('close') + '</button>').join('')
+      + '<label class="ant-chip add">' + ic('plus') + '<span>Ajouter un mois</span><input type="month" id="ant-mois-add" onchange="_antMoisAjout(this.value)"></label></div></div>';
+    if (repris) corps += '<div class="ant-info" role="note">' + ic('info') + '<div>Les loyers échus avant la vente reviennent en principe au vendeur (art. 1614 du Code civil : depuis la vente, les fruits appartiennent à l\'acquéreur). Un arriéré de cette période n\'est dû au bailleur actuel que si l\'acte de vente le lui a transmis ; sinon, le laisser à 0 €.</div></div>';
+  } else if (E.situation === 'avance') {
+    corps += '<div class="fg ant-fld"><label for="ant-avance">Montant payé d\'avance</label><div class="ant-euro ant-court"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="ant-avance" value="' + escHtml(String(val('avance'))) + '" oninput="_antEffet()"><span>€</span></div>'
+      + '<div class="ant-hint">Il couvrira les premiers loyers dus après le ' + escHtml(dateFr) + ', avant qu\'un retard ne puisse apparaître.</div></div>';
+  }
+  corps += '<div class="ant-effet" id="ant-effet"></div>';
+  ov.innerHTML = '<div class="modal ant-modal" role="dialog" aria-modal="true" aria-labelledby="ant-titre">'
+    + '<div class="m-head"><button type="button" class="ant-back" aria-label="Retour" onclick="closeM(\'ov-anteriorite\')">' + '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>' + '</button>'
+    + '<h3 id="ant-titre">' + ic('key') + '<span>' + titre + '</span></h3><button class="m-close" aria-label="Fermer" onclick="closeM(\'ov-anteriorite\')">✕</button></div>'
+    + '<div class="m-body"><p class="ant-ctxt">' + escHtml(E.ref) + (loc ? ' · ' + escHtml(loc) : '') + ' · bail du ' + escHtml(debutBailFr) + (repris ? ' (bail repris)' : '') + '</p>'
+    + '<div class="ant-blk"><div class="ant-blk-t">' + ic('calendar') + '<span>' + titre + '</span></div>'
+    + '<p class="ant-blk-s">Propryo ne reconstitue pas le passé : noter ici où en était le locataire au début du suivi. Ce solde sert de point de départ à Finances et à la restitution du dépôt.</p>'
+    + corps + '</div></div>'
+    + '<div class="m-foot"><button type="button" class="btn bs" onclick="closeM(\'ov-anteriorite\')">Annuler</button>'
+    + '<button type="button" class="btn bp" onclick="_antEnregistrer()">' + ic('check') + 'Enregistrer la situation</button></div></div>';
+  _antEffet();
+}
+
+/** « Ce que Propryo en fera » — recalculé à la saisie, sans re-rendre (le focus reste dans le champ). */
+function _antEffet() {
+  const E = _antEtat, host = el('ant-effet'); if (!E || !host) return;
+  const v = _antLire(), dateFr = _antDateFr(v.date) || 'cette date';
+  const n = (x) => Math.max(0, Number(String(x || '').replace(',', '.')) || 0);
+  const L = (lib, sous, val) => '<div class="ant-eff-l"><span>' + lib + '<span class="s">' + sous + '</span></span><span class="v">' + val + '</span></div>';
+  let h = '<span class="ant-lbl">Ce que Propryo en fera</span>';
+  if (E.situation === 'arriere') {
+    h += L('Retard affiché dans Finances et dans la bulle Impayés', 'soldé par les prochains encaissements, le plus ancien d\'abord', escHtml(_antEuro(n(v.loyer) + n(v.charges))))
+      + L('À la restitution du dépôt', 'ligne à part dans la lettre : « arriéré au ' + escHtml(dateFr) + ', noté à la reprise »', 'compté')
+      + L('Déclaration 2044', 'un arriéré n\'est un revenu qu\'une fois encaissé', 'inchangée');
+  } else if (E.situation === 'avance') {
+    h += L('Premiers loyers dus après le ' + escHtml(dateFr), 'couverts par l\'avance avant tout retard', escHtml(_antEuro(n(v.avance))))
+      + L('À la sortie, si elle n\'a pas servi', 'restituée comme trop-perçu, sur une ligne à part', 'restituée');
+  } else {
+    h += L('Aucun retard reporté', 'les loyers sont suivis à partir du ' + escHtml(dateFr), escHtml(_antEuro(0)));
+  }
+  host.innerHTML = h;
+}
+
+function _antSituation(k) { if (!_antEtat) return; _antEtat.situation = k; _antRender(); }
+function _antMoisAjout(ym) {
+  if (!_antEtat || !/^\d{4}-\d{2}$/.test(String(ym || ''))) return;
+  if (_antEtat.mois.indexOf(ym) < 0) { _antEtat.mois.push(ym); _antEtat.mois.sort(); }
+  _antRender();
+}
+function _antMoisRetirer(ym) { if (!_antEtat) return; _antEtat.mois = _antEtat.mois.filter(m => m !== ym); _antRender(); }
+
+/** Enregistre la situation sur le bail (une seule source : `bail.anteriorite`). Jamais bloquant :
+ *  seule la date est indispensable (sans elle, il n'y a pas de point de départ à noter). */
+function _antEnregistrer() {
+  const E = _antEtat; if (!E || !window._anteriorite) return;
+  const cible = _antBailCible(E.ref, E.bailDebut);
+  if (!cible) { showToast('Bail introuvable', 'err'); return; }
+  const v = _antLire();
+  const obj = window._anteriorite.normaliserAnteriorite({ date: v.date, situation: E.situation, loyer: v.loyer, charges: v.charges, avance: v.avance, mois: E.mois });
+  if (!obj) { showToast('Saisir la date à partir de laquelle Propryo suit ce bail', 'warn'); const d = el('ant-date'); if (d) d.focus(); return; }
+  const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(E.ref) : null;
+  if (s && s.jouissance && obj.date < s.jouissance) {
+    if (!confirm2('La date (' + _antDateFr(obj.date) + ') précède la date d\'achat (' + _antDateFr(s.jouissance) + ').\n\nLe bailleur actuel ne suivait rien à cette date : la situation sera enregistrée, mais Finances partira de la date d\'achat. Enregistrer quand même ?')) return;
+  }
+  if (obj.date < String(cible.bail.debut).slice(0, 10)) {
+    if (!confirm2('La date (' + _antDateFr(obj.date) + ') précède l\'entrée du bail (' + _antDateFr(cible.bail.debut) + '). Enregistrer quand même ?')) return;
+  }
+  const avant = cible.bail.anteriorite || null;
+  cible.bail.anteriorite = obj;
+  if (typeof _stamp === 'function') _stamp(cible.bail);
+  if (typeof _auditLog === 'function') _auditLog('update', 'bail', E.ref, 'antériorité ' + obj.situation + ' au ' + obj.date, { anteriorite: avant }, { anteriorite: obj });
+  saveDB();
+  showToast('Situation du locataire enregistrée', 'ok');
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  const suite = E.suite.slice();
+  closeM('ov-anteriorite');
+  if (suite.length) setTimeout(() => _antOuvrir(suite[0], { suite: suite.slice(1) }), 0);
+}
+
+// ── Fiche immeuble : note « N baux ont commencé avant la date d'achat » + enchaînement ─────────────
+function _immAcqBauxAvant(d) {
+  const nom = (el('imm-nom') && el('imm-nom').value || '').trim();
+  const entId = (el('imm-ent-id') && el('imm-ent-id').value) || (el('ent-edit-id') && el('ent-edit-id').value);
+  const ent = entId ? (DB.entites || []).find(e => e && +e.id === +entId) : null;
+  if (!nom || !ent || !d) return [];
+  return (DB.logements || []).filter(l => l && !l._deleted && l.imm === nom && l.entity === ent.nom).filter(l => {
+    const b = _findBailByRefTolerant(l.ref);
+    if (!b || b._deleted || !b.debut) return false;
+    const deb = String(b.debut).slice(0, 10), fin = b.finEffective ? String(b.finEffective).slice(0, 10) : null;
+    return deb < d && (!fin || fin >= d) && !(b.anteriorite && b.anteriorite.date);
+  }).map(l => l.ref);
+}
+function _immAcqNote() {
+  const host = el('imm-acq-note'); if (!host) return;
+  const d = window._anteriorite ? window._anteriorite.normaliserDate(el('imm-dateAcq') && el('imm-dateAcq').value) : null;
+  const refs = d ? _immAcqBauxAvant(d) : [];
+  if (!refs.length) { host.innerHTML = ''; return; }
+  const n = refs.length, ic = (k) => (typeof _uiIcon === 'function') ? _uiIcon(k, 17) : '';
+  host.innerHTML = '<div class="ant-note" role="note">' + ic('warn') + '<div><b>' + (n > 1 ? n + ' baux en cours ont commencé avant cette date.' : '1 bail en cours a commencé avant cette date.') + '</b> '
+    + (n > 1 ? 'Noter, pour chacun, où en était le locataire le ' : 'Noter où en était le locataire le ') + escHtml(_antDateFr(d)) + ' (à jour, arriéré ou avance).'
+    + '<div class="ant-note-act"><button type="button" class="btn bs" onclick="_immAcqNoter()">' + ic('calendar') + (n > 1 ? 'Noter la situation des ' + n + ' locataires' : 'Noter la situation du locataire') + '</button></div></div></div>';
+}
+/** Enregistre l'immeuble (date comprise), puis enchaîne les écrans « Situation du locataire ». */
+function _immAcqNoter() {
+  const d = window._anteriorite ? window._anteriorite.normaliserDate(el('imm-dateAcq') && el('imm-dateAcq').value) : null;
+  const refs = d ? _immAcqBauxAvant(d) : [];
+  saveImm();
+  const ov = el('ov-imm');
+  if (ov && !ov.classList.contains('hidden')) return;   // l'enregistrement a été refusé : on reste sur la fiche
+  if (refs.length) setTimeout(() => _antOuvrir(refs[0], { suite: refs.slice(1) }), 0);
 }

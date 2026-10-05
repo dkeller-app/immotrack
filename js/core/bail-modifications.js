@@ -121,6 +121,9 @@ export const CHAMPS_VIE = {
   chForfait: { l: 'Charges au forfait', t: 'booleen' },
   irlDerniereApplication: { l: 'Dernière révision IRL appliquée', t: 'texte' },
   reprisVerifie: { l: 'Bail repris vérifié', t: 'booleen' },
+  // R0-C · Q1 révisé (05/10) : situation du locataire au début du suivi (solde d'ouverture). Un bail
+  // signé et verrouillé au cloud doit pouvoir la recevoir : elle vit DANS le bail (aucune colonne).
+  anteriorite: { l: 'Situation du locataire au début du suivi', t: 'objet' },
   quittAutoGen: { l: 'Quittances automatiques', t: 'booleen' },
 };
 // Pièces de la SIGNATURE posées APRÈS le scellement (archivage du PDF signé, certificat de preuve —

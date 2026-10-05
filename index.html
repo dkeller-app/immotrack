@@ -3666,6 +3666,14 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="fg"><label>Valeur estimée (€)</label><input class="inp" type="number" id="imm-valeur" min="0" step="1000"></div>
       <div class="fg"><label>Montant travaux (€)</label><input class="inp" type="number" id="imm-mtravaux" min="0" step="100"></div>
     </div>
+    <!-- R0-C · Q1 révisé (maquette MAQUETTE-ANTERIORITE validée 05/10) : date d'achat = entrée en jouissance
+         du bailleur actuel. Aucun loyer n'est calculé avant elle (bien acheté loué). -->
+    <div class="fg mb8 ant-acq">
+      <label for="imm-dateAcq">Date d'achat (entrée en jouissance)</label>
+      <input class="inp" type="date" id="imm-dateAcq" oninput="_immAcqNote()">
+      <div class="ant-hint">En général, la date de l'acte de vente. Aucun loyer n'est dû au bailleur actuel avant cette date : Propryo ne calcule rien avant elle.</div>
+      <div id="imm-acq-note"></div>
+    </div>
     <div class="fg mb8"><label>Travaux réalisés</label><textarea class="inp" id="imm-travaux" rows="2" placeholder="Ex: ravalement façade 2022, remplacement chaudière 2024…"></textarea></div>
     <div class="fg"><label>Notes</label><textarea class="inp" id="imm-notes" rows="2"></textarea></div>
 
@@ -4428,7 +4436,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/app/supabase-config.js"></script>
 <script type="module" src="js/app/supabase-entry.js" onerror="window.__immoPartFail&&window.__immoPartFail('supabase-entry')"></script>
 <script src="js/app/app-part1.js?v=d2db1829" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=7ef27cf4" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part2.js?v=6ad2bfec" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=7d55738f" data-inline-part onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
