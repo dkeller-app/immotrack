@@ -29609,14 +29609,22 @@ function _finWindows(yr, scope) {
 // y occupait le lot et peut rembourser la charge. Occupation = un bail couvre le mois (`_duMoisLot`, le
 // dû du barème SANS borne de suivi) ET le bailleur actuel possédait le lot (date d'achat connue). Avant
 // l'achat, rien n'est récupérable par lui.
-// ⚠️ FUSION : la branche fix/charges-hors-occupation introduit un helper UNIQUE de fin d'occupation
-// (tacite reconduction). Les deux tests d'occupation ci-dessous (`_finLotOccupe`) sont les lignes à
-// rebrancher sur ce helper.
-function _finLotOccupe(qui, ym) {
+// Occupation = MÊME lecture que la régularisation (computeRegul) : un bail de `_getAllBailsForLog(qui)` —
+// dont la fin vient de `_bailFinOccupation` (tacite reconduction, départ déclaré, clôture) — couvre la DATE
+// de la charge (lot précis : charge datée, comme le chemin 2 de la régul) ou le MOIS (niveau immeuble).
+// Avant (R0-C) : `_duMoisLot(qui, ym) > 0` — un mois occupé pour la régul mais « non dû » pour duMois
+// (ou l'inverse) rendait la charge récupérable ici et vacante là : ni récupérée, ni déduite.
+// Garde-fou conservé : avant la date d'achat (`_finLotSuivi().jouissance`), rien n'est récupérable par le
+// bailleur actuel.
+function _finLotOccupe(qui, quand) {
+  const q = String(quand || '');
+  const ym = q.slice(0, 7);
   const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(qui) : null;
   if (s && s.jouissance && ym < s.jouissance.slice(0, 7)) return false;
-  const d = _duMoisLot(qui, ym);
-  return ((d.hc || 0) + (d.ch || 0)) > 0.005;
+  const jour = q.length >= 10 ? q.slice(0, 10) : null;
+  const du = jour || (ym + '-01'), au = jour || (ym + '-31');
+  return (_getAllBailsForLog(qui) || []).some(b => b && b.debut
+    && String(b.debut).slice(0, 10) <= au && (!b.fin || String(b.fin).slice(0, 10) >= du));
 }
 function _finIsRecupACharge(m) {
   if (!m || !m.date) return false;
@@ -29625,7 +29633,7 @@ function _finIsRecupACharge(m) {
   if (qui && qui.indexOf('SCI:') !== 0) {
     const lg = (DB.logements || []).find(l => l && !l._deleted && l.ref === qui);
     if (lg && lg.compteCharges === false) return true;
-    return !_finLotOccupe(qui, ym);
+    return !_finLotOccupe(qui, String(m.date).slice(0, 10));   // à la DATE, comme la régularisation
   }
   if (!qui && m.imm) {
     const lots = (DB.logements || []).filter(l => l && !l._deleted && l.imm === m.imm && l.ref);
