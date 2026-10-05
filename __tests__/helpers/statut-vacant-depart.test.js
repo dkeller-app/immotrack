@@ -55,7 +55,7 @@ function monter(DB, noms, extra = {}) {
   const fn = new Function('scope', 'with (scope) {\n' + noms.map(corps).join('\n') + '\nreturn {' + noms.join(',') + '};\n}')(scope);
   return { fn, base, els, html };
 }
-const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot'];
+const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot', '_dgDetenuDuBail', '_dgRestitutionEnregistree'];
 
 describe('1 · la règle de statut (module pur)', () => {
   it('bail nu reconduit (échéance passée), sans départ : loué', () => expect(bailLoueAu(BAIL, AUJ)).toBe(true));
@@ -409,4 +409,102 @@ describe('12 · relocation d\'un lot parti (VRAI archiverBail, appelé par saveB
     expect(debut({}, false)).toBe('');
     expect(debut({ A1: DEPART }, true)).toBe('2023-07-01');
   });
+});
+describe('13 · dépôts détenus = état de restitution, baux vivants ET archivés (coordination Finances 06/10)', () => {
+  const ARCH = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAuto: true };
+  const NOUV = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nouveau' }] };
+  const detenu = (baux, histo) => {
+    const DB = dbDe(baux); DB.baux_historique = histo;
+    return monter(DB, STATUT).fn._dgDetenuDuLot({ ref: 'A1', dg: 0 });
+  };
+  it('relocation avant restitution : le dépôt de 900 € de l\'ancien bail (archivé) reste détenu, en plus du nouveau', () => {
+    expect(detenu({ A1: NOUV }, [ARCH])).toBe(2200);
+  });
+  it('restitution enregistrée sur le bail archivé (dgRestitueAt) : seul le nouveau dépôt reste', () => {
+    expect(detenu({ A1: NOUV }, [{ ...ARCH, dgRestitueAt: '2026-11-20' }])).toBe(1300);
+  });
+  it('bail archivé par relocation, montants EN COURS de calcul (dgRetenu sans dgRestitueAt) : toujours détenu', () => {
+    expect(detenu({}, [{ ...ARCH, dgRetenu: 120, dgRestitue: 780 }])).toBe(900);
+  });
+  it('bail CLÔTURÉ : montants saisis à la clôture = restitution (anciennes clôtures) ; clôture sans montant ni date = détenu', () => {
+    expect(detenu({ A1: { ref: 'A1', _deleted: true } }, [{ ...ARCH, cloture: true, dgRestitue: 900 }])).toBe(0);
+    expect(detenu({ A1: { ref: 'A1', _deleted: true } }, [{ ...ARCH, cloture: true, dgRetenu: 900 }])).toBe(0);
+    expect(detenu({ A1: { ref: 'A1', _deleted: true } }, [{ ...ARCH, cloture: true, dgRestitue: 0, dgRetenu: 0 }])).toBe(900);
+  });
+  it('bail en cours : un dgRetenu calculé ne vaut pas restitution (seul dgRestitueAt) ; tombstone et historique supprimé ignorés', () => {
+    expect(detenu({ A1: { ...DEPART, dgRetenu: 100 } }, [])).toBe(900);
+    expect(detenu({ A1: { ref: 'A1', _deleted: true } }, [{ ...ARCH, _deleted: true }])).toBe(0);
+  });
+  it('tuile PC « Dépôts détenus » (VRAI _renderPilotage) après relocation : 2 200 €', () => {
+    const DB = dbDe({ A1: NOUV }); DB.baux_historique = [ARCH];
+    const { fn, els } = monter(DB, [...STATUT, '_renderPilotage']);
+    try { fn._renderPilotage({ scopeLogs: DB.logements, yr: '2026', mo: null, activeEnt: '' }); } catch (e) { /* bulles non simulées */ }
+    const h = els['pil-strip'].innerHTML;
+    expect(h.slice(h.indexOf('Dépôts détenus'), h.indexOf('Dépôts détenus') + 120)).toContain('2200 €');
+  });
+});
+
+describe('14 · scénario de l\'audit : relocation d\'un lot parti (VRAIS archiverBail → dû, dépôt, tâche)', () => {
+  const scenario = () => {
+    const DB = dbDe({ A1: { ...DEPART, ref: 'A1', fin: '2028-12-31' } });
+    const m = monter(DB, [...STATUT, 'archiverBail', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation', '_computeUnifiedTodo', '_departDeadlineDG'], {
+      _baremeCloturerLot: () => {}, _departState: () => null, td: () => AUJ, AlertRules: new Proxy({}, { get: () => () => [] }), EQUIP_RULES: [], _DIAGS_CATALOG_INLINE: [], _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+    });
+    m.fn.archiverBail('A1', '2026-11-15');
+    DB.baux.A1 = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nouveau' }] };
+    return { DB, m };
+  };
+  it('octobre et novembre ne sont plus dus par l\'ancien locataire', () => {
+    const { DB } = scenario();
+    const ancien = (ym) => { const d = duMoisFromRaw('A1', ym, { currentBail: null, bauxHistorique: DB.baux_historique, bareme: [] }); return d ? Math.round((d.hc || 0) + (d.ch || 0)) : 0; };
+    expect(ancien('2026-09')).toBe(600);
+    expect(ancien('2026-10')).toBe(0);
+    expect(ancien('2026-11')).toBe(0);
+  });
+  it('le dépôt de 900 € reste détenu, et la tâche « DG avant le 30/11 » reste (bail archivé)', () => {
+    const { DB, m } = scenario();
+    expect(m.fn._dgDetenuDuLot(DB.logements[0])).toBe(2200);
+    let out = [];
+    try { out = m.fn._computeUnifiedTodo({ scopeLogs: [DB.logements[0]], scopeImms: [], yr: '2026' }) || []; } catch (e) { out = ['ERREUR ' + e.message]; }
+    const t = out.find((x) => x && x.type === 'depart');
+    expect(t && t.subtitle).toContain('DG avant le 30/11/2026');
+    expect(t.subtitle).toContain('900 €');
+    expect(t.actionFn).toBe('openBailHist(0)');
+  });
+});
+
+describe('15 · clôture d\'un bail (VRAIS saveBailClore / terminerBail) : restitution du dépôt', () => {
+  const clore = (fnNom, saisie, rep = true) => {
+    const DB = dbDe({ A1: { ...DEPART, ref: 'A1' } });
+    const msgs = [];
+    const vals = { 'b-clore-ref': 'A1', 'b-ref': 'A1', 'b-fin-effective': '2026-09-30', 'b-fin-motif': 'Congé du locataire' };
+    const m = monter(DB, [...STATUT, fnNom, '_clotureDgConfirmer', '_clotureDgAppliquer'], {
+      v: (id) => vals[id] || '', pf: (id) => Number(saisie[id] || 0), confirm2: (t) => { msgs.push(t); return msgs.length === 1 ? true : rep; },
+      _ART22_RESTITUTION: ['« art22-2mois »', '« art22-1mois »'], _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {},
+    });
+    m.els['b-clore-ref'] = { value: 'A1' };
+    m.fn[fnNom]();
+    return { DB, msgs };
+  };
+  for (const fnNom of ['saveBailClore', 'terminerBail']) {
+    it(fnNom + ' sans restitution saisie : avertit (art. 22), ne bloque pas ; le dépôt reste détenu (bail archivé)', () => {
+      const { DB, msgs } = clore(fnNom, {});
+      expect(msgs[1]).toContain('art22-2mois');
+      expect(msgs[1]).toContain('900 €');
+      expect(DB.baux.A1._deleted).toBe(true);
+      expect(DB.baux_historique[0].dgRestitueAt).toBeFalsy();
+      expect(monter(DB, STATUT).fn._dgDetenuDuLot({ ref: 'A1' })).toBe(900);
+    });
+    it(fnNom + ' : renoncer à l\'avertissement n\'archive rien', () => {
+      const { DB } = clore(fnNom, {}, false);
+      expect(DB.baux.A1._deleted).toBeFalsy();
+      expect(DB.baux_historique).toEqual([]);
+    });
+    it(fnNom + ' avec restitution saisie : pas d\'avertissement, dgRestitueAt posé (date de saisie), plus détenu', () => {
+      const { DB, msgs } = clore(fnNom, { 'b-dg-restitue': 780, 'b-dg-retenu': 120 });
+      expect(msgs).toHaveLength(1);
+      expect(DB.baux_historique[0].dgRestitueAt).toBe(AUJ);
+      expect(monter(DB, STATUT).fn._dgDetenuDuLot({ ref: 'A1' })).toBe(0);
+    });
+  }
 });

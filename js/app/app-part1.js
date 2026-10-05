@@ -8079,6 +8079,27 @@ function openBailClore(ref) {
   openM('ov-bail-clore');
 }
 
+// Loi n° 89-462 du 6 juillet 1989, article 22 (Légifrance, version en vigueur), alinéas sur le délai de restitution.
+const _ART22_RESTITUTION = [
+  "Il est restitué dans un délai maximal de deux mois à compter de la remise en main propre, ou par lettre recommandée avec demande d'avis de réception, des clés au bailleur ou à son mandataire, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, aux lieu et place du locataire, sous réserve qu'elles soient dûment justifiées.",
+  "Il est restitué dans un délai maximal d'un mois à compter de la remise des clés par le locataire lorsque l'état des lieux de sortie est conforme à l'état des lieux d'entrée, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, en lieu et place du locataire, sous réserve qu'elles soient dûment justifiées."
+];
+// Clôture d'un bail (saveBailClore, terminerBail) — restitution du dépôt de garantie. Dépôt versé, aucune
+// restitution saisie ni déjà enregistrée : AVERTIR (art. 22), jamais bloquer — le dépôt reste compté détenu
+// (_dgDetenuDuLot) et sa tâche reste (_computeUnifiedTodo 7bis). Renvoie false si l'utilisateur renonce.
+function _clotureDgConfirmer(bail, dgRestitue, dgRetenu) {
+  const dg = Number(bail && bail.dg) || 0;
+  if(dg <= 0 || (bail && bail.dgRestitueAt) || Number(dgRestitue) > 0 || Number(dgRetenu) > 0) return true;
+  return confirm2('Le dépôt de garantie (' + fmt(dg) + ') n\'a aucune restitution enregistrée : il restera compté comme détenu, et sa restitution à faire, jusqu\'à ce qu\'elle soit enregistrée.\n\n'
+    + 'Loi n° 89-462 du 6 juillet 1989, article 22 :\n« ' + _ART22_RESTITUTION.join(' »\n« ') + ' »\n\nClôturer quand même ?');
+}
+// Montants saisis à la clôture ; une restitution saisie pose `dgRestitueAt` (date de saisie) s'il ne l'est pas déjà.
+function _clotureDgAppliquer(bail, dgRestitue, dgRetenu) {
+  bail.dgRestitue = dgRestitue;
+  bail.dgRetenu   = dgRetenu;
+  if(!bail.dgRestitueAt && (Number(dgRestitue) > 0 || Number(dgRetenu) > 0)) bail.dgRestitueAt = td();
+}
+
 function saveBailClore() {
   const ref = el('b-clore-ref').value;
   if(!ref) { showToast('Aucun bail sélectionné','err'); return; }
@@ -8091,12 +8112,12 @@ function saveBailClore() {
   if(!motif)  { showToast('Motif de fin requis','err'); return; }
   // Confirmation finale (action destructive : archive + vacant)
   if(!confirm2(`Clôturer le bail ${ref} au ${fd(finEff)} ?\nLe logement sera marqué vacant et le bail archivé.`)) return;
+  if(!_clotureDgConfirmer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'))) return;
   // Persister les infos de clôture
   bail.finEffective   = finEff;
   bail.finMotif       = motif;
   bail.locNouvelleAdr = v('b-loc-nouv-adr');
-  bail.dgRestitue     = pf('b-dg-restitue');
-  bail.dgRetenu       = pf('b-dg-retenu');
+  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'));
   bail.finNotes       = v('b-fin-notes');
   bail.cloture        = true;
   bail.ref            = ref;
@@ -9667,8 +9688,31 @@ function _computeUnifiedTodo(ctx) {
 
   // 7bis. Départ de locataire en cours (DEPART-VISIBILITE #2) — fil rouge guidé + délai légal DG (art. 22).
   // Le départ remonte sur la home avec son échéance datée ; sévérité pilotée par le compte à rebours du DG.
+  // Échéance du dépôt (art. 22) : sévérité + texte, partagés par le bail en cours et les baux archivés.
+  const _dgEcheance = (dl) => {
+    if(!dl) return { severity:'info', score:58, txt:'' };
+    if(dl.jours < 0)  return { severity:'red', score:97, txt:' — DG en retard ' + (-dl.jours) + ' j (majoration)' };
+    if(dl.jours <= 15) return { severity:'ora', score:78, txt:' — DG à restituer avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')' };
+    return { severity:'info', score:58, txt:' — DG avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')' };
+  };
   if(typeof _departState === 'function' && DB.baux) {
     scopeLogs.forEach(l => {
+      // Statut 06/10 : un bail ARCHIVÉ (relocation avant restitution, clôture sans restitution) dont le dépôt
+      // n'est pas restitué garde sa tâche — même règle que les « Dépôts détenus » (_dgDetenuDuBail).
+      (DB.baux_historique || []).forEach((h, hi) => {
+        if(!h || h._deleted || h.ref !== l.ref || _dgDetenuDuBail(h, 0) <= 0) return;
+        let dlH = null; try { dlH = _departDeadlineDG(h); } catch(e){ dlH = null; }
+        const e = _dgEcheance(dlH);
+        const locH = (h.locataires && h.locataires[0] && h.locataires[0].nom) || h.nom || l.ref;
+        out.push({
+          type:'depart', severity:e.severity, score:e.score,
+          title:'Départ — dépôt de garantie à restituer (bail archivé)',
+          subtitle:l.ref + ' — ' + locH + ' · ' + fmt(_dgDetenuDuBail(h, 0)) + e.txt,
+          contextRef:l.ref,
+          actionLabel:'Voir le bail archivé',
+          actionFn:'openBailHist(' + hi + ')'
+        });
+      });
       const bail = DB.baux[l.ref];
       if(!bail || bail._deleted || bail.cloture || !bail.depart) return;
       let st; try { st = _departState(bail); } catch(e){ return; }
@@ -9676,12 +9720,8 @@ function _computeUnifiedTodo(ctx) {
       const loc = (bail.locataires && bail.locataires[0] && bail.locataires[0].nom) || bail.nom || l.locataire || l.ref;
       const dl = st.deadline;
       const dgDone = (st.steps.find(s => s.key === 'dg') || {}).done;
-      let severity = 'info', score = 58, dgTxt = '';
-      if(dl && !dgDone) {
-        if(dl.jours < 0)        { severity = 'red'; score = 97; dgTxt = ' — DG en retard ' + (-dl.jours) + ' j (majoration)'; }
-        else if(dl.jours <= 15) { severity = 'ora'; score = 78; dgTxt = ' — DG à restituer avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
-        else                    { dgTxt = ' — DG avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
-      }
+      const _e = _dgEcheance((dl && !dgDone) ? dl : null);
+      let severity = _e.severity, score = _e.score; const dgTxt = _e.txt;
       // acompte conseillé AVANT l'EDL (même jalon que l'alerte de l'assistant : le locataire est encore
       // présent). Après l'EDL/remise des clés, l'acompte amiable n'a plus de sens.
       let acpTxt='';
@@ -9790,14 +9830,14 @@ function _computeUnifiedTodo(ctx) {
  * VIDE. Un bail repris a l'achat, une saisie en cours, un locataire parti : le cache ment dans
  * les deux sens.
  * Statut OCCUPÉ AUJOURD'HUI (décision Didier 06/10, _bienIsBailActif) : un départ déclaré passé rend le
- * lot vacant. Une surface qui affiche de l'ARGENT encore dû par ce bail (dépôt détenu, impayés, onglet
- * Loyers) lit _lotBailOuvert, pas ce statut.
+ * lot vacant. Une surface qui affiche de l'ARGENT encore dû par ce bail (impayés, onglet Loyers) lit
+ * _lotBailOuvert, pas ce statut ; le dépôt détenu lit son état de restitution (_dgDetenuDuLot).
  */
 function _lotEstLoue(l) {
   if (!l || !l.ref) return false;
   return (typeof _bienIsBailActif === 'function') ? _bienIsBailActif(l.ref) : !!l.locataire;
 }
-/** Le bail de ce lot est-il encore OUVERT (non clôturé) ? — dépôt détenu, impayés, onglet Loyers : un
+/** Le bail de ce lot est-il encore OUVERT (non clôturé) ? — impayés, onglet Loyers : un
  *  départ déclaré ne clôt ni la restitution ni la dette. */
 function _lotBailOuvert(l) {
   if (!l || !l.ref) return false;
@@ -9817,18 +9857,38 @@ function _dgDuLot(l) {
   return Number((b && b.dg) || l.dg || 0) || 0;
 }
 /**
- * LE dépôt DÉTENU d'un lot — règle UNIQUE des « Dépôts détenus » (bandeau PC, Accueil téléphone, widget).
- * Détenu ⇔ reçu et PAS ENCORE RESTITUÉ : le bail est encore OUVERT (non clôturé — un départ déclaré, même
- * passé, ne rend pas le dépôt : il reste dû au locataire dans le délai de l'article 22) et sa restitution
- * n'est pas enregistrée (`dgRestitueAt`, le drapeau posé par _dgConfirmerRestitution). Montant : _dgDuLot.
- * Jamais le statut « loué » : avant le 06/10, le filtre `_lotEstLoue` aurait fait disparaître le dépôt dès
- * le départ déclaré. Bail clôturé : la clôture enregistre la restitution (formulaire) → plus détenu.
+ * DÉPÔTS DÉTENUS — règle UNIQUE (coordination Finances 06/10, décision Didier « gardé jusqu'à restitution ») :
+ * un dépôt est détenu tant que sa RESTITUTION n'est pas enregistrée. Jamais « lot loué », jamais « bail
+ * ouvert » : un départ déclaré, une relocation (bail archivé par archiverBail) ou une clôture sans restitution
+ * ne rendent pas l'argent au locataire (art. 22 de la loi du 6 juillet 1989).
+ *
+ * Restitution ENREGISTRÉE d'un bail :
+ *  • `dgRestitueAt` — posé par _dgConfirmerRestitution (solde de tout compte) ou à la clôture (_clotureDgAppliquer) ;
+ *  • bail CLÔTURÉ (`cloture`) : aussi les montants saisis au formulaire de clôture (dgRestitue / dgRetenu > 0) —
+ *    seules traces des clôtures d'avant le 06/10 (mesuré : toutes celles des sauvegardes réelles en portent).
+ *    Sur un bail NON clôturé (en cours, parti, ou archivé par relocation), dgRetenu / dgRestitue sont des montants
+ *    EN COURS de calcul (_rgApplyRetenue ; saveBail les écrit à 0) : ils ne disent pas que l'argent est rendu.
  */
+function _dgRestitutionEnregistree(b) {
+  if (!b) return false;
+  if (b.dgRestitueAt) return true;
+  return !!b.cloture && (Number(b.dgRestitue) > 0 || Number(b.dgRetenu) > 0);
+}
+/** Le dépôt DÉTENU par un bail (vivant ou archivé) : dg > 0 et restitution non enregistrée. `dgLot` = repli
+ *  sur le dépôt de la fiche du lot, pour le seul bail courant (sémantique de _dgDuLot). */
+function _dgDetenuDuBail(b, dgLot) {
+  if (!b || b._deleted || _dgRestitutionEnregistree(b)) return 0;
+  return Number(b.dg || dgLot || 0) || 0;
+}
+/** LE dépôt DÉTENU d'un lot (bandeau PC, Accueil téléphone, widget) : son bail courant (même parti, même
+ *  porteur d'une fin effective) + ses baux archivés (relocation avant restitution, clôture sans restitution).
+ *  Un bail clôturé est un tombstone dans DB.baux et sa copie dans baux_historique : jamais compté deux fois. */
 function _dgDetenuDuLot(l) {
   if (!l || !l.ref) return 0;
-  const b = (typeof _bienActiveBail === 'function') ? _bienActiveBail(l.ref) : null;
-  if (!b || b.dgRestitueAt) return 0;
-  return _dgDuLot(l);
+  const cur = DB.baux && DB.baux[l.ref];
+  let tot = _dgDetenuDuBail(cur, (cur && !cur.cloture) ? l.dg : 0);
+  (DB.baux_historique || []).forEach(function (h) { if (h && h.ref === l.ref) tot += _dgDetenuDuBail(h, 0); });
+  return tot;
 }
 
 /**
@@ -16745,11 +16805,11 @@ function terminerBail() {
   if(!finEff) { showToast('Date de fin effective requise','err'); return; }
   if(!confirm2(`Clôturer le bail de ${ref} au ${fd(finEff)} ?\nLe logement sera marqué comme vacant et le bail archivé.`)) return;
   const bail = DB.baux[ref]||{};
+  if(!_clotureDgConfirmer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'))) return;
   bail.finEffective = finEff;
   bail.finMotif = v('b-fin-motif');
   bail.locNouvelleAdr = v('b-loc-nouv-adr');
-  bail.dgRestitue = pf('b-dg-restitue');
-  bail.dgRetenu = pf('b-dg-retenu');
+  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'));
   bail.finNotes = v('b-fin-notes');
   bail.cloture = true;
   bail.ref = ref;
@@ -17287,7 +17347,10 @@ function saveBail() {
       const _faTxt = _fa.sortieApres
         ? `\n\n⚠️ La sortie déclarée de l'ancien locataire (${fd(_fa.sortie)}) n'est pas antérieure au début du nouveau bail (${fd(_debut)}) : l'ancien bail sera terminé la veille, le ${fd(_fa.fin)}.`
         : (_fa.fin ? `\n\nL'ancien bail sera terminé le ${fd(_fa.fin)}${_fa.sortie ? ' (sortie déclarée)' : ' (veille du nouveau bail)'}.` : '');
-      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.${_faTxt}\n\nConfirmer la création du nouveau bail ?`)) return;
+      // Dépôt de l'ancien locataire sans restitution enregistrée : il reste détenu sur le bail archivé (_dgDetenuDuBail).
+      const _dgAnc = _dgDetenuDuBail(bailExistant, (DB.logements.find(x => x.ref === ref) || {}).dg);
+      const _dgTxt = _dgAnc > 0 ? `\n\nLe dépôt de garantie de l'ancien locataire (${fmt(_dgAnc)}) n'a pas de restitution enregistrée : il restera compté comme détenu. L'enregistrer dans l'assistant de départ AVANT de créer le nouveau bail.` : '';
+      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.${_faTxt}${_dgTxt}\n\nConfirmer la création du nouveau bail ?`)) return;
       _archiverAncien = true;
     }
   }
