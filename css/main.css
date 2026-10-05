@@ -10281,11 +10281,16 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   #ov-anteriorite .m-foot .btn{width:100%;min-height:44px;justify-content:center;white-space:normal;text-align:center}
   #ov-anteriorite .m-foot .btn.bs{display:none}
   #ov-anteriorite .fg2{grid-template-columns:1fr}
-  #ov-anteriorite .inp{font-size:16px;min-height:44px}
   #ov-anteriorite .ant-seg{grid-template-columns:1fr}
-  #ov-anteriorite .ant-seg button{min-height:44px;justify-content:flex-start;padding:8px 12px}
-  #ov-anteriorite .ant-chip{min-height:36px}
-  #ov-anteriorite .ant-chip.add{min-height:44px}
+  #ov-anteriorite .ant-seg button{justify-content:flex-start;padding:8px 12px}
+}
+/* Tactile (téléphone ET tablette, 2ᵉ audit 🟡) : champs à 16 px (pas de zoom iOS), cibles ≥ 44 px. */
+@media (max-width:1023px){
+  #ov-anteriorite .inp{font-size:16px;min-height:44px}
+  #ov-anteriorite .ant-seg button{min-height:44px}
+  #ov-anteriorite .ant-chip{min-height:44px}
+  #ov-anteriorite .m-foot .btn{min-height:44px}
+  #ov-anteriorite .m-close{min-width:44px;min-height:44px}
   .ant-note .btn{min-height:44px}
   #imm-dateAcq{font-size:16px;min-height:44px}
 }

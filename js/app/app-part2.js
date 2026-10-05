@@ -32222,7 +32222,8 @@ function _antRender(initial) {
   const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(E.ref) : null;
   const repris = !!((s && s.jouissance) || bail.typeContrat === 'repris' || (bail.source && bail.source.import === 'acte'));
   const prev = initial ? null : _antLire();
-  const dateDefaut = (a && a.date) || (s && s.jouissance) || (s && s.source === 'provisoire' ? s.date : '') || '';
+  // Jamais de champ vide (2ᵉ audit 🟡) : à défaut de tout, l'entrée du bail.
+  const dateDefaut = (a && a.date) || (s && s.jouissance) || (s && s.source === 'provisoire' ? s.date : '') || String(bail.debut || '').slice(0, 10);
   const date = prev ? prev.date : dateDefaut;
   const dateFr = _antDateFr(date) || 'cette date';
   const val = (k) => prev ? prev[k] : (a && Number(a[k]) ? a[k] : '');
@@ -32249,7 +32250,7 @@ function _antRender(initial) {
       + '<div class="fg ant-fld"><span class="ant-lbl">Mois concernés (si connus)</span><div class="ant-chips">'
       + E.mois.map(m => '<button type="button" class="ant-chip on" onclick="_antMoisRetirer(\'' + m + '\')" aria-label="Retirer ' + escHtml(_antMoisFr(m)) + '">' + escHtml(_antMoisFr(m)) + ic('close') + '</button>').join('')
       + '<label class="ant-chip add">' + ic('plus') + '<span>Ajouter un mois</span><input type="month" id="ant-mois-add" onchange="_antMoisAjout(this.value)"></label></div></div>';
-    if (repris) corps += '<div class="ant-info" role="note">' + ic('info') + '<div>Les loyers échus avant la vente reviennent en principe au vendeur (art. 1614 du Code civil : depuis la vente, les fruits appartiennent à l\'acquéreur). Un arriéré de cette période n\'est dû au bailleur actuel que si l\'acte de vente le lui a transmis ; sinon, le laisser à 0 €.</div></div>';
+    if (repris) corps += '<div class="ant-info" role="note">' + ic('info') + '<div>Les loyers de la période antérieure à la vente reviennent au vendeur (art. 1614 du Code civil : depuis la vente, les fruits appartiennent à l\'acquéreur). Un arriéré de cette période n\'est dû au bailleur actuel que si l\'acte de vente le lui a transmis (cession de créance ou subrogation) ; sinon, le laisser à 0 €.</div></div>';
   } else if (E.situation === 'avance') {
     corps += '<div class="fg ant-fld"><label for="ant-avance">Montant payé d\'avance</label><div class="ant-euro ant-court"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="ant-avance" value="' + escHtml(String(val('avance'))) + '" oninput="_antEffet()"><span>€</span></div>'
       + '<div class="ant-hint">Il couvrira les premiers loyers dus après le ' + escHtml(dateFr) + ', avant qu\'un retard ne puisse apparaître.</div></div>';
@@ -32275,7 +32276,7 @@ function _antEffet() {
   const L = (lib, sous, val) => '<div class="ant-eff-l"><span>' + lib + '<span class="s">' + sous + '</span></span><span class="v">' + val + '</span></div>';
   let h = '<span class="ant-lbl">Ce que Propryo en fera</span>';
   if (E.situation === 'arriere') {
-    h += L('Retard affiché dans Finances et dans la bulle Impayés', 'soldé par les prochains encaissements, le plus ancien d\'abord', escHtml(_antEuro(n(v.loyer) + n(v.charges))))
+    h += L('Retard affiché dans Finances et dans la bulle Impayés', 'chaque encaissement paie d\'abord le loyer et les charges de son mois ; ce qui dépasse règle l\'arriéré', escHtml(_antEuro(n(v.loyer) + n(v.charges))))
       + L('À la restitution du dépôt', 'ligne à part dans la lettre : « arriéré au ' + escHtml(dateFr) + ', noté à la reprise »', 'compté')
       + L('Déclaration 2044', 'un arriéré n\'est un revenu qu\'une fois encaissé', 'inchangée');
   } else if (E.situation === 'avance') {
@@ -32295,15 +32296,16 @@ function _antMoisAjout(ym) {
 }
 function _antMoisRetirer(ym) { if (!_antEtat) return; _antEtat.mois = _antEtat.mois.filter(m => m !== ym); _antRender(); }
 
-/** Enregistre la situation sur le bail (une seule source : `bail.anteriorite`). Jamais bloquant :
- *  seule la date est indispensable (sans elle, il n'y a pas de point de départ à noter). */
+/** Enregistre la situation sur le bail (une seule source : `bail.anteriorite`). Jamais bloquant
+ *  (2ᵉ audit 🟡) : sans date valide, la situation est notée à l'entrée du bail, et l'écran le dit. */
 function _antEnregistrer() {
   const E = _antEtat; if (!E || !window._anteriorite) return;
   const cible = _antBailCible(E.ref, E.bailDebut);
   if (!cible) { showToast('Bail introuvable', 'err'); return; }
   const v = _antLire();
-  const obj = window._anteriorite.normaliserAnteriorite({ date: v.date, situation: E.situation, loyer: v.loyer, charges: v.charges, avance: v.avance, mois: E.mois });
-  if (!obj) { showToast('Saisir la date à partir de laquelle Propryo suit ce bail', 'warn'); const d = el('ant-date'); if (d) d.focus(); return; }
+  const sansDate = !window._anteriorite.normaliserDate(v.date);
+  const obj = window._anteriorite.normaliserAnteriorite({ date: sansDate ? cible.bail.debut : v.date, situation: E.situation, loyer: v.loyer, charges: v.charges, avance: v.avance, mois: E.mois });
+  if (!obj) { showToast('Enregistrement impossible : la date d\'entrée du bail est illisible', 'err'); return; }   // échec technique seul
   const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(E.ref) : null;
   if (s && s.jouissance && obj.date < s.jouissance) {
     if (!confirm2('La date (' + _antDateFr(obj.date) + ') précède la date d\'achat (' + _antDateFr(s.jouissance) + ').\n\nLe bailleur actuel ne suivait rien à cette date : la situation sera enregistrée, mais Finances partira de la date d\'achat. Enregistrer quand même ?')) return;
@@ -32316,7 +32318,7 @@ function _antEnregistrer() {
   if (typeof _stamp === 'function') _stamp(cible.bail);
   if (typeof _auditLog === 'function') _auditLog('update', 'bail', E.ref, 'antériorité ' + obj.situation + ' au ' + obj.date, { anteriorite: avant }, { anteriorite: obj });
   saveDB();
-  showToast('Situation du locataire enregistrée', 'ok');
+  showToast(sansDate ? 'Situation enregistrée à l\'entrée du bail (' + _antDateFr(obj.date) + ') : aucune date n\'était saisie' : 'Situation du locataire enregistrée', sansDate ? 'warn' : 'ok');
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
   const suite = E.suite.slice();
   closeM('ov-anteriorite');
