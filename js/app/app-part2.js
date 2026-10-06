@@ -93,7 +93,11 @@ function _buildEmailCtxFromRef(ref, extraCtx) {
     entite: ent,
     locataire,
     garant: bail.garant ? { nom: bail.garant } : null,
-    montant: (Number(bail.hc)||Number(log.hc)||0) + (Number(bail.ch)||Number(log.ch)||0),
+    // R-0 : le loyer EN VIGUEUR aujourd'hui (même règle que la fiche du bien, `loyerDuLotA` du moteur) —
+    // un e-mail parti après une révision IRL n'annonce plus l'ancien loyer du bail. Un envoi qui porte sur
+    // une date (période réclamée, quittance) fournit son propre `montant` via extraCtx, qui l'emporte
+    // (mise en demeure : montant saisi). Aucun acte signé ni document déjà généré n'est relu ici.
+    montant: _loyerEnVigueurLot(ref, bail, log),
     periode: '', // À compléter par extraCtx selon le type
     // Date en clair : ces modèles l'impriment en toutes lettres (« Fait à …, le … »).
     dateLettre: fd(td()),
@@ -10901,13 +10905,8 @@ function _renderLogFicheHeroStats(log, ref) {
   // ── KPI 1 : Loyer mensuel
   let loyerKPI;
   if(bail) {
-    // R-0 (lot 1, R5) : le loyer EN VIGUEUR AUJOURD'HUI = le bandeau « Loyer en vigueur » de l'onglet
-    // Bail de cette même fiche (`_histoBailEnVigueur` : période du barème couvrant la date LOCALE du
-    // jour). `bail.hc + bail.ch` ignorait le barème (révision IRL appliquée invisible). Une révision
-    // programmée, même au 20 du mois, ne compte qu'à sa date d'effet (pas le taux plein du mois :
-    // audit 06/10). Repli sur le bail sans période couvrant aujourd'hui, ou modules non chargés.
-    const _ev = (typeof _histoBailEnVigueur === 'function') ? _histoBailEnVigueur(ref) : null;
-    const loyer = _ev ? _ev.total : ((+bail.hc || 0) + (+bail.ch || 0));
+    // R-0 (lot 1, R5) : le loyer EN VIGUEUR aujourd'hui — LA règle partagée avec la fiche téléphone.
+    const loyer = _loyerEnVigueurLot(ref, bail, log);
     loyerKPI = { v: fmt(loyer), unit: '/mois', label: 'Loyer actuel', cls: 'k-money' };
   } else {
     // LOYER-REFERENCE — bien vacant : afficher le LOYER SOUHAITÉ (loyer de référence), éditable (✏️),
@@ -13424,6 +13423,28 @@ function _histoBailEnVigueur(ref){
   return (typeof window!=='undefined' && typeof window._bailHistoEnVigueur==='function')
     ? window._bailHistoEnVigueur(ref, DB.loyerBareme||[], _histoBailTodayIso()) : null;
 }
+// LE loyer mensuel EN VIGUEUR d'un lot (hc + ch) — R-0 : la règle « loyer d'un lot à une date » du
+// moteur (`loyerDuLotA`, js/core/legal-bilan.js : barème en vigueur (même sélecteur que duMois) →
+// bail en cours → dernier bail terminé → bail suivant → fiche du lot), à la date LOCALE du jour.
+// Lue par la fiche PC (« Loyer actuel »), la fiche téléphone (« Loyer ») et le contexte des e-mails.
+// Pas le dû du mois (`_duMoisLot`, proratisé) ni le taux du dernier jour du mois (une révision au 20
+// s'affichait dès le 1er).
+// Le lot est « loué » à son bail COURANT (audit 06/10) : si ce bail commence plus tard (relocation
+// signée d'avance), on lit à SA date de début — au jour même, « dernier bail terminé » rendait le
+// loyer de l'ancien locataire sous le nom du nouveau. Bail courant SANS date de début : le moteur ne
+// peut pas le placer dans le temps (il retombait sur le loyer SOUHAITÉ de la fiche du lot) → ce bail.
+// Repli file:// (modules absents) : bail, puis fiche du lot, champ par champ.
+function _loyerEnVigueurLot(ref, bail, log){
+  const _duBail = (b, l) => (+((b && b.hc) || (l && l.hc)) || 0) + (+((b && b.ch) || (l && l.ch)) || 0);
+  if (typeof loyerDuLotA !== 'function' || typeof _ctxLoyerLot !== 'function') return _duBail(bail, log);
+  const ctx = _ctxLoyerLot(ref);
+  const cur = (ctx.bailCourant && !ctx.bailCourant._deleted && !ctx.bailCourant.cloture) ? ctx.bailCourant : null;
+  if (cur && !cur.debut) return _duBail(cur, ctx.lot || log);   // lot trouvé en tolérant (e-mails : log partiel)
+  const today = _histoBailTodayIso();
+  const debutCur = cur ? String(cur.debut).slice(0, 10) : '';
+  const r = loyerDuLotA(debutCur > today ? debutCur : today, ref, ctx);
+  return (Number(r && r.hc) || 0) + (Number(r && r.ch) || 0);
+}
 function _histoBailChapId(key){ return 'hbc-'+String(key).replace(/[^a-z0-9|_-]/gi,'_'); }
 function _histoBailToggleChap(key){
   _histoBailOuverts[key] = !_histoBailOuverts[key];
@@ -14990,7 +15011,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.721 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.722 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -16866,17 +16887,11 @@ function _ensureLogFichePhCss(){
 function _renderLogFichePhStrip(log, bail, ref){
   const cells = [];
   if(bail){
-    // Loyer COURANT (post-révision IRL) via le résolveur unique du barème `_duMoisLot`
-    // (mêmes 2 sources bail+barème que le moteur loyers) ; repli contractuel si indispo (file://).
-    let loyer = (+bail.hc||+log.hc||0) + (+bail.ch||+log.ch||0);
-    try{
-      if(typeof _duMoisLot === 'function'){
-        const _now = new Date();
-        const _ym = _now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0');
-        const _dm = _duMoisLot(ref, _ym);
-        if(_dm && +_dm.total > 0) loyer = +_dm.total;
-      }
-    }catch(e){}
+    // R-0 : le loyer EN VIGUEUR aujourd'hui, LA règle de la fiche PC (`_loyerEnVigueurLot`). Ce n'est
+    // plus le dû du mois (`_duMoisLot`, proratisé : 718,71 € ici contre 680 € sur PC, audit 06/10).
+    let loyer = 0;
+    try { loyer = _loyerEnVigueurLot(ref, bail, log); }
+    catch(e){ loyer = (+bail.hc||+log.hc||0) + (+bail.ch||+log.ch||0); }
     const dep   = (+bail.dg||+log.dg||0);
     let fin = 'en cours';
     if(bail.fin && /^\d{4}-\d{2}/.test(bail.fin)) fin = bail.fin.slice(5,7)+'/'+bail.fin.slice(2,4);
