@@ -39,6 +39,7 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
     // TOUS ENSEMBLE (avant : l'un après l'autre → un associé abonné à N espaces payait N fois le temps de chargement,
     // mesuré : 2 espaces = chargement doublé). La FUSION ci-dessous reste SÉQUENTIELLE dans l'ordre de `stores`
     // (espace propre d'abord → dédup `baux`, tags, config propre : résultat strictement identique).
+    // (Promise.resolve().then : un throw synchrone d'un hydrate devient un rejet, comme avant)
     const dbs = await Promise.all(stores.map(s => Promise.resolve().then(() => s.store.hydrate())))
     for (let i = 0; i < stores.length; i++) {
       const s = stores[i]

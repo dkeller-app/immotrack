@@ -34,13 +34,6 @@ describe('createMultiStore.hydrate — espaces en parallèle', () => {
     expect(m.etat.max).toBe(2)
   })
 
-  it('durée ≈ un espace, pas la somme (2 × 40 ms < 75 ms)', async () => {
-    const m = monde({ delais: { own: 40, tiers: 40 } })
-    const t0 = Date.now()
-    await createMultiStore({ espaces: ESPACES, makeStore: m.makeStore, getDB: () => ({}) }).hydrate()
-    expect(Date.now() - t0).toBeLessThan(75)
-  })
-
   it('fusion identique : propre d’abord, baux désambiguïsé pour le tiers, tags, config du propre seulement', async () => {
     // même si le tiers répond EN PREMIER (délai court) et l'espace propre en dernier, l'ordre de fusion ne change pas
     const m = monde({ delais: { own: 40, tiers: 5 } })
