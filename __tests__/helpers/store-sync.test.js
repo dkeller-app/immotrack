@@ -1173,6 +1173,17 @@ describe('B2 — bail signé : archivage, ligne propre du successeur, journal au
       .toEqual(['uuid:bailhist|F-1|2026-09-28|app-1', 'uuid:bailhist|F-1|2026-09-28|app-2'])
   })
 
+  it('ARCHIVE identifiée : même si ses copies DIVERGENT, son _archiveId n\'est jamais réécrit (une archive = une ligne)', async () => {
+    const store = mockStore()
+    const db = { ...baseDB(), baux_historique: [] }
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'zz' })
+    sync.seed()
+    const h = { ref: 'F-1', _archivedAt: '2026-09-28', _archiveId: 'app-1', locataires: [{ nom: 'Lea' }] }
+    db.baux_historique.push(h, { ...h, dgRestitueAt: '2026-10-20' })
+    await sync.flush()
+    expect(db.baux_historique.map(x => x._archiveId)).toEqual(['app-1', 'app-1'])
+  })
+
   it('nouvelIdArchive (store-mapping) : identifiant unique, même générateur que la synchro', () => {
     const a = nouvelIdArchive(), b = nouvelIdArchive()
     expect(typeof a).toBe('string')

@@ -25951,6 +25951,7 @@ function _rgApplyRetenue(entryKey, retenue, restit){
   entry.bail.dgRestitue = sd ? sd.soldeRestitue
     : Math.max(0, Math.round(((Number(entry.bail.dgPaid)||Number(entry.bail.dg)||0) - entry.bail.dgRetenu)*100)/100);
   if(typeof _stamp==='function') _stamp(entry.bail); // v15.x : horodatage pour merge multi-device (cohérence convention bail)
+  if(typeof _archiveRecopierSurCopies==='function') _archiveRecopierSurCopies(entry.bail, ['dgRetenu', 'dgRestitue']);   // archive en double : sur toutes ses copies
   if(typeof saveDB==='function') saveDB();
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
   if(typeof showToast==='function') showToast('Retenue de '+fmt(entry.bail.dgRetenu)+' € enregistrée sur le dépôt de garantie ✓','ok');

@@ -26190,6 +26190,26 @@ let _dgRestitCible = null;
 function _bailHistCleDe(h) {
   return (h && typeof window !== 'undefined' && typeof window.bailHistCle === 'function') ? window.bailHistCle(h) : '';
 }
+// Une ARCHIVE peut figurer plusieurs fois à l'identique dans baux_historique (doublon de synchronisation, même
+// bailHistCle). Toute écriture sur l'une (restitution, retenue) est recopiée sur ses copies, champ par champ et dans
+// le même ordre : elles restent identiques → au flush, UNE seule ligne cloud, portant l'écriture (rien n'est
+// supprimé ; sans cela la copie restituée recevait un nouvel id, ou la copie non modifiée était envoyée).
+// `_modifiedAt` est recopié (pas re-horodaté) pour que les copies gardent le même contenu. Sans effet sur un bail vivant.
+function _archiveRecopierSurCopies(h, champs) {
+  if (!h || !(DB.baux_historique || []).includes(h)) return 0;
+  const cle = _bailHistCleDe(h);
+  if (!cle) return 0;
+  let n = 0;
+  (DB.baux_historique || []).forEach(x => {
+    if (!x || x === h || x._deleted || _bailHistCleDe(x) !== cle) return;
+    champs.concat('_modifiedAt').forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(h, k)) x[k] = (h[k] && typeof h[k] === 'object') ? JSON.parse(JSON.stringify(h[k])) : h[k];
+      else delete x[k];
+    });
+    n++;
+  });
+  return n;
+}
 function _dgBailCible(ref, cle) {
   const histo = (DB.baux_historique || []).filter(h => h && !h._deleted && h.ref === ref);
   if (cle) { const h = histo.find(x => _bailHistCleDe(x) === cle); return h ? { ref, bail: h, cle } : null; }
@@ -26434,6 +26454,7 @@ function _dgConfirmerRestitution() {
   bail.depart.autresRetenues = autres;
   bail.depart.vetusteLignes = _dgVgRows.map(r => ({ piece: r.piece, type: r.type, cout: Number(r.cout) || 0, source: r.source, mes: r.mes || '' }));
   _stamp(bail);
+  _archiveRecopierSurCopies(bail, ['dgRetenu', 'dgDetailRetenues', 'locNouvIban', 'dgRestitueAt', 'dgRestitueMontant', 'dgAdresseNonCommuniquee', 'dgPenaliteArt22', 'depart']);   // archive en double : la restitution sur TOUTES ses copies
   if (typeof _auditLog === 'function') {
     _auditLog('dg-restitution', 'bail', ref,
       `restitué=${montantRestitue}€ réparations=${reparations}€ autres=${autres}€ impayé=${solde.loyerImpaye}€ pénalité=${penMontant}€`);

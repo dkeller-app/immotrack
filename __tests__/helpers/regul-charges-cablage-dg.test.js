@@ -166,7 +166,7 @@ describe('4 · _dgRestitRecalc — pénalité art. 22 et solde affichés', () =>
 
 describe('5 · _dgConfirmerRestitution — montant ÉCRIT sur le bail', () => {
   const confirmer = (sc) => {
-    const { fn, els } = monter(sc, ['_bailTypeHasTacite', '_bailFinOccupation', '_dgConfirmerRestitution', '_dgBailCible', '_archivesDetenuesDuLot', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree']);
+    const { fn, els } = monter(sc, ['_bailTypeHasTacite', '_bailFinOccupation', '_dgConfirmerRestitution', '_archiveRecopierSurCopies', '_dgBailCible', '_archivesDetenuesDuLot', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree']);
     els['ov-dg-restitution-ref'] = { value: REF };
     fn._dgConfirmerRestitution();
     return sc.DB.baux[REF];

@@ -19,6 +19,7 @@ import { bailLoueAu, finOccupationBail } from '../../js/core/fin-occupation.js';
 import { _computeOccupationLots } from '../../js/core/legal-bilan.js';
 import { duMoisFromRaw } from '../../js/core/loyer-du-mois.js';
 import { bailHistCle } from '../../js/core/store-mapping.js';
+import { createStoreSync } from '../../js/core/store-sync.js';
 import { extraireFonction } from './_extraction-source.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -639,7 +640,7 @@ describe('20 · compteur « Dépôts détenus » = nombre de DÉPÔTS (un lot re
 describe('21 · restitution du dépôt sur le bail EXACT (VRAIS _dgOpenRestitution / _dgConfirmerRestitution)', () => {
   const LEA = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true, locataires: [{ nom: 'Lea' }] };
   const NINA = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nina' }] };
-  const RESTIT = ['_dgOpenRestitution', '_dgStatutLibelle', '_dgConfirmerRestitution', '_dgBailCible', '_dgRestitRecalc', '_dgStatutDuBail', '_bailFinOccupation'];
+  const RESTIT = ['_dgOpenRestitution', '_dgStatutLibelle', '_dgConfirmerRestitution', '_archiveRecopierSurCopies', '_dgBailCible', '_dgRestitRecalc', '_dgStatutDuBail', '_bailFinOccupation'];
   const ouvrir = (DB, ref, cle, date = '2026-10-20') => {
     const vals = { 'dg-restit-date': date, 'dg-restit-autres': '0', 'dg-restit-detail-retenues': '' };
     const m = monter(DB, [...STATUT, ...RESTIT, '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
@@ -888,7 +889,7 @@ describe('29 · cible de la restitution (VRAIS _dgBailCible / _dgConfirmerRestit
   it('_dgConfirmerRestitution sur une cible devenue tombstone : refus, rien n\'est écrit', () => {
     const DB = dbDe({ A1: { ref: 'A1', _deleted: true } });
     const tomb = DB.baux.A1;
-    const m = monter(DB, [...STATUT, '_dgConfirmerRestitution', '_dgBailCible'], {
+    const m = monter(DB, [...STATUT, '_dgConfirmerRestitution', '_archiveRecopierSurCopies', '_dgBailCible'], {
       _dgRestitCible: { ref: 'A1', bail: tomb, cle: '' }, v: () => '2026-10-20', _dgVgRows: [], confirm2: () => true, saveDB: () => {}, _stamp: () => {},
       _calculerSoldeDG: () => ({ soldeRestitue: 900, loyerImpaye: 0 }), window: { computeVetusteTotal: () => ({ total: 0 }), _penaliteRetardDG: () => ({ penalite: 0 }) },
     });
@@ -937,7 +938,7 @@ describe('31 · deux archives du même lot le MÊME jour (relocation puis clôtu
     let n = 0;
     const vals = { 'b-clore-ref': 'A1', 'b-fin-effective': '2026-11-20', 'b-fin-motif': 'Congé du locataire', 'dg-restit-date': '2026-11-20' };
     const m = monter(DB, [...STATUT, 'archiverBail', '_archiverDansHistorique', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation',
-      'saveBailClore', '_clotureDgConfirmer', '_clotureDgAppliquer', '_dgBailCible', '_dgConfirmerRestitution', '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
+      'saveBailClore', '_clotureDgConfirmer', '_clotureDgAppliquer', '_dgBailCible', '_dgConfirmerRestitution', '_archiveRecopierSurCopies', '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
       window: { nouvelIdArchive: () => 'id' + (++n), computeVetusteTotal: () => ({ total: 0 }), _penaliteRetardDG: () => ({ penalite: 0 }) },
       _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {}, confirm2: () => true, _stamp: () => {}, _ART22_RESTITUTION: ['a', 'b'],
       v: (id) => vals[id] || '', pf: () => 0, _dgVgRows: [], _calculerSoldeDG: (b) => ({ soldeRestitue: Number(b.dg), loyerImpaye: 0 }),
@@ -1018,5 +1019,46 @@ describe('33 · archive en double (même bailHistCle) : une seule tâche, une se
     const h = m.fn._histoBailEventHtml({ type: 'dg-verse', montant: 900 }, { statut: 'clos', bail: { ...LEA } }, 'A1', null);
     expect(h).toContain('À restituer');
     expect(h).not.toContain('Versé');
+  });
+});
+describe('34 · restitution sur une archive EN DOUBLE, jusqu\'au cloud (VRAIS _dgConfirmerRestitution + createStoreSync)', () => {
+  const scenario = async (archiveId) => {
+    const lignes = new Map();
+    const store = {
+      upsert: async (c, r) => { if (c === 'baux_historique') lignes.set(bailHistCle(r), { at: r.dgRestitueAt || null, id: r._archiveId || null }); return { status: 'updated', id: 'x', version: 2 }; },
+      remove: async (c, r) => { if (c === 'baux_historique') lignes.delete(bailHistCle(r)); return { status: 'deleted' }; },
+      archive: async () => ({ status: 'archived', version: 3 }),
+    };
+    const base = { ref: 'A1', debut: '2023-07-01', dg: 900, cloture: true, clotureV: 2, finEffective: '2026-09-30', _archivedAt: '2026-10-06', locataires: [{ nom: 'Lea' }], ...(archiveId ? { _archiveId: archiveId } : {}) };
+    const DB = { ...dbDe({ A1: { ref: 'A1', _deleted: true } }), entites: [{ nom: 'S', immeubles: [] }], baux_historique: [{ ...base }] };
+    let n = 0;
+    const sync = createStoreSync({ store, getDB: () => DB, schedule: () => {}, sealSigned: false, newUid: () => 'nouvel-id-' + (++n) });
+    await sync.flush();
+    DB.baux_historique.push({ ...base });   // doublon local EXACT (fusion / synchronisation)
+    await sync.flush();
+    const m = monter(DB, [...STATUT, '_dgOpenRestitution', '_dgStatutLibelle', '_dgBailCible', '_dgConfirmerRestitution', '_archiveRecopierSurCopies', '_dgStatutDuBail', '_bailFinOccupation'], {
+      v: (id) => (id === 'dg-restit-date' ? '2026-10-20' : ''), _dgVgRows: [], _dgVgCtx: {}, _dgVgSeedFromEdl: () => [], _dgVgRender: () => {},
+      _calculerSoldeDG: () => ({ soldeRestitue: 900, loyerImpaye: 0 }), _dgStatut: () => ({ statut: 'a_restituer' }), _calculerDelaiRestitution: () => 2,
+      confirm2: () => true, saveDB: () => {}, _stamp: (o) => { o._modifiedAt = '2026-10-20T10:00:00.000Z'; },
+      window: { computeVetusteTotal: () => ({ total: 0 }), _penaliteRetardDG: () => ({ penalite: 0 }) },
+    });
+    m.fn._dgOpenRestitution('A1', bailHistCle(base));
+    m.els['ov-dg-restitution-ref'] = { value: 'A1' };
+    m.fn._dgConfirmerRestitution();
+    await sync.flush();
+    return { lignes: [...lignes.entries()], ids: DB.baux_historique.map((h) => h._archiveId || null), detenus: m.fn._dgDetenusDuLot(DB.logements[0]), ats: DB.baux_historique.map((h) => h.dgRestitueAt) };
+  };
+  it('archive SANS identifiant (ancienne) : une seule ligne, restituée, aucun nouvel identifiant', async () => {
+    const r = await scenario(null);
+    expect(r.lignes).toEqual([['A1|2026-10-06', { at: '2026-10-20', id: null }]]);
+    expect(r.ids).toEqual([null, null]);
+    expect(r.ats).toEqual(['2026-10-20', '2026-10-20']);
+    expect(r.detenus).toEqual([]);
+  });
+  it('archive AVEC identifiant posé à l\'archivage : une seule ligne, restituée, identifiant inchangé', async () => {
+    const r = await scenario('uuid-archive');
+    expect(r.lignes).toEqual([['A1|2026-10-06|uuid-archive', { at: '2026-10-20', id: 'uuid-archive' }]]);
+    expect(r.ids).toEqual(['uuid-archive', 'uuid-archive']);
+    expect(r.detenus).toEqual([]);
   });
 });
