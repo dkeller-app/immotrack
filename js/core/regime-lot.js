@@ -43,11 +43,22 @@ export const MEUBLE_USAGES = ['habitation-meuble', 'etudiant', 'mobilite'];
 /** typeUsage / type indéterminés → restent au foncier par défaut mais SIGNALÉS « à qualifier ». */
 export const INDETERMINE_USAGES = ['local-pro', 'autre'];
 
+/**
+ * Fin d'OCCUPATION d'un bail ('' = ouvert). L'app injecte SA règle (`finOccupation` =
+ * `_bailFinOccupation` d'index.html : un bail nu/meublé en cours se reconduit tacitement, sa fin
+ * contractuelle ne le termine pas — sinon un meublé de plus d'un an sortait du « meublé » et
+ * retombait au foncier). Repli hors app : finEffective, sinon fin.
+ */
+function _finDe(bail, clos, finOccupation) {
+  if (typeof finOccupation === 'function') return finOccupation(bail, clos) || '';
+  return bail.finEffective || bail.fin || '';
+}
+
 /** Un bail chevauche-t-il l'année [yearStart, yearEnd] ? (dates ISO, comparaison string) */
-function _bailOverlapsYear(bail, yearStart, yearEnd) {
-  if (!bail) return false;
+function _bailOverlapsYear(bail, yearStart, yearEnd, clos, finOccupation) {
+  if (!bail || bail._deleted) return false;   // un tombstone de bail clôturé ne loue rien
   const debut = bail.debut || '';
-  const fin = bail.fin || '';
+  const fin = _finDe(bail, clos, finOccupation);
   if (debut && debut > yearEnd) return false; // commence après l'année
   if (fin && fin < yearStart) return false;    // terminé avant l'année
   return true; // (un bail courant sans dates = réputé actif)
@@ -91,13 +102,14 @@ const _FLAG_AUTRE = () => ({ level: 'warn', msg: `Régime à qualifier (usage «
  * @returns {{ fonciere: boolean, mode: 'nu'|'meuble'|'mixte'|'autre'|'vacant',
  *             flag: null | { level: 'warn', msg: string } }}
  */
-export function lotRegimeForYear({ currentBail = null, histoBails = [], logement = null, year } = {}) {
+export function lotRegimeForYear({ currentBail = null, histoBails = [], logement = null, year, finOccupation = null } = {}) {
   const yearStart = `${year}-01-01`;
   const yearEnd = `${year}-12-31`;
 
-  const overlapping = [currentBail, ...(histoBails || [])]
-    .filter(Boolean)
-    .filter(b => _bailOverlapsYear(b, yearStart, yearEnd));
+  const overlapping = [
+    ...(_bailOverlapsYear(currentBail, yearStart, yearEnd, false, finOccupation) ? [currentBail] : []),
+    ...(histoBails || []).filter(b => _bailOverlapsYear(b, yearStart, yearEnd, true, finOccupation)),
+  ];
 
   // Aucun bail sur l'année (vacant) : se rabattre sur la nature connue du logement —
   // un lot meublé vacant ne devient pas foncier ; un local-pro vacant reste à qualifier.
@@ -137,9 +149,10 @@ export function lotRegimeForYear({ currentBail = null, histoBails = [], logement
  *                                  entrée s'identifie au lot par `.ref` (forme réelle)
  *                                  ou `.logement` (forme synthétique) — on accepte les deux.
  * @param {number|string} ctx.year - année déclarée.
+ * @param {Function} [ctx.finOccupation] - règle de fin d'occupation de l'app (bail, clos) → ISO | ''.
  * @returns {{ fonciereRefs: string[], exclus: Array<{ref,mode}>, flagues: Array<{ref,mode,msg}> }}
  */
-export function splitFonciereLots(logements, { baux = {}, bauxHisto = [], year } = {}) {
+export function splitFonciereLots(logements, { baux = {}, bauxHisto = [], year, finOccupation = null } = {}) {
   const fonciereRefs = [];
   const exclus = [];
   const flagues = [];
@@ -148,7 +161,8 @@ export function splitFonciereLots(logements, { baux = {}, bauxHisto = [], year }
       currentBail: baux[l.ref] || null,
       histoBails: (bauxHisto || []).filter(b => (b.logement || b.ref) === l.ref),
       logement: l,
-      year
+      year,
+      finOccupation
     });
     if (r.fonciere) fonciereRefs.push(l.ref);
     else exclus.push({ ref: l.ref, mode: r.mode });

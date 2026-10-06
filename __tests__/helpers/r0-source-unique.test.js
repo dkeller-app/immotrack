@@ -76,7 +76,9 @@ describe('R0-E — le moteur d’occupation connaît la tacite reconduction', ()
     const bilan = codeSeul(readFileSync(resolve(repoRoot, 'js/core/legal-bilan.js'), 'utf8').replace(/\r/g, ''));
     // L'ancienne forme : `b.fin ? … : toTs` — la date de fin décidait à elle seule.
     expect(bilan, 'un bail reconduit redeviendrait « vacant »').not.toMatch(/b\.fin\s*\?\s*new Date/);
-    expect(bilan).toMatch(/cloture\s*\|\|\s*b\.finEffective/);
+    // La fin se lit par LA règle de l'app (loyer-du-mois.js `finOccupationBail` : clôture, sinon départ
+    // déclaré, sinon ouvert) — comportement prouvé par occupation-regle-unique.test.js.
+    expect(bilan).toMatch(/finOccupationBail\s*\(\s*b\s*,/);
   });
 
   it('la liste des vacants ne s’appuie plus sur le cache non plus', () => {

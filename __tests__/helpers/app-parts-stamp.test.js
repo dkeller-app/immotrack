@@ -22,7 +22,8 @@ describe('empreintes de cache-busting', () => {
     const re = /<script src="(js\/(?:helpers\/[A-Za-z0-9._-]+\.global\.js|app\/supabase-config\.js|app\/app-part\d\.js|vendor\/qrcode-generator\.js))\?v=([0-9a-f]+)"/g
     const balises = [...html.matchAll(re)]
     // v15.710 : +2 helpers (bail-paraphes, version-app — PARAPHE-UNIQUE).
-    expect(balises.length, '26 helpers + config + 3 app-part + qrcode attendus').toBe(31)
+    // BAUX-ECHUS : +3 helpers (bail-duree, bail-echeance, bail-clauses-fin — règle d'échéance par type, clauses v5).
+    expect(balises.length, '29 helpers + config + 3 app-part + qrcode attendus').toBe(34)
     for (const [, rel, v] of balises) {
       expect(v, `${rel} a changé : lancer node tools/stamp-app-parts.mjs`).toBe(await sha(rel))
     }
@@ -45,6 +46,16 @@ describe('empreintes de cache-busting', () => {
     expect(iEntry).toBeGreaterThan(iPart3)
     expect(iEntry).toBeGreaterThan(iQr)
     expect(iMain).toBeGreaterThan(iEntry)
+  })
+
+  it('un échec de chargement (503 passager de GitHub Pages…) de main.js, de l’entrée ou d’une app-part déclenche __immoPartFail (rechargement unique)', async () => {
+    const html = await indexHtml()
+    for (const re of [/<script type="module" src="js\/main\.js"[^>]*onerror="window\.__immoPartFail/, /<script type="module" src="js\/app\/supabase-entry\.js"[^>]*onerror="window\.__immoPartFail/]) {
+      expect(html).toMatch(re)
+    }
+    const parts = [...html.matchAll(/<script src="js\/app\/app-part\d\.js[^>]*>/g)]
+    expect(parts.length).toBe(3)
+    for (const m of parts) expect(m[0]).toContain('onerror="window.__immoPartFail')
   })
 
   it('css/login.css et js/vendor/pdf-libs.b64.js portent leur sha1 courant', async () => {

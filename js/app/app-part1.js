@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.711';
+const IMMOTRACK_VERSION = '15.716';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -1895,7 +1895,8 @@ function agendaId() {
 // Loi du 6 juillet 1989 (résidence principale) :
 //   - Bail nu (3 ans)        → préavis bailleur 6 mois avant échéance
 //   - Bail meublé (1 an)     → préavis bailleur 3 mois avant échéance
-//   - Bail mobilité (1-10m)  → pas de tacite reconduction, pas de préavis
+//   - Bail mobilité (1-10m)  → pas de tacite reconduction, pas de congé bailleur (art. 25-14)
+//   - Étudiant (9 m), garage, autre → pas de préavis bailleur avant échéance (BAUX-ECHUS, bail-echeance.js)
 // Source : `bail.typeContrat` ou `log.typeUsage` (renseigné dans la modale logement).
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1922,97 +1923,196 @@ function _bailIsMeuble(bail, log) {
   return t === 'meuble' || t === 'etudiant' || t === 'mobilite';
 }
 
-// Détermine si un bail est mobilité (pas de préavis, pas de tacite reconduction).
+// Détermine si un bail est mobilité (pas de congé bailleur, pas de tacite reconduction ; préavis
+// locataire d'un mois, art. 25-15).
 function _bailIsMobilite(bail, log) {
   if(!bail) return false;
   return _bailTypeEff(bail, log) === 'mobilite';
 }
 
-// v14.49 — Durée standard d'un bail en mois selon type + nature du bailleur.
-// Loi du 6 juillet 1989 :
-//   - Nu particulier : 3 ans (36 mois)
-//   - Nu personne morale (SCI, SARL...) : 6 ans (72 mois)
-//   - Meublé : 1 an (12 mois)
-//   - Étudiant : 9 mois (pas de tacite reconduction)
-//   - Mobilité : 1-10 mois (pas de tacite reconduction)
-//   - Garage / Autre : durée libre → on retombe sur la durée « nu » (inchangé vs avant le fix)
+// BAUX-ECHUS — LA règle d'échéance vit dans js/core/bail-echeance.js (window.BailEcheance, mirror
+// chargé AVANT ce fichier). Contexte commun : le type du bailleur (art. 10 / 13) et la date du jour
+// LOCALE (td() est UTC : entre minuit et 2 h, il désigne la veille).
+function _bailEcheanceOpts(bail, log) {
+  const entNom = (bail && bail.entity) || (log && log.entity);
+  const ent = entNom ? ((DB.entites||[]).find(e => e && e.nom === entNom) || null) : null;
+  const W = (typeof window !== 'undefined') ? window : null;
+  const todayIso = (W && typeof W._loyerTodayLocal === 'function') ? W._loyerTodayLocal() : _isoLocal(new Date());
+  return { typeEntite: (ent && ent.type) || '', todayIso, fd: (typeof fd === 'function') ? fd : undefined };
+}
+/** L'échéance d'un bail selon sa règle (module) — null si le module n'est pas chargé. */
+function _bailEcheance(bail, log) {
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(!bail || !BE || typeof BE.echeanceBail !== 'function') return null;
+  return BE.echeanceBail(bail, log, _bailEcheanceOpts(bail, log));
+}
+
+// Durée d'un CYCLE de reconduction en mois (sert la date d'effet du congé bailleur, qui ne vise que
+// nu et meublé). Nu : 3 ans (personne physique, art. 13 : SCI familiale, indivision) ou 6 ans
+// (personne morale) — art. 10 al. 3, lu dans bail-duree.js (plus de regex « sci » qui envoyait une SCI
+// familiale à 6 ans). Meublé : 1 an (art. 25-7 al. 3). Étudiant : 9 mois. Autres : pas de cycle légal,
+// repli sur la durée du nu (inchangé).
 function _bailDureeMois(bail, log, ent) {
   const t = _bailTypeEff(bail, log);
-  if(t === 'mobilite') return 6; // pas de tacite, valeur par défaut
+  if(t === 'mobilite') return 6; // pas de reconduction : valeur par défaut, jamais lue pour un congé
   if(t === 'etudiant') return 9;
   if(t === 'meuble') return 12;
-  // Bail nu (+ garage/autre, durée libre) : durée selon nature du bailleur
+  const W = (typeof window !== 'undefined') ? window : null;
+  const RB = (W && W.BailDuree && typeof W.BailDuree.regimeBailleur === 'function') ? W.BailDuree.regimeBailleur
+    : ((W && typeof W.regimeBailleur === 'function') ? W.regimeBailleur : null);
+  if(RB) return RB((ent && ent.type) || '').ans * 12;
   const entType = (ent?.type || '').toLowerCase();
   const isPersonneMorale = /sci|sarl|sas|sasu|eurl|snc|société|societe|gfa|sccv/.test(entType);
   return isPersonneMorale ? 72 : 36;
 }
 
-// v15.343 BUG-STATUT-TACITE — Types de bail bénéficiant de la tacite reconduction.
-// Aligné sur __tests__/helpers/bail-types.js → isTaciteReconductionAllowed (source légale) :
-//   • nu (3/6 ans) + meublé (1 an)        → reconductibles
-//   • étudiant (9 mois) / mobilité / garage / autre (régime libre) → NON reconductibles
-// Un type inconnu/legacy (bail.type absent) vaut « nu » → reconductible.
+// v15.343 BUG-STATUT-TACITE — la LOI reconduit-elle ce type ? nu (art. 10) et meublé (art. 25-7 al. 3)
+// oui ; étudiant (art. 25-7 al. 4) et mobilité (art. 25-14 al. 1) jamais ; garage / autre : c'est le
+// CONTRAT qui décide (BailEcheance.regleReconduction). Un type inconnu/legacy vaut « nu ».
 function _bailTypeHasTacite(type) {
   const t = type || 'nu';
-  // Liste noire = miroir exact de isTaciteReconductionAllowed (bail-types.js) :
-  // tout type non explicitement non-reconductible bénéficie de la tacite. Défaut
-  // sûr → un type legacy/importé inconnu n'est jamais marqué « échu » à tort.
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(BE && typeof BE.reconductionLegale === 'function') return BE.reconductionLegale(t);
   return t !== 'etudiant' && t !== 'mobilite' && t !== 'garage' && t !== 'autre';
 }
 
-// v14.49 — Calcule la date de fin EFFECTIVE pour le préavis (avec tacite reconduction).
-// Cas couverts :
-//   1. bail.fin renseignée + future → utilise bail.fin
-//   2. bail.fin renseignée + passée → tacite reconduction, avance par tranches `dureeMois`
-//      jusqu'à dépasser today (3 ans pour nu, 1 an pour meublé)
-//   3. bail.fin VIDE + bail.debut → calcule la fin théorique = debut + dureeMois,
-//      puis applique la même tacite reconduction si nécessaire
-// Retourne null si bail clôturé / mobilité / sans debut.
-function _bailEcheanceEffective(bail, log) {
-  if(!bail || !bail.debut) return null;
-  if(bail.cloture || bail.finEffective) return null; // bail terminé
-  if(_bailIsMobilite(bail, log)) return null; // mobilité = pas de tacite, pas de préavis
-
-  // Lookup entité (priorité bail.entity, fallback log.entity) pour distinguer particulier/personne morale
-  const entNom = bail.entity || log?.entity;
-  const ent = entNom ? (DB.entites||[]).find(e => e.nom === entNom) : null;
-  const dureeMois = _bailDureeMois(bail, log, ent);
-
-  // Fin de référence : bail.fin si renseignée, sinon debut + dureeMois (fin théorique calculée)
-  let finRefIso = bail.fin;
-  if(!finRefIso) {
-    const debutD = new Date(bail.debut + 'T00:00:00');
-    debutD.setMonth(debutD.getMonth() + dureeMois);
-    finRefIso = _isoLocal(debutD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
-  }
-
-  const todayMs = Date.now();
-  const finD = new Date(finRefIso + 'T00:00:00');
-  // Tacite reconduction : avancer par tranches dureeMois (cycle = durée du bail) jusqu'à dépasser today
-  while(finD.getTime() <= todayMs) {
-    finD.setMonth(finD.getMonth() + dureeMois);
-  }
-  return _isoLocal(finD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
+// LA fin d'OCCUPATION d'un bail ('' = occupation ouverte) — lecture UNIQUE pour la régularisation
+// des charges, les compteurs collectifs et l'historique des baux d'un logement (_getAllBailsForLog).
+// Un bail ne se termine que par sa CLÔTURE : `finEffective`, ou sa fin si le bail est clôturé /
+// archivé (`clos` = ligne de DB.baux_historique). Bail en cours : sa fin contractuelle est IGNORÉE,
+// QUEL QUE SOIT SON TYPE (décision Didier 05/10) — nu / meublé reconduits tacitement ; étudiant,
+// mobilité, garage, autre échus mais non clôturés : occupés jusqu'à la clôture (alerte « bail échu »).
+// Avant : la fin contractuelle d'un bail nu reconduit coupait l'occupation → les mois suivants
+// devenaient une « vacance » portée par le bailleur (et réinjectée en 2044 ligne 225).
+// Départ DÉCLARÉ (`bail.depart.dateSortie`, assistant de départ — _departSaveDeclare) sur un bail encore
+// en cours : c'est lui qui borne l'occupation — sinon l'étape régularisation (occupation ouverte) et
+// l'étape restitution du DG (bornée au départ) donnaient deux soldes de tout compte.
+// LA règle vit dans le module pur js/core/loyer-du-mois.js (`finOccupationBail`, exposé par main.js) : le
+// dû (bailsFromRaw → duMois) et l'occupation lisent la MÊME. Repli DÉGRADÉ si les modules ne sont pas
+// chargés (file://, comme le repli prorata de _duMoisLot) : seule la clôture borne.
+function _bailFinOccupation(bail, clos) {
+  const W = (typeof window !== 'undefined') ? window : null;
+  if(W && typeof W.finOccupationBail === 'function') return W.finOccupationBail(bail, clos);
+  if(!bail) return '';
+  return String(bail.finEffective || ((clos || bail.cloture) ? (bail.fin || '') : '')).slice(0,10);
 }
 
-// Calcule l'info préavis pour un bail. Retourne null si non applicable.
+// Décale une date ISO (YYYY-MM-DD) de n jours, en calendrier LOCAL ('' si la date est invalide).
+function _isoDecaleJours(iso, n) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if(!m) return '';
+  const d = new Date(+m[1], +m[2] - 1, +m[3] + (Number(n) || 0));
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// NOUVEAU BAIL sur un lot dont le bail est encore ouvert : date de FIN de l'ancien bail (archiverBail) — règle
+// unique, lue aussi par la confirmation de saveBail. Ordre : fin effective déjà posée (clôture explicite) >
+// fin d'occupation (départ déclaré — _bailFinOccupation, LA règle) > veille du nouveau bail. Sans ça, un lot
+// parti au 30/09 et reloué au 15/11 voyait son ancien locataire redevable d'octobre et de novembre (audit 06/10).
+// Une sortie déclarée qui ne précède pas le nouveau bail ne peut pas tenir (deux occupants le même jour) : la
+// veille du nouveau bail l'emporte, et la confirmation de saveBail le dit (`sortieApres`).
+// `source` dit d'où vient la fin : 'finEffective' (déjà enregistrée), 'sortie' (départ déclaré), 'chevauchement'
+// (sortie ramenée à la veille du nouveau bail), 'veille' (aucune sortie : veille du nouveau bail).
+function _finAncienBailAuRebail(bail, nouveauDebut) {
+  const veille = nouveauDebut ? _isoDecaleJours(nouveauDebut, -1) : '';
+  if(!bail) return { fin: veille || null, sortie: '', sortieApres: false, source: veille ? 'veille' : '' };
+  if(bail.finEffective) return { fin: String(bail.finEffective).slice(0,10), sortie: '', sortieApres: false, source: 'finEffective' };
+  const sortie = _bailFinOccupation(bail, false);
+  if(sortie && veille && sortie > veille) return { fin: veille, sortie, sortieApres: true, source: 'chevauchement' };
+  return { fin: sortie || veille || null, sortie, sortieApres: false, source: sortie ? 'sortie' : (veille ? 'veille' : '') };
+}
+// Le texte ajouté à la confirmation de saveBail quand un nouveau bail archive l'ancien : sa date de fin (et d'où elle
+// vient) + le dépôt de l'ancien locataire encore détenu. Lu par saveBail ; testé sur la vraie confirmation.
+function _rebailConfirmTexte(bailExistant, nouveauDebut, dgLot) {
+  const fa = _finAncienBailAuRebail(bailExistant, nouveauDebut);
+  let t = '';
+  if(fa.source === 'chevauchement') t = `\n\n⚠️ La sortie déclarée de l'ancien locataire (${fd(fa.sortie)}) n'est pas antérieure au début du nouveau bail (${fd(nouveauDebut)}) : l'ancien bail sera terminé la veille, le ${fd(fa.fin)}.`;
+  else if(fa.source === 'finEffective') t = `\n\nL'ancien bail garde sa fin déjà enregistrée le ${fd(fa.fin)}.`;
+  else if(fa.source === 'sortie') t = `\n\nL'ancien bail sera terminé le ${fd(fa.fin)} (sortie déclarée).`;
+  else if(fa.source === 'veille') t = `\n\nL'ancien bail sera terminé le ${fd(fa.fin)} (veille du nouveau bail).`;
+  // Dépôt de l'ancien locataire sans restitution enregistrée : il reste détenu sur le bail archivé (_dgDetenuDuBail).
+  const dgAnc = _dgDetenuDuBail(bailExistant, dgLot);
+  if(dgAnc > 0) t += `\n\nLe dépôt de garantie de l'ancien locataire (${fmt(dgAnc)}) n'a pas de restitution enregistrée : il restera compté comme détenu jusqu'à ce qu'elle le soit (assistant de départ, ou ensuite « Préparer la restitution du DG » sur la frise du bien).`;
+  return t;
+}
+
+// La date d'ÉCHÉANCE d'un bail à afficher (agenda « Fin de bail », frise) — BAUX-ECHUS, règle unique
+// (js/core/bail-echeance.js) :
+//   • en cours → la fin du contrat (saisie, sinon fin théorique : veille de l'anniversaire) ;
+//   • reconduit → la fin de la période en cours : nu 3 ou 6 ans (art. 10 al. 3, QUELLE QUE SOIT la durée
+//     initiale), meublé 1 an (art. 25-7 al. 3), garage de l'app : durée équivalente (clause du contrat) ;
+//   • arrivé à terme (étudiant, mobilité, garage repris, autre) → la fin du contrat, jamais reconduite ;
+//   • clôturé / résilié / échéance inconnue → null.
+function _bailEcheanceEffective(bail, log) {
+  const e = _bailEcheance(bail, log);
+  if(!e) return null;
+  if(e.statut === 'en_cours' || e.statut === 'reconduit') return e.prochaine || null;
+  if(e.statut === 'arrive_a_terme') return e.finContrat || null;
+  return null;
+}
+
+// L'échéance d'un LOT pour les alertes « baux arrivant à terme » (AlertRules.bauxEcheance, règle
+// injectée) : l'échéance À VENIR d'un bail en cours ou reconduit, la fin du contrat d'un bail arrivé
+// à terme ; null = rien à signaler (vacant, clôturé, échéance inconnue). Lue sur le BAIL, pas le cache.
+function _bailEcheanceAlerteDe(l) {
+  const b = l && DB.baux ? DB.baux[l.ref] : null;
+  if(!b || b._deleted || b.cloture || b.finEffective) return null;
+  const fin = _bailEcheanceEffective(b, l);
+  return fin ? { fin } : null;
+}
+
+// L'alerte « bail arrivé à terme » d'un bail (étudiant, mobilité ; garage ou autre sans reconduction
+// au contrat) — null sinon, ou dès qu'un départ est déclaré. Ton neutre, jamais bloquante.
+function _bailAlerteTerme(bail, log) {
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(!bail || !BE || typeof BE.alerteArriveATerme !== 'function') return null;
+  return BE.alerteArriveATerme(bail, log, _bailEcheanceOpts(bail, log));
+}
+
+// Geste « Nouveau bail » d'un bail arrivé à terme : le formulaire d'un NOUVEAU bail sur le même lot,
+// pré-rempli avec les mêmes parties (comme la conversion d'un candidat). Un bail mobilité ne peut être
+// suivi que d'un bail du titre Ier bis (art. 25-14 dernier al.) : le type proposé est « meublé ».
+// L'enregistrement archive l'ancien bail (saveBail, confirmation existante) — rien n'est écrit ici.
+function _bailNouveauApresTerme(ref) {
+  const prev = DB.baux && DB.baux[ref];
+  if(!prev || prev._deleted) { if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  _ouvrirNouveauBailSurLot(ref);
+  if(el('b-entity') && prev.entity) el('b-entity').value = prev.entity;
+  try { renderBailSignataires(prev.signataires); } catch(e) {}
+  renderBailLocs((prev.locataires || (prev.nom ? [{ nom: prev.nom }] : [])).map(x => Object.assign({}, x)));
+  try { renderBailGarants(_bailLegacyToGarants(prev)); } catch(e) {}
+  if(el('b-hc') && prev.hc) el('b-hc').value = prev.hc;
+  if(el('b-ch') && prev.ch != null && prev.ch !== '') el('b-ch').value = prev.ch;
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  const fin = (BE && typeof BE.finContractuelle === 'function') ? BE.finContractuelle(prev, null, _bailEcheanceOpts(prev, null).typeEntite) : (prev.fin || '');
+  if(el('b-debut') && fin && BE && typeof BE.ajouterJours === 'function') el('b-debut').value = BE.ajouterJours(fin, 1);
+  if(el('b-type')) {
+    el('b-type').value = prev.type === 'mobilite' ? 'meuble' : (prev.type || 'nu');
+    try { onBailTypeChange(); } catch(e) {}
+  }
+  if(typeof showToast==='function') showToast('Nouveau bail pré-rempli (mêmes parties) — vérifier le type, les dates et le loyer. L\'ancien bail sera archivé à l\'enregistrement.','ok',6000);
+}
+
+// Le rappel « préavis bailleur » — seulement là où la loi de 1989 fait courir un préavis AVANT
+// l'échéance : nu (6 mois, art. 15-I) et meublé (3 mois, art. 25-8 I), sur une échéance À VENIR.
+// Étudiant, mobilité, garage, autre : null (rien à notifier pour éviter une reconduction qui n'existe pas).
 // { fin, preavisStart, preavisMonths, isMeuble, inPreavisZone, daysToFin }
 function _bailPreavisInfo(bail, log) {
-  const fin = _bailEcheanceEffective(bail, log);
-  if(!fin) return null;
-  const isMeuble = _bailIsMeuble(bail, log);
-  const preavisMonths = isMeuble ? 3 : 6;
-  const finD = new Date(fin + 'T00:00:00');
-  const preavisD = new Date(finD);
-  preavisD.setMonth(preavisD.getMonth() - preavisMonths);
-  const today = new Date(); today.setHours(0,0,0,0);
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(!bail || !BE || typeof BE.preavisBailleurAvantEcheance !== 'function') return null;
+  const o = _bailEcheanceOpts(bail, log);
+  const p = BE.preavisBailleurAvantEcheance(bail, log, o);
+  if(!p) return null;
+  const finD = new Date(p.fin + 'T00:00:00');
+  const preavisD = new Date(p.debut + 'T00:00:00');
+  const today = new Date(o.todayIso + 'T00:00:00');
   const inPreavisZone = today.getTime() >= preavisD.getTime() && today.getTime() <= finD.getTime();
   const daysToFin = Math.round((finD.getTime() - today.getTime()) / 86400000);
   return {
-    fin,
-    preavisStart: _isoLocal(preavisD),
-    preavisMonths,
-    isMeuble,
+    fin: p.fin,
+    preavisStart: p.debut,
+    preavisMonths: p.mois,
+    isMeuble: p.meuble,
     inPreavisZone,
     daysToFin
   };
@@ -2085,24 +2185,37 @@ function agendaAutoSync() {
       }
     }
 
-    // ── Fin de bail (échéance avec tacite reconduction prise en compte) ──
-    // v14.48 GANTT-PREAVIS : utiliser _bailEcheanceEffective qui calcule la
-    // prochaine échéance anniversaire si le bail est en tacite reconduction.
+    // ── Fin de bail (échéance selon LA règle du type — BAUX-ECHUS) ──
+    // Nu / meublé / garage de l'app : la fin de la période en cours (reconduction de la loi ou du
+    // contrat). Étudiant, mobilité, garage repris, autre : la fin du contrat, jamais reconduite.
     const echeanceFin = _bailEcheanceEffective(bail, l);
     if(echeanceFin) {
       const key = `BAIL:${l.ref}:${echeanceFin}`;
       validBailKeys.add(key);
+      const _BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+      const _noteFin = (_BE && typeof _BE.noteFinDeBail === 'function')
+        ? _BE.noteFinDeBail(_bailEcheance(bail, l))
+        : 'Échéance du bail — prévoir renouvellement ou congé.';
       if(!existing.has(key)) {
         toAdd.push({ id:agendaId(), titre:`Fin de bail — ${l.ref} (${bail.nom||l.locataire})`,
           date:echeanceFin, dateFin:echeanceFin, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
-          cat:'BAIL', couleur:'', notes:'Échéance du bail — prévoir renouvellement ou congé.', recurrence:{type:'none',interval:1,fin:''},
+          cat:'BAIL', couleur:'', notes:_noteFin, recurrence:{type:'none',interval:1,fin:''},
           rappels:[180,90,30,7], auto:true, autoKey:key, done:false, createdAt:todayStr });
         existing.add(key);
+      } else {
+        // Un rappel déjà créé garde sa date (et son « fait ») ; seule sa note suit la règle du type —
+        // avant, un bail étudiant recevait « prévoir renouvellement ou congé ».
+        const _evFin = DB.agenda.find(e => e && e.auto && e.autoKey === key);
+        if(_evFin && _evFin.notes !== _noteFin) {
+          _evFin.notes = _noteFin;
+          if (typeof _stamp === 'function') _stamp(_evFin);
+          _irlAgendaRecale = true;   // même drapeau « un rappel existant a changé » → saveDB
+        }
       }
 
-      // ── Préavis bailleur (6 mois nu / 3 mois meublé avant échéance) ──
-      // v14.48 : auto-event distinct pour rappeler de donner congé/notifier
-      // modification de loyer dans les délais légaux (loi du 6 juillet 1989).
+      // ── Préavis bailleur (6 mois nu / 3 mois meublé avant l'échéance À VENIR) ──
+      // Seulement là où la loi de 1989 fait courir un préavis avant l'échéance : jamais pour un
+      // étudiant, une mobilité (fin au terme, sans congé), un garage ou un autre (le contrat).
       const preavis = _bailPreavisInfo(bail, l);
       if(preavis && preavis.preavisStart) {
         const keyPrev = `BAIL_PREVIS:${l.ref}:${preavis.fin}`;
@@ -6389,9 +6502,9 @@ function _v4NavCounts() {
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   if (typeof DB === 'undefined') return {logs:0, locs:0, loyers:0, baux:0};
   const logs = (DB.logements||[]).filter(aliveFn);
-  // R-0 : la barre latérale comptait les noms en cache. Un bail repris à l'achat n'en porte pas :
-  // la barre annonçait un locataire de moins que l'Accueil, pour le même parc.
-  const locs = logs.filter(_lotEstLoue).length;
+  // Badge « Locataires » = ce que la page Locataires liste (rBaux) : un lot dont le bail vivant porte un
+  // locataire — y compris un locataire parti dont le bail reste à clôturer (audit 06/10 : 1 contre 2).
+  const locs = logs.filter(l => { const a = _lotLocataireAffiche(l); return !!(a.bail && a.noms); }).length;
   const yr = String(new Date().getFullYear());
   const mo = (new Date().getMonth() + 1);
   const moStr = String(mo).padStart(2, '0');
@@ -6813,7 +6926,9 @@ function _v4ComputeLotStatus(log, yr, mo, mvs) {
   // cours, renvoyait `attendu: 0, recu: 0` et court-circuitait tout le moteur de loyer — juste
   // avant que l'Accueil téléphone n'additionne ces zéros en « encaissé » et « attendu » du mois
   // et de l'année. Le lot disparaissait des chiffres, comme dans la bulle Impayés (R0-B).
-  if (!_lotEstLoue(log)) {
+  // Statut 06/10 : un départ déclaré passé rend le lot vacant, mais son bail reste OUVERT et son argent
+  // (dû jusqu'à la sortie, impayés) reste suivi : la porte est le bail ouvert, pas le statut affiché.
+  if (!_lotBailOuvert(log)) {
     const theo = (Number(log.hc)||0) + (Number(log.ch)||0);
     return {cls:'vac', attendu:0, recu:0, label:(theo > 0 ? (theo + ' € théo') : '—'), ratio:0, prorata:0, vacant:true};
   }
@@ -6984,7 +7099,7 @@ function _pilCollectFamilles(ctx) {
   // ── Fins de bail à terme (bauxEcheance : la règle existe mais n'était lue nulle part) ──
   try {
     if (typeof AR.bauxEcheance === 'function') {
-      AR.bauxEcheance(scopeLogs, todayD, 90).forEach(b => {
+      AR.bauxEcheance(scopeLogs, todayD, 90, _bailEcheanceAlerteDe).forEach(b => {
         if (src.finbail.some(x => x.ref === b.ref)) return;   // déjà porté par un départ en cours
         src.finbail.push({ ref: b.ref, nom: b.locataire || b.ref, urgenceJours: b.jours });
       });
@@ -7214,7 +7329,7 @@ function _renderAccueilPhone(ctx){
   else logs.forEach(function(l){ try{ encYTD += (_v4ComputeLotStatus(l, yr, '', ctx.mvsYTD).recu||0); }catch(e){} });
   var dg=0, nbDep=0;
   // R-0 : la porte d'entree etait `l.locataire` alors que le montant, lui, venait deja du bail.
-  logs.forEach(function(l){ if(_lotEstLoue(l)){ var d=_dgDuLot(l); if(d>0){ dg+=d; nbDep++; } } });
+  logs.forEach(function(l){ var d=_dgDetenuDuLot(l);   /* dépôt DÉTENU : reçu, pas encore restitué */ if(d>0){ dg+=d; nbDep+=_dgNbDetenusDuLot(l); } });
   var fams={total:0,familles:[]}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
   var aReg = fams.total||0, famBy={}; (fams.familles||[]).forEach(function(f){ famBy[f.id]=f; });
   var bits=[];
@@ -7466,11 +7581,13 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs, colRefs) {
   // R-0 : « ce lot est-il loue ? » se lit sur le BAIL. Sur le cache, un bail repris a l'achat
   // sortait en 'na' : ni pastille de paiement, ni euros, et le lot comptait comme vacant dans
   // le filtre de la matrice — alors que la bulle Impayes, elle, affiche sa dette.
-  const _loue = _lotEstLoue(l);
+  // Pastille de PAIEMENT : tant que le bail est ouvert (dette d'un locataire parti visible) ; l'action
+  // « Relouer » suit le STATUT (départ déclaré passé = vacant).
+  const _loue = _lotBailOuvert(l);
   const pay = (typeof window !== 'undefined' && typeof window.pilotagePay === 'function')
     ? window.pilotagePay(_loue, l.ref, impayeRefs, _soldeSigned)
     : (!_loue ? 'na' : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
-  const vacant = !_loue;
+  const vacant = !_lotEstLoue(l);
   // actions : relocation d'un vide + toute colonne ko/wn (geste « réclamer au vendeur » si repris)
   const actions = [];
   if (vacant) actions.push({ g: 'vacant', label: 'Relouer', cls: 'vac' });
@@ -7513,9 +7630,9 @@ function _renderPilotage(ctx) {
   const _cfr = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
   const encaisse = _cfr ? _cfr.recettes : null;
   // R-0 : lot LOUE selon le bail, et montant du bail en cours (revu a la relocation).
-  const _dgLots = scopeLogs.filter(l => _lotEstLoue(l) && _dgDuLot(l) > 0);
-  const dgTot = _dgLots.reduce((s, l) => s + _dgDuLot(l), 0);
-  const nbDg = _dgLots.length;
+  const _dgLots = scopeLogs.filter(l => _dgDetenuDuLot(l) > 0);   // dépôt DÉTENU : reçu, pas encore restitué
+  const dgTot = _dgLots.reduce((s, l) => s + _dgDetenuDuLot(l), 0);
+  const nbDg = _dgLots.reduce((s, l) => s + _dgNbDetenusDuLot(l), 0);   // des DÉPÔTS, pas des lots
   const strip = [
     '<div class="pil-s1"><div class="k">Encaissé · ' + (mo ? _DMF[parseInt(mo) - 1] : yr) + '</div>'
       + '<div class="v">' + (encaisse != null ? fmtN(encaisse) : '—') + '</div>'
@@ -7525,7 +7642,7 @@ function _renderPilotage(ctx) {
     '<div class="pil-s1"><div class="k">Logements</div><div class="v">' + _occKpi.nbTotal + ' <small>· ' + _occKpi.nbVacants + ' vides</small></div>'
       + '<div class="s">' + _occKpi.nbOcc + ' loués</div></div>',
     '<div class="pil-s1"><div class="k">Dépôts détenus</div><div class="v">' + fmtN(dgTot) + '</div>'
-      + '<div class="s">' + nbDg + ' dépôts · argent des locataires</div></div>',
+      + '<div class="s">' + nbDg + ' dépôt' + (nbDg > 1 ? 's' : '') + ' · argent des locataires</div></div>',
     '<div class="pil-s1"><div class="k">Périmètre</div><div class="v" style="font-size:16px">' + (activeEnt ? esc(activeEnt) : 'Tout le parc') + '</div>'
       + '<div class="s">filtre entité global</div></div>'
   ].join('');
@@ -8027,8 +8144,47 @@ function openBailClore(ref) {
   el('b-loc-nouv-adr').value  = bail.locNouvelleAdr || '';
   el('b-dg-restitue').value   = bail.dgRestitue   || '';
   el('b-dg-retenu').value     = bail.dgRetenu     || '';
+  if(el('b-dg-restitue-date')) el('b-dg-restitue-date').value = String(bail.dgRestitueAt || '').slice(0, 10);   // vide tant qu'aucun virement n'est enregistré
   el('b-fin-notes').value     = bail.finNotes     || '';
   openM('ov-bail-clore');
+}
+
+// L'UNIQUE écrivain de baux_historique (clôture, relocation) : chaque archive reçoit DÈS sa création un identifiant
+// unique `_archiveId` (window.nouvelIdArchive — même format que store-sync._identifierArchives, qui ne réécrit jamais un
+// identifiant posé). Deux archives d'un lot le même jour (relocation puis clôture) ne partagent plus leur clé
+// (bailHistCle = ref|_archivedAt|_archiveId) : leurs dépôts et leur restitution restent distincts.
+function _archiverDansHistorique(rec) {
+  if(!DB.baux_historique) DB.baux_historique = [];
+  const W = (typeof window !== 'undefined') ? window : null;
+  const id = (W && typeof W.nouvelIdArchive === 'function') ? W.nouvelIdArchive() : '';
+  const h = Object.assign({}, rec);
+  if(id) h._archiveId = id; else delete h._archiveId;
+  DB.baux_historique.push(h);
+  return h;
+}
+
+// Loi n° 89-462 du 6 juillet 1989, article 22 (Légifrance, version en vigueur), alinéas sur le délai de restitution.
+const _ART22_RESTITUTION = [
+  "Il est restitué dans un délai maximal de deux mois à compter de la remise en main propre, ou par lettre recommandée avec demande d'avis de réception, des clés au bailleur ou à son mandataire, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, aux lieu et place du locataire, sous réserve qu'elles soient dûment justifiées. A cette fin, le locataire indique au bailleur ou à son mandataire, lors de la remise des clés, l'adresse de son nouveau domicile.",
+  "Il est restitué dans un délai maximal d'un mois à compter de la remise des clés par le locataire lorsque l'état des lieux de sortie est conforme à l'état des lieux d'entrée, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, en lieu et place du locataire, sous réserve qu'elles soient dûment justifiées."
+];
+// Clôture d'un bail (saveBailClore, terminerBail) — restitution du dépôt de garantie. Dépôt versé, aucune
+// restitution saisie ni déjà enregistrée : AVERTIR (art. 22), jamais bloquer — le dépôt reste compté détenu
+// (_dgDetenuDuLot) et sa tâche reste (_computeUnifiedTodo 7bis). Renvoie false si l'utilisateur renonce.
+function _clotureDgConfirmer(bail, dateVirement) {
+  const dg = Number(bail && bail.dg) || 0;
+  if(dg <= 0 || (bail && bail.dgRestitueAt) || dateVirement) return true;
+  return confirm2('Le dépôt de garantie (' + fmt(dg) + ') n\'a pas de date de virement de restitution : il restera compté comme détenu, et sa restitution à faire, jusqu\'à ce qu\'elle soit enregistrée (montants saisis ou non).\n\n'
+    + 'Loi n° 89-462 du 6 juillet 1989, article 22 :\n« ' + _ART22_RESTITUTION.join(' »\n« ') + ' »\n\nClôturer quand même ?');
+}
+// Montants saisis à la clôture. `dgRestitueAt` n'est posé QUE par la date du virement saisie (jamais la date du jour :
+// des montants pré-remplis par la régularisation ne disent pas que l'argent est parti). `clotureV: 2` marque une
+// clôture de ce déploiement : ses montants ne valent plus restitution (_dgRestitutionEnregistree).
+function _clotureDgAppliquer(bail, dgRestitue, dgRetenu, dateVirement) {
+  bail.dgRestitue = dgRestitue;
+  bail.dgRetenu   = dgRetenu;
+  if(dateVirement) bail.dgRestitueAt = String(dateVirement).slice(0, 10);
+  bail.clotureV   = 2;
 }
 
 function saveBailClore() {
@@ -8043,20 +8199,19 @@ function saveBailClore() {
   if(!motif)  { showToast('Motif de fin requis','err'); return; }
   // Confirmation finale (action destructive : archive + vacant)
   if(!confirm2(`Clôturer le bail ${ref} au ${fd(finEff)} ?\nLe logement sera marqué vacant et le bail archivé.`)) return;
+  if(!_clotureDgConfirmer(bail, v('b-dg-restitue-date'))) return;
   // Persister les infos de clôture
   bail.finEffective   = finEff;
   bail.finMotif       = motif;
   bail.locNouvelleAdr = v('b-loc-nouv-adr');
-  bail.dgRestitue     = pf('b-dg-restitue');
-  bail.dgRetenu       = pf('b-dg-retenu');
+  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'), v('b-dg-restitue-date'));
   bail.finNotes       = v('b-fin-notes');
   bail.cloture        = true;
   bail.ref            = ref;
   bail._archivedAt    = td();
   // Archiver dans historique + retirer des actifs (v14.71 : tombstone au lieu de delete
   // pour propagation Drive multi-device — sinon le bail réapparaît au merge)
-  if(!DB.baux_historique) DB.baux_historique = [];
-  DB.baux_historique.push({...bail});
+  _archiverDansHistorique(bail);
   DB.baux[ref] = { ref, _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString(), _archivedAt: td() };
   const log = DB.logements.find(l=>l.ref===ref);
   if(log) { log.locataire = ''; log.fin = finEff; }
@@ -8782,7 +8937,7 @@ function _buildOccDrill(ctx) {
         const _loue = (typeof _bienIsBailActif === 'function') ? _bienIsBailActif(l.ref) : !!l.locataire;
         const statut = _loue
           ? '<span style="color:var(--fg-success);font-weight:600">Occup\u00e9</span>'
-          : '<span style="color:var(--fg-danger);font-weight:600">Vacant</span>';
+          : '<span style="color:var(--fg-danger);font-weight:600">' + escHtml((typeof _lotStatutLibelle === 'function') ? _lotStatutLibelle(l.ref) : 'Vacant') + '</span>';
         const loyerTTC = (l.hc||0)+(l.ch||0);
         // Colonne ANNUALISÉE : ce n'est pas le manque de la période (le chiffre du haut), c'est
         // ce que coûterait une vacance sur douze mois. Le nom de colonne le dit désormais —
@@ -8827,7 +8982,7 @@ function _getAllBailsForLog(ref) {
   if(current && !current._deleted && current.debut) {
     bails.push({
       debut: current.debut,
-      fin: current.finEffective || current.fin || null,
+      fin: _bailFinOccupation(current, false) || null,   // tacite reconduction : bail nu/meublé en cours = ouvert
       hc: current.hc || 0,
       ch: current.ch || 0,
       nom: _bailNom(current),
@@ -8840,7 +8995,7 @@ function _getAllBailsForLog(ref) {
     DB.baux_historique.filter(b => b && !b._deleted && b.debut && (b.ref === ref || norm(b.ref) === want)).forEach(b => {
       bails.push({
         debut: b.debut,
-        fin: b.finEffective || b.fin || null,
+        fin: _bailFinOccupation(b, true) || null,
         hc: b.hc || 0,
         ch: b.ch || 0,
         nom: _bailNom(b),
@@ -9008,8 +9163,16 @@ function _duMoisLot(ref, ym) {
 // Le 7ᵉ moteur (_matcheMois, qui rattachait un paiement au mois de sa propre date) est
 // supprimé, pas corrigé (C3).
 //
-// Fenêtre de suivi = _debutSuivi → mois courant, la même borne que les 5 surfaces (B2) :
-// pas de dette fantôme sur des années sans données.
+// Fenêtre de suivi (R0-C) — dès qu'une date est SAISIE (date d'achat ou antériorité notée), LE point
+// de départ de Finances (`_finLotSuivi` → js/core/anteriorite.js), le dû de Finances (`_finBailHcChAt` :
+// 1ᵉʳ terme exigible après l'achat), son solde d'ouverture, et la même règle pour les encaissements
+// d'avant : jamais imputés (3ᵉ audit A1). L'onglet Loyers, les relances et les quittances lisent alors la même dette
+// que Finances et la restitution.
+// Date PROVISOIRE (b) — rien de saisi : l'ancienne fenêtre `_debutSuivi` (1ᵉʳ janvier de l'année du
+// 1ᵉʳ versement), exactement comme le maître, qui ne reçoit jamais `debutDu` pour elle (3ᵉ audit A2/A3 :
+// la borne provisoire tombe sur le mois du PAIEMENT, elle décalait les quittances — actes opposables —
+// et faisait naître des relances sur des baux clos). Rien ne bouge tant que rien n'est saisi.
+// Repli (modules absents) : la même ancienne fenêtre.
 // Retourne null si le module n'est pas chargé (file://) — les appelants dégradent.
 function _loyerEtatLot(ref, opts) {
   opts = opts || {};
@@ -9032,27 +9195,46 @@ function _loyerEtatLot(ref, opts) {
   // imputés mois par mois. Le montant reste la seule chose qui DÉCIDE : les dates suivent.
   const srcParYm = {};
   let firstPaymentYm = null;
+  const _s = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function') ? _finLotSuivi(ref) : null;
+  const suivi = (_s && _s.source && _s.source !== 'provisoire') ? _s : null;   // (b) : seule une date SAISIE fait foi
+  const borne = suivi ? suivi.date : null;
+  const avant = [];   // encaissements d'avant la date saisie : jamais imputés (A1), signalés après un achat (C1)
   for (const m of (DB.mouvements || [])) {
     if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
     const ym = String(m.date).slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+    if (borne && String(m.date).slice(0, 10) < borne) { avant.push({ date: String(m.date).slice(0, 10), montant: m.cr || 0 }); continue; }
     recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
     (srcParYm[ym] || (srcParYm[ym] = [])).push({ date: String(m.date).slice(0, 10), id: (m.id != null ? m.id : null), montant: m.cr || 0 });
     if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
   }
-  const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
-  const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
-  const startYm = (typeof window._debutSuivi === 'function')
-    ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
+  let startYm = null, duDe = (ym) => _duMoisLot(ref, ym), opening = null;
+  if (suivi) {
+    startYm = borne ? borne.slice(0, 7) : null;
+    duDe = (ym) => _finBailHcChAt(ref, ym);
+    const o = suivi.ouverture;
+    if (o) opening = { idx: 0, date: borne, loyer: o.loyer, charge: o.charge, avance: o.avance };
+  } else {
+    const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
+    const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
+    startYm = (typeof window._debutSuivi === 'function')
+      ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
+  }
   const endYm = ((typeof window._loyerTodayLocal === 'function')
     ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)).slice(0, 7);
   const months = (startYm && startYm <= endYm)
     ? window.ymRange(startYm, endYm).map(ym => {
-        const d = _duMoisLot(ref, ym);
+        const d = duDe(ym);
         return { ym, hcDue: d.hc || 0, chDue: d.ch || 0, received: recuParYm[ym] || 0, sources: srcParYm[ym] || [] };
       })
     : [];
-  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast });
+  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast, opening });
+  // R0-C C1 — tant que le geste « rattacher » n'existe pas (lot 2) : un versement du mois qui précède une
+  // DATE D'ACHAT est peut-être le 1ᵉʳ terme, déjà sur le compte. Il n'est pas imputé, mais il est
+  // SIGNALÉ (onglet Loyers, relance) : jamais un impayé relancé sans le dire.
+  etat.aVerifier = (suivi && suivi.source === 'acquisition' && avant.length && typeof window._avantBorne === 'function')
+    ? window._avantBorne(avant, borne, { achat: true }).horsSuivi.filter(h => h.aRattacher).map(h => ({ date: h.date, montant: h.montant }))
+    : [];
   C.map[key] = etat;
   return etat;
 }
@@ -9081,7 +9263,20 @@ function _getActiveBailHcChProratedSplit(ref, yr, monthIdx0) {
 /* Attendu total pour un logement sur l'année, cumulé par mois actif.
    Borné inférieurement par la date de démarrage effectif du logement.
    v15.19 : utilise _getActiveBailHcChProrated → prorata jours intra-mois. */
+// R0-C 🟠2 (audit 30/09) — UNE règle : l'attendu lit le dû de Finances (`_finBailHcChAt`, borné au
+// point de départ du suivi — date d'achat, antériorité, sinon date provisoire = l'ancienne borne du
+// 1ᵉʳ versement). Avant, il gardait sa propre borne (`_getLogementStartMi`) : les KPI Compta de la
+// fiche logement, `_computeComptaBailleur` (écran + CSV) et le widget hérité divergeaient de Finances
+// dès qu'une date était saisie. Repli file:// : l'ancien calcul.
 function _computeExpectedRent(ref, yr, lastVisibleMonth) {
+  if (typeof _finBailHcChAt === 'function') {
+    let total = 0;
+    for (let mi = 0; mi < lastVisibleMonth; mi++) {
+      const d = _finBailHcChAt(ref, yr + '-' + String(mi + 1).padStart(2, '0'));
+      total += (d.hc || 0) + (d.ch || 0);
+    }
+    return total;
+  }
   const firstMi = _getLogementStartMi(ref, yr);
   if(firstMi == null) return 0;
   let total = 0;
@@ -9579,8 +9774,30 @@ function _computeUnifiedTodo(ctx) {
 
   // 7bis. Départ de locataire en cours (DEPART-VISIBILITE #2) — fil rouge guidé + délai légal DG (art. 22).
   // Le départ remonte sur la home avec son échéance datée ; sévérité pilotée par le compte à rebours du DG.
+  // Échéance du dépôt (art. 22) : sévérité + texte, partagés par le bail en cours et les baux archivés.
+  const _dgEcheance = (dl) => {
+    if(!dl) return { severity:'info', score:58, txt:'' };
+    if(dl.jours < 0)  return { severity:'red', score:97, txt:' — DG en retard ' + (-dl.jours) + ' j (majoration)' };
+    if(dl.jours <= 15) return { severity:'ora', score:78, txt:' — DG à restituer avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')' };
+    return { severity:'info', score:58, txt:' — DG avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')' };
+  };
   if(typeof _departState === 'function' && DB.baux) {
     scopeLogs.forEach(l => {
+      // Statut 06/10 : un bail ARCHIVÉ (relocation avant restitution, clôture sans restitution) dont le dépôt
+      // n'est pas restitué garde sa tâche — même règle que les « Dépôts détenus » (_dgDetenuDuBail).
+      _archivesDetenuesDuLot(l.ref).forEach(({ h, cle, montant }) => {
+        let dlH = null; try { dlH = _departDeadlineDG(h); } catch(e){ dlH = null; }
+        const e = _dgEcheance(dlH);
+        const locH = (h.locataires && h.locataires[0] && h.locataires[0].nom) || h.nom || l.ref;
+        out.push({
+          type:'depart', severity:e.severity, score:e.score,
+          title:'Départ — dépôt de garantie à restituer (bail archivé)',
+          subtitle:l.ref + ' — ' + locH + ' · ' + fmt(montant) + e.txt,
+          contextRef:l.ref,
+          actionLabel:'Préparer la restitution du DG',
+          actionFn:"_dgOpenRestitution('" + _lyQ(l.ref) + "','" + _lyQ(cle) + "')"
+        });
+      });
       const bail = DB.baux[l.ref];
       if(!bail || bail._deleted || bail.cloture || !bail.depart) return;
       let st; try { st = _departState(bail); } catch(e){ return; }
@@ -9588,12 +9805,8 @@ function _computeUnifiedTodo(ctx) {
       const loc = (bail.locataires && bail.locataires[0] && bail.locataires[0].nom) || bail.nom || l.locataire || l.ref;
       const dl = st.deadline;
       const dgDone = (st.steps.find(s => s.key === 'dg') || {}).done;
-      let severity = 'info', score = 58, dgTxt = '';
-      if(dl && !dgDone) {
-        if(dl.jours < 0)        { severity = 'red'; score = 97; dgTxt = ' — DG en retard ' + (-dl.jours) + ' j (majoration)'; }
-        else if(dl.jours <= 15) { severity = 'ora'; score = 78; dgTxt = ' — DG à restituer avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
-        else                    { dgTxt = ' — DG avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
-      }
+      const _e = _dgEcheance((dl && !dgDone) ? dl : null);
+      let severity = _e.severity, score = _e.score; const dgTxt = _e.txt;
       // acompte conseillé AVANT l'EDL (même jalon que l'alerte de l'assistant : le locataire est encore
       // présent). Après l'EDL/remise des clés, l'acompte amiable n'a plus de sens.
       let acpTxt='';
@@ -9700,11 +9913,20 @@ function _computeUnifiedTodo(ctx) {
  *
  * `_resyncLocatairesFromBaux` ne remplit ce champ que si le bail porte un nom, et la cloture le
  * VIDE. Un bail repris a l'achat, une saisie en cours, un locataire parti : le cache ment dans
- * les deux sens. Toute surface qui affiche de l'ARGENT doit passer par ici.
+ * les deux sens.
+ * Statut OCCUPÉ AUJOURD'HUI (décision Didier 06/10, _bienIsBailActif) : un départ déclaré passé rend le
+ * lot vacant. Une surface qui affiche de l'ARGENT encore dû par ce bail (impayés, onglet Loyers) lit
+ * _lotBailOuvert, pas ce statut ; le dépôt détenu lit son état de restitution (_dgDetenuDuLot).
  */
 function _lotEstLoue(l) {
   if (!l || !l.ref) return false;
   return (typeof _bienIsBailActif === 'function') ? _bienIsBailActif(l.ref) : !!l.locataire;
+}
+/** Le bail de ce lot est-il encore OUVERT (non clôturé) ? — impayés, onglet Loyers : un
+ *  départ déclaré ne clôt ni la restitution ni la dette. */
+function _lotBailOuvert(l) {
+  if (!l || !l.ref) return false;
+  return (typeof _bienActiveBail === 'function') ? !!_bienActiveBail(l.ref) : !!l.locataire;
 }
 
 /**
@@ -9719,6 +9941,64 @@ function _dgDuLot(l) {
   const b = (typeof _bienActiveBail === 'function') ? _bienActiveBail(l.ref) : null;
   return Number((b && b.dg) || l.dg || 0) || 0;
 }
+/**
+ * DÉPÔTS DÉTENUS — règle UNIQUE (coordination Finances 06/10, décision Didier « gardé jusqu'à restitution ») :
+ * un dépôt est détenu tant que sa RESTITUTION n'est pas enregistrée. Jamais « lot loué », jamais « bail
+ * ouvert » : un départ déclaré, une relocation (bail archivé par archiverBail) ou une clôture sans restitution
+ * ne rendent pas l'argent au locataire (art. 22 de la loi du 6 juillet 1989).
+ *
+ * Restitution ENREGISTRÉE d'un bail :
+ *  • `dgRestitueAt` — posé par _dgConfirmerRestitution (solde de tout compte) ou à la clôture (_clotureDgAppliquer) ;
+ *  • bail CLÔTURÉ AVANT ce déploiement (`cloture` sans `clotureV`) : aussi les montants saisis au formulaire de
+ *    clôture (dgRestitue / dgRetenu > 0) — seules traces de ces clôtures (mesuré : toutes celles des sauvegardes réelles
+ *    en portent). Une clôture d'aujourd'hui (`clotureV: 2`) ne vaut restitution que par sa date de virement.
+ *    Sur un bail NON clôturé (en cours, parti, ou archivé par relocation), dgRetenu / dgRestitue sont des montants
+ *    EN COURS de calcul (_rgApplyRetenue ; saveBail les écrit à 0) : ils ne disent pas que l'argent est rendu.
+ */
+function _dgRestitutionEnregistree(b) {
+  if (!b) return false;
+  if (b.dgRestitueAt) return true;
+  return !!b.cloture && !b.clotureV && (Number(b.dgRestitue) > 0 || Number(b.dgRetenu) > 0);
+}
+/** Le dépôt DÉTENU par un bail (vivant ou archivé) : dg > 0 et restitution non enregistrée. `dgLot` = repli
+ *  sur le dépôt de la fiche du lot, pour le seul bail courant (sémantique de _dgDuLot). */
+function _dgDetenuDuBail(b, dgLot) {
+  if (!b || b._deleted || _dgRestitutionEnregistree(b)) return 0;
+  return Number(b.dg || dgLot || 0) || 0;
+}
+/** LES dépôts DÉTENUS d'un lot (bandeau PC, Accueil téléphone, widget), un montant par bail : son bail courant (même parti, même
+ *  porteur d'une fin effective) + ses baux archivés (relocation avant restitution, clôture sans restitution).
+ *  Un bail clôturé est un tombstone dans DB.baux et sa copie dans baux_historique : jamais compté deux fois. */
+// Les ARCHIVES d'un lot dont le dépôt est encore détenu — une entrée par archive (bailHistCle) : une archive en double
+// (doublon de synchronisation) n'est comptée qu'une fois, et si l'une de ses copies porte la restitution, le dépôt est
+// rendu. Source UNIQUE des dépôts détenus (_dgDetenusDuLot), de la tâche (7bis) et de la cible de restitution.
+function _archivesDetenuesDuLot(ref) {
+  const parCle = new Map(), sansCle = [];
+  (DB.baux_historique || []).forEach(function (h) {
+    if (!h || h._deleted || h.ref !== ref) return;
+    const montant = _dgDetenuDuBail(h, 0);
+    const cle = (typeof _bailHistCleDe === 'function') ? _bailHistCleDe(h) : '';
+    if (!cle) { if (montant > 0) sansCle.push({ h, cle, montant }); return; }
+    const p = parCle.get(cle);
+    if (!p || montant < p.montant) parCle.set(cle, { h, cle, montant });
+  });
+  const out = [];
+  parCle.forEach(function (x) { if (x.montant > 0) out.push(x); });
+  return out.concat(sansCle);
+}
+function _dgDetenusDuLot(l) {
+  if (!l || !l.ref) return [];
+  const cur = DB.baux && DB.baux[l.ref];
+  const out = [];
+  const c = _dgDetenuDuBail(cur, (cur && !cur.cloture) ? l.dg : 0);
+  if (c > 0) out.push(c);
+  _archivesDetenuesDuLot(l.ref).forEach(function (x) { out.push(x.montant); });
+  return out;
+}
+// Montant détenu d'un lot, et NOMBRE de dépôts détenus (un lot reloué avant restitution en porte deux) : même
+// source (_dgDetenusDuLot), pour que le compteur des tuiles compte des dépôts, pas des lots (audit 06/10).
+function _dgDetenuDuLot(l) { return _dgDetenusDuLot(l).reduce(function (s, a) { return s + a; }, 0); }
+function _dgNbDetenusDuLot(l) { return _dgDetenusDuLot(l).length; }
 
 /**
  * LE RÔLE d'un mouvement pour une surface de LOT, lu comme Finances le lit.
@@ -10294,7 +10574,8 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
   // IRL ou un avenant, elles ne sont plus le loyer du mois.
   const _ymObj = (mo ? (yr + '-' + String(mo).padStart(2, '0'))
                      : ((typeof window._loyerTodayLocal === 'function' ? window._loyerTodayLocal() : new Date().toISOString().slice(0,10)).slice(0, 7)));
-  const objMens  = scopeLogs.filter(_lotEstLoue).reduce((s,l)=>{
+  // Statut 06/10 : population = bail OUVERT (le dû du mois, borné au départ par _duMoisLot, est de l'argent).
+  const objMens  = scopeLogs.filter(_lotBailOuvert).reduce((s,l)=>{
     const d = (typeof _duMoisLot === 'function') ? _duMoisLot(l.ref, _ymObj) : null;
     return s + (d ? ((d.hc||0)+(d.ch||0)) : ((l.hc||0)+(l.ch||0)));
   },0);
@@ -10676,22 +10957,23 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
   /* ── v2 Phase 3 FINAL — Dépôts de garantie (col 3 row 2, minimaliste)
      Affichage : total + count uniquement. Détail complet via drill-down. ── */
   if(id==='dg') {
-    const dgs = scopeLogs.filter(l => _lotEstLoue(l) && _dgDuLot(l) > 0).sort((a,b) => _dgDuLot(b) - _dgDuLot(a));
+    const dgs = scopeLogs.filter(l => _dgDetenuDuLot(l) > 0).sort((a,b) => _dgDetenuDuLot(b) - _dgDetenuDuLot(a));   // reçu, pas encore restitué
     // Les lignes du tableau passent par `_dgDuLot` : le TOTAL doit suivre la même source,
     // sinon la carte annonce une somme que son propre tableau contredit (mesuré : 3 100 € au
     // total pour 3 400 € de lignes).
-    const tot = dgs.reduce((s,l) => s+_dgDuLot(l), 0);
+    const tot = dgs.reduce((s,l) => s+_dgDetenuDuLot(l), 0);
+    const nbDg = dgs.reduce((s,l) => s+_dgNbDetenusDuLot(l), 0);   // des DÉPÔTS, pas des lots
     _DD['dg'] = {title:'Dépôts de garantie', html:'<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">DG</th></tr></thead><tbody>'
-      + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDuLot(l))+'</td></tr>').join('')
-      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+dgs.length+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
+      + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDetenuDuLot(l))+'</td></tr>').join('')
+      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+nbDg+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
     // v15.38 DASH-REFONTE-GLOBALE-V4 CP3 — DG Bloomberg : eyebrow + valeur + count
     const body = '<button type="button" class="dw-kpi-click bb-card" '
       + 'onclick="_dashCardClick(\'dg\',event)" '
       + 'aria-label="Voir le détail des dépôts de garantie">'
       + '<div class="bb-eyebrow"><span class="bb-icon-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bb-eyebrow-txt">DÉPÔTS DE GARANTIE</span></div>'
       + '<div class="dw-kpi-value" style="color:var(--t1)">' + fmt(tot) + '</div>'
-      + '<div class="bb-delta neu">' + dgs.length + ' DG détenu' + (dgs.length > 1 ? 's' : '') + '</div>'
-      + (dgs.length ? '<div class="bb-sub">Moyenne ' + fmt(Math.round(tot / dgs.length)) + ' / locataire</div>' : '')
+      + '<div class="bb-delta neu">' + nbDg + ' DG détenu' + (nbDg > 1 ? 's' : '') + '</div>'
+      + (nbDg ? '<div class="bb-sub">Moyenne ' + fmt(Math.round(tot / nbDg)) + ' / dépôt</div>' : '')
       + '</button>';
     return wd(body, '', 'blu');
   }
@@ -10735,14 +11017,14 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
   }
   if(id==='bail') {
     // v15.424 DRY : règle canonique AlertRules.bauxEcheance (mêmes seuils que la bannière).
-    const items = AlertRules.bauxEcheance(scopeLogs, today).map(b=>({ref:b.ref,loc:b.locataire,diff:b.jours,fin:b.fin,t:(b.expire||b.jours<=30)?'red':'ora'}));
+    const items = AlertRules.bauxEcheance(scopeLogs, today, 90, _bailEcheanceAlerteDe).map(b=>({ref:b.ref,loc:b.locataire,diff:b.jours,fin:b.fin,t:(b.expire||b.jours<=30)?'red':'ora'}));
     if(!items.length) return wd(lbl('Baux arrivant à terme')+'<div style="margin-top:8px;font-size:11px;color:var(--grn)">✓ Aucun bail dans les 90 jours</div>', '', 'grn');
     _DD['bail'] = {title:'Baux à terme', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Fin bail</th><th>Statut</th></tr></thead><tbody>'
-      +items.map(it=>'<tr><td><b>'+it.ref+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td><td>'+fd(it.fin)+'</td><td style="color:'+(it.t==='red'?'var(--red)':'var(--ora)')+';font-weight:600">'+(it.diff<0?'Expiré depuis '+(-it.diff)+'j':'J-'+it.diff)+'</td></tr>').join('')+'</tbody></table>'};
+      +items.map(it=>'<tr><td><b>'+it.ref+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td><td>'+fd(it.fin)+'</td><td style="color:'+(it.t==='red'?'var(--red)':'var(--ora)')+';font-weight:600">'+(it.diff<0?'Arrivé à terme depuis '+(-it.diff)+'j':'J-'+it.diff)+'</td></tr>').join('')+'</tbody></table>'};
     const st2 = items.some(it=>it.t==='red')?'red':'ora';
     return wd(
       lbl('Baux arrivant à terme')+wval(items.length,'var(--ora)')+wsub('bail(s) dans les 90 jours')
-      +items.slice(0,_maxItems).map(it=>ai('<b>'+it.ref+'</b> '+(it.diff<0?'expiré depuis '+(-it.diff)+'j':'J-'+it.diff)+' · '+fd(it.fin),it.t)).join('')
+      +items.slice(0,_maxItems).map(it=>ai('<b>'+it.ref+'</b> '+(it.diff<0?'arrivé à terme depuis '+(-it.diff)+'j':'J-'+it.diff)+' · '+fd(it.fin),it.t)).join('')
       +(items.length>_maxItems?ai('+ '+(items.length-_maxItems)+' autres...','flat'):''),
       seeAll('bail'), st2);
   }
@@ -11109,7 +11391,7 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
       const refs = iL.map(l => l.ref);
       // R-0 : lots LOUES selon le bail. Un lot loue au cache vide sortait du total, et la
       // regularisation comparait alors des charges reelles a des provisions amputees.
-      const provTh = iL.filter(_lotEstLoue).reduce((s,l) => s+(l.ch||0), 0) * nbMois;
+      const provTh = iL.filter(_lotBailOuvert).reduce((s,l) => s+(l.ch||0), 0) * nbMois;   // bail OUVERT (argent), statut 06/10
       const chargesR = mvsYTD
         .filter(m => m.db > 0 && inclCh.has(m.cat) && (refs.includes(m.qui) || m.imm === immNom))
         .reduce((s,m) => s+(m.db||0), 0);
@@ -13661,6 +13943,7 @@ function openBailHist(i) {
   el('b-loc-nouv-adr').value = b.locNouvelleAdr||'';
   el('b-dg-restitue').value = b.dgRestitue||'';
   el('b-dg-retenu').value = b.dgRetenu||'';
+  if(el('b-dg-restitue-date')) el('b-dg-restitue-date').value = String(b.dgRestitueAt || '').slice(0, 10);
   el('b-fin-notes').value = b.finNotes||'';
 
   // Remplacer le pied de modal par boutons lecture seule
@@ -13808,15 +14091,28 @@ function _locEcheanceInfo(bail) {
   // « Tacite reconduction ». Distinguer « pas de bail » (échéance nulle) de
   // « bail sans date de fin » (durée indéterminée → réellement en tacite).
   if (!bail) return { cls: 'muted', text: '', urgent: false };
-  if (!bail.fin) return { cls: 'ok', text: 'Tacite reconduction', urgent: false };
+  if (bail.fin && isNaN(new Date(bail.fin).getTime())) {
+    console.warn('[_locEcheanceInfo] date bail.fin invalide', bail.ref || bail, bail.fin);
+    return { cls: 'warn', text: '⚠ Date invalide', urgent: true };
+  }
+  // BAUX-ECHUS — LA règle du type (js/core/bail-echeance.js) : la même que l'agenda, la frise et
+  // l'alerte « arrivé à terme ». « Tacite reconduction » seulement là où la loi (nu, meublé) ou le
+  // contrat (garage de l'app) la prévoit ; « Arrivé à terme (date) » sinon — plus de « Échu » pour
+  // un garage reconduit par son contrat, plus de « Tacite reconduction » pour une mobilité sans date.
+  const _BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if (_BE && typeof _BE.pastilleEcheance === 'function') {
+    try {
+      const _log = (DB.logements || []).find(l => l && l.ref === bail.ref) || null;
+      const _o = _bailEcheanceOpts(bail, _log);
+      return _BE.pastilleEcheance(_BE.echeanceBail(bail, _log, _o), _o);
+    } catch (e) { return { cls: 'warn', text: '⚠ Erreur date', urgent: true }; }
+  }
+  // Repli (module non chargé) : l'ancien calcul, sans affirmer de reconduction pour un type qui n'en a pas.
+  if (!bail.fin) return _bailTypeHasTacite(bail.type) ? { cls: 'ok', text: 'Tacite reconduction', urgent: false } : { cls: 'muted', text: 'Échéance non renseignée', urgent: false };
   try {
     const finDate = new Date(bail.fin);
     const today = new Date();
     const finTime = finDate.getTime();
-    if (isNaN(finTime)) {
-      console.warn('[_locEcheanceInfo] date bail.fin invalide', bail.ref || bail, bail.fin);
-      return { cls: 'warn', text: '⚠ Date invalide', urgent: true };
-    }
     const daysLeft = Math.floor((finTime - today.getTime()) / 86400000);
     const finLbl = fd(bail.fin);
     if (daysLeft >= 0) {
@@ -13824,13 +14120,10 @@ function _locEcheanceInfo(bail) {
       if (daysLeft < 90) return { cls: 'warn', text: `${finLbl} (${daysLeft}j)`, urgent: true };
       return { cls: 'ok', text: finLbl, urgent: false };
     }
-    // v15.343 BUG-STATUT-TACITE — Échéance dépassée : distinguer
-    //   • tacite reconduction (nu/meublé) → le bail se prolonge, PAS « échu »
-    //   • échu réel (étudiant/mobilité/garage/autre, non reconductibles)
     if (_bailTypeHasTacite(bail.type)) {
       return { cls: 'ok', text: 'Tacite reconduction', urgent: false };
     }
-    return { cls: 'err', text: `Échu (${finLbl})`, urgent: true };
+    return { cls: 'err', text: `Arrivé à terme (${finLbl})`, urgent: true };
   } catch (e) { return { cls: 'warn', text: '⚠ Erreur date', urgent: true }; }
 }
 
@@ -14094,7 +14387,9 @@ function rCandidats(){
 
 // Un logement est vacant s'il n'a pas de bail actif (non clôturé).
 function _logementsVacants(){
-  return (DB.logements||[]).filter(l=>l && !l._deleted && !_bailEnCours(DB.baux[l.ref]));
+  // Statut 06/10 : un lot dont le départ déclaré est passé est VACANT (proposable à un candidat), même
+  // si son bail reste à clôturer. _bailEnCours (saveBail) garde, lui, « bail ouvert ».
+  return (DB.logements||[]).filter(l=>l && !l._deleted && !_bienIsBailActif(l.ref));
 }
 // "Choix + ajout libre" (règle gravée) : révèle le champ texte quand contrat = Autre.
 function _candContratToggle(){
@@ -14963,7 +15258,10 @@ function openLoyerBienModal(candId, logRef){
   const log = (DB.logements||[]).find(l=>l && !l._deleted && l.ref===ref);
   if(!log){ showToast('Logement introuvable — impossible de fixer le loyer.','warn'); return; }
   _lbCtx = { candId: c ? c.id : null, logRef: log.ref };
-  const occupied = !!_bienActiveBail(log.ref); // gère tombstone _deleted + cloture + finEffective (audit)
+  // Verrou = bail OUVERT, pas le statut : sur un lot vacant après un départ déclaré, le bail du locataire sorti
+  // reste ouvert et _syncLogToBail recopierait log.hc dans SON bail (dû et impayés faussés). Levé à la clôture.
+  const occupied = !!_bienActiveBail(log.ref);
+  const _aCloturer = occupied && !_bienIsBailActif(log.ref);   // départ déclaré passé, bail à clôturer
   const _refHc = Number(log.loyerHcRef)||Number(log.hc)||0; // loyer de référence (== log.hc pour un bien vacant)
   const _refCh = Number(log.chargesRef)||Number(log.ch)||0;
   const la = c ? _loyerAttenduForCand(c) : { loyer: _refHc };
@@ -14974,7 +15272,8 @@ function openLoyerBienModal(candId, logRef){
   if(warn){
     if(occupied){
       warn.style.background='var(--sur2)'; warn.style.border='1px solid var(--bor)'; warn.style.color='var(--t2)';
-      warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passez par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
+      if(_aCloturer) warn.innerHTML = '🔒 <b>Bail à clôturer</b> — le bail du locataire sorti est encore ouvert et porte son loyer. Le loyer de référence du prochain bail se saisit après la clôture de ce bail.';
+      else warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passez par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
     } else {
       warn.style.background='rgba(234,88,12,.1)'; warn.style.border='1px solid rgba(234,88,12,.3)'; warn.style.color='#9a4a10';
       warn.innerHTML = '⚠ Ce loyer est celui du <b>logement</b> (bien vacant) : il sert au score du candidat et au futur bail. Il alimente aussi le tableau de bord et le P&amp;L.';
@@ -14989,12 +15288,13 @@ function saveLoyerBien(){
   // Garde anti-désync (audit B1) : sur un bien OCCUPÉ, le loyer suit le bail / une révision IRL —
   // écrire log.hc seul désynchroniserait bail.hc + casserait la garde de révision IRL.
   // _bienActiveBail gère le tombstone (_deleted) + cloture + finEffective (audit LOYER-REFERENCE).
-  if(_bienActiveBail(log.ref)){ showToast('Bien occupé — le loyer se modifie via le bail ou une révision IRL.','warn',5000); return; }
+  // Bail OUVERT (pas le statut) : un départ déclaré passé garde le verrou jusqu'à la clôture (cf. openLoyerBienModal).
+  if(_bienActiveBail(log.ref)){ showToast(_bienIsBailActif(log.ref) ? 'Bien occupé — le loyer se modifie via le bail ou une révision IRL.' : 'Bail à clôturer — le loyer du prochain bail se saisit après la clôture.','warn',5000); return; }
   const hc = Math.max(0, Math.round(Number(v('lb-hc'))||0));
   const ch = Math.max(0, Math.round(Number(v('lb-ch'))||0));
   const before = Number(log.hc)||0;
-  log.hc = hc; log.ch = ch; _stamp(log);
-  try{ if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); }catch(e){} // LOYER-REFERENCE : hc→loyerHcRef ET ch→chargesRef
+  log.hc = hc; log.ch = ch; log.loyerHcRef = hc; log.chargesRef = ch; _stamp(log);   // saisie explicite du loyer de référence (le souhaité inclus)
+  try{ if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); }catch(e){} // LOYER-REFERENCE : dg / irl suivent
   const cid = _lbCtx.candId;
   // Le loyer du logement impacte le ratio de TOUS ses candidats → on recalcule leurs scores stockés.
   _rescoreCandidatsDuLogement(log.ref);
@@ -15263,6 +15563,17 @@ function _editCandidatFromFiche(id){
   openM('ov-candidat');
 }
 
+// Le(s) locataire(s) affiché(s) d'un lot sur la page Locataires — son bail VIVANT (non tombstone, même parti,
+// tant qu'il n'est pas clôturé), sinon le nom en cache. '' = carte « vacant ». Source unique de la page (rBaux)
+// et de son badge dans la barre latérale (_v4NavCounts) : les deux comptent les mêmes locataires.
+function _lotLocataireAffiche(l) {
+  if(!l) return { bail: null, noms: '' };
+  const bail = _isAlive(DB.baux[l.ref]) ? DB.baux[l.ref] : null;
+  const noms = (bail && Array.isArray(bail.locataires) && bail.locataires.length)
+    ? bail.locataires.map(x => x.nom).filter(Boolean).join(', ')
+    : (l.locataire || '');
+  return { bail, noms };
+}
 function rBaux() {
   const fimm = v('baux-f');
   const search = v('baux-search').toLowerCase();
@@ -15309,10 +15620,7 @@ function rBaux() {
 
     const locCards = g.logs.map(l => {
       // v15.697 : tombstone (bail clôturé) = pas de bail — sinon « Tacite reconduction » + menu Clôturer sur un lot vacant.
-      const bail = _isAlive(DB.baux[l.ref]) ? DB.baux[l.ref] : null;
-      const locDisplay = (bail && Array.isArray(bail.locataires) && bail.locataires.length)
-        ? bail.locataires.map(x => x.nom).filter(Boolean).join(', ')
-        : (l.locataire || '');
+      const { bail, noms: locDisplay } = _lotLocataireAffiche(l);
       const isVacant = !bail || !locDisplay;
       const refEsc = escHtml(l.ref); const refEscJs = _lyQ(l.ref);
       const typeStr = `${escHtml(l.type || '')}${l.surf ? ' · ' + fmtN(l.surf) + 'm²' : ''}`;
@@ -15376,10 +15684,22 @@ function rBaux() {
       const echCellHtml = depState
         ? `<div class="loc-ech-b loc-dep-cell" title="Départ en cours — ouvrir l'assistant" onclick="event.stopPropagation();_departOuvrir('${refEscJs}')">${_ICON_DEPART} Départ ${depState.doneCount}/${depState.total}${depDgHtml}</div>`
         : `<div class="loc-ech-b ${ech.cls}">${ech.text ? `${_uiIcon('calendar',13)} ${ech.text}` : ''}</div>`;
+      // BAUX-ECHUS — bail arrivé à terme sans reconduction (étudiant, mobilité ; garage repris, autre) et
+      // sans départ déclaré : l'alerte dit ce que la loi dit, et propose les deux gestes existants.
+      const terme = (!depState && bail && !bail.cloture && !bail._deleted) ? _bailAlerteTerme(bail, l) : null;
+      // Les deux gestes vivent DANS l'alerte (ligne pleine largeur) : la colonne d'actions de la carte ne
+      // s'élargit pas — sinon, sur PC, le nom du locataire se retrouvait écrasé mot par mot.
+      const termeHtml = terme
+        ? `<div class="loc-terme-b" role="note"><span class="loc-terme-txt">${_uiIcon('warn',13)} <span>${escHtml(terme.texte)}</span></span>`
+          + `<span class="loc-terme-acts">`
+          + `<button onclick="event.stopPropagation();_bailNouveauApresTerme('${refEscJs}')" title="Signer un nouveau bail${terme.nouveauBailMeuble ? ' meublé' : ''} avec le même locataire" aria-label="Signer un nouveau bail">${_uiIcon('edit')} Nouveau bail</button>`
+          + `<button onclick="event.stopPropagation();_departDeclarer('${refEscJs}')" title="Déclarer le départ du locataire" aria-label="Déclarer le départ">${_ICON_DEPART} Déclarer le départ</button>`
+          + `</span></div>`
+        : '';
       // v15.614 REFONTE-PC — bouton départ libellé (plus d'icône seule)
       const depActionBtn = depState
         ? `<button onclick="event.stopPropagation();_departOuvrir('${refEscJs}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">${_ICON_DEPART} Départ</button>`
-        : (bail && !bail.cloture && !bail._deleted && ech.urgent
+        : (!terme && bail && !bail.cloture && !bail._deleted && ech.urgent
             ? `<button onclick="event.stopPropagation();_departOuvrir('${refEscJs}')" title="Préparer le départ du locataire" aria-label="Préparer le départ" class="loc-dep-prep">${_ICON_DEPART} Départ</button>`
             : '');
       const rowDepCls = depState ? ' loc-depart' : (ech.urgent ? ' warn-soon' : '');
@@ -15407,6 +15727,7 @@ function rBaux() {
         ${echCellHtml}
         <div class="loc-meta-bail-b">${escHtml(debutLbl)}</div>
         <div class="loc-actions-b">${actions}</div>
+        ${termeHtml}
       </div>`;
     }).join('');
 
@@ -15447,7 +15768,7 @@ function rBaux() {
 
 function getBailStatus(l) {
   // Le badge suit le BAIL : un bail repris sans nom affichait « Vacant » sur un lot loue.
-  if(!_lotEstLoue(l)) return {badge:`<span class="badge gry">Vacant</span>`};
+  if(!_lotEstLoue(l)) return {badge:`<span class="badge gry">${escHtml(_lotStatutLibelle(l.ref))}</span>`};
   const today = new Date();
   if(l.fin) {
     const fin = new Date(l.fin);
@@ -15592,6 +15913,13 @@ function _closeBailWizardBg(e){ /* v15.268 — clic dehors ne ferme plus le wiza
 
 /* Ouvre le wizard bail pré-rempli depuis un candidat validé (identité + garant).
    Le mapping passe par les helpers purs testés (_candidatVersLocataire/Garant). */
+// NOUVEAU bail sur un lot connu — porte unique (conversion d'un candidat, bail arrivé à terme, assistant de départ) :
+// formulaire vierge, lot sélectionné, onBailRefChange décide du début proposé. Jamais l'édition du bail en cours.
+function _ouvrirNouveauBailSurLot(ref) {
+  openBail(null, { logRef: ref });
+  const refSel = el('b-ref');
+  if(refSel){ refSel.value = ref; refSel.disabled = false; try{ onBailRefChange(refSel); }catch(e){} }
+}
 function convertCandidatToBail(id){
   const c = (DB.candidats||[]).find(x=>x.id===id);
   if(!c){ showToast('Candidat introuvable','err'); return; }
@@ -15602,9 +15930,7 @@ function convertCandidatToBail(id){
   // sans lui, le sélecteur (peuplé via _activeLogements) ne contiendrait pas l'option.
   if(!log || !_isAlive(log) || log.archived){ showToast('Le bien associé à ce candidat n\'existe plus ou est archivé','err'); return; }
   closeM('ov-fiche-candidat');
-  openBail(null, { logRef: c.logRef });              // wizard vierge MAIS logement connu → le bloc de pré-remplissage existant peuple les champs bien (desc, pièces, chauffage, locaux…)
-  const refSel = el('b-ref');
-  if(refSel){ refSel.value = c.logRef; refSel.disabled = false; try{ onBailRefChange(refSel); }catch(e){} }
+  _ouvrirNouveauBailSurLot(c.logRef);                // wizard vierge MAIS logement connu → le bloc de pré-remplissage existant peuple les champs bien (desc, pièces, chauffage, locaux…)
   if(el('b-entity') && log && log.entity){ el('b-entity').value = log.entity; }
   // Q3 — loyer/charges attendus depuis la cascade candidat (robuste, indépendant de loyerHcRef).
   try{
@@ -15649,6 +15975,10 @@ function _finalizeCandidatConversion(candId, bailRef){
 
 function openBail(ref, opts) {
   _pendingCandidatConv = null; // LOG-CANDIDATS : tout openBail neutralise une conversion en attente
+  // Statut 06/10 (vérification finale) : ouvrir le bail d'un lot SANS bail vivant (lot vacant, bail clôturé = tombstone)
+  // = créer un NOUVEAU bail — porte unique, jamais le formulaire en édition prérempli des dates de l'ancien bail.
+  // Couvre « + Créer le bail » de la fiche et le fil rouge (creer-bail, _frConfirmBail), qui appellent openBail(ref).
+  if(ref && !_isAlive(DB.baux[ref])) { _ouvrirNouveauBailSurLot(ref); return; }
   // v15.73 FIX : restaure footer depuis _ORIG_BAIL_FOOT_HTML (sauvé au boot via DOMContentLoaded).
   // Avant : save au premier appel openBail → si user ouvre openBailHist EN PREMIER,
   // on save un footer DEJA corrompu → buggé en boucle.
@@ -15740,7 +16070,7 @@ function openBail(ref, opts) {
   const irlKeys = sortedIRLKeys();
   el('b-irl').innerHTML = irlKeys.map(k=>`<option value="${k}">${k}</option>`).join('');
   if(bail.irl) el('b-irl').value = bail.irl;
-  else if(log?.debut) { el('b-irl').value = getIRLRefForDate(log.debut) || irlKeys[irlKeys.length-1] || ''; }
+  else if(ref && log?.debut) { el('b-irl').value = getIRLRefForDate(log.debut) || irlKeys[irlKeys.length-1] || ''; }   // nouveau bail : l'IRL suit SA date de début (autoIRLTrimestre)
   else el('b-irl').value = irlKeys[irlKeys.length-1]||'';
   // IRL-REVISION R10/R11 — mois de révision : celui du bail ; pour un bail NOUVEAU (jamais
   // enregistré), la date commune de son bailleur ; sinon « Auto ». Bail signé : figé.
@@ -15760,9 +16090,10 @@ function openBail(ref, opts) {
     _bIrlMoisHint();
   }
 
-  // Dates
-  el('b-debut').value = bail.debut||log?.debut||'';
-  el('b-fin').value   = bail.fin||log?.fin||'';
+  // Dates — NOUVEAU bail (ref vide : conversion d'un candidat, relocation) : log.debut / log.fin sont ceux de
+  // l'ANCIEN bail, jamais repris ; onBailRefChange propose le lendemain de la sortie (statut 06/10).
+  el('b-debut').value = bail.debut || (ref ? (log?.debut || '') : '');
+  el('b-fin').value   = bail.fin   || (ref ? (log?.fin   || '') : '');
 
   // PC-REFONTE étape 3 — clauses par défaut (Paramètres › Bail) : pré-remplissent la zone
   // « Conditions particulières » UNIQUEMENT sur un nouveau bail (b-edit-ref vide). Un bail
@@ -15876,6 +16207,7 @@ function openBail(ref, opts) {
   el('b-loc-nouv-adr').value = bail.locNouvelleAdr||'';
   el('b-dg-restitue').value = bail.dgRestitue||'';
   el('b-dg-retenu').value = bail.dgRetenu||'';
+  if(el('b-dg-restitue-date')) el('b-dg-restitue-date').value = String(bail.dgRestitueAt || '').slice(0, 10);
   el('b-fin-notes').value = bail.finNotes||'';
 
   // Wizard v12.44 : reset à l'étape 1 + flag édition + dirty tracking
@@ -16273,8 +16605,18 @@ function onBailRefChange(sel) {
     if(!el('b-dg').value && log.dgRef)      el('b-dg').value = log.dgRef;
   }
   if(!el('b-entity').value) el('b-entity').value = log.entity||'';
-  if(!el('b-debut').value && log.debut) {
-    el('b-debut').value = log.debut;
+  // Statut 06/10 : en NOUVEAU bail (relocation), log.debut est le début de l'ANCIEN bail — jamais proposé.
+  // On propose le lendemain de la fin d'occupation de l'ancien bail encore ouvert (départ déclaré), sinon rien.
+  // En édition, log.debut reste le début du bail édité.
+  let _debutPropose = '';
+  if(_bailIsEdit) _debutPropose = log.debut || '';
+  else {
+    const _anc = (typeof _isAlive === 'function' && _isAlive(DB.baux[ref])) ? DB.baux[ref] : null;
+    const _finAnc = _anc ? _bailFinOccupation(_anc, false) : '';
+    if(_finAnc) _debutPropose = _isoDecaleJours(_finAnc, 1);
+  }
+  if(!el('b-debut').value && _debutPropose) {
+    el('b-debut').value = _debutPropose;
     autoIRLTrimestre();
     autoFinBail();
   }
@@ -16316,10 +16658,14 @@ function autoFinBail() {
   else if (type === 'mobilite') { return; }                  // v15.196 post-audit : loi ELAN art. 107 = 1-10 mois variable → user doit saisir manuellement la date de fin (cohérence avec PDF "[à préciser]")
   else if (type === 'garage') { return; }                    // v15.196 post-audit : durée libre code civil → user saisit manuellement (cohérence avec PDF "[durée libre — à préciser]")
   else if (type === 'autre') { return; }                     // pas de pré-remplissage
-  else {                                                      // 'nu' : 3 ans (perso) / 6 ans (SCI/personne morale)
+  else {                                                      // 'nu' : 3 ans / 6 ans selon le bailleur (art. 10 et 13)
+    // BAUX-ECHUS — le régime vient de bail-duree.js (DRY, même source que le PDF signé) : l'ancien test
+    // `includes('perso')` lisait « PERSOnne morale » comme une personne physique → 3 ans au lieu de 6.
     const entNom = v('b-entity');
     const ent = DB.entites.find(e=>e.nom===entNom);
-    ans = ent?.type?.toLowerCase().includes('perso') ? 3 : 6;
+    const RB = (window.BailDuree && typeof window.BailDuree.regimeBailleur === 'function') ? window.BailDuree.regimeBailleur
+      : (typeof window.regimeBailleur === 'function' ? window.regimeBailleur : null);
+    ans = RB ? RB((ent && ent.type) || '').ans : 6;
   }
   const d = new Date(debut+'T00:00:00');
   if (ans) d.setFullYear(d.getFullYear() + ans);
@@ -16616,18 +16962,17 @@ function terminerBail() {
   if(!finEff) { showToast('Date de fin effective requise','err'); return; }
   if(!confirm2(`Clôturer le bail de ${ref} au ${fd(finEff)} ?\nLe logement sera marqué comme vacant et le bail archivé.`)) return;
   const bail = DB.baux[ref]||{};
+  if(!_clotureDgConfirmer(bail, v('b-dg-restitue-date'))) return;
   bail.finEffective = finEff;
   bail.finMotif = v('b-fin-motif');
   bail.locNouvelleAdr = v('b-loc-nouv-adr');
-  bail.dgRestitue = pf('b-dg-restitue');
-  bail.dgRetenu = pf('b-dg-retenu');
+  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'), v('b-dg-restitue-date'));
   bail.finNotes = v('b-fin-notes');
   bail.cloture = true;
   bail.ref = ref;
   bail._archivedAt = td();
   // Archiver dans historique
-  if(!DB.baux_historique) DB.baux_historique = [];
-  DB.baux_historique.push({...bail});
+  _archiverDansHistorique(bail);
   // Supprimer le bail actif (v14.71 : tombstone pour propagation Drive multi-device)
   DB.baux[ref] = { ref, _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString(), _archivedAt: td() };
   const log = DB.logements.find(l=>l.ref===ref);
@@ -17153,7 +17498,9 @@ function saveBail() {
     const bailExistant = DB.baux[ref];
     if(_bailEnCours(bailExistant)) { // v15.697 : un tombstone (bail clôturé) n'est pas un bail actif
       const ancLoc = (bailExistant.locataires||[{nom:bailExistant.nom||'?'}]).map(l=>l.nom).join(', ');
-      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.\n\nConfirmer la création du nouveau bail ?`)) return;
+      // Statut 06/10 : fin de l'ancien bail (et sa source) + dépôt de l'ancien locataire encore détenu.
+      const _rebailTxt = _rebailConfirmTexte(bailExistant, _debut, (DB.logements.find(x => x.ref === ref) || {}).dg);
+      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.${_rebailTxt}\n\nConfirmer la création du nouveau bail ?`)) return;
       _archiverAncien = true;
     }
   }
@@ -17500,19 +17847,13 @@ function archiverBail(ref, nouveauDebut) {
   const bail = DB.baux[ref];
   if(!bail || bail._deleted) return; // v15.697 : un tombstone est déjà archivé — jamais dans l'historique
   if(!DB.baux_historique) DB.baux_historique = [];
-  // C4 (AUDIT-SUIVI-LOYERS) : au re-bail sur logement occupé, poser finEffective = veille du
-  // NOUVEAU bail. Sans ça, la fin CONTRACTUELLE (souvent future ou vide) chevauche le nouveau
-  // bail → les DEUX loyers s'additionnent = dû DOUBLÉ (CAS 5 du harness), imputé à l'ancien
-  // locataire. Ne jamais écraser une finEffective déjà posée (clôture explicite « Clôturer bail »).
-  let finEff = bail.finEffective || null;
-  if (nouveauDebut && !finEff) {
-    const d = new Date(String(nouveauDebut).slice(0,10) + 'T00:00:00');
-    if (!isNaN(d.getTime())) {
-      d.setDate(d.getDate() - 1);
-      finEff = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    }
-  }
-  DB.baux_historique.push({
+  // C4 (AUDIT-SUIVI-LOYERS) : au re-bail sur logement occupé, poser finEffective. Sans ça, la fin
+  // CONTRACTUELLE (souvent future ou vide) chevauche le nouveau bail → les DEUX loyers s'additionnent = dû
+  // DOUBLÉ (CAS 5 du harness), imputé à l'ancien locataire. Ne jamais écraser une finEffective déjà posée
+  // (clôture explicite « Clôturer bail »). Statut 06/10 : un départ déclaré borne l'ancien bail à la date de
+  // sortie, pas à la veille du nouveau (_finAncienBailAuRebail).
+  const finEff = _finAncienBailAuRebail(bail, nouveauDebut).fin;
+  _archiverDansHistorique({
     ...bail,
     ref,
     finEffective: finEff || bail.finEffective || null,
@@ -17886,7 +18227,9 @@ function _bailSigned(bail){ return !!(bail && bail.signatures && bail.signatures
 // « sans notification préalable » (art. 17-1 : la révision prend effet à compter de la DEMANDE).
 /** IRL-REVISION C3/N4 + CONTRAT-TYPE-2026-10 — la version des clauses d'un bail (marqueur
  *  `clauseIrlV`, posé à la signature) : 1 = texte d'origine ; 2 = clause 5.2 révisée ;
- *  3 = 2 + contrat type issu du décret n° 2026-596 (js/core/contrat-type.js).
+ *  3 = 2 + contrat type issu du décret n° 2026-596 (js/core/contrat-type.js) ;
+ *  4 = 3 + sous-titre du bail nu selon le bailleur réel (js/core/bail-duree.js).
+ *  5 = 4 + clauses de durée, congé et fin corrigées (BAUX-ECHUS, js/core/bail-clauses-fin.js).
  *  · signé : celle posée à la signature (absente = signé avant tout changement = 1) ;
  *  · signature à distance EN COURS : celle mémorisée à l'envoi — le PDF final doit reprendre ce
  *    que le locataire a relu ;
@@ -17904,13 +18247,13 @@ function _bailClauseVersion(b){
   if (rs && !['completed', 'expired', 'error'].includes(rs.status)) return _bailClauseVersionNorm(rs.clauseIrlV);
   return 2;
 }
-/** La version portée par une valeur brute (session à distance, staging, popup) : 1, 2 ou 3.
+/** La version portée par une valeur brute (session à distance, staging, popup) : 1 à 5.
  *  Même sans module, 3 reste 3 : sinon une finalisation à distance graverait 1 pour de bon. */
 function _bailClauseVersionNorm(v){
   const CT = (typeof window !== 'undefined') ? window.ContratType : null;
   if (CT && typeof CT.normaliserVersionClauses === 'function') return CT.normaliserVersionClauses(v);
   const n = Number(v);
-  return (n === 2 || n === 3) ? n : 1;
+  return (n === 2 || n === 3 || n === 4 || n === 5) ? n : 1;
 }
 /** CONTRAT-TYPE-2026-10 — le bail suit-il le contrat type issu du décret n° 2026-596 ? */
 function _bailContratType2026(b){ return _bailClauseVersion(b) >= 3; }
@@ -18058,6 +18401,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // implique que le module est chargé (sinon _bailClauseVersion plafonne à 2).
   const CT = (typeof window !== 'undefined') ? window.ContratType : null;
   const _ct26 = !!CT && _bailContratType2026(bail);
+  // BAUX-ECHUS — clauses de durée, congé et fin corrigées (version de clauses 5, js/core/bail-clauses-fin.js :
+  // articles 10, 25-7, 25-8 I, 25-14, 25-15 de la loi de 1989 ; 1231-5 et 1736 à 1740 du Code civil). Un bail
+  // SIGNÉ en version ≤ 4 garde son texte d'origine, mot pour mot (les littéraux ci-dessous ne bougent pas).
+  const BCF = (typeof window !== 'undefined') ? window.BailClausesFin : null;
+  const _v5 = !!BCF && _bailClauseVersion(bail) >= 5;
   // Servitude de résidence principale (art. L. 151-14-1 C. urb.) : donnée du BIEN, figée au snapshot.
   const _servitudeRP = _ct26 && !!_lbFill.servitudeRP;
 
@@ -18119,8 +18467,9 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     dureeBail = '9 (neuf) mois';
     dureePhrase = 'Cette durée de 9 mois — bail étudiant non reconductible — s\'applique conformément à l\'article 25-7 dernier alinéa de la loi du 6 juillet 1989. Le présent contrat ne fait pas l\'objet de tacite reconduction.';
   } else if (isMobilite) {
-    dureeBail = '[de 1 à 10 mois — à préciser]';
-    dureePhrase = 'Cette durée s\'applique conformément à l\'article 25-14 de la loi du 6 juillet 1989 (loi ELAN du 23 novembre 2018, art. 107). Le bail mobilité est conclu pour une durée minimale d\'un mois et maximale de dix mois, non renouvelable et non reconductible.';
+    // BAUX-ECHUS v5 : la durée RÉELLE tirée des dates du bail ; le marqueur seulement si une date manque.
+    dureeBail = (_v5 && BCF.dureeMobiliteLibelle(bail.debut, bail.fin)) || '[de 1 à 10 mois — à préciser]';
+    dureePhrase = _v5 ? BCF.DUREE_MOBILITE : 'Cette durée s\'applique conformément à l\'article 25-14 de la loi du 6 juillet 1989 (loi ELAN du 23 novembre 2018, art. 107). Le bail mobilité est conclu pour une durée minimale d\'un mois et maximale de dix mois, non renouvelable et non reconductible.';
   } else if (isGarage) {
     dureeBail = '[durée libre — à préciser]';
     dureePhrase = 'La durée est librement convenue entre les parties conformément à l\'article 1709 du Code civil. Le bail commercial, le bail rural et le statut de la loi du 6 juillet 1989 ne s\'appliquent pas à la location d\'un emplacement de stationnement isolé.';
@@ -18208,7 +18557,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
                      : isMobilite ? 'Loi n° 89-462 du 6 juillet 1989 — Art. 25-12 à 25-18 — Loi ELAN du 23 novembre 2018, art. 107'
                      : isGarage   ? 'Code civil — Art. 1709 et suivants — Location libre (hors loi 89-462)'
                      : isAutre    ? '⚠️ Contrat hors régime standard — Consultez un professionnel du droit'
-                     : 'Loi n° 89-462 du 6 juillet 1989 — Art. 10 — Bailleur personne morale';
+                     // Bail nu : selon le bailleur réel — sauf bail signé en version ≤ 3, ré-affiché
+                     // tel que signé (« Bailleur personne morale » pour tout bailleur, cf. bail-duree.js).
+                     : (typeof window.sousTitreBailNu==='function')
+                       ? window.sousTitreBailNu(ent.type||'', _bailClauseVersion(bail))
+                       : 'Loi n° 89-462 du 6 juillet 1989 — Art. 10 — Bailleur personne morale';
   // v15.200 : mention DG selon type — si DG vide/0, afficher "À régler — max X mois"
   // au lieu de "0,00 € (= 2 mois)" qui est incohérent et trompeur. Règle "se protéger".
   const _dgIsEmpty = !bail.dg || +bail.dg === 0;
@@ -18503,32 +18856,32 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     // v15.193 BAIL-TYPES Étape 3 : congé / tacite adapté au type
     ...(isMobilite ? [
       { type:'h3', text:'Congé / fin de bail mobilité' },
-      { type:'p', text:'Le LOCATAIRE peut résilier le contrat à tout moment avec un préavis d\'un (1) mois, notifié par lettre recommandée avec avis de réception ou par acte de commissaire de justice. Le BAILLEUR ne peut pas donner congé en cours de bail.' },
-      { type:'p-callout-warn', text:'Le bail mobilité ne peut être ni reconduit ni renouvelé. À l\'échéance, le LOCATAIRE doit quitter les lieux. Toute reconduction implicite entraîne la requalification en bail meublé d\'un an (art. 25-15 loi 89-462).' }
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MOBILITE : 'Le LOCATAIRE peut résilier le contrat à tout moment avec un préavis d\'un (1) mois, notifié par lettre recommandée avec avis de réception ou par acte de commissaire de justice. Le BAILLEUR ne peut pas donner congé en cours de bail.' },
+      { type:'p-callout-warn', text: _v5 ? BCF.FIN_MOBILITE : 'Le bail mobilité ne peut être ni reconduit ni renouvelé. À l\'échéance, le LOCATAIRE doit quitter les lieux. Toute reconduction implicite entraîne la requalification en bail meublé d\'un an (art. 25-15 loi 89-462).' }
     ] : isEtudiant ? [
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MEUBLE : 'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Fin de bail étudiant' },
-      { type:'p-callout-warn', text:'Le bail étudiant de 9 mois n\'est pas reconductible (art. 25-7 dernier alinéa loi 89-462). À l\'échéance, le LOCATAIRE doit quitter les lieux ou conclure un nouveau contrat. Aucune tacite reconduction n\'est applicable.' }
+      { type:'p-callout-warn', text: _v5 ? BCF.FIN_ETUDIANT : 'Le bail étudiant de 9 mois n\'est pas reconductible (art. 25-7 dernier alinéa loi 89-462). À l\'échéance, le LOCATAIRE doit quitter les lieux ou conclure un nouveau contrat. Aucune tacite reconduction n\'est applicable.' }
     ] : isFurnished ? [
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MEUBLE : 'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation. Il n\'aura que le droit d\'en demander la résiliation judiciaire pour inexécution d\'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Congé à l\'expiration du bail' },
-      { type:'p', text:'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins trois (3) mois avant l\'échéance si le congé émane du BAILLEUR, et un (1) mois avant si le congé émane du LOCATAIRE (art. 25-8 loi 89-462, bail meublé).' },
+      { type:'p', text: _v5 ? BCF.CONGE_EXPIRATION_MEUBLE : 'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins trois (3) mois avant l\'échéance si le congé émane du BAILLEUR, et un (1) mois avant si le congé émane du LOCATAIRE (art. 25-8 loi 89-462, bail meublé).' },
       { type:'p', text:'Le congé donné par le BAILLEUR doit être justifié soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux. À peine de nullité, il doit indiquer le motif allégué et, en cas de reprise, les noms et adresse du bénéficiaire.' },
       { type:'h3', text:'Proposition de renouvellement' },
       { type:'p', text:'Le BAILLEUR peut proposer au LOCATAIRE, au moins trois mois avant le terme du contrat, un nouveau contrat par référence aux loyers habituellement constatés dans le voisinage pour des logements meublés comparables.' },
       { type:'h3', text:'Tacite reconduction' },
-      { type:'p', text:'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée d\'un (1) an (art. 25-8 loi 89-462, bail meublé).' }
+      { type:'p', text: _v5 ? BCF.RECONDUCTION_MEUBLE : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée d\'un (1) an (art. 25-8 loi 89-462, bail meublé).' }
     ] : isGarage || isAutre ? [
       { type:'h3', text:'Conditions de résiliation' },
-      { type:'p', text:'Les conditions de préavis, congé et reconduction sont librement définies entre les parties dans les présentes ou par avenant. À défaut de précision, le droit commun des contrats s\'applique.' }
+      { type:'p', text: _v5 ? BCF.RESILIATION_AUTRE : 'Les conditions de préavis, congé et reconduction sont librement définies entre les parties dans les présentes ou par avenant. À défaut de précision, le droit commun des contrats s\'applique.' }
     ] : [
       // Bail nu (cas par défaut)
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_NU : 'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.' },
       // Art. 15-I dans les termes de la loi, depuis le module : c'est le document SIGNÉ, il ne
       // peut pas énoncer une condition que la loi n'impose plus (cf. `preavisReduitClause`).
       { type:'p', text:(typeof window.preavisReduitClause==='function')
@@ -18536,12 +18889,12 @@ function buildBailStructure(bail, log, ref, ent, locs) {
         : 'Ce délai est réduit à un (1) mois dans les cas prévus à l\'article 15-I de la loi n° 89-462 du 6 juillet 1989.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation. Il n\'aura que le droit d\'en demander la résiliation judiciaire pour inexécution d\'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Congé à l\'expiration du bail' },
-      { type:'p', text:'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins six (6) mois avant l\'échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE.' },
+      { type:'p', text: _v5 ? BCF.CONGE_EXPIRATION_NU : 'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins six (6) mois avant l\'échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE.' },
       { type:'p', text:'Le congé donné par le BAILLEUR doit être justifié soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux. À peine de nullité, il doit indiquer le motif allégué et, en cas de reprise, les noms et adresse du bénéficiaire.' },
       { type:'h3', text:'Proposition de renouvellement' },
       { type:'p', text:'Le BAILLEUR peut proposer au LOCATAIRE, au moins six mois avant le terme du contrat, un nouveau contrat par référence aux loyers habituellement constatés dans le voisinage pour des logements comparables.' },
       { type:'h3', text:'Tacite reconduction' },
-      { type:'p', text:'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (' + dureeBail + ').' }
+      { type:'p', text: _v5 ? BCF.reconductionBailNu(ent.type||'') : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (' + dureeBail + ').' }
     ])
   ];
 
@@ -18882,7 +19235,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // ─── §13 Clause pénale ──────────────────────────────────────────
   out.push(
     { type:'h2', text:'13 — Clause pénale — Indemnité d\'occupation' },
-    { type:'p', text:'Il est stipulé à titre de clause pénale (articles 1226 et suivants du Code civil) qu\'en cas de maintien indu dans les lieux, le LOCATAIRE devra verser une indemnité par jour de retard égale à deux fois le loyer quotidien, du lendemain de cessation de la location jusqu\'à la restitution des clés, toute journée commencée étant intégralement due.' },
+    { type:'p', text:'Il est stipulé à titre de clause pénale (' + (_v5 ? BCF.CLAUSE_PENALE_REF : 'articles 1226 et suivants du Code civil') + ') qu\'en cas de maintien indu dans les lieux, le LOCATAIRE devra verser une indemnité par jour de retard égale à deux fois le loyer quotidien, du lendemain de cessation de la location jusqu\'à la restitution des clés, toute journée commencée étant intégralement due.' },
     { type:'p', text:'En cas de congé ou résiliation, si le LOCATAIRE se maintient, il sera redevable d\'une indemnité d\'occupation au moins égale au montant du dernier loyer, charges et accessoires.' }
   );
 
@@ -21977,7 +22330,14 @@ function exportBailWord(bail, log, ref) {
   // CHANTIER BAIL-GARAGE — genBailHTML (template Word) est un modèle loi 89 codé en dur, sans
   // conscience du type : pour un garage il produirait un bail d'habitation FAUX. Le PDF natif
   // (via buildBailStructure → route garage) reste le chemin officiel. On bloque le Word ici.
-  if (bail.type === 'garage') { showToast('Export Word indisponible pour un bail garage (droit commun) — utilisez le PDF.', 'warn', 6000); return; }
+  // BAUX-ECHUS — le modèle Word est un modèle de bail NU (durée 3/6 ans, art. 10, congé art. 15) : pour un
+  // meublé, un étudiant, une mobilité ou un « autre », il produirait des clauses fausses. Même traitement
+  // que le garage : le PDF natif (buildBailStructure, clauses par type) est le chemin officiel.
+  const _tWord = _bailTypeEff(bail, log);
+  if (_tWord !== 'nu') {
+    const _lblWord = { garage: 'garage (droit commun)', meuble: 'meublé', etudiant: 'étudiant', mobilite: 'mobilité', autre: '« autre » (régime libre)' }[_tWord] || _tWord;
+    showToast('Export Word indisponible pour un bail ' + _lblWord + ' — utilisez le PDF.', 'warn', 6000); return;
+  }
   const ent  = DB.entites.find(e=>e.nom===bail.entity)||{};
   const locs = bail.locataires || (bail.nom ? [{nom:bail.nom,ddn:bail.ddn,lieuNaiss:bail.lieuNaiss}] : []);
   const totalMensuel = (bail.hc||0)+(bail.ch||0);
@@ -23070,7 +23430,26 @@ var _CONGE_ACTS=[
  {k:'resiliation_amiable', tt:'Résiliation amiable', ds:'Protocole d\'accord (art. 1193)', tpl:'bail-resiliation-amiable'}
 ];
 function _congeOv(){ var ov=document.getElementById('ov-conge'); if(!ov){ ov=document.createElement('div'); ov.id='ov-conge'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-conge')"); document.body.appendChild(ov); } return ov; }
-function _congeTplOf(){ var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:''; }
+function _congeTplOf(){
+  // BAUX-ECHUS — le « congé du bailleur » dépend du type de bail : art. 15 (nu), art. 25-8 I (meublé),
+  // information de fin de bail (étudiant, mobilité), congé selon le contrat (garage, autre).
+  if(_congeState.kind==='conge_bailleur') return _congeModele(_congeState.ref).tpl;
+  var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:'';
+}
+// BAUX-ECHUS — le type EFFECTIF du bail : le même résolveur que la règle d'échéance (bail.type fait
+// autorité, repli log.typeUsage pour les baux d'avant v15.191), plus `bail.type || 'nu'`.
+function _congeTypeBail(ref){
+  var bail=(DB.baux&&DB.baux[ref])||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||null;
+  var BE=window.BailEcheance;
+  return (BE&&typeof BE.typeBailEffectif==='function')?BE.typeBailEffectif(bail,log):_bailTypeEff(bail,log);
+}
+/** La lettre « congé du bailleur » du bail (js/core/conge.js, congeBailleurModele). */
+function _congeModele(ref){
+  var t=_congeTypeBail(ref);
+  if(typeof window.congeBailleurModele==='function') return window.congeBailleurModele(t);
+  // Repli (module non chargé) : le congé du bail nu, comme avant.
+  return { tpl:'bail-conge-bailleur-6mois', titre:'Congé donné au locataire', fondement:'Loi n° 89-462 du 6 juillet 1989, article 15', motif:true, annexe15II:true, protege:'art. 15-III', dateLibre:false, fichier:'Conge-bailleur' };
+}
 /**
  * Le pont entre la DB (cycle de reconduction, préavis) et `congeDateEffet`, la fonction PURE
  * qui reporte la date d'effet au terme suivant quand le préavis ne tient plus.
@@ -23100,18 +23479,22 @@ function _congeDateEffetLocale(bail,log,pinfo,preavisMois){
 function _congeExtra(ref){
   var bail=DB.baux[ref]||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||{};
   // Date CIVILE (pas td(), qui est UTC : cf. `_congeDateEffetLocale`) — elle date l'acte.
-  var typeBail=bail.type||'nu';
+  var typeBail=_congeTypeBail(ref);   // BAUX-ECHUS : type EFFECTIF (repli log.typeUsage), plus `bail.type || 'nu'`
   var today=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
   // On reformate bail.debut en date FR (les modèles affichent {{bail.debut}}) sans toucher au texte des modèles Propryo.
   var e={ dateLettre: fd(today), bail: Object.assign({}, bail, { adrBien: bail.adrBien||log.adr||'', debut: bail.debut?fd(bail.debut):'‹début du bail›' }) };
   if(_congeState.kind==='conge_bailleur'){
-    var motif=v('cg-motif')||'reprise';
-    // Le motif et ses marqueurs viennent du générateur COMMUN (js/core/conge.js). Le Hub
-    // Communications appelle le même : c'est ce qui l'empêche de réinventer un congé sans prix.
-    var _md=window.congeMotifDetail({ motif:motif, prix:v('cg-prix'), conditions:v('cg-cond'),
-      benef:v('cg-benef'), benefAdr:v('cg-benefadr'), lien:v('cg-lien'), legitime:v('cg-legitime'),
-      art15Inline:false });  // le document porte les cinq alinéas en ANNEXE (art15IIProDoc)
-    e.motifConge=_md.motifConge; e.motifDetail=_md.motifDetail;
+    var _M=_congeModele(ref);
+    if(_M.motif){
+      var motif=v('cg-motif')||'reprise';
+      // Le motif et ses marqueurs viennent du générateur COMMUN (js/core/conge.js). Le Hub
+      // Communications appelle le même : c'est ce qui l'empêche de réinventer un congé sans prix.
+      // Meublé (art. 25-8, I) : « vente » sans prix ni préemption 15-II.
+      var _md=window.congeMotifDetail({ motif:motif, prix:v('cg-prix'), conditions:v('cg-cond'),
+        benef:v('cg-benef'), benefAdr:v('cg-benefadr'), lien:v('cg-lien'), legitime:v('cg-legitime'),
+        art15Inline:false, meuble: typeBail==='meuble' });  // nu : les cinq alinéas en ANNEXE (art15IIProDoc)
+      e.motifConge=_md.motifConge; e.motifDetail=_md.motifDetail;
+    } else { e.motifConge=''; e.motifDetail=''; }
     // Préavis bailleur (6 mois nu / 3 meublé) : la date d'effet doit être un TERME qui respecte
     // RÉELLEMENT le préavis. Si l'échéance la plus proche est déjà trop tardive, on reporte au terme
     // suivant — sinon le congé serait nul et la mention « préavis respecté » mensongère (audit P0-1).
@@ -23120,8 +23503,24 @@ function _congeExtra(ref){
     _congeState.preavisPushed=false;
     if(pinfo){
       e.dateFin=fd(_congeDateEffetLocale(bail,log,pinfo,preavisMois));
-    } else { e.dateFin=bail.fin?fd(bail.fin):'‹échéance du bail›'; }
-    e.mentionPreavis=window.congeMentionPreavis(preavisMois);
+    } else {
+      // BAUX-ECHUS — pas de préavis légal (étudiant, mobilité, garage, autre) : l'échéance selon LA règle du
+      // type (garage de l'app : la période reconduite en cours ; arrivé à terme : la fin du contrat).
+      var _echC=(typeof _bailEcheanceEffective==='function')?_bailEcheanceEffective(bail,log):null;
+      e.dateFin=_echC?fd(_echC):(bail.fin?fd(bail.fin):'‹échéance du bail›');
+      if(_M.dateLibre){
+        // Garage / autre : la date d'effet est celle prévue au CONTRAT — saisie, sinon l'échéance si elle
+        // est à venir ; jamais une date passée (marqueur nommé : le garde-fou d'émission la signale).
+        var _effC=v('cg-effet-contrat');
+        e.dateFin=_effC?fd(_effC):((_echC&&_echC>=today)?fd(_echC):'‹date d\'effet›');
+      } else if(typeof window.congePhraseTerme==='function'){
+        // Étudiant / mobilité : information de fin de bail — terme au futur ou au passé, jamais une
+        // « date d'effet » antérieure à la lettre.
+        var _finT=_echC||(bail.fin?String(bail.fin).slice(0,10):'');
+        e.phraseTerme=window.congePhraseTerme(_finT?fd(_finT):'', _finT, today);
+      }
+    }
+    e.mentionPreavis=window.congeMentionPreavis(preavisMois, typeBail);
   } else if(_congeState.kind==='conge_locataire'){
     var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
     e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='à convenir';
@@ -23144,9 +23543,11 @@ function _congeDocHtml(ref){
   var ctx=(typeof _buildEmailCtxFromRef==='function')?_buildEmailCtxFromRef(ref,_congeExtra(ref)):_congeExtra(ref);
   var draft=(typeof window._emailCompose==='function')?window._emailCompose(_congeTplOf(),ctx):{body:''};
   var corps=window.letterToProDoc(draft.body||'');
-  if(_congeState.kind==='conge_bailleur' && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
-  var TIT={conge_bailleur:'Congé donné au locataire',conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
-  var LEG={conge_bailleur:'Loi n° 89-462 du 6 juillet 1989, article 15',conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
+  // BAUX-ECHUS — titre, fondement et annexe 15-II selon le type de bail (l'annexe 15-II : bail NU seulement).
+  var _M=_congeModele(ref);
+  if(_congeState.kind==='conge_bailleur' && _M.annexe15II && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
+  var TIT={conge_bailleur:_M.titre,conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
+  var LEG={conge_bailleur:_M.fondement,conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
   return _docPage(ent,{titre:TIT[_congeState.kind],ctx:LEG[_congeState.kind],corps:corps,ref:escHtml(ref),date:'',withStyle:false});
 }
 function _congeSubBailleur(motif){
@@ -23154,7 +23555,8 @@ function _congeSubBailleur(motif){
   // lien », à peine de nullité. L'adresse n'était collectée nulle part : le congé partait sans
   // elle, donc nul, et rien ne le signalait. Elle a son champ, et son marqueur quand elle manque.
   if(motif==='reprise') return _congeField('cg-benef','Bénéficiaire de la reprise','text','')+_congeField('cg-benefadr','Adresse du bénéficiaire','text','')+_congeField('cg-lien','Lien avec le bailleur',null,null,(window.REPRISE_LIENS||[]));
-  if(motif==='vente') return _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
+  // Meublé (art. 25-8, I) : ni offre de vente ni préemption — pas de prix ni de conditions à collecter.
+  if(motif==='vente') return (_congeTypeBail(_congeState.ref)==='meuble') ? '' : _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
   return _congeField('cg-legitime','Description du motif légitime et sérieux','text','');
 }
 function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+l+'</label>';
@@ -23162,10 +23564,21 @@ function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inte
   return '<div class="fld" style="margin-bottom:8px">'+lab+'<input class="inp" id="'+id+'" '+(t==='date'?'type="date"':t==='number'?'type="number"':'')+' value="'+escHtml(val||'')+'" oninput="_congeRender()"></div>'; }
 function _congeForm(){
   if(_congeState.kind==='conge_bailleur'){
+    var _M=_congeModele(_congeState.ref);
+    // BAUX-ECHUS — étudiant / mobilité : information de fin de bail, rien à saisir ; garage / autre : la
+    // date d'effet prévue au contrat (pas de motif) ; nu / meublé : le congé motivé.
+    if(!_M.motif){
+      if(_M.dateLibre){
+        var _echF=(typeof _bailEcheanceEffective==='function')?_bailEcheanceEffective(DB.baux[_congeState.ref]||{},(DB.logements||[]).find(function(l){return l&&l.ref===_congeState.ref;})||null):'';
+        var _todF=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
+        return _congeField('cg-effet-contrat','Date d\'effet (selon le préavis du contrat)','date',(_echF&&_echF>=_todF)?_echF:'')+'<div id="cg-alert"></div>';
+      }
+      return '<div id="cg-alert"></div>';
+    }
     var motif=v('cg-motif')||'reprise';
     return _congeField('cg-motif','Motif du congé',null,null,[{v:'reprise',t:'Reprise pour habiter'},{v:'vente',t:'Vente du logement'},{v:'legitime',t:'Motif légitime et sérieux'}])+
       '<div id="cg-sub" data-m="'+motif+'">'+_congeSubBailleur(motif)+'</div>'+
-      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé (art. 15-III)</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
+      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé ('+_M.protege+')</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
       '<div id="cg-alert"></div>';
   }
   if(_congeState.kind==='conge_locataire') return _congeField('cg-recu','Date de réception du congé','date',(typeof td==='function'?td():''))+_congeField('cg-cas','Cas de préavis réduit (1 mois)',null,null,(window.CONGE_CAS_REDUITS||[]))+'<div id="cg-alert"></div>';
@@ -23174,18 +23587,37 @@ function _congeForm(){
   return '';
 }
 function _congeRender(){
-  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_CONGE_ACTS.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
+  // BAUX-ECHUS — la vignette « congé du bailleur » dit ce que produit la lettre pour CE type de bail.
+  var _MR=_congeModele(_congeState.ref), _tbR=_congeTypeBail(_congeState.ref);
+  var _actsR=_CONGE_ACTS.map(function(a){
+    if(a.k!=='conge_bailleur') return a;
+    if(_MR.tpl==='bail-fin-terme-information') return Object.assign({},a,{tt:'Information de fin de bail',ds:'Fin au terme, sans congé (art. '+(_tbR==='etudiant'?'25-7':'25-14')+')'});
+    if(_MR.dateLibre) return Object.assign({},a,{ds:'Selon le contrat de location'});
+    if(_tbR==='meuble') return Object.assign({},a,{ds:'Reprise / vente / motif légitime (art. 25-8)'});
+    return a;
+  });
+  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_actsR.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
   var form=document.getElementById('cg-form'); if(form && form.dataset.k!==_congeState.kind){ form.innerHTML=_congeForm(); form.dataset.k=_congeState.kind; }
-  if(_congeState.kind==='conge_bailleur'){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
+  if(_congeState.kind==='conge_bailleur' && _MR.motif){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
   var prev=document.getElementById('cg-preview'); if(prev) _docRenderSandboxed(prev, _congeDocHtml(_congeState.ref), 'Aperçu du congé', _docCarteCss());
   // alerte locataire protégé (congé bailleur) — NON bloquante
   var al=document.getElementById('cg-alert');
   if(al){ var html='';
     if(_congeState.kind==='conge_bailleur'){
+      // BAUX-ECHUS — étudiant / mobilité : le bail prend fin à son terme sans congé ; garage / autre :
+      // le contrat. On le DIT (jamais bloquant) — le modèle reste disponible.
+      var _tbC=_tbR;
+      if(typeof window.congeBailleurPreavisMois==='function' && !window.congeBailleurPreavisMois(_tbC)){
+        html+='<div class="note" style="background:var(--info-soft);border:1px solid var(--bor);color:var(--t1);border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">'
+          +((_tbC==='etudiant'||_tbC==='mobilite')
+            ? 'Bail '+(_tbC==='etudiant'?'étudiant (9 mois)':'mobilité')+' : il prend fin à son terme sans qu\'un congé soit nécessaire (article '+(_tbC==='etudiant'?'25-7':'25-14')+' de la loi du 6 juillet 1989). La lettre informe le locataire de la fin du bail.'
+            : 'Location hors loi du 6 juillet 1989 : le congé suit le contrat (forme, préavis, date d\'effet). Indiquer la date d\'effet prévue au contrat.')
+          +'</div>';
+      }
       if(_congeState.preavisPushed) html+='<div class="note" style="background:#e6f1fb;border:1px solid #cfe0f6;color:#185fa5;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Date d\'effet reportée au terme suivant : le préavis légal ne pouvait plus être respecté pour l\'échéance la plus proche (un congé délivré trop tard est nul).</div>';
       if(document.getElementById('cg-protege') && document.getElementById('cg-protege').checked)
-        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé (art. 15-III) : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
-    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:(DB.baux[_congeState.ref]||{}).type||'nu', casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
+        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé ('+_MR.protege+') : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
+    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:_tbR, casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
     al.innerHTML=html; }
 }
 function _congePick(k){ _congeState.kind=k; var f=document.getElementById('cg-form'); if(f)f.dataset.k=''; _congeRender(); }
@@ -23257,7 +23689,7 @@ async function _congeSortiePdf(ref){
   var docHtml=_congeDocHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
   if(!_acteMentionsOk(docHtml,_acteVerbePdf())) return;
   if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
-  var noms={conge_bailleur:'Conge-bailleur',conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};
+  var noms={conge_bailleur:_congeModele(ref).fichier,conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};   // BAUX-ECHUS : « Information-fin-de-bail » pour étudiant / mobilité
   await _pdfSortie({ fileName:noms[_congeState.kind]+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf', desc:'PDF (acte)', genererAvant:true,
     titre:noms[_congeState.kind].replace(/-/g,' '), texte:'Acte — '+(bail.adrBien||ref),
     genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); } });
@@ -23299,7 +23731,12 @@ function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef,
     .replace('révisé annuellement à la date anniversaire du bail selon', 'révisé {{IRL_REVISION_QUAND}} selon')
     .replace('suivant la date de révision, sans notification préalable.', 'suivant la date de révision{{IRL_SANS_NOTIF}}.')
     .replace('Cette durée de 6 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).', '{{DUREE_PHRASE}}')
-    .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}');
+    .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}')
+    // BAUX-ECHUS — même mécanisme (correspondance EXACTE avec le modèle d'origine) pour la tacite
+    // reconduction du bail nu et la référence de la clause pénale : le jeton rend le texte d'origine
+    // pour un bail signé en version ≤ 4, la rédaction corrigée sinon (art. 10 al. 3 ; art. 1231-5 C. civ.).
+    .replace('<p>À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (6 ans).</p>', '<p>{{RECONDUCTION_NU_PHRASE}}</p>')
+    .replace('Il est stipulé à titre de clause pénale (articles 1226 et suivants du Code civil)', 'Il est stipulé à titre de clause pénale ({{CLAUSE_PENALE_REF}})');
   // CONTRAT-TYPE-2026-10 — même mécanisme : les passages du modèle d'AVANT le décret n° 2026-596,
   // s'ils sont restés tels quels dans un modèle enregistré, remontent vers leurs jetons. Les jetons
   // rendent le texte d'origine pour un bail signé avant (Word identique), le nouveau sinon.
@@ -23511,6 +23948,14 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     'PREAVIS_REDUIT': (typeof window.preavisReduitClause==='function')
       ? window.preavisReduitClause(true)
       : 'Ce délai est réduit à <strong>un (1) mois</strong> dans les cas prévus à l’article 15-I de la loi n° 89-462 du 6 juillet 1989.',
+    // BAUX-ECHUS — version de clauses 5 : reconduction 3 ou 6 ans (art. 10 al. 3) et clause pénale art. 1231-5 ;
+    // bail signé en version ≤ 4 : le texte d'origine du modèle, mot pour mot.
+    'RECONDUCTION_NU_PHRASE': (()=>{
+      const _BCFw = window.BailClausesFin; const ent2=DB.entites.find(e=>e.nom===bail.entity)||{};
+      return (_BCFw && _bailClauseVersion(bail) >= 5) ? S(_BCFw.reconductionBailNu(ent2.type||''))
+        : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (6 ans).';
+    })(),
+    'CLAUSE_PENALE_REF': (window.BailClausesFin && _bailClauseVersion(bail) >= 5) ? S(window.BailClausesFin.CLAUSE_PENALE_REF) : 'articles 1226 et suivants du Code civil',
     'MODALITE_PAIEMENT': bail.modalitePaiement==='echeoir'
       ? 'à terme à échoir (paiement en début de période)'
       : 'à terme échu (paiement en fin de période)',
@@ -24211,7 +24656,8 @@ function _migrationBailsForLot(ref) {
   const out = [];
   const cur = (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(ref) : (DB.baux || {})[ref];
   if (cur && !cur._deleted && cur.debut) {
-    out.push({ debut: cur.debut, fin: cur.fin || null, finEffective: cur.finEffective || null, hc: cur.hc, ch: cur.ch, archive: false });
+    // depart / cloture : lus par LA fin d'occupation (fin-occupation.js) dans chapitrePour ; ignorés par la migration.
+    out.push({ debut: cur.debut, fin: cur.fin || null, finEffective: cur.finEffective || null, hc: cur.hc, ch: cur.ch, archive: false, depart: cur.depart || null, cloture: !!cur.cloture });
   }
   for (const h of (DB.baux_historique || [])) {
     if (!h || h._deleted || !h.debut || _nrb(h.ref) !== want) continue;
@@ -25166,7 +25612,13 @@ function _rgYearChargesDetail(ref, yearOffset){
   // AUSSI les charges retirées au titre du forfait (`forfait.exclusDetails`) : la base estime les charges
   // du LOGEMENT, elle ne dépend pas du régime de charges de l'an passé (audit 30/09 : base N-1 amputée).
   if(typeof window.baseChargesLogement !== 'function') return null; // module absent : pas d'estimation (repli sur le réel)
-  const b = window.baseChargesLogement(entries);
+  // Charges directes datées pendant une VACANCE du logement (portées par le bailleur, plus par un
+  // locataire) : ce sont des charges du LOGEMENT → remises dans la base, sinon l'estimation d'un départ
+  // baisse dès que N-1 a connu une vacance. Jamais les parts « Logement exclu » d'un compteur.
+  const vac = Object.values(res.bailleur||{}).flatMap(bl=>bl.segments||[])
+    .filter(s=>s.horsOccupation && s.ref===ref)
+    .map(s=>({ date:s.date, lib:s.lib, mvLib:s.lib, montant:s.montant, mvId:s.mvId }));
+  const b = window.baseChargesLogement(vac.length ? entries.concat([{ details: vac }]) : entries);
   return { year:y, total:b.total, moves:b.moves };
 }
 
@@ -25494,10 +25946,12 @@ function _rgApplyRetenue(entryKey, retenue, restit){
   const reparations = c ? (Number(c.reparations)||0) : 0;
   const retenueRegul = c ? (Number(c.retenueRegul)||0) : (Number(retenue)||0);
   entry.bail.dgRetenu = Math.round((reparations + retenueRegul)*100)/100;
-  const sd = (typeof _calculerSoldeDG==='function') ? _calculerSoldeDG(entry.bail, DB.mouvements||[]) : null;
+  // Fin d'occupation résolue par computeRegul (_bailFinOccupation : tacite reconduction) — pas la fin contractuelle.
+  const sd = (typeof _calculerSoldeDG==='function') ? _calculerSoldeDG(Object.assign({}, entry.bail, { fin: entry.fin }), DB.mouvements||[]) : null;
   entry.bail.dgRestitue = sd ? sd.soldeRestitue
     : Math.max(0, Math.round(((Number(entry.bail.dgPaid)||Number(entry.bail.dg)||0) - entry.bail.dgRetenu)*100)/100);
   if(typeof _stamp==='function') _stamp(entry.bail); // v15.x : horodatage pour merge multi-device (cohérence convention bail)
+  if(typeof _archiveRecopierSurCopies==='function') _archiveRecopierSurCopies(entry.bail, ['dgRetenu', 'dgRestitue']);   // archive en double : sur toutes ses copies
   if(typeof saveDB==='function') saveDB();
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
   if(typeof showToast==='function') showToast('Retenue de '+fmt(entry.bail.dgRetenu)+' € enregistrée sur le dépôt de garantie ✓','ok');
@@ -25519,6 +25973,29 @@ function _departOv(){
 
 // Date limite de restitution du DG calculée DÈS le départ (avant clôture/archive) :
 // date de sortie (remise des clés) + délai légal (1 mois EDL conforme / 2 mois sinon, art. 22).
+// Le début du bail SUIVANT sur le lot (bail courant ou archivé commencé après celui-ci) — '' s'il n'y en a pas.
+function _bailSuivantDebut(bail) {
+  if(!bail || !bail.ref) return '';
+  const d0 = String(bail.debut || '').slice(0, 10);
+  const cands = [DB.baux && DB.baux[bail.ref]].concat(DB.baux_historique || [])
+    .filter(b => b && !b._deleted && b !== bail && b.ref === bail.ref && b.debut && String(b.debut).slice(0, 10) > d0);
+  return cands.map(b => String(b.debut).slice(0, 10)).sort()[0] || '';
+}
+// Les EDL qui peuvent appartenir à CE bail : tous ceux d'avant le début du bail SUIVANT (après une relocation, la sortie
+// du nouveau locataire n'est pas celle de l'ancien). La borne basse (début du bail) est celle d'EdlParcours.edlSortieQuiFaitFoi.
+function _edlsDuBail(bail) {
+  const avant = _bailSuivantDebut(bail);
+  return (DB.edl || []).filter(e => e && (!avant || !e.date || String(e.date).slice(0, 10) < avant));
+}
+function _edlSortieDuBail(bail) {
+  if(!bail || !bail.ref) return null;
+  const edls = _edlsDuBail(bail);
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  if(P && typeof P.edlSortieQuiFaitFoi === 'function') return P.edlSortieQuiFaitFoi(bail, edls);
+  const d0 = String(bail.debut || '');
+  return edls.filter(e => !e._deleted && e.logement === bail.ref && e.type === 'Sortie' && (!d0 || !e.date || String(e.date) >= d0))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0] || null;
+}
 function _departDeadlineDG(bail){
   const d = bail && bail.depart;
   const sortie = (d && d.dateSortie) || (bail && bail.finEffective) || '';
@@ -25527,14 +26004,15 @@ function _departDeadlineDG(bail){
   // Tant qu'aucun EDL de sortie n'existe, le délai n'est pas figé (_calculerDelaiRestitution renvoie 1
   // par défaut) → on affiche le MAXIMUM légal (2 mois) pour ne pas annoncer une échéance trop optimiste.
   // Une fois l'EDL réalisé, _calculerDelaiRestitution tranche (1 mois conforme / 2 mois retenues).
-  const edlExists = !!(bail && bail.ref && (DB.edl||[]).some(e=>e && !e._deleted && e.logement===bail.ref && e.type==='Sortie'));
-  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, DB.edl) : 2) : 2;
+  // L'EDL de sortie de CE bail (entre son début et le début du bail suivant) — jamais celui d'un autre locataire du lot.
+  const edlExists = !!_edlSortieDuBail(bail);
+  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, _edlsDuBail(bail)) : 2) : 2;
   // Construction locale (sans suffixe TZ) puis ajout calendaire → évite le décalage UTC de toISOString().
   const day = +m[3];
   const lim = new Date(+m[1], +m[2]-1, day); lim.setMonth(lim.getMonth()+mois);
   // Débordement de fin de mois (ex. 31/01 + 1 mois ≠ 31/02) → dernier jour du mois cible (art. 641 CPC).
   if(lim.getDate() !== day) lim.setDate(0);
-  const todayStr = (typeof td==='function') ? td() : new Date().toISOString().slice(0,10);
+  const todayStr = (typeof _todayIsoLocal==='function') ? _todayIsoLocal() : new Date().toISOString().slice(0,10);   // date LOCALE (td() = UTC)
   const tm = /^(\d{4})-(\d{2})-(\d{2})/.exec(todayStr);
   // Écart en jours sur composants purs (Date.UTC) → insensible au fuseau / DST.
   const todayUTC = tm ? Date.UTC(+tm[1], +tm[2]-1, +tm[3]) : Date.now();
@@ -25613,7 +26091,7 @@ function _departState(bail){
       {ic:'🛠️', t:'Remise en état / travaux', s:'Équipements', on:`closeM('ov-depart');go('equipements')`},
       {ic:'📑', t:'Diagnostics à jour (DPE…)', s:'Diagnostics', on:`closeM('ov-depart');go('biens')`},
       {ic:'📣', t:'Annonce + candidatures', s:'Candidats', on:`closeM('ov-depart');go('candidats')`},
-      {ic:'📝', t:'Nouveau bail + EDL entrée + DG', s:'Bail', on:`closeM('ov-depart');openBail('${jsRef}')`}
+      {ic:'📝', t:'Nouveau bail + EDL entrée + DG', s:'Bail', on:`closeM('ov-depart');_ouvrirNouveauBailSurLot('${jsRef}')`}
     ],
     cta:[{label:'🔚 Clôturer le bail (archiver)', on:`closeM('ov-depart');openBailClore('${jsRef}')`},
          {label:'Candidatures', ghost:true, on:`closeM('ov-depart');go('candidats')`}]
@@ -25890,8 +26368,8 @@ function _rgShowGlobal(immNom){
   const nonRep=(result.nonReparti||{})[immNom];
   const f=fmt;
   // CDC É4 (mockup 07) — colonne « Bailleur (225) » : part non refacturée par facture (mvId).
-  const bailPerMv={};
-  ((bail&&bail.segments)||[]).forEach(s=>{ if(s&&s.mvId!=null) bailPerMv[s.mvId]=(bailPerMv[s.mvId]||0)+s.montant; });
+  const bailPerMv={}, bailLigneMv={};
+  ((bail&&bail.segments)||[]).forEach(s=>{ if(s&&s.mvId!=null){ bailPerMv[s.mvId]=(bailPerMv[s.mvId]||0)+s.montant; if(s.deja2044) bailLigneMv[s.mvId]=s.deja2044; } });
   // pivot : 1 ligne par mouvement, 1 colonne par occupation
   const mv={};
   entries.forEach(e=>(e.details||[]).forEach(d=>{
@@ -25900,6 +26378,17 @@ function _rgShowGlobal(immNom){
     mv[id].per[e.entryKey]=(mv[id].per[e.entryKey]||0)+d.montant;
     if(d.mvTotal) mv[id].total=d.mvTotal;
   }));
+  // Une charge portée ENTIÈREMENT par le bailleur (datée pendant une vacance) a aussi SA ligne — sinon la
+  // colonne « Bailleur » affichait un total sans aucune ligne pour l'expliquer.
+  ((bail&&bail.segments)||[]).forEach(sg=>{
+    if(!sg || sg.mvId==null || mv[sg.mvId]) return;
+    const src=(DB.mouvements||[]).find(x=>x && x.id===sg.mvId);
+    mv[sg.mvId]={mvId:sg.mvId, lib:sg.lib||'', date:sg.date, total:src?Math.round((+src.db||0)*100)/100:0, per:{}};
+  });
+  // Ligne 2044 de la part bailleur : 225 (charges récupérables non récupérées), ou la propre ligne de la
+  // charge si elle y est déjà déduite (ex. copropriété → 229). Lu par la matrice ET le rendu téléphone.
+  Object.values(mv).forEach(m=>{ m.bailLigne=(m.mvId!=null&&bailLigneMv[m.mvId])||'225'; });
+  const bailDeja=Object.keys(bailLigneMv).length>0;
   const mvArr=Object.values(mv).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   // Chaque colonne-locataire mène à SON détail (factures) — régression 25/09 : la vue globale ne menait nulle part.
   const colH=entries.map(e=>`<th class="num"><button type="button" class="rg-colbtn" data-imm="${escHtml(immNom)}" data-ek="${escHtml(e.entryKey)}" onclick="_rgOuvrirDetailLoc(this.dataset.imm,this.dataset.ek)" title="Voir les factures de ${escHtml(e.loc||e.ref)}">${escHtml(e.ref)}<small>${escHtml(e.loc||'Vacant')}</small><span class="rg-colbtn-l">${_uiIcon('receipt',11)} Détail</span></button></th>`).join('');
@@ -25908,7 +26397,7 @@ function _rgShowGlobal(immNom){
     return `<tr class="rg-mv${clk?' clk':''}"${clk?` onclick="openEditMv(${m.mvId})"`:''}>`
       + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(m.lib)}">${escHtml(m.lib)}</span><small>${escHtml(fd(m.date)||m.date||'')}${m.total?' · facture '+f(m.total):''}${clk?' · '+_uiIcon('edit',10):''}</small></td>`
       + entries.map(e=>`<td class="num">${m.per[e.entryKey]?f(m.per[e.entryKey]):'<span class="z">—</span>'}</td>`).join('')
-      + `<td class="num col-bail">${(m.mvId!=null&&bailPerMv[m.mvId])?f(bailPerMv[m.mvId]):'<span class="z">—</span>'}</td>`
+      + `<td class="num col-bail">${(m.mvId!=null&&bailPerMv[m.mvId])?f(bailPerMv[m.mvId])+(m.bailLigne!=='225'?`<small style="display:block;font-weight:400">déjà déduite en ${escHtml(m.bailLigne)}</small>`:''):'<span class="z">—</span>'}</td>`
       + `<td class="num col-tot">${f(rowSum)}</td></tr>`; }).join('');
   const trouRows=(nonRep&&nonRep.total>0.005)?nonRep.lines.map(l=>{ const clk=(l.mvId!=null);
     return `<tr class="trou${clk?' clk':''}"${clk?` onclick="openEditMv(${l.mvId})"`:''}>`
@@ -25937,7 +26426,7 @@ function _rgShowGlobal(immNom){
       ${validated?`<span class="rg-badge-ok">${_uiIcon('check',13)} validé</span>`:`<span class="rg-badge-todo">${_uiIcon('warn',13)} à valider</span>`}</div>
     ${banner}
     <div class="rg-wrap"><table class="tbl rg-mtx">
-      <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-bail" title="Part non refacturée aux locataires — reste à charge du bailleur (2044 ligne 225)">Bailleur (225)</th><th class="num col-tot">Réparti loc.</th></tr></thead>
+      <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-bail" title="Part non refacturée aux locataires — reste à charge du bailleur : 2044 ligne 225, ou la propre ligne de la charge quand elle y est déjà déduite (copropriété : 229)">Bailleur${bailDeja?'':' (225)'}</th><th class="num col-tot">Réparti loc.</th></tr></thead>
       <tbody>
         ${mvRows||`<tr><td colspan="${entries.length+3}" class="mu sm">Aucune charge répartie sur la période.</td></tr>`}
         ${trouRows}
@@ -25965,7 +26454,7 @@ function _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, val
     const clk=(m.mvId!=null);
     const rowSum=Math.round(Object.values(m.per).reduce((s,x)=>s+x,0)*100)/100;
     const lots = entries.map(e=> m.per[e.entryKey] ? `<div class="rgvg-l"><span class="lot"><b>${escHtml(e.ref)}</b>${e.loc?` · ${escHtml(e.loc)}`:''}</span><span class="qp">${f(m.per[e.entryKey])}</span></div>` : '').join('');
-    const bailPart = (m.mvId!=null && bailPerMv[m.mvId]) ? `<div class="rgvg-l bail"><span class="lot">Bailleur (225)</span><span class="qp">${f(bailPerMv[m.mvId])}</span></div>` : '';
+    const bailPart = (m.mvId!=null && bailPerMv[m.mvId]) ? `<div class="rgvg-l bail"><span class="lot">Bailleur (${m.bailLigne&&m.bailLigne!=='225'?'déjà déduite en '+escHtml(m.bailLigne):'225'})</span><span class="qp">${f(bailPerMv[m.mvId])}</span></div>` : '';
     return `<div class="rgvg-cc${clk?' clk':''}"${clk?` onclick="openEditMv(${m.mvId})"`:''}>
       <div class="rgvg-top"><span class="rgvg-lib">${escHtml(m.lib||'—')}</span><span class="rgvg-fac">${f(m.total||rowSum)}</span></div>
       <div class="rgvg-date">${_uiIcon('calendar',12)}${escHtml(fd(m.date)||m.date||'')}${m.total?` · facture ${f(m.total)}`:''}${clk?` · ${_uiIcon('edit',11)}`:''}</div>
@@ -26079,18 +26568,21 @@ function computeRegul(from, to) {
     const bailRaw = DB.baux[l.ref];
     const bail = (bailRaw && _isAlive(bailRaw)) ? bailRaw : null;
     if(bail) {
-      const clip = clipBail(bail.debut, bail.fin);
+      // Fin d'occupation (tacite reconduction : la fin contractuelle d'un bail nu/meublé en cours
+      // ne coupe pas l'occupation) — lecture unique _bailFinOccupation.
+      const finOcc = _bailFinOccupation(bail, false);
+      const clip = clipBail(bail.debut, finOcc);
       if(clip.occDays > 0) pool.push({
         entryKey: l.ref, ref: l.ref, imm: l.imm,
         loc: bail.locataires?.[0]?.nom || l.locataire || '–',
-        bail, debut: bail.debut, fin: bail.fin||'',
+        bail, debut: bail.debut, fin: finOcc,
         isHistorique: false, ...clip
       });
     }
 
     (DB.baux_historique||[]).forEach((hb, idx)=>{
       if(hb.ref !== l.ref) return;
-      const finEff = hb.finEffective || hb.fin || '';
+      const finEff = _bailFinOccupation(hb, true);
       const clip = clipBail(hb.debut, finEff);
       if(clip.occDays <= 0) return;
       pool.push({
@@ -26138,11 +26630,22 @@ function computeRegul(from, to) {
   //  3) Charge sur immeuble sans compteur → fallback prorata jours, MAIS filtré par compteCharges:false.
 
   // v14.73 : on accumule la part bailleur (vacances + exclus) par immeuble pour la card UI + 2044
-  const bailleur = {}; // { 'imm': {imm, total, segments:[{date,lib,cc,montant,motif}]} }
+  // Chaque segment porte le logement (`ref`) ; `deja2044` = ligne 2044 où la charge est déjà déduite
+  // (ex. copropriété directe → 229). La part à reporter en 225 se lit par _rgSegments225 (lecteur unique).
+  const bailleur = {}; // { 'imm': {imm, total, segments:[{date,lib,cc,ref,montant,motif,deja2044?,horsOccupation?}]} }
   function _bailleurAdd(immNom, seg) {
     if(!bailleur[immNom]) bailleur[immNom] = { imm: immNom, total: 0, segments: [] };
     bailleur[immNom].total += seg.montant;
     bailleur[immNom].segments.push(seg);
+  }
+
+  // Règle UNIQUE d'imputation d'une charge DATÉE : l'occupation dont [debutOcc, finOcc] (jours locaux,
+  // bornes incluses — jour de sortie compris) contient sa date. Aucune → null = VACANCE : la charge
+  // revient au bailleur, jamais à un locataire (avant : repli sur la 1ʳᵉ occupation du logement → le
+  // locataire parti, ou le suivant, payait les charges de la vacance).
+  function _occupationDuJour(candidates, date) {
+    const j = String(date||'').slice(0,10);
+    return candidates.find(e => e.debutOcc && e.finOcc && j >= e.debutOcc && j <= e.finOcc) || null;
   }
 
   // v15.x Phase B — charges récupérables NON RÉPARTIES (« trous ») : montant qui ne tombe
@@ -26193,7 +26696,7 @@ function computeRegul(from, to) {
           if(p.exclu && p.montant > 0) {
             _bailleurAdd(im.nom, {
               mvId: m.id,
-              date: m.date, lib: m.lib, cc: cc.nom||'Compteur',
+              date: m.date, lib: m.lib, cc: cc.nom||'Compteur', ref: p.ref,
               montant: Math.round(p.montant*100)/100,
               motif: 'Logement exclu : ' + (p.raison || 'compte-charges désactivé')
             });
@@ -26204,7 +26707,7 @@ function computeRegul(from, to) {
           // v14.73 : période vacante → reste à charge du bailleur (2044)
           _bailleurAdd(im.nom, {
             mvId: m.id,
-            date: m.date, lib: m.lib, cc: cc.nom||'Compteur',
+            date: m.date, lib: m.lib, cc: cc.nom||'Compteur', ref: p.ref,
             montant: Math.round(p.montant*100)/100,
             motif: `Vacance ${p.ref}${p.debut?' ('+fd(p.debut)+'→'+fd(p.fin||'')+')':''}`
           });
@@ -26214,7 +26717,7 @@ function computeRegul(from, to) {
         if(!candidates.length){
           // v15.x Phase C (audit) : part de compteur pour un logement sans bail sur la période
           // → reste à charge du bailleur (sinon perdue silencieusement).
-          _bailleurAdd(im.nom, { mvId:m.id, date:m.date, lib:m.lib, cc:cc.nom||'Compteur', montant:Math.round(p.montant*100)/100, motif:'Logement '+p.ref+' sans bail sur la période' });
+          _bailleurAdd(im.nom, { mvId:m.id, date:m.date, lib:m.lib, cc:cc.nom||'Compteur', ref:p.ref, montant:Math.round(p.montant*100)/100, motif:'Logement '+p.ref+' sans bail sur la période' });
           return;
         }
         // Match l'entrée res dont la période d'occupation chevauche la part (par locataire successif)
@@ -26223,7 +26726,10 @@ function computeRegul(from, to) {
           target = candidates.find(e => e.debutOcc && e.finOcc
             && !(p.fin < e.debutOcc || p.debut > e.finOcc));
         }
-        if(!target) target = candidates.find(e => m.date >= e.debutOcc && m.date <= e.finOcc) || candidates[0];
+        // Repli conservé ici : une part de compteur n'est pas une charge datée — les parts au prorata
+        // ont déjà leur segment (vacance → isBailleur plus haut) et une consommation relevée
+        // (sous-compteurs) appartient à l'occupant du logement, quelle que soit la date de la facture.
+        if(!target) target = _occupationDuJour(candidates, m.date) || candidates[0];
         const partR = Math.round(p.montant * 100) / 100;
         target.charges += partR;
         const cleLabel = (CC_REPARTITION_LABELS[p.methode]||{}).label || p.methode || cc.cleRepartition;
@@ -26242,7 +26748,16 @@ function computeRegul(from, to) {
     if(m.qui) {
       const candidates = Object.values(res).filter(e=>e.ref===m.qui);
       if(!candidates.length){ const _lg=(DB.logements||[]).find(l=>l.ref===m.qui); _nonRepAdd(_lg?_lg.imm:m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Logement « '+m.qui+' » sans bail actif sur la période'}); return; }
-      const target = candidates.find(e=>m.date>=e.debutOcc&&m.date<=e.finOcc) || candidates[0];
+      const target = _occupationDuJour(candidates, m.date);
+      if(!target){
+        // Vacance : datée hors de toute occupation → bailleur. Déjà déduite sur sa propre ligne 2044
+        // (résolveur unique _catLigne2044, ex. 229) → `deja2044` : pas réinjectée en 225.
+        const _l2044 = (typeof _catLigne2044==='function') ? (_catLigne2044(m.cat)||null) : null;
+        _bailleurAdd(candidates[0].imm || m.imm || '', { mvId:m.id, date:m.date, lib:m.lib, cc:'', ref:m.qui,
+          montant:Math.round((m.db||0)*100)/100, deja2044:_l2044, horsOccupation:true,
+          motif:'Vacance '+m.qui+' — charge datée hors occupation'+(_l2044?' (déjà déduite ligne '+_l2044+')':'') });
+        return;
+      }
       target.charges += m.db;
       target.details.push({date:m.date, lib:m.lib, montant:m.db, repartition:'Direct', mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
       return;
@@ -26294,6 +26809,32 @@ function computeRegul(from, to) {
   }
   // v14.73 : retour structuré { entries, bailleur } · v15.x Phase B : + nonReparti
   return { entries: res, bailleur: bailleur, nonReparti: nonReparti };
+}
+
+// LA part bailleur à reporter en ligne 225 de la 2044 FONCIÈRE — lecteur UNIQUE de `regul.bailleur`
+// (assistant 2044, prévisualisation Finances, indicateur compta). On écarte :
+//   • une part déjà déduite sur sa propre ligne (`seg.deja2044`, ex. copropriété directe → 229) ;
+//   • une part d'un logement HORS du périmètre foncier (`refs` : lot meublé → BIC/LMNP).
+// `imms` / `refs` absents (null) = pas de filtre. Rend les segments retenus et leur total.
+function _rgSegments225(regul, imms, refs) {
+  const segs = [];
+  Object.values((regul && regul.bailleur) || {}).forEach(b => {
+    if(imms && !imms.includes(b.imm)) return;
+    (b.segments || []).forEach(s => {
+      if(s.deja2044) return;
+      if(refs && s.ref && !refs.includes(s.ref)) return;
+      segs.push(s);
+    });
+  });
+  return { segments: segs, total: Math.round(segs.reduce((t, s) => t + (s.montant || 0), 0) * 100) / 100 };
+}
+// Ligne(s) 2044 de la part bailleur AFFICHÉE (carte Charges PC + téléphone) : selon son CONTENU —
+// « 225 », « 229 » (copropriété déjà déduite sur sa ligne), ou « 225 et 229 ». Texte brut.
+function _rgLignes2044Bailleur(bArr) {
+  const l = new Set();
+  (bArr || []).forEach(b => (b.segments || []).forEach(s => l.add(s.deja2044 || '225')));
+  const t = [...l].sort();
+  return t.length ? t.join(' et ') : '225';
 }
 
 function rRegul() {
@@ -26350,7 +26891,7 @@ function rRegul() {
     ? `<div style="margin:14px 0;padding:14px 16px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <span style="font-size:18px">${_uiIcon('bank',18)}</span>
-          <b style="font-size:14px">Part bailleur (charges non récupérables — déductibles 2044 ligne 224/227)</b>
+          <b style="font-size:14px">Part bailleur (charges récupérables non récupérées — 2044 ligne ${escHtml(_rgLignes2044Bailleur(bailleurArr))})</b>
         </div>
         ${bailleurArr.map(b => {
           const segRows = b.segments.slice().sort((a,b) => (a.date||'').localeCompare(b.date||'')).map(seg => `
@@ -26373,7 +26914,7 @@ function rRegul() {
           </details>`;
         }).join('')}
         <p class="mu sm" style="font-size:11px;margin-top:10px;font-style:italic">
-          ${_uiIcon('bulb',14)} Ces montants ne sont pas refacturés aux locataires. Ils correspondent aux périodes de vacance et aux logements exclus du compteur (garage, etc.). Reportez-les sur votre déclaration 2044 (ligne 224 ou 227 selon nature).
+          ${_uiIcon('bulb',14)} Ces montants ne sont pas refacturés aux locataires : périodes de vacance et logements exclus du compteur (garage, etc.). L'assistant 2044 les reporte en ligne 225 pour les lots en location nue — sauf une charge déjà déduite sur sa propre ligne (copropriété : 229), signalée « déjà déduite ».
         </p>
       </div>`
     : '';
@@ -26655,8 +27196,8 @@ function _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, ba
         .map(seg=>`<div class="rgph-bail-l"><span class="d">${escHtml(fd(seg.date)||'—')}</span><span class="lib">${escHtml(seg.lib||'')}${seg.motif?` <span class="mo">— ${escHtml(seg.motif)}</span>`:''}</span><b>${fmt(seg.montant)}</b></div>`).join('');
       return `<div class="rgph-bail-imm"><b>${escHtml(b.imm)}</b><b class="amt">${fmt(b.total)}</b></div>${segs}`;
     }).join('');
-    bailHtml=`<details class="rgph-bail"><summary><span class="uicw">${_uiIcon('bank',15)}</span><span class="tt">Part bailleur <span class="sub">non récupérable · déductible 2044</span></span><b>${fmt(totBail)}</b></summary>`
-      + `<div class="rgph-bail-body">${imms}<p class="rgph-bail-note">${_uiIcon('bulb',13)} Non refacturé aux locataires (vacance, lots exclus). À reporter en 2044 (ligne 224/227).</p></div></details>`;
+    bailHtml=`<details class="rgph-bail"><summary><span class="uicw">${_uiIcon('bank',15)}</span><span class="tt">Part bailleur <span class="sub">non récupérée · 2044 ligne ${escHtml(_rgLignes2044Bailleur(bArr))}</span></span><b>${fmt(totBail)}</b></summary>`
+      + `<div class="rgph-bail-body">${imms}<p class="rgph-bail-note">${_uiIcon('bulb',13)} Non refacturé aux locataires (vacance, lots exclus). 2044 : ligne 225 (location nue), sauf charge déjà déduite sur sa ligne (copropriété : 229).</p></div></details>`;
   }
   el('reg-cards').innerHTML = nonRepBanner + (body ? `<div class="rgph-list">${body}${total}${bailHtml}</div>` : `<div class="rgph-empty">Aucune donnée de régularisation sur la période.</div>${bailHtml}`);
 }

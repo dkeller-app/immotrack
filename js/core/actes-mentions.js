@@ -40,6 +40,17 @@ const NULLITE = {
   'description du motif légitime et sérieux': 'art. 15-I de la loi du 6 juillet 1989 : le motif du congé doit être énoncé, à peine de nullité'
 };
 
+/**
+ * BAUX-ECHUS — un congé de bail MEUBLÉ repose sur l'art. 25-8, I, qui impose dans les mêmes termes que
+ * l'art. 15-I « le motif allégué et, en cas de reprise, les nom et adresse du bénéficiaire de la
+ * reprise ainsi que la nature du lien » à peine de nullité. La lettre meublé (« bail-conge-bailleur-meuble »)
+ * cite l'art. 25-8, I : on le reconnaît dans le DOCUMENT rendu, comme les marqueurs eux-mêmes.
+ */
+const RE_CONGE_MEUBLE = /article 25-8, I\b/;
+function _fondementMeuble(fondement) {
+  return fondement.replace('art. 15-I de la loi du 6 juillet 1989', 'art. 25-8, I de la loi du 6 juillet 1989');
+}
+
 /** Libellés lisibles pour les marqueurs qui n'emportent pas nullité. */
 const LIBELLES = {
   'à compléter': 'un champ de l’avenant',
@@ -65,13 +76,14 @@ export function mentionsManquantes(html) {
   const src = (html == null) ? '' : String(html);
   const vues = new Set();
   const out = [];
+  const meuble = RE_CONGE_MEUBLE.test(src);
   let m;
   RE_MARQUEUR.lastIndex = 0;   // regex globale partagée : sans ça, un appel sur deux repart du milieu
   while ((m = RE_MARQUEUR.exec(src)) !== null) {
     const marqueur = m[1];
     if (vues.has(marqueur)) continue;
     vues.add(marqueur);
-    const fondement = NULLITE[marqueur] || '';
+    const fondement = meuble ? _fondementMeuble(NULLITE[marqueur] || '') : (NULLITE[marqueur] || '');
     out.push({
       marqueur,
       libelle: LIBELLES[marqueur] || marqueur,
