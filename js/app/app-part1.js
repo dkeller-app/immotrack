@@ -16065,6 +16065,7 @@ function openBail(ref, opts) {
   el('b-dg').value = bail.dg||log?.dg||'';
   el('b-jpay').value = bail.jpay||'5'; // v15.249 B6 (D-B6) : défaut jour paiement = 5 ; champ b-fiscal retiré (D-B5)
   if(el('b-quittanceDemandee')) el('b-quittanceDemandee').checked = bail.quittanceDemandee||false; // v15.414
+  if(el('b-dgVerse')) el('b-dgVerse').checked = bail.dgVerse === true;   // RETOURS-2026-10-05 B4 : coche « dépôt de garantie versé »
 
   // IRL auto depuis date début
   const irlKeys = sortedIRLKeys();
@@ -16259,6 +16260,7 @@ function _bailEtatFormulaire() {
     locataires: getBailLocs(),
     signataires: getBailSignataireSelection(),   // suivi par le journal (co-signataires du bailleur)
     quittanceDemandee: el('b-quittanceDemandee') ? el('b-quittanceDemandee').checked : false,
+    dgVerse: el('b-dgVerse') ? el('b-dgVerse').checked : false,   // B4 : suivi par le journal du bail signé
     finEffective: v('b-fin-effective'), finMotif: v('b-fin-motif'), locNouvelleAdr: v('b-loc-nouv-adr'),
     dgRestitue: pf('b-dg-restitue'), dgRetenu: pf('b-dg-retenu'), finNotes: v('b-fin-notes'),
   });
@@ -17566,6 +17568,7 @@ function saveBail() {
     // quelle pour ne rien effacer au prochain enregistrement du bail.
     quittAutoGen: !!(DB.baux[ref] && DB.baux[ref].quittAutoGen),
     quittanceDemandee: el('b-quittanceDemandee') ? el('b-quittanceDemandee').checked : false, // v15.414
+    dgVerse: el('b-dgVerse') ? el('b-dgVerse').checked : false,   // B4 : « dépôt de garantie versé » (sans mouvement bancaire)
     // Champs liés à la clôture du bail (modale "Clôturer bail")
     finEffective: v('b-fin-effective'),
     finMotif: v('b-fin-motif'),

@@ -269,7 +269,7 @@ function _dgStatut(bail, dateRef) {
   if (!bail) return { statut: DG_STATUS.MANQUANT, dgDu: 0, dgPaid: 0, soldeRestant: 0 };
   const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
   const dgDu = Number(bail.dg) || 0;
-  const dgPaid = Number(bail.dgPaid) || 0;
+  const dgPaid = Number(bail.dgPaid) || (bail.dgVerse === true ? dgDu : 0);   // B4 : coche « versé » = versement complet
   const soldeRestant = dgDu - dgPaid;
   if (bail.dgRestitueAt) return { statut: DG_STATUS.RESTITUE, dgDu, dgPaid, soldeRestant: 0 };
   if (bail.cloture && bail.finEffective) {

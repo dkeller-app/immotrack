@@ -53,6 +53,7 @@ export const CHAMPS_BAIL = {
   hc: { l: 'Loyer HC', fin: true },
   ch: { l: 'Charges mensuelles', fin: true },
   dg: { l: 'Dépôt de garantie', fin: true },
+  dgVerse: { l: 'Dépôt de garantie versé' },   // B4 (RETOURS-2026-10-05) : coche, sans mouvement bancaire
   debut: { l: 'Date de début du bail' },
   fin: { l: 'Date de fin du bail' },
   irl: { l: 'Trimestre IRL de référence' },

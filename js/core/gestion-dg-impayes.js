@@ -48,7 +48,8 @@ export function _dgStatut(bail, dateRef) {
   if (!bail) return { statut: DG_STATUS.MANQUANT, dgDu: 0, dgPaid: 0, soldeRestant: 0 };
   const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||new Date().toISOString().slice(0,10)) + 'T00:00:00');
   const dgDu = Number(bail.dg) || 0;
-  const dgPaid = Number(bail.dgPaid) || 0;
+  // B4 : la coche « versé » (bail.dgVerse) vaut versement complet quand aucun montant n'est saisi.
+  const dgPaid = Number(bail.dgPaid) || (bail.dgVerse === true ? dgDu : 0);
   const soldeRestant = dgDu - dgPaid;
 
   if (bail.dgRestitueAt) {
