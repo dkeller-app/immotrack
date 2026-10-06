@@ -13911,6 +13911,19 @@ function _hlGouttiere(r){
   const d = _hlDateParts(r.dateTri);
   return `<b>${d.j}</b>${d.a}`;
 }
+// Libellé + style du statut d'un dépôt de garantie (frise du bien, fenêtre de restitution) — table UNIQUE.
+// `restitue` force « Restitué » (restitution enregistrée hors `dgRestitueAt` : anciennes clôtures aux montants saisis).
+function _dgStatutLibelle(dgInfo, restitue) {
+  const d = dgInfo || {};
+  const map = {
+    [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
+    [DG_STATUS.EN_RETARD]: [`${_uiIcon('warn')} En retard ${d.joursRetard}j`,'b-warn'],
+    [DG_STATUS.A_RESTITUER]:[`${_uiIcon('hourglass')} À restituer J-${d.joursRestants} (délai légal ${d.delaiMois} mois)`,'b-warn'],
+    [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(d.dgPaid)})`,'b-irl'],
+    [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(d.dgPaid)} / ${fmt(d.dgDu)})`,'b-warn']
+  };
+  return (restitue ? map[DG_STATUS.RESTITUE] : map[d.statut]) || [_uiIcon('help') + ' Non versé','b-warn'];
+}
 function _histoBailEventHtml(ev, c, refSafe, bailForDg){
   const t = ev.type;
   if(t==='bail-debut'){
@@ -13930,15 +13943,7 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     if(_dgCible && typeof _dgStatut==='function'){
       const dgInfo=_dgStatutDuBail(_dgCible);
       const isRestit = dgInfo.statut===DG_STATUS.RESTITUE || (c.statut==='clos' && typeof _dgDetenuDuBail==='function' && _dgDetenuDuBail(_dgCible, 0) <= 0);
-      const map = {
-        [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
-        _restitue:             ['' + _uiIcon('check') + ' Restitué','b-irl'],
-        [DG_STATUS.EN_RETARD]: [`${_uiIcon('warn')} En retard ${dgInfo.joursRetard}j`,'b-warn'],
-        [DG_STATUS.A_RESTITUER]:[`${_uiIcon('hourglass')} À restituer J-${dgInfo.joursRestants} (délai légal ${dgInfo.delaiMois} mois)`,'b-warn'],
-        [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(dgInfo.dgPaid)})`,'b-irl'],
-        [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(dgInfo.dgPaid)} / ${fmt(dgInfo.dgDu)})`,'b-warn']
-      };
-      const st = (isRestit ? map._restitue : map[dgInfo.statut]) || [_uiIcon('help') + ' Non versé','b-warn'];
+      const st = _dgStatutLibelle(dgInfo, isRestit);
       statutHtml = `<span class="hl-badge ${st[1]}">${st[0]}</span>`;
       if(c.statut==='clos' && !isRestit){
         const _cle = _lyQ(_bailHistCleDe(_dgCible));
@@ -26266,8 +26271,7 @@ function _dgOpenRestitution(ref, cle) {
       </div>
       <div style="padding:10px 12px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl)">
         <div class="mu sm" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.5px">Statut DG</div>
-        <div style="font-weight:700;font-size:14px;margin-top:3px">${escHtml(dgInfo.statut)}</div>
-        <div class="mu sm" style="font-size:11.5px">${dgInfo.joursRestants !== undefined ? `J-${dgInfo.joursRestants}` : ''}${dgInfo.joursRetard ? `Retard ${dgInfo.joursRetard}j` : ''}</div>
+        <div style="font-weight:700;font-size:14px;margin-top:3px">${_dgStatutLibelle(dgInfo)[0]}</div>
       </div>
     </div>
 

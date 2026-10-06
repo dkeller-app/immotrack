@@ -81,7 +81,7 @@ function monter(sc, noms) {
     _auditLog: () => {}, _refreshAfterMutation: () => {}, _rPeriodPage: () => {}, setTimeout: () => {},
     _calculerSoldeDG: DG._calculerSoldeDG, _dgStatut: DG._dgStatut, _calculerDelaiRestitution: DG._calculerDelaiRestitution,
     _dgVgEntreeDate: () => '', _dgVgSeedFromEdl: () => [], _dgVgRender: () => {},
-    _dgVgCtx: null, _dgVgRows: [], _dgAutresRetenues: 0, _dgRestitCible: null,   // variable de script (app-part2) : bail ouvert dans la fenêtre de restitution
+    _dgVgCtx: null, _dgVgRows: [], _dgAutresRetenues: 0, DG_STATUS: { MANQUANT: 'manquant', PARTIEL: 'partiel', COMPLET: 'complet', A_RESTITUER: 'a_restituer', RESTITUE: 'restitue', EN_RETARD: 'en_retard' }, _dgRestitCible: null,   // variable de script (app-part2) : bail ouvert dans la fenêtre de restitution
     _rgClotureImpayes: W._rgClotureImpayes, _DEPART_ACOMPTE_CAT: 'Acompte de charges (départ)',
     _forfaitAvenantsDuBail: () => undefined, _isPhone: () => false, _rgIsValidated: () => false,
     _rgJustifFactures: () => [], _rgForfaitRef: () => ({ citation: '' }), _ensureRegulPhCss: () => {},
@@ -127,7 +127,7 @@ describe('2 · régularisation (computeRegul) — départ déclaré au 31/08', (
 });
 
 describe('3 · étape régularisation ET étape restitution du DG : un seul solde de tout compte', () => {
-  const NOMS = [...CHAINE_REGUL, '_rgImmRegime', '_rgYearChargesDetail', '_rgN1Charges', '_occNonForfaitJours', '_rgClotureCompute', '_dgOpenRestitution', '_dgStatutDuBail', '_edlsDuBail', '_bailSuivantDebut', '_dgBailCible', '_archivesDetenuesDuLot', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree'];
+  const NOMS = [...CHAINE_REGUL, '_rgImmRegime', '_rgYearChargesDetail', '_rgN1Charges', '_occNonForfaitJours', '_rgClotureCompute', '_dgOpenRestitution', '_dgStatutLibelle', '_dgStatutDuBail', '_edlsDuBail', '_bailSuivantDebut', '_dgBailCible', '_archivesDetenuesDuLot', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree'];
   it('départ déclaré : impayés identiques des deux côtés (0 €), 500 € à restituer', () => {
     const { fn, els } = monter(DEPART(), NOMS);
     const c = fn._rgClotureCompute(REF);
