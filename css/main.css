@@ -10322,7 +10322,7 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 }
 
 /* BAIL-EN-COURS-MODIFIER-PERIODES — mode « Modifier » de l'historique du bail (sélection d'une période) et fenêtre « Modifier la période ».
-   Variables CSS uniquement (clair + sombre). PC et tablette gardent la taille native des boutons ; ≥ 44 px et champs 16 px sur téléphone. */
+   Variables CSS uniquement (clair + sombre). Texte en --t1 : body[data-dash-v4="on"] force --t2 à #CDD4E5 sans condition de thème (illisible en clair, défaut préexistant). PC et tablette gardent la taille native des boutons ; ≥ 44 px et champs 16 px sur téléphone. */
 .hl-selbar{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;margin-bottom:12px;padding:10px 14px;
   background:var(--sur2);border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:var(--r)}
 .hl-selbar[hidden]{display:none}
@@ -10341,16 +10341,16 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .hper-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .hper-f{min-width:0}
 .hper-f.full{grid-column:1/-1}
-.hper-f label{display:block;font-size:12px;font-weight:700;color:var(--t2);margin-bottom:4px}
+.hper-f label{display:block;font-size:12px;font-weight:700;color:var(--t1);margin-bottom:4px}
 .hper-f .inp{width:100%}
 .hper-f .inp:disabled{opacity:.6;cursor:not-allowed}
 .hper-aide{font-size:11.5px;color:var(--t3);margin-top:4px;line-height:1.45}
 .hper-motif{margin-top:12px}
 .hper-q{font-size:14px;color:var(--t1);line-height:1.5;margin-bottom:4px}
-.hper-note{font-size:12.5px;color:var(--t2);line-height:1.5;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:9px 12px;margin-bottom:12px}
+.hper-note{font-size:12.5px;color:var(--t1);line-height:1.5;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:9px 12px;margin-bottom:12px}
 .hper-note b{color:var(--t1)}
 .hper-alerte{display:flex;gap:9px;align-items:flex-start;margin-top:12px;padding:10px 12px;border-radius:var(--r);border-left:3px solid var(--warn);
-  background:var(--warn-soft);color:var(--t2);font-size:12.5px;line-height:1.5}
+  background:var(--warn-soft);color:var(--t1);font-size:12.5px;line-height:1.5}
 .hper-alerte .uic{flex:none;color:var(--warn);margin-top:2px}
 .hper-alerte b{color:var(--t1)}
 .hper-alerte.err{border-left-color:var(--red);background:var(--neg-soft)}
