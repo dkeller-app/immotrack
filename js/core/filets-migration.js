@@ -93,6 +93,8 @@ async function lireCopies(adaptateur) {
     let enr = null;
     try { enr = await adaptateur.lire(cle); }
     catch (_e) { entrees.push({ cle, enr: null, illue: true }); continue; }
+    // Lue, mais VIDE (null, undefined, '') : ce n'est PAS une lecture ratée. Sans heure, elle est
+    // expirée et part (estExpiree) — la marquer « illue » la garderait à vie (audit lots 2-3, M28).
     entrees.push({ cle, enr: enr ? { at: enr.at } : null });
   }
   return entrees;

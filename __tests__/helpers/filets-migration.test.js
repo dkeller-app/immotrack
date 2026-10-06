@@ -143,6 +143,17 @@ describe('expirerCopies et purgerCopies', () => {
     expect(r.supprimees).toEqual([]);
     expect(a.m.has('filet:n:recent')).toBe(true);
   });
+  it('entrée LUE mais VIDE (null, undefined, chaîne vide) : retirée — ce n’est pas une lecture ratée (audit M28)', async () => {
+    const vides = { 'filet:n:null': null, 'filet:n:undef': undefined, 'corrompu:n': '' };
+    const a = memoire(Object.assign(Object.fromEntries([filet('n', 'recent', T0 - JOUR), ['dirhandle', DIRHANDLE]]), vides));
+    expect((await F.expirerCopies(a, { maintenant: T0 })).sort()).toEqual(['corrompu:n', 'filet:n:null', 'filet:n:undef']);
+    expect([...a.m.keys()].sort()).toEqual(['dirhandle', 'filet:n:recent']);
+    // Même règle à la pose d'un filet (rotation) : l'entrée vide ne survit pas.
+    const b = memoire(Object.assign(Object.fromEntries([filet('n', 'recent', T0 - JOUR)]), vides));
+    const r = await F.poserFilet(b, { ns: 'n', label: 'neuf', json: '{}', maintenant: T0 });
+    expect(r.supprimees.sort()).toEqual(['corrompu:n', 'filet:n:null', 'filet:n:undef']);
+    expect([...b.m.keys()].sort()).toEqual(['filet:n:neuf', 'filet:n:recent']);
+  });
   it('IndexedDB qui lève : rien ne remonte (ne lève jamais)', async () => {
     const casse = { cles: async () => { throw new Error('SecurityError'); } };
     expect(await F.purgerCopies(casse)).toEqual([]);
