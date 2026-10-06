@@ -659,8 +659,6 @@ window.ATTACHMENT_DEFAULT_MAX_SIZE = ATTACHMENT_DEFAULT_MAX_SIZE;
 window.BankImport = BankImport;
 for (const _bk of Object.keys(BankImport)) window[_bk] = BankImport[_bk];
 
-// QUITTANCES-ACTIVES (v15.10 Sprint 11) - statut dynamique + escalade + auto-gen
-
 // LOYERS - verdict « mois solde » (CDC-QUITTANCES-IRL etape 1). Source unique consommee
 // par l'onglet Loyers ; index.html n'assemble que le contexte (du + encaisse).
 window.etatMoisLot = etatMoisLot;

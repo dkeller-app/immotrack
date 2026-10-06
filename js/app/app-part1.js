@@ -8630,8 +8630,6 @@ function _dashCfReel(ctx) {
   };
 }
 
-/* Contenu drill-down cash-flow (modale ov-dash-drill).
-   v2 Phase 5 : ajout d'un area chart 12 mois glissants avec gradient sign (vert/rouge)
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD v2 Phase 3 — KPI strip helpers (cahier §3.3)
    ══════════════════════════════════════════════════════════════ */
@@ -8756,13 +8754,6 @@ function _getLogementStartMi(ref, yr) {
   return parseInt(iso.slice(5,7)) - 1;
 }
 
-/* Construit la séquence de segments bail/vacance sur l'année pour un logement.
-   Chaque segment regroupe des mois consécutifs partageant le même "bail source"
-   (bail réellement actif → segment 'bail', ou fallback → segment 'vacance').
-/* Retourne le HC+CH à prendre en compte pour un logement sur un mois donné.
-   - Si bail actif ce mois → son HC+CH
-   - Sinon, si au moins un bail a déjà démarré avant → HC+CH du bail le plus
-     récent (fallback manque à gagner, cas travaux/vacance entre 2 baux)
 /* v15.19 Phase A1 BUG-PRORATA-DASH — Variante PRORATÉE (l'ancienne version non proratée est supprimée).
    Au lieu de tester au 15 du mois et retourner le loyer plein, calcule
    exactement le HC+CH attendu pour le mois en fonction des jours d'occupation.
@@ -9510,12 +9501,6 @@ function goToAssurances(ref) {
    Pas de "Coach IA" (mensonger — c'est juste de la priorisation par règles).
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ═══════════════════════════════════════════════════════════════════════
-   v15.38 DASH-REFONTE-GLOBALE-V4 CP2 — Cockpit Hero V4 Stripe narrative
-   Remplace la jauge SVG 220×220 (v15.33) par eyebrow + titre narrative
-   + delta vs mois-1 + barre progress horizontale + 4 satellites.
-   Comparaisons vs mois précédent (mvsPrev), JAMAIS N-1.
-   Drill-down `_DD['hero']` préservé (engagement 23 drills).
 /* ═══════════════════════════════════════════════════════════════════════
    v15.32 Phase B — Widget TODO-UNIFIED v2 (vue compacte agrégée par thème)
    Affichage : 1 ligne par TYPE de todo (Assurances/IRL/Régul/...) avec
@@ -17766,7 +17751,7 @@ function previewBailData(bail, log, ref, opts) {
   var _lbFill = _logBail2 || {};
   var ftype     = S(bail.ftype||_lbFill.ftype||log&&log.type||'\u2013');
 
-var garantSouss = '';
+  var garantSouss = '';
   if (bail.garant) {
     garantSouss = '<p><strong>'+S(bail.garant)+'</strong>'
       +(bail.ddnGarant?', n\u00e9(e) le '+fd2(bail.ddnGarant):'')
@@ -17784,7 +17769,7 @@ var garantSouss = '';
     garantSouss += '<p class="note"><em>Ci-apr\u00e8s d\u00e9sign\u00e9(s) \u00ab\u00a0le(s) GARANT(S)\u00a0\u00bb d\u2019autre part,</em></p>';
   }
 
-var garNoms = bail.garant ? S(bail.garant)+(bail.garant2?' &amp; '+S(bail.garant2):'') : '';
+  var garNoms = bail.garant ? S(bail.garant)+(bail.garant2?' &amp; '+S(bail.garant2):'') : '';
   var trGarant = garNoms
     ? '<tr><td style="background:#f0f0f0;font-weight:bold">Garant(s) / Caution</td><td><strong>'+garNoms+'</strong></td></tr>' : '';
 

@@ -15,28 +15,55 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseAst } from 'rollup/parseAst';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const lire = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
-const sansCommentaires = (s) => s
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/<!--[\s\S]*?-->/g, '')
-  .replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1');
 
-// index.html (assemblé : coquille + app-part*.js) + tout js/ hors bibliothèques tierces.
+// Mots RÉELLEMENT présents dans le code : identifiants + mots des chaînes et gabarits (appels dans des
+// onclick="…"), par AST. Un nettoyage des commentaires par expression régulière prenait le « /* » de
+// 'image/*' pour un début de commentaire et rendait des centaines de lignes invisibles.
+function motsAst(src) {
+  const out = new Set();
+  const ast = parseAst(src, { allowReturnOutsideFunction: true });
+  (function v(n) {
+    if (!n || typeof n.type !== 'string') return;
+    if (n.type === 'Identifier') out.add(n.name);
+    else if (n.type === 'Literal' && typeof n.value === 'string') for (const m of n.value.matchAll(/[\w$]+/g)) out.add(m[0]);
+    else if (n.type === 'TemplateElement') for (const m of String(n.value.cooked ?? n.value.raw).matchAll(/[\w$]+/g)) out.add(m[0]);
+    for (const k of Object.keys(n)) {
+      const x = n[k];
+      if (Array.isArray(x)) x.forEach(v); else if (x && typeof x.type === 'string') v(x);
+    }
+  })(ast);
+  return out;
+}
+const motsTexte = (t) => new Set(t.match(/[\w$]+/g) || []);
+
+// index.html ASSEMBLÉ (coquille + app-part*.js inline) : scripts par AST ; balisage sans commentaires
+// HTML ni commentaires CSS (dans <style> seulement). Puis tout js/ hors js/app (déjà dans index.html).
+const HTML = lire('index.html');
 const SOURCES = (() => {
-  const out = ['index.html'];
+  const out = [];
+  const scripts = [...HTML.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).filter((t) => t.trim());
+  scripts.forEach((t, i) => {
+    let m;
+    try { m = motsAst(t); } catch (e) { m = motsTexte(t); }
+    out.push(['index.html <script #' + i + '>', m]);
+  });
+  const balisage = HTML.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '').replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/g, (_m, o, css, f) => o + css.replace(/\/\*[\s\S]*?\*\//g, '') + f);
+  out.push(['index.html (balisage)', motsTexte(balisage)]);
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
       const rel = dir + '/' + e.name;
-      if (e.isDirectory()) { if (e.name !== 'vendor') walk(rel); }
-      else if (/\.(m?js)$/.test(e.name)) out.push(rel);
+      if (e.isDirectory()) { if (e.name !== 'vendor' && rel !== 'js/app') walk(rel); }
+      else if (/\.(m?js)$/.test(e.name)) out.push([rel, motsAst(lire(rel))]);
     }
   };
   walk('js');
   return out;
 })();
-const CODE = SOURCES.map((f) => [f, sansCommentaires(lire(f))]);
 
 const SUPPRIMES = [
   // Ancienne grille de widgets de l'Accueil et ses drills
@@ -58,10 +85,16 @@ const SUPPRIMES = [
 ];
 
 describe('Lot 0 — le code mort supprimé ne revient pas', () => {
+  it('l’analyse voit bien tout le code (témoins vivants présents)', () => {
+    // Si l'analyse perdait une partie du code, l'absence des noms supprimés ne prouverait rien.
+    for (const temoin of ['_avenantVoir', '_handleAttachmentUpload', 'previewBailData', '_finMonthly', 'openNewMv']) {
+      expect(SOURCES.some(([, mots]) => mots.has(temoin)), temoin + ' introuvable — l’analyse est aveugle').toBe(true);
+    }
+  });
+
   for (const nom of SUPPRIMES) {
     it(nom + ' : ni définition ni appel', () => {
-      const re = new RegExp('(?<![\\w$])' + nom.replace(/\$/g, '\\$') + '(?![\\w$])');
-      const coupables = CODE.filter(([, c]) => re.test(c)).map(([f]) => f);
+      const coupables = SOURCES.filter(([, mots]) => mots.has(nom)).map(([f]) => f);
       expect(coupables, nom + ' réapparaît').toEqual([]);
     });
   }
@@ -73,15 +106,14 @@ describe('Lot 0 — le code mort supprimé ne revient pas', () => {
   });
 
   it('les modales que plus rien n’ouvrait restent supprimées', () => {
-    const html = sansCommentaires(lire('index.html'));
-    for (const id of ['ov-ent-detail', 'ov-irl-drill']) expect(html, id).not.toContain('id="' + id + '"');
+    const balisage = HTML.replace(/<!--[\s\S]*?-->/g, '');
+    for (const id of ['ov-ent-detail', 'ov-irl-drill']) expect(balisage, id).not.toContain('id="' + id + '"');
   });
 
   it('previewBailData ne reconstruit plus les 13 pages HTML mortes (clauses périmées)', () => {
-    const html = lire('index.html');
-    const i = html.indexOf('function previewBailData('), j = html.indexOf('\n}', i);
+    const i = HTML.indexOf('function previewBailData('), j = HTML.indexOf('\n}', i);
     expect(i).toBeGreaterThan(-1);
-    const corps = sansCommentaires(html.slice(i, j));
+    const corps = HTML.slice(i, j);
     expect(corps).not.toMatch(/\bconst p(1[0-3]?|[2-9]) = /);
     expect(corps).not.toContain('class="bail-page" id="page-');
     expect(corps).toContain('buildBailStructure(');           // le seul rendu, inchangé
