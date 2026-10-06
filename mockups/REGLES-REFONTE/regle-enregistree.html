@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pastille « ✓ Règle enregistrée » — maquette REGLES-REFONTE</title>
+<link rel="stylesheet" href="_shared.css">
+
+</head>
+<body>
+<header class="mk-bar">
+  <a class="back" href="index.html">← Maquettes</a>
+  <h1>Pastille « ✓ Règle enregistrée »<small>Remplace « Mémoriser la règle » quand une règle couvre déjà la ligne — avec lien Modifier</small></h1>
+  <div><span class="mk-lbl">Format</span><span class="mk-seg" role="group" aria-label="Format">
+    <button data-format-btn="pc" aria-pressed="true">PC 1280</button><button data-format-btn="tab" aria-pressed="false">Tablette 768</button><button data-format-btn="tel" aria-pressed="false">Téléphone 390</button></span></div>
+  <div><span class="mk-lbl">Thème</span><span class="mk-seg" role="group" aria-label="Thème">
+    <button data-theme-btn="auto" aria-pressed="true">Auto</button><button data-theme-btn="light" aria-pressed="false">Clair</button><button data-theme-btn="dark" aria-pressed="false">Sombre</button></span></div>
+</header>
+<main class="stage">
+
+<div class="note"><span class="mk-lbl">Contexte</span><span class="mk-seg" role="group"><button data-ctx="imp" aria-pressed="true">Ligne d'import</button><button data-ctx="mv" aria-pressed="false">Fiche mouvement enregistré</button></span>
+ &nbsp; <span class="mk-lbl">État</span><span class="mk-seg" role="group"><button data-st="0" aria-pressed="false">1 · Aucune règle</button><button data-st="1" aria-pressed="true">2 · Règle enregistrée</button><button data-st="2" aria-pressed="false">3 · Ligne en exception</button><button data-st="3" aria-pressed="false">4 · Deux règles (doublon)</button></span></div>
+<div class="device" data-format="pc" id="dev">
+ <div class="appbg"><b>ImmoTrack</b> <span id="ctx"></span></div>
+ <div class="scrim"><div class="modal">
+  <div class="mh"><div><h2 id="ttl"></h2><p id="sub"></p></div><span class="bdg" id="prog"></span></div>
+  <div class="mb">
+   <div class="srcline"><span class="d">05/10/2026</span><span class="l">VIR PERM SARAR SYNDIC FERRETTE PROVISION CHARGES OCT 2026</span><span class="m neg">−150,00 €</span><span class="s">CIC Pro ···4821 · SCI Dupont</span></div>
+   <div class="grid2">
+    <div class="fld"><label>Catégorie</label><select class="inp"><option>⚡ Charges récupérables (eau, énergie…)</option></select></div>
+    <div class="fld"><label>Affectation</label><select class="inp"><option>Charges communes Ferrette — tantièmes</option></select></div>
+   </div>
+   <div class="sec"><h3>Règle de classement</h3><div id="zone"></div></div>
+  </div>
+  <div class="mf"><button class="btn">Précédent</button><button class="btn pri" id="nx">Suivant</button></div>
+ </div></div>
+</div>
+</main>
+<script src="_shared.js"></script>
+<script>
+
+(function(){
+ var ctx='imp',st=1;function $(i){return document.getElementById(i)}
+ var rule='<span class="bdg pos">✓ Règle enregistrée</span>';
+ function zone(){
+  var H={
+  0:'<div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1 1 240px"><b>Aucune règle ne couvre cette ligne.</b><div class="hint" style="margin:2px 0 0">Mémorisez-la pour que les prochaines soient classées seules.</div></div><button class="btn pri">💾 Mémoriser la règle</button></div>',
+  1:'<div class="alert pos" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1 1 260px">'+rule+' <b>« SARAR SYNDIC »</b> · dépenses · CIC Pro ···4821<div class="hint" style="margin:4px 0 0">Catégorie et affectation de cette ligne viennent de la règle. 23 mouvements classés · dernière fois le 05/10.</div></div><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="lnk">Modifier</button><a class="lnk" href="mes-regles.html">Mes règles</a></div></div>',
+  2:'<div class="alert info" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1 1 260px"><span class="bdg adv">↷ Exception</span> <b>Cette ligne a été sortie de la règle « SARAR SYNDIC »</b><div class="hint" style="margin:4px 0 0">Elle est classée à la main. La règle continue de s\'appliquer aux autres lignes.</div></div><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="lnk">Modifier la règle</button><button class="lnk">Réintégrer à la règle</button></div></div>',
+  3:'<div class="alert warn"><div>'+rule+' <b>2 règles couvrent cette ligne</b> <span class="bdg warn">doublon probable</span></div><ul><li>« SARAR SYNDIC » · dépenses · CIC Pro → Charges récupérables <button class="lnk">Modifier</button></li><li>« SARAR » · dépenses · CIC Pro → Charges récupérables <button class="lnk">Modifier</button></li></ul><div class="hint">Même résultat : pas de conflit, mais l\'une des deux est inutile.</div><div class="acts"><a class="btn sm" href="mes-regles.html">Voir et fusionner dans Mes règles</a></div></div>'};
+  if(ctx==='mv'&&st===0)H[0]=H[0].replace('Mémorisez-la pour que les prochaines soient classées seules.','Depuis cette fiche, vous pouvez créer la règle : les mouvements déjà en base ne changent pas.').replace('💾 Mémoriser la règle','💾 Créer une règle depuis ce mouvement');
+  $('zone').innerHTML=H[st]}
+ function head(){
+  $('ctx').textContent=ctx==='imp'?'Loyers & Mouvements · Import du relevé CIC Pro':'Loyers & Mouvements · Fiche du mouvement';
+  $('ttl').textContent=ctx==='imp'?'Vérifier la ligne 14 / 31':'Mouvement du 05/10/2026';
+  $('sub').textContent=ctx==='imp'?'Navigation séquentielle de l\'import en cours.':'Mouvement enregistré — compte CIC Pro ···4821';
+  $('prog').textContent=ctx==='imp'?'14 / 31':'enregistré';$('nx').textContent=ctx==='imp'?'Suivant':'Fermer';}
+ document.querySelectorAll('[data-ctx]').forEach(function(b){b.addEventListener('click',function(){ctx=b.dataset.ctx;document.querySelectorAll('[data-ctx]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});head();zone()})});
+ document.querySelectorAll('[data-st]').forEach(function(b){b.addEventListener('click',function(){st=+b.dataset.st;document.querySelectorAll('[data-st]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});zone()})});
+ head();zone();
+})();
+</script>
+</body>
+</html>

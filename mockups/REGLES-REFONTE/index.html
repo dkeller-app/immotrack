@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Refonte des règles de classement — maquettes</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 48px}
+h1{font:800 28px/1.15 var(--display);margin:8px 0}
+.lead{color:var(--t2);margin:0 0 20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.tile{display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid var(--bor);border-radius:var(--rl);background:var(--sur);text-decoration:none;color:var(--t1);min-height:44px}
+.tile:hover{border-color:var(--acc)}
+.tile b{font:800 var(--fs-md)/1.3 var(--display)}
+.tile span{color:var(--t3);font-size:var(--fs-sm)}
+.tile .k{font:800 var(--fs-xs)/1 var(--font);letter-spacing:.07em;text-transform:uppercase;color:var(--acc2)}
+</style>
+</head>
+<body>
+<header class="mk-bar"><h1>Refonte des règles — maquettes<small>Lot D (D1–D6) · statique, aucun code applicatif</small></h1>
+<div><span class="mk-lbl">Thème</span><span class="mk-seg"><button data-theme-btn="auto" aria-pressed="true">Auto</button><button data-theme-btn="light" aria-pressed="false">Clair</button><button data-theme-btn="dark" aria-pressed="false">Sombre</button></span></div></header>
+<div class="wrap">
+<h1>Cinq écrans, trois formats, deux thèmes</h1>
+<p class="lead">Chaque page a un sélecteur Format (PC 1280 · tablette 768 · téléphone 390) et Thème (auto · clair · sombre) en haut. Les écrans sont interactifs sur les points qui font la décision (puces, cases, filtres) ; rien n'est enregistré. Voir <a href="README.md">README.md</a> pour les décisions, hypothèses et points à valider.</p>
+<div class="grid">
+<a class="tile" href="creer-regle.html"><span class="k">a</span><b>Créer une règle</b><span>Depuis une ligne d'import, un mouvement enregistré ou à froid : puces de mots, sens, condition de montant, compte préchargé (choisi seulement à froid), mot libre « + mot », catégorie/affectation filtrées par bailleur ; fenêtre existante grisée.</span></a>
+<a class="tile" href="apercu-direct.html"><span class="k">b</span><b>Aperçu en direct</b><span>Lignes de l'import décochables, compteur « en base » informatif, alerte « natures différentes » et actions directes, cas SARAR 4 583,03 € décoché.</span></a>
+<a class="tile" href="regle-enregistree.html"><span class="k">c</span><b>Pastille « ✓ Règle enregistrée »</b><span>À la place de « Mémoriser la règle » : 4 états (aucune règle, enregistrée, exception, doublon).</span></a>
+<a class="tile" href="mes-regles.html"><span class="k">d</span><b>Mes règles</b><span>Par compte, règles historiques au badge « Compte à choisir », doublons, exceptions dépliables, Modifier pour toute règle (version simple).</span></a>
+<a class="tile" href="categorie-assurance-pret.html"><span class="k">e</span><b>Prêt — Assurance emprunteur</b><span>Nouvelle catégorie dans le sélecteur (ligne 250) et note de prudence.</span></a>
+</div></div>
+<script src="_shared.js"></script>
+</body>
+</html>

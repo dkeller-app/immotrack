@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Créer une règle — maquette REGLES-REFONTE</title>
+<link rel="stylesheet" href="_shared.css">
+
+</head>
+<body>
+<header class="mk-bar">
+  <a class="back" href="index.html">← Maquettes</a>
+  <h1>Créer une règle<small>Depuis une ligne d'import, un mouvement enregistré ou à froid — puces de mots, sens, montant, compte, catégorie</small></h1>
+  <div><span class="mk-lbl">Format</span><span class="mk-seg" role="group" aria-label="Format">
+    <button data-format-btn="pc" aria-pressed="true">PC 1280</button><button data-format-btn="tab" aria-pressed="false">Tablette 768</button><button data-format-btn="tel" aria-pressed="false">Téléphone 390</button></span></div>
+  <div><span class="mk-lbl">Thème</span><span class="mk-seg" role="group" aria-label="Thème">
+    <button data-theme-btn="auto" aria-pressed="true">Auto</button><button data-theme-btn="light" aria-pressed="false">Clair</button><button data-theme-btn="dark" aria-pressed="false">Sombre</button></span></div>
+</header>
+<main class="stage">
+
+<div class="legend" role="note"><b>Légende</b>
+ <span class="lg"><i class="sw old"></i>Existant, inchangé (grisé) : la vraie fenêtre de classement est conservée telle quelle (CDC-IMPORT §⑦.6)</span>
+ <span class="lg"><i class="sw mod"></i>Modifié</span><span class="lg"><i class="sw new"></i>Nouveau</span></div>
+<p class="note">Maquette interactive (statique, sans code applicatif) : cliquez les mots, ajoutez un mot libre avec « + mot », changez la condition de montant, la catégorie. Le compte est déjà choisi quand on part d'une ligne ou d'un mouvement ; il ne se choisit que dans l'onglet « À froid ». Les trois onglets ci-dessous montrent les trois points d'entrée.</p>
+<div class="note"><span class="mk-seg" role="group" aria-label="Point d'entrée">
+ <button data-src="imp" aria-pressed="true">Depuis une ligne d'import</button>
+ <button data-src="mv" aria-pressed="false">Depuis un mouvement enregistré</button>
+ <button data-src="cold" aria-pressed="false">À froid (Réglages)</button></span></div>
+<div class="device" data-format="pc" id="dev">
+ <div class="appbg"><b>ImmoTrack</b> <span id="ctx">Loyers &amp; Mouvements · Import du relevé CIC Pro — ligne 14 / 31</span></div>
+ <div class="scrim"><div class="modal" role="dialog" aria-labelledby="t">
+  <div class="mh"><div><h2 id="t">Créer une règle de classement</h2><p id="sub">Une règle appartient toujours à un compte, donc à un bailleur.</p></div><button class="lnk" aria-label="Fermer">✕</button></div>
+  <div class="mb">
+   <div class="oldbar zn old" id="oldnav" aria-label="Fenêtre de classement existante"><span class="bdg" id="oldlbl">Vérifier 14 / 31</span><button class="btn sm">‹ Précédent</button><button class="btn sm">Suivant ›</button><span class="sp"></span><button class="btn sm">✂️ Découper</button></div>
+   <div class="sec zn old" id="srcsec"><h3>Ligne de départ</h3>
+    <div class="fld" id="coldin" style="display:none"><label for="coldv">Libellé de référence — collez un libellé de relevé ou choisissez un mouvement récent</label><input class="inp" id="coldv" value="PRLV SEPA EDF CLIENTS PARTICULIERS ELECTRICITE"><span class="hint">Les puces ci-dessous sont les mots de ce libellé : rien n'est deviné.</span></div>
+    <div class="srcline" id="sline"><span class="d" id="sd"></span><span class="l" id="sl"></span><span class="m neg" id="sm"></span><span class="s" id="ss"></span></div>
+   </div>
+   <div class="sec zn mod" data-tag="modifié"><h3><span class="n">1</span> Motif — cliquez les mots du libellé, ou ajoutez le vôtre</h3>
+    <div class="chips" id="chips" role="group" aria-label="Mots du libellé"></div>
+    <div class="freebox" id="freebox" hidden><label for="freein" class="lab">Un mot, ou un morceau de mot, absent du libellé</label>
+     <div class="row"><input class="inp" id="freein" placeholder="ex. ELEC" autocomplete="off" autocapitalize="characters" aria-describedby="freefb"><button class="btn pri sm" id="freeok">Ajouter</button><button class="btn sm" id="freeno">Annuler</button></div>
+     <div class="fb" id="freefb" role="status"></div></div>
+    <div class="motif" id="motif"></div>
+    <p class="hint"><b>Comment ça se lit :</b> tous les mots (puces cochées + mots saisis) doivent figurer dans le libellé, n'importe où, dans n'importe quel ordre, sans tenir compte des majuscules ni des accents. Une puce cochée est cherchée comme mot du libellé ; <b>un mot saisi est cherché comme morceau de mot</b> : « ELEC » attrape « ELECTRICITE ». Aucun mot n'est choisi à votre place.</p>
+   </div>
+   <div class="sec zn old"><h3><span class="n">2</span> Sens du mouvement</h3>
+    <div class="seg" id="sens" role="group" aria-label="Sens"><button data-v="dep" aria-pressed="true">Dépense</button><button data-v="rec" aria-pressed="false">Recette</button><button data-v="both" aria-pressed="false">Les deux</button></div>
+   </div>
+   <div class="sec zn new" data-tag="nouveau"><h3><span class="n">3</span> Condition de montant <span class="bdg">optionnelle</span></h3>
+    <div style="display:flex;flex-direction:column;gap:8px" id="mont">
+     <label class="opt on"><input type="radio" name="mt" value="none" checked> Aucune condition de montant</label>
+     <label class="opt" id="optLoyer"><input type="radio" name="mt" value="loyer"> Montant = loyer CC du mois <span class="mut" id="loyerHint">(sens « recette » uniquement)</span></label>
+     <label class="opt"><input type="radio" name="mt" value="exact"> Montant exact <input class="inp" inputmode="decimal" value="150,00" aria-label="Montant exact"> €</label>
+     <label class="opt"><input type="radio" name="mt" value="plage"> Plage <input class="inp" inputmode="decimal" value="140,00" aria-label="Minimum"> à <input class="inp" inputmode="decimal" value="160,00" aria-label="Maximum"> €</label>
+    </div>
+    <p class="hint" id="montHint">Sans condition, la règle vaut pour tous les montants.</p>
+   </div>
+   <div class="sec zn new" data-tag="nouveau"><h3><span class="n">4</span> Compte <span class="bdg neg" id="cptreq">obligatoire</span><span class="bdg" id="cptpre">préchargé</span></h3>
+    <div class="ro" id="cptro"><span aria-hidden="true">🔒</span><b id="cptname"></b><span class="bdg" id="cptbl"></span><span class="mut" id="cptwhy"></span></div>
+    <div class="fld" id="cptsel"><label for="compte">Compte de la règle (création à froid : seul cas où il se choisit ici)</label><select class="inp" id="compte" aria-label="Compte">
+      <option value="">— Choisir un compte —</option>
+      <option value="cic">CIC Pro ···4821 — bailleur : SCI Dupont</option>
+      <option value="bp">Banque Populaire ···0937 — bailleur : SCI Dupont</option>
+      <option value="ca">Crédit Agricole ···2210 — bailleur : Didier Keller (en nom propre)</option></select></div>
+    <p class="hint" id="cptHint"></p>
+   </div>
+   <div class="sec"><h3><span class="n">5</span> Catégorie et affectation</h3>
+    <div class="grid2 zn old">
+     <div class="fld"><label for="cat">Catégorie</label><select class="inp" id="cat">
+       <optgroup label="Charges déductibles">
+        <option value="copro" data-niv="imm">🏢 Charges de copropriété — ligne 229</option>
+        <option value="trav" data-niv="log">🔨 Travaux (entretien, réparation, amélioration) — ligne 224</option>
+        <option value="assu" data-niv="imm">🛡️ Primes d'assurance (PNO, GLI) — ligne 223</option>
+        <option value="pret-ass" data-niv="imm">💳 Prêt — Assurance emprunteur — ligne 250 (nouveau)</option></optgroup>
+       <optgroup label="Hors résultat foncier / récupérable">
+        <option value="recup" data-niv="recup" selected>⚡ Charges récupérables (eau, énergie…)</option>
+        <option value="pret" data-niv="imm">💳 Prêt</option></optgroup>
+       <optgroup label="Recettes"><option value="loy" data-niv="log">💰 Loyers encaissés — ligne 211</option></optgroup></select></div>
+     <div class="fld"><span class="lab">Niveau d'affectation <span class="mut">(proposé par la catégorie)</span></span>
+       <div class="seg" id="niv" role="group" aria-label="Niveau"><button data-v="log" aria-pressed="false">Logement</button><button data-v="imm" aria-pressed="false">Immeuble</button><button data-v="sci" aria-pressed="false">SCI</button><button data-v="recup" aria-pressed="true">Récupérable</button></div></div>
+    </div>
+    <div class="card zn mod" data-tag="modifié : listes filtrées par bailleur" style="margin-top:16px"><div class="lab" id="lh" style="margin-bottom:4px"></div><div id="aff" style="display:flex;flex-direction:column;gap:6px"></div>
+     <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><span class="hint" id="affHint" style="margin:0"></span><button class="lnk" id="voirtout">Voir tout (autres bailleurs)</button></div></div>
+   </div>
+   <div class="alert info zn new" data-tag="nouveau" id="eff"><b>Ce qui se passera à l'enregistrement</b>
+    <ul><li id="e1"></li><li id="e2"></li><li id="e3"></li></ul>
+    <div class="acts"><a class="btn sm" href="apercu-direct.html">Voir l'aperçu détaillé (lignes décochables) →</a></div></div>
+  </div>
+  <div class="mf"><div class="saved zn new" data-tag="nouveau" id="saved" hidden><span class="bdg pos">✓ Règle enregistrée</span><span id="savedtxt"></span><button class="lnk" id="savedmod">Modifier</button></div><button class="btn">Annuler</button><button class="btn pri" id="save">Enregistrer la règle</button></div>
+ </div></div>
+</div>
+</main>
+<script src="_shared.js"></script>
+<script>
+
+(function(){
+ var S={
+  imp:{ctx:'Loyers & Mouvements · Import du relevé CIC Pro — ligne 14 / 31',sub:'Depuis une ligne de l\'import en cours : le compte de la ligne est déjà choisi.',nav:'Vérifier 14 / 31',why:'repris de la ligne de l\'import',d:'05/10/2026',l:'VIR PERM SARAR SYNDIC FERRETTE PROVISION CHARGES OCT 2026',m:'−150,00 €',s:'Relevé CIC Pro ···4821 · import en cours (31 lignes)',cpt:'cic',sens:'dep',cat:'recup',sel:[2,3],kind:'imp'},
+  mv:{ctx:'Loyers & Mouvements · Fiche du mouvement du 18/09/2026',sub:'Depuis un mouvement enregistré : le compte du mouvement est déjà choisi.',nav:'Fiche du mouvement',why:'repris du mouvement enregistré',d:'18/09/2026',l:'VIR SARAR SYNDIC FACTURE TRAVAUX PEINTURE PALIERS FERRETTE',m:'−4 583,03 €',s:'Mouvement enregistré · classé « Travaux » · Ferrette (immeuble) · compte CIC Pro ···4821',cpt:'cic',sens:'dep',cat:'trav',sel:[],kind:'mv'},
+  cold:{ctx:'Réglages · Règles de classement · Nouvelle règle',sub:'Création à froid, sans ligne de départ : seul cas où le compte se choisit ici.',nav:'',why:'',d:'',l:'',m:'',s:'',cpt:'',sens:'both',cat:'copro',sel:[],kind:'cold'}};
+ var AFF={
+  cic:{b:'SCI Dupont',n:'CIC Pro ···4821',log:['Ferrette 101','Ferrette 102','Ferrette 103'],imm:['Immeuble Ferrette'],sci:['SCI Dupont'],recup:['Charges communes Ferrette — tantièmes','Eau froide Ferrette — sous-compteurs']},
+  ca:{b:'Didier Keller (en nom propre)',n:'Crédit Agricole ···2210',log:['Studio Strasbourg — Krutenau'],imm:['Immeuble Rue Kléber, Colmar'],sci:['Didier Keller — nom propre'],recup:['Charges communes Kléber — surface']}};
+ AFF.bp=AFF.cic;
+ var root=document.getElementById('dev'),st={},words=[],showAll=false;
+ function $(i){return document.getElementById(i)}
+ function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+ function pr(b,v){b.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x.dataset.v===v))})}
+ function load(k){var s=S[k];st={k:k,sel:s.sel.slice(),free:[],freeOpen:false,saved:false,sens:s.sens,cpt:s.cpt,cat:s.cat,niv:null,aff:null,mt:'none'};
+  words=s.l.split(' ');
+  $('ctx').textContent=s.ctx;$('sub').textContent=s.sub;
+  var cold=k==='cold';
+  $('oldnav').style.display=cold?'none':'';$('oldlbl').textContent=s.nav;
+  var sc=$('srcsec');sc.className='sec zn '+(cold?'new':'old');if(cold)sc.setAttribute('data-tag','nouveau');else sc.removeAttribute('data-tag');
+  $('sline').style.display=s.l?'':'none';$('coldin').style.display=s.l?'none':'';
+  $('sd').textContent=s.d;$('sl').textContent=s.l;$('sm').textContent=s.m;$('ss').textContent=s.s;
+  if(!s.l){words=$('coldv').value.trim().split(/\s+/)}
+  $('cptro').style.display=cold?'none':'';$('cptsel').style.display=cold?'':'none';
+  $('cptreq').style.display=cold?'':'none';$('cptpre').style.display=cold?'none':'';
+  $('cptwhy').textContent=s.why;
+  $('compte').value=s.cpt;$('cat').value=s.cat;pr($('sens'),s.sens);showAll=false;
+  document.querySelector('[name=mt][value=none]').checked=true;
+  $('freebox').hidden=true;$('freein').value='';
+  catNiv();draw();}
+ function catNiv(){var o=$('cat').selectedOptions[0];st.niv=o.dataset.niv;st.aff=null;pr($('niv'),st.niv)}
+ function upd(){st.saved=false;draw()}
+ function feedback(){
+  var v=$('freein').value.trim(),fb=$('freefb');fb.className='fb';
+  if(!v){fb.textContent='Tapez un mot ou un morceau de mot, par exemple ELEC.';return}
+  if(/\s/.test(v)){fb.textContent='Un seul mot à la fois, sans espace.';fb.className='fb ko';return}
+  var n=RR.norm(v);
+  if(st.free.some(function(f){return RR.norm(f.w)===n})){fb.textContent='Ce mot est déjà saisi.';fb.className='fb ko';return}
+  var hit=words.filter(function(w){return RR.norm(w).indexOf(n)>-1})[0];
+  if(hit){fb.textContent='« '+v.toUpperCase()+' » est trouvé dans « '+hit+' » du libellé de départ.';fb.className='fb ok'}
+  else{fb.textContent='« '+v.toUpperCase()+' » ne figure pas dans le libellé de départ : cette ligne ne suivrait plus la règle.';fb.className='fb ko'}}
+ function addFree(){
+  var v=$('freein').value.trim(),n=RR.norm(v);
+  if(!v||/\s/.test(v)||st.free.some(function(f){return RR.norm(f.w)===n})){feedback();return}
+  st.free.push({w:v.toUpperCase(),on:true});st.freeOpen=false;$('freein').value='';$('freebox').hidden=true;upd();}
+ function draw(){
+  var h=words.map(function(w,i){return '<button class="chip" data-i="'+i+'" aria-pressed="'+(st.sel.indexOf(i)>-1)+'">'+esc(w)+'</button>'}).join('');
+  h+=st.free.map(function(f,i){return '<span class="chipf"><button class="chip free" data-f="'+i+'" aria-pressed="'+f.on+'">'+esc(f.w)+' <em>saisi</em></button><button class="x" data-fx="'+i+'" aria-label="Supprimer le mot saisi '+esc(f.w)+'">✕</button></span>'}).join('');
+  h+='<button class="chip add" id="addchip" aria-expanded="'+st.freeOpen+'" aria-controls="freebox">+ mot</button>';
+  $('chips').innerHTML=h;
+  var m=st.sel.slice().sort(function(a,b){return a-b}).map(function(i){return words[i]});
+  var fr=st.free.filter(function(f){return f.on});
+  var n=m.length+fr.length;
+  $('motif').innerHTML=n?'<span>Motif :</span> '+m.map(function(w){return '<code>'+esc(w)+'</code>'}).join(' ')+' '+fr.map(function(f){return '<code class="fw">'+esc(f.w)+'</code> <span class="tg">saisi</span>'}).join(' ')+' <span class="mut">— '+n+' mot'+(n>1?'s':'')+', tous requis, n\'importe où dans le libellé'+(fr.length?' ; le mot saisi compte comme morceau de mot':'')+'</span>':'<span class="mut">Aucun mot choisi — cliquez un mot, ou ajoutez le vôtre avec « + mot », pour pouvoir enregistrer.</span>';
+  var rec=st.sens==='rec';var lo=$('optLoyer');lo.classList.toggle('dis',!rec);lo.querySelector('input').disabled=!rec;
+  $('loyerHint').textContent=rec?'(loyer charges comprises du mois en cours, bail du logement affecté)':'(sens « recette » uniquement)';
+  if(!rec&&st.mt==='loyer'){st.mt='none';document.querySelector('[name=mt][value=none]').checked=true}
+  document.querySelectorAll('#mont .opt').forEach(function(o){o.classList.toggle('on',o.querySelector('input').checked)});
+  var mh={none:'Sans condition, la règle vaut pour tous les montants.',loyer:'La règle ne s\'applique que si le montant est égal au loyer charges comprises du mois en cours (bail du logement affecté) : un montant différent (paiement partiel, rattrapage) reste à classer à la main.',exact:'Seule une ligne au montant exact est concernée.',plage:'Seules les lignes dont le montant est dans la plage sont concernées.'};
+  $('montHint').textContent=mh[st.mt||'none'];
+  var a=AFF[st.cpt]; $('cptHint').textContent=a?'Bailleur du compte : '+a.b+' — les logements, immeubles, SCI et compteurs ci-dessous sont limités à ce bailleur.':'Choisissez le compte : sans lui, aucune liste ne peut être proposée.';
+  $('cptname').textContent=a?a.n:'';$('cptbl').textContent=a?'bailleur : '+a.b:'';
+  $('lh').textContent=a?({log:'Logement',imm:'Immeuble',sci:'SCI / entité',recup:'Compteur de charges'}[st.niv])+' — '+a.b:'Affectation indisponible tant que le compte n\'est pas choisi';
+  var ah='';if(a){(a[st.niv]||[]).forEach(function(x){ah+='<label class="opt'+(st.aff===x?' on':'')+'"><input type="radio" name="af" value="'+x+'"'+(st.aff===x?' checked':'')+'> '+x+'</label>'});
+   if(showAll){var o=a===AFF.ca?AFF.cic:AFF.ca;ah+='<div class="alert warn"><b>Autre bailleur : '+o.b+'</b><br>Ces éléments n\'appartiennent pas au bailleur du compte.</div>';(o[st.niv]||[]).forEach(function(x){ah+='<label class="opt"><input type="radio" name="af" value="'+x+'"> '+x+' <span class="bdg warn">autre bailleur</span></label>'})}}
+  $('aff').innerHTML=ah;
+  $('affHint').textContent=a?(showAll?'Affichage de tous les bailleurs.':'Liste filtrée sur '+a.b+'.'):'';
+  $('voirtout').textContent=showAll?'Revenir au bailleur du compte':'Voir tout (autres bailleurs)';$('voirtout').style.display=a?'':'none';
+  var cold=st.k==='cold';
+  $('e1').innerHTML=cold?'Aucune ligne de départ : la règle s\'appliquera aux lignes des <b>prochains imports</b> et à celles d\'un import en cours.':(st.k==='imp'?'<b>La ligne de départ</b> prend la règle tout de suite (elle n\'est plus « à compléter »).':'<b>Ce mouvement</b> (ligne de départ) est reclassé directement à l\'enregistrement de la règle, sans confirmation supplémentaire.');
+  $('e2').innerHTML=cold?'Les mouvements enregistrés correspondants sont comptés pour information : <b>17 en base</b>, inchangés.':(st.k==='imp'?'<b>3 autres lignes</b> de l\'import en cours correspondent (décochables dans l\'aperçu) ; <b>11 mouvements déjà en base</b> sont comptés pour information, <b>inchangés</b>.':'<b>11 autres mouvements en base</b> correspondent : comptés pour information, <b>inchangés</b>. Les <b>prochains imports</b> suivront la règle.');
+  $('e3').textContent='Compte : '+(a?a.n+' ('+(cold?'choisi ici':'déjà choisi')+')':'à choisir')+' · sens : '+({dep:'dépenses',rec:'recettes',both:'dépenses et recettes'}[st.sens]);
+  $('save').disabled=!(n&&st.cpt);
+  $('save').title=$('save').disabled?'Il faut au moins un mot et un compte':'';
+  $('saved').hidden=!st.saved;
+  if(st.saved)$('savedtxt').innerHTML='<b>« '+m.concat(fr.map(function(f){return f.w})).map(esc).join(' + ')+' »</b> · '+({dep:'dépenses',rec:'recettes',both:'dépenses et recettes'}[st.sens])+' · '+(a?a.n:'');
+ }
+ root.addEventListener('click',function(e){
+  var c=e.target.closest('.chip[data-i]');if(c){var i=+c.dataset.i,p=st.sel.indexOf(i);p>-1?st.sel.splice(p,1):st.sel.push(i);upd();return}
+  var f=e.target.closest('[data-f]');if(f){var q=st.free[+f.dataset.f];q.on=!q.on;upd();return}
+  var x=e.target.closest('[data-fx]');if(x){st.free.splice(+x.dataset.fx,1);upd();return}
+  if(e.target.closest('#addchip')){st.freeOpen=!st.freeOpen;$('freebox').hidden=!st.freeOpen;draw();if(st.freeOpen){feedback();$('freein').focus()}return}
+  if(e.target.id==='freeok'){addFree();return}
+  if(e.target.id==='freeno'){st.freeOpen=false;$('freebox').hidden=true;$('freein').value='';draw();return}
+  if(e.target.id==='save'){st.saved=true;draw();return}
+  if(e.target.id==='savedmod'){st.saved=false;draw();return}
+  var s=e.target.closest('#sens button');if(s){st.sens=s.dataset.v;pr($('sens'),st.sens);upd();return}
+  var n=e.target.closest('#niv button');if(n){st.niv=n.dataset.v;st.aff=null;pr($('niv'),st.niv);upd();return}
+  if(e.target.id==='voirtout'){showAll=!showAll;upd()}
+ });
+ root.addEventListener('input',function(e){if(e.target.id==='freein')feedback()});
+ root.addEventListener('keydown',function(e){if(e.target.id==='freein'){if(e.key==='Enter'){e.preventDefault();addFree()}if(e.key==='Escape'){st.freeOpen=false;$('freebox').hidden=true;draw();$('addchip').focus()}}});
+ root.addEventListener('change',function(e){
+  if(e.target.name==='mt'){st.mt=e.target.value;upd()}
+  if(e.target.id==='coldv'){words=e.target.value.trim().split(/\s+/).filter(Boolean);st.sel=[];upd()}
+  if(e.target.id==='compte'){st.cpt=e.target.value;st.aff=null;upd()}
+  if(e.target.id==='cat'){catNiv();upd()}
+  if(e.target.name==='af'){st.aff=e.target.value;upd()}
+ });
+ document.querySelectorAll('[data-src]').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('[data-src]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});load(b.dataset.src)})});
+ load('imp');
+})();
+</script>
+</body>
+</html>

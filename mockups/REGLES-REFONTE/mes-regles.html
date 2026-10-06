@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mes règles — maquette REGLES-REFONTE</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.cols{display:grid;grid-template-columns:1fr;gap:16px}
+.acc h3{margin:0;font:800 var(--fs-md)/1.3 var(--display);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.acc .ah{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.rule{border:1px solid var(--bor);border-radius:var(--r);background:var(--sur);padding:12px 14px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) auto;gap:8px 16px;align-items:center;margin-top:8px}
+.rule.dup{border-color:var(--warn)}
+.rule .mo{display:flex;flex-wrap:wrap;gap:6px;font:700 var(--fs-md)/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-word}
+.rule .bs{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.rule .rs{font-size:var(--fs-base);color:var(--t2)}
+.rule .rs small{display:block;color:var(--t3);font-size:var(--fs-sm)}
+.rule .ac{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.rule .ex{grid-column:1/-1;border-top:1px dashed var(--bor);padding-top:6px;font-size:var(--fs-sm);color:var(--t2)}
+.rule .ex summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;color:var(--info);font-weight:600}
+.rule .dupmsg{grid-column:1/-1;font-size:var(--fs-sm);background:var(--warn-soft);border-radius:var(--r);padding:8px 10px;color:var(--t1);display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+@container (max-width:800px){.rule{grid-template-columns:1fr}.rule .ac{justify-content:flex-start}}
+.scrim[hidden]{display:none}
+.acc.nocpt{border-color:var(--warn)}
+.toolbar{display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+@container (max-width:800px){@container (max-width:480px){.rule .exn{font-size:var(--fs-sm)}
+.rule .exn summary{list-style:none;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;gap:6px;color:var(--t3);font-weight:600}
+.rule .exn summary:hover{color:var(--info)}
+.rule .exn[open]{grid-column:1/-1;border-top:1px dashed var(--bor);padding-top:2px}
+.toast{position:sticky;bottom:12px;align-self:center}
+</style>
+</head>
+<body>
+<header class="mk-bar">
+  <a class="back" href="index.html">← Maquettes</a>
+  <h1>Mes règles<small>Liste par compte, règles historiques « Compte à choisir », doublons, exceptions, modification</small></h1>
+  <div><span class="mk-lbl">Format</span><span class="mk-seg" role="group" aria-label="Format">
+    <button data-format-btn="pc" aria-pressed="true">PC 1280</button><button data-format-btn="tab" aria-pressed="false">Tablette 768</button><button data-format-btn="tel" aria-pressed="false">Téléphone 390</button></span></div>
+  <div><span class="mk-lbl">Thème</span><span class="mk-seg" role="group" aria-label="Thème">
+    <button data-theme-btn="auto" aria-pressed="true">Auto</button><button data-theme-btn="light" aria-pressed="false">Clair</button><button data-theme-btn="dark" aria-pressed="false">Sombre</button></span></div>
+</header>
+<main class="stage">
+
+<div class="device" data-format="pc" id="dev">
+ <div class="appbg"><b>ImmoTrack</b> Réglages · Règles de classement <span style="margin-left:auto" class="mut">accessible aussi depuis Loyers &amp; Mouvements</span></div>
+ <div class="page" style="display:flex;flex-direction:column;gap:16px">
+  <div class="toolbar"><div><div style="font:800 var(--fs-h1)/1.2 var(--display)">Mes règles</div><div class="hint" style="margin:0">Classées par compte. Une règle ne modifie jamais les mouvements déjà enregistrés.</div></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="mk-seg" role="group" aria-label="Bailleur"><button data-b="SCI Dupont" aria-pressed="true">Bailleur : SCI Dupont</button><button data-b="all" aria-pressed="false">Voir tout</button></span><button class="btn pri">+ Nouvelle règle</button></div></div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div id="list" class="cols"></div>
+ </div>
+</div>
+</main>
+<div class="scrim" id="edscrim" hidden style="position:fixed;inset:0;z-index:60;align-items:flex-start;overflow:auto;padding:12px"><div class="modal" style="margin:auto" role="dialog" aria-modal="true" aria-labelledby="edt" id="ed"></div></div>
+<script src="_shared.js"></script>
+<script>
+(function(){
+ var B='SCI Dupont',$=function(i){return document.getElementById(i)};
+ function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+ var ACC=[
+  {id:'cic',n:'CIC Pro ···4821',b:'SCI Dupont'},{id:'bp',n:'Banque Populaire ···0937',b:'SCI Dupont'},{id:'ca',n:'Crédit Agricole ···2210',b:'Didier Keller (nom propre)'}];
+ var CATS=['Charges récupérables','Loyers encaissés','Prêt','Prêt — Assurance emprunteur','Taxe foncière (et taxes annexes)','Primes d\'assurance (PNO, GLI)'];
+ var R=[
+  {id:1,c:'cic',w:['SARAR','SYNDIC'],s:'dep',mt:null,cat:'Charges récupérables',aff:'Charges communes Ferrette — tantièmes',exc:['18/09/2026 · −4 583,03 € · Travaux peinture paliers (sortie de la règle)']},
+  {id:2,c:'cic',w:['SARAR'],s:'dep',mt:null,cat:'Charges récupérables',aff:'Charges communes Ferrette — tantièmes',exc:[],dup:1},
+  {id:3,c:'cic',w:['LOYER','FERRETTE','101'],s:'rec',mt:{t:'loyer',v:680},cat:'Loyers encaissés',aff:'Ferrette 101',exc:[]},
+  {id:4,c:'',w:['EDF','CLIENTS'],free:['ELEC'],s:'dep',mt:null,cat:'Charges récupérables',aff:'Eau / énergie Ferrette — sous-compteurs',exc:[]},
+  {id:5,c:'cic',w:['ASSURANCE','EMPRUNTEUR'],s:'dep',mt:{t:'exact',v:18.4},cat:'Prêt — Assurance emprunteur',aff:'Immeuble Ferrette',exc:[]},
+  {id:6,c:'bp',w:['ECHEANCE','PRET'],s:'dep',mt:{t:'plage',a:1040,b:1060},cat:'Prêt',aff:'Immeuble Ferrette',exc:[]},
+  {id:7,c:'',w:['TAXE','FONCIERE'],s:'dep',mt:null,cat:'Taxe foncière (et taxes annexes)',aff:'Studio Strasbourg — Krutenau',exc:[]},
+  {id:8,c:'',w:['ASSURANCE','PNO'],s:'dep',mt:null,cat:'Primes d\'assurance (PNO, GLI)',aff:'(aucune affectation)',exc:[]}];
+ function eur(v){return v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' €'}
+ function mtxt(m){return !m?'':m.t==='loyer'?'= loyer du bail ('+eur(m.v)+')':m.t==='exact'?'montant exact '+eur(m.v):'de '+eur(m.a)+' à '+eur(m.b)}
+ function sbd(s){return s==='dep'?'<span class="bdg neg">Dépense</span>':s==='rec'?'<span class="bdg pos">Recette</span>':'<span class="bdg">Les deux</span>'}
+ function pills(r){return r.w.map(function(w){return '<span class="pill">'+esc(w)+'</span>'}).join('')+(r.free||[]).map(function(w){return '<span class="pill free">'+esc(w)+' <em>saisi</em></span>'}).join('')}
+ function rget(id){return R.filter(function(r){return r.id===id})[0]}
+ function acct(id){return ACC.filter(function(x){return x.id===id})[0]}
+ function say(t){$('msg').innerHTML=t?'<div class="alert pos toast"><b>'+t+'</b> <span class="mut">(maquette : rien n\'est enregistré)</span></div>':''}
+ function card(r){
+  var n=r.exc.length;
+  return '<div class="rule'+(r.dup?' dup':'')+'" data-id="'+r.id+'"><div><div class="mo">'+pills(r)+'</div><div class="bs">'+(r.c?'':'<span class="bdg warn">Compte à choisir</span>')+sbd(r.s)+(r.mt?'<span class="bdg adv">'+mtxt(r.mt)+'</span>':'')+(r.dup?'<span class="bdg warn">⚠ Doublon</span>':'')+'</div></div>'+
+   '<div class="rs">→ '+esc(r.cat)+'<small>'+esc(r.aff)+'</small></div>'+
+   '<div class="ac">'+(r.c?'<button class="lnk" data-edit="'+r.id+'">Modifier</button>':'<button class="lnk" data-edit="'+r.id+'">Ouvrir et choisir le compte</button>')+'<button class="lnk" data-del="'+r.id+'">Supprimer</button></div>'+
+   (r.dup?'<div class="dupmsg"><span>Même compte, même résultat que « SARAR SYNDIC » : « SARAR » est plus large et la recouvre.</span><span><button class="lnk" data-merge="'+r.id+'">Fusionner (garder « SARAR SYNDIC »)</button><button class="lnk" data-keep="'+r.id+'">Garder les deux</button></span></div>':'')+
+   (n?'<details class="exn"><summary>'+n+' exception'+(n>1?'s':'')+'</summary>'+r.exc.map(function(e,i){return '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">'+esc(e)+' <button class="lnk" data-xdel="'+r.id+':'+i+'">Supprimer l\'exception</button></div>'}).join('')+'<div class="hint">Supprimer l\'exception ne reclasse rien : la règle s\'appliquera à cette ligne si elle revient dans un import futur.</div></details>':'')+'</div>'}
+ function draw(){
+  var vis=R.filter(function(r){var a=acct(r.c);return r.c&&(B==='all'||a.b===B)});
+  var nc=R.filter(function(r){return !r.c});
+  var h='';
+  if(nc.length)h+='<div class="acc card nocpt"><div class="ah"><h3>Compte à choisir <span class="bdg warn">règles historiques</span></h3><span class="mut" style="font-size:12px">'+nc.length+' règle'+(nc.length>1?'s':'')+'</span></div><div class="hint" style="margin:0">Créées avant l\'obligation de compte : elles restent actives sur tous les comptes. Ouvrez une règle pour choisir son compte.</div>'+nc.map(card).join('')+'</div>';
+  ACC.forEach(function(a){var rs=vis.filter(function(r){return r.c===a.id});if(!rs.length)return;
+   h+='<div class="acc card"><div class="ah"><h3>'+a.n+' <span class="bdg">bailleur : '+a.b+'</span></h3><span class="mut" style="font-size:12px">'+rs.length+' règle'+(rs.length>1?'s':'')+'</span></div>'+rs.map(card).join('')+'</div>'});
+  if(B!=='all')h+='<div class="hint" style="text-align:center">Les règles de « Didier Keller (nom propre) » ne sont pas affichées. <button class="lnk" data-b="all">Voir tout</button></div>';
+  $('list').innerHTML=h;}
+ /* ── panneau de modification : mêmes composants que la création (puces, + mot, sens, montant) ── */
+ var st=null;
+ function fnum(v){return v==null?'':String(v).replace('.',',')}
+ function pnum(t){return parseFloat(String(t).replace(/\s/g,'').replace(',','.'))}
+ function openRule(id){var r=rget(id);
+  st={id:id,words:r.w.slice(),sel:r.w.map(function(_,i){return i}),free:(r.free||[]).map(function(w){return {w:w,on:true}}),freeOpen:false,sens:r.s,mt:r.mt?r.mt.t:'none',v:r.mt&&r.mt.v!=null?r.mt.v:'',a:r.mt&&r.mt.a!=null?r.mt.a:'',b:r.mt&&r.mt.b!=null?r.mt.b:'',cpt:r.c,cat:r.cat,hadCpt:!!r.c};
+  var g={};ACC.forEach(function(a){(g[a.b]=g[a.b]||[]).push(a)});
+  var opts='<option value="">— Choisir un compte —</option>'+Object.keys(g).map(function(b){return '<optgroup label="Bailleur : '+b+'">'+g[b].map(function(a){return '<option value="'+a.id+'"'+(a.id===r.c?' selected':'')+'>'+a.n+'</option>'}).join('')+'</optgroup>'}).join('');
+  var co=CATS.map(function(c){return '<option'+(c===r.cat?' selected':'')+'>'+c+'</option>'}).join('');
+  $('ed').innerHTML='<div class="mh"><div><h2 id="edt">Modifier la règle</h2><p id="edsub"></p></div><button class="lnk" data-close aria-label="Fermer">✕</button></div>'+
+   '<div class="mb">'+
+   '<div class="sec"><h3><span class="n">1</span> Motif — cochez les mots, ou ajoutez le vôtre</h3><div class="chips" id="chips" role="group" aria-label="Mots du motif"></div>'+
+    '<div class="freebox" id="freebox" hidden><label for="freein" class="lab">Un mot, ou un morceau de mot</label><div class="row"><input class="inp" id="freein" placeholder="ex. ELEC" autocomplete="off" autocapitalize="characters" aria-describedby="freefb"><button class="btn pri sm" id="freeok">Ajouter</button><button class="btn sm" id="freeno">Annuler</button></div><div class="fb" id="freefb" role="status"></div></div>'+
+    '<div class="motif" id="motif"></div><p class="hint">Tous les mots cochés doivent figurer dans le libellé, n\'importe où ; un mot saisi est cherché comme morceau de mot.</p></div>'+
+   '<div class="sec"><h3><span class="n">2</span> Sens du mouvement</h3><div class="seg" id="sens" role="group" aria-label="Sens"><button data-v="dep">Dépense</button><button data-v="rec">Recette</button><button data-v="both">Les deux</button></div></div>'+
+   '<div class="sec"><h3><span class="n">3</span> Condition de montant <span class="bdg">optionnelle</span></h3><div style="display:flex;flex-direction:column;gap:8px" id="mont">'+
+    '<label class="opt"><input type="radio" name="mt" value="none"> Aucune condition de montant</label>'+
+    '<label class="opt" id="optLoyer"><input type="radio" name="mt" value="loyer"> Montant = loyer CC du mois <span class="mut" id="loyerHint"></span></label>'+
+    '<label class="opt"><input type="radio" name="mt" value="exact"> Montant exact <input class="inp" id="mv" inputmode="decimal" aria-label="Montant exact" value="'+fnum(st.mt==='exact'?st.v:'')+'"> €</label>'+
+    '<label class="opt"><input type="radio" name="mt" value="plage"> Plage <input class="inp" id="ma" inputmode="decimal" aria-label="Minimum" value="'+fnum(st.a)+'"> à <input class="inp" id="mb" inputmode="decimal" aria-label="Maximum" value="'+fnum(st.b)+'"> €</label></div></div>'+
+   '<div class="sec"><h3><span class="n">4</span> Compte '+(st.hadCpt?'':'<span class="bdg neg">obligatoire pour enregistrer</span>')+'</h3><div class="fld"><select class="inp" id="edcpt" aria-label="Compte">'+opts+'</select></div><p class="hint" id="edhint"></p></div>'+
+   '<div class="sec"><h3><span class="n">5</span> Résultat</h3><div class="grid2"><div class="fld"><label for="edcat">Catégorie</label><select class="inp" id="edcat">'+co+'</select></div><div class="fld"><span class="lab">Affectation</span><div class="ro"><span class="mut">'+esc(r.aff)+'</span></div></div></div></div>'+
+   '</div><div class="mf"><button class="btn" data-close>Annuler</button><button class="btn pri" id="edsave" disabled>Enregistrer</button></div>';
+  $('edscrim').hidden=false;edDraw();(st.hadCpt?$('chips').querySelector('button'):$('edcpt')).focus();}
+ function edDraw(){
+  var h=st.words.map(function(w,i){return '<button class="chip" data-i="'+i+'" aria-pressed="'+(st.sel.indexOf(i)>-1)+'">'+esc(w)+'</button>'}).join('');
+  h+=st.free.map(function(f,i){return '<span class="chipf"><button class="chip free" data-f="'+i+'" aria-pressed="'+f.on+'">'+esc(f.w)+' <em>saisi</em></button><button class="x" data-fx="'+i+'" aria-label="Supprimer le mot saisi '+esc(f.w)+'">✕</button></span>'}).join('');
+  h+='<button class="chip add" id="addchip" aria-expanded="'+st.freeOpen+'" aria-controls="freebox">+ mot</button>';
+  $('chips').innerHTML=h;
+  var m=st.sel.slice().sort(function(a,b){return a-b}).map(function(i){return st.words[i]}),fr=st.free.filter(function(f){return f.on}),n=m.length+fr.length;
+  $('motif').innerHTML=n?'<span>Motif :</span> '+m.map(function(w){return '<code>'+esc(w)+'</code>'}).join(' ')+' '+fr.map(function(f){return '<code>'+esc(f.w)+'</code> <span class="bdg acc">saisi</span>'}).join(' ')+' <span class="mut">— '+n+' mot'+(n>1?'s':'')+', tous requis</span>':'<span class="mut">Aucun mot choisi : cochez un mot ou ajoutez le vôtre pour pouvoir enregistrer.</span>';
+  document.querySelectorAll('#sens button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===st.sens))});
+  var rec=st.sens==='rec';$('optLoyer').classList.toggle('dis',!rec);$('optLoyer').querySelector('input').disabled=!rec;
+  $('loyerHint').textContent=rec?'(loyer charges comprises du mois en cours)':'(sens « recette » uniquement)';
+  if(!rec&&st.mt==='loyer')st.mt='none';
+  document.querySelectorAll('#mont .opt').forEach(function(o){var i=o.querySelector('input[type=radio]');i.checked=i.value===st.mt;o.classList.toggle('on',i.checked)});
+  var a=acct(st.cpt);$('edsub').textContent=st.hadCpt?'Compte : '+acct(st.cpt).n+'. Modifiez le motif, le sens, le montant ou le résultat.':'Règle historique, créée avant l\'obligation de compte : elle reste active sur tous les comptes tant que vous n\'en choisissez pas.';
+  $('edhint').textContent=a?'Bailleur : '+a.b+'. La règle ira dans le groupe de ce compte.':'Choisissez le compte : le bailleur en découle et filtre les listes d\'affectation.';
+  var ok=n>0&&!!a;$('edsave').disabled=!ok;$('edsave').title=ok?'':(a?'Il faut au moins un mot':'Choisissez un compte');}
+ function fb(){var v=$('freein').value.trim(),f=$('freefb');f.className='fb';
+  if(!v){f.textContent='Tapez un mot ou un morceau de mot, par exemple ELEC.';return}
+  if(/\s/.test(v)){f.textContent='Un seul mot à la fois, sans espace.';f.className='fb ko';return}
+  if(st.free.some(function(x){return RR.norm(x.w)===RR.norm(v)})){f.textContent='Ce mot est déjà saisi.';f.className='fb ko';return}
+  f.textContent='« '+v.toUpperCase()+' » sera cherché comme morceau de mot.';f.className='fb ok'}
+ function addFree(){var v=$('freein').value.trim();
+  if(!v||/\s/.test(v)||st.free.some(function(x){return RR.norm(x.w)===RR.norm(v)})){fb();return}
+  st.free.push({w:v.toUpperCase(),on:true});st.freeOpen=false;$('freebox').hidden=true;$('freein').value='';edDraw();}
+ function closeRule(){$('edscrim').hidden=true;st=null}
+ function save(){var r=rget(st.id);
+  r.w=st.sel.slice().sort(function(a,b){return a-b}).map(function(i){return st.words[i]});
+  var fr=st.free.filter(function(f){return f.on}).map(function(f){return f.w});if(fr.length)r.free=fr;else delete r.free;
+  r.s=st.sens;r.c=st.cpt;r.cat=st.cat;
+  r.mt=st.mt==='none'?null:st.mt==='loyer'?{t:'loyer',v:680}:st.mt==='exact'?{t:'exact',v:pnum($('mv').value)||0}:{t:'plage',a:pnum($('ma').value)||0,b:pnum($('mb').value)||0};
+  closeRule();draw();say('Règle modifiée')}
+ document.addEventListener('click',function(e){var t=e.target,x;
+  if((x=t.closest('[data-b]'))){B=x.dataset.b;document.querySelectorAll('.mk-seg [data-b]').forEach(function(y){y.setAttribute('aria-pressed',String(y.dataset.b===B))});draw();return}
+  if((x=t.closest('[data-edit]'))){openRule(+x.dataset.edit);return}
+  if((x=t.closest('[data-del]'))){var id=+x.dataset.del;R=R.filter(function(r){return r.id!==id});draw();say('Règle supprimée');return}
+  if((x=t.closest('[data-merge]'))){var id2=+x.dataset.merge;R=R.filter(function(r){return r.id!==id2});draw();say('Règles fusionnées : « SARAR SYNDIC » est conservée');return}
+  if((x=t.closest('[data-keep]'))){rget(+x.dataset.keep).dup=0;draw();say('Les deux règles sont conservées');return}
+  if((x=t.closest('[data-xdel]'))){var p=x.dataset.xdel.split(':');rget(+p[0]).exc.splice(+p[1],1);draw();say('Exception supprimée');return}
+  if(!st)return;
+  if(t.closest('[data-close]')){closeRule();return}
+  if(t.id==='edsave'){save();return}
+  if((x=t.closest('.chip[data-i]'))){var i=+x.dataset.i,q=st.sel.indexOf(i);q>-1?st.sel.splice(q,1):st.sel.push(i);edDraw();return}
+  if((x=t.closest('[data-f]'))){var f=st.free[+x.dataset.f];f.on=!f.on;edDraw();return}
+  if((x=t.closest('[data-fx]'))){st.free.splice(+x.dataset.fx,1);edDraw();return}
+  if(t.closest('#addchip')){st.freeOpen=!st.freeOpen;edDraw();$('freebox').hidden=!st.freeOpen;if(st.freeOpen){fb();$('freein').focus()}return}
+  if(t.id==='freeok'){addFree();return}
+  if(t.id==='freeno'){st.freeOpen=false;$('freebox').hidden=true;$('freein').value='';edDraw();return}
+  if((x=t.closest('#sens button'))){st.sens=x.dataset.v;edDraw()}});
+ document.addEventListener('change',function(e){if(!st)return;var t=e.target;
+  if(t.name==='mt'){st.mt=t.value;edDraw()}
+  if(t.id==='edcpt'){st.cpt=t.value;edDraw()}
+  if(t.id==='edcat'){st.cat=t.value}});
+ document.addEventListener('input',function(e){if(st&&e.target.id==='freein')fb()});
+ document.addEventListener('keydown',function(e){if(!st)return;
+  if(e.target.id==='freein'){if(e.key==='Enter'){e.preventDefault();addFree();return}if(e.key==='Escape'){st.freeOpen=false;$('freebox').hidden=true;edDraw();$('addchip').focus();return}}
+  if(e.key==='Escape')closeRule()});
+ draw();
+})();
+</script>
+</body>
+</html>
