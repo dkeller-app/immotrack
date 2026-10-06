@@ -144,6 +144,53 @@ describe('_refusDeconnexionLocale — un miroir IndexedDB compte (plus de clé l
   });
 });
 
+// ── Signaux du miroir (supabase-entry, M.surSignal) ───────────────────────────────────────────
+describe('Signaux du miroir — double panne hors ligne (audit final 🟡3)', () => {
+  /** Le VRAI gestionnaire de signaux de supabase-entry.js (déclarations + callback), exécuté. */
+  function gestionnaire(win) {
+    const i = ENTRY.indexOf('const _dejaDit = new Set()');
+    const j = ENTRY.indexOf('M.surSignal(s => {', i);
+    expect(i > 0 && j > i).toBe(true);
+    const decl = ENTRY.slice(i, j);
+    const corps = accolades(ENTRY, j + 'M.surSignal(s => '.length);
+    return new Function('window', '_stockageLocal', 'console', decl + '\nreturn (s => ' + corps + ');')(win, Stockage, muet);
+  }
+  /** localStorage plein + IndexedDB qui accepte l'initialisation puis REFUSE l'écriture (disque plein). */
+  async function monter({ horsLigne = true, pasAJour = () => false } = {}) {
+    const toasts = [];
+    const win = { __immoHorsLigne: horsLigne, __immoMiroirPasAJour: pasAJour, showToast: (m, t) => toasts.push([t, m]) };
+    const st = fauxStockageQuota({ quota: 10 });
+    const idb = fauxIdb();
+    const m = creerMiroir({ idb, stockage: st });
+    m.surSignal(gestionnaire(win));
+    await m.initialiser();
+    idb.ecrire = async () => { throw Object.assign(new Error('QuotaExceededError'), { name: 'QuotaExceededError' }); };
+    return { m, toasts, idb };
+  }
+  const T = Stockage.TEXTES_ECHEC_MIROIR;
+
+  it('HORS LIGNE : IndexedDB refuse PUIS le stockage local aussi → « PAS enregistrée » (le « enregistré » de saveDB est démenti)', async () => {
+    const { m, toasts } = await monter();
+    try { m.ecrire(base([edl(5, 5)])); } catch (_e) { /* journal refusé : saveDB a pu rendre vrai (🟠1) */ }
+    await m.attendre();
+    expect(toasts[toasts.length - 1]).toEqual(['err', T.horsLigne]);
+    expect(toasts.map(t => t[1])).not.toContain('Copie hors ligne non mise à jour : stockage de cet appareil plein.');
+  });
+  it('EN LIGNE : même double panne → pas de texte de perte ici (avis « copie » de saveDB, D1 B)', async () => {
+    const { m, toasts } = await monter({ horsLigne: false, pasAJour: () => true });
+    try { m.ecrire(base([edl(5, 5)])); } catch (_e) {}
+    await m.attendre();
+    expect(toasts.map(t => t[1])).not.toContain(T.horsLigne);
+  });
+  it('HORS LIGNE, echec-repli SEUL (sans echec-ecriture juste avant) : texte générique inchangé', () => {
+    const toasts = [];
+    const f = gestionnaire({ __immoHorsLigne: true, __immoMiroirPasAJour: () => false, showToast: (m, t) => toasts.push([t, m]) });
+    f({ type: 'echec-ecriture' }); f({ type: 'repli' }); f({ type: 'echec-repli' });
+    expect(toasts.map(t => t[1])).not.toContain(T.horsLigne);
+    expect(toasts[toasts.length - 1]).toEqual(['err', 'Copie hors ligne non mise à jour : stockage de cet appareil plein.']);
+  });
+});
+
 // ── Purges ───────────────────────────────────────────────────────────────────────────────────
 function extraireTeardown(src) {
   const debut = src.indexOf('_teardownSession = async (');

@@ -527,12 +527,24 @@ async function boot() {
       'echec-repli': 'Copie hors ligne non mise à jour : stockage de cet appareil plein.',
       'copie-incomplete': 'Copie hors ligne incomplète sur cet appareil : la base ne tient pas dans le stockage local. Les états des lieux saisis sont conservés.',
     }
+    // Audit final 🟡3 — le signal PRÉCÉDENT : un `echec-repli` qui suit immédiatement un `echec-ecriture`
+    // est une DOUBLE PANNE (IndexedDB a refusé, puis le stockage local aussi).
+    let _signalPrecedent = null
     M.surSignal(s => {
       console.warn('[Supabase] miroir local :', s.type, s.erreur)
+      const _doublePanne = s.type === 'echec-repli' && _signalPrecedent === 'echec-ecriture'
+      _signalPrecedent = s.type
       // STOCKAGE lot 3 (D1 B) : en ligne, une copie complète non écrite n'est pas une perte (le cloud a
       // la modification, le journal garde les EDL) → état « pas à jour » + avis unique de saveDB, pas de
       // message d'erreur. Hors ligne, le texte ci-dessous reste.
       if (s.type === 'echec-repli') { try { if (typeof window.__immoMiroirPasAJour === 'function' && window.__immoMiroirPasAJour()) return } catch (e) {} }
+      // HORS LIGNE, double panne : saveDB a pu dire « enregistré » (écriture IndexedDB planifiée, audit 🟠1)
+      // et la modification n'est plus sur aucun support de l'appareil. Le dire avec le texte de perte de
+      // saveDB (« PAS enregistrée… »), pas avec le texte générique de copie non mise à jour.
+      if (_doublePanne && window.__immoHorsLigne) {
+        const perte = _stockageLocal && _stockageLocal.TEXTES_ECHEC_MIROIR && _stockageLocal.TEXTES_ECHEC_MIROIR.horsLigne
+        if (perte) { try { if (typeof window.showToast === 'function') window.showToast(perte, 'err', 10000) } catch (e) {} return }
+      }
       const t = TEXTES[s.type]
       if (!t || _dejaDit.has(s.type)) return
       _dejaDit.add(s.type)
