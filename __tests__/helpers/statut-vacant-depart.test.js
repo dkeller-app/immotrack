@@ -124,7 +124,7 @@ describe('3 · DÉPÔTS DÉTENUS : reçu et pas encore restitué, jamais « lot 
       return h.slice(h.indexOf('Dépôts détenus'), h.indexOf('Dépôts détenus') + 120);
     };
     expect(tuile({ A1: DEPART })).toContain('900 €');
-    expect(tuile({ A1: DEPART })).toContain('1 dépôts');
+    expect(tuile({ A1: DEPART })).toContain('1 dépôt ·');
     expect(tuile({ A1: { ...DEPART, dgRestitueAt: '2026-10-20' } })).toContain('0 €');
   });
 });
@@ -804,5 +804,26 @@ describe('25 · confirmation de relocation (VRAI saveBail) : fin de l\'ancien ba
     const t = confirmation({ ...BAIL, dgRestitueAt: '2026-10-20' });
     expect(t).toContain("L'ancien bail sera terminé le 14/11/2026 (veille du nouveau bail).");
     expect(t).not.toContain("n'a pas de restitution enregistrée");
+  });
+});
+describe('26 · dépôts détenus : doublons d\'archive, bail courant clôturé, pluriel du bandeau', () => {
+  const LEA = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true };
+  const det = (baux, histo, lot = { ref: 'A1' }) => { const DB = dbDe(baux); DB.baux_historique = histo; return monter(DB, STATUT).fn._dgDetenusDuLot(lot); };
+  it('la même archive deux fois (même bailHistCle) : un seul dépôt de 900 €', () => {
+    expect(det({}, [{ ...LEA }, { ...LEA }])).toEqual([900]);
+  });
+  it('doublon dont une copie porte la restitution : rendu (0 dépôt) ; copie supprimée ignorée', () => {
+    expect(det({}, [{ ...LEA }, { ...LEA, dgRestitueAt: '2026-10-20' }])).toEqual([]);
+    expect(det({}, [{ ...LEA }, { ...LEA, _deleted: true }])).toEqual([900]);
+  });
+  it('bail COURANT clôturé (non tombstone) au dépôt nul : jamais le repli sur le dépôt de la fiche du lot', () => {
+    expect(det({ A1: { ...BAIL, ref: 'A1', dg: 0, cloture: true } }, [], { ref: 'A1', dg: 500 })).toEqual([]);
+    expect(det({ A1: { ...BAIL, ref: 'A1', dg: 0 } }, [], { ref: 'A1', dg: 500 })).toEqual([500]);
+  });
+  it('bandeau PC (VRAI _renderPilotage) : « 1 dépôt » au singulier', () => {
+    const DB = dbDe({ B2: { ...BAIL, dg: 400 } });
+    const { fn, els } = monter(DB, [...STATUT, '_renderPilotage']);
+    try { fn._renderPilotage({ scopeLogs: DB.logements, yr: '2026', mo: null, activeEnt: '' }); } catch (e) { /* bulles non simulées */ }
+    expect(els['pil-strip'].innerHTML).toContain('1 dépôt · argent des locataires');
   });
 });

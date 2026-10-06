@@ -7642,7 +7642,7 @@ function _renderPilotage(ctx) {
     '<div class="pil-s1"><div class="k">Logements</div><div class="v">' + _occKpi.nbTotal + ' <small>· ' + _occKpi.nbVacants + ' vides</small></div>'
       + '<div class="s">' + _occKpi.nbOcc + ' loués</div></div>',
     '<div class="pil-s1"><div class="k">Dépôts détenus</div><div class="v">' + fmtN(dgTot) + '</div>'
-      + '<div class="s">' + nbDg + ' dépôts · argent des locataires</div></div>',
+      + '<div class="s">' + nbDg + ' dépôt' + (nbDg > 1 ? 's' : '') + ' · argent des locataires</div></div>',
     '<div class="pil-s1"><div class="k">Périmètre</div><div class="v" style="font-size:16px">' + (activeEnt ? esc(activeEnt) : 'Tout le parc') + '</div>'
       + '<div class="s">filtre entité global</div></div>'
   ].join('');
@@ -9963,7 +9963,17 @@ function _dgDetenusDuLot(l) {
   const out = [];
   const c = _dgDetenuDuBail(cur, (cur && !cur.cloture) ? l.dg : 0);
   if (c > 0) out.push(c);
-  (DB.baux_historique || []).forEach(function (h) { if (h && h.ref === l.ref) { const a = _dgDetenuDuBail(h, 0); if (a > 0) out.push(a); } });
+  // Une archive peut figurer deux fois (même bailHistCle — doublon de synchronisation) : comptée UNE fois ; si l'une des
+  // copies porte la restitution, le dépôt est rendu (Math.min).
+  const parCle = new Map();
+  (DB.baux_historique || []).forEach(function (h) {
+    if (!h || h._deleted || h.ref !== l.ref) return;
+    const a = _dgDetenuDuBail(h, 0);
+    const k = (typeof _bailHistCleDe === 'function') ? _bailHistCleDe(h) : '';
+    if (!k) { if (a > 0) out.push(a); return; }
+    parCle.set(k, parCle.has(k) ? Math.min(parCle.get(k), a) : a);
+  });
+  parCle.forEach(function (a) { if (a > 0) out.push(a); });
   return out;
 }
 // Montant détenu d'un lot, et NOMBRE de dépôts détenus (un lot reloué avant restitution en porte deux) : même
