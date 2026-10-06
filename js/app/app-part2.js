@@ -31568,10 +31568,21 @@ function rgpdShowErasePlan() {
 // R-0 (audit lot 6 🔴1) : le périmètre d'un bailleur est CELUI DE FINANCES (lots aux refs tolérantes, frais du
 // bailleur, mouvements posés sur ses immeubles) — `_finEntScope` + `_finScopeWeightCore`, jamais recopié.
 // null = pas de bailleur choisi (tout le patrimoine) ou résolveur absent (repli : refs exactes du module).
+// false = bailleur INCONNU (supprimé / renommé depuis le choix de la liste) : resolveScope retomberait sur « tout
+// le patrimoine » — on n'exporte JAMAIS les mouvements d'autres SCI sous son nom (contre-vérification lot 6 🟠1).
+// Vue BAILLEUR uniquement (kind 'ent', poids 0 ou 1) : une vue immeuble pondérerait les frais SCI (sciWeight), et
+// l'export écrirait en entier un frais compté à 1/n — refusé ici plutôt que réparti en silence (🟡A).
 function _comptaDansPerimetre(entNom) {
   if (!entNom || typeof _finEntScope !== 'function' || typeof window._finScopeWeightCore !== 'function') return null;
   const sc = _finEntScope(entNom, '');
-  return sc ? (m) => window._finScopeWeightCore(sc, m) > 0 : null;
+  if (!sc || sc.fallback || sc.kind !== 'ent' || typeof sc.sciWeight === 'function' || Number(sc.sciWeight) !== 1) return false;
+  return (m) => window._finScopeWeightCore(sc, m) > 0;
+}
+/** Bailleur de la liste introuvable : on le DIT et on n'exporte rien (jamais tout le patrimoine sous son nom). */
+function _comptaBailleurInconnu(o) {
+  if (!o || o.dansPerimetre !== false) return false;
+  showToast('Bailleur « ' + (o.entityNom || '') + ' » introuvable (supprimé ou renommé) — recharger la page puis le choisir à nouveau', 'err', 8000);
+  return true;
 }
 function _comptaBuildOpts() {
   const yr = v('compta-year') || String(new Date().getFullYear() - 1);
@@ -31594,12 +31605,18 @@ function _comptaNonExportes(o, mvts) {
 }
 // Audit lot 6 🟠3 — le message ne suffit pas : le fichier envoyé à l'expert-comptable n'en garde rien. Le toast
 // porte donc le geste « Télécharger la liste » (le CSV du dossier ZIP), sans toucher au FEC / journal / grand livre.
-function _comptaBoutonListe(src) {
-  return ' <button class="btn bp bb" style="margin-left:10px;padding:4px 12px;font-size:12px" onclick="_comptaTelechargerNonExportes(\'' + src + '\')">Télécharger la liste</button>';
+// Les options du téléchargement sont FIGÉES au moment du toast (contre-vérification 🟡E) : changer l'année ou le
+// bailleur pendant les 12 s du message ne change pas la liste — elle accompagne le fichier qui vient d'être pris.
+let _comptaListeOpts = null;
+function _comptaBoutonListe(src, o) {
+  _comptaListeOpts = o || null;
+  // 44 px de haut (charte : cible tactile) — le padding en ligne écrasait celui de la règle mobile (🟡B).
+  return ' <button class="btn bp bb" style="margin-left:10px;min-height:44px;padding:4px 12px;font-size:12px" onclick="_comptaTelechargerNonExportes(\'' + src + '\')">Télécharger la liste</button>';
 }
 function _comptaTelechargerNonExportes(src) {
-  const o = src === 'dc' ? _dcBuildOpts() : _comptaBuildOpts();
-  const ne = _comptaNonExportes(o);
+  const o = _comptaListeOpts || (src === 'dc' ? _dcBuildOpts() : _comptaBuildOpts());
+  if (_comptaBailleurInconnu(o)) return;
+  const ne = _comptaNonExportes(o, o._mvts);
   if (!ne || !ne.count || typeof window._nonExportesCsv !== 'function') { showToast('Aucun mouvement non exporté sur cette période', 'ok'); return; }
   const per = o.yr || ((o.from || '') + '_' + (o.to || ''));
   const nom = 'Mouvements-non-exportes_' + per + (o.entityNom ? '_' + o.entityNom.replace(/[^\w]+/g, '_') : '') + '.csv';
@@ -31609,11 +31626,12 @@ function _comptaTelechargerNonExportes(src) {
 function _comptaToastExport(okMsg, o) {
   const ne = _comptaNonExportes(o);
   const r = (ne && typeof window._nonExportesResume === 'function') ? window._nonExportesResume(ne) : '';
-  if (r) showToast(okMsg + ' · ' + r, 'warn', 12000, _comptaBoutonListe('compta')); else showToast(okMsg, 'ok');
+  if (r) showToast(okMsg + ' · ' + r, 'warn', 12000, _comptaBoutonListe('compta', o)); else showToast(okMsg, 'ok');
 }
 function downloadFEC() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
   const o = _comptaBuildOpts();
+  if (_comptaBailleurInconnu(o)) return;
   const ecr = window._buildEcritures(DB.mouvements || [], STD_CATEGORIES, o);
   const fec = window._toFEC(ecr, { entityNom: o.entityNom, from: o.from, to: o.to });
   _comptaDownload(fec, `FEC_${o.yr}${o.entityNom?'_'+o.entityNom.replace(/[^\w]+/g,'_'):''}.txt`, 'text/plain');
@@ -31623,6 +31641,7 @@ function downloadFEC() {
 function downloadJournal() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
   const o = _comptaBuildOpts();
+  if (_comptaBailleurInconnu(o)) return;
   const ecr = window._buildEcritures(DB.mouvements || [], STD_CATEGORIES, o);
   const csv = window._journalToCsv(ecr);
   _comptaDownload(csv, `Journal_${o.yr}${o.entityNom?'_'+o.entityNom.replace(/[^\w]+/g,'_'):''}.csv`, 'text/csv');
@@ -31632,6 +31651,7 @@ function downloadJournal() {
 function downloadGrandLivre() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
   const o = _comptaBuildOpts();
+  if (_comptaBailleurInconnu(o)) return;
   const ecr = window._buildEcritures(DB.mouvements || [], STD_CATEGORIES, o);
   const gl = window._buildGrandLivre(ecr);
   const csv = window._grandLivreToCsv(gl);
@@ -31668,6 +31688,7 @@ function openDossierComptable() {
   if (!window._dc || typeof window._buildMvtRows !== 'function' || !window._bk || !window._bk.storedZip) { showToast('Module compta non chargé', 'err'); return; }
   const o = _dcBuildOpts();
   if (o.from && o.to && o.from > o.to) { showToast('Période invalide (début après fin)', 'warn'); return; }
+  if (_comptaBailleurInconnu(o)) return;
   // Audit M1 : on FIGE la référence du tableau des mouvements ici et on la réutilise pour
   // les écritures dans _dcRun. Une hydratation cloud (`__immoSetDB` réassigne DB) entre le
   // récap et le clic « Télécharger » ne peut donc plus désaligner les `num` (plan vs FEC).
@@ -31685,7 +31706,7 @@ function openDossierComptable() {
   o._nonExp = _comptaNonExportes(o, mvts);   // lot 6, A2 : même périmètre, même tableau figé
   if (!rows.length) {
     const r = (o._nonExp && typeof window._nonExportesResume === 'function') ? window._nonExportesResume(o._nonExp) : '';
-    showToast('Aucun mouvement comptable sur cette période' + (r ? ' · ' + r : ''), 'warn', r ? 12000 : 5000, r ? _comptaBoutonListe('dc') : '');
+    showToast('Aucun mouvement comptable sur cette période' + (r ? ' · ' + r : ''), 'warn', r ? 12000 : 5000, r ? _comptaBoutonListe('dc', o) : '');
     return;
   }
   const plan = window._dc.buildPlan(rows, { documents: DB.documents || [], logements: DB.logements || [], extractionYmd: o.extractionYmd, entityNom: o.entityNom || 'Tous', from: o.from, to: o.to });

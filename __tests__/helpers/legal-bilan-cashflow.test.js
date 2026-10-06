@@ -97,6 +97,19 @@ describe('Bilan annuel — cash-flow lu dans Finances, colonne par lot = résult
     expect(somme).toBe(b.kpis.resultatFoncier);
   });
 
+  it('même périmètre que Finances : ref saisie avec espaces / casse, nom d’immeuble avec espace — rien ne se perd', () => {
+    const d = db();
+    d.logements.forEach((l) => { l.imm = 'Imm B '; });
+    d.mouvements.push({ date: '2025-10-15', cat: 'Travaux (entretien, réparation, amélioration)', db: 500, qui: '', imm: 'Imm B' });
+    d.mouvements.push({ date: '2025-11-10', cat: 'Loyers encaissés', cr: 200, qui: ' b-1 ' });
+    const b = _computeBilanAnnuel(d, STD, 'SCI B', 2025, {});
+    expect(b.kpis.totalRevenus).toBe(1700);                       // 1000 + 500 + 200 (ref tolérante)
+    expect(b.parLogement.find((l) => l.ref === 'B-1').revenus).toBe(1200);
+    expect(b.bailleurNonReparti).toEqual({ revenus: 0, charges: 500, resultatFiscal: -500 });
+    const somme = b.parLogement.reduce((s, l) => s + l.resultatFiscal, 0) + b.bailleurNonReparti.resultatFiscal;
+    expect(somme).toBe(b.kpis.resultatFoncier);
+  });
+
   it('openBilanAnnuel : une panne du moteur Finances n’empêche pas le bilan (« non disponible »)', () => {
     const sortie = { textContent: '', style: {} };
     const env = {

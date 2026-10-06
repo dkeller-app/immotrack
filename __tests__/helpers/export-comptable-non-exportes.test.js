@@ -90,7 +90,7 @@ describe('Câblage dans l’app', () => {
     const lancer = (mouvements) => {
       const toasts = [];
       const win = { _listNonExportes, _nonExportesResume };
-      const f = new Function('window', 'DB', 'STD_CATEGORIES', 'showToast', corps('_comptaNonExportes') + corps('_comptaBoutonListe') + corps('_comptaToastExport') + '\nreturn _comptaToastExport;');
+      const f = new Function('window', 'DB', 'STD_CATEGORIES', 'showToast', 'let _comptaListeOpts = null;\n' + corps('_comptaNonExportes') + corps('_comptaBoutonListe') + corps('_comptaToastExport') + '\nreturn _comptaToastExport;');
       f(win, { mouvements }, STD, (...a) => toasts.push(a))('FEC téléchargé (4 écritures)', OPTS);
       return toasts;
     };

@@ -12,6 +12,7 @@
  */
 
 import { _compute2044 } from './legal-2044.js';
+import { resolveScope, scopeWeight } from './finances-scope.js';
 import { periodeEnVigueurA } from './loyer-du-mois.js';
 import { finOccupationBail, bailLoueAu } from './fin-occupation.js';
 
@@ -48,10 +49,16 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
   // Logements de l'entité (actifs OU archivés dans l'année courante)
   const logements = (db.logements || [])
     .filter(l => isAlive(l) && l.entity === entityNom);
-  const refs = logements.map(l => l.ref);
-  // Immeubles de l'entité : une charge posée au niveau de l'immeuble (qui vide + imm : taxe foncière, PNO,
-  // syndic) appartient à l'entité — comme dans la 2044 et Finances (audit lot 6 🟠2).
-  const imms = [...new Set(logements.map(l => l.imm).filter(Boolean))];
+  // Périmètre = CELUI DE FINANCES (resolveScope / scopeWeight, jamais recopié — audit lot 6 🟠2 + 🟡D) : lots de
+  // l'entité (refs tolérantes : espaces, casse), frais du bailleur (`SCI:<nom>`) et charges posées sur ses
+  // immeubles (qui vide + imm, noms nettoyés). Vue BAILLEUR : chaque mouvement pèse 0 ou 1.
+  const scEntite = resolveScope({ ent: entityNom }, db.logements || [], { entites: (db.entites || []).filter(isAlive) });
+  // Repli de resolveScope (entité absente du catalogue) = « tout le patrimoine » : jamais pour le bilan d'UNE entité.
+  const mvtsEntite = scEntite.fallback
+    ? (db.mouvements || []).filter(m => m && !m._deleted && m.qui === 'SCI:' + entityNom)
+    : (db.mouvements || []).filter(m => scopeWeight(scEntite, m) > 0);
+  // Un lot : ses refs, comparées comme Finances (scope construit à la main = comparaison par scan tolérant).
+  const duLot = (l) => (m) => scopeWeight({ kind: 'ent', refs: [l.ref] }, m) > 0;
 
   // Baux historiques de l'entité finis dans l'année
   const bauxHist = (db.baux_historique || [])
@@ -62,18 +69,15 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
   // lui, une charge de catégorie maison comptait dans le tableau et disparaissait du détail
   // par logement (le total ne pouvait pas égaler la somme des logements).
   const mapping = (opts && opts.mapping) || null;
-  const fiscal = _compute2044(db.mouvements || [], stdCategories, {
-    from, to, entityNom, refs, imms, mapping
-  });
+  // Mouvements déjà filtrés sur le périmètre : `_compute2044` ne filtre plus que la période.
+  const fiscal = _compute2044(mvtsEntite, stdCategories, { from, to, mapping });
 
   // KPIs métier par logement
   // Lot 6, B — le détail d'un lot ne lit QUE les mouvements du lot. `_compute2044` filtré par entité garde
   // aussi les mouvements du BAILLEUR (`qui = 'SCI:<nom>'` : comptable, intérêts d'un prêt global…) : chaque
   // lot les comptait, la somme des lots dépassait l'entité. Ils ont leur propre ligne (`bailleurNonReparti`).
   const parLogement = logements.map(l => {
-    const lFiscal = _compute2044((db.mouvements || []).filter(m => m && m.qui === l.ref), stdCategories, {
-      from, to, entityNom, refs: [l.ref], mapping
-    });
+    const lFiscal = _compute2044(mvtsEntite.filter(duLot(l)), stdCategories, { from, to, mapping });
     // Détecter période de vacance (bail courant + historiques de cette année)
     const bailCourant = (db.baux && db.baux[l.ref] && isAlive(db.baux[l.ref])) ? db.baux[l.ref] : null;
     const histsForRef = (db.baux_historique || []).filter(b => isAlive(b) && b.ref === l.ref);
@@ -116,10 +120,9 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
     };
   });
 
-  // Mouvements du bailleur ou de ses immeubles, non rattachés à un lot : une ligne à part, jamais répartie ni perdue.
-  const fBailleur = _compute2044((db.mouvements || []).filter(m => m && (m.qui === 'SCI:' + entityNom || (!m.qui && m.imm && imms.includes(m.imm)))), stdCategories, {
-    from, to, entityNom, refs: [], imms, mapping
-  });
+  // Mouvements de l'entité rattachés à AUCUN de ses lots (frais du bailleur, charges d'immeuble) : une ligne à part,
+  // jamais répartie ni perdue — Σ lots + cette ligne = entité, par construction (même périmètre, partition).
+  const fBailleur = _compute2044(mvtsEntite.filter(m => !logements.some(l => duLot(l)(m))), stdCategories, { from, to, mapping });
   const bailleurNonReparti = (fBailleur.totalRecettes || fBailleur.totalCharges || fBailleur.totalInterets)
     ? { revenus: fBailleur.totalRecettes, charges: fBailleur.totalCharges, resultatFiscal: fBailleur.resultatFoncier }
     : null;

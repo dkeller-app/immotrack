@@ -62,6 +62,7 @@ function _perimetre(stdCategories, opts) {
     // `_finEntScope`) — mouvements du bailleur, de ses lots (refs tolérantes) ET de ses immeubles (qui vide
     // + imm). Le filtre historique ci-dessous (refs exactes) laissait disparaître ces derniers, ni écrits
     // ni listés. Il ne reste qu'en repli (appelants sans résolveur, tests historiques).
+    if (dansPerimetre === false) return false;   // bailleur introuvable : rien, jamais le repli
     if (typeof dansPerimetre === 'function') return !!dansPerimetre(m);
     if (entityNom) {
       const isGlobal = m.qui === 'SCI:' + entityNom;

@@ -68,6 +68,51 @@ describe('Export d’un bailleur : le périmètre est celui de Finances', () => 
     expect(net).toEqual({ 211: 1900, 221: 100, 227: 500 });
     expect([fin.loyersBrut, fin.honoraires, fin.taxe]).toEqual([1900, 100, 500]);
   });
+  // Contre-vérification 🟡C / 🟠1 — câblage EXÉCUTÉ (plus seulement cherché dans le source).
+  const opts = (ent, catalogue = ['SCI A', 'SCI B']) => {
+    const env = {
+      window: { _finScopeWeightCore: scopeWeight }, DB: { logements: LOGEMENTS }, _isAlive: (x) => !!x && !x._deleted,
+      v: (id) => ({ 'compta-year': '2025', 'compta-ent': ent }[id] || ''), _finCatMere: catMere,
+      _finEntScope: (e) => resolveScope({ ent: e }, LOGEMENTS, { entites: catalogue.map((nom) => ({ nom })) }),
+    };
+    return new Function(...Object.keys(env), corps('_comptaDansPerimetre') + corps('_comptaBuildOpts') + '\nreturn _comptaBuildOpts;')(...Object.values(env))();
+  };
+  it('_comptaBuildOpts exécuté : le prédicat de Finances écrit la charge d’immeuble, exclut l’autre bailleur', () => {
+    const o = opts('SCI A');
+    expect(typeof o.dansPerimetre).toBe('function');
+    expect(_buildMvtRows(MVTS, STD, o).map((r) => r.lib)).toEqual(['Taxe foncière immeuble', 'Loyer (ref saisie à la main)', 'Loyer A2', 'Comptable']);
+    expect(opts('').dansPerimetre).toBeNull();   // « Toutes » : tout le patrimoine, sans prédicat
+  });
+  it('bailleur INTROUVABLE (supprimé / renommé) : rien n’est exporté, jamais tout le patrimoine sous son nom', () => {
+    const o = opts('SCI X');
+    expect(o.dansPerimetre).toBe(false);
+    // même ses propres frais `SCI:SCI X` : le module ne retombe jamais sur le filtre historique
+    const avecFrais = [...MVTS, { date: '2025-07-01', cat: HONO, db: 50, qui: 'SCI:SCI X', lib: 'Frais X' }, { date: '2025-07-02', cat: 'Prêt', db: 50, qui: 'SCI:SCI X', lib: 'Prêt X' }];
+    expect(_buildMvtRows(avecFrais, STD, o)).toEqual([]);
+    expect(_listNonExportes(avecFrais, STD, o).count).toBe(0);
+    const toasts = [], fichiers = [];
+    const env = { showToast: (...a) => toasts.push(a), _comptaBuildOpts: () => o, _comptaDownload: (...a) => fichiers.push(a), DB: { mouvements: MVTS }, STD_CATEGORIES: STD, _auditLog: () => {},
+      window: { _buildEcritures, _toFEC: () => 'fec' } };
+    new Function(...Object.keys(env), corps('_comptaBailleurInconnu') + corps('downloadFEC') + '\nreturn downloadFEC;')(...Object.values(env))();
+    expect(fichiers).toEqual([]);
+    expect(toasts[0][0]).toContain('Bailleur « SCI X » introuvable');
+  });
+  it('« Télécharger la liste » : les options FIGÉES au toast (pas la liste déroulante relue), jamais une liste vide', () => {
+    const fichiers = [], toasts = [];
+    const env = {
+      window: { _listNonExportes, _nonExportesCsv }, DB: { mouvements: MVTS }, STD_CATEGORIES: STD, showToast: (...a) => toasts.push(a),
+      _comptaDownload: (contenu, nom) => fichiers.push(nom), _dcTodayYmd: () => '2026-10-06', _auditLog: () => {},
+      _comptaBuildOpts: () => { throw new Error('relu'); }, _dcBuildOpts: () => { throw new Error('relu'); },
+    };
+    const f = new Function(...Object.keys(env), 'let _comptaListeOpts = null;\n' + corps('_comptaBailleurInconnu') + corps('_comptaNonExportes') + corps('_comptaBoutonListe') + corps('_comptaTelechargerNonExportes') + '\nreturn { _comptaBoutonListe, _comptaTelechargerNonExportes };')(...Object.values(env));
+    expect(f._comptaBoutonListe('dc', { ...OPTS, yr: '2025' })).toContain('min-height:44px');
+    f._comptaTelechargerNonExportes('dc');
+    expect(fichiers).toEqual(['Mouvements-non-exportes_2025_SCI_A.csv']);
+    f._comptaBoutonListe('compta', { ...OPTS, from: '2030-01-01', to: '2030-12-31', yr: '2030' });
+    f._comptaTelechargerNonExportes('compta');
+    expect(fichiers).toHaveLength(1);
+    expect(toasts.at(-1)[0]).toBe('Aucun mouvement non exporté sur cette période');
+  });
   it('l’app injecte bien ce périmètre (FEC / journal / grand livre ET dossier ZIP)', () => {
     expect(corps('_comptaDansPerimetre')).toContain('window._finScopeWeightCore(sc, m) > 0');
     expect(corps('_comptaDansPerimetre')).toContain("_finEntScope(entNom, '')");
@@ -157,7 +202,7 @@ describe('Dossier ZIP — câblage exécuté', () => {
       showToast: () => {}, _dcRecapOverlay: (_p, opts) => { o = opts; },
       _dcBuildOpts: () => ({ from: '2025-01-01', to: '2025-12-31', catMere: (c) => STD.find((s) => s.nom === (alias[c] || c)) || null }),
     };
-    const f = new Function(...Object.keys(env), corps('_comptaNonExportes') + corps('openDossierComptable') + '\nreturn openDossierComptable;');
+    const f = new Function(...Object.keys(env), corps('_comptaNonExportes') + corps('_comptaBailleurInconnu') + corps('openDossierComptable') + '\nreturn openDossierComptable;');
     f(...Object.values(env))();
     alias['Péage A35'] = 'Travaux (entretien, réparation, amélioration)';   // hydratation cloud : l'alias change
     expect(o.catMere('Péage A35').nom).toBe('Divers (non déductible)');
