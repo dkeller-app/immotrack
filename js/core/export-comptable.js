@@ -50,13 +50,19 @@ const MAPPING_COMPTE = {
  * donc, par construction, une partition des mouvements du périmètre.
  */
 function _perimetre(stdCategories, opts) {
-  const { from = '', to = '', entityNom = '', refs = [], catMere = null } = opts || {};
+  const { from = '', to = '', entityNom = '', refs = [], catMere = null, dansPerimetre = null } = opts || {};
   const catByName = new Map();
   (stdCategories || []).forEach(c => catByName.set(c.nom, c));
   const inScope = m => {
     if (!m || m._deleted) return false;
+    if ((from || to) && !m.date) return false;   // sans date : hors de toute période (Finances l'ignore aussi)
     if (from && m.date < from) return false;
     if (to && m.date > to) return false;
+    // R-0 (audit lot 6 🔴1) : le périmètre de FINANCES, injecté par l'app (`_finScopeWeightCore` sur
+    // `_finEntScope`) — mouvements du bailleur, de ses lots (refs tolérantes) ET de ses immeubles (qui vide
+    // + imm). Le filtre historique ci-dessous (refs exactes) laissait disparaître ces derniers, ni écrits
+    // ni listés. Il ne reste qu'en repli (appelants sans résolveur, tests historiques).
+    if (typeof dansPerimetre === 'function') return !!dansPerimetre(m);
     if (entityNom) {
       const isGlobal = m.qui === 'SCI:' + entityNom;
       const isInScope = refs && refs.includes(m.qui);
@@ -159,11 +165,12 @@ export function _nonExportesResume(liste) {
  */
 export function _nonExportesCsv(liste, meta = {}) {
   const l = liste || { rows: [], count: 0, entrees: 0, sorties: 0, parCategorie: [] };
+  const L = _uneLigne;
   const head = [
     '# Mouvements ' + NON_EXPORTES_MENTION,
-    '# date d\'extraction : ' + (meta.extractionYmd || '') + ' · bailleur : ' + (meta.entityNom || 'Tous') + ' · période : ' + (meta.from || '') + ' → ' + (meta.to || ''),
+    '# date d\'extraction : ' + L(meta.extractionYmd) + ' · bailleur : ' + L(meta.entityNom || 'Tous') + ' · période : ' + L(meta.from) + ' → ' + L(meta.to),
     '# ' + l.count + ' mouvement(s) · entrées ' + l.entrees.toFixed(2) + ' · sorties ' + l.sorties.toFixed(2),
-    ...(l.parCategorie || []).map(c => '# ' + c.cat.replace(/[\r\n]/g, ' ') + (c.famille ? ' (' + c.famille + ')' : '') + ' : ' + c.count + ' mouvement(s) · entrées ' + c.entrees.toFixed(2) + ' · sorties ' + c.sorties.toFixed(2))
+    ...(l.parCategorie || []).map(c => '# ' + L(c.cat) + (c.famille ? ' — famille : ' + L(c.famille) : '') + ' : ' + c.count + ' mouvement(s) · entrées ' + c.entrees.toFixed(2) + ' · sorties ' + c.sorties.toFixed(2))
   ];
   const cols = ['date', 'lot', 'categorie', 'famille', 'libelle', 'entree', 'sortie'];
   const lines = l.rows.map(r => [r.date, r.qui, r.cat, r.famille, r.lib, r.entree ? r.entree.toFixed(2) : '', r.sortie ? r.sortie.toFixed(2) : ''].map(_csvCell).join(','));
@@ -269,6 +276,12 @@ export function _toFEC(ecritures, opts = {}) {
  * On préfixe une apostrophe pour neutraliser SANS toucher aux nombres négatifs
  * légitimes (soldes du grand livre). Puis quoting standard si , " ou saut de ligne.
  */
+/** Texte d'une ligne de commentaire « # » d'un CSV : jamais de retour à la ligne (un nom de bailleur ou de
+ *  catégorie qui en contiendrait ouvrirait une ligne de données — commençant par « = », une formule). */
+export function _uneLigne(s) {
+  return String(s == null ? '' : s).replace(/[\r\n]+/g, ' ');
+}
+
 export function _csvCell(s) {
   let v = String(s == null ? '' : s);
   if (/^[=+@\t\r]/.test(v) || /^-(?![0-9])/.test(v)) v = "'" + v;

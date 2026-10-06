@@ -75,7 +75,7 @@ describe('Bilan annuel — cash-flow lu dans Finances, colonne par lot = résult
     const somme = b.parLogement.reduce((s, l) => s + l.resultatFiscal, 0) + b.bailleurNonReparti.resultatFiscal;
     expect(somme).toBe(b.kpis.resultatFoncier);
     const txt = _formatBilanTexte(b).split('\n');
-    const nr = txt.find((x) => x.includes('Bailleur (non réparti'));
+    const nr = txt.find((x) => x.includes('Bailleur et immeubles (non réparti)'));
     expect(nr.endsWith('-110,00 €')).toBe(true);
     expect(nr.length).toBe(txt.find((x) => x.includes('Locataire')).length);
     expect(_computeBilanAnnuel(db(), STD, 'SCI B', 2025, {}).bailleurNonReparti).toBeNull();
@@ -83,6 +83,29 @@ describe('Bilan annuel — cash-flow lu dans Finances, colonne par lot = résult
     const d2 = db();
     d2.mouvements.push({ date: '2025-09-30', cat: "Prêt — Intérêts d'emprunt", db: 40, qui: 'SCI:SCI B' });
     expect(_computeBilanAnnuel(d2, STD, 'SCI B', 2025, {}).bailleurNonReparti).toEqual({ revenus: 0, charges: 0, resultatFiscal: -40 });
+  });
+
+  it('charge posée sur l’IMMEUBLE (qui vide + imm) : dans la 2044 de l’entité et sur la ligne « non réparti », jamais perdue', () => {
+    const d = db();
+    d.logements.forEach((l) => { l.imm = 'Imm B'; });
+    d.mouvements.push({ date: '2025-10-15', cat: 'Travaux (entretien, réparation, amélioration)', db: 500, qui: '', imm: 'Imm B' });
+    d.mouvements.push({ date: '2025-10-16', cat: 'Travaux (entretien, réparation, amélioration)', db: 999, qui: '', imm: 'Autre immeuble' });
+    const b = _computeBilanAnnuel(d, STD, 'SCI B', 2025, {});
+    expect(b.kpis.totalCharges).toBe(800);                          // 300 (lot) + 500 (immeuble), jamais l'autre immeuble
+    expect(b.bailleurNonReparti).toEqual({ revenus: 0, charges: 500, resultatFiscal: -500 });
+    const somme = b.parLogement.reduce((s, l) => s + l.resultatFiscal, 0) + b.bailleurNonReparti.resultatFiscal;
+    expect(somme).toBe(b.kpis.resultatFoncier);
+  });
+
+  it('openBilanAnnuel : une panne du moteur Finances n’empêche pas le bilan (« non disponible »)', () => {
+    const sortie = { textContent: '', style: {} };
+    const env = {
+      window: { _computeBilanAnnuel: (d, s, e, y, o) => _computeBilanAnnuel(db(), STD, 'SCI B', 2025, o), _formatBilanTexte },
+      v: (id) => ({ 'bilan-year': '2025', 'bilan-ent': 'SCI B' }[id]), el: () => sortie, showToast: () => {}, DB: {}, STD_CATEGORIES: STD,
+      _dashCfReel: () => { throw new Error('moteur'); }, console: { warn: () => {} },
+    };
+    new Function(...Object.keys(env), corps('openBilanAnnuel') + '\nreturn openBilanAnnuel;')(...Object.values(env))();
+    expect(sortie.textContent).toMatch(/Cash-flow réel \(Finances\) \.+ +non disponible/);
   });
 
   it('openBilanAnnuel injecte le cash-flow du bloc unique (même périmètre que l’entité choisie)', () => {

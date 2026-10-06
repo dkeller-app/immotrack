@@ -31565,12 +31565,20 @@ function rgpdShowErasePlan() {
 }
 
 // v14.93 EXPORT-COMPTABLE Sprint 3E — FEC + journal + grand livre
+// R-0 (audit lot 6 🔴1) : le périmètre d'un bailleur est CELUI DE FINANCES (lots aux refs tolérantes, frais du
+// bailleur, mouvements posés sur ses immeubles) — `_finEntScope` + `_finScopeWeightCore`, jamais recopié.
+// null = pas de bailleur choisi (tout le patrimoine) ou résolveur absent (repli : refs exactes du module).
+function _comptaDansPerimetre(entNom) {
+  if (!entNom || typeof _finEntScope !== 'function' || typeof window._finScopeWeightCore !== 'function') return null;
+  const sc = _finEntScope(entNom, '');
+  return sc ? (m) => window._finScopeWeightCore(sc, m) > 0 : null;
+}
 function _comptaBuildOpts() {
   const yr = v('compta-year') || String(new Date().getFullYear() - 1);
   const entNom = v('compta-ent') || '';
   const refs = entNom ? (DB.logements||[]).filter(l => _isAlive(l) && l.entity === entNom).map(l => l.ref) : [];
   // R-0 (lot 6, A1) : une catégorie perso se classe par sa famille, comme dans Finances et la 2044.
-  return { yr, from: yr + '-01-01', to: yr + '-12-31', entityNom: entNom, refs, catMere: (typeof _finCatMere === 'function') ? _finCatMere : null };
+  return { yr, from: yr + '-01-01', to: yr + '-12-31', entityNom: entNom, refs, catMere: (typeof _finCatMere === 'function') ? _finCatMere : null, dansPerimetre: _comptaDansPerimetre(entNom) };
 }
 function _comptaDownload(content, filename, mime) {
   const bom = '﻿';
@@ -31584,10 +31592,24 @@ function _comptaDownload(content, filename, mime) {
 function _comptaNonExportes(o, mvts) {
   return (typeof window._listNonExportes === 'function') ? window._listNonExportes(mvts || DB.mouvements || [], STD_CATEGORIES, o) : null;
 }
+// Audit lot 6 🟠3 — le message ne suffit pas : le fichier envoyé à l'expert-comptable n'en garde rien. Le toast
+// porte donc le geste « Télécharger la liste » (le CSV du dossier ZIP), sans toucher au FEC / journal / grand livre.
+function _comptaBoutonListe(src) {
+  return ' <button class="btn bp bb" style="margin-left:10px;padding:4px 12px;font-size:12px" onclick="_comptaTelechargerNonExportes(\'' + src + '\')">Télécharger la liste</button>';
+}
+function _comptaTelechargerNonExportes(src) {
+  const o = src === 'dc' ? _dcBuildOpts() : _comptaBuildOpts();
+  const ne = _comptaNonExportes(o);
+  if (!ne || !ne.count || typeof window._nonExportesCsv !== 'function') { showToast('Aucun mouvement non exporté sur cette période', 'ok'); return; }
+  const per = o.yr || ((o.from || '') + '_' + (o.to || ''));
+  const nom = 'Mouvements-non-exportes_' + per + (o.entityNom ? '_' + o.entityNom.replace(/[^\w]+/g, '_') : '') + '.csv';
+  _comptaDownload(window._nonExportesCsv(ne, { extractionYmd: _dcTodayYmd(), entityNom: o.entityNom || 'Tous', from: o.from, to: o.to }), nom, 'text/csv');
+  if (typeof _auditLog === 'function') _auditLog('export', 'mouvements_non_exportes', null, per + '/' + (o.entityNom || 'all'), null, null, 'ui');
+}
 function _comptaToastExport(okMsg, o) {
   const ne = _comptaNonExportes(o);
   const r = (ne && typeof window._nonExportesResume === 'function') ? window._nonExportesResume(ne) : '';
-  if (r) showToast(okMsg + ' · ' + r, 'warn', 9000); else showToast(okMsg, 'ok');
+  if (r) showToast(okMsg + ' · ' + r, 'warn', 12000, _comptaBoutonListe('compta')); else showToast(okMsg, 'ok');
 }
 function downloadFEC() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
@@ -31640,7 +31662,7 @@ function _dcInitSelectors() {
 function _dcBuildOpts() {
   const from = v('dc-from') || '', to = v('dc-to') || '', entityNom = v('dc-ent') || '';
   const refs = entityNom ? (DB.logements || []).filter(l => _isAlive(l) && l.entity === entityNom).map(l => l.ref) : [];
-  return { from, to, entityNom, refs, extractionYmd: _dcTodayYmd(), catMere: (typeof _finCatMere === 'function') ? _finCatMere : null };   // R-0 (lot 6, A1)
+  return { from, to, entityNom, refs, extractionYmd: _dcTodayYmd(), catMere: (typeof _finCatMere === 'function') ? _finCatMere : null, dansPerimetre: _comptaDansPerimetre(entityNom) };   // R-0 (lot 6, A1 + audit 🔴1)
 }
 function openDossierComptable() {
   if (!window._dc || typeof window._buildMvtRows !== 'function' || !window._bk || !window._bk.storedZip) { showToast('Module compta non chargé', 'err'); return; }
@@ -31651,11 +31673,19 @@ function openDossierComptable() {
   // récap et le clic « Télécharger » ne peut donc plus désaligner les `num` (plan vs FEC).
   const mvts = DB.mouvements || [];
   o._mvts = mvts;
+  // Audit lot 6 🟡1 — même raison : `_finCatMere` lit `DB.catAlias` EN DIRECT. Le classement des catégories
+  // perso est figé ici, sinon une hydratation entre le récap et le clic reclasserait des mouvements → `num`
+  // décalés entre le plan (index.csv, factures) et les écritures (FEC).
+  if (typeof o.catMere === 'function') {
+    const cm = o.catMere, fige = new Map();
+    mvts.forEach(m => { if (m && !fige.has(m.cat)) fige.set(m.cat, cm(m.cat) || null); });
+    o.catMere = (c) => (fige.has(c) ? fige.get(c) : null);
+  }
   const rows = window._buildMvtRows(mvts, STD_CATEGORIES, o);
   o._nonExp = _comptaNonExportes(o, mvts);   // lot 6, A2 : même périmètre, même tableau figé
   if (!rows.length) {
     const r = (o._nonExp && typeof window._nonExportesResume === 'function') ? window._nonExportesResume(o._nonExp) : '';
-    showToast('Aucun mouvement comptable sur cette période' + (r ? ' · ' + r : ''), 'warn', r ? 9000 : 5000);
+    showToast('Aucun mouvement comptable sur cette période' + (r ? ' · ' + r : ''), 'warn', r ? 12000 : 5000, r ? _comptaBoutonListe('dc') : '');
     return;
   }
   const plan = window._dc.buildPlan(rows, { documents: DB.documents || [], logements: DB.logements || [], extractionYmd: o.extractionYmd, entityNom: o.entityNom || 'Tous', from: o.from, to: o.to });
@@ -31677,15 +31707,15 @@ function _dcRecapOverlay(plan, o) {
   const cell = (val, lbl, col) => '<div style="background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:12px;text-align:center"><div style="font-weight:800;font-size:24px;color:' + col + '">' + val + '</div><div style="font-size:11px;color:var(--t2);margin-top:2px">' + lbl + '</div></div>';
   const missHtml = miss.length ? (
     '<details ' + (miss.length <= 6 ? 'open' : '') + ' style="border:1px solid var(--bor);border-radius:var(--r);overflow:hidden;margin-top:4px">'
-    + '<summary style="cursor:pointer;padding:9px 12px;background:var(--bg-danger,rgba(210,63,63,.10));color:var(--red);font-weight:700;font-size:12.5px">' + miss.length + ' mouvement(s) sans facture</summary>'
+    + '<summary style="cursor:pointer;min-height:44px;box-sizing:border-box;display:flex;align-items:center;padding:9px 12px;background:var(--bg-danger,rgba(210,63,63,.10));color:var(--red);font-weight:700;font-size:12.5px">' + miss.length + ' mouvement(s) sans facture</summary>'
     + '<ul style="margin:0;padding:4px 0;list-style:none">' + miss.map(r => '<li style="padding:7px 13px;font-size:12.5px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:10px"><span>' + escHtml(_dcDateFr(r.date) + ' · ' + r.categorie + ' · ') + _dcEuro(r.montant) + '</span><span style="color:var(--t2);font-size:11px">' + escHtml(r.bailleur + ' - ' + r.lot) + '</span></li>').join('') + '</ul></details>'
   ) : '';
   // Lot 6, A2 — mouvements que le dossier n'écrit pas (aucun compte inventé) : dits ici ET listés dans le zip.
   const ne = o._nonExp;
   const neHtml = (ne && ne.count) ? (
     '<details ' + (ne.parCategorie.length <= 4 ? 'open' : '') + ' style="border:1px solid var(--bor);border-radius:var(--r);overflow:hidden;margin-top:10px">'
-    + '<summary style="cursor:pointer;padding:9px 12px;background:var(--bg-warning);color:var(--ora);font-weight:700;font-size:12.5px">' + ne.count + ' mouvement(s) non exporté(s) : compte à définir avec l\'expert-comptable</summary>'
-    + '<ul style="margin:0;padding:4px 0;list-style:none">' + ne.parCategorie.map(c => '<li style="padding:7px 13px;font-size:12.5px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 10px"><span>' + escHtml(c.cat + (c.famille ? ' (' + c.famille + ')' : '') + ' · ' + c.count) + '</span><span style="color:var(--t2);font-size:11px">' + (c.entrees ? 'entrées ' + _dcEuro(c.entrees) : '') + (c.entrees && c.sorties ? ' · ' : '') + (c.sorties ? 'sorties ' + _dcEuro(c.sorties) : '') + '</span></li>').join('') + '</ul>'
+    + '<summary style="cursor:pointer;min-height:44px;box-sizing:border-box;display:flex;align-items:center;padding:9px 12px;background:var(--bg-warning);color:var(--ora);font-weight:700;font-size:12.5px">' + ne.count + ' mouvement(s) non exporté(s) : compte à définir avec l\'expert-comptable</summary>'
+    + '<ul style="margin:0;padding:4px 0;list-style:none">' + ne.parCategorie.map(c => '<li style="padding:7px 13px;font-size:12.5px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 10px"><span>' + escHtml(c.cat + (c.famille ? ' — famille : ' + c.famille : '') + ' · ' + c.count + ' mouvement' + (c.count > 1 ? 's' : '')) + '</span><span style="color:var(--t2);font-size:11px">' + (c.entrees ? 'entrées ' + _dcEuro(c.entrees) : '') + (c.entrees && c.sorties ? ' · ' : '') + (c.sorties ? 'sorties ' + _dcEuro(c.sorties) : '') + '</span></li>').join('') + '</ul>'
     + '<div class="mu sm" style="padding:8px 13px;border-top:1px solid var(--bor)">Détail dans ecritures/mouvements-non-exportes.csv. Ils ne figurent ni dans le FEC, ni dans le journal, ni dans le grand livre.</div></details>'
   ) : '';
   const bodyInner =
@@ -31836,7 +31866,9 @@ function openBilanAnnuel() {
   if (!entNom) { showToast('Sélectionnez une entité', 'warn'); return; }
   // Lot 6, B (R-0) : le cash-flow de l'entité est LU dans Finances (bloc unique `_dashCfReel` → `_finMonthly`
   // → cashflowReel, mêmes fenêtres que l'onglet), jamais recalculé par le bilan.
-  const _cf = (typeof _dashCfReel === 'function') ? _dashCfReel({ yr, activeEnt: entNom }) : null;
+  // Le moteur qui échoue ne doit pas empêcher le bilan de s'afficher : « non disponible » (audit lot 6 🟡9).
+  let _cf = null;
+  try { _cf = (typeof _dashCfReel === 'function') ? _dashCfReel({ yr, activeEnt: entNom }) : null; } catch (e) { console.warn('[bilan] cash-flow Finances', e); }
   const bilan = window._computeBilanAnnuel(DB, STD_CATEGORIES, entNom, yr, {
     mapping: (typeof _finMapping2044 === 'function') ? _finMapping2044() : null,   // M-2 : le mapping passe ENFIN au bilan
     cashflowReel: _cf ? _cf.cf : null

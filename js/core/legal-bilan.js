@@ -49,6 +49,9 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
   const logements = (db.logements || [])
     .filter(l => isAlive(l) && l.entity === entityNom);
   const refs = logements.map(l => l.ref);
+  // Immeubles de l'entité : une charge posée au niveau de l'immeuble (qui vide + imm : taxe foncière, PNO,
+  // syndic) appartient à l'entité — comme dans la 2044 et Finances (audit lot 6 🟠2).
+  const imms = [...new Set(logements.map(l => l.imm).filter(Boolean))];
 
   // Baux historiques de l'entité finis dans l'année
   const bauxHist = (db.baux_historique || [])
@@ -60,7 +63,7 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
   // par logement (le total ne pouvait pas égaler la somme des logements).
   const mapping = (opts && opts.mapping) || null;
   const fiscal = _compute2044(db.mouvements || [], stdCategories, {
-    from, to, entityNom, refs, mapping
+    from, to, entityNom, refs, imms, mapping
   });
 
   // KPIs métier par logement
@@ -113,9 +116,9 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
     };
   });
 
-  // Mouvements du bailleur non rattachés à un lot : une ligne à part, jamais répartie ni perdue.
-  const fBailleur = _compute2044((db.mouvements || []).filter(m => m && m.qui === 'SCI:' + entityNom), stdCategories, {
-    from, to, entityNom, refs: [], mapping
+  // Mouvements du bailleur ou de ses immeubles, non rattachés à un lot : une ligne à part, jamais répartie ni perdue.
+  const fBailleur = _compute2044((db.mouvements || []).filter(m => m && (m.qui === 'SCI:' + entityNom || (!m.qui && m.imm && imms.includes(m.imm)))), stdCategories, {
+    from, to, entityNom, refs: [], imms, mapping
   });
   const bailleurNonReparti = (fBailleur.totalRecettes || fBailleur.totalCharges || fBailleur.totalInterets)
     ? { revenus: fBailleur.totalRecettes, charges: fBailleur.totalCharges, resultatFiscal: fBailleur.resultatFoncier }
@@ -470,7 +473,7 @@ export function _formatBilanTexte(bilan) {
   });
   const nr = bilan.bailleurNonReparti;
   if (nr) {
-    lines.push('  ' + 'Bailleur (non réparti sur un logement)'.padEnd(53) + fmt(nr.revenus).padStart(11) + ' ' + fmt(nr.charges).padStart(11) + ' ' + fmt(nr.resultatFiscal).padStart(16));
+    lines.push('  ' + 'Bailleur et immeubles (non réparti)'.padEnd(53) + fmt(nr.revenus).padStart(11) + ' ' + fmt(nr.charges).padStart(11) + ' ' + fmt(nr.resultatFiscal).padStart(16));
   }
   lines.push('');
   lines.push('═══════════════════════════════════════════════════════════════');

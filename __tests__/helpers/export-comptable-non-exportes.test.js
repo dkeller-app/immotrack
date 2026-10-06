@@ -72,7 +72,7 @@ describe('Export comptable — les mouvements non exportés sont listés, jamais
     expect(csv[1]).toBe('# date d\'extraction : 2026-10-06 · bailleur : Alpha · période : 2025-01-01 → 2025-12-31');
     expect(csv[2]).toBe('# 6 mouvement(s) · entrées 800.00 · sorties 1251.50');
     expect(csv[3]).toBe('# Prêt : 2 mouvement(s) · entrées 0.00 · sorties 1200.00');
-    expect(csv[7]).toBe('# Péage A35 (Divers (non déductible)) : 1 mouvement(s) · entrées 0.00 · sorties 12.50');
+    expect(csv[7]).toBe('# Péage A35 — famille : Divers (non déductible) : 1 mouvement(s) · entrées 0.00 · sorties 12.50');
     expect(csv[8]).toBe('date,lot,categorie,famille,libelle,entree,sortie');
     expect(csv[9]).toBe('2025-01-11,F-001,Dépôt de garantie (reçu / restitué),,DG reçu,800.00,');
     expect(csv.find((x) => x.includes('HYPERLINK'))).toBe('2025-04-01,F-001,Catégorie effacée,sans famille,"\'=HYPERLINK(""x"")",,30.00');
@@ -90,11 +90,12 @@ describe('Câblage dans l’app', () => {
     const lancer = (mouvements) => {
       const toasts = [];
       const win = { _listNonExportes, _nonExportesResume };
-      const f = new Function('window', 'DB', 'STD_CATEGORIES', 'showToast', corps('_comptaNonExportes') + corps('_comptaToastExport') + '\nreturn _comptaToastExport;');
+      const f = new Function('window', 'DB', 'STD_CATEGORIES', 'showToast', corps('_comptaNonExportes') + corps('_comptaBoutonListe') + corps('_comptaToastExport') + '\nreturn _comptaToastExport;');
       f(win, { mouvements }, STD, (...a) => toasts.push(a))('FEC téléchargé (4 écritures)', OPTS);
       return toasts;
     };
-    expect(lancer(MVTS)).toEqual([['FEC téléchargé (4 écritures) · 6 mouvements (entrées 800,00 €, sorties 1251,50 €) non exportés : compte à définir avec l\'expert-comptable', 'warn', 9000]]);
+    expect(lancer(MVTS)).toEqual([['FEC téléchargé (4 écritures) · 6 mouvements (entrées 800,00 €, sorties 1251,50 €) non exportés : compte à définir avec l\'expert-comptable', 'warn', 12000,
+      expect.stringContaining('onclick="_comptaTelechargerNonExportes(\'compta\')">Télécharger la liste</button>')]]);
     expect(lancer(MVTS.slice(0, 1))).toEqual([['FEC téléchargé (4 écritures)', 'ok']]);
   });
 

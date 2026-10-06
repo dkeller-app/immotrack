@@ -18,7 +18,7 @@
  * Tests Vitest : __tests__/helpers/dossier-comptable.test.js
  */
 
-import { _csvCell } from './export-comptable.js';
+import { _csvCell, _uneLigne } from './export-comptable.js';
 
 // ── Slugs / noms sûrs ────────────────────────────────────────────────────────
 
@@ -181,7 +181,7 @@ export function _dcBuildPlan(mvtRows, ctx = {}) {
 export function _dcIndexCsv(plan) {
   const meta = (plan && plan.meta) || {};
   const pieceRefByNum = (plan && plan.pieceRefByNum) || {};
-  const headerComment = `# date d'extraction : ${meta.extractionYmd || ''} · bailleur : ${meta.entityNom || 'Tous'} · période : ${meta.from || ''} → ${meta.to || ''}`;
+  const headerComment = `# date d'extraction : ${_uneLigne(meta.extractionYmd)} · bailleur : ${_uneLigne(meta.entityNom || 'Tous')} · période : ${_uneLigne(meta.from)} → ${_uneLigne(meta.to)}`;
   const cols = ['ecriture_num', 'date', 'bailleur', 'lot', 'categorie', 'libelle', 'montant', 'piece_ref', 'fichier', 'facture'];
   const lines = [headerComment, cols.join(',')];
   (plan && plan.rows || []).forEach(r => {
