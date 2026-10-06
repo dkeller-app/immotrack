@@ -31569,7 +31569,8 @@ function _comptaBuildOpts() {
   const yr = v('compta-year') || String(new Date().getFullYear() - 1);
   const entNom = v('compta-ent') || '';
   const refs = entNom ? (DB.logements||[]).filter(l => _isAlive(l) && l.entity === entNom).map(l => l.ref) : [];
-  return { yr, from: yr + '-01-01', to: yr + '-12-31', entityNom: entNom, refs };
+  // R-0 (lot 6, A1) : une catégorie perso se classe par sa famille, comme dans Finances et la 2044.
+  return { yr, from: yr + '-01-01', to: yr + '-12-31', entityNom: entNom, refs, catMere: (typeof _finCatMere === 'function') ? _finCatMere : null };
 }
 function _comptaDownload(content, filename, mime) {
   const bom = '﻿';
@@ -31629,7 +31630,7 @@ function _dcInitSelectors() {
 function _dcBuildOpts() {
   const from = v('dc-from') || '', to = v('dc-to') || '', entityNom = v('dc-ent') || '';
   const refs = entityNom ? (DB.logements || []).filter(l => _isAlive(l) && l.entity === entityNom).map(l => l.ref) : [];
-  return { from, to, entityNom, refs, extractionYmd: _dcTodayYmd() };
+  return { from, to, entityNom, refs, extractionYmd: _dcTodayYmd(), catMere: (typeof _finCatMere === 'function') ? _finCatMere : null };   // R-0 (lot 6, A1)
 }
 function openDossierComptable() {
   if (!window._dc || typeof window._buildMvtRows !== 'function' || !window._bk || !window._bk.storedZip) { showToast('Module compta non chargé', 'err'); return; }

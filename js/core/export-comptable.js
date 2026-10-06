@@ -43,10 +43,15 @@ const MAPPING_COMPTE = {
  * le Dossier comptable (lien num ↔ facture) consomment cette même liste, ce qui
  * GARANTIT par construction l'alignement des `num` (même filtre, même ordre).
  *
+ * `opts.catMere(nom)` (injecté par l'app : `_finCatMere`) rend la catégorie MÈRE du référentiel d'une
+ * catégorie PERSO (alias M-1) — R-0 : sans lui, « Péage A35 » rangée en Divers ou « Loyer parking »
+ * rangée en Recettes diverses étaient ABSENTES du FEC, du journal, du grand livre et du dossier ZIP,
+ * alors que Finances et la 2044 les comptent. Sans `catMere`, seul le nom exact du référentiel compte.
+ *
  * @returns {Array} - [{ num, mvt, std, mapping, montant, type, date, qui, lib, cat }]
  */
 export function _buildMvtRows(mouvements, stdCategories, opts = {}) {
-  const { from = '', to = '', entityNom = '', refs = [] } = opts;
+  const { from = '', to = '', entityNom = '', refs = [], catMere = null } = opts;
   const catByName = new Map();
   (stdCategories || []).forEach(c => catByName.set(c.nom, c));
 
@@ -65,7 +70,7 @@ export function _buildMvtRows(mouvements, stdCategories, opts = {}) {
   const rows = [];
   let num = 1;
   (mouvements || []).filter(inScope).forEach(m => {
-    const std = catByName.get(m.cat);
+    const std = catByName.get(m.cat) || (typeof catMere === 'function' ? catMere(m.cat) : null);
     if (!std || !std.ligne2044) return; // skip non-mappé ou type=special
     const mapping = MAPPING_COMPTE[std.ligne2044];
     if (!mapping) return;
