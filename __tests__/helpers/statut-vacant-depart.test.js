@@ -847,3 +847,27 @@ describe('27 · échéance du dépôt (VRAI _departDeadlineDG) : EDL de sortie d
     expect(d.jours).toBe(55);
   });
 });
+describe('28 · fenêtre de restitution sur le bail archivé (VRAIS _dgOpenRestitution / _dgRestitRecalc) : chiffres de CE bail', () => {
+  const LEA = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true, locataires: [{ nom: 'Lea' }] };
+  const NINA = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nina' }] };
+  const ouvrir = (edl) => {
+    const DB = dbDe({ A1: { ...NINA } }); DB.baux_historique = [{ ...LEA }]; DB.edl = edl;
+    const vals = { 'dg-restit-autres': '0', 'dg-restit-date': '' };
+    const m = monter(DB, [...STATUT, '_dgOpenRestitution', '_dgBailCible', '_dgRestitRecalc', '_calculerDelaiRestitution', '_edlsDuBail', '_bailSuivantDebut'], {
+      v: (id) => vals[id] || '', _dgVgRows: [], _dgVgCtx: {}, _dgVgSeedFromEdl: () => [], _dgVgRender: () => {},
+      _calculerSoldeDG: (b) => ({ soldeRestitue: Number(b.dgPaid || b.dg) - Number(b.dgRetenu || 0), loyerImpaye: 0 }),
+      _dgStatut: () => ({ statut: 'a_restituer' }),
+      window: { computeVetusteTotal: () => ({ total: 0 }), _penaliteRetardDG: () => ({ penalite: 0, enRetard: false }) },
+    });
+    m.fn._dgOpenRestitution('A1', bailHistCle(DB.baux_historique[0]));
+    m.fn._dgRestitRecalc('A1');
+    return m.els;
+  };
+  it('recalcul du solde sur le dépôt de Lea (900 €), jamais celui de Nina (1 300 €)', () => {
+    expect(ouvrir([])['dg-restit-solde-display'].textContent).toBe('900 €');
+  });
+  it('délai légal : l\'EDL de sortie de Nina (2027, avec dégradations) n\'est pas celui de Lea', () => {
+    const nina = { id: 'en', logement: 'A1', type: 'Sortie', date: '2027-01-10', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Mauvais état' }] }] };
+    expect(ouvrir([nina])['ov-dg-restitution-body'].innerHTML).toContain('Délai légal : <strong>1 mois</strong>');
+  });
+});
