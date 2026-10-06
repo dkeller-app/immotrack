@@ -36,6 +36,7 @@ function _uiIcon(name, size) {
     receipt:'<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     camera:'<path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/>',
     lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
+    appareil:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
     home:'<path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/>',
     building:'<path d="M4 21V4h16v17"/><path d="M8 8h2M14 8h2M8 12h2M14 12h2M8 16h2M14 16h2"/>',
     calendar:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16M9 3v4M15 3v4"/>',
@@ -2657,7 +2658,10 @@ function saveDB(opts) {
     if (typeof _auditFlushPending === 'function') _auditFlushPending();
     // F8 (§3ter) : l'échec d'écriture du miroir était AVALÉ (catch vide) et
     // saveDB rendait `true` quand même — l'app croyait avoir enregistré.
-    // Invariant 19l : un saveDB qui échoue sur quota renvoie FAUX et le dit.
+    // Invariant 19l (amendé, STOCKAGE lot 3, D1 B) : le retour dit si la modification a une
+    // DESTINATION DURABLE. En ligne, le cloud la reçoit (__immoMarkDirty, juste dessous, quoi qu'il
+    // arrive) : un miroir plein n'est PAS une perte → `true` + avis unique. Hors ligne, le miroir
+    // était la seule destination → FAUX, et on le dit. Décision : _stockage.verdictEchecMiroir.
     let _miroirOk = true;
     try {
       // STOCKAGE lot 1 (S-1) : l'écrivain UNIQUE du miroir libère les copies/clés retirées et
@@ -2676,8 +2680,9 @@ function saveDB(opts) {
       // perime sur les vraies donnees. Contrat encode par
       // __tests__/helpers/saveDB-miroir-horodate.test.js.
       _miroirEcrireCloud();   // STOCKAGE lot 4 : IndexedDB + journal synchrone des EDL (repli : écrivain local)
+      if (typeof _miroirNoterOk === 'function') _miroirNoterOk();
     }
-    catch (e) { _miroirOk = false; _saveDBQuotaWarn(e); }
+    catch (e) { _miroirOk = _miroirEchec(e) === true; }
     if (typeof window.__immoMarkDirty === 'function') window.__immoMarkDirty();
     if (!_autosave && typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
     return _miroirOk;
@@ -2710,10 +2715,10 @@ function saveDB(opts) {
   let _ecrit = true;
   try {
     _miroirEcrire(data);   // STOCKAGE lot 1 (S-1) : éviction + nouvel essai sur quota
+    if (typeof _miroirNoterOk === 'function') _miroirNoterOk();
   } catch(e) {
-    // F8 / invariant 19l : on ne prétend PAS avoir écrit.
-    _ecrit = false;
-    _saveDBQuotaWarn(e);
+    // F8 / invariant 19l : sans cloud, le miroir est la seule destination — on ne prétend PAS avoir écrit.
+    _ecrit = _miroirEchec(e) === true;
   }
   // (chemin harnais de test uniquement — Drive retiré, plus de push à planifier)
   // UNDO-OP v14.21 : capture l'état post-saveDB comme prev pour la prochaine modif
@@ -2721,19 +2726,56 @@ function saveDB(opts) {
   return _ecrit;
 }
 
-/* F8 — un stockage plein doit être NOMMÉ, pas avalé. Message unique (DRY) pour
-   les trois chemins d'écriture de saveDB. Le mot « QuotaExceededError » ne dit
-   rien à personne : on dit ce qui se passe et ce qu'il faut faire. */
+/* F8 — un stockage plein doit être NOMMÉ, pas avalé. STOCKAGE lot 3 (CDC §3.3, D1 B, S-6) : et le
+   message doit être VRAI. Point unique des deux chemins d'échec du miroir dans saveDB. Rend le retour
+   de saveDB : `true` si la modification a quand même une destination durable (cloud en ligne), `false`
+   sinon. La décision et les textes vivent dans js/core/stockage-local.js (verdictEchecMiroir, testé).
+   En ligne : avis UNE fois par session (la copie de l'appareil est en retard, rien n'est perdu ; l'état
+   détaillé est dans Réglages → Stockage de cet appareil). Perte réelle : message à chaque fois, au plus
+   toutes les 10 s (pas de matraquage pendant une visite). Module absent : comportement d'avant (faux). */
 let _saveDBQuotaAt = 0;
-function _saveDBQuotaWarn(e) {
-  console.error('[saveDB] écriture locale refusée :', e);
-  const now = Date.now();
-  if (now - _saveDBQuotaAt < 10000) return;   // pas de matraquage pendant une visite
-  _saveDBQuotaAt = now;
-  if (typeof showToast === 'function') {
-    showToast("⚠️ Mémoire pleine : cette modification n'est PAS enregistrée sur cet appareil. Libère de l'espace, puis reprends.", 'err', 10000);
-  }
+let _miroirAvisDonne = false;
+let _miroirEchecDepuis = 0;   // 1re écriture ratée depuis la dernière réussie (0 = à jour) — carte Réglages
+let _miroirDernierOk = 0;     // dernière écriture réussie dans cette session
+function _miroirNoterOk() { _miroirDernierOk = Date.now(); _miroirEchecDepuis = 0; }
+function _miroirModeCourant() {
+  const S = (typeof window !== 'undefined') ? window._stockage : null;
+  const o = { cloud: !!(typeof window !== 'undefined' && window.__immoSupabaseMode),
+    horsLigne: !!(typeof window !== 'undefined' && window.__immoHorsLigne),
+    enLigne: (typeof navigator !== 'undefined' && navigator) ? navigator.onLine : undefined };
+  return (S && typeof S.modeMiroir === 'function') ? S.modeMiroir(o) : (o.cloud ? null : 'local');
 }
+function _miroirEchec(e) {
+  console.error('[saveDB] copie locale non écrite :', e);
+  if (!_miroirEchecDepuis) _miroirEchecDepuis = Date.now();
+  const S = (typeof window !== 'undefined') ? window._stockage : null;
+  const v = (S && typeof S.verdictEchecMiroir === 'function')
+    ? S.verdictEchecMiroir({ mode: _miroirModeCourant(), sandbox: (typeof _isTestMode !== 'undefined') && !!_isTestMode })
+    : { retour: false, type: 'err', unique: false, message: "Stockage de cet appareil plein : cette modification n'est PAS enregistrée." };
+  if (v.unique) {
+    if (_miroirAvisDonne) return v.retour;
+    _miroirAvisDonne = true;
+  } else {
+    const now = Date.now();
+    if (now - _saveDBQuotaAt < 10000) return v.retour;
+    _saveDBQuotaAt = now;
+  }
+  if (typeof showToast === 'function') showToast(v.message, v.type, 10000);
+  return v.retour;
+}
+// Signal ASYNCHRONE du miroir IndexedDB (lot 4, `echec-repli` : la copie complète n'a pas pu être
+// écrite, le journal des EDL est intact) — même état et même avis unique en ligne (supabase-entry.js).
+window.__immoMiroirPasAJour = function() {
+  if (!_miroirEchecDepuis) _miroirEchecDepuis = Date.now();
+  if (_miroirModeCourant() !== 'cloud-en-ligne') return false;   // hors ligne : l'appelant garde son texte
+  const S = window._stockage;
+  if (!_miroirAvisDonne && S && typeof S.verdictEchecMiroir === 'function' && typeof showToast === 'function') {
+    _miroirAvisDonne = true;
+    const v = S.verdictEchecMiroir({ mode: 'cloud-en-ligne' });
+    showToast(v.message, v.type, 10000);
+  }
+  return true;
+};
 
 /* ═══ STOCKAGE lot 1 — L'ÉCRIVAIN UNIQUE DU MIROIR (CDC docs/CDC-STOCKAGE.md §3.2) ═══
    Incident du 28/08 : « Mémoire pleine » sur une base de quelques centaines de Ko,

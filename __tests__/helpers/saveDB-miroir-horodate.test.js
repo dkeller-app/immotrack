@@ -65,7 +65,7 @@ beforeAll(() => {
   // `typeof x === 'function'` : sur un identifiant non déclaré, `typeof` rend
   // 'undefined' sans lever. On n'a donc à fournir que les dépendances DURES.
   const usine = new Function(
-    'window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', '_saveDBQuotaWarn',
+    'window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', '_miroirEchec',
     src + '\nreturn saveDB;'
   );
   faireSaveDB = ({ KEY, stockage, modeCloud = true, db = { baux: {}, logements: [] } }) => {
@@ -215,7 +215,7 @@ describe('saveDB — invariant 19k : l’autosave ne prend AUCUNE capture d’an
     const src = extraireFonction(html, 'saveDB') + '\n' + extraireFonction(html, '_miroirEcrire')
     + '\n' + extraireFonction(html, '_miroirEcrireCloud');   // STOCKAGE lot 4 : écrivain du mode cloud (repli local sans module)
     const usine = new Function(
-      'window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', '_saveDBQuotaWarn',
+      'window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', '_miroirEchec',
       '_undoOnSaveDB', '_undoOnSaveDBSuccess', '_auditFlushPending',
       src + '\nreturn saveDB;'
     );

@@ -8054,7 +8054,7 @@ function delEDL(id, opts){
 function rParams() {
   rParamsCats(); rParamsGlobal(); rMandRef();            // PC-REFONTE : Pièces EDL + Thème retirés
   if (typeof rIRLParams === 'function') rIRLParams();   // audit C1 : la table IRL vit ici (D20)
-  rParamsRules(); rParamsBail(); updateDBSizeBadge();   // PC-REFONTE étape 3 : panneau Bail
+  rParamsRules(); rParamsBail(); _renderStockageCard();   // PC-REFONTE étape 3 : panneau Bail
   // v15.04 USER-PROFILE-FILTERS Phase 4 : rendu de l'onglet Profil utilisateur
   if (typeof rParamsProfile === 'function') rParamsProfile();
 }
@@ -24917,17 +24917,64 @@ function _profileResetOverrides() {
 // ══════════════════════════════════════════════════════════════
 // SAUVEGARDE SUGGÉRÉE + JAUGE localStorage
 // ══════════════════════════════════════════════════════════════
-function getDBSizeKB() {
-  try { return Math.round(JSON.stringify(DB).length / 1024); } catch(e) { return 0; }
-}
-
-function updateDBSizeBadge() {
-  const badge = el('db-size-badge');
-  if(!badge) return;
-  const kb = getDBSizeKB();
-  const pct = Math.round(kb / 10000 * 100); // ~10MB max localStorage
-  const cls = pct>80?'neg':pct>50?'ora':'pos';
-  badge.innerHTML = `<span class="${cls}" style="font-size:11px;font-weight:500">${kb} KB / ~10 MB</span>`;
+/* ═══ STOCKAGE lot 3 — « Stockage de cet appareil » (CDC-STOCKAGE §3.7) ═══
+   Remplace la jauge « N KB / ~10 MB » (fausse : elle mesurait la base seule contre un plafond de 10 Mo
+   qui n'existe pas). Maquette validée par Didier le 06/10 (mockups/STOCKAGE/reglages-etat-stockage.html).
+   L'état de la copie hors ligne est décidé par _stockage.etatCopieAppareil (testé) ; ici, on rassemble ce
+   que l'app sait (miroir du lot 4, échecs vus par saveDB, horodatage) et on l'affiche. Aucune donnée au
+   cloud. Les deux mesures asynchrones (espace du navigateur, filets du lot 2) remplissent leur ligne
+   ensuite. Le détail reste dans showDBDiag. */
+function _renderStockageCard() {
+  const card = el('stockage-card');
+  if (!card) return;
+  const titre = '<div class="ct"><span data-uic="appareil"></span> Stockage de cet appareil</div>'
+    + '<p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>';
+  const S = window._stockage;
+  if (!S || typeof S.etatCopieAppareil !== 'function') {
+    card.innerHTML = titre + '<p class="mu sm">État indisponible : le module de stockage n’a pas été chargé sur cette page.</p>';
+    _uiHydrateSlots(card);
+    return;
+  }
+  let M = null, backend = null, incomplete = false;
+  try { const L = window._miroirLocal; M = (L && typeof L.miroir === 'function') ? L.miroir() : null; } catch (e) { M = null; }
+  try { if (M && M.pret()) backend = M.backend(); } catch (e) {}
+  try { incomplete = !!(M && M.copieIncomplete()); } catch (e) {}
+  let dernierOk = _miroirDernierOk;
+  if (!dernierOk) { try { const t = Number(localStorage.getItem(KEY + '_ecrit_at')); if (t > 0) dernierOk = t; } catch (e) {} }
+  const etat = S.etatCopieAppareil({ cloud: !!window.__immoSupabaseMode, sandbox: !!_isTestMode, backend,
+    copieIncomplete: incomplete, echecDepuis: _miroirEchecDepuis, dernierOk });
+  let base = 0;
+  try { base = JSON.stringify(DB).length; } catch (e) {}
+  const QUOTA = 5 * 1024 * 1024;   // ~5 M caractères par origine (Chromium) : l'ordre de grandeur, pas une promesse
+  const ls = S.occupationStockage(localStorage);
+  const pct = Math.max(ls > 0 ? 1 : 0, Math.min(100, Math.round(ls / QUOTA * 100)));
+  const lsTxt = S.enMo(ls) + ' sur ~5 Mo';
+  const ligne = (lbl, val, extra, cls) => '<div class="row' + (cls ? ' ' + cls : '') + '"><div class="flex-b"><span class="mu">' + lbl + '</span>' + val + '</div>' + (extra || '') + '</div>';
+  card.innerHTML = titre
+    + ligne('Copie hors ligne', '<span class="badge ' + escHtml(etat.ton) + '"><i class="dot"></i>' + escHtml(etat.libelle) + '</span>',
+        '<p class="mu sm expl">' + escHtml(etat.explication) + '</p>')
+    + ligne('Taille de la base', '<b>' + escHtml(S.enMo(base)) + '</b>')
+    + ligne('Stockage local du navigateur', '<b>' + escHtml(lsTxt) + '</b>',
+        '<div class="bar' + (pct > 80 ? ' hot' : '') + '" role="img" aria-label="' + escHtml(lsTxt) + '"><span style="width:' + pct + '%"></span></div>')
+    + ligne('Espace de l’app sur cet appareil', '<b class="r" id="stk-espace">Mesure en cours</b>')
+    + ligne('Copies avant migration', '<b class="r" id="stk-filets">Mesure en cours</b>', '', 'last')
+    + '<div class="foot"><button class="btn bs" onclick="showDBDiag()">Détail technique</button></div>';
+  _uiHydrateSlots(card);
+  const poser = (id, txt) => { const n = el(id); if (n) n.textContent = txt; };
+  try {
+    if (navigator.storage && typeof navigator.storage.estimate === 'function') {
+      navigator.storage.estimate().then(est => poser('stk-espace', S.enMo(est && est.usage) + ' utilisés, photos comprises'),
+        () => poser('stk-espace', 'Non mesurable sur ce navigateur'));
+    } else poser('stk-espace', 'Non mesurable sur ce navigateur');
+  } catch (e) { poser('stk-espace', 'Non mesurable sur ce navigateur'); }
+  try {
+    const A = (typeof _filetsIdb === 'function') ? _filetsIdb() : null;
+    if (!A) poser('stk-filets', 'Aucune');
+    else A.cles().then(cles => {
+      const n = cles.filter(k => k.startsWith('filet:' + KEY + ':')).length;
+      poser('stk-filets', n ? n + ' · retirées après 30 jours et à la déconnexion' : 'Aucune');
+    }, () => poser('stk-filets', 'Non mesurable sur ce navigateur'));
+  } catch (e) { poser('stk-filets', 'Non mesurable sur ce navigateur'); }
 }
 
 function suggestSave(context) {
@@ -30949,7 +30996,7 @@ async function testRelayCfg() {
 // =================== EXPORT ===================
 function rExport() {
   if(!DB) return;
-  updateDBSizeBadge();
+  _renderStockageCard();   // STOCKAGE lot 3 (remplace la jauge « N KB / ~10 MB »)
   // v14.90 LEGAL-2044 : peuple les selects année + entité quand on entre dans l'onglet
   if (typeof _legal2044RefreshSelects === 'function') {
     try { _legal2044RefreshSelects(); } catch(e) { console.warn('[legal-2044] refresh selects', e); }
@@ -30980,7 +31027,6 @@ function rExport() {
   }
   // v14.47 audit tombstones — counts visibles n'incluent que les vivants
   el('export-stats').innerHTML=`
-    <div class="flex-b mb8"><span class="mu">Taille base de données</span><span id="db-size-badge">…</span></div>
     <div class="flex-b mb8"><span class="mu">Mouvements</span><b>${(DB.mouvements||[]).filter(_isAlive).length}</b></div>
     <div class="flex-b mb8"><span class="mu">Logements</span><b>${(DB.logements||[]).filter(_isAlive).length}</b></div>
     <div class="flex-b mb8"><span class="mu">Baux</span><b>${Object.values(DB.baux||{}).filter(_isAlive).length}</b></div>

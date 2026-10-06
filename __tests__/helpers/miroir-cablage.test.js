@@ -442,7 +442,7 @@ describe('Écrivains rebranchés', () => {
     };
     const alertes = [];
     const src = extraireFonction(HTML, 'saveDB') + '\n' + extraireFonction(HTML, '_miroirEcrire') + '\n' + extraireFonction(HTML, '_miroirEcrireCloud');
-    const saveDB = new Function('window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', '_saveDBQuotaWarn', src + '\nreturn saveDB;')(
+    const saveDB = new Function('window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', '_miroirEchec', src + '\nreturn saveDB;')(
       win, st, 'immotrack_v4', DB, false, e => alertes.push(e));
     expect(saveDB({ quoi: 'edl', autosave: true })).toBe(true);
     expect(JSON.parse(st.getItem(JOURNAL_EDL_KEY)).edl.map(r => r.id)).toEqual([9]);   // AVANT toute transaction

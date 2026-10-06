@@ -241,3 +241,94 @@ export function clesCopiesLocales(cles) {
 export function purgerCopies(storage) {
   return supprimer(storage, clesCopiesLocales(lireCles(storage))).faites;
 }
+
+// ── STOCKAGE lot 3 — le message vrai (S-6, D1 B) et l'état de la copie de cet appareil (§3.7) ──
+
+/** Les textes (maquette validée par Didier le 06/10, mockups/STOCKAGE/reglages-etat-stockage.html). */
+export const TEXTES_ECHEC_MIROIR = {
+  enLigne: 'Copie de secours de cet appareil non mise à jour. La modification est bien enregistrée dans le cloud ; '
+    + 'sans réseau, cet appareil afficherait des données plus anciennes. Détail : Réglages → Sauvegarde & export → Stockage de cet appareil.',
+  horsLigne: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée. La refaire une fois le réseau revenu.',
+  sandbox: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée. Vider la base de test pour libérer de la place.',
+  local: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée.',
+};
+
+/**
+ * S-6 / D1 B — que dire, et que rendre, quand la copie de cet appareil (le miroir) n'a pas pu être écrite ?
+ * Le retour de saveDB dit si la modification a une DESTINATION DURABLE :
+ *   - `cloud-en-ligne`   : le cloud la reçoit (sync marquée quoi qu'il arrive) → `true`, avis UNIQUE par
+ *                          session (la copie de l'appareil est en retard, rien n'est perdu) ;
+ *   - `cloud-hors-ligne` : la copie de l'appareil était la seule destination → `false`, « PAS enregistrée » ;
+ *   - `local` (sandbox, ancien mode sans cloud) : idem, `false`.
+ * Un mode inconnu est traité comme une perte (on ne promet jamais un enregistrement qu'on ne peut prouver).
+ * `quoi` (étiquette de l'écriture, EDL compris) ne change rien : invariant 19l amendé, même règle pour tous.
+ * @returns {{ retour:boolean, type:'warn'|'err', unique:boolean, message:string }}
+ */
+export function verdictEchecMiroir({ mode, sandbox = false } = {}) {
+  if (mode === 'cloud-en-ligne') return { retour: true, type: 'warn', unique: true, message: TEXTES_ECHEC_MIROIR.enLigne };
+  if (mode === 'local') return { retour: false, type: 'err', unique: false, message: sandbox ? TEXTES_ECHEC_MIROIR.sandbox : TEXTES_ECHEC_MIROIR.local };
+  return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.horsLigne };
+}
+
+/** Le mode du miroir, à partir de ce que l'app sait au moment de l'écriture. */
+export function modeMiroir({ cloud, horsLigne, enLigne }) {
+  if (!cloud) return 'local';
+  return (horsLigne || enLigne === false) ? 'cloud-hors-ligne' : 'cloud-en-ligne';
+}
+
+const deux = n => String(n).padStart(2, '0');
+/** « aujourd'hui à 14:32 » / « le 06/10 à 14:32 » (heure locale). */
+export function quandCourt(t, maintenant = Date.now()) {
+  const d = new Date(t), m = new Date(maintenant);
+  const heure = deux(d.getHours()) + ':' + deux(d.getMinutes());
+  const memeJour = d.getFullYear() === m.getFullYear() && d.getMonth() === m.getMonth() && d.getDate() === m.getDate();
+  return memeJour ? 'aujourd’hui à ' + heure : 'le ' + deux(d.getDate()) + '/' + deux(d.getMonth() + 1) + ' à ' + heure;
+}
+
+/**
+ * §3.7 — l'état de la copie hors ligne de cet appareil, pour la carte de Réglages. Priorité : le plus
+ * grave d'abord (pas à jour > incomplète > mode réduit > à jour). `ton` = classe de pastille de l'app
+ * (`grn` vert = va bien, `blu` corail = à regarder, `gry` neutre — charte M-15).
+ * @param {object} o
+ * @param {boolean} o.cloud           session cloud (sinon : sandbox ou ancien mode local)
+ * @param {boolean} o.sandbox
+ * @param {string|null} o.backend     'indexeddb' | 'localStorage' | null (miroir pas prêt)
+ * @param {boolean} o.copieIncomplete
+ * @param {number} o.echecDepuis      0, ou heure de la 1re écriture ratée depuis la dernière réussie
+ * @param {number} o.dernierOk        0, ou heure de la dernière écriture réussie connue
+ * @returns {{ etat:string, libelle:string, ton:string, explication:string }}
+ */
+export function etatCopieAppareil({ cloud, sandbox, backend = null, copieIncomplete = false, echecDepuis = 0, dernierOk = 0, maintenant = Date.now() }) {
+  if (!cloud) {
+    return sandbox
+      ? { etat: 'test', libelle: 'Base de test', ton: 'gry', explication: 'Mode test : les données sont gardées dans ce navigateur uniquement.' }
+      : { etat: 'local', libelle: 'Base locale', ton: 'gry', explication: 'Les données sont gardées dans ce navigateur uniquement.' };
+  }
+  if (echecDepuis) {
+    const depuis = dernierOk && dernierOk < echecDepuis ? dernierOk : echecDepuis;
+    const q = quandCourt(depuis, maintenant);
+    return { etat: 'pas-a-jour', libelle: 'Pas à jour depuis ' + (q.startsWith('le ') ? q : q.replace(/^aujourd’hui à /, '')), ton: 'blu',
+      explication: 'Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données ' + (q.startsWith('le ') ? 'du ' + q.slice(3) : 'd’' + q) + '.' };
+  }
+  if (copieIncomplete) {
+    return { etat: 'incomplete', libelle: 'Incomplète', ton: 'blu',
+      explication: 'La base ne tient pas entièrement sur cet appareil : sans réseau, les données affichées seraient anciennes.' };
+  }
+  if (backend === 'localStorage') {
+    return { etat: 'reduit', libelle: 'Mode réduit', ton: 'blu',
+      explication: 'Ce navigateur refuse le stockage étendu (navigation privée ?). La copie hors ligne est limitée à environ 5 Mo sur cet appareil.' };
+  }
+  return { etat: 'a-jour', libelle: 'À jour', ton: 'grn',
+    explication: dernierOk ? 'Dernière mise à jour ' + quandCourt(dernierOk, maintenant) + '.' : 'Copie faite à l’ouverture de la session.' };
+}
+
+/** Une taille en « Mo » lisible (caractères ≈ octets pour l'utilisateur), virgule décimale. */
+export function enMo(caracteres) {
+  const mo = (Number(caracteres) || 0) / (1024 * 1024);
+  return (mo < 0.1 && mo > 0 ? '< 0,1' : mo.toFixed(1).replace('.', ',')) + ' Mo';
+}
+
+/** Occupation du localStorage (caractères, unité du quota Chromium). Ne lève jamais. */
+export function occupationStockage(storage) {
+  try { return lireEntrees(storage).reduce((s, e) => s + e.taille, 0); } catch (_e) { return 0; }
+}
