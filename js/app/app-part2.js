@@ -13956,11 +13956,32 @@ function _dgStatutLibelle(dgInfo, restitue) {
 function _histoBailEventHtml(ev, c, refSafe, bailForDg){
   const t = ev.type;
   if(t==='bail-debut'){
-    const badge = ev.signe ? 'bail signé' : 'bail';
+    const badge = ev.externe ? 'signé hors Propryo' : (ev.signe ? 'bail signé' : 'bail');
     const foot = c.statut==='clos' && c.histIdx!=null
       ? `<div class="hl-foot"><span class="hl-lnk" onclick="openBailHist(${c.histIdx})">${_uiIcon('eye')} Voir le bail archivé</span></div>` : '';
     return `<div class="hl-card" data-dot="d-bail"><div class="tt"><h4>Bail — ${escHtml(ev.locataires||'locataire')}</h4><span class="hl-badge b-bail">${escHtml(badge)}</span></div>
       <div class="hl-desc">Loyer initial <b>${fmt(ev.hc0)} HC + ${fmt(ev.ch0)}</b> de provision${ev.dg?` · dépôt de garantie dû ${fmt(ev.dg)}`:''}.</div>${foot}</div>`;
+  }
+  // BAIL-EN-COURS-SIGNE-HORS-PROPRYO (étape 6) — déclaration « signé hors Propryo » et signatures / sessions ARCHIVÉES.
+  if(t==='signe-externe'){
+    const orig = ev.origine==='repris' ? 'bail repris du vendeur' : (ev.origine==='session-expiree' ? 'après une session de signature à distance expirée' : 'sur papier');
+    return `<div class="hl-card" data-dot="d-bail"><div class="tt"><h4>Bail déclaré signé hors Propryo</h4><span class="hl-badge b-bail">hors Propryo</span></div>
+      <div class="hl-desc">Signé le <b>${fd(ev.date)}</b>${ev.dateApprox?' <span class="mu">(date approximative)</span>':''} — ${orig}. Déclaré${ev.declareLe?' le '+fd(ev.declareLe):''}${ev.declarePar?' par '+escHtml(ev.declarePar):''}. Propryo n'enregistre aucune signature électronique : le bail est considéré comme conclu à cette date.</div></div>`;
+  }
+  if(t==='signature-annulee'){
+    const m = ev.motif;
+    const titre = m==='session-annulee' ? 'Session de signature à distance annulée'
+      : m==='remplace-par-externe' ? 'Signature en cours remplacée par « signé hors Propryo »'
+      : m==='externe-retire' ? 'Déclaration « signé hors Propryo » retirée'
+      : m==='externe-redate' ? 'Date de signature corrigée' : 'Signature archivée';
+    const etat = ev.etatRelais==='pending-invalidee' ? 'son lien encore actif a été invalidé' : (ev.etatRelais==='expired' ? 'expirée' : '');
+    const qui = (ev.signataires||[]).map(x=>`${escHtml(x.nom||x.role||'—')} ${x.signeLe?('a signé le '+fd(x.signeLe)):'n\'avait pas signé'}`).join(' · ');
+    let corps;
+    if(m==='externe-retire') corps = `La déclaration${ev.ancienneDate?' du <b>'+fd(ev.ancienneDate)+'</b>':''} a été retirée : le bail est redevenu non signé. Elle reste conservée ici.`;
+    else if(m==='externe-redate') corps = `Ancienne date de signature déclarée : <b>${fd(ev.ancienneDate)}</b>. La déclaration précédente est archivée, une nouvelle l'a remplacée.`;
+    else corps = `${ev.envoyeeLe?'Envoyée le <b>'+fd(ev.envoyeeLe)+'</b>':'Session de signature'}${etat?' ('+etat+')':''}${qui?' — '+qui:''}.${ev.bailleurAvaitSigne?' La signature du bailleur est archivée (elle ne sert plus).':''}${m==='session-annulee'?' Le bail est redevenu non signé.':''}`;
+    return `<div class="hl-card" style="opacity:.85" data-dot="d-renon"><div class="tt"><h4>${titre}</h4><span class="hl-badge b-warn">⊘ archivée</span></div>
+      <div class="hl-desc">${corps}${ev.par?' Par '+escHtml(ev.par)+'.':''} Rien n'est supprimé : l'ancienne signature est conservée dans l'historique du bail.</div></div>`;
   }
   if(t==='dg-verse'){
     // Statut + CTA restitution : mêmes règles que l'ancien panneau « Dépôt de garantie »

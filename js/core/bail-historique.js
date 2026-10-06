@@ -96,8 +96,34 @@ export function construireHistoriqueBail(input) {
       type: 'bail-debut', date: c.debut,
       hc0: Number(b.hc) || 0, ch0: Number(b.ch) || 0, dg: Number(b.dg) || 0,
       locataires: c.locataires, typeContrat: b.typeContrat || '',
-      signe: !!(b.signatures && b.signatures.signedAt)
+      signe: !!(b.signatures && b.signatures.signedAt),
+      externe: !!(b.signatures && b.signatures.signedAt && b.signatures.mode === 'externe')   // signé hors Propryo : mention sur la carte
     }, c.debut);
+    // BAIL-EN-COURS-SIGNE-HORS-PROPRYO (étape 6) — la DÉCLARATION « signé hors Propryo » (jamais une signature électronique) et les
+    // signatures / sessions ARCHIVÉES (bail.signaturesAnnulees : session annulée, déclaration retirée ou re-datée, signature en cours
+    // remplacée). Rien n'est détruit : l'historique le dit. Les champs sont copiés tels quels, la carte (UI) les met en forme.
+    const sg = b.signatures;
+    if (sg && sg.signedAt && sg.mode === 'externe') {
+      const ex = sg.externe || {};
+      const jour = _ymd(ex.date) || _ymd(sg.signedAt);
+      _pushEv(c.rail, {
+        type: 'signe-externe', date: jour, origine: ex.origine || 'papier', dateApprox: !!ex.dateApprox,
+        declareLe: _ymd(ex.declareLe || sg.persistedAt), declarePar: ex.declarePar || ''
+      }, jour);
+    }
+    for (const a of (Array.isArray(b.signaturesAnnulees) ? b.signaturesAnnulees : [])) {
+      if (!a || typeof a !== 'object') continue;
+      const old = a.signatures || {};
+      const jour = _ymd(a.at);
+      const rs = a.resume || null;
+      _pushEv(c.rail, {
+        type: 'signature-annulee', date: jour, motif: a.motif || '', etatRelais: a.etatRelais || '', par: a.par || '',
+        envoyeeLe: rs ? _ymd(rs.envoyeeLe) : '',
+        signataires: rs && Array.isArray(rs.signataires) ? rs.signataires.map((x) => ({ role: x.role || '', nom: x.nom || '', signeLe: _ymd(x.signedAt) })) : [],
+        bailleurAvaitSigne: !!(old.signedBailleurAt || (old.finales && Object.keys(old.finales).length)),
+        ancienneDate: old.mode === 'externe' ? (_ymd(old.externe && old.externe.date) || _ymd(old.signedAt)) : ''
+      }, jour);
+    }
     if ((Number(b.dg) || 0) > 0) {
       _pushEv(c.rail, { type: 'dg-verse', date: c.debut, montant: Number(b.dg) || 0 }, c.debut);
     }
