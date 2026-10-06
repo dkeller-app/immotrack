@@ -181,3 +181,29 @@ Les boutons « Réappliquer » sont indépendants, l'utilisateur choisit l'ordre
 - 🟠3 Modifier le loyer en vigueur fait sauter en silence une révision IRL programmée (`ancienHC` ≠ `log.hc`) et laisse sa hausse calculée sur l'ancien loyer, sans alerte.
 - 🟠4 XSS stockée : `fd()` non échappé dans le bandeau du détecteur (données du journal cloud).
 - 🟠5 Le fuzz n'a toujours pas de second chapitre ; la mutation « filtre de chapitre retiré » survit à toute la suite.
+
+---
+
+## Suivi des corrections (commits « Périodes audit : … », branche `feat/bail-en-cours`, sans bump de version)
+
+Chaque correctif a un test qui rougit sans lui (mutation locale appliquée puis annulée : 14 mutations, toutes détectées). Suite complète : 264 fichiers, 6 506 tests verts. Vérifié en navigateur (PC 1280 et téléphone 390 px, bac à sable) : mode sélection, Échap, flèches, fenêtre avec alerte IRL, rejeu simple / en chaîne / avec divergence, journal piégé, aucune erreur console.
+
+| Finding | Statut | Correctif / raison |
+|---|---|---|
+| 🟠1 « Réappliquer » écrase | **Corrigé** (a)(b) | `planRejeu` compare la période vivante à `entree.avant` ; divergence → rien n'est écrit, le bandeau nomme l'écart (« loyer HC 742 aujourd'hui, 730 au moment de la modification ») et propose « Réappliquer quand même », qui ne pose que les champs changés (`apres` ≠ `avant`). `autoriserIRL` n'est plus jamais forcé : date / loyer d'une période IRL → « se refait avec les gestes IRL ». (c) **non traité** : pas d'encart d'impact au rejeu (la garde est la divergence). |
+| 🟠2 deux éditions perdues | **Corrigé** | Une entrée n'est supersédée que par une postérieure **appliquée**. Les deux sont proposées, un seul bouton « Réappliquer les N modifications » les rejoue dans l'ordre, d'abord sur une copie (`simulerRejeu`) : rien n'est écrit si une étape échoue. « Introuvable » dit quoi faire (refaire à la main, avec ce que l'entrée posait) ; « Ignorer » retire toute la chaîne. |
+| 🟠3 révision IRL sautée | **Corrigé côté fenêtre** | Alerte non bloquante `irl-programmee-base` (bandeau à l'ouverture, encart, toast après enregistrement, `irlProgrammee` dans le résultat de l'API). **Correctif moteur à faire par la session IRL** : `_applyPendingIRLRevisions` (contrôle `log.hc ≠ rev.ancienHC`) et `annulerRevisionProgrammee` (repose `ancienHC`). Non touchés ici. |
+| 🟠4 XSS stockée | **Corrigé** | `_histoPerFd` = `escHtml(fd(…))` partout dans le bandeau ; mêmes échappements dans les cartes du rail (modifiée / supprimée / absorbée / annulée / remplacée / modif), l'encart et les messages d'erreur ; les entrées dont `avant/apres.debut` n'est pas strictement AAAA-MM-JJ sont ignorées par `periodesNonAppliquees`. |
+| 🟠5 fuzz sans second chapitre | **Corrigé** | `bareme-edition-fuzz-chapitres.test.js` : 3 000 séquences (graine 20261007), re-bail contigu 60 % ou après vacance, gestes sur les deux chapitres dont des dates avant le bail ; invariants C-1 (l'autre chapitre intact, lignes et dû), C-2 (clôture non débordée), C-3, I-A, I-C, I-F, I-G. M9 (filtre de chapitre) et M8 (`avant-bail`) rougissent. Tests unitaires de baux contigus ajoutés. |
+| 🟡6 ajout dans un bail clos | **Corrigé** | `finChapitre` (option ou déduit des baux par `finOccupationBail`) borne la fin ; une date après la fin → `apres-cloture`. |
+| 🟡7 charges vides = 0 € | **Corrigé** | Reprise de la provision de la période en vigueur (sinon du bail), dite par `charges-reprises` ; `charges-vides` si aucune source. Un 0 saisi reste un 0. |
+| 🟡8 montant non numérique | **Corrigé** | `montant-invalide` (modifier hc/ch, ajouter ch). |
+| 🟡9 barème sans `bailDebut` | **Corrigé** | Le chapitre est déduit de la date par `chapitrePour` avec les baux du lot (`opts.baux`, déjà fournis par l'orchestrateur). Sans baux, comportement historique inchangé. |
+| 🟡10 filet de couverture sans bail du chapitre | **Non traité** | Hors de la liste de la mission ; la cause est `_periodeJusteAvant` (loyer-bareme.js, partagé par saveBail / IRL / avenant). À arbitrer. |
+| 🟡11 édition datée dans le futur | **Non traité** | Même famille que l'avenant daté (le dû reste juste) ; consigné au BACKLOG. |
+| 🟡12 journal d'audit non défait | **Corrigé** | `_auditLog` appelé après un `saveDB` réussi. |
+| 🟡13 test à retardement | **Corrigé** | Horloge fixée (06/10/2026) dans le bac à sable du test. |
+| 🟡14 ordre de rejeu / horloges | **Corrigé en partie** | L'ordre est celui du journal (chaîne, un seul bouton). Les horloges d'appareils différents ne sont pas traitées (aucune divergence chiffrée trouvée). |
+| 🟡15 UI | **Corrigé en partie** | Échap quitte le mode (sans effet si la fenêtre est ouverte, pour ne pas perdre une saisie), `role="radiogroup"`, flèches + Entrée / Espace, arrêt de tabulation unique. **Non traités** : liens IRL des cartes désactivés pendant la sélection (voulu : le mode capte les clics) ; l'encart « futur » n'affiche que le premier écart. |
+| 🟡16 ménage | **Corrigé en partie** | Commentaires corrigés dans app-part1.js, loyer-bareme.js et bareme-edition.js ; contrat `sansSave` écrit dans l'en-tête de l'API. **Non traités** : `loyer-du-mois.js:86` (fichier hors périmètre) ; version non bumpée (décision de la mission : numéro posé au merge). |
+| Fusion par élément du blob `espace_config` | **Non traité** | Demandé explicitement : elle concerne toute la configuration de l'espace, pas seulement le barème. Le détecteur + « Réappliquer » reste le filet. |
