@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createAuthStorage } from '../../js/core/auth-storage.js'
+import { createAuthStorage, purgerJetonLocalLegacy, MIGRATION_KEY } from '../../js/core/auth-storage.js'
 
 const mem = () => { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), _m: m } }
 const TOKEN = 'immo-supabase-auth'
@@ -108,6 +108,80 @@ describe('createAuthStorage', () => {
     expect(() => s.setItem(TOKEN, 'x')).not.toThrow()
     expect(() => s.removeItem(TOKEN)).not.toThrow()
     expect(() => s.setPersist(true)).not.toThrow()
+  })
+})
+
+describe('jeton d’UNE AUTRE personne déjà présent (audit : le choix du clic doit l’emporter à la connexion)', () => {
+  it('A est persistant (jeton en local) ; B se connecte SANS cocher → le jeton de B va en SESSION, celui de A disparaît', () => {
+    const local = mem(), session = mem()
+    local.setItem(TOKEN, 'jwt-A')
+    const s = createAuthStorage({ local, session })
+    s.setPersist(false)                                          // clic sur « Se connecter », case décochée
+    s.setItem(TOKEN, 'jwt-B')                                    // signInWithPassword écrit le jeton
+    expect(session.getItem(TOKEN)).toBe('jwt-B')
+    expect(local.getItem(TOKEN)).toBeNull()                      // le jeton persistant de A ne traîne plus
+    expect(s.getItem(TOKEN)).toBe('jwt-B')                       // getSession restaure B, pas A
+  })
+
+  it('symétrique : jeton de A en session ; B COCHE la case → jeton de B en local, copie session supprimée', () => {
+    const local = mem(), session = mem()
+    session.setItem(TOKEN, 'jwt-A')
+    const s = createAuthStorage({ local, session })
+    s.setPersist(true); s.setItem(TOKEN, 'jwt-B')
+    expect(local.getItem(TOKEN)).toBe('jwt-B'); expect(session.getItem(TOKEN)).toBeNull()
+  })
+
+  it('après la connexion, un rafraîchissement SANS nouveau clic suit l’emplacement existant', () => {
+    const local = mem(), session = mem()
+    local.setItem(TOKEN, 'jwt-A')
+    const s = createAuthStorage({ local, session })
+    s.setPersist(false); s.setItem(TOKEN, 'jwt-B')               // connexion de B (session)
+    s.setItem(TOKEN, 'jwt-B-bis')                                // autoRefreshToken
+    expect(session.getItem(TOKEN)).toBe('jwt-B-bis'); expect(local.getItem(TOKEN)).toBeNull()
+  })
+
+  it('le code-verifier PKCE écrit AVANT le jeton ne consomme pas le choix : verifier ET jeton suivent la case', () => {
+    const local = mem(), session = mem()
+    local.setItem(TOKEN, 'jwt-A')
+    const s = createAuthStorage({ local, session })
+    s.setPersist(false)
+    s.setItem(VERIF, 'v-B')                                      // PKCE : verifier d'abord
+    s.setItem(TOKEN, 'jwt-B')
+    expect(session.getItem(VERIF)).toBe('v-B'); expect(session.getItem(TOKEN)).toBe('jwt-B')
+    expect(local.getItem(TOKEN)).toBeNull()
+  })
+
+  it('échec de connexion : annulerChoix() — une écriture ultérieure sans rapport suit de nouveau l’emplacement existant', () => {
+    const local = mem(), session = mem()
+    local.setItem(TOKEN, 'jwt-A')
+    const s = createAuthStorage({ local, session })
+    s.setPersist(false)                                          // clic, mais le mot de passe est faux : aucune écriture
+    s.annulerChoix()
+    s.setItem(TOKEN, 'jwt-A-rafraichi')                          // rafraîchissement du jeton de A
+    expect(local.getItem(TOKEN)).toBe('jwt-A-rafraichi'); expect(session.getItem(TOKEN)).toBeNull()
+  })
+})
+
+describe('purgerJetonLocalLegacy — ancien jeton local laissé par une version précédente du site', () => {
+  const cles = [TOKEN, VERIF]
+  it('purge UNE fois le jeton local (hors app installée), pose son marqueur', () => {
+    const local = mem()
+    local.setItem(TOKEN, 'ancien-A'); local.setItem(VERIF, 'v')
+    expect(purgerJetonLocalLegacy({ local, cles })).toBe(true)
+    expect(local.getItem(TOKEN)).toBeNull(); expect(local.getItem(VERIF)).toBeNull()
+    expect(local.getItem(MIGRATION_KEY)).toBe('1')
+  })
+  it('ne touche PLUS jamais ensuite un jeton persistant écrit avec la case cochée', () => {
+    const local = mem(), session = mem()
+    purgerJetonLocalLegacy({ local, cles })                      // 1er démarrage de cette version
+    const s = createAuthStorage({ local, session }); s.setPersist(true); s.setItem(TOKEN, 'jwt-choisi')
+    expect(purgerJetonLocalLegacy({ local, cles })).toBe(false)  // démarrage suivant
+    expect(local.getItem(TOKEN)).toBe('jwt-choisi')
+  })
+  it('application installée : jamais de purge (session persistante voulue)', () => {
+    const local = mem(); local.setItem(TOKEN, 'jwt-pwa')
+    expect(purgerJetonLocalLegacy({ local, cles, standalone: true })).toBe(false)
+    expect(local.getItem(TOKEN)).toBe('jwt-pwa')
   })
 })
 

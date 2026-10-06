@@ -9,7 +9,7 @@
 // Ne touche PAS window.DB ni le rendu (ça vient à l'étape 2b). Donc zéro interférence avec l'app derrière.
 
 import { BREADCRUMB_KEY, appendCrumb } from '../core/login-breadcrumb.js'
-import { createAuthStorage } from '../core/auth-storage.js'   // « Rester connecté sur cet appareil »
+import { createAuthStorage, purgerJetonLocalLegacy } from '../core/auth-storage.js'   // « Rester connecté sur cet appareil »
 // EDL TERRAIN lot 1, faille F5 (CDC docs/CDC-EDL.md §3ter, invariant 19j) :
 // une modification fraîche ne réarme plus le backoff de réessai. Avec l'autosave
 // de l'EDL (une écriture toutes les 2 s), l'ancien `schedule` replanifiait un
@@ -330,6 +330,10 @@ async function boot() {
   // « Rester connecté sur cet appareil » (case du formulaire) : le NAVIGATEUR garde le jeton en sessionStorage par
   // défaut (poste partagé : fermer l'onglet déconnecte) ; la case coche bascule en localStorage. L'app installée
   // reste persistante. Le choix est appliqué AVANT l'écriture du jeton (cf. wireLoginForm). Module testé : auth-storage.js.
+  // Un jeton resté en localStorage par une ancienne version du site (avant le passage du navigateur en sessionStorage)
+  // ne doit PAS connecter le premier venu sur ce poste : purge unique, jamais pour l'app installée ni pour un jeton
+  // écrit ensuite avec la case cochée (cf. auth-storage.js).
+  purgerJetonLocalLegacy({ local: window.localStorage, cles: [AUTH_STORAGE_KEY, AUTH_STORAGE_KEY + '-code-verifier'], standalone: _standalone });
   const _authStore = createAuthStorage({ local: window.localStorage, session: window.sessionStorage, standalone: _standalone });
   _authStorage = _authStore;
   _initRemember(overlay);   // l'overlay statique est déjà adopté : on règle la case maintenant que le stockage existe
@@ -797,6 +801,7 @@ function wireLoginForm(api, overlay, prefillEmail) {
     setBusy(overlay, true); showError(overlay, '')
     if (mode === 'signup') {
       const s = await api.signUpEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+      _annulerChoixAuth()
       if (!s.ok) {
         setBusy(overlay, false)
         if (/already.*(regist|exist)|user already/i.test(s.error || '')) { showError(overlay, 'Ce compte existe déjà — connecte-toi.'); mode = 'login'; applyMode(); return }
@@ -804,12 +809,14 @@ function wireLoginForm(api, overlay, prefillEmail) {
       }
       // Compte créé (confirmation email désactivée → session directe). On enchaîne sur la connexion.
       const r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+      _annulerChoixAuth()
       setBusy(overlay, false)
       if (!r.ok) { showError(overlay, 'Compte créé — connecte-toi avec ton mot de passe.'); mode = 'login'; applyMode(); return }
       onLoggedIn(api, overlay, r.user)
       return
     }
     const r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+    _annulerChoixAuth()
     setBusy(overlay, false)
     if (!r.ok) { showError(overlay, traduireErreur(r.error)); return }
     try { window.__immoCrumb && window.__immoCrumb('login-ok') } catch (_e) {}
@@ -921,8 +928,10 @@ async function acceptInviteFlow(api, client, overlay, token) {
     const fail = (msg) => { btn.disabled = false; showError(overlay, msg) }
     try { if (_authStorage) _authStorage.setPersist(false) } catch (e) {}   // invité : session de l'onglet (pas de case ici), AVANT d'écrire le jeton
     let r = await api.signUpEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+    _annulerChoixAuth()
     if (!r.ok && /already.*(regist|exist)|user already/i.test(r.error || '')) {
       r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+      _annulerChoixAuth()
       if (!r.ok) return fail('Ce compte existe déjà, mais le mot de passe ne correspond pas.')
     } else if (!r.ok) {
       return fail(traduireErreur(r.error))
@@ -1753,6 +1762,10 @@ function _imsbCheck() {
 
 // Case « Rester connecté sur cet appareil » : cochée si l'utilisateur l'avait choisie (mémorisé), masquée dans
 // l'application installée (session toujours persistante, usage terrain hors ligne). Sans effet si le stockage manque.
+// Après une tentative de connexion (réussie ou non) : le choix du clic « rester connecté » a fait son œuvre à la
+// 1re écriture du jeton ; en cas d'ÉCHEC il ne doit pas rester armé pour une écriture ultérieure sans rapport.
+function _annulerChoixAuth() { try { if (_authStorage) _authStorage.annulerChoix() } catch (e) {} }
+
 function _initRemember(ov) {
   try {
     const row = ov.querySelector('.imsb-remember'), box = ov.querySelector('#imsb-remember')
