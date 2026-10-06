@@ -2480,11 +2480,17 @@ function _qeFootBtn() {
  * logement. Elle n'est proposée que sur un mois ÉCHU : sur un mois à venir, il n'y a rien à
  * encaisser.
  */
+// B3 : « + Mouvement » depuis la fiche logement. Le texte de la consigne est calculé ICI à partir de la référence
+// (jamais injecté dans un attribut onclick) et doit être identique à l'option du champ Logement (« Nom · réf »).
+function _openNewMvPourLot(ref) {
+  openNewMv();
+  showToast(`Pensez à sélectionner « ${_logLabelRef(ref)} » dans le champ Logement`, 'info', 4000);
+}
 function _qeEnregistrerPaiement() {
   const ref = _qe.ref, ym = _qe.ym;
   _qeFermer();
   openNewMv();
-  if (ref) showToast(`Sélectionne « ${ref} »${ym ? ' — ' + window.ymToMoisFr(ym) : ''}`, 'info', 4000);
+  if (ref) showToast(`Sélectionne « ${_logLabelRef(ref)} »${ym ? ' — ' + window.ymToMoisFr(ym) : ''}`, 'info', 4000);
 }
 
 /** V7 — la porte de sortie proposée dans le bandeau : le reçu partiel, en un clic. */
@@ -2587,14 +2593,14 @@ function _qeRenderPick() {
 function _qeRenderPickList() {
   const host = el('qd-pick-list'); if (!host) return;
   const f = _qe.filtre.trim().toLowerCase();
-  const match = (l) => !f || [l.ref, l.locataire, l.imm, l.entity].some(x => String(x || '').toLowerCase().includes(f));
+  const match = (l) => !f || [l.ref, l.locataire, l.imm, l.entity].some(x => String(x || '').toLowerCase().includes(f)) || _logLabelMatch(l, f);   // B3 : + nom affiché
   const lots = _qeLots().filter(match);
   const nbLibre = (ref) => { const e = _loyerEtatLot(ref); return e ? window.moisAQuittancer(e, _qeDeja(ref).yms).length : 0; };
   const item = (l) => {
     const n = nbLibre(l.ref);
     const bail = _findBailByRefTolerant(l.ref);
     return `<button class="it" onclick="_qeChoisirLot('${_lyQ(l.ref)}')">
-      <span class="rf">${escHtml(l.ref)}</span><span class="lo">${escHtml(l.locataire || '— vacant —')}</span>
+      <span class="rf">${escHtml(_logLabelRef(l))}</span><span class="lo">${escHtml(l.locataire || '— vacant —')}</span>
       ${(bail && bail.quittanceDemandee) ? '<span class="bg ask">🧾 mensuelle</span>' : ''}
       <span class="bg ${n ? 'on' : ''}">${n ? n + ' mois libre' + (n > 1 ? 's' : '') : 'à jour'}</span></button>`;
   };
@@ -2618,7 +2624,7 @@ function _qeRenderPickList() {
   h += `<div class="gb" style="border-top:1px solid var(--bor)">✎ Autre</div>
     <button class="it" onclick="_qeModeLibre(${_qe.ref ? `'${_lyQ(_qe.ref)}'` : 'null'})">
       <span class="rf">Quittance libre</span>
-      <span class="lo">${_qe.ref ? 'partir de ' + escHtml(_qe.ref) + ', tout reste modifiable' : 'sans bail — tout se remplit sur la feuille'}</span></button>`;
+      <span class="lo">${_qe.ref ? 'partir de ' + escHtml(_logLabelRef(_qe.ref)) + ', tout reste modifiable' : 'sans bail — tout se remplit sur la feuille'}</span></button>`;
   // V11 — les saisies libres retenues sont REJOUABLES : l'app garde la SAISIE (pas le
   // document), on la rouvre et on la réédite. Pas de liste infinie : les cinq dernières.
   const libres = ((DB.params || {}).quittancesLibres || []).slice().reverse();
@@ -3986,7 +3992,7 @@ function rEDLList() {
   const ql=el('edl-f-log'); let flog=v('edl-f-log');
   // Merge v14.4 BUG-EDL-DELETE-NOSYNC (filter tombstones via _edlActive) + v14.2 LOG-ARCHIVE (selects via _activeLogements)
   // v15.234 NAV-FILTRE-ENTITE-GLOBAL : cascade entité → ne lister que ses logements + reset Q1.
-  if(ql){const cur=ql.value;const opts=_activeLogements().filter(_logInEnt);ql.innerHTML='<option value="">Tous logements</option>'+opts.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');ql.value=(cur&&opts.some(l=>l.ref===cur))?cur:'';flog=ql.value;}
+  if(ql){const cur=ql.value;const opts=_activeLogements().filter(_logInEnt);ql.innerHTML='<option value="">Tous logements</option>'+opts.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');ql.value=(cur&&opts.some(l=>l.ref===cur))?cur:'';flog=ql.value;}
   // refs des logements de l'entité active (pour filtrer les EDL par entité)
   const _entEdlRefs = _activeEntity ? new Set(DB.logements.filter(_logInEnt).map(l=>l.ref)) : null;
   const list=DB.edl.filter(_edlActive).filter(e=>(!_entEdlRefs||_entEdlRefs.has(e.logement))&&(!flog||e.logement===flog)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -4187,7 +4193,7 @@ function _edlFill(e) {
   _edlSortie?el('edl-date-sortie').value=e.date||'':el('edl-date-entree').value=e.date||td();
   // Logements dropdown
   const sel=el('edl-log');
-  sel.innerHTML='<option value="">— Sélectionner —</option>'+_activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');
+  sel.innerHTML='<option value="">— Sélectionner —</option>'+_activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');
   sel.value=e.logement||'';
   // Champs texte
   const s=(id,val)=>{const x=el(id);if(x)x.value=val||'';};
@@ -8091,27 +8097,27 @@ function archiveLogement(ref) {
     showToast('Terminez d\'abord le bail en cours avant d\'archiver','err');
     return;
   }
-  if(!confirm2(`Archiver le bien ${ref} ?\n\nVous pourrez le restaurer à tout moment depuis l'onglet "Biens archivés". L'historique (baux, mouvements, EDL, quittances) sera intégralement conservé.`)) return;
+  if(!confirm2(`Archiver le bien ${_logLabelRef(ref)} ?\n\nVous pourrez le restaurer à tout moment depuis l'onglet "Biens archivés". L'historique (baux, mouvements, EDL, quittances) sera intégralement conservé.`)) return;
   log.archived = true;
   log.archivedAt = td();
   _stamp(log);
   saveDB();
   initFilters && initFilters();
   rBiens();
-  showToast(`Bien ${ref} archivé`,'ok');
+  showToast(`Bien ${_logLabel(ref)} archivé`,'ok');
 }
 
 function restoreLogement(ref) {
   const log = (DB.logements||[]).find(l=>l.ref===ref);
   if(!log) return;
-  if(!confirm2(`Restaurer le bien ${ref} ?`)) return;
+  if(!confirm2(`Restaurer le bien ${_logLabelRef(ref)} ?`)) return;
   log.archived = false;
   delete log.archivedAt;
   _stamp(log);
   saveDB();
   initFilters && initFilters();
   rBiens();
-  showToast(`Bien ${ref} restauré`,'ok');
+  showToast(`Bien ${_logLabel(ref)} restauré`,'ok');
 }
 
 function _closeBienMenus() {
@@ -14270,7 +14276,7 @@ function _renderLogFichePanelCompta(log, ref) {
         <select class="inp" style="width:100px" onchange="setLogFicheComptaYear(this.value)">${yearOpts}</select>
       </div>
       <div class="compta-toolbar-right">
-        <button class="btn bs bb" onclick="openNewMv();showToast('Pensez à sélectionner « ${escHtml(ref)} » dans le champ Logement','info',4000)">+ Mouvement</button>
+        <button class="btn bs bb" onclick="_openNewMvPourLot('${_lyQ(ref)}')">+ Mouvement</button>
         <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(ref)}')">＋ Faire une quittance</button>
         <button class="btn bs bb" onclick="_goFromLogFiche('mouvements')" title="Voir tous les mouvements dans l'onglet">↗ Onglet Mouvements</button>
       </div>
@@ -22700,7 +22706,8 @@ function _closeLogGuarded() {
 }
 
 function delLog(ref) {
-  if(!confirm2(`Supprimer le logement ${ref} ? (baux et données associées conservées)`)) return;
+  const _lblDel = _logLabelRef(ref);   // B3 : relevé AVANT la suppression (le tombstone ne garde pas le libellé)
+  if(!confirm2(`Supprimer le logement ${_lblDel} ? (baux et données associées conservées)`)) return;
   // DRIVE-ARBORESCENCE : capturer driveFolderId avant suppression DB.
   const log = DB.logements.find(l=>l.ref===ref);
   const driveFolderId = log?.driveFolders?.root;
@@ -22711,7 +22718,7 @@ function delLog(ref) {
   // UNDO-OP v14.23 : wrap mutation DB pour pouvoir l'annuler. Le trash Drive
   // (side-effect non-DB) reste hors du _undoOp pour ne pas tenter de restorer
   // un dossier Drive à l'undo (cf spec Q6b : V1 = corbeille manuelle 30j).
-  _undoOp(`Suppression du logement ${ref}`, () => {
+  _undoOp(`Suppression du logement ${_lblDel}`, () => {
     // v14.30 BUG-DRIVE-RESURRECTION : tombstone au lieu de filter() pour propager
     // la suppression vers Drive et les autres devices.
     const idx = DB.logements.findIndex(l=>l.ref===ref);
@@ -22730,7 +22737,7 @@ function delLog(ref) {
     saveDB(); initFilters(); rBiens();
     _refreshAfterMutation(); // v14.28 REFRESH-LIVE (imm-fiche/ent-fiche si actives)
   });
-  _undoToast(`Logement ${ref} supprimé`);
+  _undoToast(`Logement ${_lblDel} supprimé`);
 }
 
 // v14.3 PATRIMOINE-NAV-UNIFY : rBailleurs n'a plus de page dédiée, devient un wrapper qui rafraîchit
@@ -23793,7 +23800,7 @@ function _frCompAction(action, ref){
 }
 function _frOpenBailStep(ref){ if(ref) _frCtx.bailRef=ref; _frCtx.bailDone=false; _frShowFr('bail'); }
 function _frConfirmBail(){ const sel=el('fr-bail-log'); if(sel&&sel.value) _frCtx.bailRef=sel.value; _frCtx.bailDone=true; const ref=_frCtx.bailRef; _frClose(); if(typeof openBail==='function') openBail(ref); }
-function _frRentableOptions(){ return _frRentableLogs().map(l=>'<option value="'+escHtml(l.ref)+'"'+(l.ref===_frCtx.bailRef?' selected':'')+'>'+escHtml(l.ref)+'</option>').join('')||'<option>—</option>'; }
+function _frRentableOptions(){ return _frRentableLogs().map(l=>'<option value="'+escHtml(l.ref)+'"'+(l.ref===_frCtx.bailRef?' selected':'')+'>'+escHtml(_logLabelRef(l))+'</option>').join('')||'<option>—</option>'; }
 // P4 fidélité mockup : le récap « bien prêt » ne montre que ce que CE fil a créé (immeubles
 // créés + immeubles ayant reçu un logement créé), jamais tout le patrimoine du bailleur.
 // P3 : « ✍ Bail » seulement si le logement est louable (identité complète) ET vacant.
@@ -24975,7 +24982,7 @@ function initAgendaFilters() {
   const sl = el('agenda-f-log');
   if(sl) {
     sl.innerHTML = '<option value="">Tous logements</option>'
-      + _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)}${l.locataire?' — '+l.locataire:''}</option>`).join('');
+      + _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))}${l.locataire?' — '+escHtml(l.locataire):''}</option>`).join('');
   }
   const sc = el('agenda-f-cat');
   if(sc) {
@@ -25434,7 +25441,7 @@ function rEquipements() {
     const cur = logSel.value;
     const opts = entLogs.filter(l => !fImm || l.imm===fImm);
     logSel.innerHTML = '<option value="">Tous logements</option>'
-      + opts.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml((l.locataire || 'Vacant').substring(0,25))}</option>`).join('');
+      + opts.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} — ${escHtml((l.locataire || 'Vacant').substring(0,25))}</option>`).join('');
     logSel.value = (cur && opts.some(l=>l.ref===cur)) ? cur : '';  // Q1 reset auto
     fLog = logSel.value;
   }
@@ -25734,7 +25741,7 @@ function openEquipIntervention(ref, key) {
   // clôture) doit pouvoir se rattacher au lot, comme avant.
   logSel.innerHTML = (DB.logements||[]).filter(_isAlive).filter(_lotBailOuvert).map(l=>{
     const _n = l.locataire || _nomsDuBail(_bienActiveBail(l.ref));
-    return `<option value="${escHtml(l.ref)}">${escHtml(l.ref)}${_n ? ' — ' + escHtml(String(_n).substring(0,25)) : ''}</option>`;
+    return `<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))}${_n ? ' — ' + escHtml(String(_n).substring(0,25)) : ''}</option>`;
   }).join('');
   if(ref) logSel.value = ref;
 
@@ -25867,7 +25874,7 @@ function openAgendaEvt(id, prefillDate='') {
   const sl = el('agenda-evt-log');
   if(sl) {
     sl.innerHTML = '<option value="">— Aucun logement —</option>'
-      + (DB.logements||[]).filter(_isAlive).map(l=>`<option value="${escHtml(l.ref)}"${e?.logement===l.ref?' selected':''}>${escHtml(l.ref)}${l.locataire?' — '+l.locataire:''}</option>`).join('');
+      + (DB.logements||[]).filter(_isAlive).map(l=>`<option value="${escHtml(l.ref)}"${e?.logement===l.ref?' selected':''}>${escHtml(_logLabelRef(l))}${l.locataire?' — '+escHtml(l.locataire):''}</option>`).join('');
     if(e?.logement) sl.value = e.logement;
   }
   openM('ov-agenda-evt');
@@ -31766,7 +31773,7 @@ function _rgpdRefreshSelect() {
   const cur = sel.value;
   const logs = (DB.logements||[]).filter(_isAlive);
   sel.innerHTML = '<option value="">— Sélectionner un logement —</option>' +
-    logs.map(l => `<option value="${escHtml(l.ref)}">${escHtml(l.ref)}${l.locataire?' — '+escHtml(l.locataire):' (vacant)'}</option>`).join('');
+    logs.map(l => `<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))}${l.locataire?' — '+escHtml(l.locataire):' (vacant)'}</option>`).join('');
   if (cur) sel.value = cur;
 }
 function _rgpdGetRef() {

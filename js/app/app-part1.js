@@ -3796,7 +3796,7 @@ function initFilters() {
 
 function fillSel(id, items, valFn, labFn) {
   const s = el(id); if(!s) return;
-  s.innerHTML = items.map(it=>`<option value="${valFn(it)}">${labFn(it)}</option>`).join('');
+  s.innerHTML = items.map(it=>`<option value="${escHtml(valFn(it))}">${escHtml(labFn(it))}</option>`).join('');   // B3 : texte ET valeur échappés (le libellé d'un logement accepte tout caractère)
 }
 
 // =================== NAVIGATION ===================
@@ -8222,7 +8222,7 @@ function saveBailClore() {
   if(!finEff) { showToast('Date de fin effective requise','err'); return; }
   if(!motif)  { showToast('Motif de fin requis','err'); return; }
   // Confirmation finale (action destructive : archive + vacant)
-  if(!confirm2(`Clôturer le bail ${ref} au ${fd(finEff)} ?\nLe logement sera marqué vacant et le bail archivé.`)) return;
+  if(!confirm2(`Clôturer le bail ${_logLabelRef(ref)} au ${fd(finEff)} ?\nLe logement sera marqué vacant et le bail archivé.`)) return;
   if(!_clotureDgConfirmer(bail, v('b-dg-restitue-date'))) return;
   // Persister les infos de clôture
   bail.finEffective   = finEff;
@@ -8249,7 +8249,7 @@ function saveBailClore() {
   if (typeof rLogFiche === 'function' && _currentLogFicheRef === ref) rLogFiche();
   if (typeof _rPeriodPage === 'function') _rPeriodPage();
   if (typeof rBiens === 'function') rBiens();
-  showToast(`Bail ${ref} clôturé au ${fd(finEff)}`,'ok');
+  showToast(`Bail ${_logLabel(ref)} clôturé au ${fd(finEff)}`,'ok');
   _gmbiAlerterSortie(ref, bail, finEff);
 }
 
@@ -8319,10 +8319,10 @@ function resetBailSignatures(ref) {
   const _effet = _scelle
     ? `La version signée est CONSERVÉE : elle est archivée telle quelle (preuve), mais n'est plus affichée comme bail en cours (elle n'est pas encore consultable dans l'app — garder le PDF signé).\nLe bail en cours repart en brouillon, à faire signer de nouveau.`
     : `Toutes les signatures (paraphes + signatures finales + cases « Lu et approuvé ») seront EFFACÉES.\nLe bail redeviendra modifiable.\n\nCette action est irréversible.`;
-  if(!confirm(`⚠️ RÉINITIALISER LES SIGNATURES du bail ${ref} ?\n\nSigné le ${dateStr}\n${bail.signatures.nbParaphes||0} pages paraphées\n\n${_effet}`)) return;
+  if(!confirm(`⚠️ RÉINITIALISER LES SIGNATURES du bail ${_logLabelRef(ref)} ?\n\nSigné le ${dateStr}\n${bail.signatures.nbParaphes||0} pages paraphées\n\n${_effet}`)) return;
   if(!confirm(_scelle
-    ? `Confirmation finale : archiver la version signée du bail ${ref} et repartir d'un brouillon à faire signer ?\n\n[OK] = oui\n[Annuler] = ne rien faire`
-    : `Confirmation finale : effacer définitivement les signatures du bail ${ref} ?\n\n[OK] = oui, effacer\n[Annuler] = ne rien faire`)) return;
+    ? `Confirmation finale : archiver la version signée du bail ${_logLabelRef(ref)} et repartir d'un brouillon à faire signer ?\n\n[OK] = oui\n[Annuler] = ne rien faire`
+    : `Confirmation finale : effacer définitivement les signatures du bail ${_logLabelRef(ref)} ?\n\n[OK] = oui, effacer\n[Annuler] = ne rien faire`)) return;
   delete bail.signatures;
   delete bail.annexesDdt;   // DDT annexé : le plan suit les signatures ; recalculé au prochain lancement
   // v14.71 : stamp _modifiedAt pour que le reset se propage aux autres devices via merge Drive
@@ -12158,7 +12158,7 @@ function fillMvQui() {
   // v14.31 BUG-DRIVE-RESURRECTION : filtrer tombstones avant accès .type
   // v14.80 SECU-INNERHTML : escape e.nom / l.ref / l.locataire (XSS via nom entité ou ref)
   const sciOpts = DB.entites.filter(_isAlive).filter(e=>e.type&&e.type.startsWith('SCI')).map(e=>`<option value="SCI:${escHtml(e.nom)}">SCI: ${escHtml(e.nom)}</option>`).join('');
-  const logOpts = _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');
+  const logOpts = _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');
   s.innerHTML=`<option value="">– Aucun –</option><option value="Global">Global</option><optgroup label="Entités SCI">${sciOpts}</optgroup><optgroup label="Logements">${logOpts}</optgroup>`;
 }
 
@@ -12340,7 +12340,7 @@ function _affLogBtn(id, tgt, ref) {
   let label;
   if (ref) {
     const lg = (DB.logements || []).find(l => l.ref === ref);
-    label = lg ? (escHtml(lg.ref) + ' — ' + escHtml(lg.locataire || 'Vacant')) : escHtml(ref);
+    label = lg ? (escHtml(_logLabelRef(lg)) + ' — ' + escHtml(lg.locataire || 'Vacant')) : escHtml(ref);
   } else {
     label = '<span style="color:var(--t3,#94a3b8)">🔍 Choisir un logement…</span>';
   }
@@ -12369,7 +12369,7 @@ function _affPkListHtml(id, tgt, q) {
   const inImport = String(tgt || '').startsWith('imp');
   const sc = (inImport && _affScope && _affScope.niv && !_affScopeAll) ? _affScope : null;
   if (sc) logs = logs.filter(l => sc.niv === 'sci' ? (l.entity === sc.cible) : (l.imm === sc.cible));
-  logs = logs.filter(l => ((l.ref || '') + ' ' + (l.locataire || '') + ' ' + (l.imm || '')).toLowerCase().includes(q));
+  logs = logs.filter(l => ((l.ref || '') + ' ' + (l.locataire || '') + ' ' + (l.imm || '')).toLowerCase().includes(q) || _logLabelMatch(l, q));   // B3 : + nom affiché
   let banner = '';
   if (inImport && _affScope && _affScope.niv) {
     banner = _affScopeAll
@@ -12382,9 +12382,9 @@ function _affPkListHtml(id, tgt, q) {
   let h = '<div style="padding:6px 16px;font-size:11px;color:var(--t3,#94a3b8)">' + logs.length + ' logement(s)</div>';
   Object.keys(byImm).sort((a, b) => a.localeCompare(b, 'fr', { numeric: true })).forEach(im => {
     h += '<div style="padding:6px 16px;font:800 11px Inter;color:var(--t3,#94a3b8);background:var(--sur2,#f5f8fc);text-transform:uppercase;position:sticky;top:0">' + escHtml(im) + ' <span style="font-weight:600">(' + byImm[im].length + ')</span></div>';
-    byImm[im].sort((a, b) => (a.ref || '').localeCompare(b.ref || '', 'fr', { numeric: true })).forEach(l => {  // tri alphanumérique des logements (F2 < F10), séparateurs immeuble conservés
+    byImm[im].sort(_logLabelCmp).forEach(l => {  // tri alphanumérique sur ce qu'on voit (nom puis réf ; F2 < F10), séparateurs immeuble conservés
       h += '<button type="button" data-ref="' + escHtml(l.ref) + '" onclick="_affPkChoose(\'' + id + '\',\'' + tgt + '\',this.dataset.ref)" style="display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--sur2,#f1f5f9);background:transparent;padding:10px 16px;font:inherit;font-size:14px;cursor:pointer">'
-        + '<b>' + escHtml(l.ref) + '</b> — ' + escHtml(l.locataire || 'Vacant') + '</button>';
+        + '<b>' + escHtml(_logLabelRef(l)) + '</b> — ' + escHtml(l.locataire || 'Vacant') + '</button>';
     });
   });
   return banner + h;
@@ -13409,7 +13409,7 @@ function _mvAffLabel(m) {
   if (String(m.qui||'').startsWith('SCI:')) return `<span class="mu sm">${ic}</span> ${escHtml(m.qui.slice(4))}`;
   if (m.qui) {
     const log = DB.logements.find(l => l.ref === m.qui);
-    return `<span class="mu sm">${ic}</span> ${escHtml(m.qui)}${log && log.locataire ? ` <span class="mu sm">· ${escHtml(log.locataire)}</span>` : ''}`;
+    return `<span class="mu sm">${ic}</span> ${escHtml(_logLabel(m.qui))}${log && log.locataire ? ` <span class="mu sm">· ${escHtml(log.locataire)}</span>` : ''}`;
   }
   if (m.imm) return `<span class="mu sm">${ic}</span> ${escHtml(m.imm)}`;
   return '<span class="badge acc">' + _uiIcon('warn', 13) + ' non affecté</span>';
@@ -13765,7 +13765,7 @@ function _bauxHistCardPhone(b, origIdx, locNames){
     : `<span class="dg">DG restitué —</span>`;
   return `<tr class="bxh-row"><td colspan="8">
     <div class="bxh-card">
-      <div class="bxh-top"><span class="bxh-ref">${escHtml(b.ref||'–')}</span><span class="bxh-loc">${escHtml(locNames)}</span><button type="button" class="bxh-more" aria-label="Plus d'actions" onclick="this.closest('.bxh-card').classList.toggle('open')">${_uiIcon('dots',18)}</button></div>
+      <div class="bxh-top"><span class="bxh-ref">${escHtml(b.ref ? _logLabel(b.ref) : '–')}</span><span class="bxh-loc">${escHtml(locNames)}</span><button type="button" class="bxh-more" aria-label="Plus d'actions" onclick="this.closest('.bxh-card').classList.toggle('open')">${_uiIcon('dots',18)}</button></div>
       <div class="bxh-per">${_uiIcon('calendar',12)}${fd(b.debut)} → ${fd(b.finEffective||b.fin)}</div>
       ${motif}
       <div class="bxh-foot"><span>Archivé le ${fd(b._archivedAt)}</span><span>·</span>${dg}</div>
@@ -13792,7 +13792,7 @@ function rBauxHistorique() {
     const locNames = (b.locataires||[{nom:b.nom||'?'}]).map(l=>l.nom).join(', ');
     if(_ph) return _bauxHistCardPhone(b, origIdx, locNames);
     return `<tr>
-      <td><b>${b.ref||'–'}</b></td>
+      <td><b>${b.ref ? escHtml(_logLabel(b.ref)) : '–'}</b></td>
       <td>${locNames}</td>
       <td>${fd(b.debut)}</td>
       <td>${fd(b.finEffective||b.fin)}</td>
@@ -13819,13 +13819,13 @@ function openBailHist(i) {
   // Ajouter l'option de l'ancien ref si pas présente
   if(![...refSel.options].some(o=>o.value===b.ref)) {
     const opt = document.createElement('option');
-    opt.value = b.ref; opt.textContent = `${b.ref} (archivé)`;
+    opt.value = b.ref; opt.textContent = `${_logLabelRef(b.ref)} (archivé)`;
     refSel.appendChild(opt);
   }
   refSel.value = b.ref;
   refSel.disabled = true;
   el('b-edit-ref').value = ''; // bien marquer comme "pas en édition"
-  el('m-bail-title').textContent = `Bail archivé — ${b.ref} (${fd(b._archivedAt)})`;
+  el('m-bail-title').textContent = `Bail archivé — ${_logLabel(b.ref)} (${fd(b._archivedAt)})`;
 
   // Remplir tous les champs comme openBail
   const locs = b.locataires||(b.nom?[{nom:b.nom,ddn:b.ddn,lieuNaiss:b.lieuNaiss}]:[]);
@@ -14353,7 +14353,7 @@ function rCandidats(){
   if(selBien){
     const cur = selBien.value;
     const opts = (DB.logements||[]).filter(l=>l && !l._deleted)
-      .map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref+(l.imm?(' — '+l.imm):''))}</option>`).join('');
+      .map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l)+(l.imm?(' — '+l.imm):''))}</option>`).join('');
     selBien.innerHTML = '<option value="">Tous les biens</option>'+opts;
     selBien.value = cur;
   }
@@ -14385,7 +14385,7 @@ function rCandidats(){
   list.sort((a,b)=>(Number(b.confianceScore)||0)-(Number(a.confianceScore)||0) || _natCmp(a.nom, b.nom));
   tbody.innerHTML = list.map(c=>{
     const log = (DB.logements||[]).find(l=>l && l.ref===c.logRef);
-    const bien = log ? (log.ref+(log.imm?(' — '+log.imm):'')) : (c.logRef||'—');
+    const bien = log ? (_logLabel(log)+(log.imm?(' — '+log.imm):'')) : (c.logRef||'—');
     const score = Number(c.confianceScore)||0;
     const cls = _confClass(score);
     const stL = _CAND_ST_LABEL[c.statut]||c.statut||'—';
@@ -14430,10 +14430,10 @@ function _fillCandLogSelect(selected){
   let extra = '';
   if(selected && !refs.has(selected)){
     const lg=(DB.logements||[]).find(l=>l&&l.ref===selected);
-    extra = `<option value="${escHtml(selected)}">${escHtml(selected+(lg&&lg.imm?(' — '+lg.imm):''))}</option>`;
+    extra = `<option value="${escHtml(selected)}">${escHtml(_logLabelRef(lg||selected)+(lg&&lg.imm?(' — '+lg.imm):''))}</option>`;
   }
   sel.innerHTML = '<option value="">— choisir un bien —</option>' + extra +
-    vac.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref+(l.imm?(' — '+l.imm):''))}</option>`).join('');
+    vac.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l)+(l.imm?(' — '+l.imm):''))}</option>`).join('');
   sel.value = selected||'';
 }
 function openAddCandidat(){
@@ -15606,7 +15606,7 @@ function rBaux() {
   let logs = DB.logements.filter(_isAlive).filter(l=>{
     if(!_logInEnt(l)) return false;
     if(fimm && l.imm!==fimm) return false;
-    if(search && !l.ref.toLowerCase().includes(search) && !l.locataire?.toLowerCase().includes(search)) return false;
+    if(search && !_logLabelMatch(l, search) && !l.locataire?.toLowerCase().includes(search)) return false;   // B3 : nom affiché OU réf
     return true;
   });
 
@@ -15646,7 +15646,7 @@ function rBaux() {
       // v15.697 : tombstone (bail clôturé) = pas de bail — sinon « Tacite reconduction » + menu Clôturer sur un lot vacant.
       const { bail, noms: locDisplay } = _lotLocataireAffiche(l);
       const isVacant = !bail || !locDisplay;
-      const refEsc = escHtml(l.ref); const refEscJs = _lyQ(l.ref);
+      const refEsc = escHtml(_logLabel(l)); const refEscJs = _lyQ(l.ref);   // refEsc = texte d'écran (nom) ; refEscJs = référence (onclick)
       const typeStr = `${escHtml(l.type || '')}${l.surf ? ' · ' + fmtN(l.surf) + 'm²' : ''}`;
       const initials = _locAvatarInitials(locDisplay || l.ref);
       const ech = _locEcheanceInfo(bail);
@@ -15823,14 +15823,14 @@ function openNewBailChoix() {
   const bails = Object.keys(DB.baux).filter(k=>_isAlive(DB.baux[k])&&!DB.baux[k].cloture);
   const opts = bails.map(k=>{
     const noms = (DB.baux[k].locataires||[{nom:DB.baux[k].nom||'?'}]).map(l=>l.nom).join(', ');
-    return `<option value="${escHtml(k)}">${escHtml(k)} — ${escHtml(noms)}</option>`;
+    return `<option value="${escHtml(k)}">${escHtml(_logLabelRef(k))} — ${escHtml(noms)}</option>`;
   }).join('');
   // Baux archivés (DB.baux_historique[]) — index = clé pour copyBailFrom(idx, true)
   const hist = (DB.baux_historique||[]);
   const histOpts = hist.map((h,i)=>{
     const noms = (h.locataires||[{nom:h.nom||'?'}]).map(l=>l.nom).join(', ');
     const dt = h._archivedAt ? fd(h._archivedAt) : '?';
-    return `<option value="${i}">${escHtml(h.ref||'?')} — ${escHtml(noms)} (clos ${escHtml(dt)})</option>`;
+    return `<option value="${i}">${escHtml(h.ref ? _logLabelRef(h.ref) : '?')} — ${escHtml(noms)} (clos ${escHtml(dt)})</option>`;
   }).join('');
   const ov = document.createElement('div');
   ov.className='ov'; ov.id='ov-bail-choix';
@@ -15920,7 +15920,7 @@ function copyBailFrom(srcRef, fromHist) {
   if(typeof toggleBailMandataire === 'function') toggleBailMandataire(!!el('b-withMandataire')?.checked);
   // Re-rendre les signataires (dépend de l'entité copiée)
   if(typeof renderBailSignataires === 'function') renderBailSignataires(src.signataires);
-  const label = fromHist ? `${src.ref||'?'} (archivé)` : srcRef;
+  const label = fromHist ? `${src.ref ? _logLabelRef(src.ref) : '?'} (archivé)` : _logLabelRef(srcRef);
   showToast('Infos bien copiées depuis '+label+' — complétez locataires, garants et dates','ok',4000);
 }
 
@@ -16017,7 +16017,7 @@ function openBail(ref, opts) {
   const log  = ref ? DB.logements.find(l=>l.ref===ref)
                    : ((opts && opts.logRef) ? (DB.logements.find(l=>l.ref===opts.logRef) || null) : null);
   el('b-edit-ref').value = ref||'';
-  el('m-bail-title').textContent = ref ? `Bail — ${ref}` : 'Nouveau bail';
+  el('m-bail-title').textContent = ref ? `Bail — ${_logLabel(ref)}` : 'Nouveau bail';
 
   // Tab reset
   document.querySelectorAll('#ov-bail .tab').forEach((t,i)=>t.classList.toggle('act',i===0));
@@ -16026,7 +16026,7 @@ function openBail(ref, opts) {
   // Dropdown logements
   const refSel = el('b-ref');
   refSel.innerHTML = '<option value="">— Sélectionner —</option>' +
-    _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml(l.locataire||'Vacant')} (${escHtml(l.imm||'')})</option>`).join('');
+    _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} — ${escHtml(l.locataire||'Vacant')} (${escHtml(l.imm||'')})</option>`).join('');
   refSel.value = ref||'';
   refSel.disabled = !!ref; // verrouillé si bail existant
 
@@ -16986,7 +16986,7 @@ function terminerBail() {
   if(!_isAlive(DB.baux[ref])) { showToast('Aucun bail en cours sur ce logement','err'); return; }
   const finEff = v('b-fin-effective');
   if(!finEff) { showToast('Date de fin effective requise','err'); return; }
-  if(!confirm2(`Clôturer le bail de ${ref} au ${fd(finEff)} ?\nLe logement sera marqué comme vacant et le bail archivé.`)) return;
+  if(!confirm2(`Clôturer le bail de ${_logLabelRef(ref)} au ${fd(finEff)} ?\nLe logement sera marqué comme vacant et le bail archivé.`)) return;
   const bail = DB.baux[ref]||{};
   if(!_clotureDgConfirmer(bail, v('b-dg-restitue-date'))) return;
   bail.finEffective = finEff;
@@ -17009,7 +17009,7 @@ function terminerBail() {
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
   // v14.48 GANTT-PREAVIS : nettoyer les events auto fin-de-bail + préavis du bail clôturé
   try { _cleanupBailAgendaEvents(ref); agendaAutoSync(); } catch(e) { console.warn('[terminerBail] agenda cleanup', e); }
-  showToast(`Bail ${ref} clôturé au ${fd(finEff)}`,'ok');
+  showToast(`Bail ${_logLabel(ref)} clôturé au ${fd(finEff)}`,'ok');
   _gmbiAlerterSortie(ref, bail, finEff);
 }
 
@@ -17034,14 +17034,14 @@ function delBail(ref) {
   // est ARCHIVÉE au prochain envoi (preuve intacte) et il cesse d'être le bail en cours. On le dit.
   const _scelle = !!(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.locked);
   if(!confirm2(_scelle
-    ? `Supprimer le bail de ${ref} ?\n\nCe bail est signé : sa version signée est conservée (archivée telle quelle, comme preuve — pas encore consultable dans l'app, garder le PDF signé). Il ne sera plus le bail en cours du logement.`
-    : `Supprimer le bail de ${ref} ?`)) return;
+    ? `Supprimer le bail de ${_logLabelRef(ref)} ?\n\nCe bail est signé : sa version signée est conservée (archivée telle quelle, comme preuve — pas encore consultable dans l'app, garder le PDF signé). Il ne sera plus le bail en cours du logement.`
+    : `Supprimer le bail de ${_logLabelRef(ref)} ?`)) return;
   // BUG-DEL-FICHE-360 v14.26 : fermer la modale d'édition de bail si elle est ouverte
   // (cas où l'utilisateur supprime depuis l'intérieur du wizard) — défensif.
   closeM('ov-bail');
   // UNDO-OP v14.23 : la snapshot DB capture aussi le log.locataire/debut/fin
   // mutés ci-dessous, donc l'undo restaure le bail ET les champs log liés.
-  _undoOp(`Suppression du bail ${ref}`, () => {
+  _undoOp(`Suppression du bail ${_logLabelRef(ref)}`, () => {
     // v14.30 BUG-DRIVE-RESURRECTION : tombstone au lieu de delete (DB.baux est un
     // dictionnaire indexé par ref). Le merge baux (l.23228) ré-injectait avant.
     const oldBail = DB.baux[ref];
@@ -17064,7 +17064,7 @@ function delBail(ref) {
     // v14.48 GANTT-PREAVIS : nettoyer les events auto liés à ce bail
     try { _cleanupBailAgendaEvents(ref); } catch(e){}
   });
-  _undoToast(`Bail ${ref} supprimé`);
+  _undoToast(`Bail ${_logLabel(ref)} supprimé`);
 }
 
 // =================== BAIL LOCATAIRES ===================
@@ -17542,7 +17542,7 @@ function saveBail() {
       const ancLoc = (bailExistant.locataires||[{nom:bailExistant.nom||'?'}]).map(l=>l.nom).join(', ');
       // Statut 06/10 : fin de l'ancien bail (et sa source) + dépôt de l'ancien locataire encore détenu.
       const _rebailTxt = _rebailConfirmTexte(bailExistant, _debut, (DB.logements.find(x => x.ref === ref) || {}).dg);
-      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.${_rebailTxt}\n\nConfirmer la création du nouveau bail ?`)) return;
+      if(!confirm2(`⚠️ Le logement ${_logLabelRef(ref)} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.${_rebailTxt}\n\nConfirmer la création du nouveau bail ?`)) return;
       _archiverAncien = true;
     }
   }
@@ -24104,7 +24104,7 @@ function openAss(id, prefLog, prefScope, prefImm) {
   const a = id ? DB.assurances.find(x=>x.id===id) : null;
   el('ass-edit-id').value = id||'';
   el('m-ass-title').textContent = id ? 'Modifier assurance' : 'Nouvelle assurance';
-  fillSel('ass-log', DB.logements, l=>l.ref, l=>`${l.ref} – ${l.locataire||'Vacant'}`);
+  fillSel('ass-log', DB.logements, l=>l.ref, l=>`${_logLabelRef(l)} – ${l.locataire||'Vacant'}`);
   // v15.240 V3-REFONTE-ASSURANCES : liste des immeubles (logements vivants + entités) pour la portée immeuble.
   const immNames = [...new Set([
     ...((DB.logements||[]).filter(_isAlive).map(l=>l.imm).filter(Boolean)),
@@ -24217,7 +24217,7 @@ function delAss(id) {
 function openMrh(id, prefLog) {
   const m = id ? DB.mrh.find(x=>x.id===id) : {};
   el('mrh-edit-id').value = id||'';
-  fillSel('mrh-log', DB.logements, l=>l.ref, l=>`${l.ref} – ${l.locataire||'Vacant'}`);
+  fillSel('mrh-log', DB.logements, l=>l.ref, l=>`${_logLabelRef(l)} – ${l.locataire||'Vacant'}`);
   // v15.245 fix : mrh-prime supprimé de la modale en v15.239 → ne plus y accéder (null.value plantait openMrh).
   if(m) { el('mrh-log').value=m.logement||''; el('mrh-loc').value=m.locataire||''; el('mrh-comp').value=m.compagnie||''; el('mrh-num').value=m.numContrat||''; el('mrh-ech').value=m.echeance||''; el('mrh-notes').value=m.notes||''; }
   // v15.237 V3-REFONTE-ASSURANCES : pré-remplir le logement + locataire si appelé depuis la fiche bien.
