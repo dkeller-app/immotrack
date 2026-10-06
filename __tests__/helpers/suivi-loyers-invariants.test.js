@@ -36,7 +36,14 @@ function deepFreeze(o) {
   return o;
 }
 
-/** Modèle de référence H-1 (naïf, indépendant) : une case par mois d'origine. */
+/**
+ * Modèle de référence H-1 (naïf, indépendant) : une case par mois d'origine.
+ * Contre-audit (défauts 1 et 2) : ce modèle encodait les deux défauts du moteur et les masquait —
+ * (1) `Math.max(0, received)` jetait un avoir net négatif ; (2) sous tolérance, la remise ne
+ * visait que les cases des files, donc soldait la dette ANCIENNE à la place du manque du mois.
+ * Corrigé : le reçu est signé (il consomme l'avance, le déficit devient une dette de loyer du
+ * mois, même sous tolérance) ; la remise vise d'abord le manque du mois, compté ou non.
+ */
 function referenceH1(months, ouverture, seuil) {
   const L = new Map(), C = new Map();       // idx d'origine → reste dû (−1 = ouverture)
   let av = 0;
@@ -49,12 +56,17 @@ function referenceH1(months, ouverture, seuil) {
   const asc = (map) => [...map.keys()].sort((a, b) => a - b);
   const sum = (map) => [...map.values()].reduce((t, v) => t + v, 0);
   return months.map((m, i) => {
-    let pool = Math.max(0, m.received) + av; av = 0;
+    let pool = m.received + av; av = 0;
+    let deficit = 0;
+    if (pool < 0) { deficit = -pool; pool = 0; }
     // 1. loyer du mois → 2. charges du mois
     const pl = Math.min(pool, m.hc); pool -= pl;
-    if (m.hc - pl > 0.005 && !m.grace) L.set(i, m.hc - pl);
+    let gL = m.hc - pl;                       // manque du mois (compté, ou non sous tolérance)
+    if (gL > 0.005 && !m.grace) L.set(i, gL);
+    if (deficit > 0.005) L.set(i, (L.get(i) || 0) + deficit);
     const pc = Math.min(pool, m.ch); pool -= pc;
-    if (m.ch - pc > 0.005 && !m.grace) C.set(i, m.ch - pc);
+    let gC = m.ch - pc;
+    if (gC > 0.005 && !m.grace) C.set(i, gC);
     // 3. arriérés de loyer, plus vieux d'abord → 4. arriérés de charges
     for (const k of asc(L)) pool = take(L, k, pool);
     for (const k of asc(C)) pool = take(C, k, pool);
@@ -62,7 +74,9 @@ function referenceH1(months, ouverture, seuil) {
     // manque accepté : même ordre, mois courant d'abord, plafonné
     let rem = m.remise || 0;
     if (rem > 0) {
+      if (m.grace && gL > 0.005) { const t = Math.min(rem, gL); gL -= t; rem -= t; }
       if (L.has(i)) rem = take(L, i, rem);
+      if (m.grace && gC > 0.005) { const t = Math.min(rem, gC); gC -= t; rem -= t; }
       if (C.has(i)) rem = take(C, i, rem);
       for (const k of asc(L)) if (k < i) rem = take(L, k, rem);
       for (const k of asc(C)) if (k < i) rem = take(C, k, rem);
@@ -93,14 +107,17 @@ describe(`invariants du suivi — ${N} lots aléatoires (graine fixe)`, () => {
     }
   });
 
-  it('I-b · conservation : Σ imputations + avance finale + arrondis d\'avance = Σ argent entré ; Σ imputations ≤ Σ dû', () => {
+  // Contre-audit (défaut 1) : l'argent entré est SIGNÉ (un avoir le réduit) ; la part d'un avoir
+  // qui dépasse l'argent disponible devient une dette (`avoirDette`) — l'ancien
+  // `Math.max(0, recu + regleDg)` reproduisait la perte de l'avoir au lieu de la détecter.
+  it('I-b · conservation : Σ imputations + avance finale + arrondis d\'avance = Σ argent entré (signé) + avoirs devenus dette ; Σ imputations ≤ Σ dû', () => {
     for (const { lot, s } of JEUX) for (const b of s.baux) {
       const src = lot.baux.find((x) => x.cle === b.cle);
       const ouv = src.ouverture || {};
       let entre = ouv.avance || 0, impute = 0, arr = 0, du = (ouv.loyer || 0) + (ouv.charge || 0), n = 0;
       for (const m of b.mois) {
-        entre += Math.max(0, m.recu + m.regleDg);
-        du += m.du.total;
+        entre += m.recu + m.regleDg + m.avoirDette;
+        du += m.du.total + m.avoirDette;      // un avoir devenu dette se rembourse comme un dû
         for (const p of m.imputations) { impute += p.montant; n++; }
         if (m.arrondi > 0) arr += m.arrondi;
       }
@@ -155,7 +172,7 @@ describe(`invariants du suivi — ${N} lots aléatoires (graine fixe)`, () => {
       const dueYm = today.slice(0, 7);
       const ref = referenceH1(b.mois.map((m) => ({
         hc: m.du.hc, ch: m.du.ch, received: m.recu + m.regleDg,
-        remise: m.manque ? m.manque.montant : 0,
+        remise: m.manque ? m.manque.montantDemande : 0,
         grace: m.ym > dueYm || (graceLast && m.ym === dueYm)
       })), src.ouverture, 1);
       b.mois.forEach((m, i) => {

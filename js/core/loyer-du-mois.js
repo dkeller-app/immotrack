@@ -350,6 +350,13 @@ export function _loyerArrearsPass(months, opts) {
   // généralise graceLast), `sources[].kind` recopié dans les imputations ('virement'|'dg'|'gli').
   const seuil = Math.max(0, Number(opts && opts.seuilArrondi) || 0);
   const detail = !!(opts && opts.detail);
+  //   avoirNegatif : (suivi-loyers.js seulement) un reçu NET négatif (avoir 211 > argent du mois)
+  //                  n'est plus écrasé à 0 : il consomme d'abord l'avance reportée, et le déficit
+  //                  restant devient une dette de LOYER du mois (file loyerQ), même sous tolérance
+  //                  (c'est de l'argent rendu, pas un manque neuf). Absent ⇒ ancien comportement
+  //                  (pool = max(0, reçu) + report) : les anciens appelants (finances-monthly,
+  //                  loyers-mois, loyer-statut…) gardent ce défaut, hors périmètre du chantier.
+  const avoirNegatif = !!(opts && opts.avoirNegatif);
   const remises = [], arrondis = [];
   const ms = months || [];
   const lastIdx = ms.length - 1;
@@ -436,12 +443,28 @@ export function _loyerArrearsPass(months, opts) {
     let pool = Math.max(0, recv) + (carry ? avanceCarry : 0);
     // Le miroir : sans `carry` le reliquat du mois précédent est jeté (comme le scalaire).
     frags = carry ? frags.concat(fragsOf(m)) : fragsOf(m);
+    let deficit = 0;                                 // avoirNegatif : argent rendu au-delà du disponible
+    if (avoirNegatif && recv < 0) {
+      const net = recv + (carry ? avanceCarry : 0);
+      pool = Math.max(0, net);
+      if (net < -0.005) deficit = -net;
+      // Les fragments (le report d'avance) sont rognés par la fin pour coller au pool : l'avoir
+      // reprend d'abord l'argent le plus récent ; un mois ne peut pas être payé par de l'argent rendu.
+      let som = frags.reduce((t, f) => t + f.reste, 0);
+      while (som > pool + 0.0000001 && frags.length) {
+        const f = frags[frags.length - 1];
+        const t = Math.min(f.reste, som - pool);
+        f.reste -= t; som -= t;
+        if (f.reste <= 0.0000001) frags.pop();
+      }
+    }
     if (carry) avanceCarry = 0;
     const loyerCur = Math.min(pool, hcDue); pool -= loyerCur; drawTo(idx, 'loyer', loyerCur);
-    const loyerShort = hcDue - loyerCur;
+    let loyerShort = hcDue - loyerCur;
     if (loyerShort > 0.005 && !grace) loyerQ.push({ idx, short: loyerShort, due: hcDue, recv });
+    if (deficit > 0.005) loyerQ.push({ idx, short: deficit, due: 0, recv, avoir: true });
     const chargeCur = Math.min(pool, chDue); pool -= chargeCur; drawTo(idx, 'charge', chargeCur);
-    const chargeShort = chDue - chargeCur;
+    let chargeShort = chDue - chargeCur;
     if (chargeShort > 0.005 && !grace) chargeQ.push({ idx, short: chargeShort, due: chDue, recv });
     const recL = Math.min(pool, sumQ(loyerQ)); pool -= recL; recover(loyerQ, recL, 'loyer');   // arriérés loyer (priorité)
     const recC = Math.min(pool, sumQ(chargeQ)); pool -= recC; recover(chargeQ, recC, 'charge');
@@ -462,7 +485,20 @@ export function _loyerArrearsPass(months, opts) {
       };
       const duMoisCourant = (e) => !e.opening && e.idx === idx;
       const anterieure = (e) => e.opening || e.idx < idx;
+      // Mois sous tolérance : son manque neuf n'est pas dans les files, mais la remise le vise
+      // QUAND MÊME en premier (sinon elle soldait la dette ancienne à sa place, et le résultat
+      // dépendait du jour du mois où l'on regarde).
+      const remettreGrace = (poste) => {
+        const sh = poste === 'loyer' ? loyerShort : chargeShort;
+        if (!grace || reste <= 0.0000001 || sh <= 0.005) return;
+        const t = Math.min(reste, sh);
+        if (poste === 'loyer') loyerShort -= t; else chargeShort -= t;
+        reste -= t; remiseAppliquee += t;
+        remises.push({ idx, cibleIdx: idx, poste, montant: _r2(t) });
+      };
+      remettreGrace('loyer');
       remettre(loyerQ, 'loyer', duMoisCourant);
+      remettreGrace('charge');
       remettre(chargeQ, 'charge', duMoisCourant);
       remettre(loyerQ, 'loyer', anterieure);
       remettre(chargeQ, 'charge', anterieure);
@@ -505,6 +541,7 @@ export function _loyerArrearsPass(months, opts) {
       out.anterieur = { loyer: _r2(aL), charge: _r2(aC), depuisIdx: dep };
       out.remiseAppliquee = _r2(remiseAppliquee);
       out.arrondi = _r2(arrondi);
+      if (avoirNegatif) out.avoirDette = _r2(deficit);
     }
     return out;
   });

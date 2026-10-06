@@ -56,8 +56,9 @@ export function cleBail(ref, bail) {
 
 /**
  * Début de suivi PROVISOIRE d'un lot (décision 05/10 b, « à confirmer ») : 1er jour du mois du
- * 1er loyer encaissé (virement positif). Sans aucun paiement : début du bail encore ouvert
- * (zéro paiement = pire retard, jamais invisible). Sinon null (rien à suivre).
+ * 1er loyer encaissé (virement positif). Sans aucun paiement : début du bail le plus récent,
+ * ouvert OU archivé (zéro paiement = pire retard, jamais invisible : un bail archivé qui n'a
+ * jamais payé garde sa vraie dette). Sans aucun bail : null (rien à suivre).
  * À remplacer par immeuble.dateAcquisition / l'antériorité du bail quand R0-C les livrera.
  */
 export function debutSuiviDefaut(lotIn) {
@@ -67,8 +68,10 @@ export function debutSuiviDefaut(lotIn) {
     .map((p) => String(p.date).slice(0, 10))
     .sort();
   if (dates.length) return { date: dates[0].slice(0, 7) + '-01', source: 'provisoire' };
-  const ouvert = occupationBaux(L.baux || []).find((s) => !s.end);
-  return ouvert ? { date: ouvert.debut, source: 'provisoire' } : null;
+  const segs = occupationBaux(L.baux || []).filter((s) => !s.end || s.end >= s.debut);
+  const ouvert = segs.find((s) => !s.end);
+  const dernier = ouvert || (segs.length ? segs[segs.length - 1] : null);
+  return dernier ? { date: dernier.debut, source: 'provisoire' } : null;
 }
 
 /** Retenue sur le dépôt imputée aux loyers (§C.1.5), d'après la restitution enregistrée. */
@@ -110,7 +113,7 @@ export function suiviLot(lotIn, opts) {
   const debutSuivi = (L.debutSuivi && _isIso(L.debutSuivi.date))
     ? { date: String(L.debutSuivi.date).slice(0, 10), source: L.debutSuivi.source || 'provisoire' }
     : debutSuiviDefaut(L);
-  const res = { ref, debutSuivi, today, dueYm, baux: [], mois: {}, horsPeriode: [], horsSuivi: [], bauxIgnores: [] };
+  const res = { ref, debutSuivi, today, dueYm, baux: [], mois: {}, horsPeriode: [], horsSuivi: [], bauxIgnores: [], manquesIgnores: [] };
   if (!debutSuivi) return res;
   const sYm = debutSuivi.date.slice(0, 7);
   const sPremier = sYm + '-01';
@@ -182,6 +185,12 @@ export function suiviLot(lotIn, opts) {
   // 3. Passe par bail, mois par mois, de debutSuivi à aujourd'hui (au-delà si paiement tardif).
   const manques = (Array.isArray(L.manques) ? L.manques : [])
     .filter((m) => m && !m._deleted && /^\d{4}-\d{2}$/.test(String(m.ym || '')) && (Number(m.montant) || 0) > 0.005);
+  // Un manque rattaché à aucun bail suivi (clé inconnue, bail ignoré) : jamais silencieux.
+  if (!o.parLot) {
+    for (const m of manques) {
+      if (!suivis.some((x) => x.cle === m.bailCle)) res.manquesIgnores.push({ id: m.id, bailCle: m.bailCle, ym: m.ym, montant: _r2(m.montant), raison: 'bail-inconnu' });
+    }
+  }
   for (const x of suivis) {
     let first = x.parLot ? sYm : _maxYm(sYm, x.debut.slice(0, 7));
     let last = x.end ? _minYm(x.end.slice(0, 7), horizon) : horizon;
@@ -205,7 +214,7 @@ export function suiviLot(lotIn, opts) {
         }
       };
     });
-    const passOpts = { carry: true, opening: (!x.parLot && x.b.ouverture) || null, seuilArrondi: seuil, detail: true };
+    const passOpts = { carry: true, opening: (!x.parLot && x.b.ouverture) || null, seuilArrondi: seuil, detail: true, avoirNegatif: true };
     const pass = _loyerArrearsPass(entrees.map((e) => e.pass), passOpts);
     // Le RESTE DÛ par mois d'origine (relance, quittançabilité) se lit au dernier mois EXIGIBLE :
     // un encaissement post-daté (décision « B ») ne solde pas aujourd'hui un mois passé. Les
@@ -213,6 +222,10 @@ export function suiviLot(lotIn, opts) {
     const nExig = entrees.filter((e) => e.ym <= dueYm).length;
     const passExig = nExig < entrees.length ? _loyerArrearsPass(entrees.slice(0, nExig).map((e) => e.pass), passOpts) : pass;
     const traces = [];
+    // Manque sur un mois hors des mois suivis du bail : sans effet, mais tracé explicitement.
+    for (const m of mqs) {
+      if (!yms.includes(m.ym)) traces.push({ type: 'manque-ignore', ym: m.ym, montant: _r2(m.montant), ref: m.id, raison: 'hors-mois-du-bail' });
+    }
     const mois = entrees.map((e, i) => {
       const pm = pass.months[i];
       const recu = _r2(e.argent.filter((p) => p.kind === 'virement').reduce((t, p) => t + p.montant, 0));
@@ -220,9 +233,10 @@ export function suiviLot(lotIn, opts) {
       const couvertGli = _r2(e.gli.reduce((t, p) => t + p.montant, 0));
       const retard = _r2(pm.loyerArrear + pm.chargeArrear);
       const dep = pm.anterieur.depuisIdx;
+      // `montant` = la remise APPLIQUÉE (plafonnée à la dette) ; `montantDemande` = le geste saisi.
       const manque = !e.mq.length ? null : (e.mq.length === 1
-        ? { id: e.mq[0].id, montant: _r2(e.mq[0].montant), motif: e.mq[0].motif || '', date: e.mq[0].date || null }
-        : { id: e.mq.map((m) => m.id).join(','), montant: _r2(e.pass.remise), motif: e.mq.map((m) => m.motif || '').join(' ; '), date: e.mq.map((m) => m.date || '').sort().pop() || null });
+        ? { id: e.mq[0].id, montant: pm.remiseAppliquee, montantDemande: _r2(e.mq[0].montant), motif: e.mq[0].motif || '', date: e.mq[0].date || null }
+        : { id: e.mq.map((m) => m.id).join(','), montant: pm.remiseAppliquee, montantDemande: _r2(e.pass.remise), motif: e.mq.map((m) => m.motif || '').join(' ; '), date: e.mq.map((m) => m.date || '').sort().pop() || null });
       e.argent.filter((p) => p.kind === 'dg').forEach((p) => traces.push({ type: 'dg', ym: e.ym, montant: p.montant, ref: p.id }));
       e.gli.forEach((p) => traces.push({ type: 'gli', ym: e.ym, montant: p.montant, ref: p.id }));
       e.mq.forEach((m) => traces.push({ type: 'manque', ym: e.ym, montant: _r2(m.montant), ref: m.id }));
@@ -233,6 +247,7 @@ export function suiviLot(lotIn, opts) {
         du: { hc: e.d.hc, ch: e.d.ch, total: e.d.total },
         exigible: e.ym <= dueYm,
         recu, regleDg, couvertGli,
+        avoirDette: pm.avoirDette || 0,     // avoir net du mois au-delà de l'argent disponible → dette de loyer
         imputations: pass.imputations[i].map((p) => ({ mvId: p.id, date: p.date, kind: p.kind || null, montant: p.montant, poste: p.poste })),
         courant: pm.courant,
         anterieur: { loyer: pm.anterieur.loyer, charge: pm.anterieur.charge, depuis: dep === null ? null : (dep === -1 ? 'ouverture' : entrees[dep].ym) },
@@ -255,7 +270,7 @@ export function suiviLot(lotIn, opts) {
       position: pos
         ? { retardLoyer: pos.retardLoyer, retardCharge: pos.retardCharge, avance: pos.avance, solde: pos.solde }
         : { retardLoyer: 0, retardCharge: 0, avance: 0, solde: 0 },
-      traces
+      traces: traces.sort((a, b) => String(a.ym).localeCompare(String(b.ym)))
     });
   }
 
@@ -297,14 +312,15 @@ function _carte(lot, b, ym, parti) {
   const m = _moisAu(b, ym);
   if (!m) return null;
   const exact = m.ym === ym;
+  // COPIES : la fenêtre peut manipuler une carte sans altérer le suivi (ni le cache futur).
   return {
     ref: lot.ref, bailCle: b.cle, noms: b.noms, parti: !!parti,
-    du: exact ? m.du : { hc: 0, ch: 0, total: 0 },
+    du: exact ? Object.assign({}, m.du) : { hc: 0, ch: 0, total: 0 },
     recu: exact ? m.recu : 0,
-    imputations: exact ? m.imputations : [],
-    courant: exact ? m.courant : { loyer: 0, charge: 0 },
-    anterieur: exact ? m.anterieur : { loyer: m.retardLoyer, charge: m.retardCharge, depuis: m.anterieur.depuis || (m.retard > EPS_CENTIME ? m.ym : null) },
-    manque: exact ? m.manque : null,
+    imputations: exact ? m.imputations.map((p) => Object.assign({}, p)) : [],
+    courant: exact ? Object.assign({}, m.courant) : { loyer: 0, charge: 0 },
+    anterieur: exact ? Object.assign({}, m.anterieur) : { loyer: m.retardLoyer, charge: m.retardCharge, depuis: m.anterieur.depuis || (m.retard > EPS_CENTIME ? m.ym : null) },
+    manque: exact && m.manque ? Object.assign({}, m.manque) : null,
     couvertGli: exact ? m.couvertGli : 0,
     solde: parti ? _r2(-m.retard) : m.solde
   };
@@ -412,15 +428,20 @@ export function versEtatMoisLot(suiviBail) {
     const du = _r2(hcDue + chDue);
     const resteLoyer = _r2(m.residu.loyer), resteCharge = _r2(m.residu.charge);
     const reste = _r2(resteLoyer + resteCharge);
-    const vacance = du <= EPS_CENTIME;
+    // Un mois sans dû qui porte une dette (avoir net après la sortie, défaut 1 du contre-audit)
+    // n'est pas une vacance : sa dette doit rester dans la relance (I-g : relance = KPI).
+    const vacance = du <= EPS_CENTIME && reste <= EPS_CENTIME;
     const solde = !vacance && reste <= EPS_CENTIME;
     const brut = m.imputations;
-    const paiements = brut.filter((p) => p.date).map((p) => ({ date: p.date, id: p.mvId, montant: p.montant, poste: p.poste }));
+    // Une retenue sur dépôt (kind 'dg') n'est PAS un mouvement bancaire : elle n'a pas d'id
+    // lisible par les lecteurs « par id » (paiements) ; elle est rendue à part, dans `reglements`.
+    const paiements = brut.filter((p) => p.date && p.kind !== 'dg').map((p) => ({ date: p.date, id: p.mvId, montant: p.montant, poste: p.poste }));
+    const reglements = brut.filter((p) => p.date && p.kind === 'dg').map((p) => ({ date: p.date, kind: 'dg', montant: p.montant, poste: p.poste }));
     const totalImpute = _r2(brut.reduce((t, p) => t + p.montant, 0));
-    const totalDate = _r2(paiements.reduce((t, p) => t + p.montant, 0));
+    const totalDate = _r2(paiements.concat(reglements).reduce((t, p) => t + p.montant, 0));
     const complet = totalImpute - totalDate <= EPS_CENTIME;
     const datesVersements = [...new Set(paiements.map((p) => p.date))].sort();
-    return {
+    const ligne = {
       ym: m.ym, hcDue, chDue, du,
       received: _r2(m.recu + m.regleDg),
       resteLoyer, resteCharge, reste,
@@ -433,6 +454,8 @@ export function versEtatMoisLot(suiviBail) {
       nbVersements: datesVersements.length,
       datePaiement: (solde && complet && datesVersements.length) ? datesVersements[datesVersements.length - 1] : null
     };
+    if (reglements.length) ligne.reglements = reglements;   // absent sinon : forme etatMoisLot inchangée
+    return ligne;
   });
   const byYm = {};
   list.forEach((e) => { byYm[e.ym] = e; });
@@ -514,18 +537,24 @@ export function paiementsNonAffectes(mouvements, opts) {
 
 /**
  * Restitution du dépôt ENREGISTRÉE sur un bail sorti → champs de la retenue (§C.1.5).
- * Formule dérivée des champs de _dgConfirmerRestitution (dgRestitueMontant, dgPenaliteArt22)
- * et de l'ancien `dgRestitue`. Sans restitution enregistrée : rien (sinon le dépôt entier
- * paierait la dette AVANT la restitution, et la restitution lirait une dette nulle).
+ * Enregistrée ⇔ un champ que seule une restitution écrit est présent :
+ *   - `dgRestitueAt` / `dgRestitueMontant` (écrits par _dgConfirmerRestitution, app-part2.js) ;
+ *   - l'ancien `dgRestitue` > 0 (formulaire du bail « DG restitué » et _rgApplyRetenue,
+ *     app-part1.js ; seule trace de restitution dans les données réelles, ex. Ferrette - 101).
+ * `dgRetenu` seul NE suffit PAS : il est posé au formulaire ou à la clôture de régul avant
+ * toute restitution. Sans restitution enregistrée : rien (sinon le dépôt paierait la dette
+ * AVANT la restitution, et la restitution lirait une dette nulle).
+ * Versé = `dgPaid` s'il est renseigné (0 compris : dépôt jamais versé), sinon `dg` contractuel.
  */
 function _dgDuBail(b) {
   if (!b || !b.finEffective) return undefined;
+  const defini = (v) => v != null && v !== '' && Number.isFinite(Number(v));
   const mt = b.dgRestitueMontant;
-  const restMontant = mt != null && mt !== '' && Number.isFinite(Number(mt));
-  const enregistree = restMontant || !!b.dgRestitueAt || (Number(b.dgRestitue) || 0) > 0 || (Number(b.dgRetenu) || 0) > 0;
+  const restMontant = defini(mt);
+  const enregistree = restMontant || !!b.dgRestitueAt || (Number(b.dgRestitue) || 0) > 0;
   if (!enregistree) return undefined;
   return {
-    verse: Number(b.dgPaid) || Number(b.dg) || 0,
+    verse: defini(b.dgPaid) ? Number(b.dgPaid) : (Number(b.dg) || 0),
     retenuAutres: Number(b.dgRetenu) || 0,
     restitue: restMontant ? Number(mt) : (Number(b.dgRestitue) || 0),
     penalite: Number(b.dgPenaliteArt22) || 0,

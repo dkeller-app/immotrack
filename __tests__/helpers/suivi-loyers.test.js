@@ -75,7 +75,7 @@ describe('1 · cas Arslan (Ferrette - 101), tableau §C.2 au centime', () => {
     expect(soldes(g, ['2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']))
       .toEqual([0, 0, 0, 780, 0, 0, 0, 0]);
     const aout = moisDe(bailDe(g, CLE_ARSLAN), '2026-08');
-    expect(aout.manque).toEqual({ id: 'mqa_1', montant: 20, motif: 'panne électrique', date: '2026-08-05' });
+    expect(aout.manque).toEqual({ id: 'mqa_1', montant: 20, montantDemande: 20, motif: 'panne électrique', date: '2026-08-05' });
     expect(aout.remiseAppliquee).toBe(20);
     expect(aout.recu).toBe(760);                 // un manque n'est pas un encaissement
     expect(g.mois['2026-10']).toMatchObject({ retard: 0, avance: 0, solde: 0 });
