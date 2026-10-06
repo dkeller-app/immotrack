@@ -31579,6 +31579,16 @@ function _comptaDownload(content, filename, mime) {
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
+// Lot 6, A2 — les mouvements du périmètre que l'export N'ÉCRIT PAS (aucun compte inventé) sont dits à
+// chaque téléchargement : le FEC reste au format normé (18 colonnes, aucune ligne libre possible).
+function _comptaNonExportes(o, mvts) {
+  return (typeof window._listNonExportes === 'function') ? window._listNonExportes(mvts || DB.mouvements || [], STD_CATEGORIES, o) : null;
+}
+function _comptaToastExport(okMsg, o) {
+  const ne = _comptaNonExportes(o);
+  const r = (ne && typeof window._nonExportesResume === 'function') ? window._nonExportesResume(ne) : '';
+  if (r) showToast(okMsg + ' · ' + r, 'warn', 9000); else showToast(okMsg, 'ok');
+}
 function downloadFEC() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
   const o = _comptaBuildOpts();
@@ -31586,7 +31596,7 @@ function downloadFEC() {
   const fec = window._toFEC(ecr, { entityNom: o.entityNom, from: o.from, to: o.to });
   _comptaDownload(fec, `FEC_${o.yr}${o.entityNom?'_'+o.entityNom.replace(/[^\w]+/g,'_'):''}.txt`, 'text/plain');
   if (typeof _auditLog === 'function') _auditLog('export', 'fec', null, o.yr + '/' + (o.entityNom||'all'), null, null, 'ui');
-  showToast('FEC téléchargé (' + ecr.length + ' écritures)', 'ok');
+  _comptaToastExport('FEC téléchargé (' + ecr.length + ' écritures)', o);
 }
 function downloadJournal() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
@@ -31595,7 +31605,7 @@ function downloadJournal() {
   const csv = window._journalToCsv(ecr);
   _comptaDownload(csv, `Journal_${o.yr}${o.entityNom?'_'+o.entityNom.replace(/[^\w]+/g,'_'):''}.csv`, 'text/csv');
   if (typeof _auditLog === 'function') _auditLog('export', 'journal_compta', null, o.yr, null, null, 'ui');
-  showToast('Journal téléchargé', 'ok');
+  _comptaToastExport('Journal téléchargé', o);
 }
 function downloadGrandLivre() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
@@ -31605,7 +31615,7 @@ function downloadGrandLivre() {
   const csv = window._grandLivreToCsv(gl);
   _comptaDownload(csv, `GrandLivre_${o.yr}${o.entityNom?'_'+o.entityNom.replace(/[^\w]+/g,'_'):''}.csv`, 'text/csv');
   if (typeof _auditLog === 'function') _auditLog('export', 'grand_livre', null, o.yr, null, null, 'ui');
-  showToast('Grand livre téléchargé', 'ok');
+  _comptaToastExport('Grand livre téléchargé', o);
 }
 
 // ── EXPORT-COMPTABLE-ZIP « Dossier comptable » ───────────────────────────────
@@ -31642,7 +31652,12 @@ function openDossierComptable() {
   const mvts = DB.mouvements || [];
   o._mvts = mvts;
   const rows = window._buildMvtRows(mvts, STD_CATEGORIES, o);
-  if (!rows.length) { showToast('Aucun mouvement comptable sur cette période', 'warn', 5000); return; }
+  o._nonExp = _comptaNonExportes(o, mvts);   // lot 6, A2 : même périmètre, même tableau figé
+  if (!rows.length) {
+    const r = (o._nonExp && typeof window._nonExportesResume === 'function') ? window._nonExportesResume(o._nonExp) : '';
+    showToast('Aucun mouvement comptable sur cette période' + (r ? ' · ' + r : ''), 'warn', r ? 9000 : 5000);
+    return;
+  }
   const plan = window._dc.buildPlan(rows, { documents: DB.documents || [], logements: DB.logements || [], extractionYmd: o.extractionYmd, entityNom: o.entityNom || 'Tous', from: o.from, to: o.to });
   _dcRecapOverlay(plan, o);
 }
@@ -31665,11 +31680,20 @@ function _dcRecapOverlay(plan, o) {
     + '<summary style="cursor:pointer;padding:9px 12px;background:var(--bg-danger,rgba(210,63,63,.10));color:var(--red);font-weight:700;font-size:12.5px">' + miss.length + ' mouvement(s) sans facture</summary>'
     + '<ul style="margin:0;padding:4px 0;list-style:none">' + miss.map(r => '<li style="padding:7px 13px;font-size:12.5px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:10px"><span>' + escHtml(_dcDateFr(r.date) + ' · ' + r.categorie + ' · ') + _dcEuro(r.montant) + '</span><span style="color:var(--t2);font-size:11px">' + escHtml(r.bailleur + ' - ' + r.lot) + '</span></li>').join('') + '</ul></details>'
   ) : '';
+  // Lot 6, A2 — mouvements que le dossier n'écrit pas (aucun compte inventé) : dits ici ET listés dans le zip.
+  const ne = o._nonExp;
+  const neHtml = (ne && ne.count) ? (
+    '<details ' + (ne.parCategorie.length <= 4 ? 'open' : '') + ' style="border:1px solid var(--bor);border-radius:var(--r);overflow:hidden;margin-top:10px">'
+    + '<summary style="cursor:pointer;padding:9px 12px;background:var(--bg-warning);color:var(--ora);font-weight:700;font-size:12.5px">' + ne.count + ' mouvement(s) non exporté(s) : compte à définir avec l\'expert-comptable</summary>'
+    + '<ul style="margin:0;padding:4px 0;list-style:none">' + ne.parCategorie.map(c => '<li style="padding:7px 13px;font-size:12.5px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 10px"><span>' + escHtml(c.cat + (c.famille ? ' (' + c.famille + ')' : '') + ' · ' + c.count) + '</span><span style="color:var(--t2);font-size:11px">' + (c.entrees ? 'entrées ' + _dcEuro(c.entrees) : '') + (c.entrees && c.sorties ? ' · ' : '') + (c.sorties ? 'sorties ' + _dcEuro(c.sorties) : '') + '</span></li>').join('') + '</ul>'
+    + '<div class="mu sm" style="padding:8px 13px;border-top:1px solid var(--bor)">Détail dans ecritures/mouvements-non-exportes.csv. Ils ne figurent ni dans le FEC, ni dans le journal, ni dans le grand livre.</div></details>'
+  ) : '';
   const bodyInner =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' + chip('Période <b>' + escHtml(_dcDateFr(o.from) + ' → ' + _dcDateFr(o.to)) + '</b>') + chip('Bailleur <b>' + escHtml(o.entityNom || 'Tous') + '</b>') + '</div>'
     + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">' + cell(c.mouvements, 'mouvements', 'var(--t1)') + cell(c.factures, 'factures jointes', 'var(--pos,var(--grn,#1a8f6f))') + cell(c.manquantes, 'manquantes', 'var(--red)') + '</div>'
     + missHtml
-    + (miss.length ? '<div class="mu sm" style="margin-top:10px">Les manquantes restent dans les écritures, signalées « ABSENTE » dans index.csv. Le dossier reste complet côté chiffres.</div>' : '')
+    + (miss.length ? '<div class="mu sm" style="margin-top:10px">Les manquantes restent dans les écritures, signalées « ABSENTE » dans index.csv.</div>' : '')
+    + neHtml
     + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:12px;border-top:1px solid var(--bor)">'
     + '<span class="mu sm">Taille estimée : ~ ' + estLbl + '</span>'
     + '<span style="display:flex;gap:8px"><button class="btn bs" onclick="_dcCloseOv()">Annuler</button><button class="btn bp" id="dc-go">⬇ Télécharger le .zip</button></span></div>';
@@ -31764,13 +31788,19 @@ async function _dcRun(plan, o) {
       { name: 'ecritures/index.csv', bytes: enc.encode(bom + indexCsv) },
       ...factureEntries
     ];
+    // Lot 6, A2 — ce que le dossier n'écrit pas est LISTÉ (même périmètre, même tableau figé que le récap).
+    const ne = o._nonExp;
+    if (ne && ne.count && typeof window._nonExportesCsv === 'function') {
+      entries.splice(4, 0, { name: 'ecritures/mouvements-non-exportes.csv', bytes: enc.encode(bom + window._nonExportesCsv(ne, { extractionYmd: o.extractionYmd, entityNom: o.entityNom || 'Tous', from: o.from, to: o.to })) });
+    }
     const u8 = window._bk.storedZip(entries);
     const zipName = window._dc.zipName(o.entityNom || 'Tous', o.extractionYmd);
     _downloadBlobAs(new Blob([u8], { type: 'application/zip' }), zipName);
     if (typeof _auditLog === 'function') _auditLog('export', 'dossier_comptable', null, (o.from || '') + '..' + (o.to || '') + '/' + (o.entityNom || 'all'), null, null, 'ui');
     _dcCloseOv();
     const note = failed > 0 ? (' · ' + failed + ' facture(s) introuvable(s) → listée(s) ABSENTE') : '';
-    showToast('📦 Dossier comptable téléchargé (' + fetched + ' facture(s), ' + plan.counts.manquantes + ' manquante(s))' + note, failed > 0 ? 'warn' : 'ok', 6000);
+    const noteNe = (ne && ne.count) ? (' · ' + ne.count + ' mouvement(s) non exporté(s), listés dans mouvements-non-exportes.csv') : '';
+    showToast('📦 Dossier comptable téléchargé (' + fetched + ' facture(s), ' + plan.counts.manquantes + ' manquante(s))' + note + noteNe, (failed > 0 || noteNe) ? 'warn' : 'ok', noteNe ? 9000 : 6000);
   } catch (e) {
     console.warn('[dossier-compta] run', e);
     _dcCloseOv();

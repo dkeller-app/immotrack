@@ -143,7 +143,8 @@ import * as Anteriorite from './core/anteriorite.js';
 import * as DeclarationOccupation from './core/declaration-occupation.js';
 
 import {
-  _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
+  _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv,
+  _listNonExportes, _nonExportesResume, _nonExportesCsv
 } from './core/export-comptable.js';
 
 import {
@@ -591,6 +592,10 @@ window._buildGrandLivre = _buildGrandLivre;
 window._toFEC = _toFEC;
 window._journalToCsv = _journalToCsv;
 window._grandLivreToCsv = _grandLivreToCsv;
+// Lot 6, A2 — mouvements NON exportés (aucun compte inventé) : listés, jamais tus.
+window._listNonExportes = _listNonExportes;
+window._nonExportesResume = _nonExportesResume;
+window._nonExportesCsv = _nonExportesCsv;
 
 // EXPORT-COMPTABLE-ZIP (Dossier comptable) — cœur pur exposé sous window._dc.*
 window._dc = {

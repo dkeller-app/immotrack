@@ -16,7 +16,14 @@
  *   Compte 622xxx (honoraires) — frais de gestion
  *   Compte 635xxx (impôts taxes) — taxe foncière
  *   Compte 661xxx (charges financières) — intérêts emprunt
- *   Compte 165xxx (dépôts cautionnement reçus) — DG locataires
+ *
+ * Hors de ce plan (familles SANS ligne 2044 : dépôt de garantie, prêt, achat / vente, virement
+ * interne, CCA, travaux d'agrandissement, Divers, frais bancaires, charges récupérables…) : aucun
+ * compte n'est inventé. Ces mouvements ne sont PAS écrits, mais LISTÉS (`_listNonExportes`) — nombre,
+ * totaux, ventilation par catégorie — avec la mention « non exportés : compte à définir avec
+ * l'expert-comptable » : fichier `ecritures/mouvements-non-exportes.csv` du dossier ZIP, et message
+ * à chaque téléchargement du FEC / journal / grand livre. Le FEC lui-même reste au format normé
+ * (18 colonnes, aucune ligne libre). Rien ne disparaît en silence.
  *
  * Tests Vitest : __tests__/helpers/export-comptable.test.js
  */
@@ -38,6 +45,33 @@ const MAPPING_COMPTE = {
 };
 
 /**
+ * Périmètre d'un export — PARTAGÉ par `_buildMvtRows` (ce qui est écrit) et `_listNonExportes` (ce qui
+ * ne l'est pas) : même filtre période / entité, même résolution de catégorie. Les deux listes forment
+ * donc, par construction, une partition des mouvements du périmètre.
+ */
+function _perimetre(stdCategories, opts) {
+  const { from = '', to = '', entityNom = '', refs = [], catMere = null } = opts || {};
+  const catByName = new Map();
+  (stdCategories || []).forEach(c => catByName.set(c.nom, c));
+  const inScope = m => {
+    if (!m || m._deleted) return false;
+    if (from && m.date < from) return false;
+    if (to && m.date > to) return false;
+    if (entityNom) {
+      const isGlobal = m.qui === 'SCI:' + entityNom;
+      const isInScope = refs && refs.includes(m.qui);
+      if (!isGlobal && !isInScope) return false;
+    }
+    return true;
+  };
+  const stdDe = cat => catByName.get(cat) || (typeof catMere === 'function' ? catMere(cat) : null) || null;
+  return { inScope, stdDe };
+}
+function _mappingDe(std) {
+  return (std && std.ligne2044 && MAPPING_COMPTE[std.ligne2044]) || null;
+}
+
+/**
  * Vue « par mouvement » — SOURCE UNIQUE du filtre (période/entité) et de la
  * numérotation `num` séquentielle. `_buildEcritures` (écritures partie double) ET
  * le Dossier comptable (lien num ↔ facture) consomment cette même liste, ce qui
@@ -51,29 +85,13 @@ const MAPPING_COMPTE = {
  * @returns {Array} - [{ num, mvt, std, mapping, montant, type, date, qui, lib, cat }]
  */
 export function _buildMvtRows(mouvements, stdCategories, opts = {}) {
-  const { from = '', to = '', entityNom = '', refs = [], catMere = null } = opts;
-  const catByName = new Map();
-  (stdCategories || []).forEach(c => catByName.set(c.nom, c));
-
-  const inScope = m => {
-    if (!m || m._deleted) return false;
-    if (from && m.date < from) return false;
-    if (to && m.date > to) return false;
-    if (entityNom) {
-      const isGlobal = m.qui === 'SCI:' + entityNom;
-      const isInScope = refs && refs.includes(m.qui);
-      if (!isGlobal && !isInScope) return false;
-    }
-    return true;
-  };
-
+  const { inScope, stdDe } = _perimetre(stdCategories, opts);
   const rows = [];
   let num = 1;
   (mouvements || []).filter(inScope).forEach(m => {
-    const std = catByName.get(m.cat) || (typeof catMere === 'function' ? catMere(m.cat) : null);
-    if (!std || !std.ligne2044) return; // skip non-mappé ou type=special
-    const mapping = MAPPING_COMPTE[std.ligne2044];
-    if (!mapping) return;
+    const std = stdDe(m.cat);
+    const mapping = _mappingDe(std);
+    if (!mapping) return; // non mappé ou type=special → listé par _listNonExportes
     // NET du mouvement dans le sens de sa catégorie (comme Finances : recette = cr − db, charge = db − cr).
     // Négatif = avoir / remboursement (assurance remboursée, loyer rendu) : écrit EN SENS INVERSE sur le
     // MÊME compte (`inverse`), jamais ignoré — sinon l'export dépasse Finances du montant de l'avoir.
@@ -83,6 +101,73 @@ export function _buildMvtRows(mouvements, stdCategories, opts = {}) {
     rows.push({ num: num++, mvt: m, std, mapping, montant, inverse: net < 0, type: std.type, date: m.date, qui: m.qui || '', lib: m.lib || '', cat: m.cat || '' });
   });
   return rows;
+}
+
+export const NON_EXPORTES_MENTION = 'non exportés : compte à définir avec l\'expert-comptable';
+const _r2 = n => Math.round(n * 100) / 100;
+
+/**
+ * Lot 6, A2 — les mouvements du périmètre que l'export N'ÉCRIT PAS (famille sans ligne 2044 ou sans
+ * compte : dépôt de garantie, prêt, achat / vente, virement interne, CCA, Divers, frais bancaires,
+ * charges récupérables, catégorie inconnue…). Aucun compte n'est inventé : ils sont listés, pour que
+ * l'expert-comptable décide. Les mouvements sans montant (ni entrée ni sortie) ne sont pas listés.
+ *
+ * @returns {{ rows: Array<{date, qui, cat, famille, lib, entree, sortie}>, count, entrees, sorties,
+ *             parCategorie: Array<{cat, famille, count, entrees, sorties}> }}  (montants arrondis au centime)
+ */
+export function _listNonExportes(mouvements, stdCategories, opts = {}) {
+  const { inScope, stdDe } = _perimetre(stdCategories, opts);
+  const rows = [];
+  const parCat = new Map();
+  (mouvements || []).filter(inScope).forEach(m => {
+    const std = stdDe(m.cat);
+    if (_mappingDe(std)) return;                             // écrit par l'export
+    const entree = Number(m.cr) || 0, sortie = Number(m.db) || 0;
+    if (!entree && !sortie) return;
+    const cat = m.cat || '';
+    const famille = !std ? 'sans famille' : (std.nom && std.nom !== cat ? std.nom : '');
+    rows.push({ date: m.date || '', qui: m.qui || '', cat, famille, lib: m.lib || '', entree, sortie });
+    let c = parCat.get(cat);
+    if (!c) { c = { cat, famille, count: 0, entrees: 0, sorties: 0 }; parCat.set(cat, c); }
+    c.count++; c.entrees += entree; c.sorties += sortie;
+  });
+  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const parCategorie = [...parCat.values()]
+    .map(c => ({ ...c, entrees: _r2(c.entrees), sorties: _r2(c.sorties) }))
+    .sort((a, b) => b.count - a.count || a.cat.localeCompare(b.cat, 'fr'));
+  return {
+    rows, count: rows.length,
+    entrees: _r2(rows.reduce((s, r) => s + r.entree, 0)),
+    sorties: _r2(rows.reduce((s, r) => s + r.sortie, 0)),
+    parCategorie
+  };
+}
+
+const _eur = n => (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
+
+/** Une phrase pour l'écran (toast, récapitulatif). '' s'il n'y a rien à signaler. */
+export function _nonExportesResume(liste) {
+  if (!liste || !liste.count) return '';
+  return liste.count + ' mouvement' + (liste.count > 1 ? 's' : '') + ' (entrées ' + _eur(liste.entrees)
+    + ', sorties ' + _eur(liste.sorties) + ') ' + NON_EXPORTES_MENTION;
+}
+
+/**
+ * `ecritures/mouvements-non-exportes.csv` du dossier ZIP. En tête (lignes « # », comme index.csv) :
+ * la mention, le périmètre, le nombre, les totaux et la ventilation par catégorie ; puis le détail.
+ * Point décimal, comme les autres CSV du dossier.
+ */
+export function _nonExportesCsv(liste, meta = {}) {
+  const l = liste || { rows: [], count: 0, entrees: 0, sorties: 0, parCategorie: [] };
+  const head = [
+    '# Mouvements ' + NON_EXPORTES_MENTION,
+    '# date d\'extraction : ' + (meta.extractionYmd || '') + ' · bailleur : ' + (meta.entityNom || 'Tous') + ' · période : ' + (meta.from || '') + ' → ' + (meta.to || ''),
+    '# ' + l.count + ' mouvement(s) · entrées ' + l.entrees.toFixed(2) + ' · sorties ' + l.sorties.toFixed(2),
+    ...(l.parCategorie || []).map(c => '# ' + c.cat.replace(/[\r\n]/g, ' ') + (c.famille ? ' (' + c.famille + ')' : '') + ' : ' + c.count + ' mouvement(s) · entrées ' + c.entrees.toFixed(2) + ' · sorties ' + c.sorties.toFixed(2))
+  ];
+  const cols = ['date', 'lot', 'categorie', 'famille', 'libelle', 'entree', 'sortie'];
+  const lines = l.rows.map(r => [r.date, r.qui, r.cat, r.famille, r.lib, r.entree ? r.entree.toFixed(2) : '', r.sortie ? r.sortie.toFixed(2) : ''].map(_csvCell).join(','));
+  return [...head, cols.join(','), ...lines].join('\n');
 }
 
 /**
