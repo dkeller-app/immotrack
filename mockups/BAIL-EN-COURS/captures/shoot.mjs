@@ -1,4 +1,5 @@
 import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
+let MHcur='auto'; const mh=s=>String(s).replaceAll('min-height:44px','min-height:'+MHcur);
 const OUT='/home/user/immotrack/mockups/BAIL-EN-COURS/captures';
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 const fmts = { pc:{w:1280,h:860,s:1}, tab:{w:768,h:1024,s:1}, tel:{w:390,h:844,s:2} };
@@ -20,7 +21,7 @@ for (const theme of ['sobre','dark']) for (const [fk,f] of Object.entries(fmts))
     const g=document.getElementById('b-dg').closest('.fg'); const empty=g.nextElementSibling; empty.innerHTML=dg; empty.style.alignSelf='end';
     const row=document.getElementById('b-dateSign-fg').parentElement; row.insertAdjacentHTML('afterend', hors);
     document.querySelectorAll('.toast,#toast,[class*=toast]').forEach(e=>e.remove());
-  }, [DG_HTML, HORS_HTML]);
+  }, [mh(DG_HTML), mh(HORS_HTML)]);
   for (const [name,sel] of [['dg','#b-dg'],['hors','#mk-hors']]) {
     await p.evaluate(s=>document.querySelector(s).scrollIntoView({block:'center'}), sel); await p.waitForTimeout(350);
     await p.evaluate(()=>document.querySelectorAll('[class*=toast]').forEach(e=>e.remove()));

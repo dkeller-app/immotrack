@@ -1,4 +1,5 @@
 import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
+let MHcur='auto'; const mh=s=>String(s).replaceAll('min-height:44px','min-height:'+MHcur);
 const OUT='/home/user/immotrack/mockups/BAIL-EN-COURS/captures';
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 const fmts = { pc:{w:1280,h:860,s:1}, tab:{w:768,h:1024,s:1}, tel:{w:390,h:844,s:2} };
@@ -24,7 +25,7 @@ async function boot(f, theme) {
 }
 const box = (p, txt) => p.evaluateHandle(t=>{ const e=[...document.querySelectorAll('*')].find(x=>x.children.length===0&&x.textContent.includes(t)&&x.offsetParent); return e.parentElement; }, txt);
 for (const theme of ['sobre','dark']) for (const [fk,f] of Object.entries(fmts)) {
-  const tn = theme==='sobre'?'light':'dark';
+  const tn = theme==='sobre'?'light':'dark'; MHcur = fk==='tel'?'44px':'auto';
   for (const mode of ['ajout','resultat']) {
     const [ctx,p] = await boot(f, theme);
     await p.evaluate(([mode,FORM,rowBail,rowEdl])=>{
@@ -34,9 +35,10 @@ for (const theme of ['sobre','dark']) for (const [fk,f] of Object.entries(fmts))
       else { edl.innerHTML=rowEdl; edl.id='mk-edl'; edl.style.textAlign='left'; edl.style.fontStyle='normal'; bail.innerHTML=rowBail; bail.style.textAlign='left'; bail.style.fontStyle='normal'; }
       document.querySelectorAll('[class*=toast]').forEach(e=>e.remove());
       (mode==='ajout'?edl:bail).scrollIntoView({block:'start'}); window.scrollBy(0,-80);
-    }, [mode, FORM, row('📄','Bail signé hors Propryo — Pierre Demo','Signé le 20/02/2026 · Bail-D-101-signe.pdf · 1,2 Mo',btn('Ouvrir')), row('📋','EDL d’entrée — fait hors Propryo','01/09/2023 · EDL-D-101-entree.pdf · 2,4 Mo',btn('Ouvrir')+btn('Supprimer'))]);
+    }, [mode, mh(FORM), mh(row('📄','Bail signé hors Propryo — Pierre Demo','Signé le 20/02/2026 · Bail-D-101-signe.pdf · 1,2 Mo',btn('Ouvrir'))), mh(row('📋','EDL d\u2019entrée — fait hors Propryo','01/09/2023 · EDL-D-101-entree.pdf · 2,4 Mo',btn('Ouvrir')+btn('Supprimer')))]);
     await p.waitForTimeout(400);
     if(mode==='ajout') await p.evaluate(()=>document.getElementById('mk-edl').scrollIntoView({block:'center'}));
+    await p.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>e.children.length<=2&&/Migration v15\.232/.test(e.textContent||'')).forEach(e=>{let t=e; while(t.parentElement&&t.parentElement!==document.body&&getComputedStyle(t).position!=='fixed') t=t.parentElement; t.remove();}));
     await p.screenshot({ path:`${OUT}/edl-docs-${mode}-${fk}-${tn}.png` }); await ctx.close();
   }
 }

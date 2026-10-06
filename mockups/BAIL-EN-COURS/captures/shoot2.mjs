@@ -1,4 +1,5 @@
 import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
+let MHcur='auto'; const mh=s=>String(s).replaceAll('min-height:44px','min-height:'+MHcur);
 const OUT='/home/user/immotrack/mockups/BAIL-EN-COURS/captures';
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
 const fmts = { pc:{w:1280,h:860,s:1}, tab:{w:768,h:1024,s:1}, tel:{w:390,h:844,s:2} };
@@ -17,13 +18,13 @@ async function boot(f, theme) {
 }
 const clean = p => p.evaluate(()=>document.querySelectorAll('[class*=toast]').forEach(e=>e.remove()));
 for (const theme of ['sobre','dark']) for (const [fk,f] of Object.entries(fmts)) {
-  const tn = theme==='sobre'?'light':'dark';
+  const tn = theme==='sobre'?'light':'dark'; MHcur = fk==='tel'?'44px':'auto';
   // 1. fiche du logement
   let [ctx,p] = await boot(f, theme);
   await p.evaluate(()=>openNewLog('D-101')); await p.waitForTimeout(1300);
   await p.evaluate(nom=>{ const r=document.getElementById('log-ref'); const row=r.closest('.fg').parentElement; row.insertAdjacentHTML('afterend', nom[0]);
-    const w=document.getElementById('log-ref-rename-wrap'); if(w){ w.innerHTML='<span class="mu sm" style="display:inline-flex;align-items:center;gap:4px;min-height:44px">🔒 Verrouillée : bail signé</span>'; }
-    r.closest('.fg').querySelector('label').innerHTML='Référence * <span class="mu sm">(clé technique, ne change jamais)</span>'; }, [NOM_FIELD]);
+    const w=document.getElementById('log-ref-rename-wrap'); if(w){ w.innerHTML='<span class="mu sm" style="display:inline-flex;align-items:center;gap:4px">🔒 Verrouillée : bail signé</span>'; }
+    r.closest('.fg').querySelector('label').innerHTML='Référence * <span class="mu sm">(clé technique, ne change jamais)</span>'; }, [mh(NOM_FIELD)]);
   await p.evaluate(()=>document.getElementById('mk-nom').scrollIntoView({block:'center'})); await p.waitForTimeout(300); await clean(p);
   await p.screenshot({ path:`${OUT}/nom-fiche-${fk}-${tn}.png` }); await ctx.close();
   // 2. liste des logements
@@ -33,12 +34,5 @@ for (const theme of ['sobre','dark']) for (const [fk,f] of Object.entries(fmts))
   await p.evaluate(nom=>{ const t=[...document.querySelectorAll('*')].find(e=>e.children.length===0&&e.textContent.trim()==='D-101'&&e.offsetParent); if(t){ t.textContent=nom; t.insertAdjacentHTML('afterend','<div class="mu sm" style="font-size:11.5px;margin-top:2px">Réf. D-101</div>'); t.scrollIntoView({block:'center'}); } }, NOM);
   await p.waitForTimeout(300); await clean(p);
   await p.screenshot({ path:`${OUT}/nom-liste-${fk}-${tn}.png` }); await ctx.close();
-  // 3. EDL hors application
-  [ctx,p] = await boot(f, theme);
-  await p.evaluate(()=>{ go('edl'); openNewEDL(); }); await p.waitForTimeout(1500);
-  await p.evaluate(h=>{ const st=document.getElementById('edl-step-infos'); const kids=[...st.children]; kids[0].insertAdjacentHTML('afterend', h);
-    kids.slice(2).forEach(k=>k.style.display='none'); const sel=document.getElementById('edl-log'); }, EDL_HTML);
-  await p.evaluate(()=>document.getElementById('mk-edl').scrollIntoView({block:'center'})); await p.waitForTimeout(300); await clean(p);
-  await p.screenshot({ path:`${OUT}/edl-hors-${fk}-${tn}.png` }); await ctx.close();
 }
 await b.close();
