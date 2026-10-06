@@ -8130,29 +8130,33 @@ function openBailClore(ref) {
   el('b-loc-nouv-adr').value  = bail.locNouvelleAdr || '';
   el('b-dg-restitue').value   = bail.dgRestitue   || '';
   el('b-dg-retenu').value     = bail.dgRetenu     || '';
+  if(el('b-dg-restitue-date')) el('b-dg-restitue-date').value = String(bail.dgRestitueAt || '').slice(0, 10);   // vide tant qu'aucun virement n'est enregistré
   el('b-fin-notes').value     = bail.finNotes     || '';
   openM('ov-bail-clore');
 }
 
 // Loi n° 89-462 du 6 juillet 1989, article 22 (Légifrance, version en vigueur), alinéas sur le délai de restitution.
 const _ART22_RESTITUTION = [
-  "Il est restitué dans un délai maximal de deux mois à compter de la remise en main propre, ou par lettre recommandée avec demande d'avis de réception, des clés au bailleur ou à son mandataire, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, aux lieu et place du locataire, sous réserve qu'elles soient dûment justifiées.",
+  "Il est restitué dans un délai maximal de deux mois à compter de la remise en main propre, ou par lettre recommandée avec demande d'avis de réception, des clés au bailleur ou à son mandataire, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, aux lieu et place du locataire, sous réserve qu'elles soient dûment justifiées. A cette fin, le locataire indique au bailleur ou à son mandataire, lors de la remise des clés, l'adresse de son nouveau domicile.",
   "Il est restitué dans un délai maximal d'un mois à compter de la remise des clés par le locataire lorsque l'état des lieux de sortie est conforme à l'état des lieux d'entrée, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, en lieu et place du locataire, sous réserve qu'elles soient dûment justifiées."
 ];
 // Clôture d'un bail (saveBailClore, terminerBail) — restitution du dépôt de garantie. Dépôt versé, aucune
 // restitution saisie ni déjà enregistrée : AVERTIR (art. 22), jamais bloquer — le dépôt reste compté détenu
 // (_dgDetenuDuLot) et sa tâche reste (_computeUnifiedTodo 7bis). Renvoie false si l'utilisateur renonce.
-function _clotureDgConfirmer(bail, dgRestitue, dgRetenu) {
+function _clotureDgConfirmer(bail, dateVirement) {
   const dg = Number(bail && bail.dg) || 0;
-  if(dg <= 0 || (bail && bail.dgRestitueAt) || Number(dgRestitue) > 0 || Number(dgRetenu) > 0) return true;
-  return confirm2('Le dépôt de garantie (' + fmt(dg) + ') n\'a aucune restitution enregistrée : il restera compté comme détenu, et sa restitution à faire, jusqu\'à ce qu\'elle soit enregistrée.\n\n'
+  if(dg <= 0 || (bail && bail.dgRestitueAt) || dateVirement) return true;
+  return confirm2('Le dépôt de garantie (' + fmt(dg) + ') n\'a pas de date de virement de restitution : il restera compté comme détenu, et sa restitution à faire, jusqu\'à ce qu\'elle soit enregistrée (montants saisis ou non).\n\n'
     + 'Loi n° 89-462 du 6 juillet 1989, article 22 :\n« ' + _ART22_RESTITUTION.join(' »\n« ') + ' »\n\nClôturer quand même ?');
 }
-// Montants saisis à la clôture ; une restitution saisie pose `dgRestitueAt` (date de saisie) s'il ne l'est pas déjà.
-function _clotureDgAppliquer(bail, dgRestitue, dgRetenu) {
+// Montants saisis à la clôture. `dgRestitueAt` n'est posé QUE par la date du virement saisie (jamais la date du jour :
+// des montants pré-remplis par la régularisation ne disent pas que l'argent est parti). `clotureV: 2` marque une
+// clôture de ce déploiement : ses montants ne valent plus restitution (_dgRestitutionEnregistree).
+function _clotureDgAppliquer(bail, dgRestitue, dgRetenu, dateVirement) {
   bail.dgRestitue = dgRestitue;
   bail.dgRetenu   = dgRetenu;
-  if(!bail.dgRestitueAt && (Number(dgRestitue) > 0 || Number(dgRetenu) > 0)) bail.dgRestitueAt = _todayIsoLocal();   // date LOCALE (td() = UTC : la veille après minuit)
+  if(dateVirement) bail.dgRestitueAt = String(dateVirement).slice(0, 10);
+  bail.clotureV   = 2;
 }
 
 function saveBailClore() {
@@ -8167,12 +8171,12 @@ function saveBailClore() {
   if(!motif)  { showToast('Motif de fin requis','err'); return; }
   // Confirmation finale (action destructive : archive + vacant)
   if(!confirm2(`Clôturer le bail ${ref} au ${fd(finEff)} ?\nLe logement sera marqué vacant et le bail archivé.`)) return;
-  if(!_clotureDgConfirmer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'))) return;
+  if(!_clotureDgConfirmer(bail, v('b-dg-restitue-date'))) return;
   // Persister les infos de clôture
   bail.finEffective   = finEff;
   bail.finMotif       = motif;
   bail.locNouvelleAdr = v('b-loc-nouv-adr');
-  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'));
+  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'), v('b-dg-restitue-date'));
   bail.finNotes       = v('b-fin-notes');
   bail.cloture        = true;
   bail.ref            = ref;
@@ -9919,15 +9923,16 @@ function _dgDuLot(l) {
  *
  * Restitution ENREGISTRÉE d'un bail :
  *  • `dgRestitueAt` — posé par _dgConfirmerRestitution (solde de tout compte) ou à la clôture (_clotureDgAppliquer) ;
- *  • bail CLÔTURÉ (`cloture`) : aussi les montants saisis au formulaire de clôture (dgRestitue / dgRetenu > 0) —
- *    seules traces des clôtures d'avant le 06/10 (mesuré : toutes celles des sauvegardes réelles en portent).
+ *  • bail CLÔTURÉ AVANT ce déploiement (`cloture` sans `clotureV`) : aussi les montants saisis au formulaire de
+ *    clôture (dgRestitue / dgRetenu > 0) — seules traces de ces clôtures (mesuré : toutes celles des sauvegardes réelles
+ *    en portent). Une clôture d'aujourd'hui (`clotureV: 2`) ne vaut restitution que par sa date de virement.
  *    Sur un bail NON clôturé (en cours, parti, ou archivé par relocation), dgRetenu / dgRestitue sont des montants
  *    EN COURS de calcul (_rgApplyRetenue ; saveBail les écrit à 0) : ils ne disent pas que l'argent est rendu.
  */
 function _dgRestitutionEnregistree(b) {
   if (!b) return false;
   if (b.dgRestitueAt) return true;
-  return !!b.cloture && (Number(b.dgRestitue) > 0 || Number(b.dgRetenu) > 0);
+  return !!b.cloture && !b.clotureV && (Number(b.dgRestitue) > 0 || Number(b.dgRetenu) > 0);
 }
 /** Le dépôt DÉTENU par un bail (vivant ou archivé) : dg > 0 et restitution non enregistrée. `dgLot` = repli
  *  sur le dépôt de la fiche du lot, pour le seul bail courant (sémantique de _dgDuLot). */
@@ -13895,6 +13900,7 @@ function openBailHist(i) {
   el('b-loc-nouv-adr').value = b.locNouvelleAdr||'';
   el('b-dg-restitue').value = b.dgRestitue||'';
   el('b-dg-retenu').value = b.dgRetenu||'';
+  if(el('b-dg-restitue-date')) el('b-dg-restitue-date').value = String(b.dgRestitueAt || '').slice(0, 10);
   el('b-fin-notes').value = b.finNotes||'';
 
   // Remplacer le pied de modal par boutons lecture seule
@@ -16148,6 +16154,7 @@ function openBail(ref, opts) {
   el('b-loc-nouv-adr').value = bail.locNouvelleAdr||'';
   el('b-dg-restitue').value = bail.dgRestitue||'';
   el('b-dg-retenu').value = bail.dgRetenu||'';
+  if(el('b-dg-restitue-date')) el('b-dg-restitue-date').value = String(bail.dgRestitueAt || '').slice(0, 10);
   el('b-fin-notes').value = bail.finNotes||'';
 
   // Wizard v12.44 : reset à l'étape 1 + flag édition + dirty tracking
@@ -16902,11 +16909,11 @@ function terminerBail() {
   if(!finEff) { showToast('Date de fin effective requise','err'); return; }
   if(!confirm2(`Clôturer le bail de ${ref} au ${fd(finEff)} ?\nLe logement sera marqué comme vacant et le bail archivé.`)) return;
   const bail = DB.baux[ref]||{};
-  if(!_clotureDgConfirmer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'))) return;
+  if(!_clotureDgConfirmer(bail, v('b-dg-restitue-date'))) return;
   bail.finEffective = finEff;
   bail.finMotif = v('b-fin-motif');
   bail.locNouvelleAdr = v('b-loc-nouv-adr');
-  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'));
+  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'), v('b-dg-restitue-date'));
   bail.finNotes = v('b-fin-notes');
   bail.cloture = true;
   bail.ref = ref;

@@ -475,39 +475,58 @@ describe('14 · scénario de l\'audit : relocation d\'un lot parti (VRAIS archiv
 });
 
 describe('15 · clôture d\'un bail (VRAIS saveBailClore / terminerBail) : restitution du dépôt', () => {
-  const clore = (fnNom, saisie, rep = true) => {
-    const DB = dbDe({ A1: { ...DEPART, ref: 'A1' } });
+  const clore = (fnNom, saisie, rep = true, bailEnPlus = {}) => {
+    const DB = dbDe({ A1: { ...DEPART, ref: 'A1', ...bailEnPlus } });
     const msgs = [];
-    const vals = { 'b-clore-ref': 'A1', 'b-ref': 'A1', 'b-fin-effective': '2026-09-30', 'b-fin-motif': 'Congé du locataire' };
+    const vals = { 'b-clore-ref': 'A1', 'b-ref': 'A1', 'b-fin-effective': '2026-09-30', 'b-fin-motif': 'Congé du locataire', 'b-dg-restitue-date': saisie.date || '' };
     const m = monter(DB, [...STATUT, fnNom, '_clotureDgConfirmer', '_clotureDgAppliquer'], {
       v: (id) => vals[id] || '', pf: (id) => Number(saisie[id] || 0), confirm2: (t) => { msgs.push(t); return msgs.length === 1 ? true : rep; },
-      _ART22_RESTITUTION: ['« art22-2mois »', '« art22-1mois »'], td: () => '2026-10-04' /* date UTC (veille) : dgRestitueAt doit être LOCALE */, _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {},
+      _ART22_RESTITUTION: ['« art22-2mois »', '« art22-1mois »'], _todayIsoLocal: () => '2026-10-06', td: () => '2026-10-06',
+      _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {},
     });
     m.els['b-clore-ref'] = { value: 'A1' };
     m.fn[fnNom]();
     return { DB, msgs };
   };
+  const detenu = (DB) => monter(DB, STATUT).fn._dgDetenuDuLot({ ref: 'A1' });
   for (const fnNom of ['saveBailClore', 'terminerBail']) {
-    it(fnNom + ' sans restitution saisie : avertit (art. 22), ne bloque pas ; le dépôt reste détenu (bail archivé)', () => {
+    it(fnNom + ' sans date de virement : avertit (art. 22), ne bloque pas ; le dépôt reste détenu (clotureV 2)', () => {
       const { DB, msgs } = clore(fnNom, {});
       expect(msgs[1]).toContain('art22-2mois');
       expect(msgs[1]).toContain('900 €');
       expect(DB.baux.A1._deleted).toBe(true);
+      expect(DB.baux_historique[0]).toMatchObject({ clotureV: 2 });
       expect(DB.baux_historique[0].dgRestitueAt).toBeFalsy();
-      expect(monter(DB, STATUT).fn._dgDetenuDuLot({ ref: 'A1' })).toBe(900);
+      expect(detenu(DB)).toBe(900);
     });
     it(fnNom + ' : renoncer à l\'avertissement n\'archive rien', () => {
       const { DB } = clore(fnNom, {}, false);
       expect(DB.baux.A1._deleted).toBeFalsy();
       expect(DB.baux_historique).toEqual([]);
     });
-    it(fnNom + ' avec restitution saisie : pas d\'avertissement, dgRestitueAt posé (date de saisie), plus détenu', () => {
+    it(fnNom + ' montants saisis SANS date : avertit quand même, jamais de date inventée, dépôt détenu', () => {
       const { DB, msgs } = clore(fnNom, { 'b-dg-restitue': 780, 'b-dg-retenu': 120 });
+      expect(msgs).toHaveLength(2);
+      expect(DB.baux_historique[0].dgRestitueAt).toBeFalsy();
+      expect(detenu(DB)).toBe(900);
+    });
+    it(fnNom + ' avec la date du virement : pas d\'avertissement, dgRestitueAt = cette date, plus détenu', () => {
+      const { DB, msgs } = clore(fnNom, { 'b-dg-restitue': 780, 'b-dg-retenu': 120, date: '2026-10-02' });
       expect(msgs).toHaveLength(1);
-      expect(DB.baux_historique[0].dgRestitueAt).toBe(AUJ);
-      expect(monter(DB, STATUT).fn._dgDetenuDuLot({ ref: 'A1' })).toBe(0);
+      expect(DB.baux_historique[0].dgRestitueAt).toBe('2026-10-02');
+      expect(detenu(DB)).toBe(0);
     });
   }
+  it('scénario « régularisation puis clôture » : montants calculés pré-remplis (150 / 750), clôture sans date → 900 € toujours détenus', () => {
+    const { DB, msgs } = clore('saveBailClore', { 'b-dg-restitue': 750, 'b-dg-retenu': 150 }, true, { dgRetenu: 150, dgRestitue: 750 });
+    expect(msgs[1]).toContain('pas de date de virement');
+    expect(DB.baux_historique[0]).toMatchObject({ cloture: true, clotureV: 2, dgRestitue: 750, dgRetenu: 150 });
+    expect(detenu(DB)).toBe(900);
+  });
+  it('clôture ANCIENNE (sans clotureV) aux montants saisis : vaut restitution (sauvegardes réelles inchangées)', () => {
+    const DB = dbDe({ A1: { ref: 'A1', _deleted: true } }); DB.baux_historique = [{ ...DEPART, ref: 'A1', cloture: true, dgRestitue: 650 }];
+    expect(detenu(DB)).toBe(0);
+  });
 });
 describe('16 · fiche du bien d\'un lot parti (VRAI rLogFiche + panneaux réels) : le bail OUVERT reste affiché', () => {
   const rendu = (phone) => {
@@ -702,5 +721,14 @@ describe('22 · frise du bien (VRAI _histoBailEventHtml) : le geste de restituti
     const v1 = carte({ ...LEA, cloture: true, dgRestitue: 900 }, 'clos');
     expect(v1).toContain('Restitué');
     expect(v1).not.toContain('_dgOpenRestitution');
+  });
+});
+describe('23 · article 22 cité mot pour mot (Légifrance, alinéas 3 et 4)', () => {
+  it('le texte de l\'avertissement porte la phrase sur l\'adresse du nouveau domicile', () => {
+    const src = SRC[0];
+    const i = src.indexOf('const _ART22_RESTITUTION = [');
+    const bloc = src.slice(i, src.indexOf('];', i));
+    expect(bloc).toContain("sous réserve qu'elles soient dûment justifiées. A cette fin, le locataire indique au bailleur ou à son mandataire, lors de la remise des clés, l'adresse de son nouveau domicile.");
+    expect(bloc).toContain("Il est restitué dans un délai maximal d'un mois à compter de la remise des clés par le locataire lorsque l'état des lieux de sortie est conforme à l'état des lieux d'entrée");
   });
 });

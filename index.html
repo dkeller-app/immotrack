@@ -2211,6 +2211,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="fg"><label>DG restitué (€)</label><input class="inp" type="number" id="b-dg-restitue" min="0" step="0.01" placeholder="0.00"></div>
       <div class="fg"><label>Retenues sur DG (€)</label><input class="inp" type="number" id="b-dg-retenu" min="0" step="0.01" placeholder="0.00"></div>
     </div>
+    <div class="fg"><label>Date du virement de restitution</label><input class="inp" type="date" id="b-dg-restitue-date"><div class="mu sm" style="margin-top:4px">À remplir quand le dépôt a été rendu : sans cette date, il reste compté comme détenu (art. 22).</div></div>
     <div class="fg"><label>Notes de fin de bail</label><textarea class="inp" id="b-fin-notes" rows="3" placeholder="Observations, état du logement à la sortie..."></textarea></div>
   </div>
   <div class="m-foot">
@@ -4541,7 +4542,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=4268c787" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part1.js?v=6cc59fe4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
 <script src="js/app/app-part2.js?v=0a98183a" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
