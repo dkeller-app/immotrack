@@ -25,3 +25,15 @@ describe('comparer', () => {
   it('noms égaux → départage par référence', () => expect(comparer({ ref: 'D-102', libelle: 'Garage' }, { ref: 'D-101', libelle: 'Garage' })).toBeGreaterThan(0))
   it('mélange avec et sans libellé', () => { const t = [{ ref: 'D-102' }, { ref: 'D-103', libelle: 'Atelier' }, { ref: 'D-101' }].sort(comparer).map(x => x.ref); expect(t).toEqual(['D-103', 'D-101', 'D-102']) })
 })
+
+describe('normaliserLibelle : invisibles, bidi, emoji (audit B3 🟡10)', () => {
+  it('retire zero-width, marques bidi et surcharges RLO/LRI', () => {
+    expect(normaliserLibelle('A​B‎‮C⁦D⁩E﻿F', 'X')).toBe('ABCDEF')
+  })
+  it('un libellé fait de caractères invisibles est vide', () => expect(normaliserLibelle('​‮﻿', 'X')).toBe(''))
+  it('coupe à 60 caractères sans casser un emoji (paire de substitution)', () => {
+    const r = normaliserLibelle('😀'.repeat(61), 'X')
+    expect(Array.from(r).length).toBe(60)
+    expect(r.endsWith('😀')).toBe(true)
+  })
+})

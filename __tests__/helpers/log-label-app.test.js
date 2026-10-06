@@ -124,3 +124,40 @@ describe('_renderLogementCardFlat (vrai code) — nom, échappement, onclick', (
     })
   }
 })
+
+// B3 audit 🟠2 : le champ « Nom affiché » de saveParamLog (vrai code _logLibelleDepuisFormulaire, avec ET sans module).
+describe('_logLibelleDepuisFormulaire (vrai code, saveParamLog)', () => {
+  for (const [nom, avecModule] of [['avec LogLabel', true], ['repli sans LogLabel (file://)', false]]) {
+    describe(nom, () => {
+      const w = () => monde({ logements: [] }, { avecModule })
+      const appliquer = (log, ref, present, val) => {
+        const m = w()
+        vm.runInContext(extraire(P2, '_logLibelleDepuisFormulaire'), m)
+        return m._logLibelleDepuisFormulaire(log, ref, present, val)
+      }
+      it('champ absent du DOM → libellé CONSERVÉ', () => {
+        expect(appliquer({ ref: 'D-101', libelle: 'Studio' }, 'D-101', false, '').libelle).toBe('Studio')
+      })
+      it('champ vide → clé libelle absente', () => {
+        const l = appliquer({ ref: 'D-101', libelle: 'Studio' }, 'D-101', true, '   ')
+        expect('libelle' in l).toBe(false)
+      })
+      it('égal à la réf (casse ignorée) → clé absente', () => {
+        const l = appliquer({ ref: 'D-101', libelle: 'Studio' }, 'D-101', true, ' d-101 ')
+        expect('libelle' in l).toBe(false)
+      })
+      it('valeur normalisée stockée (espaces fusionnés, invisibles/bidi retirés, 60 car. max sans couper un emoji)', () => {
+        expect(appliquer({}, 'D-101', true, '  Studio ‮  RDC​ ').libelle).toBe('Studio RDC')
+        const long = appliquer({}, 'D-101', true, '😀'.repeat(70)).libelle
+        expect(Array.from(long).length).toBe(60)
+        expect(long).not.toMatch(/[\ud800-\udbff]$/)
+      })
+    })
+  }
+  it('saveParamLog : n\'appelle le helper que si #log-libelle existe, puis _stamp(log)', () => {
+    const c = extraire(P2, 'saveParamLog')
+    expect(c).toMatch(/if \(el\('log-libelle'\)\) _logLibelleDepuisFormulaire\(log, ref, true, v\('log-libelle'\)\)/)
+    expect(c).toMatch(/_stamp\(log\)/)
+    expect(c.indexOf("_logLibelleDepuisFormulaire") ).toBeLessThan(c.lastIndexOf('_stamp(log)'))
+  })
+})

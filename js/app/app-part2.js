@@ -22475,6 +22475,20 @@ function _syncLogToBail(ref, log) {
   if(typeof _stamp === 'function') _stamp(bail);
 }
 
+// B3 : applique le champ « Nom affiché » au logement (pure : ne touche que log.libelle). Champ absent du DOM → libellé
+// CONSERVÉ ; valeur vide, ou égale à la réf (casse ignorée) → clé supprimée. Repli sans module LogLabel (file://) aligné.
+function _logLibelleDepuisFormulaire(log, ref, champPresent, valeur) {
+  if (!champPresent || !log) return log;
+  let lib;
+  if (typeof window !== 'undefined' && window.LogLabel && window.LogLabel.normaliserLibelle) lib = window.LogLabel.normaliserLibelle(valeur, ref);
+  else {
+    lib = Array.from(String(valeur == null ? '' : valeur).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]+/g, '').replace(/\s+/g, ' ').trim()).slice(0, 60).join('').trim();
+    if (lib && ref != null && lib.toLowerCase() === String(ref).trim().toLowerCase()) lib = '';
+  }
+  if (lib) log.libelle = lib; else delete log.libelle;
+  return log;
+}
+
 function saveParamLog() {
   const ref = v('log-ref').trim() || v('log-edit-ref');
   if(!ref) { showToast('Référence requise','err'); return; }
@@ -22522,10 +22536,7 @@ function saveParamLog() {
   log.ref=ref; log.imm=v('log-imm'); log.entity=v('log-entity'); log.type=v('log-type');
   // B3 : nom d'affichage — normalisé ; vide ou égal à la référence → rien n'est stocké. Champ absent du DOM (écrans du
   // parcours guidé, modale sans l'onglet) → le libellé existant est CONSERVÉ, jamais effacé en silence.
-  if (el('log-libelle')) {
-    const _lib = (window.LogLabel && LogLabel.normaliserLibelle) ? LogLabel.normaliserLibelle(v('log-libelle'), ref) : String(v('log-libelle') || '').trim().slice(0, 60);
-    if (_lib) log.libelle = _lib; else delete log.libelle;
-  }
+  if (el('log-libelle')) _logLibelleDepuisFormulaire(log, ref, true, v('log-libelle'));
   log.typeUsage = v('log-typeUsage') || 'habitation-nu';
   log.surf=pf('log-surf'); log.etage=v('log-etage');
   // v15.230 ARCHI-FICHES-UNIFIED A2 — numApt (nouveau) + adr (override exceptionnel, vide = hérite)

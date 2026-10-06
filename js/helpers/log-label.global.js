@@ -26,12 +26,12 @@
   /** Libellé saisi → valeur à stocker : trim, espaces fusionnés, caractères de contrôle retirés, 60 max.
    *  '' si vide ou égal à la référence (insensible à la casse) : dans ce cas on ne stocke rien. */
   function normaliserLibelle(raw, ref) {
-    const s = String(raw == null ? '' : raw)
+    let s = String(raw == null ? '' : raw)
       .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+      .replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]+/g, '')   // invisibles + surcharges bidi (RLO…) : un nom ne doit pas mimer une réf
       .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 60)
       .trim();
+    s = Array.from(s).slice(0, 60).join('').trim();   // par caractères (jamais au milieu d'un emoji)
     if (!s) return '';
     if (ref != null && s.toLowerCase() === String(ref).trim().toLowerCase()) return '';
     return s;

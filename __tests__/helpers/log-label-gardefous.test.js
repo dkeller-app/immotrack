@@ -6,7 +6,6 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CHAMPS_BAIL } from '../../js/core/bail-modifications.js'
-import { bailLegalContent } from '../../js/core/bail-content-hash.js'
 import { mapToRow } from '../../js/core/store-mapping.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -99,14 +98,9 @@ describe('bail signé imperméable au libellé', () => {
     expect(c).toBeTruthy()
     expect(c).not.toMatch(/libelle/i)
   })
-  it('bailLegalContent : même contenu légal, que le logement ait un libellé ou non', () => {
-    const bail = { hc: 500, ch: 50, debut: '2026-01-01', locataires: [{ nom: 'A' }], signatures: { signedAt: '2026-01-01T10:00:00Z', bailSnapshot: { adr: '1 rue X' } } }
-    const a = JSON.stringify(bailLegalContent(bail))
-    const logAvec = { ref: 'D-101', libelle: 'Studio RDC' }   // le bail ne porte jamais le logement
-    const b = JSON.stringify(bailLegalContent({ ...bail }))
-    expect(a).toBe(b)
-    expect(a).not.toContain(logAvec.libelle)
-  })
+  // (Test « bailLegalContent » supprimé — audit B3 🟠3 : il comparait deux appels sur le MÊME objet, donc vrai par
+  // construction. bailLegalContent ne reçoit que le bail, qui ne porte jamais le logement : la garantie est portée par
+  // CHAMPS_BAIL, _captureBailSnapshot, la fenêtre de signature et _syncLogToBail, testés ci-dessus.)
 })
 
 describe('jamais le libellé dans un attribut ou une clé', () => {
