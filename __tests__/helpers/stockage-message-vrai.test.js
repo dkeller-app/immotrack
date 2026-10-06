@@ -57,9 +57,12 @@ describe('G4 — verdictEchecMiroir : table §3.3 (3 modes × EDL / non-EDL)', (
     expect(T.edlHorsLigne).toMatch(/est enregistré sur cet appareil/);
     expect(T.edlHorsLigne).toMatch(/partira au cloud au retour du réseau/);
     expect(T.edlHorsLigne).not.toMatch(/PAS enregistr|refaire/i);
-    for (const q of ['edl-photo', 'edl-pieces', 'edl-signature-presentielle']) {
+    for (const q of ['edl-photo', 'edl-signature-presentielle']) {
       expect(Stockage.verdictEchecMiroir({ mode: 'cloud-hors-ligne', quoi: q, miroirIdb: true }).retour).toBe(true);
     }
+    // `edl-pieces` écrit log.edlTemplate, que F1 ne remonte PAS : jamais « partira au cloud » (audit final 🟠2).
+    expect(Stockage.verdictEchecMiroir({ mode: 'cloud-hors-ligne', quoi: 'edl-pieces', miroirIdb: true }))
+      .toEqual({ retour: false, type: 'err', unique: false, message: T.horsLigne });
     expect(Stockage.verdictEchecMiroir({ mode: 'cloud-reseau-coupe' })).toEqual({ retour: false, type: 'err', unique: false, message: T.reseauCoupe });
     expect(Stockage.verdictEchecMiroir({ mode: 'cloud-session-morte', quoi: 'edl', miroirIdb: true })).toEqual({ retour: false, type: 'err', unique: false, message: T.sessionMorte });
     expect(Stockage.verdictEchecMiroir({ mode: 'cloud-en-ligne', quoi: 'edl-photo' }).retour).toBe(false);

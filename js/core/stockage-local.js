@@ -39,6 +39,10 @@ export const FLUSH_OK_KEY = 'immotrack_v4_flush_at';
 export const ESPACES_KEY = 'immotrack_v4_espaces';
 export const MIRROR_TAG_KEY = 'immotrack_v4_tag';
 export const AUTH_STORAGE_KEY = 'immo-supabase-auth';
+/** Les écritures hors ligne que F1 remonte au cloud — PROPRIÉTAIRE : offline-boot.js
+ *  (ECRITURES_REMONTEES_PAR_F1). Copie locale pour la même raison que les clés ci-dessus (pas d'import
+ *  dans un module chargé statiquement par main.js) ; égalité verrouillée par stockage-local.test.js. */
+export const ECRITURES_REMONTEES_PAR_F1 = Object.freeze(['edl', 'edl-photo', 'edl-signature-presentielle']);
 
 const echap = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** Clé exacte, en prod seulement (clés écrites sans `_lsKey`). */
@@ -265,6 +269,8 @@ export const TEXTES_ECHEC_MIROIR = {
 };
 
 const estEdl = quoi => typeof quoi === 'string' && /^edl(-|$)/.test(quoi);
+/** Hors ligne : seules ces écritures remontent au cloud par F1 (offline-boot, ECRITURES_REMONTEES_PAR_F1). */
+const remonteeParF1 = quoi => ECRITURES_REMONTEES_PAR_F1.indexOf(String(quoi || '')) >= 0;
 
 /**
  * S-6 / D1 B — que dire, et que rendre, quand la copie de cet appareil (le miroir) n'a pas pu être écrite ?
@@ -278,7 +284,9 @@ const estEdl = quoi => typeof quoi === 'string' && /^edl(-|$)/.test(quoi);
  *     reste en mémoire et partira au retour du réseau si l'app reste ouverte → `false` ;
  *   - `cloud-session-morte` : plus rien ne part au cloud → `false`, « PAS enregistrée » ;
  *   - `cloud-hors-ligne`, `local` (sandbox, ancien mode) : le miroir était la seule destination → `false`.
- *     EXCEPTION, l'état des lieux HORS LIGNE dont l'écriture IndexedDB est planifiée (`miroirIdb`) : seul
+ *     EXCEPTION, l'état des lieux HORS LIGNE (écritures REMONTÉES PAR F1 seulement : `edl`, `edl-photo`,
+ *     `edl-signature-presentielle` — pas `edl-pieces`, gabarit du logement) dont l'écriture IndexedDB est
+ *     planifiée (`miroirIdb`) : seul
  *     un petit écrit localStorage (`_ecrit_at` ou le journal) a été refusé ; la base complète part en
  *     IndexedDB avec `travailA`, et F1 la remonte au démarrage en ligne suivant — la même durabilité que
  *     l'EDL en ligne → `true`, avis unique « enregistré sur cet appareil » (audit lots 2-3, 🟠1 : dire
@@ -292,7 +300,7 @@ export function verdictEchecMiroir({ mode, sandbox = false, quoi, miroirIdb = fa
     if (estEdl(quoi) && !miroirIdb) return { retour: false, type: 'err', unique: 'edl', message: TEXTES_ECHEC_MIROIR.edl };
     return { retour: true, type: 'warn', unique: 'copie', message: TEXTES_ECHEC_MIROIR.enLigne };
   }
-  if (mode === 'cloud-hors-ligne' && estEdl(quoi) && miroirIdb) {
+  if (mode === 'cloud-hors-ligne' && remonteeParF1(quoi) && miroirIdb) {
     return { retour: true, type: 'warn', unique: 'edl-hors-ligne', message: TEXTES_ECHEC_MIROIR.edlHorsLigne };
   }
   if (mode === 'cloud-reseau-coupe') return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.reseauCoupe };

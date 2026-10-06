@@ -47,6 +47,13 @@ describe('Constantes locales du registre = exports des modules qui les possèden
     expect([L.MIROIR_KEY, L.MIROIR_ECRIT_KEY, L.FLUSH_OK_KEY, L.ESPACES_KEY]).toEqual([MIROIR_KEY, MIROIR_ECRIT_KEY, FLUSH_OK_KEY, ESPACES_KEY]);
     expect([L.MIRROR_TAG_KEY, L.AUTH_STORAGE_KEY]).toEqual([MIRROR_TAG_KEY, AUTH_STORAGE_KEY]);
   });
+  it('écritures remontées par F1 : égalité avec offline-boot.js, sous-ensemble des écritures autorisées hors ligne, sans edl-pieces', async () => {
+    const L = await import('../../js/core/stockage-local.js');
+    const O = await import('../../js/core/offline-boot.js');
+    expect([...L.ECRITURES_REMONTEES_PAR_F1]).toEqual(O.ECRITURES_REMONTEES_PAR_F1);
+    for (const q of O.ECRITURES_REMONTEES_PAR_F1) expect(O.ECRITURES_HORS_LIGNE).toContain(q);
+    expect(O.ECRITURES_REMONTEES_PAR_F1).not.toContain('edl-pieces');   // log.edlTemplate : pas dans DB.edl
+  });
 });
 
 describe('classerCle — le registre reconnaît chaque clé de l’app', () => {
