@@ -9,6 +9,7 @@
 // Ne touche PAS window.DB ni le rendu (ça vient à l'étape 2b). Donc zéro interférence avec l'app derrière.
 
 import { BREADCRUMB_KEY, appendCrumb } from '../core/login-breadcrumb.js'
+import { createAuthStorage, purgerJetonLocalLegacy } from '../core/auth-storage.js'   // « Rester connecté sur cet appareil »
 // EDL TERRAIN lot 1, faille F5 (CDC docs/CDC-EDL.md §3ter, invariant 19j) :
 // une modification fraîche ne réarme plus le backoff de réessai. Avec l'autosave
 // de l'EDL (une écriture toutes les 2 s), l'ancien `schedule` replanifiait un
@@ -135,6 +136,7 @@ const MIRROR_TAG_KEY = 'immotrack_v4_tag'  // = cache-purge.MIRROR_TAG_KEY (cont
 // blanche — le mode dégradé M-b disparaît). Égalité avec cache-purge.AUTH_STORAGE_KEY (lue par le
 // registre du stockage local) verrouillée par __tests__/helpers/stockage-purges-cablage.test.js.
 const AUTH_STORAGE_KEY = 'immo-supabase-auth'
+let _authStorage = null            // stockage du jeton (auth-storage.js), posé par boot() ; lu par wireLoginForm
 let _cachePurge = null         // module cache-purge (importé au boot, best-effort)
 // STOCKAGE lot 1 (docs/CDC-STOCKAGE.md) — registre du stockage local : écriture du miroir avec éviction
 // sur quota (S-1) et purge des copies complètes de la base au logout / changement d'utilisateur (S-7).
@@ -311,6 +313,7 @@ async function boot() {
   try {
     ;({ createClient } = await import(/* @vite-ignore */ CDN))
     ;({ createBoot } = await import('./supabase-boot.js'))
+    _perfMark('imports')
   } catch (e) {
     console.error('[ImmoSupabase] import CDN/boot :', e)
     showError(overlay, 'Impossible de charger le service de connexion (réseau ?). Recharge la page pour réessayer.')
@@ -324,7 +327,16 @@ async function boot() {
   // (web/desktop) la met en sessionStorage → fermer l'onglet/le navigateur DÉCONNECTE : on se reconnecte
   // à chaque visite (identifiants retenus par le navigateur), rien ne reste lisible sur un poste partagé.
   const _standalone = (() => { try { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true } catch (e) { return false } })();
-  const _authStore = _standalone ? window.localStorage : window.sessionStorage;
+  // « Rester connecté sur cet appareil » (case du formulaire) : le NAVIGATEUR garde le jeton en sessionStorage par
+  // défaut (poste partagé : fermer l'onglet déconnecte) ; la case coche bascule en localStorage. L'app installée
+  // reste persistante. Le choix est appliqué AVANT l'écriture du jeton (cf. wireLoginForm). Module testé : auth-storage.js.
+  // Un jeton resté en localStorage par une ancienne version du site (avant le passage du navigateur en sessionStorage)
+  // ne doit PAS connecter le premier venu sur ce poste : purge unique, jamais pour l'app installée ni pour un jeton
+  // écrit ensuite avec la case cochée (cf. auth-storage.js).
+  purgerJetonLocalLegacy({ local: window.localStorage, cles: [AUTH_STORAGE_KEY, AUTH_STORAGE_KEY + '-code-verifier'], standalone: _standalone });
+  const _authStore = createAuthStorage({ local: window.localStorage, session: window.sessionStorage, standalone: _standalone });
+  _authStorage = _authStore;
+  _initRemember(overlay);   // l'overlay statique est déjà adopté : on règle la case maintenant que le stockage existe
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
     // BUG-LOGIN-DOUBLE (P0 vente) — la session PERSISTE pendant la session de navigation : sessionStorage
     // (navigateur) comme localStorage (PWA) SURVIVENT au reload post-login (le SW `controllerchange` qui
@@ -490,6 +502,7 @@ async function boot() {
       try { if (typeof window.showToast === 'function') window.showToast(t, s.type === 'echec-repli' ? 'err' : 'warn', 9000) } catch (e) {}
     })
     const r = await M.initialiser()
+    _perfMark('miroir')
     console.info('[Supabase] miroir local :', r.backend, '— transfert :', r.transfert)
     try { window.__immoCrumb && window.__immoCrumb('miroir:' + r.backend + ':' + r.transfert) } catch (e) {}
     // Lu par la garde de déconnexion de supabase-boot.js (module séparé) : un miroir IndexedDB compte.
@@ -720,6 +733,31 @@ async function boot() {
   const _inviteTok = (new URLSearchParams(location.search)).get('invite')
   if (_inviteTok) return acceptInviteFlow(api, client, overlay, _inviteTok)
 
+  // Arrivée depuis propryo.fr par « Connexion » (?connexion) ou « Créer mon compte » (?inscription) : on montre TOUJOURS
+  // le formulaire. Si une session existe sur cet appareil (onglet resté ouvert, « rester connecté »), on la ferme
+  // d'abord — par le MÊME chemin que le menu Compte, donc avec ses protections : si du travail n'est pas encore
+  // synchronisé (EDL hors ligne…), la déconnexion est REFUSÉE et on reste connecté plutôt que de perdre des données.
+  if (/[?&](connexion|inscription)(?![\w-])/.test(location.search || '')) {
+    try {
+      // Garde anti-boucle : si on a DÉJÀ tenté la fermeture dans cet onglet (drapeau posé avant le rechargement) et
+      // qu'une session est quand même revenue (stockage bloqué…), on n'insiste pas. Le drapeau est lu ET effacé ici.
+      const dejaTente = (() => { try { const v = sessionStorage.getItem('imsb-deja-deconnecte'); sessionStorage.removeItem('imsb-deja-deconnecte'); return !!v } catch (e) { return false } })()
+      const sess = await api.localSession()   // lecture locale, sans réseau
+      // HORS LIGNE : on ne ferme jamais la session (le formulaire de connexion exige le réseau → le technicien serait
+      // enfermé dehors avec son EDL ; CDC verrou 2 « rester connecté hors ligne »). Le boot normal / hors ligne s'exécute.
+      const horsLigne = (typeof navigator !== 'undefined' && navigator.onLine === false) || window.__immoHorsLigne === true
+      if (sess && sess.user && !dejaTente && !horsLigne && typeof _teardownSession === 'function') {
+        const r = await _teardownSession({ flush: true })
+        if (!r || r.ok !== false) {
+          try { sessionStorage.setItem('imsb-deja-deconnecte', '1') } catch (e) {}
+          location.reload(); return        // déconnecté : on recharge → formulaire (mode inscription si ?inscription)
+        }
+        console.info('[auth] déconnexion refusée (travail non synchronisé) : session conservée')
+        try { if (typeof window.showToast === 'function') window.showToast("Du travail n'est pas encore synchronisé : tu restes connecté.", 'warn', 7000) } catch (e) {}
+      }
+    } catch (e) { console.warn('[auth] déconnexion depuis propryo.fr', e) }
+  }
+
   // déjà connecté (session persistée) → enchaîner direct. C'EST le chemin qui tue le double-login :
   // après un reload, la session persistée est retrouvée ici → Accueil sans re-saisir le mot de passe.
   const { user, error: _errAuth } = await api.currentUserOrError()
@@ -782,22 +820,29 @@ function wireLoginForm(api, overlay, prefillEmail) {
     try { window.__immoCrumb && window.__immoCrumb('login-start') } catch (_e) {}
     const email = q('#imsb-email').value.trim()
     const pass = q('#imsb-pass').value
+    // « Rester connecté sur cet appareil » : choisi AVANT que la session ne soit écrite (sinon le jeton partirait au
+    // mauvais endroit). Sans case (application installée) ou sans stockage : rien à faire.
+    try { const rem = q('#imsb-remember'); if (rem && _authStorage) _authStorage.setPersist(!!rem.checked) } catch (e) {}
     setBusy(overlay, true); showError(overlay, '')
     if (mode === 'signup') {
       const s = await api.signUpEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+      _annulerChoixAuth()
       if (!s.ok) {
         setBusy(overlay, false)
         if (/already.*(regist|exist)|user already/i.test(s.error || '')) { showError(overlay, 'Ce compte existe déjà — connecte-toi.'); mode = 'login'; applyMode(); return }
         showError(overlay, traduireErreur(s.error)); return   // inclut le refus du hook (« pas encore autorisé »)
       }
       // Compte créé (confirmation email désactivée → session directe). On enchaîne sur la connexion.
+      _rearmerChoixAuth()
       const r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+      _annulerChoixAuth()
       setBusy(overlay, false)
       if (!r.ok) { showError(overlay, 'Compte créé — connecte-toi avec ton mot de passe.'); mode = 'login'; applyMode(); return }
       onLoggedIn(api, overlay, r.user)
       return
     }
     const r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+    _annulerChoixAuth()
     setBusy(overlay, false)
     if (!r.ok) { showError(overlay, traduireErreur(r.error)); return }
     try { window.__immoCrumb && window.__immoCrumb('login-ok') } catch (_e) {}
@@ -907,9 +952,13 @@ async function acceptInviteFlow(api, client, overlay, token) {
     const btn = left.querySelector('#imsb-submit')
     btn.disabled = true; showError(overlay, '')
     const fail = (msg) => { btn.disabled = false; showError(overlay, msg) }
+    try { if (_authStorage) _authStorage.setPersist(false) } catch (e) {}   // invité : session de l'onglet (pas de case ici), AVANT d'écrire le jeton
     let r = await api.signUpEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+    _annulerChoixAuth()
     if (!r.ok && /already.*(regist|exist)|user already/i.test(r.error || '')) {
+      _rearmerChoixAuth()
       r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+      _annulerChoixAuth()
       if (!r.ok) return fail('Ce compte existe déjà, mais le mot de passe ne correspond pas.')
     } else if (!r.ok) {
       return fail(traduireErreur(r.error))
@@ -1702,7 +1751,7 @@ function _perfMark(nom) {
     if (nom !== 'app') return
     const t = n => { const ms = performance.getEntriesByName('immo:' + n, 'mark'); const m = ms[ms.length - 1]; return m ? Math.round(m.startTime) : '?' }
     const nav = performance.getEntriesByType('navigation')[0]
-    console.info('[perf] page prête ' + (nav ? Math.round(nav.domContentLoadedEventEnd) : '?') + ' ms · session ' + t('session') + ' · espaces ' + t('espaces') + ' · données ' + t('donnees') + ' · app affichée ' + t('app') + ' ms')
+    console.info('[perf] page prête ' + (nav ? Math.round(nav.domContentLoadedEventEnd) : '?') + ' ms · modules ' + t('imports') + ' / miroir ' + t('miroir') + ' / session ' + t('session') + ' · espaces ' + t('espaces') + ' · données ' + t('donnees') + ' · app affichée ' + t('app') + ' ms')
   } catch (e) {}
 }
 
@@ -1738,6 +1787,25 @@ function _imsbCheck() {
   return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 }
 
+// Case « Rester connecté sur cet appareil » : cochée si l'utilisateur l'avait choisie (mémorisé), masquée dans
+// l'application installée (session toujours persistante, usage terrain hors ligne). Sans effet si le stockage manque.
+// Après une tentative de connexion (réussie ou non) : le choix du clic « rester connecté » a fait son œuvre à la
+// 1re écriture du jeton ; en cas d'ÉCHEC il ne doit pas rester armé pour une écriture ultérieure sans rapport.
+function _annulerChoixAuth() { try { if (_authStorage) _authStorage.annulerChoix() } catch (e) {} }
+// Séquence « création de compte PUIS connexion » : _annulerChoixAuth() a désarmé le choix après l'étape 1 ; on le
+// RÉ-ARME (même valeur que le clic) avant l'étape 2, sinon le jeton écrit par la connexion suivrait un jeton étranger
+// resté dans l'autre stockage (3e audit).
+function _rearmerChoixAuth() { try { if (_authStorage) _authStorage.setPersist(_authStorage.isPersistent()) } catch (e) {} }
+
+function _initRemember(ov) {
+  try {
+    const row = ov.querySelector('.imsb-remember'), box = ov.querySelector('#imsb-remember')
+    if (!row || !box || !_authStorage) return
+    if (_authStorage.isStandalone()) { row.style.display = 'none'; return }
+    box.checked = false   // JAMAIS pré-cochée : rien n'est hérité de la personne précédente (poste partagé)
+  } catch (e) {}
+}
+
 function injectOverlay() {
   // Perf étape 3a — l'écran de connexion est du HTML STATIQUE dans index.html (<div id="imsb-overlay">), peint
   // avant les ~4 Mo de scripts de l'app. On l'ADOPTE (ce que l'utilisateur a déjà tapé est conservé) ; la
@@ -1751,6 +1819,7 @@ function injectOverlay() {
   let theme = 'clair'
   try { const t = localStorage.getItem('immo_theme'); if (t === 'sombre' || t === 'clair') theme = t } catch (e) {}
   if (theme === 'sombre') ov.classList.add('mode-sombre')
+  _initRemember(ov)
 
   // v15.422 BUG-LOGIN-PREMIERE-CONNEXION — GARDE ANTI-SUBMIT-NATIF. Le formulaire est visible
   // AVANT que wireLoginForm ait câblé le vrai onsubmit : boot() attend l'import CDN de

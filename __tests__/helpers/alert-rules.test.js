@@ -162,4 +162,17 @@ describe('bauxEcheance', () => {
     expect(out[0].expire).toBe(true)
     expect(out[1]).toMatchObject({ expire: false, jours: 40 })
   })
+  it('BAUX-ECHUS — avec la règle du type injectée : un bail reconduit n\'est plus « expiré »', () => {
+    const logs = [
+      { ref: 'NU', locataire: 'X', fin: '2026-06-01' },   // nu reconduit → prochaine échéance lointaine
+      { ref: 'ET', locataire: 'Y', fin: '2026-06-01' },   // étudiant arrivé à terme
+      { ref: 'SANS', locataire: 'Z', fin: '' },           // fin absente du cache, connue de la règle
+      { ref: 'CLOS', locataire: 'W', fin: '2026-06-01' }, // la règle ne signale rien
+    ]
+    const regle = { NU: { fin: '2029-05-31' }, ET: { fin: '2026-06-01' }, SANS: { fin: '2026-08-15' }, CLOS: null }
+    const out = bauxEcheance(logs, TODAY, 90, l => regle[l.ref])
+    expect(out.map(o => o.ref)).toEqual(['ET', 'SANS'])
+    expect(out[0]).toMatchObject({ expire: true, fin: '2026-06-01' })
+    expect(out[1]).toMatchObject({ expire: false, fin: '2026-08-15', jours: 40 })
+  })
 })

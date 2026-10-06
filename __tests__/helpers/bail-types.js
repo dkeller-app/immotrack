@@ -11,10 +11,12 @@
  * - Bail nu : loi 89-462 art. 10 (durée), 22 (DG)
  * - Bail meublé : loi 89-462 art. 25-3 à 25-11 + décret 2015-981 (mobilier)
  * - Bail étudiant : loi 89-462 art. 25-7 dernier alinéa (9 mois non reconductible)
- * - Bail mobilité : loi 89-462 art. 25-12 à 25-18 + loi ELAN 2018 art. 107 (DG interdit)
+ * - Bail mobilité : loi 89-462 art. 25-12 à 25-18 (non renouvelable ni reconductible : art. 25-14) + loi ELAN 2018 art. 107 (DG interdit)
  * - Bail garage : Code civil art. 1709 et suivants (libre)
  * - Bail autre : régime libre, consulter notaire
  */
+
+import { preavisBailleurMois, preavisLocataireMois, reconductionLegale } from '../../js/core/bail-echeance.js';
 
 /** Tous les types de bail supportés par ImmoTrack (`bail.type`). */
 export const BAIL_TYPES = ['nu', 'meuble', 'etudiant', 'mobilite', 'garage', 'autre'];
@@ -107,31 +109,23 @@ export function getBailLegalRefs(type) {
 }
 
 /**
- * Préavis de congé en mois selon le type et la partie qui congé.
+ * Préavis de congé en mois selon le type et la partie qui congé — délègue à LA règle
+ * (js/core/bail-echeance.js, BAUX-ECHUS) : bailleur 6 mois nu (art. 15-I), 3 mois meublé
+ * (art. 25-8 I), aucun pour étudiant / mobilité (fin au terme) ni garage / autre (le contrat) ;
+ * locataire 3 mois nu, 1 mois meublé / étudiant (art. 25-8 I) / mobilité (art. 25-15).
  * @returns {number|null} mois (null si pas applicable, ex : bailleur en mobilité)
  */
 export function getBailPreavisMonths(type, party) {
-  if (party === 'locataire') {
-    if (isBailFurnished(type)) return 1;  // 1 mois meublé/étudiant/mobilité
-    if (type === 'garage' || type === 'autre') return null;
-    return 3;  // 3 mois nu
-  }
-  if (party === 'bailleur') {
-    if (type === 'meuble') return 3;       // 3 mois meublé
-    if (type === 'etudiant') return null;  // pas de congé bailleur (non reconductible)
-    if (type === 'mobilite') return null;  // pas de congé bailleur
-    if (type === 'garage' || type === 'autre') return null;
-    return 6;  // 6 mois nu
-  }
+  if (party === 'locataire') return preavisLocataireMois(type);
+  if (party === 'bailleur') return preavisBailleurMois(type);
   return null;
 }
 
-/** Vrai si le type supporte la tacite reconduction. */
+/** Vrai si la LOI reconduit tacitement ce type (nu : art. 10 ; meublé : art. 25-7 al. 3). Jamais
+ *  l'étudiant (art. 25-7 al. 4) ni la mobilité (art. 25-14 al. 1) ; garage / autre : c'est le
+ *  contrat qui décide (regleReconduction, js/core/bail-echeance.js). */
 export function isTaciteReconductionAllowed(type) {
-  if (type === 'etudiant') return false;  // 9 mois non reconductible
-  if (type === 'mobilite') return false;  // non reconductible art. 25-15
-  if (type === 'garage' || type === 'autre') return false;  // régime libre
-  return true;  // nu (3/6 ans) + meublé (1 an)
+  return reconductionLegale(type);
 }
 
 /**

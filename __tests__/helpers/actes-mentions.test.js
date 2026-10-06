@@ -124,3 +124,20 @@ describe('messageMentionsManquantes — dire ce qui manque, ce que ça coûte, e
     expect(msg.indexOf('NUL')).toBeLessThan(msg.indexOf('montant'));
   });
 });
+
+describe('BAUX-ECHUS — congé de bail MEUBLÉ : le fondement est l\'art. 25-8, I', () => {
+  const meuble = '<p>L\'article 25-8, I de la loi n° 89-462 du 6 juillet 1989 dispose : « … »</p><p>Reprise au bénéfice de ‹bénéficiaire›, demeurant ‹adresse du bénéficiaire› (‹nature du lien avec le bailleur›).</p>';
+  it('les mentions de reprise citent l\'art. 25-8, I, jamais l\'art. 15-I', () => {
+    const m = mentionsManquantes(meuble);
+    expect(m.map((x) => x.marqueur)).toEqual(['bénéficiaire', 'adresse du bénéficiaire', 'nature du lien avec le bailleur']);
+    for (const x of m) {
+      expect(x.nullite).toBe(true);
+      expect(x.fondement).toMatch(/^art\. 25-8, I de la loi du 6 juillet 1989 : /);
+      expect(x.fondement).not.toMatch(/15-I/);
+    }
+  });
+  it('un congé de bail nu garde l\'art. 15-I', () => {
+    const m = mentionsManquantes('<p>Conformément à l\'article 15-I…</p><p>‹bénéficiaire›</p>');
+    expect(m[0].fondement).toMatch(/^art\. 15-I de la loi du 6 juillet 1989/);
+  });
+});

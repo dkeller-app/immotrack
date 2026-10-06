@@ -34,6 +34,9 @@ function _norm(x) {
     .toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+/** Une société civile (SCI…) : personne morale certaine, même quand son caractère familial ne l'est pas. */
+const _RE_SOCIETE_CIVILE = /\bsci\b|societe civile/;
+
 /**
  * Classe le bailleur au regard de l'art. 10.
  * @param {string} typeEntite le champ libre « type » de l'entité
@@ -54,7 +57,7 @@ export function regimeBailleur(typeEntite) {
   if (/personne physique|particulier|\bphysique\b|proprietaire individuel|nom propre/.test(t)) {
     return { regime: 'physique', ans: 3, certain: true, motif: 'personne physique (art. 10)' };
   }
-  if (/\bsci\b|societe civile/.test(t)) {
+  if (_RE_SOCIETE_CIVILE.test(t)) {
     if (/familial/.test(t)) return { regime: 'art13', ans: 3, certain: true, motif: 'SCI familiale (art. 13)' };
     // Indéterminable : une SCI est à 6 ans, SAUF si elle est familiale — et rien ne le dit ici.
     return { regime: 'morale', ans: 6, certain: false, motif: 'SCI dont le caractère familial n\'est pas renseigné' };
@@ -85,4 +88,28 @@ export function dureeBailNuPhrase(typeEntite) {
     return 'Cette durée de 3 ans s’applique conformément à ' + loi + ' et à l’article 13 de la même loi, le bailleur relevant des sociétés civiles constituées exclusivement entre parents et alliés jusqu’au quatrième degré ou de l’indivision.';
   }
   return 'Cette durée de 6 ans s’applique conformément à ' + loi + ', le bailleur étant une personne morale.';
+}
+
+/** Le sous-titre imprimé par les baux nus de version de clauses ≤ 3, quel que soit le bailleur. */
+export const SOUS_TITRE_BAIL_NU_ORIGINE = 'Loi n° 89-462 du 6 juillet 1989 — Art. 10 — Bailleur personne morale';
+
+/**
+ * Le sous-titre du bail nu (sous « BAIL DE LOCATION DE LOGEMENT NU »).
+ * Il a longtemps dit « Bailleur personne morale » pour TOUT bailleur, personne physique comprise.
+ * Un bail signé se ré-affiche tel qu'il a été signé : en version de clauses ≤ 3 (marqueur
+ * `clauseIrlV` gravé à la signature, cf. contrat-type.js), le texte d'origine, mot pour mot.
+ * @param {string} typeEntite le champ libre « type » de l'entité
+ * @param {number} versionClauses la version des clauses du bail (_bailClauseVersion)
+ */
+export function sousTitreBailNu(typeEntite, versionClauses) {
+  if (!(Number(versionClauses) >= 4)) return SOUS_TITRE_BAIL_NU_ORIGINE;
+  const r = regimeBailleur(typeEntite);
+  const loi = 'Loi n° 89-462 du 6 juillet 1989';
+  if (r.regime === 'physique') return loi + ' — Art. 10 — Bailleur personne physique';
+  if (r.regime === 'art13') return loi + ' — Art. 10 et 13 — Bailleur relevant de l’article 13';
+  // Type vide ou non reconnu : six ans retenus, mais la qualité du bailleur n'est pas établie —
+  // on ne la certifie pas (même règle que dureeBailNuPhrase). Une SCI, elle, est une personne
+  // morale de toute façon : seul son caractère familial est incertain.
+  if (!r.certain && !_RE_SOCIETE_CIVILE.test(_norm(typeEntite))) return loi + ' — Art. 10';
+  return SOUS_TITRE_BAIL_NU_ORIGINE;
 }

@@ -67,7 +67,8 @@ const EMAIL_HUB_CATALOG = [
   { type:'notification-travaux-a-venir',       icon:'🛠', label:'Notification travaux à venir',          phase:'3. Vie du bail', ctxRequires:[] },
   { type:'notification-visite',                icon:'🚪', label:'Demande créneau pour visite',           phase:'3. Vie du bail', ctxRequires:[] },
   // Phase fin de bail
-  { type:'bail-renouvellement-3ans',           icon:'🔁', label:'Renouvellement 3 ans',                  phase:'4. Fin de bail', ctxRequires:['bail.fin'] },
+  // BAUX-ECHUS : libellé neutre (3 ou 6 ans nu, 1 an meublé) ; jamais pour un bail étudiant ou mobilité (non reconductibles).
+  { type:'bail-renouvellement-3ans',           icon:'🔁', label:'Renouvellement du bail',                phase:'4. Fin de bail', ctxRequires:['bail.fin'], typesBail:['nu','meuble'] },
   { type:'bail-conge-bailleur-6mois',          icon:'🚫', label:'Congé bailleur (LRAR)',                 phase:'4. Fin de bail', ctxRequires:['bail.fin'] },
   { type:'bail-preavis-recu',                  icon:'📭', label:'Accusé réception préavis locataire',    phase:'4. Fin de bail', ctxRequires:[] },
   // Phase sortie
@@ -237,7 +238,10 @@ function rEmailsPage(tab) {
       html += `<h4 style="margin:14px 0 6px;font-size:12px;color:var(--acc,#3b7ef6);font-weight:700">${escHtml(phase)}</h4>`;
       html += `<div class="em-templates-grid">`;
       for (const item of items) {
-        html += `<div class="em-tpl"><div class="ic">${item.icon}</div><div class="lbl">${escHtml(item.label)}</div><div class="phase">${escHtml(item.phase)}</div></div>`;
+        // BAUX-ECHUS — un modèle réservé à certains types de bail le dit (ex. renouvellement : nu, meublé).
+        const _TB = { nu: 'nu', meuble: 'meublé', etudiant: 'étudiant', mobilite: 'mobilité', garage: 'garage', autre: 'autre' };
+        const _tbTxt = Array.isArray(item.typesBail) ? ' · baux ' + item.typesBail.map(t => _TB[t] || t).join(', ') : '';
+        html += `<div class="em-tpl"><div class="ic">${item.icon}</div><div class="lbl">${escHtml(item.label)}</div><div class="phase">${escHtml(item.phase + _tbTxt)}</div></div>`;
       }
       html += `</div>`;
     }
@@ -282,6 +286,15 @@ function _dgStatut(bail, dateRef) {
   if (dgPaid <= 0 && dgDu > 0) return { statut: DG_STATUS.MANQUANT, dgDu, dgPaid, soldeRestant };
   if (dgPaid < dgDu) return { statut: DG_STATUS.PARTIEL, dgDu, dgPaid, soldeRestant };
   return { statut: DG_STATUS.COMPLET, dgDu, dgPaid, soldeRestant: 0 };
+}
+
+// Le statut du dépôt d'un bail CIBLE de restitution (fenêtre de restitution, frise) : un bail parti (départ déclaré) ou
+// archivé par une relocation n'est pas « clôturé » au sens de _dgStatut, mais son dépôt est À RESTITUER depuis sa fin
+// d'occupation (_bailFinOccupation) — même règle de délai que pour un bail clôturé (vérification finale 06/10).
+function _dgStatutDuBail(bail) {
+  const fin = bail && (bail.finEffective || _bailFinOccupation(bail, false));
+  if (!bail || bail.dgRestitueAt || bail.cloture || !fin) return _dgStatut(bail);
+  return _dgStatut(Object.assign({}, bail, { cloture: true, finEffective: String(fin).slice(0, 10) }));
 }
 
 function _calculerDelaiRestitution(bail, edls) {
@@ -1416,6 +1429,16 @@ function _lyLigneQuittance(e) {
 }
 
 /** D9/D10 — UNE ligne par lot, quel que soit le nombre de mois, loyer ET charges. */
+/** R0-C C1 — « Encaissement du JJ/MM (montant) antérieur à la date d'achat : à vérifier avant de relancer ».
+ *  Rend '' s'il n'y a rien à signaler. */
+function _lyAVerifierTexte(etat) {
+  const av = (etat && etat.aVerifier) || [];
+  if (!av.length) return '';
+  const jm = (iso) => String(iso).slice(8, 10) + '/' + String(iso).slice(5, 7);
+  const liste = av.map(a => 'du ' + jm(a.date) + ' (' + fmt(a.montant) + ')').join(', ');
+  return (av.length > 1 ? 'Encaissements ' : 'Encaissement ') + liste + (av.length > 1 ? ' antérieurs' : ' antérieur')
+    + ' à la date d\'achat : à vérifier avant de relancer.';
+}
 function _lyLigneRetard(e) {
   const r = e.retard;
   const depuis = r.depuisYm ? window.ymToMoisFr(r.depuisYm) : '';
@@ -1436,7 +1459,7 @@ function _lyLigneRetard(e) {
     montant: `<b>${fmt(r.reste)}</b> ${pastille}`,
     actions: `<button class="btn bp bb" onclick="_lyRelance('${_lyQ(e.ref)}')">Relance</button>${btnRecu}
       <button class="btn bs bb" onclick="_impayesOuvrirSur('${_lyQ(e.ref)}')" title="Détail mois par mois">⋯</button>`
-  }) };
+  }) + (() => { const t = _lyAVerifierTexte(e.etat); return t ? `<div class="ly2-av" role="note">${_uiIcon('warn', 14)}<span>${escHtml(t)}</span></div>` : ''; })() };
 }
 
 /**
@@ -1952,6 +1975,9 @@ function _lyRelance(ref) {
   const tol = (typeof window._loyerToleranceActive === 'function') ? window._loyerToleranceActive(today) : false;
   const lignes = window.lignesRelance(etat, { toleranceActive: tol });
   if (!lignes.length) { showToast('Rien à réclamer — ce lot est à jour', 'info'); return; }
+  // R0-C C1 — avertissement, jamais bloquant : un versement d'avant la date d'achat est peut-être ce terme.
+  const _av = _lyAVerifierTexte(etat);
+  if (_av) showToast(_av, 'warn', 9000);
   const r = window.retardLot(etat, { toleranceActive: tol });
   const niveau = window.niveauRelance(r.depuisYm, today);
   // AUDIT #1 — l'entité suit le document : sans elle, le PDF sortait sans bandeau bailleur.
@@ -1999,7 +2025,10 @@ ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
   const css = `.pro-doc{max-width:700px;margin:0 auto}\n${_docCss()}`;
   const html = _docPage(ent, {
     titre: ton.titre,
-    ctx: `${retard.nbMois} mois non soldé${retard.nbMois > 1 ? 's' : ''}${retard.depuisYm ? ' depuis ' + escHtml(window.ymToMoisFr(retard.depuisYm)) : ''}`,
+    // R0-C (2ᵉ audit 🟠3) : l'arriéré noté au début du suivi est nommé, pas compté comme un « mois ».
+    ctx: lignes.some(l => l.ouverture)
+      ? `${retard.nbMois ? retard.nbMois + ' mois non soldé' + (retard.nbMois > 1 ? 's' : '') + ' et ' : ''}un arriéré antérieur au suivi`
+      : `${retard.nbMois} mois non soldé${retard.nbMois > 1 ? 's' : ''}${retard.depuisYm ? ' depuis ' + escHtml(window.ymToMoisFr(retard.depuisYm)) : ''}`,
     corps, ref: escHtml(ref), date: `Émis le ${fd(todayIso)}`, withStyle: false
   });
   return { html, css, title: `Relance — ${escHtml(ref)}`, status: 'relance' };
@@ -8058,7 +8087,7 @@ function setBiensTab(t) {
 function archiveLogement(ref) {
   const log = (DB.logements||[]).find(l=>l.ref===ref);
   if(!log) return;
-  if(_bienIsBailActif(ref)) {
+  if(_bienActiveBail(ref)) {   // bail encore OUVERT (même départ déclaré passé) : le clôturer d'abord
     showToast('Terminez d\'abord le bail en cours avant d\'archiver','err');
     return;
   }
@@ -8200,10 +8229,33 @@ function _confirmImmPicker() {
 // le locataire est en place (tacite reconduction, art. 10 loi 89-462). La règle unique
 // est celle actée en v15.343 (BUG-STATUT-TACITE) : seul clôturé / résilié (finEffective)
 // / supprimé rend le logement vacant.
+// ═══ STATUT LOUÉ / VACANT d'un lot — fonction UNIQUE (décision Didier 06/10) ═══
+// Loué ⇔ bail courant vivant, non clôturé, et occupation non terminée AUJOURD'HUI (règle unique
+// js/core/fin-occupation.js `bailLoueAu` : un départ déclaré PASSÉ rend le lot VACANT, bail encore ouvert —
+// libellé « Vacant (départ le JJ/MM/AAAA, bail à clôturer) », _lotStatutLibelle). Sans départ déclaré :
+// identique à l'ancien statut (échéance contractuelle ignorée, tacite reconduction).
+// ⚠️ Deux questions DIFFÉRENTES, deux fonctions :
+//   • « le lot est-il occupé ? » (statut affiché, compteurs, filtres, IRL, annonces, candidatures) → _bienIsBailActif ;
+//   • « un bail est-il encore OUVERT ? » (dépôt détenu, impayés, onglet Loyers, archivage, saisie d'un bail)
+//     → _bienActiveBail (le bail tant qu'il n'est pas clôturé), jamais ce statut.
+// Repli file:// (module non chargé) : statut d'avant (bail ouvert).
 function _bienIsBailActif(ref) {
-  return !!_bienActiveBail(ref);
+  const b = _bienActiveBail(ref);
+  if(!b) return false;
+  const W = (typeof window !== 'undefined') ? window : null;
+  if(W && typeof W.bailLoueAu === 'function') return W.bailLoueAu(b, (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : td());
+  return true;
+}
+// Le libellé du statut d'un lot : « Loué », « Vacant », ou — bail encore ouvert, départ déclaré passé —
+// « Vacant (départ le JJ/MM/AAAA, bail à clôturer) », pour inviter à clôturer. Texte brut (à échapper).
+function _lotStatutLibelle(ref) {
+  if(_bienIsBailActif(ref)) return 'Loué';
+  const b = _bienActiveBail(ref);
+  const d = b && b.depart && b.depart.dateSortie;
+  return d ? 'Vacant (départ le ' + fd(String(d).slice(0,10)) + ', bail à clôturer)' : 'Vacant';
 }
 
+// Le bail courant tant qu'il n'est pas CLÔTURÉ (« bail ouvert ») — PAS le statut loué (cf. _bienIsBailActif).
 function _bienActiveBail(ref) {
   const b = DB.baux && DB.baux[ref];
   if(!b || !_isAlive(b) || b.cloture || b.finEffective) return null;
@@ -9082,7 +9134,7 @@ function _aggregateBuilding(logs) {
   const types = new Set();
   logs.forEach(l => {
     if(l.type) types.add(l.type);
-    const bail = _bienActiveBail(l.ref);
+    const bail = _bienIsBailActif(l.ref) ? _bienActiveBail(l.ref) : null;   // statut : occupé aujourd'hui
     if(bail) {
       nbOccupes++;
       loyerHC += +(l.hc||bail.hc||0);
@@ -9133,7 +9185,7 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
   });
 
   const logRows = sortedLogs.map(l => {
-    const bail = _bienActiveBail(l.ref);
+    const bail = _bienIsBailActif(l.ref) ? _bienActiveBail(l.ref) : null;   // statut : occupé aujourd'hui
     const isVacant = !bail;
     const refEsc = escHtml(l.ref || ''); const refEscJs = _lyQ(l.ref || '');
     const typeEsc = escHtml(l.type || '—');
@@ -9165,7 +9217,8 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
         dotCls = 'orange';
       } else { locDisplay = escHtml(tenantName); dotCls = 'green'; }
     } else {
-      locDisplay = '<b style="color:var(--err)">VACANT</b>';
+      const _lib = _lotStatutLibelle(l.ref);   // « Vacant (départ le …, bail à clôturer) » si départ déclaré passé
+      locDisplay = _lib === 'Vacant' ? '<b style="color:var(--err)">VACANT</b>' : '<b style="color:var(--err)">' + escHtml(_lib) + '</b>';
       dotCls = 'red';
     }
 
@@ -9365,11 +9418,11 @@ function _ensureBiencPhCss(){
   document.head.appendChild(st);
 }
 function _renderLogementCardFlat(l) {
-  const bail = _bienActiveBail(l.ref);
+  const bail = _bienIsBailActif(l.ref) ? _bienActiveBail(l.ref) : null;   // statut : occupé aujourd'hui
   const occupied = !!bail;
   const ratioPct = occupied ? 100 : 0;
   const fillCls = occupied ? '' : 'empty';
-  const occupLabel = occupied ? 'Loué' : 'Vacant';
+  const occupLabel = escHtml(_lotStatutLibelle(l.ref));   // « Loué » / « Vacant » / « Vacant (départ le …, bail à clôturer) »
   const titleEsc = escHtml(l.ref || '—');
   const subtitleEsc = escHtml(l.locataire || (occupied ? 'Bail actif' : 'Aucun locataire'));
   const bailleurEsc = escHtml(l.entity || '—');
@@ -9472,7 +9525,7 @@ function _renderLogementsGroupedPhone(logs) {
     const ent = (!g.isoles && g.entNom) ? (DB.entites||[]).find(e => e.nom === g.entNom) : null;
     const im  = ent ? (ent.immeubles||[]).find(i => i && i.nom === g.immNom && !i._deleted) : null;
     const nbLots  = g.logs.length;
-    const nbLoues = g.logs.filter(l => _bienActiveBail(l.ref)).length;
+    const nbLoues = g.logs.filter(l => _bienIsBailActif(l.ref)).length;
     const ville = g.isoles ? '' : ((im && im.ville) || _extractVilleFromAdr(im && im.adr) || _extractVilleFromAdr(g.logs[0] && g.logs[0].adr) || '');
     const sub = [ville, `${nbLots} lot${nbLots>1?'s':''}`, `${nbLoues} loué${nbLoues>1?'s':''}`]
       .filter(Boolean).map(escHtml).join(' · ');
@@ -9591,7 +9644,7 @@ function exportBiensCSV() {
   const rows = rowsLogs.map(l => [
     l.ref,l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
     l.hc||0,l.ch||0,l.dg||0,l.locataire||'',l.debut||'',l.fin||'',
-    _bienIsBailActif(l.ref)?'Loué':'Vacant', l.irl||''
+    _lotStatutLibelle(l.ref), l.irl||''
   ]);
   const csv = [headers, ...rows].map(r => r.map(escCsv).join(';')).join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
@@ -9936,7 +9989,8 @@ function _computeComptaBailleur(ent, year, activeLogs) {
     const bail = DB.baux[l.ref];
     if(bail && _isAlive(bail) && bail.debut) {
       const debut = new Date(Math.max(new Date(bail.debut).getTime(), new Date(yearStart).getTime()));
-      const fin   = bail.fin ? new Date(Math.min(new Date(bail.fin).getTime(), new Date(yearEnd).getTime())) : new Date(yearEnd);
+      const _finOcc = _bailFinOccupation(bail, false); // tacite reconduction : bail nu/meublé en cours = ouvert
+      const fin   = _finOcc ? new Date(Math.min(new Date(_finOcc).getTime(), new Date(yearEnd).getTime())) : new Date(yearEnd);
       const days = Math.max(0, Math.round((fin - debut) / 86400000) + 1);
       occJoursTotal += days;
     }
@@ -9961,15 +10015,15 @@ function _computeComptaBailleur(ent, year, activeLogs) {
   });
   const manqueAGagner = Math.max(0, loyerAttendu - loyerEncaisse);
 
-  // Part bailleur : appel computeRegul pour récupérer la map bailleur, filtrer immeubles du bailleur
+  // Part bailleur 2044 (ligne 225) : lecteur unique _rgSegments225 — immeubles du bailleur, périmètre
+  // FONCIER (lots meublés exclus, comme l'assistant 2044), hors parts déjà déduites sur leur ligne.
   let partBailleur = 0;
   try {
     if(typeof computeRegul === 'function') {
-      const regul = computeRegul(yearStart, yearEnd);
-      const bMap = regul.bailleur || {};
-      Object.values(bMap).forEach(b => {
-        if(immsBailleur.includes(b.imm)) partBailleur += (b.total || 0);
-      });
+      const _splitCb = (typeof window.splitFonciereLots === 'function')
+        ? window.splitFonciereLots(activeLogs || [], { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: yr, finOccupation: _bailFinOccupation })
+        : { fonciereRefs: refsBailleur };
+      partBailleur = _rgSegments225(computeRegul(yearStart, yearEnd), immsBailleur, _splitCb.fonciereRefs).total;
     }
   } catch(e) { console.warn('[_computeComptaBailleur] partBailleur', e); }
 
@@ -10067,7 +10121,7 @@ function _renderEntFichePanelComptaGlobale(ent, activeLogs) {
       <div class="kpi"><div class="kv ${soldeCls}">${fmt(data.totals.solde)}</div><div class="kl">Solde net</div></div>
       <div class="kpi"><div class="kv ${occCls}">${data.kpiOcc}<small>%</small></div><div class="kl">Occupation moy.</div></div>
       <div class="kpi"><div class="kv ${manqueCls}">${fmt(data.manqueAGagner)}</div><div class="kl">Manque à gagner</div></div>
-      <div class="kpi" title="Charges restées à charge bailleur (vacances + logements exclus)"><div class="kv ${data.partBailleur>0?'k-warn':''}">${fmt(data.partBailleur)}</div><div class="kl">Part bailleur 2044</div></div>
+      <div class="kpi" title="Charges récupérables restées à la charge du bailleur (vacance, logements exclus du compteur) — 2044 ligne 225, lots en location nue ; hors charges déjà déduites sur leur propre ligne (copropriété : 229)"><div class="kv ${data.partBailleur>0?'k-warn':''}">${fmt(data.partBailleur)}</div><div class="kl">Part bailleur 2044</div></div>
     </div>
 
     <!-- Sparkline -->
@@ -10273,21 +10327,16 @@ function _legal2044WizardOpts(ent, year) {
   const aliveLogs = (DB.logements||[]).filter(l => _isAlive(l) && !l.archived && l.entity === entityNom);
   // FEAT-REGIMES P0 : exclure les lots meublés (BIC) du périmètre foncier 2044 (cf builder panneau).
   const _split = (typeof window.splitFonciereLots === 'function')
-    ? window.splitFonciereLots(aliveLogs, { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: yr })
+    ? window.splitFonciereLots(aliveLogs, { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: yr, finOccupation: _bailFinOccupation })
     : { fonciereRefs: aliveLogs.map(l => l.ref), exclus: [], flagues: [] };
   const refs = _split.fonciereRefs;
   const nbLocaux = refs.length;
   const imms = (ent.immeubles||[]).filter(_isAlive).map(i => i.nom);
+  // Ligne 225 : lecteur unique _rgSegments225 (immeubles de l'entité, périmètre foncier, hors 229…).
   let partBailleur225 = 0;
   try {
-    if (typeof computeRegul === 'function') {
-      const regul = computeRegul(from, to);
-      Object.values(regul.bailleur || {}).forEach(b => {
-        if (imms.includes(b.imm)) partBailleur225 += b.total || 0;
-      });
-    }
+    if (typeof computeRegul === 'function') partBailleur225 = _rgSegments225(computeRegul(from, to), imms, refs).total;
   } catch (e) { console.warn('[_legal2044WizardOpts] partBailleur', e); }
-  partBailleur225 = Math.round(partBailleur225 * 100) / 100;
   // Mapping custom : on ne passe QUE les catégories non-STD (le module fige les STD).
   const fullMap = _get2044Mapping();
   const mapping = {};
@@ -10324,14 +10373,10 @@ function _legal2044WizardData(ent, year) {
   }
   try {
     if (typeof computeRegul === 'function' && opts.partBailleur225) {
-      const regul = computeRegul(opts.from, opts.to);
-      Object.values(regul.bailleur || {}).forEach(b => {
-        if (opts.imms.includes(b.imm)) {
-          (b.segments || []).forEach(seg => byLine['225'].mvts.push({
-            date: seg.date, lib: seg.lib, montant: seg.montant, auto: true, motif: seg.motif, cc: seg.cc
-          }));
-        }
-      });
+      // MÊMES segments que le total injecté (opts.partBailleur225) : lecteur unique _rgSegments225.
+      _rgSegments225(computeRegul(opts.from, opts.to), opts.imms, opts.refs).segments.forEach(seg => byLine['225'].mvts.push({
+        date: seg.date, lib: seg.lib, montant: seg.montant, auto: true, motif: seg.motif, cc: seg.cc
+      }));
     }
   } catch (e) { console.warn('[_legal2044WizardData] partBailleur seg', e); }
 
@@ -11199,7 +11244,7 @@ function _renderLogFicheHeroStats(log, ref) {
       <div class="logf-stat"><div class="logf-stat-v">${fd(log.archivedAt)||'—'}</div><div class="logf-stat-l">Date archive</div></div>
     </div>`;
   }
-  const bail = _bienActiveBail(ref);
+  const bail = _bienIsBailActif(ref) ? _bienActiveBail(ref) : null;   // statut : occupé aujourd'hui
   const today = td();
 
   // ── KPI 1 : Loyer mensuel
@@ -11234,7 +11279,9 @@ function _renderLogFicheHeroStats(log, ref) {
       : `${months} mois`;
     dureeKPI = { v: txt, unit: '', label: tenant ? `Loué à ${tenant.length>14?tenant.slice(0,12)+'…':tenant}` : 'Loué', cls: 'k-ok' };
   } else {
-    const lastEnd = _getLastClosedBailEndIso(ref);
+    // Départ déclaré passé (bail encore ouvert) : vacant depuis la date de sortie.
+    const _ouvert = _bienActiveBail(ref);
+    const lastEnd = (_ouvert && _ouvert.depart && _ouvert.depart.dateSortie) ? String(_ouvert.depart.dateSortie).slice(0,10) : _getLastClosedBailEndIso(ref);
     if(lastEnd) {
       const days = _daysBetweenIso(lastEnd, today);
       const txt = days >= 60 ? `${Math.floor(days/30.44)} mois` : `${days} j`;
@@ -11407,10 +11454,17 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
     //   3. bail.fin VIDE → calcul depuis debut + dureeMois (3 ans nu, 1 an meublé, etc.)
     // Avant v14.49 le helper retournait null si bail.fin vide (bug ZITO).
     const rawCurrent = DB.baux && DB.baux[log.ref];
-    const echeanceCalc = rawCurrent ? _bailEcheanceEffective(rawCurrent, log) : null;
-    // taciteEnd != bail.fin si tacite reconduction OU si bail.fin était vide
-    const taciteEnd = (echeanceCalc && echeanceCalc !== rawCurrent?.fin) ? echeanceCalc : null;
-    const isTaciteReconduction = !!taciteEnd;
+    // BAUX-ECHUS — LA règle du type (js/core/bail-echeance.js), la même que la pastille et l'agenda :
+    //   • reconduit (nu, meublé, garage de l'app) → la barre court jusqu'à la fin de la période en cours ;
+    //   • en cours sans date de fin saisie → la fin théorique (pas une « tacite reconduction ») ;
+    //   • arrivé à terme (étudiant, mobilité, garage repris, autre) → JAMAIS reconduit : le locataire est
+    //     toujours en place (rien n'est clôturé), la barre réelle court donc jusqu'à aujourd'hui, sans
+    //     projection, et le terme est dit dans l'infobulle — plus de « tacite reconduction » inventée.
+    const _echCur = rawCurrent ? _bailEcheance(rawCurrent, log) : null;
+    const isTaciteReconduction = !!(_echCur && _echCur.statut === 'reconduit' && _echCur.prochaine);
+    const _finSansSaisie = (_echCur && _echCur.statut === 'en_cours' && !rawCurrent.fin) ? _echCur.prochaine : null;
+    const taciteEnd = isTaciteReconduction ? _echCur.prochaine : _finSansSaisie;
+    const arriveATerme = !!(_echCur && _echCur.statut === 'arrive_a_terme');
 
     // Identifier le bail courant (dernier dans la liste si _type === 'current')
     // pour appliquer la tacite reconduction sur lui uniquement.
@@ -11421,10 +11475,13 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
       if(!debutMs) return null;
       // fin réelle si clôturé, sinon fin théorique (échéance) ; si tacite reconduction,
       // étendre la fin pour ce bail courant à la prochaine échéance anniversaire.
+      // b.fin du bail courant = la fin d'OCCUPATION (départ déclaré) : quand elle existe, elle fait foi.
       let finForThis = b.fin;
-      if(idx === currentBailIdx && isTaciteReconduction && taciteEnd) {
+      if(idx === currentBailIdx && taciteEnd && !b.fin) {
         finForThis = taciteEnd;
       }
+      const termeCourant = idx === currentBailIdx && arriveATerme && !b.fin;   // occupé au-delà du terme
+      if(termeCourant) finForThis = null;
       const finMs = finForThis ? new Date(finForThis + 'T00:00:00').getTime() : null;
       const realEndMs = finMs ? Math.min(finMs, todayMs) : todayMs;
       const projEndMs = finMs;
@@ -11436,7 +11493,8 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
           right: toPct(realEndMs),
           kind: 'real',
           bail: b,
-          ended: !isTaciteReconduction && finForThis && finForThis <= todayIso // bail clôturé
+          terme: termeCourant ? _echCur.finContrat : '',
+          ended: !termeCourant && !isTaciteReconduction && finForThis && finForThis <= todayIso // bail clôturé
         });
       }
       // Segment projection (de today à fin) : bail courant ou tacite reconduction
@@ -11482,7 +11540,9 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
       const occupied = bails.map((b, idx) => {
         const dMs = new Date(b.debut + 'T00:00:00').getTime();
         let fEnd;
-        if(idx === currentBailIdx && isTaciteReconduction && taciteEnd) {
+        if(idx === currentBailIdx && arriveATerme && !b.fin) {
+          fEnd = Infinity;   // arrivé à terme mais toujours occupé : jamais une vacance
+        } else if(idx === currentBailIdx && taciteEnd && !b.fin) {
           fEnd = new Date(taciteEnd + 'T00:00:00').getTime();
         } else {
           fEnd = b.fin ? new Date(b.fin + 'T00:00:00').getTime() : Infinity;
@@ -11663,6 +11723,8 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
       let kindSuffix = '';
       if(seg.kind === 'proj') {
         kindSuffix = seg.tacite ? ' (tacite reconduction → prochaine échéance)' : ' (échéance projetée)';
+      } else if(seg.terme) {
+        kindSuffix = ' (arrivé à terme le ' + fd(seg.terme) + ', non reconduit — locataire toujours en place)';
       } else if(seg.ended) {
         kindSuffix = ' (bail terminé)';
       }
@@ -13849,6 +13911,19 @@ function _hlGouttiere(r){
   const d = _hlDateParts(r.dateTri);
   return `<b>${d.j}</b>${d.a}`;
 }
+// Libellé + style du statut d'un dépôt de garantie (frise du bien, fenêtre de restitution) — table UNIQUE.
+// `restitue` force « Restitué » (restitution enregistrée hors `dgRestitueAt` : anciennes clôtures aux montants saisis).
+function _dgStatutLibelle(dgInfo, restitue) {
+  const d = dgInfo || {};
+  const map = {
+    [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
+    [DG_STATUS.EN_RETARD]: [`${_uiIcon('warn')} En retard ${d.joursRetard}j`,'b-warn'],
+    [DG_STATUS.A_RESTITUER]:[`${_uiIcon('hourglass')} À restituer J-${d.joursRestants} (délai légal ${d.delaiMois} mois)`,'b-warn'],
+    [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(d.dgPaid)})`,'b-irl'],
+    [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(d.dgPaid)} / ${fmt(d.dgDu)})`,'b-warn']
+  };
+  return (restitue ? map[DG_STATUS.RESTITUE] : map[d.statut]) || [_uiIcon('help') + ' Non versé','b-warn'];
+}
 function _histoBailEventHtml(ev, c, refSafe, bailForDg){
   const t = ev.type;
   if(t==='bail-debut'){
@@ -13862,21 +13937,17 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     // Statut + CTA restitution : mêmes règles que l'ancien panneau « Dépôt de garantie »
     // (v15.14 Fix 4), portées par l'événement DG du bail concerné (_bailForDg).
     let statutHtml='', ctaHtml='';
-    const isDgBail = bailForDg && c.bail===bailForDg;
-    if(isDgBail && typeof _dgStatut==='function'){
-      const dgInfo=_dgStatut(bailForDg);
-      const isRestit = dgInfo.statut===DG_STATUS.RESTITUE;
-      const map = {
-        [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
-        [DG_STATUS.EN_RETARD]: [`${_uiIcon('warn')} En retard ${dgInfo.joursRetard}j`,'b-warn'],
-        [DG_STATUS.A_RESTITUER]:[`${_uiIcon('hourglass')} À restituer J-${dgInfo.joursRestants} (délai légal ${dgInfo.delaiMois} mois)`,'b-warn'],
-        [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(dgInfo.dgPaid)})`,'b-irl'],
-        [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(dgInfo.dgPaid)} / ${fmt(dgInfo.dgDu)})`,'b-warn']
-      };
-      const st = map[dgInfo.statut] || [_uiIcon('help') + ' Non versé','b-warn'];
+    // Statut 06/10 : chaque bail ARCHIVÉ porte son propre dépôt (relocation avant restitution) — son statut et
+    // son geste de restitution visent CE bail (bailHistCle), plus seulement le dernier bail du lot.
+    const _dgCible = (c.statut==='clos' && c.bail) ? c.bail : ((bailForDg && c.bail===bailForDg) ? bailForDg : null);
+    if(_dgCible && typeof _dgStatut==='function'){
+      const dgInfo=_dgStatutDuBail(_dgCible);
+      const isRestit = dgInfo.statut===DG_STATUS.RESTITUE || (c.statut==='clos' && typeof _dgDetenuDuBail==='function' && _dgDetenuDuBail(_dgCible, 0) <= 0);
+      const st = _dgStatutLibelle(dgInfo, isRestit);
       statutHtml = `<span class="hl-badge ${st[1]}">${st[0]}</span>`;
-      if(!!bailForDg.cloture && !isRestit){
-        ctaHtml = `<div class="hl-foot"><button class="btn bp bb" style="padding:5px 12px;font-size:12px" onclick="_dgOpenRestitution('${refSafe}')">✦ Préparer la restitution du DG</button></div>`;
+      if(c.statut==='clos' && !isRestit){
+        const _cle = _lyQ(_bailHistCleDe(_dgCible));
+        ctaHtml = `<div class="hl-foot"><button class="btn bp bb" style="padding:5px 12px;font-size:12px" onclick="_dgOpenRestitution('${refSafe}','${_cle}')">✦ Préparer la restitution du DG</button></div>`;
       }
     }
     return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Dépôt de garantie versé</h4><span class="hl-badge b-dg">DG</span>${statutHtml}</div>
@@ -15278,7 +15349,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.711 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.716 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17196,12 +17267,12 @@ function _renderLogFichePhStrip(log, bail, ref){
   return cells;
 }
 function _renderLogFichePhHero(log, bail, ref){
-  const occupied = !!bail;   // rLogFiche passe déjà le bail actif résolu (ou null)
+  const occupied = _bienIsBailActif(ref);   // STATUT (le bail ouvert reste passé pour la bande dépôt / solde)
   const isArch   = !!log.archived;
   let chip;
   if(isArch)         chip = '<span class="logf-ph-chip arch"><span class="d"></span>Archivé</span>';
   else if(occupied)  chip = '<span class="logf-ph-chip loue"><span class="d"></span>Loué</span>';
-  else               chip = '<span class="logf-ph-chip vac"><span class="d"></span>Vacant</span>';
+  else               chip = '<span class="logf-ph-chip vac"><span class="d"></span>' + escHtml(_lotStatutLibelle(ref)) + '</span>';
   const l2 = [log.type, log.surf?(fmtN(log.surf)+' m²'):'', log.etage].filter(Boolean).map(escHtml).join(' · ');
   const l3 = [log.imm, log.adr].filter(Boolean).map(escHtml).join(' · ');
   const strip = _renderLogFichePhStrip(log, bail, ref);
@@ -17258,13 +17329,13 @@ function rLogFiche() {
     </div>`;
     return;
   }
-  const bail = _bienActiveBail(ref);
-  const occupied = !!bail;
+  const bail = _bienActiveBail(ref);   // bail OUVERT (panneaux bail, dépôt, solde : visibles jusqu'à la clôture)
+  const occupied = _bienIsBailActif(ref);   // STATUT : un départ déclaré passé = vacant
   const isArchived = !!log.archived;
   let statusBadge = '';
   if(isArchived)    statusBadge = '<span class="logf-badge b-mute">' + _uiIcon('archive') + ' Archivé</span>';
   else if(occupied) statusBadge = '<span class="logf-badge b-ok">● Loué</span>';
-  else              statusBadge = '<span class="logf-badge b-warn">○ Vacant</span>';
+  else              statusBadge = '<span class="logf-badge b-warn">○ ' + escHtml(_lotStatutLibelle(ref)) + '</span>';
 
   // v14.13 A1 — résolution drill-up : récupère l'entité du bailleur et l'immeuble parent
   // pour rendre le breadcrumb et le badge bailleur cliquables.
@@ -17293,9 +17364,9 @@ function rLogFiche() {
     const _ic = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:4px">${p}</svg>`;
     const phActions =
       `<button class="btn bs" onclick="openNewLog('${refSafe}')">${_ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>')}Modifier le bien</button>`
-      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_ic('<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>')}Inviter un candidat</button>` : '')
-      // ANNONCES — même porte que sur PC (logement vacant non archivé).
-      + ((!isArchived && !bail) ? `<button class="btn bs bb" onclick="openAnnonce('${refSafe}')" title="Rédiger une annonce de location avec les mentions obligatoires">${_ic('<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>')}Créer une annonce</button>` : '')
+      + ((!isArchived && !occupied) ? `<button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">${_ic('<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>')}Inviter un candidat</button>` : '')
+      // ANNONCES — même porte que sur PC (logement vacant non archivé ; un départ déclaré passé = vacant, GO 06/10).
+      + ((!isArchived && !occupied) ? `<button class="btn bs bb" onclick="openAnnonce('${refSafe}')" title="Rédiger une annonce de location avec les mentions obligatoires">${_ic('<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>')}Créer une annonce</button>` : '')
       + (isArchived
           ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">${_ic('<path d="M3 12a9 9 0 109-9 9 9 0 00-8 5"/><path d="M3 3v5h5"/>')}Restaurer</button>`
           : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">${_ic('<path d="M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M2 4h20v4H2z"/><path d="M10 12h4"/>')}Archiver</button>`)
@@ -17342,7 +17413,7 @@ function rLogFiche() {
         <div class="logf-actions">
           ${/* BIENS (P1-13, retour user 11/08) — « ＋ Ajouter un bien » RETIRÉ d'ici : un bien ne contient pas un bien. L'ajout part du bailleur ou de l'immeuble, par le fil rouge, qui est déjà la porte unique. _frStartFromLog perd son seul appelant. */''}
           <button class="btn bs" onclick="openNewLog('${refSafe}')">${_uiIcon('edit')} Modifier le bien</button>
-          ${(!isArchived && !_bienActiveBail(ref)) ? `
+          ${(!isArchived && !occupied) ? `
             <!-- ANNONCES (CDC validé 29/09/2026) — porte UNIQUE « Créer une annonce » : logement vacant
                  non archivé, tous usages (habitation ou garage / local, P-1). La ligne de la liste des
                  biens reste sans bouton. log.presentation / log.quartier ne sont plus lus. -->
@@ -19809,7 +19880,11 @@ function _acteRenderVerif() {
   html += `<div class="acte-grid2" style="margin-top:12px">`;
   html += _acteFieldBlock('acte-f-imm-conten', 'Contenance cadastrale', imm.contenance, 'contenance', { ph: 'ex. 2 a 15 ca' });
   html += _acteFieldBlock('acte-f-imm-surf', 'Surface totale (m²)', imm.surfaceTotale, 'surfaceTotale', { ph: 'ex. 433,18' });
-  html += `</div></div></div>`;
+  html += `</div>`;
+  // R0-C · Q1 révisé : la date de l'acte = entrée en jouissance de l'acquéreur. Aucun loyer n'est dû au
+  // bailleur actuel avant elle (bien acheté loué). Non extraite automatiquement : à saisir.
+  html += `<div style="margin-top:12px">` + _acteFieldBlock('acte-f-imm-dateacq', 'Date de l’acte (entrée en jouissance)', imm.dateAcquisition, 'dateAcquisition', { ph: 'AAAA-MM-JJ' }) + `</div>`;
+  html += `</div></div>`;
 
   // RAPPROCHEMENT IMMEUBLE — candidats existants dans l'entité effective (dupEntity).
   // JAMAIS automatique : picker radio INLINE dans le bandeau (pas de 2e overlay), défaut = nouvel immeuble.
@@ -20126,6 +20201,7 @@ function _acteCollectVerif() {
   const prevDup = d.dupEntity || null;
   d.immeuble.adr = g('acte-f-imm-adr'); d.immeuble.cp = g('acte-f-imm-cp'); d.immeuble.ville = g('acte-f-imm-ville');
   d.immeuble.contenance = g('acte-f-imm-conten'); d.immeuble.surfaceTotale = g('acte-f-imm-surf');
+  d.immeuble.dateAcquisition = g('acte-f-imm-dateacq');   // R0-C · Q1 révisé
   _acteCollectLogements();
   // re-détection doublon après édition éventuelle du SIREN/nom
   d.dupEntity = _acteFindDupEntity(d.entite.siren, d.entite.nom);
@@ -20230,6 +20306,8 @@ function _acteApply() {
     // ── 2. IMMEUBLE — rattaché au choix user (dupImmeuble, Task 4) sinon créé.
     const im0 = d.immeuble || {};
     const immNom = ((im0.adr || '').trim() || (im0.ville || '').trim() || 'Immeuble importé');
+    // R0-C · Q1 révisé : date de l'acte = entrée en jouissance (null si absente ou invalide).
+    const _acqActe = window._anteriorite ? window._anteriorite.normaliserDate(im0.dateAcquisition) : null;
     let im = null, immCreated = false;
     // !entCreated = défense en profondeur : _acteCollectVerif invalide déjà dupImmeuble si forceNewEntity/dupEntity change ; cette garde couvre un draft stale.
     if (d.dupImmeuble && d.dupImmeuble.immId && !entCreated) {
@@ -20271,6 +20349,7 @@ function _acteApply() {
         regimeJuridique: (d.logements || []).length > 1 ? 'copropriete' : '',
         typeHabitat: '', nbLots: (d.logements || []).length || 0,
         valeurEstimee: 0, travaux: '', montantTravaux: 0,
+        dateAcquisition: _acqActe,                        // R0-C · Q1 révisé
         notes: notesParts.join('\n'),
         contenance: (im0.contenance || '').trim(),        // stockage prospectif
         surfaceTotale: (im0.surfaceTotale || '').trim(),  // stockage prospectif
@@ -20321,6 +20400,9 @@ function _acteApply() {
         numApt: (lg.numApt || '').trim(), tantiemes: parseTant(lg.tantiemes),
         notes: lg.designation ? ('Désignation acte : ' + lg.designation) : ''
       });
+      // R0-C · Q1 révisé : lots AJOUTÉS à un immeuble existant, achetés à une autre date que lui →
+      // exception par logement (la date de l'immeuble reste celle du premier achat).
+      if (!immCreated && _acqActe && _acqActe !== (im.dateAcquisition || null)) log.detenuDepuis = _acqActe;
       DB.logements.push(log);
       _rollback.push(() => { const i = DB.logements.indexOf(log); if (i >= 0) DB.logements.splice(i, 1); });
       if (typeof _auditLog === 'function') _auditLog('create', 'logement', log.id, ent.nom + '/' + log.ref);
@@ -21999,6 +22081,8 @@ function _annonceStep1Continuer() {
   const ro = (typeof _appReadOnly !== 'undefined' && _appReadOnly);
   if (change && !ro) {
     log.loyerHcRef = hcS; log.chargesRef = chS;
+    // Bail OUVERT, pas le statut : jamais de log.hc poussé tant que le bail du locataire sorti est ouvert
+    // (_syncLogToBail le recopierait dans son bail). Le loyer souhaité reste porté par loyerHcRef.
     if (_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))) _rescoreCandidatsDuLogement(log.ref);
     _stamp(log);
     try { _auditLog('update', 'logement', log.id, log.ref); } catch (e) {}
@@ -22282,11 +22366,15 @@ function _annoncePDF() {
 // depuis log.hc (décision B1-a : Q1=a chaque save bail / Q2=b la révision IRL suit / Q3=a le bail
 // écrase une valeur manuelle). Garde non-vide : un champ live vide ne doit PAS effacer un théorique
 // existant. Appelé à chaque site où log.hc/ch/dg/irl est écrit depuis une source autoritaire.
+// Statut 06/10 : sur un lot VACANT ou PARTI (bail à clôturer), loyerHcRef / chargesRef portent le loyer SOUHAITÉ
+// du prochain bail (annonce, fiche du lot) : une écriture venue de l'ancien bail (avenant, révision IRL, édition
+// du bail parti) ne l'écrase pas s'il est saisi. Le nouveau bail, lui, rend le lot loué et pousse son loyer.
 function _pushLoyerTheoFromLive(log) {
   if(!log) return;
   const _hasv = vv => vv !== null && vv !== undefined && String(vv).trim() !== '';
-  if(_hasv(log.hc))  log.loyerHcRef = log.hc;
-  if(_hasv(log.ch))  log.chargesRef = log.ch;
+  const _souhaitGarde = !(typeof _bienIsBailActif === 'function' && _bienIsBailActif(log.ref));
+  if(_hasv(log.hc) && !(_souhaitGarde && _hasv(log.loyerHcRef)))  log.loyerHcRef = log.hc;
+  if(_hasv(log.ch) && !(_souhaitGarde && _hasv(log.chargesRef)))  log.chargesRef = log.ch;
   if(_hasv(log.dg))  log.dgRef      = log.dg;
   if(_hasv(log.irl)) log.irlRef     = log.irl;
 }
@@ -22520,6 +22608,8 @@ function saveParamLog() {
     // (_logpPushLoyerRef) : seules les valeurs réellement présentes dans le formulaire sont poussées,
     // et jamais sur un bien occupé (c'est le bail qui pilote log.hc/ch).
     // tombstone _deleted + cloture + finEffective (audit)
+    // Bail OUVERT, pas le statut : sur un lot parti (bail à clôturer), le loyer poussé dans log.hc serait
+    // recopié dans le bail du locataire sorti par _syncLogToBail (juste après) — dû et impayés faussés.
     const _lrOcc = !!_bienActiveBail(log.ref);
     if (_logpPushLoyerRef(log, presa.log, _lrOcc)) {
       // le loyer courant du bien vacant a changé → recalcule le score de ses candidats (ratio)
@@ -22732,7 +22822,7 @@ function addImmForm(entIdOverride) {
   el('imm-edit-id').value = '';
   // Reset tous les champs scalaires
   ['imm-nom','imm-adr','imm-codePostal','imm-ville','imm-valeur','imm-nbLots',
-   'imm-travaux','imm-mtravaux','imm-notes',
+   'imm-travaux','imm-mtravaux','imm-notes','imm-dateAcq',
    'imm-syndic-nom','imm-syndic-tel','imm-syndic-email','imm-syndic-adr',
    'imm-ec-custom-input']
     .forEach(id => { const e = el(id); if(e) e.value = ''; });
@@ -22744,6 +22834,7 @@ function addImmForm(entIdOverride) {
     .forEach(k => { const c = el('imm-ec-' + k); if(c) c.checked = false; });
   _immEcCustomsDraft = [];
   _immEcRenderCustoms();
+  if (el('imm-acq-note')) el('imm-acq-note').innerHTML = '';   // R0-C : note « situations à noter »
   el('m-imm-title').textContent = 'Nouvel immeuble';
   _syncOvImmEntLabel();
   openM('ov-imm');
@@ -22776,6 +22867,8 @@ function editImm(idx, entIdOverride) {
     el('imm-ville').value = '';
   }
   el('imm-valeur').value = im.valeurEstimee||'';
+  if (el('imm-dateAcq')) el('imm-dateAcq').value = im.dateAcquisition||'';   // R0-C · Q1 révisé
+  if (typeof _immAcqNote === 'function') _immAcqNote();
   el('imm-nbLots').value = im.nbLots||'';
   el('imm-periodeConstr').value = _periodeLegale(im.periodeConstr, im.annee);   // migre les anciens buckets / l'année legacy → 3 tranches
   el('imm-regimeJuridique').value = im.regimeJuridique||'';
@@ -22904,6 +22997,9 @@ function saveImm() {
     typeHabitat: (el('imm-typeHabitat') ? el('imm-typeHabitat').value : (existingIm?.typeHabitat || '')),   // v15.249 B3
     nbLots: parseInt(el('imm-nbLots').value) || 0,
     valeurEstimee: parseFloat(el('imm-valeur').value) || 0,
+    // R0-C · Q1 révisé : date d'achat (entrée en jouissance). Vide = null (clé posée : un effacement
+    // n'est jamais « préservé » par _preserverChampsExistants).
+    dateAcquisition: (window._anteriorite && el('imm-dateAcq')) ? window._anteriorite.normaliserDate(el('imm-dateAcq').value) : (existingIm ? (existingIm.dateAcquisition || null) : null),
     travaux: el('imm-travaux').value,
     montantTravaux: parseFloat(el('imm-mtravaux').value) || 0,
     notes: el('imm-notes').value,
@@ -23083,10 +23179,10 @@ function _frInstallCloseHook(){
     orig(id);
     // Fil COMPLET : ov-bail surveillé aussi (étape completion : fermer le wizard bail = retour au fil).
     // ⚠️ ov-fr N'EST PAS un déclencheur (anti-boucle : fermer le fil ne doit jamais le rouvrir).
-    if(_frMode && (id==='ov-ent' || id==='ov-imm' || id==='ov-log' || id==='ov-acte' || id==='ov-bail')){
+    if(_frMode && (id==='ov-ent' || id==='ov-imm' || id==='ov-log' || id==='ov-acte' || id==='ov-bail' || id==='ov-anteriorite')){
       // anyOpen inclut les sous-modales du wizard bail (clôture, DPE interdit) : tant qu'elles
       // sont affichées, on ne considère pas le parcours comme « sans overlay ».
-      const anyOpen = ()=>['ov-ent','ov-imm','ov-log','ov-acte','ov-bail','ov-bail-clore','ov-dpe-interdit','ov-fr'].some(x=>{ const e=el(x); return e && !e.classList.contains('hidden'); });
+      const anyOpen = ()=>['ov-ent','ov-imm','ov-log','ov-acte','ov-bail','ov-bail-clore','ov-dpe-interdit','ov-fr','ov-anteriorite'].some(x=>{ const e=el(x); return e && !e.classList.contains('hidden'); });
       Promise.resolve().then(()=>{ // laisse un éventuel save→_frAfterSave (ou _frAfterActe) rouvrir la modale/écran suivant
         if(!_frMode || anyOpen()) return;
         // Étape completion : fermer une fiche/le bail (save OU annulation ✕) RAMÈNE au fil (recalcul
@@ -23505,7 +23601,16 @@ function _frCompModelFor(entId, immNames){
     const v=(typeof _dpeInterditLocationAuDate==='function')?_dpeInterditLocationAuDate(classe,_now):{interdit:false,raison:''};
     dpeParLot[l.ref]={ classe:classe, interdit:!!v.interdit, raison:v.raison||'' };
   });
-  return { ent, imm, imms, model: window.ParcoursBienModel.completionModel({entite:ent, immeubles:imms, logements:logs, bauxActifs, diagsParLot, dpeParLot}) };
+  // R0-C · Q1 révisé : point de départ des loyers suivis, par lot (date d'achat / situation à noter /
+  // date provisoire à confirmer) → tâches « Date d'achat » et « Situation du locataire ».
+  const suiviParLot={};
+  logs.forEach(function(l){
+    const s=(typeof _finLotSuivi==='function')?_finLotSuivi(l.ref):null, b=bauxActifs[l.ref];
+    if(!s||!s.date||!b) return;
+    const deb=String(b.debut||'').slice(0,10);
+    suiviParLot[l.ref]={ date:s.date, source:s.source, aConfirmer:!!s.aConfirmer, aNoter:(s.bailsAvant||[]).indexOf(deb)>=0, notee:!!(b.anteriorite&&b.anteriorite.date) };
+  });
+  return { ent, imm, imms, model: window.ParcoursBienModel.completionModel({entite:ent, immeubles:imms, logements:logs, bauxActifs, diagsParLot, dpeParLot, suiviParLot}) };
 }
 function _frCompModel(){
   const cm=_frCompModelFor(_frCtx.entId, _frScopeImms());
@@ -23548,6 +23653,9 @@ function _frCompTaskHtml(t, refA){
   let act='';
   if(t.status!=='done'&&t.action==='creer-bail') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'creer-bail\',\''+refA+'\')">✍️ Créer le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'vacant-assume\',\''+refA+'\')" title="Pas de locataire — assumé, jamais bloquant">Vacant assumé</button></span>';
   else if(t.status!=='done'&&t.action==='verifier-repris') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'verifier-repris\',\''+refA+'\')">📋 Ouvrir le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'repris-ok\',\''+refA+'\')" title="Bail repris relu et conforme">✓ Vérifié</button></span>';
+  // R0-C · Q1 révisé : date d'achat (nœud immeuble) et situation du locataire (nœud logement).
+  else if(t.status!=='done'&&t.action==='date-achat') act='<span class="go"><button class="fr-comp-btn" onclick="_frCompAction(\'date-achat\',\''+refA+'\')">'+((typeof _uiIcon==='function')?_uiIcon('calendar',15):'')+' Saisir la date d’achat</button></span>';
+  else if(t.status!=='done'&&t.action==='situation') act='<span class="go"><button class="fr-comp-btn" onclick="_frCompAction(\'situation\',\''+refA+'\')">'+((typeof _uiIcon==='function')?_uiIcon('money',15):'')+' Noter la situation</button></span>';
   // Revue I3 : une ligne `dep` n'est pas une obligation — pas de bandeau ⚖, texte en BLEU
   // (même code visuel que les diagnostics « à déterminer », dont elle est la cause).
   const det=t.detail?('<span'+(t.dep?' class="fr-comp-dep"':'')+'>'+(t.dep?'↳ ':'')+escHtml(t.detail)+'</span>'):'';
@@ -23655,6 +23763,10 @@ function _frCompAction(action, ref){
   // les appels legacy sans ref). Mémorisé pour suivre un éventuel renommage dans le périmètre.
   if(action==='imm'){ const nom=ref||_frCtx.immName; const ent=_frCurEnt(); const idx=ent?(ent.immeubles||[]).findIndex(i=>i&&!i._deleted&&i.nom===nom):-1; if(idx>=0){ _frCompImmEdit=nom; closeM('ov-fr'); _frCompGuard(()=>editImm(idx, ent.id)); } return; }
   if(action==='log'){ closeM('ov-fr'); _frCompGuard(()=>openNewLog(ref)); return; }
+  // R0-C · Q1 révisé : la date d'achat se saisit dans la fiche immeuble (même écran que « Compléter la
+  // fiche »), la situation du locataire dans son écran dédié — fermer l'un ou l'autre ramène au fil.
+  if(action==='date-achat'){ _frCompAction('imm', ref); setTimeout(()=>{ const f=el('imm-dateAcq'); if(f){ try{ f.scrollIntoView({block:'center'}); }catch(e){} f.focus(); } }, 80); return; }
+  if(action==='situation'){ closeM('ov-fr'); _frCompGuard(()=>_antOuvrir(ref)); return; }
   if(action==='creer-bail'||action==='verifier-repris'){ closeM('ov-fr'); _frCompGuard(()=>openBail(ref)); return; }
   // Décisions explicites SANS écran (décisions user gravées : vacant assumé possible, ✓ Vérifié explicite).
   if(action==='vacant-assume'){ const l=(DB.logements||[]).find(x=>x&&x.ref===ref&&!x._deleted); if(l){ l.vacantAssume=true; if(typeof _stamp==='function')_stamp(l); saveDB(); } _frShowFr('completion'); return; }
@@ -25599,7 +25711,9 @@ function openEquipIntervention(ref, key) {
   // R-0 : le lot loué se lit sur le BAIL. Un bien acheté occupé était absent de la liste,
   // donc impossible à rattacher à une intervention. Le NOM affiché, lui, vient du cache
   // puis du bail — afficher un nom n'est pas décider (`_nomsDuBail`).
-  logSel.innerHTML = (DB.logements||[]).filter(_isAlive).filter(_lotEstLoue).map(l=>{
+  // Statut 06/10 : bail OUVERT — la remise en état après un départ déclaré (retenue sur le dépôt avant
+  // clôture) doit pouvoir se rattacher au lot, comme avant.
+  logSel.innerHTML = (DB.logements||[]).filter(_isAlive).filter(_lotBailOuvert).map(l=>{
     const _n = l.locataire || _nomsDuBail(_bienActiveBail(l.ref));
     return `<option value="${escHtml(l.ref)}">${escHtml(l.ref)}${_n ? ' — ' + escHtml(String(_n).substring(0,25)) : ''}</option>`;
   }).join('');
@@ -26096,17 +26210,62 @@ function _dgVgRemove(i) {
   _dgVgRender(el('ov-dg-restitution-ref') ? el('ov-dg-restitution-ref').value : '');
 }
 
-function _dgOpenRestitution(ref) {
-  const bail = DB.baux && DB.baux[ref];
-  if (!bail) { showToast('Bail introuvable', 'err'); return; }
+// RESTITUTION DU DÉPÔT — le bail EXACT (audit 06/10) : jamais un tombstone, jamais le bail d'un autre locataire.
+//  • `cle` (bailHistCle — même identité que la ligne cloud) → l'entrée de baux_historique (bail clôturé ou
+//    archivé par une relocation) ;
+//  • sinon le bail en cours du lot s'il est en départ (départ déclaré, fin effective) ou déjà en restitution ;
+//  • sinon, s'il n'y en a qu'UN, le bail archivé du lot dont le dépôt est encore détenu (_dgDetenuDuBail) — après une
+//    relocation, le bail du NOUVEAU locataire (sans départ) n'est donc jamais visé ;
+//  • sinon le bail en cours (comportement d'avant : solde calculé sur un bail sans départ déclaré) ; rien s'il n'y en a pas.
+// La cible est retenue à l'ouverture (_dgRestitCible) : le recalcul et la confirmation écrivent sur CE bail.
+let _dgRestitCible = null;
+function _bailHistCleDe(h) {
+  return (h && typeof window !== 'undefined' && typeof window.bailHistCle === 'function') ? window.bailHistCle(h) : '';
+}
+// Une ARCHIVE peut figurer plusieurs fois à l'identique dans baux_historique (doublon de synchronisation, même
+// bailHistCle). Toute écriture sur l'une (restitution, retenue) est recopiée sur ses copies, champ par champ et dans
+// le même ordre : elles restent identiques → au flush, UNE seule ligne cloud, portant l'écriture (rien n'est
+// supprimé ; sans cela la copie restituée recevait un nouvel id, ou la copie non modifiée était envoyée).
+// `_modifiedAt` est recopié (pas re-horodaté) pour que les copies gardent le même contenu. Sans effet sur un bail vivant.
+function _archiveRecopierSurCopies(h, champs) {
+  if (!h || !(DB.baux_historique || []).includes(h)) return 0;
+  const cle = _bailHistCleDe(h);
+  if (!cle) return 0;
+  let n = 0;
+  (DB.baux_historique || []).forEach(x => {
+    if (!x || x === h || x._deleted || _bailHistCleDe(x) !== cle) return;
+    champs.concat('_modifiedAt').forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(h, k)) x[k] = (h[k] && typeof h[k] === 'object') ? JSON.parse(JSON.stringify(h[k])) : h[k];
+      else delete x[k];
+    });
+    n++;
+  });
+  return n;
+}
+function _dgBailCible(ref, cle) {
+  const histo = (DB.baux_historique || []).filter(h => h && !h._deleted && h.ref === ref);
+  if (cle) { const h = histo.find(x => _bailHistCleDe(x) === cle); return h ? { ref, bail: h, cle } : null; }
+  const cur = DB.baux && DB.baux[ref];
+  if (cur && !cur._deleted && (cur.depart || cur.finEffective || cur.cloture || cur.dgRestitueAt)) return { ref, bail: cur, cle: '' };
+  const enAttente = _archivesDetenuesDuLot(ref);   // même dédoublonnage que les dépôts détenus et la tâche
+  if (enAttente.length === 1) return { ref, bail: enAttente[0].h, cle: enAttente[0].cle };
+  if (enAttente.length > 1) return null;   // plusieurs dépôts archivés en attente : le geste doit porter sa clé
+  return (cur && !cur._deleted) ? { ref, bail: cur, cle: '' } : null;
+}
+function _dgOpenRestitution(ref, cle) {
+  const cible = _dgBailCible(ref, cle);
+  if (!cible) { showToast('Restitution du dépôt : bail introuvable, ou plusieurs dépôts archivés en attente — la lancer depuis la frise du bien ou la tâche.', 'warn', 6000); return; }
+  _dgRestitCible = cible;
+  const bail = cible.bail;
   // Base « DG versé » : dgPaid est un champ historiquement non renseigné → repli sur dg
   // (le repli vit désormais dans _calculerSoldeDG ; on garde dgVerse pour l'AFFICHAGE + le
   // statut, dans cette surface où l'on restitue — donc le dépôt a bien été pris).
   const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
-  const _bailN = Object.assign({}, bail, { dgPaid: dgVerse });
-  const dgInfo = _dgStatut(_bailN); // AUDIT #3 : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
+  // fin = fin d'OCCUPATION (_bailFinOccupation) : un bail nu/meublé reconduit n'est pas terminé à sa fin contractuelle.
+  const _bailN = Object.assign({}, bail, { dgPaid: dgVerse, fin: _bailFinOccupation(bail, false) });
+  const dgInfo = _dgStatutDuBail(_bailN); // AUDIT #3 — statut du bail CIBLÉ (archive d'une relocation, bail parti : à restituer) : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
   const solde = _calculerSoldeDG(_bailN, DB.mouvements || []);
-  const delaiMois = _calculerDelaiRestitution(bail, DB.edl);
+  const delaiMois = _calculerDelaiRestitution(bail, (typeof _edlsDuBail === 'function') ? _edlsDuBail(bail) : DB.edl);   // EDL de CE bail
   _dgVgCtx = {
     refDate: (bail.depart && bail.depart.dateSortie) || bail.finEffective || (typeof td === 'function' ? td() : ''),
     edlEntreeDate: _dgVgEntreeDate(bail),
@@ -26164,8 +26323,7 @@ function _dgOpenRestitution(ref) {
       </div>
       <div style="padding:10px 12px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl)">
         <div class="mu sm" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.5px">Statut DG</div>
-        <div style="font-weight:700;font-size:14px;margin-top:3px">${escHtml(dgInfo.statut)}</div>
-        <div class="mu sm" style="font-size:11.5px">${dgInfo.joursRestants !== undefined ? `J-${dgInfo.joursRestants}` : ''}${dgInfo.joursRetard ? `Retard ${dgInfo.joursRetard}j` : ''}</div>
+        <div style="font-weight:700;font-size:14px;margin-top:3px">${_dgStatutLibelle(dgInfo)[0]}</div>
       </div>
     </div>
 
@@ -26223,7 +26381,8 @@ function _dgOpenRestitution(ref) {
 
 /** Recalcule le solde en temps réel : total vétusté + impayés + pénalité art. 22. */
 function _dgRestitRecalc(ref) {
-  const bail = DB.baux && DB.baux[ref];
+  const _c = (_dgRestitCible && _dgRestitCible.ref === ref) ? _dgRestitCible : _dgBailCible(ref, '');   // le bail ouvert dans la fenêtre
+  const bail = _c && _c.bail;
   if (!bail) return;
   // Réparations locatives = total de la grille de vétusté. Retenue totale = réparations +
   // autres retenues (champ éditable : régul charges, etc. — AUDIT #2 2ᵉ passe, jamais inféré).
@@ -26232,12 +26391,12 @@ function _dgRestitRecalc(ref) {
   const autres = Math.max(0, parseFloat(v('dg-restit-autres')) || 0);
   const retenuesTotal = Math.round((reparations + autres) * 100) / 100;
   const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
-  const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal });
+  const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) });
   const solde = _calculerSoldeDG(tempBail, DB.mouvements || []);
   // Pénalité art. 22 (au crédit du locataire), recomputée avec le toggle adresse + la date saisie.
   const adresseKO = !!(el('dg-restit-adresse-ko') && el('dg-restit-adresse-ko').checked);
   const dateRestit = v('dg-restit-date') || '';
-  const penBail = Object.assign({}, bail, { dgRetenu: retenuesTotal, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestit || bail.dgRestitueAt });
+  const penBail = Object.assign({}, bail, { dgRetenu: retenuesTotal, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestit || bail.dgRestitueAt, fin: _bailFinOccupation(bail, false) });
   const pen = window._penaliteRetardDG ? window._penaliteRetardDG(penBail, dateRestit || undefined) : { penalite: 0, moisRetard: 0, enRetard: false, base: 0, exclue: false };
   const penMontant = Number(pen.penalite) || 0;
   const soldeFinal = Math.round((solde.soldeRestitue + penMontant) * 100) / 100;
@@ -26266,8 +26425,12 @@ function _dgRestitRecalc(ref) {
 function _dgConfirmerRestitution() {
   const ref = el('ov-dg-restitution-ref')?.value;
   if (!ref) return;
-  const bail = DB.baux && DB.baux[ref];
-  if (!bail) return;
+  // Le bail ouvert dans la fenêtre (_dgOpenRestitution) — jamais DB.baux[ref] relu ici : après une relocation
+  // c'est le bail du NOUVEAU locataire, après une clôture un tombstone.
+  const _c = (_dgRestitCible && _dgRestitCible.ref === ref) ? _dgRestitCible : _dgBailCible(ref, '');
+  const bail = _c && _c.bail;
+  if (!bail || bail._deleted) { showToast('Bail introuvable — rouvrir la restitution depuis le bien.', 'err'); return; }
+  const _nomLoc = bail.nom || (bail.locataires && bail.locataires[0] && bail.locataires[0].nom) || '—';
   // Réparations = total de la grille de vétusté. Retenue totale = réparations + part régul
   // préservée (AUDIT #2 : ne pas effacer la retenue de charges posée à la clôture).
   const vg = window.computeVetusteTotal ? window.computeVetusteTotal(_dgVgRows, _dgVgCtx) : { total: 0 };
@@ -26285,10 +26448,10 @@ function _dgConfirmerRestitution() {
   // porter au document une date qui n'était celle de rien.
   const dateRestitution = v('dg-restit-date') || '';
   const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
-  const solde = _calculerSoldeDG({ ...bail, dgPaid: dgVerse, dgRetenu: retenuesTotal }, DB.mouvements || []);
+  const solde = _calculerSoldeDG({ ...bail, dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) }, DB.mouvements || []);
   // Pénalité art. 22 (au crédit du locataire) — ajoutée au montant restitué.
   const pen = window._penaliteRetardDG
-    ? window._penaliteRetardDG({ ...bail, dgRetenu: retenuesTotal, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestitution || bail.dgRestitueAt }, dateRestitution || undefined)
+    ? window._penaliteRetardDG({ ...bail, dgRetenu: retenuesTotal, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestitution || bail.dgRestitueAt, fin: _bailFinOccupation(bail, false) }, dateRestitution || undefined)
     : { penalite: 0, moisRetard: 0 };
   const penMontant = Number(pen.penalite) || 0;
   const montantRestitue = Math.round((solde.soldeRestitue + penMontant) * 100) / 100;
@@ -26323,17 +26486,20 @@ function _dgConfirmerRestitution() {
   bail.depart.autresRetenues = autres;
   bail.depart.vetusteLignes = _dgVgRows.map(r => ({ piece: r.piece, type: r.type, cout: Number(r.cout) || 0, source: r.source, mes: r.mes || '' }));
   _stamp(bail);
+  _archiveRecopierSurCopies(bail, ['dgRetenu', 'dgDetailRetenues', 'locNouvIban', 'dgRestitueAt', 'dgRestitueMontant', 'dgAdresseNonCommuniquee', 'dgPenaliteArt22', 'depart']);   // archive en double : la restitution sur TOUTES ses copies
   if (typeof _auditLog === 'function') {
     _auditLog('dg-restitution', 'bail', ref,
       `restitué=${montantRestitue}€ réparations=${reparations}€ autres=${autres}€ impayé=${solde.loyerImpaye}€ pénalité=${penMontant}€`);
   }
   saveDB();
   closeM('ov-dg-restitution');
+  _dgRestitCible = null;
   showToast(dateRestitution
-    ? `✓ DG restitué : ${fmt(montantRestitue)} à ${bail.nom||'—'}`
-    : `Restitution enregistrée SANS date : ${fmt(montantRestitue)} à ${bail.nom||'—'} — le bail reste « à restituer » tant que la date du virement manque.`,
+    ? `✓ DG restitué : ${fmt(montantRestitue)} à ${_nomLoc}`
+    : `Restitution enregistrée SANS date : ${fmt(montantRestitue)} à ${_nomLoc} — le bail reste « à restituer » tant que la date du virement manque.`,
     dateRestitution ? 'ok' : 'warn', dateRestitution ? 4500 : 8000);
   if (typeof _rPeriodPage === 'function') setTimeout(() => _rPeriodPage(), 200);
+  try { if (typeof rLogFiche === 'function' && typeof _currentLogFicheRef !== 'undefined' && _currentLogFicheRef === ref) rLogFiche(); } catch (e) {}
 }
 
 /** Phase B1 — Vue "Impayés actifs" : ouvre une modale qui liste tous les baux avec impayés. */
@@ -26408,7 +26574,9 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   const CLL = { ok: 'payé', warn: 'partiel', imp: 'en retard', avance: 'payé d\'avance' };
   // R-0 : le BAIL decide, pas le cache. Un bail repris a l'achat faisait disparaitre le lot de
   // TOUTE la page Loyers — chips de retard et d'avance comprises.
-  const logs = (DB.logements || []).filter(aliveFn).filter(l => _lotEstLoue(l) && (!ent || l.entity === ent));
+  // Bail encore OUVERT (pas le statut « occupé ») : l'impayé d'un locataire parti reste visible jusqu'à la clôture.
+  const logs = (DB.logements || []).filter(aliveFn).filter(l => _lotBailOuvert(l) && (!ent || l.entity === ent));
+  const _lyStatut = (ref) => _bienIsBailActif(ref) ? '' : ' <span style="font-size:11px;color:var(--warn);font-weight:600">· ' + escHtml(_lotStatutLibelle(ref)) + '</span>';
   if (!logs.length) {
     return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Aucun logement occupé' + (ent ? ' pour ' + escHtml(ent) : '') + '.</div>', empty: true };
   }
@@ -26455,7 +26623,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     const items = rows.map(r => {
       const refA = escHtml(r.log.ref);
       const inner = '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 13px">'
-        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>'
+        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>' + _lyStatut(r.log.ref)
         + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div></div>'
         + '<div>' + chip(r.pos) + '</div></div>';
       return { log: r.log, html: inner };
@@ -26470,7 +26638,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = escHtml(r.log.ref);
       return '<div style="' + (i < rows.length - 1 ? 'border-bottom:1px solid var(--bor2)' : '') + (open ? ';background:var(--sur2)' : '') + '">'
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
-      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
+      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>' + _lyStatut(r.log.ref)
       +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
       + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.pos) + (r.pos.cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
       + '</div>'
@@ -29464,8 +29632,59 @@ function _finLotStartMi(qui, yr) {
   _finLotStartCache.map[key] = v;
   return v;
 }
+// R0-C · Q1 RÉVISÉ (Didier 01/10 → 05/10, docs/CDC-R0C.md) — LE point de départ des loyers suivis
+// d'un lot : date d'achat (`logement.detenuDepuis`, sinon `immeuble.dateAcquisition`) > antériorité
+// notée sur un bail (`bail.anteriorite`, avec son solde d'ouverture) > date PROVISOIRE (b) = 1ᵉʳ jour du
+// mois du 1ᵉʳ loyer encaissé (l'ancienne règle, `_getLogementStartIso` : rien ne bouge tant que
+// l'utilisateur ne confirme rien), « à confirmer ». Jamais l'absence de relevés. Règle pure :
+// js/core/anteriorite.js (`debutSuiviLot`). MÉMOÏSÉ par (lot, génération DB).
+let _finLotSuiviCache = { gen: -1, map: {} };
+// L'immeuble d'un lot (lien par NOM, comme partout : `logement.imm === immeuble.nom`), dans l'entité
+// du lot d'abord (deux bailleurs peuvent avoir un immeuble homonyme).
+function _finImmDuLot(log) {
+  if (!log || !log.imm) return null;
+  const ents = (DB.entites || []).filter(e => e && !e._deleted);
+  const own = ents.find(e => e.nom === log.entity);
+  const chercher = (e) => (e && Array.isArray(e.immeubles)) ? e.immeubles.find(im => im && !im._deleted && im.nom === log.imm) : null;
+  if (own) { const im = chercher(own); if (im) return im; }
+  for (const e of ents) { const im = chercher(e); if (im) return im; }
+  return null;
+}
+// Collections brutes du dû d'un lot — MÊME forme que `_duMoisLot` (bail courant tolérant + archivés + barème).
+function _finDuRaw(qui) {
+  return { currentBail: _findBailByRefTolerant(qui), bauxHistorique: DB.baux_historique || [], bareme: DB.loyerBareme || [] };
+}
+function _finLotSuivi(qui) {
+  if (!qui || !window._anteriorite || typeof window._anteriorite.debutSuiviLot !== 'function') return null;
+  const gen = window._dbGen || 0;
+  if (_finLotSuiviCache.gen !== gen) _finLotSuiviCache = { gen, map: {} };
+  if (Object.prototype.hasOwnProperty.call(_finLotSuiviCache.map, qui)) return _finLotSuiviCache.map[qui];
+  const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === qui) || null;
+  const imm = _finImmDuLot(log);
+  // Baux du lot AVEC leur antériorité (bailsFromRaw ne garde que les champs du dû).
+  const raw = _finDuRaw(qui), want = String(qui).trim().toLowerCase();
+  const bails = [];
+  if (raw.currentBail && !raw.currentBail._deleted && raw.currentBail.debut) bails.push({ debut: raw.currentBail.debut, fin: raw.currentBail.fin || null, finEffective: raw.currentBail.finEffective || null, archive: false, depart: raw.currentBail.depart || null, cloture: !!raw.currentBail.cloture, anteriorite: raw.currentBail.anteriorite || null });
+  (raw.bauxHistorique || []).forEach(b => { if (b && !b._deleted && b.debut && String(b.ref || '').trim().toLowerCase() === want) bails.push({ debut: b.debut, finEffective: b.finEffective || null, fin: b.fin || null, archive: true, anteriorite: b.anteriorite || null }); });
+  const iso = (typeof _getLogementStartIso === 'function') ? _getLogementStartIso(qui) : null;
+  const v = window._anteriorite.debutSuiviLot({
+    dateAcqLot: log && log.detenuDepuis, dateAcqImm: imm && imm.dateAcquisition, bails,
+    provisoireIso: iso ? String(iso).slice(0, 7) + '-01' : null
+  });
+  _finLotSuiviCache.map[qui] = v;
+  return v;
+}
 function _finBailHcChAt(qui, ym) {
   if (!qui || !ym) return { hc: 0, ch: 0 };   // non ventilé / SCI / immeuble → pas de bail → tout en loyer
+  // Q1 révisé : dû borné au point de départ du suivi (résolveur unique duMois ; le mois de l'achat, dû à
+  // partir du 1ᵉʳ terme exigible après lui — 2ᵉ audit 🟠2). Sans point de départ (ni loyer ni bail) : rien n'est dû — comme avant.
+  const _s = _finLotSuivi(qui);
+  if (_s && typeof window.duMoisSuiviFromRaw === 'function') {
+    if (!_s.date) return { hc: 0, ch: 0 };
+    const d = window.duMoisSuiviFromRaw(qui, ym, _finDuRaw(qui), _s.date);
+    return { hc: d.hc || 0, ch: d.ch || 0 };
+  }
+  // Repli file:// (modules non chargés) : l'ancienne règle « premier versement = date de départ ».
   const y = parseInt(ym.slice(0, 4), 10), m0 = parseInt(ym.slice(5, 7), 10) - 1;
   // Règle « premier versement = date de départ » (user 2026-07-13) : AUCUN dû avant le démarrage
   // effectif du lot → tue le retard fantôme des mois hors suivi. Parité _computeExpectedRent (borné firstMi).
@@ -29543,6 +29762,28 @@ function _finWindows(yr, scope) {
 // mois. Elle bascule alors dans « Autres charges propriétaire » (ligne 225) — cash-flow réel
 // inchangé au centime (déplacement, pas ajout). Le détail fin par compteur reste l'affaire de
 // la page Régularisation (computeRegul), pas du P&L.
+// R0-C 🟠3 (audit 30/09) — L-5 teste l'OCCUPATION, plus le dû SUIVI : un mois « pas encore suivi »
+// (avant le 1ᵉʳ loyer encaissé, ou avant une date d'antériorité) n'est pas un mois VACANT — un locataire
+// y occupait le lot et peut rembourser la charge. Occupation = un bail couvre le mois (`_duMoisLot`, le
+// dû du barème SANS borne de suivi) ET le bailleur actuel possédait le lot (date d'achat connue). Avant
+// l'achat, rien n'est récupérable par lui.
+// Occupation = MÊME lecture que la régularisation (computeRegul) : un bail de `_getAllBailsForLog(qui)` —
+// dont la fin vient de `_bailFinOccupation` (tacite reconduction, départ déclaré, clôture) — couvre la DATE
+// de la charge (lot précis : charge datée, comme le chemin 2 de la régul) ou le MOIS (niveau immeuble).
+// Avant (R0-C) : `_duMoisLot(qui, ym) > 0` — un mois occupé pour la régul mais « non dû » pour duMois
+// (ou l'inverse) rendait la charge récupérable ici et vacante là : ni récupérée, ni déduite.
+// Garde-fou conservé : avant la date d'achat (`_finLotSuivi().jouissance`), rien n'est récupérable par le
+// bailleur actuel.
+function _finLotOccupe(qui, quand) {
+  const q = String(quand || '');
+  const ym = q.slice(0, 7);
+  const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(qui) : null;
+  if (s && s.jouissance && ym < s.jouissance.slice(0, 7)) return false;
+  const jour = q.length >= 10 ? q.slice(0, 10) : null;
+  const du = jour || (ym + '-01'), au = jour || (ym + '-31');
+  return (_getAllBailsForLog(qui) || []).some(b => b && b.debut
+    && String(b.debut).slice(0, 10) <= au && (!b.fin || String(b.fin).slice(0, 10) >= du));
+}
 function _finIsRecupACharge(m) {
   if (!m || !m.date) return false;
   const ym = String(m.date).slice(0, 7);
@@ -29550,15 +29791,28 @@ function _finIsRecupACharge(m) {
   if (qui && qui.indexOf('SCI:') !== 0) {
     const lg = (DB.logements || []).find(l => l && !l._deleted && l.ref === qui);
     if (lg && lg.compteCharges === false) return true;
-    const d = _finBailHcChAt(qui, ym);
-    return ((d.hc || 0) + (d.ch || 0)) <= 0.005;
+    return !_finLotOccupe(qui, String(m.date).slice(0, 10));   // à la DATE, comme la régularisation
   }
   if (!qui && m.imm) {
     const lots = (DB.logements || []).filter(l => l && !l._deleted && l.imm === m.imm && l.ref);
     if (!lots.length) return false;
-    return !lots.some(l => { const d = _finBailHcChAt(l.ref, ym); return ((d.hc || 0) + (d.ch || 0)) > 0.005; });
+    return !lots.some(l => _finLotOccupe(l.ref, ym));
   }
   return false;
+}
+// R0-C — la dette d'UN bail lue dans le maître (`_computeDetteBail`), avec le MÊME point de départ et
+// le MÊME solde d'ouverture que Finances. Brique sans écran : la restitution (lot 2) la lira.
+// `bailDebut` désigne le bail (son entrée) ; `fin` = fin du dû (Q3 : fin effective, sinon sortie).
+function _finDetteBail(ref, bailDebut, fin) {
+  if (typeof window._computeDetteBail !== 'function' || typeof window.bailsFromRaw !== 'function' || !ref || !bailDebut) return null;
+  const raw = _finDuRaw(ref), s = _finLotSuivi(ref);
+  const deb = String(bailDebut).slice(0, 10);
+  const o = s && s.ouverture && s.ouverture.bailDebut === deb ? s.ouverture : null;
+  return window._computeDetteBail({
+    ref, ctx: { ref, bails: window.bailsFromRaw(ref, raw), bareme: raw.bareme },
+    bailDebut: deb, fin: fin || null, mouvements: DB.mouvements || [], catLigne: _finCatLigne,
+    debutSuivi: s ? s.date : null, sourceSuivi: s ? s.source : null, ouverture: o ? { loyer: o.loyer, charge: o.charge, avance: o.avance } : null
+  });
 }
 let _finMonthlyCache = { gen: -1, m: new Map() };
 function _finMonthly(yr, scope, win) {
@@ -29581,6 +29835,12 @@ function _finMonthly(yr, scope, win) {
     scopeWeight: _finScopeWeight,
     catLigne: _finCatLigne,
     loyerDue: _finBailHcChAt,                   // dû {hc,ch} proraté du mois → cascade CUMULATIVE dans le module (arriérés avant avance, user 2026-07-09)
+    // R0-C · Q1 révisé : la pré-passe d'ouverture démarre au point de départ SAISI (date d'achat ou
+    // antériorité), AU JOUR : un encaissement daté avant lui n'est jamais imputé (2ᵉ audit 🔴1) ;
+    // jamais pour la date provisoire (b), qui laisse le moteur exactement comme avant.
+    debutDu: q => { const s = _finLotSuivi(q); return (s && s.date && s.source !== 'provisoire') ? s.date : null; },
+    // … et le solde d'ouverture de l'antériorité est posé UNE fois à cette date.
+    ouverture: q => { const s = _finLotSuivi(q); const o = s && s.ouverture; return o ? { ym: o.date.slice(0, 7), loyer: o.loyer, charge: o.charge, avance: o.avance } : null; },
     activeLots: _finActiveLotsInScope(yr, scope), // lots à bail actif sans mouvement → retard « zéro paiement » visible (user 2026-07-12)
     // M-1 : les résolveurs passent par la catégorie MÈRE — un alias de « Prêt » est une
     // échéance, un alias de « Charges récupérables » un transit, etc. (héritage cash-flow).
@@ -31405,7 +31665,7 @@ function _legal2044BuildOpts(yrArg, entArg) {
   // ET de nbLocaux (forfait 222). Les lots MIXTES (nu + meublé dans l'année) restent
   // inclus mais flagués « part meublée à retirer ». Décision par lot dans regime-lot.js.
   const _split = (typeof window.splitFonciereLots === 'function')
-    ? window.splitFonciereLots(scopeLogs, { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: parseInt(yr) })
+    ? window.splitFonciereLots(scopeLogs, { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: parseInt(yr), finOccupation: _bailFinOccupation })
     : { fonciereRefs: scopeLogs.map(l => l.ref), exclus: [], flagues: [] };
   const refs = _split.fonciereRefs;
   // Forfait gestion 222 = 20 €/local (notice 2044 § 222) → nb de logements FONCIERS.
@@ -31423,16 +31683,12 @@ function _legal2044BuildOpts(yrArg, entArg) {
   // Part bailleur des charges récupérables non récupérées (vacances + logements exclus
   // du compteur collectif) → ligne 225. Précalculée via computeRegul (même logique que
   // l'ancien wizard inline, cf V3-REFONTE-LOYERS chantier A).
+  // Lecteur unique _rgSegments225 : immeubles de l'entité (toutes si « Toutes »), périmètre foncier
+  // (lots meublés exclus), hors parts déjà déduites sur leur propre ligne (229…).
   let partBailleur225 = 0;
   try {
-    if (typeof computeRegul === 'function') {
-      const regul = computeRegul(from, to);
-      Object.values(regul.bailleur || {}).forEach(b => {
-        if (!entityNom || imms.includes(b.imm)) partBailleur225 += b.total || 0;
-      });
-    }
+    if (typeof computeRegul === 'function') partBailleur225 = _rgSegments225(computeRegul(from, to), entityNom ? imms : null, refs).total;
   } catch (e) { console.warn('[_legal2044BuildOpts] partBailleur', e); }
-  partBailleur225 = Math.round(partBailleur225 * 100) / 100;
 
   // M-2 / Z-2 : mapping des catégories perso (alias M-1 + magasins legacy) → la prévisualisation
   // 2044 de Finances honore les rattachements utilisateur, comme le wizard.
@@ -32065,4 +32321,210 @@ async function _espacePurgeRun() {
     showToast(ep.purgeErrorMessage(r.error), 'err', 8000);
     if (go) { go.textContent = '🛟 Sauvegarder puis vider l\'espace'; _espacePurgeCheckNom(); }
   }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// R0-C · Q1 RÉVISÉ — DATE D'ACHAT & ANTÉRIORITÉ (décisions Didier 01/10 → 05/10, docs/CDC-R0C.md ;
+// maquette mockups/R0C/MAQUETTE-ANTERIORITE.html VALIDÉE 05/10).
+// Deux saisies, une seule règle (js/core/anteriorite.js, lue par Finances via `_finLotSuivi`) :
+//   - la date d'achat de l'immeuble (fiche immeuble, fil rouge, import d'acte) ;
+//   - la situation du locataire au début du suivi, par bail (`bail.anteriorite`) : à jour, arriéré
+//     (loyer, charges facultatives, mois si connus) ou avance. Ce solde entre UNE fois dans la dette
+//     (Finances, bulle Impayés, restitution du dépôt).
+// Téléphone : page plein écran (M-16) — CSS `#ov-anteriorite` dans css/main.css.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+let _antEtat = null;   // { ref, bailDebut, suite:[refs], situation, mois:[] }
+
+function _antDateFr(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; }
+function _antMoisFr(ym) {
+  const M = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
+  return m ? M[parseInt(m[2], 10) - 1] + ' ' + m[1] : String(ym || '');
+}
+function _antEuro(n) { return (typeof fmt === 'function') ? fmt(Number(n) || 0) : (Number(n) || 0).toFixed(2) + ' €'; }
+
+/** Le bail dont la situation est à noter : celui en cours au début du suivi (le plus récent commencé
+ *  avant lui), sinon le bail courant. Rend { bail, courant:boolean } ou null. */
+function _antBailCible(ref, bailDebut) {
+  const alive = b => b && !b._deleted && b.debut;
+  const want = String(ref || '').trim().toLowerCase();
+  const cur = _findBailByRefTolerant(ref);
+  const hist = (DB.baux_historique || []).filter(b => alive(b) && String(b.ref || '').trim().toLowerCase() === want);
+  const tous = (alive(cur) ? [{ bail: cur, courant: true }] : []).concat(hist.map(b => ({ bail: b, courant: false })));
+  if (bailDebut) { const x = tous.find(t => String(t.bail.debut).slice(0, 10) === String(bailDebut).slice(0, 10)); if (x) return x; }
+  const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(ref) : null;
+  const avant = (s && s.bailsAvant) || [];
+  const cands = tous.filter(t => avant.indexOf(String(t.bail.debut).slice(0, 10)) >= 0)
+    .sort((a, b) => String(b.bail.debut).localeCompare(String(a.bail.debut)));
+  return cands[0] || tous.find(t => t.courant) || null;
+}
+
+/** Ouvre l'écran « Situation du locataire » d'un lot. opts.suite = lots suivants à enchaîner. */
+function _antOuvrir(ref, opts) {
+  const o = opts || {};
+  const cible = _antBailCible(ref, o.bailDebut);
+  if (!cible) { showToast('Aucun bail en cours sur ce logement', 'warn'); return; }
+  const a = cible.bail.anteriorite || null;
+  _antEtat = { ref, bailDebut: String(cible.bail.debut).slice(0, 10), suite: Array.isArray(o.suite) ? o.suite.slice() : [],
+    situation: (a && a.situation) || 'a-jour', mois: (a && Array.isArray(a.mois)) ? a.mois.slice() : [] };
+  let ov = el('ov-anteriorite');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'ov-anteriorite'; ov.className = 'ov hidden';
+    ov.setAttribute('onclick', "closeBg(event,'ov-anteriorite')");
+    document.body.appendChild(ov);
+  }
+  _antRender(true);
+  openM('ov-anteriorite');
+}
+
+/** Valeurs saisies (lues dans le DOM ; repli sur la valeur enregistrée au premier rendu). */
+function _antLire() {
+  const g = id => { const e = el(id); return e ? e.value : ''; };
+  return { date: g('ant-date'), loyer: g('ant-loyer'), charges: g('ant-charges'), avance: g('ant-avance') };
+}
+
+function _antRender(initial) {
+  const E = _antEtat; if (!E) return;
+  const ov = el('ov-anteriorite'); if (!ov) return;
+  const cible = _antBailCible(E.ref, E.bailDebut); if (!cible) return;
+  const bail = cible.bail, a = bail.anteriorite || null;
+  const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(E.ref) : null;
+  const repris = !!((s && s.jouissance) || bail.typeContrat === 'repris' || (bail.source && bail.source.import === 'acte'));
+  const prev = initial ? null : _antLire();
+  // Jamais de champ vide (2ᵉ audit 🟡) : à défaut de tout, l'entrée du bail.
+  const dateDefaut = (a && a.date) || (s && s.jouissance) || (s && s.source === 'provisoire' ? s.date : '') || String(bail.debut || '').slice(0, 10);
+  const date = prev ? prev.date : dateDefaut;
+  const dateFr = _antDateFr(date) || 'cette date';
+  const val = (k) => prev ? prev[k] : (a && Number(a[k]) ? a[k] : '');
+  const loc = (bail.locataires && bail.locataires[0] && bail.locataires[0].nom) || bail.nom || '';
+  const titre = repris ? 'Reprise en cours de bail' : 'Début du suivi dans Propryo';
+  const ic = (n) => (typeof _uiIcon === 'function') ? _uiIcon(n, 17) : '';
+  const seg = (k, icon, lib) => '<button type="button" class="' + (E.situation === k ? 'on' : '') + '" aria-pressed="' + (E.situation === k) + '" onclick="_antSituation(\'' + k + '\')">' + ic(icon) + '<span>' + lib + '</span></button>';
+  let corps = '';
+  if (s && s.source === 'provisoire' && s.aConfirmer && !(a && a.date)) {
+    corps += '<div class="ant-note" role="note">' + ic('warn') + '<div><b>Date provisoire, à confirmer</b> : elle a été posée au 1ᵉʳ loyer encaissé (' + _antDateFr(s.date) + ') lors de la mise à jour de l\'app. Confirmer la date d\'achat ou de début du suivi, puis la situation du locataire à cette date.</div></div>';
+  }
+  const debutBailFr = _antDateFr(bail.debut);
+  corps += '<div class="fg ant-fld"><label for="ant-date">Suivi à partir du</label><input class="inp" type="date" id="ant-date" value="' + escHtml(date || '') + '" onchange="_antRender()">'
+    + '<div class="ant-hint">' + (repris && s && s.jouissance
+      ? 'Date d\'achat de l\'immeuble (fiche immeuble). Le bail court depuis le ' + escHtml(debutBailFr) + ' ; le premier loyer dû au bailleur actuel est le premier terme exigible à compter du ' + escHtml(_antDateFr(s.jouissance)) + ' (le partage du mois de la vente se règle chez le notaire).'
+      : 'Le bail court depuis le ' + escHtml(debutBailFr) + '. Propryo calcule les loyers dus à partir de cette date ; avant, il ne calcule rien.')
+      // 2ᵉ audit 🔴1 : ce que deviennent les loyers déjà importés d'avant la date
+      + ' Les loyers encaissés avant cette date sont déjà dans la situation notée ci-dessous : ils ne sont pas recomptés. Un terme payé d\'avance avant cette date se note « avait payé d\'avance ».</div></div>'
+    + '<div class="ant-lbl">Le ' + escHtml(dateFr) + ', le locataire :</div>'
+    + '<div class="ant-seg" role="group" aria-label="Situation du locataire">' + seg('a-jour', 'check', 'était à jour') + seg('arriere', 'money', 'devait un arriéré') + seg('avance', 'send', 'avait payé d\'avance') + '</div>';
+  if (E.situation === 'arriere') {
+    corps += '<div class="fg2"><div class="fg ant-fld"><label for="ant-loyer">Loyer impayé, hors charges</label><div class="ant-euro"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="ant-loyer" value="' + escHtml(String(val('loyer'))) + '" oninput="_antEffet()"><span>€</span></div></div>'
+      + '<div class="fg ant-fld"><label for="ant-charges">Charges impayées (facultatif)</label><div class="ant-euro"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="ant-charges" value="' + escHtml(String(val('charges'))) + '" oninput="_antEffet()"><span>€</span></div></div></div>'
+      + '<div class="fg ant-fld"><span class="ant-lbl">Mois concernés (si connus)</span><div class="ant-chips">'
+      + E.mois.map(m => '<button type="button" class="ant-chip on" onclick="_antMoisRetirer(\'' + m + '\')" aria-label="Retirer ' + escHtml(_antMoisFr(m)) + '">' + escHtml(_antMoisFr(m)) + ic('close') + '</button>').join('')
+      + '<label class="ant-chip add">' + ic('plus') + '<span>Ajouter un mois</span><input type="month" id="ant-mois-add" onchange="_antMoisAjout(this.value)"></label></div></div>';
+    if (repris) corps += '<div class="ant-info" role="note">' + ic('info') + '<div>Les loyers de la période antérieure à la vente reviennent au vendeur (art. 1614 du Code civil : depuis la vente, les fruits appartiennent à l\'acquéreur). Un arriéré de cette période n\'est dû au bailleur actuel que si l\'acte de vente le lui a transmis (cession de créance ou subrogation) ; sinon, le laisser à 0 €.</div></div>';
+  } else if (E.situation === 'avance') {
+    corps += '<div class="fg ant-fld"><label for="ant-avance">Montant payé d\'avance</label><div class="ant-euro ant-court"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="ant-avance" value="' + escHtml(String(val('avance'))) + '" oninput="_antEffet()"><span>€</span></div>'
+      + '<div class="ant-hint">Il couvrira les premiers loyers dus après le ' + escHtml(dateFr) + ', avant qu\'un retard ne puisse apparaître.</div></div>';
+  }
+  corps += '<div class="ant-effet" id="ant-effet"></div>';
+  ov.innerHTML = '<div class="modal ant-modal" role="dialog" aria-modal="true" aria-labelledby="ant-titre">'
+    + '<div class="m-head"><button type="button" class="ant-back" aria-label="Retour" onclick="closeM(\'ov-anteriorite\')">' + '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>' + '</button>'
+    + '<h3 id="ant-titre">' + ic('key') + '<span>' + titre + '</span></h3><button class="m-close" aria-label="Fermer" onclick="closeM(\'ov-anteriorite\')">✕</button></div>'
+    + '<div class="m-body"><p class="ant-ctxt">' + escHtml(E.ref) + (loc ? ' · ' + escHtml(loc) : '') + ' · bail du ' + escHtml(debutBailFr) + (repris ? ' (bail repris)' : '') + '</p>'
+    + '<div class="ant-blk"><div class="ant-blk-t">' + ic('calendar') + '<span>' + titre + '</span></div>'
+    + '<p class="ant-blk-s">Propryo ne reconstitue pas le passé : noter ici où en était le locataire au début du suivi. Ce solde sert de point de départ à Finances et à la restitution du dépôt.</p>'
+    + corps + '</div></div>'
+    + '<div class="m-foot"><button type="button" class="btn bs" onclick="closeM(\'ov-anteriorite\')">Annuler</button>'
+    + '<button type="button" class="btn bp" onclick="_antEnregistrer()">' + ic('check') + 'Enregistrer la situation</button></div></div>';
+  _antEffet();
+}
+
+/** « Ce que Propryo en fera » — recalculé à la saisie, sans re-rendre (le focus reste dans le champ). */
+function _antEffet() {
+  const E = _antEtat, host = el('ant-effet'); if (!E || !host) return;
+  const v = _antLire(), dateFr = _antDateFr(v.date) || 'cette date';
+  const n = (x) => Math.max(0, Number(String(x || '').replace(',', '.')) || 0);
+  const L = (lib, sous, val) => '<div class="ant-eff-l"><span>' + lib + '<span class="s">' + sous + '</span></span><span class="v">' + val + '</span></div>';
+  let h = '<span class="ant-lbl">Ce que Propryo en fera</span>';
+  if (E.situation === 'arriere') {
+    h += L('Retard affiché dans Finances et dans la bulle Impayés', 'chaque encaissement paie d\'abord le loyer et les charges de son mois ; ce qui dépasse règle l\'arriéré', escHtml(_antEuro(n(v.loyer) + n(v.charges))))
+      + L('À la restitution du dépôt', 'ligne à part dans la lettre : « arriéré au ' + escHtml(dateFr) + ', noté à la reprise »', 'compté')
+      + L('Déclaration 2044', 'un arriéré n\'est un revenu qu\'une fois encaissé', 'inchangée');
+  } else if (E.situation === 'avance') {
+    h += L('Premiers loyers dus après le ' + escHtml(dateFr), 'couverts par l\'avance avant tout retard', escHtml(_antEuro(n(v.avance))))
+      + L('À la sortie, si elle n\'a pas servi', 'restituée comme trop-perçu, sur une ligne à part', 'restituée');
+  } else {
+    h += L('Aucun retard reporté', 'les loyers sont suivis à partir du ' + escHtml(dateFr), escHtml(_antEuro(0)));
+  }
+  host.innerHTML = h;
+}
+
+function _antSituation(k) { if (!_antEtat) return; _antEtat.situation = k; _antRender(); }
+function _antMoisAjout(ym) {
+  if (!_antEtat || !/^\d{4}-\d{2}$/.test(String(ym || ''))) return;
+  if (_antEtat.mois.indexOf(ym) < 0) { _antEtat.mois.push(ym); _antEtat.mois.sort(); }
+  _antRender();
+}
+function _antMoisRetirer(ym) { if (!_antEtat) return; _antEtat.mois = _antEtat.mois.filter(m => m !== ym); _antRender(); }
+
+/** Enregistre la situation sur le bail (une seule source : `bail.anteriorite`). Jamais bloquant
+ *  (2ᵉ audit 🟡) : sans date valide, la situation est notée à l'entrée du bail, et l'écran le dit. */
+function _antEnregistrer() {
+  const E = _antEtat; if (!E || !window._anteriorite) return;
+  const cible = _antBailCible(E.ref, E.bailDebut);
+  if (!cible) { showToast('Bail introuvable', 'err'); return; }
+  const v = _antLire();
+  const sansDate = !window._anteriorite.normaliserDate(v.date);
+  const obj = window._anteriorite.normaliserAnteriorite({ date: sansDate ? cible.bail.debut : v.date, situation: E.situation, loyer: v.loyer, charges: v.charges, avance: v.avance, mois: E.mois });
+  if (!obj) { showToast('Enregistrement impossible : la date d\'entrée du bail est illisible', 'err'); return; }   // échec technique seul
+  const s = (typeof _finLotSuivi === 'function') ? _finLotSuivi(E.ref) : null;
+  if (s && s.jouissance && obj.date < s.jouissance) {
+    if (!confirm2('La date (' + _antDateFr(obj.date) + ') précède la date d\'achat (' + _antDateFr(s.jouissance) + ').\n\nLe bailleur actuel ne suivait rien à cette date : la situation sera enregistrée, mais Finances partira de la date d\'achat. Enregistrer quand même ?')) return;
+  }
+  if (obj.date < String(cible.bail.debut).slice(0, 10)) {
+    if (!confirm2('La date (' + _antDateFr(obj.date) + ') précède l\'entrée du bail (' + _antDateFr(cible.bail.debut) + '). Enregistrer quand même ?')) return;
+  }
+  const avant = cible.bail.anteriorite || null;
+  cible.bail.anteriorite = obj;
+  if (typeof _stamp === 'function') _stamp(cible.bail);
+  if (typeof _auditLog === 'function') _auditLog('update', 'bail', E.ref, 'antériorité ' + obj.situation + ' au ' + obj.date, { anteriorite: avant }, { anteriorite: obj });
+  saveDB();
+  showToast(sansDate ? 'Situation enregistrée à l\'entrée du bail (' + _antDateFr(obj.date) + ') : aucune date n\'était saisie' : 'Situation du locataire enregistrée', sansDate ? 'warn' : 'ok');
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  const suite = E.suite.slice();
+  closeM('ov-anteriorite');
+  if (suite.length) setTimeout(() => _antOuvrir(suite[0], { suite: suite.slice(1) }), 0);
+}
+
+// ── Fiche immeuble : note « N baux ont commencé avant la date d'achat » + enchaînement ─────────────
+function _immAcqBauxAvant(d) {
+  const nom = (el('imm-nom') && el('imm-nom').value || '').trim();
+  const entId = (el('imm-ent-id') && el('imm-ent-id').value) || (el('ent-edit-id') && el('ent-edit-id').value);
+  const ent = entId ? (DB.entites || []).find(e => e && +e.id === +entId) : null;
+  if (!nom || !ent || !d) return [];
+  return (DB.logements || []).filter(l => l && !l._deleted && l.imm === nom && l.entity === ent.nom).filter(l => {
+    const b = _findBailByRefTolerant(l.ref);
+    if (!b || b._deleted || !b.debut) return false;
+    const deb = String(b.debut).slice(0, 10), fin = b.finEffective ? String(b.finEffective).slice(0, 10) : null;
+    return deb < d && (!fin || fin >= d) && !(b.anteriorite && b.anteriorite.date);
+  }).map(l => l.ref);
+}
+function _immAcqNote() {
+  const host = el('imm-acq-note'); if (!host) return;
+  const d = window._anteriorite ? window._anteriorite.normaliserDate(el('imm-dateAcq') && el('imm-dateAcq').value) : null;
+  const refs = d ? _immAcqBauxAvant(d) : [];
+  if (!refs.length) { host.innerHTML = ''; return; }
+  const n = refs.length, ic = (k) => (typeof _uiIcon === 'function') ? _uiIcon(k, 17) : '';
+  host.innerHTML = '<div class="ant-note" role="note">' + ic('warn') + '<div><b>' + (n > 1 ? n + ' baux en cours ont commencé avant cette date.' : '1 bail en cours a commencé avant cette date.') + '</b> '
+    + (n > 1 ? 'Noter, pour chacun, où en était le locataire le ' : 'Noter où en était le locataire le ') + escHtml(_antDateFr(d)) + ' (à jour, arriéré ou avance).'
+    + '<div class="ant-note-act"><button type="button" class="btn bs" onclick="_immAcqNoter()">' + ic('calendar') + (n > 1 ? 'Noter la situation des ' + n + ' locataires' : 'Noter la situation du locataire') + '</button></div></div></div>';
+}
+/** Enregistre l'immeuble (date comprise), puis enchaîne les écrans « Situation du locataire ». */
+function _immAcqNoter() {
+  const d = window._anteriorite ? window._anteriorite.normaliserDate(el('imm-dateAcq') && el('imm-dateAcq').value) : null;
+  const refs = d ? _immAcqBauxAvant(d) : [];
+  saveImm();
+  const ov = el('ov-imm');
+  if (ov && !ov.classList.contains('hidden')) return;   // l'enregistrement a été refusé : on reste sur la fiche
+  if (refs.length) setTimeout(() => _antOuvrir(refs[0], { suite: refs.slice(1) }), 0);
 }

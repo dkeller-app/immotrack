@@ -15,7 +15,7 @@
 // mapping) : entites/immeubles par nom, logements par ref, baux par clé de map, le reste par id.
 import { TABLE_COLLECTIONS, LOCAL_USER_PARAM_KEYS } from './store-supabase.js'   // source unique des collections table-backées + params local-user
 import { bailContentHash } from './bail-content-hash.js'  // empreinte légale canonique des baux signés (verrou)
-import { bailHistCle } from './store-mapping.js'          // identité d'une archive (SOURCE UNIQUE avec l'id de ligne)
+import { bailHistCle, nouvelIdArchive } from './store-mapping.js'          // identité d'une archive (SOURCE UNIQUE avec l'id de ligne)
 import { entreeJournalAuto } from './bail-modifications.js'   // journal automatique d'un bail signé verrouillé (B2)
 
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
@@ -214,10 +214,7 @@ const configSig = db => {
 
 // Identifiant opaque (ligne propre d'un bail, archive en collision, entrée de journal automatique).
 // Jamais dérivé d'une donnée métier : seule son unicité compte (il est persisté dans legacy_raw).
-const _uidDefaut = () => {
-  try { if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID() } catch (_e) { /* repli */ }
-  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
-}
+const _uidDefaut = nouvelIdArchive   // même générateur que l'app (store-mapping) : un seul format d'identifiant
 
 export function createStoreSync({ store, getDB, schedule, sealSigned = true, retryBaseMs = 2000, retryMaxMs = 60000, now = () => new Date(), newUid = _uidDefaut }) {
   if (!store || typeof store.upsert !== 'function' || typeof store.remove !== 'function')
@@ -395,7 +392,17 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       const prev = base && base.get(k)
       if (g.length < 2) continue                                  // seule sur sa clé → identité historique
       const ancre = (prev && g.find(h => sig({ ...h }) === prev.sig)) || g[0]
-      for (const h of g) if (h !== ancre) h._archiveId = newUid()
+      // Une copie EXACTE (même contenu) est la MÊME archive (doublon local) : elle garde l'identité de son
+      // original — jamais deux identifiants pour une seule archive (elle serait comptée deux fois).
+      const sigAncre = sig({ ...ancre })
+      const idParSig = new Map()
+      for (const h of g) {
+        if (h === ancre) continue
+        const s = sig({ ...h })
+        if (s === sigAncre) continue
+        if (!idParSig.has(s)) idParSig.set(s, newUid())
+        h._archiveId = idParSig.get(s)
+      }
     }
   }
 

@@ -35,8 +35,15 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
   async function hydrate() {
     const merged = {}
     const ownConfig = {}
-    for (const s of stores) {
-      const db = (await s.store.hydrate()) || {}
+    // PERF — les espaces sont INDÉPENDANTS (chacun son adapter, son detUuid, sa map de versions) : on les hydrate
+    // TOUS ENSEMBLE (avant : l'un après l'autre → un associé abonné à N espaces payait N fois le temps de chargement,
+    // mesuré : 2 espaces = chargement doublé). La FUSION ci-dessous reste SÉQUENTIELLE dans l'ordre de `stores`
+    // (espace propre d'abord → dédup `baux`, tags, config propre : résultat strictement identique).
+    // (Promise.resolve().then : un throw synchrone d'un hydrate devient un rejet, comme avant)
+    const dbs = await Promise.all(stores.map(s => Promise.resolve().then(() => s.store.hydrate())))
+    for (let i = 0; i < stores.length; i++) {
+      const s = stores[i]
+      const db = dbs[i] || {}
       for (const [k, v] of Object.entries(db)) {
         if (k === 'baux' && v && typeof v === 'object') {
           merged.baux = merged.baux || {}
