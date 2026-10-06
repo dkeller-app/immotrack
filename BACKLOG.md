@@ -506,6 +506,21 @@ Didier veut **un audit sécurité complet, tous les trous** — pas seulement l'
 
 ## 🔴 P0 — FUSION DE DEUX SCI HOMONYMES (données réelles Didier, 28/09)
 
+**06/10 — session Fusion SCI (branche `fix/fusion-sci`)** :
+- **Diagnostic (lecture seule)** : la fusion option B a **déjà été exécutée le 28/09 à 16:50** par une autre session, avec l'accord de Didier (`audit_log` source `admin-fusion`, 122 lignes copiées dans l'espace de Marion, originaux tombstonés chez Didier). Elle est vérifiée saine : comptes concordants, bail 101 signé avec la même empreinte, fichiers présents, identifiants égaux à ceux de l'app. Restent dans l'espace de Didier : **34 mouvements** de la SCI oubliés (février à juin), **51 mouvements** de l'import bancaire du 05/10, **10 documents** et **19 rappels** créés le 05/10. Les 2 mouvements « DD2AMELEVIERE » vont à SCI DD2 IMMO (décision de Didier). Rapport : `mockups/FUSION-SCI/DIAGNOSTIC.md`, **local, non versionné** car il contient des données réelles.
+- **Cause racine corrigée — v15.717** : tout enregistrement **neuf** créé par un associé sur une SCI partagée partait dans **son propre** espace (`store-multi` : un enregistrement sans tag allait par défaut à l'espace propre, défaut D2). Désormais, il prend l'espace de la fiche à laquelle il se rattache (lot, immeuble, SCI, mouvement ou candidat parent), **seulement si l'associé y est gestionnaire** (`entite_membre`). En cas d'ambiguïté, de lecture seule ou de rattachement inconnu, le défaut D2 s'applique comme avant.
+  - Contre-audit : un problème bloquant trouvé et corrigé. Un mouvement neuf avec pièce jointe chez un tiers échouait sans fin (refus RLS 42501 sur le document, clé étrangère 23503 sur le mouvement). Désormais, `pj_document_id` n'est rempli que vers un document déjà écrit.
+  - Un problème important trouvé et corrigé : un associé en lecture seule aurait eu des refus RLS en boucle.
+  - Seconde passe : **SÛR AVEC RÉSERVES**, aucune bloquante. 6 017 tests verts, test de fumée navigateur OK.
+  - **Limites connues** :
+    - `pj_document_id` peut rester vide (la colonne n'est lue nulle part, la pièce jointe reste dans `legacy_raw`) ;
+    - les droits d'écriture sont lus au login seulement ;
+    - le droit n'est contrôlé que sur le rattachement le plus précis ;
+    - doublons d'agenda automatique possibles si les deux associés génèrent le même rappel en même temps ;
+    - un mouvement bancaire sans lot ni immeuble reste dans l'espace propre.
+- **Reste** : déplacer les données restantes vers l'espace de Marion (plan précis, puis **GO de Didier**). Ensuite, smoke de Didier et de Marion.
+
+
 **Incident** : deux bailleurs « SCI SMARTOSAURUS » = **la même SCI réelle** (même SIREN 994 086 379 ; l'un saisi en SIRET 994 086 379 00017, adresse « 10 B » / « 10 Bis sentier de la Luss »), **l'une dans l'espace partagé de Marion, l'autre copie privée de Didier**. Didier a renommé « SCI SMARTOSAURUS DIdier » → « SCI SMARTOSAURUS » : **fusion au niveau des DONNÉES**, pas seulement de l'affichage.
 **Cause (vérifiée)** : l'app relie logements / baux / baux_historique / quittances / mouvements SCI au bailleur **par son NOM** (22 jointures `l.entity === e.nom`, ex. `index.html:9733`) ; le renommage en cascade (`index.html:51830-51845`) a réécrit `entity` sur tous les enregistrements de la SCI renommée → indiscernables. **Aucun garde-fou** n'empêche un nom de bailleur identique à un autre (seul l'import d'acte en a un, `:48118`). ⚠️ **Ne PAS renommer pour revenir** (la cascade entraînerait les deux SCI). Discriminants de récupération : `_espaceId`, **horodatage identique** posé par la cascade (`_modifiedAt = ts`), journal d'audit (`_auditLog update entite`).
 **Décision Didier 28/09 : option B** = UNE seule SCI + dédoublonnage des logements Ferrette (6 + 6). Reco pilotage : **survivante = SCI de l'espace partagé** (vue par Didier ET Marion), la copie privée est absorbée puis retirée — confirmation de Didier sur pièces après le diagnostic.
