@@ -24,17 +24,19 @@
  *
  * VERSION DES CLAUSES D'UN BAIL (marqueur `clauseIrlV`, posé à la signature, jamais réécrit) :
  *   1 = texte d'origine ; 2 = clause 5.2 IRL révisée (IRL-REVISION, v15.679) ;
- *   3 = 2 + contrat type issu du décret n° 2026-596.
+ *   3 = 2 + contrat type issu du décret n° 2026-596 ;
+ *   4 = 3 + sous-titre du bail nu selon le bailleur réel (bail-duree.js, sousTitreBailNu) — en
+ *       version ≤ 3, « Bailleur personne morale » quel que soit le bailleur.
  * Un bail signé garde la version avec laquelle il a été signé (document ré-affiché à
  * l'identique) ; un brouillon prend la version courante.
  */
 
-export const VERSION_CLAUSES_ACTUELLE = 3;
+export const VERSION_CLAUSES_ACTUELLE = 4;
 
 /** Toute valeur inconnue (absente, corrompue) = texte d'origine : jamais d'invention de version. */
 export function normaliserVersionClauses(v) {
   const n = Number(v);
-  return (n === 2 || n === 3) ? n : 1;
+  return (n === 2 || n === 3 || n === 4) ? n : 1;
 }
 
 /**

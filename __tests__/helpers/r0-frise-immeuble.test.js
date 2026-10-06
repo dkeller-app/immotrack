@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import { finOccupationBail } from '../../js/core/loyer-du-mois.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -29,11 +30,13 @@ const corpsDe = (nom) => {
 
 /** Exécute la frise avec ses dépendances, `loyerDuLotA` COMPRIS. */
 function frise(db, activeLogs, avecLecteur = true) {
-  const src = [corpsDe('_renderImmFichePlanGantt'), corpsDe('_ctxLoyerLot'), corpsDe('_getAllBailsForLog')].join('\n');
+  const src = [corpsDe('_renderImmFichePlanGantt'), corpsDe('_ctxLoyerLot'), corpsDe('_getAllBailsForLog'),
+    corpsDe('_bailTypeHasTacite'), corpsDe('_bailFinOccupation')].join('\n');
   if (!corpsDe('_renderImmFichePlanGantt')) throw new Error('frise introuvable — le test ne teste plus rien');
   const esc = (x) => String(x == null ? '' : x);
   const deps = {
     DB: db,
+    window: { finOccupationBail },   // LA fin d'occupation (module), lue par _bailFinOccupation
     loyerDuLotA: avecLecteur ? loyerDuLotA : undefined,
     _findBailByRefTolerant: (ref) => (db.baux || {})[ref] || null,
     _monthsBetweenIso: (a, b) => Math.max(0, Math.round((new Date(b) - new Date(a)) / 2629800000)),

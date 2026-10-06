@@ -39,10 +39,10 @@ describe('mentionsACompleter — avertissement au bailleur avant signature', () 
 });
 
 describe('version des clauses — un bail signé n\'est jamais réécrit', () => {
-  it('brouillon → version courante (3)', () => {
-    expect(VERSION_CLAUSES_ACTUELLE).toBe(3);
-    expect(versionClausesBail({})).toBe(3);
-    expect(versionClausesBail(null)).toBe(3);
+  it('brouillon → version courante (4)', () => {
+    expect(VERSION_CLAUSES_ACTUELLE).toBe(4);
+    expect(versionClausesBail({})).toBe(4);
+    expect(versionClausesBail(null)).toBe(4);
     expect(suitContratType2026({})).toBe(true);
   });
   it('signé : la version posée à la signature ; absente = texte d\'origine', () => {
@@ -51,6 +51,8 @@ describe('version des clauses — un bail signé n\'est jamais réécrit', () =>
     expect(versionClausesBail(signe(1))).toBe(1);
     expect(versionClausesBail(signe(2))).toBe(2);
     expect(versionClausesBail(signe(3))).toBe(3);
+    expect(versionClausesBail(signe(4))).toBe(4);
+    expect(suitContratType2026(signe(4))).toBe(true);
     expect(suitContratType2026(signe(2))).toBe(false);
   });
   it('signature à distance en cours : la version envoyée ; terminée/expirée → brouillon', () => {
@@ -58,12 +60,14 @@ describe('version des clauses — un bail signé n\'est jamais réécrit', () =>
     expect(versionClausesBail(rs('pending', 2))).toBe(2);
     expect(versionClausesBail(rs('pending', undefined))).toBe(1);
     expect(versionClausesBail(rs('pending', 3))).toBe(3);
-    expect(versionClausesBail(rs('expired', 2))).toBe(3);
-    expect(versionClausesBail(rs('completed', 1))).toBe(3);
+    expect(versionClausesBail(rs('pending', 4))).toBe(4);
+    expect(versionClausesBail(rs('expired', 2))).toBe(4);
+    expect(versionClausesBail(rs('completed', 1))).toBe(4);
   });
   it('valeur inconnue → 1 (jamais une version inventée)', () => {
     expect(normaliserVersionClauses('x')).toBe(1);
-    expect(normaliserVersionClauses(4)).toBe(1);
+    expect(normaliserVersionClauses(5)).toBe(1);
+    expect(normaliserVersionClauses(4)).toBe(4);
     expect(normaliserVersionClauses('3')).toBe(3);
   });
 });

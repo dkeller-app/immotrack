@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase } from '../../js/core/bail-duree.js';
+import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase, sousTitreBailNu, SOUS_TITRE_BAIL_NU_ORIGINE } from '../../js/core/bail-duree.js';
 
 describe('regimeBailleur — la confusion d’origine est fermée', () => {
   it('« Personne morale » N’EST PAS une personne physique (le défaut exact)', () => {
@@ -122,6 +122,55 @@ describe('dureeBailNuLabel / dureeBailNuPhrase — ce qui entre dans le contrat'
   it('la phrase cite toujours son fondement', () => {
     for (const t of ['Particulier', 'Personne morale', 'SCI familiale', 'SCI IS', '']) {
       expect(dureeBailNuPhrase(t), t).toMatch(/article 10 de la loi du 6 juillet 1989/);
+    }
+  });
+});
+
+/**
+ * Le sous-titre du bail nu disait « Art. 10 — Bailleur personne morale » pour TOUT bailleur
+ * (constaté 05/10/2026 : bail d'une personne physique, tableau « Bailleur (personne physique) »,
+ * durée 3 ans, et sous-titre « personne morale » juste au-dessus). Un bail signé, lui, se
+ * ré-affiche tel que signé : le correctif ne vaut qu'à partir de la version de clauses 4.
+ */
+describe('sousTitreBailNu — le sous-titre suit le bailleur, le bail signé ne bouge pas', () => {
+  it('version ≤ 3 (bail signé avant le correctif) : le texte d’origine, mot pour mot, quel que soit le bailleur', () => {
+    expect(SOUS_TITRE_BAIL_NU_ORIGINE).toBe('Loi n° 89-462 du 6 juillet 1989 — Art. 10 — Bailleur personne morale');
+    for (const v of [1, 2, 3, undefined, null, 'x']) {
+      for (const t of ['Personne physique', 'SCI familiale', 'Indivision', 'SARL', '']) {
+        expect(sousTitreBailNu(t, v), t + ' / v' + v).toBe(SOUS_TITRE_BAIL_NU_ORIGINE);
+      }
+    }
+  });
+
+  it('personne physique : « Bailleur personne physique » (le défaut constaté)', () => {
+    for (const t of ['Personne physique', 'Particulier', 'Nom propre']) {
+      expect(sousTitreBailNu(t, 4), t).toBe('Loi n° 89-462 du 6 juillet 1989 — Art. 10 — Bailleur personne physique');
+    }
+  });
+
+  it('personne morale : inchangé — y compris « Personne morale », que le fragment « perso » trompait', () => {
+    for (const t of ['Personne morale', 'SARL', 'SAS Immo', 'SCI IS']) {
+      expect(sousTitreBailNu(t, 4), t).toBe(SOUS_TITRE_BAIL_NU_ORIGINE);
+    }
+  });
+
+  it('art. 13 (SCI familiale, indivision) : « Art. 10 et 13 » — une indivision n’est pas une personne morale', () => {
+    for (const t of ['SCI familiale', 'Personne morale - SCI familiale', 'Indivision']) {
+      expect(sousTitreBailNu(t, 4), t).toBe('Loi n° 89-462 du 6 juillet 1989 — Art. 10 et 13 — Bailleur relevant de l’article 13');
+    }
+  });
+
+  it('type vide ou inconnu : la qualité du bailleur n’est pas certifiée', () => {
+    for (const t of ['', null, undefined, 'Truc']) {
+      expect(sousTitreBailNu(t, 4), String(t)).toBe('Loi n° 89-462 du 6 juillet 1989 — Art. 10');
+    }
+  });
+
+  it('le sous-titre ne contredit jamais la durée (3 ans ↔ jamais « personne morale » seule)', () => {
+    for (const t of ['Particulier', 'Personne morale', 'SCI familiale', 'SCI IS', '', 'Indivision', 'SARL']) {
+      const st = sousTitreBailNu(t, 4);
+      if (dureeBailNuLabel(t).startsWith('3')) expect(st, t).not.toMatch(/Bailleur personne morale/);
+      else expect(st, t).not.toMatch(/physique|article 13/);
     }
   });
 });
