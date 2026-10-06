@@ -6281,19 +6281,24 @@ function _logFindParRef(x) {
   const logs = (typeof DB !== 'undefined' && DB && Array.isArray(DB.logements)) ? DB.logements : [];
   return { ref: ref, log: logs.find(z => z && z.ref === ref && !z._deleted) || logs.find(z => z && z.ref === ref) || null };
 }
+// Repli sans module LogLabel (script non chargé) : libellé simple, vide s'il est égal à la référence.
+function _logNomRepli(log) {
+  const n = String((log && log.libelle) || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  return (n && n.toLowerCase() !== String(log.ref || '').toLowerCase()) ? n : '';
+}
 function _logLabel(x) {
   const r = _logFindParRef(x);
   if (!r.log) return r.ref;
-  return (window.LogLabel && LogLabel.libelle) ? LogLabel.libelle(r.log) : (String(r.log.libelle || '').trim() || r.log.ref);
+  return (window.LogLabel && LogLabel.libelle) ? LogLabel.libelle(r.log) : _logNomRepli(r.log) || r.log.ref;
 }
 function _logLabelRef(x) {
   const r = _logFindParRef(x);
   if (!r.log) return r.ref;
-  return (window.LogLabel && LogLabel.libelleEtRef) ? LogLabel.libelleEtRef(r.log) : (String(r.log.libelle || '').trim() ? String(r.log.libelle).trim() + ' · ' + r.log.ref : r.log.ref);
+  return (window.LogLabel && LogLabel.libelleEtRef) ? LogLabel.libelleEtRef(r.log) : (_logNomRepli(r.log) ? _logNomRepli(r.log) + ' · ' + r.log.ref : r.log.ref);
 }
 // Recherche (libellé OU ref) et tri (nom naturel puis ref) des logements.
-function _logLabelMatch(log, q) { return (window.LogLabel && LogLabel.correspond) ? LogLabel.correspond(log, q) : String((log && log.ref) || '').toLowerCase().includes(String(q || '').toLowerCase()); }
-function _logLabelCmp(a, b) { return (window.LogLabel && LogLabel.comparer) ? LogLabel.comparer(a, b) : _natCmp(a && a.ref, b && b.ref); }
+function _logLabelMatch(log, q) { return (window.LogLabel && LogLabel.correspond) ? LogLabel.correspond(log, q) : (String((log && log.ref) || '') + ' ' + String((log && log.libelle) || '')).toLowerCase().includes(String(q || '').toLowerCase()); }
+function _logLabelCmp(a, b) { return (window.LogLabel && LogLabel.comparer) ? LogLabel.comparer(a, b) : (_natCmp(_logNomRepli(a) || (a && a.ref), _logNomRepli(b) || (b && b.ref)) || _natCmp(a && a.ref, b && b.ref)); }
 
 // v15.38 DASH-REFONTE-GLOBALE-V4 CP1 — Sidebar : footer utilisateur (avatar + nom + lien Paramètres).
 function _renderSidebarUserFooter() {
