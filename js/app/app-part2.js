@@ -93,7 +93,11 @@ function _buildEmailCtxFromRef(ref, extraCtx) {
     entite: ent,
     locataire,
     garant: bail.garant ? { nom: bail.garant } : null,
-    montant: (Number(bail.hc)||Number(log.hc)||0) + (Number(bail.ch)||Number(log.ch)||0),
+    // R-0 : le loyer EN VIGUEUR aujourd'hui (même règle que la fiche du bien, `loyerDuLotA` du moteur) —
+    // un e-mail parti après une révision IRL n'annonce plus l'ancien loyer du bail. Un envoi qui porte sur
+    // une date (période réclamée, quittance) fournit son propre `montant` via extraCtx, qui l'emporte
+    // (mise en demeure : montant saisi). Aucun acte signé ni document déjà généré n'est relu ici.
+    montant: _loyerEnVigueurLot(ref, bail, log),
     periode: '', // À compléter par extraCtx selon le type
     // Date en clair : ces modèles l'impriment en toutes lettres (« Fait à …, le … »).
     dateLettre: fd(td()),
@@ -14964,7 +14968,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.720 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.721 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }

@@ -139,6 +139,38 @@ describe('R5 — fiche du bien (PC et téléphone) : le loyer EN VIGUEUR aujourd
   });
 });
 
+describe('E-mails — le `montant` du contexte = le loyer en vigueur (même règle que la fiche)', () => {
+  const BAIL = { ref: 'A1', debut: '2024-10-20', hc: 700, ch: 50, entity: 'SCI X', locataires: [{ nom: 'Lea', email: 'l@x.fr' }] };
+  const BAREME = [
+    { ref: 'A1', debut: '2024-10-20', fin: '2026-06-30', hc: 700, ch: 50 },
+    { ref: 'A1', debut: '2026-07-01', fin: '2026-10-19', hc: 720, ch: 50 },
+    { ref: 'A1', debut: '2026-10-20', hc: 740, ch: 50 },
+  ];
+  afterEach(() => vi.useRealTimers());
+  const ctx = (auj, extra) => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date(auj + 'T10:00:00'));
+    const DB = { logements: [{ ref: 'A1', hc: 700, ch: 50, entity: 'SCI X' }], baux: { A1: BAIL }, baux_historique: [], loyerBareme: BAREME, entites: [{ nom: 'SCI X' }] };
+    const fn = monter(['_buildEmailCtxFromRef', '_loyerEnVigueurLot', '_ctxLoyerLot', '_histoBailTodayIso'], {
+      DB, window: {}, loyerDuLotA, td: () => auj, fd: (x) => x,
+      _findBailByRefTolerant: (ref) => DB.baux[ref] || null, Math, Number, String, Object, Array, Date,
+    });
+    return fn._buildEmailCtxFromRef('A1', extra);
+  };
+
+  it('après l’IRL de juillet, un e-mail annonce 770 € (pas les 750 € du bail)', () => {
+    expect(ctx('2026-10-06').montant).toBe(770);
+  });
+
+  it('une révision programmée au 20/10 n’est annoncée qu’à sa date d’effet', () => {
+    expect(ctx('2026-10-19').montant).toBe(770);
+    expect(ctx('2026-10-20').montant).toBe(790);
+  });
+
+  it('un envoi qui porte son propre montant (mise en demeure : montant saisi) l’emporte', () => {
+    expect(ctx('2026-10-06', { montant: '1 540,00', periode: 'août 2026' }).montant).toBe('1 540,00');
+  });
+});
+
 describe('R7 — barre latérale : les entités triées par leurs RECETTES, lues au VRAI moteur Finances', () => {
   // SCI ALPHA a encaissé 3 300 € de loyers, mais aussi un dépôt de garantie (900 €) et un apport
   // d'associé (40 000 €) — de l'argent qui n'est pas une recette. SCI BETA a encaissé 10 100 € de
