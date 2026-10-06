@@ -12,19 +12,98 @@
 
 import { escHtml } from '../core/utils.js';
 
+// ── Où poser le toast sur téléphone (audit stockage lots 2-3, 🟠3 + vérification finale) ──────────
+// Sur téléphone (≤ 767 px, comme css/main.css), la feuille de style colle le toast en bas (bottom
+// 12 px, z 999). Il ne doit recouvrir NI la barre du bas, NI le pied collant d'une page plein écran :
+//   - une couche plein écran est ouverte (modale .ov, page EDL) : la barre du bas est masquée, et le
+//     PIED COLLANT (Enregistrer, Précédent / Suivant…) est sticky — en bas de l'écran, OU juste sous un
+//     contenu court (mesuré à 390 px : pied de ov-loyer-bien à 297-366). Le toast reste en bas s'il
+//     tient SOUS le pied ; sinon il se pose JUSTE AU-DESSUS du pied. Dans les deux cas juste au-dessus
+//     de la couche (sinon il passe dessous : #ov-edl est à 1001, la feuille de style dit 999) ;
+//   - sinon, la barre du bas est affichée → au-dessus d'elle, et de la bannière « Installer Propryo »
+//     (.pwa-invite, 1500) ;
+//   - sinon : la place et le z-index de la feuille de style, inchangés.
+// Tablette et PC : rien ne change. Le z-index n'est jamais BAISSÉ sous celui de la feuille de style
+// (ex. index.html : page de dépôt du DDT, z 2147483001). Le toast ne capte aucun appui (css/main.css,
+// pointer-events), sauf son propre bouton « ↶ Annuler ».
+
+export const TOAST_ECART = 12;
+export const TOAST_Z_BARRE = 1600;
+export const TOAST_TELEPHONE_MQ = '(max-width: 767px)';
+const SEL_COUCHES = '.ov:not(.hidden), .edl-page.edl-lpage';
+const SEL_PIEDS = '.m-foot, .modal-foot, .mf, .edl-rail, .edl-page-foot, [class*="foot"]';
+const PIEDS_NOMMES = /(^|\s)(m-foot|modal-foot|mf|edl-rail|edl-page-foot)(\s|$)/;
+
 /**
- * Audit stockage lots 2-3 (🟠3) — téléphone : le toast se pose AU-DESSUS de la barre du bas
- * (css/main.css, ≤ 767 px : bottom = --bnav-h + 12 px). La hauteur RÉELLE de la barre varie
- * (favoris, pastille d'action, encoche : son padding comprend env(safe-area-inset-bottom)) ; elle
- * est mesurée à chaque toast et publiée en --bnav-h. Barre absente ou masquée : 0.
- * Ne lève jamais (un toast ne casse rien) : rend la hauteur, ou null si la mesure est impossible.
+ * Décision PURE. Distances en px depuis le BAS de l'écran.
+ * @param {object} o
+ * @param {boolean} o.telephone
+ * @param {number}  o.barre    hauteur de la barre du bas affichée (0 = masquée)
+ * @param {object|null} o.couche  couche plein écran du dessus : { z, pied } ; pied = { haut, bas } (haut et
+ *                             bas du pied collant), ou null s'il n'y en a pas
+ * @param {number}  o.zCss     z-index du toast selon la feuille de style
+ * @param {number}  o.hauteur  hauteur du toast (0 = inconnue)
+ * @param {number}  o.vh       hauteur de l'écran (0 = inconnue)
+ * @returns {{ bas:number|null, z:number|null }} null = la feuille de style décide
  */
-export function syncHauteurBarreBas(doc = globalThis.document, win = globalThis.window) {
+export function placementToast({ telephone = false, barre = 0, couche = null, zCss = 0, hauteur = 0, vh = 0 } = {}) {
+  if (!telephone) return { bas: null, z: null };
+  if (couche) {
+    const z = Math.max(zCss, (couche.z || 0) + 1);
+    const p = couche.pied;
+    if (!p) return { bas: TOAST_ECART, z };
+    // Pied haut (contenu court) : le toast tient SOUS lui, à sa place habituelle.
+    if (hauteur > 0 && TOAST_ECART + hauteur + TOAST_ECART <= p.bas) return { bas: TOAST_ECART, z };
+    // Sinon AU-DESSUS du pied, sans sortir de l'écran.
+    let bas = p.haut + TOAST_ECART;
+    if (vh > 0 && hauteur > 0 && bas + hauteur > vh - TOAST_ECART) bas = Math.max(TOAST_ECART, vh - hauteur - TOAST_ECART);
+    return { bas, z };
+  }
+  if (barre > 0) return { bas: barre + TOAST_ECART, z: Math.max(zCss, TOAST_Z_BARRE) };
+  return { bas: null, z: null };
+}
+
+/** Ce que l'écran montre : téléphone ? barre du bas ? couche plein écran du dessus et son pied collant ? */
+export function mesurerEcran(doc = globalThis.document, win = globalThis.window) {
+  const vh = win.innerHeight;
+  const telephone = !!(win.matchMedia && win.matchMedia(TOAST_TELEPHONE_MQ).matches);
+  const visible = n => { const c = win.getComputedStyle(n); return c.display !== 'none' && c.visibility !== 'hidden'; };
+  const b = doc.querySelector('.v4-bnav');
+  const barre = (b && visible(b)) ? Math.ceil(b.getBoundingClientRect().height) : 0;
+  let couche = null;
+  let zCouche = -Infinity;
+  for (const n of doc.querySelectorAll(SEL_COUCHES)) {
+    if (!visible(n)) continue;
+    const z = parseInt(win.getComputedStyle(n).zIndex, 10) || 0;
+    if (z >= zCouche) { zCouche = z; couche = n; }          // la plus haute ; à égalité, la dernière du DOM
+  }
+  if (!couche) return { telephone, barre, vh, couche: null };
+  // Le pied collant : un pied NOMMÉ (m-foot, rail EDL…) ou un « *foot* » sticky / fixe, visible à l'écran,
+  // pas plus haut que la moitié de l'écran. Plusieurs : leur zone commune.
+  let pied = null;
+  for (const f of couche.querySelectorAll(SEL_PIEDS)) {
+    if (!visible(f)) continue;
+    const pos = win.getComputedStyle(f).position;
+    if (!PIEDS_NOMMES.test(String(f.className || '')) && pos !== 'sticky' && pos !== 'fixed') continue;
+    const r = f.getBoundingClientRect();
+    if (!(r.height > 0 && r.height <= vh / 2 && r.top < vh && r.bottom > 0)) continue;
+    const haut = Math.ceil(vh - r.top), bas = Math.max(0, Math.floor(vh - r.bottom));
+    pied = pied ? { haut: Math.max(pied.haut, haut), bas: Math.min(pied.bas, bas) } : { haut, bas };
+  }
+  return { telephone, barre, vh, couche: { z: zCouche, pied } };
+}
+
+/** Applique la décision au toast (styles en ligne, retirés quand la feuille de style décide). Ne lève jamais. */
+export function placerToast(t, doc = globalThis.document, win = globalThis.window) {
   try {
-    const b = doc.querySelector('.v4-bnav');
-    const h = (b && win.getComputedStyle(b).display !== 'none') ? Math.ceil(b.getBoundingClientRect().height) : 0;
-    doc.documentElement.style.setProperty('--bnav-h', h + 'px');
-    return h;
+    t.style.removeProperty('bottom');
+    t.style.removeProperty('z-index');
+    const zCss = parseInt(win.getComputedStyle(t).zIndex, 10) || 0;
+    const hauteur = Math.ceil(t.getBoundingClientRect().height) || 0;
+    const p = placementToast(Object.assign(mesurerEcran(doc, win), { zCss, hauteur }));
+    if (p.bas != null) t.style.setProperty('bottom', p.bas + 'px', 'important');
+    if (p.z != null) t.style.setProperty('z-index', String(p.z), 'important');
+    return p;
   } catch (_e) { return null; }
 }
 
@@ -37,7 +116,6 @@ export function syncHauteurBarreBas(doc = globalThis.document, win = globalThis.
 export function showToast(msg, type = '', dur = 2800, extraHTML = '') {
   const t = document.getElementById('toast');
   if (!t) return;
-  syncHauteurBarreBas();
   t.innerHTML = escHtml(msg) + (extraHTML || '');
   t.style.display = 'flex';
   t.style.alignItems = 'center';
@@ -46,6 +124,7 @@ export function showToast(msg, type = '', dur = 2800, extraHTML = '') {
     type === 'err' ? 'var(--red)' :
     type === 'ok'  ? 'var(--grn)' :
     type === 'warn' ? 'var(--ora)' : 'var(--t1)';
+  placerToast(t);
   clearTimeout(window._toastTmr);
   window._toastTmr = setTimeout(() => t.style.display = 'none', dur);
 }

@@ -2654,8 +2654,12 @@ textarea.field-modified-since-sig{
   border-radius:10px;padding:12px 18px;
   font-size:13.5px;z-index:999;display:none;
   box-shadow:var(--shadow-lg);
+  /* Audit stockage lots 2-3 : le toast ne CAPTE jamais un appui destiné à ce qu'il recouvre… */
+  pointer-events:none;
   animation:toastIn .25s cubic-bezier(.4,0,.2,1);
 }
+/* … sauf son propre bouton « ↶ Annuler » (UNDO-OP, _undoToast : extraHTML de showToast). */
+#toast button,#toast a{pointer-events:auto}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
@@ -4999,17 +5003,9 @@ textarea.field-modified-since-sig{
     bottom: 12px !important;
     width: auto !important;
     max-width: none !important;
-    /* Audit stockage lots 2-3 (🟠3) : au-dessus de la barre du bas (999) ET de la bannière
-       « Installer Propryo » (.pwa-invite, 1500) — un message sous la barre n'est pas un message dit. */
-    z-index: 1600;
   }
-  /* Barre du bas affichée : le toast se pose JUSTE AU-DESSUS. --bnav-h = sa hauteur RÉELLE, mesurée
-     par showToast (js/components/toast.js, syncHauteurBarreBas) ; elle comprend déjà
-     env(safe-area-inset-bottom) (padding de la barre) — l'ajouter encore doublerait l'encoche.
-     Repli avant toute mesure (ou module non chargé, file://) : 60 px + encoche. */
-  body[data-dash-v4="on"] #toast {
-    bottom: calc(var(--bnav-h, calc(60px + env(safe-area-inset-bottom, 0px))) + 12px) !important;
-  }
+  /* Au-dessus de la barre du bas / du pied collant d'une page plein écran : placé par showToast
+     (js/components/toast.js, placerToast), qui MESURE la barre et le pied. */
 }
 
 /* ──── Très petits écrans 320-480 px ──── */
