@@ -1,6 +1,6 @@
 # BAIL-EN-COURS-MODIFIER-PERIODES — Modifier / supprimer une période de l'historique du bail
 
-**Statut** : 📐 Conception (aucun code écrit) · **Prio** : P1 · **Branche** : `feat/bail-en-cours` · **Rédigé** : 2026-10-06
+**Statut** : ✅ CODÉ sur `feat/bail-en-cours` (étapes 1-8 ; smoke Didier à faire ; numéro de version au merge) · **Prio** : P1 · **Branche** : `feat/bail-en-cours` · **Rédigé** : 2026-10-06
 **Origine** : RETOURS-2026-10-05 §C4 (« modification de bail avec une mauvaise date : ni modifier ni supprimer ») + journal du 06/10 (maquette finale).
 **Maquettes validées** : `mockups/BAIL-EN-COURS/captures/periodes-historique|selection|modifier-{pc,tab,tel}-{light,dark}.png`
 **Liés** : AUDIT-SUIVI-LOYERS (barème), HISTORIQUE-BAIL-ONGLET, BAIL-SIGNE-MODIFS (journal `baux_evenements`), IRL-REVISION (session « IRL & courriers », consommatrice de l'API), session Finances (propriétaire de `duMois`).
@@ -298,3 +298,5 @@ Cas D-101 de la maquette (SCI Dupont de démo) et un lot à révision IRL progra
 
 ## Journal
 - 2026-10-06 : conception rédigée (lecture seule du code : `loyer-bareme.js`, `bail-historique.js`, `bail-modif.js`, `irl-revision.js`, `loyer-du-mois.js`, `bail-modifications.js`, `store-supabase*.js`, `store-sync.js`, `store-mapping.js`, `app-part1/2.js`, `index.html`, maquettes `periodes-*`). Aucun code modifié.
+- 2026-10-06 : **codé** (7 commits « Périodes étape N »). Écarts à la conception : (1) **motif facultatif** (règle « on ne bloque jamais ») ; (2) `modifierPeriode` rend `ok:false` pour `date-apres-fin` / `avant-bail` / `date-invalide` / `montant-invalide` (bornes de saisie EXPLIQUÉES dans l'encart, jamais muettes) et `supprimerPeriode` pour une période IRL sans `autoriserIRL` (`irl-geste-dedie`) ; (3) `impactEdition` : fenêtre `{debut, fin}` en `YYYY-MM` (premier / dernier mois dont le dû change), `futur.ouvert` ; trop-perçu = trop-perçu NOUVEAU (celui d'avant l'édition n'est pas compté) ; (4) option `simuler:true` ajoutée à l'API (l'alerte est un calcul sans écriture) et `rejeu:true` (« Réappliquer ») ; (5) détecteur d'écrasement : une entrée du journal est « appliquée » si son `id` figure comme `evtId` dans une ligne du barème (`_modifieePar|_supprimeePar|_absorbeePar|_edition`) — supersédée par toute entrée postérieure sur la même période ; (6) la barre de sélection est au-dessus des chapitres (visible même chapitre replié) ; (7) cartes `periode-modifiee` posées à la NOUVELLE date de début. **Reste** : fusion par élément du blob `espace_config`, champ `origine` pour les périodes d'avenant, texte pâle `--t2` en thème clair (préexistant).
+
