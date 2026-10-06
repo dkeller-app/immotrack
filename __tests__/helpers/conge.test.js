@@ -167,3 +167,10 @@ describe('courrier « Renouvellement du bail » — 3 ou 6 ans (art. 10 et 13), 
     expect(b).not.toMatch(/mêmes conditions/);
   });
 });
+
+describe('congePhraseTerme — borne : la fin tombe aujourd\'hui', () => {
+  it('fin = aujourd\'hui → « prendra fin… » (le bail court jusqu\'au soir)', () => {
+    expect(congePhraseTerme('06/10/2026', '2026-10-06', '2026-10-06')).toBe('prendra fin à son terme, le 06/10/2026');
+    expect(congePhraseTerme('05/10/2026', '2026-10-05', '2026-10-06')).toBe('est arrivé à son terme le 05/10/2026');
+  });
+});

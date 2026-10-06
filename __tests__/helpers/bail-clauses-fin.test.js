@@ -110,3 +110,12 @@ describe('bail mobilité v5 — la durée réelle tirée des dates', () => {
     expect(C.dureeMobiliteLibelle('2026-03-01', '2026-02-01')).toBe('');
   });
 });
+
+describe('bail mobilité — bornes de la durée (fin de mois, 29 février)', () => {
+  it('31/01 → 27/02 : « 1 (un) mois » (31/01 + 1 mois = 28/02, recadré)', () => {
+    expect(C.dureeMobiliteLibelle('2026-01-31', '2026-02-27')).toBe('1 (un) mois');
+  });
+  it('29/02/2028 → 27/02/2029 : « 12 (douze) mois »', () => {
+    expect(C.dureeMobiliteLibelle('2028-02-29', '2029-02-27')).toBe('12 (douze) mois');
+  });
+});
