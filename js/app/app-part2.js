@@ -10867,13 +10867,13 @@ function _renderLogFicheHeroStats(log, ref) {
   // ── KPI 1 : Loyer mensuel
   let loyerKPI;
   if(bail) {
-    // R-0 (lot 1, R5) : le loyer EN VIGUEUR ce mois-ci, lu au barème par le moteur — le même que le
-    // potentiel locatif de Finances (`_finTauxPleinMois` : taux plein du mois, jamais le prorata
-    // d'entrée ou de sortie). `bail.hc + bail.ch` ignorait le barème : une révision IRL appliquée
-    // restait invisible, une révision programmée s'affichait avant sa date d'effet. Repli sur le bail
-    // seulement si le module n'est pas chargé (file://) ou si le moteur ne voit pas le lot occupé.
-    const _tp = (typeof _finTauxPleinMois === 'function') ? _finTauxPleinMois(ref, today.slice(0, 7)) : null;
-    const loyer = (_tp && _tp.occupied) ? (_tp.hc + _tp.ch) : ((+bail.hc || 0) + (+bail.ch || 0));
+    // R-0 (lot 1, R5) : le loyer EN VIGUEUR AUJOURD'HUI = le bandeau « Loyer en vigueur » de l'onglet
+    // Bail de cette même fiche (`_histoBailEnVigueur` : période du barème couvrant la date LOCALE du
+    // jour). `bail.hc + bail.ch` ignorait le barème (révision IRL appliquée invisible). Une révision
+    // programmée, même au 20 du mois, ne compte qu'à sa date d'effet (pas le taux plein du mois :
+    // audit 06/10). Repli sur le bail sans période couvrant aujourd'hui, ou modules non chargés.
+    const _ev = (typeof _histoBailEnVigueur === 'function') ? _histoBailEnVigueur(ref) : null;
+    const loyer = _ev ? _ev.total : ((+bail.hc || 0) + (+bail.ch || 0));
     loyerKPI = { v: fmt(loyer), unit: '/mois', label: 'Loyer actuel', cls: 'k-money' };
   } else {
     // LOYER-REFERENCE — bien vacant : afficher le LOYER SOUHAITÉ (loyer de référence), éditable (✏️),

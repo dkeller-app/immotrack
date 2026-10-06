@@ -6506,17 +6506,26 @@ function _v4NavCounts() {
 }
 
 // Entités de la barre latérale, triées par recettes de l'exercice. R-0 (lot 1, R7) : les recettes
-// de CHAQUE entité sont celles de l'Accueil et de Finances (`_dashCfReel`, périmètre = l'entité :
-// loyers HC + provisions + recettes diverses). L'ancien tri sommait `m.cr` de toutes catégories —
-// dépôts de garantie, apports d'associés, virements internes, achat revendu… compris.
-// Moteur absent (file://) : recettes 0, l'ordre de DB.entites est conservé (tri stable).
+// d'une entité sont lues au moteur (`_finMonthly`, périmètre = l'entité) avec la définition de
+// l'Accueil (`_finRecettesDe`). L'ancien tri sommait `m.cr` de toutes catégories — dépôts de
+// garantie, apports d'associés, virements internes compris.
+// Exercice entier (12) : la SOMME des recettes ne dépend pas de la fenêtre de constat ; on évite
+// `_finWindows` (un parcours de tous les mouvements par entité) et le N-1 de `_dashCfReel`, inutiles
+// pour un ordre d'affichage (audit 06/10 : ~200 ms par rendu sur un gros parc).
+// Une entité en erreur (ou sans nom : le périmètre vide = « Tout ») compte 0 : la barre de navigation
+// ne doit jamais tomber. Moteur absent (file://) : ordre de DB.entites conservé (tri stable).
 function _v4TopEntities() {
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   if (typeof DB === 'undefined' || !DB.entites) return [];
-  const yr = String(new Date().getFullYear());
+  const y = new Date().getFullYear();
   return DB.entites.filter(aliveFn).map(e => {
-    const r = (typeof _dashCfReel === 'function') ? _dashCfReel({ yr, activeEnt: e.nom }) : null;
-    return { nom: e.nom, recettes: (r && r.recettes) || 0 };
+    let recettes = 0;
+    try {
+      const scope = (e.nom && typeof _finEntScope === 'function') ? _finEntScope(e.nom, '') : null;
+      const r = (scope && typeof _finMonthly === 'function') ? _finMonthly(y, scope, 12) : null;
+      recettes = r ? _finRecettesDe(r.annual) : 0;
+    } catch (err) { recettes = 0; }
+    return { nom: e.nom, recettes };
   }).sort((a, b) => b.recettes - a.recettes);
 }
 
@@ -8604,6 +8613,11 @@ function _dashCardClick(key, ev) {
 // propriétaire + charges récupérables, cf = cashflowReel = Recettes − Charges (trio cohérent).
 // Périmètre = entité active (ou toutes si vide), même scope que Finances via _finEntScope.
 // null si le moteur n'est pas chargé (les appelants gardent leur calcul brut en fallback).
+// Recettes d'un bloc du moteur (annuel ou mensuel) : loyers HC + provisions + recettes diverses.
+// UNE définition, lue par l'Accueil (`_dashCfReel`) et l'ordre des entités (`_v4TopEntities`).
+function _finRecettesDe(A) {
+  return ((A && A.loyersHC) || 0) + ((A && A.provisions) || 0) + ((A && A.recettesDiverses) || 0);
+}
 function _dashCfReel(ctx) {
   if (typeof _finMonthly !== 'function' || typeof _finEntScope !== 'function') return null;
   const y = parseInt(ctx.yr, 10);
@@ -8618,7 +8632,7 @@ function _dashCfReel(ctx) {
   const A = cur.annual;
   const pv = _finMonthly(y - 1, scope, Wd ? Wd.n1 : null);     // N-1 même période (pour le delta)
   return {
-    recettes: (A.loyersHC || 0) + (A.provisions || 0) + (A.recettesDiverses || 0),
+    recettes: _finRecettesDe(A),
     charges: (A.charges || 0) + (A.recup || 0),
     cf: A.cashflowReel || 0,
     prevCf: (pv && pv.annual) ? (pv.annual.cashflowReel || 0) : 0
