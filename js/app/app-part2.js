@@ -27090,7 +27090,10 @@ function _bankImportFirstImportConfirm(format) {
 // n'était donc pas effectif dans l'app. On construit ici le contexte réel : baux actifs
 // + baux archivés (marqués clôturés), tombstones exclus. Sans ça, un arriéré versé
 // après le départ d'un locataire ne matche toujours rien.
-function _bankBauxContext() {
+// REGLES-REFONTE phase 5 (D6) : `perimetre` (issu de `_bankPerimetre`, compte de l'import) limite les
+// baux à ceux du bailleur du compte — le bail clos « ancien locataire » d'un lot du MÊME bailleur
+// reste proposé (⑦.5 d). Sans périmètre : tous les baux (« Voir tout », ponctuel, par ligne).
+function _bankBauxContext(perimetre) {
   const out = {};
   for (const [ref, b] of Object.entries(DB.baux || {})) {
     if (!b || b._deleted) continue;
@@ -27101,7 +27104,49 @@ function _bankBauxContext() {
     if (out[b.ref]) continue;              // un bail actif prime sur son archive
     out[b.ref] = Object.assign({}, b, { cloture: true });
   }
-  return out;
+  return perimetre ? window._bankBauxDuPerimetre(out, perimetre) : out;
+}
+
+// Périmètre du compte de l'import en cours pour la reconnaissance du locataire (`tout` = « Voir tout »
+// demandé sur CETTE ligne). Un compte mixte garde tous les baux (classement manuel) ; le repli sur
+// l'entité active du filtre global ne s'applique pas ici : une proposition ne doit pas dépendre d'un filtre d'affichage.
+function _bankPerimetreImport(tout) {
+  return window._bankPerimetre(_currentBankAccount, { entites: DB.entites || [], logements: DB.logements || [] }, { tout: !!tout });
+}
+
+// Proposition « locataire reconnu » d'une ligne : même calcul pour la revue initiale et pour
+// « Chercher chez tous les bailleurs ». Les champs de CLASSEMENT (catégorie, logement) ne sont
+// touchés que si la ligne n'est pas déjà classée à la main (jamais d'écrasement silencieux).
+function _bankApplyHeuristic(line, ctx, preserveEdits) {
+  const m = window._bankMatchHeuristic(line, ctx);
+  if (!preserveEdits) {
+    line.suggestedCat = m.cat || '';
+    line.suggestedQui = m.qui || '';
+    line.suggestedImm = '';
+    line.suggestedCc  = '';
+  }
+  line.confidence   = m.confidence || 0;
+  line.matchSource  = m.source || '';
+  line._byRule      = false;
+  // ⑦.5 b — proposition ambiguë : les candidats sont exposés, aucun gagnant.
+  line._ambiguous   = !!m.ambiguous;
+  line._candidates  = (m.candidates && m.candidates.length > 1) ? m.candidates : null;
+}
+
+// Lien « Chercher chez tous les bailleurs » du bandeau de proposition (et retour au bailleur du compte).
+function _bankProposTout(i, on) {
+  const line = _bankImportLines[i]; if (!line) return;
+  line._bauxTout = !!on;
+  const ctx = _bankHeuristicCtx(line);
+  _bankApplyHeuristic(line, ctx, !!(line._userEdited || line._reviewed));
+  if (_bankMvIdx === i) _bankWalkRender(); else _bankRenderReviewBody();
+  _bankUpdateCounts();
+}
+function _bankHeuristicCtx(line) {
+  return {
+    baux: _bankBauxContext(_bankPerimetreImport(!!(line && line._bauxTout))),
+    duMois: (typeof _duMoisLot === 'function') ? ((ref, ym) => _duMoisLot(ref, ym)) : null,
+  };
 }
 
 // Étape finale commune : règles → propositions → dédup → rendu.
@@ -27122,10 +27167,10 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
   }
   // ⑦.5 c — le dû comparé est celui du MOIS DU RELEVÉ : on passe le résolveur unique
   // de l'app (_duMoisLot → duMoisFromRaw), jamais le loyer d'aujourd'hui.
-  const ctx = {
-    baux: _bankBauxContext(),
-    duMois: (typeof _duMoisLot === 'function') ? ((ref, ym) => _duMoisLot(ref, ym)) : null,
-  };
+  // Phase 5 (D6) : les baux proposés sont ceux du bailleur du compte (`_bankHeuristicCtx`, par ligne
+  // car « Chercher chez tous les bailleurs » est un choix ponctuel posé sur la ligne : `_bauxTout`).
+  const _ctxCache = {};
+  const _ctxOf = line => { const k = line._bauxTout ? 'tout' : 'per'; return _ctxCache[k] || (_ctxCache[k] = _bankHeuristicCtx(line)); };
   lines.forEach(line => {
     // 🐛 AUDIT C3 — CE QUE L'UTILISATEUR A SAISI NE SE FAIT JAMAIS ÉCRASER.
     // Les règles étaient réappliquées à TOUTES les lignes : mémoriser une règle après
@@ -27141,17 +27186,7 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
       // ⑧.1 v2 — une ligne reprise « en attente » garde la saisie (non validée) de la
       // dernière fois si aucune règle ne la couvre désormais : on ne refait pas son travail.
       if (line._pending && (line.suggestedCat || line.suggestedQui || line.suggestedImm || line.suggestedCc)) return;
-      const m = window._bankMatchHeuristic(line, ctx);
-      line.suggestedCat = m.cat || '';
-      line.suggestedQui = m.qui || '';
-      line.suggestedImm = '';
-      line.suggestedCc  = '';
-      line.confidence   = m.confidence || 0;
-      line.matchSource  = m.source || '';
-      line._byRule      = false;
-      // ⑦.5 b — proposition ambiguë : les candidats sont exposés, aucun gagnant.
-      line._ambiguous   = !!m.ambiguous;
-      line._candidates  = (m.candidates && m.candidates.length > 1) ? m.candidates : null;
+      _bankApplyHeuristic(line, _ctxOf(line), false);
     }
     // V3-REFONTE-LOYERS Phase 4 : détecte un relevé de gérance (1 virement agrégeant plusieurs loyers − frais)
     // → on proposera de le découper (split multi-sens). Accent-insensible.
@@ -27162,7 +27197,7 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
   // banque, l'index des identifiants doit être limité au compte qu'on importe.
   _bankImportLines = window._bankDedup(lines, DB.mouvements || [],
     { accountId: _currentBankAccount && _currentBankAccount.id });
-  _bankReviewTab = 'todo'; _bankOpen = -1; _affScopeAll = false; _bankReviewedOk = false; // V3 Phase 3 : revue fraîche à chaque import (A7 : reconnus pas encore vérifiés)
+  _bankReviewTab = 'todo'; _bankOpen = -1; _affScopeAll = false; _affToutPar = {}; _bankReviewedOk = false; // V3 Phase 3 : revue fraîche à chaque import (A7 : reconnus pas encore vérifiés)
   _bankImportRenderPreview(format, prefixHtml || '');
 }
 
@@ -27761,6 +27796,7 @@ function _bankImportRenderPreview(format, prefixHtml) {
     : ((_acct && !_acct.mixte && _acct.bailleur) ? { niv: 'sci', cible: _acct.bailleur }
        : ((typeof _finActiveEnt === 'function' && _finActiveEnt()) ? { niv: 'sci', cible: _finActiveEnt() } : null));
   _affScopeAll = false;
+  _affToutPar = {};   // phase 5 : « Voir tout » ponctuel, remis à zéro à chaque rendu de la revue (comme avant)
   const tabBtn = (key, lbl, n, bg) => `<button onclick="_bankSetTab('${key}')" style="border:0;border-bottom:2.5px solid ${_bankReviewTab===key?'var(--cta,#3b7ef6)':'transparent'};background:none;color:${_bankReviewTab===key?'var(--cta,#3b7ef6)':'var(--t2)'};padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer">${lbl} <span id="bank-tab-${key}" style="display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:${_bankReviewTab===key?'var(--cta,#3b7ef6)':'var(--bor)'};color:${_bankReviewTab===key?'#fff':'var(--t2)'};font-size:11px;padding:0 5px">${n}</span></button>`;
   preview.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl,14px);padding:9px 14px;margin-bottom:12px">
@@ -27794,11 +27830,11 @@ function _bankScopeBar() {
     ? '<span title="Compte mixte : Propryo ne peut pas deviner l\'entité, classement manuel">' + _uiIcon('people',13) + ' <b>Compte mixte</b></span>'
     : (acct.bailleur ? _uiIcon('bank',13) + ' <b>' + escHtml(acct.bailleur) + '</b>' : '<span style="color:var(--ora)">' + _uiIcon('warn',13) + ' bailleur non renseigné</span>');
   // Les immeubles proposés sont ceux du bailleur du compte (sauf compte mixte).
+  // Phase 5 : même calcul pur que partout ailleurs (`_bankPerimetre`), SANS le périmètre immeuble
+  // (ce sélecteur sert justement à le choisir) : les immeubles du bailleur du compte.
   const immsAll = (typeof immeubles === 'function' ? immeubles() : []);
-  const imms = (acct.mixte || !acct.bailleur) ? immsAll : immsAll.filter(im => {
-    const e = (DB.entites || []).filter(_isAlive).find(x => (x.immeubles || []).some(y => y && y.nom === im));
-    return !e || e.nom === acct.bailleur;
-  });
+  const _perBar = window._bankPerimetre({ bailleur: acct.bailleur, mixte: acct.mixte }, { entites: DB.entites || [], logements: DB.logements || [] });
+  const imms = immsAll.filter(im => _perBar.immeubleOk(im) || (sc && sc.cible === im));
   const immOpts = imms.map(im => `<option value="imm:${escHtml(im)}" ${sc&&sc.cible===im?'selected':''}>🏢 ${escHtml(im)}</option>`).join('');
   return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--acc-bg);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-size:12px">
     <span>${_uiIcon('doc',14)} <b>Compte :</b> ${escHtml(acct.label||'Compte')}</span>
@@ -28062,7 +28098,21 @@ function _bankProposPanelHtml(i) {
     + (amb ? '' : '<span class="mu sm" style="margin-left:6px">' + escHtml(line.matchSource || '') + '</span>')
     + '<div class="mu sm" style="font-size:11.5px;margin-top:3px">C\'est une proposition, pas un classement : elle attend ta validation.</div>'
     + (rows ? '<div style="margin-top:7px">' + rows + '</div>' : '')
+    + _bankProposPerimBar(i, line)
     + '</div>';
+}
+
+// Phase 5 (D6) — périmètre de la reconnaissance du locataire : limité aux baux du bailleur du compte,
+// avec « Chercher chez tous les bailleurs » (ponctuel, sur cette ligne) et retour ; compte sans bailleur : avertissement.
+function _bankProposPerimBar(i, line) {
+  const per = _bankPerimetreImport(!!line._bauxTout);
+  if (!per.limite && !per.elargi && !per.warn) return '';
+  const qui = per.mode === 'imm' ? ('l\'immeuble ' + per.cible) : (per.bailleur || 'ce bailleur');
+  const btn = (on, lbl) => '<button type="button" class="btn bs" style="min-height:44px;font-size:12px;padding:0 12px" onclick="_bankProposTout(' + i + ',' + on + ')">' + lbl + '</button>';
+  const box = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding:6px 10px;border:1px solid var(--bor);border-radius:8px;font-size:12px;background:var(--sur,#fff)';
+  if (per.elargi) return '<div style="' + box + '"><span style="flex:1;min-width:140px">' + _uiIcon('bank', 13) + ' Locataires de <b>tous les bailleurs</b></span>' + btn(false, 'Revenir à ' + escHtml(qui)) + '</div>';
+  if (per.limite) return '<div style="' + box + '"><span style="flex:1;min-width:140px">' + _uiIcon('bank', 13) + ' Locataires de <b>' + escHtml(qui) + '</b> seulement</span>' + btn(true, 'Chercher chez tous les bailleurs') + '</div>';
+  return '<div style="' + box + ';color:var(--ora)">' + _uiIcon('warn', 13) + ' <span>' + escHtml(per.warn) + '</span></div>';
 }
 
 // Choisir un candidat de proposition ambiguë : on applique le lot retenu à CETTE ligne.
@@ -28457,7 +28507,7 @@ function _bankRuleOpen(ref, fromLine, fromMvId) {
   if (r) {
     const dr = window._bankRuleToDraft(r);
     _bankRuleDraft = { id: String(r.id), pattern: [...dr.mots, ...dr.motsLibres].join(' '), motsEntiers: dr.mots.slice(),
-      sens: dr.sens, compte: dr.compte ? String(dr.compte) : '', compteFixe: !!dr.compte, montant: dr.montant, exceptions: dr.exceptions,
+      sens: dr.sens, compte: dr.compte ? String(dr.compte) : '', compteFixe: !!dr.compte, compteOrigine: dr.compte ? 'regle' : 'aucun', montant: dr.montant, exceptions: dr.exceptions,
       cat: dr.cat, qui: dr.qui, imm: dr.imm, cc: dr.compteurCcId, bdc: dr.bailleurDuCompte, historique: dr.historique,
       src: null, srcIndex: -1, srcMvId: null };
   } else {
@@ -28465,10 +28515,16 @@ function _bankRuleOpen(ref, fromLine, fromMvId) {
       ? { date: line.date, libelle: line.libelle, credit: line.credit, debit: line.debit, fitid: line.fitid, _fingerprint: line._fingerprint }
       : (mv ? { date: mv.date, libelle: mv.lib || '', credit: Number(mv.cr) || 0, debit: Number(mv.db) || 0, fitid: mv.fitid,
           _fingerprint: mv._fingerprint, _bankAccountId: mv._bankAccountId } : null);
-    const compte = line ? String(_currentBankAccount.id) : (mv ? String(mv._bankAccountId) : '');
+    // Phase 5 (décision Didier) : un compte déjà choisi pour l'import en cours est REPRIS, y
+    // compris pour une règle créée « à froid » pendant l'import ; sélecteur seulement sans compte.
+    const ci = window._bankRuleCompteInitial({ edit: false,
+      lineAccountId: line ? _currentBankAccount.id : null,
+      mvAccountId: mv ? mv._bankAccountId : null,
+      importAccountId: imp ? _currentBankAccount.id : null });
+    const compte = ci.compte;
     _bankRuleDraft = { id: '', pattern: '', motsEntiers: [],
       sens: src ? ((Number(src.credit) || 0) > 0 ? 'cr' : 'db') : '',
-      compte, compteFixe: !!compte, montant: null, exceptions: [],
+      compte, compteFixe: ci.fixe, compteOrigine: ci.origine, montant: null, exceptions: [],
       cat: line ? (line.suggestedCat || '') : (mv ? (mv.cat || '') : ''),
       qui: line ? (line.suggestedQui || '') : (mv ? (mv.qui || '') : ''),
       imm: line ? (line.suggestedImm || '') : (mv ? (mv.imm || '') : ''),
@@ -28476,6 +28532,7 @@ function _bankRuleOpen(ref, fromLine, fromMvId) {
       bdc: false, historique: false,
       src, srcIndex: line ? fromLine : -1, srcMvId: mv ? mv.id : null };
   }
+  delete _affToutPar.brule;   // phase 5 : « Voir tout » ne survit pas d'une ouverture à l'autre
   const t = el('bank-rule-title'); if (t) t.textContent = edit ? '✏️ Modifier la règle' : '💾 Mémoriser une règle';
   const d = el('bank-rule-del'); if (d) d.style.display = edit ? '' : 'none';
   const s = el('bank-rule-save'); if (s) s.textContent = edit ? 'Enregistrer' : 'Créer la règle';
@@ -28516,7 +28573,7 @@ function _bankRuleRender() {
   if (d.compteFixe) {
     const a = accounts.find(x => String(x.id) === String(d.compte));
     compteHtml = '<select class="inp" disabled><option>' + (a ? accLbl(a) : 'compte supprimé') + '</option></select>'
-      + '<div class="mu sm" style="font-size:11.5px;margin-top:4px">' + (d.src ? 'Repris ' + (d.srcMvId != null ? 'du mouvement' : 'de l\'import') + ' : ' : '') + 'une règle ne s\'applique qu\'à son compte.</div>';
+      + '<div class="mu sm" style="font-size:11.5px;margin-top:4px">' + (d.compteOrigine === 'regle' ? '' : 'Repris ' + (d.srcMvId != null ? 'du mouvement' : 'de l\'import') + ' : ') + 'une règle ne s\'applique qu\'à son compte.</div>';
   } else {
     compteHtml = '<select class="inp" onchange="_bankRuleSet(\'compte\',this.value)"><option value="">— choisir le compte (obligatoire) —</option>'
       + accounts.map(a => '<option value="' + escHtml(a.id) + '"' + (String(d.compte) === String(a.id) ? ' selected' : '') + '>' + accLbl(a) + '</option>').join('')
@@ -28601,6 +28658,7 @@ function _bankRuleOnCat() {
 function _bankRuleSet(k, v) {
   if (!_bankRuleDraft) return;
   _bankRuleDraft[k] = v;
+  if (k === 'compte') delete _affToutPar.brule;   // phase 5 : autre compte = autre périmètre, « Voir tout » retombe
   if (k === 'pattern') { _bankRulePreviewRender(); return; }   // pas de re-render : on garde le focus
   _bankRuleRender();
 }
@@ -30347,6 +30405,7 @@ function _finDrillLigne(kind, yr, mo) {
         ? (one ? 'Versement non réparti par logement.' : nvCount + ' versements non répartis — un par un.')
         : (one ? 'Mouvement non rattaché à un bien.' : nvCount + ' mouvements non rattachés — un par un.');
       const tgtLib = esc(dfr(tgt.date).slice(0, 5)) + ' · ' + esc(tgt.lib || tgt.cat || '—') + ' · ' + f(Math.abs(tgt.montant || 0));
+      window._fdrAffMvId = nvIds.length ? nvIds[0] : null;   // phase 5 : le picker « Affecter » suit le bailleur du compte de CE mouvement (`_affCompteDe`)
       body += '<div class="fdr-nv">'
         + '<div class="hd"><span class="am">' + f(nvSum) + '</span>'
         +   '<span class="badge ora">' + (total !== 0 ? Math.round(Math.abs(nvSum / total) * 100) + ' % du poste' : 'non ventilé') + '</span>'

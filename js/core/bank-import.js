@@ -2258,6 +2258,142 @@ export function _bankAffectationConflict(account, entiteCible) {
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// REGLES-REFONTE phase 5 — PÉRIMÈTRE PAR BAILLEUR (D6) + compte repris d'un import
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Compte d'une règle à l'ouverture de la fenêtre (décision Didier du 06/10, correction de la
+ * phase 4). Le compte est REPRIS (lecture seule) dès qu'un compte est déjà connu ; le sélecteur
+ * n'existe que s'il n'y en a aucun :
+ *  - ligne d'import      → le compte de l'import ;
+ *  - mouvement enregistré → le compte du mouvement ;
+ *  - création « à froid » PENDANT un import (Réglages, « Mes règles »…) → le compte de l'import ;
+ *  - création « à froid » hors import → sélecteur ;
+ *  - règle existante avec compte → son compte (lecture seule) ; sans compte (historique) → sélecteur.
+ * Fonction PURE.
+ * @param {{edit?:boolean, ruleCompte?:*, lineAccountId?:*, mvAccountId?:*, importAccountId?:*}} p
+ * @returns {{compte:string, fixe:boolean, origine:'regle'|'ligne'|'mouvement'|'import'|'aucun'}}
+ */
+export function _bankRuleCompteInitial(p = {}) {
+  const has = v => v != null && String(v) !== '';
+  if (p.edit) {
+    return has(p.ruleCompte)
+      ? { compte: String(p.ruleCompte), fixe: true, origine: 'regle' }
+      : { compte: '', fixe: false, origine: 'aucun' };
+  }
+  if (has(p.lineAccountId)) return { compte: String(p.lineAccountId), fixe: true, origine: 'ligne' };
+  if (has(p.mvAccountId)) return { compte: String(p.mvAccountId), fixe: true, origine: 'mouvement' };
+  if (has(p.importAccountId)) return { compte: String(p.importAccountId), fixe: true, origine: 'import' };
+  return { compte: '', fixe: false, origine: 'aucun' };
+}
+
+/**
+ * D6 — Le compte appartient à un BAILLEUR : tout ce qui est proposé pour un mouvement de ce
+ * compte (logements, immeubles, SCI, compteurs, locataires reconnus) est limité à ce bailleur.
+ * Fonction PURE (aucune lecture de DB : l'appelant passe `data`).
+ *
+ * Règles (jamais d'élargissement silencieux) :
+ *  - `opts.tout` (« Voir tout », ponctuel, choisi par l'utilisateur) : rien n'est filtré ;
+ *  - compte avec périmètre immeuble (`scope:{niv:'imm',cible}`) : cet immeuble seulement
+ *    (même pour un compte mixte : l'utilisateur l'a demandé) ;
+ *  - compte mixte : plusieurs bailleurs, pas de filtre (classement manuel) ;
+ *  - compte SANS bailleur ni mixte : comportement sûr = TOUT est proposé et `warn` l'explique
+ *    (on ne cache jamais rien en silence faute de savoir à qui appartient le compte) ;
+ *  - un bien dont le propriétaire est INCONNU (logement sans entité, immeuble introuvable,
+ *    bail d'un lot qui n'existe plus) reste proposé : on ne masque que ce qu'on SAIT être à un
+ *    autre bailleur.
+ *
+ * @param {{bailleur?:string, mixte?:boolean, scope?:{niv:string,cible:string}}|null} account
+ * @param {{entites?:object[], logements?:object[]}} data — entités (nom, immeubles[{nom}]) et logements (ref, imm, entity)
+ * @param {{tout?:boolean}} [opts]
+ * @returns {{
+ *   mode:'tout'|'bailleur'|'imm'|'mixte'|'sans-bailleur'|'aucun-compte', limite:boolean, elargi:boolean,
+ *   bailleur:string, cible:string, warn:string,
+ *   logementOk:(l:object)=>boolean, immeubleOk:(nom:string)=>boolean, entiteOk:(nom:string)=>boolean,
+ *   bailOk:(ref:string, bail?:object)=>boolean
+ * }}
+ */
+export function _bankPerimetre(account, data, opts = {}) {
+  const d = data || {};
+  const entites = (d.entites || []).filter(e => e && !e._deleted);
+  const logements = (d.logements || []).filter(l => l && !l._deleted);
+  const N = _bankNormTxt;
+  const tout = !!(opts && opts.tout);
+  const scope = account && account.scope && account.scope.niv === 'imm' && account.scope.cible ? account.scope : null;
+  const bailleur = account && !account.mixte && account.bailleur && String(account.bailleur).trim() ? String(account.bailleur).trim() : '';
+
+  let mode;
+  if (!account) mode = 'aucun-compte';
+  else if (scope) mode = 'imm';
+  else if (account.mixte) mode = 'mixte';
+  else if (bailleur) mode = 'bailleur';
+  else mode = 'sans-bailleur';
+  const filtre = mode === 'imm' || mode === 'bailleur';
+  const actif = filtre && !tout;
+  const warn = (mode === 'sans-bailleur')
+    ? 'Ce compte n’a pas de bailleur : tout le patrimoine est proposé. Renseigne son bailleur pour limiter les listes.'
+    : '';
+
+  // Propriétaire(s) d'un immeuble : entités qui le déclarent + entité de ses logements.
+  const ownersOfImm = (nom) => {
+    const out = new Set();
+    const n = N(nom);
+    if (!n) return out;
+    entites.forEach(e => { if ((e.immeubles || []).some(i => i && !i._deleted && N(i.nom) === n)) out.add(N(e.nom)); });
+    logements.forEach(l => { if (N(l.imm) === n && l.entity) out.add(N(l.entity)); });
+    return out;
+  };
+  const sameBailleur = (owner) => N(owner) === N(bailleur);
+  const cibleImm = scope ? N(scope.cible) : '';
+  const cibleOwners = scope ? ownersOfImm(scope.cible) : new Set();
+
+  const logementOk = (l) => {
+    if (!actif || !l) return true;
+    if (mode === 'imm') return N(l.imm) === cibleImm;
+    return !l.entity || sameBailleur(l.entity);
+  };
+  const immeubleOk = (nom) => {
+    if (!actif) return true;
+    if (mode === 'imm') return N(nom) === cibleImm;
+    const o = ownersOfImm(nom);
+    return o.size === 0 || o.has(N(bailleur));
+  };
+  const entiteOk = (nom) => {
+    if (!actif) return true;
+    if (mode === 'imm') return cibleOwners.size === 0 || cibleOwners.has(N(nom));
+    return sameBailleur(nom);
+  };
+  const bailOk = (ref, bail) => {
+    if (!actif) return true;
+    const lg = logements.find(l => l.ref === ref);
+    if (lg) return logementOk(lg);
+    // Lot disparu de la liste (supprimé / archivé hors données) : on s'en remet au bail s'il porte son entité.
+    const ent = bail && (bail.entity || bail.entite);
+    if (mode === 'bailleur' && ent) return sameBailleur(ent);
+    return true;
+  };
+  return {
+    mode, limite: actif, elargi: filtre && tout, bailleur, cible: scope ? String(scope.cible) : '', warn,
+    logementOk, immeubleOk, entiteOk, bailOk,
+  };
+}
+
+/**
+ * Baux proposés pour la reconnaissance du locataire (« Proposition — locataire reconnu »),
+ * limités au périmètre du compte. Le bail CLOS « ancien locataire » d'un lot du MÊME bailleur
+ * reste proposé (CDC ⑦.5 d). Fonction PURE : renvoie un NOUVEL objet {ref → bail}.
+ * @param {Object<string,object>} baux — {ref → bail} (baux actifs + clos marqués `cloture`)
+ * @param {ReturnType<typeof _bankPerimetre>} perimetre
+ */
+export function _bankBauxDuPerimetre(baux, perimetre) {
+  const out = {};
+  for (const [ref, bail] of Object.entries(baux || {})) {
+    if (!perimetre || perimetre.bailOk(ref, bail)) out[ref] = bail;
+  }
+  return out;
+}
+
 /**
  * ⑤.1 — Migration DOUCE et IDEMPOTENTE des comptes : l'ancien pointeur unique
  * (`lastImport.fingerprint`) devient une liste des **10 dernières empreintes**.

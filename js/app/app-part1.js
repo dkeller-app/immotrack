@@ -377,6 +377,9 @@ const STD_CATEGORIES = [
   { nom: 'Taxe foncière (et taxes annexes)',                ligne2044:'227', type:'charge',  niv:'imm', icon:'🏛️', editable:false, deletable:false, std:true, descHors:'⚠️ La TEOM (ordures) est récupérable sur le locataire — pas une charge nette du bailleur.' },
   { nom: 'Charges de copropriété',                          ligne2044:'229', type:'charge',  niv:'imm', repartImm:true, icon:'🏢', editable:false, deletable:false, std:true, descHors:'Appels de fonds versés au syndic (total de l\'année). Part récupérable → réparti via compteur.' },
   { nom: 'Prêt — Intérêts d\'emprunt',                      ligne2044:'250', type:'interet', niv:'imm', icon:'💳', editable:false, deletable:false, std:true, pickerHidden:true, descHors:'Intérêts + frais accessoires (dossier, hypothèque, cautionnement, agios, assurance emprunteur). Saisis par l\'utilisateur via « 🧮 Renseigner les intérêts d\'emprunt » (attestation annuelle de banque) — HORS menu de saisie libre, mais conservé pour le mapping 2044 ligne 250.' },
+  // D1 (retours 05/10, décision Didier 06/10) : assurance emprunteur prélevée À PART de l'échéance → ligne 250 avec les intérêts.
+  // Placée APRÈS « Prêt — Intérêts d'emprunt » : `_finStdByLigne('250')` (premier STD de la ligne) doit rester cette dernière.
+  { nom: 'Prêt — Assurance emprunteur',                     ligne2044:'250', type:'interet', niv:'imm', icon:'🛡️', editable:false, deletable:false, std:true, descHors:'Assurance emprunteur prélevée à part de l\'échéance. Si ta banque l\'inclut déjà dans l\'attestation annuelle d\'intérêts, ne la saisis pas ici (double compte).' },
   // ── CHARGES RÉCUPÉRABLES (hors 2044, réparties par compteur) ────────────────
   { nom: 'Charges récupérables (eau, énergie…)',            ligne2044:'',    type:'special', recup:true, icon:'⚡', editable:false, deletable:false, std:true, descHors:'Eau, énergie, ascenseur, entretien commun… payés en direct et récupérés sur les locataires via un compteur collectif. Hors 2044 (la part non récupérée remonte en ligne 225 par la régul).' },
   // ── HORS RÉSULTAT FONCIER ──────────────────────────────────────────────────
@@ -429,6 +432,7 @@ const _CAT_ICON_SVG = {
   'Charges de copropriété': '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10.5 21v-4h3v4"/>',
   'Prêt — Intérêts d\'emprunt': '<path d="M5 19L19 5"/><circle cx="7.3" cy="7.3" r="2.3"/><circle cx="16.7" cy="16.7" r="2.3"/>',
   'Charges récupérables (eau, énergie…)': '<path d="M12 3.5s6 6.2 6 10.2a6 6 0 01-12 0C6 9.7 12 3.5 12 3.5Z"/><path d="M12.5 9l-2 4h3l-2 4"/>',
+  'Prêt — Assurance emprunteur': '<path d="M12 3l7 2.5v5.4c0 4-3 6.6-7 7.6-4-1-7-3.6-7-7.6V5.5L12 3Z"/><path d="M9 12l2 2 4-4"/>',
   'Prêt': '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3.5"/>',
   'Frais bancaires': '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 9.5h12a2 2 0 010 4H3"/><circle cx="17" cy="12" r="1.1" fill="currentColor" stroke="none"/>',
   'Acquisition / cession de bien': '<circle cx="8" cy="8" r="4"/><path d="M10.9 10.9L20 20M16.6 16.6l2.2-2.2M18.8 18.8l1.8-1.8"/>',
@@ -11919,6 +11923,74 @@ let _affPk = null;    // V3-REFONTE-LOYERS Phase 2 — picker cherchable (logeme
 let _affScope = null;    // V3 Phase 3 — périmètre du picker logement (compte = périmètre) : { niv:'sci'|'imm', cible } ou null (= tout le patrimoine).
 let _affScopeAll = false; // échappatoire « voir tout le patrimoine » dans le picker (réinitialisée à chaque rendu de revue d'import).
 
+// ── REGLES-REFONTE phase 5 (D6) — PÉRIMÈTRE PAR BAILLEUR ─────────────────────────────────────
+// Le compte appartient à un bailleur : tout ce qui est proposé pour un mouvement de ce compte
+// (logements, immeubles, SCI, compteurs via l'immeuble) est limité à ce bailleur. Le calcul est
+// pur et testé (`_bankPerimetre`, js/core/bank-import.js). « Voir tout » élargit PONCTUELLEMENT,
+// par instance (tgt), sur clic explicite ; remis à zéro à chaque nouvelle revue d'import et à
+// chaque ouverture de la fenêtre règle. Jamais d'élargissement silencieux.
+let _affToutPar = {};   // { <tgt>: true } — « Voir tout » demandé pour cette instance
+
+// Compte bancaire rattaché à une instance de la zone d'affectation (null = aucun compte connu,
+// donc aucun filtre : formulaire de mouvement manuel, carte Finances « non ventilé »…).
+//  imp<i> : ligne de l'import en cours · brule : fenêtre règle (compte du brouillon)
+//  sp<j>  : découpage d'une ligne d'import OU d'un mouvement enregistré · mv : fiche d'un mouvement.
+function _affCompteDe(tgt) {
+  const t = String(tgt || '');
+  const accs = (DB.params && DB.params.bankAccounts) || [];
+  const byId = id => (id != null && id !== '') ? (accs.find(a => a && !a._deleted && String(a.id) === String(id)) || null) : null;
+  try {
+    if (/^imp\d+$/.test(t)) return (typeof _currentBankAccount !== 'undefined') ? _currentBankAccount : null;
+    if (t === 'brule') return (typeof _bankRuleDraft !== 'undefined' && _bankRuleDraft) ? byId(_bankRuleDraft.compte) : null;
+    if (/^sp\d+$/.test(t)) {
+      if (window._spMvImportIdx != null) return (typeof _currentBankAccount !== 'undefined') ? _currentBankAccount : null;
+      if (window._spMvId != null) { const m = (DB.mouvements || []).find(x => x && x.id === window._spMvId); return m ? byId(m._bankAccountId) : null; }
+      return null;
+    }
+    if (t === 'fdrAff') {
+      const m = (DB.mouvements || []).find(x => x && x.id === window._fdrAffMvId);
+      return m ? byId(m._bankAccountId) : null;
+    }
+    if (t === 'mv') {
+      const eid = el('mv-edit-id') ? el('mv-edit-id').value : '';
+      if (!eid) return null;
+      const m = (DB.mouvements || []).find(x => x && String(x.id) === String(eid));
+      return m ? byId(m._bankAccountId) : null;
+    }
+  } catch (e) {}
+  return null;
+}
+// Périmètre de l'instance. Un compte MIXTE sans périmètre propre retombe, comme avant, sur
+// l'entité active du filtre global (« bailleur actif ») quand il y en a une.
+function _affPerim(tgt) {
+  let acct = _affCompteDe(tgt);
+  if (acct && acct.mixte && !(acct.scope && acct.scope.niv === 'imm' && acct.scope.cible)
+      && typeof _finActiveEnt === 'function' && _finActiveEnt()) {
+    acct = { bailleur: _finActiveEnt(), mixte: false };
+  }
+  return window._bankPerimetre(acct, { entites: DB.entites || [], logements: DB.logements || [] }, { tout: !!_affToutPar[tgt] });
+}
+function _affPerimToggle(id, tgt, on) {
+  if (on) _affToutPar[tgt] = true; else delete _affToutPar[tgt];
+  if (_affPk && _affPk.id === id && _affPk.tgt === tgt) _affPkFill(); else _affRender(id, tgt);
+}
+// Bandeau de périmètre : ce qui est limité, combien d'éléments sont masqués, et le bouton
+// « Voir tout » (≥ 44 px) ; en mode élargi, le retour au périmètre du compte ; compte sans
+// bailleur : avertissement (tout est proposé).
+function _affPerimBar(id, tgt, per, masques) {
+  if (!per || (!per.limite && !per.elargi && !per.warn)) return '';
+  const qui = per.mode === 'imm' ? ('l\'immeuble ' + per.cible) : (per.bailleur || 'ce bailleur');
+  const btn = (on, lbl) => '<button type="button" class="btn bs" style="min-height:44px;font-size:12px;padding:0 12px" onclick="_affPerimToggle(\'' + id + '\',\'' + tgt + '\',' + on + ')">' + lbl + '</button>';
+  const box = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:6px 10px;border:1px solid var(--bor);border-radius:8px;font-size:12px;';
+  if (per.warn && !per.limite && !per.elargi) {
+    return '<div class="affv2-perim" style="' + box + 'background:var(--sur2);color:var(--ora)">' + _uiIcon('warn', 13) + ' <span>' + escHtml(per.warn) + '</span></div>';
+  }
+  if (per.elargi) {
+    return '<div class="affv2-perim" style="' + box + 'background:var(--sur2)">' + _uiIcon('bank', 13) + ' <span style="flex:1;min-width:140px"><b>Tout le patrimoine</b> (au lieu de ' + escHtml(qui) + ')</span>' + btn(false, 'Revenir à ' + escHtml(qui)) + '</div>';
+  }
+  return '<div class="affv2-perim" style="' + box + 'background:var(--acc-bg)">' + _uiIcon('bank', 13) + ' <span style="flex:1;min-width:140px">Limité à <b>' + escHtml(qui) + '</b>' + (masques > 0 ? ' · ' + masques + ' masqué' + (masques > 1 ? 's' : '') : '') + '</span>' + btn(true, 'Voir tout') + '</div>';
+}
+
 // Rend la zone d'affectation dans #<id>-aff ; tgt = préfixe des champs cibles (qui/imm/cc), ex 'mv'.
 function _affRender(id, tgt) {
   const host = el(id + '-aff'); if (!host) return;
@@ -11932,10 +12004,16 @@ function _affRender(id, tgt) {
   const pills = '<div class="affv2-lvl">' + _AFF_NIV.map(n => '<button type="button" class="' + (n.k === niv ? 'on' : '') + ((n.k === catSugg && n.k !== niv) ? ' sugg' : '') + '" onclick="_affSetNiv(\'' + id + '\',\'' + tgt + '\',\'' + n.k + '\')"><span class="e">' + _affNivIconSvg(n.k, 15) + '</span>' + n.lbl + '</button>').join('') + '</div>';
   const opt = (val, label, sel) => '<option value="' + escHtml(val) + '"' + (sel ? ' selected' : '') + '>' + escHtml(label) + '</option>';
   let field = '';
+  const per = _affPerim(tgt);                                // phase 5 : périmètre du bailleur du compte
+  const immAll = (typeof immeubles === 'function' ? immeubles() : []);
+  const immVis = immAll.filter(im => per.immeubleOk(im) || im === imm);   // la valeur déjà choisie reste toujours listée
+  let masques = 0;
   if (niv === 'log') {
     field = _affLogBtn(id, tgt, qui);                                       // V3 Phase 2 : picker cherchable en overlay (tient 180 lots)
+    masques = _activeLogements().filter(l => !per.logementOk(l)).length;
   } else if (niv === 'imm') {
-    const o = (typeof immeubles === 'function' ? immeubles() : []).map(im => opt(im, im, imm === im && !qui)).join('');
+    masques = immAll.length - immVis.length;
+    const o = immVis.map(im => opt(im, im, imm === im && !qui)).join('');
     field = '<select class="inp" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'imm\',this.value)"><option value="">— quel immeuble ? —</option>' + o + '</select>';
   } else if (niv === 'sci') {
     // ④.1 / SMOKE 14/08 — le compte porte son bailleur : en contexte d'import il est
@@ -11956,15 +12034,19 @@ function _affRender(id, tgt) {
       if (_pln && !_pln.suggestedQui && !_pln.suggestedImm && !_pln.suggestedCc) _pln.suggestedQui = quiSci;
       if (typeof _bankWalkRefreshValidate === 'function') setTimeout(_bankWalkRefreshValidate, 0);
     }
-    const o = DB.entites.filter(_isAlive).filter(e => e.type && e.type.startsWith('SCI')).map(e => opt('SCI:' + e.nom, e.nom, quiSci === 'SCI:' + e.nom)).join('');
+    const sciAll = DB.entites.filter(_isAlive).filter(e => e.type && e.type.startsWith('SCI'));
+    const sciVis = sciAll.filter(e => per.entiteOk(e.nom) || quiSci === 'SCI:' + e.nom);
+    masques = sciAll.length - sciVis.length;
+    const o = sciVis.map(e => opt('SCI:' + e.nom, e.nom, quiSci === 'SCI:' + e.nom)).join('');
     field = '<select class="inp" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'sci\',this.value)"><option value="">— quelle entité ? —</option>' + o + '</select>';
   } else if (niv === 'recup') {
-    const o = (typeof immeubles === 'function' ? immeubles() : []).map(im => opt(im, im, imm === im)).join('');
+    masques = immAll.length - immVis.length;
+    const o = immVis.map(im => opt(im, im, imm === im)).join('');
     field = '<div class="mu sm" style="margin-bottom:6px">Se récupère sur les locataires → réparti via un poste de charge (au lieu de déduire aux impôts).</div>'
       + '<select class="inp" style="margin-bottom:6px" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'recupImm\',this.value)"><option value="">— quel immeuble ? —</option>' + o + '</select>'
       + '<select class="inp" id="' + id + '-cc-comp" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'cc\',this.value)"><option value="">— choisis d\'abord l\'immeuble —</option></select>';
   }
-  host.innerHTML = pills + field + _affDestBadge(id, tgt, niv);
+  host.innerHTML = pills + field + _affPerimBar(id, tgt, per, masques) + _affDestBadge(id, tgt, niv);
   if (niv === 'recup') _affSyncCompteurs(id, tgt);
   if (_affPk && _affPk.id === id && _affPk.tgt === tgt) host.insertAdjacentHTML('beforeend', _affPkOverlay(id, tgt)); // picker logement ouvert
 }
@@ -12016,7 +12098,12 @@ function _affSyncCompteurs(id, tgt) {
   const immNom = ((el(tgt + '-imm') && el(tgt + '-imm').value) || '').trim();
   const cur = (hidden && hidden.value) || '';
   let im = null;
-  (DB.entites || []).filter(_isAlive).forEach(e => { const f = (e.immeubles || []).find(i => i.nom === immNom); if (f) im = f; });
+  // Phase 5 : les compteurs sont portés par l'immeuble ; si deux entités ont un immeuble du même
+  // nom, on prend d'abord celui du bailleur du compte (repli : n'importe lequel, comme avant).
+  const _per = _affPerim(tgt);
+  const _ents = (DB.entites || []).filter(_isAlive);
+  const _findIm = list => { let r = null; list.forEach(e => { const f = (e.immeubles || []).find(i => i.nom === immNom); if (f) r = f; }); return r; };
+  im = _findIm(_ents.filter(e => _per.entiteOk(e.nom))) || _findIm(_ents);
   const ccs = ((im && im.compteursCollectifs) || []).filter(_isAlive);
   let html;
   if (!immNom || !ccs.length) {
@@ -12086,19 +12173,15 @@ function _affPkChoose(id, tgt, ref) {
 }
 function _affPkListHtml(id, tgt, q) {
   q = (q || '').toLowerCase().trim();
-  let logs = (typeof _activeLogements === 'function' ? _activeLogements() : []);
-  // V3 Phase 3 — compte = périmètre : filtre par SCI (entity) ou immeuble du compte, sauf échappatoire « voir tout ».
-  // GATÉ aux pickers de l'import (tgt 'imp<i>') : ne JAMAIS scoper le formulaire / split / règles même si _affScope traîne.
-  const inImport = String(tgt || '').startsWith('imp');
-  const sc = (inImport && _affScope && _affScope.niv && !_affScopeAll) ? _affScope : null;
-  if (sc) logs = logs.filter(l => sc.niv === 'sci' ? (l.entity === sc.cible) : (l.imm === sc.cible));
+  const all = (typeof _activeLogements === 'function' ? _activeLogements() : []);
+  // Phase 5 (D6) — périmètre = bailleur du compte (ou immeuble du compte), pour TOUTES les instances
+  // liées à un compte bancaire (import, règle, découpage, fiche mouvement) ; « Voir tout » explicite.
+  const per = _affPerim(tgt);
+  const cur = (el(tgt + '-qui') && el(tgt + '-qui').value) || '';
+  let logs = all.filter(l => per.logementOk(l) || l.ref === cur);   // le logement déjà choisi reste listé
+  const masques = all.length - logs.length;
   logs = logs.filter(l => ((l.ref || '') + ' ' + (l.locataire || '') + ' ' + (l.imm || '')).toLowerCase().includes(q));
-  let banner = '';
-  if (inImport && _affScope && _affScope.niv) {
-    banner = _affScopeAll
-      ? '<div style="padding:7px 16px;font-size:11.5px;background:#fff8e6;color:#92400e;border-bottom:1px solid var(--bd2,#e2e8f0)">🌐 Tout le patrimoine · <a onclick="_affScopeAll=false;_affPkFill()" style="color:var(--pri,#2563eb);cursor:pointer;text-decoration:underline">revenir au compte</a></div>'
-      : '<div style="padding:7px 16px;font-size:11.5px;background:var(--acc-bg);color:var(--t1);border-bottom:1px solid var(--bd2,#e2e8f0)">📍 Limité au compte : ' + (_affScope.niv === 'sci' ? '🏛️ ' : '🏢 ') + escHtml(_affScope.cible) + ' · <a onclick="_affScopeAll=true;_affPkFill()" style="color:var(--pri,#2563eb);cursor:pointer;text-decoration:underline">voir tout le patrimoine</a></div>';
-  }
+  const banner = _affPerimBar(id, tgt, per, masques).replace('margin-top:6px;', 'margin:0;border-radius:0;border-width:0 0 1px 0;');
   if (!logs.length) return banner + '<div style="padding:12px 16px;color:var(--t3,#94a3b8);font-size:13px">Aucun logement' + (q ? ' pour « ' + escHtml(q) + ' »' : ' dans ce périmètre') + '</div>';
   const byImm = {};
   logs.forEach(l => { const k = l.imm || '— sans immeuble'; (byImm[k] = byImm[k] || []).push(l); });

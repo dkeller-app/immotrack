@@ -67,9 +67,9 @@ describe('_finLotCatRole — le référentiel répond, jamais le libellé', () =
   beforeAll(() => { M = charger(); STD = referentiel(); });
 
   it('le référentiel lu est bien le référentiel entier', () => {
-    // Sans ce compte, « balaie les 23 entrées réelles » reste une affirmation invérifiable :
+    // Sans ce compte, « balaie les 24 entrées réelles » reste une affirmation invérifiable :
     // une extraction tronquée passerait pour un référentiel complet.
-    expect(STD.length).toBe(23);
+    expect(STD.length).toBe(24);   // 23 + « Prêt — Assurance emprunteur » (REGLES-REFONTE phase 5, D1)
     expect(STD.every(c => c && typeof c.nom === 'string' && c.nom)).toBe(true);
   });
 
@@ -101,6 +101,8 @@ describe('_finLotCatRole — le référentiel répond, jamais le libellé', () =
     // les intérêts dans `b.interets`, qui n'entre ni dans `charges` ni dans `cashflowReel`.
     expect(M._finLotCatRole('Prêt')).toBe('charge');
     expect(M._finLotCatRole("Prêt — Intérêts d'emprunt")).toBe(null);
+    // D1 : l'assurance emprunteur prélevée à part suit les intérêts (ligne 250), pas l'échéance.
+    expect(M._finLotCatRole('Prêt — Assurance emprunteur')).toBe(null);
   });
 
   it('les frais bancaires SONT une charge — c’est la seule entrée qui porte `gestionCharge`', () => {
