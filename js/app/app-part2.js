@@ -15333,7 +15333,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.717 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.718 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -24023,20 +24023,25 @@ function rParamsCats() {
   // Une catégorie perso se range dans une FAMILLE du référentiel et en hérite le traitement fiscal
   // ET le cash-flow (GO Didier 06/10, maquette FINANCES-CATEGORIES/famille-reglages). Même liste
   // qu'à la création et qu'au rattachement Finances ; plus de « Hors résultat » fourre-tout.
-  const renderCustomRow = ({nom, idx}) => {
+  // `retiree` (nb de mouvements) : catégorie retirée de la liste mais encore portée par des
+  // mouvements — même ligne, sans Supprimer (audit R2, GO Didier 06/10).
+  const renderCustomRow = ({nom, idx, retiree}) => {
     const _m = _finCatMere(nom), cur = _m ? _m.nom : '';
+    const _sous = retiree
+      ? 'Hors de la liste · ' + retiree + ' mouvement' + (retiree > 1 ? 's l\'utilisent' : ' l\'utilise') + ' encore. Choisir sa famille ici.'
+      : 'Personnalisée · hérite de sa famille le traitement fiscal et le cash-flow.';
     return `<div class="flex-b mb8" style="padding:8px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);flex-wrap:wrap;gap:6px">
       ${_catIconHTML(nom)}
       <span style="flex:1;min-width:120px">${escHtml(nom)}
-        <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">Personnalisée · hérite de sa famille le traitement fiscal et le cash-flow.</span>
+        <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">${_sous}</span>
       </span>
       <div class="cat-fam" style="display:flex;flex-direction:column;gap:3px;flex:0 1 280px;max-width:280px;min-width:0">
         <select data-cat="${escHtml(nom)}" aria-label="Famille de ${escHtml(nom)}" onchange="_setCustomCatFamille(this.getAttribute('data-cat'), this.value)" style="font-size:11px;padding:5px 7px;border-radius:6px;border:1px solid var(--bor);background:var(--sur);color:var(--t1);width:100%">${_finMereOptionsHtml(cur)}</select>
         ${_finFamilleEffetHtml(cur)}
       </div>
-      <div class="flex-c">
+      ${retiree ? '' : `<div class="flex-c">
         <button class="btn br bb" onclick="delCat(${idx})" title="Supprimer cette catégorie personnalisée">${_uiIcon('trash',14)}Supprimer</button>
-      </div>
+      </div>`}
     </div>`;
   };
 
@@ -24062,6 +24067,19 @@ function rParamsCats() {
         : '<p class="mu sm" style="text-align:center;padding:14px;font-style:italic">Aucune catégorie personnalisée. Cliquez « + Catégorie » pour en créer une.</p>'}
     </div>`;
 
+  // Audit R2 : une catégorie supprimée de la liste garde sa famille et ses mouvements. Sans ce bloc,
+  // un ancien « Hors résultat » supprimé compterait en Divers sans pouvoir être reclassé ici.
+  const _retirees = (typeof _finCatsRetireesUtilisees === 'function') ? _finCatsRetireesUtilisees() : [];
+  const retireesSection = _retirees.length ? `
+    <div style="margin-top:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bor);flex-wrap:wrap">
+        ${_uiIcon('edit',16)}
+        <b style="font-size:13px">Hors de la liste, encore utilisées <span class="mu sm" style="font-weight:400">(${_retirees.length})</span></b>
+        <span class="mu sm" style="font-size:10px;font-style:italic;margin-left:auto">Leurs mouvements comptent selon la famille ci-dessous</span>
+      </div>
+      ${_retirees.map(r => renderCustomRow({ nom: r.nom, idx: -1, retiree: r.count })).join('')}
+    </div>` : '';
+
   // v15.291 : interrupteur global remplaçant les anciennes cases « Loyer perçu » par catégorie.
   const _incl213 = !(DB.params && DB.params.realiseInclut213 === false);
   const toggleSection = `<div style="background:var(--acc-bg);border:1px solid var(--bor);border-radius:var(--r);padding:10px 13px;margin-bottom:14px">
@@ -24071,7 +24089,7 @@ function rParamsCats() {
       <span style="color:var(--t2);font-size:11px">Coché : les indemnités d'assurance (GLI, sinistre) et recettes diverses encaissées comptent dans le graphique « réalisé vs attendu ». Décoché : seuls les loyers (ligne 211) comptent.</span></span>
     </label>
   </div>`;
-  el('cats-list').innerHTML = toggleSection + stdSection + customSection;
+  el('cats-list').innerHTML = toggleSection + stdSection + customSection + retireesSection;
 }
 function _setRealise213(checked) {
   if (!DB.params) DB.params = {};
@@ -29139,6 +29157,19 @@ function _finUnmappedCats() {
     seen[m.cat] = (seen[m.cat] || 0) + 1;
   });
   return Object.keys(seen).map(c => ({ nom: c, count: seen[c] })).sort((a, b) => b.count - a.count);
+}
+// Catégories RETIRÉES de la liste (delCat) mais encore portées par des mouvements ET rangées dans
+// une famille : elles comptent selon cette famille, Réglages doit permettre de la changer (audit R2).
+// Les non rangées relèvent de `_finUnmappedCats` (rattachement Finances), pas d'ici.
+function _finCatsRetireesUtilisees() {
+  const liste = new Set(DB.categories || []), seen = {};
+  (DB.mouvements || []).forEach(m => {
+    if (!m || m._deleted || !m.cat || liste.has(m.cat) || _stdCategoryByName(m.cat)) return;
+    if (!_finCatMere(m.cat)) return;
+    seen[m.cat] = (seen[m.cat] || 0) + 1;
+  });
+  return Object.keys(seen).map(c => ({ nom: c, count: seen[c] }))
+    .sort((a, b) => b.count - a.count || a.nom.localeCompare(b.nom, 'fr'));
 }
 // Ouvre le rattachement OBLIGATOIRE (modal drill réutilisé). M-1 : bloquant — tant que des
 // catégories flottent, des montants déjà saisis restent invisibles du compte de résultat.

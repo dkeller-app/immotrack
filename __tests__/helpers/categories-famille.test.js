@@ -34,7 +34,7 @@ function monter(DB, appels = []) {
   const src = [
     tranche('const _FIN_FAMILLE_GROUPES = [', '\n];'),
     ...['_finStdByLigne', '_finCatMere', '_finChargeHf', '_finLotCatRole', '_finFamilleEffet', '_finMereOptionsHtml',
-      '_finFamilleEffetHtml', '_finRattacheCategorie', '_setCustomCatFamille', '_finMonthly'].map(corps)
+      '_finFamilleEffetHtml', '_finRattacheCategorie', '_setCustomCatFamille', '_finCatsRetireesUtilisees', '_finMonthly'].map(corps)
   ].join('\n');
   const stdParNom = (nom) => STD.find(c => c.nom === nom);
   const deps = {
@@ -45,7 +45,7 @@ function monter(DB, appels = []) {
     saveDB: () => appels.push('saveDB'), rParamsCats: () => appels.push('rParamsCats'), showToast: (t, k) => appels.push('toast:' + k)
   };
   const noms = Object.keys(deps);
-  const M = new Function(...noms, src + '\nreturn { _FIN_FAMILLE_GROUPES, _finFamilleEffet, _finMereOptionsHtml, _finFamilleEffetHtml, _setCustomCatFamille, _finMonthly };')(
+  const M = new Function(...noms, src + '\nreturn { _FIN_FAMILLE_GROUPES, _finFamilleEffet, _finMereOptionsHtml, _finFamilleEffetHtml, _setCustomCatFamille, _finCatsRetireesUtilisees, _finMonthly };')(
     ...noms.map(n => deps[n]));
   return { M, STD, deps };
 }
@@ -144,9 +144,55 @@ describe('Changer la famille d’une catégorie perso — `_setCustomCatFamille`
   });
 });
 
+describe('Catégories retirées de la liste mais encore utilisées (audit R2, GO Didier 06/10)', () => {
+  // Supprimer une catégorie perso la retire de la liste SANS toucher sa famille ni ses mouvements.
+  // Ancien « Hors résultat » supprimé = Divers = cash-flow : Réglages doit permettre de la reclasser.
+  const DB = {
+    categories: ['Péage A35'],
+    catAlias: { 'Péage A35': 'Divers (non déductible)', 'Apport associé': 'Divers (non déductible)', 'Vieille caution': 'Dépôt de garantie (reçu / restitué)' },
+    catMapping: { 'Ancien ignoré': '__ignore' }, params: {},
+    mouvements: [
+      { cat: 'Apport associé', db: 10000 }, { cat: 'Apport associé', db: 10000 }, { cat: 'Apport associé', db: 20000 },
+      { cat: 'Vieille caution', db: 900 }, { cat: 'Ancien ignoré', db: 5 }, { cat: 'Ancien ignoré', db: 5 },
+      { cat: 'Péage A35', db: 25 },                       // encore dans la liste → pas ici
+      { cat: 'Loyers encaissés', cr: 700 },               // standard → pas ici
+      { cat: 'Truc jamais rangé', db: 50 },               // sans famille → rattachement Finances, pas ici
+      { cat: 'Effacé', db: 1, _deleted: true }, { cat: '', db: 1 }, null
+    ]
+  };
+  DB.catAlias['Effacé'] = 'Divers (non déductible)';
+
+  it('liste exactement les catégories retirées, rangées et encore portées par des mouvements, avec leur nombre', () => {
+    const { M } = monter(DB);
+    expect(M._finCatsRetireesUtilisees()).toEqual([
+      { nom: 'Apport associé', count: 3 }, { nom: 'Ancien ignoré', count: 2 }, { nom: 'Vieille caution', count: 1 }
+    ]);
+  });
+
+  it('reclasser depuis ce bloc sort l’apport du cash-flow (40 000 €)', () => {
+    const db2 = JSON.parse(JSON.stringify(DB));
+    db2.mouvements = db2.mouvements.filter(Boolean).map(m => Object.assign({ date: '2026-03-01', qui: 'L1', cr: 0, db: 0 }, m));
+    const { M, deps } = monter(db2);
+    const avant = M._finMonthly(2026, null, 12).annual.nonDeductible;
+    M._setCustomCatFamille('Apport associé', 'CCA / distribution SCI');
+    deps.window._dbGen++;
+    expect(avant - M._finMonthly(2026, null, 12).annual.nonDeductible).toBe(40000);
+    expect(db2.categories).toEqual(['Péage A35']);       // reste retirée de la liste
+  });
+
+  it('l’écran affiche ce bloc avec la même ligne, sans bouton Supprimer', () => {
+    const i = html.indexOf('function rParamsCats('), j = html.indexOf('\n}', i);
+    const r = html.slice(i, j);
+    expect(r).toContain('_finCatsRetireesUtilisees()');
+    expect(r).toContain('renderCustomRow({ nom: r.nom, idx: -1, retiree: r.count })');
+    expect(r).toContain("${retiree ? '' : `<div class=\"flex-c\">");
+    expect(r).toContain('customSection + retireesSection');
+  });
+});
+
 describe('L’écran Réglages lit la famille — plus de « Hors résultat »', () => {
   it('la ligne d’une catégorie perso affiche SA famille et son effet', () => {
-    const i = html.indexOf('const renderCustomRow = ({nom, idx}) => {'), j = html.indexOf('\n  };', i);
+    const i = html.indexOf('const renderCustomRow = ({nom, idx, retiree}) => {'), j = html.indexOf('\n  };', i);
     expect(i).toBeGreaterThan(-1);
     const row = html.slice(i, j);
     expect(row).toContain('_finCatMere(nom)');
