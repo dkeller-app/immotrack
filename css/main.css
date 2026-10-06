@@ -10314,3 +10314,9 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 #p-loyers .ly2-av{display:flex;gap:8px;align-items:flex-start;margin:0 12px 6px;padding:6px 10px;border-radius:8px;background:var(--warn-soft);color:var(--t1);font-size:12px;line-height:1.45;white-space:normal}
 #p-loyers .ly2-av>.uic{color:var(--warn);flex:none;margin-top:1px}
 @media (max-width:767px){#p-loyers .ly2-av{margin:0 10px 6px;font-size:13px}}
+
+/* BAIL-EN-COURS-SIGNE-HORS-PROPRYO — zones tactiles ≥ 44 px sur téléphone seulement (session expirée, EDL fait hors Propryo) ;
+   PC et tablette gardent la taille native des boutons. */
+@media (max-width:767px){
+  .logf-bail-actions .btn, .logf-doc-actions .btn, #edlx-form .btn{min-height:44px}
+}

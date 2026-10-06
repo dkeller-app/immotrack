@@ -3881,6 +3881,7 @@ function _edlHydrateVThumbs(root) {
 /* « 👁 Voir l'EDL » — vue lecture seule complète (pièces/états/obs/photos, compteurs, DAAF, clés,
    mobilier, observations). Marche partout (c'est de l'app, pas un fichier PDF). */
 function edlOpenView(id) {
+  if (_edlExtGarde(id)) return;   // EDL fait hors Propryo : pas de visionneuse (aucune pièce), on ouvre le PDF
   const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   // UNE seule modale de consultation à la fois : le tableau _edlViewPhotos (index → photo) est
@@ -3967,6 +3968,7 @@ function _edlViewBodyHtml(edl) {
 /* « 🖼 Photos » — galerie de TOUTES les photos, grande déf au clic, cloud en priorité. Export
    vers l'appareil = mobile seulement (Partager au locataire), à l'intérieur de la galerie. */
 function edlOpenGallery(id) {
+  if (_edlExtGarde(id)) return;
   const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   _edlConsultClose('ov-edl-view');  // une seule modale de consultation à la fois (audit §1)
@@ -4010,20 +4012,21 @@ function rEDLList() {
     const sig=e.signatures?.bailleur||e.signatures?.locataire?' '+_uiIcon('sign'):'';
     // EDL TERRAIN lot 1 (CDC §1) : « Brouillon » tant qu'aucune signature
     // n'existe. Ce n'est pas un autre magasin — c'est le même EDL, en cours.
-    const brouillon = (e.signatures && (e.signatures.bailleur || e.signatures.locataire))
-      ? '' : '<span class="badge gry" title="État des lieux en cours — il s\'enregistre tout seul">Brouillon</span>';
+    const _ext = _edlExterne(e);
+    const brouillon = _ext ? '' : ((e.signatures && (e.signatures.bailleur || e.signatures.locataire))
+      ? '' : '<span class="badge gry" title="État des lieux en cours — il s\'enregistre tout seul">Brouillon</span>');
     const _np = (e.pieces||[]).length;
     return `<tr data-edl-id="${e.id}">
       <td class="edl-lcell-log"><b>${escHtml(e.logement ? _logLabel(e.logement) : '–')}</b><button type="button" class="edl-lmore" onclick="_edlListMore(${e.id})" aria-label="Plus d'actions : supprimer l'état des lieux">${_uiIcon('dots')}</button></td><td>${escHtml(e.locataire||'–')}</td>
-      <td><span class="badge ${e.type==='Entrée'?'grn':'info'}">${e.type}</span> ${brouillon}</td>
+      <td><span class="badge ${e.type==='Entrée'?'grn':'info'}">${e.type}</span> ${_ext ? '<span class="badge gry" title="État des lieux réalisé et signé sur papier : classé ici, sans saisie dans Propryo">Hors Propryo</span>' : brouillon}</td>
       <td>${fd(e.date)}</td>
-      <td class="mu sm">${_np} pièce${_np>1?'s':''} · ${nb} élément${nb>1?'s':''}${sig}${abri}</td>
-      <td class="act-cell">
+      <td class="mu sm">${_ext ? (_edlExtPj(e) ? escHtml(_edlExtPj(e).originalName || _edlExtPj(e).name) : 'Aucun PDF joint') : `${_np} pièce${_np>1?'s':''} · ${nb} élément${nb>1?'s':''}${sig}${abri}`}</td>
+      <td class="act-cell">${_ext ? _edlExtBoutons(e, 'btn bs bb') : `
         <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier l'état des lieux">${_uiIcon('edit')}${brouillon ? 'Reprendre' : 'Modifier'}</button>
         <button class="btn bs bb" onclick="edlOpenView(${e.id})" title="Voir l'état des lieux (lecture seule)">${_uiIcon('eye')}Voir l'EDL</button>
         ${nph ? `<button class="btn bs bb" onclick="edlOpenGallery(${e.id})" title="Voir toutes les photos en grand (cloud en priorité)">${_uiIcon('camera')}Photos</button>` : ''}
         <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="${_share ? 'Envoyer au locataire (WhatsApp, mail…)' : 'Télécharger le PDF (Enregistrer sous)'}">${_share ? _uiIcon('share')+'Partager' : _uiIcon('download')+'Télécharger'}</button>
-        <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">${_uiIcon('trash')}Supprimer</button>
+        <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">${_uiIcon('trash')}Supprimer</button>`}
       </td></tr>`;
   }).join('')||`<tr><td colspan="6" style="text-align:center;padding:44px 20px;color:var(--t3)">${_uiIcon('doc-text',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun état des lieux pour l'instant</b><span style="color:var(--t2);font-size:12.5px">Créez le premier à l'entrée ou à la sortie d'un locataire.</span><div style="margin-top:14px"><button class="btn bp bb" onclick="openNewEDL()">${_uiIcon('plus',14)} Nouvel EDL</button></div></td></tr>`;
   _edlKickListUploads(list);
@@ -4109,6 +4112,7 @@ function openNewEDL() {
 }
 
 async function openEditEDL(id) {
+  if (_edlExtGarde(id)) return;   // EDL fait hors Propryo : pas de saisie, on ouvre le PDF
   const e=DB.edl.find(x=>x.id===id); if(!e)return;
   // v14.38 EDL-AUDIT-CRITIQUE Phase 1 : reset INCONDITIONNEL avant chargement
   // (cohérent avec openNewEDL — empêche les reliquats d'un EDL précédent
@@ -4655,8 +4659,12 @@ function _edlUpdateLegalTexts() {
 async function edlLoadRef(type) {
   const ref=v('edl-log');
   if(!ref){showToast('Sélectionner d\'abord un logement','err');return;}
-  const found=DB.edl.filter(_edlActive).filter(e=>e.logement===ref&&e.type===type).sort((a,b)=>b.date.localeCompare(a.date));
-  if(!found.length){showToast('Aucun EDL '+type+' trouvé pour '+_logLabel(ref),'warn');return;}
+  // Un EDL fait hors Propryo n'a aucune pièce à reprendre : on l'ignore ici.
+  const found=DB.edl.filter(_edlActive).filter(e=>e.logement===ref&&e.type===type&&!_edlExterne(e)).sort((a,b)=>b.date.localeCompare(a.date));
+  if(!found.length){
+    const _surExt = DB.edl.filter(_edlActive).some(e=>e.logement===ref&&e.type===type&&_edlExterne(e));
+    showToast(_surExt ? 'EDL '+type.toLowerCase()+' fait hors Propryo : aucune pièce à reprendre, saisie à partir du modèle.' : 'Aucun EDL '+type+' trouvé pour '+_logLabel(ref),'warn');return;
+  }
   const src=found[0];
   const srcDate=src.date;
 
@@ -6488,6 +6496,7 @@ async function _pdfSortie(o) {
 }
 
 async function downloadEDLPdfNative(id, opts) {
+  if (_edlExtGarde(id)) return;   // pas de PDF généré pour un EDL fait hors Propryo : on ouvre le PDF joint
   const { share = false } = opts || {};
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
@@ -6520,6 +6529,7 @@ function _edlDataUrlToBlob(dataUrl) {
   return new Blob([u], { type: mime });
 }
 async function _edlSharePhotos(id) {
+  if (_edlExtGarde(id)) return;
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   try {
@@ -8012,7 +8022,7 @@ function saveEDL(opts){
 }
 function delEDL(id, opts){
   // opts.confirme : la confirmation a déjà été donnée sur la page « Supprimer » (téléphone, M-16).
-  if(!(opts && opts.confirme) && !confirm2('Supprimer cet EDL ?'))return;
+  if(!(opts && opts.confirme) && !confirm2(_edlExterne((DB.edl||[]).find(e => e && e.id === id && !e._deleted)) ? 'Supprimer cet EDL fait hors Propryo ?\n\nLe PDF joint est retiré des documents (le fichier déjà envoyé au cloud est conservé). La suppression peut être annulée.' : 'Supprimer cet EDL ?'))return;
   // v14.4 BUG-EDL-DELETE-NOSYNC : tombstone au lieu de splice.
   // Sans tombstone, la suppression n'est PAS propagée à Drive ni aux autres devices :
   // au prochain pull, l'EDL réapparaît sur les autres devices car le merge fait
@@ -8028,6 +8038,10 @@ function delEDL(id, opts){
   _undoOp(`Suppression de l'EDL ${old.type||''} ${old.date||''}`.trim(), () => {
     // v15.03 AUDIT-FIX : trace delete (EDL = preuve photographique + PII signatures)
     if (typeof _auditLog === 'function') _auditLog('delete', 'edl', id, (old.logement||'')+'/'+(old.type||''));
+    // EDL fait hors Propryo : le document du PDF est mis en tombstone DANS la même opération (annulable d'un coup). Pas de
+    // _attachmentDelete : il purgerait le cache IndexedDB et casserait l'annulation sur cet appareil ; le fichier cloud reste.
+    const _pj = _edlExtPj(old);
+    if (_pj) { const _t = new Date().toISOString(); Object.assign(_pj, { _deleted: true, _deletedAt: _t, _modifiedAt: _t }); }
     // On preserve `logement` pour que le filtre _buildEntityPayload (refs.has(e.logement))
     // continue à inclure le tombstone dans le bon payload entité.
     DB.edl[idx] = {
@@ -16155,6 +16169,17 @@ function _renderLogFichePanelDocuments(log, ref) {
   let edlSection = '';
   if(edls.length) {
     edlSection = edls.map(e => {
+      // EDL fait hors Propryo : carte dédiée (Ouvrir le PDF / Supprimer), pas d'éditeur ni de PDF généré.
+      if(_edlExterne(e)) {
+        return `<div class="logf-doc-card">
+        <div class="logf-doc-icon">${_monoSvg('<path d="M8 3h8l3 3v15H5V3Z"/><path d="M9 9h6M9 13h6M9 17h4"/>',22)}</div>
+        <div class="logf-doc-info">
+          <div class="logf-doc-name">${_edlExtLibelle(e)}</div>
+          <div class="logf-doc-meta">${_edlExtMeta(e)}</div>
+        </div>
+        <div class="logf-doc-actions">${_edlExtBoutons(e, 'btn bs bb')}</div>
+      </div>`;
+      }
       const sigSign = e.signatures && e.signatures.signedAt;
       const typeIcon = _edlSens(e) === 'sortie'
         ? _monoSvg('<path d="M6 3h9a1 1 0 0 1 1 1v17H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><circle cx="13" cy="12" r="1" fill="currentColor" stroke="none"/>',22)
@@ -16180,6 +16205,7 @@ function _renderLogFichePanelDocuments(log, ref) {
       <div style="margin-top:10px"><button class="btn bs bb" onclick="_goFromLogFiche('edl')">↗ Onglet États des lieux</button></div>
     </div>`;
   }
+  edlSection = _edlExtFormHtml(ref, bail && _isAlive(bail) ? bail : null) + edlSection;
   sections.push({ title: `${_uiIcon('list')} États des lieux ${edls.length?`(${edls.length})`:''}`, icon: '📋', html: edlSection });
 
   // ── 3. Lettres IRL envoyées (recensées dans log.irlLettres ou DB.irlLettres si existe)
@@ -16899,6 +16925,19 @@ function _renderLogFichePanelEDL(log, ref) {
 
   // ── Cards par EDL
   const cards = edls.map(edl => {
+    if(_edlExterne(edl)) {   // EDL fait hors Propryo : pas d'éditeur, pas de PDF généré — Ouvrir le PDF / Supprimer
+      const tc = edl.type === 'Entrée' ? '#16a34a' : '#ea580c';
+      return `<div class="logf-edl-card" style="border-left:3px solid ${tc}">
+      <div class="logf-edl-card-head">
+        <span class="logf-edl-type" style="background:${tc}22;color:${tc}">${edl.type === 'Entrée' ? '🟢' : '🟠'} ${edl.type}</span>
+        <span class="logf-edl-date">${fd(edl.date)}</span>
+        <span class="logf-edl-loc" title="${escHtml(edl.locataire||'—')}">${escHtml(edl.locataire||'—')}</span>
+        <span class="logf-equip-badge b-mute">Hors Propryo</span>
+      </div>
+      <div class="logf-edl-card-meta"><span>${_edlExtMeta(edl)}</span></div>
+      <div class="logf-edl-card-actions">${_edlExtBoutons(edl, 'btn bs bb')}</div>
+    </div>`;
+    }
     const stats = _edlStats(edl);
     const sig = _edlSignatureStatus(edl);
     const typeColor = edl.type === 'Entrée' ? '#16a34a' : '#ea580c';
@@ -17001,6 +17040,7 @@ function openNewEDLForLog(ref, type) {
 // Écrit la composition des pièces DE L'EDL en retour sur le logement : c'est
 // « edl-pieces » au sens de l'invariant 19a, donc autorisé hors ligne.
 function saveLogEDLTemplateFromEDL(edlId) {
+  if (_edlExterne((DB.edl || []).find(x => x && x.id === edlId))) { showToast('EDL fait hors Propryo : pas de pièces à garder comme modèle.', 'warn'); return; }
   const _quoiEDL = { quoi: 'edl-pieces' };   // invariant 19a
   const edl = (DB.edl||[]).find(e => e.id === edlId);
   if(!edl) { showToast('EDL introuvable','err'); return; }
@@ -26044,6 +26084,175 @@ function _edlEntreeDuBail(bail, log) {
     if (!best || d > jour(best.date)) best = e;
   }
   return best;
+}
+// ═══ EDL FAIT HORS PROPRYO (docs/subjects/BAIL-EN-COURS-SIGNE-HORS-PROPRYO.md §4) ═══════════════════════════════════════════
+// Un EDL réalisé et signé sur papier est CLASSÉ (onglet Documents du logement), sans parcours de saisie : une entrée DB.edl marquée
+// `externe` (pièces vides, AUCUNE signature simulée) + un document du LOGEMENT (category 'edl') pour le PDF facultatif. Les lecteurs qui
+// comptent (matrice, assistant de départ, délai de restitution du DG, date d'entrée de la grille de vétusté) le trouvent ainsi sans code
+// spécifique. Le PDF est rattaché au LOGEMENT, jamais à l'EDL : le CHECK cloud documents_parent_type_check (migration 0040) refuse 'edl'.
+let _edlExtFichier = null;        // PDF / photo choisi dans le formulaire, déposé APRÈS l'enregistrement de l'EDL
+let _edlExtDateTouchee = false;   // la date a été saisie à la main : le changement de sens ne la remplace plus
+function _edlExterne(e) { return !!(e && e.externe && typeof e.externe === 'object'); }
+function _edlExtPj(e) {
+  const id = e && e.externe ? e.externe.pjDocId : null;
+  return id == null ? null : ((DB.documents || []).find(d => d && !d._deleted && d.id === id) || null);
+}
+function _edlExtOuvrir(id) {
+  const e = (DB.edl || []).find(x => x && x.id === id && !x._deleted);
+  if (!e) { showToast('EDL introuvable', 'err'); return; }
+  const d = _edlExtPj(e);
+  if (!d) { showToast('EDL fait hors Propryo : aucun PDF joint, pas de saisie dans Propryo.', 'warn', 6000); return; }
+  if (typeof _handleAttachmentOpen === 'function') _handleAttachmentOpen(d.id);
+}
+// Garde des fonctions d'édition / de PDF / de photos : pour un EDL externe elles n'ont rien à produire — on ouvre le PDF s'il existe.
+function _edlExtGarde(id) {
+  const e = (DB.edl || []).find(x => x && x.id === id && !x._deleted);
+  if (!_edlExterne(e)) return false;
+  _edlExtOuvrir(id);
+  return true;
+}
+function _edlExtLibelle(e) { return 'EDL ' + (_edlSens(e) === 'sortie' ? 'de sortie' : 'd\'entrée') + ' — fait hors Propryo'; }
+// Ligne du PDF joint, pour la carte : « 01/09/2023 · EDL-D-101-entree.pdf · 2,4 Mo » (ou la mention facultative).
+function _edlExtMeta(e) {
+  const d = _edlExtPj(e);
+  return fd(e.date) + (d ? ' · ' + escHtml(d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size) : ' · Aucun PDF joint (facultatif)');
+}
+// Boutons d'une carte d'EDL externe : Ouvrir (le PDF) / Ajouter le PDF, Supprimer. `cls` = classes du bouton.
+function _edlExtBoutons(e, cls) {
+  const ouvrir = _edlExtPj(e)
+    ? `<button class="${cls}" onclick="_edlExtOuvrir(${e.id})" title="Ouvrir le PDF de l'état des lieux">Ouvrir</button>`
+    : `<button class="${cls}" onclick="_edlExtAjouterPj(${e.id})" title="Ajouter le PDF de l'état des lieux">Ajouter le PDF</button>`;
+  return ouvrir + `<button class="${cls}" onclick="delEDL(${e.id})" title="Supprimer cet EDL (annulable)">Supprimer</button>`;
+}
+function _edlExtEspace(log, bail) {
+  const es = (bail && bail._espaceId != null) ? bail._espaceId : (log && log._espaceId != null ? log._espaceId : null);
+  return es;
+}
+// Enregistre l'EDL externe. o = { sens:'entree'|'sortie', date:'AAAA-MM-JJ', fichier:{name,mime,size,dataB64}|null }.
+// Rend l'id de l'EDL, ou null (refus : le message est affiché). Ordre : l'EDL d'abord, le PDF ensuite (un échec du dépôt laisse l'EDL
+// sans PDF, avec un message — rien n'est bloqué).
+async function edlExterneCreer(ref, o) {
+  const opt = o || {};
+  const log = (DB.logements || []).find(l => l && l.ref === ref && !l._deleted);
+  if (!log) { showToast('Logement introuvable', 'err'); return null; }
+  const sortie = opt.sens === 'sortie';
+  const type = sortie ? 'Sortie' : 'Entrée';
+  const B = (typeof window !== 'undefined') ? window.BailSignatureEtat : null;
+  const date = String(opt.date || '');
+  if (!date) { showToast('Indiquez la date de l\'état des lieux', 'err'); return null; }
+  if (B ? !B.dateJourValide(date) : !/^\d{4}-\d{2}-\d{2}$/.test(date)) { showToast('Date de l\'état des lieux invalide', 'err'); return null; }
+  // Une écriture HORS LIGNE n'est pas étiquetée « edl » (le garde de saveDB la refuse) : on le dit AVANT de saisir le moindre champ.
+  if (typeof window !== 'undefined' && window.__immoHorsLigne) { showToast('Hors ligne : l\'ajout d\'un EDL fait hors Propryo demande une connexion (il enregistre aussi un document). Réessaie au retour du réseau.', 'err', 8000); return null; }
+  const aujourdhui = (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : td();
+  if (date > aujourdhui && !confirm2('La date de l\'état des lieux (' + fd(date) + ') est dans le futur.\n\nUn EDL déjà réalisé porte une date passée ou du jour. Continuer quand même ?')) return null;
+  const jumeau = (DB.edl || []).find(e => e && !e._deleted && e.logement === ref && e.type === type && String(e.date || '').slice(0, 10) === date);
+  if (jumeau && !confirm2('Un état des lieux ' + (sortie ? 'de sortie' : 'd\'entrée') + ' du ' + fd(date) + ' existe déjà pour ce logement' + (_edlExterne(jumeau) ? ' (déjà fait hors Propryo)' : '') + '.\n\nEnregistrer quand même celui-ci ?')) return null;
+  const bail = DB.baux && DB.baux[ref] && _isAlive(DB.baux[ref]) ? DB.baux[ref] : null;
+  const noms = bail && Array.isArray(bail.locataires) ? bail.locataires.map(l => l && l.nom).filter(Boolean).join(' & ') : '';
+  const now = new Date().toISOString();
+  const record = { id: nid(), type, date, logement: ref, locataire: noms || (bail && bail.nom) || log.locataire || '',
+    externe: { declareLe: now, declarePar: (typeof _bailAuteurCourant === 'function' ? _bailAuteurCourant() : ''), pjDocId: null },
+    pieces: [], signatures: {} };   // AUCUN signedAt : on ne simule pas une signature
+  const es = _edlExtEspace(log, bail); if (es != null) record._espaceId = es;   // routage du partage SCI (saveEDL documente la perte de ce marqueur)
+  _stamp(record);
+  DB.edl.push(record);
+  _auditLog('create', 'edl', record.id, ref + '/' + type + ' (fait hors Propryo)');
+  let ecrit = false;
+  _undoOp('Ajout d\'un EDL ' + (sortie ? 'de sortie' : 'd\'entrée') + ' fait hors Propryo', () => { ecrit = saveDB(); });
+  if (ecrit === false) {   // refusé : on ne laisse pas un EDL fantôme en mémoire
+    const i = DB.edl.indexOf(record); if (i >= 0) DB.edl.splice(i, 1);
+    showToast('L\'état des lieux n\'a pas pu être enregistré.', 'err', 7000); return null;
+  }
+  if (opt.fichier) await _edlExtDeposerPj(record, log, bail, opt.fichier);
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  try { rEDLList(); } catch (e) {}
+  showToast('EDL ' + (sortie ? 'de sortie' : 'd\'entrée') + ' du ' + fd(date) + ' enregistré (fait hors Propryo).', 'ok', 5000);
+  return record.id;
+}
+// Dépose (ou remplace) le PDF d'un EDL externe : document du LOGEMENT, category 'edl'. Un échec laisse l'EDL tel quel.
+async function _edlExtDeposerPj(e, log, bail, fichier) {
+  let doc;
+  try { doc = await _attachmentSaveForEntity({ type: 'logement', id: log.id, ref: log.ref, logRef: log.ref, category: 'edl' }, fichier); }
+  catch (err) { showToast('L\'EDL est enregistré, mais le dépôt du PDF a échoué (' + ((err && err.message) || 'erreur') + '). Le joindre plus tard depuis l\'onglet Documents.', 'err', 9000); return false; }
+  Object.assign(doc, { nature: 'edl-externe', edlId: e.id, _modifiedAt: new Date().toISOString() });
+  const es = _edlExtEspace(log, bail); if (es != null) doc._espaceId = es;
+  const ancien = _edlExtPj(e);
+  if (ancien && ancien.id !== doc.id) Object.assign(ancien, { _deleted: true, _deletedAt: doc._modifiedAt, _modifiedAt: doc._modifiedAt });   // remplacé : tombstone, le fichier cloud reste
+  e.externe.pjDocId = doc.id;
+  _stamp(e);
+  saveDB();
+  return true;
+}
+function _edlExtAjouterPj(id) {
+  const e = (DB.edl || []).find(x => x && x.id === id && !x._deleted);
+  if (!_edlExterne(e)) return;
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,image/*';
+  inp.onchange = async function () {
+    let f = null; try { f = await _avenantLireFichier(inp); } catch (err) { showToast('Fichier illisible.', 'err'); return; }
+    if (!f) return;
+    const log = (DB.logements || []).find(l => l && l.ref === e.logement), bail = DB.baux && DB.baux[e.logement];
+    if (log && await _edlExtDeposerPj(e, log, bail, f)) { showToast('PDF de l\'EDL déposé.', 'ok', 4000); if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation(); try { rEDLList(); } catch (err) {} }
+  };
+  inp.click();
+}
+// Formulaire (onglet Documents › États des lieux).
+function _edlExtForm(ouvrir) {
+  const f = el('edlx-form'); if (!f) return;
+  f.style.display = ouvrir ? '' : 'none';
+  if (!ouvrir) return;
+  _edlExtFichier = null; _edlExtDateTouchee = false;
+  const i = el('edlx-file'); if (i) i.value = '';
+  const r = f.querySelector('input[name="edlx-sens"][value="entree"]'); if (r) r.checked = true;
+  const d = el('edlx-date'); if (d) d.value = f.dataset.debut || '';
+  _edlExtPjAfficher();
+  try { f.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+}
+function _edlExtSensChange() {
+  const f = el('edlx-form'), d = el('edlx-date'); if (!f || !d || _edlExtDateTouchee) return;
+  const r = f.querySelector('input[name="edlx-sens"]:checked');
+  d.value = (r && r.value === 'sortie' ? f.dataset.sortie : f.dataset.debut) || '';
+}
+function _edlExtPjAfficher() {
+  const nom = el('edlx-pj-nom'), b = el('edlx-pj-btn'); if (!nom) return;
+  nom.textContent = _edlExtFichier ? '📎 ' + _edlExtFichier.name + ' · ' + _bailScanFmtTaille(_edlExtFichier.size) : 'Aucun fichier';
+  if (b) b.textContent = _edlExtFichier ? 'Remplacer' : 'Choisir un PDF';
+}
+async function _edlExtFichierPris(input) {
+  let f = null; try { f = await _avenantLireFichier(input); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+  if (!f) return;
+  _edlExtFichier = f; _edlExtPjAfficher();
+}
+async function _edlExtEnregistrer(ref) {
+  const r = document.querySelector('#edlx-form input[name="edlx-sens"]:checked');
+  const id = await edlExterneCreer(ref, { sens: r ? r.value : 'entree', date: v('edlx-date'), fichier: _edlExtFichier });
+  if (id != null) { _edlExtFichier = null; const f = el('edlx-form'); if (f) f.style.display = 'none'; }
+}
+// HTML du bouton d'ouverture + du formulaire (Documents › États des lieux).
+function _edlExtFormHtml(ref, bail) {
+  const refSafe = _lyQ(ref);
+  const debut = bail && bail.debut ? String(bail.debut).slice(0, 10) : '';
+  const sortie = bail && (bail.finEffective || '') ? String(bail.finEffective).slice(0, 10) : '';
+  return `<div style="margin-bottom:10px"><button class="btn bs bb" onclick="_edlExtForm(true)" title="Classer ici un état des lieux déjà réalisé et signé sur papier">+ Ajouter un EDL fait hors Propryo</button></div>
+    <div id="edlx-form" data-debut="${escHtml(debut)}" data-sortie="${escHtml(sortie)}" style="display:none;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:10px">
+      <div style="font-weight:700;font-size:13.5px;color:var(--t1)">Ajouter un EDL fait en dehors de Propryo</div>
+      <div class="mu sm" style="margin:2px 0 12px;font-size:12px">État des lieux déjà réalisé et signé sur papier. Il est classé ici, sans parcours de saisie.</div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px">
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px"><input type="radio" name="edlx-sens" value="entree" checked onchange="_edlExtSensChange()"> Entrée</label>
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px"><input type="radio" name="edlx-sens" value="sortie" onchange="_edlExtSensChange()"> Sortie</label>
+      </div>
+      <div class="fg"><label>Date de l'état des lieux</label><input class="inp" type="date" id="edlx-date" oninput="_edlExtDateTouchee=true"></div>
+      <div class="fg"><label>Pièce jointe (PDF ou photo — facultatif)</label>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="inp" id="edlx-pj-nom" style="flex:1;min-width:160px;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Aucun fichier</div>
+          <button class="btn bs" type="button" id="edlx-pj-btn" onclick="el('edlx-file').click()">Choisir un PDF</button>
+        </div>
+        <input type="file" id="edlx-file" accept="application/pdf,image/*" style="display:none" onchange="_edlExtFichierPris(this)">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button class="btn bs" type="button" onclick="_edlExtForm(false)">Annuler</button>
+        <button class="btn bp" type="button" onclick="_edlExtEnregistrer('${refSafe}')">Enregistrer l'EDL</button>
+      </div>
+    </div>`;
 }
 function _pilStatutDoc(bail, log, type, dateRef) {
   const today = dateRef instanceof Date ? dateRef : new Date();
