@@ -19,6 +19,7 @@
  *
  * Tests Vitest miroir : __tests__/helpers/bank-import.test.js
  *                     + __tests__/helpers/bank-read.test.js
+ *                     + __tests__/helpers/bank-regles-refonte.test.js (REGLES-REFONTE, lot D)
  */
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -845,14 +846,31 @@ function _bankRuleAffKey(r) {
  * inconnu (`rule.compte && accountId && …`) — la règle d'un autre compte
  * s'appliquait quand même. Une règle liée à un compte ne s'applique désormais
  * QU'À ce compte.
+ *
+ * REGLES-REFONTE (lot D, décisions du 06/10) — deux modèles coexistent :
+ *  - règle REFONDUE (porte `mots` / `motsLibres`, cf. `_bankRuleIsV2`) : tous les mots,
+ *    sans ordre, compte OBLIGATOIRE et strict (jamais un autre compte, jamais « tous »),
+ *    condition de montant, exceptions → `_bankRuleMatchV2` ;
+ *  - règle HISTORIQUE (champ `pattern` texte) : comportement EXACT d'avant (sous-chaîne
+ *    contiguë, compte vide = tous les comptes) tant qu'elle n'est pas réenregistrée.
+ *
+ * @param {object} rule
+ * @param {object} line — { libelle, credit, debit, date, _fingerprint? }
+ * @param {*} accountId — compte du mouvement / de l'import
+ * @param {{loyerCC?:Function}} [ctx] — valeurs fournies par l'appelant (condition « = loyer CC »)
  */
-export function _bankRuleMatch(rule, line, accountId) {
-  if (!rule || rule._deleted || !rule.pattern || !line) return false;
+export function _bankRuleMatch(rule, line, accountId, ctx) {
+  if (!rule || rule._deleted || !line) return false;
+  if (_bankRuleIsV2(rule)) return _bankRuleMatchV2(rule, line, accountId, ctx || {});
+  if (!rule.pattern) return false;
   if (rule.compte && String(rule.compte) !== String(accountId == null ? '' : accountId)) return false;
   if (rule.sens && rule.sens !== _bankLineSens(line)) return false;
   const pat = _bankNormTxt(rule.pattern);
   if (!pat) return false;
-  return _bankNormTxt(line.libelle).includes(pat);
+  if (!_bankNormTxt(line.libelle).includes(pat)) return false;
+  // Une règle historique n'a pas d'exception tant qu'elle n'est pas réenregistrée :
+  // ce test est neutre pour elle (comportement inchangé), défensif sinon.
+  return !_bankRuleIsException(rule, line);
 }
 
 /**
@@ -871,7 +889,8 @@ export function _bankRuleMatch(rule, line, accountId) {
  */
 export function _bankApplyRules(rules, line, opts = {}) {
   const accountId = opts.accountId;
-  const matched = (Array.isArray(rules) ? rules : []).filter(r => _bankRuleMatch(r, line, accountId));
+  // `opts.loyerCC` (facultatif) est transmis à la condition de montant « = loyer CC ».
+  const matched = (Array.isArray(rules) ? rules : []).filter(r => _bankRuleMatch(r, line, accountId, opts));
   const out = { matched, cat: '', catRule: null, aff: null, affRule: null, conflicts: [], byRule: false };
 
   const catRules = matched.filter(r => r.cat);
@@ -927,10 +946,14 @@ export function _bankRulePreview(draft, ctx = {}) {
   if (!pattern) return out;
   out.tooShort = pattern.length < 4;
   out.lines = (ctx.importLines || []).filter(l => _bankRuleMatch(rule, l, ctx.accountId));
+  // 🐛 REGLES-REFONTE D6 — un mouvement en base est testé avec SON compte
+  // (`_bankAccountId`), jamais « comme s'il était du compte courant » : avant, le
+  // compteur « déjà en base » et l'alerte « natures différentes » mélangeaient les
+  // comptes dès qu'un import était en cours.
   const baseHits = (ctx.mouvements || []).filter(m => {
     if (!m || m._deleted) return false;
     const line = { libelle: m.lib || '', credit: m.cr || 0, debit: m.db || 0 };
-    return _bankRuleMatch(rule, line, ctx.accountId != null ? ctx.accountId : m._bankAccountId);
+    return _bankRuleMatch(rule, line, m._bankAccountId);
   });
   out.nBase = baseHits.length;
   out.baseCats = [...new Set(baseHits.map(m => m.cat).filter(Boolean))];
@@ -958,6 +981,596 @@ export function _bankRuleUsage(rule, mouvements) {
     out.count++;
     if ((m.date || '') > out.lastDate) out.lastDate = m.date || '';
   }
+  return out;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// REGLES-REFONTE (lot D, maquettes validées le 06/10 — mockups/REGLES-REFONTE/)
+//
+// Modèle refondu d'une règle (les champs historiques sont conservés) :
+//   { id,                         ← identifiant STABLE, la clé (plus le motif)
+//     mots: [],                   ← puces cochées : cherchées comme MOTS ENTIERS
+//     motsLibres: [],             ← mots saisis (« + mot ») : cherchés comme MORCEAUX de mot
+//     pattern,                    ← libellé d'affichage (mots joints), compat. traces/journal
+//     sens: '' | 'cr' | 'db',
+//     compte,                     ← OBLIGATOIRE pour toute règle refondue
+//     montant: null | {type:'loyerCC'} | {type:'exact', valeur} | {type:'plage', min, max},
+//     exceptions: [{cle, date, libelle, montant, sens, _addedAt}],
+//     cat, qui, imm, compteurCcId, bailleurDuCompte, _modifiedAt, … }
+//
+// Tous les mots doivent figurer dans le libellé, SANS ordre ni adjacence, casse et
+// accents ignorés. Une règle historique (`pattern` seul, sans `mots`) garde son
+// comportement exact tant qu'elle n'est pas réenregistrée.
+//
+// Module PUR : aucune lecture de DB. Le loyer CC du mois (condition « = loyer CC »)
+// est FOURNI par l'appelant (`ctx.loyerCC(qui, ym, line)`), l'horodatage aussi
+// (`opts.now`, sinon l'heure courante) et l'identifiant (`opts.newId`).
+// ════════════════════════════════════════════════════════════════════════════
+
+/** La règle porte-t-elle le modèle refondu (mots choisis) ? Sinon : règle historique (`pattern`). */
+export function _bankRuleIsV2(rule) {
+  return !!(rule && (Array.isArray(rule.mots) || Array.isArray(rule.motsLibres)));
+}
+
+/** Horodatage ISO (injectable pour les tests). */
+function _bankNow(opts) {
+  return (opts && opts.now) ? String(opts.now) : new Date().toISOString();
+}
+
+/**
+ * Identifiant opaque d'une NOUVELLE règle. Jamais dérivé du motif : modifier les
+ * mots ne change pas l'identité de la règle.
+ */
+export function _bankRuleNewId() {
+  try {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return 'rg_' + globalThis.crypto.randomUUID();
+  } catch (e) { /* repli ci-dessous */ }
+  return 'rg_' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+}
+
+/** Ramène un mouvement en base ({lib, cr, db}) à la forme « ligne d'import » ({libelle, credit, debit}). */
+function _bankAsLine(x) {
+  if (!x) return null;
+  if (Object.prototype.hasOwnProperty.call(x, 'libelle')) return x;
+  return { date: x.date || '', libelle: x.lib || '', credit: Number(x.cr) || 0, debit: Number(x.db) || 0,
+    fitid: x.fitid, _fingerprint: x._fingerprint, _bankAccountId: x._bankAccountId, suggestedCat: x.cat || '' };
+}
+
+/** Montant absolu d'une ligne, au centime. */
+function _bankLineAmount(line) {
+  const cr = Number(line && line.credit) || 0;
+  const v = cr > 0 ? cr : Math.abs(Number(line && line.debit) || 0);
+  return Math.round(v * 100) / 100;
+}
+
+/**
+ * Clé d'une ligne pour les EXCEPTIONS : l'empreinte de la ligne (FITID ou
+ * date|montant|libellé), la même que celle mémorisée sur le mouvement importé —
+ * une ligne exclue le reste à la ré-importation du même relevé.
+ */
+export function _bankRuleLineKey(lineOrMv) {
+  const l = _bankAsLine(lineOrMv);
+  if (!l) return '';
+  if (l._fingerprint) return String(l._fingerprint);
+  if (l.fitid && String(l.fitid).trim()) return 'fitid:' + String(l.fitid).trim();
+  const cr = Number(l.credit) || 0;
+  const signed = cr > 0 ? cr : -Math.abs(Number(l.debit) || 0);
+  return _bankFingerprintRow(l.date || '', signed, l.libelle || '');
+}
+
+/** La ligne est-elle une exception mémorisée de la règle ? */
+function _bankRuleIsException(rule, line) {
+  const ex = rule && Array.isArray(rule.exceptions) ? rule.exceptions : null;
+  if (!ex || !ex.length) return false;
+  const cle = _bankRuleLineKey(line);
+  return !!cle && ex.some(e => e && e.cle === cle);
+}
+
+/** Mots normalisés (uniques) d'une règle refondue. */
+function _bankRuleTokens(rule) {
+  const uniq = arr => [...new Set((Array.isArray(arr) ? arr : []).map(_bankNormTxt).filter(Boolean))];
+  return { mots: uniq(rule && rule.mots), libres: uniq(rule && rule.motsLibres) };
+}
+
+/** Le mot (normalisé) figure-t-il COMME MOT ENTIER dans le libellé normalisé ? (lettres et chiffres Unicode) */
+function _bankMotEntier(libNorm, motNorm) {
+  const w = String(motNorm || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!w) return false;
+  return new RegExp('(^|[^\\p{L}\\p{N}])' + w + '(?=[^\\p{L}\\p{N}]|$)', 'u').test(libNorm);
+}
+
+/**
+ * Condition de montant. « loyerCC » = loyer charges comprises du mois du bail du
+ * logement affecté (`rule.qui`), recette uniquement ; la valeur est FOURNIE par
+ * l'appelant. Valeur absente, nulle ou callback en erreur → la condition ne matche
+ * pas (jamais d'élargissement silencieux, jamais d'exception levée).
+ */
+function _bankRuleMontantOk(rule, line, ctx) {
+  const c = rule.montant;
+  if (!c || !c.type) return true;
+  const amt = _bankLineAmount(line);
+  const eq = (a, b) => Math.abs(a - b) < 0.005;
+  if (c.type === 'exact') {
+    const v = Number(c.valeur);
+    return Number.isFinite(v) && v !== 0 && eq(amt, Math.abs(v));
+  }
+  if (c.type === 'plage') {
+    const lo = (c.min == null || c.min === '') ? -Infinity : Number(c.min);
+    const hi = (c.max == null || c.max === '') ? Infinity : Number(c.max);
+    if (Number.isNaN(lo) || Number.isNaN(hi)) return false;
+    if (lo === -Infinity && hi === Infinity) return false;
+    return amt >= lo - 0.005 && amt <= hi + 0.005;
+  }
+  if (c.type === 'loyerCC') {
+    if (_bankLineSens(line) !== 'cr') return false;
+    const qui = String(rule.qui || '');
+    if (!qui || qui.startsWith('SCI:') || rule.bailleurDuCompte) return false;
+    if (!ctx || typeof ctx.loyerCC !== 'function') return false;
+    let v;
+    try { v = Number(ctx.loyerCC(qui, String(line.date || '').slice(0, 7), line)); } catch (e) { return false; }
+    return Number.isFinite(v) && v > 0 && eq(amt, v);
+  }
+  return false;   // type inconnu : ne matche pas
+}
+
+/** Correspondance d'une règle REFONDUE (cf. `_bankRuleMatch`). */
+function _bankRuleMatchV2(rule, line, accountId, ctx) {
+  // Compte OBLIGATOIRE et strict : jamais un autre compte, jamais « tous les comptes ».
+  if (!rule.compte || accountId == null || accountId === '') return false;
+  if (String(rule.compte) !== String(accountId)) return false;
+  if (rule.sens && rule.sens !== _bankLineSens(line)) return false;
+  const t = _bankRuleTokens(rule);
+  if (!t.mots.length && !t.libres.length) return false;
+  const lib = _bankNormTxt(line.libelle);
+  if (!lib) return false;
+  if (!t.mots.every(w => _bankMotEntier(lib, w))) return false;
+  if (!t.libres.every(w => lib.includes(w))) return false;
+  if (_bankRuleIsException(rule, line)) return false;
+  return _bankRuleMontantOk(rule, line, ctx);
+}
+
+/** Motif lisible d'une règle (refondue : mots joints ; historique : `pattern`). */
+export function _bankRuleMotif(rule) {
+  if (!rule) return '';
+  if (_bankRuleIsV2(rule)) return [...(rule.mots || []), ...(rule.motsLibres || [])].map(w => String(w)).join(' ');
+  return String(rule.pattern || '');
+}
+
+/**
+ * D4/D5 — Remplace le « mot le plus long deviné » : découpe le libellé en mots
+ * (puces cliquables), dans l'ordre, sans doublon (casse/accents ignorés), SANS
+ * rien présélectionner.
+ * @returns {string[]} les mots tels qu'écrits dans le libellé
+ */
+export function _bankMotsDuLibelle(libelle) {
+  const out = [];
+  const seen = new Set();
+  const s = String(libelle == null ? '' : libelle).normalize('NFC');
+  for (const w of s.split(/[^\p{L}\p{N}]+/u)) {
+    if (!w) continue;
+    const n = _bankNormTxt(w);
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    out.push(w);
+  }
+  return out;
+}
+
+/** Normalise la condition de montant saisie. */
+function _bankRuleNormMontant(m) {
+  if (!m || !m.type) return { montant: null };
+  if (m.type === 'loyerCC') return { montant: { type: 'loyerCC' } };
+  const num = v => (v === '' || v == null) ? null : (typeof v === 'number' ? v : _bankParseAmount(v));
+  const r2 = v => Math.round(Math.abs(v) * 100) / 100;
+  if (m.type === 'exact') {
+    const v = num(m.valeur);
+    if (v == null || !Number.isFinite(v) || v === 0) return { error: 'montant' };
+    return { montant: { type: 'exact', valeur: r2(v) } };
+  }
+  if (m.type === 'plage') {
+    const a = num(m.min), b = num(m.max);
+    if (a == null && b == null) return { error: 'montant' };
+    if ((a != null && !Number.isFinite(a)) || (b != null && !Number.isFinite(b))) return { error: 'montant' };
+    const min = a == null ? null : r2(a), max = b == null ? null : r2(b);
+    if (min != null && max != null && min > max) return { error: 'montant' };   // rien n'est corrigé en silence
+    return { montant: { type: 'plage', min, max } };
+  }
+  return { error: 'montant' };
+}
+
+/**
+ * Construit (création) ou réenregistre (modification, `opts.base`) une règle
+ * refondue, en validant ce que la fenêtre exige.
+ * Erreurs : 'mots' (aucun mot) · 'compte' (compte obligatoire) · 'montant' (condition
+ * invalide) · 'montant-recette' (« = loyer CC » hors recette) · 'montant-logement'
+ * (« = loyer CC » sans logement affecté).
+ * Réenregistrer une règle historique la fait passer au modèle refondu (et retire
+ * le badge « compte à choisir »). L'identifiant d'une règle existante est conservé.
+ *
+ * @param {object} draft — { mots, motsLibres, sens, compte, montant, exceptions?, cat, qui, imm, compteurCcId, bailleurDuCompte }
+ * @param {{base?:object, newId?:Function, now?:string}} [opts]
+ * @returns {{ok:boolean, errors:string[], rule:object|null}}
+ */
+export function _bankRuleBuild(draft, opts = {}) {
+  const d = draft || {};
+  const base = opts.base || null;
+  const errors = [];
+  const clean = (arr, splitSpaces) => {
+    const out = [], seen = new Set();
+    for (const raw of (Array.isArray(arr) ? arr : [])) {
+      const txt = String(raw == null ? '' : raw).trim();
+      for (const p of (splitSpaces ? txt.split(/\s+/) : [txt])) {
+        const n = _bankNormTxt(p);
+        if (!n || seen.has(n)) continue;
+        seen.add(n); out.push(p);
+      }
+    }
+    return out;
+  };
+  const mots = clean(d.mots, false);
+  const motsNorm = new Set(mots.map(_bankNormTxt));
+  // Un mot saisi identique à une puce cochée est redondant (le mot entier est plus strict).
+  const motsLibres = clean(d.motsLibres, true).filter(w => !motsNorm.has(_bankNormTxt(w)));
+  if (!mots.length && !motsLibres.length) errors.push('mots');
+  const compte = (d.compte != null && d.compte !== '') ? String(d.compte) : '';
+  if (!compte) errors.push('compte');
+  const sens = (d.sens === 'cr' || d.sens === 'db') ? d.sens : '';
+  const bdc = !!d.bailleurDuCompte;
+  const qui = bdc ? '' : String(d.qui || '');
+  const nm = _bankRuleNormMontant(d.montant);
+  if (nm.error) errors.push(nm.error);
+  else if (nm.montant && nm.montant.type === 'loyerCC') {
+    if (sens !== 'cr') errors.push('montant-recette');
+    if (!qui || qui.startsWith('SCI:')) errors.push('montant-logement');
+  }
+  if (errors.length) return { ok: false, errors, rule: null };
+  const now = _bankNow(opts);
+  const exSrc = Array.isArray(d.exceptions) ? d.exceptions : (base && Array.isArray(base.exceptions) ? base.exceptions : []);
+  const rule = Object.assign({}, base || {}, {
+    id: (base && base.id) || d.id || (typeof opts.newId === 'function' ? opts.newId() : _bankRuleNewId()),
+    mots, motsLibres,
+    pattern: [...mots, ...motsLibres].join(' '),
+    sens, compte,
+    montant: nm.montant || null,
+    exceptions: exSrc.filter(e => e && e.cle).map(e => Object.assign({}, e)),
+    cat: String(d.cat || ''),
+    qui,
+    imm: bdc ? '' : String(d.imm || ''),
+    compteurCcId: bdc ? '' : String(d.compteurCcId || ''),
+    bailleurDuCompte: bdc,
+    _modifiedAt: now,
+  });
+  delete rule.compteAChoisir;
+  delete rule._deleted; delete rule._deletedAt;
+  if (!base) rule._createdAt = now;
+  return { ok: true, errors: [], rule };
+}
+
+/**
+ * Brouillon d'édition d'une règle existante (panneau « Modifier »). Une règle
+ * historique ouvre ses mots en « mots saisis » (morceaux de mot : le plus proche de
+ * la sous-chaîne d'avant) et signale qu'il faut choisir le compte.
+ */
+export function _bankRuleToDraft(rule) {
+  const r = rule || {};
+  const v2 = _bankRuleIsV2(r);
+  return {
+    id: r.id || '',
+    mots: v2 ? (r.mots || []).slice() : [],
+    motsLibres: v2 ? (r.motsLibres || []).slice() : String(r.pattern || '').trim().split(/\s+/).filter(Boolean),
+    sens: r.sens || '', compte: r.compte || '',
+    montant: r.montant ? Object.assign({}, r.montant) : null,
+    exceptions: (Array.isArray(r.exceptions) ? r.exceptions : []).map(e => Object.assign({}, e)),
+    cat: r.cat || '', qui: r.qui || '', imm: r.imm || '', compteurCcId: r.compteurCcId || '',
+    bailleurDuCompte: !!r.bailleurDuCompte,
+    historique: !v2,
+    compteAChoisir: !r.compte,
+  };
+}
+
+/**
+ * Décocher une ligne de l'aperçu = « ne rentre pas dans la règle » : exception
+ * mémorisée sur la règle (copie stampée renvoyée ; la règle d'origine n'est pas
+ * modifiée). Déjà présente → la règle est rendue telle quelle.
+ */
+export function _bankRuleAddException(rule, lineOrMv, opts = {}) {
+  if (!rule) return rule;
+  const l = _bankAsLine(lineOrMv);
+  const cle = _bankRuleLineKey(l);
+  const ex = Array.isArray(rule.exceptions) ? rule.exceptions.slice() : [];
+  if (!cle || ex.some(e => e && e.cle === cle)) return rule;
+  const now = _bankNow(opts);
+  ex.push({ cle, date: l.date || '', libelle: l.libelle || '', montant: _bankLineAmount(l), sens: _bankLineSens(l), _addedAt: now });
+  return Object.assign({}, rule, { exceptions: ex, _modifiedAt: now });
+}
+
+/** Retire une exception (Mes règles). Ne reclasse rien. Copie stampée, ou la règle telle quelle si absente. */
+export function _bankRuleRemoveException(rule, cle, opts = {}) {
+  if (!rule || !Array.isArray(rule.exceptions)) return rule;
+  const ex = rule.exceptions.filter(e => !(e && e.cle === cle));
+  if (ex.length === rule.exceptions.length) return rule;
+  return Object.assign({}, rule, { exceptions: ex, _modifiedAt: _bankNow(opts) });
+}
+
+/**
+ * Migration DOUCE et IDEMPOTENTE des règles existantes (décision Didier n° 2 : pas
+ * d'écran de migration). Chaque règle vivante sans `id` en reçoit un ; celles sans
+ * compte sont marquées `compteAChoisir` (badge « Compte à choisir »). Le motif, le
+ * compte et le comportement ne changent PAS (la règle reste historique). Aucune
+ * règle supprimée ni fusionnée (R-A v2 : ce sont les données de l'utilisateur).
+ * Les tombstones sont laissés tels quels.
+ *
+ * L'identifiant attribué est calculé UNE FOIS depuis la position et le contenu de
+ * la règle à cet instant (jamais recalculé ensuite) : deux appareils qui migrent la
+ * même base obtiennent les mêmes identifiants.
+ *
+ * @param {object[]} rules — DB.importRules (modifié en place ; absent → rien)
+ * @returns {{migrated:number, skipped:number}}
+ */
+export function _bankMigrateRules(rules, opts = {}) {
+  let migrated = 0, skipped = 0;
+  if (!Array.isArray(rules)) return { migrated, skipped };
+  const now = _bankNow(opts);
+  const used = new Set(rules.map(r => r && r.id).filter(Boolean).map(String));
+  rules.forEach((r, i) => {
+    if (!r || typeof r !== 'object' || r._deleted || r.id) { skipped++; return; }
+    let id = 'rg_' + _bankHashStable(i + '|' + JSON.stringify(r));
+    for (let n = 2; used.has(id); n++) id = id.replace(/-\d+$/, '') + '-' + n;
+    used.add(id);
+    r.id = id;
+    if (!r.compte) r.compteAChoisir = true;
+    r._modifiedAt = now;
+    migrated++;
+  });
+  return { migrated, skipped };
+}
+
+/** D6 — Retrouve une règle PAR SON IDENTIFIANT (remplace `_bankRuleIdxOf(pattern)`). -1 si absente ou supprimée. */
+export function _bankRuleIdxById(rules, id) {
+  if (id == null || id === '') return -1;
+  return (Array.isArray(rules) ? rules : []).findIndex(r => r && !r._deleted && r.id != null && String(r.id) === String(id));
+}
+
+/** La règle vivante d'identifiant `id`, ou null. */
+export function _bankRuleById(rules, id) {
+  const i = _bankRuleIdxById(rules, id);
+  return i >= 0 ? rules[i] : null;
+}
+
+/**
+ * Retrouve la règle qui a classé un mouvement depuis sa trace (`m._rules[]`) :
+ * un identifiant d'abord ; sinon (trace historique = motif) une règle du MÊME
+ * compte que le mouvement — la règle d'un autre compte n'a pas pu le classer.
+ */
+export function _bankRuleFindForTrace(rules, trace, accountId) {
+  const byId = _bankRuleById(rules, trace);
+  if (byId) return byId;
+  const p = _bankNormTxt(trace);
+  if (!p) return null;
+  const acc = accountId == null ? '' : String(accountId);
+  const cands = (Array.isArray(rules) ? rules : []).filter(r => r && !r._deleted
+    && _bankNormTxt(_bankRuleMotif(r)) === p && (!r.compte || String(r.compte) === acc));
+  return cands.find(r => r.compte && String(r.compte) === acc) || cands[0] || null;
+}
+
+/**
+ * Tombstone d'une règle supprimée, indexé sur son IDENTIFIANT (le motif et le
+ * compte restent pour la compat et le journal). À poser EN PLACE dans
+ * DB.importRules (jamais de splice : cf. v15.186).
+ */
+export function _bankRuleTombstone(rule, opts = {}) {
+  const now = _bankNow(opts);
+  const t = { _deleted: true, _deletedAt: now, _modifiedAt: now };
+  if (rule && rule.id != null && rule.id !== '') t.id = rule.id;
+  t.pattern = (rule && rule.pattern) || '';
+  if (rule && rule.compte) t.compte = rule.compte;
+  return t;
+}
+
+/**
+ * Fusion de deux listes de règles (deux appareils, une restauration…), clé =
+ * identifiant (à défaut, pour une règle historique : motif + compte). Deux règles
+ * de même motif sur deux comptes ne se confondent donc plus. Le plus récent
+ * (`_modifiedAt`) gagne, SAUF qu'une suppression gagne toujours : un identifiant
+ * supprimé ne ressuscite jamais (une re-création porte un nouvel identifiant).
+ * Un tombstone HISTORIQUE (sans id, motif seul) n'éteint PAS une règle qui a reçu un
+ * id : on ne sait pas distinguer « la même règle migrée ailleurs » d'« une règle
+ * recréée avec le même motif », et perdre une règle de l'utilisateur est pire (R-A v2).
+ * @returns {object[]} nouvelle liste (les objets d'entrée ne sont pas modifiés)
+ */
+export function _bankRulesMergeById(local, remote) {
+  const keyOf = r => (r.id != null && r.id !== '') ? 'id:' + r.id : 'pat:' + _bankNormTxt(r.pattern) + '|' + (r.compte || '');
+  const ts = r => Date.parse((r && r._modifiedAt) || '') || 0;
+  const out = [];
+  const idx = new Map();
+  const add = r => {
+    if (!r || typeof r !== 'object') return;
+    const k = keyOf(r);
+    if (!idx.has(k)) { idx.set(k, out.length); out.push(r); return; }
+    const cur = out[idx.get(k)];
+    if (cur._deleted) return;                                   // supprimée = définitif
+    if (r._deleted || ts(r) > ts(cur)) out[idx.get(k)] = r;
+  };
+  (Array.isArray(local) ? local : []).forEach(add);
+  (Array.isArray(remote) ? remote : []).forEach(add);
+  return out;
+}
+
+/** Clé du RÉSULTAT d'une règle (catégorie + affectation). */
+function _bankRuleResultKey(r) {
+  return (r.cat || '') + '#' + _bankRuleAffKey(r);
+}
+
+/** Clé des CRITÈRES d'une règle (compte, sens, motif, montant). */
+function _bankRuleCritKey(r) {
+  const t = _bankRuleTokens(r);
+  const motif = _bankRuleIsV2(r) ? [t.mots.slice().sort(), t.libres.slice().sort()] : ['§', _bankNormTxt(r.pattern)];
+  return JSON.stringify([String(r.compte || ''), r.sens || '', motif, r.montant || null]);
+}
+
+/**
+ * D3 — Création d'un DOUBLON EXACT refusée : renvoie la règle vivante déjà
+ * identique (mêmes compte, sens, mots, condition de montant ET même résultat), ou
+ * null. La règle elle-même (même objet ou même id) n'est pas son propre doublon.
+ */
+export function _bankRuleExactDuplicate(rules, candidate) {
+  if (!candidate) return null;
+  const k = _bankRuleCritKey(candidate) + '§' + _bankRuleResultKey(candidate);
+  return (Array.isArray(rules) ? rules : []).find(r => r && !r._deleted && r !== candidate
+    && !(candidate.id != null && candidate.id !== '' && r.id === candidate.id)
+    && _bankRuleCritKey(r) + '§' + _bankRuleResultKey(r) === k) || null;
+}
+
+/** Tous les mots de `a` se retrouvent-ils dans `b` ? (b est alors au moins aussi précise que a) */
+function _bankRuleCovers(a, b) {
+  const ta = _bankRuleIsV2(a) ? _bankRuleTokens(a) : { mots: [], libres: [_bankNormTxt(a.pattern)].filter(Boolean) };
+  const bLegacy = !_bankRuleIsV2(b);
+  const tb = bLegacy ? { mots: [], libres: [] } : _bankRuleTokens(b);
+  const bText = bLegacy ? _bankNormTxt(b.pattern) : '';
+  if (!ta.mots.length && !ta.libres.length) return false;
+  if (bLegacy && !bText) return false;
+  const motOk = w => tb.mots.includes(w) || (bLegacy && _bankMotEntier(bText, w));
+  const libreOk = s => tb.mots.some(x => x.includes(s)) || tb.libres.some(x => x.includes(s)) || (bLegacy && bText.includes(s));
+  return ta.mots.every(motOk) && ta.libres.every(libreOk);
+}
+
+/** Précision d'une règle : nombre de mots + conditions. */
+function _bankRulePrecision(r) {
+  const t = _bankRuleIsV2(r) ? _bankRuleTokens(r) : { mots: [], libres: _bankNormTxt(r.pattern).split(' ').filter(Boolean) };
+  return t.mots.length * 2 + t.libres.length + (r.sens ? 1 : 0) + (r.montant ? 1 : 0);
+}
+
+/** Laquelle garder entre deux règles en doublon : la plus précise (à égalité : la première). */
+function _bankRulePlusPrecise(a, b) {
+  const ab = _bankRuleCovers(a, b), ba = _bankRuleCovers(b, a);
+  if (ab && !ba) return b;
+  if (ba && !ab) return a;
+  return _bankRulePrecision(b) > _bankRulePrecision(a) ? b : a;
+}
+
+/**
+ * Mes règles — signal de DOUBLON : même compte, même résultat, et le motif de l'une
+ * inclus dans celui de l'autre. Deux règles de sens opposés (dépense / recette) ne
+ * peuvent jamais attraper la même ligne : ce n'est pas un doublon.
+ * @returns {{a:object, b:object, garder:object, retirer:object}[]}
+ */
+export function _bankRulesDuplicates(rules) {
+  const live = (Array.isArray(rules) ? rules : []).filter(r => r && !r._deleted);
+  const out = [];
+  for (let i = 0; i < live.length; i++) {
+    for (let j = i + 1; j < live.length; j++) {
+      const a = live[i], b = live[j];
+      if (String(a.compte || '') !== String(b.compte || '')) continue;
+      if (_bankRuleResultKey(a) !== _bankRuleResultKey(b)) continue;
+      if (a.sens && b.sens && a.sens !== b.sens) continue;
+      if (!_bankRuleCovers(a, b) && !_bankRuleCovers(b, a)) continue;
+      const garder = _bankRulePlusPrecise(a, b);
+      out.push({ a, b, garder, retirer: garder === a ? b : a });
+    }
+  }
+  return out;
+}
+
+/**
+ * « Fusionner » deux règles en doublon (fonction pure) : garde la plus précise,
+ * réunit les exceptions des deux, et fournit le tombstone de l'autre (à poser en
+ * place par l'appelant). Les objets d'entrée ne sont pas modifiés.
+ * @returns {{garder:object, retirer:object, tombstone:object}}
+ */
+export function _bankRulesFuse(a, b, opts = {}) {
+  const keep = _bankRulePlusPrecise(a, b);
+  const drop = keep === a ? b : a;
+  const now = _bankNow(opts);
+  const ex = [];
+  const seen = new Set();
+  for (const e of [...(keep.exceptions || []), ...(drop.exceptions || [])]) {
+    if (!e || !e.cle || seen.has(e.cle)) continue;
+    seen.add(e.cle); ex.push(Object.assign({}, e));
+  }
+  const garder = Object.assign({}, keep, { _modifiedAt: now });
+  if (ex.length || Array.isArray(keep.exceptions)) garder.exceptions = ex;
+  return { garder, retirer: drop, tombstone: _bankRuleTombstone(drop, { now }) };
+}
+
+/**
+ * D5 — APERÇU d'une règle candidate (création ou modification).
+ *  - lignes de l'import en cours qui correspondent, chacune COCHÉE ou DÉCOCHÉE
+ *    (décochée = exception de la règle) ; la ligne SOURCE est toujours incluse,
+ *    cochée et verrouillée, même quand elle ne correspond pas (`correspond:false`
+ *    → l'écran signale qu'elle ne suivrait plus la règle) ;
+ *  - compteur « en base » informatif, du MÊME compte uniquement ;
+ *  - alerte « natures différentes » calculée sur les lignes COCHÉES DE L'IMPORT
+ *    (nature = catégorie proposée, ou sens différents).
+ * Le compte de la règle, à défaut celui de l'import (`ctx.accountId`), est le seul
+ * considéré : une règle ne voit jamais les mouvements d'un autre compte.
+ *
+ * @param {object} regle — règle candidate (modèle refondu ou historique)
+ * @param {{importLines?:object[], mouvements?:object[], accountId?:*, source?:object,
+ *          sourceIndex?:number, loyerCC?:Function}} ctx
+ * @returns {{lignes:{line:object, index:number, cle:string, source:boolean, verrouille:boolean,
+ *            coche:boolean, correspond:boolean}[], nCochees:number, nBase:number, baseCats:string[],
+ *            natures:string[], mixed:boolean, tooShort:boolean, vide:boolean, compteManquant:boolean,
+ *            sourceCorrespond:boolean|null, level:''|'warn'|'ok'}}
+ */
+export function _bankRuleApercu(regle, ctx = {}) {
+  const r = regle || {};
+  const importAcc = (ctx.accountId != null && ctx.accountId !== '') ? String(ctx.accountId) : '';
+  const compte = (r.compte != null && r.compte !== '') ? String(r.compte) : importAcc;
+  const exKeys = new Set((Array.isArray(r.exceptions) ? r.exceptions : []).map(e => e && e.cle).filter(Boolean));
+  // On teste la règle SANS ses exceptions : une ligne exclue reste listée, décochée.
+  const cand = Object.assign({}, r, { compte, exceptions: [] });
+  delete cand._deleted;
+  const t = _bankRuleIsV2(cand) ? _bankRuleTokens(cand) : { mots: [], libres: [_bankNormTxt(cand.pattern)].filter(Boolean) };
+  const motifLen = [...t.mots, ...t.libres].join(' ').length;
+  const out = { lignes: [], nCochees: 0, nBase: 0, baseCats: [], natures: [], mixed: false, tooShort: false,
+    vide: motifLen === 0, compteManquant: !compte, sourceCorrespond: null, level: '' };
+  const canMatch = !out.vide && !!compte;
+  const match = (l, acc) => canMatch && _bankRuleMatch(cand, l, acc, ctx);
+
+  const src = ctx.source ? _bankAsLine(ctx.source) : null;
+  const srcKey = src ? _bankRuleLineKey(src) : '';
+  let srcRow = null;
+  (Array.isArray(ctx.importLines) ? ctx.importLines : []).forEach((l, index) => {
+    if (!l) return;
+    const cle = _bankRuleLineKey(l);
+    const isSrc = (ctx.sourceIndex != null && ctx.sourceIndex === index) || (!!srcKey && cle === srcKey && !srcRow);
+    const ok = match(l, importAcc);
+    if (!ok && !isSrc) return;
+    const row = { line: l, index, cle, source: isSrc, verrouille: isSrc, coche: isSrc || !exKeys.has(cle), correspond: ok };
+    if (isSrc) srcRow = row;
+    out.lignes.push(row);
+  });
+  if (src && !srcRow) {
+    const acc = (src._bankAccountId != null && src._bankAccountId !== '') ? String(src._bankAccountId) : importAcc;
+    srcRow = { line: src, index: -1, cle: srcKey, source: true, verrouille: true, coche: true, correspond: match(src, acc) };
+    out.lignes.push(srcRow);
+  }
+  if (srcRow) {
+    out.lignes = [srcRow, ...out.lignes.filter(x => x !== srcRow)];
+    out.sourceCorrespond = srcRow.correspond;
+  }
+
+  if (canMatch) {
+    const hits = (Array.isArray(ctx.mouvements) ? ctx.mouvements : []).filter(m => {
+      if (!m || m._deleted) return false;
+      if (String(m._bankAccountId == null ? '' : m._bankAccountId) !== compte) return false;
+      const k = _bankRuleLineKey(m);
+      if (srcKey && k === srcKey) return false;           // la source est déjà listée
+      if (exKeys.has(k)) return false;
+      return _bankRuleMatch(cand, _bankAsLine(m), compte, ctx);
+    });
+    out.nBase = hits.length;
+    out.baseCats = [...new Set(hits.map(m => m.cat).filter(Boolean))];
+  }
+
+  const cochees = out.lignes.filter(x => x.coche && x.index >= 0);
+  out.nCochees = out.lignes.filter(x => x.coche).length;
+  out.natures = [...new Set(cochees.map(x => x.line.suggestedCat).filter(Boolean))];
+  const senses = new Set(cochees.map(x => _bankLineSens(x.line)));
+  out.mixed = out.natures.length > 1 || senses.size > 1;
+  out.tooShort = !out.vide && motifLen < 4;
+  out.level = (out.vide || (!out.lignes.length && !out.nBase && !out.compteManquant)) ? ''
+    : ((out.tooShort || out.mixed || out.compteManquant || out.sourceCorrespond === false) ? 'warn' : 'ok');
   return out;
 }
 
