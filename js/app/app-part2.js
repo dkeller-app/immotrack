@@ -13786,9 +13786,8 @@ function _histoLoyerIncoherences(ref){
 // par le module pur js/core/bail-historique.js (chapitres + rail périodes/événements :
 // bail, DG versé/restitué, IRL/renonciations, modifications, fins de bail).
 // Les décorations data-dépendantes (nb quittances, statut DG via _dgStatut) restent ici.
-// Remplace l'overlay ov-histo-loyer (étape 3) ; la modale ov-histo-corr est conservée.
+// Remplace l'overlay ov-histo-loyer (étape 3) ; la modale ov-histo-corr devient « Modifier la période » (BAIL-EN-COURS-MODIFIER-PERIODES).
 // ════════════════════════════════════════════════════════════════════════════
-let _histoLoyerRef = null;            // lot ciblé par la modale « Corriger une période »
 const _histoBailOuverts = {};         // `${ref}|${bailDebut}` → bool (accordéons, mémoire de session)
 
 function _histoBailTodayIso(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -13804,6 +13803,7 @@ function _histoBailToggleChap(key){
 }
 
 function _renderHistoBailSection(ref){
+  _histoPerListe = []; _histoPerMode = null;   // le tableau de sélection est reconstruit par ce rendu (index data-pidx)
   const rEsc = _lyQ(ref);
   const refSafe = _lyQ(ref);
   if(typeof window==='undefined' || typeof window._bailHistoConstruire!=='function'){
@@ -13862,13 +13862,21 @@ function _renderHistoBailSection(ref){
     : `<div class="logf-panel-empty">Aucun bail (ni courant ni passé) sur ce bien.</div>`;
 
   return `
-    <div class="logf-panel" style="grid-column:1/-1;margin-top:14px">
+    <div class="logf-panel hl-histo" id="hl-histo" style="grid-column:1/-1;margin-top:14px">
       <div class="flex-b" style="margin-bottom:4px;flex-wrap:wrap;gap:10px;align-items:flex-end">
         <div><h3 class="logf-panel-title" style="margin:0">${_uiIcon('clock')} Historique du bail</h3>
           <div class="mu sm" style="margin-top:2px">Toutes les évolutions, tous baux confondus : loyer · charges · dépôt de garantie · révisions IRL · fins de bail</div></div>
-        <button class="btn bs bb" onclick="openHistoCorrPeriode('${rEsc}')">＋ Corriger une période</button>
+        <button class="btn bs bb" id="hl-btn-modifier" aria-pressed="false" onclick="_histoPerModeOuvrir('${rEsc}')">${_uiIcon('edit')} Modifier</button>
       </div>
-      <div style="margin-top:12px">${nowHtml}${migHtml}${chapsHtml}</div>
+      <div style="margin-top:12px">${nowHtml}${migHtml}
+        <div class="hl-selbar" id="hl-selbar" hidden role="region" aria-label="Modifier une période">
+          <b class="hl-selbar-t">Sélectionne la période à modifier</b>
+          <span class="hl-selbar-act">
+            <button class="btn bs bb" onclick="_histoPerAjouter('${rEsc}')">＋ Ajouter une période</button>
+            <button class="btn bs bb" onclick="_histoPerModeFermer()">Annuler</button>
+            <button class="btn bp bb" id="hl-selbar-ok" disabled onclick="_histoPerModifierSel()">Modifier</button>
+          </span>
+        </div>${chapsHtml}</div>
     </div>`;
 }
 
@@ -13892,7 +13900,7 @@ function _histoBailChapHtml(c, ref, refSafe, bailForDg){
     ? '<span class="hbc-status cur">● En cours</span>'
     : '<span class="hbc-status old">Clos</span>';
   const railHtml = c.rail.length
-    ? `<div class="hl-tl">${c.rail.map(r=> r.kind==='periode' ? _histoBailPeriodeHtml(r.periode, ref)
+    ? `<div class="hl-tl">${c.rail.map(r=> r.kind==='periode' ? _histoBailPeriodeHtml(r.periode, ref, c)
         : `<div class="hl-ev"><div class="hl-date">${_hlGouttiere(r)}</div><div class="hl-dot ${_hlDotOf(_histoBailEventHtml(r.ev, c, refSafe, bailForDg))}"></div>${_histoBailEventHtml(r.ev, c, refSafe, bailForDg)}</div>`).join('')}</div>`
     : `<div class="logf-panel-empty">Aucun événement.</div>`;
   return `
@@ -13911,7 +13919,7 @@ function _histoBailChapHtml(c, ref, refSafe, bailForDg){
     </div>`;
 }
 
-function _histoBailPeriodeHtml(p, ref){
+function _histoBailPeriodeHtml(p, ref, c){
   const nMois = _hlNbMois(p.debut, p.fin);
   const nQ = _hlNbQuittances(ref, p.debut, p.fin);
   const span = p.future
@@ -13919,7 +13927,11 @@ function _histoBailPeriodeHtml(p, ref){
     : (p.courante && p.fin==null)
       ? `en vigueur depuis le ${fd(p.debut)} — ${nMois} mois${nQ?` · ${nQ} quittance${nQ>1?'s':''} émise${nQ>1?'s':''}`:''}`
       : `du ${fd(p.debut)}${p.fin?` au ${fd(p.fin)}`:''} — ${nMois} mois${nQ?` · ${nQ} quittance${nQ>1?'s':''} émise${nQ>1?'s':''}`:''}`;
-  return `<div class="hl-period${p.courante?' current':''}${p.future?' upcoming':''}"><span class="tag">${fmt(p.total)} / mois</span><span class="span">${span}</span></div>`;
+  // BAIL-EN-COURS-MODIFIER-PERIODES — chaque PÉRIODE est sélectionnable (mode « Modifier ») : puce radio + index dans le
+  // tableau construit au rendu (jamais la clé dans l'onclick). Sans le mode, ni puce ni clic.
+  const pidx = _histoPerListe.push({ ref, p, clos: !!(c && c.statut==='clos') }) - 1;
+  return `<div class="hl-period${p.courante?' current':''}${p.future?' upcoming':''}" data-pidx="${pidx}" role="radio" aria-checked="false"
+    onclick="_histoPerChoisir(${pidx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_histoPerChoisir(${pidx});}"><span class="hl-pick" aria-hidden="true"></span><span class="tag">${fmt(p.total)} / mois</span><span class="span">${span}</span></div>`;
 }
 
 // Carte d'un événement du rail — types : bail-debut, dg-verse, dg-restitue, irl,
@@ -14056,6 +14068,26 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4>Période remplacée</h4><span class="hl-badge b-man">remplacée</span></div>
       <div class="hl-desc">Au <b>${fd(ev.date)}</b>, <b>${fmt(ev.avant)}</b> a été remplacé par <b>${fmt(ev.apres)}</b>${ev.motif?' — '+escHtml(ev.motif):''}. La ligne précédente ne s'applique plus, elle reste ici.</div>
       <div class="hl-move"><span class="old">${fmt(ev.avant)}</span><span>→</span><span class="new">${fmt(ev.apres)}</span></div></div>`;
+  }
+  // BAIL-EN-COURS-MODIFIER-PERIODES — une carte par ÉDITION de période (tirée des tombstones du barème, enrichie du journal).
+  if(t==='periode-modifiee'){
+    const a=ev.avant, b=ev.apres; const chg=[];
+    if(a.debut!==b.debut) chg.push(`date ${fd(a.debut)} → ${fd(b.debut)}`);
+    if(a.hc!==b.hc) chg.push(`loyer HC ${fmt(a.hc)} → ${fmt(b.hc)}`);
+    if(a.ch!==b.ch) chg.push(`charges ${fmt(a.ch)} → ${fmt(b.ch)}`);
+    return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4>Période modifiée</h4><span class="hl-badge b-man">modifiée</span></div>
+      <div class="hl-desc">La période du <b>${fd(a.debut)}</b> a été modifiée${ev.le?' le '+fd(ev.le):''}${ev.auteur?' par '+escHtml(ev.auteur):''} : ${chg.join(', ')}.${ev.motif?' Motif : '+escHtml(ev.motif)+'.':''}</div>
+      ${a.total!==b.total?`<div class="hl-move"><span class="old">${fmt(a.total)}</span><span>→</span><span class="new">${fmt(b.total)}</span></div>`:''}</div>`;
+  }
+  if(t==='periode-supprimee'){
+    const ou = ev.reprise==='suivante' ? 'de la période suivante' : (ev.reprise==='precedente' ? 'de la période précédente' : 'du bail');
+    const tar = ev.repriseTarif ? ' ('+fmt(ev.repriseTarif.total)+')' : '';
+    return `<div class="hl-card" style="opacity:.9" data-dot="d-man"><div class="tt"><h4>Période supprimée</h4><span class="hl-badge b-warn">⊘ supprimée</span></div>
+      <div class="hl-desc">La période de <b>${fmt(ev.avant.total)}</b> du <b>${fd(ev.avant.debut)}</b>${ev.avant.fin?' au '+fd(ev.avant.fin):''} a été supprimée${ev.le?' le '+fd(ev.le):''}${ev.auteur?' par '+escHtml(ev.auteur):''} ; ces mois reprennent le tarif ${ou}${tar}.${ev.motif?' Motif : '+escHtml(ev.motif)+'.':''}</div></div>`;
+  }
+  if(t==='periode-absorbee'){
+    return `<div class="hl-card" style="opacity:.85" data-dot="d-bail"><div class="tt"><h4>Période remplacée</h4><span class="hl-badge b-warn">⊘ absorbée</span></div>
+      <div class="hl-desc">La période de <b>${fmt(ev.avant)}</b> du <b>${fd(ev.date)}</b> est remplacée par la période avancée au <b>${fd(ev.dateEffet)}</b>.</div></div>`;
   }
   if(t==='periode-annulee'){
     return `<div class="hl-card" style="opacity:.85" data-dot="d-bail"><div class="tt"><h4>Période annulée par la clôture</h4><span class="hl-badge b-warn">⊘ annulée</span></div>
@@ -14211,94 +14243,238 @@ function _histoIrlCorrSave(){
   showToast('Date d\'effet corrigée','ok');
 }
 
-function openHistoCorrPeriode(ref, presetDebut){
-  _histoLoyerRef = ref || _histoLoyerRef;
-  el('histo-corr-sub').textContent = (_histoLoyerRef||'') + ' · tracée au journal, motif obligatoire.';
-  el('hc-debut').value = presetDebut || '';
-  el('hc-fin').value=''; el('hc-hc').value=''; el('hc-ch').value=''; el('hc-motif').value='';
+// ════════════════════════════════════════════════════════════════════════════
+// BAIL-EN-COURS-MODIFIER-PERIODES — le mode « ✏️ Modifier » de l'historique du bail.
+// Remplace l'ancien « ＋ Corriger une période » (date libre + fin + motif obligatoire + refus muets).
+//   1. « Modifier » (en-tête) → une puce de sélection apparaît sur chaque PÉRIODE (pastilles .hl-period), les cartes
+//      DG / bail sont atténuées, une barre propose Annuler · Modifier · ＋ Ajouter une période ;
+//   2. « Modifier » (barre) → la fenêtre « Modifier la période du JJ/MM/AAAA » : date d'effet, loyer HC, charges, motif,
+//      alerte d'impact NON bloquante (recalculée à chaque saisie, SEUL l'encart est re-rendu), « Supprimer cette période » ;
+//   3. l'écriture passe par l'API stable window._bailPeriodeModifier / _bailPeriodeSupprimer / _bailPeriodeAjouter
+//      (orchestrateur plus bas ; module pur js/core/bareme-edition.js).
+// Règle de Didier : on ne bloque jamais, on alerte. La sélection se fait par INDEX (data-pidx) dans un tableau construit
+// au rendu — jamais une clé interpolée dans un onclick.
+// ════════════════════════════════════════════════════════════════════════════
+let _histoPerListe = [];       // [{ref, p}] — p = la période du module pur (cle, droits, premiere…) ; reconstruit à chaque rendu
+let _histoPerMode = null;      // {ref, sel:index|null} tant que le mode sélection est actif
+let _histoPerCtx = null;       // fenêtre ouverte : {mode:'modifier'|'ajouter', ref, entree, vue:'edit'|'suppr', saisi:bool}
+let _histoPerTimer = null;
+
+function _histoPerMoisLong(ym){
+  const y=+String(ym).slice(0,4), m=+String(ym).slice(5,7);
+  try{ return new Date(y,m-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); }catch(e){ return String(ym); }
+}
+// « Le dû de septembre 2026 » / « Le dû d'octobre 2026 » (élision devant une voyelle).
+function _histoPerDeMois(ym){ const l=_histoPerMoisLong(ym); return (/^[aeiouhéèêAEIOUH]/.test(l)?'d\'':'de ')+l; }
+function _histoPerSigne(n){ return (n>0?'+':(n<0?'−':''))+fmt(Math.abs(n)); }
+
+function _histoPerModeOuvrir(ref){
+  _histoPerMode = { ref, sel:null };
+  _histoPerMajMode();
+  const b=document.getElementById('hl-selbar');
+  if(b){ try{ b.scrollIntoView({block:'nearest',behavior:'smooth'}); }catch(e){} }
+}
+function _histoPerModeFermer(){ _histoPerMode=null; _histoPerMajMode(); }
+function _histoPerMajMode(){
+  const sec=document.getElementById('hl-histo'); if(!sec) return;
+  const on=!!_histoPerMode;
+  sec.classList.toggle('hl-selmode', on);
+  const bar=document.getElementById('hl-selbar'); if(bar) bar.hidden=!on;
+  const btn=document.getElementById('hl-btn-modifier'); if(btn) btn.setAttribute('aria-pressed', on?'true':'false');
+  sec.querySelectorAll('.hl-period').forEach(n=>{
+    const sel=on && _histoPerMode.sel===(+n.dataset.pidx);
+    n.classList.toggle('sel', sel);
+    n.setAttribute('aria-checked', sel?'true':'false');
+    if(on) n.setAttribute('tabindex','0'); else n.removeAttribute('tabindex');
+  });
+  const ok=document.getElementById('hl-selbar-ok'); if(ok) ok.disabled=!(on && _histoPerMode.sel!=null);
+}
+function _histoPerChoisir(i){
+  if(!_histoPerMode || !_histoPerListe[i]) return;
+  _histoPerMode.sel = i;
+  _histoPerMajMode();
+}
+function _histoPerModifierSel(){
+  if(!_histoPerMode || _histoPerMode.sel==null) return;
+  const e=_histoPerListe[_histoPerMode.sel]; if(!e) return;
+  _histoPerOuvrir('modifier', e.ref, e);
+}
+function _histoPerAjouter(ref){ _histoPerOuvrir('ajouter', ref, null); }
+
+// Bandeau d'information de la fenêtre (révision IRL, avenant, 1ʳᵉ période, bail clos).
+function _histoPerBandeau(ref, e){
+  const p=e&&e.p; if(!p) return '';
+  const refSafe=_lyQ(ref); const out=[];
+  if(p.source==='irl'){
+    const _n=s=>String(s==null?'':s).trim().toLowerCase();
+    const h=(DB.irlHistorique||[]).find(x=>x && !x._deleted && _n(x.ref)===_n(ref) && x.action!=='renonciation'
+      && (String(x.dateEffet||'').slice(0,10)===p.debut || String(x.dateApplication||'').slice(0,10)===p.debut));
+    const liens=[];
+    if(h) liens.push(`<span class="hl-lnk" onclick="closeM('ov-histo-corr');_histoIrlCorrOpen('${refSafe}','${_lyQ(String(h.date||h.dateRevision||'').slice(0,10))}','${_lyQ(p.debut)}')">${_uiIcon('edit')} Corriger la date d'effet</span>`);
+    if(p.future) liens.push(`<span class="hl-lnk" onclick="closeM('ov-histo-corr');_irlAnnulerProgrammee('${refSafe}')">${_uiIcon('close')} Annuler la révision</span>`);
+    out.push(`<div class="hper-note">Cette période vient d'une <b>révision IRL</b>${h&&(h.date||h.dateRevision)?' validée le '+escHtml(fd(String(h.date||h.dateRevision).slice(0,10))):''}. Seules les <b>charges</b> se modifient ici : la date et le loyer passent par les gestes IRL.${liens.length?`<div class="hl-foot">${liens.join('')}</div>`:''}</div>`);
+  } else if(/^\s*Avenant n°/i.test(p.note||'')){
+    out.push(`<div class="hper-note">${escHtml(p.note)} : cette période vient d'un <b>avenant signé</b>. Le document signé, lui, ne change pas.</div>`);
+  }
+  if(e.clos) out.push(`<div class="hper-note">Ce bail est <b>clos</b> : sa dette de loyer et le dépôt de garantie à restituer se recalculent avec ces montants. Une restitution déjà faite n'est pas modifiée.</div>`);
+  return out.join('');
+}
+
+function _histoPerOuvrir(mode, ref, e){
+  _histoPerCtx = { mode, ref, entree:e, vue:'edit', saisi:false };
+  const p = e && e.p;
+  const ajout = mode==='ajouter';
+  el('hper-titre').textContent = ajout ? 'Ajouter une période' : 'Modifier la période du '+fd(p.debut);
+  el('hper-sub').textContent = _logLabel(ref) + (ajout ? ' · pour une période manquante (remise, loyer d\'une date précise…)' : ' · inscrit au journal du bail');
+  const d=el('hper-debut'), hc=el('hper-hc'), ch=el('hper-ch');
+  d.value = ajout ? '' : p.debut; hc.value = ajout ? '' : p.hc; ch.value = ajout ? '' : p.ch;
+  el('hper-fin').value=''; el('hper-motif').value='';
+  // Bornes de SAISIE (jamais un refus muet : la raison est dite dans l'encart) — début du bail et fin de la période.
+  d.min = (!ajout && p.chapitre) ? p.chapitre : ''; d.max = (!ajout && p.fin) ? p.fin : '';
+  d.disabled = !ajout && !p.droits.date; hc.disabled = !ajout && !p.droits.hc; ch.disabled = false;
+  const aide=el('hper-debut-aide');
+  if(!ajout && p.premiere) aide.innerHTML = `La date de début de la 1ʳᵉ période est celle du bail — <span class="hl-lnk" onclick="closeM('ov-histo-corr');openBail('${_lyQ(ref)}')">Modifier le bail</span>.`;
+  else if(!ajout && p.source==='irl') aide.textContent = 'Fixée par la révision IRL (voir ci-dessus).';
+  else aide.textContent = ajout ? 'Un 1er du mois évite un loyer proratisé sur le mois d\'effet.' : '';
+  el('hper-fin-wrap').hidden = !ajout;
+  el('hper-bandeau').innerHTML = ajout ? '' : _histoPerBandeau(ref, e);
+  el('hper-alerte').innerHTML = '';
+  _histoPerVue();
   openM('ov-histo-corr');
+  _histoPerRecalc(true);
 }
-function _histoSaveCorrPeriode(){
-  const ref=_histoLoyerRef; if(!ref){ closeM('ov-histo-corr'); return; }
-  const debut=el('hc-debut').value, fin=el('hc-fin').value, motif=(el('hc-motif').value||'').trim();
-  const hc=parseFloat(el('hc-hc').value), ch=parseFloat(el('hc-ch').value);
-  if(!debut){ showToast('Date de début requise','err'); return; }
-  if(!motif){ showToast('Motif obligatoire','err'); return; }
-  if(!Number.isFinite(hc)){ showToast('Loyer hors charges requis','err'); return; }
-  // Garde-fou : ne pas corriger un mois déjà quittancé (le passé quittancé ne se recalcule jamais).
-  const dq = (typeof _dernierMoisQuittanceYm==='function') ? _dernierMoisQuittanceYm(ref) : null;
-  if(dq && String(debut).slice(0,7) <= dq){
-    if(!confirm2(`Le mois ${String(debut).slice(0,7)} est déjà quittancé (dernier : ${dq}). La quittance émise fait foi et ne sera pas recalculée. Enregistrer quand même une correction à partir de ${fd(debut)} ?`)) return;
-  }
-  // I1 (audit 24/08) : « Corriger une période » laisse la date LIBRE, et la période est rattachée
-  // au CHAPITRE DU BAIL COURANT (bailDebut). Une date antérieure au début de ce bail appartient au
-  // locataire précédent : l'écrire supprimait SA période (le filtre de supersession ne regardait
-  // que ref + debut). borneMinEffetBareme protège la popup de modification du bail, pas cet écran.
-  // Le module refuse désormais d'écrire une telle période — ici on le DIT, plutôt que de laisser
-  // un no-op muet derrière un toast « Période corrigée ».
-  // AUDIT 24/08 (B2) — le chapitre était `(DB.baux[ref] && DB.baux[ref].debut) || debut`. Après
-  // une clôture, DB.baux[ref] est un TOMBSTONE : il existe, il n'a pas de `debut`, et le repli
-  // tombait sur LA DATE DE LA CORRECTION — un chapitre qui n'est celui d'aucun bail. La
-  // supersession et l'idempotence, qui comparent les chapitres, ne mordaient plus : deux périodes
-  // vivantes au même jour, donc deux montants selon l'appareil (767 € contre 820 € mesurés).
-  // Et le bouton « ＋ Corriger une période » est rendu même sans bail en cours.
-  const _bauxCorr = (typeof _migrationBailsForLot === 'function') ? _migrationBailsForLot(ref) : [];
-  const _bailDebutCorr = (typeof window._baremeChapitrePour === 'function')
-    ? window._baremeChapitrePour(DB.loyerBareme||[], ref, debut, _bauxCorr) : '';
-  if(!_bailDebutCorr){
-    showToast(`Aucun bail de ${_logLabel(ref)} ne couvre le ${fd(debut)} : cette période ne peut être rattachée à aucun locataire. Vérifiez la date de début.`,'err',8000);
-    return;
-  }
-  if(String(debut).slice(0,10) < _bailDebutCorr){
-    showToast(`Cette période commencerait le ${fd(debut)}, avant le début du bail (${fd(_bailDebutCorr)}) : elle appartiendrait au locataire précédent. Corrigez la date de début.`,'err',8000);
-    return;
-  }
-  // R1 (re-audit 17/07) : fin < debut → cloturerPeriodeParDebut no-op silencieux → la
-  // correction resterait OUVERTE à côté de la vivante (l'état interdit). Refus explicite.
-  if(fin && String(fin).slice(0,10) < String(debut).slice(0,10)){
-    showToast('La date de fin doit être postérieure au début de la période','err'); return;
-  }
-  // B1-bis (audit 17/07) : une correction DANS LE PASSÉ (avant la dernière période vivante)
-  // doit poser une FIN explicite — appliquerNouvellePeriode ne clôt que la période ouverte
-  // antérieure : sans fin, deux périodes resteraient ouvertes (dû divergent).
-  const _dernierDebutVivant = (DB.loyerBareme||[]).reduce((m,p)=>{
-    if(!p||p._deleted||String(p.ref||'').trim().toLowerCase()!==String(ref).trim().toLowerCase()) return m;
-    const d=String(p.debut||'').slice(0,10); return d>m?d:m; },'');
-  if(!fin && _dernierDebutVivant && String(debut).slice(0,10) <= _dernierDebutVivant){
-    showToast(`Cette correction commence avant la dernière période du barème (${fd(_dernierDebutVivant)}) : indiquez une date de FIN, sinon deux périodes resteraient ouvertes.`,'err',7000);
-    return;
-  }
-  if(typeof window!=='undefined' && typeof window._baremeAppliquerNouvellePeriode==='function'){
-    // `fin` passe DANS la période (audit) : depuis que appliquerNouvellePeriode borne la nouvelle
-    // période sur celle qui la suit, elle peut naître CLOSE — et cloturerPeriodeParDebut, qui
-    // exige `fin == null`, devenait alors un no-op silencieux. La fin saisie par l'utilisateur
-    // était jetée et la correction courait jusqu'à la période suivante (9 mois surfacturés sur
-    // le cas mesuré). L'appel ci-dessous reste le filet quand la période existait déjà.
-    // GARANTIE DE COUVERTURE (audit 24/08) — AVANT d'écrire, et bornée à la veille de la
-    // correction : les mois du bail qui précèdent gardent le tarif d'alors. Après, c'est la
-    // correction qui fait foi ; poser quoi que ce soit là-bas la bornerait.
-    if(_bailDebutCorr && typeof window._baremeGarantirCouverture==='function'){
-      const _bCorr = _bauxCorr.find(b => String(b.debut||'').slice(0,10) === _bailDebutCorr);
-      if(_bCorr) DB.loyerBareme = window._baremeGarantirCouverture(DB.loyerBareme||[],
-        { ref, debut: _bailDebutCorr, hc: _bCorr.hc, ch: _bCorr.ch }, debut);
-    }
-    DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], {
-      ref, debut, fin: fin || null, hc, ch: Number.isFinite(ch)?ch:0, source:'manuel',
-      bailDebut:_bailDebutCorr, note:motif });
-    if(fin){ // fin explicite → clôturer LA période insérée (ciblage ref+debut — audit 17/07 :
-      // _baremeCloturer visait la période ouverte la plus récente du lot = la VIVANTE, qui
-      // recevait une fin < debut ; la correction restait ouverte → double période + dû divergent).
-      DB.loyerBareme = (typeof window._baremeCloturerParDebut==='function')
-        ? window._baremeCloturerParDebut(DB.loyerBareme, ref, debut, fin)
-        : DB.loyerBareme;
-    }
-  }
-  if(typeof _auditLog==='function') _auditLog('update','bareme',ref,`correction manuelle ${debut} ${hc}+${ch||0} : ${motif}`);
-  saveDB();
-  closeM('ov-histo-corr');
-  rLogFiche();   // l'historique vit désormais inline dans l'onglet Bail
-  showToast('Période corrigée','ok');
+function _histoPerVue(){
+  const c=_histoPerCtx; if(!c) return;
+  const s=c.vue==='suppr', p=c.entree&&c.entree.p;
+  el('hper-champs').hidden=s; el('hper-suppr-q').hidden=!s;
+  el('hper-b-del').hidden = s || c.mode==='ajouter' || !(p&&p.droits&&p.droits.supprimer);
+  el('hper-b-fermer').hidden=s; el('hper-b-ok').hidden=s;
+  el('hper-b-retour').hidden=!s; el('hper-b-confirm').hidden=!s;
+  if(s) el('hper-suppr-q').innerHTML = `Supprimer la période de <b>${fmt(p.total)}</b> par mois (${escHtml(p.fin?('du '+fd(p.debut)+' au '+fd(p.fin)):('depuis le '+fd(p.debut)))}) ?`;
 }
+function _histoPerSupprimerDemande(){
+  const c=_histoPerCtx; if(!c || c.mode!=='modifier') return;
+  c.vue='suppr'; _histoPerVue(); _histoPerRecalc(true);
+}
+function _histoPerSupprimerRetour(){ const c=_histoPerCtx; if(!c) return; c.vue='edit'; _histoPerVue(); _histoPerRecalc(true); }
+
+function _histoPerLire(){
+  return { debut:v('hper-debut'), fin:v('hper-fin'), hc:v('hper-hc'), ch:v('hper-ch'), motif:(v('hper-motif')||'').trim() };
+}
+// Le patch passé au module : un champ vide ou non saisissable est ABSENT (inchangé), jamais un zéro.
+function _histoPerPatch(f, p){
+  const patch={};
+  if(f.debut && p.droits.date) patch.debut=f.debut;
+  if(f.hc!=='' && p.droits.hc) patch.hc=f.hc;
+  if(f.ch!=='') patch.ch=f.ch;
+  return patch;
+}
+
+// Recalcul de l'encart d'alerte : débouncé (250 ms) — jamais la fenêtre entière (la saisie de la date garde le focus).
+function _histoPerRecalc(immediat){
+  clearTimeout(_histoPerTimer);
+  const run=()=>{
+    const c=_histoPerCtx; const box=el('hper-alerte'); if(!c||!box) return;
+    box.innerHTML=_histoPerAlerteHtml(_histoPerSimuler(c), c);
+  };
+  if(immediat) run(); else _histoPerTimer=setTimeout(run,250);
+}
+function _histoPerSimuler(c){
+  const f=_histoPerLire(), p=c.entree&&c.entree.p;
+  if(typeof window._bailPeriodeModifier!=='function') return { ok:false, raison:'module-indisponible' };
+  if(c.mode==='ajouter'){
+    if(!f.debut || f.hc==='') return null;
+    return window._bailPeriodeAjouter(c.ref, { debut:f.debut, fin:f.fin||null, hc:f.hc, ch:f.ch }, f.motif, { simuler:true });
+  }
+  if(c.vue==='suppr') return window._bailPeriodeSupprimer(c.ref, p.cle, f.motif, { simuler:true });
+  return window._bailPeriodeModifier(c.ref, p.cle, _histoPerPatch(f,p), f.motif, { simuler:true });
+}
+
+const _HISTO_PER_RAISONS = {
+  'date-invalide': () => 'Cette date est illisible.',
+  'montant-invalide': () => 'Montant invalide : le loyer hors charges est obligatoire et un montant ne peut pas être négatif.',
+  'fin-invalide': () => 'La date de fin doit être postérieure ou égale au début de la période.',
+  'aucun-bail': () => 'Aucun bail de ce logement ne couvre cette date : la période ne pourrait être rattachée à aucun locataire.',
+  'date-apres-fin': (c) => 'Cette date est après la fin de la période'+(c&&c.entree&&c.entree.p&&c.entree.p.fin?' ('+fd(c.entree.p.fin)+')':'')+'. Pour la faire disparaître, utilise « Supprimer cette période ».',
+  'avant-bail': (c, r) => 'Cette date précède le début du bail'+((r&&r.bailDebut)||(c&&c.entree&&c.entree.p&&c.entree.p.chapitre)?' ('+fd((r&&r.bailDebut)||c.entree.p.chapitre)+')':'')+' : elle appartiendrait au locataire précédent.',
+  'introuvable': () => 'Cette période n\'existe plus (modifiée sur un autre appareil ?). L\'historique va être actualisé.',
+  'irl-geste-dedie': () => 'Une période issue d\'une révision IRL ne se supprime pas ici : utilise « Annuler la révision ».',
+  'module-indisponible': () => 'Module indisponible : rafraîchis la page.',
+  'sauvegarde': () => 'La sauvegarde a échoué : rien n\'a été modifié.'
+};
+const _HISTO_PER_AVERTS = {
+  'premiere-periode-date': () => 'La date de début de la 1ʳᵉ période est celle du bail : elle n\'a pas été modifiée (utilise « Modifier le bail »).',
+  'irl-geste-dedie': () => 'La date et le loyer d\'une période IRL se corrigent avec les gestes IRL : seules les charges sont prises en compte ici.',
+  'absorbe-irl': () => 'Une période issue d\'une révision IRL est recouverte : l\'entrée de la révision reste dans l\'historique IRL (à annuler côté IRL si besoin).',
+  'trou-preexistant': () => 'Le barème avait déjà un trou avant cette période : il est comblé au loyer du bail.',
+  'premiere-periode-supprimee': (c, r) => 'Le loyer initial du bail'+(r&&r.avant?' était de <b>'+fmt(r.avant.hc+r.avant.ch)+'</b>':'')+' : ses mois prennent le tarif de la période suivante.',
+  'seule-periode': () => 'C\'est la seule période : le loyer du bail s\'appliquera à ces mois.',
+  'remplace-periode': () => 'Une période commence déjà à cette date : elle sera remplacée (elle reste dans l\'historique).'
+};
+
+// L'encart d'alerte (NON bloquant) : la plus grave d'abord, puis « Tu peux enregistrer quand même. »
+function _histoPerAlerteHtml(r, c){
+  if(!r) return `<div class="hper-hint">Renseigne la date d'effet et le loyer : l'impact sur les mois s'affiche ici.</div>`;
+  if(r.ok===false){
+    const f=_HISTO_PER_RAISONS[r.raison];
+    return `<div class="hper-alerte err" role="alert">${_uiIcon('warn')} <span>${f?f(c,r):escHtml('Impossible : '+(r.raison||'erreur'))}</span></div>`;
+  }
+  const L=[]; const imp=r.impact;
+  const M=(imp&&imp.mois)||[];
+  if(M.length){
+    if(M.length<=3) M.forEach(m=>L.push(`Le dû <b>${escHtml(_histoPerDeMois(m.ym))}</b> ${m.apres.total>m.avant.total?'passe':'repasse'} de <b>${fmt(m.avant.total)}</b> à <b>${fmt(m.apres.total)}</b>.`));
+    else L.push(`<b>${M.length} mois</b> changent, de <b>${escHtml(_histoPerMoisLong(M[0].ym))}</b> à <b>${escHtml(_histoPerMoisLong(M[M.length-1].ym))}</b> : <b>${_histoPerSigne(imp.deltaTotal)}</b> au total.`);
+  }
+  if(imp&&imp.futur){
+    const f=imp.futur;
+    L.push(`À partir du <b>${fd(f.des)}</b>, le dû ${f.apres.total>f.avant.total?'passe':'repasse'} de <b>${fmt(f.avant.total)}</b> à <b>${fmt(f.apres.total)}</b> par mois${f.ouvert?'':' (pendant '+f.nbMois+' mois)'}.`);
+  }
+  if(imp&&imp.tropPercu>0) L.push(`<b>${fmt(imp.tropPercu)}</b> déjà encaissés en trop : ils apparaîtront en <b>trop-perçu</b> (avance du locataire).`);
+  if(imp&&imp.resteSupp>0) L.push(`Cette hausse laisse <b>${fmt(imp.resteSupp)}</b> de plus à encaisser sur des mois déjà échus.`);
+  const Q=M.filter(m=>m.quittance && Math.abs(m.quittance.total-m.apres.total)>=0.005);
+  Q.slice(0,3).forEach(m=>L.push(`La quittance <b>${escHtml(_histoPerDeMois(m.ym))}</b> a été émise à <b>${fmt(m.quittance.total)}</b> : elle n'est pas modifiée. Pense à en refaire une si besoin.`));
+  if(Q.length>3) L.push(`… et ${Q.length-3} autre${Q.length-3>1?'s':''} quittance${Q.length-3>1?'s':''} déjà émise${Q.length-3>1?'s':''}.`);
+  (r.avertissements||[]).forEach(a=>{ const f=_HISTO_PER_AVERTS[a]; if(f) L.push(f(c,r)); });
+  const dd=(c.mode==='ajouter')?v('hper-debut'):(c.vue==='suppr'?'':v('hper-debut'));
+  if(dd && dd.slice(8,10)!=='01' && c.vue!=='suppr') L.push(`Conseil : une période au <b>1er du mois</b> évite un loyer proratisé sur le mois d'effet.`);
+  if(!L.length) return r.change===false ? `<div class="hper-hint">Aucun changement à enregistrer.</div>` : `<div class="hper-hint">Aucun mois déjà échu n'est modifié par ce changement.</div>`;
+  return `<div class="hper-alerte" role="status">${_uiIcon('warn')} <span>${L.join('<br>')}<br><b>Tu peux ${c.vue==='suppr'?'supprimer':'enregistrer'} quand même.</b></span></div>`;
+}
+
+function _histoPerEnregistrer(){
+  const c=_histoPerCtx; if(!c) return;
+  if(typeof window._bailPeriodeModifier!=='function'){ showToast('Module indisponible : rafraîchis la page','err'); return; }
+  const f=_histoPerLire(); const p=c.entree&&c.entree.p;
+  let r;
+  if(c.mode==='ajouter'){
+    if(!f.debut){ showToast('Date d\'effet requise','err'); el('hper-debut').focus(); return; }
+    if(f.hc===''){ showToast('Loyer hors charges requis','err'); el('hper-hc').focus(); return; }
+    r=window._bailPeriodeAjouter(c.ref, { debut:f.debut, fin:f.fin||null, hc:f.hc, ch:f.ch }, f.motif, {});
+  } else r=window._bailPeriodeModifier(c.ref, p.cle, _histoPerPatch(f,p), f.motif, {});
+  _histoPerFinir(r, c.mode==='ajouter'?'Période ajoutée':'Période modifiée');
+}
+function _histoPerSupprimerConfirme(){
+  const c=_histoPerCtx; if(!c||c.mode!=='modifier') return;
+  const p=c.entree.p;
+  _histoPerFinir(window._bailPeriodeSupprimer(c.ref, p.cle, (v('hper-motif')||'').trim(), {}), 'Période supprimée');
+}
+function _histoPerFinir(r, msgOk){
+  const c=_histoPerCtx;
+  if(!r || r.ok===false){
+    const f=_HISTO_PER_RAISONS[r&&r.raison];
+    showToast(f?f(c,r).replace(/<[^>]+>/g,''):'Enregistrement impossible','err',7000);
+    if(r&&r.raison==='introuvable'){ closeM('ov-histo-corr'); _histoPerCtx=null; rLogFiche(); }
+    else if(c){ const b=el('hper-alerte'); if(b) b.innerHTML=_histoPerAlerteHtml(r,c); }
+    return;
+  }
+  closeM('ov-histo-corr'); _histoPerCtx=null;
+  rLogFiche();   // l'historique vit inline dans l'onglet Bail (et sort du mode sélection)
+  if(r.change===false){ showToast('Aucun changement','info'); return; }
+  const imp=r.impact||{}; const nq=(imp.mois||[]).filter(m=>m.quittance && Math.abs(m.quittance.total-m.apres.total)>=0.005);
+  if(nq.length) showToast(msgOk+'. '+(nq.length>1?nq.length+' quittances déjà émises ne sont':'La quittance '+_histoPerDeMois(nq[0].ym)+' n\'est')+' pas modifiée'+(nq.length>1?'s':'')+'.','warn',8000);
+  else showToast(msgOk,'ok');
+}
+
 
 // ── Sous-onglet Compta complet de la fiche logement
 function _renderLogFichePanelCompta(log, ref) {

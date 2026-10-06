@@ -4586,7 +4586,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
 <script src="js/app/app-part1.js?v=885b51ae" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=3ad6da5b" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part2.js?v=0a8ff074" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
@@ -5170,7 +5170,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 
 <!-- ═══ AUDIT-SUIVI-LOYERS étape 3 → HISTORIQUE-BAIL-ONGLET (17/07) : la timeline vit
      INLINE dans l'onglet Bail (accordéons .hbc par bail) — l'overlay ov-histo-loyer a été
-     supprimé, la modale ov-histo-corr est conservée. Styles .hl-* partagés. ═══ -->
+     supprimé, la modale ov-histo-corr (« Modifier la période ») est conservée. Styles .hl-* partagés. ═══ -->
 <style>
 .hl-nowband{display:flex;align-items:center;gap:20px;background:var(--sur);border:1px solid var(--bor);
   border-radius:var(--rl);padding:14px 20px;margin-bottom:18px;flex-wrap:wrap}
@@ -5339,26 +5339,34 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   </div>
 </div>
 
+<!-- BAIL-EN-COURS-MODIFIER-PERIODES — « Modifier la période » (sélection dans l'historique du bail) ; sert aussi à « ＋ Ajouter une période ».
+     Aucune saisie n'est refusée : l'encart #hper-alerte dit l'impact (mois, trop-perçu, quittance) et « Tu peux enregistrer quand même ». -->
 <div class="ov hidden" id="ov-histo-corr" onclick="closeBg(event,'ov-histo-corr')">
-  <div class="modal" style="max-width:480px;width:96%">
+  <div class="modal hper-modal" style="max-width:480px;width:96%" role="dialog" aria-modal="true" aria-labelledby="hper-titre">
     <div class="m-head">
-      <h3>Corriger une période de loyer</h3>
-      <button class="m-close" onclick="closeM('ov-histo-corr')">✕</button>
+      <h3 id="hper-titre">Modifier la période</h3>
+      <button class="m-close" onclick="closeM('ov-histo-corr')" aria-label="Fermer">✕</button>
     </div>
     <div class="m-body">
-      <div style="font-size:12px;color:var(--t3);margin-bottom:12px" id="histo-corr-sub"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div><label class="mu sm">Début (inclus)</label><input type="date" class="inp" id="hc-debut" style="width:100%"></div>
-        <div><label class="mu sm">Fin (vide = en cours)</label><input type="date" class="inp" id="hc-fin" style="width:100%"></div>
-        <div><label class="mu sm">Loyer hors charges (€)</label><input type="number" step="0.01" class="inp" id="hc-hc" style="width:100%"></div>
-        <div><label class="mu sm">Provision charges (€)</label><input type="number" step="0.01" class="inp" id="hc-ch" style="width:100%"></div>
-        <div style="grid-column:1/-1"><label class="mu sm">Motif (obligatoire)</label><textarea class="inp" id="hc-motif" rows="2" style="width:100%" placeholder="Ex. : erreur de saisie à la signature…"></textarea></div>
+      <div class="hper-sub" id="hper-sub"></div>
+      <div id="hper-bandeau"></div>
+      <div id="hper-champs" class="hper-grid">
+        <div class="hper-f full"><label for="hper-debut">Date d'effet</label><input type="date" class="inp" id="hper-debut" oninput="_histoPerRecalc()"><div class="hper-aide" id="hper-debut-aide"></div></div>
+        <div class="hper-f"><label for="hper-hc">Loyer HC (€)</label><input type="number" step="0.01" inputmode="decimal" class="inp" id="hper-hc" oninput="_histoPerRecalc()"></div>
+        <div class="hper-f"><label for="hper-ch">Charges (€)</label><input type="number" step="0.01" inputmode="decimal" class="inp" id="hper-ch" oninput="_histoPerRecalc()"></div>
+        <div class="hper-f full" id="hper-fin-wrap" hidden><label for="hper-fin">Jusqu'au (facultatif)</label><input type="date" class="inp" id="hper-fin" oninput="_histoPerRecalc()"><div class="hper-aide">Pour une période limitée (ex. remise de 3 mois) ; vide = jusqu'à la prochaine évolution.</div></div>
       </div>
-      <div style="grid-column:1/-1;font-size:11.5px;color:var(--t2);background:var(--warn-soft,rgba(178,122,18,.13));border-radius:var(--r);padding:9px 12px;margin-top:12px">⚠️ Les mois déjà quittancés ne sont pas recalculés : la quittance émise fait foi.</div>
+      <div id="hper-suppr-q" class="hper-q" hidden></div>
+      <div class="hper-f full hper-motif"><label for="hper-motif">Motif (inscrit au journal)</label><input type="text" class="inp" id="hper-motif" placeholder="Ex. : erreur de date" autocomplete="off"></div>
+      <div id="hper-alerte" aria-live="polite"></div>
     </div>
-    <div class="m-foot">
-      <button class="btn bs" onclick="closeM('ov-histo-corr')">Annuler</button>
-      <button class="btn bp" onclick="_histoSaveCorrPeriode()">Enregistrer</button>
+    <div class="m-foot hper-foot">
+      <button class="btn bs hper-del" id="hper-b-del" onclick="_histoPerSupprimerDemande()">Supprimer cette période</button>
+      <span class="hper-grow"></span>
+      <button class="btn bs" id="hper-b-fermer" onclick="closeM('ov-histo-corr')">Fermer</button>
+      <button class="btn bp" id="hper-b-ok" onclick="_histoPerEnregistrer()">Enregistrer</button>
+      <button class="btn bs" id="hper-b-retour" hidden onclick="_histoPerSupprimerRetour()">Retour</button>
+      <button class="btn bp hper-confirm" id="hper-b-confirm" hidden onclick="_histoPerSupprimerConfirme()">Confirmer la suppression</button>
     </div>
   </div>
 </div>

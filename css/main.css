@@ -10320,3 +10320,57 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 @media (max-width:767px){
   .logf-bail-actions .btn, .logf-doc-actions .btn, #edlx-form .btn{min-height:44px}
 }
+
+/* BAIL-EN-COURS-MODIFIER-PERIODES — mode « Modifier » de l'historique du bail (sélection d'une période) et fenêtre « Modifier la période ».
+   Variables CSS uniquement (clair + sombre). PC et tablette gardent la taille native des boutons ; ≥ 44 px et champs 16 px sur téléphone. */
+.hl-selbar{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;margin-bottom:12px;padding:10px 14px;
+  background:var(--sur2);border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:var(--r)}
+.hl-selbar[hidden]{display:none}
+.hl-selbar-t{font-size:13px;font-weight:800;color:var(--t1)}
+.hl-selbar-act{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hl-pick{display:none;flex:none;box-sizing:border-box;width:20px;height:20px;border-radius:50%;border:2px solid var(--bor);background:var(--sur)}
+.hl-selmode .hl-period{cursor:pointer;gap:10px;padding:8px 12px;border:1.5px solid var(--bor);border-radius:var(--r);background:var(--sur)}
+.hl-selmode .hl-period:hover{border-color:var(--acc)}
+.hl-selmode .hl-period:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.hl-selmode .hl-period .tag{margin-left:0}
+.hl-selmode .hl-pick{display:inline-block}
+.hl-selmode .hl-period.sel{border-color:var(--acc);background:var(--acc-soft)}
+.hl-selmode .hl-period.sel .hl-pick{border-color:var(--acc);background:radial-gradient(circle,var(--acc) 0 4px,var(--sur) 5px)}
+.hl-selmode .hl-card{opacity:.42;pointer-events:none}
+.hper-sub{font-size:12px;color:var(--t3);margin-bottom:12px}
+.hper-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hper-f{min-width:0}
+.hper-f.full{grid-column:1/-1}
+.hper-f label{display:block;font-size:12px;font-weight:700;color:var(--t2);margin-bottom:4px}
+.hper-f .inp{width:100%}
+.hper-f .inp:disabled{opacity:.6;cursor:not-allowed}
+.hper-aide{font-size:11.5px;color:var(--t3);margin-top:4px;line-height:1.45}
+.hper-motif{margin-top:12px}
+.hper-q{font-size:14px;color:var(--t1);line-height:1.5;margin-bottom:4px}
+.hper-note{font-size:12.5px;color:var(--t2);line-height:1.5;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:9px 12px;margin-bottom:12px}
+.hper-note b{color:var(--t1)}
+.hper-alerte{display:flex;gap:9px;align-items:flex-start;margin-top:12px;padding:10px 12px;border-radius:var(--r);border-left:3px solid var(--warn);
+  background:var(--warn-soft);color:var(--t2);font-size:12.5px;line-height:1.5}
+.hper-alerte .uic{flex:none;color:var(--warn);margin-top:2px}
+.hper-alerte b{color:var(--t1)}
+.hper-alerte.err{border-left-color:var(--red);background:var(--neg-soft)}
+.hper-alerte.err .uic{color:var(--red)}
+.hper-hint{margin-top:12px;font-size:12px;color:var(--t3)}
+#ov-histo-corr [hidden]{display:none !important}
+.hper-foot{flex-wrap:wrap;align-items:center}
+.hper-grow{flex:1 1 auto}
+.hper-del{color:var(--red);border-color:var(--red-bg)}
+@media (max-width:767px){
+  .hl-selbar-act{width:100%}
+  .hl-selbar-act .btn{flex:1 1 auto;justify-content:center;min-height:44px}
+  .hl-selmode .hl-period{min-height:44px}
+  .hl-pick{width:24px;height:24px}
+  .hper-grid{grid-template-columns:1fr 1fr;gap:10px}
+  #ov-histo-corr .inp{font-size:16px;min-height:44px}
+  #ov-histo-corr .m-close{min-width:44px;min-height:44px}
+  .hper-foot .btn{min-height:44px;justify-content:center}
+  .hper-foot .hper-del{order:-1;flex:1 1 100%}
+  .hper-foot .hper-grow{display:none}
+  .hper-foot .btn:not(.hper-del){flex:1 1 0}
+  .hper-note .hl-lnk{display:inline-block;padding:10px 0}
+}
