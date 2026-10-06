@@ -5,7 +5,7 @@
  * Avant : la liste ne proposait que des lignes 2044 + « Hors résultat (caution, capital, non
  * déductible…) », qui rangeait tout en Divers — une caution finissait au cash-flow. Une catégorie
  * rangée hors 2044 s'affichait « non rattachée : à corriger » alors qu'elle était rangée.
- * Maintenant : LA liste des 23 familles (la même qu'à la création et qu'au rattachement Finances),
+ * Maintenant : LA liste des 24 familles (la même qu'à la création et qu'au rattachement Finances),
  * groupée selon l'effet RÉEL sur le cash-flow, et une ligne qui dit cet effet.
  */
 
@@ -72,16 +72,19 @@ describe('La liste des familles — groupée selon l’effet RÉEL sur le cash-f
     expect(par.horsFiscal.sort()).toEqual(['Charges récupérables (eau, énergie…)', 'Divers (non déductible)', 'Frais bancaires', 'Prêt',
       'Travaux de construction / agrandissement (non déductible)'].sort());
     expect(par.horsCf.sort()).toEqual(['Acompte de charges (départ)', 'Acquisition / cession de bien', 'CCA / distribution SCI',
-      'Dépôt de garantie (reçu / restitué)', "Prêt — Intérêts d'emprunt", 'Virement interne (non déclarable)'].sort());
+      'Dépôt de garantie (reçu / restitué)', "Prêt — Intérêts d'emprunt", 'Virement interne (non déclarable)',
+      // REGLES-REFONTE D1 (Didier 06/10) : 24e famille, ligne 250 comme les intérêts → hors cash-flow comme eux
+      // (le 1er test vérifie que la liste suit le moteur ; limite connue notée au BACKLOG pour la session Finances).
+      'Prêt — Assurance emprunteur'].sort());
     expect(par.declaree.length).toBe(9);
     expect(par.declaree.every(n => STD.find(c => c.nom === n).ligne2044)).toBe(true);
   });
 
-  it('les 23 familles, chacune une fois, dans des groupes étiquetés', () => {
+  it('les 24 familles (23 + « Prêt — Assurance emprunteur », REGLES-REFONTE D1), chacune une fois, dans des groupes étiquetés', () => {
     const h = M._finMereOptionsHtml('Divers (non déductible)');
     const vals = [...h.matchAll(/<option value="([^"]*)"/g)].map(x => x[1]);
-    expect(vals.length).toBe(23);
-    expect(new Set(vals).size).toBe(23);
+    expect(vals.length).toBe(24);
+    expect(new Set(vals).size).toBe(24);
     expect((h.match(/<optgroup label=/g) || []).length).toBe(4);
   });
 
