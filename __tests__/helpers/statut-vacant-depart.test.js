@@ -992,3 +992,30 @@ describe('32 · statut du dépôt dans la fenêtre de restitution (VRAI _dgOpenR
     expect(statut({ A1: { ...DEPART, ref: 'A1', dgPaid: 900 } }, [])).toContain('a_restituer');
   });
 });
+describe('33 · archive en double (même bailHistCle) : une seule tâche, une seule cible ; badge de la frise sur le bail ciblé', () => {
+  const LEA = { ...DEPART, ref: 'A1', dgPaid: 900, finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true, locataires: [{ nom: 'Lea' }] };
+  const NINA = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nina' }] };
+  const monte = (noms, extra = {}) => {
+    const DB = dbDe({ A1: { ...NINA } }); DB.baux_historique = [{ ...LEA }, { ...LEA }];
+    return { DB, m: monter(DB, [...STATUT, ...noms], {
+      _departState: () => null, AlertRules: new Proxy({}, { get: () => () => [] }), EQUIP_RULES: [], _DIAGS_CATALOG_INLINE: [],
+      _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), ...extra,
+    }) };
+  };
+  it('tâche (VRAI _computeUnifiedTodo) : une seule tâche pour l\'archive en double', () => {
+    const { DB, m } = monte(['_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut']);
+    expect((m.fn._computeUnifiedTodo({ scopeLogs: [DB.logements[0]] }) || []).filter((x) => x && x.type === 'depart')).toHaveLength(1);
+  });
+  it('cible sans clé (VRAI _dgBailCible) : l\'archive en double est UNE seule archive en attente → visée', () => {
+    const { m } = monte(['_dgBailCible']);
+    expect(m.fn._dgBailCible('A1', '').bail.locataires[0].nom).toBe('Lea');
+  });
+  it('frise (VRAIS _histoBailEventHtml + _dgStatut) : archive d\'une relocation → badge « À restituer », pas « Versé »', () => {
+    const { m } = monte(['_histoBailEventHtml', '_dgStatutDuBail', '_bailFinOccupation', '_dgStatut', '_calculerDelaiRestitution'], {
+      DG_STATUS: { MANQUANT: 'manquant', PARTIEL: 'partiel', COMPLET: 'complet', A_RESTITUER: 'a_restituer', RESTITUE: 'restitue', EN_RETARD: 'en_retard' }, _uiIcon: () => '',
+    });
+    const h = m.fn._histoBailEventHtml({ type: 'dg-verse', montant: 900 }, { statut: 'clos', bail: { ...LEA } }, 'A1', null);
+    expect(h).toContain('À restituer');
+    expect(h).not.toContain('Versé');
+  });
+});
