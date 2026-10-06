@@ -1,17 +1,17 @@
 # Propryo — Backlog actif
-## 🧭 PLAN DE SESSIONS (05/10, validé Didier) — état au 06/10
-| Vague | Session | État 06/10 | Attend Didier | Branche |
-|---|---|---|---|---|
-| ▶ | Finances — suivi des loyers (Sonnet) | phase 1 ✅ cas Arslan reconstitué + règles d'imputation validées ; maquette prête | 3 réponses (accord d'avance réel ? 150 € retenus Wieniski ? 404,90 € Baysang : trop-perçu ou régul ?) + validation maquette | `feat/finances-suivi-unique` |
-| ▶ | Règles de classement (Sonnet) | maquettes v2 (puces de mots, compte en lecture seule, sans migration) | validation maquette → phase 3 · ⚠ branche pas encore poussée | `feat/regles-refonte` |
-| 1 ▶ | Bail en cours (Sonnet) | **lot A livré sur sa branche en v15.718** (main fusionné, 6 059 tests verts, pas sur main) · décisions B1/B3/B4 prises · maquettes (DG versé, bail/EDL hors Propryo, nom d'affichage, signature expirée, corriger/annuler une modif) | smoke lot A + validation maquettes | `feat/bail-en-cours` |
-| 1 ▶ | Fusion des 2 SCI (Opus) | v15.717 sur sa branche (enregistrement neuf d'un associé → espace de la SCI) · **plan exact rédigé, en attente de GO** | autoriser la requête Supabase en attente + GO du plan | `fix/fusion-sci` |
-| 1 ▶ | Audit de sécurité (Opus) | **rapport livré** (confidentiel, hors dépôt) · chantiers SECU C1–C3 lancés, C4–C9 planifiés · C1 (OTP signature) avant le 14/10 via Resend `no-reply@propryo.fr` | ajouter 3 enregistrements DNS Resend dans cPanel + vérifier DMARC | `audit/securite` |
-| 2 ▶ | IRL & courriers (C3, C6, C7) (Sonnet + Opus moteur) | lancée 06/10 | | `feat/irl-courriers` |
-| 2 ▶ | Stockage lots 2 et 3 (lots 1 et 4 déjà livrés v15.705 / v15.709) (Opus) | **lot 2 livré sur sa branche v15.720** (`c0b928f` : filets avant migration en IndexedDB, 3 max, 30 j, purge logout/login ; contre-audit SÛR AVEC RÉSERVES traitées ; 6 057 tests) · lot 3 : **maquette VALIDÉE + GO Didier**, codage en cours (saveDB → verdictEchecMiroir, carte Réglages) | smoke lot 2 + GO merge | `feat/stockage-lots-2-3` |
-| 2 ✖ | Téléphone : EDL + vue Charges par locataire — **sans objet** : déjà livrés (Charges détail par locataire v15.680, EDL téléphone à la charte v15.689) | — | **smoke Didier** sur ces deux livraisons ; tout résidu → vague 3 Écrans | — |
-| 3 | Écrans Accueil / Loyers 3 blocs / Logements / MRH (B2, C1, C5) + vue Charges « (sans immeuble) » — après Finances | à écrire | | |
-| 3 | Mise en production (propryo.fr, Resend, Stripe, OTP) — en partie absorbée par l'audit sécurité (Resend/OTP) | à écrire | | |
+## 🧭 PLAN DE SESSIONS (05/10, validé Didier) — état au 06/10 16h40
+| Session | État | Attend Didier | Branche |
+|---|---|---|---|
+| Finances — suivi des loyers (Sonnet) | phase 1 ✅ (Arslan, règles d'imputation) · phase 3 : conception du moteur unique écrite (document, aucun code) | ses questions sur la conception (« qu'en penses-tu pour chacune ? ») | `feat/finances-suivi-unique` |
+| Règles de classement (Sonnet) | phase 3 ✅ modèle pur (id, compte obligatoire, exceptions, montant) + migration + aperçu · phase 4 (application) en cours | — | `feat/regles-refonte` |
+| Bail en cours (Sonnet) | **v15.718 lot A** + **v15.722 DG versé** livrés sur branche · B3 nom d'affichage en cours (v15.723) | smoke + GO lot A et v15.722 | `feat/bail-en-cours` |
+| Fusion des 2 SCI (Opus) | **v15.717 (partage SCI) SUR MAIN** · plan exact des restes (espace Didier → espace Marion) rédigé, exécution en cours/attente GO | GO du plan | `fix/fusion-sci` |
+| Audit de sécurité (Opus) | rapport livré (hors dépôt) · chantiers C1–C3 · domaine propryo.fr vérifié chez Resend | DMARC : contenu de la ligne `_dmarc.propryo.fr` dans cPanel (ou confirmer absente) | `audit/securite` |
+| IRL & courriers (Sonnet) | lecture faite | valeur du champ « Trimestre IRL » du 103 + ce qu'affiche la ligne Révisions | `feat/irl-courriers` (pas encore poussée) |
+| Stockage lots 2-3 (Opus) | **v15.720 lot 2** livré sur branche · lot 3 codé (verdict, saveDB, carte Réglages), tests en adaptation | smoke + GO lot 2 | `feat/stockage-lots-2-3` |
+| Vague 3 | Écrans (B2, C1, C5, vue Charges sans immeuble, toasts M-15) — après Finances · Mise en production (reste : Stripe, comptable) | | |
+⚠ **Quota** : limite hebdomadaire en alerte (`seven_day allowed_warning`, remise à zéro ~13/10) — éviter de lancer de nouvelles sessions avant d'avoir intégré les livraisons.
+
 **Versions (attribuées par le pilotage, 06/10)** : main = v15.716 · v15.717 = Fusion SCI (partage, branche `fix/fusion-sci`) · **v15.718 = Bail en cours lot A** · v15.719 = alerte régul N-1 (renumérotée, voir ci-dessous) · **v15.720 = Stockage lot 2** · **v15.721 = Stockage lot 3** · **v15.722–725 = Bail en cours phase 4** (722 DG versé · 723 nom d'affichage · 724 bail/EDL hors Propryo + signature expirée · 725 bouton Modifier des périodes). Prochaine libre : **v15.726**.
 
 ## 🎨 TOASTS-CHARTE-M15 — nouveau sujet (06/10, demande Didier via session Stockage) · P2 · vague 3 « Écrans »
