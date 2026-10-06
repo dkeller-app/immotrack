@@ -111,6 +111,17 @@ const PAIRS = [
     ]
   },
   {
+    // RETOURS-2026-10-05 B3 — nom d'affichage du logement (texte d'écran ; la référence reste la clé).
+    name: 'log-label',
+    src: '__tests__/helpers/log-label.js',
+    dst: 'js/helpers/log-label.global.js',
+    globalName: 'LogLabel',
+    exports: ['normaliserLibelle', 'libelle', 'libelleEtRef', 'correspond', 'comparer'],
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
     name: 'log-immeuble-resolver',
     src: '__tests__/helpers/log-immeuble-resolver.js',
     dst: 'js/helpers/log-immeuble-resolver.global.js',

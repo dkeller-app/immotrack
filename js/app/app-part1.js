@@ -6271,6 +6271,30 @@ function _natCmp(a, b) {
   return String(a == null ? '' : a).localeCompare(String(b == null ? '' : b), 'fr', { numeric: true, sensitivity: 'base' });
 }
 
+// ── B3 (RETOURS-2026-10-05) — NOM D'AFFICHAGE du logement : `log.libelle` est un TEXTE D'ÉCRAN, `log.ref` reste la clé.
+// Toujours résolu PAR LA RÉFÉRENCE dans DB.logements : on ne lit JAMAIS `x.libelle` sur l'objet reçu (le ruban IRL, un
+// mouvement, une ligne d'import portent un `libelle` qui n'est pas le nom du logement). Ref inconnue (« SCI:… », saisie libre,
+// logement purgé) → la chaîne reçue, sans erreur. Texte NON échappé : escHtml à chaque site innerHTML ; jamais dans un
+// attribut value/data-/onclick (qui gardent la référence). Voir docs/subjects/BAIL-EN-COURS-NOM-AFFICHAGE.md.
+function _logFindParRef(x) {
+  const ref = String((x && typeof x === 'object') ? (x.ref == null ? '' : x.ref) : (x == null ? '' : x)).split('@@')[0];
+  const logs = (typeof DB !== 'undefined' && DB && Array.isArray(DB.logements)) ? DB.logements : [];
+  return { ref: ref, log: logs.find(z => z && z.ref === ref && !z._deleted) || logs.find(z => z && z.ref === ref) || null };
+}
+function _logLabel(x) {
+  const r = _logFindParRef(x);
+  if (!r.log) return r.ref;
+  return (window.LogLabel && LogLabel.libelle) ? LogLabel.libelle(r.log) : (String(r.log.libelle || '').trim() || r.log.ref);
+}
+function _logLabelRef(x) {
+  const r = _logFindParRef(x);
+  if (!r.log) return r.ref;
+  return (window.LogLabel && LogLabel.libelleEtRef) ? LogLabel.libelleEtRef(r.log) : (String(r.log.libelle || '').trim() ? String(r.log.libelle).trim() + ' · ' + r.log.ref : r.log.ref);
+}
+// Recherche (libellé OU ref) et tri (nom naturel puis ref) des logements.
+function _logLabelMatch(log, q) { return (window.LogLabel && LogLabel.correspond) ? LogLabel.correspond(log, q) : String((log && log.ref) || '').toLowerCase().includes(String(q || '').toLowerCase()); }
+function _logLabelCmp(a, b) { return (window.LogLabel && LogLabel.comparer) ? LogLabel.comparer(a, b) : _natCmp(a && a.ref, b && b.ref); }
+
 // v15.38 DASH-REFONTE-GLOBALE-V4 CP1 — Sidebar : footer utilisateur (avatar + nom + lien Paramètres).
 function _renderSidebarUserFooter() {
   const wrap = (typeof el === 'function') ? el('sb-user-footer') : null;

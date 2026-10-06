@@ -2559,7 +2559,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <!-- ── Tab IDENTITÉ ───────────────────────────────────────────────── -->
     <div class="logmod-pane act" id="logmod-ident" role="tabpanel">
       <div class="fg2">
-        <div class="fg"><label>Référence *</label><div class="flex-c" style="gap:8px"><input class="inp" id="log-ref" placeholder="ex: F-001" style="flex:1"><span id="log-ref-rename-wrap" style="display:none"></span></div></div>
+        <div class="fg"><label>Référence * <span class="mu sm">(clé technique, ne change jamais)</span></label><div class="flex-c" style="gap:8px"><input class="inp" id="log-ref" placeholder="ex: F-001" style="flex:1"><span id="log-ref-rename-wrap" style="display:none"></span></div></div>
         <div class="fg">
           <label>Type d'usage *</label>
           <select class="inp" id="log-typeUsage" onchange="_logModalSyncMobilierVisibility()">
@@ -2572,6 +2572,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
             <option value="autre">⋯ Autre</option>
           </select>
         </div>
+      </div>
+      <!-- B3 (RETOURS-2026-10-05) — nom d'affichage : texte d'écran uniquement, la référence reste la clé -->
+      <div class="fg" id="log-libelle-wrap">
+        <label for="log-libelle">Nom affiché <span class="mu sm">(modifiable à tout moment — vide : la référence est affichée)</span></label>
+        <input class="inp" id="log-libelle" maxlength="60" autocomplete="off" placeholder="ex : Studio rez-de-chaussée gauche">
+        <div class="mu sm" style="margin-top:4px;font-size:11.5px">Libellé d'écran uniquement. Les documents (bail, quittances, lettres) gardent la référence et l'adresse.</div>
       </div>
       <div class="fg2">
         <div class="fg"><label>Entité *</label><select class="inp" id="log-entity" onchange="refreshLogImmSelect(); _logRefreshInherited(); _logPiecesRefreshClauses()"></select></div>
@@ -4493,6 +4499,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/adresse-parser.global.js?v=5dbda94d" defer></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 Commit 2 — résolveur bien hérite imm (window.LogImmResolver) -->
 <script src="js/helpers/log-immeuble-resolver.global.js?v=96c42fbe" defer></script>
+<script src="js/helpers/log-label.global.js?v=27700cdf" defer></script>
 <!-- v15.252 FEAT-GEORISQUES-ERP — détecteur ERP/IAL depuis l'adresse (window.GeorisquesErpDetector) -->
 <script src="js/helpers/georisques-erp-detector.global.js?v=a327e583" defer></script>
 <script src="js/helpers/bail-sign-coords.global.js?v=36e93334" defer></script>
@@ -4545,8 +4552,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=281aaba1" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=56e310a6" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=c82faae0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=dab527a1" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

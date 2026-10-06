@@ -9154,7 +9154,7 @@ function _aggregateBuilding(logs) {
 // _biensFilters.layout ('blocks-a' défaut, 'cards-b' option).
 // ════════════════════════════════════════════════════════════════════════════
 function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
-  logs = (logs || []).slice().sort((a, b) => _natCmp(a.ref, b.ref));   // #7 : logements ordonnés par réf (Apt 2 avant Apt 10)
+  logs = (logs || []).slice().sort(_logLabelCmp);   // #7 : logements ordonnés par réf (Apt 2 avant Apt 10)
   const agg = _aggregateBuilding(logs);
   const ratioPct = agg.nbTotal ? Math.round((agg.nbOccupes / agg.nbTotal) * 100) : 0;
   const bailleurEsc = escHtml(entNom || '—');
@@ -9302,7 +9302,7 @@ function _applyImmBlocksCollapsedState() {
 }
 
 function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
-  logs = (logs || []).slice().sort((a, b) => _natCmp(a.ref, b.ref));   // #7 : logements ordonnés par réf (Apt 2 avant Apt 10)
+  logs = (logs || []).slice().sort(_logLabelCmp);   // #7 : logements ordonnés par réf (Apt 2 avant Apt 10)
   const agg = _aggregateBuilding(logs);
   const ratioPct = agg.nbTotal ? Math.round((agg.nbOccupes / agg.nbTotal) * 100) : 0;
   const fillCls = agg.nbOccupes === 0 ? 'empty' : (agg.nbOccupes < agg.nbTotal ? 'partial' : '');
@@ -9423,7 +9423,10 @@ function _renderLogementCardFlat(l) {
   const ratioPct = occupied ? 100 : 0;
   const fillCls = occupied ? '' : 'empty';
   const occupLabel = escHtml(_lotStatutLibelle(l.ref));   // « Loué » / « Vacant » / « Vacant (départ le …, bail à clôturer) »
-  const titleEsc = escHtml(l.ref || '—');
+  const _nomAff = _logLabel(l);                          // B3 : nom d'affichage (libellé), sinon la référence
+  const _aUnNom = !!l.ref && _nomAff !== l.ref;          // un nom est défini → « Réf. D-101 » en petit dessous
+  const titleEsc = escHtml(_nomAff || '—');
+  const refSousTitre = _aUnNom ? `<div class="mu sm" style="font-size:11.5px;margin-top:2px">Réf. ${escHtml(l.ref)}</div>` : '';
   const subtitleEsc = escHtml(l.locataire || (occupied ? 'Bail actif' : 'Aucun locataire'));
   const bailleurEsc = escHtml(l.entity || '—');
   const period = bail
@@ -9439,7 +9442,7 @@ function _renderLogementCardFlat(l) {
     _ensureBiencPhCss();
     const badgeCls = isArchived ? 'arch' : (occupied ? 'loue' : 'vac');
     const badgeLbl = isArchived ? 'Archivé' : occupLabel;
-    const metaBits = [typeLabel, (l.surf?fmtN(l.surf)+' m²':''), (l.imm||'')].filter(Boolean).map(escHtml).join(' · ');
+    const metaBits = [(_aUnNom ? 'Réf. ' + l.ref : ''), typeLabel, (l.surf?fmtN(l.surf)+' m²':''), (l.imm||'')].filter(Boolean).map(escHtml).join(' · ');
     const rentPh = (occupied || !isArchived)
       ? `${fmt(l.hc||0)}<small> HC</small>${l.ch?` <small>+${fmt(l.ch)}</small>`:''}`
       : `${fmt(l.hc||0)}<small> /mois</small>`;
@@ -9465,6 +9468,7 @@ function _renderLogementCardFlat(l) {
     </div>
     <div class="bien-card-body">
       <div class="bien-card-title" title="${titleEsc}">${titleEsc}</div>
+      ${refSousTitre}
       <div class="bien-card-subtitle">${subtitleEsc}</div>
       <div class="bien-card-meta">
         <span class="bien-card-badge">${escHtml(typeLabel)}</span>
@@ -9533,7 +9537,7 @@ function _renderLogementsGroupedPhone(logs) {
     const thumb = g.isoles ? '<span>' + _uiIcon('home',20) + '</span>' : (im && im.id ? _coverImg('immeuble', im.id, '' + _uiIcon('building',20) + '') : '<span>' + _uiIcon('building',20) + '</span>');
     const gkey  = g.isoles ? '__ISOLES__' : (g.entNom + '||' + g.immNom);
     const isCol = !!collapsed[gkey];
-    const cards = g.logs.slice().sort((a,b) => _natCmp(a.ref, b.ref)).map(_renderLogementCardFlat).join('');
+    const cards = g.logs.slice().sort(_logLabelCmp).map(_renderLogementCardFlat).join('');
     return `<div class="log-grp${isCol?' collapsed':''}" data-gkey="${escHtml(gkey)}">
       <div class="log-grp-h" onclick="_toggleLogGroup(this)" tabindex="0" role="button" aria-label="Replier ou déplier ${title}" onkeydown="if(event.key==='Enter'||event.key===' '){_toggleLogGroup(this);event.preventDefault()}">
         <span class="log-grp-thumb">${thumb}</span>
@@ -9606,7 +9610,7 @@ function _filterAndSortLogs(logs) {
   const q = (_biensFilters.search||'').toLowerCase();
   if(q) {
     out = out.filter(l =>
-      (l.ref||'').toLowerCase().includes(q) ||
+      _logLabelMatch(l, q) ||   // B3 : nom affiché OU référence (sans casse ni accents)
       (l.imm||'').toLowerCase().includes(q) ||
       (l.entity||'').toLowerCase().includes(q) ||
       (l.locataire||'').toLowerCase().includes(q) ||
@@ -9621,14 +9625,14 @@ function _filterAndSortLogs(logs) {
     out = out.filter(l => _bienIsBailActif(l.ref) === wantLoue);
   }
   switch(_biensFilters.sort) {
-    case 'name-desc':  out.sort((a,b)=>_natCmp(b.imm, a.imm) || _natCmp(b.ref, a.ref)); break;
+    case 'name-desc':  out.sort((a,b)=>_natCmp(b.imm, a.imm) || _logLabelCmp(b, a)); break;
     case 'rent-desc':  out.sort((a,b)=>(+b.hc||0)-(+a.hc||0)); break;
     case 'rent-asc':   out.sort((a,b)=>(+a.hc||0)-(+b.hc||0)); break;
     case 'occup-desc': out.sort((a,b)=>(_bienIsBailActif(b.ref)?1:0)-(_bienIsBailActif(a.ref)?1:0)); break;
     case 'recent':     out.sort((a,b)=>(b._modifiedAt||'').localeCompare(a._modifiedAt||'')); break;
     // #7 : immeuble PUIS réf (naturel) — sinon, dans un même immeuble, tous les `imm` sont égaux
     // → aucun classement par numéro de logement (D-2 / D-10 / Garage…). (test partage 2026-06-21)
-    default:           out.sort((a,b)=>_natCmp(a.imm, b.imm) || _natCmp(a.ref, b.ref));
+    default:           out.sort((a,b)=>_natCmp(a.imm, b.imm) || _logLabelCmp(a, b));
   }
   return out;
 }
@@ -9639,10 +9643,10 @@ function exportBiensCSV() {
   const pool = _biensTab === 'archives' ? _archivedLogements() : _activeLogements();
   const rowsLogs = _filterAndSortLogs(pool);
   if(!rowsLogs.length) { showToast('Aucun bien ne correspond aux filtres','err'); return; }
-  const headers = ['Ref','Immeuble','Bailleur','Type','Surface m²','Étage','Adresse','HC €','Charges €','DG €','Locataire','Date début','Date fin','Statut','IRL'];
+  const headers = ['Ref','Nom affiché','Immeuble','Bailleur','Type','Surface m²','Étage','Adresse','HC €','Charges €','DG €','Locataire','Date début','Date fin','Statut','IRL'];
   const escCsv = v => `"${String(v==null?'':v).replace(/"/g,'""')}"`;
   const rows = rowsLogs.map(l => [
-    l.ref,l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
+    l.ref,(_logLabel(l) !== l.ref ? _logLabel(l) : ''),l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
     l.hc||0,l.ch||0,l.dg||0,l.locataire||'',l.debut||'',l.fin||'',
     _lotStatutLibelle(l.ref), l.irl||''
   ]);
@@ -21319,7 +21323,13 @@ function openNewLog(ref) {
   if(log) {
     // ── Tab Identité (legacy + typeUsage)
     setV('log-ref', log.ref); el('log-ref').readOnly = true;
-    (function(){ const w = el('log-ref-rename-wrap'); if (w) { w.style.display = ''; w.innerHTML = '<button type="button" class="btn bs bb" onclick="_openRenameLog(\'' + _lyQ(log.ref) + '\')" title="Renommer ce bien">✏️ Renommer</button>'; } })();
+    setV('log-libelle', log.libelle);   // B3 : nom d'affichage (texte d'écran)
+    (function(){ const w = el('log-ref-rename-wrap'); if (w) { w.style.display = '';
+      // B3 : référence verrouillée (bail/EDL signé) → mention claire ; le NOM AFFICHÉ, lui, reste modifiable.
+      const _g = (window._renameLogement && window._renameLogement.canRename) ? window._renameLogement.canRename(DB, log.ref) : { ok: true };
+      w.innerHTML = _g.ok
+        ? '<button type="button" class="btn bs bb" onclick="_openRenameLog(\'' + _lyQ(log.ref) + '\')" title="Renommer ce bien">✏️ Renommer</button>'
+        : '<span class="mu sm" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap" title="' + escHtml(_g.error || '') + '">🔒 Verrouillée : bail signé</span>'; } })();
     setV('log-typeUsage', log.typeUsage || 'habitation-nu');
     setV('log-entity', log.entity);
     refreshLogImmSelect();
@@ -21385,6 +21395,7 @@ function openNewLog(ref) {
   } else {
     // Nouveau logement : tout reset
     setV('log-ref', ''); el('log-ref').readOnly = false;
+    setV('log-libelle', '');
     (function(){ const w = el('log-ref-rename-wrap'); if (w) w.style.display = 'none'; })();
     setV('log-typeUsage', 'habitation-nu');
     // v15.230 — Inputs legacy bail courant SUPPRIMÉS de la liste reset
@@ -22499,6 +22510,12 @@ function saveParamLog() {
   if(wasTombstone){ delete log._deleted; delete log._deletedAt; }
   // ── Tab Identité (legacy + typeUsage NEW Q4bis)
   log.ref=ref; log.imm=v('log-imm'); log.entity=v('log-entity'); log.type=v('log-type');
+  // B3 : nom d'affichage — normalisé ; vide ou égal à la référence → rien n'est stocké. Champ absent du DOM (écrans du
+  // parcours guidé, modale sans l'onglet) → le libellé existant est CONSERVÉ, jamais effacé en silence.
+  if (el('log-libelle')) {
+    const _lib = (window.LogLabel && LogLabel.normaliserLibelle) ? LogLabel.normaliserLibelle(v('log-libelle'), ref) : String(v('log-libelle') || '').trim().slice(0, 60);
+    if (_lib) log.libelle = _lib; else delete log.libelle;
+  }
   log.typeUsage = v('log-typeUsage') || 'habitation-nu';
   log.surf=pf('log-surf'); log.etage=v('log-etage');
   // v15.230 ARCHI-FICHES-UNIFIED A2 — numApt (nouveau) + adr (override exceptionnel, vide = hérite)
