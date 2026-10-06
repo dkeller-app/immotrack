@@ -155,6 +155,27 @@ export function construireHistoriqueBail(input) {
     }
   }
 
+  // ── BAIL-EN-COURS-MODIFIER-PERIODES — le journal des éditions de période (DB.baux_evenements, type 'periode',
+  //    une ligne versionnée par modification) enrichit les cartes tirées des tombstones du barème : auteur, impact.
+  //    Le barème reste la source de la carte (même blob que la période : si la modification survit, sa carte aussi).
+  const jrPeriodes = new Map();
+  for (const e of (i.bailJournal || [])) {
+    if (e && !e._deleted && e.type === 'periode' && e.id != null) jrPeriodes.set(String(e.id), e);
+  }
+  const _tot = (hc, ch) => (Number(hc) || 0) + (Number(ch) || 0);
+  // Tarif en vigueur à une date parmi les périodes VIVANTES du même lot/chapitre (reprise d'une suppression).
+  const _tarifA = (dateIso, bd) => {
+    const d = _ymd(dateIso);
+    let hit = null;
+    for (const q of (i.bareme || [])) {
+      if (!q || q._deleted || _nr(q.ref) !== want || !q.debut) continue;
+      if (_ymd(q.bailDebut) && bd && _ymd(q.bailDebut) !== bd) continue;
+      if (_ymd(q.debut) > d || (q.fin != null && _ymd(q.fin) < d)) continue;
+      if (!hit || _ymd(q.debut) > _ymd(hit.debut)) hit = q;
+    }
+    return hit ? { hc: Number(hit.hc) || 0, ch: Number(hit.ch) || 0, total: _tot(hit.hc, hit.ch) } : null;
+  };
+
   // ── Périodes du barème (+ événements 'modif' pour les périodes source:'manuel').
   for (const p of (i.bareme || [])) {
     if (!p || _nr(p.ref) !== want) continue;
@@ -178,21 +199,62 @@ export function construireHistoriqueBail(input) {
           type: 'periode-annulee', date: dd, avant: total,
           dateEffet: _ymd(p._annuleeParCloture), motif: p.note || ''
         }, dd);
+      } else if (p._modifieePar) {
+        // Une modification de période (date / loyer / charges) : UNE carte « avant → après », au jour où
+        // la période commence désormais ; le tombstone garde l'ancienne ligne, la nouvelle est la période vivante.
+        const m = p._modifieePar;
+        const jr = jrPeriodes.get(String(m.evtId));
+        const nd = _ymd(m.debut) || dd;
+        _pushEv(cd.rail, {
+          type: 'periode-modifiee', date: nd, le: _ymd(m.le),
+          avant: { debut: dd, hc: Number(p.hc) || 0, ch: Number(p.ch) || 0, total },
+          apres: { debut: nd, hc: Number(m.hc) || 0, ch: Number(m.ch) || 0, total: _tot(m.hc, m.ch) },
+          motif: m.motif || '', auteur: m.auteur || (jr && jr.auteur) || '', evtId: m.evtId || '',
+          impact: (jr && jr.impact) || null
+        }, nd);
+      } else if (p._supprimeePar) {
+        const m = p._supprimeePar;
+        const jr = jrPeriodes.get(String(m.evtId));
+        _pushEv(cd.rail, {
+          type: 'periode-supprimee', date: dd, le: _ymd(m.le),
+          avant: { debut: dd, fin: p.fin == null ? null : _ymd(p.fin), hc: Number(p.hc) || 0, ch: Number(p.ch) || 0, total },
+          reprise: m.reprise || '', repriseTarif: _tarifA(dd, _ymd(p.bailDebut) || cd.bailDebut),
+          motif: m.motif || '', auteur: m.auteur || (jr && jr.auteur) || '', evtId: m.evtId || '',
+          impact: (jr && jr.impact) || null
+        }, dd);
+      } else if (p._absorbeePar) {
+        const m = p._absorbeePar;
+        _pushEv(cd.rail, {
+          type: 'periode-absorbee', date: dd, le: _ymd(m.le), avant: total,
+          dateEffet: _ymd(m.debut), evtId: m.evtId || ''
+        }, dd);
       }
       continue;
     }
     const c = _byBailDebut(p.bailDebut) || _byRange(p.debut) || chapitres[0];
     const debut = _ymd(p.debut);
     const fin = p.fin != null ? _ymd(p.fin) : null;
+    // BAIL-EN-COURS-MODIFIER-PERIODES — de quoi sélectionner et modifier la période sans deviner côté écran :
+    // `cle` = {ref, bailDebut, debut} (jamais l'index du tableau), `premiere` = la période qui commence à la date du
+    // bail (sa date est celle du bail), `droits` = ce que la fenêtre « Modifier la période » permet de saisir
+    // (révision IRL : charges seulement — la date et le loyer passent par les gestes IRL).
+    const bdP = _ymd(p.bailDebut) || c.bailDebut;
+    const premiere = !!(bdP && debut === bdP);
+    const irl = p.source === 'irl';
     const periode = {
       debut, fin, hc: Number(p.hc) || 0, ch: Number(p.ch) || 0,
       total: (Number(p.hc) || 0) + (Number(p.ch) || 0),
       source: p.source || '', note: p.note || '',
       future: !!(today && debut > today),
-      courante: !!(today && debut <= today && (fin == null || today <= fin))
+      courante: !!(today && debut <= today && (fin == null || today <= fin)),
+      cle: { ref: p.ref, bailDebut: _ymd(p.bailDebut), debut },
+      premiere, chapitre: c.bailDebut,
+      droits: { date: !premiere && !irl, hc: !irl, ch: true, supprimer: !irl }
     };
     c.rail.push({ kind: 'periode', periode, dateTri: debut });
-    if (p.source === 'manuel') {
+    // Une période « bail » passée en « manuel » par une ÉDITION (continuation dérivée corrigée) n'est pas une
+    // « Modification du loyer » : sa carte est celle de la modification (tombstone `_modifieePar`).
+    if (p.source === 'manuel' && (!p._edition || p._edition.de == null || p._edition.de === 'manuel')) {
       _pushEv(c.rail, {
         type: 'modif', date: debut, effet: debut,
         hc: periode.hc, ch: periode.ch, note: p.note || ''
