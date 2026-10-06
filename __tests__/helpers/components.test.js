@@ -173,18 +173,26 @@ describe('components/toast.js — où poser le toast sur téléphone', () => {
     it('pas la place au-dessus non plus : le toast reste DANS l’écran', () => {
       expect(placementToast({ telephone: true, couche: { z: 200, pied: { haut: 760, bas: 100 } }, zCss: 999, hauteur: 131, vh: VH }).bas).toBe(VH - 131 - 12);
     });
+    it('bannière « Installer Propryo » affichée (z 1500, aussi par-dessus la page EDL) : le toast passe au-dessus', () => {
+      expect(placementToast({ telephone: true, couche: { z: 1001, pied: { haut: 70, bas: 0 } }, zCss: 999, zBanniere: 1500, hauteur: 131, vh: VH }))
+        .toEqual({ bas: 82, z: 1501 });
+      expect(placementToast({ telephone: true, couche: { z: 200, pied: null }, zCss: 999, zBanniere: 1500 }).z).toBe(1501);
+      expect(placementToast({ telephone: true, barre: 57, zCss: 999, zBanniere: 1500 }).z).toBe(1600);
+      expect(placementToast({ telephone: true, barre: 0, zCss: 999, zBanniere: 1500 })).toEqual({ bas: null, z: null });   // ni barre ni couche : inchangé
+    });
     it('couche sans pied collant : en bas (12 px), au-dessus de la couche ; une couche passe AVANT la barre', () => {
       expect(placementToast({ telephone: true, barre: 57, couche: { z: 1001, pied: null }, zCss: 999 })).toEqual({ bas: 12, z: 1002 });
     });
   });
 
   // Un écran de laboratoire : nœuds { cls, display, position, z, top, bottom } ; getComputedStyle / getBoundingClientRect.
-  function ecran({ telephone = true, barre = null, couches = [] } = {}) {
+  function ecran({ telephone = true, barre = null, couches = [], pwa = null } = {}) {
     const noeud = (o) => ({ className: o.cls || '', _o: o, getBoundingClientRect: () => ({ top: o.top || 0, bottom: o.bottom || 0, height: (o.bottom || 0) - (o.top || 0) }) });
     const nCouches = couches.map(c => Object.assign(noeud(c), { _pieds: (c.pieds || []).map(noeud), querySelectorAll() { return this._pieds; } }));
     const nBarre = barre ? noeud(barre) : null;
+    const nPwa = pwa ? noeud(pwa) : null;
     const doc = {
-      querySelector: (s) => (s === '.v4-bnav' ? nBarre : null),
+      querySelector: (s) => (s === '.v4-bnav' ? nBarre : s === '#pwa-invite' ? nPwa : null),
       querySelectorAll: () => nCouches,
     };
     const win = {
@@ -225,7 +233,11 @@ describe('components/toast.js — où poser le toast sur téléphone', () => {
           { cls: 'grand-foot', position: 'sticky', top: 100, bottom: 844 },    // plus haut que la moitié de l'écran
         ] },
       ] });
-      expect(mesurerEcran(doc, win)).toEqual({ telephone: true, barre: 0, vh: VH, couche: { z: 1001, pied: { haut: 70, bas: 0 } } });
+      expect(mesurerEcran(doc, win)).toEqual({ telephone: true, barre: 0, zBanniere: 0, vh: VH, couche: { z: 1001, pied: { haut: 70, bas: 0 } } });
+    });
+    it('bannière « Installer Propryo » : son z-index si elle est affichée, 0 sinon', () => {
+      expect(mesurerEcran(...Object.values(ecran({ pwa: { z: 1500, top: 606, bottom: 768 } }))).zBanniere).toBe(1500);
+      expect(mesurerEcran(...Object.values(ecran({ pwa: { z: 1500, display: 'none' } }))).zBanniere).toBe(0);
     });
     it('pied collant qui suit un contenu court (sticky, en haut) : mesuré là où il est', () => {
       const { doc, win } = ecran({ couches: [{ z: 200, pieds: [{ cls: 'an-foot', position: 'sticky', top: 297, bottom: 366 }] }] });

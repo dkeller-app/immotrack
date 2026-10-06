@@ -20,8 +20,9 @@ import { escHtml } from '../core/utils.js';
 //     contenu court (mesuré à 390 px : pied de ov-loyer-bien à 297-366). Le toast reste en bas s'il
 //     tient SOUS le pied ; sinon il se pose JUSTE AU-DESSUS du pied. Dans les deux cas juste au-dessus
 //     de la couche (sinon il passe dessous : #ov-edl est à 1001, la feuille de style dit 999) ;
-//   - sinon, la barre du bas est affichée → au-dessus d'elle, et de la bannière « Installer Propryo »
-//     (.pwa-invite, 1500) ;
+//   - sinon, la barre du bas est affichée → au-dessus d'elle (1600) ;
+//   - dans tous ces cas, au-dessus de la bannière « Installer Propryo » si elle est affichée (#pwa-invite,
+//     1500 — elle passe aussi par-dessus la page EDL) : un message recouvert n'est pas un message dit ;
 //   - sinon : la place et le z-index de la feuille de style, inchangés.
 // Tablette et PC : rien ne change. Le z-index n'est jamais BAISSÉ sous celui de la feuille de style
 // (ex. index.html : page de dépôt du DDT, z 2147483001). Le toast ne capte aucun appui (css/main.css,
@@ -42,14 +43,16 @@ const PIEDS_NOMMES = /(^|\s)(m-foot|modal-foot|mf|edl-rail|edl-page-foot)(\s|$)/
  * @param {object|null} o.couche  couche plein écran du dessus : { z, pied } ; pied = { haut, bas } (haut et
  *                             bas du pied collant), ou null s'il n'y en a pas
  * @param {number}  o.zCss     z-index du toast selon la feuille de style
+ * @param {number}  o.zBanniere z-index de la bannière « Installer Propryo » affichée (0 = absente)
  * @param {number}  o.hauteur  hauteur du toast (0 = inconnue)
  * @param {number}  o.vh       hauteur de l'écran (0 = inconnue)
  * @returns {{ bas:number|null, z:number|null }} null = la feuille de style décide
  */
-export function placementToast({ telephone = false, barre = 0, couche = null, zCss = 0, hauteur = 0, vh = 0 } = {}) {
+export function placementToast({ telephone = false, barre = 0, couche = null, zCss = 0, zBanniere = 0, hauteur = 0, vh = 0 } = {}) {
   if (!telephone) return { bas: null, z: null };
+  const zMin = Math.max(zCss, zBanniere > 0 ? zBanniere + 1 : 0);
   if (couche) {
-    const z = Math.max(zCss, (couche.z || 0) + 1);
+    const z = Math.max(zMin, (couche.z || 0) + 1);
     const p = couche.pied;
     if (!p) return { bas: TOAST_ECART, z };
     // Pied haut (contenu court) : le toast tient SOUS lui, à sa place habituelle.
@@ -59,7 +62,7 @@ export function placementToast({ telephone = false, barre = 0, couche = null, zC
     if (vh > 0 && hauteur > 0 && bas + hauteur > vh - TOAST_ECART) bas = Math.max(TOAST_ECART, vh - hauteur - TOAST_ECART);
     return { bas, z };
   }
-  if (barre > 0) return { bas: barre + TOAST_ECART, z: Math.max(zCss, TOAST_Z_BARRE) };
+  if (barre > 0) return { bas: barre + TOAST_ECART, z: Math.max(zMin, TOAST_Z_BARRE) };
   return { bas: null, z: null };
 }
 
@@ -70,6 +73,8 @@ export function mesurerEcran(doc = globalThis.document, win = globalThis.window)
   const visible = n => { const c = win.getComputedStyle(n); return c.display !== 'none' && c.visibility !== 'hidden'; };
   const b = doc.querySelector('.v4-bnav');
   const barre = (b && visible(b)) ? Math.ceil(b.getBoundingClientRect().height) : 0;
+  const pwa = doc.querySelector('#pwa-invite');
+  const zBanniere = (pwa && visible(pwa)) ? (parseInt(win.getComputedStyle(pwa).zIndex, 10) || 0) : 0;
   let couche = null;
   let zCouche = -Infinity;
   for (const n of doc.querySelectorAll(SEL_COUCHES)) {
@@ -77,7 +82,7 @@ export function mesurerEcran(doc = globalThis.document, win = globalThis.window)
     const z = parseInt(win.getComputedStyle(n).zIndex, 10) || 0;
     if (z >= zCouche) { zCouche = z; couche = n; }          // la plus haute ; à égalité, la dernière du DOM
   }
-  if (!couche) return { telephone, barre, vh, couche: null };
+  if (!couche) return { telephone, barre, zBanniere, vh, couche: null };
   // Le pied collant : un pied NOMMÉ (m-foot, rail EDL…) ou un « *foot* » sticky / fixe, visible à l'écran,
   // pas plus haut que la moitié de l'écran. Plusieurs : leur zone commune.
   let pied = null;
@@ -90,7 +95,7 @@ export function mesurerEcran(doc = globalThis.document, win = globalThis.window)
     const haut = Math.ceil(vh - r.top), bas = Math.max(0, Math.floor(vh - r.bottom));
     pied = pied ? { haut: Math.max(pied.haut, haut), bas: Math.min(pied.bas, bas) } : { haut, bas };
   }
-  return { telephone, barre, vh, couche: { z: zCouche, pied } };
+  return { telephone, barre, zBanniere, vh, couche: { z: zCouche, pied } };
 }
 
 /** Applique la décision au toast (styles en ligne, retirés quand la feuille de style décide). Ne lève jamais. */
