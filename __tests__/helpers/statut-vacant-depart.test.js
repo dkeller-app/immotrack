@@ -448,7 +448,7 @@ describe('13 · dépôts détenus = état de restitution, baux vivants ET archiv
 describe('14 · scénario de l\'audit : relocation d\'un lot parti (VRAIS archiverBail → dû, dépôt, tâche)', () => {
   const scenario = () => {
     const DB = dbDe({ A1: { ...DEPART, ref: 'A1', fin: '2028-12-31' } });
-    const m = monter(DB, [...STATUT, 'archiverBail', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation', '_computeUnifiedTodo', '_departDeadlineDG'], {
+    const m = monter(DB, [...STATUT, 'archiverBail', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation', '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
       _baremeCloturerLot: () => {}, _departState: () => null, td: () => AUJ, AlertRules: new Proxy({}, { get: () => () => [] }), EQUIP_RULES: [], _DIAGS_CATALOG_INLINE: [], _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
     });
     m.fn.archiverBail('A1', '2026-11-15');
@@ -582,7 +582,7 @@ describe('18 · loyer souhaité (VRAI _pushLoyerTheoFromLive) : jamais écrasé 
 describe('19 · tâche du dépôt d\'un bail archivé (VRAI _computeUnifiedTodo) : sévérité selon l\'échéance art. 22', () => {
   const tache = (sortie) => {
     const DB = dbDe({}); DB.baux_historique = [{ ...BAIL, ref: 'A1', depart: { dateSortie: sortie }, finEffective: sortie, _archivedAuto: true }];
-    const m = monter(DB, [...STATUT, '_computeUnifiedTodo', '_departDeadlineDG'], {
+    const m = monter(DB, [...STATUT, '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
       _departState: () => null, AlertRules: new Proxy({}, { get: () => () => [] }), EQUIP_RULES: [], _DIAGS_CATALOG_INLINE: [],
       _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
     });
@@ -642,7 +642,7 @@ describe('21 · restitution du dépôt sur le bail EXACT (VRAIS _dgOpenRestituti
   const RESTIT = ['_dgOpenRestitution', '_dgConfirmerRestitution', '_dgBailCible', '_dgRestitRecalc'];
   const ouvrir = (DB, ref, cle, date = '2026-10-20') => {
     const vals = { 'dg-restit-date': date, 'dg-restit-autres': '0', 'dg-restit-detail-retenues': '' };
-    const m = monter(DB, [...STATUT, ...RESTIT, '_computeUnifiedTodo', '_departDeadlineDG'], {
+    const m = monter(DB, [...STATUT, ...RESTIT, '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
       v: (id) => vals[id] || '', _dgVgRows: [], _dgVgCtx: {}, _dgVgSeedFromEdl: () => [], _dgVgRender: () => {},
       _calculerSoldeDG: (b) => ({ soldeRestitue: Number(b.dgPaid || b.dg) - Number(b.dgRetenu || 0), loyerImpaye: 0 }),
       _dgStatut: () => ({ statut: 'a_restituer' }), _calculerDelaiRestitution: () => 2, confirm2: () => true, _stamp: (o) => { o._modifiedAt = 'stamp'; }, saveDB: () => {},
@@ -825,5 +825,25 @@ describe('26 · dépôts détenus : doublons d\'archive, bail courant clôturé,
     const { fn, els } = monter(DB, [...STATUT, '_renderPilotage']);
     try { fn._renderPilotage({ scopeLogs: DB.logements, yr: '2026', mo: null, activeEnt: '' }); } catch (e) { /* bulles non simulées */ }
     expect(els['pil-strip'].innerHTML).toContain('1 dépôt · argent des locataires');
+  });
+});
+describe('27 · échéance du dépôt (VRAI _departDeadlineDG) : EDL de sortie de CE bail, date locale', () => {
+  const LEA = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true };
+  const NINA = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300 };
+  const EDL = (date, conforme) => ({ id: 'e' + date, logement: 'A1', type: 'Sortie', date, pieces: [{ elements: [{ etatE: 'Bon état', etatS: conforme ? 'Bon état' : 'Mauvais état' }] }] });
+  const echeance = (edl, extra = {}) => {
+    const DB = dbDe({ A1: { ...NINA } }); DB.baux_historique = [{ ...LEA }]; DB.edl = edl;
+    const m = monter(DB, [...STATUT, '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut', '_calculerDelaiRestitution'], {
+      _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), ...extra,
+    });
+    return m.fn._departDeadlineDG(DB.baux_historique[0]);
+  };
+  it('sortie de Lea conforme (30/09) : 1 mois → 30/10 ; l\'EDL de sortie de Nina (2027) n\'est jamais celui de Lea', () => {
+    expect(echeance([EDL('2026-09-30', true)])).toMatchObject({ iso: '2026-10-30', mois: 1, provisional: false });
+    expect(echeance([EDL('2027-01-10', true)])).toMatchObject({ iso: '2026-11-30', mois: 2, provisional: true });
+  });
+  it('jours restants comptés à la date LOCALE (_todayIsoLocal), pas td() (UTC)', () => {
+    const d = echeance([], { _todayIsoLocal: () => '2026-10-06', td: () => '2026-10-05' });
+    expect(d.jours).toBe(55);
   });
 });

@@ -127,7 +127,7 @@ describe('2 · régularisation (computeRegul) — départ déclaré au 31/08', (
 });
 
 describe('3 · étape régularisation ET étape restitution du DG : un seul solde de tout compte', () => {
-  const NOMS = [...CHAINE_REGUL, '_rgImmRegime', '_rgYearChargesDetail', '_rgN1Charges', '_occNonForfaitJours', '_rgClotureCompute', '_dgOpenRestitution', '_dgBailCible', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree'];
+  const NOMS = [...CHAINE_REGUL, '_rgImmRegime', '_rgYearChargesDetail', '_rgN1Charges', '_occNonForfaitJours', '_rgClotureCompute', '_dgOpenRestitution', '_edlsDuBail', '_bailSuivantDebut', '_dgBailCible', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree'];
   it('départ déclaré : impayés identiques des deux côtés (0 €), 500 € à restituer', () => {
     const { fn, els } = monter(DEPART(), NOMS);
     const c = fn._rgClotureCompute(REF);

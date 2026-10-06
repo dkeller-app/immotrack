@@ -25950,6 +25950,29 @@ function _departOv(){
 
 // Date limite de restitution du DG calculée DÈS le départ (avant clôture/archive) :
 // date de sortie (remise des clés) + délai légal (1 mois EDL conforme / 2 mois sinon, art. 22).
+// Le début du bail SUIVANT sur le lot (bail courant ou archivé commencé après celui-ci) — '' s'il n'y en a pas.
+function _bailSuivantDebut(bail) {
+  if(!bail || !bail.ref) return '';
+  const d0 = String(bail.debut || '').slice(0, 10);
+  const cands = [DB.baux && DB.baux[bail.ref]].concat(DB.baux_historique || [])
+    .filter(b => b && !b._deleted && b !== bail && b.ref === bail.ref && b.debut && String(b.debut).slice(0, 10) > d0);
+  return cands.map(b => String(b.debut).slice(0, 10)).sort()[0] || '';
+}
+// Les EDL qui peuvent appartenir à CE bail : tous ceux d'avant le début du bail SUIVANT (après une relocation, la sortie
+// du nouveau locataire n'est pas celle de l'ancien). La borne basse (début du bail) est celle d'EdlParcours.edlSortieQuiFaitFoi.
+function _edlsDuBail(bail) {
+  const avant = _bailSuivantDebut(bail);
+  return (DB.edl || []).filter(e => e && (!avant || !e.date || String(e.date).slice(0, 10) < avant));
+}
+function _edlSortieDuBail(bail) {
+  if(!bail || !bail.ref) return null;
+  const edls = _edlsDuBail(bail);
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  if(P && typeof P.edlSortieQuiFaitFoi === 'function') return P.edlSortieQuiFaitFoi(bail, edls);
+  const d0 = String(bail.debut || '');
+  return edls.filter(e => !e._deleted && e.logement === bail.ref && e.type === 'Sortie' && (!d0 || !e.date || String(e.date) >= d0))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0] || null;
+}
 function _departDeadlineDG(bail){
   const d = bail && bail.depart;
   const sortie = (d && d.dateSortie) || (bail && bail.finEffective) || '';
@@ -25958,14 +25981,15 @@ function _departDeadlineDG(bail){
   // Tant qu'aucun EDL de sortie n'existe, le délai n'est pas figé (_calculerDelaiRestitution renvoie 1
   // par défaut) → on affiche le MAXIMUM légal (2 mois) pour ne pas annoncer une échéance trop optimiste.
   // Une fois l'EDL réalisé, _calculerDelaiRestitution tranche (1 mois conforme / 2 mois retenues).
-  const edlExists = !!(bail && bail.ref && (DB.edl||[]).some(e=>e && !e._deleted && e.logement===bail.ref && e.type==='Sortie'));
-  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, DB.edl) : 2) : 2;
+  // L'EDL de sortie de CE bail (entre son début et le début du bail suivant) — jamais celui d'un autre locataire du lot.
+  const edlExists = !!_edlSortieDuBail(bail);
+  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, _edlsDuBail(bail)) : 2) : 2;
   // Construction locale (sans suffixe TZ) puis ajout calendaire → évite le décalage UTC de toISOString().
   const day = +m[3];
   const lim = new Date(+m[1], +m[2]-1, day); lim.setMonth(lim.getMonth()+mois);
   // Débordement de fin de mois (ex. 31/01 + 1 mois ≠ 31/02) → dernier jour du mois cible (art. 641 CPC).
   if(lim.getDate() !== day) lim.setDate(0);
-  const todayStr = (typeof td==='function') ? td() : new Date().toISOString().slice(0,10);
+  const todayStr = (typeof _todayIsoLocal==='function') ? _todayIsoLocal() : new Date().toISOString().slice(0,10);   // date LOCALE (td() = UTC)
   const tm = /^(\d{4})-(\d{2})-(\d{2})/.exec(todayStr);
   // Écart en jours sur composants purs (Date.UTC) → insensible au fuseau / DST.
   const todayUTC = tm ? Date.UTC(+tm[1], +tm[2]-1, +tm[3]) : Date.now();

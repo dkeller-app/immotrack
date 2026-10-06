@@ -26199,7 +26199,7 @@ function _dgOpenRestitution(ref, cle) {
   const _bailN = Object.assign({}, bail, { dgPaid: dgVerse, fin: _bailFinOccupation(bail, false) });
   const dgInfo = _dgStatut(_bailN); // AUDIT #3 : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
   const solde = _calculerSoldeDG(_bailN, DB.mouvements || []);
-  const delaiMois = _calculerDelaiRestitution(bail, DB.edl);
+  const delaiMois = _calculerDelaiRestitution(bail, (typeof _edlsDuBail === 'function') ? _edlsDuBail(bail) : DB.edl);   // EDL de CE bail
   _dgVgCtx = {
     refDate: (bail.depart && bail.depart.dateSortie) || bail.finEffective || (typeof td === 'function' ? td() : ''),
     edlEntreeDate: _dgVgEntreeDate(bail),
