@@ -59,7 +59,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
 <link rel="stylesheet" href="css/main.css?v=15.716">
-<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7976c7e3">
+<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=6e49d9e7">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
 <link rel="modulepreload" href="js/app/supabase-boot.js">
@@ -149,6 +149,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/quittance-editeur.js">
 <link rel="modulepreload" href="js/core/irl-garde-fou.js">
 <link rel="modulepreload" href="js/core/login-breadcrumb.js">
+<link rel="modulepreload" href="js/core/auth-storage.js">
 <link rel="modulepreload" href="js/core/sync-schedule.js">
 <link rel="modulepreload" href="js/core/store-supabase.js">
 <link rel="modulepreload" href="js/core/store-supabase-adapter.js">
@@ -223,6 +224,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
             <label class="imsb-flabel">Mot de passe</label>
             <input class="imsb-input" id="imsb-pass" type="password" placeholder="••••••••" required autocomplete="current-password">
             <div class="imsb-forgot"><a href="#" id="imsb-forgot">Mot de passe oublié ?</a></div>
+            <label class="imsb-remember"><input type="checkbox" id="imsb-remember"><span>Rester connecté sur cet appareil<small>Ne pas cocher sur un ordinateur partagé ou public.</small></span></label>
             <button class="imsb-btn imsb-primary" id="imsb-submit" type="submit">Se connecter</button>
             <p class="imsb-foot">Nouveau ? <a href="#" id="imsb-signup">Créer un compte · essai gratuit</a></p>
           </form>
