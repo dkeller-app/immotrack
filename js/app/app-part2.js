@@ -8617,25 +8617,59 @@ function _readLogForBail(bail, log) {
   });
 }
 
-// Filet avant migration majeure — NEUTRALISÉ (STOCKAGE lot 1, CDC docs/CDC-STOCKAGE.md §3.4, S-2).
-// Avant : la base entière sérialisée sous la clé `immotrack_backup_<label>_<date>` — une COPIE
-// COMPLÈTE de la base par migration, par jour et par appareil, jamais purgée, qui partageait le
-// budget (~5 Mo) du save principal : c'est la cause de l'incident « Mémoire pleine » du 28/08.
-// En boot cloud, ces migrations tournent d'ailleurs sur une base VIDE (avant l'hydratation) : la
-// copie ne protégeait rien. Plus aucune écriture localStorage ici. Le filet IndexedDB avec rotation
-// (1 par migration, 3 au plus, 30 jours, purgé au logout — D2 C) arrive au lot 2, à cet endroit.
-// Les anciennes copies sont retirées au démarrage par _stockageNettoyer().
-function _backupBeforeMigration(label) {
-  console.info('[ARCHI] filet pré-migration « ' + label + ' » : aucune copie locale (STOCKAGE lot 1, filet IndexedDB au lot 2)');
-  return null;
+// ═══ STOCKAGE lot 2 — FILET AVANT MIGRATION (CDC docs/CDC-STOCKAGE.md §3.4, D2 C) ═══
+// Avant le lot 1 : la base entière sous `immotrack_backup_<label>_<date>` en localStorage — une COPIE
+// COMPLÈTE par migration, par jour et par appareil, jamais purgée, qui partageait le budget (~5 Mo) du
+// save principal : la cause de l'incident « Mémoire pleine » du 28/08 (neutralisé au lot 1).
+// Désormais : IndexedDB `immotrack_backup` (store `handles`, celui de la sauvegarde de sécurité, sans
+// changement de version), clé `filet:<KEY>:<label>`, 1 par migration, 3 au plus par espace de noms,
+// 30 jours, purgés au logout et au changement d'utilisateur. Décisions dans js/core/filets-migration.js
+// (testé, exposé sous window._filets). Aucune écriture localStorage (S-2, G6).
+// La base est FIGÉE ici, de façon synchrone (JSON) : l'écriture IndexedDB est asynchrone et la
+// migration modifie DB juste après l'appel. Le filet ne bloque jamais une migration (ne lève pas).
+// Restauration (procédure de support) : _filets.lireFilet(_filetsIdb(), KEY, label) → _backupRestoreApply.
+// Point d'accroche UNIQUE pour toute migration future qui réécrit la base.
+let _filetsAdaptateur = null;
+function _filetsIdb() {
+  const F = (typeof window !== 'undefined') ? window._filets : null;
+  if (!F || typeof F.adaptateurIndexedDB !== 'function' || typeof indexedDB === 'undefined') return null;
+  if (!_filetsAdaptateur) { try { _filetsAdaptateur = F.adaptateurIndexedDB(indexedDB); } catch (e) { return null; } }
+  return _filetsAdaptateur;
+}
+function _filetAvantMigration(label) {
+  const F = (typeof window !== 'undefined') ? window._filets : null;
+  const A = _filetsIdb();
+  if (!F || !A) {
+    console.info('[ARCHI] filet pré-migration « ' + label + ' » : non posé (module ou IndexedDB indisponible)');
+    return Promise.resolve(null);
+  }
+  let json;
+  try { json = JSON.stringify(DB); }
+  catch (e) { console.warn('[ARCHI] filet pré-migration « ' + label + ' » : base non sérialisable', e); return Promise.resolve(null); }
+  return F.poserFilet(A, { ns: KEY, label, json }).then(r => {
+    if (r && r.ok) console.info('[ARCHI] filet pré-migration « ' + label + ' » posé (IndexedDB, ' + json.length + ' caractères)'
+      + (r.supprimees.length ? ', ' + r.supprimees.length + ' ancien(s) retiré(s)' : ''));
+    else console.warn('[ARCHI] filet pré-migration « ' + label + ' » non posé', r && r.erreur);
+    return r;
+  }, e => { console.warn('[ARCHI] filet pré-migration « ' + label + ' »', e); return null; });
+}
+// Passe de démarrage (D2 C) : les filets et la copie de la base illisible de plus de 30 jours partent.
+function _filetsExpirer() {
+  const F = (typeof window !== 'undefined') ? window._filets : null;
+  const A = _filetsIdb();
+  if (!F || !A) return Promise.resolve([]);
+  return F.expirerCopies(A).then(parties => {
+    if (parties.length) console.info('[stockage] ' + parties.length + ' copie(s) de la base de plus de 30 jours retirée(s) (IndexedDB)', parties);
+    return parties;
+  }, () => []);
 }
 
 // Migration ARCHI-DB-DOUBLONS Phase 2 — auto au boot, idempotente.
 // Implémente les décisions Q4=B (migration hard) + Q4bis (typeUsage) + Q5=A (snapshot)
 // + Q7=A (auto au boot).
 // Étapes :
-//   1. Point d'accroche du filet pré-migration _backupBeforeMigration('archi-v1') — NEUTRALISÉ
-//      depuis STOCKAGE lot 1 (aucune copie locale) ; filet IndexedDB avec rotation au lot 2.
+//   1. Filet pré-migration _filetAvantMigration('archi-v1') (STOCKAGE lot 2, IndexedDB) — hors boot
+//      cloud : la migration y tourne sur une base VIDE (avant l'hydratation), le filet ne protégerait rien.
 //   2. Pour chaque bail signé : enrichir bailSnapshot.log si manquant
 //   3. Pour chaque log : copier champs bien depuis bail courant si absents
 //   4. Pour chaque log : déduire log.typeUsage depuis le contexte
@@ -8659,12 +8693,12 @@ function _archiV1MarkDone() {
 function _migrateArchiV1IfNeeded() {
   if(!DB.logements) return; // initDB pas encore prête, sera rappelée plus tard
 
-  // Filet pré-migration (neutralisé, STOCKAGE lot 1) et toast UNE SEULE FOIS (premier boot, marqueur localStorage)
+  // Filet pré-migration (IndexedDB, STOCKAGE lot 2 ; pas en boot cloud) et toast UNE SEULE FOIS (premier boot, marqueur localStorage)
   // L'enrichissement des logements/snapshots tourne à CHAQUE boot (idempotent via if(!log.X))
   // → robuste pour les nouveaux logements créés entre Phase 2 et Phase 3+,
   //    pour les imports JSON cross-device, ET pour le mode lecture seule Drive.
   const isFirstRun = !_archiV1IsDone();
-  if(isFirstRun) _backupBeforeMigration('archi-v1');
+  if(isFirstRun && !_CLOUD_BOOT) _filetAvantMigration('archi-v1');   // boot cloud : base vide, rien à protéger
 
   let nbBauxSnapshotEnrichis = 0;
   let nbLogsEnrichis = 0;
@@ -8896,7 +8930,7 @@ const _ARCHI_V4B_DESC_FIELDS = [
 function _migrateArchiV4bIfNeeded() {
   if(!DB.logements || !DB.baux) return;
   const isFirstRun = !_archiV4bIsDone();
-  if(isFirstRun) { try { _backupBeforeMigration('archi-v4b'); } catch(e) {} }
+  if(isFirstRun && !_CLOUD_BOOT) _filetAvantMigration('archi-v4b');   // boot cloud : base vide, rien à protéger
 
   let nbBauxNettoyes = 0, nbEquipMigres = 0;
 

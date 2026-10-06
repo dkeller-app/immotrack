@@ -145,6 +145,10 @@ let _stockageLocal = null
 // STOCKAGE lot 4 (docs/CDC-STOCKAGE.md §3.8) — miroir cloud en IndexedDB + journal synchrone des EDL
 // (js/core/miroir-local.js). Import best-effort : sans lui, le miroir reste en localStorage (lot 1).
 let _miroirLocal = null
+// STOCKAGE lot 2 (docs/CDC-STOCKAGE.md §3.4) — filets avant migration en IndexedDB `immotrack_backup`
+// (js/core/filets-migration.js). Import best-effort : sans lui, pas de purge à la déconnexion — les
+// filets expirent alors d'eux-mêmes après 30 jours (passe de démarrage, même module).
+let _filetsMigration = null
 let _teardownSession = null      // dépose de session ({flush}) — posée au boot, utilisée par logout + purge espace
 let _hasCloudWrites = null       // summaryHasCloudWrites (store-sync) — M4 : émission Realtime honnête
 // EDL TERRAIN lot 4bis — deux appareils, un état des lieux. Imports best-effort
@@ -187,6 +191,20 @@ function _purgerCopiesLocales(motif) {
     const parties = _stockageLocal.purgerCopies(localStorage)
     if (parties.length) console.info('[Supabase] purge (' + motif + ') : ' + parties.length + ' copie(s) locale(s) de la base retirée(s)')
   } catch (e) { console.warn('[Supabase] purge des copies locales', e) }
+}
+
+// STOCKAGE lot 2 (S-7) — purge des copies de la base rangées en IndexedDB `immotrack_backup` : filets
+// avant migration (`filet:*`) et copie de la base illisible (`corrompu:*`). Jamais le reste du store
+// (`dirhandle`, dossier de la sauvegarde de sécurité). Appelée au logout et quand le miroir n'appartient
+// pas à l'utilisateur qui se connecte, ATTENDUE (avant le reload, avant la pose du nouveau tag).
+// Chaque opération IndexedDB est bornée (3 s) : un IndexedDB muet ne bloque pas la déconnexion.
+// Module absent : rien. Ne throw jamais.
+async function _purgerFiletsLocaux(motif) {
+  try {
+    if (!_filetsMigration || typeof indexedDB === 'undefined') return
+    const parties = await _filetsMigration.purgerCopies(_filetsMigration.adaptateurIndexedDB(indexedDB))
+    if (parties.length) console.info('[Supabase] purge (' + motif + ') : ' + parties.length + ' copie(s) de la base retirée(s) d’IndexedDB')
+  } catch (e) { console.warn('[Supabase] purge des filets IndexedDB', e) }
 }
 
 // P1.3 volet RGPD — purge du cache local au LOGIN, selon le propriétaire du miroir résiduel.
@@ -417,6 +435,8 @@ async function boot() {
     // ancien Drive, base illisible) sont des miroirs sous un autre nom — elles contournaient cette
     // purge et restaient lisibles après la déconnexion sur un poste partagé.
     _purgerCopiesLocales('logout')
+    // STOCKAGE lot 2 (S-7) : les filets avant migration et la base illisible, rangés en IndexedDB, aussi.
+    await _purgerFiletsLocaux('logout')
     // STOCKAGE lot 4 (RGPD) : le miroir IndexedDB `immotrack_miroir` est SUPPRIMÉ, le journal des EDL
     // retiré, et plus aucune écriture n'est acceptée avant le rechargement. Attendu AVANT le reload.
     // La garde ci-dessus (refus tant que du travail n'est pas parti) s'applique AVANT ce point.
@@ -478,6 +498,7 @@ async function boot() {
   // Realtime retombe sur l'ancienne condition « flush 100 % propre ».
   try { _cachePurge = await import('../core/cache-purge.js') } catch (e) { console.warn('[Supabase] cache-purge', e) }
   try { _stockageLocal = await import('../core/stockage-local.js') } catch (e) { console.warn('[Supabase] stockage-local', e) }
+  try { _filetsMigration = await import('../core/filets-migration.js') } catch (e) { console.warn('[Supabase] filets-migration', e) }
   try { _offlineBoot = await import('../core/offline-boot.js') } catch (e) { console.warn('[Supabase] offline-boot', e) }
   // STOCKAGE lot 4 — le miroir cloud passe en IndexedDB. Initialisé ICI, AVANT tout lecteur (démarrage
   // hors ligne, F1, garde de déconnexion) et avant toute écriture cloud : ouvre IndexedDB et TRANSFÈRE
@@ -1565,6 +1586,9 @@ async function onLoggedIn(api, overlay, user) {
     try {
       _tagMiroirAvantLogin = _purgerCacheAuLogin({ user, esp })
       if (_tagMiroirAvantLogin === 'other-user') await _deletePhotosDb()
+      // STOCKAGE lot 2 (S-7) : les copies de la base en IndexedDB (filets, base illisible) d'un autre
+      // propriétaire ne survivent pas non plus — TERMINÉ avant la pose du nouveau tag (ordre F14.1).
+      if (_tagMiroirAvantLogin !== 'same') await _purgerFiletsLocaux('changement de propriétaire du miroir')
       // STOCKAGE lot 4 : l'effacement du miroir IndexedDB de l'ancien propriétaire (mis en file par
       // `_purgerCacheAuLogin`) est TERMINÉ avant la pose du nouveau tag — même ordre F14.1 que les photos.
       if (_tagMiroirAvantLogin !== 'same' && typeof _miroirLocal !== 'undefined' && _miroirLocal) await _miroirLocal.miroir().attendre()

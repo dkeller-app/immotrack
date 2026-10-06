@@ -163,7 +163,7 @@ describe('Purges RGPD du miroir IndexedDB', () => {
       _refusDeconnexionLocale: () => null, api: { logout: async () => ({ ok: true }) },
       _supaClient: { auth: { signOut: async () => {} } }, _purgerCopiesLocales: () => {}, _purgeAuthTokenKeys: () => {},
       _deletePhotosDb: async () => {}, location: { reload: () => ordre.push('reload:' + (idb.enr === null ? 'base-absente' : 'base-PRESENTE')) },
-      _miroirLocal: moduleMiroir(m),
+      _miroirLocal: moduleMiroir(m), _purgerFiletsLocaux: async () => {},   // STOCKAGE lot 2 (testé dans filets-migration.test.js)
     };
     const noms = Object.keys(deps);
     const fn = new Function(...noms, 'return async ({ flush, keepPhotos, forcer }) => ' + extraireTeardown(ENTRY))(...noms.map(n => deps[n]));
@@ -190,7 +190,7 @@ describe('Purges RGPD du miroir IndexedDB', () => {
     const noms = Object.keys(purgeDeps);
     const purger = new Function(...noms, 'return ' + extraireFonction(ENTRY, '_purgerCacheAuLogin'))(...noms.map(n => purgeDeps[n]));
     const deps = {
-      _purgerCacheAuLogin: purger, _deletePhotosDb: async () => {}, user: { id: 'u-b' }, esp: { espaceId: 'e-b' }, console: muet,
+      _purgerCacheAuLogin: purger, _deletePhotosDb: async () => {}, _purgerFiletsLocaux: async () => {}, user: { id: 'u-b' }, esp: { espaceId: 'e-b' }, console: muet,
       _miroirLocal: moduleMiroir(m), _ecrireTagEtEspacesLogin: () => idb.ops.push('tag:' + (idb.ops.includes('effacer-fini') ? 'APRÈS effacement' : 'AVANT effacement')),
     };
     const n2 = Object.keys(deps);
