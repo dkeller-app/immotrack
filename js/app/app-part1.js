@@ -6277,9 +6277,14 @@ function _natCmp(a, b) {
 // logement purgé) → la chaîne reçue, sans erreur. Texte NON échappé : escHtml à chaque site innerHTML ; jamais dans un
 // attribut value/data-/onclick (qui gardent la référence). Voir docs/subjects/BAIL-EN-COURS-NOM-AFFICHAGE.md.
 function _logFindParRef(x) {
-  const ref = String((x && typeof x === 'object') ? (x.ref == null ? '' : x.ref) : (x == null ? '' : x)).split('@@')[0];
+  const brut = String((x && typeof x === 'object') ? (x.ref == null ? '' : x.ref) : (x == null ? '' : x));
+  const ref = brut.split('@@')[0];
+  // Multi-espace (audit B3 🟡6) : même réf dans deux espaces → on préfère le logement de l'espace demandé
+  // (_espaceId de l'objet reçu, sinon suffixe « ref@@espaceId »), puis n'importe quel espace.
+  const esp = (x && typeof x === 'object' && x._espaceId) ? x._espaceId : (brut.indexOf('@@') >= 0 ? brut.slice(brut.indexOf('@@') + 2) : '');
   const logs = (typeof DB !== 'undefined' && DB && Array.isArray(DB.logements)) ? DB.logements : [];
-  return { ref: ref, log: logs.find(z => z && z.ref === ref && !z._deleted) || logs.find(z => z && z.ref === ref) || null };
+  const mem = z => z && z.ref === ref;
+  return { ref: ref, log: (esp && logs.find(z => mem(z) && z._espaceId === esp && !z._deleted)) || logs.find(z => mem(z) && !z._deleted) || logs.find(mem) || null };
 }
 // Repli sans module LogLabel (script non chargé) : libellé simple, vide s'il est égal à la référence.
 function _logNomRepli(log) {
@@ -7064,7 +7069,7 @@ function _pilCollectFamilles(ctx) {
       // l'ampleur de la dette en nombre de loyers, cohérent avec l'onglet Loyers ; pas des jours).
       const _lot = scopeLogs.find(x => x.ref === it.ref);
       const _mens = _lot ? ((Number(_lot.hc) || 0) + (Number(_lot.ch) || 0)) : 0;
-      src.impaye.push({ ref: it.ref, nom: it.locataire || it.ref, montant: it.reste || 0, urgenceJours: anc, loyerMensuel: _mens });
+      src.impaye.push({ ref: it.ref, nom: it.locataire || _logLabel(it.ref), montant: it.reste || 0, urgenceJours: anc, loyerMensuel: _mens });
     });
   } catch (e) {}
 
@@ -7078,7 +7083,7 @@ function _pilCollectFamilles(ctx) {
         const cnd = (DB.candidats || []).filter(c => c && !c._deleted && c.logRef === v.ref && c.statut !== 'refuse' && c.statut !== 'converti' && !c._archived);
         const nbEnCours = cnd.filter(c => c.statut === 'enCours').length;
         const nbValide = cnd.filter(c => c.statut === 'valide').length;
-        src.vacant.push({ ref: v.ref, nom: v.ref, montant: 0, urgenceJours: joursDepuis(v.depuis), nbEnCours, nbValide });
+        src.vacant.push({ ref: v.ref, nom: _logLabel(v.ref), montant: 0, urgenceJours: joursDepuis(v.depuis), nbEnCours, nbValide });
       });
     }
   } catch (e) {}
@@ -7130,7 +7135,7 @@ function _pilCollectFamilles(ctx) {
     if (typeof AR.bauxEcheance === 'function') {
       AR.bauxEcheance(scopeLogs, todayD, 90, _bailEcheanceAlerteDe).forEach(b => {
         if (src.finbail.some(x => x.ref === b.ref)) return;   // déjà porté par un départ en cours
-        src.finbail.push({ ref: b.ref, nom: b.locataire || b.ref, urgenceJours: b.jours });
+        src.finbail.push({ ref: b.ref, nom: b.locataire || _logLabel(b.ref), urgenceJours: b.jours });
       });
     }
   } catch (e) {}

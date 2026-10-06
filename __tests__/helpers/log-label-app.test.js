@@ -179,3 +179,37 @@ describe('_finDrillLigne : _short ne coupe pas un libellé contenant « · »', 
     expect(p('?')).toEqual({ nom: '?', loc: '' })
   })
 })
+
+// B3 audit 🟡6 : multi-espace — même réf dans deux espaces → le logement de l'espace demandé.
+describe('_logLabel multi-espace (_espaceId / suffixe @@espace)', () => {
+  const w = monde({ logements: [
+    { ref: 'D-101', libelle: 'Studio E1', _espaceId: 'e1' },
+    { ref: 'D-101', libelle: 'Loft E2', _espaceId: 'e2' },
+  ] })
+  it('objet portant _espaceId → son espace', () => {
+    expect(w._logLabel({ ref: 'D-101', _espaceId: 'e2' })).toBe('Loft E2')
+    expect(w._logLabel({ ref: 'D-101', _espaceId: 'e1' })).toBe('Studio E1')
+  })
+  it('suffixe @@espaceId → son espace', () => {
+    expect(w._logLabel('D-101@@e2')).toBe('Loft E2')
+  })
+  it('sans indication ou espace inconnu → premier logement vivant (comportement inchangé)', () => {
+    expect(w._logLabel('D-101')).toBe('Studio E1')
+    expect(w._logLabel('D-101@@e9')).toBe('Studio E1')
+  })
+})
+
+// B3 audit 🟡7/🟡8 : jamais le texte d'une option relu ; les listes Pilotage montrent le nom, pas la réf.
+describe('textes d\'écran : pas de relecture d\'option, nom (pas réf) dans Pilotage', () => {
+  it('_edlRenderLogCard : plus de lecture de opt.text', () => {
+    const c = extraire(P2, '_edlRenderLogCard')
+    expect(c).not.toMatch(/opt\.text|\.text\.split/)
+    expect(c).toMatch(/lg\.locataire \|\| 'Vacant'/)
+  })
+  it('_pilCollecter* : vacants / impayés / fins de bail sans locataire → nom d\'affichage', () => {
+    expect(P1).toMatch(/src\.vacant\.push\(\{ ref: v\.ref, nom: _logLabel\(v\.ref\)/)
+    expect(P1).toMatch(/nom: it\.locataire \|\| _logLabel\(it\.ref\)/)
+    expect(P1).toMatch(/nom: b\.locataire \|\| _logLabel\(b\.ref\)/)
+    expect(P1).not.toMatch(/nom: v\.ref,/)
+  })
+})

@@ -5615,8 +5615,7 @@ function _edlRenderLogCard() {
   const ref = sel.value;
   if (!ref) { card.innerHTML = `<button type="button" class="btn edl-log-pick" onclick="_edlOpenLogPage()">Choisir le logement</button>`; return; }
   const lg = (DB.logements || []).find(l => l.ref === ref) || {};
-  const opt = sel.options[sel.selectedIndex];
-  const occ = lg.locataire || ((opt && opt.text.indexOf(' – ') > 0) ? opt.text.split(' – ').slice(1).join(' – ') : '');
+  const occ = lg.locataire || 'Vacant';   // jamais relu dans le texte de l'option (il contient le nom d'affichage)
   const det = [lg.imm, lg.type, lg.surf ? lg.surf + ' m²' : ''].filter(Boolean).join(' · ');
   card.innerHTML = `<div class="edl-log-card-x"><b>${escHtml(_logLabelRef(ref))}</b>${occ ? `<div class="edl-log-card-l2">${escHtml(occ)}</div>` : ''}${det ? `<div class="edl-log-card-l3">${escHtml(det)}</div>` : ''}</div><button type="button" class="btn edl-log-change" onclick="_edlOpenLogPage()">Changer</button>`;
 }
