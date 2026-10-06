@@ -442,12 +442,17 @@ async function boot() {
     // ancien Drive, base illisible) sont des miroirs sous un autre nom — elles contournaient cette
     // purge et restaient lisibles après la déconnexion sur un poste partagé.
     _purgerCopiesLocales('logout')
-    // STOCKAGE lot 2 (S-7) : les filets avant migration et la base illisible, rangés en IndexedDB, aussi.
-    await _purgerFiletsLocaux('logout')
     // STOCKAGE lot 4 (RGPD) : le miroir IndexedDB `immotrack_miroir` est SUPPRIMÉ, le journal des EDL
     // retiré, et plus aucune écriture n'est acceptée avant le rechargement. Attendu AVANT le reload.
     // La garde ci-dessus (refus tant que du travail n'est pas parti) s'applique AVANT ce point.
+    // ⚠️ ORDRE (audit lots 2-3, 🟡3) : `vider()` ferme le miroir DÈS son premier pas, synchrone — aucun
+    // `await` ne doit le précéder depuis le retrait des horodatages ci-dessus. Sinon un saveDB pendant
+    // l'attente (la purge des filets peut durer 5 s) réécrit `immotrack_v4_ecrit_at`, qui survit à la
+    // déconnexion : au login suivant, F1 croirait à du travail hors ligne non remonté.
     try { if (typeof _miroirLocal !== 'undefined' && _miroirLocal) await _miroirLocal.miroir().vider() } catch (e) { console.warn('[Supabase] purge du miroir IndexedDB', e) }
+    // STOCKAGE lot 2 (S-7) : les filets avant migration et la base illisible, rangés en IndexedDB, aussi.
+    // APRÈS la fermeture du miroir (ci-dessus) : plus rien ne peut réécrire un horodatage pendant l'attente.
+    await _purgerFiletsLocaux('logout')
     // BUG-LOGIN-DOUBLE volet sécurité : le token de session (persistSession:true) DOIT partir aussi.
     _purgeAuthTokenKeys()
     // IndexedDB photos : purgée SEULEMENT si aucun binaire « idb-only » (sans copie Supabase Storage).

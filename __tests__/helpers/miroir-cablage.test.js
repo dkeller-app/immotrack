@@ -176,6 +176,62 @@ describe('Purges RGPD du miroir IndexedDB', () => {
     expect(idb.enr).toBeNull();
   });
 
+  it('logout (audit 🟡3) : un saveDB PENDANT la purge des filets (jusqu’à 5 s) ne laisse AUCUN horodatage orphelin — le miroir est fermé avant', async () => {
+    const st = fauxStockageQuota({ initial: { immotrack_v4_ecrit_at: '1', immotrack_v4_flush_at: '2', immotrack_v4_tag: TAG } });
+    const idb = fauxIdb({ v: 1, ecritA: 1, tag: TAG, json: JSON.stringify(base()) });
+    const m = creerMiroir({ idb, stockage: st });
+    await m.initialiser();
+    const vu = {};
+    const deps = {
+      window: {}, console: muet, localStorage: st, MIRROR_KEY: 'immotrack_v4', MIRROR_TAG_KEY: CachePurge.MIRROR_TAG_KEY,
+      _offlineBoot: OfflineBoot, _cachePurge: CachePurge, _liveDBRef: null, appDbFrom: () => ({}),
+      _refusDeconnexionLocale: () => null, api: { logout: async () => ({ ok: true }) },
+      _supaClient: { auth: { signOut: async () => {} } }, _purgerCopiesLocales: () => {}, _purgeAuthTokenKeys: () => {},
+      _deletePhotosDb: async () => {}, location: { reload: () => { vu.ecritAuReload = st.getItem('immotrack_v4_ecrit_at'); } },
+      _miroirLocal: moduleMiroir(m),
+      // La purge des filets prend du temps (IndexedDB lent : bornée à 5 s) ; l'autosave de l'EDL tourne encore.
+      _purgerFiletsLocaux: async () => {
+        await new Promise(r => setTimeout(r, 5));
+        vu.retourEcriture = m.ecrire(base([edl(9, 9)]));                    // = _miroirEcrireCloud() dans saveDB
+        vu.ecritPendant = st.getItem('immotrack_v4_ecrit_at');
+        vu.journalPendant = st.getItem(JOURNAL_EDL_KEY);
+      },
+    };
+    const noms = Object.keys(deps);
+    const fn = new Function(...noms, 'return async ({ flush, keepPhotos, forcer }) => ' + extraireTeardown(ENTRY))(...noms.map(n => deps[n]));
+    await fn({ flush: true });
+    await m.attendre();
+    expect(vu).toEqual({ retourEcriture: true, ecritPendant: null, journalPendant: null, ecritAuReload: null });
+    expect(st.getItem('immotrack_v4_ecrit_at')).toBeNull();                 // F1 ne croira pas à du travail hors ligne au login suivant
+    expect(idb.enr).toBeNull();                                             // et la base IndexedDB n'est pas recréée
+  });
+
+  it('logout : la garde de refus (travail non synchronisé) passe AVANT toute purge — ni miroir, ni filets, ni horodatage touchés', async () => {
+    const initial = { immotrack_v4_ecrit_at: '5', immotrack_v4_flush_at: '2', immotrack_v4_tag: TAG, [JOURNAL_EDL_KEY]: '{"edl":[]}' };
+    const st = fauxStockageQuota({ initial });
+    const idb = fauxIdb({ v: 1, ecritA: 5, tag: TAG, json: JSON.stringify(base([edl(1, 1)])) });
+    const m = creerMiroir({ idb, stockage: st });
+    await m.initialiser();
+    const trace = [];
+    const refus = { ok: false, raison: 'hors-ligne-non-synchronise', enAttente: 1 };
+    const deps = {
+      window: {}, console: muet, localStorage: st, MIRROR_KEY: 'immotrack_v4', MIRROR_TAG_KEY: CachePurge.MIRROR_TAG_KEY,
+      _offlineBoot: OfflineBoot, _cachePurge: CachePurge, _liveDBRef: null, appDbFrom: () => ({}),
+      _refusDeconnexionLocale: () => refus, api: { logout: async () => { trace.push('api.logout'); return { ok: true }; } },
+      _supaClient: { auth: { signOut: async () => {} } }, _purgerCopiesLocales: () => trace.push('copies'), _purgeAuthTokenKeys: () => trace.push('jeton'),
+      _deletePhotosDb: async () => {}, location: { reload: () => trace.push('reload') },
+      _miroirLocal: moduleMiroir(m), _purgerFiletsLocaux: async () => { trace.push('filets'); },
+    };
+    const noms = Object.keys(deps);
+    const fn = new Function(...noms, 'return async ({ flush, keepPhotos, forcer }) => ' + extraireTeardown(ENTRY))(...noms.map(n => deps[n]));
+    expect(await fn({ flush: true })).toBe(refus);
+    expect(trace).toEqual([]);
+    for (const [k, v] of Object.entries(initial)) expect(st.getItem(k), k).toBe(v);
+    expect(idb.ops).not.toContain('supprimerBase');
+    expect(m.ecrire(base([edl(1, 2)]))).toBe(true);                         // le miroir n'est pas fermé : le travail continue d'être protégé
+    expect(st.getItem('immotrack_v4_ecrit_at')).not.toBe('5');
+  });
+
   it('ordre F14.1 dans onLoggedIn : l’effacement IndexedDB de l’ancien propriétaire est TERMINÉ avant la pose du nouveau tag', async () => {
     const st = fauxStockageQuota({ initial: { immotrack_v4_tag: JSON.stringify({ userId: 'u-a', espaceId: 'e-a' }) } });
     let liberer;
