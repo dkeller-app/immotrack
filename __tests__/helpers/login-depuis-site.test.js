@@ -25,8 +25,23 @@ describe('liens propryo.fr → application', () => {
     const bloc = entry.slice(i, entry.indexOf('const { user, error: _errAuth } = await api.currentUserOrError()'))
     expect(bloc).toContain('_teardownSession({ flush: true })')
     expect(bloc).not.toMatch(/forcer\s*:\s*true/)                       // jamais forcé : le refus protège le travail non synchronisé
-    expect(bloc).toMatch(/r\.ok !== false\)\s*\{\s*location\.reload\(\)/)   // déconnecté → rechargement → formulaire
+    expect(bloc).toMatch(/r\.ok !== false\)\s*\{[\s\S]*?location\.reload\(\)/)   // déconnecté → rechargement → formulaire
     expect(bloc).toContain('session conservée')                         // refus → on garde la session, on continue
+    expect(bloc).toContain("showToast(")                                // et on l'explique à l'utilisateur
+  })
+
+  it('HORS LIGNE : jamais de fermeture de session (le formulaire exige le réseau → technicien enfermé dehors)', () => {
+    const bloc = entry.slice(entry.indexOf('(connexion|inscription)'), entry.indexOf('const { user, error: _errAuth } = await api.currentUserOrError()'))
+    expect(bloc).toContain('navigator.onLine === false')
+    expect(bloc).toContain('__immoHorsLigne')
+    // la condition du teardown exige explicitement « pas hors ligne »
+    expect(bloc).toMatch(/sess && sess\.user && !dejaTente && !horsLigne/)
+  })
+
+  it('anti-boucle : drapeau d’onglet posé AVANT le rechargement, lu et effacé à l’arrivée suivante', () => {
+    const bloc = entry.slice(entry.indexOf('(connexion|inscription)'), entry.indexOf('const { user, error: _errAuth } = await api.currentUserOrError()'))
+    expect(bloc).toMatch(/getItem\('imsb-deja-deconnecte'\)[\s\S]*?removeItem\('imsb-deja-deconnecte'\)/)
+    expect(bloc.indexOf("setItem('imsb-deja-deconnecte'")).toBeLessThan(bloc.indexOf('location.reload()'))
   })
 
   it('le lien d’invitation (?invite) garde la priorité', () => {

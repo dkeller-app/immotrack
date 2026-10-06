@@ -739,11 +739,21 @@ async function boot() {
   // synchronisé (EDL hors ligne…), la déconnexion est REFUSÉE et on reste connecté plutôt que de perdre des données.
   if (/[?&](connexion|inscription)(?![\w-])/.test(location.search || '')) {
     try {
+      // Garde anti-boucle : si on a DÉJÀ tenté la fermeture dans cet onglet (drapeau posé avant le rechargement) et
+      // qu'une session est quand même revenue (stockage bloqué…), on n'insiste pas. Le drapeau est lu ET effacé ici.
+      const dejaTente = (() => { try { const v = sessionStorage.getItem('imsb-deja-deconnecte'); sessionStorage.removeItem('imsb-deja-deconnecte'); return !!v } catch (e) { return false } })()
       const sess = await api.localSession()   // lecture locale, sans réseau
-      if (sess && sess.user && typeof _teardownSession === 'function') {
+      // HORS LIGNE : on ne ferme jamais la session (le formulaire de connexion exige le réseau → le technicien serait
+      // enfermé dehors avec son EDL ; CDC verrou 2 « rester connecté hors ligne »). Le boot normal / hors ligne s'exécute.
+      const horsLigne = (typeof navigator !== 'undefined' && navigator.onLine === false) || window.__immoHorsLigne === true
+      if (sess && sess.user && !dejaTente && !horsLigne && typeof _teardownSession === 'function') {
         const r = await _teardownSession({ flush: true })
-        if (!r || r.ok !== false) { location.reload(); return }   // déconnecté : on recharge → formulaire (mode inscription si ?inscription)
+        if (!r || r.ok !== false) {
+          try { sessionStorage.setItem('imsb-deja-deconnecte', '1') } catch (e) {}
+          location.reload(); return        // déconnecté : on recharge → formulaire (mode inscription si ?inscription)
+        }
         console.info('[auth] déconnexion refusée (travail non synchronisé) : session conservée')
+        try { if (typeof window.showToast === 'function') window.showToast("Du travail n'est pas encore synchronisé : tu restes connecté.", 'warn', 7000) } catch (e) {}
       }
     } catch (e) { console.warn('[auth] déconnexion depuis propryo.fr', e) }
   }
