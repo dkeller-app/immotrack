@@ -1,10 +1,10 @@
 /**
  * Chantier « un seul endroit pour l'argent » — lot 1, surfaces R5 et R7 (feu vert pilotage 06/10/2026).
  *
- * R5 — fiche du bien, KPI « Loyer actuel » : lisait `bail.hc + bail.ch`, sans le barème (une révision
- *      IRL appliquée restait invisible). Il lit désormais LA MÊME fonction que le bandeau « Loyer en
- *      vigueur » de l'onglet Bail de la fiche (`_histoBailEnVigueur` → `enVigueur` du barème, au jour,
- *      date locale). Audit 06/10 : le taux plein du MOIS affichait une révision du 20 dès le 1er.
+ * R5 — fiche du bien, « Loyer actuel » (PC) et « Loyer » (téléphone) : lisaient `bail.hc + bail.ch` (PC)
+ *      et le DÛ proratisé du mois (téléphone : 718,71 € contre 680 € sur PC). Les deux lisent désormais LA
+ *      règle `_loyerEnVigueurLot` = `loyerDuLotA` du moteur à la date locale du jour (barème en vigueur,
+ *      puis bail…). Audit 06/10 : le taux plein du MOIS affichait une révision du 20 dès le 1er.
  * R7 — barre latérale, ordre des entités : sommait `m.cr` de TOUTES catégories (dépôts, apports,
  *      virements internes compris). Il lit désormais les recettes du moteur Finances par entité.
  *
@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { enVigueur } from '../../js/core/bail-historique.js';
+import { loyerDuLotA } from '../../js/core/legal-bilan.js';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
 import { extraireFonction } from './_extraction-source.js';
 
@@ -39,7 +40,7 @@ function monter(noms, base) {
   return new Function('scope', 'with (scope) {\n' + noms.map(corps).join('\n') + '\nreturn {' + noms.join(',') + '};\n}')(scope);
 }
 
-describe('R5 — fiche du bien : « Loyer actuel » = le loyer en vigueur AUJOURD’HUI (= onglet Bail)', () => {
+describe('R5 — fiche du bien (PC et téléphone) : le loyer EN VIGUEUR aujourd’hui, une seule règle', () => {
   // Bail signé 700 + 50. IRL appliquée au 01/07/2026 (barème 720). Révision IRL PROGRAMMÉE au 20/10/2026
   // (anniversaire du bail, date libre) à 740 : le barème la porte, le bail n'est pas recopié (applyNow faux).
   const BAIL = { ref: 'A1', debut: '2024-10-20', hc: 700, ch: 50, locataires: [{ nom: 'Lea' }] };
@@ -48,52 +49,93 @@ describe('R5 — fiche du bien : « Loyer actuel » = le loyer en vigueur AUJOUR
     { ref: 'A1', debut: '2026-07-01', fin: '2026-10-19', hc: 720, ch: 50 },
     { ref: 'A1', debut: '2026-10-20', hc: 740, ch: 50 },
   ];
+  const LOT = { ref: 'A1', hc: 710, ch: 50 };
   afterEach(() => vi.useRealTimers());
-  const rendu = ({ bareme = BAREME, auj = '2026-10-06', module = true } = {}) => {
+  const rendu = ({ bareme = BAREME, auj = '2026-10-06', module = true, bail = BAIL } = {}) => {
     vi.useFakeTimers(); vi.setSystemTime(new Date(auj + 'T10:00:00'));
-    const DB = { logements: [{ ref: 'A1', hc: 700, ch: 50 }], baux: { A1: BAIL }, baux_historique: [], loyerBareme: bareme, mouvements: [] };
-    const fn = monter(['_renderLogFicheHeroStats', '_histoBailEnVigueur', '_histoBailTodayIso'], {
-      DB, window: module ? { _bailHistoEnVigueur: enVigueur } : {},
+    const DB = { logements: [LOT], baux: { A1: bail }, baux_historique: [], loyerBareme: bareme, mouvements: [] };
+    const fn = monter(['_renderLogFicheHeroStats', '_renderLogFichePhStrip', '_loyerEnVigueurLot', '_ctxLoyerLot',
+      '_histoBailEnVigueur', '_histoBailTodayIso'], {
+      DB, window: module ? { _bailHistoEnVigueur: enVigueur } : {}, loyerDuLotA: module ? loyerDuLotA : undefined,
       td: () => auj, fmt: (n) => String(Math.round((n || 0) * 100) / 100) + ' €', escHtml: (x) => String(x == null ? '' : x),
-      _isAlive: (x) => !!x && !x._deleted, _bienIsBailActif: () => true, _bienActiveBail: () => BAIL,
-      _lotCcQuotePartMois: () => [], _getAllBailsForLog: () => [BAIL],
+      _isAlive: (x) => !!x && !x._deleted, _bienIsBailActif: () => true, _bienActiveBail: () => bail,
+      _findBailByRefTolerant: (ref) => DB.baux[ref] || null,
+      _lotCcQuotePartMois: () => [], _getAllBailsForLog: () => [bail],
       Math, Number, String, Object, Array, Date, parseInt,
     });
-    const h = fn._renderLogFicheHeroStats({ ref: 'A1', hc: 700, ch: 50 }, 'A1');
+    const h = fn._renderLogFicheHeroStats(LOT, 'A1');
     const m = h.match(/logf-stat-v k-money">([^<]*)<small>\/mois<\/small><\/div>\s*<div class="logf-stat-l">Loyer actuel/);
-    return { kpi: m ? m[1] : 'KPI introuvable', bandeauBail: fn._histoBailEnVigueur('A1') };
+    const tel = (fn._renderLogFichePhStrip(LOT, bail, 'A1').find((c) => c.k === 'Loyer') || {}).v;
+    return { pc: m ? m[1] : 'KPI introuvable', tel, bandeauBail: fn._histoBailEnVigueur('A1') };
   };
 
-  it('IRL de juillet appliquée au barème : 770 € (pas les 750 € du bail)', () => {
-    expect(rendu().kpi).toBe('770 €');
+  it('IRL de juillet appliquée au barème : 770 € sur PC ET sur téléphone (pas les 750 € du bail)', () => {
+    const r = rendu();
+    expect(r.pc).toBe('770 €');
+    expect(r.tel).toBe('770 €');
   });
 
-  it('révision programmée au 20/10, consultée le 06/10 : toujours 770 € — rien avant la date d’effet', () => {
-    expect(rendu({ auj: '2026-10-06' }).kpi).toBe('770 €');
-    expect(rendu({ auj: '2026-10-19' }).kpi).toBe('770 €');
-  });
-
-  it('le 20/10, jour d’effet : 790 €', () => {
-    expect(rendu({ auj: '2026-10-20' }).kpi).toBe('790 €');
-  });
-
-  it('avant l’IRL de juillet : 750 €', () => {
-    expect(rendu({ auj: '2026-05-15' }).kpi).toBe('750 €');
-  });
-
-  it('même chiffre que le bandeau « Loyer en vigueur » de l’onglet Bail, à toute date', () => {
-    for (const auj of ['2026-05-15', '2026-07-01', '2026-10-06', '2026-10-20', '2027-03-01']) {
+  it('révision programmée au 20/10, consultée le 06/10 et le 19/10 : 770 € — rien avant la date d’effet', () => {
+    for (const auj of ['2026-10-06', '2026-10-19']) {
       const r = rendu({ auj });
-      expect(r.kpi, auj).toBe(String(r.bandeauBail.total) + ' €');
+      expect([r.pc, r.tel], auj).toEqual(['770 €', '770 €']);
     }
   });
 
-  it('lot sans période de barème couvrant aujourd’hui : repli sur le bail (750 €)', () => {
-    expect(rendu({ bareme: [] }).kpi).toBe('750 €');
+  it('le 20/10, jour d’effet : 790 €', () => {
+    const r = rendu({ auj: '2026-10-20' });
+    expect([r.pc, r.tel]).toEqual(['790 €', '790 €']);
   });
 
-  it('modules non chargés (file://) : repli sur le bail, sans erreur', () => {
-    expect(rendu({ module: false }).kpi).toBe('750 €');
+  it('entrée en cours de mois : le loyer mensuel, pas le dû proratisé du mois', () => {
+    const entre = { ref: 'A1', debut: '2026-10-15', hc: 600, ch: 60, locataires: [{ nom: 'Tom' }] };
+    const r = rendu({ bail: entre, bareme: [{ ref: 'A1', debut: '2026-10-15', hc: 600, ch: 60 }], auj: '2026-10-20' });
+    expect([r.pc, r.tel]).toEqual(['660 €', '660 €']);
+  });
+
+  it('PC = téléphone = `loyerDuLotA` du moteur à la date du jour, à 5 dates', () => {
+    for (const auj of ['2026-05-15', '2026-07-01', '2026-10-06', '2026-10-20', '2027-03-01']) {
+      const r = rendu({ auj });
+      const m = loyerDuLotA(auj, 'A1', { bareme: BAREME, bailCourant: BAIL, hists: [], lot: LOT });
+      const attendu = String(m.hc + m.ch) + ' €';
+      expect([r.pc, r.tel], auj).toEqual([attendu, attendu]);
+    }
+  });
+
+  it('données normales : le bandeau « Loyer en vigueur » de l’onglet Bail donne le même chiffre', () => {
+    for (const auj of ['2026-05-15', '2026-07-01', '2026-10-06', '2026-10-20', '2027-03-01']) {
+      const r = rendu({ auj });
+      expect(r.pc, auj).toBe(String(r.bandeauBail.total) + ' €');
+    }
+  });
+
+  it('écart DOCUMENTÉ avec le bandeau Bail : période du barème à loyer vide (null)', () => {
+    // `loyerDuLotA` ignore une période dont le loyer HC n'est pas saisi et lit le bail en cours (750) ;
+    // le bandeau (`enVigueur`) compte le champ vide pour 0 (0 + 50 = 50). Aucun écrivain actuel ne pose
+    // null (audit 06/10) ; l'alignement du bandeau est un chantier séparé (tracé par le pilotage).
+    const trou = [{ ref: 'A1', debut: '2024-10-20', hc: null, ch: 50 }];
+    const r = rendu({ bareme: trou });
+    expect([r.pc, r.tel]).toEqual(['750 €', '750 €']);
+    expect(r.bandeauBail.total).toBe(50);
+  });
+
+  it('lot sans barème : le moteur prend le bail en cours (750 €)', () => {
+    const r = rendu({ bareme: [] });
+    expect([r.pc, r.tel]).toEqual(['750 €', '750 €']);
+  });
+
+  it('modules non chargés (file://) : repli bail, puis fiche du lot champ par champ, sans erreur', () => {
+    expect(rendu({ module: false }).pc).toBe('750 €');
+    const sansMontant = { ...BAIL, hc: '' };
+    const r = rendu({ module: false, bail: sansMontant });
+    expect([r.pc, r.tel]).toEqual(['760 €', '760 €']);          // hc du lot (710) + ch du bail (50)
+  });
+
+  it('une seule règle : les deux fiches appellent `_loyerEnVigueurLot`, plus de `_duMoisLot` pour « Loyer »', () => {
+    expect(corps('_renderLogFicheHeroStats')).toContain('_loyerEnVigueurLot(ref, bail, log)');
+    expect(corps('_renderLogFichePhStrip')).toContain('_loyerEnVigueurLot(ref, bail, log)');
+    expect(corps('_renderLogFichePhStrip')).not.toContain('_duMoisLot(');
+    expect(corps('_loyerEnVigueurLot')).toContain('loyerDuLotA(');
   });
 });
 
