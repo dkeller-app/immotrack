@@ -244,36 +244,57 @@ export function purgerCopies(storage) {
 
 // ── STOCKAGE lot 3 — le message vrai (S-6, D1 B) et l'état de la copie de cet appareil (§3.7) ──
 
-/** Les textes (maquette validée par Didier le 06/10, mockups/STOCKAGE/reglages-etat-stockage.html). */
+/** Les textes (maquette validée par Didier le 06/10, mockups/STOCKAGE/reglages-etat-stockage.html ;
+ *  `edl`, `reseauCoupe`, `sessionMorte` ajoutés au contre-audit du lot 3, même registre). */
 export const TEXTES_ECHEC_MIROIR = {
   enLigne: 'Copie de secours de cet appareil non mise à jour. La modification est bien enregistrée dans le cloud ; '
-    + 'sans réseau, cet appareil afficherait des données plus anciennes. Détail : Réglages → Sauvegarde & export → Stockage de cet appareil.',
+    + 'sans réseau, cet appareil afficherait des données plus anciennes. Détail : Sauvegarde & export → Stockage de cet appareil.',
+  edl: 'Stockage de cet appareil plein : cet état des lieux n’est pas encore en sécurité sur l’appareil. '
+    + 'Il part au cloud ; garder l’application ouverte jusqu’à la fin de l’envoi.',
+  reseauCoupe: 'Stockage de cet appareil plein et réseau coupé : cette modification n’est pas encore en sécurité. '
+    + 'Garder l’application ouverte jusqu’au retour du réseau pour qu’elle parte au cloud.',
+  sessionMorte: 'Stockage de cet appareil plein et session expirée : cette modification n’est PAS enregistrée. Se reconnecter, puis la refaire.',
   horsLigne: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée. La refaire une fois le réseau revenu.',
   sandbox: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée. Vider la base de test pour libérer de la place.',
   local: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée.',
 };
 
+const estEdl = quoi => typeof quoi === 'string' && /^edl(-|$)/.test(quoi);
+
 /**
  * S-6 / D1 B — que dire, et que rendre, quand la copie de cet appareil (le miroir) n'a pas pu être écrite ?
  * Le retour de saveDB dit si la modification a une DESTINATION DURABLE :
- *   - `cloud-en-ligne`   : le cloud la reçoit (sync marquée quoi qu'il arrive) → `true`, avis UNIQUE par
- *                          session (la copie de l'appareil est en retard, rien n'est perdu) ;
- *   - `cloud-hors-ligne` : la copie de l'appareil était la seule destination → `false`, « PAS enregistrée » ;
- *   - `local` (sandbox, ancien mode sans cloud) : idem, `false`.
+ *   - `cloud-en-ligne` : le cloud la reçoit (sync marquée quoi qu'il arrive) → `true`, avis UNIQUE par
+ *     session (la copie de l'appareil est en retard). EXCEPTION, l'état des lieux : sa copie locale est son
+ *     second filet (F1 le remonte au démarrage suivant) ; un envoi encore en mémoire n'est pas durable. Il
+ *     n'est « enregistré » que si l'écriture IndexedDB est planifiée (`miroirIdb`) — sinon `false`, avis
+ *     unique « pas encore en sécurité » (contre-audit lot 3, B1) ;
+ *   - `cloud-reseau-coupe` (session en ligne, `navigator.onLine` faux) : rien n'est durable, la modification
+ *     reste en mémoire et partira au retour du réseau si l'app reste ouverte → `false` ;
+ *   - `cloud-session-morte` : plus rien ne part au cloud → `false`, « PAS enregistrée » ;
+ *   - `cloud-hors-ligne`, `local` (sandbox, ancien mode) : le miroir était la seule destination → `false`.
  * Un mode inconnu est traité comme une perte (on ne promet jamais un enregistrement qu'on ne peut prouver).
- * `quoi` (étiquette de l'écriture, EDL compris) ne change rien : invariant 19l amendé, même règle pour tous.
- * @returns {{ retour:boolean, type:'warn'|'err', unique:boolean, message:string }}
+ * `unique` : clé d'avis donné une seule fois par session (false = message à chaque perte, anti-rafale 10 s).
+ * @returns {{ retour:boolean, type:'warn'|'err', unique:string|false, message:string }}
  */
-export function verdictEchecMiroir({ mode, sandbox = false } = {}) {
-  if (mode === 'cloud-en-ligne') return { retour: true, type: 'warn', unique: true, message: TEXTES_ECHEC_MIROIR.enLigne };
+export function verdictEchecMiroir({ mode, sandbox = false, quoi, miroirIdb = false } = {}) {
+  if (mode === 'cloud-en-ligne') {
+    if (estEdl(quoi) && !miroirIdb) return { retour: false, type: 'err', unique: 'edl', message: TEXTES_ECHEC_MIROIR.edl };
+    return { retour: true, type: 'warn', unique: 'copie', message: TEXTES_ECHEC_MIROIR.enLigne };
+  }
+  if (mode === 'cloud-reseau-coupe') return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.reseauCoupe };
+  if (mode === 'cloud-session-morte') return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.sessionMorte };
   if (mode === 'local') return { retour: false, type: 'err', unique: false, message: sandbox ? TEXTES_ECHEC_MIROIR.sandbox : TEXTES_ECHEC_MIROIR.local };
   return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.horsLigne };
 }
 
 /** Le mode du miroir, à partir de ce que l'app sait au moment de l'écriture. */
-export function modeMiroir({ cloud, horsLigne, enLigne }) {
+export function modeMiroir({ cloud, horsLigne, enLigne, sessionMorte }) {
   if (!cloud) return 'local';
-  return (horsLigne || enLigne === false) ? 'cloud-hors-ligne' : 'cloud-en-ligne';
+  if (horsLigne) return 'cloud-hors-ligne';
+  if (sessionMorte) return 'cloud-session-morte';
+  if (enLigne === false) return 'cloud-reseau-coupe';
+  return 'cloud-en-ligne';
 }
 
 const deux = n => String(n).padStart(2, '0');
@@ -298,7 +319,7 @@ export function quandCourt(t, maintenant = Date.now()) {
  * @param {number} o.dernierOk        0, ou heure de la dernière écriture réussie connue
  * @returns {{ etat:string, libelle:string, ton:string, explication:string }}
  */
-export function etatCopieAppareil({ cloud, sandbox, backend = null, copieIncomplete = false, echecDepuis = 0, dernierOk = 0, maintenant = Date.now() }) {
+export function etatCopieAppareil({ cloud, sandbox, backend = null, copieIncomplete = false, echecDepuis = 0, dernierOk = 0, enLigne = true, maintenant = Date.now() }) {
   if (!cloud) {
     return sandbox
       ? { etat: 'test', libelle: 'Base de test', ton: 'gry', explication: 'Mode test : les données sont gardées dans ce navigateur uniquement.' }
@@ -307,7 +328,11 @@ export function etatCopieAppareil({ cloud, sandbox, backend = null, copieIncompl
   if (echecDepuis) {
     const depuis = dernierOk && dernierOk < echecDepuis ? dernierOk : echecDepuis;
     const q = quandCourt(depuis, maintenant);
-    return { etat: 'pas-a-jour', libelle: 'Pas à jour depuis ' + (q.startsWith('le ') ? q : q.replace(/^aujourd’hui à /, '')), ton: 'blu',
+    const libelle = 'Pas à jour depuis ' + (q.startsWith('le ') ? q : q.replace(/^aujourd’hui à /, ''));
+    // Hors ligne / réseau coupé / session expirée : rien ne garantit que le cloud a reçu (contre-audit, I3).
+    if (!enLigne) return { etat: 'pas-a-jour', libelle, ton: 'blu',
+      explication: 'Le stockage de cet appareil est plein. Sans réseau, les modifications qui ne sont pas encore parties au cloud ne sont pas en sécurité.' };
+    return { etat: 'pas-a-jour', libelle, ton: 'blu',
       explication: 'Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données ' + (q.startsWith('le ') ? 'du ' + q.slice(3) : 'd’' + q) + '.' };
   }
   if (copieIncomplete) {
@@ -328,7 +353,8 @@ export function enMo(caracteres) {
   return (mo < 0.1 && mo > 0 ? '< 0,1' : mo.toFixed(1).replace('.', ',')) + ' Mo';
 }
 
-/** Occupation du localStorage (caractères, unité du quota Chromium). Ne lève jamais. */
-export function occupationStockage(storage) {
-  try { return lireEntrees(storage).reduce((s, e) => s + e.taille, 0); } catch (_e) { return 0; }
+/** Occupation du localStorage (caractères, unité du quota Chromium). Ne lève jamais (accès refusé compris). */
+export function occupationStockage(lireStorage) {
+  try { const st = typeof lireStorage === 'function' ? lireStorage() : lireStorage; return lireEntrees(st).reduce((s, e) => s + e.taille, 0); }
+  catch (_e) { return 0; }
 }

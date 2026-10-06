@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.720';
+const IMMOTRACK_VERSION = '15.721';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -2682,7 +2682,7 @@ function saveDB(opts) {
       _miroirEcrireCloud();   // STOCKAGE lot 4 : IndexedDB + journal synchrone des EDL (repli : écrivain local)
       if (typeof _miroirNoterOk === 'function') _miroirNoterOk();
     }
-    catch (e) { _miroirOk = _miroirEchec(e) === true; }
+    catch (e) { _miroirOk = _miroirEchec(e, opts && opts.quoi) === true; }
     if (typeof window.__immoMarkDirty === 'function') window.__immoMarkDirty();
     if (!_autosave && typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
     return _miroirOk;
@@ -2718,7 +2718,7 @@ function saveDB(opts) {
     if (typeof _miroirNoterOk === 'function') _miroirNoterOk();
   } catch(e) {
     // F8 / invariant 19l : sans cloud, le miroir est la seule destination — on ne prétend PAS avoir écrit.
-    _ecrit = _miroirEchec(e) === true;
+    _ecrit = _miroirEchec(e, opts && opts.quoi) === true;
   }
   // (chemin harnais de test uniquement — Drive retiré, plus de push à planifier)
   // UNDO-OP v14.21 : capture l'état post-saveDB comme prev pour la prochaine modif
@@ -2734,45 +2734,61 @@ function saveDB(opts) {
    détaillé est dans Réglages → Stockage de cet appareil). Perte réelle : message à chaque fois, au plus
    toutes les 10 s (pas de matraquage pendant une visite). Module absent : comportement d'avant (faux). */
 let _saveDBQuotaAt = 0;
-let _miroirAvisDonne = false;
-let _miroirEchecDepuis = 0;   // 1re écriture ratée depuis la dernière réussie (0 = à jour) — carte Réglages
+const _miroirAvisDonnes = new Set();   // avis « une fois par session » déjà donnés (clés du verdict)
+let _miroirEchecDepuis = 0;   // 1re écriture ratée depuis la dernière réussie (0 = à jour) — carte Sauvegarde & export
 let _miroirDernierOk = 0;     // dernière écriture réussie dans cette session
 function _miroirNoterOk() { _miroirDernierOk = Date.now(); _miroirEchecDepuis = 0; }
 function _miroirModeCourant() {
   const S = (typeof window !== 'undefined') ? window._stockage : null;
-  const o = { cloud: !!(typeof window !== 'undefined' && window.__immoSupabaseMode),
-    horsLigne: !!(typeof window !== 'undefined' && window.__immoHorsLigne),
+  const w = (typeof window !== 'undefined') ? window : {};
+  const o = { cloud: !!w.__immoSupabaseMode, horsLigne: !!w.__immoHorsLigne, sessionMorte: !!w.__immoSessionMorte,
     enLigne: (typeof navigator !== 'undefined' && navigator) ? navigator.onLine : undefined };
   return (S && typeof S.modeMiroir === 'function') ? S.modeMiroir(o) : (o.cloud ? null : 'local');
 }
-function _miroirEchec(e) {
-  console.error('[saveDB] copie locale non écrite :', e);
-  if (!_miroirEchecDepuis) _miroirEchecDepuis = Date.now();
-  const S = (typeof window !== 'undefined') ? window._stockage : null;
-  const v = (S && typeof S.verdictEchecMiroir === 'function')
-    ? S.verdictEchecMiroir({ mode: _miroirModeCourant(), sandbox: (typeof _isTestMode !== 'undefined') && !!_isTestMode })
-    : { retour: false, type: 'err', unique: false, message: "Stockage de cet appareil plein : cette modification n'est PAS enregistrée." };
-  if (v.unique) {
-    if (_miroirAvisDonne) return v.retour;
-    _miroirAvisDonne = true;
-  } else {
-    const now = Date.now();
-    if (now - _saveDBQuotaAt < 10000) return v.retour;
-    _saveDBQuotaAt = now;
-  }
-  if (typeof showToast === 'function') showToast(v.message, v.type, 10000);
-  return v.retour;
+// La base complète part-elle en IndexedDB (écriture planifiée par le miroir du lot 4, même si le
+// journal synchrone a échoué) ? Sinon (repli localStorage, miroir absent), un EDL n'a pas de copie locale.
+function _miroirIdbPlanifie() {
+  try {
+    const L = (typeof window !== 'undefined') ? window._miroirLocal : null;
+    const M = (L && typeof L.miroir === 'function') ? L.miroir() : null;
+    return !!(M && M.pret() && M.backend() === 'indexeddb');
+  } catch (e) { return false; }
 }
-// Signal ASYNCHRONE du miroir IndexedDB (lot 4, `echec-repli` : la copie complète n'a pas pu être
-// écrite, le journal des EDL est intact) — même état et même avis unique en ligne (supabase-entry.js).
-window.__immoMiroirPasAJour = function() {
+function _miroirEchec(e, quoi) {
+  try {
+    console.error('[saveDB] copie locale non écrite :', e);
+    if (!_miroirEchecDepuis) _miroirEchecDepuis = Date.now();
+    const S = (typeof window !== 'undefined') ? window._stockage : null;
+    const v = (S && typeof S.verdictEchecMiroir === 'function')
+      ? S.verdictEchecMiroir({ mode: _miroirModeCourant(), quoi, miroirIdb: _miroirIdbPlanifie(),
+          sandbox: (typeof _isTestMode !== 'undefined') && !!_isTestMode })
+      : { retour: false, type: 'err', unique: false, message: "Stockage de cet appareil plein : cette modification n'est PAS enregistrée." };
+    if (v.unique) {
+      // Avis une fois par session. Il ne touche PAS l'anti-rafale des pertes : une perte réelle juste après
+      // un avis est toujours dite (et inversement).
+      if (_miroirAvisDonnes.has(v.unique)) return v.retour;
+      _miroirAvisDonnes.add(v.unique);
+    } else {
+      const now = Date.now();
+      if (now - _saveDBQuotaAt < 10000) return v.retour;   // pas de matraquage pendant une visite
+      _saveDBQuotaAt = now;
+    }
+    try { if (typeof showToast === 'function') showToast(v.message, v.type, 10000); } catch (e2) {}
+    return v.retour;
+  } catch (e3) { return false; }   // jamais lever avant l'envoi au cloud (__immoMarkDirty suit dans saveDB)
+}
+// Signal du miroir hors saveDB — `echec-repli` (lot 4, asynchrone : la copie complète n'a pas pu être
+// écrite) et l'échec du rebase au login. Même état ; en ligne, même avis unique (ou aucun si `silencieux`).
+// Rend true si le signal est traité ici (en ligne) ; hors ligne, l'appelant garde son propre texte.
+window.__immoMiroirPasAJour = function(opts) {
   if (!_miroirEchecDepuis) _miroirEchecDepuis = Date.now();
-  if (_miroirModeCourant() !== 'cloud-en-ligne') return false;   // hors ligne : l'appelant garde son texte
+  if (_miroirModeCourant() !== 'cloud-en-ligne') return false;
+  if (opts && opts.silencieux) return true;
   const S = window._stockage;
-  if (!_miroirAvisDonne && S && typeof S.verdictEchecMiroir === 'function' && typeof showToast === 'function') {
-    _miroirAvisDonne = true;
+  if (!_miroirAvisDonnes.has('copie') && S && typeof S.verdictEchecMiroir === 'function' && typeof showToast === 'function') {
+    _miroirAvisDonnes.add('copie');
     const v = S.verdictEchecMiroir({ mode: 'cloud-en-ligne' });
-    showToast(v.message, v.type, 10000);
+    try { showToast(v.message, v.type, 10000); } catch (e) {}
   }
   return true;
 };

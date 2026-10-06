@@ -1315,6 +1315,7 @@ async function onLoggedIn(api, overlay, user) {
   const _sessionDead = () => {
     if (_deadShown) return
     _deadShown = true
+    window.__immoSessionMorte = true   // STOCKAGE lot 3 : saveDB ne promet plus « enregistrée dans le cloud »
     try { window.__immoCrumb && window.__immoCrumb('session-dead') } catch (e) {}
     setSync('dead')
     if (document.getElementById('imsb-dead')) return
@@ -1687,7 +1688,9 @@ async function onLoggedIn(api, overlay, user) {
       _lastHydrateAt = Date.now()                 // P1.3 : référence de fraîcheur pour le re-pull visibilité
       // P1.3 volet RGPD : le miroir est RE-BASÉ immédiatement sur la vue AUTORISÉE courante (RLS) — l'ancien
       // contenu (potentiellement un périmètre révoqué depuis) ne survit jamais à un login, même sans saveDB.
-      try { _ecrireMiroir(db) } catch (e) {}   // STOCKAGE lot 1 (éviction sur quota) + lot 4 (IndexedDB)
+      // STOCKAGE lot 3 (contre-audit I4) : un rebase raté n'est plus avalé — la carte « Stockage de cet
+      // appareil » le dit (sans message : aucune modification de l'utilisateur n'est en jeu ici).
+      try { if (_ecrireMiroir(db) === false && typeof window.__immoMiroirPasAJour === 'function') window.__immoMiroirPasAJour({ silencieux: true }) } catch (e) {}   // STOCKAGE lot 1 (éviction sur quota) + lot 4 (IndexedDB)
       window.__immoMarkDirty = () => { _dirtySeq++; api.markDirty() }   // 2c : le garde saveDB l'appelle → debounce → flush cloud (+_dirtySeq : détection de saisie pendant un re-pull, audit I-1)
       // RESTAURATION LOCALE : flush COMPLET synchrone + awaitable (renvoie le résumé {upserts,removes,conflicts,skipped}).
       // Utilisé par _backupRestoreRun (index.html) : après avoir muté DB EN PLACE = instantané, on pousse tout vers

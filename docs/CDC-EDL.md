@@ -1144,16 +1144,20 @@ Ce sont les phrases que le chantier doit rendre vraies, et que les tests doivent
 19i. Une panne réseau ne déclenche **jamais** la bannière « session expirée » (F4).
 19j. Hors ligne, le nombre de tentatives réseau suit le backoff — **pas une par autosave** (F5).
 19k. L'autosave ne prend **aucune** capture d'annulation et n'écrit **aucune** entrée d'audit (F6, F7).
-19l. *(Amendé le 06/10, CDC-STOCKAGE lot 3, D1 B.)* Le retour de `saveDB` dit si la modification a une
-     **destination durable**. Quand la copie de l'appareil (miroir) échoue sur quota :
-     - **hors ligne** (ou réseau coupé, `navigator.onLine === false`), sandbox et ancien mode local : le miroir
-       était la seule destination → `saveDB` **renvoie faux** et le dit (« n'est PAS enregistrée ») — il ne
-       prétend jamais avoir écrit (F8). Inchangé ;
+19l. *(Amendé le 06/10, CDC-STOCKAGE lot 3, D1 B, puis contre-audit.)* Le retour de `saveDB` dit si la
+     modification a une **destination durable**. Quand la copie de l'appareil (miroir) échoue sur quota :
+     - **hors ligne**, sandbox, ancien mode local : le miroir était la seule destination → `saveDB` **renvoie
+       faux** et le dit (« n'est PAS enregistrée ») — il ne prétend jamais avoir écrit (F8). Inchangé ;
+     - **session expirée** : plus rien ne part au cloud → faux, « PAS enregistrée » ;
+     - **réseau coupé en cours de session** (`navigator.onLine === false`) : rien n'est durable, la modification
+       reste en mémoire et partira au retour du réseau si l'app reste ouverte → faux, « pas encore en sécurité » ;
      - **en ligne** (mode cloud) : la modification part au cloud (`__immoMarkDirty`, inconditionnel) → `saveDB`
        renvoie **vrai** ; un avis **unique par session** dit que la copie de secours de l'appareil n'est pas à
-       jour, et Réglages → Sauvegarde & export → « Stockage de cet appareil » l'affiche. L'EDL affiche « Enregistré » : la saisie est
-       au cloud ou dans sa file d'envoi, la pastille signale un envoi en échec.
-     Décision et textes : `verdictEchecMiroir` (js/core/stockage-local.js), testée (G4).
+       jour, et Sauvegarde & export → « Stockage de cet appareil » l'affiche. **Exception, l'état des lieux** : sa
+       copie locale est son second filet (F1). Il n'est « Enregistré » que si l'écriture IndexedDB du miroir est
+       planifiée ; sinon (repli localStorage plein), `saveDB` renvoie **faux** avec « pas encore en sécurité,
+       garder l'application ouverte jusqu'à la fin de l'envoi » — un envoi encore en mémoire n'est pas durable.
+     Décision et textes : `verdictEchecMiroir` / `modeMiroir` (js/core/stockage-local.js), testées (G4).
 19m. Le rideau `data-lpboot` est levé sur le chemin hors ligne (F10).
 
 ### Rechargement (lot 0)
