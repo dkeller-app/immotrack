@@ -253,7 +253,6 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 (function(){var ov=document.getElementById('imsb-overlay');if(!ov)return;
 try{if(localStorage.getItem('immo_theme')==='sombre')ov.classList.add('mode-sombre')}catch(e){}
 ov._pendingSubmit=false;
-try{if(localStorage.getItem('immo-rester-connecte')==='1'){var rc=document.getElementById('imsb-remember');if(rc)rc.checked=true}}catch(e){}
 var f=document.getElementById('imsb-form');
 if(f)f.onsubmit=function(e){e.preventDefault();ov._pendingSubmit=true;var b=document.getElementById('imsb-submit');if(b){b.disabled=true;b.innerHTML='<span class="imsb-spin imsb-spin-sm"></span> Chargement\u2026'}};
 /* Session déjà stockée (PWA, rechargement d'onglet) : pas de flash du formulaire, on annonce le chargement.

@@ -9,7 +9,7 @@
 // Ne touche PAS window.DB ni le rendu (ça vient à l'étape 2b). Donc zéro interférence avec l'app derrière.
 
 import { BREADCRUMB_KEY, appendCrumb } from '../core/login-breadcrumb.js'
-import { createAuthStorage, REMEMBER_KEY } from '../core/auth-storage.js'   // « Rester connecté sur cet appareil »
+import { createAuthStorage } from '../core/auth-storage.js'   // « Rester connecté sur cet appareil »
 // EDL TERRAIN lot 1, faille F5 (CDC docs/CDC-EDL.md §3ter, invariant 19j) :
 // une modification fraîche ne réarme plus le backoff de réessai. Avec l'autosave
 // de l'EDL (une écriture toutes les 2 s), l'ancien `schedule` replanifiait un
@@ -919,6 +919,7 @@ async function acceptInviteFlow(api, client, overlay, token) {
     const btn = left.querySelector('#imsb-submit')
     btn.disabled = true; showError(overlay, '')
     const fail = (msg) => { btn.disabled = false; showError(overlay, msg) }
+    try { if (_authStorage) _authStorage.setPersist(false) } catch (e) {}   // invité : session de l'onglet (pas de case ici), AVANT d'écrire le jeton
     let r = await api.signUpEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
     if (!r.ok && /already.*(regist|exist)|user already/i.test(r.error || '')) {
       r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
@@ -1757,7 +1758,7 @@ function _initRemember(ov) {
     const row = ov.querySelector('.imsb-remember'), box = ov.querySelector('#imsb-remember')
     if (!row || !box || !_authStorage) return
     if (_authStorage.isStandalone()) { row.style.display = 'none'; return }
-    box.checked = _authStorage.isPersistent()
+    box.checked = false   // JAMAIS pré-cochée : rien n'est hérité de la personne précédente (poste partagé)
   } catch (e) {}
 }
 
