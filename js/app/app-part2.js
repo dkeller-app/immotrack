@@ -1271,7 +1271,7 @@ function _lyDpeBlock(etats) {
     const classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(c =>
       `<button type="button" class="ly-dpe-c${(c === 'F' || c === 'G') ? ' fg' : ''}" onclick="_lyDpeRapide('${ref}','${c}',this)" `
       + `title="${(c === 'F' || c === 'G') ? 'Classe ' + c + ' — loyer gelé (loi Climat art. 23)' : 'Classe ' + c}">${c}</button>`).join('');
-    return `<div class="ly-dpe-ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml((e.log && e.log.adr) || '')}</span>`
+    return `<div class="ly-dpe-ln"><span class="who"><b>${escHtml(_logLabel(e.ref))}</b> <span class="mu" style="display:inline">${escHtml((e.log && e.log.adr) || '')}</span>`
       + `${expire ? ' <span class="mu" style="display:inline">· DPE > 10 ans</span>' : ''}</span>`
       + `<span class="pick"><input type="date" class="ly-dpe-d" title="Date de réalisation du DPE" />${classes}`
       + `<button type="button" class="btn bs bb" onclick="_lyDpeNonConcerne('${ref}')" title="Garage, cave, parking — pas de DPE exigible par nature">non concerné</button></span></div>`;
@@ -1293,7 +1293,7 @@ function _lyDpeRapide(ref, classe, btn) {
   log.diagnostics.dpe = Object.assign({}, cur, { classe: classe, date: date, na: false });
   if (typeof _stamp === 'function') _stamp(log);
   saveDB();
-  try { showToast('DPE ' + classe + ' enregistré sur ' + ref + ((classe === 'F' || classe === 'G') ? ' — loyer gelé' : ''), 'ok', 3000); } catch (e) {}
+  try { showToast('DPE ' + classe + ' enregistré sur ' + _logLabel(ref) + ((classe === 'F' || classe === 'G') ? ' — loyer gelé' : ''), 'ok', 3000); } catch (e) {}
   try { rLoyers(); } catch (e) {}
   try { _renderInboxSurfaces(); } catch (e) {}
 }
@@ -1305,7 +1305,7 @@ function _lyDpeNonConcerne(ref) {
   log.diagnostics.dpe = Object.assign({}, cur, { na: true });
   if (typeof _stamp === 'function') _stamp(log);
   saveDB();
-  try { showToast(ref + ' — DPE marqué « non concerné »', 'ok', 2500); } catch (e) {}
+  try { showToast(_logLabel(ref) + ' — DPE marqué « non concerné »', 'ok', 2500); } catch (e) {}
   try { rLoyers(); } catch (e) {}
   try { _renderInboxSurfaces(); } catch (e) {}
 }
@@ -1334,7 +1334,7 @@ function _lyQ(s2) {
  */
 function _lyRow(o) {
   return `<div class="ly2-r">
-    <div class="c1"><b>${escHtml(o.ref)}</b><span>${escHtml(o.loc || '—')}</span>${o.demande ? '<span class="ly2-ask" title="Le locataire demande une quittance chaque mois"></span>' : ''}</div>
+    <div class="c1"><b>${escHtml(_logLabel(o.ref))}</b><span>${escHtml(o.loc || '—')}</span>${o.demande ? '<span class="ly2-ask" title="Le locataire demande une quittance chaque mois"></span>' : ''}</div>
     <div class="c2">${o.contexte || ''}</div>
     <div class="c3">${o.montant || ''}</div>
     <div class="c4">${o.actions || ''}</div>
@@ -1495,7 +1495,7 @@ function _lyLigneDecision({ e, rev }) {
   const i2 = r2 ? '' : ` (indice T${T} ${n2 != null ? n2 : ''} pas encore publié : montant connu à sa parution)`;
   const R = _lyQ(e.ref);
   const html = `<div class="ly2-r" style="background:var(--warn-soft)">
-    <div class="c1"><b>${escHtml(e.ref)}</b><span>${escHtml(e.log.locataire || '—')}</span></div>
+    <div class="c1"><b>${escHtml(_logLabel(e.ref))}</b><span>${escHtml(e.log.locataire || '—')}</span></div>
     <div class="c2"><span class="ly2-p wa">à décider</span> Révision <b>de ${fd(rev.effetPrevuIso)}</b> jamais faite · celle du <b>${fd(eff2)}</b> arrive</div>
     <div class="c3"><span class="ly2-p nu">${fmt(e.log.hc).replace(' €', '')}</span> → <b>${fmt(h1)}</b></div>
     <div class="c4"><button class="btn bs bb" onclick="_lyMenuRev(event,'${R}')" title="Plus d'actions" aria-label="Plus d'actions">⋯</button></div></div>
@@ -1609,7 +1609,7 @@ function _irlAnnulerProgrammee(ref) {
   });
   if (!r.ok) { showToast(r.erreur, 'err', 7000); return; }
   const e = r.entree;
-  if (!confirm2(`Annuler la révision programmée de ${ref} ?\n\n${fmt(e.ancienHC)} → ${fmt(e.nouveauHC)} au ${fd(e.dateEffet)} : le loyer reste à ${fmt(e.ancienHC)}.\n\nSi la lettre a déjà été envoyée, prévenir le locataire de l'annulation.\nLa révision de ce cycle redevient à faire (délai d'un an, art. 17-1).`)) return;
+  if (!confirm2(`Annuler la révision programmée de ${_logLabelRef(ref)} ?\n\n${fmt(e.ancienHC)} → ${fmt(e.nouveauHC)} au ${fd(e.dateEffet)} : le loyer reste à ${fmt(e.ancienHC)}.\n\nSi la lettre a déjà été envoyée, prévenir le locataire de l'annulation.\nLa révision de ce cycle redevient à faire (délai d'un an, art. 17-1).`)) return;
   DB.irlHistorique = r.irlHistorique;
   DB.loyerBareme = r.bareme;
   // La trace d'un forçage (gel/DPE/cycle éteint) posée pour CE cycle tombe avec lui.
@@ -1627,7 +1627,7 @@ function _irlAnnulerProgrammee(ref) {
   if (typeof _auditLog === 'function') _auditLog('irl-annulee', 'bail', ref, ref);
   saveDB(); refreshAllIRL(); _rPeriodPage();
   try { if (typeof rLogFiche === 'function' && currentPage === 'log-fiche') rLogFiche(); } catch (err) {}
-  showToast(`Révision annulée pour ${ref} — loyer maintenu à ${fmt(e.ancienHC)}`, 'ok', 5000);
+  showToast(`Révision annulée pour ${_logLabel(ref)} — loyer maintenu à ${fmt(e.ancienHC)}`, 'ok', 5000);
 }
 
 /** Les quittances émises ce mois-ci — l'ÉTAT du mois courant (V13, point 1). */
@@ -1641,8 +1641,8 @@ function _lyQuittancesDuMois(ymCourant) {
   if (!qs.length) return { count: 0, resume: 'aucune', html: '' };
   return {
     count: qs.length,
-    resume: qs.slice(0, 3).map(q => `${q.logement} ${q.mois}`).join(', '),
-    html: qs.map(q => `<div class="ln"><span class="who"><b>${escHtml(q.logement)}</b> <span class="mu" style="display:inline">${escHtml(q.locataire || '—')}</span></span>
+    resume: qs.slice(0, 3).map(q => `${_logLabel(q.logement)} ${q.mois}`).join(', '),
+    html: qs.map(q => `<div class="ln"><span class="who"><b>${escHtml(_logLabel(q.logement))}</b> <span class="mu" style="display:inline">${escHtml(q.locataire || '—')}</span></span>
       <span class="mu">${escHtml(q.mois || '')} · éditée le ${fd(q.date)}</span>
       <span class="am"><b>${fmt((q.hc || 0) + (q.ch || 0))}</b></span>
       <span class="ac"><button class="btn bs bb" onclick="_ouvrirQuittanceSurMois('${_lyQ(q.logement)}','${_lyQ(window.moisFrToYm(q.mois) || '')}')" title="Rééditer : l'éditeur s'ouvre sur ce mois, le document se regénère">↺ Rééditer</button>
@@ -1718,7 +1718,7 @@ function _lyPanneauSuivi(kind, rev, ymCourant, moisCourant) {
     rows = rev.perdues.map(({ e, rev: r }) => {
       const prescritIso = (parseInt(r.perdue.effetIso.slice(0, 4), 10) + 1) + r.perdue.effetIso.slice(4);
       const gain = _lyGainCyclePerdu(e, r);
-      return `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
+      return `<div class="ln"><span class="who"><b>${escHtml(_logLabel(e.ref))}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
         <span class="mu">Cycle du ${fd(r.perdue.effetIso)} non appliqué, éteint le ${fd(prescritIso)} (délai d'un an)</span>
         <span class="am">${gain != null ? `<span class="ly2-p nu">≈ ${fmt(gain)}/mois non appliqués</span>` : '<span class="ly2-p nu">—</span>'}</span>
         <span class="ac"><button class="btn bs bb" onclick="_gfOuvrir('${_lyQ(e.ref)}',{surCyclePerdu:true})">Appliquer quand même</button></span></div>`;
@@ -1727,7 +1727,7 @@ function _lyPanneauSuivi(kind, rev, ymCourant, moisCourant) {
   } else if (kind === 'muet') {
     head = `${_uiIcon('lock')} Non révisables — ${rev.muets.length} lot${rev.muets.length > 1 ? 's' : ''}`;
     rows = rev.muets.map(({ e, rev: r }) =>
-      `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
+      `<div class="ln"><span class="who"><b>${escHtml(_logLabel(e.ref))}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
         <span class="mu">${escHtml(_lyMotifMuet(r))}</span>
         <span class="am"><span class="ly2-p nu">${escHtml(_lyPastilleMuet(r))}</span></span>
         <span class="ac">${(typeof window.revisionForcable === 'function' && window.revisionForcable(r))
@@ -1841,7 +1841,7 @@ function _lyFriseRuban(etats) {
       if (!o) return '';
       const effetProj = sel.ym + '-01';
       if (kind === 'gel') {
-        return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
+        return `<div class="ln"><span class="who"><b>${escHtml(_logLabel(x.ref))}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
           <span class="mu">${escHtml(_lyMotifMuet(o.rev))}</span>
           <span class="am"><span class="ly2-p nu">${escHtml(_lyPastilleMuet(o.rev))}</span></span>
           <span class="ac"></span></div>`;
@@ -1853,7 +1853,7 @@ function _lyFriseRuban(etats) {
         // Audit M6 — le montant d'une révision programmée est celui de l'entrée VALIDÉE.
         const _hP = (prog && window.IrlRevision) ? window.IrlRevision.entreeValideeDuCycle(DB.irlHistorique || [], x.ref, prog.cycleIso, o.e.bail && o.e.bail.debut) : null;
         if (_hP) o = { ...o, rev: { ...o.rev, nouveauHC: Number(_hP.nouveauHC) } };
-        return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
+        return `<div class="ln"><span class="who"><b>${escHtml(_logLabel(x.ref))}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
           <span class="mu">${prog ? `programmée · effet au <b>${fd(prog.effetIso)}</b>` : `révisée · effet au <b>${fd(effetProj)}</b>`}</span>
           <span class="am"><b>${fmt(prog ? o.rev.nouveauHC : o.e.log.hc)}</b></span>
           <span class="ac"><span class="ly2-p" style="color:var(--pos)">${_uiIcon('check',13)} ${prog ? 'programmée' : 'faite'}</span></span></div>`;
@@ -1865,7 +1865,7 @@ function _lyFriseRuban(etats) {
       const decale = o.rev.effetPrevuIso && String(o.rev.effetPrevuIso).slice(0, 7) !== sel.ym;
       const quand = `effet au <b>${fd(effetProj)}</b>${pct != null ? ` · ${o.rev.variation >= 0 ? '+' : ''}${pct} %` : ''}`
         + (decale ? ` — cycle du ${fd(o.rev.effetPrevuIso)} non appliqué` : '');
-      return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
+      return `<div class="ln"><span class="who"><b>${escHtml(_logLabel(x.ref))}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
         <span class="mu">${quand}</span>
         <span class="am"><b>${fmt(o.rev.nouveauHC)}</b></span>
         <span class="ac"><button class="btn bp bb" onclick="applyIRL('${_lyQ(x.ref)}',${o.rev.nouveauHC})">Réviser</button></span></div>`;
@@ -2303,7 +2303,7 @@ function _qeRender() {
       <h3>Quittance</h3>
       <div class="who">${libre
         ? `<span class="wlo">saisie libre</span>`
-        : `<span class="wrf">${escHtml(_qe.ref || '')}</span><span class="wlo">${escHtml((log && log.locataire) || '— vacant —')} · ${escHtml((bail && bail.entity) || (log && log.entity) || '—')}</span>`}</div>
+        : `<span class="wrf">${escHtml(_logLabel(_qe.ref || ''))}</span><span class="wlo">${escHtml((log && log.locataire) || '— vacant —')} · ${escHtml((bail && bail.entity) || (log && log.entity) || '—')}</span>`}</div>
       <button class="x" onclick="_qeFermer()" title="Fermer">✕</button></div>
     <div class="qd-body">
       <div class="qd-rail">${rail}</div>
@@ -2884,7 +2884,7 @@ function markIRLLetterSent(ref) {
   if (!el('ov-irl-rappel')?.classList.contains('hidden')) _renderIRLRappelModal();
   try { _rPeriodPage(); } catch(e) {}
   if (_letterRef === ref) genIRLLetter(ref);
-  showToast(`✓ Lettre IRL pour ${ref} marquée comme envoyée`, 'ok');
+  showToast(`✓ Lettre IRL pour ${_logLabel(ref)} marquée comme envoyée`, 'ok');
 }
 
 function unmarkIRLLetterSent(ref) {
@@ -2899,7 +2899,7 @@ function unmarkIRLLetterSent(ref) {
   if (!el('ov-irl-rappel')?.classList.contains('hidden')) _renderIRLRappelModal();
   try { _rPeriodPage(); } catch(e) {}
   if (_letterRef === ref) genIRLLetter(ref);
-  showToast(`Validation envoi annulée pour ${ref}`, 'info');
+  showToast(`Validation envoi annulée pour ${_logLabel(ref)}`, 'info');
 }
 
 /* v13.33 IRL-VALIDATION : collecte les baux dont la révision est applicable
@@ -2944,7 +2944,7 @@ function _renderIRLRappelModal() {
     return `<div class="irl-rappel-card" style="margin-bottom:10px;padding:12px 14px;background:var(--sur2);border:1px solid var(--bor);border-left:4px solid ${st?st.border:'var(--ora)'};border-radius:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">
         <div>
-          <div style="font-weight:600;font-size:14px"><b>${log.ref}</b> · ${log.locataire||'–'}</div>
+          <div style="font-weight:600;font-size:14px"><b>${escHtml(_logLabel(log))}</b> · ${escHtml(log.locataire||'–')}</div>
           <div class="mu sm" style="font-size:11.5px">Anniversaire bail : ${moisAnniv}</div>
         </div>
         <div style="text-align:right;font-size:12px;line-height:1.5">
@@ -3894,7 +3894,7 @@ function edlOpenView(id) {
   const nPhotos = _EPv ? _EPv.collectEdlPhotos(edl).length : 0;
   const actions = `${nPhotos ? `<button class="btn bs bb bprim" onclick="edlOpenGallery(${id})">${_uiIcon('camera')}Toutes les photos (${nPhotos})</button>` : ''}
     <button class="btn bs bb" onclick="downloadEDLPdfNative(${id},{share:true})">${share ? _uiIcon('share')+'Partager' : _uiIcon('download')+'Télécharger le PDF'}</button>`;
-  const st = `${edl.type || ''} · ${edl.logement || ''} · ${fd(edl.date) || ''}`;
+  const st = `${edl.type || ''} · ${edl.logement ? _logLabelRef(edl.logement) : ''} · ${fd(edl.date) || ''}`;
   const o = _edlConsultShell('ov-edl-view', 'État des lieux', st, corps, actions);
   _edlHydrateVThumbs(o);
 }
@@ -3903,7 +3903,7 @@ function _edlViewBodyHtml(edl) {
   const sortie = edl.type === 'Sortie';
   const H = [];
   H.push(`<div class="edl-v-id">
-    <div><b>Logement</b> ${escHtml(edl.logement || '—')}${edl.adr ? (' · ' + escHtml(edl.adr)) : ''}</div>
+    <div><b>Logement</b> ${escHtml(edl.logement ? _logLabelRef(edl.logement) : '—')}${edl.adr ? (' · ' + escHtml(edl.adr)) : ''}</div>
     <div><b>Date</b> ${escHtml(fd(edl.date) || '—')}</div>
     <div><b>Type</b> ${escHtml(edl.type || '—')}</div>
     ${edl.locataire ? `<div><b>Locataire</b> ${escHtml(edl.locataire)}</div>` : ''}
@@ -3973,7 +3973,7 @@ function edlOpenGallery(id) {
   const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
   const items = _EP ? _EP.photosGalerie(edl) : [];
   _edlViewPhotos = [];
-  if (!items.length) { _edlConsultShell('ov-edl-gal', 'Photos', edl.logement || '', `<div class="edl-v-empty">Aucune photo dans cet état des lieux.</div>`, ''); return; }
+  if (!items.length) { _edlConsultShell('ov-edl-gal', 'Photos', edl.logement ? _logLabel(edl.logement) : '', `<div class="edl-v-empty">Aucune photo dans cet état des lieux.</div>`, ''); return; }
   const cells = items.map(({ ph, label }) => {
     const i = _edlViewPhotos.push(ph) - 1;
     const pin = ph.binaireManquant ? '<span class="edl-gal-pin" title="Photo à reprendre">' + _uiIcon('warn',13) + '</span>' : (ph.cloudKey ? '<span class="edl-gal-pin" title="Sauvegardée dans le cloud">' + _uiIcon('cloud',13) + '</span>' : '');
@@ -3984,7 +3984,7 @@ function edlOpenGallery(id) {
   }).join('');
   const share = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
   const actions = share ? `<button class="btn bs bb bprim" onclick="_edlSharePhotos(${id})">${_uiIcon('share')}Partager les photos</button>` : '';
-  const o = _edlConsultShell('ov-edl-gal', 'Photos', `${edl.logement || ''} · ${items.length} photo(s)`, `<div class="edl-gal-grid">${cells}</div>`, actions);
+  const o = _edlConsultShell('ov-edl-gal', 'Photos', `${edl.logement ? _logLabel(edl.logement) : ''} · ${items.length} photo(s)`, `<div class="edl-gal-grid">${cells}</div>`, actions);
   _edlHydrateVThumbs(o);
 }
 
@@ -4014,7 +4014,7 @@ function rEDLList() {
       ? '' : '<span class="badge gry" title="État des lieux en cours — il s\'enregistre tout seul">Brouillon</span>';
     const _np = (e.pieces||[]).length;
     return `<tr data-edl-id="${e.id}">
-      <td class="edl-lcell-log"><b>${escHtml(e.logement||'–')}</b><button type="button" class="edl-lmore" onclick="_edlListMore(${e.id})" aria-label="Plus d'actions : supprimer l'état des lieux">${_uiIcon('dots')}</button></td><td>${escHtml(e.locataire||'–')}</td>
+      <td class="edl-lcell-log"><b>${escHtml(e.logement ? _logLabel(e.logement) : '–')}</b><button type="button" class="edl-lmore" onclick="_edlListMore(${e.id})" aria-label="Plus d'actions : supprimer l'état des lieux">${_uiIcon('dots')}</button></td><td>${escHtml(e.locataire||'–')}</td>
       <td><span class="badge ${e.type==='Entrée'?'grn':'info'}">${e.type}</span> ${brouillon}</td>
       <td>${fd(e.date)}</td>
       <td class="mu sm">${_np} pièce${_np>1?'s':''} · ${nb} élément${nb>1?'s':''}${sig}${abri}</td>
@@ -4040,9 +4040,9 @@ function _edlListMore(id) {
     pg.setAttribute('role', 'dialog'); pg.setAttribute('aria-modal', 'true');
     document.body.appendChild(pg);
   }
-  const titre = `${e.logement || ''} — ${e.type || ''}${e.date ? ' du ' + fd(e.date) : ''}`;
+  const titre = `${e.logement ? _logLabel(e.logement) : ''} — ${e.type || ''}${e.date ? ' du ' + fd(e.date) : ''}`;
   pg.innerHTML = `<div class="edl-page-head"><button type="button" class="edl-page-back" onclick="_edlListMoreClose()" aria-label="Retour"><span aria-hidden="true">‹</span> Retour</button><div class="edl-page-title">${escHtml(titre)}</div></div>
-    <div class="edl-page-body"><p class="edl-page-q">Supprimer cet état des lieux ?</p><p class="edl-page-note">${escHtml(e.logement || '')}${e.locataire ? ' · ' + escHtml(e.locataire) : ''}. La suppression peut être annulée juste après.</p></div>
+    <div class="edl-page-body"><p class="edl-page-q">Supprimer cet état des lieux ?</p><p class="edl-page-note">${escHtml(e.logement ? _logLabelRef(e.logement) : '')}${e.locataire ? ' · ' + escHtml(e.locataire) : ''}. La suppression peut être annulée juste après.</p></div>
     <div class="edl-page-foot"><button type="button" class="btn edl-page-sec" onclick="_edlListMoreClose()">Annuler</button><button type="button" class="btn edl-page-danger" onclick="_edlListMoreClose();delEDL(${id},{confirme:true})">${_uiIcon('trash')} Supprimer</button></div>`;
   pg.style.display = 'flex';
   // audit M5 : quitter la liste (navigation, retour) ferme la page, qui vit sur <body>
@@ -4115,7 +4115,7 @@ async function openEditEDL(id) {
   // ouvert dans la même session de polluer le rendu).
   _edlResetGlobalState();
   el('edl-edit-id').value=id;
-  el('m-edl-title').textContent=`EDL ${e.type} — ${e.logement}`;
+  el('m-edl-title').textContent=`EDL ${e.type} — ${e.logement ? _logLabel(e.logement) : ''}`;
   _edlSortie=e.type==='Sortie';
   // CHANTIER EDL-GARAGE — mode garage à la réouverture : le RECORD persisté prime (immutabilité +
   // cohérence avec `edl.garage` qui pilote le PDF), repli sur le bail pour les EDL legacy sans flag.
@@ -4656,7 +4656,7 @@ async function edlLoadRef(type) {
   const ref=v('edl-log');
   if(!ref){showToast('Sélectionner d\'abord un logement','err');return;}
   const found=DB.edl.filter(_edlActive).filter(e=>e.logement===ref&&e.type===type).sort((a,b)=>b.date.localeCompare(a.date));
-  if(!found.length){showToast('Aucun EDL '+type+' trouvé pour '+ref,'warn');return;}
+  if(!found.length){showToast('Aucun EDL '+type+' trouvé pour '+_logLabel(ref),'warn');return;}
   const src=found[0];
   const srcDate=src.date;
 
@@ -5618,7 +5618,7 @@ function _edlRenderLogCard() {
   const opt = sel.options[sel.selectedIndex];
   const occ = lg.locataire || ((opt && opt.text.indexOf(' – ') > 0) ? opt.text.split(' – ').slice(1).join(' – ') : '');
   const det = [lg.imm, lg.type, lg.surf ? lg.surf + ' m²' : ''].filter(Boolean).join(' · ');
-  card.innerHTML = `<div class="edl-log-card-x"><b>${escHtml(ref)}</b>${occ ? `<div class="edl-log-card-l2">${escHtml(occ)}</div>` : ''}${det ? `<div class="edl-log-card-l3">${escHtml(det)}</div>` : ''}</div><button type="button" class="btn edl-log-change" onclick="_edlOpenLogPage()">Changer</button>`;
+  card.innerHTML = `<div class="edl-log-card-x"><b>${escHtml(_logLabelRef(ref))}</b>${occ ? `<div class="edl-log-card-l2">${escHtml(occ)}</div>` : ''}${det ? `<div class="edl-log-card-l3">${escHtml(det)}</div>` : ''}</div><button type="button" class="btn edl-log-change" onclick="_edlOpenLogPage()">Changer</button>`;
 }
 function _edlOpenLogPage() {
   const sel = el('edl-log'); if (!sel) return;
@@ -7837,7 +7837,7 @@ function saveEDL(opts){
     // l'utilisateur croit avoir sauvegardé mais Drive ne reçoit rien.
     const _logObj = (DB.logements||[]).find(l => l.ref === log);
     if (!_logObj || !_logObj.entity) {
-      const ok = confirm2(`⚠ Logement "${log}" sans entité associée.\n\nL'EDL sera sauvé en local mais NE SERA PAS poussé vers Drive (les EDL sont rattachés via leur logement → entité).\n\nContinuer quand même ?`);
+      const ok = confirm2(`⚠ Logement "${_logLabelRef(log)}" sans entité associée.\n\nL'EDL sera sauvé en local mais NE SERA PAS poussé vers Drive (les EDL sont rattachés via leur logement → entité).\n\nContinuer quand même ?`);
       if (!ok) return null;
       console.warn('[saveEDL] Logement orphelin :', log, '→ EDL non incluse dans payload Drive');
     }
@@ -10421,8 +10421,8 @@ function _legal2044PerimetreHtml(data) {
   if (!ex.length && !fl.length) return '';
   let h = '<div style="margin:14px 0;padding:11px 13px;border:1px solid #e0a800;border-radius:8px;background:#fff8e6;font-size:11.5px;color:#7a5a18;line-height:1.55">';
   h += '<b>⚠ Périmètre foncier (2044)</b> — la 2044 ne couvre que la <b>location nue</b>. Ce récap a écarté :';
-  if (ex.length) h += `<div style="margin-top:5px">• <b>${ex.length} lot(s) meublé(s) EXCLU(S)</b> — relèvent du BIC/LMNP (déclaration séparée) : ${ex.map(e => escHtml(e.ref)).join(', ')}</div>`;
-  if (fl.length) h += `<div style="margin-top:4px">• <b>${fl.length} lot(s) à VÉRIFIER</b> (mixte nu+meublé, ou usage à qualifier) : ${fl.map(f => escHtml(f.ref)).join(', ')}</div>`;
+  if (ex.length) h += `<div style="margin-top:5px">• <b>${ex.length} lot(s) meublé(s) EXCLU(S)</b> — relèvent du BIC/LMNP (déclaration séparée) : ${ex.map(e => escHtml(_logLabel(e.ref))).join(', ')}</div>`;
+  if (fl.length) h += `<div style="margin-top:4px">• <b>${fl.length} lot(s) à VÉRIFIER</b> (mixte nu+meublé, ou usage à qualifier) : ${fl.map(f => escHtml(_logLabel(f.ref))).join(', ')}</div>`;
   if (ex.length) h += '<div style="margin-top:6px;color:#9a7b2a">Note : les charges d\'immeuble (taxe foncière, assurance PNO, syndic) restent comptées à 100 % au foncier même si l\'immeuble comporte des lots meublés. Si un immeuble est <b>mixte</b>, la quote-part meublée est à retirer (ventilation à venir).</div>';
   h += '</div>';
   return h;
@@ -14102,7 +14102,7 @@ function _histoLoyerValiderMigration(ref){
 let _histoIrlCorrCtx = null;
 function _histoIrlCorrOpen(ref, revisionDate, ancienEffet){
   _histoIrlCorrCtx = { ref, revisionDate, ancienEffet };
-  el('ic-sub').textContent = `${ref} — révision validée le ${fd(revisionDate)}, effet actuel ${fd(ancienEffet)}.`;
+  el('ic-sub').textContent = `${_logLabel(ref)} — révision validée le ${fd(revisionDate)}, effet actuel ${fd(ancienEffet)}.`;
   el('ic-effet').value = ancienEffet || '';
   // Décision 25/09 : le calendrier grise tout ce qui précède la demande (date de validation) et la date
   // de révision du cycle ; le dernier mois quittancé est aussi re-vérifié à l'enregistrement.
@@ -14119,7 +14119,7 @@ function _histoIrlCorrOpen(ref, revisionDate, ancienEffet){
           dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm === 'function' ? _dernierMoisQuittanceYm(ref) : null) || undefined }).effetIso : '';
     el('ic-effet').min = _min || '';
     // Passe 6 (m2) — la vraie raison du plancher, comme dans la modale de validation.
-    el('ic-sub').textContent = `${ref} — révision validée le ${fd(revisionDate)}, effet actuel ${fd(ancienEffet)}. `
+    el('ic-sub').textContent = `${_logLabel(ref)} — révision validée le ${fd(revisionDate)}, effet actuel ${fd(ancienEffet)}. `
       + (_min ? _irlMsgRetroactif(_min, { demandeIso: _histoIrlCorrCtx.demandeIso, libelle: 'Date au plus tôt',
           dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm === 'function' ? _dernierMoisQuittanceYm(ref) : null) }) : '');
   } catch (e) {}
@@ -14207,7 +14207,7 @@ function _histoSaveCorrPeriode(){
   const _bailDebutCorr = (typeof window._baremeChapitrePour === 'function')
     ? window._baremeChapitrePour(DB.loyerBareme||[], ref, debut, _bauxCorr) : '';
   if(!_bailDebutCorr){
-    showToast(`Aucun bail de ${ref} ne couvre le ${fd(debut)} : cette période ne peut être rattachée à aucun locataire. Vérifiez la date de début.`,'err',8000);
+    showToast(`Aucun bail de ${_logLabel(ref)} ne couvre le ${fd(debut)} : cette période ne peut être rattachée à aucun locataire. Vérifiez la date de début.`,'err',8000);
     return;
   }
   if(String(debut).slice(0,10) < _bailDebutCorr){
@@ -16575,7 +16575,7 @@ function openCompteursInitModal(ref) {
     <div class="ov" id="ov-cci" onclick="closeBg(event,'ov-cci')">
       <div class="modal" style="max-width:620px">
         <div class="m-head">
-          <h3>${_uiIcon('settings')} Initialiser les compteurs — ${escHtml(ref)}</h3>
+          <h3>${_uiIcon('settings')} Initialiser les compteurs — ${escHtml(_logLabel(ref))}</h3>
           <button class="m-close" onclick="closeM('ov-cci')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
@@ -16680,7 +16680,7 @@ function openCompteurReleve(ref, typeKey, editId) {
   ).join('');
   const refSafe = _lyQ(ref);
   const idSafe  = _lyQ(editId);
-  const title = editRel ? `${_uiIcon('edit')} Modifier le relevé — ${escHtml(ref)}` : `${_uiIcon('chart')} Nouveau relevé compteur — ${escHtml(ref)}`;
+  const title = editRel ? `${_uiIcon('edit')} Modifier le relevé — ${escHtml(_logLabel(ref))}` : `${_uiIcon('chart')} Nouveau relevé compteur — ${escHtml(_logLabel(ref))}`;
   const dateVal = editRel ? (editRel.date || today) : today;
   const valVal  = editRel ? (editRel.value != null ? editRel.value : '') : '';
   const notesVal = editRel ? (editRel.notes || '') : '';
@@ -16986,7 +16986,7 @@ function saveLogEDLTemplateFromEDL(edlId) {
 
   // Confirmer si template existe déjà
   if(log.edlTemplate && log.edlTemplate.pieces) {
-    if(!confirm2(`Un template existe déjà pour ${edl.logement} (${log.edlTemplate.pieces.length} pièces).\n\nLe remplacer par la structure de cet EDL (${(edl.pieces||[]).length} pièces, ${(edl.pieces||[]).reduce((s,p)=>s+(p.elements||[]).length,0)} éléments) ?`)) return;
+    if(!confirm2(`Un template existe déjà pour ${_logLabelRef(edl.logement)} (${log.edlTemplate.pieces.length} pièces).\n\nLe remplacer par la structure de cet EDL (${(edl.pieces||[]).length} pièces, ${(edl.pieces||[]).reduce((s,p)=>s+(p.elements||[]).length,0)} éléments) ?`)) return;
   }
 
   // Cloner les pièces + éléments en effaçant les valeurs (état, obs, photos)
@@ -17015,7 +17015,7 @@ function saveLogEDLTemplateFromEDL(edlId) {
   if(typeof _stamp === 'function') _stamp(log);
   saveDB(_quoiEDL);
   rLogFiche();
-  showToast(`Template enregistré pour ${edl.logement} (${piecesTpl.length} pièces, ${piecesTpl.reduce((s,p)=>s+p.elements.length,0)} éléments)`,'ok');
+  showToast(`Template enregistré pour ${_logLabel(edl.logement)} (${piecesTpl.length} pièces, ${piecesTpl.reduce((s,p)=>s+p.elements.length,0)} éléments)`,'ok');
 }
 
 /** Deux noms de pièce désignent-ils la même section ? Comparaison insensible à la casse, aux
@@ -17100,7 +17100,7 @@ function viewLogEDLTemplate(ref) {
 function clearLogEDLTemplate(ref) {
   const log = (DB.logements||[]).find(l => l.ref === ref);
   if(!log || !log.edlTemplate) return;
-  if(!confirm2(`Supprimer le template EDL de ${ref} ?\n\nLes EDL déjà créés ne sont pas affectés.`)) return;
+  if(!confirm2(`Supprimer le template EDL de ${_logLabelRef(ref)} ?\n\nLes EDL déjà créés ne sont pas affectés.`)) return;
   delete log.edlTemplate;
   if(typeof _stamp === 'function') _stamp(log);
   saveDB();
@@ -22031,14 +22031,14 @@ function openAnnonce(ref) {
   const br = _annonceBrouillons[ref] || null;
   _annonceCtx = { log, imm: immA, immIdx, ent, includeDossier: br ? br.includeDossier : true, result: null, aRelire: [] };
   const sub = el('m-annonce-sub');
-  if (sub) sub.textContent = [log.ref, AG.natureBien(log, immA), (log.surf ? AG.montant(AG.nombre(log.surf)) + ' m²' : ''), AG.communeLabel(immA)].filter(Boolean).join(' · ');
+  if (sub) sub.textContent = [_logLabel(log), AG.natureBien(log, immA), (log.surf ? AG.montant(AG.nombre(log.surf)) + ' m²' : ''), AG.communeLabel(immA)].filter(Boolean).join(' · ');
   const setV = (id, v) => { const e = el(id); if (e) e.value = (v == null ? '' : v); };
   setV('an-hc', log.loyerHcRef); setV('an-ch', log.chargesRef);
   setV('an-texte', ''); setV('an-titre', '');
   const ro = (typeof _appReadOnly !== 'undefined' && _appReadOnly);
   ['an-hc', 'an-ch'].forEach(id => { const e = el(id); if (e) e.disabled = !!ro; });
   const info = el('an-step1-info');
-  if (info) info.textContent = 'Repris du loyer souhaité de la fiche ' + log.ref + '. Toute modification ici met à jour la fiche du logement.';
+  if (info) info.textContent = 'Repris du loyer souhaité de la fiche ' + _logLabel(log) + '. Toute modification ici met à jour la fiche du logement.';
   const btn = (id, ic, txt) => { const b = el(id); if (b) b.innerHTML = _uiIcon(ic) + ' ' + txt; };
   btn('an-btn-inviter', 'link', 'Inviter un candidat');
   btn('an-btn-pdf', 'download', 'Télécharger l\'affiche PDF');
@@ -22107,7 +22107,7 @@ function _annonceStep1Continuer() {
     try { _auditLog('update', 'logement', log.id, log.ref); } catch (e) {}
     saveDB();
     try { _refreshAfterMutation(); } catch (e) {}
-    showToast('Loyer souhaité mis à jour dans la fiche ' + log.ref, 'ok', 3000);
+    showToast('Loyer souhaité mis à jour dans la fiche ' + _logLabel(log), 'ok', 3000);
   }
   _annonceGoStep(2);
 }
@@ -23546,7 +23546,7 @@ function _frShowFr(kind){
     const canBail=_frRentableLogs().length>0; // P3 : bail proposé seulement s'il reste un logement créé, louable et vacant
     foot.innerHTML='<button class="fr-later" onclick="_frClose()">Terminer sans bail</button><span class="fr-grow"></span>'+(canBail?'<button class="fr-prim" onclick="_frOpenBailStep()">✍ Créer le bail →</button>':'');
   } else if(kind==='bail'){
-    if(_frCtx.bailDone){ body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Bail lancé'+(_frCtx.bailRef?' pour '+escHtml(_frCtx.bailRef):'')+'</h3><p>Le wizard bail existant a pris le relais. Le fil rouge est complet — rien ne t’y obligeait.</p></div>'; foot.innerHTML='<button class="fr-later" onclick="_frClose()">Fermer</button>'; }
+    if(_frCtx.bailDone){ body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Bail lancé'+(_frCtx.bailRef?' pour '+escHtml(_logLabel(_frCtx.bailRef)):'')+'</h3><p>Le wizard bail existant a pris le relais. Le fil rouge est complet — rien ne t’y obligeait.</p></div>'; foot.innerHTML='<button class="fr-later" onclick="_frClose()">Fermer</button>'; }
     else { body.innerHTML='<div class="fr-reuse">♻ Relais vers le wizard Bail existant</div><h2 class="fr-q">Le bail</h2><p class="fr-qs">Dernière étape : créer le bail. Le wizard bail déjà en place prend le relais (locataire, dates, loyer, signature).</p><div class="fr-fld"><label>Pour quel logement ?</label><select id="fr-bail-log">'+_frRentableOptions()+'</select></div><div class="fr-stop-hint">🕊 Pas de locataire encore ? <b>Tu peux t’arrêter là</b> — le bien reste enregistré, tu créeras le bail plus tard.</div>';
       foot.innerHTML=stop+'<span class="fr-grow"></span><button class="fr-ghost" onclick="_frShowFr(\'done\')">‹ Retour</button><button class="fr-prim" onclick="_frConfirmBail()">Ouvrir le wizard bail →</button>'; }
   }
@@ -23820,7 +23820,7 @@ function _frRecapHtml(opts){
   let h='<div class="fr-rb">👤 '+escHtml(ent.nom)+'</div>';
   (tree.immeubles||[]).forEach(im=>{ h+='<div class="fr-rb sub">🏛 '+escHtml(im.nom)+'</div>';
     if(!im.logements.length){ h+='<div class="fr-rl muted">Aucun logement</div>'; }
-    im.logements.forEach(l=>{ const ok=l.completeness&&l.completeness.level==='complet'; h+='<div class="fr-rl">🏠 <b>'+escHtml(l.ref)+'</b> <span class="fr-meta">'+escHtml(_frLogMeta(l))+'</span><span class="fr-st '+(ok?'ok':'todo')+'">'+(ok?'✓ complet':'à compléter')+'</span>'+((withBail&&rentable.has(l.ref))?'<button class="fr-bail-btn" onclick="_frOpenBailStep(\''+escHtml(_frAttr(l.ref))+'\')">✍ Bail</button>':'')+'</div>'; });
+    im.logements.forEach(l=>{ const ok=l.completeness&&l.completeness.level==='complet'; h+='<div class="fr-rl">🏠 <b>'+escHtml(_logLabel(l))+'</b> <span class="fr-meta">'+escHtml(_frLogMeta(l))+'</span><span class="fr-st '+(ok?'ok':'todo')+'">'+(ok?'✓ complet':'à compléter')+'</span>'+((withBail&&rentable.has(l.ref))?'<button class="fr-bail-btn" onclick="_frOpenBailStep(\''+escHtml(_frAttr(l.ref))+'\')">✍ Bail</button>':'')+'</div>'; });
   });
   return h;
 }
@@ -24709,7 +24709,7 @@ function rParamsRules(hostId) {
   const sensLbl = s => s === 'db' ? '− dépense' : s === 'cr' ? '+ recette' : 'les deux';
   const affLbl = r => r.bailleurDuCompte ? _uiIcon('bank',13)+' le bailleur du compte'
     : (r.compteurCcId ? _uiIcon('bolt',13)+' compteur' : (String(r.qui||'').startsWith('SCI:') ? _uiIcon('bank',13)+' ' + escHtml(r.qui.slice(4))
-      : (r.qui ? _uiIcon('home',13)+' ' + escHtml(r.qui) : (r.imm ? _uiIcon('building',13)+' ' + escHtml(r.imm) : '<span class="mu sm">—</span>'))));
+      : (r.qui ? _uiIcon('home',13)+' ' + escHtml(_logLabel(r.qui)) : (r.imm ? _uiIcon('building',13)+' ' + escHtml(r.imm) : '<span class="mu sm">—</span>'))));
   // La table est large (7 colonnes) : elle défile DANS son conteneur, la page ne
   // scrolle jamais horizontalement (contrainte 3 formats, zéro scroll à 390 px).
   host.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="tbl" style="min-width:720px"><thead><tr>
@@ -25065,7 +25065,7 @@ function _agendaEvtCard(e, compact=false) {
     <div class="agenda-card-title">${escHtml(e.titre)}</div>
     <div class="agenda-card-meta">
       <span>${_uiIcon('calendar',13)} ${fd(e.date)}${e.dateFin && e.dateFin!==e.date?' → '+fd(e.dateFin):''}</span>
-      ${e.logement?`<span>${_uiIcon('home',13)} ${escHtml(e.logement)}</span>`:''}
+      ${e.logement?`<span>${_uiIcon('home',13)} ${escHtml(_logLabel(e.logement))}</span>`:''}
       ${e.recurrence?.type!=='none'?`<span>${_uiIcon('refresh',13)} ${_recLabel(e.recurrence)}</span>`:''}
       ${e.auto?`<span style="color:var(--t3)">${_uiIcon('settings',13)} Auto</span>`:''}
     </div>
@@ -25242,7 +25242,7 @@ function _agendaEvtCardPhone(e){
     else if(daysLeft>0 && daysLeft<=30) badge=`<span class="agph-badge warn">${_uiIcon('clock')}J-${daysLeft}</span>`;
   }
   const meta=[`<span class="agph-catlbl">${escHtml(cat.label)}</span>`,'<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('calendar')}${fd(e.date)}</span>`];
-  if(e.logement) meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('home')}${escHtml(e.logement)}</span>`);
+  if(e.logement) meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('home')}${escHtml(_logLabel(e.logement))}</span>`);
   if(e.recurrence&&e.recurrence.type!=='none') meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('refresh')}${escHtml(_recLabel(e.recurrence))}</span>`);
   if(e.auto) meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('settings')}Auto</span>`);
   const acts=e.done
@@ -25366,7 +25366,7 @@ function openDayDetail(ds) {
                     text-decoration:${e.done?'line-through':'none'}">${escHtml(e.titre)}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <span class="agenda-cat-badge" style="font-size:10px">${cat.label}</span>
-          ${e.logement?`<span>${escHtml(e.logement)}</span>`:''}
+          ${e.logement?`<span>${escHtml(_logLabel(e.logement))}</span>`:''}
         </div>
       </div>
       ${e.done?`<span class="badge grn">${_uiIcon('check',10)} Fait</span>`:
@@ -25582,7 +25582,7 @@ function rEquipements() {
     if(!rows && !cfgPanel) return '';
     return `<div class="card mb12">
       <div class="flex-b mb12">
-        <div><b style="font-size:15px">${l.ref}</b> <span class="badge gry" style="margin-left:6px">${escHtml(l.imm||'')}</span>
+        <div><b style="font-size:15px">${escHtml(_logLabel(l))}</b> <span class="badge gry" style="margin-left:6px">${escHtml(l.imm||'')}</span>
           <div style="font-size:12px;color:var(--t2);margin-top:2px">${escHtml(l.locataire||'Vacant')} &mdash; ${escHtml(_chauffLabel||'N/C')}</div></div>
       </div>
       ${rows ? `<div class="tbl-wrap"><table class="tbl">
@@ -26655,7 +26655,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     const items = rows.map(r => {
       const refA = escHtml(r.log.ref);
       const inner = '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 13px">'
-        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>' + _lyStatut(r.log.ref)
+        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + escHtml(_logLabel(r.log.ref)) + '</span>' + _lyStatut(r.log.ref)
         + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div></div>'
         + '<div>' + chip(r.pos) + '</div></div>';
       return { log: r.log, html: inner };
@@ -26670,7 +26670,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = escHtml(r.log.ref);
       return '<div style="' + (i < rows.length - 1 ? 'border-bottom:1px solid var(--bor2)' : '') + (open ? ';background:var(--sur2)' : '') + '">'
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
-      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>' + _lyStatut(r.log.ref)
+      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + escHtml(_logLabel(r.log.ref)) + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>' + _lyStatut(r.log.ref)
       +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
       + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.pos) + (r.pos.cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
       + '</div>'
@@ -26868,7 +26868,7 @@ function _procedureSave() {
   }
   saveDB();
   closeM('ov-procedure');
-  showToast(`✓ Procédure mise à jour pour ${ref}`, 'ok', 3000);
+  showToast(`✓ Procédure mise à jour pour ${_logLabel(ref)}`, 'ok', 3000);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -27688,7 +27688,7 @@ function _bankDupOpenCount(st) {
 function _bankDupFmtDate(d) { return d ? String(d).split('-').reverse().join('/') : ''; }
 function _bankDupMvAff(m) {
   if (!m) return '';
-  if (m.qui) return String(m.qui).startsWith('SCI:') ? '🏛️ ' + escHtml(m.qui.slice(4)) : '🚪 ' + escHtml(m.qui);
+  if (m.qui) return String(m.qui).startsWith('SCI:') ? '🏛️ ' + escHtml(m.qui.slice(4)) : '🚪 ' + escHtml(_logLabel(m.qui));
   if (m.imm) return '🏢 ' + escHtml(m.imm);
   return '';
 }
@@ -28229,7 +28229,7 @@ function _bankProposPanelHtml(i) {
     const ecart = (c.ecart == null) ? '' : (Math.abs(c.ecart) < 1 ? 'montant exact'
       : (c.ecart > 0 ? 'avance de ' + fmt(c.ecart) : 'reste ' + fmt(-c.ecart)));
     return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 9px;border:1px solid var(--bor);border-radius:8px;margin-bottom:4px;font-size:12px;background:var(--sur,#fff)">'
-      + '<b>' + escHtml(c.ref) + '</b>'
+      + '<b>' + escHtml(_logLabel(c.ref)) + '</b>'
       + (c.nom ? '<span class="mu sm">' + escHtml(c.nom) + '</span>' : '')
       + (c.ancien ? '<span class="mu sm" style="color:var(--ora)">ancien locataire</span>' : '')
       + '<span style="flex:1"></span>'
@@ -30281,7 +30281,7 @@ function _finDrillLigne(kind, yr, mo) {
     if (!ref) return '—';
     if (String(ref).startsWith('SCI:')) return String(ref).slice(4);
     const l = logByRef[ref];
-    return l ? ((l.ref || ref) + (l.locataire ? ' · ' + l.locataire : '')) : ref;
+    return l ? (_logLabel(l) + (l.locataire ? ' · ' + l.locataire : '')) : ref;
   };
   // Définition par ligne : titre + sens + test d'appartenance 2044 (identique aux buckets)
   const LIG = {
@@ -32462,7 +32462,7 @@ function _antRender(initial) {
   ov.innerHTML = '<div class="modal ant-modal" role="dialog" aria-modal="true" aria-labelledby="ant-titre">'
     + '<div class="m-head"><button type="button" class="ant-back" aria-label="Retour" onclick="closeM(\'ov-anteriorite\')">' + '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>' + '</button>'
     + '<h3 id="ant-titre">' + ic('key') + '<span>' + titre + '</span></h3><button class="m-close" aria-label="Fermer" onclick="closeM(\'ov-anteriorite\')">✕</button></div>'
-    + '<div class="m-body"><p class="ant-ctxt">' + escHtml(E.ref) + (loc ? ' · ' + escHtml(loc) : '') + ' · bail du ' + escHtml(debutBailFr) + (repris ? ' (bail repris)' : '') + '</p>'
+    + '<div class="m-body"><p class="ant-ctxt">' + escHtml(_logLabel(E.ref)) + (loc ? ' · ' + escHtml(loc) : '') + ' · bail du ' + escHtml(debutBailFr) + (repris ? ' (bail repris)' : '') + '</p>'
     + '<div class="ant-blk"><div class="ant-blk-t">' + ic('calendar') + '<span>' + titre + '</span></div>'
     + '<p class="ant-blk-s">Propryo ne reconstitue pas le passé : noter ici où en était le locataire au début du suivi. Ce solde sert de point de départ à Finances et à la restitution du dépôt.</p>'
     + corps + '</div></div>'

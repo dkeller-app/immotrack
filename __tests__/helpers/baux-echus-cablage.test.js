@@ -174,7 +174,7 @@ describe('frise d\'un immeuble (_renderImmFichePlanGantt) — même règle que l
       _ganttHighlight: () => '', _immFicheNewLog: () => {}, _lyQ: esc,
       fd: (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; },
       min: Math.min, _tenantColor: () => '#000', _tenantColorLight: () => '#fff', _uiIcon: () => '',
-      escHtml: esc, fmt: (n) => String(Math.round(n || 0)) + ' €', fmtN: (n) => String(Math.round(n || 0)),
+      _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), escHtml: esc, fmt: (n) => String(Math.round(n || 0)) + ' €', fmtN: (n) => String(Math.round(n || 0)),
       openLogFiche: () => {}, _isAlive: (x) => !!x && !x._deleted,
       _DMC: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'], go: () => {}, _immVueFrise: true
     };

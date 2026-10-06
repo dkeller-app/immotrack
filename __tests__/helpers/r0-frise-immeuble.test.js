@@ -51,7 +51,7 @@ function frise(db, activeLogs, avecLecteur = true) {
     _tenantColor: () => '#000',
     _tenantColorLight: () => '#fff',
     _uiIcon: () => '',
-    escHtml: esc,
+    _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), escHtml: esc,
     fmt: (n) => String(Math.round(n || 0)) + ' €',
     fmtN: (n) => String(Math.round(n || 0)),
     openLogFiche: () => {},

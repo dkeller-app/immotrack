@@ -31,7 +31,7 @@ function monter(DB, suivi) {
     showToast: (msg, type) => toasts.push({ msg, type }),
     confirm2: () => true, saveDB: () => journal.push('saveDB'), _stamp: (b) => journal.push('stamp:' + b.debut),
     _auditLog: () => {}, _refreshAfterMutation: () => {}, closeM: () => journal.push('closeM'), openM: () => {},
-    _finLotSuivi: () => suivi, _uiIcon: () => '', fmt: (n) => n.toFixed(2) + ' €', setTimeout: () => {}
+    _finLotSuivi: () => suivi, _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), _uiIcon: () => '', fmt: (n) => n.toFixed(2) + ' €', setTimeout: () => {}
   };
   const noms = Object.keys(deps);
   const api = new Function(...noms, 'let _antEtat = null;\n' + SRC + '\nreturn { ' + F2.join(', ') + ', etat: (e) => { _antEtat = e; } };')(...noms.map((n) => deps[n]));

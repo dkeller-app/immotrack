@@ -46,7 +46,7 @@ function chargerDetail() {
   const fmt = (n) => (Math.round(Number(n) * 100) / 100).toFixed(2) + ' €';
   const fd = (s) => s;
   // eslint-disable-next-line no-new-func
-  return new Function('escHtml', 'fmt', 'fd', src + '\nreturn _rgDetailLocHtml;')(escHtml, fmt, fd);
+  return new Function('escHtml', 'fmt', 'fd', '_logLabel', src + '\nreturn _rgDetailLocHtml;')(escHtml, fmt, fd, (x) => String((x && typeof x === 'object') ? x.ref : x));
 }
 
 const OCC = {

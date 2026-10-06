@@ -76,7 +76,7 @@ function monter(sc, noms) {
     _isChargeRecupCategory: (c) => c === RECUP || c === 'Charges de copropriété',
     _catLigne2044: (c) => (c === 'Charges de copropriété' ? '229' : null),
     CC_REPARTITION_LABELS: {}, fd: (s) => s, fmtN: String, _ccType: () => ({}), _ccConsoLogPeriod: () => 0,
-    fmt: (n) => (Math.round(n * 100) / 100).toFixed(2) + ' €', escHtml: (s) => String(s == null ? '' : s), _uiIcon: () => '', _lyQ: (s) => s,
+    fmt: (n) => (Math.round(n * 100) / 100).toFixed(2) + ' €', escHtml: (s) => String(s == null ? '' : s), _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), _uiIcon: () => '', _lyQ: (s) => s,
     td: () => AUJ, showToast: () => {}, openM: () => {}, closeM: () => {}, confirm2: () => true, saveDB: () => {}, _stamp: () => {},
     _auditLog: () => {}, _refreshAfterMutation: () => {}, _rPeriodPage: () => {}, setTimeout: () => {},
     _calculerSoldeDG: DG._calculerSoldeDG, _dgStatut: DG._dgStatut, _calculerDelaiRestitution: DG._calculerDelaiRestitution,
