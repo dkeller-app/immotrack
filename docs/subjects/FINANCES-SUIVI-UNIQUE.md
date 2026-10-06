@@ -4,7 +4,7 @@
 **Lié à** : `RETOURS-2026-10-05.md` (lot E) · `AUDIT-SUIVI-LOYERS-2026-07-14.md` (C2, C12) · `CDC-FINANCES.md` (P-1, T-5, H-1) · `CDC-R0C.md` (`_computeDetteBail`, dette bornée au bail)
 
 ## Cas Arslan reconstitué (Ferrette - 101, export du 05/10 + relevé bancaire)
-Bail : 760 € HC + 20 € charges = **780 €**, début 03/05/2026. Locataire précédent (Wieniski) parti le 13/04/2026, 700 € HC.
+Bail : 760 € HC + 20 € charges = **780 €**, début 03/05/2026. Locataire précédent parti le 13/04/2026, 700 € HC.
 
 | Mois payé | Virement (date bancaire) | Encaissé | Dû | Écart réel |
 |---|---|---|---|---|
@@ -16,7 +16,7 @@ Bail : 760 € HC + 20 € charges = **780 €**, début 03/05/2026. Locataire p
 | Octobre | 02/10 | 780 | 780 | 0 |
 
 **Pourquoi l'app affiche 283,01 € (juillet) / 323,01 € (KPI)** :
-1. Le loyer d'avril de Wieniski (700 × 13/30 = 303,33 €) a été retenu sur son DG (`finNotes`), sans mouvement « Loyers encaissés » → l'app le voit impayé.
+1. Le loyer d'avril de l'ancien locataire (700 × 13/30 = 303,33 €) a été retenu sur son DG (`finNotes`), sans mouvement « Loyers encaissés » → l'app le voit impayé.
 2. La compensation se fait **par lot** (`finances-monthly.js:236-264`, `loyer-du-mois.js:409-410`) : les paiements d'Elise remboursent d'abord cette dette (303,01 € après le surplus de mai).
 3. Le virement du 27/06 (juillet) est compté en juin (date bancaire, `finances-monthly.js:112`) : l'avance restante (476,99 €) ne couvre pas juillet → 283,01 € HC + 20 € charges de retard.
 4. + 20 € de charges d'août = 323,01 €. Le « 40 € » n'est pas un barème : ce sont les charges impayées de juillet et d'août.
@@ -27,6 +27,16 @@ Reproduction : `node docs/subjects/FINANCES-SUIVI-UNIQUE/repro-arslan-101.mjs <e
 ## Décisions de Didier (05/10)
 1. **Imputation** : le paiement reste rattaché à sa **date bancaire**, avec **cumul compensé par locataire (bail)**. Un virement en avance s'affiche « payé d'avance » et solde le mois suivant ; jamais retard ET avance sur le même lot le même mois ; aucune saisie. Une exception manuelle « ce virement paie tel mois » reste possible pour les cas rares.
 2. **Dette d'un locataire sorti** : les arriérés appartiennent au **bail**, jamais au lot. Une retenue sur le DG vaut règlement (comptée encaissée sur le bail sorti). Le reliquat éventuel reste visible à part (« locataire sorti »), hors du retard du lot actuel. Écart d'arrondi sous 1 € (303 vs 303,33) : soldé d'office, trace visible.
+
+## Phase 2 — maquette VALIDÉE par Didier (06/10)
+Maquette locale `mockups/FINANCES-SUIVI-V2/` (dossier ignoré par git : données réelles ; repo public). Décisions :
+- **Une seule ligne d'écart** « Avance / retard du lot » (solde du bail à fin de mois) au lieu des 3 sous-lignes ; jamais retard ET avance ensemble.
+- **Mois récent à gauche partout** (tableau ET graphique) ; **un seul sélecteur de bailleur** (pastilles de gauche, le select de la page disparaît).
+- **Une seule fenêtre « avance / retard »** au clic sur un mois (remplace « Cause du retard » + « Cause de l'avance ») : titre « Mois · périmètre », phrase de synthèse, groupes EN RETARD puis EN AVANCE (tri décroissant, 1 ligne repliable par lot, « voir les N autres » au-delà de 5), zone compacte « À JOUR · N lots » (lecture seule, bornée), navigation ‹ mois ›. Carte d'un lot : loyer attendu (loyer + charges) / reçu (virement cliquable) / résultat dit UNE fois ; lot dont le mois est payé mais avec une dette ancienne : « ✅ mois payé » puis « ⚠ reste dû des mois précédents : X (depuis mois) ».
+- **Un seul bouton « Accepter le manque »** (montant pré-rempli, motif obligatoire, date ; Annuler ; ne touche pas au bail). Pas de « il reste dû » ni « plus tard ».
+- **Alerte non bloquante dans Mouvements** sous un loyer incomplet (un bouton + croix) : même enregistrement que depuis la fenêtre.
+- Avance : détectée, couvre les mois suivants sans geste ; « ce n'est pas du loyer » = reclasser le mouvement ; note libre « accord » (à confirmer : cas réel ?).
+- Questions ouvertes : à quoi correspondent les 150 € de retenue DG de l'ancien locataire ; nature du +404,90 € du lot Ferrette 001 en juillet ; lot à +49,90 € en septembre (SCI DD2).
 
 ## Reste à décider / à faire
 - Geste « manque accepté » (montant, motif, date ; ne touche pas au bail) : fiche par lot et par mois.
