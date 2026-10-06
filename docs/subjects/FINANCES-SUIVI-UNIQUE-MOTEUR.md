@@ -299,3 +299,14 @@ Premier passage du prototype (export du 05/10, 26 lots) :
 **Signalement 1 — retenue sur dépôt et 2044.** La décision 2 la compte encaissée sur le bail sorti, mais elle n'existe dans aucun mouvement, donc la 2044 l'ignore. Une somme conservée sur le dépôt en paiement de loyers impayés est en principe une recette imposable de l'année où elle est imputée (à vérifier au BOFiP avant d'agir ; je ne l'ai pas confirmé). Ce chantier ne touche pas la 2044 : sujet séparé à ouvrir (lien avec R0-C lot 2).
 
 **Signalement 2 — trois règles validées qui contredisent des règles écrites.** (a) La colonne Année de la ligne d'écart est une position, pas la somme des mois (exception à T-1, `CDC-FINANCES.md:172`) ; (b) la case est nette entre lots (+29,90 en septembre), alors que `CDC-KPI.md:451` dit « jamais retard ET avance simultanés » pour un lot et que le test `finances-monthly.test.js:211` interdit le net. Ma lecture : la règle vaut **par bail**, et le KPI de retard reste non net ; (c) le début de suivi provisoire au 1er loyer encaissé (décision 05/10 b) rend invisibles les impayés d'entrée de bail antérieurs au 1er virement (C6, D-104 : 1 800 € de janvier à mars) jusqu'à ce que la date d'acquisition soit saisie. C'est conforme à la décision, à condition d'afficher « à confirmer ».
+
+
+---
+
+## I. Décisions de Didier sur les questions du §H (06/10/2026) — VALIDÉES
+
+- **Q1 (manque accepté)** : le geste solde ce qui manque, sans réimputer ; **quittance émise pour le montant reçu** (ex. 760 €) avec la mention « remise accordée : X € (motif) » ; la régularisation de charges ne réclame pas un manque accepté sur les charges (provision abandonnée).
+- **Q2 (locataire parti)** : sa dette est **figée au mois de son départ** ; elle reste **visible pendant l'année en cours** (mois suivants, colonne Année, fenêtre, bulle Impayés, avec la mention « parti »), puis **disparaît de toute visualisation à partir du 1er janvier suivant**. Elle reste consultable seulement sur le bail de l'ancien locataire (calcul de la retenue sur dépôt). **Pas de groupe « Locataires sortis »** dans la fenêtre au-delà de cette règle.
+- **Q3 (virement entre deux baux)** : **on demande à l'utilisateur** (alerte dans Mouvements : ancien locataire / nouveau locataire / ce n'est pas du loyer → reclasser). Tant qu'il n'a pas répondu : bail le plus proche dans le temps, marqué « à confirmer ». Choix mémorisé sur le mouvement (synchronisé).
+- **Q4 (GLI)** : l'indemnité **ne réduit pas la dette du locataire** (l'assurance couvre, le locataire doit toujours). Le retard et la relance gardent leur montant ; mention visible « couvert par la GLI : X € » (carte du lot, fenêtre, bail). Reste en recette diverse pour la 2044. **La bulle « Impayés » de l'Accueil continue de compter la dette même si elle est couverte par la GLI.**
+- **Signalement 1 (retenue sur dépôt et 2044)** : sujet séparé à ouvrir, hors de ce chantier (à vérifier au BOFiP).
