@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { bailLoueAu, finOccupationBail } from '../../js/core/fin-occupation.js';
 import { _computeOccupationLots } from '../../js/core/legal-bilan.js';
 import { duMoisFromRaw } from '../../js/core/loyer-du-mois.js';
+import { bailHistCle } from '../../js/core/store-mapping.js';
 import { extraireFonction } from './_extraction-source.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -38,15 +39,15 @@ function monter(DB, noms, extra = {}) {
   const html = { out: '' };
   const els = {};
   const base = {
-    DB, window: { bailLoueAu, finOccupationBail, ...(extra.window || {}) },
+    DB, window: { bailLoueAu, finOccupationBail, bailHistCle, ...(extra.window || {}) },
     _todayIsoLocal: () => AUJ, td: () => AUJ, fd: (iso) => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : ''),
     escHtml: (x) => String(x == null ? '' : x), _isAlive: (x) => !!x && !x._deleted, fmt: (n) => String(Math.round(n || 0)) + ' €',
     el: (id) => (els[id] = els[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, classList: { contains: () => false } }),
     showToast: (m) => { (base._toasts = base._toasts || []).push(m); }, confirm2: () => false,
-    _isPhone: () => false, _PIL_MTX_COLS: [], Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
+    _isPhone: () => false, _PIL_MTX_COLS: [], _lyQ: (x) => String(x == null ? '' : x), Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
     ...extra,
   };
-  base.window = { bailLoueAu, finOccupationBail, ...(extra.window || {}) };   // `extra.window` complète, n'écrase pas
+  base.window = { bailLoueAu, finOccupationBail, bailHistCle, ...(extra.window || {}) };   // `extra.window` complète, n'écrase pas
   const scope = new Proxy(base, {
     has: (t, k) => typeof k === 'string' && !decl.has(k),
     get: (t, k) => (k in t ? t[k] : (k in globalThis ? globalThis[k] : () => '')),
@@ -55,7 +56,7 @@ function monter(DB, noms, extra = {}) {
   const fn = new Function('scope', 'with (scope) {\n' + noms.map(corps).join('\n') + '\nreturn {' + noms.join(',') + '};\n}')(scope);
   return { fn, base, els, html };
 }
-const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot', '_dgDetenuDuBail', '_dgRestitutionEnregistree', '_dgDetenusDuLot', '_dgNbDetenusDuLot'];
+const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot', '_dgDetenuDuBail', '_dgRestitutionEnregistree', '_dgDetenusDuLot', '_dgNbDetenusDuLot', '_bailHistCleDe'];
 
 describe('1 · la règle de statut (module pur)', () => {
   it('bail nu reconduit (échéance passée), sans départ : loué', () => expect(bailLoueAu(BAIL, AUJ)).toBe(true));
@@ -469,7 +470,7 @@ describe('14 · scénario de l\'audit : relocation d\'un lot parti (VRAIS archiv
     const t = out.find((x) => x && x.type === 'depart');
     expect(t && t.subtitle).toContain('DG avant le 30/11/2026');
     expect(t.subtitle).toContain('900 €');
-    expect(t.actionFn).toBe('openBailHist(0)');
+    expect(t.actionFn).toBe("_dgOpenRestitution('A1','" + bailHistCle(DB.baux_historique[0]) + "')");
   });
 });
 
@@ -614,5 +615,92 @@ describe('20 · compteur « Dépôts détenus » = nombre de DÉPÔTS (un lot re
     expect(m.base._DD.dg.html).toContain('Total (3 DG détenus)');
     expect(JSON.stringify(w)).toContain('3 DG détenus');
     expect(JSON.stringify(w)).toContain('Moyenne 867 € / dépôt');
+  });
+});
+describe('21 · restitution du dépôt sur le bail EXACT (VRAIS _dgOpenRestitution / _dgConfirmerRestitution)', () => {
+  const LEA = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true, locataires: [{ nom: 'Lea' }] };
+  const NINA = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nina' }] };
+  const RESTIT = ['_dgOpenRestitution', '_dgConfirmerRestitution', '_dgBailCible', '_dgRestitRecalc'];
+  const ouvrir = (DB, ref, cle, date = '2026-10-20') => {
+    const vals = { 'dg-restit-date': date, 'dg-restit-autres': '0', 'dg-restit-detail-retenues': '' };
+    const m = monter(DB, [...STATUT, ...RESTIT, '_computeUnifiedTodo', '_departDeadlineDG'], {
+      v: (id) => vals[id] || '', _dgVgRows: [], _dgVgCtx: {}, _dgVgSeedFromEdl: () => [], _dgVgRender: () => {},
+      _calculerSoldeDG: (b) => ({ soldeRestitue: Number(b.dgPaid || b.dg) - Number(b.dgRetenu || 0), loyerImpaye: 0 }),
+      _dgStatut: () => ({ statut: 'a_restituer' }), _calculerDelaiRestitution: () => 2, confirm2: () => true, _stamp: (o) => { o._modifiedAt = 'stamp'; }, saveDB: () => {},
+      _departState: () => null, AlertRules: new Proxy({}, { get: () => () => [] }), EQUIP_RULES: [], _DIAGS_CATALOG_INLINE: [],
+      _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+      window: { computeVetusteTotal: () => ({ total: 0 }), _penaliteRetardDG: () => ({ penalite: 0 }) },
+    });
+    m.fn._dgOpenRestitution(ref, cle);
+    const ouvert = !!m.base._dgRestitCible;
+    m.els['ov-dg-restitution-ref'] = { value: ref };
+    if (ouvert) m.fn._dgConfirmerRestitution();
+    return { m, ouvert };
+  };
+  const taches = (m, DB) => (m.fn._computeUnifiedTodo({ scopeLogs: [DB.logements[0]] }) || []).filter((x) => x && x.type === 'depart');
+  it('après une RELOCATION (geste de la tâche / de la frise, clé du bail archivé) : les 900 € de Lea ne sont plus détenus, les 1 300 € de Nina le restent, aucune fausse tâche', () => {
+    const DB = dbDe({ A1: { ...NINA } }); DB.baux_historique = [{ ...LEA }];
+    const { m } = ouvrir(DB, 'A1', bailHistCle(DB.baux_historique[0]));
+    expect(DB.baux_historique[0].dgRestitueAt).toBe('2026-10-20');
+    expect(DB.baux_historique[0]._modifiedAt).toBe('stamp');   // propagé au cloud (signature de contenu + _modifiedAt)
+    expect(DB.baux.A1.dgRestitueAt).toBeUndefined();
+    expect(DB.baux.A1.depart).toBeUndefined();
+    expect(m.fn._dgDetenusDuLot(DB.logements[0])).toEqual([1300]);
+    expect(taches(m, DB)).toEqual([]);
+  });
+  it('après une relocation, appel SANS clé : le bail de Nina (sans départ) n\'est jamais visé — le seul bail archivé au dépôt détenu l\'est', () => {
+    const DB = dbDe({ A1: { ...NINA } }); DB.baux_historique = [{ ...LEA }];
+    ouvrir(DB, 'A1');
+    expect(DB.baux.A1.dgRestitueAt).toBeUndefined();
+    expect(DB.baux_historique[0].dgRestitueAt).toBe('2026-10-20');
+  });
+  it('après une CLÔTURE sans restitution (tombstone) : la restitution s\'écrit sur le bail archivé, jamais sur le tombstone', () => {
+    const DB = dbDe({ A1: { ref: 'A1', _deleted: true } }); DB.baux_historique = [{ ...LEA, cloture: true, clotureV: 2, _archivedAuto: undefined }];
+    const { m } = ouvrir(DB, 'A1');
+    expect(DB.baux.A1).toEqual({ ref: 'A1', _deleted: true });
+    expect(DB.baux_historique[0].dgRestitueAt).toBe('2026-10-20');
+    expect(m.fn._dgDetenuDuLot(DB.logements[0])).toBe(0);
+  });
+  it('deux dépôts archivés en attente et appel SANS clé : refus (ambigu), rien n\'est écrit ; avec la clé : le bon', () => {
+    const DB = dbDe({ A1: { ...NINA } }); DB.baux_historique = [{ ...LEA }, { ...LEA, _archivedAt: '2025-06-30', locataires: [{ nom: 'Ancien' }] }];
+    const { m, ouvert } = ouvrir(DB, 'A1');
+    expect(ouvert).toBe(false);
+    expect(m.base._toasts[0]).toContain('plusieurs dépôts archivés en attente');
+    expect(DB.baux_historique.map((h) => h.dgRestitueAt)).toEqual([undefined, undefined]);
+    ouvrir(DB, 'A1', bailHistCle(DB.baux_historique[1]));
+    expect(DB.baux_historique.map((h) => h.dgRestitueAt)).toEqual([undefined, '2026-10-20']);
+    expect(DB.baux.A1.dgRestitueAt).toBeUndefined();
+  });
+  it('bail en départ (bail en cours) : la restitution s\'écrit sur lui, comme avant', () => {
+    const DB = dbDe({ A1: { ...DEPART, ref: 'A1' } });
+    ouvrir(DB, 'A1');
+    expect(DB.baux.A1.dgRestitueAt).toBe('2026-10-20');
+  });
+  it('montant versé affiché = le dépôt de CE bail (900 €, pas les 1 300 € de Nina)', () => {
+    const DB = dbDe({ A1: { ...NINA } }); DB.baux_historique = [{ ...LEA }];
+    const { m } = ouvrir(DB, 'A1', bailHistCle(DB.baux_historique[0]));
+    expect(m.els['ov-dg-restitution-body'].innerHTML).toMatch(/DG initial versé<\/td><td[^>]*>900 €/);
+  });
+});
+describe('22 · frise du bien (VRAI _histoBailEventHtml) : le geste de restitution vise le bail archivé exact', () => {
+  const LEA = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true };
+  const carte = (bail, statut) => {
+    const DB = dbDe({});
+    const m = monter(DB, [...STATUT, '_histoBailEventHtml'], {
+      DG_STATUS: { RESTITUE: 'restitue', EN_RETARD: 'retard', A_RESTITUER: 'a_restituer', COMPLET: 'complet', PARTIEL: 'partiel' },
+      _dgStatut: (b) => ({ statut: b.dgRestitueAt ? 'restitue' : 'a_restituer', joursRestants: 10, delaiMois: 2 }), _uiIcon: () => '',
+    });
+    return m.fn._histoBailEventHtml({ type: 'dg-verse', montant: 900 }, { statut, bail }, 'A1', null);
+  };
+  it('bail archivé au dépôt détenu : « Préparer la restitution du DG » avec sa clé', () => {
+    expect(carte({ ...LEA }, 'clos')).toContain(`_dgOpenRestitution('A1','${bailHistCle(LEA)}')`);
+  });
+  it('bail archivé restitué : badge « Restitué », pas de geste ; clôture ancienne aux montants saisis : idem', () => {
+    const h = carte({ ...LEA, dgRestitueAt: '2026-10-20' }, 'clos');
+    expect(h).toContain('Restitué');
+    expect(h).not.toContain('_dgOpenRestitution');
+    const v1 = carte({ ...LEA, cloture: true, dgRestitue: 900 }, 'clos');
+    expect(v1).toContain('Restitué');
+    expect(v1).not.toContain('_dgOpenRestitution');
   });
 });

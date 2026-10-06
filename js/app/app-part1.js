@@ -9754,7 +9754,7 @@ function _computeUnifiedTodo(ctx) {
     scopeLogs.forEach(l => {
       // Statut 06/10 : un bail ARCHIVÉ (relocation avant restitution, clôture sans restitution) dont le dépôt
       // n'est pas restitué garde sa tâche — même règle que les « Dépôts détenus » (_dgDetenuDuBail).
-      (DB.baux_historique || []).forEach((h, hi) => {
+      (DB.baux_historique || []).forEach((h) => {
         if(!h || h._deleted || h.ref !== l.ref || _dgDetenuDuBail(h, 0) <= 0) return;
         let dlH = null; try { dlH = _departDeadlineDG(h); } catch(e){ dlH = null; }
         const e = _dgEcheance(dlH);
@@ -9764,8 +9764,8 @@ function _computeUnifiedTodo(ctx) {
           title:'Départ — dépôt de garantie à restituer (bail archivé)',
           subtitle:l.ref + ' — ' + locH + ' · ' + fmt(_dgDetenuDuBail(h, 0)) + e.txt,
           contextRef:l.ref,
-          actionLabel:'Voir le bail archivé',
-          actionFn:'openBailHist(' + hi + ')'
+          actionLabel:'Préparer la restitution du DG',
+          actionFn:"_dgOpenRestitution('" + _lyQ(l.ref) + "','" + _lyQ(_bailHistCleDe(h)) + "')"
         });
       });
       const bail = DB.baux[l.ref];

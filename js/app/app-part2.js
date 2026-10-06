@@ -13915,21 +13915,25 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     // Statut + CTA restitution : mêmes règles que l'ancien panneau « Dépôt de garantie »
     // (v15.14 Fix 4), portées par l'événement DG du bail concerné (_bailForDg).
     let statutHtml='', ctaHtml='';
-    const isDgBail = bailForDg && c.bail===bailForDg;
-    if(isDgBail && typeof _dgStatut==='function'){
-      const dgInfo=_dgStatut(bailForDg);
-      const isRestit = dgInfo.statut===DG_STATUS.RESTITUE;
+    // Statut 06/10 : chaque bail ARCHIVÉ porte son propre dépôt (relocation avant restitution) — son statut et
+    // son geste de restitution visent CE bail (bailHistCle), plus seulement le dernier bail du lot.
+    const _dgCible = (c.statut==='clos' && c.bail) ? c.bail : ((bailForDg && c.bail===bailForDg) ? bailForDg : null);
+    if(_dgCible && typeof _dgStatut==='function'){
+      const dgInfo=_dgStatut(_dgCible);
+      const isRestit = dgInfo.statut===DG_STATUS.RESTITUE || (c.statut==='clos' && typeof _dgDetenuDuBail==='function' && _dgDetenuDuBail(_dgCible, 0) <= 0);
       const map = {
         [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
+        _restitue:             ['' + _uiIcon('check') + ' Restitué','b-irl'],
         [DG_STATUS.EN_RETARD]: [`${_uiIcon('warn')} En retard ${dgInfo.joursRetard}j`,'b-warn'],
         [DG_STATUS.A_RESTITUER]:[`${_uiIcon('hourglass')} À restituer J-${dgInfo.joursRestants} (délai légal ${dgInfo.delaiMois} mois)`,'b-warn'],
         [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(dgInfo.dgPaid)})`,'b-irl'],
         [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(dgInfo.dgPaid)} / ${fmt(dgInfo.dgDu)})`,'b-warn']
       };
-      const st = map[dgInfo.statut] || [_uiIcon('help') + ' Non versé','b-warn'];
+      const st = (isRestit ? map._restitue : map[dgInfo.statut]) || [_uiIcon('help') + ' Non versé','b-warn'];
       statutHtml = `<span class="hl-badge ${st[1]}">${st[0]}</span>`;
-      if(!!bailForDg.cloture && !isRestit){
-        ctaHtml = `<div class="hl-foot"><button class="btn bp bb" style="padding:5px 12px;font-size:12px" onclick="_dgOpenRestitution('${refSafe}')">✦ Préparer la restitution du DG</button></div>`;
+      if(c.statut==='clos' && !isRestit){
+        const _cle = _lyQ(_bailHistCleDe(_dgCible));
+        ctaHtml = `<div class="hl-foot"><button class="btn bp bb" style="padding:5px 12px;font-size:12px" onclick="_dgOpenRestitution('${refSafe}','${_cle}')">✦ Préparer la restitution du DG</button></div>`;
       }
     }
     return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Dépôt de garantie versé</h4><span class="hl-badge b-dg">DG</span>${statutHtml}</div>
@@ -26160,9 +26164,33 @@ function _dgVgRemove(i) {
   _dgVgRender(el('ov-dg-restitution-ref') ? el('ov-dg-restitution-ref').value : '');
 }
 
-function _dgOpenRestitution(ref) {
-  const bail = DB.baux && DB.baux[ref];
-  if (!bail) { showToast('Bail introuvable', 'err'); return; }
+// RESTITUTION DU DÉPÔT — le bail EXACT (audit 06/10) : jamais un tombstone, jamais le bail d'un autre locataire.
+//  • `cle` (bailHistCle — même identité que la ligne cloud) → l'entrée de baux_historique (bail clôturé ou
+//    archivé par une relocation) ;
+//  • sinon le bail en cours du lot s'il est en départ (départ déclaré, fin effective) ou déjà en restitution ;
+//  • sinon, s'il n'y en a qu'UN, le bail archivé du lot dont le dépôt est encore détenu (_dgDetenuDuBail) — après une
+//    relocation, le bail du NOUVEAU locataire (sans départ) n'est donc jamais visé ;
+//  • sinon le bail en cours (comportement d'avant : solde calculé sur un bail sans départ déclaré) ; rien s'il n'y en a pas.
+// La cible est retenue à l'ouverture (_dgRestitCible) : le recalcul et la confirmation écrivent sur CE bail.
+let _dgRestitCible = null;
+function _bailHistCleDe(h) {
+  return (h && typeof window !== 'undefined' && typeof window.bailHistCle === 'function') ? window.bailHistCle(h) : '';
+}
+function _dgBailCible(ref, cle) {
+  const histo = (DB.baux_historique || []).filter(h => h && !h._deleted && h.ref === ref);
+  if (cle) { const h = histo.find(x => _bailHistCleDe(x) === cle); return h ? { ref, bail: h, cle } : null; }
+  const cur = DB.baux && DB.baux[ref];
+  if (cur && !cur._deleted && (cur.depart || cur.finEffective || cur.cloture || cur.dgRestitueAt)) return { ref, bail: cur, cle: '' };
+  const enAttente = histo.filter(h => _dgDetenuDuBail(h, 0) > 0);
+  if (enAttente.length === 1) return { ref, bail: enAttente[0], cle: _bailHistCleDe(enAttente[0]) };
+  if (enAttente.length > 1) return null;   // plusieurs dépôts archivés en attente : le geste doit porter sa clé
+  return (cur && !cur._deleted) ? { ref, bail: cur, cle: '' } : null;
+}
+function _dgOpenRestitution(ref, cle) {
+  const cible = _dgBailCible(ref, cle);
+  if (!cible) { showToast('Restitution du dépôt : bail introuvable, ou plusieurs dépôts archivés en attente — la lancer depuis la frise du bien ou la tâche.', 'warn', 6000); return; }
+  _dgRestitCible = cible;
+  const bail = cible.bail;
   // Base « DG versé » : dgPaid est un champ historiquement non renseigné → repli sur dg
   // (le repli vit désormais dans _calculerSoldeDG ; on garde dgVerse pour l'AFFICHAGE + le
   // statut, dans cette surface où l'on restitue — donc le dépôt a bien été pris).
@@ -26288,7 +26316,8 @@ function _dgOpenRestitution(ref) {
 
 /** Recalcule le solde en temps réel : total vétusté + impayés + pénalité art. 22. */
 function _dgRestitRecalc(ref) {
-  const bail = DB.baux && DB.baux[ref];
+  const _c = (_dgRestitCible && _dgRestitCible.ref === ref) ? _dgRestitCible : _dgBailCible(ref, '');   // le bail ouvert dans la fenêtre
+  const bail = _c && _c.bail;
   if (!bail) return;
   // Réparations locatives = total de la grille de vétusté. Retenue totale = réparations +
   // autres retenues (champ éditable : régul charges, etc. — AUDIT #2 2ᵉ passe, jamais inféré).
@@ -26331,8 +26360,12 @@ function _dgRestitRecalc(ref) {
 function _dgConfirmerRestitution() {
   const ref = el('ov-dg-restitution-ref')?.value;
   if (!ref) return;
-  const bail = DB.baux && DB.baux[ref];
-  if (!bail) return;
+  // Le bail ouvert dans la fenêtre (_dgOpenRestitution) — jamais DB.baux[ref] relu ici : après une relocation
+  // c'est le bail du NOUVEAU locataire, après une clôture un tombstone.
+  const _c = (_dgRestitCible && _dgRestitCible.ref === ref) ? _dgRestitCible : _dgBailCible(ref, '');
+  const bail = _c && _c.bail;
+  if (!bail || bail._deleted) { showToast('Bail introuvable — rouvrir la restitution depuis le bien.', 'err'); return; }
+  const _nomLoc = bail.nom || (bail.locataires && bail.locataires[0] && bail.locataires[0].nom) || '—';
   // Réparations = total de la grille de vétusté. Retenue totale = réparations + part régul
   // préservée (AUDIT #2 : ne pas effacer la retenue de charges posée à la clôture).
   const vg = window.computeVetusteTotal ? window.computeVetusteTotal(_dgVgRows, _dgVgCtx) : { total: 0 };
@@ -26394,11 +26427,13 @@ function _dgConfirmerRestitution() {
   }
   saveDB();
   closeM('ov-dg-restitution');
+  _dgRestitCible = null;
   showToast(dateRestitution
-    ? `✓ DG restitué : ${fmt(montantRestitue)} à ${bail.nom||'—'}`
-    : `Restitution enregistrée SANS date : ${fmt(montantRestitue)} à ${bail.nom||'—'} — le bail reste « à restituer » tant que la date du virement manque.`,
+    ? `✓ DG restitué : ${fmt(montantRestitue)} à ${_nomLoc}`
+    : `Restitution enregistrée SANS date : ${fmt(montantRestitue)} à ${_nomLoc} — le bail reste « à restituer » tant que la date du virement manque.`,
     dateRestitution ? 'ok' : 'warn', dateRestitution ? 4500 : 8000);
   if (typeof _rPeriodPage === 'function') setTimeout(() => _rPeriodPage(), 200);
+  try { if (typeof rLogFiche === 'function' && typeof _currentLogFicheRef !== 'undefined' && _currentLogFicheRef === ref) rLogFiche(); } catch (e) {}
 }
 
 /** Phase B1 — Vue "Impayés actifs" : ouvre une modale qui liste tous les baux avec impayés. */

@@ -106,6 +106,7 @@ import {
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
 import { bailLoueAu } from './core/fin-occupation.js';
+import { bailHistCle } from './core/store-mapping.js';
 import { duMois, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, finOccupationBail, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import { computeEntretienStatut } from './core/entretien-statut.js';
@@ -546,6 +547,7 @@ window.duMoisFromRaw = duMoisFromRaw;
 window.duMoisSuiviFromRaw = duMoisSuiviFromRaw;
 window.bailsFromRaw = bailsFromRaw;
 window.finOccupationBail = finOccupationBail;   // LA fin d'occupation d'un bail (lue par _bailFinOccupation, inline)
+window.bailHistCle = bailHistCle;   // identité d'un bail archivé (= id de sa ligne cloud) : restitution du dépôt sur le bail EXACT
 window.bailLoueAu = bailLoueAu;   // LE statut loué / vacant d'un lot (décision Didier 06/10), lu par _bienIsBailActif
 // Même piège que l'historique IRL ci-dessus (le miroir rendait []), mais AUCUN impact aujourd'hui :
 // ce câblage n'a pas de consommateur. Le seul appelant de `_baremeOfLot` est `loyer-du-mois.js`

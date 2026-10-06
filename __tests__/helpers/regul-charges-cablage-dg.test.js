@@ -81,7 +81,7 @@ function monter(sc, noms) {
     _auditLog: () => {}, _refreshAfterMutation: () => {}, _rPeriodPage: () => {}, setTimeout: () => {},
     _calculerSoldeDG: DG._calculerSoldeDG, _dgStatut: DG._dgStatut, _calculerDelaiRestitution: DG._calculerDelaiRestitution,
     _dgVgEntreeDate: () => '', _dgVgSeedFromEdl: () => [], _dgVgRender: () => {},
-    _dgVgCtx: null, _dgVgRows: [], _dgAutresRetenues: 0,
+    _dgVgCtx: null, _dgVgRows: [], _dgAutresRetenues: 0, _dgRestitCible: null,   // variable de script (app-part2) : bail ouvert dans la fenêtre de restitution
     _rgClotureImpayes: W._rgClotureImpayes, _DEPART_ACOMPTE_CAT: 'Acompte de charges (départ)',
     _forfaitAvenantsDuBail: () => undefined, _isPhone: () => false, _rgIsValidated: () => false,
     _rgJustifFactures: () => [], _rgForfaitRef: () => ({ citation: '' }), _ensureRegulPhCss: () => {},
@@ -127,7 +127,7 @@ describe('2 · régularisation (computeRegul) — départ déclaré au 31/08', (
 });
 
 describe('3 · étape régularisation ET étape restitution du DG : un seul solde de tout compte', () => {
-  const NOMS = [...CHAINE_REGUL, '_rgImmRegime', '_rgYearChargesDetail', '_rgN1Charges', '_occNonForfaitJours', '_rgClotureCompute', '_dgOpenRestitution'];
+  const NOMS = [...CHAINE_REGUL, '_rgImmRegime', '_rgYearChargesDetail', '_rgN1Charges', '_occNonForfaitJours', '_rgClotureCompute', '_dgOpenRestitution', '_dgBailCible', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree'];
   it('départ déclaré : impayés identiques des deux côtés (0 €), 500 € à restituer', () => {
     const { fn, els } = monter(DEPART(), NOMS);
     const c = fn._rgClotureCompute(REF);
@@ -150,13 +150,13 @@ describe('3 · étape régularisation ET étape restitution du DG : un seul sold
 
 describe('4 · _dgRestitRecalc — pénalité art. 22 et solde affichés', () => {
   it('tacite reconduction : aucune pénalité (aucune sortie), solde 0 €', () => {
-    const { fn, els } = monter(TACITE(), ['_bailTypeHasTacite', '_bailFinOccupation', '_dgRestitRecalc']);
+    const { fn, els } = monter(TACITE(), ['_bailTypeHasTacite', '_bailFinOccupation', '_dgRestitRecalc', '_dgBailCible', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree']);
     fn._dgRestitRecalc(REF);
     expect(els['dg-restit-pen-row'].hidden).toBe(true);
     expect(els['dg-restit-solde-display'].textContent).toBe('0.00 €');
   });
   it('départ déclaré au 31/08, DG non restitué au 05/10 : la pénalité court depuis le départ, pas depuis l\'échéance', () => {
-    const { fn, els } = monter(DEPART(), ['_bailTypeHasTacite', '_bailFinOccupation', '_dgRestitRecalc']);
+    const { fn, els } = monter(DEPART(), ['_bailTypeHasTacite', '_bailFinOccupation', '_dgRestitRecalc', '_dgBailCible', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree']);
     fn._dgRestitRecalc(REF);
     // délai 1 mois → date limite 30/09 ; au 05/10 : 1 mois entamé × 10 % × 500 € = 50 €
     expect(els['dg-restit-pen-amt'].textContent).toBe('+ 50.00 €');
@@ -166,7 +166,7 @@ describe('4 · _dgRestitRecalc — pénalité art. 22 et solde affichés', () =>
 
 describe('5 · _dgConfirmerRestitution — montant ÉCRIT sur le bail', () => {
   const confirmer = (sc) => {
-    const { fn, els } = monter(sc, ['_bailTypeHasTacite', '_bailFinOccupation', '_dgConfirmerRestitution']);
+    const { fn, els } = monter(sc, ['_bailTypeHasTacite', '_bailFinOccupation', '_dgConfirmerRestitution', '_dgBailCible', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree']);
     els['ov-dg-restitution-ref'] = { value: REF };
     fn._dgConfirmerRestitution();
     return sc.DB.baux[REF];
