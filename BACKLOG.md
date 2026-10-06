@@ -495,6 +495,7 @@ Gates : **3 218 tests / 121 fichiers**, inline 5|0, CRLF 0 LF nu, parcours 6 pag
 - **3 familles 🔴 ouvertes** → chantiers **C1** (signature à distance : identité du signataire non vérifiée côté serveur — c'est P0-5, en prod), **C2** (échappement : sites ratés par le sweep v15.633 + fenêtre du bail), **C3** (écriture client sur l'appartenance aux espaces). ~6-7 j à eux trois.
 - **18 🟠 / 🟡** → chantiers C4 (intégrité docs signés, 3-4 j) · C5 (auth : confirmation email, mots de passe, dashboard, 1-1,5 j) · C6 (défense en profondeur base, 1,5 j) · C7 (exposition publique + CI, 0,5-1 j) · C8 (relais, 1-1,5 j) · C9 (RGPD/conformité, 2-3 j). Total ≈ 16-20 j.
 - ⏳ **DÉCISION DIDIER avant le 14/10** : lancer la signature à distance seulement avec C1 (Resend + OTP obligatoire), **ou** la restreindre d'ici là (un seul signataire distant, pas d'espace partagé).
+- 📧 **06/10 Didier : `no-reply@propryo.fr` disponible** → expéditeur unique pour l'OTP de signature (C1, remplace `code@propryo.fr` prévu dans `relay/wrangler.toml`) **et** pour le SMTP de Supabase Auth (débloque « Confirm email », C5). L'option A (C1 complet avant le 14/10) devient faisable. Reste à confirmer : domaine `propryo.fr` vérifié chez Resend (SPF/DKIM/DMARC) et clé API créée.
 - ⏳ **Didier** : checklist dashboard (§6 du rapport : hook d'inscription, Confirm email, mots de passe/HIBP, variables déployées du relais, permissions GitHub Actions) ; nature réelle de `exemple-releve-bancaire.csv` ; GO pour retirer de `origin/audit/securite` l'historique déjà publié.
 
 **Historique (cadrage 28/08) :**

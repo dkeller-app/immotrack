@@ -13,6 +13,9 @@ Demande-lui d'abord laquelle des deux options il retient pour le 14/10 :
 - **A** : C1 complet avant le lancement (domaine + Resend nécessaires) ;
 - **B** : restriction temporaire en attendant (un seul signataire distant par session, pas d'envoi depuis un espace partagé), puis C1.
 
+## Expéditeur e-mail
+`no-reply@propryo.fr` est disponible (Didier, 06/10) : c'est l'`EMAIL_FROM` de prod du relais (à la place de `code@propryo.fr`), et le même expéditeur servira au SMTP de Supabase Auth (chantier C5). Prérequis à vérifier avec Didier avant tout code : domaine vérifié chez Resend (SPF, DKIM, DMARC), clé API posée en secret Cloudflare (`wrangler secret put RESEND_API_KEY`, jamais dans un fichier), envoi de test reçu hors spam (Gmail, Outlook).
+
 ## Objectif (ce qui doit être vrai à la fin)
 1. Le serveur exige une **preuve de possession de la boîte e-mail** du signataire courant avant d'accepter sa signature. Ça doit tenir **fail-closed** : une configuration de test hors localhost refuse de signer et ne divulgue jamais de code.
 2. La configuration **réellement déployée** est vérifiable automatiquement (route de santé + contrôle côté app et en CI). Un `wrangler deploy` sans environnement ne peut pas réinstaller la configuration de test.
