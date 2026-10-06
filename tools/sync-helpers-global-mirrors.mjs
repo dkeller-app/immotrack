@@ -47,6 +47,18 @@ const PAIRS = [
     ]
   },
   {
+    // DÉLAI DE RESTITUTION DU DG (art. 22) — LA règle unique (js/core/dg-delai.js). Le mirror la donne
+    // aussi aux copies inline de _dgStatut / _calculerDelaiRestitution (app-part2, chemin file://), à
+    // l'assistant de départ, à la tâche de l'Accueil et à la fenêtre de restitution : window.DgDelai.
+    name: 'dg-delai',
+    src: 'js/core/dg-delai.js',
+    dst: 'js/helpers/dg-delai.global.js',
+    globalName: 'DgDelai',
+    exports: '*',
+    // Pas de sanity « function count » : `ajouterMois` est importé de bail-echeance.js (lu dans
+    // BailEcheance, chargé avant) → le trampoline généré ajoute une fonction (comme doc-native).
+  },
+  {
     // PARAPHE-UNIQUE (v15.709) — une image de paraphe par signataire + lecteur des deux formes.
     // L'app lit window.BailParaphes ; la popup de signature en reçoit les sources par toString().
     name: 'bail-paraphes',
@@ -418,6 +430,7 @@ for (const p of PAIRS) {
                             depModule === 'doc-brand' ? 'DocBrand' :
                             depModule === 'montant-doc' ? 'MontantDoc' :
                             depModule === 'bail-duree' ? 'BailDuree' :
+                            depModule === 'bail-echeance' ? 'BailEcheance' :
                             null;
       if (!moduleGlobal) throw new Error(`[${p.name}] Dépendance inconnue : ./${depModule}.js`);
       depBlocks.push(`  // ─── DÉPENDANCES IMPORTÉES depuis ./${depModule}.js (résolues via global) ───\n` +

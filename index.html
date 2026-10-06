@@ -156,6 +156,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/bail-content-hash.js">
 <link rel="modulepreload" href="js/core/bail-echeance.js">
 <link rel="modulepreload" href="js/core/entite-doublon.js">
+<link rel="modulepreload" href="js/core/dg-delai.js">
 <!-- modulepreload:end -->
 <!-- PARAPHE-UNIQUE (v15.710) : une image de paraphe par signataire + lecteur des deux formes (window.BailParaphes, source js/core/bail-paraphes.js). -->
 <script src="js/helpers/bail-paraphes.global.js?v=bc8c13ad" defer></script>
@@ -4516,11 +4517,13 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
      Remplace la RÉPLIQUE INLINE des helpers _bank* qui vivait dans ce fichier
      (bug 3 du CDC-IMPORT : moteur en double, divergence garantie à terme). -->
 <script src="js/helpers/bank-import.global.js?v=a5d8725d" defer></script>
+<!-- DÉLAI DE RESTITUTION DU DG (art. 22) — mirror généré depuis js/core/dg-delai.js : window.DgDelai. -->
+<script src="js/helpers/dg-delai.global.js?v=4dbf0282" defer></script>
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=8664ff29" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=6b1e339c" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=9ee3a990" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=105337b7" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=ea8eb4d4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

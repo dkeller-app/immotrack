@@ -9125,9 +9125,12 @@ function _computeUnifiedTodo(ctx) {
   // Échéance du dépôt (art. 22) : sévérité + texte, partagés par le bail en cours et les baux archivés.
   const _dgEcheance = (dl) => {
     if(!dl) return { severity:'info', score:58, txt:'' };
-    if(dl.jours < 0)  return { severity:'red', score:97, txt:' — DG en retard ' + (-dl.jours) + ' j (majoration)' };
-    if(dl.jours <= 15) return { severity:'ora', score:78, txt:' — DG à restituer avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')' };
-    return { severity:'info', score:58, txt:' — DG avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')' };
+    // Texte unique (DgDelai.texteEtatDelai, cf _departDeadlineDG) ; urgence comptée jusqu'à la PREMIÈRE date dite.
+    const txt = ' — DG : ' + dl.texte;
+    if(dl.etat === 'en_retard') return { severity:'red', score:97, txt };
+    if(dl.etat === 'depassement_possible') return { severity:'ora', score:85, txt };
+    const j = (dl.provisional && dl.joursSiConforme != null) ? dl.joursSiConforme : dl.jours;
+    return j <= 15 ? { severity:'ora', score:78, txt } : { severity:'info', score:58, txt };
   };
   if(typeof _departState === 'function' && DB.baux) {
     scopeLogs.forEach(l => {
@@ -13678,7 +13681,7 @@ function rBaux() {
       let depDgHtml = '';
       if (depState && depState.deadline && !(depState.steps.find(s => s.key === 'dg') || {}).done) {
         const dl = depState.deadline;
-        depDgHtml = ` · <span class="loc-dep-dg${dl.jours < 0 ? ' late' : ''}">DG ${dl.jours >= 0 ? ('J‑' + dl.jours) : ('retard ' + (-dl.jours) + 'j')}</span>`;
+        depDgHtml = ` · <span class="loc-dep-dg${dl.etat === 'en_retard' ? ' late' : ''}">DG ${escHtml(dl.texteCourt)}</span>`;
       }
       const echCellHtml = depState
         ? `<div class="loc-ech-b loc-dep-cell" title="Départ en cours — ouvrir l'assistant" onclick="event.stopPropagation();_departOuvrir('${refEscJs}')">${_ICON_DEPART} Départ ${depState.doneCount}/${depState.total}${depDgHtml}</div>`
@@ -23494,29 +23497,21 @@ function _edlSortieDuBail(bail) {
   return edls.filter(e => !e._deleted && e.logement === bail.ref && e.type === 'Sortie' && (!d0 || !e.date || String(e.date) >= d0))
     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0] || null;
 }
+// Échéance de restitution du DG (art. 22) — LA règle de js/core/dg-delai.js (window.DgDelai) : point de départ =
+// la remise des clés (déclarée au départ, sinon la date de l'EDL de sortie, la fin effective, la fin) ; 1 mois si
+// l'EDL de sortie de CE bail est conforme, 2 mois sinon ; conformité INCONNUE (pas d'EDL de sortie) → les deux
+// maximums sont dits, l'échéance applicable est 2 mois (`provisional`). Jours comptés à la date LOCALE.
+// L'EDL de sortie de CE bail (entre son début et le début du bail suivant) — jamais celui d'un autre locataire du lot.
 function _departDeadlineDG(bail){
-  const d = bail && bail.depart;
-  const sortie = (d && d.dateSortie) || (bail && bail.finEffective) || '';
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(sortie);
-  if(!m) return null;
-  // Tant qu'aucun EDL de sortie n'existe, le délai n'est pas figé (_calculerDelaiRestitution renvoie 1
-  // par défaut) → on affiche le MAXIMUM légal (2 mois) pour ne pas annoncer une échéance trop optimiste.
-  // Une fois l'EDL réalisé, _calculerDelaiRestitution tranche (1 mois conforme / 2 mois retenues).
-  // L'EDL de sortie de CE bail (entre son début et le début du bail suivant) — jamais celui d'un autre locataire du lot.
-  const edlExists = !!_edlSortieDuBail(bail);
-  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, _edlsDuBail(bail)) : 2) : 2;
-  // Construction locale (sans suffixe TZ) puis ajout calendaire → évite le décalage UTC de toISOString().
-  const day = +m[3];
-  const lim = new Date(+m[1], +m[2]-1, day); lim.setMonth(lim.getMonth()+mois);
-  // Débordement de fin de mois (ex. 31/01 + 1 mois ≠ 31/02) → dernier jour du mois cible (art. 641 CPC).
-  if(lim.getDate() !== day) lim.setDate(0);
+  const D = (typeof window !== 'undefined') ? window.DgDelai : null;
+  if(!bail || !D) return null;
+  const ech = D.echeancesRestitution(bail, _edlSortieDuBail(bail));
   const todayStr = (typeof _todayIsoLocal==='function') ? _todayIsoLocal() : new Date().toISOString().slice(0,10);   // date LOCALE (td() = UTC)
-  const tm = /^(\d{4})-(\d{2})-(\d{2})/.exec(todayStr);
-  // Écart en jours sur composants purs (Date.UTC) → insensible au fuseau / DST.
-  const todayUTC = tm ? Date.UTC(+tm[1], +tm[2]-1, +tm[3]) : Date.now();
-  const limUTC = Date.UTC(lim.getFullYear(), lim.getMonth(), lim.getDate());
-  const jours = Math.round((limUTC - todayUTC) / 86400000);
-  return { iso: (typeof _isoLocal==='function') ? _isoLocal(lim) : sortie, mois, jours, provisional: !edlExists };
+  const et = D.etatDelai(ech, todayStr);
+  if(!ech || !et) return null;
+  return { iso: ech.limite, mois: ech.delaiMois, jours: et.jours, provisional: ech.conforme === null, conforme: ech.conforme,
+    isoSiConforme: ech.limiteSiConforme, joursSiConforme: et.joursSiConforme, etat: et.etat, remise: ech.remise, source: ech.source,
+    texte: D.texteEtatDelai(ech, et, fd), texteCourt: D.texteEtatDelai(ech, et, fd, true) };
 }
 
 // Dérive l'état des 6 étapes depuis les signaux existants.
@@ -23524,13 +23519,10 @@ function _departState(bail){
   const ref = bail.ref;
   const log = (DB.logements||[]).find(l=>l.ref===ref) || {};
   const reg = (typeof _rgImmRegime==='function') ? _rgImmRegime({bail, imm: log.imm||''}) : {collectif:true, applies20:true, label:''};
-  // P9 (§7bis) : même résolveur unique que _calculerDelaiRestitution (le plus récent).
-  const _P9 = (typeof window !== 'undefined') ? window.EdlParcours : null;
-  const edlSortie = _P9
-    ? _P9.edlSortieQuiFaitFoi(bail, DB.edl||[])
-    : ((DB.edl||[]).find(e=>e && !e._deleted && e.logement===ref && e.type==='Sortie') || null);
-  const delaiMois = (typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, DB.edl) : 2;
+  // P9 (§7bis) : l'EDL de sortie de CE bail (résolveur unique, borné au bail suivant) — celui du délai.
+  const edlSortie = _edlSortieDuBail(bail);
   const deadline = _departDeadlineDG(bail);
+  const delaiMois = deadline ? deadline.mois : 2;
   const d = bail.depart || null;
   const jsRef = _lyQ(ref);
   const congeFait   = !!(d && d.dateSortie);
@@ -23554,8 +23546,8 @@ function _departState(bail){
     sub: edlFait ? 'EDL de sortie enregistré · comparaison entrée/sortie, relevé compteurs, clés remises.'
                  : "Réaliser l'EDL de sortie (comparé à l'entrée) et relever les compteurs.",
     alert: edlFait
-      ? (delaiMois===1 ? '✅ Conforme → délai de restitution du DG = 1 mois.' : '⚠ Retenues / dégradations → délai de restitution du DG = 2 mois.')
-      : 'Le délai légal de restitution du DG (1 ou 2 mois) part de la remise des clés.',
+      ? (delaiMois===1 ? "✅ EDL de sortie conforme à l'entrée → délai de restitution du DG = 1 mois." : "⚠ Dégradations relevées à l'EDL de sortie → délai de restitution du DG = 2 mois.")
+      : "Le délai de restitution du DG part de la remise des clés : 1 mois si l'EDL de sortie est conforme à l'entrée, 2 mois sinon.",
     done: edlFait,
     cta: [{label: edlFait?"Voir l'EDL de sortie":"Faire l'EDL de sortie", ghost: edlFait, on: edlFait?`closeM('ov-depart');go('edl')`:`closeM('ov-depart');openNewEDLForLog('${jsRef}','Sortie')`}]
   });
@@ -23688,9 +23680,11 @@ function _departRenderStepper(ref){
   const dgDone = (st.steps.find(s=>s.key==='dg')||{}).done;
   let dl='';
   if(st.deadline && !dgDone){
-    const late=st.deadline.jours<0;
-    const qual = st.deadline.provisional ? "maximum légal — figé après l'EDL de sortie" : (st.deadline.mois===1 ? 'EDL conforme' : 'retenues / dégradations');
-    dl=`<div class="dep-dl${late?' late':''}"><span style="font-size:16px">⏰</span><div><b>Dépôt de garantie à restituer avant le ${fd(st.deadline.iso)}</b> <span class="small">— délai ${st.deadline.mois} mois (${qual}) · ${late?('retard '+(-st.deadline.jours)+' j — majoration de 10 % du loyer mensuel par mois entamé'):('J‑'+st.deadline.jours)}</span></div></div>`;
+    // Texte unique (DgDelai.texteEtatDelai) : les deux maximums tant que la conformité est inconnue, « dépassement
+    // possible » entre 1 et 2 mois, « en retard » au-delà de l'échéance applicable.
+    const late = st.deadline.etat==='en_retard';
+    const srcTxt = st.deadline.source==='remise' ? '' : ` <span class="small">— remise des clés non déclarée : point de départ = ${st.deadline.source==='edl' ? "date de l'EDL de sortie" : 'fin du bail'} (${fd(st.deadline.remise)})</span>`;
+    dl=`<div class="dep-dl${late?' late':''}"><span style="font-size:16px">⏰</span><div><b>Dépôt de garantie : ${escHtml(st.deadline.texte)}</b>${srcTxt}</div></div>`;
   }
   const pillMap={done:['ok','fait'],cur:['cur','à faire'],todo:['todo','à venir'],lock:['lock','bloqué'],wait:['wait','en attente']};
   const stepsHtml=st.steps.map(s=>{

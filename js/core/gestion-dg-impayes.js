@@ -24,6 +24,8 @@
 import { edlSortieQuiFaitFoi } from './edl-parcours.js';
 // Le lecteur du DB VIVANT (getter `window.__immoGetDB`, repli sur le miroir) — jamais `window.DB` nu.
 import { appDbFrom } from './utils.js';
+// LA règle du délai de restitution (art. 22) : remise des clés, conformité, échéances, majoration.
+import { conformiteEdlSortie, echeancesRestitution, etatDelai, penaliteRetard } from './dg-delai.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Bloc A — Gestion DG
@@ -35,18 +37,49 @@ const DG_STATUS = {
   COMPLET:  'complet',            // versé >= dû
   A_RESTITUER: 'a_restituer',     // bail clôturé, DG à restituer dans délai
   RESTITUE: 'restitue',           // DG restitué (intégral ou partiel)
-  EN_RETARD: 'en_retard'          // bail clôturé, délai légal dépassé
+  EN_RETARD: 'en_retard',         // bail clôturé, délai légal dépassé
+  // Conformité de l'EDL de sortie INCONNUE, entre l'échéance d'un mois et celle de deux mois : en retard
+  // SI l'EDL de sortie est conforme, dans les temps sinon (art. 22 — pilotage 06/10).
+  DEPASSEMENT_POSSIBLE: 'depassement_possible'
 };
+
+const _isoDe = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+/** dateRef (Date | 'AAAA-MM-JJ' | rien = aujourd'hui, date LOCALE) → 'AAAA-MM-JJ'. */
+function _isoRef(dateRef) {
+  if (dateRef instanceof Date) return Number.isNaN(dateRef.getTime()) ? _isoDe(new Date()) : _isoDe(dateRef);
+  const m = /^\d{4}-\d{2}-\d{2}/.exec(String(dateRef || ''));
+  return m ? m[0] : _isoDe(new Date());
+}
+
+/**
+ * L'EDL de sortie qui fait foi pour CE bail. `edls` fourni : le résolveur unique dessus (l'appelant les a
+ * déjà bornés au bail). Sinon : `_edlSortieDuBail` de l'app (EDL d'avant le début du bail SUIVANT — après
+ * une relocation, la sortie du nouveau locataire n'est pas celle de l'ancien), à défaut le DB vivant.
+ */
+function _edlSortieDe(bail, edls) {
+  if (edls) return edlSortieQuiFaitFoi(bail, edls);
+  const W = (typeof window !== 'undefined') ? window : null;
+  if (W && typeof W._edlSortieDuBail === 'function') return W._edlSortieDuBail(bail);
+  return edlSortieQuiFaitFoi(bail, (appDbFrom(W)?.edl) || []);
+}
+
+/** Échéances de restitution d'un bail (dg-delai.js) avec l'EDL de sortie de CE bail. */
+export function _dgEcheances(bail, edls) {
+  return bail ? echeancesRestitution(bail, _edlSortieDe(bail, edls)) : null;
+}
 
 /**
  * Calcule le statut DG d'un bail.
- * @param {object} bail - { dg, dgPaid, dgDateVersement, dgRestitueAt, cloture, finEffective }
+ * Bail clôturé : délai de restitution (art. 22) lu dans LA règle (dg-delai.js) — point de départ = remise des
+ * clés (déclarée, sinon date de l'EDL de sortie, fin effective, fin), conformité = l'EDL de sortie de CE bail.
+ * @param {object} bail - { dg, dgPaid, dgRestitueAt, cloture, depart, finEffective, fin }
  * @param {Date|string} [dateRef=today]
- * @returns {{ statut, dgDu, dgPaid, soldeRestant, joursRestants?, joursRetard? }}
+ * @param {Array} [edls] - EDL du bail (sinon résolus : _edlSortieDuBail)
+ * @returns {{ statut, dgDu, dgPaid, soldeRestant, joursRestants?, joursRetard?, delaiMois?, limite?,
+ *             limiteSiConforme?, limiteSinon?, conforme?, remise? }}
  */
-export function _dgStatut(bail, dateRef) {
+export function _dgStatut(bail, dateRef, edls) {
   if (!bail) return { statut: DG_STATUS.MANQUANT, dgDu: 0, dgPaid: 0, soldeRestant: 0 };
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||new Date().toISOString().slice(0,10)) + 'T00:00:00');
   const dgDu = Number(bail.dg) || 0;
   const dgPaid = Number(bail.dgPaid) || 0;
   const soldeRestant = dgDu - dgPaid;
@@ -55,18 +88,15 @@ export function _dgStatut(bail, dateRef) {
     return { statut: DG_STATUS.RESTITUE, dgDu, dgPaid, soldeRestant: 0 };
   }
 
-  // Bail clôturé (fin effective passée) → analyse délai restitution
-  if (bail.cloture && bail.finEffective) {
-    const finDate = new Date(bail.finEffective + 'T23:59:59');
-    if (!Number.isNaN(finDate.getTime())) {
-      const delaiMois = _calculerDelaiRestitution(bail);
-      const dateLimite = new Date(finDate);
-      dateLimite.setMonth(dateLimite.getMonth() + delaiMois);
-      const joursRestants = Math.floor((dateLimite.getTime() - today.getTime()) / 86400000);
-      if (joursRestants < 0) {
-        return { statut: DG_STATUS.EN_RETARD, dgDu, dgPaid, soldeRestant, joursRetard: -joursRestants, delaiMois };
-      }
-      return { statut: DG_STATUS.A_RESTITUER, dgDu, dgPaid, soldeRestant, joursRestants, delaiMois };
+  // Bail clôturé → analyse du délai de restitution
+  if (bail.cloture) {
+    const ech = _dgEcheances(bail, edls);
+    const et = etatDelai(ech, _isoRef(dateRef));
+    if (ech && et) {
+      const info = { dgDu, dgPaid, soldeRestant, delaiMois: ech.delaiMois, limite: ech.limite, limiteSiConforme: ech.limiteSiConforme, limiteSinon: ech.limiteSinon, conforme: ech.conforme, remise: ech.remise };
+      if (et.etat === 'en_retard') return { statut: DG_STATUS.EN_RETARD, ...info, joursRetard: et.joursRetard };
+      if (et.etat === 'depassement_possible') return { statut: DG_STATUS.DEPASSEMENT_POSSIBLE, ...info, joursRestants: et.jours };
+      return { statut: DG_STATUS.A_RESTITUER, ...info, joursRestants: et.jours };
     }
   }
 
@@ -77,37 +107,17 @@ export function _dgStatut(bail, dateRef) {
 }
 
 /**
- * Calcule le délai légal de restitution DG selon l'EDL de sortie.
- * Loi 89-462 art. 22 modifiée par ALUR 2014.
- *
+ * Délai APPLICABLE de restitution (art. 22) : 1 mois si l'EDL de sortie de CE bail est conforme à celui
+ * d'entrée, 2 mois sinon — et 2 mois tant que la conformité est inconnue (pas d'EDL de sortie : 2 mois est
+ * le seul maximum certain). Les retenues (`dgRetenu`) n'entrent plus en compte : une retenue pour loyer
+ * impayé ne rend pas l'état des lieux non conforme (pilotage 06/10). Règle : dg-delai.js.
  * @param {object} bail
- * @param {Array} [edls] - DB.edl pour chercher l'EDL sortie (optionnel)
- * @returns {1|2} - 1 mois si EDL sortie sans retenue, 2 mois sinon
+ * @param {Array} [edls] - EDL du bail (sinon résolus : _edlSortieDuBail)
+ * @returns {1|2}
  */
 export function _calculerDelaiRestitution(bail, edls) {
   if (!bail) return 2;
-  // Si le bail a une indication explicite de dégradations → 2 mois
-  if (Number(bail.dgRetenu) > 0) return 2;
-  // Si l'EDL sortie a des dégradations comparées à entrée → 2 mois.
-  // P9 : le plus récent de la fenêtre du bail (résolveur unique), pas le premier trouvé.
-  // Repli sur DB.edl quand l'appelant ne passe pas la collection — SANS lui, cette
-  // copie (qui fait autorité au runtime via main.js) recevait `edls=undefined` → résolveur
-  // null → la branche « dégradation → 2 mois » restait MORTE en prod. La copie inline avait
-  // déjà `edls || DB.edl` ; on aligne.
-  // ⚠️ Ce repli lisait `window.DB`, qui n'est qu'un MIROIR (posé par `__immoSetDB`, absent en
-  // session locale / sandbox, périmé après réassignation de `DB`) : la branche restait morte,
-  // exactement comme avant son « correctif ». `appDbFrom` lit le getter vivant.
-  const sourceEdls = edls || (appDbFrom(typeof window !== 'undefined' ? window : null)?.edl) || [];
-  const edlSortie = edlSortieQuiFaitFoi(bail, sourceEdls);
-  if (edlSortie) {
-    const hasDegradation = (edlSortie.pieces||[]).some(p =>
-      (p.elements||[]).some(el =>
-        el.etatS && el.etatS !== el.etatE && (el.etatS === 'Mauvais état' || (el.etatS === 'État d\'usage' && el.etatE === 'Bon état'))
-      )
-    );
-    if (hasDegradation) return 2;
-  }
-  return 1;
+  return conformiteEdlSortie(_edlSortieDe(bail, edls)) === true ? 1 : 2;
 }
 
 /**
@@ -144,67 +154,27 @@ export function _calculerSoldeDG(bail, mouvements) {
 }
 
 /**
- * Pénalité de retard de restitution du DG — article 22, loi 89-462 (mod. ALUR).
- * À défaut de restitution dans le délai légal, le bailleur doit au locataire une
- * majoration de 10 % du loyer mensuel EN PRINCIPAL (hors charges) par mois de retard
- * ENTAMÉ. Point de départ = remise des clés (bail.depart.dateSortie), sinon fin
- * effective. Exception légale : la pénalité n'est PAS due si le locataire n'a pas
- * communiqué sa nouvelle adresse (bail.dgAdresseNonCommuniquee).
+ * Pénalité de retard de restitution du DG — article 22, loi 89-462 (mod. ALUR) : « le dépôt de garantie
+ * restant dû au locataire est majoré d'une somme égale à 10 % du loyer mensuel en principal, pour chaque
+ * période mensuelle commencée en retard », majoration non due si le locataire n'a pas transmis l'adresse de
+ * son nouveau domicile (`bail.dgAdresseNonCommuniquee`). Calcul : dg-delai.js (`penaliteRetard`).
  *
- * La pénalité est au CRÉDIT du locataire (elle augmente ce que le bailleur doit) —
- * elle ne se retranche pas du dépôt.
+ * Elle court depuis l'échéance APPLICABLE (2 mois si la conformité de l'EDL de sortie est inconnue). Celle
+ * qui courrait depuis l'échéance d'un mois est rendue à part (`possible`) : elle se dit, elle ne
+ * s'additionne JAMAIS au solde. La pénalité est au CRÉDIT du locataire (elle ne se retranche pas du dépôt).
  *
- * @param {object} bail - { hc, depart:{dateSortie}, finEffective, fin, dgRestitueAt, dgRetenu, dgAdresseNonCommuniquee }
- * @param {Date|string} [dateRef=today] - date de restitution effective si dgRestitueAt absent (retard courant)
- * @returns {{ moisRetard, penalite, base, dateLimite, exclue, enRetard }}
+ * @param {object} bail - { hc, depart:{dateSortie}, finEffective, fin, dgRestitueAt, dgAdresseNonCommuniquee }
+ * @param {Date|string} [dateRef=today] - date de restitution si dgRestitueAt absent (retard courant)
+ * @param {Array} [edls] - EDL du bail (sinon résolus : _edlSortieDuBail)
+ * @returns {{ moisRetard, penalite, base, dateLimite, exclue, enRetard, possible }}
  */
-export function _penaliteRetardDG(bail, dateRef) {
-  const out = { moisRetard: 0, penalite: 0, base: 0, dateLimite: null, exclue: false, enRetard: false };
-  if (!bail) return out;
-  const sortieISO = (bail.depart && bail.depart.dateSortie) || bail.finEffective || bail.fin;
-  if (!sortieISO) return out;
-  const finDate = new Date(String(sortieISO).slice(0, 10) + 'T00:00:00');
-  if (Number.isNaN(finDate.getTime())) return out;
-
-  // Ajout calendaire de mois avec recadrage FIN DE MOIS (art. 641 CPC) : 31/01 + 1 mois
-  // → 28/02, pas 03/03. MÊME recadrage que _departDeadlineDG (index.html) — donc même date limite
-  // dès lors que le délai retenu est le même. Nuance : _departDeadlineDG force 2 mois tant qu'aucun
-  // EDL de sortie n'existe (affichage prudent) ; ici on suit _calculerDelaiRestitution (1 ou 2). En
-  // pratique la pénalité se calcule une fois le départ fait (EDL présent), donc les deux concordent.
-  const _addMonthsClamped = (base, k) => {
-    const day = base.getDate();
-    const d = new Date(base);
-    d.setMonth(d.getMonth() + k);
-    if (d.getDate() !== day) d.setDate(0); // dernier jour du mois cible
-    return d;
-  };
-  const _iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-
-  const delaiMois = _calculerDelaiRestitution(bail);
-  const dateLimite = _addMonthsClamped(finDate, delaiMois);
-  out.dateLimite = _iso(dateLimite);
-
-  // Date de restitution effective : la date enregistrée fait foi ; sinon aujourd'hui
-  // (le retard court tant que le DG n'est pas restitué).
-  const today = dateRef instanceof Date ? dateRef
-    : new Date(String(dateRef || new Date().toISOString().slice(0, 10)) + 'T00:00:00');
-  const restit = bail.dgRestitueAt
-    ? new Date(String(bail.dgRestitueAt).slice(0, 10) + 'T00:00:00')
-    : today;
-  if (Number.isNaN(restit.getTime()) || restit <= dateLimite) return out; // pas de retard
-
-  out.enRetard = true;
-  // Mois ENTAMÉS = mois pleins révolus + 1 si un reste subsiste (mois commencé). On compte les
-  // mois pleins via l'ajout calendaire recadré, puis on ajoute le mois entamé s'il y a un reste.
-  let c = 0;
-  while (_addMonthsClamped(dateLimite, c + 1).getTime() <= restit.getTime()) c++;
-  const exact = _addMonthsClamped(dateLimite, c).getTime() === restit.getTime();
-  out.moisRetard = exact ? Math.max(1, c) : c + 1;
-
-  out.base = Number(bail.hc) || 0; // loyer en principal (hors charges)
-  out.exclue = !!bail.dgAdresseNonCommuniquee;
-  out.penalite = out.exclue ? 0 : Math.round(out.moisRetard * 0.10 * out.base * 100) / 100;
-  return out;
+export function _penaliteRetardDG(bail, dateRef, edls) {
+  const vide = { moisRetard: 0, penalite: 0, base: 0, dateLimite: null, exclue: false, enRetard: false, possible: null };
+  if (!bail) return vide;
+  const ech = _dgEcheances(bail, edls);
+  if (!ech) return vide;
+  const restitution = bail.dgRestitueAt ? String(bail.dgRestitueAt).slice(0, 10) : _isoRef(dateRef);
+  return penaliteRetard(ech, { loyerPrincipal: Number(bail.hc) || 0, restitution, adresseNonCommuniquee: !!bail.dgAdresseNonCommuniquee });
 }
 
 /** Cumul des loyers impayés sur toute la durée du bail.

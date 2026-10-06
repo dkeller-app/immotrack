@@ -261,7 +261,8 @@ function rEmailsPage(tab) {
 
 const DG_STATUS = {
   MANQUANT:'manquant', PARTIEL:'partiel', COMPLET:'complet',
-  A_RESTITUER:'a_restituer', RESTITUE:'restitue', EN_RETARD:'en_retard'
+  A_RESTITUER:'a_restituer', RESTITUE:'restitue', EN_RETARD:'en_retard',
+  DEPASSEMENT_POSSIBLE:'depassement_possible'   // conformité de l'EDL de sortie inconnue, entre 1 et 2 mois (art. 22)
 };
 const PROCEDURE_ETAT = {
   AUCUNE:'aucune', MISE_EN_DEMEURE:'mise_en_demeure',
@@ -269,22 +270,25 @@ const PROCEDURE_ETAT = {
   JUGEMENT:'jugement', CLOTUREE:'cloturee'
 };
 
+// Copies du chemin file:// (le module js/core/gestion-dg-impayes.js les remplace au chargement) : le délai de
+// restitution y est lu dans LA MÊME règle — window.DgDelai, mirror de js/core/dg-delai.js — avec l'EDL de sortie
+// de CE bail (_edlSortieDuBail). Aucune arithmétique de délai ici.
 function _dgStatut(bail, dateRef) {
   if (!bail) return { statut: DG_STATUS.MANQUANT, dgDu: 0, dgPaid: 0, soldeRestant: 0 };
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
   const dgDu = Number(bail.dg) || 0;
   const dgPaid = Number(bail.dgPaid) || 0;
   const soldeRestant = dgDu - dgPaid;
   if (bail.dgRestitueAt) return { statut: DG_STATUS.RESTITUE, dgDu, dgPaid, soldeRestant: 0 };
-  if (bail.cloture && bail.finEffective) {
-    const finDate = new Date(bail.finEffective + 'T23:59:59');
-    if (!Number.isNaN(finDate.getTime())) {
-      const delaiMois = _calculerDelaiRestitution(bail);
-      const dateLimite = new Date(finDate);
-      dateLimite.setMonth(dateLimite.getMonth() + delaiMois);
-      const joursRestants = Math.floor((dateLimite.getTime() - today.getTime()) / 86400000);
-      if (joursRestants < 0) return { statut: DG_STATUS.EN_RETARD, dgDu, dgPaid, soldeRestant, joursRetard: -joursRestants, delaiMois };
-      return { statut: DG_STATUS.A_RESTITUER, dgDu, dgPaid, soldeRestant, joursRestants, delaiMois };
+  const D = (typeof window !== 'undefined') ? window.DgDelai : null;
+  if (bail.cloture && D) {
+    const ech = D.echeancesRestitution(bail, _edlSortieDuBail(bail));
+    const ref = (typeof dateRef === 'string' && dateRef) ? dateRef.slice(0, 10) : (dateRef instanceof Date ? _isoLocal(dateRef) : _todayIsoLocal());
+    const et = D.etatDelai(ech, ref);
+    if (ech && et) {
+      const info = { dgDu, dgPaid, soldeRestant, delaiMois: ech.delaiMois, limite: ech.limite, limiteSiConforme: ech.limiteSiConforme, limiteSinon: ech.limiteSinon, conforme: ech.conforme, remise: ech.remise, joursSiConforme: et.joursSiConforme };
+      if (et.etat === 'en_retard') return { statut: DG_STATUS.EN_RETARD, ...info, joursRetard: et.joursRetard };
+      if (et.etat === 'depassement_possible') return { statut: DG_STATUS.DEPASSEMENT_POSSIBLE, ...info, joursRestants: et.jours };
+      return { statut: DG_STATUS.A_RESTITUER, ...info, joursRestants: et.jours };
     }
   }
   if (dgPaid <= 0 && dgDu > 0) return { statut: DG_STATUS.MANQUANT, dgDu, dgPaid, soldeRestant };
@@ -301,25 +305,12 @@ function _dgStatutDuBail(bail) {
   return _dgStatut(Object.assign({}, bail, { cloture: true, finEffective: String(fin).slice(0, 10) }));
 }
 
-function _calculerDelaiRestitution(bail, edls) {
+// Délai APPLICABLE : 1 mois si l'EDL de sortie de CE bail est conforme, 2 mois sinon ou s'il n'existe pas encore.
+// Les retenues n'en décident plus (une retenue pour loyer impayé ne rend pas l'état des lieux non conforme).
+function _calculerDelaiRestitution(bail) {
   if (!bail) return 2;
-  if (Number(bail.dgRetenu) > 0) return 2;
-  const sourceEdls = edls || (DB && DB.edl) || [];
-  // P9 (§7bis) : LE résolveur unique — le plus récent de la fenêtre du bail, jamais le
-  // premier trouvé (sinon la sortie du locataire précédent pilote le délai de l'actuel).
-  const _P = (typeof window !== 'undefined') ? window.EdlParcours : null;
-  const edlSortie = _P
-    ? _P.edlSortieQuiFaitFoi(bail, sourceEdls)
-    : sourceEdls.find(e => e && !e._deleted && e.logement === bail.ref && e.type === 'Sortie');
-  if (edlSortie) {
-    const hasDegradation = (edlSortie.pieces||[]).some(p =>
-      (p.elements||[]).some(el =>
-        el.etatS && el.etatS !== el.etatE && (el.etatS === 'Mauvais état' || (el.etatS === "État d'usage" && el.etatE === 'Bon état'))
-      )
-    );
-    if (hasDegradation) return 2;
-  }
-  return 1;
+  const D = (typeof window !== 'undefined') ? window.DgDelai : null;
+  return (D && D.conformiteEdlSortie(_edlSortieDuBail(bail)) === true) ? 1 : 2;
 }
 
 function _calculerLoyerImpayeCumule(bail, mouvements, dateRef) {
@@ -13543,7 +13534,7 @@ function _histoBailChapHtml(c, ref, refSafe, bailForDg){
   if(!(key in _histoBailOuverts)){
     let dgUrgent = false;
     if(c.statut==='clos' && bailForDg && c.bail===bailForDg && typeof _dgStatut==='function'){
-      try{ const st=_dgStatut(bailForDg).statut; dgUrgent = (st===DG_STATUS.A_RESTITUER || st===DG_STATUS.EN_RETARD); }catch(e){}
+      try{ const st=_dgStatut(bailForDg).statut; dgUrgent = (st===DG_STATUS.A_RESTITUER || st===DG_STATUS.DEPASSEMENT_POSSIBLE || st===DG_STATUS.EN_RETARD); }catch(e){}
     }
     _histoBailOuverts[key] = (c.statut==='courant') || dgUrgent;
   }
@@ -13610,7 +13601,11 @@ function _dgStatutLibelle(dgInfo, restitue) {
   const map = {
     [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
     [DG_STATUS.EN_RETARD]: [`${_uiIcon('warn')} En retard ${d.joursRetard}j`,'b-warn'],
-    [DG_STATUS.A_RESTITUER]:[`${_uiIcon('hourglass')} À restituer J-${d.joursRestants} (délai légal ${d.delaiMois} mois)`,'b-warn'],
+    // Art. 22 — conformité de l'EDL de sortie inconnue : les deux maximums ; entre les deux, « dépassement possible ».
+    [DG_STATUS.DEPASSEMENT_POSSIBLE]: [`${_uiIcon('warn')} Dépassement possible (si l'EDL de sortie est conforme) · au plus tard le ${fd(d.limite)}`,'b-warn'],
+    [DG_STATUS.A_RESTITUER]: (d.conforme === null && d.limiteSiConforme)
+      ? [`${_uiIcon('hourglass')} À restituer J-${d.joursSiConforme} — le ${fd(d.limiteSiConforme)} si l'EDL de sortie est conforme, sinon le ${fd(d.limite)}`,'b-warn']
+      : [`${_uiIcon('hourglass')} À restituer J-${d.joursRestants} (délai légal ${d.delaiMois} mois)`,'b-warn'],
     [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(d.dgPaid)})`,'b-irl'],
     [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(d.dgPaid)} / ${fmt(d.dgDu)})`,'b-warn']
   };
@@ -17195,7 +17190,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
       let dst=null; try{ dst=_departState(bail); }catch(e){}
       if(dst){
         const dl=dst.deadline, dgDone=(dst.steps.find(s=>s.key==='dg')||{}).done;
-        const dgTxt=(dl && !dgDone)?(dl.jours>=0?` · DG à restituer avant le ${fd(dl.iso)} (J‑${dl.jours})`:` · DG en retard ${-dl.jours} j`):'';
+        const dgTxt=(dl && !dgDone)?(' · DG : ' + escHtml(dl.texte)):'';   // texte unique (DgDelai.texteEtatDelai)
         depBanner=`<div class="logf-depart" onclick="_departOuvrir('${refSafe}')" role="button" tabindex="0" title="Ouvrir l'assistant de départ">
           <span class="logf-depart-ic">${_uiIcon('flag')}</span>
           <div class="logf-depart-tx"><div class="t">Départ en cours — étape ${dst.doneCount}/${dst.total}</div><div class="s">${bail.depart.dateSortie?('sortie prévue le '+fd(bail.depart.dateSortie)):'à dérouler'}${dgTxt}</div></div>
@@ -25926,7 +25921,14 @@ function _dgOpenRestitution(ref, cle) {
   const _bailN = Object.assign({}, bail, { dgPaid: dgVerse, fin: _bailFinOccupation(bail, false) });
   const dgInfo = _dgStatutDuBail(_bailN); // AUDIT #3 — statut du bail CIBLÉ (archive d'une relocation, bail parti : à restituer) : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
   const solde = _calculerSoldeDG(_bailN, DB.mouvements || []);
-  const delaiMois = _calculerDelaiRestitution(bail, (typeof _edlsDuBail === 'function') ? _edlsDuBail(bail) : DB.edl);   // EDL de CE bail
+  // Échéance de restitution (art. 22) : LA règle (DgDelai), avec l'EDL de sortie de CE bail.
+  const _DgD = (typeof window !== 'undefined') ? window.DgDelai : null;
+  const _ech = _DgD ? _DgD.echeancesRestitution(bail, _edlSortieDuBail(bail)) : null;
+  const _echSrc = !_ech || _ech.source === 'remise' ? ''
+    : ` <span class="mu">(remise des clés non déclarée : ${_ech.source === 'edl' ? "date de l'EDL de sortie" : 'fin du bail'})</span>`;
+  const _delaiTxt = _ech
+    ? `Remise des clés le <strong>${fd(_ech.remise)}</strong>${_echSrc} : à restituer <strong>${escHtml(_DgD.libelleEcheance(_ech, fd))}</strong>.`
+    : `Délai légal : 1 mois après la remise des clés si l'EDL de sortie est conforme à celui d'entrée, 2 mois sinon.`;
   _dgVgCtx = {
     refDate: (bail.depart && bail.depart.dateSortie) || bail.finEffective || (typeof td === 'function' ? td() : ''),
     edlEntreeDate: _dgVgEntreeDate(bail),
@@ -25973,7 +25975,7 @@ function _dgOpenRestitution(ref, cle) {
   body.innerHTML = `
     <div class="mu sm" style="margin-bottom:14px;line-height:1.55">
       Restitution du dépôt de garantie selon l'article 22 de la loi 89-462 modifiée par ALUR 2014.
-      Délai légal : <strong>${delaiMois} mois</strong> après remise des clés (1 mois sans retenue, 2 mois si retenues).
+      ${_delaiTxt}
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
@@ -26065,16 +26067,25 @@ function _dgRestitRecalc(ref) {
   const rt = el('dg-restit-retenues-display'); if (rt) rt.textContent = fmt(reparations);
   const disp = el('dg-restit-solde-display'); if (disp) disp.textContent = fmt(soldeFinal);
 
-  // Bloc pénalité : visible dès qu'il y a retard (même neutralisée, pour montrer l'exception).
+  // Bloc pénalité : visible dès qu'il y a retard (même neutralisée, pour montrer l'exception), ou qu'un retard est
+  // POSSIBLE (conformité de l'EDL de sortie inconnue, au-delà d'un mois) : celle-là se dit, elle ne s'ajoute JAMAIS
+  // au solde — seule la pénalité certaine (`pen.penalite`, depuis l'échéance applicable) y entre.
   const penRow = el('dg-restit-pen-row'), penBox = el('dg-restit-pen-box'), penAmt = el('dg-restit-pen-amt'), penCalc = el('dg-restit-pen-calc');
   if (penRow && penBox) {
-    if (pen.enRetard) {
-      penRow.hidden = (penMontant === 0);
+    const pp = pen.possible;
+    if (pen.enRetard || pp) {
+      penRow.hidden = !pen.enRetard || (penMontant === 0);
       penBox.hidden = false;
       if (penAmt) penAmt.textContent = '+ ' + fmt(penMontant);
-      if (penCalc) penCalc.textContent = pen.exclue
-        ? `Retard de ${pen.moisRetard} mois entamé(s) — pénalité neutralisée (adresse non communiquée).`
-        : `10 % × ${fmt(pen.base)} (loyer HC) × ${pen.moisRetard} mois entamé(s) — dû au locataire au-delà du délai de l'article 22 (date limite ${pen.dateLimite ? fd(pen.dateLimite) : '—'}).`;
+      const certaine = !pen.enRetard ? ''
+        : pen.exclue
+          ? `Retard de ${pen.moisRetard} mois entamé(s) — pénalité neutralisée (adresse non communiquée).`
+          : `10 % × ${fmt(pen.base)} (loyer HC) × ${pen.moisRetard} mois entamé(s) — dû au locataire au-delà du délai de l'article 22 (date limite ${pen.dateLimite ? fd(pen.dateLimite) : '—'}).`;
+      const possible = !pp ? ''
+        : pen.exclue
+          ? `Pénalité possible depuis le ${fd(pp.depuis)} si l'EDL de sortie est conforme — neutralisée (adresse non communiquée).`
+          : `Pénalité possible depuis le ${fd(pp.depuis)} si l'EDL de sortie est conforme : 10 % × ${fmt(pen.base)} × ${pp.moisRetard} mois entamé(s) = ${fmt(pp.penalite)} — non ajoutée au solde (conformité de l'EDL de sortie inconnue).`;
+      if (penCalc) penCalc.textContent = [certaine, possible].filter(Boolean).join(' ');
     } else {
       penRow.hidden = true;
       penBox.hidden = true;

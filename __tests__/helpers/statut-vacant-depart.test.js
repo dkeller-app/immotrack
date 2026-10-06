@@ -19,6 +19,8 @@ import { bailLoueAu, finOccupationBail } from '../../js/core/fin-occupation.js';
 import { _computeOccupationLots } from '../../js/core/legal-bilan.js';
 import { duMoisFromRaw } from '../../js/core/loyer-du-mois.js';
 import { bailHistCle } from '../../js/core/store-mapping.js';
+// LA règle du délai de restitution du DG (art. 22) — le mirror window.DgDelai de l'app.
+import * as DgDelai from '../../js/core/dg-delai.js';
 import { createStoreSync } from '../../js/core/store-sync.js';
 import { extraireFonction } from './_extraction-source.js';
 
@@ -40,7 +42,7 @@ function monter(DB, noms, extra = {}) {
   const html = { out: '' };
   const els = {};
   const base = {
-    DB, window: { bailLoueAu, finOccupationBail, bailHistCle, ...(extra.window || {}) },
+    DB, window: { bailLoueAu, finOccupationBail, bailHistCle, DgDelai, ...(extra.window || {}) },
     _todayIsoLocal: () => AUJ, td: () => AUJ, fd: (iso) => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : ''),
     escHtml: (x) => String(x == null ? '' : x), _isAlive: (x) => !!x && !x._deleted, fmt: (n) => String(Math.round(n || 0)) + ' €',
     el: (id) => (els[id] = els[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, classList: { contains: () => false } }),
@@ -48,7 +50,7 @@ function monter(DB, noms, extra = {}) {
     _isPhone: () => false, _PIL_MTX_COLS: [], _lyQ: (x) => String(x == null ? '' : x), Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
     ...extra,
   };
-  base.window = { bailLoueAu, finOccupationBail, bailHistCle, ...(extra.window || {}) };   // `extra.window` complète, n'écrase pas
+  base.window = { bailLoueAu, finOccupationBail, bailHistCle, DgDelai, ...(extra.window || {}) };   // `extra.window` complète, n'écrase pas
   const scope = new Proxy(base, {
     has: (t, k) => typeof k === 'string' && !decl.has(k),
     get: (t, k) => (k in t ? t[k] : (k in globalThis ? globalThis[k] : () => '')),
@@ -441,13 +443,14 @@ describe('14 · scénario de l\'audit : relocation d\'un lot parti (VRAIS archiv
     expect(ancien('2026-10')).toBe(0);
     expect(ancien('2026-11')).toBe(0);
   });
-  it('le dépôt de 900 € reste détenu, et la tâche « DG avant le 30/11 » reste (bail archivé)', () => {
+  it('le dépôt de 900 € reste détenu, et la tâche du dépôt (au plus tard le 30/11 sans EDL de sortie) reste (bail archivé)', () => {
     const { DB, m } = scenario();
     expect(m.fn._dgDetenuDuLot(DB.logements[0])).toBe(2200);
     let out = [];
     try { out = m.fn._computeUnifiedTodo({ scopeLogs: [DB.logements[0]], scopeImms: [], yr: '2026' }) || []; } catch (e) { out = ['ERREUR ' + e.message]; }
     const t = out.find((x) => x && x.type === 'depart');
-    expect(t && t.subtitle).toContain('DG avant le 30/11/2026');
+    // Art. 22, conformité de l'EDL de sortie inconnue : les deux maximums (pilotage 06/10).
+    expect(t && t.subtitle).toContain("DG : à restituer au plus tard le 30/10/2026 si l'EDL de sortie est conforme, sinon le 30/11/2026");
     expect(t.subtitle).toContain('900 €');
     expect(t.actionFn).toBe("_dgOpenRestitution('A1','" + bailHistCle(DB.baux_historique[0]) + "')");
   });
@@ -567,15 +570,22 @@ describe('19 · tâche du dépôt d\'un bail archivé (VRAI _computeUnifiedTodo)
     });
     return (m.fn._computeUnifiedTodo({ scopeLogs: [DB.logements[0]] }) || []).find((x) => x && x.type === 'depart');
   };
-  it('échéance dans 15 jours : orange « DG à restituer avant le … »', () => {
+  // Sans EDL de sortie, la conformité est INCONNUE : 1 mois si conforme, 2 mois sinon (art. 22, pilotage 06/10).
+  it('entre 1 et 2 mois : orange « dépassement possible (si l’EDL de sortie est conforme) », jamais « en retard »', () => {
     const t = tache('2026-08-20');
     expect(t.severity).toBe('ora');
-    expect(t.subtitle).toContain('DG à restituer avant le 20/10/2026 (J‑15)');
+    expect(t.score).toBe(85);   // passe devant une échéance simplement proche (78)
+    expect(t.subtitle).toContain("DG : dépassement possible (si l'EDL de sortie est conforme) — au plus tard le 20/10/2026 · J‑15");
+    expect(t.subtitle).not.toContain('retard');
   });
-  it('échéance dépassée : rouge « DG en retard … (majoration) » ; lointaine : information', () => {
+  it('au-delà de 2 mois : rouge « en retard … majoration » ; dans le mois : information, les deux dates dites', () => {
     expect(tache('2026-07-01').severity).toBe('red');
-    expect(tache('2026-07-01').subtitle).toContain('DG en retard 34 j (majoration)');
+    expect(tache('2026-07-01').subtitle).toContain('DG : en retard de 34 j — majoration de 10 % du loyer mensuel en principal');
     expect(tache('2026-09-30').severity).toBe('info');
+    expect(tache('2026-09-30').subtitle).toContain("au plus tard le 30/10/2026 si l'EDL de sortie est conforme, sinon le 30/11/2026 · J‑25");
+  });
+  it('un mois ou moins avant la première date : orange', () => {
+    expect(tache('2026-09-15').severity).toBe('ora');   // 15/10 si conforme : J‑10
   });
 });
 describe('20 · compteur « Dépôts détenus » = nombre de DÉPÔTS (un lot reloué avant restitution en porte deux)', () => {
@@ -838,7 +848,10 @@ describe('28 · fenêtre de restitution sur le bail archivé (VRAIS _dgOpenResti
   });
   it('délai légal : l\'EDL de sortie de Nina (2027, avec dégradations) n\'est pas celui de Lea', () => {
     const nina = { id: 'en', logement: 'A1', type: 'Sortie', date: '2027-01-10', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Mauvais état' }] }] };
-    expect(ouvrir([nina])['ov-dg-restitution-body'].innerHTML).toContain('Délai légal : <strong>1 mois</strong>');
+    // Lea n'a pas d'EDL de sortie : conformité inconnue → les deux maximums ; jamais les dégradations de Nina.
+    const h = ouvrir([nina])['ov-dg-restitution-body'].innerHTML;
+    expect(h).toContain("à restituer <strong>au plus tard le 30/10/2026 si l'EDL de sortie est conforme, sinon le 30/11/2026</strong>");
+    expect(h).not.toContain('dégradations relevées');
   });
 });
 describe('29 · cible de la restitution (VRAIS _dgBailCible / _dgConfirmerRestitution) : cas limites', () => {
