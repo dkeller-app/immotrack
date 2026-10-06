@@ -974,10 +974,18 @@ export function _bankRulePreview(draft, ctx = {}) {
 export function _bankRuleUsage(rule, mouvements) {
   const pat = _bankNormTxt(rule && rule.pattern);
   const out = { count: 0, lastDate: '' };
-  if (!pat) return out;
+  // REGLES-REFONTE phase 4 — la trace porte désormais l'IDENTIFIANT de la règle ; une
+  // trace historique (motif) n'est comptée que pour une règle du même compte que le
+  // mouvement (ou une règle sans compte) : la règle d'un autre compte ne l'a pas classé.
+  const id = (rule && rule.id != null && rule.id !== '') ? String(rule.id) : '';
+  if (!pat && !id) return out;
+  const acc = rule && rule.compte ? String(rule.compte) : '';
   for (const m of (mouvements || [])) {
     if (!m || m._deleted || !Array.isArray(m._rules)) continue;
-    if (!m._rules.some(p => _bankNormTxt(p) === pat)) continue;
+    const parId = !!id && m._rules.some(p => String(p) === id);
+    const parMotif = !parId && !!pat && (!acc || String(m._bankAccountId == null ? '' : m._bankAccountId) === acc)
+      && m._rules.some(p => _bankNormTxt(p) === pat);
+    if (!parId && !parMotif) continue;
     out.count++;
     if ((m.date || '') > out.lastDate) out.lastDate = m.date || '';
   }
@@ -1572,6 +1580,169 @@ export function _bankRuleApercu(regle, ctx = {}) {
   out.level = (out.vide || (!out.lignes.length && !out.nBase && !out.compteManquant)) ? ''
     : ((out.tooShort || out.mixed || out.compteManquant || out.sourceCorrespond === false) ? 'warn' : 'ok');
   return out;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// REGLES-REFONTE phase 4 — APPLICATION (décisions Didier du 06/10).
+// La règle s'applique : (a) à la ligne SOURCE immédiatement, (b) aux lignes de
+// l'import en cours, (c) aux imports futurs. JAMAIS aux mouvements déjà en base,
+// sauf le mouvement d'où la règle est créée (fiche d'un mouvement enregistré).
+// Jamais d'écrasement silencieux d'un classement fait à la main : ces lignes sont
+// sautées ET comptées, pour que l'écran le dise.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Ce qu'une ligne / un mouvement garde comme trace d'une règle : son identifiant (à défaut, son motif). */
+export function _bankRuleTraceKey(rule) {
+  if (!rule) return '';
+  return (rule.id != null && rule.id !== '') ? String(rule.id) : String(rule.pattern || '');
+}
+
+/** Affectation qu'une règle poserait (résolue sur le compte), ou null si la règle n'en porte pas. */
+function _bankRuleAffResolved(rule, account) {
+  if (!_bankRuleHasAff(rule)) return null;
+  return _bankResolveAff({ bailleurDuCompte: !!rule.bailleurDuCompte, qui: rule.qui || '', imm: rule.imm || '',
+    compteurCcId: rule.compteurCcId || '' }, account || null);
+}
+
+/**
+ * Classe UNE ligne d'import avec les règles vivantes (ex-inline `_bankApplyRule`).
+ * Modifie la ligne. Trace `_rules` = identifiants des règles ; `_ruleOrigin` porte le
+ * motif lisible ET l'identifiant (pour rouvrir LA bonne règle, jamais par motif).
+ * @param {object[]} rules
+ * @param {object} line
+ * @param {{accountId?:*, account?:object, loyerCC?:Function}} [opts]
+ * @returns {boolean} une règle a classé quelque chose
+ */
+export function _bankLineApplyRules(rules, line, opts = {}) {
+  if (!line) return false;
+  const live = (Array.isArray(rules) ? rules : []).filter(r => r && !r._deleted);
+  const res = _bankApplyRules(live, line, { accountId: opts.accountId, loyerCC: opts.loyerCC });
+  line._ruleConflicts = res.conflicts.length ? res.conflicts : null;
+  line._ruleOrigin = null;
+  line._rules = res.matched.map(_bankRuleTraceKey).filter(Boolean);
+  if (!res.byRule) return false;
+  const aff = _bankResolveAff(res.aff, opts.account || null);
+  line.suggestedCat = res.cat || '';
+  line.suggestedQui = aff.qui || '';
+  line.suggestedImm = aff.imm || '';
+  line.suggestedCc  = aff.compteurCcId || '';
+  line.confidence   = 1;                        // déterministe : c'est une règle, pas une proposition
+  line.matchSource  = 'Règle d\'import';
+  line._byRule      = true;
+  line._ruleOrigin = {
+    cat: res.catRule ? _bankRuleMotif(res.catRule) : '',
+    catId: res.catRule ? _bankRuleTraceKey(res.catRule) : '',
+    aff: res.affRule ? (res.affRule.bailleurDuCompte ? 'le bailleur du compte' : _bankRuleMotif(res.affRule)) : '',
+    affId: res.affRule ? _bankRuleTraceKey(res.affRule) : '',
+    affUnresolved: !!aff.unresolved,
+  };
+  return true;
+}
+
+/** La règle changerait-elle le classement actuel de la ligne ? (catégorie ou affectation) */
+function _bankRuleChangeraitLigne(rule, line, account) {
+  if (rule.cat && rule.cat !== (line.suggestedCat || '')) return true;
+  const a = _bankRuleAffResolved(rule, account);
+  if (!a || a.unresolved) return false;
+  return a.qui !== (line.suggestedQui || '') || a.imm !== (line.suggestedImm || '') || a.compteurCcId !== (line.suggestedCc || '');
+}
+
+const _BANK_CLASSEMENT_FIELDS = ['suggestedCat', 'suggestedQui', 'suggestedImm', 'suggestedCc', 'confidence', 'matchSource',
+  '_byRule', '_ruleConflicts', '_ruleOrigin', '_ambiguous', '_candidates',
+  'isDuplicate', 'duplicateOf', 'duplicateReason', 'dupLevel'];
+
+/**
+ * Prépare le RECLASSEMENT de l'import en cours après création / modification /
+ * suppression d'une règle (ex-inline `_bankReclassify`). Fonction pure : renvoie de
+ * nouvelles lignes, sans toucher aux lignes d'entrée.
+ *  - ligne classée à la main (`_userEdited` / `_reviewed`) → gardée telle quelle ; si
+ *    la règle `opts.rule` la toucherait (et en changerait le classement), elle est
+ *    COMPTÉE dans `protegees` (l'écran l'annonce : jamais d'écrasement silencieux) ;
+ *  - ligne SOURCE (`opts.sourceIndex`) qui correspond à la règle → elle SUIT la règle,
+ *    même retouchée : sa marque « retouchée » est levée (la créer ne doit pas la
+ *    verrouiller hors règle), `_suitRegle` demande au classement de la reprendre ;
+ *    si elle ne correspond pas, elle reste comme elle est (`sourceSuit:false`) ;
+ *  - autre ligne → classement retiré, elle sera reclassée.
+ * @param {object[]} lines
+ * @param {{rule?:object, sourceIndex?:number, accountId?:*, account?:object, loyerCC?:Function}} [opts]
+ * @returns {{lines:object[], protegees:number, sourceSuit:boolean|null}}
+ */
+export function _bankReclassifyPrepare(lines, opts = {}) {
+  const rule = (opts.rule && !opts.rule._deleted) ? opts.rule : null;
+  const ctx = { loyerCC: opts.loyerCC };
+  const strip = l => {
+    const r = Object.assign({}, l);
+    _BANK_CLASSEMENT_FIELDS.forEach(k => { delete r[k]; });
+    return r;
+  };
+  let protegees = 0, sourceSuit = null;
+  const out = (Array.isArray(lines) ? lines : []).map((l, k) => {
+    if (!l) return l;
+    const touche = !!rule && _bankRuleMatch(rule, l, opts.accountId, ctx);
+    if (rule && opts.sourceIndex != null && opts.sourceIndex === k) {
+      sourceSuit = touche;
+      if (touche) {
+        const r = strip(l);
+        delete r._userEdited;
+        r._suitRegle = true;
+        return r;
+      }
+    }
+    if (l._userEdited || l._reviewed) {
+      if (touche && _bankRuleChangeraitLigne(rule, l, opts.account)) protegees++;
+      return l;
+    }
+    return strip(l);
+  });
+  return { lines: out, protegees, sourceSuit };
+}
+
+/**
+ * Création d'une règle depuis la fiche d'un MOUVEMENT ENREGISTRÉ (décision Didier du
+ * 06/10) : ce mouvement, et LUI SEUL, est mis à jour directement. Fonction pure : renvoie
+ * le correctif à appliquer (l'appelant stampe, journalise et enregistre).
+ * Le mouvement est testé avec SON compte : une règle qui ne le couvre pas (mot absent
+ * du libellé, autre compte, exception, montant) ne le modifie pas (`ok:false`).
+ * La règle pose sa catégorie, et son affectation si elle en porte une ; la trace
+ * `_rules` reçoit son identifiant.
+ * @returns {{ok:boolean, raison:''|'absent'|'ne-correspond-pas', patch:object|null, changed:boolean}}
+ */
+export function _bankRulePatchMouvement(rule, mv, opts = {}) {
+  if (!rule || rule._deleted || !mv || mv._deleted) return { ok: false, raison: 'absent', patch: null, changed: false };
+  if (!_bankRuleMatch(rule, _bankAsLine(mv), mv._bankAccountId, { loyerCC: opts.loyerCC })) {
+    return { ok: false, raison: 'ne-correspond-pas', patch: null, changed: false };
+  }
+  const patch = {};
+  if (rule.cat) patch.cat = rule.cat;
+  const a = _bankRuleAffResolved(rule, opts.account);
+  if (a && !a.unresolved) { patch.qui = a.qui || ''; patch.imm = a.imm || ''; patch.compteurCcId = a.compteurCcId || ''; }
+  const prev = Array.isArray(mv._rules) ? mv._rules.map(String) : [];
+  const trace = _bankRuleTraceKey(rule);
+  patch._rules = (!trace || prev.includes(trace)) ? prev : [...prev, trace];
+  const changed = patch._rules.length !== prev.length
+    || ['cat', 'qui', 'imm', 'compteurCcId'].some(k => k in patch && String(mv[k] == null ? '' : mv[k]) !== String(patch[k]));
+  return { ok: true, raison: '', patch, changed };
+}
+
+/**
+ * Brouillon de la fenêtre de règle (champ texte « motif » tant que les puces de la
+ * phase 6 ne sont pas là) → mots de la règle. Un mot CLIQUÉ parmi les mots du libellé
+ * (ou déjà « mot entier » de la règle ouverte) reste un mot entier ; un mot TAPÉ est un
+ * morceau de mot (comme la puce « + mot »). Aucun mot n'est deviné.
+ * @param {string} texte — contenu du champ motif
+ * @param {string[]} motsEntiers — mots marqués « mot entier »
+ * @returns {{mots:string[], motsLibres:string[]}}
+ */
+export function _bankRuleMotsDuChamp(texte, motsEntiers) {
+  const entiers = new Set((Array.isArray(motsEntiers) ? motsEntiers : []).map(_bankNormTxt).filter(Boolean));
+  const mots = [], motsLibres = [], seen = new Set();
+  for (const w of String(texte == null ? '' : texte).trim().split(/\s+/)) {
+    const n = _bankNormTxt(w);
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    (entiers.has(n) ? mots : motsLibres).push(w);
+  }
+  return { mots, motsLibres };
 }
 
 // ────────────────────────────────────────────────────────────────────────────

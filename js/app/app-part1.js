@@ -1613,6 +1613,9 @@ function initDB() {
   // purgé (RGPD). AVANT la capture d'annulation (sinon « Annuler » ramènerait la catégorie héritée) et AVANT
   // _CAT_MIGRATION : c'est désormais le seul endroit qui traite les noms de loyer hérités.
   _normaliserLoyers('initDB');
+  // REGLES-REFONTE phase 4 — identifiant stable de chaque règle de classement (idempotent ; le saveDB de
+  // fin d'initDB persiste). AVANT la capture d'annulation, comme la normalisation ci-dessus.
+  if (typeof _bankMigrerRegles === 'function') _bankMigrerRegles('initDB');
   // UNDO-OP v14.21 : capture l'état initial pour permettre l'undo de la 1re modif
   if (typeof _undoSnapshot === 'function') _undoLastSnapshot = _undoSnapshot();
   // v15.166 BUG-DEMO-INJECTION : plus d'auto-injection de démos en prod.
@@ -1636,7 +1639,7 @@ function initDB() {
     if (_pretMap && _pretMap !== '__ignore') {
       const _NN = 'Prêt (perso)';
       (DB.mouvements || []).forEach(m => { if (m && m.cat === 'Prêt') m.cat = _NN; });
-      (DB.importRules || []).forEach(r => { if (r && r.cat === 'Prêt') r.cat = _NN; });
+      (DB.importRules || []).forEach(r => { if (r && r.cat === 'Prêt') { r.cat = _NN; _stamp(r); } });   // _stamp : règle modifiée (synchro)
       if (!DB.categories.includes(_NN)) DB.categories.push(_NN);
       DB.categories = DB.categories.filter(c => c !== 'Prêt');
       if (DB.catMapping && DB.catMapping['Prêt'] != null) { DB.catMapping[_NN] = DB.catMapping['Prêt']; delete DB.catMapping['Prêt']; }
@@ -1675,7 +1678,7 @@ function initDB() {
     'Divers (à ventiler manuellement)': 'Divers (non déductible)'
   };
   (DB.mouvements || []).forEach(m => { if (m && _CAT_MIGRATION[m.cat]) m.cat = _CAT_MIGRATION[m.cat]; });
-  (DB.importRules || []).forEach(r => { if (r && _CAT_MIGRATION[r.cat]) r.cat = _CAT_MIGRATION[r.cat]; });
+  (DB.importRules || []).forEach(r => { if (r && _CAT_MIGRATION[r.cat]) { r.cat = _CAT_MIGRATION[r.cat]; _stamp(r); } });   // _stamp : règle modifiée (synchro)
   if (Array.isArray(DB.categories)) {
     // retire de la liste les anciens noms migrés + les catégories non saisissables ('auto' 225/230, 'pickerHidden' 250) ; garde les customs (dont CFE/TLV)
     const _obs = new Set(Object.keys(_CAT_MIGRATION));
@@ -2956,9 +2959,12 @@ window.__immoSetDB = function(cloudDB) {
       try {
         if (window.__immoHorsLigne) return;
         const _nl = _normaliserLoyers('hydratation');
-        if (_nl && _nl.aPersister) {
+        // REGLES-REFONTE phase 4 — identifiants des règles reçues (même discipline : idempotent, saveDB
+        // seulement si une règle a changé, donc pas de boucle envoi → réception → migration).
+        const _mr = (typeof _bankMigrerRegles === 'function') ? _bankMigrerRegles('hydratation') : null;
+        if ((_nl && _nl.aPersister) || (_mr && _mr.migrated)) {
           saveDB();
-          if (typeof window.__immoRerenderCurrent === 'function') window.__immoRerenderCurrent();
+          if (_nl && _nl.aPersister && typeof window.__immoRerenderCurrent === 'function') window.__immoRerenderCurrent();
         }
       } catch (e) { console.warn('[normalisation loyers] hydratation', e); }
     }, 0);
@@ -3336,6 +3342,23 @@ function _normaliserLoyers(source, db) {
   return r;
 }
 
+// REGLES-REFONTE phase 4 — migration DOUCE des règles de classement (`_bankMigrateRules`, module pur,
+// testé) : chaque règle vivante sans identifiant en reçoit un, STABLE (dérivé de sa position et de son
+// contenu : deux appareils qui migrent la même base obtiennent les mêmes) ; une règle sans compte est
+// marquée `compteAChoisir` (elle reste active sur tous les comptes, décision Didier n° 2). Le motif et
+// le comportement ne changent pas. Idempotente : ne fait rien (et ne stampe rien) quand tout a un id.
+// Les règles migrées sont stampées par le module. Ne sauvegarde PAS : l'appelant persiste si
+// `migrated > 0`. Appelée au démarrage (initDB), à chaque hydratation, à la restauration, à l'import
+// JSON, et par précaution à l'ouverture de la liste / d'une règle.
+function _bankMigrerRegles(source, db) {
+  const d = db || DB;
+  if (!d || !Array.isArray(d.importRules) || typeof window === 'undefined' || typeof window._bankMigrateRules !== 'function') return null;
+  let r = null;
+  try { r = window._bankMigrateRules(d.importRules); } catch (e) { console.warn('[règles] migration (' + source + ')', e); return null; }
+  if (r && r.migrated) console.info('[règles] ' + source + ' : ' + r.migrated + ' règle(s) ont reçu un identifiant');
+  return r;
+}
+
 // =================== UTILITIES ===================
 function v(id) { return document.getElementById(id)?.value || ''; }
 function el(id) { return document.getElementById(id); }
@@ -3648,7 +3671,13 @@ function showToast(msg, type='', dur=2800, extraHTML='') {
 }
 
 function openM(id) { el(id)?.classList.remove('hidden'); }
-function closeM(id) { el(id)?.classList.add('hidden'); }
+function closeM(id) {
+  el(id)?.classList.add('hidden');
+  // REGLES-REFONTE phase 4 (D6) — fermer l'import bancaire remet à zéro son compte courant et ses lignes.
+  // (Repli file:// : en temps normal, window.closeM vient de js/components/modal.js et c'est
+  // _bankInstallCloseHook, app-part2, qui pose ce même appel.)
+  if (id === 'ov-bank-import' && typeof _bankImportOnClose === 'function') { try { _bankImportOnClose(); } catch (e) {} }
+}
 function closeBg(e,id){ /* v15.268 — clic dehors ne ferme plus (décision user) : évite toute perte de saisie ; fermeture via ✕ / Annuler / Enregistrer. Params gardés (54 onclick) */ }
 
 function confirm2(msg) { return window.confirm(msg); }
@@ -12252,14 +12281,26 @@ function _mvRenderProvenance(m) {
   }
 
   // La règle qui a classé, avec le lien « modifier la règle »
+  // REGLES-REFONTE phase 4 (D6) — la trace est l'IDENTIFIANT de la règle ; une trace historique
+  // (motif) ne retrouve qu'une règle du MÊME compte que le mouvement (`_bankRuleFindForTrace`),
+  // jamais celle d'un autre compte au même motif. L'identifiant passe par data-rid.
   if (Array.isArray(m._rules) && m._rules.length) {
     const links = m._rules.map(p => {
-      const idx = (DB.importRules || []).findIndex(r => r && !r._deleted && String(r.pattern || '').toLowerCase() === String(p).toLowerCase());
-      return idx >= 0
-        ? '<a onclick="closeM(\'ov-mv\');_bankRuleOpen(' + idx + ')" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">« ' + escHtml(p) + ' »</a>'
-        : '<span class="mu sm">« ' + escHtml(p) + ' » (règle supprimée)</span>';
+      const r = (typeof window._bankRuleFindForTrace === 'function')
+        ? window._bankRuleFindForTrace(DB.importRules || [], p, m._bankAccountId) : null;
+      if (r && r.id) {
+        return '<a data-rid="' + escHtml(r.id) + '" onclick="closeM(\'ov-mv\');_bankRuleOpen(this.dataset.rid)" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">« ' + escHtml(window._bankRuleMotif(r)) + ' »</a>';
+      }
+      // Trace d'une règle supprimée : un identifiant ne dit rien à l'utilisateur, un motif si.
+      const lisible = /^rg_/.test(String(p)) ? '' : '« ' + escHtml(p) + ' » ';
+      return '<span class="mu sm">' + lisible + '(règle supprimée)</span>';
     });
     bits.push(_uiIcon('settings') + ' <b>Classé par ' + (links.length > 1 ? 'les règles' : 'la règle') + '</b> ' + links.join(', '));
+  }
+  // D4 — créer une règle depuis un mouvement IMPORTÉ (le compte est celui du mouvement) :
+  // à l'enregistrement, ce mouvement — et lui seul — est mis à jour directement.
+  if (m._source === 'bank_import' && m._bankAccountId != null && m._bankAccountId !== '' && !m._deleted) {
+    bits.push('<a data-mvid="' + escHtml(m.id) + '" onclick="closeM(\'ov-mv\');_bankRuleOpen(null,null,this.dataset.mvid)" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">' + _uiIcon('save', 13) + ' Créer une règle depuis ce mouvement</a>');
   }
 
   // Découpage : la ligne d'origine et les mouvements liés, avec « défaire »
