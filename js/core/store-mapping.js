@@ -175,7 +175,10 @@ const MAPPERS = {
     const ref = String(o.ref ?? '').split('@@')[0]
     if (!ref || !ctx.logementByRef.get(norm(ref))) return null
     const d = dateOnly(o.date); if (!d) return null
-    const type = ['resiliation', 'conge', 'renouvellement', 'revision_loyer', 'autre', 'modification', 'avenant'].includes(o.type) ? o.type : 'autre'
+    // 'manque_accepte' (FINANCES-SUIVI-UNIQUE P2) : autorisé par la migration 0056 — à DÉPLOYER AVANT ce
+    // client (sinon le CHECK refuse l'insertion, erreur par enregistrement retentée). Tout autre type
+    // inconnu reste rangé en 'autre' ; l'objet entier voyage dans legacy_raw (rien n'est perdu).
+    const type = ['resiliation', 'conge', 'renouvellement', 'revision_loyer', 'autre', 'modification', 'avenant', 'manque_accepte'].includes(o.type) ? o.type : 'autre'
     // bail_id : la ligne du bail CONCERNÉ — `bailUid` (posé à la création de l'entrée, ou par store-sync)
     // pour un bail à ligne propre ; absent → ligne historique du logement (toutes les entrées existantes).
     return { id: ctx.detUuid('bailevt', String(o.id)), legacy_id: String(o.id ?? ''), bail_id: ctx.detUuid('bail', bailLigneCle(ref, o.bailUid)), type_evenement: type, date_evenement: d, bail_debut: dateOnly(o.bailDebut), ...base(o, ctx) }

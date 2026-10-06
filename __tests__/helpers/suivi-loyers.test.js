@@ -1,7 +1,7 @@
 /**
  * FINANCES-SUIVI-UNIQUE P1 — le moteur unique de suivi des loyers (js/core/suivi-loyers.js).
  * Spécification : docs/subjects/FINANCES-SUIVI-UNIQUE-MOTEUR.md §B, §C, §F.1 (tests 1 à 16) et
- * §I (décisions de Didier du 06/10 : locataire parti visible l'année en cours, Q3 virement entre
+ * §I (décisions de Didier du 06/10 : locataire parti visible pendant l'année civile de son départ, Q3 virement entre
  * deux baux, GLI qui ne réduit pas la dette). Invariants : suivi-loyers-invariants.test.js.
  */
 import { describe, it, expect } from 'vitest';
@@ -174,7 +174,7 @@ describe('6 · locataire sorti', () => {
     expect(moisDe(b, '2026-05').imputations).toEqual([{ mvId: 'late', date: '2026-06-20', kind: 'virement', montant: 500, poste: 'loyer' }]);
     expect(s.horsPeriode).toEqual([{ mvId: 'late', date: '2026-06-20', montant: 500, bailCle: 'S|2025-01-01', regle: 'vacance-apres', aConfirmer: false }]);
   });
-  it('sans le paiement tardif : dette figée au départ, visible (parti) dans le lot l\'année en cours', () => {
+  it('sans le paiement tardif : dette figée au départ, visible (parti) dans le lot l\'année du départ', () => {
     const l = lot(); l.paiements.pop();
     const s = suiviLot(l, { today: '2026-07-15' });
     expect(s.mois['2026-07']).toMatchObject({ solde: -500, retard: 500, bauxActifs: [], partis: ['S|2025-01-01'] });
@@ -341,11 +341,11 @@ describe('16 · début de suivi', () => {
 });
 
 // ── Décisions de Didier (§I) ───────────────────────────────────────────────────
-describe('Q2 · locataire parti : dette figée, visible l\'année en cours seulement', () => {
+describe('Q2 · locataire parti : dette figée, visible pendant l\'année de son départ seulement', () => {
   const lot = () => ({ ref: 'L', bareme: [], manques: [], debutSuivi: { date: '2026-01-01', source: 'acquisition' },
     baux: [bail('L|2025-11-01', '2025-11-01', 700, 50, { finEffective: '2026-02-28', archive: true }), bail('L|2026-03-01', '2026-03-01', 750, 0)],
     paiements: [vir('a', '2026-03-03', 1500)].concat(['04', '05', '06', '07', '08', '09', '10', '11', '12'].map((m) => vir('b' + m, '2026-' + m + '-03', 750)), [vir('c', '2027-01-03', 750)]) });
-  it('année en cours : chaque mois après le départ porte la dette figée, marquée « parti »', () => {
+  it('année du départ : chaque mois après le départ porte la dette figée, marquée « parti »', () => {
     const s = suiviLot(lot(), { today: '2026-03-20' });
     expect(s.mois['2026-03']).toMatchObject({ retard: 1500, avance: 750, solde: -750, bauxActifs: ['L|2026-03-01'], partis: ['L|2025-11-01'] });
     const per = suiviPerimetre([s], '2026-03');
@@ -356,9 +356,36 @@ describe('Q2 · locataire parti : dette figée, visible l\'année en cours seule
   it('à partir du 1er janvier suivant : disparaît du lot et du périmètre, reste sur le bail (retenue sur dépôt)', () => {
     const s = suiviLot(lot(), { today: '2027-01-15' });
     expect(s.mois['2027-01']).toMatchObject({ retard: 0, partis: [] });
-    expect(s.mois['2026-12']).toMatchObject({ retard: 0, partis: [] });  // année affichée ≠ année en cours
     expect(suiviPerimetre([s], '2027-01').enRetard).toEqual([]);
     expect(detteBail(bailDe(s, 'L|2025-11-01'))).toEqual({ loyer: 1400, charge: 100, avance: 0 });
+  });
+  it('ANNÉE AFFICHÉE = année du départ : 2026 regardé en 2027 montre toujours la dette (bilan stable)', () => {
+    const s = suiviLot(lot(), { today: '2027-01-15' });
+    expect(s.mois['2026-12']).toMatchObject({ retard: 1500, partis: ['L|2025-11-01'] });
+    expect(versByLot(s, 2026).annual.retard).toBe(1500);
+    expect(versByLot(s, 2027).annual.retard).toBe(0);
+  });
+});
+
+describe('Q2 · le bilan d\'une année ne change pas le 1er janvier suivant (année affichée, pas année du jour)', () => {
+  // Parti le 30/11/2025 avec une dette de 500 ; aucun bail suivant.
+  const lot = () => ({ ref: 'P', bareme: [], manques: [], debutSuivi: { date: '2025-10-01', source: 'acquisition' },
+    baux: [bail('P|2025-01-01', '2025-01-01', 500, 0, { finEffective: '2025-11-30', archive: true })],
+    paiements: [vir('oct', '2025-10-03', 500)] });
+  for (const today of ['2025-12-30', '2026-01-05']) {
+    it('décembre 2025 = −500 (today ' + today + ')', () => {
+      const s = suiviLot(lot(), { today });
+      expect(s.mois['2025-12']).toMatchObject({ solde: -500, retard: 500, bauxActifs: [], partis: ['P|2025-01-01'] });
+      expect(suiviPerimetre([s], '2025-12')).toMatchObject({ solde: -500, retard: 500 });
+      expect(versByLot(s, 2025).annual.retard).toBe(500);
+    });
+  }
+  it('janvier 2026 = 0 (année suivante) ; la dette reste sur le bail (position, retenue sur dépôt)', () => {
+    const s = suiviLot(lot(), { today: '2026-01-05' });
+    expect(s.mois['2026-01']).toMatchObject({ solde: 0, retard: 0, partis: [] });
+    expect(suiviPerimetre([s], '2026-01')).toMatchObject({ solde: 0, retard: 0, enRetard: [] });
+    expect(versByLot(s, 2026).annual.retard).toBe(0);
+    expect(detteBail(s.baux[0])).toEqual({ loyer: 500, charge: 0, avance: 0 });
   });
 });
 

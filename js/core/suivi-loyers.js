@@ -19,8 +19,10 @@
  *   - imputation à la DATE BANCAIRE ; jamais retard ET avance sur un bail le même mois ;
  *   - manque accepté : solde ce qui manque (ordre H-1), plafonné, jamais d'avance, jamais reçu ;
  *   - locataire parti : dette FIGÉE à son départ (plus aucun dû ne naît), visible dans le lot
- *     pendant l'année civile en cours (celle de `today`) seulement, puis absente de toute vue de
- *     lot ; elle reste sur le bail (`position`, `detteBail`) pour la retenue sur le dépôt ;
+ *     pour les mois de l'ANNÉE CIVILE DU DÉPART seulement (l'année AFFICHÉE = celle du mois
+ *     regardé, pas celle de `today` : un bilan 2025 ne change pas le 01/01/2026), absente des
+ *     mois des autres années ; elle reste sur le bail (`position`, `detteBail`) pour la retenue
+ *     sur le dépôt ;
  *   - virement entre deux baux (Q3) : `paiement.bailCle` (choix de l'utilisateur) fait foi ;
  *     sinon le bail le plus proche dans le temps, tracé et marqué « à confirmer » ;
  *   - indemnité GLI (Q4) : ne réduit PAS la dette ; exposée en `couvertGli` (information) ;
@@ -277,7 +279,8 @@ export function suiviLot(lotIn, opts) {
   // 4. Le lot, mois par mois : Σ des baux ACTIFS + dette figée des partis visibles (Q2).
   let fin = horizon;
   for (const b of res.baux) if (b.mois.length) fin = _maxYm(fin, b.mois[b.mois.length - 1].ym);
-  const anneeEnCours = today.slice(0, 4);
+  // Q2 : l'année qui compte est l'ANNÉE AFFICHÉE (celle du mois `ym` regardé), jamais celle de
+  // `today` : le bilan d'une année ne change pas le 1er janvier suivant.
   for (const ym of ymRange(sYm, fin)) {
     const premier = ym + '-01', dernier = _dernierJour(ym);
     const lm = { solde: 0, retard: 0, retardLoyer: 0, retardCharge: 0, avance: 0, bauxActifs: [], partis: [], couvertGli: 0 };
@@ -285,8 +288,7 @@ export function suiviLot(lotIn, opts) {
       const exact = b.mois.find((m) => m.ym === ym);
       if (exact) lm.couvertGli += exact.couvertGli;
       const actif = b.cle === '(lot)' || (b.debut <= dernier && (!b.fin || b.fin >= premier));
-      const visibleParti = !actif && b.fin && b.fin < premier
-        && ym.slice(0, 4) === anneeEnCours && b.fin.slice(0, 4) === anneeEnCours;
+      const visibleParti = !actif && b.fin && b.fin < premier && ym.slice(0, 4) === b.fin.slice(0, 4);
       if (!actif && !visibleParti) continue;
       const m = _moisAu(b, ym);
       if (actif) {
@@ -601,11 +603,18 @@ export function lotDepuisDb(ref, db, opts) {
   baux.sort((x, y) => x.debut.localeCompare(y.debut));
   const isGli = typeof o.isGli === 'function' ? o.isGli : ((mv) => mv.cat === 'Indemnité GLI / loyers impayés');
   const paiements = collecterPaiements(D.mouvements, { ref, catLigne: o.catLigne, isGli, bailCleOf: o.bailCleOf });
+  // Manques acceptés (P2, js/core/manque-accepte.js) : le journal porte la clé NUE du logement
+  // (`ref` sans `@@espace`, comme les autres entrées du journal). Rattachement au bail : même début
+  // et même ligne cloud (`bailUid`) ; si la ligne a changé depuis le geste (bail re-signé : nouvel
+  // uid), le seul bail de ce début fait foi plutôt que de perdre le geste en silence.
+  const cleNue = (k) => _nr(String(k == null ? '' : k).split('@@')[0]);
+  const wantNue = cleNue(ref);
   const manques = (D.baux_evenements || [])
-    .filter((e) => e && e.type === 'manque_accepte' && _nr(e.ref) === want)
+    .filter((e) => e && e.type === 'manque_accepte' && cleNue(e.ref) === wantNue)
     .map((e) => {
       const bd = String(e.bailDebut || '').slice(0, 10);
-      const b = baux.find((x) => x.debut === bd && (!e.bailUid || x.cle.endsWith('|' + e.bailUid)));
+      const memeDebut = baux.filter((x) => x.debut === bd);
+      const b = memeDebut.find((x) => !e.bailUid || x.cle.endsWith('|' + e.bailUid)) || (memeDebut.length === 1 ? memeDebut[0] : null);
       return {
         id: e.id, bailCle: b ? b.cle : cleBail(ref, { debut: bd, _bailUid: e.bailUid }),
         ym: e.ym, montant: Number(e.montant) || 0, motif: e.motif || '', date: e.date || null, _deleted: !!e._deleted

@@ -126,6 +126,8 @@ import * as IrlRevision from './core/irl-revision.js';
 import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, avenantApplique, regimeForfaitObjet, forfaitChargesPrevu, avertissementForfaitCharges, referenceForfaitCharges } from './core/avenant.js';
 // AVENANT-REFONTE lot 2 — registre des avenants (journal baux_evenements, type 'avenant') : statuts, liste, numérotation.
 import * as AvenantRegistre from './core/avenant-registre.js';
+// FINANCES-SUIVI-UNIQUE P2 — « manque accepté » (journal baux_evenements, type 'manque_accepte') : entrée, validation, tombstone.
+import * as ManqueAccepte from './core/manque-accepte.js';
 // Forfait de charges (art. 25-10 / 8-1, V) dans la régularisation : post-traitement, intervalles, base N-1 (pur, testé).
 import { forfaitAvenantsDuBail, occNonForfaitJours, forfaitIntervalles, appliquerForfaitOccupation, periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique, avenantApplicationAffichee } from './core/regul-forfait.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
@@ -694,6 +696,7 @@ window.avenantRomain = avenantRomain;
 window.avenantChampsManquants = avenantChampsManquants;
 window.avenantMontant = avenantMontant;
 window.AvenantRegistre = AvenantRegistre;
+window.ManqueAccepte = ManqueAccepte;   // lu par _manqueAccepter / _manqueAnnuler (app-part1.js)
 window.avenantEntrant = avenantEntrant;
 window.avenantPartiesSignature = avenantPartiesSignature;   // lot 3b : parties lues dans le document enregistré
 window.avenantHtmlSigne = avenantHtmlSigne;

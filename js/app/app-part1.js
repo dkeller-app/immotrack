@@ -9065,6 +9065,85 @@ function _loyerPayeDuMois(ref, ym) {
   return m ? Math.round((m.du - m.reste) * 100) / 100 : 0;
 }
 
+// ═══ FINANCES-SUIVI-UNIQUE P2 — MANQUE ACCEPTÉ (écriture / annulation, SANS écran) ═══
+// Règles dans js/core/manque-accepte.js (pur, testé), exposé par js/main.js sur window.ManqueAccepte.
+// Une entrée du journal du bail DB.baux_evenements (type 'manque_accepte' → table cloud baux_evenements,
+// migration 0056) : ne modifie ni le bail, ni le barème, ni les mouvements ; n'est jamais un encaissement.
+// Annulation = TOMBSTONE (_deleted + _stamp → suppression douce gardée par version au cloud) ; une nouvelle
+// acceptation crée un NOUVEL id (jamais de résurrection). P2 : aucun écran ne les appelle (geste en P4).
+// Hors ligne : saveDB refuse toute écriture non étiquetée « hors ligne » → le geste est refusé avec le message
+// existant (§D : 'manque' n'est volontairement PAS dans la liste blanche hors ligne).
+function _manqueNouvelUid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+// Sauvegarde ÉTIQUETÉE et VÉRIFIÉE (patron _avenantSauver) : en cas d'échec, `restaurer()` remet le journal,
+// la trace d'audit de ce geste est retirée (jamais de trace d'un geste non enregistré), la base d'annulation
+// est réalignée et on le dit. Jamais de faux « enregistré ».
+function _manqueSauver(restaurer, nAuditPending, nAuditTrail){
+  var ok; try { ok=(typeof saveDB==='function')?saveDB({quoi:'manque'}):true; } catch(_e){ console.warn('[manque] saveDB', _e); ok=false; }
+  if(ok!==false) return true;
+  restaurer();
+  try {
+    if(typeof _auditPending!=='undefined' && Array.isArray(_auditPending) && _auditPending.length>nAuditPending) _auditPending.length=nAuditPending;
+    if(DB && Array.isArray(DB.auditTrail) && DB.auditTrail.length>nAuditTrail) DB.auditTrail.length=nAuditTrail;
+  } catch(_e){}
+  if(typeof _undoOnSaveDBSuccess==='function') _undoOnSaveDBSuccess();
+  // Hors ligne : le garde de saveDB a déjà affiché SON message (« seul l'état des lieux peut être modifié ») —
+  // on ne le recouvre pas. Sinon (stockage plein, exception) : on dit que rien n'est enregistré.
+  if(!window.__immoHorsLigne && typeof showToast==='function') showToast('Manque NON enregistré : la sauvegarde a échoué — rien n\'a été modifié. Stockage indisponible ou plein : libérer de l\'espace puis réessayer.','err',9000);
+  return false;
+}
+function _manqueCompteursAudit(){
+  return [ (typeof _auditPending!=='undefined' && Array.isArray(_auditPending))?_auditPending.length:0,
+           (DB && Array.isArray(DB.auditTrail))?DB.auditTrail.length:0 ];
+}
+// p = { ref, bailDebut, ym, montant, motif, date?, dette }. `dette` = ce qui manque sur ce mois pour ce bail,
+// calculé par l'écran (montant pré-rempli, P4) : plafond OBLIGATOIRE (sans lui le geste est refusé).
+// Renvoie l'entrée créée, ou null (refus : message affiché).
+function _manqueAccepter(p){
+  p=p||{};
+  if(typeof _appReadOnly!=='undefined' && _appReadOnly){ if(typeof showToast==='function') showToast('Lecture seule : modification impossible.','warn'); return null; }
+  var MA=window.ManqueAccepte;
+  if(!MA){ if(typeof showToast==='function') showToast('Module « manque accepté » indisponible : recharger l\'application.','err'); return null; }
+  var trouve=MA.bailDuManque(DB, p.ref, p.bailDebut);
+  if(!trouve){ if(typeof showToast==='function') showToast('Bail introuvable pour ce logement et cette date de début.','err'); return null; }
+  var now=new Date().toISOString();
+  var auteur=(DB&&DB.params&&DB.params.userName&&String(DB.params.userName).trim())||'';
+  var r=MA.nouveauManque(Object.assign({ ref:p.ref, ym:p.ym, montant:p.montant, motif:p.motif, date:p.date||'', auteur:auteur }, MA.rattachementManque(trouve.bail)),
+    { uid:_manqueNouvelUid(), now:now, plafond:p.dette });
+  if(!r.ok){ if(typeof showToast==='function') showToast(r.erreurs.map(function(x){ return x.message; }).join(' · '),'err',6000); return null; }
+  var e=r.entree, snap=(DB.baux_evenements||[]).slice(), cpt=_manqueCompteursAudit(), ok=false;
+  _undoOp('Accepter le manque', function(){
+    if(!Array.isArray(DB.baux_evenements)) DB.baux_evenements=[];
+    DB.baux_evenements.push(e);
+    _stamp(e);
+    if(typeof _auditLog==='function') _auditLog('manque-accepte','bail',e.ref,e.ym+' · '+e.montant.toFixed(2)+' € · '+String(e.motif).slice(0,120)+' ['+e.id+']');
+    ok=_manqueSauver(function(){ DB.baux_evenements=snap; }, cpt[0], cpt[1]);
+  });
+  if(!ok) return null;
+  if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
+  return e;
+}
+// Annule un manque accepté (tombstone). Renvoie true si annulé, false sinon (message affiché).
+function _manqueAnnuler(id){
+  if(typeof _appReadOnly!=='undefined' && _appReadOnly){ if(typeof showToast==='function') showToast('Lecture seule : modification impossible.','warn'); return false; }
+  var MA=window.ManqueAccepte;
+  if(!MA){ if(typeof showToast==='function') showToast('Module « manque accepté » indisponible : recharger l\'application.','err'); return false; }
+  var e=MA.trouverManque(DB.baux_evenements, id);
+  if(!e){ if(typeof showToast==='function') showToast('Manque accepté introuvable (déjà annulé ?).','warn'); return false; }
+  var avant=JSON.parse(JSON.stringify(e)), cpt=_manqueCompteursAudit(), ok=false;
+  _undoOp('Annuler le manque accepté', function(){
+    MA.annulerManque(e, new Date().toISOString());
+    _stamp(e);
+    if(typeof _auditLog==='function') _auditLog('manque-annule','bail',e.ref,e.ym+' · '+Number(e.montant).toFixed(2)+' € ['+e.id+']');
+    ok=_manqueSauver(function(){
+      for(var k in e) if(Object.prototype.hasOwnProperty.call(e,k)) delete e[k];
+      Object.assign(e, avant);
+    }, cpt[0], cpt[1]);
+  });
+  if(!ok) return false;
+  if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
+  return true;
+}
+
 // Dû proraté d'un mois (total) — DÉLÈGUE au résolveur unique _duMoisLot (bail + barème).
 function _getActiveBailHcChProrated(ref, yr, monthIdx0) {
   const s = _getActiveBailHcChProratedSplit(ref, yr, monthIdx0);
