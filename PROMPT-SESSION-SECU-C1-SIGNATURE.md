@@ -14,7 +14,13 @@ Demande-lui d'abord laquelle des deux options il retient pour le 14/10 :
 - **B** : restriction temporaire en attendant (un seul signataire distant par session, pas d'envoi depuis un espace partagé), puis C1.
 
 ## Expéditeur e-mail
-`no-reply@propryo.fr` est disponible (Didier, 06/10) : c'est l'`EMAIL_FROM` de prod du relais (à la place de `code@propryo.fr`), et le même expéditeur servira au SMTP de Supabase Auth (chantier C5). Prérequis à vérifier avec Didier avant tout code : domaine vérifié chez Resend (SPF, DKIM, DMARC), clé API posée en secret Cloudflare (`wrangler secret put RESEND_API_KEY`, jamais dans un fichier), envoi de test reçu hors spam (Gmail, Outlook).
+`no-reply@propryo.fr` est disponible (Didier, 06/10) : c'est l'`EMAIL_FROM` de prod du relais (à la place de `code@propryo.fr`), et le même expéditeur servira au SMTP de Supabase Auth (chantier C5). La boîte est hébergée chez **O2switch** (réception, webmail cPanel) ; **GO option A** (06/10). Didier n'a pas de compte Resend : accompagne-le pas à pas, **avant tout code** :
+1. Compte Resend, domaine `propryo.fr`, région UE (eu-west-1).
+2. Ajouter dans la zone DNS O2switch (cPanel → Zone Editor) les enregistrements affichés par Resend : DKIM `resend._domainkey`, MX et SPF sur `send.propryo.fr`. Ils ne touchent pas le MX racine d'O2switch, donc la réception continue. Ajouter `_dmarc` en `p=none` s'il n'existe pas.
+3. Vérification du domaine, clé API (envoi seul, domaine `propryo.fr`), `npx wrangler secret put RESEND_API_KEY` dans `relay/`. Jamais dans le chat ni dans un fichier.
+4. Envoi de test reçu hors spam (Gmail, Outlook, Orange).
+
+L'envoi des documents par e-mail (quittance, bail, EDL) réutilisera cette brique : voir BACKLOG. Ne pas l'implémenter dans C1, mais concevoir le module d'envoi pour qu'il soit réutilisable.
 
 ## Objectif (ce qui doit être vrai à la fin)
 1. Le serveur exige une **preuve de possession de la boîte e-mail** du signataire courant avant d'accepter sa signature. Ça doit tenir **fail-closed** : une configuration de test hors localhost refuse de signer et ne divulgue jamais de code.
