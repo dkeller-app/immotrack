@@ -10867,7 +10867,13 @@ function _renderLogFicheHeroStats(log, ref) {
   // ── KPI 1 : Loyer mensuel
   let loyerKPI;
   if(bail) {
-    const loyer = (+bail.hc || 0) + (+bail.ch || 0);
+    // R-0 (lot 1, R5) : le loyer EN VIGUEUR ce mois-ci, lu au barème par le moteur — le même que le
+    // potentiel locatif de Finances (`_finTauxPleinMois` : taux plein du mois, jamais le prorata
+    // d'entrée ou de sortie). `bail.hc + bail.ch` ignorait le barème : une révision IRL appliquée
+    // restait invisible, une révision programmée s'affichait avant sa date d'effet. Repli sur le bail
+    // seulement si le module n'est pas chargé (file://) ou si le moteur ne voit pas le lot occupé.
+    const _tp = (typeof _finTauxPleinMois === 'function') ? _finTauxPleinMois(ref, today.slice(0, 7)) : null;
+    const loyer = (_tp && _tp.occupied) ? (_tp.hc + _tp.ch) : ((+bail.hc || 0) + (+bail.ch || 0));
     loyerKPI = { v: fmt(loyer), unit: '/mois', label: 'Loyer actuel', cls: 'k-money' };
   } else {
     // LOYER-REFERENCE — bien vacant : afficher le LOYER SOUHAITÉ (loyer de référence), éditable (✏️),
@@ -14950,7 +14956,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.719 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.720 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }

@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.719';
+const IMMOTRACK_VERSION = '15.720';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -6505,24 +6505,19 @@ function _v4NavCounts() {
   return {logs: logs.length, locs, loyers: loyersMois, baux};
 }
 
-// Top 3 entités par revenus annuels (réutilise la logique de _renderSidebarPinned).
+// Entités de la barre latérale, triées par recettes de l'exercice. R-0 (lot 1, R7) : les recettes
+// de CHAQUE entité sont celles de l'Accueil et de Finances (`_dashCfReel`, périmètre = l'entité :
+// loyers HC + provisions + recettes diverses). L'ancien tri sommait `m.cr` de toutes catégories —
+// dépôts de garantie, apports d'associés, virements internes, achat revendu… compris.
+// Moteur absent (file://) : recettes 0, l'ordre de DB.entites est conservé (tri stable).
 function _v4TopEntities() {
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   if (typeof DB === 'undefined' || !DB.entites) return [];
   const yr = String(new Date().getFullYear());
-  const aliveEnts = DB.entites.filter(aliveFn);
-  const aliveLogs = (DB.logements || []).filter(aliveFn);
-  const aliveMvs  = (DB.mouvements || []).filter(aliveFn);
-  return aliveEnts.map(e => {
-    const eLogs = aliveLogs.filter(l => l.entity === e.nom);
-    const eRefs = eLogs.map(l => l.ref);
-    const eImms = [...new Set(eLogs.map(l => l.imm).filter(Boolean))];
-    const eCr = aliveMvs.filter(m => {
-      if (!m.date || !m.date.startsWith(yr)) return false;
-      return eRefs.includes(m.qui) || eImms.includes(m.imm) || m.qui === 'SCI:' + e.nom;
-    }).reduce((s, m) => s + (m.cr || 0), 0);
-    return {nom: e.nom, cr: eCr};
-  }).sort((a, b) => b.cr - a.cr);
+  return DB.entites.filter(aliveFn).map(e => {
+    const r = (typeof _dashCfReel === 'function') ? _dashCfReel({ yr, activeEnt: e.nom }) : null;
+    return { nom: e.nom, recettes: (r && r.recettes) || 0 };
+  }).sort((a, b) => b.recettes - a.recettes);
 }
 
 // REFONTE-NAV Phase 1 — Source de vérité UNIQUE de la nav sidebar (remplace le HTML en dur).
