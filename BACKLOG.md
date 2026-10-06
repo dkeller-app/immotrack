@@ -12,7 +12,7 @@
 | 2 ✖ | Téléphone : EDL + vue Charges par locataire — **sans objet** : déjà livrés (Charges détail par locataire v15.680, EDL téléphone à la charte v15.689) | — | **smoke Didier** sur ces deux livraisons ; tout résidu → vague 3 Écrans | — |
 | 3 | Écrans Accueil / Loyers 3 blocs / Logements / MRH (B2, C1, C5) + vue Charges « (sans immeuble) » — après Finances | à écrire | | |
 | 3 | Mise en production (propryo.fr, Resend, Stripe, OTP) — en partie absorbée par l'audit sécurité (Resend/OTP) | à écrire | | |
-**Versions (attribuées par le pilotage, 06/10)** : main = v15.716 · v15.717 = Fusion SCI (partage, branche `fix/fusion-sci`) · **v15.718 = Bail en cours lot A** · v15.719 = alerte régul N-1 (renumérotée, voir ci-dessous). Prochaine libre : **v15.720**.
+**Versions (attribuées par le pilotage, 06/10)** : main = v15.716 · v15.717 = Fusion SCI (partage, branche `fix/fusion-sci`) · **v15.718 = Bail en cours lot A** · v15.719 = alerte régul N-1 (renumérotée, voir ci-dessous) · **v15.720 = Stockage lot 2** · **v15.721 = Stockage lot 3**. Prochaine libre : **v15.722**.
 
 ## 🚦 ALERTE « Régularisation N-1 à émettre » — ⚠ annoncée v15.713 mais **v15.713 déjà pris sur main** (charges hors occupation, `b121dbb`) → **renuméroter v15.719** · ⚠ commit **introuvable sur GitHub** (la branche `claude/vigorous-hawking-8b71ed` pointe sur main) : la session doit pousser son travail · ⏳ smoke + GO Didier
 **Livré** : l'alerte s'éteint quand on clique « Valider la régul de l'immeuble » (onglet Charges) pour N-1 ; l'alerte ouvre l'onglet Charges directement sur N-1. **Version v15.713 prise** par cette branche.
