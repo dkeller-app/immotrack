@@ -187,7 +187,7 @@ describe('_bailExterneConfirmer — jamais d\'écriture sans confirmation', () =
 describe('saveBail — ordre et garde-fous (source du vrai code)', () => {
   const S = extraire(P1, 'function saveBail(')
   it('la déclaration est appliquée AVANT la branche journal (§2.4) et la branche journal est sautée quand une action est en cours', () => {
-    const iApp = S.indexOf('_bailExterneAppliquer(bail, _existantHeritable, _ext, ref)')
+    const iApp = S.indexOf('_bailExterneAppliquer(bail, _existantHeritable, _ext, ref')
     const iJournal = S.indexOf('const _BM = window.BailModifs')
     const iPreserve = S.indexOf('_preserverBailExistant(bail, DB.baux[ref], isNewBail)')
     expect(iPreserve).toBeGreaterThan(0)

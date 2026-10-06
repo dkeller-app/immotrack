@@ -4394,7 +4394,10 @@ function _renderRemoteSignBadge(bail, ref) {
   if (rs.status === 'error' || rs.status === 'expired') {
     const txt = rs.status === 'expired' ? '⚠️ Session expirée' : '⚠️ Erreur signature';
     return pill('#fee2e2', '#dc2626', '#991b1b', txt)
-      + '<button class="btn bs bb" onclick="openRemoteSignModal(\'' + ref + '\')" style="background:#7c3aed;color:#fff" title="Recréer une session de signature à distance">🔄 Relancer</button>';
+      + '<button class="btn bs bb" onclick="openRemoteSignModal(\'' + ref + '\')" style="background:#7c3aed;color:#fff" title="Recréer une session de signature à distance">🔄 Relancer</button>'
+      + '<button class="btn bs bb" onclick="sessionExpireeSigneHors(\'' + ref + '\')" title="Le bail a été signé sur papier : enregistrer la date de signature (et le PDF si vous l\'avez)">Signé hors Propryo</button>'
+      + '<button class="btn bs bb" onclick="annulerSessionSignature(\'' + ref + '\')" title="Abandonner cette session : le bail redevient non signé (la session est conservée dans l\'historique)">Annuler la session</button>'
+      + '<div style="flex-basis:100%;width:100%;font-size:12px;line-height:1.5;color:var(--t2)"><b>Relancer</b> crée une nouvelle session · <b>Signé hors Propryo</b> enregistre un bail signé sur papier (date + pièce jointe) · <b>Annuler la session</b> remet le bail en « non signé ».</div>';
   }
   // sent / chaining : en attente de signatures
   const txt = (nbSigned > 0) ? ('📨 ' + nbSigned + '/' + total + ' signé' + (nbSigned > 1 ? 's' : '')) : '📨 En attente de signature';
@@ -5277,6 +5280,138 @@ function _collectRemoteSigners(bail) {
   return out;
 }
 
+// ─── BAIL-EN-COURS-SIGNE-HORS-PROPRYO §3.2 : contrôle PRÉALABLE de l'état RÉEL de la session au relais ───
+// Commun à « Relancer » (openRemoteSignModal), « Annuler la session » et « Signé hors Propryo » : on ne détruit/archive
+// JAMAIS une session dont on ne sait pas si elle porte une signature (fail-closed légal, audit 2026-07-15 défaut D2).
+//  • completed            → la signature est RÉCUPÉRÉE (_completeRemoteSign) : { ok:false, recupere:true }, rien n'est annulé
+//  • 404 → 'expired'      → rien à perdre : { ok:true, etat:'expired' }
+//  • pending/sent/chaining → session vivante : confirmation (opts.confirmMsg ; sans message, l'appelant confirme lui-même)
+//                            puis { ok:true, etat:'pending-invalidee' }
+//  • injoignable, accès perdu, statut inattendu → REFUS { ok:false, raison } (on ne touche à rien)
+// Aucun effet sur le relais ici : l'appelant appelle `purge()` (suppression best-effort) quand il passe réellement à l'acte.
+async function _rsPreflight(ref, opts) {
+  const o = opts || {};
+  const bail = DB.baux && DB.baux[ref];
+  const rs = bail && bail.signatures && bail.signatures.remoteSession;
+  const rien = async function () {};
+  if (!rs || !rs.sessionId) return { ok: true, etat: 'aucune', rs: rs || null, base: '', purge: rien };
+  const base = _resolveRelayBase(rs);
+  // On n'exige QUE le sessionId : un ownerToken absent est précisément le scénario §6 (accès perdu) ; sans jeton on ne peut rien
+  // vérifier → état indéterminé → access-lost.
+  let reel;
+  if (!rs.ownerToken) { reel = { status: 'access-lost' }; }
+  else try { reel = await _bsRelayPollSession(base, rs.sessionId, rs.ownerToken); }
+  catch (e) {
+    console.warn('[remoteSign] pré-vol échoué', e);
+    showToast('Impossible de vérifier l\'état de la session existante (relais injoignable). On ne touche à rien tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe — réessaie dans un instant.', 'err', 8000);
+    return { ok: false, raison: 'injoignable' };
+  }
+  // §6 — accès propriétaire perdu : on ne sait PAS si ce bail a déjà été signé → on n'écrase RIEN ; le badge propose « Récupérer l'accès ».
+  if (reel && reel.status === 'access-lost') {
+    rs.status = 'access-lost';
+    saveDB(); _refreshAfterMutation();
+    showToast('Accès perdu à la session de signature existante : impossible de vérifier si ce bail a déjà été signé. On ne touche à rien. Utilise « 🔑 Récupérer l\'accès » sur la ligne du bail.', 'err', 9000);
+    return { ok: false, raison: 'acces-perdu' };
+  }
+  if (reel && reel.status === 'completed') {
+    showToast('✅ Ce bail a déjà été signé à distance — récupération de la signature en cours…', 'info', 4000);
+    try { await _completeRemoteSign(ref, reel); saveDB(); _refreshAfterMutation(); showToast('Signature récupérée : le bail est signé.', 'ok', 5000); }
+    catch (e) { console.warn('[remoteSign] récupération au pré-vol', e); showToast('Récupération du bail signé impossible — réessaie « Vérifier »', 'err', 6000); }
+    return { ok: false, recupere: true, raison: 'completed' };
+  }
+  if (reel && ['pending', 'sent', 'chaining'].includes(reel.status)) {
+    if (o.confirmMsg && !confirm2(o.confirmMsg)) return { ok: false, raison: 'refuse-par-utilisateur' };
+  }
+  // LISTE BLANCHE : 'expired' (404 = rien à perdre) ou pending/sent/chaining. Tout le reste (réponse nulle, corps illisible, statut
+  // inattendu) = indéterminé → on ne détruit RIEN.
+  if (!reel || !['expired', 'pending', 'sent', 'chaining'].includes(reel.status)) {
+    console.warn('[remoteSign] pré-vol : statut relais inattendu', reel);
+    showToast('État de la session existante indéterminé — on ne touche à rien tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe. Réessaie dans un instant.', 'err', 8000);
+    return { ok: false, raison: 'indetermine' };
+  }
+  const vivante = reel.status !== 'expired';
+  return {
+    ok: true, etat: vivante ? 'pending-invalidee' : 'expired', rs, base,
+    purge: async function () { try { await _bsRelayDeleteSession(base, rs.sessionId, rs.ownerToken); } catch (e) {} }
+  };
+}
+
+// Fenêtre « Annuler la session de signature ? » (maquette signature-expiree-confirm). Promise<boolean> : true = annuler.
+function _rsConfirmAnnulation(html) {
+  return new Promise(function (resolve) {
+    const old = document.getElementById('ov-rs-annul'); if (old) old.remove();
+    window.__rsAnnulFin = function (ok) { const f = window.__rsAnnulFin; window.__rsAnnulFin = null; if (!f) return; closeM('ov-rs-annul'); setTimeout(function () { const o = document.getElementById('ov-rs-annul'); if (o) o.remove(); }, 250); resolve(!!ok); };
+    document.body.insertAdjacentHTML('beforeend',
+      '<div class="ov" id="ov-rs-annul" onclick="if(event.target===this&&window.__rsAnnulFin)window.__rsAnnulFin(false)">'
+      + '<div class="modal" style="max-width:480px">'
+      + '<div class="m-head"><h3>Annuler la session de signature ?</h3><button class="m-close" onclick="window.__rsAnnulFin&&window.__rsAnnulFin(false)">✕</button></div>'
+      + '<div class="m-body">' + html + '</div>'
+      + '<div class="m-foot"><button class="btn bs" onclick="window.__rsAnnulFin&&window.__rsAnnulFin(false)">Garder la session</button>'
+      + '<button class="btn bp" id="rs-annul-ok" onclick="window.__rsAnnulFin&&window.__rsAnnulFin(true)">Annuler la session</button></div>'
+      + '</div></div>');
+    openM('ov-rs-annul');
+  });
+}
+
+// « Annuler la session » (session expirée / en erreur) : le bail redevient NON SIGNÉ ; la session, et la signature déjà recueillie
+// (ex. le bailleur avait signé dans l'app), sont ARCHIVÉES dans bail.signaturesAnnulees — rien n'est détruit. Décision Didier 06/10 (a).
+async function annulerSessionSignature(ref) {
+  const bail = DB.baux && DB.baux[ref];
+  const rs = bail && bail.signatures && bail.signatures.remoteSession;
+  if (!bail || !rs) { showToast('Aucune session de signature à annuler', 'warn'); return; }
+  if (!['expired', 'error'].includes(rs.status)) { showToast('Cette session n\'est pas expirée : on ne l\'annule pas d\'ici.', 'warn', 6000); return; }
+  const st = _bailEtatSig(bail);
+  if (st.conclu) { showToast('Ce bail est déjà signé : rien à annuler', 'err'); return; }
+  const pf = await _rsPreflight(ref);   // sans confirmMsg : la fenêtre ci-dessous confirme (et dit si le lien est encore actif)
+  if (!pf.ok) return;
+  const sg = bail.signatures;
+  const signers = Array.isArray(rs.signers) ? rs.signers : [];
+  const noms = signers.filter(x => x && x.role !== 'bailleur' && x.nom).map(x => x.nom);
+  const qui = noms.length ? noms.join(', ') : (bail.nom || 'le locataire');
+  const envoyee = rs.createdAt ? ' (envoyée le ' + fd(String(rs.createdAt).slice(0, 10)) + ')' : '';
+  const bailleurAvaitSigne = !!(sg.signedBailleurAt || (sg.finales && Object.keys(sg.finales).length) || signers.some(x => x && x.role === 'bailleur' && x.signedAt));
+  const vivante = pf.etat === 'pending-invalidee';
+  const html = '<p style="margin:0 0 12px">La session de signature à distance de <b>' + escHtml(qui) + '</b>' + envoyee
+    + (vivante ? ' est <b>encore active</b> au relais : son lien sera invalidé. Elle sera annulée' : ' a expiré. Elle sera annulée')
+    + ' et le bail redeviendra <b>non signé</b>.</p>'
+    + (bailleurAvaitSigne ? '<p class="mu sm" style="margin:0 0 12px">La signature du bailleur déjà recueillie est archivée dans l\'historique du bail : elle ne servira plus, le bailleur signera de nouveau lors d\'une relance.</p>' : '')
+    + '<p class="mu sm" style="margin:0">Rien n\'est supprimé du bail. Tu pourras relancer une signature à distance, ou déclarer le bail signé hors Propryo, à tout moment.</p>';
+  if (!(await _rsConfirmAnnulation(html))) return;
+  const B = window.BailSignatureEtat;
+  const r = B ? B.archiverSignatures(bail, { now: new Date(), auteur: _bailAuteurCourant(), motif: 'session-annulee', etatRelais: vivante ? 'pending-invalidee' : 'expired' }) : { archive: null };
+  if (!r.archive) { showToast('Annulation impossible : module de signature indisponible', 'err'); return; }
+  bail.signaturesAnnulees = (Array.isArray(bail.signaturesAnnulees) ? bail.signaturesAnnulees : []).concat([r.archive]);
+  delete bail.signatures;
+  _stamp(bail);
+  _auditLog('update', 'bail', ref, ref + ' : session de signature à distance annulée (' + (vivante ? 'lien invalidé' : 'expirée') + ')');
+  saveDB();
+  pf.purge();
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  showToast('Session annulée : le bail est non signé (l\'ancienne session est conservée dans l\'historique)', 'ok', 7000);
+}
+
+// « Signé hors Propryo » depuis la session expirée : même contrôle préalable, puis la déclaration de « Modifier le bail »
+// (case pré-cochée, origine 'session-expiree'). La session relais n'est supprimée qu'à l'ENREGISTREMENT (annuler la fenêtre ne détruit rien).
+async function sessionExpireeSigneHors(ref) {
+  const bail = DB.baux && DB.baux[ref];
+  const rs = bail && bail.signatures && bail.signatures.remoteSession;
+  if (!bail || !rs) { showToast('Aucune session de signature', 'warn'); return; }
+  if (_bailEtatSig(bail).conclu) { showToast('Ce bail est déjà signé', 'err'); return; }
+  const pf = await _rsPreflight(ref, { confirmMsg: 'La session de signature à distance est encore active au relais.\n\nDéclarer le bail signé hors Propryo invalidera son lien. Continuer ?' });
+  if (!pf.ok) return;
+  openBail(ref);
+  window._bailExtOrigine = 'session-expiree'; window._bailExtEtatRelais = pf.etat; window._bailExtPurge = pf.purge;
+  const chk = el('b-externe');
+  if (chk) {
+    chk.checked = true; _bailExterneToggle();
+    try {   // l'assistant « Modifier le bail » est en étapes : aller à celle qui porte la case
+      const pan = chk.closest('.tab-panel'), tous = Array.prototype.slice.call(document.querySelectorAll('#ov-bail .tab-panel')), k = tous.indexOf(pan);
+      if (k >= 0 && typeof goBailStep === 'function') goBailStep(k + 1);
+      chk.scrollIntoView({ block: 'center' });
+    } catch (e) {}
+  }
+}
+
 // B. Ouvre la modale d'envoi (ou le repli « relais non configuré »).
 // async (§4) : pré-vol non destructif avant toute relance — on vérifie l'état RÉEL de l'ancienne session.
 async function openRemoteSignModal(ref) {
@@ -5298,52 +5433,9 @@ async function openRemoteSignModal(ref) {
   //    signatures partielles).
   //  • expired (404) → session absente du relais, rien à perdre → on relance.
   //  • poll en ERREUR (relais injoignable) → état INDÉTERMINÉ → on N'ÉCRASE PAS (fail-closed légal).
-  const _existingRs = bail.signatures.remoteSession;
-  // On n'exige QUE le sessionId : un ownerToken absent est précisément le scénario §6, et sauter
-  // le pré-vol dans ce cas menait à écraser remoteSession (donc à perdre le sessionId, donc toute
-  // chance de récupération). Sans jeton, on ne peut rien vérifier → état indéterminé → access-lost.
-  if (_existingRs && _existingRs.sessionId) {
-    const _base = _resolveRelayBase(_existingRs);
-    let _realState;
-    if (!_existingRs.ownerToken) { _realState = { status: 'access-lost' }; }
-    else try { _realState = await _bsRelayPollSession(_base, _existingRs.sessionId, _existingRs.ownerToken); }
-    catch (e) {
-      console.warn('[remoteSign] pré-vol relance échoué', e);
-      showToast('Impossible de vérifier l\'état de la session existante (relais injoignable). On ne relance pas tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe — réessaie dans un instant.', 'err', 8000);
-      return;
-    }
-    // §6 — accès propriétaire perdu : on ne sait PAS si ce bail a déjà été signé. État INDÉTERMINÉ
-    // → même traitement que le relais injoignable ci-dessus : on n'écrase RIEN (fail-closed légal).
-    // On bascule le badge en 'access-lost' pour offrir « 🔑 Récupérer l'accès » comme seule suite.
-    if (_realState && _realState.status === 'access-lost') {
-      _existingRs.status = 'access-lost';
-      saveDB(); _refreshAfterMutation();
-      showToast('Accès perdu à la session de signature existante : impossible de vérifier si ce bail a déjà été signé. On ne relance pas. Utilise « 🔑 Récupérer l\'accès » sur la ligne du bail.', 'err', 9000);
-      return;
-    }
-    if (_realState && _realState.status === 'completed') {
-      showToast('✅ Ce bail a déjà été signé à distance — récupération en cours…', 'info', 4000);
-      try { await _completeRemoteSign(ref, _realState); saveDB(); _refreshAfterMutation(); }
-      catch (e) { console.warn('[remoteSign] récupération à la relance', e); showToast('Récupération du bail signé impossible — réessaie « Vérifier »', 'err', 6000); }
-      return;
-    }
-    if (_realState && ['pending', 'sent', 'chaining'].includes(_realState.status)) {
-      if (!confirm('Une session de signature à distance est déjà en cours pour ce bail.\n\nLa remplacer créera un nouveau lien et invalidera l\'ancien (les signatures déjà recueillies seraient perdues). Continuer ?')) return;
-    }
-    // LISTE BLANCHE de la destruction : 'expired' (404 = rien à perdre) OU un pending/sent/chaining
-    // que l'utilisateur vient de confirmer. TOUT le reste (réponse nulle, corps illisible, statut
-    // relais inattendu) = état indéterminé → on ne détruit RIEN. C'est la même règle que §6 :
-    // on ne remplace jamais une session dont on ne sait pas si elle porte une signature.
-    const _destroyOk = !!_realState && ['expired', 'pending', 'sent', 'chaining'].includes(_realState.status);
-    if (!_destroyOk) {
-      console.warn('[remoteSign] pré-vol : statut relais inattendu', _realState);
-      showToast('État de la session existante indéterminé — on ne relance pas tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe. Réessaie dans un instant.', 'err', 8000);
-      return;
-    }
-    if (typeof _bsRelayDeleteSession === 'function') {
-      _bsRelayDeleteSession(_base, _existingRs.sessionId, _existingRs.ownerToken).catch(function () {});
-    }
-  }
+  const _pf = await _rsPreflight(ref, { confirmMsg: 'Une session de signature à distance est déjà en cours pour ce bail.\n\nLa remplacer créera un nouveau lien et invalidera l\'ancien (les signatures déjà recueillies seraient perdues). Continuer ?' });
+  if (!_pf.ok) return;
+  _pf.purge();   // la session relais remplacée est supprimée (best-effort, non bloquant)
   // Repli : pas connecté (pas de jeton de session) → impossible d'appeler le relais. En cloud, l'utilisateur
   // est connecté → ce repli ne s'affiche pas (plus aucune clé à « configurer »).
   const _rcfg = (typeof _relayCfg === 'function') ? _relayCfg() : null;
@@ -16642,6 +16734,7 @@ function _bailRenderSignatureDateField(bail) {
   // ÉDITABLE (corriger la date = re-déclaration, confirmée à l'enregistrement). Case masquée sur un bail signé électroniquement.
   window._bailExtCtx = { etat: st.etat, signedDay: st.date || '' };
   _bailExtFichier = null; _bailExtRetirer = false;   // PJ en attente : propre à CE formulaire
+  window._bailExtOrigine = null; window._bailExtEtatRelais = null; window._bailExtPurge = null;   // contexte « session expirée » : propre à CE formulaire
   const _fi = el('b-externe-file'); if(_fi) _fi.value = '';
   _bailExtApprox = !!(sg.externe && sg.externe.dateApprox);
   const fg = el('b-externe-fg'), chk = el('b-externe');
@@ -16807,8 +16900,10 @@ function _bailExternePjAfficher() {
 // Après l'enregistrement du bail : dépôt / remplacement / retrait du PDF, et proposition de réutiliser le PDF d'une déclaration précédente.
 async function _bailExterneApresSave(ref, ext) {
   const f = _bailExtFichier, retirer = _bailExtRetirer;
-  _bailExtFichier = null; _bailExtRetirer = false;
+  const purge = window._bailExtPurge;
+  _bailExtFichier = null; _bailExtRetirer = false; window._bailExtOrigine = null; window._bailExtEtatRelais = null; window._bailExtPurge = null;
   const bail = DB.baux && DB.baux[ref];
+  if (purge && bail && _bailEtatSig(bail).etat === 'externe') purge();   // déclaration enregistrée depuis une session expirée : le relais est purgé (best-effort)
   if (!bail || _bailEtatSig(bail).etat !== 'externe') return;
   let touche = false;
   if (f) touche = await _bailScanExterneDeposer(ref, f);
@@ -17992,7 +18087,7 @@ function saveBail() {
   // BAIL SIGNÉ HORS PROPRYO — déclaration / re-déclaration / retrait, APRÈS l'application des autres champs du formulaire (le
   // bailSnapshot capture donc les termes enregistrés dans ce même passage) et AVANT la branche journal ci-dessous : les
   // modifications faites dans le même enregistrement partent sur la ligne neuve, pas dans un journal rattaché à une déclaration retirée.
-  _bailExterneAppliquer(bail, _existantHeritable, _ext, ref);
+  _bailExterneAppliquer(bail, _existantHeritable, _ext, ref, _ext.action === 'declarer' ? { origine: window._bailExtOrigine, etatRelais: window._bailExtEtatRelais } : undefined);
   // BAIL-SIGNE-MODIFS (28/09, incident Ferrette 101) — bail SIGNÉ par toutes les parties, parties
   // inchangées : les modifications sont ENREGISTRÉES dans le journal `DB.baux_evenements` (table cloud
   // 0054, à côté de la ligne verrouillée du bail) et réappliquées à chaque chargement. Le document
