@@ -1622,10 +1622,19 @@ export function _bankLineApplyRules(rules, line, opts = {}) {
   line._rules = res.matched.map(_bankRuleTraceKey).filter(Boolean);
   if (!res.byRule) return false;
   const aff = _bankResolveAff(res.aff, opts.account || null);
-  line.suggestedCat = res.cat || '';
-  line.suggestedQui = aff.qui || '';
-  line.suggestedImm = aff.imm || '';
-  line.suggestedCc  = aff.compteurCcId || '';
+  // « Je choisis des choses dans la règle, on les récupère après » (Didier, 06/10) : une règle
+  // refondue n'applique QUE les champs qu'elle définit et n'efface jamais les autres (une règle
+  // « catégorie seule » laisse l'affectation de la ligne, une règle « affectation seule » sa
+  // catégorie). Seules les règles historiques (sans `mots`) gardent l'ancien comportement exact :
+  // le champ non défini est remis à vide. Une affectation « bailleur du compte » non résolvable
+  // (compte mixte) n'efface rien non plus.
+  const garde = res.matched.some(_bankRuleIsV2);
+  line.suggestedCat = res.cat || (garde ? (line.suggestedCat || '') : '');
+  if ((res.aff && !aff.unresolved) || !garde) {
+    line.suggestedQui = aff.qui || '';
+    line.suggestedImm = aff.imm || '';
+    line.suggestedCc  = aff.compteurCcId || '';
+  }
   line.confidence   = 1;                        // déterministe : c'est une règle, pas une proposition
   line.matchSource  = 'Règle d\'import';
   line._byRule      = true;
@@ -1639,14 +1648,6 @@ export function _bankLineApplyRules(rules, line, opts = {}) {
   return true;
 }
 
-/** La règle changerait-elle le classement actuel de la ligne ? (catégorie ou affectation) */
-function _bankRuleChangeraitLigne(rule, line, account) {
-  if (rule.cat && rule.cat !== (line.suggestedCat || '')) return true;
-  const a = _bankRuleAffResolved(rule, account);
-  if (!a || a.unresolved) return false;
-  return a.qui !== (line.suggestedQui || '') || a.imm !== (line.suggestedImm || '') || a.compteurCcId !== (line.suggestedCc || '');
-}
-
 const _BANK_CLASSEMENT_FIELDS = ['suggestedCat', 'suggestedQui', 'suggestedImm', 'suggestedCc', 'confidence', 'matchSource',
   '_byRule', '_ruleConflicts', '_ruleOrigin', '_ambiguous', '_candidates',
   'isDuplicate', 'duplicateOf', 'duplicateReason', 'dupLevel'];
@@ -1656,8 +1657,8 @@ const _BANK_CLASSEMENT_FIELDS = ['suggestedCat', 'suggestedQui', 'suggestedImm',
  * suppression d'une règle (ex-inline `_bankReclassify`). Fonction pure : renvoie de
  * nouvelles lignes, sans toucher aux lignes d'entrée.
  *  - ligne classée à la main (`_userEdited` / `_reviewed`) → gardée telle quelle ; si
- *    la règle `opts.rule` la toucherait (et en changerait le classement), elle est
- *    COMPTÉE dans `protegees` (l'écran l'annonce : jamais d'écrasement silencieux) ;
+ *    la règle `opts.rule` la touche (elle correspond à la ligne), elle est COMPTÉE dans
+ *    `protegees` (l'écran l'annonce : jamais d'écrasement silencieux) ;
  *  - ligne SOURCE (`opts.sourceIndex`) qui correspond à la règle → elle SUIT la règle,
  *    même retouchée : sa marque « retouchée » est levée (la créer ne doit pas la
  *    verrouiller hors règle), `_suitRegle` demande au classement de la reprendre ;
@@ -1683,13 +1684,21 @@ export function _bankReclassifyPrepare(lines, opts = {}) {
       sourceSuit = touche;
       if (touche) {
         const r = strip(l);
+        // Ce que la règle ne définit pas, la ligne le garde (jamais effacé) : le classement
+        // appliqué ensuite par `_bankLineApplyRules` ne touche que les champs de la règle.
+        if (_bankRuleIsV2(rule)) {
+          if (!rule.cat && l.suggestedCat) r.suggestedCat = l.suggestedCat;
+          if (!_bankRuleHasAff(rule)) {
+            ['suggestedQui', 'suggestedImm', 'suggestedCc'].forEach(k => { if (l[k]) r[k] = l[k]; });
+          }
+        }
         delete r._userEdited;
         r._suitRegle = true;
         return r;
       }
     }
     if (l._userEdited || l._reviewed) {
-      if (touche && _bankRuleChangeraitLigne(rule, l, opts.account)) protegees++;
+      if (touche) protegees++;   // correspond à la règle ET déjà classée à la main : laissée telle quelle
       return l;
     }
     return strip(l);
@@ -1722,6 +1731,22 @@ export function _bankRulePatchMouvement(rule, mv, opts = {}) {
   const changed = patch._rules.length !== prev.length
     || ['cat', 'qui', 'imm', 'compteurCcId'].some(k => k in patch && String(mv[k] == null ? '' : mv[k]) !== String(patch[k]));
   return { ok: true, raison: '', patch, changed };
+}
+
+/**
+ * Pré-remplissage de la fenêtre de règle depuis ce qui est DÉJÀ classé sur une ligne d'import
+ * ou sur un mouvement enregistré (« si j'ai fait des modifs dans le mouvement, on les récupère
+ * dans la règle », Didier, 06/10) : catégorie + affectation (logement / immeuble / SCI / compteur).
+ * L'utilisateur modifie ensuite librement ; ce qu'il change dans la fenêtre est ce qui est
+ * enregistré. Exclusivité logement ↔ compteur respectée (le compteur l'emporte).
+ * @param {{cat?:string, qui?:string, imm?:string, compteurCcId?:string}} [c]
+ * @returns {{cat:string, qui:string, imm:string, cc:string}}
+ */
+export function _bankRulePrefill(c) {
+  const x = c || {};
+  const cc = x.compteurCcId ? String(x.compteurCcId) : '';
+  return { cat: x.cat ? String(x.cat) : '', qui: cc ? '' : (x.qui ? String(x.qui) : ''),
+    imm: x.imm ? String(x.imm) : '', cc };
 }
 
 /**

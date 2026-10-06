@@ -28522,13 +28522,14 @@ function _bankRuleOpen(ref, fromLine, fromMvId) {
       mvAccountId: mv ? mv._bankAccountId : null,
       importAccountId: imp ? _currentBankAccount.id : null });
     const compte = ci.compte;
+    // Ce qui est déjà classé sur la ligne / le mouvement pré-remplit la règle (module pur, testé).
+    const pre = window._bankRulePrefill(line
+      ? { cat: line.suggestedCat, qui: line.suggestedQui, imm: line.suggestedImm, compteurCcId: line.suggestedCc }
+      : (mv ? { cat: mv.cat, qui: mv.qui, imm: mv.imm, compteurCcId: mv.compteurCcId } : null));
     _bankRuleDraft = { id: '', pattern: '', motsEntiers: [],
       sens: src ? ((Number(src.credit) || 0) > 0 ? 'cr' : 'db') : '',
       compte, compteFixe: ci.fixe, compteOrigine: ci.origine, montant: null, exceptions: [],
-      cat: line ? (line.suggestedCat || '') : (mv ? (mv.cat || '') : ''),
-      qui: line ? (line.suggestedQui || '') : (mv ? (mv.qui || '') : ''),
-      imm: line ? (line.suggestedImm || '') : (mv ? (mv.imm || '') : ''),
-      cc: line ? (line.suggestedCc || '') : (mv ? (mv.compteurCcId || '') : ''),
+      cat: pre.cat, qui: pre.qui, imm: pre.imm, cc: pre.cc,
       bdc: false, historique: false,
       src, srcIndex: line ? fromLine : -1, srcMvId: mv ? mv.id : null };
   }
@@ -28762,7 +28763,7 @@ function _bankRuleSave() {
   if (mvRes && mvRes.msg) msg.push(mvRes.msg);
   if (res.reclasse) msg.push('les lignes de l\'import ont été reclassées');
   if (res.sourceSuit === false) msg.push('la ligne de départ ne remplit pas ces critères : elle n\'a pas été modifiée');
-  if (res.protegees) msg.push(res.protegees + (res.protegees > 1 ? ' lignes déjà classées à la main n\'ont pas été modifiées' : ' ligne déjà classée à la main n\'a pas été modifiée'));
+  if (res.protegees) msg.push(res.protegees + (res.protegees > 1 ? ' lignes déjà classées à la main laissées telles quelles' : ' ligne déjà classée à la main laissée telle quelle'));
   showToast(msg.join(' · '), (res.protegees || res.sourceSuit === false || (mvRes && !mvRes.ok)) ? 'warn' : 'ok', (res.protegees || mvRes) ? 7000 : 3500);
   // Retour sur la fiche du mouvement, à jour (la fiche avait été fermée pour ouvrir la règle).
   if (mvRes && mvRes.mv) {

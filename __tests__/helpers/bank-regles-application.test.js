@@ -20,7 +20,7 @@ import {
   _bankRuleBuild, _bankMigrateRules, _bankRuleIdxById, _bankRuleById, _bankRuleFindForTrace,
   _bankRuleTombstone, _bankRuleExactDuplicate, _bankRuleApercu, _bankRuleMatch, _bankRuleUsage,
   _bankLineApplyRules, _bankReclassifyPrepare, _bankRulePatchMouvement, _bankRuleMotsDuChamp,
-  _bankRuleTraceKey,
+  _bankRuleTraceKey, _bankRulePrefill,
 } from '../../js/core/bank-import.js';
 import { normaliserDonneesLoyers } from '../../js/core/normalisation-loyers.js';
 
@@ -80,9 +80,9 @@ describe('_bankReclassifyPrepare — import en cours après création d\'une rè
     L('VIR SARAR SYNDIC', 150, { suggestedCat: 'Autre', _userEdited: true, _byRule: false }),
     // 1 : classée à la main AUTREMENT → sautée ET comptée
     L('VIR SARAR TRAVAUX', 150, { date: '2026-09-20', suggestedCat: 'Travaux', suggestedQui: 'F-102', _userEdited: true }),
-    // 2 : validée, déjà classée comme la règle le ferait → sautée, PAS comptée
+    // 2 : validée, déjà classée comme la règle le ferait → sautée ET comptée (elle correspond et est à la main)
     L('VIR SARAR SYNDIC OCT', 150, { date: '2026-10-01', suggestedCat: 'Charges récupérables', suggestedQui: 'F-101', _reviewed: true }),
-    // 3 : classée à la main, la règle ne la touche pas → sautée, pas comptée
+    // 3 : classée à la main, la règle ne la touche pas (ne correspond pas) → sautée, pas comptée
     L('PRLV EDF', -80, { suggestedCat: 'Énergie', _userEdited: true }),
     // 4 : non retouchée → reclassée
     L('VIR SARAR NOV', 150, { date: '2026-11-01', suggestedCat: 'Autre', matchSource: 'proposition', _byRule: false }),
@@ -110,13 +110,13 @@ describe('_bankReclassifyPrepare — import en cours après création d\'une rè
     expect(p.lines[0]._suitRegle).toBe(true);
     expect(p.lines[0]._reviewed).toBe(true);
   });
-  it('ligne classée à la main : sautée ET comptée pour le message (seulement si la règle la changerait)', () => {
+  it('ligne classée à la main : sautée ET comptée pour le message (si elle correspond à la règle)', () => {
     const src = lignes();
     const p = _bankReclassifyPrepare(src, { rule, sourceIndex: 0, accountId: 'A' });
     expect(p.lines[1]).toBe(src[1]);                 // intacte (même objet)
     expect(p.lines[2]).toBe(src[2]);
     expect(p.lines[3]).toBe(src[3]);
-    expect(p.protegees).toBe(1);                     // la ligne 1 seulement
+    expect(p.protegees).toBe(2);                     // lignes 1 et 2 (correspondent + classées à la main)
     // La ligne non retouchée est remise à classer.
     expect(p.lines[4].suggestedCat).toBeUndefined();
     expect(p.lines[4].matchSource).toBeUndefined();
@@ -354,5 +354,116 @@ describe('Branchement app (gardes de source)', () => {
   });
   it('condition « = loyer CC » : le résolveur unique du dû du mois (_duMoisLot), aucun calcul réécrit', () => {
     expect(src).toMatch(/function _bankLoyerCC\(qui, ym\) \{[\s\S]{0,200}_duMoisLot\(qui, ym\)/);
+  });
+});
+
+
+describe('Règle -> ligne : une règle n\'efface JAMAIS un champ qu\'elle ne définit pas', () => {
+  const catSeule = R({ mots: ['SARAR'], compte: 'A', cat: 'Charges récupérables' });
+  const affSeule = R({ mots: ['SARAR'], compte: 'A', qui: 'F-101' });
+  const avecAff = R({ mots: ['SARAR'], compte: 'A', cat: 'Travaux', qui: 'F-102' });
+  const ligne = () => L('VIR SARAR', 150, { suggestedCat: 'Autre', suggestedQui: 'F-205', suggestedImm: 'Les Tilleuls', suggestedCc: '' });
+
+  it('règle catégorie seule : la catégorie change, l\'affectation de la ligne reste', () => {
+    const l = ligne();
+    expect(_bankLineApplyRules([catSeule], l, { accountId: 'A' })).toBe(true);
+    expect(l.suggestedCat).toBe('Charges récupérables');
+    expect(l.suggestedQui).toBe('F-205');
+    expect(l.suggestedImm).toBe('Les Tilleuls');
+  });
+  it('règle affectation seule : l\'affectation change, la catégorie de la ligne reste', () => {
+    const l = ligne();
+    _bankLineApplyRules([affSeule], l, { accountId: 'A' });
+    expect(l.suggestedQui).toBe('F-101');
+    expect(l.suggestedCat).toBe('Autre');
+  });
+  it('règle avec catégorie ET affectation : les deux sont appliquées', () => {
+    const l = ligne();
+    _bankLineApplyRules([avecAff], l, { accountId: 'A' });
+    expect(l.suggestedCat).toBe('Travaux');
+    expect(l.suggestedQui).toBe('F-102');
+  });
+  it('règle « bailleur du compte » non résolvable (compte mixte) : rien n\'est effacé', () => {
+    const r = R({ mots: ['SARAR'], compte: 'A', cat: 'Travaux', bailleurDuCompte: true });
+    const l = ligne();
+    _bankLineApplyRules([r], l, { accountId: 'A', account: { mixte: true } });
+    expect(l.suggestedQui).toBe('F-205');
+  });
+  it('règle HISTORIQUE (pattern seul) : comportement inchangé, le champ non défini est remis à vide', () => {
+    const rules = [{ pattern: 'SARAR', cat: 'Charges récupérables' }];
+    _bankMigrateRules(rules, { now: NOW });
+    const l = ligne();
+    _bankLineApplyRules(rules, l, { accountId: 'A' });
+    expect(l.suggestedCat).toBe('Charges récupérables');
+    expect(l.suggestedQui).toBe('');
+    expect(l.suggestedImm).toBe('');
+  });
+  it('reclassement : ligne SOURCE suivant une règle catégorie seule garde son affectation', () => {
+    const src = [L('VIR SARAR', 150, { suggestedCat: 'Autre', suggestedQui: 'F-205', suggestedImm: 'Les Tilleuls', _userEdited: true })];
+    const p = _bankReclassifyPrepare(src, { rule: catSeule, sourceIndex: 0, accountId: 'A' });
+    expect(p.lines[0].suggestedQui).toBe('F-205');
+    expect(p.lines[0].suggestedCat).toBeUndefined();         // la catégorie sera posée par la règle
+    _bankLineApplyRules([catSeule], p.lines[0], { accountId: 'A' });
+    expect(p.lines[0].suggestedCat).toBe('Charges récupérables');
+    expect(p.lines[0].suggestedQui).toBe('F-205');
+  });
+  it('reclassement : ligne SOURCE avec une règle qui porte l\'affectation : celle de la règle gagne', () => {
+    const src = [L('VIR SARAR', 150, { suggestedCat: 'Autre', suggestedQui: 'F-205', _userEdited: true })];
+    const p = _bankReclassifyPrepare(src, { rule: avecAff, sourceIndex: 0, accountId: 'A' });
+    _bankLineApplyRules([avecAff], p.lines[0], { accountId: 'A' });
+    expect(p.lines[0].suggestedQui).toBe('F-102');
+    expect(p.lines[0].suggestedCat).toBe('Travaux');
+  });
+  it('fiche mouvement : une règle catégorie seule ne vide pas le logement du mouvement', () => {
+    const mv = { id: 1, date: '2026-09-15', lib: 'VIR SARAR', cr: 150, cat: 'Autre', qui: 'F-205', imm: 'Les Tilleuls', _bankAccountId: 'A' };
+    const res = _bankRulePatchMouvement(catSeule, mv, {});
+    expect(res.patch.cat).toBe('Charges récupérables');
+    expect('qui' in res.patch).toBe(false);
+    expect('imm' in res.patch).toBe(false);
+  });
+});
+
+describe('Message de reclassement : lignes qui correspondent ET déjà classées à la main', () => {
+  const r = R({ mots: ['SARAR'], compte: 'A', cat: 'Charges récupérables' });
+  it('compte toute ligne qui correspond et est _userEdited / _reviewed, quel que soit son classement', () => {
+    const src = [
+      L('VIR SARAR 1', 150, { suggestedCat: 'Charges récupérables', _reviewed: true }),   // même classement : comptée
+      L('VIR SARAR 2', 150, { suggestedCat: 'Travaux', _userEdited: true }),
+      L('PRLV EDF', -80, { suggestedCat: 'Énergie', _userEdited: true }),                // ne correspond pas
+      L('VIR SARAR 3', 150),                                                             // non classée à la main
+    ];
+    const p = _bankReclassifyPrepare(src, { rule: r, accountId: 'A' });
+    expect(p.protegees).toBe(2);
+    expect(p.lines[1]).toBe(src[1]);
+  });
+  it('aucune ligne à la main qui correspond : 0 (aucun message)', () => {
+    const p = _bankReclassifyPrepare([L('VIR SARAR 3', 150)], { rule: r, accountId: 'A' });
+    expect(p.protegees).toBe(0);
+  });
+  it('le texte affiché est la phrase courte, au singulier et au pluriel', () => {
+    const SRC = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../js/app/app-part2.js'), 'utf8');
+    expect(SRC).toContain("' lignes déjà classées à la main laissées telles quelles'");
+    expect(SRC).toContain("' ligne déjà classée à la main laissée telle quelle'");
+  });
+});
+
+describe('Ligne / mouvement -> règle : pré-remplissage (_bankRulePrefill)', () => {
+  it('reprend catégorie + logement + immeuble d\'un mouvement', () => {
+    expect(_bankRulePrefill({ cat: 'Charges récupérables', qui: 'F-101', imm: 'Les Tilleuls' }))
+      .toEqual({ cat: 'Charges récupérables', qui: 'F-101', imm: 'Les Tilleuls', cc: '' });
+  });
+  it('reprend une SCI, ou un compteur (le compteur l\'emporte sur le logement)', () => {
+    expect(_bankRulePrefill({ cat: 'X', qui: 'SCI:Dupont' }).qui).toBe('SCI:Dupont');
+    const p = _bankRulePrefill({ qui: 'F-101', compteurCcId: 'cc1', imm: 'Im' });
+    expect(p).toEqual({ cat: '', qui: '', imm: 'Im', cc: 'cc1' });
+  });
+  it('rien de classé / entrée absente : tout vide', () => {
+    expect(_bankRulePrefill(null)).toEqual({ cat: '', qui: '', imm: '', cc: '' });
+    expect(_bankRulePrefill({})).toEqual({ cat: '', qui: '', imm: '', cc: '' });
+  });
+  it('branché dans la fenêtre de règle pour la ligne ET le mouvement', () => {
+    const SRC = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../js/app/app-part2.js'), 'utf8');
+    expect(SRC).toMatch(/window\._bankRulePrefill\(line\s*\r?\n?\s*\? \{ cat: line\.suggestedCat/);
+    expect(SRC).toMatch(/mv \? \{ cat: mv\.cat, qui: mv\.qui, imm: mv\.imm, compteurCcId: mv\.compteurCcId \}/);
   });
 });
