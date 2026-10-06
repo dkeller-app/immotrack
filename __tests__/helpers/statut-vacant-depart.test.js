@@ -294,6 +294,22 @@ describe('8 · lecteurs de statut (listes et exports)', () => {
     expect(cap.csv).toContain('"Vacant (départ le 30/09/2026, bail à clôturer)"');
     expect(cap.csv).toContain('"Loué"');
   });
+  it('export CSV (VRAI exportBiensCSV) : injection de formule neutralisée sur Locataire et Nom affiché seulement (audit B3 🟡11)', () => {
+    const DB = dbDe({ A1: DEPART, B2: BAIL });
+    DB.logements[0].locataire = '=HYPERLINK("http://x")'; DB.logements[0].libelle = '@cmd';
+    DB.logements[0].hc = -50; DB.logements[1].locataire = 'Marie Dupont';
+    const cap = {};
+    const m = monter(DB, [...STATUT, 'exportBiensCSV'], {
+      _logLabel: (l) => (l && l.libelle) || (l && l.ref), _biensTab: 'actifs', _activeLogements: () => DB.logements, _filterAndSortLogs: (p) => p,
+      Blob: function (parts) { cap.csv = parts[0]; }, URL: { createObjectURL: () => 'u', revokeObjectURL: () => {} },
+      document: { createElement: () => ({ click() {} }) },
+    });
+    m.fn.exportBiensCSV();
+    expect(cap.csv).toContain("\"'=HYPERLINK(\"\"http://x\"\")\"");
+    expect(cap.csv).toContain("\"'@cmd\"");
+    expect(cap.csv).toContain('"-50"');           // montant négatif inchangé
+    expect(cap.csv).toContain('"Marie Dupont"');  // texte normal inchangé
+  });
   it('liste des biens PC, blocs par immeuble (VRAI _renderBuildingBlockA) : libellé du lot parti', () => {
     const DB = dbDe({ A1: DEPART, B2: BAIL });
     const m = monter(DB, [...STATUT, '_renderBuildingBlockA', '_aggregateBuilding'], { _natCmp: () => 0, _lyQ: (x) => x, fmtN: (x) => String(x), _uiIcon: () => '' });

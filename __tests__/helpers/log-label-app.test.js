@@ -213,3 +213,16 @@ describe('textes d\'écran : pas de relecture d\'option, nom (pas réf) dans Pil
     expect(P1).not.toMatch(/nom: v\.ref,/)
   })
 })
+
+// B3 audit 🟡11 : mention de verrou exacte ; tris naturels (« Apt 2 » avant « Apt 10 »).
+describe('divers (audit B3 🟡11)', () => {
+  it('openNewLog : « EDL signé » quand le verrou vient d\'un EDL (code edl-signe), sinon « bail signé »', () => {
+    expect(P2).toMatch(/Verrouillée : ' \+ \(_g\.code === 'edl-signe' \? 'EDL signé' : 'bail signé'\)/)
+    expect(P2).not.toMatch(/🔒 Verrouillée : bail signé</)
+  })
+  it('_rgShowGlobal et rRegul : tri naturel (_natCmp), plus de localeCompare sur le nom', () => {
+    expect(extraire(P1, '_rgShowGlobal')).toMatch(/_natCmp\(_logLabel\(a\.ref\|\|''\)/)
+    expect(extraire(P1, 'rRegul')).toMatch(/_natCmp\(_logLabel\(a\.ref\), _logLabel\(b\.ref\)\)/)
+    expect(P1).not.toMatch(/_logLabel\(a\.ref[^)]*\)\)?\.localeCompare/)
+  })
+})

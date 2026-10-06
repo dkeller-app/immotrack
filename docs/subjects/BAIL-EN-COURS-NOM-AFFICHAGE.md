@@ -168,7 +168,7 @@ Dans ces écrans, l'utilisateur doit **identifier sans ambiguïté**, et deux li
 
 **Pas de migration SQL.** Une colonne `libelle` typée ne servirait qu'aux requêtes SQL, et aucune n'en a besoin. L'ajouter imposerait le même interrupteur que `COLONNES_CLAUSES_BAIL_0046` (PostgREST refuse une colonne inconnue : PGRST204, l. 40-52). Ce serait un risque sans bénéfice.
 
-- **Tombstones** : le libellé vit sur l'enregistrement ; un logement supprimé le garde dans son tombstone. À la résurrection (`saveParamLog`, `wasTombstone`, l. ~22495), le formulaire réécrit le champ, comme les autres.
+- **Tombstones** : le libellé vit sur l'enregistrement, mais `delLog` ne le recopie PAS dans le tombstone (minimisation des données voulue, contre-audit 2026-10-06 : le tombstone ne garde que l'identité technique). À la résurrection (`saveParamLog`, `wasTombstone`, l. ~22495), le formulaire réécrit le champ, comme les autres.
 - **Fusion** : dernier écrit gagnant **par enregistrement** (`_modifiedAt`), comme tous les champs du logement. Deux appareils qui modifient l'un le libellé, l'autre la surface en même temps : le dernier `_stamp` gagne pour tout le logement. C'est le comportement actuel de tous les champs, rien de spécifique ici.
 - **Renommage de la référence** (`rename-logement.js`) : le libellé est sur le même objet et suit sans rien faire. `validateNewRef` ne le regarde pas, et c'est voulu.
 - **Bail signé (confirmé dans le code)** :

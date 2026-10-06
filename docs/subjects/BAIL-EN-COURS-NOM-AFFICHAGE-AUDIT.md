@@ -113,3 +113,22 @@ Sur ces écrans, l'affichage n'est pas homogène (aucun risque, la réf reste af
    | Garde `if (el('log-libelle'))` supprimée dans `saveParamLog` | **78/78 verts ✘** (finding 2) |
    | `data-ref` alimenté par une variable intermédiaire | **verts ✘** (limite connue d'un garde-fou ligne à ligne) |
 8. **Suite complète** : `npx vitest run` donne 249 fichiers et 6152 tests verts. `git status` est propre après l'audit, à l'exception de ce fichier.
+
+---
+
+## Suivi des corrections (commits « B3 audit : … »)
+
+| Finding | Statut | Détail |
+|---|---|---|
+| 🔴 1 récap 2044 imprimé | Corrigé | `_legal2044PerimetreHtml(data, { ecran: true })` : nom d'affichage seulement dans le wizard (étapes 3 et 4) ; `_print2044` → référence. `_print2044` ajouté à `DOCUMENTS`, test vm ecran/sans ecran (rouge par mutation). Recherche d'autres fonctions d'écran réutilisées en impression/export : aucune (seul `exportBiensCSV` mêle `_logLabel` et export, voulu : colonne « Nom affiché »). |
+| 🟠 2 `saveParamLog` | Corrigé | Logique extraite en `_logLibelleDepuisFormulaire(log, ref, champPresent, valeur)`, testée avec et sans module (absent / vide / = réf / normalisation) + test statique de `if (el('log-libelle'))` et de `_stamp(log)`. Trois mutations rouges. |
+| 🟠 3 test `bailLegalContent` | Corrigé | Supprimé (tautologique), justifié en commentaire. |
+| 🟡 4 `_short` finances | Corrigé | `nomLotParts` renvoie `{nom, loc}` ; `_short` = nom seul. Aucun fichier `js/core/finances-*` touché. |
+| 🟡 5 subtitle de `_computeUnifiedTodo` | Non traité | Trop invasif (consigne) : à faire en portant `hasDG` et la ref sur l'item. |
+| 🟡 6 multi-espace | Corrigé | `_logFindParRef` préfère `_espaceId` / suffixe `@@espaceId`. |
+| 🟡 7 `_edlRenderLogCard` | Corrigé | `lg.locataire \|\| 'Vacant'`, plus de relecture de `opt.text`. |
+| 🟡 8 Pilotage vacants | Corrigé | `nom: _logLabel(...)` pour vacants, impayés et fins de bail sans locataire. |
+| 🟡 9 sites non homogènes | Non traité (consigne) | Aucun risque, la référence reste affichée. |
+| 🟡 10 invisibles / bidi / emoji | Corrigé | Module + miroir `.global.js` + repli de `saveParamLog` alignés. |
+| 🟡 11 divers | Corrigé : neutralisation de formule (Locataire et Nom affiché seulement), mention « EDL signé », tris `_natCmp` (`_rgShowGlobal`, `rRegul`), repli de `saveParamLog` aligné, §2 de la conception (tombstone `delLog` sans libellé). Non traité : test de HTML identique des cartes sans libellé (pas de capture de référence). |
+

@@ -9650,11 +9650,14 @@ function exportBiensCSV() {
   if(!rowsLogs.length) { showToast('Aucun bien ne correspond aux filtres','err'); return; }
   const headers = ['Ref','Immeuble','Bailleur','Type','Surface m²','Étage','Adresse','HC €','Charges €','DG €','Locataire','Date début','Date fin','Statut','IRL','Nom affiché'];
   const escCsv = v => `"${String(v==null?'':v).replace(/"/g,'""')}"`;
+  // Injection de formule (Excel/Sheets) : seuls les champs TEXTE LIBRES (Locataire, Nom affiché) sont neutralisés par un « ' »
+  // en tête s'ils commencent par = + - @ ; montants (négatifs possibles) et dates ne changent pas.
+  const txtLibre = v => { const s = String(v == null ? '' : v); return /^[=+\-@]/.test(s) ? "'" + s : s; };
   const rows = rowsLogs.map(l => [
     l.ref,l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
-    l.hc||0,l.ch||0,l.dg||0,l.locataire||'',l.debut||'',l.fin||'',
+    l.hc||0,l.ch||0,l.dg||0,txtLibre(l.locataire||''),l.debut||'',l.fin||'',
     _lotStatutLibelle(l.ref), l.irl||'',
-    (_logLabel(l) !== l.ref ? _logLabel(l) : '')   // B3 : nom affiché, en dernière colonne (colonnes existantes inchangées)
+    txtLibre(_logLabel(l) !== l.ref ? _logLabel(l) : '')   // B3 : nom affiché, en dernière colonne (colonnes existantes inchangées)
   ]);
   const csv = [headers, ...rows].map(r => r.map(escCsv).join(';')).join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
@@ -21338,7 +21341,7 @@ function openNewLog(ref) {
       const _g = (window._renameLogement && window._renameLogement.canRename) ? window._renameLogement.canRename(DB, log.ref) : { ok: true };
       w.innerHTML = _g.ok
         ? '<button type="button" class="btn bs bb" onclick="_openRenameLog(\'' + _lyQ(log.ref) + '\')" title="Renommer ce bien">✏️ Renommer</button>'
-        : '<span class="mu sm" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap" title="' + escHtml(_g.error || '') + '">🔒 Verrouillée : bail signé</span>'; } })();
+        : '<span class="mu sm" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap" title="' + escHtml(_g.error || '') + '">🔒 Verrouillée : ' + (_g.code === 'edl-signe' ? 'EDL signé' : 'bail signé') + '</span>'; } })();
     setV('log-typeUsage', log.typeUsage || 'habitation-nu');
     setV('log-entity', log.entity);
     refreshLogImmSelect();

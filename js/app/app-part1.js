@@ -26416,7 +26416,7 @@ function _rgShowGlobal(immNom){
   const from=window._regulFrom, to=window._regulTo;
   const result=computeRegul(from,to);
   const entries=Object.values(result.entries||{}).filter(e=>e.imm===immNom)
-    .sort((a,b)=>_logLabel(a.ref||'').localeCompare(_logLabel(b.ref||''))||(a.ref||'').localeCompare(b.ref||'')||(a.debutOcc||'').localeCompare(b.debutOcc||''));
+    .sort((a,b)=>_natCmp(_logLabel(a.ref||''), _logLabel(b.ref||''))||_natCmp(a.ref||'', b.ref||'')||(a.debutOcc||'').localeCompare(b.debutOcc||''));
   const bail=(result.bailleur||{})[immNom];
   const nonRep=(result.nonReparti||{})[immNom];
   const f=fmt;
@@ -26905,7 +26905,7 @@ function rRegul() {
   const _entRegImms = _activeEntity ? new Set((DB.logements||[]).filter(_logInEnt).map(l=>l.imm).filter(Boolean)) : null;
   let items = Object.values(regul).filter(r=>(!_entRegImms||_entRegImms.has(r.imm))&&(!fimm||r.imm===fimm));
   items.sort((a,b)=>{
-    if(a.ref!==b.ref) return _logLabel(a.ref).localeCompare(_logLabel(b.ref)) || a.ref.localeCompare(b.ref);
+    if(a.ref!==b.ref) return _natCmp(_logLabel(a.ref), _logLabel(b.ref)) || _natCmp(a.ref, b.ref);
     if(!a.isHistorique && b.isHistorique) return -1;
     if(a.isHistorique && !b.isHistorique) return 1;
     return (b.debut||'').localeCompare(a.debut||'');
