@@ -15956,6 +15956,10 @@ function _finalizeCandidatConversion(candId, bailRef){
 
 function openBail(ref, opts) {
   _pendingCandidatConv = null; // LOG-CANDIDATS : tout openBail neutralise une conversion en attente
+  // Statut 06/10 (vérification finale) : ouvrir le bail d'un lot SANS bail vivant (lot vacant, bail clôturé = tombstone)
+  // = créer un NOUVEAU bail — porte unique, jamais le formulaire en édition prérempli des dates de l'ancien bail.
+  // Couvre « + Créer le bail » de la fiche et le fil rouge (creer-bail, _frConfirmBail), qui appellent openBail(ref).
+  if(ref && !_isAlive(DB.baux[ref])) { _ouvrirNouveauBailSurLot(ref); return; }
   // v15.73 FIX : restaure footer depuis _ORIG_BAIL_FOOT_HTML (sauvé au boot via DOMContentLoaded).
   // Avant : save au premier appel openBail → si user ouvre openBailHist EN PREMIER,
   // on save un footer DEJA corrompu → buggé en boucle.

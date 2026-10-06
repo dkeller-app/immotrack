@@ -898,3 +898,35 @@ describe('29 · cible de la restitution (VRAIS _dgBailCible / _dgConfirmerRestit
     expect(m.base._toasts[0]).toContain('Bail introuvable');
   });
 });
+describe('30 · « Créer le bail » sur un lot sans bail vivant (VRAI openBail, fiche et fil rouge) : un NOUVEAU bail', () => {
+  const docStub = () => ({ querySelector: () => null, querySelectorAll: () => [], getElementById: () => null, createElement: () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} } }) });
+  const lancer = (baux, appel) => {
+    const DB = dbDe(baux);
+    DB.logements[0].debut = '2023-07-01'; DB.logements[0].fin = '2026-09-30';
+    const E = {};
+    const elX = (id) => (E[id] = E[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, dataset: {}, disabled: false, checked: false, options: [],
+      classList: { add() {}, remove() {}, toggle() {}, contains: () => false }, querySelectorAll: () => [], querySelector: () => null, appendChild() {} });
+    const m = monter(DB, [...STATUT, 'openBail', 'onBailRefChange', '_ouvrirNouveauBailSurLot', '_frConfirmBail', '_frCompAction', '_isoDecaleJours', '_bailFinOccupation'], {
+      el: elX, document: docStub(), _activeLogements: () => DB.logements, sortedIRLKeys: () => ['T1 2026'], getIRLRefForDate: () => 'T1 2023',
+      _bailIsEdit: false, _readLogForBail: () => ({}), _TU2BT: {}, _bailLegacyToGarants: () => [],
+      _frCtx: { bailRef: 'A1' }, _frClose: () => {}, _frCompGuard: (f) => f(),
+    });
+    elX('fr-bail-log').value = 'A1';
+    try { appel(m.fn); } catch (e) { m.base.__err = e.message; }
+    return { E, err: m.base.__err };
+  };
+  const TOMB = { A1: { ref: 'A1', _deleted: true } };
+  const nouveau = (r) => ({ editRef: r.E['b-edit-ref'] && r.E['b-edit-ref'].value, ref: r.E['b-ref'] && r.E['b-ref'].value, debut: r.E['b-debut'].value, fin: r.E['b-fin'].value });
+  it('fiche « + Créer le bail » → openBail(ref) sur un lot clôturé : nouveau bail (pas d\'édition, ni les dates de l\'ancien)', () => {
+    expect(nouveau(lancer(TOMB, (fn) => fn.openBail('A1')))).toEqual({ editRef: '', ref: 'A1', debut: '', fin: '' });
+  });
+  it('fil rouge _frConfirmBail et « creer-bail » (_frCompAction) : idem', () => {
+    expect(nouveau(lancer(TOMB, (fn) => fn._frConfirmBail()))).toEqual({ editRef: '', ref: 'A1', debut: '', fin: '' });
+    expect(nouveau(lancer({}, (fn) => fn._frCompAction('creer-bail', 'A1')))).toEqual({ editRef: '', ref: 'A1', debut: '', fin: '' });
+  });
+  it('bail vivant : openBail(ref) reste l\'édition de CE bail', () => {
+    const r = lancer({ A1: BAIL }, (fn) => fn.openBail('A1'));
+    expect(r.E['b-edit-ref'].value).toBe('A1');
+    expect(r.E['b-debut'].value).toBe(BAIL.debut);
+  });
+});
