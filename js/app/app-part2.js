@@ -29106,6 +29106,21 @@ function _finCatMere(catNom) {
   if (m) { const mere = _finStdByLigne(m); if (mere) return mere; }
   return null;
 }
+// Poste de cash-flow HORS 2044 d'une catégorie : 'construction', 'nonDeductible' ou null.
+// Source UNIQUE — moteur (`_finMonthly`), fiche du lot (`_finLotCatRole`) et détail des lignes
+// (`_finDrillLigne`) l'appellent tous.
+// - Travaux de construction / agrandissement : suit la mère, alias compris (on n'y range que des
+//   travaux).
+// - « Divers (non déductible) » : compte UNIQUEMENT sous son nom exact (GO Didier 06/10). Le choix
+//   « Hors résultat (caution, capital, non déductible…) » des Réglages écrit un alias vers Divers
+//   (`_setCustomCatMap`), et le legacy '__ignore' y mène aussi : une caution ou un apport rangé là
+//   reste HORS du cash-flow, comme l'annonce son libellé.
+function _finChargeHf(catNom) {
+  const mere = _finCatMere(catNom);
+  if (!mere || !mere.chargeHf) return null;
+  if (mere.chargeHf === 'nonDeductible' && catNom !== mere.nom) return null;
+  return mere.chargeHf;
+}
 // Migration one-shot : catMapping {nom: ligne2044|'__ignore'} → catAlias {nom: mère}.
 // Idempotente, silencieuse (les valeurs avaient déjà été VALIDÉES par l'utilisateur —
 // même sémantique, exprimée sur la mère au lieu de la ligne).
@@ -29814,7 +29829,7 @@ function _finMonthly(yr, scope, win) {
     // échéance, un alias de « Charges récupérables » un transit, etc. (héritage cash-flow).
     isEcheance: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.nom === 'Prêt'); },   // « 1 ligne = mensualité entière » (convention user)
     isGestionCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.gestionCharge); }, // frais bancaires (réel mais hors 2044)
-    chargeHorsFiscal: m => { const mere = _finCatMere(m && m.cat); return (mere && mere.chargeHf) || null; }, // travaux d'agrandissement, dépenses non déductibles (05/10)
+    chargeHorsFiscal: m => _finChargeHf(m && m.cat), // travaux d'agrandissement, dépenses non déductibles (05/10 ; Divers sous son nom exact, 06/10)
     isRecupCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.recup); }, // charges récupérables directes (eau/énergie) : transit locataire
     isRecupACharge: _finIsRecupACharge,         // L-5 : vacance / sans bail / non récupérable → « Resté à ta charge » (225)
     window: isWin ? win : undefined,
@@ -30238,8 +30253,8 @@ function _finDrillLigne(kind, yr, mo) {
     assurance:    { titre: 'Assurance PNO / GLI',         rec: false, test: r => r.ligne2044 === '223' },
     autres:       { titre: 'Autres charges propriétaire', rec: false, test: r => r.ligne2044 === '225' || r.ligne2044 === '226' }, // + récupérables restées à charge (L-5), matchées dans la boucle
     gestionHF:    { titre: 'Frais bancaires (hors 2044)', rec: false, test: () => false }, // matché par flag gestionCharge dans la boucle
-    construction: { titre: 'Travaux d\'agrandissement (non déductibles)', rec: false, test: () => false }, // matché par flag chargeHf dans la boucle
-    nonDeductible: { titre: 'Dépenses non déductibles', rec: false, test: () => false },            // matché par flag chargeHf dans la boucle
+    construction: { titre: 'Travaux d\'agrandissement (non déductibles)', rec: false, test: () => false }, // matché par _finChargeHf dans la boucle
+    nonDeductible: { titre: 'Dépenses non déductibles', rec: false, test: () => false },            // matché par _finChargeHf dans la boucle
     pret:         { titre: 'Prêt — échéances (capital + intérêts)', rec: false, test: () => false }, // B4 : matché par m.cat === 'Prêt' (mensualité entière)
     provisions:   { titre: 'Provisions de charges encaissées', prov: true, rec: false, test: () => false }, // #2 : part CH du loyer 211
     recup:        { titre: 'Charges récupérables avancées (récupérables)', rec: false, test: () => false }, // #2 : 229/230 copro + flag recup — part restée à charge EXCLUE (L-5)
@@ -30309,7 +30324,7 @@ function _finDrillLigne(kind, yr, mo) {
         : (kind === 'recupACharge')
         ? (_isRecupMv && _finIsRecupACharge(m))
         : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
-           || ((kind === 'construction' || kind === 'nonDeductible') && _sc && _sc.chargeHf === kind)
+           || ((kind === 'construction' || kind === 'nonDeductible') && _finChargeHf(m.cat) === kind)
            || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));                // L-5 : « Autres » inclut le resté-à-charge (total = ligne)
       if (!ok) return;
       // v15.398 (BUG-PRET-REMBOURSEMENT) : crédits/ristournes inclus → drill = total ligne P&L (db−cr).
@@ -30348,7 +30363,7 @@ function _finDrillLigne(kind, yr, mo) {
         const ok = (kind === 'recup') ? (_isRecupMv && !_finIsRecupACharge(m))
           : (kind === 'recupACharge') ? (_isRecupMv && _finIsRecupACharge(m))
           : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
-           || ((kind === 'construction' || kind === 'nonDeductible') && _sc && _sc.chargeHf === kind)
+           || ((kind === 'construction' || kind === 'nonDeductible') && _finChargeHf(m.cat) === kind)
              || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));
         if (!ok) return; // parité avec la boucle rows (CFE/TLV/pret/L-5)
         t += ((Number(m.db) || 0) - (Number(m.cr) || 0)) * _w;
