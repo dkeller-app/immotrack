@@ -28,7 +28,7 @@ const corps = (nom) => extraire(P1, nom) || extraire(P2, nom)
 const DOCUMENTS = ['genBailHTML', 'buildBailStructure', 'previewBailDataV2', 'exportBailWord', 'buildReprisBail',
   '_avenantDocPageHtml', '_congeDocHtml', '_buildQuittanceHtml', '_buildRelanceHtml', '_buildIRLLetterHtml', 'genIRLLetter',
   '_buildDecompteHtml', '_rgOpenDecompteEstimatif', 'generateEDLPdfNative', 'downloadEDLPdfNative', 'genActeCautionnementDoc',
-  '_buildDdtRecapHTML', '_ddtRecapPDF', '_docPage', '_fin2044PrevisuHtml', '_edlSharePhotos']
+  '_buildDdtRecapHTML', '_ddtRecapPDF', '_docPage', '_fin2044PrevisuHtml', '_edlSharePhotos', '_print2044']
 // Un `libelle` lu sur un LOGEMENT (log/lg/bien/lot) est interdit ; les autres `.libelle` (lignes d'une relance,
 // `CT.libelleAnnexe…`) ne sont pas le nom du logement.
 const LIBELLE_LOGEMENT = /\b(?:log|lg|logement|bien|lot)\.libelle\b(?!\s*:)/
@@ -51,6 +51,32 @@ describe('aucun document n\'utilise le nom d\'affichage', () => {
       expect(LIBELLE_LOGEMENT.test(c)).toBe(false)
     })
   }
+})
+
+describe("récap 2044 : le nom d'affichage reste à l'écran, l'impression (remise à un tiers) garde la référence", () => {
+  const run = (opt) => {
+    const f = new Function('escHtml', '_logLabel', extraire(P2, '_legal2044PerimetreHtml') + '; return _legal2044PerimetreHtml;')
+    const fn = f((s) => String(s), (r) => 'NOM-' + r)
+    return fn({ exclus: [{ ref: 'D-104' }], flagues: [{ ref: 'D-105' }] }, opt)
+  }
+  it('_print2044 appelle _legal2044PerimetreHtml sans option ecran', () => {
+    const c = extraire(P2, '_print2044')
+    expect(c).toBeTruthy()
+    expect(c).toMatch(/_legal2044PerimetreHtml\(data\)/)
+    expect(c).not.toMatch(/ecran/)
+  })
+  it('sans option (impression) : références seulement', () => {
+    const h = run()
+    expect(h).toContain('D-104'); expect(h).toContain('D-105')
+    expect(h).not.toContain('NOM-')
+  })
+  it("avec { ecran: true } (wizard) : nom d'affichage", () => {
+    const h = run({ ecran: true })
+    expect(h).toContain('NOM-D-104'); expect(h).toContain('NOM-D-105')
+  })
+  it('les deux appels du wizard passent ecran:true', () => {
+    expect((P2.match(/_legal2044PerimetreHtml\(data, \{ ecran: true \}\)/g) || []).length).toBe(2)
+  })
 })
 
 describe('bail signé imperméable au libellé', () => {

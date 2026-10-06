@@ -10415,14 +10415,16 @@ function _legal2044WizardData(ent, year) {
 // (mixte / usage à qualifier). Affiché dans le wizard ET le PDF — l'utilisateur et son
 // comptable doivent VOIR le périmètre (transparence anti-redressement).
 // FEAT-REGIMES P0 / audit code-reviewer #3 (symétrie panneau ↔ wizard ↔ PDF).
-function _legal2044PerimetreHtml(data) {
+function _legal2044PerimetreHtml(data, opt) {
+  // ecran:true (wizard) → nom d'affichage ; sans option (impression remise à un tiers) → RÉFÉRENCE (règle d'or B3).
+  const _nm = (opt && opt.ecran) ? _logLabel : (r => r);
   const ex = (data && data.exclus) || [];
   const fl = (data && data.flagues) || [];
   if (!ex.length && !fl.length) return '';
   let h = '<div style="margin:14px 0;padding:11px 13px;border:1px solid #e0a800;border-radius:8px;background:#fff8e6;font-size:11.5px;color:#7a5a18;line-height:1.55">';
   h += '<b>⚠ Périmètre foncier (2044)</b> — la 2044 ne couvre que la <b>location nue</b>. Ce récap a écarté :';
-  if (ex.length) h += `<div style="margin-top:5px">• <b>${ex.length} lot(s) meublé(s) EXCLU(S)</b> — relèvent du BIC/LMNP (déclaration séparée) : ${ex.map(e => escHtml(_logLabel(e.ref))).join(', ')}</div>`;
-  if (fl.length) h += `<div style="margin-top:4px">• <b>${fl.length} lot(s) à VÉRIFIER</b> (mixte nu+meublé, ou usage à qualifier) : ${fl.map(f => escHtml(_logLabel(f.ref))).join(', ')}</div>`;
+  if (ex.length) h += `<div style="margin-top:5px">• <b>${ex.length} lot(s) meublé(s) EXCLU(S)</b> — relèvent du BIC/LMNP (déclaration séparée) : ${ex.map(e => escHtml(_nm(e.ref))).join(', ')}</div>`;
+  if (fl.length) h += `<div style="margin-top:4px">• <b>${fl.length} lot(s) à VÉRIFIER</b> (mixte nu+meublé, ou usage à qualifier) : ${fl.map(f => escHtml(_nm(f.ref))).join(', ')}</div>`;
   if (ex.length) h += '<div style="margin-top:6px;color:#9a7b2a">Note : les charges d\'immeuble (taxe foncière, assurance PNO, syndic) restent comptées à 100 % au foncier même si l\'immeuble comporte des lots meublés. Si un immeuble est <b>mixte</b>, la quote-part meublée est à retirer (ventilation à venir).</div>';
   h += '</div>';
   return h;
@@ -10642,7 +10644,7 @@ function _renderWiz2044Step3(ent, data) {
         <p class="mu sm" style="font-size:11px;margin:6px 0">Retourne à l'étape 2 pour les mapper.</p>
       </div>` : '';
   return `
-    ${_legal2044PerimetreHtml(data)}
+    ${_legal2044PerimetreHtml(data, { ecran: true })}
     <div class="kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px">
       <div class="kpi"><div class="kv pos">${fmt(t.recettes215)}</div><div class="kl">Recettes (l. 215)</div></div>
       <div class="kpi"><div class="kv neg">${fmt(t.charges240)}</div><div class="kl">Charges (l. 240)</div></div>
@@ -10671,7 +10673,7 @@ function _renderWiz2044Step4(ent, data) {
   return `
     <div style="padding:10px 0">
       <p>Récapitulatif prêt à imprimer / sauvegarder en PDF.</p>
-      ${_legal2044PerimetreHtml(data)}
+      ${_legal2044PerimetreHtml(data, { ecran: true })}
       <ul style="font-size:12px;line-height:1.8">
         <li>Recettes ligne 215 : <b>${fmt(data.totaux.recettes215)}</b></li>
         <li>Charges ligne 240 : <b>${fmt(data.totaux.charges240)}</b></li>
