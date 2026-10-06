@@ -8,7 +8,7 @@
 | Fusion des 2 SCI (Opus) | **v15.717 (partage SCI) SUR MAIN** · plan exact des restes (espace Didier → espace Marion) rédigé, exécution en cours/attente GO | GO du plan | `fix/fusion-sci` |
 | Audit de sécurité (Opus) | rapport livré (hors dépôt) · chantiers C1–C3 · domaine propryo.fr vérifié chez Resend | DMARC : contenu de la ligne `_dmarc.propryo.fr` dans cPanel (ou confirmer absente) | `audit/securite` |
 | IRL & courriers (Sonnet) | lecture faite | valeur du champ « Trimestre IRL » du 103 + ce qu'affiche la ligne Révisions | `feat/irl-courriers` (pas encore poussée) |
-| Stockage lots 2-3 (Opus) | **v15.720 lot 2** livré sur branche · lot 3 codé (verdict, saveDB, carte Réglages), tests en adaptation | smoke + GO lot 2 | `feat/stockage-lots-2-3` |
+| Stockage lots 2-3 (Opus) | **v15.720 lot 2 + v15.721 lot 3 livrés sur branche** (main v15.717 fusionné, 6 111 tests ; lot 3 : message vrai dans saveDB — en ligne plus de « PAS enregistrée », hors ligne/réseau coupé/session expirée = texte vrai ; carte « Stockage de cet appareil » dans Sauvegarde & export ; contre-audit : 1 BLOQUANT EDL corrigé) · suite à arbitrer : journal des EDL écrit même si le repli localStorage ne tient plus la base | smoke + GO des 2 lots | `feat/stockage-lots-2-3` |
 | Vague 3 | Écrans (B2, C1, C5, vue Charges sans immeuble, toasts M-15) — après Finances · Mise en production (reste : Stripe, comptable) | | |
 ⚠ **Quota** : limite hebdomadaire en alerte (`seven_day allowed_warning`, remise à zéro lundi 12/10 vers 13h (heure de Paris)) — éviter de lancer de nouvelles sessions avant d'avoir intégré les livraisons.
 
