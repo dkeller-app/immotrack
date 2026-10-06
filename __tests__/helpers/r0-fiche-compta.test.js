@@ -50,7 +50,10 @@ function charger(alias) {
   const dNet = 'function _finLotNet(', fNet = "\n}";
   const iN = html.indexOf(dNet), jN = html.indexOf(fNet, iN);
   if (iN === -1 || jN === -1) throw new Error('_finLotNet introuvable — le test ne teste plus rien');
-  const src = html.slice(i, j + fin.length) + '\n' + html.slice(iN, jN + fNet.length);
+  // `_finChargeHf` (poste de cash-flow hors 2044) : la VRAIE fonction de l'app, sur le stub de mère.
+  const iH = html.indexOf('function _finChargeHf('), jH = html.indexOf('\n}', iH);
+  if (iH === -1 || jH === -1) throw new Error('_finChargeHf introuvable — le test ne teste plus rien');
+  const src = html.slice(iH, jH + 2) + '\n' + html.slice(i, j + fin.length) + '\n' + html.slice(iN, jN + fNet.length);
   const STD = referentiel();
   const _finCatMere = (nom) => {
     if (!nom) return null;
@@ -124,11 +127,39 @@ describe('_finLotCatRole — le référentiel répond, jamais le libellé', () =
     for (const c of vues) expect(M._finLotCatRole(c.nom), c.nom).toBe('charge');
   });
 
-  it('les postes « non déductibles » sortent du solde — et c’est assumé, pas un oubli', () => {
-    // Ce sont de vraies sorties d'argent que le moteur ne compte pas. La fiche suit le moteur.
+  it('les travaux d’agrandissement et les dépenses non déductibles COMPTENT en charge (Didier, 05/10)', () => {
+    // De vraies sorties d'argent, hors 2044 : le moteur les compte désormais, la fiche suit.
     for (const c of ['Travaux de construction / agrandissement (non déductible)', 'Divers (non déductible)']) {
-      expect(M._finLotEstCharge({ cat: c }), c).toBe(false);
+      expect(M._finLotEstCharge({ cat: c }), c).toBe(true);
     }
+  });
+
+  it('l’achat d’un bien, les apports, les dépôts et les virements internes restent HORS du solde', () => {
+    // Décision Didier du 05/10 : « je ne veux pas que l'achat entre en compte ».
+    for (const c of ['Acquisition / cession de bien', 'CCA / distribution SCI',
+      'Dépôt de garantie (reçu / restitué)', 'Virement interne (non déclarable)']) {
+      expect(M._finLotCatRole(c), c).toBe(null);
+    }
+  });
+
+  it('une catégorie perso hérite le cash-flow de sa famille — Divers et travaux compris (GO Didier 06/10, option 1)', () => {
+    // « Péage A35 » rangée en Divers compte comme Divers ; une caution rangée dans SA famille
+    // (dépôt de garantie) ou un apport (CCA) restent hors du solde.
+    const A = charger({ 'Péage A35': 'Divers (non déductible)',
+      'Extension grange': 'Travaux de construction / agrandissement (non déductible)',
+      'Caution reçue Dupont': 'Dépôt de garantie (reçu / restitué)', 'Apport perso': 'CCA / distribution SCI' });
+    expect(A._finLotCatRole('Péage A35')).toBe('charge');
+    expect(A._finLotCatRole('Extension grange')).toBe('charge');
+    expect(A._finLotCatRole('Caution reçue Dupont')).toBe(null);
+    expect(A._finLotCatRole('Apport perso')).toBe(null);
+  });
+
+  it('le drapeau `chargeHf` n’est porté QUE par ces deux catégories — l’achat ne peut pas s’y glisser', () => {
+    const portent = STD.filter(c => c.chargeHf).map(c => c.nom + ' → ' + c.chargeHf).sort();
+    expect(portent).toEqual([
+      'Divers (non déductible) → nonDeductible',
+      'Travaux de construction / agrandissement (non déductible) → construction'
+    ]);
   });
 
   it('aucune catégorie du référentiel ne fait planter le classifieur', () => {
