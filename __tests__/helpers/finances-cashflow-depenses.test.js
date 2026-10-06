@@ -109,19 +109,22 @@ describe('Le branchement RÉEL de l’app — `_finMonthly` lu dans le code, ré
     }).join('\n');
 
     const DB = {
-      // « Hors résultat » des Réglages = alias vers Divers (`_setCustomCatMap`) ; un alias de travaux.
-      catAlias: { 'Caution reçue Dupont': 'Divers (non déductible)', 'Extension grange': 'Travaux de construction / agrandissement (non déductible)' },
-      catMapping: { 'Vieux rangement ignoré': '__ignore' },               // legacy, mène aussi à Divers
+      // Catégories perso : elles héritent de LEUR famille (GO Didier 06/10, option 1).
+      catAlias: { 'Péage A35': 'Divers (non déductible)', 'Extension grange': 'Travaux de construction / agrandissement (non déductible)',
+        'Caution reçue Dupont': 'Dépôt de garantie (reçu / restitué)', 'Apport perso': 'CCA / distribution SCI' },
+      catMapping: { 'Vieux rangement ignoré': '__ignore' },               // legacy « Hors résultat » : mène à Divers
       params: { legal2044Mapping: { 'Autre rangement ignoré': '__ignore' } },
       mouvements: [
         { date: '2026-01-10', cat: 'Loyers encaissés', qui: 'L1', cr: 1000, db: 0 },
         { date: '2026-02-12', cat: 'Travaux de construction / agrandissement (non déductible)', qui: 'L1', cr: 0, db: 12500 },
         { date: '2026-02-13', cat: 'Divers (non déductible)', qui: 'L1', cr: 0, db: 340 },
+        { date: '2026-02-14', cat: 'Péage A35', qui: 'L1', cr: 0, db: 25 },
         { date: '2026-02-20', cat: 'Extension grange', qui: 'L1', cr: 0, db: 800 },
         { date: '2026-03-01', cat: 'Acquisition / cession de bien', qui: 'SCI:X', cr: 0, db: 182000 },
         { date: '2026-03-02', cat: 'Caution reçue Dupont', qui: 'L1', cr: 0, db: 900 },
-        { date: '2026-03-03', cat: 'Vieux rangement ignoré', qui: 'L1', cr: 0, db: 5000 },
-        { date: '2026-03-04', cat: 'Autre rangement ignoré', qui: 'L1', cr: 0, db: 7000 }
+        { date: '2026-03-03', cat: 'Apport perso', qui: 'SCI:X', cr: 40000, db: 0 },
+        { date: '2026-03-04', cat: 'Vieux rangement ignoré', qui: 'L1', cr: 0, db: 5 },
+        { date: '2026-03-05', cat: 'Autre rangement ignoré', qui: 'L1', cr: 0, db: 7 }
       ]
     };
     const stdParNom = (nom) => STD.find(c => c.nom === nom);
@@ -131,15 +134,17 @@ describe('Le branchement RÉEL de l’app — `_finMonthly` lu dans le code, ré
       (cat) => { const m = stdParNom(cat); return m && m.ligne2044 ? { ligne2044: m.ligne2044, type: m.type } : null; },
       () => ({ hc: 0, ch: 0 }), () => null, () => [], () => false);
     const r = f._finMonthly(2026, null, 3);
-    expect(r.annual.construction).toBe(13300);   // 12 500 + 800 (alias de travaux : compte)
-    expect(r.annual.nonDeductible).toBe(340);    // Divers sous son nom exact SEUL
-    expect(r.annual.charges).toBe(13640);        // ni l'achat, ni la caution, ni les rangements legacy
+    expect(r.annual.construction).toBe(13300);   // 12 500 + 800 (alias de travaux)
+    expect(r.annual.nonDeductible).toBe(377);    // 340 + péage 25 + anciens « Hors résultat » 5 + 7
+    expect(r.annual.charges).toBe(13677);        // ni l'achat, ni la caution, ni l'apport
 
-    // Le poste, catégorie par catégorie (GO Didier 06/10).
+    // Le poste, catégorie par catégorie (GO Didier 06/10, option 1 : la famille décide).
     expect(f._finChargeHf('Divers (non déductible)')).toBe('nonDeductible');
+    expect(f._finChargeHf('Péage A35')).toBe('nonDeductible');
+    expect(f._finChargeHf('Vieux rangement ignoré')).toBe('nonDeductible');
+    expect(f._finChargeHf('Autre rangement ignoré')).toBe('nonDeductible');
     expect(f._finChargeHf('Caution reçue Dupont')).toBe(null);
-    expect(f._finChargeHf('Vieux rangement ignoré')).toBe(null);
-    expect(f._finChargeHf('Autre rangement ignoré')).toBe(null);
+    expect(f._finChargeHf('Apport perso')).toBe(null);
     expect(f._finChargeHf('Extension grange')).toBe('construction');
     expect(f._finChargeHf('Acquisition / cession de bien')).toBe(null);
     expect(f._finChargeHf('Inconnue')).toBe(null);
@@ -155,9 +160,9 @@ describe('Un seul endroit décide du poste hors 2044 — `_finChargeHf`', () => 
     const html = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..', 'index.html'), 'utf8').replace(/\r/g, '');
     const lecteurs = (html.match(/\.chargeHf\b/g) || []).length;
     const corps = (nom) => { const i = html.indexOf('function ' + nom + '('); return html.slice(i, html.indexOf('\n}', i)); };
-    // Les seules lectures du drapeau sont dans `_finChargeHf` (3 : test, comparaison, retour).
-    expect((corps('_finChargeHf').match(/\.chargeHf\b/g) || []).length).toBe(3);
-    expect(lecteurs, 'un écran relit `chargeHf` sans passer par _finChargeHf').toBe(3);
+    // La seule lecture du drapeau est dans `_finChargeHf`.
+    expect((corps('_finChargeHf').match(/\.chargeHf\b/g) || []).length).toBe(1);
+    expect(lecteurs, 'un écran relit `chargeHf` sans passer par _finChargeHf').toBe(1);
     expect(corps('_finMonthly')).toContain('chargeHorsFiscal: m => _finChargeHf(m && m.cat)');
     expect(corps('_finLotCatRole')).toContain('_finChargeHf(cat)');
     expect((corps('_finDrillLigne').match(/_finChargeHf\(m\.cat\) === kind/g) || []).length).toBe(2);

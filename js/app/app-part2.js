@@ -29109,17 +29109,13 @@ function _finCatMere(catNom) {
 // Poste de cash-flow HORS 2044 d'une catégorie : 'construction', 'nonDeductible' ou null.
 // Source UNIQUE — moteur (`_finMonthly`), fiche du lot (`_finLotCatRole`) et détail des lignes
 // (`_finDrillLigne`) l'appellent tous.
-// - Travaux de construction / agrandissement : suit la mère, alias compris (on n'y range que des
-//   travaux).
-// - « Divers (non déductible) » : compte UNIQUEMENT sous son nom exact (GO Didier 06/10). Le choix
-//   « Hors résultat (caution, capital, non déductible…) » des Réglages écrit un alias vers Divers
-//   (`_setCustomCatMap`), et le legacy '__ignore' y mène aussi : une caution ou un apport rangé là
-//   reste HORS du cash-flow, comme l'annonce son libellé.
+// Une catégorie perso hérite le traitement fiscal ET cash-flow de sa famille (alias compris) :
+// « Péage A35 » rangée en « Divers (non déductible) » compte comme Divers (GO Didier 06/10,
+// option 1). Une caution, un apport ou un virement se rangent dans LEUR famille (dépôt de
+// garantie, CCA, virement interne), qui reste hors cash-flow — pas dans Divers.
 function _finChargeHf(catNom) {
   const mere = _finCatMere(catNom);
-  if (!mere || !mere.chargeHf) return null;
-  if (mere.chargeHf === 'nonDeductible' && catNom !== mere.nom) return null;
-  return mere.chargeHf;
+  return (mere && mere.chargeHf) || null;
 }
 // Migration one-shot : catMapping {nom: ligne2044|'__ignore'} → catAlias {nom: mère}.
 // Idempotente, silencieuse (les valeurs avaient déjà été VALIDÉES par l'utilisateur —
@@ -29829,7 +29825,7 @@ function _finMonthly(yr, scope, win) {
     // échéance, un alias de « Charges récupérables » un transit, etc. (héritage cash-flow).
     isEcheance: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.nom === 'Prêt'); },   // « 1 ligne = mensualité entière » (convention user)
     isGestionCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.gestionCharge); }, // frais bancaires (réel mais hors 2044)
-    chargeHorsFiscal: m => _finChargeHf(m && m.cat), // travaux d'agrandissement, dépenses non déductibles (05/10 ; Divers sous son nom exact, 06/10)
+    chargeHorsFiscal: m => _finChargeHf(m && m.cat), // travaux d'agrandissement, dépenses non déductibles (05/10), alias compris (06/10)
     isRecupCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.recup); }, // charges récupérables directes (eau/énergie) : transit locataire
     isRecupACharge: _finIsRecupACharge,         // L-5 : vacance / sans bail / non récupérable → « Resté à ta charge » (225)
     window: isWin ? win : undefined,

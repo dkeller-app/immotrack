@@ -10020,8 +10020,8 @@ function _dgNbDetenusDuLot(l) { return _dgDetenusDuLot(l).length; }
  * « Travaux de construction / agrandissement » et « Divers (non déductible) » sont de VRAIES
  * sorties d'argent : depuis le 05/10 (décision Didier) le MOTEUR les compte en charge, via le
  * drapeau `chargeHf` du référentiel, lu par `_finChargeHf` — la fiche suit. Restent hors résultat :
- * l'achat d'un bien, les apports d'associés, les dépôts de garantie, les virements internes, et
- * tout libellé rangé en « Hors résultat » dans les Réglages (alias vers Divers, GO Didier 06/10).
+ * l'achat d'un bien, les apports d'associés, les dépôts de garantie et les virements internes — et
+ * leurs alias (une catégorie perso hérite de sa famille, GO Didier 06/10).
  *
  * Les intérêts d'emprunt (250) rendent null. Le moteur les met dans `b.interets`, qui n'entre
  * NI dans `b.charges` NI dans `cashflowReel` (`finances-monthly.js:297,301`) : c'est une donnée
@@ -10042,7 +10042,7 @@ function _finLotCatRole(cat) {
   // périmé ; ne pas s'y fier.
   if (mere.gestionCharge) return 'charge';      // réel, hors 2044
   if (mere.recup) return 'charge';              // charges récupérables directes : transit locataire
-  if (typeof _finChargeHf === 'function' && _finChargeHf(cat)) return 'charge'; // agrandissement, Divers sous son nom exact (05-06/10)
+  if (typeof _finChargeHf === 'function' && _finChargeHf(cat)) return 'charge'; // agrandissement, dépenses non déductibles, alias compris (05-06/10)
   const ln = mere.ligne2044;
   if (!ln || ln === '250') return null;
   if (ln === '211') return 'loyer';

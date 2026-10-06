@@ -142,17 +142,16 @@ describe('_finLotCatRole — le référentiel répond, jamais le libellé', () =
     }
   });
 
-  it('un libellé rangé en « Hors résultat » (alias vers Divers) reste HORS du solde (GO Didier 06/10)', () => {
-    // Le choix « Hors résultat (caution, capital, non déductible…) » des Réglages écrit un alias
-    // vers « Divers (non déductible) ». Une caution ou un apport rangé là ne doit pas devenir une
-    // charge. Seul « Divers (non déductible) » sous son nom exact compte ; un alias de travaux
-    // d'agrandissement, lui, compte (on n'y range que des travaux).
-    const A = charger({ 'Caution reçue Dupont': 'Divers (non déductible)', 'Apport perso': 'Divers (non déductible)',
-      'Extension grange': 'Travaux de construction / agrandissement (non déductible)' });
+  it('une catégorie perso hérite le cash-flow de sa famille — Divers et travaux compris (GO Didier 06/10, option 1)', () => {
+    // « Péage A35 » rangée en Divers compte comme Divers ; une caution rangée dans SA famille
+    // (dépôt de garantie) ou un apport (CCA) restent hors du solde.
+    const A = charger({ 'Péage A35': 'Divers (non déductible)',
+      'Extension grange': 'Travaux de construction / agrandissement (non déductible)',
+      'Caution reçue Dupont': 'Dépôt de garantie (reçu / restitué)', 'Apport perso': 'CCA / distribution SCI' });
+    expect(A._finLotCatRole('Péage A35')).toBe('charge');
+    expect(A._finLotCatRole('Extension grange')).toBe('charge');
     expect(A._finLotCatRole('Caution reçue Dupont')).toBe(null);
     expect(A._finLotCatRole('Apport perso')).toBe(null);
-    expect(A._finLotCatRole('Divers (non déductible)')).toBe('charge');
-    expect(A._finLotCatRole('Extension grange')).toBe('charge');
   });
 
   it('le drapeau `chargeHf` n’est porté QUE par ces deux catégories — l’achat ne peut pas s’y glisser', () => {
