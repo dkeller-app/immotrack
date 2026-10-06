@@ -1046,13 +1046,15 @@ describe('34 · restitution sur une archive EN DOUBLE, jusqu\'au cloud (VRAIS _d
     m.els['ov-dg-restitution-ref'] = { value: 'A1' };
     m.fn._dgConfirmerRestitution();
     await sync.flush();
-    return { lignes: [...lignes.entries()], ids: DB.baux_historique.map((h) => h._archiveId || null), detenus: m.fn._dgDetenusDuLot(DB.logements[0]), ats: DB.baux_historique.map((h) => h.dgRestitueAt) };
+    return { lignes: [...lignes.entries()], ids: DB.baux_historique.map((h) => h._archiveId || null), detenus: m.fn._dgDetenusDuLot(DB.logements[0]), ats: DB.baux_historique.map((h) => h.dgRestitueAt), departPartage: DB.baux_historique[0].depart === DB.baux_historique[1].depart, copiesIdentiques: JSON.stringify(DB.baux_historique[0]) === JSON.stringify(DB.baux_historique[1]) };
   };
   it('archive SANS identifiant (ancienne) : une seule ligne, restituée, aucun nouvel identifiant', async () => {
     const r = await scenario(null);
     expect(r.lignes).toEqual([['A1|2026-10-06', { at: '2026-10-20', id: null }]]);
     expect(r.ids).toEqual([null, null]);
     expect(r.ats).toEqual(['2026-10-20', '2026-10-20']);
+    expect(r.copiesIdentiques).toBe(true);
+    expect(r.departPartage).toBe(false);   // copies indépendantes (comme après un rechargement), jamais un objet partagé
     expect(r.detenus).toEqual([]);
   });
   it('archive AVEC identifiant posé à l\'archivage : une seule ligne, restituée, identifiant inchangé', async () => {
