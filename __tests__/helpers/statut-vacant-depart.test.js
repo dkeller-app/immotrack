@@ -482,7 +482,7 @@ describe('15 · clôture d\'un bail (VRAIS saveBailClore / terminerBail) : resti
     const m = monter(DB, [...STATUT, fnNom, '_clotureDgConfirmer', '_clotureDgAppliquer', '_archiverDansHistorique'], {
       v: (id) => vals[id] || '', pf: (id) => Number(saisie[id] || 0), confirm2: (t) => { msgs.push(t); return msgs.length === 1 ? true : rep; },
       _ART22_RESTITUTION: ['« art22-2mois »', '« art22-1mois »'], _todayIsoLocal: () => '2026-10-06', td: () => '2026-10-06',
-      _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {},
+      _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {}, window: { nouvelIdArchive: () => 'id-' + fnNom },
     });
     m.els['b-clore-ref'] = { value: 'A1' };
     m.fn[fnNom]();
@@ -495,7 +495,7 @@ describe('15 · clôture d\'un bail (VRAIS saveBailClore / terminerBail) : resti
       expect(msgs[1]).toContain('art22-2mois');
       expect(msgs[1]).toContain('900 €');
       expect(DB.baux.A1._deleted).toBe(true);
-      expect(DB.baux_historique[0]).toMatchObject({ clotureV: 2 });
+      expect(DB.baux_historique[0]).toMatchObject({ clotureV: 2, _archiveId: 'id-' + fnNom });   // identifiant d'archive dès l'archivage
       expect(DB.baux_historique[0].dgRestitueAt).toBeFalsy();
       expect(detenu(DB)).toBe(900);
     });
