@@ -526,7 +526,10 @@ Didier veut **un audit sécurité complet, tous les trous** — pas seulement l'
     - le droit n'est contrôlé que sur le rattachement le plus précis ;
     - doublons d'agenda automatique possibles si les deux associés génèrent le même rappel en même temps ;
     - un mouvement bancaire sans lot ni immeuble reste dans l'espace propre.
-- **Reste** : déplacer les données restantes vers l'espace de Marion (plan précis, puis **GO de Didier**). Ensuite, smoke de Didier et de Marion.
+- ✅ **v15.717 déployé** (main `be5a3a8`, 06/10, ordre de Didier).
+- ✅ **Données déplacées (06/10, GO Didier)** : 85 mouvements, 9 documents, 2 assurances (MRH) et 19 rappels copiés dans l'espace de Marion, originaux tombstonés dans celui de Didier. Une seule transaction, avec empreinte de la correspondance, contrôle de version et vérification des comptes, rejouée d'abord sur une copie locale ; 2 entrées d'audit `admin-fusion`. Vérifié après coup : tout est vivant et rattaché, 0 pointeur vers un logement supprimé, fichiers présents. Sauvegarde JSON remise à Didier ; script de retour arrière disponible (session).
+- Restent chez Didier, **volontairement** : 2 mouvements « DD2AMELEVIERE » (à reclasser vers SCI DD2 IMMO dans l'app) et 2 dépenses « payé Didier » sans lot (facture Kohlberg, déplacement) — question posée à Didier.
+- **Reste** : smoke de Didier et de Marion (Finances SCI juillet à octobre, documents des lots, agenda).
 
 
 **Incident** : deux bailleurs « SCI SMARTOSAURUS » = **la même SCI réelle** (même SIREN 994 086 379 ; l'un saisi en SIRET 994 086 379 00017, adresse « 10 B » / « 10 Bis sentier de la Luss »), **l'une dans l'espace partagé de Marion, l'autre copie privée de Didier**. Didier a renommé « SCI SMARTOSAURUS DIdier » → « SCI SMARTOSAURUS » : **fusion au niveau des DONNÉES**, pas seulement de l'affichage.
