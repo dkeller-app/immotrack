@@ -28,6 +28,7 @@
 import {
   garantirCouvertureBail, appliquerNouvellePeriode, cloturerPeriodeParDebut, chapitrePour, montantSaisi
 } from './loyer-bareme.js';
+import { duMois } from './loyer-du-mois.js';
 
 const _nr = (s) => String(s == null ? '' : s).trim().toLowerCase();
 const _ymd = (iso) => String(iso == null ? '' : iso).slice(0, 10);
@@ -319,4 +320,68 @@ export function ajouterPeriode(periods, nouvelle, opts) {
     apres = _sommaire(last);
   }
   return { ok: true, change: true, periods: out, avant: null, apres, touchees: _diffTouchees(arr, out), avertissements: avert };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// IMPACT « avant / après » — ce que l'écran dit AVANT d'enregistrer (alerte NON bloquante).
+// Lecture seule de duMois() : le chiffre affiché est exactement celui que Finances, Loyers et les
+// quittances afficheront ensuite — aucun moteur concurrent.
+// ════════════════════════════════════════════════════════════════════════════
+const _ymOf = (d) => _ymd(d).slice(0, 7);
+function _ymPlus(ym, n) {
+  const y = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(5, 7), 10) - 1 + n;
+  return `${y + Math.floor(m / 12)}-${String(((m % 12) + 12) % 12 + 1).padStart(2, '0')}`;
+}
+const _cleLigne = (p) => `${_ymd(p.bailDebut)}|${_ymd(p.debut)}|${p.fin == null ? '' : _ymd(p.fin)}|${Number(p.hc) || 0}|${Number(p.ch) || 0}`;
+const _tot = (d) => ({ hc: d.hc, ch: d.ch, total: d.total });
+const _r2 = (n) => Math.round(n * 100) / 100;
+
+/**
+ * Les mois dont le dû change entre deux barèmes d'un même lot.
+ * @param {{ref:string, bails:Array, avant:Array, apres:Array, jusquAu?:string}} input
+ *   `bails` : forme attendue par duMois (bailsFromRaw) ; `jusquAu` : le mois courant ('YYYY-MM' ou
+ *   date) — les mois au-delà sont le FUTUR (pas de trop-perçu, pas de quittance), sans jusquAu tout est passé.
+ * @returns {{mois:Array<{ym,avant,apres,delta}>, futur:{ym,des,avant,apres,delta,nbMois,ouvert}|null,
+ *            fenetre:{debut:'YYYY-MM', fin:'YYYY-MM'|null}|null, deltaTotal:number}}
+ *   `fenetre` = premier et dernier mois dont le dû change (`fin:null` : l'écart se poursuit sans fin) ;
+ *   `futur.ouvert` : l'écart du futur n'a pas de fin (« à partir de… »).
+ */
+export function impactEdition(input) {
+  const i = input || {};
+  const vv = (b) => (b || []).filter((p) => _vivante(p) && _nr(p.ref) === _nr(i.ref) && p.debut);
+  const A = vv(i.avant), B = vv(i.apres);
+  const setA = new Set(A.map(_cleLigne)), setB = new Set(B.map(_cleLigne));
+  const diff = A.filter((p) => !setB.has(_cleLigne(p))).concat(B.filter((p) => !setA.has(_cleLigne(p))));
+  const vide = { mois: [], futur: null, fenetre: null, deltaTotal: 0 };
+  if (!diff.length) return vide;
+  let debut = '9999-99-99', fin = '', ouverte = false;
+  for (const p of diff) {
+    const d = _ymd(p.debut);
+    if (d < debut) debut = d;
+    if (p.fin == null) ouverte = true; else if (_ymd(p.fin) > fin) fin = _ymd(p.fin);
+  }
+  const cur = i.jusquAu ? _ymOf(i.jusquAu) : null;
+  const ym0 = _ymOf(debut);
+  const ymFin = ouverte ? null : _ymOf(fin);
+  let limite = ymFin;
+  if (ouverte) limite = _ymPlus(cur && cur > ym0 ? cur : ym0, 36);
+  const ctxA = { ref: i.ref, bails: i.bails || [], bareme: i.avant || [] };
+  const ctxB = { ref: i.ref, bails: i.bails || [], bareme: i.apres || [] };
+  const mois = [];
+  let futur = null, nbFutur = 0, premier = '', dernier = '';
+  for (let ym = ym0, n = 0; ym <= limite && n < 600; ym = _ymPlus(ym, 1), n++) {
+    const a = duMois(ctxA, ym), b = duMois(ctxB, ym);
+    if (a.hc === b.hc && a.ch === b.ch) continue;
+    if (!premier) premier = ym;
+    dernier = ym;
+    const ligne = { ym, avant: _tot(a), apres: _tot(b), delta: _r2(b.total - a.total) };
+    if (cur && ym > cur) {
+      nbFutur++;
+      if (!futur) futur = { ym, des: ym + '-01', avant: ligne.avant, apres: ligne.apres, delta: ligne.delta, nbMois: 0 };
+    } else mois.push(ligne);
+  }
+  const sansFin = ouverte && dernier === limite;
+  if (futur) { futur.nbMois = nbFutur; futur.ouvert = sansFin; }
+  if (!premier) return vide;
+  return { mois, futur, fenetre: { debut: premier, fin: sansFin ? null : dernier }, deltaTotal: _r2(mois.reduce((s, m) => s + m.delta, 0)) };
 }
