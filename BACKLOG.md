@@ -8,7 +8,7 @@
 | 1 ▶ | Fusion des 2 SCI (Opus) | v15.717 sur sa branche (enregistrement neuf d'un associé → espace de la SCI) · **plan exact rédigé, en attente de GO** | autoriser la requête Supabase en attente + GO du plan | `fix/fusion-sci` |
 | 1 ▶ | Audit de sécurité (Opus) | **rapport livré** (confidentiel, hors dépôt) · chantiers SECU C1–C3 lancés, C4–C9 planifiés · C1 (OTP signature) avant le 14/10 via Resend `no-reply@propryo.fr` | ajouter 3 enregistrements DNS Resend dans cPanel + vérifier DMARC | `audit/securite` |
 | 2 ▶ | IRL & courriers (C3, C6, C7) (Sonnet + Opus moteur) | lancée 06/10 | | `feat/irl-courriers` |
-| 2 ▶ | Stockage lots 2 et 3 (lots 1 et 4 déjà livrés v15.705 / v15.709) (Opus) | lancée 06/10 | maquette « état du stockage » dans Réglages | `feat/stockage-lots-2-3` |
+| 2 ▶ | Stockage lots 2 et 3 (lots 1 et 4 déjà livrés v15.705 / v15.709) (Opus) | **lot 2 livré sur sa branche v15.720** (`c0b928f` : filets avant migration en IndexedDB, 3 max, 30 j, purge logout/login ; contre-audit SÛR AVEC RÉSERVES traitées ; 6 057 tests) · lot 3 : maquette en correction | smoke lot 2 + GO merge · puis validation maquette lot 3 | `feat/stockage-lots-2-3` |
 | 2 ✖ | Téléphone : EDL + vue Charges par locataire — **sans objet** : déjà livrés (Charges détail par locataire v15.680, EDL téléphone à la charte v15.689) | — | **smoke Didier** sur ces deux livraisons ; tout résidu → vague 3 Écrans | — |
 | 3 | Écrans Accueil / Loyers 3 blocs / Logements / MRH (B2, C1, C5) + vue Charges « (sans immeuble) » — après Finances | à écrire | | |
 | 3 | Mise en production (propryo.fr, Resend, Stripe, OTP) — en partie absorbée par l'audit sécurité (Resend/OTP) | à écrire | | |
