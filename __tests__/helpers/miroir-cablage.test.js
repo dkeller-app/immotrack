@@ -182,6 +182,12 @@ describe('Signaux du miroir — double panne hors ligne (audit final 🟡3)', ()
     await m.attendre();
     expect(toasts.map(t => t[1])).not.toContain(T.horsLigne);
   });
+  it('RÉSEAU COUPÉ en session en ligne (pas le mode hors ligne) : pas de « PAS enregistrée » ici — saveDB a déjà dit « pas encore en sécurité », la modification partira au retour du réseau', async () => {
+    const { m, toasts } = await monter({ horsLigne: false, pasAJour: () => false });
+    try { m.ecrire(base([edl(5, 5)])); } catch (_e) {}
+    await m.attendre();
+    expect(toasts.map(t => t[1])).not.toContain(T.horsLigne);
+  });
   it('HORS LIGNE, echec-repli SEUL (sans echec-ecriture juste avant) : texte générique inchangé', () => {
     const toasts = [];
     const f = gestionnaire({ __immoHorsLigne: true, __immoMiroirPasAJour: () => false, showToast: (m, t) => toasts.push([t, m]) });
