@@ -13389,18 +13389,27 @@ function _histoBailEnVigueur(ref){
   return (typeof window!=='undefined' && typeof window._bailHistoEnVigueur==='function')
     ? window._bailHistoEnVigueur(ref, DB.loyerBareme||[], _histoBailTodayIso()) : null;
 }
-// LE loyer mensuel EN VIGUEUR AUJOURD'HUI d'un lot (hc + ch) — R-0 : la règle « loyer d'un lot à une
-// date » du moteur (`loyerDuLotA`, js/core/legal-bilan.js : barème en vigueur (même sélecteur que
-// duMois) → bail en cours → dernier bail terminé → bail suivant → fiche du lot), à la date LOCALE
-// du jour. Lue par la fiche PC (« Loyer actuel ») ET la fiche téléphone (« Loyer ») : un chiffre.
-// Pas le dû du mois (`_duMoisLot` : proratisé à l'entrée / à la sortie) ni le taux du dernier jour du
-// mois (une révision au 20 s'affichait dès le 1er). Repli file:// (modules absents) : bail puis lot.
+// LE loyer mensuel EN VIGUEUR d'un lot (hc + ch) — R-0 : la règle « loyer d'un lot à une date » du
+// moteur (`loyerDuLotA`, js/core/legal-bilan.js : barème en vigueur (même sélecteur que duMois) →
+// bail en cours → dernier bail terminé → bail suivant → fiche du lot), à la date LOCALE du jour.
+// Lue par la fiche PC (« Loyer actuel »), la fiche téléphone (« Loyer ») et le contexte des e-mails.
+// Pas le dû du mois (`_duMoisLot`, proratisé) ni le taux du dernier jour du mois (une révision au 20
+// s'affichait dès le 1er).
+// Le lot est « loué » à son bail COURANT (audit 06/10) : si ce bail commence plus tard (relocation
+// signée d'avance), on lit à SA date de début — au jour même, « dernier bail terminé » rendait le
+// loyer de l'ancien locataire sous le nom du nouveau. Bail courant SANS date de début : le moteur ne
+// peut pas le placer dans le temps (il retombait sur le loyer SOUHAITÉ de la fiche du lot) → ce bail.
+// Repli file:// (modules absents) : bail, puis fiche du lot, champ par champ.
 function _loyerEnVigueurLot(ref, bail, log){
-  if (typeof loyerDuLotA === 'function' && typeof _ctxLoyerLot === 'function') {
-    const r = loyerDuLotA(_histoBailTodayIso(), ref, _ctxLoyerLot(ref, log));
-    return (Number(r && r.hc) || 0) + (Number(r && r.ch) || 0);
-  }
-  return (+((bail && bail.hc) || (log && log.hc)) || 0) + (+((bail && bail.ch) || (log && log.ch)) || 0);
+  const _duBail = (b, l) => (+((b && b.hc) || (l && l.hc)) || 0) + (+((b && b.ch) || (l && l.ch)) || 0);
+  if (typeof loyerDuLotA !== 'function' || typeof _ctxLoyerLot !== 'function') return _duBail(bail, log);
+  const ctx = _ctxLoyerLot(ref);
+  const cur = (ctx.bailCourant && !ctx.bailCourant._deleted && !ctx.bailCourant.cloture) ? ctx.bailCourant : null;
+  if (cur && !cur.debut) return _duBail(cur, ctx.lot || log);   // lot trouvé en tolérant (e-mails : log partiel)
+  const today = _histoBailTodayIso();
+  const debutCur = cur ? String(cur.debut).slice(0, 10) : '';
+  const r = loyerDuLotA(debutCur > today ? debutCur : today, ref, ctx);
+  return (Number(r && r.hc) || 0) + (Number(r && r.ch) || 0);
 }
 function _histoBailChapId(key){ return 'hbc-'+String(key).replace(/[^a-z0-9|_-]/gi,'_'); }
 function _histoBailToggleChap(key){

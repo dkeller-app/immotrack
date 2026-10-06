@@ -51,9 +51,9 @@ describe('R5 — fiche du bien (PC et téléphone) : le loyer EN VIGUEUR aujourd
   ];
   const LOT = { ref: 'A1', hc: 710, ch: 50 };
   afterEach(() => vi.useRealTimers());
-  const rendu = ({ bareme = BAREME, auj = '2026-10-06', module = true, bail = BAIL } = {}) => {
+  const rendu = ({ bareme = BAREME, auj = '2026-10-06', module = true, bail = BAIL, hists = [], lot = LOT } = {}) => {
     vi.useFakeTimers(); vi.setSystemTime(new Date(auj + 'T10:00:00'));
-    const DB = { logements: [LOT], baux: { A1: bail }, baux_historique: [], loyerBareme: bareme, mouvements: [] };
+    const DB = { logements: [lot], baux: { A1: bail }, baux_historique: hists, loyerBareme: bareme, mouvements: [] };
     const fn = monter(['_renderLogFicheHeroStats', '_renderLogFichePhStrip', '_loyerEnVigueurLot', '_ctxLoyerLot',
       '_histoBailEnVigueur', '_histoBailTodayIso'], {
       DB, window: module ? { _bailHistoEnVigueur: enVigueur } : {}, loyerDuLotA: module ? loyerDuLotA : undefined,
@@ -63,9 +63,9 @@ describe('R5 — fiche du bien (PC et téléphone) : le loyer EN VIGUEUR aujourd
       _lotCcQuotePartMois: () => [], _getAllBailsForLog: () => [bail],
       Math, Number, String, Object, Array, Date, parseInt,
     });
-    const h = fn._renderLogFicheHeroStats(LOT, 'A1');
+    const h = fn._renderLogFicheHeroStats(lot, 'A1');
     const m = h.match(/logf-stat-v k-money">([^<]*)<small>\/mois<\/small><\/div>\s*<div class="logf-stat-l">Loyer actuel/);
-    const tel = (fn._renderLogFichePhStrip(LOT, bail, 'A1').find((c) => c.k === 'Loyer') || {}).v;
+    const tel = (fn._renderLogFichePhStrip(lot, bail, 'A1').find((c) => c.k === 'Loyer') || {}).v;
     return { pc: m ? m[1] : 'KPI introuvable', tel, bandeauBail: fn._histoBailEnVigueur('A1') };
   };
 
@@ -117,6 +117,29 @@ describe('R5 — fiche du bien (PC et téléphone) : le loyer EN VIGUEUR aujourd
     const r = rendu({ bareme: trou });
     expect([r.pc, r.tel]).toEqual(['750 €', '750 €']);
     expect(r.bandeauBail.total).toBe(50);
+  });
+
+  it('relocation signée d’avance (nouveau bail au 15/10, vu le 06/10) : le loyer du NOUVEAU bail, pas l’ancien (audit B1)', () => {
+    const ancien = { ref: 'A1', debut: '2024-01-01', fin: '2026-09-30', finEffective: '2026-09-30', hc: 650, ch: 30, locataires: [{ nom: 'Ancien' }] };
+    const nouveau = { ref: 'A1', debut: '2026-10-15', hc: 800, ch: 40, locataires: [{ nom: 'Tom' }] };
+    const bareme = [{ ref: 'A1', debut: '2024-01-01', fin: '2026-09-30', hc: 650, ch: 30 }, { ref: 'A1', debut: '2026-10-15', hc: 800, ch: 40 }];
+    const r = rendu({ bail: nouveau, hists: [ancien], bareme, auj: '2026-10-06' });
+    expect([r.pc, r.tel]).toEqual(['840 €', '840 €']);
+  });
+
+  it('bail courant qui commence AUJOURD’HUI : son loyer (840 €), avec ou sans barème', () => {
+    const nouveau = { ref: 'A1', debut: '2026-10-06', hc: 800, ch: 40, locataires: [{ nom: 'Tom' }] };
+    const ancien = { ref: 'A1', debut: '2024-01-01', fin: '2026-10-05', finEffective: '2026-10-05', hc: 650, ch: 30 };
+    for (const bareme of [[], [{ ref: 'A1', debut: '2024-01-01', fin: '2026-10-05', hc: 650, ch: 30 }, { ref: 'A1', debut: '2026-10-06', hc: 800, ch: 40 }]]) {
+      const r = rendu({ bail: nouveau, hists: [ancien], bareme, auj: '2026-10-06' });
+      expect([r.pc, r.tel]).toEqual(['840 €', '840 €']);
+    }
+  });
+
+  it('bail courant sans date de début : le loyer de ce bail, pas le loyer SOUHAITÉ du lot (audit B2)', () => {
+    const sansDebut = { ref: 'A1', hc: 800, ch: 40, locataires: [{ nom: 'Tom' }] };
+    const r = rendu({ bail: sansDebut, bareme: [], lot: { ref: 'A1', hc: 700, ch: 30, loyerHcRef: 900 } });
+    expect([r.pc, r.tel]).toEqual(['840 €', '840 €']);
   });
 
   it('lot sans barème : le moteur prend le bail en cours (750 €)', () => {
