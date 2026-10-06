@@ -257,6 +257,12 @@ describe('components/toast.js — où poser le toast sur téléphone', () => {
       ] });
       expect(mesurerEcran(doc, win)).toEqual({ telephone: true, tablette: false, barre: 0, zBanniere: 0, vh: VH, couche: { z: 1001, pied: { haut: 70, bas: 0 } } });
     });
+    it('pied de l’éditeur de quittance (.qd-foot, collé par un flex, position static) : reconnu comme pied', () => {
+      const { doc, win } = ecran({ telephone: false, tablette: true, couches: [{ z: 1000, pieds: [{ cls: 'qd-foot', position: 'static', top: 741, bottom: 844 }] }] });
+      expect(mesurerEcran(doc, win).couche).toEqual({ z: 1000, pied: { haut: 103, bas: 0 } });
+      const t = toast();
+      expect(placerToast(t, doc, win)).toEqual({ bas: 115, z: 1001 });   // au-dessus du pied, plus jamais sur « Éditer la quittance »
+    });
     it('bannière « Installer Propryo » : son z-index si elle est affichée, 0 sinon', () => {
       expect(mesurerEcran(...Object.values(ecran({ pwa: { z: 1500, top: 606, bottom: 768 } }))).zBanniere).toBe(1500);
       expect(mesurerEcran(...Object.values(ecran({ pwa: { z: 1500, display: 'none' } }))).zBanniere).toBe(0);
@@ -288,6 +294,12 @@ describe('components/toast.js — où poser le toast sur téléphone', () => {
       const { doc, win } = ecran({ telephone: false, tablette: true, couches: [{ z: 1001, pieds: [{ cls: 'edl-rail', top: 774, bottom: 844 }] }] });
       expect(placerToast(t, doc, win)).toEqual({ bas: 82, z: 1002 });
       expect(t.props).toEqual({ bottom: ['82px', 'important'], 'z-index': ['1002', 'important'] });
+    });
+    it('tablette : la place de la feuille de style (bottom 28 px) est LUE — elle décide si le toast tient sous le pied', () => {
+      // Pied qui laisse 160 px libres en bas : 12 + 131 + 12 = 155 y tiendrait, 28 + 131 + 12 = 171 non.
+      const t = toast();
+      const { doc, win } = ecran({ telephone: false, tablette: true, couches: [{ z: 1001, pieds: [{ cls: 'm-foot', top: 640, bottom: 684 }] }] });
+      expect(placerToast(t, doc, win)).toEqual({ bas: 216, z: 1002 });
     });
     it('tablette, barre du bas sans couche : aucun style en ligne (placement au-dessus de la barre réservé au téléphone)', () => {
       const t = toast();

@@ -1,7 +1,7 @@
 /**
  * components/toast.js — Notifications transitoires (Sprint 2 Phase 2).
  *
- * Le toast est un élément #toast présent dans le DOM d'index-test.html.
+ * Le toast est un élément #toast présent dans le DOM d'index.html.
  * showToast(msg, type, dur, extraHTML) affiche le toast pendant `dur` ms.
  *
  * Types : '' (info default), 'err' (rouge), 'ok' (vert), 'warn' (orange).
@@ -37,8 +37,10 @@ export const TOAST_Z_BARRE = 1600;
 export const TOAST_TELEPHONE_MQ = '(max-width: 767px)';
 export const TOAST_COUCHE_MQ = '(max-width: 1023px)';   // téléphone ET tablette : placement par couche
 const SEL_COUCHES = '.ov:not(.hidden), .edl-page.edl-lpage';
-const SEL_PIEDS = '.m-foot, .modal-foot, .mf, .edl-rail, .edl-page-foot, [class*="foot"]';
-const PIEDS_NOMMES = /(^|\s)(m-foot|modal-foot|mf|edl-rail|edl-page-foot)(\s|$)/;
+// Pieds NOMMÉS : reconnus même en position static. `qd-foot` = pied de l'éditeur de quittance (#ov-quit-editeur,
+// z 1000), collé en bas par un flex et non par sticky (audit toast tablette B1 : le toast couvrait « Éditer »).
+const SEL_PIEDS = '.m-foot, .modal-foot, .mf, .edl-rail, .edl-page-foot, .qd-foot, [class*="foot"]';
+const PIEDS_NOMMES = /(^|\s)(m-foot|modal-foot|mf|edl-rail|edl-page-foot|qd-foot)(\s|$)/;
 
 /**
  * Décision PURE. Distances en px depuis le BAS de l'écran.
