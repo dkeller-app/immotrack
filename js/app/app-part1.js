@@ -12383,7 +12383,9 @@ function _mvRenderProvenance(m) {
   // D4 — créer une règle depuis un mouvement IMPORTÉ (le compte est celui du mouvement) :
   // à l'enregistrement, ce mouvement — et lui seul — est mis à jour directement.
   if (m._source === 'bank_import' && m._bankAccountId != null && m._bankAccountId !== '' && !m._deleted) {
-    bits.push('<a data-mvid="' + escHtml(m.id) + '" onclick="closeM(\'ov-mv\');_bankRuleOpen(null,null,this.dataset.mvid)" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">' + _uiIcon('save', 13) + ' Créer une règle depuis ce mouvement</a>');
+    // Phase 6a : « ✓ Règle enregistrée » (avec Modifier) quand une règle du même compte le couvre déjà ; sinon ce lien.
+    const _pastille = (typeof _bankRuleStatutHtml === 'function') ? _bankRuleStatutHtml('mv', m.id) : '';
+    if (_pastille) bits.push(_pastille);
   }
 
   // Découpage : la ligne d'origine et les mouvements liés, avec « défaire »

@@ -1764,8 +1764,9 @@
   }
 
   /**
-   * Brouillon de la fenêtre de règle (champ texte « motif » tant que les puces de la
-   * phase 6 ne sont pas là) → mots de la règle. Un mot CLIQUÉ parmi les mots du libellé
+   * (Phase 4, plus appelé par l'interface depuis la phase 6a : les puces portent mots entiers et
+   * mots saisis séparément ; conservé et testé pour un champ texte « motif » éventuel.)
+   * Brouillon de la fenêtre de règle (champ texte « motif ») → mots de la règle. Un mot CLIQUÉ parmi les mots du libellé
    * (ou déjà « mot entier » de la règle ouverte) reste un mot entier ; un mot TAPÉ est un
    * morceau de mot (comme la puce « + mot »). Aucun mot n'est deviné.
    * @param {string} texte — contenu du champ motif
@@ -1782,6 +1783,145 @@
       (entiers.has(n) ? mots : motsLibres).push(w);
     }
     return { mots, motsLibres };
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // REGLES-REFONTE phase 6a — INTERFACE de la fenêtre de règle (maquettes validées).
+  // Logique pure derrière les puces de mots, la condition de montant, les lignes
+  // décochables de l'aperçu et la pastille « ✓ Règle enregistrée ».
+  // ════════════════════════════════════════════════════════════════════════════
+
+  /** Texte d'un montant saisi : vide, ou chiffres avec séparateurs / signe / € (jamais des lettres). */
+  function _bankMontantSaisiValide(v) {
+    const t = String(v == null ? '' : v).trim();
+    return t === '' || /^[-+]?[\d\s .,]*\d[\d\s .,]*€?$/.test(t.replace(/ | /g, ' '));
+  }
+
+  /**
+   * Condition de montant de la fenêtre (boutons radio + champs texte) → condition du modèle.
+   * `ui` = { type: 'none'|'loyerCC'|'exact'|'plage', valeur, min, max } (textes saisis, « 150,00 » accepté).
+   * @returns {{montant:object|null, aucune:boolean, invalide:boolean}} `invalide` : champ incomplet ou
+   *   illisible — l'écran le dit et bloque l'enregistrement (rien n'est corrigé en silence).
+   */
+  function _bankRuleMontantDepuisSaisie(ui) {
+    const u = ui || {};
+    if (!u.type || u.type === 'none') return { montant: null, aucune: true, invalide: false };
+    if (u.type === 'loyerCC') return { montant: { type: 'loyerCC' }, aucune: false, invalide: false };
+    const champs = u.type === 'exact' ? [u.valeur] : [u.min, u.max];
+    if (!champs.every(_bankMontantSaisiValide)) return { montant: null, aucune: false, invalide: true };
+    const nm = _bankRuleNormMontant({ type: u.type, valeur: u.valeur, min: u.min, max: u.max });
+    if (nm.error || !nm.montant) return { montant: null, aucune: false, invalide: true };
+    return { montant: nm.montant, aucune: false, invalide: false };
+  }
+
+  /**
+   * Retour en direct de la puce libre « + mot » : le morceau saisi est-il ajoutable, et figure-t-il
+   * dans le libellé de départ ? (Une puce libre est cherchée comme MORCEAU de mot : « ELEC » attrape
+   * « ELECTRICITE ».)
+   * @param {string} saisie
+   * @param {{motsLibelle?:string[], saisis?:string[], puces?:string[]}} [ctx] — mots du libellé de départ,
+   *   mots déjà saisis, puces (mots entiers) de la fenêtre
+   * @returns {{etat:'vide'|'espace'|'doublon'|'puce'|'present'|'absent', ajoutable:boolean, mot:string, trouveDans:string}}
+   */
+  function _bankMotSaisiDiagnostic(saisie, ctx = {}) {
+    const mot = String(saisie == null ? '' : saisie).trim();
+    const out = { etat: 'vide', ajoutable: false, mot, trouveDans: '' };
+    if (!mot) return out;
+    if (/\s/.test(mot)) { out.etat = 'espace'; return out; }
+    const n = _bankNormTxt(mot);
+    if (!n) { out.etat = 'vide'; return out; }
+    if ((ctx.saisis || []).some(w => _bankNormTxt(w) === n)) { out.etat = 'doublon'; return out; }
+    if ((ctx.puces || []).some(w => _bankNormTxt(w) === n)) { out.etat = 'puce'; return out; }
+    out.ajoutable = true;
+    const hit = (ctx.motsLibelle || []).find(w => _bankNormTxt(w).includes(n));
+    if (hit) { out.etat = 'present'; out.trouveDans = hit; } else out.etat = 'absent';
+    return out;
+  }
+
+  /**
+   * Cases de l'aperçu : décocher une ligne = l'ajouter aux EXCEPTIONS de la règle, recocher = la
+   * retirer (clé = empreinte de la ligne). Renvoie la nouvelle liste ; l'entrée n'est pas modifiée.
+   */
+  function _bankRuleExceptionsApresCase(exceptions, line, coche, opts = {}) {
+    const base = { exceptions: Array.isArray(exceptions) ? exceptions : [] };
+    const cle = _bankRuleLineKey(line);
+    if (!cle) return base.exceptions.slice();
+    const r = coche ? _bankRuleRemoveException(base, cle, opts) : _bankRuleAddException(base, line, opts);
+    return r.exceptions.slice();
+  }
+
+  /**
+   * Une exception mémorisée concerne-t-elle ENCORE la règle ? (l'entrée porte date, libellé, montant, sens ;
+   * on la rejoue comme une ligne). Sert à ne pas garder une exception posée en décochant une ligne que
+   * l'utilisateur a ensuite sortie du motif.
+   */
+  function _bankRuleExceptionPortee(rule, exc, ctx = {}) {
+    if (!rule || !exc) return false;
+    const m = Math.abs(Number(exc.montant) || 0);
+    const line = { date: exc.date || '', libelle: exc.libelle || '', credit: exc.sens === 'cr' ? m : 0, debit: exc.sens === 'cr' ? 0 : m };
+    return _bankRuleMatch(Object.assign({}, rule, { exceptions: [] }), line, rule.compte, ctx);
+  }
+
+  /**
+   * Actions directes de l'alerte « natures différentes » : un mot du libellé de départ qui, ajouté
+   * comme puce, rend les lignes cochées homogènes (et garde la ligne source) ; le sens à fixer quand
+   * la règle attrape à la fois dépenses et recettes.
+   * @param {object} regle — règle candidate
+   * @param {object} ctx — celui de `_bankRuleApercu`, + `motsLibelle` (mots du libellé de départ)
+   * @returns {{mot:string, sens:''|'db'|'cr'}}
+   */
+  function _bankRuleSuggestions(regle, ctx = {}) {
+    const out = { mot: '', sens: '' };
+    const ap = _bankRuleApercu(regle, ctx);
+    if (!ap.mixed) return out;
+    const cochees = ap.lignes.filter(x => x.coche && x.index >= 0);
+    if (!regle.sens) {
+      const sens = new Set(cochees.map(x => _bankLineSens(x.line)));
+      if (sens.size > 1) {
+        const src = ap.lignes.find(x => x.source);
+        if (src) out.sens = _bankLineSens(src.line);
+        else out.sens = cochees.filter(x => _bankLineSens(x.line) === 'db').length >= cochees.length / 2 ? 'db' : 'cr';
+      }
+    }
+    if (ctx.source || ap.lignes.some(x => x.source)) {
+      const deja = new Set([..._bankRuleTokens(regle).mots, ..._bankRuleTokens(regle).libres]);
+      let best = 0;
+      for (const w of (ctx.motsLibelle || [])) {
+        const n = _bankNormTxt(w);
+        if (!n || deja.has(n)) continue;
+        const cand = Object.assign({}, regle, { mots: [...(regle.mots || []), w] });
+        const a = _bankRuleApercu(cand, ctx);
+        // À égalité de lignes gardées, le mot le plus long (plus parlant : PROVISION plutôt que PERM).
+        if (!a.mixed && a.sourceCorrespond !== false && (a.nCochees > best || (a.nCochees === best && best > 0 && w.length > out.mot.length))) { best = a.nCochees; out.mot = w; }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Pastille « ✓ Règle enregistrée » (ligne d'import ET fiche d'un mouvement enregistré) : que dit-on
+   * d'une ligne par rapport aux règles du MÊME compte ?
+   *  - 'aucune'      : aucune règle ne la couvre → bouton « Mémoriser la règle » ;
+   *  - 'enregistree' : au moins une règle la couvre ;
+   *  - 'doublon'     : deux règles (même résultat, l'une incluse dans l'autre) la couvrent ;
+   *  - 'exception'   : une règle la couvrirait, mais elle en a été sortie (exception mémorisée).
+   * @returns {{etat:string, regles:object[], exceptions:object[]}}
+   */
+  function _bankRuleStatutLigne(rules, lineOrMv, accountId, ctx = {}) {
+    const out = { etat: 'aucune', regles: [], exceptions: [] };
+    const line = _bankAsLine(lineOrMv);
+    if (!line) return out;
+    const live = (Array.isArray(rules) ? rules : []).filter(r => r && !r._deleted);
+    const c = { loyerCC: ctx.loyerCC };
+    out.regles = live.filter(r => _bankRuleMatch(r, line, accountId, c));
+    if (out.regles.length) {
+      out.etat = _bankRulesDuplicates(out.regles).length ? 'doublon' : 'enregistree';
+      return out;
+    }
+    out.exceptions = live.filter(r => _bankRuleIsV2(r) && _bankRuleIsException(r, line)
+      && _bankRuleMatch(Object.assign({}, r, { exceptions: [] }), line, accountId, c));
+    if (out.exceptions.length) out.etat = 'exception';
+    return out;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -2621,6 +2761,12 @@
     _bankRulePatchMouvement: _bankRulePatchMouvement,
     _bankRulePrefill: _bankRulePrefill,
     _bankRuleMotsDuChamp: _bankRuleMotsDuChamp,
+    _bankRuleMontantDepuisSaisie: _bankRuleMontantDepuisSaisie,
+    _bankMotSaisiDiagnostic: _bankMotSaisiDiagnostic,
+    _bankRuleExceptionsApresCase: _bankRuleExceptionsApresCase,
+    _bankRuleExceptionPortee: _bankRuleExceptionPortee,
+    _bankRuleSuggestions: _bankRuleSuggestions,
+    _bankRuleStatutLigne: _bankRuleStatutLigne,
     _bankMatchHeuristic: _bankMatchHeuristic,
     _bankDedup: _bankDedup,
     _bankIsAutomatable: _bankIsAutomatable,
