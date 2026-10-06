@@ -7260,7 +7260,7 @@ function _renderAccueilPhone(ctx){
   else logs.forEach(function(l){ try{ encYTD += (_v4ComputeLotStatus(l, yr, '', ctx.mvsYTD).recu||0); }catch(e){} });
   var dg=0, nbDep=0;
   // R-0 : la porte d'entree etait `l.locataire` alors que le montant, lui, venait deja du bail.
-  logs.forEach(function(l){ var d=_dgDetenuDuLot(l);   /* dépôt DÉTENU : reçu, pas encore restitué */ if(d>0){ dg+=d; nbDep++; } });
+  logs.forEach(function(l){ var d=_dgDetenuDuLot(l);   /* dépôt DÉTENU : reçu, pas encore restitué */ if(d>0){ dg+=d; nbDep+=_dgNbDetenusDuLot(l); } });
   var fams={total:0,familles:[]}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
   var aReg = fams.total||0, famBy={}; (fams.familles||[]).forEach(function(f){ famBy[f.id]=f; });
   var bits=[];
@@ -7563,7 +7563,7 @@ function _renderPilotage(ctx) {
   // R-0 : lot LOUE selon le bail, et montant du bail en cours (revu a la relocation).
   const _dgLots = scopeLogs.filter(l => _dgDetenuDuLot(l) > 0);   // dépôt DÉTENU : reçu, pas encore restitué
   const dgTot = _dgLots.reduce((s, l) => s + _dgDetenuDuLot(l), 0);
-  const nbDg = _dgLots.length;
+  const nbDg = _dgLots.reduce((s, l) => s + _dgNbDetenusDuLot(l), 0);   // des DÉPÔTS, pas des lots
   const strip = [
     '<div class="pil-s1"><div class="k">Encaissé · ' + (mo ? _DMF[parseInt(mo) - 1] : yr) + '</div>'
       + '<div class="v">' + (encaisse != null ? fmtN(encaisse) : '—') + '</div>'
@@ -9880,16 +9880,22 @@ function _dgDetenuDuBail(b, dgLot) {
   if (!b || b._deleted || _dgRestitutionEnregistree(b)) return 0;
   return Number(b.dg || dgLot || 0) || 0;
 }
-/** LE dépôt DÉTENU d'un lot (bandeau PC, Accueil téléphone, widget) : son bail courant (même parti, même
+/** LES dépôts DÉTENUS d'un lot (bandeau PC, Accueil téléphone, widget), un montant par bail : son bail courant (même parti, même
  *  porteur d'une fin effective) + ses baux archivés (relocation avant restitution, clôture sans restitution).
  *  Un bail clôturé est un tombstone dans DB.baux et sa copie dans baux_historique : jamais compté deux fois. */
-function _dgDetenuDuLot(l) {
-  if (!l || !l.ref) return 0;
+function _dgDetenusDuLot(l) {
+  if (!l || !l.ref) return [];
   const cur = DB.baux && DB.baux[l.ref];
-  let tot = _dgDetenuDuBail(cur, (cur && !cur.cloture) ? l.dg : 0);
-  (DB.baux_historique || []).forEach(function (h) { if (h && h.ref === l.ref) tot += _dgDetenuDuBail(h, 0); });
-  return tot;
+  const out = [];
+  const c = _dgDetenuDuBail(cur, (cur && !cur.cloture) ? l.dg : 0);
+  if (c > 0) out.push(c);
+  (DB.baux_historique || []).forEach(function (h) { if (h && h.ref === l.ref) { const a = _dgDetenuDuBail(h, 0); if (a > 0) out.push(a); } });
+  return out;
 }
+// Montant détenu d'un lot, et NOMBRE de dépôts détenus (un lot reloué avant restitution en porte deux) : même
+// source (_dgDetenusDuLot), pour que le compteur des tuiles compte des dépôts, pas des lots (audit 06/10).
+function _dgDetenuDuLot(l) { return _dgDetenusDuLot(l).reduce(function (s, a) { return s + a; }, 0); }
+function _dgNbDetenusDuLot(l) { return _dgDetenusDuLot(l).length; }
 
 /**
  * LE RÔLE d'un mouvement pour une surface de LOT, lu comme Finances le lit.
@@ -10853,17 +10859,18 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
     // sinon la carte annonce une somme que son propre tableau contredit (mesuré : 3 100 € au
     // total pour 3 400 € de lignes).
     const tot = dgs.reduce((s,l) => s+_dgDetenuDuLot(l), 0);
+    const nbDg = dgs.reduce((s,l) => s+_dgNbDetenusDuLot(l), 0);   // des DÉPÔTS, pas des lots
     _DD['dg'] = {title:'Dépôts de garantie', html:'<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">DG</th></tr></thead><tbody>'
       + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDetenuDuLot(l))+'</td></tr>').join('')
-      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+dgs.length+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
+      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+nbDg+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
     // v15.38 DASH-REFONTE-GLOBALE-V4 CP3 — DG Bloomberg : eyebrow + valeur + count
     const body = '<button type="button" class="dw-kpi-click bb-card" '
       + 'onclick="_dashCardClick(\'dg\',event)" '
       + 'aria-label="Voir le détail des dépôts de garantie">'
       + '<div class="bb-eyebrow"><span class="bb-icon-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bb-eyebrow-txt">DÉPÔTS DE GARANTIE</span></div>'
       + '<div class="dw-kpi-value" style="color:var(--t1)">' + fmt(tot) + '</div>'
-      + '<div class="bb-delta neu">' + dgs.length + ' DG détenu' + (dgs.length > 1 ? 's' : '') + '</div>'
-      + (dgs.length ? '<div class="bb-sub">Moyenne ' + fmt(Math.round(tot / dgs.length)) + ' / locataire</div>' : '')
+      + '<div class="bb-delta neu">' + nbDg + ' DG détenu' + (nbDg > 1 ? 's' : '') + '</div>'
+      + (nbDg ? '<div class="bb-sub">Moyenne ' + fmt(Math.round(tot / nbDg)) + ' / dépôt</div>' : '')
       + '</button>';
     return wd(body, '', 'blu');
   }

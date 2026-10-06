@@ -55,7 +55,7 @@ function monter(DB, noms, extra = {}) {
   const fn = new Function('scope', 'with (scope) {\n' + noms.map(corps).join('\n') + '\nreturn {' + noms.join(',') + '};\n}')(scope);
   return { fn, base, els, html };
 }
-const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot', '_dgDetenuDuBail', '_dgRestitutionEnregistree'];
+const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot', '_dgDetenuDuBail', '_dgRestitutionEnregistree', '_dgDetenusDuLot', '_dgNbDetenusDuLot'];
 
 describe('1 · la règle de statut (module pur)', () => {
   it('bail nu reconduit (échéance passée), sans départ : loué', () => expect(bailLoueAu(BAIL, AUJ)).toBe(true));
@@ -577,5 +577,42 @@ describe('19 · tâche du dépôt d\'un bail archivé (VRAI _computeUnifiedTodo)
     expect(tache('2026-07-01').severity).toBe('red');
     expect(tache('2026-07-01').subtitle).toContain('DG en retard 34 j (majoration)');
     expect(tache('2026-09-30').severity).toBe('info');
+  });
+});
+describe('20 · compteur « Dépôts détenus » = nombre de DÉPÔTS (un lot reloué avant restitution en porte deux)', () => {
+  const ARCH = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAuto: true };
+  const NOUV = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nouveau' }] };
+  const base = () => { const DB = dbDe({ A1: NOUV, B2: { ...BAIL, dg: 400 } }); DB.baux_historique = [ARCH]; return DB; };
+  it('règle (VRAIS _dgDetenusDuLot / _dgNbDetenusDuLot) : A1 = 900 + 1 300 en 2 dépôts', () => {
+    const { fn } = monter(base(), STATUT);
+    expect(fn._dgDetenusDuLot({ ref: 'A1' })).toEqual([1300, 900]);
+    expect(fn._dgNbDetenusDuLot({ ref: 'A1' })).toBe(2);
+    expect(fn._dgNbDetenusDuLot({ ref: 'C3' })).toBe(0);
+  });
+  it('tuile PC (VRAI _renderPilotage) : 2 600 € · 3 dépôts', () => {
+    const DB = base();
+    const { fn, els } = monter(DB, [...STATUT, '_renderPilotage']);
+    try { fn._renderPilotage({ scopeLogs: DB.logements, yr: '2026', mo: null, activeEnt: '' }); } catch (e) { /* bulles non simulées */ }
+    const h = els['pil-strip'].innerHTML;
+    const t = h.slice(h.indexOf('Dépôts détenus'), h.indexOf('Dépôts détenus') + 140);
+    expect(t).toContain('2600 €');
+    expect(t).toContain('3 dépôts');
+  });
+  it('Accueil téléphone (VRAI _renderAccueilPhone) : 3 dépôts', () => {
+    const DB = base();
+    const m = monter(DB, [...STATUT, '_renderAccueilPhone'], { _isPhone: () => true });
+    m.base.document = { getElementById: (id) => (m.els[id] = m.els[id] || { id, innerHTML: '', style: {} }), createElement: () => ({ style: {} }) };
+    try { m.fn._renderAccueilPhone({ scopeLogs: DB.logements, yr: '2026', mo: null, activeEnt: '', mvs: [], mvsYTD: [] }); } catch (e) { /* suite non simulée */ }
+    const h = (m.els['accm-phone'] || {}).innerHTML || '';
+    expect(h.slice(h.indexOf('Dépôts détenus'), h.indexOf('Dépôts détenus') + 200)).toContain('3 dépôts');
+  });
+  it('widget (VRAI _buildWidgetV1Legacy) : « 3 DG détenus », moyenne par dépôt', () => {
+    const DB = base();
+    const m = monter(DB, [...STATUT, '_buildWidgetV1Legacy'], { DashCtx: { mvTotals: () => ({}), occupationKpis: () => ({ nbOcc: 0, nbTotal: 3 }) }, _DD: {}, _DMF: [], _nomLotAffiche: () => '' });
+    let w = null;
+    try { w = m.fn._buildWidgetV1Legacy('dg', { scopeLogs: DB.logements, yr: '2026', mo: null }); } catch (e) { /* */ }
+    expect(m.base._DD.dg.html).toContain('Total (3 DG détenus)');
+    expect(JSON.stringify(w)).toContain('3 DG détenus');
+    expect(JSON.stringify(w)).toContain('Moyenne 867 € / dépôt');
   });
 });
