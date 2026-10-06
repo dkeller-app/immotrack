@@ -28,12 +28,14 @@
 import {
   garantirCouvertureBail, appliquerNouvellePeriode, cloturerPeriodeParDebut, chapitrePour, montantSaisi
 } from './loyer-bareme.js';
-import { duMois } from './loyer-du-mois.js';
+import { duMois, finOccupationBail } from './loyer-du-mois.js';
 
 const _nr = (s) => String(s == null ? '' : s).trim().toLowerCase();
 const _ymd = (iso) => String(iso == null ? '' : iso).slice(0, 10);
 const _isoOk = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 const _vivante = (p) => !!(p && !p._deleted);
+/** Une valeur de formulaire / d'API renseignée : ni absente, ni null, ni chaîne vide. */
+const _renseigne = (v) => v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '');
 
 /** Décalage de `n` jours d'une date ISO (arithmétique UTC : aucun saut d'heure d'été). */
 function _decale(iso, n) {
@@ -88,6 +90,24 @@ function _echec(arr, raison, extra) {
   return Object.assign({ ok: false, change: false, periods: arr, avant: null, apres: null, touchees: [], avertissements: [], raison }, extra || {});
 }
 
+/**
+ * Barème ANTÉRIEUR au champ `bailDebut` : la période ne dit pas à quel bail elle appartient. `_compat` accepte alors tout,
+ * et une suppression traversait les chapitres (elle prolongeait le locataire d'avant). Quand les baux du lot sont connus
+ * (`opts.baux`), on déduit le chapitre de la DATE : {debut: début du bail qui occupe la date, jusqua: début du suivant}.
+ * Sans baux, ou sans bail qui couvre la date : null (comportement historique, rien n'est conclu).
+ */
+function _chapitreDeduit(arr, T, baux) {
+  if (_ymd(T.bailDebut) || !Array.isArray(baux) || !baux.length) return null;
+  const cd = chapitrePour(arr, T.ref, T.debut, baux);
+  if (!cd) return null;
+  let jusqua = null;
+  for (const b of baux) {
+    const d = _ymd(b && b.debut);
+    if (b && !b._deleted && d > cd && (!jusqua || d < jusqua)) jusqua = d;
+  }
+  return { debut: cd, jusqua };
+}
+
 /** Contexte commun d'une opération sur une période : copie, cible, voisinage. */
 function _contexte(periods, cle, opts) {
   const arr = (periods || []).map((p) => ({ ...p }));
@@ -96,8 +116,10 @@ function _contexte(periods, cle, opts) {
   const f = trouverPeriode(arr, cle);
   if (!f) return { fini: _echec(arr, 'introuvable') };
   const T = arr[f.idx];
-  const bd = _ymd(T.bailDebut);
-  const lot = (p) => _vivante(p) && _nr(p.ref) === _nr(T.ref) && _compat(p, bd);
+  const deduit = _chapitreDeduit(arr, T, o.baux);
+  const bd = _ymd(T.bailDebut) || (deduit ? deduit.debut : '');
+  const dansChap = (p) => { const b = _ymd(p && p.bailDebut); if (b) return b === bd; const d = _ymd(p.debut); return d >= deduit.debut && (!deduit.jusqua || d < deduit.jusqua); };
+  const lot = (p) => _vivante(p) && _nr(p.ref) === _nr(T.ref) && (deduit ? dansChap(p) : _compat(p, bd));
   const Td = _ymd(T.debut);
   const Tf = T.fin == null ? null : _ymd(T.fin);
   const autres = arr.filter((p) => p !== T && lot(p));
@@ -130,6 +152,8 @@ export function modifierPeriode(periods, cle, patch, opts) {
   // ── montants
   let mH = pt.hc !== undefined ? montantSaisi(pt.hc) : null;
   const mC = pt.ch !== undefined ? montantSaisi(pt.ch) : null;
+  // Un montant PRÉSENT mais non numérique ('abc', NaN) n'est pas « inchangé » : c'est une erreur dite, pas un refus muet.
+  if ((_renseigne(pt.hc) && mH == null) || (_renseigne(pt.ch) && mC == null)) return _echec(arr, 'montant-invalide');
   if ((mH != null && mH < 0) || (mC != null && mC < 0)) return _echec(arr, 'montant-invalide');
   if (irl && mH != null && mH !== (Number(T.hc) || 0)) { avert.push('irl-geste-dedie'); mH = null; }
   const hc = mH != null ? mH : T.hc;
@@ -282,7 +306,7 @@ function _diffTouchees(avant, apres) {
 
 /**
  * Ajoute une période manquante : fine enveloppe autour de l'EXISTANT (même séquence que l'ancien
- * « Corriger une période ») — couverture garantie avant la date, puis `appliquerNouvellePeriode`
+ * geste « Corriger une période », retiré) — couverture garantie avant la date, puis `appliquerNouvellePeriode`
  * (coupe la période en vigueur, se borne sur la prochaine décision), puis fin explicite éventuelle.
  * `nouvelle = {ref, debut, fin?, hc, ch, bailDebut?}` ; `opts = {motif, le, auteur, evtId, baux?,
  * bailHc?, bailCh?}` (`baux` : baux du lot, pour rattacher la date au bon chapitre).
@@ -298,17 +322,38 @@ export function ajouterPeriode(periods, nouvelle, opts) {
   const ch = montantSaisi(n.ch);
   if (hc == null) return _echec(arr, 'montant-invalide');
   if (hc < 0 || (ch != null && ch < 0)) return _echec(arr, 'montant-invalide');
+  if (_renseigne(n.ch) && ch == null) return _echec(arr, 'montant-invalide');   // 'abc' / NaN : erreur dite, pas un zéro
   const bd = _ymd(n.bailDebut) || chapitrePour(arr, n.ref, debut, o.baux || []);
   if (!bd) return _echec(arr, 'aucun-bail');
   if (debut < bd) return _echec(arr, 'avant-bail', { bailDebut: bd });
+  // La fin d'occupation du bail du chapitre (LA même que le dû) : une période ajoutée dans un bail CLOS ne la déborde jamais
+  // (sinon elle chevauche la vacance, et un ré-ancrage ultérieur du bail suivant créerait un chevauchement).
+  let finChap = _ymd(o.finChapitre);
+  if (!finChap) {
+    const bc = (o.baux || []).find((b) => b && !b._deleted && _ymd(b.debut) === bd);
+    finChap = bc ? _ymd(finOccupationBail(bc, bc.archive !== false)) : '';
+  }
+  if (finChap && debut > finChap) return _echec(arr, 'apres-cloture', { finChapitre: finChap });
   let fin = n.fin ? _ymd(n.fin) : null;
   if (fin && (!_isoOk(fin) || fin < debut)) return _echec(arr, 'fin-invalide');
+  if (finChap && (!fin || fin > finChap)) fin = finChap;
   const avert = [];
   if (arr.some((p) => _vivante(p) && _nr(p.ref) === _nr(n.ref) && _ymd(p.debut) === debut && _compat(p, bd))) avert.push('remplace-periode');
 
   const le = o.le || '';
   let out = garantirCouvertureBail(arr, { ref: n.ref, debut: bd, hc: o.bailHc, ch: o.bailCh }, debut);
-  out = appliquerNouvellePeriode(out, { ref: n.ref, debut, fin, hc, ch: ch != null ? ch : 0, source: 'manuel', bailDebut: bd, note: o.motif || '' });
+  // CHARGES VIDES : « un champ vide n'est pas un zéro » (LOT 3). Elles reprennent la provision de la période en vigueur à cette
+  // date (sinon celle du bail) ; faute de source, 0 — mais DIT (`charges-vides`), jamais en silence.
+  let chFinal = ch;
+  if (chFinal == null) {
+    const encours = out.filter((p) => _vivante(p) && _nr(p.ref) === _nr(n.ref) && _compat(p, bd) && _ymd(p.debut) <= debut && (p.fin == null || _ymd(p.fin) >= debut))
+      .sort((a, b) => _ymd(b.debut).localeCompare(_ymd(a.debut)))[0];
+    const repris = montantSaisi(encours && encours.ch);
+    const bailCh = montantSaisi(o.bailCh);
+    chFinal = repris != null ? repris : (bailCh != null ? bailCh : 0);
+    avert.push(repris != null || bailCh != null ? 'charges-reprises' : 'charges-vides');
+  }
+  out = appliquerNouvellePeriode(out, { ref: n.ref, debut, fin, hc, ch: chFinal, source: 'manuel', bailDebut: bd, note: o.motif || '' });
   if (fin) out = cloturerPeriodeParDebut(out, n.ref, debut, fin);
   const change = JSON.stringify(out) !== JSON.stringify(arr);
   if (!change) return { ok: true, change: false, periods: arr, avant: null, apres: null, touchees: [], avertissements: avert };
@@ -392,9 +437,23 @@ export function impactEdition(input) {
 // peut écraser une modification faite ailleurs, sans erreur. Le JOURNAL (`baux_evenements`, une ligne versionnée par
 // modification) survit, lui. Une entrée du journal dont l'`id` (= `evtId` porté par les lignes du barème qu'elle a écrites)
 // n'apparaît dans AUCUNE ligne du barème n'a pas été appliquée (ou a été écrasée) : on la propose à « Réappliquer ».
-// Une entrée dont la période a été retouchée depuis (entrée postérieure sur la même période) est SUPERSÉDÉE : on ne la
-// rejoue pas par-dessus une décision plus récente. JAMAIS de rejeu automatique (le geste est explicite, et idempotent).
+// Une entrée n'est SUPERSÉDÉE que si une entrée postérieure sur la même période a, elle, été APPLIQUÉE (son id figure dans le barème) :
+// on ne rejoue pas par-dessus une décision plus récente qui tient. Si la postérieure est perdue aussi (deux corrections écrasées
+// ensemble : la date, puis le montant), les DEUX sont proposées, de la plus ancienne à la plus récente — rejouées dans cet ordre
+// (`chaineDeRejeu`), la seconde retrouve la période que la première vient de recréer. Avant que le rejeu ne pose quoi que ce
+// soit, `planRejeu` compare la période vivante à ce que le journal en avait vu (révision IRL / avenant / bail survenus entre-temps).
+// Une entrée dont les dates sont illisibles est IGNORÉE (le journal vient du cloud, écrit par d'autres membres : jamais de confiance).
+// JAMAIS de rejeu automatique (le geste est explicite, et idempotent).
 // ════════════════════════════════════════════════════════════════════════════
+// Les dates d'une entrée du journal (cloud : écrites par d'autres membres) : strictement AAAA-MM-JJ, sinon l'entrée est ignorée.
+const _debutLisible = (x) => !!x && _isoOk(String(x.debut == null ? '' : x.debut));
+function _datesLisibles(e) {
+  if (e.avant && !_debutLisible(e.avant)) return false;
+  if (e.apres && !_debutLisible(e.apres)) return false;
+  if (e.action !== 'ajoutee' && !e.avant) return false;
+  if (e.action !== 'supprimee' && !e.apres) return false;
+  return true;
+}
 /**
  * @param {Array} journal DB.baux_evenements
  * @param {Array} bareme DB.loyerBareme
@@ -415,11 +474,126 @@ export function periodesNonAppliquees(journal, bareme, opts) {
   const out = [];
   for (const e of es) {
     if (portes.has(e.id) || ign[e.id] || !['modifiee', 'supprimee', 'ajoutee'].includes(e.action)) continue;
+    if (!_datesLisibles(e)) continue;
     const de = debuts(e);
-    const supersedee = es.some((f) => f !== e && String(f.date || '') > String(e.date || '') && refDe(f) === refDe(e)
+    const supersedee = es.some((f) => f !== e && portes.has(f.id) && String(f.date || '') > String(e.date || '') && refDe(f) === refDe(e)
       && _ymd(f.bailDebut) === _ymd(e.bailDebut) && [...debuts(f)].some((d) => de.has(d)));
     if (supersedee) continue;
     out.push({ id: e.id, action: e.action, date: e.date, auteur: e.auteur || '', motif: e.motif || '', ref: e.ref, bailDebut: _ymd(e.bailDebut), avant: e.avant || null, apres: e.apres || null, entree: e });
   }
   return out.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RÉAPPLIQUER SANS ÉCRASER — le rejeu d'une entrée perdue ne repose JAMAIS des montants absolus par-dessus une décision plus
+// récente. `planRejeu` compare la période vivante à `entree.avant` ; si elles diffèrent (révision IRL, avenant, saveBail passés
+// entre-temps) c'est une DIVERGENCE : on ALERTE (l'utilisateur décide, « des alertes, pas de blocage »), et, s'il maintient, on ne
+// pose que les champs que l'entrée avait réellement changés (`apres` ≠ `avant`). Jamais `autoriserIRL` : date et loyer d'une
+// période issue d'une révision IRL passent par les gestes IRL.
+// ════════════════════════════════════════════════════════════════════════════
+const _finNorm = (f) => (f == null ? null : _ymd(f));
+const _refSans = (r) => String(r == null ? '' : r).split('@@')[0];
+
+/**
+ * @param {{ref,action,bailDebut,avant,apres}} x une entrée de `periodesNonAppliquees`
+ * @param {Array} bareme barème VIVANT (ou le barème courant d'une simulation)
+ * @returns {{etat:'ok'|'diverge'|'introuvable'|'irl-geste', ecarts:Array<{champ,journal,vivant}>, patch:Object|null,
+ *            restreint:string[], cle:Object|null, vivant:Object|null}}
+ *   `restreint` : champs de l'entrée qu'on ne rejoue pas ici (période IRL : 'debut', 'hc').
+ */
+export function planRejeu(x, bareme) {
+  const ref = _refSans(x && x.ref);
+  const bd = _ymd(x && x.bailDebut);
+  const vide = { ecarts: [], patch: null, restreint: [], cle: null, vivant: null };
+  if (!x) return Object.assign({ etat: 'introuvable' }, vide);
+  if (x.action === 'ajoutee') {
+    const ap = x.apres || {};
+    const v = (bareme || []).find((p) => _vivante(p) && _nr(p.ref) === _nr(ref) && _ymd(p.debut) === _ymd(ap.debut) && _compat(p, bd));
+    const ecarts = [];
+    if (v && ((Number(v.hc) || 0) !== (Number(ap.hc) || 0) || (Number(v.ch) || 0) !== (Number(ap.ch) || 0))) {
+      ecarts.push({ champ: 'periode-existante', journal: { hc: Number(ap.hc) || 0, ch: Number(ap.ch) || 0 }, vivant: _sommaire(v) });
+    }
+    return Object.assign({}, vide, { etat: ecarts.length ? 'diverge' : 'ok', ecarts, vivant: v ? _sommaire(v) : null });
+  }
+  const av = x.avant || {}, ap = x.apres || {};
+  const cle = { ref, bailDebut: bd, debut: _ymd(av.debut) };
+  const f = trouverPeriode(bareme, cle);
+  if (!f) return Object.assign({}, vide, { etat: 'introuvable', cle });
+  const v = _sommaire(f.periode);
+  const ecarts = [];
+  if (Number(av.hc) !== v.hc && av.hc != null) ecarts.push({ champ: 'hc', journal: Number(av.hc) || 0, vivant: v.hc });
+  if (Number(av.ch) !== v.ch && av.ch != null) ecarts.push({ champ: 'ch', journal: Number(av.ch) || 0, vivant: v.ch });
+  if (av.fin !== undefined && _finNorm(av.fin) !== v.fin) ecarts.push({ champ: 'fin', journal: _finNorm(av.fin), vivant: v.fin });
+  if (av.source && (av.source || 'bail') !== v.source) ecarts.push({ champ: 'source', journal: av.source, vivant: v.source });
+  const irl = v.source === 'irl' || av.source === 'irl';
+  if (x.action === 'supprimee') {
+    if (irl) return Object.assign({}, vide, { etat: 'irl-geste', ecarts, cle, vivant: v, restreint: ['supprimer'] });
+    return Object.assign({}, vide, { etat: ecarts.length ? 'diverge' : 'ok', ecarts, patch: {}, cle, vivant: v });
+  }
+  // modifiee : UNIQUEMENT les champs que l'entrée avait changés.
+  const patch = {};
+  const restreint = [];
+  if (_ymd(ap.debut) && _ymd(ap.debut) !== _ymd(av.debut)) { if (irl) restreint.push('debut'); else patch.debut = _ymd(ap.debut); }
+  if (ap.hc != null && Number(ap.hc) !== Number(av.hc)) { if (irl) restreint.push('hc'); else patch.hc = Number(ap.hc); }
+  if (ap.ch != null && Number(ap.ch) !== Number(av.ch)) patch.ch = Number(ap.ch);
+  if (!Object.keys(patch).length && restreint.length) return Object.assign({}, vide, { etat: 'irl-geste', ecarts, cle, vivant: v, restreint });
+  return Object.assign({}, vide, { etat: ecarts.length ? 'diverge' : 'ok', ecarts, patch, restreint, cle, vivant: v });
+}
+
+/** Les entrées à rejouer pour « Réappliquer » `x` : les perdues du MÊME bail, de la plus ancienne jusqu'à `x`, dans l'ordre du journal. */
+export function chaineDeRejeu(perdues, x) {
+  const L = perdues || [];
+  const i = L.findIndex((y) => y && x && String(y.id) === String(x.id));
+  if (i < 0) return [];
+  return L.slice(0, i + 1).filter((y) => _nr(_refSans(y.ref)) === _nr(_refSans(x.ref)) && _ymd(y.bailDebut) === _ymd(x.bailDebut));
+}
+
+/**
+ * Rejoue la chaîne SUR UNE COPIE, sans rien écrire : à chaque étape, plan puis opération pure. S'arrête à la première étape
+ * qui ne peut pas (période introuvable : l'étape précédente ne l'a pas recréée ; geste IRL) ou qui DIVERGE (sauf `forcer`).
+ * @returns {{ok:boolean, etapes:Array<{id,plan}>, stop:null|{id, raison:'introuvable'|'diverge'|'irl-geste', plan}, periods:Array}}
+ */
+export function simulerRejeu(chaine, bareme, opts) {
+  const o = opts || {};
+  let arr = (bareme || []).map((p) => ({ ...p }));
+  const etapes = [];
+  for (const x of (chaine || [])) {
+    const plan = planRejeu(x, arr);
+    etapes.push({ id: x.id, plan });
+    if (plan.etat === 'introuvable' || plan.etat === 'irl-geste') return { ok: false, etapes, stop: { id: x.id, raison: plan.etat, plan }, periods: arr };
+    if (plan.etat === 'diverge' && !o.forcer) return { ok: false, etapes, stop: { id: x.id, raison: 'diverge', plan }, periods: arr };
+    const op = { le: x.date, auteur: x.auteur, motif: x.motif, evtId: x.id, baux: o.baux, bailHc: o.bailHc, bailCh: o.bailCh };
+    let r;
+    if (x.action === 'ajoutee') r = ajouterPeriode(arr, { ref: _refSans(x.ref), debut: x.apres.debut, fin: x.apres.fin || null, hc: x.apres.hc, ch: x.apres.ch, bailDebut: x.bailDebut }, op);
+    else if (x.action === 'supprimee') r = supprimerPeriode(arr, plan.cle, op);
+    else r = modifierPeriode(arr, plan.cle, plan.patch, op);
+    if (!r.ok) return { ok: false, etapes, stop: { id: x.id, raison: r.raison || 'erreur', plan }, periods: arr };
+    arr = r.periods;
+  }
+  return { ok: true, etapes, stop: null, periods: arr };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RÉVISION IRL PROGRAMMÉE — le moteur IRL (`_applyPendingIRLRevisions`) ne l'applique que si le loyer vivant du lot vaut encore
+// `ancienHC`. Modifier le loyer en vigueur le change : la révision serait sautée sans un mot. La fenêtre le DIT (alerte non
+// bloquante) ; le correctif du moteur lui-même est du ressort de la session « IRL & courriers ».
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * @param {Array} irlHistorique DB.irlHistorique
+ * @param {string} ref
+ * @param {{debutBail?:string}} [opts] une révision d'un cycle antérieur au bail en cours ne le concerne pas
+ * @returns {{dateEffet:string, ancienHC:number, nouveauHC:number, cycle:string}|null} la plus récente en attente, sinon null
+ */
+export function irlProgrammeeDuLot(irlHistorique, ref, opts) {
+  const want = _nr(_refSans(ref));
+  const debut = _ymd(opts && opts.debutBail);
+  let best = null;
+  for (const h of (irlHistorique || [])) {
+    if (!h || h._deleted || h.action === 'renonciation' || !h.pendingApply || _nr(_refSans(h.ref)) !== want) continue;
+    const eff = _ymd(h.dateEffet) || _ymd(h.dateApplication);
+    const cyc = _ymd(h.dateRevision);
+    if (!_isoOk(eff) || (debut && cyc && cyc < debut)) continue;
+    if (!best || eff > best.dateEffet) best = { dateEffet: eff, ancienHC: Number(h.ancienHC), nouveauHC: Number(h.nouveauHC), cycle: cyc };
+  }
+  return best;
 }

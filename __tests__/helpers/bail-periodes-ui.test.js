@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
+import * as BaremeEdition from '../../js/core/bareme-edition.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8')
@@ -47,7 +48,7 @@ function monde(over = {}) {
     fmt: (x) => (x == null ? '–' : x.toFixed(2).replace('.', ',') + ' €'),
     fd: (iso) => (iso ? String(iso).slice(8, 10) + '/' + String(iso).slice(5, 7) + '/' + String(iso).slice(0, 4) : '–'),
     escHtml: (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'),
-    _lyQ: (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"),
+    _lyQ: (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),   // = _lyQ de prod : escHtml(...)
     _uiIcon: (n) => `<i class="uic ${n}"></i>`,
     _logLabel: (r) => 'Logement ' + r,
     _hlNbMois: () => 3, _hlNbQuittances: () => 0,
@@ -56,6 +57,7 @@ function monde(over = {}) {
     rLogFiche: () => { appels.refresh++ },
     DB: { irlHistorique: [] },
     window: {
+      BaremeEdition,
       _bailPeriodeModifier: (...a) => { appels.modifier.push(a); return over.res || { ok: true, change: true, impact: { mois: [] }, avertissements: [] } },
       _bailPeriodeSupprimer: (...a) => { appels.supprimer.push(a); return over.res || { ok: true, change: true, impact: { mois: [] }, avertissements: [] } },
       _bailPeriodeAjouter: (...a) => { appels.ajouter.push(a); return over.res || { ok: true, change: true, impact: { mois: [] }, avertissements: [] } }
@@ -65,9 +67,10 @@ function monde(over = {}) {
   vm.runInContext([
     'let _histoPerListe = [], _histoPerMode = null, _histoPerCtx = null, _histoPerTimer = null;',
     constante('_HISTO_PER_RAISONS'), constante('_HISTO_PER_AVERTS'),
+    P2.slice(P2.indexOf('const _histoPerFd ='), P2.indexOf('// « Réappliquer » (une entrée')),
     ...['_histoPerMoisLong', '_histoPerDeMois', '_histoPerSigne', '_histoPerModeOuvrir', '_histoPerModeFermer', '_histoPerMajMode', '_histoPerChoisir', '_histoPerModifierSel',
       '_histoPerAjouter', '_histoPerBandeau', '_histoPerOuvrir', '_histoPerVue', '_histoPerSupprimerDemande', '_histoPerSupprimerRetour', '_histoPerLire', '_histoPerPatch',
-      '_histoPerRecalc', '_histoPerSimuler', '_histoPerAlerteHtml', '_histoPerEnregistrer', '_histoPerSupprimerConfirme', '_histoPerFinir', '_histoBailPeriodeHtml', '_histoBailEventHtml']
+      '_histoPerClavier', '_histoPerEchap', '_histoPerRecalc', '_histoPerSimuler', '_histoPerAlerteHtml', '_histoPerEnregistrer', '_histoPerSupprimerConfirme', '_histoPerFinir', '_histoBailPeriodeHtml', '_histoBailEventHtml']
       .map((f) => extraire(P2, f))
   ].join('\n'), sb)
   return { sb, noeuds, appels }
@@ -298,5 +301,160 @@ describe('cartes de la timeline', () => {
     expect(carte({ type: 'periode-supprimee', date: '2023-09-01', reprise: 'suivante', avant: { debut: '2023-09-01', fin: '2026-08-31', total: 680 } })).toContain('de la période suivante')
     const a = carte({ type: 'periode-absorbee', date: '2023-09-01', avant: 680, dateEffet: '2023-09-01' })
     expect(a).toContain('remplacée par la période avancée au'); expect(a).toContain('680,00 €')
+  })
+})
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// CONTRE-AUDIT 06/10 — XSS stockée du bandeau « Une modification de période n'apparaît pas », Échap, clavier radio, alertes.
+// ════════════════════════════════════════════════════════════════════════════
+describe('journal piégé : rien du journal cloud n\'est injecté brut (audit 🟠4)', () => {
+  const PIEGE = '<img src=x onerror=alert(1)>'
+  const brut = (sb) => { sb.fd = (x) => String(x == null ? '–' : x) }      // comme fd() de prod : la chaîne BRUTE quand la date est illisible
+  const entree = (o) => ({ id: "i'd\"><svg onload=1>", action: 'modifiee', ref: 'D-101', bailDebut: '2023-09-01', date: PIEGE, auteur: PIEGE, motif: '<script>alert(2)</script>',
+    avant: { debut: PIEGE, hc: '<i>', ch: 1 }, apres: { debut: '<svg onload=3>', hc: 2, ch: 3 }, ...o })
+  it('le bandeau (date, auteur, motif, périodes) est échappé de bout en bout, pour les trois actions', () => {
+    const { sb } = monde(); brut(sb)
+    for (const action of ['modifiee', 'supprimee', 'ajoutee']) {
+      const h = sb._histoPerPerduesHtml([entree({ action })])
+      expect(h, action).not.toMatch(/<img|<svg|<script|<i>/)
+      expect(h).toContain('&lt;img')                       // présent, mais inerte
+    }
+  })
+  it('le groupe de plusieurs modifications et le bloc de divergence/introuvable sont échappés aussi', () => {
+    const { sb } = monde(); brut(sb)
+    vm.runInContext(`_histoPerRejeu = { 'b': { raison: 'diverge', cle: { debut: ${JSON.stringify(PIEGE)} }, ecarts: [{ champ: ${JSON.stringify(PIEGE)}, journal: ${JSON.stringify(PIEGE)}, vivant: ${JSON.stringify(PIEGE)} }, { champ: 'fin', journal: ${JSON.stringify(PIEGE)}, vivant: null }] } }`, sb)
+    const h = sb._histoPerPerduesHtml([entree({ id: 'a' }), entree({ id: 'b' })])
+    expect(h).not.toMatch(/<img|<svg|<script/)
+    expect(h).toContain('Réappliquer quand même')
+    vm.runInContext(`_histoPerRejeu = { 'b': { raison: 'introuvable', cle: { debut: ${JSON.stringify(PIEGE)} }, apres: { debut: ${JSON.stringify(PIEGE)}, hc: 1, ch: 1 } } }`, sb)
+    expect(sb._histoPerPerduesHtml([entree({ id: 'a' }), entree({ id: 'b' })])).not.toMatch(/<img|<svg|<script/)
+  })
+  it('les cartes de période du rail (modifiée / supprimée / absorbée / annulée / remplacée) échappent leurs dates', () => {
+    const { sb } = monde(); brut(sb)
+    const c = { statut: 'courant' }
+    const avant = { debut: PIEGE, hc: 1, ch: 1, total: 2, fin: PIEGE }
+    for (const ev of [
+      { type: 'periode-modifiee', avant, apres: { debut: PIEGE, hc: 2, ch: 1, total: 3 }, le: PIEGE, auteur: PIEGE, motif: PIEGE },
+      { type: 'periode-supprimee', avant, le: PIEGE, auteur: PIEGE, motif: PIEGE, reprise: 'precedente' },
+      { type: 'periode-absorbee', avant: 2, date: PIEGE, dateEffet: PIEGE },
+      { type: 'periode-annulee', avant: 2, date: PIEGE, dateEffet: PIEGE },
+      { type: 'periode-remplacee', avant: 2, apres: 3, date: PIEGE, motif: PIEGE },
+      { type: 'modif', hc: 1, ch: 1, effet: PIEGE, note: PIEGE }
+    ]) expect(sb._histoBailEventHtml(ev, c, 'D-101', null), ev.type).not.toMatch(/<img/)
+  })
+  it('l\'encart de la fenêtre échappe aussi ses dates (avant-bail, après la fin, après la clôture, mois d\'avenir)', () => {
+    const { sb } = monde(); brut(sb)
+    const c = vm.runInContext('({mode:"modifier", vue:"edit", entree:{p:' + JSON.stringify(periode({ fin: PIEGE, chapitre: PIEGE })) + '}})', sb)
+    for (const r of [{ ok: false, raison: 'avant-bail', bailDebut: PIEGE }, { ok: false, raison: 'date-apres-fin' }, { ok: false, raison: 'apres-cloture', finChapitre: PIEGE },
+      { ok: true, change: true, avertissements: [], impact: { mois: [], futur: { des: PIEGE, avant: { total: 1 }, apres: { total: 2 }, ouvert: true, nbMois: 1 } } }])
+      expect(sb._histoPerAlerteHtml(r, c)).not.toMatch(/<img/)
+  })
+})
+
+describe('bandeau « Réappliquer » : groupe, divergence, récupération (audit 🟠1/🟠2)', () => {
+  const e = (id, o) => ({ id, action: 'modifiee', ref: 'D-101', bailDebut: '2023-09-01', date: '2026-10-06T10:00:00Z', auteur: 'Didier', motif: '', avant: { debut: '2026-09-01', hc: 730, ch: 80 }, apres: { debut: '2026-09-01', hc: 730, ch: 100 }, ...o })
+  it('UNE seule modification : un bouton « Réappliquer » (l\'identifiant passe par _lyQ)', () => {
+    const { sb } = monde()
+    const h = sb._histoPerPerduesHtml([e('a')])
+    expect(h).toContain('>Réappliquer<'); expect(h).toContain("_histoPerReappliquer('a')"); expect(h).toContain("_histoPerIgnorer('a')")
+  })
+  it('DEUX modifications du même bail : UN bouton « Réappliquer les 2 modifications » (dans l\'ordre), les deux listées', () => {
+    const { sb } = monde()
+    const h = sb._histoPerPerduesHtml([e('a'), e('b')])
+    expect(h.match(/<button class="btn bp bb"/g)).toHaveLength(1)
+    expect(h).toContain('Réappliquer les 2 modifications'); expect(h).toContain("_histoPerReappliquer('b')"); expect(h).toContain('2 modifications de période')
+  })
+  it('divergence : le bandeau dit « Rien n\'a été écrit », nomme l\'écart, et propose « Réappliquer quand même » (forcer)', () => {
+    const { sb } = monde()
+    vm.runInContext(`_histoPerRejeu = { a: { raison: 'diverge', cle: { debut: '2026-09-01' }, ecarts: [{ champ: 'hc', journal: 730, vivant: 742 }] } }`, sb)
+    const h = sb._histoPerPerduesHtml([e('a')])
+    const t = h.replace(/<[^>]+>/g, '')
+    expect(t).toContain("n'est plus celle que cette modification avait vue"); expect(t).toContain("Rien n'a été écrit")
+    expect(t).toContain('loyer HC : 742,00 € aujourd\'hui, 730,00 € au moment de la modification')
+    expect(h).toContain("_histoPerReappliquer('a',true)"); expect(t).toContain('Réappliquer quand même')
+  })
+  it('période introuvable : le message donne le chemin de récupération (refaire à la main, ce que la modification posait) ; pas de bouton « quand même »', () => {
+    const { sb } = monde()
+    vm.runInContext(`_histoPerRejeu = { a: { raison: 'introuvable', cle: { debut: '2026-10-01' }, apres: { debut: '2026-10-01', hc: 620, ch: 80 } } }`, sb)
+    const h = sb._histoPerPerduesHtml([e('a')])
+    const t = h.replace(/<[^>]+>/g, '')
+    expect(t).toContain("n'existe plus dans le barème"); expect(t).toContain('Refais la modification à la main'); expect(t).toContain('700,00 € par mois à partir du 01/10/2026')
+    expect(h).not.toContain(',true)')
+  })
+})
+
+describe('alerte IRL programmée et autres avertissements de la fenêtre (audit 🟠3, 🟡6, 🟡7)', () => {
+  const ctx = (sb) => vm.runInContext('({mode:"modifier", vue:"edit", entree:{p:' + JSON.stringify(periode({ fin: '2027-02-28' })) + '}})', sb)
+  const t = (sb, r) => sb._histoPerAlerteHtml(r, ctx(sb)).replace(/<[^>]+>/g, '')
+  it('« une révision IRL programmée sera à revalider » : date, loyer de calcul, et la voie à suivre ; l\'alerte reste non bloquante', () => {
+    const { sb } = monde()
+    const txt = t(sb, { ok: true, change: true, impact: { mois: [], futur: null }, avertissements: ['irl-programmee-base'], irlProgrammee: { dateEffet: '2026-11-01', ancienHC: 640, nouveauHC: 660 } })
+    expect(txt).toContain('révision IRL est programmée au 01/11/2026'); expect(txt).toContain('calculée sur un loyer de 640,00 €')
+    expect(txt).toContain("ne s'appliquera pas toute seule"); expect(txt).toContain('Annuler la révision'); expect(txt).toContain('Tu peux enregistrer quand même.')
+  })
+  it('charges reprises / vides, après la clôture', () => {
+    const { sb } = monde()
+    expect(t(sb, { ok: true, change: true, impact: { mois: [], futur: null }, avertissements: ['charges-reprises'], apres: { ch: 80 } })).toContain('provision de la période en vigueur est reprise (80,00 €)')
+    expect(t(sb, { ok: true, change: true, impact: { mois: [], futur: null }, avertissements: ['charges-vides'] })).toContain('à 0 €')
+    expect(t(sb, { ok: false, raison: 'apres-cloture', finChapitre: '2022-12-31' })).toContain('après la fin du bail (31/12/2022)')
+  })
+  it('le bandeau de la fenêtre signale une révision IRL programmée du lot (période non IRL) — et pas deux fois sur la période IRL elle-même', () => {
+    const m = monde()
+    m.sb.DB.irlHistorique = [{ ref: 'D-101', dateRevision: '2026-09-01', dateEffet: '2026-11-01', ancienHC: 640, nouveauHC: 660, pendingApply: true }]
+    expect(m.sb._histoPerBandeau('D-101', { p: periode({}) })).toContain('révision IRL est programmée au 01/11/2026')
+    expect(m.sb._histoPerBandeau('D-101', { p: periode({ source: 'irl' }) })).not.toContain('est programmée au')
+    m.sb.DB.irlHistorique = []
+    expect(m.sb._histoPerBandeau('D-101', { p: periode({}) })).not.toContain('programmée')
+  })
+})
+
+describe('Échap et clavier du mode sélection (audit 🟡15)', () => {
+  const prepare = () => {
+    const m = monde()
+    const ps = [0, 1, 2].map((i) => { const n = new Noeud('', 'hl-period'); n.dataset.pidx = String(i); n.focus = () => { n.focused = true }; return n })
+    m.noeuds['hl-histo'].enfants = ps
+    vm.runInContext('_histoPerListe = [0,1,2].map(() => ({ref:"D-101", p:{}}))', m.sb)
+    m.noeuds['ov-histo-corr'] = new Noeud('ov-histo-corr', 'hidden')
+    return { ...m, ps }
+  }
+  const ev = (key) => { const x = { key, prevented: false, preventDefault() { x.prevented = true } }; return x }
+  it('Échap quitte le mode sélection ; hors mode ou fenêtre ouverte, il ne fait rien', () => {
+    const { sb, noeuds } = prepare()
+    sb._histoPerEchap(ev('Escape'))                                   // hors mode : rien
+    sb._histoPerModeOuvrir('D-101')
+    sb._histoPerEchap(ev('a'))                                        // autre touche : rien
+    expect(vm.runInContext('_histoPerMode', sb)).not.toBeNull()
+    noeuds['ov-histo-corr'].classes.delete('hidden')                  // la fenêtre est ouverte : Échap ne ferme qu'elle
+    sb._histoPerEchap(ev('Escape'))
+    expect(vm.runInContext('_histoPerMode', sb)).not.toBeNull()
+    noeuds['ov-histo-corr'].classes.add('hidden')
+    sb._histoPerEchap(ev('Escape'))
+    expect(vm.runInContext('_histoPerMode', sb)).toBeNull()
+    expect(noeuds['hl-selbar'].hidden).toBe(true)
+  })
+  it('groupe radio : role=radiogroup pendant le mode seulement, un seul arrêt de tabulation (roving tabindex)', () => {
+    const { sb, noeuds, ps } = prepare()
+    sb._histoPerModeOuvrir('D-101')
+    expect(noeuds['hl-histo'].attrs.role).toBe('radiogroup')
+    expect(ps.map((p) => p.attrs.tabindex)).toEqual(['0', '-1', '-1'])
+    sb._histoPerChoisir(2)
+    expect(ps.map((p) => p.attrs.tabindex)).toEqual(['-1', '-1', '0'])
+    sb._histoPerModeFermer()
+    expect(noeuds['hl-histo'].attrs.role).toBeUndefined(); expect(ps[0].attrs.tabindex).toBeUndefined()
+  })
+  it('les flèches déplacent le choix (et le focus), avec retour au bord ; Entrée / Espace choisissent', () => {
+    const { sb, ps } = prepare()
+    sb._histoPerModeOuvrir('D-101')
+    const sel = () => vm.runInContext('_histoPerMode.sel', sb)
+    const e1 = ev('ArrowDown'); sb._histoPerClavier(e1, 0)
+    expect(sel()).toBe(1); expect(ps[1].focused).toBe(true); expect(e1.prevented).toBe(true)
+    sb._histoPerClavier(ev('ArrowRight'), 1); expect(sel()).toBe(2)
+    sb._histoPerClavier(ev('ArrowDown'), 2); expect(sel()).toBe(0)       // retour au début
+    sb._histoPerClavier(ev('ArrowUp'), 0); expect(sel()).toBe(2)         // et à la fin
+    sb._histoPerClavier(ev('ArrowLeft'), 2); expect(sel()).toBe(1)
+    sb._histoPerClavier(ev('Enter'), 0); expect(sel()).toBe(0)
+    sb._histoPerClavier(ev(' '), 2); expect(sel()).toBe(2)
+    const tab = ev('Tab'); sb._histoPerClavier(tab, 2); expect(tab.prevented).toBe(false)
   })
 })

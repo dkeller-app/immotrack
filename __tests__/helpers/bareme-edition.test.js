@@ -6,7 +6,8 @@
 // Le cas de la maquette : 680 € (01/09/2023→31/08/2026, bail) puis 720 € (01/09/2026→, manuel).
 import { describe, it, expect } from 'vitest';
 import {
-  cleDePeriode, trouverPeriode, modifierPeriode, supprimerPeriode, ajouterPeriode
+  cleDePeriode, trouverPeriode, modifierPeriode, supprimerPeriode, ajouterPeriode,
+  periodesNonAppliquees, planRejeu, chaineDeRejeu, simulerRejeu, irlProgrammeeDuLot
 } from '../../js/core/bareme-edition.js';
 import {
   periodeInitialeBail, appliquerNouvellePeriode, cloturerBareme,
@@ -351,5 +352,181 @@ describe('ajouterPeriode', () => {
     const r = ajouterPeriode(b, { ref: REF, debut: '2026-12-01', fin: '2026-12-31', hc: 1, ch: 0 }, { ...OPTS, baux: [{ debut: BD, fin: '2027-03-31', archive: true }] });
     expect(r.ok).toBe(true);
     expect(vivantes(r.periods).every((p) => p.bailDebut === BD)).toBe(true);
+  });
+});
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// CONTRE-AUDIT 06/10 — chapitres CONTIGUS (re-bail le lendemain de la clôture), barème legacy sans bailDebut, bail clos,
+// charges vides, montants non numériques, rejeu sans écrasement, journal piégé, révision IRL programmée.
+// ════════════════════════════════════════════════════════════════════════════
+describe('deux baux CONTIGUS (aucun trou entre eux) : éditer l\'un ne touche jamais l\'autre', () => {
+  // bail 1 : 2022-01-01 → 2023-08-31 (600 puis 640 dès 2022-09-01), bail 2 : 2023-09-01 (900) — le re-bail est le LENDEMAIN de la clôture.
+  const contigus = () => {
+    let b1 = [{ ref: REF, debut: '2022-01-01', fin: null, hc: 600, ch: 80, source: 'bail', bailDebut: '2022-01-01', note: '' }];
+    b1 = appliquerNouvellePeriode(b1, { ref: REF, debut: '2022-09-01', hc: 640, ch: 80, source: 'manuel', bailDebut: '2022-01-01', note: 'x' });
+    b1 = cloturerBareme(b1, REF, '2023-08-31');
+    return b1.concat([periodeInitialeBail({ ref: REF, debut: BD, hc: 900, ch: 100 })]);
+  };
+  const baux = [{ debut: '2022-01-01', finEffective: '2023-08-31', archive: true, hc: 640, ch: 80 }, { debut: BD, finEffective: null, archive: false, hc: 900, ch: 100 }];
+  const duC = (b, ym) => duMois({ ref: REF, bails: baux, bareme: b }, ym).total;
+
+  it('supprimer la 1re période du 2e bail ne prolonge JAMAIS le locataire d\'avant (mutation « filtre de chapitre retiré » : nov. 2024 passait de 910 à 720 €)', () => {
+    const b = contigus();
+    const r = supprimerPeriode(b, { ref: REF, bailDebut: BD, debut: BD }, { ...OPTS, bailHc: 900, bailCh: 100, baux });
+    expect(r.ok).toBe(true)
+    expect(JSON.stringify(r.periods.filter((p) => !p._deleted && p.bailDebut === '2022-01-01'))).toBe(JSON.stringify(b.filter((p) => !p._deleted && p.bailDebut === '2022-01-01')));
+    for (const ym of ['2022-03', '2023-01', '2023-08']) expect(duC(r.periods, ym)).toBe(duC(b, ym));
+    expect(duC(r.periods, '2024-11')).toBe(1000);                  // le 2e locataire reste à SON tarif (900 + 100)
+  });
+  it('modifier la date de la 1re période du 2e bail vers l\'arrière : refusée (avant le bail), le tableau est rendu inchangé', () => {
+    const b = contigus();
+    const r = modifierPeriode(b, { ref: REF, bailDebut: BD, debut: '2023-09-01' }, { debut: '2023-06-01' }, OPTS);
+    expect(JSON.stringify(r.periods)).toBe(JSON.stringify(b));
+  });
+  it('modifier une période du 1er bail : la clôture tient et le 2e bail est intact', () => {
+    const b = contigus();
+    const r = modifierPeriode(b, { ref: REF, bailDebut: '2022-01-01', debut: '2022-09-01' }, { hc: 660 }, { ...OPTS, bailHc: 640, baux });
+    expect(r.ok && r.change).toBe(true);
+    expect(JSON.stringify(r.periods.filter((p) => !p._deleted && p.bailDebut === BD))).toBe(JSON.stringify(b.filter((p) => !p._deleted && p.bailDebut === BD)));
+    expect(vivantes(r.periods).filter((p) => p.bailDebut === '2022-01-01').every((p) => p.fin && p.fin <= '2023-08-31')).toBe(true);
+  });
+});
+
+describe('barème ANTÉRIEUR au champ bailDebut : la suppression ne traverse pas les chapitres (audit 🟡9)', () => {
+  const legacy = () => {
+    const b = [
+      { ref: REF, debut: '2022-01-01', fin: '2022-12-31', hc: 600, ch: 80, source: 'bail', note: '' },
+      { ref: REF, debut: '2023-01-01', fin: '2023-08-31', hc: 620, ch: 80, source: 'manuel', note: '' },
+      { ref: REF, debut: BD, fin: '2024-08-31', hc: 900, ch: 100, source: 'bail', note: '' },
+      { ref: REF, debut: '2024-09-01', fin: null, hc: 950, ch: 100, source: 'manuel', note: '' }
+    ];
+    return b;
+  };
+  const baux = [{ debut: '2022-01-01', finEffective: '2023-08-31', archive: true, hc: 620, ch: 80 }, { debut: BD, finEffective: null, archive: false, hc: 950, ch: 100 }];
+  it('avec les baux du lot : la 1re période du 2e bail est reconnue comme telle (1re du chapitre), l\'ancien locataire n\'est pas prolongé', () => {
+    const b = legacy();
+    const r = supprimerPeriode(b, { ref: REF, bailDebut: '', debut: BD }, { ...OPTS, bailHc: 950, bailCh: 100, baux });
+    expect(r.ok).toBe(true);
+    const vieux = vivantes(r.periods).filter((p) => p.debut < BD);
+    expect(vieux.map((p) => [p.debut, p.fin, p.hc])).toEqual([['2022-01-01', '2022-12-31', 600], ['2023-01-01', '2023-08-31', 620]]);
+    expect(r.avertissements).toContain('premiere-periode-supprimee');
+    const dus = (ym) => duMois({ ref: REF, bails: baux, bareme: r.periods }, ym).total;
+    expect(dus('2023-06')).toBe(700);                              // l'ancien locataire : inchangé (620 + 80)
+    expect(dus('2023-11')).toBe(1050);                             // le nouveau : la période suivante (950 + 100), jamais 700
+  });
+});
+
+describe('ajouter dans un bail clos, charges vides, montants non numériques', () => {
+  const clos = () => {
+    let b = [{ ref: REF, debut: '2019-01-01', fin: null, hc: 500, ch: 60, source: 'bail', bailDebut: '2019-01-01', note: '' }];
+    b = cloturerBareme(b, REF, '2022-12-31');
+    return b.concat(maquette());
+  };
+  const baux = [{ debut: '2019-01-01', finEffective: '2022-12-31', archive: true, hc: 500, ch: 60 }, { debut: BD, archive: false, hc: 640, ch: 80 }];
+  it('la période ajoutée ne déborde pas la clôture du bail (finChapitre déduit des baux) ; après la fin : « apres-cloture »', () => {
+    const r = ajouterPeriode(clos(), { ref: REF, debut: '2021-03-01', hc: 520, ch: 60, bailDebut: '2019-01-01' }, { ...OPTS, evtId: 'a1', baux });
+    expect(r.ok && r.change).toBe(true);
+    expect(vivantes(r.periods).find((p) => p.debut === '2021-03-01').fin).toBe('2022-12-31');
+    const r2 = ajouterPeriode(clos(), { ref: REF, debut: '2021-03-01', fin: '2030-01-01', hc: 520, ch: 60, bailDebut: '2019-01-01' }, { ...OPTS, evtId: 'a2', baux });
+    expect(vivantes(r2.periods).find((p) => p.debut === '2021-03-01').fin).toBe('2022-12-31');       // une fin explicite plus tardive est ramenée à la clôture
+    expect(ajouterPeriode(clos(), { ref: REF, debut: '2023-03-01', hc: 520, ch: 60, bailDebut: '2019-01-01' }, { ...OPTS, evtId: 'a3', baux })).toMatchObject({ ok: false, raison: 'apres-cloture' });
+    // le paramètre explicite fait foi
+    expect(ajouterPeriode(clos(), { ref: REF, debut: '2021-03-01', hc: 520, ch: 60, bailDebut: '2019-01-01' }, { ...OPTS, evtId: 'a4', finChapitre: '2021-12-31' }).periods
+      .find((p) => !p._deleted && p.debut === '2021-03-01').fin).toBe('2021-12-31');
+  });
+  it('charges vides : reprise de la provision de la période en vigueur, DITE (« charges-reprises ») ; jamais 0 € en silence', () => {
+    const b = maquette();
+    const r = ajouterPeriode(b, { ref: REF, debut: '2027-03-01', hc: 700, ch: '' }, { ...OPTS, evtId: 'c1' });
+    expect(r.avertissements).toContain('charges-reprises');
+    expect(r.apres.ch).toBe(80);
+    expect(ajouterPeriode(b, { ref: REF, debut: '2027-03-01', hc: 700, ch: 0 }, { ...OPTS, evtId: 'c2' }).apres.ch).toBe(0);   // un 0 saisi reste un 0
+    expect(ajouterPeriode(b, { ref: REF, debut: '2027-03-01', hc: 700, ch: 0 }, { ...OPTS, evtId: 'c3' }).avertissements).not.toContain('charges-reprises');
+  });
+  it('un montant non numérique est « montant-invalide », jamais « inchangé » : modifier hc/ch, ajouter ch', () => {
+    const b = maquette();
+    const k = cleT(b, '2026-09-01');
+    for (const patch of [{ hc: 'abc' }, { ch: 'x' }, { hc: NaN }, { ch: Infinity }]) {
+      const r = modifierPeriode(b, k, patch, OPTS);
+      expect(r, JSON.stringify(patch)).toMatchObject({ ok: false, raison: 'montant-invalide' });
+      expect(r.periods).toEqual(b);
+    }
+    expect(modifierPeriode(b, k, { hc: '' , ch: undefined }, OPTS)).toMatchObject({ ok: true, change: false });    // vide = inchangé (LOT 3)
+    expect(ajouterPeriode(b, { ref: REF, debut: '2027-03-01', hc: 700, ch: 'zz' }, OPTS)).toMatchObject({ ok: false, raison: 'montant-invalide' });
+  });
+});
+
+describe('planRejeu / simulerRejeu : jamais de montants absolus par-dessus une décision plus récente (audit 🟠1)', () => {
+  const entree = (o) => ({ id: 'e1', action: 'modifiee', ref: REF, bailDebut: BD, date: '2026-10-06T09:00:00Z', auteur: 'A', motif: '',
+    avant: { debut: '2026-09-01', fin: null, hc: 730, ch: 80, source: 'irl' }, apres: { debut: '2026-09-01', fin: null, hc: 730, ch: 100, source: 'irl' }, ...o });
+  const bareme = (hc, source = 'irl') => [
+    { ref: REF, debut: BD, fin: '2026-08-31', hc: 600, ch: 80, source: 'bail', bailDebut: BD },
+    { ref: REF, debut: '2026-09-01', fin: null, hc, ch: 80, source, bailDebut: BD }
+  ];
+  it('période identique à ce que le journal avait vu : « ok », patch = SEULEMENT les champs changés (ici les charges)', () => {
+    const p = planRejeu(entree(), bareme(730));
+    expect(p).toMatchObject({ etat: 'ok', ecarts: [], patch: { ch: 100 } });
+    expect(Object.keys(p.patch)).toEqual(['ch']);
+  });
+  it('une révision IRL est passée entre-temps (730 → 742) : « diverge », écart nommé, le loyer n\'est PAS dans le patch', () => {
+    const p = planRejeu(entree(), bareme(742));
+    expect(p.etat).toBe('diverge');
+    expect(p.ecarts).toEqual([{ champ: 'hc', journal: 730, vivant: 742 }]);
+    expect(p.patch).toEqual({ ch: 100 });
+  });
+  it('date / loyer d\'une période IRL : jamais rejoués (restreint) ; suppression d\'une période IRL : « irl-geste »', () => {
+    const p = planRejeu(entree({ apres: { debut: '2026-10-01', fin: null, hc: 735, ch: 80, source: 'irl' } }), bareme(730));
+    expect(p).toMatchObject({ etat: 'irl-geste' });
+    expect(p.restreint.sort()).toEqual(['debut', 'hc']);
+    expect(planRejeu(entree({ action: 'supprimee', apres: null }), bareme(730)).etat).toBe('irl-geste');
+  });
+  it('période disparue : « introuvable » ; période manuelle sans divergence : « ok » avec la date et le loyer', () => {
+    expect(planRejeu(entree(), []).etat).toBe('introuvable');
+    const x = entree({ avant: { debut: '2026-09-01', fin: null, hc: 730, ch: 80, source: 'manuel' }, apres: { debut: '2026-10-01', fin: null, hc: 740, ch: 80, source: 'manuel' } });
+    expect(planRejeu(x, bareme(730, 'manuel'))).toMatchObject({ etat: 'ok', patch: { debut: '2026-10-01', hc: 740 } });
+  });
+  it('simulerRejeu : s\'arrête à la 1re divergence SANS rien écrire ; « forcer » pose les seuls champs changés ; la chaîne s\'enchaîne dans l\'ordre', () => {
+    const b742 = bareme(742);
+    const stop = simulerRejeu([entree()], b742);
+    expect(stop).toMatchObject({ ok: false, stop: { raison: 'diverge' } });
+    expect(stop.periods).toEqual(b742);
+    const force = simulerRejeu([entree()], b742, { forcer: true });
+    expect(force.ok).toBe(true);
+    expect(vivantes(force.periods).find((p) => p.debut === '2026-09-01')).toMatchObject({ hc: 742, ch: 100 });
+    // la date, puis le montant (deux éditions perdues ensemble)
+    const e1 = entree({ id: 'a', avant: { debut: '2026-09-01', fin: null, hc: 640, ch: 80, source: 'manuel' }, apres: { debut: '2026-10-01', fin: null, hc: 640, ch: 80, source: 'manuel' } });
+    const e2 = entree({ id: 'b', date: '2026-10-07T09:00:00Z', avant: { debut: '2026-10-01', fin: null, hc: 640, ch: 80, source: 'manuel' }, apres: { debut: '2026-10-01', fin: null, hc: 620, ch: 80, source: 'manuel' } });
+    const sim = simulerRejeu([e1, e2], bareme(640, 'manuel'));
+    expect(sim.ok).toBe(true);
+    expect(vivantes(sim.periods).map((p) => [p.debut, p.hc])).toEqual([[BD, 600], ['2026-10-01', 620]]);
+    expect(simulerRejeu([e2], bareme(640, 'manuel')).stop.raison).toBe('introuvable');     // seule, la 2e est introuvable : d'où la chaîne
+  });
+  it('chaineDeRejeu : les perdues du MÊME bail, de la plus ancienne jusqu\'à l\'entrée visée', () => {
+    const L = [entree({ id: 'a' }), entree({ id: 'b', bailDebut: '2019-01-01' }), entree({ id: 'c', date: '2026-10-08T00:00:00Z' })];
+    expect(chaineDeRejeu(L, L[2]).map((x) => x.id)).toEqual(['a', 'c']);
+    expect(chaineDeRejeu(L, { id: 'zz' })).toEqual([]);
+  });
+});
+
+describe('journal piégé (cloud, écrit par d\'autres membres) : entrées aux dates illisibles ignorées (audit 🟠4)', () => {
+  const e = (o) => ({ id: 'x', type: 'periode', action: 'modifiee', ref: REF, bailDebut: BD, date: '2026-10-06T10:00:00Z', avant: { debut: '2026-09-01' }, apres: { debut: '2026-10-01' }, ...o });
+  it('une date qui n\'est pas AAAA-MM-JJ n\'atteint jamais l\'écran ; une entrée sans avant/apres exploitable non plus', () => {
+    const piege = '<img src=x onerror=alert(1)>';
+    expect(periodesNonAppliquees([e({ avant: { debut: piege } })], [], { ref: REF })).toEqual([]);
+    expect(periodesNonAppliquees([e({ apres: { debut: piege } })], [], { ref: REF })).toEqual([]);
+    expect(periodesNonAppliquees([e({ avant: null })], [], { ref: REF })).toEqual([]);
+    expect(periodesNonAppliquees([e({ action: 'ajoutee', avant: null, apres: { debut: '2026/10/01' } })], [], { ref: REF })).toEqual([]);
+    expect(periodesNonAppliquees([e({})], [], { ref: REF })).toHaveLength(1);
+    expect(periodesNonAppliquees([e({ action: 'ajoutee', avant: null })], [], { ref: REF })).toHaveLength(1);
+  });
+});
+
+describe('irlProgrammeeDuLot', () => {
+  const h = (o) => ({ ref: REF, dateRevision: '2026-09-01', dateEffet: '2026-11-01', ancienHC: 640, nouveauHC: 660, pendingApply: true, ...o });
+  it('la plus récente révision en attente du lot ; ni annulée, ni appliquée, ni d\'un autre lot, ni d\'un bail antérieur', () => {
+    expect(irlProgrammeeDuLot([h()], REF)).toMatchObject({ dateEffet: '2026-11-01', ancienHC: 640, nouveauHC: 660 });
+    expect(irlProgrammeeDuLot([h(), h({ dateEffet: '2027-03-01' })], REF).dateEffet).toBe('2027-03-01');
+    for (const o of [{ _deleted: true }, { pendingApply: false }, { ref: 'AUTRE' }, { action: 'renonciation' }, { dateRevision: '2020-01-01' }]) expect(irlProgrammeeDuLot([h(o)], REF, { debutBail: BD })).toBeNull();
+    expect(irlProgrammeeDuLot([], REF)).toBeNull();
   });
 });

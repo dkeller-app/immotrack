@@ -25127,7 +25127,7 @@ function _baremeRecordRevision(log, ref, newHC, dateEffetIso, opts) {
   // Le résolveur du barème est celui de duMois() — aucun moteur concurrent.
   // La chaîne des sources est une FONCTION PURE testée (js/core/loyer-du-mois.js) : période EN
   // VIGUEUR au barème → bail → lot → 0. Le barème passe en tête (audit) parce que la correction
-  // manuelle d'une période (_histoSaveCorrPeriode) n'écrit QUE dans le barème : reprendre bail.ch
+  // manuelle d'une période (_bailPeriodeModifier / _bailPeriodeAjouter, qui ont remplacé _histoSaveCorrPeriode) n'écrit QUE dans le barème : reprendre bail.ch
   // ici annulerait silencieusement la correction à la révision suivante.
   const _bailDebutRef = (DB.baux[ref] && DB.baux[ref].debut) || (log && log.debut) || null;
   const ch = (typeof window !== 'undefined' && typeof window._loyerProvisionPourRevision === 'function')

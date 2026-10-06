@@ -28,6 +28,12 @@ function extraire(src, nom) {
 }
 
 const REF = 'D-101', BD = '2023-09-01'
+// Horloge FIXE (le test « période future » cassait au 01/03/2027 sur l'horloge réelle) : `new Date()` sans argument = 06/10/2026.
+const AUJOURDHUI = '2026-10-06T10:00:00'
+class DateFixe extends Date {
+  constructor(...a) { if (a.length) super(...a); else super(AUJOURDHUI) }
+  static now() { return new Date(AUJOURDHUI).getTime() }
+}
 function monde(over = {}) {
   const bareme = appliquerNouvellePeriode([periodeInitialeBail({ ref: REF, debut: BD, hc: 600, ch: 80 })],
     { ref: REF, debut: '2026-09-01', hc: 640, ch: 80, source: 'manuel', bailDebut: BD, note: 'Accord' })
@@ -38,7 +44,7 @@ function monde(over = {}) {
   }
   const calls = { save: 0, theo: 0, toasts: [], audit: [] }
   const sb = {
-    DB, Date, String, Object, Array, Number, Math, JSON, RegExp, console,
+    DB, Date: DateFixe, String, Object, Array, Number, Math, JSON, RegExp, console,
     _loyerPayeDuMois: () => 0,
     _pushLoyerTheoFromLive: () => { calls.theo++ },
     saveDB: () => { calls.save++; return sb.__saveOk },
@@ -55,7 +61,7 @@ function monde(over = {}) {
   vm.runInContext([
     extraire(P1, '_stamp'), extraire(P1, '_findBailByRefTolerant'), extraire(P1, '_migrationBailsForLot'), extraire(P2, '_histoBailTodayIso'),
     P2.slice(P2.indexOf('const _HISTO_PER_RAISONS = {'), P2.indexOf('\n};', P2.indexOf('const _HISTO_PER_RAISONS = {')) + 3),
-    ...['_histoPerReappliquer', '_histoPerIgnorer'].map(n => extraire(P2, n)),
+    P2.slice(P2.indexOf('const _histoPerFd ='), P2.indexOf('function _histoPerFinir(')),
     ...['_bailPeriodeNouvelId', '_bailPeriodeNrRef', '_bailPeriodeBailDuChapitre', '_bailPeriodeDecorer', '_bailPeriodeAppliquer', '_bailPeriodeModifier', '_bailPeriodeSupprimer', '_bailPeriodeAjouter'].map(n => extraire(P2, n))
   ].join('\n'), sb)
   return { sb, DB, calls }
@@ -261,27 +267,42 @@ describe('écrasement multi-appareils : détecteur + « Réappliquer »', () => 
     expect(JSON.stringify(m2.DB.loyerBareme)).toBe(apresAjout)
   })
 
-  it('une modification postérieure sur la même période SUPERSÈDE l\'entrée : pas de rejeu par-dessus une décision plus récente', () => {
+  it('DEUX éditions écrasées ensemble (la date, puis le montant) : les deux sont proposées et UN geste les rejoue dans l\'ordre — plus de « introuvable » sans issue', () => {
     const { sb, DB } = monde()
     const ancien = JSON.parse(JSON.stringify(DB.loyerBareme))
     sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { debut: '2026-10-01' }, '', { evtId: 'bper_1', le: '2026-10-06T10:00:00.000Z' })
-    sb._bailPeriodeModifier(REF, cle(DB, '2026-10-01'), { hc: 655 }, '', { evtId: 'bper_2', le: '2026-10-07T10:00:00.000Z' })
-    perdre(DB, ancien)                                                       // les DEUX ont été écrasées
+    sb._bailPeriodeModifier(REF, cle(DB, '2026-10-01'), { hc: 620 }, '', { evtId: 'bper_2', le: '2026-10-07T10:00:00.000Z' })
+    const apresA = JSON.stringify(DB.loyerBareme)
+    perdre(DB, ancien)                                                       // les DEUX ont été écrasées par un blob périmé
     const l = BaremeEdition.periodesNonAppliquees(DB.baux_evenements, DB.loyerBareme, { ref: REF })
-    expect(l.map((x) => x.id)).toEqual(['bper_2'])                          // la 1re est supersédée par la 2e
+    expect(l.map((x) => x.id)).toEqual(['bper_1', 'bper_2'])                // les deux, de la plus ancienne à la plus récente
+    expect(BaremeEdition.chaineDeRejeu(l, l[1]).map((x) => x.id)).toEqual(['bper_1', 'bper_2'])
+    sb._histoPerReappliquer('bper_2')                                        // UN geste : la 2e retrouve la période que la 1re recrée
+    expect(JSON.stringify(DB.loyerBareme)).toBe(apresA)
+    expect(DB.baux_evenements).toHaveLength(2)
+    expect(BaremeEdition.periodesNonAppliquees(DB.baux_evenements, DB.loyerBareme, { ref: REF })).toEqual([])
   })
 
-  it('Ignorer : le message disparaît (et ne revient pas) ; Réappliquer sur une période qui a changé entre-temps dit pourquoi, sans rien casser', () => {
+  it('une entrée n\'est supersédée que par une postérieure APPLIQUÉE (son evtId est dans le barème), jamais par une postérieure perdue', () => {
+    const e = (id, date, de, vers, hc) => ({ id, type: 'periode', action: 'modifiee', ref: REF, bailDebut: BD, date, avant: { debut: de, hc: 640, ch: 80 }, apres: { debut: vers, hc, ch: 80 } })
+    const j = [e('e1', '2026-10-06T10:00:00Z', '2026-09-01', '2026-10-01', 640), e('e2', '2026-10-07T10:00:00Z', '2026-10-01', '2026-10-01', 620)]
+    expect(BaremeEdition.periodesNonAppliquees(j, [], { ref: REF }).map((x) => x.id)).toEqual(['e1', 'e2'])
+    const e2Appliquee = [{ ref: REF, debut: '2026-10-01', hc: 620, ch: 80, bailDebut: BD, _edition: { evtId: 'e2' } }]
+    expect(BaremeEdition.periodesNonAppliquees(j, e2Appliquee, { ref: REF }).map((x) => x.id)).toEqual([])   // e2 tient : e1 est périmée
+  })
+
+  it('Ignorer retire TOUTE la chaîne (sinon la 1re réapparaîtrait seule) ; Réappliquer sur une période qui a changé entre-temps ne casse rien et dit quoi faire', () => {
     const { sb, DB, calls } = monde()
     const ancien = JSON.parse(JSON.stringify(DB.loyerBareme))
     sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { debut: '2026-10-01' }, '', { evtId: 'bper_i', le: '2026-10-06T10:00:00.000Z' })
     perdre(DB, ancien)
-    // la période visée a changé entre-temps (autre modification faite sur l'appareil B, non journalisée ici)
+    // la période visée a changé entre-temps (autre modification faite sur l'appareil B, non journalisée ici) : elle n'existe plus à cette date
     DB.loyerBareme = DB.loyerBareme.map((p) => (p.debut === '2026-09-01' && !p._deleted ? { ...p, debut: '2026-09-15' } : p))
     const avant = JSON.stringify(DB.loyerBareme)
     sb._histoPerReappliquer('bper_i')
     expect(JSON.stringify(DB.loyerBareme)).toBe(avant)
-    expect(calls.toasts.at(-1)[0]).toBe('err'); expect(calls.toasts.at(-1)[1]).toMatch(/a changé entre-temps/)
+    expect(calls.toasts.at(-1)[0]).toBe('warn'); expect(calls.toasts.at(-1)[1]).toMatch(/n'existe plus.*Rien n'a été écrit.*à la main/)
+    expect(vm.runInContext('_histoPerRejeu', sb)).toMatchObject({ bper_i: { raison: 'introuvable' } })   // le bandeau le dit, avec le chemin de récupération
     sb.DB.params = {}
     sb._histoPerIgnorer('bper_i')
     expect(BaremeEdition.periodesNonAppliquees(DB.baux_evenements, DB.loyerBareme, { ref: REF, ignorees: DB.params._bperIgnorees })).toEqual([])
@@ -291,5 +312,129 @@ describe('écrasement multi-appareils : détecteur + « Réappliquer »', () => 
     const e = (o) => ({ id: 'x' + Math.random(), type: 'periode', action: 'modifiee', ref: REF, bailDebut: BD, date: '2026-10-06T10:00:00Z', avant: { debut: '2026-09-01' }, apres: { debut: '2026-10-01' }, ...o })
     const j = [e({}), e({ ref: 'AUTRE' }), e({ type: 'modification' }), e({ _deleted: true }), e({ action: 'bizarre' })]
     expect(BaremeEdition.periodesNonAppliquees(j, [], { ref: REF })).toHaveLength(1)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════════════════
+// CONTRE-AUDIT 06/10 — « Réappliquer » ne repose plus des montants absolus par-dessus une décision plus récente ; l'alerte IRL
+// programmée ; le journal d'audit n'est écrit qu'après une sauvegarde réussie ; bail clos ; charges vides.
+// ════════════════════════════════════════════════════════════════════════════
+describe('« Réappliquer » après une révision IRL survenue entre-temps (audit 🟠1 : 742 → 730 € sans alerte)', () => {
+  // Barème : bail 600+80 → 2026-08-31, puis période IRL 2026-09-01 à 730+80 (source irl). L'appareil A change les charges (→ 100) ;
+  // l'appareil B, pas rafraîchi, revalide l'IRL au même effet à 742 : son blob écrase celui de A.
+  function scenario() {
+    const m = monde()
+    const { DB } = m
+    DB.loyerBareme = appliquerNouvellePeriode(DB.loyerBareme, { ref: REF, debut: '2026-09-01', hc: 730, ch: 80, source: 'irl', bailDebut: BD, note: 'IRL T2' })
+    DB.baux[REF].hc = 730; DB.logements[0].hc = 730
+    const avantA = JSON.parse(JSON.stringify(DB.loyerBareme))
+    const r = m.sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { ch: 100 }, 'Provision', { evtId: 'bper_A', le: '2026-10-06T09:00:00.000Z' })
+    expect(r.ok && r.change).toBe(true)
+    // le blob de B : l'ancien barème, avec la période IRL revalidée à 742
+    DB.loyerBareme = avantA.map((p) => (!p._deleted && p.debut === '2026-09-01' ? { ...p, hc: 742 } : p))
+    return m
+  }
+  const live = (DB) => vivantes(DB.loyerBareme).find((p) => p.debut === '2026-09-01')
+
+  it('la divergence est DÉTECTÉE : rien n\'est écrit, le loyer reste 742 €, le bandeau dit pourquoi (l\'utilisateur décide)', () => {
+    const { sb, DB, calls } = scenario()
+    const avant = JSON.stringify(DB.loyerBareme)
+    sb._histoPerReappliquer('bper_A')
+    expect(JSON.stringify(DB.loyerBareme)).toBe(avant)
+    expect(live(DB).hc).toBe(742)
+    const st = vm.runInContext('_histoPerRejeu', sb).bper_A
+    expect(st.raison).toBe('diverge')
+    expect(st.ecarts).toEqual([{ champ: 'hc', journal: 730, vivant: 742 }])
+    expect(calls.toasts.at(-1)[0]).toBe('warn'); expect(calls.toasts.at(-1)[1]).toMatch(/Rien n'a été écrit/)
+  })
+
+  it('« Réappliquer quand même » ne pose QUE ce que la modification changeait (les charges) : le loyer reste 742 €, jamais 730', () => {
+    const { sb, DB } = scenario()
+    sb._histoPerReappliquer('bper_A', true)
+    expect(live(DB)).toMatchObject({ hc: 742, ch: 100, source: 'irl' })
+    expect(DB.baux_evenements).toHaveLength(1)                                // sans nouvelle entrée de journal
+    expect(vm.runInContext('_histoPerRejeu', sb).bper_A).toBeUndefined()
+  })
+
+  it('une modification de la DATE d\'une période IRL ne se rejoue pas ici (geste IRL) : jamais d\'autoriserIRL forcé', () => {
+    const { sb, DB } = monde()
+    DB.loyerBareme = appliquerNouvellePeriode(DB.loyerBareme, { ref: REF, debut: '2026-09-01', hc: 730, ch: 80, source: 'irl', bailDebut: BD, note: 'IRL' })
+    const ancien = JSON.parse(JSON.stringify(DB.loyerBareme))
+    DB.baux_evenements = [{ id: 'bper_irl', type: 'periode', action: 'modifiee', ref: REF, bailDebut: BD, date: '2026-10-06T09:00:00Z', auteur: 'IRL',
+      avant: { debut: '2026-09-01', fin: null, hc: 730, ch: 80, source: 'irl' }, apres: { debut: '2026-10-01', fin: null, hc: 735, ch: 80, source: 'irl' } }]
+    const avant = JSON.stringify(DB.loyerBareme)
+    sb._histoPerReappliquer('bper_irl')
+    expect(JSON.stringify(DB.loyerBareme)).toBe(avant)
+    expect(JSON.stringify(ancien)).toBe(avant)
+    expect(vm.runInContext('_histoPerRejeu', sb).bper_irl.raison).toBe('irl-geste')
+  })
+
+  it('sans divergence, le rejeu reste identique à avant (même état que sur l\'appareil A)', () => {
+    const { sb, DB } = monde()
+    const ancien = JSON.parse(JSON.stringify(DB.loyerBareme))
+    sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { hc: 650, ch: 90 }, '', { evtId: 'bper_ok', le: '2026-10-06T10:00:00.000Z' })
+    const apresA = JSON.stringify(DB.loyerBareme)
+    DB.loyerBareme = JSON.parse(JSON.stringify(ancien))
+    sb._histoPerReappliquer('bper_ok')
+    expect(JSON.stringify(DB.loyerBareme)).toBe(apresA)
+  })
+})
+
+describe('révision IRL programmée : alerte non bloquante dans la fenêtre (audit 🟠3 ; correctif moteur = session IRL)', () => {
+  const programmee = (over = {}) => ({ ref: REF, action: 'validation', dateRevision: '2026-09-01', dateEffet: '2026-11-01', dateApplication: '2026-11-01', ancienHC: 640, nouveauHC: 660, pendingApply: true, ...over })
+  it('modifier le LOYER en vigueur alors qu\'une révision est programmée : avertissement irl-programmee-base (simulation ET écriture), rien n\'est bloqué', () => {
+    const { sb, DB } = monde({ irlHistorique: [programmee()] })
+    const sim = sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { hc: 650 }, '', { simuler: true })
+    expect(sim.ok).toBe(true)
+    expect(sim.avertissements).toContain('irl-programmee-base')
+    expect(sim.irlProgrammee).toMatchObject({ dateEffet: '2026-11-01', ancienHC: 640, nouveauHC: 660 })
+    const r = sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { hc: 650 }, '', {})
+    expect(r.ok && r.change).toBe(true); expect(r.avertissements).toContain('irl-programmee-base')
+    expect(DB.baux[REF].hc).toBe(650)                       // l'écriture a bien eu lieu : une alerte, pas un blocage
+  })
+  it('pas d\'alerte sans révision programmée, ni pour des charges seules, ni pour une révision annulée / d\'un bail antérieur', () => {
+    for (const [irl, patch] of [[[], { hc: 650 }], [[programmee()], { ch: 90 }], [[programmee({ _deleted: true })], { hc: 650 }], [[programmee({ pendingApply: false })], { hc: 650 }], [[programmee({ dateRevision: '2022-09-01' })], { hc: 650 }]]) {
+      const { sb, DB } = monde({ irlHistorique: irl })
+      expect(sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), patch, '', { simuler: true }).avertissements).not.toContain('irl-programmee-base')
+    }
+  })
+  it('modifier le loyer à la valeur sur laquelle la révision a été calculée : pas d\'alerte (elle s\'appliquera)', () => {
+    const { sb, DB } = monde({ irlHistorique: [programmee({ ancienHC: 650 })] })
+    expect(sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { hc: 650 }, '', { simuler: true }).avertissements).not.toContain('irl-programmee-base')
+  })
+})
+
+describe('journal d\'audit, bail clos, charges vides', () => {
+  it('le journal d\'audit n\'est écrit qu\'APRÈS une sauvegarde réussie (un retour arrière ne laisse pas « période modifiée »)', () => {
+    const ko = monde(); ko.sb.__saveOk = false
+    expect(ko.sb._bailPeriodeModifier(REF, cle(ko.DB, '2026-09-01'), { hc: 650 }, '', {})).toMatchObject({ ok: false, raison: 'sauvegarde' })
+    expect(ko.calls.audit).toEqual([])
+    const ok = monde()
+    ok.sb._bailPeriodeModifier(REF, cle(ok.DB, '2026-09-01'), { hc: 650 }, '', {})
+    expect(ok.calls.audit).toHaveLength(1)
+  })
+  it('« Ajouter » dans un bail CLOS ne déborde pas la clôture (finChapitre) et refuse une date après la fin du bail', () => {
+    const { sb, DB } = monde()
+    DB.baux_historique = [{ ref: REF, debut: '2019-01-01', fin: '2022-12-31', finEffective: '2022-12-31', hc: 500, ch: 60, archive: true }]
+    DB.loyerBareme = DB.loyerBareme.concat([{ ref: REF, debut: '2019-01-01', fin: '2022-12-31', hc: 500, ch: 60, source: 'bail', bailDebut: '2019-01-01', note: '' }])
+    const r = sb._bailPeriodeAjouter(REF, { debut: '2021-06-01', hc: 550, ch: 60 }, 'Travaux', { })
+    expect(r.ok && r.change).toBe(true)
+    const p = vivantes(DB.loyerBareme).find((x) => x.debut === '2021-06-01')
+    expect(p.fin).toBe('2022-12-31')                              // jamais au-delà de la clôture (ni sur la vacance)
+    expect(vivantes(DB.loyerBareme).filter((x) => x.bailDebut === '2019-01-01').every((x) => x.fin && x.fin <= '2022-12-31')).toBe(true)
+    expect(sb._bailPeriodeAjouter(REF, { debut: '2023-02-01', hc: 1, ch: 0, bailDebut: '2019-01-01' }, '', {})).toMatchObject({ ok: false, raison: 'apres-cloture' })
+  })
+  it('« Ajouter » avec les charges VIDES reprend la provision de la période en vigueur (jamais 0 € en silence) et le dit', () => {
+    const { sb, DB } = monde()
+    const r = sb._bailPeriodeAjouter(REF, { debut: '2027-03-01', hc: 700, ch: '' }, '', {})
+    expect(r.ok && r.change).toBe(true)
+    expect(r.avertissements).toContain('charges-reprises')
+    expect(vivantes(DB.loyerBareme).find((x) => x.debut === '2027-03-01').ch).toBe(80)
+  })
+  it('API : un montant non numérique est une erreur explicite, pas un « inchangé » muet', () => {
+    const { sb, DB } = monde()
+    expect(sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { hc: 'abc' }, '', {})).toMatchObject({ ok: false, raison: 'montant-invalide' })
+    expect(sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { ch: NaN }, '', {})).toMatchObject({ ok: false, raison: 'montant-invalide' })
+    expect(sb._bailPeriodeAjouter(REF, { debut: '2027-03-01', hc: 700, ch: 'xx' }, '', {})).toMatchObject({ ok: false, raison: 'montant-invalide' })
   })
 })
