@@ -16122,10 +16122,10 @@ function _renderLogFichePanelDocuments(log, ref) {
   if(edls.length) {
     edlSection = edls.map(e => {
       const sigSign = e.signatures && e.signatures.signedAt;
-      const typeIcon = e.type === 'sortie'
+      const typeIcon = _edlSens(e) === 'sortie'
         ? _monoSvg('<path d="M6 3h9a1 1 0 0 1 1 1v17H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><circle cx="13" cy="12" r="1" fill="currentColor" stroke="none"/>',22)
         : _monoSvg('<path d="M4 11.5 12 5l8 6.5"/><path d="M6 10.5V20h12v-9.5"/>',22);
-      const typeLabel = e.type === 'sortie' ? 'Sortie' : 'Entrée';
+      const typeLabel = _edlSens(e) === 'sortie' ? 'Sortie' : 'Entrée';
       return `<div class="logf-doc-card">
         <div class="logf-doc-icon">${typeIcon}</div>
         <div class="logf-doc-info">
@@ -25956,6 +25956,12 @@ function _pilEncaisseMois(bail, log, mouvements, year, month) {
  * type : 'bail' | 'edl' | 'mrh' | 'chauffage' | 'caution' | 'ddt'
  * Retour : { statut: 'ok'|'expire'|'absent'|'na', color: '...', label: '...' }
  */
+// Sens d'un EDL : l'app écrit `type:'Entrée'` / `'Sortie'` (majuscule, accent) ; d'anciennes données ou d'autres chemins
+// peuvent porter 'entree' / 'sortie' ou rien (= entrée). Comparer en littéral minuscule rate l'EDL réel (retour audit Opus).
+function _edlSens(e) {
+  const t = String((e && e.type) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return t === 'sortie' ? 'sortie' : 'entree';
+}
 function _pilStatutDoc(bail, log, type, dateRef) {
   const today = dateRef instanceof Date ? dateRef : new Date();
   const _ok      = { statut:'ok',      color:'#16a34a', bg:'#dcfce7', label:'OK',      txtColor:'#14532d' };
@@ -25974,7 +25980,7 @@ function _pilStatutDoc(bail, log, type, dateRef) {
   if (type === 'edl') {
     // RETOURS-2026-10-05 A3 : la collection est DB.edl (pas DB.edls). Repli : un EDL déposé en PDF
     // dans les documents du logement (nom « EDL » / « état des lieux »), en attendant l'« EDL externe » (C2).
-    const hasEdl = (DB.edl||[]).some(e => e && !e._deleted && e.logement === log.ref && (e.type === 'entree' || !e.type))
+    const hasEdl = (DB.edl||[]).some(e => e && !e._deleted && e.logement === log.ref && _edlSens(e) === 'entree')
       || (DB.documents||[]).some(d => d && !d._deleted && d.parentType === 'logement' && String(d.parentId) === String(log.id)
           && /\bedl\b|etat\s*des\s*lieux/i.test(String(d.originalName || d.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')));
     return hasEdl ? _ok : _absent;

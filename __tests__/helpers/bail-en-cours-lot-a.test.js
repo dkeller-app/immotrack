@@ -50,13 +50,24 @@ describe('A1 — _ddtControleSaveBail (interblocage DDT ↔ validation financiè
 
 describe('A2/A3 — _pilStatutDoc (vrai code)', () => {
   const log = { ref: 'F-101', id: 7 }
-  const run = (DB) => monde(DB, { _ddtComplet: () => ({ complet: true, manquants: [], expires: [] }) })(P2, '_pilStatutDoc')._pilStatutDoc
+  const run = (DB) => monde(DB, { _ddtComplet: () => ({ complet: true, manquants: [], expires: [] }) })(P2, '_edlSens', '_pilStatutDoc')._pilStatutDoc
   it('A2 : bail avec signatures.signedAt → ok', () =>
     expect(run({})({ debut: '2026-01-01', signatures: { signedAt: '2026-01-01T09:00:00Z' } }, log, 'bail').statut).toBe('ok'))
   it('A2 : bail non signé → partial « Non signé »', () =>
     expect(run({})({ debut: '2026-01-01' }, log, 'bail').label).toBe('Non signé'))
   it('A3 : EDL d\'entrée dans DB.edl → ok', () =>
     expect(run({ edl: [{ logement: 'F-101', type: 'entree' }] })({ debut: '2026-01-01' }, log, 'edl').statut).toBe('ok'))
+  it('A3 : EDL réellement écrit par l\'app (type « Entrée » avec majuscule et accent) → ok', () => {
+    const r = (type) => monde({ edl: [{ logement: 'F-101', type }], documents: [] }, { _ddtComplet: () => ({ complet: true }) })(P2, '_edlSens', '_pilStatutDoc')._pilStatutDoc({ debut: 'x' }, log, 'edl').statut
+    expect(r('Entrée')).toBe('ok')
+    expect(r('entree')).toBe('ok')
+    expect(r(undefined)).toBe('ok')           // ancien EDL sans type = entrée
+    expect(r('Sortie')).toBe('absent')        // un EDL de sortie ne vaut pas EDL d\'entrée
+  })
+  it('A3 : _edlSens normalise casse et accents', () => {
+    const f = monde({})(P2, '_edlSens')._edlSens
+    expect([f({ type: 'Entrée' }), f({ type: 'ENTRÉE' }), f({ type: 'Sortie' }), f({ type: 'sortie' }), f({}), f(null)]).toEqual(['entree', 'entree', 'sortie', 'sortie', 'entree', 'entree'])
+  })
   it('A3 : aucun EDL → absent', () =>
     expect(run({ edl: [], documents: [] })({ debut: '2026-01-01' }, log, 'edl').statut).toBe('absent'))
   it('A3 : repli sur un PDF « EDL » / « État des lieux » du logement', () => {
