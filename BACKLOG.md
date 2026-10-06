@@ -1,5 +1,5 @@
 # Propryo — Backlog actif
-<<<<<<< HEAD
+> ⚠️ **VERSIONS SUR MAIN au 06/10 (pilotage Desktop)** : v15.715 = baux arrivés à terme · v15.716 = statut vacant · v15.717 = partage SCI (session cloud) · **v15.718 = Finances cash-flow + catégories (`8a73aad1`)**. ➜ Toute branche qui portait « v15.718 » (Bail en cours lot A) ou un numéro réservé ailleurs prend **main + 1 au moment du merge**. Deux pilotages actifs (Desktop + cloud `claude/admiring-bohr-no6zkk`) : un seul intégrateur à désigner par Didier.
 ## 🧭 PLAN DE SESSIONS (05/10, validé Didier) — état au 06/10 16h40
 | Session | État | Attend Didier | Branche |
 |---|---|---|---|
@@ -28,9 +28,6 @@ Le composant `#toast` colore **tout le texte** en rouge/orange selon le type, co
 ## 🔥 RETOURS-2026-10-05 (Ferrette 101/102/103) — 🔍 DIAGNOSTIQUÉ, ⏳ GO Didier lot A
 **Lot A (bugs francs, correctifs rédigés)** : A1 `saveBail` boucle DDT ↔ popup financière → modif charges jamais enregistrée · A2 matrice « Signer le bail » sur bail signé (clés `signatures.bailleur/locataire` jamais écrites) · A3 « Faire l'EDL » (`DB.edls` au lieu de `DB.edl`) · A4 DPE joint → plomb/amiante détectés (mot « amiante » nu) · A5 CREP avec plomb 1 an au lieu de 6 ans (location) · A6 Diag rouge locataire en place (jugé à aujourd'hui au lieu de la conclusion du bail).
 **Lots B/C** : 3 blocs Loyers, libellé logement ≠ réf, DG versé hors mouvement, MRH (PJ avant save, Documents, fiche lecture), bail/EDL externes, fil rouge IRL + lettre, corriger/annuler une modif de bail, vue logements, civilités, date dans les titres. **Lot D (Mouvements)** : pas de catégorie assurance prêt, règle non appliquée à la ligne source ni aux mouvements en base, « Mémoriser la règle » sans contrôle (doublons), pas de règle depuis un mouvement enregistré, refonte règles à maquetter (règles non scopées au bailleur du compte, aperçu non décochable, clé = motif). **Lot E (Finances)** : avance non compensée vs retard compensé (C2 du 14/07 à moitié corrigé), 3 moteurs (Finances / Loyers-relance / bandeau), pas de « manque accepté », popups sans lien mouvement, graphique et tableau en sens inverse, 2 sélecteurs bailleur. Détail : `docs/subjects/RETOURS-2026-10-05.md`.
-=======
-> ⚠️ **VERSIONS SUR MAIN au 06/10 (pilotage Desktop)** : v15.715 = baux arrivés à terme · v15.716 = statut vacant · v15.717 = partage SCI (session cloud) · **v15.718 = Finances cash-flow + catégories (`8a73aad1`)**. ➜ Toute branche qui portait « v15.718 » (Bail en cours lot A) ou un numéro réservé ailleurs prend **main + 1 au moment du merge**. Deux pilotages actifs (Desktop + cloud `claude/admiring-bohr-no6zkk`) : un seul intégrateur à désigner par Didier.
->>>>>>> origin/main
 
 
 ## 🚦 MAIN = **v15.714** (05/10) — SOUS-TITRE DU BAIL NU selon le bailleur réel (GO Didier, `908077e2`), ⏳ smoke
