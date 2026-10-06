@@ -32,7 +32,8 @@ describe('G4 — verdictEchecMiroir : table §3.3 (3 modes × EDL / non-EDL)', (
       }
       expect(v).toEqual({ retour: true, type: 'warn', unique: 'copie', message: T.enLigne });
       expect(v.message).not.toMatch(/PAS enregistrée/);
-      expect(v.message).toMatch(/bien enregistrée dans le cloud/);
+      expect(v.message).toMatch(/La modification part au cloud/);
+      expect(v.message).not.toMatch(/bien enregistrée|enregistrée dans le cloud/);   // dit avant l'envoi : rien de plus que ce qui est fait (🟡1)
     });
     it(`cloud hors ligne (${quoi || 'non étiquetée'}) : FAUX, « PAS enregistrée » — sauf l’EDL dont l’écriture IndexedDB est planifiée`, () => {
       expect(Stockage.verdictEchecMiroir({ mode: 'cloud-hors-ligne', quoi })).toEqual({ retour: false, type: 'err', unique: false, message: T.horsLigne });

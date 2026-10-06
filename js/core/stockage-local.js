@@ -245,9 +245,12 @@ export function purgerCopies(storage) {
 // ── STOCKAGE lot 3 — le message vrai (S-6, D1 B) et l'état de la copie de cet appareil (§3.7) ──
 
 /** Les textes (maquette validée par Didier le 06/10, mockups/STOCKAGE/reglages-etat-stockage.html ;
- *  `edl`, `reseauCoupe`, `sessionMorte` ajoutés au contre-audit du lot 3, même registre). */
+ *  `edl`, `reseauCoupe`, `sessionMorte` ajoutés au contre-audit du lot 3, même registre).
+ *  `enLigne` est donné au moment où l'envoi est MARQUÉ, pas quand le cloud l'a reçu : il dit « part au
+ *  cloud », jamais « bien enregistrée dans le cloud » (audit lots 2-3, 🟡1 — D1 B inchangé : jamais
+ *  « PAS enregistrée » en ligne). */
 export const TEXTES_ECHEC_MIROIR = {
-  enLigne: 'Copie de secours de cet appareil non mise à jour. La modification est bien enregistrée dans le cloud ; '
+  enLigne: 'Copie de secours de cet appareil non mise à jour. La modification part au cloud ; '
     + 'sans réseau, cet appareil afficherait des données plus anciennes. Détail : Sauvegarde & export → Stockage de cet appareil.',
   edl: 'Stockage de cet appareil plein : cet état des lieux n’est pas encore en sécurité sur l’appareil. '
     + 'Il part au cloud ; garder l’application ouverte jusqu’à la fin de l’envoi.',
