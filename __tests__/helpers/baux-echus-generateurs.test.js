@@ -22,6 +22,7 @@ import * as BailDuree from '../../js/core/bail-duree.js';
 import * as Conge from '../../js/core/conge.js';
 import * as MontantDoc from './montant-doc.js';
 import * as BailSignataires from './bail-signataires.js';
+import * as EmailCompose from '../../js/core/email-compose.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 let html;
@@ -33,9 +34,10 @@ const corpsDe = (nom) => {
   const j = html.indexOf('\n}', i + 1);
   return html.slice(i + 1, j + 2);
 };
-/** Une déclaration `const NOM = …;` de premier niveau (gabarit Word, passages d'origine). */
+/** Une déclaration `const NOM = …;` (ou `var NOM=…`) de premier niveau (gabarit Word, actes). */
 const constDe = (nom, fin) => {
-  const i = html.indexOf('\nconst ' + nom + ' =');
+  let i = html.indexOf('\nconst ' + nom + ' =');
+  if (i === -1) i = html.indexOf('\nvar ' + nom + '=');
   if (i === -1) throw new Error(nom + ' introuvable');
   const j = html.indexOf(fin, i + 1);
   return html.slice(i + 1, j + fin.length);
@@ -48,7 +50,7 @@ const NATIFS = new Set(['Math', 'JSON', 'String', 'Number', 'Date', 'Object', 'A
 
 /** Exécute des fonctions RÉELLES de l'app dans une portée où chaque dépendance absente est un talon neutre. */
 function monter(noms, consts, deps) {
-  const talon = () => '';
+  const talon = function () { return ''; };
   const env = new Proxy(deps, {
     has: (t, k) => typeof k === 'string' && !NATIFS.has(k),
     get: (t, k) => (k in t ? t[k] : (k === Symbol.unscopables ? undefined : talon))
@@ -178,20 +180,29 @@ describe('modèle Word (genBailHTML) — v5 corrigé, v4 inchangé', () => {
   });
 });
 
-// ── Lettre de congé : le type est bien transmis (M21) ───────────────────────────────────────────
+// ── Lettre de congé : le type est bien transmis (M21), la vente en meublé, la date d'effet d'un garage ──
+const WIN_CONGE = {
+  congeMotifDetail: Conge.congeMotifDetail, congeBailleurPreavisMois: Conge.congeBailleurPreavisMois,
+  congeMentionPreavis: Conge.congeMentionPreavis, congeDateEffet: Conge.congeDateEffet,
+  congeBailleurModele: Conge.congeBailleurModele, congePhraseTerme: Conge.congePhraseTerme,
+  congeLocatairePreavis: Conge.congeLocatairePreavis, congeAddMois: Conge.addMoisClamped,
+  letterToProDoc: Conge.letterToProDoc, art15IIProDoc: Conge.art15IIProDoc, _emailCompose: EmailCompose._emailCompose
+};
+const FN_CONGE = ['_congeExtra', '_congeTypeBail', '_congeModele', '_bailTypeEff', '_bailEcheanceOpts', '_bailEcheance',
+  '_bailEcheanceEffective', '_bailPreavisInfo', '_congeDateEffetLocale', '_bailDureeMois', '_isoLocal'];
+/** Monte la modale d'actes réelle sur un bail ; `champs` = les valeurs du formulaire (v()). */
+const monterConge = (bail, log, champs, avecDoc) => {
+  const db = { entites: [ENT_PERSO], logements: [log], baux: { [bail.ref]: bail } };
+  const deps = depsBase(db, { window: WIN_CONGE, deps: {
+    v: (id) => (champs || {})[id] || '', _congeState: { ref: bail.ref, kind: 'conge_bailleur' },
+    _docPage: (ent, o) => '<h1>' + o.titre + '</h1><p class="ctx">' + o.ctx + '</p>' + o.corps
+  } });
+  const noms = avecDoc ? FN_CONGE.concat(['_congeDocHtml', '_congeTplOf', '_buildEmailCtxFromRef']) : FN_CONGE;
+  return monter(noms, avecDoc ? [constDe('_CONGE_ACTS', '\n];')] : [], deps);
+};
+const lancerConge = (bail, log, champs) => monterConge(bail, log, champs)._congeExtra(bail.ref);
+
 describe('lettre « congé du bailleur » (_congeExtra) — le type EFFECTIF est transmis', () => {
-  const lancerConge = (bail, log) => {
-    const db = { entites: [ENT_PERSO], logements: [log], baux: { [bail.ref]: bail } };
-    const deps = depsBase(db, { window: {
-      congeMotifDetail: Conge.congeMotifDetail, congeBailleurPreavisMois: Conge.congeBailleurPreavisMois,
-      congeMentionPreavis: Conge.congeMentionPreavis, congeDateEffet: Conge.congeDateEffet,
-      congeBailleurModele: Conge.congeBailleurModele, congePhraseTerme: Conge.congePhraseTerme,
-      congeLocatairePreavis: Conge.congeLocatairePreavis, congeAddMois: Conge.addMoisClamped
-    }, deps: { v: () => '', _congeState: { ref: bail.ref, kind: 'conge_bailleur' } } });
-    const F = monter(['_congeExtra', '_congeTypeBail', '_congeModele', '_bailTypeEff', '_bailEcheanceOpts', '_bailEcheance',
-      '_bailEcheanceEffective', '_bailPreavisInfo', '_congeDateEffetLocale', '_bailDureeMois', '_isoLocal'], [], deps);
-    return F._congeExtra(bail.ref);
-  };
   it('étudiant arrivé à terme : mention « sans qu\'un congé soit nécessaire » (art. 25-7), terme au passé', () => {
     const e = lancerConge({ ref: 'E-1', type: 'etudiant', debut: '2025-09-01', fin: '2026-05-31' }, { ref: 'E-1' });
     expect(e.mentionPreavis).toBe("Le bail ayant été conclu pour une durée de neuf mois avec un étudiant, la reconduction tacite est inapplicable (article 25-7 de la loi n° 89-462 du 6 juillet 1989) : il prend fin à son terme, sans qu'un congé soit nécessaire.");
@@ -202,9 +213,73 @@ describe('lettre « congé du bailleur » (_congeExtra) — le type EFFECTIF est
     const e = lancerConge({ ref: 'M-1', debut: '2026-01-01', fin: '2026-06-30' }, { ref: 'M-1', typeUsage: 'mobilite' });
     expect(e.mentionPreavis).toMatch(/non renouvelable et non reconductible \(article 25-14/);
   });
-  it('meublé : préavis de trois mois, motif sans préemption 15-II pour une vente', () => {
-    const e = lancerConge({ ref: 'MU-1', type: 'meuble', debut: '2026-01-01', fin: '2026-12-31' }, { ref: 'MU-1' });
+  it('meublé, motif VENTE : « Vente du logement. », ni « 15-II » ni « ‹prix› » ; préavis de trois mois', () => {
+    const e = lancerConge({ ref: 'MU-1', type: 'meuble', debut: '2026-01-01', fin: '2026-12-31' }, { ref: 'MU-1' }, { 'cg-motif': 'vente' });
+    expect(e.motifConge).toBe('vente');
+    expect(e.motifDetail).toBe('Vente du logement.');
+    expect(JSON.stringify(e)).not.toMatch(/15-II|‹prix›|‹conditions›|préemption/);
     expect(e.mentionPreavis).toMatch(/^Le délai de préavis légal applicable à ce congé est de 3 mois/);
+  });
+  it('nu, motif VENTE : prix, conditions et préemption 15-II (inchangé)', () => {
+    const e = lancerConge({ ref: 'N-1', type: 'nu', entity: 'BE Particulier', debut: '2024-01-01', fin: '2026-12-31' }, { ref: 'N-1' }, { 'cg-motif': 'vente' });
+    expect(e.motifDetail).toMatch(/‹prix›/);
+    expect(e.motifDetail).toMatch(/article 15-II/);
+  });
+});
+
+describe('congé d\'un garage (_congeExtra) — date d\'effet du contrat, jamais une date passée', () => {
+  it('garage arrivé à terme (contrat à vérifier) : « ‹date d\'effet› », pas la fin passée du contrat', () => {
+    const e = lancerConge({ ref: 'G-1', type: 'garage', debut: '2024-01-01', fin: '2024-12-31' }, { ref: 'G-1' });
+    expect(e.dateFin).toBe('‹date d\'effet›');
+    expect(e.dateFin).not.toBe('31/12/2024');
+  });
+  it('garage reconduit par son contrat : l\'échéance À VENIR', () => {
+    const e = lancerConge({ ref: 'G-2', type: 'garage', debut: '2024-01-01', fin: '2024-12-31', signatures: { signedAt: '2026-09-10T10:00:00Z' } }, { ref: 'G-2' });
+    expect(e.dateFin).toBe('31/12/2026');
+  });
+  it('date d\'effet saisie dans la modale : elle fait foi', () => {
+    const e = lancerConge({ ref: 'G-3', type: 'garage', debut: '2024-01-01', fin: '2024-12-31' }, { ref: 'G-3' }, { 'cg-effet-contrat': '2026-11-30' });
+    expect(e.dateFin).toBe('30/11/2026');
+  });
+});
+
+describe('document du congé (_congeDocHtml) — annexe 15-II : bail nu seulement', () => {
+  const doc = (bail, champs) => monterConge(bail, { ref: bail.ref, adr: '1 rue Test' }, champs, true)._congeDocHtml(bail.ref);
+  it('meublé, vente : aucune annexe, fondement art. 25-8, I, aucun art. 15', () => {
+    const h = doc({ ref: 'MU-2', type: 'meuble', entity: 'BE Particulier', debut: '2026-01-01', fin: '2026-12-31', locataires: [{ nom: 'Loc' }] }, { 'cg-motif': 'vente' });
+    expect(h).toContain('Loi n° 89-462 du 6 juillet 1989, article 25-8, I');
+    expect(h).not.toMatch(/Annexe|Article 15, II|article 15/);
+  });
+  it('nu, vente : l\'annexe 15-II est gardée', () => {
+    const h = doc({ ref: 'N-2', type: 'nu', entity: 'BE Particulier', debut: '2024-01-01', fin: '2026-12-31', locataires: [{ nom: 'Loc' }] }, { 'cg-motif': 'vente', 'cg-prix': '200000', 'cg-cond': 'libre' });
+    expect(h).toContain('Annexe — Article 15, II de la loi du 6 juillet 1989');
+  });
+});
+
+// ── Export Word : réservé au bail nu (N17) ───────────────────────────────────────────────────────
+describe('export Word (exportBailWord) — refusé hors bail nu, comme le garage', () => {
+  const exporter = (bail, log) => {
+    const toasts = [], genere = [];
+    const db = { entites: [ENT_PERSO], logements: [log], baux: { [bail.ref]: bail }, irlTable: {} };
+    const deps = depsBase(db, { deps: { showToast: (m) => toasts.push(m), genBailHTML: () => { genere.push(bail.ref); return '<body>x</body>'; } } });
+    try { monter(['exportBailWord', '_bailTypeEff'], [], deps).exportBailWord(bail, log, bail.ref); } catch (e) { /* téléchargement hors navigateur */ }
+    return { toasts, genere };
+  };
+  for (const [type, lbl] of [['meuble', 'meublé'], ['etudiant', 'étudiant'], ['mobilite', 'mobilité'], ['autre', '« autre » (régime libre)'], ['garage', 'garage (droit commun)']]) {
+    it(type + ' : refus (toast) et aucun document Word', () => {
+      const r = exporter({ ref: 'W-' + type, type }, { ref: 'W-' + type });
+      expect(r.toasts).toEqual(['Export Word indisponible pour un bail ' + lbl + ' — utilisez le PDF.']);
+      expect(r.genere).toEqual([]);
+    });
+  }
+  it('nu : autorisé (le modèle Word est généré, aucun refus)', () => {
+    const r = exporter({ ref: 'W-nu', type: 'nu' }, { ref: 'W-nu' });
+    expect(r.genere).toEqual(['W-nu']);
+    expect(r.toasts.filter((m) => /indisponible/.test(m))).toEqual([]);
+  });
+  it('bail d\'avant v15.191 sans type, logement meublé (typeUsage) : refusé', () => {
+    const r = exporter({ ref: 'W-old' }, { ref: 'W-old', typeUsage: 'habitation-meuble' });
+    expect(r.genere).toEqual([]);
   });
 });
 
