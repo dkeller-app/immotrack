@@ -5287,7 +5287,7 @@ async function openRemoteSignModal(ref) {
   // (sa case part vide + ancrée, remplie par le relais). Le bouton d'entrée (fiche/rBaux) décide quand l'offrir.
   bail.signatures = bail.signatures || {};
   if (bail.signatures.signedAt && bail.signatures.mode !== 'bailleur-seul') {
-    showToast('Ce bail est déjà signé', 'err'); return;
+    showToast(bail.signatures.mode === 'externe' ? 'Bail déclaré signé hors Propryo : rien à signer dans Propryo' : 'Ce bail est déjà signé', 'err'); return;
   }
   // ⚠️ §4 RELANCE NON DESTRUCTRICE (audit 2026-07-15, défaut D2). AVANT d'écraser/supprimer l'ancienne
   // session, on VÉRIFIE son état réel (poll avec base résolue §2). Cas :
@@ -8325,6 +8325,19 @@ function resetBailSignatures(ref) {
   const bail = DB.baux[ref];
   if(!bail || !bail.signatures || !bail.signatures.signedAt) {
     showToast('Aucune signature à réinitialiser','warn');
+    return;
+  }
+  // Bail signé HORS PROPRYO : pas de signature à effacer — on retire la déclaration (même chemin que la décoche dans « Modifier le
+  // bail ») ; elle est archivée dans bail.signaturesAnnulees, jamais détruite.
+  if(bail.signatures.mode === 'externe') {
+    const ext = { action: 'retirer', prevEtat: 'externe', prevDate: _bailEtatSig(bail).date };
+    if(!_bailExterneConfirmer(ext, bail)) return;
+    _bailExterneAppliquer(bail, bail, ext, ref);
+    _stamp(bail);
+    _auditLog('update', 'bail', ref, ref + ' : signé hors Propryo — déclaration retirée');
+    saveDB(); rBaux();
+    if(typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+    showToast('« Signé hors Propryo » retiré (déclaration conservée dans l\'historique du bail)', 'ok', 6000);
     return;
   }
   const dateStr = fd(bail.signatures.signedAt.slice(0,10));
@@ -14108,7 +14121,7 @@ function openBailMenu(evt, ref, full) {
   }
   items.push(`<button class="bmp-item" onclick="_closeBienMenus();genActeCautionnementRef('${refEsc}')">${_uiIcon('doc-text')}Aperçu acte de cautionnement (garant)</button>`);
   if (bail && bail.signatures && bail.signatures.signedAt) {
-    items.push(`<button class="bmp-item" onclick="_closeBienMenus();resetBailSignatures('${refEsc}')" style="color:#92400e">${_uiIcon('refresh')}Réinitialiser les signatures…</button>`);
+    items.push(`<button class="bmp-item" onclick="_closeBienMenus();resetBailSignatures('${refEsc}')" style="color:#92400e">${_uiIcon('refresh')}${bail.signatures.mode === 'externe' ? 'Retirer « signé hors Propryo »…' : 'Réinitialiser les signatures…'}</button>`);
   }
   if (bail) {
     items.push('<div class="bmp-divider" role="separator"></div>');
@@ -15693,7 +15706,9 @@ function rBaux() {
         // v15.614 REFONTE-PC — emoji signature → badge tokenisé + line-icon
         sigBadge = isPartiel
           ? ` <span class="badge ora loc-nom-badge" title="${escHtml(_partialTitle)}">${_uiIcon('clock',11)} Signature partielle</span>`
-          : ` <span class="badge grn loc-nom-badge" title="Bail signé bilatéralement">${_uiIcon('sign',11)} Signé</span>`;
+          : (bail.signatures.mode === 'externe'
+            ? ` <span class="badge grn loc-nom-badge" title="Signé hors Propryo${bail.signatures.externe && bail.signatures.externe.date ? ' le ' + escHtml(fd(bail.signatures.externe.date)) : ''} : aucune signature électronique dans Propryo">${_uiIcon('shield',11)} Signé hors Propryo</span>`
+            : ` <span class="badge grn loc-nom-badge" title="Bail signé bilatéralement">${_uiIcon('sign',11)} Signé</span>`);
       }
       // v15.230 P0-A — Badge MRH (assurance obligatoire bailleur) restauré
       // v15.253 V3-REFONTE-ASSURANCES Étape 2 : badge cliquable → ouvre la modale MRH (accès direct
@@ -16612,19 +16627,138 @@ function _bailFillVilleSign(force) {
 //   • signé     → input masqué, remplacé par « 🔒 Signé le … » (lecture seule, non modifiable)
 function _bailRenderSignatureDateField(bail) {
   const inp = el('b-dateSignature'); if(!inp) return;
-  const editW = el('b-dateSign-edit'), lockW = el('b-dateSign-locked'), lockVal = el('b-dateSign-locked-val');
-  const signed = !!(bail && bail.signatures && bail.signatures.signedAt);
-  if(signed) {
+  const lockVal = el('b-dateSign-locked-val');
+  const st = _bailEtatSig(bail);
+  const sg = (bail && bail.signatures) || {};
+  // BAIL-EN-COURS-SIGNE-HORS-PROPRYO : électronique ou partiel → date verrouillée « Signé le … » (inchangé). Externe → date
+  // ÉDITABLE (corriger la date = re-déclaration, confirmée à l'enregistrement). Case masquée sur un bail signé électroniquement.
+  window._bailExtCtx = { etat: st.etat, signedDay: st.date || '' };
+  _bailExtApprox = !!(sg.externe && sg.externe.dateApprox);
+  const fg = el('b-externe-fg'), chk = el('b-externe');
+  if(chk) chk.checked = st.etat === 'externe';
+  if(fg) fg.style.display = st.etat === 'electronique' ? 'none' : '';
+  if(st.etat === 'electronique' || st.etat === 'partiel') {
     inp.value = ''; // v15.344 — vider l'input masqué (évite une valeur résiduelle d'un autre bail ouvert avant)
-    const iso = (bail.signatures.signedBailleurAt || bail.signatures.signedAt || '').slice(0,10);
+    const iso = (sg.signedBailleurAt || sg.signedAt || '').slice(0,10);
     if(lockVal) lockVal.innerHTML = _uiIcon('lock', 16) + ' Signé le ' + escHtml(iso ? fd(iso) : '—');
-    if(editW) editW.style.display = 'none';
-    if(lockW) lockW.style.display = '';
+  } else if(st.etat === 'externe') {
+    inp.value = st.date || '';
   } else {
     inp.value = (bail && bail.dateSignaturePrevue) || '';
-    if(editW) editW.style.display = '';
-    if(lockW) lockW.style.display = 'none';
   }
+  _bailExterneToggle();
+}
+
+// ═══ BAIL SIGNÉ HORS PROPRYO (docs/subjects/BAIL-EN-COURS-SIGNE-HORS-PROPRYO.md §1-§2) ═══════════════════════════════════
+// Un bail signé sur papier est CONCLU (signatures.signedAt, mode 'externe') sans qu'aucune signature électronique soit fabriquée.
+// La case n'est PAS un champ du bail (jamais dans CHAMPS_BAIL ni dans le journal) : saveBail la lit comme une INTENTION.
+let _bailExtApprox = false;   // la date saisie vient de « Prendre la date de début » → « date approximative »
+function _bailEtatSig(bail) {
+  const B = (typeof window !== 'undefined') ? window.BailSignatureEtat : null;
+  if (B) return B.etatSignatureBail(bail);
+  const s = bail && bail.signatures;   // repli défensif (module absent) : même règle
+  if (!s || !s.signedAt) return { etat: 'non', conclu: false, date: null };
+  const d = String(s.signedAt).slice(0, 10);
+  if (s.mode === 'bailleur-seul') return { etat: 'partiel', conclu: false, date: d };
+  return { etat: s.mode === 'externe' ? 'externe' : 'electronique', conclu: true, date: d };
+}
+function _bailExterneToggle() {
+  const chk = el('b-externe'), inp = el('b-dateSignature'); if(!inp) return;
+  const ctx = window._bailExtCtx || { etat: 'non', signedDay: '' };
+  const on = !!(chk && chk.checked);
+  const det = el('b-externe-detail'); if(det) det.style.display = on ? '' : 'none';
+  // Date verrouillée (« Signé le … ») : bail électronique, ou signature partielle tant que la case n'est pas cochée.
+  const verrouille = ctx.etat === 'electronique' || (ctx.etat === 'partiel' && !on);
+  const editW = el('b-dateSign-edit'), lockW = el('b-dateSign-locked');
+  if(editW) editW.style.display = verrouille ? 'none' : '';
+  if(lockW) lockW.style.display = verrouille ? '' : 'none';
+  if(on && !inp.value && ctx.signedDay) inp.value = ctx.signedDay;
+  if(!inp.dataset.extBound) {   // modifier la date à la main : elle n'est plus « approximative »
+    inp.dataset.extBound = '1';
+    inp.addEventListener('input', function(){ _bailExtApprox = false; _bailExterneApproxAfficher(); });
+  }
+  _bailExterneApproxAfficher();
+}
+function _bailExterneApproxAfficher() {
+  const n = el('b-externe-approx'), chk = el('b-externe');
+  if(n) n.style.display = (_bailExtApprox && chk && chk.checked) ? '' : 'none';
+}
+// Date de signature inconnue (bail repris, ancien bail) : on reprend la date de DÉBUT, notée « approximative » — jamais inventée en silence.
+function _bailExterneDateDebut() {
+  const d = v('b-debut');
+  if(!d) { showToast('Renseigner d\'abord la date de début du bail', 'warn'); return; }
+  el('b-dateSignature').value = d;
+  _bailExtApprox = true;
+  _bailExterneApproxAfficher();
+}
+function _bailAuteurCourant() {
+  const ci = (typeof window !== 'undefined' && window.__immoCloudInfo) || {};
+  return ci.displayName || ci.email || (typeof _appUserName === 'function' ? _appUserName() : '') || '';
+}
+// Intention lue sur le formulaire (case + date) face à l'état ACTUEL du bail. action : 'declarer' | 'redater' | 'retirer' | null.
+function _bailExterneIntention(editRef) {
+  const B = (typeof window !== 'undefined') ? window.BailSignatureEtat : null;
+  const out = { action: null, date: '', prevEtat: 'non', prevDate: null, approx: false, erreur: '' };
+  if(!B) return out;
+  const existant = editRef ? DB.baux[editRef] : null;
+  const prev = B.etatSignatureBail(existant && !existant._deleted ? existant : null);
+  out.prevEtat = prev.etat; out.prevDate = prev.date;
+  if(prev.etat === 'electronique') return out;   // jamais de case sur un bail signé électroniquement
+  const chk = el('b-externe');
+  const veut = !!(chk && chk.checked);
+  const date = v('b-dateSignature');
+  out.date = date;
+  if(veut && prev.etat !== 'externe') out.action = 'declarer';
+  else if(veut && date !== prev.date) out.action = 'redater';
+  else if(!veut && prev.etat === 'externe') out.action = 'retirer';
+  if(out.action === 'declarer' || out.action === 'redater') {
+    if(!date) out.erreur = 'Bail signé hors Propryo : la date de signature est requise (« Prendre la date de début » si elle est inconnue).';
+    else if(!B.dateJourValide(date)) out.erreur = 'Date de signature invalide.';
+    out.approx = !!_bailExtApprox;
+  }
+  return out;
+}
+// Confirmations (déclaration, correction de date, retrait) — rien n'est écrit avant. true = continuer.
+function _bailExterneConfirmer(ext, bailExistant) {
+  const fdj = (iso) => fd(iso);
+  if(ext.action === 'retirer') {
+    return confirm2('Retirer « signé hors Propryo » ?\n\nLe bail redevient non signé et modifiable. La déclaration (' + (ext.prevDate ? 'du ' + fdj(ext.prevDate) : 'date de signature') + ') est conservée dans l\'historique du bail (et au cloud). Le PDF déposé reste dans les documents.');
+  }
+  const aujourdhui = (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : td();
+  if(ext.date > aujourdhui && !confirm2('La date de signature (' + fdj(ext.date) + ') est dans le futur.\n\nUn bail déjà signé porte une date passée ou du jour. Continuer quand même ?')) return false;
+  if(ext.action === 'redater') {
+    return confirm2('Corriger la date de signature (' + (ext.prevDate ? fdj(ext.prevDate) + ' → ' : '') + fdj(ext.date) + ') ?\n\nLa déclaration précédente est archivée (historique du bail), une nouvelle est enregistrée. Le PDF déposé reste dans les documents.');
+  }
+  const sg = (bailExistant && bailExistant.signatures) || null;
+  const enCours = !!(sg && (sg.signedAt || sg.remoteSession));
+  return confirm2('Déclarer ce bail signé en dehors de Propryo, le ' + fdj(ext.date) + (ext.approx ? ' (date approximative)' : '') + ' ?\n\n'
+    + '• Propryo n\'enregistre aucune signature électronique : le bail est considéré comme conclu à cette date.\n'
+    + '• Ses termes sont figés ; les modifications ultérieures sont enregistrées dans l\'historique du bail (un avenant leur donne une valeur contractuelle).\n'
+    + '• Vous pourrez retirer cette déclaration en décochant la case : elle reste alors conservée dans l\'historique.'
+    + (enCours ? '\n• La signature en cours (partielle ou envoyée à distance) est archivée : elle ne pourra plus servir.' : ''));
+}
+// Applique l'intention SUR l'objet bail en cours de construction (pur côté données ; les archives vont dans bail.signaturesAnnulees,
+// jamais détruites). Ne touche JAMAIS une ligne cloud verrouillée : la mécanique de verrou existante archive l'ancienne ligne
+// (re-datation, décoche) ou scelle la nouvelle (déclaration) au flush — aucune migration.
+function _bailExterneAppliquer(bail, existant, ext, ref, o) {
+  const B = window.BailSignatureEtat; if(!B || !ext || !ext.action) return;
+  const opt = o || {};
+  const now = new Date().toISOString(), auteur = _bailAuteurCourant();
+  const sgPrev = existant ? existant.signatures : null;
+  const annulees = Array.isArray(existant && existant.signaturesAnnulees) ? existant.signaturesAnnulees.slice() : [];
+  const archiver = (motif) => { const r = B.archiverSignatures({ signatures: sgPrev }, { now, auteur, motif, etatRelais: opt.etatRelais }); if(r.archive) annulees.push(r.archive); };
+  if(ext.action === 'retirer') {
+    archiver('externe-retire');
+    delete bail.signatures;
+  } else {
+    if(sgPrev && (sgPrev.signedAt || sgPrev.remoteSession)) archiver(ext.prevEtat === 'externe' ? 'externe-redate' : 'remplace-par-externe');
+    const snap = JSON.parse(JSON.stringify(bail));   // termes déclarés, tels qu'enregistrés dans ce même passage
+    bail.signatures = B.declarerSignatureExterne(bail, { date: ext.date, now, auteur, dateApprox: !!ext.approx, origine: opt.origine, snapshot: snap });
+    bail.dateSignaturePrevue = ext.date;
+    const lg = (DB.logements || []).find(l => l && l.ref === ref);
+    if(lg && typeof _captureBailSnapshot === 'function') _captureBailSnapshot(ref, bail, lg);
+  }
+  if(annulees.length) bail.signaturesAnnulees = annulees;
 }
 
 function onBailRefChange(sel) {
@@ -17498,6 +17632,9 @@ function saveBail() {
   if(_debut && _fin && _debut > _fin) {
     showToast('Date début doit être antérieure à date fin','err'); return;
   }
+  // BAIL SIGNÉ HORS PROPRYO — intention (case + date) lue ICI, avant tout effet de bord ; la case n'est pas un champ du bail.
+  const _ext = _bailExterneIntention(v('b-edit-ref'));
+  if (_ext.erreur) { showToast(_ext.erreur, 'err', 7000); return; }
   // v15.05 Sprint 7 V1.1 LEGAL-DPE-INTERDICTION-LOCATION :
   // bloquage strict si DPE interdit à la location loi Climat 2021. Pas d'override.
   // S'applique à la création d'un nouveau bail (isNewBail) OU au changement de date
@@ -17521,6 +17658,7 @@ function saveBail() {
   // enregistrée), ni sur un bail existant déjà signé ou commencé (le DDT est dû à la signature, art. 3-3).
   const _ddtBailExist = v('b-edit-ref') ? DB.baux[v('b-edit-ref')] : null;
   if (_logForDdt && typeof _ddtComplet === 'function' && !_skipDdtCheckOnce
+      && _ext.action !== 'declarer'   // bail déjà signé hors Propryo : le DDT était dû à la signature, pas à cette déclaration
       && _ddtControleSaveBail({ bailExistant: _ddtBailExist, pendingVal: _pendingVal, today: td() })) {
     const ddt = _ddtComplet(_logForDdt, new Date());
     if (!ddt.complet) {
@@ -17574,7 +17712,7 @@ function saveBail() {
     // confirmation du journal rappelle qu'un avenant est juridiquement nécessaire — l'utilisateur décide.
     // Le chemin « réinitialiser les signatures » ci-dessous est réservé au bail NON verrouillé : sur un bail
     // verrouillé, la réinitialisation serait perdue au rechargement (ligne jamais réécrite).
-    if (dbBail && dbBail.signatures && dbBail.signatures.bailSnapshot && !dbBail.signatures.locked) {
+    if (dbBail && dbBail.signatures && dbBail.signatures.bailSnapshot && !dbBail.signatures.locked && dbBail.signatures.mode !== 'externe') {
       // BAIL-SIGNE-MODIFS (28/09) — garants lus dans la liste DYNAMIQUE du formulaire (#b-garants-list,
       // via _bailLegacyGarantFields). Les champs `b-garant` / `b-garant2` n'existent plus : v() rendait ''
       // → sur un bail signé AVEC garant(s), CHAQUE enregistrement concluait « garants (2 → 0) » et
@@ -17634,9 +17772,12 @@ function saveBail() {
     catch (e) { console.warn('[VISALE] contrôle', e); }
     const _vMsg = [];
     if (_vc && _vc.depasse) _vMsg.push(`• Loyer charges comprises ${fmt(_vc.depasse.loyerCC)}, supérieur au loyer maximum du visa (${fmt(_vc.depasse.loyerMax)}) : le visa ne couvre pas ce loyer.`);
-    if (_vc && _vc.expire && (isNewBail || !(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.signedAt))) _vMsg.push(`• Visa expiré depuis le ${fd(_vc.expire.validite)} : le bail doit être signé avant la fin de validité du visa.`);
+    if (_vc && _vc.expire && _ext.action !== 'declarer' && (isNewBail || !(DB.baux[ref] && DB.baux[ref].signatures && DB.baux[ref].signatures.signedAt))) _vMsg.push(`• Visa expiré depuis le ${fd(_vc.expire.validite)} : le bail doit être signé avant la fin de validité du visa.`);
     if (_vMsg.length && !confirm2('Garantie Visale :\n\n' + _vMsg.join('\n') + '\n\nLe locataire doit demander un nouveau visa sur visale.fr.\n\nEnregistrer quand même ?')) return;
   }
+  // BAIL SIGNÉ HORS PROPRYO : confirmation AVANT toute écriture (l'archivage de l'ancien bail juste dessous en est une). Pas de 2ᵉ
+  // confirmation au 2ᵉ passage (validation financière franchie).
+  if (_ext.action && !_pendingVal && !_bailExterneConfirmer(_ext, isNewBail ? null : DB.baux[v('b-edit-ref')])) return;
   if (_archiverAncien) archiverBail(ref, _debut); // C4 : clôture l'ancien bail à la veille du nouveau (fin du dû doublé)
   // NOUVEAU BAIL (isNewBail) sur un logement occupé : archiverBail LAISSE l'ancien bail dans DB.baux[ref]
   // jusqu'au remplacement ci-dessous. Rien de l'ancien ne doit passer au nouveau — ni clôture, ni
@@ -17716,6 +17857,10 @@ function saveBail() {
     if (window._montantSaisi(v('b-ch')) == null && window._montantSaisi(_pb.ch) == null) bail.ch = _pb.ch == null ? '' : _pb.ch;
     if (window._montantSaisi(v('b-hc')) == null && window._montantSaisi(_pb.hc) == null) bail.hc = _pb.hc == null ? '' : _pb.hc;
   }
+  // BAIL SIGNÉ HORS PROPRYO — déclaration / re-déclaration / retrait, APRÈS l'application des autres champs du formulaire (le
+  // bailSnapshot capture donc les termes enregistrés dans ce même passage) et AVANT la branche journal ci-dessous : les
+  // modifications faites dans le même enregistrement partent sur la ligne neuve, pas dans un journal rattaché à une déclaration retirée.
+  _bailExterneAppliquer(bail, _existantHeritable, _ext, ref);
   // BAIL-SIGNE-MODIFS (28/09, incident Ferrette 101) — bail SIGNÉ par toutes les parties, parties
   // inchangées : les modifications sont ENREGISTRÉES dans le journal `DB.baux_evenements` (table cloud
   // 0054, à côté de la ligne verrouillée du bail) et réappliquées à chaque chargement. Le document
@@ -17728,7 +17873,7 @@ function saveBail() {
     showToast('Enregistrement impossible pour l\'instant (module non chargé) : recharger la page puis réessayer. Rien n\'a été modifié.', 'err', 8000);
     return;
   }
-  if (!isNewBail && !_resetSignaturesAfterSave && _BM && DB.baux[ref] && _BM.bailSigneComplet(DB.baux[ref])) {
+  if (!isNewBail && !_resetSignaturesAfterSave && !_ext.action && _BM && DB.baux[ref] && _BM.bailSigneComplet(DB.baux[ref])) {
     // Référence = le formulaire tel qu'affiché à l'ouverture (valeurs par défaut comprises) ; repli sur
     // le bail stocké si le formulaire n'a pas été ouvert par openBail (appel direct).
     const _base = (window._bailFormInitial && window._bailFormInitial.ref === ref) ? window._bailFormInitial.data : DB.baux[ref];
@@ -17739,7 +17884,7 @@ function saveBail() {
       const _liste = _chg.slice(0, 6).map(function(c){ return '• ' + c.libelle + ' : ' + _BM.valeurLisible(c.champ, c.avant) + ' → ' + _BM.valeurLisible(c.champ, c.apres); }).join('\n') + (_chg.length > 6 ? '\n• … et ' + (_chg.length - 6) + ' autre(s)' : '');
       // Changement de PARTIE dans CET enregistrement → rappel explicite (jamais un blocage).
       const _partie = _chg.some(function(c){ return /^(garant2?|entity|signataires|locataires)$|^locataires\.\d+\.nom$/.test(c.champ); });
-      if (!confirm2('Bail signé' + (_dSig ? ' le ' + _dSig : '') + ' : les modifications sont enregistrées dans l\'app (fiche, quittances, relances…) et dans l\'historique du bail.\n\nLe bail signé reste inchangé. Pour leur donner une valeur contractuelle, établir un avenant.'
+      if (!confirm2((_sgPrev.mode === 'externe' ? 'Bail signé hors Propryo' : 'Bail signé') + (_dSig ? ' le ' + _dSig : '') + ' : les modifications sont enregistrées dans l\'app (fiche, quittances, relances…) et dans l\'historique du bail.\n\nLe bail signé reste inchangé. Pour leur donner une valeur contractuelle, établir un avenant.'
         + (_partie ? '\n\n⚠ Changement de partie (locataire, garant ou bailleur) : juridiquement, il doit être formalisé par un avenant signé.' : '')
         + '\n\n' + _liste + '\n\nEnregistrer ?')) return;
       const _logPrev = DB.logements.find(l => l.ref === ref);
@@ -17856,6 +18001,7 @@ function saveBail() {
   }
   // v14.89 AUDIT-TRAIL : log la mutation du bail (RGPD : nom locataire est PII)
   _auditLog(isNewBail ? 'create' : 'update', 'bail', ref, ref);
+  if (_ext.action) _auditLog('update', 'bail', ref, ref + ' : signé hors Propryo — ' + ({ declarer: 'déclaré le ' + _ext.date, redater: 'date corrigée (' + _ext.date + ')', retirer: 'déclaration retirée' })[_ext.action]);
   saveDB(); refreshAllIRL(); closeM('ov-bail'); initFilters(); rBaux();
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
   // v14.48 GANTT-PREAVIS : régénérer les events fin de bail + préavis bailleur.
@@ -17867,7 +18013,9 @@ function saveBail() {
   if (_journalModif) {
     showToast('Modifications enregistrées dans l\'historique du bail. Le bail signé reste inchangé.', 'ok', 9000,
       ' <button class="btn bs" style="margin-left:6px" onclick="_avenantOpen(\'' + _lyQ(ref) + '\')">Créer un avenant</button>');
-  } else showToast('Bail enregistré','ok');
+  } else if (_ext.action === 'retirer') showToast('Bail enregistré : « signé hors Propryo » retiré (déclaration conservée dans l\'historique)', 'ok', 7000);
+  else if (_ext.action) showToast('Bail enregistré : signé hors Propryo le ' + fd(_ext.date) + (_ext.approx ? ' (date approximative)' : ''), 'ok', 7000);
+  else showToast('Bail enregistré','ok');
   suggestSave('Bail');
   // LOG-CANDIDATS Phase 6 : si ce save finalise une conversion candidat, migrer
   // les pièces + archiver le candidat. Consommé une seule fois (reset immédiat).
@@ -17981,6 +18129,9 @@ function previewSignedBailRef(ref) {
     return;
   }
   const log = DB.logements.find(l => l.ref === ref);
+  // Bail signé HORS PROPRYO : pas de « version signée » dans Propryo (le bail signé est l'exemplaire papier) → aperçu du document
+  // établi à partir de la saisie, avec son bandeau (previewBailData).
+  if (bail.signatures.mode === 'externe') { previewBailData(bail, log, ref); return; }
   if (!bail.signatures.bailSnapshot) {
     // BAIL-SIGNE-MODIFS — bail déjà modifié depuis sa signature (journal) : aucun snapshot ne sera
     // recréé (il figerait un état jamais signé) → le dire, sans proposer un chemin qui ne ferait rien.
@@ -18018,6 +18169,7 @@ function previewBailRef(ref) {
   const bail = DB.baux[ref]; const log = DB.logements.find(l=>l.ref===ref);
   const sig = bail && bail.signatures;
   if (sig && sig.signedAt) {
+    if (sig.mode === 'externe') { previewBailData(bail, log, ref); return; }   // hors Propryo : aucun PDF signé archivé par Propryo
     const pdfKey    = sig.cloudPdfKey || (sig.pdfRef && sig.pdfRef.cloudPdfKey);
     const pdfLegacy = sig.driveWebViewLink || (sig.pdfRef && sig.pdfRef.driveWebViewLink);
     // v15.408 (audit mineur) — bail signé bailleur-seul entre les 2 phases : le PDF archivé est
@@ -20617,13 +20769,15 @@ function previewBailData(bail, log, ref, opts) {
     +'</style>';
 
   /* ── Toolbar ─────────────────────────────────────────────── */
+  /* BAIL SIGNÉ HORS PROPRYO : ni démarrage de signature, ni « PDF » (il ressemblerait à un exemplaire signé) — seul l'aperçu. */
+  var _bailExterne = !!(bail.signatures && bail.signatures.mode === 'externe');
   var toolbar = '<div id="toolbar" class="no-print">'
     +'<span class="ttl">\ud83d\udcdc Bail \u2014 '+titleLabel+'</span>'
     +'<span id="wiz-counter" class="wiz-counter">\ud83d\udcc4 Page 1 / '+N_PAGES+'</span>'
-    +'<button class="btn-wiz" onclick="_wizPorteUnique()">\u270d\ufe0f D\u00e9marrer signature</button>'
+    +(_bailExterne?'':'<button class="btn-wiz" onclick="_wizPorteUnique()">\u270d\ufe0f D\u00e9marrer signature</button>')
     /* v13.22 \u2014 toolbar \u00e9pur\u00e9e : "Test" et "Pr\u00e9-render" (dev tools) retir\u00e9s.
        "PDF natif" conserv\u00e9 (re-t\u00e9l\u00e9chargement utile sur bail sign\u00e9). */
-    +'<button class="btn-natif" onclick="_wizPdfNatif()"style="background:#0ea5e9;color:#fff" title="Re-t\u00e9l\u00e9charger le PDF (avec signatures si bail sign\u00e9, sinon vierge)">\ud83d\udcc4 PDF</button>'
+    +(_bailExterne?'':'<button class="btn-natif" onclick="_wizPdfNatif()"style="background:#0ea5e9;color:#fff" title="Re-t\u00e9l\u00e9charger le PDF (avec signatures si bail sign\u00e9, sinon vierge)">\ud83d\udcc4 PDF</button>')
     +'<button class="btn-cl" onclick="window.close()">\u2715 Fermer</button>'
     +'</div>'
     +'<div class="wiz-nav no-print">'
@@ -22366,6 +22520,10 @@ function previewBailData(bail, log, ref, opts) {
     diffBanner = '<div class="no-print" style="position:sticky;top:36px;z-index:9000;background:#fee2e2;border:2px solid #dc2626;border-radius:6px;padding:10px 14px;margin:6px auto;max-width:900px;font-size:11.5pt;color:#991b1b;font-weight:bold">\u26a0\ufe0f Modification structurelle d\u00e9tect\u00e9e (composition locataire/garant). Le bail diff\u00e8re significativement de la version sign\u00e9e \u2014 r\u00e9initialisation des signatures recommand\u00e9e avant nouvelle signature.</div>';
   } else if (opts.useSnapshot) {
     diffBanner = '<div class="no-print" style="position:sticky;top:36px;z-index:9000;background:#dcfce7;border:2px solid #16a34a;border-radius:6px;padding:10px 14px;margin:6px auto;max-width:900px;font-size:11.5pt;color:#166534;font-weight:bold">\ud83d\udcdc Version SIGN\u00c9E (snapshot fig\u00e9) \u2014 vue read-only du bail tel que sign\u00e9.</div>';
+  }
+  /* BAIL SIGNÉ HORS PROPRYO — jamais « tel que signé » : Propryo n'a rien imprimé ni signé, le bail signé est l'exemplaire papier. */
+  if (_bailExterne) {
+    diffBanner = '<div class="no-print" style="position:sticky;top:36px;z-index:9000;background:#e0f2fe;border:2px solid #0284c7;border-radius:6px;padding:10px 14px;margin:6px auto;max-width:900px;font-size:11.5pt;color:#075985;font-weight:bold">\ud83d\udcdc Bail sign\u00e9 hors Propryo' + (bail.signatures.externe && bail.signatures.externe.date ? ' le ' + fd(bail.signatures.externe.date) : '') + ' \u2014 document \u00e9tabli par Propryo \u00e0 partir de la saisie : le bail sign\u00e9 est l\u2019exemplaire papier.</div>';
   }
   var finalHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
     +'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'

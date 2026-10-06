@@ -16109,16 +16109,17 @@ function _renderLogFichePanelDocuments(log, ref) {
   if(bail && _isAlive(bail)) {
     const sigSign = bail.signatures && bail.signatures.signedAt;
     const cloudPdf = bail.signatures && bail.signatures.cloudPdfKey;
+    const _sigExt = !!(bail.signatures && bail.signatures.mode === 'externe');
     if(sigSign) {
       bailSection = `<div class="logf-doc-card">
         <div class="logf-doc-icon">${_monoSvg('<path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 12h6M9 16h4"/>',22)}</div>
         <div class="logf-doc-info">
-          <div class="logf-doc-name">Bail signé — ${escHtml(bail.nom || (bail.locataires?.[0]?.nom) || '—')}</div>
-          <div class="logf-doc-meta">Signé le ${fd(sigSign)}${bail.debut?` · début ${fd(bail.debut)}`:''}</div>
+          <div class="logf-doc-name">${_sigExt ? 'Bail signé hors Propryo' : 'Bail signé'} — ${escHtml(bail.nom || (bail.locataires?.[0]?.nom) || '—')}</div>
+          <div class="logf-doc-meta">Signé le ${fd(_sigExt && bail.signatures.externe && bail.signatures.externe.date ? bail.signatures.externe.date : sigSign)}${(_sigExt && bail.signatures.externe && bail.signatures.externe.dateApprox) ? ' (date approximative)' : ''}${bail.debut?` · début ${fd(bail.debut)}`:''}</div>
           ${_ddtFusionAlertTxt(bail) ? `<div class="logf-doc-alert">${_uiIcon('warn', 13)}<span>${escHtml(_ddtFusionAlertTxt(bail))}</span></div>` : ''}
         </div>
         <div class="logf-doc-actions">
-          <button class="btn bs bb" onclick="previewSignedBailRef('${_lyQ(ref)}')" title="Voir le bail tel que signé (snapshot figé)">${_uiIcon('eye')} Aperçu</button>
+          <button class="btn bs bb" onclick="previewSignedBailRef('${_lyQ(ref)}')" title="${_sigExt ? 'Aperçu du document établi à partir de la saisie (le bail signé est l\'exemplaire papier)' : 'Voir le bail tel que signé (snapshot figé)'}">${_uiIcon('eye')} Aperçu</button>
           ${cloudPdf?`<button class="btn bs bb" onclick="_openCloudBailPdf('${_lyQ(ref)}')" title="Ouvrir le PDF du bail signé">${_uiIcon('doc')} PDF</button>`:''}
         </div>
       </div>`;
@@ -17530,7 +17531,9 @@ function _renderLogFichePanelBail(log, bail, ref) {
     // audit : 'bailleur-seul' peut couvrir « locataire signé, bailleur distant en attente » → libellé selon qui a signé.
     const _partialLbl = (bail.signatures && bail.signatures.signedBailleurAt) ? '' + _uiIcon('warn') + ' Bailleur signé, locataire en attente' : '' + _uiIcon('warn') + ' Locataire signé, bailleur en attente';
     const sigBadge = complet
-      ? '<span class="logf-badge b-ok">' + _uiIcon('check') + ' Signé bilatéralement</span>'
+      ? (sigMode === 'externe'
+        ? '<span class="logf-badge b-ok" title="Aucune signature électronique dans Propryo' + (bail.signatures.externe && bail.signatures.externe.date ? ' · signé le ' + escHtml(fd(bail.signatures.externe.date)) : '') + '">' + _uiIcon('shield') + ' Signé hors Propryo' + ((bail.signatures.externe && bail.signatures.externe.dateApprox) ? ' (date approximative)' : '') + '</span>'
+        : '<span class="logf-badge b-ok">' + _uiIcon('check') + ' Signé bilatéralement</span>')
       : (partial ? `<span class="logf-badge b-warn">${_partialLbl}</span>`
                  : '<span class="logf-badge b-warn">' + _uiIcon('warn') + ' Non signé</span>');
     const locataires = (Array.isArray(bail.locataires) && bail.locataires.length) ? bail.locataires : [{nom: log.locataire}];

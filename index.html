@@ -1900,6 +1900,23 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
           </div>
         </div>
       </div>
+      <!-- BAIL-EN-COURS-SIGNE-HORS-PROPRYO : bail signé sur papier, chez un notaire ou par le vendeur (bail repris).
+           Aucune signature électronique n'est créée : la date de signature ci-dessus est conservée (déclaration
+           figée, trace d'archive au retrait). Masquée sur un bail signé électroniquement dans Propryo. -->
+      <div class="fg" id="b-externe-fg" style="display:none;margin-top:10px">
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;margin:0;font-size:13px;border:1px solid var(--bor);border-radius:var(--r);padding:10px 12px;background:var(--sur2)">
+          <input type="checkbox" id="b-externe" onchange="_bailExterneToggle()" style="margin-top:2px">
+          <span><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg> <b>Bail signé en dehors de Propryo</b>
+            <span class="mu sm" style="display:block;font-size:11.5px;margin-top:2px">Signé sur papier, chez un notaire ou par le vendeur (bail repris). Aucune signature électronique n'est créée : la date de signature ci-dessus est conservée.</span>
+          </span>
+        </label>
+        <div id="b-externe-detail" style="display:none;margin-top:8px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button class="btn bs" type="button" onclick="_bailExterneDateDebut()" title="Date de signature inconnue : reprendre la date de début du bail, notée « approximative »">Prendre la date de début</button>
+            <span class="mu sm" id="b-externe-approx" style="display:none">Date approximative (date de début du bail)</span>
+          </div>
+        </div>
+      </div>
       <hr style="border:none;border-top:1px solid var(--bor);margin:12px 0">
       <div class="sm mu mb8">Zone tendue et encadrement des loyers (art. 17 loi 89-462)</div>
       <div class="fg2">
@@ -4555,8 +4572,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=8e860d41" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=85e06168" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=8ced361a" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=b7567742" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
