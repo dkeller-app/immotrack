@@ -13,6 +13,22 @@
 import { escHtml } from '../core/utils.js';
 
 /**
+ * Audit stockage lots 2-3 (🟠3) — téléphone : le toast se pose AU-DESSUS de la barre du bas
+ * (css/main.css, ≤ 767 px : bottom = --bnav-h + 12 px). La hauteur RÉELLE de la barre varie
+ * (favoris, pastille d'action, encoche : son padding comprend env(safe-area-inset-bottom)) ; elle
+ * est mesurée à chaque toast et publiée en --bnav-h. Barre absente ou masquée : 0.
+ * Ne lève jamais (un toast ne casse rien) : rend la hauteur, ou null si la mesure est impossible.
+ */
+export function syncHauteurBarreBas(doc = globalThis.document, win = globalThis.window) {
+  try {
+    const b = doc.querySelector('.v4-bnav');
+    const h = (b && win.getComputedStyle(b).display !== 'none') ? Math.ceil(b.getBoundingClientRect().height) : 0;
+    doc.documentElement.style.setProperty('--bnav-h', h + 'px');
+    return h;
+  } catch (_e) { return null; }
+}
+
+/**
  * @param {string} msg - Le message principal (sera échappé HTML)
  * @param {''|'err'|'ok'|'warn'} type - Type d'icone/couleur
  * @param {number} dur - Durée d'affichage en ms (défaut 2800)
@@ -21,6 +37,7 @@ import { escHtml } from '../core/utils.js';
 export function showToast(msg, type = '', dur = 2800, extraHTML = '') {
   const t = document.getElementById('toast');
   if (!t) return;
+  syncHauteurBarreBas();
   t.innerHTML = escHtml(msg) + (extraHTML || '');
   t.style.display = 'flex';
   t.style.alignItems = 'center';
