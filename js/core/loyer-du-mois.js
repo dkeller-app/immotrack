@@ -108,8 +108,10 @@ export function provisionPourRevision(bareme, ref, dateEffetIso, bailCh, logCh, 
  */
 function _occupation(bails) {
   const segs = (bails || [])
-    .filter((b) => _isAlive(b) && b.debut)
-    .map((b) => ({
+    .map((b, i) => ({ b, i }))
+    .filter(({ b }) => _isAlive(b) && b.debut)
+    .map(({ b, i }) => ({
+      i,                                          // index du bail d'origine (suivi par bail)
       debut: String(b.debut).slice(0, 10),
       // Bail archivé sans finEffective NI fin (données cassées) : reste ouvert ici — la
       // troncature par le bail suivant le rattrape ; l'étape 2 (archiverBail pose
@@ -128,6 +130,17 @@ function _occupation(bails) {
 }
 
 /**
+ * FINANCES-SUIVI-UNIQUE P1 — les segments d'occupation tels que duMois les voit (vivants, triés,
+ * TRONQUÉS C4), avec `i` = index du bail dans le tableau reçu. Le suivi par bail
+ * (js/core/suivi-loyers.js) s'en sert pour savoir QUEL bail occupe quelle période sans
+ * réécrire la règle de troncature. `end < debut` ⇒ bail entièrement recouvert par un suivant.
+ * @returns {Array<{i:number, debut:string, end:string|null, hc:number, ch:number}>}
+ */
+export function occupationBaux(bails) {
+  return _occupation(bails).map((s) => Object.assign({}, s));
+}
+
+/**
  * LE dû d'un mois pour un lot. DÉCISION USER 16/07 : DEUX sources seulement — le bail (→ le dû,
  * via le barème = le loyer du bail dans le temps) et l'import (→ le payé, ailleurs). La QUITTANCE
  * n'entre JAMAIS dans le dû : c'est un document imprimé, pas une source (des quittances fausses ne
@@ -135,12 +148,16 @@ function _occupation(bails) {
  * @param {Object} ctx { ref, bails:[{debut,fin,finEffective,archive,hc,ch,_deleted}],
  *                       bareme:[{ref,debut,fin,hc,ch,_deleted}] }
  * @param {string} ym 'YYYY-MM'
+ * @param {{bailDebut?:string}} [opts] segment d'un seul bail (suivi par bail, §B.2.1)
  * @returns {{hc:number, ch:number, total:number, source:'bareme'|'bail'|'vacance'}}
  */
-export function duMois(ctx, ym) {
+export function duMois(ctx, ym, opts) {
   const empty = { hc: 0, ch: 0, total: 0, source: 'vacance' };
   if (!ctx || !/^\d{4}-\d{2}$/.test(String(ym || ''))) return empty;
   ym = String(ym);
+  // FINANCES-SUIVI-UNIQUE §B.2.1 — `bailDebut` : ne compter QUE le segment du bail qui commence
+  // à cette date, APRÈS troncature C4 (Σ des baux = dû du lot). Absent ⇒ comportement inchangé.
+  const bailDebut = opts && opts.bailDebut ? String(opts.bailDebut).slice(0, 10) : null;
 
   // Occupation × barème, prorata jours. (La quittance ne participe PAS — retirée le 16/07.)
   const y = parseInt(ym.slice(0, 4), 10);
@@ -152,6 +169,7 @@ export function duMois(ctx, ym) {
 
   let hc = 0, ch = 0, usedBareme = false, occupied = false;
   for (const seg of _occupation(ctx.bails)) {
+    if (bailDebut && seg.debut !== bailDebut) continue;
     const d0 = seg.debut > first ? seg.debut : first;
     const d1 = (seg.end && seg.end < last) ? seg.end : last;
     if (d0 > d1) continue;
@@ -316,11 +334,23 @@ export function _debutSuivi(ctx, firstPaymentYm) {
  * @param {Array<{hcDue:number, chDue:number, received:number,
  *                sources?:Array<{date:string, id?:string, montant:number}>}>} months
  *        chronologiques (échus) ; `sources` optionnel, trié ou non (trié ici par date).
- * @param {{carry?:boolean, graceLast?:boolean}} [opts]
+ * @param {{carry?:boolean, graceLast?:boolean, opening?:Object, seuilArrondi?:number,
+ *          detail?:boolean}} [opts] (seuilArrondi/detail + months[i].remise/grace/sources[].kind :
+ *          FINANCES-SUIVI-UNIQUE §B.2, absents ⇒ sortie identique)
  */
 export function _loyerArrearsPass(months, opts) {
   const carry = !!(opts && opts.carry);
   const graceLast = !!(opts && opts.graceLast);
+  // FINANCES-SUIVI-UNIQUE §B.2.2 — extensions RÉTRO-COMPATIBLES (absentes ⇒ sortie identique) :
+  //   seuilArrondi : en fin de mois, une dette ou une avance totale STRICTEMENT inférieure au
+  //                  seuil est soldée, avec une trace signée (+ avance abandonnée, − dette soldée) ;
+  //   detail       : chaque mois porte courant / antérieur / remise appliquée / arrondi, et le
+  //                  résultat les listes `remises` et `arrondis` (aucun changement d'arithmétique).
+  // Et par mois : `remise` (manque accepté, §D), `grace` (mois non exigible : manque neuf ignoré,
+  // généralise graceLast), `sources[].kind` recopié dans les imputations ('virement'|'dg'|'gli').
+  const seuil = Math.max(0, Number(opts && opts.seuilArrondi) || 0);
+  const detail = !!(opts && opts.detail);
+  const remises = [], arrondis = [];
   const ms = months || [];
   const lastIdx = ms.length - 1;
   const loyerQ = [], chargeQ = [];                  // files des manques : {idx, short, due, recv}
@@ -348,6 +378,9 @@ export function _loyerArrearsPass(months, opts) {
   // ── Traçabilité (lot 0) : le miroir en fragments du pool scalaire ──────────
   const imput = ms.map(() => []);                   // imput[idx] = [{date,id,montant,poste}]
   let frags = [];                                   // [{date,id,reste}] FIFO, le plus ancien devant
+  // `detail` (suivi par bail) : l'avance d'ouverture a SON fragment, pour que « qui a payé ce
+  // mois » puisse dire « l'avance reprise à l'ouverture » (sans `detail` : inchangé, anonyme absent).
+  if (detail && carry && avanceCarry > 0.005) frags.push({ date: null, id: 'ouverture', reste: avanceCarry, kind: 'ouverture' });
   /** Fragments d'un mois : ses `sources` (triées par date), complétées/rognées pour
    *  coller EXACTEMENT au scalaire `Math.max(0, received)` — jamais l'inverse. */
   const fragsOf = (m) => {
@@ -358,7 +391,11 @@ export function _loyerArrearsPass(months, opts) {
       src.slice()
         .filter((s) => s && (Number(s.montant) || 0) > 0)
         .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
-        .forEach((s) => out.push({ date: s.date || null, id: (s.id != null ? s.id : null), reste: Number(s.montant) || 0 }));
+        .forEach((s) => {
+          const f = { date: s.date || null, id: (s.id != null ? s.id : null), reste: Number(s.montant) || 0 };
+          if (s.kind != null) f.kind = s.kind;
+          out.push(f);
+        });
     }
     let som = out.reduce((s, f) => s + f.reste, 0);
     while (som > recvPos + 0.0000001 && out.length) {  // sources > received : on rogne par la fin
@@ -376,7 +413,7 @@ export function _loyerArrearsPass(months, opts) {
     while (a > 0.0000001 && frags.length) {
       const f = frags[0];
       const t = Math.min(a, f.reste);
-      if (t > 0.0000001) imput[idx].push({ date: f.date, id: f.id, montant: t, poste });
+      if (t > 0.0000001) imput[idx].push(f.kind != null ? { date: f.date, id: f.id, montant: t, poste, kind: f.kind } : { date: f.date, id: f.id, montant: t, poste });
       f.reste -= t; a -= t;
       if (f.reste <= 0.0000001) frags.shift();
     }
@@ -395,7 +432,7 @@ export function _loyerArrearsPass(months, opts) {
     const hcDue = Math.max(0, Number(m.hcDue) || 0);
     const chDue = Math.max(0, Number(m.chDue) || 0);
     const recv = Number(m.received) || 0;
-    const grace = graceLast && idx === lastIdx;     // mois courant sous tolérance : manque neuf non compté
+    const grace = (graceLast && idx === lastIdx) || !!m.grace;  // mois sous tolérance / non exigible : manque neuf non compté
     let pool = Math.max(0, recv) + (carry ? avanceCarry : 0);
     // Le miroir : sans `carry` le reliquat du mois précédent est jeté (comme le scalaire).
     frags = carry ? frags.concat(fragsOf(m)) : fragsOf(m);
@@ -408,8 +445,67 @@ export function _loyerArrearsPass(months, opts) {
     if (chargeShort > 0.005 && !grace) chargeQ.push({ idx, short: chargeShort, due: chDue, recv });
     const recL = Math.min(pool, sumQ(loyerQ)); pool -= recL; recover(loyerQ, recL, 'loyer');   // arriérés loyer (priorité)
     const recC = Math.min(pool, sumQ(chargeQ)); pool -= recC; recover(chargeQ, recC, 'charge');
+    // §D — MANQUE ACCEPTÉ : appliqué APRÈS l'argent du mois, dans l'ordre H-1 (loyer du mois,
+    // charges du mois, arriérés de loyer plus vieux d'abord, arriérés de charges), plafonné à la
+    // dette. Ce n'est pas de l'argent : aucun fragment, aucune imputation, jamais d'avance.
+    let remiseAppliquee = 0;
+    let reste = Math.max(0, Number(m.remise) || 0);
+    if (reste > 0.005) {
+      const remettre = (q, poste, garde) => {
+        for (const e of q) {
+          if (reste <= 0.0000001) break;
+          if (!garde(e) || e.short <= 0.0000001) continue;
+          const t = Math.min(reste, e.short);
+          e.short -= t; reste -= t; remiseAppliquee += t;
+          remises.push({ idx, cibleIdx: e.opening ? -1 : e.idx, poste, montant: _r2(t) });
+        }
+      };
+      const duMoisCourant = (e) => !e.opening && e.idx === idx;
+      const anterieure = (e) => e.opening || e.idx < idx;
+      remettre(loyerQ, 'loyer', duMoisCourant);
+      remettre(chargeQ, 'charge', duMoisCourant);
+      remettre(loyerQ, 'loyer', anterieure);
+      remettre(chargeQ, 'charge', anterieure);
+    }
+    // Écart d'arrondi < seuil (décision 2 : 303 contre 303,33) : soldé, tracé.
+    let arrondi = 0;
+    if (seuil > 0) {
+      const dette = sumQ(loyerQ) + sumQ(chargeQ);
+      if (dette > 0.005 && dette < seuil) {
+        loyerQ.forEach((e) => { e.short = 0; });
+        chargeQ.forEach((e) => { e.short = 0; });
+        arrondi -= dette;
+      }
+      // L'avance abandonnée l'est aussi dans le miroir : ses fragments ne paieront aucun mois.
+      if (carry && pool > 0.005 && pool < seuil) { arrondi += pool; pool = 0; frags = []; }
+      if (Math.abs(arrondi) > 0.005) arrondis.push({ idx, montant: _r2(arrondi) });
+    }
     const out = { loyerArrear: _r2(sumQ(loyerQ)), chargeArrear: _r2(sumQ(chargeQ)) };
     if (carry) { avanceCarry = pool; out.avance = _r2(avanceCarry); }
+    if (detail) {
+      // Le manque dit UNE fois : `courant` = ce qui manque encore sur CE mois (y compris, pour un
+      // mois sous tolérance, le manque neuf non compté en retard) ; `anterieur` = la dette des mois
+      // précédents encore ouverte, `depuisIdx` = son mois le plus ancien (−1 = ouverture).
+      let cL = 0, cC = 0, aL = 0, aC = 0, dep = null;
+      const lire = (q, courant) => {
+        for (const e of q) {
+          if (e.short <= 0.005) continue;
+          if (!e.opening && e.idx === idx) { if (courant === 'L') cL += e.short; else cC += e.short; continue; }
+          if (courant === 'L') aL += e.short; else aC += e.short;
+          const d = e.opening ? -1 : e.idx;
+          if (dep === null || d < dep) dep = d;
+        }
+      };
+      lire(loyerQ, 'L'); lire(chargeQ, 'C');
+      if (grace) {
+        if (loyerShort > 0.005) cL += loyerShort;
+        if (chargeShort > 0.005) cC += chargeShort;
+      }
+      out.courant = { loyer: _r2(cL), charge: _r2(cC) };
+      out.anterieur = { loyer: _r2(aL), charge: _r2(aC), depuisIdx: dep };
+      out.remiseAppliquee = _r2(remiseAppliquee);
+      out.arrondi = _r2(arrondi);
+    }
     return out;
   });
   const clean = (q) => q.filter((e) => e.short > 0.005).map((e) => ({ idx: e.idx, short: _r2(e.short), due: _r2(e.due), recv: _r2(e.recv) }));
@@ -425,17 +521,20 @@ export function _loyerArrearsPass(months, opts) {
     const m = new Map();
     for (const p of parts) {
       if (p.montant <= 0.005) continue;
-      const k = (p.id == null ? '~' : 'i' + p.id) + '|' + (p.date || '~') + '|' + p.poste;
+      const k = (p.id == null ? '~' : 'i' + p.id) + '|' + (p.date || '~') + '|' + p.poste + (p.kind != null ? '|' + p.kind : '');
       const prev = m.get(k);
       if (prev) prev.montant += p.montant;
-      else m.set(k, { date: p.date, id: p.id, montant: p.montant, poste: p.poste });
+      else m.set(k, Object.assign({}, p));
     }
     return [...m.values()]
-      .map((p) => ({ date: p.date, id: p.id, montant: _r2(p.montant), poste: p.poste }))
+      .map((p) => (p.kind != null
+        ? { date: p.date, id: p.id, montant: _r2(p.montant), poste: p.poste, kind: p.kind }
+        : { date: p.date, id: p.id, montant: _r2(p.montant), poste: p.poste }))
       .sort((a, b) => String(a.date || '9999').localeCompare(String(b.date || '9999')));
   });
   const res = { months: perMonth, retardMois, imputations, loyerArrear: last.loyerArrear, chargeArrear: last.chargeArrear, causeLoyer: clean(loyerQ), causeCharge: clean(chargeQ) };
   if (carry) res.avance = _r2(avanceCarry);
+  if (detail) { res.remises = remises; res.arrondis = arrondis; }
   return res;
 }
 
