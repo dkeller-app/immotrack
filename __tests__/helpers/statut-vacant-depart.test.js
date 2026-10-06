@@ -394,8 +394,8 @@ describe('12 · relocation d\'un lot parti (VRAI archiverBail, appelé par saveB
   });
   it('règle (VRAI _finAncienBailAuRebail) : sortie le jour même du nouveau bail = veille + avertissement', () => {
     const { fn } = monter(dbDe({}), ['_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation']);
-    expect(fn._finAncienBailAuRebail({ ...BAIL, depart: { dateSortie: '2026-11-15' } }, '2026-11-15')).toEqual({ fin: '2026-11-14', sortie: '2026-11-15', sortieApres: true });
-    expect(fn._finAncienBailAuRebail({ ...BAIL, depart: { dateSortie: '2026-11-14' } }, '2026-11-15')).toEqual({ fin: '2026-11-14', sortie: '2026-11-14', sortieApres: false });
+    expect(fn._finAncienBailAuRebail({ ...BAIL, depart: { dateSortie: '2026-11-15' } }, '2026-11-15')).toEqual({ fin: '2026-11-14', sortie: '2026-11-15', sortieApres: true, source: 'chevauchement' });
+    expect(fn._finAncienBailAuRebail({ ...BAIL, depart: { dateSortie: '2026-11-14' } }, '2026-11-15')).toEqual({ fin: '2026-11-14', sortie: '2026-11-14', sortieApres: false, source: 'sortie' });
   });
   it('formulaire en relocation (VRAI onBailRefChange) : début proposé = lendemain de la sortie déclarée ; sans départ : vide ; en édition : début du bail édité', () => {
     const debut = (baux, edit) => {
@@ -772,5 +772,37 @@ describe('24 · nouveau bail sur un lot (VRAIS openBail / convertCandidatToBail 
     const src = corps('_departState');
     expect(src).toContain("t:'Nouveau bail + EDL entrée + DG', s:'Bail', on:`closeM('ov-depart');_ouvrirNouveauBailSurLot('${jsRef}')`");
     expect(src).not.toMatch(/Nouveau bail \+ EDL entrée \+ DG[^}]*openBail\(/);
+  });
+});
+describe('25 · confirmation de relocation (VRAI saveBail) : fin de l\'ancien bail et sa source, dépôt de l\'ancien locataire', () => {
+  const confirmation = (ancien, debut = '2026-11-15') => {
+    const DB = dbDe({ A1: { ...ancien, ref: 'A1' } });
+    const msgs = [];
+    const vals = { 'b-ref': 'A1', 'b-debut': debut, 'b-fin': '2029-11-14', 'b-hc': '650', 'b-ch': '50', 'b-dg': '1300' };
+    const m = monter(DB, [...STATUT, 'saveBail', '_rebailConfirmTexte', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation', '_bailEnCours'], {
+      v: (id) => vals[id] || '', pf: (id) => Number(vals[id] || 0), getBailLocs: () => [{ nom: 'Nina' }], _skipDdtCheckOnce: true,
+      confirm2: (t) => { msgs.push(t); return false; },
+    });
+    try { m.fn.saveBail(); } catch (e) { msgs.push('ERREUR ' + e.message); }
+    return msgs.find((x) => x.includes('a déjà un bail actif')) || msgs.join(' || ') || '(aucune confirmation)';
+  };
+  it('sortie déclarée : « terminé le 30/09/2026 (sortie déclarée) » + dépôt de 900 € détenu', () => {
+    const t = confirmation(DEPART);
+    expect(t).toContain("L'ancien bail sera terminé le 30/09/2026 (sortie déclarée).");
+    expect(t).toContain("Le dépôt de garantie de l'ancien locataire (900 €) n'a pas de restitution enregistrée");
+  });
+  it('fin effective déjà posée : « fin déjà enregistrée le … », jamais « veille du nouveau bail »', () => {
+    const t = confirmation({ ...BAIL, finEffective: '2026-09-15' });
+    expect(t).toContain("L'ancien bail garde sa fin déjà enregistrée le 15/09/2026.");
+    expect(t).not.toContain('veille du nouveau bail');
+  });
+  it('chevauchement (sortie le jour du nouveau bail) : avertissement, fin la veille', () => {
+    const t = confirmation({ ...BAIL, depart: { dateSortie: '2026-11-15' } });
+    expect(t).toContain("⚠️ La sortie déclarée de l'ancien locataire (15/11/2026) n'est pas antérieure au début du nouveau bail (15/11/2026) : l'ancien bail sera terminé la veille, le 14/11/2026.");
+  });
+  it('sans départ : veille du nouveau bail ; dépôt restitué : pas d\'avertissement de dépôt', () => {
+    const t = confirmation({ ...BAIL, dgRestitueAt: '2026-10-20' });
+    expect(t).toContain("L'ancien bail sera terminé le 14/11/2026 (veille du nouveau bail).");
+    expect(t).not.toContain("n'a pas de restitution enregistrée");
   });
 });

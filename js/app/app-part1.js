@@ -2011,13 +2011,29 @@ function _isoDecaleJours(iso, n) {
 // parti au 30/09 et reloué au 15/11 voyait son ancien locataire redevable d'octobre et de novembre (audit 06/10).
 // Une sortie déclarée qui ne précède pas le nouveau bail ne peut pas tenir (deux occupants le même jour) : la
 // veille du nouveau bail l'emporte, et la confirmation de saveBail le dit (`sortieApres`).
+// `source` dit d'où vient la fin : 'finEffective' (déjà enregistrée), 'sortie' (départ déclaré), 'chevauchement'
+// (sortie ramenée à la veille du nouveau bail), 'veille' (aucune sortie : veille du nouveau bail).
 function _finAncienBailAuRebail(bail, nouveauDebut) {
   const veille = nouveauDebut ? _isoDecaleJours(nouveauDebut, -1) : '';
-  if(!bail) return { fin: veille || null, sortie: '', sortieApres: false };
-  if(bail.finEffective) return { fin: String(bail.finEffective).slice(0,10), sortie: '', sortieApres: false };
+  if(!bail) return { fin: veille || null, sortie: '', sortieApres: false, source: veille ? 'veille' : '' };
+  if(bail.finEffective) return { fin: String(bail.finEffective).slice(0,10), sortie: '', sortieApres: false, source: 'finEffective' };
   const sortie = _bailFinOccupation(bail, false);
-  if(sortie && veille && sortie > veille) return { fin: veille, sortie, sortieApres: true };
-  return { fin: sortie || veille || null, sortie, sortieApres: false };
+  if(sortie && veille && sortie > veille) return { fin: veille, sortie, sortieApres: true, source: 'chevauchement' };
+  return { fin: sortie || veille || null, sortie, sortieApres: false, source: sortie ? 'sortie' : (veille ? 'veille' : '') };
+}
+// Le texte ajouté à la confirmation de saveBail quand un nouveau bail archive l'ancien : sa date de fin (et d'où elle
+// vient) + le dépôt de l'ancien locataire encore détenu. Lu par saveBail ; testé sur la vraie confirmation.
+function _rebailConfirmTexte(bailExistant, nouveauDebut, dgLot) {
+  const fa = _finAncienBailAuRebail(bailExistant, nouveauDebut);
+  let t = '';
+  if(fa.source === 'chevauchement') t = `\n\n⚠️ La sortie déclarée de l'ancien locataire (${fd(fa.sortie)}) n'est pas antérieure au début du nouveau bail (${fd(nouveauDebut)}) : l'ancien bail sera terminé la veille, le ${fd(fa.fin)}.`;
+  else if(fa.source === 'finEffective') t = `\n\nL'ancien bail garde sa fin déjà enregistrée le ${fd(fa.fin)}.`;
+  else if(fa.source === 'sortie') t = `\n\nL'ancien bail sera terminé le ${fd(fa.fin)} (sortie déclarée).`;
+  else if(fa.source === 'veille') t = `\n\nL'ancien bail sera terminé le ${fd(fa.fin)} (veille du nouveau bail).`;
+  // Dépôt de l'ancien locataire sans restitution enregistrée : il reste détenu sur le bail archivé (_dgDetenuDuBail).
+  const dgAnc = _dgDetenuDuBail(bailExistant, dgLot);
+  if(dgAnc > 0) t += `\n\nLe dépôt de garantie de l'ancien locataire (${fmt(dgAnc)}) n'a pas de restitution enregistrée : il restera compté comme détenu jusqu'à ce qu'elle le soit (assistant de départ, ou ensuite « Préparer la restitution du DG » sur la frise du bien).`;
+  return t;
 }
 
 // La date d'ÉCHÉANCE d'un bail à afficher (agenda « Fin de bail », frise) — BAUX-ECHUS, règle unique
@@ -17450,15 +17466,9 @@ function saveBail() {
     const bailExistant = DB.baux[ref];
     if(_bailEnCours(bailExistant)) { // v15.697 : un tombstone (bail clôturé) n'est pas un bail actif
       const ancLoc = (bailExistant.locataires||[{nom:bailExistant.nom||'?'}]).map(l=>l.nom).join(', ');
-      // Statut 06/10 : l'ancien bail se termine à la sortie déclarée (ou la veille du nouveau) — _finAncienBailAuRebail.
-      const _fa = _finAncienBailAuRebail(bailExistant, _debut);
-      const _faTxt = _fa.sortieApres
-        ? `\n\n⚠️ La sortie déclarée de l'ancien locataire (${fd(_fa.sortie)}) n'est pas antérieure au début du nouveau bail (${fd(_debut)}) : l'ancien bail sera terminé la veille, le ${fd(_fa.fin)}.`
-        : (_fa.fin ? `\n\nL'ancien bail sera terminé le ${fd(_fa.fin)}${_fa.sortie ? ' (sortie déclarée)' : ' (veille du nouveau bail)'}.` : '');
-      // Dépôt de l'ancien locataire sans restitution enregistrée : il reste détenu sur le bail archivé (_dgDetenuDuBail).
-      const _dgAnc = _dgDetenuDuBail(bailExistant, (DB.logements.find(x => x.ref === ref) || {}).dg);
-      const _dgTxt = _dgAnc > 0 ? `\n\nLe dépôt de garantie de l'ancien locataire (${fmt(_dgAnc)}) n'a pas de restitution enregistrée : il restera compté comme détenu. L'enregistrer dans l'assistant de départ AVANT de créer le nouveau bail.` : '';
-      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.${_faTxt}${_dgTxt}\n\nConfirmer la création du nouveau bail ?`)) return;
+      // Statut 06/10 : fin de l'ancien bail (et sa source) + dépôt de l'ancien locataire encore détenu.
+      const _rebailTxt = _rebailConfirmTexte(bailExistant, _debut, (DB.logements.find(x => x.ref === ref) || {}).dg);
+      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.${_rebailTxt}\n\nConfirmer la création du nouveau bail ?`)) return;
       _archiverAncien = true;
     }
   }
