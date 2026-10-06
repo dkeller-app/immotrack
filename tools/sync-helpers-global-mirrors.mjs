@@ -59,6 +59,17 @@ const PAIRS = [
     ]
   },
   {
+    // BAIL-EN-COURS-SIGNE-HORS-PROPRYO — état de signature d'un bail (non / partiel / électronique / externe) : qui détient une preuve électronique ?
+    name: 'bail-signature-etat',
+    src: 'js/core/bail-signature-etat.js',
+    dst: 'js/helpers/bail-signature-etat.global.js',
+    globalName: 'BailSignatureEtat',
+    exports: '*',
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
     // PARAPHE-UNIQUE (audit 01/10) — contrôle « onglet périmé » avant de signer / régénérer un PDF signé.
     name: 'version-app',
     src: 'js/core/version-app.js',

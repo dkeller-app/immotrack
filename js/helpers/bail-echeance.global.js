@@ -92,6 +92,9 @@
 
   /** L'horodatage (ms) de la signature d'un bail signé dans l'app, NaN sinon. */
   function _instantSignature(bail) {
+    // Bail déclaré signé HORS Propryo : la date saisie n'est pas un instant de signature dans l'app, et le
+    // bail ne porte pas la clause du contrat Propryo (constat 0.5, BAIL-EN-COURS-SIGNE-HORS-PROPRYO).
+    if (bail && bail.signatures && bail.signatures.mode === 'externe') return NaN;
     const s = bail && bail.signatures && bail.signatures.signedAt;
     if (s === null || s === undefined || s === '') return NaN;
     if (typeof s === 'number') return s;

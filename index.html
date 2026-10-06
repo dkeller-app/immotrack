@@ -93,6 +93,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/pilotage-familles.js">
 <link rel="modulepreload" href="js/core/loyer-bareme.js">
 <link rel="modulepreload" href="js/core/bail-historique.js">
+<link rel="modulepreload" href="js/core/bail-signature-etat.js">
 <link rel="modulepreload" href="js/core/bail-modifications.js">
 <link rel="modulepreload" href="js/core/bail-modif.js">
 <link rel="modulepreload" href="js/core/irl-revision.js">
@@ -159,6 +160,8 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <!-- modulepreload:end -->
 <!-- PARAPHE-UNIQUE (v15.710) : une image de paraphe par signataire + lecteur des deux formes (window.BailParaphes, source js/core/bail-paraphes.js). -->
 <script src="js/helpers/bail-paraphes.global.js?v=bc8c13ad" defer></script>
+<!-- BAIL-EN-COURS-SIGNE-HORS-PROPRYO : etat de signature d'un bail (non / partiel / electronique / externe), window.BailSignatureEtat, source js/core/bail-signature-etat.js. -->
+<script src="js/helpers/bail-signature-etat.global.js?v=dcf37d38" defer></script>
 <!-- PARAPHE-UNIQUE : contr�le � onglet p�rim� � avant de signer / r�g�n�rer le PDF d'un bail sign� (window.VersionApp, source js/core/version-app.js). -->
 <script src="js/helpers/version-app.global.js?v=97798663" defer></script>
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
@@ -4534,7 +4537,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
      reconduction, une par type (window.BailEcheance) : pastille, agenda, frise, préavis, alerte « arrivé à terme ».
      BailDuree AVANT BailEcheance (sa dépendance). -->
 <script src="js/helpers/bail-duree.global.js?v=0a241f82" defer></script>
-<script src="js/helpers/bail-echeance.global.js?v=678cfb72" defer></script>
+<script src="js/helpers/bail-echeance.global.js?v=5acd0f28" defer></script>
 <!-- BAUX-ECHUS — clauses de durée, congé et fin du bail, version de clauses 5 (window.BailClausesFin). -->
 <script src="js/helpers/bail-clauses-fin.global.js?v=fee035f1" defer></script>
 <!-- v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (window.DashCtx) :
@@ -4552,8 +4555,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=2247ec50" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=f28c8b99" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=8e860d41" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=85e06168" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
+import { etatSignatureBail } from '../../js/core/bail-signature-etat.js'
 import {
   _diagDateExpiration, _ddtControleSaveBail as ctrlCore, _ddtDateBailEnPlace as dateCore, _diagExpireARefaire as aRefaireCore
 } from '../../js/core/diagnostics.js'
@@ -50,32 +51,62 @@ describe('A1 — _ddtControleSaveBail (interblocage DDT ↔ validation financiè
 
 describe('A2/A3 — _pilStatutDoc (vrai code)', () => {
   const log = { ref: 'F-101', id: 7 }
-  const run = (DB) => monde(DB, { _ddtComplet: () => ({ complet: true, manquants: [], expires: [] }) })(P2, '_edlSens', '_pilStatutDoc')._pilStatutDoc
-  it('A2 : bail avec signatures.signedAt → ok', () =>
-    expect(run({})({ debut: '2026-01-01', signatures: { signedAt: '2026-01-01T09:00:00Z' } }, log, 'bail').statut).toBe('ok'))
+  const BSE = { etatSignatureBail: (...a) => etatSignatureBail(...a) }
+  // Le vrai _pilStatutDoc, avec ses vrais voisins (_edlSens, _edlEntreeDuBail, _bailSuivantDebut) et le vrai module d'état.
+  const stat = (DB, bail, type) => {
+    const sb = { DB, Date, String, Object, Array, Number, RegExp, _ddtComplet: () => ({ complet: true }), window: { BailSignatureEtat: BSE } }
+    vm.createContext(sb)
+    vm.runInContext(extraire(P1, '_bailSuivantDebut') + '\n' + ['_edlSens', '_edlEntreeDuBail', '_pilStatutDoc'].map(n => extraire(P2, n)).join('\n'), sb)
+    return sb._pilStatutDoc(bail, log, type)
+  }
+  it('A2 : bail avec signatures.signedAt (électronique) → ok', () =>
+    expect(stat({}, { debut: '2026-01-01', signatures: { signedAt: '2026-01-01T09:00:00Z', mode: 'avec-locataire' } }, 'bail').statut).toBe('ok'))
+  it('A2 : ancien bail signé sans mode → ok', () =>
+    expect(stat({}, { debut: '2026-01-01', signatures: { signedAt: '2026-01-01T09:00:00Z' } }, 'bail').statut).toBe('ok'))
   it('A2 : bail non signé → partial « Non signé »', () =>
-    expect(run({})({ debut: '2026-01-01' }, log, 'bail').label).toBe('Non signé'))
-  it('A3 : EDL d\'entrée dans DB.edl → ok', () =>
-    expect(run({ edl: [{ logement: 'F-101', type: 'entree' }] })({ debut: '2026-01-01' }, log, 'edl').statut).toBe('ok'))
+    expect(stat({}, { debut: '2026-01-01' }, 'bail').label).toBe('Non signé'))
+  it('constat 0.3 : bailleur seul (locataire pas encore signé) → « Signature en cours », jamais OK', () => {
+    const r = stat({}, { debut: '2026-01-01', signatures: { signedAt: '2026-01-01T09:00:00Z', mode: 'bailleur-seul' } }, 'bail')
+    expect(r.statut).toBe('partial')
+    expect(r.label).toBe('Signature en cours')
+  })
+  it('bail signé hors Propryo → ok, bail repris compris', () => {
+    const ext = (extra) => ({ debut: '2019-05-01', ...extra, signatures: { signedAt: '2019-04-20T12:00:00.000Z', mode: 'externe', externe: { date: '2019-04-20' } } })
+    expect(stat({}, ext(), 'bail').statut).toBe('ok')
+    expect(stat({}, ext({ typeContrat: 'repris' }), 'bail').statut).toBe('ok')
+  })
   it('A3 : EDL réellement écrit par l\'app (type « Entrée » avec majuscule et accent) → ok', () => {
-    const r = (type) => monde({ edl: [{ logement: 'F-101', type }], documents: [] }, { _ddtComplet: () => ({ complet: true }) })(P2, '_edlSens', '_pilStatutDoc')._pilStatutDoc({ debut: 'x' }, log, 'edl').statut
-    expect(r('Entrée')).toBe('ok')
+    const r = (type) => stat({ edl: [{ logement: 'F-101', type, date: '2026-01-02' }], documents: [] }, { debut: '2026-01-01' }, 'edl').statut
+    expect(r('Entrée')).toBe('ok')            // la valeur que saveEDL écrit : c'était le bug (0.1)
     expect(r('entree')).toBe('ok')
     expect(r(undefined)).toBe('ok')           // ancien EDL sans type = entrée
-    expect(r('Sortie')).toBe('absent')        // un EDL de sortie ne vaut pas EDL d\'entrée
+    expect(r('Sortie')).toBe('absent')        // un EDL de sortie ne vaut pas EDL d'entrée
   })
   it('A3 : _edlSens normalise casse et accents', () => {
     const f = monde({})(P2, '_edlSens')._edlSens
     expect([f({ type: 'Entrée' }), f({ type: 'ENTRÉE' }), f({ type: 'Sortie' }), f({ type: 'sortie' }), f({}), f(null)]).toEqual(['entree', 'entree', 'sortie', 'sortie', 'entree', 'entree'])
   })
   it('A3 : aucun EDL → absent', () =>
-    expect(run({ edl: [], documents: [] })({ debut: '2026-01-01' }, log, 'edl').statut).toBe('absent'))
-  it('A3 : repli sur un PDF « EDL » / « État des lieux » du logement', () => {
-    const doc = (originalName, parentId = 7) => ({ parentType: 'logement', parentId, originalName })
-    expect(run({ edl: [], documents: [doc('EDL entrée 101.pdf')] })({ debut: 'x' }, log, 'edl').statut).toBe('ok')
-    expect(run({ edl: [], documents: [doc('État des lieux signé.pdf')] })({ debut: 'x' }, log, 'edl').statut).toBe('ok')
-    expect(run({ edl: [], documents: [doc('Facture.pdf')] })({ debut: 'x' }, log, 'edl').statut).toBe('absent')
-    expect(run({ edl: [], documents: [doc('EDL.pdf', 99)] })({ debut: 'x' }, log, 'edl').statut).toBe('absent')
+    expect(stat({ edl: [], documents: [] }, { debut: '2026-01-01' }, 'edl').statut).toBe('absent'))
+  it('l\'EDL d\'entrée du locataire PRÉCÉDENT ne compte pas (avant le début du bail − 31 j)', () => {
+    const bail = { debut: '2026-01-01' }
+    expect(stat({ edl: [{ logement: 'F-101', type: 'Entrée', date: '2022-03-01' }] }, bail, 'edl').statut).toBe('absent')
+    expect(stat({ edl: [{ logement: 'F-101', type: 'Entrée', date: '2025-12-15' }] }, bail, 'edl').statut).toBe('ok')   // dans les 31 j
+    expect(stat({ edl: [{ logement: 'F-101', type: 'Entrée', date: '2025-11-29' }] }, bail, 'edl').statut).toBe('absent')   // 33 j avant
+    expect(stat({ edl: [{ logement: 'F-101', type: 'Entrée' }] }, bail, 'edl').statut).toBe('ok')   // sans date : candidat
+  })
+  it('un EDL d\'entrée du bail SUIVANT (relocation) ne compte pas pour le bail courant archivé', () => {
+    const DB = { edl: [{ logement: 'F-101', type: 'Entrée', date: '2027-02-01' }], baux: {}, baux_historique: [{ ref: 'F-101', debut: '2027-02-01' }] }
+    expect(stat(DB, { ref: 'F-101', debut: '2026-01-01' }, 'edl').statut).toBe('absent')
+  })
+  it('EDL supprimé, d\'un autre logement → absent', () => {
+    expect(stat({ edl: [{ logement: 'F-101', type: 'Entrée', date: '2026-01-02', _deleted: true }] }, { debut: '2026-01-01' }, 'edl').statut).toBe('absent')
+    expect(stat({ edl: [{ logement: 'F-202', type: 'Entrée', date: '2026-01-02' }] }, { debut: '2026-01-01' }, 'edl').statut).toBe('absent')
+  })
+  it('plus de repli par nom de fichier : un PDF « EDL » dans les documents ne vaut plus EDL', () => {
+    const doc = { parentType: 'logement', parentId: 7, originalName: 'EDL entrée 101.pdf' }
+    expect(stat({ edl: [], documents: [doc] }, { debut: 'x' }, 'edl').statut).toBe('absent')
+    expect(P2).not.toMatch(/\\bedl\\b\|etat\\s\*des\\s\*lieux/)
   })
 })
 

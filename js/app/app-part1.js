@@ -3204,6 +3204,9 @@ window.__immoArchiveBailPdf = async function (ref, blob) {
   try {
     bail = DB.baux && DB.baux[ref];
     if (!bail || !bail.signatures || !blob || typeof window.__immoCloudUpload !== 'function') return;
+    // Bail déclaré « signé hors Propryo » : aucune preuve électronique à archiver. Sans ce garde, le test `complet`
+    // ci-dessous (signedAt + mode ≠ 'bailleur-seul') fabriquerait une preuve de signature en présence et un certificat.
+    if (bail.signatures.mode === 'externe') return;
     const seg = _cloudEntiteSeg(_cloudEntiteNomForBail(ref));
     const complet = !!(bail.signatures.signedAt && bail.signatures.mode && bail.signatures.mode !== 'bailleur-seul');
 
@@ -4559,6 +4562,8 @@ async function _sha256Hex(buf) {
 // Certificat de preuve PDF (fichier A4 SÉPARÉ, lisible). Champs alignés sur le DTO de preuve réel
 // du relais (pdfSha256 par signataire, consentElectronic, luApprouve, openedAt, readCompletedAt).
 async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt, opts) {
+  // Jamais de certificat pour un bail signé hors Propryo (aucune preuve électronique : on ne la fabrique pas).
+  if (bail && bail.signatures && bail.signatures.mode === 'externe') throw new Error('Bail signé hors Propryo : pas de certificat de preuve');
   // Mode du DOCUMENT déduit des signataires (chaque item `proof` porte son `mode`). Bail MIXTE
   // (présentiel in-app + distant) → 'mixte'. Repli legacy (proof sans `mode`) : opts.presentiel.
   const _modes = (proof || []).map(p => p && p.mode).filter(Boolean);
@@ -4777,6 +4782,7 @@ async function _ingestSignedBailArtifacts(pdfBlob, certBlob, bail, proof, conten
 async function _regenBailCertificate(ref) {
   const bail = DB.baux && DB.baux[ref];
   const sig = bail && bail.signatures;
+  if (sig && sig.mode === 'externe') { showToast('Bail signé hors Propryo : Propryo ne détient pas de preuve électronique, aucun certificat à régénérer.', 'warn', 6000); return; }
   if (!sig || !Array.isArray(sig.proof) || !sig.contentHash) { showToast('Certificat non régénérable (preuve absente)', 'err', 5000); return; }
   showToast('Régénération du certificat de preuve…', 'info', 2500);
   try {

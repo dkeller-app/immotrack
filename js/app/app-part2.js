@@ -26003,6 +26003,26 @@ function _edlSens(e) {
   const t = String((e && e.type) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   return t === 'sortie' ? 'sortie' : 'entree';
 }
+// L'EDL d'ENTRÉE d'un bail : le sens est « entrée » (casse réelle de saveEDL comprise), même logement, non supprimé, daté dans
+// [début du bail − 31 j, début du bail suivant[ — l'EDL d'entrée du locataire PRÉCÉDENT ne compte plus. Un EDL sans date
+// reste candidat (même tolérance qu'EdlParcours.edlSortieQuiFaitFoi). Rend le plus récent, ou null.
+function _edlEntreeDuBail(bail, log) {
+  const ref = (log && log.ref) || (bail && bail.ref);
+  if (!bail || !ref) return null;
+  const jour = s => String(s || '').slice(0, 10);
+  let min = '';
+  const d0 = jour(bail.debut);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d0)) { const t = new Date(d0 + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() - 31); min = t.toISOString().slice(0, 10); }
+  const avant = (typeof _bailSuivantDebut === 'function') ? _bailSuivantDebut(Object.assign({}, bail, { ref })) : '';
+  let best = null;
+  for (const e of (DB.edl || [])) {
+    if (!e || e._deleted || e.logement !== ref || _edlSens(e) !== 'entree') continue;
+    const d = jour(e.date);
+    if (d) { if (min && d < min) continue; if (avant && d >= avant) continue; }
+    if (!best || d > jour(best.date)) best = e;
+  }
+  return best;
+}
 function _pilStatutDoc(bail, log, type, dateRef) {
   const today = dateRef instanceof Date ? dateRef : new Date();
   const _ok      = { statut:'ok',      color:'#16a34a', bg:'#dcfce7', label:'OK',      txtColor:'#14532d' };
@@ -26014,17 +26034,19 @@ function _pilStatutDoc(bail, log, type, dateRef) {
   if (!bail || !log) return _absent;
 
   if (type === 'bail') {
-    if (bail.signatures && bail.signatures.signedAt) return _ok;
+    // Constat 0.3 : « signé » = contrat CONCLU (étape bailleur seul = signature en cours, pas un bail signé). Un bail signé hors
+    // Propryo est conclu : OK, bail repris compris.
+    const _sg = (typeof window !== 'undefined' && window.BailSignatureEtat) ? window.BailSignatureEtat.etatSignatureBail(bail)
+      : { etat: bail.signatures && bail.signatures.signedAt ? (bail.signatures.mode === 'bailleur-seul' ? 'partiel' : 'electronique') : 'non' };
+    if (_sg.etat === 'externe' || _sg.etat === 'electronique') return _ok;
+    if (_sg.etat === 'partiel') return { statut:'partial', color:'#d97706', bg:'#fef3c7', label:'Signature en cours', txtColor:'#78350f' };
     if (bail.debut) return { statut:'partial', color:'#d97706', bg:'#fef3c7', label:'Non signé', txtColor:'#78350f' };
     return _absent;
   }
   if (type === 'edl') {
-    // RETOURS-2026-10-05 A3 : la collection est DB.edl (pas DB.edls). Repli : un EDL déposé en PDF
-    // dans les documents du logement (nom « EDL » / « état des lieux »), en attendant l'« EDL externe » (C2).
-    const hasEdl = (DB.edl||[]).some(e => e && !e._deleted && e.logement === log.ref && _edlSens(e) === 'entree')
-      || (DB.documents||[]).some(d => d && !d._deleted && d.parentType === 'logement' && String(d.parentId) === String(log.id)
-          && /\bedl\b|etat\s*des\s*lieux/i.test(String(d.originalName || d.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')));
-    return hasEdl ? _ok : _absent;
+    // La collection est DB.edl (pas DB.edls). Un EDL d'ENTRÉE de CE bail (sens normalisé : saveEDL écrit « Entrée »). Plus de repli
+    // par nom de fichier : l'EDL fait hors Propryo (saisi comme tel) le remplace.
+    return _edlEntreeDuBail(bail, log) ? _ok : _absent;
   }
   if (type === 'mrh') {
     const mrh = (DB.mrh||[]).find(m => m && !m._deleted && m.logement === log.ref);
