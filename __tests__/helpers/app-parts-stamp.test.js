@@ -48,6 +48,16 @@ describe('empreintes de cache-busting', () => {
     expect(iMain).toBeGreaterThan(iEntry)
   })
 
+  it('un échec de chargement (503 passager de GitHub Pages…) de main.js, de l’entrée ou d’une app-part déclenche __immoPartFail (rechargement unique)', async () => {
+    const html = await indexHtml()
+    for (const re of [/<script type="module" src="js\/main\.js"[^>]*onerror="window\.__immoPartFail/, /<script type="module" src="js\/app\/supabase-entry\.js"[^>]*onerror="window\.__immoPartFail/]) {
+      expect(html).toMatch(re)
+    }
+    const parts = [...html.matchAll(/<script src="js\/app\/app-part\d\.js[^>]*>/g)]
+    expect(parts.length).toBe(3)
+    for (const m of parts) expect(m[0]).toContain('onerror="window.__immoPartFail')
+  })
+
   it('css/login.css et js/vendor/pdf-libs.b64.js portent leur sha1 courant', async () => {
     const html = await indexHtml()
     const css = /id="imsb-style-link" href="css\/login\.css\?v=([0-9a-f]+)"/.exec(html)
