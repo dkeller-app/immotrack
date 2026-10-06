@@ -10,7 +10,7 @@
 | IRL & courriers (Sonnet) | lecture faite | valeur du champ « Trimestre IRL » du 103 + ce qu'affiche la ligne Révisions | `feat/irl-courriers` (pas encore poussée) |
 | Stockage lots 2-3 (Opus) | **v15.720 lot 2** livré sur branche · lot 3 codé (verdict, saveDB, carte Réglages), tests en adaptation | smoke + GO lot 2 | `feat/stockage-lots-2-3` |
 | Vague 3 | Écrans (B2, C1, C5, vue Charges sans immeuble, toasts M-15) — après Finances · Mise en production (reste : Stripe, comptable) | | |
-⚠ **Quota** : limite hebdomadaire en alerte (`seven_day allowed_warning`, remise à zéro ~13/10) — éviter de lancer de nouvelles sessions avant d'avoir intégré les livraisons.
+⚠ **Quota** : limite hebdomadaire en alerte (`seven_day allowed_warning`, remise à zéro lundi 12/10 vers 13h (heure de Paris)) — éviter de lancer de nouvelles sessions avant d'avoir intégré les livraisons.
 
 **Versions (attribuées par le pilotage, 06/10)** : main = v15.716 · v15.717 = Fusion SCI (partage, branche `fix/fusion-sci`) · **v15.718 = Bail en cours lot A** · v15.719 = alerte régul N-1 (renumérotée, voir ci-dessous) · **v15.720 = Stockage lot 2** · **v15.721 = Stockage lot 3** · **v15.722–725 = Bail en cours phase 4** (722 DG versé · 723 nom d'affichage · 724 bail/EDL hors Propryo + signature expirée · 725 bouton Modifier des périodes). Prochaine libre : **v15.726**.
 
