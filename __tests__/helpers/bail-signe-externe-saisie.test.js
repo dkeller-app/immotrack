@@ -242,8 +242,9 @@ describe('affichage : badges, carte Documents, matrice', () => {
     expect(P2).toMatch(/_sigExt \? 'Bail signé hors Propryo' : 'Bail signé'\} — /)
   })
   it('aperçus : un bail externe n\'ouvre jamais « tel que signé » (snapshot) ni un PDF signé archivé', () => {
-    expect(extraire(P1, 'function previewSignedBailRef(')).toMatch(/mode === 'externe'\) \{ previewBailData\(bail, log, ref\); return; \}/)
-    expect(extraire(P1, 'function previewBailRef(')).toMatch(/mode === 'externe'\) \{ previewBailData\(bail, log, ref\); return; \}/)
+    // (étape 3 : le PDF déposé s'ouvre d'abord, s'il existe ; sinon le document établi par Propryo, avec son bandeau)
+    expect(extraire(P1, 'function previewSignedBailRef(')).toMatch(/mode === 'externe'\) \{ if \(_bailScanExterne\(ref, bail\)\) \{[^}]*\} previewBailData\(bail, log, ref\); return; \}/)
+    expect(extraire(P1, 'function previewBailRef(')).toMatch(/mode === 'externe'\) \{ if \(_bailScanExterne\(ref, bail\)\) \{[^}]*\} previewBailData\(bail, log, ref\); return; \}/)
     expect(P1).toMatch(/document établi par Propryo|document \\u00e9tabli par Propryo/)
   })
   it('l\'aperçu d\'un bail externe n\'offre ni « Démarrer signature » ni « PDF »', () => {

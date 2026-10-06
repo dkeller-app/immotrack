@@ -1915,6 +1915,15 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
             <button class="btn bs" type="button" onclick="_bailExterneDateDebut()" title="Date de signature inconnue : reprendre la date de début du bail, notée « approximative »">Prendre la date de début</button>
             <span class="mu sm" id="b-externe-approx" style="display:none">Date approximative (date de début du bail)</span>
           </div>
+          <div style="margin-top:12px">
+            <label class="mu sm" style="display:block;margin-bottom:4px"><b>Pièce jointe</b> (facultatif — ajoutable plus tard depuis la fiche du bail ou l'onglet Documents)</label>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div class="inp" id="b-externe-pj-nom" style="flex:1;min-width:160px;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Aucun fichier</div>
+              <button class="btn bs" type="button" id="b-externe-pj-choisir" onclick="_bailExterneChoisirPj()">Choisir un PDF</button>
+              <button class="btn bs" type="button" id="b-externe-pj-retirer" onclick="_bailExterneRetirerPj()" style="display:none">Retirer</button>
+            </div>
+            <input type="file" id="b-externe-file" accept="application/pdf,image/*" style="display:none" onchange="_bailExterneFichierPris(this)">
+          </div>
         </div>
       </div>
       <hr style="border:none;border-top:1px solid var(--bor);margin:12px 0">
@@ -4572,8 +4581,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=8ced361a" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=b7567742" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=7f5ec687" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=50ab243e" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

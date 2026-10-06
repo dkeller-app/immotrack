@@ -14120,6 +14120,14 @@ function openBailMenu(evt, ref, full) {
     items.push(`<button class="bmp-item" onclick="_closeBienMenus();previewBailRef('${refEsc}')">${_uiIcon('eye')}Aperçu du bail</button>`);
   }
   items.push(`<button class="bmp-item" onclick="_closeBienMenus();genActeCautionnementRef('${refEsc}')">${_uiIcon('doc-text')}Aperçu acte de cautionnement (garant)</button>`);
+  if (bail && bail.signatures && bail.signatures.mode === 'externe') {
+    const _sc = _bailScanExterne(ref, bail);
+    if (_sc) {
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneOuvrir('${refEsc}')">${_uiIcon('doc')}Ouvrir le PDF du bail signé</button>`);
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneChoisir('${refEsc}')">${_uiIcon('refresh')}Remplacer le PDF du bail signé…</button>`);
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneRetirerRef('${refEsc}')">${_uiIcon('trash')}Retirer le PDF du bail signé</button>`);
+    } else items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneChoisir('${refEsc}')">${_uiIcon('doc')}Ajouter le PDF du bail signé…</button>`);
+  }
   if (bail && bail.signatures && bail.signatures.signedAt) {
     items.push(`<button class="bmp-item" onclick="_closeBienMenus();resetBailSignatures('${refEsc}')" style="color:#92400e">${_uiIcon('refresh')}${bail.signatures.mode === 'externe' ? 'Retirer « signé hors Propryo »…' : 'Réinitialiser les signatures…'}</button>`);
   }
@@ -16633,6 +16641,8 @@ function _bailRenderSignatureDateField(bail) {
   // BAIL-EN-COURS-SIGNE-HORS-PROPRYO : électronique ou partiel → date verrouillée « Signé le … » (inchangé). Externe → date
   // ÉDITABLE (corriger la date = re-déclaration, confirmée à l'enregistrement). Case masquée sur un bail signé électroniquement.
   window._bailExtCtx = { etat: st.etat, signedDay: st.date || '' };
+  _bailExtFichier = null; _bailExtRetirer = false;   // PJ en attente : propre à CE formulaire
+  const _fi = el('b-externe-file'); if(_fi) _fi.value = '';
   _bailExtApprox = !!(sg.externe && sg.externe.dateApprox);
   const fg = el('b-externe-fg'), chk = el('b-externe');
   if(chk) chk.checked = st.etat === 'externe';
@@ -16678,6 +16688,7 @@ function _bailExterneToggle() {
     inp.addEventListener('input', function(){ _bailExtApprox = false; _bailExterneApproxAfficher(); });
   }
   _bailExterneApproxAfficher();
+  _bailExternePjAfficher();
 }
 function _bailExterneApproxAfficher() {
   const n = el('b-externe-approx'), chk = el('b-externe');
@@ -16690,6 +16701,127 @@ function _bailExterneDateDebut() {
   el('b-dateSignature').value = d;
   _bailExtApprox = true;
   _bailExterneApproxAfficher();
+}
+// ── PDF du bail signé hors Propryo (facultatif) — un DOCUMENT À CÔTÉ du bail (§1.3) ─────────────────────────────────────
+// Pas dans bail.signatures : la ligne cloud du bail est verrouillée dès le premier flush, une référence ajoutée ensuite ne serait
+// jamais réécrite. Le lien passe par signedAt (comme journalDuBail) : ajouter, remplacer, retirer le PDF ne touche JAMAIS le bail.
+let _bailExtFichier = null;    // fichier choisi dans la modale, déposé APRÈS l'enregistrement
+let _bailExtRetirer = false;   // « Retirer » le PDF déjà déposé (appliqué à l'enregistrement)
+function _bailScanDocsExternes(ref, bail) {
+  const bare = String(ref).split('@@')[0];
+  const esp = bail && bail._espaceId != null ? String(bail._espaceId) : '';
+  return (DB.documents || []).filter(d => d && !d._deleted && d.nature === 'bail-signe-externe' && d.parentType === 'bail'
+      && String(d.parentRef) === bare && String(d._espaceId != null ? d._espaceId : '') === esp)
+    .sort((a, b) => String(b.uploadedAt || '').localeCompare(String(a.uploadedAt || '')));
+}
+// Le PDF de la déclaration COURANTE : document vivant le plus récent, même ref, même signedAt, même espace.
+function _bailScanExterne(ref, bail) {
+  const b = bail || (DB.baux && DB.baux[ref]);
+  const s = b && b.signatures;
+  if (!s || s.mode !== 'externe' || !s.signedAt) return null;
+  return _bailScanDocsExternes(ref, b).find(d => d.bailSignedAt === s.signedAt) || null;
+}
+// PDF d'une déclaration PRÉCÉDENTE (retirée ou re-datée) : conservé, jamais perdu, proposé à la réutilisation.
+function _bailScansExternesOrphelins(ref, bail) {
+  const s = bail && bail.signatures;
+  const courant = (s && s.mode === 'externe') ? s.signedAt : null;
+  // Même bail seulement (même date de début) : le PDF d'un locataire précédent du même logement n'est jamais proposé.
+  return _bailScanDocsExternes(ref, bail).filter(d => (!courant || d.bailSignedAt !== courant) && String(d.bailDebut || '') === String((bail && bail.debut) || ''));
+}
+function _bailScanFmtTaille(n) {
+  n = Number(n) || 0;
+  return n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' Mo' : Math.max(1, Math.round(n / 1024)) + ' Ko';
+}
+// Dépose (ou remplace) le PDF de la déclaration courante. Le bail n'est JAMAIS modifié ; un échec laisse le bail déclaré signé.
+async function _bailScanExterneDeposer(ref, fichier) {
+  const bail = DB.baux && DB.baux[ref];
+  if (!bail || _bailEtatSig(bail).etat !== 'externe' || !fichier) return false;
+  const bare = String(ref).split('@@')[0];
+  const ancien = _bailScanExterne(ref, bail);   // lu AVANT le dépôt : le nouveau document n'est pas encore marqué
+  let doc;
+  try { doc = await _attachmentSaveForEntity({ type: 'bail', id: bare, ref: bare, logRef: bare, category: 'bail' }, fichier); }
+  catch (e) { showToast('Le bail est bien enregistré comme signé hors Propryo, mais le dépôt du PDF a échoué (' + ((e && e.message) || 'erreur') + '). Le déposer plus tard depuis la fiche du bail ou l\'onglet Documents.', 'err', 9000); return false; }
+  Object.assign(doc, { nature: 'bail-signe-externe', bailSignedAt: bail.signatures.signedAt, bailDebut: bail.debut || '', _modifiedAt: new Date().toISOString() });
+  if (bail._espaceId != null) doc._espaceId = bail._espaceId;   // routage du partage SCI, comme les entrées de journal
+  if (ancien && ancien.id !== doc.id) await _attachmentDelete(ancien.id);   // remplacé : tombstone de l'ancien (jamais réécrit) ; le fichier cloud reste
+  else saveDB();
+  return true;
+}
+function _bailScanExterneOuvrir(ref) {
+  const d = _bailScanExterne(ref);
+  if (!d) { showToast('Aucun PDF déposé pour ce bail', 'warn'); return; }
+  if (typeof _handleAttachmentOpen === 'function') _handleAttachmentOpen(d.id);
+}
+function _bailScanExterneOuvrirDoc(docId) { if (typeof _handleAttachmentOpen === 'function') _handleAttachmentOpen(docId); }
+// Ajouter / remplacer APRÈS COUP (fiche du bail, onglet Documents).
+function _bailScanExterneChoisir(ref) {
+  const bail = DB.baux && DB.baux[ref];
+  if (!bail || _bailEtatSig(bail).etat !== 'externe') { showToast('Ce bail n\'est pas déclaré signé hors Propryo', 'warn'); return; }
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,image/*';
+  inp.onchange = async function () {
+    let f = null; try { f = await _avenantLireFichier(inp); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+    if (!f) return;
+    if (await _bailScanExterneDeposer(ref, f)) {
+      showToast('PDF du bail déposé.', 'ok', 4000);
+      if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+    }
+  };
+  inp.click();
+}
+async function _bailScanExterneRetirerRef(ref) {
+  const d = _bailScanExterne(ref);
+  if (!d) return;
+  if (!confirm2('Retirer le PDF du bail signé hors Propryo (' + (d.originalName || d.name) + ') ?\n\nLe bail reste déclaré signé. Le fichier déjà envoyé au cloud est conservé (preuve).')) return;
+  await _attachmentDelete(d.id);
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  showToast('PDF du bail retiré', 'ok', 4000);
+}
+// Modale « Modifier le bail » : le fichier est mis EN ATTENTE, déposé après l'enregistrement.
+function _bailExterneChoisirPj() { const i = el('b-externe-file'); if(i) i.click(); }
+async function _bailExterneFichierPris(input) {
+  let f = null; try { f = await _avenantLireFichier(input); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+  if (!f) return;
+  _bailExtFichier = f; _bailExtRetirer = false;
+  _bailExternePjAfficher();
+}
+function _bailExterneRetirerPj() {
+  if (_bailExtFichier) { _bailExtFichier = null; const i = el('b-externe-file'); if(i) i.value = ''; }
+  else if (_bailExterneScanExistant()) _bailExtRetirer = true;
+  _bailExternePjAfficher();
+}
+function _bailExterneScanExistant() {
+  const r = v('b-edit-ref'); const b = r ? DB.baux[r] : null;
+  return b ? _bailScanExterne(r, b) : null;
+}
+function _bailExternePjAfficher() {
+  const nom = el('b-externe-pj-nom'), bc = el('b-externe-pj-choisir'), br = el('b-externe-pj-retirer'); if(!nom) return;
+  const exist = _bailExtRetirer ? null : _bailExterneScanExistant();
+  let txt = 'Aucun fichier', has = false;
+  if (_bailExtFichier) { txt = '\ud83d\udcce ' + _bailExtFichier.name + ' \u00b7 ' + _bailScanFmtTaille(_bailExtFichier.size); has = true; }
+  else if (exist) { txt = '\ud83d\udcce ' + (exist.originalName || exist.name) + ' \u00b7 ' + _bailScanFmtTaille(exist.size); has = true; }
+  else if (_bailExtRetirer) txt = 'Aucun fichier (le PDF sera retiré à l\'enregistrement)';
+  nom.textContent = txt;
+  if (bc) bc.textContent = has ? 'Remplacer' : 'Choisir un PDF';
+  if (br) br.style.display = has ? '' : 'none';
+}
+// Après l'enregistrement du bail : dépôt / remplacement / retrait du PDF, et proposition de réutiliser le PDF d'une déclaration précédente.
+async function _bailExterneApresSave(ref, ext) {
+  const f = _bailExtFichier, retirer = _bailExtRetirer;
+  _bailExtFichier = null; _bailExtRetirer = false;
+  const bail = DB.baux && DB.baux[ref];
+  if (!bail || _bailEtatSig(bail).etat !== 'externe') return;
+  let touche = false;
+  if (f) touche = await _bailScanExterneDeposer(ref, f);
+  else if (retirer) { const d = _bailScanExterne(ref, bail); if (d) { await _attachmentDelete(d.id); touche = true; } }
+  else if (ext && (ext.action === 'declarer' || ext.action === 'redater') && !_bailScanExterne(ref, bail)) {
+    const orph = _bailScansExternesOrphelins(ref, bail)[0];
+    if (orph && confirm2('Un PDF de la déclaration précédente est déjà déposé (' + (orph.originalName || orph.name) + ').\n\nLe rattacher à cette déclaration ?')) {
+      const data = await _attachmentLoadBinary(orph);
+      if (data) { touche = await _bailScanExterneDeposer(ref, { name: orph.originalName || orph.name, mime: orph.mime, size: orph.size, dataB64: data }); if (touche) await _attachmentDelete(orph.id); }
+      else showToast('Fichier précédent introuvable : le déposer de nouveau.', 'warn', 6000);
+    }
+  }
+  if (touche && typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
 }
 function _bailAuteurCourant() {
   const ci = (typeof window !== 'undefined' && window.__immoCloudInfo) || {};
@@ -18016,6 +18148,7 @@ function saveBail() {
   } else if (_ext.action === 'retirer') showToast('Bail enregistré : « signé hors Propryo » retiré (déclaration conservée dans l\'historique)', 'ok', 7000);
   else if (_ext.action) showToast('Bail enregistré : signé hors Propryo le ' + fd(_ext.date) + (_ext.approx ? ' (date approximative)' : ''), 'ok', 7000);
   else showToast('Bail enregistré','ok');
+  _bailExterneApresSave(ref, _ext);   // PDF facultatif : déposé APRÈS l'enregistrement (jamais bloquant)
   suggestSave('Bail');
   // LOG-CANDIDATS Phase 6 : si ce save finalise une conversion candidat, migrer
   // les pièces + archiver le candidat. Consommé une seule fois (reset immédiat).
@@ -18131,7 +18264,7 @@ function previewSignedBailRef(ref) {
   const log = DB.logements.find(l => l.ref === ref);
   // Bail signé HORS PROPRYO : pas de « version signée » dans Propryo (le bail signé est l'exemplaire papier) → aperçu du document
   // établi à partir de la saisie, avec son bandeau (previewBailData).
-  if (bail.signatures.mode === 'externe') { previewBailData(bail, log, ref); return; }
+  if (bail.signatures.mode === 'externe') { if (_bailScanExterne(ref, bail)) { _bailScanExterneOuvrir(ref); return; } previewBailData(bail, log, ref); return; }
   if (!bail.signatures.bailSnapshot) {
     // BAIL-SIGNE-MODIFS — bail déjà modifié depuis sa signature (journal) : aucun snapshot ne sera
     // recréé (il figerait un état jamais signé) → le dire, sans proposer un chemin qui ne ferait rien.
@@ -18169,7 +18302,7 @@ function previewBailRef(ref) {
   const bail = DB.baux[ref]; const log = DB.logements.find(l=>l.ref===ref);
   const sig = bail && bail.signatures;
   if (sig && sig.signedAt) {
-    if (sig.mode === 'externe') { previewBailData(bail, log, ref); return; }   // hors Propryo : aucun PDF signé archivé par Propryo
+    if (sig.mode === 'externe') { if (_bailScanExterne(ref, bail)) { _bailScanExterneOuvrir(ref); return; } previewBailData(bail, log, ref); return; }   // hors Propryo : aucun PDF signé archivé par Propryo
     const pdfKey    = sig.cloudPdfKey || (sig.pdfRef && sig.pdfRef.cloudPdfKey);
     const pdfLegacy = sig.driveWebViewLink || (sig.pdfRef && sig.pdfRef.driveWebViewLink);
     // v15.408 (audit mineur) — bail signé bailleur-seul entre les 2 phases : le PDF archivé est
