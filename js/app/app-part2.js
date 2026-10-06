@@ -97,7 +97,7 @@ function _buildEmailCtxFromRef(ref, extraCtx) {
     // un e-mail parti après une révision IRL n'annonce plus l'ancien loyer du bail. Un envoi qui porte sur
     // une date (période réclamée, quittance) fournit son propre `montant` via extraCtx, qui l'emporte
     // (mise en demeure : montant saisi). Aucun acte signé ni document déjà généré n'est relu ici.
-    montant: _loyerEnVigueurLot(ref, bail, log),
+    montant: (function(){ const m = _loyerEnVigueurLot(ref, bail, log); return m == null ? '‹montant›' : m; })(),
     periode: '', // À compléter par extraCtx selon le type
     // Date en clair : ces modèles l'impriment en toutes lettres (« Fait à …, le … »).
     dateLettre: fd(td()),
@@ -10907,7 +10907,9 @@ function _renderLogFicheHeroStats(log, ref) {
   if(bail) {
     // R-0 (lot 1, R5) : le loyer EN VIGUEUR aujourd'hui — LA règle partagée avec la fiche téléphone.
     const loyer = _loyerEnVigueurLot(ref, bail, log);
-    loyerKPI = { v: fmt(loyer), unit: '/mois', label: 'Loyer actuel', cls: 'k-money' };
+    loyerKPI = (loyer == null)
+      ? { v: '—', unit: '', label: 'Loyer à renseigner', cls: 'k-mute' }     // bail sans montant : rien d'inventé
+      : { v: fmt(loyer), unit: '/mois', label: 'Loyer actuel', cls: 'k-money' };
   } else {
     // LOYER-REFERENCE — bien vacant : afficher le LOYER SOUHAITÉ (loyer de référence), éditable (✏️),
     // avec rappel du dernier bail en sous-titre s'il diffère (variante B). C'est cette valeur qui
@@ -13432,17 +13434,29 @@ function _histoBailEnVigueur(ref){
 // Le lot est « loué » à son bail COURANT (audit 06/10) : si ce bail commence plus tard (relocation
 // signée d'avance), on lit à SA date de début — au jour même, « dernier bail terminé » rendait le
 // loyer de l'ancien locataire sous le nom du nouveau. Bail courant SANS date de début : le moteur ne
-// peut pas le placer dans le temps (il retombait sur le loyer SOUHAITÉ de la fiche du lot) → ce bail.
-// Repli file:// (modules absents) : bail, puis fiche du lot, champ par champ.
+// peut pas le placer dans le temps → ce que porte ce bail.
+// NE RIEN INVENTER (pilotage 06/10) : bail courant SANS MONTANT (loyer HC vide) et aucune période du
+// barème qui le fixe à la date lue → null (« Loyer à renseigner »). Jamais le loyer de la fiche du lot
+// (souvent le loyer SOUHAITÉ de la prochaine relocation). Un 0 réellement saisi vaut 0.
+// Repli file:// (modules absents) : ce que porte le bail, même règle.
 function _loyerEnVigueurLot(ref, bail, log){
-  const _duBail = (b, l) => (+((b && b.hc) || (l && l.hc)) || 0) + (+((b && b.ch) || (l && l.ch)) || 0);
-  if (typeof loyerDuLotA !== 'function' || typeof _ctxLoyerLot !== 'function') return _duBail(bail, log);
+  // « vide » = pas un montant valide (même règle que `num` de loyerDuLotA / `montantSaisi`) : '', espaces,
+  // null, texte, négatif. Un 0 réellement saisi est un montant.
+  const _vide = (v) => { if (v == null || String(v).trim() === '') return true; const x = Number(v); return !(Number.isFinite(x) && x >= 0); };
+  const _duBail = (b) => (!b || _vide(b.hc)) ? null : (Number(b.hc) || 0) + (Number(b.ch) || 0);
+  if (typeof loyerDuLotA !== 'function' || typeof _ctxLoyerLot !== 'function') return _duBail(bail);
   const ctx = _ctxLoyerLot(ref);
   const cur = (ctx.bailCourant && !ctx.bailCourant._deleted && !ctx.bailCourant.cloture) ? ctx.bailCourant : null;
-  if (cur && !cur.debut) return _duBail(cur, ctx.lot || log);   // lot trouvé en tolérant (e-mails : log partiel)
+  if (cur && !cur.debut) return _duBail(cur);
   const today = _histoBailTodayIso();
   const debutCur = cur ? String(cur.debut).slice(0, 10) : '';
-  const r = loyerDuLotA(debutCur > today ? debutCur : today, ref, ctx);
+  const date = debutCur > today ? debutCur : today;
+  if (cur && _vide(cur.hc)) {
+    const p = (typeof window !== 'undefined' && typeof window._loyerPeriodeEnVigueurA === 'function')
+      ? window._loyerPeriodeEnVigueurA(ctx.bareme, ref, date) : null;
+    if (!p || _vide(p.hc)) return null;          // ni le bail ni le barème ne portent de montant
+  }
+  const r = loyerDuLotA(date, ref, ctx);
   return (Number(r && r.hc) || 0) + (Number(r && r.ch) || 0);
 }
 function _histoBailChapId(key){ return 'hbc-'+String(key).replace(/[^a-z0-9|_-]/gi,'_'); }
@@ -15011,7 +15025,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.722 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.723 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -16889,9 +16903,9 @@ function _renderLogFichePhStrip(log, bail, ref){
   if(bail){
     // R-0 : le loyer EN VIGUEUR aujourd'hui, LA règle de la fiche PC (`_loyerEnVigueurLot`). Ce n'est
     // plus le dû du mois (`_duMoisLot`, proratisé : 718,71 € ici contre 680 € sur PC, audit 06/10).
-    let loyer = 0;
-    try { loyer = _loyerEnVigueurLot(ref, bail, log); }
-    catch(e){ loyer = (+bail.hc||+log.hc||0) + (+bail.ch||+log.ch||0); }
+    // Bail sans montant : « — / Loyer à renseigner », jamais le loyer de la fiche du lot.
+    let loyer = null;
+    try { loyer = _loyerEnVigueurLot(ref, bail, log); } catch(e){ loyer = null; }
     const dep   = (+bail.dg||+log.dg||0);
     let fin = 'en cours';
     if(bail.fin && /^\d{4}-\d{2}/.test(bail.fin)) fin = bail.fin.slice(5,7)+'/'+bail.fin.slice(2,4);
@@ -16906,7 +16920,7 @@ function _renderLogFichePhStrip(log, bail, ref){
         }
       }
     }catch(e){}
-    cells.push({v: fmt(loyer), k: 'Loyer'});
+    cells.push(loyer == null ? {v: '—', k: 'Loyer à renseigner'} : {v: fmt(loyer), k: 'Loyer'});
     cells.push({v: fmt(dep),   k: 'Dépôt'});
     cells.push({v: fin,        k: 'Fin bail'});
     cells.push({v: sV, k: 'Solde', cls: sCls});

@@ -18,6 +18,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { enVigueur } from '../../js/core/bail-historique.js';
 import { loyerDuLotA } from '../../js/core/legal-bilan.js';
+import { periodeEnVigueurA } from '../../js/core/loyer-du-mois.js';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
 import { extraireFonction } from './_extraction-source.js';
 
@@ -56,7 +57,7 @@ describe('R5 — fiche du bien (PC et téléphone) : le loyer EN VIGUEUR aujourd
     const DB = { logements: [lot], baux: { A1: bail }, baux_historique: hists, loyerBareme: bareme, mouvements: [] };
     const fn = monter(['_renderLogFicheHeroStats', '_renderLogFichePhStrip', '_loyerEnVigueurLot', '_ctxLoyerLot',
       '_histoBailEnVigueur', '_histoBailTodayIso'], {
-      DB, window: module ? { _bailHistoEnVigueur: enVigueur } : {}, loyerDuLotA: module ? loyerDuLotA : undefined,
+      DB, window: module ? { _bailHistoEnVigueur: enVigueur, _loyerPeriodeEnVigueurA: periodeEnVigueurA } : {}, loyerDuLotA: module ? loyerDuLotA : undefined,
       td: () => auj, fmt: (n) => String(Math.round((n || 0) * 100) / 100) + ' €', escHtml: (x) => String(x == null ? '' : x),
       _isAlive: (x) => !!x && !x._deleted, _bienIsBailActif: () => true, _bienActiveBail: () => bail,
       _findBailByRefTolerant: (ref) => DB.baux[ref] || null,
@@ -65,8 +66,10 @@ describe('R5 — fiche du bien (PC et téléphone) : le loyer EN VIGUEUR aujourd
     });
     const h = fn._renderLogFicheHeroStats(lot, 'A1');
     const m = h.match(/logf-stat-v k-money">([^<]*)<small>\/mois<\/small><\/div>\s*<div class="logf-stat-l">Loyer actuel/);
-    const tel = (fn._renderLogFichePhStrip(lot, bail, 'A1').find((c) => c.k === 'Loyer') || {}).v;
-    return { pc: m ? m[1] : 'KPI introuvable', tel, bandeauBail: fn._histoBailEnVigueur('A1') };
+    const pcVide = /logf-stat-v k-mute">—<\/div>\s*<div class="logf-stat-l">Loyer à renseigner/.test(h);
+    const c = fn._renderLogFichePhStrip(lot, bail, 'A1').find((x) => x.k === 'Loyer' || x.k === 'Loyer à renseigner') || {};
+    const tel = c.k === 'Loyer à renseigner' ? (c.v === '—' ? 'À RENSEIGNER' : 'cellule incohérente') : c.v;
+    return { pc: m ? m[1] : (pcVide ? 'À RENSEIGNER' : 'KPI introuvable'), tel, bandeauBail: fn._histoBailEnVigueur('A1') };
   };
 
   it('IRL de juillet appliquée au barème : 770 € sur PC ET sur téléphone (pas les 750 € du bail)', () => {
@@ -147,11 +150,39 @@ describe('R5 — fiche du bien (PC et téléphone) : le loyer EN VIGUEUR aujourd
     expect([r.pc, r.tel]).toEqual(['750 €', '750 €']);
   });
 
-  it('modules non chargés (file://) : repli bail, puis fiche du lot champ par champ, sans erreur', () => {
+  it('modules non chargés (file://) : ce que porte le bail, sans erreur ; bail sans montant → « Loyer à renseigner »', () => {
     expect(rendu({ module: false }).pc).toBe('750 €');
     const sansMontant = { ...BAIL, hc: '' };
     const r = rendu({ module: false, bail: sansMontant });
-    expect([r.pc, r.tel]).toEqual(['760 €', '760 €']);          // hc du lot (710) + ch du bail (50)
+    expect([r.pc, r.tel]).toEqual(['À RENSEIGNER', 'À RENSEIGNER']);   // jamais le loyer de la fiche du lot
+  });
+
+  it('bail courant SANS montant, aucun barème : « — / Loyer à renseigner », jamais le loyer souhaité du lot (pilotage 06/10)', () => {
+    const sansMontant = { ref: 'A1', debut: '2024-10-20', hc: '', ch: 40, locataires: [{ nom: 'Tom' }] };
+    const lot = { ref: 'A1', hc: 700, ch: 30, loyerHcRef: 900 };
+    const r = rendu({ bail: sansMontant, bareme: [], lot });
+    expect([r.pc, r.tel]).toEqual(['À RENSEIGNER', 'À RENSEIGNER']);
+    const r2 = rendu({ bail: { ...sansMontant, debut: undefined }, bareme: [], lot });   // sans début non plus
+    expect([r2.pc, r2.tel]).toEqual(['À RENSEIGNER', 'À RENSEIGNER']);
+  });
+
+  it('bail sans montant mais barème renseigné à la date : le barème fait foi (aucune invention)', () => {
+    const sansMontant = { ...BAIL, hc: '' };
+    const r = rendu({ bail: sansMontant });
+    expect([r.pc, r.tel]).toEqual(['770 €', '770 €']);
+  });
+
+  it('montant de bail NON VALIDE (texte, négatif) : « Loyer à renseigner », jamais le loyer souhaité du lot', () => {
+    for (const hc of ['abc', '700,50', -5, '  ']) {
+      const r = rendu({ bail: { ref: 'A1', debut: '2024-10-20', hc, ch: 40 }, bareme: [], lot: { ref: 'A1', hc: 700, ch: 30, loyerHcRef: 900 } });
+      expect([r.pc, r.tel], String(hc)).toEqual(['À RENSEIGNER', 'À RENSEIGNER']);
+    }
+  });
+
+  it('un loyer de 0 RÉELLEMENT saisi (logement de fonction) vaut 0, pas « à renseigner »', () => {
+    const gratuit = { ref: 'A1', debut: '2024-10-20', hc: 0, ch: 0, locataires: [{ nom: 'Tom' }] };
+    const r = rendu({ bail: gratuit, bareme: [], lot: { ref: 'A1', hc: 700, ch: 30, loyerHcRef: 900 } });
+    expect([r.pc, r.tel]).toEqual(['0 €', '0 €']);
   });
 
   it('une seule règle : les deux fiches appellent `_loyerEnVigueurLot`, plus de `_duMoisLot` pour « Loyer »', () => {
@@ -170,11 +201,11 @@ describe('E-mails — le `montant` du contexte = le loyer en vigueur (même règ
     { ref: 'A1', debut: '2026-10-20', hc: 740, ch: 50 },
   ];
   afterEach(() => vi.useRealTimers());
-  const ctx = (auj, extra) => {
+  const ctx = (auj, extra, bail = BAIL, bareme = BAREME) => {
     vi.useFakeTimers(); vi.setSystemTime(new Date(auj + 'T10:00:00'));
-    const DB = { logements: [{ ref: 'A1', hc: 700, ch: 50, entity: 'SCI X' }], baux: { A1: BAIL }, baux_historique: [], loyerBareme: BAREME, entites: [{ nom: 'SCI X' }] };
+    const DB = { logements: [{ ref: 'A1', hc: 700, ch: 50, loyerHcRef: 900, entity: 'SCI X' }], baux: { A1: bail }, baux_historique: [], loyerBareme: bareme, entites: [{ nom: 'SCI X' }] };
     const fn = monter(['_buildEmailCtxFromRef', '_loyerEnVigueurLot', '_ctxLoyerLot', '_histoBailTodayIso'], {
-      DB, window: {}, loyerDuLotA, td: () => auj, fd: (x) => x,
+      DB, window: { _loyerPeriodeEnVigueurA: periodeEnVigueurA }, loyerDuLotA, td: () => auj, fd: (x) => x,
       _findBailByRefTolerant: (ref) => DB.baux[ref] || null, Math, Number, String, Object, Array, Date,
     });
     return fn._buildEmailCtxFromRef('A1', extra);
@@ -187,6 +218,10 @@ describe('E-mails — le `montant` du contexte = le loyer en vigueur (même règ
   it('une révision programmée au 20/10 n’est annoncée qu’à sa date d’effet', () => {
     expect(ctx('2026-10-19').montant).toBe(770);
     expect(ctx('2026-10-20').montant).toBe(790);
+  });
+
+  it('bail sans montant et sans barème : marqueur « ‹montant› », jamais le loyer souhaité du lot', () => {
+    expect(ctx('2026-10-06', undefined, { ...BAIL, hc: '' }, []).montant).toBe('‹montant›');
   });
 
   it('un envoi qui porte son propre montant (mise en demeure : montant saisi) l’emporte', () => {
