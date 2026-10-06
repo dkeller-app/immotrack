@@ -151,6 +151,17 @@ describe('jeton d’UNE AUTRE personne déjà présent (audit : le choix du clic
     expect(local.getItem(TOKEN)).toBeNull()
   })
 
+  it('création de compte PUIS connexion (confirmation sans session) : ré-armer le choix avant l’étape 2 évite l’attraction du jeton étranger', () => {
+    const local = mem(), session = mem()
+    local.setItem(TOKEN, 'jwt-A')                                // jeton persistant d'une autre personne
+    const s = createAuthStorage({ local, session })
+    s.setPersist(false)                                          // clic de B
+    s.annulerChoix()                                             // étape 1 (signUp) : aucune session écrite, choix désarmé
+    s.setPersist(s.isPersistent())                               // _rearmerChoixAuth() avant l'étape 2
+    s.setItem(TOKEN, 'jwt-B')                                    // étape 2 (loginEmail)
+    expect(session.getItem(TOKEN)).toBe('jwt-B'); expect(local.getItem(TOKEN)).toBeNull()
+  })
+
   it('échec de connexion : annulerChoix() — une écriture ultérieure sans rapport suit de nouveau l’emplacement existant', () => {
     const local = mem(), session = mem()
     local.setItem(TOKEN, 'jwt-A')
@@ -202,5 +213,12 @@ describe('câblage (supabase-entry.js / index.html)', () => {
     expect(wire).toMatch(/setPersist\(!!rem\.checked\)[\s\S]*?(signUpEmail|loginEmail)/)
     const inv = entry.slice(entry.indexOf('async function acceptInviteFlow'))
     expect(inv).toMatch(/setPersist\(false\)[\s\S]*?(signUpEmail|loginEmail)/)      // invité : session de l'onglet, sans case
+  })
+
+  it('chaque connexion qui SUIT une création de compte ré-arme d’abord le choix (wireLoginForm et invitation)', () => {
+    const wire = entry.slice(entry.indexOf('function wireLoginForm'), entry.indexOf('async function acceptInviteFlow'))
+    expect(wire).toMatch(/_rearmerChoixAuth\(\)\s*\n\s*const r = await api\.loginEmail/)
+    const inv = entry.slice(entry.indexOf('async function acceptInviteFlow'))
+    expect(inv).toMatch(/_rearmerChoixAuth\(\)\s*\n\s*r = await api\.loginEmail/)
   })
 })

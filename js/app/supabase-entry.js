@@ -808,6 +808,7 @@ function wireLoginForm(api, overlay, prefillEmail) {
         showError(overlay, traduireErreur(s.error)); return   // inclut le refus du hook (« pas encore autorisé »)
       }
       // Compte créé (confirmation email désactivée → session directe). On enchaîne sur la connexion.
+      _rearmerChoixAuth()
       const r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
       _annulerChoixAuth()
       setBusy(overlay, false)
@@ -930,6 +931,7 @@ async function acceptInviteFlow(api, client, overlay, token) {
     let r = await api.signUpEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
     _annulerChoixAuth()
     if (!r.ok && /already.*(regist|exist)|user already/i.test(r.error || '')) {
+      _rearmerChoixAuth()
       r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
       _annulerChoixAuth()
       if (!r.ok) return fail('Ce compte existe déjà, mais le mot de passe ne correspond pas.')
@@ -1765,6 +1767,10 @@ function _imsbCheck() {
 // Après une tentative de connexion (réussie ou non) : le choix du clic « rester connecté » a fait son œuvre à la
 // 1re écriture du jeton ; en cas d'ÉCHEC il ne doit pas rester armé pour une écriture ultérieure sans rapport.
 function _annulerChoixAuth() { try { if (_authStorage) _authStorage.annulerChoix() } catch (e) {} }
+// Séquence « création de compte PUIS connexion » : _annulerChoixAuth() a désarmé le choix après l'étape 1 ; on le
+// RÉ-ARME (même valeur que le clic) avant l'étape 2, sinon le jeton écrit par la connexion suivrait un jeton étranger
+// resté dans l'autre stockage (3e audit).
+function _rearmerChoixAuth() { try { if (_authStorage) _authStorage.setPersist(_authStorage.isPersistent()) } catch (e) {} }
 
 function _initRemember(ov) {
   try {
