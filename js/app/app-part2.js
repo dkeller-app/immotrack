@@ -288,6 +288,15 @@ function _dgStatut(bail, dateRef) {
   return { statut: DG_STATUS.COMPLET, dgDu, dgPaid, soldeRestant: 0 };
 }
 
+// Le statut du dépôt d'un bail CIBLE de restitution (fenêtre de restitution, frise) : un bail parti (départ déclaré) ou
+// archivé par une relocation n'est pas « clôturé » au sens de _dgStatut, mais son dépôt est À RESTITUER depuis sa fin
+// d'occupation (_bailFinOccupation) — même règle de délai que pour un bail clôturé (vérification finale 06/10).
+function _dgStatutDuBail(bail) {
+  const fin = bail && (bail.finEffective || _bailFinOccupation(bail, false));
+  if (!bail || bail.dgRestitueAt || bail.cloture || !fin) return _dgStatut(bail);
+  return _dgStatut(Object.assign({}, bail, { cloture: true, finEffective: String(fin).slice(0, 10) }));
+}
+
 function _calculerDelaiRestitution(bail, edls) {
   if (!bail) return 2;
   if (Number(bail.dgRetenu) > 0) return 2;
@@ -13919,7 +13928,7 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     // son geste de restitution visent CE bail (bailHistCle), plus seulement le dernier bail du lot.
     const _dgCible = (c.statut==='clos' && c.bail) ? c.bail : ((bailForDg && c.bail===bailForDg) ? bailForDg : null);
     if(_dgCible && typeof _dgStatut==='function'){
-      const dgInfo=_dgStatut(_dgCible);
+      const dgInfo=_dgStatutDuBail(_dgCible);
       const isRestit = dgInfo.statut===DG_STATUS.RESTITUE || (c.statut==='clos' && typeof _dgDetenuDuBail==='function' && _dgDetenuDuBail(_dgCible, 0) <= 0);
       const map = {
         [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
@@ -26197,7 +26206,7 @@ function _dgOpenRestitution(ref, cle) {
   const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
   // fin = fin d'OCCUPATION (_bailFinOccupation) : un bail nu/meublé reconduit n'est pas terminé à sa fin contractuelle.
   const _bailN = Object.assign({}, bail, { dgPaid: dgVerse, fin: _bailFinOccupation(bail, false) });
-  const dgInfo = _dgStatut(_bailN); // AUDIT #3 : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
+  const dgInfo = _dgStatutDuBail(_bailN); // AUDIT #3 — statut du bail CIBLÉ (archive d'une relocation, bail parti : à restituer) : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
   const solde = _calculerSoldeDG(_bailN, DB.mouvements || []);
   const delaiMois = _calculerDelaiRestitution(bail, (typeof _edlsDuBail === 'function') ? _edlsDuBail(bail) : DB.edl);   // EDL de CE bail
   _dgVgCtx = {

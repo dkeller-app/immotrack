@@ -639,7 +639,7 @@ describe('20 · compteur « Dépôts détenus » = nombre de DÉPÔTS (un lot re
 describe('21 · restitution du dépôt sur le bail EXACT (VRAIS _dgOpenRestitution / _dgConfirmerRestitution)', () => {
   const LEA = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true, locataires: [{ nom: 'Lea' }] };
   const NINA = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nina' }] };
-  const RESTIT = ['_dgOpenRestitution', '_dgConfirmerRestitution', '_dgBailCible', '_dgRestitRecalc'];
+  const RESTIT = ['_dgOpenRestitution', '_dgConfirmerRestitution', '_dgBailCible', '_dgRestitRecalc', '_dgStatutDuBail', '_bailFinOccupation'];
   const ouvrir = (DB, ref, cle, date = '2026-10-20') => {
     const vals = { 'dg-restit-date': date, 'dg-restit-autres': '0', 'dg-restit-detail-retenues': '' };
     const m = monter(DB, [...STATUT, ...RESTIT, '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
@@ -705,7 +705,7 @@ describe('22 · frise du bien (VRAI _histoBailEventHtml) : le geste de restituti
   const LEA = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true };
   const carte = (bail, statut) => {
     const DB = dbDe({});
-    const m = monter(DB, [...STATUT, '_histoBailEventHtml'], {
+    const m = monter(DB, [...STATUT, '_histoBailEventHtml', '_dgStatutDuBail', '_bailFinOccupation'], {
       DG_STATUS: { RESTITUE: 'restitue', EN_RETARD: 'retard', A_RESTITUER: 'a_restituer', COMPLET: 'complet', PARTIEL: 'partiel' },
       _dgStatut: (b) => ({ statut: b.dgRestitueAt ? 'restitue' : 'a_restituer', joursRestants: 10, delaiMois: 2 }), _uiIcon: () => '',
     });
@@ -853,7 +853,7 @@ describe('28 · fenêtre de restitution sur le bail archivé (VRAIS _dgOpenResti
   const ouvrir = (edl) => {
     const DB = dbDe({ A1: { ...NINA } }); DB.baux_historique = [{ ...LEA }]; DB.edl = edl;
     const vals = { 'dg-restit-autres': '0', 'dg-restit-date': '' };
-    const m = monter(DB, [...STATUT, '_dgOpenRestitution', '_dgBailCible', '_dgRestitRecalc', '_calculerDelaiRestitution', '_edlsDuBail', '_bailSuivantDebut'], {
+    const m = monter(DB, [...STATUT, '_dgOpenRestitution', '_dgBailCible', '_dgRestitRecalc', '_dgStatutDuBail', '_bailFinOccupation', '_calculerDelaiRestitution', '_edlsDuBail', '_bailSuivantDebut'], {
       v: (id) => vals[id] || '', _dgVgRows: [], _dgVgCtx: {}, _dgVgSeedFromEdl: () => [], _dgVgRender: () => {},
       _calculerSoldeDG: (b) => ({ soldeRestitue: Number(b.dgPaid || b.dg) - Number(b.dgRetenu || 0), loyerImpaye: 0 }),
       _dgStatut: () => ({ statut: 'a_restituer' }),
@@ -968,5 +968,27 @@ describe('31 · deux archives du même lot le MÊME jour (relocation puis clôtu
     m.fn._dgConfirmerRestitution();
     expect(DB.baux_historique.map((h) => h.dgRestitueAt || null)).toEqual([null, '2026-11-20']);
     expect(m.fn._dgDetenusDuLot(DB.logements[0])).toEqual([900]);
+  });
+});
+describe('32 · statut du dépôt dans la fenêtre de restitution (VRAI _dgOpenRestitution + _dgStatut) : celui du bail ciblé', () => {
+  const LEA = { ...DEPART, ref: 'A1', dgPaid: 900, finEffective: '2026-09-30', _archivedAt: '2026-11-14', _archivedAuto: true, locataires: [{ nom: 'Lea' }] };
+  const NINA = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, dgPaid: 1300, locataires: [{ nom: 'Nina' }] };
+  const statut = (baux, histo, cle) => {
+    const DB = dbDe(baux); DB.baux_historique = histo;
+    const m = monter(DB, [...STATUT, '_dgOpenRestitution', '_dgBailCible', '_dgStatutDuBail', '_dgStatut', '_calculerDelaiRestitution', '_bailFinOccupation', '_edlsDuBail', '_bailSuivantDebut'], {
+      DG_STATUS: { MANQUANT: 'manquant', PARTIEL: 'partiel', COMPLET: 'complet', A_RESTITUER: 'a_restituer', RESTITUE: 'restitue', EN_RETARD: 'en_retard' },
+      _dgVgRows: [], _dgVgCtx: {}, _dgVgSeedFromEdl: () => [], _dgVgRender: () => {}, _calculerSoldeDG: () => ({ soldeRestitue: 0, loyerImpaye: 0 }),
+    });
+    m.fn._dgOpenRestitution('A1', cle ? cle(DB) : undefined);
+    const h = m.els['ov-dg-restitution-body'].innerHTML;
+    return h.slice(h.indexOf('Statut DG'), h.indexOf('Statut DG') + 160);
+  };
+  it('archive d\'une relocation (non clôturée) : « à restituer », jamais « complet »', () => {
+    const t = statut({ A1: { ...NINA } }, [{ ...LEA }], (DB) => bailHistCle(DB.baux_historique[0]));
+    expect(t).toContain('a_restituer');
+    expect(t).not.toContain('complet');
+  });
+  it('bail en cours au départ déclaré : « à restituer » depuis la sortie', () => {
+    expect(statut({ A1: { ...DEPART, ref: 'A1', dgPaid: 900 } }, [])).toContain('a_restituer');
   });
 });
