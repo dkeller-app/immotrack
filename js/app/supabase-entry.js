@@ -9,6 +9,7 @@
 // Ne touche PAS window.DB ni le rendu (ça vient à l'étape 2b). Donc zéro interférence avec l'app derrière.
 
 import { BREADCRUMB_KEY, appendCrumb } from '../core/login-breadcrumb.js'
+import { createAuthStorage, REMEMBER_KEY } from '../core/auth-storage.js'   // « Rester connecté sur cet appareil »
 // EDL TERRAIN lot 1, faille F5 (CDC docs/CDC-EDL.md §3ter, invariant 19j) :
 // une modification fraîche ne réarme plus le backoff de réessai. Avec l'autosave
 // de l'EDL (une écriture toutes les 2 s), l'ancien `schedule` replanifiait un
@@ -135,6 +136,7 @@ const MIRROR_TAG_KEY = 'immotrack_v4_tag'  // = cache-purge.MIRROR_TAG_KEY (cont
 // blanche — le mode dégradé M-b disparaît). Égalité avec cache-purge.AUTH_STORAGE_KEY (lue par le
 // registre du stockage local) verrouillée par __tests__/helpers/stockage-purges-cablage.test.js.
 const AUTH_STORAGE_KEY = 'immo-supabase-auth'
+let _authStorage = null            // stockage du jeton (auth-storage.js), posé par boot() ; lu par wireLoginForm
 let _cachePurge = null         // module cache-purge (importé au boot, best-effort)
 // STOCKAGE lot 1 (docs/CDC-STOCKAGE.md) — registre du stockage local : écriture du miroir avec éviction
 // sur quota (S-1) et purge des copies complètes de la base au logout / changement d'utilisateur (S-7).
@@ -325,7 +327,12 @@ async function boot() {
   // (web/desktop) la met en sessionStorage → fermer l'onglet/le navigateur DÉCONNECTE : on se reconnecte
   // à chaque visite (identifiants retenus par le navigateur), rien ne reste lisible sur un poste partagé.
   const _standalone = (() => { try { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true } catch (e) { return false } })();
-  const _authStore = _standalone ? window.localStorage : window.sessionStorage;
+  // « Rester connecté sur cet appareil » (case du formulaire) : le NAVIGATEUR garde le jeton en sessionStorage par
+  // défaut (poste partagé : fermer l'onglet déconnecte) ; la case coche bascule en localStorage. L'app installée
+  // reste persistante. Le choix est appliqué AVANT l'écriture du jeton (cf. wireLoginForm). Module testé : auth-storage.js.
+  const _authStore = createAuthStorage({ local: window.localStorage, session: window.sessionStorage, standalone: _standalone });
+  _authStorage = _authStore;
+  _initRemember(overlay);   // l'overlay statique est déjà adopté : on règle la case maintenant que le stockage existe
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
     // BUG-LOGIN-DOUBLE (P0 vente) — la session PERSISTE pendant la session de navigation : sessionStorage
     // (navigateur) comme localStorage (PWA) SURVIVENT au reload post-login (le SW `controllerchange` qui
@@ -784,6 +791,9 @@ function wireLoginForm(api, overlay, prefillEmail) {
     try { window.__immoCrumb && window.__immoCrumb('login-start') } catch (_e) {}
     const email = q('#imsb-email').value.trim()
     const pass = q('#imsb-pass').value
+    // « Rester connecté sur cet appareil » : choisi AVANT que la session ne soit écrite (sinon le jeton partirait au
+    // mauvais endroit). Sans case (application installée) ou sans stockage : rien à faire.
+    try { const rem = q('#imsb-remember'); if (rem && _authStorage) _authStorage.setPersist(!!rem.checked) } catch (e) {}
     setBusy(overlay, true); showError(overlay, '')
     if (mode === 'signup') {
       const s = await api.signUpEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
@@ -1740,6 +1750,17 @@ function _imsbCheck() {
   return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 }
 
+// Case « Rester connecté sur cet appareil » : cochée si l'utilisateur l'avait choisie (mémorisé), masquée dans
+// l'application installée (session toujours persistante, usage terrain hors ligne). Sans effet si le stockage manque.
+function _initRemember(ov) {
+  try {
+    const row = ov.querySelector('.imsb-remember'), box = ov.querySelector('#imsb-remember')
+    if (!row || !box || !_authStorage) return
+    if (_authStorage.isStandalone()) { row.style.display = 'none'; return }
+    box.checked = _authStorage.isPersistent()
+  } catch (e) {}
+}
+
 function injectOverlay() {
   // Perf étape 3a — l'écran de connexion est du HTML STATIQUE dans index.html (<div id="imsb-overlay">), peint
   // avant les ~4 Mo de scripts de l'app. On l'ADOPTE (ce que l'utilisateur a déjà tapé est conservé) ; la
@@ -1753,6 +1774,7 @@ function injectOverlay() {
   let theme = 'clair'
   try { const t = localStorage.getItem('immo_theme'); if (t === 'sombre' || t === 'clair') theme = t } catch (e) {}
   if (theme === 'sombre') ov.classList.add('mode-sombre')
+  _initRemember(ov)
 
   // v15.422 BUG-LOGIN-PREMIERE-CONNEXION — GARDE ANTI-SUBMIT-NATIF. Le formulaire est visible
   // AVANT que wireLoginForm ait câblé le vrai onsubmit : boot() attend l'import CDN de
