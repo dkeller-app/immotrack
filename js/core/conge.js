@@ -13,6 +13,7 @@
  *
  * Tests Vitest miroir : __tests__/helpers/conge.test.js
  */
+import { preavisBailleurMois } from './bail-echeance.js';
 
 // Motifs du congé bailleur (art. 15-I).
 export const CONGE_MOTIFS = [
@@ -110,9 +111,15 @@ export function art15IIProDoc() {
     ART15_II_ALINEAS.map(a => '<p style="font-size:9pt;color:#3c4658">' + esc(a) + '</p>').join('');
 }
 
-/** Préavis du congé bailleur (mois) : 3 si meublé (ou variantes), sinon 6. */
+/**
+ * Préavis du congé bailleur (mois) — LA règle de js/core/bail-echeance.js : 6 mois nu (art. 15-I),
+ * 3 mois meublé (art. 25-8 I). null là où la loi de 1989 ne fait courir AUCUN préavis de congé
+ * bailleur : étudiant (art. 25-7 al. 4) et mobilité (art. 25-14 al. 1) prennent fin à leur terme
+ * sans congé ; garage et autre suivent leur contrat. (Avant : 3 mois pour étudiant / mobilité,
+ * 6 mois pour garage / autre — aucune base légale.)
+ */
 export function congeBailleurPreavisMois(typeBail) {
-  return ['meuble', 'etudiant', 'mobilite'].indexOf(String(typeBail || '')) >= 0 ? 3 : 6;
+  return preavisBailleurMois(String(typeBail || 'nu'));
 }
 
 /**
@@ -182,6 +189,7 @@ export function locataireProtege(o) {
  * @param {string} [o.benefAdr]   reprise — art. 15-I, à peine de nullité
  * @param {string} [o.lien]       reprise — nature du lien (défaut : le bailleur lui-même)
  * @param {string} [o.legitime]   motif légitime et sérieux — art. 15-I
+ * @param {boolean} [o.meuble]   bail meublé (art. 25-8, I) : « vente » sans prix ni préemption 15-II
  * @param {boolean} [o.art15Inline] true = reproduire les cinq alinéas DANS le corps (courrier en
  *        texte seul : un email n'a pas d'annexe) ; false = renvoyer à l'annexe du document.
  * @returns {{motifConge:string, motifDetail:string}}
@@ -197,6 +205,13 @@ export function congeMotifDetail(o) {
 
   // Le symbole est posé par le modèle ; une saisie libre peut déjà le porter (« 250 000 € »).
   const prixNu = String(o.prix == null ? '' : o.prix).trim().replace(/\s*€\s*$/, '').trim();
+
+  // BAUX-ECHUS — bail MEUBLÉ : l'art. 25-8, I impose de motiver le refus de renouvellement (reprise,
+  // vente, motif légitime et sérieux) ; il ne prévoit ni offre de vente ni droit de préemption (ceux de
+  // l'art. 15-II ne visent que le bail nu). Le motif « vente » n'emporte donc ni prix ni annexe 15-II.
+  if (motif === 'vente' && o.meuble) {
+    return { motifConge: 'vente', motifDetail: 'Vente du logement.' };
+  }
 
   if (motif === 'vente') {
     // La phrase de préemption n'a de sens que si le prix et les conditions la PRÉCÈDENT
@@ -276,8 +291,55 @@ export function congeDateEffet(o) {
  * Hub écrivait la version courte — « de N mois avant le terme du bail » — alors qu'il n'avait
  * rien vérifié du tout. Une seule phrase, adossée à `congeDateEffet`, qui la rend vraie.
  */
-export function congeMentionPreavis(mois) {
+export function congeMentionPreavis(mois, typeBail) {
+  if (!(Number(mois) > 0)) return congeMentionSansPreavis(typeBail);
   return 'Le délai de préavis légal applicable à ce congé est de ' + mois
     + " mois ; il court à compter de la réception du présent congé et la date d'effet ci-dessus"
     + ' a été fixée pour le respecter.';
+}
+
+/**
+ * BAUX-ECHUS — là où la loi de 1989 ne fait courir AUCUN préavis de congé bailleur, la lettre ne
+ * peut pas annoncer « un délai de préavis légal de N mois » (avant : « de null mois », ou 3 et 6
+ * mois inventés). Elle dit ce que dit la loi, et rien de plus.
+ */
+export function congeMentionSansPreavis(typeBail) {
+  const t = String(typeBail || '');
+  if (t === 'etudiant') return "Le bail ayant été conclu pour une durée de neuf mois avec un étudiant, la reconduction tacite est inapplicable (article 25-7 de la loi n° 89-462 du 6 juillet 1989) : il prend fin à son terme, sans qu'un congé soit nécessaire.";
+  if (t === 'mobilite') return "Le bail mobilité est non renouvelable et non reconductible (article 25-14 de la loi n° 89-462 du 6 juillet 1989) : il prend fin à son terme, sans qu'un congé soit nécessaire.";
+  return 'Le délai de préavis applicable à ce congé est celui prévu au contrat de location.';
+}
+
+/**
+ * BAUX-ECHUS — LA lettre « congé du bailleur » selon le type de bail. Le corps ne cite l'art. 15
+ * que pour le bail NU :
+ *  · nu       → congé motivé, art. 15-I (annexe 15-II pour une vente) — inchangé ;
+ *  · meublé   → refus de renouvellement motivé, art. 25-8, I (cité mot pour mot), sans annexe 15-II ;
+ *  · étudiant → information de fin de bail : reconduction inapplicable (art. 25-7), sans congé ni motif ;
+ *  · mobilité → information de fin de bail : non renouvelable ni reconductible (art. 25-14) ;
+ *  · garage / autre → congé selon le contrat (préavis prévu au contrat), sans motif.
+ * @returns {{tpl:string, titre:string, fondement:string, motif:boolean, annexe15II:boolean,
+ *            protege:(string|null), dateLibre:boolean, fichier:string}}
+ */
+export function congeBailleurModele(typeBail) {
+  const t = String(typeBail || 'nu');
+  const loi = 'Loi n° 89-462 du 6 juillet 1989, article ';
+  if (t === 'meuble') return { tpl: 'bail-conge-bailleur-meuble', titre: 'Congé donné au locataire', fondement: loi + '25-8, I', motif: true, annexe15II: false, protege: 'art. 25-8, II', dateLibre: false, fichier: 'Conge-bailleur' };
+  if (t === 'etudiant' || t === 'mobilite') return { tpl: 'bail-fin-terme-information', titre: 'Information de fin de bail', fondement: loi + (t === 'etudiant' ? '25-7' : '25-14'), motif: false, annexe15II: false, protege: null, dateLibre: false, fichier: 'Information-fin-de-bail' };
+  if (t === 'garage' || t === 'autre') return { tpl: 'bail-conge-bailleur-contrat', titre: 'Congé donné au locataire', fondement: 'Contrat de location', motif: false, annexe15II: false, protege: null, dateLibre: true, fichier: 'Conge-bailleur' };
+  return { tpl: 'bail-conge-bailleur-6mois', titre: 'Congé donné au locataire', fondement: loi + '15', motif: true, annexe15II: true, protege: 'art. 15-III', dateLibre: false, fichier: 'Conge-bailleur' };
+}
+
+/**
+ * La phrase de terme d'une lettre d'information de fin de bail : au futur si le terme est à venir,
+ * au passé s'il est dépassé — jamais une « date d'effet » antérieure à la lettre.
+ * @param {string} finFr  la date de fin, déjà mise en forme (JJ/MM/AAAA)
+ * @param {string} finIso 'YYYY-MM-DD'
+ * @param {string} todayIso 'YYYY-MM-DD'
+ */
+export function congePhraseTerme(finFr, finIso, todayIso) {
+  if (!finIso) return 'prend fin à son terme, sans reconduction';
+  return String(finIso).slice(0, 10) < String(todayIso || '').slice(0, 10)
+    ? 'est arrivé à son terme le ' + finFr
+    : 'prendra fin à son terme, le ' + finFr;
 }

@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.714';
+const IMMOTRACK_VERSION = '15.715';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -1895,7 +1895,8 @@ function agendaId() {
 // Loi du 6 juillet 1989 (résidence principale) :
 //   - Bail nu (3 ans)        → préavis bailleur 6 mois avant échéance
 //   - Bail meublé (1 an)     → préavis bailleur 3 mois avant échéance
-//   - Bail mobilité (1-10m)  → pas de tacite reconduction, pas de préavis
+//   - Bail mobilité (1-10m)  → pas de tacite reconduction, pas de congé bailleur (art. 25-14)
+//   - Étudiant (9 m), garage, autre → pas de préavis bailleur avant échéance (BAUX-ECHUS, bail-echeance.js)
 // Source : `bail.typeContrat` ou `log.typeUsage` (renseigné dans la modale logement).
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1922,41 +1923,56 @@ function _bailIsMeuble(bail, log) {
   return t === 'meuble' || t === 'etudiant' || t === 'mobilite';
 }
 
-// Détermine si un bail est mobilité (pas de préavis, pas de tacite reconduction).
+// Détermine si un bail est mobilité (pas de congé bailleur, pas de tacite reconduction ; préavis
+// locataire d'un mois, art. 25-15).
 function _bailIsMobilite(bail, log) {
   if(!bail) return false;
   return _bailTypeEff(bail, log) === 'mobilite';
 }
 
-// v14.49 — Durée standard d'un bail en mois selon type + nature du bailleur.
-// Loi du 6 juillet 1989 :
-//   - Nu particulier : 3 ans (36 mois)
-//   - Nu personne morale (SCI, SARL...) : 6 ans (72 mois)
-//   - Meublé : 1 an (12 mois)
-//   - Étudiant : 9 mois (pas de tacite reconduction)
-//   - Mobilité : 1-10 mois (pas de tacite reconduction)
-//   - Garage / Autre : durée libre → on retombe sur la durée « nu » (inchangé vs avant le fix)
+// BAUX-ECHUS — LA règle d'échéance vit dans js/core/bail-echeance.js (window.BailEcheance, mirror
+// chargé AVANT ce fichier). Contexte commun : le type du bailleur (art. 10 / 13) et la date du jour
+// LOCALE (td() est UTC : entre minuit et 2 h, il désigne la veille).
+function _bailEcheanceOpts(bail, log) {
+  const entNom = (bail && bail.entity) || (log && log.entity);
+  const ent = entNom ? ((DB.entites||[]).find(e => e && e.nom === entNom) || null) : null;
+  const W = (typeof window !== 'undefined') ? window : null;
+  const todayIso = (W && typeof W._loyerTodayLocal === 'function') ? W._loyerTodayLocal() : _isoLocal(new Date());
+  return { typeEntite: (ent && ent.type) || '', todayIso, fd: (typeof fd === 'function') ? fd : undefined };
+}
+/** L'échéance d'un bail selon sa règle (module) — null si le module n'est pas chargé. */
+function _bailEcheance(bail, log) {
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(!bail || !BE || typeof BE.echeanceBail !== 'function') return null;
+  return BE.echeanceBail(bail, log, _bailEcheanceOpts(bail, log));
+}
+
+// Durée d'un CYCLE de reconduction en mois (sert la date d'effet du congé bailleur, qui ne vise que
+// nu et meublé). Nu : 3 ans (personne physique, art. 13 : SCI familiale, indivision) ou 6 ans
+// (personne morale) — art. 10 al. 3, lu dans bail-duree.js (plus de regex « sci » qui envoyait une SCI
+// familiale à 6 ans). Meublé : 1 an (art. 25-7 al. 3). Étudiant : 9 mois. Autres : pas de cycle légal,
+// repli sur la durée du nu (inchangé).
 function _bailDureeMois(bail, log, ent) {
   const t = _bailTypeEff(bail, log);
-  if(t === 'mobilite') return 6; // pas de tacite, valeur par défaut
+  if(t === 'mobilite') return 6; // pas de reconduction : valeur par défaut, jamais lue pour un congé
   if(t === 'etudiant') return 9;
   if(t === 'meuble') return 12;
-  // Bail nu (+ garage/autre, durée libre) : durée selon nature du bailleur
+  const W = (typeof window !== 'undefined') ? window : null;
+  const RB = (W && W.BailDuree && typeof W.BailDuree.regimeBailleur === 'function') ? W.BailDuree.regimeBailleur
+    : ((W && typeof W.regimeBailleur === 'function') ? W.regimeBailleur : null);
+  if(RB) return RB((ent && ent.type) || '').ans * 12;
   const entType = (ent?.type || '').toLowerCase();
   const isPersonneMorale = /sci|sarl|sas|sasu|eurl|snc|société|societe|gfa|sccv/.test(entType);
   return isPersonneMorale ? 72 : 36;
 }
 
-// v15.343 BUG-STATUT-TACITE — Types de bail bénéficiant de la tacite reconduction.
-// Aligné sur __tests__/helpers/bail-types.js → isTaciteReconductionAllowed (source légale) :
-//   • nu (3/6 ans) + meublé (1 an)        → reconductibles
-//   • étudiant (9 mois) / mobilité / garage / autre (régime libre) → NON reconductibles
-// Un type inconnu/legacy (bail.type absent) vaut « nu » → reconductible.
+// v15.343 BUG-STATUT-TACITE — la LOI reconduit-elle ce type ? nu (art. 10) et meublé (art. 25-7 al. 3)
+// oui ; étudiant (art. 25-7 al. 4) et mobilité (art. 25-14 al. 1) jamais ; garage / autre : c'est le
+// CONTRAT qui décide (BailEcheance.regleReconduction). Un type inconnu/legacy vaut « nu ».
 function _bailTypeHasTacite(type) {
   const t = type || 'nu';
-  // Liste noire = miroir exact de isTaciteReconductionAllowed (bail-types.js) :
-  // tout type non explicitement non-reconductible bénéficie de la tacite. Défaut
-  // sûr → un type legacy/importé inconnu n'est jamais marqué « échu » à tort.
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(BE && typeof BE.reconductionLegale === 'function') return BE.reconductionLegale(t);
   return t !== 'etudiant' && t !== 'mobilite' && t !== 'garage' && t !== 'autre';
 }
 
@@ -2004,59 +2020,85 @@ function _finAncienBailAuRebail(bail, nouveauDebut) {
   return { fin: sortie || veille || null, sortie, sortieApres: false };
 }
 
-// v14.49 — Calcule la date de fin EFFECTIVE pour le préavis (avec tacite reconduction).
-// Cas couverts :
-//   1. bail.fin renseignée + future → utilise bail.fin
-//   2. bail.fin renseignée + passée → tacite reconduction, avance par tranches `dureeMois`
-//      jusqu'à dépasser today (3 ans pour nu, 1 an pour meublé)
-//   3. bail.fin VIDE + bail.debut → calcule la fin théorique = debut + dureeMois,
-//      puis applique la même tacite reconduction si nécessaire
-// Retourne null si bail clôturé / mobilité / sans debut.
+// La date d'ÉCHÉANCE d'un bail à afficher (agenda « Fin de bail », frise) — BAUX-ECHUS, règle unique
+// (js/core/bail-echeance.js) :
+//   • en cours → la fin du contrat (saisie, sinon fin théorique : veille de l'anniversaire) ;
+//   • reconduit → la fin de la période en cours : nu 3 ou 6 ans (art. 10 al. 3, QUELLE QUE SOIT la durée
+//     initiale), meublé 1 an (art. 25-7 al. 3), garage de l'app : durée équivalente (clause du contrat) ;
+//   • arrivé à terme (étudiant, mobilité, garage repris, autre) → la fin du contrat, jamais reconduite ;
+//   • clôturé / résilié / échéance inconnue → null.
 function _bailEcheanceEffective(bail, log) {
-  if(!bail || !bail.debut) return null;
-  if(bail.cloture || bail.finEffective) return null; // bail terminé
-  if(_bailIsMobilite(bail, log)) return null; // mobilité = pas de tacite, pas de préavis
-
-  // Lookup entité (priorité bail.entity, fallback log.entity) pour distinguer particulier/personne morale
-  const entNom = bail.entity || log?.entity;
-  const ent = entNom ? (DB.entites||[]).find(e => e.nom === entNom) : null;
-  const dureeMois = _bailDureeMois(bail, log, ent);
-
-  // Fin de référence : bail.fin si renseignée, sinon debut + dureeMois (fin théorique calculée)
-  let finRefIso = bail.fin;
-  if(!finRefIso) {
-    const debutD = new Date(bail.debut + 'T00:00:00');
-    debutD.setMonth(debutD.getMonth() + dureeMois);
-    finRefIso = _isoLocal(debutD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
-  }
-
-  const todayMs = Date.now();
-  const finD = new Date(finRefIso + 'T00:00:00');
-  // Tacite reconduction : avancer par tranches dureeMois (cycle = durée du bail) jusqu'à dépasser today
-  while(finD.getTime() <= todayMs) {
-    finD.setMonth(finD.getMonth() + dureeMois);
-  }
-  return _isoLocal(finD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
+  const e = _bailEcheance(bail, log);
+  if(!e) return null;
+  if(e.statut === 'en_cours' || e.statut === 'reconduit') return e.prochaine || null;
+  if(e.statut === 'arrive_a_terme') return e.finContrat || null;
+  return null;
 }
 
-// Calcule l'info préavis pour un bail. Retourne null si non applicable.
+// L'échéance d'un LOT pour les alertes « baux arrivant à terme » (AlertRules.bauxEcheance, règle
+// injectée) : l'échéance À VENIR d'un bail en cours ou reconduit, la fin du contrat d'un bail arrivé
+// à terme ; null = rien à signaler (vacant, clôturé, échéance inconnue). Lue sur le BAIL, pas le cache.
+function _bailEcheanceAlerteDe(l) {
+  const b = l && DB.baux ? DB.baux[l.ref] : null;
+  if(!b || b._deleted || b.cloture || b.finEffective) return null;
+  const fin = _bailEcheanceEffective(b, l);
+  return fin ? { fin } : null;
+}
+
+// L'alerte « bail arrivé à terme » d'un bail (étudiant, mobilité ; garage ou autre sans reconduction
+// au contrat) — null sinon, ou dès qu'un départ est déclaré. Ton neutre, jamais bloquante.
+function _bailAlerteTerme(bail, log) {
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(!bail || !BE || typeof BE.alerteArriveATerme !== 'function') return null;
+  return BE.alerteArriveATerme(bail, log, _bailEcheanceOpts(bail, log));
+}
+
+// Geste « Nouveau bail » d'un bail arrivé à terme : le formulaire d'un NOUVEAU bail sur le même lot,
+// pré-rempli avec les mêmes parties (comme la conversion d'un candidat). Un bail mobilité ne peut être
+// suivi que d'un bail du titre Ier bis (art. 25-14 dernier al.) : le type proposé est « meublé ».
+// L'enregistrement archive l'ancien bail (saveBail, confirmation existante) — rien n'est écrit ici.
+function _bailNouveauApresTerme(ref) {
+  const prev = DB.baux && DB.baux[ref];
+  if(!prev || prev._deleted) { if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  openBail(null, { logRef: ref });
+  const refSel = el('b-ref');
+  if(refSel){ refSel.value = ref; refSel.disabled = false; try{ onBailRefChange(refSel); }catch(e){} }
+  if(el('b-entity') && prev.entity) el('b-entity').value = prev.entity;
+  try { renderBailSignataires(prev.signataires); } catch(e) {}
+  renderBailLocs((prev.locataires || (prev.nom ? [{ nom: prev.nom }] : [])).map(x => Object.assign({}, x)));
+  try { renderBailGarants(_bailLegacyToGarants(prev)); } catch(e) {}
+  if(el('b-hc') && prev.hc) el('b-hc').value = prev.hc;
+  if(el('b-ch') && prev.ch != null && prev.ch !== '') el('b-ch').value = prev.ch;
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  const fin = (BE && typeof BE.finContractuelle === 'function') ? BE.finContractuelle(prev, null, _bailEcheanceOpts(prev, null).typeEntite) : (prev.fin || '');
+  if(el('b-debut') && fin && BE && typeof BE.ajouterJours === 'function') el('b-debut').value = BE.ajouterJours(fin, 1);
+  if(el('b-type')) {
+    el('b-type').value = prev.type === 'mobilite' ? 'meuble' : (prev.type || 'nu');
+    try { onBailTypeChange(); } catch(e) {}
+  }
+  if(typeof showToast==='function') showToast('Nouveau bail pré-rempli (mêmes parties) — vérifier le type, les dates et le loyer. L\'ancien bail sera archivé à l\'enregistrement.','ok',6000);
+}
+
+// Le rappel « préavis bailleur » — seulement là où la loi de 1989 fait courir un préavis AVANT
+// l'échéance : nu (6 mois, art. 15-I) et meublé (3 mois, art. 25-8 I), sur une échéance À VENIR.
+// Étudiant, mobilité, garage, autre : null (rien à notifier pour éviter une reconduction qui n'existe pas).
 // { fin, preavisStart, preavisMonths, isMeuble, inPreavisZone, daysToFin }
 function _bailPreavisInfo(bail, log) {
-  const fin = _bailEcheanceEffective(bail, log);
-  if(!fin) return null;
-  const isMeuble = _bailIsMeuble(bail, log);
-  const preavisMonths = isMeuble ? 3 : 6;
-  const finD = new Date(fin + 'T00:00:00');
-  const preavisD = new Date(finD);
-  preavisD.setMonth(preavisD.getMonth() - preavisMonths);
-  const today = new Date(); today.setHours(0,0,0,0);
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(!bail || !BE || typeof BE.preavisBailleurAvantEcheance !== 'function') return null;
+  const o = _bailEcheanceOpts(bail, log);
+  const p = BE.preavisBailleurAvantEcheance(bail, log, o);
+  if(!p) return null;
+  const finD = new Date(p.fin + 'T00:00:00');
+  const preavisD = new Date(p.debut + 'T00:00:00');
+  const today = new Date(o.todayIso + 'T00:00:00');
   const inPreavisZone = today.getTime() >= preavisD.getTime() && today.getTime() <= finD.getTime();
   const daysToFin = Math.round((finD.getTime() - today.getTime()) / 86400000);
   return {
-    fin,
-    preavisStart: _isoLocal(preavisD),
-    preavisMonths,
-    isMeuble,
+    fin: p.fin,
+    preavisStart: p.debut,
+    preavisMonths: p.mois,
+    isMeuble: p.meuble,
     inPreavisZone,
     daysToFin
   };
@@ -2129,24 +2171,37 @@ function agendaAutoSync() {
       }
     }
 
-    // ── Fin de bail (échéance avec tacite reconduction prise en compte) ──
-    // v14.48 GANTT-PREAVIS : utiliser _bailEcheanceEffective qui calcule la
-    // prochaine échéance anniversaire si le bail est en tacite reconduction.
+    // ── Fin de bail (échéance selon LA règle du type — BAUX-ECHUS) ──
+    // Nu / meublé / garage de l'app : la fin de la période en cours (reconduction de la loi ou du
+    // contrat). Étudiant, mobilité, garage repris, autre : la fin du contrat, jamais reconduite.
     const echeanceFin = _bailEcheanceEffective(bail, l);
     if(echeanceFin) {
       const key = `BAIL:${l.ref}:${echeanceFin}`;
       validBailKeys.add(key);
+      const _BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+      const _noteFin = (_BE && typeof _BE.noteFinDeBail === 'function')
+        ? _BE.noteFinDeBail(_bailEcheance(bail, l))
+        : 'Échéance du bail — prévoir renouvellement ou congé.';
       if(!existing.has(key)) {
         toAdd.push({ id:agendaId(), titre:`Fin de bail — ${l.ref} (${bail.nom||l.locataire})`,
           date:echeanceFin, dateFin:echeanceFin, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
-          cat:'BAIL', couleur:'', notes:'Échéance du bail — prévoir renouvellement ou congé.', recurrence:{type:'none',interval:1,fin:''},
+          cat:'BAIL', couleur:'', notes:_noteFin, recurrence:{type:'none',interval:1,fin:''},
           rappels:[180,90,30,7], auto:true, autoKey:key, done:false, createdAt:todayStr });
         existing.add(key);
+      } else {
+        // Un rappel déjà créé garde sa date (et son « fait ») ; seule sa note suit la règle du type —
+        // avant, un bail étudiant recevait « prévoir renouvellement ou congé ».
+        const _evFin = DB.agenda.find(e => e && e.auto && e.autoKey === key);
+        if(_evFin && _evFin.notes !== _noteFin) {
+          _evFin.notes = _noteFin;
+          if (typeof _stamp === 'function') _stamp(_evFin);
+          _irlAgendaRecale = true;   // même drapeau « un rappel existant a changé » → saveDB
+        }
       }
 
-      // ── Préavis bailleur (6 mois nu / 3 mois meublé avant échéance) ──
-      // v14.48 : auto-event distinct pour rappeler de donner congé/notifier
-      // modification de loyer dans les délais légaux (loi du 6 juillet 1989).
+      // ── Préavis bailleur (6 mois nu / 3 mois meublé avant l'échéance À VENIR) ──
+      // Seulement là où la loi de 1989 fait courir un préavis avant l'échéance : jamais pour un
+      // étudiant, une mobilité (fin au terme, sans congé), un garage ou un autre (le contrat).
       const preavis = _bailPreavisInfo(bail, l);
       if(preavis && preavis.preavisStart) {
         const keyPrev = `BAIL_PREVIS:${l.ref}:${preavis.fin}`;
@@ -7030,7 +7085,7 @@ function _pilCollectFamilles(ctx) {
   // ── Fins de bail à terme (bauxEcheance : la règle existe mais n'était lue nulle part) ──
   try {
     if (typeof AR.bauxEcheance === 'function') {
-      AR.bauxEcheance(scopeLogs, todayD, 90).forEach(b => {
+      AR.bauxEcheance(scopeLogs, todayD, 90, _bailEcheanceAlerteDe).forEach(b => {
         if (src.finbail.some(x => x.ref === b.ref)) return;   // déjà porté par un départ en cours
         src.finbail.push({ ref: b.ref, nom: b.locataire || b.ref, urgenceJours: b.jours });
       });
@@ -10914,14 +10969,14 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
   }
   if(id==='bail') {
     // v15.424 DRY : règle canonique AlertRules.bauxEcheance (mêmes seuils que la bannière).
-    const items = AlertRules.bauxEcheance(scopeLogs, today).map(b=>({ref:b.ref,loc:b.locataire,diff:b.jours,fin:b.fin,t:(b.expire||b.jours<=30)?'red':'ora'}));
+    const items = AlertRules.bauxEcheance(scopeLogs, today, 90, _bailEcheanceAlerteDe).map(b=>({ref:b.ref,loc:b.locataire,diff:b.jours,fin:b.fin,t:(b.expire||b.jours<=30)?'red':'ora'}));
     if(!items.length) return wd(lbl('Baux arrivant à terme')+'<div style="margin-top:8px;font-size:11px;color:var(--grn)">✓ Aucun bail dans les 90 jours</div>', '', 'grn');
     _DD['bail'] = {title:'Baux à terme', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Fin bail</th><th>Statut</th></tr></thead><tbody>'
-      +items.map(it=>'<tr><td><b>'+it.ref+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td><td>'+fd(it.fin)+'</td><td style="color:'+(it.t==='red'?'var(--red)':'var(--ora)')+';font-weight:600">'+(it.diff<0?'Expiré depuis '+(-it.diff)+'j':'J-'+it.diff)+'</td></tr>').join('')+'</tbody></table>'};
+      +items.map(it=>'<tr><td><b>'+it.ref+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td><td>'+fd(it.fin)+'</td><td style="color:'+(it.t==='red'?'var(--red)':'var(--ora)')+';font-weight:600">'+(it.diff<0?'Arrivé à terme depuis '+(-it.diff)+'j':'J-'+it.diff)+'</td></tr>').join('')+'</tbody></table>'};
     const st2 = items.some(it=>it.t==='red')?'red':'ora';
     return wd(
       lbl('Baux arrivant à terme')+wval(items.length,'var(--ora)')+wsub('bail(s) dans les 90 jours')
-      +items.slice(0,_maxItems).map(it=>ai('<b>'+it.ref+'</b> '+(it.diff<0?'expiré depuis '+(-it.diff)+'j':'J-'+it.diff)+' · '+fd(it.fin),it.t)).join('')
+      +items.slice(0,_maxItems).map(it=>ai('<b>'+it.ref+'</b> '+(it.diff<0?'arrivé à terme depuis '+(-it.diff)+'j':'J-'+it.diff)+' · '+fd(it.fin),it.t)).join('')
       +(items.length>_maxItems?ai('+ '+(items.length-_maxItems)+' autres...','flat'):''),
       seeAll('bail'), st2);
   }
@@ -13987,15 +14042,28 @@ function _locEcheanceInfo(bail) {
   // « Tacite reconduction ». Distinguer « pas de bail » (échéance nulle) de
   // « bail sans date de fin » (durée indéterminée → réellement en tacite).
   if (!bail) return { cls: 'muted', text: '', urgent: false };
-  if (!bail.fin) return { cls: 'ok', text: 'Tacite reconduction', urgent: false };
+  if (bail.fin && isNaN(new Date(bail.fin).getTime())) {
+    console.warn('[_locEcheanceInfo] date bail.fin invalide', bail.ref || bail, bail.fin);
+    return { cls: 'warn', text: '⚠ Date invalide', urgent: true };
+  }
+  // BAUX-ECHUS — LA règle du type (js/core/bail-echeance.js) : la même que l'agenda, la frise et
+  // l'alerte « arrivé à terme ». « Tacite reconduction » seulement là où la loi (nu, meublé) ou le
+  // contrat (garage de l'app) la prévoit ; « Arrivé à terme (date) » sinon — plus de « Échu » pour
+  // un garage reconduit par son contrat, plus de « Tacite reconduction » pour une mobilité sans date.
+  const _BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if (_BE && typeof _BE.pastilleEcheance === 'function') {
+    try {
+      const _log = (DB.logements || []).find(l => l && l.ref === bail.ref) || null;
+      const _o = _bailEcheanceOpts(bail, _log);
+      return _BE.pastilleEcheance(_BE.echeanceBail(bail, _log, _o), _o);
+    } catch (e) { return { cls: 'warn', text: '⚠ Erreur date', urgent: true }; }
+  }
+  // Repli (module non chargé) : l'ancien calcul, sans affirmer de reconduction pour un type qui n'en a pas.
+  if (!bail.fin) return _bailTypeHasTacite(bail.type) ? { cls: 'ok', text: 'Tacite reconduction', urgent: false } : { cls: 'muted', text: 'Échéance non renseignée', urgent: false };
   try {
     const finDate = new Date(bail.fin);
     const today = new Date();
     const finTime = finDate.getTime();
-    if (isNaN(finTime)) {
-      console.warn('[_locEcheanceInfo] date bail.fin invalide', bail.ref || bail, bail.fin);
-      return { cls: 'warn', text: '⚠ Date invalide', urgent: true };
-    }
     const daysLeft = Math.floor((finTime - today.getTime()) / 86400000);
     const finLbl = fd(bail.fin);
     if (daysLeft >= 0) {
@@ -14003,13 +14071,10 @@ function _locEcheanceInfo(bail) {
       if (daysLeft < 90) return { cls: 'warn', text: `${finLbl} (${daysLeft}j)`, urgent: true };
       return { cls: 'ok', text: finLbl, urgent: false };
     }
-    // v15.343 BUG-STATUT-TACITE — Échéance dépassée : distinguer
-    //   • tacite reconduction (nu/meublé) → le bail se prolonge, PAS « échu »
-    //   • échu réel (étudiant/mobilité/garage/autre, non reconductibles)
     if (_bailTypeHasTacite(bail.type)) {
       return { cls: 'ok', text: 'Tacite reconduction', urgent: false };
     }
-    return { cls: 'err', text: `Échu (${finLbl})`, urgent: true };
+    return { cls: 'err', text: `Arrivé à terme (${finLbl})`, urgent: true };
   } catch (e) { return { cls: 'warn', text: '⚠ Erreur date', urgent: true }; }
 }
 
@@ -15570,10 +15635,22 @@ function rBaux() {
       const echCellHtml = depState
         ? `<div class="loc-ech-b loc-dep-cell" title="Départ en cours — ouvrir l'assistant" onclick="event.stopPropagation();_departOuvrir('${refEscJs}')">${_ICON_DEPART} Départ ${depState.doneCount}/${depState.total}${depDgHtml}</div>`
         : `<div class="loc-ech-b ${ech.cls}">${ech.text ? `${_uiIcon('calendar',13)} ${ech.text}` : ''}</div>`;
+      // BAUX-ECHUS — bail arrivé à terme sans reconduction (étudiant, mobilité ; garage repris, autre) et
+      // sans départ déclaré : l'alerte dit ce que la loi dit, et propose les deux gestes existants.
+      const terme = (!depState && bail && !bail.cloture && !bail._deleted) ? _bailAlerteTerme(bail, l) : null;
+      // Les deux gestes vivent DANS l'alerte (ligne pleine largeur) : la colonne d'actions de la carte ne
+      // s'élargit pas — sinon, sur PC, le nom du locataire se retrouvait écrasé mot par mot.
+      const termeHtml = terme
+        ? `<div class="loc-terme-b" role="note"><span class="loc-terme-txt">${_uiIcon('warn',13)} <span>${escHtml(terme.texte)}</span></span>`
+          + `<span class="loc-terme-acts">`
+          + `<button onclick="event.stopPropagation();_bailNouveauApresTerme('${refEscJs}')" title="Signer un nouveau bail${terme.nouveauBailMeuble ? ' meublé' : ''} avec le même locataire" aria-label="Signer un nouveau bail">${_uiIcon('edit')} Nouveau bail</button>`
+          + `<button onclick="event.stopPropagation();_departDeclarer('${refEscJs}')" title="Déclarer le départ du locataire" aria-label="Déclarer le départ">${_ICON_DEPART} Déclarer le départ</button>`
+          + `</span></div>`
+        : '';
       // v15.614 REFONTE-PC — bouton départ libellé (plus d'icône seule)
       const depActionBtn = depState
         ? `<button onclick="event.stopPropagation();_departOuvrir('${refEscJs}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">${_ICON_DEPART} Départ</button>`
-        : (bail && !bail.cloture && !bail._deleted && ech.urgent
+        : (!terme && bail && !bail.cloture && !bail._deleted && ech.urgent
             ? `<button onclick="event.stopPropagation();_departOuvrir('${refEscJs}')" title="Préparer le départ du locataire" aria-label="Préparer le départ" class="loc-dep-prep">${_ICON_DEPART} Départ</button>`
             : '');
       const rowDepCls = depState ? ' loc-depart' : (ech.urgent ? ' warn-soon' : '');
@@ -15601,6 +15678,7 @@ function rBaux() {
         ${echCellHtml}
         <div class="loc-meta-bail-b">${escHtml(debutLbl)}</div>
         <div class="loc-actions-b">${actions}</div>
+        ${termeHtml}
       </div>`;
     }).join('');
 
@@ -16520,10 +16598,14 @@ function autoFinBail() {
   else if (type === 'mobilite') { return; }                  // v15.196 post-audit : loi ELAN art. 107 = 1-10 mois variable → user doit saisir manuellement la date de fin (cohérence avec PDF "[à préciser]")
   else if (type === 'garage') { return; }                    // v15.196 post-audit : durée libre code civil → user saisit manuellement (cohérence avec PDF "[durée libre — à préciser]")
   else if (type === 'autre') { return; }                     // pas de pré-remplissage
-  else {                                                      // 'nu' : 3 ans (perso) / 6 ans (SCI/personne morale)
+  else {                                                      // 'nu' : 3 ans / 6 ans selon le bailleur (art. 10 et 13)
+    // BAUX-ECHUS — le régime vient de bail-duree.js (DRY, même source que le PDF signé) : l'ancien test
+    // `includes('perso')` lisait « PERSOnne morale » comme une personne physique → 3 ans au lieu de 6.
     const entNom = v('b-entity');
     const ent = DB.entites.find(e=>e.nom===entNom);
-    ans = ent?.type?.toLowerCase().includes('perso') ? 3 : 6;
+    const RB = (window.BailDuree && typeof window.BailDuree.regimeBailleur === 'function') ? window.BailDuree.regimeBailleur
+      : (typeof window.regimeBailleur === 'function' ? window.regimeBailleur : null);
+    ans = RB ? RB((ent && ent.type) || '').ans : 6;
   }
   const d = new Date(debut+'T00:00:00');
   if (ans) d.setFullYear(d.getFullYear() + ans);
@@ -18094,6 +18176,7 @@ function _bailSigned(bail){ return !!(bail && bail.signatures && bail.signatures
  *  `clauseIrlV`, posé à la signature) : 1 = texte d'origine ; 2 = clause 5.2 révisée ;
  *  3 = 2 + contrat type issu du décret n° 2026-596 (js/core/contrat-type.js) ;
  *  4 = 3 + sous-titre du bail nu selon le bailleur réel (js/core/bail-duree.js).
+ *  5 = 4 + clauses de durée, congé et fin corrigées (BAUX-ECHUS, js/core/bail-clauses-fin.js).
  *  · signé : celle posée à la signature (absente = signé avant tout changement = 1) ;
  *  · signature à distance EN COURS : celle mémorisée à l'envoi — le PDF final doit reprendre ce
  *    que le locataire a relu ;
@@ -18111,13 +18194,13 @@ function _bailClauseVersion(b){
   if (rs && !['completed', 'expired', 'error'].includes(rs.status)) return _bailClauseVersionNorm(rs.clauseIrlV);
   return 2;
 }
-/** La version portée par une valeur brute (session à distance, staging, popup) : 1, 2, 3 ou 4.
+/** La version portée par une valeur brute (session à distance, staging, popup) : 1 à 5.
  *  Même sans module, 3 reste 3 : sinon une finalisation à distance graverait 1 pour de bon. */
 function _bailClauseVersionNorm(v){
   const CT = (typeof window !== 'undefined') ? window.ContratType : null;
   if (CT && typeof CT.normaliserVersionClauses === 'function') return CT.normaliserVersionClauses(v);
   const n = Number(v);
-  return (n === 2 || n === 3 || n === 4) ? n : 1;
+  return (n === 2 || n === 3 || n === 4 || n === 5) ? n : 1;
 }
 /** CONTRAT-TYPE-2026-10 — le bail suit-il le contrat type issu du décret n° 2026-596 ? */
 function _bailContratType2026(b){ return _bailClauseVersion(b) >= 3; }
@@ -18265,6 +18348,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // implique que le module est chargé (sinon _bailClauseVersion plafonne à 2).
   const CT = (typeof window !== 'undefined') ? window.ContratType : null;
   const _ct26 = !!CT && _bailContratType2026(bail);
+  // BAUX-ECHUS — clauses de durée, congé et fin corrigées (version de clauses 5, js/core/bail-clauses-fin.js :
+  // articles 10, 25-7, 25-8 I, 25-14, 25-15 de la loi de 1989 ; 1231-5 et 1736 à 1740 du Code civil). Un bail
+  // SIGNÉ en version ≤ 4 garde son texte d'origine, mot pour mot (les littéraux ci-dessous ne bougent pas).
+  const BCF = (typeof window !== 'undefined') ? window.BailClausesFin : null;
+  const _v5 = !!BCF && _bailClauseVersion(bail) >= 5;
   // Servitude de résidence principale (art. L. 151-14-1 C. urb.) : donnée du BIEN, figée au snapshot.
   const _servitudeRP = _ct26 && !!_lbFill.servitudeRP;
 
@@ -18326,8 +18414,9 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     dureeBail = '9 (neuf) mois';
     dureePhrase = 'Cette durée de 9 mois — bail étudiant non reconductible — s\'applique conformément à l\'article 25-7 dernier alinéa de la loi du 6 juillet 1989. Le présent contrat ne fait pas l\'objet de tacite reconduction.';
   } else if (isMobilite) {
-    dureeBail = '[de 1 à 10 mois — à préciser]';
-    dureePhrase = 'Cette durée s\'applique conformément à l\'article 25-14 de la loi du 6 juillet 1989 (loi ELAN du 23 novembre 2018, art. 107). Le bail mobilité est conclu pour une durée minimale d\'un mois et maximale de dix mois, non renouvelable et non reconductible.';
+    // BAUX-ECHUS v5 : la durée RÉELLE tirée des dates du bail ; le marqueur seulement si une date manque.
+    dureeBail = (_v5 && BCF.dureeMobiliteLibelle(bail.debut, bail.fin)) || '[de 1 à 10 mois — à préciser]';
+    dureePhrase = _v5 ? BCF.DUREE_MOBILITE : 'Cette durée s\'applique conformément à l\'article 25-14 de la loi du 6 juillet 1989 (loi ELAN du 23 novembre 2018, art. 107). Le bail mobilité est conclu pour une durée minimale d\'un mois et maximale de dix mois, non renouvelable et non reconductible.';
   } else if (isGarage) {
     dureeBail = '[durée libre — à préciser]';
     dureePhrase = 'La durée est librement convenue entre les parties conformément à l\'article 1709 du Code civil. Le bail commercial, le bail rural et le statut de la loi du 6 juillet 1989 ne s\'appliquent pas à la location d\'un emplacement de stationnement isolé.';
@@ -18714,32 +18803,32 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     // v15.193 BAIL-TYPES Étape 3 : congé / tacite adapté au type
     ...(isMobilite ? [
       { type:'h3', text:'Congé / fin de bail mobilité' },
-      { type:'p', text:'Le LOCATAIRE peut résilier le contrat à tout moment avec un préavis d\'un (1) mois, notifié par lettre recommandée avec avis de réception ou par acte de commissaire de justice. Le BAILLEUR ne peut pas donner congé en cours de bail.' },
-      { type:'p-callout-warn', text:'Le bail mobilité ne peut être ni reconduit ni renouvelé. À l\'échéance, le LOCATAIRE doit quitter les lieux. Toute reconduction implicite entraîne la requalification en bail meublé d\'un an (art. 25-15 loi 89-462).' }
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MOBILITE : 'Le LOCATAIRE peut résilier le contrat à tout moment avec un préavis d\'un (1) mois, notifié par lettre recommandée avec avis de réception ou par acte de commissaire de justice. Le BAILLEUR ne peut pas donner congé en cours de bail.' },
+      { type:'p-callout-warn', text: _v5 ? BCF.FIN_MOBILITE : 'Le bail mobilité ne peut être ni reconduit ni renouvelé. À l\'échéance, le LOCATAIRE doit quitter les lieux. Toute reconduction implicite entraîne la requalification en bail meublé d\'un an (art. 25-15 loi 89-462).' }
     ] : isEtudiant ? [
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MEUBLE : 'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Fin de bail étudiant' },
-      { type:'p-callout-warn', text:'Le bail étudiant de 9 mois n\'est pas reconductible (art. 25-7 dernier alinéa loi 89-462). À l\'échéance, le LOCATAIRE doit quitter les lieux ou conclure un nouveau contrat. Aucune tacite reconduction n\'est applicable.' }
+      { type:'p-callout-warn', text: _v5 ? BCF.FIN_ETUDIANT : 'Le bail étudiant de 9 mois n\'est pas reconductible (art. 25-7 dernier alinéa loi 89-462). À l\'échéance, le LOCATAIRE doit quitter les lieux ou conclure un nouveau contrat. Aucune tacite reconduction n\'est applicable.' }
     ] : isFurnished ? [
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MEUBLE : 'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation. Il n\'aura que le droit d\'en demander la résiliation judiciaire pour inexécution d\'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Congé à l\'expiration du bail' },
-      { type:'p', text:'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins trois (3) mois avant l\'échéance si le congé émane du BAILLEUR, et un (1) mois avant si le congé émane du LOCATAIRE (art. 25-8 loi 89-462, bail meublé).' },
+      { type:'p', text: _v5 ? BCF.CONGE_EXPIRATION_MEUBLE : 'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins trois (3) mois avant l\'échéance si le congé émane du BAILLEUR, et un (1) mois avant si le congé émane du LOCATAIRE (art. 25-8 loi 89-462, bail meublé).' },
       { type:'p', text:'Le congé donné par le BAILLEUR doit être justifié soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux. À peine de nullité, il doit indiquer le motif allégué et, en cas de reprise, les noms et adresse du bénéficiaire.' },
       { type:'h3', text:'Proposition de renouvellement' },
       { type:'p', text:'Le BAILLEUR peut proposer au LOCATAIRE, au moins trois mois avant le terme du contrat, un nouveau contrat par référence aux loyers habituellement constatés dans le voisinage pour des logements meublés comparables.' },
       { type:'h3', text:'Tacite reconduction' },
-      { type:'p', text:'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée d\'un (1) an (art. 25-8 loi 89-462, bail meublé).' }
+      { type:'p', text: _v5 ? BCF.RECONDUCTION_MEUBLE : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée d\'un (1) an (art. 25-8 loi 89-462, bail meublé).' }
     ] : isGarage || isAutre ? [
       { type:'h3', text:'Conditions de résiliation' },
-      { type:'p', text:'Les conditions de préavis, congé et reconduction sont librement définies entre les parties dans les présentes ou par avenant. À défaut de précision, le droit commun des contrats s\'applique.' }
+      { type:'p', text: _v5 ? BCF.RESILIATION_AUTRE : 'Les conditions de préavis, congé et reconduction sont librement définies entre les parties dans les présentes ou par avenant. À défaut de précision, le droit commun des contrats s\'applique.' }
     ] : [
       // Bail nu (cas par défaut)
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_NU : 'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.' },
       // Art. 15-I dans les termes de la loi, depuis le module : c'est le document SIGNÉ, il ne
       // peut pas énoncer une condition que la loi n'impose plus (cf. `preavisReduitClause`).
       { type:'p', text:(typeof window.preavisReduitClause==='function')
@@ -18747,12 +18836,12 @@ function buildBailStructure(bail, log, ref, ent, locs) {
         : 'Ce délai est réduit à un (1) mois dans les cas prévus à l\'article 15-I de la loi n° 89-462 du 6 juillet 1989.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation. Il n\'aura que le droit d\'en demander la résiliation judiciaire pour inexécution d\'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Congé à l\'expiration du bail' },
-      { type:'p', text:'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins six (6) mois avant l\'échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE.' },
+      { type:'p', text: _v5 ? BCF.CONGE_EXPIRATION_NU : 'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins six (6) mois avant l\'échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE.' },
       { type:'p', text:'Le congé donné par le BAILLEUR doit être justifié soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux. À peine de nullité, il doit indiquer le motif allégué et, en cas de reprise, les noms et adresse du bénéficiaire.' },
       { type:'h3', text:'Proposition de renouvellement' },
       { type:'p', text:'Le BAILLEUR peut proposer au LOCATAIRE, au moins six mois avant le terme du contrat, un nouveau contrat par référence aux loyers habituellement constatés dans le voisinage pour des logements comparables.' },
       { type:'h3', text:'Tacite reconduction' },
-      { type:'p', text:'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (' + dureeBail + ').' }
+      { type:'p', text: _v5 ? BCF.reconductionBailNu(ent.type||'') : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (' + dureeBail + ').' }
     ])
   ];
 
@@ -19093,7 +19182,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // ─── §13 Clause pénale ──────────────────────────────────────────
   out.push(
     { type:'h2', text:'13 — Clause pénale — Indemnité d\'occupation' },
-    { type:'p', text:'Il est stipulé à titre de clause pénale (articles 1226 et suivants du Code civil) qu\'en cas de maintien indu dans les lieux, le LOCATAIRE devra verser une indemnité par jour de retard égale à deux fois le loyer quotidien, du lendemain de cessation de la location jusqu\'à la restitution des clés, toute journée commencée étant intégralement due.' },
+    { type:'p', text:'Il est stipulé à titre de clause pénale (' + (_v5 ? BCF.CLAUSE_PENALE_REF : 'articles 1226 et suivants du Code civil') + ') qu\'en cas de maintien indu dans les lieux, le LOCATAIRE devra verser une indemnité par jour de retard égale à deux fois le loyer quotidien, du lendemain de cessation de la location jusqu\'à la restitution des clés, toute journée commencée étant intégralement due.' },
     { type:'p', text:'En cas de congé ou résiliation, si le LOCATAIRE se maintient, il sera redevable d\'une indemnité d\'occupation au moins égale au montant du dernier loyer, charges et accessoires.' }
   );
 
@@ -22188,7 +22277,14 @@ function exportBailWord(bail, log, ref) {
   // CHANTIER BAIL-GARAGE — genBailHTML (template Word) est un modèle loi 89 codé en dur, sans
   // conscience du type : pour un garage il produirait un bail d'habitation FAUX. Le PDF natif
   // (via buildBailStructure → route garage) reste le chemin officiel. On bloque le Word ici.
-  if (bail.type === 'garage') { showToast('Export Word indisponible pour un bail garage (droit commun) — utilisez le PDF.', 'warn', 6000); return; }
+  // BAUX-ECHUS — le modèle Word est un modèle de bail NU (durée 3/6 ans, art. 10, congé art. 15) : pour un
+  // meublé, un étudiant, une mobilité ou un « autre », il produirait des clauses fausses. Même traitement
+  // que le garage : le PDF natif (buildBailStructure, clauses par type) est le chemin officiel.
+  const _tWord = _bailTypeEff(bail, log);
+  if (_tWord !== 'nu') {
+    const _lblWord = { garage: 'garage (droit commun)', meuble: 'meublé', etudiant: 'étudiant', mobilite: 'mobilité', autre: '« autre » (régime libre)' }[_tWord] || _tWord;
+    showToast('Export Word indisponible pour un bail ' + _lblWord + ' — utilisez le PDF.', 'warn', 6000); return;
+  }
   const ent  = DB.entites.find(e=>e.nom===bail.entity)||{};
   const locs = bail.locataires || (bail.nom ? [{nom:bail.nom,ddn:bail.ddn,lieuNaiss:bail.lieuNaiss}] : []);
   const totalMensuel = (bail.hc||0)+(bail.ch||0);
@@ -23281,7 +23377,26 @@ var _CONGE_ACTS=[
  {k:'resiliation_amiable', tt:'Résiliation amiable', ds:'Protocole d\'accord (art. 1193)', tpl:'bail-resiliation-amiable'}
 ];
 function _congeOv(){ var ov=document.getElementById('ov-conge'); if(!ov){ ov=document.createElement('div'); ov.id='ov-conge'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-conge')"); document.body.appendChild(ov); } return ov; }
-function _congeTplOf(){ var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:''; }
+function _congeTplOf(){
+  // BAUX-ECHUS — le « congé du bailleur » dépend du type de bail : art. 15 (nu), art. 25-8 I (meublé),
+  // information de fin de bail (étudiant, mobilité), congé selon le contrat (garage, autre).
+  if(_congeState.kind==='conge_bailleur') return _congeModele(_congeState.ref).tpl;
+  var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:'';
+}
+// BAUX-ECHUS — le type EFFECTIF du bail : le même résolveur que la règle d'échéance (bail.type fait
+// autorité, repli log.typeUsage pour les baux d'avant v15.191), plus `bail.type || 'nu'`.
+function _congeTypeBail(ref){
+  var bail=(DB.baux&&DB.baux[ref])||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||null;
+  var BE=window.BailEcheance;
+  return (BE&&typeof BE.typeBailEffectif==='function')?BE.typeBailEffectif(bail,log):_bailTypeEff(bail,log);
+}
+/** La lettre « congé du bailleur » du bail (js/core/conge.js, congeBailleurModele). */
+function _congeModele(ref){
+  var t=_congeTypeBail(ref);
+  if(typeof window.congeBailleurModele==='function') return window.congeBailleurModele(t);
+  // Repli (module non chargé) : le congé du bail nu, comme avant.
+  return { tpl:'bail-conge-bailleur-6mois', titre:'Congé donné au locataire', fondement:'Loi n° 89-462 du 6 juillet 1989, article 15', motif:true, annexe15II:true, protege:'art. 15-III', dateLibre:false, fichier:'Conge-bailleur' };
+}
 /**
  * Le pont entre la DB (cycle de reconduction, préavis) et `congeDateEffet`, la fonction PURE
  * qui reporte la date d'effet au terme suivant quand le préavis ne tient plus.
@@ -23311,18 +23426,22 @@ function _congeDateEffetLocale(bail,log,pinfo,preavisMois){
 function _congeExtra(ref){
   var bail=DB.baux[ref]||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||{};
   // Date CIVILE (pas td(), qui est UTC : cf. `_congeDateEffetLocale`) — elle date l'acte.
-  var typeBail=bail.type||'nu';
+  var typeBail=_congeTypeBail(ref);   // BAUX-ECHUS : type EFFECTIF (repli log.typeUsage), plus `bail.type || 'nu'`
   var today=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
   // On reformate bail.debut en date FR (les modèles affichent {{bail.debut}}) sans toucher au texte des modèles Propryo.
   var e={ dateLettre: fd(today), bail: Object.assign({}, bail, { adrBien: bail.adrBien||log.adr||'', debut: bail.debut?fd(bail.debut):'‹début du bail›' }) };
   if(_congeState.kind==='conge_bailleur'){
-    var motif=v('cg-motif')||'reprise';
-    // Le motif et ses marqueurs viennent du générateur COMMUN (js/core/conge.js). Le Hub
-    // Communications appelle le même : c'est ce qui l'empêche de réinventer un congé sans prix.
-    var _md=window.congeMotifDetail({ motif:motif, prix:v('cg-prix'), conditions:v('cg-cond'),
-      benef:v('cg-benef'), benefAdr:v('cg-benefadr'), lien:v('cg-lien'), legitime:v('cg-legitime'),
-      art15Inline:false });  // le document porte les cinq alinéas en ANNEXE (art15IIProDoc)
-    e.motifConge=_md.motifConge; e.motifDetail=_md.motifDetail;
+    var _M=_congeModele(ref);
+    if(_M.motif){
+      var motif=v('cg-motif')||'reprise';
+      // Le motif et ses marqueurs viennent du générateur COMMUN (js/core/conge.js). Le Hub
+      // Communications appelle le même : c'est ce qui l'empêche de réinventer un congé sans prix.
+      // Meublé (art. 25-8, I) : « vente » sans prix ni préemption 15-II.
+      var _md=window.congeMotifDetail({ motif:motif, prix:v('cg-prix'), conditions:v('cg-cond'),
+        benef:v('cg-benef'), benefAdr:v('cg-benefadr'), lien:v('cg-lien'), legitime:v('cg-legitime'),
+        art15Inline:false, meuble: typeBail==='meuble' });  // nu : les cinq alinéas en ANNEXE (art15IIProDoc)
+      e.motifConge=_md.motifConge; e.motifDetail=_md.motifDetail;
+    } else { e.motifConge=''; e.motifDetail=''; }
     // Préavis bailleur (6 mois nu / 3 meublé) : la date d'effet doit être un TERME qui respecte
     // RÉELLEMENT le préavis. Si l'échéance la plus proche est déjà trop tardive, on reporte au terme
     // suivant — sinon le congé serait nul et la mention « préavis respecté » mensongère (audit P0-1).
@@ -23331,8 +23450,24 @@ function _congeExtra(ref){
     _congeState.preavisPushed=false;
     if(pinfo){
       e.dateFin=fd(_congeDateEffetLocale(bail,log,pinfo,preavisMois));
-    } else { e.dateFin=bail.fin?fd(bail.fin):'‹échéance du bail›'; }
-    e.mentionPreavis=window.congeMentionPreavis(preavisMois);
+    } else {
+      // BAUX-ECHUS — pas de préavis légal (étudiant, mobilité, garage, autre) : l'échéance selon LA règle du
+      // type (garage de l'app : la période reconduite en cours ; arrivé à terme : la fin du contrat).
+      var _echC=(typeof _bailEcheanceEffective==='function')?_bailEcheanceEffective(bail,log):null;
+      e.dateFin=_echC?fd(_echC):(bail.fin?fd(bail.fin):'‹échéance du bail›');
+      if(_M.dateLibre){
+        // Garage / autre : la date d'effet est celle prévue au CONTRAT — saisie, sinon l'échéance si elle
+        // est à venir ; jamais une date passée (marqueur nommé : le garde-fou d'émission la signale).
+        var _effC=v('cg-effet-contrat');
+        e.dateFin=_effC?fd(_effC):((_echC&&_echC>=today)?fd(_echC):'‹date d\'effet›');
+      } else if(typeof window.congePhraseTerme==='function'){
+        // Étudiant / mobilité : information de fin de bail — terme au futur ou au passé, jamais une
+        // « date d'effet » antérieure à la lettre.
+        var _finT=_echC||(bail.fin?String(bail.fin).slice(0,10):'');
+        e.phraseTerme=window.congePhraseTerme(_finT?fd(_finT):'', _finT, today);
+      }
+    }
+    e.mentionPreavis=window.congeMentionPreavis(preavisMois, typeBail);
   } else if(_congeState.kind==='conge_locataire'){
     var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
     e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='à convenir';
@@ -23355,9 +23490,11 @@ function _congeDocHtml(ref){
   var ctx=(typeof _buildEmailCtxFromRef==='function')?_buildEmailCtxFromRef(ref,_congeExtra(ref)):_congeExtra(ref);
   var draft=(typeof window._emailCompose==='function')?window._emailCompose(_congeTplOf(),ctx):{body:''};
   var corps=window.letterToProDoc(draft.body||'');
-  if(_congeState.kind==='conge_bailleur' && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
-  var TIT={conge_bailleur:'Congé donné au locataire',conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
-  var LEG={conge_bailleur:'Loi n° 89-462 du 6 juillet 1989, article 15',conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
+  // BAUX-ECHUS — titre, fondement et annexe 15-II selon le type de bail (l'annexe 15-II : bail NU seulement).
+  var _M=_congeModele(ref);
+  if(_congeState.kind==='conge_bailleur' && _M.annexe15II && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
+  var TIT={conge_bailleur:_M.titre,conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
+  var LEG={conge_bailleur:_M.fondement,conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
   return _docPage(ent,{titre:TIT[_congeState.kind],ctx:LEG[_congeState.kind],corps:corps,ref:escHtml(ref),date:'',withStyle:false});
 }
 function _congeSubBailleur(motif){
@@ -23365,7 +23502,8 @@ function _congeSubBailleur(motif){
   // lien », à peine de nullité. L'adresse n'était collectée nulle part : le congé partait sans
   // elle, donc nul, et rien ne le signalait. Elle a son champ, et son marqueur quand elle manque.
   if(motif==='reprise') return _congeField('cg-benef','Bénéficiaire de la reprise','text','')+_congeField('cg-benefadr','Adresse du bénéficiaire','text','')+_congeField('cg-lien','Lien avec le bailleur',null,null,(window.REPRISE_LIENS||[]));
-  if(motif==='vente') return _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
+  // Meublé (art. 25-8, I) : ni offre de vente ni préemption — pas de prix ni de conditions à collecter.
+  if(motif==='vente') return (_congeTypeBail(_congeState.ref)==='meuble') ? '' : _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
   return _congeField('cg-legitime','Description du motif légitime et sérieux','text','');
 }
 function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+l+'</label>';
@@ -23373,10 +23511,21 @@ function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inte
   return '<div class="fld" style="margin-bottom:8px">'+lab+'<input class="inp" id="'+id+'" '+(t==='date'?'type="date"':t==='number'?'type="number"':'')+' value="'+escHtml(val||'')+'" oninput="_congeRender()"></div>'; }
 function _congeForm(){
   if(_congeState.kind==='conge_bailleur'){
+    var _M=_congeModele(_congeState.ref);
+    // BAUX-ECHUS — étudiant / mobilité : information de fin de bail, rien à saisir ; garage / autre : la
+    // date d'effet prévue au contrat (pas de motif) ; nu / meublé : le congé motivé.
+    if(!_M.motif){
+      if(_M.dateLibre){
+        var _echF=(typeof _bailEcheanceEffective==='function')?_bailEcheanceEffective(DB.baux[_congeState.ref]||{},(DB.logements||[]).find(function(l){return l&&l.ref===_congeState.ref;})||null):'';
+        var _todF=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
+        return _congeField('cg-effet-contrat','Date d\'effet (selon le préavis du contrat)','date',(_echF&&_echF>=_todF)?_echF:'')+'<div id="cg-alert"></div>';
+      }
+      return '<div id="cg-alert"></div>';
+    }
     var motif=v('cg-motif')||'reprise';
     return _congeField('cg-motif','Motif du congé',null,null,[{v:'reprise',t:'Reprise pour habiter'},{v:'vente',t:'Vente du logement'},{v:'legitime',t:'Motif légitime et sérieux'}])+
       '<div id="cg-sub" data-m="'+motif+'">'+_congeSubBailleur(motif)+'</div>'+
-      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé (art. 15-III)</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
+      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé ('+_M.protege+')</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
       '<div id="cg-alert"></div>';
   }
   if(_congeState.kind==='conge_locataire') return _congeField('cg-recu','Date de réception du congé','date',(typeof td==='function'?td():''))+_congeField('cg-cas','Cas de préavis réduit (1 mois)',null,null,(window.CONGE_CAS_REDUITS||[]))+'<div id="cg-alert"></div>';
@@ -23385,18 +23534,37 @@ function _congeForm(){
   return '';
 }
 function _congeRender(){
-  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_CONGE_ACTS.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
+  // BAUX-ECHUS — la vignette « congé du bailleur » dit ce que produit la lettre pour CE type de bail.
+  var _MR=_congeModele(_congeState.ref), _tbR=_congeTypeBail(_congeState.ref);
+  var _actsR=_CONGE_ACTS.map(function(a){
+    if(a.k!=='conge_bailleur') return a;
+    if(_MR.tpl==='bail-fin-terme-information') return Object.assign({},a,{tt:'Information de fin de bail',ds:'Fin au terme, sans congé (art. '+(_tbR==='etudiant'?'25-7':'25-14')+')'});
+    if(_MR.dateLibre) return Object.assign({},a,{ds:'Selon le contrat de location'});
+    if(_tbR==='meuble') return Object.assign({},a,{ds:'Reprise / vente / motif légitime (art. 25-8)'});
+    return a;
+  });
+  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_actsR.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
   var form=document.getElementById('cg-form'); if(form && form.dataset.k!==_congeState.kind){ form.innerHTML=_congeForm(); form.dataset.k=_congeState.kind; }
-  if(_congeState.kind==='conge_bailleur'){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
+  if(_congeState.kind==='conge_bailleur' && _MR.motif){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
   var prev=document.getElementById('cg-preview'); if(prev) _docRenderSandboxed(prev, _congeDocHtml(_congeState.ref), 'Aperçu du congé', _docCarteCss());
   // alerte locataire protégé (congé bailleur) — NON bloquante
   var al=document.getElementById('cg-alert');
   if(al){ var html='';
     if(_congeState.kind==='conge_bailleur'){
+      // BAUX-ECHUS — étudiant / mobilité : le bail prend fin à son terme sans congé ; garage / autre :
+      // le contrat. On le DIT (jamais bloquant) — le modèle reste disponible.
+      var _tbC=_tbR;
+      if(typeof window.congeBailleurPreavisMois==='function' && !window.congeBailleurPreavisMois(_tbC)){
+        html+='<div class="note" style="background:var(--info-soft);border:1px solid var(--bor);color:var(--t1);border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">'
+          +((_tbC==='etudiant'||_tbC==='mobilite')
+            ? 'Bail '+(_tbC==='etudiant'?'étudiant (9 mois)':'mobilité')+' : il prend fin à son terme sans qu\'un congé soit nécessaire (article '+(_tbC==='etudiant'?'25-7':'25-14')+' de la loi du 6 juillet 1989). La lettre informe le locataire de la fin du bail.'
+            : 'Location hors loi du 6 juillet 1989 : le congé suit le contrat (forme, préavis, date d\'effet). Indiquer la date d\'effet prévue au contrat.')
+          +'</div>';
+      }
       if(_congeState.preavisPushed) html+='<div class="note" style="background:#e6f1fb;border:1px solid #cfe0f6;color:#185fa5;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Date d\'effet reportée au terme suivant : le préavis légal ne pouvait plus être respecté pour l\'échéance la plus proche (un congé délivré trop tard est nul).</div>';
       if(document.getElementById('cg-protege') && document.getElementById('cg-protege').checked)
-        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé (art. 15-III) : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
-    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:(DB.baux[_congeState.ref]||{}).type||'nu', casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
+        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé ('+_MR.protege+') : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
+    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:_tbR, casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
     al.innerHTML=html; }
 }
 function _congePick(k){ _congeState.kind=k; var f=document.getElementById('cg-form'); if(f)f.dataset.k=''; _congeRender(); }
@@ -23468,7 +23636,7 @@ async function _congeSortiePdf(ref){
   var docHtml=_congeDocHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
   if(!_acteMentionsOk(docHtml,_acteVerbePdf())) return;
   if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
-  var noms={conge_bailleur:'Conge-bailleur',conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};
+  var noms={conge_bailleur:_congeModele(ref).fichier,conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};   // BAUX-ECHUS : « Information-fin-de-bail » pour étudiant / mobilité
   await _pdfSortie({ fileName:noms[_congeState.kind]+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf', desc:'PDF (acte)', genererAvant:true,
     titre:noms[_congeState.kind].replace(/-/g,' '), texte:'Acte — '+(bail.adrBien||ref),
     genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); } });
@@ -23510,7 +23678,12 @@ function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef,
     .replace('révisé annuellement à la date anniversaire du bail selon', 'révisé {{IRL_REVISION_QUAND}} selon')
     .replace('suivant la date de révision, sans notification préalable.', 'suivant la date de révision{{IRL_SANS_NOTIF}}.')
     .replace('Cette durée de 6 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).', '{{DUREE_PHRASE}}')
-    .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}');
+    .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}')
+    // BAUX-ECHUS — même mécanisme (correspondance EXACTE avec le modèle d'origine) pour la tacite
+    // reconduction du bail nu et la référence de la clause pénale : le jeton rend le texte d'origine
+    // pour un bail signé en version ≤ 4, la rédaction corrigée sinon (art. 10 al. 3 ; art. 1231-5 C. civ.).
+    .replace('<p>À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (6 ans).</p>', '<p>{{RECONDUCTION_NU_PHRASE}}</p>')
+    .replace('Il est stipulé à titre de clause pénale (articles 1226 et suivants du Code civil)', 'Il est stipulé à titre de clause pénale ({{CLAUSE_PENALE_REF}})');
   // CONTRAT-TYPE-2026-10 — même mécanisme : les passages du modèle d'AVANT le décret n° 2026-596,
   // s'ils sont restés tels quels dans un modèle enregistré, remontent vers leurs jetons. Les jetons
   // rendent le texte d'origine pour un bail signé avant (Word identique), le nouveau sinon.
@@ -23722,6 +23895,14 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     'PREAVIS_REDUIT': (typeof window.preavisReduitClause==='function')
       ? window.preavisReduitClause(true)
       : 'Ce délai est réduit à <strong>un (1) mois</strong> dans les cas prévus à l’article 15-I de la loi n° 89-462 du 6 juillet 1989.',
+    // BAUX-ECHUS — version de clauses 5 : reconduction 3 ou 6 ans (art. 10 al. 3) et clause pénale art. 1231-5 ;
+    // bail signé en version ≤ 4 : le texte d'origine du modèle, mot pour mot.
+    'RECONDUCTION_NU_PHRASE': (()=>{
+      const _BCFw = window.BailClausesFin; const ent2=DB.entites.find(e=>e.nom===bail.entity)||{};
+      return (_BCFw && _bailClauseVersion(bail) >= 5) ? S(_BCFw.reconductionBailNu(ent2.type||''))
+        : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (6 ans).';
+    })(),
+    'CLAUSE_PENALE_REF': (window.BailClausesFin && _bailClauseVersion(bail) >= 5) ? S(window.BailClausesFin.CLAUSE_PENALE_REF) : 'articles 1226 et suivants du Code civil',
     'MODALITE_PAIEMENT': bail.modalitePaiement==='echeoir'
       ? 'à terme à échoir (paiement en début de période)'
       : 'à terme échu (paiement en fin de période)',

@@ -39,10 +39,10 @@ describe('mentionsACompleter — avertissement au bailleur avant signature', () 
 });
 
 describe('version des clauses — un bail signé n\'est jamais réécrit', () => {
-  it('brouillon → version courante (4)', () => {
-    expect(VERSION_CLAUSES_ACTUELLE).toBe(4);
-    expect(versionClausesBail({})).toBe(4);
-    expect(versionClausesBail(null)).toBe(4);
+  it('brouillon → version courante (5)', () => {
+    expect(VERSION_CLAUSES_ACTUELLE).toBe(5);
+    expect(versionClausesBail({})).toBe(5);
+    expect(versionClausesBail(null)).toBe(5);
     expect(suitContratType2026({})).toBe(true);
   });
   it('signé : la version posée à la signature ; absente = texte d\'origine', () => {
@@ -52,6 +52,7 @@ describe('version des clauses — un bail signé n\'est jamais réécrit', () =>
     expect(versionClausesBail(signe(2))).toBe(2);
     expect(versionClausesBail(signe(3))).toBe(3);
     expect(versionClausesBail(signe(4))).toBe(4);
+    expect(versionClausesBail(signe(5))).toBe(5);
     expect(suitContratType2026(signe(4))).toBe(true);
     expect(suitContratType2026(signe(2))).toBe(false);
   });
@@ -61,12 +62,14 @@ describe('version des clauses — un bail signé n\'est jamais réécrit', () =>
     expect(versionClausesBail(rs('pending', undefined))).toBe(1);
     expect(versionClausesBail(rs('pending', 3))).toBe(3);
     expect(versionClausesBail(rs('pending', 4))).toBe(4);
-    expect(versionClausesBail(rs('expired', 2))).toBe(4);
-    expect(versionClausesBail(rs('completed', 1))).toBe(4);
+    expect(versionClausesBail(rs('pending', 5))).toBe(5);
+    expect(versionClausesBail(rs('expired', 2))).toBe(5);
+    expect(versionClausesBail(rs('completed', 1))).toBe(5);
   });
   it('valeur inconnue → 1 (jamais une version inventée)', () => {
     expect(normaliserVersionClauses('x')).toBe(1);
-    expect(normaliserVersionClauses(5)).toBe(1);
+    expect(normaliserVersionClauses(6)).toBe(1);
+    expect(normaliserVersionClauses(5)).toBe(5);
     expect(normaliserVersionClauses(4)).toBe(4);
     expect(normaliserVersionClauses('3')).toBe(3);
   });

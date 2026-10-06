@@ -107,9 +107,12 @@ describe('_emailTypesSupportes', () => {
     expect(types.every(t => typeof t === 'string')).toBe(true);
   });
 
-  it('contient les 30 types (29 V1+V1.1 + résiliation amiable v15.62)', () => {
+  it('contient les 33 types (29 V1+V1.1 + résiliation amiable v15.62 + 3 lettres de fin de bail BAUX-ECHUS)', () => {
     const types = _emailTypesSupportes();
-    expect(types).toHaveLength(30);
+    expect(types).toHaveLength(33);
+    expect(types).toContain('bail-conge-bailleur-meuble');
+    expect(types).toContain('bail-fin-terme-information');
+    expect(types).toContain('bail-conge-bailleur-contrat');
     expect(types).toContain('bail-resiliation-amiable');
     // V1 v14.97 (10 types)
     expect(types).toContain('quittance');

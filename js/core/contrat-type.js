@@ -26,17 +26,20 @@
  *   1 = texte d'origine ; 2 = clause 5.2 IRL révisée (IRL-REVISION, v15.679) ;
  *   3 = 2 + contrat type issu du décret n° 2026-596 ;
  *   4 = 3 + sous-titre du bail nu selon le bailleur réel (bail-duree.js, sousTitreBailNu) — en
- *       version ≤ 3, « Bailleur personne morale » quel que soit le bailleur.
+ *       version ≤ 3, « Bailleur personne morale » quel que soit le bailleur ;
+ *   5 = 4 + clauses de durée, congé et fin corrigées (BAUX-ECHUS, bail-clauses-fin.js) : reconduction
+ *       du nu 3 ou 6 ans (art. 10), meublé art. 25-7, préavis art. 25-8 I, mobilité art. 25-14 / 25-15,
+ *       clause pénale art. 1231-5, « autre » : louage (C. civ. 1736 à 1740).
  * Un bail signé garde la version avec laquelle il a été signé (document ré-affiché à
  * l'identique) ; un brouillon prend la version courante.
  */
 
-export const VERSION_CLAUSES_ACTUELLE = 4;
+export const VERSION_CLAUSES_ACTUELLE = 5;
 
 /** Toute valeur inconnue (absente, corrompue) = texte d'origine : jamais d'invention de version. */
 export function normaliserVersionClauses(v) {
   const n = Number(v);
-  return (n === 2 || n === 3 || n === 4) ? n : 1;
+  return (n === 2 || n === 3 || n === 4 || n === 5) ? n : 1;
 }
 
 /**

@@ -12,7 +12,7 @@
  *   - bailProgressPct(bail) → % bail écoulé ou null
  */
 
-import { isTaciteReconductionAllowed } from './bail-types.js';
+import { echeanceBail, pastilleEcheance } from '../../js/core/bail-echeance.js';
 
 const CIV_REGEX = /^(M\.?|Mme\.?|Mlle\.?|Mr\.?|Mrs\.?|Dr\.?|Pr\.?|Me\.?)$/i;
 
@@ -31,38 +31,20 @@ export function avatarInitials(nom) {
 }
 
 /**
- * Calcule l'info d'échéance d'un bail (vert/orange/rouge).
+ * L'info d'échéance d'un bail (vert/orange/rouge) — BAUX-ECHUS : délègue à LA règle du type
+ * (js/core/bail-echeance.js), exactement comme _locEcheanceInfo dans l'app. Plus de copie de logique.
  * Gère explicitement les dates invalides (NaN) → warn au lieu de OK silencieux.
  * @param {object} bail
  * @param {function} fdFn - formatter de date (ex: ISO → "JJ/MM/AAAA"), optionnel
+ * @param {string} [todayIso] - date du jour (défaut : aujourd'hui, heure locale)
  * @returns {{cls: string, text: string, urgent: boolean}}
  */
-export function echeanceInfo(bail, fdFn) {
-  if (!bail || !bail.fin) return { cls: 'ok', text: 'Tacite reconduction', urgent: false };
-  try {
-    const finDate = new Date(bail.fin);
-    const finTime = finDate.getTime();
-    if (isNaN(finTime)) {
-      return { cls: 'warn', text: '⚠ Date invalide', urgent: true };
-    }
-    const today = new Date();
-    const daysLeft = Math.floor((finTime - today.getTime()) / 86400000);
-    const finLbl = fdFn ? fdFn(bail.fin) : String(bail.fin);
-    if (daysLeft >= 0) {
-      // Échéance à venir : alerte préavis si < 90 jours, sinon « en cours ».
-      if (daysLeft < 90) return { cls: 'warn', text: `${finLbl} (${daysLeft}j)`, urgent: true };
-      return { cls: 'ok', text: finLbl, urgent: false };
-    }
-    // v15.343 BUG-STATUT-TACITE — Échéance dépassée : distinguer
-    //   • tacite reconduction (nu/meublé) → le bail se prolonge, PAS « échu »
-    //   • échu réel (étudiant/mobilité/garage/autre, non reconductibles)
-    if (isTaciteReconductionAllowed(bail.type || 'nu')) {
-      return { cls: 'ok', text: 'Tacite reconduction', urgent: false };
-    }
-    return { cls: 'err', text: `Échu (${finLbl})`, urgent: true };
-  } catch (e) {
-    return { cls: 'warn', text: '⚠ Erreur date', urgent: true };
-  }
+export function echeanceInfo(bail, fdFn, todayIso) {
+  if (!bail) return { cls: 'muted', text: '', urgent: false };
+  if (bail.fin && isNaN(new Date(bail.fin).getTime())) return { cls: 'warn', text: '⚠ Date invalide', urgent: true };
+  const d = new Date();
+  const t = todayIso || (d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+  return pastilleEcheance(echeanceBail(bail, null, { todayIso: t }), { todayIso: t, fd: fdFn });
 }
 
 /**
