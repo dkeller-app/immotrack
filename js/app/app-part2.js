@@ -31834,7 +31834,13 @@ function openBilanAnnuel() {
   const yr = v('bilan-year') || String(new Date().getFullYear() - 1);
   const entNom = v('bilan-ent');
   if (!entNom) { showToast('Sélectionnez une entité', 'warn'); return; }
-  const bilan = window._computeBilanAnnuel(DB, STD_CATEGORIES, entNom, yr, { mapping: (typeof _finMapping2044 === 'function') ? _finMapping2044() : null });   // M-2 : le mapping passe ENFIN au bilan
+  // Lot 6, B (R-0) : le cash-flow de l'entité est LU dans Finances (bloc unique `_dashCfReel` → `_finMonthly`
+  // → cashflowReel, mêmes fenêtres que l'onglet), jamais recalculé par le bilan.
+  const _cf = (typeof _dashCfReel === 'function') ? _dashCfReel({ yr, activeEnt: entNom }) : null;
+  const bilan = window._computeBilanAnnuel(DB, STD_CATEGORIES, entNom, yr, {
+    mapping: (typeof _finMapping2044 === 'function') ? _finMapping2044() : null,   // M-2 : le mapping passe ENFIN au bilan
+    cashflowReel: _cf ? _cf.cf : null
+  });
   if (!bilan) { showToast('Entité introuvable ou bilan vide', 'err'); return; }
   const txt = window._formatBilanTexte(bilan);
   const out = el('bilan-result');

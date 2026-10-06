@@ -38,7 +38,9 @@ describe('_computeBilanAnnuel', () => {
     expect(b.kpis.totalRevenus).toBe(3600); // 800+800+1000+1000
     expect(b.kpis.totalCharges).toBe(500);
     expect(b.kpis.totalInterets).toBe(200);
-    expect(b.kpis.cashFlow).toBe(3100);
+    // Lot 6, B (R-0) : le cash-flow n'est plus « revenus − charges » 2044 recalculé ici — il est lu dans
+    // Finances et injecté (`opts.cashflowReel`). Sans injection : null, jamais un chiffre faux.
+    expect(b.kpis.cashFlow).toBeNull();
     expect(b.kpis.resultatFoncier).toBe(2900);
   });
 
@@ -63,7 +65,8 @@ describe('_computeBilanAnnuel', () => {
     const f1 = b.parLogement.find(l => l.ref === 'F-001');
     expect(f1.revenus).toBe(1600);
     expect(f1.charges).toBe(500);
-    expect(f1.cashFlow).toBe(1100);
+    expect(f1.resultatFiscal).toBe(1100);   // lot 6, B : ex-« cash-flow » = résultat fiscal du lot
+    expect(f1).not.toHaveProperty('cashFlow');
     expect(f1.locataire).toBe('MARTIN');
     expect(f1.tauxOccupation).toBeCloseTo(100, 1); // toute l'année
   });
