@@ -1,20 +1,20 @@
 # Propryo — Backlog actif
-## 🧭 PLAN DE SESSIONS (05/10, validé Didier) — vagues
-| Vague | Session | Prompt | Modèle | Branche |
+## 🧭 PLAN DE SESSIONS (05/10, validé Didier) — état au 06/10
+| Vague | Session | État 06/10 | Attend Didier | Branche |
 |---|---|---|---|---|
-| ▶ en cours | Finances — suivi des loyers | `PROMPT-SESSION-FINANCES-SUIVI-LOYERS.md` | Sonnet orchestrateur (+Opus phases 1/3, Fable contre-audit) | `feat/finances-suivi-unique` |
-| ▶ en cours | Règles de classement | `PROMPT-SESSION-REGLES-MOUVEMENTS.md` | Sonnet orchestrateur (+Opus modèle/migration) | `feat/regles-refonte` |
-| 1 ▶ lancée | Bail en cours (lot A + B1/B3/B4 + C2/C4) | `PROMPT-SESSION-BAIL-EN-COURS.md` | Sonnet orchestrateur (+Opus conception) | `feat/bail-en-cours` |
-| 1 ▶ lancée | Fusion des 2 SCI SMARTOSAURUS (données réelles) — puis : validation de régul partagée par SCI (migration) | `PROMPT-SESSION-FUSION-SCI.md` | Opus | `fix/fusion-sci` |
-| 1 ▶ lancée | Audit de sécurité (lecture seule) | `PROMPT-SESSION-AUDIT-SECURITE.md` | Opus (+agents Fable) | `audit/securite` |
-| 2 | IRL & courriers (C3, C6, C7) — après Bail en cours | à écrire | Sonnet (+Opus moteur IRL) | — |
-| 2 | Stockage IndexedDB (suite conception 30/09) — après Fusion SCI | à écrire | Opus | — |
-| 2 | Téléphone : EDL + vue Charges par locataire (25/09 #1 #2) | à écrire | Sonnet | — |
-| 3 | Écrans Accueil / Loyers 3 blocs / Logements / MRH (B2, C1, C5) + vue Charges « (sans immeuble) » (régul) — après Finances | à écrire | Sonnet | — |
-| 3 | Mise en production (propryo.fr, Resend, Stripe, OTP) — dépend de Didier | à écrire | Sonnet | — |
-**Pilotage** : intégration une par une, numéros de version attribués par le pilotage, smokes en attente.
+| ▶ | Finances — suivi des loyers (Sonnet) | phase 1 ✅ cas Arslan reconstitué + règles d'imputation validées ; maquette prête | 3 réponses (accord d'avance réel ? 150 € retenus Wieniski ? 404,90 € Baysang : trop-perçu ou régul ?) + validation maquette | `feat/finances-suivi-unique` |
+| ▶ | Règles de classement (Sonnet) | maquettes v2 (puces de mots, compte en lecture seule, sans migration) | validation maquette → phase 3 · ⚠ branche pas encore poussée | `feat/regles-refonte` |
+| 1 ▶ | Bail en cours (Sonnet) | **lot A codé** (`5855736`, version non bumpée) · décisions B1/B3/B4 prises · maquettes (DG versé, bail/EDL hors Propryo, nom d'affichage, signature expirée, corriger/annuler une modif) | smoke lot A + validation maquettes | `feat/bail-en-cours` |
+| 1 ▶ | Fusion des 2 SCI (Opus) | v15.717 sur sa branche (enregistrement neuf d'un associé → espace de la SCI) · **plan exact rédigé, en attente de GO** | autoriser la requête Supabase en attente + GO du plan | `fix/fusion-sci` |
+| 1 ▶ | Audit de sécurité (Opus) | **rapport livré** (confidentiel, hors dépôt) · chantiers SECU C1–C3 lancés, C4–C9 planifiés · C1 (OTP signature) avant le 14/10 via Resend `no-reply@propryo.fr` | ajouter 3 enregistrements DNS Resend dans cPanel + vérifier DMARC | `audit/securite` |
+| 2 | IRL & courriers (C3, C6, C7) — après Bail en cours | à écrire | | |
+| 2 | Stockage IndexedDB (suite conception 30/09) — après Fusion SCI | à écrire | | |
+| 2 | Téléphone : EDL + vue Charges par locataire (25/09 #1 #2) | à écrire | | |
+| 3 | Écrans Accueil / Loyers 3 blocs / Logements / MRH (B2, C1, C5) + vue Charges « (sans immeuble) » — après Finances | à écrire | | |
+| 3 | Mise en production (propryo.fr, Resend, Stripe, OTP) — en partie absorbée par l'audit sécurité (Resend/OTP) | à écrire | | |
+**Versions (attribuées par le pilotage, 06/10)** : main = v15.716 · v15.717 = Fusion SCI (partage, branche `fix/fusion-sci`) · **v15.718 = Bail en cours lot A** · v15.719 = alerte régul N-1 (renumérotée, voir ci-dessous). Prochaine libre : **v15.720**.
 
-## 🚦 ALERTE « Régularisation N-1 à émettre » — v15.713 (branche `claude/vigorous-hawking-8b71ed`, PAS sur main) · ⏳ smoke + GO Didier, puis intégration pilotage
+## 🚦 ALERTE « Régularisation N-1 à émettre » — ⚠ annoncée v15.713 mais **v15.713 déjà pris sur main** (charges hors occupation, `b121dbb`) → **renuméroter v15.719** · ⚠ commit **introuvable sur GitHub** (la branche `claude/vigorous-hawking-8b71ed` pointe sur main) : la session doit pousser son travail · ⏳ smoke + GO Didier
 **Livré** : l'alerte s'éteint quand on clique « Valider la régul de l'immeuble » (onglet Charges) pour N-1 ; l'alerte ouvre l'onglet Charges directement sur N-1. **Version v15.713 prise** par cette branche.
 **Smoke Didier** : Accueil → alerte Régul → onglet Charges sur 2025 → vue immeuble → Valider → l'alerte disparaît.
 **À arbitrer (Didier)** :
