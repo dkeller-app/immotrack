@@ -13857,6 +13857,25 @@ function _renderHistoBailSection(ref){
   const _bailForDg = bailCur || (DB.baux_historique||[]).filter(h=>h && !h._deleted && h.ref===ref)
     .sort((a,b)=>(b._archivedAt||'').localeCompare(a._archivedAt||''))[0] || null;
 
+  // ── BAIL-EN-COURS-MODIFIER-PERIODES — modifications de période écrasées par un autre appareil (le barème est un blob
+  //    réécrit en entier) : le journal en garde la trace → « Réappliquer » (explicite, idempotent) ou « Ignorer ».
+  let perduesHtml = '';
+  try{
+    const BE = window.BaremeEdition;
+    const perdues = (BE && typeof BE.periodesNonAppliquees==='function')
+      ? BE.periodesNonAppliquees(DB.baux_evenements||[], DB.loyerBareme||[], { ref, ignorees:(DB.params&&DB.params._bperIgnorees)||{} }) : [];
+    perduesHtml = perdues.map(x=>{
+      const a=x.avant, b=x.apres, tot=o=>fmt((Number(o.hc)||0)+(Number(o.ch)||0));
+      const quoi = x.action==='supprimee' ? `la suppression de la période de ${a?tot(a):''} du ${a?fd(a.debut):''}`
+        : (x.action==='ajoutee' ? `l'ajout d'une période de ${b?tot(b):''} à partir du ${b?fd(b.debut):''}`
+        : `la modification de la période du ${a?fd(a.debut):''} (${a?tot(a):''} → ${b?tot(b):''}${b&&a&&b.debut!==a.debut?', début '+fd(b.debut):''})`);
+      const idq=_lyQ(x.id);
+      return `<div class="hl-migrate hper-perdue"><div>${_uiIcon('warn')}</div>
+        <div class="txt"><b>Une modification de période n'apparaît pas.</b> ${escHtml(x.auteur?x.auteur+' a fait ':'On a fait ')}${quoi} le <b>${fd(String(x.date||'').slice(0,10))}</b>${x.motif?' — '+escHtml(x.motif):''}, mais le barème ne la porte pas : elle a pu être écrasée par un autre appareil non rafraîchi.
+          <div class="hper-perdue-act"><button class="btn bp bb" onclick="_histoPerReappliquer('${idq}')">Réappliquer</button><button class="btn bs bb" onclick="_histoPerIgnorer('${idq}')">Ignorer</button></div></div></div>`;
+    }).join('');
+  }catch(e){ console.warn('[périodes] détecteur', e); }
+
   const chapsHtml = chapitres.length
     ? chapitres.map(c=>_histoBailChapHtml(c, ref, refSafe, _bailForDg)).join('')
     : `<div class="logf-panel-empty">Aucun bail (ni courant ni passé) sur ce bien.</div>`;
@@ -13868,7 +13887,7 @@ function _renderHistoBailSection(ref){
           <div class="mu sm" style="margin-top:2px">Toutes les évolutions, tous baux confondus : loyer · charges · dépôt de garantie · révisions IRL · fins de bail</div></div>
         <button class="btn bs bb" id="hl-btn-modifier" aria-pressed="false" onclick="_histoPerModeOuvrir('${rEsc}')">${_uiIcon('edit')} Modifier</button>
       </div>
-      <div style="margin-top:12px">${nowHtml}${migHtml}
+      <div style="margin-top:12px">${nowHtml}${migHtml}${perduesHtml}
         <div class="hl-selbar" id="hl-selbar" hidden role="region" aria-label="Modifier une période">
           <b class="hl-selbar-t">Sélectionne la période à modifier</b>
           <span class="hl-selbar-act">
@@ -14458,6 +14477,35 @@ function _histoPerSupprimerConfirme(){
   const p=c.entree.p;
   _histoPerFinir(window._bailPeriodeSupprimer(c.ref, p.cle, (v('hper-motif')||'').trim(), {}), 'Période supprimée');
 }
+// « Réappliquer » une modification perdue : même opération pure (idempotente : mêmes evtId et date), sans nouvelle entrée de journal.
+function _histoPerReappliquer(id){
+  const BE=window.BaremeEdition; if(!BE||typeof window._bailPeriodeModifier!=='function'){ showToast('Module indisponible : rafraîchis la page','err'); return; }
+  const x=BE.periodesNonAppliquees(DB.baux_evenements||[], DB.loyerBareme||[], { ignorees:(DB.params&&DB.params._bperIgnorees)||{} }).find(y=>String(y.id)===String(id));
+  if(!x){ showToast('Cette modification est déjà appliquée','info'); rLogFiche(); return; }
+  const ref=String(x.ref||'').split('@@')[0];
+  const o={ rejeu:true, evtId:x.id, le:x.entree.date, auteur:x.auteur, origine:'ui' };
+  let r;
+  if(x.action==='ajoutee') r=window._bailPeriodeAjouter(ref, { debut:x.apres.debut, fin:x.apres.fin||null, hc:x.apres.hc, ch:x.apres.ch, bailDebut:x.bailDebut }, x.motif, o);
+  else {
+    const cle={ ref, bailDebut:x.bailDebut, debut:x.avant.debut };
+    if(x.avant.source==='irl'){ o.origine='irl'; o.autoriserIRL=true; }
+    r = x.action==='supprimee' ? window._bailPeriodeSupprimer(ref, cle, x.motif, o)
+      : window._bailPeriodeModifier(ref, cle, { debut:x.apres.debut, hc:x.apres.hc, ch:x.apres.ch }, x.motif, o);
+  }
+  if(!r || r.ok===false){
+    const f=_HISTO_PER_RAISONS[r&&r.raison];
+    showToast('Réapplication impossible : '+(r&&r.raison==='introuvable'?'la période a changé entre-temps (modification postérieure).':(f?f(null,r).replace(/<[^>]+>/g,''):'erreur'))+' Tu peux ignorer ce message et refaire la modification.','err',9000);
+    return;
+  }
+  rLogFiche(); showToast('Modification réappliquée','ok');
+}
+function _histoPerIgnorer(id){
+  if(!DB.params) DB.params={};
+  if(!DB.params._bperIgnorees) DB.params._bperIgnorees={};
+  DB.params._bperIgnorees[String(id)]=true;
+  saveDB(); rLogFiche();
+  showToast('Message ignoré','info');
+}
 function _histoPerFinir(r, msgOk){
   const c=_histoPerCtx;
   if(!r || r.ok===false){
@@ -14482,7 +14530,8 @@ function _histoPerFinir(r, msgOk){
 //   window._bailPeriodeSupprimer(ref, cle, motif, opts)
 //   window._bailPeriodeAjouter(ref, {debut, fin?, hc, ch}, motif, opts)
 //     cle  = {ref?, bailDebut, debut} (BaremeEdition.cleDePeriode) — jamais un index
-//     opts = { origine:'ui'|'irl', autoriserIRL:false, sansSave:false, simuler:false, auteur, evtId, le }
+//     opts = { origine:'ui'|'irl', autoriserIRL:false, sansSave:false, simuler:false, auteur, evtId, le, rejeu:false }
+//     (`rejeu` : « Réappliquer » une modification dont l'entrée de journal existe déjà — évtId et date repris, aucune nouvelle entrée)
 //   → { ok, change, raison, evt, impact, avertissements, touchees, avant, apres, bailDebut }
 // `simuler:true` : calcule tout (impact, avertissements) SANS rien écrire — c'est l'alerte non bloquante de la fenêtre.
 // `origine:'irl'` + `autoriserIRL:true` : lève la restriction « seules les charges d'une période IRL » — la session IRL met alors
@@ -14580,8 +14629,7 @@ function _bailPeriodeAppliquer(quoi, ref, cle, donnees, motif, opts){
   try{
     DB.loyerBareme=r.periods;
     if(!Array.isArray(DB.baux_evenements)) DB.baux_evenements=[];
-    if(typeof _stamp==='function') _stamp(evt);
-    DB.baux_evenements.push(evt);
+    if(!opts.rejeu){ if(typeof _stamp==='function') _stamp(evt); DB.baux_evenements.push(evt); }   // « Réappliquer » : l'entrée du journal existe déjà
     if(recaler){
       cur.hc=Number(p1.hc)||0; cur.ch=Number(p1.ch)||0; if(typeof _stamp==='function') _stamp(cur);
       if(li>=0){ const log=DB.logements[li]; log.hc=cur.hc; log.ch=cur.ch; if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); if(typeof _stamp==='function') _stamp(log); }

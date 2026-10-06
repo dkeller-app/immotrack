@@ -385,3 +385,41 @@ export function impactEdition(input) {
   if (!premier) return vide;
   return { mois, futur, fenetre: { debut: premier, fin: sansFin ? null : dernier }, deltaTotal: _r2(mois.reduce((s, m) => s + m.delta, 0)) };
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// ÉCRASEMENT MULTI-APPAREILS — détecteur des modifications de période « perdues ».
+// Le barème vit dans le blob `espace_config`, réécrit EN ENTIER sans garde de version : un appareil pas encore rafraîchi
+// peut écraser une modification faite ailleurs, sans erreur. Le JOURNAL (`baux_evenements`, une ligne versionnée par
+// modification) survit, lui. Une entrée du journal dont l'`id` (= `evtId` porté par les lignes du barème qu'elle a écrites)
+// n'apparaît dans AUCUNE ligne du barème n'a pas été appliquée (ou a été écrasée) : on la propose à « Réappliquer ».
+// Une entrée dont la période a été retouchée depuis (entrée postérieure sur la même période) est SUPERSÉDÉE : on ne la
+// rejoue pas par-dessus une décision plus récente. JAMAIS de rejeu automatique (le geste est explicite, et idempotent).
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * @param {Array} journal DB.baux_evenements
+ * @param {Array} bareme DB.loyerBareme
+ * @param {{ref?:string, ignorees?:Object<string,boolean>}} [opts]
+ * @returns {Array<{id,action,date,auteur,motif,ref,bailDebut,avant,apres,entree}>} les entrées non appliquées, la plus ancienne d'abord
+ */
+export function periodesNonAppliquees(journal, bareme, opts) {
+  const o = opts || {};
+  const ign = o.ignorees || {};
+  const portes = new Set();
+  for (const p of (bareme || [])) {
+    if (!p) continue;
+    for (const k of ['_modifieePar', '_supprimeePar', '_absorbeePar', '_edition']) if (p[k] && p[k].evtId) portes.add(p[k].evtId);
+  }
+  const refDe = (e) => _nr(String(e.ref == null ? '' : e.ref).split('@@')[0]);
+  const es = (journal || []).filter((e) => e && !e._deleted && e.type === 'periode' && e.id != null && (!o.ref || refDe(e) === _nr(String(o.ref).split('@@')[0])));
+  const debuts = (e) => new Set([e.avant && e.avant.debut, e.apres && e.apres.debut].filter(Boolean).map(_ymd));
+  const out = [];
+  for (const e of es) {
+    if (portes.has(e.id) || ign[e.id] || !['modifiee', 'supprimee', 'ajoutee'].includes(e.action)) continue;
+    const de = debuts(e);
+    const supersedee = es.some((f) => f !== e && String(f.date || '') > String(e.date || '') && refDe(f) === refDe(e)
+      && _ymd(f.bailDebut) === _ymd(e.bailDebut) && [...debuts(f)].some((d) => de.has(d)));
+    if (supersedee) continue;
+    out.push({ id: e.id, action: e.action, date: e.date, auteur: e.auteur || '', motif: e.motif || '', ref: e.ref, bailDebut: _ymd(e.bailDebut), avant: e.avant || null, apres: e.apres || null, entree: e });
+  }
+  return out.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}

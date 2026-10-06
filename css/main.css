@@ -10356,6 +10356,8 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .hper-alerte.err{border-left-color:var(--red);background:var(--neg-soft)}
 .hper-alerte.err .uic{color:var(--red)}
 .hper-hint{margin-top:12px;font-size:12px;color:var(--t3)}
+.hper-perdue-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+@media (max-width:767px){.hper-perdue-act .btn{flex:1 1 0;min-height:44px;justify-content:center}}
 #ov-histo-corr [hidden]{display:none !important}
 .hper-foot{flex-wrap:wrap;align-items:center}
 .hper-grow{flex:1 1 auto}

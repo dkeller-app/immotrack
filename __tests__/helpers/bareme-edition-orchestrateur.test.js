@@ -44,15 +44,18 @@ function monde(over = {}) {
     saveDB: () => { calls.save++; return sb.__saveOk },
     __saveOk: true,
     showToast: (m, t) => calls.toasts.push([t, m]),
+    rLogFiche: () => { calls.refresh = (calls.refresh || 0) + 1 },
     _auditLog: (...a) => calls.audit.push(a),
     _appUserName: () => 'Didier',
     _undoOnSaveDBSuccess: () => {},
     _migrationBailsForLot: undefined,
-    window: { BaremeEdition, bailsFromRaw, _loyerPeriodeEnVigueurA: periodeEnVigueurA, _baremeChapitrePour: chapitrePour, _montantSaisi: montantSaisi }
+    window: { BaremeEdition, bailsFromRaw, _bailPeriodeModifier: (...a) => sb._bailPeriodeModifier(...a), _bailPeriodeSupprimer: (...a) => sb._bailPeriodeSupprimer(...a), _bailPeriodeAjouter: (...a) => sb._bailPeriodeAjouter(...a), _loyerPeriodeEnVigueurA: periodeEnVigueurA, _baremeChapitrePour: chapitrePour, _montantSaisi: montantSaisi }
   }
   vm.createContext(sb)
   vm.runInContext([
     extraire(P1, '_stamp'), extraire(P1, '_findBailByRefTolerant'), extraire(P1, '_migrationBailsForLot'), extraire(P2, '_histoBailTodayIso'),
+    P2.slice(P2.indexOf('const _HISTO_PER_RAISONS = {'), P2.indexOf('\n};', P2.indexOf('const _HISTO_PER_RAISONS = {')) + 3),
+    ...['_histoPerReappliquer', '_histoPerIgnorer'].map(n => extraire(P2, n)),
     ...['_bailPeriodeNouvelId', '_bailPeriodeNrRef', '_bailPeriodeBailDuChapitre', '_bailPeriodeDecorer', '_bailPeriodeAppliquer', '_bailPeriodeModifier', '_bailPeriodeSupprimer', '_bailPeriodeAjouter'].map(n => extraire(P2, n))
   ].join('\n'), sb)
   return { sb, DB, calls }
@@ -215,5 +218,78 @@ describe('API : supprimer, ajouter, périodes IRL, introuvable', () => {
     expect(r.ok && r.change).toBe(true)
     expect(DB.baux[REF].hc).toBe(640)
     expect(vivantes(DB.loyerBareme).filter((p) => p.bailDebut === BD)).toHaveLength(2)
+  })
+})
+
+describe('écrasement multi-appareils : détecteur + « Réappliquer »', () => {
+  // L'appareil A modifie une période ; l'appareil B (pas rafraîchi) réécrit le blob du barème en entier : la modification
+  // disparaît du barème, mais l'entrée du journal (table versionnée) survit. On simule en remettant l'ancien barème.
+  const perdre = (DB, ancien) => { DB.loyerBareme = JSON.parse(JSON.stringify(ancien)) }
+
+  it('modification écrasée : le détecteur la propose, Réappliquer la rétablit à l\'identique, sans doublon de journal, et rien n\'est rejoué en double', () => {
+    const { sb, DB } = monde()
+    const ancien = JSON.parse(JSON.stringify(DB.loyerBareme))
+    sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { debut: '2026-10-01' }, 'Erreur de date', { evtId: 'bper_x', le: '2026-10-06T10:00:00.000Z' })
+    const apresA = JSON.stringify(DB.loyerBareme)
+    expect(BaremeEdition.periodesNonAppliquees(DB.baux_evenements, DB.loyerBareme, { ref: REF })).toEqual([])      // appliquée : rien à dire
+    perdre(DB, ancien)
+    const l = BaremeEdition.periodesNonAppliquees(DB.baux_evenements, DB.loyerBareme, { ref: REF })
+    expect(l.map((x) => [x.id, x.action])).toEqual([['bper_x', 'modifiee']])
+    sb._histoPerReappliquer('bper_x')
+    expect(JSON.stringify(DB.loyerBareme)).toBe(apresA)                    // même état que sur l'appareil A (evtId et date repris)
+    expect(DB.baux_evenements).toHaveLength(1)                              // aucune nouvelle entrée
+    expect(BaremeEdition.periodesNonAppliquees(DB.baux_evenements, DB.loyerBareme, { ref: REF })).toEqual([])
+    sb._histoPerReappliquer('bper_x')                                       // rejouer : « déjà appliquée », rien ne bouge
+    expect(JSON.stringify(DB.loyerBareme)).toBe(apresA)
+  })
+
+  it('suppression et ajout écrasés : même mécanique', () => {
+    const { sb, DB } = monde()
+    const ancien = JSON.parse(JSON.stringify(DB.loyerBareme))
+    sb._bailPeriodeSupprimer(REF, cle(DB, '2026-09-01'), 'doublon', { evtId: 'bper_s', le: '2026-10-06T10:00:00.000Z' })
+    const apresSupp = JSON.stringify(DB.loyerBareme)
+    perdre(DB, ancien)
+    sb._histoPerReappliquer('bper_s')
+    expect(JSON.stringify(DB.loyerBareme)).toBe(apresSupp)
+    const m2 = monde()
+    const ancien2 = JSON.parse(JSON.stringify(m2.DB.loyerBareme))
+    m2.sb._bailPeriodeAjouter(REF, { debut: '2027-03-01', hc: 700, ch: 85 }, 'Travaux', { evtId: 'bper_a', le: '2026-10-06T10:00:00.000Z' })
+    const apresAjout = JSON.stringify(m2.DB.loyerBareme)
+    perdre(m2.DB, ancien2)
+    expect(BaremeEdition.periodesNonAppliquees(m2.DB.baux_evenements, m2.DB.loyerBareme, { ref: REF }).map((x) => x.action)).toEqual(['ajoutee'])
+    m2.sb._histoPerReappliquer('bper_a')
+    expect(JSON.stringify(m2.DB.loyerBareme)).toBe(apresAjout)
+  })
+
+  it('une modification postérieure sur la même période SUPERSÈDE l\'entrée : pas de rejeu par-dessus une décision plus récente', () => {
+    const { sb, DB } = monde()
+    const ancien = JSON.parse(JSON.stringify(DB.loyerBareme))
+    sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { debut: '2026-10-01' }, '', { evtId: 'bper_1', le: '2026-10-06T10:00:00.000Z' })
+    sb._bailPeriodeModifier(REF, cle(DB, '2026-10-01'), { hc: 655 }, '', { evtId: 'bper_2', le: '2026-10-07T10:00:00.000Z' })
+    perdre(DB, ancien)                                                       // les DEUX ont été écrasées
+    const l = BaremeEdition.periodesNonAppliquees(DB.baux_evenements, DB.loyerBareme, { ref: REF })
+    expect(l.map((x) => x.id)).toEqual(['bper_2'])                          // la 1re est supersédée par la 2e
+  })
+
+  it('Ignorer : le message disparaît (et ne revient pas) ; Réappliquer sur une période qui a changé entre-temps dit pourquoi, sans rien casser', () => {
+    const { sb, DB, calls } = monde()
+    const ancien = JSON.parse(JSON.stringify(DB.loyerBareme))
+    sb._bailPeriodeModifier(REF, cle(DB, '2026-09-01'), { debut: '2026-10-01' }, '', { evtId: 'bper_i', le: '2026-10-06T10:00:00.000Z' })
+    perdre(DB, ancien)
+    // la période visée a changé entre-temps (autre modification faite sur l'appareil B, non journalisée ici)
+    DB.loyerBareme = DB.loyerBareme.map((p) => (p.debut === '2026-09-01' && !p._deleted ? { ...p, debut: '2026-09-15' } : p))
+    const avant = JSON.stringify(DB.loyerBareme)
+    sb._histoPerReappliquer('bper_i')
+    expect(JSON.stringify(DB.loyerBareme)).toBe(avant)
+    expect(calls.toasts.at(-1)[0]).toBe('err'); expect(calls.toasts.at(-1)[1]).toMatch(/a changé entre-temps/)
+    sb.DB.params = {}
+    sb._histoPerIgnorer('bper_i')
+    expect(BaremeEdition.periodesNonAppliquees(DB.baux_evenements, DB.loyerBareme, { ref: REF, ignorees: DB.params._bperIgnorees })).toEqual([])
+  })
+
+  it('le détecteur ignore les autres lots, les entrées d\'un autre type et les entrées supprimées', () => {
+    const e = (o) => ({ id: 'x' + Math.random(), type: 'periode', action: 'modifiee', ref: REF, bailDebut: BD, date: '2026-10-06T10:00:00Z', avant: { debut: '2026-09-01' }, apres: { debut: '2026-10-01' }, ...o })
+    const j = [e({}), e({ ref: 'AUTRE' }), e({ type: 'modification' }), e({ _deleted: true }), e({ action: 'bizarre' })]
+    expect(BaremeEdition.periodesNonAppliquees(j, [], { ref: REF })).toHaveLength(1)
   })
 })
