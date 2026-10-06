@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createStoreSync, SYNCED_COLLECTIONS, summaryHasCloudWrites, archiveEnAttente, ARCHIVE_GARDE_MS, attenteArchiveRestante } from '../../js/core/store-sync.js'
-import { mapToRow } from '../../js/core/store-mapping.js'
+import { mapToRow, nouvelIdArchive } from '../../js/core/store-mapping.js'
 import { createSupabaseStore, TABLE_COLLECTIONS } from '../../js/core/store-supabase.js'
 
 // ctx réel minimal pour valider le CONTRAT (le record enuméré doit être accepté par le vrai mapper).
@@ -1147,6 +1147,37 @@ describe('B2 — bail signé : archivage, ligne propre du successeur, journal au
     expect(ups.map(c => c.op)).toEqual(['upsert'])
     expect(mapToRow('baux_historique', ups[0].rec, realCtx()).id).toBe('uuid:bailhist|F-1|2026-09-28|a1')
     expect(mapToRow('baux_historique', h1, realCtx()).id).toBe('uuid:bailhist|F-1|2026-09-28')   // seule : identité historique
+  })
+
+  it('ARCHIVES DU MÊME JOUR — copie EXACTE (doublon local) : même identité, jamais deux identifiants ; une archive différente est départagée', async () => {
+    const store = mockStore()
+    const db = { ...baseDB(), baux_historique: [] }
+    let n = 0
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'a' + (++n) })
+    sync.seed()
+    const h = { ref: 'F-1', _archivedAt: '2026-09-28', entity: 'SCI A', locataires: [{ nom: 'Dupont' }] }
+    db.baux_historique.push(h, { ...h }, { ref: 'F-1', _archivedAt: '2026-09-28', entity: 'SCI A', locataires: [{ nom: 'Martin' }] }, { ref: 'F-1', _archivedAt: '2026-09-28', entity: 'SCI A', locataires: [{ nom: 'Martin' }] })
+    await sync.flush()
+    expect(db.baux_historique.map(x => x._archiveId)).toEqual([undefined, undefined, 'a1', 'a1'])
+  })
+
+  it('ARCHIVE identifiée DÈS l\'archivage (app, nouvelIdArchive) : son _archiveId n\'est jamais réécrit au flush', async () => {
+    const store = mockStore()
+    const db = { ...baseDB(), baux_historique: [] }
+    const sync = createStoreSync({ store, getDB: () => db, newUid: () => 'zz' })
+    sync.seed()
+    db.baux_historique.push({ ref: 'F-1', _archivedAt: '2026-09-28', _archiveId: 'app-1', locataires: [{ nom: 'Lea' }] }, { ref: 'F-1', _archivedAt: '2026-09-28', _archiveId: 'app-2', locataires: [{ nom: 'Nina' }] })
+    await sync.flush()
+    expect(db.baux_historique.map(x => x._archiveId)).toEqual(['app-1', 'app-2'])
+    expect(store.calls.filter(c => c.coll === 'baux_historique').map(c => mapToRow('baux_historique', c.rec, realCtx()).id).sort())
+      .toEqual(['uuid:bailhist|F-1|2026-09-28|app-1', 'uuid:bailhist|F-1|2026-09-28|app-2'])
+  })
+
+  it('nouvelIdArchive (store-mapping) : identifiant unique, même générateur que la synchro', () => {
+    const a = nouvelIdArchive(), b = nouvelIdArchive()
+    expect(typeof a).toBe('string')
+    expect(a.length).toBeGreaterThan(8)
+    expect(a).not.toBe(b)
   })
 
   it('summaryHasCloudWrites compte un archivage', () => {

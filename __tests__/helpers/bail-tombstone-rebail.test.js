@@ -67,7 +67,7 @@ describe('_bailEnCours — la définition unique du bail en cours', () => {
 describe('archiverBail — un tombstone ne va jamais dans l\'historique', () => {
   it('tombstone : aucune ligne d\'historique, aucun barème refermé', () => {
     const DB = { baux: { 'A-1': tombstone('A-1') }, baux_historique: [] };
-    const { fns, calls } = sandbox(DB, ['archiverBail', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation']);
+    const { fns, calls } = sandbox(DB, ['archiverBail', '_archiverDansHistorique', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation']);
     fns.archiverBail('A-1', '2026-10-01');
     expect(DB.baux_historique).toEqual([]);
     expect(calls.bareme).toEqual([]);
@@ -75,7 +75,7 @@ describe('archiverBail — un tombstone ne va jamais dans l\'historique', () => 
 
   it('bail vivant : archivé à la veille du nouveau bail (comportement C4 intact)', () => {
     const DB = { baux: { 'A-1': bailActif('A-1') }, baux_historique: [] };
-    const { fns, calls } = sandbox(DB, ['archiverBail', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation']);
+    const { fns, calls } = sandbox(DB, ['archiverBail', '_archiverDansHistorique', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation']);
     fns.archiverBail('A-1', '2026-10-01');
     expect(DB.baux_historique).toHaveLength(1);
     expect(DB.baux_historique[0]).toMatchObject({ ref: 'A-1', finEffective: '2026-09-30', _archivedAuto: true });

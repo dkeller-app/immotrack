@@ -26181,8 +26181,8 @@ function _dgBailCible(ref, cle) {
   if (cle) { const h = histo.find(x => _bailHistCleDe(x) === cle); return h ? { ref, bail: h, cle } : null; }
   const cur = DB.baux && DB.baux[ref];
   if (cur && !cur._deleted && (cur.depart || cur.finEffective || cur.cloture || cur.dgRestitueAt)) return { ref, bail: cur, cle: '' };
-  const enAttente = histo.filter(h => _dgDetenuDuBail(h, 0) > 0);
-  if (enAttente.length === 1) return { ref, bail: enAttente[0], cle: _bailHistCleDe(enAttente[0]) };
+  const enAttente = _archivesDetenuesDuLot(ref);   // même dédoublonnage que les dépôts détenus et la tâche
+  if (enAttente.length === 1) return { ref, bail: enAttente[0].h, cle: enAttente[0].cle };
   if (enAttente.length > 1) return null;   // plusieurs dépôts archivés en attente : le geste doit porter sa clé
   return (cur && !cur._deleted) ? { ref, bail: cur, cle: '' } : null;
 }

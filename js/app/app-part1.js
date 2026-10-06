@@ -8149,6 +8149,20 @@ function openBailClore(ref) {
   openM('ov-bail-clore');
 }
 
+// L'UNIQUE écrivain de baux_historique (clôture, relocation) : chaque archive reçoit DÈS sa création un identifiant
+// unique `_archiveId` (window.nouvelIdArchive — même format que store-sync._identifierArchives, qui ne réécrit jamais un
+// identifiant posé). Deux archives d'un lot le même jour (relocation puis clôture) ne partagent plus leur clé
+// (bailHistCle = ref|_archivedAt|_archiveId) : leurs dépôts et leur restitution restent distincts.
+function _archiverDansHistorique(rec) {
+  if(!DB.baux_historique) DB.baux_historique = [];
+  const W = (typeof window !== 'undefined') ? window : null;
+  const id = (W && typeof W.nouvelIdArchive === 'function') ? W.nouvelIdArchive() : '';
+  const h = Object.assign({}, rec);
+  if(id) h._archiveId = id; else delete h._archiveId;
+  DB.baux_historique.push(h);
+  return h;
+}
+
 // Loi n° 89-462 du 6 juillet 1989, article 22 (Légifrance, version en vigueur), alinéas sur le délai de restitution.
 const _ART22_RESTITUTION = [
   "Il est restitué dans un délai maximal de deux mois à compter de la remise en main propre, ou par lettre recommandée avec demande d'avis de réception, des clés au bailleur ou à son mandataire, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, aux lieu et place du locataire, sous réserve qu'elles soient dûment justifiées. A cette fin, le locataire indique au bailleur ou à son mandataire, lors de la remise des clés, l'adresse de son nouveau domicile.",
@@ -8197,8 +8211,7 @@ function saveBailClore() {
   bail._archivedAt    = td();
   // Archiver dans historique + retirer des actifs (v14.71 : tombstone au lieu de delete
   // pour propagation Drive multi-device — sinon le bail réapparaît au merge)
-  if(!DB.baux_historique) DB.baux_historique = [];
-  DB.baux_historique.push({...bail});
+  _archiverDansHistorique(bail);
   DB.baux[ref] = { ref, _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString(), _archivedAt: td() };
   const log = DB.logements.find(l=>l.ref===ref);
   if(log) { log.locataire = ''; log.fin = finEff; }
@@ -9772,18 +9785,17 @@ function _computeUnifiedTodo(ctx) {
     scopeLogs.forEach(l => {
       // Statut 06/10 : un bail ARCHIVÉ (relocation avant restitution, clôture sans restitution) dont le dépôt
       // n'est pas restitué garde sa tâche — même règle que les « Dépôts détenus » (_dgDetenuDuBail).
-      (DB.baux_historique || []).forEach((h) => {
-        if(!h || h._deleted || h.ref !== l.ref || _dgDetenuDuBail(h, 0) <= 0) return;
+      _archivesDetenuesDuLot(l.ref).forEach(({ h, cle, montant }) => {
         let dlH = null; try { dlH = _departDeadlineDG(h); } catch(e){ dlH = null; }
         const e = _dgEcheance(dlH);
         const locH = (h.locataires && h.locataires[0] && h.locataires[0].nom) || h.nom || l.ref;
         out.push({
           type:'depart', severity:e.severity, score:e.score,
           title:'Départ — dépôt de garantie à restituer (bail archivé)',
-          subtitle:l.ref + ' — ' + locH + ' · ' + fmt(_dgDetenuDuBail(h, 0)) + e.txt,
+          subtitle:l.ref + ' — ' + locH + ' · ' + fmt(montant) + e.txt,
           contextRef:l.ref,
           actionLabel:'Préparer la restitution du DG',
-          actionFn:"_dgOpenRestitution('" + _lyQ(l.ref) + "','" + _lyQ(_bailHistCleDe(h)) + "')"
+          actionFn:"_dgOpenRestitution('" + _lyQ(l.ref) + "','" + _lyQ(cle) + "')"
         });
       });
       const bail = DB.baux[l.ref];
@@ -9957,23 +9969,30 @@ function _dgDetenuDuBail(b, dgLot) {
 /** LES dépôts DÉTENUS d'un lot (bandeau PC, Accueil téléphone, widget), un montant par bail : son bail courant (même parti, même
  *  porteur d'une fin effective) + ses baux archivés (relocation avant restitution, clôture sans restitution).
  *  Un bail clôturé est un tombstone dans DB.baux et sa copie dans baux_historique : jamais compté deux fois. */
+// Les ARCHIVES d'un lot dont le dépôt est encore détenu — une entrée par archive (bailHistCle) : une archive en double
+// (doublon de synchronisation) n'est comptée qu'une fois, et si l'une de ses copies porte la restitution, le dépôt est
+// rendu. Source UNIQUE des dépôts détenus (_dgDetenusDuLot), de la tâche (7bis) et de la cible de restitution.
+function _archivesDetenuesDuLot(ref) {
+  const parCle = new Map(), sansCle = [];
+  (DB.baux_historique || []).forEach(function (h) {
+    if (!h || h._deleted || h.ref !== ref) return;
+    const montant = _dgDetenuDuBail(h, 0);
+    const cle = (typeof _bailHistCleDe === 'function') ? _bailHistCleDe(h) : '';
+    if (!cle) { if (montant > 0) sansCle.push({ h, cle, montant }); return; }
+    const p = parCle.get(cle);
+    if (!p || montant < p.montant) parCle.set(cle, { h, cle, montant });
+  });
+  const out = [];
+  parCle.forEach(function (x) { if (x.montant > 0) out.push(x); });
+  return out.concat(sansCle);
+}
 function _dgDetenusDuLot(l) {
   if (!l || !l.ref) return [];
   const cur = DB.baux && DB.baux[l.ref];
   const out = [];
   const c = _dgDetenuDuBail(cur, (cur && !cur.cloture) ? l.dg : 0);
   if (c > 0) out.push(c);
-  // Une archive peut figurer deux fois (même bailHistCle — doublon de synchronisation) : comptée UNE fois ; si l'une des
-  // copies porte la restitution, le dépôt est rendu (Math.min).
-  const parCle = new Map();
-  (DB.baux_historique || []).forEach(function (h) {
-    if (!h || h._deleted || h.ref !== l.ref) return;
-    const a = _dgDetenuDuBail(h, 0);
-    const k = (typeof _bailHistCleDe === 'function') ? _bailHistCleDe(h) : '';
-    if (!k) { if (a > 0) out.push(a); return; }
-    parCle.set(k, parCle.has(k) ? Math.min(parCle.get(k), a) : a);
-  });
-  parCle.forEach(function (a) { if (a > 0) out.push(a); });
+  _archivesDetenuesDuLot(l.ref).forEach(function (x) { out.push(x.montant); });
   return out;
 }
 // Montant détenu d'un lot, et NOMBRE de dépôts détenus (un lot reloué avant restitution en porte deux) : même
@@ -16953,8 +16972,7 @@ function terminerBail() {
   bail.ref = ref;
   bail._archivedAt = td();
   // Archiver dans historique
-  if(!DB.baux_historique) DB.baux_historique = [];
-  DB.baux_historique.push({...bail});
+  _archiverDansHistorique(bail);
   // Supprimer le bail actif (v14.71 : tombstone pour propagation Drive multi-device)
   DB.baux[ref] = { ref, _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString(), _archivedAt: td() };
   const log = DB.logements.find(l=>l.ref===ref);
@@ -17835,7 +17853,7 @@ function archiverBail(ref, nouveauDebut) {
   // (clôture explicite « Clôturer bail »). Statut 06/10 : un départ déclaré borne l'ancien bail à la date de
   // sortie, pas à la veille du nouveau (_finAncienBailAuRebail).
   const finEff = _finAncienBailAuRebail(bail, nouveauDebut).fin;
-  DB.baux_historique.push({
+  _archiverDansHistorique({
     ...bail,
     ref,
     finEffective: finEff || bail.finEffective || null,

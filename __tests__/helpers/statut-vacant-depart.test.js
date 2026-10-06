@@ -56,7 +56,7 @@ function monter(DB, noms, extra = {}) {
   const fn = new Function('scope', 'with (scope) {\n' + noms.map(corps).join('\n') + '\nreturn {' + noms.join(',') + '};\n}')(scope);
   return { fn, base, els, html };
 }
-const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot', '_dgDetenuDuBail', '_dgRestitutionEnregistree', '_dgDetenusDuLot', '_dgNbDetenusDuLot', '_bailHistCleDe'];
+const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot', '_dgDetenuDuBail', '_dgRestitutionEnregistree', '_dgDetenusDuLot', '_dgNbDetenusDuLot', '_bailHistCleDe', '_archivesDetenuesDuLot'];
 
 describe('1 · la règle de statut (module pur)', () => {
   it('bail nu reconduit (échéance passée), sans départ : loué', () => expect(bailLoueAu(BAIL, AUJ)).toBe(true));
@@ -365,7 +365,7 @@ describe('11 · fiche du lot, enregistrement (VRAI saveParamLog) : loyer souhait
 describe('12 · relocation d\'un lot parti (VRAI archiverBail, appelé par saveBail) — audit 06/10', () => {
   const rebail = (ancien, nouveauDebut) => {
     const DB = dbDe({ A1: ancien });
-    const m = monter(DB, [...STATUT, 'archiverBail', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation'], {
+    const m = monter(DB, [...STATUT, 'archiverBail', '_archiverDansHistorique', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation'], {
       _baremeCloturerLot: (ref, fin) => { DB._bareme = fin; },
     });
     m.fn.archiverBail('A1', nouveauDebut);
@@ -448,7 +448,7 @@ describe('13 · dépôts détenus = état de restitution, baux vivants ET archiv
 describe('14 · scénario de l\'audit : relocation d\'un lot parti (VRAIS archiverBail → dû, dépôt, tâche)', () => {
   const scenario = () => {
     const DB = dbDe({ A1: { ...DEPART, ref: 'A1', fin: '2028-12-31' } });
-    const m = monter(DB, [...STATUT, 'archiverBail', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation', '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
+    const m = monter(DB, [...STATUT, 'archiverBail', '_archiverDansHistorique', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation', '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
       _baremeCloturerLot: () => {}, _departState: () => null, td: () => AUJ, AlertRules: new Proxy({}, { get: () => () => [] }), EQUIP_RULES: [], _DIAGS_CATALOG_INLINE: [], _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
     });
     m.fn.archiverBail('A1', '2026-11-15');
@@ -479,7 +479,7 @@ describe('15 · clôture d\'un bail (VRAIS saveBailClore / terminerBail) : resti
     const DB = dbDe({ A1: { ...DEPART, ref: 'A1', ...bailEnPlus } });
     const msgs = [];
     const vals = { 'b-clore-ref': 'A1', 'b-ref': 'A1', 'b-fin-effective': '2026-09-30', 'b-fin-motif': 'Congé du locataire', 'b-dg-restitue-date': saisie.date || '' };
-    const m = monter(DB, [...STATUT, fnNom, '_clotureDgConfirmer', '_clotureDgAppliquer'], {
+    const m = monter(DB, [...STATUT, fnNom, '_clotureDgConfirmer', '_clotureDgAppliquer', '_archiverDansHistorique'], {
       v: (id) => vals[id] || '', pf: (id) => Number(saisie[id] || 0), confirm2: (t) => { msgs.push(t); return msgs.length === 1 ? true : rep; },
       _ART22_RESTITUTION: ['« art22-2mois »', '« art22-1mois »'], _todayIsoLocal: () => '2026-10-06', td: () => '2026-10-06',
       _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {},
@@ -928,5 +928,45 @@ describe('30 · « Créer le bail » sur un lot sans bail vivant (VRAI openBail,
     const r = lancer({ A1: BAIL }, (fn) => fn.openBail('A1'));
     expect(r.E['b-edit-ref'].value).toBe('A1');
     expect(r.E['b-debut'].value).toBe(BAIL.debut);
+  });
+});
+describe('31 · deux archives du même lot le MÊME jour (relocation puis clôture) : identifiant d\'archive dès l\'archivage', () => {
+  // VRAIS archiverBail (relocation de Lea) puis saveBailClore (clôture de Nina, sans virement) le même jour.
+  const scenario = () => {
+    const DB = dbDe({ A1: { ...DEPART, ref: 'A1' } });
+    let n = 0;
+    const vals = { 'b-clore-ref': 'A1', 'b-fin-effective': '2026-11-20', 'b-fin-motif': 'Congé du locataire', 'dg-restit-date': '2026-11-20' };
+    const m = monter(DB, [...STATUT, 'archiverBail', '_archiverDansHistorique', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation',
+      'saveBailClore', '_clotureDgConfirmer', '_clotureDgAppliquer', '_dgBailCible', '_dgConfirmerRestitution', '_computeUnifiedTodo', '_departDeadlineDG', '_edlSortieDuBail', '_edlsDuBail', '_bailSuivantDebut'], {
+      window: { nouvelIdArchive: () => 'id' + (++n), computeVetusteTotal: () => ({ total: 0 }), _penaliteRetardDG: () => ({ penalite: 0 }) },
+      _baremeCloturerLot: () => {}, saveDB: () => {}, rBaux: () => {}, _gmbiAlerterSortie: () => {}, confirm2: () => true, _stamp: () => {}, _ART22_RESTITUTION: ['a', 'b'],
+      v: (id) => vals[id] || '', pf: () => 0, _dgVgRows: [], _calculerSoldeDG: (b) => ({ soldeRestitue: Number(b.dg), loyerImpaye: 0 }),
+      _departState: () => null, AlertRules: new Proxy({}, { get: () => () => [] }), EQUIP_RULES: [], _DIAGS_CATALOG_INLINE: [],
+      _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+    });
+    m.fn.archiverBail('A1', '2026-11-15');
+    DB.baux.A1 = { ref: 'A1', type: 'nu', debut: '2026-11-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nina' }] };
+    m.els['b-clore-ref'] = { value: 'A1' };
+    m.fn.saveBailClore();
+    return { DB, m };
+  };
+  it('chaque archive a son identifiant : deux clés distinctes, dépôts [900, 1 300], deux tâches', () => {
+    const { DB, m } = scenario();
+    expect(DB.baux_historique.map((h) => h._archiveId)).toEqual(['id1', 'id2']);
+    const cles = DB.baux_historique.map((h) => bailHistCle(h));
+    expect(cles[0]).not.toBe(cles[1]);
+    expect(m.fn._dgDetenusDuLot(DB.logements[0])).toEqual([900, 1300]);
+    const t = (m.fn._computeUnifiedTodo({ scopeLogs: [DB.logements[0]] }) || []).filter((x) => x && x.type === 'depart');
+    expect(t.map((x) => x.actionFn)).toEqual(cles.map((c) => `_dgOpenRestitution('A1','${c}')`));
+  });
+  it('la restitution par la clé de Nina vise l\'archive de Nina (pas celle de Lea)', () => {
+    const { DB, m } = scenario();
+    const cleNina = bailHistCle(DB.baux_historique[1]);
+    m.base._dgRestitCible = m.fn._dgBailCible('A1', cleNina);
+    expect(m.base._dgRestitCible.bail.locataires[0].nom).toBe('Nina');
+    m.els['ov-dg-restitution-ref'] = { value: 'A1' };
+    m.fn._dgConfirmerRestitution();
+    expect(DB.baux_historique.map((h) => h.dgRestitueAt || null)).toEqual([null, '2026-11-20']);
+    expect(m.fn._dgDetenusDuLot(DB.logements[0])).toEqual([900]);
   });
 });

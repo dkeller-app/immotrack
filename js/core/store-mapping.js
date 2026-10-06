@@ -67,6 +67,13 @@ const base = (o, ctx) => ({ espace_id: ctx.espaceId, created_by: ctx.ownerId, le
 export const bailLigneCle = (ref, uid) => norm(ref) + (uid ? '|' + String(uid) : '')
 // Idem pour une archive `baux_historique` : `_archiveId` n'est posé qu'en cas de COLLISION (deux
 // archives du même logement le même jour — la clé historique `ref|_archivedAt` les confondait).
+// Identifiant UNIQUE d'une archive de bail (`_archiveId`) — et générateur d'uid de la synchro (store-sync) : UNE source.
+// Posé DÈS l'archivage par l'app (deux archives d'un lot le même jour ne partagent plus leur clé) ; store-sync
+// (_identifierArchives) ne réécrit jamais un `_archiveId` déjà posé.
+export const nouvelIdArchive = () => {
+  try { if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID() } catch (_e) { /* repli */ }
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
+}
 export const bailHistCle = o => String(o.ref ?? '') + '|' + (o._archivedAt ?? '') + (o._archiveId ? '|' + String(o._archiveId) : '')
 
 const MAPPERS = {
