@@ -66,18 +66,10 @@ describe('I6 — aucun rattachement paiement→mois hors des 3 moteurs sanctionn
     });
   }
 
-  it('_statutQuittance ne reçoit plus la liste des mouvements (module ET shadow inline)', () => {
-    // S'il reprenait `mouvements` en paramètre, il re-ferait fatalement un rattachement.
-    const defs = [];
-    for (const f of ['index.html', 'js/core/quittances-actives.js']) {
-      const m = read(f).match(/function _statutQuittance\(([^)]*)\)/g) || [];
-      defs.push(...m);
-    }
-    expect(defs.length).toBe(2);
-    defs.forEach(d => {
-      expect(d).not.toMatch(/mouvements/);
-      expect(d).toMatch(/ctx/);
-    });
+  it('_statutQuittance (code mort, aucun appelant) a été supprimé — module ET copie inline (lot 0, 06/10)', () => {
+    // Il ne reviendra pas sous une forme qui re-ferait un rattachement des mouvements.
+    expect(read('index.html')).not.toMatch(/function _statutQuittance\(/);
+    expect(fs.existsSync(path.join(ROOT, 'js/core/quittances-actives.js'))).toBe(false);
   });
 
   it('loyers-mois.js ne calcule aucun arriéré lui-même : il consomme _loyerArrearsPass', () => {

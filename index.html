@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.718</title>
+<title>Propryo v15.719</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -58,7 +58,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.718">
+<link rel="stylesheet" href="css/main.css?v=15.719">
 <link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=6e49d9e7">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
@@ -131,7 +131,6 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/email-pdf-attachment.js">
 <link rel="modulepreload" href="js/core/attachments.js">
 <link rel="modulepreload" href="js/core/bank-import.js">
-<link rel="modulepreload" href="js/core/quittances-actives.js">
 <link rel="modulepreload" href="js/core/loyers-mois.js">
 <link rel="modulepreload" href="js/core/irl-calendrier.js">
 <link rel="modulepreload" href="js/core/contrat-type.js">
@@ -273,7 +272,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.718</em>
+      <em>v15.719</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -1565,32 +1564,6 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
 </div><!-- /layout -->
 
 <!-- Drive FAB flottant + badge utilisateur -->
-<!-- MODAL: DRILL-DOWN ENTITE -->
-<div class="ov hidden" id="ov-ent-detail" onclick="closeBg(event,'ov-ent-detail')">
-<div class="modal xl" style="max-height:90vh;overflow-y:auto">
-  <div class="m-head">
-    <div class="ov-ent-scope-wrap">
-      <button class="ov-ent-parent-btn" id="ov-ent-parent-btn" style="display:none" onclick="_navToParent()">‹ Retour</button>
-      <span class="ov-ent-scope-chip" id="ov-ent-scope-chip">Entité</span>
-      <h3 id="ov-ent-title" style="margin:0">Détail</h3>
-    </div>
-    <div class="flex-c">
-      <button class="btn bs bb" id="ov-ent-loyers-btn" onclick="drillEntToLoyers()">💶 Mouvements</button>
-      <button class="m-close" onclick="closeM('ov-ent-detail')">✕</button>
-    </div>
-  </div>
-  <div class="m-body">
-    <div class="g4 mb16" id="ov-ent-kpis"></div>
-    <div class="ct mb8">Dépenses par catégorie</div>
-    <div id="ov-ent-cats" class="mb16" style="display:flex;flex-direction:column;gap:6px"></div>
-    <div class="ct mb8">Dernières opérations</div>
-    <div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>Date</th><th>Libellé</th><th>Catégorie</th><th>Qui</th><th class="num">Débit</th><th class="num">Crédit</th></tr></thead>
-      <tbody id="ov-ent-ops"></tbody>
-    </table></div>
-  </div>
-</div>
-</div>
 
 <!-- MODAL: MOUVEMENT -->
 <div class="ov hidden" id="ov-mv" onclick="closeBg(event,'ov-mv')">
@@ -4544,8 +4517,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=2e5a74aa" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=3598953f" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=ad15bab9" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=f3559379" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
@@ -5076,35 +5049,6 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 #ov-bss-share .bss-qrbox{display:inline-block;background:#fff;padding:10px;border-radius:8px}
 @media(max-width:599px){#ov-bss-share .bss-chans{grid-template-columns:repeat(2,1fr)}}
 </style>
-
-<!-- v15.77 UX-GROUP-BY-IMMEUBLE drill-downs : modale unifiée 3 vues (lots/alerts/loyer) -->
-<style>
-  .irl-drill-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-  .irl-drill-section { padding: 4px 0; }
-  .irl-drill-section h4 { margin: 0 0 8px; font-size: 11px; font-weight: 600; color: var(--mu,#888); text-transform: uppercase; letter-spacing: 0.06em; }
-  .irl-drill-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
-  .irl-drill-stat { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--rl); padding: 10px 12px; }
-  .irl-drill-stat .v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .irl-drill-stat .l { font-size: 11px; color: var(--mu, #888); margin-top: 2px; }
-  .irl-drill-stat.pos { border-left: 3px solid #16a34a; } .irl-drill-stat.pos .v { color: #16a34a; }
-  .irl-drill-stat.neg { border-left: 3px solid #dc2626; } .irl-drill-stat.neg .v { color: #dc2626; }
-  .irl-drill-lots-list, .irl-drill-alerts-list { display: flex; flex-direction: column; gap: 6px; }
-  .irl-drill-lot, .irl-drill-alert { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--rl); padding: 8px 10px; }
-  .irl-drill-alert { border-left: 3px solid #d97706; }
-  .irl-grp-head .kpi.drillable { cursor: pointer; transition: background 0.15s; }
-  .irl-grp-head .kpi.drillable:hover { background: rgba(59,126,246,0.10); color: var(--tx); }
-</style>
-<div class="ov hidden" id="ov-irl-drill" onclick="closeBg(event,'ov-irl-drill')">
-  <div class="modal" style="max-width:640px;width:96%">
-    <div class="m-head">
-      <h3 id="ov-irl-drill-title">Drill immeuble</h3>
-      <button class="m-close" onclick="closeM('ov-irl-drill')">✕</button>
-    </div>
-    <div id="ov-irl-drill-sub" style="padding:10px 14px 0;border-bottom:1px solid var(--bor)"></div>
-    <div class="m-body" id="ov-irl-drill-body" style="max-height:60vh;overflow-y:auto;padding:14px"></div>
-    <div class="m-foot" id="ov-irl-drill-foot"></div>
-  </div>
-</div>
 
 <!-- v13.33 IRL-VALIDATION : modale rappel mois anniversaire ───────── -->
 <div class="ov hidden" id="ov-irl-rappel" onclick="closeBg(event,'ov-irl-rappel')">
