@@ -9643,12 +9643,13 @@ function exportBiensCSV() {
   const pool = _biensTab === 'archives' ? _archivedLogements() : _activeLogements();
   const rowsLogs = _filterAndSortLogs(pool);
   if(!rowsLogs.length) { showToast('Aucun bien ne correspond aux filtres','err'); return; }
-  const headers = ['Ref','Nom affiché','Immeuble','Bailleur','Type','Surface m²','Étage','Adresse','HC €','Charges €','DG €','Locataire','Date début','Date fin','Statut','IRL'];
+  const headers = ['Ref','Immeuble','Bailleur','Type','Surface m²','Étage','Adresse','HC €','Charges €','DG €','Locataire','Date début','Date fin','Statut','IRL','Nom affiché'];
   const escCsv = v => `"${String(v==null?'':v).replace(/"/g,'""')}"`;
   const rows = rowsLogs.map(l => [
-    l.ref,(_logLabel(l) !== l.ref ? _logLabel(l) : ''),l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
+    l.ref,l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
     l.hc||0,l.ch||0,l.dg||0,l.locataire||'',l.debut||'',l.fin||'',
-    _lotStatutLibelle(l.ref), l.irl||''
+    _lotStatutLibelle(l.ref), l.irl||'',
+    (_logLabel(l) !== l.ref ? _logLabel(l) : '')   // B3 : nom affiché, en dernière colonne (colonnes existantes inchangées)
   ]);
   const csv = [headers, ...rows].map(r => r.map(escCsv).join(';')).join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
