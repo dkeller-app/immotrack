@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.712';
+const IMMOTRACK_VERSION = '15.713';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -11316,9 +11316,19 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
 }
 
 
-function openDashDrill(titre, html) {
-  el('dash-drill-title').textContent = titre;
+// opts (FINANCES-SUIVI-UNIQUE P4, fenêtre « avance / retard ») : { titreHtml, foot, cls }. Sans opts, la
+// modale reprend son titre texte, son pied « Fermer » et sa largeur d'origine (les autres drills).
+function openDashDrill(titre, html, opts) {
+  const o = opts || {};
+  const t = el('dash-drill-title');
+  if (o.titreHtml) t.innerHTML = o.titreHtml; else t.textContent = titre;
   el('dash-drill-body').innerHTML = typeof html === 'string' ? html : '';
+  const ov = el('ov-dash-drill');
+  if (ov) {
+    ov.className = 'ov' + (ov.classList.contains('hidden') ? ' hidden' : '') + (o.cls ? ' ' + o.cls : '');
+    const foot = ov.querySelector('.m-foot');
+    if (foot) foot.innerHTML = o.foot || '<button class="btn bs" onclick="closeM(\'ov-dash-drill\')">Fermer</button>';
+  }
   openM('ov-dash-drill');
 }
 
@@ -13325,7 +13335,7 @@ function _ensureMvPhToolbar(){
   if(search && search.parentNode===filters) search.insertAdjacentElement('afterend',fb);
   else filters.insertBefore(fb, filters.firstChild);
 }
-function _mvCardRowPhone(m, net){
+function _mvCardRowPhone(m, net, mq){
   const needsCat = !m.cat;
   const needsAff = !m.qui && !m.imm && !m.compteurCcId;
   const todo = needsCat || needsAff;
@@ -13333,7 +13343,7 @@ function _mvCardRowPhone(m, net){
   const line1 = [];
   if(!needsAff) line1.push(`<span class="mvph-aff">${_mvAffLabel(m)}</span>`, '<span class="mvph-sep">·</span>');
   line1.push(`<span class="m">${_uiIcon('calendar',12)}${fd(m.date)}</span>`);
-  const catLine = m.cat ? `<div class="mvph-catline"><span class="mvph-chip" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span></div>` : '';
+  const catLine = m.cat ? `<div class="mvph-catline"><span class="mvph-chip" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>${(mq && typeof _mvMqPastille === 'function') ? _mvMqPastille(mq) : ''}</div>` : '';
   const badges = [];
   if(needsCat) badges.push(`<span class="mvph-bdg act">${_uiIcon('warn',11)}À classer</span>`);
   if(needsAff) badges.push(`<span class="mvph-bdg act">${_uiIcon('warn',11)}Non affecté</span>`);
@@ -13353,7 +13363,7 @@ function _mvCardRowPhone(m, net){
         <button type="button" class="del" onclick="event.stopPropagation();delMv(${m.id})">${_uiIcon('trash',14)}Supprimer</button>
       </div>
     </div>
-  </td></tr>`;
+  </td></tr>${(mq && typeof _mvMqAlerte === 'function') ? _mvMqAlerte(m, mq, true) : ''}`;
 }
 function rMv() {
   const search = v('mvf-search').toLowerCase().trim();
@@ -13397,14 +13407,18 @@ function rMv() {
   if (af) af.innerHTML = _mvActiveFiltersHtml(mvs.length, alive.length);
 
   const _ph = _isPhone(); if(_ph){ _ensureMvPhCss(); _ensureMvPhToolbar(); }  // TÉLÉPHONE (≤767) : lignes en cartes (montant visible, action en corail) + barre d'outils repliée
+  // FINANCES-SUIVI-UNIQUE P4 — loyer incomplet d'après le moteur : alerte + geste « Accepter le manque »
+  // sous la ligne, pastille « manque accepté » une fois soldé (index par lot mémoïsé, _mvManqueInfo).
+  const _mq = m => { try { return (typeof _mvManqueInfo === 'function') ? _mvManqueInfo(m) : null; } catch(e){ return null; } };
   const _mvRows = mvs.map(m=>{
     // ⑨.1 — Débit + Crédit → « Montant » signé (rouge = sort, vert = entre).
     const net = (m.cr||0) - (m.db||0);
-    if(_ph) return _mvCardRowPhone(m, net);
+    const mq = _mq(m);
+    if(_ph) return _mvCardRowPhone(m, net, mq);
     return `<tr>
     <td>${fd(m.date)}</td>
     <td><div class="mv-clamp2" title="${escHtml(m.lib||'')}">${escHtml(m.lib||'–')}</div></td>
-    <td>${m.cat ? `<span class="badge gry" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>` : `<span class="badge acc">${_uiIcon('warn',13)} à classer</span>`}</td>
+    <td>${m.cat ? `<span class="badge gry" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>` : `<span class="badge acc">${_uiIcon('warn',13)} à classer</span>`}${mq ? _mvMqPastille(mq) : ''}</td>
     <td><div class="mv-clamp2">${_mvAffLabel(m)}</div></td>
     <td class="num mv-montant ${net>=0?'pos':'neg'}">${net>=0?'+ ':'− '}${fmt(Math.abs(net))}</td>
     <td>${m.fac?`<span title="${escHtml(m.fac)}">${_uiIcon('attach',14)}</span>`:''}</td>
@@ -13413,7 +13427,7 @@ function rMv() {
       <button class="btn bs bb" onclick="openSplitMvList(${m.id})" title="Scinder ce mouvement">${_uiIcon('scissors')}Scinder</button>
       <button class="btn br bb" onclick="delMv(${m.id})" title="Supprimer">${_uiIcon('trash')}Supprimer</button>
     </td>
-  </tr>`;
+  </tr>${mq ? _mvMqAlerte(m, mq, false) : ''}`;
   }).join('');
   // PC-REFONTE — état vide accueillant (styles inline : correct à toutes largeurs, ne touche aucun @media)
   const _mvEmpty = alive.length === 0

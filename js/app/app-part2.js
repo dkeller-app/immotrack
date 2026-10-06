@@ -15262,7 +15262,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.712 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.713 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -29736,10 +29736,10 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
   ];
   const lk = () => false;   // plus aucune ligne verrouillée depuis L-8
   const cls = row => row.tot ? 'b4-tot' : (row.net ? 'b4-net' : ((row.info || row.ecartSub || row.retardSub || row.nonAffSub) ? 'b4-info' : ''));
-  // drill-down par ligne : ligne d'écart / sous-ligne retard → cause (_finDrillRetard, P3 : lue au suivi) ;
+  // drill-down par ligne : ligne d'écart / sous-ligne retard → LA fenêtre unique « avance / retard » (_finFenetre, P4) ;
   // lignes principales (kind) → détail des mouvements (_finDrillLigne, 'pret' inclus).
   const clk = row => row.drill
-    ? ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ')') + '" title="' + (row.ecartSub ? 'Avance / retard du lot : solde du bail à fin de mois · voir le détail' : 'Voir la cause') + '"'
+    ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finFenetre(' + yr + ')" title="' + (row.ecartSub ? 'Avance / retard du lot : solde du bail à fin de mois · voir le détail' : 'Voir la cause') + '"'
     : (row.explain ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finExplique(\'' + row.explain + '\')" title="Comprendre ce chiffre"' : (row.kind ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ')" title="Voir le détail des mouvements"' : ''));
   const col = (v, row, isLk, src) => {
     if (isLk) return '<span style="color:var(--t3)">–</span>';
@@ -29812,9 +29812,9 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
         const _sw = row.oraSrc && (Number(row.oraSrc(m)) || 0) > 0.005;
         const _sa = !_sw && row.advSrc && (Number(row.advSrc(m)) || 0) > 0.005;
         let cclk = '';
-        if (row.drill) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ',' + m.mo + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ',' + m.mo + ')') + '" title="' + (row.ecartSub ? 'Avance / retard du lot : solde du bail à fin de mois · voir le détail' : 'Voir la cause') + '"';
-        else if (_sw && row.kind) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillRetard(\'' + (row.kind === 'provisions' ? 'charge' : 'loyer') + '\',' + yr + ',' + m.mo + ')" title="Pourquoi cette case est orange (retard)"';
-        else if (_sa && row.kind) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillAvance(' + yr + ',' + m.mo + ')" title="Pourquoi cette case est bleue (avance)"';
+        if (row.drill) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finFenetre(' + yr + ',' + m.mo + ')" title="' + (row.ecartSub ? 'Avance / retard du lot : solde du bail à fin de mois · voir le détail' : 'Voir la cause') + '"';
+        else if (_sw && row.kind) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finFenetre(' + yr + ',' + m.mo + ')" title="Pourquoi cette case est orange (retard)"';
+        else if (_sa && row.kind) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finFenetre(' + yr + ',' + m.mo + ')" title="Pourquoi cette case est bleue (avance)"';
         else if (row.kind && !lk(row)) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ',' + m.mo + ')" title="Détail ' + _MOIS[m.mo - 1] + '"';
         return '<td class="b4-mo' + (fut ? ' b4-fut' : '') + (m.mo === selMo ? ' b4-selmo' : '') + sigCls(row, m) + '" data-mo="' + m.mo + '"' + cclk + '>' + col(row.v(m), row, lk(row), m) + '</td>';
       }).join('') + '</tr>';
@@ -30342,146 +30342,310 @@ function _finDrillNomLot(ref) {
 // P3 : _finLotNomAt SUPPRIMÉ — la carte nomme le BAIL du suivi (le bon locataire par construction).
 const _FIN_MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
-// FINANCES-SUIVI-UNIQUE P3 — les fenêtres « cause » (retard / avance / ligne d'écart) lisent LE
-// SUIVI (moteur unique par bail), exactement comme la case cliquée : mois cliqué = position de fin
-// de CE mois ; colonne Année = position au dernier mois exigible de la fenêtre. Σ des cartes =
-// valeur de la case (invariant I-d, suiviPerimetre). Mois non exigible (post-daté, « à venir ») :
-// aucun retard possible, seule l'avance compte — comme la case. La fenêtre UNIQUE (maquette 02,
-// geste « Accepter le manque ») arrive en P4 : ici, les fenêtres existantes, réalimentées.
+// FINANCES-SUIVI-UNIQUE P4 — LA fenêtre unique « avance / retard » (maquette 02 validée le 06/10).
+// Elle REMPLACE les fenêtres « Cause du retard » (_finDrillRetard) et « Cause de l'avance »
+// (_finDrillAvance), supprimées. Ouverte au clic sur une case de la ligne « Avance / retard du lot »
+// (et sur sa colonne Année = position au dernier mois exigible), ainsi que sur les cases signalées
+// (fond orange / bleu) des lignes de loyers et de charges : elles s'expliquent par le même écart.
+// Elle lit LE SUIVI comme la case : Σ des cartes = valeur de la case = Σ des lots (I-d), affichée dans
+// le titre. Contenu mis en forme par js/core/suivi-fenetre.js (pur, testé) ; geste « Accepter le
+// manque » → _manqueAccepter (app-part1.js, P2).
+// Mois non exigible (post-daté, « à venir ») : aucun retard possible, seule l'avance compte.
 function _finSuiviCase(yr, mo) {
   const y = parseInt(yr, 10);
   const scope = _finEntScope(_finPageEnt(), _finActiveImm());
   const W = _finWindows(y, scope);
   const dueMonth = W ? W.constat.dueMonth : ((y === new Date().getFullYear()) ? (new Date().getMonth() + 1) : 12);
+  const lastMonth = W ? W.constat.lastMonth : dueMonth;
   const m = mo || dueMonth;
   const SL = window.SuiviLoyers;
-  if (!m || !SL || typeof SL.suiviPerimetre !== 'function') return { ym: null, mo: m, exig: false, P: null, lots: [], annee: !mo };
+  if (!m || !SL || typeof SL.suiviPerimetre !== 'function') return { ym: null, mo: m, exig: false, P: null, lots: [], annee: !mo, lastMonth };
   const ym = String(y) + '-' + String(m).padStart(2, '0');
   const lots = _finSuiviLots(scope);
-  return { ym, mo: m, exig: m <= dueMonth, P: SL.suiviPerimetre(lots, ym), lots, annee: !mo };
+  return { ym, mo: m, exig: m <= dueMonth, P: SL.suiviPerimetre(lots, ym), lots, annee: !mo, lastMonth };
 }
-// Le mois du bail d'une carte à `ym` (ou le dernier mois ≤ ym : dette figée d'un locataire parti).
-function _finSuiviMoisBail(lots, carte, ym) {
-  const lot = (lots || []).find(l => l.ref === carte.ref);
-  const b = lot ? lot.baux.find(x => x.cle === carte.bailCle) : null;
-  if (!b) return { bail: null, mois: null };
-  let hit = null;
-  for (const m of b.mois) { if (m.ym > ym) break; hit = m; }
-  return { bail: b, mois: hit };
+// État de la fenêtre (une seule ouverte à la fois) : mois regardé, lots dépliés, groupes étendus.
+let _finFen = null;
+function _finFenetre(yr, mo) {
+  _finFen = { yr: String(yr), mo: (mo != null && mo !== '') ? (parseInt(mo, 10) || 0) : 0, ouverts: {}, plus: {}, init: false };
+  _finFenetreRendre();
 }
-// Une carte de la fenêtre : qui, combien, et POURQUOI (dû / reçu du mois, manque propre au mois,
-// reste dû des mois précédents depuis…, manque accepté, couvert GLI, avance reportée).
-function _finSuiviCarteHtml(c, sb, ym, sens, montant) {
-  const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
+function _finFenPerimetre() {
+  const imm = _finActiveImm(), ent = _finPageEnt();
+  return imm || ent || 'Tous les bailleurs';
+}
+// Date du dernier encaissement de loyer (211) du lot dans le bail, au plus tard en fin de mois `ym`
+// (« payé d'avance le jj/mm »). Lit l'index des mouvements du suivi (même génération).
+function _finFenDernierVirement(ref, bailCle, ym) {
+  if (!_finSuiviLot(ref) || !_finSuiviCache.mvParLot) return null;
+  const SF = window.SuiviFenetre;
+  const debut = (SF && SF.debutDeCle(bailCle)) || '';
+  const fin = ym + '-31';
+  let best = null;
+  (_finSuiviCache.mvParLot.get(String(ref).trim().toLowerCase()) || []).forEach(mv => {
+    if (!mv || mv._deleted || !mv.date || !((Number(mv.cr) || 0) > 0)) return;
+    const r = _finCatLigne(mv.cat);
+    if (!r || r.ligne2044 !== '211') return;
+    const d = String(mv.date).slice(0, 10);
+    if (d < debut || d > fin) return;
+    if (!best || d > best) best = d;
+  });
+  return best;
+}
+function _finFenetreRendre() {
+  const S = _finFen;
+  if (!S) return;
+  const SF = window.SuiviFenetre;
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
-  const dfr = d => { const p = String(d || '').slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; };
-  const moisLbl = x => { const mm = parseInt(String(x).slice(5, 7), 10); return (_FIN_MOIS[mm - 1] || '') + ' ' + String(x).slice(2, 4); };
-  const m = sb.mois, exact = !!(m && m.ym === ym);
-  const warn = sens === 'retard';
-  const nom = c.noms || _finDrillNomLot(c.ref);
-  const lignes = [];
-  if (exact && (m.du.total || 0) > 0.005) {
-    const recu = (m.recu || 0) + (m.regleDg || 0);
-    lignes.push('Dû ' + moisLbl(ym) + ' : <b>' + f(m.du.total) + '</b> · reçu ce mois : <b>' + f(recu) + '</b>'
-      + ((m.regleDg || 0) > 0.005 ? ' <span style="color:var(--t3)">(dont ' + f(m.regleDg) + ' retenus sur le dépôt)</span>' : ''));
-    const cour = (m.courant.loyer || 0) + (m.courant.charge || 0);
-    if (cour > 0.005) lignes.push('<span style="color:var(--warn)">' + moisLbl(ym) + ' : il manque ' + f(cour) + '</span>');
-    else {
-      const avant = (m.imputations || []).filter(p => p.date && p.date < ym + '-01').map(p => p.date).sort();
-      lignes.push('<span style="color:var(--pos)">' + moisLbl(ym) + ' : payé' + (avant.length ? ' d\'avance le ' + dfr(avant[avant.length - 1]) : '') + '</span>');
-    }
-  }
-  if (m) {
-    const ant = exact ? ((m.anterieur.loyer || 0) + (m.anterieur.charge || 0)) : (m.retard || 0);
-    const dep = exact ? m.anterieur.depuis : (m.anterieur.depuis || m.ym);
-    if (ant > 0.005) lignes.push('<span style="color:var(--warn)">Reste dû des mois précédents : ' + f(ant)
-      + (dep === 'ouverture' ? ' (solde d\'ouverture)' : (dep ? ' (depuis ' + moisLbl(dep) + ')' : '')) + '</span>');
-    if (exact && m.manque && (m.manque.montant || 0) > 0.005) lignes.push('Manque de ' + f(m.manque.montant) + ' accepté'
-      + (m.manque.motif ? ' (' + esc(m.manque.motif) + (m.manque.date ? ' · ' + dfr(m.manque.date) : '') + ')' : ''));
-    if (exact && (m.couvertGli || 0) > 0.005) lignes.push('Couvert par la GLI : ' + f(m.couvertGli) + ' <span style="color:var(--t3)">(la dette du locataire reste due)</span>');
-    if (!warn) lignes.push('<span style="color:var(--adv)">Avance reportée sur les mois suivants</span>');
-  }
-  if (c.parti && sb.bail && sb.bail.fin) lignes.push('<span style="color:var(--t3)">Locataire parti le ' + dfr(sb.bail.fin) + ' — dette figée à son départ</span>');
-  const _canRelance = warn && !c.parti && (typeof _lyRelance === 'function') && !String(c.ref).startsWith('SCI:');
-  return '<div style="border:1px solid var(--bor);border-radius:12px;padding:12px;margin-bottom:10px">'
-    + '<div style="font-weight:700;font-size:14px;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + esc(nom)
-    + ' <span style="font:600 12px Inter;color:var(--t3)">' + esc(c.ref) + '</span>'
-    + (c.parti ? ' <span style="font:700 11px Inter;color:var(--t2);background:var(--sur3);padding:2px 8px;border-radius:6px">parti</span>' : '')
-    + ' <span style="font:700 11px Inter;color:' + (warn ? 'var(--warn);background:var(--warn-soft)' : 'var(--adv);background:var(--adv-bg)') + ';padding:2px 8px;border-radius:6px">'
-    + (warn ? '− ' + f(montant) + ' en retard' : '+ ' + f(montant) + ' d\'avance') + '</span>'
-    + (_canRelance ? '<button type="button" class="btn bs" style="margin-left:auto;min-height:44px;font-size:12.5px;padding:4px 12px" onclick="closeM(\'ov-dash-drill\');_lyRelance(\'' + _lyQ(c.ref) + '\')">' + _uiIcon('mail') + ' Créer une relance</button>' : '')
-    + '</div>'
-    + (lignes.length ? '<div style="font-size:13px;color:var(--t2);line-height:1.55;display:flex;flex-direction:column;gap:2px">' + lignes.map(x => '<div>' + x + '</div>').join('') + '</div>' : '')
-    + '</div>';
-}
-// mode : 'loyer' | 'charge' (sous-lignes / cases orange) · 'solde' (ligne « Avance / retard du lot »)
-// · 'avance' (cases bleues). Le chiffre du titre = la case cliquée, au centime.
-function _finDrillSuivi(mode, yr, mo) {
-  yr = String(yr);
-  mo = (mo != null && mo !== '') ? parseInt(mo, 10) : 0;   // 0 = colonne Année (position)
-  const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
-  const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
-  const K = _finSuiviCase(yr, mo);
-  const moisTxt = K.mo ? _FIN_MOIS[K.mo - 1] + ' ' + yr.slice(2) : yr;
-  const scopeLbl = K.annee ? (' · Année ' + yr + (K.mo ? ' (position fin ' + moisTxt + ')' : '')) : (' · ' + moisTxt);
-  const noteFin = '<div class="note" style="margin-top:2px">Solde de chaque <b>bail</b> en fin de mois, calculé par le <b>suivi des loyers</b> (dû ↔ argent reçu à la date bancaire, loyer puis charges puis arriérés, avance reportée). La dette d\'un locataire parti reste visible l\'année de son départ.</div>';
-  if (!K.P) {
-    if (typeof openDashDrill === 'function') openDashDrill('Avance / retard' + scopeLbl, '<div class="note" style="padding:18px 4px">Suivi des loyers indisponible — recharge l\'application (modules non chargés).</div>');
+  const K = _finSuiviCase(S.yr, S.mo);
+  if (!K.P || !SF) {
+    openDashDrill('Avance / retard', '<div class="note" style="padding:18px 4px">Suivi des loyers indisponible — recharge l\'application (modules non chargés).</div>');
     return;
   }
-  const retards = [], avances = [];
-  let totR = 0, totA = 0;
-  if (mode !== 'avance' && K.exig) {
-    K.P.enRetard.forEach(c => {
-      const sb = _finSuiviMoisBail(K.lots, c, K.ym);
-      const m = sb.mois; if (!m) return;
-      const v = mode === 'loyer' ? (m.retardLoyer || 0) : (mode === 'charge' ? (m.retardCharge || 0) : Math.abs(c.solde));
-      if (!(v > 0.005)) return;
-      totR += v; retards.push({ v, html: _finSuiviCarteHtml(c, sb, K.ym, 'retard', r2(v)) });
-    });
+  S.moAff = K.mo; S.lastMonth = K.lastMonth;
+  const M = SF.modeleFenetre(K.lots, K.ym, { exigible: K.exig, nomLot: _finDrillNomLot, dernierVirement: _finFenDernierVirement });
+  if (!S.init) {   // déplié d'office : le premier lot du premier groupe
+    S.init = true;
+    const first = M.retard[0] || M.avance[0];
+    if (first) S.ouverts[first.key] = true;
   }
-  if (mode === 'avance' || mode === 'solde') {
-    K.P.enAvance.forEach(c => {
-      const sb = _finSuiviMoisBail(K.lots, c, K.ym);
-      if (!(c.solde > 0.005)) return;
-      totA += c.solde; avances.push({ v: c.solde, html: _finSuiviCarteHtml(c, sb, K.ym, 'avance', r2(c.solde)) });
-    });
-  }
-  totR = r2(totR); totA = r2(totA);
-  const grp = (lbl, coul, tot, arr) => arr.length
-    ? '<div style="font:700 11px Inter;letter-spacing:.05em;text-transform:uppercase;color:' + coul + ';margin:4px 2px 8px">' + lbl + ' · ' + f(tot) + '</div>' + arr.map(x => x.html).join('')
-    : '';
-  let titre, body;
-  if (mode === 'solde') {
-    const net = r2(totA - totR);
-    titre = 'Avance / retard du lot' + scopeLbl + ' · ' + (net > 0.005 ? '+ ' : (net < -0.005 ? '− ' : '')) + f(Math.abs(net));
-    body = (retards.length || avances.length)
-      ? '<div style="padding:2px">'
-        + ((retards.length && avances.length) ? '<div style="font-size:13px;color:var(--t2);margin:0 2px 10px">Case nette entre lots : avances + ' + f(totA) + ' − retards ' + f(totR) + ' = <b>' + (net >= 0 ? '+ ' : '− ') + f(Math.abs(net)) + '</b></div>' : '')
-        + grp('En retard', 'var(--warn)', totR, retards) + grp('En avance', 'var(--adv)', totA, avances) + noteFin + '</div>'
-      : '<div class="note" style="padding:18px 4px">Tous les baux du périmètre sont à jour' + (K.mo ? ' fin ' + moisTxt : '') + '.</div>';
-  } else if (mode === 'avance') {
-    titre = "Avance des locataires" + scopeLbl + ' · ' + f(totA);
-    body = avances.length
-      ? '<div style="padding:2px">' + avances.map(x => x.html).join('') + '<div class="note" style="margin-top:2px">Loyer <b>imposable dès l\'encaissement</b> (2044 à l\'encaissement) — l\'avance paie les mois suivants.<br>💡 Si ce montant est en réalité un <b>solde de charges (régularisation)</b>, reclasse le mouvement en « Charges récupérables (eau, énergie…) » — sinon l\'avance roulera de mois en mois.</div></div>'
-      : '<div class="note" style="padding:18px 4px">Aucune avance' + (K.mo ? ' fin ' + moisTxt : '') + '.</div>';
+  const moisTitre = (K.annee ? 'Année ' : SF.moisCap(K.ym) + ' ') + S.yr;
+  const v = M.solde;
+  const vCls = v < -0.005 ? 'warn' : (v > 0.005 ? 'adv' : 'nul');
+  const titre = '<span class="fdw-t"><span class="fdw-tm">' + esc(moisTitre) + '</span><span class="fdw-ts">·</span><span class="fdw-tp">' + esc(_finFenPerimetre()) + '</span><span class="fdw-ts">·</span><span class="fdw-tv ' + vCls + '">' + esc(SF.eurSigne(v)) + '</span></span>';
+  let html = '<p class="fdw-subt">' + (K.annee ? 'Position fin ' + esc(SF.moisNom(K.ym)) + ' · ' : '') + esc(M.phrase) + '</p>';
+  if (!K.exig) html += '<div class="note fdw-note0">' + esc(SF.moisCap(K.ym)) + ' n\'est pas encore exigible : seule l\'avance compte.</div>';
+  const items = M.retard.concat(M.avance);
+  if (items.length === 1) {
+    const x = items[0];
+    html += '<div class="fdw-card"><div class="fdw-lot">' + esc(x.noms) + ' <span>' + esc(x.ref) + '</span>' + (x.parti ? ' <span class="badge gry">parti</span>' : '') + '</div>' + _finFenDetail(x, K.ym, 0) + '</div>';
   } else {
-    const isLoy = mode === 'loyer';
-    titre = (isLoy ? 'Cause du retard de loyer' : 'Cause du retard de charges') + scopeLbl + ' · ' + f(totR);
-    body = retards.length
-      ? '<div style="padding:2px">' + retards.map(x => x.html).join('') + noteFin + '</div>'
-      : '<div class="note" style="padding:18px 4px">Aucun retard ' + (isLoy ? 'de loyer' : 'de charges') + (K.mo ? ' fin ' + moisTxt : '') + (K.exig ? '' : ' (mois pas encore exigible)') + '.</div>';
+    const groupe = (cle, label, cls, list, total) => {
+      if (!list.length) return '';
+      const D = SF.decouperGroupe(list, !!S.plus[cle]);
+      let h = '<section class="fdw-g"><div class="fdw-grp ' + cls + '"><span class="fdw-gl">' + label + '</span> · ' + list.length + ' lot' + (list.length > 1 ? 's' : '') + ' · <span class="fdw-gs">' + esc(SF.eurSigne(total)) + '</span></div>';
+      D.visibles.forEach((x, i) => { h += _finFenLigne(x, K.ym, cle + i); });
+      if (D.autres) h += '<button type="button" class="fdw-more" onclick="_finFenPlus(\'' + cle + '\')">' + (S.plus[cle] ? 'voir moins ‹' : 'voir les ' + D.autres + ' autres ›') + '</button>';
+      return h + '</section>';
+    };
+    html += groupe('ret', 'En retard', 'warn', M.retard, M.totalRetard) + groupe('av', 'En avance', 'adv', M.avance, M.totalAvance);
   }
-  if (typeof openDashDrill === 'function') openDashDrill(titre, body);
+  if (M.aJour.length) {
+    html += '<section class="fdw-aj" aria-label="Lots à jour"><div class="fdw-grp ok"><span class="fdw-gl">À jour</span> · ' + M.aJour.length + ' lot' + (M.aJour.length > 1 ? 's' : '') + '</div>'
+      + '<ul class="fdw-names" tabindex="0">' + M.aJour.map(x => '<li><span class="fdw-ck" aria-hidden="true">✓</span><b>' + esc(x.noms) + '</b><span>' + esc(x.ref) + '</span></li>').join('') + '</ul></section>';
+  }
+  const nav = (m, gauche) => {
+    if (m < 1 || m > (S.lastMonth || 12)) return '';
+    const t = SF.moisCap(S.yr + '-' + String(m).padStart(2, '0'));
+    return '<button type="button" class="btn bs" onclick="_finFenNav(' + m + ')" aria-label="Mois ' + (gauche ? 'précédent' : 'suivant') + ' : ' + esc(t) + '">' + (gauche ? '‹ ' + esc(t) : esc(t) + ' ›') + '</button>';
+  };
+  const foot = nav(K.mo - 1, true) + nav(K.mo + 1, false) + '<button type="button" class="btn bs fdw-close" onclick="closeM(\'ov-dash-drill\')">Fermer</button>';
+  const body = el('dash-drill-body');
+  const garde = (body && el('ov-dash-drill') && !el('ov-dash-drill').classList.contains('hidden') && S.rendu === K.ym) ? body.scrollTop : 0;
+  openDashDrill('', html, { titreHtml: titre, foot, cls: 'fdw' });
+  if (body) body.scrollTop = garde;
+  S.rendu = K.ym;
 }
-// CAUSE du retard (kind 'loyer' | 'charge' | 'solde' = ligne « Avance / retard du lot »).
-function _finDrillRetard(kind, yr, mo) {
-  _finDrillSuivi(kind === 'charge' ? 'charge' : (kind === 'solde' ? 'solde' : 'loyer'), yr, mo);
+// Une ligne repliable par lot (groupes EN RETARD / EN AVANCE).
+function _finFenLigne(x, ym, k) {
+  const SF = window.SuiviFenetre;
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
+  const amt = x.manque && x.sens === 'accepte'
+    ? '<span class="badge ora">manque accepté</span>'
+    : '<span class="fdw-amt ' + (x.solde < 0 ? 'warn' : 'adv') + '">' + esc(SF.eurSigne(x.solde)) + '</span>';
+  return '<details class="fdw-lotrow" data-k="' + esc(x.key) + '"' + (_finFen && _finFen.ouverts[x.key] ? ' open' : '') + ' ontoggle="_finFenToggle(this)">'
+    + '<summary><span class="fdw-who"><b>' + esc(x.noms) + '</b><span>' + esc(x.ref) + '</span></span>' + (x.parti ? '<span class="badge gry">parti</span>' : '') + amt + '</summary>'
+    + '<div class="fdw-in">' + _finFenDetail(x, ym, k) + '</div></details>';
 }
-// CAUSE de l'avance (« les + cliquables », décision user 2026-07-12) : qui est en avance en fin de
-// mois (avance COMPENSÉE du suivi, plus l'avance fiscale non compensée de _computeLoyerChargeAlloc).
-function _finDrillAvance(yr, mo) {
-  _finDrillSuivi('avance', yr, mo);
+// Carte d'un lot : loyer attendu / reçu pour le mois / UNE ligne de résultat (+ geste, notes).
+function _finFenDetail(x, ym, k) {
+  const SF = window.SuiviFenetre;
+  const f = (typeof fmt === 'function') ? fmt : (n => n + ' €');
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
+  const jjmm = d => { const p = String(d || '').slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] : ''; };
+  const sub = t => '<span class="fdw-sub">' + t + '</span>';
+  const M = SF.moisNom(ym);
+  let rows = '';
+  if (x.attendu) {
+    rows += '<tr><td>Loyer attendu' + (x.attendu.sub ? sub(esc(x.attendu.sub)) : '') + '</td><td>' + f(x.attendu.total) + '</td></tr>';
+    if (!x.recus.length) rows += '<tr><td>Reçu pour ' + esc(M) + sub('aucun virement reçu') + '</td><td>' + f(0) + '</td></tr>';
+    x.recus.forEach((r, i) => {
+      const lbl = 'Reçu pour ' + esc(M) + (i ? ' (' + (i + 1) + 'ᵉ versement)' : '');
+      if (r.kind === 'virement' && r.mvId != null) {
+        rows += '<tr class="clk fdw-mv" role="button" tabindex="0" data-mv="' + esc(String(r.mvId)) + '" onclick="_finFenOuvrirMv(this.dataset.mv)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_finFenOuvrirMv(this.dataset.mv)}" title="Ouvrir le mouvement">'
+          + '<td>' + lbl + sub(jjmm(r.date) + ' · virement ›' + (r.avance ? ' · reçu d\'avance' : '')) + '</td><td>' + f(r.montant) + '</td></tr>';
+      } else {
+        rows += '<tr><td>' + lbl + sub(r.kind === 'dg' ? 'retenu sur le dépôt de garantie' : (r.kind === 'gli' ? 'assurance GLI' : jjmm(r.date))) + '</td><td>' + f(r.montant) + '</td></tr>';
+      }
+    });
+  }
+  let out = rows ? '<table class="pl"><tbody>' + rows + '</tbody></table>' : '';
+  const fid = 'fdw-f' + String(k).replace(/[^a-z0-9]/gi, '');
+  x.resultats.forEach(r => {
+    let btn = '';
+    if (r.action === 'accepter' && x.geste) btn = '<button type="button" class="btn bp" onclick="_mqFormBasculer(\'' + fid + '\')">Accepter le manque</button>';
+    else if (r.action === 'annuler' && r.manqueId) btn = '<button type="button" class="btn bg" data-mq="' + esc(r.manqueId) + '" onclick="_mqAnnulerGeste(this.dataset.mq)">Annuler</button>';
+    out += '<div class="fdw-res ' + r.cls + '"><span>' + esc(r.txt) + '</span>' + btn + '</div>';
+  });
+  if (x.geste) out += _mqFormHtml(fid, x.geste, ym);
+  x.notes.forEach(n => { out += '<div class="note">' + esc(n) + '</div>'; });
+  // Relance : _lyRelance lit encore l'ANCIEN moteur (_loyerEtatLot, par lot, suivi depuis janvier) jusqu'à
+  // P5 (relance par bail). Le bouton n'est proposé que si le courrier réclamerait EXACTEMENT la dette du
+  // bail que dit le suivi (I-g : relance = carte) ; sinon il est retiré de la fenêtre (Ferrette - 101 au
+  // 05/10 : relance 1 723,01 € contre 20 € de dette) — il reste dans l'onglet Loyers jusqu'à P5.
+  if (x.sens === 'retard' && !x.parti && typeof _lyRelance === 'function' && !String(x.ref).startsWith('SCI:') && _finFenRelanceCoherente(x)) {
+    out += '<div class="fdw-act"><button type="button" class="btn bs" onclick="closeM(\'ov-dash-drill\');_lyRelance(\'' + _lyQ(x.ref) + '\')">' + _uiIcon('mail') + ' Créer une relance</button></div>';
+  }
+  return out;
+}
+function _finFenRelanceCoherente(x) {
+  try {
+    const s = _finSuiviLot(x.ref);
+    const sb = s && s.baux.find(b => b.cle === x.bailCle);
+    if (!sb || typeof _loyerEtatLot !== 'function' || typeof window.retardLot !== 'function') return false;
+    const today = _finSuiviToday();
+    const tol = (typeof window._loyerToleranceActive === 'function') ? !!window._loyerToleranceActive(today) : false;
+    const r = window.retardLot(_loyerEtatLot(x.ref), { toleranceActive: tol });
+    const dette = (sb.position.retardLoyer || 0) + (sb.position.retardCharge || 0);
+    return dette > 0.005 && Math.abs((Number(r && r.reste) || 0) - dette) <= 0.01;
+  } catch (e) { return false; }
+}
+function _finFenToggle(d) {
+  if (!_finFen || !d) return;
+  _finFen.ouverts[d.getAttribute('data-k')] = d.open;
+}
+function _finFenPlus(cle) {
+  if (!_finFen) return;
+  _finFen.plus[cle] = !_finFen.plus[cle];
+  _finFenetreRendre();
+}
+function _finFenNav(mo) {
+  if (!_finFen) return;
+  _finFen = { yr: _finFen.yr, mo: parseInt(mo, 10) || 0, ouverts: {}, plus: {}, init: false };
+  _finFenetreRendre();
+  const b = el('dash-drill-body'); if (b) b.scrollTop = 0;
+}
+// Un reçu de la carte ouvre la fiche du mouvement (la fenêtre se ferme : la fiche s'ouvre dessous).
+function _finFenOuvrirMv(id) {
+  const mv = (DB.mouvements || []).find(m => m && !m._deleted && String(m.id) === String(id));
+  if (!mv) { if (typeof showToast === 'function') showToast('Mouvement introuvable', 'warn'); return; }
+  closeM('ov-dash-drill');
+  if (typeof openEditMv === 'function') openEditMv(mv.id);
+}
+
+// ── Geste « Accepter le manque » : UN formulaire, partagé par la fenêtre et la page Mouvements ──
+// g = { ref, bailDebut, ym, plafond, prefill } (calculés par le moteur : cibleManque / indexMouvementsLot).
+// Montant pré-rempli = ce qui manque, plafonné ; motif OBLIGATOIRE ; date du geste = aujourd'hui.
+function _mqFormHtml(fid, g, ymAffiche) {
+  const SF = window.SuiviFenetre;
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
+  const today = (typeof _finSuiviToday === 'function') ? _finSuiviToday() : new Date().toISOString().slice(0, 10);
+  const pl = Math.round((Number(g.plafond) || 0) * 100) / 100;
+  const autreMois = ymAffiche && g.ym !== ymAffiche;
+  return '<div class="mqa-form" id="' + fid + '" hidden data-ref="' + esc(g.ref) + '" data-debut="' + esc(g.bailDebut || '') + '" data-ym="' + esc(g.ym) + '" data-plafond="' + pl + '">'
+    + '<div class="fg2"><div class="fg"><label for="' + fid + '-m">Montant accepté (€) *</label><input class="inp" id="' + fid + '-m" name="montant" type="number" inputmode="decimal" step="0.01" min="0.01" max="' + pl + '" value="' + pl.toFixed(2) + '"><div class="mqa-err" data-err="montant" hidden></div></div>'
+    + '<div class="fg"><label for="' + fid + '-d">Date *</label><input class="inp" id="' + fid + '-d" name="date" type="date" value="' + today + '"><div class="mqa-err" data-err="date" hidden></div></div></div>'
+    + '<div class="fg"><label for="' + fid + '-t">Motif * <span class="mu sm">(obligatoire)</span></label><input class="inp" id="' + fid + '-t" name="motif" type="text" maxlength="200" placeholder="ex : panne électrique" autocomplete="off"><div class="mqa-err" data-err="motif" hidden></div></div>'
+    + (autreMois && SF ? '<div class="mu sm mqa-mois">Porte sur ' + esc(SF.moisNom(g.ym)) + ' ' + esc(String(g.ym).slice(0, 4)) + ' (au plus ' + esc(SF.eur(pl)) + ').</div>' : '')
+    + '<div class="act"><button type="button" class="btn bp" onclick="_mqFormEnregistrer(\'' + fid + '\')">Enregistrer</button><button type="button" class="btn bs" onclick="_mqFormBasculer(\'' + fid + '\')">Annuler</button></div>'
+    + '<div class="mqa-err" data-err="global" hidden></div></div>';
+}
+function _mqLectureSeule() {
+  if (typeof _appReadOnly !== 'undefined' && _appReadOnly) { if (typeof showToast === 'function') showToast('Lecture seule : modification impossible.', 'warn'); return true; }
+  return false;
+}
+function _mqFormBasculer(fid) {
+  const fm = el(fid);
+  if (!fm) return;
+  if (fm.hidden && _mqLectureSeule()) return;
+  fm.hidden = !fm.hidden;
+  if (!fm.hidden) { const t = fm.querySelector('[name=motif]'); if (t) { try { t.focus({ preventScroll: true }); } catch (e) { t.focus(); } } try { fm.scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+}
+function _mqFormEnregistrer(fid) {
+  const fm = el(fid);
+  if (!fm || _mqLectureSeule()) return;
+  const SF = window.SuiviFenetre;
+  const val = n => { const i = fm.querySelector('[name=' + n + ']'); return i ? i.value : ''; };
+  const err = (champ, msg) => {
+    const z = fm.querySelector('[data-err="' + champ + '"]'), i = fm.querySelector('[name=' + champ + ']');
+    if (z) { z.textContent = msg || ''; z.hidden = !msg; }
+    if (i) { i.classList.toggle('mqa-bad', !!msg); if (msg) i.setAttribute('aria-invalid', 'true'); else i.removeAttribute('aria-invalid'); }
+  };
+  const plafond = Number(fm.getAttribute('data-plafond')) || 0;
+  const c = SF ? SF.controlerSaisie({ montant: val('montant'), motif: val('motif'), date: val('date') }, plafond) : { ok: false, erreurs: { global: 'Module indisponible : recharge l\'application.' } };
+  ['montant', 'motif', 'date', 'global'].forEach(k => err(k, c.erreurs[k]));
+  if (!c.ok) { const first = fm.querySelector('.mqa-bad'); if (first) first.focus(); return; }
+  const e = _manqueAccepter({ ref: fm.getAttribute('data-ref'), bailDebut: fm.getAttribute('data-debut'), ym: fm.getAttribute('data-ym'),
+    montant: c.montant, motif: val('motif').trim(), date: val('date'), dette: plafond });
+  if (!e) { err('global', 'Rien n\'a été enregistré.'); return; }   // _manqueAccepter a déjà dit pourquoi (toast)
+  if (typeof showToast === 'function') showToast('Manque de ' + (SF ? SF.eur(e.montant) : e.montant + ' €') + ' accepté (' + e.motif + ')', 'ok');
+  _mqApresGeste();
+}
+function _mqAnnulerGeste(id) {
+  if (_mqLectureSeule()) return;
+  if (!_manqueAnnuler(id)) return;   // message déjà affiché
+  if (typeof showToast === 'function') showToast('Manque accepté annulé', 'ok');
+  _mqApresGeste();
+}
+// Après un geste (accepté / annulé) : la page courante et la fenêtre relisent le moteur (le cache du
+// suivi est invalidé par saveDB → _dbGen). Accueil / Pilotage / bulle Impayés se recalculent à leur
+// prochain rendu sur le même suivi.
+function _mqApresGeste() {
+  try {
+    if (typeof currentPage !== 'undefined') {
+      if (currentPage === 'finances' && typeof rFinances === 'function') rFinances();
+      else if (currentPage === 'mouvements' && typeof rMv === 'function') rMv();
+    }
+  } catch (e) { console.warn('[manque] rendu', e); }
+  const ov = el('ov-dash-drill');
+  if (_finFen && ov && !ov.classList.contains('hidden') && ov.classList.contains('fdw')) _finFenetreRendre();
+  if (typeof _renderInboxSurfaces === 'function') { try { _renderInboxSurfaces(); } catch (e) {} }
+}
+
+// ── Alerte « loyer incomplet » de la page Mouvements (maquette 03) ──
+// Un virement de loyer affecté à un lot, DERNIER versement d'un mois exigible resté incomplet d'après
+// le moteur (hors tolérance du 10) → alerte non bloquante + geste ; mois soldé par un manque accepté →
+// pastille. Index par lot mémoïsé sur la génération du suivi : O(mouvements), pas O(n²).
+let _mvMqCache = { key: null, lots: new Map() };
+function _mvManqueInfo(mv) {
+  if (!mv || mv._deleted || !mv.qui || !window.SuiviFenetre) return null;
+  if (!((Number(mv.cr) || 0) > 0)) return null;
+  const r = _finCatLigne(mv.cat);
+  if (!r || r.ligne2044 !== '211') return null;
+  const s = _finSuiviLot(mv.qui);
+  if (!s) return null;
+  if (_mvMqCache.key !== _finSuiviCache.key) _mvMqCache = { key: _finSuiviCache.key, lots: new Map() };
+  const k = String(mv.qui).trim().toLowerCase();
+  let idx = _mvMqCache.lots.get(k);
+  if (!idx) { idx = window.SuiviFenetre.indexMouvementsLot(s); _mvMqCache.lots.set(k, idx); }
+  return idx.get(String(mv.id)) || null;
+}
+// Fermeture de l'alerte (croix) : état de SESSION seulement, aucune donnée métier.
+const _mvMqFermes = (() => { try { return new Set(JSON.parse(sessionStorage.getItem('mqa-fermes') || '[]')); } catch (e) { return new Set(); } })();
+function _mvMqFermer(cle) {
+  _mvMqFermes.add(String(cle));
+  try { sessionStorage.setItem('mqa-fermes', JSON.stringify([..._mvMqFermes])); } catch (e) {}
+  if (typeof rMv === 'function') rMv();
+}
+// Pastille « manque accepté −20 € » (catégorie de la ligne) et ligne d'alerte sous le mouvement.
+function _mvMqPastille(info) {
+  if (!info || !info.accepte) return '';
+  const SF = window.SuiviFenetre, esc = (typeof escHtml === 'function') ? escHtml : (s => String(s));
+  const d = String(info.accepte.date || '').slice(0, 10).split('-');
+  return ' <span class="badge ora mqa-pas" title="Manque accepté · ' + esc(info.accepte.motif) + (d.length === 3 ? ' · ' + d[2] + '/' + d[1] : '') + '">manque accepté ' + esc(SF.eurSigne(-info.accepte.montant)) + '</span>';
+}
+function _mvMqAlerte(mv, info, phone) {
+  if (!info || !(info.manque > 0.005)) return '';
+  const cle = mv.id + '|' + info.ym;
+  if (_mvMqFermes.has(String(cle))) return '';
+  const SF = window.SuiviFenetre, esc = (typeof escHtml === 'function') ? escHtml : (s => String(s));
+  const fid = 'mqa-mv-' + String(mv.id).replace(/[^a-z0-9]/gi, '');
+  const g = { ref: info.ref, bailDebut: info.bailDebut, ym: info.ym, plafond: info.plafond, prefill: info.plafond };
+  return '<tr class="mqa-row' + (phone ? ' mqa-ph' : '') + '"><td colspan="7"><div class="alert warn mqa-alert" role="status">'
+    + '<button type="button" class="m-close mqa-x" aria-label="Fermer l\'alerte" data-k="' + esc(cle) + '" onclick="_mvMqFermer(this.dataset.k)">✕</button>'
+    + '<div class="mqa-txt">⚠ ' + esc(SF.texteAlerte(info, mv.date)) + '</div>'
+    + '<div class="mqa-acts"><button type="button" class="btn bp" onclick="_mqFormBasculer(\'' + fid + '\')">Accepter le manque</button></div>'
+    + _mqFormHtml(fid, g, String(mv.date || '').slice(0, 7)) + '</div></td></tr>';
 }
 // Depuis le drill : ouvre le découpage d'un mouvement non ventilé (versement de gérance groupé)
 // pour le répartir par bien. Ferme le drill d'abord (le découpage le remplace ; on rouvrira le drill à jour).

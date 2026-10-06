@@ -304,11 +304,11 @@ describe('P3 — câblage de la page Finances', () => {
     expect(pl.match(/↳ Avance \/ retard du lot<\/span>/g) || []).toHaveLength(1);   // UNE ligne (le libellé ; l'infobulle le répète)
     expect(pl).toMatch(/o => o\.ecart, \{ ecartSub: true, drill: 'solde' \}/);
   });
-  it('les fenêtres retard/avance lisent le suivi (plus la passe fiscale non compensée)', () => {
-    expect(corps('_finDrillAvance')).toMatch(/_finDrillSuivi\('avance'/);
-    expect(corps('_finDrillRetard')).toMatch(/_finDrillSuivi\(/);
-    expect(corps('_finDrillSuivi')).toMatch(/suiviPerimetre|_finSuiviCase/);
-    expect(corps('_finDrillSuivi')).not.toMatch(/_computeLoyerChargeAlloc/);
+  it('LA fenêtre « avance / retard » lit le suivi (plus la passe fiscale non compensée) — P4 : fenêtre unique', () => {
+    // P4 : _finDrillRetard / _finDrillAvance / _finDrillSuivi remplacées par _finFenetre (suivi-fenetre.test.js).
+    expect(corps('_finFenetreRendre')).toMatch(/_finSuiviCase\(/);
+    expect(corps('_finSuiviCase')).toMatch(/suiviPerimetre/);
+    expect(corps('_finFenetreRendre')).not.toMatch(/_computeLoyerChargeAlloc/);
   });
   it('graphique : mois récent à gauche (même sens que le tableau)', () => {
     expect(corps('_finVizSeries')).toMatch(/\.reverse\(\)/);
