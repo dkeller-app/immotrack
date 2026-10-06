@@ -281,10 +281,8 @@ describe('Branchement de l\'interface (gardes de source)', () => {
       expect(h, h).not.toMatch(/\$\{|\+\s*(?:escHtml|d\.|w\b|x\.|r\.|a\.)/);
     }
   });
-  it('l\'aperçu a des cases décochables qui mémorisent des exceptions', () => {
-    expect(P2).toContain('_bankRuleExceptionsApresCase');
-    expect(P2).toContain('brg-cb');
-  });
+  // « l'aperçu a des cases décochables qui mémorisent des exceptions » : remplacé par un test de
+  // COMPORTEMENT (vraie fonction _bankRulePreviewRender + _bankRuleLigneCase) dans bank-regles-audit.test.js.
   it('la condition de montant est branchée (module pur)', () => {
     expect(P2).toContain('_bankRuleMontantDepuisSaisie');
   });

@@ -96,11 +96,11 @@ describe('_bankRuleVue — ce que la liste affiche', () => {
 describe('« Garder les deux » — le signal de doublon ne revient pas', () => {
   const large = R({ mots: ['SARAR'] });
   const precise = R({ mots: ['SARAR', 'SYNDIC'] });
-  it('le doublon est signalé, indexé par la règle à retirer (la plus large)', () => {
+  it('le doublon est signalé, indexé par la règle à retirer (la plus précise, couverte par la large — audit I2)', () => {
     expect(_bankRulesDuplicates([large, precise])).toHaveLength(1);
     const m = _bankRulesDoublonsParId([large, precise]);
-    expect(Object.keys(m)).toEqual([large.id]);
-    expect(m[large.id]).toBe(precise);
+    expect(Object.keys(m)).toEqual([precise.id]);
+    expect(m[precise.id]).toBe(large);
   });
   it('mémorise la paire sur une règle (copie stampée, entrées intactes, idempotent)', () => {
     const avant = JSON.stringify([large, precise]);
@@ -129,8 +129,8 @@ describe('« Garder les deux » — le signal de doublon ne revient pas', () => 
   });
   it('la fusion reste possible et fournit un tombstone par id', () => {
     const f = _bankRulesFuse(large, precise, { now: NOW });
-    expect(f.garder.id).toBe(precise.id);
-    expect(f.tombstone).toMatchObject({ _deleted: true, id: large.id });
+    expect(f.garder.id).toBe(large.id);
+    expect(f.tombstone).toMatchObject({ _deleted: true, id: precise.id });
   });
 });
 
@@ -171,10 +171,8 @@ describe('Rendu de « Mes règles » (gardes de source)', () => {
     expect(handlers.length).toBeGreaterThan(3);
     for (const h of handlers) expect(h, h).not.toMatch(/\$\{|\+\s*(?:escHtml|rid|r\.|v\.|e\.|a\.)/);
   });
-  it('tout texte issu d\'une règle est échappé', () => {
-    const carte = bloc(zone, 'function _bankRulesCarteHtml', 'function rParamsRules');
-    for (const champ of ['w)', 'r.cat', 'e.libelle', 'motif(doublonAvec)', 'v.id', 'e.cle']) expect(carte, champ).toContain('escHtml(' + champ.replace(/\)$/, ''));
-  });
+  // « tout texte issu d'une règle est échappé » : remplacé par un test de COMPORTEMENT (rendu réel de la
+  // carte, contenu piégé) dans bank-regles-audit.test.js (« Comportement — rendu échappé »).
   it('chaque modification passe par _stamp et saveDB (tombstone par id, jamais de splice)', () => {
     expect(zone).not.toContain('.splice(');
     for (const fn of ['_bankRulesFusionner', '_bankRulesGarderLesDeux', '_bankRulesRetirerException']) {

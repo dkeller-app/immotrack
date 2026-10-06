@@ -10302,6 +10302,9 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .brg-alert.neg{border-color:var(--neg);background:var(--neg-soft)}
 .brg-alert ul{margin:6px 0 0;padding-left:18px}
 .brg-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+/* Audit B1 : autre règle qui donne un autre résultat pour la ligne de départ (phrase + Modifier / Supprimer) */
+.brg-autres{margin-bottom:12px}
+.brg-autre{display:flex;align-items:center;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;min-width:0;overflow-wrap:anywhere}
 .brg-btn{min-height:44px;padding:0 12px;border-radius:var(--r);border:1px solid var(--bor);background:var(--sur);cursor:pointer;font-weight:600;font-size:var(--fs-base);color:var(--t1);display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .brg-btn:hover{background:var(--sur3)}
 .brg-lnk{background:none;border:0;padding:0 4px;min-height:44px;color:var(--acc2);cursor:pointer;font-weight:600;text-decoration:underline;text-underline-offset:2px;font-size:inherit;font-family:inherit}

@@ -536,8 +536,9 @@ describe('Doublons', () => {
     const sansRapport = R({ mots: ['SYNDIC'], cat: 'C' });
     const d = _bankRulesDuplicates([large, precise, autreCompte, autreResultat, sansRapport]);
     expect(d).toHaveLength(1);
-    expect(d[0].garder).toBe(precise);
-    expect(d[0].retirer).toBe(large);
+    // Audit I2 : on garde la plus LARGE (elle attrape aussi toutes les lignes de la précise).
+    expect(d[0].garder).toBe(large);
+    expect(d[0].retirer).toBe(precise);
     // Sens opposés (dépense/recette) : jamais la même ligne → pas un doublon.
     const dbOnly = R({ mots: ['EDF'], cat: 'C', sens: 'db' });
     expect(_bankRulesDuplicates([dbOnly, sensOppose])).toHaveLength(0);
@@ -548,28 +549,28 @@ describe('Doublons', () => {
   it('Détection avec mot saisi (morceau) et règle historique', () => {
     const libre = R({ motsLibres: ['ELEC'], cat: 'C' });
     const mot = R({ mots: ['ELECTRICITE', 'STRASBOURG'], cat: 'C' });
-    expect(_bankRulesDuplicates([libre, mot])[0].garder).toBe(mot);
+    expect(_bankRulesDuplicates([libre, mot])[0].garder).toBe(libre);
     const hist = { id: 'h', pattern: 'EDF', compte: 'CIC', cat: 'C' };
     const v2 = R({ mots: ['EDF', 'CLIENTS'], cat: 'C' });
     const d = _bankRulesDuplicates([hist, v2]);
     expect(d).toHaveLength(1);
-    expect(d[0].garder).toBe(v2);
+    expect(d[0].garder).toBe(hist);
   });
 
-  it('Fusion (pure) : garde la plus précise, réunit les exceptions, tombstone de l\'autre', () => {
+  it('Fusion (pure) : garde la plus LARGE (audit I2), réunit les exceptions, tombstone de l\'autre', () => {
     const l1 = L('EDF CLIENTS A', -1, { _fingerprint: 'k1' }), l2 = L('EDF CLIENTS B', -1, { _fingerprint: 'k2' });
     const large = _bankRuleAddException(R({ mots: ['EDF'], cat: 'C' }), l1, { now: NOW });
     const precise = _bankRuleAddException(R({ mots: ['EDF', 'CLIENTS'], cat: 'C' }), l2, { now: NOW });
     const avant = JSON.stringify([large, precise]);
     const f = _bankRulesFuse(large, precise, { now: '2026-10-06T11:00:00.000Z' });
     expect(JSON.stringify([large, precise])).toBe(avant);                 // entrées intactes
-    expect(f.garder.id).toBe(precise.id);
+    expect(f.garder.id).toBe(large.id);
     expect(f.garder.exceptions.map(e => e.cle).sort()).toEqual(['k1', 'k2']);
     expect(f.garder._modifiedAt).toBe('2026-10-06T11:00:00.000Z');
-    expect(f.retirer).toBe(large);
-    expect(f.tombstone).toMatchObject({ _deleted: true, id: large.id });
+    expect(f.retirer).toBe(precise);
+    expect(f.tombstone).toMatchObject({ _deleted: true, id: precise.id });
     // Ordre des arguments indifférent.
-    expect(_bankRulesFuse(precise, large, { now: NOW }).garder.id).toBe(precise.id);
+    expect(_bankRulesFuse(precise, large, { now: NOW }).garder.id).toBe(large.id);
   });
 });
 

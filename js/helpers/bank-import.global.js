@@ -1324,7 +1324,11 @@
    *
    * L'identifiant attribué est calculé UNE FOIS depuis la position et le contenu de
    * la règle à cet instant (jamais recalculé ensuite) : deux appareils qui migrent la
-   * même base obtiennent les mêmes identifiants.
+   * même base obtiennent les mêmes identifiants. 🐛 Audit (M3) — le contenu pris en
+   * compte EXCLUT les horodatages (`_modifiedAt`, `_createdAt`, `_addedAt`… : tout champ
+   * `_…At`, à tous les niveaux) et ne dépend pas de l'ordre des clés (un objet relu depuis
+   * le serveur peut les rendre dans un autre ordre) : une règle qui ne diffère que par son
+   * horodatage d'un appareil à l'autre reçoit le même identifiant.
    *
    * @param {object[]} rules — DB.importRules (modifié en place ; absent → rien)
    * @returns {{migrated:number, skipped:number}}
@@ -1336,7 +1340,7 @@
     const used = new Set(rules.map(r => r && r.id).filter(Boolean).map(String));
     rules.forEach((r, i) => {
       if (!r || typeof r !== 'object' || r._deleted || r.id) { skipped++; return; }
-      let id = 'rg_' + _bankHashStable(i + '|' + JSON.stringify(r));
+      let id = 'rg_' + _bankHashStable(i + '|' + _bankRuleContenuStable(r));
       for (let n = 2; used.has(id); n++) id = id.replace(/-\d+$/, '') + '-' + n;
       used.add(id);
       r.id = id;
@@ -1345,6 +1349,21 @@
       migrated++;
     });
     return { migrated, skipped };
+  }
+
+  /** Champ d'horodatage (volatil d'un appareil à l'autre) : `_modifiedAt`, `_createdAt`, `_addedAt`… */
+  function _bankEstHorodatage(k) {
+    return /^_[A-Za-z]*At$/.test(String(k));
+  }
+
+  /** Contenu d'une règle pour son identifiant de migration : sans horodatage, clés triées. */
+  function _bankRuleContenuStable(v) {
+    if (Array.isArray(v)) return '[' + v.map(_bankRuleContenuStable).join(',') + ']';
+    if (v && typeof v === 'object') {
+      return '{' + Object.keys(v).filter(k => !_bankEstHorodatage(k) && v[k] !== undefined).sort()
+        .map(k => JSON.stringify(k) + ':' + _bankRuleContenuStable(v[k])).join(',') + '}';
+    }
+    return JSON.stringify(v === undefined ? null : v);
   }
 
   /** D6 — Retrouve une règle PAR SON IDENTIFIANT (remplace `_bankRuleIdxOf(pattern)`). -1 si absente ou supprimée. */
@@ -1390,6 +1409,12 @@
   }
 
   /**
+   * ⚠ NON BRANCHÉE (audit M4) : aucun code de l'app n'appelle cette fonction. Aujourd'hui
+   * `DB.importRules` voyage dans le bloc de configuration de l'espace, qui est REMPLACÉ EN
+   * ENTIER à chaque écriture (pas de fusion règle par règle : le dernier appareil qui écrit
+   * fixe toute la liste). Elle est prête et testée pour le jour où la synchro fusionnera
+   * les règles ; ne pas supposer qu'elle protège quoi que ce soit avant ce branchement.
+   *
    * Fusion de deux listes de règles (deux appareils, une restauration…), clé =
    * identifiant (à défaut, pour une règle historique : motif + compte). Deux règles
    * de même motif sur deux comptes ne se confondent donc plus. Le plus récent
@@ -1443,8 +1468,28 @@
       && _bankRuleCritKey(r) + '§' + _bankRuleResultKey(r) === k) || null;
   }
 
-  /** Tous les mots de `a` se retrouvent-ils dans `b` ? (b est alors au moins aussi précise que a) */
+  /** Condition de montant normalisée (comparaison de deux règles). */
+  function _bankRuleMontantKey(r) {
+    const m = r && r.montant && r.montant.type ? r.montant : null;
+    if (!m) return '';
+    if (m.type === 'exact') return 'exact|' + Math.round(Math.abs(Number(m.valeur) || 0) * 100);
+    if (m.type === 'plage') {
+      const b = v => (v == null || v === '') ? '' : String(Math.round(Math.abs(Number(v) || 0) * 100));
+      return 'plage|' + b(m.min) + '|' + b(m.max);
+    }
+    return String(m.type);
+  }
+
+  /**
+   * La règle `a` attrape-t-elle TOUTES les lignes que `b` attrape ? (a est alors au moins aussi
+   * large que b.) Tous les mots de `a` se retrouvent dans `b`, le sens de `a` est « les deux » ou
+   * celui de `b`, et — audit I2 — la condition de montant est LA MÊME : deux règles « LOYER
+   * DUPONT » dont l'une exige « = loyer CC » et l'autre « = 700 € » n'attrapent pas les mêmes
+   * lignes, ce ne sont pas des doublons.
+   */
   function _bankRuleCovers(a, b) {
+    if (_bankRuleMontantKey(a) !== _bankRuleMontantKey(b)) return false;
+    if (a.sens && a.sens !== b.sens) return false;
     const ta = _bankRuleIsV2(a) ? _bankRuleTokens(a) : { mots: [], libres: [_bankNormTxt(a.pattern)].filter(Boolean) };
     const bLegacy = !_bankRuleIsV2(b);
     const tb = bLegacy ? { mots: [], libres: [] } : _bankRuleTokens(b);
@@ -1456,18 +1501,16 @@
     return ta.mots.every(motOk) && ta.libres.every(libreOk);
   }
 
-  /** Précision d'une règle : nombre de mots + conditions. */
-  function _bankRulePrecision(r) {
-    const t = _bankRuleIsV2(r) ? _bankRuleTokens(r) : { mots: [], libres: _bankNormTxt(r.pattern).split(' ').filter(Boolean) };
-    return t.mots.length * 2 + t.libres.length + (r.sens ? 1 : 0) + (r.montant ? 1 : 0);
-  }
-
-  /** Laquelle garder entre deux règles en doublon : la plus précise (à égalité : la première). */
-  function _bankRulePlusPrecise(a, b) {
-    const ab = _bankRuleCovers(a, b), ba = _bankRuleCovers(b, a);
-    if (ab && !ba) return b;
-    if (ba && !ab) return a;
-    return _bankRulePrecision(b) > _bankRulePrecision(a) ? b : a;
+  /**
+   * Laquelle GARDER entre deux règles en doublon : la plus LARGE, celle qui attrape aussi toutes
+   * les lignes de l'autre (audit I2 : garder la plus précise faisait perdre le classement des
+   * lignes que seule la large attrapait — « VIR SARAR 150 » sans « SYNDIC »). À égalité (chacune
+   * couvre l'autre) : la première.
+   */
+  function _bankRulePlusLarge(a, b) {
+    if (_bankRuleCovers(a, b)) return a;
+    if (_bankRuleCovers(b, a)) return b;
+    return a;
   }
 
   /** « Garder les deux » a-t-il été choisi pour cette paire (dans un sens ou dans l'autre) ? */
@@ -1477,9 +1520,11 @@
   }
 
   /**
-   * Mes règles — signal de DOUBLON : même compte, même résultat, et le motif de l'une
-   * inclus dans celui de l'autre. Deux règles de sens opposés (dépense / recette) ne
-   * peuvent jamais attraper la même ligne : ce n'est pas un doublon.
+   * Mes règles — signal de DOUBLON : même compte, même résultat, même condition de montant,
+   * et l'une attrape toutes les lignes de l'autre (`_bankRuleCovers` : mots inclus, sens
+   * compatible). Deux règles de sens opposés (dépense / recette) ne peuvent jamais attraper
+   * la même ligne : ce n'est pas un doublon. `garder` = la plus LARGE (rien n'est perdu à la
+   * fusion), `retirer` = celle qu'elle couvre.
    * @returns {{a:object, b:object, garder:object, retirer:object}[]}
    */
   function _bankRulesDuplicates(rules) {
@@ -1493,7 +1538,7 @@
         if (a.sens && b.sens && a.sens !== b.sens) continue;
         if (_bankRuleGardeLesDeux(a, b)) continue;            // « Garder les deux » : le signal ne revient pas
         if (!_bankRuleCovers(a, b) && !_bankRuleCovers(b, a)) continue;
-        const garder = _bankRulePlusPrecise(a, b);
+        const garder = _bankRulePlusLarge(a, b);
         out.push({ a, b, garder, retirer: garder === a ? b : a });
       }
     }
@@ -1501,13 +1546,14 @@
   }
 
   /**
-   * « Fusionner » deux règles en doublon (fonction pure) : garde la plus précise,
-   * réunit les exceptions des deux, et fournit le tombstone de l'autre (à poser en
-   * place par l'appelant). Les objets d'entrée ne sont pas modifiés.
+   * « Fusionner » deux règles en doublon (fonction pure) : garde la plus LARGE (celle qui
+   * attrape aussi toutes les lignes de l'autre : aucune ligne ne perd son classement),
+   * réunit les exceptions des deux, et fournit le tombstone de l'autre (à poser en place
+   * par l'appelant). Les objets d'entrée ne sont pas modifiés.
    * @returns {{garder:object, retirer:object, tombstone:object}}
    */
   function _bankRulesFuse(a, b, opts = {}) {
-    const keep = _bankRulePlusPrecise(a, b);
+    const keep = _bankRulePlusLarge(a, b);
     const drop = keep === a ? b : a;
     const now = _bankNow(opts);
     const ex = [];
@@ -1536,7 +1582,8 @@
 
   /**
    * Mes règles — doublons indexés par la règle À RETIRER : `{ [id]: règle à garder }`.
-   * (Le message de doublon s'affiche sur la règle la moins précise, qui est la recouverte.)
+   * (Le message de doublon s'affiche sur la règle couverte — la plus précise —, et le bouton
+   * dit laquelle est gardée : la plus large.)
    */
   function _bankRulesDoublonsParId(rules) {
     const out = {};
@@ -1617,6 +1664,10 @@
    *    (décochée = exception de la règle) ; la ligne SOURCE est toujours incluse,
    *    cochée et verrouillée, même quand elle ne correspond pas (`correspond:false`
    *    → l'écran signale qu'elle ne suivrait plus la règle) ;
+   *  - 🐛 audit M2 — une ligne de l'import DÉJÀ CLASSÉE À LA MAIN (`_userEdited` / `_reviewed`),
+   *    autre que la source, est marquée `protegee` : à l'enregistrement elle est laissée telle
+   *    quelle (cf. `_bankReclassifyPrepare`), elle n'est donc PAS comptée dans `nSuivront`
+   *    (« N lignes suivront la règle ») mais dans `nProtegees` (« laissées telles quelles ») ;
    *  - compteur « en base » informatif, du MÊME compte uniquement ;
    *  - alerte « natures différentes » calculée sur les lignes COCHÉES DE L'IMPORT
    *    (nature = catégorie proposée, ou sens différents).
@@ -1627,7 +1678,8 @@
    * @param {{importLines?:object[], mouvements?:object[], accountId?:*, source?:object,
    *          sourceIndex?:number, loyerCC?:Function}} ctx
    * @returns {{lignes:{line:object, index:number, cle:string, source:boolean, verrouille:boolean,
-   *            coche:boolean, correspond:boolean}[], nCochees:number, nBase:number, baseCats:string[],
+   *            coche:boolean, correspond:boolean, protegee:boolean}[], nCochees:number,
+   *            nSuivront:number, nProtegees:number, nBase:number, baseCats:string[],
    *            natures:string[], mixed:boolean, tooShort:boolean, vide:boolean, compteManquant:boolean,
    *            sourceCorrespond:boolean|null, level:''|'warn'|'ok'}}
    */
@@ -1641,7 +1693,7 @@
     delete cand._deleted;
     const t = _bankRuleIsV2(cand) ? _bankRuleTokens(cand) : { mots: [], libres: [_bankNormTxt(cand.pattern)].filter(Boolean) };
     const motifLen = [...t.mots, ...t.libres].join(' ').length;
-    const out = { lignes: [], nCochees: 0, nBase: 0, baseCats: [], natures: [], mixed: false, tooShort: false,
+    const out = { lignes: [], nCochees: 0, nSuivront: 0, nProtegees: 0, nBase: 0, baseCats: [], natures: [], mixed: false, tooShort: false,
       vide: motifLen === 0, compteManquant: !compte, sourceCorrespond: null, level: '' };
     const canMatch = !out.vide && !!compte;
     const match = (l, acc) => canMatch && _bankRuleMatch(cand, l, acc, ctx);
@@ -1655,13 +1707,14 @@
       const isSrc = (ctx.sourceIndex != null && ctx.sourceIndex === index) || (!!srcKey && cle === srcKey && !srcRow);
       const ok = match(l, importAcc);
       if (!ok && !isSrc) return;
-      const row = { line: l, index, cle, source: isSrc, verrouille: isSrc, coche: isSrc || !exKeys.has(cle), correspond: ok };
+      const row = { line: l, index, cle, source: isSrc, verrouille: isSrc, coche: isSrc || !exKeys.has(cle), correspond: ok,
+        protegee: !isSrc && !!(l._userEdited || l._reviewed) };
       if (isSrc) srcRow = row;
       out.lignes.push(row);
     });
     if (src && !srcRow) {
       const acc = (src._bankAccountId != null && src._bankAccountId !== '') ? String(src._bankAccountId) : importAcc;
-      srcRow = { line: src, index: -1, cle: srcKey, source: true, verrouille: true, coche: true, correspond: match(src, acc) };
+      srcRow = { line: src, index: -1, cle: srcKey, source: true, verrouille: true, coche: true, correspond: match(src, acc), protegee: false };
       out.lignes.push(srcRow);
     }
     if (srcRow) {
@@ -1684,6 +1737,9 @@
 
     const cochees = out.lignes.filter(x => x.coche && x.index >= 0);
     out.nCochees = out.lignes.filter(x => x.coche).length;
+    const importCochees = out.lignes.filter(x => x.index >= 0 && x.coche && x.correspond);
+    out.nProtegees = importCochees.filter(x => x.protegee).length;
+    out.nSuivront = importCochees.length - out.nProtegees;
     out.natures = [...new Set(cochees.map(x => x.line.suggestedCat).filter(Boolean))];
     const senses = new Set(cochees.map(x => _bankLineSens(x.line)));
     out.mixed = out.natures.length > 1 || senses.size > 1;
@@ -1760,8 +1816,69 @@
   }
 
   const _BANK_CLASSEMENT_FIELDS = ['suggestedCat', 'suggestedQui', 'suggestedImm', 'suggestedCc', 'confidence', 'matchSource',
-    '_byRule', '_ruleConflicts', '_ruleOrigin', '_ambiguous', '_candidates',
+    '_byRule', '_ruleConflicts', '_ruleOrigin', '_ambiguous', '_candidates', '_autresRegles', '_regleSource',
     'isDuplicate', 'duplicateOf', 'duplicateReason', 'dupLevel'];
+
+  /** Classement d'une ligne au format « ligne d'import » (suggested*), depuis une ligne ou un mouvement enregistré. */
+  function _bankClassementDe(x) {
+    if (!x) return { cat: '', qui: '', imm: '', cc: '' };
+    if (Object.prototype.hasOwnProperty.call(x, 'libelle')) {
+      return { cat: x.suggestedCat || '', qui: x.suggestedQui || '', imm: x.suggestedImm || '', cc: x.suggestedCc || '' };
+    }
+    return { cat: x.cat || '', qui: x.qui || '', imm: x.imm || '', cc: x.compteurCcId || '' };
+  }
+
+  /** L'affectation `aff` (résolue) est-elle déjà celle du classement `c` ? Comparée sur ce que l'affectation désigne. */
+  function _bankAffEgale(aff, c) {
+    if (aff.compteurCcId) return c.cc === aff.compteurCcId;
+    if (aff.qui) return c.qui === aff.qui;
+    if (aff.imm) return !c.qui && c.imm === aff.imm;
+    return true;
+  }
+
+  /**
+   * 🐛 Audit B1 — Les AUTRES règles actives qui attrapent aussi la ligne de départ d'une règle
+   * qu'on crée (ou modifie), et qui y donneraient un AUTRE résultat. La règle créée gagne pour
+   * CETTE ligne (c'est sa source) ; ces règles-là sont signalées, jamais appliquées en silence.
+   * Le résultat comparé est celui de la ligne APRÈS la règle : ce que la règle définit, et pour
+   * le reste ce que la ligne porte déjà (une règle n'efface jamais ce qu'elle ne définit pas).
+   * Seuls les champs que l'autre règle définit sont comparés (catégorie, affectation).
+   *
+   * @param {object[]} rules — toutes les règles (supprimées ignorées)
+   * @param {object} regle — la règle créée / modifiée (son `id`, s'il existe, l'exclut de la liste)
+   * @param {object} lineOrMv — la ligne de départ (ligne d'import, ou mouvement enregistré)
+   * @param {{accountId?:*, account?:object, loyerCC?:Function, dejaClassee?:boolean}} [opts] —
+   *   `dejaClassee` : la ligne porte déjà le résultat de la règle (ne pas le recalculer)
+   * @returns {{regle:object, id:string, motif:string, compteAChoisir:boolean, champs:string[], cat:string, aff:object|null}[]}
+   */
+  function _bankRuleAutresResultats(rules, regle, lineOrMv, opts = {}) {
+    if (!regle || !lineOrMv) return [];
+    const line = _bankAsLine(lineOrMv);
+    const acc = (opts.accountId != null && opts.accountId !== '') ? opts.accountId
+      : (lineOrMv._bankAccountId != null ? lineOrMv._bankAccountId : regle.compte);
+    const c = _bankClassementDe(lineOrMv);
+    if (!opts.dejaClassee) {
+      if (regle.cat) c.cat = regle.cat;
+      const a = _bankRuleAffResolved(regle, opts.account);
+      if (a && !a.unresolved) { c.qui = a.qui || ''; c.imm = a.imm || ''; c.cc = a.compteurCcId || ''; }
+    }
+    const rid = (regle.id != null && regle.id !== '') ? String(regle.id) : '';
+    const ctx = { loyerCC: opts.loyerCC };
+    const out = [];
+    for (const o of (Array.isArray(rules) ? rules : [])) {
+      if (!o || o._deleted || o === regle) continue;
+      if (rid && o.id != null && String(o.id) === rid) continue;
+      if (!_bankRuleMatch(o, line, acc, ctx)) continue;
+      const champs = [];
+      if (o.cat && o.cat !== c.cat) champs.push('cat');
+      const oa = _bankRuleAffResolved(o, opts.account);
+      if (oa && !oa.unresolved && !_bankAffEgale(oa, c)) champs.push('aff');
+      if (!champs.length) continue;
+      out.push({ regle: o, id: o.id != null ? String(o.id) : '', motif: _bankRuleMotif(o), compteAChoisir: !o.compte,
+        champs, cat: o.cat || '', aff: oa && !oa.unresolved ? oa : null });
+    }
+    return out;
+  }
 
   /**
    * Prépare le RECLASSEMENT de l'import en cours après création / modification /
@@ -1770,51 +1887,91 @@
    *  - ligne classée à la main (`_userEdited` / `_reviewed`) → gardée telle quelle ; si
    *    la règle `opts.rule` la touche (elle correspond à la ligne), elle est COMPTÉE dans
    *    `protegees` (l'écran l'annonce : jamais d'écrasement silencieux) ;
-   *  - ligne SOURCE (`opts.sourceIndex`) qui correspond à la règle → elle SUIT la règle,
-   *    même retouchée : sa marque « retouchée » est levée (la créer ne doit pas la
-   *    verrouiller hors règle), `_suitRegle` demande au classement de la reprendre ;
+   *  - ligne SOURCE (`opts.sourceIndex`) qui correspond à la règle → elle est CLASSÉE ICI PAR
+   *    CETTE RÈGLE, et par elle seule (🐛 audit B1 : avant, elle était vidée puis reclassée par
+   *    TOUTES les règles ; une autre règle en conflit faisait tout échouer, la proposition
+   *    automatique réécrivait la ligne et l'affectation faite à la main était perdue sans un
+   *    mot). Ce que la règle ne définit pas, la ligne le garde. Les autres règles qui donnent
+   *    un autre résultat sur cette ligne sont listées (`_autresRegles`, `sourceAutres`) pour
+   *    que l'écran le DISE. `_suitRegle` dit au classement de ne pas la reclasser. La marque
+   *    « retouchée » est levée (la créer ne doit pas la verrouiller hors règle), SAUF si la
+   *    ligne garde une partie classée à la main que la règle ne définit pas : elle reste alors
+   *    protégée, pour qu'un reclassement ultérieur ne l'efface pas ;
    *    si elle ne correspond pas, elle reste comme elle est (`sourceSuit:false`) ;
-   *  - autre ligne → classement retiré, elle sera reclassée.
+   *  - ligne de départ d'une règle créée PLUS TÔT dans cet import (`_regleSource`), non protégée :
+   *    reclassée par SA règle de la même façon (tant que la règle existe et l'attrape) ;
+   *  - autre ligne → classement retiré, elle sera reclassée (une autre ligne en conflit reste
+   *    « ⚠ N règles possibles », au choix de l'utilisateur, CDC ⑦.2 v2).
    * @param {object[]} lines
-   * @param {{rule?:object, sourceIndex?:number, accountId?:*, account?:object, loyerCC?:Function}} [opts]
-   * @returns {{lines:object[], protegees:number, sourceSuit:boolean|null}}
+   * @param {{rule?:object, rules?:object[], sourceIndex?:number, accountId?:*, account?:object, loyerCC?:Function}} [opts]
+   *   `rules` : toutes les règles (pour signaler les autres règles de la ligne source)
+   * @returns {{lines:object[], protegees:number, sourceSuit:boolean|null, sourceAutres:object[]}}
    */
   function _bankReclassifyPrepare(lines, opts = {}) {
     const rule = (opts.rule && !opts.rule._deleted) ? opts.rule : null;
     const ctx = { loyerCC: opts.loyerCC };
+    const appOpts = { accountId: opts.accountId, account: opts.account, loyerCC: opts.loyerCC };
     const strip = l => {
       const r = Object.assign({}, l);
       _BANK_CLASSEMENT_FIELDS.forEach(k => { delete r[k]; });
       return r;
     };
-    let protegees = 0, sourceSuit = null;
+    let protegees = 0, sourceSuit = null, sourceAutres = [];
+    // Classe la ligne par SA règle (la règle créée depuis elle), seule ; garde ce que la règle ne définit pas.
+    const classerParSaRegle = (l, srcRule) => {
+      const r = strip(l);
+      let garde = false;
+      if (_bankRuleIsV2(srcRule)) {
+        if (!srcRule.cat && l.suggestedCat) { r.suggestedCat = l.suggestedCat; garde = true; }
+        if (!_bankRuleHasAff(srcRule)) {
+          ['suggestedQui', 'suggestedImm', 'suggestedCc'].forEach(f => { if (l[f]) { r[f] = l[f]; garde = true; } });
+        }
+      }
+      _bankLineApplyRules([srcRule], r, appOpts);
+      const autres = _bankRuleAutresResultats(opts.rules, srcRule, r, Object.assign({ dejaClassee: true }, appOpts));
+      r._autresRegles = autres.length ? autres.map(_bankAutreRegleVue) : null;
+      r._regleSource = _bankRuleTraceKey(srcRule);
+      if (!(garde && l._userEdited)) delete r._userEdited;
+      r._suitRegle = true;
+      return { r, autres };
+    };
     const out = (Array.isArray(lines) ? lines : []).map((l, k) => {
       if (!l) return l;
       const touche = !!rule && _bankRuleMatch(rule, l, opts.accountId, ctx);
       if (rule && opts.sourceIndex != null && opts.sourceIndex === k) {
         sourceSuit = touche;
         if (touche) {
-          const r = strip(l);
-          // Ce que la règle ne définit pas, la ligne le garde (jamais effacé) : le classement
-          // appliqué ensuite par `_bankLineApplyRules` ne touche que les champs de la règle.
-          if (_bankRuleIsV2(rule)) {
-            if (!rule.cat && l.suggestedCat) r.suggestedCat = l.suggestedCat;
-            if (!_bankRuleHasAff(rule)) {
-              ['suggestedQui', 'suggestedImm', 'suggestedCc'].forEach(k => { if (l[k]) r[k] = l[k]; });
-            }
-          }
-          delete r._userEdited;
-          r._suitRegle = true;
-          return r;
+          const x = classerParSaRegle(l, rule);
+          sourceAutres = x.autres;
+          return x.r;
         }
       }
       if (l._userEdited || l._reviewed) {
         if (touche) protegees++;   // correspond à la règle ET déjà classée à la main : laissée telle quelle
+        // Ligne de départ d'une règle précédente : son signal « une autre règle donne un autre
+        // résultat » est recalculé (la règle en cause a pu être modifiée ou supprimée entre-temps).
+        if (l._autresRegles && l._regleSource && Array.isArray(opts.rules)) {
+          const src = _bankRuleById(opts.rules, l._regleSource);
+          const autres = src ? _bankRuleAutresResultats(opts.rules, src, l, Object.assign({ dejaClassee: true }, appOpts)) : [];
+          return Object.assign({}, l, { _autresRegles: autres.length ? autres.map(_bankAutreRegleVue) : null });
+        }
         return l;
+      }
+      // Ligne de départ d'une règle créée plus tôt dans cet import : elle reste classée par SA règle
+      // (si la règle existe toujours et l'attrape encore) — une autre règle ne la reprend pas en douce.
+      if (l._regleSource && Array.isArray(opts.rules)) {
+        const src = _bankRuleById(opts.rules, l._regleSource);
+        if (src && _bankRuleMatch(src, l, opts.accountId, ctx)) return classerParSaRegle(l, src).r;
       }
       return strip(l);
     });
-    return { lines: out, protegees, sourceSuit };
+    return { lines: out, protegees, sourceSuit, sourceAutres };
+  }
+
+  /** Ce que la ligne garde d'une « autre règle » (sans l'objet règle : la ligne peut être copiée). */
+  function _bankAutreRegleVue(x) {
+    return { id: x.id, motif: x.motif, compteAChoisir: x.compteAChoisir, champs: x.champs.slice(), cat: x.cat,
+      aff: x.aff ? Object.assign({}, x.aff) : null };
   }
 
   /**
@@ -2858,6 +3015,7 @@
     _bankRuleApercu: _bankRuleApercu,
     _bankRuleTraceKey: _bankRuleTraceKey,
     _bankLineApplyRules: _bankLineApplyRules,
+    _bankRuleAutresResultats: _bankRuleAutresResultats,
     _bankReclassifyPrepare: _bankReclassifyPrepare,
     _bankRulePatchMouvement: _bankRulePatchMouvement,
     _bankRulePrefill: _bankRulePrefill,

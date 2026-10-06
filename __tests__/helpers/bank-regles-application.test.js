@@ -94,12 +94,13 @@ describe('_bankReclassifyPrepare — import en cours après création d\'une rè
     expect(p.sourceSuit).toBe(true);
     const s = p.lines[0];
     expect(s._userEdited).toBeUndefined();
-    expect(s._suitRegle).toBe(true);
-    expect(s.suggestedCat).toBeUndefined();          // classement retiré : il sera refait par la règle
-    // Le classement (comme _bankImportFinalizePreview) la classe par la règle.
-    expect(_bankLineApplyRules([rule], s, { accountId: 'A' })).toBe(true);
+    expect(s._suitRegle).toBe(true);                 // le classement ne la reprend pas (déjà classée)
+    // Audit B1 : classée ICI par la règle créée, et par elle seule.
     expect(s.suggestedCat).toBe('Charges récupérables');
-    expect(s._userEdited).toBeUndefined();
+    expect(s.suggestedQui).toBe('F-101');
+    expect(s._byRule).toBe(true);
+    expect(s._rules).toEqual([rule.id]);
+    expect(s._regleSource).toBe(rule.id);
     // Les lignes d'entrée ne sont pas modifiées (fonction pure).
     expect(src[0]._userEdited).toBe(true);
     expect(src[0].suggestedCat).toBe('Autre');
@@ -402,10 +403,10 @@ describe('Règle -> ligne : une règle n\'efface JAMAIS un champ qu\'elle ne dé
     const src = [L('VIR SARAR', 150, { suggestedCat: 'Autre', suggestedQui: 'F-205', suggestedImm: 'Les Tilleuls', _userEdited: true })];
     const p = _bankReclassifyPrepare(src, { rule: catSeule, sourceIndex: 0, accountId: 'A' });
     expect(p.lines[0].suggestedQui).toBe('F-205');
-    expect(p.lines[0].suggestedCat).toBeUndefined();         // la catégorie sera posée par la règle
-    _bankLineApplyRules([catSeule], p.lines[0], { accountId: 'A' });
-    expect(p.lines[0].suggestedCat).toBe('Charges récupérables');
-    expect(p.lines[0].suggestedQui).toBe('F-205');
+    expect(p.lines[0].suggestedCat).toBe('Charges récupérables');   // posée par la règle (audit B1 : tout de suite)
+    expect(p.lines[0].suggestedImm).toBe('Les Tilleuls');
+    // Elle garde une partie classée à la main : elle reste protégée contre un reclassement ultérieur.
+    expect(p.lines[0]._userEdited).toBe(true);
   });
   it('reclassement : ligne SOURCE avec une règle qui porte l\'affectation : celle de la règle gagne', () => {
     const src = [L('VIR SARAR', 150, { suggestedCat: 'Autre', suggestedQui: 'F-205', _userEdited: true })];
