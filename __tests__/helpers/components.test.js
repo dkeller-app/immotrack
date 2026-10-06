@@ -141,8 +141,27 @@ describe('components/toast.js', () => {
 describe('components/toast.js — où poser le toast sur téléphone', () => {
   const VH = 844;
   describe('placementToast (décision pure)', () => {
-    it('tablette / PC : la feuille de style décide (rien ne change)', () => {
-      expect(placementToast({ telephone: false, barre: 57, couche: { z: 1001, pied: { haut: 70, bas: 0 } }, zCss: 999 })).toEqual({ bas: null, z: null });
+    it('PC (≥ 1024 px) : la feuille de style décide (rien ne change)', () => {
+      expect(placementToast({ telephone: false, tablette: false, barre: 57, couche: { z: 1001, pied: { haut: 70, bas: 0 } }, zCss: 999 })).toEqual({ bas: null, z: null });
+    });
+    // TABLETTE (768-1023 px, pilotage 06/10) : le toast (z 999) passait SOUS la page EDL (#ov-edl, 1001).
+    it('tablette, page EDL (z 1001) + pied collant en bas : au-dessus de la couche ET du pied', () => {
+      expect(placementToast({ tablette: true, basCss: 28, couche: { z: 1001, pied: { haut: 70, bas: 0 } }, zCss: 999, hauteur: 60, vh: 1180 }))
+        .toEqual({ bas: 82, z: 1002 });
+    });
+    it('tablette, couche sans pied ou pied haut : sa place de la feuille de style (bas 28), z au-dessus de la couche', () => {
+      expect(placementToast({ tablette: true, basCss: 28, couche: { z: 1001, pied: null }, zCss: 999 })).toEqual({ bas: null, z: 1002 });
+      // 28 + 60 + 12 = 100 ≤ 100 px libres sous le pied : le toast tient dessous
+      expect(placementToast({ tablette: true, basCss: 28, couche: { z: 1001, pied: { haut: 400, bas: 100 } }, zCss: 999, hauteur: 60, vh: 1180 }))
+        .toEqual({ bas: null, z: 1002 });
+      expect(placementToast({ tablette: true, basCss: 28, couche: { z: 1001, pied: { haut: 400, bas: 99 } }, zCss: 999, hauteur: 60, vh: 1180 }).bas).toBe(412);
+    });
+    it('tablette, sans couche : jamais au-dessus de la barre du bas (réservé au téléphone) — la feuille de style décide', () => {
+      expect(placementToast({ tablette: true, basCss: 28, barre: 57, zCss: 999 })).toEqual({ bas: null, z: null });
+    });
+    it('tablette : z-index jamais baissé (page DDT 2147483001), bannière au-dessus prise en compte', () => {
+      expect(placementToast({ tablette: true, basCss: 28, couche: { z: 200, pied: null }, zCss: 2147483001 }).z).toBe(2147483001);
+      expect(placementToast({ tablette: true, basCss: 28, couche: { z: 1001, pied: null }, zCss: 999, zBanniere: 1500 }).z).toBe(1501);
     });
     it('téléphone, barre du bas affichée : JUSTE au-dessus (12 px), au-dessus de la barre et de la bannière (1600)', () => {
       expect(placementToast({ telephone: true, barre: 57, zCss: 999 })).toEqual({ bas: 69, z: 1600 });
@@ -186,7 +205,7 @@ describe('components/toast.js — où poser le toast sur téléphone', () => {
   });
 
   // Un écran de laboratoire : nœuds { cls, display, position, z, top, bottom } ; getComputedStyle / getBoundingClientRect.
-  function ecran({ telephone = true, barre = null, couches = [], pwa = null } = {}) {
+  function ecran({ telephone = true, tablette = false, barre = null, couches = [], pwa = null } = {}) {
     const noeud = (o) => ({ className: o.cls || '', _o: o, getBoundingClientRect: () => ({ top: o.top || 0, bottom: o.bottom || 0, height: (o.bottom || 0) - (o.top || 0) }) });
     const nCouches = couches.map(c => Object.assign(noeud(c), { _pieds: (c.pieds || []).map(noeud), querySelectorAll() { return this._pieds; } }));
     const nBarre = barre ? noeud(barre) : null;
@@ -197,9 +216,9 @@ describe('components/toast.js — où poser le toast sur téléphone', () => {
     };
     const win = {
       innerHeight: VH,
-      matchMedia: (q) => ({ matches: telephone && q === '(max-width: 767px)' }),
+      matchMedia: (q) => ({ matches: (q === '(max-width: 767px)' && telephone) || (q === '(max-width: 1023px)' && (telephone || tablette)) }),
       getComputedStyle: (n) => n === TOAST
-        ? { zIndex: String(TOAST._z), display: 'flex' }
+        ? { zIndex: String(TOAST._z), display: 'flex', bottom: (telephone ? 12 : 28) + 'px' }
         : { display: n._o.display || 'block', visibility: 'visible', position: n._o.position || 'static', zIndex: String(n._o.z == null ? 'auto' : n._o.z) },
     };
     return { doc, win };
@@ -222,6 +241,9 @@ describe('components/toast.js — où poser le toast sur téléphone', () => {
       expect(mesurerEcran(...Object.values(ecran({ barre: { top: 787.6, bottom: 844 } })))).toMatchObject({ telephone: true, barre: 57, couche: null });
       expect(mesurerEcran(...Object.values(ecran({ barre: { display: 'none', top: 787, bottom: 844 } }))).barre).toBe(0);
       expect(mesurerEcran(...Object.values(ecran({ telephone: false }))).telephone).toBe(false);
+      expect(mesurerEcran(...Object.values(ecran({ telephone: false, tablette: true }))).tablette).toBe(true);
+      expect(mesurerEcran(...Object.values(ecran({ telephone: false, tablette: false }))).tablette).toBe(false);
+      expect(mesurerEcran(...Object.values(ecran({ telephone: true }))).tablette).toBe(false);   // le téléphone n'est pas une tablette
     });
     it('couche du dessus (z le plus haut) et la zone de son pied collant ; pieds masqués, géants ou non collants ignorés', () => {
       const { doc, win } = ecran({ couches: [
@@ -233,7 +255,7 @@ describe('components/toast.js — où poser le toast sur téléphone', () => {
           { cls: 'grand-foot', position: 'sticky', top: 100, bottom: 844 },    // plus haut que la moitié de l'écran
         ] },
       ] });
-      expect(mesurerEcran(doc, win)).toEqual({ telephone: true, barre: 0, zBanniere: 0, vh: VH, couche: { z: 1001, pied: { haut: 70, bas: 0 } } });
+      expect(mesurerEcran(doc, win)).toEqual({ telephone: true, tablette: false, barre: 0, zBanniere: 0, vh: VH, couche: { z: 1001, pied: { haut: 70, bas: 0 } } });
     });
     it('bannière « Installer Propryo » : son z-index si elle est affichée, 0 sinon', () => {
       expect(mesurerEcran(...Object.values(ecran({ pwa: { z: 1500, top: 606, bottom: 768 } }))).zBanniere).toBe(1500);
@@ -261,7 +283,19 @@ describe('components/toast.js — où poser le toast sur téléphone', () => {
       expect(placerToast(t, rien.doc, rien.win)).toEqual({ bas: null, z: null });
       expect(t.props).toEqual({});
     });
-    it('tablette / PC : aucun style en ligne', () => {
+    it('tablette, page EDL ouverte : au-dessus du rail et de la couche (z 1002) — plus jamais caché dessous', () => {
+      const t = toast();
+      const { doc, win } = ecran({ telephone: false, tablette: true, couches: [{ z: 1001, pieds: [{ cls: 'edl-rail', top: 774, bottom: 844 }] }] });
+      expect(placerToast(t, doc, win)).toEqual({ bas: 82, z: 1002 });
+      expect(t.props).toEqual({ bottom: ['82px', 'important'], 'z-index': ['1002', 'important'] });
+    });
+    it('tablette, barre du bas sans couche : aucun style en ligne (placement au-dessus de la barre réservé au téléphone)', () => {
+      const t = toast();
+      const { doc, win } = ecran({ telephone: false, tablette: true, barre: { top: 787, bottom: 844 } });
+      placerToast(t, doc, win);
+      expect(t.props).toEqual({});
+    });
+    it('PC : aucun style en ligne', () => {
       const t = toast();
       const { doc, win } = ecran({ telephone: false, barre: { top: 787, bottom: 844 }, couches: [{ z: 1001, pieds: [{ cls: 'edl-rail', top: 774, bottom: 844 }] }] });
       placerToast(t, doc, win);
