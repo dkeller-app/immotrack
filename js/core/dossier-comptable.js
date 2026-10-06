@@ -161,7 +161,9 @@ export function _dcBuildPlan(mvtRows, ctx = {}) {
 
     rows.push({
       num: r.num, date: r.date, bailleur, lot,
-      categorie: r.cat, libelle: r.lib, montant: r.montant, type: r.type,
+      // Montant SIGNÉ : un avoir / remboursement (`r.inverse`) est négatif dans index.csv, comme dans
+      // Finances (le nom du fichier facture, lui, garde la valeur absolue).
+      categorie: r.cat, libelle: r.lib, montant: r.inverse ? -r.montant : r.montant, type: r.type,
       hasPj: has, resolved, fileName, filePath,
       status: has ? 'présente' : 'ABSENTE'
     });

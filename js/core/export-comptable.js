@@ -74,9 +74,13 @@ export function _buildMvtRows(mouvements, stdCategories, opts = {}) {
     if (!std || !std.ligne2044) return; // skip non-mappé ou type=special
     const mapping = MAPPING_COMPTE[std.ligne2044];
     if (!mapping) return;
-    const montant = (std.type === 'recette') ? (m.cr || 0) : (m.db || 0);
-    if (montant <= 0) return;
-    rows.push({ num: num++, mvt: m, std, mapping, montant, type: std.type, date: m.date, qui: m.qui || '', lib: m.lib || '', cat: m.cat || '' });
+    // NET du mouvement dans le sens de sa catégorie (comme Finances : recette = cr − db, charge = db − cr).
+    // Négatif = avoir / remboursement (assurance remboursée, loyer rendu) : écrit EN SENS INVERSE sur le
+    // MÊME compte (`inverse`), jamais ignoré — sinon l'export dépasse Finances du montant de l'avoir.
+    const net = (std.type === 'recette') ? (Number(m.cr) || 0) - (Number(m.db) || 0) : (Number(m.db) || 0) - (Number(m.cr) || 0);
+    if (Math.abs(net) < 0.005) return;
+    const montant = Math.round(Math.abs(net) * 100) / 100;
+    rows.push({ num: num++, mvt: m, std, mapping, montant, inverse: net < 0, type: std.type, date: m.date, qui: m.qui || '', lib: m.lib || '', cat: m.cat || '' });
   });
   return rows;
 }
@@ -93,7 +97,8 @@ export function _buildEcritures(mouvements, stdCategories, opts = {}) {
     // 1 mouvement = 2 écritures (partie double : compte du tiers + compte de produit/charge)
     const tierCompte = std.type === 'recette' ? '411000' : '401000';
     const tierLib = std.type === 'recette' ? 'Client (locataire)' : 'Fournisseur';
-    if (mapping.sens === 'C') {
+    // Avoir / remboursement (`r.inverse`) : même comptes, sens inversé.
+    if ((mapping.sens === 'C') !== !!r.inverse) {
       // Crédit du compte produit, débit du compte tiers
       ecritures.push({ date: m.date, num: numEcr, compte: tierCompte, libelleCompte: tierLib, lib: m.lib || '', qui: m.qui || '', debit: montant, credit: 0, contrepartie: mapping.compte });
       ecritures.push({ date: m.date, num: numEcr, compte: mapping.compte, libelleCompte: mapping.libelleCompte, lib: m.lib || '', qui: m.qui || '', debit: 0, credit: montant, contrepartie: tierCompte });
