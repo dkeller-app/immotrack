@@ -178,7 +178,19 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
       for (const im of (Array.isArray(e && e.immeubles) ? e.immeubles : [])) if (im && im.nom) immeubleByNom.set(norm(im.nom), detUuid('immeuble', norm(im.nom)))
     }
     for (const l of (db.logements || [])) if (l && l.ref) logementByRef.set(norm(l.ref), detUuid('logement', norm(l.ref)))
-    for (const d of (db.documents || [])) if (d && d.id != null) documentByLegacy.set(String(d.id), detUuid('document', String(d.id)))
+    // documentByLegacy alimente mouvements.pj_document_id (FK DURE NON différée mouvements_pj_fk). On n'y
+    // met QUE les documents dont la ligne est CONNUE du serveur (version trackée : hydratée ou insérée). Un
+    // document neuf pas encore écrit — ou refusé ce flush (RLS : la PJ d'un mouvement d'une SCI tierce
+    // n'est autorisée qu'une fois la ligne du mouvement présente, entite_of_document) — donnerait sinon
+    // une violation 23503 sur le mouvement, et les deux se bloqueraient l'un l'autre à chaque flush
+    // (contre-audit du 06/10/2026). Le mouvement part donc sans pj_document_id ; la PJ reste dans
+    // legacy_raw (pjId) → l'app la retrouve à l'identique (hydrate = legacy_raw, cette colonne ne sert pas
+    // à l'affichage) ; le document passe au flush suivant.
+    for (const d of (db.documents || [])) {
+      if (!d || d.id == null) continue
+      const uid = detUuid('document', String(d.id))
+      if (_versions.has(uid)) documentByLegacy.set(String(d.id), uid)
+    }
     // ref logement → `_bailUid` du bail COURANT (vivant) : rattachement RLS d'un document « bail »
     // à la ligne propre du bail (store-mapping bailLigneCle). Absent → id historique du logement.
     const bailUidByRef = new Map()
