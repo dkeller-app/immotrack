@@ -387,63 +387,10 @@ function _procedureJudiciaireEtat(procedure, dateRef) {
   return out;
 }
 
-function _listerImpayesActifs(logements, baux, mouvements, dateRef) {
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
-  const out = [];
-  for (const l of (logements||[])) {
-    // R-0 : le BAIL décide, pas le cache. La condition de bail juste dessous suffisait déjà ;
-    // `!l.locataire` ne faisait qu'exclure les baux repris. Ajout de `finEffective` : un bail
-    // sorti sans passer par la clôture ne loue plus rien (règle `_bienActiveBail`).
-    // ⚠️ Cette copie n'a AUCUN appelant (celle de `js/core/gestion-dg-impayes.js` la recouvre
-    // sur `window` via `js/main.js`). Corrigée pour que les deux disent la même chose.
-    if (!l || l._deleted || l.archived) continue;
-    const bail = baux && baux[l.ref];
-    if (!bail || bail.cloture || bail.finEffective) continue;
-    const impayeCumule = _calculerLoyerImpayeCumule(bail, mouvements, today);
-    if (impayeCumule < 1) continue;
-    const paiements = (mouvements||[])
-      .filter(m => m && !m._deleted && m.qui === l.ref && (m.cr||0) > 0 && m.date)
-      .sort((a,b) => (b.date||'').localeCompare(a.date||''));
-    const dernierPaiement = paiements.length ? paiements[0].date : null;
-    const debut = bail.debut ? new Date(bail.debut + 'T00:00:00') : null;
-    let ancienneteJours = 0;
-    if (debut) {
-      const lastPay = dernierPaiement ? new Date(dernierPaiement + 'T00:00:00') : debut;
-      ancienneteJours = Math.floor((today.getTime() - lastPay.getTime()) / 86400000);
-    }
-    let statut = 'recent';
-    if (ancienneteJours > 90) statut = 'critique';
-    else if (ancienneteJours > 45) statut = 'serieux';
-    else if (ancienneteJours > 15) statut = 'a_relancer';
-    const proc = bail.procedure ? _procedureJudiciaireEtat(bail.procedure, today) : null;
-    if (proc && proc.etat !== PROCEDURE_ETAT.AUCUNE) statut = 'procedure_' + proc.etat;
-    out.push({
-      ref: l.ref, locataire: l.locataire,
-      montantImpaye: impayeCumule, ancienneteJours, dernierPaiement, statut,
-      procedureEtat: proc ? proc.etat : PROCEDURE_ETAT.AUCUNE
-    });
-  }
-  const procRank = { jugement:5, assignation:4, commandement_payer:3, mise_en_demeure:2, cloturee:1, aucune:0 };
-  out.sort((a,b) => {
-    const ra = procRank[a.procedureEtat] || 0;
-    const rb = procRank[b.procedureEtat] || 0;
-    if (rb !== ra) return rb - ra;
-    return b.ancienneteJours - a.ancienneteJours;
-  });
-  return out;
-}
-
 // ════════════════════════════════════════════════════════════════════════════
-// QUITTANCES ACTIVES v15.10 Sprint 11 V1.1 — Shadow inline des helpers purs
-// Module js/core/quittances-actives.js exposés à window via main.js,
-// version inline ci-dessous pour mode file://.
+// Mois de quittance en toutes lettres (« janvier 2026 ») → Date du 1er du mois.
+// Lu par _dernierMoisQuittanceYm et _hlNbQuittances.
 // ════════════════════════════════════════════════════════════════════════════
-
-const QUITTANCE_STATUS = {
-  ATTENDUE: 'attendue', PAYEE: 'payée', PARTIELLE: 'partielle',
-  IMPAYEE_J5: 'impayée_J5', IMPAYEE_J15: 'impayée_J15',
-  IMPAYEE_J30: 'impayée_J30', MISE_EN_DEMEURE: 'mise_en_demeure'
-};
 
 const _QA_MOIS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
@@ -460,50 +407,6 @@ function _qaMoisToDate(moisStr) {
   const iso = s.match(/^(\d{4})-(\d{2})/);
   if (iso) return new Date(`${iso[1]}-${iso[2]}-01T00:00:00`);
   return null;
-}
-
-// CDC-QUITTANCES-IRL étape 1 (C3/I6) — `_qaMatcheMois` est SUPPRIMÉ : il rattachait un
-// paiement au mois calendaire de sa date (7ᵉ moteur d'imputation). Le montant imputé à un
-// mois vient désormais de la cascade unique, via `_loyerPayeDuMois(ref, ym)`.
-function _statutQuittance(quittance, ctx, dateRef) {
-  if (!quittance) {
-    return { statut: QUITTANCE_STATUS.ATTENDUE, montantAttendu: 0, montantPaye: 0, joursRetard: 0 };
-  }
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
-  const montantAttendu = (Number(quittance.hc)||0) + (Number(quittance.ch)||0);
-  const mois = quittance.mois;
-  const montantPaye = Math.max(0, Number(ctx && ctx.montantPaye) || 0);
-  if (quittance.miseEnDemeureEnvoyee) {
-    return { statut: QUITTANCE_STATUS.MISE_EN_DEMEURE, montantAttendu, montantPaye, joursRetard: 0 };
-  }
-  if (montantPaye >= montantAttendu && montantAttendu > 0) {
-    return { statut: QUITTANCE_STATUS.PAYEE, montantAttendu, montantPaye, joursRetard: 0 };
-  }
-  if (montantPaye > 0 && montantPaye < montantAttendu) {
-    return { statut: QUITTANCE_STATUS.PARTIELLE, montantAttendu, montantPaye, joursRetard: 0 };
-  }
-  const dateEch = quittance.dateEcheance ? new Date(quittance.dateEcheance + 'T00:00:00') : _qaMoisToDate(mois);
-  if (!dateEch || Number.isNaN(dateEch.getTime())) {
-    return { statut: QUITTANCE_STATUS.ATTENDUE, montantAttendu, montantPaye, joursRetard: 0 };
-  }
-  const joursRetard = Math.floor((today.getTime() - dateEch.getTime()) / 86400000);
-  if (joursRetard < 5) return { statut: QUITTANCE_STATUS.ATTENDUE, montantAttendu, montantPaye, joursRetard };
-  if (joursRetard < 15) return { statut: QUITTANCE_STATUS.IMPAYEE_J5, montantAttendu, montantPaye, joursRetard };
-  if (joursRetard < 30) return { statut: QUITTANCE_STATUS.IMPAYEE_J15, montantAttendu, montantPaye, joursRetard };
-  return { statut: QUITTANCE_STATUS.IMPAYEE_J30, montantAttendu, montantPaye, joursRetard };
-}
-
-function _escaladeAlerte(statut) {
-  switch (statut) {
-    case QUITTANCE_STATUS.PAYEE:        return { severity:'info', label:'✓ Payée', emailType:null };
-    case QUITTANCE_STATUS.PARTIELLE:    return { severity:'warn', label:'⚠ Paiement partiel', emailType:'rappel-impaye-1' };
-    case QUITTANCE_STATUS.ATTENDUE:     return { severity:'info', label:'⏳ Attendue', emailType:'avis-echeance' };
-    case QUITTANCE_STATUS.IMPAYEE_J5:   return { severity:'warn', label:'⚠ Impayée J+5', emailType:'rappel-impaye-1' };
-    case QUITTANCE_STATUS.IMPAYEE_J15:  return { severity:'warn', label:'⚠ Impayée J+15', emailType:'rappel-impaye-2' };
-    case QUITTANCE_STATUS.IMPAYEE_J30:  return { severity:'err',  label:'🚨 Impayée J+30 — Mise en demeure', emailType:'rappel-impaye-3' };
-    case QUITTANCE_STATUS.MISE_EN_DEMEURE: return { severity:'err', label:'🚨 Mise en demeure envoyée', emailType:null };
-    default: return { severity:'info', label:'Statut inconnu', emailType:null };
-  }
 }
 
 /**
@@ -8305,14 +8208,6 @@ function getCurrentTenant(ref) {
   return locs[0] || null;
 }
 
-// Loyer du bail courant : { hc, ch, total } ou null si vacant
-function getCurrentRent(ref) {
-  const b = getCurrentBailFor(ref);
-  if(!b) return null;
-  const hc = +b.hc || 0, ch = +b.ch || 0;
-  return { hc, ch, total: hc + ch };
-}
-
 // Capture deep des champs bien dans bail.signatures.bailSnapshot.log
 // (Q5=A : immutabilité légale — le PDF "Voir bail signé" lit depuis le snapshot)
 // Doit être appelé au moment de signer/re-signer un bail.
@@ -9966,284 +9861,6 @@ function _renderEntFicheImmeubles(ent) {
 // + sparkline encaissé/dépensé + export CSV annuel/mensuel + part bailleur 2044
 // ════════════════════════════════════════════════════════════════════════════
 
-// Calcule l'agrégat compta annuel d'un bailleur (toutes catégories, tous logements)
-// Retourne :
-//  - byMonth : array de 12 objets {mois:'YYYY-MM', encaisse, depense, solde}
-//  - byCat   : map { 'Loyers': {encaisse, depense}, 'Charges': {...}, ... }
-//  - totals  : { encaisse, depense, solde }
-//  - kpiOcc  : taux d'occupation (% jours occupés sur la période)
-//  - manqueAGagner : loyer attendu - encaissé (sur les logements actifs)
-//  - partBailleur  : montant restant à charge bailleur (vacances + exclus, via computeRegul)
-function _computeComptaBailleur(ent, year, activeLogs) {
-  const yr = parseInt(year);
-  const yearStart = `${yr}-01-01`;
-  const yearEnd   = `${yr}-12-31`;
-  const refsBailleur = (activeLogs || []).map(l => l.ref);
-  const immsBailleur = (ent.immeubles||[]).filter(_isAlive).map(i => i.nom);
-
-  // Mvts liés au bailleur : qui = ref logement OU imm ∈ immsBailleur OU qui = "SCI:NomEnt"
-  const mvts = (DB.mouvements||[]).filter(_isAlive).filter(m => {
-    if(m.date < yearStart || m.date > yearEnd) return false;
-    if(refsBailleur.includes(m.qui)) return true;
-    if(m.qui === 'SCI:'+ent.nom) return true;
-    if(!m.qui && m.imm && immsBailleur.includes(m.imm)) return true;
-    return false;
-  });
-
-  const byMonth = [];
-  for(let m = 1; m <= 12; m++) {
-    const mois = `${yr}-${String(m).padStart(2,'0')}`;
-    const subset = mvts.filter(x => (x.date||'').startsWith(mois));
-    byMonth.push({
-      mois,
-      encaisse: subset.reduce((s,x) => s + (+x.cr||0), 0),
-      depense:  subset.reduce((s,x) => s + (+x.db||0), 0),
-      solde: 0
-    });
-    byMonth[byMonth.length-1].solde = byMonth[byMonth.length-1].encaisse - byMonth[byMonth.length-1].depense;
-  }
-
-  const byCat = {};
-  mvts.forEach(m => {
-    const c = m.cat || '(sans catégorie)';
-    if(!byCat[c]) byCat[c] = { encaisse: 0, depense: 0 };
-    byCat[c].encaisse += +m.cr||0;
-    byCat[c].depense  += +m.db||0;
-  });
-
-  const totalEnc = mvts.reduce((s,m)=>s+(+m.cr||0), 0);
-  const totalDep = mvts.reduce((s,m)=>s+(+m.db||0), 0);
-
-  // Occupation moyenne année (en jours occupés sur jours ouvrables)
-  const totalDaysYear = (yr % 4 === 0 && (yr % 100 !== 0 || yr % 400 === 0)) ? 366 : 365;
-  let occJoursTotal = 0, capaciteJours = 0;
-  (activeLogs||[]).forEach(l => {
-    capaciteJours += totalDaysYear;
-    // Bail actif : compter les jours d'occupation dans l'année
-    const bail = DB.baux[l.ref];
-    if(bail && _isAlive(bail) && bail.debut) {
-      const debut = new Date(Math.max(new Date(bail.debut).getTime(), new Date(yearStart).getTime()));
-      const _finOcc = _bailFinOccupation(bail, false); // tacite reconduction : bail nu/meublé en cours = ouvert
-      const fin   = _finOcc ? new Date(Math.min(new Date(_finOcc).getTime(), new Date(yearEnd).getTime())) : new Date(yearEnd);
-      const days = Math.max(0, Math.round((fin - debut) / 86400000) + 1);
-      occJoursTotal += days;
-    }
-  });
-  const kpiOcc = capaciteJours > 0 ? Math.round((occJoursTotal / capaciteJours) * 100) : 0;
-
-  // Manque à gagner : pour chaque logement, loyer attendu - loyer encaissé sur la période
-  let loyerAttendu = 0;
-  let loyerEncaisse = 0;
-  // R-3 (étape 8) : la borne « mois échus » vient de LA fenêtre d'exigibilité du socle
-  // (finances-window), plus d'un calcul de date maison — même règle que l'onglet Finances.
-  const _wExF = (typeof window._finWindowExigibilite === 'function') ? window._finWindowExigibilite({ year: yr }) : null;
-  (activeLogs||[]).forEach(l => {
-    const today = new Date();
-    const isCurYr = today.getFullYear() === yr;
-    const lastMonth = _wExF ? _wExF.lastMonth : (isCurYr ? today.getMonth() + 1 : 12);
-    if(typeof _computeExpectedRent === 'function') {
-      loyerAttendu += _computeExpectedRent(l.ref, yr, lastMonth) || 0;
-    }
-    // R0-G : au référentiel, pas au libellé (cf. `_finLotCatRole`).
-    loyerEncaisse += mvts.filter(m => m.qui === l.ref && _finLotEstLoyer(m)).reduce((s,m)=>s+_finLotNet(m), 0);
-  });
-  const manqueAGagner = Math.max(0, loyerAttendu - loyerEncaisse);
-
-  // Part bailleur 2044 (ligne 225) : lecteur unique _rgSegments225 — immeubles du bailleur, périmètre
-  // FONCIER (lots meublés exclus, comme l'assistant 2044), hors parts déjà déduites sur leur ligne.
-  let partBailleur = 0;
-  try {
-    if(typeof computeRegul === 'function') {
-      const _splitCb = (typeof window.splitFonciereLots === 'function')
-        ? window.splitFonciereLots(activeLogs || [], { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: yr, finOccupation: _bailFinOccupation })
-        : { fonciereRefs: refsBailleur };
-      partBailleur = _rgSegments225(computeRegul(yearStart, yearEnd), immsBailleur, _splitCb.fonciereRefs).total;
-    }
-  } catch(e) { console.warn('[_computeComptaBailleur] partBailleur', e); }
-
-  return {
-    byMonth, byCat,
-    totals: { encaisse: totalEnc, depense: totalDep, solde: totalEnc - totalDep },
-    kpiOcc, manqueAGagner, loyerAttendu, partBailleur
-  };
-}
-
-// Sparkline SVG natif : barres encaissé (vert) / dépensé (rouge) sur 12 mois
-function _renderComptaSparkline(byMonth) {
-  const maxV = Math.max(1, ...byMonth.map(m => Math.max(m.encaisse, m.depense)));
-  const W = 720, H = 90, pad = 18;
-  const colW = (W - pad*2) / 12;
-  const barW = Math.max(4, Math.min(12, colW * 0.32));
-  const moisLabels = ['J','F','M','A','M','J','J','A','S','O','N','D'];
-  const bars = byMonth.map((m, i) => {
-    const cx = pad + colW * i + colW / 2;
-    const hEnc = (m.encaisse / maxV) * (H - 30);
-    const hDep = (m.depense  / maxV) * (H - 30);
-    const yEnc = H - 18 - hEnc;
-    const yDep = H - 18 - hDep;
-    return `
-      <rect x="${cx - barW - 1}" y="${yEnc}" width="${barW}" height="${hEnc}" fill="#10b981" rx="1"/>
-      <rect x="${cx + 1}" y="${yDep}" width="${barW}" height="${hDep}" fill="#dc2626" rx="1"/>
-      <text x="${cx}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--t3)">${moisLabels[i]}</text>
-    `;
-  }).join('');
-  const refLines = [0.25, 0.5, 0.75].map(r => {
-    const y = H - 18 - r * (H - 30);
-    return `<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="var(--bor)" stroke-dasharray="2,2" opacity="0.4"/>`;
-  }).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block">
-    ${refLines}
-    ${bars}
-  </svg>`;
-}
-
-// Panel principal "Compta globale"
-// BIENS étape 10 (décision 2 du 11/08) — CODE MORT ASSUMÉ : la COMPTABILITÉ GLOBALE du bailleur
-// est supprimée de l'écran, le P&L de Finances suffit. Partent avec elle : KPIs annuels, tableau
-// mensuel 12 mois, sparkline encaissé/dépensé, exports CSV annuel et mensuel par bailleur, part
-// bailleur 2044, sélecteur d'année. Le fiscal 2044 lui-même n'est PAS concerné (il ne passe pas
-// par ce panneau). Seul l'export CSV par bailleur n'a pas d'équivalent connu dans Finances
-// aujourd'hui — d'où la conservation de la fonction, sans appelant, plutôt que sa suppression.
-function _renderEntFichePanelComptaGlobale(ent, activeLogs) {
-  const yr = _entFicheComptaYear || new Date().getFullYear();
-  const data = _computeComptaBailleur(ent, yr, activeLogs);
-  const yrs = [yr, yr-1, yr-2, yr-3];
-  const yrSel = yrs.map(y => `<option value="${y}"${y===yr?' selected':''}>${y}</option>`).join('');
-
-  // Tableau mensuel
-  const monthRows = data.byMonth.map(m => {
-    const moisLabel = m.mois.slice(5)+'/'+m.mois.slice(2,4);
-    return `<tr>
-      <td>${moisLabel}</td>
-      <td class="num pos">${m.encaisse?fmt(m.encaisse):'—'}</td>
-      <td class="num neg">${m.depense?fmt(m.depense):'—'}</td>
-      <td class="num ${m.solde>=0?'pos':'neg'}"><b>${fmt(m.solde)}</b></td>
-    </tr>`;
-  }).join('');
-
-  // Tableau par catégorie (top 10 par flux)
-  const catRows = Object.entries(data.byCat)
-    .sort((a,b) => (Math.abs(b[1].encaisse-b[1].depense)) - (Math.abs(a[1].encaisse-a[1].depense)))
-    .map(([cat, v]) => `<tr>
-      <td>${escHtml(cat)}</td>
-      <td class="num pos">${v.encaisse?fmt(v.encaisse):'—'}</td>
-      <td class="num neg">${v.depense?fmt(v.depense):'—'}</td>
-      <td class="num ${(v.encaisse-v.depense)>=0?'pos':'neg'}"><b>${fmt(v.encaisse-v.depense)}</b></td>
-    </tr>`).join('');
-
-  const occCls = data.kpiOcc >= 95 ? 'k-ok' : (data.kpiOcc >= 80 ? '' : 'k-warn');
-  const soldeCls = data.totals.solde >= 0 ? 'k-ok' : 'k-warn';
-  const manqueCls = data.manqueAGagner > 0 ? 'k-warn' : 'k-ok';
-
-  return `
-    <div class="flex-b" style="margin:14px 0 12px;flex-wrap:wrap;gap:10px">
-      <div class="flex-c" style="gap:10px;align-items:center">
-        <span class="mu sm">Année :</span>
-        <select class="inp" onchange="setEntFicheComptaYear(this.value)" style="width:100px;padding:4px 8px">${yrSel}</select>
-      </div>
-      <div class="flex-c" style="gap:6px;flex-wrap:wrap">
-        <button class="btn bp bb" onclick="openWizard2044(${+ent.id})" title="Préparer la déclaration CERFA 2044 (revenus fonciers)">${_uiIcon('doc-text')} Wizard 2044</button>
-        <button class="btn bs bb" onclick="_exportComptaBailleurCsv(${+ent.id},${yr},'annuel')" title="Une ligne par catégorie">${_uiIcon('download')} Export CSV annuel</button>
-        <button class="btn bs bb" onclick="_exportComptaBailleurCsv(${+ent.id},${yr},'mensuel')" title="12 lignes (1 par mois)">${_uiIcon('download')} Export CSV mensuel</button>
-      </div>
-    </div>
-
-    <!-- KPIs -->
-    <div class="kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
-      <div class="kpi"><div class="kv">${fmt(data.totals.encaisse)}</div><div class="kl">Encaissé ${yr}</div></div>
-      <div class="kpi"><div class="kv neg">${fmt(data.totals.depense)}</div><div class="kl">Dépensé ${yr}</div></div>
-      <div class="kpi"><div class="kv ${soldeCls}">${fmt(data.totals.solde)}</div><div class="kl">Solde net</div></div>
-      <div class="kpi"><div class="kv ${occCls}">${data.kpiOcc}<small>%</small></div><div class="kl">Occupation moy.</div></div>
-      <div class="kpi"><div class="kv ${manqueCls}">${fmt(data.manqueAGagner)}</div><div class="kl">Manque à gagner</div></div>
-      <div class="kpi" title="Charges récupérables restées à la charge du bailleur (vacance, logements exclus du compteur) — 2044 ligne 225, lots en location nue ; hors charges déjà déduites sur leur propre ligne (copropriété : 229)"><div class="kv ${data.partBailleur>0?'k-warn':''}">${fmt(data.partBailleur)}</div><div class="kl">Part bailleur 2044</div></div>
-    </div>
-
-    <!-- Sparkline -->
-    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:14px 16px;margin-bottom:14px">
-      <div class="flex-b" style="margin-bottom:8px">
-        <b style="font-size:13px">Cash-flow mensuel ${yr}</b>
-        <div class="flex-c mu sm" style="font-size:11px;gap:14px">
-          <span><span style="display:inline-block;width:10px;height:10px;background:#10b981;border-radius:2px;vertical-align:middle"></span> Encaissé</span>
-          <span><span style="display:inline-block;width:10px;height:10px;background:#dc2626;border-radius:2px;vertical-align:middle"></span> Dépensé</span>
-        </div>
-      </div>
-      ${_renderComptaSparkline(data.byMonth)}
-    </div>
-
-    <!-- 2 tableaux côte à côte sur desktop, empilés mobile (cf CSS .entf-compta-tables) -->
-    <div class="entf-compta-tables">
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:14px 16px">
-        <b style="font-size:13px;display:block;margin-bottom:8px">Détail mensuel ${yr}</b>
-        <table class="tbl" style="font-size:12px"><thead><tr>
-          <th>Mois</th><th class="num">Encaissé</th><th class="num">Dépensé</th><th class="num">Solde</th>
-        </tr></thead><tbody>${monthRows}</tbody></table>
-      </div>
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:14px 16px">
-        <b style="font-size:13px;display:block;margin-bottom:8px">Par catégorie ${yr}</b>
-        ${catRows ? `<table class="tbl" style="font-size:12px"><thead><tr>
-          <th>Catégorie</th><th class="num">Encaissé</th><th class="num">Dépensé</th><th class="num">Solde</th>
-        </tr></thead><tbody>${catRows}</tbody></table>` : '<p class="mu sm" style="text-align:center;padding:20px">Aucun mouvement sur cette année</p>'}
-      </div>
-    </div>
-    <p class="mu sm" style="font-size:11px;margin-top:12px;font-style:italic">
-      💡 Cette vue agrège tous les logements et immeubles du bailleur. Pour le détail par logement, voir la fiche logement → onglet 💰 Comptabilité. Pour la régul des charges récupérables, voir l'onglet ⚖ Régularisation.
-    </p>
-  `;
-}
-
-// Export CSV — mode 'annuel' (1 ligne par catégorie) ou 'mensuel' (12 lignes)
-function _exportComptaBailleurCsv(entId, year, mode) {
-  const ent = (DB.entites||[]).find(e => +e.id === +entId);
-  if(!ent) { showToast('Bailleur introuvable','err'); return; }
-  const activeLogs = (DB.logements||[]).filter(_isAlive).filter(l => l.entity === ent.nom && !l.archived);
-  const data = _computeComptaBailleur(ent, year, activeLogs);
-  const sep = ';'; // séparateur Excel-friendly FR
-  let lines = [];
-  const csvEsc = (s) => {
-    let v = String(s||''); if(/^[=+@\t\r]/.test(v)||/^-(?![0-9])/.test(v)) v = "'" + v;  // injection de formule CSV
-    if(v.includes(sep) || v.includes('"') || v.includes('\n')) return '"' + v.replace(/"/g,'""') + '"';
-    return v;
-  };
-  // Header info
-  lines.push(`Bailleur${sep}${csvEsc(ent.nom)}`);
-  lines.push(`Année${sep}${year}`);
-  lines.push(`Type export${sep}${mode}`);
-  lines.push(`Généré${sep}${new Date().toISOString().slice(0,16).replace('T',' ')}`);
-  lines.push('');
-  if(mode === 'annuel') {
-    lines.push(['Catégorie','Encaissé','Dépensé','Solde'].map(csvEsc).join(sep));
-    Object.entries(data.byCat)
-      .sort((a,b) => Math.abs(b[1].encaisse-b[1].depense) - Math.abs(a[1].encaisse-a[1].depense))
-      .forEach(([cat, v]) => {
-        lines.push([cat, v.encaisse.toFixed(2), v.depense.toFixed(2), (v.encaisse-v.depense).toFixed(2)].map(csvEsc).join(sep));
-      });
-    lines.push('');
-    lines.push(['TOTAL', data.totals.encaisse.toFixed(2), data.totals.depense.toFixed(2), data.totals.solde.toFixed(2)].map(csvEsc).join(sep));
-    lines.push('');
-    lines.push(`Occupation moyenne${sep}${data.kpiOcc}%`);
-    lines.push(`Manque à gagner${sep}${data.manqueAGagner.toFixed(2)}`);
-    lines.push(`Part bailleur (2044)${sep}${data.partBailleur.toFixed(2)}`);
-  } else {
-    lines.push(['Mois','Encaissé','Dépensé','Solde'].map(csvEsc).join(sep));
-    data.byMonth.forEach(m => {
-      lines.push([m.mois, m.encaisse.toFixed(2), m.depense.toFixed(2), m.solde.toFixed(2)].map(csvEsc).join(sep));
-    });
-    lines.push('');
-    lines.push(['TOTAL', data.totals.encaisse.toFixed(2), data.totals.depense.toFixed(2), data.totals.solde.toFixed(2)].map(csvEsc).join(sep));
-  }
-  const csv = '﻿' + lines.join('\r\n'); // BOM UTF-8 pour Excel
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `compta_${ent.nom.replace(/[^a-z0-9]+/gi,'_')}_${year}_${mode}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast(`✓ Export ${mode} téléchargé`,'ok');
-}
-
 // ════════════════════════════════════════════════════════════════════════════
 // v14.75 LEGAL-2044 — Wizard déclaration revenus fonciers (formulaire CERFA 2044)
 // Mapping catégories Propryo → lignes du CERFA, calcul résultat foncier, PDF récap.
@@ -11284,7 +10901,13 @@ function _renderLogFicheHeroStats(log, ref) {
   // ── KPI 1 : Loyer mensuel
   let loyerKPI;
   if(bail) {
-    const loyer = (+bail.hc || 0) + (+bail.ch || 0);
+    // R-0 (lot 1, R5) : le loyer EN VIGUEUR AUJOURD'HUI = le bandeau « Loyer en vigueur » de l'onglet
+    // Bail de cette même fiche (`_histoBailEnVigueur` : période du barème couvrant la date LOCALE du
+    // jour). `bail.hc + bail.ch` ignorait le barème (révision IRL appliquée invisible). Une révision
+    // programmée, même au 20 du mois, ne compte qu'à sa date d'effet (pas le taux plein du mois :
+    // audit 06/10). Repli sur le bail sans période couvrant aujourd'hui, ou modules non chargés.
+    const _ev = (typeof _histoBailEnVigueur === 'function') ? _histoBailEnVigueur(ref) : null;
+    const loyer = _ev ? _ev.total : ((+bail.hc || 0) + (+bail.ch || 0));
     loyerKPI = { v: fmt(loyer), unit: '/mois', label: 'Loyer actuel', cls: 'k-money' };
   } else {
     // LOYER-REFERENCE — bien vacant : afficher le LOYER SOUHAITÉ (loyer de référence), éditable (✏️),
@@ -15367,7 +14990,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.720 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.721 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -24514,7 +24137,6 @@ const Bail = {
   getSignataires:  getBailSignataireSelection,
 
   // ── Status (calculés) ─────────────────────────────────
-  getStatus:   getBailStatus,
   getProgress: getBailProgress,
 
   // ── Auto-fill / handlers form ─────────────────────────
@@ -25959,48 +25581,12 @@ function saveAgendaEvt() {
 //   2. Suivi documents (locataires × Bail/EDL/MRH/Chauffage/Caution/DDT)
 //   3. Automatisations (locataires × 8 toggles avec override par bail)
 //   4. Prélèvements (stub V1 SEPA pain.008 V2 SaaS)
-// Helpers purs (testables) : _pilSoldeLocataire, _pilStatutDoc, _pilBulkMajLoyers
+// Helpers purs (testables) : _pilStatutDoc, _pilBulkMajLoyers
 // Tests Vitest : __tests__/helpers/pilotage.test.js
 // ════════════════════════════════════════════════════════════════════════════
 
 
 // ─── Helpers purs (réutilisés par tests Vitest miroir) ──────────────────────
-
-/**
- * Cumul impayé pour un bail à dateRef.
- * Loyer attendu × nb mois entre debut et dateRef (clip à fin du bail) - sum encaissés (_isLoyerCategory).
- * Retourne > 0 si dette locataire, < 0 si trop-perçu, 0 si à jour.
- */
-function _pilSoldeLocataire(bail, log, mouvements, dateRef) {
-  if (!bail || !bail.debut) return 0;
-  const ref = log?.ref || bail.ref;
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td())+'T00:00:00');
-  const debut = new Date(bail.debut + 'T00:00:00');
-  if (Number.isNaN(debut.getTime()) || today < debut) return 0;
-  const fin = bail.fin ? new Date(bail.fin + 'T23:59:59') : null;
-  const end = fin && fin < today ? fin : today;
-  // Nb mois inclusifs (échéance à jpay, simplification : 1 mois = 1 loyer dû)
-  const nbMois = Math.max(0, (end.getFullYear()-debut.getFullYear())*12 + (end.getMonth()-debut.getMonth()) + 1);
-  const loyerMensuel = (Number(bail.hc)||Number(log?.hc)||0) + (Number(bail.ch)||Number(log?.ch)||0);
-  const attendu = nbMois * loyerMensuel;
-  // Sum des encaissements liés à ce bail (m.qui === ref + cat = loyer)
-  const encaisses = (mouvements||[]).filter(m =>
-    m && !m._deleted && m.qui === ref && m.cr > 0 &&
-    _isLoyerCategory(m.cat)   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
-  ).reduce((s,m) => s + (m.cr||0), 0);
-  return Math.round((attendu - encaisses) * 100) / 100;
-}
-
-/** Encaissement d'un mois donné pour un bail. */
-function _pilEncaisseMois(bail, log, mouvements, year, month) {
-  if (!bail || !log) return 0;
-  const ref = log.ref || bail.ref;
-  const ym = `${year}-${String(month).padStart(2,'0')}`;
-  return (mouvements||[]).filter(m =>
-    m && !m._deleted && m.qui === ref && m.cr > 0 && m.date && m.date.startsWith(ym) &&
-    _isLoyerCategory(m.cat)
-  ).reduce((s,m) => s + (m.cr||0), 0);
-}
 
 /**
  * Statut de présence/validité d'un document type pour un bail/log.

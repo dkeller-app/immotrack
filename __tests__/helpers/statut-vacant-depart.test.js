@@ -214,19 +214,6 @@ describe('6 · lecteurs sous mutation (dépôts, onglet Loyers, règle)', () => 
     const apres = rendu({ A1: { ...DEPART, dgRestitueAt: '2026-10-03' } });
     expect(apres).not.toContain('900 €');
   });
-  it('carte « Dépôts de garantie » (VRAI _buildWidgetV1Legacy) : le lot parti garde ses 900 € détenus', () => {
-    const DB = dbDe({ A1: DEPART });
-    const m = monter(DB, [...STATUT, '_buildWidgetV1Legacy'], {
-      DashCtx: { mvTotals: () => ({}), occupationKpis: () => ({ nbOcc: 0, nbTotal: 3 }) }, _DD: {}, _DMF: [],
-      _nomLotAffiche: (l) => l.locataire || '',
-    });
-    let w = null;
-    try { w = m.fn._buildWidgetV1Legacy('dg', { scopeLogs: DB.logements, yr: '2026', mo: null }); } catch (e) { /* */ }
-    expect(m.base._DD.dg && m.base._DD.dg.html).toContain('A1');
-    expect(m.base._DD.dg.html).toContain('900 €');
-    expect(m.base._DD.dg.html).toContain('1 DG détenus');
-    expect(w).toBeTruthy();
-  });
   it('onglet Loyers (VRAI _lyTousLoyersHtml) : le locataire parti reste listé, avec son statut et son retard', () => {
     const DB = dbDe({ A1: DEPART, B2: BAIL });
     DB.logements[1].locataire = 'Bob';
@@ -246,10 +233,6 @@ describe('6 · lecteurs sous mutation (dépôts, onglet Loyers, règle)', () => 
   });
 });
 describe('7 · lecteurs de statut (libellés et loyer de référence du prochain bail)', () => {
-  it('badge de bail (VRAI getBailStatus) : « Vacant (départ le …, bail à clôturer) »', () => {
-    const { fn } = monter(dbDe({ A1: DEPART }), [...STATUT, 'getBailStatus']);
-    expect(fn.getBailStatus({ ref: 'A1' }).badge).toContain('Vacant (départ le 30/09/2026, bail à clôturer)');
-  });
   it('fiche du bien, chiffres clés (VRAI _renderLogFicheHeroStats) : « Vacant depuis » la date de sortie (5 j)', () => {
     const { fn } = monter(dbDe({ A1: DEPART }), [...STATUT, '_renderLogFicheHeroStats', '_daysBetweenIso'], { _getAllBailsForLog: () => [] });
     let h = '';
@@ -275,11 +258,6 @@ describe('8 · lecteurs de statut (listes et exports)', () => {
     let h = '';
     try { h = m.fn._renderLogementsGroupedPhone(DB.logements); } catch (e) { h = 'ERREUR ' + e.message; }
     expect(h).toContain('3 lots · 1 loué');
-  });
-  it('drill « Occupation » (VRAI _buildOccDrill) : ligne du lot parti « Vacant (départ le …) »', () => {
-    const DB = dbDe({ A1: DEPART, B2: BAIL });
-    const m = monter(DB, [...STATUT, '_buildOccDrill'], { _occPerimetre: () => ({ loues: 1, total: 3, taux: 33, vacants: [], manque: 0 }), _nomLotAffiche: () => '' });
-    expect(m.fn._buildOccDrill({ scopeLogs: DB.logements }).html).toContain('Vacant (départ le 30/09/2026, bail à clôturer)');
   });
   it('export CSV des biens (VRAI exportBiensCSV) : colonne Statut = le libellé', () => {
     const DB = dbDe({ A1: DEPART, B2: BAIL });
@@ -626,15 +604,6 @@ describe('20 · compteur « Dépôts détenus » = nombre de DÉPÔTS (un lot re
     try { m.fn._renderAccueilPhone({ scopeLogs: DB.logements, yr: '2026', mo: null, activeEnt: '', mvs: [], mvsYTD: [] }); } catch (e) { /* suite non simulée */ }
     const h = (m.els['accm-phone'] || {}).innerHTML || '';
     expect(h.slice(h.indexOf('Dépôts détenus'), h.indexOf('Dépôts détenus') + 200)).toContain('3 dépôts');
-  });
-  it('widget (VRAI _buildWidgetV1Legacy) : « 3 DG détenus », moyenne par dépôt', () => {
-    const DB = base();
-    const m = monter(DB, [...STATUT, '_buildWidgetV1Legacy'], { DashCtx: { mvTotals: () => ({}), occupationKpis: () => ({ nbOcc: 0, nbTotal: 3 }) }, _DD: {}, _DMF: [], _nomLotAffiche: () => '' });
-    let w = null;
-    try { w = m.fn._buildWidgetV1Legacy('dg', { scopeLogs: DB.logements, yr: '2026', mo: null }); } catch (e) { /* */ }
-    expect(m.base._DD.dg.html).toContain('Total (3 DG détenus)');
-    expect(JSON.stringify(w)).toContain('3 DG détenus');
-    expect(JSON.stringify(w)).toContain('Moyenne 867 € / dépôt');
   });
 });
 describe('21 · restitution du dépôt sur le bail EXACT (VRAIS _dgOpenRestitution / _dgConfirmerRestitution)', () => {
