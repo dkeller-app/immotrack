@@ -15333,7 +15333,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.717 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.718 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -24020,22 +24020,28 @@ function rParamsCats() {
     </div>`;
   };
 
-  const renderCustomRow = ({nom, idx}) => {
-    const curLn = _catLigne2044(nom) || ''; // lit les 2 magasins (catMapping + legal2044Mapping)
-    const opts = (typeof _FIN_2044_OPTIONS !== 'undefined' ? _FIN_2044_OPTIONS : [])
-      .map(o => `<option value="${o[0]}"${o[0] === curLn ? ' selected' : ''}>${o[1]}</option>`).join('');
-    // data-cat (échappé HTML) au lieu d'injecter le nom dans une string JS inline → gère les apostrophes.
+  // Une catégorie perso se range dans une FAMILLE du référentiel et en hérite le traitement fiscal
+  // ET le cash-flow (GO Didier 06/10, maquette FINANCES-CATEGORIES/famille-reglages). Même liste
+  // qu'à la création et qu'au rattachement Finances ; plus de « Hors résultat » fourre-tout.
+  // `retiree` (nb de mouvements) : catégorie retirée de la liste mais encore portée par des
+  // mouvements — même ligne, sans Supprimer (audit R2, GO Didier 06/10).
+  const renderCustomRow = ({nom, idx, retiree}) => {
+    const _m = _finCatMere(nom), cur = _m ? _m.nom : '';
+    const _sous = retiree
+      ? 'Hors de la liste · ' + retiree + ' mouvement' + (retiree > 1 ? 's l\'utilisent' : ' l\'utilise') + ' encore. Choisir sa famille ici.'
+      : 'Personnalisée · hérite de sa famille le traitement fiscal et le cash-flow.';
     return `<div class="flex-b mb8" style="padding:8px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);flex-wrap:wrap;gap:6px">
       ${_catIconHTML(nom)}
       <span style="flex:1;min-width:120px">${escHtml(nom)}
-        <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">Personnalisée · sa ligne 2044 détermine son traitement (loyer / charge / hors 2044).</span>
+        <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">${_sous}</span>
       </span>
-      <select data-cat="${escHtml(nom)}" onchange="_setCustomCatMap(this.getAttribute('data-cat'), this.value)" style="font-size:11px;padding:5px 7px;border-radius:6px;border:1px solid var(--bor);background:var(--sur);color:var(--t1);max-width:240px">
-        <option value="">— (non rattachée : à corriger) —</option>${opts}
-      </select>
-      <div class="flex-c">
-        <button class="btn br bb" onclick="delCat(${idx})" title="Supprimer cette catégorie personnalisée">${_uiIcon('trash',14)}Supprimer</button>
+      <div class="cat-fam" style="display:flex;flex-direction:column;gap:3px;flex:0 1 280px;max-width:280px;min-width:0">
+        <select data-cat="${escHtml(nom)}" aria-label="Famille de ${escHtml(nom)}" onchange="_setCustomCatFamille(this.getAttribute('data-cat'), this.value)" style="font-size:11px;padding:5px 7px;border-radius:6px;border:1px solid var(--bor);background:var(--sur);color:var(--t1);width:100%">${_finMereOptionsHtml(cur)}</select>
+        ${_finFamilleEffetHtml(cur)}
       </div>
+      ${retiree ? '' : `<div class="flex-c">
+        <button class="btn br bb" onclick="delCat(${idx})" title="Supprimer cette catégorie personnalisée">${_uiIcon('trash',14)}Supprimer</button>
+      </div>`}
     </div>`;
   };
 
@@ -24054,12 +24060,25 @@ function rParamsCats() {
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bor)">
         ${_uiIcon('edit',16)}
         <b style="font-size:13px">Catégories personnalisées <span class="mu sm" style="font-weight:400">(${customCats.length})</span></b>
-        <span class="mu sm" style="font-size:10px;font-style:italic;margin-left:auto">Créées par toi · mapping libre via le wizard 2044</span>
+        <span class="mu sm" style="font-size:10px;font-style:italic;margin-left:auto">Chacune rangée dans une famille du référentiel</span>
       </div>
       ${customCats.length
         ? customCats.map(renderCustomRow).join('')
         : '<p class="mu sm" style="text-align:center;padding:14px;font-style:italic">Aucune catégorie personnalisée. Cliquez « + Catégorie » pour en créer une.</p>'}
     </div>`;
+
+  // Audit R2 : une catégorie supprimée de la liste garde sa famille et ses mouvements. Sans ce bloc,
+  // un ancien « Hors résultat » supprimé compterait en Divers sans pouvoir être reclassé ici.
+  const _retirees = (typeof _finCatsRetireesUtilisees === 'function') ? _finCatsRetireesUtilisees() : [];
+  const retireesSection = _retirees.length ? `
+    <div style="margin-top:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bor);flex-wrap:wrap">
+        ${_uiIcon('edit',16)}
+        <b style="font-size:13px">Hors de la liste, encore utilisées <span class="mu sm" style="font-weight:400">(${_retirees.length})</span></b>
+        <span class="mu sm" style="font-size:10px;font-style:italic;margin-left:auto">Leurs mouvements comptent selon la famille ci-dessous</span>
+      </div>
+      ${_retirees.map(r => renderCustomRow({ nom: r.nom, idx: -1, retiree: r.count })).join('')}
+    </div>` : '';
 
   // v15.291 : interrupteur global remplaçant les anciennes cases « Loyer perçu » par catégorie.
   const _incl213 = !(DB.params && DB.params.realiseInclut213 === false);
@@ -24070,7 +24089,7 @@ function rParamsCats() {
       <span style="color:var(--t2);font-size:11px">Coché : les indemnités d'assurance (GLI, sinistre) et recettes diverses encaissées comptent dans le graphique « réalisé vs attendu ». Décoché : seuls les loyers (ligne 211) comptent.</span></span>
     </label>
   </div>`;
-  el('cats-list').innerHTML = toggleSection + stdSection + customSection;
+  el('cats-list').innerHTML = toggleSection + stdSection + customSection + retireesSection;
 }
 function _setRealise213(checked) {
   if (!DB.params) DB.params = {};
@@ -24086,40 +24105,18 @@ function saveCatConfig(cat, field, val) {
   DB.catConfig[cat][field] = val;
   saveDB();
 }
-// v15.291 : la ligne 2044 d'une catégorie custom pilote son traitement (loyer / charge / hors 2044).
-// Remplace les anciennes cases inclYTD/inclCharges — désormais déduites de la ligne (cf _isLoyerCategory/_isChargeRecupCategory).
-// Écrit dans les DEUX magasins (catMapping + params.legal2044Mapping) pour rester cohérent avec le
-// wizard 2044 ET « Associer mes catégories » qui lisent chacun le leur (unification de source à terme).
-function _writeCatMap(nom, ln) {
-  if (!DB.catMapping) DB.catMapping = {};
-  if (!DB.params) DB.params = {};
-  if (!DB.params.legal2044Mapping) DB.params.legal2044Mapping = {};
-  if (ln) { DB.catMapping[nom] = ln; DB.params.legal2044Mapping[nom] = ln; }
-  else { delete DB.catMapping[nom]; delete DB.params.legal2044Mapping[nom]; }
-}
-function _setCustomCatMap(nom, ln) {
-  // Audit R1 : pas de RÉTROGRADATION silencieuse — une catégorie rattachée à une famille
-  // hors-2044 SPÉCIFIQUE (Prêt, dépôt de garantie, virement interne…) ne doit pas être
-  // écrasée sur « Divers » par le choix « Hors résultat » de l'éditeur Réglages (qui ne
-  // sait pas exprimer ces familles). On refuse et on renvoie vers le rattachement Finances.
-  if (ln === '__ignore') {
-    const _cur = (DB.catAlias || {})[nom];
-    const _curMere = _cur ? _stdCategoryByName(_cur) : null;
-    if (_curMere && !_curMere.ligne2044 && _curMere.nom !== 'Divers (non déductible)') {
-      if (typeof showToast === 'function') showToast('« ' + nom + ' » est rattachée à « ' + _curMere.nom + ' » (hors 2044). Ce choix resterait perdu — change sa famille via le rattachement de Finances.', 'warn', 6500);
-      if (typeof rParamsCats === 'function') rParamsCats();
-      return;
-    }
+// Réglages : change la FAMILLE d'une catégorie perso. Passe par LE geste de rattachement unique
+// (`_finRattacheCategorie` : alias + miroirs 2044). Une catégorie reste toujours rangée (M-1 bis).
+function _setCustomCatFamille(nom, mereNom) {
+  if (!nom || !mereNom || !_stdCategoryByName(mereNom)) {
+    if (typeof showToast === 'function') showToast('Une catégorie reste toujours rangée dans une famille', 'warn', 4500);
+    if (typeof rParamsCats === 'function') rParamsCats();
+    return;
   }
-  // M-1 bis : une catégorie ne redevient JAMAIS flottante — pas de « dé-rattachement ».
-  if (!ln) { if (typeof showToast === 'function') showToast('Une catégorie reste toujours rattachée — choisis une ligne, ou « Hors résultat »', 'warn', 4500); if (typeof rParamsCats === 'function') rParamsCats(); return; }
-  _writeCatMap(nom, ln);
-  // Cohérence avec les ALIAS M-1 (qui priment dans _finCatMere) : le choix Réglages met
-  // aussi la mère à jour, sinon un alias existant écraserait silencieusement ce choix.
-  const _mere = (ln === '__ignore') ? _stdCategoryByName('Divers (non déductible)') : (typeof _finStdByLigne === 'function' ? _finStdByLigne(ln) : null);
-  if (_mere) { if (!DB.catAlias) DB.catAlias = {}; DB.catAlias[nom] = _mere.nom; }
+  _finRattacheCategorie(nom, mereNom);
   saveDB();
   if (typeof rParamsCats === 'function') rParamsCats();
+  if (typeof showToast === 'function') showToast('« ' + nom + ' » rangée en « ' + mereNom + ' » — Finances recalculé', 'ok');
 }
 
 function addCat(){
@@ -29106,6 +29103,17 @@ function _finCatMere(catNom) {
   if (m) { const mere = _finStdByLigne(m); if (mere) return mere; }
   return null;
 }
+// Poste de cash-flow HORS 2044 d'une catégorie : 'construction', 'nonDeductible' ou null.
+// Source UNIQUE — moteur (`_finMonthly`), fiche du lot (`_finLotCatRole`) et détail des lignes
+// (`_finDrillLigne`) l'appellent tous.
+// Une catégorie perso hérite le traitement fiscal ET cash-flow de sa famille (alias compris) :
+// « Péage A35 » rangée en « Divers (non déductible) » compte comme Divers (GO Didier 06/10,
+// option 1). Une caution, un apport ou un virement se rangent dans LEUR famille (dépôt de
+// garantie, CCA, virement interne), qui reste hors cash-flow — pas dans Divers.
+function _finChargeHf(catNom) {
+  const mere = _finCatMere(catNom);
+  return (mere && mere.chargeHf) || null;
+}
 // Migration one-shot : catMapping {nom: ligne2044|'__ignore'} → catAlias {nom: mère}.
 // Idempotente, silencieuse (les valeurs avaient déjà été VALIDÉES par l'utilisateur —
 // même sémantique, exprimée sur la mère au lieu de la ligne).
@@ -29150,6 +29158,19 @@ function _finUnmappedCats() {
   });
   return Object.keys(seen).map(c => ({ nom: c, count: seen[c] })).sort((a, b) => b.count - a.count);
 }
+// Catégories RETIRÉES de la liste (delCat) mais encore portées par des mouvements ET rangées dans
+// une famille : elles comptent selon cette famille, Réglages doit permettre de la changer (audit R2).
+// Les non rangées relèvent de `_finUnmappedCats` (rattachement Finances), pas d'ici.
+function _finCatsRetireesUtilisees() {
+  const liste = new Set(DB.categories || []), seen = {};
+  (DB.mouvements || []).forEach(m => {
+    if (!m || m._deleted || !m.cat || liste.has(m.cat) || _stdCategoryByName(m.cat)) return;
+    if (!_finCatMere(m.cat)) return;
+    seen[m.cat] = (seen[m.cat] || 0) + 1;
+  });
+  return Object.keys(seen).map(c => ({ nom: c, count: seen[c] }))
+    .sort((a, b) => b.count - a.count || a.nom.localeCompare(b.nom, 'fr'));
+}
 // Ouvre le rattachement OBLIGATOIRE (modal drill réutilisé). M-1 : bloquant — tant que des
 // catégories flottent, des montants déjà saisis restent invisibles du compte de résultat.
 function _finOpenCatMapping() {
@@ -29180,12 +29201,43 @@ function _finRattacheCategorie(nom, mereNom) {
   else { DB.catMapping[nom] = '__ignore'; DB.params.legal2044Mapping[nom] = '__ignore'; }
   return true;
 }
-// Options du sélecteur de famille — M-1 bis : AUCUNE pré-sélection (« l'app ne devine rien »).
-function _finMereOptionsHtml() {
+// LA liste des familles — une seule, partout (création, sélecteur de catégorie, rattachement
+// Finances, Réglages). Groupée selon l'effet RÉEL sur le cash-flow, lu sur le classifieur du
+// moteur (`_finLotCatRole`) — jamais recopié ici. M-1 bis : sans `cur`, AUCUNE pré-sélection.
+const _FIN_FAMILLE_GROUPES = [
+  ['recette', 'Recettes — comptent dans le cash-flow'],
+  ['declaree', 'Dépenses déclarées — comptent dans le cash-flow'],
+  ['horsFiscal', 'Dépenses hors 2044 — comptent dans le cash-flow'],
+  ['horsCf', 'Hors cash-flow — capital, dépôts, virements']
+];
+function _finFamilleEffet(mere) {
+  const role = _finLotCatRole(mere.nom);
+  const groupe = (role === 'loyer' || role === 'recette') ? 'recette'
+    : (role === 'charge') ? (mere.ligne2044 ? 'declaree' : 'horsFiscal') : 'horsCf';
+  return { groupe, compte: groupe !== 'horsCf', tag: mere.ligne2044 ? '2044 · ' + mere.ligne2044 : 'hors 2044' };
+}
+function _finMereOptionsHtml(cur) {
   const _e = (typeof escHtml === 'function') ? escHtml : (x => x);
-  return '<option value="">— choisir la famille —</option>'
-    + (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES : [])
-      .map(c => '<option value="' + _e(c.nom) + '">' + _e(c.nom) + (c.ligne2044 ? ' (2044 · ' + c.ligne2044 + ')' : ' (hors 2044)') + '</option>').join('');
+  const all = (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES : []);
+  const curOk = !!cur && all.some(c => c.nom === cur);
+  return (curOk ? '' : '<option value="">— choisir la famille —</option>')
+    + _FIN_FAMILLE_GROUPES.map(([k, lib]) => {
+      const items = all.filter(c => _finFamilleEffet(c).groupe === k);
+      return items.length ? '<optgroup label="' + _e(lib) + '">'
+        + items.map(c => '<option value="' + _e(c.nom) + '"' + (c.nom === cur ? ' selected' : '') + '>' + _e(c.nom) + '</option>').join('')
+        + '</optgroup>' : '';
+    }).join('');
+}
+// La ligne sous la liste (Réglages) : l'effet de la famille choisie.
+function _finFamilleEffetHtml(mereNom) {
+  const _e = (typeof escHtml === 'function') ? escHtml : (x => x);
+  const mere = mereNom ? _stdCategoryByName(mereNom) : null;
+  const ligne = (couleur, point, txt) => '<span style="display:flex;gap:6px;align-items:center;font-size:11px;line-height:1.3;color:' + couleur + '">'
+    + '<i aria-hidden="true" style="width:7px;height:7px;border-radius:99px;flex:none;background:' + point + '"></i>' + txt + '</span>';
+  if (!mere) return ligne('var(--neg)', 'var(--neg)', 'Sans famille — à choisir');
+  const ef = _finFamilleEffet(mere);
+  return ef.compte ? ligne('var(--t2)', 'var(--pos)', _e(ef.tag) + ' · compte dans le cash-flow')
+    : ligne('var(--t3)', 'var(--t3)', _e(ef.tag) + ' · hors cash-flow');
 }
 // Persiste les alias choisis + recalcule Finances (le miroir passe par _finRattacheCategorie).
 function _finSaveCatMapping() {
@@ -29203,24 +29255,6 @@ function _finSaveCatMapping() {
   if (typeof rFinances === 'function') rFinances();
   if (typeof showToast === 'function') showToast('Catégories rattachées ✓ — Finances recalculé', 'ok');
 }
-// ── LEGACY (Réglages « catégories » + picker de création) — l'éditeur historique raisonne
-// encore en ligne 2044 ; ses écritures (_writeCatMap → catMapping/legal2044Mapping) sont
-// résolues par _finCatMere en repli, donc restent des rattachements valides. À unifier sur
-// les alias quand l'éditeur de catégories sera refondu (hors périmètre étape 2).
-function _ligne2044Type(l) {
-  if (l === '211' || l === '213') return 'recette';
-  if (l === '250') return 'interet';
-  if (l === '230') return 'deduction';
-  return 'charge';
-}
-const _FIN_2044_OPTIONS = [
-  ['211', '211 · Loyers encaissés'], ['213', '213 · Recettes diverses (subv./indemnités/GLI reçue)'],
-  ['221', '221 · Honoraires / gestion / procédure'], ['223', '223 · Assurance PNO / GLI'],
-  ['224', '224 · Travaux & entretien'], ['225', '225 · Charges récup. non récupérées'],
-  ['226', '226 · Indemnités d\'éviction'], ['227', '227 · Taxe foncière'],
-  ['229', '229 · Provisions copropriété (récupérable)'], ['230', '230 · Régul copro N-1 (déduction)'],
-  ['250', '250 · Intérêts d\'emprunt'], ['__ignore', '— Hors résultat (caution, capital, non déductible…)']
-];
 
 
 // ---- C3: Ratio card renderer ----
@@ -29813,7 +29847,8 @@ function _finMonthly(yr, scope, win) {
     // M-1 : les résolveurs passent par la catégorie MÈRE — un alias de « Prêt » est une
     // échéance, un alias de « Charges récupérables » un transit, etc. (héritage cash-flow).
     isEcheance: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.nom === 'Prêt'); },   // « 1 ligne = mensualité entière » (convention user)
-    isGestionCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.gestionCharge); }, // CFE/taxe vacance (réel mais hors 2044)
+    isGestionCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.gestionCharge); }, // frais bancaires (réel mais hors 2044)
+    chargeHorsFiscal: m => _finChargeHf(m && m.cat), // travaux d'agrandissement, dépenses non déductibles (05/10), alias compris (06/10)
     isRecupCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.recup); }, // charges récupérables directes (eau/énergie) : transit locataire
     isRecupACharge: _finIsRecupACharge,         // L-5 : vacance / sans bail / non récupérable → « Resté à ta charge » (225)
     window: isWin ? win : undefined,
@@ -29839,6 +29874,11 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
   if (!prev) prev = _finMonthly(yr - 1, scope, W ? W.n1 : lastMonth);   // N-1 sur la MÊME période
   if (!cur) { host.innerHTML = ''; return; }
   const a = cur.annual, p = (prev && prev.annual) || {};
+  // L-4 : une ligne de charge s'affiche dès qu'elle porte un montant QUELQUE PART dans le tableau —
+  // l'année N, la colonne N-1 ou un mois. Sur la seule année N, un chantier de l'an dernier (ou un
+  // achat et son avoir dans l'année) masquait la ligne alors que N-1 ou le mois la comptait dans le
+  // « Total charges propriétaire » : le total ne valait plus la somme des lignes visibles.
+  const _visible = k => [a, p].concat(cur.months || []).some(o => Math.abs((o && o[k]) || 0) > 0.005);
   // Colonnes N-1 (même période) + Var affichées SEULEMENT si l'entité a un historique sur la période.
   const hasN1 = !!(prev && prev.annual && ((prev.annual.loyersHC || 0) !== 0 || (prev.annual.charges || 0) !== 0 || (prev.annual.pret || 0) !== 0));
   const months = cur.months.slice().reverse();   // mois courant à gauche, on remonte à l'envers
@@ -29870,10 +29910,13 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     R('Travaux &amp; entretien', o => o.travaux, { charge: true, kind: 'travaux' }),
     R('Honoraires &amp; gestion', o => o.honoraires, { charge: true, kind: 'honoraires' }),
     R('Assurance PNO / GLI', o => o.assurance, { charge: true, kind: 'assurance' }),
-    ...(Math.abs((a && a.gestionHF) || 0) > 0.005 ? [R('Charges de gestion hors foncier <span class="b4-x">(CFE, taxe vacance — hors 2044)</span>', o => o.gestionHF, { charge: true, kind: 'gestionHF' })] : []),
+    ...(_visible('gestionHF') ? [R('Frais bancaires <span class="b4-x">hors 2044</span>', o => o.gestionHF, { charge: true, kind: 'gestionHF' })] : []),
+    // 05/10 (Didier) : dépenses réelles hors 2044, jusqu'ici absentes du cash-flow.
+    ...(_visible('construction') ? [R('Travaux d\'agrandissement <span class="b4-x">non déductibles — hors 2044</span>', o => o.construction, { charge: true, kind: 'construction' })] : []),
+    ...(_visible('nonDeductible') ? [R('Dépenses non déductibles <span class="b4-x">péage, matériel… — hors 2044</span>', o => o.nonDeductible, { charge: true, kind: 'nonDeductible' })] : []),
     // L-2 : ces montants entraient dans le Total sans qu'aucune ligne ne les affiche — la somme
     // des lignes visibles ne pouvait pas égaler le total (constat 25).
-    ...(Math.abs((a && a.autres) || 0) > 0.005 ? [R('Autres charges propriétaire <span class="b4-x">2044 · 225/226' + (Math.abs((a && a.recupACharge) || 0) > 0.005 ? ' — dont récupérables restées à ta charge' : '') + '</span>', o => o.autres, { charge: true, kind: 'autres' })] : []),
+    ...(_visible('autres') ? [R('Autres charges propriétaire <span class="b4-x">2044 · 225/226' + (Math.abs((a && a.recupACharge) || 0) > 0.005 ? ' — dont récupérables restées à ta charge' : '') + '</span>', o => o.autres, { charge: true, kind: 'autres' })] : []),
     // L-4 : total VÉRIFIABLE À L'ŒIL = somme exacte des lignes visibles (les masquées valent 0).
     R('Total charges propriétaire <span class="b4-x">somme exacte des lignes visibles</span>', o => o.charges, { tot: true, neg: true }),
     { grp: 'Charges récupérables <span class="b4-x">(argent du locataire qui transite)</span>' },
@@ -30228,7 +30271,9 @@ function _finDrillLigne(kind, yr, mo) {
     honoraires:   { titre: 'Honoraires & gestion',        rec: false, test: r => r.ligne2044 === '221' },
     assurance:    { titre: 'Assurance PNO / GLI',         rec: false, test: r => r.ligne2044 === '223' },
     autres:       { titre: 'Autres charges propriétaire', rec: false, test: r => r.ligne2044 === '225' || r.ligne2044 === '226' }, // + récupérables restées à charge (L-5), matchées dans la boucle
-    gestionHF:    { titre: 'Charges de gestion hors foncier (CFE, taxe vacance)', rec: false, test: () => false }, // matché par flag gestionCharge dans la boucle
+    gestionHF:    { titre: 'Frais bancaires (hors 2044)', rec: false, test: () => false }, // matché par flag gestionCharge dans la boucle
+    construction: { titre: 'Travaux d\'agrandissement (non déductibles)', rec: false, test: () => false }, // matché par _finChargeHf dans la boucle
+    nonDeductible: { titre: 'Dépenses non déductibles', rec: false, test: () => false },            // matché par _finChargeHf dans la boucle
     pret:         { titre: 'Prêt — échéances (capital + intérêts)', rec: false, test: () => false }, // B4 : matché par m.cat === 'Prêt' (mensualité entière)
     provisions:   { titre: 'Provisions de charges encaissées', prov: true, rec: false, test: () => false }, // #2 : part CH du loyer 211
     recup:        { titre: 'Charges récupérables avancées (récupérables)', rec: false, test: () => false }, // #2 : 229/230 copro + flag recup — part restée à charge EXCLUE (L-5)
@@ -30298,6 +30343,7 @@ function _finDrillLigne(kind, yr, mo) {
         : (kind === 'recupACharge')
         ? (_isRecupMv && _finIsRecupACharge(m))
         : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
+           || ((kind === 'construction' || kind === 'nonDeductible') && _finChargeHf(m.cat) === kind)
            || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));                // L-5 : « Autres » inclut le resté-à-charge (total = ligne)
       if (!ok) return;
       // v15.398 (BUG-PRET-REMBOURSEMENT) : crédits/ristournes inclus → drill = total ligne P&L (db−cr).
@@ -30336,6 +30382,7 @@ function _finDrillLigne(kind, yr, mo) {
         const ok = (kind === 'recup') ? (_isRecupMv && !_finIsRecupACharge(m))
           : (kind === 'recupACharge') ? (_isRecupMv && _finIsRecupACharge(m))
           : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
+           || ((kind === 'construction' || kind === 'nonDeductible') && _finChargeHf(m.cat) === kind)
              || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));
         if (!ok) return; // parité avec la boucle rows (CFE/TLV/pret/L-5)
         t += ((Number(m.db) || 0) - (Number(m.cr) || 0)) * _w;

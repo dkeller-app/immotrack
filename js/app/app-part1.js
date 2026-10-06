@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.717';
+const IMMOTRACK_VERSION = '15.718';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -384,10 +384,10 @@ const STD_CATEGORIES = [
   { nom: 'Frais bancaires',                                 ligne2044:'',    type:'special', gestionCharge:true, niv:'sci', icon:'🏦', editable:false, deletable:false, std:true, descHors:'Frais de tenue de compte — couverts par le forfait légal de 20 €/logement (ligne 222, auto) → NON déductibles en double au 2044. Réduisent le résultat de gestion. Exception : agios/frais d\'un EMPRUNT → Prêt — Intérêts d\'emprunt (250).' },
   { nom: 'Acquisition / cession de bien',                   ligne2044:'',    type:'special', niv:'imm', icon:'🔑', editable:false, deletable:false, std:true, descHors:'Frais d\'acquisition (notaire, droits, agence à l\'achat) / prix de vente — relèvent de la plus-value (régime séparé).' },
   { nom: 'Dépôt de garantie (reçu / restitué)',             ligne2044:'',    type:'special', niv:'log', icon:'🔒', editable:false, deletable:false, std:true, descHors:'DG encaissé à l\'entrée (non imposable) ou restitué à la sortie. Devient imposable (213) seulement s\'il est conservé pour impayés.' },
-  { nom: 'Travaux de construction / agrandissement (non déductible)', ligne2044:'', type:'special', icon:'🧱', editable:false, deletable:false, std:true, descHors:'Construction / reconstruction / agrandissement — NON déductible des revenus fonciers (≠ entretien). S\'ajoute au prix de revient pour la plus-value.' },
+  { nom: 'Travaux de construction / agrandissement (non déductible)', ligne2044:'', type:'special', chargeHf:'construction', icon:'🧱', editable:false, deletable:false, std:true, descHors:'Construction / reconstruction / agrandissement — NON déductible des revenus fonciers (≠ entretien). S\'ajoute au prix de revient pour la plus-value.' },
   { nom: 'Virement interne (non déclarable)',               ligne2044:'',    type:'special', icon:'🔁', editable:false, deletable:false, std:true, descHors:'Transfert entre 2 comptes du bailleur — ne rien déclarer (détection auto des paires = sujet FEAT-VIR-INTERNE).' },
   { nom: 'CCA / distribution SCI',                          ligne2044:'',    type:'special', niv:'sci', icon:'🏦', editable:false, deletable:false, std:true, descHors:'Compte courant d\'associé (apport / retrait) ou distribution de résultat — trésorerie entre la SCI et ses associés, hors résultat foncier.' },
-  { nom: 'Divers (non déductible)',                         ligne2044:'',    type:'special', icon:'📋', editable:false, deletable:false, std:true, descHors:'Péage, carburant, tablette/matériel, repas, dépenses perso… — hors champ foncier (déplacement/matériel déjà dans le forfait 222). Le règlement d\'un solde de régularisation de charges par un locataire se classe en « Charges récupérables (eau, énergie…) », pas ici.' },
+  { nom: 'Divers (non déductible)',                         ligne2044:'',    type:'special', chargeHf:'nonDeductible', icon:'📋', editable:false, deletable:false, std:true, descHors:'Péage, carburant, tablette/matériel, repas, dépenses perso… — hors champ foncier (déplacement/matériel déjà dans le forfait 222). Le règlement d\'un solde de régularisation de charges par un locataire se classe en « Charges récupérables (eau, énergie…) », pas ici.' },
   { nom: 'Acompte de charges (départ)',                     ligne2044:'',    type:'special', niv:'log', icon:'🏁', editable:false, deletable:false, std:true, descHors:'Acompte versé par un locataire partant, en anticipation de la régularisation des charges. Neutre au 2044 ; imputé sur le décompte final. À ne PAS confondre avec un loyer (sinon compté deux fois).' },
   // ── AUTO — calculées par l'app (régul), HORS menu de saisie ; gardées pour le mapping 2044 ──
   { nom: 'Charges récupérables non récupérées',             ligne2044:'225', type:'charge',  auto:true, icon:'⚡', editable:false, deletable:false, std:true, descHors:'Part avancée par le bailleur et non remboursée au départ du locataire — calculée automatiquement par la régularisation (computeRegul). Tu ne la tagues jamais.' },
@@ -10013,14 +10013,15 @@ function _dgNbDetenusDuLot(l) { return _dgDetenusDuLot(l).length; }
  * et ce que `_finMonthly` lui injecte, :56526-56532) :
  *   'loyer'   ligne 211 — loyers ET provisions de charges ;
  *   'recette' lignes 212/213/214 — recettes diverses, indemnités GLI, subventions ;
- *   'charge'  échéance de prêt entière, CFE/TLV, charges récupérables directes, 221→230 ;
+ *   'charge'  échéance de prêt entière, frais bancaires, charges récupérables directes, 221→230,
+ *             travaux d'agrandissement et dépenses non déductibles (`_finChargeHf`) ;
  *   null      hors résultat — exactement ce que le moteur ignore.
  *
- * ⚠️ Ce null porte une conséquence à connaître : « Travaux de construction / agrandissement
- * (non déductible) » et « Divers (non déductible) » sont de VRAIES sorties d'argent que le
- * moteur ne compte pas en charge. La fiche ne les compte donc plus non plus. C'est le prix de
- * la source unique : si ces postes doivent peser sur un solde, c'est le moteur qu'on change,
- * pas la fiche — sinon on recrée la deuxième définition qu'on vient de supprimer.
+ * « Travaux de construction / agrandissement » et « Divers (non déductible) » sont de VRAIES
+ * sorties d'argent : depuis le 05/10 (décision Didier) le MOTEUR les compte en charge, via le
+ * drapeau `chargeHf` du référentiel, lu par `_finChargeHf` — la fiche suit. Restent hors résultat :
+ * l'achat d'un bien, les apports d'associés, les dépôts de garantie et les virements internes — et
+ * leurs alias (une catégorie perso hérite de sa famille, GO Didier 06/10).
  *
  * Les intérêts d'emprunt (250) rendent null. Le moteur les met dans `b.interets`, qui n'entre
  * NI dans `b.charges` NI dans `cashflowReel` (`finances-monthly.js:297,301`) : c'est une donnée
@@ -10041,6 +10042,7 @@ function _finLotCatRole(cat) {
   // périmé ; ne pas s'y fier.
   if (mere.gestionCharge) return 'charge';      // réel, hors 2044
   if (mere.recup) return 'charge';              // charges récupérables directes : transit locataire
+  if (typeof _finChargeHf === 'function' && _finChargeHf(cat)) return 'charge'; // agrandissement, dépenses non déductibles, alias compris (05-06/10)
   const ln = mere.ligne2044;
   if (!ln || ln === '250') return null;
   if (ln === '211') return 'loyer';

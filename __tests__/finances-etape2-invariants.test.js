@@ -102,7 +102,7 @@ describe('étape 2 · tranche 1 — fenêtres branchées sur le moteur', () => {
       isEcheance: (m) => m.cat === 'Prêt'
     });
     const keys = ['loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard',
-      'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'charges'];
+      'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'charges'];
     keys.forEach((k) => {
       const somme = Math.round(r.months.reduce((s, m) => s + m[k], 0) * 100) / 100;
       expect(somme, 'annuel = Σ mois pour ' + k).toBeCloseTo(r.annual[k], 1);
@@ -213,7 +213,8 @@ describe('étape 2 · tranche 3 — tableau (L-2/L-4/L-5, rattrapage, H-2, H-7)'
     expect(avec.annual.cashflowReel).toBe(sans.annual.cashflowReel);   // déplacement, pas ajout
     // L-4 : total charges = somme exacte des lignes affichées
     const m5 = avec.months.find((m) => m.mo === 5);
-    expect(m5.charges).toBeCloseTo(m5.pret + m5.taxe + m5.travaux + m5.honoraires + m5.assurance + m5.gestionHF + m5.autres, 2);
+    expect(m5.charges).toBeCloseTo(m5.pret + m5.taxe + m5.travaux + m5.honoraires + m5.assurance + m5.gestionHF + m5.autres
+      + m5.construction + m5.nonDeductible, 2);
   });
 
   it('rattrapage : l\'arriéré de mars encaissé en juin apparaît en sous-ligne du mois de juin', () => {
