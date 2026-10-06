@@ -733,6 +733,31 @@ async function boot() {
   const _inviteTok = (new URLSearchParams(location.search)).get('invite')
   if (_inviteTok) return acceptInviteFlow(api, client, overlay, _inviteTok)
 
+  // Arrivée depuis propryo.fr par « Connexion » (?connexion) ou « Créer mon compte » (?inscription) : on montre TOUJOURS
+  // le formulaire. Si une session existe sur cet appareil (onglet resté ouvert, « rester connecté »), on la ferme
+  // d'abord — par le MÊME chemin que le menu Compte, donc avec ses protections : si du travail n'est pas encore
+  // synchronisé (EDL hors ligne…), la déconnexion est REFUSÉE et on reste connecté plutôt que de perdre des données.
+  if (/[?&](connexion|inscription)(?![\w-])/.test(location.search || '')) {
+    try {
+      // Garde anti-boucle : si on a DÉJÀ tenté la fermeture dans cet onglet (drapeau posé avant le rechargement) et
+      // qu'une session est quand même revenue (stockage bloqué…), on n'insiste pas. Le drapeau est lu ET effacé ici.
+      const dejaTente = (() => { try { const v = sessionStorage.getItem('imsb-deja-deconnecte'); sessionStorage.removeItem('imsb-deja-deconnecte'); return !!v } catch (e) { return false } })()
+      const sess = await api.localSession()   // lecture locale, sans réseau
+      // HORS LIGNE : on ne ferme jamais la session (le formulaire de connexion exige le réseau → le technicien serait
+      // enfermé dehors avec son EDL ; CDC verrou 2 « rester connecté hors ligne »). Le boot normal / hors ligne s'exécute.
+      const horsLigne = (typeof navigator !== 'undefined' && navigator.onLine === false) || window.__immoHorsLigne === true
+      if (sess && sess.user && !dejaTente && !horsLigne && typeof _teardownSession === 'function') {
+        const r = await _teardownSession({ flush: true })
+        if (!r || r.ok !== false) {
+          try { sessionStorage.setItem('imsb-deja-deconnecte', '1') } catch (e) {}
+          location.reload(); return        // déconnecté : on recharge → formulaire (mode inscription si ?inscription)
+        }
+        console.info('[auth] déconnexion refusée (travail non synchronisé) : session conservée')
+        try { if (typeof window.showToast === 'function') window.showToast("Du travail n'est pas encore synchronisé : tu restes connecté.", 'warn', 7000) } catch (e) {}
+      }
+    } catch (e) { console.warn('[auth] déconnexion depuis propryo.fr', e) }
+  }
+
   // déjà connecté (session persistée) → enchaîner direct. C'EST le chemin qui tue le double-login :
   // après un reload, la session persistée est retrouvée ici → Accueil sans re-saisir le mot de passe.
   const { user, error: _errAuth } = await api.currentUserOrError()
