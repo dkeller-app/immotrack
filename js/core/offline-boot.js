@@ -487,6 +487,14 @@ export function ongletDisponibleHorsLigne(id) {
  */
 export const ECRITURES_HORS_LIGNE = ['edl', 'edl-photo', 'edl-pieces', 'edl-signature-presentielle'];
 
+/**
+ * Parmi elles, celles que F1 REMONTE au cloud au démarrage en ligne suivant : celles qui n'écrivent
+ * que `DB.edl` (fusionnerEdlHorsLigne ne reverse que cette collection). `edl-pieces` écrit
+ * `log.edlTemplate` (le gabarit du logement) : autorisée hors ligne, mais NON remontée. Lue par
+ * stockage-local (verdictEchecMiroir) : on ne promet « partira au cloud » que pour celles-ci.
+ */
+export const ECRITURES_REMONTEES_PAR_F1 = ['edl', 'edl-photo', 'edl-signature-presentielle'];
+
 export function ecritureAutoriseeHorsLigne(quoi) {
   return ECRITURES_HORS_LIGNE.indexOf(String(quoi || '')) >= 0;
 }

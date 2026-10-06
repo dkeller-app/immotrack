@@ -560,7 +560,7 @@ Cordialement,
 
 Votre bail concernant le logement {{bail.adrBien}} arrive à son terme initial le {{dateFin}}.
 
-Conformément à l'article 10 de la loi n° 89-462 du 6 juillet 1989, sauf congé donné dans les formes légales par l'une ou l'autre des parties, votre bail sera **tacitement reconduit** pour une nouvelle période de 3 ans (ou 1 an pour un bail meublé) aux mêmes conditions.
+Sauf congé délivré dans les formes et délais légaux, votre bail sera **tacitement reconduit** : pour trois ans si le bailleur est une personne physique ou relève de l'article 13, pour six ans s'il est une autre personne morale (articles 10 et 13 de la loi n° 89-462 du 6 juillet 1989), ou pour un an s'il s'agit d'un bail meublé (article 25-7 de la même loi).
 
 Nous restons à votre disposition pour toute discussion concernant cette reconduction.
 
@@ -604,6 +604,97 @@ Fait à {{entite.siege}}, le {{dateLettre}}.
 {{entite.signataire}}`,
     attachments: [],
     legalNote: 'OBLIGATOIRE : LRAR ou signification par huissier ou remise en main propre contre récépissé. Mentionner précisément le motif (vente, reprise pour soi/proche, motif sérieux et légitime). Joindre justificatifs.'
+  },
+
+  // BAUX-ECHUS — BAIL MEUBLÉ : refus de renouvellement motivé, art. 25-8, I (cité mot pour mot,
+  // Légifrance, version en vigueur depuis le 29/07/2023). Pas d'art. 15, pas d'annexe 15-II (le droit
+  // de préemption de l'art. 15-II ne vise que le bail nu).
+  'bail-conge-bailleur-meuble': {
+    subject: 'Congé pour {{motifConge}} — {{bail.adrBien}}',
+    body: `Lettre recommandée avec accusé de réception
+(et copie par email)
+
+{{locataire.civNom}}
+{{bail.adrBien}}
+
+Objet : Congé pour {{motifConge}} — Bail meublé du {{bail.debut}}
+
+{{locataire.civNom}},
+
+L'article 25-8, I de la loi n° 89-462 du 6 juillet 1989 dispose : « Le bailleur qui ne souhaite pas renouveler le contrat doit informer le locataire avec un préavis de trois mois et motiver son refus de renouvellement du bail soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux, notamment l'inexécution par le locataire de l'une des obligations lui incombant. »
+
+En application de cet article, je vous informe par la présente que je ne renouvelle pas le bail du logement {{bail.adrBien}} que je vous loue depuis le {{bail.debut}}, pour le motif suivant :
+
+{{motifDetail}}
+
+Le présent congé prend effet au terme du bail, soit le {{dateFin}}.
+
+{{mentionPreavis}}
+
+Vous trouverez ci-joint, le cas échéant, les pièces justifiant le motif allégué.
+
+Veuillez agréer, {{locataire.civNom}}, l'expression de mes salutations distinguées.
+
+Fait à {{entite.siege}}, le {{dateLettre}}.
+
+{{entite.signataire}}`,
+    attachments: [],
+    legalNote: 'OBLIGATOIRE (art. 25-8, I) : lettre recommandée avec demande d\'avis de réception, acte de commissaire de justice ou remise en main propre contre récépissé ou émargement, au moins trois mois avant le terme. À peine de nullité : le motif et, en cas de reprise, les nom et adresse du bénéficiaire et la nature du lien.'
+  },
+
+  // BAUX-ECHUS — BAIL ÉTUDIANT (9 mois) ou MOBILITÉ : aucun congé n'est nécessaire, le bail prend fin à
+  // son terme (art. 25-7 / 25-14). La lettre INFORME, sans motif et sans « date d'effet » : la phrase de
+  // terme est au futur ou au passé selon la date ({{phraseTerme}}).
+  'bail-fin-terme-information': {
+    subject: 'Information de fin de bail — {{bail.adrBien}}',
+    body: `{{locataire.civNom}}
+{{bail.adrBien}}
+
+Objet : Information de fin de bail — Bail du {{bail.debut}}
+
+{{locataire.civNom}},
+
+Le bail du logement {{bail.adrBien}}, ayant pris effet le {{bail.debut}}, {{phraseTerme}}.
+
+{{mentionPreavis}}
+
+Pour poursuivre la location, un nouveau bail doit être signé. À défaut, merci de convenir d'une date pour l'état des lieux de sortie et la remise des clés.
+
+Veuillez agréer, {{locataire.civNom}}, l'expression de mes salutations distinguées.
+
+Fait à {{entite.siege}}, le {{dateLettre}}.
+
+{{entite.signataire}}`,
+    attachments: [],
+    legalNote: 'Information, pas un congé : un bail étudiant de neuf mois (art. 25-7) ou un bail mobilité (art. 25-14) prend fin à son terme sans qu\'un congé soit nécessaire.'
+  },
+
+  // BAUX-ECHUS — GARAGE / AUTRE (hors loi du 6 juillet 1989) : le congé suit le contrat, sans motif.
+  'bail-conge-bailleur-contrat': {
+    subject: 'Congé — {{bail.adrBien}}',
+    body: `Lettre recommandée avec accusé de réception
+(et copie par email)
+
+{{locataire.civNom}}
+{{bail.adrBien}}
+
+Objet : Congé — Contrat de location du {{bail.debut}}
+
+{{locataire.civNom}},
+
+Conformément aux stipulations du contrat de location ayant pris effet le {{bail.debut}} pour {{bail.adrBien}}, je vous donne par la présente congé de ce contrat, à effet du {{dateFin}}.
+
+{{mentionPreavis}}
+
+Je vous remercie de libérer les lieux et de restituer l'ensemble des moyens d'accès à cette date.
+
+Veuillez agréer, {{locataire.civNom}}, l'expression de mes salutations distinguées.
+
+Fait à {{entite.siege}}, le {{dateLettre}}.
+
+{{entite.signataire}}`,
+    attachments: [],
+    legalNote: 'Location hors loi du 6 juillet 1989 : forme, préavis et date d\'effet du congé sont ceux prévus au contrat.'
   },
 
   'bail-preavis-recu': {

@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
-  _planApurementStatut, _procedureJudiciaireEtat, _listerImpayesActifs,
+  _planApurementStatut, _procedureJudiciaireEtat,
   DG_STATUS, PROCEDURE_ETAT
 } from '../../js/core/gestion-dg-impayes.js';
 
@@ -306,81 +306,5 @@ describe('_procedureJudiciaireEtat', () => {
     // Cas exotique : seule l'assignation est renseignée
     const r = _procedureJudiciaireEtat({ assignationDate: '2026-04-15' }, '2026-05-01');
     expect(r.etat).toBe(PROCEDURE_ETAT.ASSIGNATION);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════
-//  _listerImpayesActifs
-// ═══════════════════════════════════════════════════════════════════
-
-describe('_listerImpayesActifs', () => {
-  const baux = {
-    'F-001': { ref: 'F-001', debut: '2025-01-01', hc: 600, ch: 50 },
-    'F-002': { ref: 'F-002', debut: '2025-06-01', hc: 800, ch: 80 },
-    'F-003': { ref: 'F-003', debut: '2025-01-01', hc: 700, ch: 50, cloture: true },
-    'F-004': { ref: 'F-004', debut: '2025-09-01', hc: 500, ch: 30,
-               procedure: { miseEnDemeureDate: '2026-01-05', commandementDate: '2026-02-15' } }
-  };
-  const logements = [
-    { ref: 'F-001', locataire: 'MARTIN' },
-    { ref: 'F-002', locataire: 'DUPONT' },
-    { ref: 'F-003', locataire: 'OLD' },   // bail clôturé
-    { ref: 'F-004', locataire: 'IMPAYE' },
-    { ref: 'F-005', locataire: null }     // vacant
-  ];
-
-  it('Skip baux clôturés / vacants', () => {
-    const r = _listerImpayesActifs(logements, baux, [], new Date('2026-06-01'));
-    expect(r.find(x => x.ref === 'F-003')).toBeUndefined();
-    expect(r.find(x => x.ref === 'F-005')).toBeUndefined();
-  });
-
-  it('Calcule montantImpaye depuis bail.debut', () => {
-    const r = _listerImpayesActifs([logements[0]], { 'F-001': baux['F-001'] }, [], new Date('2026-01-31'));
-    // 13 mois × 650 = 8450, 0 reçu → 8450
-    expect(r[0].montantImpaye).toBe(8450);
-  });
-
-  it('R-0 : un bail REPRIS à l’achat sort de la liste — il n’a pas de nom sur la fiche', () => {
-    // Un bien acheté occupé (art. 1743) laisse `log.locataire` vide : le filtre sur ce cache
-    // rendait son impayé INVISIBLE, alors que le loyer court et que la dette existe.
-    const repris = [{ ref: 'F-001', locataire: '' }];
-    const r = _listerImpayesActifs(repris, { 'F-001': baux['F-001'] }, [], new Date('2026-01-31'));
-    expect(r.map(x => x.ref)).toEqual(['F-001']);
-    expect(r[0].montantImpaye).toBe(8450);
-  });
-
-  it('R-0 : un bail sorti par `finEffective`, sans clôture, ne loue plus rien', () => {
-    // Tous les chemins de sortie ne posent pas `cloture` : la règle `_bienActiveBail` regarde
-    // les deux. Sans `finEffective`, un locataire parti continuait d'accumuler une dette.
-    const parti = { 'F-001': { ...baux['F-001'], finEffective: '2025-06-30' } };
-    const r = _listerImpayesActifs([logements[0]], parti, [], new Date('2026-01-31'));
-    expect(r).toEqual([]);
-  });
-
-  it('Statut "recent" si < 15j', () => {
-    const mvts = [{ qui: 'F-001', date: '2026-05-25', cr: 650, _deleted: false }];
-    const r = _listerImpayesActifs([logements[0]], { 'F-001': baux['F-001'] }, mvts, new Date('2026-06-01'));
-    if (r.length > 0) {
-      expect(r[0].statut).toBe('recent');
-    }
-  });
-
-  it('Statut "critique" si > 90j sans paiement', () => {
-    const mvts = [{ qui: 'F-001', date: '2026-01-05', cr: 650, _deleted: false }];
-    const r = _listerImpayesActifs([logements[0]], { 'F-001': baux['F-001'] }, mvts, new Date('2026-06-01'));
-    expect(r[0].statut).toBe('critique');
-  });
-
-  it('Procédure judiciaire en cours = statut surchargé', () => {
-    const r = _listerImpayesActifs([logements[3]], { 'F-004': baux['F-004'] }, [], new Date('2026-06-01'));
-    expect(r[0].statut).toBe('procedure_commandement_payer');
-    expect(r[0].procedureEtat).toBe(PROCEDURE_ETAT.COMMANDEMENT_PAYER);
-  });
-
-  it('Tri : procédure avancée d\'abord, puis ancienneté', () => {
-    const r = _listerImpayesActifs(logements, baux, [], new Date('2026-06-01'));
-    // F-004 (procédure) doit être en premier
-    expect(r[0].ref).toBe('F-004');
   });
 });

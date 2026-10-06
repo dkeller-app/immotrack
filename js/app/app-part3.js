@@ -1256,6 +1256,9 @@ window.addEventListener('DOMContentLoaded', ()=>{
   // STOCKAGE lot 1 (S-5, D3 A) : retirer les copies héritées AVANT le premier save d'initDB.
   _stockageNettoyer();
   initDB();
+  // STOCKAGE lot 2 (D2 C) : filets avant migration et copie de la base illisible de plus de 30 jours
+  // retirés d'IndexedDB. Différé : rien d'urgent, on laisse passer le démarrage. Ne lève jamais.
+  setTimeout(() => { try { if (typeof _filetsExpirer === 'function') _filetsExpirer(); } catch (e) {} }, 10000);
   // v15.04 USER-PROFILE-FILTERS Phase 3 : applique le filtre sidebar selon le profil
   // (no-op si tous les modules sont CORE et override vide).
   if (typeof _renderSidebarFiltered === 'function') _renderSidebarFiltered();

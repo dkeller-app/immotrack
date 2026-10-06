@@ -1,0 +1,589 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maquette — Stockage de cet appareil</title><style>@font-face {
+  font-family:'Inter';
+  font-style:normal;
+  font-weight:400 800;
+  font-display:swap;
+  src:url(../../css/fonts/inter-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}@font-face {
+  font-family:'Schibsted Grotesk';
+  font-style:normal;
+  font-weight:400 900;
+  font-display:swap;
+  src:url(../../css/fonts/schibsted-grotesk-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}@font-face {
+  font-family:'Inter';
+  font-style:normal;
+  font-weight:400 800;
+  font-display:swap;
+  src:url(../../css/fonts/inter-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}@font-face {
+  font-family:'Inter';
+  font-style:normal;
+  font-weight:400 800;
+  font-display:swap;
+  src:url(../../css/fonts/inter-vietnamese.woff2) format('woff2');
+  unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0,
+    U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}@font-face {
+  font-family:'Schibsted Grotesk';
+  font-style:normal;
+  font-weight:400 900;
+  font-display:swap;
+  src:url(../../css/fonts/schibsted-grotesk-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+:root {
+  
+  --bg:#f4f5f8;
+  --sur:#ffffff;
+  --sur2:#f7f8fb;
+  --sur3:#eef1f6;
+  --bor:#e4e7ee;
+  --bor2:#eef0f5;
+  --tbl-edge:rgba(0,0,0,.16); 
+  --t1:#101521;
+  --t2:#3c4658;
+  
+  --t3:#5f6f86;
+  
+  --grn:#16795e;
+  --red:#c92f2f;
+  --ora:#8f620e;
+  --pur:#7b6bb0;
+  --acc:#ff5a3c;
+  --acc2:#e8431f;
+  --acc-soft:#ffe7e0;
+  --neutral-soft:#eef1f6;
+  --neutral-ink:#42506a;
+  
+  --pos:#16795e;   --pos-soft:rgba(22,121,94,.10);
+  --neg:#c92f2f;   --neg-soft:rgba(201,47,47,.10);
+  --warn:#8f620e;  --warn-soft:rgba(143,98,14,.10);
+  --info:#42506a;  --info-soft:rgba(66,80,106,.10);
+  
+  --adv:#2e6db1;   --adv-bg:rgba(46,109,177,.12);
+  
+  --grn-bg:rgba(22,121,94,.10);
+  --red-bg:rgba(201,47,47,.10);
+  --ora-bg:rgba(143,98,14,.10);
+  --acc-bg:rgba(255,90,60,.10);
+  --pur-bg:rgba(123,107,176,.10);
+  --gry-bg:rgba(60,70,88,.10);
+  
+  --cta:#ff5a3c;
+  --cta-h:#e8431f;
+  --cta-text:#FFFFFF;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
+  --shadow-hover:0 4px 20px rgba(255,90,60,.16),0 1px 4px rgba(0,0,0,.07);
+  
+  --r:8px;--rl:14px;--rp:999px;
+  --sb:260px;
+  --font-base:17px;
+  --lh:1.56;
+  
+  --fs-hero:36px;
+  --fs-h1:20px;
+  --fs-num:16px;
+  --fs-md:14px;
+  --fs-base:13px;
+  --fs-sm:12px;
+  --fs-xs:10.5px;
+  
+  --focus-ring:0 0 0 3px var(--acc-soft);
+  
+  --bg-success:rgba(22,121,94,.10);
+  --bg-danger:rgba(201,47,47,.10);
+  --bg-warning:rgba(143,98,14,.10);
+  --bg-info:rgba(66,80,106,.10);
+  --fg-success:#16795e;
+  --fg-danger:#c92f2f;
+  --fg-warning:#8f620e;
+  --fg-info:#42506a;
+  
+  --shadow-card:0 1px 2px rgba(0,0,0,.04);
+  --shadow-card-hover:0 4px 16px rgba(255,90,60,.10),0 1px 3px rgba(0,0,0,.05);
+  
+  --t-fast:120ms cubic-bezier(.4,0,.2,1);
+  --t-normal:200ms cubic-bezier(.4,0,.2,1);
+  --t-slow:350ms cubic-bezier(.4,0,.2,1);
+  
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+  --display:'Schibsted Grotesk','Inter',system-ui,sans-serif;
+  
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+[data-theme="dark"] {
+  color-scheme:dark;
+  --bg:#14161d;
+  --sur:#1e222c;
+  --sur2:#262b37;
+  --sur3:#2e3442;
+  --bor:rgba(255,255,255,.12);
+  --bor2:rgba(255,255,255,.08);
+  --tbl-edge:rgba(0,0,0,.55); 
+  --t1:#f2f5fa;
+  --t2:#cdd6e3;
+  --t3:#9aa6b8;
+  --acc:#ff6a4a;
+  --acc2:#ff8163;
+  --acc-soft:rgba(255,106,74,.18);
+  --cta:#ff6a4a;
+  --cta-h:#ff8163;
+  --cta-text:#14161d;
+  --pos:#3fd6a3;
+  --pos-soft:rgba(63,214,163,.12);
+  
+  --neg:#ff7f7f;
+  --neg-soft:rgba(255,127,127,.12);
+  --warn:#f1bd55;
+  --warn-soft:rgba(241,189,85,.12);
+  --info:#aeb9cb;
+  --info-soft:rgba(174,185,203,.12);
+  
+  --adv:#7ab6ea;
+  --adv-bg:rgba(122,182,234,.16);
+  
+  --grn:#3fd6a3;
+  --red:#ff7f7f;
+  --ora:#f1bd55;
+  --pur:#8f7fc4;
+  
+  --grn-bg:rgba(63,214,163,.12);
+  --red-bg:rgba(255,127,127,.12);
+  --ora-bg:rgba(241,189,85,.12);
+  --acc-bg:rgba(255,106,74,.12);
+  --pur-bg:rgba(143,127,196,.12);
+  --gry-bg:rgba(205,214,227,.14);
+  --neutral-soft:rgba(255,255,255,.07);
+  --neutral-ink:#aeb9cb;
+  --bg-success:rgba(63,214,163,.12);
+  --bg-danger:rgba(255,127,127,.12);
+  --bg-warning:rgba(241,189,85,.12);
+  --bg-info:rgba(174,185,203,.12);
+  --fg-success:#3fd6a3;
+  --fg-danger:#ff7f7f;
+  --fg-warning:#f1bd55;
+  --fg-info:#aeb9cb;
+  --shadow:0 0 0 1px rgba(255,255,255,.05);
+  --shadow-lg:0 0 0 1px rgba(255,255,255,.11), 0 40px 90px -40px rgba(0,0,0,.7);
+  --shadow-hover:0 0 0 1px rgba(255,255,255,.09);
+  --shadow-card:0 0 0 1px rgba(255,255,255,.06);
+  --shadow-card-hover:0 0 0 1px rgba(255,255,255,.12);
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--t1);font-family:var(--font);font-size:var(--fs-md);line-height:var(--lh)}
+.intro{max-width:1300px;margin:0 auto;padding:24px;color:var(--t1)}.intro h1{font-family:var(--display);font-size:var(--fs-h1);margin:0 0 8px}.intro p{margin:6px 0;font-size:14px;color:var(--t2)}.intro .note{color:var(--t2)}
+code{font-family:var(--mono)}
+.stage{background:var(--bg);color:var(--t1);padding:24px 0;border-top:4px solid var(--acc)}
+.inner{max-width:1840px;margin:0 auto;padding:0 24px}
+.stage h2{font-family:var(--display);font-size:24px;margin:0 0 8px}
+.stage h3{font-size:16px;margin:32px 0 10px;color:var(--t1)}
+.stage h4{font-size:14px;margin:0 0 8px;color:var(--t2)}
+.fmts{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+figure{margin:0}figcaption{font-size:13px;color:var(--t2);margin-bottom:6px}
+.frame{border:1px dashed var(--bor);border-radius:var(--rl);padding:12px;background:var(--bg);max-width:100%}
+.frame.ph{width:375px}.frame.tab{width:768px}.frame.pcf{width:520px}.frame.pcpage{width:1280px;padding:0;display:flex;overflow:hidden;border-style:solid}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.pcpage .side{width:260px;background:var(--sur);border-right:1px solid var(--bor);padding:20px;display:flex;flex-direction:column;gap:12px;font-size:14px;color:var(--t2)}
+.pcpage .side .on{color:var(--acc);font-weight:700}.pcpage .main{flex:1;padding:24px}.pcpage h1{font-family:var(--display);font-size:var(--fs-h1);margin:0 0 14px}
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:20px;box-shadow:var(--shadow)}
+.ct{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;margin-top:24px}.ct:first-child{margin-top:0}
+.ph .ct{font-size:18px}
+.mu{color:var(--t2)}.sm{font-size:12.5px}.mb8{margin-bottom:8px}
+.flex-b{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap;font-family:var(--font)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border:1px solid transparent;border-radius:var(--rp);font-size:13px;font-weight:600;text-align:right}
+.badge.grn{background:var(--grn-bg);color:var(--grn);border-color:var(--grn)}
+.badge.cor{background:var(--acc-bg);color:var(--t1);border-color:var(--acc)}
+.badge.gry{background:var(--gry-bg);color:var(--t2);border-color:var(--t2)}
+.badge .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
+.alert{padding:11px 16px;border-radius:var(--r);font-size:13.5px;border:1px solid var(--bor);background:var(--info-soft);color:var(--info)}
+.stk .sub{margin:-6px 0 12px;font-size:13px}
+.stk .row{padding:10px 0;border-bottom:1px solid var(--bor2);font-size:14px}.stk .row.last{border-bottom:0}
+.stk .row .flex-b{align-items:flex-start;min-width:0}
+.stk .row b{text-align:right;font-weight:600;overflow-wrap:anywhere}.stk .row .mu{overflow-wrap:anywhere}
+.stk .expl{margin:6px 0 0;font-size:13px;overflow-wrap:anywhere}
+.ph .stk .row .flex-b{flex-wrap:wrap}.ph .stk .row b.r{text-align:left;flex-basis:100%}
+.bar{height:6px;border-radius:var(--rp);background:var(--sur3);margin-top:8px;overflow:hidden}.bar span{display:block;height:100%;background:var(--t3);border-radius:var(--rp)}.bar.hot span{background:var(--acc)}
+.stk .foot{margin-top:14px}.stk .foot .btn{min-height:44px;font-size:14px}.ph .stk .foot .btn{width:100%;justify-content:center}
+.trow{display:flex;flex-direction:column;gap:20px}.tf{padding:12px}.pcf.tf{width:520px}
+.toast{background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:12px 18px;font-size:13.5px;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:6px;margin-top:6px}
+.toast{color:var(--t1)}.toast svg{flex-shrink:0;color:var(--acc)}.toast.cor{border-color:var(--acc);background:var(--acc-bg)}.toast.ref{box-shadow:none;border-style:dashed;color:var(--t2)}
+.ct{display:flex;align-items:center}.ct .ti{display:inline-flex;margin-right:8px;color:var(--t3)}.toast{align-items:flex-start;gap:10px}
+.ph .toast{margin:0}.toast.pc{max-width:420px;margin-left:auto}
+.ba{border:1px solid var(--bor);border-radius:var(--rl);padding:14px;background:var(--sur)}.g2s{display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px;color:var(--t2)}
+@media(max-width:800px){.g2s{grid-template-columns:1fr}.intro,.inner{padding-left:16px;padding-right:16px}}
+.badge.cor .dot{background:var(--acc)}
+</style></head><body>
+<header class="intro"><h1>Maquette : carte « Stockage de cet appareil »</h1>
+<p>Maquette statique (aucun code applicatif touché). La carte remplace la ligne « Taille base de données — N KB / ~10 MB » de la carte « Statistiques base », dont les compteurs (Mouvements, Logements…) restent. Elle est montrée pour les 5 états de la ligne « Copie hors ligne », en téléphone, tablette et PC, en thème clair puis sombre, puis avec les trois messages (toasts) T1 à T3. Tokens et classes recopiés de <code>css/main.css</code>.</p>
+<p class="note">Conformité charte : line-icons SVG currentColor à la place des emoji (M-9), registre neutre sans tutoiement (M-13), pas de rouge ni d'orange : corail pour l'alerte, vert pour le positif, neutre pour le reste (M-15), pastilles à 13 px (M-17). Le texte des pastilles corail reste en encre (--t1) sur fond corail teinté : le corail en texte fin n'atteint pas 4,5:1. Les couleurs de toast de la maquette sont une proposition : le #toast actuel colore tout le texte (var(--ora) / var(--red)).</p></header>
+<section class="stage" data-theme="light"><div class="inner"><h2>Thème clair</h2>
+<h3>A. À jour</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge grn"><i class="dot"></i>À jour</span></div><p class="mu sm expl">Dernière mise à jour aujourd'hui à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge grn"><i class="dot"></i>À jour</span></div><p class="mu sm expl">Dernière mise à jour aujourd'hui à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge grn"><i class="dot"></i>À jour</span></div><p class="mu sm expl">Dernière mise à jour aujourd'hui à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div><h3>B. Mode réduit</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Mode réduit</span></div><p class="mu sm expl">Ce navigateur refuse le stockage étendu (navigation privée ?). La copie hors ligne est limitée à environ 5 Mo sur cet appareil.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>2,6 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="2,6 Mo sur ~5 Mo"><span style="width:52%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Mode réduit</span></div><p class="mu sm expl">Ce navigateur refuse le stockage étendu (navigation privée ?). La copie hors ligne est limitée à environ 5 Mo sur cet appareil.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>2,6 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="2,6 Mo sur ~5 Mo"><span style="width:52%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Mode réduit</span></div><p class="mu sm expl">Ce navigateur refuse le stockage étendu (navigation privée ?). La copie hors ligne est limitée à environ 5 Mo sur cet appareil.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>2,6 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="2,6 Mo sur ~5 Mo"><span style="width:52%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div><h3>C. Pas à jour depuis le 06/10 à 14:32</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Pas à jour depuis le 06/10 à 14:32</span></div><p class="mu sm expl">Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données du 06/10 à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>4,9 Mo sur ~5 Mo</b></div><div class="bar hot" role="img" aria-label="4,9 Mo sur ~5 Mo"><span style="width:98%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Pas à jour depuis le 06/10 à 14:32</span></div><p class="mu sm expl">Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données du 06/10 à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>4,9 Mo sur ~5 Mo</b></div><div class="bar hot" role="img" aria-label="4,9 Mo sur ~5 Mo"><span style="width:98%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Pas à jour depuis le 06/10 à 14:32</span></div><p class="mu sm expl">Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données du 06/10 à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>4,9 Mo sur ~5 Mo</b></div><div class="bar hot" role="img" aria-label="4,9 Mo sur ~5 Mo"><span style="width:98%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div><h3>D. Incomplète</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Incomplète</span></div><p class="mu sm expl">La base ne tient pas entièrement sur cet appareil : sans réseau, les données affichées seraient anciennes.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>3,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="3,1 Mo sur ~5 Mo"><span style="width:62%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Incomplète</span></div><p class="mu sm expl">La base ne tient pas entièrement sur cet appareil : sans réseau, les données affichées seraient anciennes.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>3,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="3,1 Mo sur ~5 Mo"><span style="width:62%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Incomplète</span></div><p class="mu sm expl">La base ne tient pas entièrement sur cet appareil : sans réseau, les données affichées seraient anciennes.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>3,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="3,1 Mo sur ~5 Mo"><span style="width:62%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div><h3>E. Base de test (sandbox)</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge gry"><i class="dot"></i>Base de test</span></div><p class="mu sm expl">Mode test : les données sont gardées dans ce navigateur uniquement.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge gry"><i class="dot"></i>Base de test</span></div><p class="mu sm expl">Mode test : les données sont gardées dans ce navigateur uniquement.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge gry"><i class="dot"></i>Base de test</span></div><p class="mu sm expl">Mode test : les données sont gardées dans ce navigateur uniquement.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div>
+<h3>Page Réglages en PC (1280 px), état A</h3>
+<figure><div class="frame pcpage"><div class="side"><b>Propryo</b><span>Accueil</span><span>Biens</span><span class="on">Réglages</span></div><div class="main"><h1>Réglages</h1><div class="grid2"><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge grn"><i class="dot"></i>À jour</span></div><p class="mu sm expl">Dernière mise à jour aujourd'hui à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Relais candidatures</div><div class="mu sm mb8">Envoyer à un candidat un lien sécurisé pour déposer son dossier en ligne (sans compte).</div><div class="alert info mb8">✓ Même configuration que le relais de signature.</div><button class="btn bs">Tester la connexion</button></div></div></div></div></figure>
+<h3>Messages (toasts)</h3><div class="trow"><div class="tcell"><h4>T1 — En ligne, copie locale non mise à jour (neutre, icône corail, une fois par session)</h4>
+ <div class="fmts"><figure><figcaption>Téléphone</figcaption><div class="frame ph tf"><div class="toast info "><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Copie de secours de cet appareil non mise à jour. La modification est bien enregistrée dans le cloud ; sans réseau, cet appareil afficherait des données plus anciennes. Détail : Réglages → Stockage de cet appareil.</span></div></div></figure>
+ <figure><figcaption>PC</figcaption><div class="frame pcf tf"><div class="toast info pc"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Copie de secours de cet appareil non mise à jour. La modification est bien enregistrée dans le cloud ; sans réseau, cet appareil afficherait des données plus anciennes. Détail : Réglages → Stockage de cet appareil.</span></div></div></figure></div></div><div class="tcell"><h4>T2 — Hors ligne, stockage plein (alerte corail)</h4>
+ <div class="fmts"><figure><figcaption>Téléphone</figcaption><div class="frame ph tf"><div class="toast cor "><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Stockage de cet appareil plein : cette modification n'est PAS enregistrée. La refaire une fois le réseau revenu.</span></div></div></figure>
+ <figure><figcaption>PC</figcaption><div class="frame pcf tf"><div class="toast cor pc"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Stockage de cet appareil plein : cette modification n'est PAS enregistrée. La refaire une fois le réseau revenu.</span></div></div></figure></div></div><div class="tcell"><h4>T3 — Sandbox, stockage plein (alerte corail)</h4>
+ <div class="fmts"><figure><figcaption>Téléphone</figcaption><div class="frame ph tf"><div class="toast cor "><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Stockage de cet appareil plein : cette modification n'est PAS enregistrée. Vider la base de test pour libérer de la place.</span></div></div></figure>
+ <figure><figcaption>PC</figcaption><div class="frame pcf tf"><div class="toast cor pc"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Stockage de cet appareil plein : cette modification n'est PAS enregistrée. Vider la base de test pour libérer de la place.</span></div></div></figure></div></div>
+ <div class="ba"><h4>Avant / après — T1</h4><div class="g2s"><div><b>Avant</b> (en ligne, alors que le cloud avait reçu la modification)<div class="toast ref"><span>« ⚠️ Mémoire pleine : cette modification n'est PAS enregistrée sur cet appareil. Libère de l'espace, puis reprends. »</span></div></div><div><b>Après</b> (T1, neutre, icône corail, une fois par session)<div class="toast info "><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Copie de secours de cet appareil non mise à jour. La modification est bien enregistrée dans le cloud ; sans réseau, cet appareil afficherait des données plus anciennes. Détail : Réglages → Stockage de cet appareil.</span></div></div></div></div></div>
+</div></section><section class="stage" data-theme="dark"><div class="inner"><h2>Thème sombre</h2>
+<h3>A. À jour</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge grn"><i class="dot"></i>À jour</span></div><p class="mu sm expl">Dernière mise à jour aujourd'hui à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge grn"><i class="dot"></i>À jour</span></div><p class="mu sm expl">Dernière mise à jour aujourd'hui à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge grn"><i class="dot"></i>À jour</span></div><p class="mu sm expl">Dernière mise à jour aujourd'hui à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div><h3>B. Mode réduit</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Mode réduit</span></div><p class="mu sm expl">Ce navigateur refuse le stockage étendu (navigation privée ?). La copie hors ligne est limitée à environ 5 Mo sur cet appareil.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>2,6 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="2,6 Mo sur ~5 Mo"><span style="width:52%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Mode réduit</span></div><p class="mu sm expl">Ce navigateur refuse le stockage étendu (navigation privée ?). La copie hors ligne est limitée à environ 5 Mo sur cet appareil.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>2,6 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="2,6 Mo sur ~5 Mo"><span style="width:52%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Mode réduit</span></div><p class="mu sm expl">Ce navigateur refuse le stockage étendu (navigation privée ?). La copie hors ligne est limitée à environ 5 Mo sur cet appareil.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>2,6 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="2,6 Mo sur ~5 Mo"><span style="width:52%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div><h3>C. Pas à jour depuis le 06/10 à 14:32</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Pas à jour depuis le 06/10 à 14:32</span></div><p class="mu sm expl">Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données du 06/10 à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>4,9 Mo sur ~5 Mo</b></div><div class="bar hot" role="img" aria-label="4,9 Mo sur ~5 Mo"><span style="width:98%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Pas à jour depuis le 06/10 à 14:32</span></div><p class="mu sm expl">Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données du 06/10 à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>4,9 Mo sur ~5 Mo</b></div><div class="bar hot" role="img" aria-label="4,9 Mo sur ~5 Mo"><span style="width:98%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Pas à jour depuis le 06/10 à 14:32</span></div><p class="mu sm expl">Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données du 06/10 à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>4,9 Mo sur ~5 Mo</b></div><div class="bar hot" role="img" aria-label="4,9 Mo sur ~5 Mo"><span style="width:98%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div><h3>D. Incomplète</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Incomplète</span></div><p class="mu sm expl">La base ne tient pas entièrement sur cet appareil : sans réseau, les données affichées seraient anciennes.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>3,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="3,1 Mo sur ~5 Mo"><span style="width:62%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Incomplète</span></div><p class="mu sm expl">La base ne tient pas entièrement sur cet appareil : sans réseau, les données affichées seraient anciennes.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>3,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="3,1 Mo sur ~5 Mo"><span style="width:62%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge cor"><i class="dot"></i>Incomplète</span></div><p class="mu sm expl">La base ne tient pas entièrement sur cet appareil : sans réseau, les données affichées seraient anciennes.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>3,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="3,1 Mo sur ~5 Mo"><span style="width:62%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">Aucune</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div><h3>E. Base de test (sandbox)</h3><div class="fmts">
+ <figure><figcaption>Téléphone 375 px</figcaption><div class="frame ph"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge gry"><i class="dot"></i>Base de test</span></div><p class="mu sm expl">Mode test : les données sont gardées dans ce navigateur uniquement.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure>
+ <figure><figcaption>Tablette 768 px (grille 2 colonnes)</figcaption><div class="frame tab"><div class="grid2"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge gry"><i class="dot"></i>Base de test</span></div><p class="mu sm expl">Mode test : les données sont gardées dans ce navigateur uniquement.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div></div></div></figure>
+ <figure><figcaption>PC (colonne de la grille, ≈ 480 px)</figcaption><div class="frame pcf"><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge gry"><i class="dot"></i>Base de test</span></div><p class="mu sm expl">Mode test : les données sont gardées dans ce navigateur uniquement.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div></div></figure></div>
+<h3>Page Réglages en PC (1280 px), état A</h3>
+<figure><div class="frame pcpage"><div class="side"><b>Propryo</b><span>Accueil</span><span>Biens</span><span class="on">Réglages</span></div><div class="main"><h1>Réglages</h1><div class="grid2"><div class="card"><div class="ct">Statistiques base</div>
+<div class="flex-b mb8"><span class="mu">Mouvements</span><b>412</b></div><div class="flex-b mb8"><span class="mu">Logements</span><b>18</b></div><div class="flex-b mb8"><span class="mu">Baux</span><b>21</b></div><div class="flex-b mb8"><span class="mu">Quittances</span><b>356</b></div><div class="flex-b mb8"><span class="mu">EDL</span><b>27</b></div><div class="flex-b mb8"><span class="mu">Assurances</span><b>34</b></div></div><div class="card stk" >
+ <div class="ct"><span class="ti"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>Stockage de cet appareil</div>
+ <p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>
+ <div class="row"><div class="flex-b"><span class="mu">Copie hors ligne</span><span class="badge grn"><i class="dot"></i>À jour</span></div><p class="mu sm expl">Dernière mise à jour aujourd'hui à 14:32.</p></div>
+ <div class="row"><div class="flex-b"><span class="mu">Taille de la base</span><b>2,4 Mo</b></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Stockage local du navigateur</span><b>0,1 Mo sur ~5 Mo</b></div><div class="bar " role="img" aria-label="0,1 Mo sur ~5 Mo"><span style="width:2%"></span></div></div>
+ <div class="row"><div class="flex-b"><span class="mu">Espace de l'app sur cet appareil</span><b class="r">42 Mo utilisés, photos comprises</b></div></div>
+ <div class="row last"><div class="flex-b"><span class="mu">Copies avant migration</span><b class="r">2 · retirées après 30 jours et à la déconnexion</b></div></div>
+ <div class="foot"><button class="btn bs">Détail technique</button></div>
+</div><div class="card"><div class="ct">Relais candidatures</div><div class="mu sm mb8">Envoyer à un candidat un lien sécurisé pour déposer son dossier en ligne (sans compte).</div><div class="alert info mb8">✓ Même configuration que le relais de signature.</div><button class="btn bs">Tester la connexion</button></div></div></div></div></figure>
+<h3>Messages (toasts)</h3><div class="trow"><div class="tcell"><h4>T1 — En ligne, copie locale non mise à jour (neutre, icône corail, une fois par session)</h4>
+ <div class="fmts"><figure><figcaption>Téléphone</figcaption><div class="frame ph tf"><div class="toast info "><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Copie de secours de cet appareil non mise à jour. La modification est bien enregistrée dans le cloud ; sans réseau, cet appareil afficherait des données plus anciennes. Détail : Réglages → Stockage de cet appareil.</span></div></div></figure>
+ <figure><figcaption>PC</figcaption><div class="frame pcf tf"><div class="toast info pc"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Copie de secours de cet appareil non mise à jour. La modification est bien enregistrée dans le cloud ; sans réseau, cet appareil afficherait des données plus anciennes. Détail : Réglages → Stockage de cet appareil.</span></div></div></figure></div></div><div class="tcell"><h4>T2 — Hors ligne, stockage plein (alerte corail)</h4>
+ <div class="fmts"><figure><figcaption>Téléphone</figcaption><div class="frame ph tf"><div class="toast cor "><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Stockage de cet appareil plein : cette modification n'est PAS enregistrée. La refaire une fois le réseau revenu.</span></div></div></figure>
+ <figure><figcaption>PC</figcaption><div class="frame pcf tf"><div class="toast cor pc"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Stockage de cet appareil plein : cette modification n'est PAS enregistrée. La refaire une fois le réseau revenu.</span></div></div></figure></div></div><div class="tcell"><h4>T3 — Sandbox, stockage plein (alerte corail)</h4>
+ <div class="fmts"><figure><figcaption>Téléphone</figcaption><div class="frame ph tf"><div class="toast cor "><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Stockage de cet appareil plein : cette modification n'est PAS enregistrée. Vider la base de test pour libérer de la place.</span></div></div></figure>
+ <figure><figcaption>PC</figcaption><div class="frame pcf tf"><div class="toast cor pc"><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Stockage de cet appareil plein : cette modification n'est PAS enregistrée. Vider la base de test pour libérer de la place.</span></div></div></figure></div></div>
+ <div class="ba"><h4>Avant / après — T1</h4><div class="g2s"><div><b>Avant</b> (en ligne, alors que le cloud avait reçu la modification)<div class="toast ref"><span>« ⚠️ Mémoire pleine : cette modification n'est PAS enregistrée sur cet appareil. Libère de l'espace, puis reprends. »</span></div></div><div><b>Après</b> (T1, neutre, icône corail, une fois par session)<div class="toast info "><svg class="uic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><span>Copie de secours de cet appareil non mise à jour. La modification est bien enregistrée dans le cloud ; sans réseau, cet appareil afficherait des données plus anciennes. Détail : Réglages → Stockage de cet appareil.</span></div></div></div></div></div>
+</div></section></body></html>

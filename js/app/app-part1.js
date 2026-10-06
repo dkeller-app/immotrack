@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.712';
+const IMMOTRACK_VERSION = '15.724';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -36,6 +36,7 @@ function _uiIcon(name, size) {
     receipt:'<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     camera:'<path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/>',
     lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
+    appareil:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
     home:'<path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/>',
     building:'<path d="M4 21V4h16v17"/><path d="M8 8h2M14 8h2M8 12h2M14 12h2M8 16h2M14 16h2"/>',
     calendar:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16M9 3v4M15 3v4"/>',
@@ -387,10 +388,10 @@ const STD_CATEGORIES = [
   { nom: 'Frais bancaires',                                 ligne2044:'',    type:'special', gestionCharge:true, niv:'sci', icon:'🏦', editable:false, deletable:false, std:true, descHors:'Frais de tenue de compte — couverts par le forfait légal de 20 €/logement (ligne 222, auto) → NON déductibles en double au 2044. Réduisent le résultat de gestion. Exception : agios/frais d\'un EMPRUNT → Prêt — Intérêts d\'emprunt (250).' },
   { nom: 'Acquisition / cession de bien',                   ligne2044:'',    type:'special', niv:'imm', icon:'🔑', editable:false, deletable:false, std:true, descHors:'Frais d\'acquisition (notaire, droits, agence à l\'achat) / prix de vente — relèvent de la plus-value (régime séparé).' },
   { nom: 'Dépôt de garantie (reçu / restitué)',             ligne2044:'',    type:'special', niv:'log', icon:'🔒', editable:false, deletable:false, std:true, descHors:'DG encaissé à l\'entrée (non imposable) ou restitué à la sortie. Devient imposable (213) seulement s\'il est conservé pour impayés.' },
-  { nom: 'Travaux de construction / agrandissement (non déductible)', ligne2044:'', type:'special', icon:'🧱', editable:false, deletable:false, std:true, descHors:'Construction / reconstruction / agrandissement — NON déductible des revenus fonciers (≠ entretien). S\'ajoute au prix de revient pour la plus-value.' },
+  { nom: 'Travaux de construction / agrandissement (non déductible)', ligne2044:'', type:'special', chargeHf:'construction', icon:'🧱', editable:false, deletable:false, std:true, descHors:'Construction / reconstruction / agrandissement — NON déductible des revenus fonciers (≠ entretien). S\'ajoute au prix de revient pour la plus-value.' },
   { nom: 'Virement interne (non déclarable)',               ligne2044:'',    type:'special', icon:'🔁', editable:false, deletable:false, std:true, descHors:'Transfert entre 2 comptes du bailleur — ne rien déclarer (détection auto des paires = sujet FEAT-VIR-INTERNE).' },
   { nom: 'CCA / distribution SCI',                          ligne2044:'',    type:'special', niv:'sci', icon:'🏦', editable:false, deletable:false, std:true, descHors:'Compte courant d\'associé (apport / retrait) ou distribution de résultat — trésorerie entre la SCI et ses associés, hors résultat foncier.' },
-  { nom: 'Divers (non déductible)',                         ligne2044:'',    type:'special', icon:'📋', editable:false, deletable:false, std:true, descHors:'Péage, carburant, tablette/matériel, repas, dépenses perso… — hors champ foncier (déplacement/matériel déjà dans le forfait 222). Le règlement d\'un solde de régularisation de charges par un locataire se classe en « Charges récupérables (eau, énergie…) », pas ici.' },
+  { nom: 'Divers (non déductible)',                         ligne2044:'',    type:'special', chargeHf:'nonDeductible', icon:'📋', editable:false, deletable:false, std:true, descHors:'Péage, carburant, tablette/matériel, repas, dépenses perso… — hors champ foncier (déplacement/matériel déjà dans le forfait 222). Le règlement d\'un solde de régularisation de charges par un locataire se classe en « Charges récupérables (eau, énergie…) », pas ici.' },
   { nom: 'Acompte de charges (départ)',                     ligne2044:'',    type:'special', niv:'log', icon:'🏁', editable:false, deletable:false, std:true, descHors:'Acompte versé par un locataire partant, en anticipation de la régularisation des charges. Neutre au 2044 ; imputé sur le décompte final. À ne PAS confondre avec un loyer (sinon compté deux fois).' },
   // ── AUTO — calculées par l'app (régul), HORS menu de saisie ; gardées pour le mapping 2044 ──
   { nom: 'Charges récupérables non récupérées',             ligne2044:'225', type:'charge',  auto:true, icon:'⚡', editable:false, deletable:false, std:true, descHors:'Part avancée par le bailleur et non remboursée au départ du locataire — calculée automatiquement par la régularisation (computeRegul). Tu ne la tagues jamais.' },
@@ -555,15 +556,6 @@ function _catIconHTML(nom) {
 // STD_CATEGORIES + DB.catAlias + les mappings legacy. Le monolithe ne fait plus qu’appeler.
 // Recette assimilée (ligne 213 : indemnités GLI, assurance, subventions, recettes diverses).
 function _isRecette213(cat) { return _catLigne2044(cat) === '213'; }
-// Catégories comptées dans le « réalisé » du dashboard : loyers (211) + (si réglage actif)
-// recettes assimilées (213). Remplace les anciennes cases manuelles « Loyer perçu ».
-// Défaut = inclure les 213 (préserve le comportement historique : GLI comptait dans le réalisé).
-function _realiseInclCat(cat) {
-  if (_isLoyerCategory(cat)) return true;
-  const incl213 = !(DB.params && DB.params.realiseInclut213 === false);
-  return incl213 && _isRecette213(cat);
-}
-
 // v14.83 BUG-DASH-001 — Sprint 1D
 // Helpers temporels pour dashboard : récupérer le loyer/charges en vigueur à
 // une date donnée, et savoir si un bail était actif à cette date.
@@ -1492,7 +1484,7 @@ function _applyDataDefaults() {
   if (!DB.params) DB.params = {};
   // catConfig — annotations par catégorie. NORMALISATION-LOYERS (01/10) : plus de réinjection de
   // catConfig['Loyers'] à chaque chargement (catégorie héritée, normalisée en « Loyers encaissés » ;
-  // le « réalisé » se déduit de la ligne 2044, cf _realiseInclCat — inclYTD n'est plus lu).
+  // le « réalisé » se déduit de la ligne 2044 — inclYTD n'est plus lu).
   if(!DB.catConfig) DB.catConfig = {};
   // v14.61 CHARGES-COMMUNES — préparation reporting bailleur (v14.64) et 2044 (v14.65) :
   // chaque catégorie peut être annotée { recuperable: true|false, deductible2044: 'ligne' }.
@@ -1607,7 +1599,7 @@ function initDB() {
         _copieIllisible.then(conservee => {
           if (typeof showToast !== 'function') return;
           showToast(conservee
-            ? "⚠ Base locale illisible : une copie a été conservée dans l'IndexedDB de cet appareil (base « immotrack_backup »). Restaurer une sauvegarde de sécurité pour retrouver les données."
+            ? "⚠ Base locale illisible : une copie a été conservée 30 jours dans l'IndexedDB de cet appareil (base « immotrack_backup »). Restaurer une sauvegarde de sécurité pour retrouver les données."
             : "⚠ Base locale illisible, et sa copie n'a pas pu être conservée sur cet appareil. Restaurer une sauvegarde de sécurité pour retrouver les données.", 'err', 12000);
         });
       }, 1500);
@@ -1902,7 +1894,8 @@ function agendaId() {
 // Loi du 6 juillet 1989 (résidence principale) :
 //   - Bail nu (3 ans)        → préavis bailleur 6 mois avant échéance
 //   - Bail meublé (1 an)     → préavis bailleur 3 mois avant échéance
-//   - Bail mobilité (1-10m)  → pas de tacite reconduction, pas de préavis
+//   - Bail mobilité (1-10m)  → pas de tacite reconduction, pas de congé bailleur (art. 25-14)
+//   - Étudiant (9 m), garage, autre → pas de préavis bailleur avant échéance (BAUX-ECHUS, bail-echeance.js)
 // Source : `bail.typeContrat` ou `log.typeUsage` (renseigné dans la modale logement).
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1929,97 +1922,196 @@ function _bailIsMeuble(bail, log) {
   return t === 'meuble' || t === 'etudiant' || t === 'mobilite';
 }
 
-// Détermine si un bail est mobilité (pas de préavis, pas de tacite reconduction).
+// Détermine si un bail est mobilité (pas de congé bailleur, pas de tacite reconduction ; préavis
+// locataire d'un mois, art. 25-15).
 function _bailIsMobilite(bail, log) {
   if(!bail) return false;
   return _bailTypeEff(bail, log) === 'mobilite';
 }
 
-// v14.49 — Durée standard d'un bail en mois selon type + nature du bailleur.
-// Loi du 6 juillet 1989 :
-//   - Nu particulier : 3 ans (36 mois)
-//   - Nu personne morale (SCI, SARL...) : 6 ans (72 mois)
-//   - Meublé : 1 an (12 mois)
-//   - Étudiant : 9 mois (pas de tacite reconduction)
-//   - Mobilité : 1-10 mois (pas de tacite reconduction)
-//   - Garage / Autre : durée libre → on retombe sur la durée « nu » (inchangé vs avant le fix)
+// BAUX-ECHUS — LA règle d'échéance vit dans js/core/bail-echeance.js (window.BailEcheance, mirror
+// chargé AVANT ce fichier). Contexte commun : le type du bailleur (art. 10 / 13) et la date du jour
+// LOCALE (td() est UTC : entre minuit et 2 h, il désigne la veille).
+function _bailEcheanceOpts(bail, log) {
+  const entNom = (bail && bail.entity) || (log && log.entity);
+  const ent = entNom ? ((DB.entites||[]).find(e => e && e.nom === entNom) || null) : null;
+  const W = (typeof window !== 'undefined') ? window : null;
+  const todayIso = (W && typeof W._loyerTodayLocal === 'function') ? W._loyerTodayLocal() : _isoLocal(new Date());
+  return { typeEntite: (ent && ent.type) || '', todayIso, fd: (typeof fd === 'function') ? fd : undefined };
+}
+/** L'échéance d'un bail selon sa règle (module) — null si le module n'est pas chargé. */
+function _bailEcheance(bail, log) {
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(!bail || !BE || typeof BE.echeanceBail !== 'function') return null;
+  return BE.echeanceBail(bail, log, _bailEcheanceOpts(bail, log));
+}
+
+// Durée d'un CYCLE de reconduction en mois (sert la date d'effet du congé bailleur, qui ne vise que
+// nu et meublé). Nu : 3 ans (personne physique, art. 13 : SCI familiale, indivision) ou 6 ans
+// (personne morale) — art. 10 al. 3, lu dans bail-duree.js (plus de regex « sci » qui envoyait une SCI
+// familiale à 6 ans). Meublé : 1 an (art. 25-7 al. 3). Étudiant : 9 mois. Autres : pas de cycle légal,
+// repli sur la durée du nu (inchangé).
 function _bailDureeMois(bail, log, ent) {
   const t = _bailTypeEff(bail, log);
-  if(t === 'mobilite') return 6; // pas de tacite, valeur par défaut
+  if(t === 'mobilite') return 6; // pas de reconduction : valeur par défaut, jamais lue pour un congé
   if(t === 'etudiant') return 9;
   if(t === 'meuble') return 12;
-  // Bail nu (+ garage/autre, durée libre) : durée selon nature du bailleur
+  const W = (typeof window !== 'undefined') ? window : null;
+  const RB = (W && W.BailDuree && typeof W.BailDuree.regimeBailleur === 'function') ? W.BailDuree.regimeBailleur
+    : ((W && typeof W.regimeBailleur === 'function') ? W.regimeBailleur : null);
+  if(RB) return RB((ent && ent.type) || '').ans * 12;
   const entType = (ent?.type || '').toLowerCase();
   const isPersonneMorale = /sci|sarl|sas|sasu|eurl|snc|société|societe|gfa|sccv/.test(entType);
   return isPersonneMorale ? 72 : 36;
 }
 
-// v15.343 BUG-STATUT-TACITE — Types de bail bénéficiant de la tacite reconduction.
-// Aligné sur __tests__/helpers/bail-types.js → isTaciteReconductionAllowed (source légale) :
-//   • nu (3/6 ans) + meublé (1 an)        → reconductibles
-//   • étudiant (9 mois) / mobilité / garage / autre (régime libre) → NON reconductibles
-// Un type inconnu/legacy (bail.type absent) vaut « nu » → reconductible.
+// v15.343 BUG-STATUT-TACITE — la LOI reconduit-elle ce type ? nu (art. 10) et meublé (art. 25-7 al. 3)
+// oui ; étudiant (art. 25-7 al. 4) et mobilité (art. 25-14 al. 1) jamais ; garage / autre : c'est le
+// CONTRAT qui décide (BailEcheance.regleReconduction). Un type inconnu/legacy vaut « nu ».
 function _bailTypeHasTacite(type) {
   const t = type || 'nu';
-  // Liste noire = miroir exact de isTaciteReconductionAllowed (bail-types.js) :
-  // tout type non explicitement non-reconductible bénéficie de la tacite. Défaut
-  // sûr → un type legacy/importé inconnu n'est jamais marqué « échu » à tort.
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(BE && typeof BE.reconductionLegale === 'function') return BE.reconductionLegale(t);
   return t !== 'etudiant' && t !== 'mobilite' && t !== 'garage' && t !== 'autre';
 }
 
-// v14.49 — Calcule la date de fin EFFECTIVE pour le préavis (avec tacite reconduction).
-// Cas couverts :
-//   1. bail.fin renseignée + future → utilise bail.fin
-//   2. bail.fin renseignée + passée → tacite reconduction, avance par tranches `dureeMois`
-//      jusqu'à dépasser today (3 ans pour nu, 1 an pour meublé)
-//   3. bail.fin VIDE + bail.debut → calcule la fin théorique = debut + dureeMois,
-//      puis applique la même tacite reconduction si nécessaire
-// Retourne null si bail clôturé / mobilité / sans debut.
-function _bailEcheanceEffective(bail, log) {
-  if(!bail || !bail.debut) return null;
-  if(bail.cloture || bail.finEffective) return null; // bail terminé
-  if(_bailIsMobilite(bail, log)) return null; // mobilité = pas de tacite, pas de préavis
-
-  // Lookup entité (priorité bail.entity, fallback log.entity) pour distinguer particulier/personne morale
-  const entNom = bail.entity || log?.entity;
-  const ent = entNom ? (DB.entites||[]).find(e => e.nom === entNom) : null;
-  const dureeMois = _bailDureeMois(bail, log, ent);
-
-  // Fin de référence : bail.fin si renseignée, sinon debut + dureeMois (fin théorique calculée)
-  let finRefIso = bail.fin;
-  if(!finRefIso) {
-    const debutD = new Date(bail.debut + 'T00:00:00');
-    debutD.setMonth(debutD.getMonth() + dureeMois);
-    finRefIso = _isoLocal(debutD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
-  }
-
-  const todayMs = Date.now();
-  const finD = new Date(finRefIso + 'T00:00:00');
-  // Tacite reconduction : avancer par tranches dureeMois (cycle = durée du bail) jusqu'à dépasser today
-  while(finD.getTime() <= todayMs) {
-    finD.setMonth(finD.getMonth() + dureeMois);
-  }
-  return _isoLocal(finD); // format LOCAL (toISOString décale d'un jour en fuseau UTC+, ex. Paris)
+// LA fin d'OCCUPATION d'un bail ('' = occupation ouverte) — lecture UNIQUE pour la régularisation
+// des charges, les compteurs collectifs et l'historique des baux d'un logement (_getAllBailsForLog).
+// Un bail ne se termine que par sa CLÔTURE : `finEffective`, ou sa fin si le bail est clôturé /
+// archivé (`clos` = ligne de DB.baux_historique). Bail en cours : sa fin contractuelle est IGNORÉE,
+// QUEL QUE SOIT SON TYPE (décision Didier 05/10) — nu / meublé reconduits tacitement ; étudiant,
+// mobilité, garage, autre échus mais non clôturés : occupés jusqu'à la clôture (alerte « bail échu »).
+// Avant : la fin contractuelle d'un bail nu reconduit coupait l'occupation → les mois suivants
+// devenaient une « vacance » portée par le bailleur (et réinjectée en 2044 ligne 225).
+// Départ DÉCLARÉ (`bail.depart.dateSortie`, assistant de départ — _departSaveDeclare) sur un bail encore
+// en cours : c'est lui qui borne l'occupation — sinon l'étape régularisation (occupation ouverte) et
+// l'étape restitution du DG (bornée au départ) donnaient deux soldes de tout compte.
+// LA règle vit dans le module pur js/core/loyer-du-mois.js (`finOccupationBail`, exposé par main.js) : le
+// dû (bailsFromRaw → duMois) et l'occupation lisent la MÊME. Repli DÉGRADÉ si les modules ne sont pas
+// chargés (file://, comme le repli prorata de _duMoisLot) : seule la clôture borne.
+function _bailFinOccupation(bail, clos) {
+  const W = (typeof window !== 'undefined') ? window : null;
+  if(W && typeof W.finOccupationBail === 'function') return W.finOccupationBail(bail, clos);
+  if(!bail) return '';
+  return String(bail.finEffective || ((clos || bail.cloture) ? (bail.fin || '') : '')).slice(0,10);
 }
 
-// Calcule l'info préavis pour un bail. Retourne null si non applicable.
+// Décale une date ISO (YYYY-MM-DD) de n jours, en calendrier LOCAL ('' si la date est invalide).
+function _isoDecaleJours(iso, n) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if(!m) return '';
+  const d = new Date(+m[1], +m[2] - 1, +m[3] + (Number(n) || 0));
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// NOUVEAU BAIL sur un lot dont le bail est encore ouvert : date de FIN de l'ancien bail (archiverBail) — règle
+// unique, lue aussi par la confirmation de saveBail. Ordre : fin effective déjà posée (clôture explicite) >
+// fin d'occupation (départ déclaré — _bailFinOccupation, LA règle) > veille du nouveau bail. Sans ça, un lot
+// parti au 30/09 et reloué au 15/11 voyait son ancien locataire redevable d'octobre et de novembre (audit 06/10).
+// Une sortie déclarée qui ne précède pas le nouveau bail ne peut pas tenir (deux occupants le même jour) : la
+// veille du nouveau bail l'emporte, et la confirmation de saveBail le dit (`sortieApres`).
+// `source` dit d'où vient la fin : 'finEffective' (déjà enregistrée), 'sortie' (départ déclaré), 'chevauchement'
+// (sortie ramenée à la veille du nouveau bail), 'veille' (aucune sortie : veille du nouveau bail).
+function _finAncienBailAuRebail(bail, nouveauDebut) {
+  const veille = nouveauDebut ? _isoDecaleJours(nouveauDebut, -1) : '';
+  if(!bail) return { fin: veille || null, sortie: '', sortieApres: false, source: veille ? 'veille' : '' };
+  if(bail.finEffective) return { fin: String(bail.finEffective).slice(0,10), sortie: '', sortieApres: false, source: 'finEffective' };
+  const sortie = _bailFinOccupation(bail, false);
+  if(sortie && veille && sortie > veille) return { fin: veille, sortie, sortieApres: true, source: 'chevauchement' };
+  return { fin: sortie || veille || null, sortie, sortieApres: false, source: sortie ? 'sortie' : (veille ? 'veille' : '') };
+}
+// Le texte ajouté à la confirmation de saveBail quand un nouveau bail archive l'ancien : sa date de fin (et d'où elle
+// vient) + le dépôt de l'ancien locataire encore détenu. Lu par saveBail ; testé sur la vraie confirmation.
+function _rebailConfirmTexte(bailExistant, nouveauDebut, dgLot) {
+  const fa = _finAncienBailAuRebail(bailExistant, nouveauDebut);
+  let t = '';
+  if(fa.source === 'chevauchement') t = `\n\n⚠️ La sortie déclarée de l'ancien locataire (${fd(fa.sortie)}) n'est pas antérieure au début du nouveau bail (${fd(nouveauDebut)}) : l'ancien bail sera terminé la veille, le ${fd(fa.fin)}.`;
+  else if(fa.source === 'finEffective') t = `\n\nL'ancien bail garde sa fin déjà enregistrée le ${fd(fa.fin)}.`;
+  else if(fa.source === 'sortie') t = `\n\nL'ancien bail sera terminé le ${fd(fa.fin)} (sortie déclarée).`;
+  else if(fa.source === 'veille') t = `\n\nL'ancien bail sera terminé le ${fd(fa.fin)} (veille du nouveau bail).`;
+  // Dépôt de l'ancien locataire sans restitution enregistrée : il reste détenu sur le bail archivé (_dgDetenuDuBail).
+  const dgAnc = _dgDetenuDuBail(bailExistant, dgLot);
+  if(dgAnc > 0) t += `\n\nLe dépôt de garantie de l'ancien locataire (${fmt(dgAnc)}) n'a pas de restitution enregistrée : il restera compté comme détenu jusqu'à ce qu'elle le soit (assistant de départ, ou ensuite « Préparer la restitution du DG » sur la frise du bien).`;
+  return t;
+}
+
+// La date d'ÉCHÉANCE d'un bail à afficher (agenda « Fin de bail », frise) — BAUX-ECHUS, règle unique
+// (js/core/bail-echeance.js) :
+//   • en cours → la fin du contrat (saisie, sinon fin théorique : veille de l'anniversaire) ;
+//   • reconduit → la fin de la période en cours : nu 3 ou 6 ans (art. 10 al. 3, QUELLE QUE SOIT la durée
+//     initiale), meublé 1 an (art. 25-7 al. 3), garage de l'app : durée équivalente (clause du contrat) ;
+//   • arrivé à terme (étudiant, mobilité, garage repris, autre) → la fin du contrat, jamais reconduite ;
+//   • clôturé / résilié / échéance inconnue → null.
+function _bailEcheanceEffective(bail, log) {
+  const e = _bailEcheance(bail, log);
+  if(!e) return null;
+  if(e.statut === 'en_cours' || e.statut === 'reconduit') return e.prochaine || null;
+  if(e.statut === 'arrive_a_terme') return e.finContrat || null;
+  return null;
+}
+
+// L'échéance d'un LOT pour les alertes « baux arrivant à terme » (AlertRules.bauxEcheance, règle
+// injectée) : l'échéance À VENIR d'un bail en cours ou reconduit, la fin du contrat d'un bail arrivé
+// à terme ; null = rien à signaler (vacant, clôturé, échéance inconnue). Lue sur le BAIL, pas le cache.
+function _bailEcheanceAlerteDe(l) {
+  const b = l && DB.baux ? DB.baux[l.ref] : null;
+  if(!b || b._deleted || b.cloture || b.finEffective) return null;
+  const fin = _bailEcheanceEffective(b, l);
+  return fin ? { fin } : null;
+}
+
+// L'alerte « bail arrivé à terme » d'un bail (étudiant, mobilité ; garage ou autre sans reconduction
+// au contrat) — null sinon, ou dès qu'un départ est déclaré. Ton neutre, jamais bloquante.
+function _bailAlerteTerme(bail, log) {
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(!bail || !BE || typeof BE.alerteArriveATerme !== 'function') return null;
+  return BE.alerteArriveATerme(bail, log, _bailEcheanceOpts(bail, log));
+}
+
+// Geste « Nouveau bail » d'un bail arrivé à terme : le formulaire d'un NOUVEAU bail sur le même lot,
+// pré-rempli avec les mêmes parties (comme la conversion d'un candidat). Un bail mobilité ne peut être
+// suivi que d'un bail du titre Ier bis (art. 25-14 dernier al.) : le type proposé est « meublé ».
+// L'enregistrement archive l'ancien bail (saveBail, confirmation existante) — rien n'est écrit ici.
+function _bailNouveauApresTerme(ref) {
+  const prev = DB.baux && DB.baux[ref];
+  if(!prev || prev._deleted) { if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  _ouvrirNouveauBailSurLot(ref);
+  if(el('b-entity') && prev.entity) el('b-entity').value = prev.entity;
+  try { renderBailSignataires(prev.signataires); } catch(e) {}
+  renderBailLocs((prev.locataires || (prev.nom ? [{ nom: prev.nom }] : [])).map(x => Object.assign({}, x)));
+  try { renderBailGarants(_bailLegacyToGarants(prev)); } catch(e) {}
+  if(el('b-hc') && prev.hc) el('b-hc').value = prev.hc;
+  if(el('b-ch') && prev.ch != null && prev.ch !== '') el('b-ch').value = prev.ch;
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  const fin = (BE && typeof BE.finContractuelle === 'function') ? BE.finContractuelle(prev, null, _bailEcheanceOpts(prev, null).typeEntite) : (prev.fin || '');
+  if(el('b-debut') && fin && BE && typeof BE.ajouterJours === 'function') el('b-debut').value = BE.ajouterJours(fin, 1);
+  if(el('b-type')) {
+    el('b-type').value = prev.type === 'mobilite' ? 'meuble' : (prev.type || 'nu');
+    try { onBailTypeChange(); } catch(e) {}
+  }
+  if(typeof showToast==='function') showToast('Nouveau bail pré-rempli (mêmes parties) — vérifier le type, les dates et le loyer. L\'ancien bail sera archivé à l\'enregistrement.','ok',6000);
+}
+
+// Le rappel « préavis bailleur » — seulement là où la loi de 1989 fait courir un préavis AVANT
+// l'échéance : nu (6 mois, art. 15-I) et meublé (3 mois, art. 25-8 I), sur une échéance À VENIR.
+// Étudiant, mobilité, garage, autre : null (rien à notifier pour éviter une reconduction qui n'existe pas).
 // { fin, preavisStart, preavisMonths, isMeuble, inPreavisZone, daysToFin }
 function _bailPreavisInfo(bail, log) {
-  const fin = _bailEcheanceEffective(bail, log);
-  if(!fin) return null;
-  const isMeuble = _bailIsMeuble(bail, log);
-  const preavisMonths = isMeuble ? 3 : 6;
-  const finD = new Date(fin + 'T00:00:00');
-  const preavisD = new Date(finD);
-  preavisD.setMonth(preavisD.getMonth() - preavisMonths);
-  const today = new Date(); today.setHours(0,0,0,0);
+  const BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if(!bail || !BE || typeof BE.preavisBailleurAvantEcheance !== 'function') return null;
+  const o = _bailEcheanceOpts(bail, log);
+  const p = BE.preavisBailleurAvantEcheance(bail, log, o);
+  if(!p) return null;
+  const finD = new Date(p.fin + 'T00:00:00');
+  const preavisD = new Date(p.debut + 'T00:00:00');
+  const today = new Date(o.todayIso + 'T00:00:00');
   const inPreavisZone = today.getTime() >= preavisD.getTime() && today.getTime() <= finD.getTime();
   const daysToFin = Math.round((finD.getTime() - today.getTime()) / 86400000);
   return {
-    fin,
-    preavisStart: _isoLocal(preavisD),
-    preavisMonths,
-    isMeuble,
+    fin: p.fin,
+    preavisStart: p.debut,
+    preavisMonths: p.mois,
+    isMeuble: p.meuble,
     inPreavisZone,
     daysToFin
   };
@@ -2092,24 +2184,37 @@ function agendaAutoSync() {
       }
     }
 
-    // ── Fin de bail (échéance avec tacite reconduction prise en compte) ──
-    // v14.48 GANTT-PREAVIS : utiliser _bailEcheanceEffective qui calcule la
-    // prochaine échéance anniversaire si le bail est en tacite reconduction.
+    // ── Fin de bail (échéance selon LA règle du type — BAUX-ECHUS) ──
+    // Nu / meublé / garage de l'app : la fin de la période en cours (reconduction de la loi ou du
+    // contrat). Étudiant, mobilité, garage repris, autre : la fin du contrat, jamais reconduite.
     const echeanceFin = _bailEcheanceEffective(bail, l);
     if(echeanceFin) {
       const key = `BAIL:${l.ref}:${echeanceFin}`;
       validBailKeys.add(key);
+      const _BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+      const _noteFin = (_BE && typeof _BE.noteFinDeBail === 'function')
+        ? _BE.noteFinDeBail(_bailEcheance(bail, l))
+        : 'Échéance du bail — prévoir renouvellement ou congé.';
       if(!existing.has(key)) {
         toAdd.push({ id:agendaId(), titre:`Fin de bail — ${l.ref} (${bail.nom||l.locataire})`,
           date:echeanceFin, dateFin:echeanceFin, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
-          cat:'BAIL', couleur:'', notes:'Échéance du bail — prévoir renouvellement ou congé.', recurrence:{type:'none',interval:1,fin:''},
+          cat:'BAIL', couleur:'', notes:_noteFin, recurrence:{type:'none',interval:1,fin:''},
           rappels:[180,90,30,7], auto:true, autoKey:key, done:false, createdAt:todayStr });
         existing.add(key);
+      } else {
+        // Un rappel déjà créé garde sa date (et son « fait ») ; seule sa note suit la règle du type —
+        // avant, un bail étudiant recevait « prévoir renouvellement ou congé ».
+        const _evFin = DB.agenda.find(e => e && e.auto && e.autoKey === key);
+        if(_evFin && _evFin.notes !== _noteFin) {
+          _evFin.notes = _noteFin;
+          if (typeof _stamp === 'function') _stamp(_evFin);
+          _irlAgendaRecale = true;   // même drapeau « un rappel existant a changé » → saveDB
+        }
       }
 
-      // ── Préavis bailleur (6 mois nu / 3 mois meublé avant échéance) ──
-      // v14.48 : auto-event distinct pour rappeler de donner congé/notifier
-      // modification de loyer dans les délais légaux (loi du 6 juillet 1989).
+      // ── Préavis bailleur (6 mois nu / 3 mois meublé avant l'échéance À VENIR) ──
+      // Seulement là où la loi de 1989 fait courir un préavis avant l'échéance : jamais pour un
+      // étudiant, une mobilité (fin au terme, sans congé), un garage ou un autre (le contrat).
       const preavis = _bailPreavisInfo(bail, l);
       if(preavis && preavis.preavisStart) {
         const keyPrev = `BAIL_PREVIS:${l.ref}:${preavis.fin}`;
@@ -2551,7 +2656,11 @@ function saveDB(opts) {
     if (typeof _auditFlushPending === 'function') _auditFlushPending();
     // F8 (§3ter) : l'échec d'écriture du miroir était AVALÉ (catch vide) et
     // saveDB rendait `true` quand même — l'app croyait avoir enregistré.
-    // Invariant 19l : un saveDB qui échoue sur quota renvoie FAUX et le dit.
+    // Invariant 19l (amendé, STOCKAGE lot 3, D1 B) : le retour dit si la modification a une
+    // DESTINATION DURABLE. En ligne, le cloud la reçoit (__immoMarkDirty, juste dessous, quoi qu'il
+    // arrive) : un miroir plein n'est PAS une perte → `true` + avis unique. Hors ligne, le miroir
+    // était la seule destination → FAUX, et on le dit — sauf l'EDL dont la copie IndexedDB est planifiée
+    // (F1 le remonte au démarrage en ligne : même durabilité qu'en ligne). Décision : _stockage.verdictEchecMiroir.
     let _miroirOk = true;
     try {
       // STOCKAGE lot 1 (S-1) : l'écrivain UNIQUE du miroir libère les copies/clés retirées et
@@ -2570,8 +2679,9 @@ function saveDB(opts) {
       // perime sur les vraies donnees. Contrat encode par
       // __tests__/helpers/saveDB-miroir-horodate.test.js.
       _miroirEcrireCloud();   // STOCKAGE lot 4 : IndexedDB + journal synchrone des EDL (repli : écrivain local)
+      if (typeof _miroirNoterOk === 'function') _miroirNoterOk();
     }
-    catch (e) { _miroirOk = false; _saveDBQuotaWarn(e); }
+    catch (e) { _miroirOk = _miroirEchec(e, opts && opts.quoi) === true; }
     if (typeof window.__immoMarkDirty === 'function') window.__immoMarkDirty();
     if (!_autosave && typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
     return _miroirOk;
@@ -2604,10 +2714,10 @@ function saveDB(opts) {
   let _ecrit = true;
   try {
     _miroirEcrire(data);   // STOCKAGE lot 1 (S-1) : éviction + nouvel essai sur quota
+    if (typeof _miroirNoterOk === 'function') _miroirNoterOk();
   } catch(e) {
-    // F8 / invariant 19l : on ne prétend PAS avoir écrit.
-    _ecrit = false;
-    _saveDBQuotaWarn(e);
+    // F8 / invariant 19l : sans cloud, le miroir est la seule destination — on ne prétend PAS avoir écrit.
+    _ecrit = _miroirEchec(e, opts && opts.quoi) === true;
   }
   // (chemin harnais de test uniquement — Drive retiré, plus de push à planifier)
   // UNDO-OP v14.21 : capture l'état post-saveDB comme prev pour la prochaine modif
@@ -2615,19 +2725,72 @@ function saveDB(opts) {
   return _ecrit;
 }
 
-/* F8 — un stockage plein doit être NOMMÉ, pas avalé. Message unique (DRY) pour
-   les trois chemins d'écriture de saveDB. Le mot « QuotaExceededError » ne dit
-   rien à personne : on dit ce qui se passe et ce qu'il faut faire. */
+/* F8 — un stockage plein doit être NOMMÉ, pas avalé. STOCKAGE lot 3 (CDC §3.3, D1 B, S-6) : et le
+   message doit être VRAI. Point unique des deux chemins d'échec du miroir dans saveDB. Rend le retour
+   de saveDB : `true` si la modification a quand même une destination durable (cloud en ligne), `false`
+   sinon. La décision et les textes vivent dans js/core/stockage-local.js (verdictEchecMiroir, testé).
+   En ligne : avis UNE fois par session (la copie de l'appareil est en retard, rien n'est perdu ; l'état
+   détaillé est dans Réglages → Stockage de cet appareil). Perte réelle : message à chaque fois, au plus
+   toutes les 10 s (pas de matraquage pendant une visite). Module absent : comportement d'avant (faux). */
 let _saveDBQuotaAt = 0;
-function _saveDBQuotaWarn(e) {
-  console.error('[saveDB] écriture locale refusée :', e);
-  const now = Date.now();
-  if (now - _saveDBQuotaAt < 10000) return;   // pas de matraquage pendant une visite
-  _saveDBQuotaAt = now;
-  if (typeof showToast === 'function') {
-    showToast("⚠️ Mémoire pleine : cette modification n'est PAS enregistrée sur cet appareil. Libère de l'espace, puis reprends.", 'err', 10000);
-  }
+const _miroirAvisDonnes = new Set();   // avis « une fois par session » déjà donnés (clés du verdict)
+let _miroirEchecDepuis = 0;   // 1re écriture ratée depuis la dernière réussie (0 = à jour) — carte Sauvegarde & export
+let _miroirDernierOk = 0;     // dernière écriture réussie dans cette session
+function _miroirNoterOk() { _miroirDernierOk = Date.now(); _miroirEchecDepuis = 0; }
+function _miroirModeCourant() {
+  const S = (typeof window !== 'undefined') ? window._stockage : null;
+  const w = (typeof window !== 'undefined') ? window : {};
+  const o = { cloud: !!w.__immoSupabaseMode, horsLigne: !!w.__immoHorsLigne, sessionMorte: !!w.__immoSessionMorte,
+    enLigne: (typeof navigator !== 'undefined' && navigator) ? navigator.onLine : undefined };
+  return (S && typeof S.modeMiroir === 'function') ? S.modeMiroir(o) : (o.cloud ? null : 'local');
 }
+// La base complète part-elle en IndexedDB (écriture planifiée par le miroir du lot 4, même si le
+// journal synchrone a échoué) ? Sinon (repli localStorage, miroir absent), un EDL n'a pas de copie locale.
+function _miroirIdbPlanifie() {
+  try {
+    const L = (typeof window !== 'undefined') ? window._miroirLocal : null;
+    const M = (L && typeof L.miroir === 'function') ? L.miroir() : null;
+    return !!(M && M.pret() && M.backend() === 'indexeddb');
+  } catch (e) { return false; }
+}
+function _miroirEchec(e, quoi) {
+  try {
+    console.error('[saveDB] copie locale non écrite :', e);
+    if (!_miroirEchecDepuis) _miroirEchecDepuis = Date.now();
+    const S = (typeof window !== 'undefined') ? window._stockage : null;
+    const v = (S && typeof S.verdictEchecMiroir === 'function')
+      ? S.verdictEchecMiroir({ mode: _miroirModeCourant(), quoi, miroirIdb: _miroirIdbPlanifie(),
+          sandbox: (typeof _isTestMode !== 'undefined') && !!_isTestMode })
+      : { retour: false, type: 'err', unique: false, message: "Stockage de cet appareil plein : cette modification n'est PAS enregistrée." };
+    if (v.unique) {
+      // Avis une fois par session. Il ne touche PAS l'anti-rafale des pertes : une perte réelle juste après
+      // un avis est toujours dite (et inversement).
+      if (_miroirAvisDonnes.has(v.unique)) return v.retour;
+      _miroirAvisDonnes.add(v.unique);
+    } else {
+      const now = Date.now();
+      if (now - _saveDBQuotaAt < 10000) return v.retour;   // pas de matraquage pendant une visite
+      _saveDBQuotaAt = now;
+    }
+    try { if (typeof showToast === 'function') showToast(v.message, v.type, 10000); } catch (e2) {}
+    return v.retour;
+  } catch (e3) { return false; }   // jamais lever avant l'envoi au cloud (__immoMarkDirty suit dans saveDB)
+}
+// Signal du miroir hors saveDB — `echec-repli` (lot 4, asynchrone : la copie complète n'a pas pu être
+// écrite) et l'échec du rebase au login. Même état ; en ligne, même avis unique (ou aucun si `silencieux`).
+// Rend true si le signal est traité ici (en ligne) ; hors ligne, l'appelant garde son propre texte.
+window.__immoMiroirPasAJour = function(opts) {
+  if (!_miroirEchecDepuis) _miroirEchecDepuis = Date.now();
+  if (_miroirModeCourant() !== 'cloud-en-ligne') return false;
+  if (opts && opts.silencieux) return true;
+  const S = window._stockage;
+  if (!_miroirAvisDonnes.has('copie') && S && typeof S.verdictEchecMiroir === 'function' && typeof showToast === 'function') {
+    _miroirAvisDonnes.add('copie');
+    const v = S.verdictEchecMiroir({ mode: 'cloud-en-ligne' });
+    try { showToast(v.message, v.type, 10000); } catch (e) {}
+  }
+  return true;
+};
 
 /* ═══ STOCKAGE lot 1 — L'ÉCRIVAIN UNIQUE DU MIROIR (CDC docs/CDC-STOCKAGE.md §3.2) ═══
    Incident du 28/08 : « Mémoire pleine » sur une base de quelques centaines de Ko,
@@ -6422,9 +6585,9 @@ function _v4NavCounts() {
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   if (typeof DB === 'undefined') return {logs:0, locs:0, loyers:0, baux:0};
   const logs = (DB.logements||[]).filter(aliveFn);
-  // R-0 : la barre latérale comptait les noms en cache. Un bail repris à l'achat n'en porte pas :
-  // la barre annonçait un locataire de moins que l'Accueil, pour le même parc.
-  const locs = logs.filter(_lotEstLoue).length;
+  // Badge « Locataires » = ce que la page Locataires liste (rBaux) : un lot dont le bail vivant porte un
+  // locataire — y compris un locataire parti dont le bail reste à clôturer (audit 06/10 : 1 contre 2).
+  const locs = logs.filter(l => { const a = _lotLocataireAffiche(l); return !!(a.bail && a.noms); }).length;
   const yr = String(new Date().getFullYear());
   const mo = (new Date().getMonth() + 1);
   const moStr = String(mo).padStart(2, '0');
@@ -6434,24 +6597,28 @@ function _v4NavCounts() {
   return {logs: logs.length, locs, loyers: loyersMois, baux};
 }
 
-// Top 3 entités par revenus annuels (réutilise la logique de _renderSidebarPinned).
+// Entités de la barre latérale, triées par recettes de l'exercice. R-0 (lot 1, R7) : les recettes
+// d'une entité sont lues au moteur (`_finMonthly`, périmètre = l'entité) avec la définition de
+// l'Accueil (`_finRecettesDe`). L'ancien tri sommait `m.cr` de toutes catégories — dépôts de
+// garantie, apports d'associés, virements internes compris.
+// Exercice entier (12) : la SOMME des recettes ne dépend pas de la fenêtre de constat ; on évite
+// `_finWindows` (un parcours de tous les mouvements par entité) et le N-1 de `_dashCfReel`, inutiles
+// pour un ordre d'affichage (audit 06/10 : ~200 ms par rendu sur un gros parc).
+// Une entité en erreur (ou sans nom : le périmètre vide = « Tout ») compte 0 : la barre de navigation
+// ne doit jamais tomber. Moteur absent (file://) : ordre de DB.entites conservé (tri stable).
 function _v4TopEntities() {
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   if (typeof DB === 'undefined' || !DB.entites) return [];
-  const yr = String(new Date().getFullYear());
-  const aliveEnts = DB.entites.filter(aliveFn);
-  const aliveLogs = (DB.logements || []).filter(aliveFn);
-  const aliveMvs  = (DB.mouvements || []).filter(aliveFn);
-  return aliveEnts.map(e => {
-    const eLogs = aliveLogs.filter(l => l.entity === e.nom);
-    const eRefs = eLogs.map(l => l.ref);
-    const eImms = [...new Set(eLogs.map(l => l.imm).filter(Boolean))];
-    const eCr = aliveMvs.filter(m => {
-      if (!m.date || !m.date.startsWith(yr)) return false;
-      return eRefs.includes(m.qui) || eImms.includes(m.imm) || m.qui === 'SCI:' + e.nom;
-    }).reduce((s, m) => s + (m.cr || 0), 0);
-    return {nom: e.nom, cr: eCr};
-  }).sort((a, b) => b.cr - a.cr);
+  const y = new Date().getFullYear();
+  return DB.entites.filter(aliveFn).map(e => {
+    let recettes = 0;
+    try {
+      const scope = (e.nom && typeof _finEntScope === 'function') ? _finEntScope(e.nom, '') : null;
+      const r = (scope && typeof _finMonthly === 'function') ? _finMonthly(y, scope, 12) : null;
+      recettes = r ? _finRecettesDe(r.annual) : 0;
+    } catch (err) { recettes = 0; }
+    return { nom: e.nom, recettes };
+  }).sort((a, b) => b.recettes - a.recettes);
 }
 
 // REFONTE-NAV Phase 1 — Source de vérité UNIQUE de la nav sidebar (remplace le HTML en dur).
@@ -6846,7 +7013,9 @@ function _v4ComputeLotStatus(log, yr, mo, mvs) {
   // cours, renvoyait `attendu: 0, recu: 0` et court-circuitait tout le moteur de loyer — juste
   // avant que l'Accueil téléphone n'additionne ces zéros en « encaissé » et « attendu » du mois
   // et de l'année. Le lot disparaissait des chiffres, comme dans la bulle Impayés (R0-B).
-  if (!_lotEstLoue(log)) {
+  // Statut 06/10 : un départ déclaré passé rend le lot vacant, mais son bail reste OUVERT et son argent
+  // (dû jusqu'à la sortie, impayés) reste suivi : la porte est le bail ouvert, pas le statut affiché.
+  if (!_lotBailOuvert(log)) {
     const theo = (Number(log.hc)||0) + (Number(log.ch)||0);
     return {cls:'vac', attendu:0, recu:0, label:(theo > 0 ? (theo + ' € théo') : '—'), ratio:0, prorata:0, vacant:true};
   }
@@ -7017,7 +7186,7 @@ function _pilCollectFamilles(ctx) {
   // ── Fins de bail à terme (bauxEcheance : la règle existe mais n'était lue nulle part) ──
   try {
     if (typeof AR.bauxEcheance === 'function') {
-      AR.bauxEcheance(scopeLogs, todayD, 90).forEach(b => {
+      AR.bauxEcheance(scopeLogs, todayD, 90, _bailEcheanceAlerteDe).forEach(b => {
         if (src.finbail.some(x => x.ref === b.ref)) return;   // déjà porté par un départ en cours
         src.finbail.push({ ref: b.ref, nom: b.locataire || b.ref, urgenceJours: b.jours });
       });
@@ -7247,7 +7416,7 @@ function _renderAccueilPhone(ctx){
   else logs.forEach(function(l){ try{ encYTD += (_v4ComputeLotStatus(l, yr, '', ctx.mvsYTD).recu||0); }catch(e){} });
   var dg=0, nbDep=0;
   // R-0 : la porte d'entree etait `l.locataire` alors que le montant, lui, venait deja du bail.
-  logs.forEach(function(l){ if(_lotEstLoue(l)){ var d=_dgDuLot(l); if(d>0){ dg+=d; nbDep++; } } });
+  logs.forEach(function(l){ var d=_dgDetenuDuLot(l);   /* dépôt DÉTENU : reçu, pas encore restitué */ if(d>0){ dg+=d; nbDep+=_dgNbDetenusDuLot(l); } });
   var fams={total:0,familles:[]}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
   var aReg = fams.total||0, famBy={}; (fams.familles||[]).forEach(function(f){ famBy[f.id]=f; });
   var bits=[];
@@ -7499,11 +7668,13 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs, colRefs) {
   // R-0 : « ce lot est-il loue ? » se lit sur le BAIL. Sur le cache, un bail repris a l'achat
   // sortait en 'na' : ni pastille de paiement, ni euros, et le lot comptait comme vacant dans
   // le filtre de la matrice — alors que la bulle Impayes, elle, affiche sa dette.
-  const _loue = _lotEstLoue(l);
+  // Pastille de PAIEMENT : tant que le bail est ouvert (dette d'un locataire parti visible) ; l'action
+  // « Relouer » suit le STATUT (départ déclaré passé = vacant).
+  const _loue = _lotBailOuvert(l);
   const pay = (typeof window !== 'undefined' && typeof window.pilotagePay === 'function')
     ? window.pilotagePay(_loue, l.ref, impayeRefs, _soldeSigned)
     : (!_loue ? 'na' : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
-  const vacant = !_loue;
+  const vacant = !_lotEstLoue(l);
   // actions : relocation d'un vide + toute colonne ko/wn (geste « réclamer au vendeur » si repris)
   const actions = [];
   if (vacant) actions.push({ g: 'vacant', label: 'Relouer', cls: 'vac' });
@@ -7546,9 +7717,9 @@ function _renderPilotage(ctx) {
   const _cfr = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
   const encaisse = _cfr ? _cfr.recettes : null;
   // R-0 : lot LOUE selon le bail, et montant du bail en cours (revu a la relocation).
-  const _dgLots = scopeLogs.filter(l => _lotEstLoue(l) && _dgDuLot(l) > 0);
-  const dgTot = _dgLots.reduce((s, l) => s + _dgDuLot(l), 0);
-  const nbDg = _dgLots.length;
+  const _dgLots = scopeLogs.filter(l => _dgDetenuDuLot(l) > 0);   // dépôt DÉTENU : reçu, pas encore restitué
+  const dgTot = _dgLots.reduce((s, l) => s + _dgDetenuDuLot(l), 0);
+  const nbDg = _dgLots.reduce((s, l) => s + _dgNbDetenusDuLot(l), 0);   // des DÉPÔTS, pas des lots
   const strip = [
     '<div class="pil-s1"><div class="k">Encaissé · ' + (mo ? _DMF[parseInt(mo) - 1] : yr) + '</div>'
       + '<div class="v">' + (encaisse != null ? fmtN(encaisse) : '—') + '</div>'
@@ -7558,7 +7729,7 @@ function _renderPilotage(ctx) {
     '<div class="pil-s1"><div class="k">Logements</div><div class="v">' + _occKpi.nbTotal + ' <small>· ' + _occKpi.nbVacants + ' vides</small></div>'
       + '<div class="s">' + _occKpi.nbOcc + ' loués</div></div>',
     '<div class="pil-s1"><div class="k">Dépôts détenus</div><div class="v">' + fmtN(dgTot) + '</div>'
-      + '<div class="s">' + nbDg + ' dépôts · argent des locataires</div></div>',
+      + '<div class="s">' + nbDg + ' dépôt' + (nbDg > 1 ? 's' : '') + ' · argent des locataires</div></div>',
     '<div class="pil-s1"><div class="k">Périmètre</div><div class="v" style="font-size:16px">' + (activeEnt ? esc(activeEnt) : 'Tout le parc') + '</div>'
       + '<div class="s">filtre entité global</div></div>'
   ].join('');
@@ -7838,10 +8009,6 @@ function _pilCtxCourant() {
 
 // Render PREMIUM (cockpit financier complet — l'existant)
 
-// v15.38 fix régression : stub goLogDetail SUPPRIMÉ (causait redirect vers Biens
-// au lieu d'ouvrir la modale drill). Les clics lots/immeubles/entités appellent
-// directement les vraies fonctions _logMiniClick / _immBulleClick / _entCardClick.
-
 // Tab helpers
 function setTab(parentSel, tabEl, panelPrefix) {
   const tabs=document.querySelectorAll(parentSel+' .tab');
@@ -8060,8 +8227,47 @@ function openBailClore(ref) {
   el('b-loc-nouv-adr').value  = bail.locNouvelleAdr || '';
   el('b-dg-restitue').value   = bail.dgRestitue   || '';
   el('b-dg-retenu').value     = bail.dgRetenu     || '';
+  if(el('b-dg-restitue-date')) el('b-dg-restitue-date').value = String(bail.dgRestitueAt || '').slice(0, 10);   // vide tant qu'aucun virement n'est enregistré
   el('b-fin-notes').value     = bail.finNotes     || '';
   openM('ov-bail-clore');
+}
+
+// L'UNIQUE écrivain de baux_historique (clôture, relocation) : chaque archive reçoit DÈS sa création un identifiant
+// unique `_archiveId` (window.nouvelIdArchive — même format que store-sync._identifierArchives, qui ne réécrit jamais un
+// identifiant posé). Deux archives d'un lot le même jour (relocation puis clôture) ne partagent plus leur clé
+// (bailHistCle = ref|_archivedAt|_archiveId) : leurs dépôts et leur restitution restent distincts.
+function _archiverDansHistorique(rec) {
+  if(!DB.baux_historique) DB.baux_historique = [];
+  const W = (typeof window !== 'undefined') ? window : null;
+  const id = (W && typeof W.nouvelIdArchive === 'function') ? W.nouvelIdArchive() : '';
+  const h = Object.assign({}, rec);
+  if(id) h._archiveId = id; else delete h._archiveId;
+  DB.baux_historique.push(h);
+  return h;
+}
+
+// Loi n° 89-462 du 6 juillet 1989, article 22 (Légifrance, version en vigueur), alinéas sur le délai de restitution.
+const _ART22_RESTITUTION = [
+  "Il est restitué dans un délai maximal de deux mois à compter de la remise en main propre, ou par lettre recommandée avec demande d'avis de réception, des clés au bailleur ou à son mandataire, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, aux lieu et place du locataire, sous réserve qu'elles soient dûment justifiées. A cette fin, le locataire indique au bailleur ou à son mandataire, lors de la remise des clés, l'adresse de son nouveau domicile.",
+  "Il est restitué dans un délai maximal d'un mois à compter de la remise des clés par le locataire lorsque l'état des lieux de sortie est conforme à l'état des lieux d'entrée, déduction faite, le cas échéant, des sommes restant dues au bailleur et des sommes dont celui-ci pourrait être tenu, en lieu et place du locataire, sous réserve qu'elles soient dûment justifiées."
+];
+// Clôture d'un bail (saveBailClore, terminerBail) — restitution du dépôt de garantie. Dépôt versé, aucune
+// restitution saisie ni déjà enregistrée : AVERTIR (art. 22), jamais bloquer — le dépôt reste compté détenu
+// (_dgDetenuDuLot) et sa tâche reste (_computeUnifiedTodo 7bis). Renvoie false si l'utilisateur renonce.
+function _clotureDgConfirmer(bail, dateVirement) {
+  const dg = Number(bail && bail.dg) || 0;
+  if(dg <= 0 || (bail && bail.dgRestitueAt) || dateVirement) return true;
+  return confirm2('Le dépôt de garantie (' + fmt(dg) + ') n\'a pas de date de virement de restitution : il restera compté comme détenu, et sa restitution à faire, jusqu\'à ce qu\'elle soit enregistrée (montants saisis ou non).\n\n'
+    + 'Loi n° 89-462 du 6 juillet 1989, article 22 :\n« ' + _ART22_RESTITUTION.join(' »\n« ') + ' »\n\nClôturer quand même ?');
+}
+// Montants saisis à la clôture. `dgRestitueAt` n'est posé QUE par la date du virement saisie (jamais la date du jour :
+// des montants pré-remplis par la régularisation ne disent pas que l'argent est parti). `clotureV: 2` marque une
+// clôture de ce déploiement : ses montants ne valent plus restitution (_dgRestitutionEnregistree).
+function _clotureDgAppliquer(bail, dgRestitue, dgRetenu, dateVirement) {
+  bail.dgRestitue = dgRestitue;
+  bail.dgRetenu   = dgRetenu;
+  if(dateVirement) bail.dgRestitueAt = String(dateVirement).slice(0, 10);
+  bail.clotureV   = 2;
 }
 
 function saveBailClore() {
@@ -8076,20 +8282,19 @@ function saveBailClore() {
   if(!motif)  { showToast('Motif de fin requis','err'); return; }
   // Confirmation finale (action destructive : archive + vacant)
   if(!confirm2(`Clôturer le bail ${ref} au ${fd(finEff)} ?\nLe logement sera marqué vacant et le bail archivé.`)) return;
+  if(!_clotureDgConfirmer(bail, v('b-dg-restitue-date'))) return;
   // Persister les infos de clôture
   bail.finEffective   = finEff;
   bail.finMotif       = motif;
   bail.locNouvelleAdr = v('b-loc-nouv-adr');
-  bail.dgRestitue     = pf('b-dg-restitue');
-  bail.dgRetenu       = pf('b-dg-retenu');
+  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'), v('b-dg-restitue-date'));
   bail.finNotes       = v('b-fin-notes');
   bail.cloture        = true;
   bail.ref            = ref;
   bail._archivedAt    = td();
   // Archiver dans historique + retirer des actifs (v14.71 : tombstone au lieu de delete
   // pour propagation Drive multi-device — sinon le bail réapparaît au merge)
-  if(!DB.baux_historique) DB.baux_historique = [];
-  DB.baux_historique.push({...bail});
+  _archiverDansHistorique(bail);
   DB.baux[ref] = { ref, _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString(), _archivedAt: td() };
   const log = DB.logements.find(l=>l.ref===ref);
   if(log) { log.locataire = ''; log.fin = finEff; }
@@ -8494,57 +8699,17 @@ function _dashCardClick(key, ev) {
   _openDD(key);
 }
 
-/* Série cash-flow mensuel sur N mois glissants (scope respecté). Single-pass sur DB.mouvements. */
-// v15.389 — Série cash-flow 12 mois ALIGNÉE sur l'onglet Finances : chaque barre = cashflowReel
-// du mois (loyers HC + provisions − charges propriétaire − charges récupérables ; cautions,
-// recettes diverses et virements internes EXCLUS). Réutilise le moteur _finMonthly (DRY : mêmes
-// chiffres que Finances). Avant v15.389 : brut (cr − db) → incohérent avec l'onglet Finances.
-function _heroCashflowSeries(ctx, nMonths) {
-  const today = new Date();
-  const buckets = {};
-  const order = [];
-  for(let i = nMonths - 1; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    const ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    buckets[ym] = {value:0, label:_DMC[d.getMonth()], ym, yr:d.getFullYear(), mo:d.getMonth()+1};
-    order.push(ym);
-  }
-  // Moteur Finances par année civile couverte par la fenêtre (respecte le périmètre entité).
-  const scope = (typeof _finEntScope === 'function') ? _finEntScope(ctx.activeEnt || '', '') : null;
-  if (typeof _finMonthly === 'function') {
-    const years = [...new Set(order.map(ym => parseInt(ym.slice(0, 4), 10)))];
-    years.forEach(y => {
-      // R-3 (étape 8) : la série lit LE socle — fenêtre de constat du module, plus de
-      // lastMonth recalculé à la main (les mois post-datés comptent, décision « B »).
-      const Wy = (typeof _finWindows === 'function') ? _finWindows(y, scope) : null;
-      const r = _finMonthly(y, scope, Wy ? Wy.constat : ((y === today.getFullYear()) ? (today.getMonth() + 1) : 12));
-      if (r && r.months) r.months.forEach(mm => {
-        const ym = y + '-' + String(mm.mo).padStart(2, '0');
-        if (buckets[ym]) buckets[ym].value = mm.cashflowReel || 0;
-      });
-    });
-  } else {
-    // Fallback file:// (module ES non chargé, CORS) : ancien calcul brut (cr − db) par mois,
-    // périmètre entité respecté. Garde une courbe visible plutôt qu'un « Pas de données ».
-    const { activeEnt, scopeRefs, scopeImms } = ctx;
-    const first = order[0], last = order[order.length - 1];
-    for (const m of (DB.mouvements || [])) {
-      if (!m.date) continue;
-      const ym = m.date.slice(0, 7);
-      if (ym < first || ym > last || !buckets[ym]) continue;
-      if (activeEnt && (!scopeRefs || !scopeRefs.includes(m.qui)) && (!scopeImms || !scopeImms.includes(m.imm)) && m.qui !== 'SCI:' + activeEnt) continue;
-      buckets[ym].value += (m.cr || 0) - (m.db || 0);
-    }
-  }
-  return order.map(ym => buckets[ym]);
-}
-
 // v15.396 — BLOC UNIQUE de cash-flow réel de l'exercice, aligné sur l'onglet Finances (même moteur
 // _finMonthly → cashflowReel). Appelé PARTOUT (Accueil, Tableau de bord, variantes) : un seul calcul,
 // jamais recopié → mêmes chiffres partout. Recettes = loyers HC + provisions, Charges = charges
 // propriétaire + charges récupérables, cf = cashflowReel = Recettes − Charges (trio cohérent).
 // Périmètre = entité active (ou toutes si vide), même scope que Finances via _finEntScope.
 // null si le moteur n'est pas chargé (les appelants gardent leur calcul brut en fallback).
+// Recettes d'un bloc du moteur (annuel ou mensuel) : loyers HC + provisions + recettes diverses.
+// UNE définition, lue par l'Accueil (`_dashCfReel`) et l'ordre des entités (`_v4TopEntities`).
+function _finRecettesDe(A) {
+  return ((A && A.loyersHC) || 0) + ((A && A.provisions) || 0) + ((A && A.recettesDiverses) || 0);
+}
 function _dashCfReel(ctx) {
   if (typeof _finMonthly !== 'function' || typeof _finEntScope !== 'function') return null;
   const y = parseInt(ctx.yr, 10);
@@ -8559,109 +8724,16 @@ function _dashCfReel(ctx) {
   const A = cur.annual;
   const pv = _finMonthly(y - 1, scope, Wd ? Wd.n1 : null);     // N-1 même période (pour le delta)
   return {
-    recettes: (A.loyersHC || 0) + (A.provisions || 0) + (A.recettesDiverses || 0),
+    recettes: _finRecettesDe(A),
     charges: (A.charges || 0) + (A.recup || 0),
     cf: A.cashflowReel || 0,
     prevCf: (pv && pv.annual) ? (pv.annual.cashflowReel || 0) : 0
   };
 }
 
-/* Contenu drill-down cash-flow (modale ov-dash-drill).
-   v2 Phase 5 : ajout d'un area chart 12 mois glissants avec gradient sign (vert/rouge)
-   au-dessus du tableau par catégorie. */
-function _buildHeroDrill(ctx, cfNow, cfPrev, cfYTD) {
-  const {mvs, yr, mo} = ctx;
-  const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Année '+yr;
-  const prevLabel = mo ? 'Mois précédent' : 'Année précédente';
-  // Chart 12 mois glissants
-  const series12 = _heroCashflowSeries(ctx, 12);
-  const nonZero = series12.filter(s => s.value !== 0);
-  const chartBlock = nonZero.length >= 2
-    ? (function() {
-        const values = series12.map(s => s.value);
-        const minV = Math.min(...values), maxV = Math.max(...values);
-        const avg = values.reduce((s,v) => s+v, 0) / values.length;
-        const minPt = nonZero.reduce((a,b) => b.value < a.value ? b : a);
-        const maxPt = nonZero.reduce((a,b) => b.value > a.value ? b : a);
-        const chart = _mkSparkline(series12, {
-          w:700, h:200, padding:8,
-          signColoring: true, zeroLabel:'0 €',
-          allLabels: true,
-          tooltipFormat:(pt) => _DMF[pt.mo-1]+' '+pt.yr+' : '+(pt.value>=0?'+':'')+fmt(pt.value)
-        });
-        const signed = n => (n>=0?'+':'')+fmt(n);
-        const meta = '<div class="drill-chart-meta">'
-          + '<span>Moyenne <strong>'+signed(avg)+'</strong></span>'
-          + '<span>Meilleur <strong>'+_DMC[maxPt.mo-1]+' '+String(maxPt.yr).slice(-2)+' '+signed(maxPt.value)+'</strong></span>'
-          + '<span>Pire <strong>'+_DMC[minPt.mo-1]+' '+String(minPt.yr).slice(-2)+' '+signed(minPt.value)+'</strong></span>'
-          + '</div>';
-        return '<div class="drill-chart">'
-          + '<div class="drill-chart-title">Évolution cash-flow — 12 mois glissants</div>'
-          + chart + meta + '</div>';
-      })()
-    : '';
-  const byCat = {};
-  for(const m of mvs) {
-    const cat = m.cat || 'Sans catégorie';
-    if(!byCat[cat]) byCat[cat] = {cat, cr:0, db:0};
-    byCat[cat].cr += (m.cr || 0);
-    byCat[cat].db += (m.db || 0);
-  }
-  const rows = Object.values(byCat).sort((a,b) => (b.cr+b.db) - (a.cr+a.db));
-  const tCr = rows.reduce((s,r) => s+r.cr, 0);
-  const tDb = rows.reduce((s,r) => s+r.db, 0);
-  const card = (lab, val, color) =>
-    '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
-    + '<div style="font-size:10px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">'+escHtml(lab)+'</div>'
-    + '<div style="font-size:20px;font-weight:600;margin-top:4px;color:'+color+'">'+val+'</div></div>';
-  const signed = n => (n>=0?'+':'')+fmt(n);
-  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
-    + card(periodLabel, signed(cfNow), cfNow>=0?'var(--fg-success)':'var(--fg-danger)')
-    + card(prevLabel,   signed(cfPrev),'var(--t2)')
-    + card('YTD '+yr,   signed(cfYTD), cfYTD>=0?'var(--fg-success)':'var(--fg-danger)')
-    + '</div>';
-  const table = rows.length
-    ? '<table class="tbl"><thead><tr><th>Catégorie</th><th style="text-align:right">Revenus</th><th style="text-align:right">Charges</th><th style="text-align:right">Net</th></tr></thead><tbody>'
-    + rows.map(r =>
-        '<tr><td>'+escHtml(r.cat)+'</td>'
-        +'<td style="text-align:right;color:var(--fg-success)">'+(r.cr>0?fmt(r.cr):'–')+'</td>'
-        +'<td style="text-align:right;color:var(--fg-danger)">' +(r.db>0?fmt(r.db):'–')+'</td>'
-        +'<td style="text-align:right;font-weight:600">'+fmt(r.cr-r.db)+'</td></tr>'
-      ).join('')
-    + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td>Total</td>'
-    + '<td style="text-align:right">'+fmt(tCr)+'</td><td style="text-align:right">'+fmt(tDb)+'</td>'
-    + '<td style="text-align:right">'+fmt(tCr-tDb)+'</td></tr></tfoot></table>'
-    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun mouvement sur la période.</div>';
-  return {title:'Cash-flow — '+periodLabel, html:summary+chartBlock+table};
-}
-
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD v2 Phase 3 — KPI strip helpers (cahier §3.3)
    ══════════════════════════════════════════════════════════════ */
-
-/* Série mensuelle générique scopée entité. Single-pass sur DB.mouvements.
-   valueFn(m) retourne la contribution du mouvement à la valeur mensuelle. */
-function _kpiMonthlySeries(ctx, nMonths, valueFn) {
-  const {activeEnt, scopeRefs, scopeImms} = ctx;
-  const today = new Date();
-  const buckets = {};
-  const order = [];
-  for(let i = nMonths-1; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth()-i, 1);
-    const ym = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-    buckets[ym] = {value:0, label:_DMC[d.getMonth()], ym, yr:d.getFullYear(), mo:d.getMonth()+1};
-    order.push(ym);
-  }
-  const first = order[0], last = order[order.length-1];
-  for(const m of DB.mouvements) {
-    if(!m.date) continue;
-    const ym = m.date.slice(0,7);
-    if(ym < first || ym > last || !buckets[ym]) continue;
-    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
-    buckets[ym].value += valueFn(m);
-  }
-  return order.map(ym => buckets[ym]);
-}
 
 /* Assemblage HTML d'une carte KPI v2 (cliquable, drill unifié).
    Pas de flèche ↗ sur les KPIs : la carte entière est cliquable, l'affordance
@@ -8689,144 +8761,12 @@ function _kpiDelta(cur, prev, inverseIsGood) {
 
 /* ── Drill-down builders pour les 4 KPIs ─────────────────────── */
 
-function _buildRevDrill(ctx) {
-  const {scopeLogs, mvs, yr, mo} = ctx;
-  const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Année '+yr;
-  const byLog = {};
-  for(const m of mvs) {
-    if(!_isLoyerCategory(m.cat) || !(m.cr > 0)) continue;
-    const key = m.qui || '?';
-    if(!byLog[key]) byLog[key] = {ref:key, cr:0};
-    byLog[key].cr += m.cr;
-  }
-  const rows = Object.values(byLog).sort((a,b) => b.cr - a.cr);
-  const total = rows.reduce((s,r) => s+r.cr, 0);
-  const logName = ref => {
-    const l = scopeLogs.find(x => x.ref === ref);
-    return l ? (l.locataire || 'Vacant') : '';
-  };
-  const table = rows.length
-    ? '<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">Loyers reçus</th></tr></thead><tbody>'
-    + rows.map(r => '<tr><td><b>'+escHtml(r.ref)+'</b></td><td>'+escHtml(logName(r.ref))+'</td><td style="text-align:right;color:var(--fg-success)">'+fmt(r.cr)+'</td></tr>').join('')
-    + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total</td><td style="text-align:right">'+fmt(total)+'</td></tr></tfoot></table>'
-    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun loyer reçu sur la période.</div>';
-  return {title:'Revenus loyers — '+periodLabel, html:table};
-}
-
-function _buildChgDrill(ctx) {
-  const {mvs, yr, mo} = ctx;
-  const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Année '+yr;
-  const byCat = {};
-  for(const m of mvs) {
-    if(!(m.db > 0)) continue;
-    const cat = m.cat || 'Sans catégorie';
-    if(!byCat[cat]) byCat[cat] = {cat, db:0, count:0};
-    byCat[cat].db += m.db;
-    byCat[cat].count++;
-  }
-  const rows = Object.values(byCat).sort((a,b) => b.db - a.db);
-  const total = rows.reduce((s,r) => s+r.db, 0);
-  const table = rows.length
-    ? '<table class="tbl"><thead><tr><th>Catégorie</th><th style="text-align:right">Nb mvts</th><th style="text-align:right">Montant</th><th style="text-align:right">%</th></tr></thead><tbody>'
-    + rows.map(r => {
-        const pct = total > 0 ? (r.db / total * 100).toFixed(1) : '0';
-        return '<tr><td>'+escHtml(r.cat)+'</td><td style="text-align:right">'+r.count+'</td><td style="text-align:right;color:var(--fg-danger)">'+fmt(r.db)+'</td><td style="text-align:right">'+pct+'\u00a0%</td></tr>';
-      }).join('')
-    + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total</td><td style="text-align:right">'+fmt(total)+'</td><td></td></tr></tfoot></table>'
-    : '<div class="mu sm" style="text-align:center;padding:24px">Aucune charge sur la période.</div>';
-  return {title:'Charges — '+periodLabel, html:table};
-}
-
-/**
- * R0-A — L'OCCUPATION DU PÉRIMÈTRE, LUE AU MOTEUR. Une seule lecture, deux consommateurs :
- * la carte du tableau de bord et le détail qu'on ouvre en cliquant dessus.
- *
- * Les deux calculaient chacun leur version sur `l.locataire` — un CACHE que la clôture vide et
- * qu'un bail sans nom (repris à l'achat, saisie en cours) laisse vide : un taux INSTANTANÉ et un
- * manque à gagner ANNUALISÉ (`Σ hc × 12`).
- *
- * ⚠️ RECTIFICATION (audit) : la carte et son détail ne divergeaient PAS entre eux — leurs deux
- * calculs étaient identiques au caractère près. La divergence réelle, et c'est elle qui compte,
- * oppose ce couple (cache, instantané, annualisé) au bandeau Pilotage et à Finances, qui lisent
- * le moteur (taux EN JOURS, manque sur la période). §0bis : « un chiffre d'argent présent sur
- * deux écrans doit être le même octet ».
- *
- * Le COMPTE de lots loués, lui, se lit sur le bail (`_bienIsBailActif`), jamais sur le cache.
- */
-function _occPerimetre(ctx) {
-  const logs = (ctx && ctx.scopeLogs) || [];
-  const today = (typeof window._loyerTodayLocal === 'function')
-    ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
-  const yr = String((ctx && ctx.yr) || today.slice(0, 4));
-  const to = (yr === today.slice(0, 4)) ? today : (yr + '-12-31');
-  const loues = logs.filter(l => l && l.ref && typeof _bienIsBailActif === 'function' && _bienIsBailActif(l.ref));
-  const vacants = logs.filter(l => !loues.includes(l));
-  let occ = null;
-  try {
-    if (typeof window._computeOccupationLots === 'function') {
-      occ = window._computeOccupationLots(DB, logs, { from: yr + '-01-01', to });
-    }
-  } catch (e) {}
-  return {
-    // Le taux du MOTEUR (en jours sur la période). Sans le module, on ne fabrique pas un
-    // second taux : on retombe sur le comptage par bail, et on le DIT dans le sous-titre.
-    taux: occ ? Math.round(occ.taux) : (logs.length ? Math.round(loues.length / logs.length * 100) : 0),
-    enJours: !!occ,
-    // Le manque à gagner du MOTEUR. Sans lui, on n'en invente pas : `null` → « — ».
-    manque: occ ? occ.manqueAGagner : null,
-    loues: loues.length, total: logs.length, vacants
-  };
-}
-
 /** Le nom a afficher pour un lot : le cache s'il est rempli, sinon le bail, sinon un tiret. */
 function _nomLotAffiche(l) {
   if (!l) return '\u2014';
   if (l.locataire) return l.locataire;
   const b = (typeof _bienActiveBail === 'function') ? _bienActiveBail(l.ref) : null;
   return (typeof _nomsDuBail === 'function' ? _nomsDuBail(b) : '') || '\u2014';
-}
-
-function _buildOccDrill(ctx) {
-  const {scopeLogs} = ctx;
-  const O = _occPerimetre(ctx);
-  const occupied = O.loues;
-  const totalL = O.total;
-  const pct = O.taux;
-  const color = pct >= 90 ? 'var(--fg-success)' : pct >= 50 ? 'var(--fg-warning)' : 'var(--fg-danger)';
-  const vacs = O.vacants;
-  const magAnHC = O.manque;
-  const summary = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">'
-    + '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
-    +   '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">Occupation</div>'
-    +   '<div style="font-size:26px;font-weight:600;margin-top:2px;color:'+color+'">'+pct+'\u00a0%</div>'
-    +   '<div style="font-size:12px;color:var(--t2);margin-top:2px">'+occupied+' / '+totalL+' lou\u00e9s aujourd\u2019hui'+(O.enJours?' \u00b7 taux en jours sur la p\u00e9riode':'')+'</div>'
-    + '</div>'
-    + '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
-    +   '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">Manque \u00e0 gagner (HC)</div>'
-    +   '<div style="font-size:26px;font-weight:600;margin-top:2px;color:'+((magAnHC||0)>0?'var(--fg-danger)':'var(--fg-success)')+'">'+(magAnHC==null?'\u2014':fmt(magAnHC))+'</div>'
-    +   '<div style="font-size:12px;color:var(--t2);margin-top:2px">'+(magAnHC==null?'Module d\u2019occupation non charg\u00e9':(vacs.length?'sur les jours r\u00e9ellement vides \u00b7 '+vacs.length+' vacant'+(vacs.length>1?'s':'')+' aujourd\u2019hui':'Aucun vacant'))+'</div>'
-    + '</div>'
-    + '</div>';
-  const table = totalL
-    ? '<table class="tbl"><thead><tr><th>Logement</th><th>Immeuble</th><th>Statut</th><th>Locataire</th><th style="text-align:right">Loyer TTC (HC+CH)</th><th style="text-align:right">Perte théorique/an</th></tr></thead><tbody>'
-    + scopeLogs.map(l => {
-        // Statut lu sur le BAIL, plus sur le cache : un bail repris sans nom de locataire
-        // s'affichait « Vacant » dans le tableau, juste sous une bulle qui le comptait loue.
-        const _loue = (typeof _bienIsBailActif === 'function') ? _bienIsBailActif(l.ref) : !!l.locataire;
-        const statut = _loue
-          ? '<span style="color:var(--fg-success);font-weight:600">Occup\u00e9</span>'
-          : '<span style="color:var(--fg-danger);font-weight:600">Vacant</span>';
-        const loyerTTC = (l.hc||0)+(l.ch||0);
-        // Colonne ANNUALISÉE : ce n'est pas le manque de la période (le chiffre du haut), c'est
-        // ce que coûterait une vacance sur douze mois. Le nom de colonne le dit désormais —
-        // sans quoi deux montants de sens différents se lisent comme le même.
-        const perte = _loue ? '\u2014' : fmt((l.hc||0)*12);
-        const perteCol = _loue ? 'var(--t3)' : 'var(--fg-danger)';
-        return '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(l.imm||'—')+'</td><td>'+statut+'</td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right">'+fmt(loyerTTC)+'</td><td style="text-align:right;color:'+perteCol+';font-weight:'+(_loue?'400':'600')+'">'+perte+'</td></tr>';
-      }).join('')
-    + '</tbody></table>'
-    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun logement dans ce scope.</div>';
-  return {title:'Occupation & manque \u00e0 gagner vacance', html:summary+table};
 }
 
 /* Drill-down pour le KPI fusionné flux (Revenus vs Charges) —
@@ -8860,7 +8800,7 @@ function _getAllBailsForLog(ref) {
   if(current && !current._deleted && current.debut) {
     bails.push({
       debut: current.debut,
-      fin: current.finEffective || current.fin || null,
+      fin: _bailFinOccupation(current, false) || null,   // tacite reconduction : bail nu/meublé en cours = ouvert
       hc: current.hc || 0,
       ch: current.ch || 0,
       nom: _bailNom(current),
@@ -8873,7 +8813,7 @@ function _getAllBailsForLog(ref) {
     DB.baux_historique.filter(b => b && !b._deleted && b.debut && (b.ref === ref || norm(b.ref) === want)).forEach(b => {
       bails.push({
         debut: b.debut,
-        fin: b.finEffective || b.fin || null,
+        fin: _bailFinOccupation(b, true) || null,
         hc: b.hc || 0,
         ch: b.ch || 0,
         nom: _bailNom(b),
@@ -8915,90 +8855,13 @@ function _getLogementStartMi(ref, yr) {
   return parseInt(iso.slice(5,7)) - 1;
 }
 
-/* Construit la séquence de segments bail/vacance sur l'année pour un logement.
-   Chaque segment regroupe des mois consécutifs partageant le même "bail source"
-   (bail réellement actif → segment 'bail', ou fallback → segment 'vacance').
-   Borné inférieurement par la date de démarrage effectif du logement. */
-function _buildBailSegments(ref, yr, lastVisibleMonth) {
-  const bails = _getAllBailsForLog(ref);
-  if(!bails.length) return [];
-  const firstMi = _getLogementStartMi(ref, yr);
-  if(firstMi == null) return [];
-  const segments = [];
-  let cur = null;
-  for(let mi = firstMi; mi < lastVisibleMonth; mi++) {
-    const monthIso = yr + '-' + String(mi+1).padStart(2,'0') + '-15';
-    const active = bails.find(b => b.debut <= monthIso && (b.fin || '9999-12-31') >= monthIso);
-    let key, type, srcBail;
-    if(active) {
-      key = 'b:' + active.debut;
-      type = 'bail';
-      srcBail = active;
-    } else {
-      const prev = bails.filter(b => b.debut <= monthIso);
-      if(!prev.length) {
-        if(cur) { segments.push(cur); cur = null; }
-        continue;
-      }
-      srcBail = prev[prev.length - 1];
-      key = 'v:' + srcBail.debut;
-      type = 'vacance';
-    }
-    const hcch = (srcBail.hc || 0) + (srcBail.ch || 0);
-    if(!cur || cur.key !== key) {
-      if(cur) segments.push(cur);
-      cur = {key, type, bail:srcBail, startMi:mi, endMi:mi, attendu:hcch, realise:0};
-    } else {
-      cur.endMi = mi;
-      cur.attendu += hcch;
-    }
-  }
-  if(cur) segments.push(cur);
-  return segments;
-}
-
-/* Retourne le HC+CH à prendre en compte pour un logement sur un mois donné.
-   - Si bail actif ce mois → son HC+CH
-   - Sinon, si au moins un bail a déjà démarré avant → HC+CH du bail le plus
-     récent (fallback manque à gagner, cas travaux/vacance entre 2 baux)
-   - Sinon → 0 (logement pas encore productif) */
-function _getActiveBailHcCh(ref, yr, monthIdx0) {
-  const monthIso = yr + '-' + String(monthIdx0+1).padStart(2,'0') + '-15';
-  const bails = _getAllBailsForLog(ref);
-  if(!bails.length) return 0;
-  const active = bails.find(b => {
-    const fin = b.fin || '9999-12-31';
-    return b.debut <= monthIso && monthIso <= fin;
-  });
-  if(active) {
-    // v14.83 BUG-DASH-001 : pour le bail courant (sans fin OU avec fin future),
-    // bail.hc = montant POST-révisions IRL. Pour un mois passé, on doit revenir
-    // au HC en vigueur à monthIso via _loyerHCAtDate (consulte DB.irlHistorique).
-    // Pour un bail historique clôturé, b.hc est figé au moment de la clôture → correct.
-    const todayIso = new Date().toISOString().slice(0, 10);
-    const isCurrentBail = !active.fin || active.fin >= todayIso;
-    if (isCurrentBail) {
-      const log = (DB.logements || []).find(l => l.ref === ref);
-      if (log) {
-        const hcAtDate = _loyerHCAtDate(log, monthIso);
-        return hcAtDate + (active.ch || 0);
-      }
-    }
-    return (active.hc||0) + (active.ch||0);
-  }
-  const prev = bails.filter(b => b.debut <= monthIso);
-  if(!prev.length) return 0;
-  const mostRecent = prev[prev.length - 1];
-  return (mostRecent.hc||0) + (mostRecent.ch||0);
-}
-
-/* v15.19 Phase A1 BUG-PRORATA-DASH — Variante PRORATÉE de _getActiveBailHcCh.
+/* v15.19 Phase A1 BUG-PRORATA-DASH — Variante PRORATÉE (l'ancienne version non proratée est supprimée).
    Au lieu de tester au 15 du mois et retourner le loyer plein, calcule
    exactement le HC+CH attendu pour le mois en fonction des jours d'occupation.
    Gère entrée mi-mois, sortie mi-mois, transition de 2 baux dans le même mois.
 
    Loi 6 juillet 1989 + jurisprudence Cass. 3e civ. : loyer dû au prorata.
-   Utiliser cette fonction (et NON _getActiveBailHcCh) pour TOUT calcul de
+   Utiliser cette fonction pour TOUT calcul de
    montant attendu (impayés, progression, attendu vs encaissé). */
 // AUDIT-SUIVI-LOYERS étape 4 — LE dû d'un mois d'un lot, résolveur UNIQUE des 5 surfaces
 // (P&L, Suivi, Accueil, fiche/pilotage, quittance). Lit le BARÈME historisé (source de vérité)
@@ -9041,8 +8904,16 @@ function _duMoisLot(ref, ym) {
 // Le 7ᵉ moteur (_matcheMois, qui rattachait un paiement au mois de sa propre date) est
 // supprimé, pas corrigé (C3).
 //
-// Fenêtre de suivi = _debutSuivi → mois courant, la même borne que les 5 surfaces (B2) :
-// pas de dette fantôme sur des années sans données.
+// Fenêtre de suivi (R0-C) — dès qu'une date est SAISIE (date d'achat ou antériorité notée), LE point
+// de départ de Finances (`_finLotSuivi` → js/core/anteriorite.js), le dû de Finances (`_finBailHcChAt` :
+// 1ᵉʳ terme exigible après l'achat), son solde d'ouverture, et la même règle pour les encaissements
+// d'avant : jamais imputés (3ᵉ audit A1). L'onglet Loyers, les relances et les quittances lisent alors la même dette
+// que Finances et la restitution.
+// Date PROVISOIRE (b) — rien de saisi : l'ancienne fenêtre `_debutSuivi` (1ᵉʳ janvier de l'année du
+// 1ᵉʳ versement), exactement comme le maître, qui ne reçoit jamais `debutDu` pour elle (3ᵉ audit A2/A3 :
+// la borne provisoire tombe sur le mois du PAIEMENT, elle décalait les quittances — actes opposables —
+// et faisait naître des relances sur des baux clos). Rien ne bouge tant que rien n'est saisi.
+// Repli (modules absents) : la même ancienne fenêtre.
 // Retourne null si le module n'est pas chargé (file://) — les appelants dégradent.
 function _loyerEtatLot(ref, opts) {
   opts = opts || {};
@@ -9065,27 +8936,46 @@ function _loyerEtatLot(ref, opts) {
   // imputés mois par mois. Le montant reste la seule chose qui DÉCIDE : les dates suivent.
   const srcParYm = {};
   let firstPaymentYm = null;
+  const _s = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function') ? _finLotSuivi(ref) : null;
+  const suivi = (_s && _s.source && _s.source !== 'provisoire') ? _s : null;   // (b) : seule une date SAISIE fait foi
+  const borne = suivi ? suivi.date : null;
+  const avant = [];   // encaissements d'avant la date saisie : jamais imputés (A1), signalés après un achat (C1)
   for (const m of (DB.mouvements || [])) {
     if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
     const ym = String(m.date).slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+    if (borne && String(m.date).slice(0, 10) < borne) { avant.push({ date: String(m.date).slice(0, 10), montant: m.cr || 0 }); continue; }
     recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
     (srcParYm[ym] || (srcParYm[ym] = [])).push({ date: String(m.date).slice(0, 10), id: (m.id != null ? m.id : null), montant: m.cr || 0 });
     if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
   }
-  const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
-  const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
-  const startYm = (typeof window._debutSuivi === 'function')
-    ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
+  let startYm = null, duDe = (ym) => _duMoisLot(ref, ym), opening = null;
+  if (suivi) {
+    startYm = borne ? borne.slice(0, 7) : null;
+    duDe = (ym) => _finBailHcChAt(ref, ym);
+    const o = suivi.ouverture;
+    if (o) opening = { idx: 0, date: borne, loyer: o.loyer, charge: o.charge, avance: o.avance };
+  } else {
+    const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
+    const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
+    startYm = (typeof window._debutSuivi === 'function')
+      ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
+  }
   const endYm = ((typeof window._loyerTodayLocal === 'function')
     ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)).slice(0, 7);
   const months = (startYm && startYm <= endYm)
     ? window.ymRange(startYm, endYm).map(ym => {
-        const d = _duMoisLot(ref, ym);
+        const d = duDe(ym);
         return { ym, hcDue: d.hc || 0, chDue: d.ch || 0, received: recuParYm[ym] || 0, sources: srcParYm[ym] || [] };
       })
     : [];
-  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast });
+  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast, opening });
+  // R0-C C1 — tant que le geste « rattacher » n'existe pas (lot 2) : un versement du mois qui précède une
+  // DATE D'ACHAT est peut-être le 1ᵉʳ terme, déjà sur le compte. Il n'est pas imputé, mais il est
+  // SIGNALÉ (onglet Loyers, relance) : jamais un impayé relancé sans le dire.
+  etat.aVerifier = (suivi && suivi.source === 'acquisition' && avant.length && typeof window._avantBorne === 'function')
+    ? window._avantBorne(avant, borne, { achat: true }).horsSuivi.filter(h => h.aRattacher).map(h => ({ date: h.date, montant: h.montant }))
+    : [];
   C.map[key] = etat;
   return etat;
 }
@@ -9114,7 +9004,20 @@ function _getActiveBailHcChProratedSplit(ref, yr, monthIdx0) {
 /* Attendu total pour un logement sur l'année, cumulé par mois actif.
    Borné inférieurement par la date de démarrage effectif du logement.
    v15.19 : utilise _getActiveBailHcChProrated → prorata jours intra-mois. */
+// R0-C 🟠2 (audit 30/09) — UNE règle : l'attendu lit le dû de Finances (`_finBailHcChAt`, borné au
+// point de départ du suivi — date d'achat, antériorité, sinon date provisoire = l'ancienne borne du
+// 1ᵉʳ versement). Avant, il gardait sa propre borne (`_getLogementStartMi`) : les KPI Compta de la
+// fiche logement, l'ancien écran Compta bailleur et le widget hérité (supprimés) divergeaient de Finances
+// dès qu'une date était saisie. Repli file:// : l'ancien calcul.
 function _computeExpectedRent(ref, yr, lastVisibleMonth) {
+  if (typeof _finBailHcChAt === 'function') {
+    let total = 0;
+    for (let mi = 0; mi < lastVisibleMonth; mi++) {
+      const d = _finBailHcChAt(ref, yr + '-' + String(mi + 1).padStart(2, '0'));
+      total += (d.hc || 0) + (d.ch || 0);
+    }
+    return total;
+  }
   const firstMi = _getLogementStartMi(ref, yr);
   if(firstMi == null) return 0;
   let total = 0;
@@ -9122,366 +9025,6 @@ function _computeExpectedRent(ref, yr, lastVisibleMonth) {
     total += _getActiveBailHcChProrated(ref, yr, mi);
   }
   return total;
-}
-
-/* Drill "Progression annuelle" — résumé + chart cumul 12 mois + tableau par logement */
-function _buildProgDrill(ctx) {
-  const {scopeLogs, yr, activeEnt, scopeRefs, scopeImms} = ctx;
-  const inclYTD = new Set((DB.categories || []).filter(c => _realiseInclCat(c)));
-  const today = new Date();
-  const isCurYr = today.getFullYear() === parseInt(yr);
-  const lastVisibleMonth = isCurYr ? today.getMonth() + 1 : 12;  // 1..12
-  // 1er loyer RÉELLEMENT reçu (date du 1er mouvement Loyers cr>0) par ref/immeuble
-  const firstLoyerByRef = {};
-  const firstLoyerByImm = {};
-  for(const m of DB.mouvements) {
-    if(!_isLoyerCategory(m.cat) || !(m.cr > 0) || !m.date || !m.date.startsWith(yr)) continue;
-    if(!firstLoyerByRef[m.qui] || m.date < firstLoyerByRef[m.qui]) firstLoyerByRef[m.qui] = m.date;
-    const log = scopeLogs.find(l => l.ref === m.qui);
-    if(log && log.imm) {
-      if(!firstLoyerByImm[log.imm] || m.date < firstLoyerByImm[log.imm]) firstLoyerByImm[log.imm] = m.date;
-    }
-  }
-  const loyerLabel = (iso) => iso ? _DMC[parseInt(iso.slice(5,7))-1] : '—';
-  // v2 Option B — Attendu par mois via bail-based (respecte changements de bail)
-  // Chaque logement démarre à sa date de démarrage effectif (1er paiement historique).
-  // v15.19 Phase A1 : prorata jours intra-mois (fix locataire mi-mois marqué impayé à tort).
-  const monthsAttendu = Array(12).fill(0);
-  for(const l of scopeLogs) {
-    const firstMi = _getLogementStartMi(l.ref, yr);
-    if(firstMi == null) continue;
-    for(let mi = firstMi; mi < lastVisibleMonth; mi++) {
-      monthsAttendu[mi] += _getActiveBailHcChProrated(l.ref, yr, mi);
-    }
-  }
-  // Réalisé par mois : mvts inclYTD cr > 0
-  const monthsRealise = Array(12).fill(0);
-  for(const m of DB.mouvements) {
-    if(!m.date || !m.date.startsWith(yr)) continue;
-    if(!inclYTD.has(m.cat) || !(m.cr > 0)) continue;
-    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
-    const mi = parseInt(m.date.slice(5,7)) - 1;
-    monthsRealise[mi] += m.cr;
-  }
-  // Cumul visible
-  const cumAttendu = [], cumRealise = [];
-  let cA = 0, cR = 0;
-  for(let m = 0; m < lastVisibleMonth; m++) {
-    cA += monthsAttendu[m];
-    cR += monthsRealise[m];
-    cumAttendu.push({value:cA, label:_DMC[m], mo:m+1, yr:parseInt(yr)});
-    cumRealise.push({value:cR, label:_DMC[m], mo:m+1, yr:parseInt(yr)});
-  }
-  const totAttendu = cA, totRealise = cR, totEcart = cR - cA;
-  const totPct = totAttendu > 0 ? Math.round(totRealise / totAttendu * 100) : 0;
-  // Cartes résumé
-  const card = (lab, val, color, sub) =>
-    '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
-    + '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">'+escHtml(lab)+'</div>'
-    + '<div style="font-size:24px;font-weight:600;margin-top:2px;color:'+color+'">'+val+'</div>'
-    + (sub ? '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+escHtml(sub)+'</div>' : '')
-    + '</div>';
-  const signed = v => (v>=0?'+':'')+fmt(v);
-  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
-    + card('Attendu à date', fmt(totAttendu), 'var(--t1)')
-    + card('Réalisé', fmt(totRealise), totRealise>=totAttendu?'var(--fg-success)':'var(--t1)', totPct+' % collecté')
-    + card('Écart', signed(totEcart), totEcart>=0?'var(--fg-success)':'var(--fg-danger)', totEcart>=0?'En avance':'En retard')
-    + '</div>';
-  // Pré-calcul segments par logement (sert au chart markers + aux sous-lignes tableau)
-  const segsByRef = {};
-  for(const l of scopeLogs) segsByRef[l.ref] = _buildBailSegments(l.ref, yr, lastVisibleMonth);
-  // Collecte des changements de bail pour les marqueurs du chart (groupés par mois)
-  const bailChangesByMi = {};
-  for(const l of scopeLogs) {
-    const segs = segsByRef[l.ref];
-    if(!segs || segs.length < 2) continue;
-    for(let si = 1; si < segs.length; si++) {
-      const prev = segs[si-1], cur = segs[si];
-      const mi = cur.startMi;
-      const prevLab = prev.type === 'vacance' ? 'vacance' : (prev.bail.nom || '\u2014');
-      const curLab = cur.type === 'vacance' ? 'vacance' : (cur.bail.nom || '\u2014');
-      if(!bailChangesByMi[mi]) bailChangesByMi[mi] = [];
-      bailChangesByMi[mi].push(l.ref + ' : ' + prevLab + ' \u2192 ' + curLab);
-    }
-  }
-  const chartMarkers = Object.entries(bailChangesByMi).map(([mi, changes]) => ({
-    pointIdx: parseInt(mi),
-    label: _DMC[mi] + ' ' + yr + ' \u2014 ' + changes.join(' \u00b7 ')
-  }));
-  // Chart cumul
-  const chartBlock = cumAttendu.length >= 2
-    ? '<div class="drill-chart">'
-      + '<div class="drill-chart-title">Progression cumulative — '+yr+'</div>'
-      + '<div style="font-size:11px;color:var(--t3);margin:-4px 0 8px 0;font-style:italic">Cumul mois par mois de l\'attendu (somme des HC+CH des baux actifs) et du r\u00e9alis\u00e9 (paiements re\u00e7us). L\'\u00e9cart entre les deux courbes = manque \u00e0 gagner / avance de paiement.</div>'
-      + _mkMultiLineChart([
-          {label:'Attendu cumulé', color:'var(--fg-warning)', series:cumAttendu},
-          {label:'Réalisé cumulé', color:'var(--fg-info)',    series:cumRealise}
-        ], {
-          w:700, h:220, padding:14,
-          verticalMarkers: chartMarkers,
-          tooltipFormat:(pt, g) => _DMC[pt.mo-1]+' '+pt.yr+' — '+g.label+' : '+fmt(pt.value)
-        })
-      + '</div>'
-    : '';
-  // Tableau détaillé Entité > Immeuble > Logement
-  const entsToShow = (activeEnt ? DB.entites.filter(e => e.nom === activeEnt) : DB.entites).filter(_isAlive);
-  const rowsHtml = entsToShow.map(e => {
-    const eLogs = scopeLogs.filter(l => l.entity === e.nom);
-    if(!eLogs.length) return '';
-    // Par immeuble puis par logement
-    const byImm = {};
-    eLogs.forEach(l => { const k = l.imm || '—'; if(!byImm[k]) byImm[k] = []; byImm[k].push(l); });
-    // Compute entity totals
-    let eAtt = 0, eRea = 0;
-    const immRows = Object.entries(byImm).map(([immNom, iL]) => {
-      // v2 — immeuble toujours affiché dès qu'il a ≥ 1 logement (pas de filtre attendu)
-      // Per logement
-      let iAtt = 0, iRea = 0;
-      const logRows = iL.map(l => {
-        const att = _computeExpectedRent(l.ref, yr, lastVisibleMonth);
-        // Attribue chaque mouvement au segment qui couvre son mois
-        const segs = segsByRef[l.ref] || [];
-        const segsCopy = segs.map(s => ({...s, realise:0}));
-        let logRea = 0;
-        for(const m of DB.mouvements) {
-          if(m.qui !== l.ref) continue;
-          if(!m.date || !m.date.startsWith(yr)) continue;
-          if(!inclYTD.has(m.cat) || !(m.cr > 0)) continue;
-          const miMov = parseInt(m.date.slice(5,7)) - 1;
-          if(miMov >= lastVisibleMonth) continue;
-          logRea += m.cr;
-          const seg = segsCopy.find(s => s.startMi <= miMov && miMov <= s.endMi);
-          if(seg) seg.realise += m.cr;
-          else if(segsCopy.length) {
-            // paiement hors fenêtre des segments connus → rattache au dernier précédent
-            const prev = segsCopy.filter(s => s.endMi < miMov);
-            if(prev.length) prev[prev.length-1].realise += m.cr;
-          }
-        }
-        const ec = logRea - att;
-        const pct = att > 0 ? Math.round(logRea/att*100) : 0;
-        const ecCol = ec >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
-        eAtt += att; eRea += logRea;
-        iAtt += att; iRea += logRea;
-        // 1er loyer : 1er paiement RÉEL reçu dans l'année (mouvement)
-        const firstLabel = loyerLabel(firstLoyerByRef[l.ref]);
-        // Nb mois actifs (mois où _getActiveBailHcCh > 0) depuis le démarrage du logement
-        let monthsActive = 0;
-        const _firstMiLog = _getLogementStartMi(l.ref, yr);
-        if(_firstMiLog != null) {
-          for(let mi = _firstMiLog; mi < lastVisibleMonth; mi++) {
-            if(_getActiveBailHcCh(l.ref, yr, mi) > 0) monthsActive++;
-          }
-        }
-        // Pastille diagnostic si attendu = 0 (aide saisie : bail manquant, HC/CH à 0, etc.)
-        let warnBadge = '';
-        if(att === 0) {
-          const allBails = _getAllBailsForLog(l.ref);
-          if(!allBails.length) {
-            warnBadge = ' <span style="font-size:10px;color:var(--fg-warning);font-weight:600" title="Aucun bail courant ni archivé rattaché à cette ref">\u26a0 Aucun bail</span>';
-          } else if(allBails.every(b => ((b.hc||0) + (b.ch||0)) === 0)) {
-            warnBadge = ' <span style="font-size:10px;color:var(--fg-warning);font-weight:600" title="Bail présent mais HC et CH à 0 — saisir les montants">\u26a0 HC/CH \u00e0 0</span>';
-          } else if(_getLogementStartMi(l.ref, yr) == null) {
-            warnBadge = ' <span style="font-size:10px;color:var(--fg-warning);font-weight:600" title="Le bail démarre après l\'année affichée">\u26a0 Bail futur</span>';
-          }
-        }
-        const mainRow = '<tr>'
-          + '<td style="padding:4px 6px 4px 28px;color:var(--t2)">\u00a0\u00a0'+escHtml(l.ref)+(l.locataire?' \u00b7 '+escHtml(l.locataire):'')+warnBadge+'</td>'
-          + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+firstLabel+'</td>'
-          + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+monthsActive+'</td>'
-          + '<td style="text-align:right;padding:4px 6px">'+fmt(att)+'</td>'
-          + '<td style="text-align:right;padding:4px 6px">'+fmt(logRea)+'</td>'
-          + '<td style="text-align:right;padding:4px 6px;color:'+ecCol+';font-weight:500">'+signed(ec)+'</td>'
-          + '<td style="text-align:right;padding:4px 6px;color:'+ecCol+'">'+pct+'\u00a0%</td></tr>';
-        // Sous-lignes par bail uniquement si transition (≥ 2 segments)
-        if(segsCopy.length < 2) return mainRow;
-        const segRows = segsCopy.map(s => {
-          const range = s.startMi === s.endMi ? _DMC[s.startMi] : _DMC[s.startMi]+'\u2192'+_DMC[s.endMi];
-          const segLab = s.type === 'vacance'
-            ? '\u26a0 Vacance ('+range+')'
-            : (s.bail.nom ? escHtml(s.bail.nom) : '(sans locataire)') + ' ('+range+')';
-          const sEc = s.realise - s.attendu;
-          const sPct = s.attendu > 0 ? Math.round(s.realise/s.attendu*100) : 0;
-          const sCol = sEc >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
-          const rowStyle = s.type === 'vacance'
-            ? 'background:var(--bg-warning,rgba(234,179,8,.06))'
-            : '';
-          return '<tr style="'+rowStyle+'">'
-            + '<td style="padding:3px 6px 3px 44px;color:var(--t3);font-size:11px;font-style:italic">\u00b7 '+segLab+'</td>'
-            + '<td></td><td></td>'
-            + '<td style="text-align:right;padding:3px 6px;font-size:11px;color:var(--t2)">'+fmt(s.attendu)+'</td>'
-            + '<td style="text-align:right;padding:3px 6px;font-size:11px;color:var(--t2)">'+fmt(s.realise)+'</td>'
-            + '<td style="text-align:right;padding:3px 6px;font-size:11px;color:'+sCol+'">'+signed(sEc)+'</td>'
-            + '<td style="text-align:right;padding:3px 6px;font-size:11px;color:'+sCol+'">'+sPct+'\u00a0%</td></tr>';
-        }).join('');
-        return mainRow + segRows;
-      }).join('');
-      // Immeuble header row (totaux agrégés)
-      const iEc = iRea - iAtt;
-      const iPct = iAtt > 0 ? Math.round(iRea/iAtt*100) : 0;
-      const iCol = iEc >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
-      const immFirstLabel = loyerLabel(firstLoyerByImm[immNom]);
-      const immHeader = '<tr style="background:var(--sur3);font-weight:600">'
-        + '<td style="padding:5px 6px 5px 14px;color:var(--t1)">\u2514\u00a0'+escHtml(immNom)+'</td>'
-        + '<td style="text-align:right;padding:5px 6px;color:var(--t2)">'+immFirstLabel+'</td>'
-        + '<td style="text-align:right;padding:5px 6px;color:var(--t2)">—</td>'
-        + '<td style="text-align:right;padding:5px 6px">'+fmt(iAtt)+'</td>'
-        + '<td style="text-align:right;padding:5px 6px">'+fmt(iRea)+'</td>'
-        + '<td style="text-align:right;padding:5px 6px;color:'+iCol+'">'+signed(iEc)+'</td>'
-        + '<td style="text-align:right;padding:5px 6px;color:'+iCol+'">'+iPct+'\u00a0%</td></tr>';
-      return immHeader + logRows;
-    }).filter(Boolean).join('');
-    if(!immRows) return '';
-    // Entity header
-    const eEc = eRea - eAtt;
-    const ePct = eAtt > 0 ? Math.round(eRea/eAtt*100) : 0;
-    const eCol = eEc >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
-    const entHeader = '<tr style="background:var(--sur2);font-weight:700;border-top:1px solid var(--bor)">'
-      + '<td style="padding:6px 8px;color:var(--t1)">'+escHtml(e.nom)+'</td>'
-      + '<td></td><td></td>'
-      + '<td style="text-align:right;padding:6px 8px">'+fmt(eAtt)+'</td>'
-      + '<td style="text-align:right;padding:6px 8px">'+fmt(eRea)+'</td>'
-      + '<td style="text-align:right;padding:6px 8px;color:'+eCol+'">'+signed(eEc)+'</td>'
-      + '<td style="text-align:right;padding:6px 8px;color:'+eCol+'">'+ePct+'\u00a0%</td></tr>';
-    return entHeader + immRows;
-  }).filter(Boolean).join('');
-  const tableHtml = rowsHtml
-    ? '<table class="tbl"><thead><tr><th>Entité / Immeuble / Logement</th><th style="text-align:right">1er loyer reçu</th><th style="text-align:right">Mois</th><th style="text-align:right">Attendu</th><th style="text-align:right">Réalisé</th><th style="text-align:right">Écart</th><th style="text-align:right">% coll.</th></tr></thead><tbody>'
-      + rowsHtml
-      + '</tbody></table>'
-      + (chartMarkers.length ? '<div style="margin-top:8px;font-size:10.5px;color:var(--t3);font-style:italic">\u26a0 Les sous-lignes en italique indiquent les changements de locataire (ou vacances) \u00b7 somme = total du logement.</div>' : '')
-    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun logement dans cette scope.</div>';
-  return {title:'Progression annuelle — '+yr, html:summary+chartBlock+tableHtml};
-}
-
-/* Drill "Solde provisions" — résumé + tableau croisé immeuble × catégorie */
-function _buildSoldeDrill(ctx) {
-  const {scopeLogs, yr, mo, activeEnt, scopeRefs, scopeImms} = ctx;
-  const nbMois = mo ? 1 : (new Date().getMonth() + 1);
-  const inclCh = new Set((DB.categories || []).filter(c => _isChargeRecupCategory(c)));
-  // Provisions par immeuble
-  const immsDistinct = [...new Set(scopeLogs.map(l => l.imm).filter(Boolean))];
-  const provByImm = {};
-  for(const l of scopeLogs) {
-    if(!l.locataire) continue;
-    const imm = l.imm || '—';
-    provByImm[imm] = (provByImm[imm] || 0) + (l.ch || 0) * nbMois;
-  }
-  // Matrice charges : matrix[imm][cat] = montant
-  const matrix = {};
-  const catTotals = {};
-  for(const m of DB.mouvements) {
-    if(!m.date || !m.date.startsWith(yr)) continue;
-    if(!(m.db > 0) || !inclCh.has(m.cat)) continue;
-    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
-    const log = scopeLogs.find(l => l.ref === m.qui);
-    const imm = (log && log.imm) || m.imm;
-    if(!imm || !immsDistinct.includes(imm)) continue;
-    if(!matrix[imm]) matrix[imm] = {};
-    matrix[imm][m.cat] = (matrix[imm][m.cat] || 0) + m.db;
-    catTotals[m.cat] = (catTotals[m.cat] || 0) + m.db;
-  }
-  const cats = Object.keys(catTotals).sort((a,b) => catTotals[b] - catTotals[a]);
-  // Totaux globaux
-  const totProv = Object.values(provByImm).reduce((s,v) => s+v, 0);
-  const totCharges = Object.values(catTotals).reduce((s,v) => s+v, 0);
-  const totSolde = totProv - totCharges;
-  // Cartes résumé
-  const card = (lab, val, color, sub) =>
-    '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
-    + '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">'+escHtml(lab)+'</div>'
-    + '<div style="font-size:24px;font-weight:600;margin-top:2px;color:'+color+'">'+val+'</div>'
-    + (sub ? '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+escHtml(sub)+'</div>' : '')
-    + '</div>';
-  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
-    + card('Provisions', fmt(totProv), 'var(--t1)', nbMois+' mois')
-    + card('Charges payées', fmt(totCharges), 'var(--fg-danger)')
-    + card('Solde', (totSolde>=0?'+':'')+fmt(totSolde), totSolde>=0?'var(--fg-success)':'var(--fg-danger)', totSolde>=0?'Provisions suffisantes':'Manque à combler')
-    + '</div>';
-  // Tableau croisé
-  const tableHtml = immsDistinct.length
-    ? '<table class="tbl" style="font-size:12px">'
-      + '<thead><tr>'
-      +   '<th style="text-align:left">Immeuble</th>'
-      +   '<th style="text-align:right">Provisions</th>'
-      +   cats.map(c => '<th style="text-align:right">'+escHtml(c)+'</th>').join('')
-      +   '<th style="text-align:right">Total charges</th>'
-      +   '<th style="text-align:right">Solde</th>'
-      + '</tr></thead><tbody>'
-      + immsDistinct.sort().map(imm => {
-          const prov = provByImm[imm] || 0;
-          const catRow = cats.map(c => {
-            const v = (matrix[imm] && matrix[imm][c]) || 0;
-            return '<td style="text-align:right;padding:5px 8px;color:'+(v>0?'var(--fg-danger)':'var(--t3)')+'">'+(v>0?fmt(v):'—')+'</td>';
-          }).join('');
-          const totImmCh = cats.reduce((s,c) => s + ((matrix[imm] && matrix[imm][c]) || 0), 0);
-          const solde = prov - totImmCh;
-          const soldeCol = solde >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
-          return '<tr><td style="padding:5px 8px;font-weight:500">'+escHtml(imm)+'</td>'
-            + '<td style="text-align:right;padding:5px 8px">'+fmt(prov)+'</td>'
-            + catRow
-            + '<td style="text-align:right;padding:5px 8px;font-weight:500;color:var(--fg-danger)">'+fmt(totImmCh)+'</td>'
-            + '<td style="text-align:right;padding:5px 8px;font-weight:700;color:'+soldeCol+'">'+(solde>=0?'+':'')+fmt(solde)+'</td></tr>';
-        }).join('')
-      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)">'
-      +   '<td style="padding:6px 8px">Total</td>'
-      +   '<td style="text-align:right;padding:6px 8px">'+fmt(totProv)+'</td>'
-      +   cats.map(c => '<td style="text-align:right;padding:6px 8px;color:var(--fg-danger)">'+fmt(catTotals[c])+'</td>').join('')
-      +   '<td style="text-align:right;padding:6px 8px;color:var(--fg-danger)">'+fmt(totCharges)+'</td>'
-      +   '<td style="text-align:right;padding:6px 8px;color:'+(totSolde>=0?'var(--fg-success)':'var(--fg-danger)')+'">'+(totSolde>=0?'+':'')+fmt(totSolde)+'</td>'
-      + '</tr></tfoot></table>'
-    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun immeuble dans ce scope.</div>';
-  const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Année '+yr;
-  return {title:'Solde provisions de charges — '+periodLabel, html:summary+tableHtml};
-}
-
-function _buildFluxDrill(ctx) {
-  const revS = _kpiMonthlySeries(ctx, 12, m => _isLoyerCategory(m.cat) ? (m.cr||0) : 0);
-  const chgS = _kpiMonthlySeries(ctx, 12, m => (m.db||0));
-  const rows = revS.map((s, i) => ({
-    label: _DMF[s.mo-1]+' '+s.yr,
-    rev: s.value,
-    chg: chgS[i].value,
-    net: s.value - chgS[i].value
-  }));
-  const totRev = rows.reduce((s,r) => s+r.rev, 0);
-  const totChg = rows.reduce((s,r) => s+r.chg, 0);
-  const totNet = totRev - totChg;
-  // Dual-line chart 12 mois (Revenus + Charges) avec Y-axis graduée via _mkMultiLineChart
-  const hasData = rows.some(r => r.rev > 0 || r.chg > 0);
-  const chartBlock = hasData
-    ? '<div class="drill-chart">'
-      + '<div class="drill-chart-title">Évolution Revenus vs Charges — 12 mois glissants</div>'
-      + _mkMultiLineChart([
-          {label:'Revenus', color:'var(--fg-success)', series:revS},
-          {label:'Charges', color:'var(--fg-danger)',  series:chgS}
-        ], {
-          w:700, h:220, padding:14,
-          tooltipFormat:(pt, g, i) => _DMF[pt.mo-1]+' '+pt.yr+' — '+g.label+' : '+fmt(pt.value)+' — Net '+(rows[i].net>=0?'+':'')+fmt(rows[i].net)
-        })
-      + '</div>'
-    : '';
-  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
-    + '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
-    +   '<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">Revenus 12 mois</div>'
-    +   '<div style="font-size:20px;font-weight:600;color:var(--fg-success);margin-top:4px">'+fmt(totRev)+'</div></div>'
-    + '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
-    +   '<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">Charges 12 mois</div>'
-    +   '<div style="font-size:20px;font-weight:600;color:var(--fg-danger);margin-top:4px">'+fmt(totChg)+'</div></div>'
-    + '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
-    +   '<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">Cash-flow net</div>'
-    +   '<div style="font-size:20px;font-weight:600;color:'+(totNet>=0?'var(--fg-success)':'var(--fg-danger)')+';margin-top:4px">'+(totNet>=0?'+':'')+fmt(totNet)+'</div></div>'
-    + '</div>';
-  const table = '<table class="tbl">'
-    + '<thead><tr><th>Mois</th><th style="text-align:right">Revenus</th><th style="text-align:right">Charges</th><th style="text-align:right">Net</th></tr></thead><tbody>'
-    + rows.map(r =>
-        '<tr><td>'+escHtml(r.label)+'</td>'
-        +'<td style="text-align:right;color:var(--fg-success)">'+(r.rev>0?fmt(r.rev):'–')+'</td>'
-        +'<td style="text-align:right;color:var(--fg-danger)">' +(r.chg>0?fmt(r.chg):'–')+'</td>'
-        +'<td style="text-align:right;font-weight:600;color:'+(r.net>=0?'var(--fg-success)':'var(--fg-danger)')+'">'+(r.net>=0?'+':'')+fmt(r.net)+'</td></tr>'
-      ).join('')
-    + '</tbody></table>';
-  return {title:'Revenus vs Charges — 12 mois glissants', html:summary+chartBlock+table};
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -9612,8 +9155,30 @@ function _computeUnifiedTodo(ctx) {
 
   // 7bis. Départ de locataire en cours (DEPART-VISIBILITE #2) — fil rouge guidé + délai légal DG (art. 22).
   // Le départ remonte sur la home avec son échéance datée ; sévérité pilotée par le compte à rebours du DG.
+  // Échéance du dépôt (art. 22) : sévérité + texte, partagés par le bail en cours et les baux archivés.
+  const _dgEcheance = (dl) => {
+    if(!dl) return { severity:'info', score:58, txt:'' };
+    if(dl.jours < 0)  return { severity:'red', score:97, txt:' — DG en retard ' + (-dl.jours) + ' j (majoration)' };
+    if(dl.jours <= 15) return { severity:'ora', score:78, txt:' — DG à restituer avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')' };
+    return { severity:'info', score:58, txt:' — DG avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')' };
+  };
   if(typeof _departState === 'function' && DB.baux) {
     scopeLogs.forEach(l => {
+      // Statut 06/10 : un bail ARCHIVÉ (relocation avant restitution, clôture sans restitution) dont le dépôt
+      // n'est pas restitué garde sa tâche — même règle que les « Dépôts détenus » (_dgDetenuDuBail).
+      _archivesDetenuesDuLot(l.ref).forEach(({ h, cle, montant }) => {
+        let dlH = null; try { dlH = _departDeadlineDG(h); } catch(e){ dlH = null; }
+        const e = _dgEcheance(dlH);
+        const locH = (h.locataires && h.locataires[0] && h.locataires[0].nom) || h.nom || l.ref;
+        out.push({
+          type:'depart', severity:e.severity, score:e.score,
+          title:'Départ — dépôt de garantie à restituer (bail archivé)',
+          subtitle:l.ref + ' — ' + locH + ' · ' + fmt(montant) + e.txt,
+          contextRef:l.ref,
+          actionLabel:'Préparer la restitution du DG',
+          actionFn:"_dgOpenRestitution('" + _lyQ(l.ref) + "','" + _lyQ(cle) + "')"
+        });
+      });
       const bail = DB.baux[l.ref];
       if(!bail || bail._deleted || bail.cloture || !bail.depart) return;
       let st; try { st = _departState(bail); } catch(e){ return; }
@@ -9621,12 +9186,8 @@ function _computeUnifiedTodo(ctx) {
       const loc = (bail.locataires && bail.locataires[0] && bail.locataires[0].nom) || bail.nom || l.locataire || l.ref;
       const dl = st.deadline;
       const dgDone = (st.steps.find(s => s.key === 'dg') || {}).done;
-      let severity = 'info', score = 58, dgTxt = '';
-      if(dl && !dgDone) {
-        if(dl.jours < 0)        { severity = 'red'; score = 97; dgTxt = ' — DG en retard ' + (-dl.jours) + ' j (majoration)'; }
-        else if(dl.jours <= 15) { severity = 'ora'; score = 78; dgTxt = ' — DG à restituer avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
-        else                    { dgTxt = ' — DG avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
-      }
+      const _e = _dgEcheance((dl && !dgDone) ? dl : null);
+      let severity = _e.severity, score = _e.score; const dgTxt = _e.txt;
       // acompte conseillé AVANT l'EDL (même jalon que l'alerte de l'assistant : le locataire est encore
       // présent). Après l'EDL/remise des clés, l'acompte amiable n'a plus de sens.
       let acpTxt='';
@@ -9733,11 +9294,20 @@ function _computeUnifiedTodo(ctx) {
  *
  * `_resyncLocatairesFromBaux` ne remplit ce champ que si le bail porte un nom, et la cloture le
  * VIDE. Un bail repris a l'achat, une saisie en cours, un locataire parti : le cache ment dans
- * les deux sens. Toute surface qui affiche de l'ARGENT doit passer par ici.
+ * les deux sens.
+ * Statut OCCUPÉ AUJOURD'HUI (décision Didier 06/10, _bienIsBailActif) : un départ déclaré passé rend le
+ * lot vacant. Une surface qui affiche de l'ARGENT encore dû par ce bail (impayés, onglet Loyers) lit
+ * _lotBailOuvert, pas ce statut ; le dépôt détenu lit son état de restitution (_dgDetenuDuLot).
  */
 function _lotEstLoue(l) {
   if (!l || !l.ref) return false;
   return (typeof _bienIsBailActif === 'function') ? _bienIsBailActif(l.ref) : !!l.locataire;
+}
+/** Le bail de ce lot est-il encore OUVERT (non clôturé) ? — impayés, onglet Loyers : un
+ *  départ déclaré ne clôt ni la restitution ni la dette. */
+function _lotBailOuvert(l) {
+  if (!l || !l.ref) return false;
+  return (typeof _bienActiveBail === 'function') ? !!_bienActiveBail(l.ref) : !!l.locataire;
 }
 
 /**
@@ -9752,6 +9322,64 @@ function _dgDuLot(l) {
   const b = (typeof _bienActiveBail === 'function') ? _bienActiveBail(l.ref) : null;
   return Number((b && b.dg) || l.dg || 0) || 0;
 }
+/**
+ * DÉPÔTS DÉTENUS — règle UNIQUE (coordination Finances 06/10, décision Didier « gardé jusqu'à restitution ») :
+ * un dépôt est détenu tant que sa RESTITUTION n'est pas enregistrée. Jamais « lot loué », jamais « bail
+ * ouvert » : un départ déclaré, une relocation (bail archivé par archiverBail) ou une clôture sans restitution
+ * ne rendent pas l'argent au locataire (art. 22 de la loi du 6 juillet 1989).
+ *
+ * Restitution ENREGISTRÉE d'un bail :
+ *  • `dgRestitueAt` — posé par _dgConfirmerRestitution (solde de tout compte) ou à la clôture (_clotureDgAppliquer) ;
+ *  • bail CLÔTURÉ AVANT ce déploiement (`cloture` sans `clotureV`) : aussi les montants saisis au formulaire de
+ *    clôture (dgRestitue / dgRetenu > 0) — seules traces de ces clôtures (mesuré : toutes celles des sauvegardes réelles
+ *    en portent). Une clôture d'aujourd'hui (`clotureV: 2`) ne vaut restitution que par sa date de virement.
+ *    Sur un bail NON clôturé (en cours, parti, ou archivé par relocation), dgRetenu / dgRestitue sont des montants
+ *    EN COURS de calcul (_rgApplyRetenue ; saveBail les écrit à 0) : ils ne disent pas que l'argent est rendu.
+ */
+function _dgRestitutionEnregistree(b) {
+  if (!b) return false;
+  if (b.dgRestitueAt) return true;
+  return !!b.cloture && !b.clotureV && (Number(b.dgRestitue) > 0 || Number(b.dgRetenu) > 0);
+}
+/** Le dépôt DÉTENU par un bail (vivant ou archivé) : dg > 0 et restitution non enregistrée. `dgLot` = repli
+ *  sur le dépôt de la fiche du lot, pour le seul bail courant (sémantique de _dgDuLot). */
+function _dgDetenuDuBail(b, dgLot) {
+  if (!b || b._deleted || _dgRestitutionEnregistree(b)) return 0;
+  return Number(b.dg || dgLot || 0) || 0;
+}
+/** LES dépôts DÉTENUS d'un lot (bandeau PC, Accueil téléphone, widget), un montant par bail : son bail courant (même parti, même
+ *  porteur d'une fin effective) + ses baux archivés (relocation avant restitution, clôture sans restitution).
+ *  Un bail clôturé est un tombstone dans DB.baux et sa copie dans baux_historique : jamais compté deux fois. */
+// Les ARCHIVES d'un lot dont le dépôt est encore détenu — une entrée par archive (bailHistCle) : une archive en double
+// (doublon de synchronisation) n'est comptée qu'une fois, et si l'une de ses copies porte la restitution, le dépôt est
+// rendu. Source UNIQUE des dépôts détenus (_dgDetenusDuLot), de la tâche (7bis) et de la cible de restitution.
+function _archivesDetenuesDuLot(ref) {
+  const parCle = new Map(), sansCle = [];
+  (DB.baux_historique || []).forEach(function (h) {
+    if (!h || h._deleted || h.ref !== ref) return;
+    const montant = _dgDetenuDuBail(h, 0);
+    const cle = (typeof _bailHistCleDe === 'function') ? _bailHistCleDe(h) : '';
+    if (!cle) { if (montant > 0) sansCle.push({ h, cle, montant }); return; }
+    const p = parCle.get(cle);
+    if (!p || montant < p.montant) parCle.set(cle, { h, cle, montant });
+  });
+  const out = [];
+  parCle.forEach(function (x) { if (x.montant > 0) out.push(x); });
+  return out.concat(sansCle);
+}
+function _dgDetenusDuLot(l) {
+  if (!l || !l.ref) return [];
+  const cur = DB.baux && DB.baux[l.ref];
+  const out = [];
+  const c = _dgDetenuDuBail(cur, (cur && !cur.cloture) ? l.dg : 0);
+  if (c > 0) out.push(c);
+  _archivesDetenuesDuLot(l.ref).forEach(function (x) { out.push(x.montant); });
+  return out;
+}
+// Montant détenu d'un lot, et NOMBRE de dépôts détenus (un lot reloué avant restitution en porte deux) : même
+// source (_dgDetenusDuLot), pour que le compteur des tuiles compte des dépôts, pas des lots (audit 06/10).
+function _dgDetenuDuLot(l) { return _dgDetenusDuLot(l).reduce(function (s, a) { return s + a; }, 0); }
+function _dgNbDetenusDuLot(l) { return _dgDetenusDuLot(l).length; }
 
 /**
  * LE RÔLE d'un mouvement pour une surface de LOT, lu comme Finances le lit.
@@ -9766,14 +9394,15 @@ function _dgDuLot(l) {
  * et ce que `_finMonthly` lui injecte, :56526-56532) :
  *   'loyer'   ligne 211 — loyers ET provisions de charges ;
  *   'recette' lignes 212/213/214 — recettes diverses, indemnités GLI, subventions ;
- *   'charge'  échéance de prêt entière, CFE/TLV, charges récupérables directes, 221→230 ;
+ *   'charge'  échéance de prêt entière, frais bancaires, charges récupérables directes, 221→230,
+ *             travaux d'agrandissement et dépenses non déductibles (`_finChargeHf`) ;
  *   null      hors résultat — exactement ce que le moteur ignore.
  *
- * ⚠️ Ce null porte une conséquence à connaître : « Travaux de construction / agrandissement
- * (non déductible) » et « Divers (non déductible) » sont de VRAIES sorties d'argent que le
- * moteur ne compte pas en charge. La fiche ne les compte donc plus non plus. C'est le prix de
- * la source unique : si ces postes doivent peser sur un solde, c'est le moteur qu'on change,
- * pas la fiche — sinon on recrée la deuxième définition qu'on vient de supprimer.
+ * « Travaux de construction / agrandissement » et « Divers (non déductible) » sont de VRAIES
+ * sorties d'argent : depuis le 05/10 (décision Didier) le MOTEUR les compte en charge, via le
+ * drapeau `chargeHf` du référentiel, lu par `_finChargeHf` — la fiche suit. Restent hors résultat :
+ * l'achat d'un bien, les apports d'associés, les dépôts de garantie et les virements internes — et
+ * leurs alias (une catégorie perso hérite de sa famille, GO Didier 06/10).
  *
  * Les intérêts d'emprunt (250) rendent null. Le moteur les met dans `b.interets`, qui n'entre
  * NI dans `b.charges` NI dans `cashflowReel` (`finances-monthly.js:297,301`) : c'est une donnée
@@ -9794,6 +9423,7 @@ function _finLotCatRole(cat) {
   // périmé ; ne pas s'y fier.
   if (mere.gestionCharge) return 'charge';      // réel, hors 2044
   if (mere.recup) return 'charge';              // charges récupérables directes : transit locataire
+  if (typeof _finChargeHf === 'function' && _finChargeHf(cat)) return 'charge'; // agrandissement, dépenses non déductibles, alias compris (05-06/10)
   const ln = mere.ligne2044;
   if (!ln || ln === '250') return null;
   if (ln === '211') return 'loyer';
@@ -9965,221 +9595,12 @@ function goToAssurances(ref) {
   if(typeof go === 'function') go('baux', document.querySelector('.ni[data-module="baux"]'));
 }
 
-function _buildRdtDrill(ctx) {
-  const {scopeLogs, activeEnt, scopeRefs, scopeImms} = ctx;
-  const immsDistinct = [...new Set(scopeLogs.map(l => l.imm).filter(Boolean))];
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 12);
-  const cutoffISO = cutoff.toISOString().slice(0,10);
-  const now = new Date();
-  // Single-pass : HC reçu (m.cr - l.ch) 12 mois glissants + date 1er mouvement
-  const hcByImm = {};
-  const firstByImm = {};
-  for(const m of DB.mouvements) {
-    if(!_isLoyerCategory(m.cat) || !(m.cr > 0) || !m.date) continue;
-    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
-    const log = scopeLogs.find(l => l.ref === m.qui);
-    if(!log || !log.imm) continue;
-    if(!firstByImm[log.imm] || m.date < firstByImm[log.imm]) firstByImm[log.imm] = m.date;
-    if(m.date >= cutoffISO) {
-      const hcPart = Math.max(0, (m.cr||0) - (log.ch||0));
-      hcByImm[log.imm] = (hcByImm[log.imm] || 0) + hcPart;
-    }
-  }
-  const rows = immsDistinct.map(immNom => {
-    const iL = scopeLogs.filter(l => l.imm === immNom);
-    const hcRecu = hcByImm[immNom] || 0;
-    const first = firstByImm[immNom];
-    let moisEcoules = 12;
-    if(first) {
-      const d = new Date(first);
-      moisEcoules = Math.max(1, Math.min(12,
-        (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()) + 1
-      ));
-    }
-    const hcAnnualise = first ? hcRecu * 12 / moisEcoules : 0;
-    const entNom = iL[0] && iL[0].entity;
-    const ent2 = entNom ? DB.entites.find(e => e.nom === entNom) : null;
-    const imObj = ent2 && ent2.immeubles ? ent2.immeubles.find(i => i.nom === immNom) : null;
-    const valeur = (imObj && imObj.valeurEstimee) || 0;
-    const travaux = (imObj && imObj.montantTravaux) || 0;
-    const totalInv = valeur + travaux;
-    const taux = totalInv > 0 && first ? (hcAnnualise / totalInv * 100) : null;
-    return {immNom, hcRecu, hcAnnualise, moisEcoules, first, totalInv, taux};
-  }).sort((a,b) => (b.taux||0) - (a.taux||0));
-  const totalHcAnn = rows.reduce((s,r) => s+r.hcAnnualise, 0);
-  const totalInv  = rows.reduce((s,r) => s+r.totalInv, 0);
-  const totalHcTheo = scopeLogs.reduce((s,l) => s+(l.hc||0), 0) * 12;
-  const globalRdt = totalInv > 0 ? (totalHcAnn/totalInv*100) : null;
-  const globalTheo = totalInv > 0 ? (totalHcTheo/totalInv*100) : null;
-  const summary = '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:16px">'
-    + '<div style="font-size:12px;color:var(--t3);letter-spacing:.3px">Rendement brut effectif HC (annualis\u00e9 par immeuble)</div>'
-    + '<div style="font-size:26px;font-weight:600;margin-top:4px;color:var(--t1)">'+(globalRdt !== null ? globalRdt.toFixed(1)+'\u00a0%' : '—')+'</div>'
-    + '<div style="font-size:12px;color:var(--t2);margin-top:3px">HC annualis\u00e9 '+fmt(totalHcAnn)+' \u00b7 Valeur globale '+(totalInv>0?fmt(totalInv):'non renseign\u00e9e')+(globalTheo !== null ? ' \u00b7 Th\u00e9orique '+globalTheo.toFixed(1)+'\u00a0%' : '')+'</div>'
-    + '</div>';
-  const table = rows.length
-    ? '<table class="tbl"><thead><tr><th>Immeuble</th><th style="text-align:right">HC re\u00e7u (12 mois)</th><th style="text-align:right">Annualis\u00e9</th><th style="text-align:right">Valeur + travaux</th><th style="text-align:right">Rdt effectif</th></tr></thead><tbody>'
-    + rows.map(r => {
-        const tauxHtml = r.taux !== null
-          ? '<span style="color:var(--fg-success);font-weight:600">'+r.taux.toFixed(1)+'\u00a0%</span>'
-          : '<span style="color:var(--t3);font-style:italic">N/C</span>';
-        return '<tr><td><b>'+escHtml(r.immNom)+'</b></td>'
-          +'<td style="text-align:right">'+fmt(r.hcRecu)+'</td>'
-          +'<td style="text-align:right;font-weight:500">'+fmt(r.hcAnnualise)+'</td>'
-          +'<td style="text-align:right">'+(r.totalInv>0?fmt(r.totalInv):'—')+'</td>'
-          +'<td style="text-align:right">'+tauxHtml+'</td></tr>';
-      }).join('')
-    + '</tbody></table>'
-    + '<div class="mu sm" style="margin-top:10px;font-size:11px;color:var(--t3);font-style:italic">HC re\u00e7u = paiements loyers encaiss\u00e9s \u2212 charges th\u00e9oriques mensuelles (l.ch) par mouvement. Annualisation : HC re\u00e7u \u00d7 (12 / mois \u00e9coul\u00e9s depuis 1er mouvement). Valeurs estim\u00e9es \u00e0 renseigner dans R\u00e9f\u00e9rentiel \u25b8 Entit\u00e9s.</div>'
-    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun immeuble.</div>';
-  return {title:'Rendement brut effectif par immeuble', html:summary+table};
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// v15.27 Phase B — Système render version (Approche C)
-// ═══════════════════════════════════════════════════════════════════════
-// La fonction `buildDashWidget` est maintenant un DISPATCHER qui route vers
-// l'une des 2 implémentations :
-//   • _buildWidgetV1Legacy : code v1 actuel (renommé sans modification)
-//   • _buildWidgetV2Modern : refonte progressive widget par widget Phase B
-//
-// Activation v2 : DB.params.dashRenderV = 'v2' (défaut 'v1' pour stabilité prod).
-// En sandbox, on peut basculer via console : DB.params.dashRenderV='v2';saveDB();_rPeriodPage();
-//
-// Garantie : tant qu'un widget n'a pas son rendu v2, on délègue à v1
-// (préservation 100% des 23 drill-downs cf. DASHBOARD-DRILLDOWNS-INVENTAIRE.md).
-//
-// ⚠️⚠️ CODE MORT — `buildDashWidget` N'A AUCUN APPELANT (vérifié : ni dans le code, ni dans un
-// attribut `on*` du DOM, ni dans les modules différés). `rAccueil` route vers
-// `_renderAccueilPhone` (≤767) ou `_renderPilotage` (≥768), jamais vers cette grille. Tout ce
-// qui en dépend est donc mort aussi : `_buildWidgetV1Legacy`, `_buildWidgetV2Modern`,
-// `_occPerimetre`, `_buildOccDrill`, `_nomLotAffiche`, et la vingtaine de `_build*Drill`.
-//
-// Le signaler ici parce que ça coûte : un correctif R-0 a été écrit sur cette grille avant de
-// s'apercevoir qu'elle n'est jamais rendue. À TRANCHER dans un lot dédié — rebrancher ou
-// supprimer — mais ne pas y réinvestir entre-temps, et ne pas s'en servir comme référence :
-// ces widgets portent encore d'anciennes règles (comptage sur `l.locataire`, manque à gagner
-// annualisé) que les surfaces vivantes ont abandonnées.
-// ═══════════════════════════════════════════════════════════════════════
-
-function buildDashWidget(id, ctx, col=3, row=2) {
-  const v = (typeof DB !== 'undefined' && DB.params && DB.params.dashRenderV) || 'v1';
-  return v === 'v2'
-    ? _buildWidgetV2Modern(id, ctx, col, row)
-    : _buildWidgetV1Legacy(id, ctx, col, row);
-}
-
-/* Rendu v2 — progressif widget par widget. Tant qu'un widget n'est pas
-   refondu, on délègue à v1 pour ce widget précis. */
-function _buildWidgetV2Modern(id, ctx, col=3, row=2) {
-  // [Phase B] Widgets refondus v2 :
-  if (id === 'hero')         return _heroV2(ctx, col, row);
-  if (id === 'todo-unified') return _todoV2(ctx, col, row);
-  // Fallback : tous les autres widgets utilisent encore v1
-  return _buildWidgetV1Legacy(id, ctx, col, row);
-}
-
 /* ═══════════════════════════════════════════════════════════════════════
    v15.34 Phase B Sprint 1 — Bandeau "Priorisation Avril 2026"
    Rendu au TOP du dashboard si DB.params.dashRenderV === 'v2'.
    Reprend les 3 actions prioritaires de _computeUnifiedTodo trié sévérité.
    Pas de "Coach IA" (mensonger — c'est juste de la priorisation par règles).
    ═══════════════════════════════════════════════════════════════════════ */
-
-/* ═══════════════════════════════════════════════════════════════════════
-   v15.38 DASH-REFONTE-GLOBALE-V4 CP2 — Cockpit Hero V4 Stripe narrative
-   Remplace la jauge SVG 220×220 (v15.33) par eyebrow + titre narrative
-   + delta vs mois-1 + barre progress horizontale + 4 satellites.
-   Comparaisons vs mois précédent (mvsPrev), JAMAIS N-1.
-   Drill-down `_DD['hero']` préservé (engagement 23 drills).
-   ═══════════════════════════════════════════════════════════════════════ */
-function _heroV2(ctx, col, row) {
-  const {scopeLogs, mvs, mvsYTD, mvsPrev, yr, mo} = ctx;
-  // v15.429 DRY chantier 4 : totaux mvs + KPIs occupation via DashCtx (source unique).
-  const {totalCr, totalDb, prevCr, prevDb, crYTD, dbYTD} = DashCtx.mvTotals(ctx);
-  const cf      = totalCr - totalDb;
-  const prevCf  = prevCr - prevDb;
-  const cfYTD2  = crYTD - dbYTD;
-  const _occ = DashCtx.occupationKpis(scopeLogs);
-  const occupiedLogs = _occ.occupied, nbOcc = _occ.nbOcc, nbTotal = _occ.nbTotal,
-        nbVacants = _occ.nbVacants, pctOcc = _occ.pctOcc;
-  const objMens = occupiedLogs.reduce((s,l)=>s + ((Number(l.hc)||0) + (Number(l.ch)||0)), 0);
-  const pctCollecte = objMens > 0 ? Math.min(100, Math.round(totalCr / objMens * 100)) : 0;
-  const pctVar = (cur, prev) => prev !== 0 ? Math.round((cur - prev) / Math.abs(prev) * 1000) / 10 : null;
-  const dCr = pctVar(totalCr, prevCr);
-  const dDb = pctVar(totalDb, prevDb);
-  const dCf = pctVar(cf, prevCf);
-  const periodLabel = mo ? _DMF[parseInt(mo)-1] + ' ' + yr : 'ann\u00e9e ' + yr;
-  // Label dynamique du mois pr\u00e9c\u00e9dent (vs mois-1, JAMAIS N-1)
-  const _refMoIdx = mo ? parseInt(mo) - 1 : new Date().getMonth();
-  const _prevMoIdx = _refMoIdx === 0 ? 11 : _refMoIdx - 1;
-  const _prevYr = mo && _refMoIdx === 0 ? (parseInt(yr) - 1) : yr;
-  const prevMoLabel = mo ? (_DMF[_prevMoIdx] + ' ' + _prevYr) : ('ann\u00e9e ' + (parseInt(yr) - 1));
-  _DD['hero'] = (typeof _buildHeroDrill === 'function')
-    ? _buildHeroDrill(ctx, cf, prevCf, cfYTD2)
-    : {title:'Cash-flow', html:'<div>D\u00e9tail indisponible</div>'};
-  const heroStatus = cf >= 0 ? 'grn' : 'red';
-
-  // Pill delta % vs mois pr\u00e9c\u00e9dent (label dynamique : "vs Mars 2026" \u2014 pas "vs N-1")
-  const deltaPill = (d, inverse) => {
-    if (d === null) return '<span class="cv4-sat-delta neu">pas d\'historique</span>';
-    const isPos = inverse ? (d < 0) : (d > 0);
-    const isNeu = d === 0;
-    const cls = isNeu ? 'neu' : (isPos ? 'pos' : 'neg');
-    const arr = d > 0 ? '\u2191' : (d < 0 ? '\u2193' : '\u00b7');
-    return '<span class="cv4-sat-delta ' + cls + '">' + arr + ' ' + Math.abs(d).toFixed(1) + ' % vs ' + escHtml(prevMoLabel) + '</span>';
-  };
-  const occDelta = nbVacants > 0
-    ? '<span class="cv4-sat-delta warn">' + nbVacants + ' vacant' + (nbVacants > 1 ? 's' : '') + ' / ' + nbTotal + '</span>'
-    : '<span class="cv4-sat-delta pos">Tout occup\u00e9 \u00b7 ' + nbTotal + ' lot' + (nbTotal > 1 ? 's' : '') + '</span>';
-
-  // Delta absolu en \u20ac pour le sous-titre principal (Recettes vs mois-1)
-  const deltaCr = totalCr - prevCr;
-  const deltaCls = deltaCr > 0 ? 'pos' : (deltaCr < 0 ? 'neg' : 'neu');
-  const deltaStr = (deltaCr === 0 && prevCr === 0)
-    ? 'Pas de comparaison disponible'
-    : (deltaCr === 0)
-      ? '\u00b7 stable vs ' + escHtml(prevMoLabel)
-      : (deltaCr > 0 ? '\u2191' : '\u2193') + ' vs ' + escHtml(prevMoLabel) + ' (' + (deltaCr > 0 ? '+' : '') + fmt(deltaCr) + ')';
-
-  const pctColor = pctCollecte >= 100 ? 'pos' : (pctCollecte >= 80 ? 'warn' : 'neg');
-
-  const body = '<button type="button" class="cockpit-v4" onclick="_dashCardClick(\'hero\',event)" aria-label="Voir le d\u00e9tail du cash-flow">'
-    + '<span class="cv4-drill" aria-hidden="true">\u2197</span>'
-    + '<div class="cv4-eyebrow"><span class="cv4-dot"></span> COCKPIT FINANCIER \u00b7 ' + escHtml(periodLabel).toUpperCase() + '</div>'
-    + '<div class="cv4-title">'
-    +   '<strong>' + fmt(totalCr) + '</strong> re\u00e7us sur <strong>' + fmt(objMens) + '</strong> attendus'
-    +   '<span class="cv4-pct ' + pctColor + '"> \u00b7 ' + pctCollecte + ' %</span>'
-    + '</div>'
-    + '<div class="cv4-delta ' + deltaCls + '">' + deltaStr + '</div>'
-    + '<div class="cv4-progress" role="progressbar" aria-valuenow="' + pctCollecte + '" aria-valuemin="0" aria-valuemax="100" aria-label="Collecte loyers ' + pctCollecte + ' %">'
-    +   '<div class="cv4-progress-fill ' + pctColor + '" style="width:' + pctCollecte + '%"></div>'
-    + '</div>'
-    + '<div class="cv4-sats">'
-    +   '<div class="cv4-sat">'
-    +     '<div class="cv4-sat-lbl">Recettes</div>'
-    +     '<div class="cv4-sat-val">' + fmt(totalCr) + '</div>'
-    +     deltaPill(dCr, false)
-    +   '</div>'
-    +   '<div class="cv4-sat">'
-    +     '<div class="cv4-sat-lbl">Charges</div>'
-    +     '<div class="cv4-sat-val">\u2212 ' + fmt(totalDb) + '</div>'
-    +     deltaPill(dDb, true)
-    +   '</div>'
-    +   '<div class="cv4-sat">'
-    +     '<div class="cv4-sat-lbl">Cash-flow</div>'
-    +     '<div class="cv4-sat-val ' + (cf >= 0 ? 'pos' : 'neg') + '">' + (cf >= 0 ? '+' : '') + fmt(cf) + '</div>'
-    +     deltaPill(dCf, false)
-    +   '</div>'
-    +   '<div class="cv4-sat">'
-    +     '<div class="cv4-sat-lbl">Occupation</div>'
-    +     '<div class="cv4-sat-val">' + pctOcc + ' %</div>'
-    +     occDelta
-    +   '</div>'
-    + '</div>'
-    + '</button>';
-  return {body: body, foot: '', status: heroStatus};
-}
 
 /* ═══════════════════════════════════════════════════════════════════════
    v15.32 Phase B — Widget TODO-UNIFIED v2 (vue compacte agrégée par thème)
@@ -10285,993 +9706,11 @@ function _todoV2(ctx, col, row) {
   return {body: body, foot: '', status: status};
 }
 
-/* Rendu v1 — code legacy (intact depuis v15.26). Renommage uniquement, aucune
-   modification de logique. Préserve les 23 drill-downs (cf. DASHBOARD-DRILLDOWNS-INVENTAIRE). */
-function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
-  const {scopeLogs, mvs, mvsYTD, mvsPrev, yr, mo, refYrMo, activeEnt, scopeRefs, scopeImms} = ctx;
-  // Hauteur réelle de la cellule : N×72px + (N-1)×12px de gap
-  const _cellH  = row * 72 + (row - 1) * 12;
-  // Hauteur disponible pour un graphique (padding body 22px + label 18px + marge foot ~30px)
-  const _chartH = Math.max(30, _cellH - 70);
-  // Taille de valeur principale — grandit avec col ET row
-  const _valSize = Math.round(
-    (col >= 8 ? 34 : col >= 5 ? 28 : 22) +
-    (row >= 5 ? 16 : row >= 4 ? 10 : row >= 3 ? 4 : 0)
-  );
-  // Nombre max d'items dans les listes — grandit avec la hauteur
-  const _maxItems = Math.max(2, row + 1);
-  // ── Helpers ─────────────────────────────────────────────────
-  const lbl = t => `<div class="dw-label">${t}<\/div>`;
-  const wval = (t,c,s) => `<div class="dw-value" style="font-size:${s||_valSize}px;color:${c||'var(--t1)'}">${t}<\/div>`;
-  // wd() : résultat structuré — body=contenu, foot=bouton always-visible, status=couleur accent
-  const wd = (body, foot='', status='') => ({body, foot, status});
-  const wsub = t => `<div class="dw-sub">${t}<\/div>`;
-  const wdelta = (cur,prev,inverse=false) => {
-    if(!prev||prev===0) return '';
-    const pct=(cur-prev)/Math.abs(prev)*100, up=pct>=0;
-    const good = inverse ? !up : up;  // charges : baisse = bonne nouvelle
-    return `<span style="display:inline-flex;align-items:center;gap:2px;font-size:9px;font-weight:500;padding:1px 5px;border-radius:6px;margin-top:4px;background:${good?'rgba(63,185,80,.15)':'rgba(248,81,73,.12)'};color:${good?'var(--grn)':'var(--red)'}">${up?'\u25b2':'\u25bc'} ${Math.abs(pct).toFixed(1)}\u00a0% vs p\u00e9r. pr\u00e9c.<\/span>`;
-  };
-  const gauge = (pct,c,h) => { const p=Math.min(100,Math.max(0,Math.round(pct))); return `<div style="height:${h||5}px;border-radius:3px;background:var(--bor);position:relative;overflow:hidden;margin-top:5px"><div style="position:absolute;inset:0;width:${p}%;background:${c||'var(--acc)'};border-radius:3px"><\/div><\/div>`; };
-  const ai = (msg,t) => { const bg=t==='red'?'rgba(248,81,73,.12)':t==='grn'?'rgba(63,185,80,.12)':'rgba(240,136,62,.12)'; const c=t==='red'?'var(--red)':t==='grn'?'var(--grn)':'var(--ora)'; return `<div style="padding:3px 7px;border-radius:5px;margin-top:3px;font-size:10px;background:${bg};color:${c}">${msg}<\/div>`; };
-  const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Ann\u00e9e '+yr;
-  const today = new Date();
-
-  // v15.429 DRY chantier 4 : totaux mvs + KPIs occupation via DashCtx (source unique).
-  const {totalCr, totalDb, prevCr, prevDb, crYTD, dbYTD} = DashCtx.mvTotals(ctx);
-  const _occ = DashCtx.occupationKpis(scopeLogs);
-  const occupied = _occ.nbOcc;   // NB : ici `occupied` = compte (pas le tableau)
-  const nbLogs   = _occ.nbTotal;
-  // R-0 : lots LOUES selon le bail, et montant lu au BAREME (`_duMoisLot`), qui est la source
-  // du du dans le temps. `l.hc`/`l.ch` sont les valeurs figees de la fiche : apres une revision
-  // IRL ou un avenant, elles ne sont plus le loyer du mois.
-  const _ymObj = (mo ? (yr + '-' + String(mo).padStart(2, '0'))
-                     : ((typeof window._loyerTodayLocal === 'function' ? window._loyerTodayLocal() : new Date().toISOString().slice(0,10)).slice(0, 7)));
-  const objMens  = scopeLogs.filter(_lotEstLoue).reduce((s,l)=>{
-    const d = (typeof _duMoisLot === 'function') ? _duMoisLot(l.ref, _ymObj) : null;
-    return s + (d ? ((d.hc||0)+(d.ch||0)) : ((l.hc||0)+(l.ch||0)));
-  },0);
-  const objAnnuel= scopeLogs.reduce((s,l)=>s+(l.hc||0)+(l.ch||0),0)*12;
-
-  // Shorthand pour le bouton "Voir tout" ancré dans .dw-foot
-  const seeAll = (key, label='Voir tout') => `<button class="dw-see-all" data-w="${key}" onclick="_openDD(this.dataset.w)">${label}<\/button>`;
-  const seeLink = (label, fn) => `<button class="dw-see-all" onclick="${fn}">${label}<\/button>`;
-
-  /* ── v15.38 DASH-REFONTE-GLOBALE-V4 CP4 — Context bar simplifiée
-     En v2 : le bandeau Priorisation top porte déjà le greeting → on n'affiche
-     que la date + les pills entité/période (zéro doublon). ── */
-  if(id==='context-bar') {
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
-    const entPill = activeEnt
-      ? '<span class="dw-pill"><span class="dw-pill-dot blu"></span>'+escHtml(activeEnt)+'</span>'
-      : '<span class="dw-pill"><span class="dw-pill-dot"></span>Toutes entités</span>';
-    const periodPill = '<span class="dw-pill">'+escHtml(periodLabel)+'</span>';
-    const body = '<div class="dw-context-grid">'
-      + '<div class="dw-context-left">'
-      +   '<div class="dw-context-date">'+escHtml(dateStr)+'</div>'
-      + '</div>'
-      + '<div class="dw-context-right">'+entPill+periodPill+'</div>'
-      + '</div>';
-    return wd(body, '', '');
-  }
-
-  /* ── v2 Hero Pulse — cash-flow, sparkline 12 mois, drill (cahier §3.2) ── */
-  if(id==='hero') {
-    const cf     = totalCr - totalDb;
-    const prevCf = prevCr - prevDb;
-    const cfYTD2 = crYTD - dbYTD;
-    const pct    = objAnnuel > 0 ? (cfYTD2 / objAnnuel * 100) : 0;
-    const deltaPct = (prevCf !== 0) ? ((cf - prevCf) / Math.abs(prevCf) * 100) : null;
-    const col2  = cf >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
-    const heroStatus = cf >= 0 ? 'grn' : 'red';  // accent lat\u00e9ral selon signe
-    // Statut global textuel intentionnellement retir\u00e9 en Phase 2 :
-    // baser un statut uniquement sur le signe du cash-flow est trompeur
-    // (ex. afficherait "sous contr\u00f4le" alors qu'il manque une MRH).
-    // R\u00e9introduit en Phase 4 avec _computeUnifiedTodo() qui compte MRH+IRL+baux+r\u00e9gul+vacances.
-    // S\u00e9rie 12 mois glissants
-    const series12 = _heroCashflowSeries(ctx, 12);
-    const hasEnoughData = series12.filter(s => s.value !== 0).length >= 3;
-    const sparkline = hasEnoughData
-      ? _mkSparkline(series12, {
-          w:360, h:130,
-          signColoring: true,     // gradient vert(≥0)/rouge(<0) + baseline 0 pointillée
-          zeroLabel: '0 €',
-          allLabels: true,
-          tooltipFormat: (pt) =>
-            _DMF[pt.mo-1]+' '+pt.yr+' : '+(pt.value>=0?'+':'')+fmt(pt.value)
-        })
-      : '<div style="font-size:11px;color:var(--t3);padding:12px 14px;text-align:center">Données historiques insuffisantes</div>';
-    const deltaPill = (deltaPct === null)
-      ? ''
-      : '<span class="dw-pill '+(deltaPct>=0?'delta-up':'delta-down')+'">'
-        + (deltaPct>=0?'▲':'▼')+' '+Math.abs(deltaPct).toFixed(1)+'\u00a0% vs '+(mo?'mois':'an')+' précédent'
-        + '</span>';
-    // M\u00e9ta intelligente : jamais redondante avec la value principale du hero.
-    // - Vue mois : YTD + cumul 12 mois glissants (deux perspectives distinctes)
-    // - Vue ann\u00e9e : moyenne mensuelle + meilleur/pire mois (la value = YTD, donc YTD serait redondant)
-    const sgn = n => (n>=0?'+':'')+fmt(n);
-    const nonZeroMonths = series12.filter(p => p.value !== 0);
-    let metaCore;
-    if(mo) {
-      const cum12 = series12.reduce((s,p) => s + p.value, 0);
-      metaCore = 'YTD <strong>'+sgn(cfYTD2)+'</strong>'
-        + '<span class="dw-hero-meta-sep">\u00b7</span> '
-        + 'Cumul 12 mois glissants <strong>'+sgn(cum12)+'</strong>';
-    } else if(nonZeroMonths.length >= 3) {
-      const avg12 = series12.reduce((s,p) => s + p.value, 0) / series12.length;
-      const best  = nonZeroMonths.reduce((a,b) => b.value > a.value ? b : a);
-      const worst = nonZeroMonths.reduce((a,b) => b.value < a.value ? b : a);
-      const fmtPt = p => _DMC[p.mo-1]+' '+String(p.yr).slice(-2)+' '+sgn(p.value);
-      metaCore = 'Moyenne mensuelle <strong>'+sgn(avg12)+'</strong>'
-        + '<span class="dw-hero-meta-sep">\u00b7</span> '
-        + 'Meilleur <strong>'+fmtPt(best)+'</strong>'
-        + '<span class="dw-hero-meta-sep">\u00b7</span> '
-        + 'Pire <strong>'+fmtPt(worst)+'</strong>';
-    } else {
-      metaCore = '<span style="color:var(--t3);font-style:italic">Historique insuffisant pour plus de contexte</span>';
-    }
-    // v2 Phase 5 : ligne statut "Tout est sous contrôle / N points critiques" retirée
-    // (retour user : formulation inappropriée). Le vrai résumé est dans le widget "À traiter".
-    // Ligne loyers impayés conservée (info concrète, pas d'interprétation).
-    const imp = (typeof _computeImpayes === 'function') ? _computeImpayes(ctx) : {count:0,totalDue:0};
-    const moisImp = mo ? _DMF[parseInt(mo)-1] : _DMF[(new Date()).getMonth()];
-    const impayeLine = imp.count > 0
-      ? '<div class="dw-hero-impaye" style="cursor:pointer" title="Voir les loyers impayés" onclick="event.stopPropagation();_dashGoImpayes()"><span class="dw-pill-dot red"></span> <strong>Loyers impayés '+escHtml(moisImp)+'</strong> : '+imp.count+' logement'+(imp.count>1?'s':'')+' \u2014 '+fmt(imp.totalDue)+' en attente →</div>'
-      : '';
-    const meta = metaCore + impayeLine;
-    _DD['hero'] = _buildHeroDrill(ctx, cf, prevCf, cfYTD2);
-    const sign = cf >= 0 ? '+' : '';
-    const body = '<button type="button" class="dw-hero-click" onclick="_dashCardClick(\'hero\',event)" aria-label="Voir le détail du cash-flow">'
-      + '<div class="dw-hero-grid">'
-      +   '<div class="dw-hero-left">'
-      +     '<div class="dw-hero-label">Cash-flow — '+escHtml(periodLabel)+'</div>'
-      +     '<div class="dw-hero-value">'+sign+fmt(cf)+'</div>'
-      +     (deltaPill ? '<div class="dw-hero-delta">'+deltaPill+'</div>' : '')
-      +     '<div class="dw-hero-meta">'+meta+'</div>'
-      +   '</div>'
-      +   (sparkline ? '<div class="dw-hero-right">'+sparkline+'</div>' : '<div></div>')
-      + '</div>'
-      + '</button>';
-    return wd(body, '', heroStatus);
-  }
-
-  /* ── v2 Phase 4 polish — "À traiter" en 4 quadrants (choix user)
-     MRH (+PNO) · IRL · Équipement · Régularisation — cartes cliquables vers
-     les onglets métier. État vide si tout est OK. Drill = tableau complet. ── */
-  if(id==='todo-unified') {
-    const items = _computeUnifiedTodo(ctx);
-    _DD['todo-unified'] = _buildTodoDrill(ctx);
-    // Agrégation par catégorie (on ne garde que les 4 demandées + le max severity)
-    const sevRank = {red:3, ora:2, info:1};
-    function cat(type) {
-      const list = items.filter(i => i.type === type);
-      if(list.length === 0) return {count:0, sev:'grn', list:[]};
-      const sev = list.reduce((s, i) => sevRank[i.severity] > (sevRank[s]||0) ? i.severity : s, 'info');
-      return {count:list.length, sev, list};
-    }
-    const mrh   = cat('mrh');     // inclut MRH locataire manquantes + PNO expirant
-    const irl   = cat('irl');
-    const equip = cat('equip');
-    const regul = cat('regul');
-    const totalTodo = mrh.count + irl.count + equip.count + regul.count;
-    const maxSev = [mrh, irl, equip, regul]
-      .filter(q => q.count > 0)
-      .reduce((s, q) => sevRank[q.sev] > (sevRank[s]||0) ? q.sev : s, 'info');
-
-    // État vide : tout est OK
-    if(totalTodo === 0) {
-      const body = '<div class="dw-todo-head">'
-        + '<span class="dw-todo-title">À traiter</span>'
-        + '<span class="dw-todo-count grn">0</span>'
-        + '</div>'
-        + '<div class="dw-todo-empty-full">Rien à traiter. Continuez comme ça.</div>';
-      return wd(body, '', 'grn');
-    }
-
-    const quad = (q, labelIcon, labelText, goFn, subIfOk, subIfKo) =>
-      '<button type="button" class="dw-todo-quad '+(q.count === 0 ? 'grn' : q.sev)+'" '
-      + 'onclick="if(!_dashEditMode){event.stopPropagation();'+goFn+'}" '
-      + 'aria-label="'+escHtml(labelText+' — '+q.count)+'">'
-      + '<div class="dw-todo-quad-top">'
-      +   '<span class="dw-todo-quad-label">'+labelIcon+' <span>'+escHtml(labelText)+'</span></span>'
-      + '</div>'
-      + '<div class="dw-todo-quad-count">'+q.count+'</div>'
-      + '<div class="dw-todo-quad-sub">'+escHtml(q.count === 0 ? subIfOk : subIfKo)+'</div>'
-      + '</button>';
-
-    const mrhSub = mrh.count === 0 ? 'Tout est à jour' : 'Manquantes ou <30 j';
-    const irlSub = irl.count === 0 ? 'Aucune à traiter' : 'Applicables/à venir';
-    const eqSub  = equip.count === 0 ? 'Aucune échéance' : 'Retards + <30 j';
-    const rgSub  = regul.count === 0 ? 'Aucune à émettre' : 'Année précédente';
-
-    const body = '<div class="dw-todo-head">'
-      + '<span class="dw-todo-title">À traiter</span>'
-      + '<span class="dw-todo-count '+maxSev+'">'+totalTodo+'</span>'
-      + '</div>'
-      + '<div class="dw-todo-quads">'
-      +   quad(mrh,   _uiIcon('shield'), 'Assurances',  "go('baux',null)", 'Tout est à jour',    mrhSub)
-      +   quad(irl,   _uiIcon('chart'), 'IRL',          "go('irl',null)",         'Aucune à appliquer', irlSub)
-      +   quad(equip, _uiIcon('wrench'), 'Équipements', "go('equipements',null)", 'Aucune échéance',    eqSub)
-      +   quad(regul, _uiIcon('scale'), 'Régul',        "go('regul',null)",       'Aucune à émettre',   rgSub)
-      + '</div>';
-
-    const status = maxSev === 'red' ? 'red' : maxSev === 'ora' ? 'ora' : 'blu';
-    return wd(body, '', status);
-  }
-
-  /* ── v15.38 DASH-REFONTE-GLOBALE-V4 CP3 — Cash-flow Bloomberg 12 mois
-     Sparkline 12 mois (revenus vert + charges rouge) avec baseline 0 +
-     ligne moyenne pointillée + axe X mois abrégés + delta vs mois-1.
-     Drill `_DD['flux']` préservé via `_buildFluxDrill`. ── */
-  if(id==='flux') {
-    const l2 = mvs.filter(m => _isLoyerCategory(m.cat)).reduce((s,m) => s+(m.cr||0), 0);
-    const netCf = l2 - totalDb;
-    const revSeries = _kpiMonthlySeries(ctx, 12, m => _isLoyerCategory(m.cat) ? (m.cr||0) : 0);
-    const chgSeries = _kpiMonthlySeries(ctx, 12, m => (m.db||0));
-    const hasData = revSeries.some(s => s.value > 0) || chgSeries.some(s => s.value > 0);
-    // v15.38 CP3 — Label dynamique mois-1 (vs Mars 2026, JAMAIS vs N-1)
-    const _refMoIdxF = mo ? parseInt(mo) - 1 : new Date().getMonth();
-    const _prevMoIdxF = _refMoIdxF === 0 ? 11 : _refMoIdxF - 1;
-    const _prevYrF = mo && _refMoIdxF === 0 ? (parseInt(yr) - 1) : yr;
-    const _prevMoLabelF = mo ? (_DMF[_prevMoIdxF] + ' ' + _prevYrF) : ('année ' + (parseInt(yr) - 1));
-    const prevNetF = (mvsPrev||[]).reduce((s,m) => s + (_isLoyerCategory(m.cat) ? (m.cr||0) : 0) - (m.db||0), 0);
-    const deltaNetF = netCf - prevNetF;
-    const deltaSignF = deltaNetF > 0 ? '↑' : (deltaNetF < 0 ? '↓' : '·');
-    const deltaClsF = deltaNetF > 0 ? 'pos' : (deltaNetF < 0 ? 'neg' : 'neu');
-    const deltaTxtF = (deltaNetF === 0 && prevNetF === 0)
-      ? '<span class="bb-delta neu">Pas de comparaison disponible</span>'
-      : '<span class="bb-delta ' + deltaClsF + '">' + deltaSignF + ' ' + (deltaNetF > 0 ? '+' : '') + fmt(deltaNetF) + ' vs ' + escHtml(_prevMoLabelF) + '</span>';
-    // Sparkline 12 mois Bloomberg : baseline 0 + ligne moyenne pointillée + axe X
-    let viz = '';
-    if(hasData) {
-      const W = 480, H = 110, PAD_X = 8, PAD_T = 8, PAD_B = 18;
-      const innerH = H - PAD_T - PAD_B;
-      const maxV = Math.max(1, ...revSeries.map(s => s.value), ...chgSeries.map(s => s.value));
-      const dx = (W - 2*PAD_X) / Math.max(1, revSeries.length - 1);
-      const yOf = v => PAD_T + innerH - (v / maxV) * innerH;
-      const ptsR = revSeries.map((s,i) => [PAD_X + i*dx, yOf(s.value)]);
-      const ptsC = chgSeries.map((s,i) => [PAD_X + i*dx, yOf(s.value)]);
-      const avgRev = revSeries.reduce((s,p) => s + p.value, 0) / revSeries.length;
-      const yAvg = yOf(avgRev);
-      const yBaseline = PAD_T + innerH;
-      const toP = pts => pts.map(p => p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
-      const toArea = pts => 'M '+pts[0][0].toFixed(1)+' '+yBaseline.toFixed(1)
-        +' L '+pts.map(p => p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L ')
-        +' L '+pts[pts.length-1][0].toFixed(1)+' '+yBaseline.toFixed(1)+' Z';
-      // 2 hit points par mois : un sur chaque courbe (utilisateur : pas de point au milieu)
-      const hit = revSeries.map((s,i) => {
-        const net = revSeries[i].value - chgSeries[i].value;
-        const t = _DMF[s.mo-1]+' '+s.yr+' \u2014 Rev '+fmt(revSeries[i].value)+' \u00b7 Chg '+fmt(chgSeries[i].value)+' \u00b7 Net '+(net>=0?'+':'')+fmt(net);
-        const cxR = ptsR[i][0].toFixed(1), cyR = ptsR[i][1].toFixed(1);
-        const cxC = ptsC[i][0].toFixed(1), cyC = ptsC[i][1].toFixed(1);
-        return '<circle cx="'+cxR+'" cy="'+cyR+'" r="10" fill="var(--fg-success)" opacity="0" '
-          +'style="pointer-events:all;cursor:default" class="dw-spark-pt" '
-          +'data-tip="'+escHtml(t)+'" '
-          +'onmouseenter="_sparkTip(this)" onmouseleave="_sparkTip(null)"></circle>'
-          +'<circle cx="'+cxC+'" cy="'+cyC+'" r="10" fill="var(--fg-danger)" opacity="0" '
-          +'style="pointer-events:all;cursor:default" class="dw-spark-pt" '
-          +'data-tip="'+escHtml(t)+'" '
-          +'onmouseenter="_sparkTip(this)" onmouseleave="_sparkTip(null)"></circle>';
-      }).join('');
-      const svg = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="none" style="overflow:visible;display:block;max-width:100%" aria-hidden="true">'
-        + '<line x1="'+PAD_X+'" y1="'+yBaseline.toFixed(1)+'" x2="'+(W-PAD_X)+'" y2="'+yBaseline.toFixed(1)+'" stroke="var(--bor)" stroke-width="1" stroke-dasharray="2 3"/>'
-        + '<line x1="'+PAD_X+'" y1="'+yAvg.toFixed(1)+'" x2="'+(W-PAD_X)+'" y2="'+yAvg.toFixed(1)+'" stroke="var(--fg-success)" stroke-width="1" stroke-dasharray="4 4" opacity=".4"/>'
-        + '<path d="'+toArea(ptsC)+'" fill="var(--bg-danger)" opacity=".55"/>'
-        + '<path d="'+toArea(ptsR)+'" fill="var(--bg-success)" opacity=".6"/>'
-        + '<polyline points="'+toP(ptsC)+'" fill="none" stroke="var(--fg-danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
-        + '<polyline points="'+toP(ptsR)+'" fill="none" stroke="var(--fg-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
-        + hit + '</svg>';
-      // v15.38 CP3 — Axe X mois abrégés en 1 lettre (J F M A M J J A S O N D)
-      const axis = '<div class="dw-spark-axis">'+revSeries.map(s => '<span>'+escHtml((s.label||'').slice(0,1))+'</span>').join('')+'</div>';
-      viz = '<div class="dw-spark-wrap">'+svg+axis+'<div class="dw-spark-tip" aria-hidden="true"></div></div>';
-    } else {
-      viz = '<div style="font-size:11px;color:var(--t3);padding:12px 0;text-align:center">Pas de données sur les 12 derniers mois</div>';
-    }
-    _DD['flux'] = _buildFluxDrill(ctx);
-    const netCol = netCf >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
-    const netSign = netCf >= 0 ? '+' : '';
-    // v15.38 CP3 — Bloomberg eyebrow + delta vs mois-1 sous le Net
-    const body = '<button type="button" class="dw-kpi-click bb-card" '
-      + 'onclick="_dashCardClick(\'flux\',event)" '
-      + 'aria-label="Voir le détail Revenus vs Charges">'
-      + '<div class="bb-eyebrow"><span class="bb-icon-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bb-eyebrow-txt">REVENUS VS CHARGES · ' + escHtml(periodLabel).toUpperCase() + '</span></div>'
-      + '<div class="dw-flux-values" style="margin-top:6px">'
-      +   '<div><div class="dw-flux-sublabel">Revenus</div><div class="dw-flux-value" style="color:var(--fg-success)">'+fmt(l2)+'</div></div>'
-      +   '<div><div class="dw-flux-sublabel">Charges</div><div class="dw-flux-value" style="color:var(--fg-danger)">'+fmt(totalDb)+'</div></div>'
-      + '</div>'
-      + '<div class="dw-flux-net">Net <strong style="color:'+netCol+'">'+netSign+fmt(netCf)+'</strong> · ' + deltaTxtF + '</div>'
-      + '<div class="dw-kpi-viz" style="margin-top:10px">'+viz+'</div>'
-      + '</button>';
-    return wd(body, '', netCf >= 0 ? 'grn' : 'red');
-  }
-
-  /* ── v2 KPI primaire — Revenus loyers (cahier §3.3) ── */
-  if(id==='rev') {
-    const l2 = mvs.filter(m => _isLoyerCategory(m.cat)).reduce((s,m) => s+(m.cr||0), 0);
-    const p2 = mvsPrev.filter(m => _isLoyerCategory(m.cat)).reduce((s,m) => s+(m.cr||0), 0);
-    const series = _kpiMonthlySeries(ctx, 6, m => _isLoyerCategory(m.cat) ? (m.cr||0) : 0);
-    const hasData = series.some(s => s.value !== 0);
-    const viz = hasData ? _mkSparkline(series, {
-      w:200, h:40, padding:3,
-      stroke:'var(--fg-success)', fill:'var(--bg-success)',
-      allLabels: true,
-      tooltipFormat:(pt) => _DMF[pt.mo-1]+' '+pt.yr+' : '+fmt(pt.value)
-    }) : '';
-    _DD['rev'] = _buildRevDrill(ctx);
-    return wd(_kpiBody({
-      label:'Revenus loyers',
-      value:fmt(l2), valueColor:'var(--fg-success)',
-      viz, delta:_kpiDelta(l2, p2, false),
-      drillKey:'rev'
-    }), '', 'grn');
-  }
-
-  /* ── v2 KPI primaire — Charges totales (cahier §3.3) ── */
-  if(id==='chg') {
-    const series = _kpiMonthlySeries(ctx, 6, m => (m.db||0));
-    const hasData = series.some(s => s.value !== 0);
-    const viz = hasData ? _mkSparkline(series, {
-      w:200, h:40, padding:3,
-      stroke:'var(--fg-danger)', fill:'var(--bg-danger)',
-      allLabels: true,
-      tooltipFormat:(pt) => _DMF[pt.mo-1]+' '+pt.yr+' : '+fmt(pt.value)
-    }) : '';
-    _DD['chg'] = _buildChgDrill(ctx);
-    return wd(_kpiBody({
-      label:'Charges totales',
-      value:fmt(totalDb), valueColor:'var(--fg-danger)',
-      viz, delta:_kpiDelta(totalDb, prevDb, true),  // baisse = bonne nouvelle
-      drillKey:'chg'
-    }), '', totalDb > 0 ? 'red' : '');
-  }
-  if(id==='cf') {
-    const cf=totalCr-totalDb;
-    return wd(lbl('Cash-flow net')+wval(fmt(cf),cf>=0?'var(--grn)':'var(--red)')+wsub(periodLabel)+wdelta(cf,prevCr-prevDb), '', cf>=0?'grn':'red');
-  }
-  if(id==='cfyr') {
-    const cf=crYTD-dbYTD, pct=objAnnuel>0?cf/objAnnuel*100:0;
-    const curMoIdx = today.getMonth();
-    const prevYrStr2 = String(parseInt(yr)-1);
-    const mvsPrevYTD = DB.mouvements.filter(m=>{
-      if(!m.date?.startsWith(prevYrStr2)) return false;
-      if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui!=='SCI:'+activeEnt) return false;
-      return new Date(m.date+'T00:00:00').getMonth() <= curMoIdx;
-    });
-    const prevCfYTD = mvsPrevYTD.reduce((s,m)=>s+(m.cr||0),0) - mvsPrevYTD.reduce((s,m)=>s+(m.db||0),0);
-    return wd(lbl('Cash-flow YTD \u2014 '+yr)+wval(fmt(cf),cf>=0?'var(--grn)':'var(--red)')+wsub('Janv \u2192 '+_DMC[today.getMonth()]+' cumul\u00e9')+gauge(Math.abs(pct),cf>=0?'var(--grn)':'var(--red)')+`<div style="font-size:9px;color:var(--t3);margin-top:2px;text-align:right">${Math.round(Math.abs(pct))}\u00a0% de l'objectif<\/div>`+wdelta(cf,prevCfYTD), '', cf>=0?'grn':'red');
-  }
-  if(id==='bars') {
-    const months6=[];
-    for(let i=5;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth()-i,1);months6.push({yr:d.getFullYear().toString(),mo:d.getMonth()+1,lbl:_DMC[d.getMonth()]});}
-    const mData=months6.map(m=>{
-      const ym=m.yr+'-'+String(m.mo).padStart(2,'0');
-      const mm=DB.mouvements.filter(x=>x.date&&x.date.startsWith(ym)&&(activeEnt?scopeRefs.includes(x.qui)||scopeImms.includes(x.imm)||x.qui==='SCI:'+activeEnt:true));
-      return {lbl:m.lbl,cr:mm.reduce((s,x)=>s+(x.cr||0),0),db:mm.reduce((s,x)=>s+(x.db||0),0)};
-    });
-    const maxV=Math.max(...mData.flatMap(m=>[m.cr,m.db]),1);
-    const SH=_chartH, SP=13;
-    const barW=Math.max(8, Math.round(col*1.4)), barGap=Math.max(2,Math.round(barW*0.25));
-    const groupGap=Math.max(6,Math.round(barW*0.8));
-    const groupW=barW*2+barGap+groupGap;
-    const totalW=months6.length*groupW+4;
-    const svgBars=mData.map((m,i)=>{
-      const barArea=SH-SP;
-      const rh=Math.max(2,m.cr/maxV*barArea), dh=Math.max(2,m.db/maxV*barArea);
-      const x=i*groupW+groupGap/2;
-      return `<rect x="${x.toFixed(1)}" y="${(barArea-rh).toFixed(1)}" width="${barW}" height="${rh.toFixed(1)}" fill="#16a34a" rx="2"/>`
-            +`<rect x="${(x+barW+barGap).toFixed(1)}" y="${(barArea-dh).toFixed(1)}" width="${barW}" height="${dh.toFixed(1)}" fill="#dc2626" rx="2"/>`
-            +`<text x="${(x+barW+barGap/2).toFixed(1)}" y="${SH-1}" text-anchor="middle" font-size="8" fill="currentColor" opacity=".55">${m.lbl}<\/text>`;
-    }).join('');
-    const legend = `<div style="display:flex;gap:12px;margin-top:5px;font-size:9px;color:var(--t3)"><span><span style="display:inline-block;width:7px;height:7px;background:var(--grn);border-radius:1px;margin-right:2px"><\/span>Revenus<\/span><span><span style="display:inline-block;width:7px;height:7px;background:var(--red);border-radius:1px;margin-right:2px"><\/span>Charges<\/span><\/div>`;
-    return wd(lbl('Revenus\u00a0/\u00a0charges \u2014 6 derniers mois')+`<svg viewBox="0 0 ${totalW} ${SH}" width="100%" height="${SH}px" preserveAspectRatio="none" style="display:block;margin-top:8px;overflow:visible">${svgBars}<\/svg>`+legend, '', 'blu');
-  }
-  /* ── v2 Phase 3 polish — Occupation + Manque à gagner vacance fusionnés
-     (demande utilisateur : les 2 widgets étaient complémentaires).
-     Value principale = Occupation %. Sous-ligne = vacants + manque à gagner /an. ── */
-  if(id==='occ') {
-    // R0-A — La carte ET son détail lisent la MÊME source (`_occPerimetre`, qui interroge le
-    // moteur d'occupation). Avant, tous deux comptaient sur `l.locataire` : taux instantané et
-    // manque à gagner annualisé, là où le bandeau Pilotage et Finances lisent le moteur (taux en
-    // jours, manque sur la période). C'est CE couple-là qui divergeait du reste de l'app — pas
-    // la carte de son propre détail.
-    const O = _occPerimetre(ctx);
-    const pct = O.taux;
-    const color = pct >= 90 ? 'var(--fg-success)' : pct >= 50 ? 'var(--fg-warning)' : 'var(--fg-danger)';
-    const status = pct >= 90 ? 'grn' : pct >= 50 ? 'ora' : 'red';
-    const vacs = O.vacants;
-    const magAnHC = O.manque;
-    _DD['occ'] = _buildOccDrill(ctx);
-    // v15.38 DASH-REFONTE-GLOBALE-V4 CP3 \u2014 Bloomberg eyebrow + valeur grosse + delta vacance
-    const vacLine = vacs.length
-      ? '<div class="bb-delta neg">' + vacs.length + ' vacant' + (vacs.length > 1 ? 's' : '') + (magAnHC == null ? '' : ' \u00b7 ' + fmt(magAnHC) + ' HC manqu\u00e9s') + '</div>'
-      : '<div class="bb-delta pos">\u2713 Tout occup\u00e9</div>';
-    const body = '<button type="button" class="dw-kpi-click bb-card" onclick="_dashCardClick(\'occ\',event)" aria-label="Voir le d\u00e9tail Occupation">'
-      + '<div class="bb-eyebrow"><span class="bb-icon-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M3 21h18M5 21V8l7-5 7 5v13M10 21v-5h4v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bb-eyebrow-txt">OCCUPATION</span></div>'
-      + '<div class="dw-kpi-value" style="color:' + color + '">' + pct + '\u00a0%</div>'
-      + vacLine
-      + '<div class="bb-sub">' + occupied + ' / ' + nbLogs + ' logement' + (nbLogs > 1 ? 's' : '') + ' occup\u00e9' + (occupied > 1 ? 's' : '') + '</div>'
-      + '<div class="dw-kpi-bar" style="--p:' + pct + '%;--c:' + color + ';margin-top:8px"><div class="dw-kpi-bar-fill"></div></div>'
-      + '</button>';
-    return wd(body, '', status);
-  }
-  if(id==='mag') {
-    const vacs=scopeLogs.filter(l=>!l.locataire);
-    const mag=vacs.reduce((s,l)=>s+(l.hc||0)+(l.ch||0),0);
-    if(vacs.length) _DD['mag'] = {title:'Logements vacants', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Immeuble</th><th>Loyer/mois</th><th>Perte/an</th></tr></thead><tbody>'
-      +vacs.map(l=>'<tr><td><b>'+l.ref+'</b></td><td>'+escHtml(l.imm||'')+'</td><td>'+fmt((l.hc||0)+(l.ch||0))+'</td><td style="color:var(--red);font-weight:600">'+fmt(((l.hc||0)+(l.ch||0))*12)+'</td></tr>').join('')+'</tbody></table>'};
-    return wd(
-      lbl('Manque \u00e0 gagner vacance')+wval(fmt(mag),'var(--red)')+wsub(periodLabel)
-      +(vacs.length?vacs.slice(0,_maxItems).map(l=>ai(l.ref+'\u00a0\u2014\u00a0'+fmt((l.hc||0)+(l.ch||0))+'/mois','red')).join(''):ai('\u2713 Aucun logement vacant','grn'))
-      +(mag>0?`<div style="font-size:9px;color:var(--t3);margin-top:4px">\u2192\u00a0${fmt(mag*12)}\u00a0/\u00a0an</div>`:''),
-      vacs.length?seeAll('mag'):'', vacs.length>0?'red':'grn');
-  }
-  /* ── v2 Phase 3 FINAL — Dépôts de garantie (col 3 row 2, minimaliste)
-     Affichage : total + count uniquement. Détail complet via drill-down. ── */
-  if(id==='dg') {
-    const dgs = scopeLogs.filter(l => _lotEstLoue(l) && _dgDuLot(l) > 0).sort((a,b) => _dgDuLot(b) - _dgDuLot(a));
-    // Les lignes du tableau passent par `_dgDuLot` : le TOTAL doit suivre la même source,
-    // sinon la carte annonce une somme que son propre tableau contredit (mesuré : 3 100 € au
-    // total pour 3 400 € de lignes).
-    const tot = dgs.reduce((s,l) => s+_dgDuLot(l), 0);
-    _DD['dg'] = {title:'Dépôts de garantie', html:'<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">DG</th></tr></thead><tbody>'
-      + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDuLot(l))+'</td></tr>').join('')
-      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+dgs.length+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
-    // v15.38 DASH-REFONTE-GLOBALE-V4 CP3 — DG Bloomberg : eyebrow + valeur + count
-    const body = '<button type="button" class="dw-kpi-click bb-card" '
-      + 'onclick="_dashCardClick(\'dg\',event)" '
-      + 'aria-label="Voir le détail des dépôts de garantie">'
-      + '<div class="bb-eyebrow"><span class="bb-icon-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bb-eyebrow-txt">DÉPÔTS DE GARANTIE</span></div>'
-      + '<div class="dw-kpi-value" style="color:var(--t1)">' + fmt(tot) + '</div>'
-      + '<div class="bb-delta neu">' + dgs.length + ' DG détenu' + (dgs.length > 1 ? 's' : '') + '</div>'
-      + (dgs.length ? '<div class="bb-sub">Moyenne ' + fmt(Math.round(tot / dgs.length)) + ' / locataire</div>' : '')
-      + '</button>';
-    return wd(body, '', 'blu');
-  }
-  if(id==='irl') {
-    // v15.424 DRY : classification CANONIQUE AlertRules.irlClassifier — fix divergence :
-    // ce widget ignorait dejaApplique (branche applicable) et l'état lettre envoyée.
-    const items=[];
-    scopeLogs.filter(l=>l.locataire&&l.debut).forEach(l=>{
-      const rev=computeIRLRevision(l);
-      const c=AlertRules.irlClassifier(rev, l, today, _isoLocal);
-      if(!c) return;
-      if(c.etat==='applicable') items.push({ref:l.ref,loc:l.locataire,hc:l.hc||0,diff:-999,rev,app:true,urgent:true});
-      else items.push({ref:l.ref,loc:l.locataire,hc:l.hc||0,diff:c.jours,rev,app:false,urgent:c.jours<=14});
-    });
-    items.sort((a,b)=>a.diff-b.diff);
-    if(!items.length) return wd(lbl('Révisions IRL imminentes')+'<div style="margin-top:8px;font-size:11px;color:var(--grn)">✓ Aucune révision dans les 45 jours</div>', '', 'grn');
-    _DD['irl'] = {title:'Révisions IRL — '+items.length+' à traiter', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Échéance</th><th>HC actuel</th><th>Nouveau HC</th></tr></thead><tbody>'
-      +items.map(it=>'<tr><td><b>'+it.ref+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td>'
-        +'<td style="font-weight:700;color:'+(it.app?'var(--red)':'var(--ora)')+'">'+( it.app?'⚠ Applicable':'J-'+it.diff)+'</td>'
-        +'<td>'+fmt(it.hc)+'</td>'
-        +'<td style="font-weight:600;color:var(--grn)">'+fmt(it.rev.nouveauHC)+'</td></tr>').join('')+'</tbody></table>'};
-    const appItems  = items.filter(it=>it.app);
-    const immiItems = items.filter(it=>!it.app);
-    let html = '';
-    if(appItems.length) {
-      html += '<div style="padding:6px 8px;background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.3);border-radius:var(--r);margin-bottom:4px">'
-        +'<div style="font-size:9px;font-weight:700;color:var(--red);margin-bottom:3px">⚠ APPLICABLE — à appliquer maintenant</div>'
-        +appItems.map(it=>'<div style="font-size:10px;color:var(--red);display:flex;justify-content:space-between"><span><b>'+it.ref+'</b> '+escHtml((it.loc||'').substring(0,15))+'</span><span style="font-weight:700">'+fmt(it.hc)+' → <b>'+fmt(it.rev.nouveauHC)+'</b></span></div>').join('')
-        +'</div>';
-    }
-    if(immiItems.length) {
-      html += immiItems.slice(0,_maxItems).map(it=>{
-        const c=it.diff<=14?'var(--red)':'var(--ora)';
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 7px;border-radius:5px;margin-top:3px;background:'+(it.diff<=14?'rgba(248,81,73,.1)':'rgba(240,136,62,.1)')+';font-size:10px">'
-          +'<span><b>'+it.ref+'</b> — '+escHtml((it.loc||'').substring(0,15))+'</span>'
-          +'<span style="color:'+c+';font-weight:600">J-'+it.diff+' → '+fmt(it.rev.nouveauHC)+'</span></div>';
-      }).join('');
-    }
-    if(items.length>_maxItems+appItems.length) html+=ai('+'+(items.length-_maxItems-appItems.length)+' autres...','flat');
-    return wd(lbl('Révisions IRL imminentes')+html, seeAll('irl'), appItems.length?'red':'ora');
-  }
-  if(id==='bail') {
-    // v15.424 DRY : règle canonique AlertRules.bauxEcheance (mêmes seuils que la bannière).
-    const items = AlertRules.bauxEcheance(scopeLogs, today).map(b=>({ref:b.ref,loc:b.locataire,diff:b.jours,fin:b.fin,t:(b.expire||b.jours<=30)?'red':'ora'}));
-    if(!items.length) return wd(lbl('Baux arrivant à terme')+'<div style="margin-top:8px;font-size:11px;color:var(--grn)">✓ Aucun bail dans les 90 jours</div>', '', 'grn');
-    _DD['bail'] = {title:'Baux à terme', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Fin bail</th><th>Statut</th></tr></thead><tbody>'
-      +items.map(it=>'<tr><td><b>'+it.ref+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td><td>'+fd(it.fin)+'</td><td style="color:'+(it.t==='red'?'var(--red)':'var(--ora)')+';font-weight:600">'+(it.diff<0?'Expiré depuis '+(-it.diff)+'j':'J-'+it.diff)+'</td></tr>').join('')+'</tbody></table>'};
-    const st2 = items.some(it=>it.t==='red')?'red':'ora';
-    return wd(
-      lbl('Baux arrivant à terme')+wval(items.length,'var(--ora)')+wsub('bail(s) dans les 90 jours')
-      +items.slice(0,_maxItems).map(it=>ai('<b>'+it.ref+'</b> '+(it.diff<0?'expiré depuis '+(-it.diff)+'j':'J-'+it.diff)+' · '+fd(it.fin),it.t)).join('')
-      +(items.length>_maxItems?ai('+ '+(items.length-_maxItems)+' autres...','flat'):''),
-      seeAll('bail'), st2);
-  }
-  if(id==='mrh') {
-    // v15.424 DRY : règle CANONIQUE AlertRules.mrhManquante — FIX DIVERGENCE AVÉRÉE :
-    // ce widget lisait DB.assurances (type 'MRH locataire') alors que TOUTE l'app lit DB.mrh
-    // → il pouvait afficher « manquante » quand le reste disait OK. Libellé anti-jargon.
-    const missIt = AlertRules.mrhManquante(scopeLogs, DB.mrh);
-    const miss = missIt.map(it=>scopeLogs.find(l=>l.ref===it.ref)).filter(Boolean);
-    if(miss.length) _DD['mrh'] = {title:'Assurances habitation manquantes — '+miss.length+' logement(s)', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Tél</th><th>Mail</th></tr></thead><tbody>'
-      +miss.map(l=>'<tr><td><b>'+l.ref+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td>'+escHtml(l.tel||'–')+'</td><td>'+escHtml(l.mail||'–')+'</td></tr>').join('')+'</tbody></table>'};
-    return wd(
-      lbl('Assurances habitation manquantes')+wval(miss.length,miss.length>0?'var(--ora)':'var(--grn)')+wsub(miss.length>0?'logements sans attestation':'Toutes attestations présentes')
-      +miss.slice(0,_maxItems).map(l=>ai('<b>'+l.ref+'</b> — '+escHtml((l.locataire||'').substring(0,30)),'red')).join('')
-      +(miss.length>_maxItems?ai('+ '+(miss.length-_maxItems)+' autres...','flat'):''),
-      miss.length?seeAll('mrh'):'', miss.length>0?'ora':'grn');
-  }
-  if(id==='regul') {
-    // v15.424 DRY : règle CANONIQUE AlertRules.regulAEmettre — FIX DIVERGENCE AVÉRÉE :
-    // l'ancien widget acceptait une régul émise en N-1 et alertait même sans location N-1.
-    const missIt = AlertRules.regulAEmettre(scopeLogs, DB.mouvements, today, _isLoyerCategory);
-    const miss = missIt.map(it=>scopeLogs.find(l=>l.ref===it.ref)).filter(Boolean);
-    const anneeRegul = missIt.length ? missIt[0].annee : (today.getFullYear()-1);
-    if(miss.length) _DD['regul'] = {title:'Régularisations à émettre — '+miss.length+' logement(s)', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Charges/mois</th></tr></thead><tbody>'
-      +miss.map(l=>'<tr><td><b>'+l.ref+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td>'+fmt(l.ch||0)+'</td></tr>').join('')
-      +'</tbody></table><p style="margin-top:8px;font-size:12px;color:var(--t2)">Régularisation '+anneeRegul+' non émise. Accès direct : onglet Régularisation.</p>'};
-    return wd(
-      lbl('Régularisations à émettre')+wval(miss.length,miss.length>0?'var(--ora)':'var(--grn)')+wsub(miss.length>0?'logement(s) · régul. '+anneeRegul+' non émise':'Toutes régularisations à jour')
-      +miss.slice(0,_maxItems).map(l=>ai('<b>'+l.ref+'</b> — '+escHtml((l.locataire||'').substring(0,30)),'ora')).join('')
-      +(miss.length>_maxItems?ai('+ '+(miss.length-_maxItems)+' autres...','flat'):''),
-      miss.length?seeAll('regul'):'', miss.length>0?'ora':'grn');
-  }
-  /* ── v2 Phase 3 polish — Charges par catégorie : LISTE À BARRES (choix utilisateur)
-     Remplace l'ancien donut jugé peu visuel. Lignes triées par montant décroissant,
-     barre horizontale proportionnelle au % du total, nom + % + montant sur 1 ligne.
-     Bien plus scannable qu'un donut pour 5+ catégories. ── */
-  if(id==='donut') {
-    const cats = {};
-    mvs.filter(m => m.db > 0 && m.cat).forEach(m => { cats[m.cat] = (cats[m.cat]||0) + (m.db||0); });
-    const sorted = Object.entries(cats).sort((a,b) => b[1] - a[1]);
-    const totAll = sorted.reduce((s,x) => s + x[1], 0);
-    if(!totAll) {
-      return wd('<div class="dw-kpi-label">Charges par cat\u00e9gorie \u2014 '+escHtml(periodLabel)+'</div>'
-        +'<div style="margin-top:12px;font-size:12px;color:var(--t3);text-align:center;padding:20px 0">Aucune d\u00e9pense sur la p\u00e9riode</div>', '', 'blu');
-    }
-    // Top 3 + agrégat "Autres" = max 4 lignes (col 3 row 2 très serré)
-    const top = sorted.slice(0, 3);
-    const othV = sorted.slice(3).reduce((s,x) => s + x[1], 0);
-    const othCount = sorted.slice(3).length;
-    if(othV > 0) top.push(['\u2026 Autres ('+othCount+')', othV]);
-    const maxV = Math.max(...top.map(e => e[1]));
-    const rows = top.map((e, i) => {
-      const pct = Math.round(e[1] / totAll * 100);
-      const widthPct = (e[1] / maxV * 100).toFixed(1);
-      const color = _DDC[i % _DDC.length];
-      return '<div class="dw-cat-row" title="'+escHtml(e[0])+' : '+fmt(e[1])+' ('+pct+'%)">'
-        + '<span class="dw-cat-name">'+escHtml(e[0])+'</span>'
-        + '<span class="dw-cat-bar"><span class="dw-cat-bar-fill" style="width:'+widthPct+'%;background:'+color+'"></span></span>'
-        + '<span class="dw-cat-pct">'+pct+'\u00a0%</span>'
-        + '</div>';
-    }).join('');
-    // v2 Phase 5 : drill donut enrichi avec multi-line chart évolution 6 mois top 5 catégories
-    const topCats = sorted.slice(0, 5).map(e => e[0]);
-    const chartGroups = topCats.map((cat, i) => ({
-      label: cat.length > 22 ? cat.slice(0,20)+'…' : cat,
-      color: _DDC[i % _DDC.length],
-      series: _kpiMonthlySeries(ctx, 6, m => (m.cat === cat && (m.db||0) > 0) ? m.db : 0)
-    }));
-    const hasChartData = chartGroups.some(g => g.series.some(s => s.value > 0));
-    const chartBlock = hasChartData
-      ? '<div class="drill-chart">'
-        + '<div class="drill-chart-title">Évolution 6 derniers mois — Top 5 catégories</div>'
-        + _mkMultiLineChart(chartGroups, {
-            w:700, h:200, padding:14,
-            tooltipFormat:(pt, g, i) => _DMF[pt.mo-1]+' '+pt.yr+' — '+g.label+' : '+fmt(pt.value)
-          })
-        + '</div>'
-      : '';
-    _DD['donut'] = {title:'Charges par cat\u00e9gorie \u2014 '+periodLabel,
-      html: chartBlock
-      + '<table class="tbl"><thead><tr><th>Cat\u00e9gorie</th><th style="text-align:right">Montant</th><th style="text-align:right">%</th></tr></thead><tbody>'
-      + sorted.map((e,i) => '<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+_DDC[i%_DDC.length]+';margin-right:7px;vertical-align:middle"></span>'+escHtml(e[0])+'</td><td style="text-align:right;font-weight:500">'+fmt(e[1])+'</td><td style="text-align:right;color:var(--t2)">'+Math.round(e[1]/totAll*100)+'\u00a0%</td></tr>').join('')
-      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td>Total charges</td><td style="text-align:right">'+fmt(totAll)+'</td><td style="text-align:right">100\u00a0%</td></tr></tfoot></table>'};
-    // v15.38 DASH-REFONTE-GLOBALE-V4 CP3 \u2014 Refonte en "Charges / loyers" Bloomberg
-    // Ratio % + sparkline 12 mois du ratio. Le drill _DD['donut'] garde le d\u00e9tail cat\u00e9gories.
-    const loyersTotal = mvs.filter(m => _isLoyerCategory(m.cat)).reduce((s,m) => s+(m.cr||0), 0);
-    const ratio = loyersTotal > 0 ? (totAll / loyersTotal * 100) : null;
-    const ratioColor = ratio === null ? 'var(--t2)'
-      : ratio <= 30 ? 'var(--fg-success)'
-      : ratio <= 50 ? 'var(--fg-warning)'
-      : 'var(--fg-danger)';
-    const ratioStatus = ratio === null ? 'blu'
-      : ratio <= 30 ? 'grn'
-      : ratio <= 50 ? 'ora'
-      : 'red';
-    const prevLoyersDn = (mvsPrev||[]).filter(m => _isLoyerCategory(m.cat)).reduce((s,m) => s+(m.cr||0), 0);
-    const prevChargesDn = (mvsPrev||[]).reduce((s,m) => s+(m.db||0), 0);
-    const prevRatio = prevLoyersDn > 0 ? (prevChargesDn / prevLoyersDn * 100) : null;
-    const _refMoIdxDn = mo ? parseInt(mo) - 1 : new Date().getMonth();
-    const _prevMoIdxDn = _refMoIdxDn === 0 ? 11 : _refMoIdxDn - 1;
-    const _prevYrDn = mo && _refMoIdxDn === 0 ? (parseInt(yr) - 1) : yr;
-    const _prevMoLblDn = mo ? (_DMF[_prevMoIdxDn] + ' ' + _prevYrDn) : ('ann\u00e9e ' + (parseInt(yr) - 1));
-    const deltaRatio = (ratio !== null && prevRatio !== null) ? (ratio - prevRatio) : null;
-    const deltaTxtDn = deltaRatio === null
-      ? '<div class="bb-delta neu">pas d\'historique</div>'
-      : '<div class="bb-delta ' + (deltaRatio > 0 ? 'neg' : (deltaRatio < 0 ? 'pos' : 'neu')) + '">' + (deltaRatio > 0 ? '\u2191 +' : (deltaRatio < 0 ? '\u2193 ' : '\u00b7 ')) + Math.abs(deltaRatio).toFixed(1) + ' pts vs ' + escHtml(_prevMoLblDn) + '</div>';
-    // Sparkline 12 mois du ratio Charges/Loyers
-    const revSeries12 = _kpiMonthlySeries(ctx, 12, m => _isLoyerCategory(m.cat) ? (m.cr||0) : 0);
-    const chgSeries12 = _kpiMonthlySeries(ctx, 12, m => (m.db||0));
-    const ratioSeries = revSeries12.map((r, i) => ({
-      ...r, value: r.value > 0 ? (chgSeries12[i].value / r.value * 100) : 0
-    }));
-    const hasRatioData = ratioSeries.some(s => s.value > 0);
-    const vizRatio = hasRatioData ? _mkSparkline(ratioSeries, {
-      w:240, h:30, padding:3,
-      stroke:'var(--fg-warning)', fill:'var(--bg-warning)',
-      allLabels: false,
-      tooltipFormat:(pt) => _DMF[pt.mo-1]+' '+pt.yr+' : '+pt.value.toFixed(0)+' %'
-    }) : '';
-    const body = '<button type="button" class="dw-kpi-click bb-card" '
-      + 'onclick="_dashCardClick(\'donut\',event)" '
-      + 'aria-label="Voir le d\u00e9tail des charges par cat\u00e9gorie">'
-      + '<div class="bb-eyebrow"><span class="bb-icon-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M21 21H4a1 1 0 0 1-1-1V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m7 17 4-5 4 3 4-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bb-eyebrow-txt">CHARGES / LOYERS</span></div>'
-      + '<div class="dw-kpi-value" style="color:' + ratioColor + '">' + (ratio !== null ? ratio.toFixed(0) + ' %' : 'N/C') + '</div>'
-      + deltaTxtDn
-      + '<div class="bb-sub">' + fmt(totAll) + ' charges \u00b7 ' + fmt(loyersTotal) + ' loyers</div>'
-      + (hasRatioData ? '<div class="bb-spark">' + vizRatio + '</div>' : '')
-      + '</button>';
-    return wd(body, '', ratioStatus);
-  }
-  /* ── v2 Phase 7 — Progression annuelle HIÉRARCHIQUE par entité > immeuble
-     v2 Option B — Bail-based : attendu calculé via le bail actif pour chaque mois
-     (bail courant + historique). Fallback : si un mois n'a pas de bail actif mais
-     le logement a déjà eu un bail, on utilise le HC+CH du bail précédent le plus
-     récent (conserve la vision "manque à gagner" pendant les vacances).
-     Structure : entité en ligne-titre, immeubles en sous-lignes. ── */
-  if(id==='prog') {
-    const inclYTD = new Set((DB.categories || []).filter(c => _realiseInclCat(c)));
-    const todayForProg = new Date();
-    const lastVisibleMonth = mo
-      ? parseInt(mo)
-      : (todayForProg.getFullYear() === parseInt(yr) ? todayForProg.getMonth() + 1
-         : (todayForProg.getFullYear() > parseInt(yr) ? 12 : 0));
-
-    // Helper : calcule attendu (bail-based) + réalisé pour un groupe de logements
-    const computeGroup = (logs) => {
-      if(!logs.length) return {attendu:0, realise:0};
-      const refs = logs.map(l => l.ref);
-      const imms = [...new Set(logs.map(l => l.imm).filter(Boolean))];
-      let realise = 0;
-      for(const m of DB.mouvements) {
-        if(!m.date || !m.date.startsWith(yr)) continue;
-        const miMov = parseInt(m.date.slice(5,7));
-        if(miMov > lastVisibleMonth) continue;
-        const matches = refs.includes(m.qui) || imms.includes(m.imm);
-        if(!matches) continue;
-        if(inclYTD.has(m.cat) && (m.cr||0) > 0) realise += m.cr;
-      }
-      const attendu = logs.reduce((s,l) => s + _computeExpectedRent(l.ref, yr, lastVisibleMonth), 0);
-      return {attendu, realise};
-    };
-
-    // Grouper par entité > immeuble (on affiche toute entité/immeuble avec ≥ 1 logement)
-    const entsToShow = (activeEnt ? DB.entites.filter(e => e.nom === activeEnt) : DB.entites).filter(_isAlive);
-    const groups = [];  // [{entNom, attendu, realise, immeubles:[{immNom, ...}]}]
-    for(const e of entsToShow) {
-      const eLogs = scopeLogs.filter(l => l.entity === e.nom);
-      if(!eLogs.length) continue;
-      const entRes = computeGroup(eLogs);
-      // Sous-groupes par immeuble (tous gardés)
-      const byImm = {};
-      eLogs.forEach(l => { const k = l.imm || '\u2014'; if(!byImm[k]) byImm[k] = []; byImm[k].push(l); });
-      const immeubles = Object.entries(byImm)
-        .map(([immNom, iL]) => ({immNom, ...computeGroup(iL)}))
-        .sort((a,b) => (b.attendu - b.realise) - (a.attendu - a.realise));  // tri par écart décroissant (pire en haut)
-      groups.push({entNom: e.nom, ...entRes, immeubles});
-    }
-
-    const totAttendu = groups.reduce((s,g) => s+g.attendu, 0);
-    const totRealise = groups.reduce((s,g) => s+g.realise, 0);
-    const totEcart = totRealise - totAttendu;
-    const totTaux = totAttendu > 0 ? Math.round(totRealise/totAttendu*100) : 0;
-    const barPct = totAttendu > 0 ? Math.min(100, totTaux) : 0;
-
-    const deltaCol = (v) => v >= 0 ? 'var(--grn)' : 'var(--red)';
-    const signed = (v) => (v>=0?'+':'')+fmt(v);
-
-    const tableHtml = groups.length
-      ? '<table style="width:100%;font-size:11.5px;margin-top:8px;border-collapse:collapse">'
-        + '<thead><tr style="color:var(--t3);font-weight:600;border-bottom:1px solid var(--bor)">'
-        +   '<th style="text-align:left;padding:4px 5px">Entité / Immeuble</th>'
-        +   '<th style="text-align:right;padding:4px 5px">Attendu</th>'
-        +   '<th style="text-align:right;padding:4px 5px">Réalisé</th>'
-        +   '<th style="text-align:right;padding:4px 5px">Écart</th>'
-        + '</tr></thead><tbody>'
-        + groups.map(g => {
-            const gEcart = g.realise - g.attendu;
-            const entRow = '<tr style="background:var(--sur2);font-weight:700">'
-              + '<td style="padding:5px 6px;color:var(--t1)">'+escHtml(g.entNom)+'</td>'
-              + '<td style="text-align:right;padding:5px 6px">'+fmt(g.attendu)+'</td>'
-              + '<td style="text-align:right;padding:5px 6px">'+fmt(g.realise)+'</td>'
-              + '<td style="text-align:right;padding:5px 6px;color:'+deltaCol(gEcart)+'">'+signed(gEcart)+'</td>'
-              + '</tr>';
-            const immRows = g.immeubles.map(im => {
-              const imEcart = im.realise - im.attendu;
-              return '<tr>'
-                + '<td style="padding:4px 6px 4px 20px;color:var(--t2)">\u2514\u00a0'+escHtml(im.immNom)+'</td>'
-                + '<td style="text-align:right;padding:4px 6px">'+fmt(im.attendu)+'</td>'
-                + '<td style="text-align:right;padding:4px 6px">'+fmt(im.realise)+'</td>'
-                + '<td style="text-align:right;padding:4px 6px;color:'+deltaCol(imEcart)+'">'+signed(imEcart)+'</td>'
-                + '</tr>';
-            }).join('');
-            return entRow + immRows;
-          }).join('')
-        + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)">'
-        +   '<td style="padding:6px">Total</td>'
-        +   '<td style="text-align:right;padding:6px">'+fmt(totAttendu)+'</td>'
-        +   '<td style="text-align:right;padding:6px">'+fmt(totRealise)+'</td>'
-        +   '<td style="text-align:right;padding:6px;color:'+deltaCol(totEcart)+'">'+signed(totEcart)+'</td>'
-        + '</tr></tfoot></table>'
-      : '<div class="mu sm" style="margin-top:10px;text-align:center">Aucun logement dans cette scope.</div>';
-
-    _DD['prog'] = _buildProgDrill(ctx);
-    const header = '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">'
-      + '<span class="dw-kpi-label" style="margin-bottom:0">Progression annuelle \u2014 '+yr+'</span>'
-      + '<span style="font-size:13px;font-weight:700;color:'+deltaCol(totEcart)+'">'+totTaux+'\u00a0% collect\u00e9</span>'
-      + '</div>';
-    const body = '<button type="button" class="dw-kpi-click" '
-      + 'onclick="_dashCardClick(\'prog\',event)" '
-      + 'aria-label="Voir le détail de la progression annuelle">'
-      + header
-      + gauge(barPct, totEcart >= 0 ? 'var(--grn)' : 'var(--red)', 7)
-      + tableHtml
-      + `<div style="font-size:10px;color:var(--t3);margin-top:6px;font-style:italic">D\u00e9marrage : 1er loyer re\u00e7u historique \u00b7 Bail actif par mois (courant + archiv\u00e9s) \u00b7 Vacances entre baux = manque \u00e0 gagner \u00b7 Cat\u00e9gories : ${[...inclYTD].join(', ')||'configurer dans R\u00e9f\u00e9rentiel'}</div>`
-      + '</button>';
-    return wd(body, '', totEcart >= 0 ? 'grn' : 'red');
-  }
-  /* ── v2 Phase 3 polish — Rendement brut EFFECTIF ANNUALISÉ PAR IMMEUBLE
-     (choix utilisateur : ne prendre que depuis le 1er mouvement de l'immeuble).
-     Méthode :
-       1. Pour chaque immeuble, trouver la date du 1er loyer reçu (≤ 12 mois glissants)
-       2. Annualiser : loyers_reçus × (12 / mois_écoulés_depuis_1er_loyer)
-       3. Diviser par (valeur + travaux)
-     Résultat : un immeuble acheté il y a 3 mois avec 2 400 € de loyers reçus
-     donne un rendement extrapolé sur 12 mois (pas divisé par 12 mois "vides"). ── */
-  if(id==='rdt') {
-    const immsDistinct = [...new Set(scopeLogs.map(l => l.imm).filter(Boolean))];
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 12);
-    const cutoffISO = cutoff.toISOString().slice(0,10);
-    const now = new Date();
-    // Single-pass : bucket HC reçu (m.cr - ch théorique) + date du 1er mouvement par immeuble
-    // v2 : on soustrait les charges théoriques (l.ch) de chaque paiement pour n'avoir que la partie HC
-    const loysByImm = {};
-    const firstByImm = {};
-    for(const m of DB.mouvements) {
-      if(!_isLoyerCategory(m.cat) || !(m.cr > 0) || !m.date) continue;
-      if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
-      const log = scopeLogs.find(l => l.ref === m.qui);
-      if(!log || !log.imm) continue;
-      // Date du 1er loyer (pour annualisation)
-      if(!firstByImm[log.imm] || m.date < firstByImm[log.imm]) firstByImm[log.imm] = m.date;
-      // HC reçu = paiement reçu - 1 mois de charges théoriques (clamped ≥ 0)
-      if(m.date >= cutoffISO) {
-        const hcPart = Math.max(0, (m.cr||0) - (log.ch||0));
-        loysByImm[log.imm] = (loysByImm[log.imm] || 0) + hcPart;
-      }
-    }
-    // Calcul : annualiser par immeuble selon durée depuis 1er mouvement (cap 12 mois)
-    let totalLoysAnn = 0, totalValue = 0;
-    for(const immNom of immsDistinct) {
-      const iL = scopeLogs.filter(l => l.imm === immNom);
-      const entNom = iL[0] && iL[0].entity;
-      const ent2 = entNom ? DB.entites.find(e => e.nom === entNom) : null;
-      const imObj = ent2 && ent2.immeubles ? ent2.immeubles.find(i => i.nom === immNom) : null;
-      const valImm = ((imObj && imObj.valeurEstimee) || 0) + ((imObj && imObj.montantTravaux) || 0);
-      totalValue += valImm;
-      const loysRecus = loysByImm[immNom] || 0;
-      const first = firstByImm[immNom];
-      let moisEcoules = 12;
-      if(first) {
-        const d = new Date(first);
-        moisEcoules = Math.max(1, Math.min(12,
-          (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()) + 1
-        ));
-      } else {
-        // Pas de mouvement du tout → pas d'annualisation possible, on ignore
-        continue;
-      }
-      totalLoysAnn += loysRecus * 12 / moisEcoules;
-    }
-    const rdtPct = totalValue > 0 ? (totalLoysAnn / totalValue * 100) : null;
-    // Théorique (HC × 12) — FIX bug : on ne compte que les HC des logements
-    // dont l'immeuble a une valeur renseignée (sinon numérateur géant vs
-    // dénominateur partiel → ratio aberrant type "47155 %").
-    let totalLoysTheo = 0;
-    for(const immNom of immsDistinct) {
-      const iL = scopeLogs.filter(l => l.imm === immNom);
-      const entNom = iL[0] && iL[0].entity;
-      const ent2 = entNom ? DB.entites.find(e => e.nom === entNom) : null;
-      const imObj = ent2 && ent2.immeubles ? ent2.immeubles.find(i => i.nom === immNom) : null;
-      const valImm = ((imObj && imObj.valeurEstimee) || 0) + ((imObj && imObj.montantTravaux) || 0);
-      if(valImm > 0) {
-        totalLoysTheo += iL.reduce((s,l) => s+(l.hc||0), 0) * 12;
-      }
-    }
-    const rdtTheoPct = totalValue > 0 ? (totalLoysTheo / totalValue * 100) : null;
-    const color = rdtPct === null ? 'var(--t2)'
-                : rdtPct >= 5     ? 'var(--fg-success)'
-                : rdtPct >= 3     ? 'var(--fg-warning)'
-                :                   'var(--fg-danger)';
-    const status = rdtPct === null ? 'blu'
-                 : rdtPct >= 5     ? 'grn'
-                 : rdtPct >= 3     ? 'ora'
-                 :                   'red';
-    // Sparkline : rdt mensuel = (HC reçu × 12) / totalValue — cohérent avec le KPI
-    const series = totalValue > 0
-      ? _kpiMonthlySeries(ctx, 12, m => {
-          if(!_isLoyerCategory(m.cat) || !(m.cr > 0)) return 0;
-          const log = scopeLogs.find(l => l.ref === m.qui);
-          if(!log) return 0;
-          return Math.max(0, (m.cr||0) - (log.ch||0));
-        }).map(s => ({...s, value: s.value * 12 / totalValue * 100}))
-      : [];
-    const hasData = series.some(s => s.value > 0);
-    // Théorique inline dans le titre (demande user) : "Rendement brut (8.6 % théo.)"
-    const labelText = rdtTheoPct !== null
-      ? 'Rendement brut ('+rdtTheoPct.toFixed(1)+'\u00a0% théo.)'
-      : 'Rendement brut';
-    const viz = hasData ? _mkSparkline(series, {
-      w:200, h:35, padding:3,
-      stroke:'var(--fg-info)', fill:'var(--bg-info)',
-      allLabels: true,
-      tooltipFormat:(pt) => _DMF[pt.mo-1]+' '+pt.yr+' : '+pt.value.toFixed(1)+'\u00a0%'
-    }) : '<div style="font-size:11px;color:var(--t3);font-style:italic;padding:4px 0">Renseigner valeurs estimées</div>';
-    _DD['rdt'] = _buildRdtDrill(ctx);
-    // v15.38 DASH-REFONTE-GLOBALE-V4 CP3 \u2014 Bloomberg card : eyebrow + valeur + th\u00e9o + sparkline 12 mois
-    const theoSub = rdtTheoPct !== null
-      ? '<div class="bb-delta neu">Th\u00e9o. ' + rdtTheoPct.toFixed(1) + ' %</div>'
-      : '<div class="bb-delta neu">Sans valeur estim\u00e9e</div>';
-    const body = '<button type="button" class="dw-kpi-click bb-card" onclick="_dashCardClick(\'rdt\',event)" aria-label="Voir le d\u00e9tail Rendement brut">'
-      + '<div class="bb-eyebrow"><span class="bb-icon-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M3 20h18M5 20V10l7-7 7 7v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 20v-5h6v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bb-eyebrow-txt">RENDEMENT BRUT</span></div>'
-      + '<div class="dw-kpi-value" style="color:' + color + '">' + (rdtPct !== null ? rdtPct.toFixed(1) + '\u00a0%' : 'N/C') + '</div>'
-      + theoSub
-      + '<div class="bb-spark">' + viz + '</div>'
-      + '</button>';
-    return wd(body, '', status);
-  }
-  /* ── v2 Phase 7 — Solde provisions de charges PAR IMMEUBLE (choix user)
-     Les charges étant par immeuble (ou logement), le widget affiche un
-     tableau avec 1 ligne par immeuble + total. ── */
-  if(id==='solde') {
-    const nbMois = mo ? 1 : today.getMonth()+1;
-    const inclCh = new Set((DB.categories || []).filter(c => _isChargeRecupCategory(c)));
-    // Regroupement logements par immeuble
-    const logsByImm = {};
-    for(const l of scopeLogs) {
-      const k = l.imm || '\u2014';
-      if(!logsByImm[k]) logsByImm[k] = [];
-      logsByImm[k].push(l);
-    }
-    // Calcul par immeuble
-    const rows = Object.entries(logsByImm).map(([immNom, iL]) => {
-      const refs = iL.map(l => l.ref);
-      // R-0 : lots LOUES selon le bail. Un lot loue au cache vide sortait du total, et la
-      // regularisation comparait alors des charges reelles a des provisions amputees.
-      const provTh = iL.filter(_lotEstLoue).reduce((s,l) => s+(l.ch||0), 0) * nbMois;
-      const chargesR = mvsYTD
-        .filter(m => m.db > 0 && inclCh.has(m.cat) && (refs.includes(m.qui) || m.imm === immNom))
-        .reduce((s,m) => s+(m.db||0), 0);
-      return {immNom, provTh, chargesR, solde: provTh - chargesR};
-    }).sort((a,b) => Math.abs(b.solde) - Math.abs(a.solde));
-    const totProv = rows.reduce((s,r) => s+r.provTh, 0);
-    const totCh = rows.reduce((s,r) => s+r.chargesR, 0);
-    const totSol = totProv - totCh;
-    const hint = inclCh.size
-      ? [...inclCh].slice(0,3).join(', ')+(inclCh.size>3?' ('+inclCh.size+' cat.)':'')
-      : 'Aucune cat. cochée';
-    const tableHtml = rows.length
-      ? '<table style="width:100%;font-size:11px;margin-top:6px;border-collapse:collapse">'
-        + '<thead><tr style="color:var(--t3);font-weight:600;border-bottom:1px solid var(--bor)">'
-        +   '<th style="text-align:left;padding:3px 4px">Immeuble</th>'
-        +   '<th style="text-align:right;padding:3px 4px">Prov.</th>'
-        +   '<th style="text-align:right;padding:3px 4px">Charges</th>'
-        +   '<th style="text-align:right;padding:3px 4px">Solde</th>'
-        + '</tr></thead><tbody>'
-        + rows.map(r =>
-            '<tr><td style="padding:3px 4px;color:var(--t1)">'+escHtml(r.immNom)+'</td>'
-            +'<td style="text-align:right;padding:3px 4px">'+fmt(r.provTh)+'</td>'
-            +'<td style="text-align:right;padding:3px 4px;color:var(--red)">'+fmt(r.chargesR)+'</td>'
-            +'<td style="text-align:right;padding:3px 4px;font-weight:600;color:'+(r.solde>=0?'var(--grn)':'var(--red)')+'">'+fmt(r.solde)+'</td></tr>'
-          ).join('')
-        + '</tbody><tfoot><tr style="font-weight:700;border-top:1px solid var(--bor)">'
-        +   '<td style="padding:4px">Total</td>'
-        +   '<td style="text-align:right;padding:4px">'+fmt(totProv)+'</td>'
-        +   '<td style="text-align:right;padding:4px;color:var(--red)">'+fmt(totCh)+'</td>'
-        +   '<td style="text-align:right;padding:4px;color:'+(totSol>=0?'var(--grn)':'var(--red)')+'">'+fmt(totSol)+'</td>'
-        + '</tr></tfoot></table>'
-      : '<div class="mu sm" style="margin-top:8px;text-align:center">Aucun logement dans ce scope.</div>';
-    _DD['solde'] = _buildSoldeDrill(ctx);
-    const body = '<button type="button" class="dw-kpi-click" '
-      + 'onclick="_dashCardClick(\'solde\',event)" '
-      + 'aria-label="Voir le détail du solde de provisions">'
-      + lbl('Solde provisions de charges \u2014 par immeuble ('+nbMois+'\u00a0mois)')
-      + tableHtml
-      + `<div style="font-size:9px;color:var(--t3);margin-top:4px">Cat\u00e9gories incluses : ${hint}</div>`
-      + '</button>';
-    return wd(body, '', totSol >= 0 ? 'grn' : 'red');
-  }
-  if(id==='enc') {
-    const loyEnc=mvs.filter(m=>_isLoyerCategory(m.cat)&&m.cr>0).reduce((s,m)=>s+(m.cr||0),0);
-    const reste=Math.max(0,objMens-loyEnc);
-    return wd(lbl('Loyers attendus vs encaiss\u00e9s')
-      +`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:5px">`
-      +`<div><div style="font-size:9px;color:var(--t3)">Attendu<\/div><div style="font-size:14px;font-weight:600">${fmt(objMens)}<\/div><\/div>`
-      +`<div><div style="font-size:9px;color:var(--t3)">Re\u00e7u<\/div><div style="font-size:14px;font-weight:600;color:var(--grn)">${fmt(loyEnc)}<\/div><\/div>`
-      +`<div><div style="font-size:9px;color:var(--t3)">Reste d\u00fb<\/div><div style="font-size:14px;font-weight:700;color:${reste>0?'var(--red)':'var(--grn)'}">${fmt(reste)}<\/div><\/div><\/div>`
-      +gauge(objMens>0?loyEnc/objMens*100:0,'var(--grn)'), '', reste<=0?'grn':'red');
-  }
-  if(id==='stat') {
-    const rows=scopeLogs.filter(l=>l.locataire).map(l=>{
-      const att=(l.hc||0)+(l.ch||0);
-      const enc=DB.mouvements.filter(m=>m.qui===l.ref&&_isLoyerCategory(m.cat)&&m.cr>0&&m.date&&m.date.startsWith(refYrMo)).reduce((s,m)=>s+(m.cr||0),0);
-      const reste=Math.max(0,att-enc);
-      return `<tr><td><b>${l.ref}<\/b><\/td><td style="font-size:10px;color:var(--t3);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml((l.locataire||'').split(' ').slice(0,2).join(' '))}<\/td><td>${fmt(att)}<\/td><td style="color:${enc>0?'var(--grn)':'var(--red)'}">${fmt(enc)}<\/td><td style="font-weight:600;color:${reste>0?'var(--red)':'var(--grn)'}">${fmt(reste)}<\/td><\/tr>`;
-    }).join('');
-    return wd(lbl('Statut loyers\u00a0\u2014\u00a0'+periodLabel)+`<table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:4px"><thead><tr style="font-size:9px;color:var(--t3)"><th style="text-align:left;padding:1px 2px">Log.<\/th><th style="text-align:left;padding:1px 2px">Loc.<\/th><th style="text-align:left;padding:1px 2px">CC<\/th><th style="text-align:left;padding:1px 2px">Enc.<\/th><th style="text-align:left;padding:1px 2px">Reste<\/th><\/tr><\/thead><tbody>${rows}<\/tbody><\/table>`, '', 'blu');
-  }
-  if(id==='vac') {
-    const vacs=scopeLogs.filter(l=>!l.locataire);
-    return wd(lbl('Logements vacants')+wval(vacs.length,vacs.length>0?'var(--red)':'var(--grn)')+wsub('sur '+nbLogs+' logements')+vacs.slice(0,_maxItems).map(l=>ai(`<b>${l.ref}<\/b>\u00a0\u2014 Th\u00e9orique\u00a0${fmt((l.hc||0)+(l.ch||0))}/mois`,'red')).join(''), '', vacs.length>0?'red':'grn');
-  }
-  if(id==='ass') {
-    const exp=DB.assurances.filter(a=>{if(!a.expiration)return false;const d=Math.round((new Date(a.expiration)-today)/86400000);return d>=0&&d<=30&&scopeRefs.includes(a.logement);}).sort((a,b)=>new Date(a.expiration)-new Date(b.expiration));
-    return wd(lbl('Assurances \u00e0 renouveler')+wval(exp.length,exp.length>0?'var(--ora)':'var(--grn)')+wsub(exp.length>0?'expirant dans les 30 jours':'Aucune expiration imminente')+exp.slice(0,_maxItems).map(a=>ai(`${a.logement}\u00a0\u00b7\u00a0${a.type||'Ass.'}\u00a0\u2192\u00a0${fd(a.expiration)}`,'ora')).join(''), '', exp.length>0?'ora':'grn');
-  }
-  if(id==='agenda-dash') {
-    const todayStr2 = today.toISOString().slice(0,10);
-    const limit = new Date(today); limit.setDate(limit.getDate()+15);
-    const limitStr = limit.toISOString().slice(0,10);
-    let evts = (DB.agenda||[]).filter(e => !e.done);
-    if(activeEnt) evts = evts.filter(e => !e.entite || e.entite === activeEnt || !e.entite);
-    const overdue  = evts.filter(e => e.date < todayStr2).sort((a,b)=>a.date.localeCompare(b.date));
-    const upcoming = evts.filter(e => e.date >= todayStr2 && e.date <= limitStr).sort((a,b)=>a.date.localeCompare(b.date));
-    const total = overdue.length + upcoming.length;
-    const agSt = overdue.length>0?'red':upcoming.length>0?'ora':'grn';
-    const agLink = `go('agenda',document.querySelector('.ni[onclick*=\\'agenda\\']'))`;
-    if(!total) return wd(lbl('Agenda \u2014 15 prochains jours')+'<div style="margin-top:10px;font-size:12px;color:var(--grn)">\u2713 Aucun \u00e9v\u00e9nement en retard ou dans les 15 prochains jours</div>', seeLink("Voir l'agenda", agLink), 'grn');
-    const _agRow = (e, isOver) => {
-      const cat = AGENDA_CATS[e.cat]||AGENDA_CATS.AUTRE;
-      const diff = Math.round((new Date(e.date+'T00:00:00')-today)/86400000);
-      const badge = isOver
-        ? `<span style="font-size:9.5px;font-weight:700;color:var(--red);white-space:nowrap">\u26a0 ${Math.abs(diff)}j<\/span>`
-        : diff===0 ? `<span style="font-size:9.5px;font-weight:700;color:var(--ora)">Auj.<\/span>`
-        : `<span style="font-size:9.5px;color:var(--t3)">J-${diff}<\/span>`;
-      return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;margin-top:3px;background:${isOver?'rgba(220,38,38,.07)':'var(--sur2)'}"><span style="flex-shrink:0;display:inline-flex;color:${cat.couleur}">${_agendaIconSvg(e.cat,13)}<\/span><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(e.titre)}<\/div>${e.logement?`<div style="font-size:9.5px;color:var(--t3)">${escHtml(e.logement)}<\/div>`:''}<\/div>${badge}<\/div>`;
-    };
-    let html = '';
-    const _agOver = Math.max(2, Math.ceil(_maxItems/2));
-    const _agUp   = _maxItems;
-    if(overdue.length) {
-      html += `<div style="font-size:9px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.6px;margin-top:6px;margin-bottom:2px">\u26a0 En retard (${overdue.length})<\/div>`;
-      html += overdue.slice(0,_agOver).map(e=>_agRow(e,true)).join('');
-      if(overdue.length>_agOver) html += `<div style="font-size:9.5px;color:var(--red);margin-top:2px">+${overdue.length-_agOver} autres en retard<\/div>`;
-    }
-    if(upcoming.length) {
-      html += `<div style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.6px;margin-top:6px;margin-bottom:2px">15 prochains jours (${upcoming.length})<\/div>`;
-      html += upcoming.slice(0,_agUp).map(e=>_agRow(e,false)).join('');
-      if(upcoming.length>_agUp) html += `<div style="font-size:9.5px;color:var(--t3);margin-top:2px">+${upcoming.length-_agUp} autres<\/div>`;
-    }
-    return wd(lbl('Agenda \u2014 15 prochains jours')+html, seeLink("Voir l'agenda", agLink), agSt);
-  }
-  return wd(`<div style="font-size:11px;color:var(--t3);padding-top:10px">${id}<\/div>`);
-}
-
 
 function openDashDrill(titre, html) {
   el('dash-drill-title').textContent = titre;
   el('dash-drill-body').innerHTML = typeof html === 'string' ? html : '';
   openM('ov-dash-drill');
-}
-
-function drillEntToLoyers() {
-  closeM('ov-ent-detail');
-  const navEl = document.querySelector('.ni[onclick*="\'mouvements\'"]');
-  go('mouvements', navEl);
-  setTimeout(()=>{
-    if(_drillEntImm) { el('mv-f-imm').value=_drillEntImm; }
-    else if(_drillEntNom) {
-      // v14.47 audit tombstones
-      const logs = (DB.logements||[]).filter(_isAlive).filter(l=>l.entity===_drillEntNom);
-      const imms = [...new Set(logs.map(l=>l.imm))];
-      el('mv-f-imm').value = imms.length===1 ? imms[0] : '';
-    }
-    rMv();
-  }, 30);
 }
 
 const _DD = {};
@@ -11283,164 +9722,6 @@ function _openDD(key) {
 
 let _drillEntNom = '';
 let _drillEntImm = '';
-
-function drillToEnt(nom) {
-  if(typeof _dashEditMode !== 'undefined' && _dashEditMode) return;
-  _drillEntNom = nom; _drillEntImm = '';
-  const yr = v('dash-year') || new Date().getFullYear().toString();
-  const mo = v('dash-mois');
-  // v14.47 audit tombstones
-  const e = (DB.entites||[]).filter(_isAlive).find(x=>x.nom===nom)||{nom};
-  const eLogs = (DB.logements||[]).filter(_isAlive).filter(l=>l.entity===nom);
-  const eImms = [...new Set(eLogs.map(l=>l.imm))];
-  const eMvs = (DB.mouvements||[]).filter(_isAlive).filter(m=>{
-    if(!m.date?.startsWith(yr)) return false;
-    if(mo && new Date(m.date+'T00:00:00').getMonth()+1 !== parseInt(mo)) return false;
-    return eLogs.some(l=>l.ref===m.qui) || eImms.includes(m.imm) || m.qui==='SCI:'+nom;
-  });
-  _showEntModal(nom, e, eMvs, {scope:'Entité'});
-}
-
-function drillToImm(imm) {
-  if(typeof _dashEditMode !== 'undefined' && _dashEditMode) return;
-  _drillEntNom = ''; _drillEntImm = imm;
-  const yr = v('dash-year') || new Date().getFullYear().toString();
-  const mo = v('dash-mois');
-  // v14.47 audit tombstones
-  const iLogs = (DB.logements||[]).filter(_isAlive).filter(l=>l.imm===imm);
-  const ent = (DB.entites||[]).filter(_isAlive).find(e=>e.nom===iLogs[0]?.entity)||{};
-  const eMvs = (DB.mouvements||[]).filter(_isAlive).filter(m=>{
-    if(!m.date?.startsWith(yr)) return false;
-    if(mo && new Date(m.date+'T00:00:00').getMonth()+1 !== parseInt(mo)) return false;
-    return iLogs.some(l=>l.ref===m.qui) || m.imm===imm;
-  });
-  _showEntModal(imm, ent, eMvs, {scope:'Immeuble', parent:ent.nom||'', parentType:'Entité'});
-}
-
-/* v2 Phase 6 — Drill logement (niveau 4, cahier §3.8.6).
-   Ouvre la modale ov-ent-detail scopée sur un logement spécifique avec :
-   - Mouvements du logement sur la période sélectionnée
-   - Scope chip "Logement" + bouton retour vers immeuble parent */
-function drillToLog(ref) {
-  if(typeof _dashEditMode !== 'undefined' && _dashEditMode) return;
-  // v14.47 audit tombstones
-  const log = (DB.logements||[]).filter(_isAlive).find(l => l.ref === ref);
-  if(!log) return;
-  _drillEntNom = log.entity||''; _drillEntImm = log.imm||'';
-  const yr = v('dash-year') || new Date().getFullYear().toString();
-  const mo = v('dash-mois');
-  const logMvs = (DB.mouvements||[]).filter(_isAlive).filter(m => {
-    if(!m.date || !m.date.startsWith(yr)) return false;
-    if(mo && new Date(m.date+'T00:00:00').getMonth()+1 !== parseInt(mo)) return false;
-    return m.qui === ref;
-  });
-  const titleDetail = log.locataire ? ref+' — '+log.locataire : ref+' (vacant)';
-  _showEntModal(titleDetail, {nom:ref, type:'Logement', locataire:log.locataire, imm:log.imm, entity:log.entity}, logMvs,
-    {scope:'Logement', parent:log.imm||'', parentType:'Immeuble'});
-}
-
-/* v2 Phase 6 — Handlers de clic avec stopPropagation pour gérer
-   la hiérarchie carte entité > bulle immeuble > mini-carte logement. */
-function _entCardClick(name) { drillToEnt(name); }
-function _immBulleClick(ev, imm) {
-  if(ev) ev.stopPropagation();
-  drillToImm(imm);
-}
-function _logMiniClick(ev, ref) {
-  if(ev) ev.stopPropagation();
-  drillToLog(ref);
-}
-
-/* v2 Phase 6 — Progressive disclosure (cahier §3.8.5).
-   Par défaut : plié si > 2 immeubles. Persistance par entité dans DB.params.entExpanded. */
-function _isEntExpanded(name) {
-  // v14.47 audit tombstones
-  const imms = [...new Set((DB.logements||[]).filter(_isAlive).filter(l => l.entity === name).map(l => l.imm).filter(Boolean))];
-  const autoExpanded = imms.length <= 2;
-  if(DB.params && DB.params.entExpanded && DB.params.entExpanded[name] !== undefined) {
-    return DB.params.entExpanded[name];
-  }
-  return autoExpanded;
-}
-function toggleEntExpand(name, ev) {
-  if(ev) ev.stopPropagation();
-  if(!DB.params) DB.params = {};
-  if(!DB.params.entExpanded) DB.params.entExpanded = {};
-  DB.params.entExpanded[name] = !_isEntExpanded(name);
-  saveDB();
-  _rPeriodPage();
-}
-
-/* v2 Phase 6 — Navigation vers le parent depuis la modale (bouton "‹ Entité"). */
-function _navToParent() {
-  const btn = el('ov-ent-parent-btn');
-  if(!btn) return;
-  const parent = btn.dataset.parent;
-  const type = btn.dataset.parentType;
-  if(!parent) return;
-  if(type === 'Immeuble') drillToImm(parent);
-  else drillToEnt(parent);
-}
-
-function _showEntModal(titre, ent, mvs, opts) {
-  opts = opts || {};
-  el('ov-ent-title').textContent = titre;
-  // v2 Phase 6 — Scope chip + bouton parent (cahier §3.8.7)
-  const scope = opts.scope || 'Entité';
-  const chip = el('ov-ent-scope-chip');
-  if(chip) {
-    chip.textContent = scope;
-    chip.className = 'ov-ent-scope-chip scope-'+scope.toLowerCase().replace(/[éè]/g,'e');
-  }
-  const parentBtn = el('ov-ent-parent-btn');
-  if(parentBtn) {
-    if(opts.parent) {
-      parentBtn.textContent = '‹ '+opts.parent;
-      parentBtn.style.display = '';
-      parentBtn.dataset.parent = opts.parent;
-      parentBtn.dataset.parentType = opts.parentType || 'Entité';
-    } else {
-      parentBtn.style.display = 'none';
-      parentBtn.dataset.parent = '';
-    }
-  }
-  const totCr = mvs.reduce((s,m)=>s+(m.cr||0),0);
-  const totDb = mvs.reduce((s,m)=>s+(m.db||0),0);
-  const cashFlow = totCr - totDb;
-  el('ov-ent-kpis').innerHTML = `
-    <div class="kpi"><div class="kv pos">${fmt(totCr)}</div><div class="kl">Revenus</div></div>
-    <div class="kpi"><div class="kv neg">${fmt(totDb)}</div><div class="kl">Charges</div></div>
-    <div class="kpi"><div class="kv ${cashFlow>=0?'pos':'neg'}">${fmt(cashFlow)}</div><div class="kl">Cash-Flow</div></div>
-    <div class="kpi"><div class="kv">${mvs.length}</div><div class="kl">Opérations</div></div>`;
-  const colors = ['#388bfd','#f85149','#3fb950','#f0883e','#bc8cff','#58a6ff','#e3b341','#db61a2','#79c0ff','#7ee787'];
-  const catMap = {};
-  mvs.forEach(m=>{ if(!m.cat) return; if(!catMap[m.cat]) catMap[m.cat]={db:0,cr:0}; catMap[m.cat].db+=m.db||0; catMap[m.cat].cr+=m.cr||0; });
-  const catEntries = Object.entries(catMap).sort((a,b)=>(b[1].db+b[1].cr)-(a[1].db+a[1].cr));
-  const maxAmt = Math.max(...catEntries.map(([,v2])=>v2.db+v2.cr), 1);
-  el('ov-ent-cats').innerHTML = catEntries.map(([cat,v2],i)=>{
-    const pctDb=Math.round(v2.db/maxAmt*100), pctCr=Math.round(v2.cr/maxAmt*100), col=colors[i%colors.length];
-    // v14.80 SECU-INNERHTML : escape cat (catégorie user-editable depuis Paramètres)
-    return `<div style="display:grid;grid-template-columns:140px 1fr 120px;align-items:center;gap:8px">
-      <div style="font-size:12px;color:var(--t2);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(cat)}">${escHtml(cat)}</div>
-      <div style="position:relative;height:10px;background:var(--sur2);border-radius:5px;overflow:hidden">
-        ${v2.db>0?`<div style="position:absolute;left:0;top:0;height:100%;width:${pctDb}%;background:${col};border-radius:5px;opacity:.85"></div>`:''}
-        ${v2.cr>0?`<div style="position:absolute;left:0;top:0;height:100%;width:${pctCr}%;background:var(--grn);border-radius:5px;opacity:.5"></div>`:''}
-      </div>
-      <div style="font-size:12px;text-align:right">
-        ${v2.db>0?`<span class="neg">-${fmtN(v2.db)} €</span>`:''}
-        ${v2.cr>0?`<span class="pos" style="margin-left:4px">+${fmtN(v2.cr)} €</span>`:''}
-      </div></div>`;
-  }).join('');
-  const recent = [...mvs].sort((a,b)=>b.date?.localeCompare(a.date)).slice(0,30);
-  // v14.80 SECU-INNERHTML : escape m.lib / m.cat / m.qui (champs user libres)
-  el('ov-ent-ops').innerHTML = recent.map(m=>`<tr>
-    <td>${fd(m.date)}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${escHtml(m.lib||'–')}</td>
-    <td><span class="badge gry">${escHtml(m.cat||'–')}</span></td><td>${escHtml(m.qui||'–')}</td>
-    <td class="num ${m.db>0?'neg':''}">${m.db>0?fmt(m.db):'–'}</td>
-    <td class="num ${m.cr>0?'pos':''}">${m.cr>0?fmt(m.cr):'–'}</td></tr>`).join('')
-    || '<tr><td colspan="6" class="mu" style="text-align:center;padding:20px">Aucune opération</td></tr>';
-  openM('ov-ent-detail');
-}
 
 
 
@@ -13787,6 +12068,7 @@ function openBailHist(i) {
   el('b-loc-nouv-adr').value = b.locNouvelleAdr||'';
   el('b-dg-restitue').value = b.dgRestitue||'';
   el('b-dg-retenu').value = b.dgRetenu||'';
+  if(el('b-dg-restitue-date')) el('b-dg-restitue-date').value = String(b.dgRestitueAt || '').slice(0, 10);
   el('b-fin-notes').value = b.finNotes||'';
 
   // Remplacer le pied de modal par boutons lecture seule
@@ -13934,15 +12216,28 @@ function _locEcheanceInfo(bail) {
   // « Tacite reconduction ». Distinguer « pas de bail » (échéance nulle) de
   // « bail sans date de fin » (durée indéterminée → réellement en tacite).
   if (!bail) return { cls: 'muted', text: '', urgent: false };
-  if (!bail.fin) return { cls: 'ok', text: 'Tacite reconduction', urgent: false };
+  if (bail.fin && isNaN(new Date(bail.fin).getTime())) {
+    console.warn('[_locEcheanceInfo] date bail.fin invalide', bail.ref || bail, bail.fin);
+    return { cls: 'warn', text: '⚠ Date invalide', urgent: true };
+  }
+  // BAUX-ECHUS — LA règle du type (js/core/bail-echeance.js) : la même que l'agenda, la frise et
+  // l'alerte « arrivé à terme ». « Tacite reconduction » seulement là où la loi (nu, meublé) ou le
+  // contrat (garage de l'app) la prévoit ; « Arrivé à terme (date) » sinon — plus de « Échu » pour
+  // un garage reconduit par son contrat, plus de « Tacite reconduction » pour une mobilité sans date.
+  const _BE = (typeof window !== 'undefined' && window) ? window.BailEcheance : null;
+  if (_BE && typeof _BE.pastilleEcheance === 'function') {
+    try {
+      const _log = (DB.logements || []).find(l => l && l.ref === bail.ref) || null;
+      const _o = _bailEcheanceOpts(bail, _log);
+      return _BE.pastilleEcheance(_BE.echeanceBail(bail, _log, _o), _o);
+    } catch (e) { return { cls: 'warn', text: '⚠ Erreur date', urgent: true }; }
+  }
+  // Repli (module non chargé) : l'ancien calcul, sans affirmer de reconduction pour un type qui n'en a pas.
+  if (!bail.fin) return _bailTypeHasTacite(bail.type) ? { cls: 'ok', text: 'Tacite reconduction', urgent: false } : { cls: 'muted', text: 'Échéance non renseignée', urgent: false };
   try {
     const finDate = new Date(bail.fin);
     const today = new Date();
     const finTime = finDate.getTime();
-    if (isNaN(finTime)) {
-      console.warn('[_locEcheanceInfo] date bail.fin invalide', bail.ref || bail, bail.fin);
-      return { cls: 'warn', text: '⚠ Date invalide', urgent: true };
-    }
     const daysLeft = Math.floor((finTime - today.getTime()) / 86400000);
     const finLbl = fd(bail.fin);
     if (daysLeft >= 0) {
@@ -13950,13 +12245,10 @@ function _locEcheanceInfo(bail) {
       if (daysLeft < 90) return { cls: 'warn', text: `${finLbl} (${daysLeft}j)`, urgent: true };
       return { cls: 'ok', text: finLbl, urgent: false };
     }
-    // v15.343 BUG-STATUT-TACITE — Échéance dépassée : distinguer
-    //   • tacite reconduction (nu/meublé) → le bail se prolonge, PAS « échu »
-    //   • échu réel (étudiant/mobilité/garage/autre, non reconductibles)
     if (_bailTypeHasTacite(bail.type)) {
       return { cls: 'ok', text: 'Tacite reconduction', urgent: false };
     }
-    return { cls: 'err', text: `Échu (${finLbl})`, urgent: true };
+    return { cls: 'err', text: `Arrivé à terme (${finLbl})`, urgent: true };
   } catch (e) { return { cls: 'warn', text: '⚠ Erreur date', urgent: true }; }
 }
 
@@ -14220,7 +12512,9 @@ function rCandidats(){
 
 // Un logement est vacant s'il n'a pas de bail actif (non clôturé).
 function _logementsVacants(){
-  return (DB.logements||[]).filter(l=>l && !l._deleted && !_bailEnCours(DB.baux[l.ref]));
+  // Statut 06/10 : un lot dont le départ déclaré est passé est VACANT (proposable à un candidat), même
+  // si son bail reste à clôturer. _bailEnCours (saveBail) garde, lui, « bail ouvert ».
+  return (DB.logements||[]).filter(l=>l && !l._deleted && !_bienIsBailActif(l.ref));
 }
 // "Choix + ajout libre" (règle gravée) : révèle le champ texte quand contrat = Autre.
 function _candContratToggle(){
@@ -15089,7 +13383,10 @@ function openLoyerBienModal(candId, logRef){
   const log = (DB.logements||[]).find(l=>l && !l._deleted && l.ref===ref);
   if(!log){ showToast('Logement introuvable — impossible de fixer le loyer.','warn'); return; }
   _lbCtx = { candId: c ? c.id : null, logRef: log.ref };
-  const occupied = !!_bienActiveBail(log.ref); // gère tombstone _deleted + cloture + finEffective (audit)
+  // Verrou = bail OUVERT, pas le statut : sur un lot vacant après un départ déclaré, le bail du locataire sorti
+  // reste ouvert et _syncLogToBail recopierait log.hc dans SON bail (dû et impayés faussés). Levé à la clôture.
+  const occupied = !!_bienActiveBail(log.ref);
+  const _aCloturer = occupied && !_bienIsBailActif(log.ref);   // départ déclaré passé, bail à clôturer
   const _refHc = Number(log.loyerHcRef)||Number(log.hc)||0; // loyer de référence (== log.hc pour un bien vacant)
   const _refCh = Number(log.chargesRef)||Number(log.ch)||0;
   const la = c ? _loyerAttenduForCand(c) : { loyer: _refHc };
@@ -15100,7 +13397,8 @@ function openLoyerBienModal(candId, logRef){
   if(warn){
     if(occupied){
       warn.style.background='var(--sur2)'; warn.style.border='1px solid var(--bor)'; warn.style.color='var(--t2)';
-      warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passez par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
+      if(_aCloturer) warn.innerHTML = '🔒 <b>Bail à clôturer</b> — le bail du locataire sorti est encore ouvert et porte son loyer. Le loyer de référence du prochain bail se saisit après la clôture de ce bail.';
+      else warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passez par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
     } else {
       warn.style.background='rgba(234,88,12,.1)'; warn.style.border='1px solid rgba(234,88,12,.3)'; warn.style.color='#9a4a10';
       warn.innerHTML = '⚠ Ce loyer est celui du <b>logement</b> (bien vacant) : il sert au score du candidat et au futur bail. Il alimente aussi le tableau de bord et le P&amp;L.';
@@ -15115,12 +13413,13 @@ function saveLoyerBien(){
   // Garde anti-désync (audit B1) : sur un bien OCCUPÉ, le loyer suit le bail / une révision IRL —
   // écrire log.hc seul désynchroniserait bail.hc + casserait la garde de révision IRL.
   // _bienActiveBail gère le tombstone (_deleted) + cloture + finEffective (audit LOYER-REFERENCE).
-  if(_bienActiveBail(log.ref)){ showToast('Bien occupé — le loyer se modifie via le bail ou une révision IRL.','warn',5000); return; }
+  // Bail OUVERT (pas le statut) : un départ déclaré passé garde le verrou jusqu'à la clôture (cf. openLoyerBienModal).
+  if(_bienActiveBail(log.ref)){ showToast(_bienIsBailActif(log.ref) ? 'Bien occupé — le loyer se modifie via le bail ou une révision IRL.' : 'Bail à clôturer — le loyer du prochain bail se saisit après la clôture.','warn',5000); return; }
   const hc = Math.max(0, Math.round(Number(v('lb-hc'))||0));
   const ch = Math.max(0, Math.round(Number(v('lb-ch'))||0));
   const before = Number(log.hc)||0;
-  log.hc = hc; log.ch = ch; _stamp(log);
-  try{ if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); }catch(e){} // LOYER-REFERENCE : hc→loyerHcRef ET ch→chargesRef
+  log.hc = hc; log.ch = ch; log.loyerHcRef = hc; log.chargesRef = ch; _stamp(log);   // saisie explicite du loyer de référence (le souhaité inclus)
+  try{ if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); }catch(e){} // LOYER-REFERENCE : dg / irl suivent
   const cid = _lbCtx.candId;
   // Le loyer du logement impacte le ratio de TOUS ses candidats → on recalcule leurs scores stockés.
   _rescoreCandidatsDuLogement(log.ref);
@@ -15389,6 +13688,17 @@ function _editCandidatFromFiche(id){
   openM('ov-candidat');
 }
 
+// Le(s) locataire(s) affiché(s) d'un lot sur la page Locataires — son bail VIVANT (non tombstone, même parti,
+// tant qu'il n'est pas clôturé), sinon le nom en cache. '' = carte « vacant ». Source unique de la page (rBaux)
+// et de son badge dans la barre latérale (_v4NavCounts) : les deux comptent les mêmes locataires.
+function _lotLocataireAffiche(l) {
+  if(!l) return { bail: null, noms: '' };
+  const bail = _isAlive(DB.baux[l.ref]) ? DB.baux[l.ref] : null;
+  const noms = (bail && Array.isArray(bail.locataires) && bail.locataires.length)
+    ? bail.locataires.map(x => x.nom).filter(Boolean).join(', ')
+    : (l.locataire || '');
+  return { bail, noms };
+}
 function rBaux() {
   const fimm = v('baux-f');
   const search = v('baux-search').toLowerCase();
@@ -15435,10 +13745,7 @@ function rBaux() {
 
     const locCards = g.logs.map(l => {
       // v15.697 : tombstone (bail clôturé) = pas de bail — sinon « Tacite reconduction » + menu Clôturer sur un lot vacant.
-      const bail = _isAlive(DB.baux[l.ref]) ? DB.baux[l.ref] : null;
-      const locDisplay = (bail && Array.isArray(bail.locataires) && bail.locataires.length)
-        ? bail.locataires.map(x => x.nom).filter(Boolean).join(', ')
-        : (l.locataire || '');
+      const { bail, noms: locDisplay } = _lotLocataireAffiche(l);
       const isVacant = !bail || !locDisplay;
       const refEsc = escHtml(l.ref); const refEscJs = _lyQ(l.ref);
       const typeStr = `${escHtml(l.type || '')}${l.surf ? ' · ' + fmtN(l.surf) + 'm²' : ''}`;
@@ -15502,10 +13809,22 @@ function rBaux() {
       const echCellHtml = depState
         ? `<div class="loc-ech-b loc-dep-cell" title="Départ en cours — ouvrir l'assistant" onclick="event.stopPropagation();_departOuvrir('${refEscJs}')">${_ICON_DEPART} Départ ${depState.doneCount}/${depState.total}${depDgHtml}</div>`
         : `<div class="loc-ech-b ${ech.cls}">${ech.text ? `${_uiIcon('calendar',13)} ${ech.text}` : ''}</div>`;
+      // BAUX-ECHUS — bail arrivé à terme sans reconduction (étudiant, mobilité ; garage repris, autre) et
+      // sans départ déclaré : l'alerte dit ce que la loi dit, et propose les deux gestes existants.
+      const terme = (!depState && bail && !bail.cloture && !bail._deleted) ? _bailAlerteTerme(bail, l) : null;
+      // Les deux gestes vivent DANS l'alerte (ligne pleine largeur) : la colonne d'actions de la carte ne
+      // s'élargit pas — sinon, sur PC, le nom du locataire se retrouvait écrasé mot par mot.
+      const termeHtml = terme
+        ? `<div class="loc-terme-b" role="note"><span class="loc-terme-txt">${_uiIcon('warn',13)} <span>${escHtml(terme.texte)}</span></span>`
+          + `<span class="loc-terme-acts">`
+          + `<button onclick="event.stopPropagation();_bailNouveauApresTerme('${refEscJs}')" title="Signer un nouveau bail${terme.nouveauBailMeuble ? ' meublé' : ''} avec le même locataire" aria-label="Signer un nouveau bail">${_uiIcon('edit')} Nouveau bail</button>`
+          + `<button onclick="event.stopPropagation();_departDeclarer('${refEscJs}')" title="Déclarer le départ du locataire" aria-label="Déclarer le départ">${_ICON_DEPART} Déclarer le départ</button>`
+          + `</span></div>`
+        : '';
       // v15.614 REFONTE-PC — bouton départ libellé (plus d'icône seule)
       const depActionBtn = depState
         ? `<button onclick="event.stopPropagation();_departOuvrir('${refEscJs}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">${_ICON_DEPART} Départ</button>`
-        : (bail && !bail.cloture && !bail._deleted && ech.urgent
+        : (!terme && bail && !bail.cloture && !bail._deleted && ech.urgent
             ? `<button onclick="event.stopPropagation();_departOuvrir('${refEscJs}')" title="Préparer le départ du locataire" aria-label="Préparer le départ" class="loc-dep-prep">${_ICON_DEPART} Départ</button>`
             : '');
       const rowDepCls = depState ? ' loc-depart' : (ech.urgent ? ' warn-soon' : '');
@@ -15533,6 +13852,7 @@ function rBaux() {
         ${echCellHtml}
         <div class="loc-meta-bail-b">${escHtml(debutLbl)}</div>
         <div class="loc-actions-b">${actions}</div>
+        ${termeHtml}
       </div>`;
     }).join('');
 
@@ -15570,20 +13890,6 @@ function rBaux() {
 // Le rendu legacy était inutilisé depuis v15.221. Toutes ses actions sont préservées
 // dans la variante L-B (visibles + ⋮ menu overflow), confirmé audit v15.222 P0-A.
 // Git history conserve le code si besoin de revenir : commit 4c5ae48 v15.221.
-
-function getBailStatus(l) {
-  // Le badge suit le BAIL : un bail repris sans nom affichait « Vacant » sur un lot loue.
-  if(!_lotEstLoue(l)) return {badge:`<span class="badge gry">Vacant</span>`};
-  const today = new Date();
-  if(l.fin) {
-    const fin = new Date(l.fin);
-    const diff = Math.round((fin-today)/86400000);
-    if(diff<0) return {badge:`<span class="badge red">Expiré</span>`};
-    if(diff<=90) return {badge:`<span class="badge ora">J-${diff}</span>`};
-    return {badge:`<span class="badge grn">En cours</span>`};
-  }
-  return {badge:`<span class="badge blu">Tacite</span>`};
-}
 
 function getBailProgress(l) {
   if(!l.debut || !l.fin) return null;
@@ -15718,6 +14024,13 @@ function _closeBailWizardBg(e){ /* v15.268 — clic dehors ne ferme plus le wiza
 
 /* Ouvre le wizard bail pré-rempli depuis un candidat validé (identité + garant).
    Le mapping passe par les helpers purs testés (_candidatVersLocataire/Garant). */
+// NOUVEAU bail sur un lot connu — porte unique (conversion d'un candidat, bail arrivé à terme, assistant de départ) :
+// formulaire vierge, lot sélectionné, onBailRefChange décide du début proposé. Jamais l'édition du bail en cours.
+function _ouvrirNouveauBailSurLot(ref) {
+  openBail(null, { logRef: ref });
+  const refSel = el('b-ref');
+  if(refSel){ refSel.value = ref; refSel.disabled = false; try{ onBailRefChange(refSel); }catch(e){} }
+}
 function convertCandidatToBail(id){
   const c = (DB.candidats||[]).find(x=>x.id===id);
   if(!c){ showToast('Candidat introuvable','err'); return; }
@@ -15728,9 +14041,7 @@ function convertCandidatToBail(id){
   // sans lui, le sélecteur (peuplé via _activeLogements) ne contiendrait pas l'option.
   if(!log || !_isAlive(log) || log.archived){ showToast('Le bien associé à ce candidat n\'existe plus ou est archivé','err'); return; }
   closeM('ov-fiche-candidat');
-  openBail(null, { logRef: c.logRef });              // wizard vierge MAIS logement connu → le bloc de pré-remplissage existant peuple les champs bien (desc, pièces, chauffage, locaux…)
-  const refSel = el('b-ref');
-  if(refSel){ refSel.value = c.logRef; refSel.disabled = false; try{ onBailRefChange(refSel); }catch(e){} }
+  _ouvrirNouveauBailSurLot(c.logRef);                // wizard vierge MAIS logement connu → le bloc de pré-remplissage existant peuple les champs bien (desc, pièces, chauffage, locaux…)
   if(el('b-entity') && log && log.entity){ el('b-entity').value = log.entity; }
   // Q3 — loyer/charges attendus depuis la cascade candidat (robuste, indépendant de loyerHcRef).
   try{
@@ -15775,6 +14086,10 @@ function _finalizeCandidatConversion(candId, bailRef){
 
 function openBail(ref, opts) {
   _pendingCandidatConv = null; // LOG-CANDIDATS : tout openBail neutralise une conversion en attente
+  // Statut 06/10 (vérification finale) : ouvrir le bail d'un lot SANS bail vivant (lot vacant, bail clôturé = tombstone)
+  // = créer un NOUVEAU bail — porte unique, jamais le formulaire en édition prérempli des dates de l'ancien bail.
+  // Couvre « + Créer le bail » de la fiche et le fil rouge (creer-bail, _frConfirmBail), qui appellent openBail(ref).
+  if(ref && !_isAlive(DB.baux[ref])) { _ouvrirNouveauBailSurLot(ref); return; }
   // v15.73 FIX : restaure footer depuis _ORIG_BAIL_FOOT_HTML (sauvé au boot via DOMContentLoaded).
   // Avant : save au premier appel openBail → si user ouvre openBailHist EN PREMIER,
   // on save un footer DEJA corrompu → buggé en boucle.
@@ -15866,7 +14181,7 @@ function openBail(ref, opts) {
   const irlKeys = sortedIRLKeys();
   el('b-irl').innerHTML = irlKeys.map(k=>`<option value="${k}">${k}</option>`).join('');
   if(bail.irl) el('b-irl').value = bail.irl;
-  else if(log?.debut) { el('b-irl').value = getIRLRefForDate(log.debut) || irlKeys[irlKeys.length-1] || ''; }
+  else if(ref && log?.debut) { el('b-irl').value = getIRLRefForDate(log.debut) || irlKeys[irlKeys.length-1] || ''; }   // nouveau bail : l'IRL suit SA date de début (autoIRLTrimestre)
   else el('b-irl').value = irlKeys[irlKeys.length-1]||'';
   // IRL-REVISION R10/R11 — mois de révision : celui du bail ; pour un bail NOUVEAU (jamais
   // enregistré), la date commune de son bailleur ; sinon « Auto ». Bail signé : figé.
@@ -15886,9 +14201,10 @@ function openBail(ref, opts) {
     _bIrlMoisHint();
   }
 
-  // Dates
-  el('b-debut').value = bail.debut||log?.debut||'';
-  el('b-fin').value   = bail.fin||log?.fin||'';
+  // Dates — NOUVEAU bail (ref vide : conversion d'un candidat, relocation) : log.debut / log.fin sont ceux de
+  // l'ANCIEN bail, jamais repris ; onBailRefChange propose le lendemain de la sortie (statut 06/10).
+  el('b-debut').value = bail.debut || (ref ? (log?.debut || '') : '');
+  el('b-fin').value   = bail.fin   || (ref ? (log?.fin   || '') : '');
 
   // PC-REFONTE étape 3 — clauses par défaut (Paramètres › Bail) : pré-remplissent la zone
   // « Conditions particulières » UNIQUEMENT sur un nouveau bail (b-edit-ref vide). Un bail
@@ -16002,6 +14318,7 @@ function openBail(ref, opts) {
   el('b-loc-nouv-adr').value = bail.locNouvelleAdr||'';
   el('b-dg-restitue').value = bail.dgRestitue||'';
   el('b-dg-retenu').value = bail.dgRetenu||'';
+  if(el('b-dg-restitue-date')) el('b-dg-restitue-date').value = String(bail.dgRestitueAt || '').slice(0, 10);
   el('b-fin-notes').value = bail.finNotes||'';
 
   // Wizard v12.44 : reset à l'étape 1 + flag édition + dirty tracking
@@ -16399,8 +14716,18 @@ function onBailRefChange(sel) {
     if(!el('b-dg').value && log.dgRef)      el('b-dg').value = log.dgRef;
   }
   if(!el('b-entity').value) el('b-entity').value = log.entity||'';
-  if(!el('b-debut').value && log.debut) {
-    el('b-debut').value = log.debut;
+  // Statut 06/10 : en NOUVEAU bail (relocation), log.debut est le début de l'ANCIEN bail — jamais proposé.
+  // On propose le lendemain de la fin d'occupation de l'ancien bail encore ouvert (départ déclaré), sinon rien.
+  // En édition, log.debut reste le début du bail édité.
+  let _debutPropose = '';
+  if(_bailIsEdit) _debutPropose = log.debut || '';
+  else {
+    const _anc = (typeof _isAlive === 'function' && _isAlive(DB.baux[ref])) ? DB.baux[ref] : null;
+    const _finAnc = _anc ? _bailFinOccupation(_anc, false) : '';
+    if(_finAnc) _debutPropose = _isoDecaleJours(_finAnc, 1);
+  }
+  if(!el('b-debut').value && _debutPropose) {
+    el('b-debut').value = _debutPropose;
     autoIRLTrimestre();
     autoFinBail();
   }
@@ -16442,10 +14769,14 @@ function autoFinBail() {
   else if (type === 'mobilite') { return; }                  // v15.196 post-audit : loi ELAN art. 107 = 1-10 mois variable → user doit saisir manuellement la date de fin (cohérence avec PDF "[à préciser]")
   else if (type === 'garage') { return; }                    // v15.196 post-audit : durée libre code civil → user saisit manuellement (cohérence avec PDF "[durée libre — à préciser]")
   else if (type === 'autre') { return; }                     // pas de pré-remplissage
-  else {                                                      // 'nu' : 3 ans (perso) / 6 ans (SCI/personne morale)
+  else {                                                      // 'nu' : 3 ans / 6 ans selon le bailleur (art. 10 et 13)
+    // BAUX-ECHUS — le régime vient de bail-duree.js (DRY, même source que le PDF signé) : l'ancien test
+    // `includes('perso')` lisait « PERSOnne morale » comme une personne physique → 3 ans au lieu de 6.
     const entNom = v('b-entity');
     const ent = DB.entites.find(e=>e.nom===entNom);
-    ans = ent?.type?.toLowerCase().includes('perso') ? 3 : 6;
+    const RB = (window.BailDuree && typeof window.BailDuree.regimeBailleur === 'function') ? window.BailDuree.regimeBailleur
+      : (typeof window.regimeBailleur === 'function' ? window.regimeBailleur : null);
+    ans = RB ? RB((ent && ent.type) || '').ans : 6;
   }
   const d = new Date(debut+'T00:00:00');
   if (ans) d.setFullYear(d.getFullYear() + ans);
@@ -16742,18 +15073,17 @@ function terminerBail() {
   if(!finEff) { showToast('Date de fin effective requise','err'); return; }
   if(!confirm2(`Clôturer le bail de ${ref} au ${fd(finEff)} ?\nLe logement sera marqué comme vacant et le bail archivé.`)) return;
   const bail = DB.baux[ref]||{};
+  if(!_clotureDgConfirmer(bail, v('b-dg-restitue-date'))) return;
   bail.finEffective = finEff;
   bail.finMotif = v('b-fin-motif');
   bail.locNouvelleAdr = v('b-loc-nouv-adr');
-  bail.dgRestitue = pf('b-dg-restitue');
-  bail.dgRetenu = pf('b-dg-retenu');
+  _clotureDgAppliquer(bail, pf('b-dg-restitue'), pf('b-dg-retenu'), v('b-dg-restitue-date'));
   bail.finNotes = v('b-fin-notes');
   bail.cloture = true;
   bail.ref = ref;
   bail._archivedAt = td();
   // Archiver dans historique
-  if(!DB.baux_historique) DB.baux_historique = [];
-  DB.baux_historique.push({...bail});
+  _archiverDansHistorique(bail);
   // Supprimer le bail actif (v14.71 : tombstone pour propagation Drive multi-device)
   DB.baux[ref] = { ref, _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString(), _archivedAt: td() };
   const log = DB.logements.find(l=>l.ref===ref);
@@ -17279,7 +15609,9 @@ function saveBail() {
     const bailExistant = DB.baux[ref];
     if(_bailEnCours(bailExistant)) { // v15.697 : un tombstone (bail clôturé) n'est pas un bail actif
       const ancLoc = (bailExistant.locataires||[{nom:bailExistant.nom||'?'}]).map(l=>l.nom).join(', ');
-      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.\n\nConfirmer la création du nouveau bail ?`)) return;
+      // Statut 06/10 : fin de l'ancien bail (et sa source) + dépôt de l'ancien locataire encore détenu.
+      const _rebailTxt = _rebailConfirmTexte(bailExistant, _debut, (DB.logements.find(x => x.ref === ref) || {}).dg);
+      if(!confirm2(`⚠️ Le logement ${ref} a déjà un bail actif.\n\nLocataire actuel : ${ancLoc}\nNouveau locataire : ${locs.map(l=>l.nom).join(', ')}\n\nL'ancien bail sera archivé automatiquement.${_rebailTxt}\n\nConfirmer la création du nouveau bail ?`)) return;
       _archiverAncien = true;
     }
   }
@@ -17626,19 +15958,13 @@ function archiverBail(ref, nouveauDebut) {
   const bail = DB.baux[ref];
   if(!bail || bail._deleted) return; // v15.697 : un tombstone est déjà archivé — jamais dans l'historique
   if(!DB.baux_historique) DB.baux_historique = [];
-  // C4 (AUDIT-SUIVI-LOYERS) : au re-bail sur logement occupé, poser finEffective = veille du
-  // NOUVEAU bail. Sans ça, la fin CONTRACTUELLE (souvent future ou vide) chevauche le nouveau
-  // bail → les DEUX loyers s'additionnent = dû DOUBLÉ (CAS 5 du harness), imputé à l'ancien
-  // locataire. Ne jamais écraser une finEffective déjà posée (clôture explicite « Clôturer bail »).
-  let finEff = bail.finEffective || null;
-  if (nouveauDebut && !finEff) {
-    const d = new Date(String(nouveauDebut).slice(0,10) + 'T00:00:00');
-    if (!isNaN(d.getTime())) {
-      d.setDate(d.getDate() - 1);
-      finEff = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    }
-  }
-  DB.baux_historique.push({
+  // C4 (AUDIT-SUIVI-LOYERS) : au re-bail sur logement occupé, poser finEffective. Sans ça, la fin
+  // CONTRACTUELLE (souvent future ou vide) chevauche le nouveau bail → les DEUX loyers s'additionnent = dû
+  // DOUBLÉ (CAS 5 du harness), imputé à l'ancien locataire. Ne jamais écraser une finEffective déjà posée
+  // (clôture explicite « Clôturer bail »). Statut 06/10 : un départ déclaré borne l'ancien bail à la date de
+  // sortie, pas à la veille du nouveau (_finAncienBailAuRebail).
+  const finEff = _finAncienBailAuRebail(bail, nouveauDebut).fin;
+  _archiverDansHistorique({
     ...bail,
     ref,
     finEffective: finEff || bail.finEffective || null,
@@ -18012,7 +16338,9 @@ function _bailSigned(bail){ return !!(bail && bail.signatures && bail.signatures
 // « sans notification préalable » (art. 17-1 : la révision prend effet à compter de la DEMANDE).
 /** IRL-REVISION C3/N4 + CONTRAT-TYPE-2026-10 — la version des clauses d'un bail (marqueur
  *  `clauseIrlV`, posé à la signature) : 1 = texte d'origine ; 2 = clause 5.2 révisée ;
- *  3 = 2 + contrat type issu du décret n° 2026-596 (js/core/contrat-type.js).
+ *  3 = 2 + contrat type issu du décret n° 2026-596 (js/core/contrat-type.js) ;
+ *  4 = 3 + sous-titre du bail nu selon le bailleur réel (js/core/bail-duree.js).
+ *  5 = 4 + clauses de durée, congé et fin corrigées (BAUX-ECHUS, js/core/bail-clauses-fin.js).
  *  · signé : celle posée à la signature (absente = signé avant tout changement = 1) ;
  *  · signature à distance EN COURS : celle mémorisée à l'envoi — le PDF final doit reprendre ce
  *    que le locataire a relu ;
@@ -18030,13 +16358,13 @@ function _bailClauseVersion(b){
   if (rs && !['completed', 'expired', 'error'].includes(rs.status)) return _bailClauseVersionNorm(rs.clauseIrlV);
   return 2;
 }
-/** La version portée par une valeur brute (session à distance, staging, popup) : 1, 2 ou 3.
+/** La version portée par une valeur brute (session à distance, staging, popup) : 1 à 5.
  *  Même sans module, 3 reste 3 : sinon une finalisation à distance graverait 1 pour de bon. */
 function _bailClauseVersionNorm(v){
   const CT = (typeof window !== 'undefined') ? window.ContratType : null;
   if (CT && typeof CT.normaliserVersionClauses === 'function') return CT.normaliserVersionClauses(v);
   const n = Number(v);
-  return (n === 2 || n === 3) ? n : 1;
+  return (n === 2 || n === 3 || n === 4 || n === 5) ? n : 1;
 }
 /** CONTRAT-TYPE-2026-10 — le bail suit-il le contrat type issu du décret n° 2026-596 ? */
 function _bailContratType2026(b){ return _bailClauseVersion(b) >= 3; }
@@ -18184,6 +16512,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // implique que le module est chargé (sinon _bailClauseVersion plafonne à 2).
   const CT = (typeof window !== 'undefined') ? window.ContratType : null;
   const _ct26 = !!CT && _bailContratType2026(bail);
+  // BAUX-ECHUS — clauses de durée, congé et fin corrigées (version de clauses 5, js/core/bail-clauses-fin.js :
+  // articles 10, 25-7, 25-8 I, 25-14, 25-15 de la loi de 1989 ; 1231-5 et 1736 à 1740 du Code civil). Un bail
+  // SIGNÉ en version ≤ 4 garde son texte d'origine, mot pour mot (les littéraux ci-dessous ne bougent pas).
+  const BCF = (typeof window !== 'undefined') ? window.BailClausesFin : null;
+  const _v5 = !!BCF && _bailClauseVersion(bail) >= 5;
   // Servitude de résidence principale (art. L. 151-14-1 C. urb.) : donnée du BIEN, figée au snapshot.
   const _servitudeRP = _ct26 && !!_lbFill.servitudeRP;
 
@@ -18245,8 +16578,9 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     dureeBail = '9 (neuf) mois';
     dureePhrase = 'Cette durée de 9 mois — bail étudiant non reconductible — s\'applique conformément à l\'article 25-7 dernier alinéa de la loi du 6 juillet 1989. Le présent contrat ne fait pas l\'objet de tacite reconduction.';
   } else if (isMobilite) {
-    dureeBail = '[de 1 à 10 mois — à préciser]';
-    dureePhrase = 'Cette durée s\'applique conformément à l\'article 25-14 de la loi du 6 juillet 1989 (loi ELAN du 23 novembre 2018, art. 107). Le bail mobilité est conclu pour une durée minimale d\'un mois et maximale de dix mois, non renouvelable et non reconductible.';
+    // BAUX-ECHUS v5 : la durée RÉELLE tirée des dates du bail ; le marqueur seulement si une date manque.
+    dureeBail = (_v5 && BCF.dureeMobiliteLibelle(bail.debut, bail.fin)) || '[de 1 à 10 mois — à préciser]';
+    dureePhrase = _v5 ? BCF.DUREE_MOBILITE : 'Cette durée s\'applique conformément à l\'article 25-14 de la loi du 6 juillet 1989 (loi ELAN du 23 novembre 2018, art. 107). Le bail mobilité est conclu pour une durée minimale d\'un mois et maximale de dix mois, non renouvelable et non reconductible.';
   } else if (isGarage) {
     dureeBail = '[durée libre — à préciser]';
     dureePhrase = 'La durée est librement convenue entre les parties conformément à l\'article 1709 du Code civil. Le bail commercial, le bail rural et le statut de la loi du 6 juillet 1989 ne s\'appliquent pas à la location d\'un emplacement de stationnement isolé.';
@@ -18334,7 +16668,11 @@ function buildBailStructure(bail, log, ref, ent, locs) {
                      : isMobilite ? 'Loi n° 89-462 du 6 juillet 1989 — Art. 25-12 à 25-18 — Loi ELAN du 23 novembre 2018, art. 107'
                      : isGarage   ? 'Code civil — Art. 1709 et suivants — Location libre (hors loi 89-462)'
                      : isAutre    ? '⚠️ Contrat hors régime standard — Consultez un professionnel du droit'
-                     : 'Loi n° 89-462 du 6 juillet 1989 — Art. 10 — Bailleur personne morale';
+                     // Bail nu : selon le bailleur réel — sauf bail signé en version ≤ 3, ré-affiché
+                     // tel que signé (« Bailleur personne morale » pour tout bailleur, cf. bail-duree.js).
+                     : (typeof window.sousTitreBailNu==='function')
+                       ? window.sousTitreBailNu(ent.type||'', _bailClauseVersion(bail))
+                       : 'Loi n° 89-462 du 6 juillet 1989 — Art. 10 — Bailleur personne morale';
   // v15.200 : mention DG selon type — si DG vide/0, afficher "À régler — max X mois"
   // au lieu de "0,00 € (= 2 mois)" qui est incohérent et trompeur. Règle "se protéger".
   const _dgIsEmpty = !bail.dg || +bail.dg === 0;
@@ -18629,32 +16967,32 @@ function buildBailStructure(bail, log, ref, ent, locs) {
     // v15.193 BAIL-TYPES Étape 3 : congé / tacite adapté au type
     ...(isMobilite ? [
       { type:'h3', text:'Congé / fin de bail mobilité' },
-      { type:'p', text:'Le LOCATAIRE peut résilier le contrat à tout moment avec un préavis d\'un (1) mois, notifié par lettre recommandée avec avis de réception ou par acte de commissaire de justice. Le BAILLEUR ne peut pas donner congé en cours de bail.' },
-      { type:'p-callout-warn', text:'Le bail mobilité ne peut être ni reconduit ni renouvelé. À l\'échéance, le LOCATAIRE doit quitter les lieux. Toute reconduction implicite entraîne la requalification en bail meublé d\'un an (art. 25-15 loi 89-462).' }
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MOBILITE : 'Le LOCATAIRE peut résilier le contrat à tout moment avec un préavis d\'un (1) mois, notifié par lettre recommandée avec avis de réception ou par acte de commissaire de justice. Le BAILLEUR ne peut pas donner congé en cours de bail.' },
+      { type:'p-callout-warn', text: _v5 ? BCF.FIN_MOBILITE : 'Le bail mobilité ne peut être ni reconduit ni renouvelé. À l\'échéance, le LOCATAIRE doit quitter les lieux. Toute reconduction implicite entraîne la requalification en bail meublé d\'un an (art. 25-15 loi 89-462).' }
     ] : isEtudiant ? [
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MEUBLE : 'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Fin de bail étudiant' },
-      { type:'p-callout-warn', text:'Le bail étudiant de 9 mois n\'est pas reconductible (art. 25-7 dernier alinéa loi 89-462). À l\'échéance, le LOCATAIRE doit quitter les lieux ou conclure un nouveau contrat. Aucune tacite reconduction n\'est applicable.' }
+      { type:'p-callout-warn', text: _v5 ? BCF.FIN_ETUDIANT : 'Le bail étudiant de 9 mois n\'est pas reconductible (art. 25-7 dernier alinéa loi 89-462). À l\'échéance, le LOCATAIRE doit quitter les lieux ou conclure un nouveau contrat. Aucune tacite reconduction n\'est applicable.' }
     ] : isFurnished ? [
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_MEUBLE : 'Le LOCATAIRE peut donner congé au BAILLEUR à tout moment moyennant un préavis d\'un (1) mois (art. 25-7 II loi 89-462, bail meublé), par lettre recommandée avec avis de réception ou acte de commissaire de justice.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation. Il n\'aura que le droit d\'en demander la résiliation judiciaire pour inexécution d\'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Congé à l\'expiration du bail' },
-      { type:'p', text:'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins trois (3) mois avant l\'échéance si le congé émane du BAILLEUR, et un (1) mois avant si le congé émane du LOCATAIRE (art. 25-8 loi 89-462, bail meublé).' },
+      { type:'p', text: _v5 ? BCF.CONGE_EXPIRATION_MEUBLE : 'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins trois (3) mois avant l\'échéance si le congé émane du BAILLEUR, et un (1) mois avant si le congé émane du LOCATAIRE (art. 25-8 loi 89-462, bail meublé).' },
       { type:'p', text:'Le congé donné par le BAILLEUR doit être justifié soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux. À peine de nullité, il doit indiquer le motif allégué et, en cas de reprise, les noms et adresse du bénéficiaire.' },
       { type:'h3', text:'Proposition de renouvellement' },
       { type:'p', text:'Le BAILLEUR peut proposer au LOCATAIRE, au moins trois mois avant le terme du contrat, un nouveau contrat par référence aux loyers habituellement constatés dans le voisinage pour des logements meublés comparables.' },
       { type:'h3', text:'Tacite reconduction' },
-      { type:'p', text:'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée d\'un (1) an (art. 25-8 loi 89-462, bail meublé).' }
+      { type:'p', text: _v5 ? BCF.RECONDUCTION_MEUBLE : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée d\'un (1) an (art. 25-8 loi 89-462, bail meublé).' }
     ] : isGarage || isAutre ? [
       { type:'h3', text:'Conditions de résiliation' },
-      { type:'p', text:'Les conditions de préavis, congé et reconduction sont librement définies entre les parties dans les présentes ou par avenant. À défaut de précision, le droit commun des contrats s\'applique.' }
+      { type:'p', text: _v5 ? BCF.RESILIATION_AUTRE : 'Les conditions de préavis, congé et reconduction sont librement définies entre les parties dans les présentes ou par avenant. À défaut de précision, le droit commun des contrats s\'applique.' }
     ] : [
       // Bail nu (cas par défaut)
       { type:'h3', text:'Congé au cours du bail' },
-      { type:'p', text:'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.' },
+      { type:'p', text: _v5 ? BCF.CONGE_LOCATAIRE_NU : 'Le LOCATAIRE pourra donner congé au BAILLEUR à tout moment du contrat moyennant un préavis de trois (3) mois, par lettre recommandée avec avis de réception ou par acte de commissaire de justice.' },
       // Art. 15-I dans les termes de la loi, depuis le module : c'est le document SIGNÉ, il ne
       // peut pas énoncer une condition que la loi n'impose plus (cf. `preavisReduitClause`).
       { type:'p', text:(typeof window.preavisReduitClause==='function')
@@ -18662,12 +17000,12 @@ function buildBailStructure(bail, log, ref, ent, locs) {
         : 'Ce délai est réduit à un (1) mois dans les cas prévus à l\'article 15-I de la loi n° 89-462 du 6 juillet 1989.' },
       { type:'p', text:'Le BAILLEUR n\'aura aucune faculté de résilier le contrat par anticipation. Il n\'aura que le droit d\'en demander la résiliation judiciaire pour inexécution d\'une des conditions des présentes, sauf bénéfice de la clause résolutoire ci-après.' },
       { type:'h3', text:'Congé à l\'expiration du bail' },
-      { type:'p', text:'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins six (6) mois avant l\'échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE.' },
+      { type:'p', text: _v5 ? BCF.CONGE_EXPIRATION_NU : 'La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommandée avec avis de réception ou acte de commissaire de justice, au moins six (6) mois avant l\'échéance si le congé émane du BAILLEUR, et trois (3) mois avant si le congé émane du LOCATAIRE.' },
       { type:'p', text:'Le congé donné par le BAILLEUR doit être justifié soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux. À peine de nullité, il doit indiquer le motif allégué et, en cas de reprise, les noms et adresse du bénéficiaire.' },
       { type:'h3', text:'Proposition de renouvellement' },
       { type:'p', text:'Le BAILLEUR peut proposer au LOCATAIRE, au moins six mois avant le terme du contrat, un nouveau contrat par référence aux loyers habituellement constatés dans le voisinage pour des logements comparables.' },
       { type:'h3', text:'Tacite reconduction' },
-      { type:'p', text:'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (' + dureeBail + ').' }
+      { type:'p', text: _v5 ? BCF.reconductionBailNu(ent.type||'') : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (' + dureeBail + ').' }
     ])
   ];
 
@@ -19008,7 +17346,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // ─── §13 Clause pénale ──────────────────────────────────────────
   out.push(
     { type:'h2', text:'13 — Clause pénale — Indemnité d\'occupation' },
-    { type:'p', text:'Il est stipulé à titre de clause pénale (articles 1226 et suivants du Code civil) qu\'en cas de maintien indu dans les lieux, le LOCATAIRE devra verser une indemnité par jour de retard égale à deux fois le loyer quotidien, du lendemain de cessation de la location jusqu\'à la restitution des clés, toute journée commencée étant intégralement due.' },
+    { type:'p', text:'Il est stipulé à titre de clause pénale (' + (_v5 ? BCF.CLAUSE_PENALE_REF : 'articles 1226 et suivants du Code civil') + ') qu\'en cas de maintien indu dans les lieux, le LOCATAIRE devra verser une indemnité par jour de retard égale à deux fois le loyer quotidien, du lendemain de cessation de la location jusqu\'à la restitution des clés, toute journée commencée étant intégralement due.' },
     { type:'p', text:'En cas de congé ou résiliation, si le LOCATAIRE se maintient, il sera redevable d\'une indemnité d\'occupation au moins égale au montant du dernier loyer, charges et accessoires.' }
   );
 
@@ -19529,12 +17867,6 @@ function previewBailData(bail, log, ref, opts) {
   if(!bail) return;
   var ent  = DB.entites.find(function(e){return e.nom===bail.entity;})||{};
   var locs = bail.locataires || (bail.nom ? [{nom:bail.nom,ddn:bail.ddn,lieuNaiss:bail.lieuNaiss}] : []);
-  var irlKey = bail.irl
-    ? (sortedIRLKeys().find(function(k){return k===bail.irl;}) || sortedIRLKeys().find(function(k){return k.startsWith(bail.irl.match(/^T\d/)?bail.irl:'T'+bail.irl);}) || bail.irl)
-    : '\u2013';
-  var irlValRef = (DB.irlTable&&DB.irlTable[irlKey]) || (IRL_DEFAULT&&IRL_DEFAULT[irlKey]) || '\u2013';
-  var villeSig  = bail.villeSignature || 'Strasbourg';
-  var dateStr   = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
 
   var win = window.open('','_blank');
   if(!win) { showToast('Popup bloqu\u00e9e \u2014 autorisez les popups','err'); return; }
@@ -19556,9 +17888,6 @@ function previewBailData(bail, log, ref, opts) {
   });
   if(!withMandataire && !sigNames.length) sigNames = _bailleurSigners.map(function(s){ return s.nom; });
   var nomGerantsList   = formatGerantsList(allGerants);           /* "X, Y et Z" */
-  var nomSignatairesList = formatGerantsList(sigNames);            /* "X et Y" */
-  var roleLabel   = sigNames.length>=2 ? 'Co-gérants' : 'Gérant';
-  var representationHtml = formatRepresentationBail(allGerants, sigNames);
 
   /* ── D2a — état de signature par co-gérant pour la génération PDF (présentiel / distance / exclu) ──
      bail.bailleurSign[i].mode ∈ 'pres'|'dist'|'no' (défaut 'pres'). Sert au §18 + footer paraphes :
@@ -19607,63 +17936,14 @@ function previewBailData(bail, log, ref, opts) {
   /* ── Helpers ─────────────────────────────────────────────── */
   var S  = function(s){ return String(s==null?'':s); };
   var fd2 = function(s){ return s ? new Date(s).toLocaleDateString('fr-FR') : '\u2014'; };
-  var fmtN2 = function(n){ return window.MontantDoc.fmtMontantDoc(n); };   /* S3 : formateur document partagé */
-  var fmtNumFiscal = function(s){
-    var t = S(s).trim();
-    if (!t || t === '\u2013' || t === '-' || t === 'N/A' || t === 'NA') {
-      return 'Non renseign\u00e9 \u2014 sera compl\u00e9t\u00e9 par avenant d\u00e8s r\u00e9ception du num\u00e9ro fiscal (d\u00e9cret 2023-796)';
-    }
-    return t;
-  };
-  var fmtDepensesEnergie = function(s){
-    var t = S(s).trim();
-    if (!t) return 'Non renseign\u00e9 \u2014 voir DPE annex\u00e9';
-    var m = t.match(/^\s*(\d+(?:[.,]\d+)?)\s*(?:€|eur[os]*)?\s*(?:et|\-|\u2013|\u2014|\u00e0|a)\s*(\d+(?:[.,]\d+)?)\s*(?:€|eur[os]*)?\s*$/i);
-    if (m) return 'entre ' + m[1] + '\u00a0€ et ' + m[2] + '\u00a0€ par an (fourchette DPE)';
-    if (/€|euro|par\s*an/i.test(t)) return t;
-    if (/^\d+(?:[.,]\d+)?$/.test(t)) return t + '\u00a0€ par an';
-    return t;
-  };
 
-  /* ── Données bail ─────────────────────────────────────────── */
-  var nomSci    = S(ent.nom||bail.entity||'\u2013');
-  var adrsieg   = S(ent.siege||'\u2013');
-  var rcsVille  = S(ent.rcs||'\u2013');
-  var numRcs    = S(ent.siren||'\u2013');
   var nomGerant = S(ent.gerant||'\u2013');
-  var iban      = S(ent.iban||'\u2014');
   // v15.230 ARCHI-FICHES-UNIFIED Session 3 Phase 3b \u2014 utilise _readLogForBail
   var _logBail2 = typeof _readLogForBail === 'function' ? _readLogForBail(bail, log) : {};
   // v15.232 ARCHI-DB-DOUBLONS Phase 4b \u2014 _readLogForBail = source unique (sign\u00e9 \u2192 snapshot fig\u00e9).
   // Anciens baux sign\u00e9s gardent leurs bail.X gel\u00e9s \u2192 `bail.X || _lbFill.X` reste byte-identique.
   var _lbFill = _logBail2 || {};
-  var adrBien   = S(bail.adrBien || _logBail2.adrBien || (log && log.adr) || '\u2013');
-  var dateDebut = fd2(bail.debut);
-  var dateFin   = bail.fin ? fd2(bail.fin) : '[JJ/MM/AAAA]';
-  var loyerHC   = fmtN2(bail.hc);
-  var charges   = fmtN2(bail.ch);
-  var totalMens = fmtN2((bail.hc||0)+(bail.ch||0));
-  var dg        = fmtN2(bail.dg);
-  var surf      = S(bail.surf||_lbFill.surf||log&&log.surf||'\u2013');
-  var npp       = S(bail.npp||_lbFill.npp||'\u2013');
   var ftype     = S(bail.ftype||_lbFill.ftype||log&&log.type||'\u2013');
-  var etage     = S(bail.etage||_lbFill.etage||log&&log.etage||'\u2013');
-  var chauff    = S(bail.chauff||_lbFill.chauff||'\u2013');
-  var lot       = S(bail.lot||_lbFill.lot||'N/A');
-  var dpe       = S(bail.dpe||_lbFill.dpe||'\u2013');
-  var ges       = S(bail.ges||_lbFill.ges||'\u2013');
-  var jpay      = S(bail.jpay||'5');
-  var irl       = S(irlKey);
-  var irlVal    = S(irlValRef);
-
-  var locNames   = locs.map(function(l){return l.nom||'\u2013';}).join(', ');
-  // v15.201 fix : ne plus afficher "[adresse actuelle]" placeholder en clair (cf locsDetailBlocks).
-  var locsSouss  = locs.map(function(l,i){
-    return '<p><strong>'+S(l.nom||'\u2013')+'</strong>'
-      +(l.ddn?', n\u00e9(e) le '+fd2(l.ddn):'')
-      +(l.lieuNaiss?' \u00e0 '+S(l.lieuNaiss):'')
-      +'. \u2014 ci-apr\u00e8s \u00ab\u00a0le LOCATAIRE\u00a0\u00bb.</p>';
-  }).join('');
 
   var garantSouss = '';
   if (bail.garant) {
@@ -19683,444 +17963,15 @@ function previewBailData(bail, log, ref, opts) {
     garantSouss += '<p class="note"><em>Ci-apr\u00e8s d\u00e9sign\u00e9(s) \u00ab\u00a0le(s) GARANT(S)\u00a0\u00bb d\u2019autre part,</em></p>';
   }
 
-  var mandataireSouss = withMandataire
-    ? '<div style="margin:6px 0;padding:8px 12px;background:#f0f4fa;border-left:3px solid #1a4b8c;border-radius:3px;font-size:10pt">'
-      +'<strong>Le BAILLEUR est repr\u00e9sent\u00e9 par son mandataire</strong> (loi n\u00b0 70-9 du 2 janv. 1970) :'
-      +' <strong>'+S(mand.nom)+'</strong>'+(mand.siege?', si\u00e8ge '+S(mand.siege):'')+', '
-      +S(mand.activite||'gestion immobili\u00e8re')+(mand.rcs?', '+S(mand.rcs):'')+', '
-      +'carte prof. n\u00b0 <strong>'+S(mand.carte||'\u2013')+'</strong> d\u00e9livr\u00e9e par CCI de '+S(mand.cci||'\u2013')
-      +(mand.garantNom?', garant financier : '+S(mand.garantNom)+(mand.garantMontant?' ('+S(mand.garantMontant)+'\u00a0\u20ac)':''):'')+'.'
-      +'</div>' : '';
-
   var garNoms = bail.garant ? S(bail.garant)+(bail.garant2?' &amp; '+S(bail.garant2):'') : '';
   var trGarant = garNoms
     ? '<tr><td style="background:#f0f0f0;font-weight:bold">Garant(s) / Caution</td><td><strong>'+garNoms+'</strong></td></tr>' : '';
 
-  var statut_caution = bail.garant ? 'Ci-inclus (\u00a7\u00a015)' : 'Le cas \u00e9ch\u00e9ant';
-
-  /* ── numToWords simplifié pour DG ─────────────────────────── */
-  // Ancienne copie inline SUPPRIM\u00c9E (DRY) : elle ne g\u00e9rait pas 70-79/90-99. Source
-  // unique = window.MontantDoc.nombreEnLettres (m\u00eame moteur que numToWords). Renvoie
-  // '\u2013' pour une entr\u00e9e vide, comme avant ; minuscules (les appelants capitalisent).
-  function nw(n) {
-    if(!n||isNaN(n)) return '\u2013';
-    return window.MontantDoc.nombreEnLettres(n);
-  }
-  var dgLettres = nw(bail.dg)
-    ? nw(bail.dg).charAt(0).toUpperCase()+nw(bail.dg).slice(1)+' euros ('+dg+'\u00a0\u20ac)' : dg+'\u00a0\u20ac';
-
-  /* ── §18 : blocs signatures ──────────────────────────────── */
-  var sig18Blocs = signataires.map(function(s){
-    var sid='sig-'+s.id;
-    return '<div class="sig-bloc">'
-      +'<div class="sig-role">'+s.role+'</div>'
-      +'<div class="sig-person">'+s.header+'</div>'
-      +'<div class="sig-col"><span class="sig-lbl">Signature</span>'
-      +'<canvas id="'+sid+'" class="sig-cv" width="280" height="110"></canvas>'
-      +'<img id="img-'+sid+'" class="sig-img" width="280" height="110">'
-      +'<button id="clr-'+sid+'" class="btn-clr">\u2715 Effacer</button></div>'
-      +'<div class="sig-lieu">Fait \u00e0 '+villeSig+', le '+dateStr+'</div>'
-      +'</div>';
-  }).join('');
-
-  /* ── mkPzBar : placeholder; buildAllPzBars le remplit en JS ─ */
-  function pz(n){ return '<div class="pz-bar" id="pz-p'+n+'"></div>'; }
-
-  /* ── Grille de vétusté (rows réutilisés en §8.2). Hors var p4 pour éviter
-        que ASI ferme p4 prématurément et perde §7/§8/§9. ───────────────── */
-  var vetusteRows = [
-    ['Peintures, papiers peints','2 ans','7 ans','18 %','10 %'],
-    ['Moquette','2 ans','7 ans','18 %','10 %'],
-    ['Parquet, carrelage, revêtement sol','5 ans','25 ans','4 %','20 %'],
-    ['Revêtement plastique (lino, PVC)','3 ans','10 ans','11 %','20 %'],
-    ['Faïence murale','10 ans','20 ans','8 %','20 %'],
-    ['Menuiserie intérieure','5 ans','20 ans','6 %','15 %'],
-    ['Serrurerie, quincaillerie','2 ans','10 ans','11 %','15 %'],
-    ['Robinetterie','5 ans','15 ans','9 %','15 %'],
-    ['Plomberie','5 ans','15 ans','9 %','15 %'],
-    ['Appareils sanitaires','7 ans','20 ans','6 %','20 %'],
-    ['Chauffe-eau électrique / ballon ECS','3 ans','10 ans','12 %','15 %'],
-    ['Chaudière','3 ans','15 ans','7 %','15 %'],
-    ['Persiennes PVC / bois','5 ans','15 ans','8 %','20 %'],
-    ['Volets roulants','3 ans','15 ans','8 %','10 %'],
-    ['Convecteurs électriques','3 ans','10 ans','12 %','15 %'],
-    ['Radiateurs','5 ans','20 ans','6 %','10 %'],
-  ].map(function(r){ return '<tr><td>'+r[0]+'</td><td style="text-align:center">'+r[1]+'</td><td style="text-align:center">'+r[2]+'</td><td style="text-align:center">'+r[3]+'</td><td style="text-align:center">'+r[4]+'</td></tr>'; }).join('');
-
-  /* ── HTML des 10 pages ───────────────────────────────────── */
-
-  // ⚠️ CODE MORT — `p1`, `p2`, `p3` ne sont consommés NULLE PART (cf. la note ligne ~22390 :
-  // « conservés temporairement, dead code à nettoyer »). Le rendu réel passe par
-  // `buildBailStructure`. Ces vestiges portent encore les clauses juridiques d'AVANT le
-  // correctif — durée « six (6) années … personne morale (SCI) » plaquée sur tout bailleur,
-  // et le préavis réduit avec sa condition d'âge supprimée de la loi. Ne JAMAIS les reprendre
-  // comme référence : ils sont faux. À supprimer dans un lot de nettoyage.
-
-  // PAGE 1 : Couverture + Entre les soussignés
-  const p1 = '<div class="bail-page" id="page-1">'
-    +'<h1>BAIL DE LOCATION DE LOGEMENT NU</h1>'
-    +'<p class="center note">Loi n\u00b0 89-462 du 6 juillet 1989 \u2014 Art. 10 \u2014 Bailleur personne morale</p>'
-    +'<p class="center" style="margin-top:6px">Au profit de\u00a0: <strong>'+locNames+'</strong></p>'
-    +'<table style="margin-top:12px">'
-    +'<tr><td>Bailleur (SCI IS)</td><td><strong>'+nomSci+'</strong> \u2014 SCI \u00e0 l\u2019IS, si\u00e8ge '+adrsieg+'</td></tr>'
-    +'<tr><td>Repr\u00e9sentant '+(sigNames.length>=2?'l\u00e9gaux':'l\u00e9gal')+'</td><td>'+nomSignatairesList+' \u2014 '+roleLabel+(sigNames.length<allGerants.length?' (sur '+allGerants.length+' co-g\u00e9rants)':'')+'</td></tr>'
-    +'<tr><td>Locataire(s)</td><td>'+locNames+'</td></tr>'
-    +(garNoms?'<tr><td>Garant(s) / Caution</td><td><strong>'+garNoms+'</strong></td></tr>':'')
-    +'<tr><td>Adresse du bien</td><td>'+adrBien+'</td></tr>'
-    +'<tr><td>Prise d\u2019effet</td><td>'+dateDebut+'</td></tr>'
-    +'<tr><td>Dur\u00e9e</td><td>6 (six) ans \u2014 fin le '+dateFin+'</td></tr>'
-    +'<tr><td>Loyer HC / Charges</td><td>'+loyerHC+'\u00a0\u20ac / '+charges+'\u00a0\u20ac = Total '+totalMens+'\u00a0\u20ac/mois</td></tr>'
-    +'<tr><td>D\u00e9p\u00f4t de garantie</td><td>'+dg+'\u00a0\u20ac (= 1 mois loyer HC)</td></tr>'
-    +'</table>'
-    +'<h2>Entre les soussign\u00e9s</h2>'
-    +'<p><strong>'+nomSci+'</strong>, Soci\u00e9t\u00e9 Civile Immobili\u00e8re soumise \u00e0 l\u2019IS, dont le si\u00e8ge social est '+adrsieg+', immatricul\u00e9e au RCS de '+rcsVille+' sous le n\u00b0 '+numRcs+' et repr\u00e9sent\u00e9e par '+representationHtml+'. \u2014 ci-apr\u00e8s \u00ab\u00a0le BAILLEUR\u00a0\u00bb.</p>'
-    +mandataireSouss
-    +locsSouss
-    +garantSouss
-    +pz(1)+'</div>';
-
-  const p2 = '<div class="bail-page" id="page-2">'
-    +'<h2>1 \u2014 D\u00e9signation du logement</h2>'
-    +'<table>'
-    +'<tr><td>Adresse compl\u00e8te</td><td>'+adrBien+(etage&&etage!=='\u2013'?' \u2014 '+etage:'')+'</td></tr>'
-    +'<tr><td>Type d\u2019habitat</td><td>'+S(bail.typeHabitat||_lbFill.typeHabitat||'\u2013')+'</td></tr>'
-    +'<tr><td>R\u00e9gime juridique</td><td>'+S(bail.regimeJuridique||_lbFill._immRegime||'\u2013')+'</td></tr>'
-    +'<tr><td>P\u00e9riode de construction</td><td>'+S(_periodeLegale(bail.periodeConstr||_lbFill._immPeriodeConstr||'', 0) || '\u2013')+'</td></tr>'
-    +'<tr><td>N\u00b0 identifiant fiscal</td><td>'+fmtNumFiscal(bail.numFiscal||_lbFill.numFiscal)+'</td></tr>'
-    +'<tr><td>Surface habitable (loi Boutin)</td><td><strong>'+surf+'\u00a0m\u00b2</strong></td></tr>'
-    +'<tr><td>Pi\u00e8ces principales</td><td>'+npp+' \u2014 '+S(bail.piecesDesc||_lbFill.piecesDesc||'\u2013')+'</td></tr>'
-    /* BUG-BAIL-ANNEXES-DUP : sign\u00e9 \u2192 2 lignes inchang\u00e9es (byte-identique) ; non sign\u00e9 \u2192 fusion. */
-    +(_bailSigned(bail)
-       ? ((bail.locauxPrivatifs||_lbFill.locauxPrivatifs)?'<tr><td>Locaux privatifs (cave/parking)</td><td>'+S(bail.locauxPrivatifs||_lbFill.locauxPrivatifs)+'</td></tr>':'')
-       : (function(){var _lx=_bailLocauxFused(bail,_lbFill);return (_lx&&_lx!=='N\u00e9ant')?'<tr><td>Locaux privatifs (cave/parking)</td><td>'+S(_lx)+'</td></tr>':'';})())
-    +'<tr><td>Parties communes</td><td>'+S(bail.partiesCommunes||_lbFill.partiesCommunes||'N\u00e9ant')+'</td></tr>'
-    +(_bailSigned(bail)?'<tr><td>Annexes privatives</td><td>'+S((typeof bail.annexes==='string' && bail.annexes)||_lbFill.annexes||'N\u00e9ant')+'</td></tr>':'')
-    +'<tr><td>\u00c9quipements \u2014 cuisine</td><td>'+S(bail.equipCuisine||_lbFill.equipCuisine||'\u2013')+'</td></tr>'
-    +'<tr><td>\u00c9quipements \u2014 sanitaires</td><td>'+S(bail.equipSanitaires||_lbFill.equipSanitaires||'\u2013')+'</td></tr>'
-    +'<tr><td>Chauffage</td><td>'+chauff+'</td></tr>'
-    +'<tr><td>Eau chaude sanitaire</td><td>'+S(bail.ecs||_lbFill.ecsLabel||'\u2013')+'</td></tr>'
-    +'<tr><td>Technologies de l\u2019information</td><td>'+S(bail.techInfo||_lbFill.techInfo||'\u2013')+'</td></tr>'
-    +'<tr><td>N\u00b0 lot copropri\u00e9t\u00e9</td><td>'+lot+'</td></tr>'
-    +'</table>'
-    +'<p class="note"><em>D\u00e9cence \u00e9nerg\u00e9tique (loi Climat et R\u00e9silience)\u00a0: niveau minimal classe F d\u00e8s 1<sup>er</sup> janv. 2025, classe E d\u00e8s 2028, classe D d\u00e8s 2034.</em></p>'
-    +'<h2>2 \u2014 Dossier de diagnostic technique (DDT)</h2>'
-    +'<table><tr><td>DPE</td><td>Classe '+dpe+' \u2014 GES '+ges+'</td></tr>'
-    +'<tr><td>ERP / Plomb / Amiante</td><td>'+S(bail.erp||_lbFill.erp||'\u2013')+' / '+S(bail.plomb||_lbFill.plomb||'\u2013')+' / '+S(bail.amiante||_lbFill.amiante||'\u2013')+'</td></tr>'
-    +'<tr><td>\u00c9lectricit\u00e9 / Gaz / Bruit</td><td>'+S(bail.elec||_lbFill.elec||'\u2013')+' / '+S(bail.gaz||_lbFill.gaz||'\u2013')+' / '+S(bail.bruit||_lbFill.bruit||'\u2013')+'</td></tr></table>'
-    +'<h2>3 \u2014 Destination du bien lou\u00e9</h2>'
-    +(bail.destinationLocaux==='mixte'
-      ?'<p>Le bien est destin\u00e9 \u00e0 <strong>l\u2019usage d\u2019habitation principale et \u00e0 l\u2019exercice d\u2019une activit\u00e9 professionnelle lib\u00e9rale</strong> du locataire, conform\u00e9ment \u00e0 l\u2019art. 2 de la loi du 6 juillet 1989. Toute activit\u00e9 commerciale, enseigne ext\u00e9rieure ou r\u00e9ception de client\u00e8le perturbant les voisins est interdite.</p>'
-      :'<p>Le bien est destin\u00e9 <strong>exclusivement \u00e0 l\u2019habitation principale</strong> du locataire (art. 2 loi 89-462). Toute activit\u00e9 professionnelle, m\u00eame lib\u00e9rale, est interdite.</p>')
-    +'<h2>4 \u2014 Dur\u00e9e du bail</h2>'
-    +'<p><strong>Nature du contrat\u00a0:</strong> '+(bail.typeContrat==='repris'?'Bail repris à l’acquisition (art. 1743 du Code civil).':bail.typeContrat==='renouvellement'?'Renouvellement du contrat de bail (art. 10 et 17-2 loi 89-462).':'Contrat initial (art. 10 loi 89-462).')+'</p>'
-    +'<p>Le pr\u00e9sent contrat est conclu pour une dur\u00e9e initiale de <strong>six (6) ann\u00e9es</strong> \u00e0 compter du <strong>'+dateDebut+'</strong> et prendra fin le <strong>'+dateFin+'</strong>. Cette dur\u00e9e de 6 ans s\u2019applique conform\u00e9ment \u00e0 l\u2019article 10 de la loi du 6 juillet 1989, le bailleur \u00e9tant une personne morale (SCI).</p>'
-    +'<h3>Cong\u00e9 au cours du bail</h3>'
-    +'<p>Le LOCATAIRE pourra donner cong\u00e9 au BAILLEUR \u00e0 tout moment du contrat moyennant un pr\u00e9avis de <strong>trois (3) mois</strong>, par lettre recommand\u00e9e avec avis de r\u00e9ception ou par acte de commissaire de justice.</p>'
-    +pz(2)+'</div>';
-
-  const p3 = '<div class="bail-page" id="page-3">'
-    +'<p>'+((typeof window.preavisReduitClause==='function')?window.preavisReduitClause(true):'Ce d\u00e9lai est r\u00e9duit \u00e0 <strong>un (1) mois</strong> dans les cas pr\u00e9vus \u00e0 l\u2019article 15-I de la loi n\u00b0 89-462 du 6 juillet 1989.')+'</p>'
-    +'<p>Le BAILLEUR n\u2019aura aucune facult\u00e9 de r\u00e9silier le contrat par anticipation. Il n\u2019aura que le droit d\u2019en demander la r\u00e9siliation judiciaire pour inex\u00e9cution d\u2019une des conditions des pr\u00e9sentes, sauf b\u00e9n\u00e9fice de la clause r\u00e9solutoire ci-apr\u00e8s.</p>'
-    +'<h3>Cong\u00e9 \u00e0 l\u2019expiration du bail</h3>'
-    +'<p>La partie qui souhaite ne pas reconduire le bail doit notifier son intention par lettre recommand\u00e9e avec avis de r\u00e9ception ou acte de commissaire de justice, au moins <strong>six (6) mois</strong> avant l\u2019\u00e9ch\u00e9ance si le cong\u00e9 \u00e9mane du BAILLEUR, et <strong>trois (3) mois</strong> avant si le cong\u00e9 \u00e9mane du LOCATAIRE.</p>'
-    +'<p>Le cong\u00e9 donn\u00e9 par le BAILLEUR doit \u00eatre justifi\u00e9 soit par sa d\u00e9cision de reprendre ou de vendre le logement, soit par un motif l\u00e9gitime et s\u00e9rieux. \u00c0 peine de nullit\u00e9, il doit indiquer le motif all\u00e9gu\u00e9 et, en cas de reprise, les noms et adresse du b\u00e9n\u00e9ficiaire.</p>'
-    +'<h3>Proposition de renouvellement</h3>'
-    +'<p>Le BAILLEUR peut proposer au LOCATAIRE, au moins six mois avant le terme du contrat, un nouveau contrat par r\u00e9f\u00e9rence aux loyers habituellement constat\u00e9s dans le voisinage pour des logements comparables.</p>'
-    +'<h3>Tacite reconduction</h3>'
-    +'<p>\u00c0 d\u00e9faut de cong\u00e9 ou de proposition de renouvellement notifi\u00e9 dans les formes et d\u00e9lais l\u00e9gaux, le bail se trouvera tacitement reconduit pour une dur\u00e9e \u00e9gale \u00e0 celle du bail initial (six ann\u00e9es).</p>'
-    +'<h2>5 \u2014 Loyer</h2>'
-    +(()=>{
-      var mpLabel = bail.modalitePaiement==='echeoir'?'\u00e0 terme \u00e0 \u00e9choir (d\u00e9but de p\u00e9riode)':'\u00e0 terme \u00e9chu (fin de p\u00e9riode)';
-      return '<h3>5.1 \u2014 Montant du loyer</h3>'
-        +'<p>La pr\u00e9sente location est consentie moyennant un loyer mensuel de <strong>'+nw(Math.round(bail.hc||0)).charAt(0).toUpperCase()+nw(Math.round(bail.hc||0)).slice(1)+' euros ('+loyerHC+'\u00a0\u20ac)</strong>, payable en termes successifs et \u00e9gaux <strong>'+mpLabel+'</strong>, le <strong>'+jpay+'<sup>e</sup></strong> jour de chaque mois. Le paiement du premier terme a lieu ce jour.</p>';
-    })()
-    +(function(){
-      var mpLabel = bail.modalitePaiement==='echeoir'?'\u00e0 terme \u00e0 \u00e9choir (d\u00e9but de p\u00e9riode)':'\u00e0 terme \u00e9chu (fin de p\u00e9riode)';
-      var totalLettres = nw(Math.round((bail.hc||0)+(bail.ch||0)));
-      totalLettres = totalLettres?totalLettres.charAt(0).toUpperCase()+totalLettres.slice(1)+' euros':'—';
-      var zoneSect = '';
-      if(bail.zoneTendue){
-        if(bail.encadrementLoyers){
-          var loyerM2 = bail.surf>0?((bail.hc||0)/bail.surf).toFixed(2):'—';
-          zoneSect='<p style="font-size:9.5pt;padding:6px 10px;background:#fff8e1;border-left:3px solid #f59e0b;border-radius:2px;margin-top:6px">'
-            +'<strong>Encadrement des loyers (art. 140 ELAN)\u00a0:</strong> '
-            +'Loyer de base\u00a0: '+loyerHC+'\u00a0\u20ac/mois ('+loyerM2+'\u00a0\u20ac/m\u00b2). '
-            +(bail.loyerRefMajore?'Loyer r\u00e9f\u00e9rence major\u00e9\u00a0: '+bail.loyerRefMajore+'\u00a0\u20ac/m\u00b2. ':'')
-            +(bail.complementLoyer>0?'Compl\u00e9ment de loyer\u00a0: '+bail.complementLoyer+'\u20ac/mois'+(bail.complementJustif?' ('+bail.complementJustif+')':'')+'.' :'Compl\u00e9ment de loyer\u00a0: n\u00e9ant.')
-            +'</p>';
-        } else {
-          const premLabel = bail.premiereLoc==='relocation'
-            ?'Remise en location (vacant &lt; 18 mois) \u2014 loyer plafonn\u00e9 au dernier loyer'+(bail.dernierLoyerPrec?' de '+bail.dernierLoyerPrec+'\u00a0\u20ac':'')+'.'
-            :'Premi\u00e8re mise en location \u2014 loyer fix\u00e9 librement (art. 17, II, 1\u00b0).';
-          zoneSect='<p style="font-size:9.5pt;padding:6px 10px;background:#f0f4ff;border-left:3px solid #ff5a3c;border-radius:2px;margin-top:6px">'
-            +'<strong>Zone tendue (art. 17 loi 89-462)\u00a0:</strong> '+premLabel+'</p>';
-        }
-      }
-      return '<table><tr><td>Loyer HC</td><td><strong>'+loyerHC+'\u00a0\u20ac</strong></td></tr>'
-        +'<tr><td>Charges (provision)</td><td>'+charges+'\u00a0\u20ac</td></tr>'
-        +'<tr><td><strong>Total mensuel (loyer + charges)</strong></td><td><strong>'+totalMens+'\u00a0\u20ac</strong></td></tr>'
-        +'<tr><td>Total en toutes lettres</td><td>'+totalLettres+'</td></tr>'
-        +'<tr><td>Modalit\u00e9 de paiement</td><td>'+mpLabel+'</td></tr></table>'
-        +zoneSect;
-    })()
-    +'<p>Tous paiements auront lieu par virement bancaire sur le compte suivant\u00a0: <strong>'+nomSci+'</strong> \u2014 IBAN <strong>'+iban+'</strong>.</p>'
-    +'<h3>5.2 \u2014 R\u00e9vision annuelle du loyer (IRL)</h3>'
-    +'<p>Le loyer sera r\u00e9vis\u00e9 '+_bailClauseRevisionIRL(bail, log).quand+' selon la variation de la moyenne sur quatre trimestres de l\u2019<strong>Indice de R\u00e9f\u00e9rence des Loyers (IRL)</strong> publi\u00e9 par l\u2019INSEE, conform\u00e9ment \u00e0 l\u2019article 17-1 de la loi du 6 juillet 1989.</p>'
-    +'<p>L\u2019indice de base retenu est celui du <strong>'+irl+'</strong>, dont la valeur est <strong>'+irlVal+'</strong>.</p>'
-    +'<p style="padding:5px 10px;background:#f7f7f7;border-left:3px solid #888;border-radius:2px;font-size:10pt;margin:6px 0"><strong>Nouveau loyer = Loyer actuel \u00d7 (IRL trimestre de r\u00e9vision \u00f7 IRL m\u00eame trimestre ann\u00e9e pr\u00e9c\u00e9dente)</strong></p>'
-    +'<p>Le nouveau montant sera exigible d\u00e8s la premi\u00e8re \u00e9ch\u00e9ance suivant la date de r\u00e9vision'+_bailClauseRevisionIRL(bail, log).sansNotif+'. \u00c0 d\u00e9faut d\u2019application dans l\u2019ann\u00e9e suivant sa prise d\u2019effet, la r\u00e9vision est r\u00e9put\u00e9e abandonn\u00e9e pour cette p\u00e9riode.</p>'
-    +pz(3)+'</div>';
-
-  const p4 = '<div class="bail-page" id="page-4">'
-    +'<h3>5.3 \u2014 Quittance</h3>'
-    +'<p>Lorsque le LOCATAIRE en fera la demande, le BAILLEUR lui remettra <strong>gratuitement</strong> une quittance portant le d\u00e9tail des sommes vers\u00e9es (loyer et charges distingu\u00e9s). Dans tous les cas de paiement partiel, le BAILLEUR d\u00e9livrera un re\u00e7u. Aucun frais li\u00e9 \u00e0 la gestion de l\u2019avis d\u2019\u00e9ch\u00e9ance ou de la quittance ne peut \u00eatre factur\u00e9 au LOCATAIRE (art. 21 loi 89-462).</p>'
-    +'<h3>5.4 \u2014 D\u00e9penses \u00e9nerg\u00e9tiques</h3>'
-    +'<p>Conform\u00e9ment au d\u00e9cret n\u00b0\u00a02020-1609 du 17\u00a0d\u00e9cembre 2020, le montant estim\u00e9 des d\u00e9penses annuelles d\u2019\u00e9nergie pour un usage standard du logement est de <strong>'+fmtDepensesEnergie(bail.depensesEnergie)+'</strong> (source\u00a0: diagnostic de performance \u00e9nerg\u00e9tique).</p>'
-    +(function(){
-      var s = '<h3>5.5 \u2014 Pr\u00e9c\u00e9dent locataire</h3>';
-      if (bail.precedentLoc==='moinsde18') {
-        var detail = S(bail.precedentLoyerDetail).trim();
-        if (detail) {
-          s += '<p>Le pr\u00e9c\u00e9dent locataire est parti depuis moins de dix-huit mois. Informations relatives au dernier loyer appliqu\u00e9\u00a0: '+detail+'.</p>';
-        } else {
-          s += '<p>Le pr\u00e9c\u00e9dent locataire est parti depuis moins de dix-huit mois. Les informations relatives au dernier loyer appliqu\u00e9 seront communiqu\u00e9es par avenant au pr\u00e9sent bail (art. 17 loi 89-462).</p>';
-        }
-      } else {
-        s += '<p>Le pr\u00e9c\u00e9dent locataire est parti depuis plus de dix-huit mois. En application de l\u2019article\u00a017 de la loi du 6\u00a0juillet\u00a01989, la mention du dernier loyer n\u2019est pas obligatoire.</p>';
-      }
-      s += '<p>Travaux d\u2019am\u00e9lioration r\u00e9alis\u00e9s depuis le d\u00e9part du pr\u00e9c\u00e9dent locataire\u00a0: <strong>Aucun</strong>.</p>';
-      return s;
-    })()
-    +'<h2>6 \u2014 Charges r\u00e9cup\u00e9rables</h2>'
-    +'<p>Accessoirement au loyer, le LOCATAIRE remboursera au BAILLEUR sa quote-part dans les charges r\u00e9cup\u00e9rables limitativement \u00e9num\u00e9r\u00e9es par le d\u00e9cret n\u00b0\u00a087-713 du 26\u00a0ao\u00fbt 1987 (reproduit en Annexe\u00a0B). La provision mensuelle est fix\u00e9e \u00e0 <strong>'+charges+'\u00a0\u20ac</strong>, payable en m\u00eame temps que le loyer.</p>'
-    +'<p>Ces charges feront l\u2019objet d\u2019une <strong>r\u00e9gularisation annuelle</strong> sur pr\u00e9sentation des justificatifs. Un mois avant la r\u00e9gularisation, le BAILLEUR communiquera au LOCATAIRE le d\u00e9compte par nature de charges. Les pi\u00e8ces justificatives seront tenues \u00e0 la disposition du LOCATAIRE pendant un mois \u00e0 compter de l\u2019envoi du d\u00e9compte.</p>'
-    +'<p>Toute modification du montant de la provision devra \u00eatre notifi\u00e9e au LOCATAIRE avec communication des r\u00e9sultats de la pr\u00e9c\u00e9dente r\u00e9gularisation ou, \u00e0 d\u00e9faut, d\u2019un budget pr\u00e9visionnel.</p>'
-    +'<h2>7 \u2014 D\u00e9p\u00f4t de garantie</h2>'
-    +'<p>Le LOCATAIRE verse ce jour, \u00e0 titre de d\u00e9p\u00f4t de garantie, la somme de <strong>'+dgLettres+'</strong> (= un mois de loyer hors charges), conform\u00e9ment \u00e0 l\u2019article 22 de la loi du 6\u00a0juillet\u00a01989. Ce d\u00e9p\u00f4t ne peut exc\u00e9der un mois de loyer hors charges.</p>'
-    +'<p>Ce d\u00e9p\u00f4t restera sur le compte du BAILLEUR pendant toute la dur\u00e9e du bail, sans r\u00e9vision ni production d\u2019int\u00e9r\u00eats. Il sera restitu\u00e9 dans un d\u00e9lai maximum de\u00a0:</p>'
-    +'<ul style="margin:4px 0 6px 20px"><li>Un (1) mois apr\u00e8s remise des cl\u00e9s si l\u2019\u00e9tat des lieux de sortie est conforme \u00e0 l\u2019\u00e9tat des lieux d\u2019entr\u00e9e\u00a0;</li>'
-    +'<li>Deux (2) mois si des d\u00e9gradations sont constat\u00e9es, sous r\u00e9serve que les sommes retenues soient d\u00fbment justifi\u00e9es et sous r\u00e9serve de la justification du changement d\u2019adresse du LOCATAIRE aupr\u00e8s de l\u2019administration fiscale.</li></ul>'
-    +'<p>\u00c0 d\u00e9faut de restitution dans le d\u00e9lai, le solde restant d\u00fb produira int\u00e9r\u00eats au taux l\u00e9gal au profit du LOCATAIRE. En aucun cas le LOCATAIRE ne pourra imputer le loyer sur le d\u00e9p\u00f4t de garantie.</p>'
-    +'<h2>8 \u2014 \u00c9tat des lieux et grille de v\u00e9tust\u00e9</h2>'
-    +'<h3>8.1 \u2014 \u00c9tat des lieux</h3>'
-    +'<p>Un \u00e9tat des lieux contradictoire sera \u00e9tabli lors de la remise des cl\u00e9s (entr\u00e9e) et lors de leur restitution (sortie), conform\u00e9ment \u00e0 l\u2019article 3-2 de la loi du 6\u00a0juillet\u00a01989 et au d\u00e9cret n\u00b0\u00a02016-382 du 30\u00a0mars 2016. Il est remis en exemplaire \u00e0 chaque partie.</p>'
-    +'<p>\u00c0 d\u00e9faut d\u2019\u00e9tablissement amiable, l\u2019\u00e9tat des lieux sera dress\u00e9 par commissaire de justice \u00e0 l\u2019initiative de la partie la plus diligente, les frais \u00e9tant partag\u00e9s par moiti\u00e9 entre les parties.</p>'
-    +'<p>Le BAILLEUR est tenu de d\u00e9livrer le logement en bon \u00e9tat d\u2019usage et de r\u00e9paration ainsi que les \u00e9quipements en bon \u00e9tat de fonctionnement.</p>'
-    +'<h3>8.2 \u2014 Grille de v\u00e9tust\u00e9</h3>'
-    +'<p>La grille ci-dessous servira de base lors de l\u2019\u00e9tat des lieux de sortie pour \u00e9valuer la part des d\u00e9gradations restant \u00e0 la charge du LOCATAIRE, d\u00e9duction faite de la v\u00e9tust\u00e9 normale des \u00e9quipements (accord collectif du 23\u00a0novembre 2004, arr\u00eat\u00e9 du 26\u00a0mai 2016).</p>'
-    +'<table style="font-size:9pt"><tr style="background:#f0f0f0"><th>Cat\u00e9gorie</th><th>Franchise</th><th>Dur\u00e9e de vie</th><th>Abattement/an</th><th>R\u00e9siduelle</th></tr>'+vetusteRows+'</table>'
-    +'<p style="margin-top:6px"><strong>Lecture de la grille\u00a0:</strong></p>'
-    +'<ul style="margin:4px 0 6px 20px"><li>Pendant la franchise\u00a0: le locataire supporte l\u2019int\u00e9gralit\u00e9 du co\u00fbt de remplacement\u00a0;</li>'
-    +'<li>Apr\u00e8s la franchise\u00a0: un abattement annuel est appliqu\u00e9 sur le co\u00fbt de remplacement\u00a0;</li>'
-    +'<li>Apr\u00e8s la dur\u00e9e de vie\u00a0: seule la quote-part r\u00e9siduelle reste \u00e0 la charge du locataire.</li></ul>'
-    +'<h2>9 \u2014 Usage des locaux \u2014 Cession \u2014 Sous-location</h2>'
-    +'<p>Le LOCATAIRE s\u2019engage \u00e0 user paisiblement du bien lou\u00e9 selon la destination contractuelle et \u00e0 respecter le r\u00e8glement de copropri\u00e9t\u00e9, le r\u00e8glement int\u00e9rieur de l\u2019immeuble, ainsi que les usages du voisinage. Il s\u2019oblige \u00e0 ne pas causer de troubles de jouissance aux autres occupants de l\u2019immeuble.</p>'
-    +'<h3>Destination et affectation</h3>'
-    +'<p>Le LOCATAIRE ne peut modifier la destination des locaux ni l\u2019affectation de tout ou partie de ceux-ci sans accord pr\u00e9alable et \u00e9crit du BAILLEUR. Il lui est interdit d\u2019apposer tout panneau, enseigne ou affichage visible de l\u2019ext\u00e9rieur, sauf accord \u00e9crit du BAILLEUR et dans le respect du r\u00e8glement de copropri\u00e9t\u00e9.</p>'
-    +'<h3>Cession et sous-location</h3>'
-    +'<p>Le LOCATAIRE ne peut c\u00e9der le bail, sous-louer les locaux \u2014 m\u00eame partiellement \u2014, les pr\u00eater ou en conc\u00e9der la jouissance \u00e0 titre on\u00e9reux ou gratuit, sans l\u2019accord pr\u00e9alable et \u00e9crit du BAILLEUR portant sur le principe et sur le montant du loyer pratiqu\u00e9. En cas d\u2019accord, le loyer de sous-location ne peut exc\u00e9der celui du bail principal et le LOCATAIRE reste solidairement responsable envers le BAILLEUR de l\u2019ensemble des obligations du bail. Toute sous-location non autoris\u00e9e constitue un motif l\u00e9gitime et s\u00e9rieux de r\u00e9siliation.</p>'
-    +'<h3>Location de courte dur\u00e9e</h3>'
-    +'<p>Le LOCATAIRE s\u2019interdit express\u00e9ment de proposer ou de mettre \u00e0 disposition tout ou partie des locaux sur une plateforme de location saisonni\u00e8re ou de courte dur\u00e9e (type Airbnb, Booking, etc.), m\u00eame pour une seule nuit, sauf autorisation \u00e9crite pr\u00e9alable du BAILLEUR. Une telle mise \u00e0 disposition constitue un changement de destination des locaux et un motif grave de r\u00e9siliation.</p>'
-    +pz(4)+'</div>';
-
-  const p5 = '<div class="bail-page" id="page-5">'
-    +'<h3>Parties communes</h3>'
-    +'<p>Le LOCATAIRE s\u2019engage \u00e0 ne pas encombrer les parties communes (cages d\u2019escalier, couloirs, paliers) avec des objets tels que bicyclettes, poussettes, mobilier ou cartons, en dehors des espaces express\u00e9ment pr\u00e9vus \u00e0 cet effet. Tout objet laiss\u00e9 sans droit pourra \u00eatre \u00e9vacu\u00e9 aux frais du LOCATAIRE apr\u00e8s mise en demeure rest\u00e9e sans effet.</p>'
-    +'<h3>Animaux</h3>'
-    +'<p>La d\u00e9tention d\u2019un animal de compagnie est autoris\u00e9e sous r\u00e9serve qu\u2019il ne cause aucun d\u00e9g\u00e2t aux locaux, parties communes ou biens des voisins, et aucun trouble de jouissance (bruits, odeurs, souillures). Le LOCATAIRE est seul responsable de tous les dommages occasionn\u00e9s par ses animaux. La d\u00e9tention d\u2019un chien de 1<sup>re</sup> cat\u00e9gorie (chien d\u2019attaque \u2014 art. L.\u00a0211-12 du Code rural et de la p\u00eache maritime) est formellement interdite. En cas de nuisances r\u00e9p\u00e9t\u00e9es d\u00fbment constat\u00e9es, le BAILLEUR pourra exiger le retrait de l\u2019animal dans un d\u00e9lai d\u2019un mois.</p>'
-    +pz(5)+'</div>';
-
-  const p6 = '<div class="bail-page" id="page-6">'
-    +(function(){
-      if(locs.length>=2) {
-        return '<h2>9 bis \u2014 Solidarit\u00e9 et indivisibilit\u00e9 (colocation)</h2>'
-          +'<p>Les colocataires soussign\u00e9s, d\u00e9sign\u00e9s ensemble sous le vocable \u00ab\u00a0le LOCATAIRE\u00a0\u00bb, reconnaissent express\u00e9ment s\u2019engager <strong>solidairement et indivisiblement</strong> \u00e0 l\u2019ex\u00e9cution de l\u2019ensemble des obligations r\u00e9sultant du pr\u00e9sent bail, tant entre eux qu\u2019\u00e0 l\u2019\u00e9gard de leurs ayants droit.</p>'
-          +'<p>Cette solidarit\u00e9 et cette indivisibilit\u00e9 visent notamment le paiement du loyer, des charges, du d\u00e9p\u00f4t de garantie, des r\u00e9parations locatives, des indemnit\u00e9s d\u2019occupation et de toute somme due au titre du pr\u00e9sent bail ou de ses suites.</p>'
-          +'<p>En cas de cong\u00e9 d\u00e9livr\u00e9 par l\u2019un des colocataires, celui-ci reste tenu solidairement du paiement des loyers, charges et accessoires, ainsi que de l\u2019ensemble des obligations du bail, pendant une dur\u00e9e maximale de <strong>six mois</strong> \u00e0 compter de la date d\u2019effet du cong\u00e9 (art.\u00a08-1 de la loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989). La solidarit\u00e9 cesse avant l\u2019expiration de ce d\u00e9lai si un nouveau colocataire, accept\u00e9 par le BAILLEUR, figure au bail.</p>';
-      }
-      /* Locataire unique : clause de porte ouverte pour une future cotitularit\u00e9 */
-      return '<h2>9 bis \u2014 Solidarit\u00e9 et indivisibilit\u00e9</h2>'
-        +'<p>Le pr\u00e9sent bail est conclu avec un locataire unique. En cas d\u2019\u00e9volution de la situation familiale ou personnelle du LOCATAIRE (mariage, PACS, cotitularit\u00e9 l\u00e9gale au sens de l\u2019article\u00a01751 du Code civil), la pr\u00e9sente clause s\u2019appliquera de plein droit \u00e0 tous les cotitulaires du bail qui seront alors <strong>solidairement et indivisiblement tenus</strong> de l\u2019ensemble des obligations r\u00e9sultant du pr\u00e9sent contrat.</p>';
-    })()
-    +(function(){
-      if(locs.length>=2) {
-        return '<p>Le BAILLEUR d\u00e9clare n\u2019avoir consenti le pr\u00e9sent bail qu\u2019en consid\u00e9ration de la pr\u00e9sente cotitularit\u00e9 solidaire, cette clause constituant une <strong>condition substantielle</strong> du contrat.</p>'
-          +'<p>En cas de d\u00e9part d\u2019un ou plusieurs colocataires, le d\u00e9p\u00f4t de garantie ne sera restitu\u00e9 qu\u2019apr\u00e8s lib\u00e9ration totale des lieux par l\u2019ensemble des colocataires, dans le d\u00e9lai l\u00e9gal \u00e0 compter de la remise des cl\u00e9s (art.\u00a022 loi 89-462).</p>';
-      }
-      return '<p>Toute modification de la composition locative (adjonction ou d\u00e9part de cotitulaires) n\u00e9cessite l\u2019accord pr\u00e9alable et \u00e9crit du BAILLEUR et donnera lieu \u00e0 un avenant au pr\u00e9sent bail pr\u00e9cisant les modalit\u00e9s de la solidarit\u00e9 entre les cotitulaires.</p>'
-        +'<p>Les dispositions du pr\u00e9sent article s\u2019entendent sans pr\u00e9judice de l\u2019article\u00a08-1 de la loi du 6\u00a0juillet\u00a01989 relatif \u00e0 la solidarit\u00e9 du colocataire sortant.</p>';
-    })()
-    +'<h2>10 \u2014 Responsabilit\u00e9 et assurance</h2>'
-    +'<h3>10.1 \u2014 Responsabilit\u00e9 du LOCATAIRE</h3>'
-    +'<p>Le LOCATAIRE r\u00e9pondra des d\u00e9gradations et pertes survenant dans les locaux dont il a la jouissance exclusive pendant la dur\u00e9e du bail, sauf preuve de force majeure, faute du BAILLEUR ou fait d\u2019un tiers qu\u2019il n\u2019a pas introduit dans les lieux. Il est \u00e9galement responsable des dommages caus\u00e9s par les personnes de son m\u00e9nage, ses invit\u00e9s, ses sous-locataires \u00e9ventuels, ainsi que par les animaux et objets dont il est gardien.</p>'
-    +'<h3>10.2 \u2014 Obligation d\u2019assurance</h3>'
-    +'<p>Le LOCATAIRE est tenu, pendant toute la dur\u00e9e du bail, de souscrire et de maintenir en vigueur une <strong>assurance multirisque habitation</strong> couvrant a minima\u00a0: incendie, explosion, d\u00e9g\u00e2ts des eaux, bris de glace, risques locatifs, recours des voisins et des tiers, et responsabilit\u00e9 civile vie priv\u00e9e.</p>'
-    +'<p>Il remet au BAILLEUR, lors de la remise des cl\u00e9s, une attestation en cours de validit\u00e9. Cette attestation devra \u00eatre renouvel\u00e9e et transmise spontan\u00e9ment chaque ann\u00e9e \u00e0 la date d\u2019anniversaire du bail, et \u00e0 toute demande du BAILLEUR dans un d\u00e9lai de huit (8) jours. Le d\u00e9faut de justification dans ce d\u00e9lai constitue un manquement susceptible d\u2019entra\u00eener la mise en \u0153uvre de la clause r\u00e9solutoire (\u00a7\u00a012).</p>'
-    +'<p>\u00c0 d\u00e9faut de souscription ou de renouvellement apr\u00e8s commandement d\u2019assurer demeur\u00e9 infructueux pendant un (1) mois, le BAILLEUR peut souscrire une assurance pour le compte du LOCATAIRE. La prime annuelle ainsi que les frais de souscription, major\u00e9s de dix (10)\u00a0%, sont r\u00e9cup\u00e9rables aupr\u00e8s du LOCATAIRE selon les modalit\u00e9s des charges.</p>'
-    +'<h3>10.3 \u2014 D\u00e9claration de sinistre</h3>'
-    +'<p>Le LOCATAIRE est tenu de d\u00e9clarer imm\u00e9diatement \u00e0 son assureur tout sinistre survenu dans les locaux lou\u00e9s et d\u2019en aviser le BAILLEUR par \u00e9crit sans d\u00e9lai. Tout manquement \u00e0 cette obligation qui causerait un pr\u00e9judice au BAILLEUR engage la responsabilit\u00e9 du LOCATAIRE.</p>'
-    +'<h3>10.4 \u2014 Visites du BAILLEUR</h3>'
-    +'<p>Le BAILLEUR ou son mandataire peut acc\u00e9der aux locaux lou\u00e9s dans les conditions suivantes\u00a0:</p>'
-    +'<ul style="margin:4px 0 6px 20px"><li><strong>Pour travaux, entretien, expertise ou v\u00e9rification\u00a0:</strong> avec un pr\u00e9avis raisonnable d\u2019au moins <strong>quarante-huit (48) heures</strong>, notifi\u00e9 par tout moyen permettant d\u2019en attester la r\u00e9ception\u00a0;</li>'
-    +pz(6)+'</div>';
-
-  const p7 = '<div class="bail-page" id="page-7">'
-    +'<li><strong>En cas d\u2019urgence</strong> (risque pour la s\u00e9curit\u00e9 des personnes ou des biens, fuite d\u2019eau, sinistre imminent)\u00a0: l\u2019acc\u00e8s est possible \u00e0 tout moment, sous r\u00e9serve d\u2019en informer le LOCATAIRE dans les meilleurs d\u00e9lais\u00a0;</li>'
-    +'<li><strong>En cas de mise en vente ou remise en location\u00a0:</strong> les visites s\u2019effectuent les jours ouvrables uniquement, hors dimanches et jours f\u00e9ri\u00e9s, pour une dur\u00e9e maximale de <strong>deux (2) heures par jour</strong>, aux horaires convenus entre les parties (\u00e0 d\u00e9faut entre 17\u202fh et 19\u202fh), conform\u00e9ment \u00e0 l\u2019article 4 de la loi 89-462.</li></ul>'
-    +'<h2>11 \u2014 Entretien et r\u00e9parations</h2>'
-    +'<h3>11.1 \u2014 Obligations du LOCATAIRE (r\u00e9parations locatives)</h3>'
-    +'<p>Le LOCATAIRE supporte l\u2019entretien courant du logement et les r\u00e9parations locatives d\u00e9finies par le d\u00e9cret n\u00b0\u00a087-712 du 26\u00a0ao\u00fbt 1987 (reproduit en Annexe\u00a0A), sauf lorsqu\u2019elles sont rendues n\u00e9cessaires par la v\u00e9tust\u00e9, un vice de construction, une malfa\u00e7on, un cas fortuit ou un cas de force majeure. Sans que cette liste soit exhaustive, il est notamment tenu de\u00a0:</p>'
-    +'<ul style="margin:4px 0 6px 20px">'
-    +'<li><strong>Parties ext\u00e9rieures \u00e0 usage privatif\u00a0:</strong> entretien courant du jardin (tonte, taille, d\u00e9sherbage, arrosage), nettoyage des all\u00e9es, terrasses et auvents, d\u00e9gorgement des goutti\u00e8res et ch\u00eaneaux privatifs\u00a0;</li>'
-    +'<li><strong>Ouvertures\u00a0:</strong> graissage des gonds, paumelles, charni\u00e8res, cr\u00e9mones et espagnolettes\u00a0; remplacement des poign\u00e9es, boutons, targettes et verrous\u00a0; r\u00e9fection des mastics et remplacement des vitres bris\u00e9es ou fissur\u00e9es par mauvais usage\u00a0; graissage et remplacement de cordes et poulies de stores et volets\u00a0;</li>'
-    +'<li><strong>Parties int\u00e9rieures\u00a0:</strong> maintien en \u00e9tat de propret\u00e9 des plafonds, murs et cloisons\u00a0; menus raccords de peintures et tapisseries (couleurs neutres et claires)\u00a0; rebouchage soign\u00e9 des trous de fixation\u00a0; encaustiquage et vitrification des parquets\u00a0; remplacement de quelques lames de parquet ou carreaux de carrelage fissur\u00e9s par usage\u00a0;</li>'
-    +'<li><strong>Plomberie\u00a0:</strong> d\u00e9gorgement des canalisations d\u2019eaux us\u00e9es\u00a0; remplacement de joints, colliers, flotteurs et joints cloches de chasses d\u2019eau\u00a0; nettoyage des d\u00e9p\u00f4ts calcaires sur robinetterie et appareils sanitaires\u00a0; remplacement des tuyaux flexibles de douche\u00a0; <strong>protection hivernale des canalisations, compteurs et robinets contre le gel</strong>\u00a0;</li>'
-    +'<li><strong>Chauffage et ventilation\u00a0:</strong> <strong>entretien annuel obligatoire</strong> de la chaudi\u00e8re ou du syst\u00e8me de chauffage individuel par un professionnel qualifi\u00e9, avec remise d\u2019un justificatif au BAILLEUR\u00a0; ramonage annuel des chemin\u00e9es en service\u00a0; nettoyage des filtres et bouches de VMC\u00a0;</li>'
-    +'<li><strong>\u00c9lectricit\u00e9\u00a0:</strong> remplacement des ampoules, tubes lumineux, fusibles, interrupteurs et prises de courant d\u00e9t\u00e9rior\u00e9s par mauvais usage.</li>'
-    +'</ul>'
-    +'<p>Le LOCATAIRE s\u2019engage \u00e0 ne suspendre aux murs et plafonds que des \u00e9l\u00e9ments l\u00e9gers et \u00e0 reboucher proprement tout trou. Il s\u2019interdit de percer le carrelage ou le parquet. Toute transformation ou am\u00e9lioration n\u00e9cessite l\u2019accord pr\u00e9alable et \u00e9crit du BAILLEUR\u00a0; \u00e0 d\u00e9faut, le BAILLEUR peut exiger la remise en \u00e9tat imm\u00e9diate aux frais du LOCATAIRE. Les travaux de rafra\u00eechissement (peinture, papier peint) sont autoris\u00e9s en couleurs neutres et claires\u00a0; ils ne donnent lieu \u00e0 aucune indemnisation.</p>'
-    +'<p>Le LOCATAIRE ne peut faire usage d\u2019aucun appareil de chauffage \u00e0 combustion (mazout, gaz en bouteille) sans autorisation \u00e9crite pr\u00e9alable du BAILLEUR et mise aux normes de ventilation.</p>'
-    +'<h3>11.2 \u2014 Obligations du BAILLEUR (grosses r\u00e9parations)</h3>'
-    +'<p>Le BAILLEUR est tenu d\u2019entretenir le logement en \u00e9tat de servir \u00e0 l\u2019usage pr\u00e9vu et d\u2019y effectuer toutes les r\u00e9parations autres que locatives, n\u00e9cessaires au maintien en bon \u00e9tat, notamment les grosses r\u00e9parations vis\u00e9es \u00e0 l\u2019article\u00a0606 du Code civil (gros murs, couvertures, canalisations principales, installation \u00e9lectrique v\u00e9tuste).</p>'
-    +'<p>Le LOCATAIRE est tenu d\u2019informer le BAILLEUR, sans d\u00e9lai et par \u00e9crit, de toute d\u00e9gradation ou dysfonctionnement n\u00e9cessitant une intervention \u00e0 la charge du BAILLEUR. \u00c0 d\u00e9faut, il engage sa responsabilit\u00e9 pour l\u2019aggravation qui en r\u00e9sulte.</p>'
-    +pz(7)+'</div>';
-
-  const p8 = '<div class="bail-page" id="page-8">'
-    +'<h3>11.3 \u2014 Tol\u00e9rance des travaux</h3>'
-    +'<p>Le LOCATAIRE doit laisser effectuer dans les locaux lou\u00e9s et les parties communes les travaux d\u2019am\u00e9lioration, de mise en conformit\u00e9 ou d\u2019entretien n\u00e9cessaires, quelle qu\u2019en soit la dur\u00e9e, sans pouvoir pr\u00e9tendre \u00e0 une indemnit\u00e9 pour la g\u00eane occasionn\u00e9e, sauf si ces travaux durent plus de <strong>quarante (40) jours ouvr\u00e9s</strong>, auquel cas il peut demander une r\u00e9duction de loyer proportionnelle \u00e0 la dur\u00e9e et \u00e0 l\u2019importance de la privation de jouissance.</p>'
-    +'<h2>12 \u2014 Clause r\u00e9solutoire</h2>'
-    +'<p>Conform\u00e9ment \u00e0 l\u2019art. 24 loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989, il est pr\u00e9vu que le bail sera r\u00e9sili\u00e9 imm\u00e9diatement et de plein droit, <strong>si bon semble au bailleur</strong>, dans les cas suivants\u00a0:</p>'
-    +'<ol style="font-size:9.5pt;margin:6px 0 6px 18px;padding:0">'
-    +'<li style="margin-bottom:3px"><strong>Non-paiement du loyer ou des charges</strong> (provisions ou r\u00e9gularisation)\u00a0: six\u00a0(6) semaines apr\u00e8s commandement de payer demeur\u00e9 infructueux\u00a0;</li>'
-    +'<li style="margin-bottom:3px"><strong>Non-versement du d\u00e9p\u00f4t de garantie</strong>\u00a0: six\u00a0(6) semaines apr\u00e8s commandement demeur\u00e9 infructueux\u00a0;</li>'
-    +'<li style="margin-bottom:3px"><strong>D\u00e9faut d\u2019assurance des risques locatifs</strong>\u00a0: <strong>un\u00a0(1) mois</strong> apr\u00e8s commandement d\u2019assurer demeur\u00e9 infructueux (art. 7 loi 89-462)\u00a0;</li>'
-    +'<li><strong>Troubles de voisinage</strong>\u00a0: constat\u00e9s par d\u00e9cision de justice pass\u00e9e en force de chose jug\u00e9e.</li>'
-    +'</ol>'
-    +'<h3 style="margin-top:0;font-size:9.5pt">Conditions de forme du commandement</h3>'
-    +'<p style="font-size:9pt">Le commandement de payer est d\u00e9livr\u00e9 par commissaire de justice. Il reproduit, \u00e0 peine de nullit\u00e9, l\u2019art. 24 loi 89-462 et les trois premiers alin\u00e9as de l\u2019art. 6 loi n\u00b0 90-449, en mentionnant la facult\u00e9 de saisir le FSL.</p>'
-    +'<h3 style="margin-top:6px;font-size:9.5pt">Signification \u00e0 la caution (art. 24)</h3>'
-    +'<p style="font-size:9pt">Lorsque le contrat est garanti par un cautionnement, le commandement de payer est <strong>signifi\u00e9 \u00e0 la caution dans les 15 jours</strong> de sa signification au locataire. \u00c0 d\u00e9faut, la caution n\u2019est pas tenue des p\u00e9nalit\u00e9s ni int\u00e9r\u00eats de retard.</p>'
-    +'<h3 style="margin-top:6px;font-size:9.5pt">Pouvoirs du juge</h3>'
-    +'<p style="font-size:9pt">Le juge peut accorder des d\u00e9lais de paiement jusqu\u2019\u00e0 <strong>3 ans</strong> (art. 1343-5 C. civ.) ; la clause r\u00e9solutoire est suspendue pendant ce d\u00e9lai. Le juge v\u00e9rifie d\u2019office la situation APL du locataire (art. L. 542-2 CSS). Il peut condamner le locataire aux <strong>int\u00e9r\u00eats, indemnit\u00e9s et astreintes</strong>.</p>'
-    +'<p style="margin-top:6px">Une fois acquis au bailleur le b\u00e9n\u00e9fice de la clause r\u00e9solutoire, le locataire devra <strong>imm\u00e9diatement quitter les lieux</strong>. \u00c0 d\u00e9faut, une <strong>ordonnance de r\u00e9f\u00e9r\u00e9</strong> suffit pour engager l\u2019expulsion. Le locataire reste tenu de toutes ses obligations <strong>jusqu\u2019\u00e0 lib\u00e9ration effective des lieux</strong> (art. 1760 C. civ.).</p>'
-    +'<h2>13 \u2014 Clause p\u00e9nale \u2014 Indemnit\u00e9 d\u2019occupation</h2>'
-    +'<p>Il est stipul\u00e9 \u00e0 titre de clause p\u00e9nale (articles\u00a01226 et suivants du Code civil) qu\u2019en cas de maintien indu dans les lieux, le LOCATAIRE devra verser une <strong>indemnit\u00e9 par jour de retard \u00e9gale \u00e0 deux fois le loyer quotidien</strong>, du lendemain de cessation de la location jusqu\u2019\u00e0 la restitution des cl\u00e9s, toute journ\u00e9e commenc\u00e9e \u00e9tant int\u00e9gralement due.</p>'
-    +'<p>En cas de cong\u00e9 ou r\u00e9siliation, si le LOCATAIRE se maintient, il sera redevable d\u2019une indemnit\u00e9 d\u2019occupation au moins \u00e9gale au montant du dernier loyer, charges et accessoires.</p>'
-    +'<h2>14 \u2014 Clause de constatation d\u2019abandon du logement</h2>'
-    +'<p>Conform\u00e9ment \u00e0 l\u2019article 14-1 de la loi du 6\u00a0juillet\u00a01989 (loi n\u00b0\u00a02010-1609 du 22\u00a0d\u00e9cembre 2010), lorsque des \u00e9l\u00e9ments laissent supposer que le logement est abandonn\u00e9, le BAILLEUR peut mettre en demeure le LOCATAIRE de justifier qu\u2019il l\u2019occupe, par acte de commissaire de justice.</p>'
-    +'<p>S\u2019il n\u2019a pas \u00e9t\u00e9 d\u00e9f\u00e9r\u00e9 \u00e0 cette mise en demeure un mois apr\u00e8s signification, le commissaire de justice peut dresser un proc\u00e8s-verbal constatant l\u2019\u00e9tat d\u2019abandon, inventoriant les biens laiss\u00e9s sur place. La r\u00e9siliation du bail est alors constat\u00e9e par le juge selon la proc\u00e9dure fix\u00e9e par le d\u00e9cret n\u00b0\u00a02011-945 du 10\u00a0ao\u00fbt 2011.</p>'
-    +pz(8)+'</div>';
-
-  const p9 = '<div class="bail-page" id="page-9">'
-    +'<h2>14 bis \u2014 Acceptation des notifications \u00e9lectroniques</h2>'
-    +'<p>Le LOCATAIRE donne son accord expr\u00e8s pour que les notifications qui lui seront adress\u00e9es en ex\u00e9cution du pr\u00e9sent bail soient effectu\u00e9es par <strong>lettre recommand\u00e9e \u00e9lectronique (LRE)</strong> \u00e0 l\u2019adresse \u00e9lectronique qu\u2019il a communiqu\u00e9e au BAILLEUR, conform\u00e9ment aux dispositions de l\u2019article\u00a01126 du Code civil et de l\u2019article L.\u00a0100 du Code des postes et des communications \u00e9lectroniques.</p>'
-    +'<p>Le LOCATAIRE s\u2019engage \u00e0 maintenir valide cette adresse \u00e9lectronique pendant toute la dur\u00e9e du bail et \u00e0 informer le BAILLEUR sans d\u00e9lai de toute modification. \u00c0 d\u00e9faut, les notifications adress\u00e9es \u00e0 l\u2019adresse figurant au pr\u00e9sent contrat seront r\u00e9put\u00e9es valablement effectu\u00e9es.</p>'
-    +(locs.length>=2
-      ? '<p>En cas de pluralit\u00e9 de locataires, l\u2019acceptation des LRE vaut pour chacun d\u2019eux, les notifications adress\u00e9es \u00e0 l\u2019un \u00e9tant opposables \u00e0 tous en application de la clause de solidarit\u00e9 et d\u2019indivisibilit\u00e9 (cf. \u00a7\u00a09 bis).</p>'
-      : '')
-    +'<h2>15 \u2014 Cautionnement solidaire</h2>'
-    +(bail.garant
-      ? '<p>Le pr\u00e9sent bail est accompagn\u00e9 d\u2019un acte de cautionnement solidaire \u00e9tabli conform\u00e9ment \u00e0 l\u2019article\u00a02297 du Code civil et \u00e0 l\u2019article\u00a022-1 de la loi du 6\u00a0juillet\u00a01989, sign\u00e9 par\u00a0:</p>'
-        +'<ul style="margin:4px 0 6px 20px">'
-        +'<li><strong>'+S(bail.garant)+'</strong>'+(bail.adrGarant?' \u2014 demeurant '+S(bail.adrGarant):'')+'</li>'
-        +(bail.garant2?'<li><strong>'+S(bail.garant2)+'</strong>'+(bail.adrGarant2?' \u2014 demeurant '+S(bail.adrGarant2):'')+'</li>':'')
-        +'</ul>'
-        +(bail.garant2
-          ? '<p>Les deux cautions sont <strong>solidairement et indivisiblement tenues</strong> envers le BAILLEUR, sans b\u00e9n\u00e9fice de division ni de discussion (art.\u00a01310 et 2298 C.\u00a0civ.). Le BAILLEUR peut agir contre l\u2019une ou l\u2019autre pour la totalit\u00e9 des sommes dues.</p>'
-          : '')
-        +'<p>L\u2019acte de cautionnement, portant la <strong>d\u00e9claration d\u2019engagement</strong> et la <strong>mention manuscrite recommand\u00e9e</strong> du garant, est annex\u00e9 au pr\u00e9sent bail et en fait partie int\u00e9grante (Annexe\u00a06).</p>'
-        +'<p>Conform\u00e9ment \u00e0 l\u2019article\u00a022-1 al.\u00a02 de la loi du 6\u00a0juillet\u00a01989, le BAILLEUR informera le(s) GARANT(S) de tout d\u00e9faut de paiement du LOCATAIRE dans le <strong>mois suivant l\u2019incident de paiement</strong>, \u00e0 peine de forclusion de sa cr\u00e9ance pour les p\u00e9nalit\u00e9s et int\u00e9r\u00eats ant\u00e9rieurs \u00e0 cette information.</p>'
-      : '<p>Le pr\u00e9sent bail est, le cas \u00e9ch\u00e9ant, accompagn\u00e9 d\u2019un acte de cautionnement solidaire sign\u00e9 par le garant d\u00e9sign\u00e9 \u00e0 la premi\u00e8re page du pr\u00e9sent contrat. En l\u2019absence de garant, la pr\u00e9sente clause est sans objet.</p>')
-    +'<h2>16 \u2014 Dispositions diverses</h2>'
-    +'<h3>Protection des donn\u00e9es personnelles (RGPD)</h3>'
-    +'<p>Les donn\u00e9es personnelles collect\u00e9es dans le cadre du pr\u00e9sent contrat font l\u2019objet d\u2019un traitement n\u00e9cessaire \u00e0 son ex\u00e9cution et \u00e0 l\u2019application de la r\u00e9glementation relative \u00e0 la lutte contre le blanchiment de capitaux. Elles sont conserv\u00e9es pendant la dur\u00e9e du bail augment\u00e9e des d\u00e9lais l\u00e9gaux de prescription. Chaque partie peut acc\u00e9der \u00e0 ses donn\u00e9es, les rectifier ou s\u2019opposer \u00e0 leur exploitation en adressant un courrier au BAILLEUR. Toute r\u00e9clamation peut \u00eatre introduite aupr\u00e8s de la CNIL (www.cnil.fr).</p>'
-    +'<h3>D\u00e9tecteur avertisseur autonome de fum\u00e9e (DAAF)</h3>'
-    +'<p>Le logement est \u00e9quip\u00e9 d\u2019un DAAF \u00e0 la norme EN\u00a014604, constat\u00e9 lors de la visite. Il incombe au LOCATAIRE d\u2019en assurer l\u2019entretien, la surveillance et le bon fonctionnement (remplacement des piles, test de d\u00e9clenchement).</p>'
-    +'<h3>Avertissements l\u00e9gaux</h3>'
-    +'<ul style="margin:4px 0 6px 20px">'
-    +'<li><strong>Cotitularit\u00e9 (art.\u00a01751 C.\u00a0civ.)\u00a0:</strong> ne joue qu\u2019entre \u00e9poux. Le concubin ou partenaire non mentionn\u00e9 au bail ne peut demander l\u2019attribution du logement que dans les cas pr\u00e9vus par la loi\u00a0;</li>'
-    +'<li><strong>Saturnisme\u00a0:</strong> le BAILLEUR d\u00e9clare n\u2019avoir pas connaissance de cas de saturnisme d\u00e9pist\u00e9 chez une personne mineure ayant occup\u00e9 les locaux\u00a0;</li>'
-    +'<li><strong>Amiante\u00a0:</strong> les parties d\u00e9clarent avoir \u00e9t\u00e9 inform\u00e9es des dispositions de lutte contre l\u2019amiante. Le BAILLEUR d\u00e9clare ne pas contrevenir \u00e0 la r\u00e9glementation (d\u00e9cret n\u00b0\u00a02011-629 du 3\u00a0juin\u00a02011)\u00a0;</li>'
-    +'<li><strong>Termites\u00a0:</strong> le BAILLEUR d\u00e9clare n\u2019avoir pas effectu\u00e9 de d\u00e9claration de pr\u00e9sence de termites en Mairie \u00e0 ce jour.</li>'
-    +'</ul>'
-    +'<h3>\u00c9lection de domicile</h3>'
-    +'<p>Pour les besoins de l\u2019ex\u00e9cution du pr\u00e9sent bail, le BAILLEUR fait \u00e9lection de domicile \u00e0 son si\u00e8ge social indiqu\u00e9 en t\u00eate des pr\u00e9sentes. Le LOCATAIRE fait \u00e9lection de domicile dans les locaux lou\u00e9s. Toute correspondance adress\u00e9e \u00e0 ces adresses est r\u00e9put\u00e9e valablement notifi\u00e9e.</p>'
-    +pz(9)+'</div>';
-
-  const p10 = '<div class="bail-page" id="page-10">'
-    +'<h2>17 \u2014 Annexes obligatoires</h2>'
-    +'<p class="note" style="margin-bottom:6px">Les annexes ci-dessous font partie int\u00e9grante du pr\u00e9sent bail. Les documents marqu\u00e9s \u00ab\u00a0N/A\u00a0\u00bb ne sont pas applicables au pr\u00e9sent bail.</p>'
-    +(function(){
-      var hasDPE   = S(bail.dpe||_lbFill.dpe).trim() && S(bail.dpe||_lbFill.dpe).trim()!=='\u2013';
-      var hasERP   = S(bail.erp||_lbFill.erp).trim() && S(bail.erp||_lbFill.erp).trim()!=='\u2013';
-      var hasPlomb = S(bail.plomb||_lbFill.plomb).trim() && S(bail.plomb||_lbFill.plomb).trim()!=='\u2013';
-      var hasAmia  = S(bail.amiante||_lbFill.amiante).trim() && S(bail.amiante||_lbFill.amiante).trim()!=='\u2013';
-      var hasElec  = S(bail.elec||_lbFill.elec).trim() && S(bail.elec||_lbFill.elec).trim()!=='\u2013';
-      var hasGaz   = S(bail.gaz||_lbFill.gaz).trim() && S(bail.gaz||_lbFill.gaz).trim()!=='\u2013';
-      var hasBruit = S(bail.bruit||_lbFill.bruit).trim() && S(bail.bruit||_lbFill.bruit).trim()!=='\u2013';
-      var isCopro  = /copropri/i.test(S(bail.regimeJuridique||_lbFill._immRegime||bail.typeHabitat||_lbFill.typeHabitat));
-      var st = function(ok, yesLbl, noLbl){ return ok ? yesLbl : (noLbl||'N/A \u2014 non applicable'); };
-      return '<table class="t3"><tr><th>N\u00b0</th><th>Document</th><th>Statut</th></tr>'
-        +'<tr><td>1</td><td>\u00c9tat des lieux d\u2019entr\u00e9e</td><td>\u00c0 \u00e9tablir lors de la remise des cl\u00e9s</td></tr>'
-        +'<tr><td>2</td><td><strong>Dossier de Diagnostic Technique (DDT)</strong> comprenant\u00a0:</td><td>Joint au pr\u00e9sent bail</td></tr>'
-        +'<tr><td style="padding-left:14px">2a</td><td>Diagnostic de performance \u00e9nerg\u00e9tique (DPE)</td><td>'+st(hasDPE,'Joint \u2014 Classe '+S(bail.dpe||_lbFill.dpe||'\u2013')+' / GES '+S(bail.ges||_lbFill.ges||'\u2013'),'\u00c0 fournir')+'</td></tr>'
-        +'<tr><td style="padding-left:14px">2b</td><td>\u00c9tat des Risques et Pollutions (ERP \u2014 art. L.125-5 C. env.)</td><td>'+st(hasERP,'Joint \u2014 dat\u00e9 de moins de 6 mois','\u00c0 fournir avant signature')+'</td></tr>'
-        +'<tr><td style="padding-left:14px">2c</td><td>CREP plomb (logement avant 1949)</td><td>'+st(hasPlomb,'Joint',st(false))+'</td></tr>'
-        +'<tr><td style="padding-left:14px">2d</td><td>Diagnostic amiante (permis avant juillet 1997)</td><td>'+st(hasAmia,'Joint',st(false))+'</td></tr>'
-        +'<tr><td style="padding-left:14px">2e</td><td>\u00c9tat de l\u2019installation \u00e9lectrique (si > 15 ans)</td><td>'+st(hasElec,'Joint',st(false))+'</td></tr>'
-        +'<tr><td style="padding-left:14px">2f</td><td>\u00c9tat de l\u2019installation de gaz (si > 15 ans)</td><td>'+st(hasGaz,'Joint',st(false))+'</td></tr>'
-        +'<tr><td style="padding-left:14px">2g</td><td>\u00c9tat des nuisances sonores a\u00e9riennes (zone PEB)</td><td>'+st(hasBruit,'Joint',st(false))+'</td></tr>'
-        +'<tr><td>3</td><td>Notice d\u2019information (arr\u00eat\u00e9 du 29 mai 2015 modifi\u00e9)</td><td>Remise au LOCATAIRE lors de la signature</td></tr>'
-        +'<tr><td>4</td><td>Grille de v\u00e9tust\u00e9</td><td>Ci-incluse au \u00a7\u00a08.2 du pr\u00e9sent bail</td></tr>'
-        +'<tr><td>5</td><td>R\u00e8glement de copropri\u00e9t\u00e9 (extraits sur parties communes et destination)</td><td>'+(isCopro?'Joint (logement en copropri\u00e9t\u00e9)':st(false))+'</td></tr>'
-        +'<tr><td>6</td><td>Acte de cautionnement solidaire</td><td>'+statut_caution+'</td></tr>'
-        +'<tr><td>7</td><td>Liste des r\u00e9parations locatives (d\u00e9cret n\u00b0 87-712)</td><td>Reproduite en Annexe\u00a0A du pr\u00e9sent bail</td></tr>'
-        +'<tr><td>8</td><td>Liste des charges r\u00e9cup\u00e9rables (d\u00e9cret n\u00b0 87-713)</td><td>Reproduite en Annexe\u00a0B du pr\u00e9sent bail</td></tr>'
-        +'<tr><td>9</td><td>Autorisation pr\u00e9alable de mise en location (zones d\u00e9grad\u00e9es EPCI \u2014 CCH L.634-3)</td><td>'+st(false)+'</td></tr>'
-        +'<tr><td>10</td><td>Attestation d\u2019assurance multirisque habitation (MRH) du LOCATAIRE</td><td>\u00c0 remettre lors de la remise des cl\u00e9s (\u00a7\u00a010.2)</td></tr>'
-        +'</table>';
-    })()
-    +pz(10)+'</div>';
-
-  const p11 = '<div class="bail-page" id="page-11">'
-    +'<h2>18 \u2014 Signatures</h2>'
-    +'<p>Fait \u00e0 <strong>'+villeSig+'</strong>, le '+dateStr+', en 3 exemplaires originaux, dont un remis \u00e0 chaque partie qui le reconna\u00eet.</p>'
-    +'<label style="display:flex;align-items:center;gap:10px;background:#fff8e1;border:1px solid #c9a000;border-radius:5px;padding:10px 14px;margin:12px 0;font-size:11pt;color:#7a5c00;cursor:pointer">'
-    +'<input type="checkbox" id="bail-lu-approuve" style="width:18px;height:18px;flex-shrink:0"> J\u2019ai lu et approuv\u00e9 l\u2019int\u00e9gralit\u00e9 du pr\u00e9sent bail <span style="color:#c00;font-weight:bold">*</span></label>'
-    +sig18Blocs
-    +'</div>';
-
-  const p12 = '<div class="bail-page" id="page-12">'
-    +'<h2 class="ann">Annexe A \u2014 Liste des r\u00e9parations locatives</h2>'
-    +'<p class="note">(D\u00e9cret n\u00b0 87-712 du 26 ao\u00fbt 1987)</p>'
-    +'<h3>I \u2014 Parties ext\u00e9rieures</h3><p>Jardins privatifs\u00a0: entretien courant (all\u00e9es, pelouses, massifs, bassins, piscines), taille, \u00e9lagage, remplacement arbustes. Auvents, terrasses\u00a0: enl\u00e8vement mousse. Goutti\u00e8res\u00a0: d\u00e9gorgement.</p>'
-    +'<h3>II \u2014 Ouvertures int\u00e9rieures et ext\u00e9rieures</h3><p>Portes et fen\u00eatres\u00a0: graissage gonds, paumelles, charni\u00e8res \u2014 menues r\u00e9parations boutons, poign\u00e9es, espagnolettes \u2014 remplacement boulons, clavettes, targettes. Vitrages\u00a0: r\u00e9fection mastics, remplacement vitres d\u00e9t\u00e9rior\u00e9es. Dispositifs d\u2019occultation\u00a0: graissage, remplacement cordes, poulies, lames. Serrures\u00a0: graissage, remplacement petites pi\u00e8ces et cl\u00e9s.</p>'
-    +'<h3>III \u2014 Parties int\u00e9rieures</h3><p>Plafonds, murs, cloisons\u00a0: maintien en \u00e9tat de propret\u00e9 \u2014 menus raccords peintures et tapisseries \u2014 rebouchage des trous. Parquets, moquettes, rev\u00eatements de sol\u00a0: encaustiquage et entretien courant \u2014 remplacement quelques lames, pose raccords. Placards et menuiseries\u00a0: remplacement tablettes, tasseaux.</p>'
-    +'<h3>IV \u2014 Installations de plomberie</h3><p>Canalisations d\u2019eau\u00a0: d\u00e9gorgement, remplacement joints et colliers. Canalisations de gaz\u00a0: entretien courant robinets, siphons. Fosses septiques\u00a0: vidange. Chauffage et robinetterie\u00a0: remplacement bilames, pistons, membranes, boites \u00e0 eau, allumage pi\u00e9zo-\u00e9lectrique, clapets et joints \u2014 rin\u00e7age corps de chauffe. \u00c9viers\u00a0: nettoyage calcaire, remplacement flexibles douches.</p>'
-+'<h2 class="ann" style="margin-top:0">Annexe A (suite et fin)</h2>'
-    +'<h3>V \u2014 \u00c9quipements d\u2019installations d\u2019\u00e9lectricit\u00e9</h3><p>Remplacement interrupteurs, prises de courant, coupe-circuit, fusibles, ampoules, tubes lumineux \u2014 r\u00e9paration ou remplacement baguettes ou gaines de protection.</p>'
-    +'<h3>VI \u2014 Autres \u00e9quipements</h3><p>Entretien courant et menues r\u00e9parations\u00a0: r\u00e9frig\u00e9rateurs, machines \u00e0 laver, s\u00e8che-linge, hottes, adoucisseurs, capteurs solaires, pompes \u00e0 chaleur, climatiseurs, antennes individuelles, meubles scell\u00e9s, chemin\u00e9es, glaces et miroirs. Graissage et remplacement joints de vidoirs. Ramonage conduits d\u2019\u00e9vacuation fum\u00e9es et gaz et conduits de ventilation.</p>'
-    +'<h2 class="ann" style="margin-top:14px">Annexe B \u2014 Liste des charges r\u00e9cup\u00e9rables</h2>'
-    +'<p class="note">(D\u00e9cret n\u00b0 87-713 du 26 ao\u00fbt 1987)</p>'
-    +'<h3>I \u2014 Ascenseurs et monte-charge</h3><p>D\u00e9penses d\u2019\u00e9lectricit\u00e9 \u2014 exploitation, entretien courant, menues r\u00e9parations (visites p\u00e9riodiques, nettoyage, graissage, examen c\u00e2bles, d\u00e9pannage sans pi\u00e8ces) \u2014 fournitures.</p>'
-    +'<h3>II \u2014 Eau froide, eau chaude et chauffage collectif</h3><p>Eau froide et chaude locataires et parties communes \u2014 \u00e9lectricit\u00e9 et combustible \u2014 exploitation et entretien courant (nettoyage gicleurs, \u00e9lectrodes, filtres, clapets, graissage pompes, r\u00e9glage appareils de r\u00e9gulation, ramonage chaudi\u00e8res) \u2014 menues r\u00e9parations.</p>'
-    +'<h3>III \u2014 Installations individuelles</h3><p>Alimentation commune combustible \u2014 exploitation et entretien courant (r\u00e9glage eau chaude sanitaire, v\u00e9rification appareils commande et s\u00e9curit\u00e9, d\u00e9pannage, contr\u00f4le chauffe-eau \u00e9lectriques) \u2014 menues r\u00e9parations.</p>'
-    +'<h3>IV \u2014 Parties communes int\u00e9rieures</h3><p>\u00c9lectricit\u00e9, fournitures consommables (produits d\u2019entretien, balais) \u2014 entretien minuterie, tapis, menues r\u00e9parations appareils d\u2019entretien de propret\u00e9 \u2014 entretien de propret\u00e9 (frais de personnel).</p>'
-    +'<h3>V \u2014 Espaces ext\u00e9rieurs</h3><p>\u00c9lectricit\u00e9, essence, huile, fournitures consommables (ampoules, engrais, insecticides, graines, plantes de remplacement hors r\u00e9fection de massifs) \u2014 op\u00e9rations coupe, d\u00e9sherbage, sarclage, ratissage, nettoyage et arrosage \u2014 peinture et menues r\u00e9parations bancs et \u00e9quipements de jeux.</p>'
-    +'<h3>VI \u2014 Hygi\u00e8ne</h3><p>Sacs plastique et papier, produits de d\u00e9sinsectisation et d\u00e9sinfection \u2014 entretien et vidange fosses d\u2019aisances \u2014 \u00e9limination des rejets (frais de personnel).</p>'
-    +'<h3>VII \u2014 \u00c9quipements divers</h3><p>\u00c9nergie n\u00e9cessaire \u00e0 la ventilation m\u00e9canique \u2014 ramonage conduits de ventilation, entretien VMC, entretien dispositifs d\u2019ouverture automatique ou cod\u00e9e et interphones.</p>'
-    +'<h3>VIII \u2014 Impositions et redevances</h3><p>Taxe ou redevance d\u2019enl\u00e8vement des ordures m\u00e9nag\u00e8res \u2014 taxe de balayage.</p>'
-    +'<p class="note" style="margin-top:14px"><em>Le pr\u00e9sent contrat est soumis \u00e0 la loi n\u00b0 89-462 du 6 juillet 1989 modifi\u00e9e, notamment par la loi ALUR du 24 mars 2014, la loi ELAN du 23 novembre 2018 et la loi Climat et R\u00e9silience du 22 ao\u00fbt 2021.</em></p>'
-    +'</div>';
-
-  const p13 = '';
-
-  /* ── v13.05 (Option C) ─ Rendu HTML via source unique buildBailStructure ─
+/* ── v13.05 (Option C) ─ Rendu HTML via source unique buildBailStructure ─
      Remplace les anciens p1..p13 (13 .bail-page divs split manuellement,
      mismatch avec le PDF natif). Le rendu de l'aperçu correspond désormais
      visuellement au PDF généré (même structure de blocs, même ordre).
-     p1..p13 ci-dessus sont conservés temporairement (dead code à nettoyer
-     en commit séparé) pour minimiser le diff. */
+     Les anciens p1..p13 (code mort, clauses périmées) ont été retirés (lot 0, 06/10). */
   const _bailStruct = buildBailStructure(bail, log, ref, ent, locs);
   /* v13.10 — diff vs snapshot signé : calcule l'index des blocs modifiés depuis
      la signature pour highlighter dans le rendu HTML. Si opts.useSnapshot
@@ -22103,7 +19954,14 @@ function exportBailWord(bail, log, ref) {
   // CHANTIER BAIL-GARAGE — genBailHTML (template Word) est un modèle loi 89 codé en dur, sans
   // conscience du type : pour un garage il produirait un bail d'habitation FAUX. Le PDF natif
   // (via buildBailStructure → route garage) reste le chemin officiel. On bloque le Word ici.
-  if (bail.type === 'garage') { showToast('Export Word indisponible pour un bail garage (droit commun) — utilisez le PDF.', 'warn', 6000); return; }
+  // BAUX-ECHUS — le modèle Word est un modèle de bail NU (durée 3/6 ans, art. 10, congé art. 15) : pour un
+  // meublé, un étudiant, une mobilité ou un « autre », il produirait des clauses fausses. Même traitement
+  // que le garage : le PDF natif (buildBailStructure, clauses par type) est le chemin officiel.
+  const _tWord = _bailTypeEff(bail, log);
+  if (_tWord !== 'nu') {
+    const _lblWord = { garage: 'garage (droit commun)', meuble: 'meublé', etudiant: 'étudiant', mobilite: 'mobilité', autre: '« autre » (régime libre)' }[_tWord] || _tWord;
+    showToast('Export Word indisponible pour un bail ' + _lblWord + ' — utilisez le PDF.', 'warn', 6000); return;
+  }
   const ent  = DB.entites.find(e=>e.nom===bail.entity)||{};
   const locs = bail.locataires || (bail.nom ? [{nom:bail.nom,ddn:bail.ddn,lieuNaiss:bail.lieuNaiss}] : []);
   const totalMensuel = (bail.hc||0)+(bail.ch||0);
@@ -23196,7 +21054,26 @@ var _CONGE_ACTS=[
  {k:'resiliation_amiable', tt:'Résiliation amiable', ds:'Protocole d\'accord (art. 1193)', tpl:'bail-resiliation-amiable'}
 ];
 function _congeOv(){ var ov=document.getElementById('ov-conge'); if(!ov){ ov=document.createElement('div'); ov.id='ov-conge'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-conge')"); document.body.appendChild(ov); } return ov; }
-function _congeTplOf(){ var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:''; }
+function _congeTplOf(){
+  // BAUX-ECHUS — le « congé du bailleur » dépend du type de bail : art. 15 (nu), art. 25-8 I (meublé),
+  // information de fin de bail (étudiant, mobilité), congé selon le contrat (garage, autre).
+  if(_congeState.kind==='conge_bailleur') return _congeModele(_congeState.ref).tpl;
+  var a=_CONGE_ACTS.find(function(x){return x.k===_congeState.kind;}); return a?a.tpl:'';
+}
+// BAUX-ECHUS — le type EFFECTIF du bail : le même résolveur que la règle d'échéance (bail.type fait
+// autorité, repli log.typeUsage pour les baux d'avant v15.191), plus `bail.type || 'nu'`.
+function _congeTypeBail(ref){
+  var bail=(DB.baux&&DB.baux[ref])||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||null;
+  var BE=window.BailEcheance;
+  return (BE&&typeof BE.typeBailEffectif==='function')?BE.typeBailEffectif(bail,log):_bailTypeEff(bail,log);
+}
+/** La lettre « congé du bailleur » du bail (js/core/conge.js, congeBailleurModele). */
+function _congeModele(ref){
+  var t=_congeTypeBail(ref);
+  if(typeof window.congeBailleurModele==='function') return window.congeBailleurModele(t);
+  // Repli (module non chargé) : le congé du bail nu, comme avant.
+  return { tpl:'bail-conge-bailleur-6mois', titre:'Congé donné au locataire', fondement:'Loi n° 89-462 du 6 juillet 1989, article 15', motif:true, annexe15II:true, protege:'art. 15-III', dateLibre:false, fichier:'Conge-bailleur' };
+}
 /**
  * Le pont entre la DB (cycle de reconduction, préavis) et `congeDateEffet`, la fonction PURE
  * qui reporte la date d'effet au terme suivant quand le préavis ne tient plus.
@@ -23226,18 +21103,22 @@ function _congeDateEffetLocale(bail,log,pinfo,preavisMois){
 function _congeExtra(ref){
   var bail=DB.baux[ref]||{}, log=(DB.logements||[]).find(function(l){return l&&l.ref===ref;})||{};
   // Date CIVILE (pas td(), qui est UTC : cf. `_congeDateEffetLocale`) — elle date l'acte.
-  var typeBail=bail.type||'nu';
+  var typeBail=_congeTypeBail(ref);   // BAUX-ECHUS : type EFFECTIF (repli log.typeUsage), plus `bail.type || 'nu'`
   var today=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
   // On reformate bail.debut en date FR (les modèles affichent {{bail.debut}}) sans toucher au texte des modèles Propryo.
   var e={ dateLettre: fd(today), bail: Object.assign({}, bail, { adrBien: bail.adrBien||log.adr||'', debut: bail.debut?fd(bail.debut):'‹début du bail›' }) };
   if(_congeState.kind==='conge_bailleur'){
-    var motif=v('cg-motif')||'reprise';
-    // Le motif et ses marqueurs viennent du générateur COMMUN (js/core/conge.js). Le Hub
-    // Communications appelle le même : c'est ce qui l'empêche de réinventer un congé sans prix.
-    var _md=window.congeMotifDetail({ motif:motif, prix:v('cg-prix'), conditions:v('cg-cond'),
-      benef:v('cg-benef'), benefAdr:v('cg-benefadr'), lien:v('cg-lien'), legitime:v('cg-legitime'),
-      art15Inline:false });  // le document porte les cinq alinéas en ANNEXE (art15IIProDoc)
-    e.motifConge=_md.motifConge; e.motifDetail=_md.motifDetail;
+    var _M=_congeModele(ref);
+    if(_M.motif){
+      var motif=v('cg-motif')||'reprise';
+      // Le motif et ses marqueurs viennent du générateur COMMUN (js/core/conge.js). Le Hub
+      // Communications appelle le même : c'est ce qui l'empêche de réinventer un congé sans prix.
+      // Meublé (art. 25-8, I) : « vente » sans prix ni préemption 15-II.
+      var _md=window.congeMotifDetail({ motif:motif, prix:v('cg-prix'), conditions:v('cg-cond'),
+        benef:v('cg-benef'), benefAdr:v('cg-benefadr'), lien:v('cg-lien'), legitime:v('cg-legitime'),
+        art15Inline:false, meuble: typeBail==='meuble' });  // nu : les cinq alinéas en ANNEXE (art15IIProDoc)
+      e.motifConge=_md.motifConge; e.motifDetail=_md.motifDetail;
+    } else { e.motifConge=''; e.motifDetail=''; }
     // Préavis bailleur (6 mois nu / 3 meublé) : la date d'effet doit être un TERME qui respecte
     // RÉELLEMENT le préavis. Si l'échéance la plus proche est déjà trop tardive, on reporte au terme
     // suivant — sinon le congé serait nul et la mention « préavis respecté » mensongère (audit P0-1).
@@ -23246,8 +21127,24 @@ function _congeExtra(ref){
     _congeState.preavisPushed=false;
     if(pinfo){
       e.dateFin=fd(_congeDateEffetLocale(bail,log,pinfo,preavisMois));
-    } else { e.dateFin=bail.fin?fd(bail.fin):'‹échéance du bail›'; }
-    e.mentionPreavis=window.congeMentionPreavis(preavisMois);
+    } else {
+      // BAUX-ECHUS — pas de préavis légal (étudiant, mobilité, garage, autre) : l'échéance selon LA règle du
+      // type (garage de l'app : la période reconduite en cours ; arrivé à terme : la fin du contrat).
+      var _echC=(typeof _bailEcheanceEffective==='function')?_bailEcheanceEffective(bail,log):null;
+      e.dateFin=_echC?fd(_echC):(bail.fin?fd(bail.fin):'‹échéance du bail›');
+      if(_M.dateLibre){
+        // Garage / autre : la date d'effet est celle prévue au CONTRAT — saisie, sinon l'échéance si elle
+        // est à venir ; jamais une date passée (marqueur nommé : le garde-fou d'émission la signale).
+        var _effC=v('cg-effet-contrat');
+        e.dateFin=_effC?fd(_effC):((_echC&&_echC>=today)?fd(_echC):'‹date d\'effet›');
+      } else if(typeof window.congePhraseTerme==='function'){
+        // Étudiant / mobilité : information de fin de bail — terme au futur ou au passé, jamais une
+        // « date d'effet » antérieure à la lettre.
+        var _finT=_echC||(bail.fin?String(bail.fin).slice(0,10):'');
+        e.phraseTerme=window.congePhraseTerme(_finT?fd(_finT):'', _finT, today);
+      }
+    }
+    e.mentionPreavis=window.congeMentionPreavis(preavisMois, typeBail);
   } else if(_congeState.kind==='conge_locataire'){
     var recu=v('cg-recu')||today; var pv=window.congeLocatairePreavis({typeBail:typeBail, casReduit:v('cg-cas')});
     e.datePreavis=fd(recu); e.typeBail=typeBail; e.dureePreavis=pv.mois; e.dateFinPreavis=fd(window.congeAddMois(recu,pv.mois)); e.motifReduction=pv.reduit?v('cg-cas'):'—'; e.dateEDLSortie='à convenir ensemble'; e.heureEDLSortie='à convenir';
@@ -23270,9 +21167,11 @@ function _congeDocHtml(ref){
   var ctx=(typeof _buildEmailCtxFromRef==='function')?_buildEmailCtxFromRef(ref,_congeExtra(ref)):_congeExtra(ref);
   var draft=(typeof window._emailCompose==='function')?window._emailCompose(_congeTplOf(),ctx):{body:''};
   var corps=window.letterToProDoc(draft.body||'');
-  if(_congeState.kind==='conge_bailleur' && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
-  var TIT={conge_bailleur:'Congé donné au locataire',conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
-  var LEG={conge_bailleur:'Loi n° 89-462 du 6 juillet 1989, article 15',conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
+  // BAUX-ECHUS — titre, fondement et annexe 15-II selon le type de bail (l'annexe 15-II : bail NU seulement).
+  var _M=_congeModele(ref);
+  if(_congeState.kind==='conge_bailleur' && _M.annexe15II && v('cg-motif')==='vente') corps+=window.art15IIProDoc();
+  var TIT={conge_bailleur:_M.titre,conge_locataire:'Accusé de réception d\'un préavis',mise_demeure:'Mise en demeure de payer',resiliation_amiable:'Protocole de résiliation amiable'};
+  var LEG={conge_bailleur:_M.fondement,conge_locataire:'Loi n° 89-462 du 6 juillet 1989, articles 12 et 15',mise_demeure:'Loi n° 89-462 du 6 juillet 1989, article 24 (clause résolutoire)',resiliation_amiable:'Article 1193 du code civil'};
   return _docPage(ent,{titre:TIT[_congeState.kind],ctx:LEG[_congeState.kind],corps:corps,ref:escHtml(ref),date:'',withStyle:false});
 }
 function _congeSubBailleur(motif){
@@ -23280,7 +21179,8 @@ function _congeSubBailleur(motif){
   // lien », à peine de nullité. L'adresse n'était collectée nulle part : le congé partait sans
   // elle, donc nul, et rien ne le signalait. Elle a son champ, et son marqueur quand elle manque.
   if(motif==='reprise') return _congeField('cg-benef','Bénéficiaire de la reprise','text','')+_congeField('cg-benefadr','Adresse du bénéficiaire','text','')+_congeField('cg-lien','Lien avec le bailleur',null,null,(window.REPRISE_LIENS||[]));
-  if(motif==='vente') return _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
+  // Meublé (art. 25-8, I) : ni offre de vente ni préemption — pas de prix ni de conditions à collecter.
+  if(motif==='vente') return (_congeTypeBail(_congeState.ref)==='meuble') ? '' : _congeField('cg-prix','Prix de vente (€)','number','')+_congeField('cg-cond','Conditions de la vente','text','vente libre de toute occupation');
   return _congeField('cg-legitime','Description du motif légitime et sérieux','text','');
 }
 function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px">'+l+'</label>';
@@ -23288,10 +21188,21 @@ function _congeField(id,l,t,val,opts){ var lab='<label style="font:700 10px Inte
   return '<div class="fld" style="margin-bottom:8px">'+lab+'<input class="inp" id="'+id+'" '+(t==='date'?'type="date"':t==='number'?'type="number"':'')+' value="'+escHtml(val||'')+'" oninput="_congeRender()"></div>'; }
 function _congeForm(){
   if(_congeState.kind==='conge_bailleur'){
+    var _M=_congeModele(_congeState.ref);
+    // BAUX-ECHUS — étudiant / mobilité : information de fin de bail, rien à saisir ; garage / autre : la
+    // date d'effet prévue au contrat (pas de motif) ; nu / meublé : le congé motivé.
+    if(!_M.motif){
+      if(_M.dateLibre){
+        var _echF=(typeof _bailEcheanceEffective==='function')?_bailEcheanceEffective(DB.baux[_congeState.ref]||{},(DB.logements||[]).find(function(l){return l&&l.ref===_congeState.ref;})||null):'';
+        var _todF=(typeof window._loyerTodayLocal==='function')?window._loyerTodayLocal():_isoLocal(new Date());
+        return _congeField('cg-effet-contrat','Date d\'effet (selon le préavis du contrat)','date',(_echF&&_echF>=_todF)?_echF:'')+'<div id="cg-alert"></div>';
+      }
+      return '<div id="cg-alert"></div>';
+    }
     var motif=v('cg-motif')||'reprise';
     return _congeField('cg-motif','Motif du congé',null,null,[{v:'reprise',t:'Reprise pour habiter'},{v:'vente',t:'Vente du logement'},{v:'legitime',t:'Motif légitime et sérieux'}])+
       '<div id="cg-sub" data-m="'+motif+'">'+_congeSubBailleur(motif)+'</div>'+
-      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé (art. 15-III)</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
+      '<div class="fld" style="margin-bottom:8px"><label style="font:700 10px Inter;color:var(--t3);text-transform:uppercase">Locataire protégé ('+_M.protege+')</label><label style="font-weight:600;font-size:12px"><input type="checkbox" id="cg-protege" oninput="_congeRender()"> &gt; 65 ans ET ressources sous plafond</label></div>'+
       '<div id="cg-alert"></div>';
   }
   if(_congeState.kind==='conge_locataire') return _congeField('cg-recu','Date de réception du congé','date',(typeof td==='function'?td():''))+_congeField('cg-cas','Cas de préavis réduit (1 mois)',null,null,(window.CONGE_CAS_REDUITS||[]))+'<div id="cg-alert"></div>';
@@ -23300,18 +21211,37 @@ function _congeForm(){
   return '';
 }
 function _congeRender(){
-  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_CONGE_ACTS.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
+  // BAUX-ECHUS — la vignette « congé du bailleur » dit ce que produit la lettre pour CE type de bail.
+  var _MR=_congeModele(_congeState.ref), _tbR=_congeTypeBail(_congeState.ref);
+  var _actsR=_CONGE_ACTS.map(function(a){
+    if(a.k!=='conge_bailleur') return a;
+    if(_MR.tpl==='bail-fin-terme-information') return Object.assign({},a,{tt:'Information de fin de bail',ds:'Fin au terme, sans congé (art. '+(_tbR==='etudiant'?'25-7':'25-14')+')'});
+    if(_MR.dateLibre) return Object.assign({},a,{ds:'Selon le contrat de location'});
+    if(_tbR==='meuble') return Object.assign({},a,{ds:'Reprise / vente / motif légitime (art. 25-8)'});
+    return a;
+  });
+  var grid=document.getElementById('cg-acts'); if(grid) grid.innerHTML=_actsR.map(function(a){return '<div class="av-obj'+(_congeState.kind===a.k?' on':'')+'" onclick="_congePick(\''+a.k+'\')"><div style="font-weight:700;font-size:12px">'+a.tt+'</div><div style="font-size:10px;color:var(--t3)">'+a.ds+'</div></div>';}).join('');
   var form=document.getElementById('cg-form'); if(form && form.dataset.k!==_congeState.kind){ form.innerHTML=_congeForm(); form.dataset.k=_congeState.kind; }
-  if(_congeState.kind==='conge_bailleur'){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
+  if(_congeState.kind==='conge_bailleur' && _MR.motif){ var sub=document.getElementById('cg-sub'); var mnow=v('cg-motif')||'reprise'; if(sub && sub.dataset.m!==mnow){ sub.innerHTML=_congeSubBailleur(mnow); sub.dataset.m=mnow; } }
   var prev=document.getElementById('cg-preview'); if(prev) _docRenderSandboxed(prev, _congeDocHtml(_congeState.ref), 'Aperçu du congé', _docCarteCss());
   // alerte locataire protégé (congé bailleur) — NON bloquante
   var al=document.getElementById('cg-alert');
   if(al){ var html='';
     if(_congeState.kind==='conge_bailleur'){
+      // BAUX-ECHUS — étudiant / mobilité : le bail prend fin à son terme sans congé ; garage / autre :
+      // le contrat. On le DIT (jamais bloquant) — le modèle reste disponible.
+      var _tbC=_tbR;
+      if(typeof window.congeBailleurPreavisMois==='function' && !window.congeBailleurPreavisMois(_tbC)){
+        html+='<div class="note" style="background:var(--info-soft);border:1px solid var(--bor);color:var(--t1);border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">'
+          +((_tbC==='etudiant'||_tbC==='mobilite')
+            ? 'Bail '+(_tbC==='etudiant'?'étudiant (9 mois)':'mobilité')+' : il prend fin à son terme sans qu\'un congé soit nécessaire (article '+(_tbC==='etudiant'?'25-7':'25-14')+' de la loi du 6 juillet 1989). La lettre informe le locataire de la fin du bail.'
+            : 'Location hors loi du 6 juillet 1989 : le congé suit le contrat (forme, préavis, date d\'effet). Indiquer la date d\'effet prévue au contrat.')
+          +'</div>';
+      }
       if(_congeState.preavisPushed) html+='<div class="note" style="background:#e6f1fb;border:1px solid #cfe0f6;color:#185fa5;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Date d\'effet reportée au terme suivant : le préavis légal ne pouvait plus être respecté pour l\'échéance la plus proche (un congé délivré trop tard est nul).</div>';
       if(document.getElementById('cg-protege') && document.getElementById('cg-protege').checked)
-        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé (art. 15-III) : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
-    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:(DB.baux[_congeState.ref]||{}).type||'nu', casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
+        html+='<div class="note" style="background:var(--warnbg,#faeeda);border:1px solid #efd9a8;color:#8a5a12;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">⚠ Locataire protégé ('+_MR.protege+') : congé NUL sauf offre d\'un logement adapté — ou si le bailleur est lui-même &gt; 65 ans / de ressources modestes.</div>';
+    } else if(_congeState.kind==='conge_locataire'){ var pv=window.congeLocatairePreavis({typeBail:_tbR, casReduit:v('cg-cas')}); html='<div class="note" style="background:#e1f5ee;border:1px solid #a9dcc6;color:#0f6e56;border-radius:8px;padding:8px 10px;font-size:10.5px;margin-top:6px">Préavis '+pv.mois+' mois'+(pv.reduit?(pv.sansJustif?' (zone tendue : mention seule)':' (justificatif à joindre)'):'')+'.</div>'; }
     al.innerHTML=html; }
 }
 function _congePick(k){ _congeState.kind=k; var f=document.getElementById('cg-form'); if(f)f.dataset.k=''; _congeRender(); }
@@ -23383,7 +21313,7 @@ async function _congeSortiePdf(ref){
   var docHtml=_congeDocHtml(ref); if(!docHtml){ showToast('Aperçu indisponible','err'); return; }
   if(!_acteMentionsOk(docHtml,_acteVerbePdf())) return;
   if(typeof window._docHtmlToNativeBlob!=='function'){ showToast('Module PDF non chargé (rafraîchir la page)','err',5000); return; }
-  var noms={conge_bailleur:'Conge-bailleur',conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};
+  var noms={conge_bailleur:_congeModele(ref).fichier,conge_locataire:'Accuse-preavis',mise_demeure:'Mise-en-demeure',resiliation_amiable:'Resiliation-amiable'};   // BAUX-ECHUS : « Information-fin-de-bail » pour étudiant / mobilité
   await _pdfSortie({ fileName:noms[_congeState.kind]+'_'+(typeof _edlSanitize==='function'?_edlSanitize(ref):ref)+'.pdf', desc:'PDF (acte)', genererAvant:true,
     titre:noms[_congeState.kind].replace(/-/g,' '), texte:'Acte — '+(bail.adrBien||ref),
     genererBlob:function(){ return window._docHtmlToNativeBlob(docHtml, ent); } });
@@ -23425,7 +21355,12 @@ function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef,
     .replace('révisé annuellement à la date anniversaire du bail selon', 'révisé {{IRL_REVISION_QUAND}} selon')
     .replace('suivant la date de révision, sans notification préalable.', 'suivant la date de révision{{IRL_SANS_NOTIF}}.')
     .replace('Cette durée de 6 ans s\'applique conformément à l\'article 10 de la loi du 6 juillet 1989, le bailleur étant une personne morale (SCI).', '{{DUREE_PHRASE}}')
-    .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}');
+    .replace('Ce délai est réduit à <strong>un (1) mois</strong> si le LOCATAIRE : est muté ou perd involontairement son emploi ; obtient un premier emploi ; est âgé de plus de 60 ans et son état de santé nécessite un changement de domicile ; bénéficie du RSA ou de l\'AAH ; obtient un logement social ; réside en zone tendue.', '{{PREAVIS_REDUIT}}')
+    // BAUX-ECHUS — même mécanisme (correspondance EXACTE avec le modèle d'origine) pour la tacite
+    // reconduction du bail nu et la référence de la clause pénale : le jeton rend le texte d'origine
+    // pour un bail signé en version ≤ 4, la rédaction corrigée sinon (art. 10 al. 3 ; art. 1231-5 C. civ.).
+    .replace('<p>À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (6 ans).</p>', '<p>{{RECONDUCTION_NU_PHRASE}}</p>')
+    .replace('Il est stipulé à titre de clause pénale (articles 1226 et suivants du Code civil)', 'Il est stipulé à titre de clause pénale ({{CLAUSE_PENALE_REF}})');
   // CONTRAT-TYPE-2026-10 — même mécanisme : les passages du modèle d'AVANT le décret n° 2026-596,
   // s'ils sont restés tels quels dans un modèle enregistré, remontent vers leurs jetons. Les jetons
   // rendent le texte d'origine pour un bail signé avant (Word identique), le nouveau sinon.
@@ -23637,6 +21572,14 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     'PREAVIS_REDUIT': (typeof window.preavisReduitClause==='function')
       ? window.preavisReduitClause(true)
       : 'Ce délai est réduit à <strong>un (1) mois</strong> dans les cas prévus à l’article 15-I de la loi n° 89-462 du 6 juillet 1989.',
+    // BAUX-ECHUS — version de clauses 5 : reconduction 3 ou 6 ans (art. 10 al. 3) et clause pénale art. 1231-5 ;
+    // bail signé en version ≤ 4 : le texte d'origine du modèle, mot pour mot.
+    'RECONDUCTION_NU_PHRASE': (()=>{
+      const _BCFw = window.BailClausesFin; const ent2=DB.entites.find(e=>e.nom===bail.entity)||{};
+      return (_BCFw && _bailClauseVersion(bail) >= 5) ? S(_BCFw.reconductionBailNu(ent2.type||''))
+        : 'À défaut de congé ou de proposition de renouvellement notifié dans les formes et délais légaux, le bail se trouvera tacitement reconduit pour une durée égale à celle du bail initial (6 ans).';
+    })(),
+    'CLAUSE_PENALE_REF': (window.BailClausesFin && _bailClauseVersion(bail) >= 5) ? S(window.BailClausesFin.CLAUSE_PENALE_REF) : 'articles 1226 et suivants du Code civil',
     'MODALITE_PAIEMENT': bail.modalitePaiement==='echeoir'
       ? 'à terme à échoir (paiement en début de période)'
       : 'à terme échu (paiement en fin de période)',
@@ -24337,7 +22280,8 @@ function _migrationBailsForLot(ref) {
   const out = [];
   const cur = (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(ref) : (DB.baux || {})[ref];
   if (cur && !cur._deleted && cur.debut) {
-    out.push({ debut: cur.debut, fin: cur.fin || null, finEffective: cur.finEffective || null, hc: cur.hc, ch: cur.ch, archive: false });
+    // depart / cloture : lus par LA fin d'occupation (fin-occupation.js) dans chapitrePour ; ignorés par la migration.
+    out.push({ debut: cur.debut, fin: cur.fin || null, finEffective: cur.finEffective || null, hc: cur.hc, ch: cur.ch, archive: false, depart: cur.depart || null, cloture: !!cur.cloture });
   }
   for (const h of (DB.baux_historique || [])) {
     if (!h || h._deleted || !h.debut || _nrb(h.ref) !== want) continue;
@@ -25292,7 +23236,13 @@ function _rgYearChargesDetail(ref, yearOffset){
   // AUSSI les charges retirées au titre du forfait (`forfait.exclusDetails`) : la base estime les charges
   // du LOGEMENT, elle ne dépend pas du régime de charges de l'an passé (audit 30/09 : base N-1 amputée).
   if(typeof window.baseChargesLogement !== 'function') return null; // module absent : pas d'estimation (repli sur le réel)
-  const b = window.baseChargesLogement(entries);
+  // Charges directes datées pendant une VACANCE du logement (portées par le bailleur, plus par un
+  // locataire) : ce sont des charges du LOGEMENT → remises dans la base, sinon l'estimation d'un départ
+  // baisse dès que N-1 a connu une vacance. Jamais les parts « Logement exclu » d'un compteur.
+  const vac = Object.values(res.bailleur||{}).flatMap(bl=>bl.segments||[])
+    .filter(s=>s.horsOccupation && s.ref===ref)
+    .map(s=>({ date:s.date, lib:s.lib, mvLib:s.lib, montant:s.montant, mvId:s.mvId }));
+  const b = window.baseChargesLogement(vac.length ? entries.concat([{ details: vac }]) : entries);
   return { year:y, total:b.total, moves:b.moves };
 }
 
@@ -25620,10 +23570,12 @@ function _rgApplyRetenue(entryKey, retenue, restit){
   const reparations = c ? (Number(c.reparations)||0) : 0;
   const retenueRegul = c ? (Number(c.retenueRegul)||0) : (Number(retenue)||0);
   entry.bail.dgRetenu = Math.round((reparations + retenueRegul)*100)/100;
-  const sd = (typeof _calculerSoldeDG==='function') ? _calculerSoldeDG(entry.bail, DB.mouvements||[]) : null;
+  // Fin d'occupation résolue par computeRegul (_bailFinOccupation : tacite reconduction) — pas la fin contractuelle.
+  const sd = (typeof _calculerSoldeDG==='function') ? _calculerSoldeDG(Object.assign({}, entry.bail, { fin: entry.fin }), DB.mouvements||[]) : null;
   entry.bail.dgRestitue = sd ? sd.soldeRestitue
     : Math.max(0, Math.round(((Number(entry.bail.dgPaid)||Number(entry.bail.dg)||0) - entry.bail.dgRetenu)*100)/100);
   if(typeof _stamp==='function') _stamp(entry.bail); // v15.x : horodatage pour merge multi-device (cohérence convention bail)
+  if(typeof _archiveRecopierSurCopies==='function') _archiveRecopierSurCopies(entry.bail, ['dgRetenu', 'dgRestitue']);   // archive en double : sur toutes ses copies
   if(typeof saveDB==='function') saveDB();
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
   if(typeof showToast==='function') showToast('Retenue de '+fmt(entry.bail.dgRetenu)+' € enregistrée sur le dépôt de garantie ✓','ok');
@@ -25645,6 +23597,29 @@ function _departOv(){
 
 // Date limite de restitution du DG calculée DÈS le départ (avant clôture/archive) :
 // date de sortie (remise des clés) + délai légal (1 mois EDL conforme / 2 mois sinon, art. 22).
+// Le début du bail SUIVANT sur le lot (bail courant ou archivé commencé après celui-ci) — '' s'il n'y en a pas.
+function _bailSuivantDebut(bail) {
+  if(!bail || !bail.ref) return '';
+  const d0 = String(bail.debut || '').slice(0, 10);
+  const cands = [DB.baux && DB.baux[bail.ref]].concat(DB.baux_historique || [])
+    .filter(b => b && !b._deleted && b !== bail && b.ref === bail.ref && b.debut && String(b.debut).slice(0, 10) > d0);
+  return cands.map(b => String(b.debut).slice(0, 10)).sort()[0] || '';
+}
+// Les EDL qui peuvent appartenir à CE bail : tous ceux d'avant le début du bail SUIVANT (après une relocation, la sortie
+// du nouveau locataire n'est pas celle de l'ancien). La borne basse (début du bail) est celle d'EdlParcours.edlSortieQuiFaitFoi.
+function _edlsDuBail(bail) {
+  const avant = _bailSuivantDebut(bail);
+  return (DB.edl || []).filter(e => e && (!avant || !e.date || String(e.date).slice(0, 10) < avant));
+}
+function _edlSortieDuBail(bail) {
+  if(!bail || !bail.ref) return null;
+  const edls = _edlsDuBail(bail);
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  if(P && typeof P.edlSortieQuiFaitFoi === 'function') return P.edlSortieQuiFaitFoi(bail, edls);
+  const d0 = String(bail.debut || '');
+  return edls.filter(e => !e._deleted && e.logement === bail.ref && e.type === 'Sortie' && (!d0 || !e.date || String(e.date) >= d0))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0] || null;
+}
 function _departDeadlineDG(bail){
   const d = bail && bail.depart;
   const sortie = (d && d.dateSortie) || (bail && bail.finEffective) || '';
@@ -25653,14 +23628,15 @@ function _departDeadlineDG(bail){
   // Tant qu'aucun EDL de sortie n'existe, le délai n'est pas figé (_calculerDelaiRestitution renvoie 1
   // par défaut) → on affiche le MAXIMUM légal (2 mois) pour ne pas annoncer une échéance trop optimiste.
   // Une fois l'EDL réalisé, _calculerDelaiRestitution tranche (1 mois conforme / 2 mois retenues).
-  const edlExists = !!(bail && bail.ref && (DB.edl||[]).some(e=>e && !e._deleted && e.logement===bail.ref && e.type==='Sortie'));
-  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, DB.edl) : 2) : 2;
+  // L'EDL de sortie de CE bail (entre son début et le début du bail suivant) — jamais celui d'un autre locataire du lot.
+  const edlExists = !!_edlSortieDuBail(bail);
+  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, _edlsDuBail(bail)) : 2) : 2;
   // Construction locale (sans suffixe TZ) puis ajout calendaire → évite le décalage UTC de toISOString().
   const day = +m[3];
   const lim = new Date(+m[1], +m[2]-1, day); lim.setMonth(lim.getMonth()+mois);
   // Débordement de fin de mois (ex. 31/01 + 1 mois ≠ 31/02) → dernier jour du mois cible (art. 641 CPC).
   if(lim.getDate() !== day) lim.setDate(0);
-  const todayStr = (typeof td==='function') ? td() : new Date().toISOString().slice(0,10);
+  const todayStr = (typeof _todayIsoLocal==='function') ? _todayIsoLocal() : new Date().toISOString().slice(0,10);   // date LOCALE (td() = UTC)
   const tm = /^(\d{4})-(\d{2})-(\d{2})/.exec(todayStr);
   // Écart en jours sur composants purs (Date.UTC) → insensible au fuseau / DST.
   const todayUTC = tm ? Date.UTC(+tm[1], +tm[2]-1, +tm[3]) : Date.now();
@@ -25739,7 +23715,7 @@ function _departState(bail){
       {ic:'🛠️', t:'Remise en état / travaux', s:'Équipements', on:`closeM('ov-depart');go('equipements')`},
       {ic:'📑', t:'Diagnostics à jour (DPE…)', s:'Diagnostics', on:`closeM('ov-depart');go('biens')`},
       {ic:'📣', t:'Annonce + candidatures', s:'Candidats', on:`closeM('ov-depart');go('candidats')`},
-      {ic:'📝', t:'Nouveau bail + EDL entrée + DG', s:'Bail', on:`closeM('ov-depart');openBail('${jsRef}')`}
+      {ic:'📝', t:'Nouveau bail + EDL entrée + DG', s:'Bail', on:`closeM('ov-depart');_ouvrirNouveauBailSurLot('${jsRef}')`}
     ],
     cta:[{label:'🔚 Clôturer le bail (archiver)', on:`closeM('ov-depart');openBailClore('${jsRef}')`},
          {label:'Candidatures', ghost:true, on:`closeM('ov-depart');go('candidats')`}]
@@ -26016,8 +23992,8 @@ function _rgShowGlobal(immNom){
   const nonRep=(result.nonReparti||{})[immNom];
   const f=fmt;
   // CDC É4 (mockup 07) — colonne « Bailleur (225) » : part non refacturée par facture (mvId).
-  const bailPerMv={};
-  ((bail&&bail.segments)||[]).forEach(s=>{ if(s&&s.mvId!=null) bailPerMv[s.mvId]=(bailPerMv[s.mvId]||0)+s.montant; });
+  const bailPerMv={}, bailLigneMv={};
+  ((bail&&bail.segments)||[]).forEach(s=>{ if(s&&s.mvId!=null){ bailPerMv[s.mvId]=(bailPerMv[s.mvId]||0)+s.montant; if(s.deja2044) bailLigneMv[s.mvId]=s.deja2044; } });
   // pivot : 1 ligne par mouvement, 1 colonne par occupation
   const mv={};
   entries.forEach(e=>(e.details||[]).forEach(d=>{
@@ -26026,6 +24002,17 @@ function _rgShowGlobal(immNom){
     mv[id].per[e.entryKey]=(mv[id].per[e.entryKey]||0)+d.montant;
     if(d.mvTotal) mv[id].total=d.mvTotal;
   }));
+  // Une charge portée ENTIÈREMENT par le bailleur (datée pendant une vacance) a aussi SA ligne — sinon la
+  // colonne « Bailleur » affichait un total sans aucune ligne pour l'expliquer.
+  ((bail&&bail.segments)||[]).forEach(sg=>{
+    if(!sg || sg.mvId==null || mv[sg.mvId]) return;
+    const src=(DB.mouvements||[]).find(x=>x && x.id===sg.mvId);
+    mv[sg.mvId]={mvId:sg.mvId, lib:sg.lib||'', date:sg.date, total:src?Math.round((+src.db||0)*100)/100:0, per:{}};
+  });
+  // Ligne 2044 de la part bailleur : 225 (charges récupérables non récupérées), ou la propre ligne de la
+  // charge si elle y est déjà déduite (ex. copropriété → 229). Lu par la matrice ET le rendu téléphone.
+  Object.values(mv).forEach(m=>{ m.bailLigne=(m.mvId!=null&&bailLigneMv[m.mvId])||'225'; });
+  const bailDeja=Object.keys(bailLigneMv).length>0;
   const mvArr=Object.values(mv).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   // Chaque colonne-locataire mène à SON détail (factures) — régression 25/09 : la vue globale ne menait nulle part.
   const colH=entries.map(e=>`<th class="num"><button type="button" class="rg-colbtn" data-imm="${escHtml(immNom)}" data-ek="${escHtml(e.entryKey)}" onclick="_rgOuvrirDetailLoc(this.dataset.imm,this.dataset.ek)" title="Voir les factures de ${escHtml(e.loc||e.ref)}">${escHtml(e.ref)}<small>${escHtml(e.loc||'Vacant')}</small><span class="rg-colbtn-l">${_uiIcon('receipt',11)} Détail</span></button></th>`).join('');
@@ -26034,7 +24021,7 @@ function _rgShowGlobal(immNom){
     return `<tr class="rg-mv${clk?' clk':''}"${clk?` onclick="openEditMv(${m.mvId})"`:''}>`
       + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(m.lib)}">${escHtml(m.lib)}</span><small>${escHtml(fd(m.date)||m.date||'')}${m.total?' · facture '+f(m.total):''}${clk?' · '+_uiIcon('edit',10):''}</small></td>`
       + entries.map(e=>`<td class="num">${m.per[e.entryKey]?f(m.per[e.entryKey]):'<span class="z">—</span>'}</td>`).join('')
-      + `<td class="num col-bail">${(m.mvId!=null&&bailPerMv[m.mvId])?f(bailPerMv[m.mvId]):'<span class="z">—</span>'}</td>`
+      + `<td class="num col-bail">${(m.mvId!=null&&bailPerMv[m.mvId])?f(bailPerMv[m.mvId])+(m.bailLigne!=='225'?`<small style="display:block;font-weight:400">déjà déduite en ${escHtml(m.bailLigne)}</small>`:''):'<span class="z">—</span>'}</td>`
       + `<td class="num col-tot">${f(rowSum)}</td></tr>`; }).join('');
   const trouRows=(nonRep&&nonRep.total>0.005)?nonRep.lines.map(l=>{ const clk=(l.mvId!=null);
     return `<tr class="trou${clk?' clk':''}"${clk?` onclick="openEditMv(${l.mvId})"`:''}>`
@@ -26063,7 +24050,7 @@ function _rgShowGlobal(immNom){
       ${validated?`<span class="rg-badge-ok">${_uiIcon('check',13)} validé</span>`:`<span class="rg-badge-todo">${_uiIcon('warn',13)} à valider</span>`}</div>
     ${banner}
     <div class="rg-wrap"><table class="tbl rg-mtx">
-      <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-bail" title="Part non refacturée aux locataires — reste à charge du bailleur (2044 ligne 225)">Bailleur (225)</th><th class="num col-tot">Réparti loc.</th></tr></thead>
+      <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-bail" title="Part non refacturée aux locataires — reste à charge du bailleur : 2044 ligne 225, ou la propre ligne de la charge quand elle y est déjà déduite (copropriété : 229)">Bailleur${bailDeja?'':' (225)'}</th><th class="num col-tot">Réparti loc.</th></tr></thead>
       <tbody>
         ${mvRows||`<tr><td colspan="${entries.length+3}" class="mu sm">Aucune charge répartie sur la période.</td></tr>`}
         ${trouRows}
@@ -26091,7 +24078,7 @@ function _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, val
     const clk=(m.mvId!=null);
     const rowSum=Math.round(Object.values(m.per).reduce((s,x)=>s+x,0)*100)/100;
     const lots = entries.map(e=> m.per[e.entryKey] ? `<div class="rgvg-l"><span class="lot"><b>${escHtml(e.ref)}</b>${e.loc?` · ${escHtml(e.loc)}`:''}</span><span class="qp">${f(m.per[e.entryKey])}</span></div>` : '').join('');
-    const bailPart = (m.mvId!=null && bailPerMv[m.mvId]) ? `<div class="rgvg-l bail"><span class="lot">Bailleur (225)</span><span class="qp">${f(bailPerMv[m.mvId])}</span></div>` : '';
+    const bailPart = (m.mvId!=null && bailPerMv[m.mvId]) ? `<div class="rgvg-l bail"><span class="lot">Bailleur (${m.bailLigne&&m.bailLigne!=='225'?'déjà déduite en '+escHtml(m.bailLigne):'225'})</span><span class="qp">${f(bailPerMv[m.mvId])}</span></div>` : '';
     return `<div class="rgvg-cc${clk?' clk':''}"${clk?` onclick="openEditMv(${m.mvId})"`:''}>
       <div class="rgvg-top"><span class="rgvg-lib">${escHtml(m.lib||'—')}</span><span class="rgvg-fac">${f(m.total||rowSum)}</span></div>
       <div class="rgvg-date">${_uiIcon('calendar',12)}${escHtml(fd(m.date)||m.date||'')}${m.total?` · facture ${f(m.total)}`:''}${clk?` · ${_uiIcon('edit',11)}`:''}</div>
@@ -26205,18 +24192,21 @@ function computeRegul(from, to) {
     const bailRaw = DB.baux[l.ref];
     const bail = (bailRaw && _isAlive(bailRaw)) ? bailRaw : null;
     if(bail) {
-      const clip = clipBail(bail.debut, bail.fin);
+      // Fin d'occupation (tacite reconduction : la fin contractuelle d'un bail nu/meublé en cours
+      // ne coupe pas l'occupation) — lecture unique _bailFinOccupation.
+      const finOcc = _bailFinOccupation(bail, false);
+      const clip = clipBail(bail.debut, finOcc);
       if(clip.occDays > 0) pool.push({
         entryKey: l.ref, ref: l.ref, imm: l.imm,
         loc: bail.locataires?.[0]?.nom || l.locataire || '–',
-        bail, debut: bail.debut, fin: bail.fin||'',
+        bail, debut: bail.debut, fin: finOcc,
         isHistorique: false, ...clip
       });
     }
 
     (DB.baux_historique||[]).forEach((hb, idx)=>{
       if(hb.ref !== l.ref) return;
-      const finEff = hb.finEffective || hb.fin || '';
+      const finEff = _bailFinOccupation(hb, true);
       const clip = clipBail(hb.debut, finEff);
       if(clip.occDays <= 0) return;
       pool.push({
@@ -26264,11 +24254,22 @@ function computeRegul(from, to) {
   //  3) Charge sur immeuble sans compteur → fallback prorata jours, MAIS filtré par compteCharges:false.
 
   // v14.73 : on accumule la part bailleur (vacances + exclus) par immeuble pour la card UI + 2044
-  const bailleur = {}; // { 'imm': {imm, total, segments:[{date,lib,cc,montant,motif}]} }
+  // Chaque segment porte le logement (`ref`) ; `deja2044` = ligne 2044 où la charge est déjà déduite
+  // (ex. copropriété directe → 229). La part à reporter en 225 se lit par _rgSegments225 (lecteur unique).
+  const bailleur = {}; // { 'imm': {imm, total, segments:[{date,lib,cc,ref,montant,motif,deja2044?,horsOccupation?}]} }
   function _bailleurAdd(immNom, seg) {
     if(!bailleur[immNom]) bailleur[immNom] = { imm: immNom, total: 0, segments: [] };
     bailleur[immNom].total += seg.montant;
     bailleur[immNom].segments.push(seg);
+  }
+
+  // Règle UNIQUE d'imputation d'une charge DATÉE : l'occupation dont [debutOcc, finOcc] (jours locaux,
+  // bornes incluses — jour de sortie compris) contient sa date. Aucune → null = VACANCE : la charge
+  // revient au bailleur, jamais à un locataire (avant : repli sur la 1ʳᵉ occupation du logement → le
+  // locataire parti, ou le suivant, payait les charges de la vacance).
+  function _occupationDuJour(candidates, date) {
+    const j = String(date||'').slice(0,10);
+    return candidates.find(e => e.debutOcc && e.finOcc && j >= e.debutOcc && j <= e.finOcc) || null;
   }
 
   // v15.x Phase B — charges récupérables NON RÉPARTIES (« trous ») : montant qui ne tombe
@@ -26319,7 +24320,7 @@ function computeRegul(from, to) {
           if(p.exclu && p.montant > 0) {
             _bailleurAdd(im.nom, {
               mvId: m.id,
-              date: m.date, lib: m.lib, cc: cc.nom||'Compteur',
+              date: m.date, lib: m.lib, cc: cc.nom||'Compteur', ref: p.ref,
               montant: Math.round(p.montant*100)/100,
               motif: 'Logement exclu : ' + (p.raison || 'compte-charges désactivé')
             });
@@ -26330,7 +24331,7 @@ function computeRegul(from, to) {
           // v14.73 : période vacante → reste à charge du bailleur (2044)
           _bailleurAdd(im.nom, {
             mvId: m.id,
-            date: m.date, lib: m.lib, cc: cc.nom||'Compteur',
+            date: m.date, lib: m.lib, cc: cc.nom||'Compteur', ref: p.ref,
             montant: Math.round(p.montant*100)/100,
             motif: `Vacance ${p.ref}${p.debut?' ('+fd(p.debut)+'→'+fd(p.fin||'')+')':''}`
           });
@@ -26340,7 +24341,7 @@ function computeRegul(from, to) {
         if(!candidates.length){
           // v15.x Phase C (audit) : part de compteur pour un logement sans bail sur la période
           // → reste à charge du bailleur (sinon perdue silencieusement).
-          _bailleurAdd(im.nom, { mvId:m.id, date:m.date, lib:m.lib, cc:cc.nom||'Compteur', montant:Math.round(p.montant*100)/100, motif:'Logement '+p.ref+' sans bail sur la période' });
+          _bailleurAdd(im.nom, { mvId:m.id, date:m.date, lib:m.lib, cc:cc.nom||'Compteur', ref:p.ref, montant:Math.round(p.montant*100)/100, motif:'Logement '+p.ref+' sans bail sur la période' });
           return;
         }
         // Match l'entrée res dont la période d'occupation chevauche la part (par locataire successif)
@@ -26349,7 +24350,10 @@ function computeRegul(from, to) {
           target = candidates.find(e => e.debutOcc && e.finOcc
             && !(p.fin < e.debutOcc || p.debut > e.finOcc));
         }
-        if(!target) target = candidates.find(e => m.date >= e.debutOcc && m.date <= e.finOcc) || candidates[0];
+        // Repli conservé ici : une part de compteur n'est pas une charge datée — les parts au prorata
+        // ont déjà leur segment (vacance → isBailleur plus haut) et une consommation relevée
+        // (sous-compteurs) appartient à l'occupant du logement, quelle que soit la date de la facture.
+        if(!target) target = _occupationDuJour(candidates, m.date) || candidates[0];
         const partR = Math.round(p.montant * 100) / 100;
         target.charges += partR;
         const cleLabel = (CC_REPARTITION_LABELS[p.methode]||{}).label || p.methode || cc.cleRepartition;
@@ -26368,7 +24372,16 @@ function computeRegul(from, to) {
     if(m.qui) {
       const candidates = Object.values(res).filter(e=>e.ref===m.qui);
       if(!candidates.length){ const _lg=(DB.logements||[]).find(l=>l.ref===m.qui); _nonRepAdd(_lg?_lg.imm:m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Logement « '+m.qui+' » sans bail actif sur la période'}); return; }
-      const target = candidates.find(e=>m.date>=e.debutOcc&&m.date<=e.finOcc) || candidates[0];
+      const target = _occupationDuJour(candidates, m.date);
+      if(!target){
+        // Vacance : datée hors de toute occupation → bailleur. Déjà déduite sur sa propre ligne 2044
+        // (résolveur unique _catLigne2044, ex. 229) → `deja2044` : pas réinjectée en 225.
+        const _l2044 = (typeof _catLigne2044==='function') ? (_catLigne2044(m.cat)||null) : null;
+        _bailleurAdd(candidates[0].imm || m.imm || '', { mvId:m.id, date:m.date, lib:m.lib, cc:'', ref:m.qui,
+          montant:Math.round((m.db||0)*100)/100, deja2044:_l2044, horsOccupation:true,
+          motif:'Vacance '+m.qui+' — charge datée hors occupation'+(_l2044?' (déjà déduite ligne '+_l2044+')':'') });
+        return;
+      }
       target.charges += m.db;
       target.details.push({date:m.date, lib:m.lib, montant:m.db, repartition:'Direct', mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
       return;
@@ -26420,6 +24433,32 @@ function computeRegul(from, to) {
   }
   // v14.73 : retour structuré { entries, bailleur } · v15.x Phase B : + nonReparti
   return { entries: res, bailleur: bailleur, nonReparti: nonReparti };
+}
+
+// LA part bailleur à reporter en ligne 225 de la 2044 FONCIÈRE — lecteur UNIQUE de `regul.bailleur`
+// (assistant 2044, prévisualisation Finances, indicateur compta). On écarte :
+//   • une part déjà déduite sur sa propre ligne (`seg.deja2044`, ex. copropriété directe → 229) ;
+//   • une part d'un logement HORS du périmètre foncier (`refs` : lot meublé → BIC/LMNP).
+// `imms` / `refs` absents (null) = pas de filtre. Rend les segments retenus et leur total.
+function _rgSegments225(regul, imms, refs) {
+  const segs = [];
+  Object.values((regul && regul.bailleur) || {}).forEach(b => {
+    if(imms && !imms.includes(b.imm)) return;
+    (b.segments || []).forEach(s => {
+      if(s.deja2044) return;
+      if(refs && s.ref && !refs.includes(s.ref)) return;
+      segs.push(s);
+    });
+  });
+  return { segments: segs, total: Math.round(segs.reduce((t, s) => t + (s.montant || 0), 0) * 100) / 100 };
+}
+// Ligne(s) 2044 de la part bailleur AFFICHÉE (carte Charges PC + téléphone) : selon son CONTENU —
+// « 225 », « 229 » (copropriété déjà déduite sur sa ligne), ou « 225 et 229 ». Texte brut.
+function _rgLignes2044Bailleur(bArr) {
+  const l = new Set();
+  (bArr || []).forEach(b => (b.segments || []).forEach(s => l.add(s.deja2044 || '225')));
+  const t = [...l].sort();
+  return t.length ? t.join(' et ') : '225';
 }
 
 function rRegul() {
@@ -26476,7 +24515,7 @@ function rRegul() {
     ? `<div style="margin:14px 0;padding:14px 16px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <span style="font-size:18px">${_uiIcon('bank',18)}</span>
-          <b style="font-size:14px">Part bailleur (charges non récupérables — déductibles 2044 ligne 224/227)</b>
+          <b style="font-size:14px">Part bailleur (charges récupérables non récupérées — 2044 ligne ${escHtml(_rgLignes2044Bailleur(bailleurArr))})</b>
         </div>
         ${bailleurArr.map(b => {
           const segRows = b.segments.slice().sort((a,b) => (a.date||'').localeCompare(b.date||'')).map(seg => `
@@ -26499,7 +24538,7 @@ function rRegul() {
           </details>`;
         }).join('')}
         <p class="mu sm" style="font-size:11px;margin-top:10px;font-style:italic">
-          ${_uiIcon('bulb',14)} Ces montants ne sont pas refacturés aux locataires. Ils correspondent aux périodes de vacance et aux logements exclus du compteur (garage, etc.). Reportez-les sur votre déclaration 2044 (ligne 224 ou 227 selon nature).
+          ${_uiIcon('bulb',14)} Ces montants ne sont pas refacturés aux locataires : périodes de vacance et logements exclus du compteur (garage, etc.). L'assistant 2044 les reporte en ligne 225 pour les lots en location nue — sauf une charge déjà déduite sur sa propre ligne (copropriété : 229), signalée « déjà déduite ».
         </p>
       </div>`
     : '';
@@ -26781,8 +24820,8 @@ function _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, ba
         .map(seg=>`<div class="rgph-bail-l"><span class="d">${escHtml(fd(seg.date)||'—')}</span><span class="lib">${escHtml(seg.lib||'')}${seg.motif?` <span class="mo">— ${escHtml(seg.motif)}</span>`:''}</span><b>${fmt(seg.montant)}</b></div>`).join('');
       return `<div class="rgph-bail-imm"><b>${escHtml(b.imm)}</b><b class="amt">${fmt(b.total)}</b></div>${segs}`;
     }).join('');
-    bailHtml=`<details class="rgph-bail"><summary><span class="uicw">${_uiIcon('bank',15)}</span><span class="tt">Part bailleur <span class="sub">non récupérable · déductible 2044</span></span><b>${fmt(totBail)}</b></summary>`
-      + `<div class="rgph-bail-body">${imms}<p class="rgph-bail-note">${_uiIcon('bulb',13)} Non refacturé aux locataires (vacance, lots exclus). À reporter en 2044 (ligne 224/227).</p></div></details>`;
+    bailHtml=`<details class="rgph-bail"><summary><span class="uicw">${_uiIcon('bank',15)}</span><span class="tt">Part bailleur <span class="sub">non récupérée · 2044 ligne ${escHtml(_rgLignes2044Bailleur(bArr))}</span></span><b>${fmt(totBail)}</b></summary>`
+      + `<div class="rgph-bail-body">${imms}<p class="rgph-bail-note">${_uiIcon('bulb',13)} Non refacturé aux locataires (vacance, lots exclus). 2044 : ligne 225 (location nue), sauf charge déjà déduite sur sa ligne (copropriété : 229).</p></div></details>`;
   }
   el('reg-cards').innerHTML = nonRepBanner + (body ? `<div class="rgph-list">${body}${total}${bailHtml}</div>` : `<div class="rgph-empty">Aucune donnée de régularisation sur la période.</div>${bailHtml}`);
 }

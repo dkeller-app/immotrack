@@ -15,7 +15,7 @@
 // mapping) : entites/immeubles par nom, logements par ref, baux par clé de map, le reste par id.
 import { TABLE_COLLECTIONS, LOCAL_USER_PARAM_KEYS } from './store-supabase.js'   // source unique des collections table-backées + params local-user
 import { bailContentHash } from './bail-content-hash.js'  // empreinte légale canonique des baux signés (verrou)
-import { bailHistCle } from './store-mapping.js'          // identité d'une archive (SOURCE UNIQUE avec l'id de ligne)
+import { bailHistCle, nouvelIdArchive } from './store-mapping.js'          // identité d'une archive (SOURCE UNIQUE avec l'id de ligne)
 import { entreeJournalAuto } from './bail-modifications.js'   // journal automatique d'un bail signé verrouillé (B2)
 
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
@@ -214,10 +214,7 @@ const configSig = db => {
 
 // Identifiant opaque (ligne propre d'un bail, archive en collision, entrée de journal automatique).
 // Jamais dérivé d'une donnée métier : seule son unicité compte (il est persisté dans legacy_raw).
-const _uidDefaut = () => {
-  try { if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID() } catch (_e) { /* repli */ }
-  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
-}
+const _uidDefaut = nouvelIdArchive   // même générateur que l'app (store-mapping) : un seul format d'identifiant
 
 export function createStoreSync({ store, getDB, schedule, sealSigned = true, retryBaseMs = 2000, retryMaxMs = 60000, now = () => new Date(), newUid = _uidDefaut }) {
   if (!store || typeof store.upsert !== 'function' || typeof store.remove !== 'function')
@@ -258,31 +255,47 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   const _bareKey = (keyFn, rec) => (rec && rec._espaceId != null) ? keyFn({ ...rec, _espaceId: null }) : keyFn(rec)
   // Réadoption d'UNE collection, sur ses records SOURCES (vivants). Renvoie l'ensemble des clés
   // nues restées AMBIGUËS (jumeau vivant non résolu) → sert à suspendre les removes correspondants.
-  function _adoptTags(coll, keyFn, srcs) {
+  // Enregistrement NEUF (clé inconnue du baseline) : son espace est DÉDUIT de son rattachement par le
+  // store multi-espace (store.inferEspace, cf. store-multi inferEspaceOf) — un mouvement, un document ou
+  // un rappel créé par un associé sur un lot d'une SCI TIERCE part dans l'espace de cette SCI, plus dans
+  // l'espace propre (incident 05/10/2026, SCI SMARTOSAURUS). Absent (store mono) ou indécidable → D2.
+  const _infer = typeof store.inferEspace === 'function' ? store.inferEspace : null
+  function _adoptTags(coll, keyFn, srcs, db) {
     const base = baseline.get(coll)
     let unresolved = null
-    if (!base || base.size === 0) return unresolved
+    const hasBase = !!(base && base.size)
+    if (!hasBase && !_infer) return unresolved
     let idx = null   // paresseux (uniquement si un record non tagué existe) : cléNue → { untagged, tags }
     for (const probe of srcs) {
       // baux : la clé (__key) vit dans le dict, pas dans la valeur → sources() fournit un wrapper
       // { __key, __src } ; le tag se pose sur __src (l'objet bail vivant). Ailleurs probe = source.
       const target = (probe && probe.__src !== undefined) ? probe.__src : probe
       if (!target || typeof target !== 'object' || target._espaceId != null || isDeleted(target)) continue
-      if (idx === null) {
-        idx = new Map()
-        for (const v of base.values()) {
-          const tag = v.rec && v.rec._espaceId
-          const bare = _bareKey(keyFn, v.rec)
-          let e = idx.get(bare); if (!e) { e = { untagged: false, tags: new Set() }; idx.set(bare, e) }
-          if (tag == null) e.untagged = true; else e.tags.add(tag)
+      if (hasBase) {
+        if (idx === null) {
+          idx = new Map()
+          for (const v of base.values()) {
+            const tag = v.rec && v.rec._espaceId
+            const bare = _bareKey(keyFn, v.rec)
+            let e = idx.get(bare); if (!e) { e = { untagged: false, tags: new Set() }; idx.set(bare, e) }
+            if (tag == null) e.untagged = true; else e.tags.add(tag)
+          }
+        }
+        const e = idx.get(keyFn(probe))   // probe non tagué → keyFn(probe) = clé nue
+        if (e) {
+          if (!e.untagged && e.tags.size === 1) target._espaceId = e.tags.values().next().value
+          else if (e.tags.size) {           // ambigu (ou clé nue connue + homonymes tagués) → removes suspendus
+            if (!unresolved) unresolved = new Set()
+            unresolved.add(keyFn(probe))
+          }
+          continue
         }
       }
-      const e = idx.get(keyFn(probe))   // probe non tagué → keyFn(probe) = clé nue
-      if (!e) continue                  // clé inconnue du baseline → vrai nouveau record (D2)
-      if (!e.untagged && e.tags.size === 1) target._espaceId = e.tags.values().next().value
-      else if (e.tags.size) {           // ambigu (ou clé nue connue + homonymes tagués) → removes suspendus
-        if (!unresolved) unresolved = new Set()
-        unresolved.add(keyFn(probe))
+      // clé inconnue du baseline → vrai nouveau record : espace de son rattachement, sinon D2.
+      if (_infer && db) {
+        const vue = (probe && probe.__src !== undefined) ? { ...probe.__src, __key: probe.__key } : probe
+        const t = _infer(coll, vue, db)
+        if (t != null) target._espaceId = t
       }
     }
     return unresolved
@@ -293,7 +306,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   function _adoptAll(db) {
     const suspended = new Map()
     for (const { coll, sources, key } of COLLECTIONS) {
-      const u = _adoptTags(coll, key, sources(db))
+      const u = _adoptTags(coll, key, sources(db), db)
       if (u) suspended.set(coll, u)
     }
     return suspended
@@ -395,7 +408,17 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       const prev = base && base.get(k)
       if (g.length < 2) continue                                  // seule sur sa clé → identité historique
       const ancre = (prev && g.find(h => sig({ ...h }) === prev.sig)) || g[0]
-      for (const h of g) if (h !== ancre) h._archiveId = newUid()
+      // Une copie EXACTE (même contenu) est la MÊME archive (doublon local) : elle garde l'identité de son
+      // original — jamais deux identifiants pour une seule archive (elle serait comptée deux fois).
+      const sigAncre = sig({ ...ancre })
+      const idParSig = new Map()
+      for (const h of g) {
+        if (h === ancre) continue
+        const s = sig({ ...h })
+        if (s === sigAncre) continue
+        if (!idParSig.has(s)) idParSig.set(s, newUid())
+        h._archiveId = idParSig.get(s)
+      }
     }
   }
 

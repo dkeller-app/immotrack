@@ -76,7 +76,7 @@ import {
 
 // B4 — sous-P&L mensuel (modèle prêt entier en charge)
 import {
-  _computeFinancesMonthly
+  _computeFinancesMonthly, _computeDetteBail, _avantBorne
 } from './core/finances-monthly.js';
 
 // REFONTE FINANCES étape 2 — LE résolveur de périmètre unique (P-1/P-2/P-3) + les deux
@@ -85,7 +85,6 @@ import {
   resolveScope as _finScopeResolveM, buildScopeCatalog as _finScopeCatalogM,
   scopeWeight as _finScopeWeightCoreM, lotInScope as _finScopeLotInM,
   scopeLots as _finScopeLotsM, scopeLabel as _finScopeLabelM,
-  orphelinsHorsPerimetre as _finScopeOrphelinsM,
   SANS_BAILLEUR as _FIN_SANS_BAILLEUR_M, SANS_IMMEUBLE as _FIN_SANS_IMMEUBLE_M,
   LABEL_SANS_BAILLEUR as _FIN_LBL_SANS_BAILLEUR_M, LABEL_SANS_IMMEUBLE as _FIN_LBL_SANS_IMMEUBLE_M
 } from './core/finances-scope.js';
@@ -105,7 +104,9 @@ import {
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
+import { bailLoueAu } from './core/fin-occupation.js';
+import { bailHistCle, nouvelIdArchive } from './core/store-mapping.js';
+import { duMois, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, finOccupationBail, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import { computeEntretienStatut } from './core/entretien-statut.js';
 import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES } from './core/pilotage-familles.js';
@@ -129,14 +130,16 @@ import * as AvenantRegistre from './core/avenant-registre.js';
 // Forfait de charges (art. 25-10 / 8-1, V) dans la régularisation : post-traitement, intervalles, base N-1 (pur, testé).
 import { forfaitAvenantsDuBail, occNonForfaitJours, forfaitIntervalles, appliquerForfaitOccupation, periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique, avenantApplicationAffichee } from './core/regul-forfait.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
-import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase } from './core/bail-duree.js';
-import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause, congeMotifDetail, congeDateEffet, congeMentionPreavis } from './core/conge.js';
+import { regimeBailleur, dureeBailNuLabel, dureeBailNuPhrase, sousTitreBailNu } from './core/bail-duree.js';
+import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis, addMoisClamped as congeAddMois, locataireProtege, PREAVIS_REDUIT_CAS, preavisReduitClause, congeMotifDetail, congeDateEffet, congeMentionPreavis, congeBailleurModele, congePhraseTerme } from './core/conge.js';
 // DOC-C — un acte ne part pas en PDF avec ses trous. Détection des mentions restées vides dans
 // le document RENDU, et fondement légal quand l'absence emporte nullité (art. 15-I / 15-II).
 import { mentionsManquantes, emporteNullite, messageMentionsManquantes, sortieAutorisee } from './core/actes-mentions.js';
 import { MF_SEUIL, MF_ABATTEMENT, evaluerMicroFoncier } from './core/micro-foncier.js';
 // VISALE-GMBI — visa Visale (contrôles non bloquants) + alerte ponctuelle « déclaration d'occupation ».
 import * as Visale from './core/visale.js';
+// R0-C · Q1 révisé — point de départ des loyers suivis (date d'achat / antériorité / provisoire).
+import * as Anteriorite from './core/anteriorite.js';
 import * as DeclarationOccupation from './core/declaration-occupation.js';
 
 import {
@@ -234,12 +237,6 @@ import {
 // symboles sur window pour le mode file:// ; meme source, aucune divergence possible.
 import * as BankImport from './core/bank-import.js';
 
-// v15.10 QUITTANCES-ACTIVES - statut dynamique + escalade
-// CDC-QUITTANCES-IRL etape 1 : _matchPaiementQuittance / _matcheMois SUPPRIMES (7e moteur, C3).
-import {
-  _statutQuittance, _escaladeAlerte, QUITTANCE_STATUS
-} from './core/quittances-actives.js';
-
 // CDC-QUITTANCES-IRL etape 1 - LE socle du verdict « ce mois est-il solde ? » (D6/D7).
 // Consomme _loyerArrearsPass ; n'ecrit AUCUN rattachement paiement->mois (I6).
 import {
@@ -270,7 +267,7 @@ import { migrerIdsMenuLoyers } from './core/nav-submenu.js';
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
-  _planApurementStatut, _procedureJudiciaireEtat, _listerImpayesActifs,
+  _planApurementStatut, _procedureJudiciaireEtat,
   DG_STATUS, PROCEDURE_ETAT
 } from './core/gestion-dg-impayes.js';
 
@@ -313,6 +310,9 @@ import * as Stockage from './core/stockage-local.js';
 // STOCKAGE lot 4 (docs/CDC-STOCKAGE.md §3.8) — miroir cloud en IndexedDB + journal synchrone des EDL.
 // MÊME module (même URL) que celui importé par supabase-entry.js → même instance `miroir()`.
 import * as MiroirLocal from './core/miroir-local.js';
+// STOCKAGE lot 2 (docs/CDC-STOCKAGE.md §3.4) — filets avant migration en IndexedDB `immotrack_backup`
+// (rotation 1 par migration, 3 au plus, 30 jours ; purge au logout). Exposé sous window._filets.
+import * as FiletsMigration from './core/filets-migration.js';
 
 // RESET-CLOUD UX — cœur PUR du « ⚠️ Vider mon espace cloud » (gating UI, saisie du nom,
 // messages d'erreur RPC). Exposé sous window._espacePurge ; l'orchestration IMPURE (modale,
@@ -494,6 +494,14 @@ window._finPoidsMensuels = _finPoidsMensuelsM;
 
 // B4 — sous-P&L mensuel (prêt entier en charge + base 2044 conditionnelle)
 window._computeFinancesMonthly = _computeFinancesMonthly;
+// R0-C lot 1 — dette d'UN bail lue dans le maître (restitution du dépôt, art. 22) : consommée
+// au lot 2 par `_finDetteBail` (déclaration de fonction inline, jamais un const).
+window._computeDetteBail = _computeDetteBail;
+// R0-C C1 — encaissements d'avant une date d'achat « à rattacher » : lus par `_loyerEtatLot` (note de
+// l'onglet Loyers et de la relance). La règle reste unique (finances-monthly.js).
+window._avantBorne = _avantBorne;
+// R0-C · Q1 révisé : lu par _finLotSuivi (app-part2) et l'écran « Situation du locataire ».
+window._anteriorite = Anteriorite;
 
 // REFONTE FINANCES étape 2 — socle périmètre + fenêtres (jamais window.MOIS_FR : le
 // `const MOIS_FR` lexical d'index.html masquerait la propriété — piège documenté).
@@ -503,7 +511,6 @@ window._finScopeWeightCore = _finScopeWeightCoreM;
 window._finScopeLotIn = _finScopeLotInM;
 window._finScopeLots = _finScopeLotsM;
 window._finScopeLabel = _finScopeLabelM;
-window._finScopeOrphelins = _finScopeOrphelinsM;
 window._FIN_SANS_BAILLEUR = _FIN_SANS_BAILLEUR_M;
 window._FIN_SANS_IMMEUBLE = _FIN_SANS_IMMEUBLE_M;
 window._FIN_LBL_SANS_BAILLEUR = _FIN_LBL_SANS_BAILLEUR_M;
@@ -531,7 +538,13 @@ window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
 // Les surfaces basculeront dessus à l'étape 4 ; ici le barème est ALIMENTÉ par les writers.
 window.duMois = duMois;
 window.duMoisFromRaw = duMoisFromRaw;
+// R0-C · Q1 — dû borné au début du suivi du lot (`_debutSuivi`) : LE dû lu par le maître Finances.
+window.duMoisSuiviFromRaw = duMoisSuiviFromRaw;
 window.bailsFromRaw = bailsFromRaw;
+window.finOccupationBail = finOccupationBail;   // LA fin d'occupation d'un bail (lue par _bailFinOccupation, inline)
+window.bailHistCle = bailHistCle;
+window.nouvelIdArchive = nouvelIdArchive;   // identifiant unique posé dès l'archivage d'un bail (_archiverDansHistorique)   // identité d'un bail archivé (= id de sa ligne cloud) : restitution du dépôt sur le bail EXACT
+window.bailLoueAu = bailLoueAu;   // LE statut loué / vacant d'un lot (décision Didier 06/10), lu par _bienIsBailActif
 // Même piège que l'historique IRL ci-dessus (le miroir rendait []), mais AUCUN impact aujourd'hui :
 // ce câblage n'a pas de consommateur. Le seul appelant de `_baremeOfLot` est `loyer-du-mois.js`
 // (L78/151/210), qui passe son propre barème. On le corrige quand même — il est exposé, donc il
@@ -649,11 +662,6 @@ window.ATTACHMENT_DEFAULT_MAX_SIZE = ATTACHMENT_DEFAULT_MAX_SIZE;
 window.BankImport = BankImport;
 for (const _bk of Object.keys(BankImport)) window[_bk] = BankImport[_bk];
 
-// QUITTANCES-ACTIVES (v15.10 Sprint 11) - statut dynamique + escalade + auto-gen
-window._statutQuittance = _statutQuittance;
-window._escaladeAlerte = _escaladeAlerte;
-window.QUITTANCE_STATUS = QUITTANCE_STATUS;
-
 // LOYERS - verdict « mois solde » (CDC-QUITTANCES-IRL etape 1). Source unique consommee
 // par l'onglet Loyers ; index.html n'assemble que le contexte (du + encaisse).
 window.etatMoisLot = etatMoisLot;
@@ -724,6 +732,7 @@ window.CONGE_CAS_REDUITS = CONGE_CAS_REDUITS;
 window.regimeBailleur = regimeBailleur;
 window.dureeBailNuLabel = dureeBailNuLabel;
 window.dureeBailNuPhrase = dureeBailNuPhrase;
+window.sousTitreBailNu = sousTitreBailNu;
 window.PREAVIS_REDUIT_CAS = PREAVIS_REDUIT_CAS;
 window.preavisReduitClause = preavisReduitClause;
 window.ART15_II_ALINEAS = ART15_II_ALINEAS;
@@ -737,6 +746,8 @@ window.congeBailleurPreavisMois = congeBailleurPreavisMois;
 window.congeMotifDetail = congeMotifDetail;
 window.congeDateEffet = congeDateEffet;
 window.congeMentionPreavis = congeMentionPreavis;
+window.congeBailleurModele = congeBailleurModele;   // BAUX-ECHUS : la lettre de congé selon le type de bail
+window.congePhraseTerme = congePhraseTerme;
 window.congeLocatairePreavis = congeLocatairePreavis;
 window.congeAddMois = congeAddMois;
 window.locataireProtege = locataireProtege;
@@ -755,7 +766,6 @@ window.computeVetusteLigne = computeVetusteLigne;
 window.computeVetusteTotal = computeVetusteTotal;
 window._planApurementStatut = _planApurementStatut;
 window._procedureJudiciaireEtat = _procedureJudiciaireEtat;
-window._listerImpayesActifs = _listerImpayesActifs;
 window.DG_STATUS = DG_STATUS;
 window.PROCEDURE_ETAT = PROCEDURE_ETAT;
 
@@ -804,6 +814,8 @@ window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildMani
 window._stockage = Stockage;
 // STOCKAGE lot 4 — miroir cloud (lu par _miroirEcrireCloud dans index.html).
 window._miroirLocal = MiroirLocal;
+// STOCKAGE lot 2 — filets avant migration (lus par _filetAvantMigration / _filetsExpirer dans app-part2.js).
+window._filets = FiletsMigration;
 
 // RESET-CLOUD UX — cœur pur du « Vider mon espace cloud » (voir import en tête).
 window._espacePurge = { confirmNameMatches, purgeUiState, purgeErrorMessage };

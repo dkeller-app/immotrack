@@ -19,9 +19,24 @@ export function createBoot(client) {
   let _store = null, _sync = null, _ctx = null
 
   // ── AUTH (Variante A : email/mdp d'abord, Google ensuite) ────────────────────
+  // Perf — utilisateur VALIDÉ côté serveur à l'instant (getUser = appel réseau ; signInWithPassword = identifiants
+  // vérifiés). resolveEspaces() le relisait par un 2e getUser, une aller-retour réseau de plus au démarrage : il
+  // réutilise ce résultat s'il a moins de 15 s. Mémoire seule, jamais persisté ; aucun autre appelant ne le lit.
+  let _userRecent = null, _userRecentAt = 0
+  const _memoUser = u => { if (u && u.id) { _userRecent = u; _userRecentAt = Date.now() } }
+  const _userRecentOuNull = () => (_userRecent && Date.now() - _userRecentAt < 15000 ? _userRecent : null)
+  // Garde-fou « mauvais compte » : le mémo ne sert que si la session LOCALE active (getSession, sans réseau) est
+  // bien celle du même utilisateur — après une déconnexion / un changement de compte, il est ignoré.
+  async function _userRecentValide() {
+    const m = _userRecentOuNull()
+    if (!m) return null
+    try { const { data } = await client.auth.getSession(); return (data && data.session && data.session.user && data.session.user.id === m.id) ? m : null }
+    catch (e) { return null }
+  }
   async function loginEmail(email, password) {
     const { data, error } = await client.auth.signInWithPassword({ email, password })
     if (error) return { ok: false, error: error.message }
+    _memoUser(data && data.user)
     return { ok: true, user: data.user }
   }
   // Création de compte (invité qui rejoint un partage). Confirmation email DÉSACTIVÉE côté Supabase →
@@ -44,6 +59,8 @@ export function createBoot(client) {
   // se déconnecte juste après une modif), puis signOut + reset. L'app doit AUSSI annuler son timer de
   // debounce en attente (sinon un flush programmé tirerait après le reset). Best-effort (catch).
   async function logout(opts) {
+    _userRecent = null   // defense en profondeur : plus de memo de l'utilisateur apres une deconnexion
+
     // EDL TERRAIN lot 4, faille F2 (CDC §3ter, invariant 19g) — la déconnexion
     // DÉTRUISAIT le travail hors ligne : le flush ci-dessous échoue toujours sans
     // réseau, le code se contentait d'un console.warn (« la modif restée à quai est
@@ -116,6 +133,7 @@ export function createBoot(client) {
   async function currentUserOrError() {
     try {
       const { data, error } = await client.auth.getUser()
+      _memoUser(data && data.user)
       return { user: (data && data.user) || null, error: error || null }
     } catch (e) { return { user: null, error: e } }
   }
@@ -153,7 +171,7 @@ export function createBoot(client) {
   // TIERS où il a des SCI octroyées (full_espace=false). → [{espaceId, ownerId(created_by), mine}]. Espace
   // propre d'abord. 0 membership → en créer un (resolveEspace). N=1 → comportement mono identique.
   async function resolveEspaces(defaultName = 'Mon patrimoine') {
-    const u = await currentUser()
+    const u = (await _userRecentValide()) || await currentUser()   // 1 aller-retour réseau de moins si l'utilisateur vient d'être validé
     const uid = u && u.id
     const { data: mems, error } = await client.from('espace_members')
       .select('espace_id, full_espace').eq('user_id', uid).eq('invite_status', 'active')
@@ -170,6 +188,27 @@ export function createBoot(client) {
       .filter(m => metaById[m.espace_id])
       .map(m => ({ espaceId: m.espace_id, ownerId: metaById[m.espace_id].created_by, espaceNom: metaById[m.espace_id].nom, mine: m.full_espace === true }))
     list.sort((a, b) => (b.mine - a.mine))   // espace propre d'abord
+    // Espaces TIERS : SCI où l'utilisateur est GESTIONNAIRE (entite_membre, RLS « ses propres octrois »).
+    // Sert au routage des enregistrements NEUFS (store-multi inferEspace) : un mouvement, un document ou un
+    // rappel créé sur un lot d'une SCI tierce part dans l'espace de cette SCI SEULEMENT si l'écriture y est
+    // permise ; sinon défaut D2 (espace propre), comme avant. Lecture en échec → aucune SCI inscriptible
+    // (fail-safe : jamais un routage que la RLS refuserait en boucle).
+    const tiers = list.filter(e => !e.mine)
+    if (tiers.length) {
+      let gest = []
+      try {
+        const { data: grants, error: e3 } = await client.from('entite_membre')
+          .select('espace_id, entite_id, role').eq('user_id', uid).in('espace_id', tiers.map(e => e.espaceId))
+        if (e3) console.warn('[resolveEspaces] octrois SCI illisibles :', e3.message)
+        else gest = (grants || []).filter(g => g && g.role === 'gestionnaire')
+      } catch (e4) { console.warn('[resolveEspaces] octrois SCI :', e4 && e4.message) }
+      const norm = s => String(s == null ? '' : s).trim().toLowerCase()
+      for (const e of tiers) {
+        const ids = new Set(gest.filter(g => g.espace_id === e.espaceId).map(g => g.entite_id))
+        const det = makeDetUuid(e.ownerId)
+        e.peutEcrire = nom => ids.has(det('entite', norm(nom)))
+      }
+    }
     return list
   }
 

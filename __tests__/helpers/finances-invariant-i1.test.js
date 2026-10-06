@@ -231,3 +231,22 @@ describe("INVARIANT I-1 — garde-fous du harnais", () => {
     expect(v[0].raison).toBe('surface-invalide');
   });
 });
+
+// ── R0-C lot 1 · la retenue sur dépôt est DANS le harnais, et elle y mesure ─────────────────
+describe('INVARIANT I-1 — la retenue sur dépôt de garantie (R0-C)', () => {
+  // Le locataire ne paie que janvier : la dette grossit de mois en mois — la surface n'est pas
+  // muette. Une IRL au 1er août ne doit changer AUCUNE dette arrêtée de janvier à juillet.
+  const c = casReferenceIRL();
+  const mvts = [{ date: '2026-01-05', cat: 'Loyer', qui: c.ref, cr: 900, db: 0 }];
+  const surfaces = surfacesSocle({ mouvements: mvts });
+  const retenue = surfaces['retenue sur dépôt · dette du bail (_computeDetteBail)'];
+
+  it('la surface est branchée et MESURE (dette non nulle et croissante sur les mois figés)', () => {
+    expect(retenue(c.avant, '2026-03')).toEqual({ loyer: 1600, charge: 200, avance: 0 });
+    expect(retenue(c.avant, '2026-07').loyer).toBe(6 * 800);
+  });
+  it('l\'IRL d\'août ne réécrit aucune dette arrêtée avant elle', () => {
+    expect(infractionsI1({ ...c, surfaces: { retenue } })).toEqual([]);
+    expect(retenue(c.apres, '2026-12').loyer).toBe(6 * 800 + 5 * 850);   // et produit son effet après
+  });
+});

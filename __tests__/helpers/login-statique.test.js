@@ -15,7 +15,7 @@ describe('écran de connexion statique', () => {
     const i = html.indexOf('\n<body>\n')
     expect(i).toBeGreaterThan(0)
     expect(html.slice(i, i + 80)).toContain('<div id="imsb-overlay" data-static>')
-    for (const id of ['imsb-left', 'imsb-form', 'imsb-email', 'imsb-pass', 'imsb-submit', 'imsb-error', 'imsb-forgot', 'imsb-signup', 'imsb-theme', 'imsb-authwrap']) {
+    for (const id of ['imsb-left', 'imsb-form', 'imsb-email', 'imsb-pass', 'imsb-submit', 'imsb-error', 'imsb-forgot', 'imsb-remember', 'imsb-signup', 'imsb-theme', 'imsb-authwrap']) {
       expect(html, `#${id} manquant dans l’overlay statique`).toContain(`id="${id}"`)
     }
   })

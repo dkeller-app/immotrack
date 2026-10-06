@@ -39,6 +39,10 @@ export const FLUSH_OK_KEY = 'immotrack_v4_flush_at';
 export const ESPACES_KEY = 'immotrack_v4_espaces';
 export const MIRROR_TAG_KEY = 'immotrack_v4_tag';
 export const AUTH_STORAGE_KEY = 'immo-supabase-auth';
+/** Les écritures hors ligne que F1 remonte au cloud — PROPRIÉTAIRE : offline-boot.js
+ *  (ECRITURES_REMONTEES_PAR_F1). Copie locale pour la même raison que les clés ci-dessus (pas d'import
+ *  dans un module chargé statiquement par main.js) ; égalité verrouillée par stockage-local.test.js. */
+export const ECRITURES_REMONTEES_PAR_F1 = Object.freeze(['edl', 'edl-photo', 'edl-signature-presentielle']);
 
 const echap = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** Clé exacte, en prod seulement (clés écrites sans `_lsKey`). */
@@ -240,4 +244,138 @@ export function clesCopiesLocales(cles) {
 /** S-7 — purge des copies. Rend les clés supprimées. Ne lève jamais. */
 export function purgerCopies(storage) {
   return supprimer(storage, clesCopiesLocales(lireCles(storage))).faites;
+}
+
+// ── STOCKAGE lot 3 — le message vrai (S-6, D1 B) et l'état de la copie de cet appareil (§3.7) ──
+
+/** Les textes (maquette validée par Didier le 06/10, mockups/STOCKAGE/reglages-etat-stockage.html ;
+ *  `edl`, `reseauCoupe`, `sessionMorte` ajoutés au contre-audit du lot 3, même registre).
+ *  `enLigne` est donné au moment où l'envoi est MARQUÉ, pas quand le cloud l'a reçu : il dit « part au
+ *  cloud », jamais « bien enregistrée dans le cloud » (audit lots 2-3, 🟡1 — D1 B inchangé : jamais
+ *  « PAS enregistrée » en ligne). */
+export const TEXTES_ECHEC_MIROIR = {
+  enLigne: 'Copie de secours de cet appareil non mise à jour. La modification part au cloud ; '
+    + 'sans réseau, cet appareil afficherait des données plus anciennes. Détail : Sauvegarde & export → Stockage de cet appareil.',
+  edl: 'Stockage de cet appareil plein : cet état des lieux n’est pas encore en sécurité sur l’appareil. '
+    + 'Il part au cloud ; garder l’application ouverte jusqu’à la fin de l’envoi.',
+  reseauCoupe: 'Stockage de cet appareil plein et réseau coupé : cette modification n’est pas encore en sécurité. '
+    + 'Garder l’application ouverte jusqu’au retour du réseau pour qu’elle parte au cloud.',
+  sessionMorte: 'Stockage de cet appareil plein et session expirée : cette modification n’est PAS enregistrée. Se reconnecter, puis la refaire.',
+  edlHorsLigne: 'Stockage de cet appareil presque plein : cet état des lieux est enregistré sur cet appareil. '
+    + 'Il partira au cloud au retour du réseau, en rouvrant Propryo. Détail : Sauvegarde & export → Stockage de cet appareil.',
+  horsLigne: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée. La refaire une fois le réseau revenu.',
+  sandbox: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée. Vider la base de test pour libérer de la place.',
+  local: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée.',
+};
+
+const estEdl = quoi => typeof quoi === 'string' && /^edl(-|$)/.test(quoi);
+/** Hors ligne : seules ces écritures remontent au cloud par F1 (offline-boot, ECRITURES_REMONTEES_PAR_F1). */
+const remonteeParF1 = quoi => ECRITURES_REMONTEES_PAR_F1.indexOf(String(quoi || '')) >= 0;
+
+/**
+ * S-6 / D1 B — que dire, et que rendre, quand la copie de cet appareil (le miroir) n'a pas pu être écrite ?
+ * Le retour de saveDB dit si la modification a une DESTINATION DURABLE :
+ *   - `cloud-en-ligne` : le cloud la reçoit (sync marquée quoi qu'il arrive) → `true`, avis UNIQUE par
+ *     session (la copie de l'appareil est en retard). EXCEPTION, l'état des lieux : sa copie locale est son
+ *     second filet (F1 le remonte au démarrage suivant) ; un envoi encore en mémoire n'est pas durable. Il
+ *     n'est « enregistré » que si l'écriture IndexedDB est planifiée (`miroirIdb`) — sinon `false`, avis
+ *     unique « pas encore en sécurité » (contre-audit lot 3, B1) ;
+ *   - `cloud-reseau-coupe` (session en ligne, `navigator.onLine` faux) : rien n'est durable, la modification
+ *     reste en mémoire et partira au retour du réseau si l'app reste ouverte → `false` ;
+ *   - `cloud-session-morte` : plus rien ne part au cloud → `false`, « PAS enregistrée » ;
+ *   - `cloud-hors-ligne`, `local` (sandbox, ancien mode) : le miroir était la seule destination → `false`.
+ *     EXCEPTION, l'état des lieux HORS LIGNE (écritures REMONTÉES PAR F1 seulement : `edl`, `edl-photo`,
+ *     `edl-signature-presentielle` — pas `edl-pieces`, gabarit du logement) dont l'écriture IndexedDB est
+ *     planifiée (`miroirIdb`) : seul
+ *     un petit écrit localStorage (`_ecrit_at` ou le journal) a été refusé ; la base complète part en
+ *     IndexedDB avec `travailA`, et F1 la remonte au démarrage en ligne suivant — la même durabilité que
+ *     l'EDL en ligne → `true`, avis unique « enregistré sur cet appareil » (audit lots 2-3, 🟠1 : dire
+ *     « PAS enregistrée, la refaire » faisait saisir l'EDL deux fois).
+ * Un mode inconnu est traité comme une perte (on ne promet jamais un enregistrement qu'on ne peut prouver).
+ * `unique` : clé d'avis donné une seule fois par session (false = message à chaque perte, anti-rafale 10 s).
+ * @returns {{ retour:boolean, type:'warn'|'err', unique:string|false, message:string }}
+ */
+export function verdictEchecMiroir({ mode, sandbox = false, quoi, miroirIdb = false } = {}) {
+  if (mode === 'cloud-en-ligne') {
+    if (estEdl(quoi) && !miroirIdb) return { retour: false, type: 'err', unique: 'edl', message: TEXTES_ECHEC_MIROIR.edl };
+    return { retour: true, type: 'warn', unique: 'copie', message: TEXTES_ECHEC_MIROIR.enLigne };
+  }
+  if (mode === 'cloud-hors-ligne' && remonteeParF1(quoi) && miroirIdb) {
+    return { retour: true, type: 'warn', unique: 'edl-hors-ligne', message: TEXTES_ECHEC_MIROIR.edlHorsLigne };
+  }
+  if (mode === 'cloud-reseau-coupe') return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.reseauCoupe };
+  if (mode === 'cloud-session-morte') return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.sessionMorte };
+  if (mode === 'local') return { retour: false, type: 'err', unique: false, message: sandbox ? TEXTES_ECHEC_MIROIR.sandbox : TEXTES_ECHEC_MIROIR.local };
+  return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.horsLigne };
+}
+
+/** Le mode du miroir, à partir de ce que l'app sait au moment de l'écriture. */
+export function modeMiroir({ cloud, horsLigne, enLigne, sessionMorte }) {
+  if (!cloud) return 'local';
+  if (horsLigne) return 'cloud-hors-ligne';
+  if (sessionMorte) return 'cloud-session-morte';
+  if (enLigne === false) return 'cloud-reseau-coupe';
+  return 'cloud-en-ligne';
+}
+
+const deux = n => String(n).padStart(2, '0');
+/** « aujourd'hui à 14:32 » / « le 06/10 à 14:32 » (heure locale). */
+export function quandCourt(t, maintenant = Date.now()) {
+  const d = new Date(t), m = new Date(maintenant);
+  const heure = deux(d.getHours()) + ':' + deux(d.getMinutes());
+  const memeJour = d.getFullYear() === m.getFullYear() && d.getMonth() === m.getMonth() && d.getDate() === m.getDate();
+  return memeJour ? 'aujourd’hui à ' + heure : 'le ' + deux(d.getDate()) + '/' + deux(d.getMonth() + 1) + ' à ' + heure;
+}
+
+/**
+ * §3.7 — l'état de la copie hors ligne de cet appareil, pour la carte de Réglages. Priorité : le plus
+ * grave d'abord (pas à jour > incomplète > mode réduit > à jour). `ton` = classe de pastille de l'app
+ * (`grn` vert = va bien, `blu` corail = à regarder, `gry` neutre — charte M-15).
+ * @param {object} o
+ * @param {boolean} o.cloud           session cloud (sinon : sandbox ou ancien mode local)
+ * @param {boolean} o.sandbox
+ * @param {string|null} o.backend     'indexeddb' | 'localStorage' | null (miroir pas prêt)
+ * @param {boolean} o.copieIncomplete
+ * @param {number} o.echecDepuis      0, ou heure de la 1re écriture ratée depuis la dernière réussie
+ * @param {number} o.dernierOk        0, ou heure de la dernière écriture réussie connue
+ * @returns {{ etat:string, libelle:string, ton:string, explication:string }}
+ */
+export function etatCopieAppareil({ cloud, sandbox, backend = null, copieIncomplete = false, echecDepuis = 0, dernierOk = 0, enLigne = true, maintenant = Date.now() }) {
+  if (!cloud) {
+    return sandbox
+      ? { etat: 'test', libelle: 'Base de test', ton: 'gry', explication: 'Mode test : les données sont gardées dans ce navigateur uniquement.' }
+      : { etat: 'local', libelle: 'Base locale', ton: 'gry', explication: 'Les données sont gardées dans ce navigateur uniquement.' };
+  }
+  if (echecDepuis) {
+    const depuis = dernierOk && dernierOk < echecDepuis ? dernierOk : echecDepuis;
+    const q = quandCourt(depuis, maintenant);
+    const libelle = 'Pas à jour depuis ' + (q.startsWith('le ') ? q : q.replace(/^aujourd’hui à /, ''));
+    // Hors ligne / réseau coupé / session expirée : rien ne garantit que le cloud a reçu (contre-audit, I3).
+    if (!enLigne) return { etat: 'pas-a-jour', libelle, ton: 'blu',
+      explication: 'Le stockage de cet appareil est plein. Sans réseau, les modifications qui ne sont pas encore parties au cloud ne sont pas en sécurité.' };
+    return { etat: 'pas-a-jour', libelle, ton: 'blu',
+      explication: 'Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données ' + (q.startsWith('le ') ? 'du ' + q.slice(3) : 'd’' + q) + '.' };
+  }
+  if (copieIncomplete) {
+    return { etat: 'incomplete', libelle: 'Incomplète', ton: 'blu',
+      explication: 'La base ne tient pas entièrement sur cet appareil : sans réseau, les données affichées seraient anciennes.' };
+  }
+  if (backend === 'localStorage') {
+    return { etat: 'reduit', libelle: 'Mode réduit', ton: 'blu',
+      explication: 'Ce navigateur refuse le stockage étendu (navigation privée ?). La copie hors ligne est limitée à environ 5 Mo sur cet appareil.' };
+  }
+  return { etat: 'a-jour', libelle: 'À jour', ton: 'grn',
+    explication: dernierOk ? 'Dernière mise à jour ' + quandCourt(dernierOk, maintenant) + '.' : 'Copie faite à l’ouverture de la session.' };
+}
+
+/** Une taille en « Mo » lisible (caractères ≈ octets pour l'utilisateur), virgule décimale. */
+export function enMo(caracteres) {
+  const mo = (Number(caracteres) || 0) / (1024 * 1024);
+  return (mo < 0.1 && mo > 0 ? '< 0,1' : mo.toFixed(1).replace('.', ',')) + ' Mo';
+}
+
+/** Occupation du localStorage (caractères, unité du quota Chromium). Ne lève jamais (accès refusé compris). */
+export function occupationStockage(lireStorage) {
+  try { const st = typeof lireStorage === 'function' ? lireStorage() : lireStorage; return lireEntrees(st).reduce((s, e) => s + e.taille, 0); }
+  catch (_e) { return 0; }
 }
