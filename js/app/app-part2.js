@@ -24020,19 +24020,20 @@ function rParamsCats() {
     </div>`;
   };
 
+  // Une catégorie perso se range dans une FAMILLE du référentiel et en hérite le traitement fiscal
+  // ET le cash-flow (GO Didier 06/10, maquette FINANCES-CATEGORIES/famille-reglages). Même liste
+  // qu'à la création et qu'au rattachement Finances ; plus de « Hors résultat » fourre-tout.
   const renderCustomRow = ({nom, idx}) => {
-    const curLn = _catLigne2044(nom) || ''; // lit les 2 magasins (catMapping + legal2044Mapping)
-    const opts = (typeof _FIN_2044_OPTIONS !== 'undefined' ? _FIN_2044_OPTIONS : [])
-      .map(o => `<option value="${o[0]}"${o[0] === curLn ? ' selected' : ''}>${o[1]}</option>`).join('');
-    // data-cat (échappé HTML) au lieu d'injecter le nom dans une string JS inline → gère les apostrophes.
+    const _m = _finCatMere(nom), cur = _m ? _m.nom : '';
     return `<div class="flex-b mb8" style="padding:8px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);flex-wrap:wrap;gap:6px">
       ${_catIconHTML(nom)}
       <span style="flex:1;min-width:120px">${escHtml(nom)}
-        <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">Personnalisée · sa ligne 2044 détermine son traitement (loyer / charge / hors 2044).</span>
+        <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">Personnalisée · hérite de sa famille le traitement fiscal et le cash-flow.</span>
       </span>
-      <select data-cat="${escHtml(nom)}" onchange="_setCustomCatMap(this.getAttribute('data-cat'), this.value)" style="font-size:11px;padding:5px 7px;border-radius:6px;border:1px solid var(--bor);background:var(--sur);color:var(--t1);max-width:240px">
-        <option value="">— (non rattachée : à corriger) —</option>${opts}
-      </select>
+      <div class="cat-fam" style="display:flex;flex-direction:column;gap:3px;flex:0 1 280px;max-width:280px;min-width:0">
+        <select data-cat="${escHtml(nom)}" aria-label="Famille de ${escHtml(nom)}" onchange="_setCustomCatFamille(this.getAttribute('data-cat'), this.value)" style="font-size:11px;padding:5px 7px;border-radius:6px;border:1px solid var(--bor);background:var(--sur);color:var(--t1);width:100%">${_finMereOptionsHtml(cur)}</select>
+        ${_finFamilleEffetHtml(cur)}
+      </div>
       <div class="flex-c">
         <button class="btn br bb" onclick="delCat(${idx})" title="Supprimer cette catégorie personnalisée">${_uiIcon('trash',14)}Supprimer</button>
       </div>
@@ -24054,7 +24055,7 @@ function rParamsCats() {
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bor)">
         ${_uiIcon('edit',16)}
         <b style="font-size:13px">Catégories personnalisées <span class="mu sm" style="font-weight:400">(${customCats.length})</span></b>
-        <span class="mu sm" style="font-size:10px;font-style:italic;margin-left:auto">Créées par toi · mapping libre via le wizard 2044</span>
+        <span class="mu sm" style="font-size:10px;font-style:italic;margin-left:auto">Chacune rangée dans une famille du référentiel</span>
       </div>
       ${customCats.length
         ? customCats.map(renderCustomRow).join('')
@@ -24086,40 +24087,18 @@ function saveCatConfig(cat, field, val) {
   DB.catConfig[cat][field] = val;
   saveDB();
 }
-// v15.291 : la ligne 2044 d'une catégorie custom pilote son traitement (loyer / charge / hors 2044).
-// Remplace les anciennes cases inclYTD/inclCharges — désormais déduites de la ligne (cf _isLoyerCategory/_isChargeRecupCategory).
-// Écrit dans les DEUX magasins (catMapping + params.legal2044Mapping) pour rester cohérent avec le
-// wizard 2044 ET « Associer mes catégories » qui lisent chacun le leur (unification de source à terme).
-function _writeCatMap(nom, ln) {
-  if (!DB.catMapping) DB.catMapping = {};
-  if (!DB.params) DB.params = {};
-  if (!DB.params.legal2044Mapping) DB.params.legal2044Mapping = {};
-  if (ln) { DB.catMapping[nom] = ln; DB.params.legal2044Mapping[nom] = ln; }
-  else { delete DB.catMapping[nom]; delete DB.params.legal2044Mapping[nom]; }
-}
-function _setCustomCatMap(nom, ln) {
-  // Audit R1 : pas de RÉTROGRADATION silencieuse — une catégorie rattachée à une famille
-  // hors-2044 SPÉCIFIQUE (Prêt, dépôt de garantie, virement interne…) ne doit pas être
-  // écrasée sur « Divers » par le choix « Hors résultat » de l'éditeur Réglages (qui ne
-  // sait pas exprimer ces familles). On refuse et on renvoie vers le rattachement Finances.
-  if (ln === '__ignore') {
-    const _cur = (DB.catAlias || {})[nom];
-    const _curMere = _cur ? _stdCategoryByName(_cur) : null;
-    if (_curMere && !_curMere.ligne2044 && _curMere.nom !== 'Divers (non déductible)') {
-      if (typeof showToast === 'function') showToast('« ' + nom + ' » est rattachée à « ' + _curMere.nom + ' » (hors 2044). Ce choix resterait perdu — change sa famille via le rattachement de Finances.', 'warn', 6500);
-      if (typeof rParamsCats === 'function') rParamsCats();
-      return;
-    }
+// Réglages : change la FAMILLE d'une catégorie perso. Passe par LE geste de rattachement unique
+// (`_finRattacheCategorie` : alias + miroirs 2044). Une catégorie reste toujours rangée (M-1 bis).
+function _setCustomCatFamille(nom, mereNom) {
+  if (!nom || !mereNom || !_stdCategoryByName(mereNom)) {
+    if (typeof showToast === 'function') showToast('Une catégorie reste toujours rangée dans une famille', 'warn', 4500);
+    if (typeof rParamsCats === 'function') rParamsCats();
+    return;
   }
-  // M-1 bis : une catégorie ne redevient JAMAIS flottante — pas de « dé-rattachement ».
-  if (!ln) { if (typeof showToast === 'function') showToast('Une catégorie reste toujours rattachée — choisis une ligne, ou « Hors résultat »', 'warn', 4500); if (typeof rParamsCats === 'function') rParamsCats(); return; }
-  _writeCatMap(nom, ln);
-  // Cohérence avec les ALIAS M-1 (qui priment dans _finCatMere) : le choix Réglages met
-  // aussi la mère à jour, sinon un alias existant écraserait silencieusement ce choix.
-  const _mere = (ln === '__ignore') ? _stdCategoryByName('Divers (non déductible)') : (typeof _finStdByLigne === 'function' ? _finStdByLigne(ln) : null);
-  if (_mere) { if (!DB.catAlias) DB.catAlias = {}; DB.catAlias[nom] = _mere.nom; }
+  _finRattacheCategorie(nom, mereNom);
   saveDB();
   if (typeof rParamsCats === 'function') rParamsCats();
+  if (typeof showToast === 'function') showToast('« ' + nom + ' » rangée en « ' + mereNom + ' » — Finances recalculé', 'ok');
 }
 
 function addCat(){
@@ -29191,12 +29170,43 @@ function _finRattacheCategorie(nom, mereNom) {
   else { DB.catMapping[nom] = '__ignore'; DB.params.legal2044Mapping[nom] = '__ignore'; }
   return true;
 }
-// Options du sélecteur de famille — M-1 bis : AUCUNE pré-sélection (« l'app ne devine rien »).
-function _finMereOptionsHtml() {
+// LA liste des familles — une seule, partout (création, sélecteur de catégorie, rattachement
+// Finances, Réglages). Groupée selon l'effet RÉEL sur le cash-flow, lu sur le classifieur du
+// moteur (`_finLotCatRole`) — jamais recopié ici. M-1 bis : sans `cur`, AUCUNE pré-sélection.
+const _FIN_FAMILLE_GROUPES = [
+  ['recette', 'Recettes — comptent dans le cash-flow'],
+  ['declaree', 'Dépenses déclarées — comptent dans le cash-flow'],
+  ['horsFiscal', 'Dépenses hors 2044 — comptent dans le cash-flow'],
+  ['horsCf', 'Hors cash-flow — capital, dépôts, virements']
+];
+function _finFamilleEffet(mere) {
+  const role = _finLotCatRole(mere.nom);
+  const groupe = (role === 'loyer' || role === 'recette') ? 'recette'
+    : (role === 'charge') ? (mere.ligne2044 ? 'declaree' : 'horsFiscal') : 'horsCf';
+  return { groupe, compte: groupe !== 'horsCf', tag: mere.ligne2044 ? '2044 · ' + mere.ligne2044 : 'hors 2044' };
+}
+function _finMereOptionsHtml(cur) {
   const _e = (typeof escHtml === 'function') ? escHtml : (x => x);
-  return '<option value="">— choisir la famille —</option>'
-    + (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES : [])
-      .map(c => '<option value="' + _e(c.nom) + '">' + _e(c.nom) + (c.ligne2044 ? ' (2044 · ' + c.ligne2044 + ')' : ' (hors 2044)') + '</option>').join('');
+  const all = (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES : []);
+  const curOk = !!cur && all.some(c => c.nom === cur);
+  return (curOk ? '' : '<option value="">— choisir la famille —</option>')
+    + _FIN_FAMILLE_GROUPES.map(([k, lib]) => {
+      const items = all.filter(c => _finFamilleEffet(c).groupe === k);
+      return items.length ? '<optgroup label="' + _e(lib) + '">'
+        + items.map(c => '<option value="' + _e(c.nom) + '"' + (c.nom === cur ? ' selected' : '') + '>' + _e(c.nom) + '</option>').join('')
+        + '</optgroup>' : '';
+    }).join('');
+}
+// La ligne sous la liste (Réglages) : l'effet de la famille choisie.
+function _finFamilleEffetHtml(mereNom) {
+  const _e = (typeof escHtml === 'function') ? escHtml : (x => x);
+  const mere = mereNom ? _stdCategoryByName(mereNom) : null;
+  const ligne = (couleur, point, txt) => '<span style="display:flex;gap:6px;align-items:center;font-size:11px;line-height:1.3;color:' + couleur + '">'
+    + '<i aria-hidden="true" style="width:7px;height:7px;border-radius:99px;flex:none;background:' + point + '"></i>' + txt + '</span>';
+  if (!mere) return ligne('var(--neg)', 'var(--neg)', 'Sans famille — à choisir');
+  const ef = _finFamilleEffet(mere);
+  return ef.compte ? ligne('var(--t2)', 'var(--pos)', _e(ef.tag) + ' · compte dans le cash-flow')
+    : ligne('var(--t3)', 'var(--t3)', _e(ef.tag) + ' · hors cash-flow');
 }
 // Persiste les alias choisis + recalcule Finances (le miroir passe par _finRattacheCategorie).
 function _finSaveCatMapping() {
@@ -29214,24 +29224,6 @@ function _finSaveCatMapping() {
   if (typeof rFinances === 'function') rFinances();
   if (typeof showToast === 'function') showToast('Catégories rattachées ✓ — Finances recalculé', 'ok');
 }
-// ── LEGACY (Réglages « catégories » + picker de création) — l'éditeur historique raisonne
-// encore en ligne 2044 ; ses écritures (_writeCatMap → catMapping/legal2044Mapping) sont
-// résolues par _finCatMere en repli, donc restent des rattachements valides. À unifier sur
-// les alias quand l'éditeur de catégories sera refondu (hors périmètre étape 2).
-function _ligne2044Type(l) {
-  if (l === '211' || l === '213') return 'recette';
-  if (l === '250') return 'interet';
-  if (l === '230') return 'deduction';
-  return 'charge';
-}
-const _FIN_2044_OPTIONS = [
-  ['211', '211 · Loyers encaissés'], ['213', '213 · Recettes diverses (subv./indemnités/GLI reçue)'],
-  ['221', '221 · Honoraires / gestion / procédure'], ['223', '223 · Assurance PNO / GLI'],
-  ['224', '224 · Travaux & entretien'], ['225', '225 · Charges récup. non récupérées'],
-  ['226', '226 · Indemnités d\'éviction'], ['227', '227 · Taxe foncière'],
-  ['229', '229 · Provisions copropriété (récupérable)'], ['230', '230 · Régul copro N-1 (déduction)'],
-  ['250', '250 · Intérêts d\'emprunt'], ['__ignore', '— Hors résultat (caution, capital, non déductible…)']
-];
 
 
 // ---- C3: Ratio card renderer ----

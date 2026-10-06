@@ -2334,6 +2334,11 @@ textarea.inp{resize:vertical;min-height:70px}
     font-size:16px !important;
   }
 }
+/* Réglages › Catégories : la liste des familles prend toute la largeur sur téléphone. */
+@media (max-width:767px){
+  #cats-list .cat-fam{flex:1 1 100% !important;max-width:none !important}
+  #cats-list .cat-fam select{min-height:44px}
+}
 /* v13.11 — highlight des champs modifiés depuis la signature dans Modifier bail */
 .field-modified-since-sig,
 input.field-modified-since-sig,
