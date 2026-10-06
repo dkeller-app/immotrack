@@ -193,3 +193,25 @@ M4b (« completed » ajouté à la liste blanche) est un mutant équivalent : la
 - 🟠 2 : une composition modifiée et une déclaration dans le même enregistrement font effacer la déclaration par `_resetSignaturesAfterSave`. Le PDF est abandonné en silence et l'archive ment.
 - 🟠 3 : `_archiveBailTerminee` peut poser le `cloudPdfKey` d'un PDF signé par le seul bailleur sur un bail devenu externe. L'artefact est affiché comme « PDF du bail signé » et journalisé de façon permanente.
 - 🟡 : EDL refusé hors ligne après la saisie ; retrait du PDF non annulable ; résultat de `saveDB` ignoré ; `fd()` non échappé ; mauvais locataire sur un EDL de sortie après relocation ; même date re-déclarée avant un flush ; poids des archives ; tests de `saveBail` statiques.
+
+---
+
+## Suivi des corrections (2026-10-06, commit « Signé hors Propryo audit »)
+
+Principe tenu : des alertes, pas de blocage ; rien d'irrécupérable détruit ; aucune fausse preuve. Tests : `__tests__/helpers/bail-signe-externe-audit.test.js` (le **vrai** `saveBail` est exécuté dans un `with` à proxy, plus `_archiveBailTerminee`, `annulerSessionSignature`, `edlExterneCreer`, `sessionExpireeSigneHors`, `_renderRemoteSignBadge`, `_bailRenderSignatureDateField`…). 14 mutations locales annulées : toutes font rougir au moins un test. Suite complète : 257 fichiers, 6 375 tests verts.
+
+| # | Finding | Statut | Correctif |
+|---|---|---|---|
+| 🔴 1 | Déclaration pendant une session à distance vivante | **Corrigé** | Case masquée dans « Modifier le bail » dès qu'une `remoteSession` existe (note renvoyant vers la session). « Signé hors Propryo » proposé sur la session aussi en cours d'envoi (`sent` / `chaining`), via `_rsPreflight`, qui réaffiche la case. Refus de secours `_bailExterneRefusSecours` dans `saveBail` (message clair, rien modifié) si aucun état relais n'a été contrôlé. |
+| 🟠 2 | Déclaration effacée par la réinitialisation de composition | **Corrigé** | `_bailCompoResetDemande` : la réinitialisation n'est plus demandée quand le même enregistrement déclare le bail. La signature partielle est archivée (`remplace-par-externe`), la déclaration porte la composition saisie, le PDF choisi est déposé, le toast le dit. |
+| 🟠 3 | `_archiveBailTerminee` sur un bail devenu externe | **Corrigé** | Si la signature courante est externe, absente ou de `signedAt` différent, rien n'est posé sur elle : la clé du PDF va dans l'entrée d'archive de sa signature (aussi pour « Annuler la session »). |
+| 🟡 4 | EDL externe refusé hors ligne | **Corrigé** | L'EDL est enregistré (`saveDB({quoi:'edl'})`), seule la pièce est reportée avec un message ; « Ajouter le PDF » hors ligne explique pourquoi. |
+| 🟡 5 | « Retirer le PDF » destructeur | **Corrigé** | Confirmation aussi dans « Modifier le bail » ; sans `cloudKey` le document est retiré de la liste mais le binaire local est conservé, et le message le dit. |
+| 🟡 6 | `saveDB` ignoré | **Corrigé** | `saveBail` (déclaration / retrait) : écriture vérifiée, retour arrière complet et message si refus ; hors ligne, refus avant toute écriture. « Annuler la session » : le relais n'est purgé qu'après une écriture réussie, sinon bail remis tel quel. |
+| 🟡 7 | `fd()` non échappé | **Corrigé** | `escHtml(fd(...))` dans les cartes d'historique, `_edlExtMeta` et la carte EDL externe (type compris). |
+| 🟡 12 | Tests statiques sur `saveBail` | **Corrigé** | Voir tests exécutés ci-dessus (cas combinés 🔴 1 et 🟠 2 inclus). |
+| 🟡 8 | Mauvais locataire d'un EDL de sortie après relocation | **Non traité** | Hors périmètre demandé ; demande de choisir le bail d'après la date, à instruire séparément. |
+| 🟡 9 | Re-déclaration à la même date avant flush réussi | **Non traité** | Probabilité faible (il faut un flush en échec) ; toucher `_identifierBaux` (store-sync) risque la mécanique de verrou. |
+| 🟡 10 | Poids des archives de signature | **Non traité** | Sortir les images vers IndexedDB / cloud est un chantier de stockage à part ; la règle « rien n'est détruit » est respectée. |
+| 🟡 11 | Matrice : PDF « EDL… » déposé comme simple document | **Non traité** | Choix de conception ; proposition « Classer comme EDL fait hors Propryo » à décider avec Didier. |
+| 🟡 13 | Droits côté client | **Non traité** | La RLS du cloud refuse l'écriture ; les droits par SCI relèvent d'un autre chantier. |

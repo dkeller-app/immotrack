@@ -1491,7 +1491,7 @@ function _applyDataDefaults() {
   // le « réalisé » se déduit de la ligne 2044, cf _realiseInclCat — inclYTD n'est plus lu).
   if(!DB.catConfig) DB.catConfig = {};
   // v14.61 CHARGES-COMMUNES — préparation reporting bailleur (v14.64) et 2044 (v14.65) :
-  // chaque catégorie peut être annotée { recuperable: true|false, deductible2044: 'ligne' }.
+  // chaque catégorie peut être annote_e { recuperable: true|false, deductible2044: 'ligne' }.
   // Default null = config UI à venir (Phase reporting), ne casse rien.
   Object.keys(DB.catConfig).forEach(cat => {
     if(DB.catConfig[cat] && typeof DB.catConfig[cat] === 'object') {
@@ -3264,8 +3264,22 @@ window.__immoArchiveBailPdf = async function (ref, blob) {
 function _archiveBailTerminee(ref, bailInitial, path) {
   try {
     const cur = (DB.baux && DB.baux[ref]) || bailInitial;
-    if (!cur || !cur.signatures) return;
     const src = (bailInitial && bailInitial.signatures) || {};
+    // Le bail courant n'est plus CELUI dont on archive le PDF (déclaré signé hors Propryo, session annulée, re-signature, date
+    // corrigée pendant l'envoi) : le PDF est celui d'une signature ARCHIVÉE. On ne le rattache jamais à la signature courante (ce serait
+    // un « PDF du bail signé » sur un bail externe) : il va dans l'entrée d'archive de CETTE signature (signedAt identique), où il a sa place.
+    const cs = cur && cur.signatures;
+    if (!cs || cs.mode === 'externe' || (src.signedAt != null && String(cs.signedAt) !== String(src.signedAt))) {
+      let note_ = false;
+      if (cur && path && src.signedAt != null && Array.isArray(cur.signaturesAnnulees)) {
+        for (let i = cur.signaturesAnnulees.length - 1; i >= 0; i--) {
+          const an = cur.signaturesAnnulees[i], as = an && an.signatures;
+          if (as && String(as.signedAt) === String(src.signedAt) && !as.cloudPdfKey) { as.cloudPdfKey = path; note_ = true; break; }
+        }
+      }
+      if (note_ && typeof saveDB === 'function') saveDB();
+      return;
+    }
     if (cur !== bailInitial) ['proof', 'contentHash', 'certRef'].forEach(k => { if (src[k] != null && cur.signatures[k] == null) cur.signatures[k] = src[k]; });
     if (path) cur.signatures.cloudPdfKey = path;
     cur.signatures.archiveTermine = true;
@@ -4403,7 +4417,8 @@ function _renderRemoteSignBadge(bail, ref) {
   const txt = (nbSigned > 0) ? ('📨 ' + nbSigned + '/' + total + ' signé' + (nbSigned > 1 ? 's' : '')) : '📨 En attente de signature';
   return pill('#fef3c7', '#f59e0b', '#92400e', txt)
     + '<button class="btn bs bb" onclick="_openBailSignShareModal(\'' + ref + '\', ' + shareIdx + ')" style="background:#7c3aed;color:#fff" title="Partager le lien au signataire en attente">🔔 Partager le lien</button>'
-    + '<button class="btn bs bb" onclick="showToast(\'🔄 Vérification de la signature…\',\'info\',2000);_pollRemoteSignSessions({force:true,logRef:\'' + ref + '\'})" style="background:#0ea5e9;color:#fff" title="Vérifier maintenant si le locataire a signé (sinon mise à jour automatique toutes les ~30 s)">🔄 Vérifier</button>';
+    + '<button class="btn bs bb" onclick="showToast(\'🔄 Vérification de la signature…\',\'info\',2000);_pollRemoteSignSessions({force:true,logRef:\'' + ref + '\'})" style="background:#0ea5e9;color:#fff" title="Vérifier maintenant si le locataire a signé (sinon mise à jour automatique toutes les ~30 s)">🔄 Vérifier</button>'
+    + '<button class="btn bs bb" onclick="sessionExpireeSigneHors(\'' + ref + '\')" title="Le bail a été signé sur papier : Propryo vérifie d\'abord au relais qu\'aucune signature n\'a déjà été recueillie, puis enregistre la date de signature">Signé hors Propryo</button>';
 }
 
 // Orchestrateur d'émission : dataURL → bytes → manifeste pt → embed → POST session → état → modale de partage du lien.
@@ -4984,7 +4999,7 @@ function _bsdDdtRender() {
   catch (e) {
     console.warn('[DDT section]', e); _bsdDdtSheetRemove();
     const host = document.getElementById('bsd-ddt');
-    if (host) host.innerHTML = `<div class="bsd-ddt-warn">${_uiIcon('warn', 13)} Pièces annexées indisponibles : elles seront notées « non jointes » au bail. La signature reste possible.</div>`;
+    if (host) host.innerHTML = `<div class="bsd-ddt-warn">${_uiIcon('warn', 13)} Pièces annexées indisponibles : elles seront note_es « non jointes » au bail. La signature reste possible.</div>`;
   }
 }
 function _bsdDdtRenderCore() {
@@ -5045,7 +5060,7 @@ function _bsdDdtHtml(rows, na, c) {
       return `<div class="bsd-ddt-row"><div class="bsd-ddt-line">
           <label class="bsd-ddt-cbw"><input type="checkbox" class="bsd-ddt-cb" ${on ? 'checked' : ''} onchange="_bsdDdtToggle('${k}',this.checked)" aria-label="${escHtml(r.label)} — remis à ce locataire hors application"></label>
           <div class="bsd-ddt-main"><div class="bsd-ddt-title">${escHtml(r.label)}</div>
-            <div class="bsd-ddt-meta">${on ? 'Remis à ce locataire hors application — noté au bail' : 'Non remis à ce locataire — noté « non joint » au bail'}</div></div>
+            <div class="bsd-ddt-meta">${on ? 'Remis à ce locataire hors application — note_ au bail' : 'Non remis à ce locataire — note_ « non joint » au bail'}</div></div>
           <span class="bsd-ddt-state"><span class="bsd-ddt-dot hollow"></span>Déclaré détenu</span>
         </div>
         ${on && r.expire ? `<div class="bsd-ddt-warn">${_uiIcon('warn', 13)} Diagnostic enregistré périmé : vérifier que la version remise est à jour (ne bloque pas la signature).</div>` : ''}
@@ -5076,7 +5091,7 @@ function _bsdDdtHtml(rows, na, c) {
     ${body}
     ${na.length ? `<button type="button" class="bsd-ddt-na" onclick="_bsdDdtNa()"><span>Non concernés pour ce logement (${na.length})</span><span>${_bsdDdt.naOpen ? 'Masquer' : 'Afficher'}</span></button>
       ${_bsdDdt.naOpen ? `<div class="bsd-ddt-na-list">${naLbl.map(escHtml).join(' · ')}</div>` : ''}` : ''}
-    <div class="bsd-ddt-never">${_uiIcon('shield', 13)} La signature n'est jamais bloquée : une pièce absente est notée « non jointe » au bail.</div>`;
+    <div class="bsd-ddt-never">${_uiIcon('shield', 13)} La signature n'est jamais bloquée : une pièce absente est note_e « non jointe » au bail.</div>`;
 }
 // Choix du fichier : d'abord les documents DÉJÀ rangés sur le logement, puis l'ajout depuis l'appareil.
 function _bsdDdtPickerInner(r, c) {
@@ -5380,11 +5395,20 @@ async function annulerSessionSignature(ref) {
   const B = window.BailSignatureEtat;
   const r = B ? B.archiverSignatures(bail, { now: new Date(), auteur: _bailAuteurCourant(), motif: 'session-annulee', etatRelais: vivante ? 'pending-invalidee' : 'expired' }) : { archive: null };
   if (!r.archive) { showToast('Annulation impossible : module de signature indisponible', 'err'); return; }
+  const _prevAnn = bail.signaturesAnnulees, _prevMod = bail._modifiedAt;
   bail.signaturesAnnulees = (Array.isArray(bail.signaturesAnnulees) ? bail.signaturesAnnulees : []).concat([r.archive]);
   delete bail.signatures;
   _stamp(bail);
+  let _okA; try { _okA = saveDB(); } catch (_e) { console.warn('[annuler session] saveDB', _e); _okA = false; }
+  if (_okA === false) {   // écriture refusée (hors ligne, stockage plein) : tout est remis, et la session du relais n'est PAS purgée
+    bail.signatures = sg;
+    if (_prevAnn === undefined) delete bail.signaturesAnnulees; else bail.signaturesAnnulees = _prevAnn;
+    bail._modifiedAt = _prevMod;
+    showToast('Session NON annulée : la sauvegarde a échoué — rien n\'a été modifié, la session reste en place. ' + (window.__immoHorsLigne ? 'Hors ligne : réessayer une fois la connexion rétablie.' : 'Stockage indisponible ou plein.'), 'err', 9000);
+    return;
+  }
   _auditLog('update', 'bail', ref, ref + ' : session de signature à distance annulée (' + (vivante ? 'lien invalidé' : 'expirée') + ')');
-  saveDB();
+  saveDB();   // le journal d'audit ci-dessus part avec la même écriture
   pf.purge();
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
   showToast('Session annulée : le bail est non signé (l\'ancienne session est conservée dans l\'historique)', 'ok', 7000);
@@ -5401,6 +5425,9 @@ async function sessionExpireeSigneHors(ref) {
   if (!pf.ok) return;
   openBail(ref);
   window._bailExtOrigine = 'session-expiree'; window._bailExtEtatRelais = pf.etat; window._bailExtPurge = pf.purge;
+  // La case est masquée dans « Modifier le bail » tant qu'une session existe : ici l'état réel vient d'être contrôlé, on l'affiche.
+  const _fg = el('b-externe-fg'); if (_fg) _fg.style.display = '';
+  const _nrs = el('b-externe-rs'); if (_nrs) _nrs.style.display = 'none';
   const chk = el('b-externe');
   if (chk) {
     chk.checked = true; _bailExterneToggle();
@@ -5650,7 +5677,7 @@ function _confirmBailSignatureFlow(ref) {
       }
       const _ddt = _ddtBuildAnnexPlan(bail, log, _on);
       bail.annexesDdt = _ddt.plan;
-      if (_ddt.dropped.length) showToast('Volume trop important : ' + _ddt.dropped.join(', ') + ' non joint(s) au PDF — noté au bail.', 'warn', 7000);
+      if (_ddt.dropped.length) showToast('Volume trop important : ' + _ddt.dropped.join(', ') + ' non joint(s) au PDF — note_ au bail.', 'warn', 7000);
     }
   } catch (e) { console.warn('[DDT plan]', e); if (!_ddtFrozen(bail)) bail.annexesDdt = _ddtFallbackPlan(); }
   _bsdDdtSheetRemove();
@@ -9308,7 +9335,7 @@ function _duMoisLot(ref, ym) {
 // Le 7ᵉ moteur (_matcheMois, qui rattachait un paiement au mois de sa propre date) est
 // supprimé, pas corrigé (C3).
 //
-// Fenêtre de suivi (R0-C) — dès qu'une date est SAISIE (date d'achat ou antériorité notée), LE point
+// Fenêtre de suivi (R0-C) — dès qu'une date est SAISIE (date d'achat ou antériorité note_e), LE point
 // de départ de Finances (`_finLotSuivi` → js/core/anteriorite.js), le dû de Finances (`_finBailHcChAt` :
 // 1ᵉʳ terme exigible après l'achat), son solde d'ouverture, et la même règle pour les encaissements
 // d'avant : jamais imputés (3ᵉ audit A1). L'onglet Loyers, les relances et les quittances lisent alors la même dette
@@ -16732,6 +16759,9 @@ function _bailRenderSignatureDateField(bail) {
   const sg = (bail && bail.signatures) || {};
   // BAIL-EN-COURS-SIGNE-HORS-PROPRYO : électronique ou partiel → date verrouillée « Signé le … » (inchangé). Externe → date
   // ÉDITABLE (corriger la date = re-déclaration, confirmée à l'enregistrement). Case masquée sur un bail signé électroniquement.
+  // Session de signature à distance existante (en cours ou expirée) : la case est MASQUÉE — « Signé hors Propryo » se déclare sur la
+  // session elle-même (sessionExpireeSigneHors → _rsPreflight : état RÉEL au relais, jamais à l'aveugle).
+  const rsVive = !!(sg.remoteSession && sg.remoteSession.sessionId) && st.etat !== 'electronique' && st.etat !== 'externe';
   window._bailExtCtx = { etat: st.etat, signedDay: st.date || '' };
   _bailExtFichier = null; _bailExtRetirer = false;   // PJ en attente : propre à CE formulaire
   window._bailExtOrigine = null; window._bailExtEtatRelais = null; window._bailExtPurge = null;   // contexte « session expirée » : propre à CE formulaire
@@ -16739,7 +16769,8 @@ function _bailRenderSignatureDateField(bail) {
   _bailExtApprox = !!(sg.externe && sg.externe.dateApprox);
   const fg = el('b-externe-fg'), chk = el('b-externe');
   if(chk) chk.checked = st.etat === 'externe';
-  if(fg) fg.style.display = st.etat === 'electronique' ? 'none' : '';
+  if(fg) fg.style.display = (st.etat === 'electronique' || rsVive) ? 'none' : '';
+  const nrs = el('b-externe-rs'); if(nrs) nrs.style.display = rsVive ? '' : 'none';
   if(st.etat === 'electronique' || st.etat === 'partiel') {
     inp.value = ''; // v15.344 — vider l'input masqué (évite une valeur résiduelle d'un autre bail ouvert avant)
     const iso = (sg.signedBailleurAt || sg.signedAt || '').slice(0,10);
@@ -16765,6 +16796,22 @@ function _bailEtatSig(bail) {
   if (s.mode === 'bailleur-seul') return { etat: 'partiel', conclu: false, date: d };
   return { etat: s.mode === 'externe' ? 'externe' : 'electronique', conclu: true, date: d };
 }
+// REFUS DE SECOURS (audit « signé hors Propryo » 🔴) : déclarer un bail signé hors Propryo alors qu'une session de signature à distance
+// existe, SANS le contrôle de l'état réel au relais (_rsPreflight, fait par « Signé hors Propryo » sur la session), pourrait perdre une
+// signature déjà recueillie ou laisser un lien actif. Rend le message de refus ('' = pas de refus). Pur : testé sans navigateur.
+function _bailExterneRefusSecours(existant, ext, etatRelais) {
+  if (!ext || ext.action !== 'declarer') return '';
+  const rs = existant && existant.signatures && existant.signatures.remoteSession;
+  if (!rs || !rs.sessionId) return '';
+  if (etatRelais) return '';   // l'état réel a été contrôlé au relais (« Signé hors Propryo » de la session) : on peut déclarer
+  return 'Une signature à distance est en cours pour ce bail : rien n\'a été modifié. Utilisez « Signé hors Propryo » sur la session de signature du bail (Propryo vérifie d\'abord, au relais, qu\'aucune signature n\'a déjà été recueillie).';
+}
+// Composition (locataire / garant) modifiée sur un bail à signature partielle : « réinitialiser les signatures » est demandé, SAUF si le
+// même enregistrement DÉCLARE le bail signé hors Propryo — la déclaration remplace (et archive) déjà la signature partielle : la
+// réinitialiser effacerait la déclaration en silence (audit 🟠).
+function _bailCompoResetDemande(ext, compoChanged) {
+  return !!compoChanged && !(ext && ext.action === 'declarer');
+}
 function _bailExterneToggle() {
   const chk = el('b-externe'), inp = el('b-dateSignature'); if(!inp) return;
   const ctx = window._bailExtCtx || { etat: 'non', signedDay: '' };
@@ -16787,7 +16834,7 @@ function _bailExterneApproxAfficher() {
   const n = el('b-externe-approx'), chk = el('b-externe');
   if(n) n.style.display = (_bailExtApprox && chk && chk.checked) ? '' : 'none';
 }
-// Date de signature inconnue (bail repris, ancien bail) : on reprend la date de DÉBUT, notée « approximative » — jamais inventée en silence.
+// Date de signature inconnue (bail repris, ancien bail) : on reprend la date de DÉBUT, note_e « approximative » — jamais inventée en silence.
 function _bailExterneDateDebut() {
   const d = v('b-debut');
   if(!d) { showToast('Renseigner d\'abord la date de début du bail', 'warn'); return; }
@@ -16861,11 +16908,28 @@ function _bailScanExterneChoisir(ref) {
   };
   inp.click();
 }
+// Retire un PDF de bail externe. Le fichier envoyé au cloud est conservé (aucune suppression côté cloud). Si l'envoi n'a PAS abouti
+// (pas de cloudKey), la copie locale est le SEUL exemplaire : le document est retiré de la liste (tombstone) mais le binaire local reste.
+async function _bailScanExterneSupprimerDoc(d) {
+  if (!d) return false;
+  if (d.cloudKey || !d.idbKey) return _attachmentDelete(d.id);
+  const doc = (DB.documents || []).find(x => x && !x._deleted && x.id === d.id);
+  if (!doc) return false;
+  const t = new Date().toISOString();
+  Object.assign(doc, { _deleted: true, _deletedAt: t, _modifiedAt: t });   // binaire IndexedDB conservé
+  if (typeof _auditLog === 'function') _auditLog('delete', 'attachment', d.id, doc.parentType + '#' + doc.parentId + ' / ' + doc.name + ' (copie locale conservée : envoi cloud non abouti)');
+  saveDB();
+  return true;
+}
+function _bailScanExterneRetraitMsg(d) {
+  return 'Retirer le PDF du bail signé hors Propryo (' + (d.originalName || d.name) + ') ?\n\nLe bail reste déclaré signé. '
+    + (d.cloudKey ? 'Le fichier déjà envoyé au cloud est conservé (preuve).' : 'Ce fichier n\'a pas encore été envoyé au cloud : sa copie locale est conservée sur cet appareil.');
+}
 async function _bailScanExterneRetirerRef(ref) {
   const d = _bailScanExterne(ref);
   if (!d) return;
-  if (!confirm2('Retirer le PDF du bail signé hors Propryo (' + (d.originalName || d.name) + ') ?\n\nLe bail reste déclaré signé. Le fichier déjà envoyé au cloud est conservé (preuve).')) return;
-  await _attachmentDelete(d.id);
+  if (!confirm2(_bailScanExterneRetraitMsg(d))) return;
+  await _bailScanExterneSupprimerDoc(d);
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
   showToast('PDF du bail retiré', 'ok', 4000);
 }
@@ -16879,7 +16943,10 @@ async function _bailExterneFichierPris(input) {
 }
 function _bailExterneRetirerPj() {
   if (_bailExtFichier) { _bailExtFichier = null; const i = el('b-externe-file'); if(i) i.value = ''; }
-  else if (_bailExterneScanExistant()) _bailExtRetirer = true;
+  else if (_bailExterneScanExistant()) {
+    if (!confirm2(_bailScanExterneRetraitMsg(_bailExterneScanExistant()) + '\n\n(Le retrait est effectif à l\'enregistrement du bail.)')) return;
+    _bailExtRetirer = true;
+  }
   _bailExternePjAfficher();
 }
 function _bailExterneScanExistant() {
@@ -16907,7 +16974,7 @@ async function _bailExterneApresSave(ref, ext) {
   if (!bail || _bailEtatSig(bail).etat !== 'externe') return;
   let touche = false;
   if (f) touche = await _bailScanExterneDeposer(ref, f);
-  else if (retirer) { const d = _bailScanExterne(ref, bail); if (d) { await _attachmentDelete(d.id); touche = true; } }
+  else if (retirer) { const d = _bailScanExterne(ref, bail); if (d) { await _bailScanExterneSupprimerDoc(d); touche = true; } }
   else if (ext && (ext.action === 'declarer' || ext.action === 'redater') && !_bailScanExterne(ref, bail)) {
     const orph = _bailScansExternesOrphelins(ref, bail)[0];
     if (orph && confirm2('Un PDF de la déclaration précédente est déjà déposé (' + (orph.originalName || orph.name) + ').\n\nLe rattacher à cette déclaration ?')) {
@@ -17862,6 +17929,10 @@ function saveBail() {
   // BAIL SIGNÉ HORS PROPRYO — intention (case + date) lue ICI, avant tout effet de bord ; la case n'est pas un champ du bail.
   const _ext = _bailExterneIntention(v('b-edit-ref'));
   if (_ext.erreur) { showToast(_ext.erreur, 'err', 7000); return; }
+  const _refusRs = _bailExterneRefusSecours(v('b-edit-ref') ? DB.baux[v('b-edit-ref')] : null, _ext, window._bailExtEtatRelais);
+  if (_refusRs) { showToast(_refusRs, 'err', 10000); return; }
+  // Hors ligne, une écriture non étiquetée est refusée par saveDB : on le dit AVANT de toucher quoi que ce soit (rien n'est perdu).
+  if (_ext.action && window.__immoHorsLigne) { showToast('Hors ligne : la déclaration « signé hors Propryo » demande une connexion. Rien n\'a été modifié — réessayez au retour du réseau.', 'err', 9000); return; }
   // v15.05 Sprint 7 V1.1 LEGAL-DPE-INTERDICTION-LOCATION :
   // bloquage strict si DPE interdit à la location loi Climat 2021. Pas d'override.
   // S'applique à la création d'un nouveau bail (isNewBail) OU au changement de date
@@ -17930,7 +18001,7 @@ function saveBail() {
 
   // v13.11 — détection ajout/suppression locataire ou garant sur un bail signé.
   // Q3 réponse user : ajout = nouveau bail = reset signatures forcé.
-  let _resetSignaturesAfterSave = false;
+  let _resetSignaturesAfterSave = false, _compoDeclaree = false;
   if (!isNewBail) {
     const dbBail = DB.baux[editRef];
     // JAMAIS BLOQUER (retour Didier 28/09 : « on a dit qu'on ne bloque jamais »). Bail signé VERROUILLÉ au
@@ -17947,7 +18018,8 @@ function saveBail() {
       const futureBail = Object.assign({ locataires: locs }, _bailLegacyGarantFields());
       const compoCheck = _bailCompositionChanged(futureBail, dbBail.signatures.bailSnapshot);
       // (Bail VERROUILLÉ au cloud : jamais ce chemin — ses changements de partie vont au journal, ci-dessus.)
-      if (compoCheck.changed) {
+      if (compoCheck.changed && _ext.action === 'declarer') _compoDeclaree = true;   // la déclaration remplace la signature partielle : pas de réinitialisation
+      if (_bailCompoResetDemande(_ext, compoCheck.changed)) {
         if (!confirm(`⚠️ Composition modifiée : ${compoCheck.what}.\n\nL'ajout / la suppression d'une partie au contrat constitue un NOUVEAU bail au sens juridique. Les signatures précédentes ne seront plus valides et seront automatiquement réinitialisées.\n\nContinuer ?`)) return;
         _resetSignaturesAfterSave = true;
       }
@@ -18131,6 +18203,12 @@ function saveBail() {
     }
   }
   _stamp(bail); // v13.18 : timestamp de modif pour merge Drive intelligent
+  // Déclaration / re-déclaration / retrait « signé hors Propryo » (hors journal) : état d'avant, pour tout remettre si l'écriture est refusée.
+  const _extSnap = (_ext.action && !_journalModif) ? (function () {
+    const lg0 = DB.logements.find(l => l.ref === ref);
+    return { prev: DB.baux[ref], existait: Object.prototype.hasOwnProperty.call(DB.baux, ref), log: lg0 ? JSON.parse(JSON.stringify(lg0)) : null,
+      logIdx: lg0 ? DB.logements.indexOf(lg0) : -1, bareme: JSON.parse(JSON.stringify(DB.loyerBareme || [])), nEvents: (DB.bailEvents || []).length };
+  })() : null;
   DB.baux[ref] = bail;
   if (_resetSignaturesAfterSave) {
     delete DB.baux[ref].signatures;
@@ -18226,6 +18304,20 @@ function saveBail() {
       return;
     }
   }
+  // Déclaration « signé hors Propryo » : l'écriture est VÉRIFIÉE (jamais un « signé hors Propryo le … » sur une écriture refusée).
+  if (_extSnap) {
+    let _okE; try { _okE = saveDB(); } catch (_e) { console.warn('[signé hors Propryo] saveDB', _e); _okE = false; }
+    if (_okE === false) {
+      if (_extSnap.existait) DB.baux[ref] = _extSnap.prev; else delete DB.baux[ref];
+      DB.loyerBareme = _extSnap.bareme;
+      if (Array.isArray(DB.bailEvents)) DB.bailEvents.length = _extSnap.nEvents;
+      if (_extSnap.log && _extSnap.logIdx >= 0) DB.logements[_extSnap.logIdx] = _extSnap.log;
+      else if (!_extSnap.log) { const i = DB.logements.findIndex(l => l.ref === ref); if (i >= 0) DB.logements.splice(i, 1); }
+      if (typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
+      showToast('Déclaration NON enregistrée : la sauvegarde a échoué — rien n\'a été modifié. ' + (window.__immoHorsLigne ? 'Hors ligne : réessayer une fois la connexion rétablie.' : 'Stockage indisponible ou plein : libérer de l\'espace puis réessayer.'), 'err', 10000);
+      return;
+    }
+  }
   // v14.89 AUDIT-TRAIL : log la mutation du bail (RGPD : nom locataire est PII)
   _auditLog(isNewBail ? 'create' : 'update', 'bail', ref, ref);
   if (_ext.action) _auditLog('update', 'bail', ref, ref + ' : signé hors Propryo — ' + ({ declarer: 'déclaré le ' + _ext.date, redater: 'date corrigée (' + _ext.date + ')', retirer: 'déclaration retirée' })[_ext.action]);
@@ -18241,7 +18333,7 @@ function saveBail() {
     showToast('Modifications enregistrées dans l\'historique du bail. Le bail signé reste inchangé.', 'ok', 9000,
       ' <button class="btn bs" style="margin-left:6px" onclick="_avenantOpen(\'' + _lyQ(ref) + '\')">Créer un avenant</button>');
   } else if (_ext.action === 'retirer') showToast('Bail enregistré : « signé hors Propryo » retiré (déclaration conservée dans l\'historique)', 'ok', 7000);
-  else if (_ext.action) showToast('Bail enregistré : signé hors Propryo le ' + fd(_ext.date) + (_ext.approx ? ' (date approximative)' : ''), 'ok', 7000);
+  else if (_ext.action) showToast('Bail enregistré : signé hors Propryo le ' + fd(_ext.date) + (_ext.approx ? ' (date approximative)' : '') + (_compoDeclaree ? ' — la signature partielle précédente est archivée dans l\'historique' : ''), 'ok', 7000);
   else showToast('Bail enregistré','ok');
   _bailExterneApresSave(ref, _ext);   // PDF facultatif : déposé APRÈS l'enregistrement (jamais bloquant)
   suggestSave('Bail');

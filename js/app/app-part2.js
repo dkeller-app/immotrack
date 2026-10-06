@@ -13966,7 +13966,7 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
   if(t==='signe-externe'){
     const orig = ev.origine==='repris' ? 'bail repris du vendeur' : (ev.origine==='session-expiree' ? 'après une session de signature à distance expirée' : 'sur papier');
     return `<div class="hl-card" data-dot="d-bail"><div class="tt"><h4>Bail déclaré signé hors Propryo</h4><span class="hl-badge b-bail">hors Propryo</span></div>
-      <div class="hl-desc">Signé le <b>${fd(ev.date)}</b>${ev.dateApprox?' <span class="mu">(date approximative)</span>':''} — ${orig}. Déclaré${ev.declareLe?' le '+fd(ev.declareLe):''}${ev.declarePar?' par '+escHtml(ev.declarePar):''}. Propryo n'enregistre aucune signature électronique : le bail est considéré comme conclu à cette date.</div></div>`;
+      <div class="hl-desc">Signé le <b>${escHtml(fd(ev.date))}</b>${ev.dateApprox?' <span class="mu">(date approximative)</span>':''} — ${orig}. Déclaré${ev.declareLe?' le '+escHtml(fd(ev.declareLe)):''}${ev.declarePar?' par '+escHtml(ev.declarePar):''}. Propryo n'enregistre aucune signature électronique : le bail est considéré comme conclu à cette date.</div></div>`;
   }
   if(t==='signature-annulee'){
     const m = ev.motif;
@@ -13975,11 +13975,11 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
       : m==='externe-retire' ? 'Déclaration « signé hors Propryo » retirée'
       : m==='externe-redate' ? 'Date de signature corrigée' : 'Signature archivée';
     const etat = ev.etatRelais==='pending-invalidee' ? 'son lien encore actif a été invalidé' : (ev.etatRelais==='expired' ? 'expirée' : '');
-    const qui = (ev.signataires||[]).map(x=>`${escHtml(x.nom||x.role||'—')} ${x.signeLe?('a signé le '+fd(x.signeLe)):'n\'avait pas signé'}`).join(' · ');
+    const qui = (ev.signataires||[]).map(x=>`${escHtml(x.nom||x.role||'—')} ${x.signeLe?('a signé le '+escHtml(fd(x.signeLe))):'n\'avait pas signé'}`).join(' · ');
     let corps;
-    if(m==='externe-retire') corps = `La déclaration${ev.ancienneDate?' du <b>'+fd(ev.ancienneDate)+'</b>':''} a été retirée : le bail est redevenu non signé. Elle reste conservée ici.`;
-    else if(m==='externe-redate') corps = `Ancienne date de signature déclarée : <b>${fd(ev.ancienneDate)}</b>. La déclaration précédente est archivée, une nouvelle l'a remplacée.`;
-    else corps = `${ev.envoyeeLe?'Envoyée le <b>'+fd(ev.envoyeeLe)+'</b>':'Session de signature'}${etat?' ('+etat+')':''}${qui?' — '+qui:''}.${ev.bailleurAvaitSigne?' La signature du bailleur est archivée (elle ne sert plus).':''}${m==='session-annulee'?' Le bail est redevenu non signé.':''}`;
+    if(m==='externe-retire') corps = `La déclaration${ev.ancienneDate?' du <b>'+escHtml(fd(ev.ancienneDate))+'</b>':''} a été retirée : le bail est redevenu non signé. Elle reste conservée ici.`;
+    else if(m==='externe-redate') corps = `Ancienne date de signature déclarée : <b>${escHtml(fd(ev.ancienneDate))}</b>. La déclaration précédente est archivée, une nouvelle l'a remplacée.`;
+    else corps = `${ev.envoyeeLe?'Envoyée le <b>'+escHtml(fd(ev.envoyeeLe))+'</b>':'Session de signature'}${etat?' ('+etat+')':''}${qui?' — '+qui:''}.${ev.bailleurAvaitSigne?' La signature du bailleur est archivée (elle ne sert plus).':''}${m==='session-annulee'?' Le bail est redevenu non signé.':''}`;
     return `<div class="hl-card" style="opacity:.85" data-dot="d-renon"><div class="tt"><h4>${titre}</h4><span class="hl-badge b-warn">⊘ archivée</span></div>
       <div class="hl-desc">${corps}${ev.par?' Par '+escHtml(ev.par)+'.':''} Rien n'est supprimé : l'ancienne signature est conservée dans l'historique du bail.</div></div>`;
   }
@@ -16950,8 +16950,8 @@ function _renderLogFichePanelEDL(log, ref) {
       const tc = edl.type === 'Entrée' ? '#16a34a' : '#ea580c';
       return `<div class="logf-edl-card" style="border-left:3px solid ${tc}">
       <div class="logf-edl-card-head">
-        <span class="logf-edl-type" style="background:${tc}22;color:${tc}">${edl.type === 'Entrée' ? '🟢' : '🟠'} ${edl.type}</span>
-        <span class="logf-edl-date">${fd(edl.date)}</span>
+        <span class="logf-edl-type" style="background:${tc}22;color:${tc}">${edl.type === 'Entrée' ? '🟢' : '🟠'} ${escHtml(edl.type)}</span>
+        <span class="logf-edl-date">${escHtml(fd(edl.date))}</span>
         <span class="logf-edl-loc" title="${escHtml(edl.locataire||'—')}">${escHtml(edl.locataire||'—')}</span>
         <span class="logf-equip-badge b-mute">Hors Propryo</span>
       </div>
@@ -26136,7 +26136,7 @@ function _edlExtLibelle(e) { return 'EDL ' + (_edlSens(e) === 'sortie' ? 'de sor
 // Ligne du PDF joint, pour la carte : « 01/09/2023 · EDL-D-101-entree.pdf · 2,4 Mo » (ou la mention facultative).
 function _edlExtMeta(e) {
   const d = _edlExtPj(e);
-  return fd(e.date) + (d ? ' · ' + escHtml(d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size) : ' · Aucun PDF joint (facultatif)');
+  return escHtml(fd(e.date)) + (d ? ' · ' + escHtml(d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size) : ' · Aucun PDF joint (facultatif)');
 }
 // Boutons d'une carte d'EDL externe : Ouvrir (le PDF) / Ajouter le PDF, Supprimer. `cls` = classes du bouton.
 function _edlExtBoutons(e, cls) {
@@ -26162,8 +26162,9 @@ async function edlExterneCreer(ref, o) {
   const date = String(opt.date || '');
   if (!date) { showToast('Indiquez la date de l\'état des lieux', 'err'); return null; }
   if (B ? !B.dateJourValide(date) : !/^\d{4}-\d{2}-\d{2}$/.test(date)) { showToast('Date de l\'état des lieux invalide', 'err'); return null; }
-  // Une écriture HORS LIGNE n'est pas étiquetée « edl » (le garde de saveDB la refuse) : on le dit AVANT de saisir le moindre champ.
-  if (typeof window !== 'undefined' && window.__immoHorsLigne) { showToast('Hors ligne : l\'ajout d\'un EDL fait hors Propryo demande une connexion (il enregistre aussi un document). Réessaie au retour du réseau.', 'err', 8000); return null; }
+  // HORS LIGNE : l'EDL (étiqueté « edl », remonté au retour du réseau) est enregistré ; seule la PIÈCE JOINTE (un document, écriture non
+  // étiquetée refusée hors ligne) est reportée — jamais toute la saisie bloquée.
+  const horsLigne = typeof window !== 'undefined' && !!window.__immoHorsLigne;
   const aujourdhui = (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : td();
   if (date > aujourdhui && !confirm2('La date de l\'état des lieux (' + fd(date) + ') est dans le futur.\n\nUn EDL déjà réalisé porte une date passée ou du jour. Continuer quand même ?')) return null;
   const jumeau = (DB.edl || []).find(e => e && !e._deleted && e.logement === ref && e.type === type && String(e.date || '').slice(0, 10) === date);
@@ -26179,12 +26180,13 @@ async function edlExterneCreer(ref, o) {
   DB.edl.push(record);
   _auditLog('create', 'edl', record.id, ref + '/' + type + ' (fait hors Propryo)');
   let ecrit = false;
-  _undoOp('Ajout d\'un EDL ' + (sortie ? 'de sortie' : 'd\'entrée') + ' fait hors Propryo', () => { ecrit = saveDB(); });
+  _undoOp('Ajout d\'un EDL ' + (sortie ? 'de sortie' : 'd\'entrée') + ' fait hors Propryo', () => { ecrit = saveDB({ quoi: 'edl' }); });
   if (ecrit === false) {   // refusé : on ne laisse pas un EDL fantôme en mémoire
     const i = DB.edl.indexOf(record); if (i >= 0) DB.edl.splice(i, 1);
     showToast('L\'état des lieux n\'a pas pu être enregistré.', 'err', 7000); return null;
   }
-  if (opt.fichier) await _edlExtDeposerPj(record, log, bail, opt.fichier);
+  if (opt.fichier && horsLigne) showToast('Hors ligne : l\'EDL est enregistré, mais le PDF n\'a pas été joint. Le joindre au retour du réseau (bouton « Ajouter le PDF »).', 'warn', 9000);
+  else if (opt.fichier) await _edlExtDeposerPj(record, log, bail, opt.fichier);
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
   try { rEDLList(); } catch (e) {}
   showToast('EDL ' + (sortie ? 'de sortie' : 'd\'entrée') + ' du ' + fd(date) + ' enregistré (fait hors Propryo).', 'ok', 5000);
@@ -26207,6 +26209,7 @@ async function _edlExtDeposerPj(e, log, bail, fichier) {
 function _edlExtAjouterPj(id) {
   const e = (DB.edl || []).find(x => x && x.id === id && !x._deleted);
   if (!_edlExterne(e)) return;
+  if (typeof window !== 'undefined' && window.__immoHorsLigne) { showToast('Hors ligne : joindre le PDF demande une connexion (il enregistre un document). Réessayez au retour du réseau.', 'warn', 7000); return; }
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,image/*';
   inp.onchange = async function () {
     let f = null; try { f = await _avenantLireFichier(inp); } catch (err) { showToast('Fichier illisible.', 'err'); return; }

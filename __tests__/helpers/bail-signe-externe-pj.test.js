@@ -24,7 +24,7 @@ function extraire(src, marqueur) {
 }
 const fn = (src, nom, asy = false) => extraire(src, (asy ? 'async ' : '') + 'function ' + nom + '(')
 const NOMS = [['_bailEtatSig'], ['_bailScanDocsExternes'], ['_bailScanExterne'], ['_bailScansExternesOrphelins'], ['_bailScanFmtTaille'],
-  ['_bailScanExterneDeposer', 1], ['_bailExterneApresSave', 1], ['_bailExterneScanExistant'], ['_bailExternePjAfficher'], ['_bailExterneRetirerPj']]
+  ['_bailScanExterneDeposer', 1], ['_bailExterneApresSave', 1], ['_bailExterneScanExistant'], ['_bailExternePjAfficher'], ['_bailExterneRetirerPj'], ['_bailScanExterneSupprimerDoc', 1], ['_bailScanExterneRetraitMsg']]
 
 const EXT = (extra = {}) => ({ ref: 'D-101', debut: '2024-03-01', ...extra, signatures: BSE.declarerSignatureExterne({}, { date: '2024-02-20', now: '2026-10-06T08:00:00Z' }) })
 const SIGNED_AT = '2024-02-20T12:00:00.000Z'

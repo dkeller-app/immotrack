@@ -1903,6 +1903,9 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <!-- BAIL-EN-COURS-SIGNE-HORS-PROPRYO : bail signé sur papier, chez un notaire ou par le vendeur (bail repris).
            Aucune signature électronique n'est créée : la date de signature ci-dessus est conservée (déclaration
            figée, trace d'archive au retrait). Masquée sur un bail signé électroniquement dans Propryo. -->
+      <div class="fg" id="b-externe-rs" style="display:none;margin-top:10px">
+        <div class="mu sm" style="border:1px solid var(--bor);border-radius:var(--r);padding:10px 12px;background:var(--sur2);font-size:12.5px;line-height:1.5">Une signature à distance est en cours (ou expirée) pour ce bail. Pour le déclarer signé hors Propryo, utilisez « Signé hors Propryo » sur la session de signature du bail : Propryo vérifie d'abord, au relais, qu'aucune signature n'a déjà été recueillie.</div>
+      </div>
       <div class="fg" id="b-externe-fg" style="display:none;margin-top:10px">
         <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;margin:0;font-size:13px;border:1px solid var(--bor);border-radius:var(--r);padding:10px 12px;background:var(--sur2)">
           <input type="checkbox" id="b-externe" onchange="_bailExterneToggle()" style="margin-top:2px">
@@ -4581,8 +4584,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=7472e74f" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=1d38c49d" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=885b51ae" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=3ad6da5b" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
