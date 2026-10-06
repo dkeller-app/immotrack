@@ -871,3 +871,30 @@ describe('28 · fenêtre de restitution sur le bail archivé (VRAIS _dgOpenResti
     expect(ouvrir([nina])['ov-dg-restitution-body'].innerHTML).toContain('Délai légal : <strong>1 mois</strong>');
   });
 });
+describe('29 · cible de la restitution (VRAIS _dgBailCible / _dgConfirmerRestitution) : cas limites', () => {
+  const LEA = { ...DEPART, ref: 'A1', finEffective: '2026-09-30', _archivedAt: '2026-01-14', _archivedAuto: true, locataires: [{ nom: 'Lea' }] };
+  const NINA = { ref: 'A1', type: 'nu', debut: '2026-01-15', hc: 650, ch: 50, dg: 1300, locataires: [{ nom: 'Nina' }] };
+  const cible = (baux, histo) => { const DB = dbDe(baux); DB.baux_historique = histo; return monter(DB, [...STATUT, '_dgBailCible']).fn._dgBailCible('A1', ''); };
+  it('bail en cours AVEC départ déclaré + archive en attente, sans clé : la cible est le bail en cours (Nina)', () => {
+    const c = cible({ A1: { ...NINA, depart: { dateSortie: '2026-10-31' } } }, [{ ...LEA }]);
+    expect(c.bail.locataires[0].nom).toBe('Nina');
+  });
+  it('bail en cours SANS départ + archive en attente : l\'archive (Lea)', () => {
+    expect(cible({ A1: { ...NINA } }, [{ ...LEA }]).bail.locataires[0].nom).toBe('Lea');
+  });
+  it('tombstone sans archive en attente : aucune cible (jamais le tombstone)', () => {
+    expect(cible({ A1: { ref: 'A1', _deleted: true } }, [{ ...LEA, dgRestitueAt: '2026-10-20' }])).toBe(null);
+  });
+  it('_dgConfirmerRestitution sur une cible devenue tombstone : refus, rien n\'est écrit', () => {
+    const DB = dbDe({ A1: { ref: 'A1', _deleted: true } });
+    const tomb = DB.baux.A1;
+    const m = monter(DB, [...STATUT, '_dgConfirmerRestitution', '_dgBailCible'], {
+      _dgRestitCible: { ref: 'A1', bail: tomb, cle: '' }, v: () => '2026-10-20', _dgVgRows: [], confirm2: () => true, saveDB: () => {}, _stamp: () => {},
+      _calculerSoldeDG: () => ({ soldeRestitue: 900, loyerImpaye: 0 }), window: { computeVetusteTotal: () => ({ total: 0 }), _penaliteRetardDG: () => ({ penalite: 0 }) },
+    });
+    m.els['ov-dg-restitution-ref'] = { value: 'A1' };
+    m.fn._dgConfirmerRestitution();
+    expect(tomb).toEqual({ ref: 'A1', _deleted: true });
+    expect(m.base._toasts[0]).toContain('Bail introuvable');
+  });
+});
