@@ -733,6 +733,21 @@ async function boot() {
   const _inviteTok = (new URLSearchParams(location.search)).get('invite')
   if (_inviteTok) return acceptInviteFlow(api, client, overlay, _inviteTok)
 
+  // Arrivée depuis propryo.fr par « Connexion » (?connexion) ou « Créer mon compte » (?inscription) : on montre TOUJOURS
+  // le formulaire. Si une session existe sur cet appareil (onglet resté ouvert, « rester connecté »), on la ferme
+  // d'abord — par le MÊME chemin que le menu Compte, donc avec ses protections : si du travail n'est pas encore
+  // synchronisé (EDL hors ligne…), la déconnexion est REFUSÉE et on reste connecté plutôt que de perdre des données.
+  if (/[?&](connexion|inscription)(?![\w-])/.test(location.search || '')) {
+    try {
+      const sess = await api.localSession()   // lecture locale, sans réseau
+      if (sess && sess.user && typeof _teardownSession === 'function') {
+        const r = await _teardownSession({ flush: true })
+        if (!r || r.ok !== false) { location.reload(); return }   // déconnecté : on recharge → formulaire (mode inscription si ?inscription)
+        console.info('[auth] déconnexion refusée (travail non synchronisé) : session conservée')
+      }
+    } catch (e) { console.warn('[auth] déconnexion depuis propryo.fr', e) }
+  }
+
   // déjà connecté (session persistée) → enchaîner direct. C'EST le chemin qui tue le double-login :
   // après un reload, la session persistée est retrouvée ici → Accueil sans re-saisir le mot de passe.
   const { user, error: _errAuth } = await api.currentUserOrError()
