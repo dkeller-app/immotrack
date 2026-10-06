@@ -181,6 +181,14 @@ describe('Connexion — _purgerCacheAuLogin selon le propriétaire du miroir (CD
     expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-b' }, { espaceId: 'e-b' })).toEqual({
       verdict: 'other-user', tagsVusParLaSuppression: [TAG_A, TAG_A], tagsVusParLaPurgeDesFilets: [TAG_A], tagFinal: { userId: 'u-b', espaceId: 'e-b' },
     });
+    // STOCKAGE lot 2 : tout verdict ≠ 'same' purge les copies IndexedDB (pas seulement 'other-user').
+    expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-a' }, { espaceId: 'e-autre' })).toEqual({
+      verdict: 'other-espace', tagsVusParLaSuppression: [], tagsVusParLaPurgeDesFilets: [TAG_A], tagFinal: { userId: 'u-a', espaceId: 'e-autre' },
+    });
+    const sansTag = ETAT(); delete sansTag.immotrack_v4_tag;
+    expect(await executer(fauxStockageQuota({ initial: sansTag }), { id: 'u-b' }, { espaceId: 'e-b' })).toEqual({
+      verdict: 'untagged', tagsVusParLaSuppression: [], tagsVusParLaPurgeDesFilets: [null], tagFinal: { userId: 'u-b', espaceId: 'e-b' },
+    });
     expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-a' }, { espaceId: 'e-a' })).toEqual({
       verdict: 'same', tagsVusParLaSuppression: [], tagsVusParLaPurgeDesFilets: [], tagFinal: TAG_A,
     });

@@ -197,14 +197,21 @@ function _purgerCopiesLocales(motif) {
 // avant migration (`filet:*`) et copie de la base illisible (`corrompu:*`). Jamais le reste du store
 // (`dirhandle`, dossier de la sauvegarde de sécurité). Appelée au logout et quand le miroir n'appartient
 // pas à l'utilisateur qui se connecte, ATTENDUE (avant le reload, avant la pose du nouveau tag).
-// Chaque opération IndexedDB est bornée (3 s) : un IndexedDB muet ne bloque pas la déconnexion.
-// Module absent : rien. Ne throw jamais.
+// Chaque opération IndexedDB est bornée (3 s) et la purge entière l'est aussi (5 s) : un IndexedDB muet
+// ou lent ne bloque pas la déconnexion. Ce qui resterait est repurgé au login suivant (verdict ≠ 'same')
+// ou expire après 30 jours. Module absent : rien. Ne throw jamais.
+const _PURGE_FILETS_MAX_MS = 5000
 async function _purgerFiletsLocaux(motif) {
+  let minuterie = null
   try {
     if (!_filetsMigration || typeof indexedDB === 'undefined') return
-    const parties = await _filetsMigration.purgerCopies(_filetsMigration.adaptateurIndexedDB(indexedDB))
-    if (parties.length) console.info('[Supabase] purge (' + motif + ') : ' + parties.length + ' copie(s) de la base retirée(s) d’IndexedDB')
+    const purge = _filetsMigration.purgerCopies(_filetsMigration.adaptateurIndexedDB(indexedDB))
+    const borne = new Promise(res => { minuterie = setTimeout(() => res(null), _PURGE_FILETS_MAX_MS) })
+    const parties = await Promise.race([purge, borne])
+    if (parties === null) console.warn('[Supabase] purge (' + motif + ') des copies IndexedDB non terminée en ' + (_PURGE_FILETS_MAX_MS / 1000) + ' s — reprise au prochain login ou à l’expiration (30 jours)')
+    else if (parties.length) console.info('[Supabase] purge (' + motif + ') : ' + parties.length + ' copie(s) de la base retirée(s) d’IndexedDB')
   } catch (e) { console.warn('[Supabase] purge des filets IndexedDB', e) }
+  finally { if (minuterie) clearTimeout(minuterie) }
 }
 
 // P1.3 volet RGPD — purge du cache local au LOGIN, selon le propriétaire du miroir résiduel.

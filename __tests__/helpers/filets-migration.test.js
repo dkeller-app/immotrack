@@ -12,7 +12,7 @@
  * Les fonctions de l'app (_filetAvantMigration, _filetsExpirer, _purgerFiletsLocaux) sont EXTRAITES
  * des vrais fichiers puis EXÉCUTÉES.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -132,6 +132,16 @@ describe('expirerCopies et purgerCopies', () => {
     ]));
     expect((await F.purgerCopies(a)).length).toBe(3);
     expect([...a.m.keys()].sort()).toEqual(['autre', 'dirhandle']);
+  });
+  it('lecture RATÉE d’un filet (IndexedDB lent) : il n’est PAS retiré sur cette erreur passagère', async () => {
+    const a = memoire(Object.fromEntries([filet('n', 'recent', T0 - JOUR), filet('n', 'vieux', T0 - 40 * JOUR)]));
+    const lire = a.lire;
+    a.lire = async (k) => { if (k === 'filet:n:recent') throw new Error('indexeddb-muet'); return lire(k); };
+    expect(await F.expirerCopies(a, { maintenant: T0 })).toEqual(['filet:n:vieux']);
+    expect(a.m.has('filet:n:recent')).toBe(true);
+    const r = await F.poserFilet(a, { ns: 'n', label: 'neuf', json: '{}', maintenant: T0 });
+    expect(r.supprimees).toEqual([]);
+    expect(a.m.has('filet:n:recent')).toBe(true);
   });
   it('IndexedDB qui lève : rien ne remonte (ne lève jamais)', async () => {
     const casse = { cles: async () => { throw new Error('SecurityError'); } };
@@ -278,19 +288,37 @@ describe('G6 — _filetAvantMigration (js/app/app-part2.js), exécutée', () => 
     for (const l of appels) expect(l).toMatch(/if\s*\(\s*isFirstRun\s*&&\s*!_CLOUD_BOOT\s*\)\s*_filetAvantMigration\(/);
     expect(SRC2).not.toMatch(/_backupBeforeMigration/);
   });
+  it('passe d’expiration câblée au démarrage (app-part3.js, après initDB)', () => {
+    const SRC3 = readFileSync(resolve(repoRoot, 'js/app/app-part3.js'), 'utf8');
+    const i = SRC3.indexOf('\n  initDB();');
+    expect(i).toBeGreaterThan(0);
+    expect(SRC3.slice(i, i + 600)).toMatch(/setTimeout\(\(\) => \{ try \{ if \(typeof _filetsExpirer === 'function'\) _filetsExpirer\(\); \} catch \(e\) \{\} \}, \d+\);/);
+  });
 });
 
 describe('S-7 — _purgerFiletsLocaux (js/app/supabase-entry.js), exécutée', () => {
   let SRC;
   beforeAll(() => { SRC = readFileSync(resolve(repoRoot, 'js/app/supabase-entry.js'), 'utf8'); });
   const monter = (module, adaptateur, sansIdb = false) => new Function('_filetsMigration', 'indexedDB', 'console',
-    'async ' + extraireFonction(SRC, '_purgerFiletsLocaux') + '\nreturn _purgerFiletsLocaux;')(
+    (SRC.match(/^const _PURGE_FILETS_MAX_MS = .*$/m) || [''])[0] + '\nasync ' + extraireFonction(SRC, '_purgerFiletsLocaux') + '\nreturn _purgerFiletsLocaux;')(
     module && Object.assign({}, module, { adaptateurIndexedDB: () => adaptateur }), sansIdb ? undefined : {}, muet);
 
   it('retire filets et base illisible, garde dirhandle', async () => {
     const a = memoire(Object.fromEntries([filet('immotrack_v4', 'a', T0), ['corrompu:immotrack_v4', { at: 'x' }], ['dirhandle', DIRHANDLE]]));
     await monter(F, a)('logout');
     expect([...a.m.keys()]).toEqual(['dirhandle']);
+  });
+  it('purge qui traîne (suppressions lentes) : bornée à 5 s, la déconnexion continue', async () => {
+    vi.useFakeTimers();
+    try {
+      const lent = { cles: async () => ['filet:n:a'], lire: async () => ({}), supprimer: () => new Promise(() => {}) };
+      let fini = false;
+      monter(F, lent)('logout').then(() => { fini = true; });
+      await vi.advanceTimersByTimeAsync(4900);
+      expect(fini).toBe(false);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(fini).toBe(true);
+    } finally { vi.useRealTimers(); }
   });
   it('module absent ou IndexedDB qui lève : ne lève jamais (la déconnexion continue)', async () => {
     await expect(monter(null, memoire())('logout')).resolves.toBeUndefined();

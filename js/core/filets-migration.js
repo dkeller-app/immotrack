@@ -13,7 +13,9 @@
  *   - 3 copies au plus par espace de noms (prod `immotrack_v4`, sandbox `_test_immotrack_v4` : la
  *     sandbox ne peut pas évincer un filet de la prod) — les plus anciennes partent ;
  *   - 30 jours au plus : au-delà, retirée (au démarrage et à chaque nouveau filet) ;
- *   - retirées à la déconnexion et au changement d'utilisateur (S-7, RGPD).
+ *   - retirées à la déconnexion et au changement d'utilisateur (S-7, RGPD), dans TOUS les espaces de
+ *     noms — même règle que la purge des copies localStorage du lot 1 (`_test_*` compris) : sur un poste
+ *     partagé, la sandbox peut porter des données réelles importées.
  * La copie de la base illisible (`corrompu:<clé>`, lot 1, écart 3 du pilotage) suit la même durée de
  * vie et la même purge. Rien d'autre du store n'est jamais touché (`dirhandle` en premier lieu).
  *
@@ -57,8 +59,8 @@ export function estExpiree(enr, maintenant, ttl = FILET_TTL_MS) {
 }
 
 /**
- * Décision PURE de rotation. `entrees` = [{ cle, enr }] du store (seules les copies de la base sont
- * considérées). Rend les clés à supprimer :
+ * Décision PURE de rotation. `entrees` = [{ cle, enr, illue? }] du store (seules les copies de la base
+ * sont considérées ; `illue` = lecture ratée → ni retirée, ni comptée). Rend les clés à supprimer :
  *   - toute copie expirée (tous espaces de noms) ;
  *   - pour l'espace de noms `ns` (s'il est donné), les filets au-delà des `max` plus récents.
  * `garder` : une clé à ne jamais retirer (le filet qu'on vient d'écrire).
@@ -67,8 +69,11 @@ export function planRotation(entrees, { ns = null, maintenant, max = FILETS_MAX,
   const aSupprimer = new Set();
   const vivants = [];
   const prefixeNs = ns == null ? null : FILET_PREFIXE + String(ns) + ':';
-  for (const { cle, enr } of entrees || []) {
+  for (const { cle, enr, illue } of entrees || []) {
     if (!estCopieDeBase(cle) || cle === garder) continue;
+    // Lecture ratée (IndexedDB lent ou muet) : on ne sait rien de son âge — on ne la retire PAS sur une
+    // erreur passagère (contre-audit lot 2) ; la passe suivante tranchera.
+    if (illue) continue;
     if (estExpiree(enr, maintenant, ttl)) { aSupprimer.add(cle); continue; }
     if (prefixeNs && cle.startsWith(prefixeNs)) vivants.push({ cle, t: heureDe(enr) });
   }
@@ -86,7 +91,8 @@ async function lireCopies(adaptateur) {
   // Une à une : chaque copie peut peser plusieurs Mo, on ne les garde pas toutes en mémoire.
   for (const cle of cles) {
     let enr = null;
-    try { enr = await adaptateur.lire(cle); } catch (_e) { enr = null; }
+    try { enr = await adaptateur.lire(cle); }
+    catch (_e) { entrees.push({ cle, enr: null, illue: true }); continue; }
     entrees.push({ cle, enr: enr ? { at: enr.at } : null });
   }
   return entrees;

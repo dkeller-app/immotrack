@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.716';
+const IMMOTRACK_VERSION = '15.720';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -1603,7 +1603,7 @@ function initDB() {
         _copieIllisible.then(conservee => {
           if (typeof showToast !== 'function') return;
           showToast(conservee
-            ? "⚠ Base locale illisible : une copie a été conservée dans l'IndexedDB de cet appareil (base « immotrack_backup »). Restaurer une sauvegarde de sécurité pour retrouver les données."
+            ? "⚠ Base locale illisible : une copie a été conservée 30 jours dans l'IndexedDB de cet appareil (base « immotrack_backup »). Restaurer une sauvegarde de sécurité pour retrouver les données."
             : "⚠ Base locale illisible, et sa copie n'a pas pu être conservée sur cet appareil. Restaurer une sauvegarde de sécurité pour retrouver les données.", 'err', 12000);
         });
       }, 1500);
