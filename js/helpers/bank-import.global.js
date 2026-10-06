@@ -1470,6 +1470,12 @@
     return _bankRulePrecision(b) > _bankRulePrecision(a) ? b : a;
   }
 
+  /** « Garder les deux » a-t-il été choisi pour cette paire (dans un sens ou dans l'autre) ? */
+  function _bankRuleGardeLesDeux(a, b) {
+    const lists = (x, y) => !!(x && y && y.id != null && y.id !== '' && Array.isArray(x.gardeAvec) && x.gardeAvec.some(i => String(i) === String(y.id)));
+    return lists(a, b) || lists(b, a);
+  }
+
   /**
    * Mes règles — signal de DOUBLON : même compte, même résultat, et le motif de l'une
    * inclus dans celui de l'autre. Deux règles de sens opposés (dépense / recette) ne
@@ -1485,6 +1491,7 @@
         if (String(a.compte || '') !== String(b.compte || '')) continue;
         if (_bankRuleResultKey(a) !== _bankRuleResultKey(b)) continue;
         if (a.sens && b.sens && a.sens !== b.sens) continue;
+        if (_bankRuleGardeLesDeux(a, b)) continue;            // « Garder les deux » : le signal ne revient pas
         if (!_bankRuleCovers(a, b) && !_bankRuleCovers(b, a)) continue;
         const garder = _bankRulePlusPrecise(a, b);
         out.push({ a, b, garder, retirer: garder === a ? b : a });
@@ -1512,6 +1519,96 @@
     const garder = Object.assign({}, keep, { _modifiedAt: now });
     if (ex.length || Array.isArray(keep.exceptions)) garder.exceptions = ex;
     return { garder, retirer: drop, tombstone: _bankRuleTombstone(drop, { now }) };
+  }
+
+  /**
+   * « Garder les deux » (Mes règles) : mémorise, sur la règle `a`, que la paire (a, b) est voulue.
+   * Solution simple : un champ `gardeAvec` (liste d'identifiants) sur UNE des deux règles ; il voyage
+   * avec elle à la synchro, et `_bankRulesDuplicates` ne signale plus la paire. Copie stampée ;
+   * la règle d'origine n'est pas modifiée ; déjà mémorisé → règle rendue telle quelle.
+   */
+  function _bankRuleGarderLesDeux(a, b, opts = {}) {
+    if (!a || !b || b.id == null || b.id === '') return a;
+    if (_bankRuleGardeLesDeux(a, b)) return a;
+    const ids = (Array.isArray(a.gardeAvec) ? a.gardeAvec : []).concat([String(b.id)]);
+    return Object.assign({}, a, { gardeAvec: ids, _modifiedAt: _bankNow(opts) });
+  }
+
+  /**
+   * Mes règles — doublons indexés par la règle À RETIRER : `{ [id]: règle à garder }`.
+   * (Le message de doublon s'affiche sur la règle la moins précise, qui est la recouverte.)
+   */
+  function _bankRulesDoublonsParId(rules) {
+    const out = {};
+    for (const d of _bankRulesDuplicates(rules)) {
+      if (d.retirer && d.retirer.id != null && d.retirer.id !== '' && !out[d.retirer.id]) out[d.retirer.id] = d.garder;
+    }
+    return out;
+  }
+
+  /**
+   * Mes règles — regroupement par COMPTE (fonction pure).
+   *  - `sansCompte` : règles historiques sans compte (« Compte à choisir »), toujours affichées, en tête ;
+   *  - `groupes` : un par compte vivant (ordre des comptes), seulement ceux qui ont des règles ;
+   *  - `inconnus` : règles dont le compte n'existe plus (jamais masquées en silence) ;
+   *  - filtre bailleur (`opts.bailleur`, vide ou « all » = Voir tout) : un compte d'un AUTRE bailleur est
+   *    masqué ; un compte mixte ou sans bailleur n'est jamais masqué (on ne cache rien faute de savoir).
+   *  - `bailleurs` : bailleurs distincts des comptes (pour le filtre) ; `masquees` : règles cachées par le filtre.
+   * Les règles supprimées (`_deleted`) sont ignorées.
+   * @param {object[]} rules
+   * @param {{id:*, label?:string, bailleur?:string, mixte?:boolean, _deleted?:boolean}[]} accounts
+   * @param {{bailleur?:string}} [opts]
+   */
+  function _bankRulesParCompte(rules, accounts, opts = {}) {
+    const live = (Array.isArray(rules) ? rules : []).filter(r => r && !r._deleted);
+    const accs = (Array.isArray(accounts) ? accounts : []).filter(a => a && !a._deleted);
+    const N = _bankNormTxt;
+    const bailleurs = [];
+    accs.forEach(a => {
+      const b = !a.mixte && a.bailleur ? String(a.bailleur).trim() : '';
+      if (b && !bailleurs.some(x => N(x) === N(b))) bailleurs.push(b);
+    });
+    const filtre = (opts.bailleur && opts.bailleur !== 'all') ? String(opts.bailleur) : '';
+    const visible = a => {
+      if (!filtre || a.mixte || !a.bailleur || !String(a.bailleur).trim()) return true;
+      return N(a.bailleur) === N(filtre);
+    };
+    const out = { sansCompte: [], groupes: [], inconnus: [], bailleurs, filtre, masquees: 0, bailleursMasques: [] };
+    const known = new Set(accs.map(a => String(a.id)));
+    out.sansCompte = live.filter(r => r.compte == null || r.compte === '');
+    out.inconnus = live.filter(r => r.compte != null && r.compte !== '' && !known.has(String(r.compte)));
+    accs.forEach(a => {
+      const regles = live.filter(r => r.compte != null && r.compte !== '' && String(r.compte) === String(a.id));
+      if (!regles.length) return;
+      if (!visible(a)) {
+        out.masquees += regles.length;
+        const b = String(a.bailleur).trim();
+        if (!out.bailleursMasques.some(x => N(x) === N(b))) out.bailleursMasques.push(b);
+        return;
+      }
+      out.groupes.push({ compte: a, regles });
+    });
+    return out;
+  }
+
+  /**
+   * Mes règles — ce que la liste affiche d'une règle (fonction pure) : mots cochés, mots « saisis »
+   * (une règle historique n'a que des morceaux de mot), exceptions. Aucune statistique d'utilisation.
+   */
+  function _bankRuleVue(rule) {
+    const r = rule || {};
+    const v2 = _bankRuleIsV2(r);
+    const motsLibres = v2 ? (r.motsLibres || []).slice() : String(r.pattern || '').trim().split(/\s+/).filter(Boolean);
+    return {
+      id: r.id != null ? String(r.id) : '',
+      mots: v2 ? (r.mots || []).slice() : [],
+      motsLibres,
+      sens: r.sens === 'cr' || r.sens === 'db' ? r.sens : '',
+      montant: r.montant && r.montant.type ? r.montant : null,
+      exceptions: (Array.isArray(r.exceptions) ? r.exceptions : []).filter(e => e && e.cle),
+      compteAChoisir: !r.compte,
+      historique: !v2,
+    };
   }
 
   /**
@@ -2754,6 +2851,10 @@
     _bankRuleExactDuplicate: _bankRuleExactDuplicate,
     _bankRulesDuplicates: _bankRulesDuplicates,
     _bankRulesFuse: _bankRulesFuse,
+    _bankRuleGarderLesDeux: _bankRuleGarderLesDeux,
+    _bankRulesDoublonsParId: _bankRulesDoublonsParId,
+    _bankRulesParCompte: _bankRulesParCompte,
+    _bankRuleVue: _bankRuleVue,
     _bankRuleApercu: _bankRuleApercu,
     _bankRuleTraceKey: _bankRuleTraceKey,
     _bankLineApplyRules: _bankLineApplyRules,

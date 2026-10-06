@@ -10339,6 +10339,38 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .brg-saved-box.warn{border-color:var(--warn);background:var(--warn-soft)}
 .brg-saved-box.info{border-color:var(--info)}
 
+/* « Mes règles » (phase 6b) : liste par compte — flex-wrap, aucun point de rupture : tient de 320 px à la modale 900 px.
+   Texte courant en --t1 : body[data-dash-v4="on"] force --t2 à #CDD4E5 même en thème clair (défaut préexistant, cf. #hl-bar). */
+.brg-rl{display:flex;flex-direction:column;gap:16px;min-width:0}
+.brg-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.brg-bar .brg-hint{margin:0;flex:1 1 260px}
+.brg-btn[aria-pressed="true"]{background:var(--t1);color:var(--sur);border-color:var(--t1)}
+.brg-bdg.neg{background:var(--neg-soft);color:var(--neg)}
+.brg-grp{border:1px solid var(--bor);border-radius:var(--r);background:var(--sur);padding:14px;min-width:0}
+.brg-grp.warn{border-color:var(--warn)}
+.brg-grp-h{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.brg-grp-h h3{margin:0;font:800 var(--fs-md)/1.3 var(--display);display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;overflow-wrap:anywhere}
+.brg-grp>.brg-hint{margin:4px 0 0}
+.brg-rule{border:1px solid var(--bor);border-radius:var(--r);background:var(--sur2);padding:10px 14px;margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;min-width:0}
+.brg-rule.dup{border-color:var(--warn)}
+.brg-rule-mo{flex:1 1 280px;min-width:0}
+.brg-rule-bd{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.brg-rule-rs{flex:1 1 200px;min-width:0;font-size:var(--fs-base);color:var(--t1);overflow-wrap:anywhere}
+.brg-rule-rs small{display:block;color:var(--t3);font-size:var(--fs-sm)}
+.brg-rule-ac{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.brg-rule-wide{flex:1 0 100%;margin-top:0}
+.brg-rule .brg-mot{font:700 var(--fs-base)/1.3 var(--mono);overflow-wrap:anywhere}
+.brg-pills{display:flex;flex-wrap:wrap;gap:6px}
+.brg-pill{font:700 var(--fs-md)/1.3 var(--mono);padding:4px 10px;border-radius:var(--rp);background:var(--t1);color:var(--sur);overflow-wrap:anywhere;max-width:100%}
+.brg-pill--saisi{background:var(--sur3);color:var(--t1);border:1px dashed var(--acc)}
+.brg-pill em{font:800 var(--fs-xs)/1 var(--font);letter-spacing:.07em;text-transform:uppercase;color:var(--acc2);font-style:normal}
+.brg-lnk--neg{color:var(--neg)}
+.brg-rule-ac .brg-lnk,.brg-exc .brg-lnk{padding:0 8px;font-size:var(--fs-base)}
+.brg-exn{flex:1 0 100%;border-top:1px dashed var(--bor);font-size:var(--fs-sm);color:var(--t1)}
+.brg-exn summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;color:var(--t3);font-weight:600}
+.brg-exn summary:hover{color:var(--info)}
+.brg-exn[open] summary{color:var(--info)}
+
 @media (max-width:767px){
   #ov-bank-rule{padding:0;align-items:stretch}
   #ov-bank-rule .modal{width:100% !important;max-width:none !important;height:100%;max-height:none !important;border-radius:0}

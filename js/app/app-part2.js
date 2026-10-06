@@ -24521,55 +24521,197 @@ function _ccImmeuble(ccId) {
   return nom;
 }
 
-// ⑦.7 — La liste des règles : une seule liste, deux accès (ici et depuis la page
-// Loyers & Mouvements). Ajouté : le SENS, et la colonne « utilisée » (« 23 mouvements
-// classés · dernière fois le 12/08 ») pour repérer une règle obsolète ou trop large.
-// RETIRÉ : les flèches ↑↓ — il n'y a plus d'ordre à maintenir (⑦.2 : les règles
-// complémentaires s'additionnent, les règles en conflit ne s'appliquent pas).
-// L'édition passe par l'écran de règle avec aperçu (⑦.4), plus par des champs en ligne.
-// ⑦.7 — deuxième accès : la même liste, depuis la page Loyers & Mouvements.
+// ══════════════════════════════════════════════════════════════
+// REGLES-REFONTE phase 6b — « MES RÈGLES » (maquette mes-regles.html, version SIMPLE décidée par Didier)
+// Une seule liste, deux accès (Réglages ▸ Règles, et Loyers & Mouvements ▸ fenêtre « Mes règles »).
+//  · groupée par COMPTE (avec son bailleur), filtre bailleur + « Voir tout » ;
+//  · règles historiques sans compte : groupe « Compte à choisir » en tête (pas d'assistant de migration) ;
+//  · signal de DOUBLON : « Fusionner » (garde la plus précise) ou « Garder les deux » (mémorisé sur la règle,
+//    champ `gardeAvec`, voir _bankRuleGarderLesDeux) ;
+//  · « N exception(s) » dépliable, chacune retirable ;
+//  · Modifier = la MÊME fenêtre que la création (`_bankRuleOpen(id)`) ; Supprimer = confirmation + tombstone.
+// NON fait volontairement (« on fait simple ») : test de libellé, statistiques d'utilisation.
+// La logique (regroupement, doublons, fusion) est dans js/core/bank-import.js (pur, testé) ; ici : le rendu.
+// Les identifiants / libellés passent par data-*, jamais dans le code d'un onclick ; tout texte est échappé.
+// ══════════════════════════════════════════════════════════════
 function _bankRulesOpen() { openM('ov-bank-rules'); rParamsRules('import-rules-list-modal'); }
+
+let _bankRulesBailleur = null;   // null = bailleur actif de la barre de gauche (à défaut : tout) · 'all' = Voir tout · sinon un bailleur
+const _bankRulesExOpen = {};     // règles dont les exceptions sont dépliées { id: true } (le dépliage survit au rafraîchissement)
+
+// Les textes statiques d'index.html (« …dans l'ordre », « + Règle ») datent d'avant la refonte : on les met à jour ici.
+function _bankRulesEntete() {
+  const hd = document.querySelector('#tp-rules .flex-b');
+  if (hd) {
+    const d = hd.querySelector('.mu.sm'); if (d) d.textContent = 'À l\'import bancaire, si le libellé contient tous les mots d\'une règle, sa catégorie et son affectation sont proposées.';
+    const b = hd.querySelector('button'); if (b) b.textContent = '+ Nouvelle règle';
+  }
+  const f = document.querySelector('#ov-bank-rules .m-foot .bp'); if (f) f.textContent = '+ Nouvelle règle';
+}
+// Bailleur affiché : le choix de l'utilisateur, sinon le bailleur actif de la barre de gauche s'il porte un compte, sinon tout.
+function _bankRulesBailleurEff(bailleurs) {
+  const norm = _bankRuleNorm;
+  const has = b => bailleurs.some(x => norm(x) === norm(b));
+  if (_bankRulesBailleur === 'all') return 'all';
+  if (_bankRulesBailleur && has(_bankRulesBailleur)) return _bankRulesBailleur;
+  if (_bankRulesBailleur === null && typeof _activeEntity !== 'undefined' && _activeEntity && has(_activeEntity)) return _activeEntity;
+  return 'all';
+}
+function _bankRulesRefresh() {
+  if (el('import-rules-list')) rParamsRules();
+  if (el('import-rules-list-modal')) rParamsRules('import-rules-list-modal');
+}
+
+function _bankRulesAffTxt(r) {
+  if (r.bailleurDuCompte) return 'le bailleur du compte';
+  if (r.compteurCcId) { const im = _ccImmeuble(r.compteurCcId); return 'Compteur collectif' + (im ? ' — ' + im : ''); }
+  if (String(r.qui || '').startsWith('SCI:')) return r.qui.slice(4);
+  if (r.qui) return r.qui;
+  if (r.imm) return 'Immeuble ' + r.imm;
+  return '(aucune affectation)';
+}
+
+function _bankRulesCarteHtml(r, doublonAvec) {
+  const v = window._bankRuleVue(r);
+  const motif = rr => window._bankRuleMotif(rr);
+  const pills = v.mots.map(w => '<span class="brg-pill">' + escHtml(w) + '</span>').join('')
+    + v.motsLibres.map(w => '<span class="brg-pill brg-pill--saisi">' + escHtml(w) + ' <em>saisi</em></span>').join('');
+  const montant = v.montant ? _bankRuleMontantTxt(v.montant) : '';
+  const sens = v.sens === 'db' ? '<span class="brg-bdg neg">Dépense</span>' : (v.sens === 'cr' ? '<span class="brg-bdg pos">Recette</span>' : '<span class="brg-bdg">Les deux</span>');
+  const n = v.exceptions.length;
+  const rid = escHtml(v.id);
+  const act = (a, lbl, cls, extra) => '<button type="button" class="brg-lnk' + (cls ? ' ' + cls : '') + '" data-act="' + a + '" data-rid="' + rid + '"' + (extra || '') + ' onclick="_bankRulesAct(this)">' + lbl + '</button>';
+  const exc = n
+    ? '<details class="brg-exn"' + (_bankRulesExOpen[v.id] ? ' open' : '') + ' data-rid="' + rid + '" ontoggle="_bankRulesToggle(this)"><summary>' + n + ' exception' + (n > 1 ? 's' : '') + '</summary>'
+      + '<ul class="brg-exc">' + v.exceptions.map(e => '<li><span>' + (e.date ? fd(e.date) + ' · ' : '') + escHtml(e.libelle || '(libellé inconnu)')
+        + (e.montant != null && e.montant !== '' ? ' · ' + (e.sens === 'cr' ? '+' : '−') + fmt(Math.abs(Number(e.montant) || 0)) : '')
+        + ' <span class="brg-mut">— sortie de la règle</span></span>'
+        + act('xdel', 'Retirer', '', ' data-cle="' + escHtml(e.cle) + '"') + '</li>').join('') + '</ul></details>'
+    : '';
+  const dbl = doublonAvec
+    ? '<div class="brg-alert warn brg-rule-wide"><b>Doublon probable</b> : même compte, même résultat que <span class="brg-mot">« ' + escHtml(motif(doublonAvec)) + ' »</span>. '
+      + 'Fusionner garde la plus précise (« ' + escHtml(motif(doublonAvec)) + ' ») et réunit les exceptions.'
+      + '<div class="brg-acts">'
+      + '<button type="button" class="brg-btn" data-act="merge" data-rid="' + rid + '" data-other="' + escHtml(doublonAvec.id) + '" onclick="_bankRulesAct(this)">Fusionner (garder « ' + escHtml(motif(doublonAvec)) + ' »)</button>'
+      + '<button type="button" class="brg-btn" data-act="keep" data-rid="' + rid + '" data-other="' + escHtml(doublonAvec.id) + '" onclick="_bankRulesAct(this)">Garder les deux</button></div></div>'
+    : '';
+  return '<div class="brg-rule' + (doublonAvec ? ' dup' : '') + '" data-rid="' + rid + '">'
+    + '<div class="brg-rule-mo"><div class="brg-pills">' + (pills || '<span class="brg-mut">(motif vide)</span>') + '</div>'
+    + '<div class="brg-rule-bd">' + (v.compteAChoisir ? '<span class="brg-bdg warn">Compte à choisir</span>' : '') + sens
+    + (montant ? '<span class="brg-bdg adv">' + escHtml(montant) + '</span>' : '') + '</div></div>'
+    + '<div class="brg-rule-rs">→ ' + (r.cat ? escHtml(r.cat) : '<span class="brg-mut">(aucune catégorie)</span>') + '<small>' + escHtml(_bankRulesAffTxt(r)) + '</small></div>'
+    + '<div class="brg-rule-ac">' + act('edit', v.compteAChoisir ? 'Ouvrir et choisir le compte' : 'Modifier') + act('del', 'Supprimer', 'brg-lnk--neg') + '</div>'
+    + dbl + exc + '</div>';
+}
 
 function rParamsRules(hostId) {
   if(!DB.importRules) DB.importRules = [];
   // REGLES-REFONTE phase 4 — identité par id : une règle sans id (base pas encore migrée) en reçoit un ici.
   _bankMigrerRegles('liste des règles');
+  _bankRulesEntete();
   const host = el(hostId || 'import-rules-list'); if (!host) return;
-  const aliveIdx = DB.importRules.map((r,i)=>({r,i})).filter(x => x.r && !x.r._deleted);
-  if(!aliveIdx.length) {
+  if(!DB.importRules.some(r => r && !r._deleted)) {
     host.innerHTML = '<div class="mu sm" style="padding:16px;text-align:center;line-height:1.6">'
       + '<b>Aucune règle.</b><br>Propryo ne livre aucune règle toute faite : ce sont <b>tes</b> données, pas les siennes.<br>'
-      + 'Crée-en une depuis une ligne d\'import (' + _uiIcon('save',12) + ' Mémoriser la règle) ou avec « + Règle ».</div>';
+      + 'Crée-en une depuis une ligne d\'import (' + _uiIcon('save',12) + ' Mémoriser la règle) ou avec « + Nouvelle règle ».</div>';
     return;
   }
-  const _acct = (DB.params.bankAccounts || []).filter(a => a && !a._deleted);
-  const sensLbl = s => s === 'db' ? '− dépense' : s === 'cr' ? '+ recette' : 'les deux';
-  const affLbl = r => r.bailleurDuCompte ? _uiIcon('bank',13)+' le bailleur du compte'
-    : (r.compteurCcId ? _uiIcon('bolt',13)+' compteur' : (String(r.qui||'').startsWith('SCI:') ? _uiIcon('bank',13)+' ' + escHtml(r.qui.slice(4))
-      : (r.qui ? _uiIcon('home',13)+' ' + escHtml(r.qui) : (r.imm ? _uiIcon('building',13)+' ' + escHtml(r.imm) : '<span class="mu sm">—</span>'))));
-  // La table est large (7 colonnes) : elle défile DANS son conteneur, la page ne
-  // scrolle jamais horizontalement (contrainte 3 formats, zéro scroll à 390 px).
-  host.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="tbl" style="min-width:720px"><thead><tr>
-    <th>Motif (contenu dans le libellé)</th><th style="width:96px">Sens</th><th style="width:130px">Compte</th>
-    <th style="width:170px">Catégorie</th><th style="width:170px">Affectation</th><th style="width:150px">Utilisée</th><th style="width:80px"></th>
-  </tr></thead><tbody>
-  ${aliveIdx.map(({r,i}) => {
-    const u = window._bankRuleUsage ? window._bankRuleUsage(r, DB.mouvements || []) : { count:0, lastDate:'' };
-    const acc = r.compte ? (_acct.find(a => String(a.id) === String(r.compte)) || null) : null;
-    return `<tr>
-    <td style="font-family:var(--mono,monospace);font-size:12px;font-weight:600">${escHtml((window._bankRuleMotif ? window._bankRuleMotif(r) : r.pattern)||'(motif vide)')}</td>
-    <td class="mu sm">${sensLbl(r.sens)}</td>
-    <td class="mu sm">${acc ? escHtml(acc.label||'(compte)') : (r.compte ? '<span style="color:var(--ora)">compte supprimé</span>' : '<span style="color:var(--ora)">tous · compte à choisir</span>')}</td>
-    <td>${r.cat ? '<span class="badge gry">'+escHtml(r.cat)+'</span>' : '<span class="mu sm">—</span>'}</td>
-    <td>${affLbl(r)}</td>
-    <td class="mu sm" style="font-size:11.5px">${u.count ? u.count+' mouvement'+(u.count>1?'s':'')+'<br>dernière fois le '+fd(u.lastDate) : '<span style="color:var(--ora)">jamais utilisée</span>'}</td>
-    <td class="act-cell">
-      <button class="btn bs bb" data-rid="${escHtml(r.id||'')}" onclick="_bankRuleOpen(this.dataset.rid)" title="Modifier cette règle">${_uiIcon('edit',13)}Modifier</button>
-      <button class="btn br bb" data-rid="${escHtml(r.id||'')}" onclick="delRule(this.dataset.rid)" title="Supprimer">${_uiIcon('trash',13)}Supprimer</button>
-    </td>
-  </tr>`;}).join('')}
-  </tbody></table></div>`;
+  const accounts = (DB.params.bankAccounts || []).filter(a => a && !a._deleted);
+  const tous = window._bankRulesParCompte(DB.importRules, accounts, {});
+  const bail = _bankRulesBailleurEff(tous.bailleurs);
+  const g = window._bankRulesParCompte(DB.importRules, accounts, { bailleur: bail });
+  const dup = window._bankRulesDoublonsParId(DB.importRules);
+  const cartes = rs => rs.map(r => _bankRulesCarteHtml(r, dup[r.id] || null)).join('');
+  const nb = rs => '<span class="brg-mut" style="font-size:var(--fs-sm)">' + rs.length + ' règle' + (rs.length > 1 ? 's' : '') + '</span>';
+  const bailBtn = (val, lbl) => '<button type="button" class="brg-btn" aria-pressed="' + (bail === val || (val !== 'all' && bail !== 'all' && _bankRuleNorm(bail) === _bankRuleNorm(val))) + '" data-act="bail" data-val="' + escHtml(val) + '" onclick="_bankRulesAct(this)">' + escHtml(lbl) + '</button>';
+  let h = '<div class="brg-rl"><div class="brg-bar"><p class="brg-hint">Classées par compte. Une règle ne modifie jamais les mouvements déjà enregistrés.</p>'
+    + (tous.bailleurs.length > 1
+      ? '<div class="brg-acts" role="group" aria-label="Bailleur" style="margin:0">' + tous.bailleurs.map(b => bailBtn(b, 'Bailleur : ' + b)).join('') + bailBtn('all', 'Voir tout') + '</div>'
+      : '')
+    + '</div>';
+  if (g.sansCompte.length) {
+    h += '<section class="brg-grp warn"><div class="brg-grp-h"><h3>Compte à choisir <span class="brg-bdg warn">règles historiques</span></h3>' + nb(g.sansCompte) + '</div>'
+      + '<p class="brg-hint">Ces règles datent d\'avant l\'obligation de compte : elles restent actives sur tous les comptes. Ouvre-les pour choisir leur compte (obligatoire pour enregistrer).</p>'
+      + cartes(g.sansCompte) + '</section>';
+  }
+  g.groupes.forEach(({ compte: a, regles }) => {
+    h += '<section class="brg-grp"><div class="brg-grp-h"><h3>' + escHtml(a.label || '(compte)') + ' <span class="brg-bdg">'
+      + (a.mixte ? 'compte mixte' : (a.bailleur ? 'bailleur : ' + escHtml(a.bailleur) : 'bailleur à renseigner')) + '</span></h3>' + nb(regles) + '</div>' + cartes(regles) + '</section>';
+  });
+  if (g.inconnus.length) {
+    h += '<section class="brg-grp warn"><div class="brg-grp-h"><h3>Compte supprimé <span class="brg-bdg warn">à vérifier</span></h3>' + nb(g.inconnus) + '</div>'
+      + '<p class="brg-hint">Le compte de ces règles n\'existe plus dans les Réglages.</p>' + cartes(g.inconnus) + '</section>';
+  }
+  if (g.masquees) {
+    h += '<p class="brg-hint" style="text-align:center">Les règles de ' + g.bailleursMasques.map(b => '« ' + escHtml(b) + ' »').join(', ') + ' (' + g.masquees + ') ne sont pas affichées. '
+      + '<button type="button" class="brg-lnk" data-act="bail" data-val="all" onclick="_bankRulesAct(this)">Voir tout</button></p>';
+  }
+  host.innerHTML = h + '</div>';
 }
+
+function _bankRulesToggle(det) {
+  const rid = det && det.dataset.rid; if (!rid) return;
+  if (det.open) _bankRulesExOpen[rid] = true; else delete _bankRulesExOpen[rid];
+}
+
+// Point d'entrée unique des boutons de la liste : l'action et les identifiants viennent des data-attributes.
+function _bankRulesAct(btn) {
+  const act = btn.dataset.act, rid = btn.dataset.rid;
+  if (act === 'edit') { _bankRuleOpen(rid); return; }
+  if (act === 'del') { delRule(rid); return; }
+  if (act === 'bail') { _bankRulesBailleur = btn.dataset.val || 'all'; _bankRulesRefresh(); return; }
+  if (act === 'merge') { _bankRulesFusionner(rid, btn.dataset.other); return; }
+  if (act === 'keep') { _bankRulesGarderLesDeux(rid, btn.dataset.other); return; }
+  if (act === 'xdel') { _bankRulesRetirerException(rid, btn.dataset.cle); return; }
+}
+
+// « Fusionner » : la plus précise est gardée (exceptions réunies, `_stamp`), l'autre devient un tombstone par id.
+function _bankRulesFusionner(idA, idB) {
+  const ia = window._bankRuleIdxById(DB.importRules, idA), ib = window._bankRuleIdxById(DB.importRules, idB);
+  if (ia < 0 || ib < 0) { showToast('Règle introuvable', 'err'); return; }
+  const f = window._bankRulesFuse(DB.importRules[ia], DB.importRules[ib]);
+  const ig = window._bankRuleIdxById(DB.importRules, f.garder.id), ir = window._bankRuleIdxById(DB.importRules, f.retirer.id);
+  _stamp(f.garder);
+  DB.importRules[ig] = f.garder;
+  DB.importRules[ir] = f.tombstone;
+  _stamp(DB);
+  saveDB();
+  const motif = window._bankRuleMotif(f.garder);
+  if (typeof _auditLog === 'function') _auditLog('update', 'import-rule', f.garder.id, 'fusion : « ' + window._bankRuleMotif(f.retirer) + ' » fusionnée dans « ' + motif + ' »');
+  _bankRuleAfterChange(null);
+  showToast('✓ Règles fusionnées : « ' + motif + ' » est conservée', 'ok', 4000);
+}
+
+// « Garder les deux » : le signal ne revient plus pour cette paire (champ `gardeAvec` sur la règle).
+function _bankRulesGarderLesDeux(idA, idB) {
+  const ia = window._bankRuleIdxById(DB.importRules, idA), ib = window._bankRuleIdxById(DB.importRules, idB);
+  if (ia < 0 || ib < 0) { showToast('Règle introuvable', 'err'); return; }
+  const rule = window._bankRuleGarderLesDeux(DB.importRules[ia], DB.importRules[ib]);
+  if (rule !== DB.importRules[ia]) {
+    _stamp(rule);
+    DB.importRules[ia] = rule;
+    _stamp(DB);
+    saveDB();
+  }
+  _bankRulesRefresh();
+  showToast('Les deux règles sont conservées', 'ok', 3000);
+}
+
+// Retire UNE exception (même fonction pure que « Réintégrer à la règle »). Aucun mouvement en base n'est reclassé.
+function _bankRulesRetirerException(rid, cle) {
+  const idx = window._bankRuleIdxById(DB.importRules, rid);
+  if (idx < 0) { showToast('Règle introuvable', 'err'); return; }
+  const rule = window._bankRuleRemoveException(DB.importRules[idx], cle);
+  if (rule === DB.importRules[idx]) return;
+  _stamp(rule);
+  DB.importRules[idx] = rule;
+  _stamp(DB);
+  saveDB();
+  if (typeof _auditLog === 'function') _auditLog('update', 'import-rule', rule.id, 'exception retirée sur « ' + window._bankRuleMotif(rule) + ' »');
+  _bankRuleAfterChange(rule);
+  showToast('✓ Exception retirée : les mouvements déjà en base ne sont pas reclassés', 'ok', 4000);
+}
+
 
 function addImportRule() {
   if(!DB.importRules) DB.importRules = [];
