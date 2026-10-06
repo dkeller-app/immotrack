@@ -14,12 +14,17 @@
  *   }
  *
  * INVARIANTS (prouvés par mutation) :
- *   B-1  Σ des mois de byLot = agrégats annuels du même lot.
+ *   B-1  Σ des mois de byLot = agrégats annuels du même lot (P3 : pour le DÛ et l'ENCAISSÉ ; le
+ *        retard et l'avance sont des POSITIONS — l'annuel = position au dernier mois exigible).
  *   B-2  parité stricte avec `lotsEnRetard` : un lot a un solde < 0 ⟺ il est dans lotsEnRetard.
  *   B-3  Σ encaisse/retard/avance de tous les lots = totaux annuels du moteur (aucune fuite).
  */
 import { describe, it, expect } from 'vitest';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
+import { suiviLot, collecterPaiements } from '../../js/core/suivi-loyers.js';
+
+// FINANCES-SUIVI-UNIQUE P3 : en production, byLot vient du SUIVI par bail (adaptateur versByLot),
+// injecté par _finMonthly. Le fichier teste donc le moteur tel que l'app le câble.
 
 const catLigne = (cat) => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null);
 const isEcheance = (m) => m.cat === 'Prêt';
@@ -37,9 +42,13 @@ const mvts = [
   { date: '2026-01-03', cat: 'Loyer', qui: 'B', cr: 550, db: 0 },
   { date: '2026-01-05', cat: 'Loyer', qui: 'C', cr: 1650, db: 0 },
 ];
+const suivi = ['A', 'B', 'C'].map((ref) => suiviLot(
+  { ref, baux: [{ debut: '2026-01-01', hc: 500, ch: 50, noms: ref }], bareme: [], manques: [],
+    paiements: collecterPaiements(mvts, { ref, catLigne }) },
+  { today: TODAY }));
 const base = {
   mouvements: mvts, year: YEAR, scope: null, catLigne, isEcheance,
-  loyerDue: due, activeLots: ['A', 'B', 'C'], today: TODAY,
+  loyerDue: due, activeLots: ['A', 'B', 'C'], today: TODAY, suivi,
 };
 
 describe('_computeFinancesMonthly — byLot (Lot 0 KPI)', () => {
@@ -80,14 +89,23 @@ describe('_computeFinancesMonthly — byLot (Lot 0 KPI)', () => {
     expect(byLot.B.solde).toBe(-1100);
   });
 
-  it('lot en avance (C) : solde positif = l\'avance, aucun retard', () => {
+  // RÉÉCRIT en P3 (§E.3) : `annual.avance` était la Σ des avances NON compensées de la passe
+  // fiscale (1 100 en janvier compté, puis rien) — une avance « fantôme » qui coexistait avec un
+  // retard. C'est désormais la POSITION du suivi : l'avance se consomme mois après mois.
+  it('lot en avance (C) : avance COMPENSÉE mois par mois (position), aucun retard', () => {
     const { byLot } = _computeFinancesMonthly(base);
     expect(byLot.C.annual.encaisse).toBe(1650);      // payé d'un coup
     expect(byLot.C.annual.retard).toBe(0);
+    expect(byLot.C.months.map((m) => m.avance)).toEqual([1100, 550, 0]);   // fin janv. / févr. / mars
+    expect(byLot.C.annual.avance).toBe(0);           // position fin mars : tout est consommé
     expect(byLot.C.solde).toBe(0);                   // 3 mois dus, 3 mois couverts
   });
 
-  it('B-1 : Σ des mois de byLot = agrégats annuels du même lot', () => {
+  // RÉÉCRIT en P3 (§E.3) : « Σ des mois = annuel » reste vrai pour le dû et l'encaissé (des
+  // flux) ; il est FAUX pour le retard et l'avance devenus des POSITIONS (B doit 550 fin février
+  // puis 1 100 fin mars : la somme 1 650 compterait février deux fois). L'annuel = la position
+  // au dernier mois exigible.
+  it('B-1 : Σ des mois = annuel pour le dû et l\'encaissé ; retard/avance annuels = position du dernier mois exigible', () => {
     const { byLot } = _computeFinancesMonthly(base);
     for (const ref of Object.keys(byLot)) {
       const l = byLot[ref];
@@ -95,8 +113,11 @@ describe('_computeFinancesMonthly — byLot (Lot 0 KPI)', () => {
       expect(Math.round(som('duHC') * 100) / 100).toBe(l.annual.duHC);
       expect(Math.round(som('duCH') * 100) / 100).toBe(l.annual.duCH);
       expect(Math.round(som('encaisse') * 100) / 100).toBe(l.annual.encaisse);
-      expect(Math.round((som('loyerRetard') + som('chargeRetard')) * 100) / 100).toBe(l.annual.retard);
+      const der = l.months[l.months.length - 1];
+      expect(Math.round((der.loyerRetard + der.chargeRetard) * 100) / 100).toBe(l.annual.retard);
+      expect(der.avance).toBe(l.annual.avance);
     }
+    expect(byLot.B.months.map((m) => m.loyerRetard + m.chargeRetard)).toEqual([0, 550, 1100]);
   });
 
   it('B-2 : parité stricte avec lotsEnRetard (solde < 0 ⟺ dans lotsEnRetard)', () => {

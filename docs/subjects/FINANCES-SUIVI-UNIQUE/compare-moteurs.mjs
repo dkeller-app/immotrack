@@ -21,12 +21,16 @@
 //   GLI                  indemnité GLI (Q4 : ne réduit pas la dette — aucun écart attendu, info seule)
 // Sortie : un tableau par lot, le décompte des écarts par code, et exit 1 s'il reste un écart
 // SANS_CAUSE (ou, avec --avant, si le fiscal a bougé d'un centime : invariant I-h).
+// P3 : Finances LIT le suivi (`suivi` injecté dans _computeFinancesMonthly, comme _finMonthly) ;
+// le script prouve aussi, sur l'export, que la passe fiscale (loyersHC, provisions, base2044…) est
+// IDENTIQUE au centime avec et sans suivi, mois et année, sur 3 exercices (exit 1 sinon).
 import { readFileSync } from 'node:fs';
-import { moteursActuels, contexteApp } from './snapshot-avant.mjs';
+import { moteursActuels, contexteApp, argsFinances } from './snapshot-avant.mjs';
 
 const ROOT = new URL('../../../', import.meta.url);
 const { suiviLot, lotDepuisDb } = await import(new URL('js/core/suivi-loyers.js', ROOT));
 const { _loyerToleranceActive, _loyerTodayLocal } = await import(new URL('js/core/loyer-statut.js', ROOT));
+const { _computeFinancesMonthly } = await import(new URL('js/core/finances-monthly.js', ROOT));
 
 const args = process.argv.slice(2);
 const iAvant = args.indexOf('--avant');
@@ -188,6 +192,29 @@ if (sansCause.length) {
   echec = true;
   console.log('\n✗ ÉCARTS SANS CAUSE :');
   sansCause.forEach((e) => console.log('  ' + e.ref + ' · ' + e.moteur + ' ' + e.metrique + ' : ancien ' + e.de + ' / variante ' + e.a));
+}
+// ── I-h · P3 : la page Finances lit le suivi — la passe fiscale ne bouge pas d'un centime ──────
+{
+  const FISC_P3 = ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'rattrapage', 'recettesDiverses', 'base2044', 'duHC', 'duCH', 'cashflowReel'];
+  const suiviTous = (DB.logements || []).filter((l) => l && !l._deleted && l.ref)
+    .map((l) => suiviLot(lotDepuisDb(l.ref, DB, { catLigne: C.catLigne, isGli }), { today, graceLast: tol, seuilArrondi: 1 }));
+  const bouge = [];
+  const resume = [];
+  for (const y of [Number(yr), Number(yr) - 1, Number(yr) - 2]) {
+    const args = argsFinances(DB, C, y, today);
+    const a = _computeFinancesMonthly(args), b = _computeFinancesMonthly({ ...args, suivi: suiviTous });
+    for (const k of FISC_P3) {
+      if (a.annual[k] !== b.annual[k]) bouge.push(y + ' annuel ' + k + ' : ' + a.annual[k] + ' → ' + b.annual[k]);
+      a.months.forEach((m, i) => { if (!b.months[i] || m[k] !== b.months[i][k]) bouge.push(m.ym + ' ' + k + ' : ' + m[k] + ' → ' + (b.months[i] && b.months[i][k])); });
+    }
+    resume.push({ exercice: y, mois: a.months.length, loyersHC: a.annual.loyersHC, provisions: a.annual.provisions, base2044: a.annual.base2044,
+      'retard avant': r2(a.annual.loyerRetard + a.annual.chargeRetard), 'retard P3 (position)': r2(b.annual.loyerRetard + b.annual.chargeRetard),
+      'avance fiscale': b.annual.avance, 'avance P3': b.annual.avanceLot, 'écart P3': b.annual.ecart });
+  }
+  console.log('\nI-h · P3 — Finances avec le suivi injecté (périmètre « tout »), 3 exercices :');
+  console.table(resume);
+  console.log('I-h · P3 — fiscal identique avec et sans suivi (mois et année) : ' + (bouge.length ? 'NON' : 'OUI'));
+  if (bouge.length) { echec = true; bouge.slice(0, 20).forEach((x) => console.log('  ✗ ' + x)); }
 }
 if (fichierAvant) {
   const fige = JSON.parse(readFileSync(fichierAvant, 'utf8'));

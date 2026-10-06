@@ -128,6 +128,8 @@ import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantR
 import * as AvenantRegistre from './core/avenant-registre.js';
 // FINANCES-SUIVI-UNIQUE P2 — « manque accepté » (journal baux_evenements, type 'manque_accepte') : entrée, validation, tombstone.
 import * as ManqueAccepte from './core/manque-accepte.js';
+// FINANCES-SUIVI-UNIQUE P3 — LE moteur unique du suivi des loyers (par bail), lu par Finances (_finMonthly, drills).
+import * as SuiviLoyers from './core/suivi-loyers.js';
 // Forfait de charges (art. 25-10 / 8-1, V) dans la régularisation : post-traitement, intervalles, base N-1 (pur, testé).
 import { forfaitAvenantsDuBail, occNonForfaitJours, forfaitIntervalles, appliquerForfaitOccupation, periodeForfaitLibelle, baseChargesLogement, avenantObjetApplique, avenantApplicationAffichee } from './core/regul-forfait.js';
 // Qui est le bailleur, et donc quelle duree minimale s'impose (art. 10 ET art. 13).
@@ -697,6 +699,8 @@ window.avenantChampsManquants = avenantChampsManquants;
 window.avenantMontant = avenantMontant;
 window.AvenantRegistre = AvenantRegistre;
 window.ManqueAccepte = ManqueAccepte;   // lu par _manqueAccepter / _manqueAnnuler (app-part1.js)
+window.SuiviLoyers = SuiviLoyers;       // P3 : lotDepuisDb → suiviLot → suiviPerimetre / versByLot (app-part2.js _finSuiviLot)
+window.suiviLot = SuiviLoyers.suiviLot; // §F.1 câblage : exposé par main.js
 window.avenantEntrant = avenantEntrant;
 window.avenantPartiesSignature = avenantPartiesSignature;   // lot 3b : parties lues dans le document enregistré
 window.avenantHtmlSigne = avenantHtmlSigne;

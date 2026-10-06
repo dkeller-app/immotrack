@@ -369,9 +369,12 @@ export function suiviPerimetre(lots, ym) {
  * Forme `byLot[ref]` de _computeFinancesMonthly, calculée par le suivi. Changement de NATURE
  * assumé (§E.2) : le retard/l'avance d'un mois sont la POSITION de fin de mois (plus le résidu
  * attribué au mois d'origine) ; l'annuel est la position au dernier mois exigible de l'année.
+ * P3 (additif) : chaque mois porte aussi `courant` (manque PROPRE au mois, baux actifs, mois
+ * exigible) et `solde` (avance − retard, la case de la ligne « Avance / retard du lot ») ;
+ * `opts.dueYm` borne l'exigibilité comme la fenêtre de la page (défaut : celle du suivi).
  * @param {Object} suivi sortie de suiviLot
  * @param {number|string} annee
- * @param {{lastMonth?:number}} [opts] défaut : 12 (année close), mois de today (année en cours)
+ * @param {{lastMonth?:number, dueYm?:string}} [opts] défaut : 12 (année close), mois de today (année en cours)
  */
 export function versByLot(suivi, annee, opts) {
   const s = suivi || {};
@@ -379,7 +382,9 @@ export function versByLot(suivi, annee, opts) {
   const ty = String(s.today || '').slice(0, 4);
   const lastMonth = (opts && opts.lastMonth != null) ? Math.max(0, Math.min(12, opts.lastMonth | 0))
     : (y < ty ? 12 : (y > ty ? 0 : parseInt(String(s.today).slice(5, 7), 10)));
-  const dueYm = s.dueYm || String(s.today || '').slice(0, 7);
+  const dueSuivi = s.dueYm || String(s.today || '').slice(0, 7);
+  // La page ne peut pas déclarer exigible un mois que le suivi ne tient pas pour exigible.
+  const dueYm = (opts && /^\d{4}-\d{2}$/.test(String(opts.dueYm || ''))) ? _minYm(String(opts.dueYm), dueSuivi) : dueSuivi;
   // Rattrapage : la part de l'argent reçu ce mois-là qui a payé un mois ANTÉRIEUR.
   const ratt = {};
   for (const b of (s.baux || [])) for (const m of b.mois) for (const p of m.imputations) {
@@ -390,17 +395,28 @@ export function versByLot(suivi, annee, opts) {
   const months = [];
   for (let mo = 1; mo <= lastMonth; mo++) {
     const ym = y + '-' + String(mo).padStart(2, '0');
-    let duHC = 0, duCH = 0, encaisse = 0;
-    for (const b of (s.baux || [])) {
-      const m = b.mois.find((x) => x.ym === ym);
-      if (m) { duHC += m.du.hc; duCH += m.du.ch; encaisse += m.recu; }
-    }
+    let duHC = 0, duCH = 0, encaisse = 0, courant = 0;
     const lm = (s.mois && s.mois[ym]) || null;
     const exig = ym <= dueYm;
+    for (const b of (s.baux || [])) {
+      const m = b.mois.find((x) => x.ym === ym);
+      if (m) {
+        duHC += m.du.hc; duCH += m.du.ch; encaisse += m.recu;
+        if (exig && lm && lm.bauxActifs.includes(b.cle)) {
+          // Le manque propre au mois n'est un RETARD que s'il est dans la position : sous la
+          // tolérance du 10 (grace), le loyer du mois courant non payé n'est pas « à encaisser ».
+          const ant = m.anterieur.loyer + m.anterieur.charge;
+          courant += Math.min(m.courant.loyer + m.courant.charge, Math.max(0, m.retard - ant));
+        }
+      }
+    }
+    const loyerRetard = lm && exig ? lm.retardLoyer : 0, chargeRetard = lm && exig ? lm.retardCharge : 0;
+    const avance = lm ? lm.avance : 0;
     months.push({
       ym, duHC: _r2(duHC), duCH: _r2(duCH), encaisse: _r2(encaisse),
-      loyerRetard: lm && exig ? lm.retardLoyer : 0, chargeRetard: lm && exig ? lm.retardCharge : 0,
-      avance: lm ? lm.avance : 0, rattrapage: _r2(ratt[ym] || 0)
+      loyerRetard, chargeRetard,
+      avance, rattrapage: _r2(ratt[ym] || 0),
+      courant: _r2(courant), solde: _r2(avance - loyerRetard - chargeRetard)
     });
   }
   const sum = (k) => _r2(months.reduce((t, m) => t + m[k], 0));

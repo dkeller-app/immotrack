@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.711';
+const IMMOTRACK_VERSION = '15.712';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7196,7 +7196,10 @@ function _renderAccueilPhone(ctx){
         // « reste 800 EUR a encaisser » pendant que « A regarder », deux lignes plus bas, disait
         // « tout est a jour ». `loyerRetard`/`chargeRetard` sont le residu reellement du, net
         // des avances et de la tolerance du 10 (finances-monthly.js:264-270).
-        resteMois += (_m.loyerRetard || 0) + (_m.chargeRetard || 0);
+        // FINANCES-SUIVI-UNIQUE P3 : byLot vient du suivi par bail, `loyerRetard`/`chargeRetard`
+        // y sont la POSITION de fin de mois (dette des mois précédents comprise). La ligne parle
+        // DU MOIS : on lit `courant` (manque propre au mois). Repli : ancienne forme sans courant.
+        resteMois += (_m.courant != null) ? (_m.courant || 0) : ((_m.loyerRetard || 0) + (_m.chargeRetard || 0));
       }
       _moisLu = true;
     }
@@ -9934,9 +9937,23 @@ function _computeImpayes(ctx) {
     } else {
       const A = b.annual || {};
       reste = A.retard || 0; enc = A.encaisse || 0; attendu = Math.round(((A.duHC || 0) + (A.duCH || 0)) * 100) / 100;
-      // Ancienneté (fin du « toujours null », audit) : 1er mois du maître portant un résidu.
-      if (Array.isArray(b.months)) { for (let k = 0; k < b.months.length; k++) { const m = b.months[k]; if ((m.loyerRetard + m.chargeRetard) > 0.5) { depuisYm = m.ym; break; } } }
+      // Ancienneté (fin du « toujours null », audit). P3 : byLot porte des POSITIONS de fin de
+      // mois ; la dette en cours commence au 1er mois de la DERNIÈRE série de mois en retard.
+      if (Array.isArray(b.months)) {
+        for (let k = b.months.length - 1; k >= 0; k--) {
+          const m = b.months[k];
+          if (((m.loyerRetard || 0) + (m.chargeRetard || 0)) > 0.5) depuisYm = m.ym;
+          else if (depuisYm) break;
+        }
+      }
     }
+    // P3 (suivi par bail, décision Q2) : QUI doit, et depuis quand, se lit au suivi — la dette
+    // d'un locataire PARTI (visible l'année de son départ) est à son nom, marquée « parti », pas
+    // au nom du locataire actuel ; « depuis » = mois d'origine de la plus vieille dette ouverte
+    // (antérieure à l'exercice comprise). Absent (module non chargé) : rien ne change.
+    let _dette = null;
+    if (!mo && reste > 0.5 && typeof _finSuiviDetteLot === 'function') { try { _dette = _finSuiviDetteLot(l.ref, today.slice(0, 7)); } catch (e) { _dette = null; } }
+    if (_dette && _dette.depuis) depuisYm = _dette.depuis;
     // Le NOM affiché ne vient plus du seul cache : si le bail existe mais que le cache est vide
     // (bail repris, saisie en cours), on prend les locataires du bail. Une ligne d'impayé sans
     // nom est illisible — et c'est précisément le cas que ce correctif fait réapparaître.
@@ -9952,7 +9969,8 @@ function _computeImpayes(ctx) {
                         .localeCompare(String(b.finEffective || b._archivedAt || b.fin || '')));
       _nom = _nomsDuBail(_h[_h.length - 1]);
     }
-    if (reste > 0.5) { count++; totalDue += reste; items.push({ ref: l.ref, locataire: _nom || '(locataire non renseigné)', reste, attendu, enc, depuisYm }); }
+    if (_dette && _dette.noms) _nom = _dette.noms;
+    if (reste > 0.5) { count++; totalDue += reste; items.push({ ref: l.ref, locataire: _nom || '(locataire non renseigné)', reste, attendu, enc, depuisYm, parti: !!(_dette && _dette.parti) }); }
   });
   return { count, totalDue: Math.round(totalDue * 100) / 100, items };
 }

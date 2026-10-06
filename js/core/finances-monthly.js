@@ -3,6 +3,12 @@ import { _computeLoyerChargeAlloc, _LOYER_TOLERANCE_JOUR, _loyerTodayLocal } fro
 // couvre les mois suivants avant de laisser naître un retard) : fin des « retard ET avance
 // simultanés » (C2, scénario user « 2 loyers payés en janvier, rien en février »).
 import { _computeLoyerNetting } from './loyer-du-mois.js';
+// FINANCES-SUIVI-UNIQUE P3 — le RETARD, l'AVANCE de suivi, l'ÉCART et `byLot` viennent du moteur
+// unique par bail (js/core/suivi-loyers.js) quand l'app l'injecte (`input.suivi`). La passe
+// fiscale (_computeLoyerChargeAlloc : loyers HC, provisions, avance imposable, base 2044) reste
+// INCHANGÉE (invariant I-h). Sans `input.suivi`, l'ancien netting par lot répond encore (repli
+// jusqu'à P7, utilisé par snapshot-avant/compare-moteurs pour figer l'« avant »).
+import { versByLot } from './suivi-loyers.js';
 
 /**
  * core/finances-monthly.js — Sous-P&L mensuel (B4).
@@ -52,6 +58,11 @@ export function _computeFinancesMonthly(input) {
   // (règle « dès qu'au moins un locataire en retard », décision user 2026-07-12). N'invente
   // aucune recette : sans encaissement, sa cascade est 0/0/0, seul son arriéré compte.
   const activeLots = Array.isArray(i.activeLots) ? i.activeLots : [];
+  // P3 — LE SUIVI (sorties de suiviLot, une par lot DU PÉRIMÈTRE, lot entier : le suivi n'est pas
+  // pondéré, le périmètre ne fait que choisir les lots, §B.5). Présent ⇒ retard / avanceLot /
+  // ecart / lotsEnRetard / byLot = POSITIONS de fin de mois du suivi (maquette 06/10) ; l'année =
+  // position au dernier mois exigible (exception assumée à T-1). Absent ⇒ ancien netting (repli).
+  const suiviLots = Array.isArray(i.suivi) ? i.suivi.filter(s => s && s.ref != null) : null;
 
   // ── LE CONTRAT : le moteur reçoit une FENÊTRE, pas un entier (audit A1) ───────────────
   // Les deux bornes de F-1 / F-1 v2 ne sont PAS la même (finances-window.js) :
@@ -89,6 +100,7 @@ export function _computeFinancesMonthly(input) {
   const blank = () => ({
     loyersBrut: 0, loyersHC: 0, provisions: 0, avance: 0, recettesDiverses: 0,
     loyerRetard: 0, chargeRetard: 0,   // arriérés (retard orange) — running au mois, fin de période à l'année
+    avanceLot: 0, ecart: 0,            // P3 (suivi injecté) : avance de SUIVI (compensée) et solde net avance − retard, positions de fin de mois
     duHC: 0, duCH: 0,                  // R-2 : dû du mois (barème historisé, Σ lots) — dénominateur du recouvrement
     rattrapage: 0,                     // part du reçu qui a servi des arriérés de mois ANTÉRIEURS (sous-ligne grise)
     nonAffecte: 0,                     // H-2 : encaissements de loyer SANS lot rattaché (comptés au total, détail faux)
@@ -194,7 +206,7 @@ export function _computeFinancesMonthly(input) {
   // provisions / avance imposable, base 2044) reste année-scopée et INTOUCHÉE.
   const preRecv = {};            // qui → { ym → reçu 211 scopé } avant l'exercice
   let _suiviStartYm = null;
-  mvts.forEach(mv => {
+  if (!suiviLots) mvts.forEach(mv => {      // P3 : le suivi injecté porte déjà toute la vie du bail
     if (!mv || mv._deleted || !mv.date) return;
     const ym = mv.date.slice(0, 7);
     if (ym >= yr + '-01') return;                 // pré-exercice uniquement
@@ -260,6 +272,8 @@ export function _computeFinancesMonthly(input) {
     // Calculé sur les seuls mois EXIGIBLES : un mois non échu (compté au constat parce qu'il
     // porte déjà un encaissement — décision « B ») ne peut pas être « en retard ». Les mois
     // au-delà de `dueMonth` gardent donc un retard de 0.
+    // P3 : suivi injecté ⇒ retard/byLot viennent du suivi (plus bas), cette passe ne sert plus.
+    if (suiviLots) return;
     let _retardLot = 0;
     _computeLoyerNetting(lotMonths.slice(0, dueMonth), graceLast, _openingOf(q)).retardMois.forEach((rm, idx) => {
       const b = buckets[order[idx]];
@@ -292,6 +306,30 @@ export function _computeFinancesMonthly(input) {
       };
     }
   });
+  // (1 bis) P3 — RETARD / AVANCE DE SUIVI / ÉCART / byLot lus au SUIVI (moteur unique par bail).
+  // Case d'un mois = Σ des lots de la position de fin de mois (baux actifs + dette figée d'un
+  // locataire parti visible l'année de son départ, décision Q2 — année du MOIS regardé). Retard
+  // compté sur les seuls mois EXIGIBLES (≤ dueMonth) ; l'avance d'un mois non échu reste visible.
+  const dueYm = dueMonth > 0 ? yr + '-' + String(dueMonth).padStart(2, '0') : null;
+  if (suiviLots) {
+    order.forEach(ym => {
+      const b = buckets[ym];
+      const exig = !!dueYm && ym <= dueYm;
+      suiviLots.forEach(s => {
+        const lm = s.mois && s.mois[ym];
+        if (!lm) return;
+        if (exig) { b.loyerRetard += lm.retardLoyer || 0; b.chargeRetard += lm.retardCharge || 0; }
+        b.avanceLot += lm.avance || 0;
+      });
+    });
+    suiviLots.forEach(s => {
+      const ref = s.ref;
+      if (ref == null || ref === '') return;
+      const bl = versByLot(s, yr, { lastMonth, dueYm: dueYm || (yr + '-00') });
+      byLot[ref] = bl;
+      if ((bl.annual.retard || 0) > 0.005) lotsEnRetard.push(ref);
+    });
+  }
   // (2) Champs dérivés (loyersHC/provisions/avance déjà posés : par cascade au mois, par somme à l'année).
   const finalizeDerived = b => {
     b.charges = b.pret + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres + b.gestionHF;   // charges propriétaire : prêt entier + CFE/TLV
@@ -300,7 +338,8 @@ export function _computeFinancesMonthly(input) {
     b.cashflowNet = b.reel;                                           // ton résultat propre (hors transit locataire)
     b.cashflowReel = b.reel + b.recupSolde;                           // vrai cash sur le compte (transit inclus)
     b.base2044 = b.loyersHC + b.recettesDiverses - (b.interets + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // 213 imposable ; capital ET gestionHF exclus
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
+    b.ecart = b.avanceLot - b.loyerRetard - b.chargeRetard;          // P3 : la case « Avance / retard du lot » (nette entre lots)
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'avanceLot', 'ecart', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
       .forEach(k => { b[k] = round2(b[k]); });
     return b;
   };
@@ -314,6 +353,17 @@ export function _computeFinancesMonthly(input) {
       .forEach(k => { annual[k] += b[k]; });   // retard : Σ des résidus mensuels = dette ouverte de fin de période
   });
   finalizeDerived(annual);
+  // P3 : l'année de la ligne d'écart (et du retard) = POSITION au dernier mois exigible de la
+  // fenêtre, jamais la somme des positions mensuelles (maquette 06/10 : année = −20, pas −60).
+  if (suiviLots) {
+    let pos = null;
+    months.forEach(b => { if (dueYm && b.ym <= dueYm) pos = b; });
+    annual.loyerRetard = pos ? pos.loyerRetard : 0;
+    annual.chargeRetard = pos ? pos.chargeRetard : 0;
+    annual.avanceLot = pos ? pos.avanceLot : 0;
+    annual.ecart = pos ? pos.ecart : 0;
+    annual.positionYm = pos ? pos.ym : null;
+  }
 
   const interetsTotal = annual.interets;
   // Les bornes effectivement appliquées sont RENDUES : l'appelant (et les tests) peuvent

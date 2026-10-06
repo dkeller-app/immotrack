@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
 import { _loyerTodayLocal } from '../../js/core/loyer-statut.js';
+import { suiviLot, collecterPaiements } from '../../js/core/suivi-loyers.js';
+
+// FINANCES-SUIVI-UNIQUE P3 — le suivi par bail tel que l'app l'injecte (_finMonthly → `suivi`) :
+// un bail par lot (début, hc, ch), paiements = collecteur unique (211, cr − db).
+const suiviDe = (mvts, lots, today, catL) => lots.map(({ ref, debut, hc, ch }) => suiviLot(
+  { ref, baux: [{ debut, hc, ch, noms: ref }], bareme: [], manques: [],
+    paiements: collecterPaiements(mvts, { ref, catLigne: catL }) },
+  { today, graceLast: parseInt(today.slice(8, 10), 10) < 10 }));
 
 // Résolveurs stub (en prod : _finCatLigne / _finScopeWeight / _finBailHcChAt / m.cat==='Prêt').
 const catLigne = (cat) => ({
@@ -191,39 +199,62 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(r.annual.avance).toBe(70);        // PAS 85 : les dettes passent avant l'avance
   });
 
-  it('RETARD par lot exposé (mensuel = RÉSIDU du mois, on ne reporte pas ; annuel = somme) : Marion janv-mai pleins, juin 300, juil 0', () => {
+  // RÉÉCRIT en P3 (FINANCES-SUIVI-UNIQUE §E.3). Ce test encodait la décision du 13/07 : « retard
+  // mensuel = RÉSIDU du mois d'origine, annuel = Σ des mois ». La maquette validée le 06/10 la
+  // remplace : la case est le SOLDE DU BAIL EN FIN DE MOIS (le −20 d'août se répète en septembre et
+  // octobre) et la colonne Année = la position au dernier mois exigible. Le résidu du mois d'origine
+  // n'est pas perdu : il vit dans `courant` (manque propre au mois) / `anterieur` (cause, P4).
+  it('RETARD par lot (P3 : POSITION de fin de mois, annuel = position) : Marion janv-mai pleins, juin 300, juil 0', () => {
     const mk = (mo, cr) => ({ date: '2026-' + mo + '-05', cat: 'Loyer', qui: 'L1', cr, db: 0 });
     const mv = [mk('01', 530), mk('02', 530), mk('03', 530), mk('04', 530), mk('05', 530), mk('06', 300), mk('07', 0)];
+    const catL = cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null);
+    const suivi = suiviDe(mv, [{ ref: 'L1', debut: '2026-01-01', hc: 500, ch: 30 }], '2026-07-31', catL);
     const r = _computeFinancesMonthly({
       mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
       isEcheance: m => m.cat === 'Prêt',
       loyerDue: () => ({ hc: 500, ch: 30 }),
-      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
-      today: '2026-07-31'
+      catLigne: catL,
+      today: '2026-07-31', suivi
     });
-    expect(r.annual.loyerRetard).toBe(700);       // somme des mois (= outstanding, pas de rattrapage ici)
+    expect(r.annual.loyerRetard).toBe(700);       // position fin juillet (PAS Σ des positions 200 + 700)
     expect(r.annual.chargeRetard).toBe(60);
     const juin = r.months.find(m => m.mo === 6), juil = r.months.find(m => m.mo === 7);
-    expect(juin.loyerRetard).toBe(200); expect(juin.chargeRetard).toBe(30);   // manque PROPRE de juin
-    expect(juil.loyerRetard).toBe(500); expect(juil.chargeRetard).toBe(30);   // manque PROPRE de juil (PAS 700/60 cumulé)
+    expect(juin.loyerRetard).toBe(200); expect(juin.chargeRetard).toBe(30);   // fin juin : il manque 230
+    expect(juil.loyerRetard).toBe(700); expect(juil.chargeRetard).toBe(60);   // fin juillet : la dette de juin + juillet (position)
+    expect(juil.ecart).toBe(-760);
+    // le résidu PROPRE au mois reste lisible (cause) : juillet 530, juin 230
+    const bl = r.byLot.L1.months;
+    expect(bl.find(m => m.ym === '2026-07').courant).toBe(530);
+    expect(bl.find(m => m.ym === '2026-06').courant).toBe(230);
+    const juilBail = suivi[0].baux[0].mois.find(m => m.ym === '2026-07');
+    expect(juilBail.anterieur).toEqual({ loyer: 200, charge: 30, depuis: '2026-06' });
   });
 
-  it('POINT 1 — l\'avance d\'un lot ne MASQUE PAS le retard d\'un autre (agrégat par-lot, jamais sur le net)', () => {
+  // RÉÉCRIT en P3 (§E.3). Ce test interdisait tout calcul « sur le net ». La maquette validée du
+  // 06/10 rend la case de la ligne d'écart NETTE entre lots (+29,90 = +49,90 − 20). Ce qui reste
+  // vrai, et reste testé : le RETARD (KPI, sous-ligne charges, fond orange) n'est JAMAIS net — la
+  // règle « jamais retard ET avance » vaut PAR BAIL (CDC-KPI:451) ; seul `ecart` est net.
+  it('POINT 1 (P3) — l\'avance d\'un lot ne MASQUE PAS le retard d\'un autre ; seule la ligne d\'écart est nette', () => {
     const L = (qui, mo, cr) => ({ date: '2026-' + mo + '-05', cat: 'Loyer', qui, cr, db: 0 });
     const mv = [
       L('A', '01', 530), L('A', '02', 530), L('A', '03', 530), L('A', '04', 530), L('A', '05', 530), L('A', '06', 300), L('A', '07', 0), // A : retard 700/60
       L('B', '01', 530), L('B', '02', 530), L('B', '03', 530), L('B', '04', 530), L('B', '05', 530), L('B', '06', 530), L('B', '07', 1430) // B : à jour + 900 avance
     ];
+    const catL = cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null);
+    const suivi = suiviDe(mv, [{ ref: 'A', debut: '2026-01-01', hc: 500, ch: 30 }, { ref: 'B', debut: '2026-01-01', hc: 500, ch: 30 }], '2026-07-31', catL);
     const r = _computeFinancesMonthly({
       mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
       isEcheance: m => m.cat === 'Prêt',
       loyerDue: () => ({ hc: 500, ch: 30 }),
-      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
-      today: '2026-07-31'
+      catLigne: catL,
+      today: '2026-07-31', suivi
     });
     expect(r.annual.loyerRetard).toBe(700);   // retard de A VISIBLE malgré l'avance de B
     expect(r.annual.chargeRetard).toBe(60);
-    expect(r.annual.avance).toBe(900);         // avance de B (indépendante du retard de A)
+    expect(r.annual.avanceLot).toBe(900);     // avance de suivi de B (indépendante du retard de A)
+    expect(r.annual.ecart).toBe(140);         // la case est NETTE : + 900 − 760
+    expect(r.annual.avance).toBe(900);        // avance FISCALE (passe à l'encaissement) inchangée
+    expect(r.lotsEnRetard).toEqual(['A']);
   });
 
   it('lot à bail actif SANS aucun paiement (activeLots) : retard = dû total, PAS invisible', () => {

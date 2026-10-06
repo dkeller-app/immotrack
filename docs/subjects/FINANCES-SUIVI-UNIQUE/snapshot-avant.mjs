@@ -109,16 +109,12 @@ export function contexteApp(DB, today) {
   return { STD, catMere, catLigne, isLoyerCat, findBail, raw, duLot, logementStartIso, finBailHcChAt, nr, today };
 }
 
-/** Les sorties des 3 moteurs actuels + le fiscal, pour chaque lot de l'export. */
-export function moteursActuels(DB, today) {
-  const C = contexteApp(DB, today);
-  const yr = parseInt(today.slice(0, 4), 10);
-  const todayYm = today.slice(0, 7);
-  const tol = _loyerToleranceActive(today);
-  const alive = (x) => x && !x._deleted;
+/**
+ * Les entrées de _computeFinancesMonthly câblées comme _finMonthly (app-part2.js), périmètre
+ * « tout », exercice `yr`. Exporté pour compare-moteurs (I-h P3 : même appel, suivi en plus).
+ */
+export function argsFinances(DB, C, yr, today) {
   const logements = (DB.logements || []).filter((l) => l && !l._deleted && l.ref);
-
-  // ── ① Finances (_finMonthly, périmètre « tout ») ─────────────────────────────
   const activeLots = logements.map((l) => l.ref).filter((ref) => {
     for (let mm = 1; mm <= 12; mm++) { const d = C.finBailHcChAt(ref, yr + '-' + String(mm).padStart(2, '0')); if ((d.hc || 0) + (d.ch || 0) > 0.005) return true; }
     return false;
@@ -142,7 +138,7 @@ export function moteursActuels(DB, today) {
   };
   const win = computeConstatWindow({ year: yr, today, mouvements: DB.mouvements || [],
     filtreMouvement: (mv) => { const r = C.catLigne(mv && mv.cat); return !(r && r.ligne2044 === '250'); } });
-  const fin = _computeFinancesMonthly({
+  return {
     mouvements: DB.mouvements || [], year: yr, scope: null,
     scopeWeight: (s, m) => ((!m || m._deleted) ? 0 : 1),
     catLigne: C.catLigne, loyerDue: C.finBailHcChAt, activeLots,
@@ -150,7 +146,20 @@ export function moteursActuels(DB, today) {
     isGestionCharge: (m) => { const mere = C.catMere(m && m.cat); return !!(mere && mere.gestionCharge); },
     isRecupCharge: (m) => { const mere = C.catMere(m && m.cat); return !!(mere && mere.recup); },
     isRecupACharge, window: win
-  });
+  };
+}
+
+/** Les sorties des 3 moteurs actuels + le fiscal, pour chaque lot de l'export. */
+export function moteursActuels(DB, today) {
+  const C = contexteApp(DB, today);
+  const yr = parseInt(today.slice(0, 4), 10);
+  const todayYm = today.slice(0, 7);
+  const tol = _loyerToleranceActive(today);
+  const alive = (x) => x && !x._deleted;
+  const logements = (DB.logements || []).filter((l) => l && !l._deleted && l.ref);
+
+  // ── ① Finances (_finMonthly, périmètre « tout ») ─────────────────────────────
+  const fin = _computeFinancesMonthly(argsFinances(DB, C, yr, today));
   const FISC = ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'base2044'];
   const pick = (b) => FISC.reduce((o, k) => { o[k] = b[k]; return o; }, {});
   const fiscal = { annuel: pick(fin.annual), mois: fin.months.reduce((o, b) => { o[b.ym] = pick(b); return o; }, {}),
