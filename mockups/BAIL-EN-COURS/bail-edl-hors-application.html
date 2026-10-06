@@ -80,25 +80,21 @@ h2.mk-h{font-size:var(--fs-sm);color:var(--t3);text-transform:uppercase;letter-s
 <div class="mk-meta" id="meta">PC · 1100 px</div>
 
 <section class="mk-tab" id="tab-bail">
-  <h2 class="mk-h">1 · Bouton « Bail signé hors application » (sur un bail non signé, ou un bail repris)</h2>
+  <h2 class="mk-h">Dans « Modifier le bail » — une coche, une date, une pièce jointe facultative</h2>
   <div class="mk-card">
-    <div class="mk-hl"><div class="tt"><h4>Bail — M. Arslan · F-101</h4><span class="mk-badge mk-warn">Non signé</span></div>
-      <p>Bail commencé le 01/03/2026. Aucune signature enregistrée dans l'application.</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
-        <button class="mk-sec">Faire signer dans l'app</button>
-        <button class="mk-cta">Bail signé hors application</button></div></div>
-    <div class="mk-note">Même bouton sur un bail <b>repris</b> du vendeur : il remplace « Réclamer le bail au vendeur », qui s'affichait à vie.</div>
-  </div>
-  <h2 class="mk-h">2 · La fenêtre (modèle : « Avenant signé sur papier »)</h2>
-  <div class="mk-dlg"><div class="h"><h3>Bail signé hors application</h3><span aria-hidden="true">✕</span></div>
-    <div class="b">
-      <p style="margin:0 0 12px;line-height:1.5">À utiliser pour un bail déjà signé sur papier (ou chez un notaire, ou par le vendeur) par <b>toutes les parties</b>.</p>
-      <div class="mk-f"><label for="d1">Date de la dernière signature</label><input type="date" id="d1" value="2026-02-20" max="2026-10-06"></div>
-      <div class="mk-drop"><div class="t"><b>Déposer le scan signé</b><span>PDF ou photo, 10 Mo au plus</span></div><button class="mk-sec">Déposer</button></div>
-      <label class="mk-radio"><input type="radio" name="s1" checked><span><b>Je l'ai déjà, sans le déposer</b><span>Le bail passe en « Signé (papier) », aucun fichier conservé dans l'app (dépôt possible plus tard).</span></span></label>
+    <h3>Signature du bail</h3><p class="mk-sub">Bail F-101 · M. Arslan · commencé le 01/03/2026</p>
+    <label class="mk-check"><input type="checkbox" id="hors" checked>
+      <div><b>Bail signé en dehors de Propryo</b><span>À cocher si le bail a été signé sur papier, chez un notaire ou par le vendeur (bail repris). Aucune signature électronique n'est créée.</span></div></label>
+    <div id="hors-det">
+      <div class="mk-grid" style="margin-top:14px">
+        <div class="mk-f"><label for="d1">Date de signature</label><input type="date" id="d1" value="2026-02-20" max="2026-10-06"></div>
+      </div>
+      <div class="mk-drop"><div class="t"><b>Ajouter une pièce jointe <span class="mk-badge mk-info">facultatif</span></b><span id="pj-lbl">Scan du bail signé : PDF ou photo, 10 Mo au plus</span></div><button class="mk-sec" id="pj-btn" type="button">Ajouter</button></div>
+      <div class="mk-note">La pièce jointe n'est jamais imposée : elle peut être ajoutée plus tard, depuis la fiche du bail ou l'onglet Documents.</div>
     </div>
-    <div class="f"><button class="mk-sec">Fermer</button><button class="mk-cta">Enregistrer la signature</button></div></div>
-  <div class="mk-note" style="max-width:520px;margin:12px auto 0">Le scan n'est jamais imposé. Aucune signature électronique n'est créée. À concevoir avec Opus avant le code : verrou du bail, scellement au cloud et inscription au journal des modifications du bail signé.</div>
+    <div class="mk-note">Sur un bail <b>repris</b> du vendeur, la même coche remplace « Réclamer le bail au vendeur », qui s'affichait à vie. Décocher ne bloque rien ; la modification est inscrite au journal du bail.</div>
+  </div>
+  <div class="mk-note" style="max-width:520px;margin:12px auto 0">À concevoir avec Opus avant le code : verrou du bail, scellement au cloud et inscription au journal des modifications d'un bail « signé hors Propryo ».</div>
 </section>
 
 <section class="mk-tab" id="tab-edl" hidden>
@@ -120,10 +116,10 @@ h2.mk-h{font-size:var(--fs-sm);color:var(--t3);text-transform:uppercase;letter-s
 <section class="mk-tab" id="tab-etat" hidden>
   <h2 class="mk-h">Ce que l'app affiche ensuite (matrice Pilotage, fiche du bail, Documents)</h2>
   <div class="mk-card"><div class="mk-scroll"><table class="mk-mtx"><thead><tr><th>Logement</th><th>Bail</th><th>EDL</th><th>Caution</th></tr></thead><tbody>
-    <tr><td><b>F-101</b></td><td><span class="mk-dot"><i></i>Signé (papier) · 20/02/2026</span></td><td><span class="mk-dot"><i></i>Entrée · 01/03/2026 (papier)</span></td><td>N/A</td></tr>
+    <tr><td><b>F-101</b></td><td><span class="mk-dot"><i></i>Signé hors Propryo · 20/02/2026</span></td><td><span class="mk-dot"><i></i>Entrée · 01/03/2026 (papier)</span></td><td>N/A</td></tr>
     <tr><td><b>F-102</b></td><td><span class="mk-dot"><i></i>Signé · 15/01/2026</span></td><td><span class="mk-dot ko"><i></i>À faire</span></td><td>N/A</td></tr>
   </tbody></table></div>
-    <div class="mk-note">« Signé (papier) » compte comme signé partout : plus de « Signer le bail » ni de « Faire l'EDL » affichés à tort. Les pièces sont listées dans Documents, avec leur date.</div></div>
+    <div class="mk-note">« Signé hors Propryo » compte comme signé partout : plus de « Signer le bail » ni de « Faire l'EDL » affichés à tort. Les pièces sont listées dans Documents, avec leur date.</div></div>
 </section>
 </div></div>
 <script>
@@ -135,6 +131,9 @@ h2.mk-h{font-size:var(--fs-sm);color:var(--t3);text-transform:uppercase;letter-s
   document.querySelectorAll('[data-theme].mk-btn').forEach(function(b){b.onclick=function(){root.dataset.theme=b.dataset.theme;press('[data-theme].mk-btn',b.dataset.theme,'data-theme')}});
   document.querySelectorAll('[data-tab]').forEach(function(b){b.onclick=function(){
     ['bail','edl','etat'].forEach(function(t){document.getElementById('tab-'+t).hidden=(t!==b.dataset.tab)});press('[data-tab]',b.dataset.tab,'data-tab')}});
+  var h=document.getElementById('hors'),hd=document.getElementById('hors-det'),pb=document.getElementById('pj-btn'),pl=document.getElementById('pj-lbl');
+  h.onchange=function(){hd.hidden=!h.checked};
+  pb.onclick=function(){var ok=pb.textContent==='Ajouter';pb.textContent=ok?'Retirer':'Ajouter';pl.textContent=ok?'Bail-F101-signe.pdf · 1,2 Mo':'Scan du bail signé : PDF ou photo, 10 Mo au plus'};
   location.hash.slice(1).split(',').forEach(function(k){var b=document.querySelector('.mk-btn[data-tab="'+k+'"],.mk-btn[data-fmt="'+k+'"],.mk-btn[data-theme="'+k+'"]');if(b)b.click()});
 })();
 </script>
