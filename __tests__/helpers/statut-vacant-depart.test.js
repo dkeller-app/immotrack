@@ -1029,7 +1029,7 @@ describe('34 · restitution sur une archive EN DOUBLE, jusqu\'au cloud (VRAIS _d
       remove: async (c, r) => { if (c === 'baux_historique') lignes.delete(bailHistCle(r)); return { status: 'deleted' }; },
       archive: async () => ({ status: 'archived', version: 3 }),
     };
-    const base = { ref: 'A1', debut: '2023-07-01', dg: 900, cloture: true, clotureV: 2, finEffective: '2026-09-30', _archivedAt: '2026-10-06', locataires: [{ nom: 'Lea' }], ...(archiveId ? { _archiveId: archiveId } : {}) };
+    const base = { ref: 'A1', debut: '2023-07-01', dg: 900, cloture: true, clotureV: 2, finEffective: '2026-09-30', _archivedAt: '2026-10-06', locataires: [{ nom: 'Lea' }], locNouvIban: 'FR76 ANCIEN', ...(archiveId ? { _archiveId: archiveId } : {}) };   // IBAN retiré à la restitution : sur toutes les copies
     const DB = { ...dbDe({ A1: { ref: 'A1', _deleted: true } }), entites: [{ nom: 'S', immeubles: [] }], baux_historique: [{ ...base }] };
     let n = 0;
     const sync = createStoreSync({ store, getDB: () => DB, schedule: () => {}, sealSigned: false, newUid: () => 'nouvel-id-' + (++n) });
@@ -1060,5 +1060,19 @@ describe('34 · restitution sur une archive EN DOUBLE, jusqu\'au cloud (VRAIS _d
     expect(r.lignes).toEqual([['A1|2026-10-06|uuid-archive', { at: '2026-10-20', id: 'uuid-archive' }]]);
     expect(r.ids).toEqual(['uuid-archive', 'uuid-archive']);
     expect(r.detenus).toEqual([]);
+  });
+});
+describe('35 · retenue de régularisation sur une archive en double (VRAI _rgApplyRetenue) : sur toutes ses copies', () => {
+  it('les deux copies reçoivent la même retenue et restent identiques', () => {
+    const base = { ref: 'A1', debut: '2023-07-01', dg: 900, dgPaid: 900, cloture: true, clotureV: 2, finEffective: '2026-09-30', _archivedAt: '2026-10-06', locataires: [{ nom: 'Lea' }] };
+    const DB = dbDe({}); DB.baux_historique = [{ ...base }, { ...base }];
+    const m = monter(DB, [...STATUT, '_rgApplyRetenue', '_archiveRecopierSurCopies'], {
+      computeRegul: () => ({ entries: { k: { bail: DB.baux_historique[0], fin: '2026-09-30' } } }),
+      _rgClotureCompute: () => ({ reparations: 0, retenueRegul: 120 }), _calculerSoldeDG: () => ({ soldeRestitue: 780 }),
+      _stamp: (o) => { o._modifiedAt = '2026-10-21T08:00:00.000Z'; }, saveDB: () => {}, window: { _regulFrom: '2026-01-01', _regulTo: '2026-12-31' },
+    });
+    m.fn._rgApplyRetenue('k');
+    expect(DB.baux_historique.map((h) => [h.dgRetenu, h.dgRestitue])).toEqual([[120, 780], [120, 780]]);
+    expect(JSON.stringify(DB.baux_historique[0])).toBe(JSON.stringify(DB.baux_historique[1]));
   });
 });
