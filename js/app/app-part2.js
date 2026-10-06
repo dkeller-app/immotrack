@@ -9181,13 +9181,13 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
   const sortedLogs = logs.slice().sort((a, b) => {
     const ea = parseInt(a.etage, 10) || 0, eb = parseInt(b.etage, 10) || 0;
     if (ea !== eb) return ea - eb;
-    return (a.ref || '').localeCompare(b.ref || '');
+    return _logLabelCmp(a, b);   // B3 : tri sur ce qu'on voit (nom puis réf), ordre naturel
   });
 
   const logRows = sortedLogs.map(l => {
     const bail = _bienIsBailActif(l.ref) ? _bienActiveBail(l.ref) : null;   // statut : occupé aujourd'hui
     const isVacant = !bail;
-    const refEsc = escHtml(l.ref || ''); const refEscJs = _lyQ(l.ref || '');
+    const refEsc = escHtml(_logLabel(l)); const refEscJs = _lyQ(l.ref || '');   // refEsc = texte d'écran (nom) ; refEscJs reste la référence
     const typeEsc = escHtml(l.type || '—');
     const surf = l.surf ? `${fmtN(l.surf)} m²` : '';
     const etage = (l.etage != null && l.etage !== '') ? (typeof window.LogImmResolver !== 'undefined' ? window.LogImmResolver.formatLogLocation(l) : `étage ${l.etage}`) : '';
@@ -9239,7 +9239,7 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
     // (sinon le grid 7 cols se décale entre lignes vacantes et non-vacantes).
     const annonceSlot = annonceBtn || '<span></span>';
     return `<div class="log-row-a${isVacant && !isArchived ? ' is-vacant' : ''}" onclick="openLogFiche('${refEscJs}')">
-      <span class="log-row-a-ref">${refEsc}</span>
+      <span class="log-row-a-ref">${refEsc}${(_logLabel(l) !== String(l.ref||'')) ? `<small class="mu" style="display:block;font-weight:400;font-size:11px">Réf. ${escHtml(l.ref)}</small>` : ''}</span>
       <span class="log-row-a-type">${typeEsc}</span>
       <span class="log-row-a-details" title="${escHtml(detailsFull)}">${escHtml(detailsFull)}</span>
       <span class="log-row-a-loc"><span class="dot ${dotCls}"></span><span class="loc-name">${locDisplay}</span></span>
@@ -11054,7 +11054,7 @@ function openLogFiche(ref, replace) {
   const log = (DB.logements||[]).find(l=>l.ref===ref);
   if(log) {
     const tb = el('tb-title');
-    if(tb) tb.textContent = log.imm ? `${log.imm} — ${ref}` : ref;
+    if(tb) tb.textContent = log.imm ? `${log.imm} — ${_logLabel(ref)}` : _logLabel(ref);
   }
 }
 
@@ -11786,7 +11786,7 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
 
     return `<div class="immf-gantt-row${preavisInfo&&preavisInfo.inPreavisZone?' immf-gantt-row-preavis':''}" onclick="openLogFiche('${refSafe}')" tabindex="0" onkeydown="if(event.key==='Enter')openLogFiche('${refSafe}')">
       <div class="immf-gantt-rowlabel">
-        <div class="immf-gantt-rowlabel-ref">${escHtml(log.ref)}${preavisBadge}</div>
+        <div class="immf-gantt-rowlabel-ref">${escHtml(_logLabel(log))}${preavisBadge}</div>
         ${subtitleParts.length ? `<div class="immf-gantt-rowlabel-sub">${escHtml(subtitleParts.join(' · '))}</div>` : ''}
       </div>
       <div class="immf-gantt-track">
@@ -12523,7 +12523,7 @@ function _renderImmRelevesLogements(activeLogs, archivedLogs) {
   if (!logs.length) return '';
   const courant = logs.some(l => l.ref === _immCompteursRef) ? _immCompteursRef : logs[0].ref;
   const log = logs.find(l => l.ref === courant);
-  const opts = logs.map(l => `<option value="${escHtml(l.ref)}"${l.ref === courant ? ' selected' : ''}>${escHtml(l.ref)}${l.locataire ? ' — ' + escHtml(l.locataire) : ''}${l.archived ? ' (archivé)' : ''}</option>`).join('');
+  const opts = logs.map(l => `<option value="${escHtml(l.ref)}"${l.ref === courant ? ' selected' : ''}>${escHtml(_logLabelRef(l))}${l.locataire ? ' — ' + escHtml(l.locataire) : ''}${l.archived ? ' (archivé)' : ''}</option>`).join('');
   return '<div class="logf-section-head" style="margin-top:26px">'
     + '<h3 class="logf-section-title">' + _uiIcon('bolt') + ' Relevés compteurs des logements</h3>'
     + `<select class="inp" style="max-width:280px" onchange="_setImmCompteursRef(this.value)" aria-label="Logement dont on affiche les relevés">${opts}</select>`
@@ -12603,7 +12603,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
       const ratioPct = qp ? (qp.ratio*100).toFixed(1) : '—';
       const exclu = qp && qp.exclu;
       return `<tr class="${exclu?'cc-row-exclu':''}">
-        <td><b>${escHtml(log.ref)}</b><br><span class="mu sm">${escHtml(log.locataire||'Vacant')}</span></td>
+        <td><b>${escHtml(_logLabel(log))}</b><br><span class="mu sm">${escHtml(log.locataire||'Vacant')}</span></td>
         <td class="num">${exclu ? '—' : ratioPct + '%'}</td>
         <td class="mu sm">${escHtml(qp?.denomLabel||'—')}</td>
         <td class="num">${exclu ? '—' : '<b>'+fmt(partFact)+'</b>'}</td>
@@ -12749,7 +12749,7 @@ function openCcFormModal(entId, immId, ccIdx) {
       : '<span style="font-size:10px;background:#94a3b822;color:#64748b;padding:1px 6px;border-radius:8px;margin-left:6px">exclu charges</span>';
     return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;background:var(--bg2)">
       <input type="checkbox" class="cc-form-log" value="${escHtml(l.ref)}"${isChecked?' checked':''}>
-      <span style="flex:1"><b>${escHtml(l.ref)}</b> · ${escHtml(l.locataire||'Vacant')}</span>
+      <span style="flex:1"><b>${escHtml(_logLabelRef(l))}</b> · ${escHtml(l.locataire||'Vacant')}</span>
       ${badge}
     </label>`;
   }).join('');
@@ -17278,14 +17278,14 @@ function _renderLogFichePhHero(log, bail, ref){
   if(isArch)         chip = '<span class="logf-ph-chip arch"><span class="d"></span>Archivé</span>';
   else if(occupied)  chip = '<span class="logf-ph-chip loue"><span class="d"></span>Loué</span>';
   else               chip = '<span class="logf-ph-chip vac"><span class="d"></span>' + escHtml(_lotStatutLibelle(ref)) + '</span>';
-  const l2 = [log.type, log.surf?(fmtN(log.surf)+' m²'):'', log.etage].filter(Boolean).map(escHtml).join(' · ');
+  const l2 = [(_logLabel(ref) !== String(ref) ? 'Réf. ' + ref : ''), log.type, log.surf?(fmtN(log.surf)+' m²'):'', log.etage].filter(Boolean).map(escHtml).join(' · ');
   const l3 = [log.imm, log.adr].filter(Boolean).map(escHtml).join(' · ');
   const strip = _renderLogFichePhStrip(log, bail, ref);
   return `<div class="logf-ph-hero">
     <div class="logf-ph-idrow">
       <div class="logf-ph-thumb">${_coverImg('logement', log.id, '' + _uiIcon('home',26) + '')}</div>
       <div class="logf-ph-idm">
-        <div class="logf-ph-l1"><span class="logf-ph-ref">${escHtml(ref)}</span>${chip}</div>
+        <div class="logf-ph-l1"><span class="logf-ph-ref">${escHtml(_logLabel(ref))}</span>${chip}</div>
         <div class="logf-ph-l2">${l2||'&nbsp;'}</div>
         ${l3?`<div class="logf-ph-l3">${l3}</div>`:''}
       </div>
@@ -17381,7 +17381,7 @@ function rLogFiche() {
       <div class="logf-breadcrumb">
         <a onclick="_goToBiensRoot();return false">Biens</a>
         ${crumbImm}
-        <span class="sep">›</span><span>${escHtml(ref)}</span>
+        <span class="sep">›</span><span>${escHtml(_logLabel(ref))}</span>
       </div>
       ${_renderLogFichePhHero(log, bail, ref)}
       <div class="logf-actions logf-ph-actions">${phActions}</div>
@@ -17396,12 +17396,12 @@ function rLogFiche() {
     <div class="logf-breadcrumb">
       <a onclick="_goToBiensRoot();return false">Biens</a>
       ${crumbImm}
-      <span class="sep">›</span><span>${escHtml(ref)}</span>
+      <span class="sep">›</span><span>${escHtml(_logLabel(ref))}</span>
     </div>
     <div class="logf-hero logf-hero-compact">
       <div class="logf-photos logf-photos-mini">${_coverImg('logement', log.id, '' + _uiIcon('home',28) + '')}</div>
       <div class="logf-info">
-        <h1 class="logf-title">${escHtml(log.imm || ref)}${log.imm?` <span class="logf-title-suffix">— ${escHtml(ref)}</span>`:''}</h1>
+        <h1 class="logf-title">${escHtml(log.imm || _logLabel(ref))}${log.imm?` <span class="logf-title-suffix">— ${escHtml(_logLabel(ref))}</span>`:''}${_logLabel(ref) !== String(ref) ? ` <span class="logf-title-suffix">· Réf. ${escHtml(ref)}</span>` : ''}</h1>
         ${log.adr?`<div class="logf-adr">${escHtml(log.adr)}${log.etage?', '+escHtml(log.etage):''}</div>`:''}
         <div class="logf-badges">
           ${badgeBailleur}
@@ -17483,6 +17483,7 @@ function _renderLogFichePanelGeneral(log, bail) {
     <div class="logf-panel">
       <h3 class="logf-panel-title">${_uiIcon('home')} Caractéristiques du bien</h3>
       <div class="logf-row"><span class="logf-label">Référence</span><span class="logf-value">${escHtml(log.ref||'—')}</span></div>
+      ${(_logLabel(log) !== String(log.ref||'')) ? `<div class="logf-row"><span class="logf-label">Nom affiché</span><span class="logf-value">${escHtml(_logLabel(log))}</span></div>` : ''}
       ${log.type?`<div class="logf-row"><span class="logf-label">Type</span><span class="logf-value">${escHtml(log.type)}</span></div>`:''}
       ${log.surf?`<div class="logf-row"><span class="logf-label">Surface</span><span class="logf-value logf-value-num">${fmtN(log.surf)} m²</span></div>`:''}
       ${log.etage?`<div class="logf-row"><span class="logf-label">Étage</span><span class="logf-value">${escHtml(log.etage)}</span></div>`:''}
@@ -30569,7 +30570,7 @@ function _finDrillNomLot(ref) {
   if (!ref) return '—';
   if (String(ref).startsWith('SCI:')) return String(ref).slice(4);
   const l = (DB.logements || []).find(x => x && x.ref === ref);
-  return l ? (l.locataire || l.ref || ref) : ref;
+  return l ? (l.locataire || _logLabel(l) || ref) : ref;
 }
 // Nom du locataire EN PLACE À LA PÉRIODE (bail actif ce mois-là), pas le locataire courant du lot
 // (bug user 2026-07-14 : changement de locataire → le drill montrait le nom actuel pour un retard

@@ -7790,10 +7790,10 @@ function _renderPilMatrice(ctx) {
       if (tel) {
         const _todo = lig.actions.length > 0 || lig.pay === 'neg';
         body += '<div class="pil-lc ' + (_todo ? 'todo' : 'ok') + '" data-pillot="' + esc(lig.ref) + '">'
-          + '<div class="pil-lc-h"><b>' + esc(lig.ref) + repBadge + '</b><span class="pil-lc-l">' + loyerCell(lig) + '</span></div>'
+          + '<div class="pil-lc-h"><b>' + esc(_logLabel(lig.ref)) + repBadge + '</b><span class="pil-lc-l">' + loyerCell(lig) + '</span></div>'
           + pileHtml(lig, true) + '</div>';
       } else {
-        body += '<tr data-pillot="' + esc(lig.ref) + '"><td class="l">' + esc(lig.ref) + repBadge + '</td>'
+        body += '<tr data-pillot="' + esc(lig.ref) + '"><td class="l">' + esc(_logLabel(lig.ref)) + repBadge + '</td>'
           + '<td class="payc">' + loyerCell(lig) + '</td>'
           + lig.dots.map(d => '<td>' + _pilMk(d) + '</td>').join('')
           + '<td class="r">' + pileHtml(lig, false) + '</td></tr>';
@@ -7861,7 +7861,7 @@ function _pilOpenListe(famId) {
     if (f) items = f.items;
   } catch (e) {}
   const rows = items.length ? items.map(i =>
-    '<div class="ck"><span class="kn"><b>' + esc(i.nom || i.ref || '') + '</b></span>'
+    '<div class="ck"><span class="kn"><b>' + esc(i.nom || _logLabel(i.ref || '')) + '</b></span>'
     + '<button type="button" class="go hot" data-pilgo="' + esc(i.ref || '') + '">Ouvrir ›</button></div>'
   ).join('') : '<div class="ck"><span class="kn"><s>Aucun élément.</s></span></div>';
   L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh">'
@@ -7900,7 +7900,7 @@ function _pilOpenFiche(ref) {
   const repBar = lig.repris ? '<div class="pil-repbar">Bien acheté occupé — le bail se poursuit aux conditions du vendeur (art. 1743). Les pièces proviennent du vendeur, pas du bailleur actuel.'
     + '<button type="button" class="lk" data-pilact="bail-modif">Modifier dans le bail ›</button></div>' : '';
   L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh">'
-    + '<div class="sh-h"><span class="ttl"><b>' + esc(ref) + (lig.repris ? ' <span class="pil-rep">repris</span>' : '') + '</b><s>' + esc(lig.imm) + ' · ' + (lig.loyer ? fmt(lig.loyer) : 'lot vacant') + '</s></span>'
+    + '<div class="sh-h"><span class="ttl"><b>' + esc(_logLabel(ref)) + (lig.repris ? ' <span class="pil-rep">repris</span>' : '') + '</b><s>' + esc(lig.imm) + ' · ' + (lig.loyer ? fmt(lig.loyer) : 'lot vacant') + '</s></span>'
     + '<button type="button" class="x" data-pilclose="1" aria-label="Fermer">✕</button></div>'
     + repBar + '<div class="sh-b">' + lignes + '</div></div></div>';
 }
@@ -8280,7 +8280,7 @@ function _gmbiAfficher(a) {
     : `<div class="gmbi-pick">${escHtml(a.categorie)}<small>Occupé à titre gratuit : <b>Non</b>${a.loyerHC ? ` · loyer mensuel hors charges : <b>${escHtml(fmt(a.loyerHC))}</b> (facultatif)` : ''}</small></div>`;
   const ech = a.echeance ? '1er juillet ' + String(a.echeance).slice(0, 4) : '';
   el('gmbi-body').innerHTML = `
-    <div class="mu sm" style="margin-bottom:10px">${escHtml(a.ref)}</div>
+    <div class="mu sm" style="margin-bottom:10px">${escHtml(_logLabel(a.ref))}</div>
     <p style="margin:0 0 12px">À déclarer sur impots.gouv, service « Gérer mes biens immobiliers »${ech ? `, <b>avant le ${escHtml(ech)}</b>` : ''}. Il est possible de déclarer dès maintenant.</p>
     <div class="gmbi-box"><div class="gmbi-h">${_uiIcon('check')} Catégorie à sélectionner</div>${cat}</div>
     <div class="kv-grid" style="margin-top:12px">${occHtml}</div>
@@ -8853,7 +8853,7 @@ function _buildRevDrill(ctx) {
   };
   const table = rows.length
     ? '<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">Loyers reçus</th></tr></thead><tbody>'
-    + rows.map(r => '<tr><td><b>'+escHtml(r.ref)+'</b></td><td>'+escHtml(logName(r.ref))+'</td><td style="text-align:right;color:var(--fg-success)">'+fmt(r.cr)+'</td></tr>').join('')
+    + rows.map(r => '<tr><td><b>'+escHtml(_logLabel(r.ref))+'</b></td><td>'+escHtml(logName(r.ref))+'</td><td style="text-align:right;color:var(--fg-success)">'+fmt(r.cr)+'</td></tr>').join('')
     + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total</td><td style="text-align:right">'+fmt(total)+'</td></tr></tfoot></table>'
     : '<div class="mu sm" style="text-align:center;padding:24px">Aucun loyer reçu sur la période.</div>';
   return {title:'Revenus loyers — '+periodLabel, html:table};
@@ -8968,7 +8968,7 @@ function _buildOccDrill(ctx) {
         // sans quoi deux montants de sens différents se lisent comme le même.
         const perte = _loue ? '\u2014' : fmt((l.hc||0)*12);
         const perteCol = _loue ? 'var(--t3)' : 'var(--fg-danger)';
-        return '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(l.imm||'—')+'</td><td>'+statut+'</td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right">'+fmt(loyerTTC)+'</td><td style="text-align:right;color:'+perteCol+';font-weight:'+(_loue?'400':'600')+'">'+perte+'</td></tr>';
+        return '<tr><td><b>'+escHtml(_logLabel(l.ref))+'</b></td><td>'+escHtml(l.imm||'—')+'</td><td>'+statut+'</td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right">'+fmt(loyerTTC)+'</td><td style="text-align:right;color:'+perteCol+';font-weight:'+(_loue?'400':'600')+'">'+perte+'</td></tr>';
       }).join('')
     + '</tbody></table>'
     : '<div class="mu sm" style="text-align:center;padding:24px">Aucun logement dans ce scope.</div>';
@@ -9472,7 +9472,7 @@ function _buildProgDrill(ctx) {
           }
         }
         const mainRow = '<tr>'
-          + '<td style="padding:4px 6px 4px 28px;color:var(--t2)">\u00a0\u00a0'+escHtml(l.ref)+(l.locataire?' \u00b7 '+escHtml(l.locataire):'')+warnBadge+'</td>'
+          + '<td style="padding:4px 6px 4px 28px;color:var(--t2)">\u00a0\u00a0'+escHtml(_logLabel(l.ref))+(l.locataire?' \u00b7 '+escHtml(l.locataire):'')+warnBadge+'</td>'
           + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+firstLabel+'</td>'
           + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+monthsActive+'</td>'
           + '<td style="text-align:right;padding:4px 6px">'+fmt(att)+'</td>'
@@ -9692,7 +9692,7 @@ function _computeUnifiedTodo(ctx) {
     out.push({
       type:'mrh', severity:'red', score:100,
       title:'Assurance habitation manquante',
-      subtitle:it.ref+(it.locataire?' — '+it.locataire:''),
+      subtitle:_logLabel(it.ref)+(it.locataire?' — '+it.locataire:''),
       contextRef:it.ref,
       actionLabel:'Ajouter dans Assurances',
       actionFn:'goToAssurances(\''+_lyQ(it.ref)+'\')'
@@ -9704,7 +9704,7 @@ function _computeUnifiedTodo(ctx) {
       out.push({
         type:'mrh', severity:'red', score:95,
         title:'Assurance habitation expirée',
-        subtitle:it.ref+' — échéance '+fd(it.echeance),
+        subtitle:_logLabel(it.ref)+' — échéance '+fd(it.echeance),
         contextRef:it.ref,
         actionLabel:'Renouveler',
         actionFn:'goToAssurances(\''+_lyQ(it.ref)+'\')'
@@ -9713,7 +9713,7 @@ function _computeUnifiedTodo(ctx) {
       out.push({
         type:'mrh', severity:'ora', score:60,
         title:'Assurance habitation expire dans '+it.jours+' j',
-        subtitle:it.ref,
+        subtitle:_logLabel(it.ref),
         contextRef:it.ref,
         actionLabel:'Renouveler',
         actionFn:'goToAssurances(\''+_lyQ(it.ref)+'\')'
@@ -9739,7 +9739,7 @@ function _computeUnifiedTodo(ctx) {
       out.push({
         type:'irl', severity:'ora', score:70,
         title:'Révision IRL applicable',
-        subtitle:l.ref+' — '+fmt(l.hc)+' → '+fmt(rev.nouveauHC),
+        subtitle:_logLabel(l.ref)+' — '+fmt(l.hc)+' → '+fmt(rev.nouveauHC),
         contextRef:l.ref,
         actionLabel:'Appliquer',
         actionFn:"go('irl',null)"
@@ -9748,7 +9748,7 @@ function _computeUnifiedTodo(ctx) {
       out.push({
         type:'irl', severity:'info', score:60,
         title:'Révision IRL dans '+c.jours+' j',
-        subtitle:l.ref+' — '+fmt(l.hc)+' → '+fmt(rev.nouveauHC),
+        subtitle:_logLabel(l.ref)+' — '+fmt(l.hc)+' → '+fmt(rev.nouveauHC),
         contextRef:l.ref,
         actionLabel:'Préparer',
         actionFn:"go('irl',null)"
@@ -9789,7 +9789,7 @@ function _computeUnifiedTodo(ctx) {
     out.push({
       type:'regul', severity:'info', score:40,
       title:'Régularisation '+it.annee+' à émettre',
-      subtitle:it.ref+' — '+it.locataire,
+      subtitle:_logLabel(it.ref)+' — '+it.locataire,
       contextRef:it.ref,
       actionLabel:'Émettre régul',
       actionFn:"go('regul',null)"
@@ -9816,7 +9816,7 @@ function _computeUnifiedTodo(ctx) {
         out.push({
           type:'depart', severity:e.severity, score:e.score,
           title:'Départ — dépôt de garantie à restituer (bail archivé)',
-          subtitle:l.ref + ' — ' + locH + ' · ' + fmt(montant) + e.txt,
+          subtitle:_logLabel(l.ref) + ' — ' + locH + ' · ' + fmt(montant) + e.txt,
           contextRef:l.ref,
           actionLabel:'Préparer la restitution du DG',
           actionFn:"_dgOpenRestitution('" + _lyQ(l.ref) + "','" + _lyQ(cle) + "')"
@@ -9842,7 +9842,7 @@ function _computeUnifiedTodo(ctx) {
       out.push({
         type:'depart', severity, score,
         title:'Départ en cours — étape ' + st.doneCount + '/' + st.total,
-        subtitle:l.ref + ' — ' + loc + dgTxt + acpTxt,
+        subtitle:_logLabel(l.ref) + ' — ' + loc + dgTxt + acpTxt,
         contextRef:l.ref,
         actionLabel:'Ouvrir l\'assistant',
         actionFn:'_departOuvrir(\'' + _lyQ(l.ref) + '\')'
@@ -9879,7 +9879,7 @@ function _computeUnifiedTodo(ctx) {
           out.push({
             type:'equip', severity:'red', score:85,
             title:rule.label+' — en retard '+Math.abs(diff)+' j',
-            subtitle:l.ref+(l.locataire?' \u2014 '+l.locataire:''),
+            subtitle:_logLabel(l.ref)+(l.locataire?' \u2014 '+l.locataire:''),
             contextRef:l.ref,
             actionLabel:'Enregistrer intervention',
             actionFn:'go(\'equipements\',null)'
@@ -9888,7 +9888,7 @@ function _computeUnifiedTodo(ctx) {
           out.push({
             type:'equip', severity:'ora', score:55,
             title:rule.label+' — dans '+diff+' j',
-            subtitle:l.ref+(l.locataire?' \u2014 '+l.locataire:''),
+            subtitle:_logLabel(l.ref)+(l.locataire?' \u2014 '+l.locataire:''),
             contextRef:l.ref,
             actionLabel:'Planifier',
             actionFn:'go(\'equipements\',null)'
@@ -9912,7 +9912,7 @@ function _computeUnifiedTodo(ctx) {
         out.push({
           type:'diag', severity:'red', score:88,
           title:label+' expiré',
-          subtitle:l.ref+(l.locataire?' — '+l.locataire:''),
+          subtitle:_logLabel(l.ref)+(l.locataire?' — '+l.locataire:''),
           contextRef:l.ref,
           actionLabel:'Mettre à jour',
           actionFn:'openLogModalOnTab(\''+_lyQ(l.ref)+'\',\'diag\')'
@@ -10971,10 +10971,10 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
     const vacs=scopeLogs.filter(l=>!l.locataire);
     const mag=vacs.reduce((s,l)=>s+(l.hc||0)+(l.ch||0),0);
     if(vacs.length) _DD['mag'] = {title:'Logements vacants', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Immeuble</th><th>Loyer/mois</th><th>Perte/an</th></tr></thead><tbody>'
-      +vacs.map(l=>'<tr><td><b>'+l.ref+'</b></td><td>'+escHtml(l.imm||'')+'</td><td>'+fmt((l.hc||0)+(l.ch||0))+'</td><td style="color:var(--red);font-weight:600">'+fmt(((l.hc||0)+(l.ch||0))*12)+'</td></tr>').join('')+'</tbody></table>'};
+      +vacs.map(l=>'<tr><td><b>'+escHtml(_logLabel(l.ref))+'</b></td><td>'+escHtml(l.imm||'')+'</td><td>'+fmt((l.hc||0)+(l.ch||0))+'</td><td style="color:var(--red);font-weight:600">'+fmt(((l.hc||0)+(l.ch||0))*12)+'</td></tr>').join('')+'</tbody></table>'};
     return wd(
       lbl('Manque \u00e0 gagner vacance')+wval(fmt(mag),'var(--red)')+wsub(periodLabel)
-      +(vacs.length?vacs.slice(0,_maxItems).map(l=>ai(l.ref+'\u00a0\u2014\u00a0'+fmt((l.hc||0)+(l.ch||0))+'/mois','red')).join(''):ai('\u2713 Aucun logement vacant','grn'))
+      +(vacs.length?vacs.slice(0,_maxItems).map(l=>ai(escHtml(_logLabel(l.ref))+'\u00a0\u2014\u00a0'+fmt((l.hc||0)+(l.ch||0))+'/mois','red')).join(''):ai('\u2713 Aucun logement vacant','grn'))
       +(mag>0?`<div style="font-size:9px;color:var(--t3);margin-top:4px">\u2192\u00a0${fmt(mag*12)}\u00a0/\u00a0an</div>`:''),
       vacs.length?seeAll('mag'):'', vacs.length>0?'red':'grn');
   }
@@ -10988,7 +10988,7 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
     const tot = dgs.reduce((s,l) => s+_dgDetenuDuLot(l), 0);
     const nbDg = dgs.reduce((s,l) => s+_dgNbDetenusDuLot(l), 0);   // des DÉPÔTS, pas des lots
     _DD['dg'] = {title:'Dépôts de garantie', html:'<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">DG</th></tr></thead><tbody>'
-      + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDetenuDuLot(l))+'</td></tr>').join('')
+      + dgs.map(l => '<tr><td><b>'+escHtml(_logLabel(l.ref))+'</b></td><td>'+escHtml(_nomLotAffiche(l))+'</td><td style="text-align:right;font-weight:600">'+fmt(_dgDetenuDuLot(l))+'</td></tr>').join('')
       + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+nbDg+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
     // v15.38 DASH-REFONTE-GLOBALE-V4 CP3 — DG Bloomberg : eyebrow + valeur + count
     const body = '<button type="button" class="dw-kpi-click bb-card" '
@@ -11015,7 +11015,7 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
     items.sort((a,b)=>a.diff-b.diff);
     if(!items.length) return wd(lbl('Révisions IRL imminentes')+'<div style="margin-top:8px;font-size:11px;color:var(--grn)">✓ Aucune révision dans les 45 jours</div>', '', 'grn');
     _DD['irl'] = {title:'Révisions IRL — '+items.length+' à traiter', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Échéance</th><th>HC actuel</th><th>Nouveau HC</th></tr></thead><tbody>'
-      +items.map(it=>'<tr><td><b>'+it.ref+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td>'
+      +items.map(it=>'<tr><td><b>'+escHtml(_logLabel(it.ref))+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td>'
         +'<td style="font-weight:700;color:'+(it.app?'var(--red)':'var(--ora)')+'">'+( it.app?'⚠ Applicable':'J-'+it.diff)+'</td>'
         +'<td>'+fmt(it.hc)+'</td>'
         +'<td style="font-weight:600;color:var(--grn)">'+fmt(it.rev.nouveauHC)+'</td></tr>').join('')+'</tbody></table>'};
@@ -11025,14 +11025,14 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
     if(appItems.length) {
       html += '<div style="padding:6px 8px;background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.3);border-radius:var(--r);margin-bottom:4px">'
         +'<div style="font-size:9px;font-weight:700;color:var(--red);margin-bottom:3px">⚠ APPLICABLE — à appliquer maintenant</div>'
-        +appItems.map(it=>'<div style="font-size:10px;color:var(--red);display:flex;justify-content:space-between"><span><b>'+it.ref+'</b> '+escHtml((it.loc||'').substring(0,15))+'</span><span style="font-weight:700">'+fmt(it.hc)+' → <b>'+fmt(it.rev.nouveauHC)+'</b></span></div>').join('')
+        +appItems.map(it=>'<div style="font-size:10px;color:var(--red);display:flex;justify-content:space-between"><span><b>'+escHtml(_logLabel(it.ref))+'</b> '+escHtml((it.loc||'').substring(0,15))+'</span><span style="font-weight:700">'+fmt(it.hc)+' → <b>'+fmt(it.rev.nouveauHC)+'</b></span></div>').join('')
         +'</div>';
     }
     if(immiItems.length) {
       html += immiItems.slice(0,_maxItems).map(it=>{
         const c=it.diff<=14?'var(--red)':'var(--ora)';
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 7px;border-radius:5px;margin-top:3px;background:'+(it.diff<=14?'rgba(248,81,73,.1)':'rgba(240,136,62,.1)')+';font-size:10px">'
-          +'<span><b>'+it.ref+'</b> — '+escHtml((it.loc||'').substring(0,15))+'</span>'
+          +'<span><b>'+escHtml(_logLabel(it.ref))+'</b> — '+escHtml((it.loc||'').substring(0,15))+'</span>'
           +'<span style="color:'+c+';font-weight:600">J-'+it.diff+' → '+fmt(it.rev.nouveauHC)+'</span></div>';
       }).join('');
     }
@@ -11044,11 +11044,11 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
     const items = AlertRules.bauxEcheance(scopeLogs, today, 90, _bailEcheanceAlerteDe).map(b=>({ref:b.ref,loc:b.locataire,diff:b.jours,fin:b.fin,t:(b.expire||b.jours<=30)?'red':'ora'}));
     if(!items.length) return wd(lbl('Baux arrivant à terme')+'<div style="margin-top:8px;font-size:11px;color:var(--grn)">✓ Aucun bail dans les 90 jours</div>', '', 'grn');
     _DD['bail'] = {title:'Baux à terme', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Fin bail</th><th>Statut</th></tr></thead><tbody>'
-      +items.map(it=>'<tr><td><b>'+it.ref+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td><td>'+fd(it.fin)+'</td><td style="color:'+(it.t==='red'?'var(--red)':'var(--ora)')+';font-weight:600">'+(it.diff<0?'Arrivé à terme depuis '+(-it.diff)+'j':'J-'+it.diff)+'</td></tr>').join('')+'</tbody></table>'};
+      +items.map(it=>'<tr><td><b>'+escHtml(_logLabel(it.ref))+'</b></td><td style="font-size:11px">'+escHtml((it.loc||'').substring(0,25))+'</td><td>'+fd(it.fin)+'</td><td style="color:'+(it.t==='red'?'var(--red)':'var(--ora)')+';font-weight:600">'+(it.diff<0?'Arrivé à terme depuis '+(-it.diff)+'j':'J-'+it.diff)+'</td></tr>').join('')+'</tbody></table>'};
     const st2 = items.some(it=>it.t==='red')?'red':'ora';
     return wd(
       lbl('Baux arrivant à terme')+wval(items.length,'var(--ora)')+wsub('bail(s) dans les 90 jours')
-      +items.slice(0,_maxItems).map(it=>ai('<b>'+it.ref+'</b> '+(it.diff<0?'arrivé à terme depuis '+(-it.diff)+'j':'J-'+it.diff)+' · '+fd(it.fin),it.t)).join('')
+      +items.slice(0,_maxItems).map(it=>ai('<b>'+escHtml(_logLabel(it.ref))+'</b> '+(it.diff<0?'arrivé à terme depuis '+(-it.diff)+'j':'J-'+it.diff)+' · '+fd(it.fin),it.t)).join('')
       +(items.length>_maxItems?ai('+ '+(items.length-_maxItems)+' autres...','flat'):''),
       seeAll('bail'), st2);
   }
@@ -11059,10 +11059,10 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
     const missIt = AlertRules.mrhManquante(scopeLogs, DB.mrh);
     const miss = missIt.map(it=>scopeLogs.find(l=>l.ref===it.ref)).filter(Boolean);
     if(miss.length) _DD['mrh'] = {title:'Assurances habitation manquantes — '+miss.length+' logement(s)', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Tél</th><th>Mail</th></tr></thead><tbody>'
-      +miss.map(l=>'<tr><td><b>'+l.ref+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td>'+escHtml(l.tel||'–')+'</td><td>'+escHtml(l.mail||'–')+'</td></tr>').join('')+'</tbody></table>'};
+      +miss.map(l=>'<tr><td><b>'+escHtml(_logLabel(l.ref))+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td>'+escHtml(l.tel||'–')+'</td><td>'+escHtml(l.mail||'–')+'</td></tr>').join('')+'</tbody></table>'};
     return wd(
       lbl('Assurances habitation manquantes')+wval(miss.length,miss.length>0?'var(--ora)':'var(--grn)')+wsub(miss.length>0?'logements sans attestation':'Toutes attestations présentes')
-      +miss.slice(0,_maxItems).map(l=>ai('<b>'+l.ref+'</b> — '+escHtml((l.locataire||'').substring(0,30)),'red')).join('')
+      +miss.slice(0,_maxItems).map(l=>ai('<b>'+escHtml(_logLabel(l.ref))+'</b> — '+escHtml((l.locataire||'').substring(0,30)),'red')).join('')
       +(miss.length>_maxItems?ai('+ '+(miss.length-_maxItems)+' autres...','flat'):''),
       miss.length?seeAll('mrh'):'', miss.length>0?'ora':'grn');
   }
@@ -11073,11 +11073,11 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
     const miss = missIt.map(it=>scopeLogs.find(l=>l.ref===it.ref)).filter(Boolean);
     const anneeRegul = missIt.length ? missIt[0].annee : (today.getFullYear()-1);
     if(miss.length) _DD['regul'] = {title:'Régularisations à émettre — '+miss.length+' logement(s)', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Charges/mois</th></tr></thead><tbody>'
-      +miss.map(l=>'<tr><td><b>'+l.ref+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td>'+fmt(l.ch||0)+'</td></tr>').join('')
+      +miss.map(l=>'<tr><td><b>'+escHtml(_logLabel(l.ref))+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td>'+fmt(l.ch||0)+'</td></tr>').join('')
       +'</tbody></table><p style="margin-top:8px;font-size:12px;color:var(--t2)">Régularisation '+anneeRegul+' non émise. Accès direct : onglet Régularisation.</p>'};
     return wd(
       lbl('Régularisations à émettre')+wval(miss.length,miss.length>0?'var(--ora)':'var(--grn)')+wsub(miss.length>0?'logement(s) · régul. '+anneeRegul+' non émise':'Toutes régularisations à jour')
-      +miss.slice(0,_maxItems).map(l=>ai('<b>'+l.ref+'</b> — '+escHtml((l.locataire||'').substring(0,30)),'ora')).join('')
+      +miss.slice(0,_maxItems).map(l=>ai('<b>'+escHtml(_logLabel(l.ref))+'</b> — '+escHtml((l.locataire||'').substring(0,30)),'ora')).join('')
       +(miss.length>_maxItems?ai('+ '+(miss.length-_maxItems)+' autres...','flat'):''),
       miss.length?seeAll('regul'):'', miss.length>0?'ora':'grn');
   }
@@ -11473,13 +11473,13 @@ function _buildWidgetV1Legacy(id, ctx, col=3, row=2) {
       const att=(l.hc||0)+(l.ch||0);
       const enc=DB.mouvements.filter(m=>m.qui===l.ref&&_isLoyerCategory(m.cat)&&m.cr>0&&m.date&&m.date.startsWith(refYrMo)).reduce((s,m)=>s+(m.cr||0),0);
       const reste=Math.max(0,att-enc);
-      return `<tr><td><b>${l.ref}<\/b><\/td><td style="font-size:10px;color:var(--t3);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml((l.locataire||'').split(' ').slice(0,2).join(' '))}<\/td><td>${fmt(att)}<\/td><td style="color:${enc>0?'var(--grn)':'var(--red)'}">${fmt(enc)}<\/td><td style="font-weight:600;color:${reste>0?'var(--red)':'var(--grn)'}">${fmt(reste)}<\/td><\/tr>`;
+      return `<tr><td><b>${escHtml(_logLabel(l.ref))}<\/b><\/td><td style="font-size:10px;color:var(--t3);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml((l.locataire||'').split(' ').slice(0,2).join(' '))}<\/td><td>${fmt(att)}<\/td><td style="color:${enc>0?'var(--grn)':'var(--red)'}">${fmt(enc)}<\/td><td style="font-weight:600;color:${reste>0?'var(--red)':'var(--grn)'}">${fmt(reste)}<\/td><\/tr>`;
     }).join('');
     return wd(lbl('Statut loyers\u00a0\u2014\u00a0'+periodLabel)+`<table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:4px"><thead><tr style="font-size:9px;color:var(--t3)"><th style="text-align:left;padding:1px 2px">Log.<\/th><th style="text-align:left;padding:1px 2px">Loc.<\/th><th style="text-align:left;padding:1px 2px">CC<\/th><th style="text-align:left;padding:1px 2px">Enc.<\/th><th style="text-align:left;padding:1px 2px">Reste<\/th><\/tr><\/thead><tbody>${rows}<\/tbody><\/table>`, '', 'blu');
   }
   if(id==='vac') {
     const vacs=scopeLogs.filter(l=>!l.locataire);
-    return wd(lbl('Logements vacants')+wval(vacs.length,vacs.length>0?'var(--red)':'var(--grn)')+wsub('sur '+nbLogs+' logements')+vacs.slice(0,_maxItems).map(l=>ai(`<b>${l.ref}<\/b>\u00a0\u2014 Th\u00e9orique\u00a0${fmt((l.hc||0)+(l.ch||0))}/mois`,'red')).join(''), '', vacs.length>0?'red':'grn');
+    return wd(lbl('Logements vacants')+wval(vacs.length,vacs.length>0?'var(--red)':'var(--grn)')+wsub('sur '+nbLogs+' logements')+vacs.slice(0,_maxItems).map(l=>ai(`<b>${escHtml(_logLabel(l.ref))}<\/b>\u00a0\u2014 Th\u00e9orique\u00a0${fmt((l.hc||0)+(l.ch||0))}/mois`,'red')).join(''), '', vacs.length>0?'red':'grn');
   }
   if(id==='ass') {
     const exp=DB.assurances.filter(a=>{if(!a.expiration)return false;const d=Math.round((new Date(a.expiration)-today)/86400000);return d>=0&&d<=30&&scopeRefs.includes(a.logement);}).sort((a,b)=>new Date(a.expiration)-new Date(b.expiration));
