@@ -2652,7 +2652,8 @@ function saveDB(opts) {
     // Invariant 19l (amendé, STOCKAGE lot 3, D1 B) : le retour dit si la modification a une
     // DESTINATION DURABLE. En ligne, le cloud la reçoit (__immoMarkDirty, juste dessous, quoi qu'il
     // arrive) : un miroir plein n'est PAS une perte → `true` + avis unique. Hors ligne, le miroir
-    // était la seule destination → FAUX, et on le dit. Décision : _stockage.verdictEchecMiroir.
+    // était la seule destination → FAUX, et on le dit — sauf l'EDL dont la copie IndexedDB est planifiée
+    // (F1 le remonte au démarrage en ligne : même durabilité qu'en ligne). Décision : _stockage.verdictEchecMiroir.
     let _miroirOk = true;
     try {
       // STOCKAGE lot 1 (S-1) : l'écrivain UNIQUE du miroir libère les copies/clés retirées et

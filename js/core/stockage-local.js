@@ -254,6 +254,8 @@ export const TEXTES_ECHEC_MIROIR = {
   reseauCoupe: 'Stockage de cet appareil plein et réseau coupé : cette modification n’est pas encore en sécurité. '
     + 'Garder l’application ouverte jusqu’au retour du réseau pour qu’elle parte au cloud.',
   sessionMorte: 'Stockage de cet appareil plein et session expirée : cette modification n’est PAS enregistrée. Se reconnecter, puis la refaire.',
+  edlHorsLigne: 'Stockage de cet appareil presque plein : cet état des lieux est enregistré sur cet appareil. '
+    + 'Il partira au cloud au retour du réseau, en rouvrant Propryo. Détail : Sauvegarde & export → Stockage de cet appareil.',
   horsLigne: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée. La refaire une fois le réseau revenu.',
   sandbox: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée. Vider la base de test pour libérer de la place.',
   local: 'Stockage de cet appareil plein : cette modification n’est PAS enregistrée.',
@@ -273,6 +275,11 @@ const estEdl = quoi => typeof quoi === 'string' && /^edl(-|$)/.test(quoi);
  *     reste en mémoire et partira au retour du réseau si l'app reste ouverte → `false` ;
  *   - `cloud-session-morte` : plus rien ne part au cloud → `false`, « PAS enregistrée » ;
  *   - `cloud-hors-ligne`, `local` (sandbox, ancien mode) : le miroir était la seule destination → `false`.
+ *     EXCEPTION, l'état des lieux HORS LIGNE dont l'écriture IndexedDB est planifiée (`miroirIdb`) : seul
+ *     un petit écrit localStorage (`_ecrit_at` ou le journal) a été refusé ; la base complète part en
+ *     IndexedDB avec `travailA`, et F1 la remonte au démarrage en ligne suivant — la même durabilité que
+ *     l'EDL en ligne → `true`, avis unique « enregistré sur cet appareil » (audit lots 2-3, 🟠1 : dire
+ *     « PAS enregistrée, la refaire » faisait saisir l'EDL deux fois).
  * Un mode inconnu est traité comme une perte (on ne promet jamais un enregistrement qu'on ne peut prouver).
  * `unique` : clé d'avis donné une seule fois par session (false = message à chaque perte, anti-rafale 10 s).
  * @returns {{ retour:boolean, type:'warn'|'err', unique:string|false, message:string }}
@@ -281,6 +288,9 @@ export function verdictEchecMiroir({ mode, sandbox = false, quoi, miroirIdb = fa
   if (mode === 'cloud-en-ligne') {
     if (estEdl(quoi) && !miroirIdb) return { retour: false, type: 'err', unique: 'edl', message: TEXTES_ECHEC_MIROIR.edl };
     return { retour: true, type: 'warn', unique: 'copie', message: TEXTES_ECHEC_MIROIR.enLigne };
+  }
+  if (mode === 'cloud-hors-ligne' && estEdl(quoi) && miroirIdb) {
+    return { retour: true, type: 'warn', unique: 'edl-hors-ligne', message: TEXTES_ECHEC_MIROIR.edlHorsLigne };
   }
   if (mode === 'cloud-reseau-coupe') return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.reseauCoupe };
   if (mode === 'cloud-session-morte') return { retour: false, type: 'err', unique: false, message: TEXTES_ECHEC_MIROIR.sessionMorte };

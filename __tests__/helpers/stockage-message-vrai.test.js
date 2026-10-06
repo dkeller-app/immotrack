@@ -34,8 +34,11 @@ describe('G4 — verdictEchecMiroir : table §3.3 (3 modes × EDL / non-EDL)', (
       expect(v.message).not.toMatch(/PAS enregistrée/);
       expect(v.message).toMatch(/bien enregistrée dans le cloud/);
     });
-    it(`cloud hors ligne (${quoi || 'non étiquetée'}) : FAUX, « PAS enregistrée »`, () => {
+    it(`cloud hors ligne (${quoi || 'non étiquetée'}) : FAUX, « PAS enregistrée » — sauf l’EDL dont l’écriture IndexedDB est planifiée`, () => {
       expect(Stockage.verdictEchecMiroir({ mode: 'cloud-hors-ligne', quoi })).toEqual({ retour: false, type: 'err', unique: false, message: T.horsLigne });
+      const avecIdb = Stockage.verdictEchecMiroir({ mode: 'cloud-hors-ligne', quoi, miroirIdb: true });
+      if (quoi === 'edl') expect(avecIdb).toEqual({ retour: true, type: 'warn', unique: 'edl-hors-ligne', message: T.edlHorsLigne });
+      else expect(avecIdb).toEqual({ retour: false, type: 'err', unique: false, message: T.horsLigne });   // F1 ne remonte que les EDL
     });
     it(`sandbox / local (${quoi || 'non étiquetée'}) : FAUX, « PAS enregistrée »`, () => {
       expect(Stockage.verdictEchecMiroir({ mode: 'local', sandbox: true, quoi })).toMatchObject({ retour: false, message: T.sandbox });
@@ -49,6 +52,13 @@ describe('G4 — verdictEchecMiroir : table §3.3 (3 modes × EDL / non-EDL)', (
   it('les textes perdus disent « PAS enregistrée » ; aucun ne tutoie (charte M-13)', () => {
     for (const k of ['horsLigne', 'sandbox', 'local', 'sessionMorte']) expect(T[k]).toMatch(/n’est PAS enregistrée/);
     for (const k of ['edl', 'reseauCoupe']) expect(T[k]).toMatch(/pas encore en sécurité/);
+    // EDL hors ligne avec IndexedDB : il EST sur l'appareil — jamais « PAS enregistré », jamais « la refaire ».
+    expect(T.edlHorsLigne).toMatch(/est enregistré sur cet appareil/);
+    expect(T.edlHorsLigne).toMatch(/partira au cloud au retour du réseau/);
+    expect(T.edlHorsLigne).not.toMatch(/PAS enregistr|refaire/i);
+    for (const q of ['edl-photo', 'edl-pieces', 'edl-signature-presentielle']) {
+      expect(Stockage.verdictEchecMiroir({ mode: 'cloud-hors-ligne', quoi: q, miroirIdb: true }).retour).toBe(true);
+    }
     expect(Stockage.verdictEchecMiroir({ mode: 'cloud-reseau-coupe' })).toEqual({ retour: false, type: 'err', unique: false, message: T.reseauCoupe });
     expect(Stockage.verdictEchecMiroir({ mode: 'cloud-session-morte', quoi: 'edl', miroirIdb: true })).toEqual({ retour: false, type: 'err', unique: false, message: T.sessionMorte });
     expect(Stockage.verdictEchecMiroir({ mode: 'cloud-en-ligne', quoi: 'edl-photo' }).retour).toBe(false);
@@ -130,7 +140,7 @@ function fauxIdb() {
 }
 
 /** Monte saveDB + le bloc d'échec tels qu'écrits dans l'app. `miroir` : instance du miroir du lot 4 (sinon écrivain local). */
-function monter({ cloud = true, horsLigne = false, enLigne = true, sessionMorte = false, sandbox = false, module = true, plein = true, miroir = null, stockage = null }) {
+function monter({ cloud = true, horsLigne = false, enLigne = true, sessionMorte = false, sandbox = false, module = true, plein = true, miroir = null, stockage = null, db = null }) {
   const toasts = [];
   const envois = [];
   const st = stockage || fauxStockageQuota({ quota: plein ? 100 : Infinity });   // plein : rien ne tient
@@ -144,7 +154,7 @@ function monter({ cloud = true, horsLigne = false, enLigne = true, sessionMorte 
     + '\n' + HTML.slice(HTML.indexOf('window.__immoMiroirPasAJour = function'), HTML.indexOf('};', HTML.indexOf('window.__immoMiroirPasAJour = function')) + 2)
     + '\nreturn { saveDB, etat: () => ({ _miroirEchecDepuis, _miroirDernierOk, avis: [..._miroirAvisDonnes] }) };';
   const r = new Function('window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', 'navigator', 'showToast', '_isTestMode', 'console', src)(
-    win, st, sandbox ? '_test_immotrack_v4' : 'immotrack_v4', { baux: {}, logements: [], edl: [], x: chaine(500) }, false,
+    win, st, sandbox ? '_test_immotrack_v4' : 'immotrack_v4', db || { baux: {}, logements: [], edl: [], x: chaine(500) }, false,
     { onLine: enLigne }, (m, t) => toasts.push([t, m]), sandbox, { error() {}, info() {}, warn() {} });
   return Object.assign(r, { toasts, envois, st, win });
 }
@@ -193,6 +203,32 @@ describe('G4 — câblage dans saveDB (miroir plein)', () => {
     const m = monter({ stockage: st, miroir });
     expect(m.saveDB({ quoi: 'edl' })).toBe(true);
     expect(m.toasts).toEqual([['warn', T.enLigne]]);
+  });
+  it('HORS LIGNE, EDL, miroir IndexedDB sain, localStorage plein (`_ecrit_at` et journal refusés) : VRAI, avis unique « enregistré sur cet appareil », l’EDL est en IndexedDB avec travailA (audit 🟠1, ex-sonde 1)', async () => {
+    const st = fauxStockageQuota({ quota: 10 });                          // localStorage saturé (autre page de l'origine github.io)
+    const idb = fauxIdb();
+    const miroir = creerMiroir({ idb, stockage: st });
+    await miroir.initialiser();
+    expect(miroir.backend()).toBe('indexeddb');
+    const db = { baux: {}, logements: [], edl: [] };
+    const m = monter({ horsLigne: true, stockage: st, miroir, db });
+    db.edl.push({ id: 42, logement: 'L1', type: 'entree', _modifiedAt: '2026-10-06T10:00:00Z' });
+    expect(m.saveDB({ quoi: 'edl' })).toBe(true);                         // l'UI EDL peut dire « Enregistré »
+    expect(m.saveDB({ quoi: 'edl', autosave: true })).toBe(true);
+    await miroir.attendre();
+    expect(m.toasts).toEqual([['warn', T.edlHorsLigne]]);                  // une fois (autosave toutes les 2 s), jamais « la refaire »
+    expect(st.cles()).toEqual([]);                                          // rien n'a tenu en localStorage…
+    expect(JSON.parse(idb.enr.json).edl.map(e => e.id)).toEqual([42]);      // … l'EDL est sur l'appareil, en IndexedDB
+    expect(idb.enr.travailA).toBeGreaterThan(0);                            // F1 lit MAX(_ecrit_at, travailA) → remonté au démarrage en ligne
+    expect(m.etat()._miroirEchecDepuis).toBeGreaterThan(0);                 // la carte « Stockage de cet appareil » le dira
+  });
+  it('HORS LIGNE, modification NON-EDL (garde hors ligne absente), même miroir IndexedDB sain : FAUX, « PAS enregistrée » (F1 ne remonte que les EDL)', async () => {
+    const st = fauxStockageQuota({ quota: 10 });
+    const miroir = creerMiroir({ idb: fauxIdb(), stockage: st });
+    await miroir.initialiser();
+    const m = monter({ horsLigne: true, stockage: st, miroir });
+    expect(m.saveDB({ quoi: 'logement' })).toBe(false);
+    expect(m.toasts).toEqual([['err', T.horsLigne]]);
   });
   it('HORS LIGNE (mode hors ligne) : FAUX et « PAS enregistrée » (19l)', () => {
     const m = monter({ horsLigne: true });
