@@ -31,8 +31,16 @@ describe('qui reconduit ? (une règle par type)', () => {
     expect(reconductionLegale('garage')).toBe(false);
     expect(reconductionLegale('autre')).toBe(false);
   });
-  it('le contrat : seul un garage SIGNÉ dans l\'app depuis le 04/09/2026 porte à coup sûr la clause de reconduction', () => {
-    expect(regleReconduction({ type: 'garage', signatures: { signedAt: '2026-09-04T08:00:00Z' } })).toBe('contrat');
+  it('le contrat : seul un garage SIGNÉ dans l\'app depuis le déploiement de v15.586 (04/09/2026 15:28:19 Paris) porte la clause', () => {
+    const g = (signedAt) => regleReconduction({ type: 'garage', signatures: { signedAt } });
+    expect(g('2026-09-04T13:28:19Z')).toBe('contrat');           // l'instant exact (15:28:19 à Paris)
+    expect(g('2026-09-04T15:28:19+02:00')).toBe('contrat');
+    expect(g('2026-09-04T13:28:18Z')).toBe(null);                // une seconde avant
+    expect(g('2026-09-04T08:00:00Z')).toBe(null);                // le même jour, le matin
+    expect(g('2026-09-04')).toBe(null);                          // date seule = minuit UTC, avant
+    expect(g(Date.UTC(2026, 8, 4, 13, 28, 19))).toBe('contrat');
+    expect(g(Date.UTC(2026, 8, 4, 13, 28, 18))).toBe(null);
+    expect(g('pas une date')).toBe(null);
     expect(regleReconduction({ type: 'garage', signatures: { signedAt: '2026-09-10T10:00:00Z' } })).toBe('contrat');
     expect(regleReconduction({ type: 'garage', signatures: { signedAt: Date.UTC(2026, 8, 20) } })).toBe('contrat');
     expect(regleReconduction({ type: 'garage', signatures: { signedAt: '2026-09-03T23:00:00Z' } })).toBe(null);   // signé avant

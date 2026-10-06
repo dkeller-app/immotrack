@@ -41,8 +41,8 @@
    *   mobilite JAMAIS reconduit (art. 25-14 al. 1) : il prend fin à son terme, sans congé.
    *   garage   reconduit si le CONTRAT le prévoit. Le contrat garage de l'app le prévoit (bail-garage
    *            §3 : « le contrat se renouvelle par tacite reconduction pour des périodes successives
-   *            d'une durée équivalente ») depuis son branchement le 04/09/2026. Seul un garage SIGNÉ
-   *            dans l'app à partir de cette date est donc reconduit ici. Signé avant, repris à l'achat,
+   *            d'une durée équivalente ») depuis son déploiement en v15.586 (04/09/2026, 15 h 28 heure
+   *            de Paris). Seul un garage SIGNÉ dans l'app à partir de cet instant est donc reconduit ici. Signé avant, repris à l'achat,
    *            jamais signé : le texte du contrat n'est pas établi → arrivé à terme, « contrat à vérifier ».
    *   autre    le contrat de l'app ne prévoit pas de reconduction (« librement définies entre les
    *            parties ») : il arrive à son terme.
@@ -82,26 +82,31 @@
     return null;
   }
 
-  /** Date du branchement du contrat garage de l'app (bail-garage, clause de tacite reconduction §3). */
-  const DATE_CONTRAT_GARAGE_APP = '2026-09-04';
+  /**
+   * L'INSTANT du déploiement du contrat garage de l'app (bail-garage, clause de tacite reconduction §3) :
+   * v15.586, commit 91a8bfed « Pilotage : bail garage DÉPLOYÉ v15.586 », horodaté par git
+   * 2026-09-04 15:28:19 +0200 (heure de Paris).
+   */
+  const INSTANT_CONTRAT_GARAGE_APP = '2026-09-04T15:28:19+02:00';
+  const _MS_CONTRAT_GARAGE_APP = Date.parse(INSTANT_CONTRAT_GARAGE_APP);
 
-  /** Date de signature 'YYYY-MM-DD' d'un bail signé dans l'app, '' sinon. */
-  function _dateSignature(bail) {
+  /** L'horodatage (ms) de la signature d'un bail signé dans l'app, NaN sinon. */
+  function _instantSignature(bail) {
     const s = bail && bail.signatures && bail.signatures.signedAt;
-    if (!s) return '';
-    if (typeof s === 'number') { const d = new Date(s); return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10); }
-    const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(s));
-    return m ? m[1] : '';
+    if (s === null || s === undefined || s === '') return NaN;
+    if (typeof s === 'number') return s;
+    return Date.parse(String(s));
   }
 
   /**
    * Ce garage porte-t-il, À COUP SÛR, la clause de tacite reconduction du contrat de l'app ?
-   * Oui seulement s'il a été SIGNÉ dans l'app à partir du 04/09/2026 et n'est pas un bail repris.
+   * Oui seulement s'il a été SIGNÉ dans l'app à partir du déploiement de v15.586 (04/09/2026, 15 h 28,
+   * heure de Paris) et n'est pas un bail repris. Une signature au même jour mais plus tôt : non.
    */
   function garageContratAppReconductible(bail) {
     if (!bail || bail.typeContrat === 'repris') return false;
-    const d = _dateSignature(bail);
-    return !!d && d >= DATE_CONTRAT_GARAGE_APP;
+    const t = _instantSignature(bail);
+    return !isNaN(t) && t >= _MS_CONTRAT_GARAGE_APP;
   }
 
   /** Préavis du congé BAILLEUR avant l'échéance, en mois (null = pas de congé à délivrer par la loi de 1989). */
@@ -304,7 +309,7 @@
     typeBailEffectif: typeBailEffectif,
     reconductionLegale: reconductionLegale,
     regleReconduction: regleReconduction,
-    DATE_CONTRAT_GARAGE_APP: DATE_CONTRAT_GARAGE_APP,
+    INSTANT_CONTRAT_GARAGE_APP: INSTANT_CONTRAT_GARAGE_APP,
     garageContratAppReconductible: garageContratAppReconductible,
     preavisBailleurMois: preavisBailleurMois,
     preavisLocataireMois: preavisLocataireMois,
