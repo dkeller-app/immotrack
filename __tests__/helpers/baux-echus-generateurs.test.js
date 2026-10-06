@@ -295,7 +295,7 @@ describe('geste « Nouveau bail » (_bailNouveauApresTerme) après un bail arriv
       renderBailLocs: (l) => { champs.__locs = l; }, renderBailGarants: () => {}, _bailLegacyToGarants: () => [],
       onBailTypeChange: () => appels.push('onBailTypeChange:' + champs['b-type']), showToast: () => {}
     } });
-    const F = monter(['_bailNouveauApresTerme', '_bailEcheanceOpts', '_isoLocal'], [], deps);
+    const F = monter(['_bailNouveauApresTerme', '_bailEcheanceOpts', '_isoLocal', '_ouvrirNouveauBailSurLot'], [], deps);
     F._bailNouveauApresTerme(prev.ref);
     return { champs, appels };
   };

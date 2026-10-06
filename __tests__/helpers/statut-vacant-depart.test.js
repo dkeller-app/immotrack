@@ -732,3 +732,45 @@ describe('23 · article 22 cité mot pour mot (Légifrance, alinéas 3 et 4)', (
     expect(bloc).toContain("Il est restitué dans un délai maximal d'un mois à compter de la remise des clés par le locataire lorsque l'état des lieux de sortie est conforme à l'état des lieux d'entrée");
   });
 });
+describe('24 · nouveau bail sur un lot (VRAIS openBail / convertCandidatToBail / _ouvrirNouveauBailSurLot / assistant de départ)', () => {
+  const docStub = () => ({ querySelector: () => null, querySelectorAll: () => [], getElementById: () => null, createElement: () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} } }) });
+  const ouvrirAvec = (baux, appel) => {
+    const DB = dbDe(baux);
+    DB.logements[0].debut = '2023-07-01'; DB.logements[0].fin = '2026-06-30';
+    DB.candidats = [{ id: 'c1', statut: 'valide', logRef: 'A1', nom: 'Nina' }];
+    const E = {};
+    const elX = (id) => (E[id] = E[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, dataset: {}, disabled: false, checked: false, options: [],
+      classList: { add() {}, remove() {}, toggle() {}, contains: () => false }, querySelectorAll: () => [], querySelector: () => null, appendChild() {} });
+    const m = monter(DB, [...STATUT, 'openBail', 'onBailRefChange', '_ouvrirNouveauBailSurLot', 'convertCandidatToBail', '_isoDecaleJours', '_bailFinOccupation'], {
+      el: elX, document: docStub(), _activeLogements: () => DB.logements, sortedIRLKeys: () => ['T1 2026'], getIRLRefForDate: () => 'T1 2023',
+      _bailIsEdit: false, _readLogForBail: () => ({}), _TU2BT: {}, _candidatVersLocataire: (c) => ({ nom: c.nom }), _candidatVersGarant: () => null,
+      _loyerAttenduForCand: () => null, _bailLegacyToGarants: () => [],
+    });
+    try { appel(m.fn); } catch (e) { m.base.__err = e.message; }
+    m.els = E;
+    return m;
+  };
+  it('openBail(nouveau, lot connu) : ni le début ni la fin de l\'ancien bail', () => {
+    const m = ouvrirAvec({ A1: DEPART }, (fn) => fn.openBail(null, { logRef: 'A1' }));
+    expect(m.els['b-debut'].value).toBe('');
+    expect(m.els['b-fin'].value).toBe('');
+  });
+  it('conversion d\'un candidat sur le lot parti : début proposé = lendemain de la sortie (01/10/2026), jamais 2023-07-01', () => {
+    const m = ouvrirAvec({ A1: DEPART }, (fn) => fn.convertCandidatToBail('c1'));
+    expect(m.els['b-debut'].value).toBe('2026-10-01');
+    expect(m.els['b-fin'].value).toBe('');
+  });
+  it('conversion sur un lot vide : début laissé vide', () => {
+    const m = ouvrirAvec({}, (fn) => fn.convertCandidatToBail('c1'));
+    expect(m.els['b-debut'].value).toBe('');
+  });
+  it('édition d\'un bail existant : ses dates restent', () => {
+    const m = ouvrirAvec({ A1: DEPART }, (fn) => fn.openBail('A1'));
+    expect(m.els['b-debut'].value).toBe('2023-07-01');
+  });
+  it('assistant de départ, étape « Nouveau bail + EDL entrée + DG » : ouvre un NOUVEAU bail sur le lot (jamais l\'édition du bail du locataire sorti)', () => {
+    const src = corps('_departState');
+    expect(src).toContain("t:'Nouveau bail + EDL entrée + DG', s:'Bail', on:`closeM('ov-depart');_ouvrirNouveauBailSurLot('${jsRef}')`");
+    expect(src).not.toMatch(/Nouveau bail \+ EDL entrée \+ DG[^}]*openBail\(/);
+  });
+});

@@ -2060,9 +2060,7 @@ function _bailAlerteTerme(bail, log) {
 function _bailNouveauApresTerme(ref) {
   const prev = DB.baux && DB.baux[ref];
   if(!prev || prev._deleted) { if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
-  openBail(null, { logRef: ref });
-  const refSel = el('b-ref');
-  if(refSel){ refSel.value = ref; refSel.disabled = false; try{ onBailRefChange(refSel); }catch(e){} }
+  _ouvrirNouveauBailSurLot(ref);
   if(el('b-entity') && prev.entity) el('b-entity').value = prev.entity;
   try { renderBailSignataires(prev.signataires); } catch(e) {}
   renderBailLocs((prev.locataires || (prev.nom ? [{ nom: prev.nom }] : [])).map(x => Object.assign({}, x)));
@@ -15870,6 +15868,13 @@ function _closeBailWizardBg(e){ /* v15.268 — clic dehors ne ferme plus le wiza
 
 /* Ouvre le wizard bail pré-rempli depuis un candidat validé (identité + garant).
    Le mapping passe par les helpers purs testés (_candidatVersLocataire/Garant). */
+// NOUVEAU bail sur un lot connu — porte unique (conversion d'un candidat, bail arrivé à terme, assistant de départ) :
+// formulaire vierge, lot sélectionné, onBailRefChange décide du début proposé. Jamais l'édition du bail en cours.
+function _ouvrirNouveauBailSurLot(ref) {
+  openBail(null, { logRef: ref });
+  const refSel = el('b-ref');
+  if(refSel){ refSel.value = ref; refSel.disabled = false; try{ onBailRefChange(refSel); }catch(e){} }
+}
 function convertCandidatToBail(id){
   const c = (DB.candidats||[]).find(x=>x.id===id);
   if(!c){ showToast('Candidat introuvable','err'); return; }
@@ -15880,9 +15885,7 @@ function convertCandidatToBail(id){
   // sans lui, le sélecteur (peuplé via _activeLogements) ne contiendrait pas l'option.
   if(!log || !_isAlive(log) || log.archived){ showToast('Le bien associé à ce candidat n\'existe plus ou est archivé','err'); return; }
   closeM('ov-fiche-candidat');
-  openBail(null, { logRef: c.logRef });              // wizard vierge MAIS logement connu → le bloc de pré-remplissage existant peuple les champs bien (desc, pièces, chauffage, locaux…)
-  const refSel = el('b-ref');
-  if(refSel){ refSel.value = c.logRef; refSel.disabled = false; try{ onBailRefChange(refSel); }catch(e){} }
+  _ouvrirNouveauBailSurLot(c.logRef);                // wizard vierge MAIS logement connu → le bloc de pré-remplissage existant peuple les champs bien (desc, pièces, chauffage, locaux…)
   if(el('b-entity') && log && log.entity){ el('b-entity').value = log.entity; }
   // Q3 — loyer/charges attendus depuis la cascade candidat (robuste, indépendant de loyerHcRef).
   try{
@@ -16018,7 +16021,7 @@ function openBail(ref, opts) {
   const irlKeys = sortedIRLKeys();
   el('b-irl').innerHTML = irlKeys.map(k=>`<option value="${k}">${k}</option>`).join('');
   if(bail.irl) el('b-irl').value = bail.irl;
-  else if(log?.debut) { el('b-irl').value = getIRLRefForDate(log.debut) || irlKeys[irlKeys.length-1] || ''; }
+  else if(ref && log?.debut) { el('b-irl').value = getIRLRefForDate(log.debut) || irlKeys[irlKeys.length-1] || ''; }   // nouveau bail : l'IRL suit SA date de début (autoIRLTrimestre)
   else el('b-irl').value = irlKeys[irlKeys.length-1]||'';
   // IRL-REVISION R10/R11 — mois de révision : celui du bail ; pour un bail NOUVEAU (jamais
   // enregistré), la date commune de son bailleur ; sinon « Auto ». Bail signé : figé.
@@ -16038,9 +16041,10 @@ function openBail(ref, opts) {
     _bIrlMoisHint();
   }
 
-  // Dates
-  el('b-debut').value = bail.debut||log?.debut||'';
-  el('b-fin').value   = bail.fin||log?.fin||'';
+  // Dates — NOUVEAU bail (ref vide : conversion d'un candidat, relocation) : log.debut / log.fin sont ceux de
+  // l'ANCIEN bail, jamais repris ; onBailRefChange propose le lendemain de la sortie (statut 06/10).
+  el('b-debut').value = bail.debut || (ref ? (log?.debut || '') : '');
+  el('b-fin').value   = bail.fin   || (ref ? (log?.fin   || '') : '');
 
   // PC-REFONTE étape 3 — clauses par défaut (Paramètres › Bail) : pré-remplissent la zone
   // « Conditions particulières » UNIQUEMENT sur un nouveau bail (b-edit-ref vide). Un bail
@@ -26020,7 +26024,7 @@ function _departState(bail){
       {ic:'🛠️', t:'Remise en état / travaux', s:'Équipements', on:`closeM('ov-depart');go('equipements')`},
       {ic:'📑', t:'Diagnostics à jour (DPE…)', s:'Diagnostics', on:`closeM('ov-depart');go('biens')`},
       {ic:'📣', t:'Annonce + candidatures', s:'Candidats', on:`closeM('ov-depart');go('candidats')`},
-      {ic:'📝', t:'Nouveau bail + EDL entrée + DG', s:'Bail', on:`closeM('ov-depart');openBail('${jsRef}')`}
+      {ic:'📝', t:'Nouveau bail + EDL entrée + DG', s:'Bail', on:`closeM('ov-depart');_ouvrirNouveauBailSurLot('${jsRef}')`}
     ],
     cta:[{label:'🔚 Clôturer le bail (archiver)', on:`closeM('ov-depart');openBailClore('${jsRef}')`},
          {label:'Candidatures', ghost:true, on:`closeM('ov-depart');go('candidats')`}]
