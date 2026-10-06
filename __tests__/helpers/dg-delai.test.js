@@ -23,7 +23,16 @@ describe('conformité de l’EDL de sortie', () => {
     expect(conformiteEdlSortie(EDL_KO)).toBe(false);
     expect(conformiteEdlSortie(piece('Bon état', "État d'usage"))).toBe(false);
     expect(conformiteEdlSortie(piece("État d'usage", "État d'usage"))).toBe(true);
-    expect(conformiteEdlSortie(piece('Neuf', ''))).toBe(true);           // élément non renseigné à la sortie
+    expect(conformiteEdlSortie(piece('Absent', 'Absent'))).toBe(true);    // « Absent ou non applicable » ne prouve rien
+  });
+  it('EDL de sortie incomplet ou vide → INCONNUE : un état de sortie vide n’est jamais conforme présumé (edl-parcours §A.6)', () => {
+    expect(conformiteEdlSortie(piece('Neuf', ''))).toBeNull();
+    expect(conformiteEdlSortie({ pieces: [] })).toBeNull();
+    expect(conformiteEdlSortie({ pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }, { etatE: 'Bon état', etatS: '  ' }] }] })).toBeNull();
+    // une dégradation déjà relevée suffit, même si l’EDL n’est pas fini
+    expect(conformiteEdlSortie({ pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Mauvais état' }, { etatE: 'Bon état', etatS: '' }] }] })).toBe(false);
+    const ech = echeancesRestitution({ depart: { dateSortie: '2026-03-01' } }, { date: '2026-03-01', ...piece('Bon état', '') });
+    expect(ech).toMatchObject({ conforme: null, delaiMois: 2, limiteSiConforme: '2026-04-01', limite: '2026-05-01' });
   });
   it('les retenues ne disent rien de la conformité (un loyer impayé ne dégrade pas le logement)', () => {
     expect(echeancesRestitution({ depart: { dateSortie: '2026-03-01' }, dgRetenu: 300 }, EDL_OK)).toMatchObject({ conforme: true, delaiMois: 1 });

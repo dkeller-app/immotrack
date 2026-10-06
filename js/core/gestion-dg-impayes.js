@@ -7,7 +7,8 @@
  *   3. Procédure judiciaire (commandement huissier → assignation → jugement)
  *
  * Cadre légal :
- *   - Délai restitution DG : 1 mois (sans dégradation EDL sortie) ou 2 mois (avec retenue)
+ *   - Délai restitution DG : 1 mois après la remise des clés si l'EDL de sortie est conforme à l'entrée,
+ *     2 mois sinon — règle unique : js/core/dg-delai.js
  *     - Loi 89-462 art. 22 modifiée par loi ALUR 2014
  *     - Au-delà du délai : pénalité 10% du loyer/mois entamé à charge bailleur
  *   - Procédure impayés :
@@ -93,7 +94,8 @@ export function _dgStatut(bail, dateRef, edls) {
     const ech = _dgEcheances(bail, edls);
     const et = etatDelai(ech, _isoRef(dateRef));
     if (ech && et) {
-      const info = { dgDu, dgPaid, soldeRestant, delaiMois: ech.delaiMois, limite: ech.limite, limiteSiConforme: ech.limiteSiConforme, limiteSinon: ech.limiteSinon, conforme: ech.conforme, remise: ech.remise };
+      // Mêmes clés que la copie inline (app-part2) — test de parité dg-statut-parite.test.js.
+      const info = { dgDu, dgPaid, soldeRestant, delaiMois: ech.delaiMois, limite: ech.limite, limiteSiConforme: ech.limiteSiConforme, limiteSinon: ech.limiteSinon, conforme: ech.conforme, remise: ech.remise, joursSiConforme: et.joursSiConforme };
       if (et.etat === 'en_retard') return { statut: DG_STATUS.EN_RETARD, ...info, joursRetard: et.joursRetard };
       if (et.etat === 'depassement_possible') return { statut: DG_STATUS.DEPASSEMENT_POSSIBLE, ...info, joursRestants: et.jours };
       return { statut: DG_STATUS.A_RESTITUER, ...info, joursRestants: et.jours };

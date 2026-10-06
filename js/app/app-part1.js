@@ -23319,7 +23319,7 @@ function _rgClotureLocataire(entryKey){
           <div class="rgc-hi"><b>Retenue = min( régul dû ${f(regulDu)} ; 20 % du DG ${f(max20)} ) = ${f(retenueRegul)}</b>. Le plafond 20 % ne vaut qu'en copropriété, en attendant l'arrêté des comptes (art. 22).</div>
           <div class="rgc-dgr rgc-restit"><span><b>= À restituer maintenant</b></span><span class="mono" style="color:var(--grn)">${f(restitTotal)}</span></div>
           ${resteADemander>0?`<div class="rgc-legal">${resteLegal}</div>`:''}
-          <div class="rgc-legal">Retenir une part fait passer le délai de restitution à 2 mois. Solde définitif à l'approbation des comptes. Réf. loi 89‑462 art. 22 &amp; 23.</div>
+          <div class="rgc-legal">Le délai de restitution ne dépend pas des retenues : 1 mois après la remise des clés si l'EDL de sortie est conforme à l'entrée, 2 mois sinon. Solde définitif à l'approbation des comptes. Réf. loi 89‑462 art. 22 &amp; 23.</div>
         </div></div>`
     : `<div class="rgc-blk"><div class="rgc-t">③ Dépôt de garantie &amp; restitution</div>
         <div class="rgc-dg">
@@ -23505,7 +23505,9 @@ function _edlSortieDuBail(bail) {
 function _departDeadlineDG(bail){
   const D = (typeof window !== 'undefined') ? window.DgDelai : null;
   if(!bail || !D) return null;
-  const ech = D.echeancesRestitution(bail, _edlSortieDuBail(bail));
+  // fin = fin d'OCCUPATION (comme la pénalité et _dgStatutDuBail) : un bail en cours sans remise des clés déclarée
+  // n'a PAS de point de départ — jamais sa fin contractuelle (audit DG 🟠2 : « en retard de 402 j » sur un bail reconduit).
+  const ech = D.echeancesRestitution(Object.assign({}, bail, { fin: _bailFinOccupation(bail, false) }), _edlSortieDuBail(bail));
   const todayStr = (typeof _todayIsoLocal==='function') ? _todayIsoLocal() : new Date().toISOString().slice(0,10);   // date LOCALE (td() = UTC)
   const et = D.etatDelai(ech, todayStr);
   if(!ech || !et) return null;
@@ -23523,6 +23525,9 @@ function _departState(bail){
   const edlSortie = _edlSortieDuBail(bail);
   const deadline = _departDeadlineDG(bail);
   const delaiMois = deadline ? deadline.mois : 2;
+  // Conformité lue à la source (DgDelai), pas déduite de l'échéance : true / false / null (EDL de sortie incomplet).
+  const _DgDc = (typeof window !== 'undefined') ? window.DgDelai : null;
+  const conformite = (_DgDc && edlSortie) ? _DgDc.conformiteEdlSortie(edlSortie) : null;
   const d = bail.depart || null;
   const jsRef = _lyQ(ref);
   const congeFait   = !!(d && d.dateSortie);
@@ -23546,7 +23551,9 @@ function _departState(bail){
     sub: edlFait ? 'EDL de sortie enregistré · comparaison entrée/sortie, relevé compteurs, clés remises.'
                  : "Réaliser l'EDL de sortie (comparé à l'entrée) et relever les compteurs.",
     alert: edlFait
-      ? (delaiMois===1 ? "✅ EDL de sortie conforme à l'entrée → délai de restitution du DG = 1 mois." : "⚠ Dégradations relevées à l'EDL de sortie → délai de restitution du DG = 2 mois.")
+      ? (conformite===true ? "✅ EDL de sortie conforme à l'entrée → délai de restitution du DG = 1 mois."
+        : conformite===false ? "⚠ Dégradations relevées à l'EDL de sortie → délai de restitution du DG = 2 mois."
+        : "EDL de sortie incomplet : conformité non établie → 1 mois si l'EDL de sortie est conforme, 2 mois sinon.")
       : "Le délai de restitution du DG part de la remise des clés : 1 mois si l'EDL de sortie est conforme à l'entrée, 2 mois sinon.",
     done: edlFait,
     cta: [{label: edlFait?"Voir l'EDL de sortie":"Faire l'EDL de sortie", ghost: edlFait, on: edlFait?`closeM('ov-depart');go('edl')`:`closeM('ov-depart');openNewEDLForLog('${jsRef}','Sortie')`}]

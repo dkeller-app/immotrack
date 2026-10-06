@@ -13534,7 +13534,7 @@ function _histoBailChapHtml(c, ref, refSafe, bailForDg){
   if(!(key in _histoBailOuverts)){
     let dgUrgent = false;
     if(c.statut==='clos' && bailForDg && c.bail===bailForDg && typeof _dgStatut==='function'){
-      try{ const st=_dgStatut(bailForDg).statut; dgUrgent = (st===DG_STATUS.A_RESTITUER || st===DG_STATUS.DEPASSEMENT_POSSIBLE || st===DG_STATUS.EN_RETARD); }catch(e){}
+      try{ dgUrgent = _dgStatutUrgent(_dgStatut(bailForDg).statut); }catch(e){}
     }
     _histoBailOuverts[key] = (c.statut==='courant') || dgUrgent;
   }
@@ -13596,16 +13596,22 @@ function _hlGouttiere(r){
 }
 // Libellé + style du statut d'un dépôt de garantie (frise du bien, fenêtre de restitution) — table UNIQUE.
 // `restitue` force « Restitué » (restitution enregistrée hors `dgRestitueAt` : anciennes clôtures aux montants saisis).
-function _dgStatutLibelle(dgInfo, restitue) {
+// Un dépôt qui appelle une action (chapitre de la frise déplié) : à restituer, dépassement possible, en retard.
+function _dgStatutUrgent(statut) {
+  return statut === DG_STATUS.A_RESTITUER || statut === DG_STATUS.DEPASSEMENT_POSSIBLE || statut === DG_STATUS.EN_RETARD;
+}
+function _dgStatutLibelle(dgInfo, restitue, court) {
   const d = dgInfo || {};
   const map = {
     [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
     [DG_STATUS.EN_RETARD]: [`${_uiIcon('warn')} En retard ${d.joursRetard}j`,'b-warn'],
     // Art. 22 — conformité de l'EDL de sortie inconnue : les deux maximums ; entre les deux, « dépassement possible ».
-    [DG_STATUS.DEPASSEMENT_POSSIBLE]: [`${_uiIcon('warn')} Dépassement possible (si l'EDL de sortie est conforme) · au plus tard le ${fd(d.limite)}`,'b-warn'],
+    // `court` (capsule .hl-badge de la frise) : l'état seul ; la phrase des deux dates va dans la description.
+    [DG_STATUS.DEPASSEMENT_POSSIBLE]: court ? [`${_uiIcon('warn')} Dépassement possible`,'b-warn']
+      : [`${_uiIcon('warn')} Dépassement possible (si l'EDL de sortie est conforme) · au plus tard le ${fd(d.limite)}`,'b-warn'],
     [DG_STATUS.A_RESTITUER]: (d.conforme === null && d.limiteSiConforme)
-      ? [`${_uiIcon('hourglass')} À restituer J-${d.joursSiConforme} — le ${fd(d.limiteSiConforme)} si l'EDL de sortie est conforme, sinon le ${fd(d.limite)}`,'b-warn']
-      : [`${_uiIcon('hourglass')} À restituer J-${d.joursRestants} (délai légal ${d.delaiMois} mois)`,'b-warn'],
+      ? [`${_uiIcon('hourglass')} À restituer J-${d.joursSiConforme}` + (court ? '' : ` — le ${fd(d.limiteSiConforme)} si l'EDL de sortie est conforme, sinon le ${fd(d.limite)}`),'b-warn']
+      : [`${_uiIcon('hourglass')} À restituer J-${d.joursRestants}` + (court ? '' : ` (délai légal ${d.delaiMois} mois)`),'b-warn'],
     [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(d.dgPaid)})`,'b-irl'],
     [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(d.dgPaid)} / ${fmt(d.dgDu)})`,'b-warn']
   };
@@ -13624,21 +13630,25 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     // Statut + CTA restitution : mêmes règles que l'ancien panneau « Dépôt de garantie »
     // (v15.14 Fix 4), portées par l'événement DG du bail concerné (_bailForDg).
     let statutHtml='', ctaHtml='';
+    // Délai de restitution (art. 22) : les dates du bail ciblé quand elles sont connues, sinon la règle.
+    let delaiDesc = "délai légal : 1 mois après la remise des clés si l'EDL de sortie est conforme à l'entrée, 2 mois sinon";
     // Statut 06/10 : chaque bail ARCHIVÉ porte son propre dépôt (relocation avant restitution) — son statut et
     // son geste de restitution visent CE bail (bailHistCle), plus seulement le dernier bail du lot.
     const _dgCible = (c.statut==='clos' && c.bail) ? c.bail : ((bailForDg && c.bail===bailForDg) ? bailForDg : null);
     if(_dgCible && typeof _dgStatut==='function'){
       const dgInfo=_dgStatutDuBail(_dgCible);
       const isRestit = dgInfo.statut===DG_STATUS.RESTITUE || (c.statut==='clos' && typeof _dgDetenuDuBail==='function' && _dgDetenuDuBail(_dgCible, 0) <= 0);
-      const st = _dgStatutLibelle(dgInfo, isRestit);
+      const st = _dgStatutLibelle(dgInfo, isRestit, true);
       statutHtml = `<span class="hl-badge ${st[1]}">${st[0]}</span>`;
+      const _DgD = (typeof window !== 'undefined') ? window.DgDelai : null;
+      if(!isRestit && dgInfo.limite && _DgD) delaiDesc = 'à restituer ' + escHtml(_DgD.libelleEcheance(dgInfo, fd));
       if(c.statut==='clos' && !isRestit){
         const _cle = _lyQ(_bailHistCleDe(_dgCible));
         ctaHtml = `<div class="hl-foot"><button class="btn bp bb" style="padding:5px 12px;font-size:12px" onclick="_dgOpenRestitution('${refSafe}','${_cle}')">✦ Préparer la restitution du DG</button></div>`;
       }
     }
     return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Dépôt de garantie versé</h4><span class="hl-badge b-dg">DG</span>${statutHtml}</div>
-      <div class="hl-desc"><b>${fmt(ev.montant)}</b> dû à la signature. Restituable au départ (délai légal 1 mois, 2 mois si retenues).</div>${ctaHtml}</div>`;
+      <div class="hl-desc"><b>${fmt(ev.montant)}</b> dû à la signature. Restituable au départ (${delaiDesc}).</div>${ctaHtml}</div>`;
   }
   if(t==='dg-restitue'){
     const retenue = (ev.dgVerse||0)-(ev.montant||0);
@@ -25923,7 +25933,7 @@ function _dgOpenRestitution(ref, cle) {
   const solde = _calculerSoldeDG(_bailN, DB.mouvements || []);
   // Échéance de restitution (art. 22) : LA règle (DgDelai), avec l'EDL de sortie de CE bail.
   const _DgD = (typeof window !== 'undefined') ? window.DgDelai : null;
-  const _ech = _DgD ? _DgD.echeancesRestitution(bail, _edlSortieDuBail(bail)) : null;
+  const _ech = _DgD ? _DgD.echeancesRestitution(_bailN, _edlSortieDuBail(bail)) : null;   // _bailN : fin d'occupation, comme le statut et la pénalité
   const _echSrc = !_ech || _ech.source === 'remise' ? ''
     : ` <span class="mu">(remise des clés non déclarée : ${_ech.source === 'edl' ? "date de l'EDL de sortie" : 'fin du bail'})</span>`;
   const _delaiTxt = _ech
@@ -26084,7 +26094,7 @@ function _dgRestitRecalc(ref) {
       const possible = !pp ? ''
         : pen.exclue
           ? `Pénalité possible depuis le ${fd(pp.depuis)} si l'EDL de sortie est conforme — neutralisée (adresse non communiquée).`
-          : `Pénalité possible depuis le ${fd(pp.depuis)} si l'EDL de sortie est conforme : 10 % × ${fmt(pen.base)} × ${pp.moisRetard} mois entamé(s) = ${fmt(pp.penalite)} — non ajoutée au solde (conformité de l'EDL de sortie inconnue).`;
+          : `Pénalité possible depuis le ${fd(pp.depuis)} si l'EDL de sortie est conforme : 10 % × ${fmt(pen.base)} × ${pp.moisRetard} mois entamé(s) = ${fmt(pp.penalite)}${pen.enRetard ? ` au total (au lieu de ${fmt(penMontant)})` : ''} — non ajoutée au solde (conformité de l'EDL de sortie inconnue).`;
       if (penCalc) penCalc.textContent = [certaine, possible].filter(Boolean).join(' ');
     } else {
       penRow.hidden = true;

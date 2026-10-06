@@ -88,15 +88,15 @@ describe('_penaliteRetardDG', () => {
     });
     it('les retenues ne décident plus du délai : retenue + EDL conforme → 1 mois', () => {
       const r = _penaliteRetardDG({ ref: 'F-1', hc: 650, dgRetenu: 300, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-02-01' }, undefined,
-        [{ type: 'Sortie', logement: 'F-1', date: '2025-12-31', pieces: [] }]);
+        [{ type: 'Sortie', logement: 'F-1', date: '2025-12-31', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }]);
       expect(r).toMatchObject({ dateLimite: '2026-01-31', enRetard: true, moisRetard: 1, possible: null });
     });
     it('point de départ : la remise des clés déclarée passe AVANT la date de l’EDL de sortie et la fin effective', () => {
       const r = _penaliteRetardDG({ ref: 'F-1', hc: 650, finEffective: '2025-11-30', depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-01-15' }, undefined,
-        [{ type: 'Sortie', logement: 'F-1', date: '2026-01-05', pieces: [] }]);
+        [{ type: 'Sortie', logement: 'F-1', date: '2026-01-05', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }]);
       expect(r.dateLimite).toBe('2026-01-31');
       const sansRemise = _penaliteRetardDG({ ref: 'F-1', hc: 650, finEffective: '2025-11-30', dgRestitueAt: '2026-01-15' }, undefined,
-        [{ type: 'Sortie', logement: 'F-1', date: '2026-01-05', pieces: [] }]);
+        [{ type: 'Sortie', logement: 'F-1', date: '2026-01-05', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }]);
       expect(sansRemise.dateLimite).toBe('2026-02-05');   // date de l'EDL de sortie, avant la fin effective
     });
   });
@@ -167,7 +167,7 @@ describe('_dgStatut — bail clôturé (restitution)', () => {
 
   it('EDL de sortie conforme → 1 mois ; dépassé le lendemain → en retard', () => {
     const bail = { ...baseClotur, ref: 'F-1' };
-    const edls = [{ type: 'Sortie', logement: 'F-1', date: '2026-01-15', pieces: [] }];
+    const edls = [{ type: 'Sortie', logement: 'F-1', date: '2026-01-15', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }];
     expect(_dgStatut(bail, '2026-02-15', edls)).toMatchObject({ statut: DG_STATUS.A_RESTITUER, delaiMois: 1, conforme: true, joursRestants: 0 });
     expect(_dgStatut(bail, '2026-02-16', edls)).toMatchObject({ statut: DG_STATUS.EN_RETARD, joursRetard: 1 });
   });
@@ -184,7 +184,7 @@ describe('_dgStatut — bail clôturé (restitution)', () => {
 
   it('Une retenue ne décide pas du délai : EDL conforme + retenue → 1 mois', () => {
     const bail = { ...baseClotur, ref: 'F-1', dgRetenu: 200 };
-    const r = _dgStatut(bail, '2026-02-10', [{ type: 'Sortie', logement: 'F-1', date: '2026-01-15', pieces: [] }]);
+    const r = _dgStatut(bail, '2026-02-10', [{ type: 'Sortie', logement: 'F-1', date: '2026-01-15', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }]);
     expect(r.statut).toBe(DG_STATUS.A_RESTITUER);
     expect(r.delaiMois).toBe(1);
   });
@@ -194,7 +194,7 @@ describe('EDL de sortie de CE bail : sans EDL passés, le module lit le résolve
   it('window._edlSortieDuBail (borné au début du bail suivant) prime sur le DB vivant brut', () => {
     const save = globalThis.window;
     // DB vivant : la sortie DÉGRADÉE est celle du locataire suivant ; le résolveur de l'app ne la rend pas.
-    const conforme = { type: 'Sortie', logement: 'F-1', date: '2026-01-15', pieces: [] };
+    const conforme = { type: 'Sortie', logement: 'F-1', date: '2026-01-15', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] };
     const suivant = { type: 'Sortie', logement: 'F-1', date: '2027-06-30', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Mauvais état' }] }] };
     globalThis.window = { __immoGetDB: () => ({ edl: [conforme, suivant] }), _edlSortieDuBail: () => conforme };
     try {
@@ -213,7 +213,7 @@ describe('_calculerDelaiRestitution', () => {
   });
 
   it('Une retenue ne décide pas du délai (pilotage 06/10) : EDL conforme + dgRetenu > 0 → 1 mois', () => {
-    expect(_calculerDelaiRestitution({ ref: 'F-001', dgRetenu: 200 }, [{ type: 'Sortie', logement: 'F-001', pieces: [] }])).toBe(1);
+    expect(_calculerDelaiRestitution({ ref: 'F-001', dgRetenu: 200 }, [{ type: 'Sortie', logement: 'F-001', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }])).toBe(1);
   });
 
   it('Avec EDL sortie sans dégradation → 1 mois', () => {

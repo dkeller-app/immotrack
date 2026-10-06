@@ -1001,6 +1001,10 @@ describe('33 · archive en double (même bailHistCle) : une seule tâche, une se
     const h = m.fn._histoBailEventHtml({ type: 'dg-verse', montant: 900 }, { statut: 'clos', bail: { ...LEA } }, 'A1', null);
     expect(h).toContain('À restituer');
     expect(h).not.toContain('Versé');
+    // Audit DG 🟠5 : capsule COURTE, les deux dates dans la description (fin de l'ancien « 2 mois si retenues »).
+    expect(h.match(/<span class="hl-badge b-warn">([^<]*)<\/span>/)[1]).toBe(' À restituer J-25');
+    expect(h).toContain("Restituable au départ (à restituer au plus tard le 30/10/2026 si l'EDL de sortie est conforme, sinon le 30/11/2026).");
+    expect(h).not.toContain('si retenues');
   });
 });
 describe('34 · restitution sur une archive EN DOUBLE, jusqu\'au cloud (VRAIS _dgConfirmerRestitution + createStoreSync)', () => {

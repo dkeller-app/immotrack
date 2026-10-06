@@ -75,12 +75,21 @@
 
   /**
    * Conformité de l'EDL de sortie à celui d'entrée.
+   *   - pas d'EDL de sortie, ou un élément dont l'état de sortie n'est pas constaté → INCONNUE (null) : « un état
+   *     de sortie vide n'est JAMAIS conforme présumé » (règle gravée de js/core/edl-parcours.js, §A.6) — un EDL
+   *     créé d'avance et jamais rempli ne déclenche plus « 1 mois » ni une pénalité certaine (audit DG 🟠4) ;
+   *   - une dégradation relevée (heuristique historique, ci-dessus) → non conforme, même si l'EDL n'est pas fini ;
+   *   - sinon conforme. (« Absent » vaut « Absent ou non applicable » dans l'app, EDL_DESC : il ne prouve rien.)
    * @param {object|null} edlSortie l'EDL de sortie qui fait foi pour CE bail (résolu par l'appelant)
-   * @returns {true|false|null} null = inconnue (pas d'EDL de sortie)
+   * @returns {true|false|null}
    */
   function conformiteEdlSortie(edlSortie) {
     if (!edlSortie) return null;
-    return !_aUneDegradation(edlSortie);
+    const elements = (edlSortie.pieces || []).flatMap((p) => p.elements || []);
+    if (!elements.length) return null;
+    if (_aUneDegradation(edlSortie)) return false;
+    if (elements.some((el) => el.etatS == null || String(el.etatS).trim() === '')) return null;
+    return true;
   }
 
   /**
