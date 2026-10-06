@@ -148,13 +148,14 @@ describe('les lettres générées : le corps ne cite l\'art. 15 que pour le bail
   });
   it('étudiant / mobilité : information, sans art. 15, sans motif, avec la phrase de terme', () => {
     const b = _emailCompose('bail-fin-terme-information', ctx).body;
-    expect(b).toContain('conclu le 01/09/2025, est arrivé à son terme le 31/05/2026.');
+    expect(b).toContain('ayant pris effet le 01/09/2025, est arrivé à son terme le 31/05/2026.');
+    expect(b).not.toMatch(/conclu le/);
     expect(b).toContain('MENTION');
     expect(b).not.toMatch(/article 15|motif|congé du logement|prend effet/i);
   });
   it('garage / autre : congé selon les stipulations du contrat, sans art. 15 ni motif', () => {
     const b = _emailCompose('bail-conge-bailleur-contrat', ctx).body;
-    expect(b).toMatch(/Conformément aux stipulations du contrat de location .* à effet du 31\/08\/2027/);
+    expect(b).toContain('Conformément aux stipulations du contrat de location ayant pris effet le 01/09/2025 pour 1 rue Test, je vous donne par la présente congé de ce contrat, à effet du 31/08/2027.');
     expect(b).not.toMatch(/article 15|loi n° 89-462/);
   });
 });

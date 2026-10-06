@@ -654,7 +654,7 @@ Objet : Information de fin de bail — Bail du {{bail.debut}}
 
 {{locataire.civNom}},
 
-Le bail du logement {{bail.adrBien}}, conclu le {{bail.debut}}, {{phraseTerme}}.
+Le bail du logement {{bail.adrBien}}, ayant pris effet le {{bail.debut}}, {{phraseTerme}}.
 
 {{mentionPreavis}}
 
@@ -682,7 +682,7 @@ Objet : Congé — Contrat de location du {{bail.debut}}
 
 {{locataire.civNom}},
 
-Conformément aux stipulations du contrat de location conclu le {{bail.debut}} pour {{bail.adrBien}}, je vous donne par la présente congé de ce contrat, à effet du {{dateFin}}.
+Conformément aux stipulations du contrat de location ayant pris effet le {{bail.debut}} pour {{bail.adrBien}}, je vous donne par la présente congé de ce contrat, à effet du {{dateFin}}.
 
 {{mentionPreavis}}
 
