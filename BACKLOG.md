@@ -1,5 +1,5 @@
 # Propryo — Backlog actif
-> ⚠️ **VERSIONS SUR MAIN au 06/10 (pilotage Desktop)** : v15.715 = baux arrivés à terme · v15.716 = statut vacant · v15.717 = partage SCI (session cloud) · **v15.718 = Finances cash-flow + catégories ()**. ➜ Toute branche qui portait « v15.718 » (Bail en cours lot A) ou un numéro réservé ailleurs prend **main + 1 au moment du merge**. Deux pilotages actifs (Desktop + cloud ) : un seul intégrateur à désigner par Didier.
+> ⚠️ **VERSIONS SUR MAIN au 06/10 (pilotage Desktop)** : v15.715 = baux arrivés à terme · v15.716 = statut vacant · v15.717 = partage SCI (session cloud) · **v15.718 = Finances cash-flow + catégories (`8a73aad1`)**. ➜ Toute branche qui portait « v15.718 » (Bail en cours lot A) ou un numéro réservé ailleurs prend **main + 1 au moment du merge**. Deux pilotages actifs (Desktop + cloud `claude/admiring-bohr-no6zkk`) : un seul intégrateur à désigner par Didier.
 
 
 ## 🚦 MAIN = **v15.714** (05/10) — SOUS-TITRE DU BAIL NU selon le bailleur réel (GO Didier, `908077e2`), ⏳ smoke
