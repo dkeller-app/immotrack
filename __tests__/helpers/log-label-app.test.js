@@ -161,3 +161,21 @@ describe('_logLibelleDepuisFormulaire (vrai code, saveParamLog)', () => {
     expect(c.indexOf("_logLibelleDepuisFormulaire") ).toBeLessThan(c.lastIndexOf('_stamp(log)'))
   })
 })
+
+// B3 audit 🟡4 : finances (drill) — un libellé contenant « · » ne doit pas être tronqué dans les tuiles/badges.
+describe('_finDrillLigne : _short ne coupe pas un libellé contenant « · »', () => {
+  const corps = extraire(P2, '_finDrillLigne')
+  it('_short lit le nom séparé du locataire (jamais indexOf(\' · \'))', () => {
+    expect(corps).toMatch(/const _short = ref => nomLotParts\(ref\)\.nom;/)
+    expect(corps).not.toMatch(/indexOf\(' · '\)/)
+  })
+  it('nomLotParts (vrai code) : nom « Studio · RDC » + locataire séparés', () => {
+    const m = /const nomLotParts = ref => \{[\s\S]*?\n  \};/.exec(corps)
+    expect(m).toBeTruthy()
+    const f = new Function('logByRef', '_logLabel', m[0] + '; return nomLotParts;')
+    const p = f({ 'D-1': { ref: 'D-1', libelle: 'Studio · RDC', locataire: 'Marie' } }, (l) => l.libelle || l.ref)
+    expect(p('D-1')).toEqual({ nom: 'Studio · RDC', loc: 'Marie' })
+    expect(p('SCI:Dupont')).toEqual({ nom: 'Dupont', loc: '' })
+    expect(p('?')).toEqual({ nom: '?', loc: '' })
+  })
+})

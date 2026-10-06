@@ -30290,12 +30290,14 @@ function _finDrillLigne(kind, yr, mo) {
   const dfr = d => { const p = String(d || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(d || ''); };
   const logByRef = {};
   (DB.logements || []).forEach(l => { if (l && l.ref) logByRef[l.ref] = l; });
-  const nomLot = ref => {
-    if (!ref) return '—';
-    if (String(ref).startsWith('SCI:')) return String(ref).slice(4);
+  // nom et locataire SÉPARÉS : le libellé peut contenir « · » (audit B3 🟡4) → on ne coupe jamais sur le texte joint.
+  const nomLotParts = ref => {
+    if (!ref) return { nom: '—', loc: '' };
+    if (String(ref).startsWith('SCI:')) return { nom: String(ref).slice(4), loc: '' };
     const l = logByRef[ref];
-    return l ? (_logLabel(l) + (l.locataire ? ' · ' + l.locataire : '')) : ref;
+    return l ? { nom: _logLabel(l), loc: l.locataire || '' } : { nom: ref, loc: '' };
   };
+  const nomLot = ref => { const p = nomLotParts(ref); return p.nom + (p.loc ? ' · ' + p.loc : ''); };
   // Définition par ligne : titre + sens + test d'appartenance 2044 (identique aux buckets)
   const LIG = {
     loyers:       { titre: 'Loyers encaissés',           rec: true,  test: r => r.type === 'recette' && r.ligne2044 === '211' },
@@ -30476,7 +30478,7 @@ function _finDrillLigne(kind, yr, mo) {
         + '</div>';
     }
     // ── Répartition par bien : bande d'une ligne (nom condensé + montant · %), scroll horizontal ──
-    const _short = ref => { const n = nomLot(ref); const i = n.indexOf(' · '); return i > 0 ? n.slice(0, i) : n; };
+    const _short = ref => nomLotParts(ref).nom;
     if (biens.length === 1 && !nvCount) {
       body += '<div class="note" style="margin:0 0 16px">' + _uiIcon('home') + ' Intégralement sur <b style="color:var(--t1)">' + esc(nomLot(biens[0].ref)) + '</b></div>';
     } else if (biens.length >= 1) {
