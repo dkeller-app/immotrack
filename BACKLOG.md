@@ -7,9 +7,9 @@
 | 1 ▶ | Bail en cours (Sonnet) | **lot A codé** (`5855736`, version non bumpée) · décisions B1/B3/B4 prises · maquettes (DG versé, bail/EDL hors Propryo, nom d'affichage, signature expirée, corriger/annuler une modif) | smoke lot A + validation maquettes | `feat/bail-en-cours` |
 | 1 ▶ | Fusion des 2 SCI (Opus) | v15.717 sur sa branche (enregistrement neuf d'un associé → espace de la SCI) · **plan exact rédigé, en attente de GO** | autoriser la requête Supabase en attente + GO du plan | `fix/fusion-sci` |
 | 1 ▶ | Audit de sécurité (Opus) | **rapport livré** (confidentiel, hors dépôt) · chantiers SECU C1–C3 lancés, C4–C9 planifiés · C1 (OTP signature) avant le 14/10 via Resend `no-reply@propryo.fr` | ajouter 3 enregistrements DNS Resend dans cPanel + vérifier DMARC | `audit/securite` |
-| 2 | IRL & courriers (C3, C6, C7) — après Bail en cours | à écrire | | |
-| 2 | Stockage IndexedDB (suite conception 30/09) — après Fusion SCI | à écrire | | |
-| 2 | Téléphone : EDL + vue Charges par locataire (25/09 #1 #2) | à écrire | | |
+| 2 ▶ | IRL & courriers (C3, C6, C7) (Sonnet + Opus moteur) | lancée 06/10 | | `feat/irl-courriers` |
+| 2 ▶ | Stockage lots 2 et 3 (lots 1 et 4 déjà livrés v15.705 / v15.709) (Opus) | lancée 06/10 | maquette « état du stockage » dans Réglages | `feat/stockage-lots-2-3` |
+| 2 ✖ | Téléphone : EDL + vue Charges par locataire — **sans objet** : déjà livrés (Charges détail par locataire v15.680, EDL téléphone à la charte v15.689) | — | **smoke Didier** sur ces deux livraisons ; tout résidu → vague 3 Écrans | — |
 | 3 | Écrans Accueil / Loyers 3 blocs / Logements / MRH (B2, C1, C5) + vue Charges « (sans immeuble) » — après Finances | à écrire | | |
 | 3 | Mise en production (propryo.fr, Resend, Stripe, OTP) — en partie absorbée par l'audit sécurité (Resend/OTP) | à écrire | | |
 **Versions (attribuées par le pilotage, 06/10)** : main = v15.716 · v15.717 = Fusion SCI (partage, branche `fix/fusion-sci`) · **v15.718 = Bail en cours lot A** · v15.719 = alerte régul N-1 (renumérotée, voir ci-dessous). Prochaine libre : **v15.720**.
