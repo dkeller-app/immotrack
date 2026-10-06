@@ -66,6 +66,12 @@ export function immeubleCompleteness(imm) {
 }
 
 // `surface`/`loyer` numériques : 0 ou vide = manquant ; `dpe` textuel.
+/** 'AAAA-MM-JJ' → 'JJ/MM/AAAA' (libellés des tâches). */
+function _frDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  return m ? m[3] + '/' + m[2] + '/' + m[1] : String(iso || '');
+}
+
 function _num(v) {
   if (v === 0) return '';
   return _s(v);
@@ -159,8 +165,12 @@ function _decorateLog(l) {
  * @param {object} p {entite, immeubles[]|immeuble, logements[], bauxActifs:{ref:bail}, diagsParLot, dpeParLot}
  * @returns {{nodes:[{kind,id,name,sub,badge,full,tasks:[{id,label,detail,status,action,palier,src,dep?,alerte?,diags?}]}], pct:number, pctLegal:number}}
  */
-export function completionModel({ entite, immeuble, immeubles, logements, bauxActifs, diagsParLot, dpeParLot }) {
+export function completionModel({ entite, immeuble, immeubles, logements, bauxActifs, diagsParLot, dpeParLot, suiviParLot }) {
   const ent = entite || {}, logs = logements || [], baux = bauxActifs || {};
+  // R0-C · Q1 révisé (maquette MAQUETTE-ANTERIORITE validée 05/10) — point de départ des loyers suivis,
+  // INJECTÉ par lot (`_finLotSuivi` côté app) : { date, source, aConfirmer, aNoter, notee }. Sans
+  // injection, aucune tâche nouvelle (rétro-compat).
+  const suivi = suiviParLot || {};
   const multi = Array.isArray(immeubles);
   const immList = multi ? immeubles.filter(Boolean) : [immeuble || {}];
   const diagsMap = diagsParLot || {}, dpeMap = dpeParLot || {};
@@ -207,7 +217,14 @@ export function completionModel({ entite, immeuble, immeubles, logements, bauxAc
     T('equipements', 'Équipements communs', _hasRealValue(imm.equipementsCommuns)),
     T('valeur', 'Prix / valeur estimée', _num(imm.valeurEstimee) !== ''),
     T('surfaceTotale', 'Surface totale', _s(imm.surfaceTotale) !== ''),
-  ] });
+  ].concat(_acqUtile(imm) ? [T('dateAcquisition', 'Date d’achat', _s(imm.dateAcquisition) !== '',
+    { action: 'date-achat', detail: 'Requise pour un bien acheté loué : aucun loyer n’est calculé avant elle.' })] : []) });
+  // La date d'achat n'est demandée que là où elle compte : un lot de l'immeuble a un bail commencé
+  // avant le début du suivi (date provisoire à confirmer, ou situation à noter), ou elle est déjà saisie.
+  function _acqUtile(imm) {
+    if (_s(imm.dateAcquisition) !== '') return true;
+    return logs.some((l) => l && _s(l.imm) === _s(imm.nom) && suivi[l.ref] && (suivi[l.ref].aConfirmer || suivi[l.ref].aNoter));
+  }
 
   const _logNode = (l) => {
     const bail = baux[l.ref] || null;
@@ -248,6 +265,14 @@ export function completionModel({ entite, immeuble, immeubles, logements, bauxAc
     if (dpe.interdit) dpeTask.alerte = { type: 'dpe-interdit', classe: _s(dpe.classe), message: _s(dpe.raison) };
 
     const hasAnx = _hasRealValue(l.annexes);
+    // Situation du locataire au début du suivi (antériorité) : seulement si le bail en cours a commencé
+    // avant ce point de départ. « À confirmer » (warn) tant que la date n'est que provisoire.
+    const sv = suivi[l.ref];
+    const sitTask = (sv && sv.date && (sv.aNoter || sv.aConfirmer))
+      ? T('situation', 'Situation du locataire au ' + _frDate(sv.date), !!sv.notee && !sv.aConfirmer, sv.aConfirmer
+        ? { warn: true, action: 'situation', detail: 'Date provisoire (1ᵉʳ loyer encaissé) : confirmer la date d’achat ou de début du suivi, puis la situation.' }
+        : { action: 'situation', detail: 'À jour, arriéré ou avance : le point de départ des loyers suivis.' })
+      : null;
     return { kind: 'log', id: l.ref, name: l.ref,
       sub: [l.type, l.surf ? (l.surf + ' m²') : ''].filter(Boolean).join(' · '),
       badge: bail ? 'loue' : 'vac',
@@ -262,6 +287,7 @@ export function completionModel({ entite, immeuble, immeubles, logements, bauxAc
         dpeTask,
         T('numFiscal', 'N° fiscal du logement', _s(l.numFiscal) !== '', { warn: true, detail: 'déclaration d’occupation des locaux', palier: 'legal', src: 'Obligation déclarative du propriétaire — service « Gérer mes biens immobiliers »' }),
         bailTask,
+        ...(sitTask ? [sitTask] : []),
         T('chauffageEcs', 'Chauffage & eau chaude', _hasRealValue(l.chauffage) || _hasRealValue(l.ecs)),
         T('tantiemes', 'Tantièmes', _num(l.tantiemes) !== ''),
         T('etage', 'Étage', _s(l.etage) !== ''),

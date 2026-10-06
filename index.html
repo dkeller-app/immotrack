@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.711</title>
+<title>Propryo v15.716</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -58,7 +58,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.711">
+<link rel="stylesheet" href="css/main.css?v=15.716">
 <link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7976c7e3">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
@@ -85,6 +85,8 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/finances-window.js">
 <link rel="modulepreload" href="js/core/finances-repartition.js">
 <link rel="modulepreload" href="js/core/loyer-statut.js">
+<link rel="modulepreload" href="js/core/fin-occupation.js">
+<link rel="modulepreload" href="js/core/store-mapping.js">
 <link rel="modulepreload" href="js/core/loyer-du-mois.js">
 <link rel="modulepreload" href="js/core/loyer-migration.js">
 <link rel="modulepreload" href="js/core/entretien-statut.js">
@@ -102,6 +104,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/actes-mentions.js">
 <link rel="modulepreload" href="js/core/micro-foncier.js">
 <link rel="modulepreload" href="js/core/visale.js">
+<link rel="modulepreload" href="js/core/anteriorite.js">
 <link rel="modulepreload" href="js/core/declaration-occupation.js">
 <link rel="modulepreload" href="js/core/export-comptable.js">
 <link rel="modulepreload" href="js/core/dossier-comptable.js">
@@ -150,7 +153,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/store-supabase.js">
 <link rel="modulepreload" href="js/core/store-supabase-adapter.js">
 <link rel="modulepreload" href="js/core/bail-content-hash.js">
-<link rel="modulepreload" href="js/core/store-mapping.js">
+<link rel="modulepreload" href="js/core/bail-echeance.js">
 <link rel="modulepreload" href="js/core/entite-doublon.js">
 <!-- modulepreload:end -->
 <!-- PARAPHE-UNIQUE (v15.710) : une image de paraphe par signataire + lecteur des deux formes (window.BailParaphes, source js/core/bail-paraphes.js). -->
@@ -268,7 +271,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.711</em>
+      <em>v15.716</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -2208,6 +2211,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="fg"><label>DG restitué (€)</label><input class="inp" type="number" id="b-dg-restitue" min="0" step="0.01" placeholder="0.00"></div>
       <div class="fg"><label>Retenues sur DG (€)</label><input class="inp" type="number" id="b-dg-retenu" min="0" step="0.01" placeholder="0.00"></div>
     </div>
+    <div class="fg"><label>Date du virement de restitution</label><input class="inp" type="date" id="b-dg-restitue-date"><div class="mu sm" style="margin-top:4px">À remplir quand le dépôt a été rendu : sans cette date, il reste compté comme détenu (art. 22).</div></div>
     <div class="fg"><label>Notes de fin de bail</label><textarea class="inp" id="b-fin-notes" rows="3" placeholder="Observations, état du logement à la sortie..."></textarea></div>
   </div>
   <div class="m-foot">
@@ -3763,6 +3767,14 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="fg"><label>Valeur estimée (€)</label><input class="inp" type="number" id="imm-valeur" min="0" step="1000"></div>
       <div class="fg"><label>Montant travaux (€)</label><input class="inp" type="number" id="imm-mtravaux" min="0" step="100"></div>
     </div>
+    <!-- R0-C · Q1 révisé (maquette MAQUETTE-ANTERIORITE validée 05/10) : date d'achat = entrée en jouissance
+         du bailleur actuel. Aucun loyer n'est calculé avant elle (bien acheté loué). -->
+    <div class="fg mb8 ant-acq">
+      <label for="imm-dateAcq">Date d'achat (entrée en jouissance)</label>
+      <input class="inp" type="date" id="imm-dateAcq" oninput="_immAcqNote()">
+      <div class="ant-hint">En général, la date de l'acte de vente. Le premier loyer dû au bailleur actuel est le premier terme exigible à compter de cette date (le partage du mois de la vente se règle chez le notaire) ; Propryo ne calcule rien avant elle.</div>
+      <div id="imm-acq-note"></div>
+    </div>
     <div class="fg mb8"><label>Travaux réalisés</label><textarea class="inp" id="imm-travaux" rows="2" placeholder="Ex: ravalement façade 2022, remplacement chaudière 2024…"></textarea></div>
     <div class="fg"><label>Notes</label><textarea class="inp" id="imm-notes" rows="2"></textarea></div>
 
@@ -4507,12 +4519,19 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/irl-dpe-gate.global.js?v=722abf97" defer></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
-<script src="js/helpers/alert-rules.global.js?v=cc4d6d72" defer></script>
+<script src="js/helpers/alert-rules.global.js?v=2142271e" defer></script>
+<!-- BAUX-ECHUS — régime du bailleur (art. 10 / 13, window.BailDuree) puis LA règle d'échéance et de
+     reconduction, une par type (window.BailEcheance) : pastille, agenda, frise, préavis, alerte « arrivé à terme ».
+     BailDuree AVANT BailEcheance (sa dépendance). -->
+<script src="js/helpers/bail-duree.global.js?v=0a241f82" defer></script>
+<script src="js/helpers/bail-echeance.global.js?v=678cfb72" defer></script>
+<!-- BAUX-ECHUS — clauses de durée, congé et fin du bail, version de clauses 5 (window.BailClausesFin). -->
+<script src="js/helpers/bail-clauses-fin.global.js?v=fee035f1" defer></script>
 <!-- v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (window.DashCtx) :
      scope + matchMv + mvs/mvsYTD/mvsPrev/refYrMo + KPIs occupation/totaux (ex-copiés rDash/rAccueil/renders) -->
 <script src="js/helpers/dash-ctx.global.js?v=956b0838" defer></script>
 <!-- Fil rouge « Ajouter un bien » v2 — modèle pur (complétude/arbre) + conducteur (machine à états) -->
-<script src="js/helpers/parcours-bien-model.global.js?v=3737498f" defer></script>
+<script src="js/helpers/parcours-bien-model.global.js?v=e8029dcf" defer></script>
 <script src="js/helpers/fil-rouge-conductor.global.js?v=5c52240a" defer></script>
 <!-- Fil rouge COMPLET — rapprochement immeuble par adresse canon (import d'acte) -->
 <script src="js/helpers/acte-rapprochement.global.js?v=5ca1f0c1" defer></script>
@@ -4523,8 +4542,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=f231e420" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=f703bca5" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=9d8fae55" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=2338a1a6" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=c3670ec0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

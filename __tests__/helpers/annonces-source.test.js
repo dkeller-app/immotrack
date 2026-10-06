@@ -20,6 +20,8 @@ describe('D1 — le loyer de l\'annonce est le loyer souhaité, jamais l\'ancien
   });
   it('l\'étape 1 écrit par le chemin de l\'onglet Identité (_logpPushLoyerRef) puis _stamp + saveDB', () => {
     const cont = bloc('function _annonceStep1Continuer(', '\nfunction _annonceToggleDossier(');
+    // Statut 06/10 : le verrou du loyer reste le BAIL OUVERT (pas le statut) — sur un lot parti, bail à clôturer,
+    // _syncLogToBail recopierait log.hc dans le bail du locataire sorti.
     expect(cont).toContain('_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))');
     expect(cont).toContain('_rescoreCandidatsDuLogement(log.ref)');
     expect(cont).toContain('_stamp(log)');

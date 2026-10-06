@@ -231,11 +231,11 @@ describe('isTaciteReconductionAllowed — tacite reconduction par type', () => {
     expect(isTaciteReconductionAllowed('etudiant')).toBe(false);
   });
 
-  it('mobilité = NON (art. 25-15)', () => {
+  it('mobilité = NON (art. 25-14 al. 1 : non renouvelable et non reconductible)', () => {
     expect(isTaciteReconductionAllowed('mobilite')).toBe(false);
   });
 
-  it('garage / autre = NON (régime libre, à préciser au contrat)', () => {
+  it('garage / autre = NON par la loi (le contrat décide : regleReconduction)', () => {
     expect(isTaciteReconductionAllowed('garage')).toBe(false);
     expect(isTaciteReconductionAllowed('autre')).toBe(false);
   });

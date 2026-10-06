@@ -67,7 +67,7 @@ describe('_bailEnCours — la définition unique du bail en cours', () => {
 describe('archiverBail — un tombstone ne va jamais dans l\'historique', () => {
   it('tombstone : aucune ligne d\'historique, aucun barème refermé', () => {
     const DB = { baux: { 'A-1': tombstone('A-1') }, baux_historique: [] };
-    const { fns, calls } = sandbox(DB, ['archiverBail']);
+    const { fns, calls } = sandbox(DB, ['archiverBail', '_archiverDansHistorique', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation']);
     fns.archiverBail('A-1', '2026-10-01');
     expect(DB.baux_historique).toEqual([]);
     expect(calls.bareme).toEqual([]);
@@ -75,7 +75,7 @@ describe('archiverBail — un tombstone ne va jamais dans l\'historique', () => 
 
   it('bail vivant : archivé à la veille du nouveau bail (comportement C4 intact)', () => {
     const DB = { baux: { 'A-1': bailActif('A-1') }, baux_historique: [] };
-    const { fns, calls } = sandbox(DB, ['archiverBail']);
+    const { fns, calls } = sandbox(DB, ['archiverBail', '_archiverDansHistorique', '_finAncienBailAuRebail', '_isoDecaleJours', '_bailFinOccupation']);
     fns.archiverBail('A-1', '2026-10-01');
     expect(DB.baux_historique).toHaveLength(1);
     expect(DB.baux_historique[0]).toMatchObject({ ref: 'A-1', finEffective: '2026-09-30', _archivedAuto: true });
@@ -89,7 +89,8 @@ describe('_logementsVacants — un lot dont le bail est clôturé est VACANT', (
       logements: [{ ref: 'A-1' }, { ref: 'A-2' }, { ref: 'A-3' }],
       baux: { 'A-1': tombstone('A-1'), 'A-2': bailActif('A-2') },
     };
-    const { fns } = sandbox(DB, ['_bailEnCours', '_logementsVacants']);
+    // Statut 06/10 : _logementsVacants lit LE statut (_bienIsBailActif → _bienActiveBail) ; sans module (ici) = bail ouvert.
+    const { fns } = sandbox(DB, ['_isAlive', '_bienActiveBail', '_bienIsBailActif', '_logementsVacants']);
     expect(fns._logementsVacants().map((l) => l.ref)).toEqual(['A-1', 'A-3']);
   });
 });

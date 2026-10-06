@@ -5,15 +5,24 @@ import { describe, it, expect } from 'vitest';
 import {
   CONGE_MOTIFS, CONGE_CAS_REDUITS, ART15_II_ALINEAS,
   letterToProDoc, art15IIProDoc, congeBailleurPreavisMois, congeLocatairePreavis,
-  addMoisClamped, locataireProtege
+  addMoisClamped, locataireProtege, congeMentionPreavis
 } from '../../js/core/conge.js';
 
-describe('préavis bailleur (art. 15-I)', () => {
-  it('6 mois nu, 3 mois meublé/étudiant/mobilité', () => {
+describe('préavis bailleur (art. 15-I nu, art. 25-8 I meublé)', () => {
+  it('6 mois nu, 3 mois meublé', () => {
     expect(congeBailleurPreavisMois('nu')).toBe(6);
+    expect(congeBailleurPreavisMois('')).toBe(6);
     expect(congeBailleurPreavisMois('meuble')).toBe(3);
-    expect(congeBailleurPreavisMois('etudiant')).toBe(3);
-    expect(congeBailleurPreavisMois('mobilite')).toBe(3);
+  });
+  it('BAUX-ECHUS — aucun préavis légal : étudiant, mobilité (fin au terme), garage, autre (le contrat)', () => {
+    for (const t of ['etudiant', 'mobilite', 'garage', 'autre']) expect(congeBailleurPreavisMois(t)).toBe(null);
+  });
+  it('la lettre ne dit jamais « de null mois » : elle dit ce que dit la loi', () => {
+    expect(congeMentionPreavis(6, 'nu')).toMatch(/^Le délai de préavis légal applicable à ce congé est de 6 mois/);
+    expect(congeMentionPreavis(null, 'etudiant')).toMatch(/article 25-7 .* prend fin à son terme, sans qu'un congé soit nécessaire/);
+    expect(congeMentionPreavis(null, 'mobilite')).toMatch(/non renouvelable et non reconductible \(article 25-14/);
+    expect(congeMentionPreavis(null, 'garage')).toBe('Le délai de préavis applicable à ce congé est celui prévu au contrat de location.');
+    expect(congeMentionPreavis(null, 'mobilite')).not.toMatch(/null/);
   });
 });
 
@@ -87,5 +96,81 @@ describe('art. 15-II verbatim', () => {
   });
   it('CONGE_MOTIFS = 3 motifs légaux', () => {
     expect(CONGE_MOTIFS.map(m => m.k)).toEqual(['reprise', 'vente', 'legitime']);
+  });
+});
+
+// BAUX-ECHUS — la lettre « congé du bailleur » selon le type de bail : l'art. 15 hors bail nu, plus jamais.
+import { congeBailleurModele, congePhraseTerme, congeMotifDetail } from '../../js/core/conge.js';
+import { _emailCompose } from '../../js/core/email-compose.js';
+
+describe('congeBailleurModele — une lettre par type de bail', () => {
+  it('nu : congé art. 15 (annexe 15-II pour une vente) — inchangé', () => {
+    expect(congeBailleurModele('nu')).toMatchObject({ tpl: 'bail-conge-bailleur-6mois', fondement: 'Loi n° 89-462 du 6 juillet 1989, article 15', annexe15II: true, motif: true });
+  });
+  it('meublé : art. 25-8, I, sans annexe 15-II ; locataire protégé art. 25-8, II', () => {
+    expect(congeBailleurModele('meuble')).toMatchObject({ tpl: 'bail-conge-bailleur-meuble', fondement: 'Loi n° 89-462 du 6 juillet 1989, article 25-8, I', annexe15II: false, motif: true, protege: 'art. 25-8, II' });
+  });
+  it('étudiant / mobilité : information de fin de bail, sans motif ni art. 15', () => {
+    expect(congeBailleurModele('etudiant')).toMatchObject({ tpl: 'bail-fin-terme-information', titre: 'Information de fin de bail', fondement: 'Loi n° 89-462 du 6 juillet 1989, article 25-7', motif: false });
+    expect(congeBailleurModele('mobilite')).toMatchObject({ tpl: 'bail-fin-terme-information', fondement: 'Loi n° 89-462 du 6 juillet 1989, article 25-14', motif: false });
+  });
+  it('garage / autre : le contrat (date d\'effet libre, sans motif)', () => {
+    for (const t of ['garage', 'autre']) expect(congeBailleurModele(t)).toMatchObject({ tpl: 'bail-conge-bailleur-contrat', fondement: 'Contrat de location', dateLibre: true, motif: false });
+  });
+});
+
+describe('congePhraseTerme — jamais une date d\'effet antérieure à la lettre', () => {
+  it('terme à venir → futur ; terme dépassé → passé', () => {
+    expect(congePhraseTerme('31/05/2027', '2027-05-31', '2026-10-06')).toBe('prendra fin à son terme, le 31/05/2027');
+    expect(congePhraseTerme('31/05/2026', '2026-05-31', '2026-10-06')).toBe('est arrivé à son terme le 31/05/2026');
+  });
+});
+
+describe('congeMotifDetail — meublé : vente sans prix ni préemption 15-II', () => {
+  it('vente en meublé : « Vente du logement. », aucun art. 15-II, aucun marqueur de prix', () => {
+    const r = congeMotifDetail({ motif: 'vente', meuble: true });
+    expect(r).toEqual({ motifConge: 'vente', motifDetail: 'Vente du logement.' });
+  });
+  it('vente en nu : toujours le prix, les conditions et la préemption 15-II', () => {
+    expect(congeMotifDetail({ motif: 'vente', prix: '200000', conditions: 'libre' }).motifDetail).toMatch(/15-II/);
+  });
+});
+
+describe('les lettres générées : le corps ne cite l\'art. 15 que pour le bail nu', () => {
+  const ctx = { locataire: { nom: 'Martin', civilite: 'M.' }, entite: { nom: 'SCI T', gerant: 'D. K', siege: 'Strasbourg' },
+    bail: { adrBien: '1 rue Test', debut: '01/09/2025' }, dateLettre: '06/10/2026', dateFin: '31/08/2027',
+    motifConge: 'reprise', motifDetail: 'Reprise pour habiter.', mentionPreavis: 'MENTION', phraseTerme: 'est arrivé à son terme le 31/05/2026' };
+  it('meublé : art. 25-8, I cité mot pour mot ; aucun art. 15', () => {
+    const b = _emailCompose('bail-conge-bailleur-meuble', ctx).body;
+    expect(b).toContain("« Le bailleur qui ne souhaite pas renouveler le contrat doit informer le locataire avec un préavis de trois mois et motiver son refus de renouvellement du bail soit par sa décision de reprendre ou de vendre le logement, soit par un motif légitime et sérieux, notamment l'inexécution par le locataire de l'une des obligations lui incombant. »");
+    expect(b).toMatch(/article 25-8, I de la loi n° 89-462/);
+    expect(b).not.toMatch(/article 15|15-I|15-II/);
+  });
+  it('étudiant / mobilité : information, sans art. 15, sans motif, avec la phrase de terme', () => {
+    const b = _emailCompose('bail-fin-terme-information', ctx).body;
+    expect(b).toContain('ayant pris effet le 01/09/2025, est arrivé à son terme le 31/05/2026.');
+    expect(b).not.toMatch(/conclu le/);
+    expect(b).toContain('MENTION');
+    expect(b).not.toMatch(/article 15|motif|congé du logement|prend effet/i);
+  });
+  it('garage / autre : congé selon les stipulations du contrat, sans art. 15 ni motif', () => {
+    const b = _emailCompose('bail-conge-bailleur-contrat', ctx).body;
+    expect(b).toContain('Conformément aux stipulations du contrat de location ayant pris effet le 01/09/2025 pour 1 rue Test, je vous donne par la présente congé de ce contrat, à effet du 31/08/2027.');
+    expect(b).not.toMatch(/article 15|loi n° 89-462/);
+  });
+});
+
+describe('courrier « Renouvellement du bail » — 3 ou 6 ans (art. 10 et 13), 1 an meublé (art. 25-7)', () => {
+  it('six ans pour les AUTRES personnes morales ; pas de « mêmes conditions »', () => {
+    const b = _emailCompose('bail-renouvellement-3ans', { locataire: { nom: 'X' }, entite: {}, bail: { adrBien: 'A' }, dateFin: '2028-12-31' }).body;
+    expect(b).toContain("pour trois ans si le bailleur est une personne physique ou relève de l'article 13, pour six ans s'il est une autre personne morale (articles 10 et 13 de la loi n° 89-462 du 6 juillet 1989), ou pour un an s'il s'agit d'un bail meublé (article 25-7 de la même loi)");
+    expect(b).not.toMatch(/mêmes conditions/);
+  });
+});
+
+describe('congePhraseTerme — borne : la fin tombe aujourd\'hui', () => {
+  it('fin = aujourd\'hui → « prendra fin… » (le bail court jusqu\'au soir)', () => {
+    expect(congePhraseTerme('06/10/2026', '2026-10-06', '2026-10-06')).toBe('prendra fin à son terme, le 06/10/2026');
+    expect(congePhraseTerme('05/10/2026', '2026-10-05', '2026-10-06')).toBe('est arrivé à son terme le 05/10/2026');
   });
 });
