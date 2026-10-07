@@ -84,7 +84,7 @@ export const REGISTRE = [
   // Audit d'intégration v15.728 🟠2 — purges de sessions de signature à retenter : CET appareil seulement (le jeton du relais ne
   // part jamais dans les archives synchronisées du bail). Donnée vivante : jamais évinçable.
   { motif: deuxNs('immotrack_rs_purges'), classe: 'etat', note: 'sessions de signature archivées à supprimer du relais (nouvel essai)', exemples: ['immotrack_rs_purges', '_test_immotrack_rs_purges'] },
-  { motif: exacte('imsb-doc-express'), classe: 'etat', note: 'document express venu de propryo.fr, en attente de l’inscription (48 h)', exemples: ['imsb-doc-express'] },
+  { motif: exacte('imsb-doc-express'), classe: 'etat', note: 'document express venu de propryo.fr, en attente de l’inscription (30 min)', exemples: ['imsb-doc-express'] },
 
   // ── session
   { motif: new RegExp('^' + echap(AUTH_STORAGE_KEY) + '(-code-verifier)?$'), classe: 'session', note: 'jeton de session (PWA)', exemples: [AUTH_STORAGE_KEY, AUTH_STORAGE_KEY + '-code-verifier'] },
