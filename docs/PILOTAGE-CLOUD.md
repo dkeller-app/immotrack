@@ -2,16 +2,16 @@
 
 > Le BACKLOG de référence est celui de `main` (intégrateur unique = pilotage Desktop, règle Didier 06/10). Ce fichier tient l'état des sessions cloud et des sujets notés ici ; le pilotage Desktop le reprend à l'intégration.
 
-## 🧭 PLAN DE SESSIONS (05/10, validé Didier) — état au 06/10 16h40
+## 🧭 PLAN DE SESSIONS (05/10, validé Didier) — état au 07/10 matin
 | Session | État | Attend Didier | Branche |
 |---|---|---|---|
 | Finances — suivi des loyers (Sonnet) | phase 1 ✅ (Arslan, règles d'imputation) · phase 3 : conception du moteur unique écrite (document, aucun code) | ses questions sur la conception (« qu'en penses-tu pour chacune ? ») | `feat/finances-suivi-unique` |
 | Règles de classement (Sonnet) | phase 3 ✅ modèle pur (id, compte obligatoire, exceptions, montant) + migration + aperçu · phase 4 (application) en cours | — | `feat/regles-refonte` |
-| Bail en cours (Sonnet) | **v15.718 lot A** + **v15.722 DG versé** livrés sur branche · B3 nom d'affichage en cours (v15.723) | smoke + GO lot A et v15.722 | `feat/bail-en-cours` |
+| Bail en cours (Sonnet) | **tout livré sur branche** (tête `7e2997a`, 6 506 tests, contre-audits Opus) : lot A, B4 DG versé, B3 nom d'affichage, bail/EDL hors Propryo + signature expirée, bouton Modifier des périodes · smoke : `docs/subjects/BAIL-EN-COURS-SMOKE.md` · en cours : fusion de main dans la branche (décision pilotage : garder la suppression du code mort v15.719 dans app-part1) | **Didier → demander au pilotage Desktop d'intégrer `feat/bail-en-cours`** (main + 1) | `feat/bail-en-cours` |
 | Fusion des 2 SCI (Opus) | ✅ **v15.717 partage SCI sur main** (`be5a3a8`) · ✅ **données déplacées 06/10 ~16h45** (GO Didier « 1 à 4 ») : 85 mouvements + 9 documents + 2 MRH + 19 rappels → espace Marion, originaux tombstonés, 0 suppression dure, baux/EDL intacts, sauvegarde `sauvegarde-20261006-143935Z.json` remise à Didier + script de retour arrière · restent chez Didier volontairement : 2 mvts « DD2AMELEVIERE » (à reclasser SCI DD2 IMMO), 2 dépenses « payé Didier » sans lot | smoke vue Didier + vue Marion · réponse sur les 2 dépenses · suite (après GO) : validation de régul partagée par SCI | `fix/fusion-sci` |
 | Audit de sécurité (Opus) | rapport livré (hors dépôt) · chantiers C1–C3 · domaine propryo.fr vérifié chez Resend | DMARC : contenu de la ligne `_dmarc.propryo.fr` dans cPanel (ou confirmer absente) | `audit/securite` |
 | IRL & courriers (Sonnet) | lecture faite | valeur du champ « Trimestre IRL » du 103 + ce qu'affiche la ligne Révisions | `feat/irl-courriers` (pas encore poussée) |
-| Stockage lots 2-3 (Opus) | **v15.720 lot 2 + v15.721 lot 3 livrés sur branche** (main v15.717 fusionné, 6 111 tests ; lot 3 : message vrai dans saveDB — en ligne plus de « PAS enregistrée », hors ligne/réseau coupé/session expirée = texte vrai ; carte « Stockage de cet appareil » dans Sauvegarde & export ; contre-audit : 1 BLOQUANT EDL corrigé) · suite à arbitrer : journal des EDL écrit même si le repli localStorage ne tient plus la base | smoke + GO des 2 lots | `feat/stockage-lots-2-3` |
+| Stockage lots 2-3 (Opus) | ✅ **SUR MAIN en v15.723** (intégré par le pilotage Desktop, 06/10 soir) · suite à arbitrer : journal des EDL écrit même si le repli localStorage ne tient plus la base | smoke prod | `feat/stockage-lots-2-3` |
 | Vague 3 | Écrans (B2, C1, C5, vue Charges sans immeuble, toasts M-15) — après Finances · Mise en production (reste : Stripe, comptable) | | |
 ⚠ **Quota** : limite hebdomadaire en alerte (`seven_day allowed_warning`, remise à zéro lundi 12/10 vers 13h (heure de Paris)) — éviter de lancer de nouvelles sessions avant d'avoir intégré les livraisons.
 
