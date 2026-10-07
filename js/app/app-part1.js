@@ -3520,6 +3520,11 @@ function _normaliserLoyers(source, db) {
 function _bankMigrerRegles(source, db) {
   const d = db || DB;
   if (!d || !Array.isArray(d.importRules) || typeof window === 'undefined' || typeof window._bankMigrateRules !== 'function') return null;
+  // Filet pré-migration (STOCKAGE lot 2) : posé seulement s'il y a réellement des règles à migrer
+  // (une règle vivante sans id) ; figé de façon synchrone avant que la migration ne modifie DB.
+  if (d === DB && d.importRules.some(x => x && typeof x === 'object' && !x._deleted && !x.id) && typeof _filetAvantMigration === 'function') {
+    try { _filetAvantMigration('regles-ids'); } catch (e) { console.warn('[règles] filet pré-migration', e); }
+  }
   let r = null;
   try { r = window._bankMigrateRules(d.importRules); } catch (e) { console.warn('[règles] migration (' + source + ')', e); return null; }
   if (r && r.migrated) console.info('[règles] ' + source + ' : ' + r.migrated + ' règle(s) ont reçu un identifiant');

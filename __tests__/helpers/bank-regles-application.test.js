@@ -336,7 +336,7 @@ describe('Branchement app (gardes de source)', () => {
     expect(src).toMatch(/onclick="_bankRuleOpen\(this\.dataset\.rid\)"/);
   });
   it('migration au démarrage, à l\'hydratation, à la restauration et à l\'import JSON', () => {
-    expect(src).toMatch(/function _bankMigrerRegles\(source, db\) \{[\s\S]{0,300}window\._bankMigrateRules\(d\.importRules\)/);
+    expect(src).toMatch(/function _bankMigrerRegles\(source, db\) \{[\s\S]{0,900}window\._bankMigrateRules\(d\.importRules\)/);
     for (const s of ["_bankMigrerRegles('initDB')", "_bankMigrerRegles('hydratation')",
       "_bankMigrerRegles('restauration')", "_bankMigrerRegles('import JSON', data)"]) expect(src).toContain(s);
     // saveDB à l'hydratation seulement si une règle a changé (pas de boucle de synchro)
