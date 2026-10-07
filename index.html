@@ -60,7 +60,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
 <link rel="stylesheet" href="css/main.css?v=15.728">
-<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=85a3738d">
+<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7bb6198f">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
 <link rel="modulepreload" href="js/app/supabase-boot.js">
@@ -221,10 +221,10 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
           <form id="imsb-form" class="imsb-mid" autocomplete="on" method="post" action="#" onsubmit="return false">
             <div class="imsb-doc-note" id="imsb-doc-note" role="status" hidden>Le document est prêt. Créer un compte gratuit ou se connecter pour le télécharger.</div>
             <h2 class="imsb-h2">Connexion</h2>
-            <p class="imsb-lead">Connecte-toi pour gérer tes locations.</p>
+            <p class="imsb-lead">Se connecter pour gérer ses locations.</p>
             <div class="imsb-err" id="imsb-error" style="display:none"></div>
             <label class="imsb-flabel">Email</label>
-            <input class="imsb-input" id="imsb-email" type="email" placeholder="toi@exemple.fr" required autocomplete="username">
+            <input class="imsb-input" id="imsb-email" type="email" placeholder="nom@exemple.fr" required autocomplete="username">
             <label class="imsb-flabel">Mot de passe</label>
             <input class="imsb-input" id="imsb-pass" type="password" placeholder="••••••••" required autocomplete="current-password">
             <div class="imsb-forgot"><a href="#" id="imsb-forgot">Mot de passe oublié ?</a></div>
@@ -236,7 +236,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
         <p class="imv-trust imv-trust-login">
           <span><span class="imv-s"></span>Hébergé en Europe</span>
           <span><span class="imv-s"></span>Conforme RGPD</span>
-          <span><span class="imv-s"></span>Tes données t'appartiennent</span>
+          <span><span class="imv-s"></span>Les données restent à leur propriétaire</span>
         </p>
       </div>
     </div>
