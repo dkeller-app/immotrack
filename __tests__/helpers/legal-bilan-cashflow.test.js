@@ -110,6 +110,20 @@ describe('Bilan annuel — cash-flow lu dans Finances, colonne par lot = résult
     expect(somme).toBe(b.kpis.resultatFoncier);
   });
 
+  it('deux lots dont les refs ne diffèrent que par la casse (« A1 » / « a1 ») : chaque mouvement compte dans UN lot, Σ lots = entité', () => {
+    const d = db();
+    d.logements = [{ id: 1, ref: 'A1', entity: 'SCI B', type: 'T2' }, { id: 2, ref: 'a1', entity: 'SCI B', type: 'T1' }];
+    d.mouvements = [
+      { date: '2025-01-10', cat: 'Loyers encaissés', cr: 1000, qui: 'A1' },
+      { date: '2025-02-10', cat: 'Loyers encaissés', cr: 400, qui: 'a1' },
+    ];
+    const b = _computeBilanAnnuel(d, STD, 'SCI B', 2025, {});
+    expect(b.kpis.totalRevenus).toBe(1400);
+    expect(b.parLogement.map((l) => [l.ref, l.revenus])).toEqual([['A1', 1000], ['a1', 400]]);
+    const somme = b.parLogement.reduce((s, l) => s + l.revenus, 0) + ((b.bailleurNonReparti && b.bailleurNonReparti.revenus) || 0);
+    expect(somme).toBe(b.kpis.totalRevenus);
+  });
+
   it('openBilanAnnuel : une panne du moteur Finances n’empêche pas le bilan (« non disponible »)', () => {
     const sortie = { textContent: '', style: {} };
     const env = {

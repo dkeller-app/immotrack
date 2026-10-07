@@ -57,8 +57,14 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
   const mvtsEntite = scEntite.fallback
     ? (db.mouvements || []).filter(m => m && !m._deleted && m.qui === 'SCI:' + entityNom)
     : (db.mouvements || []).filter(m => scopeWeight(scEntite, m) > 0);
-  // Un lot : ses refs, comparées comme Finances (scope construit à la main = comparaison par scan tolérant).
-  const duLot = (l) => (m) => scopeWeight({ kind: 'ent', refs: [l.ref] }, m) > 0;
+  // Un lot : ses refs, comparées comme Finances. Les refs AMBIGUËS de l'entité (« A1 » / « a1 ») passent en
+  // comparaison stricte, comme pour l'entité : sinon un mouvement compterait dans les deux lots et
+  // Σ lots + non réparti ≠ entité (contre-vérif lot 6, 🟡1).
+  const duLot = (l) => {
+    const r = String(l.ref == null ? '' : l.ref).trim();
+    const sc = { kind: 'ent', refs: [r], refAmbigus: scEntite.refAmbigus, refStricts: new Set([r]) };
+    return (m) => scopeWeight(sc, m) > 0;
+  };
 
   // Baux historiques de l'entité finis dans l'année
   const bauxHist = (db.baux_historique || [])
