@@ -21,7 +21,7 @@ import { TABLE_COLLECTIONS } from './store-supabase.js'
 
 export function createMultiStore({ espaces, makeStore, getDB }) {
   if (!Array.isArray(espaces) || !espaces.length) throw new Error('createMultiStore: espaces requis')
-  const stores = espaces.map(e => ({ espaceId: e.espaceId, ownerId: e.ownerId, mine: !!e.mine, store: makeStore(e.espaceId, e.ownerId) }))
+  const stores = espaces.map(e => ({ espaceId: e.espaceId, ownerId: e.ownerId, mine: !!e.mine, peutEcrire: typeof e.peutEcrire === 'function' ? e.peutEcrire : null, store: makeStore(e.espaceId, e.ownerId) }))
   const own = stores.find(s => s.mine) || stores[0]
   // own ITÉRÉ EN PREMIER (défense en profondeur, ne dépend pas de l'ordre passé par l'appelant) : la dédup de
   // collision baux (hydrate) garde la clé NUE pour le 1er espace vu → ce doit être l'espace PROPRE, jamais un
@@ -122,11 +122,106 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
   // Archivage d'un bail (migration 0055) : routé comme remove → l'espace du PROPRIÉTAIRE du bail.
   async function archive(coll, rec) { const r = _bareKey(rec); return _route(r).archive(coll, r) }
   async function persistConfig(db) { return own.store.persistConfig(db) }   // config = espace propre uniquement
+  // Espace d'un enregistrement NEUF (non tagué), déduit de son rattachement (cf. inferRattachementOf). Ne
+  // renvoie qu'un espace TIERS connu, et seulement si l'utilisateur peut y ÉCRIRE pour la SCI de rattachement
+  // (`peutEcrire(nomSCI)`, posé par resolveEspaces depuis entite_membre role=gestionnaire) : un associé en
+  // lecture seule garderait sinon un refus RLS 42501 retenté sans fin (ex. agenda automatique). Propre,
+  // indécidable, SCI inconnue ou non inscriptible → null (défaut D2 inchangé). Appelé par store-sync
+  // (_adoptTags) AVANT le diff, pour poser le tag sur la source vivante.
+  function inferEspace(coll, rec, db) {
+    const r = inferRattachementOf(coll, rec, db)
+    if (!r || r.espace == null || r.espace === own.espaceId) return null
+    const s = byId.get(r.espace); if (!s) return null
+    if (s.peutEcrire && !(r.entite && s.peutEcrire(r.entite))) return null
+    return r.espace
+  }
 
-  return { hydrate, upsert, remove, archive, persistConfig, stores }
+  return { hydrate, upsert, remove, archive, persistConfig, inferEspace, stores }
 }
 
 const _norm = s => String(s == null ? '' : s).trim().toLowerCase()
+
+// PUR (testable) — espace où doit vivre un enregistrement NEUF, d'après la fiche à laquelle il se
+// rattache dans le DB vivant (taggé par l'hydrate) : logement (ref), immeuble (nom), SCI (nom),
+// mouvement / candidat parent (id). Incident 05/10/2026 (fusion SCI SMARTOSAURUS) : un associé
+// gestionnaire d'une SCI tierce créait mouvements / documents / agenda sur ses lots → tous partaient dans
+// SON espace (D2), invisibles du propriétaire et rattachés à rien. Règles :
+//   • seuls les records VIVANTS comptent (un tombstone homonyme ne décide jamais) ;
+//   • un nom/ref présent dans UN SEUL espace tagué → cet espace ; présent aussi en non tagué (créé en
+//     session = espace propre) ou dans plusieurs espaces → indécidable → null (D2, comme avant) ;
+//   • le lien le plus précis gagne (logement > immeuble > SCI) ; s'il est indécidable on n'essaie pas
+//     un lien moins précis (pas de devinette quand le lien précis est ambigu).
+// Renvoie { espace, entite } (entite = NOM de la SCI de rattachement, ou null) ou null. Sans effet de bord.
+export function inferRattachementOf(coll, rec, db) {
+  if (!rec || typeof rec !== 'object' || !db) return null
+  const vivant = x => x && typeof x === 'object' && !x._deleted
+  const add = (map, k, esp, entNom) => {
+    if (!k) return
+    let a = map.get(k); if (!a) { a = []; map.set(k, a) }
+    a.push({ espace: esp == null ? null : esp, entite: entNom == null ? null : String(entNom) })
+  }
+  const entites = Array.isArray(db.entites) ? db.entites : []
+  const ent = new Map(), imm = new Map(), log = new Map()
+  for (const e of entites) {
+    if (!vivant(e)) continue
+    add(ent, _norm(e.nom), e._espaceId, e.nom)
+    for (const im of (Array.isArray(e.immeubles) ? e.immeubles : [])) if (vivant(im)) add(imm, _norm(im.nom), im._espaceId != null ? im._espaceId : e._espaceId, e.nom)
+  }
+  for (const l of (Array.isArray(db.logements) ? db.logements : [])) if (vivant(l)) add(log, _norm(l.ref), l._espaceId, l.entity)
+  // undefined = lien absent (on essaie le suivant) ; null = lien présent mais indécidable (on s'arrête).
+  const look = (map, k) => {
+    const n = _norm(k); if (!n) return undefined
+    const a = map.get(n); if (!a) return undefined
+    const esps = new Set(a.map(x => x.espace))
+    return (esps.size === 1 && !esps.has(null)) ? a[0] : null
+  }
+  const first = (...tries) => { for (const t of tries) { const r = t(); if (r !== undefined) return r } return null }
+  const L = k => () => look(log, k), I = k => () => look(imm, k), E = k => () => look(ent, k)
+  const ref = v => String(v == null ? '' : v).split('@@')[0]
+  // Parent référencé par id (mouvement d'une PJ, candidat d'une pièce) : son tag s'il en a un, sinon
+  // son propre rattachement (parent créé dans la même session).
+  const parent = (collParent, id) => () => {
+    if (id == null || id === '') return undefined
+    const p = (Array.isArray(db[collParent]) ? db[collParent] : []).find(x => vivant(x) && String(x.id) === String(id))
+    if (!p) return undefined
+    const r = inferRattachementOf(collParent, p, db)
+    if (p._espaceId != null) return { espace: p._espaceId, entite: r && r.espace === p._espaceId ? r.entite : null }
+    return r
+  }
+  switch (coll) {
+    case 'logements': return first(E(rec.entity))
+    case 'immeubles': {
+      const par = entites.find(e => e && Array.isArray(e.immeubles) && e.immeubles.includes(rec))
+      return (par && vivant(par) && par._espaceId != null) ? { espace: par._espaceId, entite: par.nom } : first(E(rec.__entiteNom))
+    }
+    case 'baux': return first(L(ref(rec.__key)), E(rec.entity))
+    case 'baux_historique': return first(L(rec.ref), E(rec.entity))
+    case 'baux_evenements': return first(L(ref(rec.ref)))
+    case 'quittances': return first(L(rec.logement), E(rec.entity))
+    case 'edl': case 'mrh': return first(L(rec.logement))
+    case 'candidats': return first(L(rec.logRef), E(rec.entity))
+    case 'agenda': return first(L(rec.logement), I(rec.immeuble), E(rec.entite))
+    case 'mouvements': {
+      const q = String(rec.qui == null ? '' : rec.qui)
+      return first(q.startsWith('SCI:') ? E(q.slice(4)) : L(q), I(rec.imm))
+    }
+    case 'documents': {
+      const t = rec.parentType
+      if (t === 'mouvement') return first(parent('mouvements', rec.parentId))
+      if (t === 'candidat') return first(parent('candidats', rec.parentId), L(rec.logRef))
+      if (t === 'immeuble') return first(I(rec.parentRef))
+      if (t === 'entite') return first(E(rec.parentRef))
+      if (t === 'logement' || t === 'bail') return first(L(ref(rec.parentRef)), L(rec.logRef))
+      return first(L(rec.logRef))   // mrh / assurance / equipement / quittance : via le logement
+    }
+    default: return null   // entites (une SCI neuve vit dans l'espace propre) / collection inconnue
+  }
+}
+// Espace seul (cf. inferRattachementOf).
+export function inferEspaceOf(coll, rec, db) {
+  const r = inferRattachementOf(coll, rec, db)
+  return r ? r.espace : null
+}
 
 // PUR (testable) — owner de l'espace où vit une SCI (par nom), dans un DB fusionné taggé. `entites` = tableau
 // taggé `_espaceId` ; `espaceOwners` = map espaceId→ownerId ; `fallbackOwner` = owner propre (entité neuve /

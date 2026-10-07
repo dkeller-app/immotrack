@@ -408,8 +408,8 @@ describe('fiche bailleur — étape 10', () => {
     expect((html.match(/function _renderFichePastilles\(/g) || []).length).toBe(1);
   });
 
-  it('le panneau de comptabilité globale n\'a plus d\'appelant', () => {
-    expect((html.match(/_renderEntFichePanelComptaGlobale\(/g) || []).length).toBe(1);   // la définition seule
+  it('le panneau de comptabilité globale (sans appelant) a été supprimé (lot 0, 06/10)', () => {
+    expect((html.match(/_renderEntFichePanelComptaGlobale\(/g) || []).length).toBe(0);
   });
 });
 

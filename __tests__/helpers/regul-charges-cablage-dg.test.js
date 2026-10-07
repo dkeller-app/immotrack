@@ -67,6 +67,7 @@ function monter(sc, noms) {
     _penaliteRetardDG: DG._penaliteRetardDG,
     baseChargesLogement,
     computeVetusteTotal: () => ({ total: 0 }),
+    __immoGetDB: () => sc.DB,   // le DB vivant (le module DG y lit les EDL quand on ne les lui passe pas)
   };
   globalThis.window = W;   // le module DG lit `window` à l'appel
   const scope = {
@@ -101,6 +102,8 @@ afterEach(() => { vi.useRealTimers(); globalThis.window = saveWindow; });
 
 const TACITE = () => scenario({ impayes: ['2026-07', '2026-08', '2026-09', '2026-10'] });
 const DEPART = () => scenario({ depart: '2026-08-31', impayes: ['2026-09', '2026-10'] });
+/** Même départ, EDL de sortie CONFORME à l'entrée (aucune dégradation) → délai d'un mois (art. 22). */
+const DEPART_EDL_CONFORME = () => { const sc = DEPART(); sc.DB.edl = [{ id: 'e1', logement: REF, type: 'Sortie', date: '2026-08-31', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }]; return sc; };
 
 describe('1 · _bailFinOccupation — départ déclaré et bail clôturé', () => {
   const H = () => monter(scenario({ impayes: [] }), ['_bailTypeHasTacite', '_bailFinOccupation']).fn._bailFinOccupation;
@@ -155,12 +158,23 @@ describe('4 · _dgRestitRecalc — pénalité art. 22 et solde affichés', () =>
     expect(els['dg-restit-pen-row'].hidden).toBe(true);
     expect(els['dg-restit-solde-display'].textContent).toBe('0.00 €');
   });
-  it('départ déclaré au 31/08, DG non restitué au 05/10 : la pénalité court depuis le départ, pas depuis l\'échéance', () => {
-    const { fn, els } = monter(DEPART(), ['_bailTypeHasTacite', '_bailFinOccupation', '_dgRestitRecalc', '_dgBailCible', '_archivesDetenuesDuLot', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree']);
+  const RECALC = ['_bailTypeHasTacite', '_bailFinOccupation', '_dgRestitRecalc', '_dgBailCible', '_archivesDetenuesDuLot', '_bailHistCleDe', '_dgDetenuDuBail', '_dgRestitutionEnregistree'];
+  it('départ déclaré au 31/08, EDL de sortie conforme, DG non restitué au 05/10 : la pénalité court depuis l\'échéance d\'un mois', () => {
+    const { fn, els } = monter(DEPART_EDL_CONFORME(), RECALC);
     fn._dgRestitRecalc(REF);
     // délai 1 mois → date limite 30/09 ; au 05/10 : 1 mois entamé × 10 % × 500 € = 50 €
     expect(els['dg-restit-pen-amt'].textContent).toBe('+ 50.00 €');
     expect(els['dg-restit-solde-display'].textContent).toBe('550.00 €');
+  });
+  it('sans EDL de sortie (conformité inconnue) au 05/10 : pénalité POSSIBLE dite, jamais ajoutée au solde', () => {
+    const { fn, els } = monter(DEPART(), RECALC);
+    fn._dgRestitRecalc(REF);
+    // échéance applicable 31/10 (2 mois) : pas de pénalité certaine ; depuis le 30/09 elle n'est que possible.
+    expect(els['dg-restit-pen-row'].hidden).toBe(true);
+    expect(els['dg-restit-pen-box'].hidden).toBe(false);
+    expect(els['dg-restit-pen-calc'].textContent).toContain("Pénalité possible depuis le 2026-09-30 si l'EDL de sortie est conforme");
+    expect(els['dg-restit-pen-calc'].textContent).toContain('= 50.00 € — non ajoutée au solde');
+    expect(els['dg-restit-solde-display'].textContent).toBe('500.00 €');
   });
 });
 
@@ -176,10 +190,15 @@ describe('5 · _dgConfirmerRestitution — montant ÉCRIT sur le bail', () => {
     expect(b.dgRestitueMontant).toBe(0);
     expect(b.dgPenaliteArt22).toBe(0);
   });
-  it('départ déclaré : 500 € + 50 € de pénalité', () => {
-    const b = confirmer(DEPART());
+  it('départ déclaré, EDL de sortie conforme : 500 € + 50 € de pénalité', () => {
+    const b = confirmer(DEPART_EDL_CONFORME());
     expect(b.dgRestitueMontant).toBe(550);
     expect(b.dgPenaliteArt22).toBe(50);
+  });
+  it('départ déclaré sans EDL de sortie : la pénalité seulement possible n\'est jamais écrite', () => {
+    const b = confirmer(DEPART());
+    expect(b.dgRestitueMontant).toBe(500);
+    expect(b.dgPenaliteArt22).toBe(0);
   });
 });
 

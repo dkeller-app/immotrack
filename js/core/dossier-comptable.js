@@ -18,7 +18,7 @@
  * Tests Vitest : __tests__/helpers/dossier-comptable.test.js
  */
 
-import { _csvCell } from './export-comptable.js';
+import { _csvCell, _uneLigne } from './export-comptable.js';
 
 // ── Slugs / noms sûrs ────────────────────────────────────────────────────────
 
@@ -161,7 +161,9 @@ export function _dcBuildPlan(mvtRows, ctx = {}) {
 
     rows.push({
       num: r.num, date: r.date, bailleur, lot,
-      categorie: r.cat, libelle: r.lib, montant: r.montant, type: r.type,
+      // Montant SIGNÉ : un avoir / remboursement (`r.inverse`) est négatif dans index.csv, comme dans
+      // Finances (le nom du fichier facture, lui, garde la valeur absolue).
+      categorie: r.cat, libelle: r.lib, montant: r.inverse ? -r.montant : r.montant, type: r.type,
       hasPj: has, resolved, fileName, filePath,
       status: has ? 'présente' : 'ABSENTE'
     });
@@ -179,7 +181,7 @@ export function _dcBuildPlan(mvtRows, ctx = {}) {
 export function _dcIndexCsv(plan) {
   const meta = (plan && plan.meta) || {};
   const pieceRefByNum = (plan && plan.pieceRefByNum) || {};
-  const headerComment = `# date d'extraction : ${meta.extractionYmd || ''} · bailleur : ${meta.entityNom || 'Tous'} · période : ${meta.from || ''} → ${meta.to || ''}`;
+  const headerComment = `# date d'extraction : ${_uneLigne(meta.extractionYmd)} · bailleur : ${_uneLigne(meta.entityNom || 'Tous')} · période : ${_uneLigne(meta.from)} → ${_uneLigne(meta.to)}`;
   const cols = ['ecriture_num', 'date', 'bailleur', 'lot', 'categorie', 'libelle', 'montant', 'piece_ref', 'fichier', 'facture'];
   const lines = [headerComment, cols.join(',')];
   (plan && plan.rows || []).forEach(r => {

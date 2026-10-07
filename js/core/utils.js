@@ -523,7 +523,7 @@ export function _loyerProrataMois(log, yr, mi, bails, irlHistorique = [], todayR
 // ────────────────────────────────────────────────────────────────────────────
 
 /** Noms des mois en français, index 0 = janvier. Consommé par finances-window.js.
- *  (Des copies privées subsistent — quittances-actives.js:79, index.html:27402/28110 —
- *  à replier sur celle-ci hors chantier Finances.) */
+ *  (Des copies privées subsistent dans js/app/app-part1.js et app-part2.js — MOIS, MOIS_FR,
+ *  _QA_MOIS_FR… — à replier sur celle-ci hors chantier Finances.) */
 export const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
   'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];

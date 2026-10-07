@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
-  _planApurementStatut, _procedureJudiciaireEtat, _listerImpayesActifs,
+  _planApurementStatut, _procedureJudiciaireEtat,
   DG_STATUS, PROCEDURE_ETAT
 } from '../../js/core/gestion-dg-impayes.js';
 
@@ -13,7 +13,7 @@ import {
 //  _penaliteRetardDG — pénalité art. 22 (10 % loyer HC / mois entamé)
 // ═══════════════════════════════════════════════════════════════════
 describe('_penaliteRetardDG', () => {
-  // dgRetenu>0 → délai 2 mois ; sortie 15/06/2026 → date limite 15/08/2026.
+  // Pas d'EDL de sortie → conformité inconnue → échéance applicable 2 mois ; sortie 15/06/2026 → 15/08/2026.
   const base = { hc: 650, ch: 80, dgRetenu: 100, depart: { dateSortie: '2026-06-15' } };
 
   it('restitué dans le délai → aucune pénalité', () => {
@@ -60,16 +60,44 @@ describe('_penaliteRetardDG', () => {
       expect(r.dateLimite).toBe('2026-02-28');
       expect(r.moisRetard).toBe(0); // pile à la date limite → pas de retard
     });
-    it('date limite 31/01 (sortie 31/12, délai 1), restit 01/03 → 2 mois entamés (pas 1)', () => {
-      // pas de dgRetenu ni EDL → délai 1 mois. 31/12 + 1 = 31/01.
-      const r = _penaliteRetardDG({ hc: 650, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-03-01' });
+    // EDL de sortie CONFORME (pas de dégradation) → délai 1 mois : 31/12 + 1 = 31/01.
+    const CONFORME = [{ type: 'Sortie', logement: 'F-1', date: '2025-12-31', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }];
+    it('date limite 31/01 (sortie 31/12, EDL conforme), restit 01/03 → 2 mois entamés (pas 1)', () => {
+      const r = _penaliteRetardDG({ ref: 'F-1', hc: 650, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-03-01' }, undefined, CONFORME);
       expect(r.dateLimite).toBe('2026-01-31');
       expect(r.moisRetard).toBe(2); // 1er mois plein court jusqu'au 28/02 ; au 01/03 le 2e est entamé
       expect(r.penalite).toBe(130);
+      expect(r.possible).toBeNull();
     });
     it('date limite 31/01, restit exactement +1 mois (28/02) → 1 mois', () => {
-      const r = _penaliteRetardDG({ hc: 650, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-02-28' });
+      const r = _penaliteRetardDG({ ref: 'F-1', hc: 650, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-02-28' }, undefined, CONFORME);
       expect(r.moisRetard).toBe(1);
+    });
+  });
+
+  // Pilotage 06/10 — conformité INCONNUE (pas d'EDL de sortie) : pénalité CERTAINE depuis 2 mois, POSSIBLE depuis 1 mois.
+  describe('conformité de l’EDL de sortie inconnue', () => {
+    it('la pénalité certaine court depuis 2 mois ; celle depuis 1 mois est rendue à part, jamais dans « penalite »', () => {
+      const r = _penaliteRetardDG({ hc: 650, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-03-01' });
+      expect(r).toMatchObject({ dateLimite: '2026-02-28', enRetard: true, moisRetard: 1, penalite: 65 });
+      expect(r.possible).toEqual({ depuis: '2026-01-31', moisRetard: 2, penalite: 130 });
+    });
+    it('entre 1 et 2 mois : aucune pénalité certaine, une pénalité possible', () => {
+      const r = _penaliteRetardDG({ hc: 650, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-02-15' });
+      expect(r).toMatchObject({ enRetard: false, penalite: 0, possible: { depuis: '2026-01-31', moisRetard: 1, penalite: 65 } });
+    });
+    it('les retenues ne décident plus du délai : retenue + EDL conforme → 1 mois', () => {
+      const r = _penaliteRetardDG({ ref: 'F-1', hc: 650, dgRetenu: 300, depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-02-01' }, undefined,
+        [{ type: 'Sortie', logement: 'F-1', date: '2025-12-31', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }]);
+      expect(r).toMatchObject({ dateLimite: '2026-01-31', enRetard: true, moisRetard: 1, possible: null });
+    });
+    it('point de départ : la remise des clés déclarée passe AVANT la date de l’EDL de sortie et la fin effective', () => {
+      const r = _penaliteRetardDG({ ref: 'F-1', hc: 650, finEffective: '2025-11-30', depart: { dateSortie: '2025-12-31' }, dgRestitueAt: '2026-01-15' }, undefined,
+        [{ type: 'Sortie', logement: 'F-1', date: '2026-01-05', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }]);
+      expect(r.dateLimite).toBe('2026-01-31');
+      const sansRemise = _penaliteRetardDG({ ref: 'F-1', hc: 650, finEffective: '2025-11-30', dgRestitueAt: '2026-01-15' }, undefined,
+        [{ type: 'Sortie', logement: 'F-1', date: '2026-01-05', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }]);
+      expect(sansRemise.dateLimite).toBe('2026-02-05');   // date de l'EDL de sortie, avant la fin effective
     });
   });
 });
@@ -119,17 +147,34 @@ describe('_dgStatut — bail actif', () => {
 describe('_dgStatut — bail clôturé (restitution)', () => {
   const baseClotur = { dg: 1200, dgPaid: 1200, cloture: true, finEffective: '2026-01-15' };
 
-  it('Délai 1 mois encore en cours → a_restituer + joursRestants', () => {
+  // Sans EDL de sortie : conformité inconnue → 15/02 si conforme, 15/03 sinon (pilotage 06/10).
+  it('Conformité inconnue, avant 1 mois → a_restituer ; les deux maximums rendus', () => {
     const r = _dgStatut(baseClotur, '2026-01-20');
-    expect(r.statut).toBe(DG_STATUS.A_RESTITUER);
-    expect(r.joursRestants).toBeGreaterThan(0);
-    expect(r.delaiMois).toBe(1);
+    expect(r).toMatchObject({ statut: DG_STATUS.A_RESTITUER, delaiMois: 2, conforme: null, limiteSiConforme: '2026-02-15', limite: '2026-03-15', joursRestants: 54 });
   });
 
-  it('Délai dépassé → en_retard avec joursRetard', () => {
+  it('Conformité inconnue, entre 1 et 2 mois → dépassement possible, pas en retard', () => {
     const r = _dgStatut(baseClotur, '2026-03-01');
+    expect(r.statut).toBe(DG_STATUS.DEPASSEMENT_POSSIBLE);
+    expect(r.joursRestants).toBe(14);
+  });
+
+  it('Au-delà de 2 mois → en_retard avec joursRetard', () => {
+    const r = _dgStatut(baseClotur, '2026-03-20');
     expect(r.statut).toBe(DG_STATUS.EN_RETARD);
-    expect(r.joursRetard).toBeGreaterThan(0);
+    expect(r.joursRetard).toBe(5);
+  });
+
+  it('EDL de sortie conforme → 1 mois ; dépassé le lendemain → en retard', () => {
+    const bail = { ...baseClotur, ref: 'F-1' };
+    const edls = [{ type: 'Sortie', logement: 'F-1', date: '2026-01-15', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }];
+    expect(_dgStatut(bail, '2026-02-15', edls)).toMatchObject({ statut: DG_STATUS.A_RESTITUER, delaiMois: 1, conforme: true, joursRestants: 0 });
+    expect(_dgStatut(bail, '2026-02-16', edls)).toMatchObject({ statut: DG_STATUS.EN_RETARD, joursRetard: 1 });
+  });
+
+  it('point de départ : remise des clés déclarée avant la fin effective', () => {
+    const r = _dgStatut({ ...baseClotur, depart: { dateSortie: '2026-01-05' } }, '2026-01-20');
+    expect(r.limite).toBe('2026-03-05');
   });
 
   it('DG déjà restitué → restitue', () => {
@@ -137,23 +182,38 @@ describe('_dgStatut — bail clôturé (restitution)', () => {
     expect(r.statut).toBe(DG_STATUS.RESTITUE);
   });
 
-  it('Bail clôturé avec retenue → délai 2 mois', () => {
-    const bail = { ...baseClotur, dgRetenu: 200 };
-    // 2 mois après 15/01 = 15/03 → le 25/02 reste à venir
-    const r = _dgStatut(bail, '2026-02-25');
+  it('Une retenue ne décide pas du délai : EDL conforme + retenue → 1 mois', () => {
+    const bail = { ...baseClotur, ref: 'F-1', dgRetenu: 200 };
+    const r = _dgStatut(bail, '2026-02-10', [{ type: 'Sortie', logement: 'F-1', date: '2026-01-15', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }]);
     expect(r.statut).toBe(DG_STATUS.A_RESTITUER);
-    expect(r.delaiMois).toBe(2);
+    expect(r.delaiMois).toBe(1);
+  });
+});
+
+describe('EDL de sortie de CE bail : sans EDL passés, le module lit le résolveur borné de l’app', () => {
+  it('window._edlSortieDuBail (borné au début du bail suivant) prime sur le DB vivant brut', () => {
+    const save = globalThis.window;
+    // DB vivant : la sortie DÉGRADÉE est celle du locataire suivant ; le résolveur de l'app ne la rend pas.
+    const conforme = { type: 'Sortie', logement: 'F-1', date: '2026-01-15', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] };
+    const suivant = { type: 'Sortie', logement: 'F-1', date: '2027-06-30', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Mauvais état' }] }] };
+    globalThis.window = { __immoGetDB: () => ({ edl: [conforme, suivant] }), _edlSortieDuBail: () => conforme };
+    try {
+      expect(_calculerDelaiRestitution({ ref: 'F-1', debut: '2024-01-01' })).toBe(1);
+      expect(_dgStatut({ ref: 'F-1', cloture: true, finEffective: '2026-01-15', dg: 900, dgPaid: 900 }, '2026-02-01').delaiMois).toBe(1);
+      globalThis.window = { __immoGetDB: () => ({ edl: [conforme, suivant] }) };   // sans le résolveur : le plus récent du DB
+      expect(_calculerDelaiRestitution({ ref: 'F-1', debut: '2024-01-01' })).toBe(2);
+    } finally { globalThis.window = save; }
   });
 });
 
 describe('_calculerDelaiRestitution', () => {
-  it('Sans dgRetenu et sans EDL → 1 mois (cas favorable)', () => {
-    expect(_calculerDelaiRestitution({ dgRetenu: 0 })).toBe(1);
-    expect(_calculerDelaiRestitution({})).toBe(1);
+  it('Sans EDL de sortie → 2 mois (seul maximum certain ; conformité inconnue)', () => {
+    expect(_calculerDelaiRestitution({ dgRetenu: 0 })).toBe(2);
+    expect(_calculerDelaiRestitution({})).toBe(2);
   });
 
-  it('Avec dgRetenu > 0 → 2 mois', () => {
-    expect(_calculerDelaiRestitution({ dgRetenu: 200 })).toBe(2);
+  it('Une retenue ne décide pas du délai (pilotage 06/10) : EDL conforme + dgRetenu > 0 → 1 mois', () => {
+    expect(_calculerDelaiRestitution({ ref: 'F-001', dgRetenu: 200 }, [{ type: 'Sortie', logement: 'F-001', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Bon état' }] }] }])).toBe(1);
   });
 
   it('Avec EDL sortie sans dégradation → 1 mois', () => {
@@ -306,81 +366,5 @@ describe('_procedureJudiciaireEtat', () => {
     // Cas exotique : seule l'assignation est renseignée
     const r = _procedureJudiciaireEtat({ assignationDate: '2026-04-15' }, '2026-05-01');
     expect(r.etat).toBe(PROCEDURE_ETAT.ASSIGNATION);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════
-//  _listerImpayesActifs
-// ═══════════════════════════════════════════════════════════════════
-
-describe('_listerImpayesActifs', () => {
-  const baux = {
-    'F-001': { ref: 'F-001', debut: '2025-01-01', hc: 600, ch: 50 },
-    'F-002': { ref: 'F-002', debut: '2025-06-01', hc: 800, ch: 80 },
-    'F-003': { ref: 'F-003', debut: '2025-01-01', hc: 700, ch: 50, cloture: true },
-    'F-004': { ref: 'F-004', debut: '2025-09-01', hc: 500, ch: 30,
-               procedure: { miseEnDemeureDate: '2026-01-05', commandementDate: '2026-02-15' } }
-  };
-  const logements = [
-    { ref: 'F-001', locataire: 'MARTIN' },
-    { ref: 'F-002', locataire: 'DUPONT' },
-    { ref: 'F-003', locataire: 'OLD' },   // bail clôturé
-    { ref: 'F-004', locataire: 'IMPAYE' },
-    { ref: 'F-005', locataire: null }     // vacant
-  ];
-
-  it('Skip baux clôturés / vacants', () => {
-    const r = _listerImpayesActifs(logements, baux, [], new Date('2026-06-01'));
-    expect(r.find(x => x.ref === 'F-003')).toBeUndefined();
-    expect(r.find(x => x.ref === 'F-005')).toBeUndefined();
-  });
-
-  it('Calcule montantImpaye depuis bail.debut', () => {
-    const r = _listerImpayesActifs([logements[0]], { 'F-001': baux['F-001'] }, [], new Date('2026-01-31'));
-    // 13 mois × 650 = 8450, 0 reçu → 8450
-    expect(r[0].montantImpaye).toBe(8450);
-  });
-
-  it('R-0 : un bail REPRIS à l’achat sort de la liste — il n’a pas de nom sur la fiche', () => {
-    // Un bien acheté occupé (art. 1743) laisse `log.locataire` vide : le filtre sur ce cache
-    // rendait son impayé INVISIBLE, alors que le loyer court et que la dette existe.
-    const repris = [{ ref: 'F-001', locataire: '' }];
-    const r = _listerImpayesActifs(repris, { 'F-001': baux['F-001'] }, [], new Date('2026-01-31'));
-    expect(r.map(x => x.ref)).toEqual(['F-001']);
-    expect(r[0].montantImpaye).toBe(8450);
-  });
-
-  it('R-0 : un bail sorti par `finEffective`, sans clôture, ne loue plus rien', () => {
-    // Tous les chemins de sortie ne posent pas `cloture` : la règle `_bienActiveBail` regarde
-    // les deux. Sans `finEffective`, un locataire parti continuait d'accumuler une dette.
-    const parti = { 'F-001': { ...baux['F-001'], finEffective: '2025-06-30' } };
-    const r = _listerImpayesActifs([logements[0]], parti, [], new Date('2026-01-31'));
-    expect(r).toEqual([]);
-  });
-
-  it('Statut "recent" si < 15j', () => {
-    const mvts = [{ qui: 'F-001', date: '2026-05-25', cr: 650, _deleted: false }];
-    const r = _listerImpayesActifs([logements[0]], { 'F-001': baux['F-001'] }, mvts, new Date('2026-06-01'));
-    if (r.length > 0) {
-      expect(r[0].statut).toBe('recent');
-    }
-  });
-
-  it('Statut "critique" si > 90j sans paiement', () => {
-    const mvts = [{ qui: 'F-001', date: '2026-01-05', cr: 650, _deleted: false }];
-    const r = _listerImpayesActifs([logements[0]], { 'F-001': baux['F-001'] }, mvts, new Date('2026-06-01'));
-    expect(r[0].statut).toBe('critique');
-  });
-
-  it('Procédure judiciaire en cours = statut surchargé', () => {
-    const r = _listerImpayesActifs([logements[3]], { 'F-004': baux['F-004'] }, [], new Date('2026-06-01'));
-    expect(r[0].statut).toBe('procedure_commandement_payer');
-    expect(r[0].procedureEtat).toBe(PROCEDURE_ETAT.COMMANDEMENT_PAYER);
-  });
-
-  it('Tri : procédure avancée d\'abord, puis ancienneté', () => {
-    const r = _listerImpayesActifs(logements, baux, [], new Date('2026-06-01'));
-    // F-004 (procédure) doit être en premier
-    expect(r[0].ref).toBe('F-004');
   });
 });

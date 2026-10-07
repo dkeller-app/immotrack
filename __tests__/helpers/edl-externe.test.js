@@ -138,11 +138,13 @@ describe('lecteurs — l\'EDL externe est trouvé SANS code spécifique', () => 
     await w2.edlExterneCreer('D-101', { sens: 'entree', date: '2021-01-05' })   // locataire précédent
     expect(w2._edlEntreeDuBail(BAIL(), LOG)).toBeNull()
   })
-  it('edlSortieQuiFaitFoi retient la sortie externe ; délai de restitution du DG : 1 mois, 2 mois si dgRetenu', async () => {
+  it('edlSortieQuiFaitFoi retient la sortie externe ; délai de restitution du DG : 2 mois (conformité inconnue, règle dg-delai v15.725)', async () => {
     const w = monde()
     await w.edlExterneCreer('D-101', { sens: 'sortie', date: '2026-08-31' })
     expect(edlSortieQuiFaitFoi(BAIL(), w.DB.edl)).toBe(w.DB.edl[0])
-    expect(_calculerDelaiRestitution(BAIL(), w.DB.edl)).toBe(1)
+    // Règle unique art. 22 (dg-delai.js, v15.725) : 1 mois seulement si l'EDL de sortie est CONFORME à l'entrée ;
+    // un EDL fait hors Propryo n'a pas de pièces → conformité inconnue → 2 mois, retenues ou non.
+    expect(_calculerDelaiRestitution(BAIL(), w.DB.edl)).toBe(2)
     expect(_calculerDelaiRestitution(BAIL({ dgRetenu: 120 }), w.DB.edl)).toBe(2)
   })
   it('cloud : ligne edl (type_edl, pieces=[], signed_at=null) et document de logement (parent_id résolu, category edl)', async () => {

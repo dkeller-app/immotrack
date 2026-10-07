@@ -21,8 +21,26 @@ import { jeuMultiLots, catLigne, isEcheance, isRecupCharge } from './r0c-jeux.js
 
 /** Empreinte d'une sortie complète du moteur (months + annual + byLot + bornes) : sha256 du JSON. */
 const empreinte = (r) => createHash('sha256').update(JSON.stringify(r)).digest('hex');
+/**
+ * Deux postes ont été ajoutés au moteur APRÈS la prise de cette photo (05/10, décision Didier) :
+ * `construction` (travaux d'agrandissement) et `nonDeductible` (dépenses non déductibles), comptés
+ * dans les charges et le cash-flow. Aucun jeu ne contient ces catégories, ils y valent donc 0 — on
+ * les retire QUAND ILS VALENT 0, pour que la photo d'avant reste la référence à l'octet.
+ * Un poste NON NUL n'est jamais retiré : il ferait échouer la comparaison, comme il le doit.
+ */
+const NOUVEAUX_POSTES = ['construction', 'nonDeductible'];
+const sansNouveauxPostesNuls = (v) => {
+  if (Array.isArray(v)) return v.map(sansNouveauxPostesNuls);
+  if (!v || typeof v !== 'object') return v;
+  const o = {};
+  for (const k of Object.keys(v)) {
+    if (NOUVEAUX_POSTES.includes(k) && v[k] === 0) continue;
+    o[k] = sansNouveauxPostesNuls(v[k]);
+  }
+  return o;
+};
 /** Forme stockée : l'annuel EN CLAIR (lisible dans un diff) + l'empreinte de la sortie complète. */
-const forme = (r) => ({ annual: r.annual, lots: Object.keys(r.byLot).sort(), sha256: empreinte(r) });
+const forme = (r0) => { const r = sansNouveauxPostesNuls(r0); return { annual: r.annual, lots: Object.keys(r.byLot).sort(), sha256: empreinte(r) }; };
 
 export const SEEDS_INSTANTANE = Array.from({ length: 30 }, (_, i) => 1000 + i);
 export const TODAY_INSTANTANE = '2026-09-30';
@@ -40,7 +58,12 @@ export function calculerInstantane(compute = _computeFinancesMonthly) {
     const res = {};
     for (const year of [2023, 2024, 2025, 2026]) {
       const win = computeConstatWindow({ year, today: TODAY_INSTANTANE, mouvements });
-      const base = { mouvements, year, catLigne, isEcheance, isRecupCharge, loyerDue, activeLots: refs, today: TODAY_INSTANTANE };
+      // Résolveur des dépenses hors 2044 ACTIF, calqué sur la production (05/10) : les jeux contiennent
+      // des dépôts de garantie, des échéances de prêt et de l'eau récupérable — aucun ne doit basculer
+      // dans les nouveaux postes. Sans lui, l'instantané ne prouverait rien sur la branche réelle.
+      const chargeHorsFiscal = (m) => ({ 'Travaux de construction / agrandissement (non déductible)': 'construction',
+        'Divers (non déductible)': 'nonDeductible' })[m && m.cat] || null;
+      const base = { mouvements, year, catLigne, isEcheance, isRecupCharge, chargeHorsFiscal, loyerDue, activeLots: refs, today: TODAY_INSTANTANE };
       res[year] = {
         fenetre: forme(compute({ ...base, window: win })),
         numerique: forme(compute({ ...base, lastMonth: 7 })),

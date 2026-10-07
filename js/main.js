@@ -85,7 +85,6 @@ import {
   resolveScope as _finScopeResolveM, buildScopeCatalog as _finScopeCatalogM,
   scopeWeight as _finScopeWeightCoreM, lotInScope as _finScopeLotInM,
   scopeLots as _finScopeLotsM, scopeLabel as _finScopeLabelM,
-  orphelinsHorsPerimetre as _finScopeOrphelinsM,
   SANS_BAILLEUR as _FIN_SANS_BAILLEUR_M, SANS_IMMEUBLE as _FIN_SANS_IMMEUBLE_M,
   LABEL_SANS_BAILLEUR as _FIN_LBL_SANS_BAILLEUR_M, LABEL_SANS_IMMEUBLE as _FIN_LBL_SANS_IMMEUBLE_M
 } from './core/finances-scope.js';
@@ -145,7 +144,8 @@ import * as Anteriorite from './core/anteriorite.js';
 import * as DeclarationOccupation from './core/declaration-occupation.js';
 
 import {
-  _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
+  _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv,
+  _listNonExportes, _nonExportesResume, _nonExportesCsv
 } from './core/export-comptable.js';
 
 import {
@@ -239,12 +239,6 @@ import {
 // symboles sur window pour le mode file:// ; meme source, aucune divergence possible.
 import * as BankImport from './core/bank-import.js';
 
-// v15.10 QUITTANCES-ACTIVES - statut dynamique + escalade
-// CDC-QUITTANCES-IRL etape 1 : _matchPaiementQuittance / _matcheMois SUPPRIMES (7e moteur, C3).
-import {
-  _statutQuittance, _escaladeAlerte, QUITTANCE_STATUS
-} from './core/quittances-actives.js';
-
 // CDC-QUITTANCES-IRL etape 1 - LE socle du verdict « ce mois est-il solde ? » (D6/D7).
 // Consomme _loyerArrearsPass ; n'ecrit AUCUN rattachement paiement->mois (I6).
 import {
@@ -275,7 +269,7 @@ import { migrerIdsMenuLoyers } from './core/nav-submenu.js';
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
-  _planApurementStatut, _procedureJudiciaireEtat, _listerImpayesActifs,
+  _planApurementStatut, _procedureJudiciaireEtat,
   DG_STATUS, PROCEDURE_ETAT
 } from './core/gestion-dg-impayes.js';
 
@@ -318,6 +312,9 @@ import * as Stockage from './core/stockage-local.js';
 // STOCKAGE lot 4 (docs/CDC-STOCKAGE.md §3.8) — miroir cloud en IndexedDB + journal synchrone des EDL.
 // MÊME module (même URL) que celui importé par supabase-entry.js → même instance `miroir()`.
 import * as MiroirLocal from './core/miroir-local.js';
+// STOCKAGE lot 2 (docs/CDC-STOCKAGE.md §3.4) — filets avant migration en IndexedDB `immotrack_backup`
+// (rotation 1 par migration, 3 au plus, 30 jours ; purge au logout). Exposé sous window._filets.
+import * as FiletsMigration from './core/filets-migration.js';
 
 // RESET-CLOUD UX — cœur PUR du « ⚠️ Vider mon espace cloud » (gating UI, saisie du nom,
 // messages d'erreur RPC). Exposé sous window._espacePurge ; l'orchestration IMPURE (modale,
@@ -516,7 +513,6 @@ window._finScopeWeightCore = _finScopeWeightCoreM;
 window._finScopeLotIn = _finScopeLotInM;
 window._finScopeLots = _finScopeLotsM;
 window._finScopeLabel = _finScopeLabelM;
-window._finScopeOrphelins = _finScopeOrphelinsM;
 window._FIN_SANS_BAILLEUR = _FIN_SANS_BAILLEUR_M;
 window._FIN_SANS_IMMEUBLE = _FIN_SANS_IMMEUBLE_M;
 window._FIN_LBL_SANS_BAILLEUR = _FIN_LBL_SANS_BAILLEUR_M;
@@ -599,6 +595,10 @@ window._buildGrandLivre = _buildGrandLivre;
 window._toFEC = _toFEC;
 window._journalToCsv = _journalToCsv;
 window._grandLivreToCsv = _grandLivreToCsv;
+// Lot 6, A2 — mouvements NON exportés (aucun compte inventé) : listés, jamais tus.
+window._listNonExportes = _listNonExportes;
+window._nonExportesResume = _nonExportesResume;
+window._nonExportesCsv = _nonExportesCsv;
 
 // EXPORT-COMPTABLE-ZIP (Dossier comptable) — cœur pur exposé sous window._dc.*
 window._dc = {
@@ -669,11 +669,6 @@ window.ATTACHMENT_DEFAULT_MAX_SIZE = ATTACHMENT_DEFAULT_MAX_SIZE;
 // plus de liste a maintenir a la main (une omission = un helper introuvable a chaud).
 window.BankImport = BankImport;
 for (const _bk of Object.keys(BankImport)) window[_bk] = BankImport[_bk];
-
-// QUITTANCES-ACTIVES (v15.10 Sprint 11) - statut dynamique + escalade + auto-gen
-window._statutQuittance = _statutQuittance;
-window._escaladeAlerte = _escaladeAlerte;
-window.QUITTANCE_STATUS = QUITTANCE_STATUS;
 
 // LOYERS - verdict « mois solde » (CDC-QUITTANCES-IRL etape 1). Source unique consommee
 // par l'onglet Loyers ; index.html n'assemble que le contexte (du + encaisse).
@@ -779,7 +774,6 @@ window.computeVetusteLigne = computeVetusteLigne;
 window.computeVetusteTotal = computeVetusteTotal;
 window._planApurementStatut = _planApurementStatut;
 window._procedureJudiciaireEtat = _procedureJudiciaireEtat;
-window._listerImpayesActifs = _listerImpayesActifs;
 window.DG_STATUS = DG_STATUS;
 window.PROCEDURE_ETAT = PROCEDURE_ETAT;
 
@@ -828,6 +822,8 @@ window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildMani
 window._stockage = Stockage;
 // STOCKAGE lot 4 — miroir cloud (lu par _miroirEcrireCloud dans index.html).
 window._miroirLocal = MiroirLocal;
+// STOCKAGE lot 2 — filets avant migration (lus par _filetAvantMigration / _filetsExpirer dans app-part2.js).
+window._filets = FiletsMigration;
 
 // RESET-CLOUD UX — cœur pur du « Vider mon espace cloud » (voir import en tête).
 window._espacePurge = { confirmNameMatches, purgeUiState, purgeErrorMessage };

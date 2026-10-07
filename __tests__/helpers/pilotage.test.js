@@ -2,34 +2,11 @@
  * Tests pour PILOTAGE-MATRICIEL v15.07 Sprint 8 V1.1.
  *
  * Réplique fidèle de la logique inline (sans DB / DOM) pour tester
- * les 3 helpers purs : _pilSoldeLocataire, _pilStatutDoc, _pilBulkMajLoyersSimule.
+ * les 2 helpers purs : _pilStatutDoc, _pilBulkMajLoyersSimule.
  */
 import { describe, it, expect } from 'vitest';
 
 // ─── Réplique fidèle des helpers inline ─────────────────────────────────────
-
-function isLoyerCategory(cat) {
-  if (!cat) return false;
-  // NORMALISATION-LOYERS (01/10) : plus de tolérance de « Loyers » hérité (comme js/core/utils.js).
-  return cat === 'Loyers encaissés';
-}
-
-function pilSoldeLocataire(bail, log, mouvements, dateRef) {
-  if (!bail || !bail.debut) return 0;
-  const ref = log?.ref || bail.ref;
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||'2026-01-01')+'T00:00:00');
-  const debut = new Date(bail.debut + 'T00:00:00');
-  if (Number.isNaN(debut.getTime()) || today < debut) return 0;
-  const fin = bail.fin ? new Date(bail.fin + 'T23:59:59') : null;
-  const end = fin && fin < today ? fin : today;
-  const nbMois = Math.max(0, (end.getFullYear()-debut.getFullYear())*12 + (end.getMonth()-debut.getMonth()) + 1);
-  const loyerMensuel = (Number(bail.hc)||Number(log?.hc)||0) + (Number(bail.ch)||Number(log?.ch)||0);
-  const attendu = nbMois * loyerMensuel;
-  const encaisses = (mouvements||[]).filter(m =>
-    m && !m._deleted && m.qui === ref && m.cr > 0 && isLoyerCategory(m.cat)
-  ).reduce((s,m) => s + (m.cr||0), 0);
-  return Math.round((attendu - encaisses) * 100) / 100;
-}
 
 function pilStatutDoc(bail, log, type, dateRef, ctx = {}) {
   const today = dateRef instanceof Date ? dateRef : new Date();
@@ -119,75 +96,6 @@ function pilBulkMajLoyersSimule(items, computeIRL) {
   }
   return out;
 }
-
-// ═══════════════════════════════════════════════════════════════════
-//  _pilSoldeLocataire
-// ═══════════════════════════════════════════════════════════════════
-
-describe('_pilSoldeLocataire — cumul impayé', () => {
-  const bail = { debut:'2026-01-01', hc:600, ch:50, ref:'F-001' };
-  const log  = { ref:'F-001', hc:600, ch:50 };
-
-  it('À jour : 3 loyers attendus, 3 encaissés → solde 0', () => {
-    const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-      { date:'2026-02-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-      { date:'2026-03-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-    ];
-    expect(pilSoldeLocataire(bail, log, mvts, '2026-03-15')).toBe(0);
-  });
-
-  it('Impayé partiel : 3 attendus, 2 encaissés → solde +650', () => {
-    const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-      { date:'2026-02-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-    ];
-    expect(pilSoldeLocataire(bail, log, mvts, '2026-03-15')).toBe(650);
-  });
-
-  it('Trop perçu : 1 attendu, 2 encaissés → solde -650', () => {
-    const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-      { date:'2026-01-15', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-    ];
-    expect(pilSoldeLocataire(bail, log, mvts, '2026-01-31')).toBe(-650);
-  });
-
-  it('Ne compte que les Loyers (pas les Travaux ou Assurances)', () => {
-    const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Travaux', cr:300 },
-      { date:'2026-01-15', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-    ];
-    expect(pilSoldeLocataire(bail, log, mvts, '2026-01-31')).toBe(0);
-  });
-
-  it('Ignore les mouvements _deleted', () => {
-    const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-      { date:'2026-02-05', qui:'F-001', cat:'Loyers encaissés', cr:650, _deleted:true },
-    ];
-    expect(pilSoldeLocataire(bail, log, mvts, '2026-02-15')).toBe(650);
-  });
-
-  it('Bail sans date debut → 0', () => {
-    expect(pilSoldeLocataire({hc:600,ch:50}, log, [], '2026-01-01')).toBe(0);
-  });
-
-  it('dateRef avant début bail → 0', () => {
-    expect(pilSoldeLocataire(bail, log, [], '2025-06-01')).toBe(0);
-  });
-
-  it('Bail terminé : clip sur fin', () => {
-    const finished = { debut:'2026-01-01', fin:'2026-02-28', hc:600, ch:50, ref:'F-001' };
-    // 2 mois attendus à 650 = 1300, on encaisse 1300 → solde 0
-    const mvts = [
-      { date:'2026-01-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-      { date:'2026-02-05', qui:'F-001', cat:'Loyers encaissés', cr:650 },
-    ];
-    expect(pilSoldeLocataire(finished, log, mvts, '2026-12-31')).toBe(0);
-  });
-});
-
 // ═══════════════════════════════════════════════════════════════════
 //  _pilStatutDoc
 // ═══════════════════════════════════════════════════════════════════

@@ -19,6 +19,8 @@ import { bailLoueAu, finOccupationBail } from '../../js/core/fin-occupation.js';
 import { _computeOccupationLots } from '../../js/core/legal-bilan.js';
 import { duMoisFromRaw } from '../../js/core/loyer-du-mois.js';
 import { bailHistCle } from '../../js/core/store-mapping.js';
+// LA règle du délai de restitution du DG (art. 22) — le mirror window.DgDelai de l'app.
+import * as DgDelai from '../../js/core/dg-delai.js';
 import { createStoreSync } from '../../js/core/store-sync.js';
 import { extraireFonction } from './_extraction-source.js';
 
@@ -40,7 +42,7 @@ function monter(DB, noms, extra = {}) {
   const html = { out: '' };
   const els = {};
   const base = {
-    DB, window: { bailLoueAu, finOccupationBail, bailHistCle, ...(extra.window || {}) },
+    DB, window: { bailLoueAu, finOccupationBail, bailHistCle, DgDelai, ...(extra.window || {}) },
     _todayIsoLocal: () => AUJ, td: () => AUJ, fd: (iso) => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : ''),
     _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), escHtml: (x) => String(x == null ? '' : x), _isAlive: (x) => !!x && !x._deleted, fmt: (n) => String(Math.round(n || 0)) + ' €',
     el: (id) => (els[id] = els[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, classList: { contains: () => false } }),
@@ -48,7 +50,7 @@ function monter(DB, noms, extra = {}) {
     _isPhone: () => false, _PIL_MTX_COLS: [], _lyQ: (x) => String(x == null ? '' : x), Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
     ...extra,
   };
-  base.window = { bailLoueAu, finOccupationBail, bailHistCle, ...(extra.window || {}) };   // `extra.window` complète, n'écrase pas
+  base.window = { bailLoueAu, finOccupationBail, bailHistCle, DgDelai, ...(extra.window || {}) };   // `extra.window` complète, n'écrase pas
   const scope = new Proxy(base, {
     has: (t, k) => typeof k === 'string' && !decl.has(k),
     get: (t, k) => (k in t ? t[k] : (k in globalThis ? globalThis[k] : () => '')),
@@ -214,19 +216,6 @@ describe('6 · lecteurs sous mutation (dépôts, onglet Loyers, règle)', () => 
     const apres = rendu({ A1: { ...DEPART, dgRestitueAt: '2026-10-03' } });
     expect(apres).not.toContain('900 €');
   });
-  it('carte « Dépôts de garantie » (VRAI _buildWidgetV1Legacy) : le lot parti garde ses 900 € détenus', () => {
-    const DB = dbDe({ A1: DEPART });
-    const m = monter(DB, [...STATUT, '_buildWidgetV1Legacy'], {
-      DashCtx: { mvTotals: () => ({}), occupationKpis: () => ({ nbOcc: 0, nbTotal: 3 }) }, _DD: {}, _DMF: [],
-      _nomLotAffiche: (l) => l.locataire || '',
-    });
-    let w = null;
-    try { w = m.fn._buildWidgetV1Legacy('dg', { scopeLogs: DB.logements, yr: '2026', mo: null }); } catch (e) { /* */ }
-    expect(m.base._DD.dg && m.base._DD.dg.html).toContain('A1');
-    expect(m.base._DD.dg.html).toContain('900 €');
-    expect(m.base._DD.dg.html).toContain('1 DG détenus');
-    expect(w).toBeTruthy();
-  });
   it('onglet Loyers (VRAI _lyTousLoyersHtml) : le locataire parti reste listé, avec son statut et son retard', () => {
     const DB = dbDe({ A1: DEPART, B2: BAIL });
     DB.logements[1].locataire = 'Bob';
@@ -246,10 +235,6 @@ describe('6 · lecteurs sous mutation (dépôts, onglet Loyers, règle)', () => 
   });
 });
 describe('7 · lecteurs de statut (libellés et loyer de référence du prochain bail)', () => {
-  it('badge de bail (VRAI getBailStatus) : « Vacant (départ le …, bail à clôturer) »', () => {
-    const { fn } = monter(dbDe({ A1: DEPART }), [...STATUT, 'getBailStatus']);
-    expect(fn.getBailStatus({ ref: 'A1' }).badge).toContain('Vacant (départ le 30/09/2026, bail à clôturer)');
-  });
   it('fiche du bien, chiffres clés (VRAI _renderLogFicheHeroStats) : « Vacant depuis » la date de sortie (5 j)', () => {
     const { fn } = monter(dbDe({ A1: DEPART }), [...STATUT, '_renderLogFicheHeroStats', '_daysBetweenIso'], { _getAllBailsForLog: () => [] });
     let h = '';
@@ -275,11 +260,6 @@ describe('8 · lecteurs de statut (listes et exports)', () => {
     let h = '';
     try { h = m.fn._renderLogementsGroupedPhone(DB.logements); } catch (e) { h = 'ERREUR ' + e.message; }
     expect(h).toContain('3 lots · 1 loué');
-  });
-  it('drill « Occupation » (VRAI _buildOccDrill) : ligne du lot parti « Vacant (départ le …) »', () => {
-    const DB = dbDe({ A1: DEPART, B2: BAIL });
-    const m = monter(DB, [...STATUT, '_buildOccDrill'], { _occPerimetre: () => ({ loues: 1, total: 3, taux: 33, vacants: [], manque: 0 }), _nomLotAffiche: () => '' });
-    expect(m.fn._buildOccDrill({ scopeLogs: DB.logements }).html).toContain('Vacant (départ le 30/09/2026, bail à clôturer)');
   });
   it('export CSV des biens (VRAI exportBiensCSV) : colonne Statut = le libellé', () => {
     const DB = dbDe({ A1: DEPART, B2: BAIL });
@@ -479,13 +459,14 @@ describe('14 · scénario de l\'audit : relocation d\'un lot parti (VRAIS archiv
     expect(ancien('2026-10')).toBe(0);
     expect(ancien('2026-11')).toBe(0);
   });
-  it('le dépôt de 900 € reste détenu, et la tâche « DG avant le 30/11 » reste (bail archivé)', () => {
+  it('le dépôt de 900 € reste détenu, et la tâche du dépôt (au plus tard le 30/11 sans EDL de sortie) reste (bail archivé)', () => {
     const { DB, m } = scenario();
     expect(m.fn._dgDetenuDuLot(DB.logements[0])).toBe(2200);
     let out = [];
     try { out = m.fn._computeUnifiedTodo({ scopeLogs: [DB.logements[0]], scopeImms: [], yr: '2026' }) || []; } catch (e) { out = ['ERREUR ' + e.message]; }
     const t = out.find((x) => x && x.type === 'depart');
-    expect(t && t.subtitle).toContain('DG avant le 30/11/2026');
+    // Art. 22, conformité de l'EDL de sortie inconnue : les deux maximums (pilotage 06/10).
+    expect(t && t.subtitle).toContain("DG : à restituer au plus tard le 30/10/2026 si l'EDL de sortie est conforme, sinon le 30/11/2026");
     expect(t.subtitle).toContain('900 €');
     expect(t.actionFn).toBe("_dgOpenRestitution('A1','" + bailHistCle(DB.baux_historique[0]) + "')");
   });
@@ -605,15 +586,22 @@ describe('19 · tâche du dépôt d\'un bail archivé (VRAI _computeUnifiedTodo)
     });
     return (m.fn._computeUnifiedTodo({ scopeLogs: [DB.logements[0]] }) || []).find((x) => x && x.type === 'depart');
   };
-  it('échéance dans 15 jours : orange « DG à restituer avant le … »', () => {
+  // Sans EDL de sortie, la conformité est INCONNUE : 1 mois si conforme, 2 mois sinon (art. 22, pilotage 06/10).
+  it('entre 1 et 2 mois : orange « dépassement possible (si l’EDL de sortie est conforme) », jamais « en retard »', () => {
     const t = tache('2026-08-20');
     expect(t.severity).toBe('ora');
-    expect(t.subtitle).toContain('DG à restituer avant le 20/10/2026 (J‑15)');
+    expect(t.score).toBe(85);   // passe devant une échéance simplement proche (78)
+    expect(t.subtitle).toContain("DG : dépassement possible (si l'EDL de sortie est conforme) — au plus tard le 20/10/2026 · J‑15");
+    expect(t.subtitle).not.toContain('retard');
   });
-  it('échéance dépassée : rouge « DG en retard … (majoration) » ; lointaine : information', () => {
+  it('au-delà de 2 mois : rouge « en retard … majoration » ; dans le mois : information, les deux dates dites', () => {
     expect(tache('2026-07-01').severity).toBe('red');
-    expect(tache('2026-07-01').subtitle).toContain('DG en retard 34 j (majoration)');
+    expect(tache('2026-07-01').subtitle).toContain('DG : en retard de 34 j — majoration de 10 % du loyer mensuel en principal');
     expect(tache('2026-09-30').severity).toBe('info');
+    expect(tache('2026-09-30').subtitle).toContain("au plus tard le 30/10/2026 si l'EDL de sortie est conforme, sinon le 30/11/2026 · J‑25");
+  });
+  it('un mois ou moins avant la première date : orange', () => {
+    expect(tache('2026-09-15').severity).toBe('ora');   // 15/10 si conforme : J‑10
   });
 });
 describe('20 · compteur « Dépôts détenus » = nombre de DÉPÔTS (un lot reloué avant restitution en porte deux)', () => {
@@ -642,15 +630,6 @@ describe('20 · compteur « Dépôts détenus » = nombre de DÉPÔTS (un lot re
     try { m.fn._renderAccueilPhone({ scopeLogs: DB.logements, yr: '2026', mo: null, activeEnt: '', mvs: [], mvsYTD: [] }); } catch (e) { /* suite non simulée */ }
     const h = (m.els['accm-phone'] || {}).innerHTML || '';
     expect(h.slice(h.indexOf('Dépôts détenus'), h.indexOf('Dépôts détenus') + 200)).toContain('3 dépôts');
-  });
-  it('widget (VRAI _buildWidgetV1Legacy) : « 3 DG détenus », moyenne par dépôt', () => {
-    const DB = base();
-    const m = monter(DB, [...STATUT, '_buildWidgetV1Legacy'], { DashCtx: { mvTotals: () => ({}), occupationKpis: () => ({ nbOcc: 0, nbTotal: 3 }) }, _DD: {}, _DMF: [], _nomLotAffiche: () => '' });
-    let w = null;
-    try { w = m.fn._buildWidgetV1Legacy('dg', { scopeLogs: DB.logements, yr: '2026', mo: null }); } catch (e) { /* */ }
-    expect(m.base._DD.dg.html).toContain('Total (3 DG détenus)');
-    expect(JSON.stringify(w)).toContain('3 DG détenus');
-    expect(JSON.stringify(w)).toContain('Moyenne 867 € / dépôt');
   });
 });
 describe('21 · restitution du dépôt sur le bail EXACT (VRAIS _dgOpenRestitution / _dgConfirmerRestitution)', () => {
@@ -885,7 +864,10 @@ describe('28 · fenêtre de restitution sur le bail archivé (VRAIS _dgOpenResti
   });
   it('délai légal : l\'EDL de sortie de Nina (2027, avec dégradations) n\'est pas celui de Lea', () => {
     const nina = { id: 'en', logement: 'A1', type: 'Sortie', date: '2027-01-10', pieces: [{ elements: [{ etatE: 'Bon état', etatS: 'Mauvais état' }] }] };
-    expect(ouvrir([nina])['ov-dg-restitution-body'].innerHTML).toContain('Délai légal : <strong>1 mois</strong>');
+    // Lea n'a pas d'EDL de sortie : conformité inconnue → les deux maximums ; jamais les dégradations de Nina.
+    const h = ouvrir([nina])['ov-dg-restitution-body'].innerHTML;
+    expect(h).toContain("à restituer <strong>au plus tard le 30/10/2026 si l'EDL de sortie est conforme, sinon le 30/11/2026</strong>");
+    expect(h).not.toContain('dégradations relevées');
   });
 });
 describe('29 · cible de la restitution (VRAIS _dgBailCible / _dgConfirmerRestitution) : cas limites', () => {
@@ -1035,6 +1017,10 @@ describe('33 · archive en double (même bailHistCle) : une seule tâche, une se
     const h = m.fn._histoBailEventHtml({ type: 'dg-verse', montant: 900 }, { statut: 'clos', bail: { ...LEA } }, 'A1', null);
     expect(h).toContain('À restituer');
     expect(h).not.toContain('Versé');
+    // Audit DG 🟠5 : capsule COURTE, les deux dates dans la description (fin de l'ancien « 2 mois si retenues »).
+    expect(h.match(/<span class="hl-badge b-warn">([^<]*)<\/span>/)[1]).toBe(' À restituer J-25');
+    expect(h).toContain("Restituable au départ (à restituer au plus tard le 30/10/2026 si l'EDL de sortie est conforme, sinon le 30/11/2026).");
+    expect(h).not.toContain('si retenues');
   });
 });
 describe('34 · restitution sur une archive EN DOUBLE, jusqu\'au cloud (VRAIS _dgConfirmerRestitution + createStoreSync)', () => {

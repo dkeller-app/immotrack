@@ -3,7 +3,7 @@ import {
   SCOPE_KIND, SANS_BAILLEUR, SANS_IMMEUBLE,
   LABEL_SANS_BAILLEUR, LABEL_SANS_IMMEUBLE,
   buildScopeCatalog, resolveScope, lotInScope, scopeLots, scopeRefs,
-  scopeWeight, inScope, orphelinsHorsPerimetre
+  scopeWeight, inScope
 } from '../../js/core/finances-scope.js';
 
 // ── Parc de test ────────────────────────────────────────────────────────────
@@ -368,58 +368,6 @@ describe('finances-scope — poids d\'un MOUVEMENT (fonction unique, P-3 / C7)',
     const poids = alphaCat.immeubles.map(i =>
       scopeWeight(resolveScope({ ent: 'SCI Alpha', imm: i.key }, LOGEMENTS), { qui: 'SCI:SCI Alpha' }));
     expect(poids).toEqual([0.5, 0.5, 0]);
-  });
-});
-
-// ── I5 · INSTRUMENTATION (aucun calcul modifié) ────────────────────────────────
-// Constat remonté à l'arbitrage produit : de l'argent visible au cran « Tout » est invisible
-// dans TOUS les sous-périmètres (parité exacte avec la prod). Ce compteur le MESURE ; il ne
-// tranche rien et n'entre dans aucun total.
-describe('finances-scope — compteur d\'orphelins (I5, mesure seulement)', () => {
-  const MVTS = [
-    { date: '2026-01-05', qui: 'A1', cr: 800, db: 0 },            // rattaché
-    { date: '2026-01-06', qui: '', imm: 'Lilas', cr: 0, db: 120 }, // niveau immeuble connu
-    { date: '2026-01-07', qui: 'SCI:SCI Alpha', cr: 0, db: 300 },  // frais bailleur
-    { date: '2026-01-08', qui: '', imm: '', cr: 0, db: 50 },       // ORPHELIN : ni lot ni immeuble
-    { date: '2026-01-09', qui: 'DISPARU', cr: 200, db: 0 },        // ORPHELIN : lot inconnu/supprimé
-    { date: '2026-01-10', qui: 'X9', cr: 90, db: 0 },              // ORPHELIN : lot tombstone
-    { date: '2026-01-11', qui: 'ZZ', cr: 10, db: 0, _deleted: true } // mvt supprimé : ignoré
-  ];
-
-  it('compte les mouvements qu\'aucun sous-périmètre ne peut voir, et leur montant', () => {
-    const o = orphelinsHorsPerimetre(MVTS, LOGEMENTS);
-    expect(o.nb).toBe(3);
-    expect(o.montant).toBe(340);                 // 50 + 200 + 90
-    expect(o.refsInconnues).toEqual(['DISPARU', 'X9']);
-  });
-
-  it('cohérent avec scopeWeight : ces mouvements pèsent 1 au cran Tout et 0 partout ailleurs', () => {
-    const tout = resolveScope({}, LOGEMENTS);
-    const sousPerimetres = buildScopeCatalog(LOGEMENTS).entites
-      .map(e => resolveScope({ ent: e.key }, LOGEMENTS));
-    MVTS.filter(m => !m._deleted && ['', 'DISPARU', 'X9'].includes(m.qui) && !m.imm).forEach(m => {
-      expect(scopeWeight(tout, m)).toBe(1);
-      sousPerimetres.forEach(s => expect(scopeWeight(s, m)).toBe(0));
-    });
-  });
-
-  it('parc sain → aucun orphelin', () => {
-    expect(orphelinsHorsPerimetre([{ date: '2026-01-05', qui: 'A1', cr: 800, db: 0 }], LOGEMENTS))
-      .toEqual({ nb: 0, montant: 0, refsInconnues: [] });
-    expect(orphelinsHorsPerimetre(null, null)).toEqual({ nb: 0, montant: 0, refsInconnues: [] });
-  });
-});
-
-describe("finances-scope — orphelins : frais d’un bailleur disparu", () => {
-  it("un frais « SCI:<entite supprimee> » est compte comme orphelin", () => {
-    const mvts = [
-      { date: '2026-01-07', qui: 'SCI:SCI Alpha', cr: 0, db: 300 },   // entite vivante : OK
-      { date: '2026-01-08', qui: 'SCI:SCI Disparue', cr: 0, db: 250 } // plus aucun lot : orphelin
-    ];
-    const o = orphelinsHorsPerimetre(mvts, LOGEMENTS);
-    expect(o.nb).toBe(1);
-    expect(o.montant).toBe(250);
-    expect(o.refsInconnues).toEqual(['SCI:SCI Disparue']);
   });
 });
 

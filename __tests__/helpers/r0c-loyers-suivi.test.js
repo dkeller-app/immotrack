@@ -27,7 +27,7 @@ const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
 const F1 = ['_bailTypeHasTacite', '_bailFinOccupation', '_findBailByRefTolerant', '_getAllBailsForLog', '_getLogementStartIso', '_getLogementStartMi', '_duMoisLot',
   '_getActiveBailHcChProratedSplit', '_getActiveBailHcChProrated', '_loyerEtatLot'];
 const F2 = ['_finLotStartMi', '_finImmDuLot', '_finDuRaw', '_finLotSuivi', '_finBailHcChAt', '_finActiveLotsInScope',
-  '_finLotOccupe', '_finIsRecupACharge', '_finDetteBail', '_finMonthly'];
+  '_finLotOccupe', '_finIsRecupACharge', '_finDetteBail', '_finChargeHf', '_finMonthly'];
 const SRC = F1.map((n) => extraireFonction(P1, n)).concat(F2.map((n) => extraireFonction(P2, n))).join('\n');
 
 function monter(DB, today, { avecModule = true } = {}) {

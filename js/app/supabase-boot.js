@@ -188,6 +188,27 @@ export function createBoot(client) {
       .filter(m => metaById[m.espace_id])
       .map(m => ({ espaceId: m.espace_id, ownerId: metaById[m.espace_id].created_by, espaceNom: metaById[m.espace_id].nom, mine: m.full_espace === true }))
     list.sort((a, b) => (b.mine - a.mine))   // espace propre d'abord
+    // Espaces TIERS : SCI où l'utilisateur est GESTIONNAIRE (entite_membre, RLS « ses propres octrois »).
+    // Sert au routage des enregistrements NEUFS (store-multi inferEspace) : un mouvement, un document ou un
+    // rappel créé sur un lot d'une SCI tierce part dans l'espace de cette SCI SEULEMENT si l'écriture y est
+    // permise ; sinon défaut D2 (espace propre), comme avant. Lecture en échec → aucune SCI inscriptible
+    // (fail-safe : jamais un routage que la RLS refuserait en boucle).
+    const tiers = list.filter(e => !e.mine)
+    if (tiers.length) {
+      let gest = []
+      try {
+        const { data: grants, error: e3 } = await client.from('entite_membre')
+          .select('espace_id, entite_id, role').eq('user_id', uid).in('espace_id', tiers.map(e => e.espaceId))
+        if (e3) console.warn('[resolveEspaces] octrois SCI illisibles :', e3.message)
+        else gest = (grants || []).filter(g => g && g.role === 'gestionnaire')
+      } catch (e4) { console.warn('[resolveEspaces] octrois SCI :', e4 && e4.message) }
+      const norm = s => String(s == null ? '' : s).trim().toLowerCase()
+      for (const e of tiers) {
+        const ids = new Set(gest.filter(g => g.espace_id === e.espaceId).map(g => g.entite_id))
+        const det = makeDetUuid(e.ownerId)
+        e.peutEcrire = nom => ids.has(det('entite', norm(nom)))
+      }
+    }
     return list
   }
 

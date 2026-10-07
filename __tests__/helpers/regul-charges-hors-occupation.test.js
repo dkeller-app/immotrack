@@ -431,9 +431,9 @@ describe('8 · tacite reconduction — la fin CONTRACTUELLE d\'un bail en cours 
   });
 });
 
-/** Assistant 2044 (vraies _legal2044WizardOpts / _legal2044WizardData), indicateur compta
- *  (vraie _computeComptaBailleur), prévisualisation Finances (vraie _legal2044BuildOpts) —
- *  tous branchés sur la vraie computeRegul et le vrai moteur 2044. `exclus` = lots meublés. */
+/** Assistant 2044 (vraies _legal2044WizardOpts / _legal2044WizardData) et prévisualisation Finances
+ *  (vraie _legal2044BuildOpts) — l'ancien indicateur compta (_computeComptaBailleur) n'avait aucun
+ *  appelant, supprimé au lot 0 (06/10) — tous branchés sur la vraie computeRegul et le vrai moteur 2044. `exclus` = lots meublés. */
 const STD_2044 = [
   { nom: COPRO, ligne2044: '229', type: 'charge' },
   { nom: RECUP, ligne2044: '', type: 'special', recup: true },
@@ -451,11 +451,11 @@ function lecteurs2044(DB, exclus = []) {
     splitFonciereLots: exclus === 'reel' ? splitReel
       : (logs) => ({ fonciereRefs: logs.map((l) => l.ref).filter((r) => !exclus.includes(r)), exclus: exclus.map((ref) => ({ ref })), flagues: [] }),
   };
-  const noms = ['_bailTypeHasTacite', '_bailFinOccupation', '_rgSegments225', '_legal2044WizardOpts', '_legal2044WizardData', '_computeComptaBailleur', '_legal2044BuildOpts'];
+  const noms = ['_bailTypeHasTacite', '_bailFinOccupation', '_rgSegments225', '_legal2044WizardOpts', '_legal2044WizardData', '_legal2044BuildOpts'];
   // eslint-disable-next-line no-new-func
   const f = new Function('DB', '_isAlive', 'window', 'computeRegul', '_get2044Mapping', '_isStdCategory', 'STD_CATEGORIES', 'LIGNES_2044',
     '_finLotEstLoyer', '_finLotNet', 'v',
-    noms.map((n) => corpsDe(html, n)).join('\n') + '\nreturn { _legal2044WizardOpts, _legal2044WizardData, _computeComptaBailleur, _legal2044BuildOpts };'
+    noms.map((n) => corpsDe(html, n)).join('\n') + '\nreturn { _legal2044WizardOpts, _legal2044WizardData, _legal2044BuildOpts };'
   )(DB, _isAlive, win, regul, () => ({}), () => true, STD_2044,
     ['222', '225', '229'].map((num) => ({ num, libelle: num, type: 'charge' })),
     (m) => m.cat === 'Loyers encaissés', (m) => (m.cr || 0) - (m.db || 0), () => '');
@@ -463,16 +463,15 @@ function lecteurs2044(DB, exclus = []) {
   return {
     wizardOpts: () => f._legal2044WizardOpts(ent, 2026),
     wizardData: () => f._legal2044WizardData(ent, 2026),
-    compta: () => f._computeComptaBailleur(ent, 2026, DB.logements),
     finances: () => f._legal2044BuildOpts('2026', ent.nom),
   };
 }
 const avecEntite = (db) => { db.logements = db.logements.map((l) => ({ ...l, entity: 'SCI' })); return db; };
 
-describe('9 · lecteurs 2044 — eau ET copropriété, de bout en bout (assistant, Finances, indicateur compta)', () => {
+describe('9 · lecteurs 2044 — eau ET copropriété, de bout en bout (assistant, Finances)', () => {
   const departAu31Mars = (cat) => avecEntite(dbDe({ historique: [hist('TIL-A1', '2024-01-01', '2026-03-31', 'Alice')], mouvements: chargesMensuelles('TIL-A1', 100, cat) }));
 
-  it('eau : 900 € en 225 partout — assistant (total + 9 lignes de détail), Finances, indicateur compta', () => {
+  it('eau : 900 € en 225 partout — assistant (total + 9 lignes de détail), Finances', () => {
     const L = lecteurs2044(departAu31Mars(RECUP));
     expect(L.wizardOpts().partBailleur225).toBe(900);
     const d = L.wizardData();
@@ -480,7 +479,6 @@ describe('9 · lecteurs 2044 — eau ET copropriété, de bout en bout (assistan
     expect(d.byLine['225'].mvts).toHaveLength(9);
     expect(d.totaux.partBailleurInjectee).toBe(900);
     expect(L.finances().partBailleur225).toBe(900);
-    expect(L.compta().partBailleur).toBe(900);
   });
 
   it('copropriété directe : 1 200 € en 229, 0 en 225 et AUCUNE ligne 225 au détail — partout', () => {
@@ -491,7 +489,6 @@ describe('9 · lecteurs 2044 — eau ET copropriété, de bout en bout (assistan
     expect(d.byLine['225'].total).toBe(0);
     expect(d.byLine['225'].mvts).toHaveLength(0);
     expect(L.finances().partBailleur225).toBe(0);
-    expect(L.compta().partBailleur).toBe(0);
   });
 
   it('copropriété ET eau sur le même lot : le détail 225 ne liste que l\'eau (mêmes lignes que le total)', () => {
@@ -502,14 +499,11 @@ describe('9 · lecteurs 2044 — eau ET copropriété, de bout en bout (assistan
     expect(r2(d.byLine['225'].mvts.reduce((s, m) => s + m.montant, 0))).toBe(900);
   });
 
-  it('bail nu reconduit tacitement : 0 en 225 partout, occupation 100 % à l\'indicateur compta', () => {
+  it('bail nu reconduit tacitement : 0 en 225 partout', () => {
     const db = avecEntite(dbDe({ baux: { 'TIL-A1': { type: 'nu', debut: '2023-07-01', fin: '2026-06-30', ch: 100, locataires: [{ nom: 'Tom' }] } }, mouvements: chargesMensuelles('TIL-A1') }));
     const L = lecteurs2044(db);
     expect(L.wizardOpts().partBailleur225).toBe(0);
     expect(L.finances().partBailleur225).toBe(0);
-    const c = L.compta();
-    expect(c.partBailleur).toBe(0);
-    expect(c.kpiOcc).toBe(100);
   });
 });
 
@@ -524,12 +518,11 @@ describe('10 · lot MEUBLÉ (hors 2044 foncière) : sa vacance n\'entre pas dans
       : chargesMensuelles('MEU-1'),
   }));
 
-  it('charges directes du lot meublé après son départ : 0 en 225 (assistant, Finances, compta)', () => {
+  it('charges directes du lot meublé après son départ : 0 en 225 (assistant, Finances)', () => {
     const L = lecteurs2044(parc(false), ['MEU-1']);
     expect(L.wizardOpts().partBailleur225).toBe(0);
     expect(L.wizardData().byLine['225'].mvts).toHaveLength(0);
     expect(L.finances().partBailleur225).toBe(0);
-    expect(L.compta().partBailleur).toBe(0);
   });
 
   it('lot nu ET lot meublé en vacance : l\'assistant ne détaille que le lot nu (mêmes lignes que le total)', () => {

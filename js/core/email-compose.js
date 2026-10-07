@@ -450,8 +450,8 @@ Cordialement,
 Nous accusons bonne réception du dépôt de garantie d'un montant de {{bail.dg}} € versé le {{dateVersement}} pour le logement {{bail.adrBien}}.
 
 Ce dépôt de garantie sera conservé pendant toute la durée du bail et restitué dans les conditions prévues par l'article 22 de la loi du 6 juillet 1989 :
-- Délai de 1 mois si EDL de sortie sans dégradation par rapport à l'EDL d'entrée
-- Délai de 2 mois si dégradations constatées (et arrêté de comptes copro non encore disponible)
+- 1 mois à compter de la remise des clés si l'état des lieux de sortie est conforme à l'état des lieux d'entrée
+- 2 mois à compter de la remise des clés dans les autres cas
 
 Le dépôt de garantie est rémunéré uniquement dans certaines conditions très restrictives (non applicable dans la majorité des baux d'habitation classiques).
 
@@ -773,7 +773,7 @@ Synthèse :
 
 {{conclusionEDL}}
 
-Le solde de votre dépôt de garantie sera traité dans les délais légaux (1 mois si pas de dégradation, 2 mois si dégradations à déduire).
+Le solde de votre dépôt de garantie sera restitué dans les délais légaux : 1 mois à compter de la remise des clés si l'état des lieux de sortie est conforme à l'état des lieux d'entrée, 2 mois sinon (article 22 de la loi du 6 juillet 1989).
 
 Cordialement,
 {{entite.gerant}}
@@ -823,7 +823,7 @@ Date prévue du virement : {{dateRestitution}}
 
 Vous trouverez en pièce jointe les factures / devis justifiant les retenues, conformément à l'article 22 de la loi du 6 juillet 1989.
 
-Le délai légal de restitution est de 2 mois suivant l'EDL de sortie lorsque des retenues sont effectuées.
+Le délai légal de restitution court à compter de la remise des clés : 1 mois si l'état des lieux de sortie est conforme à l'état des lieux d'entrée, 2 mois sinon (article 22 de la loi du 6 juillet 1989).
 
 Si vous souhaitez contester un poste, merci de nous adresser un courrier motivé sous 15 jours.
 

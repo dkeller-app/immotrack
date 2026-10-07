@@ -207,41 +207,6 @@ export function resolveScope(selection, logements, opts) {
   return scope;
 }
 
-/**
- * INSTRUMENTATION (ne change AUCUN calcul) — compte l'argent que le cran « Tout » voit et
- * qu'aucun sous-périmètre ne peut voir : mouvement sans `qui` ni `imm`, ou dont le `qui`
- * désigne un lot inconnu/supprimé. C'est le constat I5 de l'audit : le héro « Tout » ne
- * pourra pas égaler la Σ des bailleurs tant qu'il reste des orphelins. Décision produit en
- * attente — ce compteur sert à la mesurer, pas à la trancher.
- * @param {Array} mouvements DB.mouvements
- * @param {Array} logements DB.logements
- * @returns {{nb:number, montant:number, refsInconnues:string[]}}
- */
-export function orphelinsHorsPerimetre(mouvements, logements) {
-  const refs = new Set(_liveLots(logements).map((l) => _nr(l.ref)).filter(Boolean));
-  const imms = new Set(_liveLots(logements).map((l) => _s(l.imm)).filter(Boolean));
-  const ents = new Set(_liveLots(logements).map((l) => _s(l.entity)).filter(Boolean));
-  const inconnues = new Set();
-  let nb = 0, montant = 0;
-  (Array.isArray(mouvements) ? mouvements : []).forEach((mv) => {
-    if (!mv || mv._deleted) return;
-    const qui = _s(mv.qui), imm = _s(mv.imm);
-    // Frais de niveau bailleur : rattachés via `ent`… à condition que le bailleur EXISTE
-    // encore. « SCI:<entité supprimée> » n'est visible dans aucun périmètre : c'est un orphelin.
-    if (qui.indexOf('SCI:') === 0) {
-      if (ents.has(qui.slice(4))) return;
-      inconnues.add(qui);
-      nb++; montant += Math.abs((Number(mv.cr) || 0) - (Number(mv.db) || 0));
-      return;
-    }
-    if (qui) { if (refs.has(_nr(qui))) return; inconnues.add(qui); }
-    else if (imm && imms.has(imm)) return;
-    nb++;
-    montant += Math.abs((Number(mv.cr) || 0) - (Number(mv.db) || 0));
-  });
-  return { nb, montant: Math.round(montant * 100) / 100, refsInconnues: Array.from(inconnues).sort() };
-}
-
 /** Libellé affichable du périmètre (« SCI Alpha · Lilas », « Sans bailleur (à rattacher) »…). */
 export function scopeLabel(scope) {
   if (!scope || scope.kind === SCOPE_KIND.ALL) return LABEL_TOUT;

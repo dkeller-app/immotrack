@@ -385,18 +385,37 @@ describe('SupabaseStore.persistConfig — écrit le sous-ensemble CONFIG (compl�
 })
 
 describe('SupabaseStore.buildResolvers — INCLUT les tombstones (remove en cascade doit résoudre le row.id)', () => {
-  it('un parent _deleted RESTE résolvable → un remove d\'enfant en cascade peut calculer son row.id et softDeleter', () => {
-    const s = storeWith(mockWriter(), {
+  it('un parent _deleted RESTE résolvable → un remove d\'enfant en cascade peut calculer son row.id et softDeleter', async () => {
+    const db = {
       entites: [{ nom: 'Morte', _deleted: true, immeubles: [{ nom: 'ImmDeMorte', _deleted: true }] }],
       logements: [{ ref: 'L-DEL', _deleted: true }],
-      documents: [{ id: 2, _deleted: true }],
-    })
+      documents: [{ id: 2 }],
+    }
+    const s = storeWith(mockWriter(), db)
+    await s.upsert('documents', { id: 2 })   // ligne du document connue du serveur (version trackée)
+    db.documents[0]._deleted = true          // puis tombstonée par l'app
     const r = s.buildResolvers()
     // tombstonés mais RÉSOLVABLES : sinon mapToRow(enfant)→null → remove skipped → suppression perdue
     expect(r.entiteByNom.has('morte')).toBe(true)
     expect(r.immeubleByNom.has('immdemorte')).toBe(true)
     expect(r.logementByRef.has('l-del')).toBe(true)
     expect(r.documentByLegacy.has('2')).toBe(true)
+  })
+})
+
+describe('SupabaseStore — pj_document_id seulement vers un document déjà écrit (contre-audit 06/10/2026)', () => {
+  const db = () => ({ entites: [{ nom: 'SCI A' }], logements: [{ ref: 'F-1', entity: 'SCI A' }], documents: [{ id: 7, parentType: 'mouvement', parentId: 70 }] })
+  it('document neuf pas encore écrit (ou refusé ce flush) → mouvement sans pj_document_id, pas de FK violée', async () => {
+    const w = mockWriter(); const s = storeWith(w, db())
+    expect(s.buildResolvers().documentByLegacy.has('7')).toBe(false)
+    await s.upsert('mouvements', { id: 70, qui: 'F-1', date: '2026-10-01', pjId: 7 })
+    expect(w._tbl.get('mouvements').get('uuid:mouvement|70').row.pj_document_id).toBe(null)
+  })
+  it('document déjà écrit → pj_document_id renseigné (comportement inchangé)', async () => {
+    const w = mockWriter(); const s = storeWith(w, db())
+    await s.upsert('documents', { id: 7, parentType: 'mouvement', parentId: 70 })
+    await s.upsert('mouvements', { id: 70, qui: 'F-1', date: '2026-10-01', pjId: 7 })
+    expect(w._tbl.get('mouvements').get('uuid:mouvement|70').row.pj_document_id).toBe('uuid:document|7')
   })
 })
 

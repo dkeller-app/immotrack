@@ -23,9 +23,10 @@ describe('empreintes de cache-busting', () => {
     const balises = [...html.matchAll(re)]
     // v15.710 : +2 helpers (bail-paraphes, version-app — PARAPHE-UNIQUE).
     // BAUX-ECHUS : +3 helpers (bail-duree, bail-echeance, bail-clauses-fin — règle d'échéance par type, clauses v5).
+    // DG-DELAI (v15.725) : +1 helper (dg-delai).
     // B3 (RETOURS-2026-10-05) : +1 helper (log-label — nom d'affichage du logement).
     // BAIL-EN-COURS-SIGNE-HORS-PROPRYO : +1 helper (bail-signature-etat).
-    expect(balises.length, '31 helpers + config + 3 app-part + qrcode attendus').toBe(36)
+    expect(balises.length, '32 helpers (dont dg-delai, log-label, bail-signature-etat) + config + 3 app-part + qrcode attendus').toBe(37)
     for (const [, rel, v] of balises) {
       expect(v, `${rel} a changé : lancer node tools/stamp-app-parts.mjs`).toBe(await sha(rel))
     }

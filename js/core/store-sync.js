@@ -255,31 +255,47 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   const _bareKey = (keyFn, rec) => (rec && rec._espaceId != null) ? keyFn({ ...rec, _espaceId: null }) : keyFn(rec)
   // Réadoption d'UNE collection, sur ses records SOURCES (vivants). Renvoie l'ensemble des clés
   // nues restées AMBIGUËS (jumeau vivant non résolu) → sert à suspendre les removes correspondants.
-  function _adoptTags(coll, keyFn, srcs) {
+  // Enregistrement NEUF (clé inconnue du baseline) : son espace est DÉDUIT de son rattachement par le
+  // store multi-espace (store.inferEspace, cf. store-multi inferEspaceOf) — un mouvement, un document ou
+  // un rappel créé par un associé sur un lot d'une SCI TIERCE part dans l'espace de cette SCI, plus dans
+  // l'espace propre (incident 05/10/2026, SCI SMARTOSAURUS). Absent (store mono) ou indécidable → D2.
+  const _infer = typeof store.inferEspace === 'function' ? store.inferEspace : null
+  function _adoptTags(coll, keyFn, srcs, db) {
     const base = baseline.get(coll)
     let unresolved = null
-    if (!base || base.size === 0) return unresolved
+    const hasBase = !!(base && base.size)
+    if (!hasBase && !_infer) return unresolved
     let idx = null   // paresseux (uniquement si un record non tagué existe) : cléNue → { untagged, tags }
     for (const probe of srcs) {
       // baux : la clé (__key) vit dans le dict, pas dans la valeur → sources() fournit un wrapper
       // { __key, __src } ; le tag se pose sur __src (l'objet bail vivant). Ailleurs probe = source.
       const target = (probe && probe.__src !== undefined) ? probe.__src : probe
       if (!target || typeof target !== 'object' || target._espaceId != null || isDeleted(target)) continue
-      if (idx === null) {
-        idx = new Map()
-        for (const v of base.values()) {
-          const tag = v.rec && v.rec._espaceId
-          const bare = _bareKey(keyFn, v.rec)
-          let e = idx.get(bare); if (!e) { e = { untagged: false, tags: new Set() }; idx.set(bare, e) }
-          if (tag == null) e.untagged = true; else e.tags.add(tag)
+      if (hasBase) {
+        if (idx === null) {
+          idx = new Map()
+          for (const v of base.values()) {
+            const tag = v.rec && v.rec._espaceId
+            const bare = _bareKey(keyFn, v.rec)
+            let e = idx.get(bare); if (!e) { e = { untagged: false, tags: new Set() }; idx.set(bare, e) }
+            if (tag == null) e.untagged = true; else e.tags.add(tag)
+          }
+        }
+        const e = idx.get(keyFn(probe))   // probe non tagué → keyFn(probe) = clé nue
+        if (e) {
+          if (!e.untagged && e.tags.size === 1) target._espaceId = e.tags.values().next().value
+          else if (e.tags.size) {           // ambigu (ou clé nue connue + homonymes tagués) → removes suspendus
+            if (!unresolved) unresolved = new Set()
+            unresolved.add(keyFn(probe))
+          }
+          continue
         }
       }
-      const e = idx.get(keyFn(probe))   // probe non tagué → keyFn(probe) = clé nue
-      if (!e) continue                  // clé inconnue du baseline → vrai nouveau record (D2)
-      if (!e.untagged && e.tags.size === 1) target._espaceId = e.tags.values().next().value
-      else if (e.tags.size) {           // ambigu (ou clé nue connue + homonymes tagués) → removes suspendus
-        if (!unresolved) unresolved = new Set()
-        unresolved.add(keyFn(probe))
+      // clé inconnue du baseline → vrai nouveau record : espace de son rattachement, sinon D2.
+      if (_infer && db) {
+        const vue = (probe && probe.__src !== undefined) ? { ...probe.__src, __key: probe.__key } : probe
+        const t = _infer(coll, vue, db)
+        if (t != null) target._espaceId = t
       }
     }
     return unresolved
@@ -290,7 +306,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   function _adoptAll(db) {
     const suspended = new Map()
     for (const { coll, sources, key } of COLLECTIONS) {
-      const u = _adoptTags(coll, key, sources(db))
+      const u = _adoptTags(coll, key, sources(db), db)
       if (u) suspended.set(coll, u)
     }
     return suspended

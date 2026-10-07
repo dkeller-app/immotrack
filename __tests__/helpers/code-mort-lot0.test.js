@@ -1,0 +1,121 @@
+/**
+ * Garde-fou du LOT 0 « code mort » (chantier Finances source unique, 06/10/2026).
+ *
+ * Ces fonctions n'avaient AUCUN appelant atteignable : l'ancienne grille de widgets de l'Accueil
+ * (jamais rendue — `rAccueil` route vers `_renderAccueilPhone` / `_renderPilotage`), la modale
+ * entité #ov-ent-detail (ouverte seulement depuis ses propres boutons), d'anciens calculs
+ * comptables et des copies file:// de modules eux-mêmes sans appelant. Plusieurs portaient des
+ * règles de calcul périmées : un correctif écrit dessus ne s'affichait jamais (R-0, v15.716).
+ *
+ * Ils ne doivent pas revenir. Les commentaires qui racontent leur histoire sont autorisés ;
+ * une définition ou un appel (y compris dans un attribut `onclick`) ne l'est pas.
+ */
+
+import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseAst } from 'rollup/parseAst';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const lire = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+
+// Mots RÉELLEMENT présents dans le code : identifiants + mots des chaînes et gabarits (appels dans des
+// onclick="…"), par AST. Un nettoyage des commentaires par expression régulière prenait le « /* » de
+// 'image/*' pour un début de commentaire et rendait des centaines de lignes invisibles.
+function motsAst(src) {
+  const out = new Set();
+  const ast = parseAst(src, { allowReturnOutsideFunction: true });
+  (function v(n) {
+    if (!n || typeof n.type !== 'string') return;
+    if (n.type === 'Identifier') out.add(n.name);
+    else if (n.type === 'Literal' && typeof n.value === 'string') for (const m of n.value.matchAll(/[\w$]+/g)) out.add(m[0]);
+    else if (n.type === 'TemplateElement') for (const m of String(n.value.cooked ?? n.value.raw).matchAll(/[\w$]+/g)) out.add(m[0]);
+    for (const k of Object.keys(n)) {
+      const x = n[k];
+      if (Array.isArray(x)) x.forEach(v); else if (x && typeof x.type === 'string') v(x);
+    }
+  })(ast);
+  return out;
+}
+const motsTexte = (t) => new Set(t.match(/[\w$]+/g) || []);
+
+// index.html ASSEMBLÉ (coquille + app-part*.js inline) : scripts par AST ; balisage sans commentaires
+// HTML ni commentaires CSS (dans <style> seulement). Puis tout js/ hors js/app (déjà dans index.html).
+const HTML = lire('index.html');
+const SOURCES = (() => {
+  const out = [];
+  const scripts = [...HTML.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).filter((t) => t.trim());
+  scripts.forEach((t, i) => {
+    let m;
+    try { m = motsAst(t); } catch (e) { m = motsTexte(t); }
+    out.push(['index.html <script #' + i + '>', m]);
+  });
+  const balisage = HTML.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '').replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/g, (_m, o, css, f) => o + css.replace(/\/\*[\s\S]*?\*\//g, '') + f);
+  out.push(['index.html (balisage)', motsTexte(balisage)]);
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      const rel = dir + '/' + e.name;
+      if (e.isDirectory()) { if (e.name !== 'vendor' && rel !== 'js/app') walk(rel); }
+      else if (/\.(m?js)$/.test(e.name)) out.push([rel, motsAst(lire(rel))]);
+    }
+  };
+  walk('js');
+  return out;
+})();
+
+const SUPPRIMES = [
+  // Ancienne grille de widgets de l'Accueil et ses drills
+  'buildDashWidget', '_buildWidgetV1Legacy', '_buildWidgetV2Modern', '_heroV2', '_heroCashflowSeries',
+  '_buildHeroDrill', '_kpiMonthlySeries', '_buildRevDrill', '_buildChgDrill', '_occPerimetre', '_buildOccDrill',
+  '_buildBailSegments', '_getActiveBailHcCh', '_buildProgDrill', '_buildSoldeDrill', '_buildFluxDrill',
+  '_buildRdtDrill', '_realiseInclCat',
+  // Modale entité #ov-ent-detail
+  '_showEntModal', 'drillToEnt', 'drillToImm', 'drillToLog', '_entCardClick', '_immBulleClick', '_logMiniClick',
+  '_navToParent', 'drillEntToLoyers', '_isEntExpanded', 'toggleEntExpand',
+  // Bail : badge jamais lu (seule l'entrée Bail.getStatus le référençait)
+  'getBailStatus',
+  // Anciens calculs comptables / pilotage
+  '_computeComptaBailleur', '_renderComptaSparkline', '_renderEntFichePanelComptaGlobale', '_exportComptaBailleurCsv',
+  'getCurrentRent', '_pilSoldeLocataire', '_pilEncaisseMois',
+  // Modules sans appelant (et leurs copies file://)
+  '_listerImpayesActifs', '_statutQuittance', '_escaladeAlerte', 'QUITTANCE_STATUS', 'orphelinsHorsPerimetre',
+  '_finScopeOrphelins', '_irlDeltaImm', '_irlListAlertes', '_irlProjectionAnnuelle', '_irlListLotsForDrill',
+];
+
+describe('Lot 0 — le code mort supprimé ne revient pas', () => {
+  it('l’analyse voit bien tout le code (témoins vivants présents)', () => {
+    // Si l'analyse perdait une partie du code, l'absence des noms supprimés ne prouverait rien.
+    for (const temoin of ['_avenantVoir', '_handleAttachmentUpload', 'previewBailData', '_finMonthly', 'openNewMv']) {
+      expect(SOURCES.some(([, mots]) => mots.has(temoin)), temoin + ' introuvable — l’analyse est aveugle').toBe(true);
+    }
+  });
+
+  for (const nom of SUPPRIMES) {
+    it(nom + ' : ni définition ni appel', () => {
+      const coupables = SOURCES.filter(([, mots]) => mots.has(nom)).map(([f]) => f);
+      expect(coupables, nom + ' réapparaît').toEqual([]);
+    });
+  }
+
+  it('les modules sans appelant restent supprimés', () => {
+    for (const f of ['js/core/quittances-actives.js', 'js/core/irl-drill.js']) {
+      expect(fs.existsSync(path.join(ROOT, f)), f).toBe(false);
+    }
+  });
+
+  it('les modales que plus rien n’ouvrait restent supprimées', () => {
+    const balisage = HTML.replace(/<!--[\s\S]*?-->/g, '');
+    for (const id of ['ov-ent-detail', 'ov-irl-drill']) expect(balisage, id).not.toContain('id="' + id + '"');
+  });
+
+  it('previewBailData ne reconstruit plus les 13 pages HTML mortes (clauses périmées)', () => {
+    const i = HTML.indexOf('function previewBailData('), j = HTML.indexOf('\n}', i);
+    expect(i).toBeGreaterThan(-1);
+    const corps = HTML.slice(i, j);
+    expect(corps).not.toMatch(/\bconst p(1[0-3]?|[2-9]) = /);
+    expect(corps).not.toContain('class="bail-page" id="page-');
+    expect(corps).toContain('buildBailStructure(');           // le seul rendu, inchangé
+  });
+});
