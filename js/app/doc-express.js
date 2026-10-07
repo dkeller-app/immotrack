@@ -80,11 +80,26 @@ const txt = (v, defaut = '…') => (v == null || String(v).trim() === '' ? defau
 const slug = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const PIED = 'Document établi avec Propryo (propryo.fr). Il ne remplace pas un conseil juridique.'
 
+// Bandeau d'identité commun à TOUS les documents de l'app (gabarit DOCUMENTS-PROPRYO, variante B) : logo Propryo vectoriel à
+// droite, filet fin dessous, gauche vide (aucun logo de bailleur connu ici). Même fonction que la quittance, le bail et l'EDL
+// de l'app (window._pdfDrawBrandzone). Retourne l'ordonnée où le contenu peut reprendre ; sans la fonction (contexte hors
+// app), le document sort sans bandeau plutôt qu'en erreur.
+export function bandeauPropryo(pdf, y, largeur, marge) {
+  try {
+    if (typeof window !== 'undefined' && typeof window._pdfDrawBrandzone === 'function') {
+      const apres = window._pdfDrawBrandzone(pdf, {}, marge, y, largeur - marge)
+      if (typeof apres === 'number' && apres > y) return apres
+    }
+  } catch (e) { try { console.warn('[doc-express] bandeau', e) } catch (_) {} }
+  return y
+}
+
 // Petit « stylo » au-dessus de jsPDF : sauts de page automatiques, titres, paragraphes.
 function stylo(J, { marge = 20, titrePage = '' } = {}) {
   const d = new J({ unit: 'mm', format: 'a4' })
   const W = 210, H = 282
   const s = { d, W, M: marge, y: 26 }
+  s.y = bandeauPropryo(d, 14, W, marge) + 4
   s.saut = h => { if (s.y + h > H) { d.addPage(); s.y = 24 } }
   s.titreDoc = (t, sous) => {
     d.setFont('helvetica', 'bold'); d.setFontSize(20); d.setTextColor(0); d.text(t, s.M, s.y); s.y += 8
@@ -116,7 +131,7 @@ function stylo(J, { marge = 20, titrePage = '' } = {}) {
 export function pdfQuittance(J, c) {
   const l = num(c.loyer), ch = num(c.charges), periode = txt(c.mois, '') + ' ' + txt(c.annee, '')
   const d = new J({ unit: 'mm', format: 'a4' }), W = 210, M = 22
-  let y = 28
+  let y = bandeauPropryo(d, 14, W, M) + 8
   d.setFont('helvetica', 'bold'); d.setFontSize(22); d.text('QUITTANCE DE LOYER', M, y); y += 9
   d.setFont('helvetica', 'normal'); d.setFontSize(12); d.setTextColor(90); d.text('Période : ' + periode.trim(), M, y); y += 14
   d.setTextColor(0); d.setFontSize(11)

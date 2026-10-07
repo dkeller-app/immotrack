@@ -2,7 +2,7 @@
 // générateurs (jsPDF simulé), fenêtre de remise (DOM simulé).
 import { describe, it, expect } from 'vitest'
 import {
-  validerDocExpress, lireEnAttente, purgerPerimes, genererDocument, consommerDocExpress, resumeDocument, afficherRemise,
+  bandeauPropryo, validerDocExpress, lireEnAttente, purgerPerimes, genererDocument, consommerDocExpress, resumeDocument, afficherRemise,
   CLE_DOC_EXPRESS, MESSAGE_SUIVI, MAX_CHAMP, MAX_TAILLE, REF_EDL, REF_LOI_17_1, TEXTE_17_1_II, TEXTE_17_1_III, APPLICATION_17_1,
 } from '../../js/app/doc-express.js'
 import { readFileSync } from 'node:fs'
@@ -180,6 +180,28 @@ describe('bandeau « document prêt » sur la page de connexion', () => {
     inline({ ls: mem(), search: '?inscription&doc=attente', opener: op, ecouteurs: ec, note })
     ec[0]({ origin: 'https://evil.example', source: op, data: { propryo: 'doc', doc: DOC } })
     expect(note.hidden).toBe(true)
+  })
+})
+
+describe('bandeau Propryo (gabarit de l’app)', () => {
+  const avecBandeau = (fn) => { const appels = []; globalThis.window = { _pdfDrawBrandzone: (pdf, ent, x, y, droite) => { appels.push({ ent, x, y, droite }); return y + 20 } }; try { fn(appels) } finally { delete globalThis.window } }
+  it('quittance, état des lieux et avenant ouvrent sur le bandeau commun de l’app, et le contenu reprend dessous', () => {
+    for (const champs of [{ type: 'quittance', champs: { bailleur: 'A' } }, { type: 'edl', champs: { sens: 'entree' } }, { type: 'avenant', champs: { classeDpe: 'D' } }]) {
+      avecBandeau(appels => {
+        const d = new FauxPdf(); genererDocument(function () { return d }, champs)
+        expect(appels.length).toBe(1)
+        expect(appels[0].ent).toEqual({}); expect(appels[0].droite).toBeGreaterThan(appels[0].x)
+      })
+    }
+  })
+  it('sans la fonction de l’app (hors app) : le document sort quand même, sans bandeau', () => {
+    expect(bandeauPropryo(new FauxPdf(), 14, 210, 20)).toBe(14)
+    const d = new FauxPdf(); genererDocument(function () { return d }, { type: 'quittance', champs: { loyer: '1' } })
+    expect(tout(d)).toContain('QUITTANCE DE LOYER')
+  })
+  it('un bandeau défaillant ne casse jamais le document', () => {
+    globalThis.window = { _pdfDrawBrandzone: () => { throw new Error('logo') } }
+    try { expect(bandeauPropryo(new FauxPdf(), 14, 210, 20)).toBe(14) } finally { delete globalThis.window }
   })
 })
 
