@@ -81,6 +81,7 @@ export const REGISTRE = [
   { motif: exacte('immo_backup_reminder_off'), classe: 'etat', note: 'rappel de sauvegarde désactivé', exemples: ['immo_backup_reminder_off'] },
   { motif: exacte('immo_fullapp_once'), classe: 'etat', note: 'ouverture unique de l’app complète', exemples: ['immo_fullapp_once'] },
   { motif: exacte('propryo_pwa_refus'), classe: 'etat', note: 'invitation à installer refusée', exemples: ['propryo_pwa_refus'] },
+  { motif: exacte('imsb-doc-express'), classe: 'etat', note: 'document express venu de propryo.fr, en attente de l’inscription (48 h)', exemples: ['imsb-doc-express'] },
 
   // ── session
   { motif: new RegExp('^' + echap(AUTH_STORAGE_KEY) + '(-code-verifier)?$'), classe: 'session', note: 'jeton de session (PWA)', exemples: [AUTH_STORAGE_KEY, AUTH_STORAGE_KEY + '-code-verifier'] },

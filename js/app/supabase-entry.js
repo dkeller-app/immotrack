@@ -1747,6 +1747,7 @@ async function onLoggedIn(api, overlay, user) {
       overlay.remove()                            // dévoile l'app complète sur les données cloud
       _perfMark('app')
       _prechargerLibsPdf()
+      _docExpressApresConnexion()
       return
     }
     renderProof(overlay, api, user, esp, db)
@@ -1807,6 +1808,13 @@ function _perfMark(nom) {
     const t = n => { const ms = performance.getEntriesByName('immo:' + n, 'mark'); const m = ms[ms.length - 1]; return m ? Math.round(m.startTime) : '?' }
     const nav = performance.getEntriesByType('navigation')[0]
     console.info('[perf] page prête ' + (nav ? Math.round(nav.domContentLoadedEventEnd) : '?') + ' ms · modules ' + t('imports') + ' / miroir ' + t('miroir') + ' / session ' + t('session') + ' · espaces ' + t('espaces') + ' · données ' + t('donnees') + ' · app affichée ' + t('app') + ' ms')
+  } catch (e) {}
+}
+
+// Document express venu de propryo.fr : généré et téléchargé une fois l'app affichée (jamais bloquant).
+function _docExpressApresConnexion() {
+  try {
+    setTimeout(() => { import('./doc-express.js').then(m => m.consommerDocExpress()).catch(() => {}) }, 800)
   } catch (e) {}
 }
 
