@@ -804,7 +804,7 @@ async function boot() {
           location.reload(); return        // déconnecté : on recharge → formulaire (mode inscription si ?inscription)
         }
         console.info('[auth] déconnexion refusée (travail non synchronisé) : session conservée')
-        try { if (typeof window.showToast === 'function') window.showToast("Du travail n'est pas encore synchronisé : tu restes connecté.", 'warn', 7000) } catch (e) {}
+        try { if (typeof window.showToast === 'function') window.showToast("Du travail n'est pas encore synchronisé : la session reste ouverte.", 'warn', 7000) } catch (e) {}
       }
     } catch (e) { console.warn('[auth] déconnexion depuis propryo.fr', e) }
   }
@@ -846,7 +846,7 @@ function wireLoginForm(api, overlay, prefillEmail) {
   const q = s => overlay.querySelector(s)
   const applyMode = () => {
     const lead = q('#imsb-form .imsb-lead')
-    if (lead) lead.textContent = mode === 'signup' ? 'Essaie tout Propryo pendant 30 jours, sans carte bancaire.' : 'Connecte-toi pour gérer tes locations.'
+    if (lead) lead.textContent = mode === 'signup' ? 'Tout Propryo à l\'essai pendant 30 jours, sans carte bancaire.' : 'Se connecter pour gérer ses locations.'
     const h2 = q('#imsb-form .imsb-h2'), sub = q('#imsb-submit'), lnk = q('#imsb-signup'), pw = q('#imsb-pass')
     if (mode === 'signup') {
       if (h2) h2.textContent = 'Créer un compte'
@@ -880,7 +880,7 @@ function wireLoginForm(api, overlay, prefillEmail) {
       _annulerChoixAuth()
       if (!s.ok) {
         setBusy(overlay, false)
-        if (/already.*(regist|exist)|user already/i.test(s.error || '')) { showError(overlay, 'Ce compte existe déjà — connecte-toi.'); mode = 'login'; applyMode(); return }
+        if (/already.*(regist|exist)|user already/i.test(s.error || '')) { showError(overlay, 'Ce compte existe déjà : se connecter.'); mode = 'login'; applyMode(); return }
         showError(overlay, traduireErreur(s.error)); return   // inclut le refus du hook (« pas encore autorisé »)
       }
       // Compte créé (confirmation email désactivée → session directe). On enchaîne sur la connexion.
@@ -888,7 +888,7 @@ function wireLoginForm(api, overlay, prefillEmail) {
       const r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
       _annulerChoixAuth()
       setBusy(overlay, false)
-      if (!r.ok) { showError(overlay, 'Compte créé — connecte-toi avec ton mot de passe.'); mode = 'login'; applyMode(); return }
+      if (!r.ok) { showError(overlay, 'Compte créé : se connecter avec le mot de passe choisi.'); mode = 'login'; applyMode(); return }
       onLoggedIn(api, overlay, r.user)
       return
     }
@@ -923,7 +923,7 @@ function wireLoginForm(api, overlay, prefillEmail) {
 // Aperçu (invitation_preview) → connexion / création de compte → accept_invitation → on enchaîne sur
 // l'app SANS recharger (garde la session en mémoire) ; la RLS scope l'invité à ses SCIs octroyées.
 function _inviteErr(m) {
-  if (/ALREADY_FULL_MEMBER/.test(m)) return 'Tu es déjà membre à part entière de cet espace.'
+  if (/ALREADY_FULL_MEMBER/.test(m)) return 'Ce compte est déjà membre à part entière de cet espace.'
   if (/ALREADY_USED/.test(m)) return 'Cette invitation a déjà été utilisée.'
   if (/REVOKED/.test(m)) return 'Cette invitation a été annulée.'
   if (/EXPIRED/.test(m)) return 'Cette invitation a expiré.'
@@ -966,7 +966,7 @@ async function acceptInviteFlow(api, client, overlay, token) {
   if (user) {
     left.innerHTML = `${brand()}<div class="imsb-mid">
       <h2 class="imsb-h2">Rejoindre un partage</h2>
-      <p class="imsb-lead">On te donne accès à : ${perim}<br>dans « ${espace} ».</p>
+      <p class="imsb-lead">Accès donné à : ${perim}<br>dans « ${espace} ».</p>
       <div class="imsb-err" id="imsb-error" style="display:none"></div>
       <button class="imsb-btn imsb-primary" id="imsb-join" type="button">Rejoindre en tant que ${escapeHtml(user.email)}</button>
       <a class="imsb-btn imsb-ghost" id="imsb-join-other" href="#" style="text-decoration:none;margin-top:6px">Utiliser un autre compte</a></div>`
@@ -988,14 +988,14 @@ async function acceptInviteFlow(api, client, overlay, token) {
   }
   left.innerHTML = `${brand()}<form id="imsb-iform" class="imsb-mid" autocomplete="on">
     <h2 class="imsb-h2">Rejoindre un partage</h2>
-    <p class="imsb-lead">On te donne accès à : ${perim}<br>dans « ${espace} ». Crée ton compte (ou connecte-toi) pour rejoindre.</p>
+    <p class="imsb-lead">Accès donné à : ${perim}<br>dans « ${espace} ». Créer un compte (ou se connecter) pour rejoindre.</p>
     <div class="imsb-err" id="imsb-error" style="display:none"></div>
     <label class="imsb-flabel">Email</label>
-    <input class="imsb-input" id="imsb-email" type="email" placeholder="toi@exemple.fr" required autocomplete="username">
+    <input class="imsb-input" id="imsb-email" type="email" placeholder="nom@exemple.fr" required autocomplete="username">
     <label class="imsb-flabel">Mot de passe</label>
     <input class="imsb-input" id="imsb-pass" type="password" placeholder="6 caractères minimum" required autocomplete="current-password" minlength="6">
     <button class="imsb-btn imsb-primary" id="imsb-submit" type="submit">Créer mon compte et rejoindre</button>
-    <p class="imsb-note" style="margin-top:12px">Déjà un compte ? Saisis tes identifiants : on te connecte automatiquement.</p></form>`
+    <p class="imsb-note" style="margin-top:12px">Déjà un compte ? Saisir les identifiants : la connexion se fait automatiquement.</p></form>`
   left.querySelector('#imsb-iform').onsubmit = async (e) => {
     e.preventDefault()
     const email = left.querySelector('#imsb-email').value.trim()
@@ -1014,7 +1014,7 @@ async function acceptInviteFlow(api, client, overlay, token) {
     } else if (!r.ok) {
       return fail(traduireErreur(r.error))
     } else if (r.ok && !r.session) {
-      return fail('Compte créé : il reste à confirmer ton email (l\'envoi d\'emails n\'est pas encore activé — préviens la personne qui t\'a invité).')
+      return fail('Compte créé : il reste à confirmer l\'email (l\'envoi d\'emails n\'est pas encore activé : prévenir la personne qui a envoyé l\'invitation).')
     }
     if (!(await accept())) btn.disabled = false
   }
@@ -1773,7 +1773,7 @@ function renderProof(overlay, api, user, esp, db, err) {
         <p class="imsb-lead"><b>${escapeHtml(user.email)}</b> — espace « ${escapeHtml(esp.espaceNom || '?')} »</p>
         <table class="imsb-tbl">${rows}</table>
         <button class="imsb-btn imsb-primary" id="imsb-openapp">📂 Voir dans l'app complète →</button>
-        <p class="imsb-note" id="imsb-note">Tes données cloud sont prêtes. Ouvre l'app complète (tableau de bord, fiches, listes…).</p>
+        <p class="imsb-note" id="imsb-note">Les données cloud sont prêtes. Ouvrir l'app complète (tableau de bord, fiches, listes…).</p>
         <button class="imsb-btn imsb-ghost" id="imsb-logout">Se déconnecter</button>
       </div>`
   }
@@ -1830,7 +1830,7 @@ function _prechargerLibsPdf() {
 function renderLoading(overlay, user) {
   overlay.classList.add('imv-auth-open')
   overlay.querySelector('#imsb-left').innerHTML = `${brand()}<div class="imsb-mid">
-    <div class="imsb-spin"></div><p class="imsb-lead">Chargement de tes données…</p></div>`
+    <div class="imsb-spin"></div><p class="imsb-lead">Chargement des données…</p></div>`
 }
 
 function brand() {

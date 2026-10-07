@@ -10,13 +10,13 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.729</title>
+<title>Propryo v15.730</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
      on masque le document par sécurité. Les aperçus internes (iframes data:/srcdoc) ne sont PAS l'app. -->
 <script>(function(){try{if(window.top!==window.self){window.top.location=window.self.location;}}catch(e){try{document.documentElement.style.display='none';}catch(_){}}})();</script>
-<script>/* Document express venu de propryo.fr : réception par postMessage (aucune donnée dans l'URL ni l'historique). Accepté seulement depuis propryo.fr / www.propryo.fr ET l'onglet qui a ouvert l'app. Purge à chaque chargement. Traité par js/app/doc-express.js. */(function(){try{var K='imsb-doc-express',T=30*60*1000,ls=localStorage;try{var r=JSON.parse(ls.getItem(K)||'null');if(r&&(!r.doc||!(Date.now()-r.t<T)))ls.removeItem(K);}catch(e){try{ls.removeItem(K);}catch(_){}}if(!/[?&]doc=attente(&|$)/.test(location.search)||!window.opener)return;var O=['https://propryo.fr','https://www.propryo.fr'],n=0,fini=false;function annoncer(){if(fini)return;O.forEach(function(o){try{window.opener.postMessage({propryo:'doc-pret'},o);}catch(e){}});if(++n<60)setTimeout(annoncer,500);}window.addEventListener('message',function(ev){if(fini||O.indexOf(ev.origin)<0||ev.source!==window.opener)return;var d=ev.data;if(!d||d.propryo!=='doc'||!d.doc||typeof d.doc!=='object'||typeof d.doc.type!=='string')return;fini=true;var s='';try{s=JSON.stringify(d.doc);}catch(e){}if(!s||s.length>20000){try{window.opener.postMessage({propryo:'doc-refus',raison:'taille'},ev.origin);}catch(e){}return;}try{ls.setItem(K,JSON.stringify({doc:d.doc,t:Date.now()}));window.opener.postMessage({propryo:'doc-recu'},ev.origin);}catch(e){}});annoncer();}catch(e){}})();</script>
+<script>/* Document express venu de propryo.fr : réception par postMessage (aucune donnée dans l'URL ni l'historique). Accepté seulement depuis propryo.fr / www.propryo.fr ET l'onglet qui a ouvert l'app. Purge à chaque chargement. Traité par js/app/doc-express.js. */(function(){try{var K='imsb-doc-express',T=30*60*1000,ls=localStorage;function montrer(){var n=document.getElementById('imsb-doc-note');if(n){n.hidden=false;}else{document.addEventListener('DOMContentLoaded',montrer);}}try{var r=JSON.parse(ls.getItem(K)||'null');if(r&&(!r.doc||!(Date.now()-r.t<T)))ls.removeItem(K);}catch(e){try{ls.removeItem(K);}catch(_){}}try{if(ls.getItem(K))montrer();}catch(e){}if(!/[?&]doc=attente(&|$)/.test(location.search)||!window.opener)return;var O=['https://propryo.fr','https://www.propryo.fr'],n=0,fini=false;function annoncer(){if(fini)return;O.forEach(function(o){try{window.opener.postMessage({propryo:'doc-pret'},o);}catch(e){}});if(++n<60)setTimeout(annoncer,500);}window.addEventListener('message',function(ev){if(fini||O.indexOf(ev.origin)<0||ev.source!==window.opener)return;var d=ev.data;if(!d||d.propryo!=='doc'||!d.doc||typeof d.doc!=='object'||typeof d.doc.type!=='string')return;fini=true;var s='';try{s=JSON.stringify(d.doc);}catch(e){}if(!s||s.length>20000){try{window.opener.postMessage({propryo:'doc-refus',raison:'taille'},ev.origin);}catch(e){}return;}try{ls.setItem(K,JSON.stringify({doc:d.doc,t:Date.now()}));window.opener.postMessage({propryo:'doc-recu'},ev.origin);montrer();}catch(e){}});annoncer();}catch(e){}})();</script>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -59,8 +59,8 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.729">
-<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=6e49d9e7">
+<link rel="stylesheet" href="css/main.css?v=15.730">
+<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7bb6198f">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
 <link rel="modulepreload" href="js/app/supabase-boot.js">
@@ -222,11 +222,12 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
     <img class="imsb-logo imsb-logo-d" src="brand-assets/propryo-logo-dark.svg" alt="Propryo">
   </div>
           <form id="imsb-form" class="imsb-mid" autocomplete="on" method="post" action="#" onsubmit="return false">
+            <div class="imsb-doc-note" id="imsb-doc-note" role="status" hidden>Le document est prêt. Créer un compte gratuit ou se connecter pour le télécharger.</div>
             <h2 class="imsb-h2">Connexion</h2>
-            <p class="imsb-lead">Connecte-toi pour gérer tes locations.</p>
+            <p class="imsb-lead">Se connecter pour gérer ses locations.</p>
             <div class="imsb-err" id="imsb-error" style="display:none"></div>
             <label class="imsb-flabel">Email</label>
-            <input class="imsb-input" id="imsb-email" type="email" placeholder="toi@exemple.fr" required autocomplete="username">
+            <input class="imsb-input" id="imsb-email" type="email" placeholder="nom@exemple.fr" required autocomplete="username">
             <label class="imsb-flabel">Mot de passe</label>
             <input class="imsb-input" id="imsb-pass" type="password" placeholder="••••••••" required autocomplete="current-password">
             <div class="imsb-forgot"><a href="#" id="imsb-forgot">Mot de passe oublié ?</a></div>
@@ -238,7 +239,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
         <p class="imv-trust imv-trust-login">
           <span><span class="imv-s"></span>Hébergé en Europe</span>
           <span><span class="imv-s"></span>Conforme RGPD</span>
-          <span><span class="imv-s"></span>Tes données t'appartiennent</span>
+          <span><span class="imv-s"></span>Les données restent à leur propriétaire</span>
         </p>
       </div>
     </div>
@@ -279,7 +280,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.729</em>
+      <em>v15.730</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -4564,8 +4565,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=e187af9a" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=4eaf18bf" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=60fc76b4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=e7de00ad" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=ea8eb4d4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
