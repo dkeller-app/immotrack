@@ -174,7 +174,13 @@ function _carteLot(c, lot, sb, ym, o) {
     item.regleEnsuite = tous.filter((e) => e.date && e.date > finMois);
   }
   const mq = exact && m.manque && (m.manque.montant || 0) > EPS ? m.manque : null;
-  if (mq) item.manque = { id: mq.id, montant: _r2(mq.montant), motif: mq.motif || '', date: mq.date || null };
+  // P8 (défaut C) — un manque = une ligne = un bouton Annuler (deux gestes le même mois : deux lignes).
+  const mqs = mq ? ((m.manques && m.manques.length) ? m.manques : [mq]).filter((x) => (x.montant || 0) > EPS && x.id != null) : [];
+  if (mq) item.manque = { id: mq.id != null ? mq.id : null, ids: mqs.map((x) => x.id), montant: _r2(mq.montant), motif: mq.motif || '', date: mq.date || null };
+  item.manques = mqs.map((x) => ({ id: x.id, montant: _r2(x.montant), motif: x.motif || '', date: x.date || null }));
+  // P8 (décision 05/10 b) — début de suivi PROVISOIRE qui coupe un bail : « à confirmer ».
+  const ds = mentionDebutSuivi(lot);
+  if (ds) item.debutSuivi = ds;
   const recuMois = _r2(item.recus.reduce((t, r) => t + r.montant, 0));
   const duMois = item.attendu ? item.attendu.total : 0;
   const cible = item.sens === 'retard' && o.exigible !== false ? cibleManque(sb, ym, item.parti) : null;
@@ -189,7 +195,12 @@ function _carteLot(c, lot, sb, ym, o) {
   } else if (mq) {
     const payeAvant = duMois > EPS && recuMois >= duMois - EPS;
     if (payeAvant) item.resultats.push({ cls: 'ok', txt: '✅ ' + Mc + ' : payé' });
-    item.resultats.push({ cls: 'ok', txt: '✅ Soldé : manque de ' + eur(mq.montant) + (payeAvant ? ' des mois précédents' : '') + ' accepté (' + (mq.motif || 'sans motif') + (mq.date ? ' · ' + _jjmm(mq.date) : '') + ')', action: 'annuler', manqueId: mq.id });
+    if (item.manques.length <= 1) {
+      const x = item.manques[0] || { id: mq.id, motif: mq.motif, date: mq.date };
+      item.resultats.push({ cls: 'ok', txt: '✅ Soldé : manque de ' + eur(mq.montant) + (payeAvant ? ' des mois précédents' : '') + ' accepté (' + (x.motif || 'sans motif') + (x.date ? ' · ' + _jjmm(x.date) : '') + ')', action: 'annuler', manqueId: x.id });
+    } else {
+      item.manques.forEach((x) => item.resultats.push({ cls: 'ok', txt: '✅ Manque de ' + eur(x.montant) + ' accepté (' + (x.motif || 'sans motif') + (x.date ? ' · ' + _jjmm(x.date) : '') + ')', action: 'annuler', manqueId: x.id }));
+    }
     if (item.sens === 'retard') item.resultats.push({ cls: 'warn', txt: '⚠ Il manque encore ' + eur(-item.solde), action: cible ? 'accepter' : null });
   } else if (item.sens === 'retard') {
     const cour = exact ? _r2((m.courant.loyer || 0) + (m.courant.charge || 0)) : 0;
@@ -253,6 +264,8 @@ export function modeleFenetre(lots, ym, opts) {
       vus.add(cle);
     }
   }
+  // P8 (défaut D) — trop-perçu d'un locataire parti : groupe À PART, hors de la valeur de la case.
+  const aRendre = (P.aRendre || []).map((c) => _carteARendre(c, lotDe(c.ref), bailDe(c), o));
   const refsAcc = new Set(acceptes.map((x) => x.ref));
   const aJour = P.aJour.filter((x) => !refsAcc.has(x.ref)).map((x) => ({ ref: x.ref, noms: x.noms || (o.nomLot ? o.nomLot(x.ref) : '') || x.ref }))
     .sort((a, b) => String(a.noms).localeCompare(String(b.noms)));
@@ -262,11 +275,78 @@ export function modeleFenetre(lots, ym, opts) {
   return {
     ym, solde,
     phrase: phraseSynthese({ retard, avance, acceptes }),
-    retard: groupeRetard, avance, aJour,
+    retard: groupeRetard, avance, aJour, aRendre,
     totalRetard: _r2(retard.reduce((t, x) => t + x.solde, 0)),
     totalAvance: _r2(avance.reduce((t, x) => t + x.solde, 0)),
+    totalARendre: _r2(aRendre.reduce((t, x) => t + x.solde, 0)),
     nb: groupeRetard.length + avance.length
   };
+}
+
+// Carte « trop-perçu à rendre » d'un locataire parti (P8, défaut D) : il a payé au-delà de son dernier
+// dû (ex. parti le 10 après avoir payé le mois entier). Information : hors de la case, aucun geste.
+function _carteARendre(c, lot, sb, o) {
+  const fin = sb && sb.fin;
+  const noms = c.noms || (o.nomLot ? o.nomLot(c.ref) : '') || c.ref;
+  return {
+    key: 'rendre|' + c.bailCle, ref: c.ref, bailCle: c.bailCle, bailDebut: debutDeCle(c.bailCle) || (sb && sb.debut) || null,
+    noms, parti: true, aRendre: true, solde: _r2(c.solde), sens: 'rendre',
+    attendu: null, recus: [], regleEnsuite: [], manques: [], geste: null, manque: null,
+    resultats: [{ cls: 'adv', txt: 'Trop-perçu à rendre : ' + eur(c.solde) }],
+    notes: ['Locataire parti' + (fin ? ' le ' + _jjmmaaaa(fin) : '') + ' : il a payé plus que son dernier loyer dû. Cette somme lui revient (ou se déduit de ce qu\'il doit par ailleurs) ; elle n\'est pas comptée dans la case du lot.']
+  };
+}
+
+/**
+ * P8 (décision 05/10 b) — mention « à confirmer » d'un début de suivi PROVISOIRE (1er loyer reçu)
+ * qui COUPE un bail (un bail du lot commence avant) : les loyers dus avant ne sont pas comptés tant que
+ * la date d'acquisition n'est pas saisie. null si le début est confirmé ou ne coupe aucun bail.
+ * @param {Object} suivi sortie de suiviLot
+ * @returns {{ym, txt, aide}|null}
+ */
+export function mentionDebutSuivi(suivi) {
+  const s = suivi || {};
+  const d = s.debutSuivi;
+  if (!d || d.source !== 'provisoire' || !/^\d{4}-\d{2}/.test(String(d.date || ''))) return null;
+  const debut = String(d.date).slice(0, 10);
+  const coupe = (s.baux || []).some((b) => b && b.debut && String(b.debut).slice(0, 10) < debut)
+    || (s.bauxIgnores || []).some((x) => x && x.raison === 'avant-suivi');
+  if (!coupe) return null;
+  const ym = debut.slice(0, 7);
+  const mois = moisNom(ym) + ' ' + ym.slice(0, 4);
+  return {
+    ym,
+    txt: 'Suivi à partir de ' + mois + ' (1er loyer reçu) — à confirmer',
+    aide: 'Les loyers dus avant ' + mois + ' ne sont pas comptés tant que la date d\'acquisition n\'est pas saisie.'
+  };
+}
+
+/**
+ * P8 (décision Q3) — les virements reçus ENTRE DEUX BAUX (vacance) encore « à confirmer » : le moteur
+ * les a rattachés au bail le plus proche, l'utilisateur doit dire à qui ils reviennent.
+ * @param {Object} suivi sortie de suiviLot
+ * @returns {Map<string, {mvId, date, montant, ref, retenu, ancien:{cle,noms,debut}, nouveau:{cle,noms,debut}}>}
+ */
+export function indexAConfirmer(suivi) {
+  const out = new Map();
+  if (!suivi || !Array.isArray(suivi.horsPeriode)) return out;
+  const bail = (cle) => {
+    const b = (suivi.baux || []).find((x) => x.cle === cle);
+    return b ? { cle: b.cle, noms: b.noms || '', debut: debutDeCle(b.cle) || b.debut || null } : null;
+  };
+  for (const h of suivi.horsPeriode) {
+    if (!h || !h.aConfirmer || h.mvId == null || !h.avantCle || !h.apresCle) continue;
+    const ancien = bail(h.avantCle), nouveau = bail(h.apresCle);
+    if (!ancien || !nouveau) continue;
+    out.set(String(h.mvId), { mvId: h.mvId, date: h.date, montant: _r2(h.montant), ref: suivi.ref, retenu: h.bailCle, ancien, nouveau });
+  }
+  return out;
+}
+
+/** Texte de l'alerte Q3 : « Ce virement du 16/07 (495,00 €) tombe entre deux locataires. À qui l'attribuer ? » */
+export function texteQ3(info) {
+  if (!info) return '';
+  return 'Ce virement du ' + _jjmm(info.date) + ' (' + eur(info.montant) + ') tombe entre deux locataires. À qui l\'attribuer ?';
 }
 
 /**

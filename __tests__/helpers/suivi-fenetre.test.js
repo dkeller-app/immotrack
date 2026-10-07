@@ -302,7 +302,7 @@ describe('P4 — câblage de l\'app', () => {
   it('Mouvements : alerte + pastille sur les lignes (tableau ET cartes téléphone), index mémoïsé', () => {
     const r = corps('rMv');
     expect(r).toMatch(/_mvManqueInfo\(m\)/);
-    expect(r).toMatch(/_mvCardRowPhone\(m, net, mq\)/);
+    expect(r).toMatch(/_mvCardRowPhone\(m, net, mq, q3\)/);   // P8 : + alerte Q3
     expect(r).toMatch(/_mvMqAlerte\(m, mq, false\)/);
     expect(corps('_mvCardRowPhone')).toMatch(/_mvMqAlerte\(m, mq, true\)/);
     expect(corps('_mvManqueInfo')).toMatch(/_mvMqCache\.lots\.get\(k\)/);

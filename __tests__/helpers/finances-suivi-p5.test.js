@@ -155,8 +155,11 @@ describe('P5 — quittance d\'un mois soldé par un manque accepté (Q1)', () =>
     expect(peutQuittancer(etatGeste, '2026-08').ok).toBe(true);
     expect(moisAQuittancer(etatGeste, [])).toContain('2026-08');
     expect(etatGeste.byYm['2026-08'].remise).toEqual({ montant: 20, loyer: 0, charge: 20, motif: 'panne électrique' });
-    for (const ym of Object.keys(etatGeste.byYm)) if (ym !== '2026-08') expect(etatGeste.byYm[ym].remise).toBeUndefined();
-    expect(Object.values(etatSans.byYm).some((m) => m.remise)).toBe(false);
+    // P8 (défaut A) : avril (ancien locataire, 303,33 dus, 303 retenus) porte l'écart de 0,33 soldé par
+    // l'arrondi — la quittance atteste 303 €, l'argent reçu. Aucun autre mois n'a de remise.
+    const arr = { montant: 0.33, loyer: 0.33, charge: 0, motif: SL.MOTIF_ARRONDI };
+    for (const ym of Object.keys(etatGeste.byYm)) if (ym !== '2026-08') expect(etatGeste.byYm[ym].remise).toEqual(ym === '2026-04' ? arr : undefined);
+    expect(Object.entries(etatSans.byYm).filter(([, m]) => m.remise)).toEqual([['2026-04', expect.objectContaining({ remise: arr })]]);
     expect(datePaiementMois(etatGeste, '2026-08').date).toBe('2026-08-05');
   });
 

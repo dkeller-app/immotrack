@@ -317,6 +317,7 @@ export function _loyerArrearsPass(months, opts) {
   // FINANCES-SUIVI-UNIQUE §B.2.2 — extensions RÉTRO-COMPATIBLES (absentes ⇒ sortie identique) :
   //   seuilArrondi : en fin de mois, une dette ou une avance totale STRICTEMENT inférieure au
   //                  seuil est soldée, avec une trace signée (+ avance abandonnée, − dette soldée) ;
+  //                  le seuil est un PLAFOND CUMULÉ sur toute la passe (Σ |arrondis| < seuil, P8) ;
   //   detail       : chaque mois porte courant / antérieur / remise appliquée / arrondi, et le
   //                  résultat les listes `remises` et `arrondis` (aucun changement d'arithmétique).
   // Et par mois : `remise` (manque accepté, §D), `grace` (mois non exigible : manque neuf ignoré,
@@ -336,6 +337,7 @@ export function _loyerArrearsPass(months, opts) {
   const loyerQ = [], chargeQ = [];                  // files des manques : {idx, short, due, recv}
   const sumQ = (q) => q.reduce((s, e) => s + e.short, 0);
   let avanceCarry = 0;
+  let arrondiCumul = 0;                             // Σ |arrondis| de la passe (plafond = seuil, P8)
 
   // C2 — POSITION D'OUVERTURE (Finances maître de l'arriéré) : une dette reportée d'avant la
   // fenêtre (arriéré des exercices antérieurs, bornée au début du suivi) est semée dans les files
@@ -477,17 +479,31 @@ export function _loyerArrearsPass(months, opts) {
       remettre(chargeQ, 'charge', anterieure);
     }
     // Écart d'arrondi < seuil (décision 2 : 303 contre 303,33) : soldé, tracé.
+    // P8 (contre-audit, défaut A) — le seuil est un PLAFOND CUMULÉ PAR PASSE (une passe = un bail,
+    // suivi-loyers.js) : Σ |arrondis| reste < seuil. Sans ce plafond, 12 virements de 779,01 sur un
+    // loyer de 780 laissaient 12 × 0,99 = 11,88 € jamais réclamés (et symétriquement 11,88 € d'avance
+    // abandonnés). Une fois le plafond consommé, les écarts suivants restent dus / en avance.
+    // `cibles` : le mois d'ORIGINE de chaque dette soldée (la quittance de ce mois le dira).
     let arrondi = 0;
     if (seuil > 0) {
       const dette = sumQ(loyerQ) + sumQ(chargeQ);
-      if (dette > 0.005 && dette < seuil) {
-        loyerQ.forEach((e) => { e.short = 0; });
-        chargeQ.forEach((e) => { e.short = 0; });
+      if (dette > 0.005 && arrondiCumul + dette < seuil) {
+        const cibles = [];
+        const solder = (q, poste) => q.forEach((e) => {
+          if (e.short > 0.005) cibles.push({ idx: e.opening ? -1 : e.idx, poste, montant: _r2(e.short) });
+          e.short = 0;
+        });
+        solder(loyerQ, 'loyer'); solder(chargeQ, 'charge');
         arrondi -= dette;
+        arrondiCumul += dette;
+        arrondis.push({ idx, montant: _r2(-dette), cibles });
       }
       // L'avance abandonnée l'est aussi dans le miroir : ses fragments ne paieront aucun mois.
-      if (carry && pool > 0.005 && pool < seuil) { arrondi += pool; pool = 0; frags = []; }
-      if (Math.abs(arrondi) > 0.005) arrondis.push({ idx, montant: _r2(arrondi) });
+      if (carry && pool > 0.005 && arrondiCumul + pool < seuil) {
+        arrondi += pool; arrondiCumul += pool;
+        arrondis.push({ idx, montant: _r2(pool), cibles: [] });
+        pool = 0; frags = [];
+      }
     }
     const out = { loyerArrear: _r2(sumQ(loyerQ)), chargeArrear: _r2(sumQ(chargeQ)) };
     if (carry) { avanceCarry = pool; out.avance = _r2(avanceCarry); }

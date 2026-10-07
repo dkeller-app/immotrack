@@ -76,7 +76,8 @@ describe('1 · cas Arslan (Ferrette - 101), tableau §C.2 au centime', () => {
     expect(soldes(g, ['2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']))
       .toEqual([0, 0, 0, 780, 0, 0, 0, 0]);
     const aout = moisDe(bailDe(g, CLE_ARSLAN), '2026-08');
-    expect(aout.manque).toEqual({ id: 'mqa_1', montant: 20, montantDemande: 20, motif: 'panne électrique', date: '2026-08-05' });
+    expect(aout.manque).toEqual({ id: 'mqa_1', ids: ['mqa_1'], montant: 20, montantDemande: 20, motif: 'panne électrique', date: '2026-08-05' });
+    expect(aout.manques).toEqual([{ id: 'mqa_1', montant: 20, montantDemande: 20, motif: 'panne électrique', date: '2026-08-05' }]);   // P8 : un geste = une ligne annulable
     expect(aout.remiseAppliquee).toBe(20);
     expect(aout.recu).toBe(760);                 // un manque n'est pas un encaissement
     expect(g.mois['2026-10']).toMatchObject({ retard: 0, avance: 0, solde: 0 });
@@ -396,7 +397,8 @@ describe('Q3 · virement entre deux baux', () => {
     paiements: [vir('m', '2026-05-02', 450), vir('n', '2026-06-01', 90), Object.assign(vir('q', '2026-07-16', 495), bailCle ? { bailCle } : {})] });
   it('sans choix : bail le plus proche dans le temps (le nouveau, 2 jours), « à confirmer »', () => {
     const s = suiviLot(lot(), { today: '2026-07-25' });
-    expect(s.horsPeriode).toEqual([{ mvId: 'q', date: '2026-07-16', montant: 495, bailCle: 'F|2026-07-18', regle: 'plus-proche', aConfirmer: true }]);
+    expect(s.horsPeriode).toEqual([{ mvId: 'q', date: '2026-07-16', montant: 495, bailCle: 'F|2026-07-18', regle: 'plus-proche', aConfirmer: true,
+      avantCle: 'F|2024-10-01', apresCle: 'F|2026-07-18' }]);   // P8 : les deux voisins (choix de l'alerte Q3)
     expect(moisDe(bailDe(s, 'F|2026-07-18'), '2026-07').recu).toBe(495);
   });
   it('choix explicite de l\'utilisateur (paiement.bailCle) : respecté, plus à confirmer', () => {

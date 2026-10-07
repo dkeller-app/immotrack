@@ -140,7 +140,7 @@ describe('_loyerArrearsPass — seuilArrondi', () => {
     const r = _loyerArrearsPass([M(710.97, 18.71, 730)], { carry: true, seuilArrondi: 1, detail: true });
     expect(r.avance).toBe(0);
     expect(r.months[0].arrondi).toBe(0.32);
-    expect(r.arrondis).toEqual([{ idx: 0, montant: 0.32 }]);
+    expect(r.arrondis).toEqual([{ idx: 0, montant: 0.32, cibles: [] }]);   // P8 : une avance abandonnée ne solde aucun mois
   });
   it('dette < 1 € soldée en fin de mois, trace signée −', () => {
     const r = _loyerArrearsPass([M(303.33, 0, 303)], { carry: true, seuilArrondi: 1, detail: true });

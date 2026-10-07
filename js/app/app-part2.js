@@ -26524,8 +26524,18 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   // Frise vide (suivi indisponible pour CE lot) : 12 cases neutres, jamais un écran cassé.
   const _lyFriseVide = (l) => ({ months: _MO.map((x, i) => ({ mi: i + 1, cls: 'vac', recu: 0, attendu: 0, due: 0, retard: 0, avance: 0, solde: 0 })),
     solde: 0, retard: 0, avance: 0, recu: 0, attendu: 0, curMo: 0, monthlyFull: (Number(l.hc) || 0) + (Number(l.ch) || 0), year: parseInt(yr, 10) });
-  const rows = logs.map(l => ({ log: l, s: _suiviLoyerStrip(l, yr) || _lyFriseVide(l), pos: _lyPos(l.ref, (Number(l.hc) || 0) + (Number(l.ch) || 0)) }))
-    .sort((a, b) => a.pos.signe - b.pos.signe); // retard (signe −) en premier
+  // P8 — (F) lot dont le calcul a échoué : signalé, jamais « ✓ À jour » ; (B1) début de suivi PROVISOIRE
+  // (1er loyer reçu) qui coupe un bail : « à confirmer » sous sa frise.
+  const _SFm = window.SuiviFenetre;
+  const _lyDsc = (ref) => { try { const sv = _finSuiviLot(ref); return (sv && _SFm && typeof _SFm.mentionDebutSuivi === 'function') ? _SFm.mentionDebutSuivi(sv) : null; } catch (e) { return null; } };
+  const rows = logs.map(l => {
+    const echec = _finSuiviEchec(l.ref);
+    return { log: l, s: _suiviLoyerStrip(l, yr) || _lyFriseVide(l), echec, dsc: echec ? null : _lyDsc(l.ref),
+      pos: echec ? { cls: 'echec', montant: 0, nMois: 0, signe: -1e12 } : _lyPos(l.ref, (Number(l.hc) || 0) + (Number(l.ch) || 0)) };
+  }).sort((a, b) => a.pos.signe - b.pos.signe); // échecs puis retard (signe −) en premier
+  const nDsc = rows.filter(r => r.dsc).length;
+  const dscHtml = (r) => r.dsc ? '<div class="ly-dsc" title="' + escHtml(r.dsc.aide) + '">ⓘ ' + escHtml(r.dsc.txt) + '</div>' : '';
+  const dscLegende = nDsc ? '<div class="ly-dsc-leg">ⓘ <b>« à confirmer »</b> : le suivi commence au 1er loyer reçu. Les loyers dus avant ne sont pas comptés tant que la date d\'acquisition n\'est pas saisie.</div>' : '';
   const CC = _SUIVI_CC;   // DRY : mêmes couleurs que le détail (écran B)
   // Info-bulle : reçu / attendu du mois + la POSITION de fin de mois (la case de Finances).
   const _lyTipPos = (m) => (m.retard > 0.005 ? ' · reste dû ' + fmt(m.retard) + (m.parti ? ' (dont locataire parti)' : '') : (m.avance > 0.005 ? ' · avance ' + fmt(m.avance) : ''));
@@ -26535,12 +26545,14 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     return '<span title="' + escHtml(tip) + '" style="flex:1;height:22px;border-radius:3px;background:' + c[0] + ';border:1px ' + (dash ? 'dashed' : 'solid') + ' ' + c[1] + ';display:grid;place-items:center;font:600 9px monospace;color:' + c[2] + '">' + (dash ? '' : _MO[m.mi - 1]) + '</span>';
   }).join('') + '</div>';
   const chip = (pos) => {   // Phase C : le montant vient du maître (byLot), plus du solde annuel de la frise
+    if (pos.cls === 'echec') return '<span class="ly-echec" title="Une donnée de ce lot est illisible : vérifie ses baux et son barème.">⚠ calcul indisponible</span>';
     if (pos.cls === 'retard') return '<span style="background:var(--neg-soft);color:var(--neg);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↓ retard ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>'
       + (pos.parti ? '<div style="font-size:11px;color:var(--t3);margin-top:3px;text-align:right">dû par ' + escHtml(pos.parti) + '</div>' : '');
     if (pos.cls === 'avance') return '<span style="background:var(--info-soft);color:var(--info);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↑ avance ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
     return '<span style="background:var(--pos-soft);color:var(--pos);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">✓ À jour</span>';
   };
   const nRetard = rows.filter(r => r.pos.cls === 'retard').length;
+  const nEchec = rows.filter(r => r.echec).length;
   const linkOpen = inline ? ('openLogFiche(\'') : ('closeM(\'ov-impayes-vue\');openLogFiche(\'');
   const legende = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:0 0 12px;font-size:11px;color:var(--t2)">'
     + [['var(--pos-soft)', 'var(--pos)', 'Payé'], ['var(--warn-soft)', 'var(--warn)', 'Partiel'], ['var(--neg-soft)', 'var(--neg)', 'Retard'], ['var(--info-soft)', 'var(--info)', 'Avance'], ['var(--sur3)', 'var(--t3)', 'À venir']]
@@ -26554,22 +26566,22 @@ function _lyTousLoyersHtml(yr, ent, opts) {
       const refA = escHtml(r.log.ref);
       const inner = '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 13px">'
         + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire || r.pos.parti || r.log.ref) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>'
-        + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div></div>'
+        + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div>' + dscHtml(r) + '</div>'
         + '<div>' + chip(r.pos) + '</div></div>';
       return { log: r.log, html: inner };
     });
     const grpHtml = (typeof _lyGrouper === 'function') ? _lyGrouper(items) : items.map(x => x.html).join('');
-    return { html: legende + grpHtml, empty: false };
+    return { html: legende + dscLegende + grpHtml, empty: false };
   }
 
-  const html = legende
-    + '<div class="mu sm" style="margin-bottom:10px;font-size:12px">Tous les loyers · année ' + yr + ' · ' + rows.length + ' locataire' + (rows.length > 1 ? 's' : '') + (nRetard ? ' · <b style="color:var(--red)">' + nRetard + ' en retard</b>' : ' · <b style="color:var(--grn)">tous à jour</b>') + (ent ? ' · ' + escHtml(ent) : '') + '</div>'
+  const html = legende + dscLegende
+    + '<div class="mu sm" style="margin-bottom:10px;font-size:12px">Tous les loyers · année ' + yr + ' · ' + rows.length + ' locataire' + (rows.length > 1 ? 's' : '') + (nRetard ? ' · <b style="color:var(--red)">' + nRetard + ' en retard</b>' : (nEchec ? '' : ' · <b style="color:var(--grn)">tous à jour</b>')) + (nEchec ? ' · <b style="color:var(--warn)">' + nEchec + ' calcul' + (nEchec > 1 ? 's' : '') + ' indisponible' + (nEchec > 1 ? 's' : '') + '</b>' : '') + (ent ? ' · ' + escHtml(ent) : '') + '</div>'
     + '<div style="border:1px solid var(--bor);border-radius:12px;overflow:hidden">'
     + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = escHtml(r.log.ref);
       return '<div style="' + (i < rows.length - 1 ? 'border-bottom:1px solid var(--bor2)' : '') + (open ? ';background:var(--sur2)' : '') + '">'
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
       + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire || r.pos.parti || r.log.ref) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
-      +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
+      +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div>' + dscHtml(r) + '</div>'
       + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.pos) + (r.pos.cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
       + '</div>'
       + (open ? _suiviDetailHtml(r.log, r.s, yr) : '')
@@ -29661,7 +29673,7 @@ function _finIsRecupACharge(m) {
 // lotDepuisDb (baux courant + archivés, barème, paiements 211 cr−db, manques acceptés, retenue
 // sur dépôt) — aucune règle recopiée ici. Mémoïsé par (_dbGen · jour · tolérance) : le tableau,
 // ses fenêtres et l'Accueil (byLot) lisent LE MÊME objet.
-let _finSuiviCache = { key: null, lots: new Map(), mvParLot: null };
+let _finSuiviCache = { key: null, lots: new Map(), mvParLot: null, echecs: new Map() };
 const _finSuiviEntrees = new WeakMap();   // P5 : suivi → son entrée (lotDepuisDb), même durée de vie
 function _finSuiviToday() {
   return (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
@@ -29677,7 +29689,7 @@ function _finSuiviLot(ref, opts) {
   const g = (opts && typeof opts.graceLast === 'boolean') ? opts.graceLast : grace;
   const gen = (typeof window._dbGen === 'number') ? window._dbGen : 0;
   const key = gen + '|' + today + '|' + grace;
-  if (_finSuiviCache.key !== key) _finSuiviCache = { key, lots: new Map(), mvParLot: null };
+  if (_finSuiviCache.key !== key) _finSuiviCache = { key, lots: new Map(), mvParLot: null, echecs: new Map() };
   const kLot = String(ref).trim().toLowerCase();
   const k = kLot + (g === grace ? '' : '|g' + g);
   if (_finSuiviCache.lots.has(k)) return _finSuiviCache.lots.get(k);
@@ -29703,9 +29715,32 @@ function _finSuiviLot(ref, opts) {
     });
     s = SL.suiviLot(lotIn, { today, graceLast: g, seuilArrondi: 1 });
     _finSuiviEntrees.set(s, lotIn);
-  } catch (e) { s = null; if (typeof console !== 'undefined') console.warn('[suivi] lot ' + ref + ' ignoré :', e); }
+  } catch (e) {
+    // P8 (défaut F) — tolérant (la page ne casse pas : les lecteurs reçoivent null), mais JAMAIS muet :
+    // l'échec est mémorisé pour que la fenêtre et le bandeau disent « calcul indisponible pour ce lot »
+    // au lieu d'afficher 0 € « à jour » à sa place.
+    s = null;
+    if (!_finSuiviCache.echecs) _finSuiviCache.echecs = new Map();
+    _finSuiviCache.echecs.set(kLot, { ref: String(ref), message: String((e && e.message) || e) });
+    if (typeof console !== 'undefined') console.error('[suivi] calcul indisponible pour le lot ' + ref + ' :', e);
+  }
   _finSuiviCache.lots.set(k, s);
   return s;
+}
+// P8 (défaut F) — l'échec de calcul d'un lot (même génération du suivi), ou null.
+function _finSuiviEchec(ref) {
+  if (ref == null || ref === '') return null;
+  _finSuiviLot(ref);
+  const m = _finSuiviCache.echecs;
+  return (m && m.get(String(ref).trim().toLowerCase())) || null;
+}
+// Le bandeau d'alerte « calcul indisponible » (fenêtre avance / retard) pour une liste de lots en échec.
+function _finSuiviEchecsHtml(refs) {
+  const l = (refs || []).filter(r => r != null && r !== '');
+  if (!l.length) return '';
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
+  return '<div class="alert warn fdw-echec" role="status">⚠ Calcul indisponible pour ' + (l.length > 1 ? 'les lots ' : 'le lot ') + l.map(r => '<b>' + esc(r) + '</b>').join(', ')
+    + ' : une donnée est illisible. ' + (l.length > 1 ? 'Ces lots ne sont pas comptés' : 'Ce lot n\'est pas compté') + ' ici — vérifie ses baux et son barème.</div>';
 }
 // P5 — l'ENTRÉE du suivi d'un lot (même génération), pour une variante calculée par le module :
 // la dette d'un bail avant la retenue sur son dépôt (detteBailAvantDepot, restitution du dépôt).
@@ -29714,7 +29749,8 @@ function _finSuiviLotIn(ref, opts) {
   return s ? (_finSuiviEntrees.get(s) || null) : null;
 }
 // Les suivis des lots DU PÉRIMÈTRE (scope.refs du résolveur unique ; scope null = tout le parc).
-function _finSuiviLots(scope) {
+// P8 (défaut F) : `echecs` (tableau, optionnel) reçoit les lots du périmètre dont le calcul a échoué.
+function _finSuiviLots(scope, echecs) {
   const refs = scope ? (scope.refs || []) : (DB.logements || []).filter(l => l && !l._deleted && l.ref).map(l => l.ref);
   const out = [], vus = new Set();
   refs.forEach(ref => {
@@ -29723,6 +29759,7 @@ function _finSuiviLots(scope) {
     vus.add(k);
     const s = _finSuiviLot(ref);
     if (s) out.push(s);
+    else if (Array.isArray(echecs) && _finSuiviEchec(ref)) echecs.push(String(ref));
   });
   return out;
 }
@@ -30495,8 +30532,9 @@ function _finSuiviCase(yr, mo) {
   const SL = window.SuiviLoyers;
   if (!m || !SL || typeof SL.suiviPerimetre !== 'function') return { ym: null, mo: m, exig: false, P: null, lots: [], annee: !mo, lastMonth };
   const ym = String(y) + '-' + String(m).padStart(2, '0');
-  const lots = _finSuiviLots(scope);
-  return { ym, mo: m, exig: m <= dueMonth, P: SL.suiviPerimetre(lots, ym), lots, annee: !mo, lastMonth };
+  const echecs = [];
+  const lots = _finSuiviLots(scope, echecs);
+  return { ym, mo: m, exig: m <= dueMonth, P: SL.suiviPerimetre(lots, ym), lots, annee: !mo, lastMonth, echecs };
 }
 // État de la fenêtre (une seule ouverte à la fois) : mois regardé, lots dépliés, groupes étendus.
 let _finFen = null;
@@ -30549,6 +30587,7 @@ function _finFenetreRendre() {
   const titre = '<span class="fdw-t"><span class="fdw-tm">' + esc(moisTitre) + '</span><span class="fdw-ts">·</span><span class="fdw-tp">' + esc(_finFenPerimetre()) + '</span><span class="fdw-ts">·</span><span class="fdw-tv ' + vCls + '">' + esc(SF.eurSigne(v)) + '</span></span>';
   let html = '<p class="fdw-subt">' + (K.annee ? 'Position fin ' + esc(SF.moisNom(K.ym)) + ' · ' : '') + esc(M.phrase) + '</p>';
   if (!K.exig) html += '<div class="note fdw-note0">' + esc(SF.moisCap(K.ym)) + ' n\'est pas encore exigible : seule l\'avance compte.</div>';
+  html += _finSuiviEchecsHtml(K.echecs);   // P8 (défaut F) : jamais un lot en échec compté « à jour » en silence
   const items = M.retard.concat(M.avance);
   if (items.length === 1) {
     const x = items[0];
@@ -30563,6 +30602,12 @@ function _finFenetreRendre() {
       return h + '</section>';
     };
     html += groupe('ret', 'En retard', 'warn', M.retard, M.totalRetard) + groupe('av', 'En avance', 'adv', M.avance, M.totalAvance);
+  }
+  // P8 (défaut D) — trop-perçu d'un locataire parti : à part, HORS du total de la case (titre).
+  if (M.aRendre && M.aRendre.length) {
+    html += '<section class="fdw-g fdw-rendre"><div class="fdw-grp adv"><span class="fdw-gl">À rendre</span> · ' + M.aRendre.length + ' locataire' + (M.aRendre.length > 1 ? 's' : '') + ' parti' + (M.aRendre.length > 1 ? 's' : '') + ' · <span class="fdw-gs">' + esc(SF.eur(M.totalARendre)) + '</span> <span class="fdw-hors">(hors du total)</span></div>';
+    M.aRendre.forEach((x, i) => { html += _finFenLigne(x, K.ym, 'rendre' + i); });
+    html += '</section>';
   }
   if (M.aJour.length) {
     html += '<section class="fdw-aj" aria-label="Lots à jour"><div class="fdw-grp ok"><span class="fdw-gl">À jour</span> · ' + M.aJour.length + ' lot' + (M.aJour.length > 1 ? 's' : '') + '</div>'
@@ -30586,7 +30631,8 @@ function _finFenLigne(x, ym, k) {
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
   const amt = x.manque && x.sens === 'accepte'
     ? '<span class="badge ora">manque accepté</span>'
-    : '<span class="fdw-amt ' + (x.solde < 0 ? 'warn' : 'adv') + '">' + esc(SF.eurSigne(x.solde)) + '</span>';
+    : (x.aRendre ? '<span class="fdw-amt adv">' + esc(SF.eur(x.solde)) + '</span>'
+      : '<span class="fdw-amt ' + (x.solde < 0 ? 'warn' : 'adv') + '">' + esc(SF.eurSigne(x.solde)) + '</span>');
   return '<details class="fdw-lotrow" data-k="' + esc(x.key) + '"' + (_finFen && _finFen.ouverts[x.key] ? ' open' : '') + ' ontoggle="_finFenToggle(this)">'
     + '<summary><span class="fdw-who"><b>' + esc(x.noms) + '</b><span>' + esc(x.ref) + '</span></span>' + (x.parti ? '<span class="badge gry">parti</span>' : '') + amt + '</summary>'
     + '<div class="fdw-in">' + _finFenDetail(x, ym, k) + '</div></details>';
@@ -30623,6 +30669,8 @@ function _finFenDetail(x, ym, k) {
   });
   if (x.geste) out += _mqFormHtml(fid, x.geste, ym);
   x.notes.forEach(n => { out += '<div class="note">' + esc(n) + '</div>'; });
+  // P8 (décision 05/10 b) — début de suivi PROVISOIRE (1er loyer reçu) qui coupe un bail : « à confirmer ».
+  if (x.debutSuivi) out += '<div class="fdw-dsc" title="' + esc(x.debutSuivi.aide) + '"><b>ⓘ ' + esc(x.debutSuivi.txt) + '</b><span>' + esc(x.debutSuivi.aide) + '</span></div>';
   // Relance (P5) : _lyRelance lit LE MÊME suivi, PAR BAIL (lignesRelanceBail) — le courrier réclame la
   // dette de CE bail AUJOURD'HUI, celle de sa carte du mois courant (I-g : relance = carte = bulle
   // Impayés). Proposée pour tout bail en retard (locataire parti compris : sa dette est figée à son
@@ -30735,7 +30783,7 @@ function _mqApresGeste() {
 // Un virement de loyer affecté à un lot, DERNIER versement d'un mois exigible resté incomplet d'après
 // le moteur (hors tolérance du 10) → alerte non bloquante + geste ; mois soldé par un manque accepté →
 // pastille. Index par lot mémoïsé sur la génération du suivi : O(mouvements), pas O(n²).
-let _mvMqCache = { key: null, lots: new Map() };
+let _mvMqCache = { key: null, lots: new Map(), q3: new Map() };
 function _mvManqueInfo(mv) {
   if (!mv || mv._deleted || !mv.qui || !window.SuiviFenetre) return null;
   if (!((Number(mv.cr) || 0) > 0)) return null;
@@ -30743,7 +30791,7 @@ function _mvManqueInfo(mv) {
   if (!r || r.ligne2044 !== '211') return null;
   const s = _finSuiviLot(mv.qui);
   if (!s) return null;
-  if (_mvMqCache.key !== _finSuiviCache.key) _mvMqCache = { key: _finSuiviCache.key, lots: new Map() };
+  if (_mvMqCache.key !== _finSuiviCache.key) _mvMqCache = { key: _finSuiviCache.key, lots: new Map(), q3: new Map() };
   const k = String(mv.qui).trim().toLowerCase();
   let idx = _mvMqCache.lots.get(k);
   if (!idx) { idx = window.SuiviFenetre.indexMouvementsLot(s); _mvMqCache.lots.set(k, idx); }
@@ -30775,6 +30823,54 @@ function _mvMqAlerte(mv, info, phone) {
     + '<div class="mqa-txt">⚠ ' + esc(SF.texteAlerte(info, mv.date)) + '</div>'
     + '<div class="mqa-acts"><button type="button" class="btn bp" onclick="_mqFormBasculer(\'' + fid + '\')">Accepter le manque</button></div>'
     + _mqFormHtml(fid, g, String(mv.date || '').slice(0, 7)) + '</div></td></tr>';
+}
+
+// ── P8 (décision Q3) — virement reçu ENTRE DEUX LOCATAIRES : « à qui l'attribuer ? » ──
+// Le moteur l'a rattaché au bail le plus proche dans le temps et l'a marqué « à confirmer »
+// (suivi.horsPeriode[].aConfirmer). L'alerte demande à l'utilisateur ; son choix est mémorisé sur le
+// mouvement (mv.bailCle, _mvQ3Choisir, app-part1.js), lu par collecterPaiements → le moteur. Même index
+// mémoïsé que l'alerte « loyer incomplet » (génération du suivi) : O(mouvements).
+function _mvQ3Info(mv) {
+  if (!mv || mv._deleted || !mv.qui || !window.SuiviFenetre || typeof window.SuiviFenetre.indexAConfirmer !== 'function') return null;
+  const r = _finCatLigne(mv.cat);
+  if (!r || r.ligne2044 !== '211') return null;
+  const s = _finSuiviLot(mv.qui);
+  if (!s) return null;
+  if (_mvMqCache.key !== _finSuiviCache.key) _mvMqCache = { key: _finSuiviCache.key, lots: new Map(), q3: new Map() };
+  const k = String(mv.qui).trim().toLowerCase();
+  let idx = _mvMqCache.q3.get(k);
+  if (!idx) { idx = window.SuiviFenetre.indexAConfirmer(s); _mvMqCache.q3.set(k, idx); }
+  return idx.get(String(mv.id)) || null;
+}
+function _mvQ3Alerte(mv, info, phone) {
+  if (!info) return '';
+  const cle = 'q3|' + mv.id;
+  if (_mvMqFermes.has(cle)) return '';
+  const SF = window.SuiviFenetre, esc = (typeof escHtml === 'function') ? escHtml : (s => String(s));
+  const nom = (b) => esc(b.noms || b.cle);
+  const bouton = (b, lbl) => '<button type="button" class="btn ' + (info.retenu === b.cle ? 'bp' : 'bs') + '" data-mv="' + esc(String(mv.id)) + '" data-cle="' + esc(b.cle) + '" onclick="_mvQ3Geste(this.dataset.mv,this.dataset.cle)">' + lbl + ' (' + nom(b) + ')</button>';
+  return '<tr class="mqa-row' + (phone ? ' mqa-ph' : '') + '"><td colspan="7"><div class="alert warn mqa-alert mqa-q3" role="status">'
+    + '<button type="button" class="m-close mqa-x" aria-label="Fermer l\'alerte" data-k="' + esc(cle) + '" onclick="_mvMqFermer(this.dataset.k)">✕</button>'
+    + '<div class="mqa-txt">⚠ ' + esc(SF.texteQ3(info)) + '</div>'
+    + '<div class="mqa-sub">En attendant ta réponse, il est compté pour ' + nom(info.retenu === info.ancien.cle ? info.ancien : info.nouveau) + ' (le plus proche dans le temps).</div>'
+    + '<div class="mqa-acts">' + bouton(info.ancien, 'Ancien locataire') + bouton(info.nouveau, 'Nouveau locataire')
+    + '<button type="button" class="btn bs" data-mv="' + esc(String(mv.id)) + '" onclick="_mvQ3Reclasser(this.dataset.mv)" title="Ouvre le mouvement pour changer sa catégorie">Ce n\'est pas du loyer</button></div>'
+    + '</div></td></tr>';
+}
+// « Ce n'est pas du loyer » : la fiche du mouvement, pour le reclasser (une autre catégorie le sort du suivi).
+function _mvQ3Reclasser(id) {
+  const mv = (DB.mouvements || []).find(m => m && !m._deleted && String(m.id) === String(id));
+  if (mv && typeof openEditMv === 'function') openEditMv(mv.id);
+}
+function _mvQ3Geste(id, cle) {
+  if (_mqLectureSeule()) return;
+  const mv = (DB.mouvements || []).find(m => m && !m._deleted && String(m.id) === String(id));
+  const SF = window.SuiviFenetre;
+  const info = mv ? _mvQ3Info(mv) : null;
+  const b = info ? [info.ancien, info.nouveau].find(x => x.cle === cle) : null;
+  if (!_mvQ3Choisir(id, cle)) return;   // message déjà affiché
+  if (typeof showToast === 'function') showToast('Virement attribué à ' + ((b && b.noms) || 'ce locataire') + (info && SF ? ' (' + SF.eur(info.montant) + ')' : ''), 'ok');
+  _mqApresGeste();
 }
 // Depuis le drill : ouvre le découpage d'un mouvement non ventilé (versement de gérance groupé)
 // pour le répartir par bien. Ferme le drill d'abord (le découpage le remplace ; on rouvrira le drill à jour).

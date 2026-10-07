@@ -147,8 +147,12 @@ describe('RESTAURATION d\'une sauvegarde d\'avril (vraie _backupRestoreApply d\'
     // AVANT (sans normalisation) : Finances ignore « Loyers » → 0 encaissé, 0 % de recouvrement.
     const brut = finances(app(STD), avril());
     expect(brut.annual.loyersBrut).toBe(0);
-    expect(brut.retard).toBeGreaterThanOrEqual(brut.du);   // rien d'encaissé : tout le dû est en retard (P7 : position du suivi, dette d'avant l'exercice comprise)
-    expect(brut.recouvrement).toBeLessThanOrEqual(0);
+    // Rien d'encaissé : tout le dû est en retard. P7 : position du suivi (baux du 01/07/2025, aucun loyer
+    // reçu ⇒ début du suivi = début du bail), dette d'avant l'exercice comprise : 10 mois × 3 720 = 37 200 €,
+    // pour 4 × 3 720 = 14 880 € dus sur l'exercice ⇒ recouvrement (14 880 − 37 200) ÷ 14 880 = −150 %.
+    expect(brut.du).toBe(14880);
+    expect(brut.retard).toBe(37200);
+    expect(brut.recouvrement).toBe(-150);
     // APRÈS restauration : même sauvegarde, passée par la vraie porte d'entrée.
     const a = app(STD);
     a.DB = { baux: {}, logements: [], params: {} };

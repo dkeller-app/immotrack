@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.716';
+const IMMOTRACK_VERSION = '15.717';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -9045,8 +9045,9 @@ function _manqueNouvelUid(){ return Date.now().toString(36)+Math.random().toStri
 // Sauvegarde ÉTIQUETÉE et VÉRIFIÉE (patron _avenantSauver) : en cas d'échec, `restaurer()` remet le journal,
 // la trace d'audit de ce geste est retirée (jamais de trace d'un geste non enregistré), la base d'annulation
 // est réalignée et on le dit. Jamais de faux « enregistré ».
-function _manqueSauver(restaurer, nAuditPending, nAuditTrail){
-  var ok; try { ok=(typeof saveDB==='function')?saveDB({quoi:'manque'}):true; } catch(_e){ console.warn('[manque] saveDB', _e); ok=false; }
+// P8 : `quoi` (étiquette de saveDB, défaut 'manque') et `libelle` (défaut 'Manque') servent aussi au choix Q3.
+function _manqueSauver(restaurer, nAuditPending, nAuditTrail, quoi, libelle){
+  var ok; try { ok=(typeof saveDB==='function')?saveDB({quoi:quoi||'manque'}):true; } catch(_e){ console.warn('[manque] saveDB', _e); ok=false; }
   if(ok!==false) return true;
   restaurer();
   try {
@@ -9056,7 +9057,7 @@ function _manqueSauver(restaurer, nAuditPending, nAuditTrail){
   if(typeof _undoOnSaveDBSuccess==='function') _undoOnSaveDBSuccess();
   // Hors ligne : le garde de saveDB a déjà affiché SON message (« seul l'état des lieux peut être modifié ») —
   // on ne le recouvre pas. Sinon (stockage plein, exception) : on dit que rien n'est enregistré.
-  if(!window.__immoHorsLigne && typeof showToast==='function') showToast('Manque NON enregistré : la sauvegarde a échoué — rien n\'a été modifié. Stockage indisponible ou plein : libérer de l\'espace puis réessayer.','err',9000);
+  if(!window.__immoHorsLigne && typeof showToast==='function') showToast((libelle||'Manque')+' NON enregistré : la sauvegarde a échoué — rien n\'a été modifié. Stockage indisponible ou plein : libérer de l\'espace puis réessayer.','err',9000);
   return false;
 }
 function _manqueCompteursAudit(){
@@ -9106,6 +9107,31 @@ function _manqueAnnuler(id){
       for(var k in e) if(Object.prototype.hasOwnProperty.call(e,k)) delete e[k];
       Object.assign(e, avant);
     }, cpt[0], cpt[1]);
+  });
+  if(!ok) return false;
+  if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
+  return true;
+}
+
+// ═══ FINANCES-SUIVI-UNIQUE P8 — décision Q3 : « ce virement entre deux locataires revient à… » ═══
+// Le choix est MÉMORISÉ SUR LE MOUVEMENT (`mv.bailCle` = clé du bail telle que le moteur l'attend,
+// `ref|début[|uid]`), lu par collecterPaiements (paiement.bailCle) : il fait foi devant la règle « bail le
+// plus proche ». Le mouvement entier voyage dans legacy_raw (synchro) et dans le DB Drive. Même patron que
+// _manqueAccepter : _undoOp, _stamp, _auditLog, saveDB ÉTIQUETÉ (refusé hors ligne avec le message
+// existant), rollback à l'identique si l'écriture échoue, _refreshAfterMutation. Renvoie true si enregistré.
+function _mvQ3Choisir(id, cle){
+  if(typeof _appReadOnly!=='undefined' && _appReadOnly){ if(typeof showToast==='function') showToast('Lecture seule : modification impossible.','warn'); return false; }
+  var mv=(DB.mouvements||[]).find(function(m){ return m && !m._deleted && String(m.id)===String(id); });
+  if(!mv || cle==null || String(cle).trim()===''){ if(typeof showToast==='function') showToast('Mouvement ou locataire introuvable.','err'); return false; }
+  var avant=JSON.parse(JSON.stringify(mv)), cpt=_manqueCompteursAudit(), ok=false;
+  _undoOp('Attribuer le virement', function(){
+    mv.bailCle=String(cle);
+    _stamp(mv);
+    if(typeof _auditLog==='function') _auditLog('update','mouvement',mv.id,mv.lib||String(mv.id),avant,mv);
+    ok=_manqueSauver(function(){
+      for(var k in mv) if(Object.prototype.hasOwnProperty.call(mv,k)) delete mv[k];
+      Object.assign(mv, avant);
+    }, cpt[0], cpt[1], 'attribution', 'Choix');
   });
   if(!ok) return false;
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
@@ -13300,7 +13326,7 @@ function _ensureMvPhToolbar(){
   if(search && search.parentNode===filters) search.insertAdjacentElement('afterend',fb);
   else filters.insertBefore(fb, filters.firstChild);
 }
-function _mvCardRowPhone(m, net, mq){
+function _mvCardRowPhone(m, net, mq, q3){
   const needsCat = !m.cat;
   const needsAff = !m.qui && !m.imm && !m.compteurCcId;
   const todo = needsCat || needsAff;
@@ -13328,7 +13354,7 @@ function _mvCardRowPhone(m, net, mq){
         <button type="button" class="del" onclick="event.stopPropagation();delMv(${m.id})">${_uiIcon('trash',14)}Supprimer</button>
       </div>
     </div>
-  </td></tr>${(mq && typeof _mvMqAlerte === 'function') ? _mvMqAlerte(m, mq, true) : ''}`;
+  </td></tr>${(q3 && typeof _mvQ3Alerte === 'function') ? _mvQ3Alerte(m, q3, true) : ''}${(mq && typeof _mvMqAlerte === 'function') ? _mvMqAlerte(m, mq, true) : ''}`;
 }
 function rMv() {
   const search = v('mvf-search').toLowerCase().trim();
@@ -13375,11 +13401,14 @@ function rMv() {
   // FINANCES-SUIVI-UNIQUE P4 — loyer incomplet d'après le moteur : alerte + geste « Accepter le manque »
   // sous la ligne, pastille « manque accepté » une fois soldé (index par lot mémoïsé, _mvManqueInfo).
   const _mq = m => { try { return (typeof _mvManqueInfo === 'function') ? _mvManqueInfo(m) : null; } catch(e){ return null; } };
+  // P8 (décision Q3) — virement reçu entre deux locataires : « à qui l'attribuer ? » (même index mémoïsé).
+  const _q3 = m => { try { return (typeof _mvQ3Info === 'function') ? _mvQ3Info(m) : null; } catch(e){ return null; } };
   const _mvRows = mvs.map(m=>{
     // ⑨.1 — Débit + Crédit → « Montant » signé (rouge = sort, vert = entre).
     const net = (m.cr||0) - (m.db||0);
     const mq = _mq(m);
-    if(_ph) return _mvCardRowPhone(m, net, mq);
+    const q3 = _q3(m);
+    if(_ph) return _mvCardRowPhone(m, net, mq, q3);
     return `<tr>
     <td>${fd(m.date)}</td>
     <td><div class="mv-clamp2" title="${escHtml(m.lib||'')}">${escHtml(m.lib||'–')}</div></td>
@@ -13392,7 +13421,7 @@ function rMv() {
       <button class="btn bs bb" onclick="openSplitMvList(${m.id})" title="Scinder ce mouvement">${_uiIcon('scissors')}Scinder</button>
       <button class="btn br bb" onclick="delMv(${m.id})" title="Supprimer">${_uiIcon('trash')}Supprimer</button>
     </td>
-  </tr>${mq ? _mvMqAlerte(m, mq, false) : ''}`;
+  </tr>${q3 ? _mvQ3Alerte(m, q3, false) : ''}${mq ? _mvMqAlerte(m, mq, false) : ''}`;
   }).join('');
   // PC-REFONTE — état vide accueillant (styles inline : correct à toutes largeurs, ne touche aucun @media)
   const _mvEmpty = alive.length === 0
@@ -25581,6 +25610,10 @@ function _rgApplyRetenue(entryKey, retenue, restit){
   const sd = (typeof _calculerSoldeDG==='function') ? _calculerSoldeDG(entry.bail, DB.mouvements||[]) : null;
   entry.bail.dgRestitue = sd ? sd.soldeRestitue
     : Math.max(0, Math.round(((Number(entry.bail.dgPaid)||Number(entry.bail.dg)||0) - entry.bail.dgRetenu)*100)/100);
+  // P8 (défaut E) — la restitution est ENREGISTRÉE, même à 0 € (dette > dépôt : tout le dépôt est retenu).
+  // `dgRestitue` 0 ne le disait pas (0 = valeur par défaut du formulaire) : le suivi ne comptait alors pas
+  // la retenue comme règlement du bail. `dgRestitueMontant` (0 compris) est le champ de la restitution.
+  entry.bail.dgRestitueMontant = entry.bail.dgRestitue;
   if(typeof _stamp==='function') _stamp(entry.bail); // v15.x : horodatage pour merge multi-device (cohérence convention bail)
   if(typeof saveDB==='function') saveDB();
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
@@ -25645,7 +25678,9 @@ function _departState(bail){
   const edlFait     = !!edlSortie;
   // NB : saveBail écrit toujours dgRetenu/dgRestitue (pf() → 0 si vide). 0 ≠ « retenues arrêtées »
   // → on exige un signal POSITIF réel pour considérer l'étape faite.
-  const retenueFaite= (Number(bail.dgRetenu)>0) || (Number(bail.dgRestitue)>0) || !!bail.dgDetailRetenues || !!bail.dgRestitueAt;
+  // P8 (défaut E) : même règle « restitution enregistrée » que le suivi des loyers (dgRestitueMontant 0 compris).
+  const _restitEnr = (window.SuiviLoyers && typeof window.SuiviLoyers.restitutionEnregistree === 'function') ? window.SuiviLoyers.restitutionEnregistree(bail) : ((Number(bail.dgRestitue)>0) || !!bail.dgRestitueAt);
+  const retenueFaite= (Number(bail.dgRetenu)>0) || _restitEnr || !!bail.dgDetailRetenues;
   const dgRestitue  = !!bail.dgRestitueAt;
   const reloue      = !!(d && d.remiseLocationFait) || !!bail.cloture;
   const steps = [];

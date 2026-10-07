@@ -28,7 +28,9 @@
  *   - virement entre deux baux (Q3) : `paiement.bailCle` (choix de l'utilisateur) fait foi ;
  *     sinon le bail le plus proche dans le temps, tracé et marqué « à confirmer » ;
  *   - indemnité GLI (Q4) : ne réduit PAS la dette ; exposée en `couvertGli` (information) ;
- *   - écart < 1 € en fin de mois soldé, trace { type:'arrondi' } ;
+ *   - écart < 1 € en fin de mois soldé, trace { type:'arrondi' } ; plafond CUMULÉ de 1 € par bail
+ *     (P8 : Σ |arrondis| < 1 €, sinon un sous-paiement de 0,99 €/mois ne serait jamais réclamé) ;
+ *     la quittance du mois soldé par l'arrondi atteste l'argent reçu (remise « écart < 1 € ») ;
  *   - début du suivi INJECTÉ ({date, source}) ; défaut provisoire = 1er jour du mois du 1er
  *     loyer encaissé (debutSuiviDefaut). Le suivi raisonne AU MOIS : un 1er loyer reçu le 09/03
  *     paie mars entier.
@@ -42,6 +44,8 @@ import { duMois, occupationBaux, _loyerArrearsPass } from './loyer-du-mois.js';
 import { ymRange, lignesRelance, EPS_CENTIME } from './loyers-mois.js';
 
 const _r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+/** Motif de la « remise » d'un écart de moins de 1 € soldé par l'arrondi (quittance, P8). */
+export const MOTIF_ARRONDI = 'écart de moins de 1 € non réclamé';
 const _nr = (s) => String(s == null ? '' : s).trim().toLowerCase();
 const _isIso = (s) => /^\d{4}-\d{2}-\d{2}/.test(String(s || ''));
 const _dernierJour = (ym) => {
@@ -76,6 +80,21 @@ export function debutSuiviDefaut(lotIn) {
   const ouvert = segs.find((s) => !s.end);
   const dernier = ouvert || (segs.length ? segs[segs.length - 1] : null);
   return dernier ? { date: dernier.debut, source: 'provisoire' } : null;
+}
+
+/**
+ * Q3 (P8) — le bail désigné par le choix mémorisé sur un mouvement (`mv.bailCle`). La clé fait foi
+ * telle quelle ; à défaut (casse de la référence différente, bail re-signé qui a reçu une ligne cloud
+ * propre `|uid` depuis le choix) : le SEUL bail suivi du même logement et du même début. Jamais un
+ * bail d'un autre logement, jamais un choix au hasard entre deux baux du même début.
+ */
+function _bailChoisi(suivis, cle, ref) {
+  const exact = suivis.find((x) => x.cle === cle) || suivis.find((x) => _nr(x.cle) === _nr(cle));
+  if (exact) return exact;
+  const parts = String(cle).split('|');
+  if (parts.length < 2 || _nr(parts[0]) !== _nr(ref)) return null;
+  const memeDebut = suivis.filter((x) => x.debut === String(parts[1]).slice(0, 10));
+  return memeDebut.length === 1 ? memeDebut[0] : null;
 }
 
 /** Retenue sur le dépôt imputée aux loyers (§C.1.5), d'après la restitution enregistrée. */
@@ -152,8 +171,8 @@ export function suiviLot(lotIn, opts) {
     const montant = _r2(p.montant);
     const kind = p.kind === 'gli' ? 'gli' : 'virement';
     if (date < sPremier) { res.horsSuivi.push({ mvId: p.id, date, montant, kind }); continue; }
-    let cible = null, regle = null, aConfirmer = false;
-    const choisi = (p.bailCle != null && !o.parLot) ? suivis.find((x) => x.cle === p.bailCle) : null;
+    let cible = null, regle = null, aConfirmer = false, voisins = null;
+    const choisi = (p.bailCle != null && p.bailCle !== '' && !o.parLot) ? _bailChoisi(suivis, p.bailCle, ref) : null;
     if (choisi) {
       cible = choisi;
       if (!dansSeg(choisi, date)) regle = 'choix';
@@ -166,12 +185,13 @@ export function suiviLot(lotIn, opts) {
         if (avant && apres) {
           regle = 'plus-proche'; aConfirmer = true;
           cible = _jours(avant.end, date) < _jours(date, apres.debut) ? avant : apres;   // égalité → le nouveau
+          voisins = { avantCle: avant.cle, apresCle: apres.cle };   // P8 : les deux choix de l'alerte Q3
         } else if (apres) { regle = 'vacance-avant'; cible = apres; }
         else if (avant) { regle = 'vacance-apres'; cible = avant; }
         else regle = 'aucun-bail';
       }
     }
-    if (regle) res.horsPeriode.push({ mvId: p.id, date, montant, bailCle: cible ? cible.cle : null, regle, aConfirmer });
+    if (regle) res.horsPeriode.push(Object.assign({ mvId: p.id, date, montant, bailCle: cible ? cible.cle : null, regle, aConfirmer }, voisins || {}));
     if (cible) (kind === 'gli' ? cible.gli : cible.argent).push({ id: p.id, date, montant, kind });
   }
   // Règlement sans virement : la retenue sur le dépôt, datée de la fin effective (§C.1.5).
@@ -247,6 +267,13 @@ export function suiviLot(lotIn, opts) {
       }
       return { montant: _r2(loyer + charge), loyer, charge, motifs, ids };
     };
+    const arrondiSur = (i) => {
+      const P = i < nExig ? passExig : pass;
+      const cs = (P.arrondis || []).flatMap((a) => a.cibles || []).filter((c) => c.idx === i);
+      const loyer = _r2(cs.filter((c) => c.poste === 'loyer').reduce((t, c) => t + c.montant, 0));
+      const charge = _r2(cs.filter((c) => c.poste === 'charge').reduce((t, c) => t + c.montant, 0));
+      return loyer + charge > EPS_CENTIME ? { montant: _r2(loyer + charge), loyer, charge } : null;
+    };
     const mois = entrees.map((e, i) => {
       const pm = pass.months[i];
       const recu = _r2(e.argent.filter((p) => p.kind === 'virement').reduce((t, p) => t + p.montant, 0));
@@ -255,9 +282,20 @@ export function suiviLot(lotIn, opts) {
       const retard = _r2(pm.loyerArrear + pm.chargeArrear);
       const dep = pm.anterieur.depuisIdx;
       // `montant` = la remise APPLIQUÉE (plafonnée à la dette) ; `montantDemande` = le geste saisi.
+      // P8 (défaut C) — plusieurs manques le même mois : `manques` les garde UN PAR UN (id, part
+      // appliquée répartie dans l'ordre des gestes), pour que chacun s'annule ; `manque` reste le
+      // résumé du mois (son `id` n'est renseigné que pour un geste unique : jamais d'id composite).
+      const mqTries = e.mq.slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || String(a.id).localeCompare(String(b.id)));
+      let resteApp = pm.remiseAppliquee;
+      const manquesMois = mqTries.map((m) => {
+        const dem = _r2(m.montant);
+        const app = _r2(Math.max(0, Math.min(dem, resteApp)));
+        resteApp = _r2(resteApp - app);
+        return { id: m.id, montant: app, montantDemande: dem, motif: m.motif || '', date: m.date || null };
+      });
       const manque = !e.mq.length ? null : (e.mq.length === 1
-        ? { id: e.mq[0].id, montant: pm.remiseAppliquee, montantDemande: _r2(e.mq[0].montant), motif: e.mq[0].motif || '', date: e.mq[0].date || null }
-        : { id: e.mq.map((m) => m.id).join(','), montant: pm.remiseAppliquee, montantDemande: _r2(e.pass.remise), motif: e.mq.map((m) => m.motif || '').join(' ; '), date: e.mq.map((m) => m.date || '').sort().pop() || null });
+        ? { id: e.mq[0].id, ids: [e.mq[0].id], montant: pm.remiseAppliquee, montantDemande: _r2(e.mq[0].montant), motif: e.mq[0].motif || '', date: e.mq[0].date || null }
+        : { id: null, ids: manquesMois.map((m) => m.id), montant: pm.remiseAppliquee, montantDemande: _r2(e.pass.remise), motif: manquesMois.map((m) => m.motif).join(' ; '), date: manquesMois.map((m) => m.date || '').sort().pop() || null });
       e.argent.filter((p) => p.kind === 'dg').forEach((p) => traces.push({ type: 'dg', ym: e.ym, montant: p.montant, ref: p.id }));
       e.gli.forEach((p) => traces.push({ type: 'gli', ym: e.ym, montant: p.montant, ref: p.id }));
       e.mq.forEach((m) => traces.push({ type: 'manque', ym: e.ym, montant: _r2(m.montant), ref: m.id }));
@@ -276,11 +314,15 @@ export function suiviLot(lotIn, opts) {
         retardLoyer: pm.loyerArrear, retardCharge: pm.chargeArrear, retard, avance: pm.avance,
         solde: _r2(pm.avance - retard),
         residu: { loyer: residu.loyer, charge: residu.charge },
-        manque, remiseAppliquee: pm.remiseAppliquee, arrondi: pm.arrondi,
+        manque, manques: manquesMois, remiseAppliquee: pm.remiseAppliquee, arrondi: pm.arrondi,
         paye: e.d.total > EPS_CENTIME && pm.courant.loyer + pm.courant.charge <= EPS_CENTIME,
         soldeQuittance: e.d.total > EPS_CENTIME && residu.loyer + residu.charge <= EPS_CENTIME
       };
       if (remiseRecue) bm.remiseRecue = remiseRecue;   // absent sans manque accepté : forme inchangée
+      // P8 (défaut A) — dette de CE mois soldée par l'arrondi (< 1 €, une fois par bail) : la quittance
+      // atteste l'argent reçu (dû − arrondi), jamais plus. Absent sinon : forme inchangée.
+      const arrRecu = arrondiSur(i);
+      if (arrRecu) bm.arrondiRecu = arrRecu;
       return bm;
     });
     let pos = null;
@@ -305,7 +347,10 @@ export function suiviLot(lotIn, opts) {
   // `today` : le bilan d'une année ne change pas le 1er janvier suivant.
   for (const ym of ymRange(sYm, fin)) {
     const premier = ym + '-01', dernier = _dernierJour(ym);
-    const lm = { solde: 0, retard: 0, retardLoyer: 0, retardCharge: 0, avance: 0, bauxActifs: [], partis: [], couvertGli: 0 };
+    // `partisAvance` / `aRendre` (P8, défaut D) : trop-perçu d'un locataire PARTI (il a payé au-delà de
+    // son dernier dû), visible selon la même règle d'année que sa dette. HORS de la case du lot
+    // (`solde`, `avance`) : c'est de l'argent à lui rendre, pas une avance sur le loyer du suivant.
+    const lm = { solde: 0, retard: 0, retardLoyer: 0, retardCharge: 0, avance: 0, bauxActifs: [], partis: [], partisAvance: [], aRendre: 0, couvertGli: 0 };
     for (const b of res.baux) {
       const exact = b.mois.find((m) => m.ym === ym);
       if (exact) lm.couvertGli += exact.couvertGli;
@@ -319,8 +364,12 @@ export function suiviLot(lotIn, opts) {
       } else if (m && m.retard > EPS_CENTIME) {
         lm.partis.push(b.cle);
         lm.retardLoyer += m.retardLoyer; lm.retardCharge += m.retardCharge;
+      } else if (m && m.avance > EPS_CENTIME) {
+        lm.partisAvance.push(b.cle);
+        lm.aRendre += m.avance;
       }
     }
+    lm.aRendre = _r2(lm.aRendre);
     lm.retardLoyer = _r2(lm.retardLoyer); lm.retardCharge = _r2(lm.retardCharge);
     lm.retard = _r2(lm.retardLoyer + lm.retardCharge);
     lm.avance = _r2(lm.avance);
@@ -345,6 +394,7 @@ function _carte(lot, b, ym, parti) {
     courant: exact ? Object.assign({}, m.courant) : { loyer: 0, charge: 0 },
     anterieur: exact ? Object.assign({}, m.anterieur) : { loyer: m.retardLoyer, charge: m.retardCharge, depuis: m.anterieur.depuis || (m.retard > EPS_CENTIME ? m.ym : null) },
     manque: exact && m.manque ? Object.assign({}, m.manque) : null,
+    manques: exact && m.manques ? m.manques.map((x) => Object.assign({}, x)) : [],
     couvertGli: exact ? m.couvertGli : 0,
     solde: parti ? _r2(-m.retard) : m.solde
   };
@@ -358,7 +408,7 @@ function _carte(lot, b, ym, parti) {
  * @param {string} ym 'YYYY-MM'
  */
 export function suiviPerimetre(lots, ym) {
-  const out = { ym, solde: 0, retard: 0, avance: 0, enRetard: [], enAvance: [], aJour: [], phrase: { nbRetard: 0, nbAvance: 0, nbManques: 0 } };
+  const out = { ym, solde: 0, retard: 0, avance: 0, enRetard: [], enAvance: [], aJour: [], aRendre: [], totalARendre: 0, phrase: { nbRetard: 0, nbAvance: 0, nbManques: 0 } };
   let nbManques = 0;
   for (const lot of (lots || [])) {
     const lm = lot && lot.mois && lot.mois[ym];
@@ -377,7 +427,19 @@ export function suiviPerimetre(lots, ym) {
       else if (c.solde > EPS_CENTIME) { out.enAvance.push(c); nonNul = true; }
     }
     if (!nonNul && lm.bauxActifs.length) out.aJour.push({ ref: lot.ref, noms: noms.join(' · ') });
+    // P8 (défaut D) — trop-perçu d'un locataire parti : carte À PART, hors de la valeur de la case.
+    for (const cle of (lm.partisAvance || [])) {
+      const b = lot.baux.find((x) => x.cle === cle);
+      const m = b ? _moisAu(b, ym) : null;
+      if (!m || !(m.avance > EPS_CENTIME)) continue;
+      const c = _carte(lot, b, ym, true);
+      c.solde = _r2(m.avance);
+      c.aRendre = true;
+      out.aRendre.push(c);
+    }
   }
+  out.aRendre.sort((a, b) => b.solde - a.solde);
+  out.totalARendre = _r2(out.aRendre.reduce((t, c) => t + c.solde, 0));
   const parMontant = (a, b) => Math.abs(b.solde) - Math.abs(a.solde);
   out.enRetard.sort(parMontant); out.enAvance.sort(parMontant);
   out.solde = _r2(out.solde); out.retard = _r2(out.retard); out.avance = _r2(out.avance);
@@ -593,6 +655,15 @@ export function versEtatMoisLot(suiviBail) {
     if (m.remiseRecue) {
       ligne.remise = { montant: m.remiseRecue.montant, loyer: m.remiseRecue.loyer, charge: m.remiseRecue.charge, motif: m.remiseRecue.motifs.join(' ; ') };
     }
+    // P8 (défaut A) — un écart < 1 € soldé par l'arrondi est, pour le document, une remise : la
+    // quittance atteste la somme REÇUE (dû − remise), jamais 303,33 € quand 303 € sont arrivés.
+    if (m.arrondiRecu) {
+      const r = ligne.remise || { montant: 0, loyer: 0, charge: 0, motif: '' };
+      ligne.remise = {
+        montant: _r2(r.montant + m.arrondiRecu.montant), loyer: _r2(r.loyer + m.arrondiRecu.loyer), charge: _r2(r.charge + m.arrondiRecu.charge),
+        motif: [r.motif, MOTIF_ARRONDI].filter(Boolean).join(' ; ')
+      };
+    }
     return ligne;
   });
   const byYm = {};
@@ -774,15 +845,24 @@ export function paiementsNonAffectes(mouvements, opts) {
  * AVANT la restitution, et la restitution lirait une dette nulle).
  * Versé = `dgPaid` s'il est renseigné (0 compris : dépôt jamais versé), sinon `dg` contractuel.
  */
+const _defini = (v) => v != null && v !== '' && Number.isFinite(Number(v));
+/**
+ * LA règle « restitution du dépôt enregistrée » (P8, défaut E), partagée par le suivi et l'assistant
+ * de départ (app-part1.js) : `dgRestitueMontant` défini (0 COMPRIS — écrit par _dgConfirmerRestitution
+ * et, depuis P8, par _rgApplyRetenue même quand la dette absorbe tout le dépôt), `dgRestitueAt`, ou
+ * l'ancien `dgRestitue` > 0 (données d'avant P8).
+ */
+export function restitutionEnregistree(b) {
+  if (!b) return false;
+  return _defini(b.dgRestitueMontant) || !!b.dgRestitueAt || (Number(b.dgRestitue) || 0) > 0;
+}
 function _dgDuBail(b) {
   if (!b || !b.finEffective) return undefined;
-  const defini = (v) => v != null && v !== '' && Number.isFinite(Number(v));
   const mt = b.dgRestitueMontant;
-  const restMontant = defini(mt);
-  const enregistree = restMontant || !!b.dgRestitueAt || (Number(b.dgRestitue) || 0) > 0;
-  if (!enregistree) return undefined;
+  const restMontant = _defini(mt);
+  if (!restitutionEnregistree(b)) return undefined;
   return {
-    verse: defini(b.dgPaid) ? Number(b.dgPaid) : (Number(b.dg) || 0),
+    verse: _defini(b.dgPaid) ? Number(b.dgPaid) : (Number(b.dg) || 0),
     retenuAutres: Number(b.dgRetenu) || 0,
     restitue: restMontant ? Number(mt) : (Number(b.dgRestitue) || 0),
     penalite: Number(b.dgPenaliteArt22) || 0,
