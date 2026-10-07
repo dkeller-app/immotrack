@@ -1,63 +1,81 @@
 // Documents « express » venus de propryo.fr (quittance, bail, état des lieux, avenant).
 //
-// Parcours : l'utilisateur remplit un formulaire sur le site, le bouton l'envoie ici avec ses champs dans le fragment
-// d'adresse (#doc=<base64url JSON>, jamais transmis à un serveur). index.html le range aussitôt dans localStorage
-// (avant le routeur, qui réécrit le fragment). L'inscription ou la connexion se déroule ensuite normalement ; une fois
-// l'application affichée, ce module génère le PDF (jsPDF déjà embarqué), le télécharge et affiche un message.
+// Parcours : l'utilisateur remplit un formulaire sur le site ; le bouton ouvre l'app dans un nouvel onglet
+// (…/?inscription&doc=attente) et lui envoie les champs par postMessage. Rien ne passe par l'URL, donc rien dans
+// l'historique du navigateur. Le script inline d'index.html (avant le routeur) n'accepte le message que si
+// event.origin est propryo.fr ou www.propryo.fr ET que l'expéditeur est l'onglet qui a ouvert l'app ; il range la
+// saisie dans localStorage (30 min). L'inscription ou la connexion se déroule ensuite normalement ; une fois l'app
+// affichée, ce module génère le PDF (jsPDF déjà embarqué) et le propose en téléchargement.
 //
 // Rien n'est jamais écrit dans les données de l'utilisateur : c'est un simple téléchargement.
 
 export const CLE_DOC_EXPRESS = 'imsb-doc-express'
-const VALIDITE_MS = 3 * 3600 * 1000   // 3 h : l'inscription se fait dans la foulée ; au-delà, la saisie (nom, adresse) est oubliée
+const VALIDITE_MS = 30 * 60 * 1000
 const TYPES = ['quittance', 'bail', 'edl', 'avenant']
-const MAX_CHAMP = 300
+export const MAX_CHAMP = 300
+export const MAX_TAILLE = 8000
 
 export const MESSAGE_SUIVI =
   'Le document est téléchargé. Pour le suivi et la sauvegarde, Propryo est là : biens, locataires, loyers et documents réunis au même endroit.'
 
-// ── décodage / validation (pur, testable) ────────────────────────────────────
-export function decoderDocExpress(b64url) {
+// ── validation (pure, testable) : refus explicite, jamais de troncature silencieuse ──
+export function validerDocExpress(brut) {
   try {
-    if (typeof b64url !== 'string' || !b64url || b64url.length > 12000) return null
-    let b64 = b64url.replace(/-/g, '+').replace(/_/g, '/')
-    while (b64.length % 4) b64 += '='
-    const bin = atob(b64)
-    const octets = Uint8Array.from(bin, c => c.charCodeAt(0))
-    const brut = JSON.parse(new TextDecoder('utf-8').decode(octets))
-    if (!brut || typeof brut !== 'object' || !TYPES.includes(brut.type)) return null
-    return { type: brut.type, champs: nettoyerChamps(brut.champs) }
-  } catch (e) { return null }
+    if (!brut || typeof brut !== 'object' || Array.isArray(brut) || !TYPES.includes(brut.type)) return { erreur: 'format' }
+    if (JSON.stringify(brut).length > MAX_TAILLE) return { erreur: 'taille' }
+    const champs = nettoyerChamps(brut.champs)
+    if (champs === null) return { erreur: 'taille' }
+    return { doc: { type: brut.type, champs } }
+  } catch (e) { return { erreur: 'format' } }
 }
 
+// null = champ ou liste trop long (refus) ; clés au format inattendu ignorées
 function nettoyerChamps(c) {
   const out = {}
   if (!c || typeof c !== 'object' || Array.isArray(c)) return out
-  for (const [k, v] of Object.entries(c).slice(0, 40)) {
+  const entrees = Object.entries(c)
+  if (entrees.length > 40) return null
+  for (const [k, v] of entrees) {
     if (!/^[a-zA-Z]{1,24}$/.test(k)) continue
-    if (typeof v === 'string') out[k] = v.slice(0, MAX_CHAMP)
+    if (typeof v === 'string') { if (v.length > MAX_CHAMP) return null; out[k] = v }
     else if (typeof v === 'number' || typeof v === 'boolean') out[k] = v
-    else if (Array.isArray(v)) out[k] = v.slice(0, 30).map(x => (x && typeof x === 'object' ? nettoyerChamps(x) : String(x).slice(0, MAX_CHAMP)))
-    else if (v && typeof v === 'object') out[k] = nettoyerChamps(v)
+    else if (Array.isArray(v)) {
+      if (v.length > 30) return null
+      const l = v.map(x => (x && typeof x === 'object' ? nettoyerChamps(x) : String(x)))
+      if (l.some(x => x === null || (typeof x === 'string' && x.length > MAX_CHAMP))) return null
+      out[k] = l
+    } else if (v && typeof v === 'object') { const o = nettoyerChamps(v); if (o === null) return null; out[k] = o }
   }
   return out
 }
 
+/** Purge : expirée ou ancien format (#doc= base64) = supprimée. Appelée à CHAQUE chargement par index.html ; ici pour les tests. */
+export function purgerPerimes(storage = (typeof localStorage !== 'undefined' ? localStorage : null), maintenant = Date.now()) {
+  try {
+    if (!storage) return
+    const brut = storage.getItem(CLE_DOC_EXPRESS)
+    if (!brut) return
+    const r = JSON.parse(brut)
+    if (!r || !r.doc || !r.t || !(maintenant - r.t < VALIDITE_MS)) storage.removeItem(CLE_DOC_EXPRESS)
+  } catch (e) { try { storage && storage.removeItem(CLE_DOC_EXPRESS) } catch (_) {} }
+}
+
+/** Rend { doc } (valide), { erreur } (reçu mais refusé) ou null (rien en attente). */
 export function lireEnAttente(storage = (typeof localStorage !== 'undefined' ? localStorage : null), maintenant = Date.now()) {
   try {
     if (!storage) return null
+    purgerPerimes(storage, maintenant)
     const brut = storage.getItem(CLE_DOC_EXPRESS)
     if (!brut) return null
-    const { b64, t } = JSON.parse(brut) || {}
-    if (!t || maintenant - t > VALIDITE_MS) { storage.removeItem(CLE_DOC_EXPRESS); return null }
-    const doc = decoderDocExpress(b64)
-    if (!doc) storage.removeItem(CLE_DOC_EXPRESS)
-    return doc
+    const v = validerDocExpress((JSON.parse(brut) || {}).doc)
+    if (v.erreur) { storage.removeItem(CLE_DOC_EXPRESS); return { erreur: v.erreur } }
+    return v
   } catch (e) { try { storage && storage.removeItem(CLE_DOC_EXPRESS) } catch (_) {} return null }
 }
 
 // ── mise en forme ───────────────────────────────────────────────────────────
 const eur = n => (isNaN(n) ? 0 : n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const num = v => parseFloat(String(v == null ? '' : v).replace(',', '.')) || 0
+const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return Number.isFinite(n) && n >= 0 && n <= 10000000 ? n : 0 }
 const txt = (v, defaut = '…') => (v == null || String(v).trim() === '' ? defaut : String(v).trim())
 const slug = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const PIED = 'Document établi avec Propryo (propryo.fr). Il ne remplace pas un conseil juridique.'
@@ -258,7 +276,7 @@ async function chargerJsPdf() {
   return J
 }
 
-// ── fenêtre de remise : le clic de l'utilisateur déclenche le téléchargement (geste explicite) ──
+// ── fenêtre de remise : composants et variables de l'app (thème clair/sombre), clavier, focus ──
 const LIBELLES = { quittance: 'Quittance de loyer', bail: 'Contrat de location', edl: 'État des lieux', avenant: 'Avenant au bail' }
 
 export function resumeDocument(doc) {
@@ -266,46 +284,70 @@ export function resumeDocument(doc) {
   return [LIBELLES[doc.type] || 'Document', [c.bailleur, c.locataire].filter(Boolean).join(' et '), c.adresse].filter(Boolean)
 }
 
-function afficherRemise(doc, telecharger) {
-  const fond = document.createElement('div')
-  fond.setAttribute('role', 'dialog'); fond.setAttribute('aria-modal', 'true')
-  fond.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(16,21,33,.55);display:flex;align-items:center;justify-content:center;padding:20px'
-  const carte = document.createElement('div')
-  carte.style.cssText = 'background:#fff;border-radius:18px;max-width:440px;width:100%;padding:28px 26px;font-family:Inter,sans-serif;color:#3c4658;box-shadow:0 30px 70px -30px rgba(16,21,33,.6)'
-  const h = document.createElement('div'); h.textContent = 'Document prêt'
-  h.style.cssText = "font-family:'Schibsted Grotesk',sans-serif;font-weight:800;font-size:22px;color:#101521;margin-bottom:10px"
-  const lignes = resumeDocument(doc)
-  const resume = document.createElement('div')
-  resume.style.cssText = 'background:#f4f5f8;border-radius:12px;padding:12px 14px;font-size:14.5px;line-height:1.5;margin-bottom:16px'
-  lignes.forEach((l, i) => { const p = document.createElement('div'); p.textContent = l; if (i === 0) p.style.cssText = 'font-weight:700;color:#101521'; resume.append(p) })
-  const p = document.createElement('p'); p.style.cssText = 'font-size:15.5px;line-height:1.6;margin:0 0 20px'
-  p.textContent = 'Le document correspond à la saisie faite sur propryo.fr. Le PDF se télécharge en un clic.'
-  const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Télécharger le PDF'
-  b.style.cssText = 'background:#ff5a3c;color:#fff;border:0;border-radius:12px;padding:12px 24px;font-weight:700;font-size:15px;cursor:pointer'
-  b.onclick = () => {
-    try { telecharger() } catch (e) { p.textContent = "Le téléchargement a échoué. Il suffit de refaire le document depuis propryo.fr."; return }
-    p.textContent = MESSAGE_SUIVI
-    b.textContent = 'Fermer'; b.onclick = () => fond.remove()
+export function afficherRemise(doc, telecharger) {
+  const ov = document.createElement('div')
+  ov.className = 'ov'; ov.id = 'ov-doc-express'
+  const modal = document.createElement('div')
+  modal.className = 'modal'; modal.style.maxWidth = '460px'
+  modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-labelledby', 'doc-express-titre')
+  modal.tabIndex = -1
+  const tete = document.createElement('div'); tete.className = 'm-head'
+  const h = document.createElement('h3'); h.id = 'doc-express-titre'; h.style.margin = '0'; h.textContent = 'Document prêt'
+  tete.append(h)
+  const corps = document.createElement('div'); corps.className = 'm-body'
+  const resume = document.createElement('div'); resume.className = 'mb8'
+  resume.style.cssText = 'background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;line-height:1.5'
+  resumeDocument(doc).forEach((l, i) => { const p = document.createElement('div'); p.textContent = l; if (i === 0) p.style.fontWeight = '700'; resume.append(p) })
+  const info = document.createElement('p'); info.className = 'mb8'
+  info.textContent = 'Le document correspond à la saisie faite sur propryo.fr. Le PDF se télécharge en un clic.'
+  const pied = document.createElement('div'); pied.className = 'flex-c'; pied.style.gap = '8px'
+  const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'btn bp'; bt.textContent = 'Télécharger le PDF'
+  const ba = document.createElement('button'); ba.type = 'button'; ba.className = 'btn bs'; ba.textContent = 'Annuler'
+  for (const b of [bt, ba]) b.style.minHeight = '44px'
+  pied.append(bt, ba)
+  corps.append(resume, info, pied)
+  modal.append(tete, corps); ov.append(modal)
+
+  const precedent = document.activeElement
+  const fermer = () => { document.removeEventListener('keydown', clavier, true); ov.remove(); try { precedent && precedent.focus && precedent.focus() } catch (e) {} }
+  function clavier(e) {
+    if (e.key === 'Escape') { e.preventDefault(); fermer(); return }
+    if (e.key !== 'Tab') return
+    const f = [...modal.querySelectorAll('button')]
+    if (!f.length) return
+    const premier = f[0], dernier = f[f.length - 1]
+    if (e.shiftKey && (document.activeElement === premier || document.activeElement === modal)) { e.preventDefault(); dernier.focus() }
+    else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus() }
   }
-  const x = document.createElement('button'); x.type = 'button'; x.textContent = 'Annuler'
-  x.style.cssText = 'background:none;border:0;color:#6e7888;font-size:14px;margin-left:14px;cursor:pointer'
-  x.onclick = () => fond.remove()
-  carte.append(h, resume, p, b, x); fond.append(carte); document.body.append(fond)
-  b.focus()
+  bt.onclick = () => {
+    try { telecharger() } catch (e) { info.textContent = 'Le téléchargement a échoué. Il suffit de refaire le document depuis propryo.fr.'; return }
+    info.textContent = MESSAGE_SUIVI
+    bt.remove(); ba.textContent = 'Fermer'; ba.className = 'btn bp'; ba.focus()
+  }
+  ba.onclick = fermer
+  document.addEventListener('keydown', clavier, true)
+  document.body.append(ov)
+  modal.focus()   // focus initial sur la fenêtre (titre lu), pas sur « Télécharger » : pas de clic involontaire
 }
 
 // ── point d'entrée, appelé une fois l'application affichée ──────────────────
 const ESSAIS_MAX = 2
+const MSG_REFUS = {
+  taille: "Le document reçu de propryo.fr est trop volumineux : il n'a pas été retenu. Il suffit de le refaire avec des textes plus courts.",
+  format: "Le document reçu de propryo.fr n'a pas pu être lu. Il suffit de le refaire depuis le site.",
+}
 
-export async function consommerDocExpress({ storage = localStorage, charger = chargerJsPdf, afficher = afficherRemise } = {}) {
-  const doc = lireEnAttente(storage)
-  if (!doc) return false
-  let essais = 0
-  try { essais = (JSON.parse(storage.getItem(CLE_DOC_EXPRESS)) || {}).essais || 0 } catch (e) {}
-  // la clé est retirée AVANT l'essai (pas de boucle, pas de doublon d'un autre onglet) ; remise en cas d'échec
-  // transitoire (réseau, libs PDF), au plus ESSAIS_MAX fois
+export async function consommerDocExpress({ storage = localStorage, charger = chargerJsPdf, afficher = afficherRemise, signaler } = {}) {
+  const lu = lireEnAttente(storage)
+  if (!lu) return false
+  const prevenir = signaler || (m => { try { if (typeof window !== 'undefined' && typeof window.showToast === 'function') window.showToast(m, 'err', 9000) } catch (_) {} })
+  if (lu.erreur) { prevenir(MSG_REFUS[lu.erreur] || MSG_REFUS.format); return false }
+  const doc = lu.doc
   let brut = null
   try { brut = JSON.parse(storage.getItem(CLE_DOC_EXPRESS)) } catch (e) {}
+  const essais = (brut && brut.essais) || 0
+  // la clé est retirée AVANT l'essai (pas de boucle, pas de doublon d'un autre onglet) ; remise en cas d'échec
+  // transitoire (réseau, libs PDF), au plus ESSAIS_MAX fois
   try { storage.removeItem(CLE_DOC_EXPRESS) } catch (e) {}
   try {
     const J = await charger()
@@ -315,7 +357,7 @@ export async function consommerDocExpress({ storage = localStorage, charger = ch
   } catch (e) {
     try { console.warn('[doc-express]', e) } catch (_) {}
     if (brut && essais + 1 < ESSAIS_MAX) { try { storage.setItem(CLE_DOC_EXPRESS, JSON.stringify({ ...brut, essais: essais + 1 })) } catch (_) {} }
-    try { if (typeof window !== 'undefined' && typeof window.showToast === 'function') window.showToast("Le document n'a pas pu être généré. Il suffit de le refaire depuis propryo.fr.", 'err', 8000) } catch (_) {}
+    prevenir("Le document n'a pas pu être généré. Il suffit de le refaire depuis propryo.fr.")
     return false
   }
 }
