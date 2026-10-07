@@ -11,9 +11,9 @@
 
 export const CLE_DOC_EXPRESS = 'imsb-doc-express'
 const VALIDITE_MS = 30 * 60 * 1000
-const TYPES = ['quittance', 'bail', 'edl', 'avenant']
+const TYPES = ['quittance', 'edl', 'avenant']   // pas de bail express : le bail conforme (décret 2026-596) se fait dans l'app
 export const MAX_CHAMP = 300
-export const MAX_TAILLE = 8000
+export const MAX_TAILLE = 20000
 
 export const MESSAGE_SUIVI =
   'Le document est téléchargé. Pour le suivi et la sauvegarde, Propryo est là : biens, locataires, loyers et documents réunis au même endroit.'
@@ -80,14 +80,6 @@ const txt = (v, defaut = '…') => (v == null || String(v).trim() === '' ? defau
 const slug = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const PIED = 'Document établi avec Propryo (propryo.fr). Il ne remplace pas un conseil juridique.'
 
-const TYPES_BAIL = {
-  nu: { st: "Bail d'habitation, logement vide", duree: '3 ans', depMois: 1 },
-  meuble: { st: "Bail d'habitation, logement meublé", duree: '1 an', depMois: 2 },
-  etudiant: { st: 'Bail étudiant, logement meublé', duree: '9 mois', depMois: 2 },
-  mobilite: { st: 'Bail mobilité, logement meublé', duree: '1 à 10 mois', depMois: 0 },
-  garage: { st: 'Location de garage, parking ou box', duree: 'Libre', depMois: -1 },
-}
-
 // Petit « stylo » au-dessus de jsPDF : sauts de page automatiques, titres, paragraphes.
 function stylo(J, { marge = 20, titrePage = '' } = {}) {
   const d = new J({ unit: 'mm', format: 'a4' })
@@ -148,106 +140,88 @@ export function pdfQuittance(J, c) {
   return { pdf: d, nom: 'quittance-' + slug(periode) + '.pdf' }
 }
 
-export function pdfBail(J, c) {
-  const tp = Object.prototype.hasOwnProperty.call(TYPES_BAIL, c.typeBail) ? c.typeBail : 'nu', t = TYPES_BAIL[tp]
-  const l = num(c.loyer), ch = num(c.charges)
-  const s = stylo(J)
-  s.titreDoc('CONTRAT DE LOCATION', t.st)
-  s.titre('1. Les parties')
-  s.para('Le bailleur : ' + txt(c.bailleur) + '.'); s.para('Le locataire : ' + txt(c.locataire) + '.')
-  s.titre('2. Le logement')
-  s.para('Adresse : ' + txt(c.adresse) + '.')
-  if (tp !== 'garage') s.para('Surface habitable : ' + txt(c.surface) + ' m². Le bailleur complète ici la désignation du logement : type, nombre de pièces, équipements, parties communes, chauffage et eau chaude.')
-  else s.para("Le bailleur complète ici la désignation du local : numéro d'emplacement, dimensions, accès.")
-  s.titre('3. Durée')
-  s.para('Durée du bail : ' + t.duree + '. Date de prise d’effet : ____ / ____ / ________.')
-  if (tp === 'nu') s.para("Le bail est reconduit tacitement. Le locataire peut donner congé à tout moment avec un préavis de trois mois (un mois en zone tendue ou dans les cas prévus par la loi). Le bailleur ne peut donner congé qu'à l'échéance, avec un préavis de six mois et pour un motif légitime et sérieux (reprise, vente, motif sérieux).")
-  if (tp === 'meuble') s.para("Le bail est reconduit tacitement pour un an. Le locataire peut donner congé avec un préavis d'un mois. Le bailleur donne congé avec un préavis de trois mois, pour un motif légitime et sérieux.")
-  if (tp === 'etudiant') s.para("Le bail de neuf mois n'est pas reconduit tacitement. Le locataire doit justifier de sa qualité d'étudiant. Il peut donner congé avec un préavis d'un mois.")
-  if (tp === 'mobilite') s.para("Le bail mobilité dure de un à dix mois, non renouvelable et non reconductible. Le locataire doit justifier d'une situation prévue par la loi (formation, études, stage, mission temporaire). Préavis du locataire : un mois.")
-  s.titre('4. Loyer et charges')
-  s.para('Loyer mensuel hors charges : ' + eur(l) + ' euros. Provision pour charges : ' + eur(ch) + ' euros, avec régularisation annuelle sur justificatifs. Total mensuel : ' + eur(l + ch) + " euros, payable d'avance le ____ de chaque mois.")
-  if (tp !== 'garage') s.para("Révision annuelle : le loyer peut être révisé chaque année à la date anniversaire, selon la variation de l'indice de référence des loyers (IRL) publié par l'INSEE. Dans les zones concernées, le loyer respecte le dispositif d'encadrement applicable.")
-  s.titre('5. Dépôt de garantie')
-  if (t.depMois > 0) s.para('Montant : ' + eur(l * t.depMois) + ' euros (' + t.depMois + " mois de loyer hors charges). Il est restitué dans un délai d'un mois à compter de la remise des clés si l'état des lieux de sortie est conforme à celui d'entrée, deux mois dans le cas contraire, déduction faite des sommes justifiées.")
-  else if (t.depMois === 0) s.para("Le bail mobilité ne comporte pas de dépôt de garantie : la loi l'interdit.")
-  else s.para('Montant librement fixé entre les parties : ________ euros.')
-  s.titre('6. Obligations')
-  s.para("Le locataire paie le loyer et les charges aux échéances, use paisiblement du bien, répond des dégradations survenues pendant la location, effectue l'entretien courant et les menues réparations, et s'assure contre les risques locatifs (attestation remise avec les clés puis chaque année).")
-  s.para("Le bailleur délivre un logement décent, assure au locataire la jouissance paisible, entretient le bien en état de servir, réalise les réparations autres que locatives et remet gratuitement les quittances sur demande.")
-  if (['meuble', 'etudiant', 'mobilite'].includes(tp)) s.para('Un inventaire détaillé et un état descriptif du mobilier sont annexés au bail.')
-  s.titre('7. Clause résolutoire')
-  s.para("À défaut de paiement du loyer, des charges ou du dépôt de garantie, ou de souscription de l'assurance, le bail peut être résilié de plein droit après un commandement de payer demeuré infructueux, dans les conditions et délais prévus par la loi.")
-  s.titre('8. Pièces à joindre')
-  const pieces = tp === 'garage' ? ["État des lieux d'entrée (conseillé)"] : [
-    'Diagnostic de performance énergétique (DPE)', 'État des risques et pollutions (ERP)',
-    "Notice d'information relative aux droits et obligations des parties", "État des lieux d'entrée",
-    'Grille de vétusté (si convenue)', 'Extrait du règlement de copropriété (le cas échéant)',
-    "Constats plomb, amiante, électricité et gaz (selon l'âge du logement)"]
-  pieces.forEach(p => s.para('- ' + p))
-  if (['meuble', 'etudiant', 'mobilite'].includes(tp)) s.para('- Inventaire et état descriptif du mobilier')
-  s.signatures('Le bailleur', 'Le locataire')
-  s.pieds()
-  return { pdf: s.d, nom: 'bail-' + slug(tp) + '.pdf' }
-}
-
 const ETATS = { neuf: 'Neuf', bon: 'Bon état', usage: "État d'usage", mauvais: 'Mauvais état' }
+
+export const REF_EDL = "décret n° 2016-382 du 30 mars 2016 fixant les modalités d'établissement de l'état des lieux et de prise en compte de la vétusté des logements loués à usage de résidence principale"
 
 export function pdfEdl(J, c) {
   const sortie = c.sens === 'sortie'
   const s = stylo(J)
   s.titreDoc("ÉTAT DES LIEUX " + (sortie ? 'DE SORTIE' : "D'ENTRÉE"), 'Établi contradictoirement entre le bailleur et le locataire')
+  s.para("Modèle de base établi d'après les informations minimales de l'article 2 du " + REF_EDL + ". Vérifier que toutes ces informations sont renseignées avant signature.", 9.5)
   s.titre('Les parties et le logement')
-  s.ligne('Bailleur', txt(c.bailleur)); s.ligne('Locataire', txt(c.locataire)); s.ligne('Logement', txt(c.adresse)); s.ligne('Date', txt(c.date, '____ / ____ / ________'))
-  s.titre('Relevés des compteurs')
+  s.ligne('Type', sortie ? 'État des lieux de sortie' : "État des lieux d'entrée")
+  s.ligne('Date', txt(c.date, '____ / ____ / ________'))
+  s.ligne('Logement', txt(c.adresse, '____________________'))
+  s.ligne('Bailleur', txt(c.bailleur, '____________________'))
+  s.ligne('Domicile du bailleur', txt(c.bailleurAdresse, '____________________'))
+  s.ligne('Locataire', txt(c.locataire, '____________________'))
+  s.ligne('Mandataire', txt(c.mandataire, 'sans objet'))
+  s.titre('Relevés des compteurs individuels')
   const co = c.compteurs || {}
   s.ligne('Électricité', txt(co.elec, '________')); s.ligne('Eau', txt(co.eau, '________')); s.ligne('Gaz', txt(co.gaz, '________'))
-  s.titre('Clés remises')
-  s.para(txt(c.cles, '____') + ' clé(s) / badge(s) / télécommande(s).')
-  s.titre('Pièces et éléments')
+  s.titre('Clés et moyens d\u2019accès')
+  s.para(txt(c.cles, '____') + ' clé(s), badge(s) ou télécommande(s). Détail et destination : ' + txt(c.detailCles, '________________________________') + '.')
+  s.titre('Pièces et éléments du logement')
   const pieces = Array.isArray(c.pieces) && c.pieces.length ? c.pieces : [{ nom: 'Pièce', etat: 'bon', remarque: '' }]
   pieces.forEach(p => {
     const rem = txt(p.remarque, '')
-    s.para('[ ] ' + txt(p.nom, 'Pièce') + ' : ' + (Object.prototype.hasOwnProperty.call(ETATS, p.etat) ? ETATS[p.etat] : '') + (rem ? '. ' + rem : '.'))
+    s.para('[ ] ' + txt(p.nom, 'Pièce') + ' (sols, murs, plafonds, équipements) : ' + (Object.prototype.hasOwnProperty.call(ETATS, p.etat) ? ETATS[p.etat] : '') + (rem ? '. ' + rem : '.'))
   })
-  s.para('Photos horodatées recommandées pour chaque pièce et chaque défaut constaté.', 9.5)
-  s.titre('Observations')
+  s.para('Description précise de chaque pièce à compléter. Photos horodatées recommandées pour chaque pièce et chaque défaut constaté.', 9.5)
+  if (sortie) {
+    s.titre('À la sortie du logement')
+    s.ligne('Nouveau domicile', txt(c.nouveauDomicile, '____________________'))
+    s.ligne('État des lieux d\u2019entrée', 'établi le ' + txt(c.dateEntree, '____ / ____ / ________'))
+    s.para("Évolutions de l'état de chaque pièce constatées depuis l'état des lieux d'entrée : " + txt(c.evolutions, '________________________________') + '.')
+  }
+  s.titre('Observations ou réserves')
   s.para(txt(c.observations, '________________________________________________________________'))
-  s.para("L'état des lieux est établi à l'amiable, en présence des deux parties, et annexé au bail. Chaque partie en conserve un exemplaire. " +
-    (sortie ? "Il est comparé à l'état des lieux d'entrée pour déterminer les éventuelles retenues, en tenant compte de la vétusté." : "Il sert de référence à la restitution du dépôt de garantie. Le locataire peut demander sa correction dans les dix jours."))
+  s.para("L'état des lieux est établi sur support papier ou électronique, remis en main propre ou par voie dématérialisée à chacune des parties au moment de la signature, sous une forme qui permet de comparer l'état du logement à l'entrée et à la sortie.")
   s.signatures('Le bailleur', 'Le locataire', c.lieu, c.date)
   s.pieds()
   return { pdf: s.d, nom: 'etat-des-lieux-' + (sortie ? 'sortie' : 'entree') + '.pdf' }
 }
 
+// Texte de loi : recopié mot pour mot depuis Légifrance (article 17-1 de la loi n° 89-462 du 6 juillet 1989,
+// « Version en vigueur depuis le 24 août 2022 »), page lue le 7 octobre 2026. Ne jamais reformuler.
+export const REF_LOI_17_1 = 'Loi n° 89-462 du 6 juillet 1989 tendant à améliorer les rapports locatifs, article 17-1 (version en vigueur depuis le 24 août 2022, texte lu sur Légifrance le 7 octobre 2026)'
+export const TEXTE_17_1_II = "II. ― Lorsque les parties sont convenues, par une clause expresse, de travaux d'amélioration du logement que le bailleur fera exécuter, le contrat de location ou un avenant à ce contrat peut fixer la majoration du loyer consécutive à la réalisation de ces travaux. Cette majoration ne peut faire l'objet d'une action en diminution de loyer."
+export const TEXTE_17_1_III = "III. ― La révision et la majoration de loyer prévues aux I et II du présent article ne peuvent pas être appliquées dans les logements de la classe F ou de la classe G, au sens de l'article L. 173-1-1 du code de la construction et de l'habitation."
+export const APPLICATION_17_1 = "Conformément au IV de l'article 159 de la loi n° 2021-1104 du 22 août 2021, ces dispositions sont applicables aux contrats de location conclus, renouvelés ou tacitement reconduits un an après la publication de la présente loi. En Guadeloupe, en Martinique, en Guyane, à La Réunion et à Mayotte, ces dispositions sont applicables aux contrats de location conclus, renouvelés ou tacitement reconduits après le 1er juillet 2024."
+
 export function pdfAvenant(J, c) {
+  const classe = String(c.classeDpe || '').toUpperCase()
+  if (classe === 'F' || classe === 'G') throw new Error('dpe-fg')   // majoration interdite : aucun document produit
   const actuel = num(c.loyerActuel), nouveau = num(c.loyerNouveau), travaux = num(c.montantTravaux)
   const hausse = Math.max(0, nouveau - actuel)
   const s = stylo(J)
-  s.titreDoc('AVENANT AU BAIL', 'Majoration de loyer à la suite de travaux')
+  s.titreDoc('AVENANT AU BAIL', 'Majoration du loyer consécutive à des travaux d\u2019amélioration')
   s.titre('Entre les soussignés')
   s.para('Le bailleur : ' + txt(c.bailleur) + '.'); s.para('Le locataire : ' + txt(c.locataire) + '.')
   s.titre('Le bail concerné')
   s.para('Bail du ' + txt(c.dateBail, '____ / ____ / ________') + ' portant sur le logement situé : ' + txt(c.adresse) + '.')
-  s.titre('Article 1. Objet des travaux')
-  s.para('Le bailleur réalise ou a réalisé les travaux suivants : ' + txt(c.objet, '________________________________________________') + '.')
-  if (travaux > 0) s.para('Montant des travaux (TTC) : ' + eur(travaux) + ' euros.')
-  s.titre('Article 2. Nouveau loyer')
+  s.para('Classe énergétique du logement (DPE) : ' + (classe && classe !== 'INCONNUE' ? classe : '____ (à renseigner : la majoration est impossible en classe F ou G)') + '.')
+  s.titre('Article 1. Travaux d\u2019amélioration convenus')
+  s.para("Les parties sont convenues, par une clause expresse du bail ou du présent avenant, des travaux d'amélioration du logement suivants, que le bailleur fera exécuter : " + txt(c.objet, '________________________________________________') + '.')
+  if (travaux > 0) s.para('Montant prévisionnel des travaux (TTC) : ' + eur(travaux) + ' euros.')
+  s.titre('Article 2. Majoration du loyer')
   s.para('Loyer mensuel hors charges avant travaux : ' + eur(actuel) + ' euros. Nouveau loyer mensuel hors charges : ' + eur(nouveau) + ' euros, soit une majoration de ' + eur(hausse) + ' euros par mois (' + eur(hausse * 12) + ' euros par an).')
-  s.para("Le nouveau loyer s'applique à compter du " + txt(c.dateEffet, '____ / ____ / ________') + '. Les autres clauses du bail demeurent inchangées.')
-  if (c.zoneTendue === true || c.zoneTendue === 'oui') {
-    const plafond = travaux * 0.15
-    s.para("Le logement est situé en zone tendue : la majoration annuelle est à vérifier au regard du plafond de 15 % du coût des travaux" +
-      (travaux > 0 ? ' (soit ' + eur(plafond) + ' euros par an pour ce montant)' : '') + ', et des règles d’encadrement du loyer et de performance énergétique applicables.')
-  }
+  s.para("Le nouveau loyer s'applique à compter du " + txt(c.dateEffet, '____ / ____ / ________') + ' (réalisation des travaux). Les autres clauses du bail demeurent inchangées.')
   s.titre('Article 3. Accord des parties')
   s.para("Le locataire déclare accepter la majoration ci-dessus. L'avenant est signé en deux exemplaires et annexé au bail.")
+  s.titre('Textes applicables (citation)')
+  s.para(REF_LOI_17_1 + ' :', 9.5)
+  s.para(TEXTE_17_1_II, 9.5)
+  s.para(TEXTE_17_1_III, 9.5)
+  s.para(APPLICATION_17_1, 9.5)
+  s.para("Cette citation ne remplace pas la lecture du texte en vigueur sur Légifrance. Avant signature, vérifier la classe énergétique, la clause expresse de travaux et, le cas échéant, les règles d'encadrement du loyer applicables.", 9.5)
   s.signatures('Le bailleur', 'Le locataire', c.lieu, c.date)
   s.pieds()
   return { pdf: s.d, nom: 'avenant-bail-travaux.pdf' }
 }
 
-const GENERATEURS = { quittance: pdfQuittance, bail: pdfBail, edl: pdfEdl, avenant: pdfAvenant }
+const GENERATEURS = { quittance: pdfQuittance, edl: pdfEdl, avenant: pdfAvenant }
 export function genererDocument(J, doc) {
   const g = GENERATEURS[doc && doc.type]
   if (!g) throw new Error('type de document inconnu')
@@ -277,7 +251,7 @@ async function chargerJsPdf() {
 }
 
 // ── fenêtre de remise : composants et variables de l'app (thème clair/sombre), clavier, focus ──
-const LIBELLES = { quittance: 'Quittance de loyer', bail: 'Contrat de location', edl: 'État des lieux', avenant: 'Avenant au bail' }
+const LIBELLES = { quittance: 'Quittance de loyer', edl: 'État des lieux', avenant: 'Avenant au bail' }
 
 export function resumeDocument(doc) {
   const c = doc.champs || {}
@@ -335,13 +309,25 @@ const ESSAIS_MAX = 2
 const MSG_REFUS = {
   taille: "Le document reçu de propryo.fr est trop volumineux : il n'a pas été retenu. Il suffit de le refaire avec des textes plus courts.",
   format: "Le document reçu de propryo.fr n'a pas pu être lu. Il suffit de le refaire depuis le site.",
+  dpefg: "Avenant non établi : la majoration de loyer ne peut pas être appliquée dans un logement de classe énergétique F ou G (loi du 6 juillet 1989, article 17-1, III).",
+}
+
+// doc=attente n'a plus d'objet une fois la saisie traitée : il ne doit pas rejouer un document au prochain rechargement
+export function retirerDocDeLUrl() {
+  try {
+    if (typeof location === 'undefined' || typeof history === 'undefined') return
+    const u = new URL(location.href)
+    if (!u.searchParams.has('doc')) return
+    u.searchParams.delete('doc')
+    history.replaceState(history.state, '', u.pathname + u.search + u.hash)
+  } catch (e) {}
 }
 
 export async function consommerDocExpress({ storage = localStorage, charger = chargerJsPdf, afficher = afficherRemise, signaler } = {}) {
   const lu = lireEnAttente(storage)
   if (!lu) return false
   const prevenir = signaler || (m => { try { if (typeof window !== 'undefined' && typeof window.showToast === 'function') window.showToast(m, 'err', 9000) } catch (_) {} })
-  if (lu.erreur) { prevenir(MSG_REFUS[lu.erreur] || MSG_REFUS.format); return false }
+  if (lu.erreur) { retirerDocDeLUrl(); prevenir(MSG_REFUS[lu.erreur] || MSG_REFUS.format); return false }
   const doc = lu.doc
   let brut = null
   try { brut = JSON.parse(storage.getItem(CLE_DOC_EXPRESS)) } catch (e) {}
@@ -352,9 +338,11 @@ export async function consommerDocExpress({ storage = localStorage, charger = ch
   try {
     const J = await charger()
     const { pdf, nom } = genererDocument(J, doc)
+    retirerDocDeLUrl()
     afficher(doc, () => pdf.save(nom))
     return true
   } catch (e) {
+    if (e && e.message === 'dpe-fg') { retirerDocDeLUrl(); prevenir(MSG_REFUS.dpefg); return false }
     try { console.warn('[doc-express]', e) } catch (_) {}
     if (brut && essais + 1 < ESSAIS_MAX) { try { storage.setItem(CLE_DOC_EXPRESS, JSON.stringify({ ...brut, essais: essais + 1 })) } catch (_) {} }
     prevenir("Le document n'a pas pu être généré. Il suffit de le refaire depuis propryo.fr.")

@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   validerDocExpress, lireEnAttente, purgerPerimes, genererDocument, consommerDocExpress, resumeDocument, afficherRemise,
-  CLE_DOC_EXPRESS, MESSAGE_SUIVI, MAX_CHAMP, MAX_TAILLE,
+  CLE_DOC_EXPRESS, MESSAGE_SUIVI, MAX_CHAMP, MAX_TAILLE, REF_EDL, REF_LOI_17_1, TEXTE_17_1_II, TEXTE_17_1_III, APPLICATION_17_1,
 } from '../../js/app/doc-express.js'
 import { readFileSync } from 'node:fs'
 
@@ -15,7 +15,7 @@ class FauxPdf {
   constructor() { this.textes = []; this.pages = 1 }
   setFont() {} setFontSize() {} setTextColor() {} setDrawColor() {} line() {} addPage() { this.pages++ } setPage() {}
   getNumberOfPages() { return this.pages }
-  splitTextToSize(t, w) { const s = String(t); const n = Math.max(20, Math.floor(w * 1.9)); const out = []; for (let i = 0; i < s.length; i += n) out.push(s.slice(i, i + n)); return out.length ? out : [''] }
+  splitTextToSize(t) { return [String(t)] }
   text(t) { this.textes.push(Array.isArray(t) ? t.join(' ') : String(t)) }
   save() {}
 }
@@ -29,19 +29,22 @@ describe('validation', () => {
     expect(validerDocExpress({ type: 'quittance', champs: { bailleur: 'Éric Müller', loyer: '520' } }).doc).toEqual({ type: 'quittance', champs: { bailleur: 'Éric Müller', loyer: '520' } })
   })
   it('refuse un type inconnu, un format inattendu, du bruit', () => {
-    for (const v of [{ type: 'virus', champs: {} }, null, 'x', [], 12, {}]) expect(validerDocExpress(v).erreur).toBe('format')
+    for (const v of [{ type: 'virus', champs: {} }, { type: 'bail', champs: {} }, null, 'x', [], 12, {}]) expect(validerDocExpress(v).erreur).toBe('format')
   })
-  it('refuse explicitement au-delà des limites (aucune troncature silencieuse)', () => {
-    expect(validerDocExpress({ type: 'bail', champs: { adresse: 'x'.repeat(MAX_CHAMP + 1) } }).erreur).toBe('taille')
-    expect(validerDocExpress({ type: 'edl', champs: { pieces: Array.from({ length: 31 }, () => ({ nom: 'a' })) } }).erreur).toBe('taille')
-    const trop = Object.fromEntries(Array.from({ length: 41 }, (_, i) => ['k' + String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)), 'v']))
-    expect(validerDocExpress({ type: 'bail', champs: trop }).erreur).toBe('taille')
-    const lourd = Object.fromEntries(Array.from({ length: 30 }, (_, i) => ['k' + String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)), 'x'.repeat(MAX_CHAMP)]))
-    expect(validerDocExpress({ type: 'bail', champs: lourd }).erreur).toBe('taille')
-    expect(MAX_TAILLE).toBe(8000)
+  it('limites aux bornes : n accepté, n+1 refusé (aucune troncature silencieuse)', () => {
+    expect(validerDocExpress({ type: 'edl', champs: { adresse: 'x'.repeat(MAX_CHAMP) } }).doc.champs.adresse.length).toBe(MAX_CHAMP)
+    expect(validerDocExpress({ type: 'edl', champs: { adresse: 'x'.repeat(MAX_CHAMP + 1) } }).erreur).toBe('taille')
+    const pieces = n => Array.from({ length: n }, () => ({ nom: 'a' }))
+    expect(validerDocExpress({ type: 'edl', champs: { pieces: pieces(30) } }).doc.champs.pieces.length).toBe(30)
+    expect(validerDocExpress({ type: 'edl', champs: { pieces: pieces(31) } }).erreur).toBe('taille')
+    const cles = n => Object.fromEntries(Array.from({ length: n }, (_, i) => ['k' + String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)), 'v']))
+    expect(Object.keys(validerDocExpress({ type: 'edl', champs: cles(40) }).doc.champs).length).toBe(40)
+    expect(validerDocExpress({ type: 'edl', champs: cles(41) }).erreur).toBe('taille')
+    expect(MAX_TAILLE).toBe(20000)
+    expect(validerDocExpress({ type: 'edl', champs: { a: 'x' }, extra: 'y'.repeat(MAX_TAILLE) }).erreur).toBe('taille')
   })
   it('ignore les clés au format suspect', () => {
-    const v = validerDocExpress({ type: 'bail', champs: { adresse: 'a', '__proto__x': 'a', 'a b': 'c' } })
+    const v = validerDocExpress({ type: 'edl', champs: { adresse: 'a', '__proto__x': 'a', 'a b': 'c' } })
     expect(Object.keys(v.doc.champs)).toEqual(['adresse'])
   })
 })
@@ -54,7 +57,8 @@ describe('document en attente : expiration et purge', () => {
     const st = mem(JSON.stringify({ doc: DOC, t: 1000 }))
     expect(lireEnAttente(st, 31 * 60 * 1000)).toBeNull()
     expect(st.m.has(CLE_DOC_EXPRESS)).toBe(false)
-    expect(lireEnAttente(mem(JSON.stringify({ doc: DOC, t: 1000 })), 29 * 60 * 1000).doc.type).toBe('quittance')
+    expect(lireEnAttente(mem(JSON.stringify({ doc: DOC, t: 1000 })), 1000 + 30 * 60 * 1000 - 1).doc.type).toBe('quittance')
+    expect(lireEnAttente(mem(JSON.stringify({ doc: DOC, t: 1000 })), 1000 + 30 * 60 * 1000)).toBeNull()
   })
   it('purgerPerimes : expiré ou ancien format (#doc= base64) supprimé, frais conservé', () => {
     const vieux = mem(JSON.stringify({ b64: 'eyJ0eXBlIjoi', t: Date.now() })); purgerPerimes(vieux); expect(vieux.m.has(CLE_DOC_EXPRESS)).toBe(false)
@@ -65,7 +69,7 @@ describe('document en attente : expiration et purge', () => {
     for (const v of ['null', '{"doc":1}', '[]', 'pas du json']) { const st = mem(v); expect(lireEnAttente(st)).toBeNull(); expect(st.m.has(CLE_DOC_EXPRESS)).toBe(false) }
   })
   it('document reçu mais refusé : erreur explicite et clé supprimée', () => {
-    const st = mem(enreg({ type: 'bail', champs: { adresse: 'x'.repeat(MAX_CHAMP + 5) } }))
+    const st = mem(enreg({ type: 'edl', champs: { adresse: 'x'.repeat(MAX_CHAMP + 5) } }))
     expect(lireEnAttente(st).erreur).toBe('taille'); expect(st.m.has(CLE_DOC_EXPRESS)).toBe(false)
   })
 })
@@ -115,8 +119,23 @@ describe('réception postMessage (index.html)', () => {
       { source: {} }, { data: { propryo: 'autre' } }, { data: null }, { data: { propryo: 'doc', doc: 'texte' } }, { data: { propryo: 'doc', doc: { type: 5 } } }]
     for (const m of mauvais) { const { op, ls, ec } = lancer(); ec[0](evt(op, m)); expect(ls.m.has(CLE_DOC_EXPRESS)).toBe(false) }
   })
+  it('une saisie précédente en attente n’empêche pas l’annonce : le nouveau document remplace l’ancien', () => {
+    const inline = chargerScriptInline(); const op = ouvreur(); const ec = []
+    const ls = mem(enreg({ type: 'edl', champs: { adresse: 'ancien' } }))
+    inline({ ls, search: '?inscription&doc=attente', opener: op, ecouteurs: ec })
+    expect(op.envoyes.length).toBe(2)
+    ec[0](evt(op)); expect(JSON.parse(ls.m.get(CLE_DOC_EXPRESS)).doc.type).toBe('quittance')
+  })
+  it('un second document reçu dans la même page est ignoré (pas de rejeu)', () => {
+    const { op, ls, ec } = lancer(); ec[0](evt(op))
+    ec[0](evt(op, { data: { propryo: 'doc', doc: { type: 'edl', champs: { adresse: 'second' } } } }))
+    expect(JSON.parse(ls.m.get(CLE_DOC_EXPRESS)).doc.type).toBe('quittance')
+  })
+  it('origine « null » refusée', () => {
+    const { op, ls, ec } = lancer(); ec[0](evt(op, { origin: 'null' })); expect(ls.m.has(CLE_DOC_EXPRESS)).toBe(false)
+  })
   it('refuse au-delà de la taille maximale et le dit à l’expéditeur', () => {
-    const { op, ls, ec } = lancer(); ec[0](evt(op, { data: { propryo: 'doc', doc: { type: 'bail', champs: { a: 'x'.repeat(9000) } } } }))
+    const { op, ls, ec } = lancer(); ec[0](evt(op, { data: { propryo: 'doc', doc: { type: 'edl', champs: { a: 'x'.repeat(21000) } } } }))
     expect(ls.m.has(CLE_DOC_EXPRESS)).toBe(false)
     expect(op.envoyes.at(-1).m).toEqual({ propryo: 'doc-refus', raison: 'taille' })
   })
@@ -137,25 +156,35 @@ describe('générateurs', () => {
       expect(tout(d)).toContain('0,00 euros'); expect(tout(d)).not.toContain('Infinity'); expect(tout(d)).not.toContain('NaN')
     }
   })
-  it('bail : dépôt selon le type, aucun dépôt en mobilité', () => {
-    for (const [t, attendu] of [['nu', '520,00 euros (1 mois'], ['meuble', '1 040,00 euros (2 mois'], ['mobilite', 'interdit']]) {
-      const d = new FauxPdf(); genererDocument(function () { return d }, { type: 'bail', champs: { typeBail: t, loyer: '520', charges: '80', adresse: 'x' } })
-      expect(tout(d).replace(/ /g, ' ')).toContain(attendu)
-    }
+  it('bail : plus de bail express (refusé au format, aucun générateur)', () => {
+    expect(() => genererDocument(FauxPdf, { type: 'bail', champs: {} })).toThrow()
+    expect(source).not.toMatch(/pdfBail|TYPES_BAIL/)
   })
-  it('état des lieux : sens et pièces', () => {
-    const d = new FauxPdf(); const r = genererDocument(function () { return d }, { type: 'edl', champs: { sens: 'sortie', pieces: [{ nom: 'Séjour', etat: 'usage', remarque: 'rayure parquet' }] } })
-    expect(tout(d)).toContain('DE SORTIE'); expect(tout(d)).toContain("État d'usage. rayure parquet"); expect(r.nom).toContain('sortie')
+  it('état des lieux : informations minimales du décret n° 2016-382, mention prudente, sortie', () => {
+    const d = new FauxPdf(); const r = genererDocument(function () { return d }, { type: 'edl', champs: { sens: 'sortie', bailleurAdresse: '1 rue B', nouveauDomicile: '2 rue C', dateEntree: '01/01/2024', pieces: [{ nom: 'Séjour', etat: 'usage', remarque: 'rayure parquet' }] } })
+    const t = tout(d)
+    expect(t).toContain('DE SORTIE'); expect(t).toContain("État d'usage. rayure parquet"); expect(r.nom).toContain('sortie')
+    expect(t).toContain(REF_EDL); expect(t).toContain('Domicile du bailleur'); expect(t).toContain('2 rue C'); expect(t).toContain('01/01/2024')
+    expect(REF_EDL).toBe("décret n° 2016-382 du 30 mars 2016 fixant les modalités d'établissement de l'état des lieux et de prise en compte de la vétusté des logements loués à usage de résidence principale")
+    const e = new FauxPdf(); genererDocument(function () { return e }, { type: 'edl', champs: { sens: 'entree' } })
+    expect(tout(e)).not.toContain('À la sortie du logement')
   })
-  it('avenant : majoration annuelle et plafond en zone tendue', () => {
-    const d = new FauxPdf(); genererDocument(function () { return d }, { type: 'avenant', champs: { loyerActuel: '500', loyerNouveau: '540', montantTravaux: '10000', zoneTendue: true } })
-    const t = tout(d).replace(/ | /g, ' ')
-    expect(t).toContain('40,00 euros par mois'); expect(t).toContain('480,00 euros par an'); expect(t).toContain('1 500,00')
+  it('avenant : majoration, citation de l’article 17-1 mot pour mot, aucune promesse de plafond', () => {
+    const d = new FauxPdf(); genererDocument(function () { return d }, { type: 'avenant', champs: { loyerActuel: '500', loyerNouveau: '540', montantTravaux: '10000', classeDpe: 'D' } })
+    const t = tout(d).replace(/[\u202f\u00a0]/g, ' ')
+    expect(t).toContain('40,00 euros par mois'); expect(t).toContain('480,00 euros par an')
+    expect(t).toContain(TEXTE_17_1_II); expect(t).toContain(TEXTE_17_1_III); expect(t).toContain(REF_LOI_17_1); expect(t).toContain(APPLICATION_17_1)
+    expect(t).not.toMatch(/15 ?%/)
+  })
+  it('avenant : texte de loi exact (Légifrance, lu le 7 octobre 2026)', () => {
+    expect(TEXTE_17_1_II).toBe("II. ― Lorsque les parties sont convenues, par une clause expresse, de travaux d'amélioration du logement que le bailleur fera exécuter, le contrat de location ou un avenant à ce contrat peut fixer la majoration du loyer consécutive à la réalisation de ces travaux. Cette majoration ne peut faire l'objet d'une action en diminution de loyer.")
+    expect(TEXTE_17_1_III).toBe("III. ― La révision et la majoration de loyer prévues aux I et II du présent article ne peuvent pas être appliquées dans les logements de la classe F ou de la classe G, au sens de l'article L. 173-1-1 du code de la construction et de l'habitation.")
+  })
+  it('avenant : aucun document pour un logement classé F ou G', () => {
+    for (const c of ['F', 'G', 'f']) expect(() => genererDocument(FauxPdf, { type: 'avenant', champs: { classeDpe: c, loyerActuel: '1', loyerNouveau: '2' } })).toThrow('dpe-fg')
   })
   it('type inconnu : erreur ; valeurs de prototype ignorées', () => {
     expect(() => genererDocument(FauxPdf, { type: 'x', champs: {} })).toThrow()
-    const d = new FauxPdf(); genererDocument(function () { return d }, { type: 'bail', champs: { typeBail: 'constructor', loyer: '500' } })
-    expect(tout(d)).not.toContain('undefined'); expect(tout(d)).toContain('3 ans')
     const e = new FauxPdf(); genererDocument(function () { return e }, { type: 'edl', champs: { pieces: [{ nom: 'Salon', etat: 'constructor' }] } })
     expect(tout(e)).not.toContain('function')
   })
@@ -184,9 +213,14 @@ describe('consommation', () => {
     expect(st.m.has(CLE_DOC_EXPRESS)).toBe(false); expect(msgs.length).toBe(2)
   })
   it('document refusé : message clair, rien de généré', async () => {
-    const st = mem(enreg({ type: 'bail', champs: { adresse: 'x'.repeat(MAX_CHAMP + 1) } })); const msgs = []
+    const st = mem(enreg({ type: 'edl', champs: { adresse: 'x'.repeat(MAX_CHAMP + 1) } })); const msgs = []
     expect(await consommerDocExpress({ storage: st, charger: async () => { throw new Error('non') }, signaler: m => msgs.push(m) })).toBe(false)
     expect(msgs[0]).toContain('trop volumineux')
+  })
+  it('avenant F/G : message dédié, rien à télécharger', async () => {
+    const st = mem(enreg({ type: 'avenant', champs: { classeDpe: 'G', loyerActuel: '1', loyerNouveau: '2' } })); const msgs = []; let propose = false
+    expect(await consommerDocExpress({ storage: st, charger: async () => function () { return new FauxPdf() }, afficher: () => { propose = true }, signaler: m => msgs.push(m) })).toBe(false)
+    expect(propose).toBe(false); expect(msgs[0]).toContain('classe énergétique F ou G')
   })
   it('rien en attente : ne fait rien', async () => {
     expect(await consommerDocExpress({ storage: mem(null), charger: async () => J, afficher: () => { throw new Error('non') } })).toBe(false)
@@ -253,6 +287,14 @@ describe('fenêtre de remise', () => {
     clavier({ key: 'Escape', preventDefault() {} })
     expect(ov.removed).toBe(true); expect(fauxDoc.ecouteurs.keydown.length).toBe(0)
     const m2 = monter(DOC); m2.modal.querySelectorAll('button')[1].onclick(); expect(m2.ov.removed).toBe(true)
+  })
+  it('Maj+Tab sur le premier bouton boucle sur le dernier ; le focus est restitué à la fermeture', () => {
+    const avant = new El('button'); fauxDoc.activeElement = avant
+    const { modal } = monter(DOC)
+    const [bt, ba] = modal.querySelectorAll('button'); const clavier = fauxDoc.ecouteurs.keydown[0]
+    fauxDoc.activeElement = bt; let e = false; clavier({ key: 'Tab', shiftKey: true, preventDefault() { e = true } })
+    expect(e).toBe(true); expect(ba.focused).toBe(true)
+    clavier({ key: 'Escape', preventDefault() {} }); expect(avant.focused).toBe(true)
   })
   it('« Télécharger » : lance le téléchargement puis affiche le message de suivi', () => {
     let n = 0; const { modal } = monter(DOC, () => { n++ })
