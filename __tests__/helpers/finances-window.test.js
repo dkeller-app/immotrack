@@ -7,6 +7,7 @@ import {
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
 import { _loyerTodayLocal } from '../../js/core/loyer-statut.js';
 import { resolveScope, inScope } from '../../js/core/finances-scope.js';
+import { suiviLot, collecterPaiements } from '../../js/core/suivi-loyers.js';
 
 // 13/09/2026 — le cas du CDC : 9 mois échus, un loyer déjà encaissé en octobre (post-daté).
 const TODAY = '2026-09-13';
@@ -254,9 +255,15 @@ describe('finances-window — composition avec le moteur mensuel (contrat étape
   it('A1 : la décision « B » ne fabrique PLUS de retard fantôme sur le mois courant', () => {
     const tot = '2026-09-03';          // avant le 10 → tolérance de début de mois active
     const loyerDue = () => ({ hc: 800, ch: 0 });
-    const mvtsPostDate = [{ date: '2026-10-02', cat: 'Loyer', qui: 'L1', cr: 800, db: 0 }];
+    // janvier→août payés, septembre (courant) PAS ENCORE payé, octobre déjà encaissé (post-daté).
+    const mvtsPostDate = ['01', '02', '03', '04', '05', '06', '07', '08', '10']
+      .map(mo => ({ date: '2026-' + mo + '-02', cat: 'Loyer', qui: 'L1', cr: 800, db: 0 }));
+    // P7 : le retard vient du SUIVI (moteur unique) ; la tolérance est portée par `graceLast` du suivi,
+    // et la fenêtre (dueMonth = 9) borne les mois EXIGIBLES comptés au retard.
+    const suivi = [suiviLot({ ref: 'L1', baux: [{ debut: '2026-01-01', hc: 800, ch: 0, noms: 'L1' }], bareme: [], manques: [],
+      paiements: collecterPaiements(mvtsPostDate, { ref: 'L1', catLigne }) }, { today: tot, graceLast: true })];
     const base = { mouvements: mvtsPostDate, year: 2026, scope: null, catLigne, today: tot,
-                   activeLots: ['L1'], loyerDue };
+                   activeLots: ['L1'], loyerDue, suivi };
     const w = computeConstatWindow({ year: 2026, today: tot, mouvements: mvtsPostDate });
     expect(w.lastMonth).toBe(10);
     expect(w.dueMonth).toBe(9);
@@ -267,10 +274,8 @@ describe('finances-window — composition avec le moteur mensuel (contrat étape
     expect(sept.loyerRetard).toBe(0);   // tolérance respectée : elle suit dueMonth
     expect(octo.loyerRetard).toBe(0);   // un mois NON ÉCHU ne peut pas être en retard
     expect(octo.loyersBrut).toBe(800);  // …mais son encaissement est bien compté (décision B)
-
-    // Le geste fautif d'avant (entier de constat) fabriquait ~800 € de retard par lot.
-    const fautif = _computeFinancesMonthly({ ...base, lastMonth: w.lastMonth });
-    expect(fautif.months.find(m => m.ym === '2026-09').loyerRetard).toBe(800);
+    // (P7 : le « geste fautif » d'avant — passer l'entier de constat — ne s'applique plus : la tolérance
+    //  n'est plus recalculée dans le moteur Finances mais portée par le suivi injecté.)
   });
 
   it('A2 : une fenêtre VIDE produit ZÉRO mois, plus de janvier fantôme', () => {

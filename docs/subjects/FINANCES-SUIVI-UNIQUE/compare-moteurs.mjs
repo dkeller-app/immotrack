@@ -31,6 +31,8 @@ const ROOT = new URL('../../../', import.meta.url);
 const { suiviLot, lotDepuisDb } = await import(new URL('js/core/suivi-loyers.js', ROOT));
 const { _loyerToleranceActive, _loyerTodayLocal } = await import(new URL('js/core/loyer-statut.js', ROOT));
 const { _computeFinancesMonthly } = await import(new URL('js/core/finances-monthly.js', ROOT));
+// P7 : l'« avant » (sans suivi injecté = ancien netting) = copie figée du moteur d'avant suppression.
+const { _computeFinancesMonthly: _computeFinancesMonthlyAvant } = await import(new URL('legacy/finances-monthly.legacy.mjs', import.meta.url));
 
 const args = process.argv.slice(2);
 const iAvant = args.indexOf('--avant');
@@ -202,7 +204,7 @@ if (sansCause.length) {
   const resume = [];
   for (const y of [Number(yr), Number(yr) - 1, Number(yr) - 2]) {
     const args = argsFinances(DB, C, y, today);
-    const a = _computeFinancesMonthly(args), b = _computeFinancesMonthly({ ...args, suivi: suiviTous });
+    const a = _computeFinancesMonthlyAvant(args), b = _computeFinancesMonthly({ ...args, suivi: suiviTous });
     for (const k of FISC_P3) {
       if (a.annual[k] !== b.annual[k]) bouge.push(y + ' annuel ' + k + ' : ' + a.annual[k] + ' → ' + b.annual[k]);
       a.months.forEach((m, i) => { if (!b.months[i] || m[k] !== b.months[i][k]) bouge.push(m.ym + ' ' + k + ' : ' + m[k] + ' → ' + (b.months[i] && b.months[i][k])); });

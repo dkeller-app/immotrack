@@ -80,9 +80,10 @@ describe('I6 — aucun rattachement paiement→mois hors des 3 moteurs sanctionn
     });
   });
 
-  it('loyers-mois.js ne calcule aucun arriéré lui-même : il consomme _loyerArrearsPass', () => {
+  it('loyers-mois.js ne calcule aucun arriéré lui-même : il LIT la forme d\'état (la cascade vit dans loyer-du-mois.js, lue via le suivi)', () => {
     const src = read('js/core/loyers-mois.js');
-    expect(src).toMatch(/import \{ _loyerArrearsPass \} from '\.\/loyer-du-mois\.js'/);
+    // P7 : etatMoisLot (le dernier consommateur direct de _loyerArrearsPass ici) est supprimé.
+    expect(src).not.toMatch(/import .*_loyerArrearsPass/);
     // Marqueurs de l'algorithme d'imputation (files de manques) : ils ne doivent vivre
     // QUE dans loyer-du-mois.js.
     const code = stripComments(src);

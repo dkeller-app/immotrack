@@ -3,10 +3,15 @@ import {
   duMois,
   duMoisFromRaw,
   _baremeOfLot,
-  _debutSuivi,
-  _computeLoyerNetting
+  _loyerArrearsPass
 } from '../../js/core/loyer-du-mois.js';
-import { _computeLoyerArrears } from '../../js/core/loyer-statut.js';
+
+// FINANCES-SUIVI-UNIQUE P7 : `_computeLoyerNetting` et `_computeLoyerArrears` n'étaient que des appels à
+// `_loyerArrearsPass` (carry:true / carry:false) ; supprimés, leurs tests visent désormais la passe
+// directement (même sortie). `_debutSuivi` (7 tests : départ du suivi) est supprimé avec ses tests — le
+// début de suivi vit dans le moteur unique (suivi-loyers.js, `debutSuivi` du lot).
+const _computeLoyerNetting = (months, graceLast, opening) => _loyerArrearsPass(months, { carry: true, graceLast: !!graceLast, opening: opening || null });
+const _computeLoyerArrears = (months, graceLast) => _loyerArrearsPass(months, { carry: false, graceLast: !!graceLast });
 
 // AUDIT-SUIVI-LOYERS étape 1 (2026-07-15) — LE résolveur unique du dû d'un mois.
 // Chaque CAS reprend le harness de repro `_import/repro-audit-suivi-loyers.mjs`
@@ -270,31 +275,6 @@ describe('Occupation — prorata, tombstones, changement de barème mi-mois', ()
     expect(duMois(null, '2026-03').total).toBe(0);
     expect(duMois({ ref: 'X', bails: [], bareme: [], quittances: [] }, '2026-03').source).toBe('vacance');
     expect(duMois(ctxFric(), 'n-importe-quoi').total).toBe(0);
-  });
-});
-
-describe('_debutSuivi — départ du suivi = 1er versement, rattrapage d\'entrée (C6), millésimes antérieurs bornés', () => {
-  const mk = (bails) => ({ ref: 'L-1', bails, bareme: [], quittances: [] });
-  it('bail janvier 2026, 1er paiement mars 2026 → suivi depuis 2026-01 (janv/févr DUS, pas une avance)', () => {
-    expect(_debutSuivi(mk([{ debut: '2026-01-01', fin: null }]), '2026-03')).toBe('2026-01');
-  });
-  it('bail 2019, 1er paiement juin 2024 → suivi depuis 2024-01 (les années sans données restent bornées)', () => {
-    expect(_debutSuivi(mk([{ debut: '2019-06-01', fin: null }]), '2024-06')).toBe('2024-01');
-  });
-  it('bail nov 2023, 1er paiement févr 2024 → 2024-01 (le millésime du 1er versement, pas avant)', () => {
-    expect(_debutSuivi(mk([{ debut: '2023-11-15', fin: null }]), '2024-02')).toBe('2024-01');
-  });
-  it('AUCUN paiement + bail actif → début du bail (zéro paiement = pire retard, pas invisible)', () => {
-    expect(_debutSuivi(mk([{ debut: '2026-01-01', fin: null }]), null)).toBe('2026-01');
-  });
-  it('aucun paiement + bail clôturé → null (rien à suivre)', () => {
-    expect(_debutSuivi(mk([{ debut: '2023-01-01', fin: null, finEffective: '2025-12-31', archive: true }]), null)).toBe(null);
-  });
-  it('paiement pendant une vacance avant le bail → suivi au début du bail', () => {
-    expect(_debutSuivi(mk([{ debut: '2026-02-01', fin: null }]), '2025-12')).toBe('2026-02');
-  });
-  it('aucun bail → null', () => {
-    expect(_debutSuivi(mk([]), '2026-01')).toBe(null);
   });
 });
 

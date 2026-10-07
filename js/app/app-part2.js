@@ -29785,7 +29785,7 @@ function _finMonthly(yr, scope, win) {
     isRecupCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.recup); }, // charges récupérables directes (eau/énergie) : transit locataire
     isRecupACharge: _finIsRecupACharge,         // L-5 : vacance / sans bail / non récupérable → « Resté à ta charge » (225)
     // P3 : retard / avance de suivi / écart / byLot = LE SUIVI par bail (positions de fin de mois).
-    // Module absent (service-worker périmé) → l'ancien netting répond encore (repli jusqu'à P7).
+    // Module absent (service-worker périmé) → retard / avance de suivi / écart / byLot à 0 (le P&L fiscal reste exact ; l'ancien netting est supprimé, P7).
     suivi: (window.SuiviLoyers && typeof window.SuiviLoyers.suiviLot === 'function') ? _finSuiviLots(scope) : undefined,
     window: isWin ? win : undefined,
     lastMonth: isWin ? undefined : win

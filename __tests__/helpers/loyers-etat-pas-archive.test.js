@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { moisRailLot } from '../../js/core/quittance-editeur.js';
-import { etatMoisLot } from '../../js/core/loyers-mois.js';
+import { etatMoisLot } from './etat-mois-fixture.js';   // P7 : etatMoisLot supprimé du module, constructeur gardé en fixture
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');

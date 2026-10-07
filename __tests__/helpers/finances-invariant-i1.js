@@ -23,6 +23,7 @@ import { duMois } from '../../js/core/loyer-du-mois.js';
 import { appliquerNouvellePeriode, periodeInitialeBail } from '../../js/core/loyer-bareme.js';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
 import { computeExigibiliteWindow } from '../../js/core/finances-window.js';
+import { suiviLot, collecterPaiements } from '../../js/core/suivi-loyers.js';
 
 const _r2 = (n) => Math.round(n * 100) / 100;
 const _ym = (y, mo) => y + '-' + String(mo).padStart(2, '0');
@@ -108,7 +109,13 @@ export function surfacesSocle(opts) {
       parAnnee.set(annee, _computeFinancesMonthly({
         mouvements, year: Number(annee), scope: null, catLigne, today: todayFor(ym),
         lastMonth: 12, activeLots: [ctx.ref],
-        loyerDue: (qui, m) => duMois(ctx, m)
+        loyerDue: (qui, m) => duMois(ctx, m),
+        // P7 : le retard / l'avance de suivi viennent du SUIVI (moteur unique), plus de l'ancien netting.
+        suivi: [suiviLot({
+          ref: ctx.ref, bareme: ctx.bareme, manques: [],
+          baux: ctx.bails.map((b) => ({ debut: b.debut, fin: b.fin || null, finEffective: b.finEffective || null, archive: !!b.archive, hc: b.hc, ch: b.ch, noms: ctx.ref })),
+          paiements: collecterPaiements(mouvements, { ref: ctx.ref, catLigne })
+        }, { today: todayFor(ym), graceLast: false })]
       }));
     }
     const b = parAnnee.get(annee).months.find((m) => m.ym === ym);

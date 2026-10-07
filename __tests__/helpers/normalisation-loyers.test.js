@@ -17,6 +17,7 @@ import {
 } from '../../js/core/normalisation-loyers.js';
 import { bailContentHash, bailLegalContent, canonicalStringify } from '../../js/core/bail-content-hash.js';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
+import { suiviLot, collecterPaiements } from '../../js/core/suivi-loyers.js';
 import { _isLoyerCategory, catCtxFromDb } from '../../js/core/utils.js';
 import { reappliquerJournalBaux, CHAMPS_VIE } from '../../js/core/bail-modifications.js';
 import { createStoreSync } from '../../js/core/store-sync.js';
@@ -84,10 +85,16 @@ function finances(a, db) {
     mouvements: db.mouvements, year: 2026, scope: null, catLigne: a._finCatLigne,
     loyerDue, activeLots: bauxLots.map(([ref]) => ref), today: '2026-04-30',
     window: { lastMonth: 4, dueMonth: 4, today: '2026-04-30' },
+    // P7 : le retard vient du SUIVI par bail (moteur unique) ; un bail par lot, paiements = collecteur unique.
+    suivi: bauxLots.map(([ref, b]) => suiviLot(
+      { ref, baux: [{ debut: b.debut, hc: Number(b.hc) || 0, ch: Number(b.ch) || 0, noms: ref }], bareme: [], manques: [],
+        paiements: collecterPaiements(db.mouvements, { ref, catLigne: a._finCatLigne }) },
+      { today: '2026-04-30', graceLast: false })),
   });
-  // Même formule que rFinances (index.html, R-2) : (dû − retard résiduel) ÷ dû, charges comprises.
-  let du = 0, retard = 0;
-  r.months.forEach(m => { du += m.duHC + m.duCH; retard += m.loyerRetard + m.chargeRetard; });
+  // Même formule que rFinances (index.html, R-2) : (dû − retard) ÷ dû, charges comprises (retard = position au dernier mois exigible).
+  let du = 0;
+  r.months.forEach(m => { du += m.duHC + m.duCH; });
+  const retard = r.annual.loyerRetard + r.annual.chargeRetard;
   return { annual: r.annual, du, retard, recouvrement: du > 0 ? Math.round((du - retard) / du * 1000) / 10 : null };
 }
 
@@ -140,7 +147,8 @@ describe('RESTAURATION d\'une sauvegarde d\'avril (vraie _backupRestoreApply d\'
     // AVANT (sans normalisation) : Finances ignore « Loyers » → 0 encaissé, 0 % de recouvrement.
     const brut = finances(app(STD), avril());
     expect(brut.annual.loyersBrut).toBe(0);
-    expect(brut.recouvrement).toBe(0);
+    expect(brut.retard).toBeGreaterThanOrEqual(brut.du);   // rien d'encaissé : tout le dû est en retard (P7 : position du suivi, dette d'avant l'exercice comprise)
+    expect(brut.recouvrement).toBeLessThanOrEqual(0);
     // APRÈS restauration : même sauvegarde, passée par la vraie porte d'entrée.
     const a = app(STD);
     a.DB = { baux: {}, logements: [], params: {} };

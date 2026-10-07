@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-  etatMoisLot, peutQuittancer, moisProposables, moisAQuittancer,
+  peutQuittancer, moisProposables, moisAQuittancer,
   retardLot, lignesRelance, niveauRelance,
   moisFrToYm, ymToMoisFr, ymRange, EPS_CENTIME
 } from '../../js/core/loyers-mois.js';
+import { etatMoisLot } from './etat-mois-fixture.js';   // P7 : etatMoisLot supprimé du module, constructeur gardé en fixture
 
 // CDC-QUITTANCES-IRL étape 1 — LE socle du verdict « ce mois est-il soldé ? ».
 // Invariants couverts ici : I4 (une quittance n'existe que sur un mois soldé),
@@ -44,7 +45,7 @@ describe('moisFrToYm / ymToMoisFr', () => {
 });
 
 // ── Le verdict : soldé / non soldé ────────────────────────────────────────────
-describe('etatMoisLot — le verdict par mois', () => {
+describe('état d\'un lot (fixture etatMoisLot sur la cascade vivante) — le verdict par mois', () => {
   it('mois payé au centime = soldé', () => {
     const e = etatMoisLot([M('2026-08', 600, 50, 650)]);
     expect(e.byYm['2026-08'].solde).toBe(true);

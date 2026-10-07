@@ -2,10 +2,12 @@
 // node arslan-101.mjs   (lecture seule du repo)
 import { readFileSync } from 'node:fs';
 const R = '/home/user/immotrack/js/core/';
-const { _computeFinancesMonthly } = await import(R + 'finances-monthly.js');
-const { _computeLoyerNetting, duMoisFromRaw, bailsFromRaw, _debutSuivi } = await import(R + 'loyer-du-mois.js');
-const { _computeLoyerChargeAlloc } = await import(R + 'loyer-statut.js');
-const { etatMoisLot, ymRange } = await import(R + 'loyers-mois.js');
+const LG = new URL('./legacy/', import.meta.url);   // P7 : anciens moteurs figés
+const { _computeFinancesMonthly } = await import(new URL('finances-monthly.legacy.mjs', LG));
+const { duMoisFromRaw, bailsFromRaw } = await import(R + 'loyer-du-mois.js');
+const { _computeLoyerNetting, _debutSuivi } = await import(new URL('loyer-du-mois.legacy.mjs', LG));
+const { _computeLoyerChargeAlloc } = await import(new URL('loyer-statut.legacy.mjs', LG));
+const { etatMoisLot, ymRange } = await import(new URL('loyers-mois.legacy.mjs', LG));
 
 const DB = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 const LOT = 'Ferrette - 101', YR = 2026, TODAY = '2026-10-05';

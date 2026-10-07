@@ -99,13 +99,15 @@ import {
   buildSciWeightMensuel as _finSciWeightMensuelM, poidsMensuels as _finPoidsMensuelsM
 } from './core/finances-repartition.js';
 
-// SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
+// Règles partagées du suivi des loyers : passe FISCALE à l'encaissement, horloge locale, tolérance du 10.
+// (FINANCES-SUIVI-UNIQUE P7 : le statut/cumul/pastille/arriérés historiques sont supprimés — moteur
+// unique = js/core/suivi-loyers.js.)
 import {
-  _computeLoyerStatut, _loyerChipVerdict, _loyerToleranceActive, _loyerTodayLocal, _loyerSoldeAjuste, _computeLoyerCumul, _computeLoyerChargeAlloc, _computeLoyerArrears, _loyerSplitCascade, _LOYER_TOLERANCE_JOUR
+  _loyerToleranceActive, _loyerTodayLocal, _computeLoyerChargeAlloc, _LOYER_TOLERANCE_JOUR
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
+import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import { computeEntretienStatut } from './core/entretien-statut.js';
 import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES } from './core/pilotage-familles.js';
@@ -247,9 +249,9 @@ import {
 } from './core/quittances-actives.js';
 
 // CDC-QUITTANCES-IRL etape 1 - LE socle du verdict « ce mois est-il solde ? » (D6/D7).
-// Consomme _loyerArrearsPass ; n'ecrit AUCUN rattachement paiement->mois (I6).
+// Helpers purs sur l'etat d'un lot (forme versEtatLot) ; n'ecrit AUCUN rattachement paiement->mois (I6).
 import {
-  etatMoisLot, peutQuittancer, moisProposables, moisAQuittancer,
+  peutQuittancer, moisProposables, moisAQuittancer,
   retardLot, lignesRelance, niveauRelance, datePaiementMois, mentionDateRecu,
   moisFrToYm, ymToMoisFr, ymRange
 } from './core/loyers-mois.js';
@@ -520,16 +522,10 @@ window._finWindowAlignN1 = _finWindowAlignN1M;
 window._finWindowIsFuture = _finWindowIsFutureM;
 window._finWindowLabel = _finWindowLabelM;
 
-// SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
-window._computeLoyerStatut = _computeLoyerStatut;
-window._loyerChipVerdict = _loyerChipVerdict;
+// Règles partagées du suivi des loyers (tolérance du 10, horloge locale, passe fiscale)
 window._loyerToleranceActive = _loyerToleranceActive;
 window._loyerTodayLocal = _loyerTodayLocal;
-window._loyerSoldeAjuste = _loyerSoldeAjuste;
-window._computeLoyerCumul = _computeLoyerCumul;
 window._computeLoyerChargeAlloc = _computeLoyerChargeAlloc;
-window._computeLoyerArrears = _computeLoyerArrears;
-window._loyerSplitCascade = _loyerSplitCascade;
 window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
 
 // AUDIT-SUIVI-LOYERS — résolveur unique du dû + noyau barème (étapes 1-2).
@@ -545,8 +541,6 @@ window.bailsFromRaw = bailsFromRaw;
 window._baremeOfLot = (ref) => _baremeOfLot(appDbFrom(window)?.loyerBareme || [], ref);
 window._loyerPeriodeEnVigueurA = periodeEnVigueurA;
 window._loyerProvisionPourRevision = provisionPourRevision;
-window._debutSuivi = _debutSuivi;
-window._computeLoyerNetting = _computeLoyerNetting;
 window._baremeComputeDateEffetIRL = computeDateEffetIRL;
 window._baremeClampDateEffet = clampDateEffet;
 window._baremePeriodeInitialeBail = periodeInitialeBail;
@@ -660,9 +654,8 @@ window._statutQuittance = _statutQuittance;
 window._escaladeAlerte = _escaladeAlerte;
 window.QUITTANCE_STATUS = QUITTANCE_STATUS;
 
-// LOYERS - verdict « mois solde » (CDC-QUITTANCES-IRL etape 1). Source unique consommee
-// par l'onglet Loyers ; index.html n'assemble que le contexte (du + encaisse).
-window.etatMoisLot = etatMoisLot;
+// LOYERS - helpers du verdict « mois solde » (CDC-QUITTANCES-IRL etape 1) ; l'etat lui-meme vient
+// du moteur unique (SuiviLoyers.versEtatLot, FINANCES-SUIVI-UNIQUE P5/P7).
 window.peutQuittancer = peutQuittancer;
 window.moisProposables = moisProposables;
 window.moisAQuittancer = moisAQuittancer;

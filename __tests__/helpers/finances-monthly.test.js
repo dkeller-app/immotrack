@@ -265,7 +265,8 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
       loyerDue: () => ({ hc: 500, ch: 30 }),        // les deux lots doivent 500/30
       activeLots: ['L1', 'L2'],                     // L2 a un bail actif mais 0 mouvement
       catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
-      today: '2026-02-28'
+      today: '2026-02-28',
+      suivi: suiviDe(mv, [{ ref: 'L1', debut: '2026-01-01', hc: 500, ch: 30 }, { ref: 'L2', debut: '2026-01-01', hc: 500, ch: 30 }], '2026-02-28', cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null))
     });
     expect(r.annual.loyerRetard).toBe(1500);   // L1 févr 500 + L2 janv-févr 1000 (invisible sans activeLots)
     expect(r.annual.chargeRetard).toBe(90);    // 30 + 60
@@ -282,10 +283,12 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
       loyerDue: () => ({ hc: 500, ch: 30 }),
       catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null)
     };
-    const avant = _computeFinancesMonthly({ ...opts, today: '2026-07-05' }); // avant le 10
+    const lot = [{ ref: 'L1', debut: '2026-01-01', hc: 500, ch: 30 }];
+    const avec = (today) => ({ ...opts, today, suivi: suiviDe(mv, lot, today, opts.catLigne) });
+    const avant = _computeFinancesMonthly(avec('2026-07-05')); // avant le 10
     expect(avant.annual.loyerRetard).toBe(0);    // juillet impayé mais sous tolérance
     expect(avant.annual.chargeRetard).toBe(0);
-    const apres = _computeFinancesMonthly({ ...opts, today: '2026-07-15' }); // après le 10
+    const apres = _computeFinancesMonthly(avec('2026-07-15')); // après le 10
     expect(apres.annual.loyerRetard).toBe(500);  // juillet redevient un retard
     expect(apres.annual.chargeRetard).toBe(30);
   });

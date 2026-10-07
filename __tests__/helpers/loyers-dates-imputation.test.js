@@ -16,7 +16,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { _loyerArrearsPass } from '../../js/core/loyer-du-mois.js';
-import { etatMoisLot, datePaiementMois, mentionDateRecu } from '../../js/core/loyers-mois.js';
+import { datePaiementMois, mentionDateRecu } from '../../js/core/loyers-mois.js';
+import { etatMoisLot } from './etat-mois-fixture.js';   // P7 : etatMoisLot supprimé du module, constructeur gardé en fixture
 
 /** Un mois de 500 HC + 100 CH. */
 const M = (ym, received, sources) => ({ ym, hcDue: 500, chDue: 100, received, sources });

@@ -10,7 +10,8 @@ import {
   _computeDetteBail, collecterPaiements, paiementsNonAffectes, debutSuiviDefaut, lotDepuisDb, cleBail
 } from '../../js/core/suivi-loyers.js';
 import { duMois } from '../../js/core/loyer-du-mois.js';
-import { etatMoisLot, ymRange } from '../../js/core/loyers-mois.js';
+import { ymRange } from '../../js/core/loyers-mois.js';
+import { etatMoisLot } from './etat-mois-fixture.js';   // P7 : référence figée de la forme (etatMoisLot supprimé du module)
 import { lotArslan, TODAY_ARSLAN, CLE_ANCIEN, CLE_ARSLAN, vir } from './suivi-loyers-fixtures.js';
 
 const OPTS_ARSLAN = { today: TODAY_ARSLAN, graceLast: true };

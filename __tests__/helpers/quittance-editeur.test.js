@@ -8,7 +8,7 @@
  * ET que le geste reste possible.
  */
 import { describe, it, expect } from 'vitest';
-import { etatMoisLot } from '../../js/core/loyers-mois.js';
+import { etatMoisLot } from './etat-mois-fixture.js';   // P7 : etatMoisLot supprimé du module, constructeur gardé en fixture
 import {
   MOIS_ETAT, moisRailLot, moisParDefaut, anneeParDefaut, anneesDisponibles,
   verdictEmission, etiquetteSansPaiement, validerSaisieLibre, cleMeta,

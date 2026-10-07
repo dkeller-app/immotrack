@@ -264,7 +264,7 @@ export function duMoisFromRaw(ref, ym, raw) {
 /**
  * Normalisation des baux d'un lot depuis les collections BRUTES — extraite de duMoisFromRaw
  * pour être RÉUTILISÉE telle quelle par les autres consommateurs du même contexte
- * (_debutSuivi, étage « mois soldé » de loyers-mois.js). Une seule définition de la forme,
+ * (le suivi par bail, js/core/suivi-loyers.js). Une seule définition de la forme,
  * donc une seule règle d'occupation.
  * @param {string} ref
  * @param {Object} raw { currentBail, bauxHistorique }
@@ -287,40 +287,13 @@ export function bailsFromRaw(ref, raw) {
 }
 
 /**
- * Départ du suivi d'un lot (B2, décision user) : 1er versement du lot, avec le rattrapage
- * d'entrée réintégré (C6) — les mois entre le début du bail et le 1er versement sont DUS
- * (pas une avance) ; le bornage ne s'applique qu'aux MILLÉSIMES antérieurs au suivi
- * (les années sans données restent bornées — pas de « −63 050 € » fantôme).
- * Aucun paiement : début du bail SI un bail est encore actif (zéro paiement = pire retard,
- * pas invisible) ; sinon null (rien à suivre).
- * @param {Object} ctx même contexte que duMois
- * @param {string|null} firstPaymentYm 'YYYY-MM' du 1er versement du lot, ou null
- * @returns {string|null} 'YYYY-MM' de départ du suivi
- */
-export function _debutSuivi(ctx, firstPaymentYm) {
-  const segs = _occupation(ctx && ctx.bails);
-  if (!segs.length) return null;
-  const fp = /^\d{4}-\d{2}$/.test(String(firstPaymentYm || '')) ? String(firstPaymentYm) : null;
-  if (!fp) {
-    const open = segs.find((s) => !s.end);
-    return open ? open.debut.slice(0, 7) : null;
-  }
-  let cand = null;
-  for (const s of segs) { if (s.debut.slice(0, 7) <= fp) cand = s; }
-  if (!cand) cand = segs[0];                       // 1er versement pendant une vacance amont
-  const candYm = cand.debut.slice(0, 7);
-  const janSuivi = fp.slice(0, 4) + '-01';
-  return candYm > janSuivi ? candYm : janSuivi;
-}
-
-/**
  * Passage chronologique d'imputation des encaissements sur les dûs — MOTEUR PARTAGÉ.
- * Même algorithme que l'historique _computeLoyerArrears (cascade loyer courant → charges
+ * Même algorithme que l'ancien `_computeLoyerArrears` (supprimé en P7 ; cascade loyer courant → charges
  * courant → récup arriérés loyer FIFO → récup arriérés charges FIFO, files des manques
  * par mois pour le drill « cause du retard ») + option `carry` : l'excédent d'un mois
  * (avance) est REPORTÉ sur les mois suivants et couvre leurs dûs AVANT de laisser naître
  * un retard (netting avance↔retard, C2/CAS 6 — décision user 14/07). Sans `carry`,
- * comportement legacy à l'identique (consommé par _computeLoyerArrears jusqu'à l'étape 4).
+ * comportement legacy à l'identique (historique ; le moteur unique passe `carry:true`, cf suivi-loyers.js).
  * LOT 0 « socle des dates » (CDC-LOYERS-DESIGN §4) — la cascade DÉTRUISAIT les dates :
  * `received` est un scalaire, donc aucune surface ne pouvait dire « le mois M a été soldé
  * par le mouvement du JJ/MM ». Correctif : chaque mois peut porter `sources`, la liste des
@@ -573,18 +546,4 @@ export function _loyerArrearsPass(months, opts) {
   if (carry) res.avance = _r2(avanceCarry);
   if (detail) { res.remises = remises; res.arrondis = arrondis; }
   return res;
-}
-
-/**
- * Arriérés + avance d'un lot AVEC netting avance↔retard (LA politique cible des 5 surfaces,
- * étape 4). Une avance disponible couvre les mois dus suivants avant de laisser naître un
- * retard → retard>0 ET avance>0 simultanés impossibles par construction.
- * `months[].avance` = avance résiduelle APRÈS le mois (l'avance « vit » au mois qui la reçoit
- * et s'éteint au mois qui la consomme). NE CHANGE PAS l'imputation fiscale (encaissement,
- * _computeLoyerChargeAlloc) — la 2044 est en amont, intouchable.
- * @param {Array<{hcDue:number, chDue:number, received:number}>} months chronologiques (échus)
- * @param {boolean} [graceLast] neutralise le manque neuf du dernier mois (tolérance <10)
- */
-export function _computeLoyerNetting(months, graceLast, opening) {
-  return _loyerArrearsPass(months, { carry: true, graceLast: !!graceLast, opening: opening || null });
 }

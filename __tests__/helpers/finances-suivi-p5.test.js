@@ -327,8 +327,10 @@ describe('P5 — câblage : un seul moteur, plus aucun appel à l\'ancien hors a
     expect(dg).toMatch(/W\._rgClotureImpayes\(bail\.ref, bail\.debut \|\| null, finBail, bail\.debut \|\| null\)/);
     expect(extrait('_rgClotureCompute')).toMatch(/_rgClotureImpayes\(entry\.ref, entry\.debutOcc, entry\.finOcc, entry\.debut\)/);
   });
-  it('etatMoisLot n\'est appelé nulle part dans js/ hors de son module (exposé pour compat seulement)', () => {
+  it('etatMoisLot n\'existe plus (supprimé en P7) : ni appelé par l\'app, ni exposé par main.js, ni exporté par loyers-mois.js', () => {
     const app = ['js/app/app-part1.js', 'js/app/app-part2.js', 'js/app/app-part3.js'].map((f) => readFileSync(resolve(ROOT, f), 'utf8')).join('\n');
     expect(app).not.toMatch(/\betatMoisLot\(/);
+    expect(readFileSync(resolve(ROOT, 'js/main.js'), 'utf8')).not.toMatch(/window\.etatMoisLot\b/);
+    expect(readFileSync(resolve(ROOT, 'js/core/loyers-mois.js'), 'utf8')).not.toMatch(/export function etatMoisLot/);
   });
 });

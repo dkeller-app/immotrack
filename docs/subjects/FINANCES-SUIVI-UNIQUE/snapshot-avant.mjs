@@ -22,10 +22,13 @@ import { pathToFileURL } from 'node:url';
 
 const ROOT = new URL('../../../', import.meta.url);
 const CORE = new URL('js/core/', ROOT);
-const { _computeFinancesMonthly } = await import(new URL('finances-monthly.js', CORE));
-const { duMoisFromRaw, bailsFromRaw, _debutSuivi } = await import(new URL('loyer-du-mois.js', CORE));
-const { _computeLoyerStatut, _loyerSoldeAjuste, _loyerToleranceActive, _loyerTodayLocal } = await import(new URL('loyer-statut.js', CORE));
-const { etatMoisLot, ymRange, retardLot } = await import(new URL('loyers-mois.js', CORE));
+// P7 : les anciens moteurs (supprimés de js/core) vivent figés dans ./legacy/ ; le reste vient du code vivant.
+const LEGACY = new URL('./legacy/', import.meta.url);
+const { _computeFinancesMonthly } = await import(new URL('finances-monthly.legacy.mjs', LEGACY));
+const { duMoisFromRaw, bailsFromRaw } = await import(new URL('loyer-du-mois.js', CORE));
+const { _debutSuivi } = await import(new URL('loyer-du-mois.legacy.mjs', LEGACY));
+const { _computeLoyerStatut, _loyerSoldeAjuste, _loyerToleranceActive, _loyerTodayLocal } = await import(new URL('loyer-statut.legacy.mjs', LEGACY));
+const { etatMoisLot, ymRange, retardLot } = await import(new URL('loyers-mois.legacy.mjs', LEGACY));
 const { computeConstatWindow } = await import(new URL('finances-window.js', CORE));
 const { _isLoyerCategory, catCtxFromDb } = await import(new URL('utils.js', CORE));
 

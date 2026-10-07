@@ -20,6 +20,7 @@ import {
   casReferenceIRL, surfacesSocle, infractionsI1, formatInfractionsI1
 } from './helpers/finances-invariant-i1.js';
 import { duMois } from '../js/core/loyer-du-mois.js';
+import { suiviLot, collecterPaiements } from '../js/core/suivi-loyers.js';
 
 const TODAY = '2026-09-13';           // exercice 2026 en cours, 9 mois échus
 const YEAR = 2026;
@@ -36,10 +37,18 @@ function mouvementsJusquA(mo, amt) {
   return out;
 }
 
+// P7 : le retard vient du SUIVI par bail (moteur unique), plus de l'ancien netting par lot du P&L.
+// Un bail par lot, début 01/01, mêmes dus que `loyerDue` (800 HC + 100 CH).
+const suiviDe = (mvts, refs, today, du) => refs.map((ref) => suiviLot(
+  { ref, baux: [{ debut: YEAR + '-01-01', hc: du.hc, ch: du.ch, noms: ref }], bareme: [], manques: [],
+    paiements: collecterPaiements(mvts, { ref, catLigne }) },
+  { today, graceLast: parseInt(today.slice(8, 10), 10) < 10 }));
+
 function run(mvts, win) {
   return _computeFinancesMonthly({
     mouvements: mvts, year: YEAR, scope: null, catLigne, loyerDue,
-    activeLots: [LOT], today: TODAY, window: win
+    activeLots: [LOT], today: TODAY, window: win,
+    suivi: suiviDe(mvts, [LOT], TODAY, { hc: 800, ch: 100 })
   });
 }
 
@@ -143,7 +152,9 @@ describe('étape 2 · tranche 1 — invariant I-1 (IRL d\'août, janvier→juill
 describe('étape 2 · tranche 2 — R-2 : recouvrement sur le dû du barème (suppressions §9)', () => {
   const duCCsur = (r, dueMonth) => {
     let du = 0, retard = 0;
-    r.months.forEach((m) => { if (m.mo <= dueMonth) { du += m.duHC + m.duCH; retard += m.loyerRetard + m.chargeRetard; } });
+    r.months.forEach((m) => { if (m.mo <= dueMonth) du += m.duHC + m.duCH; });
+    // P7 : le retard vient du suivi = POSITION de fin de mois ; l'année = position au dernier mois exigible.
+    retard = r.annual.loyerRetard + r.annual.chargeRetard;
     return { du: Math.round(du * 100) / 100, retard: Math.round(retard * 100) / 100 };
   };
 
@@ -189,7 +200,7 @@ describe('étape 2 · tranche 2 — R-2 : recouvrement sur le dû du barème (su
     const { du, retard } = duCCsur(r, win.dueMonth);
     expect(retard).toBe(9 * 100);
     const sept = r.months.find((m) => m.mo === 9);
-    expect(sept.chargeRetard).toBe(100);          // la cascade sert le loyer d'abord
+    expect(sept.chargeRetard).toBe(900);          // la cascade sert le loyer d'abord ; position de fin de septembre (9 × 100)
     expect(sept.loyerRetard).toBe(0);
     expect(Math.round((du - retard) / du * 1000) / 10).toBeCloseTo(88.9, 1);
   });
@@ -227,7 +238,8 @@ describe('étape 2 · tranche 3 — tableau (L-2/L-4/L-5, rattrapage, H-2, H-7)'
     const juin = r.months.find((m) => m.mo === 6);
     expect(juin.rattrapage).toBe(900);                         // le mois qui reçoit porte le rattrapage
     const mars = r.months.find((m) => m.mo === 3);
-    expect(mars.loyerRetard + mars.chargeRetard).toBe(0);      // arriéré soldé (netting)
+    expect(mars.loyerRetard + mars.chargeRetard).toBe(900);    // position de fin de mars : l'arriéré existe…
+    expect(juin.loyerRetard + juin.chargeRetard).toBe(0);      // …et il est soldé en juin (netting)
     expect(r.annual.rattrapage).toBe(900);
   });
 
@@ -270,7 +282,7 @@ describe('étape 2 · tranche 4 — ratios sous le socle (R-2 compteur, R-4 occu
     for (let m = 1; m <= 9; m++) mvts.push({ date: YEAR + '-' + String(m).padStart(2, '0') + '-03', cat: 'Loyer', cr: 550, qui: 'A' });
     // B ne paie rien : pire retard, il doit compter. A est à jour : il ne compte pas.
     const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts });
-    const r = eng({ mouvements: mvts, year: YEAR, scope: null, catLigne, loyerDue: due2, activeLots: ['A', 'B'], today: TODAY, window: win });
+    const r = eng({ mouvements: mvts, year: YEAR, scope: null, catLigne, loyerDue: due2, activeLots: ['A', 'B'], today: TODAY, window: win, suivi: suiviDe(mvts, ['A', 'B'], TODAY, { hc: 500, ch: 50 }) });
     expect(r.lotsEnRetard).toEqual(['B']);
   });
 

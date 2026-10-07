@@ -5,7 +5,11 @@
  * inclure cette dette d'ouverture, recouvrée en priorité (loyer avant charge), attribuée à M0.
  */
 import { describe, it, expect } from 'vitest';
-import { _computeLoyerNetting } from '../../js/core/loyer-du-mois.js';
+import { _loyerArrearsPass } from '../../js/core/loyer-du-mois.js';
+
+// P7 : `_computeLoyerNetting` (supprimé) n'était que `_loyerArrearsPass(..., { carry:true, opening })` — c'est la passe
+// que le suivi par bail appelle avec `opening` (bail.ouverture) ; les scénarios visent donc la passe directement.
+const _computeLoyerNetting = (months, graceLast, opening) => _loyerArrearsPass(months, { carry: true, graceLast: !!graceLast, opening: opening || null });
 
 const sigma = (r, k) => r.retardMois.reduce((s, m) => s + m[k], 0);
 

@@ -1,27 +1,35 @@
+// FINANCES-SUIVI-UNIQUE P7 — COPIE FIGÉE (v15.715) de js/core/loyers-mois.js, conservée pour que snapshot-avant.mjs / compare-moteurs.mjs
+// continuent de calculer l'« avant » après la suppression du code mort dans js/core. NE PAS MODIFIER, NON CHARGÉE PAR L'APP.
 /**
- * core/loyers-mois.js — helpers PURS sur la forme « état d'un lot » (list, byYm, reste, avance…).
+ * core/loyers-mois.js — CDC-QUITTANCES-IRL étape 1 : LE SOCLE DU VERDICT.
  *
- * Répond, pour un couple (lot, mois) : « ce mois est-il soldé / quittançable ? ». Le VERDICT lui-même
- * n'est plus calculé ici : FINANCES-SUIVI-UNIQUE P7 a supprimé `etatMoisLot` (le recalcul par lot de la
- * cascade) — l'état vient désormais du moteur unique par bail (js/core/suivi-loyers.js, adaptateurs
- * `versEtatLot` / `versEtatMoisLot`, même forme, même cascade `_loyerArrearsPass` au centime).
- * Ce module ne fait que LIRE cette forme :
+ * Répond à UNE question, pour un couple (lot, mois) : « ce mois est-il soldé ? ».
  *
- *     mois quittançable  ⇔  byYm[ym].solde (reste loyer ET charges à 0, au centime — D6)
+ * D7 — l'imputation n'est PAS réinventée, elle est CONSOMMÉE. Le rattachement d'un
+ * paiement à un mois est déjà tranché (décisions 09/07 et 14/07) et codé dans
+ * `_loyerArrearsPass` / `_computeLoyerNetting` (loyer-du-mois.js) : cascade
+ * loyer courant → charges courant → arriérés loyer FIFO → arriérés charges FIFO,
+ * plus le netting avance↔retard. Ce module ne fait que LIRE `retardMois` :
  *
- * Contenu : calendrier (ymRange, moisFrToYm, ymToMoisFr), I-DATE (datePaiementMois, mentionDateRecu),
- * quittançabilité (peutQuittancer, moisProposables, moisAQuittancer), retard et relance (retardLot,
- * lignesRelance, niveauRelance).
+ *     mois quittançable  ⇔  retardMois[idx].loyer === 0 && retardMois[idx].charge === 0
  *
- * Pur / testable : aucune lecture de DB, aucun DOM.
+ * Ce seul prédicat donne gratuitement le rattrapage (3 mois soldés d'un coup), le
+ * paiement en plusieurs fois et l'avance. Aucun nouveau moteur : `_matcheMois()`
+ * (le 7ᵉ, qui rattachait un paiement au mois calendaire de sa date — C3) est
+ * SUPPRIMÉ, pas corrigé.
+ *
+ * Pur / testable : aucune lecture de DB, aucun DOM. Le contexte est injecté par
+ * l'appelant (index.html assemble `months` depuis `_duMoisLot` + les mouvements).
  *
  * Invariants couverts : I4 (une quittance n'existe que sur un mois soldé),
  * I6 (une seule source d'imputation), I7 (une quittance = un mois).
  * Tests : __tests__/helpers/loyers-mois.test.js
  */
 
+import { _loyerArrearsPass } from '../../../../js/core/loyer-du-mois.js';
+
 const _r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
-/** Seuil « au centime » (D6). Aligné sur le 0.005 de `_loyerArrearsPass` (loyer-du-mois.js). */
+/** Seuil « au centime » (D6). Aligné sur le 0.005 de _loyerArrearsPass. */
 export const EPS_CENTIME = 0.005;
 
 export const MOIS_FR_LONG = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
@@ -77,10 +85,87 @@ export function ymRange(startYm, endYm) {
 }
 
 /**
+ * LE verdict par mois d'un lot — délègue l'imputation à `_loyerArrearsPass`
+ * (carry:true = netting avance↔retard, la politique cible des 5 surfaces).
+ *
+ * LOT 0 « socle des dates » : si l'appelant fournit `sources` (les mouvements encaissés
+ * qui composent `received`), chaque mois porte en retour ses `paiements` — les versements
+ * RÉELLEMENT imputés à CE mois par la cascade — et `datePaiement`, la date à laquelle il a
+ * été soldé. I-DATE : sans rattachement daté, `datePaiement` vaut `null` et les surfaces
+ * n'affichent RIEN. Aucune date n'est inventée, aucun repli sur « aujourd'hui ».
+ *
+ * @param {Array<{ym:string, hcDue:number, chDue:number, received:number,
+ *                sources?:Array<{date:string, id?:string, montant:number}>}>} months
+ *        chronologiques, ÉCHUS (l'appelant borne au mois courant).
+ * @param {{graceLast?:boolean}} [opts] graceLast : neutralise le manque NEUF du
+ *        dernier mois (tolérance début de mois, `_loyerToleranceActive`). NE JAMAIS
+ *        l'activer pour la quittançabilité (D6 : « au centime »).
+ * @returns {{list:Array, byYm:Object, resteLoyer:number, resteCharge:number,
+ *            reste:number, avance:number, nbMoisNonSoldes:number,
+ *            premierMoisNonSolde:string|null}}
+ */
+export function etatMoisLot(months, opts) {
+  const ms = (months || []).filter((m) => m && /^\d{4}-\d{2}$/.test(String(m.ym)));
+  const pass = _loyerArrearsPass(
+    ms.map((m) => ({ hcDue: m.hcDue, chDue: m.chDue, received: m.received, sources: m.sources })),
+    { carry: true, graceLast: !!(opts && opts.graceLast) }
+  );
+  const list = ms.map((m, i) => {
+    const hcDue = Math.max(0, Number(m.hcDue) || 0);
+    const chDue = Math.max(0, Number(m.chDue) || 0);
+    const du = _r2(hcDue + chDue);
+    const r = pass.retardMois[i] || { loyer: 0, charge: 0 };
+    const resteLoyer = _r2(r.loyer);
+    const resteCharge = _r2(r.charge);
+    const reste = _r2(resteLoyer + resteCharge);
+    const vacance = du <= EPS_CENTIME;
+    const solde = !vacance && reste <= EPS_CENTIME;
+    // I-DATE — les versements RÉELLEMENT imputés à ce mois par la cascade, datés.
+    // Un versement sans date connue (`date:null`) n'entre pas dans `paiements` : il ne
+    // peut rien prouver. `datePaiement` n'existe que si le mois est soldé ET que tout
+    // ce qui l'a soldé est daté — sinon `null`, et l'écran n'affiche rien.
+    const brut = (pass.imputations && pass.imputations[i]) || [];
+    const paiements = brut.filter((p) => p.date).map((p) => ({ date: p.date, id: p.id, montant: p.montant, poste: p.poste }));
+    const totalImpute = _r2(brut.reduce((s, p) => s + p.montant, 0));
+    const totalDate = _r2(paiements.reduce((s, p) => s + p.montant, 0));
+    const complet = totalImpute - totalDate <= EPS_CENTIME;
+    const datesVersements = [...new Set(paiements.map((p) => p.date))].sort();
+    return {
+      ym: String(m.ym),
+      hcDue: _r2(hcDue), chDue: _r2(chDue), du,
+      received: _r2(m.received),
+      resteLoyer, resteCharge, reste,
+      // D6 : soldé = plus AUCUN résidu, au centime. Un mois sans dû (vacance) n'est
+      // pas « soldé » : il n'y a rien à quittancer.
+      solde,
+      partiel: !vacance && reste > EPS_CENTIME && reste < du - EPS_CENTIME,
+      vacance,
+      paiements,
+      montantImpute: totalImpute,
+      datesVersements,
+      nbVersements: datesVersements.length,
+      datePaiement: (solde && complet && datesVersements.length) ? datesVersements[datesVersements.length - 1] : null
+    };
+  });
+  const byYm = {};
+  list.forEach((e) => { byYm[e.ym] = e; });
+  const nonSoldes = list.filter((e) => !e.vacance && e.reste > EPS_CENTIME);
+  return {
+    list, byYm,
+    resteLoyer: _r2(pass.loyerArrear),
+    resteCharge: _r2(pass.chargeArrear),
+    reste: _r2(pass.loyerArrear + pass.chargeArrear),
+    avance: _r2(pass.avance || 0),
+    nbMoisNonSoldes: nonSoldes.length,
+    premierMoisNonSolde: nonSoldes.length ? nonSoldes[0].ym : null
+  };
+}
+
+/**
  * I-DATE (V5, CDC-LOYERS-DESIGN) — LA porte unique de la « date de paiement » d'un mois.
  * Aucune surface ne recompose cette date : elle la demande ici, et si la réponse est
  * `null` elle n'affiche RIEN (jamais la date d'émission, jamais `aujourd'hui`).
- * @param {{byYm:Object}} etat sortie de versEtatLot (suivi-loyers.js)
+ * @param {{byYm:Object}} etat sortie de etatMoisLot
  * @param {string} ym
  * @returns {{date:string|null, dates:string[], nb:number, solde:boolean, montant:number}}
  */
@@ -139,7 +224,7 @@ export function mentionDateRecu(info, fmtDate, opts) {
 
 /**
  * I4 — LE garde-fou d'émission. Aucune quittance ne peut naître d'un mois non soldé.
- * @param {{byYm:Object}} etat sortie de versEtatLot (suivi-loyers.js)
+ * @param {{byYm:Object}} etat sortie de etatMoisLot
  * @param {string} ym
  * @returns {{ok:boolean, motif:string, reste:number}}
  */

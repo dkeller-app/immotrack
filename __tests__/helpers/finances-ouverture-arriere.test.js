@@ -103,8 +103,7 @@ describe('C2 — position d\'ouverture dans le moteur Finances (maître)', () =>
     const r = _computeFinancesMonthly({ year: '2025', mouvements: mvts, activeLots: ['L9'], ...base, suivi: suiviDe(mvts, ['L9'], baux) });
     expect(r.byLot['L9'].annual.retard).toBe(1400);   // la dette reste celle de l'ancien (visible en 2025, année de son départ)
     expect(r.byLot['L9'].annual.avance).toBe(700);    // l'avance reste celle du nouveau
-    const legacy = _computeFinancesMonthly({ year: '2025', mouvements: mvts, activeLots: ['L9'], ...base,
-      loyerDue: (q, ym) => (ym >= '2025-01' ? { hc: 700, ch: 0 } : { hc: 0, ch: 0 }) });   // dû du LOT (deux baux bout à bout)
-    expect(legacy.byLot['L9'].annual.retard).toBe(700);   // témoin : l'ancien netting par lot faisait payer le nouveau
+    // (P7 : le témoin « ancien netting par lot → retard 700 » est retiré avec le repli supprimé de finances-monthly.js ;
+    //  sans `suivi`, le retard vaut 0 — voir finances-suivi-p7.test.js.)
   });
 });
