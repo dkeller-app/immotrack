@@ -78,9 +78,10 @@ describe('document en attente : expiration et purge', () => {
 function chargerScriptInline() {
   const i = indexHtml.indexOf('<script>/* Document express venu de propryo.fr')
   const code = indexHtml.slice(indexHtml.indexOf('(function(){', i), indexHtml.indexOf('</script>', i))
-  return ({ ls, search, opener, ecouteurs }) => {
+  return ({ ls, search, opener, ecouteurs, note = { hidden: true } }) => {
     const win = { opener, addEventListener: (t, f) => ecouteurs.push(f) }
-    new Function('window', 'location', 'localStorage', 'setTimeout', code)(win, { search }, ls, () => {})
+    const doc = { getElementById: id => (id === 'imsb-doc-note' ? note : null), addEventListener() {} }
+    new Function('window', 'location', 'localStorage', 'setTimeout', 'document', code)(win, { search }, ls, () => {}, doc)
   }
 }
 
@@ -142,6 +143,33 @@ describe('réception postMessage (index.html)', () => {
   it('ne lit plus #doc= : aucune référence au fragment ni réécriture de l’adresse', () => {
     expect(indexHtml).not.toMatch(/location\.hash[^;]{0,40}doc=/)
     expect(indexHtml).not.toContain("replaceState(null,'',location.pathname+location.search)")
+  })
+})
+
+describe('bandeau « document prêt » sur la page de connexion', () => {
+  it('le bandeau existe, masqué, dans le formulaire de connexion de index.html', () => {
+    expect(indexHtml).toMatch(/<div class="imsb-doc-note" id="imsb-doc-note" role="status" hidden>[^<]*créer un compte gratuit ou se connecter[^<]*<\/div>/i)
+    expect(indexHtml.indexOf('id="imsb-doc-note"')).toBeLessThan(indexHtml.indexOf('<h2 class="imsb-h2">Connexion</h2>'))
+    expect(readFileSync('css/login.css', 'utf-8')).toContain('.imsb-doc-note[hidden]{display:none}')
+  })
+  it('affiché dès que le document est reçu du site, pas avant', () => {
+    const inline = chargerScriptInline(); const op = { postMessage() {} }; const ec = []; const note = { hidden: true }
+    inline({ ls: mem(), search: '?inscription&doc=attente', opener: op, ecouteurs: ec, note })
+    expect(note.hidden).toBe(true)
+    ec[0]({ origin: 'https://propryo.fr', source: op, data: { propryo: 'doc', doc: DOC } })
+    expect(note.hidden).toBe(false)
+  })
+  it('affiché aussi au rechargement quand un document frais est en attente, jamais pour un document périmé', () => {
+    const inline = chargerScriptInline()
+    const frais = { hidden: true }; inline({ ls: mem(enreg(DOC)), search: '?inscription', opener: null, ecouteurs: [], note: frais }); expect(frais.hidden).toBe(false)
+    const perime = { hidden: true }; inline({ ls: mem(JSON.stringify({ doc: DOC, t: 1 })), search: '?inscription', opener: null, ecouteurs: [], note: perime }); expect(perime.hidden).toBe(true)
+    const rien = { hidden: true }; inline({ ls: mem(), search: '?inscription', opener: null, ecouteurs: [], note: rien }); expect(rien.hidden).toBe(true)
+  })
+  it('un document refusé (origine inconnue) n’affiche rien', () => {
+    const inline = chargerScriptInline(); const op = { postMessage() {} }; const ec = []; const note = { hidden: true }
+    inline({ ls: mem(), search: '?inscription&doc=attente', opener: op, ecouteurs: ec, note })
+    ec[0]({ origin: 'https://evil.example', source: op, data: { propryo: 'doc', doc: DOC } })
+    expect(note.hidden).toBe(true)
   })
 })
 

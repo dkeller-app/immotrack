@@ -16,7 +16,7 @@
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
      on masque le document par sécurité. Les aperçus internes (iframes data:/srcdoc) ne sont PAS l'app. -->
 <script>(function(){try{if(window.top!==window.self){window.top.location=window.self.location;}}catch(e){try{document.documentElement.style.display='none';}catch(_){}}})();</script>
-<script>/* Document express venu de propryo.fr : réception par postMessage (aucune donnée dans l'URL ni l'historique). Accepté seulement depuis propryo.fr / www.propryo.fr ET l'onglet qui a ouvert l'app. Purge à chaque chargement. Traité par js/app/doc-express.js. */(function(){try{var K='imsb-doc-express',T=30*60*1000,ls=localStorage;try{var r=JSON.parse(ls.getItem(K)||'null');if(r&&(!r.doc||!(Date.now()-r.t<T)))ls.removeItem(K);}catch(e){try{ls.removeItem(K);}catch(_){}}if(!/[?&]doc=attente(&|$)/.test(location.search)||!window.opener)return;var O=['https://propryo.fr','https://www.propryo.fr'],n=0,fini=false;function annoncer(){if(fini)return;O.forEach(function(o){try{window.opener.postMessage({propryo:'doc-pret'},o);}catch(e){}});if(++n<60)setTimeout(annoncer,500);}window.addEventListener('message',function(ev){if(fini||O.indexOf(ev.origin)<0||ev.source!==window.opener)return;var d=ev.data;if(!d||d.propryo!=='doc'||!d.doc||typeof d.doc!=='object'||typeof d.doc.type!=='string')return;fini=true;var s='';try{s=JSON.stringify(d.doc);}catch(e){}if(!s||s.length>20000){try{window.opener.postMessage({propryo:'doc-refus',raison:'taille'},ev.origin);}catch(e){}return;}try{ls.setItem(K,JSON.stringify({doc:d.doc,t:Date.now()}));window.opener.postMessage({propryo:'doc-recu'},ev.origin);}catch(e){}});annoncer();}catch(e){}})();</script>
+<script>/* Document express venu de propryo.fr : réception par postMessage (aucune donnée dans l'URL ni l'historique). Accepté seulement depuis propryo.fr / www.propryo.fr ET l'onglet qui a ouvert l'app. Purge à chaque chargement. Traité par js/app/doc-express.js. */(function(){try{var K='imsb-doc-express',T=30*60*1000,ls=localStorage;function montrer(){var n=document.getElementById('imsb-doc-note');if(n){n.hidden=false;}else{document.addEventListener('DOMContentLoaded',montrer);}}try{var r=JSON.parse(ls.getItem(K)||'null');if(r&&(!r.doc||!(Date.now()-r.t<T)))ls.removeItem(K);}catch(e){try{ls.removeItem(K);}catch(_){}}try{if(ls.getItem(K))montrer();}catch(e){}if(!/[?&]doc=attente(&|$)/.test(location.search)||!window.opener)return;var O=['https://propryo.fr','https://www.propryo.fr'],n=0,fini=false;function annoncer(){if(fini)return;O.forEach(function(o){try{window.opener.postMessage({propryo:'doc-pret'},o);}catch(e){}});if(++n<60)setTimeout(annoncer,500);}window.addEventListener('message',function(ev){if(fini||O.indexOf(ev.origin)<0||ev.source!==window.opener)return;var d=ev.data;if(!d||d.propryo!=='doc'||!d.doc||typeof d.doc!=='object'||typeof d.doc.type!=='string')return;fini=true;var s='';try{s=JSON.stringify(d.doc);}catch(e){}if(!s||s.length>20000){try{window.opener.postMessage({propryo:'doc-refus',raison:'taille'},ev.origin);}catch(e){}return;}try{ls.setItem(K,JSON.stringify({doc:d.doc,t:Date.now()}));window.opener.postMessage({propryo:'doc-recu'},ev.origin);montrer();}catch(e){}});annoncer();}catch(e){}})();</script>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -60,7 +60,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
 <link rel="stylesheet" href="css/main.css?v=15.728">
-<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=6e49d9e7">
+<link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=85a3738d">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
 <link rel="modulepreload" href="js/app/supabase-boot.js">
@@ -219,6 +219,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
     <img class="imsb-logo imsb-logo-d" src="brand-assets/propryo-logo-dark.svg" alt="Propryo">
   </div>
           <form id="imsb-form" class="imsb-mid" autocomplete="on" method="post" action="#" onsubmit="return false">
+            <div class="imsb-doc-note" id="imsb-doc-note" role="status" hidden>Le document est prêt. Créer un compte gratuit ou se connecter pour le télécharger.</div>
             <h2 class="imsb-h2">Connexion</h2>
             <p class="imsb-lead">Connecte-toi pour gérer tes locations.</p>
             <div class="imsb-err" id="imsb-error" style="display:none"></div>
