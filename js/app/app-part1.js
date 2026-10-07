@@ -7430,7 +7430,9 @@ function _pilCollectFamilles(ctx) {
     // du lot disparaissaient d'« À regarder » tout en restant marqués à faire dans la matrice.
     const _lotRefs = new Set(scopeLogs.filter(_lotEstLoue).map(l => l.ref));   // un lot vide = « rien »
     items.forEach(it => {
-      const nom = (it.subtitle || it.contextRef || it.ref || '').split(' — ')[0] || it.contextRef || '';
+      // 🟡3 (audit d'intégration) : le nom et la famille viennent des champs STRUCTURÉS de l'item, jamais du sous-titre affiché
+      // (un nom d'affichage peut contenir « — » ou « DG »).
+      const nom = it.nom || it.contextRef || it.ref || '';
       if (it.type === 'mrh' || it.type === 'diag') {
         // PNO (assurance propriétaire, contextRef = libellé, hors lot) : EXCLUE de l'Accueil (décision
         // Didier) — reste visible dans Biens/Assurances. Ne comptent que les documents RATTACHÉS à un lot.
@@ -7442,7 +7444,7 @@ function _pilCollectFamilles(ctx) {
       else if (it.type === 'equip') src.entretien.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
       else if (it.type === 'depart') {
         // Un départ en cours : dépôt à restituer (si échéance DG) OU fin de bail à préparer.
-        const hasDG = / DG /.test(it.subtitle || '');
+        const hasDG = !!it.hasDG;
         if (hasDG) src.depot.push({ ref: it.contextRef, nom, montant: 0, urgenceJours: jFromScore(it) });
         else src.finbail.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
       }
@@ -7552,12 +7554,13 @@ function _accmShowAregarder(){
     // Cibles PRÉCISES par famille → _accmGoto(id, ref, count) (défini plus bas). On passe la réf du
     // pire lot pour ouvrir directement la fiche/l'assistant du bon lot, pas une page générique.
     var rows = (fams.familles||[]).map(function(f){
+      // 🟡4 (audit d'intégration) : _pilPireTxt rend du HTML DÉJÀ échappé (comme sur PC) — ne pas le ré-échapper.
       var chiffre=(typeof _pilChiffre==='function')?_pilChiffre(f):''; var pire=(typeof _pilPireTxt==='function')?_pilPireTxt(f):'';
       var _ref=(f.pire&&f.pire.ref)?String(f.pire.ref):'';
       var _refJs=_lyQ(_ref);
       return '<button type="button" class="atr" onclick="_accmGoto(\''+f.id+'\',\''+_refJs+'\','+(f.count||0)+')">'
         +'<span class="ic"><svg viewBox="0 0 24 24">'+(_PIL_ICONS[f.id]||'')+'</svg></span>'
-        +'<span class="m"><span class="t">'+escHtml(f.lbl)+'</span><span class="s">'+escHtml(chiffre)+(pire?(' · '+escHtml(pire)):'')+'</span></span>'
+        +'<span class="m"><span class="t">'+escHtml(f.lbl)+'</span><span class="s">'+escHtml(chiffre)+(pire?(' · '+pire):'')+'</span></span>'
         +((f.count>0)?('<span class="cnt">'+f.count+'</span>'):'')
         +'<svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>';
     }).join('');
@@ -9343,7 +9346,7 @@ function _computeUnifiedTodo(ctx) {
       type:'mrh', severity:'red', score:100,
       title:'Assurance habitation manquante',
       subtitle:_logLabel(it.ref)+(it.locataire?' — '+it.locataire:''),
-      contextRef:it.ref,
+      contextRef:it.ref, nom:_logLabel(it.ref),
       actionLabel:'Ajouter dans Assurances',
       actionFn:'goToAssurances(\''+_lyQ(it.ref)+'\')'
     });
@@ -9355,7 +9358,7 @@ function _computeUnifiedTodo(ctx) {
         type:'mrh', severity:'red', score:95,
         title:'Assurance habitation expirée',
         subtitle:_logLabel(it.ref)+' — échéance '+fd(it.echeance),
-        contextRef:it.ref,
+        contextRef:it.ref, nom:_logLabel(it.ref),
         actionLabel:'Renouveler',
         actionFn:'goToAssurances(\''+_lyQ(it.ref)+'\')'
       });
@@ -9364,7 +9367,7 @@ function _computeUnifiedTodo(ctx) {
         type:'mrh', severity:'ora', score:60,
         title:'Assurance habitation expire dans '+it.jours+' j',
         subtitle:_logLabel(it.ref),
-        contextRef:it.ref,
+        contextRef:it.ref, nom:_logLabel(it.ref),
         actionLabel:'Renouveler',
         actionFn:'goToAssurances(\''+_lyQ(it.ref)+'\')'
       });
@@ -9390,7 +9393,7 @@ function _computeUnifiedTodo(ctx) {
         type:'irl', severity:'ora', score:70,
         title:'Révision IRL applicable',
         subtitle:_logLabel(l.ref)+' — '+fmt(l.hc)+' → '+fmt(rev.nouveauHC),
-        contextRef:l.ref,
+        contextRef:l.ref, nom:_logLabel(l.ref),
         actionLabel:'Appliquer',
         actionFn:"go('irl',null)"
       });
@@ -9399,7 +9402,7 @@ function _computeUnifiedTodo(ctx) {
         type:'irl', severity:'info', score:60,
         title:'Révision IRL dans '+c.jours+' j',
         subtitle:_logLabel(l.ref)+' — '+fmt(l.hc)+' → '+fmt(rev.nouveauHC),
-        contextRef:l.ref,
+        contextRef:l.ref, nom:_logLabel(l.ref),
         actionLabel:'Préparer',
         actionFn:"go('irl',null)"
       });
@@ -9440,7 +9443,7 @@ function _computeUnifiedTodo(ctx) {
       type:'regul', severity:'info', score:40,
       title:'Régularisation '+it.annee+' à émettre',
       subtitle:_logLabel(it.ref)+' — '+it.locataire,
-      contextRef:it.ref,
+      contextRef:it.ref, nom:_logLabel(it.ref),
       actionLabel:'Émettre régul',
       actionFn:"go('regul',null)"
     });
@@ -9470,7 +9473,7 @@ function _computeUnifiedTodo(ctx) {
           type:'depart', severity:e.severity, score:e.score,
           title:'Départ — dépôt de garantie à restituer (bail archivé)',
           subtitle:_logLabel(l.ref) + ' — ' + locH + ' · ' + fmt(montant) + e.txt,
-          contextRef:l.ref,
+          contextRef:l.ref, nom:_logLabel(l.ref), hasDG:true,   // champ STRUCTURÉ : un dépôt à restituer (jamais déduit du texte affiché)
           actionLabel:'Préparer la restitution du DG',
           actionFn:"_dgOpenRestitution('" + _lyQ(l.ref) + "','" + _lyQ(cle) + "')"
         });
@@ -9496,7 +9499,7 @@ function _computeUnifiedTodo(ctx) {
         type:'depart', severity, score,
         title:'Départ en cours — étape ' + st.doneCount + '/' + st.total,
         subtitle:_logLabel(l.ref) + ' — ' + loc + dgTxt + acpTxt,
-        contextRef:l.ref,
+        contextRef:l.ref, nom:_logLabel(l.ref), hasDG:!!dgTxt,   // échéance du dépôt en cours (champ structuré)
         actionLabel:'Ouvrir l\'assistant',
         actionFn:'_departOuvrir(\'' + _lyQ(l.ref) + '\')'
       });
@@ -9533,7 +9536,7 @@ function _computeUnifiedTodo(ctx) {
             type:'equip', severity:'red', score:85,
             title:rule.label+' — en retard '+Math.abs(diff)+' j',
             subtitle:_logLabel(l.ref)+(l.locataire?' \u2014 '+l.locataire:''),
-            contextRef:l.ref,
+            contextRef:l.ref, nom:_logLabel(l.ref),
             actionLabel:'Enregistrer intervention',
             actionFn:'go(\'equipements\',null)'
           });
@@ -9542,7 +9545,7 @@ function _computeUnifiedTodo(ctx) {
             type:'equip', severity:'ora', score:55,
             title:rule.label+' — dans '+diff+' j',
             subtitle:_logLabel(l.ref)+(l.locataire?' \u2014 '+l.locataire:''),
-            contextRef:l.ref,
+            contextRef:l.ref, nom:_logLabel(l.ref),
             actionLabel:'Planifier',
             actionFn:'go(\'equipements\',null)'
           });
@@ -9566,7 +9569,7 @@ function _computeUnifiedTodo(ctx) {
           type:'diag', severity:'red', score:88,
           title:label+' expiré',
           subtitle:_logLabel(l.ref)+(l.locataire?' — '+l.locataire:''),
-          contextRef:l.ref,
+          contextRef:l.ref, nom:_logLabel(l.ref),
           actionLabel:'Mettre à jour',
           actionFn:'openLogModalOnTab(\''+_lyQ(l.ref)+'\',\'diag\')'
         });
@@ -15037,13 +15040,42 @@ function _bailScanExterneOuvrir(ref) {
   if (typeof _handleAttachmentOpen === 'function') _handleAttachmentOpen(d.id);
 }
 function _bailScanExterneOuvrirDoc(docId) { if (typeof _handleAttachmentOpen === 'function') _handleAttachmentOpen(docId); }
+// ─── Audit d'intégration v15.728 🟡10 — pièce jointe d'un bail / EDL fait hors Propryo : le CONTENU est vérifié ───
+// Les premiers octets décident, jamais le type annoncé par le navigateur ni l'extension (un .pdf peut être n'importe quoi ; un SVG
+// porte du script). Bail : PDF seulement (l'interface dit « Choisir un PDF »). EDL : PDF ou photo MATRICIELLE (JPEG, PNG, WebP),
+// puisque l'interface promet « PDF ou photo » ; jamais de SVG ni d'autre image.
+// Rend le type réel ('application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp') ou '' si refusé.
+function _pjTypeReel(octets, images) {
+  const b = octets || [];
+  const debut = (sig, decal) => sig.every((x, i) => b[(decal || 0) + i] === x);
+  if (debut([0x25, 0x50, 0x44, 0x46, 0x2D])) return 'application/pdf';   // « %PDF- »
+  if (!images) return '';
+  if (debut([0xFF, 0xD8, 0xFF])) return 'image/jpeg';
+  if (debut([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) return 'image/png';
+  if (debut([0x52, 0x49, 0x46, 0x46]) && debut([0x57, 0x45, 0x42, 0x50], 8)) return 'image/webp';   // « RIFF….WEBP »
+  return '';
+}
+// Lecture du fichier choisi : taille (même plafond que les autres dépôts), puis contenu (_pjTypeReel). Rend { name, mime, size,
+// dataB64 } (mime = type RÉEL, aussi dans l'en-tête data:) ou null (refusé, et on le dit).
+async function _pjExterneLire(input, images) {
+  const f = input && input.files && input.files[0]; if (!f) return null;
+  const max = (typeof ATTACHMENT_DEFAULT_MAX_SIZE !== 'undefined') ? ATTACHMENT_DEFAULT_MAX_SIZE : 10 * 1024 * 1024;
+  const refus = (m) => { showToast(m, 'err', 7000); try { input.value = ''; } catch (e) {} return null; };
+  if (f.size > max) return refus('Fichier trop lourd : ' + (f.size / 1048576).toFixed(1) + ' Mo (10 Mo au plus).');
+  const tete = new Uint8Array(await f.slice(0, 16).arrayBuffer());
+  const mime = _pjTypeReel(tete, !!images);
+  if (!mime) return refus(images ? 'Format non accepté : déposer un PDF ou une photo (JPEG, PNG ou WebP).' : 'Format non accepté : déposer un PDF.');
+  const url = await new Promise(function (res, rej) { const r = new FileReader(); r.onload = function (e) { res(String(e.target.result || '')); }; r.onerror = function () { rej(new Error('lecture du fichier échouée')); }; r.readAsDataURL(f); });
+  const i = url.indexOf(',');
+  return { name: f.name, mime, size: f.size, dataB64: 'data:' + mime + ';base64,' + (i >= 0 ? url.slice(i + 1) : '') };
+}
 // Ajouter / remplacer APRÈS COUP (fiche du bail, onglet Documents).
 function _bailScanExterneChoisir(ref) {
   const bail = DB.baux && DB.baux[ref];
   if (!bail || _bailEtatSig(bail).etat !== 'externe') { showToast('Ce bail n\'est pas déclaré signé hors Propryo', 'warn'); return; }
-  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,image/*';
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf';
   inp.onchange = async function () {
-    let f = null; try { f = await _avenantLireFichier(inp); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+    let f = null; try { f = await _pjExterneLire(inp, false); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
     if (!f) return;
     if (await _bailScanExterneDeposer(ref, f)) {
       showToast('PDF du bail déposé.', 'ok', 4000);
@@ -15080,7 +15112,7 @@ async function _bailScanExterneRetirerRef(ref) {
 // Modale « Modifier le bail » : le fichier est mis EN ATTENTE, déposé après l'enregistrement.
 function _bailExterneChoisirPj() { const i = el('b-externe-file'); if(i) i.click(); }
 async function _bailExterneFichierPris(input) {
-  let f = null; try { f = await _avenantLireFichier(input); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+  let f = null; try { f = await _pjExterneLire(input, false); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
   if (!f) return;
   _bailExtFichier = f; _bailExtRetirer = false;
   _bailExternePjAfficher();

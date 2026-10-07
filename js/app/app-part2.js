@@ -9600,7 +9600,12 @@ function exportBiensCSV() {
   const escCsv = v => `"${String(v==null?'':v).replace(/"/g,'""')}"`;
   // Injection de formule (Excel/Sheets) : seuls les champs TEXTE LIBRES (Locataire, Nom affiché) sont neutralisés par un « ' »
   // en tête s'ils commencent par = + - @ ; montants (négatifs possibles) et dates ne changent pas.
-  const txtLibre = v => { const s = String(v == null ? '' : v); return /^[=+\-@]/.test(s) ? "'" + s : s; };
+  // 🟡5 (audit d'intégration) : aussi tabulation / retour chariot en tête ; le texte libre est d'abord NORMALISÉ (même nettoyage
+  // que le nom affiché, sans la coupe) : caractères de contrôle → espace, invisibles et surcharges bidi retirés, blancs ramenés à un espace.
+  const txtLibre = v => {
+    const s = String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/[​-‏‪-‮⁦-⁩﻿]+/g, '').replace(/\s+/g, ' ').trim();
+    return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+  };
   const rows = rowsLogs.map(l => [
     l.ref,l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
     l.hc||0,l.ch||0,l.dg||0,txtLibre(l.locataire||''),l.debut||'',l.fin||'',
@@ -15858,7 +15863,7 @@ function _renderLogFichePanelDocuments(log, ref) {
         <div class="logf-doc-icon">${_monoSvg('<path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 12h6M9 16h4"/>',22)}</div>
         <div class="logf-doc-info">
           <div class="logf-doc-name">${_sigExt ? 'Bail signé hors Propryo' : 'Bail signé'} — ${escHtml(bail.nom || (bail.locataires?.[0]?.nom) || '—')}</div>
-          <div class="logf-doc-meta">Signé le ${fd(_sigExt && bail.signatures.externe && bail.signatures.externe.date ? bail.signatures.externe.date : sigSign)}${(_sigExt && bail.signatures.externe && bail.signatures.externe.dateApprox) ? ' (date approximative)' : ''}${_scanExt ? ` · ${escHtml(_scanExt.originalName || _scanExt.name)} · ${_bailScanFmtTaille(_scanExt.size)}` : (_sigExt ? '' : (bail.debut?` · début ${fd(bail.debut)}`:''))}</div>
+          <div class="logf-doc-meta">Signé le ${escHtml(fd(_sigExt && bail.signatures.externe && bail.signatures.externe.date ? bail.signatures.externe.date : sigSign))}${(_sigExt && bail.signatures.externe && bail.signatures.externe.dateApprox) ? ' (date approximative)' : ''}${_scanExt ? ` · ${escHtml(_scanExt.originalName || _scanExt.name)} · ${_bailScanFmtTaille(_scanExt.size)}` : (_sigExt ? '' : (bail.debut?` · début ${escHtml(fd(bail.debut))}`:''))}</div>
           ${_sigExt && !_scanExt ? '<div class="logf-doc-meta">Aucun PDF déposé (facultatif)</div>' : ''}
           ${_ddtFusionAlertTxt(bail) ? `<div class="logf-doc-alert">${_uiIcon('warn', 13)}<span>${escHtml(_ddtFusionAlertTxt(bail))}</span></div>` : ''}
         </div>
@@ -15884,7 +15889,7 @@ function _renderLogFichePanelDocuments(log, ref) {
         <div class="logf-doc-icon">${_monoSvg('<path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 12h6M9 16h4"/>',22)}</div>
         <div class="logf-doc-info">
           <div class="logf-doc-name">PDF d'une déclaration « signé hors Propryo » précédente</div>
-          <div class="logf-doc-meta">Signé le ${fd(String(d.bailSignedAt || '').slice(0,10))} · ${escHtml(d.originalName || d.name)} · ${_bailScanFmtTaille(d.size)}</div>
+          <div class="logf-doc-meta">Signé le ${escHtml(fd(String(d.bailSignedAt || '').slice(0,10)))} · ${escHtml(d.originalName || d.name)} · ${_bailScanFmtTaille(d.size)}</div>
         </div>
         <div class="logf-doc-actions"><button class="btn bs bb" onclick="_bailScanExterneOuvrirDoc(${d.id})">Ouvrir</button></div>
       </div>`).join('');
@@ -25918,9 +25923,9 @@ function _edlExtAjouterPj(id) {
   const e = (DB.edl || []).find(x => x && x.id === id && !x._deleted);
   if (!_edlExterne(e)) return;
   if (typeof window !== 'undefined' && window.__immoHorsLigne) { showToast('Hors ligne : joindre le PDF demande une connexion (il enregistre un document). Réessayez au retour du réseau.', 'warn', 7000); return; }
-  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,image/*';
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,image/jpeg,image/png,image/webp';
   inp.onchange = async function () {
-    let f = null; try { f = await _avenantLireFichier(inp); } catch (err) { showToast('Fichier illisible.', 'err'); return; }
+    let f = null; try { f = await _pjExterneLire(inp, true); } catch (err) { showToast('Fichier illisible.', 'err'); return; }
     if (!f) return;
     const log = (DB.logements || []).find(l => l && l.ref === e.logement), bail = DB.baux && DB.baux[e.logement];
     if (log && await _edlExtDeposerPj(e, log, bail, f)) { showToast('PDF de l\'EDL déposé.', 'ok', 4000); if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation(); try { rEDLList(); } catch (err) {} }
@@ -25950,7 +25955,7 @@ function _edlExtPjAfficher() {
   if (b) b.textContent = _edlExtFichier ? 'Remplacer' : 'Choisir un PDF';
 }
 async function _edlExtFichierPris(input) {
-  let f = null; try { f = await _avenantLireFichier(input); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+  let f = null; try { f = await _pjExterneLire(input, true); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
   if (!f) return;
   _edlExtFichier = f; _edlExtPjAfficher();
 }
@@ -25969,8 +25974,8 @@ function _edlExtFormHtml(ref, bail) {
       <div style="font-weight:700;font-size:13.5px;color:var(--t1)">Ajouter un EDL fait en dehors de Propryo</div>
       <div class="mu sm" style="margin:2px 0 12px;font-size:12px">État des lieux déjà réalisé et signé sur papier. Il est classé ici, sans parcours de saisie.</div>
       <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px">
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px"><input type="radio" name="edlx-sens" value="entree" checked onchange="_edlExtSensChange()"> Entrée</label>
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px"><input type="radio" name="edlx-sens" value="sortie" onchange="_edlExtSensChange()"> Sortie</label>
+        <label class="edlx-choix" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px"><input type="radio" name="edlx-sens" value="entree" checked onchange="_edlExtSensChange()"> Entrée</label>
+        <label class="edlx-choix" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px"><input type="radio" name="edlx-sens" value="sortie" onchange="_edlExtSensChange()"> Sortie</label>
       </div>
       <div class="fg"><label>Date de l'état des lieux</label><input class="inp" type="date" id="edlx-date" oninput="_edlExtDateTouchee=true"></div>
       <div class="fg"><label>Pièce jointe (PDF ou photo — facultatif)</label>
@@ -25978,7 +25983,7 @@ function _edlExtFormHtml(ref, bail) {
           <div class="inp" id="edlx-pj-nom" style="flex:1;min-width:160px;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Aucun fichier</div>
           <button class="btn bs" type="button" id="edlx-pj-btn" onclick="el('edlx-file').click()">Choisir un PDF</button>
         </div>
-        <input type="file" id="edlx-file" accept="application/pdf,image/*" style="display:none" onchange="_edlExtFichierPris(this)">
+        <input type="file" id="edlx-file" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none" onchange="_edlExtFichierPris(this)">
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
         <button class="btn bs" type="button" onclick="_edlExtForm(false)">Annuler</button>
