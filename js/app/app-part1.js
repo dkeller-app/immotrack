@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.726';
+const IMMOTRACK_VERSION = '15.727';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -1518,6 +1518,43 @@ function _applyDataDefaults() {
   if(!DB.equipements) DB.equipements = {};
 }
 
+// V3-REFONTE-LOYERS v15.333 — COLLISION « Prêt », corrigée v15.727.
+// Intention d'origine (v15.333, commit f5179e15) : en v15.332, l'ancien STD « Prêt — Capital remboursé » a été
+// renommé « Prêt » (échéance entière, special, HORS 2044). Une catégorie PERSONNELLE « Prêt » qui existait
+// avant, avec un rattachement 2044 (ex : ligne 250), aurait été écrasée sans prévenir par la précédence STD
+// (_catLigne2044) → ses mouvements sortaient du résultat foncier. Parade : la renommer « Prêt (perso) » en
+// gardant mapping et déclaration, avec un toast.
+// Défaut corrigé v15.727 : la parade supposait que « Prêt » dans DB.categories était forcément le custom.
+// Faux dès le premier démarrage ≥ v15.332 : la migration douce y ajoute le STD « Prêt ». Toute base dont
+// legal2044Mapping['Prêt'] n'était pas vide (valeur posée autrefois par le repli regex de _default2044Mapping,
+// /pr[êe]t/ → '250') voyait alors, à CHAQUE initDB (sandbox, file://, démo, sauvegarde réimportée), ses
+// échéances STD « Prêt » (capital + intérêts) renommées « Prêt (perso) » et comptées en intérêts (ligne 250,
+// FEC 661100). Constaté sur la sauvegarde réelle du 05/10 : 52 échéances, 45 991,18 €.
+// Critère désormais : une base ANTÉRIEURE à v15.332, seule où « Prêt » peut être un custom. Sa signature :
+// l'ancien STD « Prêt — Capital remboursé » encore dans la liste (ajouté à toute base par la migration douce
+// v14.78, non supprimable, et retiré par _CAT_MIGRATION dès le premier démarrage ≥ v15.332 → one-shot). Une
+// catégorie perso homonyme créée depuis est rattachée à une famille (catAlias, M-1 bis) : exclue.
+// Une base antérieure à v14.78 n'a ni legal2044Mapping ni catMapping → rien à protéger, rien à faire.
+// Renvoie true si la base a été modifiée. Idempotent (le marqueur disparaît dans le même initDB).
+function _migrerCollisionPretPerso(db) {
+  if (!db || !Array.isArray(db.categories) || !db.categories.includes('Prêt')) return false;
+  const _ANCIEN_STD = 'Prêt — Capital remboursé';
+  const _aliasAncien = db.catAlias && Object.prototype.hasOwnProperty.call(db.catAlias, _ANCIEN_STD);
+  if (!db.categories.includes(_ANCIEN_STD) || _aliasAncien) return false;   // « Prêt » = le STD : on n'y touche pas
+  const _legal = (db.params && db.params.legal2044Mapping) || null;
+  const _pretMap = (db.catMapping && db.catMapping['Prêt']) || (_legal && _legal['Prêt']) || null;
+  if (!_pretMap || _pretMap === '__ignore') return false;   // custom sans rattachement : hors 2044 des deux côtés
+  const _NN = 'Prêt (perso)';
+  (db.mouvements || []).forEach(m => { if (m && m.cat === 'Prêt') m.cat = _NN; });
+  (db.importRules || []).forEach(r => { if (r && r.cat === 'Prêt') r.cat = _NN; });
+  if (!db.categories.includes(_NN)) db.categories.push(_NN);
+  db.categories = db.categories.filter(c => c !== 'Prêt');
+  if (db.catMapping && db.catMapping['Prêt'] != null) { db.catMapping[_NN] = db.catMapping['Prêt']; delete db.catMapping['Prêt']; }
+  if (_legal && _legal['Prêt'] != null) { _legal[_NN] = _legal['Prêt']; delete _legal['Prêt']; }
+  if (typeof showToast === 'function') setTimeout(() => showToast('Ta catégorie « Prêt » a été renommée « Prêt (perso) » : une catégorie standard « Prêt » (échéance de prêt) existe désormais. Ton mapping 2044 et ta déclaration sont conservés.', 'info', 8000), 1500);
+  return true;
+}
+
 function initDB() {
   // P1.3 (audit C-C) : en boot CLOUD, le miroir localStorage n'est PLUS lu — il contient la dernière vue
   // d'un utilisateur PRÉCÉDENT de cette machine (fuite post-révocation réelle : Marion voyait Zito/Fric
@@ -1615,27 +1652,9 @@ function initDB() {
   // templates.bail, irlTable (+trimestres manquants +fix), categories, piecesEDL, catConfig,
   // irlHistorique, dashLayout, agenda, equipements. Rejoués aussi par __immoSetDB (espace frais).
   _applyDataDefaults();
-  // V3-REFONTE-LOYERS v15.333 — COLLISION « Prêt » : la catégorie STD se nomme désormais « Prêt » (échéance,
-  // special, hors 2044). Si l'utilisateur avait déjà une catégorie CUSTOM « Prêt » AVEC un mapping 2044 perso
-  // (ex : ligne 250), la précédence STD (_catLigne2044) l'écraserait SILENCIEUSEMENT → ses mouvements sortiraient
-  // du résultat foncier sans avertissement. Parade : on renomme son custom en « Prêt (perso) » pour conserver
-  // mapping + déclaration (le STD « Prêt » sera ré-ajouté par la migration douce). À ce stade, 'Prêt' dans
-  // DB.categories = forcément un custom (l'ancien STD était « Prêt — Capital remboursé »). Custom « Prêt » SANS
-  // mapping = hors 2044 des deux côtés → fusion inoffensive, on ne touche rien. Idempotent (mapping['Prêt'] supprimé).
-  if (Array.isArray(DB.categories) && DB.categories.includes('Prêt')) {
-    const _pretMap = (DB.catMapping && DB.catMapping['Prêt']) ||
-                     (DB.params.legal2044Mapping && DB.params.legal2044Mapping['Prêt']) || null;
-    if (_pretMap && _pretMap !== '__ignore') {
-      const _NN = 'Prêt (perso)';
-      (DB.mouvements || []).forEach(m => { if (m && m.cat === 'Prêt') m.cat = _NN; });
-      (DB.importRules || []).forEach(r => { if (r && r.cat === 'Prêt') r.cat = _NN; });
-      if (!DB.categories.includes(_NN)) DB.categories.push(_NN);
-      DB.categories = DB.categories.filter(c => c !== 'Prêt');
-      if (DB.catMapping && DB.catMapping['Prêt'] != null) { DB.catMapping[_NN] = DB.catMapping['Prêt']; delete DB.catMapping['Prêt']; }
-      if (DB.params.legal2044Mapping && DB.params.legal2044Mapping['Prêt'] != null) { DB.params.legal2044Mapping[_NN] = DB.params.legal2044Mapping['Prêt']; delete DB.params.legal2044Mapping['Prêt']; }
-      if (typeof showToast === 'function') setTimeout(() => showToast('Ta catégorie « Prêt » a été renommée « Prêt (perso) » : une catégorie standard « Prêt » (échéance de prêt) existe désormais. Ton mapping 2044 et ta déclaration sont conservés.', 'info', 8000), 1500);
-    }
-  }
+  // V3-REFONTE-LOYERS v15.333 / v15.727 — collision « Prêt » : AVANT _CAT_MIGRATION (qui fusionne
+  // l'ancien STD « Prêt — Capital remboursé » dans « Prêt » et le retire de la liste). Voir la fonction.
+  _migrerCollisionPretPerso(DB);
   // V3-REFONTE-LOYERS — restructuration des catégories (consolidation 31→21) : re-tague les mouvements + règles
   // d'import vers les nouveaux noms (fusions/renommages) AVANT la migration douce. Idempotent (les anciens noms
   // disparaissent ensuite). CFE / taxe logements vacants (meublé) NON migrées → deviennent des catégories custom conservées.
