@@ -165,6 +165,16 @@ describe('bandeau « document prêt » sur la page de connexion', () => {
     const perime = { hidden: true }; inline({ ls: mem(JSON.stringify({ doc: DOC, t: 1 })), search: '?inscription', opener: null, ecouteurs: [], note: perime }); expect(perime.hidden).toBe(true)
     const rien = { hidden: true }; inline({ ls: mem(), search: '?inscription', opener: null, ecouteurs: [], note: rien }); expect(rien.hidden).toBe(true)
   })
+  it('élément absent au moment du script : le bandeau est révélé au DOMContentLoaded', () => {
+    const code = (() => { const i = indexHtml.indexOf('<script>/* Document express venu de propryo.fr'); return indexHtml.slice(indexHtml.indexOf('(function(){', i), indexHtml.indexOf('</script>', i)) })()
+    const note = { hidden: true }; let present = false; const ecouteursDoc = []
+    const doc = { getElementById: id => (present && id === 'imsb-doc-note' ? note : null), addEventListener: (t, f) => ecouteursDoc.push([t, f]) }
+    new Function('window', 'location', 'localStorage', 'setTimeout', 'document', code)({ opener: null, addEventListener() {} }, { search: '?inscription' }, mem(enreg(DOC)), () => {}, doc)
+    expect(note.hidden).toBe(true)
+    expect(ecouteursDoc.map(e => e[0])).toContain('DOMContentLoaded')
+    present = true; ecouteursDoc.filter(e => e[0] === 'DOMContentLoaded').forEach(e => e[1]())
+    expect(note.hidden).toBe(false)
+  })
   it('un document refusé (origine inconnue) n’affiche rien', () => {
     const inline = chargerScriptInline(); const op = { postMessage() {} }; const ec = []; const note = { hidden: true }
     inline({ ls: mem(), search: '?inscription&doc=attente', opener: op, ecouteurs: ec, note })
