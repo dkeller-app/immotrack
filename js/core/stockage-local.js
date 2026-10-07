@@ -81,6 +81,9 @@ export const REGISTRE = [
   { motif: exacte('immo_backup_reminder_off'), classe: 'etat', note: 'rappel de sauvegarde désactivé', exemples: ['immo_backup_reminder_off'] },
   { motif: exacte('immo_fullapp_once'), classe: 'etat', note: 'ouverture unique de l’app complète', exemples: ['immo_fullapp_once'] },
   { motif: exacte('propryo_pwa_refus'), classe: 'etat', note: 'invitation à installer refusée', exemples: ['propryo_pwa_refus'] },
+  // Audit d'intégration v15.728 🟠2 — purges de sessions de signature à retenter : CET appareil seulement (le jeton du relais ne
+  // part jamais dans les archives synchronisées du bail). Donnée vivante : jamais évinçable.
+  { motif: deuxNs('immotrack_rs_purges'), classe: 'etat', note: 'sessions de signature archivées à supprimer du relais (nouvel essai)', exemples: ['immotrack_rs_purges', '_test_immotrack_rs_purges'] },
   { motif: exacte('imsb-doc-express'), classe: 'etat', note: 'document express venu de propryo.fr, en attente de l’inscription (48 h)', exemples: ['imsb-doc-express'] },
 
   // ── session

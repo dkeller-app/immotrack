@@ -139,6 +139,10 @@
       signatures: JSON.parse(JSON.stringify(sg))
     };
     if (opt.etatRelais) archive.etatRelais = String(opt.etatRelais);
+    // Le jeton propriétaire du relais (il ouvre le DELETE qui détruit la session et son PDF signé) ne part jamais dans l'archive,
+    // synchronisée chez les membres de la SCI. Rien ne le relit après l'archivage : une purge à retenter le garde sur l'appareil
+    // qui l'a lancée (file locale), une signature récupérée reprend le jeton de la session vivante.
+    if (archive.signatures.remoteSession && typeof archive.signatures.remoteSession === 'object') archive.signatures.remoteSession.ownerToken = null;
     const rs = sg.remoteSession;
     if (rs && typeof rs === 'object') {
       archive.resume = {

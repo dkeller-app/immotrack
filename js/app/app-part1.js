@@ -4115,13 +4115,18 @@ async function _reclaimRemoteSignSession(ref) {
     window.__reclaimBusy[ref] = false;
   }
 }
-// Purge relais post-ingestion (D12) — best-effort, 404-tolérant, jamais bloquant.
+// Suppression d'une session au relais (purge post-ingestion D12, session remplacée ou archivée) — jamais bloquante.
+// Renvoie true si la session est supprimée (204) ou déjà absente (404) ; false sinon (réseau, 401/403, 5xx) : l'appelant
+// qui a ARCHIVÉ la session le signale et la remet en file (_rsPurgeEchouee), elle n'est jamais présumée supprimée.
 async function _bsRelayDeleteSession(relayUrl, sessionId, ownerToken) {
   try {
-    await fetch(relayUrl.replace(/\/$/, '') + '/api/sessions/' + encodeURIComponent(sessionId), {
+    const r = await fetch(relayUrl.replace(/\/$/, '') + '/api/sessions/' + encodeURIComponent(sessionId), {
       method: 'DELETE', headers: { 'X-Owner-Token': ownerToken }
     });
-  } catch (e) { console.warn('[remoteSign] DELETE relais échec (non bloquant)', e); }
+    const ok = !!r && (r.status === 204 || r.status === 404);
+    if (!ok) console.warn('[remoteSign] DELETE relais refusé', r && r.status);
+    return ok;
+  } catch (e) { console.warn('[remoteSign] DELETE relais échec (non bloquant)', e); return false; }
 }
 
 // ─── BAIL-SIGNATURE-DISTANCE C3 (Task 15) : partage du lien de signature ───
@@ -4547,6 +4552,8 @@ async function _pollRemoteSignSessions(opts) {
     try { if (await _pollOneRemoteSession(ref)) mutated = true; }
     catch (e) { console.warn('[remoteSign] poll', ref, e); }
   }
+  // 🟠2 : sessions archivées dont la suppression au relais a échoué — nouvel essai (purge gardée).
+  try { if (await _rsPurgesRetenter()) mutated = true; } catch (e) { console.warn('[remoteSign] purges en attente', e); }
   if (mutated) { saveDB(); _refreshAfterMutation(); }
 }
 
@@ -5343,7 +5350,12 @@ async function _rsPreflight(ref, opts) {
   const o = opts || {};
   const bail = DB.baux && DB.baux[ref];
   const rs = bail && bail.signatures && bail.signatures.remoteSession;
-  const rien = async function () {};
+  const rien = async function () { return { ok: true, etat: 'aucune' }; };
+  // Une complétion (récupération de la signature) est EN COURS pour ce bail : on ne touche à rien (audit d'intégration 🟠1).
+  if (window.__remoteCompleting && window.__remoteCompleting[ref]) {
+    showToast('Une signature à distance est en cours de récupération pour ce bail : rien n\'a été modifié. Réessayer dans un instant.', 'err', 9000);
+    return { ok: false, raison: 'completion-en-cours' };
+  }
   if (!rs || !rs.sessionId) return { ok: true, etat: 'aucune', rs: rs || null, base: '', purge: rien };
   const base = _resolveRelayBase(rs);
   // On n'exige QUE le sessionId : un ownerToken absent est précisément le scénario §6 (accès perdu) ; sans jeton on ne peut rien
@@ -5382,8 +5394,144 @@ async function _rsPreflight(ref, opts) {
   const vivante = reel.status !== 'expired';
   return {
     ok: true, etat: vivante ? 'pending-invalidee' : 'expired', rs, base,
-    purge: async function () { try { await _bsRelayDeleteSession(base, rs.sessionId, rs.ownerToken); } catch (e) {} }
+    // Purge GARDÉE : l'état est relu au relais juste avant le DELETE (jamais une suppression sur la foi de ce pré-vol).
+    purge: function () { return _rsPurgeGardee(base, rs); }
   };
+}
+
+// ─── Audit d'intégration v15.728 🟠1 / 🟠2 : PURGE GARDÉE, VÉRIFIÉE, RETENTÉE ───
+// Le DELETE du relais détruit la session ET le PDF signé, QUEL QUE SOIT leur statut (relay/src/index.js, storage.js). Juste
+// avant de supprimer, on relit donc l'état RÉEL : completed → on ne supprime RIEN (la signature est à récupérer) ; expired /
+// pending / sent / chaining → DELETE, réussi seulement sur 204 ou 404 ; tout le reste (injoignable, accès perdu, statut
+// inattendu) → on ne supprime pas. Ne lève jamais.
+// @returns {Promise<{ok:boolean, etat:string, state?:object, rs:object, base:string}>}
+async function _rsPurgeGardee(base, rs) {
+  const out = (ok, etat, state) => ({ ok, etat, state, rs, base });
+  if (!rs || !rs.sessionId) return out(true, 'aucune');
+  if (!rs.ownerToken) return out(false, 'sans-jeton');
+  let reel;
+  try { reel = await _bsRelayPollSession(base, rs.sessionId, rs.ownerToken); }
+  catch (e) { console.warn('[remoteSign] purge : relais injoignable', e); return out(false, 'injoignable'); }
+  if (reel && reel.status === 'completed') return out(false, 'completed', reel);
+  if (!reel || !['expired', 'pending', 'sent', 'chaining'].includes(reel.status)) return out(false, (reel && reel.status) || 'indetermine');
+  let supprimee = false;
+  try { supprimee = (await _bsRelayDeleteSession(base, rs.sessionId, rs.ownerToken)) === true; } catch (e) { supprimee = false; }
+  return supprimee ? out(true, 'supprimee') : out(false, 'echec-suppression');
+}
+// L'entrée d'archive (bail.signaturesAnnulees) de cette session — la plus récente.
+function _rsArchiveDeSession(bail, sessionId) {
+  const L = bail && Array.isArray(bail.signaturesAnnulees) ? bail.signaturesAnnulees : [];
+  for (let i = L.length - 1; i >= 0; i--) {
+    const s = L[i] && L[i].signatures && L[i].signatures.remoteSession;
+    if (s && s.sessionId === sessionId) return L[i];
+  }
+  return null;
+}
+// File des purges à retenter : sur CET appareil seulement (localStorage hors base). Le jeton propriétaire du relais n'est pas
+// recopié dans les archives du bail, qui partent chez les membres de la SCI (🟡9) : il ne vit qu'ici.
+function _rsPurgesLire() {
+  try { const a = JSON.parse(localStorage.getItem(_lsKey('immotrack_rs_purges')) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+function _rsPurgesEcrire(a) {
+  try { if (a && a.length) localStorage.setItem(_lsKey('immotrack_rs_purges'), JSON.stringify(a)); else localStorage.removeItem(_lsKey('immotrack_rs_purges')); } catch (e) {}
+}
+// Purge d'une session ARCHIVÉE en échec : marqueur `purgeEchouee` sur l'archive (synchronisé, sans jeton), mise en file du nouvel
+// essai (_rsPurgesRetenter, au prochain passage de _pollRemoteSignSessions), et on le DIT.
+function _rsPurgeEchouee(ref, pr) {
+  const rs = pr && pr.rs; if (!rs || !rs.sessionId) return;
+  const bail = DB.baux && DB.baux[ref];
+  const arch = _rsArchiveDeSession(bail, rs.sessionId);
+  if (arch) { arch.purgeEchouee = true; arch.purgeTenteeLe = new Date().toISOString(); _stamp(bail); try { saveDB(); } catch (e) {} }
+  const file = _rsPurgesLire().filter(x => x && x.sessionId !== rs.sessionId);
+  file.push({ ref, base: pr.base || '', sessionId: rs.sessionId, ownerToken: rs.ownerToken || '', createdAt: rs.createdAt || null, ajouteLe: new Date().toISOString() });
+  _rsPurgesEcrire(file);
+  showToast('La session de signature à distance n\'a pas pu être supprimée du relais (' + (pr.etat === 'injoignable' ? 'relais injoignable' : 'suppression refusée') + ') : nouvel essai automatique au prochain passage. Le bail, lui, est bien enregistré.', 'warn', 9000);
+}
+// Nouvel essai des purges en file (appelé par _pollRemoteSignSessions). true = la base a changé (marqueur levé, signature récupérée).
+async function _rsPurgesRetenter() {
+  const file = _rsPurgesLire();
+  if (!file.length || window.__rsPurgesEnCours) return false;
+  window.__rsPurgesEnCours = true;
+  const reste = []; let mute = false;
+  try {
+    for (const x of file) {
+      if (!x || !x.sessionId) continue;
+      const bail = DB.baux && DB.baux[x.ref];
+      const t0 = Date.parse(x.createdAt || x.ajouteLe || '');
+      // Au-delà du TTL du relais (14 j), la session et son PDF ont disparu d'eux-mêmes : plus rien à supprimer.
+      const pr = (!isNaN(t0) && Date.now() - t0 > REMOTE_SIGN_TTL_MS) ? { ok: true, etat: 'ttl' } : await _rsPurgeGardee(x.base, x);
+      if (pr.etat === 'completed') { if (await _rsRecupererApresArchivage(x.ref, x, pr.state)) mute = true; continue; }
+      if (!pr.ok) { reste.push(x); continue; }
+      const a = _rsArchiveDeSession(bail, x.sessionId);
+      if (a && a.purgeEchouee) { delete a.purgeEchouee; a.purgeeLe = new Date().toISOString(); _stamp(bail); mute = true; }
+    }
+  } catch (e) { console.warn('[remoteSign] nouvel essai des purges', e); }
+  finally { window.__rsPurgesEnCours = false; }
+  _rsPurgesEcrire(reste.concat(_rsPurgesLire().filter(y => y && !file.some(x => x && x.sessionId === y.sessionId))));
+  return mute;
+}
+// Une session ARCHIVÉE (annulée, ou remplacée par « signé hors Propryo ») était en réalité SIGNÉE au relais (le locataire a signé
+// pendant l'opération) : l'annulation / la déclaration est abandonnée (une déclaration abandonnée est archivée à son tour, rien n'est
+// perdu), la session est rétablie et la signature électronique récupérée (_completeRemoteSign) — puis on le DIT. true = récupérée.
+async function _rsRecupererApresArchivage(ref, rs, state) {
+  const bail = DB.baux && DB.baux[ref];
+  const arch = bail && rs ? _rsArchiveDeSession(bail, rs.sessionId) : null;
+  if (!arch) {
+    showToast('Le locataire a signé à distance une session déjà archivée, introuvable sur ce bail : la signature reste au relais. Ne rien supprimer et contacter le support.', 'err', 12000);
+    return false;
+  }
+  const B = window.BailSignatureEtat;
+  const declaration = !!(bail.signatures && bail.signatures.mode === 'externe');
+  const annulees = bail.signaturesAnnulees.filter(a => a !== arch);
+  if (declaration && B) {
+    const r = B.retirerSignatureExterne(bail, { now: new Date(), auteur: _bailAuteurCourant(), motif: 'externe-retire' });
+    if (r.archive) { r.archive.raison = 'signe-a-distance-pendant-la-declaration'; annulees.push(r.archive); }
+  }
+  const sg = JSON.parse(JSON.stringify(arch.signatures));
+  sg.remoteSession = Object.assign({}, sg.remoteSession || {}, { ownerToken: rs.ownerToken });
+  bail.signatures = sg;
+  if (annulees.length) bail.signaturesAnnulees = annulees; else delete bail.signaturesAnnulees;
+  _stamp(bail);
+  try { await _completeRemoteSign(ref, state); }
+  catch (e) {
+    console.warn('[remoteSign] récupération après archivage', e);
+    try { saveDB(); _refreshAfterMutation(); } catch (_e) {}
+    showToast('Le locataire a signé à distance pendant l\'opération : la session est rétablie mais la récupération du bail signé a échoué — utiliser « Vérifier » sur la ligne du bail.', 'err', 12000);
+    return true;
+  }
+  try { saveDB(); _refreshAfterMutation(); } catch (e) {}
+  showToast('Le locataire a signé à distance pendant l\'opération : la signature électronique est récupérée, le bail est signé. '
+    + (declaration ? 'La déclaration « signé hors Propryo » est abandonnée (conservée dans l\'historique du bail).' : 'L\'annulation de la session est abandonnée.'), 'ok', 12000);
+  return true;
+}
+// Déclaration « signé hors Propryo » sur un bail porteur d'une session à distance : l'état RÉEL est relu au relais JUSTE AVANT
+// l'enregistrement (le locataire a pu signer depuis l'ouverture de la fenêtre). '' = on continue ; 'completion' = refus (récupération
+// en cours) ; 'controle' = contrôle lancé, `relancer` (saveBail) est rappelé s'il passe. Une signature trouvée est récupérée et la
+// déclaration abandonnée, et on le dit.
+function _bailExterneRecontrole(editRef, ext, relancer) {
+  if (!ext || ext.action !== 'declarer' || !editRef) return '';
+  const ex = DB.baux && DB.baux[editRef];
+  const rs = ex && ex.signatures && ex.signatures.remoteSession;
+  if (!rs || !rs.sessionId) return '';
+  if (window.__remoteCompleting && window.__remoteCompleting[editRef]) {
+    showToast('Une signature à distance est en cours de récupération pour ce bail : rien n\'a été modifié. Réessayer dans un instant.', 'err', 9000);
+    return 'completion';
+  }
+  const _jeton = window.__bailExtRecontrole; window.__bailExtRecontrole = null;   // jeton à usage unique, valable pour le passage relancé seulement
+  if (_jeton && _jeton.ref === editRef && Date.now() - _jeton.t < 3000) return '';
+  (async function () {
+    const pf = await _rsPreflight(editRef);
+    if (!pf.ok) {
+      if (pf.recupere) {
+        try { _closeBailWizard(); } catch (e) {}
+        showToast('Le locataire a signé à distance entre-temps : la signature électronique est récupérée, le bail est signé. La déclaration « signé hors Propryo » est abandonnée — rien n\'a été enregistré.', 'ok', 12000);
+      }
+      return;   // injoignable, accès perdu, indéterminé, récupération en cours : _rsPreflight l'a dit ; rien n'est enregistré
+    }
+    window._bailExtEtatRelais = pf.etat; window._bailExtPurge = pf.purge; window.__bailExtRecontrole = { ref: editRef, t: Date.now() };
+    relancer();
+  })();
+  return 'controle';
 }
 
 // Fenêtre « Annuler la session de signature ? » (maquette signature-expiree-confirm). Promise<boolean> : true = annuler.
@@ -5427,8 +5575,15 @@ async function annulerSessionSignature(ref) {
     + (bailleurAvaitSigne ? '<p class="mu sm" style="margin:0 0 12px">La signature du bailleur déjà recueillie est archivée dans l\'historique du bail : elle ne servira plus, le bailleur signera de nouveau lors d\'une relance.</p>' : '')
     + '<p class="mu sm" style="margin:0">Rien n\'est supprimé du bail. Tu pourras relancer une signature à distance, ou déclarer le bail signé hors Propryo, à tout moment.</p>';
   if (!(await _rsConfirmAnnulation(html))) return;
+  // 🟠1 (audit d'intégration) : la fenêtre a pu rester ouverte longtemps — l'état RÉEL est relu au relais JUSTE avant d'annuler.
+  const pf2 = await _rsPreflight(ref);
+  if (!pf2.ok) {
+    if (pf2.recupere) showToast('Le locataire a signé à distance pendant la fenêtre : la signature électronique est récupérée, le bail est signé. L\'annulation de la session est abandonnée.', 'ok', 12000);
+    return;
+  }
+  const _etatRelais = pf2.etat === 'pending-invalidee' ? 'pending-invalidee' : 'expired';
   const B = window.BailSignatureEtat;
-  const r = B ? B.archiverSignatures(bail, { now: new Date(), auteur: _bailAuteurCourant(), motif: 'session-annulee', etatRelais: vivante ? 'pending-invalidee' : 'expired' }) : { archive: null };
+  const r = B ? B.archiverSignatures(bail, { now: new Date(), auteur: _bailAuteurCourant(), motif: 'session-annulee', etatRelais: _etatRelais }) : { archive: null };
   if (!r.archive) { showToast('Annulation impossible : module de signature indisponible', 'err'); return; }
   const _prevAnn = bail.signaturesAnnulees, _prevMod = bail._modifiedAt;
   bail.signaturesAnnulees = (Array.isArray(bail.signaturesAnnulees) ? bail.signaturesAnnulees : []).concat([r.archive]);
@@ -5442,11 +5597,14 @@ async function annulerSessionSignature(ref) {
     showToast('Session NON annulée : la sauvegarde a échoué — rien n\'a été modifié, la session reste en place. ' + (window.__immoHorsLigne ? 'Hors ligne : réessayer une fois la connexion rétablie.' : 'Stockage indisponible ou plein.'), 'err', 9000);
     return;
   }
-  _auditLog('update', 'bail', ref, ref + ' : session de signature à distance annulée (' + (vivante ? 'lien invalidé' : 'expirée') + ')');
+  _auditLog('update', 'bail', ref, ref + ' : session de signature à distance annulée (' + (_etatRelais === 'pending-invalidee' ? 'lien invalidé' : 'expirée') + ')');
   saveDB();   // le journal d'audit ci-dessus part avec la même écriture
-  pf.purge();
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  // Purge GARDÉE (état relu juste avant le DELETE) : signée entre-temps → l'annulation est abandonnée et la signature récupérée.
+  const pr = await pf2.purge();
+  if (pr && pr.etat === 'completed') { await _rsRecupererApresArchivage(ref, pr.rs, pr.state); return; }
   showToast('Session annulée : le bail est non signé (l\'ancienne session est conservée dans l\'historique)', 'ok', 7000);
+  if (pr && !pr.ok) _rsPurgeEchouee(ref, pr);
 }
 
 // « Signé hors Propryo » depuis la session expirée : même contrôle préalable, puis la déclaration de « Modifier le bail »
@@ -5497,7 +5655,18 @@ async function openRemoteSignModal(ref) {
   //  • poll en ERREUR (relais injoignable) → état INDÉTERMINÉ → on N'ÉCRASE PAS (fail-closed légal).
   const _pf = await _rsPreflight(ref, { confirmMsg: 'Une session de signature à distance est déjà en cours pour ce bail.\n\nLa remplacer créera un nouveau lien et invalidera l\'ancien (les signatures déjà recueillies seraient perdues). Continuer ?' });
   if (!_pf.ok) return;
-  _pf.purge();   // la session relais remplacée est supprimée (best-effort, non bloquant)
+  // La session relais remplacée est supprimée — purge GARDÉE : signée entre-temps → on récupère la signature, pas de relance.
+  const _pr = await _pf.purge();
+  if (_pr && _pr.etat === 'completed') {
+    try { await _completeRemoteSign(ref, _pr.state); saveDB(); _refreshAfterMutation(); showToast('Le locataire a signé à distance entre-temps : la signature est récupérée, le bail est signé. Aucune relance.', 'ok', 9000); }
+    catch (e) { console.warn('[remoteSign] récupération avant relance', e); showToast('Récupération du bail signé impossible — réessaie « Vérifier »', 'err', 6000); }
+    return;
+  }
+  if (_pr && !_pr.ok && _pr.etat !== 'aucune') {   // l'ancienne session ne sera plus référencée par le bail : seul le nouvel essai la supprimera
+    const _f = _rsPurgesLire().filter(x => x && x.sessionId !== _pr.rs.sessionId);
+    _f.push({ ref, base: _pr.base || '', sessionId: _pr.rs.sessionId, ownerToken: _pr.rs.ownerToken || '', createdAt: _pr.rs.createdAt || null, ajouteLe: new Date().toISOString() });
+    _rsPurgesEcrire(_f);
+  }
   // Repli : pas connecté (pas de jeton de session) → impossible d'appeler le relais. En cloud, l'utilisateur
   // est connecté → ce repli ne s'affiche pas (plus aucune clé à « configurer »).
   const _rcfg = (typeof _relayCfg === 'function') ? _relayCfg() : null;
@@ -14943,7 +15112,13 @@ async function _bailExterneApresSave(ref, ext) {
   const purge = window._bailExtPurge;
   _bailExtFichier = null; _bailExtRetirer = false; window._bailExtOrigine = null; window._bailExtEtatRelais = null; window._bailExtPurge = null;
   const bail = DB.baux && DB.baux[ref];
-  if (purge && bail && _bailEtatSig(bail).etat === 'externe') purge();   // déclaration enregistrée depuis une session expirée : le relais est purgé (best-effort)
+  // Déclaration enregistrée depuis une session à distance : purge GARDÉE (état relu juste avant le DELETE). Signée entre-temps →
+  // la déclaration est abandonnée et la signature récupérée ; suppression en échec → marqueur + nouvel essai (🟠1 / 🟠2).
+  if (purge && bail && _bailEtatSig(bail).etat === 'externe') {
+    const pr = await purge();
+    if (pr && pr.etat === 'completed') { await _rsRecupererApresArchivage(ref, pr.rs, pr.state); return; }
+    if (pr && !pr.ok) _rsPurgeEchouee(ref, pr);
+  }
   if (!bail || _bailEtatSig(bail).etat !== 'externe') return;
   let touche = false;
   if (f) touche = await _bailScanExterneDeposer(ref, f);
@@ -15904,6 +16079,10 @@ function saveBail() {
   if (_ext.erreur) { showToast(_ext.erreur, 'err', 7000); return; }
   const _refusRs = _bailExterneRefusSecours(v('b-edit-ref') ? DB.baux[v('b-edit-ref')] : null, _ext, window._bailExtEtatRelais);
   if (_refusRs) { showToast(_refusRs, 'err', 10000); return; }
+  // 🟠1 (audit d'intégration) : l'état réel de la session est relu au relais juste avant d'enregistrer la déclaration ; saveBail est
+  // relancé si le contrôle passe (la validation financière déjà franchie est remise en place pour ce second passage).
+  const _ctrlRs = _bailExterneRecontrole(v('b-edit-ref'), _ext, saveBail);
+  if (_ctrlRs) { if (_ctrlRs === 'controle') _bailValidPending = _pendingVal; return; }
   // Hors ligne, une écriture non étiquetée est refusée par saveDB : on le dit AVANT de toucher quoi que ce soit (rien n'est perdu).
   if (_ext.action && window.__immoHorsLigne) { showToast('Hors ligne : la déclaration « signé hors Propryo » demande une connexion. Rien n\'a été modifié — réessayez au retour du réseau.', 'err', 9000); return; }
   // v15.05 Sprint 7 V1.1 LEGAL-DPE-INTERDICTION-LOCATION :

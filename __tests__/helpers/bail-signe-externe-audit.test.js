@@ -25,10 +25,10 @@ function extraire(src, marqueur) {
 const fn = (src, nom) => extraire(src, (src.includes('async function ' + nom + '(') ? 'async ' : '') + 'function ' + nom + '(')
 
 // Monde d'exécution du vrai saveBail.
-function monde({ form = {}, baux = {}, locataires = [{ nom: 'Martin' }], saveDB, horsLigne = false, confirm = () => true, winExtra = {} } = {}) {
+function monde({ form = {}, baux = {}, locataires = [{ nom: 'Martin' }], saveDB, horsLigne = false, confirm = () => true, winExtra = {}, preflight } = {}) {
   const champs = {}
   for (const [id, val] of Object.entries(form)) champs[id] = typeof val === 'boolean' ? { checked: val } : { value: val }
-  const toasts = [], confirms = [], audits = []
+  const toasts = [], confirms = [], audits = [], preflights = []
   const DB = { baux, logements: [{ ref: 'D-101', hc: 500 }], entites: [], baux_historique: [], documents: [], bailEvents: [], loyerBareme: [] }
   const win = { BailSignatureEtat: BSE, __immoCloudInfo: { displayName: 'Didier' }, __immoHorsLigne: horsLigne, ...winExtra }
   const reel = {
@@ -45,6 +45,9 @@ function monde({ form = {}, baux = {}, locataires = [{ nom: 'Martin' }], saveDB,
     _bailModifDetecterChangements: () => [], _ddtControleSaveBail: () => false, _ddtComplet: undefined,
     _isoLocal: (d) => d.toISOString().slice(0, 10), _lyQ: (s) => s, nid: () => 1,
     saveDB: saveDB || (() => true), _undoOnSaveDBSuccess: () => {}, _journalTrace: [],
+    // 🟠1 (audit d'intégration) : contrôle de l'état réel au relais juste avant d'enregistrer une déclaration
+    _rsPreflight: preflight || (async () => { preflights.push(1); return { ok: true, etat: 'pending-invalidee', purge: async () => ({ ok: true, etat: 'supprimee' }) } }),
+    _closeBailWizard: () => {},
     JSON, Date, Object, Array, String, Number, Math, console, Symbol, Boolean, Promise, parseInt, parseFloat, isNaN, RegExp, Error,
   }
   const stubs = ['_bailExterneApresSave', '_refreshAfterMutation', 'closeM', 'initFilters', 'rBaux', 'refreshAllIRL', 'suggestSave',
@@ -53,7 +56,7 @@ function monde({ form = {}, baux = {}, locataires = [{ nom: 'Martin' }], saveDB,
   for (const n of stubs) reel[n] = (...a) => { if (n === '_bailExterneApresSave') apres.push(a) }
   Object.assign(reel, { _pendingCandidatConv: null, _histoBailTodayIso: () => '2026-10-06' })
   const noms = ['_bailEtatSig', '_bailAuteurCourant', '_bailExterneIntention', '_bailExterneConfirmer', '_bailExterneAppliquer',
-    '_bailExterneRefusSecours', '_bailCompoResetDemande', '_bailCompositionChanged', 'saveBail']
+    '_bailExterneRefusSecours', '_bailExterneRecontrole', '_bailCompoResetDemande', '_bailCompositionChanged', 'saveBail']
   const code = '(function(__p){ with(__p){ let _bailExtApprox = false, _bailExtFichier = null, _bailExtRetirer = false;\n'
     + noms.map(n => fn(P1, n)).join('\n') + '\n' + ['_preserverChampsExistants', '_preserverBailExistant'].map(n => fn(P2, n)).join('\n') + '\nreturn { saveBail: saveBail, refus: _bailExterneRefusSecours, compo: _bailCompoResetDemande, intention: _bailExterneIntention }; } })'
   const proxy = new Proxy(reel, {
@@ -62,7 +65,7 @@ function monde({ form = {}, baux = {}, locataires = [{ nom: 'Martin' }], saveDB,
     set: (t, k, val) => { t[k] = val; return true },
   })
   const api = vm.runInContext(code, vm.createContext({}))(proxy)
-  return Object.assign(api, { DB, toasts, confirms, audits, champs, win, apres, reel })
+  return Object.assign(api, { DB, toasts, confirms, audits, champs, win, apres, reel, preflights })
 }
 
 
@@ -91,15 +94,37 @@ describe('🔴 session de signature à distance vivante : la déclaration passe 
       expect(w.apres.length).toBe(0)
     })
   }
-  it('avec l\'état relais contrôlé (sessionExpireeSigneHors → _rsPreflight) : la déclaration passe, la session est ARCHIVÉE', () => {
+  it('avec l\'état relais contrôlé (sessionExpireeSigneHors → _rsPreflight) : état RELU au relais juste avant d\'enregistrer, puis la déclaration passe, la session est ARCHIVÉE', async () => {
     const baux = { 'D-101': { ref: 'D-101', debut: '2024-03-01', signatures: { remoteSession: rs('sent') } } }
     const w = monde({ form: FORM(), baux, winExtra: { _bailExtEtatRelais: 'pending-invalidee', _bailExtOrigine: 'session-expiree' } })
     w.saveBail()
+    expect(w.DB.baux['D-101'].signatures.remoteSession).toBeDefined()   // rien n'est écrit avant le contrôle au relais
+    await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0))
+    expect(w.preflights).toHaveLength(1)
     const b = w.DB.baux['D-101']
     expect(b.signatures.mode).toBe('externe')
     expect(b.signatures.remoteSession).toBeUndefined()
     expect(b.signaturesAnnulees.map(a => a.motif)).toEqual(['remplace-par-externe'])
     expect(b.signaturesAnnulees[0].etatRelais).toBe('pending-invalidee')
+  })
+  it('🟠1 signée pendant la fenêtre : le contrôle au relais trouve « completed » → aucune écriture, la déclaration est abandonnée', async () => {
+    const baux = { 'D-101': { ref: 'D-101', debut: '2024-03-01', signatures: { remoteSession: rs('sent') } } }
+    const avant = JSON.stringify(baux)
+    const w = monde({ form: FORM(), baux, winExtra: { _bailExtEtatRelais: 'pending-invalidee' }, preflight: async () => ({ ok: false, recupere: true, raison: 'completed' }) })
+    w.saveBail()
+    await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0))
+    expect(JSON.stringify(w.DB.baux)).toBe(avant)
+    expect(w.apres.length).toBe(0)
+    expect(w.toasts.some(([m]) => /entre-temps.*abandonnée/.test(m))).toBe(true)
+  })
+  it('🟠1 récupération en cours (__remoteCompleting) : refus immédiat, aucun contrôle, aucune écriture', () => {
+    const baux = { 'D-101': { ref: 'D-101', debut: '2024-03-01', signatures: { remoteSession: rs('sent') } } }
+    const avant = JSON.stringify(baux)
+    const w = monde({ form: FORM(), baux, winExtra: { _bailExtEtatRelais: 'pending-invalidee', __remoteCompleting: { 'D-101': true } } })
+    w.saveBail()
+    expect(JSON.stringify(w.DB.baux)).toBe(avant)
+    expect(w.preflights).toHaveLength(0)
+    expect(w.toasts.some(([m, t]) => t === 'err' && /en cours de récupération/.test(m))).toBe(true)
   })
   it('sans session à distance, la déclaration depuis « Modifier le bail » reste libre (jamais de blocage)', () => {
     const w = monde({ form: FORM(), baux: { 'D-101': { ref: 'D-101', debut: '2024-03-01' } } })
@@ -160,10 +185,11 @@ describe('🔴 session de signature à distance vivante : la déclaration passe 
 
 describe('🟠 composition modifiée + déclaration dans le même enregistrement : la déclaration SURVIT', () => {
   const FORM2 = (o) => FORM({ ...o })
-  it('saveBail : bail à signature partielle + colocataire ajouté + déclaration → bail EXTERNE, pas de réinitialisation, archive honnête', () => {
+  it('saveBail : bail à signature partielle + colocataire ajouté + déclaration → bail EXTERNE, pas de réinitialisation, archive honnête', async () => {
     const w = monde({ form: FORM2(), baux: { 'D-101': PARTIEL('expired') }, locataires: [{ nom: 'Martin' }, { nom: 'Durand' }],
       winExtra: { _bailExtEtatRelais: 'expired', _bailExtOrigine: 'session-expiree' } })
     w.saveBail()
+    await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0))   // contrôle au relais (🟠1), puis enregistrement
     const b = w.DB.baux['D-101']
     expect(b.signatures && b.signatures.mode).toBe('externe')
     expect(b.signatures.signedAt).toBe('2024-02-20T12:00:00.000Z')
