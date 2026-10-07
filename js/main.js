@@ -269,6 +269,7 @@ import { migrerIdsMenuLoyers } from './core/nav-submenu.js';
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
+  _dgVerseMontant, _dgVerseCoche,
   _planApurementStatut, _procedureJudiciaireEtat,
   DG_STATUS, PROCEDURE_ETAT
 } from './core/gestion-dg-impayes.js';
@@ -699,6 +700,8 @@ window.migrerIdsMenuLoyers = migrerIdsMenuLoyers;
 
 // GESTION DG & IMPAYÉS (v15.12 Sprint 12) - tracking DG + plan apurement + procédure
 window._dgStatut = _dgStatut;
+window._dgVerseMontant = _dgVerseMontant;   // dépôt VERSÉ : définition unique (R-0, audit d'intégration 🟠3)
+window._dgVerseCoche = _dgVerseCoche;
 window._calculerDelaiRestitution = _calculerDelaiRestitution;
 window._calculerSoldeDG = _calculerSoldeDG;
 window._penaliteRetardDG = _penaliteRetardDG;

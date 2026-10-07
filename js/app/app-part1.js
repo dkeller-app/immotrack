@@ -9641,7 +9641,7 @@ function _dgRestitutionEnregistree(b) {
  *  sur le dépôt de la fiche du lot, pour le seul bail courant (sémantique de _dgDuLot). */
 function _dgDetenuDuBail(b, dgLot) {
   if (!b || b._deleted || _dgRestitutionEnregistree(b)) return 0;
-  return Number(b.dg || dgLot || 0) || 0;
+  return _dgVerseMontant(b, dgLot);   // définition unique (R-0) : case « versé » décochée → rien n'est détenu
 }
 /** LES dépôts DÉTENUS d'un lot (bandeau PC, Accueil téléphone, widget), un montant par bail : son bail courant (même parti, même
  *  porteur d'une fin effective) + ses baux archivés (relocation avant restitution, clôture sans restitution).
@@ -12172,6 +12172,7 @@ function openBailHist(i) {
   if(el('b-typeContrat')) el('b-typeContrat').value = b.typeContrat||'initial';
   if(el('b-modalitePaiement')) el('b-modalitePaiement').value = b.modalitePaiement||'echeoir';
   el('b-hc').value = b.hc||''; el('b-ch').value = b.ch||''; el('b-dg').value = b.dg||'';
+  if(el('b-dgVerse')) el('b-dgVerse').checked = _dgVerseCoche(b);   // 🟡2 : le bail archivé relu tel qu'enregistré (définition unique)
   el('b-jpay').value = b.jpay||'5'; // v15.249 B6 (D-B6) : défaut jour paiement = 5 ; champ b-fiscal retiré (D-B5)
   const irlKeys = sortedIRLKeys();
   el('b-irl').innerHTML = irlKeys.map(k=>`<option value="${k}">${k}</option>`).join('');
@@ -14389,7 +14390,8 @@ function openBail(ref, opts) {
   el('b-dg').value = bail.dg||log?.dg||'';
   el('b-jpay').value = bail.jpay||'5'; // v15.249 B6 (D-B6) : défaut jour paiement = 5 ; champ b-fiscal retiré (D-B5)
   if(el('b-quittanceDemandee')) el('b-quittanceDemandee').checked = bail.quittanceDemandee||false; // v15.414
-  if(el('b-dgVerse')) el('b-dgVerse').checked = bail.dgVerse === true;   // RETOURS-2026-10-05 B4 : coche « dépôt de garantie versé »
+  // RETOURS-2026-10-05 B4 + audit d'intégration 🟠3 : un bail EXISTANT sans réponse est présumé versé (coché) ; un nouveau bail est décoché.
+  if(el('b-dgVerse')) el('b-dgVerse').checked = ref ? _dgVerseCoche(DB.baux[ref]) : false;
 
   // IRL auto depuis date début
   const irlKeys = sortedIRLKeys();
@@ -14584,7 +14586,7 @@ function _bailEtatFormulaire() {
     locataires: getBailLocs(),
     signataires: getBailSignataireSelection(),   // suivi par le journal (co-signataires du bailleur)
     quittanceDemandee: el('b-quittanceDemandee') ? el('b-quittanceDemandee').checked : false,
-    dgVerse: el('b-dgVerse') ? el('b-dgVerse').checked : false,   // B4 : suivi par le journal du bail signé
+    dgVerse: el('b-dgVerse') ? el('b-dgVerse').checked : _dgVerseCoche(DB.baux[v('b-edit-ref')]),   // B4 : suivi par le journal du bail signé ; état RÉEL de la case
     finEffective: v('b-fin-effective'), finMotif: v('b-fin-motif'), locNouvelleAdr: v('b-loc-nouv-adr'),
     dgRestitue: pf('b-dg-restitue'), dgRetenu: pf('b-dg-retenu'), finNotes: v('b-fin-notes'),
   });
@@ -16197,7 +16199,7 @@ function saveBail() {
     // quelle pour ne rien effacer au prochain enregistrement du bail.
     quittAutoGen: !!(DB.baux[ref] && DB.baux[ref].quittAutoGen),
     quittanceDemandee: el('b-quittanceDemandee') ? el('b-quittanceDemandee').checked : false, // v15.414
-    dgVerse: el('b-dgVerse') ? el('b-dgVerse').checked : false,   // B4 : « dépôt de garantie versé » (sans mouvement bancaire)
+    dgVerse: el('b-dgVerse') ? el('b-dgVerse').checked : _dgVerseCoche(DB.baux[ref]),   // B4 : l'état RÉEL de la case (jamais un false écrit à l'aveugle)
     // Champs liés à la clôture du bail (modale "Clôturer bail")
     finEffective: v('b-fin-effective'),
     finMotif: v('b-fin-motif'),
@@ -23916,7 +23918,7 @@ function _rgClotureCompute(entryKey){
   if(!entry) return null;
   const bail = entry.bail || {};
   const log  = (DB.logements||[]).find(l=>l.ref===entry.ref) || {};
-  const dg   = Number(bail.dg || log.dg || 0);
+  const dg   = _dgVerseMontant(bail, log.dg);   // dépôt VERSÉ (définition unique, R-0) : case décochée → 0, rien n'est déduit
   const reg  = _rgImmRegime(entry);
   const n1   = _rgN1Charges(entry.ref);
   const occN = entry.occDays || 0;
@@ -24151,7 +24153,7 @@ function _rgApplyRetenue(entryKey, retenue, restit){
   // Fin d'occupation résolue par computeRegul (_bailFinOccupation : tacite reconduction) — pas la fin contractuelle.
   const sd = (typeof _calculerSoldeDG==='function') ? _calculerSoldeDG(Object.assign({}, entry.bail, { fin: entry.fin }), DB.mouvements||[]) : null;
   entry.bail.dgRestitue = sd ? sd.soldeRestitue
-    : Math.max(0, Math.round(((Number(entry.bail.dgPaid)||Number(entry.bail.dg)||0) - entry.bail.dgRetenu)*100)/100);
+    : Math.max(0, Math.round((_dgVerseMontant(entry.bail) - entry.bail.dgRetenu)*100)/100);
   if(typeof _stamp==='function') _stamp(entry.bail); // v15.x : horodatage pour merge multi-device (cohérence convention bail)
   if(typeof _archiveRecopierSurCopies==='function') _archiveRecopierSurCopies(entry.bail, ['dgRetenu', 'dgRestitue']);   // archive en double : sur toutes ses copies
   if(typeof saveDB==='function') saveDB();

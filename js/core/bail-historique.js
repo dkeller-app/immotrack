@@ -15,6 +15,9 @@
  * DG « versé/partiel » (qui dépendent des mouvements) restent des décorations UI.
  */
 
+// Le dépôt VERSÉ : définition unique (R-0, audit d'intégration v15.728 🟠3).
+import { _dgVerseMontant } from './gestion-dg-impayes.js';
+
 const _nr = (s) => String(s == null ? '' : s).trim().toLowerCase();
 const _ymd = (iso) => String(iso == null ? '' : iso).slice(0, 10);
 
@@ -136,13 +139,13 @@ export function construireHistoriqueBail(input) {
     if (_ymd(b.dgRestitueAt)) {
       _pushEv(c.rail, {
         type: 'dg-restitue', date: _ymd(b.dgRestitueAt),
-        montant: Number(b.dgRestitueMontant) || 0, dgVerse: Number(b.dg) || 0,
+        montant: Number(b.dgRestitueMontant) || 0, dgVerse: _dgVerseMontant(b),
         retenues: b.dgDetailRetenues || ''
       }, _ymd(b.dgRestitueAt));
     } else if (b.dgRestitueMontant != null) {
       _pushEv(c.rail, {
         type: 'dg-restitue-sans-date',
-        montant: Number(b.dgRestitueMontant) || 0, dgVerse: Number(b.dg) || 0,
+        montant: Number(b.dgRestitueMontant) || 0, dgVerse: _dgVerseMontant(b),
         retenues: b.dgDetailRetenues || ''
       }, c.fin || c.debut);
     }

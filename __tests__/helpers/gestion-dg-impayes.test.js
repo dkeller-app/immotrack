@@ -120,8 +120,10 @@ describe('_calculerSoldeDG — repli dgPaid → dg (AUDIT observation)', () => {
 // ═══════════════════════════════════════════════════════════════════
 
 describe('_dgStatut — bail actif', () => {
-  it('DG manquant (dû mais pas versé)', () => {
-    const r = _dgStatut({ dg: 1200, dgPaid: 0 });
+  // Audit d'intégration v15.728 🟠3 (R-0) : « non versé » = case « Dépôt de garantie versé » décochée (dgVerse:false) ;
+  // dgPaid à 0 est un champ jamais renseigné (repli sur le DG, _dgVerseMontant), un bail sans réponse est présumé versé.
+  it('DG manquant (dû mais pas versé : case décochée)', () => {
+    const r = _dgStatut({ dg: 1200, dgVerse: false });
     expect(r.statut).toBe(DG_STATUS.MANQUANT);
     expect(r.soldeRestant).toBe(1200);
   });

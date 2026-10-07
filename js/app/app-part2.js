@@ -273,12 +273,22 @@ const PROCEDURE_ETAT = {
 // Copies du chemin file:// (le module js/core/gestion-dg-impayes.js les remplace au chargement) : le délai de
 // restitution y est lu dans LA MÊME règle — window.DgDelai, mirror de js/core/dg-delai.js — avec l'EDL de sortie
 // de CE bail (_edlSortieDuBail). Aucune arithmétique de délai ici.
+// DÉPÔT VERSÉ — copie file:// de _dgVerseMontant / _dgVerseCoche (js/core/gestion-dg-impayes.js, définition UNIQUE, R-0) :
+// le module les remplace au chargement (js/main.js). Égalité verrouillée par __tests__/helpers/bail-dg-verse.test.js.
+function _dgVerseMontant(bail, dgRepli) {
+  if (!bail || bail.dgVerse === false) return 0;
+  return Number(bail.dgPaid) || Number(bail.dg) || Number(dgRepli) || 0;
+}
+function _dgVerseCoche(bail) {
+  return !!bail && bail.dgVerse !== false;
+}
 function _dgStatut(bail, dateRef) {
   if (!bail) return { statut: DG_STATUS.MANQUANT, dgDu: 0, dgPaid: 0, soldeRestant: 0 };
   const dgDu = Number(bail.dg) || 0;
-  const dgPaid = Number(bail.dgPaid) || (bail.dgVerse === true ? dgDu : 0);   // B4 : coche « versé » = versement complet
+  const dgPaid = _dgVerseMontant(bail);   // définition unique du dépôt versé (case B4 comprise)
   const soldeRestant = dgDu - dgPaid;
   if (bail.dgRestitueAt) return { statut: DG_STATUS.RESTITUE, dgDu, dgPaid, soldeRestant: 0 };
+  if (dgDu > 0 && dgPaid <= 0) return { statut: DG_STATUS.MANQUANT, dgDu, dgPaid, soldeRestant };   // non versé : rien à restituer
   const D = (typeof window !== 'undefined') ? window.DgDelai : null;
   if (bail.cloture && D) {
     const ech = D.echeancesRestitution(bail, _edlSortieDuBail(bail));
@@ -331,7 +341,7 @@ function _calculerLoyerImpayeCumule(bail, mouvements, dateRef) {
 
 function _calculerSoldeDG(bail, mouvements) {
   if (!bail) return { dgPaid: 0, retenuesDG: 0, loyerImpaye: 0, soldeRestitue: 0 };
-  const dgPaid = Number(bail.dgPaid) || 0;
+  const dgPaid = _dgVerseMontant(bail);
   const retenuesDG = Number(bail.dgRetenu) || 0;
   const loyerImpaye = _calculerLoyerImpayeCumule(bail, mouvements);
   const soldeRestitue = Math.max(0, dgPaid - retenuesDG - loyerImpaye);
@@ -26282,7 +26292,7 @@ function _dgOpenRestitution(ref, cle) {
   // Base « DG versé » : dgPaid est un champ historiquement non renseigné → repli sur dg
   // (le repli vit désormais dans _calculerSoldeDG ; on garde dgVerse pour l'AFFICHAGE + le
   // statut, dans cette surface où l'on restitue — donc le dépôt a bien été pris).
-  const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const dgVerse = _dgVerseMontant(bail);   // définition unique (R-0) : case « versé » décochée → 0
   // fin = fin d'OCCUPATION (_bailFinOccupation) : un bail nu/meublé reconduit n'est pas terminé à sa fin contractuelle.
   const _bailN = Object.assign({}, bail, { dgPaid: dgVerse, fin: _bailFinOccupation(bail, false) });
   const dgInfo = _dgStatutDuBail(_bailN); // AUDIT #3 — statut du bail CIBLÉ (archive d'une relocation, bail parti : à restituer) : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
@@ -26419,7 +26429,7 @@ function _dgRestitRecalc(ref) {
   const reparations = Math.round((vg.total || 0) * 100) / 100;
   const autres = Math.max(0, parseFloat(v('dg-restit-autres')) || 0);
   const retenuesTotal = Math.round((reparations + autres) * 100) / 100;
-  const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const dgVerse = _dgVerseMontant(bail);
   const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) });
   const solde = _calculerSoldeDG(tempBail, DB.mouvements || []);
   // Pénalité art. 22 (au crédit du locataire), recomputée avec le toggle adresse + la date saisie.
@@ -26485,7 +26495,7 @@ function _dgConfirmerRestitution() {
   // et l'écran le dit. Ce qui a disparu, c'est le repli SILENCIEUX sur `td()`, qui faisait
   // porter au document une date qui n'était celle de rien.
   const dateRestitution = v('dg-restit-date') || '';
-  const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const dgVerse = _dgVerseMontant(bail);
   const solde = _calculerSoldeDG({ ...bail, dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) }, DB.mouvements || []);
   // Pénalité art. 22 (au crédit du locataire) — ajoutée au montant restitué.
   const pen = window._penaliteRetardDG

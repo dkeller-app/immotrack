@@ -70,6 +70,28 @@ export function _dgEcheances(bail, edls) {
 }
 
 /**
+ * LE DÉPÔT DE GARANTIE VERSÉ d'un bail — définition UNIQUE (R-0, audit d'intégration v15.728 🟠3, décision du pilote 07/10).
+ * Lue par tous les calculs du dépôt : statut (_dgStatut), dépôts détenus (_dgDetenuDuBail), solde de restitution
+ * (_calculerSoldeDG), clôture / décompte (_rgClotureCompute), fenêtre de restitution, frise du bail.
+ *   • case « Dépôt de garantie versé » DÉCOCHÉE (dgVerse === false) → 0 : rien n'a été versé, rien n'est détenu, rien
+ *     n'est à restituer ni déduit au solde ;
+ *   • cochée, ou ABSENTE (bail antérieur à la case : l'app a toujours présumé le dépôt versé) → le montant versé saisi
+ *     (dgPaid), sinon le dépôt du bail (dg), sinon `dgRepli` (dépôt de la fiche du lot, pour le seul bail courant).
+ * @param {object} bail
+ * @param {number|string} [dgRepli]
+ * @returns {number}
+ */
+export function _dgVerseMontant(bail, dgRepli) {
+  if (!bail || bail.dgVerse === false) return 0;
+  return Number(bail.dgPaid) || Number(bail.dg) || Number(dgRepli) || 0;
+}
+/** La case du formulaire : un bail EXISTANT sans réponse s'affiche cochée (présumé versé) ; seule une case décochée
+ *  enregistrée s'affiche décochée. Un NOUVEAU bail (aucun bail) s'affiche décoché. */
+export function _dgVerseCoche(bail) {
+  return !!bail && bail.dgVerse !== false;
+}
+
+/**
  * Calcule le statut DG d'un bail.
  * Bail clôturé : délai de restitution (art. 22) lu dans LA règle (dg-delai.js) — point de départ = remise des
  * clés (déclarée, sinon date de l'EDL de sortie, fin effective, fin), conformité = l'EDL de sortie de CE bail.
@@ -82,13 +104,14 @@ export function _dgEcheances(bail, edls) {
 export function _dgStatut(bail, dateRef, edls) {
   if (!bail) return { statut: DG_STATUS.MANQUANT, dgDu: 0, dgPaid: 0, soldeRestant: 0 };
   const dgDu = Number(bail.dg) || 0;
-  // B4 : la coche « versé » (bail.dgVerse) vaut versement complet quand aucun montant n'est saisi.
-  const dgPaid = Number(bail.dgPaid) || (bail.dgVerse === true ? dgDu : 0);
+  const dgPaid = _dgVerseMontant(bail);   // définition unique du dépôt versé (case B4 comprise)
   const soldeRestant = dgDu - dgPaid;
 
   if (bail.dgRestitueAt) {
     return { statut: DG_STATUS.RESTITUE, dgDu, dgPaid, soldeRestant: 0 };
   }
+  // Dépôt dû mais NON versé (case décochée) : rien à restituer, même bail clôturé.
+  if (dgDu > 0 && dgPaid <= 0) return { statut: DG_STATUS.MANQUANT, dgDu, dgPaid, soldeRestant };
 
   // Bail clôturé → analyse du délai de restitution
   if (bail.cloture) {
@@ -134,7 +157,7 @@ export function _calculerSoldeDG(bail, mouvements) {
   // `dgPaid` (versement effectif) n'est historiquement jamais renseigné → repli sur le DG dû
   // (`dg`) : au moment de la restitution, on rend le dépôt effectivement pris. Le repli vit ICI
   // (source unique) plutôt que recopié dans chaque surface (clôture, restitution). DRY.
-  const dgPaid = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const dgPaid = _dgVerseMontant(bail);   // définition unique : case « versé » décochée → 0, sinon dgPaid, sinon dg
   const retenuesDG = Number(bail.dgRetenu) || 0;
   // MODÈLE DIDIER (anti double-compte, chantier Charges) : le dépôt couvre le LOYER impayé seul.
   // Les charges — même les provisions non versées — sont portées UNIQUEMENT par la régularisation

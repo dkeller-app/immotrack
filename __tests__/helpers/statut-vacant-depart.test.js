@@ -21,6 +21,7 @@ import { duMoisFromRaw } from '../../js/core/loyer-du-mois.js';
 import { bailHistCle } from '../../js/core/store-mapping.js';
 // LA règle du délai de restitution du DG (art. 22) — le mirror window.DgDelai de l'app.
 import * as DgDelai from '../../js/core/dg-delai.js';
+import { _dgVerseMontant } from '../../js/core/gestion-dg-impayes.js';   // dépôt VERSÉ : définition unique (R-0)
 import { createStoreSync } from '../../js/core/store-sync.js';
 import { extraireFonction } from './_extraction-source.js';
 
@@ -47,7 +48,7 @@ function monter(DB, noms, extra = {}) {
     _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), escHtml: (x) => String(x == null ? '' : x), _isAlive: (x) => !!x && !x._deleted, fmt: (n) => String(Math.round(n || 0)) + ' €',
     el: (id) => (els[id] = els[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, classList: { contains: () => false } }),
     showToast: (m) => { (base._toasts = base._toasts || []).push(m); }, confirm2: () => false,
-    _isPhone: () => false, _PIL_MTX_COLS: [], _lyQ: (x) => String(x == null ? '' : x), Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
+    _isPhone: () => false, _PIL_MTX_COLS: [], _dgVerseMontant, _lyQ: (x) => String(x == null ? '' : x), Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
     ...extra,
   };
   base.window = { bailLoueAu, finOccupationBail, bailHistCle, DgDelai, ...(extra.window || {}) };   // `extra.window` complète, n'écrase pas

@@ -7,6 +7,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 import * as BSE from '../../js/core/bail-signature-etat.js'
+import { _dgVerseCoche as dgVerseCoche } from '../../js/core/gestion-dg-impayes.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8')
@@ -47,7 +48,7 @@ function monde({ form = {}, baux = {}, locataires = [{ nom: 'Martin' }], saveDB,
     saveDB: saveDB || (() => true), _undoOnSaveDBSuccess: () => {}, _journalTrace: [],
     // 🟠1 (audit d'intégration) : contrôle de l'état réel au relais juste avant d'enregistrer une déclaration
     _rsPreflight: preflight || (async () => { preflights.push(1); return { ok: true, etat: 'pending-invalidee', purge: async () => ({ ok: true, etat: 'supprimee' }) } }),
-    _closeBailWizard: () => {},
+    _closeBailWizard: () => {}, _dgVerseCoche: dgVerseCoche,
     JSON, Date, Object, Array, String, Number, Math, console, Symbol, Boolean, Promise, parseInt, parseFloat, isNaN, RegExp, Error,
   }
   const stubs = ['_bailExterneApresSave', '_refreshAfterMutation', 'closeM', 'initFilters', 'rBaux', 'refreshAllIRL', 'suggestSave',
