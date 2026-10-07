@@ -5,7 +5,9 @@
  * §I décisions de Didier du 06/10). Il REMPLACERA (P3 à P7, branchement famille par famille via
  * les adaptateurs ci-dessous) les trois moteurs qui répondaient chacun à leur façon à « ce
  * locataire est-il à jour ? » : le netting par lot de finances-monthly.js, etatMoisLot
- * (loyers-mois.js) et _computeLoyerStatut (loyer-statut.js). P1 : AUCUN écran ne le lit encore.
+ * (loyers-mois.js) et _computeLoyerStatut (loyer-statut.js). Lecteurs : Finances (P3), fenêtre
+ * avance / retard (P4), onglet Loyers, relances, quittances, dépôt (P5), bandeau « Tous les
+ * loyers », pastille de lot, Accueil / Pilotage (P6, versFrise + versByLot).
  *
  * Ce n'est pas un 4ᵉ moteur d'imputation : le socle est conservé tel quel —
  *   - le dû d'un mois = duMois (barème historisé, prorata, troncature C4, invariant I-1),
@@ -115,7 +117,7 @@ export function suiviLot(lotIn, opts) {
   const debutSuivi = (L.debutSuivi && _isIso(L.debutSuivi.date))
     ? { date: String(L.debutSuivi.date).slice(0, 10), source: L.debutSuivi.source || 'provisoire' }
     : debutSuiviDefaut(L);
-  const res = { ref, debutSuivi, today, dueYm, baux: [], mois: {}, horsPeriode: [], horsSuivi: [], bauxIgnores: [], manquesIgnores: [] };
+  const res = { ref, debutSuivi, today, dueYm, graceLast, baux: [], mois: {}, horsPeriode: [], horsSuivi: [], bauxIgnores: [], manquesIgnores: [] };
   if (!debutSuivi) return res;
   const sYm = debutSuivi.date.slice(0, 7);
   const sPremier = sYm + '-01';
@@ -448,6 +450,99 @@ export function versByLot(suivi, annee, opts) {
     months,
     annual: { duHC: sum('duHC'), duCH: sum('duCH'), encaisse: sum('encaisse'), retard, avance },
     solde: _r2(avance - retard)
+  };
+}
+
+/**
+ * P6 — LA FRISE 12 MOIS du bandeau « Tous les loyers » (et la pastille `_v4ComputeLotStatus`),
+ * lue dans le suivi, jamais recalculée. Remplace le pool annuel sans report de
+ * `_computeLoyerStatut` (loyer-statut.js). Forme historique conservée
+ * (`months[{mi, cls, recu, attendu, due}]`, `solde`, `recu`, `attendu`, `curMo`, `monthlyFull`,
+ * `year`) : seuls les chiffres changent.
+ *
+ * Une case = la POSITION DE FIN DE MOIS du lot (Σ des baux actifs + dette figée d'un locataire
+ * parti, visible l'année de son départ — décision Q2), exactement la case de Finances :
+ *   - 'imp'  le loyer du mois manque et le retard atteint le dû du mois (un mois entier) ;
+ *   - 'warn' retard plus petit, ou mois payé portant une dette des mois précédents (§C.3) ;
+ *   - 'ok'   position nulle ; 'avance' position positive (payé d'avance) ;
+ *   - 'vac'  aucun dû ni position (hors bail, ou avant le début du suivi : `horsSuivi`) ;
+ *   - 'avenir' mois non échu, ou mois courant sous la tolérance du 10 dont le loyer n'est pas
+ *     encore payé (pas un retard). Un mois futur est 'avance' si l'avance de la position le
+ *     couvre (projection au loyer de référence `monthlyFull`, comme l'ancienne frise).
+ * `solde` = position au dernier mois exigible de l'année (= byLot.solde, la case de Finances) ;
+ * `retard` / `avance` = ses deux parts (jamais les deux sur un même bail).
+ * @param {Object} suivi sortie de suiviLot
+ * @param {number|string} annee année affichée
+ * @param {{monthlyFull?: number}} [opts] loyer de référence (hc + ch actuels) pour les mois futurs
+ */
+export function versFrise(suivi, annee, opts) {
+  const s = suivi || {};
+  const y = parseInt(annee, 10);
+  const today = String(s.today || '');
+  const ty = parseInt(today.slice(0, 4), 10);
+  const curMo = (y < ty) ? 12 : (y > ty ? 0 : parseInt(today.slice(5, 7), 10));
+  const dueSuivi = s.dueYm || today.slice(0, 7);
+  const monthlyFull = _r2((opts && opts.monthlyFull) || 0);
+  const debutYm = (s.debutSuivi && s.debutSuivi.date) ? String(s.debutSuivi.date).slice(0, 7) : null;
+  const baux = s.baux || [];
+  // Position au dernier mois exigible de l'année (celle de Finances / byLot).
+  let posYm = null;
+  for (let mo = 1; mo <= 12; mo++) {
+    const ym = y + '-' + String(mo).padStart(2, '0');
+    if (ym <= dueSuivi && s.mois && s.mois[ym]) posYm = ym;
+  }
+  const lp = posYm ? s.mois[posYm] : null;
+  let projAvance = lp ? lp.avance : 0;     // avance disponible pour les mois non échus
+  const months = [];
+  let attendu = 0, recuTot = 0;
+  for (let mi = 1; mi <= 12; mi++) {
+    const ym = y + '-' + String(mi).padStart(2, '0');
+    const lm = (s.mois && s.mois[ym]) || null;
+    let du = 0, recu = 0, courant = 0;
+    for (const b of baux) {
+      const m = b.mois.find((x) => x.ym === ym);
+      if (!m) continue;
+      recu += m.recu;                                  // argent DATÉ du mois (tous baux du lot)
+      if (lm && lm.bauxActifs.includes(b.cle)) { du += m.du.total; courant += m.courant.loyer + m.courant.charge; }
+    }
+    du = _r2(du); recu = _r2(recu); courant = _r2(courant);
+    recuTot += recu;
+    const ecoule = mi <= curMo && ym <= dueSuivi;
+    const retard = lm && ecoule ? lm.retard : 0;
+    const avance = lm ? lm.avance : 0;
+    const e = { mi, ym, cls: 'vac', recu, attendu: 0, due: 0, retard: 0, avance: 0, solde: 0 };
+    if (ecoule) {
+      e.attendu = du; e.due = du; attendu += du;
+      e.retard = retard; e.avance = avance; e.solde = _r2(avance - retard);
+      if (lm && lm.partis.length) e.parti = true;   // la case porte la dette figée d'un locataire parti (Q2)
+      if (!lm || (du <= 0.5 && retard <= EPS_CENTIME && avance <= EPS_CENTIME)) {
+        e.cls = 'vac';
+        // Un bail courait déjà, mais le suivi commence plus tard (1er loyer encaissé, provisoire).
+        if (!lm && debutYm && ym < debutYm && baux.some((b) => b.debut <= ym + '-31')) e.horsSuivi = true;
+      } else if (retard > EPS_CENTIME) {
+        // 'imp' : le loyer du mois lui-même manque ET la dette atteint un mois entier ; sinon
+        // 'warn' (manque partiel, ou mois payé avec une dette des mois précédents, §C.3).
+        const ref = du > 0.5 ? du : monthlyFull;
+        e.cls = (courant > EPS_CENTIME && ref > 0.5 && retard >= ref - EPS_CENTIME) ? 'imp' : 'warn';
+      } else if (s.graceLast && ym === dueSuivi && courant > EPS_CENTIME) {
+        e.cls = 'avenir'; e.tolerance = true;          // loyer du mois pas encore exigible (avant le 10)
+      } else e.cls = avance > EPS_CENTIME ? 'avance' : 'ok';
+    } else {
+      // Mois non échu : couvert par l'avance de la position (+ virements post-datés du mois) ?
+      e.due = monthlyFull;
+      projAvance += recu;
+      if (monthlyFull <= 0.5) e.cls = 'vac';
+      else if (projAvance >= monthlyFull - 0.5) { e.cls = 'avance'; projAvance = _r2(projAvance - monthlyFull); }
+      else e.cls = 'avenir';
+    }
+    months.push(e);
+  }
+  const retard = lp ? lp.retard : 0, avance = lp ? lp.avance : 0;
+  return {
+    months, year: y, curMo, monthlyFull, posYm,
+    solde: _r2(avance - retard), retard, avance,
+    recu: _r2(recuTot), attendu: _r2(attendu),
+    debutSuivi: s.debutSuivi || null
   };
 }
 

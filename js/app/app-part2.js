@@ -1247,7 +1247,7 @@ function rLoyers() {
     html += '<div class="ly2-blk t-info' + (_tousOpen ? '' : ' closed') + '" id="ly-tous">'
       + '<div class="ly2-blk-h" onclick="_lyToggleTous()" style="cursor:pointer"><span class="chev">▾</span>'
       + '<span class="t">' + _uiIcon('list') + ' Tous les loyers</span>'
-      + '<span class="hint">' + loues + ' bail' + (loues > 1 ? 'ux' : '') + ' · frise 12 mois, groupés par immeuble</span></div>'
+      + '<span class="hint">' + loues + (loues > 1 ? ' baux' : ' bail') + ' · frise 12 mois, groupés par immeuble</span></div>'
       + (_tousOpen ? '<div class="ly2-body" style="padding:12px 14px">'
           + _lyTousLoyersHtml(new Date().getFullYear(), _tousEnt, { inline: true, grouped: true }).html + '</div>' : '')
       + '</div>';
@@ -26434,8 +26434,12 @@ function _suiviDetailHtml(log, s, yr) {
       + '<div style="font:600 10px monospace;color:' + c[2] + '">' + _SUIVI_MOF[m.mi - 1].toUpperCase() + '</div>'
       + '<div style="font-weight:700;font-size:12.5px;color:' + c[2] + ';margin-top:2px">' + val + '</div></div>';
   };
-  const grid = '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:12px 14px">' + s.months.map(cell).join('') + '</div>';
-  const solde = '<div style="padding:10px 14px;background:var(--sur3);border-top:1px solid var(--bor2);font-size:12px;color:var(--t2)">Attendu à date <b style="color:var(--t1)">' + fmt(s.attendu) + '</b> · reçu <b style="color:var(--t1)">' + fmt(s.recu) + '</b> · solde <b style="color:' + (s.solde >= 0 ? 'var(--pos)' : 'var(--neg)') + '">' + (s.solde >= 0 ? '+ ' : '− ') + fmt(Math.abs(s.solde)) + '</b> <span style="color:var(--t3)">· clique un mois pour ses paiements</span></div>';
+  // 6 colonnes quand la place le permet, sinon autant de colonnes de 88 px que possible (3 sur
+  // téléphone) : les montants ne débordent plus de la ligne (constaté à 375 px, P6).
+  const grid = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(max(88px,calc((100% - 30px) / 6)),1fr));gap:6px;padding:12px 14px">' + s.months.map(cell).join('') + '</div>';
+  // P6 : le solde est la POSITION du bail au dernier mois exigible (suivi unique : report des années
+  // précédentes, manque accepté, retenue sur dépôt compris) — la case de Finances, pas reçu − attendu.
+  const solde = '<div style="padding:10px 14px;background:var(--sur3);border-top:1px solid var(--bor2);font-size:12px;color:var(--t2)">Attendu à date <b style="color:var(--t1)">' + fmt(s.attendu) + '</b> · reçu <b style="color:var(--t1)">' + fmt(s.recu) + '</b> · solde à date <b style="color:' + (s.solde >= 0 ? 'var(--pos)' : 'var(--neg)') + '">' + (s.solde >= 0 ? '+ ' : '− ') + fmt(Math.abs(s.solde)) + '</b> <span style="color:var(--t3)">(report, retenue sur dépôt et remises compris) · clique un mois pour ses paiements</span></div>';
   let drill = '';
   if (_suiviMonth) {
     const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
@@ -26472,7 +26476,8 @@ function _impayesOuvrirSur(ref) {
 function _lyTousLoyersHtml(yr, ent, opts) {
   const inline = !!(opts && opts.inline);
   const grouped = !!(opts && opts.grouped);   // KPI §4 : dépliant inline groupé par immeuble/bailleur
-  if (typeof window._computeLoyerStatut !== 'function' || typeof window._loyerChipVerdict !== 'function') {
+  // P6 : la frise ET le chip lisent le suivi unique (SuiviLoyers, js/core/suivi-loyers.js).
+  if (!window.SuiviLoyers || typeof window.SuiviLoyers.versFrise !== 'function' || typeof _finSuiviLot !== 'function') {
     return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Suivi indisponible — ouvre l\'application via le serveur (modules non chargés).</div>', empty: true };
   }
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
@@ -26481,13 +26486,11 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   const CLL = { ok: 'payé', warn: 'partiel', imp: 'en retard', avance: 'payé d\'avance' };
   // R-0 : le BAIL decide, pas le cache. Un bail repris a l'achat faisait disparaitre le lot de
   // TOUTE la page Loyers — chips de retard et d'avance comprises.
-  const logs = (DB.logements || []).filter(aliveFn).filter(l => _lotEstLoue(l) && (!ent || l.entity === ent));
-  if (!logs.length) {
-    return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Aucun logement occupé' + (ent ? ' pour ' + escHtml(ent) : '') + '.</div>', empty: true };
-  }
   // Phase C — « aligner le chiffre » (décision user) : le CHIP (montant retard/avance) lit le MAÎTRE
-  // Finances (byLot, report N-1 inclus) → même € que l'Accueil/Finances. La frise 12 mois garde son
-  // affichage d'allocation annuelle (déjà juste DANS l'année). Chip = Accueil = Finances au centime.
+  // Finances (byLot) → même € que l'Accueil/Finances. P6 (FINANCES-SUIVI-UNIQUE) : la FRISE aussi —
+  // fin du pool annuel sans report (_computeLoyerStatut) : chaque case est la position de fin de
+  // mois du lot dans le suivi unique (versFrise), le solde la position au dernier mois exigible.
+  // Chip = frise = Accueil = Finances = onglet Loyers, au centime, par construction.
   let _lyByLot = {};
   try {
     const _sc = (typeof _finEntScope === 'function') ? _finEntScope(ent || '', '') : null;
@@ -26495,6 +26498,14 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     const _mst = (typeof _finMonthly === 'function') ? _finMonthly(parseInt(yr, 10), _sc, _W ? _W.constat : undefined) : null;
     if (_mst && _mst.byLot) _lyByLot = _mst.byLot;
   } catch (e) {}
+  // Les lots LOUÉS (le bail décide, R-0) + les lots dont seul un locataire PARTI doit encore de
+  // l'argent, visible l'année de son départ (décision Q2) : la bulle Impayés et Finances comptent
+  // cette dette, le bandeau ne peut pas la taire (ex. un local vide dont l'ancien locataire doit 750 €).
+  const _lyDetteVisible = (ref) => { const A = (_lyByLot[ref] && _lyByLot[ref].annual) || {}; return (A.retard || 0) > 0.5; };
+  const logs = (DB.logements || []).filter(aliveFn).filter(l => (_lotEstLoue(l) || _lyDetteVisible(l.ref)) && (!ent || l.entity === ent));
+  if (!logs.length) {
+    return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Aucun logement occupé' + (ent ? ' pour ' + escHtml(ent) : '') + '.</div>', empty: true };
+  }
   // P3 (FINANCES-SUIVI-UNIQUE) : byLot vient du suivi PAR BAIL — la position du lot peut porter la
   // dette figée d'un locataire PARTI (visible l'année de son départ, décision Q2). Elle est alors
   // NOMMÉE sur le chip (« parti »), jamais attribuée en silence au locataire actuel de la ligne.
@@ -26510,12 +26521,17 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     if (av > 0.5) return { cls: 'avance', montant: av, nMois: monthly > 0.5 ? Math.round(av / monthly) : 0, signe: av };
     return { cls: 'ajour', montant: 0, nMois: 0, signe: 0 };
   };
-  const rows = logs.map(l => ({ log: l, s: _suiviLoyerStrip(l, yr), pos: _lyPos(l.ref, (Number(l.hc) || 0) + (Number(l.ch) || 0)) }))
+  // Frise vide (suivi indisponible pour CE lot) : 12 cases neutres, jamais un écran cassé.
+  const _lyFriseVide = (l) => ({ months: _MO.map((x, i) => ({ mi: i + 1, cls: 'vac', recu: 0, attendu: 0, due: 0, retard: 0, avance: 0, solde: 0 })),
+    solde: 0, retard: 0, avance: 0, recu: 0, attendu: 0, curMo: 0, monthlyFull: (Number(l.hc) || 0) + (Number(l.ch) || 0), year: parseInt(yr, 10) });
+  const rows = logs.map(l => ({ log: l, s: _suiviLoyerStrip(l, yr) || _lyFriseVide(l), pos: _lyPos(l.ref, (Number(l.hc) || 0) + (Number(l.ch) || 0)) }))
     .sort((a, b) => a.pos.signe - b.pos.signe); // retard (signe −) en premier
   const CC = _SUIVI_CC;   // DRY : mêmes couleurs que le détail (écran B)
+  // Info-bulle : reçu / attendu du mois + la POSITION de fin de mois (la case de Finances).
+  const _lyTipPos = (m) => (m.retard > 0.005 ? ' · reste dû ' + fmt(m.retard) + (m.parti ? ' (dont locataire parti)' : '') : (m.avance > 0.005 ? ' · avance ' + fmt(m.avance) : ''));
   const stripHtml = (s) => '<div style="display:flex;gap:2px;margin-top:6px">' + s.months.map(m => {
     const c = CC[m.cls] || CC.avenir; const dash = (m.cls === 'avenir' || m.cls === 'vac');
-    const tip = _MOF[m.mi - 1] + ' : ' + (m.cls === 'vac' ? 'hors bail' : (m.cls === 'avenir' ? 'à venir' : (fmt(m.recu) + (m.attendu ? ' / ' + fmt(m.attendu) : '') + ' — ' + (CLL[m.cls] || ''))));
+    const tip = _MOF[m.mi - 1] + ' : ' + (m.cls === 'vac' ? (m.horsSuivi ? 'avant le début du suivi' : 'hors bail') : (m.cls === 'avenir' ? (m.tolerance ? 'à venir (exigible le 10)' : 'à venir') : (fmt(m.recu) + (m.attendu ? ' / ' + fmt(m.attendu) : '') + ' — ' + (CLL[m.cls] || '') + _lyTipPos(m))));
     return '<span title="' + escHtml(tip) + '" style="flex:1;height:22px;border-radius:3px;background:' + c[0] + ';border:1px ' + (dash ? 'dashed' : 'solid') + ' ' + c[1] + ';display:grid;place-items:center;font:600 9px monospace;color:' + c[2] + '">' + (dash ? '' : _MO[m.mi - 1]) + '</span>';
   }).join('') + '</div>';
   const chip = (pos) => {   // Phase C : le montant vient du maître (byLot), plus du solde annuel de la frise
@@ -26537,7 +26553,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     const items = rows.map(r => {
       const refA = escHtml(r.log.ref);
       const inner = '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 13px">'
-        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>'
+        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire || r.pos.parti || r.log.ref) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>'
         + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div></div>'
         + '<div>' + chip(r.pos) + '</div></div>';
       return { log: r.log, html: inner };
@@ -26552,7 +26568,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = escHtml(r.log.ref);
       return '<div style="' + (i < rows.length - 1 ? 'border-bottom:1px solid var(--bor2)' : '') + (open ? ';background:var(--sur2)' : '') + '">'
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
-      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
+      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire || r.pos.parti || r.log.ref) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>'
       +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
       + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.pos) + (r.pos.cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
       + '</div>'

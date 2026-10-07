@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.714';
+const IMMOTRACK_VERSION = '15.715';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -6815,26 +6815,31 @@ function _v4ComputeLotStatus(log, yr, mo, mvs) {
   // et de l'année. Le lot disparaissait des chiffres, comme dans la bulle Impayés (R0-B).
   if (!_lotEstLoue(log)) {
     const theo = (Number(log.hc)||0) + (Number(log.ch)||0);
+    // P6 (décision Q2) : lot vide, mais l'ancien locataire PARTI doit encore — sa dette figée reste
+    // visible l'année de son départ (bulle Impayés, Finances, bandeau) : la pastille ne la tait pas.
+    const sv = _suiviLoyerStrip(log, yr);
+    const retParti = sv ? (mo ? ((sv.months[parseInt(mo, 10) - 1] || {}).retard || 0) : (sv.retard || 0)) : 0;
+    if (retParti > 0.5) return {cls:'imp', attendu:0, recu:0, label:fmtN(retParti) + ' dû (locataire parti)', ratio:0, prorata:0, vacant:true, retard:retParti, parti:true};
     return {cls:'vac', attendu:0, recu:0, label:(theo > 0 ? (theo + ' € théo') : '—'), ratio:0, prorata:0, vacant:true};
   }
-  // SUIVI-LOYERS-SOURCE-UNIQUE Phase B : façade sur le moteur unique (_suiviLoyerStrip →
-  // _computeLoyerStatut). Le REPORT est géré par construction : « 2 mois payés en janvier »
-  // couvre février (fini le faux impayé du mois suivant, constat 40) ; la vue année compte le
-  // dû de TOUS les mois échus sous bail (fini _moisDebut qui effaçait les impayés de début
-  // d'année, constat 41). mvs ne sert plus qu'à détecter « couvert par une avance » (tooltip).
+  // FINANCES-SUIVI-UNIQUE P6 : façade sur LE moteur unique (_suiviLoyerStrip → suivi de Finances,
+  // frise versFrise). Le REPORT est géré par construction (avance reportée de mois en mois, dette
+  // ancienne portée tant qu'elle n'est pas payée) ; une case = la position de fin de mois du lot,
+  // la même que la ligne « Avance / retard du lot » de Finances. `retard` = position du lot (mois
+  // regardé, ou dernier mois exigible pour la vue année) : le même chiffre que la bulle Impayés.
+  // mvs ne sert plus qu'à détecter « couvert par une avance » (tooltip).
   const s = _suiviLoyerStrip(log, yr);
   if (!s) return {cls:'vac', attendu:0, recu:0, label:'—', ratio:0, prorata:0, vacant:true};   // moteur absent (file://) → neutre
   const monthlyFull = s.monthlyFull;
-  const v = window._loyerChipVerdict(s.solde, monthlyFull);
-  const enAvance = v.cls === 'avance';
+  const enAvance = (s.avance || 0) > 0.5 && !((s.retard || 0) > 0.5);
   if (mo) {
     const m = s.months[parseInt(mo, 10) - 1] || { cls: 'vac', recu: 0, due: 0, attendu: 0 };
     if (m.due <= 0.5) {
       if (m.recu > 0) return {cls:'ok', attendu:0, recu:m.recu, label:'+' + fmtN(m.recu), ratio:1, prorata:1};
       return {cls:'vac', attendu:0, recu:0, label:'—', ratio:0, prorata:0, vacant:true};
     }
-    if (m.cls === 'avenir') return {cls:'vac', attendu:0, recu:m.recu, label:'—', ratio:0, prorata:0, vacant:true};   // B1 audit : mois futur non dû = VRAIMENT neutre (pas d'attendu plein loyer)
-    const cls = (m.cls === 'avance') ? 'ok' : m.cls;   // futur pré-payé = payé ; futur non dû = neutre
+    if (m.cls === 'avenir') return {cls:'vac', attendu:0, recu:m.recu, label:'—', ratio:0, prorata:0, vacant:true};   // B1 audit : mois futur non dû (ou sous la tolérance du 10) = VRAIMENT neutre
+    const cls = (m.cls === 'avance') ? 'ok' : m.cls;   // payé d'avance = payé ; futur non dû = neutre
     // « Couvert par une avance » : mois couvert par l'allocation SANS paiement daté du mois
     // (mvs = mouvements du mois sélectionné, passés par l'appelant) → tooltip d'explication.
     let coverNote = '';
@@ -6843,54 +6848,42 @@ function _v4ComputeLotStatus(log, yr, mo, mvs) {
       const dated = mvs.filter(x => x.qui === log.ref && (x.cr||0) > 0 && isLoy(x.cat)).reduce((a, x) => a + (x.cr||0), 0);
       if (dated < m.due * 0.5) coverNote = 'Aucun paiement daté de ce mois — couvert par un paiement antérieur du locataire (avance)';
     }
-    return {cls, attendu: m.attendu || m.due, recu: m.recu, label: fmtN(m.attendu || m.due), ratio: m.recu / m.due,
-            prorata: monthlyFull > 0 ? (m.due / monthlyFull) : 1, vacant:false, enAvance, avance: enAvance ? v.montant : 0, coverNote};
+    return {cls, attendu: m.attendu || m.due, recu: m.recu, label: fmtN(m.attendu || m.due), ratio: m.due > 0 ? Math.min(1, m.recu / m.due) : 1,
+            prorata: monthlyFull > 0 ? (m.due / monthlyFull) : 1, vacant:false, retard: m.retard || 0,
+            enAvance: (m.avance || 0) > 0.5, avance: (m.avance || 0) > 0.5 ? m.avance : 0, coverNote};
   }
-  // Vue année : dû réel cumulé des mois échus (strip) vs total encaissé.
-  if (s.attendu <= 0.5) {
-    if (s.recu > 0) return {cls:'ok', attendu:0, recu:s.recu, label:'+' + fmtN(s.recu), ratio:1, prorata:1};
+  // Vue année : verdict = POSITION au dernier mois exigible (celle de Finances et de la bulle),
+  // plus le rapport reçu / attendu de l'année (qui ignorait le report d'une année sur l'autre).
+  if (s.attendu <= 0.5 && !((s.retard || 0) > 0.5)) {
+    if (s.recu > 0) return {cls:'ok', attendu:0, recu:s.recu, label:'+' + fmtN(s.recu), ratio:1, prorata:1, retard:0, enAvance, avance: enAvance ? s.avance : 0};
     return {cls:'vac', attendu:0, recu:0, label:'—', ratio:0, prorata:0, vacant:true};
   }
-  const yRatio = s.recu / s.attendu;
-  return {cls: (yRatio >= 0.99) ? 'ok' : (yRatio >= 0.5 ? 'warn' : 'imp'), attendu: s.attendu, recu: s.recu,
-          label: fmtN(s.attendu), ratio: yRatio, prorata: 1, vacant:false, enAvance, avance: enAvance ? v.montant : 0};
+  const ret = s.retard || 0;
+  const yCls = !(ret > 0.5) ? 'ok' : ((monthlyFull > 0.5 && ret < monthlyFull) ? 'warn' : 'imp');
+  return {cls: yCls, attendu: s.attendu, recu: s.recu,
+          label: fmtN(s.attendu), ratio: s.attendu > 0 ? Math.min(1, s.recu / s.attendu) : 1, prorata: 1, vacant:false,
+          retard: ret, enAvance, avance: enAvance ? s.avance : 0};
 }
 
 
-// SUIVI LOYERS (H1 refait) — échéancier mois par mois d'un logement sur une année.
-// « On gère ça comment » : 100% auto depuis les mouvements de loyer. Attendu par mois = brique
-// EXISTANTE `_getActiveBailHcChProrated` (bail actif + prorata jours, DRY). Attribution dans le
-// TEMPS = allocation chronologique du total encaissé aux mois (le plus ancien dû d'abord) → statut
-// réel par mois (payé/partiel/retard) et détection de l'avance (mois futur pré-payé).
-// Retourne { months:[{mi,cls,recu,attendu,due}], solde, recu, attendu, curMo }.
+// SUIVI LOYERS — échéancier mois par mois d'un logement sur une année (frise du bandeau « Tous
+// les loyers », pastille _v4ComputeLotStatus). FINANCES-SUIVI-UNIQUE P6 : plus aucun calcul ici.
+// La frise est LUE dans le suivi de Finances (_finSuiviLot, le même objet que la ligne « Avance /
+// retard du lot », sa fenêtre, la bulle Impayés et l'onglet Loyers) par l'adaptateur pur
+// SuiviLoyers.versFrise : une case = la position de fin de mois du lot (report d'une année sur
+// l'autre, dette d'un ancien locataire jamais payée par le suivant, manque accepté, retenue sur
+// dépôt compris) ; solde = position au dernier mois exigible. Fin du pool annuel sans report de
+// _computeLoyerStatut (loyer-statut.js, supprimé en P7).
+// Retourne { months:[{mi,ym,cls,recu,attendu,due,retard,avance,solde}], solde, retard, avance,
+//            recu, attendu, curMo, monthlyFull, year } — ou null (module absent : appelants dégradent).
 function _suiviLoyerStrip(log, yr) {
-  // SUIVI-LOYERS-SOURCE-UNIQUE Phase A : le calcul vit dans js/core/loyer-statut.js
-  // (_computeLoyerStatut, allocation chronologique + solde — TDD 17 tests). Ce wrapper
-  // ne fait plus que : résoudre les entrées depuis la DB + mémoïser.
-  if (typeof window._computeLoyerStatut !== 'function') return null;   // module requis (main.js) — appelants dégradent
-  const y = parseInt(yr);
-  // Mémoïsation par (lot, année, génération DB, jour local) — patron _departEstimDu v15.415 :
-  // les rendus multiples d'un même refresh = 1 seul calcul par lot. Invalidé par saveDB (_dbGen),
-  // par _backupRestoreApply (bump direct) et au changement de jour (curMo dépend de la date).
-  const gen = ((typeof window._dbGen !== 'undefined') ? window._dbGen : 0) + '|'
-    + ((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : '');
-  const C = window._suiviStripCache || (window._suiviStripCache = { gen: -1, map: {} });
-  if (C.gen !== gen) { C.gen = gen; C.map = {}; }
-  const key = log.ref + '|' + y;
-  if (C.map[key]) return C.map[key];
-  const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
-  const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  const SL = window.SuiviLoyers;
+  if (!log || !SL || typeof SL.versFrise !== 'function' || typeof _finSuiviLot !== 'function') return null;
+  const s = _finSuiviLot(log.ref);   // mémoïsé par (_dbGen · jour · tolérance) dans _finSuiviLot
+  if (!s) return null;
+  // Loyer de référence des mois NON échus (projection de l'avance), comme l'ancienne frise.
   const monthlyFull = (Number(log.hc) || 0) + (Number(log.ch) || 0);
-  // Total encaissé loyer sur l'année pour ce logement (le moteur alloue chronologiquement).
-  const totalPaid = (DB.mouvements || []).filter(aliveFn).filter(m =>
-    m.qui === log.ref && (m.cr || 0) > 0 && isLoy(m.cat) && m.date && m.date.startsWith(String(y))
-  ).reduce((s, m) => s + (m.cr || 0), 0);
-  const s = window._computeLoyerStatut({
-    year: y, monthlyFull, totalPaid,
-    dueOfMonth: (mi0) => (typeof _getActiveBailHcChProrated === 'function') ? _getActiveBailHcChProrated(log.ref, y, mi0) : monthlyFull
-  });
-  C.map[key] = s;
-  return s;
+  return SL.versFrise(s, parseInt(yr, 10), { monthlyFull });
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -7462,7 +7455,7 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs, colRefs) {
     try { return _pilDocToDot(_pilStatutDoc(bail, l, c.doc, today).statut); } catch (e) { return 'na'; }
   });
   // Point de paiement du mois : « en retard » (neg) vient de l'ENSEMBLE de la bulle Impayés —
-  // déjà tolérant « 1er du mois » (_computeImpayes/_loyerSoldeAjuste). PLUS du signe du solde brut,
+  // déjà tolérant « 1er du mois » (_computeImpayes → byLot du suivi unique, tolérance du 10). PLUS du signe du solde brut,
   // qui comptait le loyer courant non échu et mentait « en retard » le 5. L'avance reste lue du
   // solde signé. Garantit matrice == bulle. (audit KPI §1 · module pur pilotagePay, testé)
   const _soldeSigned = byLotEntry ? (byLotEntry.solde || 0) : 0;
@@ -7472,7 +7465,7 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs, colRefs) {
   const _loue = _lotEstLoue(l);
   const pay = (typeof window !== 'undefined' && typeof window.pilotagePay === 'function')
     ? window.pilotagePay(_loue, l.ref, impayeRefs, _soldeSigned)
-    : (!_loue ? 'na' : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
+    : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (!_loue ? 'na' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
   const vacant = !_loue;
   // actions : relocation d'un vide + toute colonne ko/wn (geste « réclamer au vendeur » si repris)
   const actions = [];

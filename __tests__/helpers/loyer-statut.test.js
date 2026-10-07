@@ -12,11 +12,16 @@ import {
   _loyerSplitCascade,
   _LOYER_TOLERANCE_JOUR
 } from '../../js/core/loyer-statut.js';
+import { suiviLot, versFrise } from '../../js/core/suivi-loyers.js';
 
-// SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur pur de statut de paiement.
-// Porte l'algorithme de _suiviLoyerStrip (index.html, H1 v15.408) : allocation
-// CHRONOLOGIQUE du total encaissé sur les mois dus + solde signé par locataire.
-// dueOfMonth est injecté (en prod : _getActiveBailHcChProrated — prorata entrée/sortie).
+// SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur pur de statut de paiement (POOL ANNUEL sans report).
+// FINANCES-SUIVI-UNIQUE P6 : PLUS AUCUN ÉCRAN NE LE LIT. Le bandeau « Tous les loyers », la
+// pastille _v4ComputeLotStatus et l'Accueil lisent le moteur unique (js/core/suivi-loyers.js,
+// adaptateur versFrise). Le module loyer-statut.js reste en place jusqu'à P7 (sa suppression
+// retirera ces tests AVEC lui) : ses tests ci-dessous valident donc l'ANCIEN contrat du module,
+// pas ce que l'app affiche. Les mêmes scénarios, portés sur le moteur unique, sont dans le bloc
+// « P6 — la frise du bandeau sur le moteur unique » en fin de fichier (valeurs du nouveau contrat :
+// position de fin de mois, report d'une année sur l'autre, début de suivi au 1er loyer encaissé).
 
 const flat = (m) => () => m;                       // dû constant
 const strip = (over) => _computeLoyerStatut(Object.assign({
@@ -378,15 +383,200 @@ describe('_computeLoyerArrears — arriérés courants + CAUSE résiduelle FIFO 
   });
 });
 
-describe('verrou : un règlement de régul ne pollue JAMAIS le pool loyers', () => {
-  it('le wrapper _suiviLoyerStrip filtre par _isLoyerCategory (211 seulement) — un mouvement « Divers (non déductible) » est exclu', () => {
+describe('verrou : un règlement de régul ne pollue JAMAIS les loyers suivis', () => {
+  // P6 : l'ancien verrou lisait le pool `isLoy(m.cat)` de _suiviLoyerStrip → _computeLoyerStatut.
+  // La frise lit désormais le suivi de Finances : le filtre « loyer 211 » est celui du collecteur
+  // unique (collecterPaiements, catLigne injecté = _finCatLigne dans l'app).
+  it('_suiviLoyerStrip lit le suivi (versFrise), dont les paiements passent par catLigne (211 seulement)', () => {
     const src = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
     const i = src.indexOf('function _suiviLoyerStrip(');
     expect(i).toBeGreaterThan(0);
     const body = src.slice(i, src.indexOf('\n}', i));
-    expect(body).toContain('isLoy(m.cat)');                        // le pool ne prend que les loyers 211
-    expect(body).toContain('_computeLoyerStatut');                 // et délègue bien au moteur unique
+    expect(body).toContain('_finSuiviLot(log.ref)');                // le suivi de Finances, pas un pool à part
+    expect(body).toContain('SL.versFrise(');
+    expect(body).not.toContain('_computeLoyerStatut');
+    const j = src.indexOf('function _finSuiviLot(');
+    expect(src.slice(j, src.indexOf('\n}', j))).toContain('catLigne: _finCatLigne');
     // La catégorie de règlement de régul reste hors 211 (special, ligne vide) :
     expect(src).toMatch(/nom: 'Divers \(non déductible\)',\s+ligne2044:'',\s+type:'special'/);
+  });
+});
+
+// ── P6 — LES MÊMES SCÉNARIOS, PORTÉS SUR LE MOTEUR UNIQUE (frise du bandeau, versFrise) ──────────
+// Une case = la POSITION DE FIN DE MOIS du lot (celle de la ligne « Avance / retard du lot » de
+// Finances) ; solde = position au dernier mois exigible. Les écarts au pool annuel sont voulus et
+// commentés à chaque test (décisions 05/10 et 06/10, docs/subjects/FINANCES-SUIVI-UNIQUE-MOTEUR.md §C, §I).
+describe('P6 — la frise du bandeau sur le moteur unique (versFrise)', () => {
+  const lot1 = (debut, hc, pays, o) => ({
+    ref: 'L', bareme: [], manques: (o && o.manques) || [],
+    baux: [{ cle: 'L|' + debut, debut, fin: null, finEffective: null, archive: false, hc, ch: (o && o.ch) || 0, noms: 'Loc' }],
+    paiements: pays.map(([date, montant], k) => ({ id: 'p' + k, date, montant, kind: 'virement' }))
+  });
+  const frise = (lot, today, o) => {
+    const opt = o || {};
+    const grace = opt.grace != null ? opt.grace : parseInt(today.slice(8, 10), 10) < 10;
+    return versFrise(suiviLot(lot, { today, graceLast: grace, seuilArrondi: 1 }), opt.year || 2026, { monthlyFull: opt.mf != null ? opt.mf : 655 });
+  };
+  const cls = (f) => f.months.map((m) => m.cls).join(',');
+  const mensuel = (debutYm, n, montant, jour) => Array.from({ length: n }, (_, k) => {
+    let y = parseInt(debutYm.slice(0, 4), 10), m = parseInt(debutYm.slice(5, 7), 10) + k;
+    while (m > 12) { m -= 12; y++; }
+    return [y + '-' + String(m).padStart(2, '0') + '-' + (jour || '05'), montant];
+  });
+
+  it('2 mois payés en janvier, on est en février : janvier en AVANCE (+655 fin janvier), février soldé, solde 0', () => {
+    // Pool annuel : « janvier ok, février ok ». Position de fin de mois : fin janvier le locataire a
+    // 655 € d'avance (la case de Finances vaut +655), consommés en février.
+    const f = frise(lot1('2026-01-01', 655, [['2026-01-05', 1310]]), '2026-02-20');
+    expect(f.curMo).toBe(2);
+    expect(cls(f)).toBe('avance,ok,avenir,avenir,avenir,avenir,avenir,avenir,avenir,avenir,avenir,avenir');
+    expect(f.months[0].solde).toBe(655);
+    expect(f.solde).toBe(0);
+    expect(f.months[1].recu).toBe(0);              // argent DATÉ du mois (février n'a reçu aucun virement)
+  });
+
+  it('avance visible fin janvier : février (non échu) couvert → « avance », solde +655', () => {
+    const f = frise(lot1('2026-01-01', 655, [['2026-01-05', 1310]]), '2026-01-31');
+    expect(f.curMo).toBe(1);
+    expect(f.months[0].cls).toBe('avance');
+    expect(f.months[1].cls).toBe('avance');        // mois FUTUR pré-payé
+    expect(f.months[2].cls).toBe('avenir');
+    expect(f.solde).toBe(655);
+    expect(f.avance).toBe(655);
+    expect(f.retard).toBe(0);
+    expect(f.attendu).toBe(655);                   // seul janvier est échu
+  });
+
+  it('retard : 4 mois payés sur 7 échus → mai/juin/juillet impayés, solde −1 350', () => {
+    const f = frise(lot1('2026-01-01', 450, mensuel('2026-01', 4, 450)), '2026-07-15', { mf: 450 });
+    expect(cls(f)).toBe('ok,ok,ok,ok,imp,imp,imp,avenir,avenir,avenir,avenir,avenir');
+    expect(f.months.slice(4, 7).map((m) => m.retard)).toEqual([450, 900, 1350]);   // position cumulée
+    expect(f.solde).toBe(-1350);
+    expect(f.attendu).toBe(3150);
+    expect(f.recu).toBe(1800);
+  });
+
+  it('1 seul mois payé (janvier) sur 3 échus → janvier ok, février/mars impayés', () => {
+    const f = frise(lot1('2026-01-01', 655, [['2026-01-05', 655]]), '2026-03-20');
+    expect(cls(f).slice(0, 14)).toBe('ok,imp,imp,ave');
+  });
+
+  it('début de suivi au 1er loyer encaissé (décision 05/10 b) : un bail de janvier payé à partir de mars → janvier/février « avant le suivi »', () => {
+    // Pool annuel : janvier ok (le virement de mars comblait le plus vieux mois), février/mars impayés.
+    const f = frise(lot1('2026-01-01', 655, [['2026-03-05', 655]]), '2026-03-20');
+    expect(f.months.slice(0, 3).map((m) => m.cls)).toEqual(['vac', 'vac', 'ok']);
+    expect(f.months[0].horsSuivi).toBe(true);
+    expect(f.solde).toBe(0);
+  });
+
+  it('paiement partiel → « warn », le reçu du mois et le reste dû', () => {
+    const f = frise(lot1('2026-01-01', 655, [['2026-01-12', 400]]), '2026-01-20');
+    expect(f.months[0].cls).toBe('warn');
+    expect(f.months[0].recu).toBe(400);
+    expect(f.months[0].retard).toBe(255);
+    expect(f.solde).toBe(-255);
+  });
+
+  it('prorata d\'entrée en cours de mois : le dû de janvier est proraté, payé pile → ok', () => {
+    const s = suiviLot(lot1('2026-01-16', 655, []), { today: '2026-01-20', seuilArrondi: 1 });
+    const duJanv = s.baux[0].mois[0].du.total;
+    expect(duJanv).toBeLessThan(655);
+    const f = frise(lot1('2026-01-16', 655, [['2026-01-17', duJanv], ['2026-02-03', 655]]), '2026-02-15');
+    expect(f.months[0].cls).toBe('ok');
+    expect(f.months[0].attendu).toBe(duJanv);
+    expect(f.months[1].cls).toBe('ok');
+    expect(f.solde).toBe(0);
+  });
+
+  it('mois sans bail → « vac » (hors bail, pas « avant le suivi »), exclus de l\'attendu', () => {
+    const f = frise(lot1('2026-04-01', 655, [['2026-04-05', 655], ['2026-05-05', 655]]), '2026-06-15');
+    expect(f.months.slice(0, 6).map((m) => m.cls)).toEqual(['vac', 'vac', 'vac', 'ok', 'ok', 'imp']);
+    expect(f.months[0].horsSuivi).toBeUndefined();
+    expect(f.attendu).toBe(1965);                  // avril+mai+juin seulement
+    expect(f.solde).toBe(-655);
+  });
+
+  it('année passée : les 12 mois sont échus (curMo = 12)', () => {
+    const f = frise(lot1('2025-01-01', 655, mensuel('2025-01', 12, 655)), '2026-07-15', { year: 2025 });
+    expect(f.curMo).toBe(12);
+    expect(f.months.every((m) => m.cls === 'ok')).toBe(true);
+    expect(f.solde).toBe(0);
+  });
+
+  it('année future : curMo = 0, tout « avenir » (rien d\'échu, rien de dû)', () => {
+    const f = frise(lot1('2026-01-01', 655, mensuel('2026-01', 7, 655)), '2026-07-15', { year: 2027 });
+    expect(f.curMo).toBe(0);
+    expect(f.months.every((m) => m.cls === 'avenir')).toBe(true);
+    expect(f.attendu).toBe(0);
+  });
+
+  it('loyer de référence nul : mois futurs « vac »', () => {
+    const f = frise(lot1('2026-01-01', 655, [['2026-01-05', 655]]), '2026-01-15', { mf: 0 });
+    expect(f.months[0].cls).toBe('ok');
+    expect(f.months[1].cls).toBe('vac');
+  });
+
+  it('mois futur PARTIELLEMENT couvert → « avenir » (pas « avance »)', () => {
+    const f = frise(lot1('2026-01-01', 655, [['2026-01-05', 955]]), '2026-01-31');
+    expect(f.months[0].cls).toBe('avance');        // +300 fin janvier
+    expect(f.months[1].cls).toBe('avenir');        // 300 / 655 : pas couvert
+  });
+
+  it('arrondis à 2 décimales', () => {
+    const f = frise(lot1('2026-01-01', 655.33, [['2026-01-05', 1000.01]]), '2026-02-12', { mf: 655.33 });
+    f.months.forEach((m) => {
+      for (const k of ['recu', 'attendu', 'retard', 'avance', 'solde']) expect(m[k]).toBe(Math.round(m[k] * 100) / 100);
+    });
+    expect(f.solde).toBe(Math.round(f.solde * 100) / 100);
+  });
+
+  // ── l'ancien _loyerSoldeAjuste : la tolérance du 10 est dans le suivi (graceLast) ──
+  it('tolérance avant le 10 : le loyer du mois courant non payé n\'est pas un retard (case « à venir »)', () => {
+    const f = frise(lot1('2026-01-01', 655, mensuel('2026-01', 6, 655)), '2026-07-07');
+    expect(f.months[6].cls).toBe('avenir');
+    expect(f.months[6].tolerance).toBe(true);
+    expect(f.solde).toBe(0);
+  });
+  it('tolérance avant le 10 : les VRAIS arriérés des mois précédents restent visibles', () => {
+    const f = frise(lot1('2026-01-01', 655, mensuel('2026-01', 5, 655)), '2026-07-07');
+    expect(f.months[5].cls).toBe('imp');           // juin
+    expect(f.solde).toBe(-655);                    // juillet neutralisé, juin reste
+  });
+  it('à partir du 10 : le mois courant non payé est en retard', () => {
+    const f = frise(lot1('2026-01-01', 655, mensuel('2026-01', 6, 655)), '2026-07-15');
+    expect(f.months[6].cls).toBe('imp');
+    expect(f.solde).toBe(-655);
+  });
+
+  // ── l'ancien _computeLoyerCumul : la position traverse les années (fin du pool annuel) ──
+  it('REPORT d\'une année sur l\'autre : la dette de décembre 2025 reste due en 2026 (le pool annuel la perdait)', () => {
+    const f = frise(lot1('2025-01-01', 655, mensuel('2025-01', 11, 655).concat(mensuel('2026-01', 6, 655))), '2026-06-15');
+    expect(f.months.slice(0, 6).map((m) => m.cls)).toEqual(['warn', 'warn', 'warn', 'warn', 'warn', 'warn']);   // mois payés, dette ancienne
+    expect(f.months[0].retard).toBe(655);
+    expect(f.solde).toBe(-655);
+    expect(f.retard).toBe(655);
+  });
+  it('avance de l\'année précédente : consommée en janvier', () => {
+    const f = frise(lot1('2025-06-01', 655, mensuel('2025-06', 7, 655).concat([['2025-12-20', 655]])), '2026-01-15');
+    expect(f.months[0].cls).toBe('ok');
+    expect(f.solde).toBe(0);
+  });
+  it('anti-fantôme : un bail de 2018 suivi depuis le 1er loyer encaissé (2026-01) n\'invente aucune dette', () => {
+    const f = frise(lot1('2018-03-01', 655, mensuel('2026-01', 3, 655)), '2026-03-20');
+    expect(f.solde).toBe(0);
+    expect(f.months.slice(0, 3).map((m) => m.cls)).toEqual(['ok', 'ok', 'ok']);
+  });
+  it('jamais retard ET avance sur un bail le même mois', () => {
+    const f = frise(lot1('2026-01-01', 655, [['2026-01-05', 1310], ['2026-04-05', 100]]), '2026-05-15');
+    f.months.forEach((m) => expect(m.retard > 0.005 && m.avance > 0.005).toBe(false));
+  });
+  it('manque accepté : le mois soldé par la remise est « ok », plus de dette', () => {
+    const sans = frise(lot1('2026-01-01', 760, [['2026-01-05', 780], ['2026-02-05', 760], ['2026-03-05', 780]], { ch: 20 }), '2026-03-15', { mf: 780 });
+    expect(sans.months.slice(0, 3).map((m) => m.cls)).toEqual(['ok', 'warn', 'warn']);
+    expect(sans.solde).toBe(-20);
+    const avec = frise(lot1('2026-01-01', 760, [['2026-01-05', 780], ['2026-02-05', 760], ['2026-03-05', 780]],
+      { ch: 20, manques: [{ id: 'm1', bailCle: 'L|2026-01-01', ym: '2026-02', montant: 20, motif: 'geste', date: '2026-02-06' }] }), '2026-03-15', { mf: 780 });
+    expect(avec.months.slice(0, 3).map((m) => m.cls)).toEqual(['ok', 'ok', 'ok']);
+    expect(avec.solde).toBe(0);
   });
 });

@@ -246,6 +246,58 @@ if (sansCause.length) {
   console.log('P5 — aucun écart : ' + (ecartsP5.length ? 'NON' : 'OUI'));
   if (ecartsP5.length) { echec = true; ecartsP5.forEach((x) => console.log('  ✗ ' + x)); }
 }
+// ── P6 : bandeau « Tous les loyers », pastille de lot, Accueil / KPI / Pilotage = Finances ──────
+// Une valeur, toutes les surfaces, au centime, lot par lot : la bulle Impayés et le pilotage lisent
+// byLot (Finances, versByLot) ; la frise et le solde du bandeau lisent versFrise ; l'onglet Loyers
+// versEtatLot. Chaque case de la frise (mois exigible) = la case du lot dans Finances. Colonne
+// « avant » : l'ancien bandeau (_computeLoyerStatut + _loyerSoldeAjuste) et l'ancienne bulle.
+{
+  const { versFrise, versEtatLot } = await import(new URL('js/core/suivi-loyers.js', ROOT));
+  const { retardLot } = await import(new URL('js/core/loyers-mois.js', ROOT));
+  const { pilotagePay } = await import(new URL('js/core/pilotage-familles.js', ROOT));
+  const logs = (DB.logements || []).filter((x) => x && !x._deleted && x.ref);
+  const suivis = new Map(logs.map((l) => [l.ref, suiviLot(lotDepuisDb(l.ref, DB, { catLigne: C.catLigne, isGli }), { today, graceLast: tol, seuilArrondi: 1 })]));
+  const R = _computeFinancesMonthly({ ...argsFinances(DB, C, Number(yr), today), suivi: [...suivis.values()] });
+  const impayes = new Set(logs.filter((l) => ((R.byLot[l.ref] && R.byLot[l.ref].annual.retard) || 0) > 0.5).map((l) => l.ref));   // _computeImpayes
+  const p6 = [], ecartsP6 = [];
+  let bulle = 0, bulleAvant = 0;
+  for (const l of logs) {
+    const s = suivis.get(l.ref);
+    const lm = s.mois[todayYm] || { retard: 0, avance: 0 };
+    const bl = R.byLot[l.ref] || { annual: { retard: 0, avance: 0 }, months: [], solde: 0 };
+    const fr = versFrise(s, Number(yr), { monthlyFull: (Number(l.hc) || 0) + (Number(l.ch) || 0) });
+    const loyers = retardLot(versEtatLot(s, { baux: 'visibles' }), { toleranceActive: false }).reste;
+    const pay = pilotagePay(true, l.ref, impayes, bl.solde);
+    // Le RETARD (bulle, KPI, chip, onglet Loyers, frise) se compare au retard de la case ; le SOLDE
+    // du bandeau à la case nette de Finances (byLot.solde) : un lot peut porter la dette d'un
+    // locataire parti ET l'avance du suivant (deux baux, FERRETTE 001) — jamais les deux sur un bail.
+    const surfaces = { 'bulle / KPI': bl.annual.retard, 'onglet Loyers': loyers, 'frise retard': fr.retard };
+    for (const [k, v] of Object.entries(surfaces)) if (Math.abs(v - lm.retard) > 0.005) ecartsP6.push(l.ref + ' : ' + k + ' ' + v + ' ≠ Finances ' + lm.retard);
+    if (Math.abs(fr.solde - bl.solde) > 0.005) ecartsP6.push(l.ref + ' : solde du bandeau ' + fr.solde + ' ≠ byLot.solde ' + bl.solde);
+    for (const b of s.baux) for (const m of b.mois) if (m.retard > 0.005 && m.avance > 0.005) ecartsP6.push(l.ref + ' ' + m.ym + ' : retard ET avance sur le bail ' + b.cle);
+    if ((pay === 'neg') !== (lm.retard > 0.5)) ecartsP6.push(l.ref + ' : pilotage ' + pay + ' ≠ retard ' + lm.retard);
+    fr.months.forEach((m, i) => {
+      const bm = bl.months[i];
+      if (m.ym > todayYm || !bm) return;
+      if (Math.abs(m.solde - bm.solde) > 0.005) ecartsP6.push(l.ref + ' ' + m.ym + ' : case de la frise ' + m.solde + ' ≠ case Finances ' + bm.solde);
+    });
+    const old = avant.lots[l.ref] || {};
+    const oldB = old.bandeau ? old.bandeau.soldeAjuste : null;
+    const oldBulle = old.finances ? old.finances.annual.retard : 0;
+    if (impayes.has(l.ref)) bulle = r2(bulle + bl.annual.retard);
+    if (oldBulle > 0.5) bulleAvant = r2(bulleAvant + oldBulle);
+    if (lm.retard > 0.005 || fr.avance > 0.005 || (oldB != null && Math.abs(oldB) > 0.005) || oldBulle > 0.005) {
+      p6.push({ ref: l.ref, 'bandeau avant': oldB == null ? '-' : oldB, 'bulle P0': oldBulle, 'Finances retard': lm.retard, 'bulle/KPI': bl.annual.retard,
+        'Loyers': loyers, 'frise retard': fr.retard, 'solde bandeau = case': fr.solde, 'pilotage': pay, 'frise': fr.months.slice(0, fr.curMo).map((m) => m.cls[0]).join('') });
+    }
+  }
+  console.log('\nP6 — bandeau / pastille / Accueil / KPI / pilotage = Finances (au ' + todayYm + ') :');
+  console.table(p6);
+  console.log('P6 — bulle Impayés : ' + impayes.size + ' lot(s), ' + bulle + ' € (P0, avant le chantier : ' + bulleAvant + ' € ; inchangée par P6 : branchée sur le suivi depuis P3)');
+  console.log('     frise : v = hors bail / avant le suivi, o = payé, a = avance, w = partiel ou dette ancienne, i = en retard (mois écoulés de ' + yr + ')');
+  console.log('P6 — aucun écart : ' + (ecartsP6.length ? 'NON' : 'OUI'));
+  if (ecartsP6.length) { echec = true; ecartsP6.forEach((x) => console.log('  ✗ ' + x)); }
+}
 if (fichierAvant) {
   const fige = JSON.parse(readFileSync(fichierAvant, 'utf8'));
   const ok = JSON.stringify(sortKeys(fige.fiscal)) === JSON.stringify(sortKeys(avant.fiscal));

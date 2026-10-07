@@ -112,22 +112,26 @@ export function ordreFamille(id) {
  * Le POINT DE PAIEMENT d'un lot dans la matrice Pilotage (pastille loyer).
  *
  * « en retard » (neg) est piloté par L'ENSEMBLE des impayés de la bulle Impayés — déjà tolérant
- * « 1er du mois » (la bulle vient de `_computeImpayes` → `_loyerSoldeAjuste`, qui neutralise le
+ * « 1er du mois » (la bulle vient de `_computeImpayes` → byLot du suivi unique `suivi-loyers.js`,
+ * dont la tolérance du 10 — FINANCES-SUIVI-UNIQUE P6 ; auparavant `_loyerSoldeAjuste` — neutralise le
  * seul mois courant avant le 10). JAMAIS par le signe d'un solde brut, qui compterait le loyer du
  * mois courant non encore échu et mentirait « en retard » le 5 du mois. Garantit matrice == bulle.
  *
  * L'avance (adv) reste lue du solde signé (une avance = trop-perçu, non concerné par la tolérance).
  *
- * @param {boolean} hasLocataire   le lot est-il loué (sinon 'na', hors bail)
+ * @param {boolean} hasLocataire   le lot est-il loué (sinon 'na', hors bail — sauf dette d'un parti dans la bulle)
  * @param {string}  ref            réf du lot
  * @param {Set<string>|Array<string>} impayeRefs  réfs exactes de la bulle Impayés
  * @param {number}  soldeSigned    solde signé du lot (byLot.solde) — positif = avance
  * @returns {'na'|'neg'|'adv'|'pos'}
  */
 export function pilotagePay(hasLocataire, ref, impayeRefs, soldeSigned) {
-  if (!hasLocataire) return 'na';
   const set = (impayeRefs instanceof Set) ? impayeRefs : new Set(impayeRefs || []);
+  // FINANCES-SUIVI-UNIQUE P6 (décision Q2) : un lot VIDE dont l'ancien locataire doit encore de
+  // l'argent est dans la bulle Impayés (« parti », l'année de son départ) — la matrice le montre en
+  // retard elle aussi (matrice == bulle), au lieu d'un « hors bail » qui taisait la dette.
   if (set.has(ref)) return 'neg';                 // en retard = membre de la bulle (tolérant)
+  if (!hasLocataire) return 'na';
   if ((Number(soldeSigned) || 0) > 0.5) return 'adv';
   return 'pos';
 }

@@ -109,8 +109,15 @@ describe('computePilotageFamilles', () => {
 });
 
 describe('pilotagePay — la pastille de paiement colle à la bulle Impayés (audit KPI §1)', () => {
-  it('hors bail (pas de locataire) → na', () => {
-    expect(pilotagePay(false, 'L1', new Set(['L1']), -700)).toBe('na');
+  it('hors bail (pas de locataire), rien dans la bulle → na', () => {
+    expect(pilotagePay(false, 'L1', new Set([]), -700)).toBe('na');
+    expect(pilotagePay(false, 'L1', new Set([]), 300)).toBe('na');
+  });
+
+  it('P6 (décision Q2) : lot vide dont l\'ancien locataire PARTI doit encore (membre de la bulle) → neg, matrice == bulle', () => {
+    // Réécrit : avant P6, « hors bail » primait et la matrice montrait 'na' pour un lot que la bulle
+    // Impayés comptait (ex. réel : local vidé le 31/08, 750 € dus par le locataire parti).
+    expect(pilotagePay(false, 'L1', new Set(['L1']), -700)).toBe('neg');
   });
 
   it('membre de la bulle Impayés → neg, même avec un solde brut positif (l\'arriéré prime)', () => {
