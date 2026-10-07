@@ -1,7 +1,7 @@
 // Documents express venus de propryo.fr : décodage du fragment, validité, générateurs (jsPDF simulé).
 import { describe, it, expect } from 'vitest'
 import {
-  decoderDocExpress, lireEnAttente, genererDocument, CLE_DOC_EXPRESS, MESSAGE_SUIVI,
+  decoderDocExpress, lireEnAttente, genererDocument, consommerDocExpress, resumeDocument, CLE_DOC_EXPRESS, MESSAGE_SUIVI,
 } from '../../js/app/doc-express.js'
 import { readFileSync } from 'node:fs'
 
@@ -42,7 +42,7 @@ describe('document en attente', () => {
     const b64 = encoder({ type: 'edl', champs: { sens: 'entree' } })
     expect(lireEnAttente(faux(JSON.stringify({ b64, t: 1000 })), 2000).type).toBe('edl')
   })
-  it('expire après 48 heures', () => {
+  it('expire après 3 heures', () => {
     const b64 = encoder({ type: 'edl', champs: {} })
     const st = faux(JSON.stringify({ b64, t: 0 }))
     expect(lireEnAttente(st, 3 * 24 * 3600 * 1000)).toBeNull()
@@ -90,5 +90,50 @@ describe('câblage', () => {
   it('la clé et le message de suivi sont stables', () => {
     expect(CLE_DOC_EXPRESS).toBe('imsb-doc-express')
     expect(MESSAGE_SUIVI).toContain('Propryo est là')
+  })
+})
+
+describe('consommation', () => {
+  const mem = (init) => { const m = new Map(init ? [[CLE_DOC_EXPRESS, init]] : []); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v), removeItem: k => m.delete(k), m } }
+  const valide = (extra = {}) => JSON.stringify({ b64: encoder({ type: 'quittance', champs: { bailleur: 'A', locataire: 'B', adresse: 'x', loyer: '1' } }), t: Date.now(), ...extra })
+  const J = function () { return new FauxPdf() }
+
+  it('succès : clé retirée, fenêtre de remise proposée, téléchargement seulement au clic', async () => {
+    const st = mem(valide()); let propose = null; let enregistre = 0
+    const J2 = function () { const d = new FauxPdf(); d.save = () => { enregistre++ }; return d }
+    const ok = await consommerDocExpress({ storage: st, charger: async () => J2, afficher: (doc, tel) => { propose = { doc, tel } } })
+    expect(ok).toBe(true); expect(st.m.has(CLE_DOC_EXPRESS)).toBe(false)
+    expect(propose.doc.type).toBe('quittance'); expect(enregistre).toBe(0)
+    propose.tel(); expect(enregistre).toBe(1)
+  })
+  it('double appel : un seul document', async () => {
+    const st = mem(valide()); let n = 0
+    await consommerDocExpress({ storage: st, charger: async () => J, afficher: () => { n++ } })
+    await consommerDocExpress({ storage: st, charger: async () => J, afficher: () => { n++ } })
+    expect(n).toBe(1)
+  })
+  it('échec transitoire : la saisie est gardée une fois, puis abandonnée au 2e échec', async () => {
+    const st = mem(valide())
+    const echec = async () => { throw new Error('réseau') }
+    expect(await consommerDocExpress({ storage: st, charger: echec, afficher: () => {} })).toBe(false)
+    expect(st.m.has(CLE_DOC_EXPRESS)).toBe(true)
+    expect(JSON.parse(st.m.get(CLE_DOC_EXPRESS)).essais).toBe(1)
+    expect(await consommerDocExpress({ storage: st, charger: echec, afficher: () => {} })).toBe(false)
+    expect(st.m.has(CLE_DOC_EXPRESS)).toBe(false)
+  })
+  it('rien en attente : ne fait rien', async () => {
+    expect(await consommerDocExpress({ storage: mem(null), charger: async () => J, afficher: () => { throw new Error('non') } })).toBe(false)
+  })
+  it('entrée « null » ou corrompue : supprimée', () => {
+    for (const v of ['null', '{"b64":1}', '[]']) { const st = mem(v); expect(lireEnAttente(st)).toBeNull(); expect(st.m.has(CLE_DOC_EXPRESS)).toBe(false) }
+  })
+  it('résumé : type, parties, adresse', () => {
+    expect(resumeDocument({ type: 'edl', champs: { bailleur: 'A', locataire: 'B', adresse: 'x' } })).toEqual(['État des lieux', 'A et B', 'x'])
+  })
+  it('valeurs de prototype ignorées (typeBail=constructor, état=constructor)', () => {
+    const d = new FauxPdf(); genererDocument(function () { return d }, { type: 'bail', champs: { typeBail: 'constructor', loyer: '500' } })
+    expect(tout(d)).not.toContain('undefined'); expect(tout(d)).toContain('3 ans')
+    const e = new FauxPdf(); genererDocument(function () { return e }, { type: 'edl', champs: { pieces: [{ nom: 'Salon', etat: 'constructor' }] } })
+    expect(tout(e)).not.toContain('function')
   })
 })

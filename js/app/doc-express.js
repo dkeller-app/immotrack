@@ -8,7 +8,7 @@
 // Rien n'est jamais écrit dans les données de l'utilisateur : c'est un simple téléchargement.
 
 export const CLE_DOC_EXPRESS = 'imsb-doc-express'
-const VALIDITE_MS = 48 * 3600 * 1000
+const VALIDITE_MS = 3 * 3600 * 1000   // 3 h : l'inscription se fait dans la foulée ; au-delà, la saisie (nom, adresse) est oubliée
 const TYPES = ['quittance', 'bail', 'edl', 'avenant']
 const MAX_CHAMP = 300
 
@@ -47,12 +47,12 @@ export function lireEnAttente(storage = (typeof localStorage !== 'undefined' ? l
     if (!storage) return null
     const brut = storage.getItem(CLE_DOC_EXPRESS)
     if (!brut) return null
-    const { b64, t } = JSON.parse(brut)
+    const { b64, t } = JSON.parse(brut) || {}
     if (!t || maintenant - t > VALIDITE_MS) { storage.removeItem(CLE_DOC_EXPRESS); return null }
     const doc = decoderDocExpress(b64)
     if (!doc) storage.removeItem(CLE_DOC_EXPRESS)
     return doc
-  } catch (e) { return null }
+  } catch (e) { try { storage && storage.removeItem(CLE_DOC_EXPRESS) } catch (_) {} return null }
 }
 
 // ── mise en forme ───────────────────────────────────────────────────────────
@@ -110,8 +110,8 @@ export function pdfQuittance(J, c) {
   d.setFont('helvetica', 'bold'); d.setFontSize(22); d.text('QUITTANCE DE LOYER', M, y); y += 9
   d.setFont('helvetica', 'normal'); d.setFontSize(12); d.setTextColor(90); d.text('Période : ' + periode.trim(), M, y); y += 14
   d.setTextColor(0); d.setFontSize(11)
-  d.setFont('helvetica', 'bold'); d.text('Bailleur', M, y); d.setFont('helvetica', 'normal'); d.text(txt(c.bailleur, ''), M + 34, y); y += 7
-  d.setFont('helvetica', 'bold'); d.text('Locataire', M, y); d.setFont('helvetica', 'normal'); d.text(txt(c.locataire, ''), M + 34, y); y += 7
+  d.setFont('helvetica', 'bold'); d.text('Bailleur', M, y); d.setFont('helvetica', 'normal'); d.text(d.splitTextToSize(txt(c.bailleur, ''), W - 2 * M - 34), M + 34, y); y += 7
+  d.setFont('helvetica', 'bold'); d.text('Locataire', M, y); d.setFont('helvetica', 'normal'); d.text(d.splitTextToSize(txt(c.locataire, ''), W - 2 * M - 34), M + 34, y); y += 7
   d.setFont('helvetica', 'bold'); d.text('Logement', M, y); d.setFont('helvetica', 'normal')
   const adr = d.splitTextToSize(txt(c.adresse, ''), W - 2 * M - 34); d.text(adr, M + 34, y); y += 7 * adr.length + 8
   d.setDrawColor(200); d.line(M, y, W - M, y); y += 9
@@ -126,12 +126,12 @@ export function pdfQuittance(J, c) {
   d.text('Fait à ' + txt(c.lieu) + ', le ' + txt(c.date), M, y); y += 18
   d.text('Le bailleur', W - M - 40, y)
   d.setFontSize(8); d.setTextColor(130)
-  d.text('Quittance établie en application de l’article 21 de la loi du 6 juillet 1989. ' + PIED, M, 285)
+  d.text(d.splitTextToSize('Quittance établie en application de l’article 21 de la loi du 6 juillet 1989. ' + PIED, W - 2 * M), M, 281)
   return { pdf: d, nom: 'quittance-' + slug(periode) + '.pdf' }
 }
 
 export function pdfBail(J, c) {
-  const tp = TYPES_BAIL[c.typeBail] ? c.typeBail : 'nu', t = TYPES_BAIL[tp]
+  const tp = Object.prototype.hasOwnProperty.call(TYPES_BAIL, c.typeBail) ? c.typeBail : 'nu', t = TYPES_BAIL[tp]
   const l = num(c.loyer), ch = num(c.charges)
   const s = stylo(J)
   s.titreDoc('CONTRAT DE LOCATION', t.st)
@@ -190,7 +190,7 @@ export function pdfEdl(J, c) {
   const pieces = Array.isArray(c.pieces) && c.pieces.length ? c.pieces : [{ nom: 'Pièce', etat: 'bon', remarque: '' }]
   pieces.forEach(p => {
     const rem = txt(p.remarque, '')
-    s.para('[ ] ' + txt(p.nom, 'Pièce') + ' : ' + (ETATS[p.etat] || txt(p.etat, '')) + (rem ? '. ' + rem : '.'))
+    s.para('[ ] ' + txt(p.nom, 'Pièce') + ' : ' + (Object.prototype.hasOwnProperty.call(ETATS, p.etat) ? ETATS[p.etat] : '') + (rem ? '. ' + rem : '.'))
   })
   s.para('Photos horodatées recommandées pour chaque pièce et chaque défaut constaté.', 9.5)
   s.titre('Observations')
@@ -258,39 +258,64 @@ async function chargerJsPdf() {
   return J
 }
 
-// ── message de fin ──────────────────────────────────────────────────────────
-function afficherMessage(titre, texte) {
-  try {
-    const fond = document.createElement('div')
-    fond.setAttribute('role', 'dialog'); fond.setAttribute('aria-modal', 'true')
-    fond.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(16,21,33,.55);display:flex;align-items:center;justify-content:center;padding:20px'
-    const carte = document.createElement('div')
-    carte.style.cssText = 'background:#fff;border-radius:18px;max-width:440px;width:100%;padding:28px 26px;font-family:Inter,sans-serif;color:#3c4658;box-shadow:0 30px 70px -30px rgba(16,21,33,.6)'
-    const h = document.createElement('div'); h.textContent = titre
-    h.style.cssText = "font-family:'Schibsted Grotesk',sans-serif;font-weight:800;font-size:22px;color:#101521;margin-bottom:10px"
-    const p = document.createElement('p'); p.textContent = texte; p.style.cssText = 'font-size:15.5px;line-height:1.6;margin:0 0 20px'
-    const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Compris'
-    b.style.cssText = 'background:#ff5a3c;color:#fff;border:0;border-radius:12px;padding:12px 24px;font-weight:700;font-size:15px;cursor:pointer'
-    b.onclick = () => fond.remove()
-    carte.append(h, p, b); fond.append(carte); document.body.append(fond)
-    b.focus()
-  } catch (e) {}
+// ── fenêtre de remise : le clic de l'utilisateur déclenche le téléchargement (geste explicite) ──
+const LIBELLES = { quittance: 'Quittance de loyer', bail: 'Contrat de location', edl: 'État des lieux', avenant: 'Avenant au bail' }
+
+export function resumeDocument(doc) {
+  const c = doc.champs || {}
+  return [LIBELLES[doc.type] || 'Document', [c.bailleur, c.locataire].filter(Boolean).join(' et '), c.adresse].filter(Boolean)
+}
+
+function afficherRemise(doc, telecharger) {
+  const fond = document.createElement('div')
+  fond.setAttribute('role', 'dialog'); fond.setAttribute('aria-modal', 'true')
+  fond.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(16,21,33,.55);display:flex;align-items:center;justify-content:center;padding:20px'
+  const carte = document.createElement('div')
+  carte.style.cssText = 'background:#fff;border-radius:18px;max-width:440px;width:100%;padding:28px 26px;font-family:Inter,sans-serif;color:#3c4658;box-shadow:0 30px 70px -30px rgba(16,21,33,.6)'
+  const h = document.createElement('div'); h.textContent = 'Document prêt'
+  h.style.cssText = "font-family:'Schibsted Grotesk',sans-serif;font-weight:800;font-size:22px;color:#101521;margin-bottom:10px"
+  const lignes = resumeDocument(doc)
+  const resume = document.createElement('div')
+  resume.style.cssText = 'background:#f4f5f8;border-radius:12px;padding:12px 14px;font-size:14.5px;line-height:1.5;margin-bottom:16px'
+  lignes.forEach((l, i) => { const p = document.createElement('div'); p.textContent = l; if (i === 0) p.style.cssText = 'font-weight:700;color:#101521'; resume.append(p) })
+  const p = document.createElement('p'); p.style.cssText = 'font-size:15.5px;line-height:1.6;margin:0 0 20px'
+  p.textContent = 'Le document correspond à la saisie faite sur propryo.fr. Le PDF se télécharge en un clic.'
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Télécharger le PDF'
+  b.style.cssText = 'background:#ff5a3c;color:#fff;border:0;border-radius:12px;padding:12px 24px;font-weight:700;font-size:15px;cursor:pointer'
+  b.onclick = () => {
+    try { telecharger() } catch (e) { p.textContent = "Le téléchargement a échoué. Il suffit de refaire le document depuis propryo.fr."; return }
+    p.textContent = MESSAGE_SUIVI
+    b.textContent = 'Fermer'; b.onclick = () => fond.remove()
+  }
+  const x = document.createElement('button'); x.type = 'button'; x.textContent = 'Annuler'
+  x.style.cssText = 'background:none;border:0;color:#6e7888;font-size:14px;margin-left:14px;cursor:pointer'
+  x.onclick = () => fond.remove()
+  carte.append(h, resume, p, b, x); fond.append(carte); document.body.append(fond)
+  b.focus()
 }
 
 // ── point d'entrée, appelé une fois l'application affichée ──────────────────
-export async function consommerDocExpress({ storage = localStorage } = {}) {
+const ESSAIS_MAX = 2
+
+export async function consommerDocExpress({ storage = localStorage, charger = chargerJsPdf, afficher = afficherRemise } = {}) {
   const doc = lireEnAttente(storage)
   if (!doc) return false
-  try { storage.removeItem(CLE_DOC_EXPRESS) } catch (e) {}   // une seule tentative : pas de boucle ni de doublon
+  let essais = 0
+  try { essais = (JSON.parse(storage.getItem(CLE_DOC_EXPRESS)) || {}).essais || 0 } catch (e) {}
+  // la clé est retirée AVANT l'essai (pas de boucle, pas de doublon d'un autre onglet) ; remise en cas d'échec
+  // transitoire (réseau, libs PDF), au plus ESSAIS_MAX fois
+  let brut = null
+  try { brut = JSON.parse(storage.getItem(CLE_DOC_EXPRESS)) } catch (e) {}
+  try { storage.removeItem(CLE_DOC_EXPRESS) } catch (e) {}
   try {
-    const J = await chargerJsPdf()
+    const J = await charger()
     const { pdf, nom } = genererDocument(J, doc)
-    pdf.save(nom)
-    afficherMessage('Document prêt', MESSAGE_SUIVI)
+    afficher(doc, () => pdf.save(nom))
     return true
   } catch (e) {
     try { console.warn('[doc-express]', e) } catch (_) {}
-    try { if (typeof window.showToast === 'function') window.showToast("Le document n'a pas pu être généré. Il suffit de le refaire depuis propryo.fr.", 'err', 8000) } catch (_) {}
+    if (brut && essais + 1 < ESSAIS_MAX) { try { storage.setItem(CLE_DOC_EXPRESS, JSON.stringify({ ...brut, essais: essais + 1 })) } catch (_) {} }
+    try { if (typeof window !== 'undefined' && typeof window.showToast === 'function') window.showToast("Le document n'a pas pu être généré. Il suffit de le refaire depuis propryo.fr.", 'err', 8000) } catch (_) {}
     return false
   }
 }

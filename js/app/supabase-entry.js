@@ -394,6 +394,8 @@ async function boot() {
   // c'est la promesse affichée par la modale, audit #1). Var MODULE : onLoggedIn (autre portée)
   // la réutilise pour __immoPurgeEspace.
   _teardownSession = async ({ flush, keepPhotos, forcer }) => {
+    // Document express en attente d'une inscription : retiré s'il a plus de 10 min (poste partagé : jamais livré à la personne suivante).
+    try { const r = JSON.parse(localStorage.getItem('imsb-doc-express') || 'null'); if (r && !(Date.now() - r.t < 10 * 60 * 1000)) localStorage.removeItem('imsb-doc-express') } catch (e) {}
     window.__immoLoggingOut = true   // le SIGNED_OUT qui suit est VOULU → pas de bannière « session expirée »
     try { window.__immoCrumb && window.__immoCrumb('logout') } catch (e) {}
     if (flush) {
