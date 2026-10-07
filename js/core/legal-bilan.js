@@ -12,6 +12,7 @@
  */
 
 import { _compute2044 } from './legal-2044.js';
+import { resolveScope, scopeWeight } from './finances-scope.js';
 import { periodeEnVigueurA } from './loyer-du-mois.js';
 import { finOccupationBail, bailLoueAu } from './fin-occupation.js';
 
@@ -22,6 +23,12 @@ import { finOccupationBail, bailLoueAu } from './fin-occupation.js';
  * @param {Object} stdCategories - STD_CATEGORIES global
  * @param {string} entityNom - Nom exact de l'entité dans DB.entites
  * @param {number|string} year - Année (ex 2025)
+ * @param {Object} [opts] - { mapping, today, cashflowReel }
+ *   `cashflowReel` (lot 6, B — R-0) : le cash-flow réel de l'entité LU dans le moteur Finances
+ *   (`_finMonthly` → `annual.cashflowReel`, via le bloc unique `_dashCfReel`), injecté par l'app. Le
+ *   bilan ne le recalcule JAMAIS : « revenus − charges » 2044 n'est pas un cash-flow (sans prêt, sans
+ *   travaux d'agrandissement, sans dépenses non déductibles…). Absent → `kpis.cashFlow` = null, affiché
+ *   « non disponible » plutôt qu'un chiffre faux.
  * @returns {Object} - bilan structuré (KPIs + détail par logement + résultat fiscal)
  */
 export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
@@ -42,7 +49,22 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
   // Logements de l'entité (actifs OU archivés dans l'année courante)
   const logements = (db.logements || [])
     .filter(l => isAlive(l) && l.entity === entityNom);
-  const refs = logements.map(l => l.ref);
+  // Périmètre = CELUI DE FINANCES (resolveScope / scopeWeight, jamais recopié — audit lot 6 🟠2 + 🟡D) : lots de
+  // l'entité (refs tolérantes : espaces, casse), frais du bailleur (`SCI:<nom>`) et charges posées sur ses
+  // immeubles (qui vide + imm, noms nettoyés). Vue BAILLEUR : chaque mouvement pèse 0 ou 1.
+  const scEntite = resolveScope({ ent: entityNom }, db.logements || [], { entites: (db.entites || []).filter(isAlive) });
+  // Repli de resolveScope (entité absente du catalogue) = « tout le patrimoine » : jamais pour le bilan d'UNE entité.
+  const mvtsEntite = scEntite.fallback
+    ? (db.mouvements || []).filter(m => m && !m._deleted && m.qui === 'SCI:' + entityNom)
+    : (db.mouvements || []).filter(m => scopeWeight(scEntite, m) > 0);
+  // Un lot : ses refs, comparées comme Finances. Les refs AMBIGUËS de l'entité (« A1 » / « a1 ») passent en
+  // comparaison stricte, comme pour l'entité : sinon un mouvement compterait dans les deux lots et
+  // Σ lots + non réparti ≠ entité (contre-vérif lot 6, 🟡1).
+  const duLot = (l) => {
+    const r = String(l.ref == null ? '' : l.ref).trim();
+    const sc = { kind: 'ent', refs: [r], refAmbigus: scEntite.refAmbigus, refStricts: new Set([r]) };
+    return (m) => scopeWeight(sc, m) > 0;
+  };
 
   // Baux historiques de l'entité finis dans l'année
   const bauxHist = (db.baux_historique || [])
@@ -53,16 +75,15 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
   // lui, une charge de catégorie maison comptait dans le tableau et disparaissait du détail
   // par logement (le total ne pouvait pas égaler la somme des logements).
   const mapping = (opts && opts.mapping) || null;
-  const fiscal = _compute2044(db.mouvements || [], stdCategories, {
-    from, to, entityNom, refs, mapping
-  });
+  // Mouvements déjà filtrés sur le périmètre : `_compute2044` ne filtre plus que la période.
+  const fiscal = _compute2044(mvtsEntite, stdCategories, { from, to, mapping });
 
   // KPIs métier par logement
+  // Lot 6, B — le détail d'un lot ne lit QUE les mouvements du lot. `_compute2044` filtré par entité garde
+  // aussi les mouvements du BAILLEUR (`qui = 'SCI:<nom>'` : comptable, intérêts d'un prêt global…) : chaque
+  // lot les comptait, la somme des lots dépassait l'entité. Ils ont leur propre ligne (`bailleurNonReparti`).
   const parLogement = logements.map(l => {
-    const lRefs = [l.ref];
-    const lFiscal = _compute2044(db.mouvements || [], stdCategories, {
-      from, to, entityNom, refs: lRefs, mapping
-    });
+    const lFiscal = _compute2044(mvtsEntite.filter(duLot(l)), stdCategories, { from, to, mapping });
     // Détecter période de vacance (bail courant + historiques de cette année)
     const bailCourant = (db.baux && db.baux[l.ref] && isAlive(db.baux[l.ref])) ? db.baux[l.ref] : null;
     const histsForRef = (db.baux_historique || []).filter(b => isAlive(b) && b.ref === l.ref);
@@ -94,7 +115,10 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
       tauxOccupation: totalDays > 0 ? Math.round(occDays / totalDays * 1000) / 10 : 0,
       revenus: lFiscal.totalRecettes,
       charges: lFiscal.totalCharges,
-      cashFlow: Math.round((lFiscal.totalRecettes - lFiscal.totalCharges) * 100) / 100,
+      // Lot 6, B : la colonne s'appelait « Cash-flow » mais valait revenus − charges au sens 2044 — ce
+      // n'est pas un cash-flow. C'est le RÉSULTAT FISCAL du lot (intérêts d'emprunt rattachés au lot
+      // déduits, comme `resultatFoncier` de l'entité), et la colonne le dit.
+      resultatFiscal: lFiscal.resultatFoncier,
       loyerMensuelMoyen,
       // R0-H : chaque segment vide est valorisé au loyer de SON époque, jamais à celui
       // d'aujourd'hui. `vacanceDays` reste le total affiché, il ne sert plus de multiplicande.
@@ -102,11 +126,19 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
     };
   });
 
+  // Mouvements de l'entité rattachés à AUCUN de ses lots (frais du bailleur, charges d'immeuble) : une ligne à part,
+  // jamais répartie ni perdue — Σ lots + cette ligne = entité, par construction (même périmètre, partition).
+  const fBailleur = _compute2044(mvtsEntite.filter(m => !logements.some(l => duLot(l)(m))), stdCategories, { from, to, mapping });
+  const bailleurNonReparti = (fBailleur.totalRecettes || fBailleur.totalCharges || fBailleur.totalInterets)
+    ? { revenus: fBailleur.totalRecettes, charges: fBailleur.totalCharges, resultatFiscal: fBailleur.resultatFoncier }
+    : null;
+
   // KPIs entité agrégés
   const totalRevenus = fiscal.totalRecettes;
   const totalCharges = fiscal.totalCharges;
   const totalInterets = fiscal.totalInterets;
-  const cashFlow = Math.round((totalRevenus - totalCharges) * 100) / 100;
+  const _cfInj = opts && opts.cashflowReel;
+  const cashFlow = (typeof _cfInj === 'number' && Number.isFinite(_cfInj)) ? Math.round(_cfInj * 100) / 100 : null;
   const resultatFoncier = fiscal.resultatFoncier;
   const totalManqueAGagner = parLogement.reduce((s, l) => s + l.manqueAGagner, 0);
   const totalOccDays = parLogement.reduce((s, l) => s + l.occDays, 0);
@@ -132,6 +164,7 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
     },
     fiscal,
     parLogement,
+    bailleurNonReparti,
     generatedAt: new Date().toISOString()
   };
 }
@@ -425,7 +458,7 @@ export function _formatBilanTexte(bilan) {
   lines.push('  Charges totales ................ ' + fmt(bilan.kpis.totalCharges).padStart(15));
   lines.push('  Intérêts d\'emprunt ............. ' + fmt(bilan.kpis.totalInterets).padStart(15));
   lines.push('  ─────────────────────────────────────────────');
-  lines.push('  Cash-flow opérationnel ......... ' + fmt(bilan.kpis.cashFlow).padStart(15));
+  lines.push('  Cash-flow réel (Finances) ...... ' + (bilan.kpis.cashFlow == null ? 'non disponible' : fmt(bilan.kpis.cashFlow)).padStart(15));
   lines.push('  Résultat foncier (2044) ........ ' + fmt(bilan.kpis.resultatFoncier).padStart(15));
   lines.push('');
   lines.push('  Nombre de logements ............ ' + bilan.kpis.nbLogements);
@@ -434,8 +467,9 @@ export function _formatBilanTexte(bilan) {
   lines.push('  Manque à gagner cumulé ......... ' + fmt(bilan.kpis.totalManqueAGagner).padStart(15));
   lines.push('');
   lines.push('▶ DÉTAIL PAR LOGEMENT');
-  lines.push('  Ref        Type      Locataire                Occ%    Revenus     Charges     Cash-flow');
-  lines.push('  ─────────────────────────────────────────────────────────────────────────────────');
+  // En-tête construit avec LES MÊMES largeurs que les lignes : chaque titre au-dessus de sa colonne.
+  lines.push('  ' + 'Ref'.padEnd(10) + 'Type'.padEnd(9) + 'Locataire'.padEnd(26) + ' ' + 'Occ%'.padStart(6) + ' ' + 'Revenus'.padStart(11) + ' ' + 'Charges'.padStart(11) + ' ' + 'Résultat fiscal'.padStart(16));
+  lines.push('  ' + '─'.repeat(93));
   bilan.parLogement.forEach(l => {
     const ref = (l.ref || '').padEnd(10);
     const type = (l.type || '').slice(0, 8).padEnd(9);
@@ -443,9 +477,13 @@ export function _formatBilanTexte(bilan) {
     const occ = String(l.tauxOccupation).padStart(5) + '%';
     const rev = fmt(l.revenus).padStart(11);
     const chg = fmt(l.charges).padStart(11);
-    const cf = fmt(l.cashFlow).padStart(11);
-    lines.push('  ' + ref + type + loc + ' ' + occ + ' ' + rev + ' ' + chg + ' ' + cf);
+    const rf = fmt(l.resultatFiscal).padStart(16);
+    lines.push('  ' + ref + type + loc + ' ' + occ + ' ' + rev + ' ' + chg + ' ' + rf);
   });
+  const nr = bilan.bailleurNonReparti;
+  if (nr) {
+    lines.push('  ' + 'Bailleur et immeubles (non réparti)'.padEnd(53) + fmt(nr.revenus).padStart(11) + ' ' + fmt(nr.charges).padStart(11) + ' ' + fmt(nr.resultatFiscal).padStart(16));
+  }
   lines.push('');
   lines.push('═══════════════════════════════════════════════════════════════');
   lines.push('  Document généré par Propryo le ' + bilan.generatedAt);

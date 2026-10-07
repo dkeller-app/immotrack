@@ -632,7 +632,7 @@ async function _genPdfEdlSigne(ctx, sens) {
       pdf.text('Conclusion : ' + c.conclusionEDL, MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN }); y += 7;
     }
     y += 4;
-    pdf.text("Le solde du dépôt de garantie sera traité dans les délais légaux (1 mois sans dégradation, 2 mois si retenues — art. 22 loi 1989).",
+    pdf.text("Le solde du dépôt de garantie sera restitué dans les délais légaux : 1 mois à compter de la remise des clés si l'état des lieux de sortie est conforme à l'état des lieux d'entrée, 2 mois sinon (art. 22 loi 1989).",
              MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
   }
   y += 14;

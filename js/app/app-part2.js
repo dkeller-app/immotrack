@@ -261,7 +261,8 @@ function rEmailsPage(tab) {
 
 const DG_STATUS = {
   MANQUANT:'manquant', PARTIEL:'partiel', COMPLET:'complet',
-  A_RESTITUER:'a_restituer', RESTITUE:'restitue', EN_RETARD:'en_retard'
+  A_RESTITUER:'a_restituer', RESTITUE:'restitue', EN_RETARD:'en_retard',
+  DEPASSEMENT_POSSIBLE:'depassement_possible'   // conformité de l'EDL de sortie inconnue, entre 1 et 2 mois (art. 22)
 };
 const PROCEDURE_ETAT = {
   AUCUNE:'aucune', MISE_EN_DEMEURE:'mise_en_demeure',
@@ -269,22 +270,25 @@ const PROCEDURE_ETAT = {
   JUGEMENT:'jugement', CLOTUREE:'cloturee'
 };
 
+// Copies du chemin file:// (le module js/core/gestion-dg-impayes.js les remplace au chargement) : le délai de
+// restitution y est lu dans LA MÊME règle — window.DgDelai, mirror de js/core/dg-delai.js — avec l'EDL de sortie
+// de CE bail (_edlSortieDuBail). Aucune arithmétique de délai ici.
 function _dgStatut(bail, dateRef) {
   if (!bail) return { statut: DG_STATUS.MANQUANT, dgDu: 0, dgPaid: 0, soldeRestant: 0 };
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
   const dgDu = Number(bail.dg) || 0;
   const dgPaid = Number(bail.dgPaid) || 0;
   const soldeRestant = dgDu - dgPaid;
   if (bail.dgRestitueAt) return { statut: DG_STATUS.RESTITUE, dgDu, dgPaid, soldeRestant: 0 };
-  if (bail.cloture && bail.finEffective) {
-    const finDate = new Date(bail.finEffective + 'T23:59:59');
-    if (!Number.isNaN(finDate.getTime())) {
-      const delaiMois = _calculerDelaiRestitution(bail);
-      const dateLimite = new Date(finDate);
-      dateLimite.setMonth(dateLimite.getMonth() + delaiMois);
-      const joursRestants = Math.floor((dateLimite.getTime() - today.getTime()) / 86400000);
-      if (joursRestants < 0) return { statut: DG_STATUS.EN_RETARD, dgDu, dgPaid, soldeRestant, joursRetard: -joursRestants, delaiMois };
-      return { statut: DG_STATUS.A_RESTITUER, dgDu, dgPaid, soldeRestant, joursRestants, delaiMois };
+  const D = (typeof window !== 'undefined') ? window.DgDelai : null;
+  if (bail.cloture && D) {
+    const ech = D.echeancesRestitution(bail, _edlSortieDuBail(bail));
+    const ref = (typeof dateRef === 'string' && dateRef) ? dateRef.slice(0, 10) : (dateRef instanceof Date ? _isoLocal(dateRef) : _todayIsoLocal());
+    const et = D.etatDelai(ech, ref);
+    if (ech && et) {
+      const info = { dgDu, dgPaid, soldeRestant, delaiMois: ech.delaiMois, limite: ech.limite, limiteSiConforme: ech.limiteSiConforme, limiteSinon: ech.limiteSinon, conforme: ech.conforme, remise: ech.remise, joursSiConforme: et.joursSiConforme };
+      if (et.etat === 'en_retard') return { statut: DG_STATUS.EN_RETARD, ...info, joursRetard: et.joursRetard };
+      if (et.etat === 'depassement_possible') return { statut: DG_STATUS.DEPASSEMENT_POSSIBLE, ...info, joursRestants: et.jours };
+      return { statut: DG_STATUS.A_RESTITUER, ...info, joursRestants: et.jours };
     }
   }
   if (dgPaid <= 0 && dgDu > 0) return { statut: DG_STATUS.MANQUANT, dgDu, dgPaid, soldeRestant };
@@ -301,25 +305,12 @@ function _dgStatutDuBail(bail) {
   return _dgStatut(Object.assign({}, bail, { cloture: true, finEffective: String(fin).slice(0, 10) }));
 }
 
-function _calculerDelaiRestitution(bail, edls) {
+// Délai APPLICABLE : 1 mois si l'EDL de sortie de CE bail est conforme, 2 mois sinon ou s'il n'existe pas encore.
+// Les retenues n'en décident plus (une retenue pour loyer impayé ne rend pas l'état des lieux non conforme).
+function _calculerDelaiRestitution(bail) {
   if (!bail) return 2;
-  if (Number(bail.dgRetenu) > 0) return 2;
-  const sourceEdls = edls || (DB && DB.edl) || [];
-  // P9 (§7bis) : LE résolveur unique — le plus récent de la fenêtre du bail, jamais le
-  // premier trouvé (sinon la sortie du locataire précédent pilote le délai de l'actuel).
-  const _P = (typeof window !== 'undefined') ? window.EdlParcours : null;
-  const edlSortie = _P
-    ? _P.edlSortieQuiFaitFoi(bail, sourceEdls)
-    : sourceEdls.find(e => e && !e._deleted && e.logement === bail.ref && e.type === 'Sortie');
-  if (edlSortie) {
-    const hasDegradation = (edlSortie.pieces||[]).some(p =>
-      (p.elements||[]).some(el =>
-        el.etatS && el.etatS !== el.etatE && (el.etatS === 'Mauvais état' || (el.etatS === "État d'usage" && el.etatE === 'Bon état'))
-      )
-    );
-    if (hasDegradation) return 2;
-  }
-  return 1;
+  const D = (typeof window !== 'undefined') ? window.DgDelai : null;
+  return (D && D.conformiteEdlSortie(_edlSortieDuBail(bail)) === true) ? 1 : 2;
 }
 
 function _calculerLoyerImpayeCumule(bail, mouvements, dateRef) {
@@ -13543,7 +13534,7 @@ function _histoBailChapHtml(c, ref, refSafe, bailForDg){
   if(!(key in _histoBailOuverts)){
     let dgUrgent = false;
     if(c.statut==='clos' && bailForDg && c.bail===bailForDg && typeof _dgStatut==='function'){
-      try{ const st=_dgStatut(bailForDg).statut; dgUrgent = (st===DG_STATUS.A_RESTITUER || st===DG_STATUS.EN_RETARD); }catch(e){}
+      try{ dgUrgent = _dgStatutUrgent(_dgStatut(bailForDg).statut); }catch(e){}
     }
     _histoBailOuverts[key] = (c.statut==='courant') || dgUrgent;
   }
@@ -13605,12 +13596,22 @@ function _hlGouttiere(r){
 }
 // Libellé + style du statut d'un dépôt de garantie (frise du bien, fenêtre de restitution) — table UNIQUE.
 // `restitue` force « Restitué » (restitution enregistrée hors `dgRestitueAt` : anciennes clôtures aux montants saisis).
-function _dgStatutLibelle(dgInfo, restitue) {
+// Un dépôt qui appelle une action (chapitre de la frise déplié) : à restituer, dépassement possible, en retard.
+function _dgStatutUrgent(statut) {
+  return statut === DG_STATUS.A_RESTITUER || statut === DG_STATUS.DEPASSEMENT_POSSIBLE || statut === DG_STATUS.EN_RETARD;
+}
+function _dgStatutLibelle(dgInfo, restitue, court) {
   const d = dgInfo || {};
   const map = {
     [DG_STATUS.RESTITUE]:  ['' + _uiIcon('check') + ' Restitué','b-irl'],
     [DG_STATUS.EN_RETARD]: [`${_uiIcon('warn')} En retard ${d.joursRetard}j`,'b-warn'],
-    [DG_STATUS.A_RESTITUER]:[`${_uiIcon('hourglass')} À restituer J-${d.joursRestants} (délai légal ${d.delaiMois} mois)`,'b-warn'],
+    // Art. 22 — conformité de l'EDL de sortie inconnue : les deux maximums ; entre les deux, « dépassement possible ».
+    // `court` (capsule .hl-badge de la frise) : l'état seul ; la phrase des deux dates va dans la description.
+    [DG_STATUS.DEPASSEMENT_POSSIBLE]: court ? [`${_uiIcon('warn')} Dépassement possible`,'b-warn']
+      : [`${_uiIcon('warn')} Dépassement possible (si l'EDL de sortie est conforme) · au plus tard le ${fd(d.limite)}`,'b-warn'],
+    [DG_STATUS.A_RESTITUER]: (d.conforme === null && d.limiteSiConforme)
+      ? [`${_uiIcon('hourglass')} À restituer J-${d.joursSiConforme}` + (court ? '' : ` — le ${fd(d.limiteSiConforme)} si l'EDL de sortie est conforme, sinon le ${fd(d.limite)}`),'b-warn']
+      : [`${_uiIcon('hourglass')} À restituer J-${d.joursRestants}` + (court ? '' : ` (délai légal ${d.delaiMois} mois)`),'b-warn'],
     [DG_STATUS.COMPLET]:   [`${_uiIcon('check')} Versé (${fmt(d.dgPaid)})`,'b-irl'],
     [DG_STATUS.PARTIEL]:   [`${_uiIcon('warn')} Partiel (${fmt(d.dgPaid)} / ${fmt(d.dgDu)})`,'b-warn']
   };
@@ -13629,21 +13630,25 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     // Statut + CTA restitution : mêmes règles que l'ancien panneau « Dépôt de garantie »
     // (v15.14 Fix 4), portées par l'événement DG du bail concerné (_bailForDg).
     let statutHtml='', ctaHtml='';
+    // Délai de restitution (art. 22) : les dates du bail ciblé quand elles sont connues, sinon la règle.
+    let delaiDesc = "délai légal : 1 mois après la remise des clés si l'EDL de sortie est conforme à l'entrée, 2 mois sinon";
     // Statut 06/10 : chaque bail ARCHIVÉ porte son propre dépôt (relocation avant restitution) — son statut et
     // son geste de restitution visent CE bail (bailHistCle), plus seulement le dernier bail du lot.
     const _dgCible = (c.statut==='clos' && c.bail) ? c.bail : ((bailForDg && c.bail===bailForDg) ? bailForDg : null);
     if(_dgCible && typeof _dgStatut==='function'){
       const dgInfo=_dgStatutDuBail(_dgCible);
       const isRestit = dgInfo.statut===DG_STATUS.RESTITUE || (c.statut==='clos' && typeof _dgDetenuDuBail==='function' && _dgDetenuDuBail(_dgCible, 0) <= 0);
-      const st = _dgStatutLibelle(dgInfo, isRestit);
+      const st = _dgStatutLibelle(dgInfo, isRestit, true);
       statutHtml = `<span class="hl-badge ${st[1]}">${st[0]}</span>`;
+      const _DgD = (typeof window !== 'undefined') ? window.DgDelai : null;
+      if(!isRestit && dgInfo.limite && _DgD) delaiDesc = 'à restituer ' + escHtml(_DgD.libelleEcheance(dgInfo, fd));
       if(c.statut==='clos' && !isRestit){
         const _cle = _lyQ(_bailHistCleDe(_dgCible));
         ctaHtml = `<div class="hl-foot"><button class="btn bp bb" style="padding:5px 12px;font-size:12px" onclick="_dgOpenRestitution('${refSafe}','${_cle}')">✦ Préparer la restitution du DG</button></div>`;
       }
     }
     return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Dépôt de garantie versé</h4><span class="hl-badge b-dg">DG</span>${statutHtml}</div>
-      <div class="hl-desc"><b>${fmt(ev.montant)}</b> dû à la signature. Restituable au départ (délai légal 1 mois, 2 mois si retenues).</div>${ctaHtml}</div>`;
+      <div class="hl-desc"><b>${fmt(ev.montant)}</b> dû à la signature. Restituable au départ (${delaiDesc}).</div>${ctaHtml}</div>`;
   }
   if(t==='dg-restitue'){
     const retenue = (ev.dgVerse||0)-(ev.montant||0);
@@ -15025,7 +15030,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.724 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.727 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17195,7 +17200,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
       let dst=null; try{ dst=_departState(bail); }catch(e){}
       if(dst){
         const dl=dst.deadline, dgDone=(dst.steps.find(s=>s.key==='dg')||{}).done;
-        const dgTxt=(dl && !dgDone)?(dl.jours>=0?` · DG à restituer avant le ${fd(dl.iso)} (J‑${dl.jours})`:` · DG en retard ${-dl.jours} j`):'';
+        const dgTxt=(dl && !dgDone)?(' · DG : ' + escHtml(dl.texte)):'';   // texte unique (DgDelai.texteEtatDelai)
         depBanner=`<div class="logf-depart" onclick="_departOuvrir('${refSafe}')" role="button" tabindex="0" title="Ouvrir l'assistant de départ">
           <span class="logf-depart-ic">${_uiIcon('flag')}</span>
           <div class="logf-depart-tx"><div class="t">Départ en cours — étape ${dst.doneCount}/${dst.total}</div><div class="s">${bail.depart.dateSortie?('sortie prévue le '+fd(bail.depart.dateSortie)):'à dérouler'}${dgTxt}</div></div>
@@ -25926,7 +25931,14 @@ function _dgOpenRestitution(ref, cle) {
   const _bailN = Object.assign({}, bail, { dgPaid: dgVerse, fin: _bailFinOccupation(bail, false) });
   const dgInfo = _dgStatutDuBail(_bailN); // AUDIT #3 — statut du bail CIBLÉ (archive d'une relocation, bail parti : à restituer) : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
   const solde = _calculerSoldeDG(_bailN, DB.mouvements || []);
-  const delaiMois = _calculerDelaiRestitution(bail, (typeof _edlsDuBail === 'function') ? _edlsDuBail(bail) : DB.edl);   // EDL de CE bail
+  // Échéance de restitution (art. 22) : LA règle (DgDelai), avec l'EDL de sortie de CE bail.
+  const _DgD = (typeof window !== 'undefined') ? window.DgDelai : null;
+  const _ech = _DgD ? _DgD.echeancesRestitution(_bailN, _edlSortieDuBail(bail)) : null;   // _bailN : fin d'occupation, comme le statut et la pénalité
+  const _echSrc = !_ech || _ech.source === 'remise' ? ''
+    : ` <span class="mu">(remise des clés non déclarée : ${_ech.source === 'edl' ? "date de l'EDL de sortie" : 'fin du bail'})</span>`;
+  const _delaiTxt = _ech
+    ? `Remise des clés le <strong>${fd(_ech.remise)}</strong>${_echSrc} : à restituer <strong>${escHtml(_DgD.libelleEcheance(_ech, fd))}</strong>.`
+    : `Délai légal : 1 mois après la remise des clés si l'EDL de sortie est conforme à celui d'entrée, 2 mois sinon.`;
   _dgVgCtx = {
     refDate: (bail.depart && bail.depart.dateSortie) || bail.finEffective || (typeof td === 'function' ? td() : ''),
     edlEntreeDate: _dgVgEntreeDate(bail),
@@ -25973,7 +25985,7 @@ function _dgOpenRestitution(ref, cle) {
   body.innerHTML = `
     <div class="mu sm" style="margin-bottom:14px;line-height:1.55">
       Restitution du dépôt de garantie selon l'article 22 de la loi 89-462 modifiée par ALUR 2014.
-      Délai légal : <strong>${delaiMois} mois</strong> après remise des clés (1 mois sans retenue, 2 mois si retenues).
+      ${_delaiTxt}
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
@@ -26065,16 +26077,25 @@ function _dgRestitRecalc(ref) {
   const rt = el('dg-restit-retenues-display'); if (rt) rt.textContent = fmt(reparations);
   const disp = el('dg-restit-solde-display'); if (disp) disp.textContent = fmt(soldeFinal);
 
-  // Bloc pénalité : visible dès qu'il y a retard (même neutralisée, pour montrer l'exception).
+  // Bloc pénalité : visible dès qu'il y a retard (même neutralisée, pour montrer l'exception), ou qu'un retard est
+  // POSSIBLE (conformité de l'EDL de sortie inconnue, au-delà d'un mois) : celle-là se dit, elle ne s'ajoute JAMAIS
+  // au solde — seule la pénalité certaine (`pen.penalite`, depuis l'échéance applicable) y entre.
   const penRow = el('dg-restit-pen-row'), penBox = el('dg-restit-pen-box'), penAmt = el('dg-restit-pen-amt'), penCalc = el('dg-restit-pen-calc');
   if (penRow && penBox) {
-    if (pen.enRetard) {
-      penRow.hidden = (penMontant === 0);
+    const pp = pen.possible;
+    if (pen.enRetard || pp) {
+      penRow.hidden = !pen.enRetard || (penMontant === 0);
       penBox.hidden = false;
       if (penAmt) penAmt.textContent = '+ ' + fmt(penMontant);
-      if (penCalc) penCalc.textContent = pen.exclue
-        ? `Retard de ${pen.moisRetard} mois entamé(s) — pénalité neutralisée (adresse non communiquée).`
-        : `10 % × ${fmt(pen.base)} (loyer HC) × ${pen.moisRetard} mois entamé(s) — dû au locataire au-delà du délai de l'article 22 (date limite ${pen.dateLimite ? fd(pen.dateLimite) : '—'}).`;
+      const certaine = !pen.enRetard ? ''
+        : pen.exclue
+          ? `Retard de ${pen.moisRetard} mois entamé(s) — pénalité neutralisée (adresse non communiquée).`
+          : `10 % × ${fmt(pen.base)} (loyer HC) × ${pen.moisRetard} mois entamé(s) — dû au locataire au-delà du délai de l'article 22 (date limite ${pen.dateLimite ? fd(pen.dateLimite) : '—'}).`;
+      const possible = !pp ? ''
+        : pen.exclue
+          ? `Pénalité possible depuis le ${fd(pp.depuis)} si l'EDL de sortie est conforme — neutralisée (adresse non communiquée).`
+          : `Pénalité possible depuis le ${fd(pp.depuis)} si l'EDL de sortie est conforme : 10 % × ${fmt(pen.base)} × ${pp.moisRetard} mois entamé(s) = ${fmt(pp.penalite)}${pen.enRetard ? ` au total (au lieu de ${fmt(penMontant)})` : ''} — non ajoutée au solde (conformité de l'EDL de sortie inconnue).`;
+      if (penCalc) penCalc.textContent = [certaine, possible].filter(Boolean).join(' ');
     } else {
       penRow.hidden = true;
       penBox.hidden = true;
@@ -31544,11 +31565,31 @@ function rgpdShowErasePlan() {
 }
 
 // v14.93 EXPORT-COMPTABLE Sprint 3E — FEC + journal + grand livre
+// R-0 (audit lot 6 🔴1) : le périmètre d'un bailleur est CELUI DE FINANCES (lots aux refs tolérantes, frais du
+// bailleur, mouvements posés sur ses immeubles) — `_finEntScope` + `_finScopeWeightCore`, jamais recopié.
+// null = pas de bailleur choisi (tout le patrimoine) ou résolveur absent (repli : refs exactes du module).
+// false = bailleur INCONNU (supprimé / renommé depuis le choix de la liste) : resolveScope retomberait sur « tout
+// le patrimoine » — on n'exporte JAMAIS les mouvements d'autres SCI sous son nom (contre-vérification lot 6 🟠1).
+// Vue BAILLEUR uniquement (kind 'ent', poids 0 ou 1) : une vue immeuble pondérerait les frais SCI (sciWeight), et
+// l'export écrirait en entier un frais compté à 1/n — refusé ici plutôt que réparti en silence (🟡A).
+function _comptaDansPerimetre(entNom) {
+  if (!entNom || typeof _finEntScope !== 'function' || typeof window._finScopeWeightCore !== 'function') return null;
+  const sc = _finEntScope(entNom, '');
+  if (!sc || sc.fallback || sc.kind !== 'ent' || typeof sc.sciWeight === 'function' || Number(sc.sciWeight) !== 1) return false;
+  return (m) => window._finScopeWeightCore(sc, m) > 0;
+}
+/** Bailleur de la liste introuvable : on le DIT et on n'exporte rien (jamais tout le patrimoine sous son nom). */
+function _comptaBailleurInconnu(o) {
+  if (!o || o.dansPerimetre !== false) return false;
+  showToast('Bailleur « ' + (o.entityNom || '') + ' » introuvable (supprimé ou renommé) — recharger la page puis le choisir à nouveau', 'err', 8000);
+  return true;
+}
 function _comptaBuildOpts() {
   const yr = v('compta-year') || String(new Date().getFullYear() - 1);
   const entNom = v('compta-ent') || '';
   const refs = entNom ? (DB.logements||[]).filter(l => _isAlive(l) && l.entity === entNom).map(l => l.ref) : [];
-  return { yr, from: yr + '-01-01', to: yr + '-12-31', entityNom: entNom, refs };
+  // R-0 (lot 6, A1) : une catégorie perso se classe par sa famille, comme dans Finances et la 2044.
+  return { yr, from: yr + '-01-01', to: yr + '-12-31', entityNom: entNom, refs, catMere: (typeof _finCatMere === 'function') ? _finCatMere : null, dansPerimetre: _comptaDansPerimetre(entNom) };
 }
 function _comptaDownload(content, filename, mime) {
   const bom = '﻿';
@@ -31557,33 +31598,66 @@ function _comptaDownload(content, filename, mime) {
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
+// Lot 6, A2 — les mouvements du périmètre que l'export N'ÉCRIT PAS (aucun compte inventé) sont dits à
+// chaque téléchargement : le FEC reste au format normé (18 colonnes, aucune ligne libre possible).
+function _comptaNonExportes(o, mvts) {
+  return (typeof window._listNonExportes === 'function') ? window._listNonExportes(mvts || DB.mouvements || [], STD_CATEGORIES, o) : null;
+}
+// Audit lot 6 🟠3 — le message ne suffit pas : le fichier envoyé à l'expert-comptable n'en garde rien. Le toast
+// porte donc le geste « Télécharger la liste » (le CSV du dossier ZIP), sans toucher au FEC / journal / grand livre.
+// Les options du téléchargement sont FIGÉES au moment du toast (contre-vérification 🟡E) : changer l'année ou le
+// bailleur pendant les 12 s du message ne change pas la liste — elle accompagne le fichier qui vient d'être pris.
+let _comptaListeOpts = null;
+function _comptaBoutonListe(src, o) {
+  _comptaListeOpts = o || null;
+  // 44 px de haut (charte : cible tactile) — le padding en ligne écrasait celui de la règle mobile (🟡B).
+  return ' <button class="btn bp bb" style="margin-left:10px;min-height:44px;padding:4px 12px;font-size:12px" onclick="_comptaTelechargerNonExportes(\'' + src + '\')">Télécharger la liste</button>';
+}
+function _comptaTelechargerNonExportes(src) {
+  const o = _comptaListeOpts || (src === 'dc' ? _dcBuildOpts() : _comptaBuildOpts());
+  if (_comptaBailleurInconnu(o)) return;
+  const ne = _comptaNonExportes(o, o._mvts);
+  if (!ne || !ne.count || typeof window._nonExportesCsv !== 'function') { showToast('Aucun mouvement non exporté sur cette période', 'ok'); return; }
+  const per = o.yr || ((o.from || '') + '_' + (o.to || ''));
+  const nom = 'Mouvements-non-exportes_' + per + (o.entityNom ? '_' + o.entityNom.replace(/[^\w]+/g, '_') : '') + '.csv';
+  _comptaDownload(window._nonExportesCsv(ne, { extractionYmd: _dcTodayYmd(), entityNom: o.entityNom || 'Tous', from: o.from, to: o.to }), nom, 'text/csv');
+  if (typeof _auditLog === 'function') _auditLog('export', 'mouvements_non_exportes', null, per + '/' + (o.entityNom || 'all'), null, null, 'ui');
+}
+function _comptaToastExport(okMsg, o) {
+  const ne = _comptaNonExportes(o);
+  const r = (ne && typeof window._nonExportesResume === 'function') ? window._nonExportesResume(ne) : '';
+  if (r) showToast(okMsg + ' · ' + r, 'warn', 12000, _comptaBoutonListe('compta', o)); else showToast(okMsg, 'ok');
+}
 function downloadFEC() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
   const o = _comptaBuildOpts();
+  if (_comptaBailleurInconnu(o)) return;
   const ecr = window._buildEcritures(DB.mouvements || [], STD_CATEGORIES, o);
   const fec = window._toFEC(ecr, { entityNom: o.entityNom, from: o.from, to: o.to });
   _comptaDownload(fec, `FEC_${o.yr}${o.entityNom?'_'+o.entityNom.replace(/[^\w]+/g,'_'):''}.txt`, 'text/plain');
   if (typeof _auditLog === 'function') _auditLog('export', 'fec', null, o.yr + '/' + (o.entityNom||'all'), null, null, 'ui');
-  showToast('FEC téléchargé (' + ecr.length + ' écritures)', 'ok');
+  _comptaToastExport('FEC téléchargé (' + ecr.length + ' écritures)', o);
 }
 function downloadJournal() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
   const o = _comptaBuildOpts();
+  if (_comptaBailleurInconnu(o)) return;
   const ecr = window._buildEcritures(DB.mouvements || [], STD_CATEGORIES, o);
   const csv = window._journalToCsv(ecr);
   _comptaDownload(csv, `Journal_${o.yr}${o.entityNom?'_'+o.entityNom.replace(/[^\w]+/g,'_'):''}.csv`, 'text/csv');
   if (typeof _auditLog === 'function') _auditLog('export', 'journal_compta', null, o.yr, null, null, 'ui');
-  showToast('Journal téléchargé', 'ok');
+  _comptaToastExport('Journal téléchargé', o);
 }
 function downloadGrandLivre() {
   if (typeof window._buildEcritures !== 'function') { showToast('Module compta non chargé', 'err'); return; }
   const o = _comptaBuildOpts();
+  if (_comptaBailleurInconnu(o)) return;
   const ecr = window._buildEcritures(DB.mouvements || [], STD_CATEGORIES, o);
   const gl = window._buildGrandLivre(ecr);
   const csv = window._grandLivreToCsv(gl);
   _comptaDownload(csv, `GrandLivre_${o.yr}${o.entityNom?'_'+o.entityNom.replace(/[^\w]+/g,'_'):''}.csv`, 'text/csv');
   if (typeof _auditLog === 'function') _auditLog('export', 'grand_livre', null, o.yr, null, null, 'ui');
-  showToast('Grand livre téléchargé', 'ok');
+  _comptaToastExport('Grand livre téléchargé', o);
 }
 
 // ── EXPORT-COMPTABLE-ZIP « Dossier comptable » ───────────────────────────────
@@ -31608,19 +31682,33 @@ function _dcInitSelectors() {
 function _dcBuildOpts() {
   const from = v('dc-from') || '', to = v('dc-to') || '', entityNom = v('dc-ent') || '';
   const refs = entityNom ? (DB.logements || []).filter(l => _isAlive(l) && l.entity === entityNom).map(l => l.ref) : [];
-  return { from, to, entityNom, refs, extractionYmd: _dcTodayYmd() };
+  return { from, to, entityNom, refs, extractionYmd: _dcTodayYmd(), catMere: (typeof _finCatMere === 'function') ? _finCatMere : null, dansPerimetre: _comptaDansPerimetre(entityNom) };   // R-0 (lot 6, A1 + audit 🔴1)
 }
 function openDossierComptable() {
   if (!window._dc || typeof window._buildMvtRows !== 'function' || !window._bk || !window._bk.storedZip) { showToast('Module compta non chargé', 'err'); return; }
   const o = _dcBuildOpts();
   if (o.from && o.to && o.from > o.to) { showToast('Période invalide (début après fin)', 'warn'); return; }
+  if (_comptaBailleurInconnu(o)) return;
   // Audit M1 : on FIGE la référence du tableau des mouvements ici et on la réutilise pour
   // les écritures dans _dcRun. Une hydratation cloud (`__immoSetDB` réassigne DB) entre le
   // récap et le clic « Télécharger » ne peut donc plus désaligner les `num` (plan vs FEC).
   const mvts = DB.mouvements || [];
   o._mvts = mvts;
+  // Audit lot 6 🟡1 — même raison : `_finCatMere` lit `DB.catAlias` EN DIRECT. Le classement des catégories
+  // perso est figé ici, sinon une hydratation entre le récap et le clic reclasserait des mouvements → `num`
+  // décalés entre le plan (index.csv, factures) et les écritures (FEC).
+  if (typeof o.catMere === 'function') {
+    const cm = o.catMere, fige = new Map();
+    mvts.forEach(m => { if (m && !fige.has(m.cat)) fige.set(m.cat, cm(m.cat) || null); });
+    o.catMere = (c) => (fige.has(c) ? fige.get(c) : null);
+  }
   const rows = window._buildMvtRows(mvts, STD_CATEGORIES, o);
-  if (!rows.length) { showToast('Aucun mouvement comptable sur cette période', 'warn', 5000); return; }
+  o._nonExp = _comptaNonExportes(o, mvts);   // lot 6, A2 : même périmètre, même tableau figé
+  if (!rows.length) {
+    const r = (o._nonExp && typeof window._nonExportesResume === 'function') ? window._nonExportesResume(o._nonExp) : '';
+    showToast('Aucun mouvement comptable sur cette période' + (r ? ' · ' + r : ''), 'warn', r ? 12000 : 5000, r ? _comptaBoutonListe('dc', o) : '');
+    return;
+  }
   const plan = window._dc.buildPlan(rows, { documents: DB.documents || [], logements: DB.logements || [], extractionYmd: o.extractionYmd, entityNom: o.entityNom || 'Tous', from: o.from, to: o.to });
   _dcRecapOverlay(plan, o);
 }
@@ -31640,14 +31728,23 @@ function _dcRecapOverlay(plan, o) {
   const cell = (val, lbl, col) => '<div style="background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:12px;text-align:center"><div style="font-weight:800;font-size:24px;color:' + col + '">' + val + '</div><div style="font-size:11px;color:var(--t2);margin-top:2px">' + lbl + '</div></div>';
   const missHtml = miss.length ? (
     '<details ' + (miss.length <= 6 ? 'open' : '') + ' style="border:1px solid var(--bor);border-radius:var(--r);overflow:hidden;margin-top:4px">'
-    + '<summary style="cursor:pointer;padding:9px 12px;background:var(--bg-danger,rgba(210,63,63,.10));color:var(--red);font-weight:700;font-size:12.5px">' + miss.length + ' mouvement(s) sans facture</summary>'
+    + '<summary style="cursor:pointer;min-height:44px;box-sizing:border-box;display:flex;align-items:center;padding:9px 12px;background:var(--bg-danger,rgba(210,63,63,.10));color:var(--red);font-weight:700;font-size:12.5px">' + miss.length + ' mouvement(s) sans facture</summary>'
     + '<ul style="margin:0;padding:4px 0;list-style:none">' + miss.map(r => '<li style="padding:7px 13px;font-size:12.5px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:10px"><span>' + escHtml(_dcDateFr(r.date) + ' · ' + r.categorie + ' · ') + _dcEuro(r.montant) + '</span><span style="color:var(--t2);font-size:11px">' + escHtml(r.bailleur + ' - ' + r.lot) + '</span></li>').join('') + '</ul></details>'
+  ) : '';
+  // Lot 6, A2 — mouvements que le dossier n'écrit pas (aucun compte inventé) : dits ici ET listés dans le zip.
+  const ne = o._nonExp;
+  const neHtml = (ne && ne.count) ? (
+    '<details ' + (ne.parCategorie.length <= 4 ? 'open' : '') + ' style="border:1px solid var(--bor);border-radius:var(--r);overflow:hidden;margin-top:10px">'
+    + '<summary style="cursor:pointer;min-height:44px;box-sizing:border-box;display:flex;align-items:center;padding:9px 12px;background:var(--bg-warning);color:var(--ora);font-weight:700;font-size:12.5px">' + ne.count + ' mouvement(s) non exporté(s) : compte à définir avec l\'expert-comptable</summary>'
+    + '<ul style="margin:0;padding:4px 0;list-style:none">' + ne.parCategorie.map(c => '<li style="padding:7px 13px;font-size:12.5px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 10px"><span>' + escHtml(c.cat + (c.famille ? ' — famille : ' + c.famille : '') + ' · ' + c.count + ' mouvement' + (c.count > 1 ? 's' : '')) + '</span><span style="color:var(--t2);font-size:11px">' + (c.entrees ? 'entrées ' + _dcEuro(c.entrees) : '') + (c.entrees && c.sorties ? ' · ' : '') + (c.sorties ? 'sorties ' + _dcEuro(c.sorties) : '') + '</span></li>').join('') + '</ul>'
+    + '<div class="mu sm" style="padding:8px 13px;border-top:1px solid var(--bor)">Détail dans ecritures/mouvements-non-exportes.csv. Ils ne figurent ni dans le FEC, ni dans le journal, ni dans le grand livre.</div></details>'
   ) : '';
   const bodyInner =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' + chip('Période <b>' + escHtml(_dcDateFr(o.from) + ' → ' + _dcDateFr(o.to)) + '</b>') + chip('Bailleur <b>' + escHtml(o.entityNom || 'Tous') + '</b>') + '</div>'
     + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">' + cell(c.mouvements, 'mouvements', 'var(--t1)') + cell(c.factures, 'factures jointes', 'var(--pos,var(--grn,#1a8f6f))') + cell(c.manquantes, 'manquantes', 'var(--red)') + '</div>'
     + missHtml
-    + (miss.length ? '<div class="mu sm" style="margin-top:10px">Les manquantes restent dans les écritures, signalées « ABSENTE » dans index.csv. Le dossier reste complet côté chiffres.</div>' : '')
+    + (miss.length ? '<div class="mu sm" style="margin-top:10px">Les manquantes restent dans les écritures, signalées « ABSENTE » dans index.csv.</div>' : '')
+    + neHtml
     + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:12px;border-top:1px solid var(--bor)">'
     + '<span class="mu sm">Taille estimée : ~ ' + estLbl + '</span>'
     + '<span style="display:flex;gap:8px"><button class="btn bs" onclick="_dcCloseOv()">Annuler</button><button class="btn bp" id="dc-go">⬇ Télécharger le .zip</button></span></div>';
@@ -31742,13 +31839,19 @@ async function _dcRun(plan, o) {
       { name: 'ecritures/index.csv', bytes: enc.encode(bom + indexCsv) },
       ...factureEntries
     ];
+    // Lot 6, A2 — ce que le dossier n'écrit pas est LISTÉ (même périmètre, même tableau figé que le récap).
+    const ne = o._nonExp;
+    if (ne && ne.count && typeof window._nonExportesCsv === 'function') {
+      entries.splice(4, 0, { name: 'ecritures/mouvements-non-exportes.csv', bytes: enc.encode(bom + window._nonExportesCsv(ne, { extractionYmd: o.extractionYmd, entityNom: o.entityNom || 'Tous', from: o.from, to: o.to })) });
+    }
     const u8 = window._bk.storedZip(entries);
     const zipName = window._dc.zipName(o.entityNom || 'Tous', o.extractionYmd);
     _downloadBlobAs(new Blob([u8], { type: 'application/zip' }), zipName);
     if (typeof _auditLog === 'function') _auditLog('export', 'dossier_comptable', null, (o.from || '') + '..' + (o.to || '') + '/' + (o.entityNom || 'all'), null, null, 'ui');
     _dcCloseOv();
     const note = failed > 0 ? (' · ' + failed + ' facture(s) introuvable(s) → listée(s) ABSENTE') : '';
-    showToast('📦 Dossier comptable téléchargé (' + fetched + ' facture(s), ' + plan.counts.manquantes + ' manquante(s))' + note, failed > 0 ? 'warn' : 'ok', 6000);
+    const noteNe = (ne && ne.count) ? (' · ' + ne.count + ' mouvement(s) non exporté(s), listés dans mouvements-non-exportes.csv') : '';
+    showToast('📦 Dossier comptable téléchargé (' + fetched + ' facture(s), ' + plan.counts.manquantes + ' manquante(s))' + note + noteNe, (failed > 0 || noteNe) ? 'warn' : 'ok', noteNe ? 9000 : 6000);
   } catch (e) {
     console.warn('[dossier-compta] run', e);
     _dcCloseOv();
@@ -31782,7 +31885,15 @@ function openBilanAnnuel() {
   const yr = v('bilan-year') || String(new Date().getFullYear() - 1);
   const entNom = v('bilan-ent');
   if (!entNom) { showToast('Sélectionnez une entité', 'warn'); return; }
-  const bilan = window._computeBilanAnnuel(DB, STD_CATEGORIES, entNom, yr, { mapping: (typeof _finMapping2044 === 'function') ? _finMapping2044() : null });   // M-2 : le mapping passe ENFIN au bilan
+  // Lot 6, B (R-0) : le cash-flow de l'entité est LU dans Finances (bloc unique `_dashCfReel` → `_finMonthly`
+  // → cashflowReel, mêmes fenêtres que l'onglet), jamais recalculé par le bilan.
+  // Le moteur qui échoue ne doit pas empêcher le bilan de s'afficher : « non disponible » (audit lot 6 🟡9).
+  let _cf = null;
+  try { _cf = (typeof _dashCfReel === 'function') ? _dashCfReel({ yr, activeEnt: entNom }) : null; } catch (e) { console.warn('[bilan] cash-flow Finances', e); }
+  const bilan = window._computeBilanAnnuel(DB, STD_CATEGORIES, entNom, yr, {
+    mapping: (typeof _finMapping2044 === 'function') ? _finMapping2044() : null,   // M-2 : le mapping passe ENFIN au bilan
+    cashflowReel: _cf ? _cf.cf : null
+  });
   if (!bilan) { showToast('Entité introuvable ou bilan vide', 'err'); return; }
   const txt = window._formatBilanTexte(bilan);
   const out = el('bilan-result');
