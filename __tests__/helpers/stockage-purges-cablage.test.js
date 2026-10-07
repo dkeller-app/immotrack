@@ -61,7 +61,7 @@ function purgeur(st) {
 
 describe('Logout — _teardownSession purge les copies de la base (S-7)', () => {
   function monter({ st, refus = null, logout = { ok: true } }) {
-    const trace = { authPurge: 0, reload: 0, signOut: 0, logoutApi: 0, photos: 0 };
+    const trace = { authPurge: 0, reload: 0, signOut: 0, logoutApi: 0, photos: 0, filets: 0, filetsAvantReload: 0 };
     const deps = {
       window: {}, console: muet, localStorage: st, MIRROR_KEY: OfflineBoot.MIROIR_KEY, MIRROR_TAG_KEY: CachePurge.MIRROR_TAG_KEY,
       _offlineBoot: OfflineBoot, _cachePurge: CachePurge, _liveDBRef: null, appDbFrom: () => ({}),
@@ -71,6 +71,8 @@ describe('Logout — _teardownSession purge les copies de la base (S-7)', () => 
       _purgerCopiesLocales: purgeur(st),
       _purgeAuthTokenKeys: () => { trace.authPurge++; },
       _deletePhotosDb: async () => { trace.photos++; },
+      // STOCKAGE lot 2 : la purge des filets IndexedDB est ATTENDUE avant le rechargement.
+      _purgerFiletsLocaux: async () => { await new Promise(r => setTimeout(r, 5)); trace.filets++; if (trace.reload === 0) trace.filetsAvantReload++; },
       location: { reload: () => { trace.reload++; } },
     };
     const noms = Object.keys(deps);
@@ -86,7 +88,7 @@ describe('Logout — _teardownSession purge les copies de la base (S-7)', () => 
       expect(st.getItem(k), k).toBeNull();
     }
     for (const k of ['immotrack_theme_mode', 'autre_app_panier', 'RELAY_APP_KEY']) expect(st.getItem(k), k).toBe(ETAT()[k]);
-    expect(trace).toMatchObject({ logoutApi: 1, authPurge: 1, reload: 1 });
+    expect(trace).toMatchObject({ logoutApi: 1, authPurge: 1, reload: 1, filets: 1, filetsAvantReload: 1 });
   });
 
   it('purge d’espace (sans flush) : les copies partent aussi', async () => {
@@ -94,7 +96,7 @@ describe('Logout — _teardownSession purge les copies de la base (S-7)', () => 
     const { fn, trace } = monter({ st });
     await fn({ flush: false, keepPhotos: true });
     for (const k of COPIES) expect(st.getItem(k), k).toBeNull();
-    expect(trace).toMatchObject({ signOut: 1, reload: 1 });
+    expect(trace).toMatchObject({ signOut: 1, reload: 1, filets: 1, filetsAvantReload: 1 });
   });
 
   it('déconnexion REFUSÉE (travail non synchronisé) : rien n’est purgé, pas même les copies', async () => {
@@ -103,7 +105,7 @@ describe('Logout — _teardownSession purge les copies de la base (S-7)', () => 
     const { fn, trace } = monter({ st, refus });
     expect(await fn({ flush: true })).toBe(refus);
     expect(st.cles().sort()).toEqual(Object.keys(ETAT()).sort());
-    expect(trace).toMatchObject({ reload: 0, authPurge: 0 });
+    expect(trace).toMatchObject({ reload: 0, authPurge: 0, filets: 0 });
   });
 });
 
@@ -155,6 +157,7 @@ describe('Connexion — _purgerCacheAuLogin selon le propriétaire du miroir (CD
     const bloc = accolades(SRC, SRC.lastIndexOf('try {', i) + 4);
     const executer = async (st, user, esp) => {
       const tagsVusParLaSuppression = [];
+      const tagsVusParLaPurgeDesFilets = [];
       const fns = monter(st);
       const deps = {
         _purgerCacheAuLogin: fns._purgerCacheAuLogin, _ecrireTagEtEspacesLogin: fns._ecrireTagEtEspacesLogin,
@@ -163,18 +166,31 @@ describe('Connexion — _purgerCacheAuLogin selon le propriétaire du miroir (CD
           await new Promise(r => setTimeout(r, 5));                       // la suppression prend du temps…
           tagsVusParLaSuppression.push(JSON.parse(st.getItem('immotrack_v4_tag')));   // …et le tag n'a pas bougé
         },
+        // STOCKAGE lot 2 : même ordre F14.1 pour les filets IndexedDB d'un autre propriétaire.
+        _purgerFiletsLocaux: async () => {
+          await new Promise(r => setTimeout(r, 5));
+          tagsVusParLaPurgeDesFilets.push(JSON.parse(st.getItem('immotrack_v4_tag')));
+        },
         user, esp, console: muet,
       };
       const noms = Object.keys(deps);
       const verdict = await new Function(...noms, "let _tagMiroirAvantLogin = 'untagged'; return (async () => { try "
         + bloc + ' catch (e) {} return _tagMiroirAvantLogin; })()')(...noms.map(n => deps[n]));
-      return { verdict, tagsVusParLaSuppression, tagFinal: JSON.parse(st.getItem('immotrack_v4_tag')) };
+      return { verdict, tagsVusParLaSuppression, tagsVusParLaPurgeDesFilets, tagFinal: JSON.parse(st.getItem('immotrack_v4_tag')) };
     };
     expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-b' }, { espaceId: 'e-b' })).toEqual({
-      verdict: 'other-user', tagsVusParLaSuppression: [TAG_A, TAG_A], tagFinal: { userId: 'u-b', espaceId: 'e-b' },
+      verdict: 'other-user', tagsVusParLaSuppression: [TAG_A, TAG_A], tagsVusParLaPurgeDesFilets: [TAG_A], tagFinal: { userId: 'u-b', espaceId: 'e-b' },
+    });
+    // STOCKAGE lot 2 : tout verdict ≠ 'same' purge les copies IndexedDB (pas seulement 'other-user').
+    expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-a' }, { espaceId: 'e-autre' })).toEqual({
+      verdict: 'other-espace', tagsVusParLaSuppression: [], tagsVusParLaPurgeDesFilets: [TAG_A], tagFinal: { userId: 'u-a', espaceId: 'e-autre' },
+    });
+    const sansTag = ETAT(); delete sansTag.immotrack_v4_tag;
+    expect(await executer(fauxStockageQuota({ initial: sansTag }), { id: 'u-b' }, { espaceId: 'e-b' })).toEqual({
+      verdict: 'untagged', tagsVusParLaSuppression: [], tagsVusParLaPurgeDesFilets: [null], tagFinal: { userId: 'u-b', espaceId: 'e-b' },
     });
     expect(await executer(fauxStockageQuota({ initial: ETAT() }), { id: 'u-a' }, { espaceId: 'e-a' })).toEqual({
-      verdict: 'same', tagsVusParLaSuppression: [], tagFinal: TAG_A,
+      verdict: 'same', tagsVusParLaSuppression: [], tagsVusParLaPurgeDesFilets: [], tagFinal: TAG_A,
     });
   });
 });

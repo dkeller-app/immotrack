@@ -376,8 +376,9 @@ describe('Aucune surface d’argent ne reclasse sur le libellé', () => {
     expect(sansCommentaires).not.toMatch(/\/loyer\/i/);
   });
 
-  it('les trois sites corrigés appellent le lecteur partagé', () => {
-    for (const nom of ['_computeComptaBailleur', '_renderLogFicheHeroStats', '_renderComptaKPIsForLog']) {
+  it('les sites corrigés appellent le lecteur partagé', () => {
+    // Le quatrième, `_computeComptaBailleur` (code mort, aucun appelant), a été supprimé au lot 0 (06/10).
+    for (const nom of ['_renderLogFicheHeroStats', '_renderComptaKPIsForLog']) {
       const corps = corpsDe(nom);
       expect(corps, nom + ' introuvable — le test ne teste plus rien').toBeTruthy();
       expect(corps, nom + ' ne lit plus le référentiel').toMatch(/_finLotEst(Loyer|Charge)/);
@@ -392,17 +393,10 @@ describe('Aucune surface d’argent ne reclasse sur le libellé', () => {
     }
   });
 
-  it('le quatrième site — code mort, mais corrigé comme les autres', () => {
-    // `_computeComptaBailleur` n'a aucun appelant (`setEntFicheTab` redirige « compta » vers
-    // « immeubles » depuis 764c7c9). Il avait pourtant été passé au référentiel avec les trois
-    // autres : l'oublier au passage au net laissait DEUX règles dans la même série.
-    // Ses autres `(+x.cr||0)` sont un JOURNAL de trésorerie — encaissé et dépensé y sont deux
-    // colonnes distinctes, les mettre au net n'aurait aucun sens.
-    const corps = corpsDe('_computeComptaBailleur');
-    expect(corps).toBeTruthy();
-    const ligne = corps.split('\n').find(l => l.includes('loyerEncaisse +='));
-    expect(ligne, 'la ligne des loyers encaissés a disparu').toBeTruthy();
-    expect(ligne, 'elle est repartie sur `cr` seul').toMatch(/_finLotNet\(m\)/);
+  it('le quatrième site, code mort, a été supprimé (lot 0, 06/10) — il ne revient pas', () => {
+    // `_computeComptaBailleur` n'avait aucun appelant (`setEntFicheTab` redirige « compta » vers
+    // « immeubles » depuis 764c7c9) : une règle de calcul à maintenir pour rien.
+    expect(corpsDe('_computeComptaBailleur')).toBeFalsy();
   });
 
   it('un mouvement SANS catégorie ne se voit pas proposer un écran qui l’ignore', () => {

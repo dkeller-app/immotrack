@@ -145,6 +145,10 @@ let _stockageLocal = null
 // STOCKAGE lot 4 (docs/CDC-STOCKAGE.md §3.8) — miroir cloud en IndexedDB + journal synchrone des EDL
 // (js/core/miroir-local.js). Import best-effort : sans lui, le miroir reste en localStorage (lot 1).
 let _miroirLocal = null
+// STOCKAGE lot 2 (docs/CDC-STOCKAGE.md §3.4) — filets avant migration en IndexedDB `immotrack_backup`
+// (js/core/filets-migration.js). Import best-effort : sans lui, pas de purge à la déconnexion — les
+// filets expirent alors d'eux-mêmes après 30 jours (passe de démarrage, même module).
+let _filetsMigration = null
 let _teardownSession = null      // dépose de session ({flush}) — posée au boot, utilisée par logout + purge espace
 let _hasCloudWrites = null       // summaryHasCloudWrites (store-sync) — M4 : émission Realtime honnête
 // EDL TERRAIN lot 4bis — deux appareils, un état des lieux. Imports best-effort
@@ -187,6 +191,27 @@ function _purgerCopiesLocales(motif) {
     const parties = _stockageLocal.purgerCopies(localStorage)
     if (parties.length) console.info('[Supabase] purge (' + motif + ') : ' + parties.length + ' copie(s) locale(s) de la base retirée(s)')
   } catch (e) { console.warn('[Supabase] purge des copies locales', e) }
+}
+
+// STOCKAGE lot 2 (S-7) — purge des copies de la base rangées en IndexedDB `immotrack_backup` : filets
+// avant migration (`filet:*`) et copie de la base illisible (`corrompu:*`). Jamais le reste du store
+// (`dirhandle`, dossier de la sauvegarde de sécurité). Appelée au logout et quand le miroir n'appartient
+// pas à l'utilisateur qui se connecte, ATTENDUE (avant le reload, avant la pose du nouveau tag).
+// Chaque opération IndexedDB est bornée (3 s) et la purge entière l'est aussi (5 s) : un IndexedDB muet
+// ou lent ne bloque pas la déconnexion. Ce qui resterait est repurgé au login suivant (verdict ≠ 'same')
+// ou expire après 30 jours. Module absent : rien. Ne throw jamais.
+const _PURGE_FILETS_MAX_MS = 5000
+async function _purgerFiletsLocaux(motif) {
+  let minuterie = null
+  try {
+    if (!_filetsMigration || typeof indexedDB === 'undefined') return
+    const purge = _filetsMigration.purgerCopies(_filetsMigration.adaptateurIndexedDB(indexedDB))
+    const borne = new Promise(res => { minuterie = setTimeout(() => res(null), _PURGE_FILETS_MAX_MS) })
+    const parties = await Promise.race([purge, borne])
+    if (parties === null) console.warn('[Supabase] purge (' + motif + ') des copies IndexedDB non terminée en ' + (_PURGE_FILETS_MAX_MS / 1000) + ' s — reprise au prochain login ou à l’expiration (30 jours)')
+    else if (parties.length) console.info('[Supabase] purge (' + motif + ') : ' + parties.length + ' copie(s) de la base retirée(s) d’IndexedDB')
+  } catch (e) { console.warn('[Supabase] purge des filets IndexedDB', e) }
+  finally { if (minuterie) clearTimeout(minuterie) }
 }
 
 // P1.3 volet RGPD — purge du cache local au LOGIN, selon le propriétaire du miroir résiduel.
@@ -420,7 +445,14 @@ async function boot() {
     // STOCKAGE lot 4 (RGPD) : le miroir IndexedDB `immotrack_miroir` est SUPPRIMÉ, le journal des EDL
     // retiré, et plus aucune écriture n'est acceptée avant le rechargement. Attendu AVANT le reload.
     // La garde ci-dessus (refus tant que du travail n'est pas parti) s'applique AVANT ce point.
+    // ⚠️ ORDRE (audit lots 2-3, 🟡3) : `vider()` ferme le miroir DÈS son premier pas, synchrone — aucun
+    // `await` ne doit le précéder depuis le retrait des horodatages ci-dessus. Sinon un saveDB pendant
+    // l'attente (la purge des filets peut durer 5 s) réécrit `immotrack_v4_ecrit_at`, qui survit à la
+    // déconnexion : au login suivant, F1 croirait à du travail hors ligne non remonté.
     try { if (typeof _miroirLocal !== 'undefined' && _miroirLocal) await _miroirLocal.miroir().vider() } catch (e) { console.warn('[Supabase] purge du miroir IndexedDB', e) }
+    // STOCKAGE lot 2 (S-7) : les filets avant migration et la base illisible, rangés en IndexedDB, aussi.
+    // APRÈS la fermeture du miroir (ci-dessus) : plus rien ne peut réécrire un horodatage pendant l'attente.
+    await _purgerFiletsLocaux('logout')
     // BUG-LOGIN-DOUBLE volet sécurité : le token de session (persistSession:true) DOIT partir aussi.
     _purgeAuthTokenKeys()
     // IndexedDB photos : purgée SEULEMENT si aucun binaire « idb-only » (sans copie Supabase Storage).
@@ -478,6 +510,7 @@ async function boot() {
   // Realtime retombe sur l'ancienne condition « flush 100 % propre ».
   try { _cachePurge = await import('../core/cache-purge.js') } catch (e) { console.warn('[Supabase] cache-purge', e) }
   try { _stockageLocal = await import('../core/stockage-local.js') } catch (e) { console.warn('[Supabase] stockage-local', e) }
+  try { _filetsMigration = await import('../core/filets-migration.js') } catch (e) { console.warn('[Supabase] filets-migration', e) }
   try { _offlineBoot = await import('../core/offline-boot.js') } catch (e) { console.warn('[Supabase] offline-boot', e) }
   // STOCKAGE lot 4 — le miroir cloud passe en IndexedDB. Initialisé ICI, AVANT tout lecteur (démarrage
   // hors ligne, F1, garde de déconnexion) et avant toute écriture cloud : ouvre IndexedDB et TRANSFÈRE
@@ -494,8 +527,24 @@ async function boot() {
       'echec-repli': 'Copie hors ligne non mise à jour : stockage de cet appareil plein.',
       'copie-incomplete': 'Copie hors ligne incomplète sur cet appareil : la base ne tient pas dans le stockage local. Les états des lieux saisis sont conservés.',
     }
+    // Audit final 🟡3 — le signal PRÉCÉDENT : un `echec-repli` qui suit immédiatement un `echec-ecriture`
+    // est une DOUBLE PANNE (IndexedDB a refusé, puis le stockage local aussi).
+    let _signalPrecedent = null
     M.surSignal(s => {
       console.warn('[Supabase] miroir local :', s.type, s.erreur)
+      const _doublePanne = s.type === 'echec-repli' && _signalPrecedent === 'echec-ecriture'
+      _signalPrecedent = s.type
+      // STOCKAGE lot 3 (D1 B) : en ligne, une copie complète non écrite n'est pas une perte (le cloud a
+      // la modification, le journal garde les EDL) → état « pas à jour » + avis unique de saveDB, pas de
+      // message d'erreur. Hors ligne, le texte ci-dessous reste.
+      if (s.type === 'echec-repli') { try { if (typeof window.__immoMiroirPasAJour === 'function' && window.__immoMiroirPasAJour()) return } catch (e) {} }
+      // HORS LIGNE, double panne : saveDB a pu dire « enregistré » (écriture IndexedDB planifiée, audit 🟠1)
+      // et la modification n'est plus sur aucun support de l'appareil. Le dire avec le texte de perte de
+      // saveDB (« PAS enregistrée… »), pas avec le texte générique de copie non mise à jour.
+      if (_doublePanne && window.__immoHorsLigne) {
+        const perte = _stockageLocal && _stockageLocal.TEXTES_ECHEC_MIROIR && _stockageLocal.TEXTES_ECHEC_MIROIR.horsLigne
+        if (perte) { try { if (typeof window.showToast === 'function') window.showToast(perte, 'err', 10000) } catch (e) {} return }
+      }
       const t = TEXTES[s.type]
       if (!t || _dejaDit.has(s.type)) return
       _dejaDit.add(s.type)
@@ -1283,6 +1332,7 @@ async function onLoggedIn(api, overlay, user) {
   const _sessionDead = () => {
     if (_deadShown) return
     _deadShown = true
+    window.__immoSessionMorte = true   // STOCKAGE lot 3 : saveDB ne promet plus « enregistrée dans le cloud »
     try { window.__immoCrumb && window.__immoCrumb('session-dead') } catch (e) {}
     setSync('dead')
     if (document.getElementById('imsb-dead')) return
@@ -1565,6 +1615,9 @@ async function onLoggedIn(api, overlay, user) {
     try {
       _tagMiroirAvantLogin = _purgerCacheAuLogin({ user, esp })
       if (_tagMiroirAvantLogin === 'other-user') await _deletePhotosDb()
+      // STOCKAGE lot 2 (S-7) : les copies de la base en IndexedDB (filets, base illisible) d'un autre
+      // propriétaire ne survivent pas non plus — TERMINÉ avant la pose du nouveau tag (ordre F14.1).
+      if (_tagMiroirAvantLogin !== 'same') await _purgerFiletsLocaux('changement de propriétaire du miroir')
       // STOCKAGE lot 4 : l'effacement du miroir IndexedDB de l'ancien propriétaire (mis en file par
       // `_purgerCacheAuLogin`) est TERMINÉ avant la pose du nouveau tag — même ordre F14.1 que les photos.
       if (_tagMiroirAvantLogin !== 'same' && typeof _miroirLocal !== 'undefined' && _miroirLocal) await _miroirLocal.miroir().attendre()
@@ -1652,7 +1705,9 @@ async function onLoggedIn(api, overlay, user) {
       _lastHydrateAt = Date.now()                 // P1.3 : référence de fraîcheur pour le re-pull visibilité
       // P1.3 volet RGPD : le miroir est RE-BASÉ immédiatement sur la vue AUTORISÉE courante (RLS) — l'ancien
       // contenu (potentiellement un périmètre révoqué depuis) ne survit jamais à un login, même sans saveDB.
-      try { _ecrireMiroir(db) } catch (e) {}   // STOCKAGE lot 1 (éviction sur quota) + lot 4 (IndexedDB)
+      // STOCKAGE lot 3 (contre-audit I4) : un rebase raté n'est plus avalé — la carte « Stockage de cet
+      // appareil » le dit (sans message : aucune modification de l'utilisateur n'est en jeu ici).
+      try { if (_ecrireMiroir(db) === false && typeof window.__immoMiroirPasAJour === 'function') window.__immoMiroirPasAJour({ silencieux: true }) } catch (e) {}   // STOCKAGE lot 1 (éviction sur quota) + lot 4 (IndexedDB)
       window.__immoMarkDirty = () => { _dirtySeq++; api.markDirty() }   // 2c : le garde saveDB l'appelle → debounce → flush cloud (+_dirtySeq : détection de saisie pendant un re-pull, audit I-1)
       // RESTAURATION LOCALE : flush COMPLET synchrone + awaitable (renvoie le résumé {upserts,removes,conflicts,skipped}).
       // Utilisé par _backupRestoreRun (index.html) : après avoir muté DB EN PLACE = instantané, on pousse tout vers

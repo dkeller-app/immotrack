@@ -2654,8 +2654,12 @@ textarea.field-modified-since-sig{
   border-radius:10px;padding:12px 18px;
   font-size:13.5px;z-index:999;display:none;
   box-shadow:var(--shadow-lg);
+  /* Audit stockage lots 2-3 : le toast ne CAPTE jamais un appui destiné à ce qu'il recouvre… */
+  pointer-events:none;
   animation:toastIn .25s cubic-bezier(.4,0,.2,1);
 }
+/* … sauf son propre bouton « ↶ Annuler » (UNDO-OP, _undoToast : extraHTML de showToast). */
+#toast button,#toast a{pointer-events:auto}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
@@ -4524,22 +4528,6 @@ textarea.field-modified-since-sig{
   font-weight:500;color:var(--t1);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
-/* Modale ov-ent-detail — scope chip + bouton parent (cahier §3.8.7) */
-.ov-ent-scope-wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.ov-ent-scope-chip{
-  display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;
-  font-size:11px;font-weight:700;letter-spacing:.3px;
-  background:var(--bg-info);color:var(--fg-info);white-space:nowrap;
-}
-.ov-ent-scope-chip.scope-immeuble{background:var(--bg-warning);color:var(--fg-warning)}
-.ov-ent-scope-chip.scope-logement{background:var(--bg-success);color:var(--fg-success)}
-.ov-ent-parent-btn{
-  background:transparent;border:1px solid var(--bor);border-radius:16px;
-  padding:3px 10px;font-size:11px;color:var(--t2);cursor:pointer;
-  transition:all var(--t-fast);font-weight:500;
-  max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.ov-ent-parent-btn:hover{background:var(--sur2);color:var(--t1);border-color:var(--fg-info)}
 
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD v2 Phase 5 — Charts enrichis dans les drill-downs
@@ -5016,6 +5004,8 @@ textarea.field-modified-since-sig{
     width: auto !important;
     max-width: none !important;
   }
+  /* Au-dessus de la barre du bas / du pied collant d'une page plein écran : placé par showToast
+     (js/components/toast.js, placerToast), qui MESURE la barre et le pied. */
 }
 
 /* ──── Très petits écrans 320-480 px ──── */
@@ -10319,3 +10309,27 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 #p-loyers .ly2-av{display:flex;gap:8px;align-items:flex-start;margin:0 12px 6px;padding:6px 10px;border-radius:8px;background:var(--warn-soft);color:var(--t1);font-size:12px;line-height:1.45;white-space:normal}
 #p-loyers .ly2-av>.uic{color:var(--warn);flex:none;margin-top:1px}
 @media (max-width:767px){#p-loyers .ly2-av{margin:0 10px 6px;font-size:13px}}
+
+/* STOCKAGE lot 3 (CDC-STOCKAGE §3.7, maquette validée 06/10 : mockups/STOCKAGE/reglages-etat-stockage.html)
+   Carte Réglages « Stockage de cet appareil ». Tokens uniquement ; pastilles de l'app (.badge grn/blu/gry :
+   vert = va bien, corail = à regarder, neutre — charte M-15), 13 px (M-17), bouton 44 px (M-1). */
+.stk .sub{margin:-6px 0 12px;font-size:13px}
+.stk .row{padding:10px 0;border-bottom:1px solid var(--bor2);font-size:14px}
+.stk .row.last{border-bottom:0}
+.stk .row .flex-b{align-items:flex-start;min-width:0;gap:10px}
+.stk .row b{text-align:right;font-weight:600;overflow-wrap:anywhere}
+.stk .row .mu{overflow-wrap:anywhere}
+.stk .expl{margin:6px 0 0;font-size:13px;overflow-wrap:anywhere}
+.stk .badge{gap:6px;font-size:13px;text-align:right}
+.stk .badge .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
+.stk .badge.blu .dot{background:var(--acc)}
+.stk .bar{height:6px;border-radius:var(--rp);background:var(--sur3);margin-top:8px;overflow:hidden}
+.stk .bar span{display:block;height:100%;background:var(--t3);border-radius:var(--rp)}
+.stk .bar.hot span{background:var(--acc)}
+.stk .foot{margin-top:14px}
+.stk .foot .btn{min-height:44px;font-size:14px}
+@media (max-width:600px){
+  .stk .row .flex-b{flex-wrap:wrap}
+  .stk .row b.r{text-align:left;flex-basis:100%}
+  .stk .foot .btn{width:100%;justify-content:center}
+}

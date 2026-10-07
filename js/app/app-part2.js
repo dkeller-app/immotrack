@@ -93,7 +93,11 @@ function _buildEmailCtxFromRef(ref, extraCtx) {
     entite: ent,
     locataire,
     garant: bail.garant ? { nom: bail.garant } : null,
-    montant: (Number(bail.hc)||Number(log.hc)||0) + (Number(bail.ch)||Number(log.ch)||0),
+    // R-0 : le loyer EN VIGUEUR aujourd'hui (même règle que la fiche du bien, `loyerDuLotA` du moteur) —
+    // un e-mail parti après une révision IRL n'annonce plus l'ancien loyer du bail. Un envoi qui porte sur
+    // une date (période réclamée, quittance) fournit son propre `montant` via extraCtx, qui l'emporte
+    // (mise en demeure : montant saisi). Aucun acte signé ni document déjà généré n'est relu ici.
+    montant: (function(){ const m = _loyerEnVigueurLot(ref, bail, log); return m == null ? '‹montant›' : m; })(),
     periode: '', // À compléter par extraCtx selon le type
     // Date en clair : ces modèles l'impriment en toutes lettres (« Fait à …, le … »).
     dateLettre: fd(td()),
@@ -387,63 +391,10 @@ function _procedureJudiciaireEtat(procedure, dateRef) {
   return out;
 }
 
-function _listerImpayesActifs(logements, baux, mouvements, dateRef) {
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
-  const out = [];
-  for (const l of (logements||[])) {
-    // R-0 : le BAIL décide, pas le cache. La condition de bail juste dessous suffisait déjà ;
-    // `!l.locataire` ne faisait qu'exclure les baux repris. Ajout de `finEffective` : un bail
-    // sorti sans passer par la clôture ne loue plus rien (règle `_bienActiveBail`).
-    // ⚠️ Cette copie n'a AUCUN appelant (celle de `js/core/gestion-dg-impayes.js` la recouvre
-    // sur `window` via `js/main.js`). Corrigée pour que les deux disent la même chose.
-    if (!l || l._deleted || l.archived) continue;
-    const bail = baux && baux[l.ref];
-    if (!bail || bail.cloture || bail.finEffective) continue;
-    const impayeCumule = _calculerLoyerImpayeCumule(bail, mouvements, today);
-    if (impayeCumule < 1) continue;
-    const paiements = (mouvements||[])
-      .filter(m => m && !m._deleted && m.qui === l.ref && (m.cr||0) > 0 && m.date)
-      .sort((a,b) => (b.date||'').localeCompare(a.date||''));
-    const dernierPaiement = paiements.length ? paiements[0].date : null;
-    const debut = bail.debut ? new Date(bail.debut + 'T00:00:00') : null;
-    let ancienneteJours = 0;
-    if (debut) {
-      const lastPay = dernierPaiement ? new Date(dernierPaiement + 'T00:00:00') : debut;
-      ancienneteJours = Math.floor((today.getTime() - lastPay.getTime()) / 86400000);
-    }
-    let statut = 'recent';
-    if (ancienneteJours > 90) statut = 'critique';
-    else if (ancienneteJours > 45) statut = 'serieux';
-    else if (ancienneteJours > 15) statut = 'a_relancer';
-    const proc = bail.procedure ? _procedureJudiciaireEtat(bail.procedure, today) : null;
-    if (proc && proc.etat !== PROCEDURE_ETAT.AUCUNE) statut = 'procedure_' + proc.etat;
-    out.push({
-      ref: l.ref, locataire: l.locataire,
-      montantImpaye: impayeCumule, ancienneteJours, dernierPaiement, statut,
-      procedureEtat: proc ? proc.etat : PROCEDURE_ETAT.AUCUNE
-    });
-  }
-  const procRank = { jugement:5, assignation:4, commandement_payer:3, mise_en_demeure:2, cloturee:1, aucune:0 };
-  out.sort((a,b) => {
-    const ra = procRank[a.procedureEtat] || 0;
-    const rb = procRank[b.procedureEtat] || 0;
-    if (rb !== ra) return rb - ra;
-    return b.ancienneteJours - a.ancienneteJours;
-  });
-  return out;
-}
-
 // ════════════════════════════════════════════════════════════════════════════
-// QUITTANCES ACTIVES v15.10 Sprint 11 V1.1 — Shadow inline des helpers purs
-// Module js/core/quittances-actives.js exposés à window via main.js,
-// version inline ci-dessous pour mode file://.
+// Mois de quittance en toutes lettres (« janvier 2026 ») → Date du 1er du mois.
+// Lu par _dernierMoisQuittanceYm et _hlNbQuittances.
 // ════════════════════════════════════════════════════════════════════════════
-
-const QUITTANCE_STATUS = {
-  ATTENDUE: 'attendue', PAYEE: 'payée', PARTIELLE: 'partielle',
-  IMPAYEE_J5: 'impayée_J5', IMPAYEE_J15: 'impayée_J15',
-  IMPAYEE_J30: 'impayée_J30', MISE_EN_DEMEURE: 'mise_en_demeure'
-};
 
 const _QA_MOIS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
@@ -460,50 +411,6 @@ function _qaMoisToDate(moisStr) {
   const iso = s.match(/^(\d{4})-(\d{2})/);
   if (iso) return new Date(`${iso[1]}-${iso[2]}-01T00:00:00`);
   return null;
-}
-
-// CDC-QUITTANCES-IRL étape 1 (C3/I6) — `_qaMatcheMois` est SUPPRIMÉ : il rattachait un
-// paiement au mois calendaire de sa date (7ᵉ moteur d'imputation). Le montant imputé à un
-// mois vient désormais de la cascade unique, via `_loyerPayeDuMois(ref, ym)`.
-function _statutQuittance(quittance, ctx, dateRef) {
-  if (!quittance) {
-    return { statut: QUITTANCE_STATUS.ATTENDUE, montantAttendu: 0, montantPaye: 0, joursRetard: 0 };
-  }
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
-  const montantAttendu = (Number(quittance.hc)||0) + (Number(quittance.ch)||0);
-  const mois = quittance.mois;
-  const montantPaye = Math.max(0, Number(ctx && ctx.montantPaye) || 0);
-  if (quittance.miseEnDemeureEnvoyee) {
-    return { statut: QUITTANCE_STATUS.MISE_EN_DEMEURE, montantAttendu, montantPaye, joursRetard: 0 };
-  }
-  if (montantPaye >= montantAttendu && montantAttendu > 0) {
-    return { statut: QUITTANCE_STATUS.PAYEE, montantAttendu, montantPaye, joursRetard: 0 };
-  }
-  if (montantPaye > 0 && montantPaye < montantAttendu) {
-    return { statut: QUITTANCE_STATUS.PARTIELLE, montantAttendu, montantPaye, joursRetard: 0 };
-  }
-  const dateEch = quittance.dateEcheance ? new Date(quittance.dateEcheance + 'T00:00:00') : _qaMoisToDate(mois);
-  if (!dateEch || Number.isNaN(dateEch.getTime())) {
-    return { statut: QUITTANCE_STATUS.ATTENDUE, montantAttendu, montantPaye, joursRetard: 0 };
-  }
-  const joursRetard = Math.floor((today.getTime() - dateEch.getTime()) / 86400000);
-  if (joursRetard < 5) return { statut: QUITTANCE_STATUS.ATTENDUE, montantAttendu, montantPaye, joursRetard };
-  if (joursRetard < 15) return { statut: QUITTANCE_STATUS.IMPAYEE_J5, montantAttendu, montantPaye, joursRetard };
-  if (joursRetard < 30) return { statut: QUITTANCE_STATUS.IMPAYEE_J15, montantAttendu, montantPaye, joursRetard };
-  return { statut: QUITTANCE_STATUS.IMPAYEE_J30, montantAttendu, montantPaye, joursRetard };
-}
-
-function _escaladeAlerte(statut) {
-  switch (statut) {
-    case QUITTANCE_STATUS.PAYEE:        return { severity:'info', label:'✓ Payée', emailType:null };
-    case QUITTANCE_STATUS.PARTIELLE:    return { severity:'warn', label:'⚠ Paiement partiel', emailType:'rappel-impaye-1' };
-    case QUITTANCE_STATUS.ATTENDUE:     return { severity:'info', label:'⏳ Attendue', emailType:'avis-echeance' };
-    case QUITTANCE_STATUS.IMPAYEE_J5:   return { severity:'warn', label:'⚠ Impayée J+5', emailType:'rappel-impaye-1' };
-    case QUITTANCE_STATUS.IMPAYEE_J15:  return { severity:'warn', label:'⚠ Impayée J+15', emailType:'rappel-impaye-2' };
-    case QUITTANCE_STATUS.IMPAYEE_J30:  return { severity:'err',  label:'🚨 Impayée J+30 — Mise en demeure', emailType:'rappel-impaye-3' };
-    case QUITTANCE_STATUS.MISE_EN_DEMEURE: return { severity:'err', label:'🚨 Mise en demeure envoyée', emailType:null };
-    default: return { severity:'info', label:'Statut inconnu', emailType:null };
-  }
 }
 
 /**
@@ -8054,7 +7961,7 @@ function delEDL(id, opts){
 function rParams() {
   rParamsCats(); rParamsGlobal(); rMandRef();            // PC-REFONTE : Pièces EDL + Thème retirés
   if (typeof rIRLParams === 'function') rIRLParams();   // audit C1 : la table IRL vit ici (D20)
-  rParamsRules(); rParamsBail(); updateDBSizeBadge();   // PC-REFONTE étape 3 : panneau Bail
+  rParamsRules(); rParamsBail(); _renderStockageCard();   // PC-REFONTE étape 3 : panneau Bail
   // v15.04 USER-PROFILE-FILTERS Phase 4 : rendu de l'onglet Profil utilisateur
   if (typeof rParamsProfile === 'function') rParamsProfile();
 }
@@ -8303,14 +8210,6 @@ function getCurrentTenant(ref) {
     ? b.locataires
     : (b.locataire ? [{ nom: b.locataire, tel: b.tel||'', email: b.email||b.mail||'' }] : []);
   return locs[0] || null;
-}
-
-// Loyer du bail courant : { hc, ch, total } ou null si vacant
-function getCurrentRent(ref) {
-  const b = getCurrentBailFor(ref);
-  if(!b) return null;
-  const hc = +b.hc || 0, ch = +b.ch || 0;
-  return { hc, ch, total: hc + ch };
 }
 
 // Capture deep des champs bien dans bail.signatures.bailSnapshot.log
@@ -8617,25 +8516,59 @@ function _readLogForBail(bail, log) {
   });
 }
 
-// Filet avant migration majeure — NEUTRALISÉ (STOCKAGE lot 1, CDC docs/CDC-STOCKAGE.md §3.4, S-2).
-// Avant : la base entière sérialisée sous la clé `immotrack_backup_<label>_<date>` — une COPIE
-// COMPLÈTE de la base par migration, par jour et par appareil, jamais purgée, qui partageait le
-// budget (~5 Mo) du save principal : c'est la cause de l'incident « Mémoire pleine » du 28/08.
-// En boot cloud, ces migrations tournent d'ailleurs sur une base VIDE (avant l'hydratation) : la
-// copie ne protégeait rien. Plus aucune écriture localStorage ici. Le filet IndexedDB avec rotation
-// (1 par migration, 3 au plus, 30 jours, purgé au logout — D2 C) arrive au lot 2, à cet endroit.
-// Les anciennes copies sont retirées au démarrage par _stockageNettoyer().
-function _backupBeforeMigration(label) {
-  console.info('[ARCHI] filet pré-migration « ' + label + ' » : aucune copie locale (STOCKAGE lot 1, filet IndexedDB au lot 2)');
-  return null;
+// ═══ STOCKAGE lot 2 — FILET AVANT MIGRATION (CDC docs/CDC-STOCKAGE.md §3.4, D2 C) ═══
+// Avant le lot 1 : la base entière sous `immotrack_backup_<label>_<date>` en localStorage — une COPIE
+// COMPLÈTE par migration, par jour et par appareil, jamais purgée, qui partageait le budget (~5 Mo) du
+// save principal : la cause de l'incident « Mémoire pleine » du 28/08 (neutralisé au lot 1).
+// Désormais : IndexedDB `immotrack_backup` (store `handles`, celui de la sauvegarde de sécurité, sans
+// changement de version), clé `filet:<KEY>:<label>`, 1 par migration, 3 au plus par espace de noms,
+// 30 jours, purgés au logout et au changement d'utilisateur. Décisions dans js/core/filets-migration.js
+// (testé, exposé sous window._filets). Aucune écriture localStorage (S-2, G6).
+// La base est FIGÉE ici, de façon synchrone (JSON) : l'écriture IndexedDB est asynchrone et la
+// migration modifie DB juste après l'appel. Le filet ne bloque jamais une migration (ne lève pas).
+// Restauration (procédure de support) : _filets.lireFilet(_filetsIdb(), KEY, label) → _backupRestoreApply.
+// Point d'accroche UNIQUE pour toute migration future qui réécrit la base.
+let _filetsAdaptateur = null;
+function _filetsIdb() {
+  const F = (typeof window !== 'undefined') ? window._filets : null;
+  if (!F || typeof F.adaptateurIndexedDB !== 'function' || typeof indexedDB === 'undefined') return null;
+  if (!_filetsAdaptateur) { try { _filetsAdaptateur = F.adaptateurIndexedDB(indexedDB); } catch (e) { return null; } }
+  return _filetsAdaptateur;
+}
+function _filetAvantMigration(label) {
+  const F = (typeof window !== 'undefined') ? window._filets : null;
+  const A = _filetsIdb();
+  if (!F || !A) {
+    console.info('[ARCHI] filet pré-migration « ' + label + ' » : non posé (module ou IndexedDB indisponible)');
+    return Promise.resolve(null);
+  }
+  let json;
+  try { json = JSON.stringify(DB); }
+  catch (e) { console.warn('[ARCHI] filet pré-migration « ' + label + ' » : base non sérialisable', e); return Promise.resolve(null); }
+  return F.poserFilet(A, { ns: KEY, label, json }).then(r => {
+    if (r && r.ok) console.info('[ARCHI] filet pré-migration « ' + label + ' » posé (IndexedDB, ' + json.length + ' caractères)'
+      + (r.supprimees.length ? ', ' + r.supprimees.length + ' ancien(s) retiré(s)' : ''));
+    else console.warn('[ARCHI] filet pré-migration « ' + label + ' » non posé', r && r.erreur);
+    return r;
+  }, e => { console.warn('[ARCHI] filet pré-migration « ' + label + ' »', e); return null; });
+}
+// Passe de démarrage (D2 C) : les filets et la copie de la base illisible de plus de 30 jours partent.
+function _filetsExpirer() {
+  const F = (typeof window !== 'undefined') ? window._filets : null;
+  const A = _filetsIdb();
+  if (!F || !A) return Promise.resolve([]);
+  return F.expirerCopies(A).then(parties => {
+    if (parties.length) console.info('[stockage] ' + parties.length + ' copie(s) de la base de plus de 30 jours retirée(s) (IndexedDB)', parties);
+    return parties;
+  }, () => []);
 }
 
 // Migration ARCHI-DB-DOUBLONS Phase 2 — auto au boot, idempotente.
 // Implémente les décisions Q4=B (migration hard) + Q4bis (typeUsage) + Q5=A (snapshot)
 // + Q7=A (auto au boot).
 // Étapes :
-//   1. Point d'accroche du filet pré-migration _backupBeforeMigration('archi-v1') — NEUTRALISÉ
-//      depuis STOCKAGE lot 1 (aucune copie locale) ; filet IndexedDB avec rotation au lot 2.
+//   1. Filet pré-migration _filetAvantMigration('archi-v1') (STOCKAGE lot 2, IndexedDB) — hors boot
+//      cloud : la migration y tourne sur une base VIDE (avant l'hydratation), le filet ne protégerait rien.
 //   2. Pour chaque bail signé : enrichir bailSnapshot.log si manquant
 //   3. Pour chaque log : copier champs bien depuis bail courant si absents
 //   4. Pour chaque log : déduire log.typeUsage depuis le contexte
@@ -8659,12 +8592,12 @@ function _archiV1MarkDone() {
 function _migrateArchiV1IfNeeded() {
   if(!DB.logements) return; // initDB pas encore prête, sera rappelée plus tard
 
-  // Filet pré-migration (neutralisé, STOCKAGE lot 1) et toast UNE SEULE FOIS (premier boot, marqueur localStorage)
+  // Filet pré-migration (IndexedDB, STOCKAGE lot 2 ; pas en boot cloud) et toast UNE SEULE FOIS (premier boot, marqueur localStorage)
   // L'enrichissement des logements/snapshots tourne à CHAQUE boot (idempotent via if(!log.X))
   // → robuste pour les nouveaux logements créés entre Phase 2 et Phase 3+,
   //    pour les imports JSON cross-device, ET pour le mode lecture seule Drive.
   const isFirstRun = !_archiV1IsDone();
-  if(isFirstRun) _backupBeforeMigration('archi-v1');
+  if(isFirstRun && !_CLOUD_BOOT) _filetAvantMigration('archi-v1');   // boot cloud : base vide, rien à protéger
 
   let nbBauxSnapshotEnrichis = 0;
   let nbLogsEnrichis = 0;
@@ -8896,7 +8829,7 @@ const _ARCHI_V4B_DESC_FIELDS = [
 function _migrateArchiV4bIfNeeded() {
   if(!DB.logements || !DB.baux) return;
   const isFirstRun = !_archiV4bIsDone();
-  if(isFirstRun) { try { _backupBeforeMigration('archi-v4b'); } catch(e) {} }
+  if(isFirstRun && !_CLOUD_BOOT) _filetAvantMigration('archi-v4b');   // boot cloud : base vide, rien à protéger
 
   let nbBauxNettoyes = 0, nbEquipMigres = 0;
 
@@ -9931,284 +9864,6 @@ function _renderEntFicheImmeubles(ent) {
 // Vue agrégée tous logements/immeubles : KPIs annuels + tableau mensuel 12 mois
 // + sparkline encaissé/dépensé + export CSV annuel/mensuel + part bailleur 2044
 // ════════════════════════════════════════════════════════════════════════════
-
-// Calcule l'agrégat compta annuel d'un bailleur (toutes catégories, tous logements)
-// Retourne :
-//  - byMonth : array de 12 objets {mois:'YYYY-MM', encaisse, depense, solde}
-//  - byCat   : map { 'Loyers': {encaisse, depense}, 'Charges': {...}, ... }
-//  - totals  : { encaisse, depense, solde }
-//  - kpiOcc  : taux d'occupation (% jours occupés sur la période)
-//  - manqueAGagner : loyer attendu - encaissé (sur les logements actifs)
-//  - partBailleur  : montant restant à charge bailleur (vacances + exclus, via computeRegul)
-function _computeComptaBailleur(ent, year, activeLogs) {
-  const yr = parseInt(year);
-  const yearStart = `${yr}-01-01`;
-  const yearEnd   = `${yr}-12-31`;
-  const refsBailleur = (activeLogs || []).map(l => l.ref);
-  const immsBailleur = (ent.immeubles||[]).filter(_isAlive).map(i => i.nom);
-
-  // Mvts liés au bailleur : qui = ref logement OU imm ∈ immsBailleur OU qui = "SCI:NomEnt"
-  const mvts = (DB.mouvements||[]).filter(_isAlive).filter(m => {
-    if(m.date < yearStart || m.date > yearEnd) return false;
-    if(refsBailleur.includes(m.qui)) return true;
-    if(m.qui === 'SCI:'+ent.nom) return true;
-    if(!m.qui && m.imm && immsBailleur.includes(m.imm)) return true;
-    return false;
-  });
-
-  const byMonth = [];
-  for(let m = 1; m <= 12; m++) {
-    const mois = `${yr}-${String(m).padStart(2,'0')}`;
-    const subset = mvts.filter(x => (x.date||'').startsWith(mois));
-    byMonth.push({
-      mois,
-      encaisse: subset.reduce((s,x) => s + (+x.cr||0), 0),
-      depense:  subset.reduce((s,x) => s + (+x.db||0), 0),
-      solde: 0
-    });
-    byMonth[byMonth.length-1].solde = byMonth[byMonth.length-1].encaisse - byMonth[byMonth.length-1].depense;
-  }
-
-  const byCat = {};
-  mvts.forEach(m => {
-    const c = m.cat || '(sans catégorie)';
-    if(!byCat[c]) byCat[c] = { encaisse: 0, depense: 0 };
-    byCat[c].encaisse += +m.cr||0;
-    byCat[c].depense  += +m.db||0;
-  });
-
-  const totalEnc = mvts.reduce((s,m)=>s+(+m.cr||0), 0);
-  const totalDep = mvts.reduce((s,m)=>s+(+m.db||0), 0);
-
-  // Occupation moyenne année (en jours occupés sur jours ouvrables)
-  const totalDaysYear = (yr % 4 === 0 && (yr % 100 !== 0 || yr % 400 === 0)) ? 366 : 365;
-  let occJoursTotal = 0, capaciteJours = 0;
-  (activeLogs||[]).forEach(l => {
-    capaciteJours += totalDaysYear;
-    // Bail actif : compter les jours d'occupation dans l'année
-    const bail = DB.baux[l.ref];
-    if(bail && _isAlive(bail) && bail.debut) {
-      const debut = new Date(Math.max(new Date(bail.debut).getTime(), new Date(yearStart).getTime()));
-      const _finOcc = _bailFinOccupation(bail, false); // tacite reconduction : bail nu/meublé en cours = ouvert
-      const fin   = _finOcc ? new Date(Math.min(new Date(_finOcc).getTime(), new Date(yearEnd).getTime())) : new Date(yearEnd);
-      const days = Math.max(0, Math.round((fin - debut) / 86400000) + 1);
-      occJoursTotal += days;
-    }
-  });
-  const kpiOcc = capaciteJours > 0 ? Math.round((occJoursTotal / capaciteJours) * 100) : 0;
-
-  // Manque à gagner : pour chaque logement, loyer attendu - loyer encaissé sur la période
-  let loyerAttendu = 0;
-  let loyerEncaisse = 0;
-  // R-3 (étape 8) : la borne « mois échus » vient de LA fenêtre d'exigibilité du socle
-  // (finances-window), plus d'un calcul de date maison — même règle que l'onglet Finances.
-  const _wExF = (typeof window._finWindowExigibilite === 'function') ? window._finWindowExigibilite({ year: yr }) : null;
-  (activeLogs||[]).forEach(l => {
-    const today = new Date();
-    const isCurYr = today.getFullYear() === yr;
-    const lastMonth = _wExF ? _wExF.lastMonth : (isCurYr ? today.getMonth() + 1 : 12);
-    if(typeof _computeExpectedRent === 'function') {
-      loyerAttendu += _computeExpectedRent(l.ref, yr, lastMonth) || 0;
-    }
-    // R0-G : au référentiel, pas au libellé (cf. `_finLotCatRole`).
-    loyerEncaisse += mvts.filter(m => m.qui === l.ref && _finLotEstLoyer(m)).reduce((s,m)=>s+_finLotNet(m), 0);
-  });
-  const manqueAGagner = Math.max(0, loyerAttendu - loyerEncaisse);
-
-  // Part bailleur 2044 (ligne 225) : lecteur unique _rgSegments225 — immeubles du bailleur, périmètre
-  // FONCIER (lots meublés exclus, comme l'assistant 2044), hors parts déjà déduites sur leur ligne.
-  let partBailleur = 0;
-  try {
-    if(typeof computeRegul === 'function') {
-      const _splitCb = (typeof window.splitFonciereLots === 'function')
-        ? window.splitFonciereLots(activeLogs || [], { baux: DB.baux || {}, bauxHisto: DB.baux_historique || [], year: yr, finOccupation: _bailFinOccupation })
-        : { fonciereRefs: refsBailleur };
-      partBailleur = _rgSegments225(computeRegul(yearStart, yearEnd), immsBailleur, _splitCb.fonciereRefs).total;
-    }
-  } catch(e) { console.warn('[_computeComptaBailleur] partBailleur', e); }
-
-  return {
-    byMonth, byCat,
-    totals: { encaisse: totalEnc, depense: totalDep, solde: totalEnc - totalDep },
-    kpiOcc, manqueAGagner, loyerAttendu, partBailleur
-  };
-}
-
-// Sparkline SVG natif : barres encaissé (vert) / dépensé (rouge) sur 12 mois
-function _renderComptaSparkline(byMonth) {
-  const maxV = Math.max(1, ...byMonth.map(m => Math.max(m.encaisse, m.depense)));
-  const W = 720, H = 90, pad = 18;
-  const colW = (W - pad*2) / 12;
-  const barW = Math.max(4, Math.min(12, colW * 0.32));
-  const moisLabels = ['J','F','M','A','M','J','J','A','S','O','N','D'];
-  const bars = byMonth.map((m, i) => {
-    const cx = pad + colW * i + colW / 2;
-    const hEnc = (m.encaisse / maxV) * (H - 30);
-    const hDep = (m.depense  / maxV) * (H - 30);
-    const yEnc = H - 18 - hEnc;
-    const yDep = H - 18 - hDep;
-    return `
-      <rect x="${cx - barW - 1}" y="${yEnc}" width="${barW}" height="${hEnc}" fill="#10b981" rx="1"/>
-      <rect x="${cx + 1}" y="${yDep}" width="${barW}" height="${hDep}" fill="#dc2626" rx="1"/>
-      <text x="${cx}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--t3)">${moisLabels[i]}</text>
-    `;
-  }).join('');
-  const refLines = [0.25, 0.5, 0.75].map(r => {
-    const y = H - 18 - r * (H - 30);
-    return `<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="var(--bor)" stroke-dasharray="2,2" opacity="0.4"/>`;
-  }).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:${H}px;display:block">
-    ${refLines}
-    ${bars}
-  </svg>`;
-}
-
-// Panel principal "Compta globale"
-// BIENS étape 10 (décision 2 du 11/08) — CODE MORT ASSUMÉ : la COMPTABILITÉ GLOBALE du bailleur
-// est supprimée de l'écran, le P&L de Finances suffit. Partent avec elle : KPIs annuels, tableau
-// mensuel 12 mois, sparkline encaissé/dépensé, exports CSV annuel et mensuel par bailleur, part
-// bailleur 2044, sélecteur d'année. Le fiscal 2044 lui-même n'est PAS concerné (il ne passe pas
-// par ce panneau). Seul l'export CSV par bailleur n'a pas d'équivalent connu dans Finances
-// aujourd'hui — d'où la conservation de la fonction, sans appelant, plutôt que sa suppression.
-function _renderEntFichePanelComptaGlobale(ent, activeLogs) {
-  const yr = _entFicheComptaYear || new Date().getFullYear();
-  const data = _computeComptaBailleur(ent, yr, activeLogs);
-  const yrs = [yr, yr-1, yr-2, yr-3];
-  const yrSel = yrs.map(y => `<option value="${y}"${y===yr?' selected':''}>${y}</option>`).join('');
-
-  // Tableau mensuel
-  const monthRows = data.byMonth.map(m => {
-    const moisLabel = m.mois.slice(5)+'/'+m.mois.slice(2,4);
-    return `<tr>
-      <td>${moisLabel}</td>
-      <td class="num pos">${m.encaisse?fmt(m.encaisse):'—'}</td>
-      <td class="num neg">${m.depense?fmt(m.depense):'—'}</td>
-      <td class="num ${m.solde>=0?'pos':'neg'}"><b>${fmt(m.solde)}</b></td>
-    </tr>`;
-  }).join('');
-
-  // Tableau par catégorie (top 10 par flux)
-  const catRows = Object.entries(data.byCat)
-    .sort((a,b) => (Math.abs(b[1].encaisse-b[1].depense)) - (Math.abs(a[1].encaisse-a[1].depense)))
-    .map(([cat, v]) => `<tr>
-      <td>${escHtml(cat)}</td>
-      <td class="num pos">${v.encaisse?fmt(v.encaisse):'—'}</td>
-      <td class="num neg">${v.depense?fmt(v.depense):'—'}</td>
-      <td class="num ${(v.encaisse-v.depense)>=0?'pos':'neg'}"><b>${fmt(v.encaisse-v.depense)}</b></td>
-    </tr>`).join('');
-
-  const occCls = data.kpiOcc >= 95 ? 'k-ok' : (data.kpiOcc >= 80 ? '' : 'k-warn');
-  const soldeCls = data.totals.solde >= 0 ? 'k-ok' : 'k-warn';
-  const manqueCls = data.manqueAGagner > 0 ? 'k-warn' : 'k-ok';
-
-  return `
-    <div class="flex-b" style="margin:14px 0 12px;flex-wrap:wrap;gap:10px">
-      <div class="flex-c" style="gap:10px;align-items:center">
-        <span class="mu sm">Année :</span>
-        <select class="inp" onchange="setEntFicheComptaYear(this.value)" style="width:100px;padding:4px 8px">${yrSel}</select>
-      </div>
-      <div class="flex-c" style="gap:6px;flex-wrap:wrap">
-        <button class="btn bp bb" onclick="openWizard2044(${+ent.id})" title="Préparer la déclaration CERFA 2044 (revenus fonciers)">${_uiIcon('doc-text')} Wizard 2044</button>
-        <button class="btn bs bb" onclick="_exportComptaBailleurCsv(${+ent.id},${yr},'annuel')" title="Une ligne par catégorie">${_uiIcon('download')} Export CSV annuel</button>
-        <button class="btn bs bb" onclick="_exportComptaBailleurCsv(${+ent.id},${yr},'mensuel')" title="12 lignes (1 par mois)">${_uiIcon('download')} Export CSV mensuel</button>
-      </div>
-    </div>
-
-    <!-- KPIs -->
-    <div class="kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
-      <div class="kpi"><div class="kv">${fmt(data.totals.encaisse)}</div><div class="kl">Encaissé ${yr}</div></div>
-      <div class="kpi"><div class="kv neg">${fmt(data.totals.depense)}</div><div class="kl">Dépensé ${yr}</div></div>
-      <div class="kpi"><div class="kv ${soldeCls}">${fmt(data.totals.solde)}</div><div class="kl">Solde net</div></div>
-      <div class="kpi"><div class="kv ${occCls}">${data.kpiOcc}<small>%</small></div><div class="kl">Occupation moy.</div></div>
-      <div class="kpi"><div class="kv ${manqueCls}">${fmt(data.manqueAGagner)}</div><div class="kl">Manque à gagner</div></div>
-      <div class="kpi" title="Charges récupérables restées à la charge du bailleur (vacance, logements exclus du compteur) — 2044 ligne 225, lots en location nue ; hors charges déjà déduites sur leur propre ligne (copropriété : 229)"><div class="kv ${data.partBailleur>0?'k-warn':''}">${fmt(data.partBailleur)}</div><div class="kl">Part bailleur 2044</div></div>
-    </div>
-
-    <!-- Sparkline -->
-    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:14px 16px;margin-bottom:14px">
-      <div class="flex-b" style="margin-bottom:8px">
-        <b style="font-size:13px">Cash-flow mensuel ${yr}</b>
-        <div class="flex-c mu sm" style="font-size:11px;gap:14px">
-          <span><span style="display:inline-block;width:10px;height:10px;background:#10b981;border-radius:2px;vertical-align:middle"></span> Encaissé</span>
-          <span><span style="display:inline-block;width:10px;height:10px;background:#dc2626;border-radius:2px;vertical-align:middle"></span> Dépensé</span>
-        </div>
-      </div>
-      ${_renderComptaSparkline(data.byMonth)}
-    </div>
-
-    <!-- 2 tableaux côte à côte sur desktop, empilés mobile (cf CSS .entf-compta-tables) -->
-    <div class="entf-compta-tables">
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:14px 16px">
-        <b style="font-size:13px;display:block;margin-bottom:8px">Détail mensuel ${yr}</b>
-        <table class="tbl" style="font-size:12px"><thead><tr>
-          <th>Mois</th><th class="num">Encaissé</th><th class="num">Dépensé</th><th class="num">Solde</th>
-        </tr></thead><tbody>${monthRows}</tbody></table>
-      </div>
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:14px 16px">
-        <b style="font-size:13px;display:block;margin-bottom:8px">Par catégorie ${yr}</b>
-        ${catRows ? `<table class="tbl" style="font-size:12px"><thead><tr>
-          <th>Catégorie</th><th class="num">Encaissé</th><th class="num">Dépensé</th><th class="num">Solde</th>
-        </tr></thead><tbody>${catRows}</tbody></table>` : '<p class="mu sm" style="text-align:center;padding:20px">Aucun mouvement sur cette année</p>'}
-      </div>
-    </div>
-    <p class="mu sm" style="font-size:11px;margin-top:12px;font-style:italic">
-      💡 Cette vue agrège tous les logements et immeubles du bailleur. Pour le détail par logement, voir la fiche logement → onglet 💰 Comptabilité. Pour la régul des charges récupérables, voir l'onglet ⚖ Régularisation.
-    </p>
-  `;
-}
-
-// Export CSV — mode 'annuel' (1 ligne par catégorie) ou 'mensuel' (12 lignes)
-function _exportComptaBailleurCsv(entId, year, mode) {
-  const ent = (DB.entites||[]).find(e => +e.id === +entId);
-  if(!ent) { showToast('Bailleur introuvable','err'); return; }
-  const activeLogs = (DB.logements||[]).filter(_isAlive).filter(l => l.entity === ent.nom && !l.archived);
-  const data = _computeComptaBailleur(ent, year, activeLogs);
-  const sep = ';'; // séparateur Excel-friendly FR
-  let lines = [];
-  const csvEsc = (s) => {
-    let v = String(s||''); if(/^[=+@\t\r]/.test(v)||/^-(?![0-9])/.test(v)) v = "'" + v;  // injection de formule CSV
-    if(v.includes(sep) || v.includes('"') || v.includes('\n')) return '"' + v.replace(/"/g,'""') + '"';
-    return v;
-  };
-  // Header info
-  lines.push(`Bailleur${sep}${csvEsc(ent.nom)}`);
-  lines.push(`Année${sep}${year}`);
-  lines.push(`Type export${sep}${mode}`);
-  lines.push(`Généré${sep}${new Date().toISOString().slice(0,16).replace('T',' ')}`);
-  lines.push('');
-  if(mode === 'annuel') {
-    lines.push(['Catégorie','Encaissé','Dépensé','Solde'].map(csvEsc).join(sep));
-    Object.entries(data.byCat)
-      .sort((a,b) => Math.abs(b[1].encaisse-b[1].depense) - Math.abs(a[1].encaisse-a[1].depense))
-      .forEach(([cat, v]) => {
-        lines.push([cat, v.encaisse.toFixed(2), v.depense.toFixed(2), (v.encaisse-v.depense).toFixed(2)].map(csvEsc).join(sep));
-      });
-    lines.push('');
-    lines.push(['TOTAL', data.totals.encaisse.toFixed(2), data.totals.depense.toFixed(2), data.totals.solde.toFixed(2)].map(csvEsc).join(sep));
-    lines.push('');
-    lines.push(`Occupation moyenne${sep}${data.kpiOcc}%`);
-    lines.push(`Manque à gagner${sep}${data.manqueAGagner.toFixed(2)}`);
-    lines.push(`Part bailleur (2044)${sep}${data.partBailleur.toFixed(2)}`);
-  } else {
-    lines.push(['Mois','Encaissé','Dépensé','Solde'].map(csvEsc).join(sep));
-    data.byMonth.forEach(m => {
-      lines.push([m.mois, m.encaisse.toFixed(2), m.depense.toFixed(2), m.solde.toFixed(2)].map(csvEsc).join(sep));
-    });
-    lines.push('');
-    lines.push(['TOTAL', data.totals.encaisse.toFixed(2), data.totals.depense.toFixed(2), data.totals.solde.toFixed(2)].map(csvEsc).join(sep));
-  }
-  const csv = '﻿' + lines.join('\r\n'); // BOM UTF-8 pour Excel
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `compta_${ent.nom.replace(/[^a-z0-9]+/gi,'_')}_${year}_${mode}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast(`✓ Export ${mode} téléchargé`,'ok');
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // v14.75 LEGAL-2044 — Wizard déclaration revenus fonciers (formulaire CERFA 2044)
@@ -11250,8 +10905,11 @@ function _renderLogFicheHeroStats(log, ref) {
   // ── KPI 1 : Loyer mensuel
   let loyerKPI;
   if(bail) {
-    const loyer = (+bail.hc || 0) + (+bail.ch || 0);
-    loyerKPI = { v: fmt(loyer), unit: '/mois', label: 'Loyer actuel', cls: 'k-money' };
+    // R-0 (lot 1, R5) : le loyer EN VIGUEUR aujourd'hui — LA règle partagée avec la fiche téléphone.
+    const loyer = _loyerEnVigueurLot(ref, bail, log);
+    loyerKPI = (loyer == null)
+      ? { v: '—', unit: '', label: 'Loyer à renseigner', cls: 'k-mute' }     // bail sans montant : rien d'inventé
+      : { v: fmt(loyer), unit: '/mois', label: 'Loyer actuel', cls: 'k-money' };
   } else {
     // LOYER-REFERENCE — bien vacant : afficher le LOYER SOUHAITÉ (loyer de référence), éditable (✏️),
     // avec rappel du dernier bail en sous-titre s'il diffère (variante B). C'est cette valeur qui
@@ -13767,6 +13425,40 @@ function _histoBailEnVigueur(ref){
   return (typeof window!=='undefined' && typeof window._bailHistoEnVigueur==='function')
     ? window._bailHistoEnVigueur(ref, DB.loyerBareme||[], _histoBailTodayIso()) : null;
 }
+// LE loyer mensuel EN VIGUEUR d'un lot (hc + ch) — R-0 : la règle « loyer d'un lot à une date » du
+// moteur (`loyerDuLotA`, js/core/legal-bilan.js : barème en vigueur (même sélecteur que duMois) →
+// bail en cours → dernier bail terminé → bail suivant → fiche du lot), à la date LOCALE du jour.
+// Lue par la fiche PC (« Loyer actuel »), la fiche téléphone (« Loyer ») et le contexte des e-mails.
+// Pas le dû du mois (`_duMoisLot`, proratisé) ni le taux du dernier jour du mois (une révision au 20
+// s'affichait dès le 1er).
+// Le lot est « loué » à son bail COURANT (audit 06/10) : si ce bail commence plus tard (relocation
+// signée d'avance), on lit à SA date de début — au jour même, « dernier bail terminé » rendait le
+// loyer de l'ancien locataire sous le nom du nouveau. Bail courant SANS date de début : le moteur ne
+// peut pas le placer dans le temps → ce que porte ce bail.
+// NE RIEN INVENTER (pilotage 06/10) : bail courant SANS MONTANT (loyer HC vide) et aucune période du
+// barème qui le fixe à la date lue → null (« Loyer à renseigner »). Jamais le loyer de la fiche du lot
+// (souvent le loyer SOUHAITÉ de la prochaine relocation). Un 0 réellement saisi vaut 0.
+// Repli file:// (modules absents) : ce que porte le bail, même règle.
+function _loyerEnVigueurLot(ref, bail, log){
+  // « vide » = pas un montant valide (même règle que `num` de loyerDuLotA / `montantSaisi`) : '', espaces,
+  // null, texte, négatif. Un 0 réellement saisi est un montant.
+  const _vide = (v) => { if (v == null || String(v).trim() === '') return true; const x = Number(v); return !(Number.isFinite(x) && x >= 0); };
+  const _duBail = (b) => (!b || _vide(b.hc)) ? null : (Number(b.hc) || 0) + (Number(b.ch) || 0);
+  if (typeof loyerDuLotA !== 'function' || typeof _ctxLoyerLot !== 'function') return _duBail(bail);
+  const ctx = _ctxLoyerLot(ref);
+  const cur = (ctx.bailCourant && !ctx.bailCourant._deleted && !ctx.bailCourant.cloture) ? ctx.bailCourant : null;
+  if (cur && !cur.debut) return _duBail(cur);
+  const today = _histoBailTodayIso();
+  const debutCur = cur ? String(cur.debut).slice(0, 10) : '';
+  const date = debutCur > today ? debutCur : today;
+  if (cur && _vide(cur.hc)) {
+    const p = (typeof window !== 'undefined' && typeof window._loyerPeriodeEnVigueurA === 'function')
+      ? window._loyerPeriodeEnVigueurA(ctx.bareme, ref, date) : null;
+    if (!p || _vide(p.hc)) return null;          // ni le bail ni le barème ne portent de montant
+  }
+  const r = loyerDuLotA(date, ref, ctx);
+  return (Number(r && r.hc) || 0) + (Number(r && r.ch) || 0);
+}
 function _histoBailChapId(key){ return 'hbc-'+String(key).replace(/[^a-z0-9|_-]/gi,'_'); }
 function _histoBailToggleChap(key){
   _histoBailOuverts[key] = !_histoBailOuverts[key];
@@ -15333,7 +15025,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.718 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.724 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17209,17 +16901,11 @@ function _ensureLogFichePhCss(){
 function _renderLogFichePhStrip(log, bail, ref){
   const cells = [];
   if(bail){
-    // Loyer COURANT (post-révision IRL) via le résolveur unique du barème `_duMoisLot`
-    // (mêmes 2 sources bail+barème que le moteur loyers) ; repli contractuel si indispo (file://).
-    let loyer = (+bail.hc||+log.hc||0) + (+bail.ch||+log.ch||0);
-    try{
-      if(typeof _duMoisLot === 'function'){
-        const _now = new Date();
-        const _ym = _now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0');
-        const _dm = _duMoisLot(ref, _ym);
-        if(_dm && +_dm.total > 0) loyer = +_dm.total;
-      }
-    }catch(e){}
+    // R-0 : le loyer EN VIGUEUR aujourd'hui, LA règle de la fiche PC (`_loyerEnVigueurLot`). Ce n'est
+    // plus le dû du mois (`_duMoisLot`, proratisé : 718,71 € ici contre 680 € sur PC, audit 06/10).
+    // Bail sans montant : « — / Loyer à renseigner », jamais le loyer de la fiche du lot.
+    let loyer = null;
+    try { loyer = _loyerEnVigueurLot(ref, bail, log); } catch(e){ loyer = null; }
     const dep   = (+bail.dg||+log.dg||0);
     let fin = 'en cours';
     if(bail.fin && /^\d{4}-\d{2}/.test(bail.fin)) fin = bail.fin.slice(5,7)+'/'+bail.fin.slice(2,4);
@@ -17234,7 +16920,7 @@ function _renderLogFichePhStrip(log, bail, ref){
         }
       }
     }catch(e){}
-    cells.push({v: fmt(loyer), k: 'Loyer'});
+    cells.push(loyer == null ? {v: '—', k: 'Loyer à renseigner'} : {v: fmt(loyer), k: 'Loyer'});
     cells.push({v: fmt(dep),   k: 'Dépôt'});
     cells.push({v: fin,        k: 'Fin bail'});
     cells.push({v: sV, k: 'Solde', cls: sCls});
@@ -24480,7 +24166,6 @@ const Bail = {
   getSignataires:  getBailSignataireSelection,
 
   // ── Status (calculés) ─────────────────────────────────
-  getStatus:   getBailStatus,
   getProgress: getBailProgress,
 
   // ── Auto-fill / handlers form ─────────────────────────
@@ -24880,17 +24565,64 @@ function _profileResetOverrides() {
 // ══════════════════════════════════════════════════════════════
 // SAUVEGARDE SUGGÉRÉE + JAUGE localStorage
 // ══════════════════════════════════════════════════════════════
-function getDBSizeKB() {
-  try { return Math.round(JSON.stringify(DB).length / 1024); } catch(e) { return 0; }
-}
-
-function updateDBSizeBadge() {
-  const badge = el('db-size-badge');
-  if(!badge) return;
-  const kb = getDBSizeKB();
-  const pct = Math.round(kb / 10000 * 100); // ~10MB max localStorage
-  const cls = pct>80?'neg':pct>50?'ora':'pos';
-  badge.innerHTML = `<span class="${cls}" style="font-size:11px;font-weight:500">${kb} KB / ~10 MB</span>`;
+/* ═══ STOCKAGE lot 3 — « Stockage de cet appareil » (CDC-STOCKAGE §3.7) ═══
+   Remplace la jauge « N KB / ~10 MB » (fausse : elle mesurait la base seule contre un plafond de 10 Mo
+   qui n'existe pas). Maquette validée par Didier le 06/10 (mockups/STOCKAGE/reglages-etat-stockage.html).
+   L'état de la copie hors ligne est décidé par _stockage.etatCopieAppareil (testé) ; ici, on rassemble ce
+   que l'app sait (miroir du lot 4, échecs vus par saveDB, horodatage) et on l'affiche. Aucune donnée au
+   cloud. Les deux mesures asynchrones (espace du navigateur, filets du lot 2) remplissent leur ligne
+   ensuite. Le détail reste dans showDBDiag. */
+function _renderStockageCard() {
+  const card = el('stockage-card');
+  if (!card) return;
+  const titre = '<div class="ct"><span data-uic="appareil"></span> Stockage de cet appareil</div>'
+    + '<p class="mu sm sub">Ce qui est gardé dans ce navigateur pour travailler sans réseau. Le cloud reste la référence.</p>';
+  const S = window._stockage;
+  if (!S || typeof S.etatCopieAppareil !== 'function') {
+    card.innerHTML = titre + '<p class="mu sm">État indisponible : le module de stockage n’a pas été chargé sur cette page.</p>';
+    _uiHydrateSlots(card);
+    return;
+  }
+  let M = null, backend = null, incomplete = false;
+  try { const L = window._miroirLocal; M = (L && typeof L.miroir === 'function') ? L.miroir() : null; } catch (e) { M = null; }
+  try { if (M && M.pret()) backend = M.backend(); } catch (e) {}
+  try { incomplete = !!(M && M.copieIncomplete()); } catch (e) {}
+  let dernierOk = _miroirDernierOk;
+  if (!dernierOk) { try { const t = Number(localStorage.getItem(KEY + '_ecrit_at')); if (t > 0) dernierOk = t; } catch (e) {} }
+  const etat = S.etatCopieAppareil({ cloud: !!window.__immoSupabaseMode, sandbox: !!_isTestMode, backend,
+    copieIncomplete: incomplete, echecDepuis: _miroirEchecDepuis, dernierOk, enLigne: _miroirModeCourant() === 'cloud-en-ligne' });
+  let base = 0;
+  try { base = JSON.stringify(DB).length; } catch (e) {}
+  const QUOTA = 5 * 1024 * 1024;   // ~5 M caractères par origine (Chromium) : l'ordre de grandeur, pas une promesse
+  const ls = S.occupationStockage(() => localStorage);   // accès refusé → 0, jamais une exception
+  const pct = Math.max(ls > 0 ? 1 : 0, Math.min(100, Math.round(ls / QUOTA * 100)));
+  const lsTxt = S.enMo(ls) + ' sur ~5 Mo';
+  const ligne = (lbl, val, extra, cls) => '<div class="row' + (cls ? ' ' + cls : '') + '"><div class="flex-b"><span class="mu">' + lbl + '</span>' + val + '</div>' + (extra || '') + '</div>';
+  card.innerHTML = titre
+    + ligne('Copie hors ligne', '<span class="badge ' + escHtml(etat.ton) + '"><i class="dot"></i>' + escHtml(etat.libelle) + '</span>',
+        '<p class="mu sm expl">' + escHtml(etat.explication) + '</p>')
+    + ligne('Taille de la base', '<b>' + escHtml(S.enMo(base)) + '</b>')
+    + ligne('Stockage local du navigateur', '<b>' + escHtml(lsTxt) + '</b>',
+        '<div class="bar' + (pct > 80 ? ' hot' : '') + '" role="img" aria-label="' + escHtml(lsTxt) + '"><span style="width:' + pct + '%"></span></div>')
+    + ligne('Espace de l’app sur cet appareil', '<b class="r" id="stk-espace">Mesure en cours</b>')
+    + ligne('Copies avant migration', '<b class="r" id="stk-filets">Mesure en cours</b>', '', 'last')
+    + '<div class="foot"><button class="btn bs" onclick="showDBDiag()">Détail technique</button></div>';
+  _uiHydrateSlots(card);
+  const poser = (id, txt) => { const n = el(id); if (n) n.textContent = txt; };
+  try {
+    if (navigator.storage && typeof navigator.storage.estimate === 'function') {
+      navigator.storage.estimate().then(est => poser('stk-espace', S.enMo(est && est.usage) + ' utilisés, photos comprises'),
+        () => poser('stk-espace', 'Non mesurable sur ce navigateur'));
+    } else poser('stk-espace', 'Non mesurable sur ce navigateur');
+  } catch (e) { poser('stk-espace', 'Non mesurable sur ce navigateur'); }
+  try {
+    const A = (typeof _filetsIdb === 'function') ? _filetsIdb() : null;
+    if (!A) poser('stk-filets', 'Aucune');
+    else A.cles().then(cles => {
+      const n = cles.filter(k => k.startsWith('filet:' + KEY + ':')).length;
+      poser('stk-filets', n ? n + ' · retirées après 30 jours et à la déconnexion' : 'Aucune');
+    }, () => poser('stk-filets', 'Non mesurable sur ce navigateur'));
+  } catch (e) { poser('stk-filets', 'Non mesurable sur ce navigateur'); }
 }
 
 function suggestSave(context) {
@@ -25878,48 +25610,12 @@ function saveAgendaEvt() {
 //   2. Suivi documents (locataires × Bail/EDL/MRH/Chauffage/Caution/DDT)
 //   3. Automatisations (locataires × 8 toggles avec override par bail)
 //   4. Prélèvements (stub V1 SEPA pain.008 V2 SaaS)
-// Helpers purs (testables) : _pilSoldeLocataire, _pilStatutDoc, _pilBulkMajLoyers
+// Helpers purs (testables) : _pilStatutDoc, _pilBulkMajLoyers
 // Tests Vitest : __tests__/helpers/pilotage.test.js
 // ════════════════════════════════════════════════════════════════════════════
 
 
 // ─── Helpers purs (réutilisés par tests Vitest miroir) ──────────────────────
-
-/**
- * Cumul impayé pour un bail à dateRef.
- * Loyer attendu × nb mois entre debut et dateRef (clip à fin du bail) - sum encaissés (_isLoyerCategory).
- * Retourne > 0 si dette locataire, < 0 si trop-perçu, 0 si à jour.
- */
-function _pilSoldeLocataire(bail, log, mouvements, dateRef) {
-  if (!bail || !bail.debut) return 0;
-  const ref = log?.ref || bail.ref;
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td())+'T00:00:00');
-  const debut = new Date(bail.debut + 'T00:00:00');
-  if (Number.isNaN(debut.getTime()) || today < debut) return 0;
-  const fin = bail.fin ? new Date(bail.fin + 'T23:59:59') : null;
-  const end = fin && fin < today ? fin : today;
-  // Nb mois inclusifs (échéance à jpay, simplification : 1 mois = 1 loyer dû)
-  const nbMois = Math.max(0, (end.getFullYear()-debut.getFullYear())*12 + (end.getMonth()-debut.getMonth()) + 1);
-  const loyerMensuel = (Number(bail.hc)||Number(log?.hc)||0) + (Number(bail.ch)||Number(log?.ch)||0);
-  const attendu = nbMois * loyerMensuel;
-  // Sum des encaissements liés à ce bail (m.qui === ref + cat = loyer)
-  const encaisses = (mouvements||[]).filter(m =>
-    m && !m._deleted && m.qui === ref && m.cr > 0 &&
-    _isLoyerCategory(m.cat)   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
-  ).reduce((s,m) => s + (m.cr||0), 0);
-  return Math.round((attendu - encaisses) * 100) / 100;
-}
-
-/** Encaissement d'un mois donné pour un bail. */
-function _pilEncaisseMois(bail, log, mouvements, year, month) {
-  if (!bail || !log) return 0;
-  const ref = log.ref || bail.ref;
-  const ym = `${year}-${String(month).padStart(2,'0')}`;
-  return (mouvements||[]).filter(m =>
-    m && !m._deleted && m.qui === ref && m.cr > 0 && m.date && m.date.startsWith(ym) &&
-    _isLoyerCategory(m.cat)
-  ).reduce((s,m) => s + (m.cr||0), 0);
-}
 
 /**
  * Statut de présence/validité d'un document type pour un bail/log.
@@ -30962,7 +30658,7 @@ async function testRelayCfg() {
 // =================== EXPORT ===================
 function rExport() {
   if(!DB) return;
-  updateDBSizeBadge();
+  _renderStockageCard();   // STOCKAGE lot 3 (remplace la jauge « N KB / ~10 MB »)
   // v14.90 LEGAL-2044 : peuple les selects année + entité quand on entre dans l'onglet
   if (typeof _legal2044RefreshSelects === 'function') {
     try { _legal2044RefreshSelects(); } catch(e) { console.warn('[legal-2044] refresh selects', e); }
@@ -30993,7 +30689,6 @@ function rExport() {
   }
   // v14.47 audit tombstones — counts visibles n'incluent que les vivants
   el('export-stats').innerHTML=`
-    <div class="flex-b mb8"><span class="mu">Taille base de données</span><span id="db-size-badge">…</span></div>
     <div class="flex-b mb8"><span class="mu">Mouvements</span><b>${(DB.mouvements||[]).filter(_isAlive).length}</b></div>
     <div class="flex-b mb8"><span class="mu">Logements</span><b>${(DB.logements||[]).filter(_isAlive).length}</b></div>
     <div class="flex-b mb8"><span class="mu">Baux</span><b>${Object.values(DB.baux||{}).filter(_isAlive).length}</b></div>
