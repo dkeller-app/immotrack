@@ -228,6 +228,23 @@ export function suiviLot(lotIn, opts) {
     for (const m of mqs) {
       if (!yms.includes(m.ym)) traces.push({ type: 'manque-ignore', ym: m.ym, montant: _r2(m.montant), ref: m.id, raison: 'hors-mois-du-bail' });
     }
+    // P5 — remise REÇUE par chaque mois (Q1 : la quittance d'un mois soldé par un manque accepté
+    // porte « remise accordée : X € (motif) »). Une remise peut viser un mois ANTÉRIEUR à celui du
+    // geste (H-1 : courant, puis dette ancienne) : on la rattache au mois qu'elle SOLDE (`cibleIdx`),
+    // avec le motif du geste. Même passe que le résidu (exigible / complète) : cohérent au centime.
+    const remisesSur = (i) => {
+      const P = i < nExig ? passExig : pass;
+      const rs = (P.remises || []).filter((r) => r.cibleIdx === i);
+      if (!rs.length) return null;
+      const loyer = _r2(rs.filter((r) => r.poste === 'loyer').reduce((t, r) => t + r.montant, 0));
+      const charge = _r2(rs.filter((r) => r.poste === 'charge').reduce((t, r) => t + r.montant, 0));
+      if (loyer + charge <= EPS_CENTIME) return null;
+      const motifs = [], ids = [];
+      for (const r of rs) for (const m of (entrees[r.idx] ? entrees[r.idx].mq : [])) {
+        if (!ids.includes(m.id)) { ids.push(m.id); if (m.motif && !motifs.includes(m.motif)) motifs.push(m.motif); }
+      }
+      return { montant: _r2(loyer + charge), loyer, charge, motifs, ids };
+    };
     const mois = entrees.map((e, i) => {
       const pm = pass.months[i];
       const recu = _r2(e.argent.filter((p) => p.kind === 'virement').reduce((t, p) => t + p.montant, 0));
@@ -244,7 +261,8 @@ export function suiviLot(lotIn, opts) {
       e.mq.forEach((m) => traces.push({ type: 'manque', ym: e.ym, montant: _r2(m.montant), ref: m.id }));
       if (pm.arrondi) traces.push({ type: 'arrondi', ym: e.ym, montant: pm.arrondi, ref: null });
       const residu = i < nExig ? passExig.retardMois[i] : pass.retardMois[i];
-      return {
+      const remiseRecue = remisesSur(i);
+      const bm = {
         ym: e.ym,
         du: { hc: e.d.hc, ch: e.d.ch, total: e.d.total },
         exigible: e.ym <= dueYm,
@@ -260,6 +278,8 @@ export function suiviLot(lotIn, opts) {
         paye: e.d.total > EPS_CENTIME && pm.courant.loyer + pm.courant.charge <= EPS_CENTIME,
         soldeQuittance: e.d.total > EPS_CENTIME && residu.loyer + residu.charge <= EPS_CENTIME
       };
+      if (remiseRecue) bm.remiseRecue = remiseRecue;   // absent sans manque accepté : forme inchangée
+      return bm;
     });
     let pos = null;
     for (const m of mois) if (m.ym <= dueYm) pos = m;
@@ -473,6 +493,11 @@ export function versEtatMoisLot(suiviBail) {
       datePaiement: (solde && complet && datesVersements.length) ? datesVersements[datesVersements.length - 1] : null
     };
     if (reglements.length) ligne.reglements = reglements;   // absent sinon : forme etatMoisLot inchangée
+    // Q1 — remise accordée (manque accepté) qui a soldé CE mois : la quittance est émise pour le
+    // montant REÇU, avec la mention de la remise. Absent sans manque : forme inchangée.
+    if (m.remiseRecue) {
+      ligne.remise = { montant: m.remiseRecue.montant, loyer: m.remiseRecue.loyer, charge: m.remiseRecue.charge, motif: m.remiseRecue.motifs.join(' ; ') };
+    }
     return ligne;
   });
   const byYm = {};
@@ -490,6 +515,77 @@ export function versEtatMoisLot(suiviBail) {
   };
 }
 
+/**
+ * P5 — Forme `etatMoisLot` d'un LOT, assemblée bail par bail depuis le suivi (jamais recalculée) :
+ * c'est ce que lisent l'onglet Loyers, les quittances (rail, garde-fou, dates « reçu le ») et la
+ * fiche logement. Chaque mois = Σ des baux qui le portent (un seul hors mois de transition) ;
+ * chaque ligne dit de quel bail elle vient (`bailCle`, ou `baux` en transition).
+ * @param {Object} suivi sortie de suiviLot
+ * @param {{baux?: 'tous'|'visibles'|string[], ym?: string}} [opts]
+ *        'tous' (défaut : quittances, un mois de l'ancien locataire reste quittançable) ;
+ *        'visibles' : les baux que le lot montre au mois `ym` (défaut : dueYm du suivi) — baux
+ *        ACTIFS + locataire PARTI visible l'année de son départ (Q2), exactement la case de Finances ;
+ *        un tableau de clés : ces baux seulement.
+ */
+export function versEtatLot(suivi, opts) {
+  const s = suivi || { baux: [], mois: {} };
+  const o = opts || {};
+  let baux = s.baux || [];
+  if (Array.isArray(o.baux)) baux = baux.filter((b) => o.baux.includes(b.cle));
+  else if (o.baux === 'visibles') {
+    const ym = /^\d{4}-\d{2}$/.test(String(o.ym || '')) ? String(o.ym) : (s.dueYm || String(s.today || '').slice(0, 7));
+    const lm = s.mois && s.mois[ym];
+    const cles = lm ? lm.bauxActifs.concat(lm.partis) : [];
+    baux = baux.filter((b) => cles.includes(b.cle));
+  }
+  const etats = baux.map((b) => ({ cle: b.cle, e: versEtatMoisLot(b) }));
+  const parYm = new Map();
+  for (const { cle, e } of etats) for (const l of e.list) {
+    if (!parYm.has(l.ym)) parYm.set(l.ym, []);
+    parYm.get(l.ym).push({ cle, l });
+  }
+  const list = [...parYm.keys()].sort().map((ym) => {
+    const xs = parYm.get(ym);
+    if (xs.length === 1) return Object.assign({}, xs[0].l, { bailCle: xs[0].cle });
+    // Mois de transition (sortie et entrée le même mois) : somme des deux baux, dates réunies.
+    const S = (k) => _r2(xs.reduce((t, x) => t + (Number(x.l[k]) || 0), 0));
+    const hcDue = S('hcDue'), chDue = S('chDue'), du = S('du');
+    const resteLoyer = S('resteLoyer'), resteCharge = S('resteCharge'), reste = _r2(resteLoyer + resteCharge);
+    const vacance = du <= EPS_CENTIME && reste <= EPS_CENTIME;
+    const solde = !vacance && reste <= EPS_CENTIME;
+    const paiements = xs.flatMap((x) => x.l.paiements).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const datesVersements = [...new Set(paiements.map((p) => p.date))].sort();
+    // Une date « reçu le » n'existe que si CHAQUE bail du mois l'a (I-DATE : rien d'inventé).
+    const complet = xs.every((x) => x.l.vacance || x.l.datePaiement || (x.l.montantImpute || 0) <= EPS_CENTIME);
+    const ligne = {
+      ym, hcDue, chDue, du, received: S('received'), resteLoyer, resteCharge, reste, solde,
+      partiel: !vacance && reste > EPS_CENTIME && reste < du - EPS_CENTIME,
+      vacance, paiements, montantImpute: S('montantImpute'), datesVersements, nbVersements: datesVersements.length,
+      datePaiement: (solde && complet && datesVersements.length) ? datesVersements[datesVersements.length - 1] : null,
+      baux: xs.map((x) => x.cle)
+    };
+    const regl = xs.flatMap((x) => x.l.reglements || []);
+    if (regl.length) ligne.reglements = regl;
+    const rem = xs.map((x) => x.l.remise).filter(Boolean);
+    if (rem.length) {
+      ligne.remise = { montant: _r2(rem.reduce((t, r) => t + r.montant, 0)), loyer: _r2(rem.reduce((t, r) => t + r.loyer, 0)),
+        charge: _r2(rem.reduce((t, r) => t + r.charge, 0)), motif: rem.map((r) => r.motif).filter(Boolean).join(' ; ') };
+    }
+    return ligne;
+  });
+  const byYm = {};
+  list.forEach((e) => { byYm[e.ym] = e; });
+  const T = (k) => _r2(etats.reduce((t, x) => t + (Number(x.e[k]) || 0), 0));
+  const nonSoldes = list.filter((e) => !e.vacance && e.reste > EPS_CENTIME);
+  return {
+    list, byYm,
+    resteLoyer: T('resteLoyer'), resteCharge: T('resteCharge'), reste: T('reste'), avance: T('avance'),
+    nbMoisNonSoldes: nonSoldes.length,
+    premierMoisNonSolde: nonSoldes.length ? nonSoldes[0].ym : null,
+    baux: etats.map((x) => x.cle)
+  };
+}
+
 /** Le tableau du courrier de relance d'UN bail (même source que la carte, I-g). */
 export function lignesRelanceBail(suiviBail, opts) {
   return lignesRelance(versEtatMoisLot(suiviBail), opts);
@@ -499,6 +595,25 @@ export function lignesRelanceBail(suiviBail, opts) {
 export function detteBail(suiviBail) {
   const p = (suiviBail && suiviBail.position) || { retardLoyer: 0, retardCharge: 0, avance: 0 };
   return { loyer: p.retardLoyer, charge: p.retardCharge, avance: p.avance };
+}
+
+/**
+ * P5 — La dette d'un bail AU MOMENT DE RESTITUER SON DÉPÔT (`_calculerSoldeDG`, acte opposable).
+ * La retenue sur le dépôt est un RÈGLEMENT du bail sorti (§C.1.5, décision 2) : une fois la
+ * restitution enregistrée, le suivi la compte comme payée, et la dette tombe à 0. Le calcul du
+ * solde de restitution la RETRANCHERAIT alors une seconde fois (dépôt − retenues − dette). On lit
+ * donc la dette du bail SANS ce règlement : avant la restitution, elle est identique ; après, elle
+ * redonne la dette qui a justifié la retenue (jamais comptée deux fois, ni dans un sens ni dans l'autre).
+ * @returns {{loyer, charge, avance}|null} null si le bail n'est pas suivi (clé inconnue, avant le suivi)
+ */
+export function detteBailAvantDepot(lotIn, bailCle, opts) {
+  const L = lotIn || {};
+  const baux = (L.baux || []).map((b) => {
+    if (!b || !b.dg || (b.cle || cleBail(L.ref, b)) !== bailCle) return b;
+    const c = Object.assign({}, b); delete c.dg; return c;
+  });
+  const sb = suiviLot(Object.assign({}, L, { baux }), opts).baux.find((b) => b.cle === bailCle);
+  return sb ? detteBail(sb) : null;
 }
 
 /** `_computeDetteBail` (CDC-R0C lot 2) : la dette d'un bail désigné par sa clé, ou null. */
@@ -637,6 +752,5 @@ export function lotDepuisDb(ref, db, opts) {
       };
     });
   const lot = { ref, baux, bareme: D.loyerBareme || [], paiements, manques };
-  lot.debutSuivi = (o.debutSuivi && _isIso(o.debutSuivi.date)) ? o.debutSuivi : debutSuiviDefaut(lot);
-  return lot;
+  lot.debutSuivi = (o.debutSuivi && _isIso(o.debutSuivi.date)) ? o.debutSuivi : debutSuiviDefaut(lot);  return lot;
 }

@@ -125,21 +125,24 @@ export function _calculerSoldeDG(bail, mouvements) {
   const retenuesDG = Number(bail.dgRetenu) || 0;
   // MODÈLE DIDIER (anti double-compte, chantier Charges) : le dépôt couvre le LOYER impayé seul.
   // Les charges — même les provisions non versées — sont portées UNIQUEMENT par la régularisation
-  // (via bail.dgRetenu), jamais re-comptées comme impayé. On prend donc resteLoyer (cascade
-  // d'imputation loyer-d'abord, résolveur _loyerEtatLot), borné à la période réelle du bail
-  // [debut, fin/sortie/aujourd'hui] — sinon la cascade génère du dû au-delà de la fin et gonfle
-  // l'impayé. Fallback sur l'ancien cumul total (loyer+charges) si le résolveur n'est pas dispo.
+  // (via bail.dgRetenu), jamais re-comptées comme impayé. On prend donc la dette de LOYER du BAIL
+  // (FINANCES-SUIVI-UNIQUE P5 : suivi unique par bail, detteBail = _computeDetteBail R0-C lot 2,
+  // via _rgClotureImpayes), lue AVANT la retenue sur ce dépôt : une restitution déjà enregistrée
+  // est un règlement du bail pour le suivi, elle ne doit pas être déduite deux fois.
+  // Fallback sur l'ancien cumul total (loyer+charges) si le suivi n'est pas chargé (file://).
   // _calculerLoyerImpayeCumule (total) reste utilisé pour les ALERTES impayés (où le total est juste).
   const W = (typeof window !== 'undefined') ? window : null;
   let loyerImpaye;
-  if (W && typeof W._rgClotureImpayes === 'function' && typeof W._loyerEtatLot === 'function' && bail.ref) {
+  if (W && typeof W._rgClotureImpayes === 'function' && W.SuiviLoyers && typeof W.SuiviLoyers.detteBailAvantDepot === 'function' && bail.ref) {
     const today = (typeof W.td === 'function') ? W.td() : new Date().toISOString().slice(0, 10);
     const finBail = bail.finEffective || bail.fin || (bail.depart && bail.depart.dateSortie) || today;
-    loyerImpaye = W._rgClotureImpayes(bail.ref, bail.debut || null, finBail);
+    loyerImpaye = W._rgClotureImpayes(bail.ref, bail.debut || null, finBail, bail.debut || null);
   } else {
     loyerImpaye = _calculerLoyerImpayeCumule(bail, mouvements);
   }
-  const soldeRestitue = Math.max(0, dgPaid - retenuesDG - loyerImpaye);
+  // Au centime (P5) : 700 − 150 − 303,33 donnait 246,67000000000002, recopié tel quel dans
+  // bail.dgRestitue par _rgApplyRetenue. Un montant d'acte opposable s'arrondit au centime.
+  const soldeRestitue = Math.max(0, Math.round((dgPaid - retenuesDG - loyerImpaye) * 100) / 100);
   return { dgPaid, retenuesDG, loyerImpaye, soldeRestitue };
 }
 

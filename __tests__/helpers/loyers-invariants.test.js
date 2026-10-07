@@ -93,8 +93,13 @@ describe('I6 — aucun rattachement paiement→mois hors des 3 moteurs sanctionn
     const code = codeOf('index.html');
     expect((code.match(/function _loyerEtatLot\(/g) || []).length).toBe(1);
     expect((code.match(/function _loyerPayeDuMois\(/g) || []).length).toBe(1);
-    // et il délègue bien au module (pas de re-implémentation locale)
-    expect(code).toMatch(/window\.etatMoisLot\(months/);
+    // et il délègue bien au module (pas de re-implémentation locale).
+    // RÉÉCRIT en P5 (FINANCES-SUIVI-UNIQUE) : l'assertion exigeait l'appel à `etatMoisLot(months…)`,
+    // l'ANCIEN moteur par lot (début au 1er janvier, `cr>0` seulement, dette d'un bail payée par le
+    // suivant). Le verdict est désormais LU dans le suivi unique par l'adaptateur `versEtatLot`
+    // (= versEtatMoisLot bail par bail) ; l'app n'appelle plus jamais etatMoisLot elle-même.
+    expect(fnBody(code, '_loyerEtatLot')).toMatch(/SL\.versEtatLot\(s, \{ baux: vue \}\)/);
+    expect(code).not.toMatch(/window\.etatMoisLot\(/);
   });
 
   it('le document quittance ne re-somme plus les mouvements d\'un mois calendaire', () => {
@@ -247,7 +252,10 @@ describe('D1/D3/D11 — l\'onglet Loyers remplace l\'onglet Quittances', () => {
     expect((code.match(/function _buildRelanceHtml\(/g) || []).length).toBe(1);
     expect(code).not.toMatch(/[Rr]appel de charges/);
     // Le tableau vient de la cascade, pas d'un calcul local.
-    expect(fnBody(code, '_lyRelance')).toMatch(/window\.lignesRelance\(etat/);
+    // RÉÉCRIT en P5 : `lignesRelance(etat)` sur l'état du LOT ENTIER réclamait à la locataire actuelle la
+    // dette d'un autre bail (Ferrette - 101 : 1 723,01 € pour 20 € dus). La relance lit le suivi PAR BAIL
+    // (`lignesRelanceBail` = lignesRelance(versEtatMoisLot(bail))) : même cascade, bonne unité.
+    expect(fnBody(code, '_lyRelance')).toMatch(/SL\.lignesRelanceBail\(sb, \{ toleranceActive: false \}\)/);
   });
 
   it('l\'écran ne recalcule rien : il lit le verdict et la case du bail', () => {

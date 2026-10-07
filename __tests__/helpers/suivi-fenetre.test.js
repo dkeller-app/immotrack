@@ -308,9 +308,18 @@ describe('P4 — câblage de l\'app', () => {
     expect(corps('_mvManqueInfo')).toMatch(/_mvMqCache\.lots\.get\(k\)/);
     expect(corps('_mvManqueInfo')).toMatch(/indexMouvementsLot\(s\)/);
   });
-  it('relance = carte : le bouton n\'est proposé que si _lyRelance réclamerait la dette du bail', () => {
-    expect(corps('_finFenDetail')).toMatch(/_finFenRelanceCoherente\(x\)/);
-    expect(corps('_finFenRelanceCoherente')).toMatch(/Math\.abs\(\(Number\(r && r\.reste\) \|\| 0\) - dette\) <= 0\.01/);
+  // RÉÉCRIT en P5 : en P4, _lyRelance lisait encore l'ancien moteur (lot entier depuis janvier), et le
+  // bouton était retiré quand son montant différait de la carte (_finFenRelanceCoherente). La relance
+  // lit désormais le MÊME suivi, par bail (lignesRelanceBail) : la condition d'écart n'a plus d'objet,
+  // le bouton revient pour TOUT bail en retard (locataire parti compris) et désigne CE bail. L'égalité
+  // carte = relance au centime est prouvée sur des jeux réels dans finances-suivi-p5.test.js (I-g).
+  it('relance = carte : bouton pour tout bail en retard, relance DE CE BAIL (P5, plus de condition d\'écart)', () => {
+    const d = corps('_finFenDetail');
+    expect(d).toMatch(/if \(x\.sens === 'retard' && typeof _lyRelance === 'function' && !String\(x\.ref\)\.startsWith\('SCI:'\)\) \{/);
+    expect(d).toMatch(/data-cle="' \+ esc\(x\.bailCle \|\| ''\) \+ '"/);
+    expect(d).toMatch(/_lyRelance\(this\.dataset\.ref,this\.dataset\.cle\)/);
+    expect(d).not.toMatch(/!x\.parti/);
+    expect(html).not.toMatch(/_finFenRelanceCoherente/);
   });
   it('main.js expose window.SuiviFenetre', () => {
     expect(main).toMatch(/import \* as SuiviFenetre from '\.\/core\/suivi-fenetre\.js'/);

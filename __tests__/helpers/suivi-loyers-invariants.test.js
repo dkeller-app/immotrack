@@ -257,9 +257,11 @@ describe(`invariants du suivi — ${N} lots aléatoires (graine fixe)`, () => {
         // `residu` / `soldeQuittance` / `imputations` sont lus en FIN de passe : un manque qui
         // solde une dette ancienne rend légitimement le mois d'origine quittançable (cas C.3) et
         // libère un paiement ultérieur qui l'aurait recouvrée. Les POSITIONS de fin de mois, elles,
-        // ne bougent pas avant ym.
+        // ne bougent pas avant ym. P5 : `remiseRecue` (la remise rattachée au mois qu'elle SOLDE, pour
+        // la mention de la quittance, décision Q1) est lue au même endroit que `residu` : quand le
+        // geste de ym solde une dette ancienne, c'est le mois d'origine qui la porte — légitime.
         else {
-          const pos = (l) => l.filter((m) => m.ym < ym).map(({ residu, soldeQuittance, imputations, ...r }) => r);
+          const pos = (l) => l.filter((m) => m.ym < ym).map(({ residu, soldeQuittance, imputations, remiseRecue, ...r }) => r);
           expect(pos(apres.mois)).toEqual(pos(autre.mois));
         }
       }

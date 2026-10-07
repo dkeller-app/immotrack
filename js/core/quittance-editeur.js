@@ -65,7 +65,9 @@ export function moisRailLot(etat, quittancesYm, annee, todayYm, editeesLe) {
   for (let m = 1; m <= 12; m++) {
     const ym = `${an}-${String(m).padStart(2, '0')}`;
     const e = (etat && etat.byYm) ? etat.byYm[ym] : null;
-    const du = e ? _r2(e.du) : 0;
+    // FINANCES-SUIVI-UNIQUE P5 (Q1) — un mois soldé par un manque accepté se quittance pour ce qui a été
+    // REÇU : le montant du rail (et du pied « août 2026 · 760,00 € ») est celui du document, dû − remise.
+    const du = e ? _r2(e.du - ((e.remise && Number(e.remise.montant)) || 0)) : 0;
     const reste = e ? _r2(e.reste) : 0;
     let st;
     // Un mois À VENIR n'a pas encore d'entrée dans l'état (la fenêtre de suivi s'arrête au

@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.713';
+const IMMOTRACK_VERSION = '15.714';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -9003,69 +9003,41 @@ function _duMoisLot(ref, ym) {
 // ════════════════════════════════════════════════════════════════════════════
 // CDC-QUITTANCES-IRL étape 1 — LE VERDICT « ce mois est-il soldé ? » d'un lot.
 //
-// Ici on n'assemble QUE le contexte : le dû vient de _duMoisLot (bail + barème historisé,
-// résolveur unique), le payé des mouvements de loyer encaissés. L'IMPUTATION — quel
-// paiement couvre quel mois — n'est PAS écrite ici : elle est déléguée à
-// js/core/loyers-mois.js, qui consomme `_loyerArrearsPass` (cascade loyer→charges→arriérés
-// FIFO + netting avance↔retard). C'est l'invariant I6 : une seule source d'imputation.
-// Le 7ᵉ moteur (_matcheMois, qui rattachait un paiement au mois de sa propre date) est
-// supprimé, pas corrigé (C3).
-//
-// Fenêtre de suivi = _debutSuivi → mois courant, la même borne que les 5 surfaces (B2) :
-// pas de dette fantôme sur des années sans données.
+// FINANCES-SUIVI-UNIQUE P5 — ce verdict n'a plus de moteur propre : il est LU dans le suivi unique
+// (js/core/suivi-loyers.js, le même objet que Finances, sa fenêtre et l'Accueil : _finSuiviLot) par
+// l'adaptateur `versEtatLot` (= versEtatMoisLot bail par bail). Contrat inchangé pour les lecteurs
+// (list, byYm, paiements, datePaiement… → peutQuittancer, moisProposables, datePaiementMois,
+// mentionDateRecu, moisRailLot, retardLot) ; ce qui change, ce sont les chiffres faux de l'ancien
+// moteur par lot : début au 1er janvier, encaissements `cr>0` seulement (C12), dette d'un ancien
+// locataire payée par le suivant, retenue sur dépôt invisible.
+//   opts.graceLast : tolérance du 10 (le suivi de Finances, retard affiché). JAMAIS pour la
+//                    quittançabilité (D6 : au centime) — défaut : sans tolérance.
+//   opts.baux      : 'tous' (défaut : les mois de chaque locataire restent quittançables) ou
+//                    'visibles' (baux actifs + locataire parti l'année de son départ, Q2 : la case
+//                    de Finances, donc le retard de l'onglet Loyers).
 // Retourne null si le module n'est pas chargé (file://) — les appelants dégradent.
+const _loyerEtatMemo = new WeakMap();   // suivi → { clé d'options → état } : invalidé avec le suivi (_dbGen · jour)
 function _loyerEtatLot(ref, opts) {
   opts = opts || {};
-  if (typeof window === 'undefined' || typeof window.etatMoisLot !== 'function'
-      || typeof window.ymRange !== 'function') return null;
-  const key = String(ref) + '|' + (opts.graceLast ? 'g' : 's');
-  const gen = ((typeof window._dbGen !== 'undefined') ? window._dbGen : 0) + '|'
-    + ((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : '');
-  const C = window._loyerEtatCache || (window._loyerEtatCache = { gen: -1, map: {} });
-  if (C.gen !== gen) { C.gen = gen; C.map = {}; }
-  if (C.map[key]) return C.map[key];
-
-  const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
-  const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
-  const recuParYm = {};
-  // LOT 0 (CDC-LOYERS-DESIGN §4) — on ne jette plus la date : `recuParYm` gardait le
-  // montant seul, si bien qu'aucune surface ne pouvait dire « ce mois a été soldé par le
-  // mouvement du JJ/MM » (et la quittance retombait sur sa propre date d'émission, faux).
-  // `srcParYm` transporte les mouvements eux-mêmes jusqu'à la cascade, qui les rend
-  // imputés mois par mois. Le montant reste la seule chose qui DÉCIDE : les dates suivent.
-  const srcParYm = {};
-  let firstPaymentYm = null;
-  for (const m of (DB.mouvements || [])) {
-    if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
-    const ym = String(m.date).slice(0, 7);
-    if (!/^\d{4}-\d{2}$/.test(ym)) continue;
-    recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
-    (srcParYm[ym] || (srcParYm[ym] = [])).push({ date: String(m.date).slice(0, 10), id: (m.id != null ? m.id : null), montant: m.cr || 0 });
-    if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
-  }
-  const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
-  const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
-  const startYm = (typeof window._debutSuivi === 'function')
-    ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
-  const endYm = ((typeof window._loyerTodayLocal === 'function')
-    ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)).slice(0, 7);
-  const months = (startYm && startYm <= endYm)
-    ? window.ymRange(startYm, endYm).map(ym => {
-        const d = _duMoisLot(ref, ym);
-        return { ym, hcDue: d.hc || 0, chDue: d.ch || 0, received: recuParYm[ym] || 0, sources: srcParYm[ym] || [] };
-      })
-    : [];
-  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast });
-  C.map[key] = etat;
-  return etat;
+  const SL = (typeof window !== 'undefined') ? window.SuiviLoyers : null;
+  if (!SL || typeof SL.versEtatLot !== 'function' || typeof _finSuiviLot !== 'function') return null;
+  const s = _finSuiviLot(ref, { graceLast: !!opts.graceLast });
+  if (!s) return null;
+  const vue = opts.baux === 'visibles' ? 'visibles' : 'tous';
+  let memo = _loyerEtatMemo.get(s);
+  if (!memo) { memo = {}; _loyerEtatMemo.set(s, memo); }
+  if (!memo[vue]) memo[vue] = SL.versEtatLot(s, { baux: vue });
+  return memo[vue];
 }
 
-// Montant DÉJÀ IMPUTÉ à un mois donné (dû − résidu). Seule porte d'entrée du « payé du mois »
-// pour les surfaces : personne ne re-somme les mouvements d'un mois calendaire.
+// Montant DÉJÀ IMPUTÉ à un mois donné (dû − résidu − remise accordée). Seule porte d'entrée du
+// « payé du mois » pour les surfaces : personne ne re-somme les mouvements d'un mois calendaire.
+// P5 (Q1) — une remise (manque accepté) solde le mois SANS être un encaissement : elle n'est pas
+// « payée ». La quittance d'août d'Elise porte 760 € reçus, pas 780.
 function _loyerPayeDuMois(ref, ym) {
   const e = _loyerEtatLot(ref);
   const m = e && e.byYm && e.byYm[ym];
-  return m ? Math.round((m.du - m.reste) * 100) / 100 : 0;
+  return m ? Math.round((m.du - m.reste - ((m.remise && m.remise.montant) || 0)) * 100) / 100 : 0;
 }
 
 // ═══ FINANCES-SUIVI-UNIQUE P2 — MANQUE ACCEPTÉ (écriture / annulation, SANS écran) ═══
@@ -25297,24 +25269,32 @@ function _rgN1Charges(ref){
            moyenne, moyennePrev, spike, moves:n1.moves, year:n1.year };
 }
 
-// CDC Charges Lot 4 (mockup 11) — total des loyers/charges impayés d'une occupation.
-// Réutilise le résolveur unique _loyerEtatLot (byYm[ym].reste = dû non soldé du mois).
-function _rgClotureImpayes(ref, from, to){
-  const e = (typeof _loyerEtatLot==='function') ? _loyerEtatLot(ref) : null;
-  if(!e || !e.byYm) return 0;
-  const f7 = from ? String(from).slice(0,7) : null, t7 = to ? String(to).slice(0,7) : null;
-  let total = 0;
-  Object.keys(e.byYm).forEach(ym => {
-    if(f7 && ym < f7) return;
-    if(t7 && ym > t7) return;
-    const m = e.byYm[ym];
-    // AUDIT-FIX (double-comptage) : ne sommer QUE le loyer impayé (resteLoyer). La provision de
-    // charge impayée (resteCharge) est déjà portée par la régularisation (regulDu = charges − provisions
-    // versées) ; la sommer ici la compterait deux fois. Fallback prudent sur m.reste si resteLoyer absent.
-    const rl = (m && m.resteLoyer != null) ? m.resteLoyer : (m ? m.reste : 0);
-    if(rl > 0) total += rl;
-  });
-  return Math.round(total*100)/100;
+// CDC Charges Lot 4 (mockup 11) — LOYER impayé d'une occupation (clôture + restitution du dépôt,
+// _calculerSoldeDG). FINANCES-SUIVI-UNIQUE P5 : la dette du BAIL lue dans le suivi unique
+// (detteBail = _computeDetteBail du CDC R0-C lot 2), plus le reste par mois d'un lot entier depuis le
+// 1er janvier — l'ancien moteur faisait payer au locataire sortant des mois antérieurs à l'achat et la
+// dette d'un autre bail du même logement.
+//  · LOYER SEUL (AUDIT-FIX double-comptage, modèle Didier) : la provision de charges impayée est portée
+//    par la régularisation (regulDu = charges − provisions versées) ; la compter ici la doublerait.
+//  · AVANT la retenue sur le dépôt (detteBailAvantDepot) : une restitution enregistrée est un règlement
+//    du bail sorti pour le suivi ; la relire comme payée puis la retrancher du dépôt la compterait deux
+//    fois (le solde de restitution remonterait du montant retenu).
+// Le bail est celui qui a commencé à `bailDebut` ; à défaut celui qui couvre `to` (fin d'occupation), puis `from`.
+// 0 si le suivi n'est pas chargé (file://) ou si le bail n'est pas suivi (antérieur au début du suivi).
+function _rgClotureImpayes(ref, from, to, bailDebut){
+  const SL = (typeof window!=='undefined') ? window.SuiviLoyers : null;
+  if(!SL || typeof SL.detteBailAvantDepot!=='function' || typeof _finSuiviLot!=='function' || typeof _finSuiviLotIn!=='function') return 0;
+  const s = _finSuiviLot(ref), lotIn = _finSuiviLotIn(ref);
+  if(!s || !lotIn) return 0;
+  const d10 = x => x ? String(x).slice(0,10) : '';
+  const couvre = (b, d) => d && b.debut <= d && (!b.fin || d <= b.fin);
+  const sb = (bailDebut && s.baux.find(b => b.debut === d10(bailDebut)))
+    || s.baux.find(b => couvre(b, d10(to))) || s.baux.find(b => couvre(b, d10(from))) || null;
+  if(!sb) return 0;
+  const today = (typeof _finSuiviToday==='function') ? _finSuiviToday() : new Date().toISOString().slice(0,10);
+  const grace = (typeof window._loyerToleranceActive==='function') ? !!window._loyerToleranceActive(today) : false;
+  const d = SL.detteBailAvantDepot(lotIn, sb.cle, { today, graceLast: grace, seuilArrondi: 1 });
+  return d ? Math.round((Number(d.loyer)||0)*100)/100 : 0;
 }
 
 // DEPART-ESTIM : calcul unifié de la clôture (partagé panneau + décompte estimatif) — DRY.
@@ -25406,7 +25386,7 @@ function _rgClotureCompute(entryKey){
   const dgRestit = Math.round((dg - retenueSugg)*100)/100;
   // Lot 4 (mockup 11) — SOLDE DE TOUT COMPTE : dettes connues (loyers+charges impayés, réparations)
   // + régularisation → total dû → réconciliation avec le dépôt de garantie.
-  const impayes = _rgClotureImpayes(entry.ref, entry.debutOcc, entry.finOcc);
+  const impayes = _rgClotureImpayes(entry.ref, entry.debutOcc, entry.finOcc, entry.debut);
   const reparations = Math.round((Number((bail.depart||{}).reparations)||0)*100)/100;
   const regulDu = du;                          // dû sur la régul (0 si trop-perçu)
   const regulCredit = solde > 0 ? solde : 0;   // trop-perçu de charges → à restituer

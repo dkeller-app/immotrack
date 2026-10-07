@@ -321,7 +321,8 @@ async function _genPdfQuittanceFallbackText(c) {
 
   const hc = Number(q.hc) || 0;
   const ch = Number(q.ch) || 0;
-  const total = Number(q.total) || (hc + ch);
+  const _remQ = (q.remise && Number(q.remise.montant) > 0.005) ? Number(q.remise.montant) : 0;
+  const total = Number(q.total) || Math.round((hc + ch - _remQ) * 100) / 100;
 
   pdf.setFont('helvetica', 'normal').setFontSize(10.5);
   pdf.text("Je soussigné(e) Bailleur du logement sis " + (bail.adrBien || log.adr || '—'), MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
@@ -336,6 +337,14 @@ async function _genPdfQuittanceFallbackText(c) {
   pdf.text('Provisions sur charges', MARGIN + 5, y);
   pdf.text(_fmt(ch), PAGE_W - MARGIN, y, { align: 'right' });
   y += 5;
+  // FINANCES-SUIVI-UNIQUE P5 (Q1) — remise accordée (manque accepté) : `total` (= q.total) est déjà
+  // la somme reçue ; la ligne explique l'écart avec le dû, comme le rendu officiel.
+  const rem = _remQ;
+  if (rem) {
+    pdf.text('Remise accordée' + (q.remise.motif ? ' (' + q.remise.motif + ')' : ''), MARGIN + 5, y);
+    pdf.text('- ' + _fmt(rem), PAGE_W - MARGIN, y, { align: 'right' });
+    y += 5;
+  }
   pdf.setDrawColor(0, 0, 0).setLineWidth(0.5);
   pdf.line(MARGIN, y, PAGE_W - MARGIN, y);
   y += 5;

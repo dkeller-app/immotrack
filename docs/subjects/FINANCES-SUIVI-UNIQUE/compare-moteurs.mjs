@@ -216,6 +216,36 @@ if (sansCause.length) {
   console.log('I-h · P3 — fiscal identique avec et sans suivi (mois et année) : ' + (bouge.length ? 'NON' : 'OUI'));
   if (bouge.length) { echec = true; bouge.slice(0, 20).forEach((x) => console.log('  ✗ ' + x)); }
 }
+// ── P5 : onglet Loyers et relances lisent le suivi (versEtatLot / lignesRelanceBail) ──────────
+// L'écran Loyers (retard du lot = baux montrés aujourd'hui) doit valoir la case de Finances, et la
+// relance de chaque bail en retard le montant de sa carte dans la fenêtre avance / retard (I-g).
+{
+  const { versEtatLot, lignesRelanceBail, suiviPerimetre } = await import(new URL('js/core/suivi-loyers.js', ROOT));
+  const { retardLot } = await import(new URL('js/core/loyers-mois.js', ROOT));
+  const p5 = [], ecartsP5 = [];
+  for (const l of (DB.logements || []).filter((x) => x && !x._deleted && x.ref)) {
+    const s = suiviLot(lotDepuisDb(l.ref, DB, { catLigne: C.catLigne, isGli }), { today, graceLast: tol, seuilArrondi: 1 });
+    const lm = s.mois[todayYm] || { retard: 0, bauxActifs: [], partis: [] };
+    const loyers = retardLot(versEtatLot(s, { baux: 'visibles' }), { toleranceActive: false }).reste;
+    if (Math.abs(loyers - lm.retard) > 0.005) ecartsP5.push(l.ref + ' : onglet Loyers ' + loyers + ' ≠ Finances ' + lm.retard);
+    const P = suiviPerimetre([s], todayYm);
+    const rel = [];
+    for (const cle of lm.bauxActifs.concat(lm.partis)) {
+      const sb = s.baux.find((b) => b.cle === cle);
+      const lettre = r2(lignesRelanceBail(sb, { toleranceActive: false }).reduce((t, x) => t + x.montant, 0));
+      if (lettre <= 0.005) continue;
+      const carte = P.enRetard.find((c) => c.bailCle === cle);
+      const vCarte = carte ? r2(-carte.solde) : 0;
+      if (Math.abs(lettre - vCarte) > 0.005) ecartsP5.push(l.ref + ' (' + cle + ') : relance ' + lettre + ' ≠ carte ' + vCarte);
+      rel.push((sb.noms || cle.split('|')[1]) + (lm.partis.includes(cle) ? ' (parti)' : '') + ' ' + lettre);
+    }
+    if (loyers > 0.005 || rel.length) p5.push({ ref: l.ref, 'onglet Loyers': loyers, Finances: lm.retard, 'relance = carte': rel.join(' · ') });
+  }
+  console.log('\nP5 — onglet Loyers = Finances, relance = carte (au ' + todayYm + ') :');
+  console.table(p5);
+  console.log('P5 — aucun écart : ' + (ecartsP5.length ? 'NON' : 'OUI'));
+  if (ecartsP5.length) { echec = true; ecartsP5.forEach((x) => console.log('  ✗ ' + x)); }
+}
 if (fichierAvant) {
   const fige = JSON.parse(readFileSync(fichierAvant, 'utf8'));
   const ok = JSON.stringify(sortKeys(fige.fiscal)) === JSON.stringify(sortKeys(avant.fiscal));

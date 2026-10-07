@@ -575,7 +575,7 @@ function envoyerQuittanceParEmail(id) {
     bail: bail || { adrBien: log?.adr || '', hc: q.hc, ch: q.ch },
     logement: log || { ref: q.logement },
     entite: ent || {},
-    quittance: { ...q, total: (q.hc || 0) + (q.ch || 0) }
+    quittance: { ...q, total: _quitTotal(q) }
   };
   _docShareOpen('quittance', ctx, { entityType: 'quittance', entityId: id });
 }
@@ -627,6 +627,11 @@ function _creerQuittance(ref, ym, opts) {
     entity: (bail && bail.entity) || (log && log.entity) || '',
     date: td()
   };
+  // FINANCES-SUIVI-UNIQUE P5 (décision Q1) — mois soldé par un MANQUE ACCEPTÉ : la quittance est un
+  // reçu (art. 21) pour ce qui a été PAYÉ ; la remise est figée sur le document avec son motif
+  // (« remise accordée : 20,00 € (panne électrique) »). Le dû du mois (hc/ch) reste celui du barème.
+  const remise = _quitRemiseDuMois(ref, ym);
+  if (remise) q.remise = remise;
   _stamp(q);
   if (typeof _auditLog === 'function') _auditLog('create', 'quittance', q.id, q.logement + '/' + q.mois);
   DB.quittances.push(q);
@@ -645,6 +650,21 @@ function _creerQuittance(ref, ym, opts) {
  *        explicite (reçu partiel, tests) ; sinon la date vient de la cascade unique (I-DATE).
  * @returns {{html:string, css:string, title:string, status:'complet'|'partiel'}}
  */
+// P5 (Q1) — la remise accordée (manque accepté) qui a soldé un mois, lue dans le suivi unique :
+// { montant, motif } ou null. Seule source pour la fabrique (_creerQuittance) et l'aperçu (_qeInjecterDoc).
+function _quitRemiseDuMois(ref, ym) {
+  const e = (typeof _loyerEtatLot === 'function') ? _loyerEtatLot(ref) : null;
+  const m = e && e.byYm && e.byYm[ym];
+  const r = m && m.remise;
+  if (!r || !(Number(r.montant) > 0.005)) return null;
+  return { montant: Math.round(Number(r.montant) * 100) / 100, motif: String(r.motif || '').trim() };
+}
+// P5 (Q1) — LE total d'une quittance : dû du mois − remise accordée (= somme réellement reçue).
+function _quitTotal(q) {
+  const x = q || {};
+  const rem = (x.remise && Number(x.remise.montant) > 0.005) ? Number(x.remise.montant) : 0;
+  return Math.round(((Number(x.hc) || 0) + (Number(x.ch) || 0) - rem) * 100) / 100;
+}
 // AUDIT M3 — mise en page propre a la FENETRE d'impression/partage de la quittance.
 // Volontairement SEPAREE de `built.css` : ce dernier est injecte dans la page de l'app par
 // _rasterizeHtmlToPdfBlob, ou une regle `body`/`@page` nue repeindrait l'application.
@@ -713,7 +733,11 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
       ch: q.ch == null ? (_d.ch || 0) : q.ch
     });
   }
-  const total = (q.hc||0)+(q.ch||0);
+  // P5 (Q1) — remise accordée (manque accepté, figée sur la quittance) : le document atteste la somme
+  // REÇUE (dû − remise), et le dit. Sans remise : total = dû, document inchangé.
+  const _remise = (q.remise && Number(q.remise.montant) > 0.005)
+    ? { montant: Math.round(Number(q.remise.montant) * 100) / 100, motif: String(q.remise.motif || '').trim() } : null;
+  const total = _quitTotal(q);
 
   // AUDIT I-3/S-2 — ce bloc vit APRÈS `total`, donc après le repli legacy champ par champ.
   // Le lire avant obligeait à recalculer un dû à part (`_duDoc`), qui n'était pas symétrique :
@@ -852,9 +876,12 @@ ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
     html = `
 ${enteteHtml}
 ${_dt('docActe', `Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, ${recuLe}, la somme de <b>${fmt(total)}</b> – <em>${escHtml(totalLettres)}</em> se décomposant comme suit&nbsp;:`)}
-${_dt('docLignes', [prorataLineHC, prorataLineCH, { lab:'Total des sommes payées', val: fmt(total), tot:true }])}
+${_dt('docLignes', [prorataLineHC, prorataLineCH,
+  _remise ? { lab: 'Remise accordée' + (_remise.motif ? ' (' + escHtml(_remise.motif) + ')' : ''), val: '− ' + fmt(_remise.montant) } : null,
+  { lab:'Total des sommes payées', val: fmt(total), tot:true }])}
 ${prorataMention}
-<p>Cette somme correspond au règlement du loyer et des charges pour la période de location <b>${periodeStr}</b>. J'en donne quittance sous réserve du bon encaissement de cette somme.</p>
+<p>Cette somme correspond au règlement du loyer et des charges pour la période de location <b>${periodeStr}</b>${_remise ? ', déduction faite de la remise accordée par le bailleur' : ''}. J'en donne quittance sous réserve du bon encaissement de cette somme.</p>
+${_remise ? _dt('docMention', 'Remise accordée : ' + fmt(_remise.montant) + (_remise.motif ? ' (' + escHtml(_remise.motif) + ')' : '') + '.') : ''}
 ${_dt('docMention', 'Cette quittance annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme. Elle est à conserver par le locataire.')}
 ${_dt('docLieu', `Fait à ${escHtml(villeTitre||'–')},<br>Le ${dateEmission}`)}
 ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
@@ -919,10 +946,11 @@ window._shareQuittanceWithPdf = async function(id) {
   const locataire = (bail?.locataires && bail.locataires[0]) || {
     nom: q.locataire || log?.locataire || '', email: log?.mail || ''
   };
-  const total = (q.hc||0) + (q.ch||0);
+  const total = _quitTotal(q);
   const adrBien = bail?.adrBien || log?.adr || '';
   const subject = `Quittance de loyer ${q.mois}${adrBien ? ' — ' + adrBien : ''}`;
-  const body = `Quittance de loyer pour la période ${q.mois}.\n\nDétail :\n- Loyer hors charges : ${q.hc||0} €\n- Provisions sur charges : ${q.ch||0} €\n- Total perçu : ${total} €\n\nLa quittance officielle est jointe en PDF.\n\nCordialement,\n${ent?.gerant || ''}${ent?.nom ? '\n' + ent.nom : ''}`;
+  const _rem = (q.remise && Number(q.remise.montant) > 0.005) ? `\n- Remise accordée : ${q.remise.montant} €${q.remise.motif ? ' (' + q.remise.motif + ')' : ''}` : '';
+  const body = `Quittance de loyer pour la période ${q.mois}.\n\nDétail :\n- Loyer hors charges : ${q.hc||0} €\n- Provisions sur charges : ${q.ch||0} €${_rem}\n- Total perçu : ${total} €\n\nLa quittance officielle est jointe en PDF.\n\nCordialement,\n${ent?.gerant || ''}${ent?.nom ? '\n' + ent.nom : ''}`;
 
   // D27 — même sortie que l'EDL : boîte « Enregistrer sous » sur PC, feuille de partage sur
   // téléphone. Une seule fonction (`_pdfSortie`) — le `<a download>` recopié ici a disparu.
@@ -1065,19 +1093,55 @@ function _lyDejaYm(ref) {
     .map(q => window.moisFrToYm(q.mois)).filter(Boolean);
 }
 
-/** L'état complet d'un lot pour l'écran : verdict + case du bail + retard. */
+/**
+ * L'état complet d'un lot pour l'écran : verdict + case du bail + retard.
+ * FINANCES-SUIVI-UNIQUE P5 — deux lectures du MÊME suivi (celui de Finances) :
+ *  · `etat` (quittances) : tous les baux, SANS tolérance — un mois pas encore payé n'est jamais soldé ;
+ *  · `retard` : les baux que le lot MONTRE aujourd'hui (actifs + locataire parti l'année de son
+ *    départ, Q2), AVEC la tolérance du 10 déjà appliquée par le suivi → la case de Finances au centime.
+ *    La tolérance n'est pas ré-appliquée ici : une 2ᵉ fois, elle masquerait le DERNIER mois d'un bail
+ *    sorti (sa liste s'arrête à son départ, pas au mois courant).
+ * `relances` : un courrier par BAIL en retard (le locataire en place, ou le parti tant qu'il est visible).
+ */
 function _lyEtatLot(l) {
   const bail = _findBailByRefTolerant(l.ref);
   const etat = _loyerEtatLot(l.ref);
   const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
   const tol = (typeof window._loyerToleranceActive === 'function') ? window._loyerToleranceActive(today) : false;
+  const etatRetard = _loyerEtatLot(l.ref, { graceLast: !!tol, baux: 'visibles' });
   return {
     log: l, ref: l.ref, bail,
     demande: !!(bail && bail.quittanceDemandee),
     etat,
     aQuittancer: etat ? window.moisAQuittancer(etat, _lyDejaYm(l.ref)) : [],
-    retard: etat ? window.retardLot(etat, { toleranceActive: tol }) : { enRetard: false }
+    retard: etatRetard ? window.retardLot(etatRetard, { toleranceActive: false }) : { enRetard: false },
+    relances: _lyBauxARelancer(l.ref)
   };
+}
+
+/**
+ * P5 — les baux d'un lot à relancer AUJOURD'HUI : ceux que le lot montre (actifs + parti visible, Q2)
+ * et dont la dette, dans le suivi de Finances, est non nulle. → [{ cle, noms, parti, reste }]
+ */
+function _lyBauxARelancer(ref) {
+  const s = (typeof _finSuiviLot === 'function') ? _finSuiviLot(ref) : null;
+  if (!s || !s.mois) return [];
+  const lm = s.mois[s.dueYm];
+  if (!lm) return [];
+  return lm.bauxActifs.concat(lm.partis).map(cle => s.baux.find(b => b.cle === cle)).filter(Boolean)
+    .map(b => ({ cle: b.cle, noms: b.noms || '', parti: lm.partis.includes(b.cle), reste: Math.round(((b.position.retardLoyer || 0) + (b.position.retardCharge || 0)) * 100) / 100 }))
+    .filter(x => x.reste > 0.005);
+}
+
+/** P5 — le bail BRUT (DB.baux / DB.baux_historique) d'une clé du suivi `ref|debut[|_bailUid]`. */
+function _lyBailDeCle(ref, cle) {
+  const p = String(cle || '').split('|');
+  const debut = p[1] || '', uid = p[2] || '';
+  const _nr = (x) => String(x == null ? '' : x).trim().toLowerCase();
+  const ok = (b) => b && !b._deleted && String(b.debut || '').slice(0, 10) === debut && (!uid || b._bailUid === uid);
+  const cur = _findBailByRefTolerant(ref);
+  if (ok(cur)) return cur;
+  return (DB.baux_historique || []).find(b => ok(b) && _nr(b.ref) === _nr(ref)) || null;
 }
 
 /* ══ ÉTAT D'INTERFACE (V1) ══════════════════════════════════════════════════
@@ -1404,7 +1468,8 @@ function _lyGrouper(items) {
 function _lyLigneQuittance(e) {
   const n = e.aQuittancer.length;
   const mois = e.aQuittancer.map(y => window.ymToMoisFr(y));
-  const du = e.aQuittancer.reduce((s2, ym) => s2 + ((e.etat.byYm[ym] || {}).du || 0), 0);
+  // P5 (Q1) — un mois soldé par un manque accepté se quittance pour ce qui a été reçu (dû − remise).
+  const du = e.aQuittancer.reduce((s2, ym) => { const m = e.etat.byYm[ym] || {}; return s2 + (m.du || 0) - ((m.remise && m.remise.montant) || 0); }, 0);
   const contexte = n === 1 ? escHtml(mois[0])
     : `${n} mois · ${escHtml(mois[0])} → ${escHtml(mois[n - 1])}`;
   return { log: e.log, html: _lyRow({
@@ -1431,10 +1496,22 @@ function _lyLigneRetard(e) {
   const btnRecu = partiel.length
     ? `<button class="btn bs bb" onclick="_lyRecuPartiel('${_lyQ(e.ref)}','${partiel[partiel.length - 1].ym}')" title="Art. 21 : en cas de paiement partiel, le bailleur délivre un reçu">Reçu partiel</button>`
     : '';
+  // P5 — un courrier par BAIL en retard (même montant que sa carte dans la fenêtre avance / retard).
+  // Deux baux en retard le même jour (locataire parti l'année de son départ + locataire en place) :
+  // deux boutons, chacun nommé ; sinon un seul « Relance », comme avant.
+  const rel = (e.relances || []);
+  const btnRel = rel.length > 1
+    ? rel.map(b => `<button class="btn bp bb" data-cle="${escHtml(b.cle)}" onclick="_lyRelance('${_lyQ(e.ref)}',this.dataset.cle)" title="${escHtml((b.noms || 'Locataire') + ' · ' + fmt(b.reste))}">Relance ${escHtml(b.parti ? (b.noms || 'parti') + ' (parti)' : (b.noms || ''))}</button>`).join('')
+    : `<button class="btn bp bb"${rel.length ? ` data-cle="${escHtml(rel[0].cle)}"` : ''} onclick="_lyRelance('${_lyQ(e.ref)}'${rel.length ? ',this.dataset.cle' : ''})">Relance</button>`;
+  // La ligne NOMME qui doit : la dette d'un locataire PARTI n'est jamais attribuée en silence à
+  // l'occupant actuel du lot (FERRETTE 001 : 90 € dus par l'ancien locataire, pas par la nouvelle).
+  const loc = rel.some(b => b.parti)
+    ? rel.map(b => (b.noms || 'Locataire') + (b.parti ? ' (parti)' : '')).join(' · ')
+    : e.log.locataire;
   return { log: e.log, html: _lyRow({
-    ref: e.ref, loc: e.log.locataire, demande: !!e.demande, contexte,
+    ref: e.ref, loc, demande: !!e.demande, contexte,
     montant: `<b>${fmt(r.reste)}</b> ${pastille}`,
-    actions: `<button class="btn bp bb" onclick="_lyRelance('${_lyQ(e.ref)}')">Relance</button>${btnRecu}
+    actions: `${btnRel}${btnRecu}
       <button class="btn bs bb" onclick="_impayesOuvrirSur('${_lyQ(e.ref)}')" title="Détail mois par mois">⋯</button>`
   }) };
 }
@@ -1621,7 +1698,7 @@ function _lyQuittancesDuMois(ymCourant) {
     resume: qs.slice(0, 3).map(q => `${q.logement} ${q.mois}`).join(', '),
     html: qs.map(q => `<div class="ln"><span class="who"><b>${escHtml(q.logement)}</b> <span class="mu" style="display:inline">${escHtml(q.locataire || '—')}</span></span>
       <span class="mu">${escHtml(q.mois || '')} · éditée le ${fd(q.date)}</span>
-      <span class="am"><b>${fmt((q.hc || 0) + (q.ch || 0))}</b></span>
+      <span class="am"><b>${fmt(_quitTotal(q))}</b></span>
       <span class="ac"><button class="btn bs bb" onclick="_ouvrirQuittanceSurMois('${_lyQ(q.logement)}','${_lyQ(window.moisFrToYm(q.mois) || '')}')" title="Rééditer : l'éditeur s'ouvre sur ce mois, le document se regénère">↺ Rééditer</button>
         <button class="btn bs bb" onclick="previewQuit(${q.id})" title="Aperçu">${_uiIcon('eye')}</button>
         <button class="btn bs bb" onclick="envoyerQuittanceParEmail(${q.id})" title="Télécharger le PDF">${_uiIcon('download')}</button>
@@ -1901,6 +1978,8 @@ function _lyRecuPartiel(ref, ym) {
     logement: ref, mois: window.ymToMoisFr(ym), hc: m.hcDue, ch: m.chDue,
     locataire: (log && log.locataire) || '', entity: (ent && ent.nom) || '', date: td()
   };
+  // P5 (Q1) — une remise déjà accordée sur ce mois réduit ce qui reste à payer (solde = reste du mois).
+  if (m.remise && m.remise.montant > 0.005) q.remise = { montant: m.remise.montant, motif: m.remise.motif || '' };
   // I-DATE, surface 2 du §4 : un reçu partiel émis sur un mois EN RETARD affichait la date
   // du dernier encaissement du lot bornée à aujourd'hui — donc faux presque toujours. On
   // passe les versements réellement imputés À CE MOIS ; s'il n'y en a pas de daté, le
@@ -1908,7 +1987,8 @@ function _lyRecuPartiel(ref, ym) {
   const info = (typeof window.datePaiementMois === 'function')
     ? window.datePaiementMois(etat, ym) : { date: null, dates: [], nb: 0 };
   const built = _buildQuittanceHtml(q, log, ent, bail, {
-    totalRecu: Math.round((m.du - m.reste) * 100) / 100,
+    // P5 — une remise accordée n'est pas un versement : le reçu ne la compte pas (même règle que _loyerPayeDuMois).
+    totalRecu: Math.round((m.du - m.reste - ((m.remise && m.remise.montant) || 0)) * 100) / 100,
     // Un reçu partiel n'est jamais « soldé » : c'est la LISTE des versements qui parle.
     infoPaiement: { date: null, dates: info.dates, nb: info.nb },
     partiel: true,
@@ -1946,18 +2026,31 @@ function _lyPreviewEphemere(built, titre, ent) {
  * change. Pas de second document « rappel de charges ».
  * Le TON suit l'ancienneté (rappel → relance → mise en demeure), via les modèles existants.
  */
-function _lyRelance(ref) {
-  const etat = _loyerEtatLot(ref);
+// FINANCES-SUIVI-UNIQUE P5 — la relance travaille PAR BAIL (le locataire en place, ou le locataire
+// parti tant que sa dette est visible : elle est figée à son départ) et lit LE suivi de Finances
+// (`lignesRelanceBail`) : le total de la lettre = la carte du bail dans la fenêtre avance / retard =
+// la bulle Impayés, au centime (I-g). Plus de lot entier depuis le 1er janvier (Ferrette - 101 :
+// 1 723,01 € réclamés à la locataire actuelle pour 20 € réellement dus).
+// `bailCle` absent : le seul bail en retard du lot ; s'il y en a deux, le locataire en place d'abord.
+// La tolérance du 10 est déjà dans le suivi (graceLast) : on ne la ré-applique pas (sinon le dernier
+// mois d'un bail sorti disparaîtrait de la lettre).
+function _lyRelance(ref, bailCle) {
+  const SL = window.SuiviLoyers;
   const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
-  const tol = (typeof window._loyerToleranceActive === 'function') ? window._loyerToleranceActive(today) : false;
-  const lignes = window.lignesRelance(etat, { toleranceActive: tol });
+  const s = (SL && typeof SL.lignesRelanceBail === 'function' && typeof _finSuiviLot === 'function') ? _finSuiviLot(ref) : null;
+  const cands = _lyBauxARelancer(ref);
+  const cle = bailCle || (cands.find(b => !b.parti) || cands[0] || {}).cle;
+  const sb = (s && cle) ? s.baux.find(b => b.cle === cle) : null;
+  const lignes = sb ? SL.lignesRelanceBail(sb, { toleranceActive: false }) : [];
   if (!lignes.length) { showToast('Rien à réclamer — ce lot est à jour', 'info'); return; }
-  const r = window.retardLot(etat, { toleranceActive: tol });
+  const etat = SL.versEtatMoisLot(sb);
+  const r = window.retardLot(etat, { toleranceActive: false });
   const niveau = window.niveauRelance(r.depuisYm, today);
+  const bailRel = _lyBailDeCle(ref, sb.cle) || _findBailByRefTolerant(ref) || {};
   // AUDIT #1 — l'entité suit le document : sans elle, le PDF sortait sans bandeau bailleur.
-  const _entRel = (DB.entites || []).find(e => e.nom === ((_findBailByRefTolerant(ref) || {}).entity
+  const _entRel = (DB.entites || []).find(e => e.nom === (bailRel.entity
     || ((DB.logements || []).find(l => l.ref === ref) || {}).entity)) || {};
-  _lyPreviewEphemere(_buildRelanceHtml(ref, lignes, r, niveau, today), 'Courrier de relance', _entRel);
+  _lyPreviewEphemere(_buildRelanceHtml(ref, lignes, r, niveau, today, bailRel), 'Courrier de relance', _entRel);
 }
 
 const _LY_RELANCE_TON = {
@@ -1969,9 +2062,10 @@ const _LY_RELANCE_TON = {
     corps: 'À défaut de règlement sous quinze jours à compter de la réception du présent courrier, nous nous réservons le droit d\'engager toute procédure utile au recouvrement de ces sommes, ainsi que la mise en œuvre de la clause résolutoire du bail.' }
 };
 
-function _buildRelanceHtml(ref, lignes, retard, niveau, todayIso) {
+function _buildRelanceHtml(ref, lignes, retard, niveau, todayIso, bailRel) {
   const log = (DB.logements || []).find(l => l.ref === ref) || {};
-  const bail = _findBailByRefTolerant(ref) || {};
+  // P5 — le courrier s'adresse au locataire du BAIL relancé (un locataire parti n'est pas l'occupant).
+  const bail = bailRel || _findBailByRefTolerant(ref) || {};
   const ent = (DB.entites || []).find(e => e.nom === (bail.entity || log.entity)) || {};
   const ton = _LY_RELANCE_TON[niveau] || _LY_RELANCE_TON['rappel-impaye-1'];
   const adrBien = bail.adrBien || log.adr || '–';
@@ -1979,7 +2073,7 @@ function _buildRelanceHtml(ref, lignes, retard, niveau, todayIso) {
   const villeMatch = siegeStr.match(/\d{5}\s+(.+)/);
   const ville = villeMatch ? villeMatch[1].split(',')[0].trim() : siegeStr;
   const villeTitre = ville ? ville.charAt(0).toUpperCase() + ville.slice(1).toLowerCase() : '';
-  const locs = (bail.locataires || []).map(l => l && l.nom).filter(Boolean).join(', ') || log.locataire || '–';
+  const locs = (bail.locataires || []).map(l => l && l.nom).filter(Boolean).join(', ') || bail.nom || log.locataire || '–';
 
   const corps = `
 ${_dt('docParties', [
@@ -2350,6 +2444,9 @@ function _qeInjecterDoc(m) {
     locataire: ((bail.locataires || []).map(x => x && x.nom).filter(Boolean).join(', ')) || (log && log.locataire) || '',
     entity: (bail.entity || (log && log.entity) || ''), date: td()
   };
+  // P5 (Q1) — même remise que la fabrique (_creerQuittance) : l'aperçu montre LE document qui sortira.
+  const _rem = _quitRemiseDuMois(_qe.ref, m.ym);
+  if (_rem) q.remise = _rem;
   // L'aperçu montre LE document qui sortira. D27 (retour Didier) : un mois non soldé s'édite
   // LIBREMENT (plus de case à cocher) — c'est donc TOUJOURS une quittance pleine forcée (V7),
   // sortie sans ligne « payé le ». L'étiquette « sans paiement constaté » reste DANS l'app.
@@ -2482,8 +2579,13 @@ function _qeEditer() {
     if (!m || m.etat === 'off') continue;
     const r = _creerQuittance(_qe.ref, ym, { verifierSolde: false });
     if (r.ok) {
-      if (r.existante) {                      // réédition : nouvelle date d'édition, rien d'autre
+      if (r.existante) {                      // réédition : nouvelle date d'édition (+ remise, P5)
         r.quittance.date = td();
+        // P5 (Q1) — la remise accordée suit le GESTE, comme la trace du forçage ci-dessous : un mois
+        // quittancé puis soldé par un manque accepté se réédite pour ce qui a été REÇU, avec la mention ;
+        // un manque annulé depuis la retire. Le dû (hc/ch, barème du mois) ne bouge jamais.
+        const _rem = _quitRemiseDuMois(_qe.ref, ym);
+        if (_rem) r.quittance.remise = _rem; else delete r.quittance.remise;
         if (typeof _stamp === 'function') _stamp(r.quittance);
       }
       // AUDIT I-2 — la trace suit le GESTE, dans les deux sens. Sans le `else`, rééditer un
@@ -15262,7 +15364,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.713 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.714 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17153,20 +17255,23 @@ function _renderLogFichePhStrip(log, bail, ref){
     let fin = 'en cours';
     if(bail.fin && /^\d{4}-\d{2}/.test(bail.fin)) fin = bail.fin.slice(5,7)+'/'+bail.fin.slice(2,4);
     // Solde : réutilise le moteur loyers (payé − dû, chiffre signé) — jamais un chiffre inventé.
-    let sV = '—', sCls = '';
+    let sV = '—', sCls = '', sK = 'Solde';
     try{
       if(typeof _lyEtatLot === 'function' && typeof window.retardLot === 'function'){
         const et = _lyEtatLot(log);
         if(et && et.retard){
           if(et.retard.enRetard){ sV = '-'+fmt(et.retard.reste); sCls = 'k-warn'; }
           else { sV = 'À jour'; sCls = 'k-ok'; }
+          // P5 (Q2) — la dette d'un locataire PARTI (visible l'année de son départ) est dite comme telle :
+          // elle n'est pas celle de l'occupant affiché sur la fiche.
+          if((et.relances || []).length && et.relances.every(r => r.parti)) sK = 'Solde · parti';
         }
       }
     }catch(e){}
     cells.push({v: fmt(loyer), k: 'Loyer'});
     cells.push({v: fmt(dep),   k: 'Dépôt'});
     cells.push({v: fin,        k: 'Fin bail'});
-    cells.push({v: sV, k: 'Solde', cls: sCls});
+    cells.push({v: sV, k: sK, cls: sCls});
   } else if(log.archived){
     cells.push({v: '' + _uiIcon('archive',18) + '', k: 'Archivé'});
     cells.push({v: fd(log.archivedAt)||'—', k: 'Date archive'});
@@ -29541,18 +29646,24 @@ function _finIsRecupACharge(m) {
 // sur dépôt) — aucune règle recopiée ici. Mémoïsé par (_dbGen · jour · tolérance) : le tableau,
 // ses fenêtres et l'Accueil (byLot) lisent LE MÊME objet.
 let _finSuiviCache = { key: null, lots: new Map(), mvParLot: null };
+const _finSuiviEntrees = new WeakMap();   // P5 : suivi → son entrée (lotDepuisDb), même durée de vie
 function _finSuiviToday() {
   return (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
 }
-function _finSuiviLot(ref) {
+// P5 — `opts.graceLast` (booléen) force la tolérance : les QUITTANCES lisent le suivi SANS tolérance
+// (D6, « au centime » : un loyer du mois pas encore payé n'est jamais quittançable, même le 5) ; le
+// retard affiché (Finances, onglet Loyers, relance) le lit AVEC. Absent : tolérance du jour (Finances).
+function _finSuiviLot(ref, opts) {
   const SL = window.SuiviLoyers;
   if (!SL || typeof SL.suiviLot !== 'function' || typeof SL.lotDepuisDb !== 'function' || ref == null || ref === '') return null;
   const today = _finSuiviToday();
   const grace = (typeof window._loyerToleranceActive === 'function') ? !!window._loyerToleranceActive(today) : false;
+  const g = (opts && typeof opts.graceLast === 'boolean') ? opts.graceLast : grace;
   const gen = (typeof window._dbGen === 'number') ? window._dbGen : 0;
   const key = gen + '|' + today + '|' + grace;
   if (_finSuiviCache.key !== key) _finSuiviCache = { key, lots: new Map(), mvParLot: null };
-  const k = String(ref).trim().toLowerCase();
+  const kLot = String(ref).trim().toLowerCase();
+  const k = kLot + (g === grace ? '' : '|g' + g);
   if (_finSuiviCache.lots.has(k)) return _finSuiviCache.lots.get(k);
   if (!_finSuiviCache.mvParLot) {          // index des mouvements par lot (tolérant), une fois par génération
     const idx = new Map();
@@ -29568,16 +29679,23 @@ function _finSuiviLot(ref) {
   try {
     const lotIn = SL.lotDepuisDb(ref, {
       baux: DB.baux || {}, baux_historique: DB.baux_historique || [], loyerBareme: DB.loyerBareme || [],
-      mouvements: _finSuiviCache.mvParLot.get(k) || [], baux_evenements: DB.baux_evenements || []
+      mouvements: _finSuiviCache.mvParLot.get(kLot) || [], baux_evenements: DB.baux_evenements || []
     }, {
       catLigne: _finCatLigne,
       // Q4 : l'indemnité GLI (alias compris, M-1) ne réduit PAS la dette — « couvert par la GLI ».
       isGli: mv => { const mere = _finCatMere(mv && mv.cat); return !!(mere && mere.nom === 'Indemnité GLI / loyers impayés'); }
     });
-    s = SL.suiviLot(lotIn, { today, graceLast: grace, seuilArrondi: 1 });
+    s = SL.suiviLot(lotIn, { today, graceLast: g, seuilArrondi: 1 });
+    _finSuiviEntrees.set(s, lotIn);
   } catch (e) { s = null; if (typeof console !== 'undefined') console.warn('[suivi] lot ' + ref + ' ignoré :', e); }
   _finSuiviCache.lots.set(k, s);
   return s;
+}
+// P5 — l'ENTRÉE du suivi d'un lot (même génération), pour une variante calculée par le module :
+// la dette d'un bail avant la retenue sur son dépôt (detteBailAvantDepot, restitution du dépôt).
+function _finSuiviLotIn(ref, opts) {
+  const s = _finSuiviLot(ref, opts);
+  return s ? (_finSuiviEntrees.get(s) || null) : null;
 }
 // Les suivis des lots DU PÉRIMÈTRE (scope.refs du résolveur unique ; scope null = tout le parc).
 function _finSuiviLots(scope) {
@@ -30489,26 +30607,21 @@ function _finFenDetail(x, ym, k) {
   });
   if (x.geste) out += _mqFormHtml(fid, x.geste, ym);
   x.notes.forEach(n => { out += '<div class="note">' + esc(n) + '</div>'; });
-  // Relance : _lyRelance lit encore l'ANCIEN moteur (_loyerEtatLot, par lot, suivi depuis janvier) jusqu'à
-  // P5 (relance par bail). Le bouton n'est proposé que si le courrier réclamerait EXACTEMENT la dette du
-  // bail que dit le suivi (I-g : relance = carte) ; sinon il est retiré de la fenêtre (Ferrette - 101 au
-  // 05/10 : relance 1 723,01 € contre 20 € de dette) — il reste dans l'onglet Loyers jusqu'à P5.
-  if (x.sens === 'retard' && !x.parti && typeof _lyRelance === 'function' && !String(x.ref).startsWith('SCI:') && _finFenRelanceCoherente(x)) {
-    out += '<div class="fdw-act"><button type="button" class="btn bs" onclick="closeM(\'ov-dash-drill\');_lyRelance(\'' + _lyQ(x.ref) + '\')">' + _uiIcon('mail') + ' Créer une relance</button></div>';
+  // Relance (P5) : _lyRelance lit LE MÊME suivi, PAR BAIL (lignesRelanceBail) — le courrier réclame la
+  // dette de CE bail AUJOURD'HUI, celle de sa carte du mois courant (I-g : relance = carte = bulle
+  // Impayés). Proposée pour tout bail en retard (locataire parti compris : sa dette est figée à son
+  // départ, la lettre lui est adressée), tant qu'il doit encore quelque chose aujourd'hui. Sur la carte
+  // d'un mois passé dont la dette a changé depuis, le bouton dit ce qui sera réclamé.
+  if (x.sens === 'retard' && typeof _lyRelance === 'function' && !String(x.ref).startsWith('SCI:')) {
+    const _s = _finSuiviLot(x.ref);
+    const _sb = _s && _s.baux.find(b => b.cle === x.bailCle);
+    const _dette = _sb ? Math.round(((_sb.position.retardLoyer || 0) + (_sb.position.retardCharge || 0)) * 100) / 100 : 0;
+    if (_dette > 0.005) {
+      const _autre = Math.abs(_dette + (Number(x.solde) || 0)) > 0.005;
+      out += '<div class="fdw-act"><button type="button" class="btn bs" data-ref="' + esc(x.ref) + '" data-cle="' + esc(x.bailCle || '') + '" onclick="closeM(\'ov-dash-drill\');_lyRelance(this.dataset.ref,this.dataset.cle)">' + _uiIcon('mail') + ' Créer une relance' + (_autre ? ' · ' + esc(f(_dette)) + ' dus aujourd\'hui' : '') + '</button></div>';
+    }
   }
   return out;
-}
-function _finFenRelanceCoherente(x) {
-  try {
-    const s = _finSuiviLot(x.ref);
-    const sb = s && s.baux.find(b => b.cle === x.bailCle);
-    if (!sb || typeof _loyerEtatLot !== 'function' || typeof window.retardLot !== 'function') return false;
-    const today = _finSuiviToday();
-    const tol = (typeof window._loyerToleranceActive === 'function') ? !!window._loyerToleranceActive(today) : false;
-    const r = window.retardLot(_loyerEtatLot(x.ref), { toleranceActive: tol });
-    const dette = (sb.position.retardLoyer || 0) + (sb.position.retardCharge || 0);
-    return dette > 0.005 && Math.abs((Number(r && r.reste) || 0) - dette) <= 0.01;
-  } catch (e) { return false; }
 }
 function _finFenToggle(d) {
   if (!_finFen || !d) return;
@@ -32170,7 +32283,7 @@ function exportXLSX() {
     const synthData=[['Catégorie','Débit total','Crédit total','Solde'],...Object.entries(cats).map(([c,v2])=>[c,v2.db,v2.cr,v2.cr-v2.db])];
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(synthData),'Synthèse');
     // Quittances
-    const qData=[['Logement','Locataire','Mois','HC','Charges','Total','Date'],...aliveQuit.map(q=>[q.logement,q.locataire,q.mois,q.hc,q.ch,(q.hc||0)+(q.ch||0),q.date])];
+    const qData=[['Logement','Locataire','Mois','HC','Charges','Total','Date'],...aliveQuit.map(q=>[q.logement,q.locataire,q.mois,q.hc,q.ch,_quitTotal(q),q.date])];
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(qData),'Quittances');
     XLSX.writeFile(wb,`Propryo_${td()}.xlsx`);
     showToast('Excel exporté','ok');
