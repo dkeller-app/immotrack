@@ -33,13 +33,13 @@ const BAIL = (rs = RS(), extraSig = {}) => ({ ref: 'D-101', nom: 'Pierre Demo', 
 function monde({ bail = BAIL(), relais = { status: 'expired' }, relaisThrows = false, confirms = [true], modal = true, deleteOk = true, completing = false } = {}) {
   const suite = Array.isArray(relais) ? relais.slice() : [relais]
   const ls = new Map()
-  const log = { toasts: [], confirms: [], appels: [], modalHtml: null }
+  const log = { toasts: [], confirms: [], appels: [], modalHtml: null, etats: [] }
   const sb = {
     DB: { baux: { 'D-101': bail }, documents: [] }, window: { BailSignatureEtat: BSE }, log,
     _resolveRelayBase: (rs) => rs.relayUrl || 'https://defaut',
     _bsRelayPollSession: async () => { log.appels.push('poll'); if (relaisThrows) throw new Error('réseau'); return suite.length > 1 ? suite.shift() : suite[0] },
     _bsRelayDeleteSession: async (b, id, tok) => { log.appels.push(['delete', id, tok]); return deleteOk },
-    _completeRemoteSign: async (ref, state) => { log.appels.push(['complete', ref, sb.DB.baux[ref].signatures && sb.DB.baux[ref].signatures.remoteSession && sb.DB.baux[ref].signatures.remoteSession.ownerToken]); delete sb.DB.baux[ref].signatures.remoteSession; sb.DB.baux[ref].signatures.signedAt = '2026-09-10T10:00:00.000Z'; sb.DB.baux[ref].signatures.mode = 'distance' },
+    _completeRemoteSign: async (ref, state) => { log.etats.push(state && state.status); log.appels.push(['complete', ref, sb.DB.baux[ref].signatures && sb.DB.baux[ref].signatures.remoteSession && sb.DB.baux[ref].signatures.remoteSession.ownerToken]); delete sb.DB.baux[ref].signatures.remoteSession; sb.DB.baux[ref].signatures.signedAt = '2026-09-10T10:00:00.000Z'; sb.DB.baux[ref].signatures.mode = 'distance' },
     showToast: (m, t) => log.toasts.push([m, t]),
     confirm2: (m) => { log.confirms.push(m); return confirms.length ? confirms.shift() : true },
     _rsConfirmAnnulation: async (html) => { log.modalHtml = html; return modal },
@@ -241,6 +241,7 @@ describe('🟠1 — course « pending → le locataire signe pendant la fenêtre
     await w.annulerSessionSignature('D-101')
     expect(deletes(w)).toHaveLength(0)
     expect(completes(w)).toEqual([['complete', 'D-101', 'T1']])   // le jeton de la session vivante, jamais celui de l'archive (null)
+    expect(w.log.etats).toEqual(['completed'])   // l'état RÉEL relu au relais par la purge gardée est transmis à la récupération
     expect(w.DB.baux['D-101'].signaturesAnnulees).toBeUndefined()
     expect(w.DB.baux['D-101'].signatures.signedAt).toBeTruthy()
     expect(w.log.toasts.some(([m]) => /L'annulation de la session est abandonnée/.test(m))).toBe(true)
