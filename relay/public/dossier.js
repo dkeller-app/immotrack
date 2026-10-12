@@ -75,7 +75,7 @@ function build() {
              « loyer charges comprises ». */''}
         ${CAND.loyer?`<div class="rent">${esc(String(CAND.loyer))} €<br><span style="font-weight:500;color:var(--t3);font-size:11px">HC / mois</span></div>`:''}
       </div>
-      <div class="reassure">🔒 <span><b>Transmission chiffrée</b> au propriétaire uniquement · données supprimées sous 30 j si non retenu</span></div>
+      <div class="reassure">🔒 <span><b>Transmission chiffrée</b> au propriétaire · dossier non retenu supprimé 30 jours après la décision</span></div>
     </div>
 
     <div class="cbanner" id="cbanner" hidden><span class="i">📌</span><div id="cbanner-txt"></div></div>
@@ -154,7 +154,7 @@ function build() {
         ${piecesHtml}
         <div class="info warn" style="margin-top:12px"><span class="i">💡</span><span>Astuce mobile : photographiez vos documents un par un, la lumière du jour suffit. Vous pouvez revenir compléter avec le même lien.</span></div>
         <div class="rgpd" style="margin-top:14px"><a id="rgpd-toggle">Mentions d'information RGPD ▾</a></div>
-        <div class="rgpd-panel" id="rgpd-panel" hidden><b>Responsable :</b> le propriétaire du bien ci-dessus. <b>Finalité :</b> étude de votre candidature à la location. <b>Destinataire :</b> le propriétaire uniquement. <b>Conservation :</b> supprimée automatiquement sous 30 jours si votre dossier n'est pas retenu ; conservée le temps du bail s'il est conclu. <b>Vos droits :</b> accès, rectification, suppression — par le contact indiqué par le propriétaire. Hébergement chiffré (Cloudflare), aucune donnée revendue.</div>
+        <div class="rgpd-panel" id="rgpd-panel" hidden><b>Responsable :</b> le propriétaire du bien ci-dessus. <b>Finalité :</b> étudier la candidature à la location. <b>Destinataires :</b> le propriétaire, et les associés de la société qui gère le bien le cas échéant. <b>Contrôles :</b> le propriétaire peut vérifier dans l'Annuaire des entreprises de l'État que l'employeur indiqué est une entreprise active ; aucun score n'est calculé et aucune décision n'est automatique. <b>Conservation :</b> dossier non retenu supprimé 30 jours après la décision (pièces et fichiers compris) ; dossier jamais envoyé effacé au plus tard 7 jours après l'expiration du lien ; dossier retenu conservé avec le bail. <b>Hébergement :</b> Cloudflare (dépôt en ligne, réseau mondial) et Supabase (espace du propriétaire, serveurs en Irlande), données chiffrées en transit ; aucune donnée revendue. <b>Droits :</b> accès, rectification, effacement, auprès du propriétaire ; réclamation possible auprès de la CNIL (cnil.fr).</div>
       </section>
     </div>
 

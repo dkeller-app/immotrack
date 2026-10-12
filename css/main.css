@@ -9384,14 +9384,24 @@ body[data-dash-v4="on"] .v4h-todo-empty {
    Classes spécifiques au pipeline candidatures. Tokens/composants réutilisés depuis le
    design system ci-dessus (--grn/--ora/--red, .badge, .tbl, .filters…). */
 .page-subtitle{font-size:13px;color:var(--t2);margin-top:2px}
-/* Voyant Confiance + score (aide à la décision, jamais un verdict) */
-.voyant{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.voyant.grn{background:var(--grn);box-shadow:0 0 0 3px rgba(22,163,74,.15)}
-.voyant.ora{background:var(--ora);box-shadow:0 0 0 3px rgba(234,88,12,.15)}
-.voyant.red{background:var(--red);box-shadow:0 0 0 3px rgba(220,38,38,.15)}
-.conf-cell{display:inline-flex;align-items:center;gap:8px}
-.conf-num{font-family:var(--font);font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
-.conf-num.grn{color:var(--grn)}.conf-num.ora{color:var(--ora)}.conf-num.red{color:var(--red)}
+/* CANDIDATURES-CONFORMITE (12/10/2026) : plus de voyant ni de score. État factuel des pièces, date de
+   suppression des non retenus, carte « Points à vérifier » (constats sans couleur de verdict), conservation. */
+.cand-pz{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--t2)}
+.cand-pz.ok{color:var(--pos);font-weight:600}
+.cand-supp{font-size:11.5px;color:var(--t2);margin-top:3px}
+.cand-keep{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--t2);line-height:1.45}
+.cand-keep svg{flex:0 0 auto;margin-top:2px}
+.cand-pv{display:flex;flex-direction:column;gap:8px}
+.cand-pvi{border:1px solid var(--bor);border-left:3px solid var(--t3);border-radius:var(--r);padding:9px 11px;background:var(--sur2)}
+.cand-pvi .tt{font-weight:600;font-size:13px;display:flex;gap:7px;align-items:flex-start;color:var(--t1)}
+.cand-pvi .tt svg{flex:0 0 auto;margin-top:2px;color:var(--t2)}
+.cand-pvi .dd{font-size:12.5px;color:var(--t2);margin:3px 0 0 22px}
+.cand-pvi .src{font-size:11.5px;color:var(--t3);margin:5px 0 0 22px}
+.cand-pvi .src a{color:var(--t2)}
+.cand-pvi .act{margin:7px 0 0 22px;display:flex;gap:6px;flex-wrap:wrap}
+.cand-pv-vide{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--t2)}
+.cand-pv-vide svg{flex:0 0 auto;margin-top:2px}
+.cand-pv-regle{font-size:11.5px;color:var(--t3);border-top:1px dashed var(--bor);padding-top:8px;margin-top:8px;line-height:1.45}
 .conf-decl{background:rgba(90,110,135,.12);color:var(--t2);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;border-radius:8px;cursor:help}
 .note-lien{display:inline-flex;align-items:center;background:rgba(124,58,237,.12);color:var(--pur);font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:8px;margin-left:6px;letter-spacing:.2px}
 .avatar{width:34px;height:34px;border-radius:50%;background:#5566aa;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:12px;color:#fff;flex-shrink:0;letter-spacing:.02em}

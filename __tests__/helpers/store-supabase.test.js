@@ -172,6 +172,37 @@ describe('SupabaseStore.upsert/remove — écriture + concurrence par version', 
     expect(w.deletes).toContainEqual(['logements', 'uuid:logement|f-1'])
   })
 
+  // CANDIDATURES-CONFORMITE (12/10/2026) : le soft-delete laissait `legacy_raw` (toutes les données
+  // personnelles du candidat) dans la ligne supprimée. Il la réécrit maintenant, pour les candidats et
+  // leurs pièces SEULEMENT ; toute autre ligne garde le soft-delete nu (preuve légale inchangée).
+  it('remove d\'un candidat → soft-delete + legacy_raw réduit à l\'identifiant', async () => {
+    const w = mockWriter(); const seen = []
+    const orig = w.softDelete.bind(w)
+    w.softDelete = async (t, id, v, extra) => { seen.push([t, extra]); return orig(t, id, v, extra) }
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }], candidats: [] }
+    const s = storeWith(w, db)
+    const cand = { id: 'cand_1', entity: 'SCI A', logRef: 'F-1', nom: 'Dupont', email: 'd@x.fr', revenus: 2100 }
+    await s.upsert('candidats', cand)
+    const r = await s.remove('candidats', cand)
+    expect(r.status).toBe('deleted')
+    expect(seen).toEqual([['candidats', { legacy_raw: { id: 'cand_1', _efface: true } }]])
+  })
+  it('remove d\'une pièce de candidat → nom de fichier effacé ; pièce de bail → soft-delete nu', async () => {
+    const w = mockWriter(); const seen = []
+    const orig = w.softDelete.bind(w)
+    w.softDelete = async (t, id, v, extra) => { seen.push([t, extra]); return orig(t, id, v, extra) }
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }], documents: [] }
+    const s = storeWith(w, db)
+    const pc = { id: 5, parentType: 'candidat', parentId: 'cand_1', logRef: 'F-1', name: 'cni-dupont.pdf' }
+    const pb = { id: 6, parentType: 'bail', parentRef: 'F-1', logRef: 'F-1', name: 'bail-signe.pdf' }
+    await s.upsert('documents', pc); await s.upsert('documents', pb)
+    await s.remove('documents', pc); await s.remove('documents', pb)
+    expect(seen).toEqual([
+      ['documents', { legacy_raw: { id: 5, parentType: 'candidat', _efface: true }, name: null }],
+      ['documents', undefined]
+    ])
+  })
+
   // ── trous trouvés par l'audit (NON-PASSANT → corrigés) ──────────────────────
   it('CRITICAL : id existant en base mais NON tracké → conflit, PAS d\'écrasement silencieux', async () => {
     const w = mockWriter()

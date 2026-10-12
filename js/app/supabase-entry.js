@@ -23,6 +23,8 @@ import { makeDetUuid } from '../core/det-uuid.js'   // P0-4 : id d'audit DÉTERM
 // LE lecteur du DB vivant (getter d'abord, repli sur le miroir, try/catch). Ce fichier portait déjà
 // le bon geste à la main ; on appelle le helper testé plutôt que d'en garder deux copies.
 import { appDbFrom } from '../core/utils.js'
+// CANDIDATURES-CONFORMITE : garde de forme des chemins envoyés à la suppression Storage (testée).
+import { cheminFichierCandidatValide } from '../core/candidature-purge.js'
 
 const FLAG = (() => {
   try {
@@ -641,6 +643,38 @@ async function boot() {
       const { error } = await client.storage.from('espace-files').upload(objPath, blob, { contentType: contentType || 'application/octet-stream', upsert: true })
       return error ? null : objPath
     } catch (e) { return null }
+  }
+
+  // CANDIDATURES-CONFORMITE (12/10/2026) — SUPPRESSION des fichiers de CANDIDATS dans Supabase Storage.
+  // SEULE suppression Storage de l'app. Réservée aux pièces de candidats (purge RGPD des non retenus à
+  // J+30, suppression manuelle d'un candidat ou d'une pièce hors liste) : l'appelant ne passe que des
+  // cloudKey issus de CandPurge.planPurge / piecesDuCandidat (parentType 'candidat'). Ici, ceinture :
+  // tout chemin qui n'a pas la forme <espace>/<entité|_orphelin>/files/<ph_|att_…> est ÉCARTÉ (jamais un
+  // dossier, un joker, un PDF de bail nommé autrement), au plus 100 par appel. La RLS DELETE du bucket
+  // (0031 : has_entite_write) s'applique en plus. Les autres pièces gardent leur fichier (preuve légale).
+  // Retour { effaces:[chemins], echecs:[chemins] } : un chemin absent du bucket compte comme effacé
+  // (idempotent) ; un refus RLS ou une erreur réseau compte comme échec (l'appelant le remet en attente).
+  window.__immoCloudRemoveCandidatFiles = async function (paths) {
+    const liste = [...new Set((Array.isArray(paths) ? paths : []).filter(cheminFichierCandidatValide))].slice(0, 100)
+    const res = { effaces: [], echecs: [] }
+    if (!liste.length) return res
+    if (!_cloudEspaceId) { res.echecs = liste; return res }
+    try {
+      const { data, error } = await client.storage.from('espace-files').remove(liste)
+      if (error) { res.echecs = liste; return res }
+      const retires = new Set((Array.isArray(data) ? data : []).map(o => o && o.name).filter(Boolean))
+      for (const p of liste) {
+        if (retires.has(p)) { res.effaces.push(p); continue }
+        // Absent de la réponse : déjà effacé (succès) OU suppression refusée en silence par la RLS (échec).
+        // On tranche en relisant l'objet : « introuvable » = effacé ; lisible = toujours là = échec.
+        try {
+          const { error: e2 } = await client.storage.from('espace-files').createSignedUrl(p, 10)
+          if (e2 && /not.?found|does not exist/i.test(String(e2.message || e2.error || e2.statusCode || ''))) res.effaces.push(p)
+          else res.echecs.push(p)
+        } catch (e3) { res.echecs.push(p) }
+      }
+    } catch (e) { res.effaces = []; res.echecs = liste }
+    return res
   }
 
   // ── PARTAGE PAR SCI (étapes 2-3) — helpers MANAGER de l'écran « Partage & accès ». TOUT passe par la

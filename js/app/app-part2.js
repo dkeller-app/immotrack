@@ -15030,7 +15030,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.730 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.731 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -15413,7 +15413,7 @@ function _renderAttachmentSection(opts) {
 // d'une checklist + une liste à plat). Réutilise _attachmentRowHtml (rendu ligne) + les handlers
 // _handleAttachmentUpload/Open/Delete. Chaque catégorie a un « + Ajouter » qui TAGUE le fichier
 // dans cette catégorie. Les fichiers de catégorie inconnue (ajout manuel générique / anciens
-// dépôts) tombent dans « Autres pièces ». Statut ✓/⏳ aligné sur les vraies pièces (cf. score).
+// dépôts) tombent dans « Autres pièces ». Statut Fournie / Manquante aligné sur les vraies pièces.
 function _renderCandidatPiecesGrouped(cand){
   const candId = String(cand.id);
   const logRefArg = cand.logRef != null ? `'${_lyQ(cand.logRef)}'` : 'null';
@@ -15444,9 +15444,9 @@ function _renderCandidatPiecesGrouped(cand){
     const okTxt = 'Fourni' + (cat.fem ? 'e' : '') + (cat.plural ? 's' : '');
     const badge = has
       ? `<span style="color:var(--grn,#16a34a);font-weight:700;font-size:12px">✓ ${okTxt}</span>`
-      : `<span style="color:var(--ora,#e0771c);font-weight:700;font-size:12px">⏳ Manquante</span>`;
+      : `<span style="color:var(--t2);font-weight:700;font-size:12px">Manquante</span>`;
     const body = (has ? files.map(_attachmentRowHtml).join('')
-                      : `<div class="mu sm" style="padding:4px 2px;color:var(--ora,#e0771c)">Aucune pièce déposée pour cette catégorie.</div>`)
+                      : `<div class="mu sm" style="padding:4px 2px">Aucune pièce déposée pour cette catégorie.</div>`)
                + _addBtn(cat.key);
     return `<details ${has?'open':''} style="border:1px solid var(--bor);border-radius:9px;margin-bottom:8px;background:var(--sur,#fff)">
       <summary style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;list-style:none">
@@ -15548,9 +15548,20 @@ async function _handleAttachmentUpload(input, parentType, parentId, parentRef, l
 async function _handleAttachmentDelete(docId) {
   const doc = (DB.documents||[]).find(d => d && !d._deleted && d.id === docId);
   if (!doc) return;
-  if (!confirm2('Supprimer la PJ « ' + (doc.originalName || doc.name) + ' » ?\n(Tombstone DB + IDB purge + Drive trash 30j)')) return;
+  const _estCand = doc.parentType === 'candidat';
+  if (!confirm2(_estCand
+      ? 'Supprimer la pièce « ' + (doc.originalName || doc.name) + ' » ?\n\nElle est effacée de l\'app et du stockage en ligne (RGPD). Action irréversible.'
+      : 'Supprimer la PJ « ' + (doc.originalName || doc.name) + ' » ?\n(Tombstone DB + IDB purge + Drive trash 30j)')) return;
   const _pt = doc.parentType, _pi = doc.parentId;
-  await _attachmentDelete(docId);
+  if (_estCand && typeof _candEffacerPieces === 'function') {
+    // CANDIDATURES-CONFORMITE (décision Didier 12/10, Q2) : une pièce de candidat est effacée pour de bon —
+    // local tout de suite, fichier en ligne dans la foulée (hors ligne → file d'attente). Les autres pièces
+    // gardent le comportement « preuve légale » de _attachmentDelete (fichier en ligne conservé).
+    const _p = _candEffacerPieces([doc]);
+    try { if (typeof _auditLog === 'function') _auditLog('delete', 'attachment', docId, 'pièce de candidat effacée (RGPD)'); } catch (e) {}
+    saveDB();
+    _p.catch(e => console.warn('[candidat] effacement de la pièce', e));
+  } else await _attachmentDelete(docId);
   showToast('🗑 PJ supprimée', 'ok', 3000);
   // v15.156 — rafraîchit la section en place (fiche ou modale)
   if (!_attachmentRefresh(_pt, _pi)) {
@@ -21747,7 +21758,7 @@ function _annonceStep1Continuer() {
     log.loyerHcRef = hcS; log.chargesRef = chS;
     // Bail OUVERT, pas le statut : jamais de log.hc poussé tant que le bail du locataire sorti est ouvert
     // (_syncLogToBail le recopierait dans son bail). Le loyer souhaité reste porté par loyerHcRef.
-    if (_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))) _rescoreCandidatsDuLogement(log.ref);
+    _logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref));   // (plus de score candidat à recalculer — CANDIDATURES-CONFORMITE)
     _stamp(log);
     try { _auditLog('update', 'logement', log.id, log.ref); } catch (e) {}
     saveDB();
@@ -22275,10 +22286,7 @@ function saveParamLog() {
     // Bail OUVERT, pas le statut : sur un lot parti (bail à clôturer), le loyer poussé dans log.hc serait
     // recopié dans le bail du locataire sorti par _syncLogToBail (juste après) — dû et impayés faussés.
     const _lrOcc = !!_bienActiveBail(log.ref);
-    if (_logpPushLoyerRef(log, presa.log, _lrOcc)) {
-      // le loyer courant du bien vacant a changé → recalcule le score de ses candidats (ratio)
-      _rescoreCandidatsDuLogement(log.ref);
-    }
+    _logpPushLoyerRef(log, presa.log, _lrOcc);   // (plus de score candidat à recalculer — CANDIDATURES-CONFORMITE)
     // Propage equipementsCommuns vers l'immeuble parent — UNIQUEMENT si le bloc était dans le DOM.
     // (P0-2 : la modale Immeuble porte déjà ces cases ; ici c'est le doublon, qui ne doit surtout
     // pas écraser l'immeuble avec des cases inexistantes.)

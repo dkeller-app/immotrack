@@ -13,7 +13,8 @@
 //   writer.archive(table,id,expVer)→newVer|null : UPDATE archived=true gardé par version (baux seulement).
 //   fetchConfig()    → Promise<object>   (espace_config.data, ou {})
 //   writer = { insert(table,row)→newVer|null, update(table,id,row,expVer)→newVer|null,
-//              softDelete(table,id,expVer)→newVer|null }   (null = CONFLIT : id déjà présent
+//              softDelete(table,id,expVer[,extra])→newVer|null }   (extra = colonnes réécrites avec
+//              deleted_at : candidats et pièces de candidats seulement, cf. effacementLigneCloud)   (null = CONFLIT : id déjà présent
 //              côté serveur OU version périmée).
 //     ⚠️ SQL réel OBLIGATOIRE (anti-perte silencieuse, anti-résurrection, §7/D20) :
 //       insert     = `INSERT … ON CONFLICT (id) DO NOTHING RETURNING version` (0 ligne→null=conflit,
@@ -35,6 +36,9 @@
 //   `auditTrail`, `compteursReleves`. NE PAS les ajouter à ARRAY_TABLES.
 //   (`candidats` = désormais une vraie TABLE par-SCI, cf migration 0034 — volet 2 anti-fuite.)
 import { mapToRow } from './store-mapping.js'
+// CANDIDATURES-CONFORMITE : colonnes réécrites au soft-delete d'un candidat / d'une pièce de candidat
+// (aucune donnée personnelle ne reste dans la ligne supprimée). Toute autre ligne : soft-delete nu.
+import { effacementLigneCloud } from './candidature-purge.js'
 
 const ARRAY_TABLES = {
   entites: 'entites', logements: 'logements', baux_historique: 'baux_historique',
@@ -245,7 +249,10 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
     const row = mapToRow(table, rec, ctx())
     if (!row) return { status: 'skipped' }
     if (!_versions.has(row.id)) return { status: 'conflict', id: row.id }   // version inconnue → re-hydrater d'abord
-    const nv = await writer.softDelete(table, row.id, _versions.get(row.id))
+    const efface = effacementLigneCloud(table, rec)
+    const nv = efface
+      ? await writer.softDelete(table, row.id, _versions.get(row.id), efface)
+      : await writer.softDelete(table, row.id, _versions.get(row.id))
     if (nv == null) return { status: 'conflict', id: row.id }
     _versions.set(row.id, nv)
     return { status: 'deleted', id: row.id, version: nv }

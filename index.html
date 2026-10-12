@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.730</title>
+<title>Propryo v15.731</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -59,7 +59,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.730">
+<link rel="stylesheet" href="css/main.css?v=15.731">
 <link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7bb6198f">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
@@ -144,6 +144,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/gestion-dg-impayes.js">
 <link rel="modulepreload" href="js/core/vetuste-grille.js">
 <link rel="modulepreload" href="js/core/candidature.js">
+<link rel="modulepreload" href="js/core/candidature-purge.js">
 <link rel="modulepreload" href="js/core/relay-client.js">
 <link rel="modulepreload" href="js/core/backup.js">
 <link rel="modulepreload" href="js/core/espace-purge.js">
@@ -277,7 +278,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.730</em>
+      <em>v15.731</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -728,8 +729,8 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="cand-tbl" id="cand-table">
         <div class="tbl-wrap"><table class="tbl">
           <thead><tr>
-            <th>Candidat</th><th>Bien</th><th>Date début</th><th>Statut</th>
-            <th class="num">Revenus</th><th>Garant</th><th>Confiance</th>
+            <th>Candidat</th><th>Bien</th><th>Reçu le</th><th>Statut</th>
+            <th class="num">Revenus déclarés</th><th>Garantie</th><th>Pièces</th>
           </tr></thead>
           <tbody id="cand-tbody"></tbody>
         </table></div>
@@ -2437,24 +2438,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
 #ov-fiche-candidat .piece .pchk{font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 #ov-fiche-candidat .piece .pchk.ok{color:var(--grn)}
 #ov-fiche-candidat .piece .pchk.no{color:var(--ora)}
-/* Scoring — anneau EMPILÉ au-dessus des critères (colonne étroite → évite la coupe des valeurs). */
-#ov-fiche-candidat .score-hero{display:flex;flex-direction:column;align-items:stretch;gap:14px}
-#ov-fiche-candidat .score-hero>div:not(.score-ring){min-width:0;width:100%}
-#ov-fiche-candidat .score-ring{width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center}
-#ov-fiche-candidat .score-ring .inner{width:74px;height:74px;border-radius:50%;background:var(--sur);display:flex;align-items:center;justify-content:center;flex-direction:column}
-#ov-fiche-candidat .score-ring .sv{font-family:var(--display);font-weight:800;font-size:26px;line-height:1}
-#ov-fiche-candidat .score-ring .sl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-top:2px}
-#ov-fiche-candidat .crit{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--bor2)}
-#ov-fiche-candidat .crit:last-child{border-bottom:none}
-#ov-fiche-candidat .crit .cname{flex:1;min-width:0;font-size:13px}
-#ov-fiche-candidat .crit .cbar{width:84px;height:6px;background:var(--bor);border-radius:3px;overflow:hidden;flex-shrink:0}
-#ov-fiche-candidat .crit .cbar i{display:block;height:100%;background:var(--acc);border-radius:3px}
-#ov-fiche-candidat .crit .cpts{font-family:var(--display);font-weight:700;font-size:13px;width:54px;text-align:right;flex-shrink:0}
-/* Tooltip transparence */
-#ov-fiche-candidat .tip-wrap{position:relative;display:inline-flex}
-#ov-fiche-candidat .tip-ic{width:18px;height:18px;border-radius:50%;background:var(--sur3);color:var(--t2);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;cursor:help;border:1px solid var(--bor)}
-#ov-fiche-candidat .tip-pop{position:absolute;top:24px;left:0;width:280px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:12px 14px;font-size:12px;color:var(--t2);line-height:1.5;z-index:30;display:none}
-#ov-fiche-candidat .tip-wrap:hover .tip-pop,#ov-fiche-candidat .tip-wrap.show .tip-pop{display:block}
+/* CANDIDATURES-CONFORMITE : carte « Score de confiance » retirée (anneau, critères, infobulle). */
 /* Toggle pièces vérifiées */
 #ov-fiche-candidat .toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
 #ov-fiche-candidat .toggle .track{width:42px;height:24px;border-radius:12px;background:var(--bor);position:relative;transition:background .2s;flex-shrink:0}
@@ -2466,7 +2450,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
   #ov-fiche-candidat .fc-g2{grid-template-columns:1fr 1fr}
   #ov-fiche-candidat .fc-side{position:static}
 }
-@media (max-width:680px){#ov-fiche-candidat .fc-g2{grid-template-columns:1fr}#ov-fiche-candidat .score-hero{flex-direction:column;align-items:flex-start}#ov-fiche-candidat .crit .cbar{width:80px}}
+@media (max-width:680px){#ov-fiche-candidat .fc-g2{grid-template-columns:1fr}}
 @media (max-width:560px){
   #ov-fiche-candidat .modal{width:96vw}
   #ov-fiche-candidat .fc-actions .btn{flex:1 1 100%}
@@ -4525,9 +4509,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=7b3e7df0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=d4552c32" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=ea8eb4d4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/app-part1.js?v=224dbe98" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=e924f86d" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=290116da" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">

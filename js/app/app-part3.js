@@ -1206,10 +1206,11 @@ function _bootDataJobs() {
     try { _irlSyncInsee(); } catch(e) { /* I12 : jamais bloquant */ }
   }
   agendaAutoSync();   // génération silencieuse des événements depuis les baux
-  // Candidature — purge RGPD : tombstone des candidats refusés > 30 j (mesure précontractuelle).
-  // Idempotent : ne fait rien si aucun refusé n'a dépassé la durée légale de conservation.
+  // Candidature — purge RGPD des non retenus, 30 jours après la DATE DU REFUS (CANDIDATURES-CONFORMITE) :
+  // fichiers en ligne, pièces, binaires locaux, copie relais, fiche. Asynchrone (réseau), idempotente ;
+  // aussi relancée à l'ouverture de l'onglet Candidats (go → renders.candidats).
   if (typeof _purgeCandidatsRefusesProd === 'function') {
-    try { _purgeCandidatsRefusesProd(); } catch(e) { console.warn('[purge candidats refusés]', e); }
+    try { _purgeCandidatsRefusesProd().catch(e => console.warn('[purge candidats refusés]', e)); } catch(e) { console.warn('[purge candidats refusés]', e); }
   }
   // v14.99 Sprint 5A — BUG-PJ-LOCALSTORAGE : migration silencieuse des PJ legacy
   // (m.pj.dataB64) vers IndexedDB + DB.documents. Idempotent, skip si rien à migrer.

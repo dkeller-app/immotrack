@@ -1,4 +1,5 @@
-const ASSET_VERSION = '1';
+// Bumpé à chaque changement de dossier.js / dossier.css (cache navigateur du formulaire public).
+const ASSET_VERSION = '2';
 
 function jsonForScript(v) {
   return JSON.stringify(v).replace(/</g, '\\u003c');
@@ -10,7 +11,7 @@ function escHtml(s) {
 }
 
 export function renderDossierPage({ candidature, candidatToken }) {
-  // Données strictement nécessaires au formulaire — AUCUN score Confiance (D7).
+  // Données strictement nécessaires au formulaire — AUCUN score (D7 ; CANDIDATURES-CONFORMITE : plus aucun score nulle part).
   const data = {
     bienLabel: candidature.bienLabel || '',
     loyer: candidature.loyer || 0,
