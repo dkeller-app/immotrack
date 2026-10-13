@@ -136,13 +136,16 @@ const INTERDITS = [
   ['bulletins', 'Plus de trois bulletins de salaire', new RegExp('\\b' + NB_SUP_3 + ' (?:derniers |dernieres )?(?:bulletins|fiches) de (?:salaires?|paie|paye)\\b')],
   ['ficp', 'Extrait ou attestation du FICP', /\b(?:ficp|fichier (?:national )?des incidents)\b/],
   ['facture_energie', "Facture d'énergie demandée au candidat (exigible de la caution seulement)", /\bfactures? (?:d |de )?(?:eau|gaz|electricite|edf|engie|energie)\b/],
-  ['cosignature_parents', "Cosignature imposée d'un parent (art. 22-2, al. 2)", /\b(?:(?:caution|cautions|garant|garants|cosignature) (?:de |des |d )?(?:vos |ses |tes |leurs )?parents|parents? (?:doivent|doit) (?:se porter |etre )(?:caution|garants?))\b/]
+  ['cosignature_parents', "Cosignature imposée d'un parent (art. 22-2, al. 2)", /\b(?:(?:caution|cautions|garant|garants|cosignature) (?:de |des |d )(?:vos |ses |tes |leurs )?parents|parents? (?:doivent|doit) (?:se porter |etre )(?:caution|garants?))\b/]
 ];
 
-function _detecter(textNorm, brut) {
+// Pièces exigibles de la CAUTION (annexe II) : pas d'alerte dans la zone « garant » (relecture Opus #3).
+const PERMIS_GARANT = new Set(['facture_energie']);
+function _detecter(textNorm, brut, categorie) {
   const out = []; const vus = new Set();
   for (const [id, libelle, re] of INTERDITS) {
     if (vus.has(id)) continue;
+    if (categorie === 'garant' && PERMIS_GARANT.has(id)) continue;
     const m = textNorm.match(re);
     if (!m) continue;
     vus.add(id);
@@ -171,9 +174,10 @@ export function detecterPiecesInterdites(texte) {
   if (!texte) return [];
   return _detecter(_norm(texte), texte);
 }
-/** Même contrôle sur un nom de fichier (séparateurs _ - . traités comme des espaces). */
-export function nomFichierHorsListe(nom) {
+/** Même contrôle sur un nom de fichier (séparateurs _ - . traités comme des espaces). `categorie` = zone de
+ * dépôt : dans « garant », une facture d'énergie est exigible (annexe II, C.2) et n'est pas signalée. */
+export function nomFichierHorsListe(nom, categorie) {
   if (!nom) return [];
   const sansExt = String(nom).replace(/\.[a-z0-9]{2,5}$/i, '');
-  return _detecter(_norm(sansExt), sansExt).map(x => ({ ...x, extrait: String(nom) }));
+  return _detecter(_norm(sansExt), sansExt, categorie).map(x => ({ ...x, extrait: String(nom) }));
 }

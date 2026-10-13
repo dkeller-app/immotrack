@@ -116,6 +116,15 @@ describe('nomFichierHorsListe — nom d\'un fichier reçu ou ajouté', () => {
     expect(nomFichierHorsListe('carte_vitale.jpg').map(x => x.id)).toEqual(['carte_vitale']);
     expect(nomFichierHorsListe('livret.de.famille.pdf').map(x => x.id)).toEqual(['livret_famille']);
   });
+  it('zone « garant » : la facture d\'énergie est exigible de la caution → pas d\'alerte (annexe II, C.2)', () => {
+    expect(nomFichierHorsListe('facture_edf_garant.pdf', 'garant')).toEqual([]);
+    expect(nomFichierHorsListe('Facture électricité caution.pdf', 'garant')).toEqual([]);
+    expect(nomFichierHorsListe('facture_edf.pdf', 'domicile').map(x => x.id)).toEqual(['facture_energie']);
+    expect(nomFichierHorsListe('releve-compte-garant.pdf', 'garant').map(x => x.id)).toEqual(['releve_compte']);
+  });
+  it('« l\'avis d\'imposition de la caution (vos parents) » ne déclenche pas la cosignature', () => {
+    expect(detecterPiecesInterdites("l'avis d'imposition de la caution (vos parents)")).toEqual([]);
+  });
   it('les noms ordinaires ne déclenchent rien', () => {
     ['cni-recto-verso.pdf', 'bulletins-juil-aout-sept.pdf', 'avis-imposition-2026.pdf', 'IMG_20261010_1842.jpg',
       'quittances.pdf', 'contrat-travail.pdf', 'attestation-hebergement.pdf', 'scan.pdf', 'photo.jpg']

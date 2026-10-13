@@ -15,7 +15,7 @@ import * as CandPurge from '../../js/core/candidature-purge.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
-const SYNC = ['_candPurgeAttenteLire', '_candPurgeAttenteEcrire', 'setCandidatStatut'];
+const SYNC = ['_candPurgeAttenteLire', '_candPurgeAttenteEcrire', 'setCandidatStatut', '_candTombstonerPieces'];
 const ASYNC = ['_candCloudEffacer', '_candEffacerPiecesLocales', '_candEffacerPieces', '_purgeCandidatsRefusesProd'];
 const SRC = SYNC.map(n => extraireFonction(P1, n)).join('\n') + '\n'
   + ASYNC.map(n => 'async ' + extraireFonction(P1, n)).join('\n') + '\n'
@@ -223,6 +223,33 @@ describe('suppression manuelle (décision Didier 12/10, Q2) — même routine', 
     expect(journal.storage.length).toBe(1);                    // aucun appel Storage pour la pièce du bien
   });
 
+  it('relecture Opus #1 : la pièce est REMPLACÉE dans le tableau (l\'ancien objet, gardé par la sync, reste intact)', async () => {
+    const DB = parc(Date.now());
+    DB.documents[0]._espaceId = 'ESP-TIERS';
+    const ancien = DB.documents[0];
+    const { app } = monter(DB);
+    await app._candEffacerPiecesLocales([1]);
+    expect(DB.documents[0]).not.toBe(ancien);
+    expect(ancien).toMatchObject({ name: 'cni-dupont.pdf', _espaceId: 'ESP-TIERS', cloudKey: chemin('ph_1_a') });
+    expect(DB.documents[0]).toMatchObject({ _deleted: true, id: 1, parentType: 'candidat', _espaceId: 'ESP-TIERS' });
+    expect(DB.documents[0].name).toBeUndefined();
+  });
+  it('relecture Opus #2 : la base est sauvée dès les tombstones posés, avant le relais', async () => {
+    const DB = parc(Date.now());
+    const { app, journal } = monter(DB);
+    let savesAuRelais = -1;
+    journal.relais = { push: () => { savesAuRelais = journal.saves; } };
+    await app._purgeCandidatsRefusesProd();
+    expect(savesAuRelais).toBeGreaterThan(0);
+  });
+  it('relecture Opus #4 : pièce d\'un candidat converti → _attachmentDelete (preuve légale), aucun effacement en ligne', async () => {
+    const DB = parc(Date.now());
+    DB.documents.push({ id: 8, parentType: 'candidat', parentId: 'cand_CONV', cloudKey: chemin('ph_8_h'), name: 'ajout.pdf' });
+    const { app, journal } = monter(DB);
+    await app._handleAttachmentDelete(8);
+    expect(journal.attachmentDelete).toEqual([8]);
+    expect(journal.storage.length).toBe(0);
+  });
   it('_candEffacerPiecesLocales refuse toute pièce qui n\'est pas « candidat »', async () => {
     const DB = parc(Date.now());
     const { app, journal } = monter(DB);

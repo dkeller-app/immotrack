@@ -15536,7 +15536,7 @@ async function _handleAttachmentUpload(input, parentType, parentId, parentRef, l
   // CANDIDATURES-CONFORMITE lot 2 — pièce de CANDIDAT dont le nom évoque une pièce hors de la liste du décret
   // n° 2015-1437 (relevé de compte, RIB, carte Vitale…) : avertissement avec le texte légal, l'utilisateur décide.
   if (parentType === 'candidat' && window.PiecesCand) {
-    const _hl = window.PiecesCand.nomFichierHorsListe(f.name);
+    const _hl = window.PiecesCand.nomFichierHorsListe(f.name, category);
     if (_hl.length && !confirm2('Ce fichier semble être une pièce hors de la liste autorisée : ' + _hl.map(x => x.libelle).join(', ') + '.\n\n'
         + 'Le bailleur ne peut exiger que les pièces de la liste du décret n° 2015-1437. Loi n° 89-462, art. 22-2 : « ' + window.PiecesCand.TEXTE_AMENDE_22_2 + ' »\n\n'
         + 'Ajouter quand même ce fichier au dossier ?')) { input.value = ''; return; }
@@ -15581,7 +15581,8 @@ async function _handleAttachmentUpload(input, parentType, parentId, parentRef, l
 async function _handleAttachmentDelete(docId) {
   const doc = (DB.documents||[]).find(d => d && !d._deleted && d.id === docId);
   if (!doc) return;
-  const _estCand = doc.parentType === 'candidat';
+  const _candDoc = doc.parentType === 'candidat' ? (DB.candidats || []).find(x => x && String(x.id) === String(doc.parentId)) : null;
+  const _estCand = doc.parentType === 'candidat' && !(_candDoc && (_candDoc.statut === 'converti' || String(_candDoc.bailRef || '').trim()));   // converti : pièce du futur bail, preuve légale
   if (!confirm2(_estCand
       ? 'Supprimer la pièce « ' + (doc.originalName || doc.name) + ' » ?\n\nElle est effacée de l\'app et du stockage en ligne (RGPD). Action irréversible.'
       : 'Supprimer la PJ « ' + (doc.originalName || doc.name) + ' » ?\n(Tombstone DB + IDB purge + Drive trash 30j)')) return;

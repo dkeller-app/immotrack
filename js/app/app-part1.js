@@ -9984,6 +9984,15 @@ function _drvUploadAttachmentBackground(doc, dataB64) {
   (async () => {
     try {
       if (await _drvUploadAttachmentNow(doc, dataB64)) {
+        // CANDIDATURES-CONFORMITE (relecture Opus #6) : pièce de candidat supprimée pendant l'envoi → le fichier
+        // qui vient d'arriver en ligne est effacé aussitôt (échec → file d'attente de la purge).
+        if (doc.parentType === 'candidat' && !(DB.documents || []).some(x => x === doc && !x._deleted)) {
+          if (typeof _candCloudEffacer === 'function') {
+            const r = await _candCloudEffacer([doc.cloudKey]);
+            if (r.echecs.length && window.CandPurge) _candPurgeAttenteEcrire(window.CandPurge.ajouterEnAttente(_candPurgeAttenteLire(), r.echecs));
+          }
+          return;
+        }
         try { saveDB(); } catch(e) {}
         console.info('[attachment cloud] uploadé', doc.id, '→', doc.cloudKey);
       }
@@ -12273,23 +12282,33 @@ async function _candCloudEffacer(paths){
   if(typeof window.__immoCloudRemoveCandidatFiles !== 'function' || window.__immoHorsLigne) return { effaces: [], echecs: liste };
   try{
     const r = await window.__immoCloudRemoveCandidatFiles(liste);
-    return { effaces: (r && Array.isArray(r.effaces)) ? r.effaces : [], echecs: (r && Array.isArray(r.echecs)) ? r.echecs : liste };
+    const effaces = (r && Array.isArray(r.effaces)) ? r.effaces.filter(p => liste.includes(p)) : [];
+    return { effaces, echecs: liste.filter(p => !effaces.includes(p)) };   // non confirmé = échec (relecture Opus #7)
   }catch(e){ return { effaces: [], echecs: liste }; }
 }
 // Efface LOCALEMENT des pièces de candidat : binaire IndexedDB + tombstone qui ne garde AUCUNE donnée
 // personnelle (ni nom de fichier, ni clé). Refuse toute pièce qui n'est pas parentType 'candidat'.
 // Les tombstones sont posés de façon SYNCHRONE (avant le premier await) : un saveDB() de l'appelant juste
 // après l'appel les voit tous ; seuls les effacements IndexedDB sont attendus ensuite.
-async function _candEffacerPiecesLocales(docIds){
+// Tombstone SYNCHRONE des pièces de candidat : l'objet est REMPLACÉ dans DB.documents (jamais vidé en place :
+// le baseline de la sync garde l'ancien objet, dont _espaceId/logRef routent le soft-delete cloud — relecture
+// Opus #1). Renvoie les clés IndexedDB à effacer ensuite.
+function _candTombstonerPieces(docIds){
   const ids = new Set((docIds || []).map(String));
   const cles = [];
-  for(const d of (DB.documents || [])){
+  const docs = DB.documents || [];
+  for(let i = 0; i < docs.length; i++){
+    const d = docs[i];
     if(!d || d._deleted || d.parentType !== 'candidat' || !ids.has(String(d.id))) continue;
     if(d.idbKey) cles.push(d.idbKey);
     const garde = { id: d.id, parentType: 'candidat', parentId: d.parentId };
-    Object.keys(d).forEach(k => { delete d[k]; });
-    Object.assign(d, _tombstoneObj(garde));
+    if(d._espaceId) garde._espaceId = d._espaceId;
+    docs[i] = _tombstoneObj(garde);
   }
+  return cles;
+}
+async function _candEffacerPiecesLocales(docIds){
+  const cles = _candTombstonerPieces(docIds);
   for(const k of cles){ try{ await _idbDel(k); }catch(e){} }
 }
 // Suppression MANUELLE (décision Didier 12/10, Q2) : pièces d'un candidat effacées tout de suite en local,
@@ -12349,12 +12368,17 @@ async function _purgeCandidatsRefusesProd(opts){
       if(!_encorePurgeable(it.candId)) continue;
       const it2 = P.planPurge(DB.candidats, DB.documents || [], [it.candId])[0];
       if(!it2 || it2.cheminsInconnus || it2.cloudPaths.some(p => !it.cloudPaths.includes(p))) continue;   // pièce en ligne arrivée entre-temps : prochain passage
-      await _candEffacerPiecesLocales(it2.docIds);
-      const c = DB.candidats.find(x => x && x.id === it.candId && !x._deleted);
-      if(c){ try{ await _relayPurgeForCandidat(c); }catch(e){} }
+      // Tombstones posés de façon SYNCHRONE puis sauvés AUSSITÔT (relecture Opus #2) : un pull cloud pendant
+      // les awaits suivants (IndexedDB, relais) ne peut plus ressusciter des pièces dont le fichier est effacé.
+      const cAvant = DB.candidats.find(x => x && x.id === it.candId && !x._deleted);
+      const cles = _candTombstonerPieces(it2.docIds);
       const ci = DB.candidats.findIndex(x => x && x.id === it.candId);
       if(ci >= 0 && !DB.candidats[ci]._deleted) DB.candidats[ci] = _tombstoneObj({ id: it.candId, entity: it.entity });
       purges++; changed = true;
+      saveDB();
+      for(const k of cles){ try{ await _idbDel(k); }catch(e){} }
+      if(cAvant){ try{ await _relayPurgeForCandidat(cAvant); }catch(e){} }
+      try{ if(typeof _ficheCandidatOuverte !== 'undefined' && _ficheCandidatOuverte === it.candId) closeM('ov-fiche-candidat'); }catch(e){}   // #12
     }
     if(purges){ try{ if(typeof _auditLog === 'function') _auditLog('delete', 'candidat', null, 'purge RGPD : ' + purges + ' dossier(s) non retenu(s) effacé(s), 30 jours après le refus'); }catch(e){} }
     if(changed) saveDB();
@@ -12530,6 +12554,7 @@ function saveCandidat(){
       // pas suffisantes : énumérer laisse repasser le bug au prochain champ ajouté ailleurs.
       // Filet générique pour tout le reste (pièces jointes, tags multi-espace, tombstones…).
       _preserverChampsExistants(cand, DB.candidats[i]);
+      delete cand.confianceScore;   // CANDIDATURES-CONFORMITE : jamais réécrit, même par préservation (relecture Opus #13)
       DB.candidats[i] = cand;
     } else DB.candidats.push(cand);
   } else DB.candidats.push(cand);
@@ -13016,7 +13041,7 @@ function _candPointsAVerifier(c){
   // C1 — pièce reçue dont le NOM évoque une pièce hors de la liste du décret (suppression proposée).
   if(PC){
     (DB.documents||[]).filter(d => d && !d._deleted && d.parentType==='candidat' && String(d.parentId)===String(c.id) && !d.horsListeConservee).forEach(d => {
-      const hl = PC.nomFichierHorsListe(d.originalName || d.name || '');
+      const hl = PC.nomFichierHorsListe(d.originalName || d.name || '', d.category);
       if(!hl.length) return;
       pts.push({ code:'C1', icone:'doc', titre:'Une pièce reçue semble hors de la liste des pièces exigibles.',
         detail:'« ' + (d.originalName || d.name) + ' » : ' + hl.map(x => x.libelle.charAt(0).toLowerCase() + x.libelle.slice(1)).join(', ') + ' — pièce absente de la liste du décret n° 2015-1437. Il n\'est pas utile de la conserver.',
@@ -13153,8 +13178,12 @@ function deleteCandidat(id){
   const terminal = (c.statut==='refuse' || c.statut==='converti' || !!c._archived);
   if(!confirm2('Supprimer définitivement ce candidat ?\n\nSon dossier et ses pièces seront effacés (RGPD). Action irréversible.')) return;
   if(!terminal && !confirm2('⚠ Ce candidat est encore ACTIF.\n\nConfirmer la suppression définitive ?')) return;
-  if(c.statut==='converti' && !confirm2('Ce candidat a été converti en bail. Les pièces encore rattachées au candidat (pas encore au bail) seront effacées, y compris en ligne.\n\nConfirmer ?')) return;
   try{ _relayPurgeForCandidat(c); }catch(e){} // purge le dépôt en ligne (RGPD)
+  // Candidat CONVERTI en bail : ses pièces encore « candidat » (ajoutées après la conversion, avant la signature)
+  // rejoignent d'abord le dossier du bail — elles ne sont jamais effacées avec la fiche (relecture Opus #4).
+  if((c.statut==='converti' || String(c.bailRef||'').trim()) && c.bailRef && typeof _migrerDocsCandidatVersBail==='function'){
+    DB.documents = _migrerDocsCandidatVersBail(DB.documents||[], c.id, c.bailRef, c.logRef||c.bailRef);
+  }
   // Efface les pièces du candidat : tombstone sans donnée personnelle + IndexedDB + fichiers en ligne.
   const _pieces = (window.CandPurge ? window.CandPurge.piecesDuCandidat(DB.documents||[], id)
     : (DB.documents||[]).filter(d => d && !d._deleted && d.parentType==='candidat' && String(d.parentId)===String(id)));
@@ -13328,7 +13357,7 @@ async function _complReopen(){
   }
   // Succès : ré-arme le pull + repasse « En cours » + note.
   link.status='active'; if(typeof _stamp==='function') _stamp(link); else link._modifiedAt=Date.now();
-  c.statut='enCours'; c.complementNote=note; _stamp(c);
+  c.statut='enCours'; c.complementNote=note; delete c.refuseLe; _stamp(c);
   try{ if(typeof _auditLog==='function') _auditLog('update','candidat',id,'complément demandé (lien rouvert + partagé)'); }catch(e){}
   saveDB(); if(typeof rCandidats==='function') rCandidats();
   if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(id);
@@ -13364,7 +13393,7 @@ function _complRenderStep2(){
 
 // Repassage « En cours » sans canal en ligne (candidat manuel ou lien expiré).
 function _complementLocal(c, id, note){
-  c.statut='enCours'; if(note) c.complementNote=note; _stamp(c);
+  c.statut='enCours'; if(note) c.complementNote=note; delete c.refuseLe; _stamp(c);
   try{ if(typeof _auditLog==='function') _auditLog('update','candidat',id,'statut=enCours (complément demandé)'); }catch(e){}
   saveDB(); rCandidats();
   if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(id);
@@ -13466,7 +13495,7 @@ function _candEmployeurSousLigneHtml(c){
 }
 let _ficheCandidatOuverte = null;
 function openFicheCandidat(id){
-  const c = (DB.candidats||[]).find(x=>x && x.id===id);
+  const c = (DB.candidats||[]).find(x=>x && x.id===id && !x._deleted);
   const body = el('fiche-cand-body');
   if(!c || !body){ showToast('Candidat introuvable','err'); return; }
   _ficheCandidatOuverte = id;
