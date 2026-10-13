@@ -4042,6 +4042,7 @@ async function openEditEDL(id) {
   // vignettes s'hydratent quand elles arrivent à l'écran (invariants 22 / 34i).
   _edlArmLazyPhotos(migrated?{pieces:_edlP,cles:clesMig,compteursPhotos:e.compteursPhotos}:e);
   _edlFill({...e, cles:clesMig});
+  _edlCptIA = (e.compteursIA && typeof e.compteursIA === 'object') ? JSON.parse(JSON.stringify(e.compteursIA)) : {};   // EDL-VOIX-IA (A2)
   _edlLoadCptPhotos(e.compteursPhotos);
   _edlRenderAll(e.signatures);
   // v14.42 Phase 4b : applique le lock UI si EDL signé (bandeau + CSS désactive inputs)
@@ -6210,6 +6211,17 @@ async function generateEDLPdfNative(edl) {
   }
   y += sigH + 10;
 
+  // EDL-VOIX-IA (A2, décision Didier 13/10) — mention DISCRÈTE, seulement si au moins une
+  // proposition de l'IA a été acceptée. Placée APRÈS les cadres de signature : aucune coordonnée
+  // de signature ne bouge. Doublée d'un marquage lisible par machine (mots-clés du PDF).
+  const _IAT = (typeof window !== 'undefined') ? window.IaTransparence : null;
+  if (_IAT && _IAT.edlAAideIA(edl)) {
+    y = newPageIfNeeded(y, 8);
+    pdf.setFont('helvetica','italic').setFontSize(7.5).setTextColor(110,110,110);
+    pdf.text(pdf.splitTextToSize(_IAT.MENTION_PDF, CW), M, y);
+    try { pdf.setProperties({ keywords: 'aide-dictee-ia; propositions-ia-validees' }); } catch (e) {}
+  }
+
   // ─── 7. Footer Page X/Y sur chaque page ─────────────────────────
   const total = pdf.internal.pages.length - 1;
   for (let p = 1; p <= total; p++) {
@@ -7352,6 +7364,9 @@ async function _showEDLPhotoLightbox(ph) {
 
 // ── Photos compteurs ──────────────────────────────────────────
 let _edlCptPhotos={elec:[],gaz:[],eauC:[],eauF:[],elecS:[],gazS:[],eauCS:[],eauFS:[]};
+// EDL-VOIX-IA (A2) — marquage lisible par machine des relevés inscrits depuis une dictée
+// (AI Act art. 50) : { 'elec-hp': {at, modele}, … }. Persisté dans record.compteursIA.
+let _edlCptIA={};
 
 /* ═══ EDL-AUDIT-CRITIQUE Phase 1 — v14.38 (session 2026-05-04) ═════════════
    Refonte de l'isolation entre 2 EDL ouverts successivement.
@@ -7377,6 +7392,7 @@ function _edlResetGlobalState() {
   _edlSortie = false;
   _edlGarageMode = false;   // CHANTIER EDL-GARAGE — repart en mode logement ; re-dérivé à l'ouverture
   _edlCles.length = 0;
+  _edlCptIA = {};   // EDL-VOIX-IA (A2)
   // v15.205 BAIL-TYPES option A : reset aussi _edlMobElements pour éviter que les éléments
   // d'un EDL précédent ouvert dans la même session ne polluent un nouveau EDL.
   if (Array.isArray(_edlMobElements)) _edlMobElements.length = 0;
@@ -7761,6 +7777,9 @@ function saveEDL(opts){
         photosE:(x.photosE||[]).map(_phMeta),
         etatS:x.etatS||'', obsS:x.obsS||'',
         photosS:(x.photosS||[]).map(_phMeta),
+        // EDL-VOIX-IA (A2) — marque lisible par machine d'une valeur inscrite depuis une dictée.
+        ...(x.iaE ? { iaE: { ...x.iaE } } : {}),
+        ...(x.iaS ? { iaS: { ...x.iaS } } : {}),
       }))
     }));
     // v14.42 EDL-AUDIT-CRITIQUE Phase 4b : récupère l'EDL existant en DB pour
@@ -7803,6 +7822,7 @@ function saveEDL(opts){
       adr:v('edl-adr'), surf:v('edl-surf'), npp:v('edl-npp'), ltype:v('edl-ltype'),
       ancienOcc:v('edl-ancien-occ'), notes:v('edl-notes'), drivePath:'',
       pieces:piecesClean, compteurs, compteursSortie, compteursPhotos:_edlGetCptPhotos(), chauffage, technologies, cles:_edlGetCles(),
+      compteursIA: JSON.parse(JSON.stringify(_edlCptIA || {})),   // EDL-VOIX-IA (A2) : relevés dictés (marque, sans contenu)
       garage: _edlGarageMode, // CHANTIER EDL-GARAGE — EDL réduit (droit commun) : pas de compteurs/DAAF/mobilier
       daaf: _daafRecord, // v15.08 Sprint 9 : sécurité incendie (EDL entrée surtout)
       // v15.202 : inventaire mobilier (null si toggle off, sinon { literie, ..., details })

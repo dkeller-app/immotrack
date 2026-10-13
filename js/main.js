@@ -209,6 +209,9 @@ import * as EdlGarageModel from './core/edl-garage-model.js';
 // pop-up « en connaissance de cause » (verdict toujours déduit).
 import * as EdlRelecture from './core/edl-relecture.js';
 
+// EDL-VOIX-IA — socle IA côté app : transparence (AI Act art. 50, RGPD), mentions, marquage.
+import * as IaTransparence from './core/ia-transparence.js';
+
 // EDL TERRAIN lot 2 — invitation a installer l'app (CDC §3 verrou 4 : sans
 // installation, Safari purge photos et miroir a 7 jours).
 import * as PwaInstall from './core/pwa-install.js';
@@ -856,6 +859,8 @@ window.EdlSteps = EdlSteps;
 window.EdlGarageModel = EdlGarageModel;
 // EDL-TELEPHONE — la relecture avant signature (bilan, lignes signalees, pop-up).
 window.EdlRelecture = EdlRelecture;
+// EDL-VOIX-IA — notice, mentions « Proposé par l'IA, à vérifier », mention du PDF, marquage.
+window.IaTransparence = IaTransparence;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
 window.PwaInstall = PwaInstall;
 // VISALE-GMBI (docs/CDC-VISALE-GMBI.md)
