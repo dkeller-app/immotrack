@@ -12109,7 +12109,9 @@ function _migrateCcFacturesToMouvements() {
             && m.date === f.dateFacture
             && +m.db === +f.montant);
           if(dup) return;
-          DB.mouvements.push({
+          // TRAVAUX : QUI PAIE ? — API unique, sans horodatage _stamp ni audit (comportement d'origine :
+          // _modifiedAt posé dans le littéral), saveDB une seule fois plus bas si au moins une facture.
+          _mvCreate({
             id: nid(),
             date: f.dateFacture || td(),
             lib: `Facture ${cc.nom}${f.datePeriode?' · '+f.datePeriode:''}`,
@@ -12122,7 +12124,7 @@ function _migrateCcFacturesToMouvements() {
             compteurCcId: cc.id,
             _migratedFromCcFacture: true,
             _modifiedAt: new Date().toISOString()
-          });
+          }, { stamp: false, audit: false, save: false, refresh: false });
           migratedCount++;
         });
         // Vide cc.factures après migration
@@ -28503,10 +28505,10 @@ function _bankImportConfirm() {
       }
       // Exclusivité qui↔compteur (filet pour règles legacy) : si les deux, le compteur prime (cohérent _compute2044 skip).
       if (mvt.compteurCcId && mvt.qui) mvt.qui = '';
-      _stamp(mvt);
-      DB.mouvements.push(mvt);
+      // TRAVAUX : QUI PAIE ? — API unique : horodatage, push, audit APRÈS le push ; un seul saveDB en fin
+      // de boucle et pas de rafraîchissement global (comportement d'origine conservé).
+      _mvCreate(mvt, { audit: 'after', auditLabel: mvt.lib + ' (bank_import)', save: false, refresh: false });
       createdMvts.push(mvt);
-      if (typeof _auditLog === 'function') _auditLog('create', 'mouvement', mvt.id, mvt.lib + ' (bank_import)');
       added++;
     });
   }

@@ -1,0 +1,267 @@
+// FIGÉ le 13/10/2026 depuis origin/main 230aff97 (v15.730) — les trois créateurs de mouvement AVANT _mvCreate.
+// Sert de référence au test d'identité (mv-create-identite.test.js). NE PAS MODIFIER.
+async function saveMv() {
+  const eid = el('mv-edit-id').value;
+  const lib = v('mv-lib').trim();
+  if(!lib) { showToast('Libellé requis','err'); return; }
+  // v14.79 Bug #2 — Validation : qui et compteurCcId mutuellement exclusifs.
+  // Si l'utilisateur a forcé les 2 (via reset disabled JS p.ex.), on refuse explicitement.
+  const _qui = v('mv-qui');
+  const _cc  = v('mv-cc');
+  if(_qui && _cc) {
+    showToast('« Qui » et « Compteur lié » sont exclusifs — vide l\'un des deux','err',4500);
+    return;
+  }
+  // PJ attachée AVANT ce save : `m` est reconstruit de zéro et ne la porte pas. C'est le seul
+  // état qui permette de tombstoner correctement un document remplacé ou retiré.
+  const _mvOldPjId = eid ? (((DB.mouvements || []).find(x => x && x.id === parseInt(eid)) || {}).pjId) : null;
+  const m = {
+    id: eid ? parseInt(eid) : nid(),
+    date: v('mv-date')||td(),
+    lib, imm: v('mv-imm').trim(),
+    cat: v('mv-cat'),
+    qui: _qui,
+    db: pf('mv-db'), cr: pf('mv-cr'),
+    fac: v('mv-fac').trim(),
+    // v14.60 CHARGES-COMMUNES Phase 1.5 — lien single source vers compteur collectif
+    compteurCcId: _cc || '',
+  };
+  // v14.99 Sprint 5A — BUG-PJ-LOCALSTORAGE
+  // Nouvelle voie : binaire → IndexedDB + Drive (best-effort), métadonnées → DB.documents[]
+  // m garde uniquement m.pjId (id stable DB.documents) — plus de dataB64 dans la DB localStorage.
+  // L'écriture IDB est synchrone-attendue (await dans IIFE async) pour garantir que le save<>DB.documents>
+  // pointe bien sur un binaire présent en IDB avant saveDB().
+  // Drive upload : fire-and-forget en background (ne bloque pas l'UI).
+  //
+  // Compatibilité : on conserve la possibilité de remplacer une PJ existante (m.pjId déjà set
+  // ou m.pj legacy) → tombstone l'ancien attachement + créer nouveau.
+  if(_mvDocPending && _mvDocPending.dataB64) {
+    let pjName = _mvDocPending.name || 'document';
+    if(m.fac) {
+      const ext = (pjName.includes('.') ? pjName.split('.').pop() : 'pdf').toLowerCase();
+      pjName = `Facture-${m.fac}.${ext}`;
+    }
+    try {
+      const newDoc = await _attachmentSaveForMouvement(m, {
+        name: pjName,
+        mime: _mvDocPending.mime || 'application/octet-stream',
+        size: _mvDocPending.size || 0,
+        dataB64: _mvDocPending.dataB64
+      });
+      // Tombstone ancien attachement si remplacement.
+      // AUDIT — la condition portait sur `m.pjId`, or `m` est reconstruit de zéro et ne l'a jamais :
+      // elle était TOUJOURS fausse, et chaque remplacement laissait l'ancien document orphelin
+      // (vivant, synchronisé, embarqué dans le payload). On lit donc la PJ de l'enregistrement
+      // EXISTANT (_mvOldPjId), seul état qui dise ce qui était attaché avant ce save.
+      if (_mvOldPjId != null && _mvOldPjId !== newDoc.id) {
+        const oldDoc = (DB.documents||[]).find(d => d && !d._deleted && d.id === _mvOldPjId);
+        if (oldDoc) {
+          Object.assign(oldDoc, { _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString() });
+          if (oldDoc.idbKey) { try { await _idbDel(oldDoc.idbKey); } catch(e) {} }
+        }
+      }
+      m.pjId = newDoc.id;
+      delete m.pj; // retire l'éventuel champ legacy
+    } catch(e) {
+      console.error('[saveMv] échec attachment PJ', e);
+      showToast('PJ non sauvegardée : ' + (e.message || 'erreur'), 'err', 6000);
+    }
+  } else if (_mvDocCleared && _mvOldPjId != null) {
+    // User a cliqué Supprimer (clear) : la PJ existante est tombstonée. AUDIT — la condition
+    // portait sur `m.pj || m.pjId`, jamais renseignés sur l'objet reconstruit : la branche ne
+    // s'exécutait jamais et le document restait vivant après un retrait. Le geste se lit
+    // maintenant sur _mvDocCleared, et la PJ sur l'enregistrement existant.
+    {
+      const oldDoc = (DB.documents||[]).find(d => d && !d._deleted && d.id === _mvOldPjId);
+      if (oldDoc) {
+        Object.assign(oldDoc, { _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString() });
+        if (oldDoc.idbKey) { try { await _idbDel(oldDoc.idbKey); } catch(e) {} }
+      }
+    }
+    delete m.pj;
+    delete m.pjId;
+  }
+  _stamp(m); // v13.18
+  // v14.89 AUDIT-TRAIL : log la mutation avant écriture
+  if(eid) {
+    const i=DB.mouvements.findIndex(x=>x.id===parseInt(eid));
+    if(i>=0) {
+      // FAMILLE « écritures destructrices » — le mouvement est RECONSTRUIT depuis le formulaire
+      // puis remplace l'ancien : tout champ sans input (tags d'import bancaire, _espaceId,
+      // tombstones, champs ajoutés ailleurs) disparaissait à chaque édition.
+      // pj / pjId : le lien vers la pièce jointe se PRÉSERVE comme le reste. Il ne se retire que
+      // sur le geste explicite « Supprimer » (_mvDocCleared) — sinon un enregistrement fait avant
+      // la fin du chargement asynchrone du binaire, ou sur un appareil où il est absent, déliait
+      // la PJ en silence. Quand le bloc ci-dessus a créé un nouveau document, `m.pjId` est présent
+      // et gagne de toute façon (la préservation ne touche pas une clé déjà là).
+      _preserverSaufChampsPilotes(m, DB.mouvements[i], _mvDocCleared ? ['pj', 'pjId'] : []);
+      _auditLog('update', 'mouvement', m.id, m.lib||m.fac||String(m.id), DB.mouvements[i], m);
+      DB.mouvements[i]=m;
+    }
+  } else {
+    _auditLog('create', 'mouvement', m.id, m.lib||m.fac||String(m.id));
+    DB.mouvements.push(m);
+    // CDC-QUITTANCES-IRL I6/I13 — l'association automatique « ce paiement = cette quittance »
+    // est SUPPRIMÉE : elle rattachait un mouvement au mois calendaire de sa date (7ᵉ moteur, C3)
+    // et faisait exister un lien que rien ne lisait. Le rattachement vit dans la cascade.
+  }
+  saveDB(); closeM('ov-mv'); rMv();
+  _refreshAfterMutation(); // v14.28 REFRESH-LIVE (KPIs et listes mvts dans fiches 360°)
+  showToast('Mouvement enregistré','ok');
+  // v14.61 CHARGES-COMMUNES — info répartition au save d'une charge sur immeuble
+  try { _mvShowChargeRepartitionInfo(m); } catch(e) { console.warn('[charge info]', e); }
+  // ── Auto-quittance : SUPPRIMÉE ───────────────────────────────────────────
+  // CDC-QUITTANCES-IRL I13 — aucune quittance ne naît d'un enregistrement de mouvement.
+  // Le toggle `bail.quittAutoGen` et son popup partent avec (D21 : un seul réglage survit,
+  // la case « le locataire demande une quittance mensuelle »). Pour éditer une quittance :
+  // onglet Loyers › « ＋ Faire une quittance ».
+}
+
+function _bankImportConfirm() {
+  if (!_bankImportLines.length) { showToast('Rien à importer', 'warn'); return; }
+  // Lignes à importer : (a) non doublon ET non exclue manuellement, OU (b) doublon mais explicitement coché
+  // ⑧.1 v2 — ET prête (_bankLineDone) : les autres ne bloquent plus, elles sont GARDÉES en attente.
+  const toImport = _bankImportLines.filter(l => (l._userKeep || (!l.isDuplicate && !l._userExclude)) && _bankLineDone(l));
+  const _toSet = new Set(toImport);
+  // En attente : ni importée, ni exclue, ni doublon résolu (un doublon certain ou confirmé est
+  // définitivement écarté — un PROBABLE non tranché se garde, T-1 : rien ne disparaît en silence).
+  const pendingKeep = _bankImportLines.filter(l => l && !l._userExclude && !_toSet.has(l)
+    && (!l.isDuplicate || (l.dupLevel === 'probable' && !l._dupConfirmed)));
+  if (!toImport.length) { showToast('Aucune ligne prête à importer', 'warn'); return; }
+  const _msgPend = pendingKeep.length ? `\n${pendingKeep.length} ligne${pendingKeep.length>1?'s':''} resteront EN ATTENTE — elles te seront re-proposées au prochain import de ce compte.` : '';
+  if (!confirm2(`Confirmer l'import de ${toImport.length} mouvement${toImport.length>1?'s':''} dans la comptabilité ?${_msgPend}`)) return;
+  // Insertion dans DB.mouvements
+  let added = 0;
+  const createdMvts = [];   // V3-REFONTE-LOYERS Phase 5 : pour le récap d'impact 2044
+  for (const line of toImport) {
+    if (!DB.mouvements) DB.mouvements = [];
+    // V3-REFONTE-LOYERS Phase 4 : ligne découpée (line._sp, relevé de gérance) → N mouvements signés
+    // (sens → db/cr) ; sinon 1 mouvement = l'affectation de la ligne. fingerprint/fitid (dédup) seulement
+    // sur la 1re part (sinon empreintes dupliquées au re-import).
+    // ⓪.2 — chaque part porte SA date et SON n° de facture ; ⓪.1 — elles partagent
+    // un lien de groupe pour que la fiche puisse montrer les mouvements liés.
+    const splitGroup = (Array.isArray(line._sp) && line._sp.length)
+      ? 'sp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) : '';
+    const parts = (Array.isArray(line._sp) && line._sp.length)
+      ? line._sp.map(r => ({ cat:r.cat||'', qui:r.qui||'', imm:r.imm||'', cc:r.cc||'', db:(r.sens==='db'?(Number(r.montant)||0):0), cr:(r.sens==='cr'?(Number(r.montant)||0):0), lib:(r.lib||line.libelle), date:r.date||line.date, fac:r.fac||'' }))
+      : [{ cat:line.suggestedCat||'', qui:line.suggestedQui||'', imm:line.suggestedImm||'', cc:line.suggestedCc||'', db:line.debit||0, cr:line.credit||0, lib:line.libelle, date:line.date, fac:'' }];
+    parts.forEach((p, pi) => {
+      const mvt = {
+        id: nid(),
+        date: p.date || line.date,
+        // Bug 1 du CDC : le libellé était TRONQUÉ À 200 CARACTÈRES ici, en silence.
+        // I-2 « aucune troncature nulle part » : n'importe quel mot ou référence du
+        // relevé (RUM, n° de mandat, motif) doit pouvoir servir de motif de règle.
+        lib: String(p.lib || line.libelle || ''),
+        cat: p.cat || '',
+        qui: p.qui || '',
+        imm: p.imm || '',
+        db: p.db || 0,
+        cr: p.cr || 0,
+        fac: p.fac || '',
+        compteurCcId: p.cc || '',
+        _splitGroup: splitGroup || undefined,
+        _splitSourceLib: splitGroup ? (line.libelle || '') : undefined,
+        _source: 'bank_import',
+        _importedAt: new Date().toISOString(),
+        // ⑧.1b / ⑩.1 — la date du relevé si elle a été déplacée (bloc Provenance).
+        _dateReleve: line._dateReleve || undefined,
+        _bankLibelleReleve: (line._libelleReleve && line._libelleReleve !== line.libelle) ? line._libelleReleve : undefined,
+        // ⑦.7 — trace des règles qui ont classé ce mouvement : alimente la colonne
+        // « utilisée » de la liste des règles et le bloc Provenance de la fiche (⑩.1).
+        _rules: (Array.isArray(line._rules) && line._rules.length) ? line._rules.slice() : undefined
+      };
+      if (pi === 0) {
+        if (line.fitid) mvt.fitid = line.fitid;
+        if (line._fingerprint) mvt._fingerprint = line._fingerprint; // dédup stable (Phase D)
+      }
+      if (_currentBankAccount && _currentBankAccount.id) mvt._bankAccountId = _currentBankAccount.id;
+      // Cascade imm depuis le logement SEULEMENT si qui = ref logement et imm pas déjà fixé.
+      if (mvt.qui && !mvt.imm && !String(mvt.qui).startsWith('SCI:')) {
+        const log = (DB.logements||[]).find(l => l.ref === mvt.qui);
+        if (log) mvt.imm = log.imm || '';
+      }
+      // Exclusivité qui↔compteur (filet pour règles legacy) : si les deux, le compteur prime (cohérent _compute2044 skip).
+      if (mvt.compteurCcId && mvt.qui) mvt.qui = '';
+      _stamp(mvt);
+      DB.mouvements.push(mvt);
+      createdMvts.push(mvt);
+      if (typeof _auditLog === 'function') _auditLog('create', 'mouvement', mvt.id, mvt.lib + ' (bank_import)');
+      added++;
+    });
+  }
+  // v15.161-163 BANK-IMPORT-V2 : update lastImport (helper pur, testé Vitest)
+  // ⑤.1 / ⑤.2 (bug 2) — le pointeur mémorise les 10 dernières empreintes et NE RECULE
+  // JAMAIS : importer juin après août ne doit pas faire reproposer juillet-août ensuite.
+  if (_currentBankAccount && toImport.length && typeof window._bankComputeLastImport === 'function') {
+    const prev = _currentBankAccount.lastImport || null;
+    const prevCount = (prev && prev.count) || 0;
+    _currentBankAccount.lastImport = window._bankComputeLastImport(toImport, prevCount, prev);
+  }
+  // ⑧.1 v2 — les lignes non prêtes sont GARDÉES : re-proposées au prochain import du compte
+  // (le pointeur avance au-delà d'elles, mais le stock DB.params.bankPending les fait revenir).
+  if (_currentBankAccount && _currentBankAccount.id != null) {
+    if (!DB.params.bankPending) DB.params.bankPending = {};
+    const _pk = String(_currentBankAccount.id);
+    if (pendingKeep.length) DB.params.bankPending[_pk] = pendingKeep.map(l => window._bankPendingSnapshot(l)).filter(Boolean);
+    else delete DB.params.bankPending[_pk];
+  }
+  saveDB();
+  if (typeof rMv === 'function') rMv();
+  _bankImportLines = [];
+  _pendingBankImport = null;
+  showToast(`✓ ${added} mouvement${added>1?'s':''} importé${added>1?'s':''}` + (pendingKeep.length ? ` · ${pendingKeep.length} gardé${pendingKeep.length>1?'s':''} en attente` : ''), 'ok', 4500);
+  // V3-REFONTE-LOYERS Phase 5 : écran récap → impact 2044 (le modal reste ouvert ; _currentBankAccount gardé pour le récap/fermeture).
+  _bankImportRecap(createdMvts);
+}
+
+function _migrateCcFacturesToMouvements() {
+  if(!DB || !DB.entites || !Array.isArray(DB.entites)) return;
+  if(!DB.mouvements) DB.mouvements = [];
+  let migratedCount = 0;
+  const catFromType = (t) => {
+    // Map type compteur → catégorie de mouvement (utilise les catégories existantes ou 'Charges')
+    const cats = (DB.categories||[]).map(c => (c||'').toLowerCase());
+    const has = (s) => cats.find(c => c.includes(s));
+    if(t === 'eau-f' || t === 'eau-c') return has('eau') ? DB.categories[cats.indexOf(has('eau'))] : 'Charges';
+    if(t === 'elec') return has('élec') || has('elec') ? DB.categories[cats.findIndex(c=>c.includes('élec')||c.includes('elec'))] : 'Charges';
+    if(t === 'gaz') return has('gaz') ? DB.categories[cats.indexOf(has('gaz'))] : 'Charges';
+    return 'Charges';
+  };
+  DB.entites.filter(_isAlive).forEach(ent => {
+    (ent.immeubles||[]).forEach(im => {
+      const ccs = im.compteursCollectifs || [];
+      ccs.forEach(cc => {
+        if(!cc.factures || !cc.factures.length) return;
+        cc.factures.forEach(f => {
+          // Anti-double-migration : si déjà un mouvement avec ce compteurCcId à cette date+montant, skip
+          const dup = DB.mouvements.find(m => m.compteurCcId === cc.id
+            && m.date === f.dateFacture
+            && +m.db === +f.montant);
+          if(dup) return;
+          DB.mouvements.push({
+            id: nid(),
+            date: f.dateFacture || td(),
+            lib: `Facture ${cc.nom}${f.datePeriode?' · '+f.datePeriode:''}`,
+            imm: im.nom || '',
+            cat: catFromType(cc.type),
+            qui: '',
+            db: +f.montant || 0,
+            cr: 0,
+            fac: '',
+            compteurCcId: cc.id,
+            _migratedFromCcFacture: true,
+            _modifiedAt: new Date().toISOString()
+          });
+          migratedCount++;
+        });
+        // Vide cc.factures après migration
+        cc.factures = [];
+      });
+    });
+  });
+  if(migratedCount > 0) {
+    console.log('[CHARGES-COMMUNES] Migration v14.60 :', migratedCount, 'factures cc → mouvements');
+    try { saveDB(); } catch(e){}
+  }
+}

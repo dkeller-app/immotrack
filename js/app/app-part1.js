@@ -3443,6 +3443,39 @@ function _stamp(obj) {
   return obj;
 }
 
+// ── _mvCreate : L'API UNIQUE « ajouter un mouvement » (TRAVAUX : QUI PAIE ?) ─────────────────
+// Séquence horodatage → audit → push → saveDB → rafraîchissement, portée par js/core/mv-create.js
+// (pur, testé, window.MvCreate). Appelants : saveMv (création), import bancaire, migration des
+// factures de compteurs, facture d'un incident. Chacun garde la FORME de son mouvement et déclare
+// ses variantes par options : enregistrements identiques à avant (mv-create-identite.test.js).
+// Shadow inline IDENTIQUE au module : la migration des compteurs tourne au démarrage, avant
+// js/main.js (un module ES ne s'exécute qu'après les scripts classiques). Parité : mv-create.test.js.
+function _mvCreateShadow(m, deps, opts) {
+  var o = opts || {};
+  var d = deps || {};
+  var doStamp = o.stamp !== false;
+  var audit = (o.audit === undefined) ? 'before' : o.audit;
+  var label = (o.auditLabel != null) ? o.auditLabel : (m.lib || m.fac || String(m.id));
+  if (doStamp && typeof d.stamp === 'function') d.stamp(m);
+  if (audit === 'before' && typeof d.auditLog === 'function') d.auditLog('create', 'mouvement', m.id, label);
+  d.mouvements.push(m);
+  if (audit === 'after' && typeof d.auditLog === 'function') d.auditLog('create', 'mouvement', m.id, label);
+  if (o.save !== false && typeof d.saveDB === 'function') d.saveDB();
+  if (o.refresh !== false && typeof d.refresh === 'function') d.refresh();
+  return m;
+}
+function _mvCreate(m, opts) {
+  if (!DB.mouvements) DB.mouvements = [];
+  var impl = (typeof window !== 'undefined' && window.MvCreate && typeof window.MvCreate.mvCreate === 'function') ? window.MvCreate.mvCreate : _mvCreateShadow;
+  return impl(m, {
+    mouvements: DB.mouvements,
+    stamp: (typeof _stamp === 'function') ? _stamp : null,
+    auditLog: (typeof _auditLog === 'function') ? _auditLog : null,
+    saveDB: (typeof saveDB === 'function') ? saveDB : null,
+    refresh: (typeof _refreshAfterMutation === 'function') ? _refreshAfterMutation : null
+  }, opts);
+}
+
 // NORMALISATION-LOYERS (01/10) — LE point d'appel unique de js/core/normalisation-loyers.js (pur, testé),
 // exposé par js/main.js sur window.NormalisationLoyers (un `let`/`const` de script n'est PAS sur window ;
 // le module, lui, l'y pose explicitement, et s'exécute avant DOMContentLoaded donc avant initDB).
@@ -10881,9 +10914,9 @@ async function saveMv() {
     delete m.pj;
     delete m.pjId;
   }
-  _stamp(m); // v13.18
   // v14.89 AUDIT-TRAIL : log la mutation avant écriture
   if(eid) {
+    _stamp(m); // v13.18
     const i=DB.mouvements.findIndex(x=>x.id===parseInt(eid));
     if(i>=0) {
       // FAMILLE « écritures destructrices » — le mouvement est RECONSTRUIT depuis le formulaire
@@ -10899,8 +10932,9 @@ async function saveMv() {
       DB.mouvements[i]=m;
     }
   } else {
-    _auditLog('create', 'mouvement', m.id, m.lib||m.fac||String(m.id));
-    DB.mouvements.push(m);
+    // TRAVAUX : QUI PAIE ? — création par l'API unique (horodatage, audit AVANT le push, push).
+    // saveDB / rafraîchissement restent ci-dessous, dans l'ordre d'origine (fermeture, liste).
+    _mvCreate(m, { save: false, refresh: false });
     // CDC-QUITTANCES-IRL I6/I13 — l'association automatique « ce paiement = cette quittance »
     // est SUPPRIMÉE : elle rattachait un mouvement au mois calendaire de sa date (7ᵉ moteur, C3)
     // et faisait exister un lien que rien ne lisait. Le rattachement vit dans la cascade.

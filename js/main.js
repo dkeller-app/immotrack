@@ -143,6 +143,8 @@ import * as Anteriorite from './core/anteriorite.js';
 import * as DeclarationOccupation from './core/declaration-occupation.js';
 // TRAVAUX : QUI PAIE ? — moteur de règles sourcé (pur, testé) : verdict, textes verbatim, message locataire.
 import * as QuiPaie from './core/qui-paie.js';
+// _mvCreate — API unique « ajouter un mouvement » (pur, testé ; shadow inline dans app-part1).
+import * as MvCreate from './core/mv-create.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv,
@@ -863,6 +865,7 @@ window.PwaInstall = PwaInstall;
 // VISALE-GMBI (docs/CDC-VISALE-GMBI.md)
 window.Visale = Visale;
 window.QuiPaie = QuiPaie;
+window.MvCreate = MvCreate;
 window.DeclarationOccupation = DeclarationOccupation;
 
 // Marqueur pour les tests d'intégration
