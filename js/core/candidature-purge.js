@@ -89,7 +89,10 @@ export function planPurge(candidats, documents, ids) {
       candId: c.id, entity: c.entity || '', linkId: c.linkId || '',
       docIds: docs.map(d => d.id),
       idbKeys: docs.map(d => d.idbKey).filter(Boolean),
-      cloudPaths: docs.map(d => d.cloudKey).filter(cheminFichierCandidatValide)
+      cloudPaths: docs.map(d => d.cloudKey).filter(cheminFichierCandidatValide),
+      // cloudKey présent mais de forme inconnue : on ne sait pas l'effacer → l'appelant CONSERVE le
+      // candidat (jamais de purge qui laisserait un fichier orphelin en ligne sans trace).
+      cheminsInconnus: docs.filter(d => d.cloudKey && !cheminFichierCandidatValide(d.cloudKey)).length
     });
   }
   return out;
@@ -101,9 +104,13 @@ export function planPurge(candidats, documents, ids) {
 // nommée autrement.
 const _UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const _CHEMIN_RE = new RegExp('^' + _UUID + '/(?:(?:' + _UUID + '|_orphelin)/)?files/(?:ph|att)_\\d+_[a-z0-9]+$');
+// Clé NUE legacy (uploads d'avant le chemin complet) : relue par l'app comme <espace>/files/<clé>
+// (__immoCloudFileUrl) — acceptée ici, développée de la même façon par la fonction de suppression.
+const _CLE_NUE_RE = /^(?:ph|att)_\d+_[a-z0-9]+$/;
 export function cheminFichierCandidatValide(p) {
-  return typeof p === 'string' && _CHEMIN_RE.test(p);
+  return typeof p === 'string' && (_CHEMIN_RE.test(p) || _CLE_NUE_RE.test(p));
 }
+export function estCleNue(p) { return typeof p === 'string' && _CLE_NUE_RE.test(p); }
 
 /** File d'attente locale des fichiers en ligne pas encore effacés (hors ligne, échec réseau). */
 export function ajouterEnAttente(liste, chemins) {

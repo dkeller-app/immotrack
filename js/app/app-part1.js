@@ -12255,12 +12255,14 @@ function _applyLocImmBlocksCollapsedState() {
    - fichier en ligne non effacé (réseau, refus) → le candidat reste entier et la purge repasse plus tard
      (boot + ouverture de l'onglet Candidats) ; hors ligne / lecture seule → rien (reprise au retour).
    La règle « preuve légale » des AUTRES pièces (_attachmentDelete garde le fichier en ligne) est inchangée. */
-const _CAND_PURGE_ATTENTE_KEY = 'imsb-cand-purge-attente';   // chemins en ligne à effacer (suppression manuelle hors ligne)
+// Clé de stockage local 'imsb-cand-purge-attente' : chemins en ligne à effacer (suppression manuelle hors ligne).
+// Clé préfixée par _lsKey (_test_ en sandbox) : une suppression faite en sandbox ne peut JAMAIS mettre en
+// attente des chemins que la prod effacerait ensuite (relecture Fable, I-3).
 function _candPurgeAttenteLire(){
-  try{ const v = JSON.parse(localStorage.getItem(_CAND_PURGE_ATTENTE_KEY) || '[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; }
+  try{ const v = JSON.parse(localStorage.getItem(_lsKey('imsb-cand-purge-attente')) || '[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; }
 }
 function _candPurgeAttenteEcrire(liste){
-  try{ if(Array.isArray(liste) && liste.length) localStorage.setItem(_CAND_PURGE_ATTENTE_KEY, JSON.stringify(liste)); else localStorage.removeItem(_CAND_PURGE_ATTENTE_KEY); }catch(e){}
+  try{ if(Array.isArray(liste) && liste.length) localStorage.setItem(_lsKey('imsb-cand-purge-attente'), JSON.stringify(liste)); else localStorage.removeItem(_lsKey('imsb-cand-purge-attente')); }catch(e){}
 }
 // Efface des fichiers EN LIGNE de candidats. Chemins filtrés par la garde testée (CandPurge). Fonction cloud
 // absente (sandbox, module non chargé) ou hors ligne → tout en échec (l'appelant garde ou met en attente).
@@ -12299,6 +12301,9 @@ async function _candEffacerPieces(docs){
   const chemins = liste.map(d => d.cloudKey).filter(p => P && P.cheminFichierCandidatValide(p));
   await _candEffacerPiecesLocales(liste.map(d => d.id));
   if(!chemins.length) return;
+  // Page sans stockage en ligne (sandbox, module cloud absent) : rien ne pourra jamais effacer ces chemins
+  // ici → on ne les met PAS en attente (relecture Fable, I-3).
+  if((typeof _isTestMode !== 'undefined' && _isTestMode) || typeof window.__immoCloudRemoveCandidatFiles !== 'function') return;
   const r = await _candCloudEffacer(chemins);
   if(r.echecs.length && P) _candPurgeAttenteEcrire(P.ajouterEnAttente(_candPurgeAttenteLire(), r.echecs));
 }
@@ -12328,10 +12333,23 @@ async function _purgeCandidatsRefusesProd(opts){
     if(attente.length){ const r = await _candCloudEffacer(attente); _candPurgeAttenteEcrire(P.retirerDeAttente(attente, r.effaces)); }
     // 4. Purge à J+30 du refus. En ligne d'abord : si un fichier résiste, le candidat reste entier.
     const plan = P.planPurge(DB.candidats, DB.documents || [], P.candidatsAPurger(DB.candidats, Date.now(), P.JOURS_CONSERVATION_REFUS));
-    for(const it of plan){
+    // Revalidation sur la base VIVANTE (un pull cloud peut remplacer DB pendant un await : candidat repassé
+    // « En cours », converti, pièce ajoutée) avant l'appel Storage ET avant les tombstones (Fable, I-1).
+    const _encorePurgeable = id => {
+      const cv = DB.candidats.find(x => x && x.id === id);
+      return !!cv && P.candidatsAPurger([cv], Date.now(), P.JOURS_CONSERVATION_REFUS).length === 1;
+    };
+    for(const it0 of plan){
+      if(!_encorePurgeable(it0.candId)) continue;
+      const it = P.planPurge(DB.candidats, DB.documents || [], [it0.candId])[0];
+      if(!it) continue;
+      if(it.cheminsInconnus){ reportes++; console.warn('[purge candidats] fichier en ligne de forme inconnue : candidat conservé', it.candId); continue; }
       const r = await _candCloudEffacer(it.cloudPaths);
       if(r.echecs.length){ reportes++; console.warn('[purge candidats] fichiers en ligne non effacés, nouvel essai plus tard', it.candId, r.echecs.length); continue; }
-      await _candEffacerPiecesLocales(it.docIds);
+      if(!_encorePurgeable(it.candId)) continue;
+      const it2 = P.planPurge(DB.candidats, DB.documents || [], [it.candId])[0];
+      if(!it2 || it2.cheminsInconnus || it2.cloudPaths.some(p => !it.cloudPaths.includes(p))) continue;   // pièce en ligne arrivée entre-temps : prochain passage
+      await _candEffacerPiecesLocales(it2.docIds);
       const c = DB.candidats.find(x => x && x.id === it.candId && !x._deleted);
       if(c){ try{ await _relayPurgeForCandidat(c); }catch(e){} }
       const ci = DB.candidats.findIndex(x => x && x.id === it.candId);
@@ -13135,6 +13153,7 @@ function deleteCandidat(id){
   const terminal = (c.statut==='refuse' || c.statut==='converti' || !!c._archived);
   if(!confirm2('Supprimer définitivement ce candidat ?\n\nSon dossier et ses pièces seront effacés (RGPD). Action irréversible.')) return;
   if(!terminal && !confirm2('⚠ Ce candidat est encore ACTIF.\n\nConfirmer la suppression définitive ?')) return;
+  if(c.statut==='converti' && !confirm2('Ce candidat a été converti en bail. Les pièces encore rattachées au candidat (pas encore au bail) seront effacées, y compris en ligne.\n\nConfirmer ?')) return;
   try{ _relayPurgeForCandidat(c); }catch(e){} // purge le dépôt en ligne (RGPD)
   // Efface les pièces du candidat : tombstone sans donnée personnelle + IndexedDB + fichiers en ligne.
   const _pieces = (window.CandPurge ? window.CandPurge.piecesDuCandidat(DB.documents||[], id)

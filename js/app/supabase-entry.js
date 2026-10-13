@@ -24,7 +24,7 @@ import { makeDetUuid } from '../core/det-uuid.js'   // P0-4 : id d'audit DÉTERM
 // le bon geste à la main ; on appelle le helper testé plutôt que d'en garder deux copies.
 import { appDbFrom } from '../core/utils.js'
 // CANDIDATURES-CONFORMITE : garde de forme des chemins envoyés à la suppression Storage (testée).
-import { cheminFichierCandidatValide } from '../core/candidature-purge.js'
+import { cheminFichierCandidatValide, estCleNue } from '../core/candidature-purge.js'
 
 const FLAG = (() => {
   try {
@@ -654,21 +654,26 @@ async function boot() {
   // (0031 : has_entite_write) s'applique en plus. Les autres pièces gardent leur fichier (preuve légale).
   // Retour { effaces:[chemins], echecs:[chemins] } : un chemin absent du bucket compte comme effacé
   // (idempotent) ; un refus RLS ou une erreur réseau compte comme échec (l'appelant le remet en attente).
+  // Clé NUE legacy → <espace>/files/<clé>, exactement comme __immoCloudFileUrl la relit ; le chemin
+  // renvoyé dans effaces/echecs reste celui reçu (l'appelant le reconnaît).
+  // NB : une perte de droit de LECTURE fait répondre « introuvable » → compté effacé ; le fichier vit alors
+  // sous l'espace de son propriétaire, dont l'appareil le purgera.
   window.__immoCloudRemoveCandidatFiles = async function (paths) {
     const liste = [...new Set((Array.isArray(paths) ? paths : []).filter(cheminFichierCandidatValide))].slice(0, 100)
     const res = { effaces: [], echecs: [] }
     if (!liste.length) return res
     if (!_cloudEspaceId) { res.echecs = liste; return res }
+    const objet = p => (estCleNue(p) ? (_cloudEspaceId + '/files/' + p) : p)
     try {
-      const { data, error } = await client.storage.from('espace-files').remove(liste)
+      const { data, error } = await client.storage.from('espace-files').remove(liste.map(objet))
       if (error) { res.echecs = liste; return res }
       const retires = new Set((Array.isArray(data) ? data : []).map(o => o && o.name).filter(Boolean))
       for (const p of liste) {
-        if (retires.has(p)) { res.effaces.push(p); continue }
+        if (retires.has(objet(p))) { res.effaces.push(p); continue }
         // Absent de la réponse : déjà effacé (succès) OU suppression refusée en silence par la RLS (échec).
         // On tranche en relisant l'objet : « introuvable » = effacé ; lisible = toujours là = échec.
         try {
-          const { error: e2 } = await client.storage.from('espace-files').createSignedUrl(p, 10)
+          const { error: e2 } = await client.storage.from('espace-files').createSignedUrl(objet(p), 10)
           if (e2 && /not.?found|does not exist/i.test(String(e2.message || e2.error || e2.statusCode || ''))) res.effaces.push(p)
           else res.echecs.push(p)
         } catch (e3) { res.echecs.push(p) }

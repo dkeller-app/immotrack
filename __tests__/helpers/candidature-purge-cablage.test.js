@@ -25,7 +25,7 @@ const DAY = 864e5;
 const U1 = '11111111-2222-4333-8444-555555555555', U2 = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const chemin = k => `${U1}/${U2}/files/${k}`;
 
-function monter(DB, { enLigne = true, refusRls = [], lectureSeule = false, module = true } = {}) {
+function monter(DB, { enLigne = true, refusRls = [], lectureSeule = false, module = true, sandbox = false, pendantStorage = null } = {}) {
   const journal = { storage: [], idb: [], relais: [], saves: 0, audits: [] };
   const store = new Map();
   const localStorage = { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
@@ -34,12 +34,13 @@ function monter(DB, { enLigne = true, refusRls = [], lectureSeule = false, modul
     __immoHorsLigne: !enLigne,
     __immoCloudRemoveCandidatFiles: async (paths) => {
       journal.storage.push([...paths]);
+      if (pendantStorage) pendantStorage();
       return { effaces: paths.filter(p => !refusRls.includes(p)), echecs: paths.filter(p => refusRls.includes(p)) };
     }
   };
   const deps = {
     DB, window, localStorage, console: { warn() {}, info() {}, log() {} },
-    _appReadOnly: lectureSeule,
+    _appReadOnly: lectureSeule, _isTestMode: sandbox, _lsKey: k => (sandbox ? '_test_' + k : k),
     _stamp: o => { o._modifiedAt = '2026-10-12T10:00:00.000Z'; },
     _tombstoneObj: p => Object.assign({ _deleted: true, _deletedAt: 't', _modifiedAt: 't' }, p || {}),
     _idbDel: async k => { journal.idb.push(k); },
@@ -156,6 +157,42 @@ describe('purge RGPD — vrai câblage de _purgeCandidatsRefusesProd', () => {
     expect(r.purges).toBe(0);
     expect(journal.storage.length + journal.idb.length + journal.saves).toBe(0);
     expect(DB.candidats.find(c => c.id === 'cand_R40')._deleted).toBeUndefined();
+  });
+});
+
+describe('relecture Fable — corrections', () => {
+  it('I-1 : candidat repassé « En cours » pendant l\'appel Storage (pull cloud) → ni tombstone, ni effacement local', async () => {
+    const DB = parc(Date.now());
+    const { app, journal } = monter(DB, { pendantStorage: () => { const c = DB.candidats.find(x => x.id === 'cand_R40'); if (c) { c.statut = 'enCours'; delete c.refuseLe; } } });
+    await app._purgeCandidatsRefusesProd();
+    const c = DB.candidats.find(x => x.id === 'cand_R40');
+    expect(c._deleted).toBeUndefined();
+    expect(DB.documents.find(d => d.id === 1)).toMatchObject({ name: 'cni-dupont.pdf' });
+    expect(journal.idb).not.toContain('ph_1_a');
+  });
+  it('I-2 : cloudKey de forme inconnue → candidat conservé, aucun appel Storage pour lui', async () => {
+    const DB = parc(Date.now());
+    DB.documents.find(d => d.id === 1).cloudKey = 'forme/inconnue.pdf';
+    const { app, journal } = monter(DB);
+    const r = await app._purgeCandidatsRefusesProd();
+    expect(DB.candidats.find(x => x.id === 'cand_R40')._deleted).toBeUndefined();
+    expect(journal.storage.flat()).not.toContain('forme/inconnue.pdf');
+    expect(r.reportes).toBeGreaterThanOrEqual(1);
+  });
+  it('I-2 : clé nue legacy acceptée et transmise à la suppression', async () => {
+    const DB = parc(Date.now());
+    DB.documents.find(d => d.id === 1).cloudKey = 'ph_1_a';
+    const { app, journal } = monter(DB);
+    await app._purgeCandidatsRefusesProd();
+    expect(journal.storage[0]).toEqual(['ph_1_a']);
+    expect(DB.candidats.find(x => x.id === 'cand_R40')._deleted).toBe(true);
+  });
+  it('I-3 : en sandbox, une suppression manuelle ne met JAMAIS de chemin en attente (ni clé prod, ni clé _test_)', async () => {
+    const DB = parc(Date.now());
+    const { app, store } = monter(DB, { sandbox: true });
+    await app._candEffacerPieces([DB.documents.find(d => d.id === 6)]);
+    expect(DB.documents.find(d => d.id === 6)._deleted).toBe(true);
+    expect(store.size).toBe(0);
   });
 });
 

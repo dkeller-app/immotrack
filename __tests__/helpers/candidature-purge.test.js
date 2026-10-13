@@ -135,8 +135,12 @@ describe('piecesDuCandidat / planPurge — périmètre exact de ce qui peut êtr
     const plan = planPurge(candidats, documents, ['cand_A']);
     expect(plan).toEqual([{
       candId: 'cand_A', entity: 'SCI X', linkId: 'L1',
-      docIds: [1, 2], idbKeys: ['ph_1_aaaaaa', 'ph_2_bbbbbb'], cloudPaths: [`${U1}/${U2}/files/ph_1_aaaaaa`]
+      docIds: [1, 2], idbKeys: ['ph_1_aaaaaa', 'ph_2_bbbbbb'], cloudPaths: [`${U1}/${U2}/files/ph_1_aaaaaa`], cheminsInconnus: 0
     }]);
+  });
+  it('planPurge signale un cloudKey de forme inconnue (le candidat sera conservé)', () => {
+    const p = planPurge([{ id: 'X', statut: 'refuse' }], [{ id: 9, parentType: 'candidat', parentId: 'X', cloudKey: 'autre/forme.pdf' }], ['X']);
+    expect(p[0]).toMatchObject({ cloudPaths: [], cheminsInconnus: 1 });
   });
   it('planPurge écarte un candidat protégé même si son id est demandé (défense en profondeur)', () => {
     const candidats = [{ id: 'cand_A', statut: 'converti', bailRef: 'T3' }];
@@ -153,6 +157,7 @@ describe('cheminFichierCandidatValide — garde des chemins envoyés à la suppr
     expect(cheminFichierCandidatValide(`${U1}/_orphelin/files/ph_1760000000000_ab12cd`)).toBe(true);
     expect(cheminFichierCandidatValide(`${U1}/files/ph_1760000000000_ab12cd`)).toBe(true);          // legacy
     expect(cheminFichierCandidatValide(`${U1}/${U2}/files/att_1760000000000_ab12cd`)).toBe(true);
+    expect(cheminFichierCandidatValide('att_1760000000000_ab12cd')).toBe(true);                    // clé nue legacy
   });
   it('refuse tout le reste (dossier entier, traversée, joker, autre forme)', () => {
     [
@@ -160,7 +165,7 @@ describe('cheminFichierCandidatValide — garde des chemins envoyés à la suppr
       `${U1}/${U2}/files/`, `${U1}/${U2}/files`, `${U1}/${U2}`, U1,
       `${U1}/${U2}/files/../ph_1_ab`, `${U1}/${U2}/files/ph_1_ab/x`, `${U1}/${U2}/files/*`,
       `${U1}/${U2}/files/bail-signe.pdf`, `${U1}/${U2}/autre/ph_1_ab`, `/${U1}/${U2}/files/ph_1_ab`,
-      `${U1}/${U2.toUpperCase()}/files/ph_1_ab`, `${U1}/${U2}/files/ph_1_ab `, 'ph_1_ab'
+      `${U1}/${U2.toUpperCase()}/files/ph_1_ab`, `${U1}/${U2}/files/ph_1_ab `, 'ph_1_ab ', 'bp_1_ab', '../ph_1_ab'
     ].forEach(p => expect(cheminFichierCandidatValide(p)).toBe(false));
   });
 });
