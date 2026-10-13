@@ -81,6 +81,9 @@ export const REGISTRE = [
   { motif: exacte('immo_backup_reminder_off'), classe: 'etat', note: 'rappel de sauvegarde désactivé', exemples: ['immo_backup_reminder_off'] },
   { motif: exacte('immo_fullapp_once'), classe: 'etat', note: 'ouverture unique de l’app complète', exemples: ['immo_fullapp_once'] },
   { motif: exacte('propryo_pwa_refus'), classe: 'etat', note: 'invitation à installer refusée', exemples: ['propryo_pwa_refus'] },
+  // EDL-VOIX-IA — dernier statut connu de l'IA (dictée proposée hors ligne) et notice déjà lue.
+  { motif: deuxNs('propryo_ia_actif'), classe: 'etat', note: 'IA de dictée active (dernier statut connu)', exemples: ['propryo_ia_actif', '_test_propryo_ia_actif'] },
+  { motif: deuxNs('propryo_ia_notice'), classe: 'etat', note: 'notice de la dictée IA déjà lue', exemples: ['propryo_ia_notice', '_test_propryo_ia_notice'] },
   { motif: exacte('imsb-doc-express'), classe: 'etat', note: 'document express venu de propryo.fr, en attente de l’inscription (30 min)', exemples: ['imsb-doc-express'] },
 
   // ── session

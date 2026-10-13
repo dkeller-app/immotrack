@@ -66,3 +66,47 @@ describe('modules exposés au monolithe', () => {
     expect(main).toContain('window.IaTransparence = IaTransparence');
   });
 });
+
+describe('B1 — dicter la pièce : branchement', () => {
+  const p1 = lire('js/app/app-part1.js');
+  const main = lire('js/main.js');
+  const css = lire('css/main.css');
+  it('les modules de la dictée sont importés et exposés', () => {
+    for (const [nom, f] of [['IaClient', 'ia-client'], ['IaFileAttente', 'ia-file-attente'], ['AudioCapture', 'audio-capture'], ['EdlDictee', 'edl-dictee'], ['EdlVoixVues', 'edl-voix-vues']]) {
+      expect(main).toContain(`import * as ${nom} from './core/${f}.js'`);
+      expect(main).toContain(`window.${nom} = ${nom}`);
+    }
+  });
+  it('icône micro dans le système de line-icons', () => {
+    expect(p1).toMatch(/\n\s+mic:'<rect/);
+  });
+  it('chaque pièce porte la barre (téléphone / tablette) et le bouton (PC)', () => {
+    const f = p2.slice(p2.indexOf('function _edlPieceHTML('), p2.indexOf('// ── Handlers données'));
+    expect(f).toContain('_edlVoixSlotHTML(pi)');
+    expect(f).toContain('_edlVoixBoutonPC(pi)');
+  });
+  it('nouvelle session à chaque ouverture ; file relue et relancée', () => {
+    const reset = p2.slice(p2.indexOf('function _edlResetGlobalState()'), p2.indexOf('function _edlResetGlobalState()') + 800);
+    expect(reset).toContain('_edlVoixReset()');
+    const ar = p2.slice(p2.indexOf('function _edlAutosaveReset()'), p2.indexOf('function _edlAutosaveReset()') + 400);
+    expect(ar).toContain('_edlVoixOuverture()');
+  });
+  it('aucun geste de la dictée ne s’appelle edl[A-Z]… (déclencherait l’autosave à l’ouverture)', () => {
+    const noms = [...p2.matchAll(/function (\w*[Vv]oix\w*)\(/g)].map((m) => m[1]);
+    expect(noms.length).toBeGreaterThan(10);
+    for (const n of noms) expect(n).toMatch(/^_edlVoix|^_evx/);
+  });
+  it('jamais proposée sur un EDL signé ni en lecture seule', () => {
+    const d = p2.slice(p2.indexOf('function _edlVoixDispo()'), p2.indexOf('function _edlVoixDispo()') + 500);
+    expect(d).toContain('_appReadOnly');
+    expect(d).toContain('_edlVoixSigne()');
+    const s = p2.slice(p2.indexOf('function _edlVoixSigne()'), p2.indexOf('function _edlVoixSigne()') + 400);
+    expect(s).toContain('_edlCourantSigne()');
+    expect(s).toContain('edl-signed-locked');
+  });
+  it('la couche passe au-dessus du rail et du chrome (M-3), plein écran sur téléphone (M-16)', () => {
+    expect(css).toMatch(/\.evx\{position:absolute;inset:0;z-index:95\}/);
+    expect(css).toMatch(/\.evx-panel\{position:absolute;inset:0;/);
+    expect(css).toMatch(/@media \(min-width:768px\)\{\s*\.evx-scrim\{display:block/);
+  });
+});

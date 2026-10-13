@@ -211,6 +211,12 @@ import * as EdlRelecture from './core/edl-relecture.js';
 
 // EDL-VOIX-IA — socle IA côté app : transparence (AI Act art. 50, RGPD), mentions, marquage.
 import * as IaTransparence from './core/ia-transparence.js';
+// EDL-VOIX-IA — client du relais IA, file des dictées (hors ligne), capture audio, logique et vues de la dictée.
+import * as IaClient from './core/ia-client.js';
+import * as IaFileAttente from './core/ia-file-attente.js';
+import * as AudioCapture from './core/audio-capture.js';
+import * as EdlDictee from './core/edl-dictee.js';
+import * as EdlVoixVues from './core/edl-voix-vues.js';
 
 // EDL TERRAIN lot 2 — invitation a installer l'app (CDC §3 verrou 4 : sans
 // installation, Safari purge photos et miroir a 7 jours).
@@ -861,6 +867,11 @@ window.EdlGarageModel = EdlGarageModel;
 window.EdlRelecture = EdlRelecture;
 // EDL-VOIX-IA — notice, mentions « Proposé par l'IA, à vérifier », mention du PDF, marquage.
 window.IaTransparence = IaTransparence;
+window.IaClient = IaClient;
+window.IaFileAttente = IaFileAttente;
+window.AudioCapture = AudioCapture;
+window.EdlDictee = EdlDictee;
+window.EdlVoixVues = EdlVoixVues;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
 window.PwaInstall = PwaInstall;
 // VISALE-GMBI (docs/CDC-VISALE-GMBI.md)

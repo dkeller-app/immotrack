@@ -6,7 +6,8 @@
 import { describe, it, expect } from 'vitest';
 import * as T from '../../js/core/ia-transparence.js';
 
-const TUTOIE = /\b(tu|te|toi|ton|ta|tes|vous|votre|vos)\b/i;
+// Mots entiers, lettres accentuées comprises (\b ASCII verrait « tes » dans « prêtes »).
+const TUTOIE = /(?<!\p{L})(tu|te|toi|ton|ta|tes|vous|votre|vos)(?!\p{L})/iu;
 const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
 describe('notice de première utilisation', () => {
