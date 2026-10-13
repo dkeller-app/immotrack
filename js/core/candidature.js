@@ -99,6 +99,7 @@ export function _nouveauCandidat(partial = {}) {
     dateDebutSouhaitee: partial.dateDebutSouhaitee || '',
     revenus: Number(partial.revenus) || 0,
     employeur: partial.employeur || '',
+    employeurSiren: partial.employeurSiren || '',   // CANDIDATURES-CONFORMITE : SIREN/SIRET facultatif
     contrat: partial.contrat || '',
     garant: partial.garant || null,
     visale: partial.visale || null,

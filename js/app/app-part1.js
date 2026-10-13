@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.731';
+const IMMOTRACK_VERSION = '15.732';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -12211,7 +12211,7 @@ function _applyLocImmBlocksCollapsedState() {
       tel: partial.tel || '', email: partial.email || '',
       adressePrecedente: partial.adressePrecedente || '',
       dateDebutSouhaitee: partial.dateDebutSouhaitee || '',
-      revenus: Number(partial.revenus) || 0, employeur: partial.employeur || '',
+      revenus: Number(partial.revenus) || 0, employeur: partial.employeur || '', employeurSiren: partial.employeurSiren || '',
       contrat: partial.contrat || '', garant: partial.garant || null,
       visale: partial.visale || null,
       piecesCompletes: partial.piecesCompletes || false,
@@ -12469,7 +12469,7 @@ function openAddCandidat(){
   if(el('m-cand-title')) el('m-cand-title').textContent='Nouveau candidat';
   el('cand-edit-id').value='';
   _fillCandLogSelect('');
-  ['cand-civ','cand-nom','cand-prenom','cand-ddn','cand-lieu','cand-datedeb','cand-tel','cand-email','cand-adrprec','cand-revenus','cand-employeur','cand-contrat','cand-contrat-autre','cand-gnom','cand-gddn','cand-gadr','cand-glieu','cand-visa'].forEach(id=>{ if(el(id)) el(id).value=''; });
+  ['cand-civ','cand-nom','cand-prenom','cand-ddn','cand-lieu','cand-datedeb','cand-tel','cand-email','cand-adrprec','cand-revenus','cand-employeur','cand-siren','cand-contrat','cand-contrat-autre','cand-gnom','cand-gddn','cand-gadr','cand-glieu','cand-visa'].forEach(id=>{ if(el(id)) el(id).value=''; });
   ['cand-pieces'].forEach(id=>{ if(el(id)) el(id).checked=false; });
   _candContratToggle();
   _visaleEcrire('cand', null); _garSetMode('cand', 'aucune'); // VISALE-GMBI
@@ -12489,7 +12489,7 @@ function saveCandidat(){
     civilite:v('cand-civ'), nom:v('cand-nom').trim(), prenom:v('cand-prenom').trim(),
     ddn:v('cand-ddn'), lieuNaiss:v('cand-lieu'), dateDebutSouhaitee:v('cand-datedeb'),
     tel:v('cand-tel'), email:v('cand-email'), adressePrecedente:v('cand-adrprec'),
-    revenus:pf('cand-revenus'), employeur:v('cand-employeur'), contrat,
+    revenus:pf('cand-revenus'), employeur:v('cand-employeur'), employeurSiren:(v('cand-siren')||'').trim(), contrat,
     // VISALE-GMBI : seules les données de la garantie retenue sont enregistrées.
     garant: (garantNom && _garMode('cand') !== 'aucune' && _garMode('cand') !== 'visale') ? { nom:garantNom, adresse:v('cand-gadr'), ddn:v('cand-gddn'), lieu:v('cand-glieu') } : null,
     visale: (_garMode('cand') === null || _garMode('cand') === 'visale') ? _visaleLire('cand') : null,
@@ -12518,6 +12518,7 @@ function saveCandidat(){
   _stamp(cand);
   try { if(typeof _auditLog==='function') _auditLog(editId?'update':'create','candidat',cand.id,cand.nom); } catch(e){}
   saveDB(); closeM('ov-candidat'); rCandidats();
+  _candVerifierEmployeur(cand.id).catch(()=>{});   // CANDIDATURES-CONFORMITE : constat Annuaire des entreprises (réseau, non bloquant)
   showToast('Candidat enregistré','ok');
 }
 // ═══════════════════ INVITER UN CANDIDAT — lien en ligne (relais) ═══════════════════
@@ -12788,7 +12789,7 @@ async function _relayPullCandidatures(opts) {
         // Complément : le dossier re-soumis fait foi pour les champs déclarés ; on préserve
         // id / source / dateCreation / décisions manuelles (statut terminal, piecesVerifiees).
         ['civilite','nom','prenom','ddn','lieuNaiss','tel','email','adressePrecedente',
-         'revenus','employeur','contrat','garant','piecesCompletes']
+         'revenus','employeur','employeurSiren','contrat','garant','piecesCompletes']
           .forEach(k => { cand[k] = partial[k]; });
         // VISALE-GMBI : le dossier en ligne ne porte que le n° de visa — même n° = on garde ce que le
         // bailleur a recopié du visa (loyer max, validité) ; n° différent = nouveau visa.
@@ -12808,13 +12809,20 @@ async function _relayPullCandidatures(opts) {
       if (!Array.isArray(cand._relayPieceIds)) cand._relayPieceIds = [];
       const pieces = Array.isArray(res.pieces) ? res.pieces : [];
       for (const p of pieces) {
-        if (cand._relayPieceIds.includes(p.pieceId)) continue; // déjà en GED
+        // CANDIDATURES-CONFORMITE lot 2 : type choisi par le candidat (liste fermée du décret, recontrôlée ici).
+        const _pType = (window.PiecesCand && p.type && window.PiecesCand.typeValide(String(p.categorie || ''), String(p.type))) ? String(p.type) : '';
+        if (cand._relayPieceIds.includes(p.pieceId)) { // déjà en GED : on reprend seulement un changement de type
+          const _dj = (DB.documents || []).find(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(cand.id) && d.relayPieceId === p.pieceId);
+          if (_dj && _pType && _dj.pieceType !== _pType) { _dj.pieceType = _pType; _stamp(_dj); }
+          continue;
+        }
         try {
           const { bytes, contentType } = await window._relayFetchPiece(cfg, link.id, p.pieceId, link.ownerToken);
-          await _attachmentSaveForEntity(
+          const _doc = await _attachmentSaveForEntity(
             { type: 'candidat', id: cand.id, ref: cand.id, logRef: cand.logRef, category: p.categorie || 'candidature' },
             { name: p.filename || (p.categorie || 'piece'), mime: contentType, size: bytes.length, dataB64: _bytesToDataUrl(bytes, contentType) }
           );
+          if (_doc) { _doc.relayPieceId = p.pieceId; if (_pType) _doc.pieceType = _pType; }
           cand._relayPieceIds.push(p.pieceId);
         } catch (e) { console.warn('[relay] pièce', p.pieceId, e); errors++; }
       }
@@ -12822,6 +12830,7 @@ async function _relayPullCandidatures(opts) {
       // PAS DE PURGE (modèle reopen). On stoppe juste le re-pull de ce lien + backref D13.
       link.candId = cand.id; link.status = 'collected'; link.deposed = (link.deposed || 0) + 1;
       link._lastSubmittedAt = res.submittedAt || link._lastSubmittedAt || ''; // réf. dédup ré-ouverture
+      { const _cid = cand.id; setTimeout(() => { _candVerifierEmployeur(_cid).catch(()=>{}); }, 0); } // constat Annuaire des entreprises (après saveDB)
       if (typeof _stamp === 'function') _stamp(link); else link._modifiedAt = Date.now();
       imported++;
     } catch (e) {
@@ -12975,7 +12984,83 @@ function _candCategoriesFournies(candId){
 // CANDIDATURES-CONFORMITE — carte « Points à vérifier » : constats FACTUELS, chacun avec sa source et sa
 // date. Jamais de total, de couleur de verdict, de tri ni de formule de jugement (« suspect », « fiable »).
 // Visible seulement dans la fiche, jamais dans la liste (décision Didier 12/10, Q3).
-function _candPointsAVerifier(c){ return []; }
+function _candPointsAVerifier(c){
+  const pts = [];
+  const E = window.Employeur, PC = window.PiecesCand;
+  // C7 — employeur introuvable ou fermé dans l'Annuaire des entreprises (ou numéro invalide).
+  if(E && c.employeurSiren && c.employeurVerif){
+    const ident = E.normaliserIdentifiant(c.employeurSiren);
+    if(ident && c.employeurVerif.id === ident.valeur){
+      const p = E.pointEmployeur(c.employeurVerif, c.employeur);
+      if(p){ p.actionsHtml = `<button class="btn bs bb" onclick="_candVerifierEmployeur('${_lyQ(c.id)}',{force:true,toast:true})">${_uiIcon('refresh',14)} Vérifier à nouveau</button>`; pts.push(p); }
+    }
+  }
+  // C1 — pièce reçue dont le NOM évoque une pièce hors de la liste du décret (suppression proposée).
+  if(PC){
+    (DB.documents||[]).filter(d => d && !d._deleted && d.parentType==='candidat' && String(d.parentId)===String(c.id) && !d.horsListeConservee).forEach(d => {
+      const hl = PC.nomFichierHorsListe(d.originalName || d.name || '');
+      if(!hl.length) return;
+      pts.push({ code:'C1', icone:'doc', titre:'Une pièce reçue semble hors de la liste des pièces exigibles.',
+        detail:'« ' + (d.originalName || d.name) + ' » : ' + hl.map(x => x.libelle.charAt(0).toLowerCase() + x.libelle.slice(1)).join(', ') + ' — pièce absente de la liste du décret n° 2015-1437. Il n\'est pas utile de la conserver.',
+        source:'décret n° 2015-1437, annexes I et II · contrôle sur le nom du fichier', url: PC.SOURCES_PIECES.decret.url,
+        date: d.uploadedAt ? 'le ' + fd(String(d.uploadedAt).slice(0,10)) : '',
+        actionsHtml: `<button class="btn bs bb" onclick="_candPieceHorsListeSupprimer(${JSON.stringify(d.id).replace(/"/g,'&quot;')})">${_uiIcon('trash',14)} Supprimer cette pièce</button><button class="btn bs bb" onclick="_candPieceHorsListeConserver(${JSON.stringify(d.id).replace(/"/g,'&quot;')})">Conserver</button>` });
+    });
+  }
+  return pts;
+}
+// Vérification de l'employeur dans l'Annuaire des entreprises (API publique, appel direct : CORS ouvert).
+// Numéro invalide → constat local sans réseau. Hors ligne / erreur → reportée, aucune alerte. Jamais bloquant.
+const _candVerifEnCours = new Set();
+async function _candVerifierEmployeur(candId, opts){
+  opts = opts || {};
+  const E = window.Employeur;
+  const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === candId);
+  if(!E || !c) return;
+  const ident = E.normaliserIdentifiant(c.employeurSiren);
+  if(!ident){ if(c.employeurVerif){ delete c.employeurVerif; _stamp(c); saveDB(); } return; }
+  if(!opts.force && !E.doitVerifier(c)) return;
+  if(_candVerifEnCours.has(candId)) return;
+  const fin = (verif) => {
+    const cc = (DB.candidats||[]).find(x => x && !x._deleted && x.id === candId); if(!cc || !verif) return;
+    cc.employeurVerif = verif; _stamp(cc); saveDB();
+    try{ if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden') && typeof _ficheCandidatOuverte !== 'undefined' && _ficheCandidatOuverte === candId) openFicheCandidat(candId); }catch(e){}
+    if(opts.toast) showToast(verif.etat === 'actif' ? 'Employeur actif dans l\'Annuaire des entreprises' : 'Vérification enregistrée dans « Points à vérifier »', 'ok', 3500);
+  };
+  if(!ident.valide) return fin({ id: ident.valeur, type: ident.type, etat: 'invalide', verifieLe: new Date().toISOString() });
+  if(window.__immoHorsLigne || (typeof navigator !== 'undefined' && navigator.onLine === false)){ if(opts.toast) showToast('Hors ligne : vérification reportée.', 'info'); return; }
+  _candVerifEnCours.add(candId);
+  try{
+    const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    const t = ctrl ? setTimeout(() => ctrl.abort(), 8000) : null;
+    const res = await fetch(E.urlRecherche(ident.valeur), { headers: { Accept: 'application/json' }, signal: ctrl ? ctrl.signal : undefined });
+    if(t) clearTimeout(t);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const verif = E.lireReponse(await res.json(), ident, new Date().toISOString());
+    if(verif) fin(verif); else if(opts.toast) showToast('Réponse de l\'annuaire illisible : vérification reportée.', 'warn');
+  }catch(e){
+    console.warn('[employeur] vérification reportée', e);
+    if(opts.toast) showToast('Annuaire des entreprises injoignable : vérification reportée.', 'warn');
+  }finally{ _candVerifEnCours.delete(candId); }
+}
+// Pièce reçue hors liste : suppression réelle (même routine que la purge — décision Didier 12/10, Q2).
+function _candPieceHorsListeSupprimer(docId){
+  const d = (DB.documents||[]).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat'); if(!d) return;
+  if(!confirm2('Supprimer la pièce « ' + (d.originalName || d.name) + ' » ?\n\nElle est effacée de l\'app et du stockage en ligne (RGPD). Action irréversible.')) return;
+  const candId = d.parentId;
+  const p = _candEffacerPieces([d]);
+  try{ if(typeof _auditLog==='function') _auditLog('delete','attachment',docId,'pièce hors liste effacée (RGPD)'); }catch(e){}
+  saveDB();
+  p.catch(e => console.warn('[candidat] effacement de la pièce', e));
+  showToast('Pièce supprimée', 'ok');
+  openFicheCandidat(candId);
+}
+function _candPieceHorsListeConserver(docId){
+  const d = (DB.documents||[]).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat'); if(!d) return;
+  d.horsListeConservee = true; _stamp(d);
+  try{ if(typeof _auditLog==='function') _auditLog('update','attachment',docId,'pièce signalée hors liste conservée par décision du bailleur'); }catch(e){}
+  saveDB(); openFicheCandidat(d.parentId);
+}
 function _candPointsAVerifierHtml(c){
   const pts = _candPointsAVerifier(c);
   const regle = '<div class="cand-pv-regle">Ces points sont des constats, pas un avis sur le candidat. Ils se vérifient auprès de lui ; la décision appartient au bailleur. Propryo ne calcule aucun score et ne classe pas les dossiers.</div>';
@@ -13147,7 +13232,7 @@ function _complRenderStep1(){
   const enLigne = _invState.enLigne;
   body.innerHTML = _complCandCtxHtml()
     + '<div class="fg"><label>Que manque-t-il ?</label>'
-    + '<textarea class="inp" id="compl-note" rows="4" style="resize:vertical" placeholder="Ex. Avis d\'imposition page 2 illisible, justificatif de domicile manquant…">Merci de compléter votre dossier (pièce manquante).</textarea></div>'
+    + '<textarea class="inp" id="compl-note" rows="4" style="resize:vertical" placeholder="Ex. Avis d\'imposition page 2 illisible, justificatif de domicile manquant…">' + escHtml(_invState.complNote != null ? _invState.complNote : 'Merci de compléter votre dossier (pièce manquante).') + '</textarea></div>'
     + (enLigne
         ? '<div class="info-box" style="background:var(--bg-success,rgba(22,163,74,.10));border-color:rgba(22,163,74,.3)">✓ <b>Dossier conservé</b> — le candidat complète en ligne via son lien existant ; ses pièces déjà déposées ne sont pas perdues.</div>'
         : '<div class="info-box" style="background:var(--bg-warning,rgba(234,88,12,.12));border-color:rgba(234,88,12,.35)">⚠ <b>Candidat saisi manuellement</b> — aucun lien en ligne à partager. La note ci-dessus est enregistrée en interne (statut « En cours »).</div>');
@@ -13158,7 +13243,40 @@ function _complRenderStep1(){
         : '<button class="btn bp" onclick="_complSaveManual()">Enregistrer la note</button>');
 }
 
+// CANDIDATURES-CONFORMITE lot 2 — BOUCLIER « pièce hors liste » : avant d'envoyer une demande de complément,
+// on cherche dans le texte les pièces que la loi interdit de demander (décret n° 2015-1437, art. 22-2 loi
+// n° 89-462). Si on en trouve : avertissement avec le texte légal et l'amende. JAMAIS bloquant : « Envoyer
+// quand même » poursuit, « Modifier la demande » revient à la note (conservée). Renvoie true si on continue.
+function _complBouclier(suite){
+  const note = (v('compl-note')||'').trim();
+  _invState.complNote = note;
+  if(_invState.complForce){ _invState.complForce = false; return true; }
+  const PC = window.PiecesCand;
+  const hits = PC ? PC.detecterPiecesInterdites(note) : [];
+  if(!hits.length) return true;
+  _invState.complSuite = suite;
+  const body = el('inv-body'); if(!body) return true;
+  if(el('inv-title')) el('inv-title').textContent = 'Demander un complément';
+  body.innerHTML = _complCandCtxHtml()
+    + '<div class="fg"><label>Pièces ou informations à compléter</label><textarea class="inp" id="compl-note" rows="4" style="resize:vertical">' + escHtml(note) + '</textarea></div>'
+    + '<div class="cand-warn"><div class="wt">' + _uiIcon('warn',16) + '<span>Cette demande vise des pièces hors de la liste autorisée.</span></div><ul>'
+    + hits.map(h => '<li>« ' + escHtml(h.extrait) + ' » — ' + escHtml(h.libelle) + '</li>').join('') + '</ul></div>'
+    + '<div class="cand-legal">Le bailleur ne peut exiger que les pièces de la liste fixée par le <b>décret n° 2015-1437 du 5 novembre 2015</b>. Loi n° 89-462, art. 22-2 : <q>' + escHtml(PC.TEXTE_AMENDE_22_2) + '</q>'
+    + '<span class="s">Légifrance : <a href="' + escHtml(PC.SOURCES_PIECES.art222.url) + '" target="_blank" rel="noopener">art. 22-2</a> en vigueur depuis le 27/03/2014 · <a href="' + escHtml(PC.SOURCES_PIECES.decret.url) + '" target="_blank" rel="noopener">annexes du décret</a> en vigueur depuis le 01/01/2023</span></div>';
+  const foot = el('inv-foot');
+  if(foot) foot.innerHTML = '<button class="btn bs" onclick="_complEnvoyerQuandMeme()">Envoyer quand même</button>'
+    + '<button class="btn bp" onclick="_invState.complNote=(v(\'compl-note\')||\'\').trim(); _complRenderStep1()">Modifier la demande</button>';
+  try{ if(typeof _auditLog==='function') _auditLog('update','candidat',_invState.candId,'avertissement pièce hors liste : ' + hits.map(h=>h.id).join(', ')); }catch(e){}
+  return false;
+}
+function _complEnvoyerQuandMeme(){
+  _invState.complForce = true;
+  const suite = _invState.complSuite; _invState.complSuite = null;
+  if(typeof suite === 'function') suite();
+}
+
 function _complSaveManual(){
+  if(!_complBouclier(_complSaveManual)) return;
   const note = (v('compl-note')||'').trim();
   const id = _invState.candId;
   const c = (DB.candidats||[]).find(x=>x && x.id===id); if(!c) return;
@@ -13167,6 +13285,7 @@ function _complSaveManual(){
 }
 
 async function _complReopen(){
+  if(!_complBouclier(_complReopen)) return;
   const id = _invState.candId;
   const c = (DB.candidats||[]).find(x=>x && x.id===id); if(!c) return;
   const link = c.linkId ? (DB.candidatLinks||[]).find(l=>l && l.id===c.linkId && !l._archived) : null;
@@ -13314,10 +13433,25 @@ function saveLoyerBien(){
   if(cid && el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(cid);
   else if(!cid && typeof _currentLogFicheRef!=='undefined' && _currentLogFicheRef===log.ref && typeof rLogFiche==='function'){ try{ rLogFiche(); }catch(e){} } // refresh fiche bien après édition ✏️
 }
+// Sous-ligne Employeur (carte Situation) : numéro + constat « actif » neutre, ou renvoi aux points à vérifier.
+function _candEmployeurSousLigneHtml(c){
+  const E = window.Employeur;
+  const ident = E ? E.normaliserIdentifiant(c.employeurSiren) : null;
+  if(!ident) return '';
+  const v = (c.employeurVerif && c.employeurVerif.id === ident.valeur) ? c.employeurVerif : null;
+  let st = '';
+  if(!v) st = 'Vérification dans l\'Annuaire des entreprises en attente (réseau).';
+  else if(v.etat === 'actif') st = E.ligneEmployeurActif(v);
+  else st = 'Voir « Points à vérifier ».';
+  return '<div class="cand-siren">' + (ident.type === 'siret' ? 'SIRET ' : 'SIREN ') + escHtml(ident.valeur) + '</div><div class="cand-supp">' + escHtml(st) + '</div>';
+}
+let _ficheCandidatOuverte = null;
 function openFicheCandidat(id){
   const c = (DB.candidats||[]).find(x=>x && x.id===id);
   const body = el('fiche-cand-body');
   if(!c || !body){ showToast('Candidat introuvable','err'); return; }
+  _ficheCandidatOuverte = id;
+  try{ if(window.Employeur && window.Employeur.doitVerifier(c)) setTimeout(() => { _candVerifierEmployeur(id).catch(()=>{}); }, 0); }catch(e){}
   if(c.vu === false){ c.vu = true; _stamp(c); saveDB(); try{ _renderInboxSurfaces(); }catch(e){} try{ if(typeof rCandidats==='function') rCandidats(); }catch(e){} } // re-render liste → la pastille « Nouveau » de la ligne disparaît
   const log = (DB.logements||[]).find(l=>l && l.ref===c.logRef);
   const _la = _loyerAttenduForCand(c); // cascade loyer attendu (logement → ancien loc → invitation)
@@ -13496,7 +13630,7 @@ function openFicheCandidat(id){
         <div class="ct" style="margin-top:0">Situation</div>
         <div class="kv-grid">
           <div class="k">Revenus mensuels</div><div class="v"><b>${revenus.toLocaleString('fr-FR')} €</b>${declBadge}</div>
-          <div class="k">Employeur</div><div class="v">${escHtml(c.employeur||'—')}</div>
+          <div class="k">Employeur</div><div class="v">${escHtml(c.employeur||'—')}${_candEmployeurSousLigneHtml(c)}</div>
           <div class="k">Type de contrat</div><div class="v">${contratBadge}</div>
           <div class="k">Loyer attendu</div><div class="v">${loyerAttenduHtml}</div>
           <div class="k">Ratio revenus / loyer</div><div class="v">${ratioTxt}</div>
@@ -13545,7 +13679,7 @@ function _editCandidatFromFiche(id){
   set('cand-civ',c.civilite); set('cand-nom',c.nom); set('cand-prenom',c.prenom);
   set('cand-ddn',c.ddn); set('cand-lieu',c.lieuNaiss); set('cand-datedeb',c.dateDebutSouhaitee);
   set('cand-tel',c.tel); set('cand-email',c.email); set('cand-adrprec',c.adressePrecedente);
-  set('cand-revenus',c.revenus||''); set('cand-employeur',c.employeur);
+  set('cand-revenus',c.revenus||''); set('cand-employeur',c.employeur); set('cand-siren',c.employeurSiren);
   // Contrat : valeur prédéfinie ou "Autre" libre.
   const presets = ['CDI','CDD','Intérim','Freelance / Indépendant','Fonctionnaire','Étudiant','Retraité'];
   if(el('cand-contrat')){

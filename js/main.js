@@ -291,6 +291,10 @@ import {
 // CANDIDATURES-CONFORMITE (12/10/2026) — purge RGPD des candidats non retenus (date du refus, périmètre
 // exact, chemins Storage contrôlés). Aucun score : _calculConfiance / piecesScoreFromCategories retirés.
 import * as CandPurge from './core/candidature-purge.js';
+// CANDIDATURES-CONFORMITE lot 2 — liste fermée des pièces (décret 2015-1437) + bouclier « pièce hors liste »,
+// et employeur vérifié dans l'Annuaire des entreprises (constat daté, sans jugement).
+import * as PiecesCand from './core/pieces-candidature.js';
+import * as Employeur from './core/employeur.js';
 
 // LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
 import {
@@ -783,6 +787,8 @@ window.candHasGarantie = candHasGarantie;
 window.categoriesManquantes = categoriesManquantes;
 window.libelleGarantie = libelleGarantie;
 window.CandPurge = CandPurge;
+window.PiecesCand = PiecesCand;
+window.Employeur = Employeur;
 window._candidatVersLocataire = _candidatVersLocataire;
 window._candidatVersGarant = _candidatVersGarant;
 window._nouveauCandidat = _nouveauCandidat;

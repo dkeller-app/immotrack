@@ -97,12 +97,12 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .drop .big{font-size:13px;font-weight:600;color:var(--t1)}
 .drop .small{font-size:11px;color:var(--t3);margin-top:3px}
 .drop .plus{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:rgba(59,126,246,.1);color:var(--blu);font-size:18px;margin-bottom:5px}
-.tile{display:flex;align-items:center;gap:10px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:9px 11px;margin-top:8px}
+.tile{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:9px 11px;margin-top:8px}
 .tile .ft{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex:none;font-family:'Manrope'}
 .tile .ft.pdf{background:#dc2626}.tile .ft.img{background:#7c3aed}
 .tile .nm{flex:1;min-width:0}
-.tile .nm .f{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tile .nm .s{font-size:11px;color:var(--t3)}
+.tile .nm .f{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.tile .nm .s{display:block;font-size:11px;color:var(--t3)}
 .tile .x{flex:none;width:30px;height:30px;border-radius:6px;border:1px solid var(--bor);background:var(--sur2);color:var(--t2);cursor:pointer;font-size:14px}
 .tile .ok{flex:none;color:var(--grn);font-size:18px;font-weight:700}
 .tile.err{border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.04)}
@@ -145,3 +145,10 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 
 [hidden]{display:none!important}
 #boot{padding:40px 16px;text-align:center;color:var(--t2)}
+
+/* CANDIDATURES-CONFORMITE lot 2 : type de chaque pièce (liste fermée du décret n° 2015-1437). */
+.tile .tsel{flex:1 1 100%;display:flex;flex-direction:column;gap:4px}
+.tile .tsel span{font-size:12px;font-weight:600;color:var(--t2)}
+.tile .tsel select{font-size:16px;min-height:44px;width:100%}
+.field .hint{font-size:12px;color:var(--t3);margin-top:5px;line-height:1.45}
+.field label .opt{font-weight:500;font-size:12px;color:var(--t3)}

@@ -63,6 +63,7 @@ export function _relayDossierVersCandidat(result, ctx = {}) {
     adressePrecedente: id.adresseActuelle || id.adressePrecedente || '',
     revenus: Number(si.revenus) || 0,
     employeur: si.employeur || '',
+    employeurSiren: String(si.siren || '').trim().slice(0, 20),   // CANDIDATURES-CONFORMITE : SIREN/SIRET facultatif
     contrat: si.contrat || '',
     garant: g && String(g.nom || '').trim()
       ? { nom: g.nom || '', adresse: g.adresse || '', ddn: g.ddn || '', lieu: g.lieuNaiss || g.lieu || '' }

@@ -9402,6 +9402,28 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .cand-pv-vide{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--t2)}
 .cand-pv-vide svg{flex:0 0 auto;margin-top:2px}
 .cand-pv-regle{font-size:11.5px;color:var(--t3);border-top:1px dashed var(--bor);padding-top:8px;margin-top:8px;line-height:1.45}
+/* Lot 2 : type de chaque pièce (liste fermée du décret), SIREN employeur, avertissement « pièce hors liste ». */
+.cand-piece{display:flex;flex-direction:column;gap:5px}
+.cand-piece-type{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 2px 2px 34px}
+.cand-piece-type span{font-size:11.5px;font-weight:600;color:var(--t2)}
+.cand-piece-type select{min-height:32px;padding:4px 8px;font-size:12.5px;max-width:100%;width:auto}
+.cand-piece-type select.np{color:var(--t2);font-style:italic}
+.cand-siren{font-family:var(--mono);font-size:12px;color:var(--t2);margin-top:2px}
+.cand-warn{border:1px solid var(--acc);background:var(--acc-bg);border-radius:var(--r);padding:11px 12px;margin-top:10px}
+.cand-warn .wt{font-weight:700;display:flex;gap:7px;align-items:flex-start;color:var(--t1)}
+.cand-warn .wt svg{flex:0 0 auto;margin-top:2px;color:var(--acc)}
+.cand-warn ul{margin:6px 0 0 28px;font-size:12.5px;color:var(--t2)}
+.cand-warn li{margin:2px 0}
+.cand-legal{border:1px solid var(--bor);background:var(--sur2);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--t2);line-height:1.5;margin-top:10px}
+.cand-legal q{font-style:italic;color:var(--t1)}
+.cand-legal .s{display:block;font-size:11px;color:var(--t3);margin-top:5px}
+.cand-legal a{color:var(--t2)}
+@media (max-width:767px){
+  .cand-piece-type{padding-left:2px}
+  .cand-piece-type select{font-size:16px;min-height:44px;width:100%}
+  .cand-pvi .act .btn{min-height:44px}
+  .cand-pvi .dd,.cand-pvi .src,.cand-pvi .act{margin-left:0}
+}
 .conf-decl{background:rgba(90,110,135,.12);color:var(--t2);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;border-radius:8px;cursor:help}
 .note-lien{display:inline-flex;align-items:center;background:rgba(124,58,237,.12);color:var(--pur);font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:8px;margin-left:6px;letter-spacing:.2px}
 .avatar{width:34px;height:34px;border-radius:50%;background:#5566aa;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:12px;color:#fff;flex-shrink:0;letter-spacing:.02em}

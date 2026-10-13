@@ -66,8 +66,12 @@ describe('_relayDossierVersCandidat', () => {
   it('marque la provenance lien + statut reçu + pièces non vérifiées', () => {
     expect(c.source).toBe('lien'); expect(c.statut).toBe('recu'); expect(c.piecesCompletes).toBe(false);
   });
-  it("n'injecte AUCUN score (recalculé côté app)", () => {
+  it("n'injecte AUCUN score (CANDIDATURES-CONFORMITE : plus aucun score nulle part)", () => {
     expect(c.confianceScore).toBeUndefined();
+  });
+  it("mappe le SIREN/SIRET facultatif de l'employeur (trimé, borné)", () => {
+    expect(_relayDossierVersCandidat({ dossier: { situation: { siren: ' 552 100 554 ' } } }, {}).employeurSiren).toBe('552 100 554');
+    expect(_relayDossierVersCandidat({ dossier: { situation: {} } }, {}).employeurSiren).toBe('');
   });
   it('garant absent → null', () => {
     const c2 = _relayDossierVersCandidat({ dossier: { garant: null } }, {});

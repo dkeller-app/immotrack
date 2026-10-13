@@ -15030,7 +15030,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.731 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.732 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -15438,6 +15438,18 @@ function _renderCandidatPiecesGrouped(cand){
     return `<div style="margin-top:8px"><label for="${upId}" class="btn bs bb" style="cursor:pointer;font-size:12px">+ Ajouter</label>`
       + `<input type="file" id="${upId}" accept="${accept}" style="display:none" onchange="_handleAttachmentUpload(this,'candidat','${candId}','${candId}',${logRefArg},'${catKey}')"></div>`;
   };
+  // CANDIDATURES-CONFORMITE lot 2 — TYPE de chaque pièce, pris dans la liste FERMÉE du décret n° 2015-1437
+  // pour sa catégorie (pas d'option « Autre » : la loi ferme la liste). Pièce existante → « Type non précisé ».
+  const _PC = window.PiecesCand;
+  const _rowAvecType = (d, catKey) => {
+    const types = _PC ? _PC.typesPourCategorie(catKey) : [];
+    if (!types.length) return _attachmentRowHtml(d);
+    const cur = String(d.pieceType || '');
+    const opts = '<option value=""' + (cur ? '' : ' selected') + '>Type non précisé</option>'
+      + types.map(t => '<option value="' + escHtml(t.id) + '"' + (t.id === cur ? ' selected' : '') + '>' + escHtml(t.libelle) + '</option>').join('');
+    return '<div class="cand-piece">' + _attachmentRowHtml(d)
+      + '<label class="cand-piece-type"><span>Type</span><select class="inp' + (cur ? '' : ' np') + '" onchange="_candSetPieceType(' + JSON.stringify(d.id).replace(/"/g, '&quot;') + ', this.value)" aria-label="Type de la pièce « ' + escHtml(d.originalName || d.name || '') + ' »">' + opts + '</select></label></div>';
+  };
   const catHtml = CATS.map(cat => {
     const files = byCat[cat.key] || [];
     const has = files.length > 0;
@@ -15445,7 +15457,7 @@ function _renderCandidatPiecesGrouped(cand){
     const badge = has
       ? `<span style="color:var(--grn,#16a34a);font-weight:700;font-size:12px">✓ ${okTxt}</span>`
       : `<span style="color:var(--t2);font-weight:700;font-size:12px">Manquante</span>`;
-    const body = (has ? files.map(_attachmentRowHtml).join('')
+    const body = (has ? files.map(d => _rowAvecType(d, cat.key)).join('')
                       : `<div class="mu sm" style="padding:4px 2px">Aucune pièce déposée pour cette catégorie.</div>`)
                + _addBtn(cat.key);
     return `<details ${has?'open':''} style="border:1px solid var(--bor);border-radius:9px;margin-bottom:8px;background:var(--sur,#fff)">
@@ -15467,6 +15479,19 @@ function _renderCandidatPiecesGrouped(cand){
     </details>` : '';
   const flag = `<div class="flex-b" style="align-items:center;padding:8px 2px 0;border-top:1px dashed var(--bor);margin-top:4px;font-size:12.5px;color:var(--t2)"><span>Dossier déclaré complet par le candidat</span><span style="font-weight:700;color:${cand.piecesCompletes?'var(--grn,#16a34a)':'var(--ora,#e0771c)'}">${cand.piecesCompletes?'✓ Oui':'⏳ Non'}</span></div>`;
   return `<div id="cand-pieces-grouped-${candId}">${catHtml}${autresHtml}${flag}</div>`;
+}
+
+// CANDIDATURES-CONFORMITE lot 2 — type d'une pièce de candidat (liste fermée du décret, contrôlée).
+function _candSetPieceType(docId, typeId) {
+  const d = (DB.documents || []).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat');
+  if (!d) return;
+  const val = String(typeId || '');
+  if (window.PiecesCand && !window.PiecesCand.typeValide(String(d.category || ''), val)) { showToast('Type de pièce non reconnu pour cette catégorie', 'warn'); return; }
+  if (val) d.pieceType = val; else delete d.pieceType;
+  _stamp(d);
+  try { if (typeof _auditLog === 'function') _auditLog('update', 'attachment', d.id, 'type de pièce : ' + (window.PiecesCand ? window.PiecesCand.libelleType(val) : val)); } catch (e) {}
+  saveDB();
+  showToast('Type enregistré : ' + (window.PiecesCand ? window.PiecesCand.libelleType(val) : (val || 'non précisé')), 'ok', 2500);
 }
 
 // v15.156 — Rafraîchit en place une section de PJ (après upload/suppression), sans re-render
@@ -15507,6 +15532,14 @@ async function _handleAttachmentUpload(input, parentType, parentId, parentRef, l
     showToast('Fichier trop lourd : ' + (f.size/1024/1024).toFixed(2) + ' MB (max ' + (maxSize/1024/1024) + ' MB)', 'err', 6000);
     input.value = '';
     return;
+  }
+  // CANDIDATURES-CONFORMITE lot 2 — pièce de CANDIDAT dont le nom évoque une pièce hors de la liste du décret
+  // n° 2015-1437 (relevé de compte, RIB, carte Vitale…) : avertissement avec le texte légal, l'utilisateur décide.
+  if (parentType === 'candidat' && window.PiecesCand) {
+    const _hl = window.PiecesCand.nomFichierHorsListe(f.name);
+    if (_hl.length && !confirm2('Ce fichier semble être une pièce hors de la liste autorisée : ' + _hl.map(x => x.libelle).join(', ') + '.\n\n'
+        + 'Le bailleur ne peut exiger que les pièces de la liste du décret n° 2015-1437. Loi n° 89-462, art. 22-2 : « ' + window.PiecesCand.TEXTE_AMENDE_22_2 + ' »\n\n'
+        + 'Ajouter quand même ce fichier au dossier ?')) { input.value = ''; return; }
   }
   try {
     const dataB64 = await new Promise((resolve, reject) => {
