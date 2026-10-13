@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   _attachmentBuildDoc,
   _attachmentValidateFile,
@@ -306,11 +309,20 @@ describe('_attachmentOrphans', () => {
 });
 
 describe('Constantes exportées', () => {
-  it('ATTACHMENT_PARENT_TYPES contient les 10 types attendus', () => {
-    expect(ATTACHMENT_PARENT_TYPES).toContain('mouvement');
-    expect(ATTACHMENT_PARENT_TYPES).toContain('logement');
-    expect(ATTACHMENT_PARENT_TYPES).toContain('edl');
-    expect(ATTACHMENT_PARENT_TYPES).toHaveLength(10);
+  it('ATTACHMENT_PARENT_TYPES = exactement les types acceptés par la base (anti-dérive, dernière contrainte des migrations)', () => {
+    // La DERNIÈRE définition de documents_parent_type_check dans supabase/migrations fait foi.
+    const dir = join(dirname(fileURLToPath(import.meta.url)), '../../supabase/migrations');
+    const fichiers = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+    let liste = null;
+    for (const f of fichiers) {
+      const sql = readFileSync(join(dir, f), 'utf8').replace(/--.*$/gm, '');
+      const m = sql.match(/add constraint documents_parent_type_check[\s\S]*?in\s*\(([\s\S]*?)\)\s*\)/i);
+      if (m) liste = m[1].match(/'([a-z_]+)'/g).map((s) => s.slice(1, -1));
+    }
+    expect(liste).toContain('incident');
+    expect([...ATTACHMENT_PARENT_TYPES].sort()).toEqual([...liste].sort());
+    expect(ATTACHMENT_PARENT_TYPES).not.toContain('travaux');
+    expect(ATTACHMENT_PARENT_TYPES).not.toContain('charge');
   });
 
   it('ATTACHMENT_CATEGORIES = 9 sous-dossiers Drive', () => {

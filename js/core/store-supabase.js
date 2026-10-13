@@ -43,6 +43,8 @@ const ARRAY_TABLES = {
   // Journal des baux SIGNÉS (migration 0054) : modifications hors avenant, à côté de la ligne
   // verrouillée du bail (js/core/bail-modifications.js). Même nom côté table et côté app.
   baux_evenements: 'baux_evenements',
+  // TRAVAUX : QUI PAIE ? — registre des incidents (migration 0057, numéro provisoire), par SCI.
+  incidents: 'incidents',
 }
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // collection legacy → table Supabase (mrh = la table assurances ; sinon identique).
@@ -120,6 +122,10 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
       // Journal des baux signés : TOLÉRANT. Si le client est en ligne avant la migration 0054 (colonne
       // legacy_raw absente), une erreur ici ferait échouer TOUT le chargement cloud, pour tous les comptes.
       // On le dit en console et on continue sans journal (les baux s'affichent dans leur état signé).
+      // Registre des incidents (0057) : même tolérance — le front peut précéder la migration.
+      if (table === 'incidents') {
+        return Promise.resolve().then(() => fetchTable(table)).catch(e => { console.warn('[SupabaseStore] registre des incidents indisponible (migration 0057 appliquée ?) :', e && e.message); return [] })
+      }
       if (table === 'baux_evenements') {
         return Promise.resolve().then(() => fetchTable(table)).catch(e => { console.warn('[SupabaseStore] journal des baux indisponible (migration 0054 appliquée ?) :', e && e.message); return [] })
       }

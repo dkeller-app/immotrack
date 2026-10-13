@@ -83,6 +83,9 @@ const COLLECTIONS = [
   // documents AVANT mouvements : FK DURE mouvements_pj_fk (pj_document_id) → documents (la ligne
   // document doit exister avant l'insert d'un mouvement qui la référence). documents.parent_id est
   // polymorphe SANS FK dure → peut précéder ses parents sans violation. (Aligné sur l'ETL import.mjs.)
+  // Incidents (0057) AVANT documents : le contrôle RLS d'une pièce du dossier de preuves (entite_of_document,
+  // branche 'incident') lit la ligne incident — elle doit exister quand la pièce est insérée.
+  { coll: 'incidents',       enumerate: db => db.incidents || [],                       key: r => String(r.id) + espTag(r), sources: db => db.incidents || [] },
   { coll: 'documents',       enumerate: db => db.documents || [],                       key: r => String(r.id) + espTag(r), sources: db => db.documents || [] },
   { coll: 'mouvements',      enumerate: db => db.mouvements || [],                       key: r => String(r.id) + espTag(r), sources: db => db.mouvements || [] },
   { coll: 'quittances',      enumerate: db => db.quittances || [],                      key: r => String(r.id) + espTag(r), sources: db => db.quittances || [] },
