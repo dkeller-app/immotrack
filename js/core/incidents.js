@@ -243,3 +243,49 @@ export function chiffreIncidents(items) {
   const max = l.reduce((m, x) => Math.max(m, x.age || 0), 0);
   return max <= 0 ? 'signalé aujourd\'hui' : 'depuis ' + max + ' jour' + (max > 1 ? 's' : '');
 }
+
+/* ─────────────── La facture part dans Finances (lot e) ─────────────── */
+
+/**
+ * Le mouvement d'une facture payée par le bailleur, à la forme exacte d'un mouvement saisi à la main
+ * (saveMv) : { date, lib, imm, cat, qui, db, cr, fac, compteurCcId } + `incidentId` (lien retour).
+ * `id` et l'horodatage sont posés par l'appelant (_mvCreate). Aucun calcul : le montant est celui saisi.
+ * @returns {{ok:true, mv:object}|{ok:false, erreur:string}}
+ */
+export function mouvementFacture({ inc, montant, date, numero = '', categorie, libelleElement = '', immDuLogement = '' } = {}) {
+  const m = Math.round(Number(String(montant == null ? '' : montant).replace(/\s/g, '').replace(',', '.')) * 100) / 100;
+  if (!inc) return { ok: false, erreur: 'Incident introuvable.' }
+  if (!(m > 0)) return { ok: false, erreur: 'Indiquer le montant payé.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(_s(date))) return { ok: false, erreur: 'Indiquer la date du paiement.' }
+  if (!categorie) return { ok: false, erreur: 'Choisir la nature de la dépense.' }
+  const lib = 'Travaux — ' + (_s(libelleElement).trim() || 'incident') + (inc.logRef ? ' (' + inc.logRef + ')' : (inc.imm ? ' (parties communes)' : ''))
+  return { ok: true, mv: {
+    date: _s(date), lib,
+    imm: inc.logRef ? _s(immDuLogement) : _s(inc.imm),
+    cat: categorie,
+    qui: _s(inc.logRef),
+    db: m, cr: 0,
+    fac: _s(numero).trim(),
+    compteurCcId: '',
+    incidentId: inc.id,
+  } }
+}
+
+/**
+ * Mouvements DÉJÀ présents (import bancaire, saisie) qui peuvent être la facture de cet incident :
+ * même logement (ou même immeuble pour une partie commune), au débit, non rattachés à un autre incident,
+ * datés de 30 jours avant le signalement à 180 jours après. Le plus proche du signalement d'abord.
+ * Rattacher plutôt que recréer : une dépense n'est comptée qu'UNE fois (Finances, 2044).
+ */
+export function mouvementsRattachables(mouvements, inc) {
+  if (!inc) return []
+  const t0 = Date.parse(_s(inc.creeLe).slice(0, 10))
+  return (Array.isArray(mouvements) ? mouvements : []).filter((m) => {
+    if (!m || m._deleted || !(+m.db > 0) || m.compteurCcId) return false
+    if (m.incidentId != null && String(m.incidentId) !== String(inc.id)) return false
+    if (inc.logRef ? _norm(m.qui) !== _norm(inc.logRef) : !(!m.qui && _norm(m.imm) === _norm(inc.imm))) return false
+    const d = Date.parse(_s(m.date).slice(0, 10)); if (!isFinite(d) || !isFinite(t0)) return false
+    const j = (d - t0) / 86400000
+    return j >= -30 && j <= 180
+  }).sort((a, b) => Math.abs(Date.parse(a.date) - t0) - Math.abs(Date.parse(b.date) - t0))
+}

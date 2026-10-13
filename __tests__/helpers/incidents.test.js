@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest'
 import {
   nouvelIncident, changerStatut, incidentsDe, estOuvert, contexteDe, annuaireUrl, lireAnnuaire, rgeUrl, lireRge,
   carnetArtisans, assistances, itemsIncidents, chiffreIncidents, NAF_METIERS, statutLbl,
+  mouvementFacture, mouvementsRattachables,
 } from '../../js/core/incidents.js'
 import { ELEMENTS } from '../../js/core/qui-paie.js'
 
@@ -116,5 +117,35 @@ describe('N-4 · carnet, assistance, famille', () => {
     expect(it.find((x) => x.incId === 1).urgenceJours).toBeGreaterThan(it.find((x) => x.incId === 2).urgenceJours)
     expect(chiffreIncidents(it)).toBe('1 urgent')
     expect(chiffreIncidents(it.filter((x) => !x.urgent))).toBe('depuis 15 jours')
+  })
+})
+
+describe('N-5 · facture vers Finances (une seule dépense)', () => {
+  const inc = { id: 77, logRef: 'T2', imm: 'Tilleuls', creeLe: '2026-10-13T09:12:00Z' }
+  it('mouvementFacture : forme exacte d\'un mouvement saisi + lien incident, montant tel que saisi', () => {
+    const r = mouvementFacture({ inc, montant: '1 140,00', date: '2026-10-16', numero: ' F-458 ', categorie: 'Travaux (entretien, réparation, amélioration)', libelleElement: 'Ballon d\'eau chaude', immDuLogement: 'Résidence Les Tilleuls' })
+    expect(r.ok).toBe(true)
+    expect(Object.keys(r.mv)).toEqual(['date', 'lib', 'imm', 'cat', 'qui', 'db', 'cr', 'fac', 'compteurCcId', 'incidentId'])
+    expect(r.mv).toEqual({ date: '2026-10-16', lib: 'Travaux — Ballon d\'eau chaude (T2)', imm: 'Résidence Les Tilleuls', cat: 'Travaux (entretien, réparation, amélioration)', qui: 'T2', db: 1140, cr: 0, fac: 'F-458', compteurCcId: '', incidentId: 77 })
+  })
+  it('mouvementFacture : partie commune → rattachée à l\'immeuble (qui vide) ; entrées invalides refusées avec un message', () => {
+    expect(mouvementFacture({ inc: { id: 1, logRef: '', imm: 'Tilleuls' }, montant: 90, date: '2026-10-01', categorie: 'X', libelleElement: 'Toiture' }).mv).toMatchObject({ qui: '', imm: 'Tilleuls', lib: 'Travaux — Toiture (parties communes)' })
+    expect(mouvementFacture({ inc, montant: 0, date: '2026-10-16', categorie: 'X' })).toEqual({ ok: false, erreur: 'Indiquer le montant payé.' })
+    expect(mouvementFacture({ inc, montant: 10, date: '16/10/2026', categorie: 'X' }).ok).toBe(false)
+    expect(mouvementFacture({ inc, montant: 10, date: '2026-10-16' }).ok).toBe(false)
+  })
+  it('mouvementsRattachables : même logement, au débit, libres, dans la fenêtre, le plus proche d\'abord', () => {
+    const mv = [
+      { id: 1, qui: 'T2', db: 1140, date: '2026-10-20' },
+      { id: 2, qui: 'T2', db: 300, date: '2026-10-14' },
+      { id: 3, qui: 'T2', cr: 650, db: 0, date: '2026-10-05' },                 // recette
+      { id: 4, qui: 'F1', db: 90, date: '2026-10-14' },                        // autre logement
+      { id: 5, qui: 'T2', db: 90, date: '2026-10-14', incidentId: 12 },        // déjà rattaché ailleurs
+      { id: 6, qui: 'T2', db: 90, date: '2025-01-01' },                        // hors fenêtre
+      { id: 7, qui: 'T2', db: 90, date: '2026-10-14', _deleted: true },
+      { id: 8, qui: 'T2', db: 40, date: '2026-10-14', compteurCcId: 'cc1' },   // facture de compteur
+      { id: 9, qui: 'T2', db: 55, date: '2026-10-15', incidentId: 77 },        // déjà rattaché à CET incident
+    ]
+    expect(mouvementsRattachables(mv, inc).map((m) => m.id)).toEqual([2, 9, 1])
   })
 })

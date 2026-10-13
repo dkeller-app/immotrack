@@ -14764,7 +14764,86 @@ function _incEnvoyerMessage() {
   _openShareModal({ title: 'Envoyer le message au locataire', message: t.split('\n').slice(2).join('\n'), subject: sujet, email: loc.email || '', ctxTitle: _incBienLbl(inc), ctxSub: escHtml(_incElLbl(inc)), ctxIcon: _uiIcon('send', 20) });
 }
 
-// ── Pastille Entretien : correctif du plantage (cf. _renderEquipForLog) testé dans incidents-ui.test.js ──
+
+// ── Vue « facture » : le coût part dans Finances par l'API unique _mvCreate (aucun calcul ici) ──
+// Rattacher un mouvement DÉJÀ présent (import bancaire, saisie) plutôt que d'en créer un second :
+// une dépense n'est comptée qu'une fois (Finances, 2044). Créer seulement si rien ne correspond.
+function _incFactureHtml(inc) {
+  const { QP, IN } = _incMods();
+  const p = _incPayeur(inc);
+  const avert = p !== 'bailleur' ? `<div class="inc-guard neutre"><b>Le payeur retenu n'est pas le bailleur (${escHtml(_incPayeurLbl(p).toLowerCase())}).</b> Une dépense n'est à enregistrer ici que si le bailleur a réellement payé. Rien n'est bloqué.</div>` : '';
+  const dejaIds = (inc.mouvementIds || []).map(String);
+  const cands = IN.mouvementsRattachables(DB.mouvements || [], inc).filter(m => !dejaIds.includes(String(m.id)));
+  const rattach = cands.length ? `<div class="inc-grp"><div class="inc-grp-h"><h4>${_uiIcon('link', 15)} Déjà dans les mouvements ?</h4><span class="inc-sub">Le paiement est peut-être arrivé par l'import bancaire : le rattacher évite de le compter deux fois.</span></div>
+    ${cands.slice(0, 6).map(m => `<div class="inc-pro"><span class="n">${fmt(+m.db || 0)} · ${fd(m.date)}</span><span class="m">${escHtml(m.lib || '')}${m.cat ? ' · ' + escHtml(m.cat) : ''}</span><span class="a"><button type="button" class="btn bs bb" onclick="_incRattacherMouvement(${+m.id})">${_uiIcon('link', 13)} Rattacher ce mouvement</button></span></div>`).join('')}</div>` : '';
+  const sugg = QP.qualificationSuggeree();
+  const auj = new Date(); auj.setMinutes(auj.getMinutes() - auj.getTimezoneOffset());
+  return `${avert}${rattach}
+  <div class="inc-grp"><div class="inc-grp-h"><h4>${_uiIcon('money', 15)} ${cands.length ? 'Sinon, enregistrer une nouvelle dépense' : 'Nouvelle dépense'}</h4></div>
+  <div class="inc-g2">
+    <div class="inc-f"><label class="inc-lb" for="inc-fac-mt">Montant TTC payé *</label><input class="inp" id="inc-fac-mt" inputmode="decimal" placeholder="0,00"></div>
+    <div class="inc-f"><label class="inc-lb" for="inc-fac-dt">Date du paiement *</label><input class="inp" id="inc-fac-dt" type="date" value="${auj.toISOString().slice(0, 10)}"></div>
+  </div>
+  <div class="inc-g2">
+    <div class="inc-f"><label class="inc-lb" for="inc-fac-num">N° de facture <span class="inc-opt">— facultatif</span></label><input class="inp" id="inc-fac-num"></div>
+    <div class="inc-f"><label class="inc-lb" for="inc-fac-file">Facture <span class="inc-opt">— facultatif, rejoint le dossier de preuves</span></label><input class="inp" id="inc-fac-file" type="file" accept="application/pdf,image/*"></div>
+  </div>
+  <div class="inc-f"><span class="inc-lb">Nature de la dépense <span class="inc-opt">— suggestion, modifiable</span></span>
+    <div class="inc-fac-pick">${QP.QUALIFS.map(q => `<label><input type="radio" name="inc-fac-q" value="${q.k}"${q.k === sugg ? ' checked' : ''}><span>${escHtml(q.lbl)}${q.k === sugg ? '<span class="inc-sugg">Suggestion</span>' : ''}<span class="d">${escHtml(q.detail)}</span></span></label>`).join('')}</div>
+    <div class="inc-hint">${_uiIcon('info', 13)} Aide au classement, pas un conseil fiscal. Au micro-foncier, l'abattement couvre déjà toutes les charges.</div></div>
+  <div class="inc-finbox">${_uiIcon('money', 15)}<span>La dépense est enregistrée dans <b>Finances</b> pour <b>${escHtml(_incBienLbl(inc))}</b>, comme une saisie manuelle : elle compte dans le résultat du bien et, selon sa nature, dans la déclaration 2044. La régularisation des charges ne la lit pas (travaux non récupérables). L'incident passe à « Résolu ».</span></div>
+  </div>`;
+}
+async function _incEnregistrerFacture() {
+  const { QP, IN } = _incMods();
+  const inc = _incGet(_incState && _incState.id); if (!inc) return;
+  const k = (document.querySelector('#ov-incident input[name="inc-fac-q"]:checked') || {}).value || QP.qualificationSuggeree();
+  const q = QP.QUALIFS.find(x => x.k === k) || QP.QUALIFS[0];
+  const log = inc.logRef ? _incLogOf(inc.logRef) : null;
+  const r = IN.mouvementFacture({ inc, montant: (el('inc-fac-mt') || {}).value, date: (el('inc-fac-dt') || {}).value, numero: (el('inc-fac-num') || {}).value, categorie: q.cat, libelleElement: _incElLbl(inc), immDuLogement: log ? (log.imm || '') : '' });
+  if (!r.ok) { showToast(r.erreur, 'warn', 4500); return; }
+  const btn = el('inc-fac-ok'); if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+  const mv = Object.assign({ id: nid() }, r.mv);
+  // Facture jointe : elle rejoint le dossier de preuves de l'incident ET devient la pièce du mouvement.
+  const f = el('inc-fac-file') && el('inc-fac-file').files && el('inc-fac-file').files[0];
+  if (f) {
+    try {
+      const maxSize = (typeof ATTACHMENT_DEFAULT_MAX_SIZE !== 'undefined') ? ATTACHMENT_DEFAULT_MAX_SIZE : 10 * 1024 * 1024;
+      if (f.size > maxSize) throw new Error('fichier trop lourd (' + (f.size / 1024 / 1024).toFixed(1) + ' Mo)');
+      const dataB64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = e => res(e.target.result); fr.onerror = () => rej(new Error('lecture impossible')); fr.readAsDataURL(f); });
+      const doc = await _attachmentSaveForEntity({ type: 'incident', id: inc.id, ref: _incElLbl(inc), logRef: inc.logRef || null, category: 'travaux' }, { name: f.name, mime: f.type, size: f.size, dataB64 });
+      _stamp(doc);
+      mv.pjId = doc.id;
+    } catch (e) {
+      console.warn('[incident facture PJ]', e);
+      showToast('Facture non jointe : ' + (e.message || 'erreur') + '. La dépense est enregistrée sans pièce.', 'warn', 6000);
+    }
+  }
+  // L'API UNIQUE : horodatage, journal d'audit, push, saveDB, rafraîchissement.
+  _mvCreate(mv);
+  const avant = JSON.parse(JSON.stringify(inc));
+  inc.mouvementIds = (inc.mouvementIds || []).concat([mv.id]);
+  if (inc.statut !== 'resolu') IN.changerStatut(inc, 'resolu', new Date().toISOString());
+  _incPersister(inc, 'update', avant);
+  showToast('Dépense de ' + fmt(mv.db) + ' enregistrée dans Finances', 'ok', 4500);
+  _incGo('fiche'); _incRefreshHost();
+}
+function _incRattacherMouvement(mvId) {
+  const { IN } = _incMods();
+  const inc = _incGet(_incState && _incState.id); if (!inc) return;
+  const m = (DB.mouvements || []).find(x => x && !x._deleted && +x.id === +mvId); if (!m) return;
+  if (m.incidentId != null && String(m.incidentId) !== String(inc.id)) { showToast('Ce mouvement est déjà rattaché à un autre incident.', 'warn'); return; }
+  const avantM = JSON.parse(JSON.stringify(m));
+  m.incidentId = inc.id;
+  _stamp(m);
+  if (typeof _auditLog === 'function') _auditLog('update', 'mouvement', m.id, m.lib || m.fac || String(m.id), avantM, m);
+  const avant = JSON.parse(JSON.stringify(inc));
+  inc.mouvementIds = [...new Set((inc.mouvementIds || []).map(String).concat([String(m.id)]))].map(x => (isNaN(+x) ? x : +x));
+  if (inc.statut !== 'resolu') IN.changerStatut(inc, 'resolu', new Date().toISOString());
+  _incPersister(inc, 'update', avant);
+  showToast('Mouvement rattaché : la dépense reste comptée une seule fois.', 'ok', 4500);
+  _incGo('fiche'); _incRefreshHost();
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // BAILLEUR-DIAGNOSTICS-DDT v15.05 Sprint 7 V1.1 — Phase 1 sous-onglet Diagnostics
