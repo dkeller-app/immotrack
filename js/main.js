@@ -109,7 +109,7 @@ import { bailHistCle, nouvelIdArchive } from './core/store-mapping.js';
 import { duMois, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, finOccupationBail, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import { computeEntretienStatut } from './core/entretien-statut.js';
-import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES } from './core/pilotage-familles.js';
+import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES, FAMILLES_SI_NON_VIDES as _PIL_SI_NON_VIDES } from './core/pilotage-familles.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
   appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, impactCloture,
@@ -493,6 +493,7 @@ window.computeEntretienStatut = computeEntretienStatut;   // KPI Lot 0 — statu
 window.computePilotageFamilles = computePilotageFamilles; // KPI Lot 1 — agrégateur des 8 familles
 window.pilotagePay = pilotagePay;                         // KPI audit §1 — pastille paiement == bulle Impayés
 window._PIL_FAMILLES = _PIL_FAMILLES;
+window._PIL_SI_NON_VIDES = _PIL_SI_NON_VIDES;   // TRAVAUX : QUI PAIE ? — bulle « Incidents » seulement si non vide
 window._PIL_ZONES = _PIL_ZONES;
 window.tauxPleinMois = tauxPleinMois;                     // P-4 — taux plein du mois (potentiel)
 window.tauxPleinMoisFromRaw = tauxPleinMoisFromRaw;

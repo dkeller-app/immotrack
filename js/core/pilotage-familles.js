@@ -30,9 +30,18 @@ export const FAMILLES = [
   { id: 'regul', zone: 'argent', couleur: 'orange', lbl: 'Régularisations à émettre', unite: '' },
   { id: 'finbail', zone: 'gestion', couleur: 'rouge', lbl: 'Fins de bail à préparer', unite: '' },
   { id: 'document', zone: 'gestion', couleur: 'rouge', lbl: 'Documents à renouveler', unite: '' },
+  // TRAVAUX : QUI PAIE ? (13/10/2026) — incidents non résolus (registre de la fiche logement).
+  { id: 'incident', zone: 'gestion', couleur: 'orange', lbl: 'Incidents à traiter', unite: '' },
   { id: 'entretien', zone: 'gestion', couleur: 'orange', lbl: 'Entretiens à réaliser', unite: '' },
   { id: 'vacant', zone: 'gestion', couleur: 'gris', lbl: 'Logements à relouer', unite: '€', negatif: true },
 ];
+
+/**
+ * Familles affichées SEULEMENT quand elles ont des éléments (décision Didier 13/10 : la bulle
+ * « Incidents à traiter » n'apparaît que s'il y a des incidents ouverts). Les huit familles
+ * historiques restent toujours affichées sur PC (« ✓ À jour » si vides).
+ */
+export const FAMILLES_SI_NON_VIDES = ['incident'];
 
 const _FAM_INDEX = FAMILLES.reduce((m, f, i) => { m[f.id] = i; return m; }, {});
 
@@ -53,7 +62,7 @@ const _r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
  *   entretien                    : `urgenceJours` = retard (grand = urgent) → négatif
  */
 function _trierItems(famId, items) {
-  const anciennete = (famId === 'impaye' || famId === 'vacant' || famId === 'entretien');
+  const anciennete = (famId === 'impaye' || famId === 'vacant' || famId === 'entretien' || famId === 'incident');
   return items.slice().sort((a, b) => {
     const ua = Number(a.urgenceJours); const ub = Number(b.urgenceJours);
     const na = isNaN(ua), nb = isNaN(ub);

@@ -7097,7 +7097,23 @@ function _pilCollectFamilles(ctx) {
   const joursDepuis = (iso) => { if (!iso) return null; const d = new Date(String(iso).slice(0, 10) + 'T00:00:00'); return isNaN(d) ? null : Math.floor((todayD - d) / 86400000); };
   const AR = window.AlertRules || {};
   const isLoyer = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
-  const src = { depot: [], irl: [], impaye: [], regul: [], finbail: [], document: [], entretien: [], vacant: [] };
+  const src = { depot: [], irl: [], impaye: [], regul: [], finbail: [], document: [], incident: [], entretien: [], vacant: [] };
+
+  // ── INCIDENTS non résolus (TRAVAUX : QUI PAIE ?) : registre DB.incidents, périmètre = lots visibles
+  //    (ou immeubles de ces lots pour une partie commune). Urgences en tête, puis ancienneté. ──
+  try {
+    if (window.Incidents && Array.isArray(DB.incidents)) {
+      const refs = new Set(scopeLogs.map(l => l.ref));
+      const imms = new Set(scopeLogs.map(l => l.imm).filter(Boolean));
+      const QP = window.QuiPaie;
+      // Le PIRE CAS de la bulle = le bien (court : la bulle ne coupe jamais un texte, M-14) ; le détail
+      // (élément) est porté à part et affiché dans la liste ouverte au clic.
+      const lbl = (i) => i.logRef || ('Parties communes ' + (i.imm || ''));
+      const det = (i) => { const d = QP ? QP.elementDef(i.element) : null; return (i.elementLibre && String(i.elementLibre).trim()) || (d ? d.lbl : 'Incident'); };
+      const enScope = DB.incidents.filter(i => i && !i._deleted && (i.logRef ? refs.has(i.logRef) : imms.has(i.imm)));
+      src.incident = window.Incidents.itemsIncidents(enScope, today, lbl).map(it => { const i = enScope.find(x => x.id === it.incId); return Object.assign(it, { detail: i ? det(i) : '' }); });
+    }
+  } catch (e) {}
 
   // ── IMPAYÉS (byLot / suivi — R-0) : montant dû, ancienneté = plus vieux mois impayé ──
   try {
@@ -7315,6 +7331,8 @@ function _accmGoto(id, ref, count){
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('equipements'); break;
       case 'regul':    // régularisation de charges → onglet Charges
         go('regul'); break;
+      case 'incident': // incident(s) d'un lot → onglet Entretien de sa fiche (registre)
+        if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('biens'); break;
       default: go('loyers');
     }
   }catch(e){ console.warn('[accmGoto]', e); try{ go('loyers'); }catch(e2){} }
@@ -7410,6 +7428,7 @@ function _renderAccueilPhone(ctx){
   var bits=[];
   if(famBy.impaye) bits.push(famBy.impaye.count+' impayé'+(famBy.impaye.count>1?'s':''));
   if(famBy.finbail) bits.push(famBy.finbail.count+' départ'+(famBy.finbail.count>1?'s':'')+' proche'+(famBy.finbail.count>1?'s':''));
+  if(famBy.incident){ var _iu=(famBy.incident.items||[]).filter(function(x){return x.urgent;}).length; if(_iu) bits.push(_iu+' incident'+(_iu>1?'s':'')+' urgent'+(_iu>1?'s':'')); }
   if(!bits.length && famBy.vacant) bits.push(famBy.vacant.count+' vacant'+(famBy.vacant.count>1?'s':''));
   var sub = bits.length ? ('dont '+bits.join(' · ')) : 'tout est à jour';
   var nom = '';
@@ -7519,6 +7538,7 @@ const _PIL_ICONS = {
   document:'<path d="M4 4h9l7 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M13 4v7h7"/>',
   entretien:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   vacant:  '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5h4v5"/>',
+  incident:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
   ok:      '<path d="M20 6 9 17l-5-5"/>'
 };
 
@@ -7548,6 +7568,7 @@ function _pilChiffre(f) {
   if (j == null) return (f.id === 'vacant') ? (f.count + (f.count > 1 ? ' logements' : ' logement')) : (f.count + ' à traiter');
   // Familles « ancienneté » (grand j = plus urgent) : le retard / la durée de vacance.
   if (f.id === 'entretien') return (j >= 60) ? (Math.round(j / 30) + ' mois de retard') : (j + ' j de retard');
+  if (f.id === 'incident') return (window.Incidents && window.Incidents.chiffreIncidents) ? window.Incidents.chiffreIncidents(f.items) : (f.count + ' à traiter');
   if (f.id === 'vacant')    return 'vide ' + j + ' j';
   if (f.id === 'impaye')    return j + ' j de retard';
   // Familles « échéance » (petit j = plus urgent) : dépôt, IRL, fin de bail, document, régul.
@@ -7747,6 +7768,8 @@ function _renderPilotage(ctx) {
           + (nz ? (nz + ' à traiter') : 'à jour') + '</em></div>'
           + '<div class="pil-bub">' + defs.map(d => {
               const f = _famById[d.id];
+              // TRAVAUX : QUI PAIE ? — « Incidents à traiter » n'a pas de bulle « à jour » (décision 13/10).
+              if (!f && ((window._PIL_SI_NON_VIDES || []).indexOf(d.id) >= 0)) return '';
               return f ? _pilBulleHtml(f, f.id === premierId) : _pilBulleOkHtml(d);
             }).join('') + '</div></div>';
       }).join('');
@@ -7884,6 +7907,7 @@ let _pilMtxFamActive = null;
 const _PIL_HORS = {
   depot:   { onglet: 'Locataires', go: () => go('baux') },
   finbail: { onglet: 'Locataires', go: () => go('baux') },
+  incident:{ onglet: 'Biens', go: () => go('biens') },
   regul:   { onglet: 'Charges', go: () => go('regul') }
 };
 function _pilCloseLayer() { const L = el('pil-layer'); if (L) L.innerHTML = ''; }
@@ -7912,8 +7936,10 @@ function _pilOpenListe(famId) {
     if (f) items = f.items;
   } catch (e) {}
   const rows = items.length ? items.map(i =>
-    '<div class="ck"><span class="kn"><b>' + esc(i.nom || i.ref || '') + '</b></span>'
-    + '<button type="button" class="go hot" data-pilgo="' + esc(i.ref || '') + '">Ouvrir ›</button></div>'
+    '<div class="ck"><span class="kn"><b>' + esc(i.nom || i.ref || '') + '</b>' + (i.detail ? '<s>' + esc(i.detail) + (i.urgent ? ' · urgent' : '') + '</s>' : '') + '</span>'
+    + (famId === 'incident' && i.incId != null
+      ? '<button type="button" class="go hot" data-pilinc="' + esc(String(i.incId)) + '">Ouvrir ›</button></div>'
+      : '<button type="button" class="go hot" data-pilgo="' + esc(i.ref || '') + '">Ouvrir ›</button></div>')
   ).join('') : '<div class="ck"><span class="kn"><s>Aucun élément.</s></span></div>';
   L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh">'
     + '<div class="sh-h"><span class="ttl"><b>' + esc(def.lbl) + '</b><s>ce geste se fait dans l’onglet <b>' + esc(H.onglet) + '</b></s></span>'
@@ -7981,6 +8007,7 @@ function _pilWireClicks() {
     const close = ev.target.closest('[data-pilclose]'); if (close) { _pilCloseLayer(); return; }
     const onglet = ev.target.closest('[data-pilonglet]'); if (onglet) { const h = _PIL_HORS[onglet.dataset.pilonglet]; _pilCloseLayer(); if (h) h.go(); return; }
     const goItem = ev.target.closest('[data-pilgo]'); if (goItem) { _pilCloseLayer(); _pilOpenFiche(goItem.dataset.pilgo); return; }
+    const incItem = ev.target.closest('[data-pilinc]'); if (incItem) { _pilCloseLayer(); const _i = (DB.incidents || []).find(x => x && String(x.id) === incItem.dataset.pilinc); if (_i && typeof openIncident === 'function') openIncident(_i.logRef || '', _i.id, null, _i.entity, _i.imm); return; }
     const act = ev.target.closest('[data-pilact]'); if (act) { const L = el('pil-layer'); _pilActionGeste(L ? L.dataset.lot : '', act.dataset.pilact); return; }
     const clearFam = ev.target.closest('[data-pilclearfam]'); if (clearFam) { _pilMtxFamActive = null; rAccueil(); return; }
     const fl = ev.target.closest('[data-pilfl]'); if (fl) { _pilMtxFilter = fl.dataset.pilfl; _renderPilMatrice(_pilCtxCourant()); return; }
