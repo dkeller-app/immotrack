@@ -141,6 +141,8 @@ import * as Visale from './core/visale.js';
 // R0-C · Q1 révisé — point de départ des loyers suivis (date d'achat / antériorité / provisoire).
 import * as Anteriorite from './core/anteriorite.js';
 import * as DeclarationOccupation from './core/declaration-occupation.js';
+// TRAVAUX : QUI PAIE ? — moteur de règles sourcé (pur, testé) : verdict, textes verbatim, message locataire.
+import * as QuiPaie from './core/qui-paie.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv,
@@ -860,6 +862,7 @@ window.EdlRelecture = EdlRelecture;
 window.PwaInstall = PwaInstall;
 // VISALE-GMBI (docs/CDC-VISALE-GMBI.md)
 window.Visale = Visale;
+window.QuiPaie = QuiPaie;
 window.DeclarationOccupation = DeclarationOccupation;
 
 // Marqueur pour les tests d'intégration
