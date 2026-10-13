@@ -247,3 +247,57 @@ describe('frontières d\'authz candidature', () => {
     expect((await res.json()).error).toBe('not-open');
   });
 });
+
+// CANDIDATURES-CONFORMITE lot 2 — type de chaque pièce, pris dans la liste FERMÉE du décret n° 2015-1437.
+describe('type de pièce (liste fermée du décret)', () => {
+  async function ouvrir() {
+    const invite = await (await createInvite()).json();
+    const tok = await candTokenOf(invite.linkId);
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/dossier`, {
+      method:'POST', headers:{ 'X-Cand-Token': tok, 'content-type':'application/json' }, body: JSON.stringify(DOSSIER) });
+    return { invite, tok };
+  }
+  const deposer = (invite, tok, cat, type) => SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/piece`, {
+    method:'POST', headers:{ 'X-Cand-Token': tok, 'content-type':'application/pdf', 'X-Piece-Categorie': cat, 'X-Piece-Filename':'f.pdf', ...(type != null ? { 'X-Piece-Type': type } : {}) }, body: PDF() });
+
+  it('la page du candidat reçoit la liste des types par zone (sans facture d\'énergie pour le domicile du candidat)', async () => {
+    const { invite } = await ouvrir();
+    const html = await (await SELF.fetch(`https://relay.test/d/${invite.linkId}`)).text();
+    const data = JSON.parse(html.match(/window\.__CAND__\s*=\s*(\{.*\});/)[1]);
+    expect(data.types.ressources.map(t => t.id)).toContain('I.D.2');
+    expect(data.types.domicile.some(t => /factur/i.test(t.libelle))).toBe(false);
+    expect(data.types.garant.some(t => t.id === 'II.C.2')).toBe(true);
+  });
+  it('dépôt avec un type valide → conservé ; type d\'une autre catégorie ou inventé → ignoré', async () => {
+    const { invite, tok } = await ouvrir();
+    await deposer(invite, tok, 'ressources', 'I.D.2');
+    await deposer(invite, tok, 'identite', 'I.D.2');
+    await deposer(invite, tok, 'domicile', 'releve-bancaire');
+    const c = await getCand(env, invite.linkId);
+    expect(c.pieces.map(p => p.type)).toEqual(['I.D.2', '', '']);
+  });
+  it('PATCH : choisir le type après le dépôt ; type hors liste → 400 ; lecture bailleur avec le type', async () => {
+    const { invite, tok } = await ouvrir();
+    const { pieceId } = await (await deposer(invite, tok, 'ressources')).json();
+    const ok = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/piece/${pieceId}`, {
+      method:'PATCH', headers:{ 'X-Cand-Token': tok, 'content-type':'application/json' }, body: JSON.stringify({ type: 'I.D.1' }) });
+    expect(ok.status).toBe(200);
+    const ko = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/piece/${pieceId}`, {
+      method:'PATCH', headers:{ 'X-Cand-Token': tok, 'content-type':'application/json' }, body: JSON.stringify({ type: 'carte_vitale' }) });
+    expect(ko.status).toBe(400);
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/submit`, { method:'POST', headers:{ 'X-Cand-Token': tok } });
+    const r = await (await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/result`, { headers:{ 'X-Owner-Token': invite.ownerToken } })).json();
+    expect(r.pieces[0].type).toBe('I.D.1');
+  });
+  it('PATCH sans jeton candidat → 401 ; après envoi → 409', async () => {
+    const { invite, tok } = await ouvrir();
+    const { pieceId } = await (await deposer(invite, tok, 'ressources')).json();
+    const sans = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/piece/${pieceId}`, {
+      method:'PATCH', headers:{ 'content-type':'application/json' }, body: JSON.stringify({ type: 'I.D.1' }) });
+    expect(sans.status).toBe(401);
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/submit`, { method:'POST', headers:{ 'X-Cand-Token': tok } });
+    const apres = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/piece/${pieceId}`, {
+      method:'PATCH', headers:{ 'X-Cand-Token': tok, 'content-type':'application/json' }, body: JSON.stringify({ type: 'I.D.1' }) });
+    expect(apres.status).toBe(409);
+  });
+});

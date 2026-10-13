@@ -81,6 +81,8 @@ export const REGISTRE = [
   { motif: exacte('immo_backup_reminder_off'), classe: 'etat', note: 'rappel de sauvegarde désactivé', exemples: ['immo_backup_reminder_off'] },
   { motif: exacte('immo_fullapp_once'), classe: 'etat', note: 'ouverture unique de l’app complète', exemples: ['immo_fullapp_once'] },
   { motif: exacte('propryo_pwa_refus'), classe: 'etat', note: 'invitation à installer refusée', exemples: ['propryo_pwa_refus'] },
+  // CANDIDATURES-CONFORMITE : chemins en ligne de pièces de candidats supprimées hors ligne, à effacer au retour (RGPD).
+  { motif: deuxNs('imsb-cand-purge-attente'), classe: 'etat', note: 'fichiers en ligne de candidats à effacer (reprise hors ligne)', exemples: ['imsb-cand-purge-attente', '_test_imsb-cand-purge-attente'] },
   { motif: exacte('imsb-doc-express'), classe: 'etat', note: 'document express venu de propryo.fr, en attente de l’inscription (30 min)', exemples: ['imsb-doc-express'] },
 
   // ── session

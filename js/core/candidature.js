@@ -17,7 +17,7 @@ export function buildComplementShareMessage(note, bienLabel) {
     + 'Merci de compléter ' + cible + '.\n\n'
     + (manque ? ('Élément(s) à compléter : ' + manque + '\n\n') : '')
     + 'Votre dépôt précédent est conservé : reprenez simplement le dépôt via votre lien sécurisé ci-dessous.\n\n'
-    + 'Conformément au RGPD, vos données ne sont utilisées que pour l\'étude de votre candidature, ne sont communiquées qu\'au propriétaire, et sont supprimées sous 30 jours si votre dossier n\'est pas retenu (droits d\'accès, de rectification et de suppression sur simple demande).\n\n'
+    + 'Conformément au RGPD, vos données ne sont utilisées que pour l\'étude de votre candidature, ne sont communiquées qu\'au propriétaire, et sont supprimées 30 jours après la décision si votre dossier n\'est pas retenu (droits d\'accès, de rectification et de suppression sur simple demande).\n\n'
     + 'Bien cordialement.';
 }
 
@@ -29,38 +29,19 @@ export function buildComplementShareMessage(note, bienLabel) {
 export const PIECES_REQUISES = ['identite', 'domicile', 'situation', 'ressources'];
 
 /**
- * Score de complétude des pièces (0-20) déduit des documents RÉELLEMENT fournis :
- * 5 points par catégorie requise présente (4 × 5 = 20). Pur — l'appelant rassemble les
- * catégories depuis DB.documents. Le garant, non requis, n'entre pas dans ce score.
- * @param {string[]} categoriesPresentes - catégories des documents du candidat (ex. ['identite','ressources'])
- * @returns {number} 0..20
+ * Catégories requises ABSENTES du dossier (état factuel affiché à la place de l'ancien score),
+ * dans l'ordre du décret. Pur — l'appelant rassemble les catégories depuis DB.documents.
+ * @param {string[]} categoriesPresentes
+ * @returns {string[]}
  */
-export function piecesScoreFromCategories(categoriesPresentes) {
+export function categoriesManquantes(categoriesPresentes) {
   const set = new Set((Array.isArray(categoriesPresentes) ? categoriesPresentes : []).map(s => String(s || '')));
-  const n = PIECES_REQUISES.filter(k => set.has(k)).length;
-  return n * 5;
+  return PIECES_REQUISES.filter(k => !set.has(k));
 }
 
 /**
- * Score "Confiance" 0-100, transparent, critères de solvabilité légaux uniquement
- * (jamais discriminatoire). Voir spec §9.
- * Barème : ratio revenus/loyer ≥3×→35 / ≥2.5×→20 / ≥2×→10 · contrat CDI→25 / CDD→10
- *          · garant présent→20 · pièces fournies→0-20. Plafonné à 100.
- * Complétude des pièces : si `piecesPts` (0-20) est fourni (déduit des documents réels
- * via piecesScoreFromCategories), il fait foi ; sinon repli sur le flag déclaratif
- * `piecesCompletes` (candidat saisi à la main / module non chargé) → 20.
- * Le RIB n'entre PAS dans le score : ce n'est ni un indicateur de solvabilité ni une
- * pièce de sélection autorisée (décret 2015-1437 ; art. 22-2 loi du 6 juillet 1989 —
- * l'autorisation de prélèvement ne peut être exigée). Il est collecté à la signature du bail.
- * @param {object} cand - candidat (revenus, contrat, garant, piecesCompletes)
- * @param {number} loyerHC - loyer hors charges du logement visé (pour le ratio)
- * @param {number} [piecesPts] - complétude des pièces 0-20 (documents réels) ; optionnel
- * @returns {number} score entier 0-100
- */
-/**
  * Le candidat dispose-t-il d'une garantie ? Garant physique (nom renseigné) OU garantie Visale
- * (caution d'État Action Logement, n° de visa renseigné). Les deux valent le même crédit au score
- * (une seule fois). Pur — réutilisé par _calculConfiance, _confBreakdown et la fiche.
+ * (caution d'État Action Logement, n° de visa renseigné). Pur — réutilisé par la liste et la fiche.
  * @param {object} cand
  * @returns {boolean}
  */
@@ -71,23 +52,12 @@ export function candHasGarantie(cand) {
   return garant || visale;
 }
 
-export function _calculConfiance(cand, loyerHC = 0, piecesPts) {
-  if (!cand || typeof cand !== 'object') return 0;
-  let score = 0;
-  const revenus = Number(cand.revenus) || 0;
-  const loyer = Number(loyerHC) || 0;
-  if (loyer > 0 && revenus > 0) {
-    const ratio = revenus / loyer;
-    if (ratio >= 3) score += 35;
-    else if (ratio >= 2.5) score += 20;
-    else if (ratio >= 2) score += 10;
-  }
-  if (cand.contrat === 'CDI') score += 25;
-  else if (cand.contrat === 'CDD') score += 10;
-  if (candHasGarantie(cand)) score += 20;
-  if (Number.isFinite(piecesPts)) score += Math.max(0, Math.min(20, piecesPts));
-  else if (cand.piecesCompletes) score += 20;
-  return Math.min(100, score);
+/** Libellé neutre de la garantie (liste des candidats) : Visale, Garant ou Aucune. */
+export function libelleGarantie(cand) {
+  if (!cand || typeof cand !== 'object') return 'Aucune';
+  if (cand.visale && String(cand.visale.visaId || '').trim()) return 'Visale';
+  if (cand.garant && String(cand.garant.nom || '').trim()) return 'Garant';
+  return 'Aucune';
 }
 
 /** Mappe un candidat vers un objet locataire du bail (forme getBailLocs/renderBailLocs). */
@@ -129,12 +99,12 @@ export function _nouveauCandidat(partial = {}) {
     dateDebutSouhaitee: partial.dateDebutSouhaitee || '',
     revenus: Number(partial.revenus) || 0,
     employeur: partial.employeur || '',
+    employeurSiren: partial.employeurSiren || '',   // CANDIDATURES-CONFORMITE : SIREN/SIRET facultatif
     contrat: partial.contrat || '',
     garant: partial.garant || null,
     visale: partial.visale || null,
     piecesCompletes: partial.piecesCompletes || false,
     statut: partial.statut || 'recu',
-    confianceScore: Number(partial.confianceScore) || 0,
     piecesVerifiees: partial.piecesVerifiees || false,
     notes: partial.notes || '',
     bailRef: partial.bailRef || '',
@@ -158,21 +128,6 @@ export function _migrerDocsCandidatVersBail(documents, candId, bailRef, logRef) 
                logRef: logRef != null ? String(logRef) : d.logRef, _modifiedAt: now };
     }
     return d;
-  });
-}
-
-/**
- * Filtre la liste : retire les candidats 'refuse' dont _modifiedAt dépasse
- * joursRetention (défaut 30, D11). Renvoie les candidats CONSERVÉS. Pur — l'appelant
- * tombstonne en prod les supprimés pour la sync Drive.
- */
-export function _purgeCandidatsRefuses(candidats, nowMs, joursRetention = 30) {
-  if (!Array.isArray(candidats)) return [];
-  const seuil = joursRetention * 24 * 60 * 60 * 1000;
-  return candidats.filter(c => {
-    if (!c || c.statut !== 'refuse') return true;
-    const ts = c._modifiedAt ? Date.parse(c._modifiedAt) : 0;
-    return (nowMs - ts) < seuil;
   });
 }
 
@@ -283,7 +238,7 @@ export function repullDecision(link, submittedAt, candStatut) {
 }
 
 /**
- * Loyer attendu d'un logement pour scorer un candidat (ratio revenus/loyer), en cascade.
+ * Loyer attendu d'un logement pour le ratio revenus / loyer d'un candidat (information), en cascade.
  * Pur — l'appelant rassemble les données depuis DB. Ordre validé : logement → ancien
  * locataire (dernier bail courant/historique avec un loyer) → loyer saisi à l'invitation.
  *
