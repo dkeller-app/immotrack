@@ -15,6 +15,7 @@ import {
   markOpened, submitCandidature, reopenForComplement, reopenByCandidate, revokeCandidature, purgeCandidature
 } from './candidatures.js';
 import { renderDossierPage, renderDossierError } from './dossier-page.js';
+import { registerAiRoutes } from './ai/routes.js';
 
 const app = new Hono();
 
@@ -614,5 +615,9 @@ app.delete('/api/candidatures/:linkId', async (c) => {
   await purgeCandidature(c.env, linkId);
   return c.json({ ok: true });
 });
+
+
+// ── Socle IA (dictée EDL, puis dossiers / travaux) : routes authentifiées, cf. src/ai/routes.js ──
+registerAiRoutes(app, { requireSupabaseUser });
 
 export default app;

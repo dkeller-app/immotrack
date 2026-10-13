@@ -28,3 +28,15 @@ EMAIL_FROM = "onboarding@resend.dev"
 # OTP_REQUIRED = "true" → /signed refuse une signature sans OTP vérifié (garde serveur, audit point 9).
 # Défaut "false" pendant le staging ; flip à "true" à l'activation, AVEC EMAIL_MODE=resend + domaine.
 OTP_REQUIRED = "false"
+
+# ── SOCLE IA (dictée de l'état des lieux ; plus tard dossiers / travaux) — src/ai/ ──
+# Fournisseur : Mistral AI (France, UE). L'IA est ACTIVE dès que le secret MISTRAL_API_KEY existe :
+#   npx wrangler secret put MISTRAL_API_KEY
+# Sans ce secret, les routes /ai/* répondent 503 ai_disabled et l'app masque la dictée.
+# AI_PROVIDER : laisser ABSENT en production. "fake" (fournisseur simulé) = tests / dev seulement.
+# AI_MODEL_TRANSCRIBE / AI_MODEL_STRUCTURE : surcharges éventuelles (défauts voxtral-mini-latest /
+#   mistral-small-latest). AI_CONTEXT_BIAS = "true" : vocabulaire d'aide, à activer après test réel.
+# Quotas PAR COMPTE ET PAR JOUR (garde-fou de coût) et taille max d'une dictée :
+AI_QUOTA_AUDIO_SEC = "3600"
+AI_QUOTA_CALLS = "200"
+AI_AUDIO_MAX_BYTES = "10485760"
