@@ -464,7 +464,7 @@ export function messageLocataire(verdict, ctx) {
   lignes.push('');
   lignes.push('Bonjour,');
   lignes.push('');
-  lignes.push(`${c.dateSignalement ? 'Suite au signalement du ' + c.dateSignalement + ', la' : 'La'} réparation concernant ${el.charAt(0).toLowerCase() + el.slice(1)} relève de l'entretien à la charge du locataire :`);
+  lignes.push(`${c.dateSignalement ? 'Suite au signalement du ' + c.dateSignalement + ', la' : 'La'} réparation signalée (${el}) relève des réparations à la charge du locataire :`);
   (verdict.textes || []).forEach((t) => { lignes.push(`- ${t.ref} : « ${t.extrait} »`); });
   lignes.push('');
   lignes.push('Si la cause est autre (vétusté, malfaçon, vice), merci de le signaler : la réparation reviendrait alors au bailleur.');

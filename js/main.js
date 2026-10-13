@@ -145,6 +145,8 @@ import * as DeclarationOccupation from './core/declaration-occupation.js';
 import * as QuiPaie from './core/qui-paie.js';
 // _mvCreate — API unique « ajouter un mouvement » (pur, testé ; shadow inline dans app-part1).
 import * as MvCreate from './core/mv-create.js';
+// Registre des incidents (pur, testé) : statuts, contexte, carnet dérivé, annuaire, RGE, famille.
+import * as Incidents from './core/incidents.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv,
@@ -866,6 +868,7 @@ window.PwaInstall = PwaInstall;
 window.Visale = Visale;
 window.QuiPaie = QuiPaie;
 window.MvCreate = MvCreate;
+window.Incidents = Incidents;
 window.DeclarationOccupation = DeclarationOccupation;
 
 // Marqueur pour les tests d'intégration

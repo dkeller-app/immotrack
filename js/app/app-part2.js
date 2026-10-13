@@ -14022,14 +14022,19 @@ function _renderEquipForLog(ref) {
   const cards = applicable.map(rule => {
     const data = equipData[rule.key] || {};
     const lastDate = data.lastDate || '';
-    const interv = data.interv || rule.intervalYears || 1;
+    // TRAVAUX : QUI PAIE ? — CORRECTIF : `data.interv` est le NOM de l'intervenant (« Intervenant /
+    // Entreprise »), pas une durée. Il était pris comme intervalle → date invalide → toISOString()
+    // levait RangeError et l'onglet Entretien ne s'affichait plus dès qu'un intervenant était saisi.
+    // L'intervalle vient de la règle (intervalMonths prioritaire, sinon intervalYears, défaut 1 an).
+    const intervMois = rule.intervalMonths ? +rule.intervalMonths : ((+rule.intervalYears || 1) * 12);
     let nextDate = '';
     let status = 'unknown'; // unknown | ok | soon | late
     let daysToNext = null;
-    if(lastDate) {
-      const ld = new Date(lastDate + 'T00:00:00');
-      ld.setFullYear(ld.getFullYear() + interv);
-      nextDate = ld.toISOString().slice(0,10);
+    const ld = lastDate ? new Date(lastDate + 'T00:00:00') : null;
+    if(ld && !isNaN(ld.getTime())) {
+      ld.setMonth(ld.getMonth() + intervMois);
+      // Date LOCALE (toISOString passait en UTC : minuit local = la veille en France).
+      nextDate = ld.getFullYear() + '-' + String(ld.getMonth()+1).padStart(2,'0') + '-' + String(ld.getDate()).padStart(2,'0');
       daysToNext = Math.round((ld.getTime() - today.getTime()) / 86400000);
       if(daysToNext < 0) status = 'late';
       else if(daysToNext <= 30) status = 'soon';
@@ -14055,7 +14060,8 @@ function _renderEquipForLog(ref) {
       </div>
       <div class="logf-equip-body">
         <div class="logf-equip-row"><span class="logf-equip-l">Dernier entretien</span><span class="logf-equip-v">${lastDate ? fd(lastDate) : '<span class="mu sm">—</span>'}</span></div>
-        <div class="logf-equip-row"><span class="logf-equip-l">Intervalle</span><span class="logf-equip-v">${interv} an${interv>1?'s':''}</span></div>
+        <div class="logf-equip-row"><span class="logf-equip-l">Intervalle</span><span class="logf-equip-v">${intervMois % 12 === 0 ? (intervMois/12) + ' an' + (intervMois > 12 ? 's' : '') : intervMois + ' mois'}</span></div>
+        ${data.interv ? `<div class="logf-equip-row"><span class="logf-equip-l">Intervenant</span><span class="logf-equip-v">${escHtml(data.interv)}</span></div>` : ''}
         ${nextDate ? `<div class="logf-equip-row"><span class="logf-equip-l">Prochain entretien</span><span class="logf-equip-v">${fd(nextDate)}</span></div>` : ''}
         ${data.notes ? `<div class="logf-equip-notes">${escHtml(data.notes)}</div>` : ''}
       </div>
@@ -14176,7 +14182,9 @@ function _renderAgendaForLog(ref) {
 // L'agenda est sorti dans son propre sous-onglet (cf _renderLogFichePanelAgenda).
 function _renderLogFichePanelConformite(log, ref) {
   return `
-    <div class="logf-section-head">
+    ${/* TRAVAUX : QUI PAIE ? — registre des incidents EN TÊTE (CDC validé 13/10/2026). */''}
+    ${typeof _renderIncidentsForLog === 'function' ? _renderIncidentsForLog(ref) : ''}
+    <div class="logf-section-head" style="margin-top:24px">
       <h3 class="logf-section-title">${_uiIcon('wrench')} Équipements & entretiens obligatoires</h3>
       <button class="btn bs bb" onclick="_goFromLogFiche('equipements')" title="Voir tous les équipements">↗ Onglet Équipements</button>
     </div>
@@ -14188,6 +14196,575 @@ function _renderLogFichePanelConformite(log, ref) {
     ${_renderAssForLog(ref)}
   `;
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// TRAVAUX : QUI PAIE ? — registre des incidents, verdict sourcé, qui appeler, preuves, facture.
+// CDC mockups/TRAVAUX-QUI-PAIE (GO Didier 13/10/2026). Logique pure : js/core/qui-paie.js
+// (window.QuiPaie) et js/core/incidents.js (window.Incidents). Ici : rendu + persistance seulement.
+// Une seule couche #ov-incident dont la vue change (saisie · fiche · appeler · facture · message) :
+// sur téléphone c'est une page plein écran (règle .ov .modal ≤ 767 px, M-16), pied collant.
+// Jamais bloquant : seuls l'élément et la nature sont demandés ; le bailleur garde la décision.
+// ════════════════════════════════════════════════════════════════════════════
+let _incState = null;   // { id, ref, imm, entity, view, draft, annuaire, rge, metier }
+
+function _incMods() { return { QP: window.QuiPaie || null, IN: window.Incidents || null }; }
+function _incAll() { if (!Array.isArray(DB.incidents)) DB.incidents = []; return DB.incidents; }
+function _incGet(id) { return _incAll().find(i => i && !i._deleted && String(i.id) === String(id)) || null; }
+function _incLogOf(ref) { return (DB.logements || []).find(l => l && l.ref === ref && _isAlive(l)) || null; }
+function _incImmOf(entNom, immNom) {
+  const ent = (DB.entites || []).find(e => e && e.nom === entNom);
+  return ent ? ((ent.immeubles || []).find(i => i && i.nom === immNom) || null) : null;
+}
+function _incElLbl(inc) {
+  const { QP } = _incMods();
+  const d = QP ? QP.elementDef(inc.element) : null;
+  return (inc.elementLibre && String(inc.elementLibre).trim()) || (d ? d.lbl : 'Élément à préciser');
+}
+function _incNatLbl(inc) {
+  const { QP } = _incMods(); const n = QP ? QP.NATURES.find(x => x.k === inc.nature) : null;
+  return n ? n.lbl : '';
+}
+function _incPayeur(inc) { return inc ? (inc.payeurRetenu || (inc.verdict && inc.verdict.payeur) || 'a_arbitrer') : 'a_arbitrer'; }
+function _incPayeurLbl(p) { const { QP } = _incMods(); return (QP && QP.PAYEUR_LBL[p]) || p; }
+function _incBienLbl(inc) {
+  const log = inc.logRef ? _incLogOf(inc.logRef) : null;
+  if (log) return (log.imm ? log.imm + ' — ' : '') + log.ref;
+  return inc.imm ? 'Parties communes — ' + inc.imm : 'Bien non précisé';
+}
+function _incDateHeure(iso) {
+  if (!iso) return '';
+  const d = new Date(iso); if (isNaN(d)) return fd(String(iso).slice(0, 10));
+  return fd(iso.slice(0, 10)) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function _incCoutBailleur(inc) {
+  const ids = (inc.mouvementIds || []).map(String);
+  if (!ids.length) return null;
+  return (DB.mouvements || []).filter(m => m && !m._deleted && ids.includes(String(m.id))).reduce((s, m) => s + (+m.db || 0) - (+m.cr || 0), 0);
+}
+function _incStatutBadge(inc) {
+  const { IN } = _incMods();
+  const lbl = IN ? IN.statutLbl(inc.statut) : inc.statut;
+  const urg = (inc.urgences || []).length && inc.statut !== 'resolu';
+  return `<span class="inc-badge${inc.statut === 'resolu' ? ' pos' : ''}">${inc.statut === 'resolu' ? _uiIcon('check', 13) + ' ' : ''}${escHtml(lbl)}</span>`
+    + (urg ? ` <span class="inc-badge acc">${_uiIcon('warn', 13)} Urgent</span>` : '');
+}
+function _incPayCell(inc) {
+  const v = inc.verdict || {};
+  const p = _incPayeur(inc);
+  const { QP } = _incMods();
+  const conf = QP && v.confiance ? (QP.CONFIANCE_LBL[v.confiance] || '') : '';
+  const sugg = v.payeur && inc.payeurRetenu && inc.payeurRetenu !== v.payeur ? `<span class="inc-sub">Retenu par le bailleur · suggestion : ${escHtml(_incPayeurLbl(v.payeur).toLowerCase())}</span>` : (conf ? `<span class="inc-sub">${escHtml(conf)}${v.regle ? ' · ' + escHtml(v.regle) : ''}</span>` : '');
+  if (p === 'a_arbitrer') return `<span class="inc-badge acc">${_uiIcon('scale', 13)} À arbitrer</span>${sugg}`;
+  return `<span class="inc-pay">${escHtml(_incPayeurLbl(p).replace(/^Le /, '').replace(/^./, c => c.toUpperCase()))}</span>${sugg}`;
+}
+
+// ── Section « Incidents » en tête de l'onglet Entretien de la fiche logement ──
+function _renderIncidentsForLog(ref) {
+  const { IN } = _incMods();
+  const refSafe = _lyQ(ref);
+  if (!IN) return '';
+  const liste = IN.incidentsDe(_incAll(), { logRef: ref });
+  const ouverts = liste.filter(IN.estOuvert).length;
+  const head = `<div class="logf-section-head inc-head">
+      <h3 class="logf-section-title">${_uiIcon('wrench')} Incidents <span class="inc-count">${ouverts ? ouverts + ' en cours · ' : ''}${liste.length} au total</span></h3>
+      <button class="btn bp" onclick="openIncident('${refSafe}')">${_uiIcon('plus', 15)} Signaler un incident</button>
+    </div>`;
+  if (!liste.length) {
+    return head + `<div class="inc-empty">${_uiIcon('wrench', 28)}<div><b>Aucun incident signalé</b><span>Noter ici chaque panne ou dégât signalé par le locataire : Propryo indique qui paie, selon quel texte, et garde les preuves.</span></div></div>`;
+  }
+  if (_isPhone()) {
+    return head + `<div class="inc-cards">${liste.map(i => `<button type="button" class="inc-card" onclick="openIncident('${refSafe}',${+i.id})">
+        <span class="inc-card-t">${escHtml(_incElLbl(i))}</span>
+        <span class="inc-card-s">${escHtml(_incNatLbl(i))}${i.description ? ' — ' + escHtml(i.description) : ''}</span>
+        <span class="inc-kv"><span>Qui paie</span><b>${_incPayCell(i)}</b></span>
+        <span class="inc-kv"><span>Statut</span><b>${_incStatutBadge(i)}</b></span>
+        <span class="inc-kv"><span>Signalé le</span><b>${fd(String(i.creeLe || '').slice(0, 10))}</b></span>
+      </button>`).join('')}</div>`;
+  }
+  return head + `<div class="inc-tbl-wrap"><table class="inc-tbl"><thead><tr><th>Signalé le</th><th>Élément et nature</th><th>Qui paie</th><th>Statut</th><th class="num">Coût bailleur</th><th></th></tr></thead><tbody>
+    ${liste.map(i => { const c = _incCoutBailleur(i); return `<tr>
+      <td class="inc-dt">${fd(String(i.creeLe || '').slice(0, 10))}</td>
+      <td><div class="inc-el">${escHtml(_incElLbl(i))}</div><div class="inc-sub">${escHtml(_incNatLbl(i))}${i.description ? ' — ' + escHtml(i.description) : ''}${i.contexte && i.contexte.partieCommune ? ' · partie commune' : ''}</div></td>
+      <td>${_incPayCell(i)}</td>
+      <td>${_incStatutBadge(i)}</td>
+      <td class="num">${c == null ? '—' : fmt(c)}</td>
+      <td><button class="btn bs bb" onclick="openIncident('${refSafe}',${+i.id})">Ouvrir</button></td></tr>`; }).join('')}
+    </tbody></table></div>
+    <div class="inc-note">${_uiIcon('info', 13)} Coût bailleur = montant de la dépense enregistrée dans Finances pour cet incident.</div>`;
+}
+
+// ── Pastille « Incidents des parties communes » de la fiche immeuble ──
+function _incCountImm(im) {
+  return (DB.incidents || []).filter(i => i && !i._deleted && im && i.imm === im.nom && i.contexte && i.contexte.partieCommune && i.statut !== 'resolu').length;
+}
+function _renderIncidentsForImm(ent, im) {
+  const { IN } = _incMods();
+  if (!IN || !im) return '';
+  const liste = _incAll().filter(i => i && !i._deleted && i.imm === im.nom && i.contexte && i.contexte.partieCommune)
+    .sort((a, b) => String(b.creeLe || '').localeCompare(String(a.creeLe || '')));
+  const btn = `<button class="btn bs bb" onclick="openIncident('',null,'saisie','${_lyQ(ent.nom)}','${_lyQ(im.nom)}')">${_uiIcon('plus', 14)} Signaler un incident sur les parties communes</button>`;
+  if (!liste.length) return `<div class="inc-note">Aucun incident sur les parties communes.</div><div style="margin-top:8px">${btn}</div>`;
+  return `<div class="inc-cards">${liste.map(i => `<button type="button" class="inc-card" onclick="openIncident('${_lyQ(i.logRef || '')}',${+i.id},null,'${_lyQ(ent.nom)}','${_lyQ(im.nom)}')">
+      <span class="inc-card-t">${escHtml(_incElLbl(i))}</span><span class="inc-card-s">${escHtml(_incNatLbl(i))} · ${fd(String(i.creeLe || '').slice(0, 10))}</span>
+      <span class="inc-kv"><span>Qui paie</span><b>${_incPayCell(i)}</b></span><span class="inc-kv"><span>Statut</span><b>${_incStatutBadge(i)}</b></span></button>`).join('')}</div>
+    <div style="margin-top:8px">${btn}</div>`;
+}
+
+// ── Ouverture / fermeture de la couche ──
+function openIncident(ref, id, view, entNom, immNom) {
+  const { QP, IN } = _incMods();
+  if (!QP || !IN) { showToast('Module « qui paie » non chargé : recharger la page.', 'err', 5000); return; }
+  const log = ref ? _incLogOf(ref) : null;
+  const inc = id != null ? _incGet(id) : null;
+  _incState = {
+    id: inc ? inc.id : null,
+    ref: inc ? (inc.logRef || '') : (ref || ''),
+    entity: inc ? inc.entity : (log ? (log.entity || '') : (entNom || '')),
+    imm: inc ? inc.imm : (log ? (log.imm || '') : (immNom || '')),
+    view: view || (inc ? 'fiche' : 'saisie'),
+    metier: null, annuaire: null, rge: null,
+  };
+  _incRender();
+  openM('ov-incident');
+}
+function _incFermer() {
+  closeM('ov-incident');
+  _incState = null;
+  _incRefreshHost();
+}
+function _incRefreshHost() {
+  try { if (typeof rLogFiche === 'function' && typeof currentPage !== 'undefined' && currentPage === 'log-fiche') rLogFiche(); } catch (e) {}
+  try { if (typeof rImmFiche === 'function' && typeof currentPage !== 'undefined' && currentPage === 'imm-fiche') rImmFiche(); } catch (e) {}
+}
+function _incGo(view) { if (!_incState) return; _incState.view = view; _incRender(); const b = el('inc-body'); if (b) b.scrollTop = 0; }
+
+function _incRender() {
+  if (!_incState) return;
+  const inc = _incState.id != null ? _incGet(_incState.id) : null;
+  const v = _incState.view;
+  let titre = 'Incident', sub = '', body = '', foot = '';
+  if (v === 'saisie') {
+    titre = inc ? 'Modifier l\'incident' : (_incState.ref ? 'Signaler un incident' : 'Signaler un incident sur les parties communes');
+    sub = _incState.ref ? ((_incState.imm ? _incState.imm + ' — ' : '') + _incState.ref) : ('Parties communes — ' + (_incState.imm || ''));
+    body = _incSaisieHtml(inc);
+    foot = `<span class="inc-foot-hint">* L'élément et la nature suffisent pour enregistrer.</span>`
+      + (inc ? `<button type="button" class="btn bs" onclick="_incSupprimer()">${_uiIcon('trash', 14)} Supprimer</button>` : '')
+      + `<button type="button" class="btn bs" onclick="${inc ? '_incGo(\'fiche\')' : '_incFermer()'}">Annuler</button>`
+      + `<button type="button" class="btn bp" onclick="_incEnregistrer()">${inc ? 'Enregistrer' : 'Enregistrer et voir qui paie'}</button>`;
+  } else if (!inc) {
+    _incState.view = 'saisie'; return _incRender();
+  } else if (v === 'appeler') {
+    titre = 'Qui appeler'; sub = _incElLbl(inc) + ' · ' + _incBienLbl(inc);
+    body = _incAppelerHtml(inc);
+    foot = `<button type="button" class="btn bs" onclick="_incGo('fiche')">${_uiIcon('chevron-left', 14)}Retour à l'incident</button>`;
+  } else if (v === 'facture' && typeof _incFactureHtml === 'function') {
+    titre = 'Enregistrer la facture'; sub = _incElLbl(inc) + ' · payeur retenu : ' + _incPayeurLbl(_incPayeur(inc)).toLowerCase();
+    body = _incFactureHtml(inc);
+    foot = `<button type="button" class="btn bs" onclick="_incGo('fiche')">Annuler</button><button type="button" class="btn bp" id="inc-fac-ok" onclick="_incEnregistrerFacture()">Enregistrer la dépense</button>`;
+  } else if (v === 'message') {
+    titre = 'Message au locataire'; sub = 'À relire avant envoi';
+    body = _incMessageHtml(inc);
+    foot = `<button type="button" class="btn bs" onclick="_incGo('fiche')">Retour</button><button type="button" class="btn bs" onclick="_incCopierMessage()">${_uiIcon('doc', 14)} Copier</button><button type="button" class="btn bp" onclick="_incEnvoyerMessage()">${_uiIcon('send', 14)} Envoyer le message</button>`;
+  } else {
+    titre = _incElLbl(inc) + (inc.nature ? ' — ' + _incNatLbl(inc).toLowerCase() : '');
+    sub = _incBienLbl(inc) + ' · signalé le ' + _incDateHeure(inc.creeLe);
+    body = _incFicheHtml(inc);
+    foot = _incFicheFoot(inc);
+  }
+  el('inc-title').textContent = titre;
+  el('inc-sub').textContent = sub;
+  el('inc-body').innerHTML = body;
+  el('inc-foot').innerHTML = foot;
+}
+
+// ── Vue « saisie » ──
+function _incEquipementsProposes(log) {
+  const out = [];
+  if (!log) return out;
+  const ch = log.chauffage || {}, ecs = log.ecs || {}, eq = log.equipements || {};
+  if (ch.gaz || ch.fioul || ch.bois) out.push(ch.coll ? 'chauffage_coll' : 'chaudiere');
+  if (ch.coll || ecs.coll) out.push('chauffage_coll');
+  if (ecs.elec || ecs.thermo) out.push('ballon');
+  if (ch.pac || ch.clim) out.push('pac_clim');
+  if (eq.vmcType) out.push('vmc');
+  if (eq.daafPresent) out.push('detecteur');
+  if (eq.conduitFumee || ch.poeleBois || ch.insert || ch.cheminee) out.push('conduit');
+  return [...new Set(out)];
+}
+function _incChip(name, val, lbl, on, type) {
+  return `<label class="inc-chip"><input type="${type || 'radio'}" name="${name}" value="${escHtml(val)}"${on ? ' checked' : ''}><span>${escHtml(lbl)}</span></label>`;
+}
+function _incSaisieHtml(inc) {
+  const { QP, IN } = _incMods();
+  const log = _incState.ref ? _incLogOf(_incState.ref) : null;
+  const imm = _incImmOf(_incState.entity, _incState.imm);
+  const ctx0 = inc ? inc.contexte : IN.contexteDe({ bail: _incState.ref ? _bienActiveBail(_incState.ref) : null, imm });
+  const d = inc || { element: '', nature: '', cause: 'inconnue', intervention: 'inconnue', urgences: [], signalePar: 'locataire', canal: 'telephone' };
+  const props = _incEquipementsProposes(log);
+  const groupes = {};
+  QP.ELEMENTS.forEach(e => { (groupes[e.groupe] = groupes[e.groupe] || []).push(e); });
+  const opt = e => `<option value="${e.k}"${d.element === e.k ? ' selected' : ''}>${escHtml(e.lbl)}</option>`;
+  const selEl = `<select class="inp" id="inc-el" onchange="_incMajAideElement()"><option value="">Choisir l'élément…</option>`
+    + (props.length ? `<optgroup label="Équipements du logement">${props.map(k => opt(QP.elementDef(k))).join('')}</optgroup>` : '')
+    + Object.entries(groupes).map(([g, l]) => `<optgroup label="${escHtml(g)}">${l.map(opt).join('')}</optgroup>`).join('') + `</select>`;
+  const bail = _incState.ref ? _bienActiveBail(_incState.ref) : null;
+  const locNom = (bail && Array.isArray(bail.locataires) && bail.locataires[0] && bail.locataires[0].nom) || (log && log.locataire) || '';
+  const creeLe = (inc && inc.creeLe) || new Date().toISOString();
+  const dtLocal = (() => { const x = new Date(creeLe); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 16); })();
+  const tri = (v, a, b) => (v === true ? a : v === false ? b : '');
+  return `
+  <div class="inc-f"><span class="inc-lb">Urgence <span class="inc-opt">— cocher ce qui se passe en ce moment</span></span>
+    <div class="inc-chips">${QP.URGENCES.map(u => _incChip('inc-urg', u.k, u.lbl, (d.urgences || []).includes(u.k), 'checkbox')).join('')}</div></div>
+  <div class="inc-f"><label class="inc-lb" for="inc-el">Élément concerné *</label>${selEl}
+    <input class="inp" id="inc-el-libre" placeholder="Précision (facultatif)" value="${escHtml(d.elementLibre || '')}" style="margin-top:6px">
+    <div class="inc-hint" id="inc-el-aide">Équipements du logement en tête, puis les rubriques du décret 87-712, puis « Autre ».</div></div>
+  <div class="inc-f"><span class="inc-lb">Nature *</span><div class="inc-chips">${QP.NATURES.map(n => _incChip('inc-nat', n.k, n.lbl, d.nature === n.k)).join('')}</div></div>
+  <div class="inc-f"><span class="inc-lb">Cause déclarée <span class="inc-opt">— facultatif</span></span><div class="inc-chips">${QP.CAUSES.map(c => _incChip('inc-cause', c.k, c.lbl, (d.cause || 'inconnue') === c.k)).join('')}</div></div>
+  <div class="inc-g2">
+    <div class="inc-f"><label class="inc-lb" for="inc-int">Ce qui semble nécessaire <span class="inc-opt">— facultatif</span></label>
+      <select class="inp" id="inc-int">${QP.INTERVENTIONS.map(i => `<option value="${i.k}"${(d.intervention || 'inconnue') === i.k ? ' selected' : ''}>${escHtml(i.lbl)}</option>`).join('')}</select></div>
+    <div class="inc-f"><label class="inc-lb" for="inc-age">Âge de l'élément, en années <span class="inc-opt">— facultatif</span></label>
+      <input class="inp" id="inc-age" type="number" min="0" step="1" inputmode="numeric" value="${d.ageAns != null ? escHtml(String(d.ageAns)) : ''}"></div>
+  </div>
+  <div class="inc-f"><label class="inc-lb" for="inc-desc">Description</label><textarea class="inp" id="inc-desc" rows="2">${escHtml(d.description || '')}</textarea></div>
+  <div class="inc-g2">
+    <div class="inc-f"><label class="inc-lb" for="inc-par">Signalé par</label>
+      <select class="inp" id="inc-par">${IN.SIGNALE_PAR.map(s => `<option value="${s.k}"${d.signalePar === s.k ? ' selected' : ''}>${escHtml(s.lbl)}</option>`).join('')}</select>
+      <input class="inp" id="inc-par-nom" placeholder="Nom (facultatif)" value="${escHtml(inc ? (inc.signaleParNom || '') : locNom)}" style="margin-top:6px"></div>
+    <div class="inc-f"><label class="inc-lb" for="inc-dt">Le</label>
+      <input class="inp" id="inc-dt" type="datetime-local" value="${dtLocal}">
+      <select class="inp" id="inc-canal" style="margin-top:6px">${IN.CANAUX.map(s => `<option value="${s.k}"${d.canal === s.k ? ' selected' : ''}>${escHtml(s.lbl)}</option>`).join('')}</select></div>
+  </div>
+  <div class="inc-f"><span class="inc-lb">Contexte <span class="inc-opt">— lu sur le bail et l'immeuble, modifiable</span></span>
+    <div class="inc-g2">
+      <select class="inp" id="inc-meuble" aria-label="Type de location"><option value="">Location : non renseignée</option><option value="0"${tri(ctx0.meuble, '', ' selected')}>Location nue</option><option value="1"${tri(ctx0.meuble, ' selected', '')}>Location meublée</option></select>
+      <select class="inp" id="inc-copro" aria-label="Régime de l'immeuble"><option value="">Immeuble : régime non renseigné</option><option value="1"${tri(ctx0.copro, ' selected', '')}>Copropriété</option><option value="0"${tri(ctx0.copro, '', ' selected')}>Monopropriété</option></select>
+    </div>
+    ${_incState.ref && _incState.imm ? `<label class="inc-check"><input type="checkbox" id="inc-pc"${ctx0.partieCommune || !_incState.ref ? ' checked' : ''}> <span>Partie commune de l'immeuble (toiture, colonne, hall…)</span></label>` : ''}
+    <label class="inc-check"><input type="checkbox" id="inc-clause"${ctx0.clauseChaudiereBailleur ? ' checked' : ''}> <span>Le bail confie l'entretien de la chaudière au bailleur</span></label>
+  </div>
+  <div class="inc-hint">${_uiIcon('camera', 13)} Les photos et le devis s'ajoutent au dossier de preuves, juste après l'enregistrement.</div>`;
+}
+function _incMajAideElement() {
+  const { QP } = _incMods(); const s = el('inc-el'); const a = el('inc-el-aide'); if (!s || !a || !QP) return;
+  const d = QP.elementDef(s.value);
+  a.textContent = !d ? 'Équipements du logement en tête, puis les rubriques du décret 87-712, puis « Autre ».'
+    : (d.ann ? 'Élément de la liste des réparations locatives (décret 87-712).' : 'Élément hors de la liste des réparations locatives.');
+}
+function _incLireSaisie() {
+  const vals = name => [...document.querySelectorAll('#ov-incident input[name="' + name + '"]:checked')].map(x => x.value);
+  const triVal = id => { const x = (el(id) || {}).value; return x === '1' ? true : x === '0' ? false : null; };
+  const dt = (el('inc-dt') || {}).value;
+  const iso = dt ? new Date(dt).toISOString() : new Date().toISOString();
+  const pc = el('inc-pc') ? el('inc-pc').checked : !_incState.ref;
+  return {
+    element: (el('inc-el') || {}).value || '',
+    elementLibre: ((el('inc-el-libre') || {}).value || '').trim(),
+    nature: vals('inc-nat')[0] || '',
+    cause: vals('inc-cause')[0] || 'inconnue',
+    urgences: vals('inc-urg'),
+    intervention: (el('inc-int') || {}).value || 'inconnue',
+    ageAns: (el('inc-age') || {}).value,
+    description: ((el('inc-desc') || {}).value || '').trim(),
+    signalePar: (el('inc-par') || {}).value || 'locataire',
+    signaleParNom: ((el('inc-par-nom') || {}).value || '').trim(),
+    canal: (el('inc-canal') || {}).value || 'telephone',
+    creeLe: iso,
+    contexte: { meuble: triVal('inc-meuble'), copro: triVal('inc-copro'), partieCommune: !!pc, clauseChaudiereBailleur: !!(el('inc-clause') && el('inc-clause').checked) },
+  };
+}
+function _incCalculerVerdict(inc) {
+  const { QP } = _incMods();
+  const v = QP.quiPaie({ element: inc.element, nature: inc.nature, intervention: inc.intervention, cause: inc.cause, urgences: inc.urgences, contexte: inc.contexte });
+  delete v.mention;   // la mention est affichée en permanence, inutile de la stocker
+  return v;
+}
+function _incPersister(inc, action, avant) {
+  _stamp(inc);
+  if (typeof _auditLog === 'function') _auditLog(action, 'incident', inc.id, _incElLbl(inc), avant, action === 'update' ? inc : undefined);
+  saveDB();
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+}
+function _incEnregistrer() {
+  const { IN } = _incMods();
+  const f = _incLireSaisie();
+  const manque = [!f.element && 'l\'élément concerné', !f.nature && 'la nature'].filter(Boolean);
+  if (manque.length) { showToast('Préciser ' + manque.join(' et ') + ' pour obtenir le verdict.', 'warn', 4500); return; }
+  const existant = _incState.id != null ? _incGet(_incState.id) : null;
+  if (existant) {
+    const avant = JSON.parse(JSON.stringify(existant));
+    Object.assign(existant, {
+      element: f.element, elementLibre: f.elementLibre, nature: f.nature, cause: f.cause, urgences: f.urgences,
+      intervention: f.intervention, ageAns: (f.ageAns === '' ? null : Number(f.ageAns)), description: f.description,
+      signalePar: f.signalePar, signaleParNom: f.signaleParNom, canal: f.canal, creeLe: f.creeLe, contexte: f.contexte,
+    });
+    existant.verdict = _incCalculerVerdict(existant);
+    _incPersister(existant, 'update', avant);
+    showToast('Incident mis à jour', 'ok');
+  } else {
+    const inc = IN.nouvelIncident(Object.assign({ id: nid(), logRef: _incState.ref, imm: _incState.imm, entity: _incState.entity }, f), new Date().toISOString());
+    inc.verdict = _incCalculerVerdict(inc);
+    _incAll().push(inc);
+    _incState.id = inc.id;
+    _incPersister(inc, 'create');
+    showToast('Incident enregistré', 'ok');
+  }
+  _incGo('fiche');
+  _incRefreshHost();
+}
+function _incSupprimer() {
+  const inc = _incGet(_incState && _incState.id); if (!inc) return;
+  if (!confirm2('Supprimer cet incident du registre ? Les pièces du dossier et la dépense éventuelle dans Finances restent en place.')) return;
+  inc._deleted = true; inc._deletedAt = new Date().toISOString();
+  _incPersister(inc, 'delete');
+  showToast('Incident supprimé', 'ok');
+  _incFermer();
+}
+
+// ── Vue « fiche » : verdict, décision, statut, étapes, preuves ──
+function _incCite(t) {
+  return `<div class="inc-cite"><span>« ${escHtml(t.extrait)} »</span><span class="inc-src">${_uiIcon('book', 13)} ${escHtml(t.ref)} · <a href="${escHtml(t.url)}" target="_blank" rel="noopener noreferrer">Lire sur Légifrance ${_uiIcon('external', 12)}</a></span></div>`;
+}
+function _incVerdictHtml(inc) {
+  const { QP } = _incMods();
+  const v = inc.verdict || _incCalculerVerdict(inc);
+  const arb = v.payeur === 'a_arbitrer';
+  const conf = arb ? `<span class="inc-badge acc">Zone grise</span>` : `<span class="inc-badge">${_uiIcon('book', 13)} ${escHtml(QP.CONFIANCE_LBL[v.confiance] || '')}</span>`;
+  const lectures = arb ? `<div class="inc-reads">${v.lectures.map((l, i) => `<div class="inc-read"><span class="inc-rh">Lecture ${i + 1}</span><span class="inc-rp">${escHtml(_incPayeurLbl(l.payeur))}</span><span class="inc-rs">${escHtml(l.si.charAt(0).toUpperCase() + l.si.slice(1))}.</span>${l.textes.map(_incCite).join('')}</div>`).join('')}</div>` : '';
+  const pieces = (v.pieces || []).length ? `<div class="inc-tilt"><b>${arb ? 'Ce qui fait pencher la balance' : 'À garder dans le dossier'}</b><ul>${v.pieces.map(p => `<li>${escHtml(p)}</li>`).join('')}</ul></div>` : '';
+  // Coordonnées déjà connues (PNO, MRH, syndic de l'immeuble) ajoutées à la ligne de la checklist.
+  const _ass = v.sinistre ? _incMods().IN.assistances({ mrh: DB.mrh || [], assurances: DB.assurances || [], logRef: inc.logRef, imm: inc.imm }) : null;
+  const _imO = v.sinistre ? _incImmOf(inc.entity, inc.imm) : null;
+  const _coord = k => {
+    if (k === 'pno' && _ass && _ass.pno.compagnie) return _ass.pno.compagnie + (_ass.pno.numContrat ? ' · contrat n° ' + _ass.pno.numContrat : '') + (_ass.pno.tel ? ' · ' + _ass.pno.tel : '');
+    if (k === 'mrh' && _ass && _ass.mrh.compagnie) return _ass.mrh.compagnie + (_ass.mrh.tel ? ' · assistance ' + _ass.mrh.tel : '');
+    if (k === 'syndic' && _imO && _imO.syndic && (_imO.syndic.nom || _imO.syndic.tel)) return [_imO.syndic.nom, _imO.syndic.tel, _imO.syndic.email].filter(Boolean).join(' · ');
+    return '';
+  };
+  const sin = v.sinistre ? `<div class="inc-chk">${v.sinistre.checklist.map(c => { const on = !!((inc.assurance || {}).checklist || {})[c.k]; const co = _coord(c.k);
+      return `<label class="inc-chk-i${on ? ' done' : ''}"><input type="checkbox"${on ? ' checked' : ''} onchange="_incCocher('${c.k}',this.checked)"><span><span class="inc-who">${escHtml(c.qui)}</span><span class="inc-tt">${escHtml(c.lbl)}</span>${c.detail ? `<span class="inc-d">${escHtml(c.detail)}</span>` : ''}${co ? `<span class="inc-d">${escHtml(co)}</span>` : ''}</span></label>`; }).join('')}</div>
+    <div class="inc-guard neutre"><b>Repère, à confirmer auprès de l'assureur.</b> En immeuble, une convention entre assureurs (IRSI) confie en général la gestion du sinistre à l'assureur de l'occupant du local touché ; des seuils de 1 600 € HT et 5 000 € HT sont souvent cités. Les sources publiques se contredisent sur la tranche intermédiaire : ce repère ne décide de rien.</div>` : '';
+  const old = v.version && v.version !== QP.QP_VERSION ? `<div class="inc-note">${_uiIcon('info', 13)} Verdict établi avec les règles du ${escHtml(v.version)}. <button type="button" class="inc-lien" onclick="_incRecalculer()">Recalculer avec les règles actuelles</button></div>` : '';
+  const decide = `<div class="inc-decide"><span class="inc-lb">Payeur retenu</span><div class="inc-chips">${['bailleur', 'locataire', 'assurance', 'syndic'].map(p =>
+      `<button type="button" class="inc-chip-b${inc.payeurRetenu === p ? ' on' : ''}" aria-pressed="${inc.payeurRetenu === p}" onclick="_incDecider('${p}')">${escHtml(_incPayeurLbl(p).replace(/^Le /, '').replace(/^Circuit /, '').replace(/^./, c => c.toUpperCase()))}</button>`).join('')}</div>
+      <span class="inc-hint">${inc.payeurRetenu ? 'La suggestion reste enregistrée à côté du choix.' : 'Aucun choix : la suggestion s\'applique.'}</span></div>`;
+  return `<div class="inc-vd">
+    <div class="inc-vd-top"><div class="inc-k">Qui paie — suggestion</div>
+      <div class="inc-vd-pay${arb ? ' arb' : ''}">${arb ? _uiIcon('scale', 22) + ' ' : ''}${escHtml(QP.PAYEUR_LBL[v.payeur] || v.payeur)}</div>
+      <div class="inc-vd-conf">${conf}<span>Règle ${escHtml(v.regle || '')}</span></div>
+      <div class="inc-vd-why">${escHtml(v.resume || '')}</div></div>
+    <div class="inc-vd-b">${lectures}${(v.textes || []).map(_incCite).join('')}${sin}${pieces}${old}
+      <div class="inc-legal">${_uiIcon('info', 13)} <span>${escHtml(QP.MENTION_LEGALE)}</span></div></div>
+    ${decide}</div>`;
+}
+function _incUrgenceHtml(inc) {
+  const { QP } = _incMods();
+  if (inc.statut === 'resolu') return '';
+  const u = QP.consignesUrgence(inc.urgences);
+  if (!u) return '';
+  return `<div class="inc-urg"><div class="inc-urg-t">${_uiIcon('warn', 15)} <span>Urgence signalée : ${escHtml(u.urgences.join(', ').toLowerCase())}</span></div><ul>${u.consignes.map(c => `<li>${escHtml(c)}</li>`).join('')}</ul></div>`;
+}
+function _incStepper(inc) {
+  const { IN } = _incMods();
+  const d = inc.statutDates || {};
+  const ordre = IN.STATUTS.map(s => s.k);
+  const iCur = ordre.indexOf(inc.statut);
+  return `<div class="inc-steps">${IN.STATUTS.map((s, i) => `<div class="inc-step${i < iCur || inc.statut === 'resolu' ? ' done' : (i === iCur ? ' cur' : '')}"><span class="inc-dot">${i + 1}</span><span class="inc-stl">${escHtml(s.lbl)}</span><span class="inc-std">${d[s.k] ? escHtml(_incDateHeure(d[s.k])) : '—'}</span></div>`).join('')}</div>
+    <div class="inc-step-acts">${inc.statut === 'signale' ? `<button type="button" class="btn bs bb" onclick="_incStatut('en_cours')">Passer en cours</button>` : ''}${inc.statut !== 'resolu' ? `<button type="button" class="btn bs bb" onclick="_incStatut('resolu')">${_uiIcon('check', 13)} Marquer résolu</button>` : `<button type="button" class="btn bs bb" onclick="_incStatut('en_cours')">Rouvrir</button>`}</div>`;
+}
+function _incFicheHtml(inc) {
+  const p = _incPayeur(inc);
+  const cout = _incCoutBailleur(inc);
+  const a = inc.artisan;
+  const etapes = [];
+  etapes.push(`<button type="button" class="inc-it" onclick="_incGo('appeler')">${_uiIcon('phone', 16)}<span class="t">Qui appeler<span class="d">${a && a.nom ? 'Artisan noté : ' + escHtml(a.nom) + (a.tel ? ' · ' + escHtml(a.tel) : '') : 'Carnet, annuaire officiel, assistance de l\'assurance'}</span></span>${_uiIcon('chevron-right', 14)}</button>`);
+  if (p === 'locataire') etapes.push(`<button type="button" class="inc-it" onclick="_incGo('message')">${_uiIcon('send', 16)}<span class="t">Message au locataire<span class="d">Le texte appliqué et le rappel de l'assurance habitation</span></span>${_uiIcon('chevron-right', 14)}</button>`);
+  if ((p === 'bailleur' || p === 'syndic' || cout != null) && typeof _incFactureHtml === 'function') etapes.push(`<button type="button" class="inc-it" onclick="_incGo('facture')">${_uiIcon('money', 16)}<span class="t">${cout != null ? 'Dépense enregistrée : ' + fmt(cout) : 'Enregistrer la facture'}<span class="d">${cout != null ? 'Visible dans Finances ; ajouter une autre facture' : 'Devient une dépense du bien dans Finances'}</span></span>${_uiIcon('chevron-right', 14)}</button>`);
+  const infos = [
+    ['Élément', _incElLbl(inc)], ['Nature', _incNatLbl(inc)],
+    ['Cause déclarée', ((_incMods().QP.CAUSES.find(c => c.k === inc.cause) || {}).lbl) || 'Inconnue'],
+    inc.ageAns != null ? ['Âge', inc.ageAns + ' an' + (inc.ageAns > 1 ? 's' : '') + ' (déclaré)'] : null,
+    ['Signalé', _incDateHeure(inc.creeLe) + ' · ' + (((_incMods().IN.CANAUX.find(c => c.k === inc.canal) || {}).lbl) || '').toLowerCase() + (inc.signaleParNom ? ' · ' + inc.signaleParNom : '')],
+    inc.description ? ['Description', inc.description] : null,
+  ].filter(Boolean);
+  return `<div class="inc-grid"><div class="inc-col">
+      ${_incUrgenceHtml(inc)}
+      ${_incVerdictHtml(inc)}
+    </div><div class="inc-col">
+      <div class="inc-card-b"><div class="inc-k">Statut</div>${_incStepper(inc)}</div>
+      <div class="inc-card-b"><div class="inc-k">Étapes suivantes</div><div class="inc-next">${etapes.join('')}</div></div>
+      <div class="inc-card-b">${_renderAttachmentSection({ parentType: 'incident', parentId: inc.id, parentRef: _incElLbl(inc), logRef: inc.logRef || null, category: 'travaux', title: 'Dossier de preuves', emptyText: 'Aucune pièce. Ajouter photos, devis, facture et échanges : ils datent la demande et prouvent la cause.' })}</div>
+      <div class="inc-card-b"><div class="inc-k">L'incident</div>${infos.map(r => `<div class="inc-row"><span class="k">${escHtml(r[0])}</span><span class="v">${escHtml(r[1])}</span></div>`).join('')}
+        <button type="button" class="btn bs bb" style="margin-top:8px" onclick="_incGo('saisie')">${_uiIcon('edit', 13)} Modifier l'incident</button></div>
+    </div></div>`;
+}
+function _incFicheFoot(inc) {
+  const p = _incPayeur(inc);
+  let prim = '';
+  if (inc.statut !== 'resolu') {
+    if (p === 'locataire') prim = `<button type="button" class="btn bp" onclick="_incGo('message')">${_uiIcon('send', 14)} Préparer le message</button>`;
+    else if (p === 'bailleur' && _incCoutBailleur(inc) == null) prim = `<button type="button" class="btn bp" onclick="_incGo('appeler')">Qui appeler</button>`;
+    else if (p === 'a_arbitrer') prim = '';   // la décision se prend dans le verdict (Payeur retenu)
+    else prim = `<button type="button" class="btn bp" onclick="_incStatut('resolu')">${_uiIcon('check', 14)} Marquer résolu</button>`;
+  }
+  return `<button type="button" class="btn bs" onclick="_incFermer()">Fermer</button>${prim}`;
+}
+function _incDecider(p) {
+  const inc = _incGet(_incState && _incState.id); if (!inc) return;
+  const avant = JSON.parse(JSON.stringify(inc));
+  inc.payeurRetenu = inc.payeurRetenu === p ? null : p;
+  _incPersister(inc, 'update', avant);
+  _incRender(); _incRefreshHost();
+}
+function _incStatut(s) {
+  const { IN } = _incMods();
+  const inc = _incGet(_incState && _incState.id); if (!inc) return;
+  const avant = JSON.parse(JSON.stringify(inc));
+  if (s === 'en_cours' && inc.statut === 'resolu') { inc.statut = 'en_cours'; if (inc.statutDates) delete inc.statutDates.resolu; }
+  else IN.changerStatut(inc, s, new Date().toISOString());
+  _incPersister(inc, 'update', avant);
+  showToast(s === 'resolu' ? 'Incident marqué résolu' : 'Statut mis à jour', 'ok');
+  _incRender(); _incRefreshHost();
+}
+function _incCocher(k, on) {
+  const inc = _incGet(_incState && _incState.id); if (!inc) return;
+  inc.assurance = inc.assurance || {}; inc.assurance.checklist = Object.assign({}, inc.assurance.checklist || {}, { [k]: !!on });
+  _incPersister(inc, 'update');
+  _incRender();
+}
+function _incRecalculer() {
+  const inc = _incGet(_incState && _incState.id); if (!inc) return;
+  const avant = JSON.parse(JSON.stringify(inc));
+  inc.verdict = _incCalculerVerdict(inc);
+  _incPersister(inc, 'update', avant);
+  _incRender(); _incRefreshHost();
+}
+
+// ── Vue « qui appeler » : lister, jamais recommander ──
+function _incCodePostal(inc) {
+  const log = inc.logRef ? _incLogOf(inc.logRef) : null;
+  const imm = _incImmOf(inc.entity || (log && log.entity), inc.imm || (log && log.imm));
+  const cp = (imm && imm.codePostal) || '';
+  if (cp) return String(cp);
+  const m = String((log && log.adr) || '').match(/\b(\d{5})\b/);
+  return m ? m[1] : '';
+}
+function _incAppelerHtml(inc) {
+  const { QP, IN } = _incMods();
+  const metier = _incState.metier || (inc.verdict && inc.verdict.metier) || (QP.elementDef(inc.element) || {}).metier || 'plomberie';
+  _incState.metier = metier;
+  const cp = _incCodePostal(inc);
+  const carnet = IN.carnetArtisans(_incAll(), DB.equipements || {});
+  const metiers = Object.entries(IN.NAF_METIERS);
+  const pro = (x, act) => `<div class="inc-pro"><span class="n">${escHtml(x.nom)}</span><span class="m">${escHtml([x.m1, x.m2].filter(Boolean).join(' · '))}${x.siret ? ` · <span class="inc-siret">SIRET ${escHtml(x.siret)}</span>` : ''}</span><span class="a">${act}</span></div>`;
+  _incState.cands = [];
+  const noter = (x, src) => { _incState.cands.push({ nom: x.nom, siret: x.siret || '', tel: x.tel || '', source: src, metier }); return `<button type="button" class="btn bs bb" onclick="_incNoterArtisan(_incState.cands[${_incState.cands.length - 1}])">Noter cet artisan</button>`; };
+  const tel = t => t ? `<a class="btn bs bb" href="tel:${escHtml(String(t).replace(/[^\d+]/g, ''))}">${_uiIcon('phone', 13)} Appeler</a>` : '';
+  const fiche = u => `<a class="btn bs bb" href="${escHtml(u)}" target="_blank" rel="noopener noreferrer">${_uiIcon('external', 13)} Fiche officielle</a>`;
+  const a = _incState.annuaire, r = _incState.rge;
+  const ann = !cp ? `<div class="inc-note">${_uiIcon('info', 13)} Code postal du bien inconnu : le renseigner sur la fiche de l'immeuble pour interroger l'annuaire.</div>`
+    : !a ? `<button type="button" class="btn bs" onclick="_incChargerAnnuaire()">${_uiIcon('search', 14)} Rechercher dans l'annuaire officiel (${escHtml(IN.NAF_METIERS[metier].lbl.toLowerCase())}, ${escHtml(cp)})</button>`
+    : a.etat === 'charge' ? `<div class="inc-note">${_uiIcon('clock', 13)} Recherche en cours…</div>`
+    : a.etat === 'erreur' ? `<div class="inc-note">${_uiIcon('warn', 13)} L'annuaire ne répond pas (connexion ?). Le carnet et la saisie libre restent disponibles. <button type="button" class="inc-lien" onclick="_incChargerAnnuaire()">Réessayer</button></div>`
+    : !a.liste.length ? `<div class="inc-note">Aucune entreprise active trouvée pour ce métier dans ce code postal.</div>`
+    : a.liste.slice(0, a.tout ? 200 : 8).map(x => pro({ nom: x.nom, m1: x.adresse, siret: x.siret }, fiche(x.ficheUrl) + noter(x, 'annuaire'))).join('')
+      + (a.liste.length > 8 && !a.tout ? `<button type="button" class="btn bs bb" onclick="_incState.annuaire.tout=true;_incRender()">Voir les ${a.liste.length - 8} autres</button>` : '');
+  const rgeBloc = IN.METIERS_RGE.includes(metier) ? `<div class="inc-grp"><div class="inc-grp-h"><h4>${_uiIcon('star', 15)} Travaux énergétiques : liste officielle RGE (ADEME)</h4><span class="inc-sub">Qualification en cours de validité · condition des aides à la rénovation</span></div>
+    ${!cp ? '' : !r ? `<button type="button" class="btn bs" onclick="_incChargerRge()">${_uiIcon('search', 14)} Voir les professionnels RGE (${escHtml(cp)})</button>`
+      : r.etat === 'charge' ? `<div class="inc-note">${_uiIcon('clock', 13)} Recherche en cours…</div>`
+      : r.etat === 'erreur' ? `<div class="inc-note">${_uiIcon('warn', 13)} La liste RGE ne répond pas. <button type="button" class="inc-lien" onclick="_incChargerRge()">Réessayer</button></div>`
+      : !r.liste.length ? `<div class="inc-note">Aucun professionnel RGE en cours de validité dans ce code postal.</div>`
+      : r.liste.slice(0, 12).map(x => pro({ nom: x.nom, m1: x.adresse || x.commune, m2: x.domaines.join(', '), siret: x.siret }, tel(x.tel) + noter(x, 'rge'))).join('')}</div>` : '';
+  const ass = IN.assistances({ mrh: DB.mrh || [], assurances: DB.assurances || [], logRef: inc.logRef, imm: inc.imm });
+  const assLigne = (x, titre, kind) => pro({ nom: titre + (x.compagnie ? ' — ' + x.compagnie : ''), m1: x.tel ? 'Assistance : ' + x.tel + (x.numContrat ? ' · contrat n° ' + x.numContrat : '') : (x.id ? 'Numéro d\'assistance non renseigné sur la fiche assurance' : 'Aucune assurance enregistrée pour ce bien') },
+    x.tel ? tel(x.tel) : (x.id ? `<button type="button" class="btn bs bb" onclick="${kind === 'mrh' ? 'openMrh' : 'openAss'}(${+x.id})">${_uiIcon('plus', 13)} Ajouter le numéro</button>` : ''));
+  const devis = (QP.TEXTES['devis-2017'] && _incCite(Object.assign({ id: 'devis-2017' }, QP.TEXTES['devis-2017']))) || '';
+  return `
+  <div class="inc-f inc-metier"><label class="inc-lb" for="inc-metier">Métier</label><select class="inp" id="inc-metier" onchange="_incMetier(this.value)">${metiers.map(([k, m]) => `<option value="${k}"${k === metier ? ' selected' : ''}>${escHtml(m.lbl)}</option>`).join('')}</select></div>
+  <div class="inc-grp"><div class="inc-grp-h"><h4>${_uiIcon('book', 15)} Carnet</h4><span class="inc-sub">Artisans déjà intervenus sur le parc</span></div>
+    ${carnet.length ? carnet.slice(0, 8).map(x => pro({ nom: x.nom, m1: 'Intervenu le ' + fd(x.date) + (x.logRef ? ' sur ' + x.logRef : ''), m2: x.tel, siret: x.siret }, tel(x.tel) + noter(x, 'carnet'))).join('') : `<div class="inc-note">Le carnet se remplit tout seul : chaque artisan noté sur un incident, et chaque intervenant d'entretien, y apparaît.</div>`}</div>
+  <div class="inc-grp"><div class="inc-grp-h"><h4>${_uiIcon('search', 15)} Annuaire officiel des entreprises</h4><span class="inc-sub">${escHtml(IN.NAF_METIERS[metier].lbl)} (${escHtml(IN.NAF_METIERS[metier].naf)})${cp ? ' · ' + escHtml(cp) : ''} · entreprises actives</span></div>
+    <div class="inc-note">${_uiIcon('info', 13)} Ordre alphabétique, aucune recommandation. Source : annuaire des entreprises de l'État (recherche-entreprises.api.gouv.fr). Seuls le métier et le code postal sont envoyés.</div>
+    ${ann}</div>
+  ${rgeBloc}
+  <div class="inc-grp"><div class="inc-grp-h"><h4>${_uiIcon('shield', 15)} Urgence : assistance des assurances</h4></div>
+    ${assLigne(ass.mrh, 'Assurance habitation du locataire', 'mrh')}${assLigne(ass.pno, 'PNO du bailleur', 'pno')}</div>
+  <div class="inc-grp"><div class="inc-grp-h"><h4>${_uiIcon('edit', 15)} Autre artisan</h4></div>
+    <div class="inc-g3"><input class="inp" id="inc-art-nom" placeholder="Nom de l'entreprise"><input class="inp" id="inc-art-tel" placeholder="Téléphone" inputmode="tel"><input class="inp" id="inc-art-siret" placeholder="SIRET (facultatif)" inputmode="numeric"></div>
+    <button type="button" class="btn bs bb" style="margin-top:6px;align-self:flex-start" onclick="_incNoterArtisanLibre()">Noter cet artisan</button></div>
+  <div class="inc-guard"><b>Avant toute intervention : exiger un devis détaillé.</b> C'est obligatoire pour tout dépannage, réparation ou entretien à domicile, quel que soit le montant.
+    ${devis}
+    <b>Dépannage en urgence, serrurerie surtout :</b><ul><li>ne jamais signer un « bon pour accord » après les travaux ;</li><li>se méfier des prix d'appel très bas annoncés au téléphone ;</li><li>vérifier le numéro SIRET dans l'annuaire officiel ;</li><li>en cas d'abus, signaler sur SignalConso.</li></ul></div>`;
+}
+function _incMetier(k) { if (!_incState) return; _incState.metier = k; _incState.annuaire = null; _incState.rge = null; _incRender(); }
+async function _incChargerAnnuaire() {
+  const { IN } = _incMods(); const inc = _incGet(_incState && _incState.id); if (!inc || !IN) return;
+  const url = IN.annuaireUrl({ metier: _incState.metier, codePostal: _incCodePostal(inc) });
+  if (!url) return;
+  _incState.annuaire = { etat: 'charge', liste: [] }; _incRender();
+  try {
+    const r = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (!_incState) return;
+    _incState.annuaire = { etat: 'ok', liste: IN.lireAnnuaire(j, _incCodePostal(inc)) };
+  } catch (e) { console.warn('[incident annuaire]', e); if (_incState) _incState.annuaire = { etat: 'erreur', liste: [] }; }
+  if (_incState && _incState.view === 'appeler') _incRender();
+}
+async function _incChargerRge() {
+  const { IN } = _incMods(); const inc = _incGet(_incState && _incState.id); if (!inc || !IN) return;
+  const url = IN.rgeUrl({ codePostal: _incCodePostal(inc) }); if (!url) return;
+  _incState.rge = { etat: 'charge', liste: [] }; _incRender();
+  try {
+    const r = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (!_incState) return;
+    _incState.rge = { etat: 'ok', liste: IN.lireRge(j, new Date().toISOString().slice(0, 10)) };
+  } catch (e) { console.warn('[incident RGE]', e); if (_incState) _incState.rge = { etat: 'erreur', liste: [] }; }
+  if (_incState && _incState.view === 'appeler') _incRender();
+}
+function _incNoterArtisan(a) {
+  const inc = _incGet(_incState && _incState.id); if (!inc || !a || !a.nom) return;
+  const avant = JSON.parse(JSON.stringify(inc));
+  inc.artisan = { nom: String(a.nom).trim(), siret: String(a.siret || '').replace(/\s/g, ''), tel: String(a.tel || '').trim(), source: a.source || 'libre', metier: a.metier || _incState.metier || null };
+  _incPersister(inc, 'update', avant);
+  showToast('Artisan noté : ' + inc.artisan.nom + '. Exiger un devis écrit avant l\'intervention.', 'ok', 5000);
+  _incGo('fiche'); _incRefreshHost();
+}
+function _incNoterArtisanLibre() {
+  const nom = ((el('inc-art-nom') || {}).value || '').trim();
+  if (!nom) { showToast('Indiquer au moins le nom de l\'entreprise.', 'warn'); return; }
+  _incNoterArtisan({ nom, tel: (el('inc-art-tel') || {}).value || '', siret: (el('inc-art-siret') || {}).value || '', source: 'libre' });
+}
+
+// ── Vue « message au locataire » ──
+function _incMessageTexte(inc) {
+  const { QP } = _incMods();
+  const v = inc.verdict && inc.verdict.payeur === 'locataire' ? inc.verdict : Object.assign({}, inc.verdict || {}, { payeur: 'locataire' });
+  const ent = (DB.entites || []).find(e => e && e.nom === inc.entity);
+  return QP.messageLocataire(v, { element: _incElLbl(inc), dateSignalement: fd(String(inc.creeLe || '').slice(0, 10)), bien: _incBienLbl(inc), signataire: (ent && ent.nom) || inc.entity || '' }) || '';
+}
+function _incMessageHtml(inc) {
+  const brouillon = (_incState.message != null) ? _incState.message : _incMessageTexte(inc);
+  return `<div class="inc-note">${_uiIcon('info', 13)} Rien ne part sans action. Le texte cite la loi telle qu'elle est écrite ; le relire et l'adapter avant l'envoi.</div>
+    <textarea class="inp inc-msg" id="inc-msg" rows="16" oninput="_incState.message=this.value">${escHtml(brouillon)}</textarea>`;
+}
+function _incCopierMessage() {
+  const t = (el('inc-msg') || {}).value || '';
+  try { navigator.clipboard.writeText(t).then(() => showToast('Message copié', 'ok'), () => showToast('Copie impossible : sélectionner le texte et le copier.', 'warn')); }
+  catch (e) { showToast('Copie impossible : sélectionner le texte et le copier.', 'warn'); }
+}
+function _incEnvoyerMessage() {
+  const inc = _incGet(_incState && _incState.id); if (!inc) return;
+  const t = (el('inc-msg') || {}).value || '';
+  const bail = inc.logRef ? _bienActiveBail(inc.logRef) : null;
+  const loc = bail && Array.isArray(bail.locataires) && bail.locataires[0] ? bail.locataires[0] : {};
+  const sujet = (t.split('\n')[0] || '').replace(/^Objet\s*:\s*/, '');
+  _openShareModal({ title: 'Envoyer le message au locataire', message: t.split('\n').slice(2).join('\n'), subject: sujet, email: loc.email || '', ctxTitle: _incBienLbl(inc), ctxSub: escHtml(_incElLbl(inc)), ctxIcon: _uiIcon('send', 20) });
+}
+
+// ── Pastille Entretien : correctif du plantage (cf. _renderEquipForLog) testé dans incidents-ui.test.js ──
 
 // ════════════════════════════════════════════════════════════════════════════
 // BAILLEUR-DIAGNOSTICS-DDT v15.05 Sprint 7 V1.1 — Phase 1 sous-onglet Diagnostics
@@ -17616,6 +18193,8 @@ function rImmFiche() {
       { id: 'bati', label: 'Bâti & parties communes', html: _renderImmBatiPastille(ent, im) },
       { id: 'photos', label: 'Photos', count: _attCount('immeuble', im.id, 'photos'),
         html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'photos', title:'' + _uiIcon('camera') + ' Photos de l\'immeuble', emptyText:'Aucune photo. La première photo sert de vignette — ici et sur la bulle de la fiche bailleur.'}) },
+      { id: 'incidents', label: 'Incidents des parties communes', count: (typeof _incCountImm === 'function' ? _incCountImm(im) : 0),
+        html: (typeof _renderIncidentsForImm === 'function') ? _renderIncidentsForImm(ent, im) : '' },
       { id: 'docs', label: 'Documents', count: _attCount('immeuble', im.id, 'documents'),
         html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'documents', title:'' + _uiIcon('doc') + ' Documents communs', emptyText:'Aucun document. Ajoutez règlement de copropriété, PV d\'AG, diagnostics communs, attestation d\'assurance MRO/PNO…'}) }
     ], 'rImmFiche')}

@@ -8,7 +8,7 @@
      (handlers onclick conservés, Approche A) ; PAS de 'unsafe-eval' (vérifié : aucune lib vendorisée
      n'utilise eval/new Function). connect-src = liste EXHAUSTIVE des endpoints réseau réels du runtime.
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://recherche-entreprises.api.gouv.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Propryo v15.730</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
@@ -111,6 +111,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/declaration-occupation.js">
 <link rel="modulepreload" href="js/core/qui-paie.js">
 <link rel="modulepreload" href="js/core/mv-create.js">
+<link rel="modulepreload" href="js/core/incidents.js">
 <link rel="modulepreload" href="js/core/export-comptable.js">
 <link rel="modulepreload" href="js/core/dossier-comptable.js">
 <link rel="modulepreload" href="js/core/import-concurrents.js">
@@ -2244,6 +2245,8 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="fg"><label>Compagnie *</label><input class="inp" id="ass-comp" placeholder="Assureur"></div>
       <div class="fg"><label>N° Contrat</label><input class="inp" id="ass-num"></div>
     </div>
+    <!-- TRAVAUX : QUI PAIE ? — numéro d'assistance, proposé par « Qui appeler » en cas d'urgence. -->
+    <div class="fg"><label for="ass-tel">Numéro d'assistance <span class="mu sm">(facultatif)</span></label><input class="inp" id="ass-tel" inputmode="tel" placeholder="À appeler en cas de sinistre ou de dépannage"></div>
     <div class="fg2">
       <div class="fg"><label>Prime annuelle (€)</label><input class="inp" type="number" id="ass-prime" min="0" step="0.01"></div>
       <div class="fg"><label>Échéance</label><input class="inp" type="date" id="ass-ech"></div>
@@ -2271,6 +2274,8 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="fg"><label>Compagnie</label><input class="inp" id="mrh-comp" placeholder="(optionnel)"></div>
       <div class="fg"><label>N° Contrat</label><input class="inp" id="mrh-num" placeholder="(optionnel)"></div>
     </div>
+    <!-- TRAVAUX : QUI PAIE ? — numéro d'assistance de l'assurance habitation du locataire (« Qui appeler »). -->
+    <div class="fg"><label for="mrh-tel">Numéro d'assistance <span class="mu sm">(facultatif)</span></label><input class="inp" id="mrh-tel" inputmode="tel" placeholder="Figure sur l'attestation d'assurance"></div>
     <div class="fg"><label>Échéance de l'attestation</label><input class="inp" type="date" id="mrh-ech"><div class="mu sm" style="font-size:11px;margin-top:3px">Sert à vous rappeler de réclamer la nouvelle attestation au locataire.</div></div>
     <div class="fg"><label>Notes</label><textarea class="inp" id="mrh-notes" rows="2" placeholder="(optionnel)"></textarea></div>
     <input type="hidden" id="mrh-edit-id">
@@ -2991,6 +2996,23 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
      Étape 2 : titre + description modifiables, mentions obligatoires VERROUILLÉES (se corrigent
      dans la fiche), contrôle mention par mention (D3 : rien n'est bloqué, le manque est marqué).
      Téléphone : page plein écran (règle globale .ov .modal ≤ 767 px, M-16), pied collant. -->
+<!-- TRAVAUX : QUI PAIE ? (CDC validé 13/10/2026) — UNE couche, dont la vue change (saisie · fiche ·
+     qui appeler · facture · message), rendue par _incRender (app-part2). Téléphone : page plein écran
+     (règle .ov .modal ≤ 767 px, M-16), pied d'action collant, barre du bas masquée. -->
+<div class="ov hidden" id="ov-incident" onclick="if(event.target===this)_incFermer()">
+<div class="modal xl inc-modal" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="inc-title">
+  <div class="m-head">
+    <div style="min-width:0">
+      <h3 id="inc-title">Incident</h3>
+      <div class="mu sm" id="inc-sub"></div>
+    </div>
+    <button class="m-close" onclick="_incFermer()" aria-label="Fermer">✕</button>
+  </div>
+  <div class="inc-body" id="inc-body"></div>
+  <div class="m-foot inc-foot" id="inc-foot"></div>
+</div>
+</div>
+
 <div class="ov hidden" id="ov-annonce" onclick="closeBg(event,'ov-annonce')">
 <div class="modal xl an-modal" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="m-annonce-title">
   <div class="m-head">
@@ -4527,8 +4549,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=39fa637b" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=e464d64b" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=1bb0f478" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=51b166d3" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=ea8eb4d4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

@@ -107,7 +107,10 @@ function _uiIcon(name, size) {
     counter:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4M12 10v4M17 10v4"/>',
     play:'<path d="M7 5l12 7-12 7z"/>',
     car:'<path d="M5 11l1.6-4.2A2 2 0 018.5 5.5h7a2 2 0 011.9 1.3L19 11M4 11h16v5H4z"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/>',
-    pin:'<path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'
+    pin:'<path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+    phone:'<path d="M5 3h4l2 5-2.5 1.5a11 11 0 005 5L15 12l5 2v4a2 2 0 01-2 2A16 16 0 013 5a2 2 0 012-2z"/>',
+    'chevron-right':'<path d="M9 6l6 6-6 6"/>',
+    'chevron-left':'<path d="M15 6l-6 6 6 6"/>'
   };
   var p = P[name] || P.doc;
   var sz = size || 16;
@@ -21600,6 +21603,7 @@ function openAss(id, prefLog, prefScope, prefImm) {
     el('ass-type').value = a.type||'PNO';
     el('ass-comp').value = a.compagnie||'';
     el('ass-num').value = a.numContrat||'';
+    if (el('ass-tel')) el('ass-tel').value = a.telAssistance||'';
     el('ass-prime').value = a.prime||'';
     el('ass-ech').value = a.echeance||'';
     el('ass-notes').value = a.notes||'';
@@ -21610,6 +21614,7 @@ function openAss(id, prefLog, prefScope, prefImm) {
     el('ass-type').value = 'PNO';
     el('ass-comp').value = '';
     el('ass-num').value = '';
+    if (el('ass-tel')) el('ass-tel').value = '';
     el('ass-prime').value = '';
     el('ass-ech').value = '';
     el('ass-notes').value = '';
@@ -21638,7 +21643,7 @@ function saveAss() {
   const id = el('ass-edit-id').value;
   const scope = v('ass-scope') || 'logement';
   // v15.240 V3-REFONTE-ASSURANCES : portée immeuble (PNO d'ensemble) ou logement (lot copro, GLI).
-  const a = { id:id?parseInt(id):nid(), portee:scope, type:v('ass-type'), compagnie:v('ass-comp'), numContrat:v('ass-num'), prime:pf('ass-prime'), echeance:v('ass-ech'), notes:v('ass-notes') };
+  const a = { id:id?parseInt(id):nid(), portee:scope, type:v('ass-type'), compagnie:v('ass-comp'), numContrat:v('ass-num'), telAssistance:(v('ass-tel')||'').trim(), prime:pf('ass-prime'), echeance:v('ass-ech'), notes:v('ass-notes') };
   if(scope === 'immeuble') {
     a.immeuble = v('ass-imm'); a.logement = '';
     if(!a.immeuble) { showToast('Immeuble requis','err'); return; }
@@ -21696,7 +21701,7 @@ function openMrh(id, prefLog) {
   el('mrh-edit-id').value = id||'';
   fillSel('mrh-log', DB.logements, l=>l.ref, l=>`${l.ref} – ${l.locataire||'Vacant'}`);
   // v15.245 fix : mrh-prime supprimé de la modale en v15.239 → ne plus y accéder (null.value plantait openMrh).
-  if(m) { el('mrh-log').value=m.logement||''; el('mrh-loc').value=m.locataire||''; el('mrh-comp').value=m.compagnie||''; el('mrh-num').value=m.numContrat||''; el('mrh-ech').value=m.echeance||''; el('mrh-notes').value=m.notes||''; }
+  if(m) { el('mrh-log').value=m.logement||''; el('mrh-loc').value=m.locataire||''; el('mrh-comp').value=m.compagnie||''; el('mrh-num').value=m.numContrat||''; if(el('mrh-tel')) el('mrh-tel').value=m.telAssistance||''; el('mrh-ech').value=m.echeance||''; el('mrh-notes').value=m.notes||''; }
   // v15.237 V3-REFONTE-ASSURANCES : pré-remplir le logement + locataire si appelé depuis la fiche bien.
   if(!id && prefLog) {
     el('mrh-log').value = prefLog;
@@ -21716,7 +21721,7 @@ function saveMrh() {
   // v15.239 V3-REFONTE-ASSURANCES : locataire déduit du logement (plus de saisie), prime retirée.
   const _logRef = v('mrh-log');
   const _loc = ((DB.logements||[]).find(l=>l.ref===_logRef)?.locataire) || v('mrh-loc') || '';
-  const m = { id:id?parseInt(id):nid(), logement:_logRef, locataire:_loc, compagnie:v('mrh-comp'), numContrat:v('mrh-num'), echeance:v('mrh-ech'), notes:v('mrh-notes') };
+  const m = { id:id?parseInt(id):nid(), logement:_logRef, locataire:_loc, compagnie:v('mrh-comp'), numContrat:v('mrh-num'), telAssistance:(v('mrh-tel')||'').trim(), echeance:v('mrh-ech'), notes:v('mrh-notes') };
   _stamp(m); // v13.18
   // v14.97 AUDIT-TRAIL (audit complétude) : MRH = PII locataire (RGPD)
   if(id) {
