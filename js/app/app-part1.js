@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.737';
+const IMMOTRACK_VERSION = '15.738';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -215,7 +215,7 @@ function _injectTestModeBanner() {
         _loadDemoDataset();
         const verif = localStorage.getItem(KEY);
         if (!verif) {
-          alert('❌ Échec d\'écriture du dataset — vérifie le quota localStorage');
+          alert('❌ Échec d\'écriture du dataset — quota localStorage à vérifier');
           return;
         }
         const parsed = JSON.parse(verif);
@@ -387,7 +387,7 @@ const STD_CATEGORIES = [
   { nom: 'Indemnités d\'éviction / relogement',             ligne2044:'226', type:'charge',  niv:'log', icon:'📤', editable:false, deletable:false, std:true, descHors:'Déductible SEULEMENT pour relouer dans de meilleures conditions (exclu si reprise/revente/démolition).' },
   { nom: 'Taxe foncière (et taxes annexes)',                ligne2044:'227', type:'charge',  niv:'imm', icon:'🏛️', editable:false, deletable:false, std:true, descHors:'⚠️ La TEOM (ordures) est récupérable sur le locataire — pas une charge nette du bailleur.' },
   { nom: 'Charges de copropriété',                          ligne2044:'229', type:'charge',  niv:'imm', repartImm:true, icon:'🏢', editable:false, deletable:false, std:true, descHors:'Appels de fonds versés au syndic (total de l\'année). Part récupérable → réparti via compteur.' },
-  { nom: 'Prêt — Intérêts d\'emprunt',                      ligne2044:'250', type:'interet', niv:'imm', icon:'💳', editable:false, deletable:false, std:true, pickerHidden:true, descHors:'Intérêts + frais accessoires (dossier, hypothèque, cautionnement, agios, assurance emprunteur). Saisis par l\'utilisateur via « 🧮 Renseigner les intérêts d\'emprunt » (attestation annuelle de banque) — HORS menu de saisie libre, mais conservé pour le mapping 2044 ligne 250.' },
+  { nom: 'Prêt — Intérêts d\'emprunt',                      ligne2044:'250', type:'interet', niv:'imm', icon:'💳', editable:false, deletable:false, std:true, pickerHidden:true, descHors:'Intérêts + frais accessoires (dossier, hypothèque, cautionnement, agios, assurance emprunteur). Renseignés par l\'utilisateur via « 🧮 Renseigner les intérêts d\'emprunt » (attestation annuelle de banque) — HORS menu de saisie libre, mais conservé pour le mapping 2044 ligne 250.' },
   // ── CHARGES RÉCUPÉRABLES (hors 2044, réparties par compteur) ────────────────
   { nom: 'Charges récupérables (eau, énergie…)',            ligne2044:'',    type:'special', recup:true, icon:'⚡', editable:false, deletable:false, std:true, descHors:'Eau, énergie, ascenseur, entretien commun… payés en direct et récupérés sur les locataires via un compteur collectif. Hors 2044 (la part non récupérée remonte en ligne 225 par la régul).' },
   // ── HORS RÉSULTAT FONCIER ──────────────────────────────────────────────────
@@ -401,7 +401,7 @@ const STD_CATEGORIES = [
   { nom: 'Divers (non déductible)',                         ligne2044:'',    type:'special', chargeHf:'nonDeductible', icon:'📋', editable:false, deletable:false, std:true, descHors:'Péage, carburant, tablette/matériel, repas, dépenses perso… — hors champ foncier (déplacement/matériel déjà dans le forfait 222). Le règlement d\'un solde de régularisation de charges par un locataire se classe en « Charges récupérables (eau, énergie…) », pas ici.' },
   { nom: 'Acompte de charges (départ)',                     ligne2044:'',    type:'special', niv:'log', icon:'🏁', editable:false, deletable:false, std:true, descHors:'Acompte versé par un locataire partant, en anticipation de la régularisation des charges. Neutre au 2044 ; imputé sur le décompte final. À ne PAS confondre avec un loyer (sinon compté deux fois).' },
   // ── AUTO — calculées par l'app (régul), HORS menu de saisie ; gardées pour le mapping 2044 ──
-  { nom: 'Charges récupérables non récupérées',             ligne2044:'225', type:'charge',  auto:true, icon:'⚡', editable:false, deletable:false, std:true, descHors:'Part avancée par le bailleur et non remboursée au départ du locataire — calculée automatiquement par la régularisation (computeRegul). Tu ne la tagues jamais.' },
+  { nom: 'Charges récupérables non récupérées',             ligne2044:'225', type:'charge',  auto:true, icon:'⚡', editable:false, deletable:false, std:true, descHors:'Part avancée par le bailleur et non remboursée au départ du locataire — calculée automatiquement par la régularisation (computeRegul). Aucun marquage manuel.' },
   { nom: 'Régularisation provisions copro N-1',             ligne2044:'230', type:'deduction', auto:true, icon:'↩️', editable:false, deletable:false, std:true, descHors:'Régularisation annuelle du syndic — se déduit du total des charges (240 = (221..229) − 230). Gérée via l\'écran Régularisation.' }
 ];
 
@@ -743,7 +743,7 @@ function _dpeShowInterdictionModal(verdict, ref) {
           </div>
           <div style="font-size:13px">
             ${_esc(verdict.raison)}.<br>
-            Vous ne pouvez pas créer un nouveau bail sur ce logement tant que la classe DPE
+            Impossible de créer un nouveau bail sur ce logement tant que la classe DPE
             n'est pas remontée à <strong>${verdict.classe === 'G' ? 'F ou mieux' : verdict.classe === 'F' ? 'E ou mieux' : 'D ou mieux'}</strong>.
           </div>
         </div>
@@ -2922,7 +2922,7 @@ function _hlOngletOk(page) {
   try { return !!_hlApi.ongletDisponible(page); } catch (e) { return true; }
 }
 function _hlMotifOnglet(page) {
-  try { return _hlApi.motifOnglet(page); } catch (e) { return 'Disponible dès que tu as du réseau.'; }
+  try { return _hlApi.motifOnglet(page); } catch (e) { return 'Disponible dès le retour du réseau.'; }
 }
 
 /* Invariant 19a — LE GARDE D'ÉCRITURE, consulté par saveDB. Le verdict vient du
@@ -2939,7 +2939,7 @@ function _hlEcritureOK(quoi) {
   // que la modification n'est PAS enregistrée, sinon on aurait simplement
   // déplacé la perte silencieuse d'un cran.
   _hlRefuser('Hors ligne, seul l’état des lieux peut être modifié. '
-    + 'Cette modification n’est PAS enregistrée — refais-la une fois reconnecté.');
+    + 'Cette modification n’est PAS enregistrée — à refaire une fois reconnecté.');
   return false;
 }
 
@@ -3004,8 +3004,8 @@ window.__immoEntrerHorsLigne = function(opts) {
         ? _hlApi.libelle : 'Hors ligne — données locales';
       b.innerHTML = '<span class="hl-ic" aria-hidden="true">📴</span>'
         + '<span class="hl-tx">' + escHtml(libelle) + '</span>'
-        + '<span class="hl-sub">Ta saisie est enregistrée sur cet appareil. '
-        + 'Rouvre Propryo une fois rentré, sur le wifi, pour qu’elle remonte.</span>';
+        + '<span class="hl-sub">La saisie est enregistrée sur cet appareil. '
+        + 'Rouvrir Propryo une fois de retour sur le wifi pour qu’elle remonte.</span>';
       document.body.insertBefore(b, document.body.firstChild);
     }
     if (typeof _v4SyncBannersHeight === 'function') _v4SyncBannersHeight();
@@ -3166,7 +3166,7 @@ window.__immoRenderPresence = function () {
   const av = p => '<span class="cop-av" style="background:' + colorOf(p.name) + '">' + esc(initials(p.name)) + '</span>';
   const avs = list.slice(0, 3).map(av).join('');
   const rows = list.map(p => '<div class="cop-row">' + av(p) + '<span class="cop-who">' + esc(p.name)
-    + (p.isMe ? ' <span style="color:var(--t3,#6e7888);font-weight:400">(vous)</span>' : '') + '</span><span class="cop-live">● en ligne</span></div>').join('');
+    + (p.isMe ? ' <span style="color:var(--t3,#6e7888);font-weight:400">(moi)</span>' : '') + '</span><span class="cop-live">● en ligne</span></div>').join('');
   pill.style.display = '';
   pill.innerHTML = '<div class="cop-pill" title="Personnes connectées à cet espace" onclick="var p=this.querySelector(\'.cop-pop\');p.classList.toggle(\'open\')">'
     + '<span class="cop-dot"></span><span class="cop-avs">' + avs + '</span><span class="cop-n">' + list.length + ' en ligne</span>'
@@ -3208,7 +3208,7 @@ function _downloadSignedBailFallback(blob, ref) {
     a.style.display = 'none';
     document.body.appendChild(a); a.click();
     setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch (e) {} }, 1000);
-    showToast('⚠ Sauvegarde cloud échouée — le bail signé a été téléchargé sur cet appareil. Conserve ce fichier précieusement (preuve légale).', 'err', 9000);
+    showToast('⚠ Sauvegarde cloud échouée — le bail signé a été téléchargé sur cet appareil. Ce fichier est à conserver précieusement (preuve légale).', 'err', 9000);
   } catch (e) { console.warn('[fallback] download bail signé', e); }
 }
 // Dossier de preuve d'un bail signé EN PRÉSENTIEL, reconstruit depuis bail.signatures (finales +
@@ -3353,7 +3353,7 @@ function _renderCloudMode() {
   const canLogout = (typeof window !== 'undefined' && typeof window.__immoLogout === 'function');
   el.innerHTML =
     '<div class="alert ok mb8">✅ <b>Connecté</b> · ' + who + ' · espace « ' + esp + ' »</div>'
-    + '<div class="mu sm mb8">Tes données sont hébergées sur un serveur sécurisé (Europe, RGPD) et synchronisées entre tous tes appareils.</div>'
+    + '<div class="mu sm mb8">Les données sont hébergées sur un serveur sécurisé (Europe, RGPD) et synchronisées entre tous les appareils.</div>'
     + (canLogout ? '<button class="btn bs" onclick="window.__immoLogout && window.__immoLogout()">Se déconnecter</button>' : '');
 }
 document.addEventListener('DOMContentLoaded', function () { try { _renderCloudMode(); } catch (e) {} });
@@ -4040,7 +4040,7 @@ async function _bsRelayCreateSession(pdfBlob, meta) {
   const cfg = (typeof _relayCfg === 'function') ? _relayCfg() : null;
   const relayUrl = cfg && cfg.base;
   const token = (cfg && typeof cfg.getToken === 'function') ? await cfg.getToken() : '';
-  if (!relayUrl || !token) throw new Error('Connecte-toi pour utiliser la signature à distance');
+  if (!relayUrl || !token) throw new Error('Connexion requise pour utiliser la signature à distance');
   const fd = new FormData();
   fd.set('pdf', pdfBlob, 'bail.pdf');
   fd.set('meta', JSON.stringify(meta));
@@ -4107,7 +4107,7 @@ async function _reclaimRemoteSignSession(ref) {
   // _relayCfg() renvoie toujours un getToken : c'est le JETON OBTENU qui dit si on est connecté.
   let jwt = '';
   try { jwt = cfg ? await cfg.getToken() : ''; } catch (_) {}
-  if (!jwt) { showToast('Connecte-toi pour récupérer l\'accès à cette signature', 'err', 5000); return; }
+  if (!jwt) { showToast('Connexion requise pour récupérer l\'accès à cette signature', 'err', 5000); return; }
   // Garde de ré-entrance : le reclaim n'est PAS idempotent côté app (il persiste un jeton),
   // un double-clic ferait courir deux réponses et la plus lente écraserait la plus récente.
   window.__reclaimBusy = window.__reclaimBusy || {};
@@ -4126,7 +4126,7 @@ async function _reclaimRemoteSignSession(ref) {
     _refreshAfterMutation();
     // On relit l'état RÉEL : le poll avale ses erreurs, un « ✅ » optimiste mentirait.
     const _after = bail.signatures.remoteSession;
-    if (_after && _after.status === 'access-lost') showToast('Jeton récupéré mais le relais le refuse encore — réessaie dans un instant.', 'warn', 6000);
+    if (_after && _after.status === 'access-lost') showToast('Jeton récupéré mais le relais le refuse encore — réessayer dans un instant.', 'warn', 6000);
     else showToast('✅ Accès rétabli', 'ok');
   } catch (e) {
     console.warn('[remoteSign] reclaim', e);
@@ -4135,7 +4135,7 @@ async function _reclaimRemoteSignSession(ref) {
       /no-owner-recorded/.test(m) ? 'Cette session est antérieure à la récupération : son créateur n\'a pas été enregistré.'
       : /not-owner|403/.test(m)   ? 'Cette session a été créée par un autre compte — récupération refusée.'
       : /404/.test(m)             ? 'Session introuvable côté relais.'
-      : 'Récupération impossible. Vérifie ta connexion et réessaie.',
+      : 'Récupération impossible. Vérifier la connexion et réessayer.',
       'err', 5000);
   } finally {
     window.__reclaimBusy[ref] = false;
@@ -4279,7 +4279,7 @@ function _shareModalShareVia() {
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     navigator.share({ title, text: text + (url ? ('\n\n' + url) : '') }).then(() => showToast('Partagé ✓', 'ok')).catch(() => {}); return;
   }
-  if (f) { _shareModalDownload(); showToast('PDF téléchargé — glisse-le dans le mail qui s\'ouvre', 'ok', 7000); }
+  if (f) { _shareModalDownload(); showToast('PDF téléchargé — à glisser dans le mail qui s\'ouvre', 'ok', 7000); }
   _bssShareEmail();
 }
 
@@ -4297,7 +4297,7 @@ const DOC_ENVOI_ACTIF = false;
 // par le décompte, la lettre IRL et le « 📥 » de la liste des quittances — faisait un
 // `<a download>` nu : la même quittance se téléchargeait de deux façons selon le bouton cliqué.
 async function _docTelechargerSeul(type, ctx) {
-  if (typeof window._emailGenPdfAttachment !== 'function') { showToast('Module PDF non charge — verifie http-server', 'err', 6000); return; }
+  if (typeof window._emailGenPdfAttachment !== 'function') { showToast('Module PDF non charge — vérifier http-server', 'err', 6000); return; }
   let nom = 'document.pdf';
   await _pdfSortie({
     fileName: nom,
@@ -4389,7 +4389,7 @@ async function _openBailPdfShareModal(ref) {
   if (_immoCloudActive() && sig && sig.cloudPdfKey && typeof window.__immoCloudFileUrl === 'function') {
     link = await window.__immoCloudFileUrl(sig.cloudPdfKey, 604800);
   }
-  if (!link) { showToast('PDF signé introuvable — enregistre le bail d’abord', 'err'); return; }
+  if (!link) { showToast('PDF signé introuvable — enregistrer le bail d’abord', 'err'); return; }
   const log = (DB.logements || []).find(l => l && l.ref === ref);
   const bienLabel = bail.adrBien || (log && (log.ref + (log.imm ? ' — ' + log.imm : ''))) || ref;
   const loc = (Array.isArray(bail.locataires) && bail.locataires[0]) || {};
@@ -4832,17 +4832,17 @@ function _downloadBlobAs(blob, filename) {
 async function _ingestSignedBailArtifacts(pdfBlob, certBlob, bail, proof, contentHash) {
   const _discC = (contentHash || '').slice(0, 12);
   if (!_discC) throw new Error('contentHash manquant — archivage du bail signé refusé (anti-collision)');
-  if (typeof window.__immoCloudUpload !== 'function') throw new Error('Stockage cloud non prêt — réessayez');
+  if (typeof window.__immoCloudUpload !== 'function') throw new Error('Stockage cloud non prêt — réessayer');
   const _pdfKeyC  = 'bp_' + String(bail.ref).replace(/[^a-zA-Z0-9]/g, '_') + '_' + _discC;
   const _certKeyC = 'bc_' + String(bail.ref).replace(/[^a-zA-Z0-9]/g, '_') + '_' + _discC;
   const _segB = _cloudEntiteSeg(_cloudEntiteNomForBail(bail.ref));
   const _okPdfC  = await _uploadCloudRetry(_pdfKeyC,  pdfBlob,  'application/pdf', _segB);
   const _okCertC = await _uploadCloudRetry(_certKeyC, certBlob, 'application/pdf', _segB);
-  if (!_okPdfC) { _downloadSignedBailFallback(pdfBlob, bail.ref); throw new Error('Archivage du bail signé échoué (Storage) — le PDF a été téléchargé localement. Réessayez la sauvegarde cloud.'); }
+  if (!_okPdfC) { _downloadSignedBailFallback(pdfBlob, bail.ref); throw new Error('Archivage du bail signé échoué (Storage) — le PDF a été téléchargé localement. La sauvegarde cloud est à relancer.'); }
   if (!_okCertC) {
     // Certificat non archivé après retries → on NE perd PAS la preuve : téléchargement local + alerte forte.
     _downloadBlobAs(certBlob, 'certificat-preuve-' + String(bail.ref).replace(/[^a-zA-Z0-9]/g, '_') + '.pdf');
-    showToast('⚠️ Bail signé et archivé, mais le CERTIFICAT de preuve n\'a pas pu être enregistré en ligne — il a été téléchargé sur cet appareil. Conserve-le (ou régénère-le depuis la carte du bail).', 'warn', 11000);
+    showToast('⚠️ Bail signé et archivé, mais le CERTIFICAT de preuve n\'a pas pu être enregistré en ligne — il a été téléchargé sur cet appareil. À conserver (ou à régénérer depuis la carte du bail).', 'warn', 11000);
   }
   if (bail && bail.signatures) bail.signatures.cloudPdfKey = _okPdfC;
   return { pdfRef: { cloudPdfKey: _okPdfC }, certRef: { cloudPdfKey: _okCertC || null } };
@@ -5304,7 +5304,7 @@ function _bailBailleurSigners(bail) {
   if (!bail) return [];
   // Garde explicite (audit 13/08) : sur la chaîne SIGNATURE, mieux vaut un message clair qu'un
   // TypeError opaque ou, pire, un repli local qui ferait diverger à nouveau les identités.
-  if (!window.BailSignataires) throw new Error('Module signataires non chargé (js/helpers/bail-signataires.global.js) — rechargez la page (Ctrl+Shift+R) avant de signer.');
+  if (!window.BailSignataires) throw new Error('Module signataires non chargé (js/helpers/bail-signataires.global.js) — recharger la page (Ctrl+Shift+R) avant de signer.');
   const withMand = !!(bail.withMandataire && DB.params && DB.params.mandataire && DB.params.mandataire.actif && DB.params.mandataire.nom);
   if (withMand) return [];
   const ent = (DB.entites || []).find(e => e && e.nom === bail.entity) || {};
@@ -5381,7 +5381,7 @@ async function openRemoteSignModal(ref) {
     else try { _realState = await _bsRelayPollSession(_base, _existingRs.sessionId, _existingRs.ownerToken); }
     catch (e) {
       console.warn('[remoteSign] pré-vol relance échoué', e);
-      showToast('Impossible de vérifier l\'état de la session existante (relais injoignable). On ne relance pas tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe — réessaie dans un instant.', 'err', 8000);
+      showToast('Impossible de vérifier l\'état de la session existante (relais injoignable). On ne relance pas tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe — réessayer dans un instant.', 'err', 8000);
       return;
     }
     // §6 — accès propriétaire perdu : on ne sait PAS si ce bail a déjà été signé. État INDÉTERMINÉ
@@ -5390,13 +5390,13 @@ async function openRemoteSignModal(ref) {
     if (_realState && _realState.status === 'access-lost') {
       _existingRs.status = 'access-lost';
       saveDB(); _refreshAfterMutation();
-      showToast('Accès perdu à la session de signature existante : impossible de vérifier si ce bail a déjà été signé. On ne relance pas. Utilise « 🔑 Récupérer l\'accès » sur la ligne du bail.', 'err', 9000);
+      showToast('Accès perdu à la session de signature existante : impossible de vérifier si ce bail a déjà été signé. On ne relance pas. Utiliser « 🔑 Récupérer l\'accès » sur la ligne du bail.', 'err', 9000);
       return;
     }
     if (_realState && _realState.status === 'completed') {
       showToast('✅ Ce bail a déjà été signé à distance — récupération en cours…', 'info', 4000);
       try { await _completeRemoteSign(ref, _realState); saveDB(); _refreshAfterMutation(); }
-      catch (e) { console.warn('[remoteSign] récupération à la relance', e); showToast('Récupération du bail signé impossible — réessaie « Vérifier »', 'err', 6000); }
+      catch (e) { console.warn('[remoteSign] récupération à la relance', e); showToast('Récupération du bail signé impossible — réessayer « Vérifier »', 'err', 6000); }
       return;
     }
     if (_realState && ['pending', 'sent', 'chaining'].includes(_realState.status)) {
@@ -5409,7 +5409,7 @@ async function openRemoteSignModal(ref) {
     const _destroyOk = !!_realState && ['expired', 'pending', 'sent', 'chaining'].includes(_realState.status);
     if (!_destroyOk) {
       console.warn('[remoteSign] pré-vol : statut relais inattendu', _realState);
-      showToast('État de la session existante indéterminé — on ne relance pas tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe. Réessaie dans un instant.', 'err', 8000);
+      showToast('État de la session existante indéterminé — on ne relance pas tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe. Réessayer dans un instant.', 'err', 8000);
       return;
     }
     if (typeof _bsRelayDeleteSession === 'function') {
@@ -5425,7 +5425,7 @@ async function openRemoteSignModal(ref) {
         <div class="modal" style="max-width:520px">
           <div class="m-head"><h3>${_uiIcon('send')} Envoyer pour signature</h3><button class="m-close" onclick="closeM('ov-send-cfg')">✕</button></div>
           <div class="m-body">
-            <div class="bsd-banner bsd-banner-warn">${_uiIcon('settings')} <div><b>Relais non configuré.</b> Avant le premier envoi, renseignez l'URL du relais et votre clé d'application dans les Réglages.</div></div>
+            <div class="bsd-banner bsd-banner-warn">${_uiIcon('settings')} <div><b>Relais non configuré.</b> Avant le premier envoi, renseigner l'URL du relais et la clé d'application dans les Réglages.</div></div>
             <p class="mu sm" style="font-size:13px;color:var(--t2)">C'est une opération unique. Ensuite, l'envoi se fait en un clic depuis n'importe quelle fiche.</p>
           </div>
           <div class="m-foot">
@@ -5470,7 +5470,7 @@ async function openRemoteSignModal(ref) {
         <div class="m-head"><h3 id="bsd-title">${_uiIcon('sign')} Signer le bail — qui signe, et comment ?</h3><button class="m-close" onclick="closeM('ov-send-b')">✕</button></div>
         <div class="m-body">
           <div id="bsd-step1">
-            <div class="bsd-banner bsd-banner-info">${_uiIcon('doc')} <div><b>Bail ${escHtml(ref)}</b> — ${escHtml(adresse)}.<br>Configure qui signe : <b>présentiel</b> (dans l'app) ou <b>à distance</b> (lien par email). Chaque signataire distant reçoit son lien <b>à son tour</b> (partage manuel depuis la fiche).</div></div>
+            <div class="bsd-banner bsd-banner-info">${_uiIcon('doc')} <div><b>Bail ${escHtml(ref)}</b> — ${escHtml(adresse)}.<br>Configurer qui signe : <b>présentiel</b> (dans l'app) ou <b>à distance</b> (lien par email). Chaque signataire distant reçoit son lien <b>à son tour</b> (partage manuel depuis la fiche).</div></div>
             <div class="bsd-state-label">${_uiIcon('building')} Côté bailleur · présentiel par défaut</div>
             ${bSection}
             <div class="bsd-state-label">${_uiIcon('key')} Côté locataires · distance par défaut</div>
@@ -5567,7 +5567,7 @@ function _confirmBailSignatureFlow(ref) {
       const mode = (modeEl && modeEl.value) || bSigners[i].mode || 'pres';   // sélecteur explicite pres|dist|no
       const email = emailEl ? emailEl.value.trim() : (bSigners[i].email || '');
       if (mode === 'dist' && !emailRe.test(email)) {
-        showToast('Email invalide pour ' + (bSigners[i].nom || ('Co-gérant ' + (i + 1))) + ' — corrige-le ou passe-le en présentiel', 'err', 5000);
+        showToast('Email invalide pour ' + (bSigners[i].nom || ('Co-gérant ' + (i + 1))) + ' — à corriger, ou passer ce signataire en présentiel', 'err', 5000);
         if (emailEl) { emailEl.classList.add('err'); emailEl.focus(); } return;
       }
       signers.push({ id: bSigners[i].id, role: 'bailleur', nom: bSigners[i].nom || ('Co-gérant ' + (i + 1)), mode, email });   /* S1 : id du résolveur PARTAGÉ */
@@ -5582,7 +5582,7 @@ function _confirmBailSignatureFlow(ref) {
     const mode = (modeEl && modeEl.value) || 'dist';   // sélecteur explicite pres|dist (distance par défaut)
     const email = emailEl ? emailEl.value.trim() : ((locs[i] && locs[i].email) || '');
     if (mode === 'dist' && !emailRe.test(email)) {
-      showToast('Email invalide pour ' + ((locs[i] && locs[i].nom) || ('Locataire ' + (i + 1))) + ' — corrige-le ou passe-le en présentiel', 'err', 5000);
+      showToast('Email invalide pour ' + ((locs[i] && locs[i].nom) || ('Locataire ' + (i + 1))) + ' — à corriger, ou passer ce signataire en présentiel', 'err', 5000);
       if (emailEl) { emailEl.classList.add('err'); emailEl.focus(); } return;
     }
     signers.push({ id: 'loc-' + i, role: 'locataire', nom: (locs[i] && locs[i].nom) || ('Locataire ' + (i + 1)), mode, email });
@@ -6116,7 +6116,7 @@ function _openFavPicker() {
   if (!ov) {
     ov = document.createElement('div'); ov.id = 'ov-fav-picker';
     ov.innerHTML = '<div class="fp-head"><button type="button" class="fp-back" onclick="_closeFavPicker()" aria-label="Retour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><div class="fp-title">Personnaliser ma barre</div></div>'
-      + '<div class="fp-sub">Choisis jusqu’à 4 raccourcis pour ta barre du bas — des onglets <em>ou</em> des actions. « Plus » reste toujours là pour le reste. Accueil est toujours présent.</div>'
+      + '<div class="fp-sub">Choisir jusqu’à 4 raccourcis pour la barre du bas — des onglets <em>ou</em> des actions. « Plus » reste toujours là pour le reste. Accueil est toujours présent.</div>'
       + '<div class="fp-body"></div>';
     document.body.appendChild(ov);
   }
@@ -6170,7 +6170,7 @@ function _renderMenuPerso() {
   }).join('') + '</div>').join('');
   ov.innerHTML = '<div class="mp-card" onclick="event.stopPropagation()">'
     + '<div class="mp-head"><b>Personnaliser mon menu</b><button class="mp-x" onclick="_closeMenuPerso()" aria-label="Fermer">✕</button></div>'
-    + '<p class="mp-sub">Affiche seulement les onglets que tu utilises — propre à ton compte. Accueil et Logements restent toujours là. Un onglet masqué reste accessible par lien direct.</p>'
+    + '<p class="mp-sub">Afficher seulement les onglets utilisés — propre au compte. Accueil et Logements restent toujours là. Un onglet masqué reste accessible par lien direct.</p>'
     + '<div class="mp-pre-row">' + chips + '</div>'
     + '<div class="mp-zones">' + zones + '</div>'
     + '</div>';
@@ -8141,7 +8141,7 @@ function saveBailTemplate() {
 }
 
 function resetBailTemplate() {
-  if(!confirm2('Restaurer le modèle original ? Vos modifications seront perdues.')) return;
+  if(!confirm2('Restaurer le modèle original ? Les modifications seront perdues.')) return;
   if(!DB.templates) DB.templates = {};
   DB.templates.bail = BAIL_TEMPLATE_DEFAULT;
   // La version COURANTE, pas une constante figée : '2025-v6' ne correspondait plus à
@@ -8184,7 +8184,7 @@ const _BAIL_STEPS = ['locataire','conditions','recap'];
 function goBailStep(n) {
   // W3 : navigation libre en édition, séquentielle en création
   if(!_bailIsEdit && n > _bailStep + 1) {
-    showToast('Termine d\'abord l\'étape '+(_bailStep+1)+' avant de sauter','info');
+    showToast('Terminer d\'abord l\'étape '+(_bailStep+1)+' avant de sauter','info');
     return;
   }
   _bailStep = Math.max(1, Math.min(3, n)); // v15.249 B7 : 3 étapes (Récapitulatif fusionné)
@@ -9584,7 +9584,7 @@ function _computeImpayes(ctx) {
 function _buildTodoDrill(ctx) {
   const items = _computeUnifiedTodo(ctx);
   if(!items.length) {
-    return {title:'À traiter', html:'<div class="dw-todo-empty" style="margin:0">Rien à traiter. Continuez comme ça.</div>'};
+    return {title:'À traiter', html:'<div class="dw-todo-empty" style="margin:0">Rien à traiter. Tout est en ordre.</div>'};
   }
   const byType = {};
   items.forEach(it => {
@@ -9683,7 +9683,7 @@ function _todoV2(ctx, col, row) {
       +   '<span class="todo-v2-title">⚠ À traiter</span>'
       +   '<span class="todo-v2-count grn">0</span>'
       + '</div>'
-      + '<div class="todo-v2-empty">✓ Rien à traiter. Continuez comme ça.</div>'
+      + '<div class="todo-v2-empty">✓ Rien à traiter. Tout est en ordre.</div>'
       + '</div>';
     return {body: body, foot: '', status: 'grn'};
   }
@@ -9738,7 +9738,7 @@ function _todoV2(ctx, col, row) {
     + '<div class="todo-v2-rows">'
     +   rowsHtml
     + '</div>'
-    + '<div class="todo-v2-hint">Cliquez sur une catégorie ou la carte pour voir le détail</div>'
+    + '<div class="todo-v2-hint">Cliquer sur une catégorie ou la carte pour voir le détail</div>'
     + '</div>';
 
   const status = maxSev === 'red' ? 'red' : maxSev === 'ora' ? 'ora' : 'blu';
@@ -9878,7 +9878,7 @@ async function _mvDocOpenById(mvId) {
 
 function _mvDocOpenInWindow(pj) {
   const w = window.open('', '_blank');
-  if(!w) { showToast('Popup bloquée — autorisez les popups','err',5000); return; }
+  if(!w) { showToast('Popup bloquée — autoriser les popups','err',5000); return; }
   const safeName = escHtml(pj.name || 'Document');
   if(/pdf/i.test(pj.mime || '') || /\.pdf$/i.test(pj.name || '')) {
     w.document.write(`<!DOCTYPE html><html><head><title>${safeName}</title><meta charset="utf-8"></head><body style="margin:0"><iframe src="${escHtml(pj.dataB64)}" style="border:0;width:100vw;height:100vh"></iframe></body></html>`);
@@ -10295,7 +10295,7 @@ function _affRender(id, tgt) {
     const o = (typeof immeubles === 'function' ? immeubles() : []).map(im => opt(im, im, imm === im)).join('');
     field = '<div class="mu sm" style="margin-bottom:6px">Se récupère sur les locataires → réparti via un poste de charge (au lieu de déduire aux impôts).</div>'
       + '<select class="inp" style="margin-bottom:6px" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'recupImm\',this.value)"><option value="">— quel immeuble ? —</option>' + o + '</select>'
-      + '<select class="inp" id="' + id + '-cc-comp" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'cc\',this.value)"><option value="">— choisis d\'abord l\'immeuble —</option></select>';
+      + '<select class="inp" id="' + id + '-cc-comp" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'cc\',this.value)"><option value="">— choisir d\'abord l\'immeuble —</option></select>';
   }
   host.innerHTML = pills + field + _affDestBadge(id, tgt, niv);
   if (niv === 'recup') _affSyncCompteurs(id, tgt);
@@ -10312,7 +10312,7 @@ function _affDestBadge(id, tgt, niv) {
     : (niv === 'imm' || niv === 'recup') ? ('🏢 ' + (imm || '—'))
     : ('🚪 ' + (qui || '—'));
   const recup = (niv === 'recup') || (sc && sc.recup);
-  if (recup) return '<div class="affv2-dest recu"><span class="ic">👥</span><div><div class="ttl">Réparti sur les locataires <span class="tag2044">RÉGUL</span></div><div class="det">Via un compteur collectif · ' + where + '. <span style="opacity:.8">Pas sur ta 2044 (ça se neutralise).</span></div></div></div>';
+  if (recup) return '<div class="affv2-dest recu"><span class="ic">👥</span><div><div class="ttl">Réparti sur les locataires <span class="tag2044">RÉGUL</span></div><div class="det">Via un compteur collectif · ' + where + '. <span style="opacity:.8">Pas sur la 2044 (ça se neutralise).</span></div></div></div>';
   const lig = sc && sc.ligne2044;
   if (!sc || sc.type === 'special' || !lig) return '<div class="affv2-dest none"><span class="ic">📋</span><div><div class="ttl">Hors déclaration 2044</div><div class="det">N\'entre pas dans le résultat foncier · ' + where + '.</div></div></div>';
   const s = sc.type === 'recette' ? 'Recette' : sc.type === 'interet' ? 'Intérêts déductibles' : 'Charge déductible';
@@ -10353,7 +10353,7 @@ function _affSyncCompteurs(id, tgt) {
   const ccs = ((im && im.compteursCollectifs) || []).filter(_isAlive);
   let html;
   if (!immNom || !ccs.length) {
-    html = '<option value="">— ' + (immNom ? 'aucun compteur sur cet immeuble' : 'choisis d\'abord l\'immeuble') + ' —</option>';
+    html = '<option value="">— ' + (immNom ? 'aucun compteur sur cet immeuble' : 'choisir d\'abord l\'immeuble') + ' —</option>';
   } else {
     html = '<option value="">— quel compteur ? —</option>' + ccs.map(cc => {
       const t = (typeof CC_TYPES !== 'undefined') ? (CC_TYPES.find(x => x.key === cc.type) || { icon: '📊' }) : { icon: '📊' };
@@ -10555,7 +10555,7 @@ function _catPkCreate() {
   // M-1 bis (arbitrage Didier 19/08) : AUCUNE catégorie ne naît sans sa famille, et l'app ne
   // devine RIEN — le choix est explicite, l'état « flottant » devient impossible par construction.
   const _mereSel = el('cat-pk-mere');
-  if (!_mereSel || !_mereSel.value) { showToast('Choisis la famille de « ' + v + ' » — sans famille, pas de création', 'warn', 4500); return; }
+  if (!_mereSel || !_mereSel.value) { showToast('Choisir la famille de « ' + v + ' » — sans famille, pas de création', 'warn', 4500); return; }
   DB.categories.push(v);
   _finRattacheCategorie(v, _mereSel.value);
   saveDB();
@@ -10854,7 +10854,7 @@ function _mvShowChargeRepartitionInfo(m) {
       const missing = compteCharges.filter(l => !+l.tantiemes);
       if(missing.length) warnings.push(`${missing.length}/${compteCharges.length} logements sans tantièmes : ${missing.slice(0,3).map(l=>l.ref).join(', ')}${missing.length>3?'…':''}`);
       const sumT = compteCharges.reduce((s,l)=>s+(+l.tantiemes||0),0);
-      if(sumT > 0 && sumT < 950) warnings.push(`Total tantièmes saisis : ${sumT}/1000 (≈ ${Math.round(sumT/10)}% imputés, le reste reste à votre charge)`);
+      if(sumT > 0 && sumT < 950) warnings.push(`Total tantièmes saisis : ${sumT}/1000 (≈ ${Math.round(sumT/10)}% imputés, le reste demeure à la charge du bailleur)`);
     }
     if(cc.cleRepartition === 'surface') {
       const missing = compteCharges.filter(l => !+l.surf);
@@ -10866,7 +10866,7 @@ function _mvShowChargeRepartitionInfo(m) {
       if(missing.length) warnings.push(`${missing.length}/${compteCharges.length} logements sans part forfait définie`);
     }
     if(cc.cleRepartition === 'sous-compteurs') {
-      warnings.push(`Vérifie qu'un relevé sous-compteur existe AVANT et APRÈS la facture (date ${m.date}) sur chaque logement.`);
+      warnings.push(`Vérifier qu'un relevé sous-compteur existe AVANT et APRÈS la facture (date ${m.date}) sur chaque logement.`);
       if(!cc.fallbackRepartition) warnings.push(`Pas de fallback défini : logements sans relevé seront EXCLUS du calcul.`);
     }
     const msg = `⚡ Répartition selon ${cleLabel}${warnings.length ? ' · ⚠ ' + warnings[0] : ''}`;
@@ -10902,7 +10902,7 @@ async function saveMv() {
   const _qui = v('mv-qui');
   const _cc  = v('mv-cc');
   if(_qui && _cc) {
-    showToast('« Qui » et « Compteur lié » sont exclusifs — vide l\'un des deux','err',4500);
+    showToast('« Qui » et « Compteur lié » sont exclusifs — vider l\'un des deux','err',4500);
     return;
   }
   // PJ attachée AVANT ce save : `m` est reconstruit de zéro et ne la porte pas. C'est le seul
@@ -11087,7 +11087,7 @@ function _buildEdlScript(sigsJson) {
         +'for(var i=0;i<d.length;i+=4)if(d[i+3]>10){empty=false;break;}'
         +'c.style.outline=empty?"2px solid #e00":"";if(empty)ok=false;'
       +'});'
-      +'if(!ok)alert("Paraphes manquants \u2014 veuillez parapher avant d\'imprimer.");'
+      +'if(!ok)alert("Paraphes manquants \u2014 parapher avant d\'imprimer.");'
       +'return ok;'
     +'}'
     +'function genEDLPDF(){'
@@ -11317,7 +11317,7 @@ function _spMvSeed(method) {
   const src = _spMvSrc(); if(!src) return;
   const imm = src.imm || ((DB.logements||[]).find(l=>_isAlive(l)&&l.ref===src.qui)||{}).imm || '';
   if((method==='gerance'||method==='logements') && !imm) {
-    showToast("Renseigne d'abord l'immeuble du mouvement pour pré-remplir par logement",'err',4500); return;
+    showToast("Renseigner d'abord l'immeuble du mouvement pour pré-remplir par logement",'err',4500); return;
   }
   const occ = (DB.logements||[]).filter(l=>_isAlive(l)&&!l.archived&&l.imm===imm&&l.locataire);
   // Loyer encaissé = paiement complet (hc + ch), cohérent avec le modèle de l'app (la régul dérive la provision du bail).
@@ -11344,8 +11344,8 @@ function _spMvSeed(method) {
 // Met à jour le bandeau d'aide selon la méthode de seed active.
 function _spMvSeedUI() {
   const hints = {
-    gerance:   "Relevé de gérance : 1 ligne <b>crédit</b> par loyer encaissé (loyer + charges) + tes frais en <b>débit</b> (gestion, GLI, PNO…). Ajuste les montants depuis le relevé du gestionnaire, ajoute des lignes de frais si besoin.",
-    logements: "1 ligne par logement loué de l'immeuble (loyer + charges pré-rempli). Ajuste les montants en cas de paiement partiel (ex : virement CAF = part APL seulement).",
+    gerance:   "Relevé de gérance : 1 ligne <b>crédit</b> par loyer encaissé (loyer + charges) + les frais en <b>débit</b> (gestion, GLI, PNO…). Ajuster les montants depuis le relevé du gestionnaire, ajouter des lignes de frais si besoin.",
+    logements: "1 ligne par logement loué de l'immeuble (loyer + charges pré-rempli). Ajuster les montants en cas de paiement partiel (ex : virement CAF = part APL seulement).",
   };
   const hint = el('sp-mv-seed-hint'); if(hint) hint.innerHTML = hints[window._spMvSeedMethod] || '';
 }
@@ -11683,8 +11683,8 @@ function rMv() {
   }).join('');
   // PC-REFONTE — état vide accueillant (styles inline : correct à toutes largeurs, ne touche aucun @media)
   const _mvEmpty = alive.length === 0
-    ? `${_uiIcon('receipt',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun mouvement pour l'instant</b><span style="color:var(--t2);font-size:12.5px">Importe un relevé bancaire ou ajoute un mouvement.</span>`
-    : `${_uiIcon('search',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun mouvement pour ces filtres</b><span style="color:var(--t2);font-size:12.5px">Élargis les dates ou réinitialise les filtres.</span><div style="margin-top:12px"><button class="btn bs bb" onclick="clearMvFilters()">${_uiIcon('refresh',14)} Réinitialiser</button></div>`;
+    ? `${_uiIcon('receipt',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun mouvement pour l'instant</b><span style="color:var(--t2);font-size:12.5px">Importer un relevé bancaire ou ajouter un mouvement.</span>`
+    : `${_uiIcon('search',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun mouvement pour ces filtres</b><span style="color:var(--t2);font-size:12.5px">Élargir les dates ou réinitialiser les filtres.</span><div style="margin-top:12px"><button class="btn bs bb" onclick="clearMvFilters()">${_uiIcon('refresh',14)} Réinitialiser</button></div>`;
   el('mv-tbody').innerHTML = mvs.length
     ? _mvRows
     : `<tr><td colspan="7" style="text-align:center;padding:44px 20px;color:var(--t3)">${_mvEmpty}</td></tr>`;
@@ -12760,10 +12760,10 @@ function _invSetExp(d) {
 async function _invGenerate() {
   const cfg = (typeof _relayCfg === 'function') ? _relayCfg() : null;
   if (!window._relayConfigured || !window._relayConfigured(cfg)) {
-    showToast('Configurez d\'abord le relais (Paramètres → 📨 Signature à distance — Relais).', 'warn', 6000);
+    showToast('Configurer d\'abord le relais (Paramètres → 📨 Signature à distance — Relais).', 'warn', 6000);
     return;
   }
-  if (!_invState.logRef) { showToast('Choisissez un bien.', 'warn'); return; }
+  if (!_invState.logRef) { showToast('Choisir un bien.', 'warn'); return; }
   const ta = el('inv-msg'); if (ta) _invState.message = ta.value;
   const btn = el('inv-gen-btn'); if (btn) { btn.disabled = true; btn.textContent = 'Génération…'; }
   try {
@@ -13043,7 +13043,7 @@ function _renderCandInboxBanner(){
   host.innerHTML = '<div class="cand-inbox">'
     + '<div class="ci-ic">' + _uiIcon('mail',20) + '</div>'
     + '<div class="ci-tx"><b>' + n + ' nouveau' + (n>1?'x':'') + ' dossier' + (n>1?'s':'') + ' de candidature reçu' + (n>1?'s':'') + '</b>'
-    +   '<div class="s">' + escHtml(names.join(' · ') + extra) + ' — déposé' + (n>1?'s':'') + ' via lien en ligne. Cliquez pour vérifier et traiter.</div></div>'
+    +   '<div class="s">' + escHtml(names.join(' · ') + extra) + ' — déposé' + (n>1?'s':'') + ' via lien en ligne. Cliquer pour vérifier et traiter.</div></div>'
     + '<button class="btn bp bb" onclick="go(\'candidats\')">Voir les dossiers →</button>'
     + '<button class="ci-x" title="Marquer comme vu" onclick="_candMarkAllSeen()">' + _uiIcon('close') + '</button>'
     + '</div>';
@@ -13534,7 +13534,7 @@ function openLoyerBienModal(candId, logRef){
     if(occupied){
       warn.style.background='var(--sur2)'; warn.style.border='1px solid var(--bor)'; warn.style.color='var(--t2)';
       if(_aCloturer) warn.innerHTML = '🔒 <b>Bail à clôturer</b> — le bail du locataire sorti est encore ouvert et porte son loyer. Le loyer de référence du prochain bail se saisit après la clôture de ce bail.';
-      else warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passez par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
+      else warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passer par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
     } else {
       warn.style.background='rgba(234,88,12,.1)'; warn.style.border='1px solid rgba(234,88,12,.3)'; warn.style.color='#9a4a10';
       warn.innerHTML = '⚠ Ce loyer est celui du <b>logement</b> (bien vacant) : il sert au ratio revenus / loyer affiché sur la fiche des candidats et au futur bail. Il alimente aussi le tableau de bord et le P&amp;L.';
@@ -13719,7 +13719,7 @@ function openFicheCandidat(id){
     convHtml = `<div class="card">
       <div class="flex-b" style="flex-wrap:wrap;gap:12px">
         <div><div style="font-weight:600;font-size:14px">Conversion en bail</div>
-        <div class="mu sm" style="margin-top:3px">Validez le candidat (bouton ✓ Valider) pour pouvoir créer le bail.</div></div>
+        <div class="mu sm" style="margin-top:3px">Valider le candidat (bouton ✓ Valider) pour pouvoir créer le bail.</div></div>
         <button class="btn bp" disabled title="Disponible après validation">Créer le bail à partir de ce candidat →</button>
       </div></div>`;
   }
@@ -14148,7 +14148,7 @@ function copyBailFrom(srcRef, fromHist) {
   // Re-rendre les signataires (dépend de l'entité copiée)
   if(typeof renderBailSignataires === 'function') renderBailSignataires(src.signataires);
   const label = fromHist ? `${src.ref||'?'} (archivé)` : srcRef;
-  showToast('Infos bien copiées depuis '+label+' — complétez locataires, garants et dates','ok',4000);
+  showToast('Infos bien copiées depuis '+label+' — locataires, garants et dates à compléter','ok',4000);
 }
 
 // ─── LOG-CANDIDATS Phase 6 — Conversion candidat → bail ────────────────────
@@ -14198,7 +14198,7 @@ function convertCandidatToBail(id){
   _garSetMode('b', _garModeDepuis(!!(c.garant && String(c.garant.nom||'').trim()), c.visale));
   try{ if(typeof _bailGarantieToggle==='function') _bailGarantieToggle(); }catch(e){}
   _pendingCandidatConv = id;                          // hook consommé par saveBail (après openBail → pas écrasé)
-  showToast('Bail pré-rempli depuis le candidat et le logement — vérifiez loyer, dates et clauses.','ok',5000);
+  showToast('Bail pré-rempli depuis le candidat et le logement — loyer, dates et clauses à vérifier.','ok',5000);
 }
 
 /* Finalise la conversion APRÈS un save de bail réussi : migre les pièces GED du
@@ -14526,7 +14526,7 @@ function _openBienFromBailWizard() {
     // ouvert AVANT que le fil rouge ne re-vérifie « aucun overlay » — si tu bump l'un, bump l'autre.
     setTimeout(() => openNewLog(r), 200);
   } else {
-    showToast('Sauvegardez d\'abord le bail pour pouvoir éditer le bien', 'info');
+    showToast('Sauvegarder d\'abord le bail pour pouvoir éditer le bien', 'info');
   }
 }
 
@@ -14944,7 +14944,7 @@ function onBailTypeChange() {
       showToast('📅 Date de fin recalculée selon le type « ' + type + ' » : ' + fd(_newFin) + ' (modifiable)', 'info', 4000);
     } else if (!_newFin && _oldFin) {
       // Cas mobilité / garage / autre : autoFinBail retourne sans écrire (durée libre)
-      showToast('ℹ️ Durée libre pour type « ' + type + ' » — saisis manuellement la date de fin', 'info', 4500);
+      showToast('ℹ️ Durée libre pour type « ' + type + ' » — saisir manuellement la date de fin', 'info', 4500);
     }
   } catch(e) { console.warn('[onBailTypeChange] autoFinBail a échoué :', e); }
   // 2. Suggestion DG selon type
@@ -14970,7 +14970,7 @@ function onBailTypeChange() {
   }
   // 3. Disclaimer 'autre'
   if (type === 'autre') {
-    showToast('⚠️ Type "Autre" : consultez un notaire ou juriste pour la rédaction des clauses spécifiques. Propryo ne génère pas de modèle adapté.', 'warn', 8000);
+    showToast('⚠️ Type "Autre" : consulter un notaire ou juriste pour la rédaction des clauses spécifiques. Propryo ne génère pas de modèle adapté.', 'warn', 8000);
   }
   // 4. Verrou DG pour mobilité (UX clair)
   if (el('b-dg')) {
@@ -15723,9 +15723,9 @@ function saveBail() {
   }
   _skipDdtCheckOnce = false; // reset flag d'override
   // Soft : HC = 0 → toast warn sans bloquer (cohérent avec email format)
-  if(pf('b-hc') === 0) showToast('⚠️ Loyer HC à 0 € — vérifie la saisie','warn');
+  if(pf('b-hc') === 0) showToast('⚠️ Loyer HC à 0 € — vérifier la saisie','warn');
   // Soft : charges = 0 ou vide → toast warn sans bloquer
-  if(pf('b-ch') === 0) showToast('⚠️ Charges à 0 € ou vides — vérifie la saisie','warn');
+  if(pf('b-ch') === 0) showToast('⚠️ Charges à 0 € ou vides — vérifier la saisie','warn');
   // Soft : email format invalide → warn sans bloquer (corriger plus tard)
   const _badMail = locs.find(l => l.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(l.email));
   if(_badMail) showToast(`⚠️ Email invalide pour ${_badMail.nom} : ${_badMail.email}`, 'warn');
@@ -16589,7 +16589,7 @@ function previewBailDataV2(bail, log, ref) {
   const finalHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bail V2 — ${ref}</title>${css}</head><body>${toolbar}<div id="doc-wrap">${contentHtml}</div></body></html>`;
 
   const win = window.open('', '_blank');
-  if (!win) { showToast('Popup bloquée — autorisez les popups', 'err'); return; }
+  if (!win) { showToast('Popup bloquée — autoriser les popups', 'err'); return; }
   win.document.write(_injectPreviewCloseButton(finalHtml));
   win.document.close();
 }
@@ -16902,7 +16902,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // Garde-fou : un garage NE DOIT JAMAIS retomber sur le corps résidentiel loi 89 si le module
   // n'a pas chargé (échec silencieux juridiquement dangereux) — on échoue fort et clair.
   if (isGarage && !(window.BailGarage && typeof window.BailGarage.buildGarageStructure === 'function')) {
-    throw new Error('Module bail garage non chargé (js/helpers/bail-garage.global.js) — rechargez la page (Ctrl+Shift+R).');
+    throw new Error('Module bail garage non chargé (js/helpers/bail-garage.global.js) — recharger la page (Ctrl+Shift+R).');
   }
   if (isGarage) {
     const _cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -18000,7 +18000,7 @@ function _buildNoticeStructure() {
 
 function previewBailData(bail, log, ref, opts) {
   if (!window._BAIL_PDF_LIBS && window.ensurePdfLibs) {
-    window.ensurePdfLibs().then(() => previewBailData(bail, log, ref, opts), () => { showToast('⚠ Libs PDF indisponibles (réseau ?). Réessaie.', 'err', 6000); });
+    window.ensurePdfLibs().then(() => previewBailData(bail, log, ref, opts), () => { showToast('⚠ Libs PDF indisponibles (réseau ?). Réessayer.', 'err', 6000); });
     return;
   }
   opts = opts || {};
@@ -18009,7 +18009,7 @@ function previewBailData(bail, log, ref, opts) {
   var locs = bail.locataires || (bail.nom ? [{nom:bail.nom,ddn:bail.ddn,lieuNaiss:bail.lieuNaiss}] : []);
 
   var win = window.open('','_blank');
-  if(!win) { showToast('Popup bloqu\u00e9e \u2014 autorisez les popups','err'); return; }
+  if(!win) { showToast('Popup bloqu\u00e9e \u2014 autoriser les popups','err'); return; }
 
   var titleLabel  = (ref||'') + (locs.length ? ' \u2014 '+locs.map(function(l){return l.nom||'';}).join(', ') : '');
   var gerantLabel = ent.gerant || bail.entity || 'Bailleur';
@@ -18480,7 +18480,7 @@ function previewBailData(bail, log, ref, opts) {
     +'window._wizMode=false;window._wizCurrent=1;window._wizParaphes={};'
     +'function startSignatureWizard(){'
     /* v12.85 : choix mode signature au lancement (locataire présent ou non) */
-    +  'var withLoc=confirm("Le locataire est-il présent pour signer le bail maintenant ?\\n\\n[OK] = OUI, il signe avec vous (paraphes + signature finale dans le wizard)\\n[Annuler] = NON, il signera plus tard dans Acrobat (placeholders dans le PDF)");'
+    +  'var withLoc=confirm("Le locataire est-il présent pour signer le bail maintenant ?\\n\\n[OK] = OUI, il signe sur place (paraphes + signature finale dans le wizard)\\n[Annuler] = NON, il signera plus tard dans Acrobat (placeholders dans le PDF)");'
     +  'window._wizSignWithLocataires=withLoc;'
     +  'window._wizMode=true;window._wizCurrent=1;window._wizParaphes={};'
     +  'document.body.classList.add("wizard-mode");'
@@ -18582,7 +18582,7 @@ function previewBailData(bail, log, ref, opts) {
     +  '}else{'
     /* v13.02 — legacy (entrée directe sans file) : bail déjà signé → interdire re-signature */
     +    'if(_BAIL_SIGNED){'
-    +      'alert("🔒 Ce bail est déjà signé.\\n\\nPour le re-signer (cas exceptionnel), retournez sur la carte du bail dans Propryo et cliquez sur « 🔄 Réinitialiser » (double confirmation requise).");'
+    +      'alert("🔒 Ce bail est déjà signé.\\n\\nPour le re-signer (cas exceptionnel), retourner sur la carte du bail dans Propryo et cliquer sur « 🔄 Réinitialiser » (double confirmation requise).");'
     +      'return;'
     +    '}'
     +    'window._wizV2Phase2=false;'
@@ -18594,7 +18594,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'var _guard=_wizV2PadResult();'
     +  'if(_guard.error){'
     +    'console.error("[startSignatureWizardV2] "+_guard.error.code,_guard.error.message,{sigs:_SIGS,solo:window._wizV2SoloSigner});'
-    +    'alert("⛔ Signature impossible — "+_guard.error.message+"\\n\\nAucune case de paraphe ne peut être affichée. Vérifiez les signataires du bailleur (fiche de l\'entité) puis relancez la signature.");'
+    +    'alert("⛔ Signature impossible — "+_guard.error.message+"\\n\\nAucune case de paraphe ne peut être affichée. Vérifier les signataires du bailleur (fiche de l\'entité) puis relancer la signature.");'
     +    'window._wizV2SoloSigner=null;window._wizV2SignQueue=null;'
     +    'return;'
     +  '}'
@@ -19693,13 +19693,13 @@ function previewBailData(bail, log, ref, opts) {
     +  'if(!window._wizV2LuApprouve){'
     +    'var luBox=document.getElementById("bail-lu-approuve");'
     +    'if(luBox&&!luBox.checked){'
-    +      'alert("Vous devez confirmer avoir lu et approuvé l\'intégralité du bail (case à cocher §18) avant de générer le PDF natif.");'
+    +      'alert("Confirmer avoir lu et approuvé l\'intégralité du bail (case à cocher §18) avant de générer le PDF natif.");'
     +      'if(luBox.scrollIntoView)luBox.scrollIntoView({behavior:"smooth",block:"center"});'
     +      'luBox.style.outline="3px solid #c00";setTimeout(function(){luBox.style.outline="";},2500);'
     +      'return;'
     +    '}'
     +  '}'
-    +  'if(typeof window.jspdf==="undefined"){alert("jsPDF non chargé. Recharge la page (Ctrl+Shift+R).");return;}'
+    +  'if(typeof window.jspdf==="undefined"){alert("jsPDF non chargé. Recharger la page (Ctrl+Shift+R).");return;}'
     +  'if(typeof _BAIL_STRUCTURE==="undefined"||!Array.isArray(_BAIL_STRUCTURE)){alert("Structure du bail absente. Erreur interne.");return;}'
     /* v12.98 — reset compteurs sigs finales (utilisés par signature-bailleur/locataire-placeholder) */
     +  'window.__SIGN_ANCHORS__=(typeof _BAIL_REMOTE_SIGN!=="undefined"&&_BAIL_REMOTE_SIGN)?{remoteSign:true,anchors:[]}:{remoteSign:false,anchors:[]};'
@@ -19952,7 +19952,7 @@ function previewBailData(bail, log, ref, opts) {
     +    'var _done=function(state){var o=document.getElementById("__bailDone");if(!o){o=document.createElement("div");o.id="__bailDone";o.style.cssText="position:fixed;inset:0;z-index:2147483647;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;font-family:system-ui,-apple-system,sans-serif";document.body.appendChild(o);}'
     +      'o.textContent="";var ic=document.createElement("div");ic.style.fontSize="52px";ic.textContent=(state==="busy"?"\\u23f3":(state==="warn"?"\\u26a0\\ufe0f":"\\u2705"));o.appendChild(ic);'
     +      'var h=document.createElement("h1");h.style.cssText="margin:0;font-size:21px;color:"+(state==="warn"?"#92400e":(state==="busy"?"#1f2937":"#166534"));h.textContent=(state==="busy"?"Enregistrement du bail signé...":(state==="warn"?"Enregistrement plus long que prévu":"Bail signé et enregistré"));o.appendChild(h);'
-    +      'if(state!=="busy"){var p=document.createElement("p");p.style.cssText="margin:0;color:#475569;max-width:440px";p.textContent=(state==="warn"?"Vérifiez votre connexion, puis fermez cet onglet.":"Vous pouvez fermer cet onglet.");o.appendChild(p);var b=document.createElement("button");b.style.cssText="margin-top:8px;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:12px 26px;font-size:15px;font-weight:600;cursor:pointer";b.textContent="Fermer cet onglet";b.onclick=function(){try{window.close();}catch(e){}};o.appendChild(b);try{window.close();}catch(e){}}'
+    +      'if(state!=="busy"){var p=document.createElement("p");p.style.cssText="margin:0;color:#475569;max-width:440px";p.textContent=(state==="warn"?"Vérifier la connexion, puis fermer cet onglet.":"Cet onglet peut être fermé.");o.appendChild(p);var b=document.createElement("button");b.style.cssText="margin-top:8px;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:12px 26px;font-size:15px;font-weight:600;cursor:pointer";b.textContent="Fermer cet onglet";b.onclick=function(){try{window.close();}catch(e){}};o.appendChild(b);try{window.close();}catch(e){}}'
     +    '};'
     +    'var _cloudSign=false;try{_cloudSign=!!(window.opener&&window.opener.__immoSupabaseMode);}catch(e){}'
     /* v15.289 BASCULE — en mode cloud, AUCUN Drive : la signature est déjà écrite dans opener.DB + saveDB
@@ -20016,7 +20016,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'window._wizSignWithLocataires=false;'
     +  'var _rsT=0;(function _rsGo(){'
     +    'if(window.jspdf&&window.jspdf.jsPDF&&window.pdfjsLib){window._wizV2LuApprouve=true;(async function(){try{if(!window._wizV2Pages){window._wizV2Pages=await prerenderPDFPages();}genPDFNative();}catch(e){alert("Erreur génération PDF (signature distance) : "+((e&&e.message)||e));}})();return;}' /* D2a C1 : garde « lu et approuvé » levé + on RÉUTILISE prerenderPDFPages (le bloc que le flux signé appelle) pour bâtir _wizV2Pages → le bailleur distant emprunte le MÊME footer useWizV2 que le locataire (saute les annexes). Pas de copie. */
-    +    'if(++_rsT>60){alert("Libs PDF non chargées (signature distance) après attente. Réessayez ou rechargez la page.");return;}'
+    +    'if(++_rsT>60){alert("Libs PDF non chargées (signature distance) après attente. Réessayer ou recharger la page.");return;}'
     +    'setTimeout(_rsGo,150);'
     +  '})();'
     +'}'
@@ -20066,7 +20066,7 @@ function previewBailData(bail, log, ref, opts) {
   var diffBanner = '';
   if (modifiedCount > 0) {
     var sigDate = bail.signatures && bail.signatures.signedAt ? fd(bail.signatures.signedAt.slice(0,10)) : '?';
-    diffBanner = '<div class="no-print" style="position:sticky;top:36px;z-index:9000;background:#fef3c7;border:2px solid #f59e0b;border-radius:6px;padding:10px 14px;margin:6px auto;max-width:900px;font-size:11.5pt;color:#92400e;font-weight:bold">\ud83d\udfe0 Bail sign\u00e9 le '+sigDate+' \u2014 '+modifiedCount+' bloc(s) modifi\u00e9(s) depuis la signature (surlign\u00e9s ci-dessous). Cliquez sur \ud83d\udcdc \u00ab Voir bail sign\u00e9 \u00bb pour revoir la version originale fig\u00e9e.</div>';
+    diffBanner = '<div class="no-print" style="position:sticky;top:36px;z-index:9000;background:#fef3c7;border:2px solid #f59e0b;border-radius:6px;padding:10px 14px;margin:6px auto;max-width:900px;font-size:11.5pt;color:#92400e;font-weight:bold">\ud83d\udfe0 Bail sign\u00e9 le '+sigDate+' \u2014 '+modifiedCount+' bloc(s) modifi\u00e9(s) depuis la signature (surlign\u00e9s ci-dessous). Cliquer sur \ud83d\udcdc \u00ab Voir bail sign\u00e9 \u00bb pour revoir la version originale fig\u00e9e.</div>';
   } else if (structuralChange) {
     diffBanner = '<div class="no-print" style="position:sticky;top:36px;z-index:9000;background:#fee2e2;border:2px solid #dc2626;border-radius:6px;padding:10px 14px;margin:6px auto;max-width:900px;font-size:11.5pt;color:#991b1b;font-weight:bold">\u26a0\ufe0f Modification structurelle d\u00e9tect\u00e9e (composition locataire/garant). Le bail diff\u00e8re significativement de la version sign\u00e9e \u2014 r\u00e9initialisation des signatures recommand\u00e9e avant nouvelle signature.</div>';
   } else if (opts.useSnapshot) {
@@ -20100,7 +20100,7 @@ function exportBailWord(bail, log, ref) {
   const _tWord = _bailTypeEff(bail, log);
   if (_tWord !== 'nu') {
     const _lblWord = { garage: 'garage (droit commun)', meuble: 'meublé', etudiant: 'étudiant', mobilite: 'mobilité', autre: '« autre » (régime libre)' }[_tWord] || _tWord;
-    showToast('Export Word indisponible pour un bail ' + _lblWord + ' — utilisez le PDF.', 'warn', 6000); return;
+    showToast('Export Word indisponible pour un bail ' + _lblWord + ' — utiliser le PDF.', 'warn', 6000); return;
   }
   const ent  = DB.entites.find(e=>e.nom===bail.entity)||{};
   const locs = bail.locataires || (bail.nom ? [{nom:bail.nom,ddn:bail.ddn,lieuNaiss:bail.lieuNaiss}] : []);
@@ -21864,8 +21864,8 @@ function openAss(id, prefLog, prefScope, prefImm) {
   // v15.157 — PJ : attestation / contrat d'assurance (uniquement sur une assurance déjà enregistrée)
   const _ac = el('ass-att-container');
   if (_ac) _ac.innerHTML = a
-    ? _renderAttachmentSection({parentType:'assurance', parentId:a.id, parentRef:(a.compagnie||'')+(a.numContrat?' '+a.numContrat:''), logRef:a.logement||null, category:'documents', title:'📎 Documents (attestation, contrat)', emptyText:'Attachez l\'attestation d\'assurance, le contrat PNO/GLI…'})
-    : '<div class="mu sm" style="font-size:11.5px;padding:8px;background:var(--sur2);border-radius:6px">💾 Enregistrez d\'abord l\'assurance pour pouvoir y attacher des documents.</div>';
+    ? _renderAttachmentSection({parentType:'assurance', parentId:a.id, parentRef:(a.compagnie||'')+(a.numContrat?' '+a.numContrat:''), logRef:a.logement||null, category:'documents', title:'📎 Documents (attestation, contrat)', emptyText:'Attacher l\'attestation d\'assurance, le contrat PNO/GLI…'})
+    : '<div class="mu sm" style="font-size:11.5px;padding:8px;background:var(--sur2);border-radius:6px">💾 Enregistrer d\'abord l\'assurance pour pouvoir y attacher des documents.</div>';
   openM('ov-ass');
 }
 
@@ -21952,8 +21952,8 @@ function openMrh(id, prefLog) {
   // v15.157 — PJ : attestation MRH (uniquement sur une MRH déjà enregistrée)
   const _mc = el('mrh-att-container');
   if (_mc) _mc.innerHTML = id
-    ? _renderAttachmentSection({parentType:'mrh', parentId:parseInt(id), parentRef:(m.compagnie||'')+(m.numContrat?' '+m.numContrat:''), logRef:m.logement||null, category:'documents', title:'📎 Documents (attestation d’assurance habitation)', emptyText:'Attachez l\'attestation d\'assurance habitation du locataire…'})
-    : '<div class="mu sm" style="font-size:11.5px;padding:8px;background:var(--sur2);border-radius:6px">💾 Enregistrez d\'abord l’assurance habitation pour pouvoir y attacher l\'attestation.</div>';
+    ? _renderAttachmentSection({parentType:'mrh', parentId:parseInt(id), parentRef:(m.compagnie||'')+(m.numContrat?' '+m.numContrat:''), logRef:m.logement||null, category:'documents', title:'📎 Documents (attestation d’assurance habitation)', emptyText:'Attacher l\'attestation d\'assurance habitation du locataire…'})
+    : '<div class="mu sm" style="font-size:11.5px;padding:8px;background:var(--sur2);border-radius:6px">💾 Enregistrer d\'abord l’assurance habitation pour pouvoir y attacher l\'attestation.</div>';
   openM('ov-mrh');
 }
 
@@ -22564,7 +22564,7 @@ function _gfOuvrir(ref, opts) {
     // Ni règle ni calcul : un clic muet laisserait croire à une panne. On dit ce qui manque.
     showToast(rev && rev.missingKey
       ? `Révision non calculable : l'indice ${rev.missingKey} n'est pas encore publié par l'INSEE.`
-      : 'Révision non calculable pour ce lot — vérifie la date de début du bail et le trimestre IRL.',
+      : 'Révision non calculable pour ce lot — vérifier la date de début du bail et le trimestre IRL.',
       'info', 7000);
     return;
   }
@@ -23061,7 +23061,7 @@ function rIRLParams() {
     const m = meta[k] || {};
     const src = SRC[m.source] || SRC[(typeof IRL_DEFAULT !== 'undefined' && IRL_DEFAULT[k] === val) ? 'filet' : 'manuel'];
     const diverge = (m.divergence != null && Math.abs(m.divergence - val) >= 0.005)
-      ? `<span title="L'INSEE publie ${m.divergence} pour ce trimestre — ta valeur est conservée" style="color:var(--ora,#b27a12);font-size:11px"> ⚠ INSEE : ${fmtN(m.divergence)}</span>` : '';
+      ? `<span title="L'INSEE publie ${m.divergence} pour ce trimestre — la valeur saisie est conservée" style="color:var(--ora,#b27a12);font-size:11px"> ⚠ INSEE : ${fmtN(m.divergence)}</span>` : '';
     return `<tr>
     <td><b>${escHtml(k)}</b></td>
     <td class="num"><input class="edit-inp" type="number" step="0.01" value="${val}" onblur="updateIRL('${_lyQ(k)}',this.value)" style="width:100px;text-align:right"></td>
@@ -23085,7 +23085,7 @@ function rIRLParams() {
       && typeof DB.irlTable[k] === 'number' && Math.abs(m.divergence - DB.irlTable[k]) >= 0.005);
     dv.innerHTML = liste.length
       ? `<div style="background:rgba(217,119,6,.10);border:1px solid rgba(217,119,6,.35);border-radius:var(--rl);padding:9px 12px;margin-bottom:10px;font-size:12px;line-height:1.5">
-          ⚠ <b>${liste.length} valeur${liste.length > 1 ? 's' : ''} diverge${liste.length > 1 ? 'nt' : ''} de l'INSEE</b> — ta saisie est conservée, rien n'a été corrigé d'office :
+          ⚠ <b>${liste.length} valeur${liste.length > 1 ? 's' : ''} diverge${liste.length > 1 ? 'nt' : ''} de l'INSEE</b> — la saisie est conservée, rien n'a été corrigé d'office :
           ${liste.map(([k, m]) => `${escHtml(k)} : <b>${fmtN(DB.irlTable[k])}</b> ici, ${fmtN(m.divergence)} à l'INSEE`).join(' · ')}.
         </div>` : '';
   }
@@ -23557,14 +23557,14 @@ function _rgClotureLocataire(entryKey){
     }).join('');
     const avgPct=Math.round((n1.moyenne||0)/maxV*100);
     const barChart=`<div class="rgc-chart">${n1.moyenne!=null?`<div class="rgc-avg" style="bottom:${avgPct}%"></div><div class="rgc-avgl" style="bottom:${avgPct}%">moy. ${f(n1.moyenne)}</div>`:''}${bars}</div>`;
-    const spikeFlag = n1.spike ? `<div class="rgc-spike">${_uiIcon('warn',13)} N‑1 décroche vs les années précédentes — vérifie les gros postes ci‑dessous.</div>` : '';
+    const spikeFlag = n1.spike ? `<div class="rgc-spike">${_uiIcon('warn',13)} N‑1 décroche vs les années précédentes — vérifier les gros postes ci‑dessous.</div>` : '';
     const list = n1.moves.map((m,i)=>{
       const off=excl.has(m.key);
       return `<div class="rgc-mv${off?' off':''}"><label class="rgc-mvck"><input type="checkbox" data-ek="${escHtml(entryKey)}" data-idx="${i}" ${off?'':'checked'} onclick="_rgToggleExcl(this.dataset.ek,+this.dataset.idx)"><span class="rgc-mvl">${escHtml(m.lib||'(sans libellé)')}${m.date?` <span class="rgc-mvd">${fd(m.date)}</span>`:''}</span></label><span class="mono">${f(m.montant)}</span></div>`;
     }).join('');
-    chargeLines = `<div class="rgc-est">${_uiIcon('hourglass',13)} Charges réelles de l'année pas encore arrêtées → estimation sur l'historique, proratisée à l'occupation. Compare les années et décoche un poste exceptionnel.</div>
+    chargeLines = `<div class="rgc-est">${_uiIcon('hourglass',13)} Charges réelles de l'année pas encore arrêtées → estimation sur l'historique, proratisée à l'occupation. Comparer les années et décocher un poste exceptionnel.</div>
        ${barChart}${spikeFlag}
-       <div class="rgc-mvh">Dépenses N‑1 (${escHtml(n1.year)}) — décoche un poste isolé pour l'exclure de la base</div>
+       <div class="rgc-mvh">Dépenses N‑1 (${escHtml(n1.year)}) — décocher un poste isolé pour l'exclure de la base</div>
        ${list}
        <div class="rgc-l"><span>Base retenue (postes cochés)</span><span class="mono">${f(baseN1)}</span></div>
        <div class="rgc-l sub"><span>× prorata occupation${occNonForfait<occN?' hors forfait':''} — ${occNonForfait} j / ${winDays}</span><span class="mono">${f(estCharges)}</span></div>`;
@@ -23894,7 +23894,7 @@ function _departDeclarer(ref){
   const ov=_departOv();
   ov.innerHTML=`<div class="modal"><div class="m-head"><h3>${_uiIcon('flag')} Déclarer le départ — ${escHtml(ref)}</h3><button class="m-close" onclick="closeM('ov-depart')">✕</button></div>
     <div class="m-body dep-form">
-      <div class="mu sm" style="margin-bottom:14px;line-height:1.5">Locataire : <b>${escHtml(loc)}</b>. Renseigne le congé et la date de remise des clés ; l'assistant déroulera ensuite les étapes (EDL de sortie, retenues, restitution du dépôt de garantie, remise en location).</div>
+      <div class="mu sm" style="margin-bottom:14px;line-height:1.5">Locataire : <b>${escHtml(loc)}</b>. Renseigner le congé et la date de remise des clés ; l'assistant déroulera ensuite les étapes (EDL de sortie, retenues, restitution du dépôt de garantie, remise en location).</div>
       <div class="fg"><label>Congé donné par</label>
         <select class="inp" id="dep-conge-par" style="width:100%">
           <option value="locataire"${d.congePar!=='bailleur'?' selected':''}>Le locataire (congé reçu)</option>
@@ -23981,7 +23981,7 @@ function _departRenderStepper(ref){
         <div class="dep-acp-l"><span>− Provisions${e.acompte>0?' + acompte reçu':''} versées</span><span>${fmt(e.prov+e.acompte)}</span></div>
         <div class="dep-acp-l tot"><span>= Dû estimé</span><span class="neg">${fmt(e.du)}</span></div>
         ${e.applies20?`<div class="dep-acp-l"><span>Retenue possible sur le dépôt (20 %)</span><span>${fmt(e.couvertDG)}</span></div><div class="dep-acp-l"><span>Reste non couvert par le dépôt</span><span class="neg">${fmt(e.reste)}</span></div>`:''}
-        <div class="dep-acp-rc">${_uiIcon('bulb',14)} Le locataire est encore présent → demande-lui un <b>acompte de ${fmt(e.du)}</b> (le dû${e.estimated?' estimé':''}), imputé sur le décompte final. ${e.reste>0?`Sinon ~${fmt(e.reste)} resteraient non couverts par le dépôt après son départ.`:'Ça évite de retenir sur le dépôt (restitution plus rapide).'}</div>
+        <div class="dep-acp-rc">${_uiIcon('bulb',14)} Le locataire est encore présent → lui demander un <b>acompte de ${fmt(e.du)}</b> (le dû${e.estimated?' estimé':''}), imputé sur le décompte final. ${e.reste>0?`Sinon ~${fmt(e.reste)} resteraient non couverts par le dépôt après son départ.`:'Ça évite de retenir sur le dépôt (restitution plus rapide).'}</div>
         ${e.acompte>0?`<div class="dep-acp-ok">${_uiIcon('check',13)} Acompte déjà reçu : ${fmt(e.acompte)} (imputé sur le décompte)</div>`:''}
         ${d.acompteDemande
           ? `<div class="dep-acp-ok">${_uiIcon('check',13)} Acompte de ${fmt(d.acompteDemande.montant)} demandé le ${fd(d.acompteDemande.at)}${(Math.abs((d.acompteDemande.montant||0)-e.du)>1)?` <span style="color:var(--ora)">— estimation actuelle : ${fmt(e.du)}</span>`:''}</div>
@@ -24068,7 +24068,7 @@ function _departDemanderAcompte(ref, montant){
   bail.depart.acompteDemande = { montant:m, at:td() };
   if(typeof _stamp==='function') _stamp(bail);
   if(typeof saveDB==='function') saveDB();
-  if(typeof showToast==='function') showToast('Acompte de '+fmt(m)+' demandé — envoie la demande au locataire','ok',4500);
+  if(typeof showToast==='function') showToast('Acompte de '+fmt(m)+' demandé — envoyer la demande au locataire','ok',4500);
   const loc=(bail.locataires&&bail.locataires[0])||{};
   if(loc.email){
     const subj=encodeURIComponent('Acompte sur régularisation de charges — '+ref);
@@ -24105,7 +24105,7 @@ function _departMarquerAcompteRecu(ref, montant){
     if(typeof _affRender==='function') _affRender('mv','mv');
     if(el('mv-qui')) el('mv-qui').value=ref;                 // après : garantit la valeur lue par saveMv
   }catch(e){ if(window.console) console.warn('[acompte reçu prefill]',e); }
-  if(typeof showToast==='function') showToast('Vérifie le logement puis enregistre — catégorie « Acompte de charges (départ) »','ok',5500);
+  if(typeof showToast==='function') showToast('Vérifier le logement puis enregistrer — catégorie « Acompte de charges (départ) »','ok',5500);
 }
 
 // Phase 2 : ouvre la clôture (estimation + retenue) PRÉ-REMPLIE pour le locataire, depuis l'assistant —
@@ -24180,7 +24180,7 @@ function _rgShowGlobal(immNom){
   const sumForf=Math.round(entries.reduce((s,e)=>s+forfPart(e),0)*100)/100;
   const forfRow=sumForf>0.005?`<tr class="forf"><td class="c0">Part au forfait<small>charges non régularisables — ${escHtml(_rgForfaitRef(null).citation)}</small></td>${entries.map(e=>`<td class="num">${forfPart(e)?f(forfPart(e)):'<span class="z">—</span>'}</td>`).join('')}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${f(sumForf)}</td></tr>`:'';
   const validated=_rgIsValidated(immNom);
-  const banner=hasTrou?`<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${f(nonRep.total)} de charges non réparties</b> — corrige avant de valider cet immeuble</div></div>`:'';
+  const banner=hasTrou?`<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${f(nonRep.total)} de charges non réparties</b> — corriger avant de valider cet immeuble</div></div>`:'';
   // TÉLÉPHONE (≤767) : la matrice charge×lots (illisible en N colonnes) devient des CARTES-CHARGE
   // (répartition par lot) + récap par lot. Mêmes données pivot. PC (≥768) = matrice ci-dessous.
   if(_isPhone()){ _ensureRegulPhCss(); _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, validated, hasTrou, sumCharges, sumProv); return; }
@@ -24213,7 +24213,7 @@ function _rgShowGlobalPhone(immNom, entries, mvArr, bailPerMv, bail, nonRep, val
   const badge = validated
     ? `<span class="rg-badge-ok">${_uiIcon('check',13)} validé</span>`
     : `<span class="rgvg-bdg todo">${_uiIcon('warn',12)}À valider</span>`;
-  const banner = hasTrou ? `<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${f(nonRep.total)} de charges non réparties</b> — corrige avant de valider</div></div>` : '';
+  const banner = hasTrou ? `<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${f(nonRep.total)} de charges non réparties</b> — corriger avant de valider</div></div>` : '';
   const cards = mvArr.map(m=>{
     const clk=(m.mvId!=null);
     const rowSum=Math.round(Object.values(m.per).reduce((s,x)=>s+x,0)*100)/100;
@@ -24736,7 +24736,7 @@ function rRegul() {
         <td class="num rg-acts">
           <button class="btn bs bb" aria-expanded="false" aria-controls="${did}" onclick="event.stopPropagation();_rgToggleDet('${did}')" title="Voir les factures réparties sur ce locataire">${_uiIcon('receipt')} Détail</button>
           ${(parti && !r.isHistorique)?`<button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();_rgClotureLocataire(this.dataset.entryKey)" title="Clôturer ce locataire parti : estimation N‑1 + retenue dépôt de garantie">${_uiIcon('flag')} Clôturer</button>`:''}
-          <button class="btn bs bb" data-entry-key="${ekEsc}" ${imVal?'':'disabled'} onclick="event.stopPropagation();envoyerDecompteParEmail(this.dataset.entryKey)" title="${imVal?'Télécharger le décompte (PDF)':'Valide l’immeuble (Vue globale) avant d’envoyer'}">${_uiIcon('mail')} Envoyer</button>
+          <button class="btn bs bb" data-entry-key="${ekEsc}" ${imVal?'':'disabled'} onclick="event.stopPropagation();envoyerDecompteParEmail(this.dataset.entryKey)" title="${imVal?'Télécharger le décompte (PDF)':'Valider l’immeuble (Vue globale) avant d’envoyer'}">${_uiIcon('mail')} Envoyer</button>
           <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();openRegulDoc(this.dataset.entryKey)" title="Décompte détaillé (PDF)">${_uiIcon('doc-text')} Décompte</button></td></tr>`;
       body += `<tr class="rg-det ${cls}" id="${did}" data-ek="${ekEsc}" style="display:none"><td colspan="5">${_rgDetailLocHtml(r)}</td></tr>`;
     });
@@ -24941,7 +24941,7 @@ function _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, ba
         </div>
         <div class="rgph-acts">
           <button type="button" class="pri" data-ek="${ek}" onclick="openRegulDoc(this.dataset.ek)">${_uiIcon('doc-text',14)}Décompte</button>
-          <button type="button" data-ek="${ek}" ${imVal?'':'disabled title="Valide l\'immeuble (Vue globale) avant d\'envoyer"'} onclick="envoyerDecompteParEmail(this.dataset.ek)">${_uiIcon('mail',14)}Envoyer</button>
+          <button type="button" data-ek="${ek}" ${imVal?'':'disabled title="Valider l\'immeuble (Vue globale) avant d\'envoyer"'} onclick="envoyerDecompteParEmail(this.dataset.ek)">${_uiIcon('mail',14)}Envoyer</button>
         </div>
         <button type="button" class="rgph-detbtn" aria-expanded="false" onclick="_rgPhToggleDet(this)">${_uiIcon('receipt',14)}Détail des charges<span class="n">${nFac} facture${nFac>1?'s':''}</span></button>
         <div class="rgph-det" hidden>${_rgDetailLocHtml(r)}</div>
@@ -25104,12 +25104,12 @@ function _openRegulDoc(entryKeys, from, to) {
 // à demander les justificatifs (art. 23 al. 3 loi 89-462).
 function envoyerDecompteParEmail(entryKey) {
   if (typeof window._openEmailModal !== 'function') {
-    showToast('Module email non chargé — vérifie http-server (npx serve)', 'err', 6000);
+    showToast('Module email non chargé — vérifier http-server (npx serve)', 'err', 6000);
     return;
   }
   const from = window._regulFrom;
   const to = window._regulTo;
-  if (!from || !to) { showToast('Période régul manquante — lance le calcul d\'abord','err'); return; }
+  if (!from || !to) { showToast('Période régul manquante — lancer le calcul d\'abord','err'); return; }
   const result = computeRegul(from, to);
   const r = (result.entries || {})[entryKey];
   if (!r) { showToast('Entrée régul introuvable', 'err'); return; }
@@ -25158,7 +25158,7 @@ window._emailDecompteFromModal = function() {
   const keys = host && host._regulEntryKeys;
   if (!keys || !keys.length) { showToast('Aucun décompte sélectionné', 'err'); return; }
   if (keys.length > 1) {
-    showToast('Plusieurs baux dans ce décompte — envoi du premier (' + keys[0] + '). Pour les autres, utilisez la liste régul.', 'info', 4500);
+    showToast('Plusieurs baux dans ce décompte — envoi du premier (' + keys[0] + '). Pour les autres, utiliser la liste régul.', 'info', 4500);
   }
   envoyerDecompteParEmail(keys[0]);
 };

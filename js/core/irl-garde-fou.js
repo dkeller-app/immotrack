@@ -94,7 +94,7 @@ export function gardeFouRevision(rev, ctx) {
         + '<b>interdit l’augmentation du loyer</b> des logements F et G.',
       consequence: 'Une révision appliquée <b>n’est pas opposable au locataire</b> : il peut refuser '
         + 'de payer l’augmentation et réclamer le remboursement de ce qu’il aurait versé en trop. '
-        + 'La lettre part quand même si tu le décides.' + _moinsUnAn(r),
+        + 'La lettre part quand même sur décision du bailleur.' + _moinsUnAn(r),
       confirmation: 'J’ai compris que cette révision n’est pas opposable au locataire',
       cta: 'Réviser quand même'
     };
@@ -107,7 +107,7 @@ export function gardeFouRevision(rev, ctx) {
       titre: 'Réviser sans DPE renseigné',
       loi: 'Aucun DPE n’est saisi pour ce lot : l’app <b>ne peut pas vérifier</b> si le gel des '
         + 'logements F et G s’applique.',
-      consequence: 'Rien ne t’empêche de réviser. Mais si le logement s’avère classé F ou G, '
+      consequence: 'Rien n’empêche de réviser. Mais si le logement s’avère classé F ou G, '
         + 'l’augmentation ne sera pas opposable au locataire. '
         + '<b>Un garage, une cave ou un parking n’a pas de DPE par nature</b> — le gel ne les vise pas, '
         + 'aucune vérification n’est attendue.' + _moinsUnAn(r),

@@ -443,7 +443,7 @@ function _relancesEnvoyees(ref){
 function _quittanceActionEmail(ref, mois, emailType, ev) {
   if (ev) { try { ev.preventDefault(); ev.stopPropagation(); } catch(e){} }
   if (typeof window._openEmailModal !== 'function') {
-    showToast('Module email non chargé — vérifie http-server', 'err', 5000);
+    showToast('Module email non chargé — vérifier http-server', 'err', 5000);
     return;
   }
   const log = (DB.logements||[]).find(l => l.ref === ref);
@@ -471,7 +471,7 @@ function envoyerQuittanceParEmail(id) {
   const q = DB.quittances.find(x => x.id === id);
   if (!q) { showToast('Quittance introuvable', 'err'); return; }
   if (typeof window._openEmailModal !== 'function') {
-    showToast('Module email non chargé — vérifie http-server (npx serve)', 'err', 6000);
+    showToast('Module email non chargé — vérifier http-server (npx serve)', 'err', 6000);
     return;
   }
   const log = DB.logements.find(l => l.ref === q.logement);
@@ -1034,7 +1034,7 @@ function rLoyers() {
 
   if (typeof window.moisAQuittancer !== 'function') {
     host.innerHTML = `<div class="ly2 cft"><div class="ly2-blk t-info"><div class="ly2-empty"><b>Module Loyers non chargé</b>
-      Ouvre l'application via http (les modules ES ne se chargent pas en file://).</div></div></div>`;
+      Ouvrir l'application via http (les modules ES ne se chargent pas en file://).</div></div></div>`;
     return;
   }
 
@@ -2029,7 +2029,7 @@ function _qeLots() {
  */
 function _openFaireQuittance(ref) {
   if (typeof window === 'undefined' || typeof window.moisRailLot !== 'function') {
-    showToast("Module Loyers non chargé — ouvre l'app via http (npx http-server)", 'err', 6000); return;
+    showToast("Module Loyers non chargé — ouvrir l'app via http (npx http-server)", 'err', 6000); return;
   }
   const lots = _qeLots();
   if (!lots.length) {
@@ -2345,7 +2345,7 @@ function _qeRenderFoot() {
     const lbl = v.reedits.length ? `Rééditer la quittance ${moisLbl}`
       : moisLbl ? `Éditer la quittance ${moisLbl}`
       : 'Éditer la quittance';
-    foot.innerHTML = `<span class="rec">${moisNom ? `${escHtml(moisNom)} · <b>${fmt(v.total)}</b>` : 'Choisis un mois'}</span>
+    foot.innerHTML = `<span class="rec">${moisNom ? `${escHtml(moisNom)} · <b>${fmt(v.total)}</b>` : 'Choisir un mois'}</span>
       <span class="sp"></span>
       <button class="btn bs" onclick="_qeFermer()">Annuler</button>
       <button class="btn bp" id="qd-ok" onclick="_qeEditer()">✓ ${escHtml(lbl)}</button>`;
@@ -2382,7 +2382,7 @@ function _qeEnregistrerPaiement() {
   const ref = _qe.ref, ym = _qe.ym;
   _qeFermer();
   openNewMv();
-  if (ref) showToast(`Sélectionne « ${ref} »${ym ? ' — ' + window.ymToMoisFr(ym) : ''}`, 'info', 4000);
+  if (ref) showToast(`Sélectionner « ${ref} »${ym ? ' — ' + window.ymToMoisFr(ym) : ''}`, 'info', 4000);
 }
 
 /** V7 — la porte de sortie proposée dans le bandeau : le reçu partiel, en un clic. */
@@ -2401,7 +2401,7 @@ function _qeEditer() {
   if (_qe.libre) return _qeEditerLibre();
   const rail = _qeRail();
   const v = window.verdictEmission(rail, _qeSel());
-  if (!v.nbDocs) { showToast('Choisis un mois', 'err'); return; }
+  if (!v.nbDocs) { showToast('Choisir un mois', 'err'); return; }
   const forces = new Set(v.risques.map(m => m.ym));
   const faites = [], refusees = [];
   for (const ym of _qeSel()) {
@@ -2602,7 +2602,7 @@ function _buildIRLLetterHtml(log, bail, ent, rev, opts) {
     return {
       error: 'dpe-manquant',
       errorHtml: '<span class="mu">⚠️ DPE non renseigné — saisir le DPE sur la fiche du bien avant la révision IRL.</span>',
-      alertMsg: '⚠️ DPE non renseigné\n\nImpossible de générer la lettre de révision IRL : le diagnostic de performance énergétique (DPE) n\'est pas saisi pour ce bien.\n\nLa loi Climat 2021 impose de vérifier le DPE avant toute révision (les classes F et G sont gelées).\n\nVeuillez ouvrir la fiche du bien (onglet Diagnostics) et saisir le DPE avant de réessayer.'
+      alertMsg: '⚠️ DPE non renseigné\n\nImpossible de générer la lettre de révision IRL : le diagnostic de performance énergétique (DPE) n\'est pas saisi pour ce bien.\n\nLa loi Climat 2021 impose de vérifier le DPE avant toute révision (les classes F et G sont gelées).\n\nOuvrir la fiche du bien (onglet Diagnostics) et saisir le DPE avant de réessayer.'
     };
   }
   if (rev.gelDpeFG && !_force) {
@@ -2903,7 +2903,7 @@ function envoyerLettreIRLParEmail() {
   const ref = _letterRef;
   if (!ref) { showToast('Sélectionner d\'abord un logement avec révision IRL','err'); return; }
   if (typeof window._openEmailModal !== 'function') {
-    showToast('Module email non chargé — vérifie http-server (npx serve)', 'err', 6000);
+    showToast('Module email non chargé — vérifier http-server (npx serve)', 'err', 6000);
     return;
   }
   const ctx = _irlCtxEnvoi(ref);
@@ -3504,18 +3504,18 @@ function _renderOrphansCleanup() {
   if (!body) return;
   const { total, orphansByEntity, activeEntNames } = _auditOrphans();
   if (total === 0) {
-    body.innerHTML = `<div class="alert ok" style="margin:0">✅ Aucun rattachement orphelin détecté — toutes tes données sont rattachées à une entité active.</div>`;
+    body.innerHTML = `<div class="alert ok" style="margin:0">✅ Aucun rattachement orphelin détecté — toutes les données sont rattachées à une entité active.</div>`;
     return;
   }
   if (!activeEntNames.length) {
-    body.innerHTML = `<div class="alert err" style="margin:0">❌ Aucune entité active en DB. Crée d'abord une entité bailleur dans Référentiel → Bailleurs avant de réparer les orphelins.</div>`;
+    body.innerHTML = `<div class="alert err" style="margin:0">❌ Aucune entité active en DB. Créer d'abord une entité bailleur dans Référentiel → Bailleurs avant de réparer les orphelins.</div>`;
     return;
   }
   const optsHtml = activeEntNames.sort().map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
   let html = `
     <div class="mu sm mb12">
       <b>${total} rattachement(s) orphelin(s)</b> sur <b>${orphansByEntity.size} entité(s) inconnue(s)</b>.
-      Pour chaque entité orpheline, choisis : rattacher tous ses records à une entité active, ou les marquer supprimés (récupérable via tombstone Drive).
+      Pour chaque entité orpheline, choisir : rattacher tous ses records à une entité active, ou les marquer supprimés (récupérable via tombstone Drive).
     </div>
   `;
   let idx = 0;
@@ -3917,7 +3917,7 @@ function rEDLList() {
         <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="${_share ? 'Envoyer au locataire (WhatsApp, mail…)' : 'Télécharger le PDF (Enregistrer sous)'}">${_share ? _uiIcon('share')+'Partager' : _uiIcon('download')+'Télécharger'}</button>
         <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">${_uiIcon('trash')}Supprimer</button>
       </td></tr>`;
-  }).join('')||`<tr><td colspan="6" style="text-align:center;padding:44px 20px;color:var(--t3)">${_uiIcon('doc-text',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun état des lieux pour l'instant</b><span style="color:var(--t2);font-size:12.5px">Créez le premier à l'entrée ou à la sortie d'un locataire.</span><div style="margin-top:14px"><button class="btn bp bb" onclick="openNewEDL()">${_uiIcon('plus',14)} Nouvel EDL</button></div></td></tr>`;
+  }).join('')||`<tr><td colspan="6" style="text-align:center;padding:44px 20px;color:var(--t3)">${_uiIcon('doc-text',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun état des lieux pour l'instant</b><span style="color:var(--t2);font-size:12.5px">Créer le premier à l'entrée ou à la sortie d'un locataire.</span><div style="margin-top:14px"><button class="btn bp bb" onclick="openNewEDL()">${_uiIcon('plus',14)} Nouvel EDL</button></div></td></tr>`;
   _edlKickListUploads(list);
 }
 
@@ -7500,7 +7500,7 @@ async function uploadEDLPDFToDrive(id) {
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   // CLOUD-ONLY (Drive retiré) — archive le PDF EDL dans Supabase Storage. Clé déterministe par EDL
   // (`edlpdf_<id>`, upsert → la dernière version remplace). Pose `edl.cloudPdfKey` → bouton « 📄 PDF EDL ».
-  if (typeof window.__immoCloudUpload !== 'function') { showToast('Stockage cloud non prêt — réessayez', 'err'); return; }
+  if (typeof window.__immoCloudUpload !== 'function') { showToast('Stockage cloud non prêt — réessayer', 'err'); return; }
   showToast('⌛ Génération du PDF…', 'info', 30000);
   let _blobE;
   try { _blobE = await generateEDLPdfNative(edl); }
@@ -7509,7 +7509,7 @@ async function uploadEDLPDFToDrive(id) {
   const _keyE = 'edlpdf_' + id;
   const _okE = await window.__immoCloudUpload(_keyE, _blobE, 'application/pdf', _cloudEntiteSeg(_cloudEntiteNomForEdl(edl)));
   if (_okE) { edl.cloudPdfKey = _okE; if (typeof _stamp === 'function') _stamp(edl); saveDB(); if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation(); showToast('✓ PDF de l\'EDL sauvegardé dans le cloud', 'ok', 4000); if (typeof _backupProposeAfterDoc === 'function') _backupProposeAfterDoc(); }
-  else showToast('Sauvegarde du PDF EDL échouée — réessayez', 'err', 5000);
+  else showToast('Sauvegarde du PDF EDL échouée — réessayer', 'err', 5000);
 }
 
 /* Bouton ouvrir le dernier PDF EDL archivé (cloud). */
@@ -7517,7 +7517,7 @@ async function openLastEDLPDF(id) {
   const edl = DB.edl.find(e => e.id === id);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   // CLOUD-ONLY — ouvre le PDF EDL archivé dans Supabase Storage (fenêtre ouverte DANS le geste).
-  if (!edl.cloudPdfKey || typeof window.__immoCloudFileUrl !== 'function') { showToast('Aucun PDF cloud — génère-le avec « PDF EDL »', 'warn', 5000); return; }
+  if (!edl.cloudPdfKey || typeof window.__immoCloudFileUrl !== 'function') { showToast('Aucun PDF cloud — à générer avec « PDF EDL »', 'warn', 5000); return; }
   const _w = window.open('', '_blank');
   const _u = await window.__immoCloudFileUrl(edl.cloudPdfKey, 300);
   if (_u && _w) { _w.location.href = _u; } else { if (_w) { try { _w.close(); } catch (e) {} } showToast('PDF indisponible', 'err'); }
@@ -8105,7 +8105,7 @@ let _edlSyncCancelRequested = false;
 function _edlSyncCancel() {
   if (!_edlSyncing) return;
   _edlSyncCancelRequested = true;
-  showToast('⏹ Annulation demandée — patiente la fin de l\'upload en cours…', 'warn', 4000);
+  showToast('⏹ Annulation demandée — patienter jusqu\'à la fin de l\'upload en cours…', 'warn', 4000);
 }
 
 /* v14.39 EDL-AUDIT-CRITIQUE Phase 2 : propage synced=true + driveFileId vers
@@ -8353,12 +8353,12 @@ async function edlSyncDrive(forcedId, silentMode){
   }
   // v14.39 Phase 2 : mutex anti-concurrence (Bug 9 audit)
   if (_edlSyncing) {
-    if (!silentMode) showToast('☁️ Sync Drive déjà en cours, patiente quelques secondes…','warn',4000);
+    if (!silentMode) showToast('☁️ Sync Drive déjà en cours, patienter quelques secondes…','warn',4000);
     console.warn('[edlSyncDrive] mutex bloque (déjà en cours)');
     return;
   }
   const eid=forcedId||el('edl-edit-id').value;
-  if(!eid){showToast("Enregistrez d'abord l'EDL",'warn');return;}
+  if(!eid){showToast("Enregistrer d'abord l'EDL",'warn');return;}
   const edl=DB.edl.find(x=>x.id===parseInt(eid));if(!edl)return;
 
   _edlSyncing = true;
@@ -8843,7 +8843,7 @@ function _edlResetSignatureUI() {
   // Réouvrir l'EDL en mode édition pour rafraîchir l'UI déverrouillée
   closeM('ov-edl');
   setTimeout(() => openEditEDL(edl.id), 100);
-  showToast('🔓 Signature réinitialisée — vous pouvez modifier l\'EDL', 'warn', 5000);
+  showToast('🔓 Signature réinitialisée — modification de l\'EDL possible', 'warn', 5000);
 }
 function _edlCptRenderThumbs(key){
   const wrap=el('edl-cpt-'+key+'-thumbs');if(!wrap)return;
@@ -8987,8 +8987,8 @@ function saveEDL(opts){
     const type=_edlSortie?'Sortie':'Entrée';
     const date=_edlSortie?v('edl-date-sortie'):v('edl-date-entree');
     const log=v('edl-log');
-    if(!log){showToast('Sélectionnez un logement','err');return null;}
-    if(!date){showToast('Indiquez une date','err');return null;}
+    if(!log){showToast('Sélectionner un logement','err');return null;}
+    if(!date){showToast('Indiquer une date','err');return null;}
     // (Invariant 30 — l'avertissement de doublon a QUITTÉ cet endroit. Depuis le
     //  lot 1, la première persistance d'un EDL neuf est l'AUTOSAVE : elle crée le
     //  record et pose edl-edit-id, donc ce contrôle voyait toujours une mise à
@@ -9271,10 +9271,10 @@ function archiveLogement(ref) {
   const log = (DB.logements||[]).find(l=>l.ref===ref);
   if(!log) return;
   if(_bienActiveBail(ref)) {   // bail encore OUVERT (même départ déclaré passé) : le clôturer d'abord
-    showToast('Terminez d\'abord le bail en cours avant d\'archiver','err');
+    showToast('Terminer d\'abord le bail en cours avant d\'archiver','err');
     return;
   }
-  if(!confirm2(`Archiver le bien ${ref} ?\n\nVous pourrez le restaurer à tout moment depuis l'onglet "Biens archivés". L'historique (baux, mouvements, EDL, quittances) sera intégralement conservé.`)) return;
+  if(!confirm2(`Archiver le bien ${ref} ?\n\nRestauration possible à tout moment depuis l'onglet "Biens archivés". L'historique (baux, mouvements, EDL, quittances) sera intégralement conservé.`)) return;
   log.archived = true;
   log.archivedAt = td();
   _stamp(log);
@@ -9382,7 +9382,7 @@ function openBiensAdd() {
 function openNewImm() {
   const ents = DB.entites || [];
   if(!ents.length) {
-    showToast('Créez d\'abord un bailleur, puis ajoutez-lui des immeubles', 'info', 3500);
+    showToast('Créer d\'abord un bailleur, puis lui ajouter des immeubles', 'info', 3500);
     openNewEnt();
     return;
   }
@@ -11095,7 +11095,7 @@ function rEntFiche() {
     ${_renderFichePastilles('ent:' + (+ent.id), [
       { id: 'identite', label: 'Coordonnées & identité juridique', html: _renderEntIdentitePastille(ent) },
       { id: 'docs', label: 'Documents', count: _attCount('entite', ent.id, 'documents'),
-        html: _renderAttachmentSection({parentType:'entite', parentId:ent.id, parentRef:ent.nom, category:'documents', title:'' + _uiIcon('doc') + ' Documents juridiques', emptyText:'Aucun document. Ajoutez K-bis, statuts SCI, RIB, mandats, attestations…'}) }
+        html: _renderAttachmentSection({parentType:'entite', parentId:ent.id, parentRef:ent.nom, category:'documents', title:'' + _uiIcon('doc') + ' Documents juridiques', emptyText:'Aucun document. Ajouter K-bis, statuts SCI, RIB, mandats, attestations…'}) }
     ], 'rEntFiche')}
     <!-- PC-REFONTE — un ruban d'onglets à 1 seul item = bruit inutile → simple titre de section. -->
     <div class="ct" style="display:flex;align-items:center;gap:8px;margin:0 0 4px;padding-bottom:8px;border-bottom:1px solid var(--bor)">${_uiIcon('building',18)} Immeubles (${nbImms})</div>
@@ -11109,7 +11109,7 @@ function rEntFiche() {
           : `<div class="biens-empty">
               <div class="biens-empty-icon">${_uiIcon('building',44)}</div>
               <div class="biens-empty-title">Ce bailleur n'a pas encore d'immeuble</div>
-              <div class="biens-empty-msg">Ajoutez le premier immeuble pour commencer le suivi.</div>
+              <div class="biens-empty-msg">Ajouter le premier immeuble pour commencer le suivi.</div>
               <button class="btn bp" onclick="addImmForm(${+ent.id})">+ Ajouter un immeuble</button>
             </div>`
         }
@@ -11443,7 +11443,7 @@ function _wizard2044Prev() {
 }
 
 function _wizard2044ResetMapping() {
-  if(!confirm2('Restaurer le mapping par défaut ? Tes choix actuels seront écrasés.')) return;
+  if(!confirm2('Restaurer le mapping par défaut ? Les choix actuels seront écrasés.')) return;
   _wiz2044.mappingDraft = _default2044Mapping();
   _renderWizard2044();
 }
@@ -11455,7 +11455,7 @@ function _renderWiz2044Step1(ent) {
   const activeLogs = (DB.logements||[]).filter(_isAlive).filter(l => l.entity === ent.nom && !l.archived);
   return `
     <div style="padding:10px 0">
-      <p>Cette assistance prépare la <b>déclaration des revenus fonciers</b> (CERFA 2044) à partir de tes mouvements Propryo.</p>
+      <p>Cette assistance prépare la <b>déclaration des revenus fonciers</b> (CERFA 2044) à partir des mouvements Propryo.</p>
       <div class="fg" style="max-width:200px"><label>Année déclarée *</label>
         <select class="inp" id="wiz2044-year">${yrOpts}</select>
       </div>
@@ -11468,7 +11468,7 @@ function _renderWiz2044Step1(ent) {
         </ul>
       </div>
       <div style="background:#fffbf0;border:1px solid #f59e0b44;border-radius:8px;padding:12px 14px;margin-top:14px;font-size:12px">
-        <b>⚠ Avertissement</b> — Propryo n'est pas un logiciel comptable agréé. Les valeurs proposées sont <b>indicatives</b>. Vérifie avec ton centre des impôts ou un expert-comptable avant de déclarer.
+        <b>⚠ Avertissement</b> — Propryo n'est pas un logiciel comptable agréé. Les valeurs proposées sont <b>indicatives</b>. Vérifier avec le centre des impôts ou un expert-comptable avant de déclarer.
       </div>
     </div>`;
 }
@@ -11510,8 +11510,8 @@ function _renderWiz2044Step2() {
   }).join('');
 
   return `
-    <p>Les <b>catégories standard</b> sont mappées automatiquement (sourcées notice CERFA 2044 - DGFP). Tu n'as à mapper que tes <b>catégories personnalisées</b>.</p>
-    <p class="mu sm" style="font-size:11px">${_uiIcon('bulb',13)} Le mapping est mémorisé (DB.params.legal2044Mapping) — tu n'auras pas à le refaire chaque année.</p>
+    <p>Les <b>catégories standard</b> sont mappées automatiquement (sourcées notice CERFA 2044 - DGFP). Seules les <b>catégories personnalisées</b> sont à mapper.</p>
+    <p class="mu sm" style="font-size:11px">${_uiIcon('bulb',13)} Le mapping est mémorisé (DB.params.legal2044Mapping) — inutile de le refaire chaque année.</p>
 
     <details style="margin:14px 0" ${stdCats.length<8?'open':''}>
       <summary style="cursor:pointer;padding:6px 10px;background:#3b82f622;border:1px solid #3b82f644;border-radius:6px;font-size:12px"><b>${_uiIcon('lock')} Mapping standard (${stdCats.length} catégories pré-câblées)</b></summary>
@@ -11524,14 +11524,14 @@ function _renderWiz2044Step2() {
     <div style="margin-top:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bor)">
         <span style="font-size:14px">${_uiIcon('edit')}</span>
-        <b style="font-size:13px">Mapping de tes catégories personnalisées <span class="mu sm" style="font-weight:400">(${customCats.length})</span></b>
+        <b style="font-size:13px">Mapping des catégories personnalisées <span class="mu sm" style="font-weight:400">(${customCats.length})</span></b>
       </div>
       ${customCats.length
         ? `<table class="tbl" id="wiz2044-mapping" style="font-size:12px">
             <thead><tr><th>Catégorie Propryo</th><th>Ligne 2044 à choisir</th></tr></thead>
             <tbody>${customRows}</tbody>
           </table>`
-        : '<p class="mu sm" style="font-style:italic;text-align:center;padding:14px;background:var(--bg2);border-radius:6px">Aucune catégorie personnalisée. Tu peux en créer dans Paramètres → Catégories.</p>'}
+        : '<p class="mu sm" style="font-style:italic;text-align:center;padding:14px;background:var(--bg2);border-radius:6px">Aucune catégorie personnalisée. Création possible dans Paramètres → Catégories.</p>'}
     </div>
 
     <details style="margin-top:14px">
@@ -11559,7 +11559,7 @@ function _renderWiz2044Step3(ent, data) {
   const unmappedHtml = unmapped.mvts.length
     ? `<div style="background:#fffbf0;border:1px solid #f59e0b44;border-radius:8px;padding:12px 14px;margin-top:14px">
         <b style="font-size:12px">${_uiIcon('warn')} ${unmapped.mvts.length} mouvement${unmapped.mvts.length>1?'s':''} sans ligne 2044 (${fmt(unmapped.total)})</b>
-        <p class="mu sm" style="font-size:11px;margin:6px 0">Retourne à l'étape 2 pour les mapper.</p>
+        <p class="mu sm" style="font-size:11px;margin:6px 0">Retourner à l'étape 2 pour les mapper.</p>
       </div>` : '';
   return `
     ${_legal2044PerimetreHtml(data)}
@@ -11598,7 +11598,7 @@ function _renderWiz2044Step4(ent, data) {
         <li>Intérêts ligne 250 : <b>${fmt(data.totaux.interets250)}</b></li>
         <li><b>Résultat foncier : ${data.resultat>=0?'+':''}${fmt(data.resultat)}</b> ${data.resultat>=0?'(à reporter case BBA/BBB)':'(déficit — case BAB / BAA selon le cas)'}</li>
       </ul>
-      <p class="mu sm" style="font-size:11px;margin-top:10px;font-style:italic">Le PDF récap reprend toutes les lignes + le détail des mouvements pour justification. Tu peux ensuite recopier les valeurs dans ton CERFA 2044 officiel (impots.gouv.fr).</p>
+      <p class="mu sm" style="font-size:11px;margin-top:10px;font-style:italic">Le PDF récap reprend toutes les lignes + le détail des mouvements pour justification. Les valeurs peuvent ensuite être recopiées dans le CERFA 2044 officiel (impots.gouv.fr).</p>
     </div>`;
 }
 
@@ -11665,13 +11665,13 @@ function _print2044(entId, year) {
   const legalNote = `
     <div style="margin-top:30px;padding:10px 14px;border:1px solid #bbb;border-radius:4px;font-size:9.5px;color:#555;line-height:1.6;background:#fafafa">
       <b>Mentions importantes</b><br>
-      • Document généré par <b>Propryo</b> à partir des mouvements bancaires saisis. Valeurs <b>indicatives</b> à vérifier avec ton centre des impôts ou un expert-comptable agréé.<br>
+      • Document généré par <b>Propryo</b> à partir des mouvements bancaires saisis. Valeurs <b>indicatives</b> à vérifier avec le centre des impôts ou un expert-comptable agréé.<br>
       • La ligne 225 inclut automatiquement les charges restées à charge bailleur (vacances + logements exclus du poste de charge), calculées par le moteur de régularisation.<br>
-      • Cette synthèse <b>ne remplace pas</b> le formulaire CERFA 2044 officiel. Recopie les totaux dans ton formulaire (impots.gouv.fr → déclaration en ligne).<br>
-      • Conserve les pièces justificatives (factures, baux, contrats, relevés bancaires) pendant 6 ans (art. L102 B LPF).
+      • Cette synthèse <b>ne remplace pas</b> le formulaire CERFA 2044 officiel. Recopier les totaux dans le formulaire (impots.gouv.fr → déclaration en ligne).<br>
+      • Conserver les pièces justificatives (factures, baux, contrats, relevés bancaires) pendant 6 ans (art. L102 B LPF).
     </div>`;
   const win = window.open('', '_blank');
-  if(!win) { showToast('Popup bloquée — autorise les pop-ups pour ce site','err'); return; }
+  if(!win) { showToast('Popup bloquée — autoriser les pop-ups pour ce site','err'); return; }
   // DOCS-UNIFIES — ce récapitulatif est remis à un tiers (comptable, centre des impôts) :
   // il prend la coquille du gabarit unique — bandeau d'identité, titre, ligne de contexte,
   // pied. Les tableaux CERFA ne sont PAS re-composés : leurs colonnes de chiffres et leurs
@@ -11760,14 +11760,14 @@ function _renderBiensModeBailleurs(wrap, cntEl) {
       wrap.innerHTML = `<div class="biens-empty">
         <div class="biens-empty-icon">${_uiIcon('archive',44)}</div>
         <div class="biens-empty-title">Aucun bailleur n'a de bien archivé</div>
-        <div class="biens-empty-msg">Les bailleurs n'apparaissent ici que s'ils ont au moins 1 bien archivé. Pour archiver un bien, ouvre sa fiche et utilise le menu ⋮.</div>
+        <div class="biens-empty-msg">Les bailleurs n'apparaissent ici que s'ils ont au moins 1 bien archivé. Pour archiver un bien, ouvrir sa fiche et utiliser le menu ⋮.</div>
         <button class="btn bs" onclick="setBiensTab('actifs')">← Retour aux bailleurs actifs</button>
       </div>`;
     } else {
       wrap.innerHTML = `<div class="biens-empty">
         <div class="biens-empty-icon">${_uiIcon('building',44)}</div>
         <div class="biens-empty-title">Aucun bailleur enregistré</div>
-        <div class="biens-empty-msg">Créez votre première entité juridique propriétaire (SCI, particulier, indivision…) pour commencer.</div>
+        <div class="biens-empty-msg">Créer la première entité juridique propriétaire (SCI, particulier, indivision…) pour commencer.</div>
         <button class="btn bp" onclick="openNewEnt()">+ Ajouter un bailleur</button>
       </div>`;
     }
@@ -11777,7 +11777,7 @@ function _renderBiensModeBailleurs(wrap, cntEl) {
     if(cntEl) cntEl.textContent = `0 résultat sur ${totalEnts}`;
     wrap.innerHTML = `<div class="biens-empty">
       <div class="biens-empty-icon">${_uiIcon('search',44)}</div>
-      <div class="biens-empty-title">Aucun bailleur ne correspond à votre recherche</div>
+      <div class="biens-empty-title">Aucun bailleur ne correspond à la recherche</div>
       <button class="btn bs" onclick="clearBiensFilters()">${_uiIcon('refresh')} Réinitialiser</button>
     </div>`;
     return;
@@ -11856,7 +11856,7 @@ function rBiens() {
     wrap.innerHTML = `<div class="biens-empty">
       <div class="biens-empty-icon">${_uiIcon('home',44)}</div>
       <div class="biens-empty-title">Aucun bien enregistré</div>
-      <div class="biens-empty-msg">Commencez par ajouter votre premier logement pour visualiser votre patrimoine en cartes.</div>
+      <div class="biens-empty-msg">Commencer par ajouter le premier logement pour visualiser le patrimoine en cartes.</div>
       <!-- FIL-ROUGE FIDÉLITÉ (trouvé au vrai clic) : cet empty-state ouvrait la modale logement
            BRUTE (openNewLog) sans bailleur ni immeuble existants — « + Ajouter un bien » doit
            lancer le parcours guidé partout (mockup validé). -->
@@ -11882,8 +11882,8 @@ function rBiens() {
     if(cnt) cnt.textContent = `0 résultat sur ${pool.length}`;
     wrap.innerHTML = `<div class="biens-empty">
       <div class="biens-empty-icon">${_uiIcon('search',44)}</div>
-      <div class="biens-empty-title">Aucun bien ne correspond à vos filtres</div>
-      <div class="biens-empty-msg">Modifiez la recherche ou réinitialisez les filtres.</div>
+      <div class="biens-empty-title">Aucun bien ne correspond aux filtres</div>
+      <div class="biens-empty-msg">Modifier la recherche ou réinitialiser les filtres.</div>
       <button class="btn bs" onclick="clearBiensFilters()">${_uiIcon('refresh')} Réinitialiser les filtres</button>
     </div>`;
     return;
@@ -13499,7 +13499,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
     ${banner}
     <div class="logf-doc-empty">
       Aucun poste de charge enregistré pour cet immeuble.
-      <div class="mu sm" style="margin-top:6px">Saisissez ici les <b>postes de charges</b> de l'immeuble (eau, chauffage collectif, électricité des parties communes, ascenseur, entretien…) pour calculer automatiquement la quote-part de chaque logement à la régularisation annuelle. <b>Sans règle particulière, un poste est réparti au prorata (parts égales)</b> ; on ne définit une clé (tantièmes, surface, sous-compteur…) que pour les postes qui le méritent.</div>
+      <div class="mu sm" style="margin-top:6px">Saisir ici les <b>postes de charges</b> de l'immeuble (eau, chauffage collectif, électricité des parties communes, ascenseur, entretien…) pour calculer automatiquement la quote-part de chaque logement à la régularisation annuelle. <b>Sans règle particulière, un poste est réparti au prorata (parts égales)</b> ; on ne définit une clé (tantièmes, surface, sous-compteur…) que pour les postes qui le méritent.</div>
       <div style="margin-top:10px"><button class="btn bp bb" onclick="openNewCcForImm(${entIdSafe},${immIdSafe})">+ Premier poste de charge</button></div>
     </div>`
     + _renderImmRelevesLogements(activeLogs, archivedLogs);
@@ -13720,9 +13720,9 @@ function openCcFormModal(entId, immId, ccIdx) {
               <span class="mu sm" style="font-size:11px;align-self:center;margin-left:6px">${logsImm.length} logement${logsImm.length>1?'s':''} dans cet immeuble</span>
             </div>
             <div id="cc-form-logs" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;padding:4px;border:1px solid var(--bor);border-radius:6px">
-              ${checkboxesHtml || '<p class="mu sm" style="padding:10px;text-align:center">Aucun logement dans cet immeuble. Crée d\'abord les logements.</p>'}
+              ${checkboxesHtml || '<p class="mu sm" style="padding:10px;text-align:center">Aucun logement dans cet immeuble. Créer d\'abord les logements.</p>'}
             </div>
-            <div class="mu sm" style="margin-top:6px;font-size:11px">${_uiIcon('bulb',13)} Décoche un logement pour l'exclure de ce poste (ex : garage non chauffé pour le chauffage).</div>
+            <div class="mu sm" style="margin-top:6px;font-size:11px">${_uiIcon('bulb',13)} Décocher un logement pour l'exclure de ce poste (ex : garage non chauffé pour le chauffage).</div>
           </div>
 
           <div class="fg">
@@ -13818,7 +13818,7 @@ function _ccCompRenderTotal() {
   const total = rows.reduce((s,r) => s + (parseFloat((r.querySelector('.cc-comp-pct')||{}).value) || 0), 0);
   const box = document.getElementById('cc-form-comp-total'); if(!box) return;
   const ok = Math.abs(total - 100) < 0.01 && rows.length >= 2;
-  box.innerHTML = `Total : <b style="color:${ok?'var(--grn)':'var(--red,#d23f3f)'}">${total}%</b> ${ok?'' + _uiIcon('check') + '':(rows.length<2?'· ajoute au moins 2 clés':'· doit faire 100 %')}`;
+  box.innerHTML = `Total : <b style="color:${ok?'var(--grn)':'var(--red,#d23f3f)'}">${total}%</b> ${ok?'' + _uiIcon('check') + '':(rows.length<2?'· ajouter au moins 2 clés':'· doit faire 100 %')}`;
 }
 function _ccCompInit(composition) {
   const rows = document.getElementById('cc-form-comp-rows'); if(!rows) return;
@@ -13928,7 +13928,7 @@ function openCcAddTypeModal() {
         </div>
         <div class="m-body">
           <p class="mu sm" style="margin-bottom:10px">
-            Crée un type personnalisé pour répartir des charges récurrentes spécifiques
+            Créer un type personnalisé pour répartir des charges récurrentes spécifiques
             (entretien gouttières, ramonage, contrat dératisation, etc.).
             Ce type sera disponible dans toutes les modales compteur.
           </p>
@@ -13936,7 +13936,7 @@ function openCcAddTypeModal() {
             <input class="inp" id="cc-newtype-label" placeholder="Ex : Entretien gouttières">
           </div>
           <div class="fg">
-            <label>Icône — choisis ci-dessous ou tape un emoji</label>
+            <label>Icône — choisir ci-dessous ou taper un emoji</label>
             <div id="cc-newtype-icons-grid" style="display:grid;grid-template-columns:repeat(8,38px);gap:6px;margin:6px 0 8px">
               ${iconsGrid}
             </div>
@@ -14592,7 +14592,7 @@ function _renderMvForLog(ref, year) {
  */
 function _renderEtat12Mois(ref, year) {
   if (typeof window === 'undefined' || typeof window.moisRailLot !== 'function') {
-    return `<div class="compta-empty">Module Loyers non chargé — ouvre l'app via http.</div>`;
+    return `<div class="compta-empty">Module Loyers non chargé — ouvrir l'app via http.</div>`;
   }
   const etat = _loyerEtatLot(ref);
   if (!etat) return `<div class="compta-empty">Aucun suivi de loyer pour ce logement.</div>`;
@@ -15180,11 +15180,11 @@ function _histoSaveCorrPeriode(){
   const _bailDebutCorr = (typeof window._baremeChapitrePour === 'function')
     ? window._baremeChapitrePour(DB.loyerBareme||[], ref, debut, _bauxCorr) : '';
   if(!_bailDebutCorr){
-    showToast(`Aucun bail de ${ref} ne couvre le ${fd(debut)} : cette période ne peut être rattachée à aucun locataire. Vérifiez la date de début.`,'err',8000);
+    showToast(`Aucun bail de ${ref} ne couvre le ${fd(debut)} : cette période ne peut être rattachée à aucun locataire. Vérifier la date de début.`,'err',8000);
     return;
   }
   if(String(debut).slice(0,10) < _bailDebutCorr){
-    showToast(`Cette période commencerait le ${fd(debut)}, avant le début du bail (${fd(_bailDebutCorr)}) : elle appartiendrait au locataire précédent. Corrigez la date de début.`,'err',8000);
+    showToast(`Cette période commencerait le ${fd(debut)}, avant le début du bail (${fd(_bailDebutCorr)}) : elle appartiendrait au locataire précédent. Corriger la date de début.`,'err',8000);
     return;
   }
   // R1 (re-audit 17/07) : fin < debut → cloturerPeriodeParDebut no-op silencieux → la
@@ -15199,7 +15199,7 @@ function _histoSaveCorrPeriode(){
     if(!p||p._deleted||String(p.ref||'').trim().toLowerCase()!==String(ref).trim().toLowerCase()) return m;
     const d=String(p.debut||'').slice(0,10); return d>m?d:m; },'');
   if(!fin && _dernierDebutVivant && String(debut).slice(0,10) <= _dernierDebutVivant){
-    showToast(`Cette correction commence avant la dernière période du barème (${fd(_dernierDebutVivant)}) : indiquez une date de FIN, sinon deux périodes resteraient ouvertes.`,'err',7000);
+    showToast(`Cette correction commence avant la dernière période du barème (${fd(_dernierDebutVivant)}) : indiquer une date de FIN, sinon deux périodes resteraient ouvertes.`,'err',7000);
     return;
   }
   if(typeof window!=='undefined' && typeof window._baremeAppliquerNouvellePeriode==='function'){
@@ -15249,7 +15249,7 @@ function _renderLogFichePanelCompta(log, ref) {
         <select class="inp" style="width:100px" onchange="setLogFicheComptaYear(this.value)">${yearOpts}</select>
       </div>
       <div class="compta-toolbar-right">
-        <button class="btn bs bb" onclick="openNewMv();showToast('Pensez à sélectionner « ${escHtml(ref)} » dans le champ Logement','info',4000)">+ Mouvement</button>
+        <button class="btn bs bb" onclick="openNewMv();showToast('Penser à sélectionner « ${escHtml(ref)} » dans le champ Logement','info',4000)">+ Mouvement</button>
         <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(ref)}')">＋ Faire une quittance</button>
         <button class="btn bs bb" onclick="_goFromLogFiche('mouvements')" title="Voir tous les mouvements dans l'onglet">↗ Onglet Mouvements</button>
       </div>
@@ -17017,11 +17017,11 @@ function _buildDdtRecapHTML(log) {
       <div style="font-size:10.5px;color:#666;line-height:1.6;padding:10px 12px;background:#f9fafb;border-radius:6px;border-left:3px solid #1a4b8c">
         <strong>Cadre légal</strong> : Le Dossier de diagnostic technique est obligatoire selon la loi 89-462 art. 3-3 et doit être annexé au bail à la signature. L'absence ou la péremption d'un diagnostic applicable peut entraîner la nullité du bail.<br>
         <strong>Auto-détection</strong> : Les diagnostics CREP, Amiante, Gaz, Élec, Termites, Mérule et Bruit aérien sont automatiquement marqués applicables ou non en fonction de l'année de construction du logement et des zones réglementaires déclarées.<br>
-        <strong>Limite</strong> : Ce récap atteste de la complétude de vos diagnostics côté gestion. Les PDFs source de chaque diagnostic doivent être joints individuellement au bail.
+        <strong>Limite</strong> : Ce récap atteste de la complétude des diagnostics côté gestion. Les PDFs source de chaque diagnostic doivent être joints individuellement au bail.
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.737 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.738 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17050,7 +17050,7 @@ function _ddtShowIncompletModal(ddt, ref) {
         <div style="font-size:24px;line-height:1">🛑</div>
         <div style="flex:1">
           <div style="font-weight:800;font-size:13.5px;margin-bottom:3px">État des Risques ${erpFlag} — régénération gratuite</div>
-          <div style="font-size:12px;line-height:1.5">Contrairement aux autres diagnostics, vous le <strong>régénérez vous-même, gratuitement, sans diagnostiqueur</strong> sur ERRIAL (Art. L.125-5 C. env.).</div>
+          <div style="font-size:12px;line-height:1.5">Contrairement aux autres diagnostics, le bailleur le <strong>régénère lui-même, gratuitement, sans diagnostiqueur</strong>, sur ERRIAL (Art. L.125-5 C. env.).</div>
           <a href="https://errial.georisques.gouv.fr/" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;margin-top:9px;font-size:12px;font-weight:700;border-radius:8px;padding:7px 14px;border:1px solid #b91c1c;background:#dc2626;color:#fff;text-decoration:none">↻ Régénérer sur ERRIAL (gratuit)</a>
         </div>
       </div>` : '';
@@ -17074,8 +17074,8 @@ function _ddtShowIncompletModal(ddt, ref) {
       </div>
       ${erpEncart}
       <div class="mu sm" style="margin-top:8px;padding:8px 12px;background:var(--sur2);border-radius:var(--rl);font-size:11.5px;line-height:1.5">
-        💡 Vous pouvez <strong>continuer la sauvegarde</strong> du bail mais cette action sera tracée
-        dans l'audit-trail (RGPD-compliant). En cas de contrôle, l'engagement reste à votre charge.
+        💡 La <strong>sauvegarde du bail</strong> reste possible, mais cette action sera tracée
+        dans l'audit-trail (RGPD-compliant). En cas de contrôle, l'engagement reste à la charge du bailleur.
       </div>`;
   }
   const refField = el('ov-ddt-incomplet-ref');
@@ -17203,7 +17203,7 @@ async function _ddtRecapPDF() {
     // Cadre légal — mots repris à l'identique de l'aperçu _buildDdtRecapHTML
     const legende = "Cadre légal : Le Dossier de diagnostic technique est obligatoire selon la loi 89-462 art. 3-3 et doit être annexé au bail à la signature. L'absence ou la péremption d'un diagnostic applicable peut entraîner la nullité du bail.\n"
       + "Auto-détection : Les diagnostics CREP, Amiante, Gaz, Élec, Termites, Mérule et Bruit aérien sont automatiquement marqués applicables ou non en fonction de l'année de construction du logement et des zones réglementaires déclarées.\n"
-      + "Limite : Ce récap atteste de la complétude de vos diagnostics côté gestion. Les PDFs source de chaque diagnostic doivent être joints individuellement au bail.";
+      + "Limite : Ce récap atteste de la complétude des diagnostics côté gestion. Les PDFs source de chaque diagnostic doivent être joints individuellement au bail.";
     y = PN.newPageIfNeeded(pdf, y, 34);
     y = PN.drawText(pdf, legende, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED }) + 2;
     // Pied (mêmes mots que l'aperçu, hors numéro de version géré par le pilotage)
@@ -17367,7 +17367,7 @@ function _renderAttachmentSection(opts) {
     parentType, parentId, parentRef, logRef,
     category = 'documents',
     title = '📎 Documents libres',
-    emptyText = 'Aucun document attaché. Cliquez « + Ajouter » pour téléverser une PJ.',
+    emptyText = 'Aucun document attaché. Cliquer « + Ajouter » pour téléverser une PJ.',
     accept = 'application/pdf,image/*,.doc,.docx,.xls,.xlsx'
   } = opts || {};
   if (!parentType || parentId == null) return '';
@@ -17637,7 +17637,7 @@ function _renderLogFichePanelPhotos(log, ref) {
 
   if (!photos.length) {
     return header + `<div class="logf-doc-empty" style="padding:32px;text-align:center;color:var(--t2);background:var(--sur2);border-radius:6px">
-      ${_uiIcon('camera',28)} Aucune photo. Téléversez des photos pour illustrer ce logement.
+      ${_uiIcon('camera',28)} Aucune photo. Téléverser des photos pour illustrer ce logement.
       <br><span class="mu sm" style="font-size:11px">Compression auto si > 2 Mo · stockage Drive 🖼️ Photos/ du logement</span>
     </div>`;
   }
@@ -17917,7 +17917,7 @@ function _renderLogFichePanelDocuments(log, ref) {
     logRef: ref,
     category: 'documents',
     title: '' + _uiIcon('attach') + ' Documents libres',
-    emptyText: 'Aucun document libre. Téléversez DPE, ERP, plans, acte de propriété, etc.'
+    emptyText: 'Aucun document libre. Téléverser DPE, ERP, plans, acte de propriété, etc.'
   });
   sections.push({ title: '' + _uiIcon('attach') + ' Documents libres', icon: '📎', html: attHtml });
 
@@ -18286,8 +18286,8 @@ function openCompteursInitModal(ref) {
         </div>
         <div class="m-body">
           <p class="mu sm" style="margin-bottom:12px">
-            Saisis l'<b>index actuel</b> des compteurs présents dans le logement à la date du relevé.
-            Laisse vide les compteurs absents. Tu pourras saisir les relevés suivants 1 par 1 plus tard.
+            Saisir l'<b>index actuel</b> des compteurs présents dans le logement à la date du relevé.
+            Laisser vide les compteurs absents. Les relevés suivants pourront être saisis 1 par 1 plus tard.
           </p>
           <div class="fg" style="margin-bottom:14px">
             <label>Date du relevé initial</label>
@@ -18559,7 +18559,7 @@ function _renderLogFichePanelEDL(log, ref) {
       <div class="logf-edl-tpl-icon">${_uiIcon('doc',24)}</div>
       <div class="logf-edl-tpl-info">
         <div class="logf-edl-tpl-title">Aucun template EDL pour ce logement</div>
-        <div class="logf-edl-tpl-meta">À la création d'un EDL, sauvegardez la structure des pièces/éléments comme template pour ne pas tout re-saisir au prochain locataire.</div>
+        <div class="logf-edl-tpl-meta">À la création d'un EDL, sauvegarder la structure des pièces/éléments comme template pour ne pas tout re-saisir au prochain locataire.</div>
       </div>
     </div>`;
   }
@@ -19655,7 +19655,7 @@ function rImmFiche() {
       { id: 'incidents', label: 'Incidents des parties communes', count: (typeof _incCountImm === 'function' ? _incCountImm(im, ent) : 0),
         html: (typeof _renderIncidentsForImm === 'function') ? _renderIncidentsForImm(ent, im) : '' },
       { id: 'docs', label: 'Documents', count: _attCount('immeuble', im.id, 'documents'),
-        html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'documents', title:'' + _uiIcon('doc') + ' Documents communs', emptyText:'Aucun document. Ajoutez règlement de copropriété, PV d\'AG, diagnostics communs, attestation d\'assurance MRO/PNO…'}) }
+        html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'documents', title:'' + _uiIcon('doc') + ' Documents communs', emptyText:'Aucun document. Ajouter règlement de copropriété, PV d\'AG, diagnostics communs, attestation d\'assurance MRO/PNO…'}) }
     ], 'rImmFiche')}
     <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche immeuble">
       <!-- BIENS étape 9 — 2 onglets. Le plan d'occupation devient la VUE FRISE de l'onglet Logements,
@@ -19684,7 +19684,7 @@ function rImmFiche() {
             : `<div class="biens-empty">
                 <div class="biens-empty-icon">${_uiIcon('home',44)}</div>
                 <div class="biens-empty-title">Cet immeuble n'a pas encore de logement</div>
-                <div class="biens-empty-msg">Ajoutez le premier logement pour commencer le suivi locatif.</div>
+                <div class="biens-empty-msg">Ajouter le premier logement pour commencer le suivi locatif.</div>
                 <button class="btn bp" onclick="_immFicheNewLog('${_lyQ(ent.nom)}','${_lyQ(im.nom)}')">+ Ajouter un logement</button>
               </div>`)
     }
@@ -19731,7 +19731,7 @@ function _renderAssForImm(ent, im) {
   if(!list.length) {
     return `<div class="logf-panel-empty">
       Aucune assurance enregistrée pour cet immeuble.<br>
-      <span class="mu sm">Ajoutez la PNO / multirisque qui couvre l'ensemble des logements.</span>
+      <span class="mu sm">Ajouter la PNO / multirisque qui couvre l'ensemble des logements.</span>
       ${addBtn}
     </div>`;
   }
@@ -20529,7 +20529,7 @@ async function _logDiagFetchAdeme() {
   if (!_logDiagDraft) return;
   const D = _logDiagDraft.diag;
   const num = String((D.dpe && D.dpe.numeroDpe) || '').trim().toUpperCase();
-  if (!num) { showToast('Saisis d’abord le n° DPE (ex 2611E0031228S).', 'err', 5000); return; }
+  if (!num) { showToast('Saisir d’abord le n° DPE (ex 2611E0031228S).', 'err', 5000); return; }
   const btn = el('logdiag-ademe-btn');
   let prevLbl = '';
   if (btn) { prevLbl = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Recherche ADEME…'; }
@@ -20542,7 +20542,7 @@ async function _logDiagFetchAdeme() {
     const j = await resp.json();
     const rec = j && j.results && j.results[0];
     if (!rec) {
-      showToast('Aucun DPE trouvé pour ce numéro dans l’open-data ADEME. Vérifie le n° (les DPE émis avant juillet 2021 ne sont pas couverts).', 'err', 8000);
+      showToast('Aucun DPE trouvé pour ce numéro dans l’open-data ADEME. Vérifier le n° (les DPE émis avant juillet 2021 ne sont pas couverts).', 'err', 8000);
       return;
     }
     // Valeurs candidates (mapping ADEME → brouillon DPE)
@@ -20602,7 +20602,7 @@ async function _logDiagFetchAdeme() {
     showToast('✅ DPE importé depuis l’ADEME : classe ' + (cand.classe||'?') + ' · GES ' + (cand.ges||'?') + '.', 'ok', 5000);
   } catch(e) {
     console.error('[ADEME] fetch échec', e);
-    showToast('Échec récup ADEME : ' + (e.message || 'réseau indisponible') + '. Tu peux saisir manuellement.', 'err', 7000);
+    showToast('Échec récup ADEME : ' + (e.message || 'réseau indisponible') + '. Saisie manuelle possible.', 'err', 7000);
   } finally {
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = prevLbl; }
   }
@@ -20633,7 +20633,7 @@ async function _logDiagRunErpDetection(manual) {
   }
   const addr = _logDiagResolvedLogAddress();
   if (!addr || !_logDiagNormAddr(addr)) {
-    if (manual) showToast('Renseigne d’abord l’adresse du logement (ou de l’immeuble) pour détecter les risques.', 'err', 6000);
+    if (manual) showToast('Renseigner d’abord l’adresse du logement (ou de l’immeuble) pour détecter les risques.', 'err', 6000);
     return;
   }
   if (_logDiagErpBusy) return;
@@ -20648,11 +20648,11 @@ async function _logDiagRunErpDetection(manual) {
     if (manual) {
       if (res.required === true)       showToast('🛑 ERP obligatoire pour ' + (res.commune || 'ce bien') + ' — risques détectés.', 'ok', 6000);
       else if (res.required === false) showToast('✅ Aucun risque réglementé pour ' + (res.commune || 'cette commune') + ' (ERP non obligatoire).', 'ok', 6000);
-      else                             showToast('❓ Risques indéterminés — vérifie sur georisques.gouv.fr.', 'info', 6000);
+      else                             showToast('❓ Risques indéterminés — vérifier sur georisques.gouv.fr.', 'info', 6000);
     }
   } catch(e) {
     console.error('[ERP] détection échec', e);
-    if (manual) showToast('Échec détection des risques : ' + (e.message || 'réseau indisponible') + '. Vérifie sur georisques.gouv.fr.', 'err', 7000);
+    if (manual) showToast('Échec détection des risques : ' + (e.message || 'réseau indisponible') + '. Vérifier sur georisques.gouv.fr.', 'err', 7000);
   } finally {
     _logDiagErpBusy = false;
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = prevLbl; }
@@ -20684,7 +20684,7 @@ function _logDiagErpDetailHtml() {
   const G = window.GeorisquesErpDetector;
   const IND = G ? G.ERP_INDETERMINE : 'indetermine';
   if (!r) {
-    return `<div id="logdiag-erp-detail" class="mu sm" style="font-size:10.5px;color:var(--t3);margin-top:6px;line-height:1.5">Clique sur « 🔎 Détecter via l'adresse » pour vérifier automatiquement les risques (sismicité, radon, PPR naturels/technologiques/miniers) via les données publiques Géorisques.</div>`;
+    return `<div id="logdiag-erp-detail" class="mu sm" style="font-size:10.5px;color:var(--t3);margin-top:6px;line-height:1.5">Cliquer sur « 🔎 Détecter via l'adresse » pour vérifier automatiquement les risques (sismicité, radon, PPR naturels/technologiques/miniers) via les données publiques Géorisques.</div>`;
   }
   let badge, tone;
   if (r.required === true)       { badge = '🛑 ERP / IAL obligatoire'; tone = 'background:#fdecea;color:#b71c1c;border:1px solid #f5c6c2'; }
@@ -20702,7 +20702,7 @@ function _logDiagErpDetailHtml() {
     reasonsLine = `<ul style="margin:5px 0 0;padding-left:18px;font-size:11px;line-height:1.5">${r.reasons.map(x => '<li>' + escHtml(String(x)) + '</li>').join('')}</ul>`;
   } else if (r.required === IND) {
     const why = r.reason ? ' (' + escHtml(String(r.reason)) + ')' : '';
-    reasonsLine = `<div class="mu sm" style="font-size:10.5px;margin-top:3px">Un ou plusieurs signaux n'ont pas pu être récupérés${why} — réseau ou commune introuvable. Aucune conclusion automatique, vérifie manuellement.</div>`;
+    reasonsLine = `<div class="mu sm" style="font-size:10.5px;margin-top:3px">Un ou plusieurs signaux n'ont pas pu être récupérés${why} — réseau ou commune introuvable. Aucune conclusion automatique, vérifier manuellement.</div>`;
   }
 
   let when = '';
@@ -20713,7 +20713,7 @@ function _logDiagErpDetailHtml() {
     ${metaLine}
     ${reasonsLine}
     <div style="font-size:10.5px;margin-top:6px;opacity:.85">
-      <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">🔗 Vérifiez les informations sur georisques.gouv.fr</a>${when}
+      <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">🔗 Vérifier les informations sur georisques.gouv.fr</a>${when}
     </div>
   </div>`;
 }
@@ -21220,7 +21220,7 @@ function attachOccupations(logements, occupations, notes) {
         _matched: true, _loyerAnnuel: !!occ._loyerAnnuel,
       }; });
     } else if (notes) {
-      notes.push("L'acte mentionne un bail en cours mais sans lot identifiable — active et saisis l'occupation manuellement sur le bon logement.");
+      notes.push("L'acte mentionne un bail en cours mais sans lot identifiable — activer et saisir l'occupation manuellement sur le bon logement.");
     }
   }
 }
@@ -21268,7 +21268,7 @@ function _acteRegroup(ext) {
         const members = grp.map(n => lotLogts.find(l => l.num === n)).filter(Boolean);
         members.forEach(m => used.add(m.num));
         out.logements.push(mkLogement(members, cz.surf));
-        out.notes.push(`L'app a regroupé les lots ${grp.join(' + ')} en un seul logement (Carrez ${cz.surf} m²). Vérifie ce regroupement.`);
+        out.notes.push(`L'app a regroupé les lots ${grp.join(' + ')} en un seul logement (Carrez ${cz.surf} m²). Vérifier ce regroupement.`);
       }
     }
     // 1b. Lots-logements restants → 1 logement chacun (Carrez individuel si dispo).
@@ -21296,7 +21296,7 @@ function _acteRegroup(ext) {
     const n = _acteWord2Num(e.logementsHint.count) || e.logementsHint.parEtage || 0;
     const unit = /logement/i.test(e.logementsHint.unit || '') ? 'Logement' : 'Appartement';
     for (let i = 0; i < Math.min(n, 30); i++) out.logements.push({ type: unit, etage: '', position: '', surf: '', numApt: '', tantiemes: '', _lots: [] });
-    if (n && !e.logementsHint.count) out.notes.push(`L'app a estimé ${n} logement(s) d'après la structure par étage. Vérifie et complète.`);
+    if (n && !e.logementsHint.count) out.notes.push(`L'app a estimé ${n} logement(s) d'après la structure par étage. Vérifier et compléter.`);
   }
 
   // Annexes en prose (hors lots).
@@ -21354,7 +21354,7 @@ function _acteSetStep(s) {
   if (next) next.style.display = (s === 'verif') ? '' : 'none';
   if (next) next.textContent = '✓ Tout est bon — créer';
   if (hint) {
-    if (s === 'depot') hint.textContent = "Dépose ou choisis l'acte PDF.";
+    if (s === 'depot') hint.textContent = "Déposer ou choisir l'acte PDF.";
     else if (s === 'loading') hint.textContent = "Lecture de l'acte en cours…";
     else if (s === 'verif') hint.textContent = "Rien n'est écrit avant ce clic.";
   }
@@ -21388,7 +21388,7 @@ function _acteOnFile(input) {
 /** Valide le type puis enchaîne lecture + extraction. */
 function _acteHandleFile(file) {
   const okType = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
-  if (!okType) { showToast('Format non supporté : choisis un fichier PDF.', 'err'); return; }
+  if (!okType) { showToast('Format non supporté : choisir un fichier PDF.', 'err'); return; }
   if (el('acte-loading-file')) el('acte-loading-file').textContent = '📄 ' + (file.name || 'acte.pdf');
   _acteSetStep('loading');
   const rd = new FileReader();
@@ -21539,7 +21539,7 @@ function _acteRenderVerif() {
     const by = d.dupEntity.siren ? ('le SIREN <b>' + escHtml(d.dupEntity.siren) + '</b>') : ('le nom <b>' + escHtml(d.dupEntity.nom || '') + '</b>');
     html += `<div class="acte-dup">
       <div class="acte-dup-h">⚠️ Entité déjà connue : <b>${escHtml(d.dupEntity.nom || '')}</b></div>
-      <p>Une entité avec ${by} existe déjà dans tes bailleurs.</p>
+      <p>Une entité avec ${by} existe déjà dans les bailleurs.</p>
       <label class="acte-pick"><input type="radio" name="acte-pick-ent" ${d.forceNewEntity ? '' : 'checked'} onchange="_actePickEnt(false)"><span>🔗 <b>Rattacher</b> l'immeuble et les logements à <b>${escHtml(d.dupEntity.nom || '')}</b> plutôt que de créer un doublon</span></label>
       <label class="acte-pick"><input type="radio" name="acte-pick-ent" ${d.forceNewEntity ? 'checked' : ''} onchange="_actePickEnt(true)"><span>➕ Créer une nouvelle entité « <b>${escHtml(ent.nom || '')}</b> » quand même</span></label>
       <div class="why">Détection : ${d.dupEntity.siren ? 'SIREN identique' : 'nom identique'}.</div>
@@ -21611,10 +21611,10 @@ function _acteRenderVerif() {
     const newImmLbl = [imm.adr, [imm.cp, imm.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ') || "l'adresse de l'acte";
     html += `<div class="acte-dup">
       <div class="acte-dup-h">🏛 Un immeuble existant ressemble à cette adresse</div>
-      <p>Ajouter les lots de l'acte dans un immeuble existant de <b>${escHtml(d.dupEntity.nom || '')}</b>, ou créer un immeuble séparé ? Rien n'est automatique — c'est toi qui tranches.</p>
+      <p>Ajouter les lots de l'acte dans un immeuble existant de <b>${escHtml(d.dupEntity.nom || '')}</b>, ou créer un immeuble séparé ? Rien n'est automatique : le choix se fait ici.</p>
       ${picks}
       <label class="acte-pick"><input type="radio" name="acte-pick-imm" value="" ${chosen === '' ? 'checked' : ''} onchange="_actePickImm(this.value)"><span>➕ Créer un nouvel immeuble « <b>${escHtml(newImmLbl)}</b> »</span></label>
-      <div class="why">Si tu rattaches : les lots s'ajoutent aux logements existants (réfs uniques garanties). Rien n'est fusionné ni écrasé.</div>
+      <div class="why">En cas de rattachement : les lots s'ajoutent aux logements existants (réfs uniques garanties). Rien n'est fusionné ni écrasé.</div>
     </div>`;
   }
 
@@ -21625,8 +21625,8 @@ function _acteRenderVerif() {
   else if (h.lots) interp = `L'acte décrit ${h.lots} lot(s) de copropriété`;
   if (h.parEtage) interp += (interp ? ' · ' : '') + `${h.parEtage} niveaux repérés`;
   html += `<div class="acte-sec"><div class="acte-sec-h"><span class="ic">🚪</span><b>Logements</b><span class="count" id="acte-lg-count">${d.logements.length} logement(s)</span></div><div class="acte-sec-body">`;
-  if (interp) html += `<div class="acte-interp">🔎 ${interp}. Vérifie et ajuste la liste — chaque ligne deviendra un logement rattaché à l'immeuble.</div>`;
-  else html += `<div class="acte-absent-note">⚠️ Aucun indice de logement détecté dans l'acte. Ajoute-les manuellement.</div>`;
+  if (interp) html += `<div class="acte-interp">🔎 ${interp}. Vérifier et ajuster la liste — chaque ligne deviendra un logement rattaché à l'immeuble.</div>`;
+  else html += `<div class="acte-absent-note">⚠️ Aucun indice de logement détecté dans l'acte. À ajouter manuellement.</div>`;
   // Notes de regroupement (D4) — l'app explique CE QU'ELLE a interprété, à vérifier.
   (d.regroupNotes || []).forEach(n => { html += `<div class="acte-interp" style="background:var(--bg-info)">🧩 ${escHtml(n)}</div>`; });
   html += `<div id="acte-logements-list" style="margin-top:10px"></div>`;
@@ -21637,7 +21637,7 @@ function _acteRenderVerif() {
   // Toujours rendue (même à 0) : permet d'ajouter / splitter / retirer des annexes comme les logements.
   const anList = d.annexes || [];
   html += `<div class="acte-sec"><div class="acte-sec-h"><span class="ic">📦</span><b>Annexes</b><span class="count" id="acte-an-count">${anList.length} annexe(s)</span></div><div class="acte-sec-body">`;
-  html += `<div class="acte-interp">🔎 Caves, garages, parkings… Indique pour chacune ce qu'elle devient. Tu peux en ajouter ou en retirer.</div>`;
+  html += `<div class="acte-interp">🔎 Caves, garages, parkings… Indiquer pour chacune ce qu'elle devient. Ajout et retrait possibles.</div>`;
   html += `<div id="acte-annexes-list" style="margin-top:10px"></div>`;
   html += `<button class="acte-add-row" onclick="_acteAddAnnexe()">＋ Ajouter une annexe</button>`;
   html += `</div></div>`;
@@ -21679,7 +21679,7 @@ function _acteRenderLogements() {
           ${occ ? '<span class="occ-detected">🔎 détecté dans l\'acte</span>' : '<span style="font-size:10.5px;color:var(--t3)">non détecté — à activer si occupé</span>'}
         </div>
         <div class="occ-fields" id="occ-fields-${i}" style="${on ? '' : 'display:none'}">
-          <div class="occ-note">🔑 Bail repris (Art. 1743 C. civ.) — vous héritez du bail en cours, sans signature à générer. Complétez ce que l'acte ne précise pas ; tout reste modifiable ensuite dans le module Bail.${occ && occ._loyerAnnuel ? ' ⚠ Loyer annuel détecté et converti en mensuel — à vérifier.' : ''}</div>
+          <div class="occ-note">🔑 Bail repris (Art. 1743 C. civ.) — l'acquéreur reprend le bail en cours, sans signature à générer. Compléter ce que l'acte ne précise pas ; tout reste modifiable ensuite dans le module Bail.${occ && occ._loyerAnnuel ? ' ⚠ Loyer annuel détecté et converti en mensuel — à vérifier.' : ''}</div>
           <div class="acte-grid2">
             ${_acteOccField('occ-loc-' + i, 'Locataire', occ ? occ.locataire : '', occSrc.occ, { ph: 'Nom du locataire' })}
             ${_acteOccField('occ-debut-' + i, 'Date d\'effet', occ ? occ.debut : '', occSrc.debut, { ph: 'AAAA-MM-JJ' })}
@@ -21732,7 +21732,7 @@ function _acteRenderAnnexes() {
           <select class="inp an-target">${opts}</select></div>`;
     } else {
       targetField = `<div class="acte-fg an-target-fg" style="flex:1.4;min-width:170px;${hide}"><label>Rattachée à</label>
-          <div class="acte-absent-note">Aucun logement — passe en « 🏷 bien à louer ».</div></div>`;
+          <div class="acte-absent-note">Aucun logement — passer en « 🏷 bien à louer ».</div></div>`;
     }
     h += `<div class="acte-lgmt acte-annexe" data-i="${i}">
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
@@ -21983,7 +21983,7 @@ function _acteApply() {
     if (!ent) {
       const e = d.entite || {};
       const nom = _acteNormNom(e.nom || '');
-      if (!nom) { showToast('Nom du bailleur manquant — complète-le avant de valider.', 'err', 5000); return; }
+      if (!nom) { showToast('Nom du bailleur manquant — à compléter avant de valider.', 'err', 5000); return; }
       // P0 28/09 : « créer une nouvelle entité quand même » ne peut pas réutiliser un nom existant
       // (les biens sont reliés au bailleur par son nom → les deux fusionneraient). Cf. saveEnt.
       const _dupNom = trouverDoublonEntite(DB.entites || [], { nom }, null).nom;
@@ -22411,7 +22411,7 @@ async function _logDiagOnPdfUploaded(src) {
     } else {
       _logDiagRenderTab(); // bandeau Détection mis à jour
       if (!scan.numeroDpe && scan.textLen < 40) {
-        showToast('PDF lu mais sans texte (scan/image ?) — saisis le N° DPE à la main pour l’ADEME.', 'info', 6000);
+        showToast('PDF lu mais sans texte (scan/image ?) — saisir le N° DPE à la main pour l’ADEME.', 'info', 6000);
       }
     }
     if (nbSug > 0) showToast('✨ ' + nbSug + ' champ' + (nbSug>1?'s':'') + ' pré-rempli' + (nbSug>1?'s':'') + ' depuis le PDF — à vérifier.', 'info', 5000);
@@ -22486,7 +22486,7 @@ function _logDiagDetectBannerHtml() {
     .map(k => `<span class="logdiag-detect-chip">${escHtml(COV_LBL[k])}</span>`).join('');
   const dpeLine = numeroDpe
     ? `<div class="logdiag-detect-dpe">🔎 N° DPE détecté : <b>${escHtml(numeroDpe)}</b> <span class="mu sm">→ classe énergie/GES, conso et date récupérées via l'ADEME.</span></div>`
-    : `<div class="logdiag-detect-dpe logdiag-detect-warn">${_uiIcon('info')} N° DPE non détecté dans les PDF (document scanné/image ?). Saisis-le à la main puis « ⬇ Récupérer ADEME ».</div>`;
+    : `<div class="logdiag-detect-dpe logdiag-detect-warn">${_uiIcon('info')} N° DPE non détecté dans les PDF (document scanné/image ?). À saisir à la main, puis « ⬇ Récupérer ADEME ».</div>`;
   return `
     <div class="logdiag-detect">
       <div class="logdiag-detect-head">${_uiIcon('search',14)} Détection automatique <span class="mu sm">(${ids.length} document${ids.length>1?'s':''} lu${ids.length>1?'s':''} · indicatif, à vérifier)</span></div>
@@ -22561,7 +22561,7 @@ function _logDiagRenderTab() {
   let uploadHtml;
   if(logId != null && typeof _renderAttachmentSection === 'function') {
     uploadHtml = `<div style="border:1px dashed var(--bor);border-radius:10px;padding:12px 14px;margin-bottom:14px;background:var(--sur2)">
-      ${_renderAttachmentSection({ parentType:'logement', parentId:logId, parentRef:logRef, logRef:logRef, category:'documents', title:'📎 Documents de diagnostic', emptyText:'Dépose ici tes diagnostics — DPE, CREP (plomb), ERP, élec, gaz… (PDF ou image, 10 Mo max). Ils sont enregistrés dans ton espace et proposés à l\'envoi avec le bail au locataire.' })}
+      ${_renderAttachmentSection({ parentType:'logement', parentId:logId, parentRef:logRef, logRef:logRef, category:'documents', title:'📎 Documents de diagnostic', emptyText:'Déposer ici les diagnostics — DPE, CREP (plomb), ERP, élec, gaz… (PDF ou image, 10 Mo max). Ils sont enregistrés dans l\'espace et proposés à l\'envoi avec le bail au locataire.' })}
       <div class="mu sm" style="font-size:10.5px;margin-top:8px;color:var(--t3);line-height:1.5">${_uiIcon('mail',12)} Les PDF déposés sont stockés sur le Drive du logement (sous-dossier « Documents ») et proposés à l'envoi <b>avec le bail</b> au locataire. <em>${_uiIcon('search',12)} Lecture auto : si le N° DPE figure dans le PDF, il est extrait et le DPE est récupéré via l'ADEME.</em></div>
     </div>`;
   } else {
@@ -22582,7 +22582,7 @@ function _logDiagRenderTab() {
         <label for="logdiag-stage-input" class="btn bs bb" style="cursor:pointer">+ Ajouter</label>
         <input type="file" id="logdiag-stage-input" accept="application/pdf,image/*" style="display:none" onchange="_logDiagStageFile(this)">
       </div>
-      ${rows ? `<div class="att-list" style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${rows}</div>` : `<div class="logf-doc-empty" style="padding:12px;text-align:center;color:var(--t2);background:var(--sur);border-radius:6px">Dépose tes diagnostics — DPE, CREP, ERP, élec, gaz… (PDF ou image, 10 Mo max). Lus automatiquement et joints au bien à l'enregistrement.</div>`}
+      ${rows ? `<div class="att-list" style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${rows}</div>` : `<div class="logf-doc-empty" style="padding:12px;text-align:center;color:var(--t2);background:var(--sur);border-radius:6px">Déposer les diagnostics — DPE, CREP, ERP, élec, gaz… (PDF ou image, 10 Mo max). Lus automatiquement et joints au bien à l'enregistrement.</div>`}
       <div class="mu sm" style="font-size:10.5px;margin-top:8px;color:var(--t3);line-height:1.5">📨 Joints au Drive du bien <b>à l'enregistrement</b>, proposés à l'envoi avec le bail. <em>🤖 Lecture auto : si le N° DPE figure dans le PDF, le DPE est récupéré via l'ADEME.</em></div>
     </div>`;
   }
@@ -22720,7 +22720,7 @@ function _logDiagRenderTab() {
   }).join('');
 
   const hiddenNote = hidden.length
-    ? `<div class="mu sm" style="font-size:11px;margin-top:8px;line-height:1.5">🔍 Non affichés (non applicables à ce logement) : ${hidden.map(e=>{ const u=(typeof _DIAG_UI_META!=='undefined'&&_DIAG_UI_META[e.key])||{}; return escHtml(u.clean||e.label.split(' — ')[0]); }).join(', ')}. <span style="color:var(--t3)">Renseignez le contexte ci-dessous pour les activer.</span></div>`
+    ? `<div class="mu sm" style="font-size:11px;margin-top:8px;line-height:1.5">🔍 Non affichés (non applicables à ce logement) : ${hidden.map(e=>{ const u=(typeof _DIAG_UI_META!=='undefined'&&_DIAG_UI_META[e.key])||{}; return escHtml(u.clean||e.label.split(' — ')[0]); }).join(', ')}. <span style="color:var(--t3)">Renseigner le contexte ci-dessous pour les activer.</span></div>`
     : '';
 
   const detectHtml = (typeof _logDiagDetectBannerHtml === 'function') ? _logDiagDetectBannerHtml() : '';
@@ -22729,8 +22729,8 @@ function _logDiagRenderTab() {
   const pendingCount = _logDiagPendingCount();
   const reviewHtml = pendingCount > 0 ? `
     <div class="logdiag-review">
-      <div class="logdiag-review-h">✨ ${pendingCount} champ${pendingCount>1?'s':''} pré-rempli${pendingCount>1?'s':''} depuis tes PDF — à vérifier</div>
-      <p>L'app a lu les PDF et proposé des valeurs (dates, résultats, cabinet). <b>Vérifie-les</b> : elles restent marquées « ✨ à vérifier » tant que tu ne les valides pas. En cas de doute (résultat illisible : formulaire à cases), le champ est laissé vide.</p>
+      <div class="logdiag-review-h">✨ ${pendingCount} champ${pendingCount>1?'s':''} pré-rempli${pendingCount>1?'s':''} depuis les PDF — à vérifier</div>
+      <p>L'app a lu les PDF et proposé des valeurs (dates, résultats, cabinet). <b>À vérifier</b> : elles restent marquées « ✨ à vérifier » tant qu'elles ne sont pas validées. En cas de doute (résultat illisible : formulaire à cases), le champ est laissé vide.</p>
       <div class="logdiag-review-actions">
         <button type="button" class="btn logdiag-rev-validate" onclick="_logDiagSuggestValidateAll()">${_uiIcon('check',13)} Tout valider</button>
         <button type="button" class="btn" onclick="_logDiagSuggestClearAll()">${_uiIcon('close',13)} Tout effacer</button>
@@ -22750,7 +22750,7 @@ function _logDiagRenderTab() {
       <span class="big">${_uiIcon('warn',22)}</span>
       <div>
         <h4>État des Risques expiré</h4>
-        <p>Cet État des Risques${_erpEtabli?`, établi le <b>${_erpEtabli}</b>,`:''} a <b>dépassé sa validité de 6 mois</b>${_erpExp?` (valable jusqu'au <b>${_fr(_erpExp)}</b>)`:''} — Art. L.125-5 C. env. Régénérez-le <b>gratuitement, sans diagnostiqueur</b>, puis redéposez le PDF ci-dessus pour mettre la date à jour.</p>
+        <p>Cet État des Risques${_erpEtabli?`, établi le <b>${_erpEtabli}</b>,`:''} a <b>dépassé sa validité de 6 mois</b>${_erpExp?` (valable jusqu'au <b>${_fr(_erpExp)}</b>)`:''} — Art. L.125-5 C. env. Le régénérer <b>gratuitement, sans diagnostiqueur</b>, puis redéposer le PDF ci-dessus pour mettre la date à jour.</p>
         <a class="renew" href="https://errial.georisques.gouv.fr/" target="_blank" rel="noopener">${_uiIcon('refresh',13)} Régénérer sur ERRIAL (gratuit)</a>
       </div>
     </div>`;
@@ -22779,7 +22779,7 @@ function _logDiagRenderTab() {
             <th>Statut</th>
           </tr>
         </thead>
-        <tbody>${rows || `<tr><td colspan="6" class="mu sm" style="padding:10px">Aucun diagnostic applicable — renseignez le contexte ci-dessous.</td></tr>`}</tbody>
+        <tbody>${rows || `<tr><td colspan="6" class="mu sm" style="padding:10px">Aucun diagnostic applicable — renseigner le contexte ci-dessous.</td></tr>`}</tbody>
       </table>
     </div>
     ${hiddenNote}
@@ -22803,7 +22803,7 @@ function _logDiagRenderTab() {
         <div style="font-weight:700;font-size:12px">🗺️ État des Risques (ERP / IAL)</div>
         <button type="button" id="logdiag-erp-btn" class="btn bp bb" onclick="_logDiagRunErpDetection(true)" style="white-space:nowrap;font-size:11px;padding:5px 11px">🔎 Détecter via l'adresse</button>
       </div>
-      <div class="mu sm" style="font-size:10.5px;color:var(--t3);margin-top:5px;line-height:1.5">La case « Zone à risques (ERP) » ci-dessus est déterminée automatiquement depuis l'adresse (sismicité, radon, PPR). Ton choix manuel n'est jamais écrasé. L'ERP reste à <b>vérifier et annexer au bail</b> par tes soins.</div>
+      <div class="mu sm" style="font-size:10.5px;color:var(--t3);margin-top:5px;line-height:1.5">La case « Zone à risques (ERP) » ci-dessus est déterminée automatiquement depuis l'adresse (sismicité, radon, PPR). Le choix manuel n'est jamais écrasé. L'ERP reste à <b>vérifier et annexer au bail</b> par le bailleur.</div>
       ${_logDiagErpDetailHtml()}
     </div>
     <div class="mu sm" style="font-size:10.5px;margin-top:8px;color:var(--t3);line-height:1.5">
@@ -23153,7 +23153,7 @@ function _logRefreshInherited() {
     // Imm introuvable OU tombstone : afficher un message UX clair plutôt que masquer
     wrap.style.display = '';
     wrap.innerHTML = `<div style="color:#7f1d1d;font-size:12.5px"><strong>⚠ Immeuble parent introuvable</strong>
-      ${immAll && immAll._deleted ? '(supprimé)' : ''} — réassignez ce bien à un immeuble existant
+      ${immAll && immAll._deleted ? '(supprimé)' : ''} — réassigner ce bien à un immeuble existant
       via le sélecteur ci-dessus.</div>`;
     _toggleBati(true);   // immeuble parent introuvable → bâti éditable (fallback de saisie)
     return;
@@ -23267,7 +23267,7 @@ function _bindLogImmChangeIfNeeded() {
 function _logOpenParentImm() {
   const entNom = (el('log-entity') && el('log-entity').value) || '';
   const immNom = (el('log-imm') && el('log-imm').value) || '';
-  if (!entNom || !immNom) { showToast('Sélectionnez d\'abord un immeuble', 'info', 2500); return; }
+  if (!entNom || !immNom) { showToast('Sélectionner d\'abord un immeuble', 'info', 2500); return; }
   const ent = (DB.entites || []).find(e => e && e.nom === entNom);
   if (!ent || !Array.isArray(ent.immeubles)) { showToast('Bailleur introuvable', 'err'); return; }
   const idx = ent.immeubles.findIndex(i => i && i.nom === immNom && !i._deleted);
@@ -23275,7 +23275,7 @@ function _logOpenParentImm() {
   // v15.230 F4 — protection contre la perte de saisie : confirmer si on est en mode édition
   // ET qu'au moins un champ a été modifié (heuristique : ref existe + on est dans la modale)
   if (typeof confirm2 === 'function') {
-    if (!confirm2('Quitter la modale Bien sans enregistrer la saisie en cours ?\nSi vous avez modifié quelque chose, vos changements seront perdus.')) return;
+    if (!confirm2('Quitter la modale Bien sans enregistrer la saisie en cours ?\nEn cas de modification, les changements seront perdus.')) return;
   }
   closeM('ov-log');
   editImm(idx, ent.id);
@@ -24003,7 +24003,7 @@ async function _annonceCopy() {
 function _annoncePDF() {
   if (typeof jspdf === 'undefined' && !(window.jspdf && window.jspdf.jsPDF)) {
     showToast('PDF : libs en chargement... réessayer dans 2 s', 'warn');
-    if (typeof _ensurePDFLibsLoaded === 'function') { _ensurePDFLibsLoaded().then(() => _annoncePDF()).catch(e => { try { showToast('\u26a0 Libs PDF indisponibles (r\u00e9seau ?). R\u00e9essaie.', 'err', 5000) } catch (_) {} }); }
+    if (typeof _ensurePDFLibsLoaded === 'function') { _ensurePDFLibsLoaded().then(() => _annoncePDF()).catch(e => { try { showToast('\u26a0 Libs PDF indisponibles (r\u00e9seau ?). R\u00e9essayer.', 'err', 5000) } catch (_) {} }); }
     return;
   }
   const AG = window.AnnonceGenerator; const r = _annonceCtx.result; const log = _annonceCtx.log;
@@ -24178,7 +24178,7 @@ function saveParamLog() {
     const gate = window.ParcoursBienModel.identiteParcours({ ref: ref, type: v('log-type'), surface: pf('log-surf'), loyer: Number(v('logp-loc-hcRef'))||0 });
     if (!gate.ok) {
       const lbl = { type: 'le type', surface: 'la surface', loyer: 'le loyer hors charges' };
-      showToast('⚠ Identité du logement incomplète — renseigne '+gate.missing.map(k=>lbl[k]||k).join(', ')+' pour continuer le parcours.','err',7000);
+      showToast('⚠ Identité du logement incomplète — renseigner '+gate.missing.map(k=>lbl[k]||k).join(', ')+' pour continuer le parcours.','err',7000);
       return;
     }
   }
@@ -24364,7 +24364,7 @@ function saveParamLog() {
     }
     if (_logDiagDraft) _logDiagDraft.pendingDocs = [];
     try { saveDB(); } catch(e) {}
-    if (ok < pend.length) showToast('⚠ ' + ok + '/' + pend.length + ' document(s) joint(s) — réessaie depuis la fiche pour le reste.', 'err', 7000);
+    if (ok < pend.length) showToast('⚠ ' + ok + '/' + pend.length + ' document(s) joint(s) — réessayer depuis la fiche pour le reste.', 'err', 7000);
     else showToast('📎 ' + ok + ' document' + (ok>1?'s':'') + ' joint' + (ok>1?'s':'') + ' au bien.', 'ok', 3000);
   })();
   if(typeof _frAfterSave==='function') _frAfterSave('log', log, isNew); // fil rouge v2
@@ -24511,12 +24511,12 @@ function addImmForm(entIdOverride) {
              || (el('ent-edit-id') && el('ent-edit-id').value)
              || (typeof _currentEntFiche === 'number' ? _currentEntFiche : '');
   if(!entId) {
-    showToast('Sélectionnez ou créez d\'abord un bailleur', 'info', 4000);
+    showToast('Sélectionner ou créer d\'abord un bailleur', 'info', 4000);
     return;
   }
   const ent = DB.entites.find(e => +e.id === +entId);
   if(!ent) {
-    showToast('Bailleur introuvable — créez-le d\'abord', 'err');
+    showToast('Bailleur introuvable — le créer d\'abord', 'err');
     return;
   }
   el('imm-ent-id').value = String(+entId);
@@ -24652,7 +24652,7 @@ function saveImm() {
   const entId = (el('imm-ent-id') && el('imm-ent-id').value)
              || (el('ent-edit-id') && el('ent-edit-id').value);
   const ent = entId ? DB.entites.find(e=>+e.id===+entId) : null;
-  if(!ent) { showToast('Bailleur introuvable — ré-ouvrez la fiche bailleur','err'); return; }
+  if(!ent) { showToast('Bailleur introuvable — ré-ouvrir la fiche bailleur','err'); return; }
   if(!ent.immeubles) ent.immeubles=[];
   const idx = el('imm-edit-id').value;
   const existingIm = idx !== '' ? ent.immeubles[parseInt(idx)] : null;
@@ -25041,7 +25041,7 @@ function _frRenderResumeBanner(){
   if(fc.dismissed){ slot.innerHTML=''; return; }
   const _titre=(_noms.length>2)?(_noms.length+' immeubles'):_noms.join(' · ');
   slot.innerHTML='<div class="fr-resume"><span class="ic">🧭</span><div class="tx"><b>Fil rouge en cours — '+escHtml(_titre)+'</b>'
-    +'<s>'+pct+' % en règle — il reste des obligations légales à mettre en place. Reprends où tu t’étais arrêté.</s>'
+    +'<s>'+pct+' % en règle — il reste des obligations légales à mettre en place. Reprendre là où l’on s’était arrêté.</s>'
     +'<div class="bar"><i style="width:'+pct+'%"></i></div></div>'
     +'<button class="fr-resume-go" onclick="_frResumeCompletion()">Reprendre →</button>'
     +'<button class="fr-resume-hide" onclick="_frDismissCompletion()">Masquer</button></div>';
@@ -25095,7 +25095,7 @@ function _frSubmitEnt(){
 function _frSubmitImm(){
   const adr=(el('fr-imm-adr')&&el('fr-imm-adr').value||'').trim();
   if(!adr){ _frWarn('fr-w-imm'); return; }
-  const ent=_frCurEnt(); if(!ent){ showToast('Bailleur manquant — recommence le fil','err'); return; }
+  const ent=_frCurEnt(); if(!ent){ showToast('Bailleur manquant — recommencer le fil','err'); return; }
   addImmForm(ent.id);                 // reset modale immeuble + rattachement bailleur (ent-id)
   _frSetVal('imm-nom', adr); _frSetVal('imm-adr', adr);
   const ville=(el('fr-imm-ville')&&el('fr-imm-ville').value||'').trim(); if(ville) _frSetVal('imm-ville', ville);
@@ -25128,12 +25128,12 @@ function _frShowFr(kind){
   if(kind==='completion'){ _cm=_frCompModel(); if(!_cm){ _frClose(); return; } }
   _frStep=kind; openM('ov-fr'); _frAttachBread('ov-fr');
   const body=el('fr-fr-body'), foot=el('fr-fr-foot'); if(!body||!foot) return;
-  const _ttl=document.querySelector('#ov-fr .m-head h3'); if(_ttl) _ttl.textContent=(kind==='completion')?'Compléter ton patrimoine':'Ajouter un bien';
+  const _ttl=document.querySelector('#ov-fr .m-head h3'); if(_ttl) _ttl.textContent=(kind==='completion')?'Compléter le patrimoine':'Ajouter un bien';
   const stop='<button class="fr-later" onclick="_frClose()" title="Ce qui est créé est conservé">Plus tard — c’est gardé</button>';
   if(kind==='ent'){
     // Écran BAILLEUR (mockup) — formulaire léger ; écrit via la vraie saveEnt (inputs réels cachés)
     body.innerHTML='<h2 class="fr-q">À qui appartient le bien ?</h2>'
-      +'<p class="fr-qs">Le propriétaire — toi, une SCI, une indivision… On commence par là.</p>'
+      +'<p class="fr-qs">Le propriétaire — en nom propre, une SCI, une indivision… On commence par là.</p>'
       +'<div class="fr-warn" id="fr-w-ent">⚠ Le nom du bailleur est obligatoire.</div>'
       +'<div class="fr-fld"><label>Nom du bailleur *</label><input id="fr-ent-nom" placeholder="SCI du Château"></div>'
       +'<div class="fr-row2"><div class="fr-fld"><label>Forme</label><select id="fr-ent-forme"><option>Personne morale (SCI…)</option><option>Personne physique</option></select></div>'
@@ -25163,9 +25163,9 @@ function _frShowFr(kind){
     foot.innerHTML=stop+'<span class="fr-grow"></span><button class="fr-prim" onclick="_frSubmitLog()">Enregistrer le logement →</button>';
   } else if(kind==='start'){
     // Porte UNIQUE (mockup validé) : « + Ajouter un bien » ouvre ce choix, d'où découle tout le fil.
-    body.innerHTML='<div class="fr-after" style="padding-top:2px"><h2 class="fr-q" style="text-align:center;margin-bottom:6px">Comment on démarre ?</h2><p class="fr-qs" style="text-align:center;margin:0 auto 18px;max-width:420px">Si tu viens d’acheter, importe l’acte de vente : il pré-remplit le bailleur, l’immeuble et le lot d’un coup. Sinon, saisis à la main.</p><div class="fr-choices">'
+    body.innerHTML='<div class="fr-after" style="padding-top:2px"><h2 class="fr-q" style="text-align:center;margin-bottom:6px">Comment on démarre ?</h2><p class="fr-qs" style="text-align:center;margin:0 auto 18px;max-width:420px">Après un achat, importer l’acte de vente : il pré-remplit le bailleur, l’immeuble et le lot d’un coup. Sinon, saisir à la main.</p><div class="fr-choices">'
       +'<div class="fr-choice imm" onclick="_frStartActe()"><span class="ic">📄</span><div class="tx"><b>Importer l’acte de vente <span style="display:inline-block;font:800 9px system-ui;letter-spacing:.03em;text-transform:uppercase;color:#fff;background:#ff5a3c;border-radius:20px;padding:2px 7px;vertical-align:middle;margin-left:4px">Le plus rapide</span></b><s>Pré-remplit le bailleur, l’immeuble et le lot d’un coup</s></div><span class="chev">›</span></div>'
-      +'<div class="fr-choice log" onclick="_frOpenStep(window.FilRougeConductor.advance(\'start\',\'manual\'))"><span class="ic">✍️</span><div class="tx"><b>Saisir à la main</b><s>On crée le bailleur, puis tu ajoutes immeubles et logements</s></div><span class="chev">›</span></div>'
+      +'<div class="fr-choice log" onclick="_frOpenStep(window.FilRougeConductor.advance(\'start\',\'manual\'))"><span class="ic">✍️</span><div class="tx"><b>Saisir à la main</b><s>On crée le bailleur, puis on ajoute immeubles et logements</s></div><span class="chev">›</span></div>'
       +'</div></div>';
     foot.innerHTML=stop;
   } else if(kind==='transition'){
@@ -25184,11 +25184,11 @@ function _frShowFr(kind){
     // TOUS les lots de l'immeuble, pas seulement ceux créés). Les DEUX branches nomment l'exception.
     const _alT=_frAlertes(_cmT&&_cmT.model), _alTxtT=_frAlertesTxt(_alT);
     const _phrase=(_reste==null)
-      ? 'La structure est posée. Le fil rouge t’emmène maintenant compléter chaque fiche — bailleur, immeuble, chaque bien.'
+      ? 'La structure est posée. Étape suivante : compléter chaque fiche — bailleur, immeuble, chaque bien.'
       : (_reste===0
         ? (_alT.length
-          ? 'Tout ce qui dépend de toi est déjà en place — tu peux compléter le reste quand tu veux. ⚠️ '+_alTxtT
-          : 'Tout est déjà en règle — tu peux compléter le reste quand tu veux.')
+          ? 'Tout ce qui dépend du propriétaire est déjà en place — le reste peut être complété à tout moment. ⚠️ '+_alTxtT
+          : 'Tout est déjà en règle — le reste peut être complété à tout moment.')
         : (_alT.length
           ? 'La structure est posée. Il reste <b>'+_reste+' obligation'+(_reste>1?'s':'')+'</b> à mettre en place. ⚠️ '+_alTxtT
           : 'La structure est posée. Il reste <b>'+_reste+' obligation'+(_reste>1?'s':'')+'</b> à mettre en place pour que '+(_nb>1?'ces biens soient louables':'ce bien soit louable')+' en règle.'));
@@ -25196,10 +25196,10 @@ function _frShowFr(kind){
       +'<div class="fr-recap">'+_frRecapHtml({bail:false})+'</div>'
       +'<p>'+_phrase+'</p>'
       +'<div class="fr-choices">'
-      +'<div class="fr-choice log" onclick="_frCompContinue()"><span class="ic">🧭</span><div class="tx"><b>Compléter maintenant</b><s>le fil te guide fiche par fiche, dans l’ordre</s></div><span class="chev">›</span></div>'
-      +'<div class="fr-choice fin" onclick="_frClose()"><span class="ic">🕊</span><div class="tx"><b>Plus tard — c’est gardé</b><s>tout est enregistré · le fil t’attendra</s></div><span class="chev">›</span></div>'
+      +'<div class="fr-choice log" onclick="_frCompContinue()"><span class="ic">🧭</span><div class="tx"><b>Compléter maintenant</b><s>le fil guide fiche par fiche, dans l’ordre</s></div><span class="chev">›</span></div>'
+      +'<div class="fr-choice fin" onclick="_frClose()"><span class="ic">🕊</span><div class="tx"><b>Plus tard — c’est gardé</b><s>tout est enregistré · le fil reste en attente</s></div><span class="chev">›</span></div>'
       +'</div></div>';
-    foot.innerHTML='<span class="fr-grow"></span><span class="fr-hint" style="margin:0">Rien d’obligatoire — tu peux t’arrêter à tout moment.</span>';
+    foot.innerHTML='<span class="fr-grow"></span><span class="fr-hint" style="margin:0">Rien d’obligatoire — arrêt possible à tout moment.</span>';
   } else if(kind==='completion'){
     // Fil COMPLET — accordéon de complétion (mockup validé : UN nœud ouvert, « tu es ici »,
     // fiches pleines repliées ✓, chaque bouton ouvre l'ÉCRAN EXISTANT — zéro formulaire recopié).
@@ -25217,12 +25217,12 @@ function _frShowFr(kind){
       +'<div class="fr-choice fin" onclick="_frNextChoice(\'finish\')"><span class="ic">✓</span><div class="tx"><b>C’est bon, terminer</b><s>voir ce qu’il reste à mettre en règle</s></div><span class="chev">›</span></div></div></div>';
     foot.innerHTML=stop;
   } else if(kind==='done'){
-    body.innerHTML='<div class="fr-done"><div class="big">🎉</div><h3>Ton bien est en place</h3><div class="fr-recap">'+_frRecapHtml()+'</div><p class="fr-qs" style="text-align:center">Un locataire arrive ? Continue vers le bail. Sinon, tout est déjà en place.</p></div>';
+    body.innerHTML='<div class="fr-done"><div class="big">🎉</div><h3>Le bien est en place</h3><div class="fr-recap">'+_frRecapHtml()+'</div><p class="fr-qs" style="text-align:center">Un locataire arrive ? Continuer vers le bail. Sinon, tout est déjà en place.</p></div>';
     const canBail=_frRentableLogs().length>0; // P3 : bail proposé seulement s'il reste un logement créé, louable et vacant
     foot.innerHTML='<button class="fr-later" onclick="_frClose()">Terminer sans bail</button><span class="fr-grow"></span>'+(canBail?'<button class="fr-prim" onclick="_frOpenBailStep()">✍ Créer le bail →</button>':'');
   } else if(kind==='bail'){
-    if(_frCtx.bailDone){ body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Bail lancé'+(_frCtx.bailRef?' pour '+escHtml(_frCtx.bailRef):'')+'</h3><p>Le wizard bail existant a pris le relais. Le fil rouge est complet — rien ne t’y obligeait.</p></div>'; foot.innerHTML='<button class="fr-later" onclick="_frClose()">Fermer</button>'; }
-    else { body.innerHTML='<div class="fr-reuse">♻ Relais vers le wizard Bail existant</div><h2 class="fr-q">Le bail</h2><p class="fr-qs">Dernière étape : créer le bail. Le wizard bail déjà en place prend le relais (locataire, dates, loyer, signature).</p><div class="fr-fld"><label>Pour quel logement ?</label><select id="fr-bail-log">'+_frRentableOptions()+'</select></div><div class="fr-stop-hint">🕊 Pas de locataire encore ? <b>Tu peux t’arrêter là</b> — le bien reste enregistré, tu créeras le bail plus tard.</div>';
+    if(_frCtx.bailDone){ body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Bail lancé'+(_frCtx.bailRef?' pour '+escHtml(_frCtx.bailRef):'')+'</h3><p>Le wizard bail existant a pris le relais. Le fil rouge est complet — rien ne l’exigeait.</p></div>'; foot.innerHTML='<button class="fr-later" onclick="_frClose()">Fermer</button>'; }
+    else { body.innerHTML='<div class="fr-reuse">♻ Relais vers le wizard Bail existant</div><h2 class="fr-q">Le bail</h2><p class="fr-qs">Dernière étape : créer le bail. Le wizard bail déjà en place prend le relais (locataire, dates, loyer, signature).</p><div class="fr-fld"><label>Pour quel logement ?</label><select id="fr-bail-log">'+_frRentableOptions()+'</select></div><div class="fr-stop-hint">🕊 Pas de locataire encore ? <b>Arrêt possible ici</b> — le bien reste enregistré, le bail pourra être créé plus tard.</div>';
       foot.innerHTML=stop+'<span class="fr-grow"></span><button class="fr-ghost" onclick="_frShowFr(\'done\')">‹ Retour</button><button class="fr-prim" onclick="_frConfirmBail()">Ouvrir le wizard bail →</button>'; }
   }
   _frRenderBread();
@@ -25332,7 +25332,7 @@ function _frCompDiagsHtml(dg, status){
   const req=(dg&&dg.requis)||[], ind=(dg&&dg.indetermines)||[], fou=(dg&&dg.fournis)||[];
   if(!req.length && !ind.length) return (status==='done')
     ? '<span>aucun diagnostic exigé pour ce bien</span>'
-    : '<span>l’app n’a pas encore pu déterminer les diagnostics exigés — ouvre la fiche du bien</span>';
+    : '<span>l’app n’a pas encore pu déterminer les diagnostics exigés — ouvrir la fiche du bien</span>';
   let s='<span class="fr-comp-dg">';
   if(req.length) s+='<b>'+req.length+' requis</b> pour ce bien : '+req.map(function(r){ return (fou.indexOf(r.key)>=0?'✓ ':'')+escHtml(r.label); }).join(' · ');
   else s+='aucun diagnostic déterminé pour l’instant';
@@ -25343,8 +25343,8 @@ function _frCompDiagsHtml(dg, status){
   const _nm=function(l){ return l.map(function(r){ return escHtml(r.label); }).join(', '); };
   const byAnnee=ind.filter(function(r){ return r.cause==='annee'; });
   const byDonnee=ind.filter(function(r){ return r.cause!=='annee'; });
-  if(byAnnee.length) s+='<span class="fr-comp-dep">↳ '+byAnnee.length+' à déterminer ('+_nm(byAnnee)+') — renseigne l’<b>année de construction</b> de l’immeuble et je saurai lesquels s’appliquent.</span>';
-  if(byDonnee.length) s+='<span class="fr-comp-dep">↳ '+byDonnee.length+' à déterminer ('+_nm(byDonnee)+') — renseigne l’<b>année de l’installation</b> sur la fiche du bien et je saurai si le diagnostic est exigé.</span>';
+  if(byAnnee.length) s+='<span class="fr-comp-dep">↳ '+byAnnee.length+' à déterminer ('+_nm(byAnnee)+') — renseigner l’<b>année de construction</b> de l’immeuble pour savoir lesquels s’appliquent.</span>';
+  if(byDonnee.length) s+='<span class="fr-comp-dep">↳ '+byDonnee.length+' à déterminer ('+_nm(byDonnee)+') — renseigner l’<b>année de l’installation</b> sur la fiche du bien pour savoir si le diagnostic est exigé.</span>';
   return s;
 }
 // Une ligne de tâche. Les lignes LÉGALES portent leur SOURCE (bandeau ambre ⚖) — rien n'est réclamé
@@ -25400,13 +25400,13 @@ function _frCompHtml(cm){
   const _alertes=_frAlertes(cm.model);
   const _alIdx=new Set(_alertes.map(a=>a.idx));
   let h='<div class="fr-comp-hero"><div class="top"><span class="big">🧭</span>'
-    +'<div><h4>Configuration du patrimoine</h4><div class="sub">'+escHtml(cm.ent.nom)+_immsTxt+' — pause quand tu veux : c’est gardé.</div></div>'
+    +'<div><h4>Configuration du patrimoine</h4><div class="sub">'+escHtml(cm.ent.nom)+_immsTxt+' — pause possible à tout moment : c’est gardé.</div></div>'
     +'<span class="pct">'+pctL+'%<s>EN RÈGLE</s></span></div>'
     +'<div class="fr-comp-dual">'
     +'<div class="d legal"><div class="lbl">⚖ Obligations légales <span class="n">'+TL.done+'/'+TL.total+'</span></div><div class="bar"><i style="width:'+pctL+'%"></i></div></div>'
     +'<div class="d conf"><div class="lbl">📋 Fiche complète <span class="n">'+TA.done+'/'+TA.total+'</span></div><div class="bar neu"><i style="width:'+pct+'%"></i></div></div>'
     +'</div>'
-    +'<div class="fr-comp-why">⚖ <b>Le fil ne pousse qu’une chose : que le légal soit en place.</b> Tant que ces lignes sont rouges, le bien n’est pas louable en règle. Le reste se remplit quand tu veux et n’est jamais signalé comme un manque.</div></div>';
+    +'<div class="fr-comp-why">⚖ <b>Le fil ne pousse qu’une chose : que le légal soit en place.</b> Tant que ces lignes sont rouges, le bien n’est pas louable en règle. Le reste se remplit à son rythme et n’est jamais signalé comme un manque.</div></div>';
   h+='<div class="fr-comp-wrap"><div class="fr-comp-line"><i style="height:'+pctL+'%"></i></div>';
   nodes.forEach((n,i)=>{
     const L=_cnt(n.tasks.filter(_isL)), A=_cnt(n.tasks);
@@ -25416,7 +25416,7 @@ function _frCompHtml(cm){
     h+='<div class="fr-comp-node"><div class="fr-comp-dot '+(n.full?'done':(here?'here':''))+'">'+(n.full?'✓':(i+1))+'</div>'
       +'<div class="fr-comp-card '+(isOpen?'here':'closed')+'">'
       +'<div class="hd" onclick="_frCompToggle('+i+')"><span>'+(ICON[n.kind]||'🏠')+'</span><div class="tx"><b>'+escHtml(n.name)+'</b>'+(n.sub?'<div class="meta">'+escHtml(n.sub)+'</div>':'')+'</div>'
-      +'<span class="sp">'+alChip+badge+((here&&!n.full)?'<span class="fr-comp-here">tu es ici</span>':'')
+      +'<span class="sp">'+alChip+badge+((here&&!n.full)?'<span class="fr-comp-here">étape en cours</span>':'')
       +'<span class="fr-comp-gauge '+(n.full?'full':'part')+'" title="Obligations légales">⚖ '+L.done+'/'+L.total+'</span>'
       +'<span class="fr-comp-gauge neu" title="Fiche complète (confort de gestion inclus)">📋 '+A.done+'/'+A.total+'</span>'
       +'<span class="chev">›</span></span></div>';
@@ -25429,7 +25429,7 @@ function _frCompHtml(cm){
         +'<div class="fr-comp-grp legal">⚖ Obligations légales — à mettre en place<span class="cnt">'+L.done+'/'+L.total+'</span></div>';
       legalT.forEach(t=>{ h+=_frCompTaskHtml(t, refA); });
       if(confT.length){
-        h+='<div class="fr-comp-grp conf">📋 Confort de gestion — quand tu veux<span class="cnt">'+CF.done+'/'+CF.total+'</span></div>';
+        h+='<div class="fr-comp-grp conf">📋 Confort de gestion — à tout moment<span class="cnt">'+CF.done+'/'+CF.total+'</span></div>';
         confT.forEach(t=>{ h+=_frCompTaskHtml(t, refA); });
       }
       h+='</div><div class="fr-comp-act"><button class="fr-comp-btn prim" onclick="_frCompAction(\''+n.kind+'\''+((n.kind==='log'||n.kind==='imm')?(',\''+refA+'\''):'')+')">Compléter la fiche →</button></div></div>';
@@ -25442,7 +25442,7 @@ function _frCompHtml(cm){
   h+='<div class="fr-comp-node end"><div class="fr-comp-dot">'+(pctL===100?(_alertes.length?'⚠':'🎉'):'⚖')+'</div>'
     +(pctL===100
       ? (_alertes.length
-        ? '100 % — <b>tout ce qui dépend de toi est en place.</b> ⚠️ '+_alTxt
+        ? '100 % — <b>tout ce qui dépend du propriétaire est en place.</b> ⚠️ '+_alTxt
         : '100 % — <b>le bien est louable en règle</b> : bail signable, diagnostics annexés, déclarations à jour.')
       : 'Quand les pastilles ⚖ sont vertes : <b>le bien est louable en règle</b> — bail signable, diagnostics annexés, déclarations à jour.'
         +(_alertes.length?(' ⚠️ '+_alTxt):''))
@@ -25792,7 +25792,7 @@ function rParamsCats() {
       </div>
       ${customCats.length
         ? customCats.map(renderCustomRow).join('')
-        : '<p class="mu sm" style="text-align:center;padding:14px;font-style:italic">Aucune catégorie personnalisée. Cliquez « + Catégorie » pour en créer une.</p>'}
+        : '<p class="mu sm" style="text-align:center;padding:14px;font-style:italic">Aucune catégorie personnalisée. Cliquer « + Catégorie » pour en créer une.</p>'}
     </div>`;
 
   // Audit R2 : une catégorie supprimée de la liste garde sa famille et ses mouvements. Sans ce bloc,
@@ -25876,7 +25876,7 @@ function _finCreerCatConfirm() {
   const nom = window._finNewCatNom || '';
   const sel = el('newcat-mere');
   if (!nom) return;
-  if (!sel || !sel.value) { showToast('Choisis la famille — sans famille, pas de création', 'warn', 4000); return; }
+  if (!sel || !sel.value) { showToast('Choisir la famille — sans famille, pas de création', 'warn', 4000); return; }
   DB.categories.push(nom);
   _finRattacheCategorie(nom, sel.value);
   window._finNewCatNom = '';
@@ -26141,7 +26141,7 @@ ${_docCss()}
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <title>Acte de cautionnement \u2013 ${escHtml(bail.garant||'')}<\/title>
 <style>${_css}<\/style><\/head><body>
-<div class="print-hint">💡 <b>Avant d'imprimer</b> : dans la fenêtre Chrome/Edge (Ctrl+P), cliquez "Plus de paramètres" puis <b>décochez "En-têtes et pieds de page"</b> pour un rendu professionnel sans URL ni date d'impression.<\/div>
+<div class="print-hint">💡 <b>Avant d'imprimer</b> : dans la fenêtre Chrome/Edge (Ctrl+P), cliquer sur "Plus de paramètres" puis <b>décocher "En-têtes et pieds de page"</b> pour un rendu professionnel sans URL ni date d'impression.<\/div>
 ${bloc1}${bloc2}
 <div class="no-print" style="margin-top:16px;text-align:center;display:flex;justify-content:center;gap:12px">
 <button onclick="window.print()" style="padding:8px 20px;font-size:11pt;cursor:pointer;background:#1a4b8c;color:#fff;border:none;border-radius:4px">\uD83D\uDDA8 Imprimer \/ PDF<\/button>
@@ -26150,7 +26150,7 @@ ${bloc1}${bloc2}
 <\/body><\/html>`;
 
   const win = window.open('','_blank');
-  if(!win) { showToast('Popup bloqu\u00e9e \u2014 autorisez les popups pour ce site','err'); return; }
+  if(!win) { showToast('Popup bloqu\u00e9e \u2014 autoriser les popups pour ce site','err'); return; }
   win.document.write(_injectPreviewCloseButton(html));
   win.document.close();
 }
@@ -26372,8 +26372,8 @@ function rParamsRules(hostId) {
   const aliveIdx = DB.importRules.map((r,i)=>({r,i})).filter(x => x.r && !x.r._deleted);
   if(!aliveIdx.length) {
     host.innerHTML = '<div class="mu sm" style="padding:16px;text-align:center;line-height:1.6">'
-      + '<b>Aucune règle.</b><br>Propryo ne livre aucune règle toute faite : ce sont <b>tes</b> données, pas les siennes.<br>'
-      + 'Crée-en une depuis une ligne d\'import (' + _uiIcon('save',12) + ' Mémoriser la règle) ou avec « + Règle ».</div>';
+      + '<b>Aucune règle.</b><br>Propryo ne livre aucune règle toute faite : ce sont <b>des données propres au compte</b>, pas celles de Propryo.<br>'
+      + 'À créer depuis une ligne d\'import (' + _uiIcon('save',12) + ' Mémoriser la règle) ou avec « + Règle ».</div>';
     return;
   }
   const _acct = (DB.params.bankAccounts || []).filter(a => a && !a._deleted);
@@ -26838,7 +26838,7 @@ function rAgendaList() {
     el('agenda-overdue-section').innerHTML = `<div class="card" style="text-align:center;padding:40px 20px;color:var(--t2)">
       <div style="margin-bottom:12px;color:var(--t3)">${_uiIcon('calendar',32)}</div>
       <div style="font-weight:600;margin-bottom:6px">Aucun événement</div>
-      <div style="font-size:13px">Cliquez sur <b>+ Événement</b> pour en ajouter un, ou <b>Sync baux</b> pour générer automatiquement depuis vos baux.</div>
+      <div style="font-size:13px">Cliquer sur <b>+ Événement</b> pour en ajouter un, ou <b>Sync baux</b> pour générer automatiquement depuis les baux.</div>
     </div>`;
   }
 }
@@ -26991,7 +26991,7 @@ function _rAgendaListPhone(g){
   el('agenda-rest-section').innerHTML = restHtml;
   const total=g.overdue.length+g.soon7.length+g.soon30.length+g.rest.length+done30.length;
   if(!total){
-    el('agenda-overdue-section').innerHTML = `<div class="agph-card" style="cursor:default;text-align:center"><div class="agph-ti" style="margin-bottom:4px">Aucun événement</div><div style="color:var(--t3);font-size:12.5px">Ajoutez-en un avec « + Nouvel événement », ou synchronisez depuis vos baux.</div></div>`;
+    el('agenda-overdue-section').innerHTML = `<div class="agph-card" style="cursor:default;text-align:center"><div class="agph-ti" style="margin-bottom:4px">Aucun événement</div><div style="color:var(--t3);font-size:12.5px">Ajouter un événement avec « + Nouvel événement », ou synchroniser depuis les baux.</div></div>`;
   }
 }
 function _agendaDayDotsPhone(dayEvts){
@@ -27219,7 +27219,7 @@ function rEquipements() {
       <details style="margin-top:14px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:10px 14px">
         <summary style="cursor:pointer;font-weight:600;font-size:12.5px;user-select:none">${_uiIcon('settings',13)} Configuration des équipements du logement</summary>
         <div class="mu sm" style="margin:6px 0 10px;font-size:11.5px;line-height:1.5">
-          Renseignez les équipements présents pour activer les alertes d'entretien correspondantes.
+          Renseigner les équipements présents pour activer les alertes d'entretien correspondantes.
           Les équipements à charge du locataire (chaudière, ramonage, chauffe-eau, climatisation, citerne) génèrent automatiquement une fréquence d'entretien.
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 14px;font-size:12px">
@@ -27306,7 +27306,7 @@ function rEquipements() {
       ${rows ? `<div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>Équipement</th><th>Dernière intervention</th><th>Prochaine échéance</th><th>Statut</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
-      </table></div>` : '<p class="mu sm" style="margin:4px 0 0">Aucun équipement à entretien périodique pour ce logement — utilisez la configuration ci-dessous pour en déclarer.</p>'}
+      </table></div>` : '<p class="mu sm" style="margin:4px 0 0">Aucun équipement à entretien périodique pour ce logement — utiliser la configuration ci-dessous pour en déclarer.</p>'}
       ${cfgPanel}
     </div>`;
   }).join('') || '<p class="mu">Aucun logement trouvé.</p>';
@@ -27486,9 +27486,9 @@ function _equipAttRefresh() {
   const c = el('ei-att-container'); if (!c) return;
   const ref = el('ei-log') ? el('ei-log').value : '';
   const key = el('ei-type') ? el('ei-type').value : '';
-  if (!ref || !key) { c.innerHTML = '<div class="mu sm" style="font-size:11.5px;padding:8px;background:var(--sur2);border-radius:6px">Sélectionnez logement + équipement pour attacher des documents.</div>'; return; }
+  if (!ref || !key) { c.innerHTML = '<div class="mu sm" style="font-size:11.5px;padding:8px;background:var(--sur2);border-radius:6px">Sélectionner logement + équipement pour attacher des documents.</div>'; return; }
   const typeLabel = (el('ei-type').selectedOptions[0] || {}).textContent || key;
-  c.innerHTML = _renderAttachmentSection({ parentType:'equipement', parentId: ref + '__' + key, parentRef: ref + ' · ' + String(typeLabel).trim(), logRef: ref, category:'documents', title:'📎 Documents (facture, contrat, notice)', emptyText:'Attachez la facture d\'intervention, le contrat d\'entretien, la notice…' });
+  c.innerHTML = _renderAttachmentSection({ parentType:'equipement', parentId: ref + '__' + key, parentRef: ref + ' · ' + String(typeLabel).trim(), logRef: ref, category:'documents', title:'📎 Documents (facture, contrat, notice)', emptyText:'Attacher la facture d\'intervention, le contrat d\'entretien, la notice…' });
 }
 
 function _fillEquipTypeSelect() {
@@ -27505,8 +27505,8 @@ function _fillEquipTypeSelect() {
 }
 
 function saveEquipIntervention() {
-  const ref  = el('ei-log').value; if(!ref) return showToast('Sélectionnez un logement','err');
-  const key  = el('ei-type').value; if(!key) return showToast('Sélectionnez un type','err');
+  const ref  = el('ei-log').value; if(!ref) return showToast('Sélectionner un logement','err');
+  const key  = el('ei-type').value; if(!key) return showToast('Sélectionner un type','err');
   const date = el('ei-date').value; if(!date) return showToast('Date requise','err');
   const interv = el('ei-interv').value.trim();
   const notes  = el('ei-notes').value.trim();
@@ -27856,7 +27856,7 @@ function _dgVgRender(ref) {
   if (!body) return;
   const t = window.computeVetusteTotal ? window.computeVetusteTotal(_dgVgRows, _dgVgCtx) : { total: 0, nbAJustifier: 0, rows: [] };
   if (!_dgVgRows.length) {
-    body.innerHTML = `<div class="mu sm" style="padding:8px 2px">Aucune dégradation reprise de l'EDL de sortie. Ajoute une réparation si nécessaire.</div>`;
+    body.innerHTML = `<div class="mu sm" style="padding:8px 2px">Aucune dégradation reprise de l'EDL de sortie. Ajouter une réparation si nécessaire.</div>`;
   } else {
     body.innerHTML = t.rows.map((r, i) => {
       const isAuto = r.source === 'edl_neuf';
@@ -28081,7 +28081,7 @@ function _dgOpenRestitution(ref, cle) {
         ? 'Date déjà enregistrée pour cette restitution — la modifier réécrit le point de départ du délai de l’article 22.'
         : (_dgMouvement
           ? 'Reprise du mouvement de restitution déjà enregistré.'
-          : 'Aucun virement de restitution n’est encore enregistré — saisis la date réelle du virement, l’app n’en invente pas.')}</div>
+          : 'Aucun virement de restitution n’est encore enregistré — saisir la date réelle du virement, l’app n’en invente pas.')}</div>
     </div>
   `;
   el('ov-dg-restitution-ref').value = ref;
@@ -28185,7 +28185,7 @@ function _dgConfirmerRestitution() {
     ? `Confirmer la restitution DG ?\n\nMontant restitué : ${fmt(montantRestitue)}${_penLine}\nDate du virement : ${fd(dateRestitution)}\n\nLe bail sera marqué comme "DG restitué" + entrée audit-trail.`
     : `Enregistrer une restitution INCOMPLÈTE ?\n\nMontant restitué : ${fmt(montantRestitue)}${_penLine}\nDate du virement : non renseignée\n\nLe montant, les retenues et l'entrée audit-trail sont conservés, `
       + `mais le bail restera « à restituer » tant que la date manque — c'est elle qui déclenche le `
-      + `délai de l'article 22. Reviens la compléter dès que le virement est fait.`;
+      + `délai de l'article 22. À compléter dès que le virement est fait.`;
   if (!confirm2(_msgConfirm)) return;
 
   // dgRetenu = réparations (vétusté) + régul préservée ; depart.reparations = part vétusté seule
@@ -28247,7 +28247,7 @@ function _suiviDetailHtml(log, s, yr) {
       + '<div style="font-weight:700;font-size:12.5px;color:' + c[2] + ';margin-top:2px">' + val + '</div></div>';
   };
   const grid = '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:12px 14px">' + s.months.map(cell).join('') + '</div>';
-  const solde = '<div style="padding:10px 14px;background:var(--sur3);border-top:1px solid var(--bor2);font-size:12px;color:var(--t2)">Attendu à date <b style="color:var(--t1)">' + fmt(s.attendu) + '</b> · reçu <b style="color:var(--t1)">' + fmt(s.recu) + '</b> · solde <b style="color:' + (s.solde >= 0 ? 'var(--pos)' : 'var(--neg)') + '">' + (s.solde >= 0 ? '+ ' : '− ') + fmt(Math.abs(s.solde)) + '</b> <span style="color:var(--t3)">· clique un mois pour ses paiements</span></div>';
+  const solde = '<div style="padding:10px 14px;background:var(--sur3);border-top:1px solid var(--bor2);font-size:12px;color:var(--t2)">Attendu à date <b style="color:var(--t1)">' + fmt(s.attendu) + '</b> · reçu <b style="color:var(--t1)">' + fmt(s.recu) + '</b> · solde <b style="color:' + (s.solde >= 0 ? 'var(--pos)' : 'var(--neg)') + '">' + (s.solde >= 0 ? '+ ' : '− ') + fmt(Math.abs(s.solde)) + '</b> <span style="color:var(--t3)">· cliquer sur un mois pour voir ses paiements</span></div>';
   let drill = '';
   if (_suiviMonth) {
     const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
@@ -28285,7 +28285,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   const inline = !!(opts && opts.inline);
   const grouped = !!(opts && opts.grouped);   // KPI §4 : dépliant inline groupé par immeuble/bailleur
   if (typeof window._computeLoyerStatut !== 'function' || typeof window._loyerChipVerdict !== 'function') {
-    return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Suivi indisponible — ouvre l\'application via le serveur (modules non chargés).</div>', empty: true };
+    return { html: '<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Suivi indisponible — ouvrir l\'application via le serveur (modules non chargés).</div>', empty: true };
   }
   const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   const _MO = ['J', 'F', 'M', 'A', 'M', 'J', 'Jt', 'A', 'S', 'O', 'N', 'D'];
@@ -28434,10 +28434,10 @@ function _planApurementOpen(ref) {
       <td style="padding:4px 6px"><input type="number" class="inp" value="${ech.montant||0}" step="0.01" min="0" onchange="_planEcheanceUpdate('${_lyQ(ref)}',${i},'montant',this.value)" style="width:100px;text-align:right;font-size:11.5px"></td>
       <td style="padding:4px 6px;text-align:center"><input type="checkbox" ${ech.paye?'checked':''} onchange="_planEcheanceUpdate('${_lyQ(ref)}',${i},'paye',this.checked)"></td>
       <td style="padding:4px 6px;text-align:right"><button class="btn br bb" onclick="_planEcheanceDel('${_lyQ(ref)}',${i})" style="font-size:10.5px;padding:2px 6px">✕</button></td>
-    </tr>`).join('') : `<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--mut)">Aucune échéance — cliquez "+ Échéance"</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--mut)">Aucune échéance — cliquer "+ Échéance"</td></tr>`;
   body.innerHTML = `
     <div class="mu sm" style="margin-bottom:14px;line-height:1.55">
-      Saisir les échéances du plan d'apurement convenu avec le locataire. Cochez une échéance quand elle est payée.
+      Saisir les échéances du plan d'apurement convenu avec le locataire. Cocher une échéance quand elle est payée.
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
       <thead><tr style="background:var(--sur2);font-size:11px">
@@ -28595,10 +28595,10 @@ function _bankImportOpen() {
     body.innerHTML = `
       <div id="bank-import-intro">
         <div class="mu sm" style="line-height:1.6;margin-bottom:14px">
-          Importe un relevé <strong>OFX</strong> (le format le plus fiable — ta banque y met la date,
+          Importer un relevé <strong>OFX</strong> (le format le plus fiable — la banque y met la date,
           le montant signé et un identifiant unique par opération) ou un fichier <strong>Excel</strong> (.xlsx / .xls).
           Compatible Crédit Mutuel, BNP, SG, LCL, Crédit Agricole, Boursorama…
-          Propryo lit le fichier, te montre ce qu'il a compris, et te laisse tout corriger avant d'importer.
+          Propryo lit le fichier, montre ce qu'il a compris, et laisse tout corriger avant d'importer.
         </div>
         <input class="inp" type="file" id="bank-import-file" accept=".ofx,.qfx,.xlsx,.xls" onchange="_bankImportFileLoaded(event)" style="margin-bottom:14px">
         ${_bankPendingIntroHtml()}
@@ -28656,7 +28656,7 @@ function _bankModuleReady() {
   const ok = typeof window._bankReadOFX === 'function' && typeof window._bankReadTable === 'function'
     && typeof window._bankDedup === 'function' && typeof window._bankApplyRules === 'function'
     && typeof window._bankIsAutomatable === 'function';
-  if (!ok) showToast("Module d'import bancaire non chargé — recharge la page.", 'err', 6000);
+  if (!ok) showToast("Module d'import bancaire non chargé — recharger la page.", 'err', 6000);
   return ok;
 }
 
@@ -28690,9 +28690,9 @@ function _bankImportRefuseFile(f, det) {
   preview.innerHTML = '<div style="padding:16px;background:rgba(220,38,38,.08);border:1px solid #dc2626;border-radius:var(--rl);color:var(--t1);line-height:1.6">'
     + '<b style="font-size:14px">Ce fichier n&rsquo;est pas un relev&eacute; que Propryo sait lire</b><br>'
     + '<span class="mu sm">' + escHtml((f && f.name) || '') + ' &mdash; ' + escHtml((det && det.reason) || '') + '</span>'
-    + '<div style="margin-top:10px">Exporte ton relev&eacute; en <b>OFX</b> depuis ta banque (le format le plus fiable : '
+    + '<div style="margin-top:10px">Exporter le relev&eacute; en <b>OFX</b> depuis la banque (le format le plus fiable : '
     + 'la banque y met la date, le montant sign&eacute; et un identifiant unique par op&eacute;ration), '
-    + 'ou enregistre-le en <b>.xlsx</b>.</div>'
+    + 'ou l&rsquo;enregistrer en <b>.xlsx</b>.</div>'
     + '<div class="mu sm" style="margin-top:8px;font-size:11.5px">Le CSV n&rsquo;est plus accept&eacute; : format libre, '
     + 'dont la lecture &eacute;choue sans le dire (montants invers&eacute;s, colonnes d&eacute;cal&eacute;es).</div>'
     + '<div style="margin-top:12px"><button class="btn bs" onclick="_bankImportChangeFile()">&#10227; Choisir un autre fichier</button></div></div>';
@@ -28754,7 +28754,7 @@ function _bankRenderSheetChoice() {
     + '<input type="radio" name="bkSheet" value="' + escHtml(s.name) + '"' + (i === 0 ? ' checked' : '') + '>'
     + '<span style="flex:1"><b>' + escHtml(s.name) + '</b> <span class="mu sm">&mdash; ' + s.nRows + ' mouvement(s)</span></span></label>').join('');
   preview.innerHTML = '<div style="padding:12px;background:rgba(59,126,246,.08);border:1px solid #3b7ef6;border-radius:8px;margin-bottom:12px;font-size:13px">'
-    + '<b>Ce classeur contient plusieurs feuilles de mouvements</b><br><span class="mu sm">Laquelle veux-tu importer ?</span></div>'
+    + '<b>Ce classeur contient plusieurs feuilles de mouvements</b><br><span class="mu sm">Quelle feuille importer ?</span></div>'
     + opts
     + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn bp" onclick="_bankConfirmSheet()">Continuer &rarr;</button></div>';
 }
@@ -28762,7 +28762,7 @@ function _bankRenderSheetChoice() {
 function _bankConfirmSheet() {
   if (!_bankPendingSheets) return;
   const r = document.querySelector('input[name=bkSheet]:checked');
-  if (!r) { showToast('Choisis une feuille', 'warn'); return; }
+  if (!r) { showToast('Choisir une feuille', 'warn'); return; }
   _bankUseSheet(_bankPendingSheets.sheets, r.value, false);
 }
 
@@ -28834,7 +28834,7 @@ function _bankAfterRead(format, identifier, hint) {
 //   Phase D : si lastImport présent → cherche le fingerprint dans le fichier → slice après, ou fallback heuristique.
 function _bankImportRunPreview(lines, format) {
   // v15.163 safety : un compte courant doit être défini avant d'atteindre cette fonction
-  if (!_currentBankAccount) { showToast("Erreur interne : aucun compte bancaire courant. Relance l'import.", 'err', 5000); return; }
+  if (!_currentBankAccount) { showToast("Erreur interne : aucun compte bancaire courant. Relancer l'import.", 'err', 5000); return; }
   // ④.1 — un compte appartient toujours à quelqu'un : sans bailleur (ni « compte mixte »),
   // on demande avant d'aller plus loin. C'est ce qui débloque la règle « bailleur du
   // compte », les biens proposés et le garde-fou d'affectation inter-entités.
@@ -28856,7 +28856,7 @@ function _bankImportRunPreview(lines, format) {
   // sont proposées) ; les doublons déjà en base sont détectés par ⑥.
   if (window._bankIsRetroactive(lines, li)) {
     const ds = lines.map(l => l.date).filter(Boolean).sort();
-    const banner = `<div style="padding:10px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:6px;margin-bottom:12px;font-size:12px">${_uiIcon('calendar',14)} <b>Import rétroactif</b> — ce fichier couvre ${fd(ds[0])} → ${fd(ds[ds.length-1])}, antérieur à ton dernier import du ${fd(li.date)}. Toutes les lignes sont proposées, les doublons déjà en base sont détectés.</div>`;
+    const banner = `<div style="padding:10px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:6px;margin-bottom:12px;font-size:12px">${_uiIcon('calendar',14)} <b>Import rétroactif</b> — ce fichier couvre ${fd(ds[0])} → ${fd(ds[ds.length-1])}, antérieur au dernier import du ${fd(li.date)}. Toutes les lignes sont proposées, les doublons déjà en base sont détectés.</div>`;
     _bankImportFinalizePreview(lines, format, banner);
     return;
   }
@@ -28894,9 +28894,9 @@ function _bankRenderBailleurChoice() {
     <div style="padding:12px;background:rgba(59,126,246,.08);border:1px solid #3b7ef6;border-radius:8px;margin-bottom:12px;font-size:13px">
       <b>À qui appartient le compte « ${escHtml(acct.label || 'ce compte')} » ?</b><br>
       <span class="mu sm">Un compte appartient toujours à quelqu'un. Propryo s'en sert pour proposer les bons biens,
-      pour la règle « le bailleur du compte », et pour t'empêcher d'affecter une dépense au bien d'une autre entité.</span>
+      pour la règle « le bailleur du compte », et pour empêcher d'affecter une dépense au bien d'une autre entité.</span>
     </div>
-    ${ents.length ? opts : '<div class="mu sm" style="padding:10px">Aucune entité enregistrée — crée d\'abord un bailleur dans Réglages.</div>'}
+    ${ents.length ? opts : '<div class="mu sm" style="padding:10px">Aucune entité enregistrée — créer d\'abord un bailleur dans Réglages.</div>'}
     <label style="display:flex;align-items:flex-start;gap:10px;padding:9px 11px;border:1px dashed var(--bor);border-radius:6px;cursor:pointer;margin-bottom:12px">
       <input type="radio" name="bkBailleur" value="_mixte" ${acct.mixte?'checked':''} style="margin-top:3px">
       <span style="flex:1"><b>Compte mixte — plusieurs bailleurs</b><br>
@@ -28907,7 +28907,7 @@ function _bankRenderBailleurChoice() {
 
 function _bankConfirmBailleur() {
   const r = document.querySelector('input[name=bkBailleur]:checked');
-  if (!r) { showToast('Choisis le bailleur du compte (ou « compte mixte »)', 'warn', 4000); return; }
+  if (!r) { showToast('Choisir le bailleur du compte (ou « compte mixte »)', 'warn', 4000); return; }
   if (!_currentBankAccount) return;
   if (r.value === '_mixte') { _currentBankAccount.mixte = true; _currentBankAccount.bailleur = ''; }
   else { _currentBankAccount.mixte = false; _currentBankAccount.bailleur = r.value; }
@@ -28938,7 +28938,7 @@ function _bankImportRenderFirstImportChoice(lines, format) {
   preview.innerHTML = `
     <div style="padding:12px;background:rgba(59,126,246,.08);border:1px solid #3b7ef6;border-radius:8px;margin-bottom:14px;font-size:13px">
       <b>${_uiIcon('sparkle')} Premier import sur <span style="color:var(--cta)">${escHtml(_currentBankAccount.label)}</span></b><br>
-      <span class="mu sm">Le fichier contient <b>${totLines}</b> ligne(s)${minD?(' du <b>'+fd(minD)+'</b> au <b>'+fd(maxD)+'</b>'):''}. Que veux-tu importer ?</span>
+      <span class="mu sm">Le fichier contient <b>${totLines}</b> ligne(s)${minD?(' du <b>'+fd(minD)+'</b> au <b>'+fd(maxD)+'</b>'):''}. Que faut-il importer ?</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
       <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--bor);border-radius:6px;cursor:pointer;background:var(--sur2)">
@@ -28954,7 +28954,7 @@ function _bankImportRenderFirstImportChoice(lines, format) {
       </label>
       <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--bor);border-radius:6px;cursor:pointer;background:var(--sur2)">
         <input type="radio" name="bfiChoice" value="manual" style="margin-top:3px">
-        <span style="flex:1"><b>Sélection manuelle</b> <span class="mu sm">— affiche tout, je coche / décoche dans l'aperçu</span></span>
+        <span style="flex:1"><b>Sélection manuelle</b> <span class="mu sm">— tout afficher, puis cocher / décocher dans l'aperçu</span></span>
       </label>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px">
@@ -28970,7 +28970,7 @@ function _bankImportFirstImportConfirm(format) {
   let banner = '';
   if (choice === 'date') {
     const from = (el('bfi-from-date') || {}).value;
-    if (!from) { showToast('Sélectionne une date', 'warn'); return; }
+    if (!from) { showToast('Sélectionner une date', 'warn'); return; }
     // 🐛 AUDIT I2 — une ligne dont la date est ILLISIBLE ne doit pas disparaître ici :
     // `'' >= from` est faux, donc elle était écartée sans trace ni compteur, en
     // contradiction avec T-1 et ③.3 v2 (« on importe et on marque »). Elle passe, et
@@ -28980,11 +28980,11 @@ function _bankImportFirstImportConfirm(format) {
   } else if (choice === 'all') {
     banner = '';   // V3-REFONTE-LOYERS C : redondant avec le compteur du récap → supprimé
   } else if (choice === 'manual') {
-    banner = `<div style="padding:8px;background:var(--sur2);border:1px solid var(--bor);border-radius:6px;margin-bottom:10px;font-size:12px">${_uiIcon('hand')} <b>Sélection manuelle</b> — toutes les lignes sont affichées ci-dessous, ajuste les coches.</div>`;
+    banner = `<div style="padding:8px;background:var(--sur2);border:1px solid var(--bor);border-radius:6px;margin-bottom:10px;font-size:12px">${_uiIcon('hand')} <b>Sélection manuelle</b> — toutes les lignes sont affichées ci-dessous, ajuster les coches.</div>`;
   } else {
-    showToast('Choisis une option', 'warn'); return;
+    showToast('Choisir une option', 'warn'); return;
   }
-  if (!filtered.length) { showToast('0 ligne après filtrage — élargis la date.', 'warn', 4000); return; }
+  if (!filtered.length) { showToast('0 ligne après filtrage — élargir la date.', 'warn', 4000); return; }
   _bankImportFinalizePreview(filtered, format, banner);
 }
 
@@ -29023,7 +29023,7 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
     const _before = lines.length;
     lines = window._bankMergePendingLines(lines, _stored);
     const _nAdd = lines.length - _before;
-    if (_nAdd > 0) prefixHtml = '<div style="padding:9px 12px;background:rgba(59,126,246,.08);border:1px solid #3b7ef6;border-radius:8px;margin-bottom:10px;font-size:12px">↩ <b>' + _nAdd + ' ligne' + (_nAdd>1?'s':'') + ' en attente</b> de ton dernier import reprise' + (_nAdd>1?'s':'') + ' ici — classe-les quand tu veux, rien ne bloque.</div>' + (prefixHtml || '');
+    if (_nAdd > 0) prefixHtml = '<div style="padding:9px 12px;background:rgba(59,126,246,.08);border:1px solid #3b7ef6;border-radius:8px;margin-bottom:10px;font-size:12px">↩ <b>' + _nAdd + ' ligne' + (_nAdd>1?'s':'') + ' en attente</b> du dernier import reprise' + (_nAdd>1?'s':'') + ' ici — à classer à tout moment, rien ne bloque.</div>' + (prefixHtml || '');
   }
   // ⑦.5 c — le dû comparé est celui du MOIS DU RELEVÉ : on passe le résolveur unique
   // de l'app (_duMoisLot → duMoisFromRaw), jamais le loyer d'aujourd'hui.
@@ -29145,11 +29145,11 @@ function _bankImportRenderAccountSelect(identifier, format, hint) {
 function _bankImportConfirmAccount() {
   if (!_pendingBankImport) { showToast('Aucun import en attente', 'err'); return; }
   const radio = document.querySelector('input[name=bankAccountChoice]:checked');
-  if (!radio) { showToast('Choisis un compte existant OU coche « + Nouveau compte »', 'warn', 4000); return; }
+  if (!radio) { showToast('Choisir un compte existant OU cocher « + Nouveau compte »', 'warn', 4000); return; }
   let account = null;
   if (radio.value === '_new') {
     const newLabel = ((el('bank-account-new-label') || {}).value || '').trim();
-    if (!newLabel) { showToast('Saisis un label pour le nouveau compte', 'warn', 4000); return; }
+    if (!newLabel) { showToast('Saisir un label pour le nouveau compte', 'warn', 4000); return; }
     // ④.3 — l'écran de création de compte porte le choix du bailleur (④.1 : obligatoire).
     const bail = ((el('bank-account-new-bailleur') || {}).value || '');
     account = { id: nid(), label: newLabel, type: _pendingBankImport.format,
@@ -29188,7 +29188,7 @@ function _bankAccountsRender() {
   if (!accounts.length) {
     body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:8px">
       <b>Aucun compte bancaire enregistré</b><br>
-      <span class="mu sm">Un compte sera créé automatiquement au 1er import bancaire — utilise « 🏦 Importer banque ».</span>
+      <span class="mu sm">Un compte sera créé automatiquement au 1er import bancaire — utiliser « 🏦 Importer banque ».</span>
     </div>`;
     return;
   }
@@ -29403,7 +29403,7 @@ function _bankDupBodyHtml(dupIdx) {
     const open = probables.filter(i => { const l = _bankImportLines[i]; return l && !l._userKeep && !l._dupConfirmed; }).length;
     h += '<div class="mu sm" style="margin:2px 0 10px;font-size:12px;line-height:1.55;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);padding:9px 12px;border-radius:8px">'
       + '<b>' + probables.length + ' opération' + (probables.length > 1 ? 's ressemblent' : ' ressemble') + ' à quelque chose de déjà enregistré</b> — mais rien ne le prouve. '
-      + 'Ni exclue, ni incluse : c\'est toi qui tranches. Un même loyer de 850 € à deux jours d\'écart peut très bien être <b>deux locataires différents</b>.'
+      + 'Ni exclue, ni incluse : à trancher ici. Un même loyer de 850 € à deux jours d\'écart peut très bien être <b>deux locataires différents</b>.'
       + (open ? '<br><b style="color:var(--amb,#d97706)">L\'import reste bloqué tant qu\'il en reste ' + open + ' à trancher.</b>' : '')
       + '</div>'
       + '<div style="max-height:42vh;overflow:auto">' + probables.map(i => _bankDupCardHtml(i)).join('') + '</div>';
@@ -29584,7 +29584,7 @@ function _bankDiscardedPanelHtml() {
     + '<b style="font-size:12.5px">' + _uiIcon('archive',14) + ' ' + r.discarded.length + ' ligne(s) non retenue(s)</b>'
     + '<a onclick="_bankOpenDiscarded()" style="margin-left:auto;cursor:pointer;text-decoration:underline;font-size:11.5px;color:var(--t3)">masquer</a></div>'
     + '<div class="mu sm" style="margin-bottom:8px;font-size:11.5px;line-height:1.5">Rien n\'est caché : ces lignes du fichier n\'ont pas été retenues comme mouvements. '
-    + 'Tu peux en réintégrer une si Propryo s\'est trompé — elle arrivera dans « À compléter ».</div>'
+    + 'Une ligne peut être réintégrée si Propryo s\'est trompé — elle arrivera dans « À compléter ».</div>'
     + '<div style="max-height:32vh;overflow:auto">' + rows + '</div></div>';
 }
 
@@ -29595,7 +29595,7 @@ function _bankReintegrate(i) {
   // telle quelle : son montant a été lu comme des euros (« 1200 USD » → 1200 €), c'est
   // exactement le montant faux que ③.2 refuse. On la laisse écartée et on le dit.
   if (/devise/i.test(d.reason || '')) {
-    showToast('Cette ligne est dans une autre devise : Propryo ne connaît pas le taux du jour. Saisis-la à la main avec le montant réellement débité en euros.', 'warn', 7000);
+    showToast('Cette ligne est dans une autre devise : Propryo ne connaît pas le taux du jour. À saisir à la main avec le montant réellement débité en euros.', 'warn', 7000);
     return;
   }
   r.discarded.splice(i, 1);
@@ -29647,7 +29647,7 @@ function _bankImportRenderPreview(format, prefixHtml) {
     ${prefixHtml || ''}
     ${_bankDiscardedPanelHtml()}
     ${_bankScopeBar()}
-    <div class="mu sm" style="margin:6px 0 8px;font-size:11px;line-height:1.4">${_uiIcon('bulb',13)} Clique une ligne pour la classer — <strong>tes règles</strong> (⚙) d'abord, sinon une proposition (✨). C'est <strong>toi</strong> qui valides.</div>
+    <div class="mu sm" style="margin:6px 0 8px;font-size:11px;line-height:1.4">${_uiIcon('bulb',13)} Cliquer sur une ligne pour la classer — <strong>les règles</strong> (⚙) d'abord, sinon une proposition (✨). Rien n'est classé sans <strong>validation</strong>.</div>
     <div style="display:flex;gap:4px;border-bottom:1px solid var(--bor);margin-bottom:10px">
       ${tabBtn('todo','À compléter',st.todo.length)}${tabBtn('ok','Reconnus',st.ok.length)}${st.dup.length?tabBtn('dup',_uiIcon('cycle')+' Doublons',_bankDupOpenCount(st)):''}
     </div>
@@ -29711,7 +29711,7 @@ function _bankRenderReviewBody() {
   } else {
     // V3-REFONTE-LOYERS C : plus d'auto-déplié inline — le clic sur une ligne ouvre la grande fenêtre « Renseigner ce mouvement ».
     // A6 : rappel que compléter une ligne la fait passer dans « Reconnus » (sinon « disparition » déroutante)
-    if (_bankReviewTab === 'todo') html = '<div class="mu sm" style="font-size:11px;color:var(--t3);margin-bottom:6px">💡 <b>L\'app propose (✨), tu valides.</b> Une ligne passe dans <b>Reconnus</b> quand tu l\'as validée, ou quand une de <b>tes règles</b> (⚙) l\'a classée. Une proposition reste ici, même complète.</div>';
+    if (_bankReviewTab === 'todo') html = '<div class="mu sm" style="font-size:11px;color:var(--t3);margin-bottom:6px">💡 <b>L\'app propose (✨), rien n\'est classé sans validation.</b> Une ligne passe dans <b>Reconnus</b> une fois validée, ou quand une <b>règle</b> (⚙) l\'a classée. Une proposition reste ici, même complète.</div>';
     else html = '';
     html += '<div id="bank-review-scroll" style="max-height:64vh;overflow:auto;padding:2px 2px 0">' + list.map(ri => _bankLineRow(ri)).join('') + '</div>';
   }
@@ -29811,7 +29811,7 @@ function _bankLineRow(i) {
   // ⑦.2 — règles en conflit : aucun automatisme, la ligne reste à compléter et le dit.
   const nRules = line._ruleConflicts ? Math.max(...line._ruleConflicts.map(c => c.rules.length)) : 0;
   const ruleConflictChip = nRules
-    ? '<span class="bimp-chip todo" title="Plusieurs règles donnent des valeurs différentes — choisis dans la fenêtre">⚠ ' + nRules + ' règles possibles</span>' : '';
+    ? '<span class="bimp-chip todo" title="Plusieurs règles donnent des valeurs différentes — choisir dans la fenêtre">⚠ ' + nRules + ' règles possibles</span>' : '';
   // ⑦.5 b — proposition ambiguë : on le dit dans la liste, on choisit dans la fenêtre.
   const ambChip = line._ambiguous
     ? '<span class="bimp-chip todo" title="' + escHtml(line.matchSource || '') + '">⚠ ' + ((line._candidates || []).length) + ' locataires possibles</span>' : '';
@@ -29863,7 +29863,7 @@ function _bankRulePanelHtml(i) {
     }).join('');
     return '<div style="background:var(--amb-bg,#fff8e6);border:1px solid var(--amb,#d97706);border-radius:10px;padding:10px 12px;margin-bottom:12px">'
       + '<b style="font-size:12.5px;color:var(--amb,#d97706)">' + _uiIcon('warn',14) + ' Plusieurs règles se contredisent — rien n\'a été appliqué</b>'
-      + '<div class="mu sm" style="font-size:11.5px;margin-top:3px">Choisis celle qui s\'applique, ou corrige la règle qui est trop large.</div>'
+      + '<div class="mu sm" style="font-size:11.5px;margin-top:3px">Choisir celle qui s\'applique, ou corriger la règle qui est trop large.</div>'
       + cards + '</div>';
   }
   if (org && (org.cat || org.aff)) {
@@ -29926,9 +29926,9 @@ function _bankProposPanelHtml(i) {
   }).join('');
   const amb = line._ambiguous;
   return '<div style="background:' + (amb ? 'var(--amb-bg,#fff8e6)' : 'var(--sur2,#f5f8fc)') + ';border:1px solid ' + (amb ? 'var(--amb,#d97706)' : 'var(--bor)') + ';border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px">'
-    + '<b>✨ ' + (amb ? ((line._candidates || []).length + ' locataires possibles — à toi de choisir') : 'Proposition') + '</b>'
+    + '<b>✨ ' + (amb ? ((line._candidates || []).length + ' locataires possibles — à choisir') : 'Proposition') + '</b>'
     + (amb ? '' : '<span class="mu sm" style="margin-left:6px">' + escHtml(line.matchSource || '') + '</span>')
-    + '<div class="mu sm" style="font-size:11.5px;margin-top:3px">C\'est une proposition, pas un classement : elle attend ta validation.</div>'
+    + '<div class="mu sm" style="font-size:11.5px;margin-top:3px">C\'est une proposition, pas un classement : elle attend une validation.</div>'
     + (rows ? '<div style="margin-top:7px">' + rows + '</div>' : '')
     + '</div>';
 }
@@ -29975,7 +29975,7 @@ function _bankLineAffEditor(i) {
       <div>
         <div style="margin-bottom:12px"><label class="affv2-lab">Date</label>
           <input class="inp" type="date" value="${escHtml(line.date||'')}" oninput="_bankSetDate(${i},this.value)">
-          ${line._dateDouteuse ? `<div class="mu sm" style="font-size:11px;color:var(--ora);margin-top:4px">⚠ ${escHtml(line._dateDouteuse)} — corrige-la, ça ne bloque pas l'import.</div>` : ''}
+          ${line._dateDouteuse ? `<div class="mu sm" style="font-size:11px;color:var(--ora);margin-top:4px">⚠ ${escHtml(line._dateDouteuse)} — à corriger, ça ne bloque pas l'import.</div>` : ''}
           ${line._dateReleve ? `<div class="mu sm" style="font-size:11px;margin-top:4px">📅 date modifiée · relevé : <b>${fd(line._dateReleve)}</b> · <a onclick="_bankResetDate(${i})" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">revenir à la date du relevé</a></div>` : ''}
         </div>
         <div style="margin-bottom:12px"><label class="affv2-lab">Libellé (intitulé)</label><input class="inp" id="imp${i}-lib" value="${escHtml(line.libelle||'')}" oninput="_bankRenameLine(${i},this.value)" placeholder="Libellé du mouvement"></div>
@@ -30043,10 +30043,10 @@ function _bankWalkRender() {
     // R-B v2 — le bandeau ne dit « classé » que pour une RÈGLE. Une proposition, même
     // complète, n'est qu'une proposition : elle attend une validation, et le dit.
     const bn = line._byRule
-      ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ok-bg,#ecfdf5);color:var(--grn,#16a34a);border:1px solid var(--grn,#16a34a)">' + _uiIcon('settings') + ' Classé par une de tes règles — vérifie et corrige si besoin.</div>'
+      ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ok-bg,#ecfdf5);color:var(--grn,#16a34a);border:1px solid var(--grn,#16a34a)">' + _uiIcon('settings') + ' Classé par une règle — à vérifier et corriger si besoin.</div>'
       : (reco
-        ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--acc-bg);color:var(--t1);border:1px solid var(--cta)">✨ Proposition — rien n\'est encore classé, valide ou corrige.</div>'
-        : '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ora-bg,#fffbeb);color:var(--ora,#d97706);border:1px solid var(--ora,#d97706)">📝 À renseigner — choisis la catégorie, l\'app pose la bonne question.</div>');
+        ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--acc-bg);color:var(--t1);border:1px solid var(--cta)">✨ Proposition — rien n\'est encore classé, à valider ou corriger.</div>'
+        : '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ora-bg,#fffbeb);color:var(--ora,#d97706);border:1px solid var(--ora,#d97706)">📝 À renseigner — choisir la catégorie, l\'app pose la bonne question.</div>');
     body.innerHTML = bn + _bankLineAffEditor(i);
   }
   const last = (pos >= total - 1);
@@ -30088,7 +30088,7 @@ function _bankWalkRefreshValidate() {
   }
   btn.disabled = !complete;
   const hint = el('bank-mv-hint');
-  if (hint) hint.textContent = complete ? '' : '⤷ choisis la catégorie et le bien pour valider';
+  if (hint) hint.textContent = complete ? '' : '⤷ choisir la catégorie et le bien pour valider';
 }
 function _bankCloseMvWindow() {
   if (_bankMvIdx >= 0) _bankSyncAff(_bankMvIdx);    // filet de sécurité (déjà sync en live via le hook)
@@ -30131,7 +30131,7 @@ function _bankWalkDone() {
   const body = el('bank-mv-body');
   if (body) body.innerHTML = '<div style="text-align:center;padding:34px 16px">'
     + '<div style="font-size:46px">🎉</div>'
-    + '<h2 style="font-family:var(--display);margin:10px 0 6px;font-size:21px">Tu as parcouru tous les mouvements</h2>'
+    + '<h2 style="font-family:var(--display);margin:10px 0 6px;font-size:21px">Tous les mouvements ont été parcourus</h2>'
     + '<p class="mu" style="margin:0 0 4px;font-size:13.5px"><b style="color:var(--grn,#16a34a)">' + st.ok.length + '</b> prêt(s) à importer'
     + (st.todo.length ? ' · <b style="color:var(--ora,#d97706)">' + st.todo.length + '</b> à compléter' : '')
     + (okToReview.length ? ' · <b>' + okToReview.length + '</b> reconnu(s) auto à vérifier' : '') + '.</p></div>';
@@ -30139,7 +30139,7 @@ function _bankWalkDone() {
   if (foot) {
     let right = '';
     if (st.todo.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'todo\')">' + _uiIcon('doc-text') + ' Reprendre les ' + st.todo.length + ' à compléter</button>';
-    if (okToReview.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'ok\')">' + _uiIcon('eye') + ' Revoir les ' + okToReview.length + ' ligne(s) classée(s) par tes règles</button>';
+    if (okToReview.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'ok\')">' + _uiIcon('eye') + ' Revoir les ' + okToReview.length + ' ligne(s) classée(s) par les règles</button>';
     // AUDIT I1 / ⑧.1 v2 — cet écran bloquait encore l'import partiel (« Termine d'abord les
     // X à compléter ») : même décision que le bouton principal — rien ne bloque, l'attente se garde.
     right += '<button class="btn bp"' + (st.ok.length ? '' : ' disabled title="Aucune ligne prête à importer"')
@@ -30264,7 +30264,7 @@ function _bankUpdateImportBtn() {
   const nDup = window._bankUndecidedDuplicates ? window._bankUndecidedDuplicates(_bankImportLines || []) : 0;
   const pend = st.todo.length + nDup;
   if (st.ok.length === 0) { btn.disabled = true; btn.textContent = pend ? `Aucune ligne prête — ${pend} en attente` : 'Aucun mouvement à importer'; }
-  else if (needReview) { btn.disabled = true; btn.textContent = `🔎 Vérifie les ${st.ok.length} reconnu(s) (onglet Reconnus)`; }
+  else if (needReview) { btn.disabled = true; btn.textContent = `🔎 Vérifier les ${st.ok.length} reconnu(s) (onglet Reconnus)`; }
   else if (pend > 0) { btn.disabled = false; btn.textContent = `✓ Importer ${st.ok.length} · garder ${pend} en attente`; }
   else { btn.disabled = false; btn.textContent = `✓ Valider et importer ${st.ok.length} mouvement${st.ok.length>1?'s':''}`; }
 }
@@ -30350,7 +30350,7 @@ function _bankRuleRender() {
     + '<label class="affv2-lab" style="margin-top:11px;display:block">Affectation</label>'
     + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin:6px 0 8px;padding:7px 10px;border:1px solid ' + (d.bdc ? 'var(--pur,#7c3aed)' : 'var(--bor)') + ';border-radius:8px;cursor:pointer">'
     + '<input type="checkbox" ' + (d.bdc ? 'checked' : '') + ' onchange="_bankRuleSet(\'bdc\',this.checked)">'
-    + '<span><b>' + _uiIcon('bank',14) + ' Le bailleur du compte</b> — résolu à chaque import<br><span class="mu sm" style="font-size:11px">Une seule règle pour toutes tes SCI (cas du comptable qui facture chaque entité).</span></span></label>'
+    + '<span><b>' + _uiIcon('bank',14) + ' Le bailleur du compte</b> — résolu à chaque import<br><span class="mu sm" style="font-size:11px">Une seule règle pour toutes les SCI (cas du comptable qui facture chaque entité).</span></span></label>'
     + (d.bdc ? '' : '<div id="brule-aff"></div><input type="hidden" id="brule-qui"><input type="hidden" id="brule-imm"><input type="hidden" id="brule-cc">')
     + '</div>'
     + '<label class="affv2-lab">Ce que cette règle va classer</label><div id="bank-rule-preview"></div>';
@@ -30395,7 +30395,7 @@ function _bankRulePreviewRender() {
     { importLines: _bankImportLines || [], mouvements: DB.mouvements || [], accountId: (_currentBankAccount && _currentBankAccount.id) });
   const save = el('bank-rule-save'); if (save) save.disabled = !String(d.pattern || '').trim();
   if (!String(d.pattern || '').trim()) {
-    host.innerHTML = '<div class="mu sm" style="border:1px solid var(--bor);border-radius:10px;padding:12px;text-align:center">Saisis un motif pour voir ce qu\'il attrape.</div>';
+    host.innerHTML = '<div class="mu sm" style="border:1px solid var(--bor);border-radius:10px;padding:12px;text-align:center">Saisir un motif pour voir ce qu\'il attrape.</div>';
     return;
   }
   const head = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--sur2);border-bottom:1px solid var(--bor);padding:7px 11px;font-size:12px">'
@@ -30409,8 +30409,8 @@ function _bankRulePreviewRender() {
         + '<span style="font-weight:700;white-space:nowrap;color:' + ((l.credit || 0) > 0 ? 'var(--grn,#16a34a)' : 'var(--red,#dc2626)') + '">' + ((l.credit || 0) > 0 ? '+' : '−') + fmt((l.credit || 0) > 0 ? l.credit : l.debit) + '</span></div>').join('')
     : '<div class="mu sm" style="padding:10px 11px;font-size:11.5px">Aucune ligne de cet import ne correspond.</div>';
   let verdict = '';
-  if (p.tooShort) verdict = '<div style="margin-top:8px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 11px;font-size:12px">⚠ Motif très court (' + String(d.pattern).trim().length + ' caractères) — il risque d\'attraper des libellés sans rapport. Ajoute un mot.</div>';
-  else if (p.mixed) verdict = '<div style="margin-top:8px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 11px;font-size:12px">⚠ Ce motif attrape des lignes de <b>natures différentes</b>' + (p.baseCats.length > 1 ? ' (déjà classées en ' + p.baseCats.map(escHtml).join(', ') + ')' : '') + '. Précise le motif, ou fixe le sens.</div>';
+  if (p.tooShort) verdict = '<div style="margin-top:8px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 11px;font-size:12px">⚠ Motif très court (' + String(d.pattern).trim().length + ' caractères) — il risque d\'attraper des libellés sans rapport. Ajouter un mot.</div>';
+  else if (p.mixed) verdict = '<div style="margin-top:8px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 11px;font-size:12px">⚠ Ce motif attrape des lignes de <b>natures différentes</b>' + (p.baseCats.length > 1 ? ' (déjà classées en ' + p.baseCats.map(escHtml).join(', ') + ')' : '') + '. Préciser le motif, ou fixer le sens.</div>';
   else if (p.ok) verdict = '<div style="margin-top:8px;background:var(--grn-bg,#ecfdf5);border-left:3px solid var(--grn,#16a34a);border-radius:8px;padding:9px 11px;font-size:12px">✔ ' + p.lines.length + ' ligne(s) de cet import ser' + (p.lines.length > 1 ? 'ont' : 'a') + ' classée(s) automatiquement' + (p.nBase ? ', et ' + p.nBase + ' mouvement(s) déjà en base correspondent à ce motif' : '') + '.</div>';
   host.innerHTML = '<div style="border:1px solid var(--bor);border-radius:10px;overflow:hidden"><div>' + head + '</div><div style="max-height:26vh;overflow:auto">' + rows + '</div></div>' + verdict;
 }
@@ -30418,7 +30418,7 @@ function _bankRulePreviewRender() {
 function _bankRuleSave() {
   const d = _bankRuleDraft; if (!d) return;
   const pat = String(d.pattern || '').trim();
-  if (!pat) { showToast('Saisis un motif', 'warn'); return; }
+  if (!pat) { showToast('Saisir un motif', 'warn'); return; }
   if (!Array.isArray(DB.importRules)) DB.importRules = [];
   const fields = { pattern: pat, sens: d.sens || '', compte: d.compte || '', cat: d.cat || '',
     qui: d.bdc ? '' : (d.qui || ''), imm: d.bdc ? '' : (d.imm || ''),
@@ -30485,7 +30485,7 @@ function _bankImportConfirm() {
   const pendingKeep = _bankImportLines.filter(l => l && !l._userExclude && !_toSet.has(l)
     && (!l.isDuplicate || (l.dupLevel === 'probable' && !l._dupConfirmed)));
   if (!toImport.length) { showToast('Aucune ligne prête à importer', 'warn'); return; }
-  const _msgPend = pendingKeep.length ? `\n${pendingKeep.length} ligne${pendingKeep.length>1?'s':''} resteront EN ATTENTE — elles te seront re-proposées au prochain import de ce compte.` : '';
+  const _msgPend = pendingKeep.length ? `\n${pendingKeep.length} ligne${pendingKeep.length>1?'s':''} resteront EN ATTENTE — elles seront re-proposées au prochain import de ce compte.` : '';
   if (!confirm2(`Confirmer l'import de ${toImport.length} mouvement${toImport.length>1?'s':''} dans la comptabilité ?${_msgPend}`)) return;
   // Insertion dans DB.mouvements
   let added = 0;
@@ -30637,7 +30637,7 @@ function _bankRenderRecap() {
     +   '<div class="mu sm" style="font-size:11.5px;margin-top:3px">ce qui est entré moins ce qui est sorti</div></div>'
     +   '<div style="font-size:21px;font-weight:800;color:' + (cash >= 0 ? 'var(--grn,#16a34a)' : 'var(--red,#dc2626)') + '">' + (cash >= 0 ? '+ ' : '− ') + fmt(Math.abs(cash)) + '</div></div>'
     + (nonAffectes
-        ? '<div style="margin-top:9px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 12px;font-size:12px">⚠ <b>' + nonAffectes + ' ligne' + (nonAffectes > 1 ? 's' : '') + ' non affectée' + (nonAffectes > 1 ? 's' : '') + ' à un bien</b> — retrouve-les dans Loyers &amp; Mouvements avec le filtre « à classer ».</div>'
+        ? '<div style="margin-top:9px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 12px;font-size:12px">⚠ <b>' + nonAffectes + ' ligne' + (nonAffectes > 1 ? 's' : '') + ' non affectée' + (nonAffectes > 1 ? 's' : '') + ' à un bien</b> — à retrouver dans Loyers &amp; Mouvements avec le filtre « à classer ».</div>'
         : '')
     + '<div style="margin-top:14px;border:1px solid var(--bor);border-radius:10px;overflow:hidden">'
     +   '<div onclick="_bankToggleRecapFiscal()" style="cursor:pointer;padding:9px 13px;background:var(--sur2,#f5f8fc);font-size:12.5px;display:flex;align-items:center;gap:8px">'
@@ -30930,16 +30930,16 @@ function _finCatsRetireesUtilisees() {
 function _finOpenCatMapping() {
   const _e = (typeof escHtml === 'function') ? escHtml : (x => x); // échappe " → clé data-cat correcte + pas d'injection
   const unmapped = _finUnmappedCats();
-  if (!unmapped.length) { if (typeof showToast === 'function') showToast('Toutes tes catégories sont déjà rattachées ✓', 'ok'); return; }
+  if (!unmapped.length) { if (typeof showToast === 'function') showToast('Toutes les catégories sont déjà rattachées ✓', 'ok'); return; }
   // M-1 bis : AUCUNE suggestion pré-cochée — « l'app ne devine rien », le choix est explicite.
   const rows = unmapped.map((c, i) => {
     return '<tr><td style="text-align:left;padding:6px 8px">' + _e(c.nom) + ' <span style="color:var(--t3);font-size:11px">(' + c.count + ' mvt' + (c.count > 1 ? 's' : '') + ')</span></td>'
       + '<td style="padding:6px 8px"><select class="inp" id="catmap-' + i + '" data-cat="' + _e(c.nom) + '" style="width:100%">' + _finMereOptionsHtml() + '</select></td></tr>';
   }).join('');
-  const html = '<div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">Chaque catégorie doit être rattachée à l\'une des <b>' + (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES.length : 23) + ' catégories du référentiel</b> — elle en hérite le traitement fiscal <b>et</b> cash-flow. Le nom que tu as choisi reste affiché partout. Rien n\'est pré-rempli : le choix est le tien, toujours explicite.</div>'
-    + '<div style="overflow-x:auto"><table class="pl" style="width:100%"><thead><tr><th style="text-align:left">Ta catégorie</th><th style="text-align:left">Catégorie du référentiel</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+  const html = '<div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">Chaque catégorie doit être rattachée à l\'une des <b>' + (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES.length : 23) + ' catégories du référentiel</b> — elle en hérite le traitement fiscal <b>et</b> cash-flow. Le nom choisi reste affiché partout. Rien n\'est pré-rempli : chaque rattachement se choisit explicitement.</div>'
+    + '<div style="overflow-x:auto"><table class="pl" style="width:100%"><thead><tr><th style="text-align:left">Catégorie personnalisée</th><th style="text-align:left">Catégorie du référentiel</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
     + '<div style="margin-top:16px;text-align:right"><button class="btn bp" onclick="_finSaveCatMapping()">✓ Rattacher ces catégories</button></div>';
-  if (typeof openDashDrill === 'function') openDashDrill('Rattacher tes catégories au référentiel', html);
+  if (typeof openDashDrill === 'function') openDashDrill('Rattacher les catégories au référentiel', html);
 }
 // M-1 bis — LE geste de rattachement, unique : alias + miroir vers les magasins 2044 legacy
 // (catMapping / legal2044Mapping) pour les lecteurs historiques (_catLigne2044, wizard).
@@ -31003,7 +31003,7 @@ function _finSaveCatMapping() {
     if (!sel.value) { manque++; return; }               // M-1 bis : rattachement OBLIGATOIRE, pas de trou
     _finRattacheCategorie(cat, sel.value);
   });
-  if (manque) { if (typeof showToast === 'function') showToast(manque + ' catégorie' + (manque > 1 ? 's' : '') + ' sans rattachement — choisis une catégorie mère pour chacune', 'warn', 5000); return; }
+  if (manque) { if (typeof showToast === 'function') showToast(manque + ' catégorie' + (manque > 1 ? 's' : '') + ' sans rattachement — choisir une catégorie mère pour chacune', 'warn', 5000); return; }
   if (typeof saveDB === 'function') saveDB();
   if (typeof closeM === 'function') closeM('ov-dash-drill');
   if (typeof rFinances === 'function') rFinances();
@@ -31164,7 +31164,7 @@ function rFinances() {
   // aucun chiffre n'est calculable — on le dit, on n'affiche pas de faux zéros.
   if (typeof window._computeFinancesMonthly !== 'function' || typeof window._finScopeResolve !== 'function') {
     root.innerHTML = '<div class="card" style="padding:20px"><div class="ct">Analyse financière indisponible</div>'
-      + '<p style="color:var(--t2);font-size:13px;margin-top:8px">Ouvre l\'application via le serveur local (http-server) pour activer les calculs financiers.</p></div>';
+      + '<p style="color:var(--t2);font-size:13px;margin-top:8px">Ouvrir l\'application via le serveur local (http-server) pour activer les calculs financiers.</p></div>';
     return;
   }
   // Année : sélecteur #fin-year si présent, sinon ANNÉE EN COURS par défaut (F-1 : défaut unique).
@@ -31255,9 +31255,9 @@ function rFinances() {
       + '<div class="card" style="padding:28px;text-align:center">'
       + (appNeuve
         ? '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Deux sources, zéro saisie comptable</div>'
-          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le <b>bail</b> donne le dû, l\'<b>import bancaire</b> donne le payé — Finances se remplit dès ton premier relevé importé. Aucune écriture comptable à saisir.</p>'
+          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le <b>bail</b> donne le dû, l\'<b>import bancaire</b> donne le payé — Finances se remplit dès le premier relevé importé. Aucune écriture comptable à saisir.</p>'
         : '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Exercice ' + yr + ' : rien de saisi</div>'
-          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le périmètre est bon, la période est creuse. Change d\'exercice ci-dessus, ou importe un relevé bancaire couvrant cette année.</p>')
+          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le périmètre est bon, la période est creuse. Changer d\'exercice ci-dessus, ou importer un relevé bancaire couvrant cette année.</p>')
       + '</div>';
     return;
   }
@@ -31278,9 +31278,9 @@ function rFinances() {
       + '<div class="card" style="padding:28px;text-align:center">'
       + (appNeuve
         ? '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Deux sources, zéro saisie comptable</div>'
-          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le <b>bail</b> donne le dû, l\'<b>import bancaire</b> donne le payé — Finances se remplit dès ton premier relevé importé. Aucune écriture comptable à saisir.</p>'
+          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le <b>bail</b> donne le dû, l\'<b>import bancaire</b> donne le payé — Finances se remplit dès le premier relevé importé. Aucune écriture comptable à saisir.</p>'
         : '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Exercice ' + yr + ' : rien à montrer sur ce périmètre</div>'
-          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le périmètre est bon, la période est creuse. Change d\'exercice ou de périmètre ci-dessus, ou importe un relevé bancaire couvrant cette année.</p>')
+          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le périmètre est bon, la période est creuse. Changer d\'exercice ou de périmètre ci-dessus, ou importer un relevé bancaire couvrant cette année.</p>')
       + '</div>';
     return;
   }
@@ -31305,7 +31305,7 @@ function rFinances() {
     + '<div class="eyebrow">Cash-flow réel · exercice ' + yr + '</div>'
     + '<div class="big num ' + (_cf >= 0 ? 'pos' : 'neg') + '">' + (_cf >= 0 ? '+' : '') + f(_cf) + '</div>'
     + '<div style="margin-top:6px">' + varHtml + '</div>'
-    + '<div style="margin-top:8px;font-size:11px;color:var(--t3);font-style:italic;line-height:1.4;max-width:520px">Ce qui bouge vraiment sur ton compte — loyers + provisions − tes charges, mensualité de prêt entière incluse.</div>'
+    + '<div style="margin-top:8px;font-size:11px;color:var(--t3);font-style:italic;line-height:1.4;max-width:520px">Ce qui bouge vraiment sur le compte — loyers + provisions − les charges, mensualité de prêt entière incluse.</div>'
     + '</div>';
 
   // ── 2 RATIOS — R-5 : la jauge « Poids des charges » est SUPPRIMÉE (fausse sans intérêts saisis).
@@ -31656,9 +31656,9 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     ...(((a && a.rattrapage) || 0) > 0.005 ? [R('<span style="color:var(--t3)">↳ dont rattrapage d\'un mois antérieur</span> <span class="b4-x">arriéré encaissé ce mois-ci · voir les mouvements</span>', o => o.rattrapage, { rattrapSub: true, kind: 'loyers' })] : []),
     // H-2 : le total est juste, le détail était faux — l'encaissement SANS lot devient visible
     // au niveau de la ligne (le drill « Loyers » porte l'affectation sur place).
-    ...(Math.abs((a && a.nonAffecte) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ ⚠️ Encaissements non affectés</span> <span class="b4-x">sans lot rattaché · clique pour affecter</span>', o => o.nonAffecte, { nonAffSub: true, kind: 'loyers' })] : []),
+    ...(Math.abs((a && a.nonAffecte) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ ⚠️ Encaissements non affectés</span> <span class="b4-x">sans lot rattaché · cliquer pour affecter</span>', o => o.nonAffecte, { nonAffSub: true, kind: 'loyers' })] : []),
     ...(((a && a.recettesDiverses) || 0) !== 0 ? [R('Recettes diverses <span class="b4-x">parking, GLI, indemnités… (ligne 213, imposable)</span>', o => o.recettesDiverses, { kind: 'recettesDiverses' })] : []),
-    { grp: 'Charges propriétaire <span class="b4-x">(à ta charge — non récupérables)</span>' },
+    { grp: 'Charges propriétaire <span class="b4-x">(à charge du propriétaire — non récupérables)</span>' },
     R('Prêt <span class="b4-x">capital + intérêts — mensualité entière' + _pretSub + '</span>', o => o.pret, { charge: true, kind: 'pret' }),
     R('Taxe foncière', o => o.taxe, { charge: true, kind: 'taxeFonciere' }),
     R('Travaux &amp; entretien', o => o.travaux, { charge: true, kind: 'travaux' }),
@@ -31670,7 +31670,7 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     ...(_visible('nonDeductible') ? [R('Dépenses non déductibles <span class="b4-x">péage, matériel… — hors 2044</span>', o => o.nonDeductible, { charge: true, kind: 'nonDeductible' })] : []),
     // L-2 : ces montants entraient dans le Total sans qu'aucune ligne ne les affiche — la somme
     // des lignes visibles ne pouvait pas égaler le total (constat 25).
-    ...(_visible('autres') ? [R('Autres charges propriétaire <span class="b4-x">2044 · 225/226' + (Math.abs((a && a.recupACharge) || 0) > 0.005 ? ' — dont récupérables restées à ta charge' : '') + '</span>', o => o.autres, { charge: true, kind: 'autres' })] : []),
+    ...(_visible('autres') ? [R('Autres charges propriétaire <span class="b4-x">2044 · 225/226' + (Math.abs((a && a.recupACharge) || 0) > 0.005 ? ' — dont récupérables restées à la charge du propriétaire' : '') + '</span>', o => o.autres, { charge: true, kind: 'autres' })] : []),
     // L-4 : total VÉRIFIABLE À L'ŒIL = somme exacte des lignes visibles (les masquées valent 0).
     R('Total charges propriétaire <span class="b4-x">somme exacte des lignes visibles</span>', o => o.charges, { tot: true, neg: true }),
     { grp: 'Charges récupérables <span class="b4-x">(argent du locataire qui transite)</span>' },
@@ -31679,15 +31679,15 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     // L-5 : SCINDÉE — seul l'avancé vraiment récupérable entre dans le solde ; le reste bascule
     // en « Autres charges propriétaire » (225) et n'est montré ici que pour la traçabilité.
     R('Avancé pour les locataires <span class="b4-x">récupérable — seul à entrer dans le solde</span>', o => o.recup, { flowOut: true, kind: 'recup' }),
-    ...(Math.abs((a && a.recupACharge) || 0) > 0.005 ? [R('<span style="color:var(--t3)">Resté à ta charge</span> <span class="b4-x">vacance / non récupérable → déjà compté dans « Autres charges propriétaire » (225)</span>', o => o.recupACharge, { mut: true, kind: 'recupACharge' })] : []),
+    ...(Math.abs((a && a.recupACharge) || 0) > 0.005 ? [R('<span style="color:var(--t3)">Resté à la charge du propriétaire</span> <span class="b4-x">vacance / non récupérable → déjà compté dans « Autres charges propriétaire » (225)</span>', o => o.recupACharge, { mut: true, kind: 'recupACharge' })] : []),
     // L-6 : « Solde » renommé — un NET DE TRÉSORERIE signé sur la période, pas la créance
     // contractuelle de la page Régularisation (les deux ne peuvent pas coïncider).
-    R('Solde de trésorerie des charges <span class="b4-x">− tu as avancé (à récupérer) · + trop-perçu (à rendre)</span>', o => o.recupSolde, { sub: true }),
+    R('Solde de trésorerie des charges <span class="b4-x">− avancé (à récupérer) · + trop-perçu (à rendre)</span>', o => o.recupSolde, { sub: true }),
     // L-8 : la ligne « Base imposable foncier [2044] » est SORTIE du tableau — le P&L n'est pas
     // la 2044 ; le fiscal vit dans sa prévisualisation dédiée (Z-1). Conséquence : la saisie des
     // intérêts n'est plus un pré-requis pour LIRE Finances, seulement pour déclarer (D-6).
-    R('Cash-flow réel <span class="b4-x">tout compté = vrai mouvement sur ton compte</span>', o => o.cashflowReel, { net: true, explain: 'cfReel' }),
-    R('Cash-flow net <span class="b4-x">ton résultat propre, hors transit locataire</span>', o => o.cashflowNet, { dim: true, explain: 'cfNet' })
+    R('Cash-flow réel <span class="b4-x">tout compté = vrai mouvement sur le compte</span>', o => o.cashflowReel, { net: true, explain: 'cfReel' }),
+    R('Cash-flow net <span class="b4-x">résultat propre, hors transit locataire</span>', o => o.cashflowNet, { dim: true, explain: 'cfNet' })
   ];
   const lk = () => false;   // plus aucune ligne verrouillée depuis L-8
   const cls = row => row.tot ? 'b4-tot' : (row.net ? 'b4-net' : ((row.info || row.avanceSub || row.retardSub || row.rattrapSub || row.nonAffSub) ? 'b4-info' : ''));
@@ -31814,12 +31814,12 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     +   '<span class="b4-toggle' + (detailOn ? ' on' : '') + '" onclick="_finToggleB4Detail()"><span class="b4-pill"></span>Détail mensuel</span>'
     // RS-1 : sélecteur de mois (visible sous le breakpoint uniquement — remplace les colonnes).
     +   (detailOn && months.length ? '<select id="fin-mo-pick" class="inp b4-mo-pick" onchange="_finB4PickMo(this.value)" aria-label="Mois affiché">' + months.map(m => '<option value="' + m.mo + '"' + (m.mo === selMo ? ' selected' : '') + '>' + _MOIS[m.mo - 1] + ' ' + yr + '</option>').join('') + '</select>' : '')
-    +   (detailOn ? '<span class="b4-hint">↔ glisse la barre pour parcourir les mois</span>' : '')
+    +   (detailOn ? '<span class="b4-hint">↔ glisser la barre pour parcourir les mois</span>' : '')
     +   '<span style="font-size:11px;color:var(--t3);margin-left:auto">prêt entier en charge</span>'
     + '</div>'
     + bodyHtml
     // RS-3 : la disparition des colonnes n'est plus muette — le repli est écrit.
-    + (detailOn ? '<div class="b4-rotmsg">↔ Détail mensuel complet : fais pivoter l\'écran ou ouvre sur un écran plus large.</div>' : '')
+    + (detailOn ? '<div class="b4-rotmsg">↔ Détail mensuel complet : faire pivoter l\'écran ou ouvrir sur un écran plus large.</div>' : '')
     + '</div>';
   if (detailOn) _finB4Sync();
 }
@@ -31827,8 +31827,8 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
 // title. C-2 : il explique, il ne navigue pas.
 function _finExplique(kind) {
   const T = {
-    cfReel: ['Cash-flow réel', '<p style="margin:0 0 10px"><b>Ce qui bouge vraiment sur ton compte</b> : loyers encaissés (HC) + provisions des locataires − tes charges (mensualité de prêt ENTIÈRE incluse) − les charges récupérables que tu avances.</p><p style="margin:0 0 10px">Il répond à « est-ce que je dois remettre de ma poche ? » et se recoupe avec ton relevé bancaire.</p><div class="note" style="margin:0">💡 Si un locataire te règle un <b>solde de régularisation de charges</b>, classe ce mouvement en « Charges récupérables (eau, énergie…) », jamais en Loyers — sinon une fausse avance roule de mois en mois.</div>'],
-    cfNet: ['Cash-flow net', '<p style="margin:0"><b>Ton résultat propre</b> : loyers HC + recettes diverses − tes charges. Le transit locataire (provisions encaissées, charges récupérables avancées) en est EXCLU — il vit dans « Charges récupérables » et ne fait que traverser ton compte.</p>']
+    cfReel: ['Cash-flow réel', '<p style="margin:0 0 10px"><b>Ce qui bouge vraiment sur le compte</b> : loyers encaissés (HC) + provisions des locataires − les charges (mensualité de prêt ENTIÈRE incluse) − les charges récupérables avancées.</p><p style="margin:0 0 10px">Il répond à « est-ce que je dois remettre de ma poche ? » et se recoupe avec le relevé bancaire.</p><div class="note" style="margin:0">💡 Si un locataire règle un <b>solde de régularisation de charges</b>, classer ce mouvement en « Charges récupérables (eau, énergie…) », jamais en Loyers — sinon une fausse avance roule de mois en mois.</div>'],
+    cfNet: ['Cash-flow net', '<p style="margin:0"><b>Résultat propre</b> : loyers HC + recettes diverses − les charges. Le transit locataire (provisions encaissées, charges récupérables avancées) en est EXCLU — il vit dans « Charges récupérables » et ne fait que traverser le compte.</p>']
   };
   const t = T[kind];
   if (!t) return;
@@ -31974,7 +31974,7 @@ function _finCreditCalc() {
   const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
   el('fc-preview').innerHTML = (a.interets > 0 || a.capital > 0)
     ? 'Pour <b>' + yr + '</b> : intérêts <b>' + f(a.interets) + '</b> · capital amorti <b>' + f(a.capital) + '</b> · capital restant dû <b>' + f(a.restant) + '</b>'
-    : 'Renseigne montant, taux, durée et date de début.';
+    : 'Renseigner montant, taux, durée et date de début.';
 }
 function _finCreditCreate(which) {
   const yr = _finCreditYr();
@@ -31988,14 +31988,14 @@ function _finCreditCreate(which) {
   } else {
     montant = parseFloat(el('fc-int').value) || 0; cat = 'Prêt — Intérêts d\'emprunt'; lib = 'Intérêts d\'emprunt ' + yr;
   }
-  if (!montant || montant <= 0) { showToast('Renseigne d\'abord un montant', 'err'); return; }
+  if (!montant || montant <= 0) { showToast('Renseigner d\'abord un montant', 'err'); return; }
   closeM('ov-fincredit');
   openNewMv();                                   // formulaire mouvement existant (reset)
   if (el('mv-cat')) _catSet('mv', 'mv', cat);     // pré-remplissage via le picker (intérêts = pickerHidden : valeur posée + bouton affiché + affectation dérivée, sans <option>)
   if (el('mv-lib')) el('mv-lib').value = lib;
   if (el('mv-db')) el('mv-db').value = montant;
   if (el('mv-date')) el('mv-date').value = yr + '-12-31';
-  showToast('Vérifie le bien (Qui) puis enregistre le mouvement', 'ok', 4000);
+  showToast('Vérifier le bien (Qui) puis enregistrer le mouvement', 'ok', 4000);
 }
 
 // ---- C4bis: Drill « derrière une ligne du compte de résultat » (mouvements sous-jacents) ----
@@ -32031,7 +32031,7 @@ function _finDrillLigne(kind, yr, mo) {
     pret:         { titre: 'Prêt — échéances (capital + intérêts)', rec: false, test: () => false }, // B4 : matché par m.cat === 'Prêt' (mensualité entière)
     provisions:   { titre: 'Provisions de charges encaissées', prov: true, rec: false, test: () => false }, // #2 : part CH du loyer 211
     recup:        { titre: 'Charges récupérables avancées (récupérables)', rec: false, test: () => false }, // #2 : 229/230 copro + flag recup — part restée à charge EXCLUE (L-5)
-    recupACharge: { titre: 'Charges récupérables restées à ta charge (225)', rec: false, test: () => false }, // L-5 : vacance / sans bail / non récupérable
+    recupACharge: { titre: 'Charges récupérables restées à la charge du propriétaire (225)', rec: false, test: () => false }, // L-5 : vacance / sans bail / non récupérable
     recettesDiverses: { titre: 'Recettes diverses (parking, GLI, indemnités)', div: true, rec: false, test: () => false } // ligne 213
   };
   const def = LIG[kind];
@@ -32432,7 +32432,7 @@ function _finVentiler(id) {
 function _finAffecter(ids, kind, yr, mo) {
   const g = fld => (el('fdrAff-' + fld) ? (el('fdrAff-' + fld).value || '') : '');
   const qui = g('qui'), imm = g('imm'), cc = g('cc');
-  if (!qui && !imm && !cc) { if (typeof showToast === 'function') showToast('Choisis d\'abord un bien', 'err'); return; }
+  if (!qui && !imm && !cc) { if (typeof showToast === 'function') showToast('Choisir d\'abord un bien', 'err'); return; }
   let n = 0;
   (ids || []).forEach(id => {
     const m = (DB.mouvements || []).find(x => x && x.id === id && !x._deleted);
@@ -32535,14 +32535,14 @@ function _microFoncierCardHtml(yr, entNom) {
   if (!ev || ev.statut === 'na') return '';
   const f = (typeof fmt === 'function') ? fmt : (x => (Math.round(x) || 0) + ' €');
   const S = 'style=';
-  const src = '<div ' + S + '"font-size:11px;color:var(--t3);margin-top:11px;border-top:1px solid var(--bor);padding-top:8px">Basé sur tes mouvements ' + yr + ' · Sources : '
+  const src = '<div ' + S + '"font-size:11px;color:var(--t3);margin-top:11px;border-top:1px solid var(--bor);padding-top:8px">Basé sur les mouvements ' + yr + ' · Sources : '
     + '<a href="https://www.impots.gouv.fr/particulier/questions/je-mets-en-location-un-logement-vide-comment-declarer-les-loyers-percus" target="_blank" rel="noopener" ' + S + '"color:var(--acc2,#e8431f);font-weight:600;text-decoration:none">impots.gouv.fr</a> · '
     + '<a href="https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000048847610" target="_blank" rel="noopener" ' + S + '"color:var(--acc2,#e8431f);font-weight:600;text-decoration:none">Article 32 du CGI</a> — estimation indicative, à confirmer avec un comptable.</div>';
   const cond = '<div ' + S + '"margin-top:12px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:9px;padding:11px 13px;font-size:12px;color:var(--t2)">'
-    + '<div ' + S + '"font-weight:700;color:var(--warn);margin-bottom:6px">⚠ À vérifier toi-même — l\'app ne peut pas le savoir</div>'
+    + '<div ' + S + '"font-weight:700;color:var(--warn);margin-bottom:6px">⚠ À vérifier manuellement — l\'app ne peut pas le savoir</div>'
     + '<ul ' + S + '"margin:0;padding-left:18px">'
-    + '<li ' + S + '"margin:3px 0">Que ces <b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b> sont bien <b ' + S + '"color:var(--t1)">l\'ensemble de tes revenus fonciers du foyer</b> (autres locations nues, parts de SCI comprises) et restent <b ' + S + '"color:var(--t1)">≤ ' + f(ev.seuil) + '</b>.</li>'
-    + '<li ' + S + '"margin:3px 0">Que tu ne détiens <b ' + S + '"color:var(--t1)">aucun bien en régime spécial</b> (monument historique, nue-propriété, Besson/Robien/Borloo/Périssol, Malraux, parts de SCI louant nu) — ces cas <b ' + S + '"color:var(--t1)">excluent</b> le micro-foncier.</li>'
+    + '<li ' + S + '"margin:3px 0">Que ces <b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b> sont bien <b ' + S + '"color:var(--t1)">l\'ensemble des revenus fonciers du foyer</b> (autres locations nues, parts de SCI comprises) et restent <b ' + S + '"color:var(--t1)">≤ ' + f(ev.seuil) + '</b>.</li>'
+    + '<li ' + S + '"margin:3px 0">Que le foyer ne détienne <b ' + S + '"color:var(--t1)">aucun bien en régime spécial</b> (monument historique, nue-propriété, Besson/Robien/Borloo/Périssol, Malraux, parts de SCI louant nu) — ces cas <b ' + S + '"color:var(--t1)">excluent</b> le micro-foncier.</li>'
     + '</ul></div>';
   const pill4be = '<b ' + S + '"background:var(--acc);color:#fff;border-radius:5px;padding:0 6px">4BE</b>';
   const head = '<div class="ct" ' + S + '"display:flex;align-items:center;gap:8px;margin-bottom:10px">' + _uiIcon('home', 16) + ' Régime fiscal — location nue'
@@ -32562,28 +32562,28 @@ function _microFoncierCardHtml(yr, entNom) {
     + '</tbody></table>';
   // P1-1 : avertissement si des lots meublés/mixtes ont pu être écartés (brut foncier potentiellement faussé).
   const mixte = ev._hasExclusions
-    ? '<div ' + S + '"margin-top:10px;font-size:11.5px;color:var(--warn);background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:8px 11px">⚠ Des loyers meublés ou de lots mixtes (nu + meublé la même année) ont pu être écartés du foncier — chiffres indicatifs, vérifie le détail dans la prévisualisation 2044 ci-dessous.</div>'
+    ? '<div ' + S + '"margin-top:10px;font-size:11.5px;color:var(--warn);background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:8px 11px">⚠ Des loyers meublés ou de lots mixtes (nu + meublé la même année) ont pu être écartés du foncier — chiffres indicatifs, vérifier le détail dans la prévisualisation 2044 ci-dessous.</div>'
     : '';
   const sur = !ev._hasExclusions; // affirmation ferme du dépassement seulement si aucun lot écarté
   let inner;
   if (ev.statut === 'reel_obligatoire') {
     inner = '<div ' + S + '"border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--info-soft,rgba(66,80,106,.12));border:1px solid var(--bor)">'
       + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">Régime réel' + (sur ? ' obligatoire' : ' très probable') + '</div>'
-      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Tes revenus fonciers bruts (<b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b>) ' + (sur ? 'dépassent' : 'semblent dépasser') + ' le seuil de <b ' + S + '"color:var(--t1)">' + f(ev.seuil) + '/an</b> : le micro-foncier ' + (sur ? 'n\'est pas possible' : 'n\'est probablement pas possible') + '.</div></div>'
-      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Déclaration au <b ' + S + '"color:var(--t1)">régime réel</b> (formulaire <b>2044</b>). Prévisualise-la depuis « Exports &amp; déclaratif » ci-dessous.</div>';
+      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Les revenus fonciers bruts (<b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b>) ' + (sur ? 'dépassent' : 'semblent dépasser') + ' le seuil de <b ' + S + '"color:var(--t1)">' + f(ev.seuil) + '/an</b> : le micro-foncier ' + (sur ? 'n\'est pas possible' : 'n\'est probablement pas possible') + '.</div></div>'
+      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Déclaration au <b ' + S + '"color:var(--t1)">régime réel</b> (formulaire <b>2044</b>). À prévisualiser depuis « Exports &amp; déclaratif » ci-dessous.</div>';
   } else if (ev.statut === 'micro_piste') {
     inner = '<div ' + S + '"border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--acc-soft,rgba(255,90,60,.12));border:1px solid var(--acc)">'
-      + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">💡 Piste à explorer : le micro-foncier te ferait sans doute payer moins</div>'
-      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Tes charges déductibles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> de tes revenus fonciers, sous les <b ' + S + '"color:var(--t1)">30 %</b> de l\'abattement forfaitaire. Le micro déduirait donc plus que tes charges réelles.</div></div>'
+      + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">💡 Piste à explorer : le micro-foncier ferait sans doute payer moins</div>'
+      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Les charges déductibles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> des revenus fonciers, sous les <b ' + S + '"color:var(--t1)">30 %</b> de l\'abattement forfaitaire. Le micro déduirait donc plus que les charges réelles.</div></div>'
       + table(true)
       + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Au micro : déclare <b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b> en case ' + pill4be + ' de la <b ' + S + '"color:var(--t1)">2042</b>, sans 2044. <span ' + S + '"color:var(--t3)">L\'option micro/réel s\'exerce pour 3 ans.</span></div>'
       + cond;
   } else { // reel_avantageux
     inner = '<div ' + S + '"border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--info-soft,rgba(66,80,106,.12));border:1px solid var(--bor)">'
-      + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">Reste au régime réel — il déduit plus dans ton cas</div>'
-      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Tes charges réelles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> de tes revenus fonciers, au-dessus des 30 % forfaitaires. Le réel te fait payer moins qu\'au micro. Rien à changer. <span ' + S + '"color:var(--t3)">Un déficit foncier s\'impute même sur ton revenu global (jusqu\'à 10 700 €/an).</span></div></div>'
+      + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">Rester au régime réel — il déduit plus dans ce cas</div>'
+      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Les charges réelles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> des revenus fonciers, au-dessus des 30 % forfaitaires. Le réel fait payer moins qu\'au micro. Rien à changer. <span ' + S + '"color:var(--t3)">Un déficit foncier s\'impute même sur le revenu global (jusqu\'à 10 700 €/an).</span></div></div>'
       + table(false)
-      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Continue sur le <b ' + S + '"color:var(--t1)">régime réel</b> (2044) : prévisualise-le depuis « Exports &amp; déclaratif » ci-dessous.</div>';
+      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Continuer sur le <b ' + S + '"color:var(--t1)">régime réel</b> (2044) : à prévisualiser depuis « Exports &amp; déclaratif » ci-dessous.</div>';
   }
   return '<div class="card" ' + S + '"border:2px solid var(--acc);margin-bottom:14px">' + head + inner + mixte + src + '</div>';
 }
@@ -32594,7 +32594,7 @@ function _microFoncierCardHtml(yr, entNom) {
 let _fin2044Opts = null;
 function _finOpen2044Previsu() {
   if (typeof window._compute2044 !== 'function' || typeof _legal2044BuildOpts !== 'function') {
-    if (typeof showToast === 'function') showToast('Module 2044 non chargé — ouvre l\'app via http-server', 'err', 7000);
+    if (typeof showToast === 'function') showToast('Module 2044 non chargé — ouvrir l\'app via http-server', 'err', 7000);
     return;
   }
   const yr = (el('fin-year') && el('fin-year').value) ? parseInt(el('fin-year').value, 10) : new Date().getFullYear();   // F-1 : défaut unique = exercice en cours
@@ -32608,7 +32608,7 @@ function _finOpen2044Previsu() {
   if (typeof openDashDrill === 'function') openDashDrill('Prévisualisation 2044 — ' + opts.yr + (opts.entityNom ? ' · ' + opts.entityNom : ' · toutes entités'), _fin2044PrevisuHtml(r, opts));
 }
 function _fin2044DownloadCsv() {
-  if (!_fin2044Opts || typeof window._2044ToCsv !== 'function') { if (typeof showToast === 'function') showToast('Rouvre la prévisualisation', 'warn'); return; }
+  if (!_fin2044Opts || typeof window._2044ToCsv !== 'function') { if (typeof showToast === 'function') showToast('Rouvrir la prévisualisation', 'warn'); return; }
   const r = window._compute2044(DB.mouvements || [], STD_CATEGORIES, _fin2044Opts);
   const csv = window._2044ToCsv(r, { exclus: _fin2044Opts.exclus, flagues: _fin2044Opts.flagues });
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
@@ -32628,7 +32628,7 @@ function _fin2044PrevisuHtml(r, opts) {
   const chg = ['221', '222', '223', '224', '224bis', '225', '226', '227', '229'].filter(k => L[k] != null).map(k => row(k, false)).join('') + (L['230'] != null ? row('230', true) : '');
   const pos = r.resultatFoncier >= 0;
   const i250 = (L['250'] != null) ? row('250', false)
-    : '<tr><td style="text-align:left;padding:7px 8px;border-bottom:1px solid #eef2f7;color:#b91c1c"><b style="font-family:monospace;font-size:11px;background:#fef2f2;border-radius:5px;padding:1px 6px;margin-right:7px">250</b>⚠ Intérêts non renseignés — reporte-les depuis ton attestation banque</td><td style="text-align:right;padding:7px 8px;border-bottom:1px solid #eef2f7;font-family:monospace;font-weight:600">' + f(0) + '</td></tr>';
+    : '<tr><td style="text-align:left;padding:7px 8px;border-bottom:1px solid #eef2f7;color:#b91c1c"><b style="font-family:monospace;font-size:11px;background:#fef2f2;border-radius:5px;padding:1px 6px;margin-right:7px">250</b>⚠ Intérêts non renseignés — à reporter depuis l’attestation de la banque</td><td style="text-align:right;padding:7px 8px;border-bottom:1px solid #eef2f7;font-family:monospace;font-weight:600">' + f(0) + '</td></tr>';
   let exclu = '';
   if ((opts.exclus && opts.exclus.length) || (opts.flagues && opts.flagues.length)) {
     exclu = '<div style="margin-top:14px;border:1px dashed #c9d4e0;border-radius:10px;padding:11px 13px;background:#f5f8fc"><div style="font-weight:700;font-size:12.5px;margin-bottom:5px">🚫 Écarté du résultat foncier <span style="font-weight:400;color:#8ba0b6;font-size:11px">— déclaré ailleurs, rien n\'est caché</span></div>';
@@ -32636,11 +32636,11 @@ function _fin2044PrevisuHtml(r, opts) {
     (opts.flagues || []).forEach(g => { exclu += '<div style="font-size:12px;color:#92400e;padding:3px 0">⚠️ <b>' + e(g.ref) + '</b> — ' + e(g.msg || 'lot mixte à vérifier') + '</div>'; });
     exclu += '</div>';
   }
-  const nm = (r.nonMappes && r.nonMappes.length) ? '<div style="margin-top:10px;background:#fff8e6;border:1px solid #d9770633;border-radius:8px;padding:9px 11px;font-size:12px;color:#92400e">⚠️ ' + r.nonMappes.length + ' mouvement(s) à catégorie non reliée → non comptés. Classe-les avant de déclarer.</div>' : '';
+  const nm = (r.nonMappes && r.nonMappes.length) ? '<div style="margin-top:10px;background:#fff8e6;border:1px solid #d9770633;border-radius:8px;padding:9px 11px;font-size:12px;color:#92400e">⚠️ ' + r.nonMappes.length + ' mouvement(s) à catégorie non reliée → non comptés. À classer avant de déclarer.</div>' : '';
   return '<div style="background:linear-gradient(135deg,#fff,#f5f8fc);border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px">'
     + '<div style="font:700 10.5px/1 sans-serif;text-transform:uppercase;letter-spacing:.1em;color:#8ba0b6">Résultat foncier ' + (opts.yr || '') + ' · base imposable 2044</div>'
     + '<div style="font:800 34px/1 monospace;margin:8px 0 4px;color:' + (pos ? '#16a34a' : '#dc2626') + '">' + (pos ? '+' : '') + f(r.resultatFoncier) + '</div>'
-    + '<div style="font-size:12.5px;color:#54657c">' + (pos ? 'Revenu foncier net imposable (imposé à ta TMI + 17,2 % de prélèvements sociaux).' : 'Déficit foncier — imputable sur le revenu global (≤ 10 700 €/an) puis reportable.') + '</div>'
+    + '<div style="font-size:12.5px;color:#54657c">' + (pos ? 'Revenu foncier net imposable (imposé à la TMI + 17,2 % de prélèvements sociaux).' : 'Déficit foncier — imputable sur le revenu global (≤ 10 700 €/an) puis reportable.') + '</div>'
     + '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:14px">'
     +   '<div><div style="font:600 10px/1 sans-serif;text-transform:uppercase;color:#8ba0b6">Recettes</div><div style="font:700 15px/1 monospace">' + f(r.totalRecettes) + '</div></div><div style="align-self:flex-end;color:#8ba0b6;font-weight:700;padding-bottom:2px">−</div>'
     +   '<div><div style="font:600 10px/1 sans-serif;text-transform:uppercase;color:#8ba0b6">Charges</div><div style="font:700 15px/1 monospace;color:#dc2626">' + f(r.totalCharges) + '</div></div><div style="align-self:flex-end;color:#8ba0b6;font-weight:700;padding-bottom:2px">−</div>'
@@ -32683,8 +32683,8 @@ function _relayCfgLoadInputs() {
   baseEl.value = base || RELAY_BASE_DEFAULT;
   const st = el('relay-status');
   if (st) st.innerHTML = window._relayConfigured(_relayCfg())
-    ? '<span style="color:var(--ok,#16a34a)">✓ Relais prêt (authentifié par ta session)</span>'
-    : '<span class="mu">Connecte-toi pour utiliser le relais.</span>';
+    ? '<span style="color:var(--ok,#16a34a)">✓ Relais prêt (authentifié par la session)</span>'
+    : '<span class="mu">Connexion requise pour utiliser le relais.</span>';
 }
 
 // Enregistre l'URL du relais en local. L'authentification se fait par jeton de session (aucune clé).
@@ -32702,7 +32702,7 @@ function saveRelayCfg() {
 async function testRelayCfg() {
   const st = el('relay-status');
   const cfg = (typeof _relayCfg === 'function') ? _relayCfg() : null;
-  if (!window._relayConfigured(cfg)) { if (st) st.innerHTML = '<span style="color:var(--err,#ef4444)">⚠️ Connecte-toi pour tester le relais.</span>'; return; }
+  if (!window._relayConfigured(cfg)) { if (st) st.innerHTML = '<span style="color:var(--err,#ef4444)">⚠️ Connexion requise pour tester le relais.</span>'; return; }
   if (st) st.innerHTML = '<span class="mu">Test en cours…</span>';
   try {
     await window._relayPing(cfg);
@@ -32797,7 +32797,7 @@ function _backupAgoLabel(ms) {
 
 // Choisir + mémoriser un dossier (geste utilisateur requis).
 async function _backupPickFolder() {
-  if (typeof window.showDirectoryPicker !== 'function') { showToast('Ce navigateur ne permet pas le choix de dossier — utilise le mode zip', 'warn', 5000); return; }
+  if (typeof window.showDirectoryPicker !== 'function') { showToast('Ce navigateur ne permet pas le choix de dossier — utiliser le mode zip', 'warn', 5000); return; }
   try {
     const h = await window.showDirectoryPicker({ id: 'propryo-backup', mode: 'readwrite' });
     await _idbPutRaw('dirhandle', h);
@@ -32908,13 +32908,13 @@ async function _backupRun(trigger) {
 
     if (mode === 'dossier') {
       let dir = _backupDirHandle || await _backupLoadFolder();
-      if (!dir) { showToast('Choisis d’abord un dossier de sauvegarde', 'warn', 5000); _backupRunning = false; return; }
+      if (!dir) { showToast('Choisir d’abord un dossier de sauvegarde', 'warn', 5000); _backupRunning = false; return; }
       // Permission : re-demander dans le geste (trigger manuel). En auto on suppose déjà 'granted' (vérifié par _backupAutoCheck).
       try {
         const opt = { mode: 'readwrite' };
         let perm = await dir.queryPermission(opt);
         if (perm !== 'granted' && trigger === 'manuel') perm = await dir.requestPermission(opt);
-        if (perm !== 'granted') { showToast('Autorisation du dossier requise — clique « Choisir un dossier »', 'warn', 6000); _backupRunning = false; return; }
+        if (perm !== 'granted') { showToast('Autorisation du dossier requise — cliquer sur « Choisir un dossier »', 'warn', 6000); _backupRunning = false; return; }
       } catch (e) { console.warn('[backup] permission', e); }
 
       _backupSetProgress('Données…', 0, files.length);
@@ -32967,7 +32967,7 @@ async function _backupRun(trigger) {
         // Garde-fou ZIP64 : storedZip est 32-bit. Au-delà de ~3,8 Go → zip corrompu. On stoppe net.
         if (total + bytes.length > _BK_ZIP64_LIMIT) {
           _backupClearProgress();
-          showToast('Sauvegarde trop volumineuse pour un .zip (> ~3,8 Go) — utilise un PC Chrome/Edge (mode dossier) ou scinde tes documents', 'err', 9000);
+          showToast('Sauvegarde trop volumineuse pour un .zip (> ~3,8 Go) — utiliser un PC Chrome/Edge (mode dossier) ou scinder les documents', 'err', 9000);
           _backupRunning = false; return;
         }
         total += bytes.length;
@@ -33047,7 +33047,7 @@ function _renderBackupCard() {
   if (mode === 'mobile') {
     body = '<div class="bk-mobmsg"><div class="big">' + _uiIcon('computer',40) + '</div>'
       + '<div class="t">Sauvegarde depuis un PC</div>'
-      + '<div class="d">La sauvegarde de sécurité se fait depuis <b>Chrome ou Edge sur ordinateur</b>. Tes données restent en sécurité sur le cloud en attendant.</div></div>';
+      + '<div class="d">La sauvegarde de sécurité se fait depuis <b>Chrome ou Edge sur ordinateur</b>. Les données restent en sécurité sur le cloud en attendant.</div></div>';
     host.innerHTML = '<div class="bk-ch"><span class="bk-ic">🛟</span><h3>Sauvegarde de sécurité</h3></div>' + body;
     return;
   }
@@ -33077,7 +33077,7 @@ function _renderBackupCard() {
     }
     host.innerHTML = '<div class="bk-ch"><span class="bk-ic">🛟</span><h3>Sauvegarde de sécurité</h3>'
       + '<span style="margin-left:auto">' + (hasFolder ? pill : '') + '</span></div>'
-      + '<p class="bk-sub">Une copie de tes données + documents + photos sur ton ordinateur, au cas où.</p>'
+      + '<p class="bk-sub">Une copie des données + documents + photos sur l’ordinateur, au cas où.</p>'
       + rows
       + '<div id="backup-progress" style="display:none"></div>';
     return;
@@ -33091,7 +33091,7 @@ function _renderBackupCard() {
     + '<div class="bk-row"><span class="bk-lbl">Dernière sauvegarde</span><span class="bk-val">' + escHtml(lastLbl) + '</span></div>'
     + '<div class="bk-row"><span class="bk-lbl">Nouveau depuis</span><span class="bk-val">' + (nbNew > 0 ? (nbNew + ' fichier(s)') : '— rien') + '</span></div>'
     + '<div class="bk-row" style="justify-content:flex-end"><button class="btn bp" onclick="_backupRun(\'manuel\')">📦 Télécharger le .zip de sauvegarde</button></div>'
-    + '<p class="bk-hint">Le .zip contient le JSON + les nouveaux documents/photos. Range-le où tu veux (clé USB, cloud perso…).</p>'
+    + '<p class="bk-hint">Le .zip contient le JSON + les nouveaux documents/photos. Rangement libre (clé USB, cloud perso…).</p>'
     + '<div id="backup-progress" style="display:none"></div>';
 }
 
@@ -33183,7 +33183,7 @@ function _backupReminderShow() {
   bar.id = 'backup-reminder-banner';
   bar.className = 'bk-reminder';
   bar.innerHTML = '<span class="bk-rm-ic">' + _monoSvg('<path d="M12 3 5 6v6c0 4 3 6.7 7 9 4-2.3 7-5 7-9V6l-7-3Z"/><path d="M9.5 12l2 2 3.5-4"/>', 19) + '</span>'
-    + '<span class="tx"><b>Pense à planifier une sauvegarde de tes données</b><small>Protège tes biens, baux, mouvements et photos en cas de perte de l\'appareil.</small></span>'
+    + '<span class="tx"><b>Penser à planifier une sauvegarde des données</b><small>Protection des biens, baux, mouvements et photos en cas de perte de l\'appareil.</small></span>'
     + '<button class="btn bp" onclick="_backupReminderPlan()">Planifier</button>'
     + '<button class="btn bs" onclick="_backupReminderLater()">Plus tard</button>'
     + '<button class="bk-rm-x" title="Ne plus me rappeler" aria-label="Ne plus me rappeler" onclick="_backupReminderOff()">' + _monoSvg('<path d="M6 6l12 12M18 6L6 18"/>', 17) + '</button>';
@@ -33212,7 +33212,7 @@ let _backupRestoreDir = null;   // dossier courant de la modale (résout le fich
 
 async function _backupRestoreOpen() {
   if (_backupMode() === 'mobile') { showToast('Restauration depuis un PC uniquement', 'warn', 5000); return; }
-  if (typeof window.showDirectoryPicker !== 'function') { showToast('Ce navigateur ne lit pas les dossiers — utilise « Importer JSON »', 'warn', 6000); return; }
+  if (typeof window.showDirectoryPicker !== 'function') { showToast('Ce navigateur ne lit pas les dossiers — utiliser « Importer JSON »', 'warn', 6000); return; }
   let dir = await _backupLoadFolder();
   try {
     if (dir) {
@@ -33257,9 +33257,9 @@ function _backupRestoreOverlay(dir, snaps) {
         + '<div class="bkr-m"><div class="bkr-d">' + escHtml(_backupSnapLabel(s)) + (i === 0 ? ' <span class="bkr-tag">le plus récent</span>' : '') + '</div><div class="bkr-s">' + _backupSizeLabel(s.size) + '</div></div>'
         + '<button type="button" class="btn bp bb" onclick="_backupRestorePick(\'' + encodeURIComponent(s.name) + '\')">Restaurer</button></div>').join('')
     : '<div class="bkr-empty">' + _monoSvg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>', 30)
-      + '<b>Aucune sauvegarde trouvée dans ce dossier</b><span>Vérifie que c\'est le bon dossier (fichiers « donnees-….json »).</span>'
+      + '<b>Aucune sauvegarde trouvée dans ce dossier</b><span>Vérifier que c\'est le bon dossier (fichiers « donnees-….json »).</span>'
       + '<div style="margin-top:12px"><button type="button" class="btn bp" onclick="_backupRestoreClose();_backupRestoreOpen()">Choisir un autre dossier</button></div></div>';
-  const warn = snaps.length ? '<div class="bkr-warn">' + _monoSvg('<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 10v4M12 17v.5"/>', 16) + '<span><b>La restauration remplace toutes tes données actuelles</b> par l\'instantané choisi. Confirmation avant.</span></div>' : '';
+  const warn = snaps.length ? '<div class="bkr-warn">' + _monoSvg('<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 10v4M12 17v.5"/>', 16) + '<span><b>La restauration remplace toutes les données actuelles</b> par l\'instantané choisi. Confirmation avant.</span></div>' : '';
   const foot = snaps.length ? '<div class="bkr-foot"><span class="mu sm">Des documents / photos manquent après restauration (cloud perdu) ?</span><button type="button" class="btn bs bb" onclick="_backupReuploadFiles(_backupRestoreDir)">Ré-uploader les fichiers depuis ce dossier</button></div>' : '';
   const html = '<div id="bkr-ov" onclick="if(event.target===this)_backupRestoreClose()"><div class="bkr-modal" onclick="event.stopPropagation()">'
     + '<div class="bkr-hd"><h3>' + _monoSvg('<path d="M9 8L4 13l5 5"/><path d="M4 13h11a5 5 0 0 0 5-5V6"/>', 18) + '<span>Restaurer depuis le dossier</span></h3>'
@@ -33274,7 +33274,7 @@ async function _backupRestorePick(nameEnc) {
   const dir = _backupRestoreDir; if (!dir) return;
   const m = /^donnees-(\d{4}-\d{2}-\d{2})_(\d{2})h(\d{2})\.json$/.exec(name);
   const label = m ? _backupSnapLabel({ ymd: m[1], hh: m[2], mm: m[3] }) : name;
-  if (!confirm2('Remplacer TOUTES tes données actuelles (y compris tes SCI partagées) par la sauvegarde du ' + label + ' ?\n\nAction IRRÉVERSIBLE — tes données actuelles seront écrasées.')) return;
+  if (!confirm2('Remplacer TOUTES les données actuelles (y compris les SCI partagées) par la sauvegarde du ' + label + ' ?\n\nAction IRRÉVERSIBLE — les données actuelles seront écrasées.')) return;
   _backupRestoreClose();
   await _backupRestoreRun(dir, name);
 }
@@ -33373,7 +33373,7 @@ async function _backupReadFolderFile(dir, relPath) {
   return await fh.getFile();
 }
 async function _backupReuploadFiles(dir) {
-  if (!dir) { showToast('Rouvre « Restaurer une sauvegarde » d\'abord', 'warn'); return; }
+  if (!dir) { showToast('Rouvrir « Restaurer une sauvegarde » d\'abord', 'warn'); return; }
   if (typeof window.__immoCloudUploadPath !== 'function') { showToast('Ré-upload indisponible (mode cloud requis)', 'warn', 5000); return; }
   const _bk = window._bk; if (!_bk || !_bk.collectBackupFiles) { showToast('Module sauvegarde non chargé', 'err'); return; }
   const files = _bk.collectBackupFiles(DB, 0);   // TOUS les binaires du DB courant → {key(cloudKey), name, kind}
@@ -33465,7 +33465,7 @@ function _legal2044BuildOpts(yrArg, entArg) {
 }
 function openLegal2044() {
   if (typeof window._compute2044 !== 'function') {
-    showToast('Module 2044 non chargé — vérifie que js/main.js est servi par http-server', 'err', 8000);
+    showToast('Module 2044 non chargé — vérifier que js/main.js est servi par http-server', 'err', 8000);
     return;
   }
   const opts = _legal2044BuildOpts();
@@ -33514,13 +33514,13 @@ function _rgpdRefreshSelect() {
 }
 function _rgpdGetRef() {
   const ref = v('rgpd-log-ref');
-  if (!ref) { showToast('Sélectionnez d\'abord un logement', 'warn'); return null; }
+  if (!ref) { showToast('Sélectionner d\'abord un logement', 'warn'); return null; }
   return ref;
 }
 function rgpdShowDataReport() {
   const ref = _rgpdGetRef(); if (!ref) return;
   if (typeof window._findPersonalDataForRef !== 'function') {
-    showToast('Module RGPD non chargé — vérifie http-server', 'err', 8000); return;
+    showToast('Module RGPD non chargé — vérifier http-server', 'err', 8000); return;
   }
   const data = window._findPersonalDataForRef(DB, ref);
   const out = el('rgpd-result'); if (!out) return;
@@ -33542,7 +33542,7 @@ function rgpdShowDataReport() {
   lines.push('');
   lines.push('TOTAL ENREGISTREMENTS : ' + data.totalRecords);
   lines.push('');
-  lines.push('💡 Pour obtenir le détail complet en JSON portable, cliquez sur « Export portabilité ».');
+  lines.push('💡 Pour obtenir le détail complet en JSON portable, cliquer sur « Export portabilité ».');
   out.textContent = lines.join('\n');
   out.style.display = 'block';
   if (typeof _auditLog === 'function') _auditLog('read', 'rgpd_data_report', null, ref, null, null, 'ui');
@@ -33594,7 +33594,7 @@ function rgpdShowErasePlan() {
   }
   lines.push('');
   lines.push('⚠️ EXÉCUTION DE L\'EFFACEMENT non implémentée en V1.');
-  lines.push('   Pour effacer en V1, suivez ce plan manuellement via les modales d\'édition.');
+  lines.push('   Pour effacer en V1, suivre ce plan manuellement via les modales d\'édition.');
   lines.push('   V1.1 ajoutera un bouton "Exécuter l\'effacement" avec double confirmation + audit-trail.');
   out.textContent = lines.join('\n');
   out.style.display = 'block';
@@ -33853,7 +33853,7 @@ async function _dcRun(plan, o) {
       }
       if (totalBytes + bytes.length > _BK_ZIP64_LIMIT) {
         _dcCloseOv();
-        showToast('Dossier trop volumineux pour un .zip (> ~3,8 Go) — filtre par un seul bailleur ou réduis la période', 'err', 9000);
+        showToast('Dossier trop volumineux pour un .zip (> ~3,8 Go) — filtrer par un seul bailleur ou réduire la période', 'err', 9000);
         return;
       }
       totalBytes += bytes.length;
@@ -33921,7 +33921,7 @@ function openBilanAnnuel() {
   }
   const yr = v('bilan-year') || String(new Date().getFullYear() - 1);
   const entNom = v('bilan-ent');
-  if (!entNom) { showToast('Sélectionnez une entité', 'warn'); return; }
+  if (!entNom) { showToast('Sélectionner une entité', 'warn'); return; }
   // Lot 6, B (R-0) : le cash-flow de l'entité est LU dans Finances (bloc unique `_dashCfReel` → `_finMonthly`
   // → cashflowReel, mêmes fenêtres que l'onglet), jamais recalculé par le bilan.
   // Le moteur qui échoue ne doit pas empêcher le bilan de s'afficher : « non disponible » (audit lot 6 🟡9).
@@ -34044,10 +34044,10 @@ function confirmReset() {
   // pour éviter l'erreur de manip qui efface une base réelle. En sandbox, double-confirm OK.
   const isProd = (typeof _isTestMode !== 'undefined') ? !_isTestMode : true;
   if(isProd) {
-    const msg1 = '⚠️ ATTENTION — BASE PROD\n\nVous êtes sur le point d\'effacer TOUTES vos données réelles.\nCette action est IRRÉVERSIBLE.\n\nContinuer ?';
+    const msg1 = '⚠️ ATTENTION — BASE PROD\n\nCette action va effacer TOUTES les données réelles.\nCette action est IRRÉVERSIBLE.\n\nContinuer ?';
     if(!confirm2(msg1)) return;
     const expected = 'EFFACER';
-    const got = prompt(`Pour confirmer, tapez exactement : ${expected}`);
+    const got = prompt(`Pour confirmer, taper exactement : ${expected}`);
     if(got !== expected) { showToast('Reset annulé (confirmation incorrecte)','warn'); return; }
   } else {
     if(!confirm2('🧪 Mode TEST — Effacer toute la base sandbox ? (la prod ne sera pas touchée)')) return;
@@ -34093,7 +34093,7 @@ function _renderResetZone() {
 }
 
 function _deviceClearConfirm() {
-  if (!confirm2('🧹 Vider cet appareil ?\n\nDéconnexion + suppression de la copie locale (cache) sur CET appareil uniquement.\n\n✅ Vos données cloud restent intactes : vous les retrouverez à la prochaine connexion.')) return;
+  if (!confirm2('🧹 Vider cet appareil ?\n\nDéconnexion + suppression de la copie locale (cache) sur CET appareil uniquement.\n\n✅ Les données cloud restent intactes : elles réapparaîtront à la prochaine connexion.')) return;
   if (typeof window.__immoLogout === 'function') window.__immoLogout();
   else showToast('Déconnexion indisponible', 'err');
 }
@@ -34129,7 +34129,7 @@ function _espacePurgeStep1() {
     +     '<li><b>y compris les baux et EDL signés</b> (preuves légales)</li>'
     +     '<li>les accès des personnes invitées sur cet espace</li>'
     +   '</ul></div>'
-    + '<div class="alert ok mb8">🛟 Une <b>sauvegarde JSON complète</b> sera téléchargée automatiquement avant la purge. Gardez-la : c\'est votre seule copie (les photos stockées sur cet appareil sont conservées localement, récupérables via une restauration). <b>Vérifiez que le fichier apparaît bien dans vos téléchargements</b> — si ce n\'est pas le cas, annulez et utilisez « 💾 Export JSON » manuellement d\'abord.</div>'
+    + '<div class="alert ok mb8">🛟 Une <b>sauvegarde JSON complète</b> sera téléchargée automatiquement avant la purge. À conserver : c\'est la seule copie (les photos stockées sur cet appareil sont conservées localement, récupérables via une restauration). <b>Vérifier que le fichier apparaît bien dans les téléchargements</b> — sinon, annuler et utiliser « 💾 Export JSON » manuellement d\'abord.</div>'
     + '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
     +   '<button class="btn bs" onclick="closeM(\'ov-espace-purge\')">Annuler</button>'
     +   '<button class="btn br" onclick="_espacePurgeStep2()">J\'ai compris, continuer →</button>'
@@ -34141,7 +34141,7 @@ function _espacePurgeStep2() {
   const body = document.getElementById('espace-purge-body'); if (!body) return;
   body.innerHTML =
       '<div class="mu sm mb8" style="text-transform:uppercase;letter-spacing:.05em;font-weight:700">Étape 2/2 — confirmation</div>'
-    + '<div class="mb8">Pour confirmer, tapez le nom exact de votre espace : <code>' + escHtml(info.espaceNom || '') + '</code></div>'
+    + '<div class="mb8">Pour confirmer, taper le nom exact de l\'espace : <code>' + escHtml(info.espaceNom || '') + '</code></div>'
     + '<input class="inp" id="espace-purge-nom" placeholder="Nom de l\'espace" autocomplete="off" oninput="_espacePurgeCheckNom()" style="width:100%">'
     + '<div class="mu sm" id="espace-purge-hint" style="margin-top:4px">Le nom ne correspond pas encore.</div>'
     + '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px">'

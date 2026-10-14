@@ -667,7 +667,7 @@ function _partageSciChip(g) {
 
 function _partageAvatar(label, big) {
   const txt = String(label || '?').trim();
-  const initials = txt === 'Vous' ? '🙂'
+  const initials = txt === 'Moi' ? '🙂'
     : (txt.indexOf('@') !== -1 ? txt.slice(0, 2).toUpperCase() : txt.split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?');
   const sz = big ? 38 : 30, fs = big ? 14 : 12;
   // couleur d'avatar stable dérivée du label
@@ -702,8 +702,8 @@ async function _rParamsPartageCloud(wrap) {
     const grants = m.grants || [];
     const chips = grants.length
       ? grants.map(_partageSciChip).join(' ')
-      : (m.isOwner ? '<span class="mu sm">Accès à tous vos périmètres.</span>' : '<span class="mu sm" style="font-style:italic">Aucun périmètre — accès révoqué.</span>');
-    const youBadge = m.isMe ? ' <span class="badge gry" style="font-size:10px;padding:1px 7px" title="Votre compte">vous</span>' : '';
+      : (m.isOwner ? '<span class="mu sm">Accès à tous les périmètres.</span>' : '<span class="mu sm" style="font-style:italic">Aucun périmètre — accès révoqué.</span>');
+    const youBadge = m.isMe ? ' <span class="badge gry" style="font-size:10px;padding:1px 7px" title="Compte connecté">connecté</span>' : '';
     const acts = (!m.isOwner)
       ? '<div class="flex-c" style="gap:6px;flex-shrink:0">'
         + '<button class="btn bs bb" title="Modifier le périmètre et le mode (bientôt)" disabled style="opacity:.5;cursor:not-allowed">✏️ Modifier</button>'
@@ -728,11 +728,11 @@ async function _rParamsPartageCloud(wrap) {
     (window.__immoIsAdmin ? '<div id="beta-admin-mount"></div>' : '')
     + '<div class="flex-b" style="align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:14px">'
     + '<div><div class="ct" style="margin:0 0 4px">👥 Partage &amp; accès</div>'
-    +   '<div class="mu sm" style="max-width:560px;line-height:1.5">Invitez une personne à accéder à un ou plusieurs périmètres (SCI ou Perso). En <b>écriture</b>, vous co-gérez à parts égales ; en <b>lecture</b>, la personne consulte sans modifier. Chacun n\'accède qu\'aux périmètres que vous partagez.</div></div>'
+    +   '<div class="mu sm" style="max-width:560px;line-height:1.5">Inviter une personne à accéder à un ou plusieurs périmètres (SCI ou Perso). En <b>écriture</b>, la gestion est partagée à parts égales ; en <b>lecture</b>, la personne consulte sans modifier. Chacun n\'accède qu\'aux périmètres partagés.</div></div>'
     + '<button class="btn bp" onclick="_partageOpenInvite()">➕ Inviter une personne</button>'
     + '</div>'
     + billing
-    + '<div class="ct">Membres de votre espace</div>'
+    + '<div class="ct">Membres de l\'espace</div>'
     + cards;
   if (window.__immoIsAdmin) _renderBetaAdmin();
 }
@@ -760,7 +760,7 @@ async function _renderBetaAdmin() {
       + '<span class="flex-c" style="gap:9px;flex-shrink:0">' + typePill + stat
       +   '<button class="btn br bb" title="Retirer l\'accès" onclick="_betaRemove(\'' + _lyQ(x.email) + '\')">🗑</button></span>'
       + '</div>';
-  }).join('') : '<div class="mu sm" style="text-align:center;padding:22px">Aucun accès pour l\'instant. Ajoute l\'email d\'un testeur.</div>';
+  }).join('') : '<div class="mu sm" style="text-align:center;padding:22px">Aucun accès pour l\'instant. Ajouter l\'email d\'un testeur.</div>';
   mount.innerHTML =
     '<div class="card" style="padding:16px 18px;margin-bottom:18px">'
     + '<div class="flex-b" style="align-items:center;gap:10px;margin-bottom:4px">'
@@ -798,7 +798,7 @@ async function _betaRemove(email) {
 
 // Révocation d'un partenaire (confirmation native, comme le reste de l'app).
 async function _partageRevoke(userId, label) {
-  if (!confirm('Retirer TOUT l\'accès de « ' + (label || 'ce partenaire') + ' » à votre espace ?\n\nLa personne perd immédiatement l\'accès aux périmètres partagés. Action réversible (vous pourrez la réinviter).')) return;
+  if (!confirm('Retirer TOUT l\'accès de « ' + (label || 'ce partenaire') + ' » à cet espace ?\n\nLa personne perd immédiatement l\'accès aux périmètres partagés. Action réversible (réinvitation possible).')) return;
   const r = await window.__immoPartage.revokeMember(userId);
   if (r && r.error) { showToast('Révocation impossible : ' + r.error, 'err', 5000); return; }
   showToast('Accès révoqué', 'ok');
@@ -818,7 +818,7 @@ async function _partageOpenInvite() {
   if (res.error) { showToast('Impossible de charger les périmètres : ' + res.error, 'err', 5000); return; }
   _partageInvite = { entites: res.entites || [], sel: {}, modes: {} };
   if (!_partageInvite.entites.length) {
-    showToast('Aucun périmètre à partager — créez d\'abord une entité (SCI ou Perso).', 'info', 5000);
+    showToast('Aucun périmètre à partager — créer d\'abord une entité (SCI ou Perso).', 'info', 5000);
     return;
   }
   document.body.insertAdjacentHTML('beforeend',
@@ -840,7 +840,7 @@ function _partageRenderInvite() {
     const on = !!st.sel[e.id];
     const mode = st.modes[e.id] || 'ecriture';
     const c = e.couleur || 'hsl(220,12%,60%)';
-    const sub = e.perso ? 'Votre patrimoine personnel' : 'Périmètre (SCI / société)';
+    const sub = e.perso ? 'Patrimoine personnel' : 'Périmètre (SCI / société)';
     const modeRow = on
       ? '<div style="display:flex;gap:8px;margin:8px 0 2px 28px">'
         + '<button type="button" class="btn ' + (mode === 'ecriture' ? 'bp' : 'bs') + ' bb" onclick="_partageSetMode(\'' + e.id + '\',\'ecriture\')">✏️ Écriture</button>'
@@ -861,7 +861,7 @@ function _partageRenderInvite() {
     '<div class="fg" style="margin-bottom:14px">'
     + '<label>Quel(s) périmètre(s) partager ?' + (n > 0 ? ' <span class="badge blu" style="margin-left:6px">' + n + ' sélectionné' + (n > 1 ? 's' : '') + '</span>' : '') + '</label>'
     + '<div style="display:flex;flex-direction:column;gap:9px">' + picks + '</div>'
-    + '<div class="sm" style="color:var(--t3);margin-top:8px;line-height:1.5">Cochez au moins un périmètre, puis choisissez le mode pour chacun (<b>Écriture</b> par défaut). Votre <b>Perso</b> se partage comme une SCI.</div>'
+    + '<div class="sm" style="color:var(--t3);margin-top:8px;line-height:1.5">Cocher au moins un périmètre, puis choisir le mode pour chacun (<b>Écriture</b> par défaut). Le <b>Perso</b> se partage comme une SCI.</div>'
     + '</div>'
     + '<div class="fg"><label>Email du partenaire <span style="color:var(--red)">(obligatoire)</span></label>'
     +   '<input class="inp" id="partage-invite-email" type="email" placeholder="prénom@exemple.fr" required>'
@@ -882,10 +882,10 @@ function _partageSetMode(id, mode) { _partageInvite.modes[id] = mode; _partageRe
 async function _partageGenInvite() {
   const st = _partageInvite;
   const grants = st.entites.filter(e => st.sel[e.id]).map(e => ({ entite_id: e.id, mode: st.modes[e.id] || 'ecriture' }));
-  if (!grants.length) { showToast('Choisissez au moins un périmètre.', 'err'); return; }
+  if (!grants.length) { showToast('Choisir au moins un périmètre.', 'err'); return; }
   const emailInp = el('partage-invite-email');
   const email = emailInp ? emailInp.value.trim() : '';
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { showToast('Renseigne l\'email du partenaire (il sera autorisé à s\'inscrire).', 'err', 5000); if (emailInp) emailInp.focus(); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { showToast('Renseigner l\'email du partenaire (il sera autorisé à s\'inscrire).', 'err', 5000); if (emailInp) emailInp.focus(); return; }
   const btn = el('partage-invite-gen');
   if (btn) { btn.disabled = true; btn.textContent = '⟳ Génération…'; }
   const r = await window.__immoPartage.createInvite(grants, email);
@@ -905,7 +905,7 @@ function _partageOpenShareModal(url, email, perimetres) {
   _openShareModal({
     title: '🤝 Invitation prête',
     ctxIcon: '🤝', ctxTitle: 'Lien d\'invitation sécurisé',
-    ctxSub: (perimetres ? 'Périmètres partagés : <b>' + escHtml(perimetres) + '</b>' : 'Partagez ce lien avec la personne à inviter.'),
+    ctxSub: (perimetres ? 'Périmètres partagés : <b>' + escHtml(perimetres) + '</b>' : 'Lien à partager avec la personne à inviter.'),
     url, linkLabel: 'Lien d\'invitation', email: email || '',
     subject: 'Invitation à gérer mon patrimoine immobilier',
     smsLead: 'Vous êtes invité·e à accéder à mon espace immobilier : ',
@@ -913,7 +913,7 @@ function _partageOpenShareModal(url, email, perimetres) {
       + (perimetres ? ' (' + perimetres + ')' : '') + '.\n\n'
       + 'Cliquez sur le lien ci-dessous pour créer votre compte (ou vous connecter) et rejoindre l\'espace.\n\n'
       + 'Bien cordialement.',
-    info: '🔒 À l\'ouverture du lien, la personne crée son compte (ou se connecte) et rejoint instantanément les périmètres choisis. Vous pouvez révoquer l\'accès à tout moment depuis cet écran.',
+    info: '🔒 À l\'ouverture du lien, la personne crée son compte (ou se connecte) et rejoint instantanément les périmètres choisis. La révocation de l\'accès reste possible à tout moment depuis cet écran.',
     doneJs: 'rParamsPartage();'
   });
 }

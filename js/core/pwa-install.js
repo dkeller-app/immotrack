@@ -82,14 +82,14 @@ export function decideInvitation({
 export function texteInvitation(mode) {
   if (mode === 'ios') {
     return {
-      titre: 'Ajoute Propryo à ton écran d’accueil',
-      corps: 'Sans ça, ton iPhone efface les photos d’état des lieux au bout de 7 jours sans ouvrir l’app. Appuie sur Partager, puis « Sur l’écran d’accueil ».',
+      titre: 'Ajouter Propryo à l’écran d’accueil',
+      corps: 'Sans ça, l’iPhone efface les photos d’état des lieux au bout de 7 jours sans ouvrir l’app. Appuyer sur Partager, puis « Sur l’écran d’accueil ».',
       action: null,
     };
   }
   return {
-    titre: 'Installe Propryo sur ton téléphone',
-    corps: 'L’app s’ouvre plus vite, fonctionne hors ligne, et tes photos d’état des lieux ne sont plus effacées par le navigateur.',
+    titre: 'Installer Propryo sur le téléphone',
+    corps: 'L’app s’ouvre plus vite, fonctionne hors ligne, et les photos d’état des lieux ne sont plus effacées par le navigateur.',
     action: 'Installer',
   };
 }
