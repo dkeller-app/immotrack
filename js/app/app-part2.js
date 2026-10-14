@@ -15631,7 +15631,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.730 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.732 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
