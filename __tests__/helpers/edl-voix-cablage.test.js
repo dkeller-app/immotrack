@@ -110,3 +110,47 @@ describe('B1 — dicter la pièce : branchement', () => {
     expect(css).toMatch(/@media \(min-width:768px\)\{\s*\.evx-scrim\{display:block/);
   });
 });
+
+describe('B2 / B3 — relecture et écriture : branchement', () => {
+  const fn = (nom) => { const i = p2.indexOf(`function ${nom}(`); expect(i).toBeGreaterThan(0); return p2.slice(i, p2.indexOf('\n}', i) + 2); };
+  it('toute écriture passe par la garde commune : EDL signé, mode de la dictée', () => {
+    const g = fn('_edlVoixPeutEcrire');
+    expect(g).toContain('_edlVoixSigne()');
+    expect(g).toContain('_edlVoixMemeMode(x)');
+    for (const f of ['_edlVoixAccepter', '_edlVoixAnnuler', '_edlVoixAjouter', '_edlVoixToutInscrire']) expect(fn(f)).toContain('_edlVoixPeutEcrire(');
+  });
+  it('après une écriture : re-rendu ET autosave explicite (les gestes _edlVoix… ne le déclenchent pas au clic)', () => {
+    const a = fn('_edlVoixApresEcriture');
+    expect(a).toContain('_edlRenderPieces()');
+    expect(a).toContain("_edlAutosaveTrigger('voix')");
+  });
+  it('les propositions s’écrivent par le module testé (jamais à la main)', () => {
+    const i = fn('_edlVoixInscrireProp');
+    expect(i).toContain('M.EdlDictee.calculerInscription(');
+    expect(i).toContain('M.EdlDictee.retrouverElement(');
+    expect(i).toContain('M.EdlDictee.appliquerPatch(');
+  });
+  it('« Tout inscrire » ne prend que les lignes d’éléments en attente (ni ajouts ni compteurs)', () => {
+    const t = fn('_edlVoixToutInscrire');
+    expect(t).toContain('m.lignes');
+    expect(t).not.toContain('m.compteurs');
+    expect(t).not.toContain('m.ajouts');
+  });
+  it('relevés : champ existant + événement change (autosave) + marque compteursIA', () => {
+    const c = fn('_edlVoixInscrireCompteur');
+    expect(c).toContain('M.EdlDictee.champCompteur(');
+    expect(c).toContain('M.EdlDictee.peutInscrireCompteur(');
+    expect(c).toContain("new Event('change', { bubbles: true })");
+    expect(c).toContain('_edlCptIA[cleIA]');
+  });
+  it('fin de relecture : tout décidé → dictée (transcription) effacée de l’appareil', () => {
+    const f = fn('_edlVoixFinRelecture');
+    expect(f).toContain('f.supprimer(id)');
+  });
+  it('l’étape Compteurs porte l’emplacement « Dicter les relevés »', () => {
+    const html = lire('index.html');
+    const i = html.indexOf('id="edl-step-compteurs"');
+    expect(html.indexOf('id="edl-voix-cpt"', i)).toBeGreaterThan(i);
+    expect(html.indexOf('id="edl-voix-cpt"', i) - i).toBeLessThan(600);
+  });
+});

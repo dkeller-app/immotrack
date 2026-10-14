@@ -4157,6 +4157,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <!-- §2 Compteurs -->
     <div id="edl-step-compteurs" data-edl-step="compteurs" style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
       <div style="font-weight:700;color:var(--acc);font-size:13px;margin-bottom:8px">Relevé des compteurs</div>
+      <!-- EDL-VOIX-IA (B3) — « Dicter les relevés » + bandeaux des dictées de relevés (rempli par _edlVoixRafraichirCompteurs). -->
+      <div id="edl-voix-cpt" class="evx-slot-cpt"></div>
       <table class="tbl edl-cpt-tbl" style="font-size:12px;width:100%">
         <thead><tr>
           <th style="width:110px">Compteur</th>
@@ -4532,7 +4534,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
 <script src="js/app/app-part1.js?v=fc7c937d" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=1f4c0e1e" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part2.js?v=3a530da8" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=ea8eb4d4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
