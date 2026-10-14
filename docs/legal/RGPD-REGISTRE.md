@@ -25,6 +25,7 @@
 |---|---|---|---|---|
 | **Google Ireland Limited** | Stockage Drive (sync optionnelle) | UE + US (transferts encadrés clauses contractuelles types) | Oui — voir [DPA-GOOGLE-DRIVE.md](DPA-GOOGLE-DRIVE.md) | [Google Cloud DPA](https://cloud.google.com/terms/data-processing-addendum) |
 | **Cloudflare, Inc.** | Relais à distance (Worker + R2 + KV) — `bail-sign-relay` : transit temporaire (1) du bail le temps de la **signature**, (2) des **dépôts de candidature en ligne** (dossier + pièces) le temps de leur rapatriement | R2/KV mondial par défaut (KV répliqué multi-régions) ; restreindre via *Jurisdictional Restrictions* (R2 hint `eu`) recommandé | DPA standard Cloudflare (SCC) — à accepter dans le dashboard Cloudflare | [Cloudflare DPA](https://www.cloudflare.com/cloudflare-customer-dpa/) |
+| **Mistral AI** (France) | IA : transcription de la dictée de l'état des lieux (Voxtral) et préparation des propositions (Mistral Small) — appelée **uniquement par le relais** (clé jamais dans le navigateur) | Union européenne | Contrat de sous-traitance (DPA) Mistral à accepter ; **rétention zéro** à activer (facturation à l'usage) et **entraînement refusé** dans la console — à confirmer | [legal.mistral.ai](https://legal.mistral.ai) |
 
 **Important** : si vous activez la sync Drive, vous transférez vos données à Google. Si vos locataires ont saisi des données personnelles (nom, IBAN, email), informez-les via un avenant au bail ou un courrier ad hoc avant l'activation.
 
@@ -111,6 +112,23 @@
 | **Transferts hors UE** | Si Drive : oui, vers les USA (SCC Google). **Dépôt en ligne** : transit via Cloudflare KV (répliqué mondialement) — encadré par les SCC du DPA Cloudflare ; restriction de juridiction UE recommandée |
 | **Mesures techniques** | Score non-discriminant transparent (barème affiché) ; purge automatique des refusés à 30 j ; isolation des données de test (`_test_immotrack_v4`) ; chiffrement transport (HTTPS/TLS) et stockage au repos. **Dépôt en ligne** : lien candidat 256 bits non devinable ; `ownerToken` jamais placé dans une URL ni journalisé ; le relais répond en 200 (statut) au polling (pas de fuite par code d'erreur) ; **score jamais calculé ni transmis côté relais** (recalcul local) ; rapatriement automatisé sans collecte de donnée nouvelle |
 
+### 7. Dictée de l'état des lieux assistée par IA (EDL-VOIX-IA)
+
+| Champ | Détail |
+|---|---|
+| **Finalité** | Aider à remplir l'état des lieux : un commentaire oral d'une pièce est transcrit, puis une IA **propose** un état et une observation par élément cité. Rien n'entre dans l'EDL sans validation humaine, élément par élément ; l'EDL reste contradictoire et signé par les parties (« l'IA lit, la loi décide ») |
+| **Catégories de personnes** | Utilisateur qui dicte (bailleur, gestionnaire, agent) ; incidemment le locataire ou toute personne présente dont la voix serait captée |
+| **Catégories de données** | Enregistrement audio de la dictée (voix) ; transcription ; propositions (état, observation, extrait entendu) ; marque lisible par machine sur les valeurs acceptées (`iaE` / `iaS` / `compteursIA` : booléens, horodatage, modèle) ; compteurs de consommation par compte (appels, secondes d'audio, jetons — **sans aucun contenu**) |
+| **Données sensibles** | Aucune attendue. La notice demande de prévenir les présents et d'éviter de citer des informations personnelles ; la consigne donnée au modèle interdit d'en reporter dans les observations |
+| **Base légale** | Exécution du service souscrit par l'utilisateur (art. 6.1.b) ; pour la voix d'un tiers présent : intérêt légitime à établir l'EDL (art. 6.1.f), avec information préalable (notice) |
+| **Durée de conservation** | **Audio** : jamais conservé — gardé sur l'appareil seulement le temps de l'envoi (file d'attente hors ligne en IndexedDB), supprimé dès la transcription réussie ; s'il ne peut pas partir (hors ligne, service indisponible, rien entendu), il reste sur l'appareil jusqu'à l'envoi ou sa suppression par l'utilisateur, 30 jours au plus (purge automatique) ; le relais ne le stocke pas. **Transcription et propositions** : sur l'appareil le temps de la relecture, puis effacées. **Valeurs validées** : avec l'EDL (traitement n°4). **Fournisseur** : rétention zéro (décision du 13/10/2026, à confirmer sur le compte Mistral) ; à défaut, 30 jours au plus pour la détection des abus. **Compteurs de consommation** : 48 h (quota du jour) et 400 jours (suivi mensuel), sans contenu |
+| **Destinataires** | Responsable de traitement ; Cloudflare (relais, transit) ; Mistral AI (sous-traitant) |
+| **Transferts hors UE** | Aucun prévu : Mistral AI héberge dans l'UE. Transit par le relais Cloudflare (cf. sous-traitants) |
+| **Profilage / décision automatisée** | Aucun : propositions soumises à validation humaine une par une ; aucun score |
+| **Transparence (AI Act art. 50)** | Mention « Proposé par l'IA, à vérifier » sur chaque proposition ; notice à la première utilisation ; mention discrète dans le PDF signé si au moins une proposition a été acceptée ; marquage lisible par machine |
+| **Mesures techniques** | Clé du fournisseur en secret du relais, jamais dans le navigateur ; routes authentifiées (JWT Supabase) ; taille et type de l'audio contrôlés ; quota par compte et par jour ; sortie du modèle validée (éléments de la liste, états autorisés, extrait réellement entendu) ; **journaux sans contenu** (vérifié par test) ; aucune écriture sur un EDL signé |
+| **AIPD** | **Recommandée** (voix captée au domicile, IA) — à réaliser avec l'avocat avant l'ouverture commerciale |
+
 ---
 
 ## Droits des personnes concernées (art. 15-22 RGPD)
@@ -154,5 +172,5 @@ En cas de fuite de données (vol device + Drive non chiffré local, compromissio
 - Nouveau type de traitement (multi-user, portail locataire, etc.)
 - Changement de durée de conservation
 
-**Dernière mise à jour** : 2026-06-08 (traitement n°6 étendu — **canal de dépôt en ligne** via relais Cloudflare : TTL invitation 7/14/30 j, `ownerToken` hors URL, score jamais calculé/transmis côté relais ; **rapatriement automatisé** documenté — aucune donnée nouvelle collectée ; Cloudflare ajouté aux sous-traitants/destinataires des candidatures)
+**Dernière mise à jour** : 2026-10-13 (traitement n°7 **dictée de l'EDL assistée par IA** + sous-traitant **Mistral AI** ; AIPD recommandée). Précédente : 2026-06-08 (traitement n°6 étendu — **canal de dépôt en ligne** via relais Cloudflare : TTL invitation 7/14/30 j, `ownerToken` hors URL, score jamais calculé/transmis côté relais ; **rapatriement automatisé** documenté — aucune donnée nouvelle collectée ; Cloudflare ajouté aux sous-traitants/destinataires des candidatures)
 **Mainteneur** : responsable de traitement ImmoTrack

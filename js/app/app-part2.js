@@ -4042,6 +4042,7 @@ async function openEditEDL(id) {
   // vignettes s'hydratent quand elles arrivent à l'écran (invariants 22 / 34i).
   _edlArmLazyPhotos(migrated?{pieces:_edlP,cles:clesMig,compteursPhotos:e.compteursPhotos}:e);
   _edlFill({...e, cles:clesMig});
+  _edlCptIA = (e.compteursIA && typeof e.compteursIA === 'object') ? JSON.parse(JSON.stringify(e.compteursIA)) : {};   // EDL-VOIX-IA (A2)
   _edlLoadCptPhotos(e.compteursPhotos);
   _edlRenderAll(e.signatures);
   // v14.42 Phase 4b : applique le lock UI si EDL signé (bandeau + CSS désactive inputs)
@@ -5293,6 +5294,10 @@ function _edlPieceHTML(p,pi) {
     ?`<tr style="background:var(--sur2)"><th style="min-width:120px">Élément</th><th style="width:100px;text-align:center">État entrée</th><th style="min-width:80px">Obs. entrée</th><th style="width:65px;text-align:center">${_uiIcon('camera')} Entrée</th><th style="width:100px;text-align:center">État sortie</th><th style="min-width:80px">Obs. sortie</th><th style="width:65px;text-align:center">${_uiIcon('camera')} Sortie</th><th style="width:88px;text-align:center">Verdict</th><th style="width:20px"></th></tr>`
     :`<tr style="background:var(--sur2)"><th style="min-width:140px">Élément</th><th style="width:100px;text-align:center">État</th><th>Observations</th><th style="width:65px;text-align:center">${_uiIcon('camera')}</th><th style="width:20px"></th></tr>`;
   const rows=(p.elements||[]).map((x,ei)=>_edlElemRow(pi,ei,x,isSortie)).join('');
+  // EDL-VOIX-IA — « Dicter la pièce » : barre + bandeaux sous l'en-tête (téléphone / tablette),
+  // bouton dans l'en-tête de pièce (PC). Vides si la dictée n'est pas proposée (IA inactive, signé…).
+  const _evxSlot=(typeof _edlVoixSlotHTML==='function')?_edlVoixSlotHTML(pi):'';
+  const _evxPc=(typeof _edlVoixBoutonPC==='function')?`<span class="evx-pc-slot" data-evx-pi="${pi}">${_edlVoixBoutonPC(pi)}</span>`:'';
   // lot 5 : chaque pièce est un BLOC adressable (data-pidx) — sur téléphone, le
   // parcours n'en montre qu'un à la fois (§4, §9 inv. 23). Le rendu reste celui-ci.
   return `<div class="edl-piece-block" data-pidx="${pi}" style="border:2px solid var(--bor);border-radius:var(--r);margin-bottom:12px;overflow:hidden">
@@ -5302,6 +5307,7 @@ function _edlPieceHTML(p,pi) {
         ${_edlPieceBadge(p)}
       </div>
       <div class="flex-c edl-piece-acts" style="gap:5px;flex:none">
+        ${_evxPc}
         <button class="btn bs bb" onclick="edlAddElem(${pi})" style="font-size:11px">+ Élément</button>
         <button class="btn br bb edl-piece-del-pc" onclick="edlRemovePiece(${pi})" style="font-size:11px">${_uiIcon('trash')}</button>
       </div>
@@ -5312,6 +5318,7 @@ function _edlPieceHTML(p,pi) {
         <button class="edl-pill edl-pill-del" onclick="edlRemovePiece(${pi})">${_uiIcon('close')} Supprimer la pièce</button>
       </div>
     </div>
+    ${_evxSlot}
     <div class="tbl-wrap" style="margin:0"><table class="tbl" style="margin:0"><thead>${thead}</thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
@@ -5358,6 +5365,576 @@ function _edlRenamePiece(pi){
   const blk=document.querySelector(`#edl-pieces-section .edl-piece-block[data-pidx="${pi}"]`);
   const inp=blk&&blk.querySelector('.edl-piece-name');
   if(inp){inp.focus();try{inp.select();}catch(_){}}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * EDL-VOIX-IA — DICTER LA PIÈCE (maquette validée par Didier le 13/10,
+ * mockups/EDL-VOIX-IA ; CDC mockups/EDL-VOIX-IA/CDC-EDL-VOIX-IA.md).
+ * « L'IA lit, la loi décide » : la dictée produit des PROPOSITIONS ; rien n'entre dans l'EDL sans un
+ * geste « Accepter » élément par élément. Toute la logique vit dans des modules testés :
+ *   js/core/ia-client.js (relais) · ia-file-attente.js (file hors ligne, IndexedDB) ·
+ *   audio-capture.js (MediaRecorder) · edl-dictee.js (quoi envoyer, comment écrire) ·
+ *   edl-voix-vues.js (HTML) · ia-transparence.js (notice, mentions).
+ * Ici : seulement le branchement. Gestes nommés _edlVoix… (JAMAIS edl[A-Z]… : ce préfixe déclenche
+ * l'autosave au clic) ; l'autosave est déclenché EXPLICITEMENT après chaque inscription.
+ * Jamais de blocage : si un module manque, si l'IA est désactivée ou en panne, la dictée disparaît
+ * ou échoue proprement et l'EDL manuel reste intact.
+ * ═════════════════════════════════════════════════════════════════════════ */
+const _EVX = { actif: null, items: [], session: '', rec: null, niv: null, vue: '', itemId: '', ctx: null, file: null, lie: false, verrou: null };
+function _evxM() {
+  const w = (typeof window !== 'undefined') ? window : {};
+  return (w.IaClient && w.IaFileAttente && w.AudioCapture && w.EdlDictee && w.EdlVoixVues && w.IaTransparence) ? w : null;
+}
+const _evxIc = (n, s) => _uiIcon(n, s);
+// Deux clés locales, déclarées au registre du stockage (js/core/stockage-local.js) : dernier statut
+// connu de l'IA (pour proposer la dictée hors ligne) et notice de première utilisation déjà lue.
+function _edlVoixActifCache() { try { return localStorage.getItem(_lsKey('propryo_ia_actif')) === '1'; } catch (_) { return false; } }
+function _edlVoixActifMemo(actif) { try { localStorage.setItem(_lsKey('propryo_ia_actif'), actif ? '1' : '0'); } catch (_) {} }
+function _edlVoixNoticeVue() { try { return localStorage.getItem(_lsKey('propryo_ia_notice')) === '1'; } catch (_) { return false; } }
+function _edlVoixNoticeMemo() { try { localStorage.setItem(_lsKey('propryo_ia_notice'), '1'); } catch (_) {} }
+function _edlVoixClient() {
+  const M = _evxM(); if (!M) return null;
+  const cfg = (typeof _relayCfg === 'function') ? _relayCfg() : { base: '', getToken: () => Promise.resolve('') };
+  return M.IaClient.creerClientIA({ base: cfg.base, getToken: cfg.getToken });
+}
+function _edlVoixFile() {
+  const M = _evxM(); if (!M) return null;
+  if (!_EVX.file) {
+    _EVX.file = M.IaFileAttente.creerFileDictees({
+      store: M.IaFileAttente.storeIndexedDB(),
+      client: _edlVoixClient(),
+      onChange: (x) => { _edlVoixSurChangement(x); },
+    });
+  }
+  return _EVX.file;
+}
+/** La dictée est-elle proposée ? (modules chargés, IA active, EDL non signé, écriture permise) */
+function _edlVoixDispo() {
+  if (!_evxM()) return false;
+  if (_EVX.actif == null) _EVX.actif = _edlVoixActifCache();
+  if (_EVX.actif !== true) return false;
+  if (typeof _appReadOnly !== 'undefined' && _appReadOnly) return false;
+  return !_edlVoixSigne();
+}
+/** EDL signé (en base) OU les deux signatures déjà tracées : plus aucune inscription. */
+function _edlVoixSigne() {
+  try {
+    if (_edlCourantSigne()) return true;
+    const a = el('ov-edl'); if (a && a.classList.contains('edl-signed-locked')) return true;
+  } catch (_) {}
+  return false;
+}
+/** Barre « Dicter la pièce » (téléphone / tablette) + bandeaux des dictées de la pièce. */
+function _edlVoixSlotHTML(pi) {
+  const M = _evxM(); if (!M) return '';
+  return `<div class="evx-slot" data-evx-pi="${pi}">${_edlVoixSlotInner(pi)}</div>`;
+}
+function _edlVoixSlotInner(pi) {
+  const M = _evxM(); if (!M) return '';
+  const bans = _edlVoixItemsPiece(pi).map((x) => M.EdlVoixVues.banniere(x, { ic: _evxIc, message: M.IaClient.messageErreur })).join('');
+  return bans + (_edlVoixDispo() ? M.EdlVoixVues.barrePiece(pi, { ic: _evxIc }) : '');
+}
+function _edlVoixBoutonPC(pi) {
+  const M = _evxM();
+  return (M && _edlVoixDispo()) ? M.EdlVoixVues.boutonPiecePC(pi, { ic: _evxIc }) : '';
+}
+/** Les dictées de l'EDL ouvert (par identifiant, ou par session si l'EDL n'est pas encore enregistré). */
+function _edlVoixItemsEDL() {
+  const id = el('edl-edit-id') ? String(el('edl-edit-id').value || '') : '';
+  return (_EVX.items || []).filter((x) => x.contexte && ((id && String(x.contexte.edlId || '') === id) || (x.contexte.session && x.contexte.session === _EVX.session)));
+}
+/** Pièce de la dictée : même position ET même nom, sinon le nom s'il est UNIQUE. Jamais un repli sur la
+ *  position seule (« Sol », « Murs »… existent dans toutes les pièces : on écrirait dans la mauvaise). */
+function _edlVoixPieceDe(x) {
+  const c = x.contexte || {};
+  if (c.cible === 'compteurs') return -1;
+  if (_edlP[c.pi] && _edlP[c.pi].nom === c.pieceNom) return c.pi;
+  const memes = _edlP.map((p, i) => (p && p.nom === c.pieceNom ? i : -1)).filter((i) => i >= 0);
+  return memes.length === 1 ? memes[0] : -1;
+}
+/** Bandeaux d'une pièce ; les dictées dont la pièce est introuvable s'affichent dans la 1re pièce
+ *  (jamais perdues en silence : on peut les relire — rien ne s'inscrit — ou les supprimer). */
+function _edlVoixItemsPiece(pi) {
+  return _edlVoixItemsEDL().filter((x) => {
+    const p = _edlVoixPieceDe(x);
+    return p === pi || (pi === 0 && p === -1 && (x.contexte || {}).cible !== 'compteurs');
+  });
+}
+async function _edlVoixRattacher(id) {
+  const f = _edlVoixFile(); if (!f || !id) return;
+  for (const x of _EVX.items || []) {
+    if (x.contexte && !x.contexte.edlId && x.contexte.session === _EVX.session) {
+      x.contexte = { ...x.contexte, edlId: id };
+      try { await f.contexte(x.id, { edlId: id }); } catch (_) {}
+    }
+  }
+}
+/** Met à jour barres et bandeaux sans re-rendre les pièces (aucune saisie en cours n'est perdue). */
+function _edlVoixRafraichir() {
+  const M = _evxM(); if (!M) return;
+  document.querySelectorAll('#ov-edl .evx-slot[data-evx-pi]').forEach((s) => { s.innerHTML = _edlVoixSlotInner(Number(s.getAttribute('data-evx-pi'))); });
+  document.querySelectorAll('#ov-edl .evx-pc-slot[data-evx-pi]').forEach((s) => { s.innerHTML = _edlVoixBoutonPC(Number(s.getAttribute('data-evx-pi'))); });
+  if (typeof _edlVoixRafraichirCompteurs === 'function') _edlVoixRafraichirCompteurs();
+}
+async function _edlVoixRecharger() {
+  const f = _edlVoixFile(); if (!f) return;
+  try {
+    _EVX.items = await f.lister();
+    // Une dictée faite avant le premier enregistrement de l'EDL prend son identifiant dès qu'il existe.
+    const id = el('edl-edit-id') ? String(el('edl-edit-id').value || '') : '';
+    if (id) for (const x of _EVX.items) {
+      if (x.contexte && !x.contexte.edlId && x.contexte.session === _EVX.session) {
+        x.contexte = { ...x.contexte, edlId: id };
+        try { await f.contexte(x.id, { edlId: id }); } catch (_) {}
+      }
+    }
+  } catch (e) { console.warn('[edl-voix] lecture de la file :', e && e.name); }
+  _edlVoixRafraichir();
+}
+function _edlVoixTraiter() {
+  const f = _edlVoixFile(); if (!f) return Promise.resolve();
+  return f.traiter().catch((e) => { console.warn('[edl-voix] file :', e && e.name); }).then(() => _edlVoixRecharger());
+}
+async function _edlVoixStatut() {
+  const c = _edlVoixClient(); if (!c) return;
+  const r = await c.statut();
+  if (r.ok) { _EVX.actif = !!r.actif; _edlVoixActifMemo(_EVX.actif); }
+  else if (r.code === 'disabled') { _EVX.actif = false; _edlVoixActifMemo(false); }
+  _edlVoixRafraichir();
+}
+/** Chaque ouverture d'un EDL : nouvelle session, file relue, analyse relancée, statut vérifié. */
+function _edlVoixReset() {
+  if (_EVX.rec) { try { _EVX.rec.annuler(); } catch (_) {} _EVX.rec = null; }
+  _edlVoixNiveauStop();
+  _edlVoixVeille(false);
+  _EVX.session = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  _EVX.items = []; _EVX.vue = ''; _EVX.itemId = ''; _EVX.ctx = null;
+  const h = el('edl-voix'); if (h) { h.hidden = true; h.innerHTML = ''; }
+}
+function _edlVoixOuverture() {
+  if (!_evxM()) return;
+  if (!_EVX.lie) {
+    _EVX.lie = true;
+    window.addEventListener('online', () => { _edlVoixTraiter(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const h = el('edl-voix'); if (!h || h.hidden) return;
+      e.stopPropagation(); e.preventDefault(); _edlVoixFermer();
+    }, true);
+  }
+  const f = _edlVoixFile();
+  if (f) f.purger().catch(() => {});
+  _edlVoixRecharger().then(() => _edlVoixTraiter());
+  _edlVoixStatut();
+}
+
+// ── La couche (téléphone : page plein écran ; tablette : feuille ; PC : dialogue) ──
+function _edlVoixHote() {
+  let h = el('edl-voix');
+  if (!h) {
+    const m = document.querySelector('#ov-edl > .modal'); if (!m) return null;
+    h = document.createElement('div');
+    h.id = 'edl-voix'; h.className = 'evx'; h.hidden = true;
+    h.setAttribute('role', 'dialog'); h.setAttribute('aria-modal', 'true'); h.setAttribute('aria-labelledby', 'evx-ti');
+    m.appendChild(h);
+  }
+  return h;
+}
+function _edlVoixAfficher(v, nom) {
+  const h = _edlVoixHote(); if (!h) return;
+  _EVX.vue = nom || '';
+  const ferme = v.fermeLibelle || 'Fermer';
+  h.innerHTML = `<div class="evx-scrim" onclick="_edlVoixFermer()"></div><div class="evx-panel">`
+    + `<div class="evx-head"><button type="button" class="evx-back" onclick="_edlVoixFermer()" aria-label="${escHtml(ferme)}">${_evxIc('close')}<span>Fermer</span></button>`
+    + `<div class="evx-ti" id="evx-ti">${escHtml(v.titre)}${v.sousTitre ? `<small>${escHtml(v.sousTitre)}</small>` : ''}</div></div>`
+    + `<div class="evx-body">${v.corps}</div>${v.pied ? `<div class="evx-foot">${v.pied}</div>` : ''}</div>`;
+  h.hidden = false;
+  const b = h.querySelector('.evx-body'); if (b) b.scrollTop = 0;
+}
+/** Fermer : pendant un enregistrement = abandonner (confirmation s'il y a plus de 5 s de dictée). */
+function _edlVoixFermer() {
+  if (_EVX.rec && (_EVX.rec.etat === 'enregistre' || _EVX.rec.etat === 'pause')) {
+    if (_EVX.rec.secondes() > 5 && !confirm2('Abandonner cette dictée ? L’enregistrement ne sera pas gardé.')) return;
+    try { _EVX.rec.annuler(); } catch (_) {}
+    _EVX.rec = null; _edlVoixNiveauStop(); _edlVoixVeille(false);
+  }
+  const h = el('edl-voix'); if (h) { h.hidden = true; h.innerHTML = ''; }
+  _EVX.vue = ''; _EVX.itemId = '';
+  _edlVoixRafraichir();
+}
+
+// ── Dicter ──
+function _edlVoixDicter(pi) {
+  const M = _evxM(); if (!M || !_edlVoixDispo() || !_edlP[pi]) return;
+  _EVX.ctx = { cible: 'piece', pi, pieceNom: _edlP[pi].nom || 'Pièce' };
+  if (!_edlVoixNoticeVue()) { _edlVoixAfficher(M.EdlVoixVues.vueNotice(M.IaTransparence.notice(), { ic: _evxIc }), 'notice'); return; }
+  _edlVoixDemarrer();
+}
+function _edlVoixDicterCompteurs() {
+  const M = _evxM(); if (!M || !_edlVoixDispo()) return;
+  _EVX.ctx = { cible: 'compteurs', pi: -1, pieceNom: 'Compteurs' };
+  if (!_edlVoixNoticeVue()) { _edlVoixAfficher(M.EdlVoixVues.vueNotice(M.IaTransparence.notice(), { ic: _evxIc }), 'notice'); return; }
+  _edlVoixDemarrer();
+}
+function _edlVoixNoticeOk() { _edlVoixNoticeMemo(); _edlVoixDemarrer(); }
+function _edlVoixVueRec() {
+  const M = _evxM(); const c = _EVX.ctx; if (!M || !c) return;
+  const r = _EVX.rec;
+  _edlVoixAfficher(M.EdlVoixVues.vueEnregistrement({
+    piece: c.pieceNom, mode: _edlSortie ? 'sortie' : 'entree', cible: c.cible,
+    sec: r ? r.secondes() : 0, max: M.AudioCapture.DUREE_MAX_S, pause: !!(r && r.etat === 'pause'),
+    elements: c.cible === 'piece' ? M.EdlDictee.nomsElements(_edlP[c.pi]) : [],
+  }, { ic: _evxIc }), 'rec');
+}
+async function _edlVoixDemarrer() {
+  const M = _evxM(); if (!M || !_EVX.ctx) return;
+  if (!M.AudioCapture.captureDisponible(window)) { _edlVoixErreurCapture('nosupport'); return; }
+  const rec = M.AudioCapture.creerEnregistreur({
+    getUserMedia: (c) => navigator.mediaDevices.getUserMedia(c),
+    MediaRecorder: window.MediaRecorder,
+    onTick: (s) => { const t = el('evx-timer'); if (t) t.textContent = M.EdlVoixVues.duree(s); },
+    onMax: () => { showToast('Durée maximale atteinte : la dictée est gardée et analysée.', 'warn', 4000); _edlVoixTerminer(); },
+  });
+  _EVX.rec = rec;
+  _edlVoixVueRec();
+  const r = await rec.demarrer();
+  if (!r.ok) { _EVX.rec = null; _edlVoixErreurCapture(r.code); return; }
+  _edlVoixNiveauStart(rec.flux);
+  _edlVoixVeille(true);
+}
+function _edlVoixPause() {
+  const r = _EVX.rec; if (!r) return;
+  if (r.etat === 'enregistre') r.pause(); else if (r.etat === 'pause') r.reprendre();
+  _edlVoixVueRec();
+}
+async function _edlVoixTerminer() {
+  const r = _EVX.rec; if (!r || (r.etat !== 'enregistre' && r.etat !== 'pause')) return;
+  const out = await r.arreter();
+  _EVX.rec = null; _edlVoixNiveauStop(); _edlVoixVeille(false);
+  if (!out || !out.morceaux.length) { _edlVoixErreurCode('vide'); return; }
+  const blob = new Blob(out.morceaux, { type: out.mime });
+  await _edlVoixEnfiler(await blob.arrayBuffer(), out.mime, out.duree);
+}
+/** Met la dictée en file (IndexedDB) : à partir d'ici elle ne peut plus se perdre en silence. */
+async function _edlVoixEnfiler(buf, mime, duree) {
+  const M = _evxM(); const f = _edlVoixFile(); const c = _EVX.ctx; if (!M || !f || !c) return;
+  const entree = c.cible === 'compteurs' ? M.EdlDictee.entreeCompteurs(_edlSortie) : M.EdlDictee.entreePiece(_edlP[c.pi], _edlSortie);
+  let x;
+  try {
+    x = await f.ajouter({ audio: buf, mime, duree, task: 'edl-piece', cible: c.cible, entree,
+      contexte: { edlId: el('edl-edit-id') ? String(el('edl-edit-id').value || '') : '', session: _EVX.session, cible: c.cible, pi: c.pi, pieceNom: c.pieceNom, sortie: !!_edlSortie } });
+  } catch (e) {
+    console.warn('[edl-voix] mise en file impossible :', e && e.name);
+    _edlVoixAfficher(M.EdlVoixVues.vueErreur({ titre: 'Dictée non enregistrée sur l’appareil', texte: 'Le stockage de l’appareil refuse l’enregistrement (mémoire pleine ou navigation privée). Libérer de la place, puis dicter de nouveau.', piece: c.pieceNom }, { ic: _evxIc }), 'erreur');
+    return;
+  }
+  if (!_EVX.items.some((y) => y.id === x.id)) _EVX.items.push(x);
+  _EVX.itemId = x.id;
+  _edlVoixVueAnalyse(x);
+  _edlVoixTraiter();
+}
+function _edlVoixVueAnalyse(x) {
+  const M = _evxM(); if (!M) return;
+  if (x.erreur) {
+    const m = M.IaClient.messageErreur(x.erreur.code, x.erreur);
+    _edlVoixAfficher(M.EdlVoixVues.vueErreur({ titre: m.titre, texte: m.texte, icone: x.erreur.code === 'offline' ? 'cloud' : 'warn', piece: (x.contexte || {}).pieceNom || 'Pièce' }, { ic: _evxIc }), 'analyse');
+    return;
+  }
+  _edlVoixAfficher(M.EdlVoixVues.vueAnalyse({ piece: (x.contexte || {}).pieceNom || 'Pièce', duree: x.duree || 0, ko: Math.round((x.taille || 0) / 1024), etape: x.etape === 'texte' ? 'propositions' : 'transcription' }, { ic: _evxIc }), 'analyse');
+}
+/** Retour de la file : la vue d'analyse suit la dictée en cours ; les bandeaux se mettent à jour. */
+function _edlVoixSurChangement(x) {
+  if (x) { const i = _EVX.items.findIndex((y) => y.id === x.id); if (i >= 0) _EVX.items[i] = x; else _EVX.items.push(x); }
+  if (x && _EVX.vue === 'analyse' && _EVX.itemId === x.id) {
+    if (x.etape === 'pret' && !x.erreur) { _edlVoixRelire(x.id); return; }
+    _edlVoixVueAnalyse(x);
+  }
+  _edlVoixRafraichir();
+}
+function _edlVoixErreurCode(code) {
+  const M = _evxM(); if (!M) return;
+  const m = M.IaClient.messageErreur(code, {});
+  _edlVoixAfficher(M.EdlVoixVues.vueErreur({ titre: m.titre, texte: m.texte, piece: (_EVX.ctx || {}).pieceNom || 'Pièce',
+    action: { onclick: '_edlVoixDemarrer()', libelle: 'Dicter de nouveau', icone: 'mic' } }, { ic: _evxIc }), 'erreur');
+}
+function _edlVoixErreurCapture(code) {
+  const M = _evxM(); if (!M) return;
+  const piece = (_EVX.ctx || {}).pieceNom || 'Pièce';
+  const imp = { onclick: '_edlVoixImporter()', libelle: 'Importer un fichier audio', icone: 'upload' };
+  let v;
+  if (code === 'micro_refuse') v = { titre: 'Accès au micro refusé', texte: 'Le navigateur bloque le micro pour Propryo. L’autoriser dans les réglages du site (icône à gauche de l’adresse), puis réessayer.', icone: 'micoff', action: { onclick: '_edlVoixDemarrer()', libelle: 'Réessayer', icone: 'refresh' }, lien: { onclick: '_edlVoixImporter()', libelle: 'Importer un fichier audio à la place' } };
+  else if (code === 'micro_absent') v = { titre: 'Aucun micro détecté', texte: 'Brancher ou autoriser un micro, ou enregistrer la pièce avec l’application Dictaphone puis importer le fichier.', icone: 'micoff', action: imp };
+  else v = { titre: 'Enregistrement indisponible sur ce navigateur', texte: 'Enregistrer la pièce avec l’application Dictaphone du téléphone, puis importer le fichier ici (formats courants : m4a, mp3, webm, wav).', icone: 'upload', action: imp };
+  _edlVoixAfficher(M.EdlVoixVues.vueErreur({ ...v, piece }, { ic: _evxIc }), 'erreur');
+}
+/** Repli : importer un fichier audio (Dictaphone, enregistrement d'un autre appareil). */
+function _edlVoixImporter() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'audio/*,.m4a,.mp3,.webm,.ogg,.wav';
+  inp.onchange = async () => {
+    const fi = inp.files && inp.files[0]; if (!fi) return;
+    if (fi.size > 10 * 1024 * 1024) { _edlVoixErreurCode('too_large'); return; }
+    const ext = (fi.name.split('.').pop() || '').toLowerCase();
+    const parExt = { m4a: 'audio/mp4', mp4: 'audio/mp4', mp3: 'audio/mpeg', webm: 'audio/webm', ogg: 'audio/ogg', wav: 'audio/wav', aac: 'audio/aac' };
+    // L'extension d'abord (certains navigateurs annoncent audio/3gpp, audio/x-caf…) ; sinon un type connu du relais.
+    const connus = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp3', 'audio/m4a'];
+    const brut = (fi.type || '').split(';')[0].toLowerCase();
+    const mime = parExt[ext] || (connus.includes(brut) ? brut : '');
+    if (!mime) { _edlVoixErreurCode('format'); return; }
+    await _edlVoixEnfiler(await fi.arrayBuffer(), mime, 0);
+  };
+  inp.click();
+}
+async function _edlVoixReessayer(id) { const f = _edlVoixFile(); if (!f) return; await f.reessayer(id); await _edlVoixRecharger(); }
+async function _edlVoixSupprimer(id) {
+  const f = _edlVoixFile(); if (!f) return;
+  if (!confirm2('Supprimer cette dictée ? Ses propositions non inscrites seront perdues ; ce qui a déjà été inscrit dans l’état des lieux reste.')) return;
+  await f.supprimer(id); _EVX.items = _EVX.items.filter((x) => x.id !== id);
+  if (_EVX.itemId === id) _edlVoixFermer();
+  _edlVoixRafraichir();
+}
+// ── Niveau sonore réel (pas d'animation décorative, M-11) et écran allumé pendant la dictée ──
+function _edlVoixNiveauStart(flux) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC || !flux) return;
+    const ctx = new AC(); const an = ctx.createAnalyser(); an.fftSize = 512;
+    ctx.createMediaStreamSource(flux).connect(an);
+    const d = new Uint8Array(an.fftSize);
+    const tick = () => {
+      an.getByteTimeDomainData(d); let m = 0; for (let i = 0; i < d.length; i++) { const v2 = Math.abs(d[i] - 128); if (v2 > m) m = v2; }
+      const b = el('evx-niv'); if (b) b.style.width = Math.min(100, Math.round(m / 64 * 100)) + '%';
+      if (_EVX.niv) _EVX.niv.raf = requestAnimationFrame(tick);
+    };
+    _EVX.niv = { ctx, raf: requestAnimationFrame(tick) };
+  } catch (_) { _EVX.niv = null; }
+}
+function _edlVoixNiveauStop() {
+  const n = _EVX.niv; _EVX.niv = null;
+  if (n) { try { cancelAnimationFrame(n.raf); } catch (_) {} try { n.ctx.close(); } catch (_) {} }
+}
+async function _edlVoixVeille(garder) {
+  try {
+    if (garder && navigator.wakeLock && !_EVX.verrou) _EVX.verrou = await navigator.wakeLock.request('screen');
+    else if (!garder && _EVX.verrou) { await _EVX.verrou.release(); _EVX.verrou = null; }
+  } catch (_) { _EVX.verrou = null; }
+}
+// ── Relire (lot B2) : Accepter / Modifier / Ignorer, élément par élément ──
+function _edlVoixItem(id) { return (_EVX.items || []).find((y) => y.id === id) || null; }
+/** Valeurs actuelles des champs compteurs (et relevés d'entrée en sortie), lues dans le formulaire. */
+function _edlVoixCompteurs(sortie) {
+  const M = _evxM(); const actuels = {}, entree = {};
+  if (!M) return { actuels, entree };
+  for (const cle of Object.keys(M.EdlDictee.COMPTEURS)) {
+    const id = M.EdlDictee.champCompteur(cle, sortie);
+    actuels[cle] = el(id) ? el(id).value : '';
+    if (sortie && !M.EdlDictee.estNumero(cle)) entree[cle] = el('edl-cpt-' + cle) ? el('edl-cpt-' + cle).value : '';
+  }
+  return { actuels, entree };
+}
+function _edlVoixModele(x) {
+  const M = _evxM();
+  const sortie = !!(x.contexte || {}).sortie;
+  const pi = _edlVoixPieceDe(x);
+  const c = _edlVoixCompteurs(sortie);
+  return { pi, sortie, m: M.EdlDictee.modeleRelecture({ item: x, piece: pi >= 0 ? _edlP[pi] : null, sortie, compteursActuels: c.actuels, compteursEntree: c.entree }) };
+}
+/** La dictée appartient-elle au mode ouvert ? (une dictée d'entrée ne remplit jamais une sortie) */
+function _edlVoixMemeMode(x) { return !!(x.contexte || {}).sortie === !!_edlSortie; }
+function _edlVoixRelire(id, garderDefilement) {
+  const M = _evxM(); const x = _edlVoixItem(id); if (!M || !x) return;
+  _EVX.itemId = id;
+  if (!_edlVoixMemeMode(x)) {
+    _edlVoixAfficher(M.EdlVoixVues.vueErreur({ titre: 'Dictée d’un autre état des lieux', texte: `Cette dictée a été faite pour l’état des lieux ${(x.contexte || {}).sortie ? 'de sortie' : 'd’entrée'}. Elle ne peut pas remplir celui-ci.`, piece: (x.contexte || {}).pieceNom || 'Pièce', action: { onclick: `_edlVoixSupprimer('${M.EdlVoixVues.jsId(id)}')`, libelle: 'Supprimer la dictée', icone: 'trash' } }, { ic: _evxIc }), 'erreur');
+    return;
+  }
+  const b = el('edl-voix') && el('edl-voix').querySelector('.evx-body');
+  const y = garderDefilement && b ? b.scrollTop : 0;
+  const { pi, sortie, m } = _edlVoixModele(x);
+  _edlVoixAfficher(M.EdlVoixVues.vuePropositions({ item: x, m, piece: pi >= 0 ? (_edlP[pi].nom || 'Pièce') : ((x.contexte || {}).pieceNom || 'Pièce'), sortie, duree: x.duree || x.audioSec || 0 }, { ic: _evxIc }), 'propositions');
+  const b2 = el('edl-voix') && el('edl-voix').querySelector('.evx-body'); if (b2 && y) b2.scrollTop = y;
+}
+async function _edlVoixDecider(x, patch) {
+  x.decisions = { ...(x.decisions || {}), ...patch };
+  const f = _edlVoixFile(); if (f) { try { await f.decisions(x.id, patch); } catch (_) {} }
+}
+/** Garde commune à toute inscription : EDL signé, mode, dictée connue. */
+function _edlVoixPeutEcrire(x) {
+  if (!x) return false;
+  if (typeof _appReadOnly !== 'undefined' && _appReadOnly) { showToast('Lecture seule : rien ne peut être inscrit.', 'warn', 4000); return false; }
+  if (_edlVoixSigne()) { showToast('État des lieux signé : rien ne peut y être inscrit.', 'warn', 4000); return false; }
+  // Les deux signatures tracées mais pas encore enregistrées : on ne change plus ce que les parties ont vu.
+  try {
+    if (typeof _edlGetSig === 'function' && _edlGetSig('edl-sig-bailleur') && _edlGetSig('edl-sig-locataire')) {
+      showToast('Les deux signatures sont tracées : effacer une signature avant de modifier l’état des lieux.', 'warn', 5000); return false;
+    }
+  } catch (_) {}
+  if (!_edlVoixMemeMode(x)) { showToast('Cette dictée appartient à un autre état des lieux.', 'warn', 4000); return false; }
+  return true;
+}
+/** Inscrit UNE proposition d'élément (sans re-rendu). Rend vrai si quelque chose a été écrit. */
+/** Double tap / double clic : une décision déjà prise n'est jamais rejouée (sinon la valeur d'« avant »
+ *  deviendrait celle de l'IA et l'annulation perdrait la saisie d'origine). */
+const _edlVoixDejaDecide = (x, cle) => !!(x && x.decisions && x.decisions[cle] && x.decisions[cle].statut);
+async function _edlVoixVerrou(cle, fn) {
+  if (!_EVX.verrous) _EVX.verrous = new Set();
+  if (_EVX.verrous.has(cle)) return undefined;
+  _EVX.verrous.add(cle);
+  try { return await fn(); } finally { _EVX.verrous.delete(cle); }
+}
+async function _edlVoixInscrireProp(x, cle, choix) {
+  const M = _evxM();
+  if (_edlVoixDejaDecide(x, cle)) return false;
+  const eid = cle.slice(2);
+  const p = ((x.resultat || {}).propositions || []).find((q) => String(q.elementId) === eid); if (!p) return false;
+  const pi = _edlVoixPieceDe(x); const piece = _edlP[pi];
+  const ei = piece ? M.EdlDictee.retrouverElement(piece, eid, x.entree) : -1;
+  if (ei < 0) { showToast('Élément introuvable dans la pièce : rien n’a été inscrit.', 'warn', 4000); return false; }
+  const elx = piece.elements[ei];
+  const r = M.EdlDictee.calculerInscription(elx, p, { sortie: !!_edlSortie, signe: _edlVoixSigne(), modele: x.modele, choix: choix || {} });
+  if (!r.ok) { showToast(r.raison === 'vide' ? 'Rien à inscrire pour cet élément.' : 'Inscription impossible.', 'warn', 3500); return false; }
+  M.EdlDictee.appliquerPatch(elx, r.patch);
+  const inscrit = {}; for (const k of Object.keys(r.patch)) if (!/^ia[ES]$/.test(k)) inscrit[k] = r.patch[k];
+  await _edlVoixDecider(x, { [cle]: { statut: 'ok', pi, ei, nom: elx.nom, inscrit, avant: r.avant } });
+  return true;
+}
+/** Après une écriture : l'EDL se redessine (verdicts, pastilles) et s'enregistre (autosave explicite). */
+function _edlVoixApresEcriture(id) {
+  _edlRenderPieces();
+  _edlAutosaveTrigger('voix');
+  _edlVoixRelire(id, true);
+}
+async function _edlVoixAccepter(id, cle, choix) {
+  return _edlVoixVerrou(id + '|' + cle, async () => {
+    const x = _edlVoixItem(id); if (!_edlVoixPeutEcrire(x)) return;
+    const ok = cle.startsWith('c:') ? await _edlVoixInscrireCompteur(x, cle, choix) : await _edlVoixInscrireProp(x, cle, choix);
+    if (ok) _edlVoixApresEcriture(id);
+  });
+}
+async function _edlVoixIgnorer(id, cle) { const x = _edlVoixItem(id); if (!x || _edlVoixDejaDecide(x, cle)) return; await _edlVoixDecider(x, { [cle]: { statut: 'ign' } }); _edlVoixRelire(id, true); _edlVoixRafraichir(); }
+async function _edlVoixRetablir(id, cle) { const x = _edlVoixItem(id); if (!x) return; await _edlVoixDecider(x, { [cle]: null }); _edlVoixRelire(id, true); _edlVoixRafraichir(); }
+/** Annuler une inscription : seulement si personne n'a retouché la valeur depuis (sinon : à la main). */
+async function _edlVoixAnnuler(id, cle) { return _edlVoixVerrou(id + '|' + cle, () => _edlVoixAnnulerFaire(id, cle)); }
+async function _edlVoixAnnulerFaire(id, cle) {
+  const M = _evxM(); const x = _edlVoixItem(id); if (!M || !_edlVoixPeutEcrire(x)) return;
+  const d = (x.decisions || {})[cle]; if (!d || d.statut !== 'ok') return;
+  const refus = () => showToast('Valeur modifiée depuis : l’annulation ne l’écrase pas. Corriger à la main si besoin.', 'warn', 5000);
+  if (cle.startsWith('c:')) {
+    const f = el(d.champ);
+    if (!f || f.value !== d.inscrit) { refus(); return; }
+    f.value = d.avant || ''; f.dispatchEvent(new Event('change', { bubbles: true }));
+    if (d.avantIA) _edlCptIA[d.cleIA] = d.avantIA; else delete _edlCptIA[d.cleIA];
+  } else if (cle.startsWith('a:')) {
+    const p = _edlP[d.pi]; const elx = p && p.elements[d.ei];
+    const intact = elx && elx.nom === d.nom && Object.keys(d.inscrit || {}).every((k) => String(elx[k] || '') === String(d.inscrit[k] || ''))
+      && !(elx.photosE || []).length && !(elx.photosS || []).length;
+    if (!intact) { refus(); return; }
+    p.elements.splice(d.ei, 1);
+  } else {
+    const p = _edlP[d.pi]; const elx = p && p.elements[d.ei];
+    if (!elx || elx.nom !== d.nom) { refus(); return; }
+    const r = M.EdlDictee.calculerAnnulation(elx, d.inscrit, d.avant, { sortie: !!_edlSortie, signe: _edlVoixSigne() });
+    if (!r.ok) { refus(); return; }
+    M.EdlDictee.appliquerPatch(elx, r.patch);
+  }
+  await _edlVoixDecider(x, { [cle]: null });
+  _edlVoixApresEcriture(id);
+}
+/** Élément cité mais absent de la liste : ajouté à la pièce sur confirmation explicite. */
+async function _edlVoixAjouter(id, cle) { return _edlVoixVerrou(id + '|' + cle, () => _edlVoixAjouterFaire(id, cle)); }
+async function _edlVoixAjouterFaire(id, cle) {
+  const M = _evxM(); const x = _edlVoixItem(id); if (!M || !_edlVoixPeutEcrire(x) || _edlVoixDejaDecide(x, cle)) return;
+  const a = ((x.resultat || {}).aAjouter || [])[Number(cle.slice(2))]; const pi = _edlVoixPieceDe(x);
+  if (!a || !_edlP[pi]) return;
+  const nx = M.EdlDictee.nouvelElement(a, { sortie: !!_edlSortie, modele: x.modele });
+  _edlP[pi].elements.push(nx);
+  const inscrit = {}; for (const k of ['etatE', 'obsE', 'etatS', 'obsS']) if (nx[k]) inscrit[k] = nx[k];
+  await _edlVoixDecider(x, { [cle]: { statut: 'ok', pi, ei: _edlP[pi].elements.length - 1, nom: nx.nom, inscrit } });
+  _edlVoixApresEcriture(id);
+}
+function _edlVoixModifier(id, cle) {
+  const M = _evxM(); const x = _edlVoixItem(id); if (!M || !x) return;
+  const sortie = !!_edlSortie;
+  if (cle.startsWith('c:')) {
+    const k = ((x.resultat || {}).compteurs || []).find((c) => c.cle === cle.slice(2)); if (!k) return;
+    _edlVoixAfficher(M.EdlVoixVues.vueModifier({ id, cle, nom: M.EdlDictee.COMPTEURS[k.cle] || k.cle, compteur: { valeur: M.EdlDictee.valeurCompteurAffichee(k.cle, k.valeur), source: k.source, libelle: M.EdlDictee.COMPTEURS[k.cle], numero: M.EdlDictee.estNumero(k.cle) } }, { ic: _evxIc }), 'modifier');
+    return;
+  }
+  const p = ((x.resultat || {}).propositions || []).find((q) => String(q.elementId) === cle.slice(2)); if (!p) return;
+  const pi = _edlVoixPieceDe(x); const ei = pi >= 0 ? M.EdlDictee.retrouverElement(_edlP[pi], p.elementId, x.entree) : -1;
+  const elx = ei >= 0 ? _edlP[pi].elements[ei] : null;
+  _edlVoixAfficher(M.EdlVoixVues.vueModifier({ id, cle, nom: elx ? elx.nom : 'Élément', prop: p, sortie, note: !!(elx && window.EdlRelecture && window.EdlRelecture.estNote(elx.nom)),
+    entreeRef: sortie && elx ? { etat: elx.etatE || '', obs: elx.obsE || '' } : null }, { ic: _evxIc }), 'modifier');
+}
+function _edlVoixModEtat(b) {
+  const g = b && b.parentElement; if (!g) return;
+  g.querySelectorAll('.evx-st').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+}
+function _edlVoixModInscrire(id, cle) {
+  const h = el('edl-voix'); if (!h) return;
+  if (cle.startsWith('c:')) { const f = el('evx-val'); _edlVoixAccepter(id, cle, { valeur: f ? f.value : '' }); return; }
+  const sel = h.querySelector('.evx-st[aria-pressed="true"]');
+  const t = el('evx-obs');
+  _edlVoixAccepter(id, cle, { etat: sel ? (sel.getAttribute('data-etat') || null) : null, observation: t ? t.value : '' });
+}
+function _edlVoixToutAccepter(id) {
+  const M = _evxM(); const x = _edlVoixItem(id); if (!M || !x) return;
+  const { pi, m } = _edlVoixModele(x);
+  _edlVoixAfficher(M.EdlVoixVues.vueToutAccepter({ id, m, piece: pi >= 0 ? (_edlP[pi].nom || 'Pièce') : 'Pièce' }, { ic: _evxIc }), 'tout');
+}
+/** « Tout inscrire » : les propositions d'éléments en attente seulement (ni ajouts ni compteurs). */
+async function _edlVoixToutInscrire(id) { return _edlVoixVerrou(id + '|tout', () => _edlVoixToutInscrireFaire(id)); }
+async function _edlVoixToutInscrireFaire(id) {
+  const x = _edlVoixItem(id); if (!_edlVoixPeutEcrire(x)) return;
+  const { m } = _edlVoixModele(x);
+  let n = 0;
+  for (const l of m.lignes) if (!l.statut && !l.introuvable && await _edlVoixInscrireProp(x, l.cle)) n++;
+  if (n) showToast(`${n} proposition${n > 1 ? 's' : ''} inscrite${n > 1 ? 's' : ''} dans l’état des lieux.`, 'ok', 3000);
+  _edlVoixApresEcriture(id);
+}
+function _edlVoixTranscription(id) {
+  const M = _evxM(); const x = _edlVoixItem(id); if (!M || !x) return;
+  _edlVoixAfficher(M.EdlVoixVues.vueTranscription({ item: x }, { ic: _evxIc }), 'transcription');
+}
+/** Fin de relecture : tout est décidé → la dictée (transcription comprise) est effacée de l'appareil. */
+async function _edlVoixFinRelecture(id) {
+  const M = _evxM(); const x = _edlVoixItem(id); if (!M || !x) return;
+  const b = M.EdlDictee.bilanDecisions(x.resultat, x.decisions);
+  if (b.aValider === 0) {
+    const f = _edlVoixFile(); if (f) await f.supprimer(id);
+    _EVX.items = _EVX.items.filter((y) => y.id !== id);
+    showToast('Relecture terminée : la transcription est effacée de l’appareil.', 'ok', 3500);
+  } else {
+    showToast(`${b.aValider} proposition${b.aValider > 1 ? 's' : ''} à valider : le bandeau de la pièce les garde.`, 'info', 4000);
+  }
+  _edlVoixFermer();
+}
+// ── Relevés de compteurs (lot B3) : validation une par une, dans les champs existants ──
+async function _edlVoixInscrireCompteur(x, cle, choix) {
+  const M = _evxM();
+  if (_edlVoixDejaDecide(x, cle)) return false;
+  const cleC = cle.slice(2);
+  const k = ((x.resultat || {}).compteurs || []).find((c) => c.cle === cleC); if (!k) return false;
+  const sortie = !!_edlSortie;
+  const champ = M.EdlDictee.champCompteur(cleC, sortie);
+  const f = champ && el(champ); if (!f) { showToast('Champ de compteur introuvable.', 'warn', 3500); return false; }
+  const peut = M.EdlDictee.peutInscrireCompteur(cleC, { sortie, signe: _edlVoixSigne(), valeurActuelle: f.value });
+  if (!peut.ok) { showToast('Relevé non inscrit.', 'warn', 3500); return false; }
+  const val = choix && choix.valeur != null ? String(choix.valeur).trim() : M.EdlDictee.valeurCompteurAffichee(cleC, k.valeur);
+  if (!val) { showToast('Valeur vide : rien n’a été inscrit.', 'warn', 3500); return false; }
+  const avant = f.value;
+  f.value = val;
+  f.dispatchEvent(new Event('change', { bubbles: true }));   // autosave (écouteur délégué « change »)
+  const cleIA = champ.replace(/^edl-cpt-/, '');
+  const avantIA = _edlCptIA[cleIA] ? { ..._edlCptIA[cleIA] } : null;
+  _edlCptIA[cleIA] = { at: new Date().toISOString(), modele: String(x.modele || ''), ...(choix ? { modifie: true } : {}) };
+  await _edlVoixDecider(x, { [cle]: { statut: 'ok', champ, inscrit: val, avant, cleIA, avantIA } });
+  return true;
+}
+function _edlVoixRafraichirCompteurs() {
+  const M = _evxM(); const s = el('edl-voix-cpt'); if (!M || !s) return;
+  const bans = _edlVoixItemsEDL().filter((x) => (x.contexte || {}).cible === 'compteurs')
+    .map((x) => M.EdlVoixVues.banniere(x, { ic: _evxIc, message: M.IaClient.messageErreur })).join('');
+  s.innerHTML = bans + (_edlVoixDispo() ? M.EdlVoixVues.barreCompteurs({ ic: _evxIc }) : '');
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -6209,6 +6786,17 @@ async function generateEDLPdfNative(edl) {
     try { pdf.addImage(edl.signatures.locataire, 'PNG', xR+1, y+13, sigW-2, sigH-15); } catch(e) {}
   }
   y += sigH + 10;
+
+  // EDL-VOIX-IA (A2, décision Didier 13/10) — mention DISCRÈTE, seulement si au moins une
+  // proposition de l'IA a été acceptée. Placée APRÈS les cadres de signature : aucune coordonnée
+  // de signature ne bouge. Doublée d'un marquage lisible par machine (mots-clés du PDF).
+  const _IAT = (typeof window !== 'undefined') ? window.IaTransparence : null;
+  if (_IAT && _IAT.edlAAideIA(edl)) {
+    y = newPageIfNeeded(y, 8);
+    pdf.setFont('helvetica','italic').setFontSize(7.5).setTextColor(110,110,110);
+    pdf.text(pdf.splitTextToSize(_IAT.MENTION_PDF, CW), M, y);
+    try { pdf.setProperties({ keywords: 'aide-dictee-ia; propositions-ia-validees' }); } catch (e) {}
+  }
 
   // ─── 7. Footer Page X/Y sur chaque page ─────────────────────────
   const total = pdf.internal.pages.length - 1;
@@ -7352,6 +7940,9 @@ async function _showEDLPhotoLightbox(ph) {
 
 // ── Photos compteurs ──────────────────────────────────────────
 let _edlCptPhotos={elec:[],gaz:[],eauC:[],eauF:[],elecS:[],gazS:[],eauCS:[],eauFS:[]};
+// EDL-VOIX-IA (A2) — marquage lisible par machine des relevés inscrits depuis une dictée
+// (AI Act art. 50) : { 'elec-hp': {at, modele}, … }. Persisté dans record.compteursIA.
+let _edlCptIA={};
 
 /* ═══ EDL-AUDIT-CRITIQUE Phase 1 — v14.38 (session 2026-05-04) ═════════════
    Refonte de l'isolation entre 2 EDL ouverts successivement.
@@ -7377,6 +7968,8 @@ function _edlResetGlobalState() {
   _edlSortie = false;
   _edlGarageMode = false;   // CHANTIER EDL-GARAGE — repart en mode logement ; re-dérivé à l'ouverture
   _edlCles.length = 0;
+  _edlCptIA = {};   // EDL-VOIX-IA (A2)
+  if (typeof _edlVoixReset === 'function') _edlVoixReset();   // EDL-VOIX-IA : nouvelle session de dictée
   // v15.205 BAIL-TYPES option A : reset aussi _edlMobElements pour éviter que les éléments
   // d'un EDL précédent ouvert dans la même session ne polluent un nouveau EDL.
   if (Array.isArray(_edlMobElements)) _edlMobElements.length = 0;
@@ -7428,6 +8021,7 @@ function _edlAutosaveReset() {
   _edlBindAutosave();
   const z = el('edl-autosave-etat');
   if (z) z.textContent = '';
+  if (typeof _edlVoixOuverture === 'function') _edlVoixOuverture();   // EDL-VOIX-IA : file relue, analyse relancée
 }
 
 /* ── EDL TERRAIN lot 1 — L'ÉTAT DES LIEUX S'AUTOSAUVE ────────────────────────
@@ -7761,6 +8355,9 @@ function saveEDL(opts){
         photosE:(x.photosE||[]).map(_phMeta),
         etatS:x.etatS||'', obsS:x.obsS||'',
         photosS:(x.photosS||[]).map(_phMeta),
+        // EDL-VOIX-IA (A2) — marque lisible par machine d'une valeur inscrite depuis une dictée.
+        ...(x.iaE ? { iaE: { ...x.iaE } } : {}),
+        ...(x.iaS ? { iaS: { ...x.iaS } } : {}),
       }))
     }));
     // v14.42 EDL-AUDIT-CRITIQUE Phase 4b : récupère l'EDL existant en DB pour
@@ -7803,6 +8400,7 @@ function saveEDL(opts){
       adr:v('edl-adr'), surf:v('edl-surf'), npp:v('edl-npp'), ltype:v('edl-ltype'),
       ancienOcc:v('edl-ancien-occ'), notes:v('edl-notes'), drivePath:'',
       pieces:piecesClean, compteurs, compteursSortie, compteursPhotos:_edlGetCptPhotos(), chauffage, technologies, cles:_edlGetCles(),
+      compteursIA: JSON.parse(JSON.stringify(_edlCptIA || {})),   // EDL-VOIX-IA (A2) : relevés dictés (marque, sans contenu)
       garage: _edlGarageMode, // CHANTIER EDL-GARAGE — EDL réduit (droit commun) : pas de compteurs/DAAF/mobilier
       daaf: _daafRecord, // v15.08 Sprint 9 : sécurité incendie (EDL entrée surtout)
       // v15.202 : inventaire mobilier (null si toggle off, sinon { literie, ..., details })
@@ -7884,6 +8482,9 @@ function saveEDL(opts){
     // v14.12.2 : MAJ edl-edit-id avec l'id du record sauvé pour que les actions
     // ultérieures (PDF, Drive) trouvent bien le record fraîchement créé/modifié.
     el('edl-edit-id').value = record.id;
+    // EDL-VOIX-IA — les dictées faites avant le 1er enregistrement prennent l'identifiant de l'EDL
+    // (sinon, à la réouverture, elles ne seraient plus rattachées : perte silencieuse).
+    if (typeof _edlVoixRattacher === 'function') _edlVoixRattacher(String(record.id));
     rEDLList();
     if (!keepOpen) closeM('ov-edl');
     // F8 : si l'écriture locale a été refusée, on ne dit surtout pas « enregistré ».
@@ -15734,7 +16335,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.732 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.733 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }

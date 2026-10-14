@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.732';
+const IMMOTRACK_VERSION = '15.733';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -106,6 +106,9 @@ function _uiIcon(name, size) {
     alarm:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3L2 6M19 3l3 3"/>',
     counter:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4M12 10v4M17 10v4"/>',
     play:'<path d="M7 5l12 7-12 7z"/>',
+    // EDL-VOIX-IA — dictée de l'état des lieux (micro) et micro refusé.
+    mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3M8 21h8"/>',
+    micoff:'<path d="M3 3l18 18"/><path d="M9 9v2a3 3 0 005 2.2M15 10V6a3 3 0 00-5.7-1.3"/><path d="M5 11a7 7 0 0011.5 5.3M19 11a7 7 0 01-.6 2.8M12 18v3M8 21h8"/>',
     car:'<path d="M5 11l1.6-4.2A2 2 0 018.5 5.5h7a2 2 0 011.9 1.3L19 11M4 11h16v5H4z"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/>',
     pin:'<path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
     phone:'<path d="M5 3h4l2 5-2.5 1.5a11 11 0 005 5L15 12l5 2v4a2 2 0 01-2 2A16 16 0 013 5a2 2 0 012-2z"/>',
