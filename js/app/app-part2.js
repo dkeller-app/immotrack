@@ -5744,7 +5744,7 @@ function _edlVoixRelire(id, garderDefilement) {
   const M = _evxM(); const x = _edlVoixItem(id); if (!M || !x) return;
   _EVX.itemId = id;
   if (!_edlVoixMemeMode(x)) {
-    _edlVoixAfficher(M.EdlVoixVues.vueErreur({ titre: 'Dictée d’un autre état des lieux', texte: `Cette dictée a été faite pour l’état des lieux ${(x.contexte || {}).sortie ? 'de sortie' : 'd’entrée'}. Elle ne peut pas remplir celui-ci.`, piece: (x.contexte || {}).pieceNom || 'Pièce', action: { onclick: `_edlVoixSupprimer('${escHtml(id)}')`, libelle: 'Supprimer la dictée', icone: 'trash' } }, { ic: _evxIc }), 'erreur');
+    _edlVoixAfficher(M.EdlVoixVues.vueErreur({ titre: 'Dictée d’un autre état des lieux', texte: `Cette dictée a été faite pour l’état des lieux ${(x.contexte || {}).sortie ? 'de sortie' : 'd’entrée'}. Elle ne peut pas remplir celui-ci.`, piece: (x.contexte || {}).pieceNom || 'Pièce', action: { onclick: `_edlVoixSupprimer('${M.EdlVoixVues.jsId(id)}')`, libelle: 'Supprimer la dictée', icone: 'trash' } }, { ic: _evxIc }), 'erreur');
     return;
   }
   const b = el('edl-voix') && el('edl-voix').querySelector('.evx-body');

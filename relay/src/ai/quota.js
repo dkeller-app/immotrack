@@ -24,14 +24,20 @@ export function limites(env) {
 
 const jour = (d) => d.toISOString().slice(0, 10);
 const mois = (d) => d.toISOString().slice(0, 7);
-export const cleJour = (uid, d) => `aiq:${uid}:${jour(d)}`;
-export const cleMois = (uid, d) => `aiu:${uid}:${mois(d)}`;
+// `part` : '' = réservation (appels), écrite AVANT l'appel payant ; 'conso' = durée audio et jetons, écrits
+// APRÈS, dans une clé distincte (KV : une écriture par seconde et par clé — deux écritures rapprochées sur
+// la même clé pourraient échouer ou s'écraser).
+export const cleJour = (uid, d, part = '') => `aiq:${uid}:${jour(d)}${part ? ':' + part : ''}`;
+export const cleMois = (uid, d, part = '') => `aiu:${uid}:${mois(d)}${part ? ':' + part : ''}`;
 
 async function lire(kv, cle) {
   try { const v = await kv.get(cle, 'json'); return v && typeof v === 'object' ? { ...VIDE(), ...v } : VIDE(); } catch { return VIDE(); }
 }
 
-export async function lireUsageJour(kv, uid, now = new Date()) { return lire(kv, cleJour(uid, now)); }
+export async function lireUsageJour(kv, uid, now = new Date()) {
+  const [a, b] = await Promise.all([lire(kv, cleJour(uid, now)), lire(kv, cleJour(uid, now, 'conso'))]);
+  return { appels: a.appels + b.appels, audioSec: a.audioSec + b.audioSec, jetonsE: a.jetonsE + b.jetonsE, jetonsS: a.jetonsS + b.jetonsS };
+}
 
 // Décide AVANT l'appel au fournisseur. `audio` = vrai pour une transcription (qui consomme des minutes).
 export function decider(usage, lim, { audio = false } = {}) {
@@ -40,14 +46,14 @@ export function decider(usage, lim, { audio = false } = {}) {
   return { ok: true };
 }
 
-export async function enregistrer(kv, uid, delta, now = new Date()) {
+export async function enregistrer(kv, uid, delta, now = new Date(), part = '') {
   const ajoute = (u) => ({
     appels: u.appels + (delta.appels || 0),
     audioSec: u.audioSec + Math.max(0, Math.round(delta.audioSec || 0)),
     jetonsE: u.jetonsE + Math.max(0, Math.round(delta.jetonsE || 0)),
     jetonsS: u.jetonsS + Math.max(0, Math.round(delta.jetonsS || 0)),
   });
-  const kj = cleJour(uid, now), km = cleMois(uid, now);
+  const kj = cleJour(uid, now, part), km = cleMois(uid, now, part);
   const [uj, um] = await Promise.all([lire(kv, kj), lire(kv, km)]);
   await Promise.all([
     kv.put(kj, JSON.stringify(ajoute(uj)), { expirationTtl: 2 * 86400 }),

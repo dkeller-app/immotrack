@@ -128,13 +128,14 @@ describe('routes IA — quota par compte et par jour', () => {
     await transcribe(FAKE, { sub });
     await structure(FAKE, { task: 'edl-piece', input: CUISINE_INPUT }, sub);
     const now = new Date();
-    for (const k of [cleJour(sub, now), cleMois(sub, now)]) {
-      const raw = await env.SESSIONS_KV.get(k);
-      const v = JSON.parse(raw);
-      expect(Object.keys(v).sort()).toEqual(['appels', 'audioSec', 'jetonsE', 'jetonsS']);
-      expect(v.appels).toBe(2);
-      expect(v.jetonsE).toBeGreaterThan(0);
-      expect(raw).not.toMatch(/faillance|cuisine|placard/i);
+    for (const [cle, cleConso] of [[cleJour(sub, now), cleJour(sub, now, 'conso')], [cleMois(sub, now), cleMois(sub, now, 'conso')]]) {
+      const raw = await env.SESSIONS_KV.get(cle), rawC = await env.SESSIONS_KV.get(cleConso);
+      const v = JSON.parse(raw), w = JSON.parse(rawC);
+      for (const o of [v, w]) expect(Object.keys(o).sort()).toEqual(['appels', 'audioSec', 'jetonsE', 'jetonsS']);
+      expect(v.appels).toBe(2);                     // réservations (avant l'appel payant)
+      expect(w.audioSec).toBe(2);                   // consommation (après), clé distincte
+      expect(w.jetonsE).toBeGreaterThan(0);
+      expect(raw + rawC).not.toMatch(/faillance|cuisine|placard/i);
     }
   });
 });

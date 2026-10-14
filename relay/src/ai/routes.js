@@ -41,8 +41,8 @@ export async function lireCorps(req, max) {
   return { buf: buf.buffer };
 }
 /** Compteurs de consommation : un échec d'écriture KV ne doit JAMAIS faire échouer (donc refacturer) un appel. */
-async function compter(kv, uid, delta) {
-  try { await enregistrer(kv, uid, delta); } catch { mesure('quota', 'ecriture_kv_echouee'); }
+async function compter(kv, uid, delta, part = '') {
+  try { await enregistrer(kv, uid, delta, new Date(), part); } catch { mesure('quota', 'ecriture_kv_echouee'); }
 }
 function erreurIA(c, route, e, t0) {
   const code = e instanceof AiError ? e.code : 'unavailable';
@@ -94,7 +94,7 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     await compter(kv, gate.userId, { appels: 1 });
     try {
       const r = await ia.transcrire({ audio, mime, langue, vocabulaire: (t && t.VOCABULAIRE) || [] });
-      await compter(kv, gate.userId, { audioSec: r.audioSec });
+      await compter(kv, gate.userId, { audioSec: r.audioSec }, 'conso');
       mesure('transcribe', 200, { ko: Math.round(audio.byteLength / 1024), s: r.audioSec, ms: Date.now() - t0 });
       return c.json({ text: r.text, segments: r.segments, audioSec: r.audioSec, modele: r.modele });
     } catch (e) {
@@ -132,7 +132,7 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     } catch (e) {
       return erreurIA(c, 'structure', e, t0);
     }
-    await compter(kv, gate.userId, { jetonsE: r.jetonsE, jetonsS: r.jetonsS });
+    await compter(kv, gate.userId, { jetonsE: r.jetonsE, jetonsS: r.jetonsS }, 'conso');
     const s = t.validerSortie(r.data, v.input);
     if (!s.ok) { mesure('structure', 502, { tache: t.nom, code: 'invalid_output', ms: Date.now() - t0 }); return c.json({ error: 'ai_invalid_output' }, 502); }
     mesure('structure', 200, { tache: t.nom, je: r.jetonsE, js: r.jetonsS, rejets: s.rejets, ms: Date.now() - t0 });
