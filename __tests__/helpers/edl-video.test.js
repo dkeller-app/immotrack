@@ -246,9 +246,9 @@ const lire = (debut, fin) => Promise.resolve(new Uint8Array(fin - debut).buffer)
 const base = (f, o = {}) => creerEnvoiTus({ endpoint: 'https://p.storage.supabase.co/storage/v1/upload/resumable', getToken: async () => 'jeton', apikey: 'anon', bucket: 'espace-files', objet: 'e/s/files/vid_a', type: 'video/webm', taille: 13 * 1024 * 1024, lire, fetchImpl: f, attendre: async () => {}, enLigne: () => true, ...o });
 
 describe('envoi reprenable TUS', () => {
-  it('métadonnées en base64, point d’entrée du stockage dédié', () => {
+  it('métadonnées en base64, point d’entrée sur l’hôte du projet (déjà autorisé par la politique de sécurité)', () => {
     expect(metadonnees({ bucket: 'b', objet: 'o', type: 'video/webm' })).toBe('bucketName Yg==,objectName bw==,contentType dmlkZW8vd2VibQ==,cacheControl MzYwMA==');
-    expect(pointEntree('https://xcbtashflclswyiyvfgn.supabase.co')).toBe('https://xcbtashflclswyiyvfgn.storage.supabase.co/storage/v1/upload/resumable');
+    expect(pointEntree('https://xcbtashflclswyiyvfgn.supabase.co/')).toBe('https://xcbtashflclswyiyvfgn.supabase.co/storage/v1/upload/resumable');
   });
   it('création (x-upsert false), morceaux de 6 Mo, progression, adresse mémorisée', async () => {
     const s = serveurTus(); const prog = []; const urls = [];

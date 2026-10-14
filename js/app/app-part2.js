@@ -6191,25 +6191,32 @@ async function _edlVideoImporterFichier(fi) {
   const M = _evxV(); const c = _EVX.ctx; if (!M || !c) return;
   const url = URL.createObjectURL(fi);
   const v = document.createElement('video');
-  v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+  v.muted = true; v.playsInline = true; v.preload = 'auto';
+  // Attachée (hors écran) : un <video> détaché du document ne charge pas toujours ses images.
+  v.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+  document.body.appendChild(v);
+  const retirer = () => { try { v.removeAttribute('src'); v.load(); v.remove(); } catch (_) {} URL.revokeObjectURL(url); };
   const attendre = (ev) => new Promise((ok, ko) => { const f = () => { v.removeEventListener(ev, f); ok(); }; v.addEventListener(ev, f); setTimeout(() => ko(new Error(ev)), 15000); });
-  await attendre('loadeddata');
+  const charge = attendre('loadeddata');
+  v.src = url;
+  try { await charge; } catch (e) { retirer(); throw e; }
   const D = v.duration;
-  if (!isFinite(D) || D > M.EdlVideo.GALERIE_MAX_SEC + 2) { URL.revokeObjectURL(url); _edlVideoErreur('Vidéo trop longue', 'Une prise dure 3 minutes au plus. Couper la vidéo, ou filmer la pièce en plusieurs prises.', 'clock', null); return; }
+  if (!isFinite(D) || D > M.EdlVideo.GALERIE_MAX_SEC + 2) { retirer(); _edlVideoErreur('Vidéo trop longue', 'Une prise dure 3 minutes au plus. Couper la vidéo, ou filmer la pièce en plusieurs prises.', 'clock', null); return; }
   const S = M.EdlVideoImages.creerSelecteur();
   const W = v.videoWidth, H = v.videoHeight;
   const sw = 90, sh = Math.max(2, Math.round(90 * H / W));
   const cp = document.createElement('canvas'); cp.width = sw; cp.height = sh; const xp = cp.getContext('2d', { willReadFrequently: true });
   const d = M.EdlVideoImages.dimensionsEnvoi(W, H); const cg = document.createElement('canvas'); cg.width = d.w; cg.height = d.h; const xg = cg.getContext('2d');
   for (let t = 0; t <= D - 0.05; t += M.EdlVideoImages.REGLAGES.pasSec) {
-    v.currentTime = Math.round(t * 100) / 100; await attendre('seeked');
+    const vu = attendre('seeked'); v.currentTime = Math.round(t * 100) / 100;
+    try { await vu; } catch (e) { retirer(); throw e; }
     xp.drawImage(v, 0, 0, sw, sh);
     const m = M.EdlVideoImages.mesurer(xp.getImageData(0, 0, sw, sh).data, sw, sh);
     const r = S.ajouter({ t, gris: m.gris, lum: m.lum, nettete: m.nettete });
     if (r.meilleur) { xg.drawImage(v, 0, 0, d.w, d.h); S.attacher(r.idx, { t, data: cg.toDataURL('image/jpeg', 0.75) }); }
   }
   const images = S.terminer().map((x) => ({ id: 'f' + Math.round(x.t * 10), t: x.t, data: x.donnee.data, ...(x.flou ? { flou: true } : {}) }));
-  URL.revokeObjectURL(url);
+  retirer();
   // Son : décodé sur l'appareil puis réencodé en WAV 16 kHz mono (3 min ≈ 5,6 Mo) pour la dictée — seulement
   // si le fichier reste raisonnable en mémoire (≤ 60 Mo). Sinon : photos seules (la dictée reste possible).
   let audio = null;

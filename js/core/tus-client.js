@@ -4,7 +4,7 @@
  * Pourquoi : une vidéo d'état des lieux pèse 5 à 25 Mo par prise ; l'envoi simple (`upload()`) n'a ni
  * reprise après coupure, ni progression. Supabase Storage accepte TUS
  * (https://supabase.com/docs/guides/storage/uploads/resumable-uploads, relevé le 14/10/2026) :
- *   - point d'entrée  https://<projet>.storage.supabase.co/storage/v1/upload/resumable ;
+ *   - point d'entrée  https://<projet>.supabase.co/storage/v1/upload/resumable (ou l'hôte dédié <projet>.storage…) ;
  *   - morceaux de 6 Mo exactement (« it must be set to 6MB ») ;
  *   - l'adresse d'envoi reste valable 24 h.
  * Sous-ensemble du protocole implémenté (décision 13 : module maison testé, zéro dépendance) :
@@ -28,11 +28,12 @@ export function metadonnees({ bucket, objet, type, cacheControl = '3600' }) {
     .map(([k, v]) => `${k} ${b64(v)}`).join(',');
 }
 
-/** Point d'entrée TUS depuis l'URL du projet (https://xxx.supabase.co → https://xxx.storage.supabase.co/…). */
+/** Point d'entrée TUS depuis l'URL du projet. On garde l'hôte du projet (https://xxx.supabase.co), DÉJÀ autorisé
+ *  par la politique de sécurité de l'app (connect-src) : l'hôte dédié xxx.storage.supabase.co, plus rapide pour les
+ *  gros fichiers, demanderait d'élargir cette politique (à décider à l'activation de la vidéo). */
 export function pointEntree(urlProjet) {
   const u = String(urlProjet || '').replace(/\/+$/, '');
-  const m = /^https:\/\/([a-z0-9-]+)\.supabase\.co$/i.exec(u);
-  return m ? `https://${m[1]}.storage.supabase.co/storage/v1/upload/resumable` : (u ? `${u}/storage/v1/upload/resumable` : '');
+  return u ? `${u}/storage/v1/upload/resumable` : '';
 }
 
 /**
