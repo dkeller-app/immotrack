@@ -46,15 +46,21 @@ const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
  */
 export function trouverSuperpositions(items) {
   const out = []; const vus = new Set();
-  const liste = (items || []).filter((i) => i && norm(i.str) && /[0-9A-Za-zÀ-ÿ]/.test(i.str));
-  for (let a = 0; a < liste.length; a++) for (let b = a + 1; b < liste.length; b++) {
-    const A = liste[a], B = liste[b];
-    if (A.page !== B.page || Math.abs(A.x - B.x) > 1 || Math.abs(A.y - B.y) > 1) continue;
-    if (norm(A.str) === norm(B.str)) continue; // même texte écrit deux fois (effet de gras) : pas un indice
-    const cle = A.page + '|' + [norm(A.str), norm(B.str)].sort().join('|');
-    if (vus.has(cle)) continue; vus.add(cle);
-    out.push({ page: A.page, textes: [norm(A.str), norm(B.str)] });
-    if (out.length >= 5) return out;
+  // Tri par page puis position verticale : on ne compare que les voisins à 1 point près (n log n, borné à 20 000 éléments).
+  const liste = (items || []).slice(0, 20000).filter((i) => i && norm(i.str) && /[0-9A-Za-zÀ-ÿ]/.test(i.str))
+    .sort((p, q) => (p.page - q.page) || (p.y - q.y) || (p.x - q.x));
+  for (let a = 0; a < liste.length; a++) {
+    const A = liste[a];
+    for (let b = a + 1; b < liste.length; b++) {
+      const B = liste[b];
+      if (B.page !== A.page || B.y - A.y > 1) break;
+      if (Math.abs(A.x - B.x) > 1) continue;
+      if (norm(A.str) === norm(B.str)) continue; // même texte écrit deux fois (effet de gras) : pas un indice
+      const cle = A.page + '|' + [norm(A.str), norm(B.str)].sort().join('|');
+      if (vus.has(cle)) continue; vus.add(cle);
+      out.push({ page: A.page, textes: [norm(A.str), norm(B.str)].sort() });
+      if (out.length >= 5) return out;
+    }
   }
   return out;
 }

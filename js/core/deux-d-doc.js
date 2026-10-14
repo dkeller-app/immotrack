@@ -19,6 +19,7 @@
 
 import { CHAMPS_2DDOC } from './deux-d-doc-champs.js';
 import { ANCRES_2DDOC } from './deux-d-doc-ancres.js';
+export { ANCRES_2DDOC };
 
 export const SOURCE_2DDOC = {
   libelle: 'Spécifications techniques des codes à barres 2D-Doc, France Titres, v3.3.9 du 22/07/2026',
@@ -126,6 +127,7 @@ export function base32Decode(txt) {
     val = ((val << 5) | i) & 0xffff; bits += 5;
     if (bits >= 8) { out.push((val >>> (bits - 8)) & 0xff); bits -= 8; }
   }
+  if (bits >= 5 || (val & ((1 << bits) - 1)) !== 0) throw new Error('base32');   // forme non canonique
   return new Uint8Array(out);
 }
 export function base32Encode(u8) {
@@ -177,9 +179,10 @@ export function lireCertificat(der) {
   if (racine.end !== buf.length) throw new Error('der');
   const [tbs, algSig, valSig] = enfants(buf, racine);
   const k = enfants(buf, tbs); let i = k[0].tag === 0xa0 ? 1 : 0;
-  const serie = k[i], emetteur = k[i + 2], validite = k[i + 3], sujet = k[i + 4], spki = k[i + 5];
+  const serie = k[i], algTbs = k[i + 1], emetteur = k[i + 2], validite = k[i + 3], sujet = k[i + 4], spki = k[i + 5];
   const [nb, na] = enfants(buf, validite);
   const algOid = hex(contenu(buf, enfants(buf, algSig)[0]));
+  const memeAlg = hex(contenu(buf, enfants(buf, algTbs)[0])) === algOid;
   const algCle = enfants(buf, enfants(buf, spki)[0]);
   const cleOid = hex(contenu(buf, algCle[0]));
   let cn = '';
@@ -192,7 +195,7 @@ export function lireCertificat(der) {
     spki: brut(buf, spki),
     typeCle: cleOid === '2a864886f70d010101' ? 'RSA' : cleOid === '2a8648ce3d0201' ? 'EC' : null,
     courbe: cleOid === '2a8648ce3d0201' && algCle[1] ? (COURBE[hex(contenu(buf, algCle[1]))] || null) : null,
-    algSignature: ALG[algOid] || null,
+    algSignature: memeAlg ? (ALG[algOid] || null) : null,
     signature: contenu(buf, valSig).subarray(1) // BIT STRING : 1er octet = bits inutilisés
   };
 }
@@ -288,7 +291,7 @@ export async function construireConfiance(donnees, ancres = ANCRES_2DDOC) {
     let ac;
     try {
       const der = b64VersOctets(a.der);
-      if (a.sha256 && (await sha256Hex(der)) !== a.sha256) continue; // ancre altérée : ignorée
+      if (!a.sha256 || (await sha256Hex(der)) !== a.sha256) continue; // ancre sans empreinte ou altérée : ignorée
       ac = lireCertificat(der);
     } catch { continue; }
     const src = (donnees && donnees.autorites && donnees.autorites[id]) || {};
@@ -325,7 +328,10 @@ export async function verifier2DDoc(texte, magasin, opts = {}) {
   const signe = s.slice(0, iUS);
   let sigTxt = s.slice(iUS + 1); const iAnnexe = sigTxt.indexOf(GS); if (iAnnexe >= 0) sigTxt = sigTxt.slice(0, iAnnexe);
   sigTxt = sigTxt.trim();
-  const dec = decouperChamps(signe.slice(h.longueur));
+  // Le dictionnaire des champs est celui du périmètre 01 (France Titres) : un autre périmètre ou pays n'est pas interprété
+  // (la signature reste vérifiée). Les versions 02 n'ont pas de périmètre : 01 implicite.
+  const interpretable = (!h.perimetre || h.perimetre === '01') && h.pays === 'FR';
+  const dec = interpretable ? decouperChamps(signe.slice(h.longueur)) : { champs: [], complet: false };
   Object.assign(base, { champs: dec.champs, complet: dec.complet });
 
   const aut = magasin && magasin.autorites && magasin.autorites[h.ac];

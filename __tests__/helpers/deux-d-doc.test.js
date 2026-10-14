@@ -275,3 +275,22 @@ describe('chaîne de production réelle (AC FR06, données publiques du 14/10/20
     expect(extraireCertificatsAnnuaire(new Uint8Array([1, 2, 3]))).toEqual([]);
   });
 });
+
+describe('relecture ciblée du 14/10 (Fable)', () => {
+  it('ancre sans empreinte : ignorée (empreinte SHA-256 obligatoire)', async () => {
+    const m = await construireConfiance(DONNEES(), { ZZ01: { der: PKI.ca } });
+    expect(m.autorites.ZZ01).toBeUndefined();
+  });
+  it('Base32 non canonique (bits de queue non nuls) refusé ; forme canonique acceptée', () => {
+    expect(() => base32Decode('AB')).toThrow();          // 10 bits : 2 bits de queue non nuls
+    expect(Array.from(base32Decode('AA'))).toEqual([0]);
+    expect(() => base32Decode('A')).toThrow();           // 5 bits : aucun octet complet
+  });
+  it('périmètre autre que 01 ou pays autre que FR : signature vérifiée, champs non interprétés', async () => {
+    const m = await construireConfiance(DONNEES(), ANCRES_TEST);
+    const e = 'DC04' + 'ZZ01' + 'TST1' + jours('2026-07-24') + jours('2026-07-24') + '28' + '02' + 'FR';
+    const r = await verifier2DDoc(e + MESSAGE + US + await signer(e + MESSAGE), m, { maintenant: MAINTENANT });
+    expect(r.etat).toBe(ETAT.VALIDE);
+    expect(r.champs).toEqual([]);
+  });
+});

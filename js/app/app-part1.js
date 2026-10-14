@@ -10333,6 +10333,7 @@ async function _attachmentDelete(docId) {
     _deletedAt: new Date().toISOString(),
     _modifiedAt: new Date().toISOString()
   });
+  delete doc.verif; delete doc.verifIa;   // VERIF-DOCUMENTS : aucune donnée de vérification dans la tombe synchronisée
   // Purge IDB (cache binaire local)
   if (doc.idbKey) { try { await _idbDel(doc.idbKey); } catch(e) {} }
   // Audit
@@ -13318,7 +13319,7 @@ async function _relayPullCandidatures(opts) {
       // PAS DE PURGE (modèle reopen). On stoppe juste le re-pull de ce lien + backref D13.
       link.candId = cand.id; link.status = 'collected'; link.deposed = (link.deposed || 0) + 1;
       link._lastSubmittedAt = res.submittedAt || link._lastSubmittedAt || ''; // réf. dédup ré-ouverture
-      { const _cid = cand.id; setTimeout(() => { _candVerifierEmployeur(_cid).catch(()=>{}); _candVerifierPieces(_cid).catch(()=>{}); const _R = _candVerifReglages(); if(_R.ia && _R.iaMode === 'reception') _candIaLancer(_cid, { auto: true }).catch(()=>{}); }, 0); } // constat Annuaire des entreprises + vérification des pièces sur l'appareil (après saveDB)
+      { const _cid = cand.id; setTimeout(() => { _candVerifierEmployeur(_cid).catch(()=>{}); _candVerifEnFile(_cid).then(() => { const _R = _candVerifReglages(); if(_R.ia && _R.iaMode === 'reception') return _candIaLancer(_cid, { auto: true }); }).catch(()=>{}); }, 0); }   // lecture IA APRÈS le contrôle local (un avis typé « bulletin » est alors reconnu et écarté) ; // constat Annuaire des entreprises + vérification des pièces sur l'appareil (après saveDB)
       if (typeof _stamp === 'function') _stamp(link); else link._modifiedAt = Date.now();
       imported++;
     } catch (e) {
@@ -13560,7 +13561,21 @@ async function _tddocConfiance(force){
         if(r.ok) donnees = await r.json();
       }catch(e){ console.warn('[2D-Doc] liste de confiance du relais indisponible', e && e.message); }
     }
-    if(!donnees){ try{ const r = await fetch('js/vendor/2ddoc-instantane.json'); if(r.ok) donnees = await r.json(); }catch(e){} }
+    // Repli sur l'instantané embarqué : en entier si le relais ne répond pas, ou autorité par autorité s'il en manque une
+    // (certificats ou liste de révocation absents). Tout reste revérifié contre les ancres.
+    const manque = (d) => !d || !d.autorites || Object.keys(D.ANCRES_2DDOC || {}).some(id => { const a = d.autorites[id]; return !a || !(a.certificats && a.certificats.length) || !a.crl; });
+    if(manque(donnees)){
+      let inst = null; try{ const r = await fetch('js/vendor/2ddoc-instantane.json'); if(r.ok) inst = await r.json(); }catch(e){}
+      if(!donnees) donnees = inst;
+      else if(inst && inst.autorites){
+        const aut = Object.assign({}, donnees.autorites || {});
+        for(const [id, x] of Object.entries(inst.autorites)){
+          const a = aut[id] || { certificats: [], crl: null };
+          aut[id] = { certificats: a.certificats && a.certificats.length ? a.certificats : (x.certificats || []), crl: a.crl || x.crl || null };
+        }
+        donnees = Object.assign({}, donnees, { autorites: aut });
+      }
+    }
     const m = await D.construireConfiance(donnees || { autorites: {} });
     _tddocMagasin = m; _tddocMagasinLe = Date.now();
     return m;
@@ -13587,6 +13602,17 @@ function _zxingLecteur(ZX){
   };
 }
 const _candVerifPiecesEnCours = new Set();
+// Délai : une lecture qui ne se termine pas (PDF piégé, objet jamais résolu) est abandonnée, la vérification reportée.
+function _candAvecDelai(promesse, ms){
+  let t = null;
+  return Promise.race([promesse, new Promise((_, rej) => { t = setTimeout(() => rej(new Error('délai dépassé')), ms); })]).finally(() => clearTimeout(t));
+}
+// File unique : à l'import de plusieurs dossiers, les lectures se font l'une après l'autre (téléphones).
+let _candVerifFile = Promise.resolve();
+function _candVerifEnFile(candId){
+  _candVerifFile = _candVerifFile.then(() => _candVerifierPieces(candId)).catch(() => {});
+  return _candVerifFile;
+}
 async function _candVerifierPieces(candId, opts){
   opts = opts || {};
   const VP = window.VerifPieces, LP = window.LecturePieces, D = window.DeuxDDoc;
@@ -13611,7 +13637,7 @@ async function _candVerifierPieces(candId, opts){
       if(!dataUrl) continue;                                      // fichier pas encore sur l'appareil : réessai au prochain passage
       if(/pdf/i.test(d.mime) && !pdfjs){ await _ensurePdfjsLoaded(); pdfjs = window.pdfjsLib; }
       let analyse;
-      try{ analyse = await LP.analyserFichier({ octets: _dataUrlToUint8(dataUrl), mime: d.mime }, { pdfjs, lire, creerCanvas, chargerImage }); }
+      try{ analyse = await _candAvecDelai(LP.analyserFichier({ octets: _dataUrlToUint8(dataUrl), mime: d.mime }, { pdfjs, lire, creerCanvas, chargerImage }), 60000); }
       catch(e){ console.warn('[vérification] lecture de la pièce reportée', e && e.message); continue; }
       const resultats = [];
       if(analyse.codes && analyse.codes.length){
@@ -13637,9 +13663,14 @@ async function _candVerifierPieces(candId, opts){
 }
 // Ligne « Vérification » sous une pièce (fiche candidat). Vert seulement pour « Signature de l'État vérifiée ».
 // État affiché d'une pièce : vérification locale, puis (bulletins, contrat) lecture par l'IA et règles de cohérence.
+function _candVerifActuelle(d){
+  const VP = window.VerifPieces; if(!VP || !d || !d.verif) return d && d.verif;
+  const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === d.parentId);
+  return VP.actualiser ? VP.actualiser(d, d.verif, c) : d.verif;
+}
 function _candVerifEtat(d){
   const VP = window.VerifPieces; const R = _candVerifReglages();
-  let e = R.locaux ? VP.etatAffiche(d, d.verif) : { etat: 'aucun_controle', libelle: '', phrase: '', positif: false, icone: 'info', detail: false };
+  let e = R.locaux ? VP.etatAffiche(d, _candVerifActuelle(d)) : { etat: 'aucun_controle', libelle: '', phrase: '', positif: false, icone: 'info', detail: false };
   if(R.ia && VP.typeLectureIa && VP.typeLectureIa(d)){
     const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === d.parentId);
     const ana = c ? _candIaAnalyse(c) : null;
@@ -13667,7 +13698,7 @@ function _candVerifConstats(c){
   if(_candVerifReglages().locaux) (DB.documents||[]).filter(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(c.id) && d.verif)
     .forEach(d => {
       const q = '\'' + _lyQ(d.id) + '\'';
-      (d.verif.constats || []).forEach(k => {
+      ((_candVerifActuelle(d) || {}).constats || []).forEach(k => {
         const p = Object.assign({}, k);
         p.actionsHtml = (k.svair ? '<a class="btn bs bb" href="' + escHtml(VP.URL_SVAIR) + '" target="_blank" rel="noopener">' + _uiIcon('external', 14) + ' Vérifier sur impots.gouv</a>' : '')
           + '<button class="btn bs bb" onclick="_candVerifDetail(' + q + ')">' + _uiIcon('eye', 14) + ' Voir le détail</button>';
@@ -13695,7 +13726,7 @@ function _candVerifCopier(txt){
 function _candVerifDetail(docId){
   const VP = window.VerifPieces; if(!VP) return;
   const d = (DB.documents||[]).find(x => x && !x._deleted && String(x.id) === String(docId) && x.parentType === 'candidat'); if(!d) return;
-  const det = VP.detail(d, d.verif);
+  const det = VP.detail(d, _candVerifActuelle(d));
   const q = '\'' + _lyQ(d.id) + '\'';
   const e = _candVerifEtat(d);
   let h = '<div class="vp-piece">' + _uiIcon('doc', 16) + '<div><div class="nm">' + escHtml(det.piece) + '</div>'
@@ -13726,7 +13757,7 @@ function _candVerifDetail(docId){
     h += '<div class="ct">Points à vérifier</div><div class="cand-pv">' + det.constats.map(p =>
       '<div class="cand-pvi"><div class="tt">' + _uiIcon(p.icone === 'minus' ? 'minus' : p.icone === 'clock' ? 'clock' : 'doc', 15) + '<span>' + escHtml(p.titre) + '</span></div>'
       + (p.detail ? '<div class="dd">' + escHtml(p.detail) + '</div>' : '')
-      + '<div class="src">Source : ' + (p.url ? '<a href="' + escHtml(p.url) + '" target="_blank" rel="noopener">' + escHtml(p.source) + '</a>' : escHtml(p.source)) + (p.date ? ' · ' + escHtml(p.date) : '') + '</div></div>').join('') + '</div>';
+      + '<div class="src">Source : ' + (p.url && /^https:\/\//.test(String(p.url)) ? '<a href="' + escHtml(p.url) + '" target="_blank" rel="noopener">' + escHtml(p.source) + '</a>' : escHtml(p.source)) + (p.date ? ' · ' + escHtml(p.date) : '') + '</div></div>').join('') + '</div>';
   }
   if(det.indices){
     const m = det.indices.metadonnees || {};
@@ -13765,8 +13796,11 @@ async function _candIaDispo(force){
 }
 function _candIaPieces(c){
   const VP = window.VerifPieces; if(!VP || !VP.typeLectureIa) return [];
+  const FISCAL = ['04', '28', '18', '24', '27'];
   return (DB.documents||[]).filter(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(c.id)
-    && VP.typeLectureIa(d) && /^(application\/pdf|image\/jpeg|image\/png)$/i.test(String(d.mime || '')));
+    && VP.typeLectureIa(d) && d.category !== 'identite' && d.category !== 'domicile'
+    && !(d.verif && d.verif.deuxDDoc && FISCAL.includes(d.verif.deuxDDoc.type))   // un avis typé « bulletin » ne part jamais
+    && /^(application\/pdf|image\/jpeg|image\/png)$/i.test(String(d.mime || '')));
 }
 function _candIaAnalyse(c){
   const VP = window.VerifPieces, RB = window.ReglesBulletin;
@@ -13821,6 +13855,7 @@ async function _candIaLancer(candId, opts){
   if(!LP || !VP || !c || c.statut === 'refuse' || !_candVerifReglages().ia || _candIaEnCours.has(candId)) return;
   if(!(await _candIaDispo(true))){ if(!opts.auto) showToast('Lecture par l\'IA pas encore ouverte sur ce compte.', 'info'); return; }
   const cl = _candIaClient(); if(!cl) return;
+  try{ await _candVerifierPieces(candId); }catch(e){}   // contrôle local d'abord : un avis typé « bulletin » est reconnu et n'est pas envoyé
   const docs = _candIaAFaire(c); if(!docs.length) return;
   _candIaEnCours.add(candId);
   if(!opts.auto) showToast('Lecture en cours…', 'info', 2500);
@@ -13835,9 +13870,11 @@ async function _candIaLancer(candId, opts){
       if(!dataUrl) continue;
       if(/pdf/i.test(d.mime) && !pdfjs){ await _ensurePdfjsLoaded(); pdfjs = window.pdfjsLib; }
       let image = null;
-      try{ image = await LP.pageVersImage({ octets: _dataUrlToUint8(dataUrl), mime: d.mime }, { pdfjs, creerCanvas, chargerImage, versJpeg }); }catch(e){ image = null; }
+      try{ image = await _candAvecDelai(LP.pageVersImage({ octets: _dataUrlToUint8(dataUrl), mime: d.mime }, { pdfjs, creerCanvas, chargerImage, versJpeg }), 30000); }catch(e){ image = null; }
       const cible = (DB.documents||[]).find(x => x && !x._deleted && x.id === d.id); if(!cible) continue;
-      if(!image){ cible.verifIa = { le: new Date().toISOString(), type: VP.typeLectureIa(cible), lu: { lisible: false }, corrections: {} }; _stamp(cible); lues++; continue; }
+      if(!image){ cible.verifIa = { le: new Date().toISOString(), type: VP.typeLectureIa(cible), erreur: 'rendu' }; _stamp(cible); lues++; continue; }
+      const cc = (DB.candidats||[]).find(x => x && !x._deleted && x.id === candId);
+      if(!cc || cc.statut === 'refuse' || !_candVerifReglages().ia){ arret = 'arret'; break; }   // refusé ou réglage coupé en cours de lecture
       const r = await cl.structurer('bulletin-paie', { type: VP.typeLectureIa(cible), images: [image] });
       image = null;                                                // l'image n'est gardée nulle part
       const cible2 = (DB.documents||[]).find(x => x && !x._deleted && x.id === d.id); if(!cible2) continue;   // pièce supprimée pendant la lecture
@@ -13855,6 +13892,7 @@ async function _candIaLancer(candId, opts){
   if(lues) saveDB();
   if(!opts.auto){
     const M = { disabled: 'Lecture par l\'IA pas encore ouverte sur ce compte.', quota: 'Limite de lectures du jour atteinte : reprise possible demain.', offline: 'Pas de réseau : lecture reportée.', auth: 'Session à renouveler : lecture reportée.', unavailable: 'Service de lecture indisponible : réessayer plus tard.' };
+    M.arret = 'Lecture interrompue.';
     showToast(arret ? (M[arret] || M.unavailable) : (lues ? 'Lecture terminée : constats dans « Points à vérifier »' : 'Aucune pièce lue'), arret ? 'warn' : 'ok', 4000);
   }
   try{ if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden') && _ficheCandidatOuverte === candId) openFicheCandidat(candId); }catch(e){}
@@ -13922,7 +13960,7 @@ function rParamsCandidatures(){
   const R = _candVerifReglages();
   const coche = (b) => b ? ' checked' : '';
   host.innerHTML = '<div class="card"><div class="ct" style="margin-top:0">Vérification des pièces des candidats</div>'
-    + '<div class="vp-reglage"><div class="tx"><b>Contrôles sur l\'appareil</b>Signature 2D-Doc des avis d\'imposition et des pièces qui en portent un (contrôle de l\'État, contre la liste de confiance de France Titres) ; informations internes des fichiers PDF (logiciels, dates, textes superposés). Rien ne quitte l\'appareil.</div>'
+    + '<div class="vp-reglage"><div class="tx"><b>Contrôles sur l\'appareil</b>Signature 2D-Doc des avis d\'imposition et des pièces qui en portent un (contre la liste de confiance publiée par France Titres) ; informations internes des fichiers PDF (logiciels, dates, textes superposés). Rien ne quitte l\'appareil.</div>'
     + '<label class="sw-l"><input type="checkbox"' + coche(R.locaux) + ' onchange="_candVerifReglerLocaux(this.checked)"> Activé</label></div>'
     + '<div class="vp-reglage"><div class="tx"><b>Lecture des bulletins de salaire par l\'IA</b>Mistral AI, lecture effectuée dans l\'Union européenne. Contrôle des calculs, des cumuls, des périodes, du nom et de l\'employeur ; chaque valeur lue se corrige. Seule la première page des bulletins et du contrat de travail est envoyée.'
     + (R.ia ? '<div class="vp-modes"><label><input type="radio" name="vp-mode"' + coche(R.iaMode === 'demande') + ' onchange="_candVerifReglerModeIa(\'demande\')"><span><b>À la demande</b> — un bouton dans chaque fiche ; seuls les dossiers étudiés sont lus.</span></label>'
@@ -13992,7 +14030,7 @@ function _candPointsAVerifierHtml(c){
   return '<div class="cand-pv">' + pts.map(p =>
     '<div class="cand-pvi"><div class="tt">' + _uiIcon(p.icone || 'doc', 15) + '<span>' + escHtml(p.titre) + '</span></div>'
     + (p.detail ? '<div class="dd">' + escHtml(p.detail) + '</div>' : '')
-    + '<div class="src">Source : ' + (p.url ? '<a href="' + escHtml(p.url) + '" target="_blank" rel="noopener">' + escHtml(p.source) + '</a>' : escHtml(p.source)) + (p.date ? ' · ' + escHtml(p.date) : '') + '</div>'
+    + '<div class="src">Source : ' + (p.url && /^https:\/\//.test(String(p.url)) ? '<a href="' + escHtml(p.url) + '" target="_blank" rel="noopener">' + escHtml(p.source) + '</a>' : escHtml(p.source)) + (p.date ? ' · ' + escHtml(p.date) : '') + '</div>'
     + (p.actionsHtml ? '<div class="act">' + p.actionsHtml + '</div>' : '')
     + '</div>').join('') + '</div>' + regle;
 }

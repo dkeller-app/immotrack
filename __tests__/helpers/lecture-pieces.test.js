@@ -113,3 +113,27 @@ describe('page 1 en JPEG pour la lecture IA (lot 3)', () => {
     expect(await pageVersImage({ octets: new Uint8Array([1]), mime: 'text/plain' }, { creerCanvas, versJpeg: gros })).toBeNull();
   });
 });
+
+describe('relecture du 14/10 (Opus) : jamais bloqué, temps de calcul borné', () => {
+  it('objet image qui ne se résout jamais (objs ou commonObjs « g_… ») : coupé, la lecture continue jusqu\'au rendu', async () => {
+    const f = fauxPdf({ images: [[{ width: 120, height: 120 }]], codeAuRendu: ['DC04RENDU'] });
+    const p0 = await f.pdfjs.getDocument().promise;
+    const page = await p0.getPage(1);
+    const enAttente = { get: () => {} };                       // n'appelle jamais le rappel
+    f.pdfjs.getDocument = () => ({ promise: Promise.resolve({ numPages: 1, getMetadata: async () => ({ info: {} }), destroy() {}, getPage: async () => ({ ...page, objs: enAttente, commonObjs: enAttente, getOperatorList: async () => ({ fnArray: [85, 85], argsArray: [['img_p0_1'], ['g_d0_img_1']] }) }) }) });
+    const a = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: f.pdfjs, lire, creerCanvas, delaiObjetMs: 20, ceder: async () => {} });
+    expect(a.codes).toEqual(['DC04RENDU']);
+  });
+  it('les images partagées entre pages sont lues dans commonObjs', async () => {
+    const { attendreObjet } = await import('../../js/core/lecture-pieces.js');
+    const page = { objs: { get: () => {} }, commonObjs: { get: (n, cb) => cb({ nom: n }) } };
+    expect(await attendreObjet(page, 'g_d0_img_1', 20)).toEqual({ nom: 'g_d0_img_1' });
+    expect(await attendreObjet(page, 'img_p0_1', 20)).toBeNull();
+  });
+  it('budget de décodage par document ; vignettes et bandeaux ignorés', async () => {
+    let appels = 0;
+    const f = fauxPdf({ pages: 3, images: [[{ width: 10, height: 10, bitmap: {} }, { width: 600, height: 40, bitmap: {} }, { width: 400, height: 400, bitmap: {} }], [], []] });
+    await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: f.pdfjs, lire: () => { appels++; return null; }, creerCanvas, essaisMax: 7, ceder: async () => {} });
+    expect(appels).toBe(7);
+  });
+});

@@ -67,9 +67,10 @@ export function validerSortie(raw, input) {
   let rejets = 0;
   const garde = (brut, propre) => { if (brut != null && brut !== '' && propre == null) rejets++; return propre; };
   if (input && input.type === 'contrat') {
-    return { ok: true, rejets: 0, data: { lisible: raw.lisible !== false,
+    const data = { lisible: raw.lisible !== false,
       salarie: texteBorne(raw.salarie, LIMITES.texteMax), employeur: texteBorne(raw.employeur, LIMITES.texteMax), siret: garde(raw.siret, siret(raw.siret)),
-      dateDebut: garde(raw.dateDebut, date(raw.dateDebut)), typeContrat: texteBorne(raw.typeContrat, 40) } };
+      dateDebut: garde(raw.dateDebut, date(raw.dateDebut)), typeContrat: texteBorne(raw.typeContrat, 40) };
+    return { ok: true, rejets, data };
   }
   const periode = typeof raw.periode === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(raw.periode) ? raw.periode : null;
   const taux = typeof raw.impotTaux === 'number' && raw.impotTaux >= 0 && raw.impotTaux <= 60 ? Math.round(raw.impotTaux * 100) / 100 : null;

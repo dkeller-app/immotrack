@@ -71,3 +71,13 @@ describe('constats T1-T3', () => {
     for (const x of c) { expect(x.detail).toMatch(/ne permet pas de conclure/); expect(x.titre + x.detail).not.toMatch(INTERDITS); expect(x.source).toBeTruthy(); }
   });
 });
+
+describe('relecture du 14/10 (Opus) : recherche de superpositions bornée', () => {
+  it('100 000 éléments de texte : réponse rapide, résultat exact', () => {
+    const items = []; for (let i = 0; i < 100000; i++) items.push({ page: 1 + (i % 3), str: 'mot' + i, x: (i * 7) % 500, y: i });
+    items.unshift({ page: 1, str: 'AAA', x: 300, y: 50.5 }, { page: 1, str: 'BBB', x: 300.3, y: 50.9 });   // les 20 000 premiers éléments sont examinés
+    const t0 = Date.now(); const r = trouverSuperpositions(items);
+    expect(Date.now() - t0).toBeLessThan(1500);
+    expect(r).toEqual([{ page: 1, textes: ['AAA', 'BBB'] }]);
+  });
+});

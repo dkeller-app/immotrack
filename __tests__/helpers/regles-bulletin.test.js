@@ -105,3 +105,12 @@ describe('saisie des corrections', () => {
     expect(euros(null)).toBe('—');
   });
 });
+
+describe('relecture du 14/10 (Opus) : liste des mois absents bornée', () => {
+  it('année mal lue (2016 au lieu de 2026) : titre court', () => {
+    const a = analyserBulletins({ pieces: [piece('x', { ...JUIL, periode: '2016-07' }), piece('s', SEPT)], identite: ID });
+    const t = a.constats.find((c) => c.code === 'B5').titre;
+    expect(t).toMatch(/ et 1\d\d autres\)\.$/);
+    expect(t.length).toBeLessThan(200);
+  });
+});

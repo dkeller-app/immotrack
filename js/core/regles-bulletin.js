@@ -112,7 +112,7 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui 
     const e = { etat: 'ia_non_lancee', regles: [], constats: [] };
     parPiece[p.id] = e;
     if (!p.ia) continue;
-    if (p.ia.erreur) { e.etat = 'ia_erreur'; continue; }
+    if (p.ia.erreur) { e.etat = 'ia_erreur'; e.erreur = p.ia.erreur; continue; }
     if (!v || v.lisible === false) { e.etat = 'illisible'; continue; }
     if (p.type === 'contrat') { contrats.push({ p, v, e }); e.etat = 'lu'; continue; }
     bull.push({ p, v, e });
@@ -156,7 +156,8 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui 
   if (tries.length >= 2) {
     const manquants = [];
     for (let i = 1; i < tries.length; i++) for (let m = moisIndex(tries[i - 1].v.periode) + 1; m < moisIndex(tries[i].v.periode); m++) manquants.push(`${MOIS[m % 12]} ${Math.floor(m / 12)}`);
-    if (manquants.length) constats.push({ code: 'B5', icone: 'clock', titre: `Bulletins${quiTxt} : période${manquants.length > 1 ? 's' : ''} absente${manquants.length > 1 ? 's' : ''} entre les bulletins reçus (${manquants.join(', ')}).`, detail: `Bulletins reçus : ${tries.map((t) => libellePeriode(t.v.periode)).join(', ')}. Le décret prévoit les trois derniers bulletins de salaire.`, source: SOURCES.decret.libelle, url: SOURCES.decret.url, ia: true });
+    const liste = manquants.length > 6 ? manquants.slice(0, 6).join(', ') + ` et ${manquants.length - 6} autre${manquants.length - 6 > 1 ? 's' : ''}` : manquants.join(', ');
+    if (manquants.length) constats.push({ code: 'B5', icone: 'clock', titre: `Bulletins${quiTxt} : période${manquants.length > 1 ? 's' : ''} absente${manquants.length > 1 ? 's' : ''} entre les bulletins reçus (${liste}).`, detail: `Bulletins reçus : ${tries.map((t) => libellePeriode(t.v.periode)).join(', ')}. Le décret prévoit les trois derniers bulletins de salaire.`, source: SOURCES.decret.libelle, url: SOURCES.decret.url, ia: true });
   }
   if (tries.length && recuLe) {
     const r = new Date(recuLe); const ir = r.getUTCFullYear() * 12 + r.getUTCMonth();

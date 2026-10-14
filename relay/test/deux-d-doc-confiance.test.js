@@ -84,3 +84,32 @@ describe('route GET /api/2ddoc/confiance', () => {
     expect((await r.json()).autorites.FR06.certificats).toEqual(['MAMCAQU=']);
   });
 });
+
+describe('relecture du 14/10 (Opus) : fusion par autorité, rafraîchissement borné, taille', () => {
+  it('une autorité injoignable garde ses certificats et sa liste de révocation précédents', async () => {
+    const { fusionner } = await import('../src/deux-d-doc-confiance.js');
+    const t0 = Date.UTC(2026, 9, 14, 8);
+    await obtenirConfiance(env, toutRepond, t0);
+    const sansFR06 = faux((u) => (/pki-g3/.test(u) ? new Error('délai') : u.endsWith('.crl') ? new Uint8Array([0x30, 0x00]) : multipart(DER)));
+    const d = await obtenirConfiance(env, sansFR06, t0 + FRAICHEUR_MS + 1000);
+    expect(d.autorites.FR06.certificats.length).toBe(2);                 // conservés
+    expect(d.autorites.FR06.crl).toBe('MAA=');
+    expect(d.autorites.FR03.certificats.length).toBe(1);                 // rafraîchis
+    expect(fusionner({ autorites: { A: { certificats: [], crl: null } } }, null).autorites.A.certificats).toEqual([]);
+  });
+  it('autorités en panne avec une copie : au plus un essai toutes les 5 minutes', async () => {
+    const t0 = Date.UTC(2026, 9, 14, 8);
+    await obtenirConfiance(env, toutRepond, t0);
+    const panne = faux(() => new Error('panne'));
+    await obtenirConfiance(env, panne, t0 + 2 * FRAICHEUR_MS);
+    const n = panne.appels.length;
+    await obtenirConfiance(env, panne, t0 + 2 * FRAICHEUR_MS + 1000);
+    expect(panne.appels.length).toBe(n);                                   // marqueur posé : pas de nouvel essai
+    await env.SESSIONS_KV.delete('tddoc:confiance:essai');
+  });
+  it('taille annoncée trop grande : annuaire non lu', async () => {
+    const gros = async (u) => new Response(multipart(DER), { status: 200, headers: { 'Content-Length': String(5 * 1024 * 1024) } });
+    const d = await collecter(gros);
+    expect(d.autorites.FR06.certificats).toEqual([]);
+  });
+});

@@ -12,6 +12,19 @@ import { compterEnregistrements, trouverSuperpositions } from './indices-pdf.js'
 export const MAX_PAGES = 3;
 const MAX_TEXTE = 200000;
 const MAX_FENETRES = 48;
+export const ESSAIS_MAX = 60;          // décodages DataMatrix au plus par document (temps de calcul borné, téléphones)
+const IMAGES_PAR_PAGE = 6;
+const DELAI_OBJET_MS = 2000;
+const ceder = () => new Promise((r) => setTimeout(r, 0));   // rend la main au navigateur entre deux lectures lourdes
+/** Objet image de pdf.js : les images partagées entre pages (« g_… ») sont dans commonObjs, les autres dans objs ;
+ *  une attente qui ne se résout jamais (objet absent) est coupée au bout de 2 s (null). */
+export function attendreObjet(page, nom, ms = DELAI_OBJET_MS) {
+  return new Promise((res) => {
+    const t = setTimeout(() => res(null), ms);
+    const fin = (o) => { clearTimeout(t); res(o || null); };
+    try { const store = String(nom).startsWith('g_') ? page.commonObjs : page.objs; if (!store) return fin(null); store.get(nom, fin); } catch { fin(null); }
+  });
+}
 
 /**
  * Cherche un DataMatrix dans un canvas : l'image entière, puis des fenêtres qui se chevauchent.
@@ -19,15 +32,17 @@ const MAX_FENETRES = 48;
  * @param {(c:object)=>string|null} lire  décodeur (ZXing) appliqué à un canvas
  * @param {(w:number,h:number)=>object} creerCanvas
  */
-export function chercherCode(canvas, lire, creerCanvas) {
-  const plein = lire(canvas); if (plein) return plein;
+export function chercherCode(canvas, lire, creerCanvas, budget) {
+  const b = budget || { essais: Infinity };
+  const essai = (c) => { if (b.essais <= 0) return null; b.essais--; return lire(c); };
+  const plein = essai(canvas); if (plein) return plein;
   const W = canvas.width, H = canvas.height; const T = Math.round(Math.min(W, H) / 2.5); if (T < 120) return null;
   const pas = Math.round(T / 2); let n = 0;
   for (let y = 0; y < H; y += pas) for (let x = 0; x < W; x += pas) {
-    if (++n > MAX_FENETRES) return null;
+    if (++n > MAX_FENETRES || b.essais <= 0) return null;
     const c = creerCanvas(T, T); const g = c.getContext('2d');
     g.fillStyle = '#fff'; g.fillRect(0, 0, T, T); g.drawImage(canvas, x, y, T, T, 0, 0, T, T);
-    const t = lire(c); if (t) return t;
+    const t = essai(c); if (t) return t;
   }
   return null;
 }
@@ -67,6 +82,8 @@ export async function analyserFichier(fichier, deps) {
   if (!octets || !octets.length) return { illisible: true, estPdf: false, codes: [], texte: '' };
   const codes = [];
   const ajouter = (t) => { if (t && !codes.includes(t)) codes.push(t); };
+  const budget = { essais: (deps && deps.essaisMax) || ESSAIS_MAX };
+  const pause = (deps && deps.ceder) || ceder;
   if (mime === 'application/pdf') {
     if (!deps || !deps.pdfjs) throw new Error('pdf.js indisponible');
     let doc;
@@ -86,23 +103,29 @@ export async function analyserFichier(fichier, deps) {
             if (texte.length < MAX_TEXTE) texte += it.str + (it.hasEOL ? '\n' : ' | ');
           }
         } catch { /* couche texte absente : pas de comparaison */ }
-        let trouve = null;
+        let trouve = null, vues = 0;
         try {
           const ops = await page.getOperatorList();
           const OPS = deps.pdfjs.OPS || {};
-          for (let i = 0; i < ops.fnArray.length && !trouve; i++) {
+          for (let i = 0; i < ops.fnArray.length && !trouve && vues < IMAGES_PAR_PAGE && budget.essais > 0; i++) {
             if (ops.fnArray[i] !== OPS.paintImageXObject && ops.fnArray[i] !== OPS.paintInlineImageXObject) continue;
             const arg = ops.argsArray[i] && ops.argsArray[i][0];
-            const obj = typeof arg === 'string' ? await new Promise((res) => { try { page.objs.get(arg, res); } catch { res(null); } }) : arg;
-            if (!obj || !obj.width || obj.width * obj.height > 16e6) continue;
-            const c = imageVersCanvas(obj, deps.creerCanvas); if (c) trouve = chercherCode(c, deps.lire, deps.creerCanvas);
+            const obj = typeof arg === 'string' ? await attendreObjet(page, arg, deps.delaiObjetMs) : arg;
+            if (!obj || !obj.width || !obj.height || obj.width * obj.height > 16e6) continue;
+            // Un 2D-Doc est presque carré et lisible : on ignore vignettes, filets et bandeaux.
+            const ratio = Math.max(obj.width, obj.height) / Math.min(obj.width, obj.height);
+            if (Math.min(obj.width, obj.height) < 16 || ratio > 3) continue;
+            vues++;
+            const c = imageVersCanvas(obj, deps.creerCanvas); if (c) trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
+            await pause();
           }
         } catch { /* liste d'opérations indisponible : on passe au rendu */ }
-        if (!trouve) {
+        if (!trouve && budget.essais > 0) {
           const vp1 = page.getViewport({ scale: 1 }); const k = Math.min(3, 2400 / Math.max(vp1.width, vp1.height));
           const vp = page.getViewport({ scale: k }); const c = deps.creerCanvas(Math.ceil(vp.width), Math.ceil(vp.height));
           await page.render({ canvasContext: c.getContext('2d'), viewport: vp, intent: 'print' }).promise;
-          trouve = chercherCode(c, deps.lire, deps.creerCanvas);
+          trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
+          await pause();
         }
         ajouter(trouve);
       }
@@ -121,7 +144,8 @@ export async function analyserFichier(fichier, deps) {
     const k = Math.min(1, 3000 / Math.max(img.largeur, img.hauteur));
     const c = deps.creerCanvas(Math.round(img.largeur * k), Math.round(img.hauteur * k));
     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img.source, 0, 0, c.width, c.height);
-    ajouter(chercherCode(c, deps.lire, deps.creerCanvas));
+    try { if (img.source && typeof img.source.close === 'function') img.source.close(); } catch { /* rien */ }   // mémoire (téléphones)
+    ajouter(chercherCode(c, deps.lire, deps.creerCanvas, budget));
     return { illisible: false, estPdf: false, codes, texte: '' };
   }
   return { illisible: true, estPdf: false, codes: [], texte: '' };
@@ -161,5 +185,8 @@ export async function pageVersImage(fichier, deps, largeurCible = 1600) {
       for (const q of [0.82, 0.7, 0.55]) { const u = deps.versJpeg(c, q); if (u && u.length <= IMAGE_MAX_CARACTERES) return u; }
     }
     return null;
-  } finally { if (detruire) detruire(); }
+  } finally {
+    if (detruire) detruire();
+    try { if (source && typeof source.close === 'function') source.close(); } catch { /* rien */ }
+  }
 }

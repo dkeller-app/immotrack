@@ -11,7 +11,7 @@
 ## 1. Objet et cadre (non négociable)
 
 Donner au bailleur des **constats factuels vérifiables** sur les pièces d'un dossier de candidature :
-1. **2D-Doc** : signature cryptographique de l'État (avis d'imposition, et toute pièce qui en porte un) — contrôle sur l'appareil.
+1. **2D-Doc** : signature cryptographique du code (DGFiP pour les avis d'imposition ; émetteur privé certifié pour une facture), contrôlée sur l'appareil contre la liste de confiance de France Titres.
 2. **Lecture IA des bulletins de salaire** (Mistral, UE) : l'IA **extrait** des champs ; des **règles écrites et testées** vérifient calculs et cohérences.
 3. **Indices techniques des fichiers PDF** (sans IA) : logiciel, dates, texte superposé — présentés comme indices qui ne permettent pas de conclure.
 
@@ -117,7 +117,7 @@ Tout est reproductible (`mockups/VERIF-DOCUMENTS/prototype/`), sans aucun docume
 ### 5.2 Constats (catalogue fermé, chacun = règle + source + date)
 | Code | Constat (formulation) | Règle / source |
 |---|---|---|
-| V1 | Signature de l'État vérifiée — émetteur, certificat, AC, version de la TSL | Spec 2D-Doc §5.1 |
+| V1 | Signature 2D-Doc vérifiée (« de la DGFiP » pour un avis signé FPE* sous FR04/FR06) — émetteur, certificat, AC, version de la TSL | Spec 2D-Doc §5.1 |
 | V2 | Code 2D-Doc non conforme : la signature ne correspond pas aux données du code | idem |
 | V3 | Code 2D-Doc présent mais certificat introuvable, révoqué ou hors validité : non vérifiable | idem |
 | V4 | Aucun code 2D-Doc lisible (avis émis depuis avril 2022 : en portent un) + lien SVAIR et références | economie.gouv.fr 13/05/2026 |
@@ -206,7 +206,7 @@ Rappel des décisions :
 Recommandations (toutes retenues) en **gras**.
 
 1. **Maquette** (états, formulations, emplacement de la ligne « Vérification » et des constats) : **valider telle quelle.**
-2. **Couleur** : vert seulement pour « Signature de l'État vérifiée » (fait cryptographique) ; tout le reste neutre, y compris « Code 2D-Doc non conforme » et « Écart relevé » ; jamais de corail. **Oui.**
+2. **Couleur** : vert seulement pour « Signature 2D-Doc vérifiée » (libellé corrigé après la relecture du 14/10 : l'État publie la liste de confiance, l'émetteur signe) (fait cryptographique) ; tout le reste neutre, y compris « Code 2D-Doc non conforme » et « Écart relevé » ; jamais de corail. **Oui.**
 3. **Lancement de la lecture IA** : à la demande, dossier par dossier, ou automatiquement à la réception. **À la demande** (minimisation : seuls les dossiers étudiés partent ; coût maîtrisé). 2D-Doc et indices : automatiques à l'import (locaux, gratuits).
 4. **Moteur de lecture** : Mistral OCR 4.1 avec annotations (`/v1/ocr`, 5 $/1 000 pages, rétention zéro possible) ou modèle de chat avec image. **OCR 4.1**, ajouté comme méthode du fournisseur existant (pas de second adaptateur).
 5. **Point d'accès UE** : si `/v1/ocr` n'est pas servi sur `api.eu.mistral.ai`, **reporter la brique IA** plutôt que d'envoyer des bulletins sans garantie de traitement dans l'UE (à vérifier avec la clé au début du lot 3).

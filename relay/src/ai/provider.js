@@ -110,6 +110,9 @@ function mistral(env, fetchImpl) {
     // reconnu (markdown) n'est ni renvoyé ni journalisé : seule l'annotation (les champs demandés) ressort.
     async lireDocument({ tache, image, jsonSchema, consigne, delaiMs: delaiTache }) {
       const baseOcr = String(env.MISTRAL_OCR_BASE_URL || OCR_BASE_UE).replace(/\/+$/, '');
+      // Garde-fou : jamais un point d'accès hors UE pour des pièces de candidats (variable mal posée → refus, rien n'est envoyé).
+      let hote = ''; try { hote = new URL(baseOcr).hostname; } catch { hote = ''; }
+      if (!/^https:/.test(baseOcr) || !/(^|\.)eu\.mistral\.ai$/.test(hote)) { console.log('[ai] ocr point_acces_hors_ue'); throw new AiError('unavailable'); }
       const body = {
         model: env.AI_MODEL_OCR || OCR_MODELE,
         document: { type: 'image_url', image_url: image },

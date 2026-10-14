@@ -17588,13 +17588,19 @@ function _candSetPieceType(docId, typeId) {
   const val = String(typeId || '');
   if (window.PiecesCand && !window.PiecesCand.typeValide(String(d.category || ''), val)) { showToast('Type de pièce non reconnu pour cette catégorie', 'warn'); return; }
   if (val) d.pieceType = val; else delete d.pieceType;
-  // VERIF-DOCUMENTS : les constats dépendent du type (ex. « avis d'imposition sans code 2D-Doc ») → recalculés sans relire le fichier.
-  if (d.verif && window.VerifPieces) { try { d.verif.constats = window.VerifPieces.constatsDePiece(d, d.verif); } catch (e) {} }
+  // VERIF-DOCUMENTS : constats recalculés à l'affichage selon le type ; une pièce qui sort du périmètre perd ses résultats
+  // (minimisation : rien de gardé sur une pièce d'identité), une pièce qui n'est plus un bulletin perd sa lecture IA.
+  const _VP = window.VerifPieces;
+  if (_VP) {
+    if (d.verif && !_VP.pieceConcernee(d)) delete d.verif;
+    if (d.verifIa && !_VP.typeLectureIa(d)) delete d.verifIa;
+    if (d.verif && d.verif.v === _VP.VERSION_VERIF) d.verif.constats = _VP.constatsDePiece(d, d.verif);
+  }
   _stamp(d);
   try { if (typeof _auditLog === 'function') _auditLog('update', 'attachment', d.id, 'type de pièce : ' + (window.PiecesCand ? window.PiecesCand.libelleType(val) : val)); } catch (e) {}
   saveDB();
   showToast('Type enregistré : ' + (window.PiecesCand ? window.PiecesCand.libelleType(val) : (val || 'non précisé')), 'ok', 2500);
-  if (d.verif) { try { if (el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(d.parentId); } catch (e) {} }
+  try { if (el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(d.parentId); } catch (e) {}
 }
 
 // v15.156 — Rafraîchit en place une section de PJ (après upload/suppression), sans re-render

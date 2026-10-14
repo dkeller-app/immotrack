@@ -46,10 +46,10 @@ describe('pièces concernées et relance', () => {
 
 describe('scénario A : avis signé, données et nom identiques', () => {
   const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE, metadonnees: META, enregistrements: 1, superpositions: [] }, [VALIDE]);
-  it('état vert « Signature de l\'État vérifiée », aucun constat', () => {
+  it('état vert « Signature 2D-Doc vérifiée » (DGFiP : FPE* sous FR06), aucun constat', () => {
     const e = etatAffiche(AVIS, ver);
-    expect(e).toMatchObject({ etat: 'signature_valide', libelle: 'Signature de l\'État vérifiée', positif: true });
-    expect(e.phrase).toBe('avis d\'impôt sur les revenus de la DGFiP, revenus 2025 ; données identiques au texte imprimé ; nom identique à l\'identité déclarée.');
+    expect(e).toMatchObject({ etat: 'signature_valide', libelle: 'Signature 2D-Doc vérifiée', positif: true });
+    expect(e.phrase).toBe('avis d\'impôt sur les revenus de la DGFiP, revenus 2025 ; données retrouvées dans le texte du fichier ; nom identique à l\'identité déclarée.');
     expect(ver.constats).toEqual([]);
   });
   it('minimisation : l\'adresse n\'est pas conservée ; références pour impots.gouv gardées', () => {
@@ -59,7 +59,7 @@ describe('scénario A : avis signé, données et nom identiques', () => {
   });
   it('détail : lignes signées formatées, révocation et certificat datés', () => {
     const d = detail(AVIS, ver);
-    expect(d.deuxDDoc.lignes.find((l) => l.libelle === 'Revenu fiscal de référence')).toEqual({ libelle: 'Revenu fiscal de référence', valeur: '33 870 €', comparaison: 'Identique au texte imprimé' });
+    expect(d.deuxDDoc.lignes.find((l) => l.libelle === 'Revenu fiscal de référence')).toEqual({ libelle: 'Revenu fiscal de référence', valeur: '33 870 €', comparaison: 'Retrouvé dans le texte du fichier' });
     expect(d.deuxDDoc.validite).toBe('du 06/03/2025 au 05/03/2028');
     expect(d.deuxDDoc.revocation).toBe('liste de révocation du 14/10/2026, valable jusqu\'au 17/10/2026');
   });
@@ -70,7 +70,7 @@ describe('écarts sur un avis signé', () => {
     const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE.replace('33 870', '43 870'), metadonnees: META }, [VALIDE]);
     expect(etatAffiche(AVIS, ver)).toMatchObject({ etat: 'ecart', positif: false });
     const c = ver.constats.find((x) => x.code === 'V5');
-    expect(c.detail).toBe('Revenu fiscal de référence inscrit dans le code signé : 33 870. Cette valeur n\'apparaît pas dans le texte du document.');
+    expect(c.detail).toBe('Revenu fiscal de référence inscrit dans le code signé : 33 870. Cette valeur n\'apparaît pas dans le texte du fichier (couche texte du PDF).');
   });
   it('nom signé différent de l\'identité déclarée → V6, avec explication possible', () => {
     const ver = v({ estPdf: false, codes: ['x'], texte: '' }, [{ ...VALIDE, champs: CHAMPS.map((c) => (c.id === '46' ? { ...c, valeur: 'DUPONT CAMILLE' } : c)) }]);
@@ -128,6 +128,52 @@ describe('scénario B et autres états', () => {
   it('pièce non concernée et analyse pas encore faite', () => {
     expect(etatAffiche({ ...AVIS, category: 'identite' }, null).etat).toBe('aucun_controle');
     expect(etatAffiche(AVIS, null).etat).toBe('en_attente');
+  });
+});
+
+describe('relectures du 14/10 (Opus, Fable)', async () => {
+  const { typeLu, estDgfip, actualiser } = await import('../../js/core/verif-pieces.js');
+  it('liste blanche : jamais de pièce portant une photo ou une identité, jamais une pièce de caution sans type', () => {
+    for (const t of ['I.A.1', 'II.A.2', 'I.C.5', 'I.C.7', 'II.B.2', 'II.D.5', 'VISALE']) expect(typeLu(t, 'x'), t).toBe(false);
+    for (const t of ['I.B.1', 'I.C.1', 'I.D.1', 'I.D.2', 'II.B.1', 'II.C.2', 'II.D.1', 'II.E.1', 'II.E.3']) expect(typeLu(t, 'x'), t).toBe(true);
+    expect(typeLu('', 'ressources')).toBe(true); expect(typeLu('', 'garant')).toBe(false); expect(typeLu('', 'identite')).toBe(false);
+    expect(pieceConcernee({ ...AVIS, category: 'garant', pieceType: '' })).toBe(false);
+    expect(pieceConcernee({ ...AVIS, category: 'garant', pieceType: 'II.B.2' })).toBe(false);
+  });
+  it('un DataMatrix qui n\'est pas un 2D-Doc n\'est pas « code présent » : l\'avis reste « aucun code lisible » (V4, impots.gouv)', () => {
+    const ver = v({ estPdf: true, codes: ['ARCHIVE-123'] }, [{ etat: 'illisible', code: 'entete', motif: 'Le code lu n\'est pas un 2D-Doc lisible.' }]);
+    expect(ver.deuxDDoc).toBeNull();
+    expect(ver.constats.map((c) => c.code)).toEqual(['V4']);
+    expect(ver.constats[0].svair).toBe(true);
+  });
+  it('« de la DGFiP » seulement pour FPE* sous FR04 / FR06 et un avis d\'impôt ; sinon autorité et certificat nommés', () => {
+    expect(estDgfip({ ac: 'FR06', certificat: 'FPE3', type: '28' })).toBe(true);
+    expect(estDgfip({ ac: 'FR03', certificat: 'FPE3', type: '28' })).toBe(false);
+    expect(estDgfip({ ac: 'FR06', certificat: 'FPE3', type: '01' })).toBe(false);
+    const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE }, [{ ...VALIDE, entete: { ...ENT, ac: 'FR07', certificat: 'FPE1' } }]);
+    expect(etatAffiche(AVIS, ver).phrase).toMatch(/^avis d'impôt sur les revenus \(autorité FR07, certificat FPE1\)/);
+  });
+  it('avis portant le code signé d\'un autre document (facture) : constat V8, état neutre', () => {
+    const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE }, [{ ...VALIDE, entete: { ...ENT, ac: 'FR03', certificat: 'EDFD', type: '01' }, champs: [] }]);
+    expect(ver.constats.map((c) => c.code)).toContain('V8');
+    expect(etatAffiche(AVIS, ver)).toMatchObject({ etat: 'ecart', positif: false });
+  });
+  it('photo d\'un avis signé : la phrase dit que les montants imprimés n\'ont pas été comparés et donne le revenu signé', () => {
+    const ver = v({ estPdf: false, codes: ['x'], texte: '' }, [VALIDE], { ...AVIS, mime: 'image/jpeg' });
+    expect(etatAffiche({ ...AVIS, mime: 'image/jpeg' }, ver).phrase).toContain('montants imprimés non comparés (image ou PDF sans texte) ; revenu fiscal de référence signé : 33\u00a0870 €, à comparer avec la pièce');
+  });
+  it('un code valide et un code non conforme sur la même pièce : le second n\'est pas tu', () => {
+    const ver = v({ estPdf: true, codes: ['a', 'b'], texte: TEXTE }, [VALIDE, { etat: 'invalide', code: 'signature', motif: 'x', entete: ENT }]);
+    expect(ver.constats.map((c) => c.code)).toContain('V2');
+    expect(etatAffiche(AVIS, ver).etat).toBe('ecart');
+  });
+  it('affichage à jour : nom déclaré corrigé et type changé pris en compte sans relire le fichier', () => {
+    const ver = v({ estPdf: false, codes: ['x'], texte: '' }, [{ ...VALIDE, champs: CHAMPS.map((c) => (c.id === '46' ? { ...c, valeur: 'DUPONT CAMILLE' } : c)) }]);
+    expect(ver.constats.map((c) => c.code)).toEqual(['V6']);
+    const a = actualiser(AVIS, ver, { ...CAND, nom: 'Dupont', prenom: 'Camille' });
+    expect(a.constats).toEqual([]); expect(a.deuxDDoc.identite).toBe('concorde');
+    expect(actualiser({ ...AVIS, category: 'identite', pieceType: 'I.A.1' }, ver, CAND).constats).toEqual([]);
+    expect(ver.constats.map((c) => c.code)).toEqual(['V6']);            // l'objet stocké n'est pas modifié
   });
 });
 

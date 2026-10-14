@@ -14,7 +14,7 @@ import * as ReglesBulletin from '../../js/core/regles-bulletin.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
-const SRC = ['_candVerifReglages', '_ensureZxing', '_zxingLecteur', '_candVerifEtat', '_candVrfIco', '_candIaPieces', '_candIaAnalyse', '_candVerifLigneHtml', '_candVerifConstats', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
+const SRC = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_ensureZxing', '_zxingLecteur', '_candVerifEtat', '_candVrfIco', '_candIaPieces', '_candIaAnalyse', '_candVerifLigneHtml', '_candVerifConstats', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
   .map((n) => extraireFonction(P1, n)).join('\n') + '\n'
   + 'async ' + extraireFonction(P1, '_tddocConfiance') + '\n'
   + 'async ' + extraireFonction(P1, '_candVerifierPieces') + '\n'
@@ -80,7 +80,7 @@ describe('déclenchement et enregistrement', () => {
     const DB = parc();
     const { app, j } = monter(DB, { analyse: { ...SANS_CODE, codes: ['DC04FR000001FFFF25472801FR432,75\x1d\x1fAAAA'] }, relais: { source: 'relais', autorites: {} } });
     await app._candVerifierPieces('c1');
-    expect(j.fetches).toEqual(['https://relais.test/api/2ddoc/confiance']);
+    expect(j.fetches).toEqual(['https://relais.test/api/2ddoc/confiance', 'js/vendor/2ddoc-instantane.json']);   // autorités absentes du relais : complétées par l'instantané
     expect(DB.documents[0].verif.deuxDDoc).toMatchObject({ etat: 'non_verifiable', code: 'ac_inconnue' });
   });
   it('relais injoignable : repli sur l\'instantané embarqué', async () => {
@@ -198,5 +198,30 @@ describe('échappement des gestionnaires on…= (identifiant hostile)', () => {
     for (const n of ['_candVerifLigneHtml', '_candVerifConstats', '_candVerifDetail']) {
       expect(extraireFonction(P1, n), n).not.toMatch(/\(\\'' \+ escHtml\(/);
     }
+  });
+});
+
+describe('relectures du 14/10 : constats recalculés, minimisation au changement de type, tombe sans données', () => {
+  it('un constat stocké altéré en base (adresse javascript:) n\'est jamais affiché : les constats viennent du code', async () => {
+    const DB = parc();
+    const { app } = monter(DB, { analyse: SANS_CODE });
+    await app._candVerifierPieces('c1');
+    DB.documents[0].verif.constats = [{ code: 'X', titre: 'injecté', url: 'javascript:alert(1)', source: 's' }];
+    const pts = app._candPointsAVerifier(DB.candidats[0]);
+    expect(JSON.stringify(pts)).not.toContain('javascript:');
+    expect(pts.map((p) => p.code)).toEqual(['V4', 'T1']);
+  });
+  it('pièce retypée en pièce d\'identité : résultats de vérification effacés, plus aucun constat', async () => {
+    const DB = parc([AVIS({ category: 'ressources' })]);
+    const { app } = monter(DB, { analyse: SANS_CODE });
+    await app._candVerifierPieces('c1');
+    DB.documents[0].category = 'garant';
+    app._candSetPieceType('d1', 'II.A.1');
+    expect(DB.documents[0].verif).toBeUndefined();
+    expect(app._candPointsAVerifier(DB.candidats[0])).toEqual([]);
+  });
+  it('suppression d\'une pièce (_attachmentDelete) : la tombe synchronisée ne garde ni verif ni verifIa', () => {
+    const f = extraireFonction(P1, '_attachmentDelete');
+    expect(f).toContain('delete doc.verif; delete doc.verifIa;');
   });
 });

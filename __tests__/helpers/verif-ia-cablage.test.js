@@ -13,7 +13,7 @@ import * as IaTransparence from '../../js/core/ia-transparence.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
-const NOMS = ['_candVerifReglages', '_candIaClient', '_candIaPieces', '_candIaAnalyse', '_candIaAFaire', '_candIaLotHtml', '_candIaOuvrir', '_candIaDetailHtml', '_candIaCorriger',
+const NOMS = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_candIaClient', '_candIaPieces', '_candIaAnalyse', '_candIaAFaire', '_candIaLotHtml', '_candIaOuvrir', '_candIaDetailHtml', '_candIaCorriger',
   '_candVerifEtat', '_candVrfIco', '_candVerifLigneHtml', '_candVerifConstats', '_candVerifParams', 'rParamsCandidatures', '_candVerifReglerLocaux', '_candVerifReglerIa', '_candVerifReglerModeIa', '_candVerifNoticeIa', '_candVerifActiverIa'];
 const SRC = NOMS.map((n) => extraireFonction(P1, n)).join('\n') + '\nasync ' + extraireFonction(P1, '_candIaDispo') + '\nasync ' + extraireFonction(P1, '_candIaLancer');
 const escHtml = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -31,7 +31,7 @@ function monter(DB, { statut = { ok: true, ocr: { actif: true } }, structurer, b
     _relayCfg: () => ({ base: 'https://relais.test', getToken: async () => 'jwt' }), _attachmentLoadBinary: async () => binaire, _ensurePdfjsLoaded: async () => {}, _dataUrlToUint8: () => new Uint8Array([1]),
     _stamp: (o) => { o._modifiedAt = 'stamp'; }, saveDB: () => { j.saves++; }, showToast: (m) => j.toasts.push(m), openFicheCandidat: () => { j.fiche++; }, openM: (id) => { j.modale = id; }, closeM: () => { j.fermes++; },
     el: (id) => dom[id] || null, escHtml, _lyQ: (s) => escHtml(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")),_uiIcon: (n) => '<svg data-i="' + n + '"></svg>', fd: (s) => s.split('-').reverse().join('/'), _auditLog: (...a) => j.audits.push(a),
-    _ficheCandidatOuverte: 'c1', _candVerifDetail: () => {}, _candIaEnCours: new Set()
+    _ficheCandidatOuverte: 'c1', _candVerifDetail: () => {}, _candIaEnCours: new Set(), _candVerifierPieces: async () => { j.locales = (j.locales || 0) + 1; }
   };
   const noms = Object.keys(deps);
   const app = new Function(...noms, 'let _candIaOcr = { actif: null, le: 0 };\n' + SRC + '\nreturn { ' + NOMS.concat(['_candIaDispo', '_candIaLancer']).join(', ') + ' };')(...noms.map((n) => deps[n]));
@@ -93,12 +93,26 @@ describe('lecture des bulletins par l\'IA — à la demande', () => {
     expect(DB2.documents[0].verifIa).toMatchObject({ erreur: 'unavailable' });
     expect(b.app._candIaLotHtml(DB2.candidats[0])).toContain("Lire avec l'IA");   // la pièce reste à relire
   });
-  it('page impossible à rendre sous la taille admise : rien n\'est envoyé, pièce « illisible »', async () => {
+  it('page impossible à préparer sous la taille admise : rien n\'est envoyé, lecture reportée (pas « illisible »)', async () => {
     const DB = parc();
     const { app, j } = monter(DB, { image: null });
     await app._candIaLancer('c1');
     expect(j.appels).toEqual([]);
-    expect(DB.documents[0].verifIa.lu).toEqual({ lisible: false });
+    expect(DB.documents[0].verifIa).toMatchObject({ erreur: 'rendu' });
+    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('préparée sur l');
+  });
+  it('contrôle local lancé avant la lecture ; un avis reconnu par son code 2D-Doc n\'est jamais envoyé, même typé « bulletin »', async () => {
+    const DB = parc([BUL({ verif: { v: 1, le: '2026-10-11', deuxDDoc: { etat: 'valide', type: '28' }, constats: [] } })]);
+    const { app, j } = monter(DB);
+    await app._candIaLancer('c1');
+    expect(j.locales).toBe(1);
+    expect(j.appels).toEqual([]);
+  });
+  it('dossier refusé pendant la lecture : arrêt avant l\'envoi suivant', async () => {
+    const DB = parc([BUL(), BUL({ id: 'b2', originalName: 'b2.pdf' })]);
+    const { app, j } = monter(DB, { structurer: () => { DB.candidats[0].statut = 'refuse'; return { ok: true, data: LU_AOUT }; } });
+    await app._candIaLancer('c1');
+    expect(j.appels.length).toBe(1);
   });
   it('pièce supprimée pendant la lecture : résultat non écrit', async () => {
     const DB = parc();

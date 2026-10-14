@@ -111,3 +111,19 @@ describe('Mistral OCR (client HTTP injecté) : point d\'accès UE, annotation st
     expect(tout).not.toMatch(/DUPONT|2193|data:image|AAAA/);
   });
 });
+
+describe('relecture du 14/10 (Fable) : point d\'accès hors UE refusé', () => {
+  it('MISTRAL_OCR_BASE_URL hors UE (ou en http) : rien n\'est envoyé, 502', async () => {
+    for (const base of ['https://api.mistral.ai', 'http://api.eu.mistral.ai', 'https://eu.mistral.ai.example.com']) {
+      const f = vi.fn();
+      const a = new Hono();
+      registerAiRoutes(a, { requireSupabaseUser: async () => ({ userId: uid() }), providerFactory: (x) => makeAiProvider({ ...x, AI_PROVIDER: 'mistral', MISTRAL_API_KEY: 'cle-test', MISTRAL_OCR_BASE_URL: base }, f) });
+      const r = await a.request('/ai/structure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: 'bulletin-paie', input: { type: 'bulletin', images: [IMG] } }) }, { ...env, AI_OCR: 'true', MISTRAL_API_KEY: 'cle-test' });
+      expect(r.status, base).toBe(502);
+      expect(f).not.toHaveBeenCalled();
+    }
+  });
+  it('contrat : valeurs écartées comptées', () => {
+    expect(T.validerSortie({ lisible: true, siret: '12', dateDebut: 'hier' }, { type: 'contrat' }).rejets).toBe(2);
+  });
+});
