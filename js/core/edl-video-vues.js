@@ -72,7 +72,7 @@ export function vueTraitement({ piece, duree: d = 0, mo = 0, images = 0, emprein
     + li('transcription', 'Commentaire transcrit', '')
     + li('propositions', 'Propositions d’observations', '')
     + li('photos', 'Photos proposées', '') + '</ul>';
-  if (envoi) corps += blocEnvoi(envoi, { ic });
+  if (envoi) corps += `<div class="evx-envoi-courant" data-video="${esc(jsId(envoi.id || ''))}">${blocEnvoi(envoi, { ic })}</div>`;
   corps += '<p class="evx-note">L’état des lieux reste utilisable pendant le traitement. Un bandeau dans la pièce prévient quand les propositions sont prêtes.</p>';
   return { titre: `Traitement · ${piece}`, corps, pied: sec('_edlVoixFermer()', 'Revenir à l’état des lieux'), ferme: 'close' };
 }

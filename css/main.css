@@ -10699,3 +10699,68 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 @media (min-width:1024px){
   .evx-acts .btn{flex:0 1 auto;min-width:130px}
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   EDL-VIDEO-IA — état des lieux filmé (maquette validée le 14/10, mockups/EDL-VIDEO-IA).
+   Même couche #edl-voix que la dictée : téléphone = page plein écran (M-16), tablette = feuille,
+   PC = dialogue. Le viseur est une incrustation sur l'image de la caméra : ses couleurs ne suivent pas
+   le thème (texte clair sur voile sombre), elles sont posées ici en variables, jamais en dur.
+   Cibles ≥ 44 px, champs ≥ 16 px (M-8) ; corail = action (M-15).
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root{--vf-fond:#000;--vf-texte:#fff;--vf-voile:rgba(0,0,0,.55);--vf-pastille:rgba(0,0,0,.45);--vf-conseil:#f1bd55;--vf-conseil-texte:#101521}
+.evx-dual{display:flex;flex-direction:column;gap:8px}
+@media (min-width:768px){ .evx-dual{flex-direction:row;flex:none} }
+.evx-panel.evx-film .evx-body{padding:0;display:flex;background:var(--vf-fond)}
+@media (min-width:1024px){ .evx-panel.evx-film{height:88%} }
+.evx-vf{position:relative;flex:1;min-height:320px;display:flex;flex-direction:column;justify-content:space-between;background:var(--vf-fond);overflow:hidden}
+.evx-viseur{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.evx-vf-top,.evx-vf-bot,.evx-hint{position:relative;z-index:1}
+.evx-vf-top{display:flex;align-items:center;gap:10px;padding:10px;background:linear-gradient(var(--vf-voile),transparent)}
+.evx-recb{display:inline-flex;align-items:center;gap:8px;font:800 16px var(--font);color:var(--vf-texte);background:var(--vf-pastille);border-radius:var(--rp);padding:6px 12px;font-variant-numeric:tabular-nums}
+.evx-recb i{width:10px;height:10px;border-radius:50%;background:var(--acc);display:inline-block;animation:evx-bl 1.2s infinite}
+.evx-recb.p i{animation:none;background:var(--t3)}
+.evx-vf-lim{font:600 14px var(--font);color:var(--vf-texte)}
+.evx-hint{align-self:center;margin:0 12px;font:700 16px/1.3 var(--font);color:var(--vf-conseil-texte);background:var(--vf-conseil);border-radius:var(--rp);padding:8px 14px;text-align:center}
+.evx-hint[hidden]{display:none}
+.evx-vf-bot{padding:12px;background:linear-gradient(transparent,var(--vf-voile));color:var(--vf-texte);font:400 14px/1.4 var(--font)}
+.evx-vf-bot b{display:block;font-size:15px}
+.evx-said{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.evx-said span{font:700 13px var(--font);background:var(--vf-pastille);border-radius:var(--rp);padding:3px 9px}
+
+/* Accord du locataire */
+.evx-acc{display:flex;gap:12px;align-items:flex-start;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:12px;margin-bottom:10px}
+.evx-acc.abs{opacity:.7}
+.evx-box{flex:none;width:44px;height:44px;border-radius:10px;border:2px solid var(--t3);background:var(--sur);color:var(--cta-text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.evx-box[aria-checked="true"]{background:var(--pos);border-color:var(--pos)}
+.evx-box[disabled]{cursor:default;opacity:.5}
+.evx-box svg{width:22px;height:22px}
+.evx-acc-tx{flex:1;min-width:0;font:400 15px/1.4 var(--font);color:var(--t1)}
+.evx-acc-tx small{display:block;color:var(--t3);font-size:13px;margin-top:2px}
+.evx-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Envoi de la vidéo */
+.evx-grow{flex:1;min-width:0}
+.evx-prog{height:8px;border-radius:var(--rp);background:var(--sur3);overflow:hidden;margin:8px 0 2px}
+.evx-prog i{display:block;height:100%;background:var(--acc);border-radius:var(--rp)}
+.evx-vban:empty{display:none}
+
+/* Photos tirées de la vidéo, dans les cartes */
+.evx-seen{display:flex;gap:6px;align-items:flex-start;margin-top:8px;font:400 14px/1.4 var(--font);color:var(--t1)}
+.evx-seen svg{width:16px;height:16px;flex:none;margin-top:2px;color:var(--adv)}
+.evx-thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.evx-th{width:104px;display:flex;flex-direction:column;gap:4px}
+.evx-th-im{position:relative;width:104px;height:138px;border-radius:var(--r);border:2px solid var(--bor);background:var(--sur3) center/cover no-repeat;padding:0;cursor:pointer}
+.evx-th.keep .evx-th-im{border-color:var(--pos)}
+.evx-th.drop .evx-th-im{opacity:.4}
+.evx-tc{position:absolute;left:4px;bottom:4px;font:800 12px var(--font);color:var(--vf-texte);background:var(--vf-pastille);border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
+.btn.evx-sec.evx-gk{min-height:44px;font-size:13px;padding:0 4px}
+.btn.evx-sec.evx-gk svg{width:14px;height:14px}
+
+/* Photo en grand + recadrage */
+.evx-frame{position:relative;margin:0 auto;max-width:420px;border-radius:var(--r);overflow:hidden;background:var(--vf-fond);touch-action:none;user-select:none}
+.evx-frame img{display:block;width:100%;height:auto;pointer-events:none}
+.evx-crop{position:absolute;border:2px solid var(--vf-texte);box-shadow:0 0 0 2000px var(--vf-voile);cursor:move}
+.evx-poignee{position:absolute;right:-2px;bottom:-2px;width:44px;height:44px;border-right:5px solid var(--vf-texte);border-bottom:5px solid var(--vf-texte);cursor:nwse-resize}
+.evx-scrub{display:flex;align-items:center;gap:8px;margin:12px 0}
+.evx-scrub .btn{flex:1}
+.evx-scrub > span:not(.evx-tm){flex:1}
+.evx-tm{font:800 18px var(--display);font-variant-numeric:tabular-nums;min-width:64px;text-align:center;color:var(--t1)}

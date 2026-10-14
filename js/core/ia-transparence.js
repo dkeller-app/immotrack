@@ -120,5 +120,6 @@ export function edlAAideIA(edl) {
     }
   }
   const c = edl.compteursIA;
-  return !!(c && typeof c === 'object' && Object.keys(c).length);
+  if (c && typeof c === 'object' && Object.keys(c).length) return true;
+  return edlAPhotosVideo(edl);   // EDL-VIDEO-IA : une photo de la vidéo gardée = aide de l'IA
 }

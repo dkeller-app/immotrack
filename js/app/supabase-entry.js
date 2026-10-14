@@ -645,6 +645,67 @@ async function boot() {
     } catch (e) { return null }
   }
 
+  // EDL-VIDEO-IA (14/10/2026) — ENVOI REPRENABLE d'une vidéo d'état des lieux (protocole TUS, morceaux de 6 Mo,
+  // js/core/tus-client.js). Chemin par-SCI <espace>/<seg>/files/<clé> comme les photos ; x-upsert false : une
+  // vidéo n'écrase jamais un fichier existant (un fichier déjà présent = envoi déjà fait → succès). Retour
+  // { ok, path, url, code } ; `url` = adresse d'envoi à mémoriser pour reprendre après une coupure (24 h).
+  window.__immoCloudUploadResumable = async function (o) {
+    try {
+      if (!_cloudEspaceId || !o || !o.cle) return { ok: false, code: 'cloud' }
+      const seg = o.entiteSeg || '_orphelin'
+      const eid = _espaceOfEntiteSeg(seg)
+      const path = eid + '/' + seg + '/files/' + o.cle
+      const Tus = window.TusClient || (await import('../core/tus-client.js'))
+      const getToken = async () => { try { const { data } = await client.auth.getSession(); return (data && data.session && data.session.access_token) || '' } catch (e) { return '' } }
+      const envoi = Tus.creerEnvoiTus({
+        endpoint: Tus.pointEntree(window.IMMO_SUPABASE.url), getToken, apikey: window.IMMO_SUPABASE.anonKey,
+        bucket: 'espace-files', objet: path, type: o.type || 'video/webm', taille: o.taille, lire: o.lire,
+        url: o.url || '', onUrl: o.onUrl, onProgres: o.onProgres,
+      })
+      const r = await envoi.demarrer()
+      if (r.ok || r.code === 'existe') return { ok: true, path, url: r.url || '' }
+      return { ok: false, code: r.code, url: r.url || '' }
+    } catch (e) { return { ok: false, code: 'reseau' } }
+  }
+
+  // EDL-VIDEO-IA — REGISTRE des médias d'EDL (migration 0058) : une ligne par vidéo à l'abri, rattachée à la
+  // ligne `edl` (retrouvée par legacy_id dans l'espace du fichier) et à son logement. La base SCELLE la vidéo
+  // à la signature de l'EDL (ni effaçable ni écrasable ensuite). TOLÉRANT : table absente (0058 pas encore
+  // appliquée) ou EDL pas encore synchronisé → { ok:false } et l'app réessaie à l'ouverture suivante ; le
+  // fichier, lui, est déjà dans le stockage. Jamais d'écrasement (ignoreDuplicates).
+  window.__immoEdlMediaRegister = async function (o) {
+    try {
+      if (!_cloudEspaceId || !o || !o.path) return { ok: false, code: 'cloud' }
+      const espace = String(o.path).split('/')[0]
+      const { data: e, error: e1 } = await client.from('edl').select('id, logement_id')
+        .eq('espace_id', espace).eq('legacy_id', String(o.edlLocalId)).is('deleted_at', null).limit(1).maybeSingle()
+      if (e1 || !e) return { ok: false, code: 'edl_absent' }
+      const ligne = {
+        espace_id: espace, logement_id: e.logement_id, edl_id: e.id, edl_legacy_id: String(o.edlLocalId),
+        storage_path: o.path, kind: 'video', mime: o.mime || null, octets: Number(o.octets) || null,
+        duree_s: Number.isFinite(Number(o.duree)) ? Math.round(Number(o.duree)) : null,
+        sha256: /^[0-9a-f]{64}$/.test(String(o.sha256 || '')) ? o.sha256 : null, piece: o.piece || null, prise: Number(o.prise) || null,
+      }
+      const { error } = await client.from('edl_medias').upsert(ligne, { onConflict: 'storage_path', ignoreDuplicates: true })
+      if (error) return { ok: false, code: /42P01|PGRST20|does not exist|schema cache/i.test(String(error.code) + ' ' + String(error.message)) ? 'table_absente' : 'refus' }
+      return { ok: true }
+    } catch (e) { return { ok: false, code: 'reseau' } }
+  }
+
+  // EDL-VIDEO-IA — ÉCHÉANCE de conservation des vidéos d'un EDL (restitution du DG + 3 ans) et gel pour litige.
+  // La base garde la main : une échéance ne recule jamais, ne tombe jamais avant signature + 3 ans (0058).
+  window.__immoEdlMediaEcheance = async function (o) {
+    try {
+      if (!_cloudEspaceId || !o || o.edlLocalId == null) return { ok: false, code: 'cloud' }
+      const patch = {}
+      if ('purgeApres' in o) patch.purge_apres = o.purgeApres || null
+      if (o.gelJusquau) { patch.gel_jusquau = o.gelJusquau; patch.gel_motif = String(o.gelMotif || 'litige').slice(0, 300) }
+      if (!Object.keys(patch).length) return { ok: true }
+      const { error } = await client.from('edl_medias').update(patch).eq('edl_legacy_id', String(o.edlLocalId))
+      return error ? { ok: false, code: 'refus' } : { ok: true }
+    } catch (e) { return { ok: false, code: 'reseau' } }
+  }
+
   // CANDIDATURES-CONFORMITE (12/10/2026) — SUPPRESSION des fichiers de CANDIDATS dans Supabase Storage.
   // SEULE suppression Storage de l'app. Réservée aux pièces de candidats (purge RGPD des non retenus à
   // J+30, suppression manuelle d'un candidat ou d'une pièce hors liste) : l'appelant ne passe que des

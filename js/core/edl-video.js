@@ -91,7 +91,26 @@ export function metaVideo(v) {
     mime: String(p.mime || ''), octets: Number(p.octets) | 0, duree: Math.round(Number(p.duree) || 0),
     sha256: String(p.sha256 || ''), filmeLe: String(p.filmeLe || ''), cloudKey: String(p.cloudKey || ''),
     ...(p.importee ? { importee: true } : {}),
+    // Inscrite au registre des médias (0058) : la base la protège dès la signature de l'EDL.
+    ...(p.registre ? { registre: true } : {}),
   };
+}
+
+/** Son décodé (mono, Float32) → fichier WAV PCM 16 bits : dictée d'une vidéo importée (≈ 1,9 Mo/min à 16 kHz). */
+export function encoderWav(echantillons, frequence = 16000) {
+  const n = echantillons ? echantillons.length : 0;
+  const buf = new ArrayBuffer(44 + n * 2);
+  const v = new DataView(buf);
+  const ecrire = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ecrire(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); ecrire(8, 'WAVE');
+  ecrire(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, frequence, true); v.setUint32(28, frequence * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  ecrire(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    const s = Math.max(-1, Math.min(1, echantillons[i] || 0));
+    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return buf;
 }
 
 /** Une vidéo est « à l'abri » quand son fichier est dans le stockage (cloudKey), comme une photo. */

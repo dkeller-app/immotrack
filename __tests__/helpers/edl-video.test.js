@@ -118,7 +118,20 @@ describe('fichier vidéo', () => {
     expect(V.metaVideo({ ...v, intrus: 'x' })).toEqual(v);
     expect(V.nouvelleVideo({ cle: 'b', sha256: 'pas-un-hash' }).sha256).toBe('');
     expect(V.prochainNumeroPrise([v, { ...v, prise: 2 }, { ...v, pieceIdx: 1, prise: 5 }], 3)).toBe(3);
+    expect(V.metaVideo({ ...v, registre: true }).registre).toBe(true);
     expect(V.videoAlAbri(v)).toBe(false);
+  });
+});
+
+describe('son d’une vidéo importée', () => {
+  it('encoderWav : en-tête RIFF/WAVE PCM 16 bits mono, échantillons bornés', () => {
+    const b = V.encoderWav(new Float32Array([0, 1, -1, 2]), 16000);
+    const d = new DataView(b);
+    const s = (o, n) => String.fromCharCode(...new Uint8Array(b, o, n));
+    expect([s(0, 4), s(8, 4), s(12, 4), s(36, 4)]).toEqual(['RIFF', 'WAVE', 'fmt ', 'data']);
+    expect(b.byteLength).toBe(44 + 8);
+    expect([d.getUint16(22, true), d.getUint32(24, true), d.getUint16(34, true)]).toEqual([1, 16000, 16]);
+    expect([d.getInt16(44, true), d.getInt16(46, true), d.getInt16(48, true), d.getInt16(50, true)]).toEqual([0, 32767, -32768, 32767]);
   });
 });
 
@@ -293,6 +306,7 @@ describe('capture vidéo (mode vidéo de l’enregistreur)', () => {
     expect(b.recs.every((x) => x.state === 'recording')).toBe(true);
     const out = await b.rec.arreter();
     expect(out).toMatchObject({ mime: 'video/webm', duree: 6, audio: { mime: 'audio/webm' } });
+    expect(b.rec.instant()).toBe(6);
     expect(out.morceaux).toHaveLength(2);
     expect(out.audio.morceaux).toHaveLength(2);
     expect(b.pistesV[0].stop).toHaveBeenCalled();

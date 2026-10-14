@@ -102,6 +102,8 @@ export function creerEnregistreur(o) {
     get mime() { return mime; },
     get flux() { return flux; },
     secondes,
+    /** Instant (s, au dixième) dans la prise, pauses exclues : horodate les images tirées de la vidéo. */
+    instant() { return Math.round((cumulMs + (etat === 'enregistre' ? now() - depuis : 0)) / 100) / 10; },
     async demarrer() {
       if (etat !== 'inactif') return { ok: false, code: 'deja' };
       try {

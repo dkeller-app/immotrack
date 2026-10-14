@@ -111,7 +111,8 @@ export function banniere(item, { ic, message }) {
     return `<div class="evx-ban ${item.erreur.code === 'offline' ? 'wait' : 'err'}">${ic(item.erreur.code === 'offline' ? 'cloud' : 'warn')}<div><b>${esc(m.titre)}</b>${esc(m.texte)}`
       + `<div class="evx-bx">${actions}<button type="button" class="btn evx-sec" onclick="_edlVoixSupprimer('${id}')">${ic('trash')} Supprimer la dictée</button></div></div></div>`;
   }
-  return `<div class="evx-ban wait">${ic('hourglass')}<div><b>Analyse de la dictée (${d})</b>${item.etape === 'texte' ? 'Préparation des propositions.' : 'Transcription en cours.'} L’état des lieux reste modifiable à la main.</div></div>`;
+  const filmee = Array.isArray(item.images) && item.images.length > 0;
+  return `<div class="evx-ban wait">${ic('hourglass')}<div><b>Analyse ${filmee ? 'de la vidéo' : 'de la dictée'} (${d})</b>${item.etape === 'texte' ? 'Préparation des propositions.' : item.etape === 'images' ? 'Préparation des photos.' : 'Transcription en cours.'} L’état des lieux reste modifiable à la main.</div></div>`;
 }
 
 
