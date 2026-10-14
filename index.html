@@ -162,6 +162,9 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/candidature-purge.js">
 <link rel="modulepreload" href="js/core/pieces-candidature.js">
 <link rel="modulepreload" href="js/core/employeur.js">
+<link rel="modulepreload" href="js/core/deux-d-doc.js">
+<link rel="modulepreload" href="js/core/lecture-pieces.js">
+<link rel="modulepreload" href="js/core/verif-pieces.js">
 <link rel="modulepreload" href="js/core/relay-client.js">
 <link rel="modulepreload" href="js/core/backup.js">
 <link rel="modulepreload" href="js/core/espace-purge.js">
@@ -178,6 +181,9 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/bail-echeance.js">
 <link rel="modulepreload" href="js/core/entite-doublon.js">
 <link rel="modulepreload" href="js/core/dg-delai.js">
+<link rel="modulepreload" href="js/core/deux-d-doc-champs.js">
+<link rel="modulepreload" href="js/core/deux-d-doc-ancres.js">
+<link rel="modulepreload" href="js/core/indices-pdf.js">
 <!-- modulepreload:end -->
 <!-- PARAPHE-UNIQUE (v15.710) : une image de paraphe par signataire + lecteur des deux formes (window.BailParaphes, source js/core/bail-paraphes.js). -->
 <script src="js/helpers/bail-paraphes.global.js?v=bc8c13ad" defer></script>
@@ -2512,6 +2518,14 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   <div class="m-body" id="fiche-cand-body"></div>
 </div></div>
 
+<!-- MODAL : détail de la vérification d'une pièce de candidature (VERIF-DOCUMENTS) — page plein écran sur téléphone -->
+<div class="ov hidden" id="ov-verif-piece" onclick="closeBg(event,'ov-verif-piece')">
+<div class="modal vp-modal" role="dialog" aria-modal="true" aria-labelledby="vp-title">
+  <div class="m-head"><h3 id="vp-title">Vérification de la pièce</h3><button class="m-close" onclick="closeM('ov-verif-piece')" aria-label="Fermer">✕</button></div>
+  <div class="m-body" id="vp-body"></div>
+  <div class="m-foot" id="vp-foot"></div>
+</div></div>
+
 <!-- MODAL : Loyer du logement (édité depuis la fiche candidat — « loyer attendu ») -->
 <div class="ov hidden" id="ov-loyer-bien" onclick="closeBg(event,'ov-loyer-bien')" style="z-index:320">
 <div class="modal" style="max-width:440px" onclick="event.stopPropagation()">
@@ -4552,8 +4566,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=7eac8c6f" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=565ec04d" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=1e9e848a" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=c5bd10c4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=a9753314" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

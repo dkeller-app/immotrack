@@ -120,6 +120,7 @@ const FAUX_POSITIFS = [
   ['js/app/app-part1.js', 'recharge en fluide frigorigène', 'décret 87-712 : nom « recharge »'],
   ['js/app/app-part1.js', 'vérifie son email par code', '3e personne : le signataire vérifie son e-mail'],
   ['js/app/incident-circuit-app.js', '>Rendez-vous<', 'nom commun « rendez-vous » (créneau d\'intervention)'],
+  ['js/core/verif-pieces.js', 'proprietaires-comment-vous-assurer-de-lauthenticite', 'adresse (URL) d\'une page officielle d\'economie.gouv.fr, jamais affichée comme texte'],
 ]
 
 /** Tous les indices de 2e personne d'une ligne (déjà privée de ses commentaires). */

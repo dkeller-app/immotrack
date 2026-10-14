@@ -17463,7 +17463,9 @@ function _renderCandidatPiecesGrouped(cand){
     const opts = '<option value=""' + (cur ? '' : ' selected') + '>Type non précisé</option>'
       + types.map(t => '<option value="' + escHtml(t.id) + '"' + (t.id === cur ? ' selected' : '') + '>' + escHtml(t.libelle) + '</option>').join('');
     return '<div class="cand-piece">' + _attachmentRowHtml(d)
-      + '<label class="cand-piece-type"><span>Type</span><select class="inp' + (cur ? '' : ' np') + '" onchange="_candSetPieceType(' + JSON.stringify(d.id).replace(/"/g, '&quot;') + ', this.value)" aria-label="Type de la pièce « ' + escHtml(d.originalName || d.name || '') + ' »">' + opts + '</select></label></div>';
+      + '<label class="cand-piece-type"><span>Type</span><select class="inp' + (cur ? '' : ' np') + '" onchange="_candSetPieceType(' + escHtml(JSON.stringify(d.id)) + ', this.value)" aria-label="Type de la pièce « ' + escHtml(d.originalName || d.name || '') + ' »">' + opts + '</select></label>'
+      + (typeof _candVerifLigneHtml === 'function' ? _candVerifLigneHtml(d) : '')   // VERIF-DOCUMENTS : état de la vérification
+      + '</div>';
   };
   const catHtml = CATS.map(cat => {
     const files = byCat[cat.key] || [];
@@ -17503,10 +17505,13 @@ function _candSetPieceType(docId, typeId) {
   const val = String(typeId || '');
   if (window.PiecesCand && !window.PiecesCand.typeValide(String(d.category || ''), val)) { showToast('Type de pièce non reconnu pour cette catégorie', 'warn'); return; }
   if (val) d.pieceType = val; else delete d.pieceType;
+  // VERIF-DOCUMENTS : les constats dépendent du type (ex. « avis d'imposition sans code 2D-Doc ») → recalculés sans relire le fichier.
+  if (d.verif && window.VerifPieces) { try { d.verif.constats = window.VerifPieces.constatsDePiece(d, d.verif); } catch (e) {} }
   _stamp(d);
   try { if (typeof _auditLog === 'function') _auditLog('update', 'attachment', d.id, 'type de pièce : ' + (window.PiecesCand ? window.PiecesCand.libelleType(val) : val)); } catch (e) {}
   saveDB();
   showToast('Type enregistré : ' + (window.PiecesCand ? window.PiecesCand.libelleType(val) : (val || 'non précisé')), 'ok', 2500);
+  if (d.verif) { try { if (el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(d.parentId); } catch (e) {} }
 }
 
 // v15.156 — Rafraîchit en place une section de PJ (après upload/suppression), sans re-render

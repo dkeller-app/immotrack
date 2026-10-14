@@ -317,6 +317,11 @@ import * as CandPurge from './core/candidature-purge.js';
 // et employeur vérifié dans l'Annuaire des entreprises (constat daté, sans jugement).
 import * as PiecesCand from './core/pieces-candidature.js';
 import * as Employeur from './core/employeur.js';
+// VERIF-DOCUMENTS — vérification des pièces des candidats : code 2D-Doc (signature de l'État, contrôlée sur
+// l'appareil contre les autorités ancrées), indices techniques des PDF, lecture locale. Constats sans score.
+import * as DeuxDDoc from './core/deux-d-doc.js';
+import * as LecturePieces from './core/lecture-pieces.js';
+import * as VerifPieces from './core/verif-pieces.js';
 
 // LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
 import {
@@ -812,6 +817,9 @@ window.libelleGarantie = libelleGarantie;
 window.CandPurge = CandPurge;
 window.PiecesCand = PiecesCand;
 window.Employeur = Employeur;
+window.DeuxDDoc = DeuxDDoc;
+window.LecturePieces = LecturePieces;
+window.VerifPieces = VerifPieces;
 window._candidatVersLocataire = _candidatVersLocataire;
 window._candidatVersGarant = _candidatVersGarant;
 window._nouveauCandidat = _nouveauCandidat;
