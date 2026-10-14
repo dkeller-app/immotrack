@@ -71,6 +71,16 @@ describe('E-3 · fin de bail et clôture, réconciliation des accès', () => {
     expect(EL.finEtClotureDuBail({ finEffective: '2026-08-31', dg: 0 }, { finOccupation: finOcc })).toEqual({ fin: '2026-08-31', clos: '2026-08-31' })
     expect(EL.finEtClotureDuBail({ fin: '2028-08-31', dg: 900 }, { finOccupation: finOcc })).toEqual({ fin: null, clos: null })
   })
+  it('dépôt prévu au bail mais case « Dépôt de garantie versé » décochée : rien à restituer, la fin vaut clôture (LA définition injectée)', async () => {
+    const { _dgVerseMontant } = await import('../../js/core/gestion-dg-impayes.js')
+    const opts = { finOccupation: finOcc, dgVerseMontant: _dgVerseMontant }
+    expect(EL.finEtClotureDuBail({ finEffective: '2026-08-31', dg: 900, dgVerse: false }, opts)).toEqual({ fin: '2026-08-31', clos: '2026-08-31' })
+    expect(EL.finEtClotureDuBail({ finEffective: '2026-08-31', dg: 900, dgVerse: true }, opts)).toEqual({ fin: '2026-08-31', clos: null })
+    expect(EL.finEtClotureDuBail({ finEffective: '2026-08-31', dg: 900 }, opts)).toEqual({ fin: '2026-08-31', clos: null })   // bail antérieur à la case : présumé versé
+    expect(EL.finEtClotureDuBail({ finEffective: '2026-08-31', dg: 900, dgVerse: false, dgRestitueAt: '2026-09-20' }, opts)).toEqual({ fin: '2026-08-31', clos: '2026-09-20' })
+    const out = EL.majFinsAcces([{ id: 'a1', fin_bail: null, comptes_clos_le: null }], () => ({ bail: { finEffective: '2026-08-31', dg: 900, dgVerse: false }, archive: true }), finOcc, _dgVerseMontant)
+    expect(out).toEqual([{ id: 'a1', patch: { fin_bail: '2026-08-31', comptes_clos_le: '2026-08-31' } }])
+  })
   it('patchs : seulement ce qui change ; accès révoqué ignoré ; bail introuvable → rien', () => {
     const acces = [
       { id: 'a', fin_bail: null, comptes_clos_le: null },

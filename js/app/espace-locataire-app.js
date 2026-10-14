@@ -621,7 +621,7 @@ async function importerSignalements() {
 
 // ─────────────────────────── Fins de bail → accès (D4) ───────────────────────────
 async function reporterFins() {
-  const maj = EL.majFinsAcces(etat.acces, (a) => locationDe(a), finOcc)
+  const maj = EL.majFinsAcces(etat.acces, (a) => locationDe(a), finOcc, G('_dgVerseMontant'))   // LA définition du dépôt versé (case B4)
   for (const u of maj) { try { await API().update('locataire_acces', u.id, u.patch); Object.assign(etat.acces.find((a) => a.id === u.id) || {}, u.patch) } catch (e) { /* droit insuffisant : un autre membre le fera */ } }
   return maj.length
 }
@@ -660,7 +660,10 @@ export function demarrer() {
   _demarre = true
   W._elBlocHtml = blocHtml
   W.EspaceLoc = { creer, renouveler, revoquer, documents, retirer, messages, joindre, repondre: (id) => repondre(id), ouvrirPiece,
-    disponiblePourIncident, envoyerTexteIncident, publierMaintenant: async () => { toast('Publication en cours…', 'info'); await cycle(true); toast('Documents à jour.') } }
+    disponiblePourIncident, envoyerTexteIncident,
+    // Liens actifs rattachés à la ligne cloud ACTUELLE du bail (re-datation / retrait de « signé hors Propryo » → nouvelle ligne).
+    accesActifsDuBail: (ref) => { const b = ((db() || {}).baux || {})[ref]; if (!b || !vivant(b)) return 0; return accesDe(bailId(ref, b), jour(b.debut) || null).filter((x) => !x.revoque_le).length },
+    publierMaintenant: async () => { toast('Publication en cours…', 'info'); await cycle(true); toast('Documents à jour.') } }
   cycle(true)
   setInterval(() => cycle(false), 10 * 60_000)
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') cycle(false) })

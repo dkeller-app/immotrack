@@ -71,6 +71,17 @@ const PAIRS = [
     ]
   },
   {
+    // BAIL-EN-COURS-SIGNE-HORS-PROPRYO — état de signature d'un bail (non / partiel / électronique / externe) : qui détient une preuve électronique ?
+    name: 'bail-signature-etat',
+    src: 'js/core/bail-signature-etat.js',
+    dst: 'js/helpers/bail-signature-etat.global.js',
+    globalName: 'BailSignatureEtat',
+    exports: '*',
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
     // PARAPHE-UNIQUE (audit 01/10) — contrôle « onglet périmé » avant de signer / régénérer un PDF signé.
     name: 'version-app',
     src: 'js/core/version-app.js',
@@ -118,6 +129,17 @@ const PAIRS = [
     exports: ['parseAdresse', 'formatAdresse', 'needsAddressSplit'],
     // v15.216 F6 — sanity : compte les `function ` en source vs sortie.
     // Tolère le préfixe `export ` en source (strippé en sortie).
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
+    // RETOURS-2026-10-05 B3 — nom d'affichage du logement (texte d'écran ; la référence reste la clé).
+    name: 'log-label',
+    src: '__tests__/helpers/log-label.js',
+    dst: 'js/helpers/log-label.global.js',
+    globalName: 'LogLabel',
+    exports: ['normaliserLibelle', 'libelle', 'libelleEtRef', 'correspond', 'comparer'],
     sanity: [
       { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
     ]

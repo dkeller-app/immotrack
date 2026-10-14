@@ -64,8 +64,8 @@ export const DIAGS_CATALOG = [
   {
     key:    'crep',
     label:  'CREP — Plomb (saturnisme)',
-    validityYears: null, // 1 an si présence, illimité si absence
-    validityIfPresence: 1,
+    validityYears: null, // location : 6 ans si présence de plomb (> 1 mg/cm²), illimité si absence (1 an = règle vente)
+    validityIfPresence: 6,
     legal:  'Art. L1334-5 à L1334-9 Code santé publique',
     icon:   '⚠',
     joindreAuBail: true,
@@ -226,7 +226,7 @@ export function _diagDateExpiration(diagKey, info) {
   const entry = _diagCatalogEntry(diagKey);
   if (!entry || !info || !info.date) return null;
   if (diagKey === 'crep') {
-    if (info.presence === true) return _addYMtoISO(info.date, 1, 0);
+    if (info.presence === true) return _addYMtoISO(info.date, entry.validityIfPresence || 6, 0);
     return null;
   }
   if (entry.validityYears == null) return null;
@@ -311,3 +311,37 @@ export function _ddtComplet(logement, dateRef = new Date()) {
 
 /** Liste des clés de diagnostic. */
 export const DIAGS_KEYS = DIAG_KEYS.slice();
+
+/**
+ * RETOURS-2026-10-05 A1 — faut-il (re)faire le contrôle DDT dans saveBail ?
+ * Non si la validation financière a déjà été franchie (_pendingVal), ni sur un bail existant
+ * déjà signé ou commencé (le DDT est dû à la signature, art. 3-3 loi 89-462). Oui à la création
+ * et sur un brouillon pas encore commencé. Miroir de `_ddtControleSaveBail` (app-part1.js).
+ */
+export function _ddtControleSaveBail({ bailExistant, pendingVal, today }) {
+  if (pendingVal) return false;
+  if (!bailExistant || bailExistant._deleted) return true;
+  if (bailExistant.signatures && bailExistant.signatures.signedAt) return false;
+  const d = String(bailExistant.debut || '').slice(0, 10);
+  if (d && d <= String(today || '').slice(0, 10)) return false;
+  return true;
+}
+
+/**
+ * RETOURS-2026-10-05 A6 — date de conclusion du bail en place (signature, sinon début), ISO ou null
+ * (pas de bail en cours : vacant, clôturé). Miroir de `_ddtDateBailEnPlace` (app-part2.js, qui lit DB.baux).
+ */
+export function _ddtDateBailEnPlace(bail) {
+  if (!bail || bail._deleted || bail.cloture) return null;
+  const d = String((bail.signatures && bail.signatures.signedAt) || bail.debut || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+}
+
+/**
+ * Un diagnostic n'est « à refaire » que s'il était DÉJÀ périmé à la conclusion du bail en place
+ * (art. 3-3 loi 89-462 : DDT annexé à la signature / au renouvellement). Sans bail en place : à `today`.
+ */
+export function _diagExpireARefaire(diagKey, logement, bail, today = new Date()) {
+  const d = _ddtDateBailEnPlace(bail);
+  return _diagStatut(diagKey, logement, d ? new Date(d + 'T00:00:00') : today) === 'expire';
+}

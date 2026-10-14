@@ -155,9 +155,9 @@ describe('_diagDateExpiration', () => {
     const exp = _diagDateExpiration('erp', { date: '2024-01-15' });
     expect(exp).toBe('2024-07-15');
   });
-  it('CREP avec présence plomb : 1 an', () => {
+  it('CREP avec présence plomb : 6 ans en location (A5, pas 1 an = règle vente)', () => {
     const exp = _diagDateExpiration('crep', { date: '2024-03-01', presence: true });
-    expect(exp).toBe('2025-03-01');
+    expect(exp).toBe('2030-03-01');
   });
   it('CREP sans plomb : illimité (null)', () => {
     expect(_diagDateExpiration('crep', { date: '2024-03-01', presence: false })).toBeNull();

@@ -91,16 +91,19 @@ export const peut = (phase, action) => (PHASES_ECRITURE[action] || []).includes(
  * Fin d'occupation et clôture des comptes d'une location, lues sur le bail (vivant ou archivé) :
  *  • fin  = règle UNIQUE de l'app (finOccupationBail, injectée) ;
  *  • clos = date de restitution du dépôt (`dgRestitueAt`, posée par le solde de tout compte ou la clôture) ;
- *           aucun dépôt (dg ≤ 0) et fin connue → la fin vaut clôture.
+ *           aucun dépôt VERSÉ et fin connue → la fin vaut clôture (rien à restituer).
+ *  • dgVerseMontant = LA définition du dépôt versé de l'app (_dgVerseMontant, injectée : case « Dépôt de garantie
+ *    versé » décochée → 0). Sans injection (relais, tests anciens) : le dépôt du bail (dg).
  */
-export function finEtClotureDuBail(bail, { finOccupation, archive = false } = {}) {
+export function finEtClotureDuBail(bail, { finOccupation, archive = false, dgVerseMontant = null } = {}) {
   if (!bail) return { fin: null, clos: null }
   let fin = null
   try { fin = (typeof finOccupation === 'function' ? finOccupation(bail, archive) : '') || null } catch (e) { fin = null }
   if (fin && !dIso(fin)) fin = null
   if (fin) fin = String(fin).slice(0, 10)
   let clos = bail.dgRestitueAt && dIso(bail.dgRestitueAt) ? String(bail.dgRestitueAt).slice(0, 10) : null
-  if (!clos && fin && !(Number(bail.dg) > 0)) clos = fin
+  const verse = typeof dgVerseMontant === 'function' ? Number(dgVerseMontant(bail)) || 0 : Number(bail.dg) || 0
+  if (!clos && fin && !(verse > 0)) clos = fin
   return { fin, clos }
 }
 
@@ -109,12 +112,12 @@ export function finEtClotureDuBail(bail, { finOccupation, archive = false } = {}
  * `acces` = lignes locataire_acces ; `trouverBail(a)` → { bail, archive } de la location de l'accès, ou null.
  * Ne recule jamais une date déjà posée par une donnée manquante (bail introuvable → rien).
  */
-export function majFinsAcces(acces, trouverBail, finOccupation) {
+export function majFinsAcces(acces, trouverBail, finOccupation, dgVerseMontant = null) {
   const out = []
   for (const a of acces || []) {
     if (!a || a.revoque_le) continue
     const t = trouverBail(a); if (!t || !t.bail) continue
-    const { fin, clos } = finEtClotureDuBail(t.bail, { finOccupation, archive: !!t.archive })
+    const { fin, clos } = finEtClotureDuBail(t.bail, { finOccupation, archive: !!t.archive, dgVerseMontant })
     const patch = {}
     if ((fin || null) !== (a.fin_bail || null) && (fin || !t.archive)) patch.fin_bail = fin
     if ((clos || null) !== (a.comptes_clos_le || null) && (clos || !t.archive)) patch.comptes_clos_le = clos

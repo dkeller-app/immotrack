@@ -273,12 +273,22 @@ const PROCEDURE_ETAT = {
 // Copies du chemin file:// (le module js/core/gestion-dg-impayes.js les remplace au chargement) : le délai de
 // restitution y est lu dans LA MÊME règle — window.DgDelai, mirror de js/core/dg-delai.js — avec l'EDL de sortie
 // de CE bail (_edlSortieDuBail). Aucune arithmétique de délai ici.
+// DÉPÔT VERSÉ — copie file:// de _dgVerseMontant / _dgVerseCoche (js/core/gestion-dg-impayes.js, définition UNIQUE, R-0) :
+// le module les remplace au chargement (js/main.js). Égalité verrouillée par __tests__/helpers/bail-dg-verse.test.js.
+function _dgVerseMontant(bail, dgRepli) {
+  if (!bail || bail.dgVerse === false) return 0;
+  return Number(bail.dgPaid) || Number(bail.dg) || Number(dgRepli) || 0;
+}
+function _dgVerseCoche(bail) {
+  return !!bail && bail.dgVerse !== false;
+}
 function _dgStatut(bail, dateRef) {
   if (!bail) return { statut: DG_STATUS.MANQUANT, dgDu: 0, dgPaid: 0, soldeRestant: 0 };
   const dgDu = Number(bail.dg) || 0;
-  const dgPaid = Number(bail.dgPaid) || 0;
+  const dgPaid = _dgVerseMontant(bail);   // définition unique du dépôt versé (case B4 comprise)
   const soldeRestant = dgDu - dgPaid;
   if (bail.dgRestitueAt) return { statut: DG_STATUS.RESTITUE, dgDu, dgPaid, soldeRestant: 0 };
+  if (dgDu > 0 && dgPaid <= 0) return { statut: DG_STATUS.MANQUANT, dgDu, dgPaid, soldeRestant };   // non versé : rien à restituer
   const D = (typeof window !== 'undefined') ? window.DgDelai : null;
   if (bail.cloture && D) {
     const ech = D.echeancesRestitution(bail, _edlSortieDuBail(bail));
@@ -331,7 +341,7 @@ function _calculerLoyerImpayeCumule(bail, mouvements, dateRef) {
 
 function _calculerSoldeDG(bail, mouvements) {
   if (!bail) return { dgPaid: 0, retenuesDG: 0, loyerImpaye: 0, soldeRestitue: 0 };
-  const dgPaid = Number(bail.dgPaid) || 0;
+  const dgPaid = _dgVerseMontant(bail);
   const retenuesDG = Number(bail.dgRetenu) || 0;
   const loyerImpaye = _calculerLoyerImpayeCumule(bail, mouvements);
   const soldeRestitue = Math.max(0, dgPaid - retenuesDG - loyerImpaye);
@@ -1169,7 +1179,7 @@ function _lyDpeBlock(etats) {
     const classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(c =>
       `<button type="button" class="ly-dpe-c${(c === 'F' || c === 'G') ? ' fg' : ''}" onclick="_lyDpeRapide('${ref}','${c}',this)" `
       + `title="${(c === 'F' || c === 'G') ? 'Classe ' + c + ' — loyer gelé (loi Climat art. 23)' : 'Classe ' + c}">${c}</button>`).join('');
-    return `<div class="ly-dpe-ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml((e.log && e.log.adr) || '')}</span>`
+    return `<div class="ly-dpe-ln"><span class="who"><b>${escHtml(_logLabel(e.ref))}</b> <span class="mu" style="display:inline">${escHtml((e.log && e.log.adr) || '')}</span>`
       + `${expire ? ' <span class="mu" style="display:inline">· DPE > 10 ans</span>' : ''}</span>`
       + `<span class="pick"><input type="date" class="ly-dpe-d" title="Date de réalisation du DPE" />${classes}`
       + `<button type="button" class="btn bs bb" onclick="_lyDpeNonConcerne('${ref}')" title="Garage, cave, parking — pas de DPE exigible par nature">non concerné</button></span></div>`;
@@ -1191,7 +1201,7 @@ function _lyDpeRapide(ref, classe, btn) {
   log.diagnostics.dpe = Object.assign({}, cur, { classe: classe, date: date, na: false });
   if (typeof _stamp === 'function') _stamp(log);
   saveDB();
-  try { showToast('DPE ' + classe + ' enregistré sur ' + ref + ((classe === 'F' || classe === 'G') ? ' — loyer gelé' : ''), 'ok', 3000); } catch (e) {}
+  try { showToast('DPE ' + classe + ' enregistré sur ' + _logLabel(ref) + ((classe === 'F' || classe === 'G') ? ' — loyer gelé' : ''), 'ok', 3000); } catch (e) {}
   try { rLoyers(); } catch (e) {}
   try { _renderInboxSurfaces(); } catch (e) {}
 }
@@ -1203,7 +1213,7 @@ function _lyDpeNonConcerne(ref) {
   log.diagnostics.dpe = Object.assign({}, cur, { na: true });
   if (typeof _stamp === 'function') _stamp(log);
   saveDB();
-  try { showToast(ref + ' — DPE marqué « non concerné »', 'ok', 2500); } catch (e) {}
+  try { showToast(_logLabel(ref) + ' — DPE marqué « non concerné »', 'ok', 2500); } catch (e) {}
   try { rLoyers(); } catch (e) {}
   try { _renderInboxSurfaces(); } catch (e) {}
 }
@@ -1232,7 +1242,7 @@ function _lyQ(s2) {
  */
 function _lyRow(o) {
   return `<div class="ly2-r">
-    <div class="c1"><b>${escHtml(o.ref)}</b><span>${escHtml(o.loc || '—')}</span>${o.demande ? '<span class="ly2-ask" title="Le locataire demande une quittance chaque mois"></span>' : ''}</div>
+    <div class="c1"><b>${escHtml(_logLabel(o.ref))}</b><span>${escHtml(o.loc || '—')}</span>${o.demande ? '<span class="ly2-ask" title="Le locataire demande une quittance chaque mois"></span>' : ''}</div>
     <div class="c2">${o.contexte || ''}</div>
     <div class="c3">${o.montant || ''}</div>
     <div class="c4">${o.actions || ''}</div>
@@ -1393,7 +1403,7 @@ function _lyLigneDecision({ e, rev }) {
   const i2 = r2 ? '' : ` (indice T${T} ${n2 != null ? n2 : ''} pas encore publié : montant connu à sa parution)`;
   const R = _lyQ(e.ref);
   const html = `<div class="ly2-r" style="background:var(--warn-soft)">
-    <div class="c1"><b>${escHtml(e.ref)}</b><span>${escHtml(e.log.locataire || '—')}</span></div>
+    <div class="c1"><b>${escHtml(_logLabel(e.ref))}</b><span>${escHtml(e.log.locataire || '—')}</span></div>
     <div class="c2"><span class="ly2-p wa">à décider</span> Révision <b>de ${fd(rev.effetPrevuIso)}</b> jamais faite · celle du <b>${fd(eff2)}</b> arrive</div>
     <div class="c3"><span class="ly2-p nu">${fmt(e.log.hc).replace(' €', '')}</span> → <b>${fmt(h1)}</b></div>
     <div class="c4"><button class="btn bs bb" onclick="_lyMenuRev(event,'${R}')" title="Plus d'actions" aria-label="Plus d'actions">⋯</button></div></div>
@@ -1507,7 +1517,7 @@ function _irlAnnulerProgrammee(ref) {
   });
   if (!r.ok) { showToast(r.erreur, 'err', 7000); return; }
   const e = r.entree;
-  if (!confirm2(`Annuler la révision programmée de ${ref} ?\n\n${fmt(e.ancienHC)} → ${fmt(e.nouveauHC)} au ${fd(e.dateEffet)} : le loyer reste à ${fmt(e.ancienHC)}.\n\nSi la lettre a déjà été envoyée, prévenir le locataire de l'annulation.\nLa révision de ce cycle redevient à faire (délai d'un an, art. 17-1).`)) return;
+  if (!confirm2(`Annuler la révision programmée de ${_logLabelRef(ref)} ?\n\n${fmt(e.ancienHC)} → ${fmt(e.nouveauHC)} au ${fd(e.dateEffet)} : le loyer reste à ${fmt(e.ancienHC)}.\n\nSi la lettre a déjà été envoyée, prévenir le locataire de l'annulation.\nLa révision de ce cycle redevient à faire (délai d'un an, art. 17-1).`)) return;
   DB.irlHistorique = r.irlHistorique;
   DB.loyerBareme = r.bareme;
   // La trace d'un forçage (gel/DPE/cycle éteint) posée pour CE cycle tombe avec lui.
@@ -1525,7 +1535,7 @@ function _irlAnnulerProgrammee(ref) {
   if (typeof _auditLog === 'function') _auditLog('irl-annulee', 'bail', ref, ref);
   saveDB(); refreshAllIRL(); _rPeriodPage();
   try { if (typeof rLogFiche === 'function' && currentPage === 'log-fiche') rLogFiche(); } catch (err) {}
-  showToast(`Révision annulée pour ${ref} — loyer maintenu à ${fmt(e.ancienHC)}`, 'ok', 5000);
+  showToast(`Révision annulée pour ${_logLabel(ref)} — loyer maintenu à ${fmt(e.ancienHC)}`, 'ok', 5000);
 }
 
 /** Les quittances émises ce mois-ci — l'ÉTAT du mois courant (V13, point 1). */
@@ -1539,8 +1549,8 @@ function _lyQuittancesDuMois(ymCourant) {
   if (!qs.length) return { count: 0, resume: 'aucune', html: '' };
   return {
     count: qs.length,
-    resume: qs.slice(0, 3).map(q => `${q.logement} ${q.mois}`).join(', '),
-    html: qs.map(q => `<div class="ln"><span class="who"><b>${escHtml(q.logement)}</b> <span class="mu" style="display:inline">${escHtml(q.locataire || '—')}</span></span>
+    resume: qs.slice(0, 3).map(q => `${_logLabel(q.logement)} ${q.mois}`).join(', '),
+    html: qs.map(q => `<div class="ln"><span class="who"><b>${escHtml(_logLabel(q.logement))}</b> <span class="mu" style="display:inline">${escHtml(q.locataire || '—')}</span></span>
       <span class="mu">${escHtml(q.mois || '')} · éditée le ${fd(q.date)}</span>
       <span class="am"><b>${fmt((q.hc || 0) + (q.ch || 0))}</b></span>
       <span class="ac"><button class="btn bs bb" onclick="_ouvrirQuittanceSurMois('${_lyQ(q.logement)}','${_lyQ(window.moisFrToYm(q.mois) || '')}')" title="Rééditer : l'éditeur s'ouvre sur ce mois, le document se regénère">↺ Rééditer</button>
@@ -1616,7 +1626,7 @@ function _lyPanneauSuivi(kind, rev, ymCourant, moisCourant) {
     rows = rev.perdues.map(({ e, rev: r }) => {
       const prescritIso = (parseInt(r.perdue.effetIso.slice(0, 4), 10) + 1) + r.perdue.effetIso.slice(4);
       const gain = _lyGainCyclePerdu(e, r);
-      return `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
+      return `<div class="ln"><span class="who"><b>${escHtml(_logLabel(e.ref))}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
         <span class="mu">Cycle du ${fd(r.perdue.effetIso)} non appliqué, éteint le ${fd(prescritIso)} (délai d'un an)</span>
         <span class="am">${gain != null ? `<span class="ly2-p nu">≈ ${fmt(gain)}/mois non appliqués</span>` : '<span class="ly2-p nu">—</span>'}</span>
         <span class="ac"><button class="btn bs bb" onclick="_gfOuvrir('${_lyQ(e.ref)}',{surCyclePerdu:true})">Appliquer quand même</button></span></div>`;
@@ -1625,7 +1635,7 @@ function _lyPanneauSuivi(kind, rev, ymCourant, moisCourant) {
   } else if (kind === 'muet') {
     head = `${_uiIcon('lock')} Non révisables — ${rev.muets.length} lot${rev.muets.length > 1 ? 's' : ''}`;
     rows = rev.muets.map(({ e, rev: r }) =>
-      `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
+      `<div class="ln"><span class="who"><b>${escHtml(_logLabel(e.ref))}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
         <span class="mu">${escHtml(_lyMotifMuet(r))}</span>
         <span class="am"><span class="ly2-p nu">${escHtml(_lyPastilleMuet(r))}</span></span>
         <span class="ac">${(typeof window.revisionForcable === 'function' && window.revisionForcable(r))
@@ -1739,7 +1749,7 @@ function _lyFriseRuban(etats) {
       if (!o) return '';
       const effetProj = sel.ym + '-01';
       if (kind === 'gel') {
-        return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
+        return `<div class="ln"><span class="who"><b>${escHtml(_logLabel(x.ref))}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
           <span class="mu">${escHtml(_lyMotifMuet(o.rev))}</span>
           <span class="am"><span class="ly2-p nu">${escHtml(_lyPastilleMuet(o.rev))}</span></span>
           <span class="ac"></span></div>`;
@@ -1751,7 +1761,7 @@ function _lyFriseRuban(etats) {
         // Audit M6 — le montant d'une révision programmée est celui de l'entrée VALIDÉE.
         const _hP = (prog && window.IrlRevision) ? window.IrlRevision.entreeValideeDuCycle(DB.irlHistorique || [], x.ref, prog.cycleIso, o.e.bail && o.e.bail.debut) : null;
         if (_hP) o = { ...o, rev: { ...o.rev, nouveauHC: Number(_hP.nouveauHC) } };
-        return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
+        return `<div class="ln"><span class="who"><b>${escHtml(_logLabel(x.ref))}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
           <span class="mu">${prog ? `programmée · effet au <b>${fd(prog.effetIso)}</b>` : `révisée · effet au <b>${fd(effetProj)}</b>`}</span>
           <span class="am"><b>${fmt(prog ? o.rev.nouveauHC : o.e.log.hc)}</b></span>
           <span class="ac"><span class="ly2-p" style="color:var(--pos)">${_uiIcon('check',13)} ${prog ? 'programmée' : 'faite'}</span></span></div>`;
@@ -1763,7 +1773,7 @@ function _lyFriseRuban(etats) {
       const decale = o.rev.effetPrevuIso && String(o.rev.effetPrevuIso).slice(0, 7) !== sel.ym;
       const quand = `effet au <b>${fd(effetProj)}</b>${pct != null ? ` · ${o.rev.variation >= 0 ? '+' : ''}${pct} %` : ''}`
         + (decale ? ` — cycle du ${fd(o.rev.effetPrevuIso)} non appliqué` : '');
-      return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
+      return `<div class="ln"><span class="who"><b>${escHtml(_logLabel(x.ref))}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
         <span class="mu">${quand}</span>
         <span class="am"><b>${fmt(o.rev.nouveauHC)}</b></span>
         <span class="ac"><button class="btn bp bb" onclick="applyIRL('${_lyQ(x.ref)}',${o.rev.nouveauHC})">Réviser</button></span></div>`;
@@ -2201,7 +2211,7 @@ function _qeRender() {
       <h3>Quittance</h3>
       <div class="who">${libre
         ? `<span class="wlo">saisie libre</span>`
-        : `<span class="wrf">${escHtml(_qe.ref || '')}</span><span class="wlo">${escHtml((log && log.locataire) || '— vacant —')} · ${escHtml((bail && bail.entity) || (log && log.entity) || '—')}</span>`}</div>
+        : `<span class="wrf">${escHtml(_logLabel(_qe.ref || ''))}</span><span class="wlo">${escHtml((log && log.locataire) || '— vacant —')} · ${escHtml((bail && bail.entity) || (log && log.entity) || '—')}</span>`}</div>
       <button class="x" onclick="_qeFermer()" title="Fermer">✕</button></div>
     <div class="qd-body">
       <div class="qd-rail">${rail}</div>
@@ -2378,11 +2388,17 @@ function _qeFootBtn() {
  * logement. Elle n'est proposée que sur un mois ÉCHU : sur un mois à venir, il n'y a rien à
  * encaisser.
  */
+// B3 : « + Mouvement » depuis la fiche logement. Le texte de la consigne est calculé ICI à partir de la référence
+// (jamais injecté dans un attribut onclick) et doit être identique à l'option du champ Logement (« Nom · réf »).
+function _openNewMvPourLot(ref) {
+  openNewMv();
+  showToast(`Penser à sélectionner « ${_logLabelRef(ref)} » dans le champ Logement`, 'info', 4000);
+}
 function _qeEnregistrerPaiement() {
   const ref = _qe.ref, ym = _qe.ym;
   _qeFermer();
   openNewMv();
-  if (ref) showToast(`Sélectionner « ${ref} »${ym ? ' — ' + window.ymToMoisFr(ym) : ''}`, 'info', 4000);
+  if (ref) showToast(`Sélectionner « ${_logLabelRef(ref)} »${ym ? ' — ' + window.ymToMoisFr(ym) : ''}`, 'info', 4000);
 }
 
 /** V7 — la porte de sortie proposée dans le bandeau : le reçu partiel, en un clic. */
@@ -2485,14 +2501,14 @@ function _qeRenderPick() {
 function _qeRenderPickList() {
   const host = el('qd-pick-list'); if (!host) return;
   const f = _qe.filtre.trim().toLowerCase();
-  const match = (l) => !f || [l.ref, l.locataire, l.imm, l.entity].some(x => String(x || '').toLowerCase().includes(f));
+  const match = (l) => !f || [l.ref, l.locataire, l.imm, l.entity].some(x => String(x || '').toLowerCase().includes(f)) || _logLabelMatch(l, f);   // B3 : + nom affiché
   const lots = _qeLots().filter(match);
   const nbLibre = (ref) => { const e = _loyerEtatLot(ref); return e ? window.moisAQuittancer(e, _qeDeja(ref).yms).length : 0; };
   const item = (l) => {
     const n = nbLibre(l.ref);
     const bail = _findBailByRefTolerant(l.ref);
     return `<button class="it" onclick="_qeChoisirLot('${_lyQ(l.ref)}')">
-      <span class="rf">${escHtml(l.ref)}</span><span class="lo">${escHtml(l.locataire || '— vacant —')}</span>
+      <span class="rf">${escHtml(_logLabelRef(l))}</span><span class="lo">${escHtml(l.locataire || '— vacant —')}</span>
       ${(bail && bail.quittanceDemandee) ? '<span class="bg ask">🧾 mensuelle</span>' : ''}
       <span class="bg ${n ? 'on' : ''}">${n ? n + ' mois libre' + (n > 1 ? 's' : '') : 'à jour'}</span></button>`;
   };
@@ -2516,7 +2532,7 @@ function _qeRenderPickList() {
   h += `<div class="gb" style="border-top:1px solid var(--bor)">✎ Autre</div>
     <button class="it" onclick="_qeModeLibre(${_qe.ref ? `'${_lyQ(_qe.ref)}'` : 'null'})">
       <span class="rf">Quittance libre</span>
-      <span class="lo">${_qe.ref ? 'partir de ' + escHtml(_qe.ref) + ', tout reste modifiable' : 'sans bail — tout se remplit sur la feuille'}</span></button>`;
+      <span class="lo">${_qe.ref ? 'partir de ' + escHtml(_logLabelRef(_qe.ref)) + ', tout reste modifiable' : 'sans bail — tout se remplit sur la feuille'}</span></button>`;
   // V11 — les saisies libres retenues sont REJOUABLES : l'app garde la SAISIE (pas le
   // document), on la rouvre et on la réédite. Pas de liste infinie : les cinq dernières.
   const libres = ((DB.params || {}).quittancesLibres || []).slice().reverse();
@@ -2776,7 +2792,7 @@ function markIRLLetterSent(ref) {
   if (!el('ov-irl-rappel')?.classList.contains('hidden')) _renderIRLRappelModal();
   try { _rPeriodPage(); } catch(e) {}
   if (_letterRef === ref) genIRLLetter(ref);
-  showToast(`✓ Lettre IRL pour ${ref} marquée comme envoyée`, 'ok');
+  showToast(`✓ Lettre IRL pour ${_logLabel(ref)} marquée comme envoyée`, 'ok');
 }
 
 function unmarkIRLLetterSent(ref) {
@@ -2791,7 +2807,7 @@ function unmarkIRLLetterSent(ref) {
   if (!el('ov-irl-rappel')?.classList.contains('hidden')) _renderIRLRappelModal();
   try { _rPeriodPage(); } catch(e) {}
   if (_letterRef === ref) genIRLLetter(ref);
-  showToast(`Validation envoi annulée pour ${ref}`, 'info');
+  showToast(`Validation envoi annulée pour ${_logLabel(ref)}`, 'info');
 }
 
 /* v13.33 IRL-VALIDATION : collecte les baux dont la révision est applicable
@@ -2836,7 +2852,7 @@ function _renderIRLRappelModal() {
     return `<div class="irl-rappel-card" style="margin-bottom:10px;padding:12px 14px;background:var(--sur2);border:1px solid var(--bor);border-left:4px solid ${st?st.border:'var(--ora)'};border-radius:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">
         <div>
-          <div style="font-weight:600;font-size:14px"><b>${log.ref}</b> · ${log.locataire||'–'}</div>
+          <div style="font-weight:600;font-size:14px"><b>${escHtml(_logLabel(log))}</b> · ${escHtml(log.locataire||'–')}</div>
           <div class="mu sm" style="font-size:11.5px">Anniversaire bail : ${moisAnniv}</div>
         </div>
         <div style="text-align:right;font-size:12px;line-height:1.5">
@@ -2882,7 +2898,7 @@ function _checkDiagRappelsAuLogin(source) {
     if (!l || !l.ref || l.archived) return;
     let any = false;
     _DIAGS_CATALOG_INLINE.forEach(entry => {
-      if (_diagStatut(entry.key, l, now) === 'expire') { nExp++; any = true; }
+      if (_diagExpireARefaire(entry.key, l, now)) { nExp++; any = true; }
     });
     if (any) nLogs++;
   });
@@ -3773,6 +3789,7 @@ function _edlHydrateVThumbs(root) {
 /* « 👁 Voir l'EDL » — vue lecture seule complète (pièces/états/obs/photos, compteurs, DAAF, clés,
    mobilier, observations). Marche partout (c'est de l'app, pas un fichier PDF). */
 function edlOpenView(id) {
+  if (_edlExtGarde(id)) return;   // EDL fait hors Propryo : pas de visionneuse (aucune pièce), on ouvre le PDF
   const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   // UNE seule modale de consultation à la fois : le tableau _edlViewPhotos (index → photo) est
@@ -3786,7 +3803,7 @@ function edlOpenView(id) {
   const nPhotos = _EPv ? _EPv.collectEdlPhotos(edl).length : 0;
   const actions = `${nPhotos ? `<button class="btn bs bb bprim" onclick="edlOpenGallery(${id})">${_uiIcon('camera')}Toutes les photos (${nPhotos})</button>` : ''}
     <button class="btn bs bb" onclick="downloadEDLPdfNative(${id},{share:true})">${share ? _uiIcon('share')+'Partager' : _uiIcon('download')+'Télécharger le PDF'}</button>`;
-  const st = `${edl.type || ''} · ${edl.logement || ''} · ${fd(edl.date) || ''}`;
+  const st = `${edl.type || ''} · ${edl.logement ? _logLabelRef(edl.logement) : ''} · ${fd(edl.date) || ''}`;
   const o = _edlConsultShell('ov-edl-view', 'État des lieux', st, corps, actions);
   _edlHydrateVThumbs(o);
 }
@@ -3795,7 +3812,7 @@ function _edlViewBodyHtml(edl) {
   const sortie = edl.type === 'Sortie';
   const H = [];
   H.push(`<div class="edl-v-id">
-    <div><b>Logement</b> ${escHtml(edl.logement || '—')}${edl.adr ? (' · ' + escHtml(edl.adr)) : ''}</div>
+    <div><b>Logement</b> ${escHtml(edl.logement ? _logLabelRef(edl.logement) : '—')}${edl.adr ? (' · ' + escHtml(edl.adr)) : ''}</div>
     <div><b>Date</b> ${escHtml(fd(edl.date) || '—')}</div>
     <div><b>Type</b> ${escHtml(edl.type || '—')}</div>
     ${edl.locataire ? `<div><b>Locataire</b> ${escHtml(edl.locataire)}</div>` : ''}
@@ -3859,13 +3876,14 @@ function _edlViewBodyHtml(edl) {
 /* « 🖼 Photos » — galerie de TOUTES les photos, grande déf au clic, cloud en priorité. Export
    vers l'appareil = mobile seulement (Partager au locataire), à l'intérieur de la galerie. */
 function edlOpenGallery(id) {
+  if (_edlExtGarde(id)) return;
   const edl = (DB.edl || []).find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   _edlConsultClose('ov-edl-view');  // une seule modale de consultation à la fois (audit §1)
   const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
   const items = _EP ? _EP.photosGalerie(edl) : [];
   _edlViewPhotos = [];
-  if (!items.length) { _edlConsultShell('ov-edl-gal', 'Photos', edl.logement || '', `<div class="edl-v-empty">Aucune photo dans cet état des lieux.</div>`, ''); return; }
+  if (!items.length) { _edlConsultShell('ov-edl-gal', 'Photos', edl.logement ? _logLabel(edl.logement) : '', `<div class="edl-v-empty">Aucune photo dans cet état des lieux.</div>`, ''); return; }
   const cells = items.map(({ ph, label }) => {
     const i = _edlViewPhotos.push(ph) - 1;
     const pin = ph.binaireManquant ? '<span class="edl-gal-pin" title="Photo à reprendre">' + _uiIcon('warn',13) + '</span>' : (ph.cloudKey ? '<span class="edl-gal-pin" title="Sauvegardée dans le cloud">' + _uiIcon('cloud',13) + '</span>' : '');
@@ -3876,7 +3894,7 @@ function edlOpenGallery(id) {
   }).join('');
   const share = (typeof _edlPrefersShare === 'function') ? _edlPrefersShare() : false;
   const actions = share ? `<button class="btn bs bb bprim" onclick="_edlSharePhotos(${id})">${_uiIcon('share')}Partager les photos</button>` : '';
-  const o = _edlConsultShell('ov-edl-gal', 'Photos', `${edl.logement || ''} · ${items.length} photo(s)`, `<div class="edl-gal-grid">${cells}</div>`, actions);
+  const o = _edlConsultShell('ov-edl-gal', 'Photos', `${edl.logement ? _logLabel(edl.logement) : ''} · ${items.length} photo(s)`, `<div class="edl-gal-grid">${cells}</div>`, actions);
   _edlHydrateVThumbs(o);
 }
 
@@ -3884,7 +3902,7 @@ function rEDLList() {
   const ql=el('edl-f-log'); let flog=v('edl-f-log');
   // Merge v14.4 BUG-EDL-DELETE-NOSYNC (filter tombstones via _edlActive) + v14.2 LOG-ARCHIVE (selects via _activeLogements)
   // v15.234 NAV-FILTRE-ENTITE-GLOBAL : cascade entité → ne lister que ses logements + reset Q1.
-  if(ql){const cur=ql.value;const opts=_activeLogements().filter(_logInEnt);ql.innerHTML='<option value="">Tous logements</option>'+opts.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');ql.value=(cur&&opts.some(l=>l.ref===cur))?cur:'';flog=ql.value;}
+  if(ql){const cur=ql.value;const opts=_activeLogements().filter(_logInEnt);ql.innerHTML='<option value="">Tous logements</option>'+opts.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');ql.value=(cur&&opts.some(l=>l.ref===cur))?cur:'';flog=ql.value;}
   // refs des logements de l'entité active (pour filtrer les EDL par entité)
   const _entEdlRefs = _activeEntity ? new Set(DB.logements.filter(_logInEnt).map(l=>l.ref)) : null;
   const list=DB.edl.filter(_edlActive).filter(e=>(!_entEdlRefs||_entEdlRefs.has(e.logement))&&(!flog||e.logement===flog)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -3902,20 +3920,21 @@ function rEDLList() {
     const sig=e.signatures?.bailleur||e.signatures?.locataire?' '+_uiIcon('sign'):'';
     // EDL TERRAIN lot 1 (CDC §1) : « Brouillon » tant qu'aucune signature
     // n'existe. Ce n'est pas un autre magasin — c'est le même EDL, en cours.
-    const brouillon = (e.signatures && (e.signatures.bailleur || e.signatures.locataire))
-      ? '' : '<span class="badge gry" title="État des lieux en cours — il s\'enregistre tout seul">Brouillon</span>';
+    const _ext = _edlExterne(e);
+    const brouillon = _ext ? '' : ((e.signatures && (e.signatures.bailleur || e.signatures.locataire))
+      ? '' : '<span class="badge gry" title="État des lieux en cours — il s\'enregistre tout seul">Brouillon</span>');
     const _np = (e.pieces||[]).length;
     return `<tr data-edl-id="${e.id}">
-      <td class="edl-lcell-log"><b>${escHtml(e.logement||'–')}</b><button type="button" class="edl-lmore" onclick="_edlListMore(${e.id})" aria-label="Plus d'actions : supprimer l'état des lieux">${_uiIcon('dots')}</button></td><td>${escHtml(e.locataire||'–')}</td>
-      <td><span class="badge ${e.type==='Entrée'?'grn':'info'}">${e.type}</span> ${brouillon}</td>
+      <td class="edl-lcell-log"><b>${escHtml(e.logement ? _logLabel(e.logement) : '–')}</b><button type="button" class="edl-lmore" onclick="_edlListMore(${e.id})" aria-label="Plus d'actions : supprimer l'état des lieux">${_uiIcon('dots')}</button></td><td>${escHtml(e.locataire||'–')}</td>
+      <td><span class="badge ${e.type==='Entrée'?'grn':'info'}">${e.type}</span> ${_ext ? '<span class="badge gry" title="État des lieux réalisé et signé sur papier : classé ici, sans saisie dans Propryo">Hors Propryo</span>' : brouillon}</td>
       <td>${fd(e.date)}</td>
-      <td class="mu sm">${_np} pièce${_np>1?'s':''} · ${nb} élément${nb>1?'s':''}${sig}${abri}</td>
-      <td class="act-cell">
+      <td class="mu sm">${_ext ? (_edlExtPj(e) ? escHtml(_edlExtPj(e).originalName || _edlExtPj(e).name) : 'Aucun PDF joint') : `${_np} pièce${_np>1?'s':''} · ${nb} élément${nb>1?'s':''}${sig}${abri}`}</td>
+      <td class="act-cell">${_ext ? _edlExtBoutons(e, 'btn bs bb') : `
         <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier l'état des lieux">${_uiIcon('edit')}${brouillon ? 'Reprendre' : 'Modifier'}</button>
         <button class="btn bs bb" onclick="edlOpenView(${e.id})" title="Voir l'état des lieux (lecture seule)">${_uiIcon('eye')}Voir l'EDL</button>
         ${nph ? `<button class="btn bs bb" onclick="edlOpenGallery(${e.id})" title="Voir toutes les photos en grand (cloud en priorité)">${_uiIcon('camera')}Photos</button>` : ''}
         <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="${_share ? 'Envoyer au locataire (WhatsApp, mail…)' : 'Télécharger le PDF (Enregistrer sous)'}">${_share ? _uiIcon('share')+'Partager' : _uiIcon('download')+'Télécharger'}</button>
-        <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">${_uiIcon('trash')}Supprimer</button>
+        <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">${_uiIcon('trash')}Supprimer</button>`}
       </td></tr>`;
   }).join('')||`<tr><td colspan="6" style="text-align:center;padding:44px 20px;color:var(--t3)">${_uiIcon('doc-text',34)}<b style="display:block;color:var(--t1);font-size:15px;margin:8px 0 4px">Aucun état des lieux pour l'instant</b><span style="color:var(--t2);font-size:12.5px">Créer le premier à l'entrée ou à la sortie d'un locataire.</span><div style="margin-top:14px"><button class="btn bp bb" onclick="openNewEDL()">${_uiIcon('plus',14)} Nouvel EDL</button></div></td></tr>`;
   _edlKickListUploads(list);
@@ -3932,9 +3951,9 @@ function _edlListMore(id) {
     pg.setAttribute('role', 'dialog'); pg.setAttribute('aria-modal', 'true');
     document.body.appendChild(pg);
   }
-  const titre = `${e.logement || ''} — ${e.type || ''}${e.date ? ' du ' + fd(e.date) : ''}`;
+  const titre = `${e.logement ? _logLabel(e.logement) : ''} — ${e.type || ''}${e.date ? ' du ' + fd(e.date) : ''}`;
   pg.innerHTML = `<div class="edl-page-head"><button type="button" class="edl-page-back" onclick="_edlListMoreClose()" aria-label="Retour"><span aria-hidden="true">‹</span> Retour</button><div class="edl-page-title">${escHtml(titre)}</div></div>
-    <div class="edl-page-body"><p class="edl-page-q">Supprimer cet état des lieux ?</p><p class="edl-page-note">${escHtml(e.logement || '')}${e.locataire ? ' · ' + escHtml(e.locataire) : ''}. La suppression peut être annulée juste après.</p></div>
+    <div class="edl-page-body"><p class="edl-page-q">Supprimer cet état des lieux ?</p><p class="edl-page-note">${escHtml(e.logement ? _logLabelRef(e.logement) : '')}${e.locataire ? ' · ' + escHtml(e.locataire) : ''}. La suppression peut être annulée juste après.</p></div>
     <div class="edl-page-foot"><button type="button" class="btn edl-page-sec" onclick="_edlListMoreClose()">Annuler</button><button type="button" class="btn edl-page-danger" onclick="_edlListMoreClose();delEDL(${id},{confirme:true})">${_uiIcon('trash')} Supprimer</button></div>`;
   pg.style.display = 'flex';
   // audit M5 : quitter la liste (navigation, retour) ferme la page, qui vit sur <body>
@@ -4001,13 +4020,14 @@ function openNewEDL() {
 }
 
 async function openEditEDL(id) {
+  if (_edlExtGarde(id)) return;   // EDL fait hors Propryo : pas de saisie, on ouvre le PDF
   const e=DB.edl.find(x=>x.id===id); if(!e)return;
   // v14.38 EDL-AUDIT-CRITIQUE Phase 1 : reset INCONDITIONNEL avant chargement
   // (cohérent avec openNewEDL — empêche les reliquats d'un EDL précédent
   // ouvert dans la même session de polluer le rendu).
   _edlResetGlobalState();
   el('edl-edit-id').value=id;
-  el('m-edl-title').textContent=`EDL ${e.type} — ${e.logement}`;
+  el('m-edl-title').textContent=`EDL ${e.type} — ${e.logement ? _logLabel(e.logement) : ''}`;
   _edlSortie=e.type==='Sortie';
   // CHANTIER EDL-GARAGE — mode garage à la réouverture : le RECORD persisté prime (immutabilité +
   // cohérence avec `edl.garage` qui pilote le PDF), repli sur le bail pour les EDL legacy sans flag.
@@ -4088,7 +4108,7 @@ function _edlFill(e) {
   _edlSortie?el('edl-date-sortie').value=e.date||'':el('edl-date-entree').value=e.date||td();
   // Logements dropdown
   const sel=el('edl-log');
-  sel.innerHTML='<option value="">— Sélectionner —</option>'+_activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');
+  sel.innerHTML='<option value="">— Sélectionner —</option>'+_activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');
   sel.value=e.logement||'';
   // Champs texte
   const s=(id,val)=>{const x=el(id);if(x)x.value=val||'';};
@@ -4550,8 +4570,12 @@ function _edlUpdateLegalTexts() {
 async function edlLoadRef(type) {
   const ref=v('edl-log');
   if(!ref){showToast('Sélectionner d\'abord un logement','err');return;}
-  const found=DB.edl.filter(_edlActive).filter(e=>e.logement===ref&&e.type===type).sort((a,b)=>b.date.localeCompare(a.date));
-  if(!found.length){showToast('Aucun EDL '+type+' trouvé pour '+ref,'warn');return;}
+  // Un EDL fait hors Propryo n'a aucune pièce à reprendre : on l'ignore ici.
+  const found=DB.edl.filter(_edlActive).filter(e=>e.logement===ref&&e.type===type&&!_edlExterne(e)).sort((a,b)=>b.date.localeCompare(a.date));
+  if(!found.length){
+    const _surExt = DB.edl.filter(_edlActive).some(e=>e.logement===ref&&e.type===type&&_edlExterne(e));
+    showToast(_surExt ? 'EDL '+type.toLowerCase()+' fait hors Propryo : aucune pièce à reprendre, saisie à partir du modèle.' : 'Aucun EDL '+type+' trouvé pour '+_logLabel(ref),'warn');return;
+  }
   const src=found[0];
   const srcDate=src.date;
 
@@ -6721,10 +6745,9 @@ function _edlRenderLogCard() {
   const ref = sel.value;
   if (!ref) { card.innerHTML = `<button type="button" class="btn edl-log-pick" onclick="_edlOpenLogPage()">Choisir le logement</button>`; return; }
   const lg = (DB.logements || []).find(l => l.ref === ref) || {};
-  const opt = sel.options[sel.selectedIndex];
-  const occ = lg.locataire || ((opt && opt.text.indexOf(' – ') > 0) ? opt.text.split(' – ').slice(1).join(' – ') : '');
+  const occ = lg.locataire || 'Vacant';   // jamais relu dans le texte de l'option (il contient le nom d'affichage)
   const det = [lg.imm, lg.type, lg.surf ? lg.surf + ' m²' : ''].filter(Boolean).join(' · ');
-  card.innerHTML = `<div class="edl-log-card-x"><b>${escHtml(ref)}</b>${occ ? `<div class="edl-log-card-l2">${escHtml(occ)}</div>` : ''}${det ? `<div class="edl-log-card-l3">${escHtml(det)}</div>` : ''}</div><button type="button" class="btn edl-log-change" onclick="_edlOpenLogPage()">Changer</button>`;
+  card.innerHTML = `<div class="edl-log-card-x"><b>${escHtml(_logLabelRef(ref))}</b>${occ ? `<div class="edl-log-card-l2">${escHtml(occ)}</div>` : ''}${det ? `<div class="edl-log-card-l3">${escHtml(det)}</div>` : ''}</div><button type="button" class="btn edl-log-change" onclick="_edlOpenLogPage()">Changer</button>`;
 }
 function _edlOpenLogPage() {
   const sel = el('edl-log'); if (!sel) return;
@@ -7645,6 +7668,7 @@ async function _pdfSortie(o) {
 }
 
 async function downloadEDLPdfNative(id, opts) {
+  if (_edlExtGarde(id)) return;   // pas de PDF généré pour un EDL fait hors Propryo : on ouvre le PDF joint
   const { share = false } = opts || {};
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
@@ -7677,6 +7701,7 @@ function _edlDataUrlToBlob(dataUrl) {
   return new Blob([u], { type: mime });
 }
 async function _edlSharePhotos(id) {
+  if (_edlExtGarde(id)) return;
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   try {
@@ -9000,7 +9025,7 @@ function saveEDL(opts){
     // l'utilisateur croit avoir sauvegardé mais Drive ne reçoit rien.
     const _logObj = (DB.logements||[]).find(l => l.ref === log);
     if (!_logObj || !_logObj.entity) {
-      const ok = confirm2(`⚠ Logement "${log}" sans entité associée.\n\nL'EDL sera sauvé en local mais NE SERA PAS poussé vers Drive (les EDL sont rattachés via leur logement → entité).\n\nContinuer quand même ?`);
+      const ok = confirm2(`⚠ Logement "${_logLabelRef(log)}" sans entité associée.\n\nL'EDL sera sauvé en local mais NE SERA PAS poussé vers Drive (les EDL sont rattachés via leur logement → entité).\n\nContinuer quand même ?`);
       if (!ok) return null;
       console.warn('[saveEDL] Logement orphelin :', log, '→ EDL non incluse dans payload Drive');
     }
@@ -9190,7 +9215,7 @@ function saveEDL(opts){
 }
 function delEDL(id, opts){
   // opts.confirme : la confirmation a déjà été donnée sur la page « Supprimer » (téléphone, M-16).
-  if(!(opts && opts.confirme) && !confirm2('Supprimer cet EDL ?'))return;
+  if(!(opts && opts.confirme) && !confirm2(_edlExterne((DB.edl||[]).find(e => e && e.id === id && !e._deleted)) ? 'Supprimer cet EDL fait hors Propryo ?\n\nLe PDF joint est retiré des documents (le fichier déjà envoyé au cloud est conservé). La suppression peut être annulée.' : 'Supprimer cet EDL ?'))return;
   // v14.4 BUG-EDL-DELETE-NOSYNC : tombstone au lieu de splice.
   // Sans tombstone, la suppression n'est PAS propagée à Drive ni aux autres devices :
   // au prochain pull, l'EDL réapparaît sur les autres devices car le merge fait
@@ -9206,6 +9231,10 @@ function delEDL(id, opts){
   _undoOp(`Suppression de l'EDL ${old.type||''} ${old.date||''}`.trim(), () => {
     // v15.03 AUDIT-FIX : trace delete (EDL = preuve photographique + PII signatures)
     if (typeof _auditLog === 'function') _auditLog('delete', 'edl', id, (old.logement||'')+'/'+(old.type||''));
+    // EDL fait hors Propryo : le document du PDF est mis en tombstone DANS la même opération (annulable d'un coup). Pas de
+    // _attachmentDelete : il purgerait le cache IndexedDB et casserait l'annulation sur cet appareil ; le fichier cloud reste.
+    const _pj = _edlExtPj(old);
+    if (_pj) { const _t = new Date().toISOString(); Object.assign(_pj, { _deleted: true, _deletedAt: _t, _modifiedAt: _t }); }
     // On preserve `logement` pour que le filtre _buildEntityPayload (refs.has(e.logement))
     // continue à inclure le tombstone dans le bon payload entité.
     DB.edl[idx] = {
@@ -9274,27 +9303,27 @@ function archiveLogement(ref) {
     showToast('Terminer d\'abord le bail en cours avant d\'archiver','err');
     return;
   }
-  if(!confirm2(`Archiver le bien ${ref} ?\n\nRestauration possible à tout moment depuis l'onglet "Biens archivés". L'historique (baux, mouvements, EDL, quittances) sera intégralement conservé.`)) return;
+  if(!confirm2(`Archiver le bien ${_logLabelRef(ref)} ?\n\nRestauration possible à tout moment depuis l'onglet "Biens archivés". L'historique (baux, mouvements, EDL, quittances) sera intégralement conservé.`)) return;
   log.archived = true;
   log.archivedAt = td();
   _stamp(log);
   saveDB();
   initFilters && initFilters();
   rBiens();
-  showToast(`Bien ${ref} archivé`,'ok');
+  showToast(`Bien ${_logLabel(ref)} archivé`,'ok');
 }
 
 function restoreLogement(ref) {
   const log = (DB.logements||[]).find(l=>l.ref===ref);
   if(!log) return;
-  if(!confirm2(`Restaurer le bien ${ref} ?`)) return;
+  if(!confirm2(`Restaurer le bien ${_logLabelRef(ref)} ?`)) return;
   log.archived = false;
   delete log.archivedAt;
   _stamp(log);
   saveDB();
   initFilters && initFilters();
   rBiens();
-  showToast(`Bien ${ref} restauré`,'ok');
+  showToast(`Bien ${_logLabel(ref)} restauré`,'ok');
 }
 
 function _closeBienMenus() {
@@ -10363,7 +10392,7 @@ function _aggregateBuilding(logs) {
 // _biensFilters.layout ('blocks-a' défaut, 'cards-b' option).
 // ════════════════════════════════════════════════════════════════════════════
 function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
-  logs = (logs || []).slice().sort((a, b) => _natCmp(a.ref, b.ref));   // #7 : logements ordonnés par réf (Apt 2 avant Apt 10)
+  logs = (logs || []).slice().sort(_logLabelCmp);   // #7 : logements ordonnés par réf (Apt 2 avant Apt 10)
   const agg = _aggregateBuilding(logs);
   const ratioPct = agg.nbTotal ? Math.round((agg.nbOccupes / agg.nbTotal) * 100) : 0;
   const bailleurEsc = escHtml(entNom || '—');
@@ -10390,13 +10419,13 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
   const sortedLogs = logs.slice().sort((a, b) => {
     const ea = parseInt(a.etage, 10) || 0, eb = parseInt(b.etage, 10) || 0;
     if (ea !== eb) return ea - eb;
-    return (a.ref || '').localeCompare(b.ref || '');
+    return _logLabelCmp(a, b);   // B3 : tri sur ce qu'on voit (nom puis réf), ordre naturel
   });
 
   const logRows = sortedLogs.map(l => {
     const bail = _bienIsBailActif(l.ref) ? _bienActiveBail(l.ref) : null;   // statut : occupé aujourd'hui
     const isVacant = !bail;
-    const refEsc = escHtml(l.ref || ''); const refEscJs = _lyQ(l.ref || '');
+    const refEsc = escHtml(_logLabel(l)); const refEscJs = _lyQ(l.ref || '');   // refEsc = texte d'écran (nom) ; refEscJs reste la référence
     const typeEsc = escHtml(l.type || '—');
     const surf = l.surf ? `${fmtN(l.surf)} m²` : '';
     const etage = (l.etage != null && l.etage !== '') ? (typeof window.LogImmResolver !== 'undefined' ? window.LogImmResolver.formatLogLocation(l) : `étage ${l.etage}`) : '';
@@ -10448,7 +10477,7 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
     // (sinon le grid 7 cols se décale entre lignes vacantes et non-vacantes).
     const annonceSlot = annonceBtn || '<span></span>';
     return `<div class="log-row-a${isVacant && !isArchived ? ' is-vacant' : ''}" onclick="openLogFiche('${refEscJs}')">
-      <span class="log-row-a-ref">${refEsc}</span>
+      <span class="log-row-a-ref">${refEsc}${(_logLabel(l) !== String(l.ref||'')) ? `<small class="mu" style="display:block;font-weight:400;font-size:11px">Réf. ${escHtml(l.ref)}</small>` : ''}</span>
       <span class="log-row-a-type">${typeEsc}</span>
       <span class="log-row-a-details" title="${escHtml(detailsFull)}">${escHtml(detailsFull)}</span>
       <span class="log-row-a-loc"><span class="dot ${dotCls}"></span><span class="loc-name">${locDisplay}</span></span>
@@ -10511,7 +10540,7 @@ function _applyImmBlocksCollapsedState() {
 }
 
 function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
-  logs = (logs || []).slice().sort((a, b) => _natCmp(a.ref, b.ref));   // #7 : logements ordonnés par réf (Apt 2 avant Apt 10)
+  logs = (logs || []).slice().sort(_logLabelCmp);   // #7 : logements ordonnés par réf (Apt 2 avant Apt 10)
   const agg = _aggregateBuilding(logs);
   const ratioPct = agg.nbTotal ? Math.round((agg.nbOccupes / agg.nbTotal) * 100) : 0;
   const fillCls = agg.nbOccupes === 0 ? 'empty' : (agg.nbOccupes < agg.nbTotal ? 'partial' : '');
@@ -10632,7 +10661,10 @@ function _renderLogementCardFlat(l) {
   const ratioPct = occupied ? 100 : 0;
   const fillCls = occupied ? '' : 'empty';
   const occupLabel = escHtml(_lotStatutLibelle(l.ref));   // « Loué » / « Vacant » / « Vacant (départ le …, bail à clôturer) »
-  const titleEsc = escHtml(l.ref || '—');
+  const _nomAff = _logLabel(l);                          // B3 : nom d'affichage (libellé), sinon la référence
+  const _aUnNom = !!l.ref && _nomAff !== l.ref;          // un nom est défini → « Réf. D-101 » en petit dessous
+  const titleEsc = escHtml(_nomAff || '—');
+  const refSousTitre = _aUnNom ? `<div class="mu sm" style="font-size:11.5px;margin-top:2px">Réf. ${escHtml(l.ref)}</div>` : '';
   const subtitleEsc = escHtml(l.locataire || (occupied ? 'Bail actif' : 'Aucun locataire'));
   const bailleurEsc = escHtml(l.entity || '—');
   const period = bail
@@ -10648,7 +10680,7 @@ function _renderLogementCardFlat(l) {
     _ensureBiencPhCss();
     const badgeCls = isArchived ? 'arch' : (occupied ? 'loue' : 'vac');
     const badgeLbl = isArchived ? 'Archivé' : occupLabel;
-    const metaBits = [typeLabel, (l.surf?fmtN(l.surf)+' m²':''), (l.imm||'')].filter(Boolean).map(escHtml).join(' · ');
+    const metaBits = [(_aUnNom ? 'Réf. ' + l.ref : ''), typeLabel, (l.surf?fmtN(l.surf)+' m²':''), (l.imm||'')].filter(Boolean).map(escHtml).join(' · ');
     const rentPh = (occupied || !isArchived)
       ? `${fmt(l.hc||0)}<small> HC</small>${l.ch?` <small>+${fmt(l.ch)}</small>`:''}`
       : `${fmt(l.hc||0)}<small> /mois</small>`;
@@ -10674,6 +10706,7 @@ function _renderLogementCardFlat(l) {
     </div>
     <div class="bien-card-body">
       <div class="bien-card-title" title="${titleEsc}">${titleEsc}</div>
+      ${refSousTitre}
       <div class="bien-card-subtitle">${subtitleEsc}</div>
       <div class="bien-card-meta">
         <span class="bien-card-badge">${escHtml(typeLabel)}</span>
@@ -10742,7 +10775,7 @@ function _renderLogementsGroupedPhone(logs) {
     const thumb = g.isoles ? '<span>' + _uiIcon('home',20) + '</span>' : (im && im.id ? _coverImg('immeuble', im.id, '' + _uiIcon('building',20) + '') : '<span>' + _uiIcon('building',20) + '</span>');
     const gkey  = g.isoles ? '__ISOLES__' : (g.entNom + '||' + g.immNom);
     const isCol = !!collapsed[gkey];
-    const cards = g.logs.slice().sort((a,b) => _natCmp(a.ref, b.ref)).map(_renderLogementCardFlat).join('');
+    const cards = g.logs.slice().sort(_logLabelCmp).map(_renderLogementCardFlat).join('');
     return `<div class="log-grp${isCol?' collapsed':''}" data-gkey="${escHtml(gkey)}">
       <div class="log-grp-h" onclick="_toggleLogGroup(this)" tabindex="0" role="button" aria-label="Replier ou déplier ${title}" onkeydown="if(event.key==='Enter'||event.key===' '){_toggleLogGroup(this);event.preventDefault()}">
         <span class="log-grp-thumb">${thumb}</span>
@@ -10815,7 +10848,7 @@ function _filterAndSortLogs(logs) {
   const q = (_biensFilters.search||'').toLowerCase();
   if(q) {
     out = out.filter(l =>
-      (l.ref||'').toLowerCase().includes(q) ||
+      _logLabelMatch(l, q) ||   // B3 : nom affiché OU référence (sans casse ni accents)
       (l.imm||'').toLowerCase().includes(q) ||
       (l.entity||'').toLowerCase().includes(q) ||
       (l.locataire||'').toLowerCase().includes(q) ||
@@ -10830,14 +10863,14 @@ function _filterAndSortLogs(logs) {
     out = out.filter(l => _bienIsBailActif(l.ref) === wantLoue);
   }
   switch(_biensFilters.sort) {
-    case 'name-desc':  out.sort((a,b)=>_natCmp(b.imm, a.imm) || _natCmp(b.ref, a.ref)); break;
+    case 'name-desc':  out.sort((a,b)=>_natCmp(b.imm, a.imm) || _logLabelCmp(b, a)); break;
     case 'rent-desc':  out.sort((a,b)=>(+b.hc||0)-(+a.hc||0)); break;
     case 'rent-asc':   out.sort((a,b)=>(+a.hc||0)-(+b.hc||0)); break;
     case 'occup-desc': out.sort((a,b)=>(_bienIsBailActif(b.ref)?1:0)-(_bienIsBailActif(a.ref)?1:0)); break;
     case 'recent':     out.sort((a,b)=>(b._modifiedAt||'').localeCompare(a._modifiedAt||'')); break;
     // #7 : immeuble PUIS réf (naturel) — sinon, dans un même immeuble, tous les `imm` sont égaux
     // → aucun classement par numéro de logement (D-2 / D-10 / Garage…). (test partage 2026-06-21)
-    default:           out.sort((a,b)=>_natCmp(a.imm, b.imm) || _natCmp(a.ref, b.ref));
+    default:           out.sort((a,b)=>_natCmp(a.imm, b.imm) || _logLabelCmp(a, b));
   }
   return out;
 }
@@ -10848,12 +10881,21 @@ function exportBiensCSV() {
   const pool = _biensTab === 'archives' ? _archivedLogements() : _activeLogements();
   const rowsLogs = _filterAndSortLogs(pool);
   if(!rowsLogs.length) { showToast('Aucun bien ne correspond aux filtres','err'); return; }
-  const headers = ['Ref','Immeuble','Bailleur','Type','Surface m²','Étage','Adresse','HC €','Charges €','DG €','Locataire','Date début','Date fin','Statut','IRL'];
+  const headers = ['Ref','Immeuble','Bailleur','Type','Surface m²','Étage','Adresse','HC €','Charges €','DG €','Locataire','Date début','Date fin','Statut','IRL','Nom affiché'];
   const escCsv = v => `"${String(v==null?'':v).replace(/"/g,'""')}"`;
+  // Injection de formule (Excel/Sheets) : seuls les champs TEXTE LIBRES (Locataire, Nom affiché) sont neutralisés par un « ' »
+  // en tête s'ils commencent par = + - @ ; montants (négatifs possibles) et dates ne changent pas.
+  // 🟡5 (audit d'intégration) : aussi tabulation / retour chariot en tête ; le texte libre est d'abord NORMALISÉ (même nettoyage
+  // que le nom affiché, sans la coupe) : caractères de contrôle → espace, invisibles et surcharges bidi retirés, blancs ramenés à un espace.
+  const txtLibre = v => {
+    const s = String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/[​-‏‪-‮⁦-⁩﻿]+/g, '').replace(/\s+/g, ' ').trim();
+    return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+  };
   const rows = rowsLogs.map(l => [
     l.ref,l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
-    l.hc||0,l.ch||0,l.dg||0,l.locataire||'',l.debut||'',l.fin||'',
-    _lotStatutLibelle(l.ref), l.irl||''
+    l.hc||0,l.ch||0,l.dg||0,txtLibre(l.locataire||''),l.debut||'',l.fin||'',
+    _lotStatutLibelle(l.ref), l.irl||'',
+    txtLibre(_logLabel(l) !== l.ref ? _logLabel(l) : '')   // B3 : nom affiché, en dernière colonne (colonnes existantes inchangées)
   ]);
   const csv = [headers, ...rows].map(r => r.map(escCsv).join(';')).join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
@@ -11335,14 +11377,16 @@ function _legal2044WizardData(ent, year) {
 // (mixte / usage à qualifier). Affiché dans le wizard ET le PDF — l'utilisateur et son
 // comptable doivent VOIR le périmètre (transparence anti-redressement).
 // FEAT-REGIMES P0 / audit code-reviewer #3 (symétrie panneau ↔ wizard ↔ PDF).
-function _legal2044PerimetreHtml(data) {
+function _legal2044PerimetreHtml(data, opt) {
+  // ecran:true (wizard) → nom d'affichage ; sans option (impression remise à un tiers) → RÉFÉRENCE (règle d'or B3).
+  const _nm = (opt && opt.ecran) ? _logLabel : (r => r);
   const ex = (data && data.exclus) || [];
   const fl = (data && data.flagues) || [];
   if (!ex.length && !fl.length) return '';
   let h = '<div style="margin:14px 0;padding:11px 13px;border:1px solid #e0a800;border-radius:8px;background:#fff8e6;font-size:11.5px;color:#7a5a18;line-height:1.55">';
   h += '<b>⚠ Périmètre foncier (2044)</b> — la 2044 ne couvre que la <b>location nue</b>. Ce récap a écarté :';
-  if (ex.length) h += `<div style="margin-top:5px">• <b>${ex.length} lot(s) meublé(s) EXCLU(S)</b> — relèvent du BIC/LMNP (déclaration séparée) : ${ex.map(e => escHtml(e.ref)).join(', ')}</div>`;
-  if (fl.length) h += `<div style="margin-top:4px">• <b>${fl.length} lot(s) à VÉRIFIER</b> (mixte nu+meublé, ou usage à qualifier) : ${fl.map(f => escHtml(f.ref)).join(', ')}</div>`;
+  if (ex.length) h += `<div style="margin-top:5px">• <b>${ex.length} lot(s) meublé(s) EXCLU(S)</b> — relèvent du BIC/LMNP (déclaration séparée) : ${ex.map(e => escHtml(_nm(e.ref))).join(', ')}</div>`;
+  if (fl.length) h += `<div style="margin-top:4px">• <b>${fl.length} lot(s) à VÉRIFIER</b> (mixte nu+meublé, ou usage à qualifier) : ${fl.map(f => escHtml(_nm(f.ref))).join(', ')}</div>`;
   if (ex.length) h += '<div style="margin-top:6px;color:#9a7b2a">Note : les charges d\'immeuble (taxe foncière, assurance PNO, syndic) restent comptées à 100 % au foncier même si l\'immeuble comporte des lots meublés. Si un immeuble est <b>mixte</b>, la quote-part meublée est à retirer (ventilation à venir).</div>';
   h += '</div>';
   return h;
@@ -11562,7 +11606,7 @@ function _renderWiz2044Step3(ent, data) {
         <p class="mu sm" style="font-size:11px;margin:6px 0">Retourner à l'étape 2 pour les mapper.</p>
       </div>` : '';
   return `
-    ${_legal2044PerimetreHtml(data)}
+    ${_legal2044PerimetreHtml(data, { ecran: true })}
     <div class="kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px">
       <div class="kpi"><div class="kv pos">${fmt(t.recettes215)}</div><div class="kl">Recettes (l. 215)</div></div>
       <div class="kpi"><div class="kv neg">${fmt(t.charges240)}</div><div class="kl">Charges (l. 240)</div></div>
@@ -11591,7 +11635,7 @@ function _renderWiz2044Step4(ent, data) {
   return `
     <div style="padding:10px 0">
       <p>Récapitulatif prêt à imprimer / sauvegarder en PDF.</p>
-      ${_legal2044PerimetreHtml(data)}
+      ${_legal2044PerimetreHtml(data, { ecran: true })}
       <ul style="font-size:12px;line-height:1.8">
         <li>Recettes ligne 215 : <b>${fmt(data.totaux.recettes215)}</b></li>
         <li>Charges ligne 240 : <b>${fmt(data.totaux.charges240)}</b></li>
@@ -11980,7 +12024,7 @@ function openLogFiche(ref, replace) {
   const log = (DB.logements||[]).find(l=>l.ref===ref);
   if(log) {
     const tb = el('tb-title');
-    if(tb) tb.textContent = log.imm ? `${log.imm} — ${ref}` : ref;
+    if(tb) tb.textContent = log.imm ? `${log.imm} — ${_logLabel(ref)}` : _logLabel(ref);
   }
 }
 
@@ -12715,7 +12759,7 @@ function _renderImmFichePlanGantt(ent, im, activeLogs) {
 
     return `<div class="immf-gantt-row${preavisInfo&&preavisInfo.inPreavisZone?' immf-gantt-row-preavis':''}" onclick="openLogFiche('${refSafe}')" tabindex="0" onkeydown="if(event.key==='Enter')openLogFiche('${refSafe}')">
       <div class="immf-gantt-rowlabel">
-        <div class="immf-gantt-rowlabel-ref">${escHtml(log.ref)}${preavisBadge}</div>
+        <div class="immf-gantt-rowlabel-ref">${escHtml(_logLabel(log))}${preavisBadge}</div>
         ${subtitleParts.length ? `<div class="immf-gantt-rowlabel-sub">${escHtml(subtitleParts.join(' · '))}</div>` : ''}
       </div>
       <div class="immf-gantt-track">
@@ -13454,7 +13498,7 @@ function _renderImmRelevesLogements(activeLogs, archivedLogs) {
   if (!logs.length) return '';
   const courant = logs.some(l => l.ref === _immCompteursRef) ? _immCompteursRef : logs[0].ref;
   const log = logs.find(l => l.ref === courant);
-  const opts = logs.map(l => `<option value="${escHtml(l.ref)}"${l.ref === courant ? ' selected' : ''}>${escHtml(l.ref)}${l.locataire ? ' — ' + escHtml(l.locataire) : ''}${l.archived ? ' (archivé)' : ''}</option>`).join('');
+  const opts = logs.map(l => `<option value="${escHtml(l.ref)}"${l.ref === courant ? ' selected' : ''}>${escHtml(_logLabelRef(l))}${l.locataire ? ' — ' + escHtml(l.locataire) : ''}${l.archived ? ' (archivé)' : ''}</option>`).join('');
   return '<div class="logf-section-head" style="margin-top:26px">'
     + '<h3 class="logf-section-title">' + _uiIcon('bolt') + ' Relevés compteurs des logements</h3>'
     + `<select class="inp" style="max-width:280px" onchange="_setImmCompteursRef(this.value)" aria-label="Logement dont on affiche les relevés">${opts}</select>`
@@ -13534,7 +13578,7 @@ function _renderImmFichePanelCharges(ent, im, activeLogs, archivedLogs) {
       const ratioPct = qp ? (qp.ratio*100).toFixed(1) : '—';
       const exclu = qp && qp.exclu;
       return `<tr class="${exclu?'cc-row-exclu':''}">
-        <td><b>${escHtml(log.ref)}</b><br><span class="mu sm">${escHtml(log.locataire||'Vacant')}</span></td>
+        <td><b>${escHtml(_logLabel(log))}</b><br><span class="mu sm">${escHtml(log.locataire||'Vacant')}</span></td>
         <td class="num">${exclu ? '—' : ratioPct + '%'}</td>
         <td class="mu sm">${escHtml(qp?.denomLabel||'—')}</td>
         <td class="num">${exclu ? '—' : '<b>'+fmt(partFact)+'</b>'}</td>
@@ -13680,7 +13724,7 @@ function openCcFormModal(entId, immId, ccIdx) {
       : '<span style="font-size:10px;background:#94a3b822;color:#64748b;padding:1px 6px;border-radius:8px;margin-left:6px">exclu charges</span>';
     return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;background:var(--bg2)">
       <input type="checkbox" class="cc-form-log" value="${escHtml(l.ref)}"${isChecked?' checked':''}>
-      <span style="flex:1"><b>${escHtml(l.ref)}</b> · ${escHtml(l.locataire||'Vacant')}</span>
+      <span style="flex:1"><b>${escHtml(_logLabelRef(l))}</b> · ${escHtml(l.locataire||'Vacant')}</span>
       ${badge}
     </label>`;
   }).join('');
@@ -14907,13 +14951,36 @@ function _dgStatutLibelle(dgInfo, restitue, court) {
 function _histoBailEventHtml(ev, c, refSafe, bailForDg){
   const t = ev.type;
   if(t==='bail-debut'){
-    const badge = ev.signe ? 'bail signé' : 'bail';
+    const badge = ev.externe ? 'signé hors Propryo' : (ev.signe ? 'bail signé' : 'bail');
     const foot = c.statut==='clos' && c.histIdx!=null
       ? `<div class="hl-foot"><span class="hl-lnk" onclick="openBailHist(${c.histIdx})">${_uiIcon('eye')} Voir le bail archivé</span></div>` : '';
     return `<div class="hl-card" data-dot="d-bail"><div class="tt"><h4>Bail — ${escHtml(ev.locataires||'locataire')}</h4><span class="hl-badge b-bail">${escHtml(badge)}</span></div>
       <div class="hl-desc">Loyer initial <b>${fmt(ev.hc0)} HC + ${fmt(ev.ch0)}</b> de provision${ev.dg?` · dépôt de garantie dû ${fmt(ev.dg)}`:''}.</div>${foot}</div>`;
   }
+  // BAIL-EN-COURS-SIGNE-HORS-PROPRYO (étape 6) — déclaration « signé hors Propryo » et signatures / sessions ARCHIVÉES.
+  if(t==='signe-externe'){
+    const orig = ev.origine==='repris' ? 'bail repris du vendeur' : (ev.origine==='session-expiree' ? 'après une session de signature à distance expirée' : 'sur papier');
+    return `<div class="hl-card" data-dot="d-bail"><div class="tt"><h4>Bail déclaré signé hors Propryo</h4><span class="hl-badge b-bail">hors Propryo</span></div>
+      <div class="hl-desc">Signé le <b>${escHtml(fd(ev.date))}</b>${ev.dateApprox?' <span class="mu">(date approximative)</span>':''} — ${orig}. Déclaré${ev.declareLe?' le '+escHtml(fd(ev.declareLe)):''}${ev.declarePar?' par '+escHtml(ev.declarePar):''}. Propryo n'enregistre aucune signature électronique : le bail est considéré comme conclu à cette date.</div></div>`;
+  }
+  if(t==='signature-annulee'){
+    const m = ev.motif;
+    const titre = m==='session-annulee' ? 'Session de signature à distance annulée'
+      : m==='remplace-par-externe' ? 'Signature en cours remplacée par « signé hors Propryo »'
+      : m==='externe-retire' ? 'Déclaration « signé hors Propryo » retirée'
+      : m==='externe-redate' ? 'Date de signature corrigée' : 'Signature archivée';
+    const etat = ev.etatRelais==='pending-invalidee' ? 'son lien encore actif a été invalidé' : (ev.etatRelais==='expired' ? 'expirée' : '');
+    const qui = (ev.signataires||[]).map(x=>`${escHtml(x.nom||x.role||'—')} ${x.signeLe?('a signé le '+escHtml(fd(x.signeLe))):'n\'avait pas signé'}`).join(' · ');
+    let corps;
+    if(m==='externe-retire') corps = `La déclaration${ev.ancienneDate?' du <b>'+escHtml(fd(ev.ancienneDate))+'</b>':''} a été retirée : le bail est redevenu non signé. Elle reste conservée ici.`;
+    else if(m==='externe-redate') corps = `Ancienne date de signature déclarée : <b>${escHtml(fd(ev.ancienneDate))}</b>. La déclaration précédente est archivée, une nouvelle l'a remplacée.`;
+    else corps = `${ev.envoyeeLe?'Envoyée le <b>'+escHtml(fd(ev.envoyeeLe))+'</b>':'Session de signature'}${etat?' ('+etat+')':''}${qui?' — '+qui:''}.${ev.bailleurAvaitSigne?' La signature du bailleur est archivée (elle ne sert plus).':''}${m==='session-annulee'?' Le bail est redevenu non signé.':''}`;
+    return `<div class="hl-card" style="opacity:.85" data-dot="d-renon"><div class="tt"><h4>${titre}</h4><span class="hl-badge b-warn">⊘ archivée</span></div>
+      <div class="hl-desc">${corps}${ev.par?' Par '+escHtml(ev.par)+'.':''} Rien n'est supprimé : l'ancienne signature est conservée dans l'historique du bail.</div></div>`;
+  }
   if(t==='dg-verse'){
+    if(ev.nonVerse) return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Dépôt de garantie prévu, non versé</h4><span class="hl-badge b-dg">DG</span></div>
+      <div class="hl-desc"><b>${fmt(ev.montant)}</b> prévu au bail ; case « Dépôt de garantie versé » décochée : aucun dépôt détenu, rien à restituer.</div></div>`;
     // Statut + CTA restitution : mêmes règles que l'ancien panneau « Dépôt de garantie »
     // (v15.14 Fix 4), portées par l'événement DG du bail concerné (_bailForDg).
     let statutHtml='', ctaHtml='';
@@ -15075,7 +15142,7 @@ function _histoLoyerValiderMigration(ref){
 let _histoIrlCorrCtx = null;
 function _histoIrlCorrOpen(ref, revisionDate, ancienEffet){
   _histoIrlCorrCtx = { ref, revisionDate, ancienEffet };
-  el('ic-sub').textContent = `${ref} — révision validée le ${fd(revisionDate)}, effet actuel ${fd(ancienEffet)}.`;
+  el('ic-sub').textContent = `${_logLabel(ref)} — révision validée le ${fd(revisionDate)}, effet actuel ${fd(ancienEffet)}.`;
   el('ic-effet').value = ancienEffet || '';
   // Décision 25/09 : le calendrier grise tout ce qui précède la demande (date de validation) et la date
   // de révision du cycle ; le dernier mois quittancé est aussi re-vérifié à l'enregistrement.
@@ -15092,7 +15159,7 @@ function _histoIrlCorrOpen(ref, revisionDate, ancienEffet){
           dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm === 'function' ? _dernierMoisQuittanceYm(ref) : null) || undefined }).effetIso : '';
     el('ic-effet').min = _min || '';
     // Passe 6 (m2) — la vraie raison du plancher, comme dans la modale de validation.
-    el('ic-sub').textContent = `${ref} — révision validée le ${fd(revisionDate)}, effet actuel ${fd(ancienEffet)}. `
+    el('ic-sub').textContent = `${_logLabel(ref)} — révision validée le ${fd(revisionDate)}, effet actuel ${fd(ancienEffet)}. `
       + (_min ? _irlMsgRetroactif(_min, { demandeIso: _histoIrlCorrCtx.demandeIso, libelle: 'Date au plus tôt',
           dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm === 'function' ? _dernierMoisQuittanceYm(ref) : null) }) : '');
   } catch (e) {}
@@ -15180,7 +15247,7 @@ function _histoSaveCorrPeriode(){
   const _bailDebutCorr = (typeof window._baremeChapitrePour === 'function')
     ? window._baremeChapitrePour(DB.loyerBareme||[], ref, debut, _bauxCorr) : '';
   if(!_bailDebutCorr){
-    showToast(`Aucun bail de ${ref} ne couvre le ${fd(debut)} : cette période ne peut être rattachée à aucun locataire. Vérifier la date de début.`,'err',8000);
+    showToast(`Aucun bail de ${_logLabel(ref)} ne couvre le ${fd(debut)} : cette période ne peut être rattachée à aucun locataire. Vérifier la date de début.`,'err',8000);
     return;
   }
   if(String(debut).slice(0,10) < _bailDebutCorr){
@@ -15249,7 +15316,7 @@ function _renderLogFichePanelCompta(log, ref) {
         <select class="inp" style="width:100px" onchange="setLogFicheComptaYear(this.value)">${yearOpts}</select>
       </div>
       <div class="compta-toolbar-right">
-        <button class="btn bs bb" onclick="openNewMv();showToast('Penser à sélectionner « ${escHtml(ref)} » dans le champ Logement','info',4000)">+ Mouvement</button>
+        <button class="btn bs bb" onclick="_openNewMvPourLot('${_lyQ(ref)}')">+ Mouvement</button>
         <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(ref)}')">＋ Faire une quittance</button>
         <button class="btn bs bb" onclick="_goFromLogFiche('mouvements')" title="Voir tous les mouvements dans l'onglet">↗ Onglet Mouvements</button>
       </div>
@@ -15665,7 +15732,7 @@ function _incRender() {
     titre = 'Message au locataire'; sub = 'À relire avant envoi';
     body = _incMessageHtml(inc);
     // ESPACE LOCATAIRE : dépôt dans le fil du locataire, par geste explicite après relecture (secondaire, M-4).
-    const elDepot = (window.EspaceLoc && window.EspaceLoc.disponiblePourIncident(inc)) ? `<button type="button" class="btn bs" onclick="EspaceLoc.envoyerTexteIncident('${escHtml(String(inc.id))}')">${_uiIcon('send', 14)} Déposer dans l'espace locataire</button>` : '';
+    const elDepot = (window.EspaceLoc && window.EspaceLoc.disponiblePourIncident(inc)) ? `<button type="button" class="btn bs" onclick="EspaceLoc.envoyerTexteIncident('${_lyQ(String(inc.id))}')">${_uiIcon('send', 14)} Déposer dans l'espace locataire</button>` : '';
     foot = `<button type="button" class="btn bs" onclick="_incGo('fiche')">Retour</button><button type="button" class="btn bs" onclick="_incCopierMessage()">${_uiIcon('doc', 14)} Copier</button>${elDepot}<button type="button" class="btn bp" onclick="_incEnvoyerMessage()">${_uiIcon('send', 14)} Envoyer le message</button>`;
   } else {
     titre = _incElLbl(inc) + (inc.nature ? ' — ' + _incNatLbl(inc).toLowerCase() : '');
@@ -16231,7 +16298,7 @@ function _periodeLegale(periode, annee){
 const _DIAGS_CATALOG_INLINE = [
   { key:'dpe',      label:'DPE — Performance énergétique', validityYears:10, icon:'🌡', legal:'Loi 2010-788',
     isApplicable: () => true },
-  { key:'crep',     label:'CREP — Plomb (saturnisme)', validityYears:null, validityIfPresence:1, icon:'⚠', legal:'Art. L1334-5 Code santé',
+  { key:'crep',     label:'CREP — Plomb (saturnisme)', validityYears:null, validityIfPresence:6, icon:'⚠', legal:'Art. L1334-5 Code santé',
     isApplicable: (log) => { const p=_periodeLegale(log?.periodeConstr, log?.anneeConstruction); return p ? (p==='Avant 1949') : null; } },
   { key:'amiante',  label:'Amiante (DAPP)', validityYears:null, icon:'🧪', legal:'Art. R1334-15',
     isApplicable: (log) => { const p=_periodeLegale(log?.periodeConstr, log?.anneeConstruction); return p ? (p!=='Après 1997') : null; } },
@@ -16299,7 +16366,8 @@ function _diagDateExpiration(diagKey, info) {
   const entry = _diagCatalogEntry(diagKey);
   if (!entry || !info || !info.date) return null;
   if (diagKey === 'crep') {
-    if (info.presence === true) return _diagAddYM(info.date, 1, 0);
+    // Location : 6 ans si plomb au-dessus du seuil (1 an = règle VENTE), illimité sinon (RETOURS-2026-10-05 A5).
+    if (info.presence === true) return _diagAddYM(info.date, entry.validityIfPresence || 6, 0);
     return null;
   }
   if (entry.validityYears == null) return null;
@@ -16332,6 +16400,21 @@ function _diagStatut(diagKey, logement, dateRef) {
   // on neutralise l'état intermédiaire (FEAT-GEORISQUES-ERP Phase 2, décision 1).
   if (diagKey === 'erp') return 'valide';
   return (expTs - refTs) <= threshold ? 'expirebientot' : 'valide';
+}
+
+// RETOURS-2026-10-05 A6 — un bail EN COURS ne subit pas les expirations de diagnostics (art. 3-3 : DDT dû
+// à la conclusion du bail et au renouvellement). Date de conclusion du bail en place : signature, sinon début.
+// Miroir pur testé : js/core/diagnostics.js (_ddtDateBailEnPlace / _diagExpireARefaire).
+function _ddtDateBailEnPlace(log) {
+  const bail = log && log.ref && DB.baux ? DB.baux[log.ref] : null;
+  if (!bail || bail._deleted || bail.cloture) return null;
+  const d = String((bail.signatures && bail.signatures.signedAt) || bail.debut || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+}
+// À refaire seulement si déjà périmé À LA CONCLUSION du bail en place ; sans bail en place : à la date du jour.
+function _diagExpireARefaire(diagKey, log, today) {
+  const d = _ddtDateBailEnPlace(log);
+  return _diagStatut(diagKey, log, d ? new Date(d + 'T00:00:00') : (today || new Date())) === 'expire';
 }
 
 function _ddtComplet(logement, dateRef) {
@@ -17045,7 +17128,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.739 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.740 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17840,16 +17923,24 @@ function _renderLogFichePanelDocuments(log, ref) {
   if(bail && _isAlive(bail)) {
     const sigSign = bail.signatures && bail.signatures.signedAt;
     const cloudPdf = bail.signatures && bail.signatures.cloudPdfKey;
+    const _sigExt = !!(bail.signatures && bail.signatures.mode === 'externe');
+    const _scanExt = _sigExt ? _bailScanExterne(ref, bail) : null;
     if(sigSign) {
       bailSection = `<div class="logf-doc-card">
         <div class="logf-doc-icon">${_monoSvg('<path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 12h6M9 16h4"/>',22)}</div>
         <div class="logf-doc-info">
-          <div class="logf-doc-name">Bail signé — ${escHtml(bail.nom || (bail.locataires?.[0]?.nom) || '—')}</div>
-          <div class="logf-doc-meta">Signé le ${fd(sigSign)}${bail.debut?` · début ${fd(bail.debut)}`:''}</div>
+          <div class="logf-doc-name">${_sigExt ? 'Bail signé hors Propryo' : 'Bail signé'} — ${escHtml(bail.nom || (bail.locataires?.[0]?.nom) || '—')}</div>
+          <div class="logf-doc-meta">Signé le ${escHtml(fd(_sigExt && bail.signatures.externe && bail.signatures.externe.date ? bail.signatures.externe.date : sigSign))}${(_sigExt && bail.signatures.externe && bail.signatures.externe.dateApprox) ? ' (date approximative)' : ''}${_scanExt ? ` · ${escHtml(_scanExt.originalName || _scanExt.name)} · ${_bailScanFmtTaille(_scanExt.size)}` : (_sigExt ? '' : (bail.debut?` · début ${escHtml(fd(bail.debut))}`:''))}</div>
+          ${_sigExt && !_scanExt ? '<div class="logf-doc-meta">Aucun PDF déposé (facultatif)</div>' : ''}
           ${_ddtFusionAlertTxt(bail) ? `<div class="logf-doc-alert">${_uiIcon('warn', 13)}<span>${escHtml(_ddtFusionAlertTxt(bail))}</span></div>` : ''}
         </div>
         <div class="logf-doc-actions">
-          <button class="btn bs bb" onclick="previewSignedBailRef('${_lyQ(ref)}')" title="Voir le bail tel que signé (snapshot figé)">${_uiIcon('eye')} Aperçu</button>
+          ${_sigExt ? (_scanExt
+            ? `<button class="btn bs bb" onclick="_bailScanExterneOuvrir('${_lyQ(ref)}')" title="Ouvrir le PDF du bail signé">Ouvrir</button>
+               <button class="btn bs bb" onclick="_bailScanExterneChoisir('${_lyQ(ref)}')" title="Remplacer le PDF">Remplacer</button>
+               <button class="btn bs bb" onclick="_bailScanExterneRetirerRef('${_lyQ(ref)}')" title="Retirer le PDF (le bail reste déclaré signé)">Retirer</button>`
+            : `<button class="btn bs bb" onclick="_bailScanExterneChoisir('${_lyQ(ref)}')" title="Ajouter le PDF du bail signé">Ajouter le PDF</button>`) : ''}
+          ${_scanExt ? '' : `<button class="btn bs bb" onclick="previewSignedBailRef('${_lyQ(ref)}')" title="${_sigExt ? 'Aperçu du document établi à partir de la saisie (le bail signé est l\'exemplaire papier)' : 'Voir le bail tel que signé (snapshot figé)'}">${_uiIcon('eye')} Aperçu</button>`}
           ${cloudPdf?`<button class="btn bs bb" onclick="_openCloudBailPdf('${_lyQ(ref)}')" title="Ouvrir le PDF du bail signé">${_uiIcon('doc')} PDF</button>`:''}
         </div>
       </div>`;
@@ -17859,6 +17950,17 @@ function _renderLogFichePanelDocuments(log, ref) {
   } else {
     bailSection = `<div class="logf-doc-empty">Aucun bail actif sur ce logement.</div>`;
   }
+  // PDF d'une déclaration « signé hors Propryo » précédente (retirée ou re-datée) : conservé, jamais perdu, ouvrable ici.
+  if(bail && _isAlive(bail)) {
+    bailSection += _bailScansExternesOrphelins(ref, bail).map(d => `<div class="logf-doc-card">
+        <div class="logf-doc-icon">${_monoSvg('<path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 12h6M9 16h4"/>',22)}</div>
+        <div class="logf-doc-info">
+          <div class="logf-doc-name">PDF d'une déclaration « signé hors Propryo » précédente</div>
+          <div class="logf-doc-meta">Signé le ${escHtml(fd(String(d.bailSignedAt || '').slice(0,10)))} · ${escHtml(d.originalName || d.name)} · ${_bailScanFmtTaille(d.size)}</div>
+        </div>
+        <div class="logf-doc-actions"><button class="btn bs bb" onclick="_bailScanExterneOuvrirDoc(${d.id})">Ouvrir</button></div>
+      </div>`).join('');
+  }
   sections.push({ title: '' + _uiIcon('doc-text') + ' Bail', icon: '📜', html: bailSection });
 
   // ── 2. EDLs (entrée + sortie)
@@ -17867,11 +17969,22 @@ function _renderLogFichePanelDocuments(log, ref) {
   let edlSection = '';
   if(edls.length) {
     edlSection = edls.map(e => {
+      // EDL fait hors Propryo : carte dédiée (Ouvrir le PDF / Supprimer), pas d'éditeur ni de PDF généré.
+      if(_edlExterne(e)) {
+        return `<div class="logf-doc-card">
+        <div class="logf-doc-icon">${_monoSvg('<path d="M8 3h8l3 3v15H5V3Z"/><path d="M9 9h6M9 13h6M9 17h4"/>',22)}</div>
+        <div class="logf-doc-info">
+          <div class="logf-doc-name">${_edlExtLibelle(e)}</div>
+          <div class="logf-doc-meta">${_edlExtMeta(e)}</div>
+        </div>
+        <div class="logf-doc-actions">${_edlExtBoutons(e, 'btn bs bb')}</div>
+      </div>`;
+      }
       const sigSign = e.signatures && e.signatures.signedAt;
-      const typeIcon = e.type === 'sortie'
+      const typeIcon = _edlSens(e) === 'sortie'
         ? _monoSvg('<path d="M6 3h9a1 1 0 0 1 1 1v17H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><circle cx="13" cy="12" r="1" fill="currentColor" stroke="none"/>',22)
         : _monoSvg('<path d="M4 11.5 12 5l8 6.5"/><path d="M6 10.5V20h12v-9.5"/>',22);
-      const typeLabel = e.type === 'sortie' ? 'Sortie' : 'Entrée';
+      const typeLabel = _edlSens(e) === 'sortie' ? 'Sortie' : 'Entrée';
       return `<div class="logf-doc-card">
         <div class="logf-doc-icon">${typeIcon}</div>
         <div class="logf-doc-info">
@@ -17892,6 +18005,7 @@ function _renderLogFichePanelDocuments(log, ref) {
       <div style="margin-top:10px"><button class="btn bs bb" onclick="_goFromLogFiche('edl')">↗ Onglet États des lieux</button></div>
     </div>`;
   }
+  edlSection = _edlExtFormHtml(ref, bail && _isAlive(bail) ? bail : null) + edlSection;
   sections.push({ title: `${_uiIcon('list')} États des lieux ${edls.length?`(${edls.length})`:''}`, icon: '📋', html: edlSection });
 
   // ── 3. Lettres IRL envoyées (recensées dans log.irlLettres ou DB.irlLettres si existe)
@@ -18310,7 +18424,7 @@ function openCompteursInitModal(ref) {
     <div class="ov" id="ov-cci" onclick="closeBg(event,'ov-cci')">
       <div class="modal" style="max-width:620px">
         <div class="m-head">
-          <h3>${_uiIcon('settings')} Initialiser les compteurs — ${escHtml(ref)}</h3>
+          <h3>${_uiIcon('settings')} Initialiser les compteurs — ${escHtml(_logLabel(ref))}</h3>
           <button class="m-close" onclick="closeM('ov-cci')">${_uiIcon('close')}</button>
         </div>
         <div class="m-body">
@@ -18415,7 +18529,7 @@ function openCompteurReleve(ref, typeKey, editId) {
   ).join('');
   const refSafe = _lyQ(ref);
   const idSafe  = _lyQ(editId);
-  const title = editRel ? `${_uiIcon('edit')} Modifier le relevé — ${escHtml(ref)}` : `${_uiIcon('chart')} Nouveau relevé compteur — ${escHtml(ref)}`;
+  const title = editRel ? `${_uiIcon('edit')} Modifier le relevé — ${escHtml(_logLabel(ref))}` : `${_uiIcon('chart')} Nouveau relevé compteur — ${escHtml(_logLabel(ref))}`;
   const dateVal = editRel ? (editRel.date || today) : today;
   const valVal  = editRel ? (editRel.value != null ? editRel.value : '') : '';
   const notesVal = editRel ? (editRel.notes || '') : '';
@@ -18611,6 +18725,19 @@ function _renderLogFichePanelEDL(log, ref) {
 
   // ── Cards par EDL
   const cards = edls.map(edl => {
+    if(_edlExterne(edl)) {   // EDL fait hors Propryo : pas d'éditeur, pas de PDF généré — Ouvrir le PDF / Supprimer
+      const tc = edl.type === 'Entrée' ? '#16a34a' : '#ea580c';
+      return `<div class="logf-edl-card" style="border-left:3px solid ${tc}">
+      <div class="logf-edl-card-head">
+        <span class="logf-edl-type" style="background:${tc}22;color:${tc}">${edl.type === 'Entrée' ? '🟢' : '🟠'} ${escHtml(edl.type)}</span>
+        <span class="logf-edl-date">${escHtml(fd(edl.date))}</span>
+        <span class="logf-edl-loc" title="${escHtml(edl.locataire||'—')}">${escHtml(edl.locataire||'—')}</span>
+        <span class="logf-equip-badge b-mute">Hors Propryo</span>
+      </div>
+      <div class="logf-edl-card-meta"><span>${_edlExtMeta(edl)}</span></div>
+      <div class="logf-edl-card-actions">${_edlExtBoutons(edl, 'btn bs bb')}</div>
+    </div>`;
+    }
     const stats = _edlStats(edl);
     const sig = _edlSignatureStatus(edl);
     const typeColor = edl.type === 'Entrée' ? '#16a34a' : '#ea580c';
@@ -18713,6 +18840,7 @@ function openNewEDLForLog(ref, type) {
 // Écrit la composition des pièces DE L'EDL en retour sur le logement : c'est
 // « edl-pieces » au sens de l'invariant 19a, donc autorisé hors ligne.
 function saveLogEDLTemplateFromEDL(edlId) {
+  if (_edlExterne((DB.edl || []).find(x => x && x.id === edlId))) { showToast('EDL fait hors Propryo : pas de pièces à garder comme modèle.', 'warn'); return; }
   const _quoiEDL = { quoi: 'edl-pieces' };   // invariant 19a
   const edl = (DB.edl||[]).find(e => e.id === edlId);
   if(!edl) { showToast('EDL introuvable','err'); return; }
@@ -18721,7 +18849,7 @@ function saveLogEDLTemplateFromEDL(edlId) {
 
   // Confirmer si template existe déjà
   if(log.edlTemplate && log.edlTemplate.pieces) {
-    if(!confirm2(`Un template existe déjà pour ${edl.logement} (${log.edlTemplate.pieces.length} pièces).\n\nLe remplacer par la structure de cet EDL (${(edl.pieces||[]).length} pièces, ${(edl.pieces||[]).reduce((s,p)=>s+(p.elements||[]).length,0)} éléments) ?`)) return;
+    if(!confirm2(`Un template existe déjà pour ${_logLabelRef(edl.logement)} (${log.edlTemplate.pieces.length} pièces).\n\nLe remplacer par la structure de cet EDL (${(edl.pieces||[]).length} pièces, ${(edl.pieces||[]).reduce((s,p)=>s+(p.elements||[]).length,0)} éléments) ?`)) return;
   }
 
   // Cloner les pièces + éléments en effaçant les valeurs (état, obs, photos)
@@ -18750,7 +18878,7 @@ function saveLogEDLTemplateFromEDL(edlId) {
   if(typeof _stamp === 'function') _stamp(log);
   saveDB(_quoiEDL);
   rLogFiche();
-  showToast(`Template enregistré pour ${edl.logement} (${piecesTpl.length} pièces, ${piecesTpl.reduce((s,p)=>s+p.elements.length,0)} éléments)`,'ok');
+  showToast(`Template enregistré pour ${_logLabel(edl.logement)} (${piecesTpl.length} pièces, ${piecesTpl.reduce((s,p)=>s+p.elements.length,0)} éléments)`,'ok');
 }
 
 /** Deux noms de pièce désignent-ils la même section ? Comparaison insensible à la casse, aux
@@ -18835,7 +18963,7 @@ function viewLogEDLTemplate(ref) {
 function clearLogEDLTemplate(ref) {
   const log = (DB.logements||[]).find(l => l.ref === ref);
   if(!log || !log.edlTemplate) return;
-  if(!confirm2(`Supprimer le template EDL de ${ref} ?\n\nLes EDL déjà créés ne sont pas affectés.`)) return;
+  if(!confirm2(`Supprimer le template EDL de ${_logLabelRef(ref)} ?\n\nLes EDL déjà créés ne sont pas affectés.`)) return;
   delete log.edlTemplate;
   if(typeof _stamp === 'function') _stamp(log);
   saveDB();
@@ -19013,14 +19141,14 @@ function _renderLogFichePhHero(log, bail, ref){
   if(isArch)         chip = '<span class="logf-ph-chip arch"><span class="d"></span>Archivé</span>';
   else if(occupied)  chip = '<span class="logf-ph-chip loue"><span class="d"></span>Loué</span>';
   else               chip = '<span class="logf-ph-chip vac"><span class="d"></span>' + escHtml(_lotStatutLibelle(ref)) + '</span>';
-  const l2 = [log.type, log.surf?(fmtN(log.surf)+' m²'):'', log.etage].filter(Boolean).map(escHtml).join(' · ');
+  const l2 = [(_logLabel(ref) !== String(ref) ? 'Réf. ' + ref : ''), log.type, log.surf?(fmtN(log.surf)+' m²'):'', log.etage].filter(Boolean).map(escHtml).join(' · ');
   const l3 = [log.imm, log.adr].filter(Boolean).map(escHtml).join(' · ');
   const strip = _renderLogFichePhStrip(log, bail, ref);
   return `<div class="logf-ph-hero">
     <div class="logf-ph-idrow">
       <div class="logf-ph-thumb">${_coverImg('logement', log.id, '' + _uiIcon('home',26) + '')}</div>
       <div class="logf-ph-idm">
-        <div class="logf-ph-l1"><span class="logf-ph-ref">${escHtml(ref)}</span>${chip}</div>
+        <div class="logf-ph-l1"><span class="logf-ph-ref">${escHtml(_logLabel(ref))}</span>${chip}</div>
         <div class="logf-ph-l2">${l2||'&nbsp;'}</div>
         ${l3?`<div class="logf-ph-l3">${l3}</div>`:''}
       </div>
@@ -19116,7 +19244,7 @@ function rLogFiche() {
       <div class="logf-breadcrumb">
         <a onclick="_goToBiensRoot();return false">Biens</a>
         ${crumbImm}
-        <span class="sep">›</span><span>${escHtml(ref)}</span>
+        <span class="sep">›</span><span>${escHtml(_logLabel(ref))}</span>
       </div>
       ${_renderLogFichePhHero(log, bail, ref)}
       <div class="logf-actions logf-ph-actions">${phActions}</div>
@@ -19131,12 +19259,12 @@ function rLogFiche() {
     <div class="logf-breadcrumb">
       <a onclick="_goToBiensRoot();return false">Biens</a>
       ${crumbImm}
-      <span class="sep">›</span><span>${escHtml(ref)}</span>
+      <span class="sep">›</span><span>${escHtml(_logLabel(ref))}</span>
     </div>
     <div class="logf-hero logf-hero-compact">
       <div class="logf-photos logf-photos-mini">${_coverImg('logement', log.id, '' + _uiIcon('home',28) + '')}</div>
       <div class="logf-info">
-        <h1 class="logf-title">${escHtml(log.imm || ref)}${log.imm?` <span class="logf-title-suffix">— ${escHtml(ref)}</span>`:''}</h1>
+        <h1 class="logf-title">${escHtml(log.imm || _logLabel(ref))}${log.imm?` <span class="logf-title-suffix">— ${escHtml(_logLabel(ref))}</span>`:''}${_logLabel(ref) !== String(ref) ? ` <span class="logf-title-suffix">· Réf. ${escHtml(ref)}</span>` : ''}</h1>
         ${log.adr?`<div class="logf-adr">${escHtml(log.adr)}${log.etage?', '+escHtml(log.etage):''}</div>`:''}
         <div class="logf-badges">
           ${badgeBailleur}
@@ -19218,6 +19346,7 @@ function _renderLogFichePanelGeneral(log, bail) {
     <div class="logf-panel">
       <h3 class="logf-panel-title">${_uiIcon('home')} Caractéristiques du bien</h3>
       <div class="logf-row"><span class="logf-label">Référence</span><span class="logf-value">${escHtml(log.ref||'—')}</span></div>
+      ${(_logLabel(log) !== String(log.ref||'')) ? `<div class="logf-row"><span class="logf-label">Nom affiché</span><span class="logf-value">${escHtml(_logLabel(log))}</span></div>` : ''}
       ${log.type?`<div class="logf-row"><span class="logf-label">Type</span><span class="logf-value">${escHtml(log.type)}</span></div>`:''}
       ${log.surf?`<div class="logf-row"><span class="logf-label">Surface</span><span class="logf-value logf-value-num">${fmtN(log.surf)} m²</span></div>`:''}
       ${log.etage?`<div class="logf-row"><span class="logf-label">Étage</span><span class="logf-value">${escHtml(log.etage)}</span></div>`:''}
@@ -19254,7 +19383,9 @@ function _renderLogFichePanelBail(log, bail, ref) {
     // audit : 'bailleur-seul' peut couvrir « locataire signé, bailleur distant en attente » → libellé selon qui a signé.
     const _partialLbl = (bail.signatures && bail.signatures.signedBailleurAt) ? '' + _uiIcon('warn') + ' Bailleur signé, locataire en attente' : '' + _uiIcon('warn') + ' Locataire signé, bailleur en attente';
     const sigBadge = complet
-      ? '<span class="logf-badge b-ok">' + _uiIcon('check') + ' Signé bilatéralement</span>'
+      ? (sigMode === 'externe'
+        ? '<span class="logf-badge b-ok" title="Aucune signature électronique dans Propryo' + (bail.signatures.externe && bail.signatures.externe.date ? ' · signé le ' + escHtml(fd(bail.signatures.externe.date)) : '') + '">' + _uiIcon('shield') + ' Signé hors Propryo' + ((bail.signatures.externe && bail.signatures.externe.dateApprox) ? ' (date approximative)' : '') + '</span>'
+        : '<span class="logf-badge b-ok">' + _uiIcon('check') + ' Signé bilatéralement</span>')
       : (partial ? `<span class="logf-badge b-warn">${_partialLbl}</span>`
                  : '<span class="logf-badge b-warn">' + _uiIcon('warn') + ' Non signé</span>');
     const locataires = (Array.isArray(bail.locataires) && bail.locataires.length) ? bail.locataires : [{nom: log.locataire}];
@@ -19318,6 +19449,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
         <div class="logf-bail-actions">
           ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour">${_uiIcon('sign')} Signer le bail</button>`:'')}
           ${/* §7 : ne pas doubler le PDF. Le badge « 🔒 Signé à distance » (remoteSession completed) expose DÉJÀ son propre « 📄 PDF signé » → on masque alors ce bouton générique (même fichier, même action). Présentiel (pas de remoteSession) : bouton conservé. */''}
+          ${(bail.signatures&&bail.signatures.mode==='externe')?(_bailScanExterne(ref,bail)?`<button class="btn bs bb" onclick="_bailScanExterneOuvrir('${refSafe}')" style="background:#0ea5e9;color:#fff" title="Ouvrir le PDF du bail signé hors Propryo">${_uiIcon('doc')} PDF du bail</button>`:`<button class="btn bs bb" onclick="_bailScanExterneChoisir('${refSafe}')" title="Ajouter le PDF du bail signé (facultatif)">${_uiIcon('doc')} Ajouter le PDF</button>`):''}
           ${(bail.signatures&&bail.signatures.cloudPdfKey&&!(bail.signatures.remoteSession&&bail.signatures.remoteSession.status==='completed'))?`<button class="btn bs bb" onclick="_openCloudBailPdf('${refSafe}')" style="background:#0ea5e9;color:#fff" title="Ouvrir le PDF du bail signé">${_uiIcon('doc')} PDF du bail</button>`:''}
           ${(complet&&bail.signatures&&bail.signatures.cloudPdfKey)?`<button class="btn bs bb" onclick="_openBailPdfShareModal('${refSafe}')" style="background:#7c3aed;color:#fff" title="Partager le PDF signé (Copier / Email / SMS / WhatsApp / QR)">${_uiIcon('share')} Partager le PDF signé</button>`:''}
           <button class="btn bs bb" onclick="openBailMenu(event,'${refSafe}',true)" title="Plus d'actions (Modifier · Aperçu · Garant · Réinitialiser · Clôturer · Supprimer)" aria-label="Plus d'actions" style="font-weight:700">⋯ Plus</button>
@@ -20839,8 +20971,10 @@ function _logDiagScanText(text) {
   const has = (...kw) => kw.some(k => compact.includes(k));
   const coverage = {
     dpe:      has('diagnosticdeperformance', 'performanceenergetique', 'etiquetteenergie', 'numerodpe'),
-    crep:     has('constatderisque', 'risquedexposition', 'expositionauplomb'),
-    amiante:  has('amiante'),
+    // RETOURS-2026-10-05 A4 : « risque d'exposition » seul est générique → exiger « plomb ».
+    crep:     has('plomb') && has('constatderisque', 'risquedexposition', 'expositionauplomb', 'crep'),
+    // « amiante » nu ne suffit pas (tout DPE le cite) → repérage / DAPP / dossier amiante / liste A-B.
+    amiante:  has('amiante') && has('reperage', 'dossieramiante', 'dapp', 'listea', 'listeb'),
     elec:     has('installationinterieuredelectricite', 'installationelectrique', 'diagnosticelectrique', 'etatdelinstallationelectrique'),
     gaz:      has('installationinterieuredegaz', 'installationinterieuregaz', 'installationdegaz', 'diagnosticgaz', 'etatdelinstallationgaz'),
     erp:      has('etatdesrisquesetpollutions', 'etatdesrisques', 'risquesetpollutions'),
@@ -20848,6 +20982,13 @@ function _logDiagScanText(text) {
     merule:   has('merule'),
     bruit:    has('nuisancessonoresaeriennes', 'plandexpositionaubruit', 'zonedebruit')
   };
+  // Si le PDF est d'abord un DPE (n° ADEME + titre DPE en tête, pas un dossier DDT combiné),
+  // il ne couvre QUE le DPE : ne rien suggérer pour les autres diagnostics.
+  const head = compact.slice(0, 2500);
+  if (numeroDpe && /diagnosticdeperformance|performanceenergetique/.test(head) && !head.includes('dossierdediagnostictechnique')) {
+    Object.keys(coverage).forEach(k => { if (k !== 'dpe') coverage[k] = false; });
+    coverage.dpe = true;
+  }
   return { numeroDpe, coverage, textLen: T.length };
 }
 
@@ -22261,6 +22402,8 @@ function _logDiagApplySuggestions(text, coverage, srcName) {
   const D = _logDiagDraft.diag;
   const sug = _logDiagExtractSuggestions(text);
   const cov = coverage || {};
+  // A4 : PDF qui ne couvre que le DPE → aucune suggestion pour les autres diagnostics.
+  if (cov.dpe && !Object.keys(cov).some(k => k !== 'dpe' && cov[k])) return 0;
   // Diags couverts par CE PDF, hors dpe (DPE = ADEME).
   let coveredKeys = Object.keys(cov).filter(k => cov[k] && k !== 'dpe');
   // Si un résultat / une ambiguïté a été détecté pour un diag non listé en coverage, le couvrir.
@@ -23052,7 +23195,13 @@ function openNewLog(ref) {
   if(log) {
     // ── Tab Identité (legacy + typeUsage)
     setV('log-ref', log.ref); el('log-ref').readOnly = true;
-    (function(){ const w = el('log-ref-rename-wrap'); if (w) { w.style.display = ''; w.innerHTML = '<button type="button" class="btn bs bb" onclick="_openRenameLog(\'' + _lyQ(log.ref) + '\')" title="Renommer ce bien">✏️ Renommer</button>'; } })();
+    setV('log-libelle', log.libelle);   // B3 : nom d'affichage (texte d'écran)
+    (function(){ const w = el('log-ref-rename-wrap'); if (w) { w.style.display = '';
+      // B3 : référence verrouillée (bail/EDL signé) → mention claire ; le NOM AFFICHÉ, lui, reste modifiable.
+      const _g = (window._renameLogement && window._renameLogement.canRename) ? window._renameLogement.canRename(DB, log.ref) : { ok: true };
+      w.innerHTML = _g.ok
+        ? '<button type="button" class="btn bs bb" onclick="_openRenameLog(\'' + _lyQ(log.ref) + '\')" title="Renommer ce bien">✏️ Renommer</button>'
+        : '<span class="mu sm" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap" title="' + escHtml(_g.error || '') + '">🔒 Verrouillée : ' + (_g.code === 'edl-signe' ? 'EDL signé' : 'bail signé') + '</span>'; } })();
     setV('log-typeUsage', log.typeUsage || 'habitation-nu');
     setV('log-entity', log.entity);
     refreshLogImmSelect();
@@ -23118,6 +23267,7 @@ function openNewLog(ref) {
   } else {
     // Nouveau logement : tout reset
     setV('log-ref', ''); el('log-ref').readOnly = false;
+    setV('log-libelle', '');
     (function(){ const w = el('log-ref-rename-wrap'); if (w) w.style.display = 'none'; })();
     setV('log-typeUsage', 'habitation-nu');
     // v15.230 — Inputs legacy bail courant SUPPRIMÉS de la liste reset
@@ -23745,14 +23895,14 @@ function openAnnonce(ref) {
   const br = _annonceBrouillons[ref] || null;
   _annonceCtx = { log, imm: immA, immIdx, ent, includeDossier: br ? br.includeDossier : true, result: null, aRelire: [] };
   const sub = el('m-annonce-sub');
-  if (sub) sub.textContent = [log.ref, AG.natureBien(log, immA), (log.surf ? AG.montant(AG.nombre(log.surf)) + ' m²' : ''), AG.communeLabel(immA)].filter(Boolean).join(' · ');
+  if (sub) sub.textContent = [_logLabel(log), AG.natureBien(log, immA), (log.surf ? AG.montant(AG.nombre(log.surf)) + ' m²' : ''), AG.communeLabel(immA)].filter(Boolean).join(' · ');
   const setV = (id, v) => { const e = el(id); if (e) e.value = (v == null ? '' : v); };
   setV('an-hc', log.loyerHcRef); setV('an-ch', log.chargesRef);
   setV('an-texte', ''); setV('an-titre', '');
   const ro = (typeof _appReadOnly !== 'undefined' && _appReadOnly);
   ['an-hc', 'an-ch'].forEach(id => { const e = el(id); if (e) e.disabled = !!ro; });
   const info = el('an-step1-info');
-  if (info) info.textContent = 'Repris du loyer souhaité de la fiche ' + log.ref + '. Toute modification ici met à jour la fiche du logement.';
+  if (info) info.textContent = 'Repris du loyer souhaité de la fiche ' + _logLabel(log) + '. Toute modification ici met à jour la fiche du logement.';
   const btn = (id, ic, txt) => { const b = el(id); if (b) b.innerHTML = _uiIcon(ic) + ' ' + txt; };
   btn('an-btn-inviter', 'link', 'Inviter un candidat');
   btn('an-btn-pdf', 'download', 'Télécharger l\'affiche PDF');
@@ -23821,7 +23971,7 @@ function _annonceStep1Continuer() {
     try { _auditLog('update', 'logement', log.id, log.ref); } catch (e) {}
     saveDB();
     try { _refreshAfterMutation(); } catch (e) {}
-    showToast('Loyer souhaité mis à jour dans la fiche ' + log.ref, 'ok', 3000);
+    showToast('Loyer souhaité mis à jour dans la fiche ' + _logLabel(log), 'ok', 3000);
   }
   _annonceGoStep(2);
 }
@@ -24187,6 +24337,20 @@ function _syncLogToBail(ref, log) {
   if(typeof _stamp === 'function') _stamp(bail);
 }
 
+// B3 : applique le champ « Nom affiché » au logement (pure : ne touche que log.libelle). Champ absent du DOM → libellé
+// CONSERVÉ ; valeur vide, ou égale à la réf (casse ignorée) → clé supprimée. Repli sans module LogLabel (file://) aligné.
+function _logLibelleDepuisFormulaire(log, ref, champPresent, valeur) {
+  if (!champPresent || !log) return log;
+  let lib;
+  if (typeof window !== 'undefined' && window.LogLabel && window.LogLabel.normaliserLibelle) lib = window.LogLabel.normaliserLibelle(valeur, ref);
+  else {
+    lib = Array.from(String(valeur == null ? '' : valeur).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]+/g, '').replace(/\s+/g, ' ').trim()).slice(0, 60).join('').trim();
+    if (lib && ref != null && lib.toLowerCase() === String(ref).trim().toLowerCase()) lib = '';
+  }
+  if (lib) log.libelle = lib; else delete log.libelle;
+  return log;
+}
+
 function saveParamLog() {
   const ref = v('log-ref').trim() || v('log-edit-ref');
   if(!ref) { showToast('Référence requise','err'); return; }
@@ -24232,6 +24396,9 @@ function saveParamLog() {
   if(wasTombstone){ delete log._deleted; delete log._deletedAt; }
   // ── Tab Identité (legacy + typeUsage NEW Q4bis)
   log.ref=ref; log.imm=v('log-imm'); log.entity=v('log-entity'); log.type=v('log-type');
+  // B3 : nom d'affichage — normalisé ; vide ou égal à la référence → rien n'est stocké. Champ absent du DOM (écrans du
+  // parcours guidé, modale sans l'onglet) → le libellé existant est CONSERVÉ, jamais effacé en silence.
+  if (el('log-libelle')) _logLibelleDepuisFormulaire(log, ref, true, v('log-libelle'));
   log.typeUsage = v('log-typeUsage') || 'habitation-nu';
   log.surf=pf('log-surf'); log.etage=v('log-etage');
   // v15.230 ARCHI-FICHES-UNIFIED A2 — numApt (nouveau) + adr (override exceptionnel, vide = hérite)
@@ -24411,7 +24578,8 @@ function _closeLogGuarded() {
 }
 
 function delLog(ref) {
-  if(!confirm2(`Supprimer le logement ${ref} ? (baux et données associées conservées)`)) return;
+  const _lblDel = _logLabelRef(ref);   // B3 : relevé AVANT la suppression (le tombstone ne garde pas le libellé)
+  if(!confirm2(`Supprimer le logement ${_lblDel} ? (baux et données associées conservées)`)) return;
   // DRIVE-ARBORESCENCE : capturer driveFolderId avant suppression DB.
   const log = DB.logements.find(l=>l.ref===ref);
   const driveFolderId = log?.driveFolders?.root;
@@ -24422,7 +24590,7 @@ function delLog(ref) {
   // UNDO-OP v14.23 : wrap mutation DB pour pouvoir l'annuler. Le trash Drive
   // (side-effect non-DB) reste hors du _undoOp pour ne pas tenter de restorer
   // un dossier Drive à l'undo (cf spec Q6b : V1 = corbeille manuelle 30j).
-  _undoOp(`Suppression du logement ${ref}`, () => {
+  _undoOp(`Suppression du logement ${_lblDel}`, () => {
     // v14.30 BUG-DRIVE-RESURRECTION : tombstone au lieu de filter() pour propager
     // la suppression vers Drive et les autres devices.
     const idx = DB.logements.findIndex(l=>l.ref===ref);
@@ -24441,7 +24609,7 @@ function delLog(ref) {
     saveDB(); initFilters(); rBiens();
     _refreshAfterMutation(); // v14.28 REFRESH-LIVE (imm-fiche/ent-fiche si actives)
   });
-  _undoToast(`Logement ${ref} supprimé`);
+  _undoToast(`Logement ${_lblDel} supprimé`);
 }
 
 // v14.3 PATRIMOINE-NAV-UNIFY : rBailleurs n'a plus de page dédiée, devient un wrapper qui rafraîchit
@@ -25250,7 +25418,7 @@ function _frShowFr(kind){
     const canBail=_frRentableLogs().length>0; // P3 : bail proposé seulement s'il reste un logement créé, louable et vacant
     foot.innerHTML='<button class="fr-later" onclick="_frClose()">Terminer sans bail</button><span class="fr-grow"></span>'+(canBail?'<button class="fr-prim" onclick="_frOpenBailStep()">✍ Créer le bail →</button>':'');
   } else if(kind==='bail'){
-    if(_frCtx.bailDone){ body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Bail lancé'+(_frCtx.bailRef?' pour '+escHtml(_frCtx.bailRef):'')+'</h3><p>Le wizard bail existant a pris le relais. Le fil rouge est complet — rien ne l’exigeait.</p></div>'; foot.innerHTML='<button class="fr-later" onclick="_frClose()">Fermer</button>'; }
+    if(_frCtx.bailDone){ body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Bail lancé'+(_frCtx.bailRef?' pour '+escHtml(_logLabel(_frCtx.bailRef)):'')+'</h3><p>Le wizard bail existant a pris le relais. Le fil rouge est complet — rien ne l’exigeait.</p></div>'; foot.innerHTML='<button class="fr-later" onclick="_frClose()">Fermer</button>'; }
     else { body.innerHTML='<div class="fr-reuse">♻ Relais vers le wizard Bail existant</div><h2 class="fr-q">Le bail</h2><p class="fr-qs">Dernière étape : créer le bail. Le wizard bail déjà en place prend le relais (locataire, dates, loyer, signature).</p><div class="fr-fld"><label>Pour quel logement ?</label><select id="fr-bail-log">'+_frRentableOptions()+'</select></div><div class="fr-stop-hint">🕊 Pas de locataire encore ? <b>Arrêt possible ici</b> — le bien reste enregistré, le bail pourra être créé plus tard.</div>';
       foot.innerHTML=stop+'<span class="fr-grow"></span><button class="fr-ghost" onclick="_frShowFr(\'done\')">‹ Retour</button><button class="fr-prim" onclick="_frConfirmBail()">Ouvrir le wizard bail →</button>'; }
   }
@@ -25504,7 +25672,7 @@ function _frCompAction(action, ref){
 }
 function _frOpenBailStep(ref){ if(ref) _frCtx.bailRef=ref; _frCtx.bailDone=false; _frShowFr('bail'); }
 function _frConfirmBail(){ const sel=el('fr-bail-log'); if(sel&&sel.value) _frCtx.bailRef=sel.value; _frCtx.bailDone=true; const ref=_frCtx.bailRef; _frClose(); if(typeof openBail==='function') openBail(ref); }
-function _frRentableOptions(){ return _frRentableLogs().map(l=>'<option value="'+escHtml(l.ref)+'"'+(l.ref===_frCtx.bailRef?' selected':'')+'>'+escHtml(l.ref)+'</option>').join('')||'<option>—</option>'; }
+function _frRentableOptions(){ return _frRentableLogs().map(l=>'<option value="'+escHtml(l.ref)+'"'+(l.ref===_frCtx.bailRef?' selected':'')+'>'+escHtml(_logLabelRef(l))+'</option>').join('')||'<option>—</option>'; }
 // P4 fidélité mockup : le récap « bien prêt » ne montre que ce que CE fil a créé (immeubles
 // créés + immeubles ayant reçu un logement créé), jamais tout le patrimoine du bailleur.
 // P3 : « ✍ Bail » seulement si le logement est louable (identité complète) ET vacant.
@@ -25524,7 +25692,7 @@ function _frRecapHtml(opts){
   let h='<div class="fr-rb">👤 '+escHtml(ent.nom)+'</div>';
   (tree.immeubles||[]).forEach(im=>{ h+='<div class="fr-rb sub">🏛 '+escHtml(im.nom)+'</div>';
     if(!im.logements.length){ h+='<div class="fr-rl muted">Aucun logement</div>'; }
-    im.logements.forEach(l=>{ const ok=l.completeness&&l.completeness.level==='complet'; h+='<div class="fr-rl">🏠 <b>'+escHtml(l.ref)+'</b> <span class="fr-meta">'+escHtml(_frLogMeta(l))+'</span><span class="fr-st '+(ok?'ok':'todo')+'">'+(ok?'✓ complet':'à compléter')+'</span>'+((withBail&&rentable.has(l.ref))?'<button class="fr-bail-btn" onclick="_frOpenBailStep(\''+escHtml(_frAttr(l.ref))+'\')">✍ Bail</button>':'')+'</div>'; });
+    im.logements.forEach(l=>{ const ok=l.completeness&&l.completeness.level==='complet'; h+='<div class="fr-rl">🏠 <b>'+escHtml(_logLabel(l))+'</b> <span class="fr-meta">'+escHtml(_frLogMeta(l))+'</span><span class="fr-st '+(ok?'ok':'todo')+'">'+(ok?'✓ complet':'à compléter')+'</span>'+((withBail&&rentable.has(l.ref))?'<button class="fr-bail-btn" onclick="_frOpenBailStep(\''+escHtml(_frAttr(l.ref))+'\')">✍ Bail</button>':'')+'</div>'; });
   });
   return h;
 }
@@ -26409,7 +26577,7 @@ function rParamsRules(hostId) {
   const sensLbl = s => s === 'db' ? '− dépense' : s === 'cr' ? '+ recette' : 'les deux';
   const affLbl = r => r.bailleurDuCompte ? _uiIcon('bank',13)+' le bailleur du compte'
     : (r.compteurCcId ? _uiIcon('bolt',13)+' compteur' : (String(r.qui||'').startsWith('SCI:') ? _uiIcon('bank',13)+' ' + escHtml(r.qui.slice(4))
-      : (r.qui ? _uiIcon('home',13)+' ' + escHtml(r.qui) : (r.imm ? _uiIcon('building',13)+' ' + escHtml(r.imm) : '<span class="mu sm">—</span>'))));
+      : (r.qui ? _uiIcon('home',13)+' ' + escHtml(_logLabel(r.qui)) : (r.imm ? _uiIcon('building',13)+' ' + escHtml(r.imm) : '<span class="mu sm">—</span>'))));
   // La table est large (7 colonnes) : elle défile DANS son conteneur, la page ne
   // scrolle jamais horizontalement (contrainte 3 formats, zéro scroll à 390 px).
   host.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="tbl" style="min-width:720px"><thead><tr>
@@ -26729,7 +26897,7 @@ function initAgendaFilters() {
   const sl = el('agenda-f-log');
   if(sl) {
     sl.innerHTML = '<option value="">Tous logements</option>'
-      + _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)}${l.locataire?' — '+l.locataire:''}</option>`).join('');
+      + _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))}${l.locataire?' — '+escHtml(l.locataire):''}</option>`).join('');
   }
   const sc = el('agenda-f-cat');
   if(sc) {
@@ -26812,7 +26980,7 @@ function _agendaEvtCard(e, compact=false) {
     <div class="agenda-card-title">${escHtml(e.titre)}</div>
     <div class="agenda-card-meta">
       <span>${_uiIcon('calendar',13)} ${fd(e.date)}${e.dateFin && e.dateFin!==e.date?' → '+fd(e.dateFin):''}</span>
-      ${e.logement?`<span>${_uiIcon('home',13)} ${escHtml(e.logement)}</span>`:''}
+      ${e.logement?`<span>${_uiIcon('home',13)} ${escHtml(_logLabel(e.logement))}</span>`:''}
       ${e.recurrence?.type!=='none'?`<span>${_uiIcon('refresh',13)} ${_recLabel(e.recurrence)}</span>`:''}
       ${e.auto?`<span style="color:var(--t3)">${_uiIcon('settings',13)} Auto</span>`:''}
     </div>
@@ -26989,7 +27157,7 @@ function _agendaEvtCardPhone(e){
     else if(daysLeft>0 && daysLeft<=30) badge=`<span class="agph-badge warn">${_uiIcon('clock')}J-${daysLeft}</span>`;
   }
   const meta=[`<span class="agph-catlbl">${escHtml(cat.label)}</span>`,'<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('calendar')}${fd(e.date)}</span>`];
-  if(e.logement) meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('home')}${escHtml(e.logement)}</span>`);
+  if(e.logement) meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('home')}${escHtml(_logLabel(e.logement))}</span>`);
   if(e.recurrence&&e.recurrence.type!=='none') meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('refresh')}${escHtml(_recLabel(e.recurrence))}</span>`);
   if(e.auto) meta.push('<span class="agph-dotsep">·</span>',`<span class="m">${_uiIcon('settings')}Auto</span>`);
   const acts=e.done
@@ -27113,7 +27281,7 @@ function openDayDetail(ds) {
                     text-decoration:${e.done?'line-through':'none'}">${escHtml(e.titre)}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <span class="agenda-cat-badge" style="font-size:10px">${cat.label}</span>
-          ${e.logement?`<span>${escHtml(e.logement)}</span>`:''}
+          ${e.logement?`<span>${escHtml(_logLabel(e.logement))}</span>`:''}
         </div>
       </div>
       ${e.done?`<span class="badge grn">${_uiIcon('check',10)} Fait</span>`:
@@ -27188,7 +27356,7 @@ function rEquipements() {
     const cur = logSel.value;
     const opts = entLogs.filter(l => !fImm || l.imm===fImm);
     logSel.innerHTML = '<option value="">Tous logements</option>'
-      + opts.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml((l.locataire || 'Vacant').substring(0,25))}</option>`).join('');
+      + opts.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} — ${escHtml((l.locataire || 'Vacant').substring(0,25))}</option>`).join('');
     logSel.value = (cur && opts.some(l=>l.ref===cur)) ? cur : '';  // Q1 reset auto
     fLog = logSel.value;
   }
@@ -27329,7 +27497,7 @@ function rEquipements() {
     if(!rows && !cfgPanel) return '';
     return `<div class="card mb12">
       <div class="flex-b mb12">
-        <div><b style="font-size:15px">${l.ref}</b> <span class="badge gry" style="margin-left:6px">${escHtml(l.imm||'')}</span>
+        <div><b style="font-size:15px">${escHtml(_logLabel(l))}</b> <span class="badge gry" style="margin-left:6px">${escHtml(l.imm||'')}</span>
           <div style="font-size:12px;color:var(--t2);margin-top:2px">${escHtml(l.locataire||'Vacant')} &mdash; ${escHtml(_chauffLabel||'N/C')}</div></div>
       </div>
       ${rows ? `<div class="tbl-wrap"><table class="tbl">
@@ -27488,7 +27656,7 @@ function openEquipIntervention(ref, key) {
   // clôture) doit pouvoir se rattacher au lot, comme avant.
   logSel.innerHTML = (DB.logements||[]).filter(_isAlive).filter(_lotBailOuvert).map(l=>{
     const _n = l.locataire || _nomsDuBail(_bienActiveBail(l.ref));
-    return `<option value="${escHtml(l.ref)}">${escHtml(l.ref)}${_n ? ' — ' + escHtml(String(_n).substring(0,25)) : ''}</option>`;
+    return `<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))}${_n ? ' — ' + escHtml(String(_n).substring(0,25)) : ''}</option>`;
   }).join('');
   if(ref) logSel.value = ref;
 
@@ -27621,7 +27789,7 @@ function openAgendaEvt(id, prefillDate='') {
   const sl = el('agenda-evt-log');
   if(sl) {
     sl.innerHTML = '<option value="">— Aucun logement —</option>'
-      + (DB.logements||[]).filter(_isAlive).map(l=>`<option value="${escHtml(l.ref)}"${e?.logement===l.ref?' selected':''}>${escHtml(l.ref)}${l.locataire?' — '+l.locataire:''}</option>`).join('');
+      + (DB.logements||[]).filter(_isAlive).map(l=>`<option value="${escHtml(l.ref)}"${e?.logement===l.ref?' selected':''}>${escHtml(_logLabelRef(l))}${l.locataire?' — '+escHtml(l.locataire):''}</option>`).join('');
     if(e?.logement) sl.value = e.logement;
   }
   openM('ov-agenda-evt');
@@ -27693,6 +27861,204 @@ function saveAgendaEvt() {
  * type : 'bail' | 'edl' | 'mrh' | 'chauffage' | 'caution' | 'ddt'
  * Retour : { statut: 'ok'|'expire'|'absent'|'na', color: '...', label: '...' }
  */
+// Sens d'un EDL : l'app écrit `type:'Entrée'` / `'Sortie'` (majuscule, accent) ; d'anciennes données ou d'autres chemins
+// peuvent porter 'entree' / 'sortie' ou rien (= entrée). Comparer en littéral minuscule rate l'EDL réel (retour audit Opus).
+function _edlSens(e) {
+  const t = String((e && e.type) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return t === 'sortie' ? 'sortie' : 'entree';
+}
+// L'EDL d'ENTRÉE d'un bail : le sens est « entrée » (casse réelle de saveEDL comprise), même logement, non supprimé, daté dans
+// [début du bail − 31 j, début du bail suivant[ — l'EDL d'entrée du locataire PRÉCÉDENT ne compte plus. Un EDL sans date
+// reste candidat (même tolérance qu'EdlParcours.edlSortieQuiFaitFoi). Rend le plus récent, ou null.
+function _edlEntreeDuBail(bail, log) {
+  const ref = (log && log.ref) || (bail && bail.ref);
+  if (!bail || !ref) return null;
+  const jour = s => String(s || '').slice(0, 10);
+  let min = '';
+  const d0 = jour(bail.debut);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d0)) { const t = new Date(d0 + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() - 31); min = t.toISOString().slice(0, 10); }
+  const avant = (typeof _bailSuivantDebut === 'function') ? _bailSuivantDebut(Object.assign({}, bail, { ref })) : '';
+  let best = null;
+  for (const e of (DB.edl || [])) {
+    if (!e || e._deleted || e.logement !== ref || _edlSens(e) !== 'entree') continue;
+    const d = jour(e.date);
+    if (d) { if (min && d < min) continue; if (avant && d >= avant) continue; }
+    if (!best || d > jour(best.date)) best = e;
+  }
+  return best;
+}
+// ═══ EDL FAIT HORS PROPRYO (docs/subjects/BAIL-EN-COURS-SIGNE-HORS-PROPRYO.md §4) ═══════════════════════════════════════════
+// Un EDL réalisé et signé sur papier est CLASSÉ (onglet Documents du logement), sans parcours de saisie : une entrée DB.edl marquée
+// `externe` (pièces vides, AUCUNE signature simulée) + un document du LOGEMENT (category 'edl') pour le PDF facultatif. Les lecteurs qui
+// comptent (matrice, assistant de départ, délai de restitution du DG, date d'entrée de la grille de vétusté) le trouvent ainsi sans code
+// spécifique. Le PDF est rattaché au LOGEMENT, jamais à l'EDL : le CHECK cloud documents_parent_type_check (migration 0040) refuse 'edl'.
+let _edlExtFichier = null;        // PDF / photo choisi dans le formulaire, déposé APRÈS l'enregistrement de l'EDL
+let _edlExtDateTouchee = false;   // la date a été saisie à la main : le changement de sens ne la remplace plus
+function _edlExterne(e) { return !!(e && e.externe && typeof e.externe === 'object'); }
+function _edlExtPj(e) {
+  const id = e && e.externe ? e.externe.pjDocId : null;
+  return id == null ? null : ((DB.documents || []).find(d => d && !d._deleted && d.id === id) || null);
+}
+function _edlExtOuvrir(id) {
+  const e = (DB.edl || []).find(x => x && x.id === id && !x._deleted);
+  if (!e) { showToast('EDL introuvable', 'err'); return; }
+  const d = _edlExtPj(e);
+  if (!d) { showToast('EDL fait hors Propryo : aucun PDF joint, pas de saisie dans Propryo.', 'warn', 6000); return; }
+  if (typeof _handleAttachmentOpen === 'function') _handleAttachmentOpen(d.id);
+}
+// Garde des fonctions d'édition / de PDF / de photos : pour un EDL externe elles n'ont rien à produire — on ouvre le PDF s'il existe.
+function _edlExtGarde(id) {
+  const e = (DB.edl || []).find(x => x && x.id === id && !x._deleted);
+  if (!_edlExterne(e)) return false;
+  _edlExtOuvrir(id);
+  return true;
+}
+function _edlExtLibelle(e) { return 'EDL ' + (_edlSens(e) === 'sortie' ? 'de sortie' : 'd\'entrée') + ' — fait hors Propryo'; }
+// Ligne du PDF joint, pour la carte : « 01/09/2023 · EDL-D-101-entree.pdf · 2,4 Mo » (ou la mention facultative).
+function _edlExtMeta(e) {
+  const d = _edlExtPj(e);
+  return escHtml(fd(e.date)) + (d ? ' · ' + escHtml(d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size) : ' · Aucun PDF joint (facultatif)');
+}
+// Boutons d'une carte d'EDL externe : Ouvrir (le PDF) / Ajouter le PDF, Supprimer. `cls` = classes du bouton.
+function _edlExtBoutons(e, cls) {
+  const ouvrir = _edlExtPj(e)
+    ? `<button class="${cls}" onclick="_edlExtOuvrir(${e.id})" title="Ouvrir le PDF de l'état des lieux">Ouvrir</button>`
+    : `<button class="${cls}" onclick="_edlExtAjouterPj(${e.id})" title="Ajouter le PDF de l'état des lieux">Ajouter le PDF</button>`;
+  return ouvrir + `<button class="${cls}" onclick="delEDL(${e.id})" title="Supprimer cet EDL (annulable)">Supprimer</button>`;
+}
+function _edlExtEspace(log, bail) {
+  const es = (bail && bail._espaceId != null) ? bail._espaceId : (log && log._espaceId != null ? log._espaceId : null);
+  return es;
+}
+// Enregistre l'EDL externe. o = { sens:'entree'|'sortie', date:'AAAA-MM-JJ', fichier:{name,mime,size,dataB64}|null }.
+// Rend l'id de l'EDL, ou null (refus : le message est affiché). Ordre : l'EDL d'abord, le PDF ensuite (un échec du dépôt laisse l'EDL
+// sans PDF, avec un message — rien n'est bloqué).
+async function edlExterneCreer(ref, o) {
+  const opt = o || {};
+  const log = (DB.logements || []).find(l => l && l.ref === ref && !l._deleted);
+  if (!log) { showToast('Logement introuvable', 'err'); return null; }
+  const sortie = opt.sens === 'sortie';
+  const type = sortie ? 'Sortie' : 'Entrée';
+  const B = (typeof window !== 'undefined') ? window.BailSignatureEtat : null;
+  const date = String(opt.date || '');
+  if (!date) { showToast('Indiquer la date de l\'état des lieux', 'err'); return null; }
+  if (B ? !B.dateJourValide(date) : !/^\d{4}-\d{2}-\d{2}$/.test(date)) { showToast('Date de l\'état des lieux invalide', 'err'); return null; }
+  // HORS LIGNE : l'EDL (étiqueté « edl », remonté au retour du réseau) est enregistré ; seule la PIÈCE JOINTE (un document, écriture non
+  // étiquetée refusée hors ligne) est reportée — jamais toute la saisie bloquée.
+  const horsLigne = typeof window !== 'undefined' && !!window.__immoHorsLigne;
+  const aujourdhui = (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : td();
+  if (date > aujourdhui && !confirm2('La date de l\'état des lieux (' + fd(date) + ') est dans le futur.\n\nUn EDL déjà réalisé porte une date passée ou du jour. Continuer quand même ?')) return null;
+  const jumeau = (DB.edl || []).find(e => e && !e._deleted && e.logement === ref && e.type === type && String(e.date || '').slice(0, 10) === date);
+  if (jumeau && !confirm2('Un état des lieux ' + (sortie ? 'de sortie' : 'd\'entrée') + ' du ' + fd(date) + ' existe déjà pour ce logement' + (_edlExterne(jumeau) ? ' (déjà fait hors Propryo)' : '') + '.\n\nEnregistrer quand même celui-ci ?')) return null;
+  const bail = DB.baux && DB.baux[ref] && _isAlive(DB.baux[ref]) ? DB.baux[ref] : null;
+  const noms = bail && Array.isArray(bail.locataires) ? bail.locataires.map(l => l && l.nom).filter(Boolean).join(' & ') : '';
+  const now = new Date().toISOString();
+  const record = { id: nid(), type, date, logement: ref, locataire: noms || (bail && bail.nom) || log.locataire || '',
+    externe: { declareLe: now, declarePar: (typeof _bailAuteurCourant === 'function' ? _bailAuteurCourant() : ''), pjDocId: null },
+    pieces: [], signatures: {} };   // AUCUN signedAt : on ne simule pas une signature
+  const es = _edlExtEspace(log, bail); if (es != null) record._espaceId = es;   // routage du partage SCI (saveEDL documente la perte de ce marqueur)
+  _stamp(record);
+  DB.edl.push(record);
+  _auditLog('create', 'edl', record.id, ref + '/' + type + ' (fait hors Propryo)');
+  let ecrit = false;
+  _undoOp('Ajout d\'un EDL ' + (sortie ? 'de sortie' : 'd\'entrée') + ' fait hors Propryo', () => { ecrit = saveDB({ quoi: 'edl' }); });
+  if (ecrit === false) {   // refusé : on ne laisse pas un EDL fantôme en mémoire
+    const i = DB.edl.indexOf(record); if (i >= 0) DB.edl.splice(i, 1);
+    showToast('L\'état des lieux n\'a pas pu être enregistré.', 'err', 7000); return null;
+  }
+  if (opt.fichier && horsLigne) showToast('Hors ligne : l\'EDL est enregistré, mais le PDF n\'a pas été joint. Le joindre au retour du réseau (bouton « Ajouter le PDF »).', 'warn', 9000);
+  else if (opt.fichier) await _edlExtDeposerPj(record, log, bail, opt.fichier);
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  try { rEDLList(); } catch (e) {}
+  showToast('EDL ' + (sortie ? 'de sortie' : 'd\'entrée') + ' du ' + fd(date) + ' enregistré (fait hors Propryo).', 'ok', 5000);
+  return record.id;
+}
+// Dépose (ou remplace) le PDF d'un EDL externe : document du LOGEMENT, category 'edl'. Un échec laisse l'EDL tel quel.
+async function _edlExtDeposerPj(e, log, bail, fichier) {
+  let doc;
+  try { doc = await _attachmentSaveForEntity({ type: 'logement', id: log.id, ref: log.ref, logRef: log.ref, category: 'edl' }, fichier); }
+  catch (err) { showToast('L\'EDL est enregistré, mais le dépôt du PDF a échoué (' + ((err && err.message) || 'erreur') + '). Le joindre plus tard depuis l\'onglet Documents.', 'err', 9000); return false; }
+  Object.assign(doc, { nature: 'edl-externe', edlId: e.id, _modifiedAt: new Date().toISOString() });
+  const es = _edlExtEspace(log, bail); if (es != null) doc._espaceId = es;
+  const ancien = _edlExtPj(e);
+  if (ancien && ancien.id !== doc.id) Object.assign(ancien, { _deleted: true, _deletedAt: doc._modifiedAt, _modifiedAt: doc._modifiedAt });   // remplacé : tombstone, le fichier cloud reste
+  e.externe.pjDocId = doc.id;
+  _stamp(e);
+  saveDB();
+  return true;
+}
+function _edlExtAjouterPj(id) {
+  const e = (DB.edl || []).find(x => x && x.id === id && !x._deleted);
+  if (!_edlExterne(e)) return;
+  if (typeof window !== 'undefined' && window.__immoHorsLigne) { showToast('Hors ligne : joindre le PDF demande une connexion (il enregistre un document). Réessayer au retour du réseau.', 'warn', 7000); return; }
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,image/jpeg,image/png,image/webp';
+  inp.onchange = async function () {
+    let f = null; try { f = await _pjExterneLire(inp, true); } catch (err) { showToast('Fichier illisible.', 'err'); return; }
+    if (!f) return;
+    const log = (DB.logements || []).find(l => l && l.ref === e.logement), bail = DB.baux && DB.baux[e.logement];
+    if (log && await _edlExtDeposerPj(e, log, bail, f)) { showToast('PDF de l\'EDL déposé.', 'ok', 4000); if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation(); try { rEDLList(); } catch (err) {} }
+  };
+  inp.click();
+}
+// Formulaire (onglet Documents › États des lieux).
+function _edlExtForm(ouvrir) {
+  const f = el('edlx-form'); if (!f) return;
+  f.style.display = ouvrir ? '' : 'none';
+  if (!ouvrir) return;
+  _edlExtFichier = null; _edlExtDateTouchee = false;
+  const i = el('edlx-file'); if (i) i.value = '';
+  const r = f.querySelector('input[name="edlx-sens"][value="entree"]'); if (r) r.checked = true;
+  const d = el('edlx-date'); if (d) d.value = f.dataset.debut || '';
+  _edlExtPjAfficher();
+  try { f.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+}
+function _edlExtSensChange() {
+  const f = el('edlx-form'), d = el('edlx-date'); if (!f || !d || _edlExtDateTouchee) return;
+  const r = f.querySelector('input[name="edlx-sens"]:checked');
+  d.value = (r && r.value === 'sortie' ? f.dataset.sortie : f.dataset.debut) || '';
+}
+function _edlExtPjAfficher() {
+  const nom = el('edlx-pj-nom'), b = el('edlx-pj-btn'); if (!nom) return;
+  nom.textContent = _edlExtFichier ? '📎 ' + _edlExtFichier.name + ' · ' + _bailScanFmtTaille(_edlExtFichier.size) : 'Aucun fichier';
+  if (b) b.textContent = _edlExtFichier ? 'Remplacer' : 'Choisir un PDF';
+}
+async function _edlExtFichierPris(input) {
+  let f = null; try { f = await _pjExterneLire(input, true); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+  if (!f) return;
+  _edlExtFichier = f; _edlExtPjAfficher();
+}
+async function _edlExtEnregistrer(ref) {
+  const r = document.querySelector('#edlx-form input[name="edlx-sens"]:checked');
+  const id = await edlExterneCreer(ref, { sens: r ? r.value : 'entree', date: v('edlx-date'), fichier: _edlExtFichier });
+  if (id != null) { _edlExtFichier = null; const f = el('edlx-form'); if (f) f.style.display = 'none'; }
+}
+// HTML du bouton d'ouverture + du formulaire (Documents › États des lieux).
+function _edlExtFormHtml(ref, bail) {
+  const refSafe = _lyQ(ref);
+  const debut = bail && bail.debut ? String(bail.debut).slice(0, 10) : '';
+  const sortie = bail && (bail.finEffective || '') ? String(bail.finEffective).slice(0, 10) : '';
+  return `<div style="margin-bottom:10px"><button class="btn bs bb" onclick="_edlExtForm(true)" title="Classer ici un état des lieux déjà réalisé et signé sur papier">+ Ajouter un EDL fait hors Propryo</button></div>
+    <div id="edlx-form" data-debut="${escHtml(debut)}" data-sortie="${escHtml(sortie)}" style="display:none;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:10px">
+      <div style="font-weight:700;font-size:13.5px;color:var(--t1)">Ajouter un EDL fait en dehors de Propryo</div>
+      <div class="mu sm" style="margin:2px 0 12px;font-size:12px">État des lieux déjà réalisé et signé sur papier. Il est classé ici, sans parcours de saisie.</div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px">
+        <label class="edlx-choix" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px"><input type="radio" name="edlx-sens" value="entree" checked onchange="_edlExtSensChange()"> Entrée</label>
+        <label class="edlx-choix" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px"><input type="radio" name="edlx-sens" value="sortie" onchange="_edlExtSensChange()"> Sortie</label>
+      </div>
+      <div class="fg"><label>Date de l'état des lieux</label><input class="inp" type="date" id="edlx-date" oninput="_edlExtDateTouchee=true"></div>
+      <div class="fg"><label>Pièce jointe (PDF ou photo — facultatif)</label>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="inp" id="edlx-pj-nom" style="flex:1;min-width:160px;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Aucun fichier</div>
+          <button class="btn bs" type="button" id="edlx-pj-btn" onclick="el('edlx-file').click()">Choisir un PDF</button>
+        </div>
+        <input type="file" id="edlx-file" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none" onchange="_edlExtFichierPris(this)">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button class="btn bs" type="button" onclick="_edlExtForm(false)">Annuler</button>
+        <button class="btn bp" type="button" onclick="_edlExtEnregistrer('${refSafe}')">Enregistrer l'EDL</button>
+      </div>
+    </div>`;
+}
 function _pilStatutDoc(bail, log, type, dateRef) {
   const today = dateRef instanceof Date ? dateRef : new Date();
   const _ok      = { statut:'ok',      color:'#16a34a', bg:'#dcfce7', label:'OK',      txtColor:'#14532d' };
@@ -27704,13 +28070,19 @@ function _pilStatutDoc(bail, log, type, dateRef) {
   if (!bail || !log) return _absent;
 
   if (type === 'bail') {
-    if (bail.signatures && bail.signatures.bailleur && bail.signatures.locataire) return _ok;
+    // Constat 0.3 : « signé » = contrat CONCLU (étape bailleur seul = signature en cours, pas un bail signé). Un bail signé hors
+    // Propryo est conclu : OK, bail repris compris.
+    const _sg = (typeof window !== 'undefined' && window.BailSignatureEtat) ? window.BailSignatureEtat.etatSignatureBail(bail)
+      : { etat: bail.signatures && bail.signatures.signedAt ? (bail.signatures.mode === 'bailleur-seul' ? 'partiel' : 'electronique') : 'non' };
+    if (_sg.etat === 'externe' || _sg.etat === 'electronique') return _ok;
+    if (_sg.etat === 'partiel') return { statut:'partial', color:'#d97706', bg:'#fef3c7', label:'Signature en cours', txtColor:'#78350f' };
     if (bail.debut) return { statut:'partial', color:'#d97706', bg:'#fef3c7', label:'Non signé', txtColor:'#78350f' };
     return _absent;
   }
   if (type === 'edl') {
-    const hasEdl = (DB.edls||[]).some(e => e && !e._deleted && e.logement === log.ref && (e.type === 'entree' || !e.type));
-    return hasEdl ? _ok : _absent;
+    // La collection est DB.edl (pas DB.edls). Un EDL d'ENTRÉE de CE bail (sens normalisé : saveEDL écrit « Entrée »). Plus de repli
+    // par nom de fichier : l'EDL fait hors Propryo (saisi comme tel) le remplace.
+    return _edlEntreeDuBail(bail, log) ? _ok : _absent;
   }
   if (type === 'mrh') {
     const mrh = (DB.mrh||[]).find(m => m && !m._deleted && m.logement === log.ref);
@@ -27745,7 +28117,8 @@ function _pilStatutDoc(bail, log, type, dateRef) {
   }
   if (type === 'ddt') {
     if (typeof _ddtComplet !== 'function') return _na;
-    const ddt = _ddtComplet(log, today);
+    const _dBail = _ddtDateBailEnPlace(log);   // A6 : jugé à la conclusion du bail en place
+    const ddt = _ddtComplet(log, _dBail ? new Date(_dBail + 'T00:00:00') : today);
     return ddt.complet ? _ok : { ...(_ko), label:`${ddt.manquants.length + ddt.expires.length} diag` };
   }
   return _na;
@@ -27992,7 +28365,7 @@ function _dgOpenRestitution(ref, cle) {
   // Base « DG versé » : dgPaid est un champ historiquement non renseigné → repli sur dg
   // (le repli vit désormais dans _calculerSoldeDG ; on garde dgVerse pour l'AFFICHAGE + le
   // statut, dans cette surface où l'on restitue — donc le dépôt a bien été pris).
-  const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const dgVerse = _dgVerseMontant(bail);   // définition unique (R-0) : case « versé » décochée → 0
   // fin = fin d'OCCUPATION (_bailFinOccupation) : un bail nu/meublé reconduit n'est pas terminé à sa fin contractuelle.
   const _bailN = Object.assign({}, bail, { dgPaid: dgVerse, fin: _bailFinOccupation(bail, false) });
   const dgInfo = _dgStatutDuBail(_bailN); // AUDIT #3 — statut du bail CIBLÉ (archive d'une relocation, bail parti : à restituer) : statut cohérent avec le reste de l'écran (pas « manquant » sur un DG versé)
@@ -28002,9 +28375,9 @@ function _dgOpenRestitution(ref, cle) {
   const _ech = _DgD ? _DgD.echeancesRestitution(_bailN, _edlSortieDuBail(bail)) : null;   // _bailN : fin d'occupation, comme le statut et la pénalité
   const _echSrc = !_ech || _ech.source === 'remise' ? ''
     : ` <span class="mu">(remise des clés non déclarée : ${_ech.source === 'edl' ? "date de l'EDL de sortie" : 'fin du bail'})</span>`;
-  const _delaiTxt = _ech
+  const _delaiTxt = (dgVerse <= 0 ? `<strong>Aucun dépôt versé</strong> (case « Dépôt de garantie versé » décochée) : rien à restituer, aucune pénalité de retard.<br>` : '') + (_ech
     ? `Remise des clés le <strong>${fd(_ech.remise)}</strong>${_echSrc} : à restituer <strong>${escHtml(_DgD.libelleEcheance(_ech, fd))}</strong>.`
-    : `Délai légal : 1 mois après la remise des clés si l'EDL de sortie est conforme à celui d'entrée, 2 mois sinon.`;
+    : `Délai légal : 1 mois après la remise des clés si l'EDL de sortie est conforme à celui d'entrée, 2 mois sinon.`);
   _dgVgCtx = {
     refDate: (bail.depart && bail.depart.dateSortie) || bail.finEffective || (typeof td === 'function' ? td() : ''),
     edlEntreeDate: _dgVgEntreeDate(bail),
@@ -28129,7 +28502,7 @@ function _dgRestitRecalc(ref) {
   const reparations = Math.round((vg.total || 0) * 100) / 100;
   const autres = Math.max(0, parseFloat(v('dg-restit-autres')) || 0);
   const retenuesTotal = Math.round((reparations + autres) * 100) / 100;
-  const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const dgVerse = _dgVerseMontant(bail);
   const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) });
   const solde = _calculerSoldeDG(tempBail, DB.mouvements || []);
   // Pénalité art. 22 (au crédit du locataire), recomputée avec le toggle adresse + la date saisie.
@@ -28195,7 +28568,7 @@ function _dgConfirmerRestitution() {
   // et l'écran le dit. Ce qui a disparu, c'est le repli SILENCIEUX sur `td()`, qui faisait
   // porter au document une date qui n'était celle de rien.
   const dateRestitution = v('dg-restit-date') || '';
-  const dgVerse = Number(bail.dgPaid) || Number(bail.dg) || 0;
+  const dgVerse = _dgVerseMontant(bail);
   const solde = _calculerSoldeDG({ ...bail, dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) }, DB.mouvements || []);
   // Pénalité art. 22 (au crédit du locataire) — ajoutée au montant restitué.
   const pen = window._penaliteRetardDG
@@ -28369,9 +28742,9 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   // gouttière existante) : aucune ligne recopiée, aucun groupage réinventé.
   if (grouped) {
     const items = rows.map(r => {
-      const refA = escHtml(r.log.ref);
+      const refA = _lyQ(r.log.ref);   // chaîne JS d'attributs on…= : _lyQ (relecture 14/10)
       const inner = '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 13px">'
-        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + '</span>' + _lyStatut(r.log.ref)
+        + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + escHtml(_logLabel(r.log.ref)) + '</span>' + _lyStatut(r.log.ref)
         + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div></div>'
         + '<div>' + chip(r.pos) + '</div></div>';
       return { log: r.log, html: inner };
@@ -28383,10 +28756,10 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   const html = legende
     + '<div class="mu sm" style="margin-bottom:10px;font-size:12px">Tous les loyers · année ' + yr + ' · ' + rows.length + ' locataire' + (rows.length > 1 ? 's' : '') + (nRetard ? ' · <b style="color:var(--red)">' + nRetard + ' en retard</b>' : ' · <b style="color:var(--grn)">tous à jour</b>') + (ent ? ' · ' + escHtml(ent) : '') + '</div>'
     + '<div style="border:1px solid var(--bor);border-radius:12px;overflow:hidden">'
-    + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = escHtml(r.log.ref);
+    + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = _lyQ(r.log.ref);   // chaîne JS d'attributs on…= : _lyQ (relecture 14/10)
       return '<div style="' + (i < rows.length - 1 ? 'border-bottom:1px solid var(--bor2)' : '') + (open ? ';background:var(--sur2)' : '') + '">'
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
-      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + refA + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>' + _lyStatut(r.log.ref)
+      + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + escHtml(_logLabel(r.log.ref)) + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>' + _lyStatut(r.log.ref)
       +   '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="' + (open ? 'Replier' : 'Voir le détail mois par mois') + '">' + stripHtml(r.s) + '</div></div>'
       + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' + chip(r.pos) + (r.pos.cls === 'retard' ? '<button class="btn bs bb" onclick="_impayesOpenActions(\'' + refA + '\')" style="font-size:11px">' + _uiIcon('bolt') + ' Actions</button>' : '') + '</div>'
       + '</div>'
@@ -28584,7 +28957,7 @@ function _procedureSave() {
   }
   saveDB();
   closeM('ov-procedure');
-  showToast(`✓ Procédure mise à jour pour ${ref}`, 'ok', 3000);
+  showToast(`✓ Procédure mise à jour pour ${_logLabel(ref)}`, 'ok', 3000);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -28648,7 +29021,7 @@ function _bankPendingIntroHtml() {
     const n = pend[String(a.id)].length;
     return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid #3b7ef6;background:rgba(59,126,246,.06);border-radius:8px;margin-bottom:6px;font-size:12.5px">'
       + '<span>↩ <b>' + n + ' ligne' + (n > 1 ? 's' : '') + ' en attente</b> sur <b>' + escHtml(a.label || 'Compte') + '</b></span>'
-      + '<button class="btn bp" style="margin-left:auto;font-size:12px" onclick="_bankResumePending(\'' + escHtml(String(a.id)) + '\')">Reprendre sans fichier →</button>'
+      + '<button class="btn bp" style="margin-left:auto;font-size:12px" onclick="_bankResumePending(\'' + _lyQ(String(a.id)) + '\')">Reprendre sans fichier →</button>'
       + '</div>';
   }).join('') + '</div>';
 }
@@ -29404,7 +29777,7 @@ function _bankDupOpenCount(st) {
 function _bankDupFmtDate(d) { return d ? String(d).split('-').reverse().join('/') : ''; }
 function _bankDupMvAff(m) {
   if (!m) return '';
-  if (m.qui) return String(m.qui).startsWith('SCI:') ? '🏛️ ' + escHtml(m.qui.slice(4)) : '🚪 ' + escHtml(m.qui);
+  if (m.qui) return String(m.qui).startsWith('SCI:') ? '🏛️ ' + escHtml(m.qui.slice(4)) : '🚪 ' + escHtml(_logLabel(m.qui));
   if (m.imm) return '🏢 ' + escHtml(m.imm);
   return '';
 }
@@ -29945,7 +30318,7 @@ function _bankProposPanelHtml(i) {
     const ecart = (c.ecart == null) ? '' : (Math.abs(c.ecart) < 1 ? 'montant exact'
       : (c.ecart > 0 ? 'avance de ' + fmt(c.ecart) : 'reste ' + fmt(-c.ecart)));
     return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 9px;border:1px solid var(--bor);border-radius:8px;margin-bottom:4px;font-size:12px;background:var(--sur,#fff)">'
-      + '<b>' + escHtml(c.ref) + '</b>'
+      + '<b>' + escHtml(_logLabel(c.ref)) + '</b>'
       + (c.nom ? '<span class="mu sm">' + escHtml(c.nom) + '</span>' : '')
       + (c.ancien ? '<span class="mu sm" style="color:var(--ora)">ancien locataire</span>' : '')
       + '<span style="flex:1"></span>'
@@ -32039,12 +32412,14 @@ function _finDrillLigne(kind, yr, mo) {
   const dfr = d => { const p = String(d || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(d || ''); };
   const logByRef = {};
   (DB.logements || []).forEach(l => { if (l && l.ref) logByRef[l.ref] = l; });
-  const nomLot = ref => {
-    if (!ref) return '—';
-    if (String(ref).startsWith('SCI:')) return String(ref).slice(4);
+  // nom et locataire SÉPARÉS : le libellé peut contenir « · » (audit B3 🟡4) → on ne coupe jamais sur le texte joint.
+  const nomLotParts = ref => {
+    if (!ref) return { nom: '—', loc: '' };
+    if (String(ref).startsWith('SCI:')) return { nom: String(ref).slice(4), loc: '' };
     const l = logByRef[ref];
-    return l ? ((l.ref || ref) + (l.locataire ? ' · ' + l.locataire : '')) : ref;
+    return l ? { nom: _logLabel(l), loc: l.locataire || '' } : { nom: ref, loc: '' };
   };
+  const nomLot = ref => { const p = nomLotParts(ref); return p.nom + (p.loc ? ' · ' + p.loc : ''); };
   // Définition par ligne : titre + sens + test d'appartenance 2044 (identique aux buckets)
   const LIG = {
     loyers:       { titre: 'Loyers encaissés',           rec: true,  test: r => r.type === 'recette' && r.ligne2044 === '211' },
@@ -32229,7 +32604,7 @@ function _finDrillLigne(kind, yr, mo) {
         + '</div>';
     }
     // ── Répartition par bien : bande d'une ligne (nom condensé + montant · %), scroll horizontal ──
-    const _short = ref => { const n = nomLot(ref); const i = n.indexOf(' · '); return i > 0 ? n.slice(0, i) : n; };
+    const _short = ref => nomLotParts(ref).nom;
     if (biens.length === 1 && !nvCount) {
       body += '<div class="note" style="margin:0 0 16px">' + _uiIcon('home') + ' Intégralement sur <b style="color:var(--t1)">' + esc(nomLot(biens[0].ref)) + '</b></div>';
     } else if (biens.length >= 1) {
@@ -32343,7 +32718,7 @@ function _finDrillNomLot(ref) {
   if (!ref) return '—';
   if (String(ref).startsWith('SCI:')) return String(ref).slice(4);
   const l = (DB.logements || []).find(x => x && x.ref === ref);
-  return l ? (l.locataire || l.ref || ref) : ref;
+  return l ? (l.locataire || _logLabel(l) || ref) : ref;
 }
 // Nom du locataire EN PLACE À LA PÉRIODE (bail actif ce mois-là), pas le locataire courant du lot
 // (bug user 2026-07-14 : changement de locataire → le drill montrait le nom actuel pour un retard
@@ -33538,7 +33913,7 @@ function _rgpdRefreshSelect() {
   const cur = sel.value;
   const logs = (DB.logements||[]).filter(_isAlive);
   sel.innerHTML = '<option value="">— Sélectionner un logement —</option>' +
-    logs.map(l => `<option value="${escHtml(l.ref)}">${escHtml(l.ref)}${l.locataire?' — '+escHtml(l.locataire):' (vacant)'}</option>`).join('');
+    logs.map(l => `<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))}${l.locataire?' — '+escHtml(l.locataire):' (vacant)'}</option>`).join('');
   if (cur) sel.value = cur;
 }
 function _rgpdGetRef() {
@@ -34317,7 +34692,7 @@ function _antRender(initial) {
   ov.innerHTML = '<div class="modal ant-modal" role="dialog" aria-modal="true" aria-labelledby="ant-titre">'
     + '<div class="m-head"><button type="button" class="ant-back" aria-label="Retour" onclick="closeM(\'ov-anteriorite\')">' + '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>' + '</button>'
     + '<h3 id="ant-titre">' + ic('key') + '<span>' + titre + '</span></h3><button class="m-close" aria-label="Fermer" onclick="closeM(\'ov-anteriorite\')">✕</button></div>'
-    + '<div class="m-body"><p class="ant-ctxt">' + escHtml(E.ref) + (loc ? ' · ' + escHtml(loc) : '') + ' · bail du ' + escHtml(debutBailFr) + (repris ? ' (bail repris)' : '') + '</p>'
+    + '<div class="m-body"><p class="ant-ctxt">' + escHtml(_logLabel(E.ref)) + (loc ? ' · ' + escHtml(loc) : '') + ' · bail du ' + escHtml(debutBailFr) + (repris ? ' (bail repris)' : '') + '</p>'
     + '<div class="ant-blk"><div class="ant-blk-t">' + ic('calendar') + '<span>' + titre + '</span></div>'
     + '<p class="ant-blk-s">Propryo ne reconstitue pas le passé : noter ici où en était le locataire au début du suivi. Ce solde sert de point de départ à Finances et à la restitution du dépôt.</p>'
     + corps + '</div></div>'

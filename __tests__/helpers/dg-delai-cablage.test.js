@@ -27,7 +27,7 @@ const isoLocal = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStar
 function monter(noms, env = {}) {
   const scope = {
     window: { DgDelai, finOccupationBail }, DG_STATUS, fd, escHtml: (x) => String(x == null ? '' : x), fmt: (n) => String(n) + ' €', _uiIcon: () => '',
-    _isoLocal: isoLocal, _todayIsoLocal: () => '2026-10-06', _edlSortieDuBail: () => null, ...env,
+    _isoLocal: isoLocal, _todayIsoLocal: () => '2026-10-06', _edlSortieDuBail: () => null, _dgVerseMontant: G._dgVerseMontant, ...env,
   };
   return new Function('scope', 'with (scope) {\n' + noms.map(corps).join('\n') + '\nreturn {' + noms.join(',') + '};\n}')(scope);
 }

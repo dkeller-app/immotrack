@@ -21,6 +21,7 @@ import { duMoisFromRaw } from '../../js/core/loyer-du-mois.js';
 import { bailHistCle } from '../../js/core/store-mapping.js';
 // LA règle du délai de restitution du DG (art. 22) — le mirror window.DgDelai de l'app.
 import * as DgDelai from '../../js/core/dg-delai.js';
+import { _dgVerseMontant } from '../../js/core/gestion-dg-impayes.js';   // dépôt VERSÉ : définition unique (R-0)
 import { createStoreSync } from '../../js/core/store-sync.js';
 import { extraireFonction } from './_extraction-source.js';
 
@@ -44,10 +45,10 @@ function monter(DB, noms, extra = {}) {
   const base = {
     DB, window: { bailLoueAu, finOccupationBail, bailHistCle, DgDelai, ...(extra.window || {}) },
     _todayIsoLocal: () => AUJ, td: () => AUJ, fd: (iso) => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : ''),
-    escHtml: (x) => String(x == null ? '' : x), _isAlive: (x) => !!x && !x._deleted, fmt: (n) => String(Math.round(n || 0)) + ' €',
+    _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), escHtml: (x) => String(x == null ? '' : x), _isAlive: (x) => !!x && !x._deleted, fmt: (n) => String(Math.round(n || 0)) + ' €',
     el: (id) => (els[id] = els[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, classList: { contains: () => false } }),
     showToast: (m) => { (base._toasts = base._toasts || []).push(m); }, confirm2: () => false,
-    _isPhone: () => false, _PIL_MTX_COLS: [], _lyQ: (x) => String(x == null ? '' : x), Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
+    _isPhone: () => false, _PIL_MTX_COLS: [], _dgVerseMontant, _lyQ: (x) => String(x == null ? '' : x), Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
     ...extra,
   };
   base.window = { bailLoueAu, finOccupationBail, bailHistCle, DgDelai, ...(extra.window || {}) };   // `extra.window` complète, n'écrase pas
@@ -273,6 +274,22 @@ describe('8 · lecteurs de statut (listes et exports)', () => {
     expect(cap.csv).toContain('"A1";"Tilleuls"');
     expect(cap.csv).toContain('"Vacant (départ le 30/09/2026, bail à clôturer)"');
     expect(cap.csv).toContain('"Loué"');
+  });
+  it('export CSV (VRAI exportBiensCSV) : injection de formule neutralisée sur Locataire et Nom affiché seulement (audit B3 🟡11)', () => {
+    const DB = dbDe({ A1: DEPART, B2: BAIL });
+    DB.logements[0].locataire = '=HYPERLINK("http://x")'; DB.logements[0].libelle = '@cmd';
+    DB.logements[0].hc = -50; DB.logements[1].locataire = 'Marie Dupont';
+    const cap = {};
+    const m = monter(DB, [...STATUT, 'exportBiensCSV'], {
+      _logLabel: (l) => (l && l.libelle) || (l && l.ref), _biensTab: 'actifs', _activeLogements: () => DB.logements, _filterAndSortLogs: (p) => p,
+      Blob: function (parts) { cap.csv = parts[0]; }, URL: { createObjectURL: () => 'u', revokeObjectURL: () => {} },
+      document: { createElement: () => ({ click() {} }) },
+    });
+    m.fn.exportBiensCSV();
+    expect(cap.csv).toContain("\"'=HYPERLINK(\"\"http://x\"\")\"");
+    expect(cap.csv).toContain("\"'@cmd\"");
+    expect(cap.csv).toContain('"-50"');           // montant négatif inchangé
+    expect(cap.csv).toContain('"Marie Dupont"');  // texte normal inchangé
   });
   it('liste des biens PC, blocs par immeuble (VRAI _renderBuildingBlockA) : libellé du lot parti', () => {
     const DB = dbDe({ A1: DEPART, B2: BAIL });
