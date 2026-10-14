@@ -1,7 +1,7 @@
 # CDC — Vérification des documents des candidats (2D-Doc + lecture IA)
 
-> **Statut : PROPOSITION — phase 1 terminée le 14/10/2026, en attente du GO de Didier (relayé par le Pilotage).**
-> Branche `feat/verif-documents` (worktree `Immo-wt-verif-documents`, base `origin/main` v15.736). Version provisoire **v15.739**. Migration : **aucune prévue** (0062 réservée si besoin).
+> **Statut : VALIDÉ — GO de Didier le 14/10/2026 (relayé par le Pilotage) sur toutes les recommandations D1 à D17 ; codé (phase 2), vérifié (phase 3), livré en branche (phase 4).**
+> Branche `feat/verif-documents` (worktree `Immo-wt-verif-documents`, base `origin/main` v15.736). Version provisoire **v15.741**. Migration : **aucune** (les résultats sont posés sur l'entrée `DB.documents` de la pièce ; 0062 non utilisée).
 > Maquette : `mockups/VERIF-DOCUMENTS/maquette.html` (+ `captures/`, 54 captures : 9 écrans × 3 formats × 2 thèmes, `captures/mesures.json`).
 > Prototype : `mockups/VERIF-DOCUMENTS/prototype/` (navigateur : `index.html` ; Node : `node/demo.mjs`, `node/official.mjs` ; matériel officiel : `officiel/`).
 > Lit d'abord : `docs/CDC-PROPRYO.md` §1 (« l'IA lit, la loi décide », jamais de score), §7 (IA).
@@ -190,9 +190,20 @@ Soit **moins de 0,10 € par dossier** dans le pire cas. Quota proposé : 300 pa
 
 ---
 
-## 8. Décisions à trancher (Didier)
+## 8. Décisions (arrêtées le 14/10/2026 : recommandations retenues)
 
-Recommandation en **gras** ; les réponses seront reportées ici au GO.
+Toutes les recommandations ci-dessous ont été retenues (GO du 14/10/2026). Écarts et précisions de mise en œuvre :
+- **D5 (point d'accès UE)** : la disponibilité de `/v1/ocr` sur `api.eu.mistral.ai` n'a pas pu être vérifiée dans le chantier (clé Mistral détenue comme secret du relais seulement). La brique IA est donc **livrée éteinte** (`AI_OCR` absente) avec un script d'activation : `node relay/scripts/verif-ocr-ue.mjs` (liste les modèles d'OCR du point d'accès UE et fait une lecture d'essai sur une image blanche) ; si le point d'accès ne sert pas l'OCR, la brique reste éteinte (lots 1, 2 et 4 inchangés).
+- **D8 (liste de confiance)** : 7 autorités ancrées (TSL n° 23 du 11/05/2026, empreintes SHA-256 testées) ; route `GET /api/2ddoc/confiance` (annuaires + listes de révocation, cache KV 24 h, copie de secours 8 jours) ; instantané `js/vendor/2ddoc-instantane.json` régénéré par `node tools/2ddoc-instantane.mjs`. Une liste de révocation périmée rend le contrôle « reporté », jamais « valide ».
+- **D9 (contrat)** : la page 1 du contrat de travail (types I.C.1 / II.D.1) part avec les bulletins (I.D.2 / II.E.3).
+- **D11 (corrections)** : valeurs corrigeables dans la couche Détail ; journal d'audit avec les seuls noms de champs (aucune valeur).
+- **D15 (registre)** : `docs/legal/RGPD-REGISTRE.md` traitement n°6 corrigé (score, Drive, R2) et complété ; AIPD et analyse AI Act à mener avec l'avocat.
+- **Sécurité (ajout du Pilotage)** : gestionnaires `on…=` des pièces de candidature passés en `'${_lyQ(id)}'` (garde-fou XSS de v15.740), identifiants comparés en chaîne.
+
+Rappel des décisions :
+
+
+Recommandations (toutes retenues) en **gras**.
 
 1. **Maquette** (états, formulations, emplacement de la ligne « Vérification » et des constats) : **valider telle quelle.**
 2. **Couleur** : vert seulement pour « Signature de l'État vérifiée » (fait cryptographique) ; tout le reste neutre, y compris « Code 2D-Doc non conforme » et « Écart relevé » ; jamais de corail. **Oui.**
