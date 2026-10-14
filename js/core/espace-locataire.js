@@ -267,6 +267,23 @@ export function moisCle(mois) {
   const i = MOIS.indexOf(m[1])
   return i < 0 ? null : m[2] + '-' + String(i + 1).padStart(2, '0')
 }
+/**
+ * Élision française d'une préposition devant un mot : « de » + « avril » → « d'avril », « de » + « mars » → « de mars ».
+ * Voyelle (accentuée ou non) ou « h » TRAITÉ COMME MUET : prévue pour les MOIS (aucun n'a de h aspiré) ; ne pas l'étendre à des mots
+ * quelconques (« d'haricot »). Source UNIQUE des titres fabriqués à la
+ * publication (relais et app ne refabriquent jamais le titre : il est figé en base au moment de la publication).
+ */
+export function elide(mot, prep = 'de') {
+  const m = String(mot == null ? '' : mot).trim()
+  if (!m) return ''
+  const p = String(prep || 'de').trim().toLowerCase()
+  const voyelle = /^[aeiouyàâäéèêëîïôöùûüœæh]/i.test(m)
+  if (voyelle && p === 'de') return "d'" + m
+  return p + ' ' + m
+}
+/** Titre d'une quittance publiée : « Quittance de mars 2026 », « Quittance d'avril 2026 », « Quittance d'août 2026 ». */
+export const titreQuittance = (mois) => 'Quittance ' + elide(mois, 'de')
+
 export const CLE_RE = /^[a-z]{2,16}:[A-Za-z0-9._:-]{1,120}$/
 const cleSure = (s) => String(s || '').replace(/[^A-Za-z0-9._:-]/g, '_').slice(0, 120)
 export const cleDocument = (type, id) => { const c = type + ':' + cleSure(id); return CLE_RE.test(c) ? c : null }

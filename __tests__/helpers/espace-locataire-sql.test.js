@@ -63,3 +63,29 @@ describe('0059 — frontière d\'accès (statique)', () => {
     expect(f.corps).toMatch(/interval '6 months'/)
   })
 })
+
+// ── 0061 — « Dernière visite » fidèle : SEUL le seuil d'écriture change dans el_ouvrir ──
+describe('0061 — dernière visite (statique)', () => {
+  const lire = (n) => readFileSync(new URL('../../supabase/migrations/' + n, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+  const corpsOuvrir = (sql) => { const i = sql.indexOf('create or replace function public.el_ouvrir'); return sql.slice(i, sql.indexOf('$$;', i) + 3) }
+  const SQL61 = lire('0061_espace_derniere_visite.sql')
+  it('M-1 · transaction unique et une seule fonction remplacée : el_ouvrir', () => {
+    const sans = SQL61.split('\n').map((l) => l.replace(/--.*$/, '')).join('\n')
+    expect((sans.match(/\bbegin\s*;/gi) || []).length).toBe(1)
+    expect((sans.match(/\bcommit\s*;/gi) || []).length).toBe(1)
+    expect([...sans.matchAll(/create or replace function public\.([a-z_]+)/g)].map((m) => m[1])).toEqual(['el_ouvrir'])
+    expect(sans).not.toMatch(/\b(drop|alter table|create table|create policy|grant)\b/i)
+  })
+  it('M-2 · corps identique à 0059 hormis le seuil d\'écriture (1 heure → 1 minute)', () => {
+    const a = corpsOuvrir(lire('0059_espace_locataire.sql')), b = corpsOuvrir(SQL61)
+    expect(a).toContain("interval '1 hour'")
+    expect(b).toContain("interval '1 minute'")
+    expect(b).not.toContain("interval '1 hour'")
+    expect(b).toBe(a.replace("a.derniere_visite < now() - interval '1 hour'", "a.derniere_visite < now() - interval '1 minute'"))
+  })
+  it('M-3 · reste security definer, search_path vide, résolution par _el_acces', () => {
+    const b = corpsOuvrir(SQL61)
+    expect(b).toMatch(/security definer/); expect(b).toMatch(/set search_path = ''/)
+    expect(b).toMatch(/a := public\._el_acces\(p_jeton_sha256, p_ip_hash\);\s*if a\.id is null then return/)
+  })
+})

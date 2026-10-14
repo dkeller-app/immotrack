@@ -100,7 +100,8 @@ describe('detecterDoublon — invariant 30', () => {
 
   it('propose LES DEUX issues : attendre, ou créer en connaissance de cause', () => {
     const d = detecterDoublon({ edls: [existant], logement: 'FERRETTE-101', type: 'Entrée', date: '2026-08-20' });
-    expect(d.message).toMatch(/Attends la synchronisation/);
+    expect(d.message).toMatch(/Attendre la synchronisation/);
+    expect(d.message).not.toMatch(/(tu|tes|ton)|Attends|crée-en/);
     expect(d.message).toMatch(/connaissance de cause/);
   });
 
@@ -368,5 +369,16 @@ describe('messageVersionsConservees — le contraire du silence', () => {
   it('rien à annoncer : pas de message vide bavard', () => {
     expect(messageVersionsConservees([])).toBe('');
     expect(messageVersionsConservees(null)).toBe('');
+  });
+});
+
+describe('verrouOuverture — ton neutre (ni « tu » ni « vous », smoke 14/10)', () => {
+  it('le message ne tutoie pas et ne vouvoie pas, et garde le bouton de reprise', () => {
+    const m = verrouOuverture(edlReel({ appareil: TABLETTE }), 'app-pc').message;
+    const mots = m.toLowerCase().split(/[^a-zàâäéèêëîïôöùûüç]+/);
+    for (const interdit of ['tu', 'toi', 'ton', 'ta', 'tes', 'te', 'choisis', 'préfères', 'écris', 'vous', 'votre', 'vos', 'choisissez', 'préférez', 'écrivez']) expect(mots).not.toContain(interdit);
+    expect(m).toMatch(/dédoubler/);
+    expect(m).toMatch(/« Reprendre ici quand même »/);
+    expect(m).toContain('la tablette');
   });
 });
