@@ -388,6 +388,8 @@ const _ENUMS = {
 };
 /** Valeur lisible pour la carte de la timeline (texte brut, à échapper par l'appelant). */
 export function valeurLisible(champ, v) {
+  // dgVerse : false (case décochée) et absent ont des sens OPPOSÉS (absent = présumé versé) → « Non », jamais « (vide »).
+  if (v === false && String(champ).split('.').pop() === 'dgVerse') return 'Non';
   if (_vide(v) || v === false) return '(vide)';
   if (v === true) return 'Oui';
   const cle = String(champ).split('.').pop();

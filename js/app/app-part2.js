@@ -14979,6 +14979,8 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
       <div class="hl-desc">${corps}${ev.par?' Par '+escHtml(ev.par)+'.':''} Rien n'est supprimé : l'ancienne signature est conservée dans l'historique du bail.</div></div>`;
   }
   if(t==='dg-verse'){
+    if(ev.nonVerse) return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Dépôt de garantie prévu, non versé</h4><span class="hl-badge b-dg">DG</span></div>
+      <div class="hl-desc"><b>${fmt(ev.montant)}</b> prévu au bail ; case « Dépôt de garantie versé » décochée : aucun dépôt détenu, rien à restituer.</div></div>`;
     // Statut + CTA restitution : mêmes règles que l'ancien panneau « Dépôt de garantie »
     // (v15.14 Fix 4), portées par l'événement DG du bail concerné (_bailForDg).
     let statutHtml='', ctaHtml='';
@@ -28368,9 +28370,9 @@ function _dgOpenRestitution(ref, cle) {
   const _ech = _DgD ? _DgD.echeancesRestitution(_bailN, _edlSortieDuBail(bail)) : null;   // _bailN : fin d'occupation, comme le statut et la pénalité
   const _echSrc = !_ech || _ech.source === 'remise' ? ''
     : ` <span class="mu">(remise des clés non déclarée : ${_ech.source === 'edl' ? "date de l'EDL de sortie" : 'fin du bail'})</span>`;
-  const _delaiTxt = _ech
+  const _delaiTxt = (dgVerse <= 0 ? `<strong>Aucun dépôt versé</strong> (case « Dépôt de garantie versé » décochée) : rien à restituer, aucune pénalité de retard.<br>` : '') + (_ech
     ? `Remise des clés le <strong>${fd(_ech.remise)}</strong>${_echSrc} : à restituer <strong>${escHtml(_DgD.libelleEcheance(_ech, fd))}</strong>.`
-    : `Délai légal : 1 mois après la remise des clés si l'EDL de sortie est conforme à celui d'entrée, 2 mois sinon.`;
+    : `Délai légal : 1 mois après la remise des clés si l'EDL de sortie est conforme à celui d'entrée, 2 mois sinon.`);
   _dgVgCtx = {
     refDate: (bail.depart && bail.depart.dateSortie) || bail.finEffective || (typeof td === 'function' ? td() : ''),
     edlEntreeDate: _dgVgEntreeDate(bail),
@@ -28735,7 +28737,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   // gouttière existante) : aucune ligne recopiée, aucun groupage réinventé.
   if (grouped) {
     const items = rows.map(r => {
-      const refA = escHtml(r.log.ref);
+      const refA = _lyQ(r.log.ref);   // chaîne JS d'attributs on…= : _lyQ (relecture 14/10)
       const inner = '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 13px">'
         + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + escHtml(_logLabel(r.log.ref)) + '</span>' + _lyStatut(r.log.ref)
         + '<div onclick="_suiviToggle(\'' + refA + '\')" style="cursor:pointer" title="Voir le détail mois par mois">' + stripHtml(r.s) + '</div></div>'
@@ -28749,7 +28751,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   const html = legende
     + '<div class="mu sm" style="margin-bottom:10px;font-size:12px">Tous les loyers · année ' + yr + ' · ' + rows.length + ' locataire' + (rows.length > 1 ? 's' : '') + (nRetard ? ' · <b style="color:var(--red)">' + nRetard + ' en retard</b>' : ' · <b style="color:var(--grn)">tous à jour</b>') + (ent ? ' · ' + escHtml(ent) : '') + '</div>'
     + '<div style="border:1px solid var(--bor);border-radius:12px;overflow:hidden">'
-    + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = escHtml(r.log.ref);
+    + rows.map((r, i) => { const open = (_suiviOpen === r.log.ref); const refA = _lyQ(r.log.ref);   // chaîne JS d'attributs on…= : _lyQ (relecture 14/10)
       return '<div style="' + (i < rows.length - 1 ? 'border-bottom:1px solid var(--bor2)' : '') + (open ? ';background:var(--sur2)' : '') + '">'
       + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 14px">'
       + '<div style="min-width:0"><a onclick="' + linkOpen + refA + '\')" style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc);text-decoration:none">' + escHtml(r.log.locataire) + '</a> <span style="font-size:11px;color:var(--t3)">· ' + escHtml(_logLabel(r.log.ref)) + ' · ' + fmt(r.s.monthlyFull) + '/mois</span>' + _lyStatut(r.log.ref)

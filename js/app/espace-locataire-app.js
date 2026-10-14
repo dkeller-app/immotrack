@@ -660,7 +660,10 @@ export function demarrer() {
   _demarre = true
   W._elBlocHtml = blocHtml
   W.EspaceLoc = { creer, renouveler, revoquer, documents, retirer, messages, joindre, repondre: (id) => repondre(id), ouvrirPiece,
-    disponiblePourIncident, envoyerTexteIncident, publierMaintenant: async () => { toast('Publication en cours…', 'info'); await cycle(true); toast('Documents à jour.') } }
+    disponiblePourIncident, envoyerTexteIncident,
+    // Liens actifs rattachés à la ligne cloud ACTUELLE du bail (re-datation / retrait de « signé hors Propryo » → nouvelle ligne).
+    accesActifsDuBail: (ref) => { const b = ((db() || {}).baux || {})[ref]; if (!b || !vivant(b)) return 0; return accesDe(bailId(ref, b), jour(b.debut) || null).filter((x) => !x.revoque_le).length },
+    publierMaintenant: async () => { toast('Publication en cours…', 'info'); await cycle(true); toast('Documents à jour.') } }
   cycle(true)
   setInterval(() => cycle(false), 10 * 60_000)
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') cycle(false) })

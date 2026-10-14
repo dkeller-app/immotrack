@@ -197,6 +197,10 @@ export function _calculerSoldeDG(bail, mouvements) {
 export function _penaliteRetardDG(bail, dateRef, edls) {
   const vide = { moisRetard: 0, penalite: 0, base: 0, dateLimite: null, exclue: false, enRetard: false, possible: null };
   if (!bail) return vide;
+  // Art. 22 : la majoration porte sur « le dépôt de garantie restant dû au locataire ». Aucun dépôt VERSÉ (case décochée,
+  // définition unique) → rien n'est dû, rien n'est majoré (relecture Fable 14/10 : sinon une pénalité était créditée
+  // au locataire sur un dépôt jamais reçu).
+  if (!_dgVerseCoche(bail)) return vide;   // case décochée (définition unique) ; un bail sans montant saisi garde le calcul d'avant
   const ech = _dgEcheances(bail, edls);
   if (!ech) return vide;
   const restitution = bail.dgRestitueAt ? String(bail.dgRestitueAt).slice(0, 10) : _isoRef(dateRef);

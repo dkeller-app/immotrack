@@ -128,7 +128,9 @@ export function construireHistoriqueBail(input) {
       }, jour);
     }
     if ((Number(b.dg) || 0) > 0) {
-      _pushEv(c.rail, { type: 'dg-verse', date: c.debut, montant: Number(b.dg) || 0 }, c.debut);
+      // nonVerse : dépôt prévu au bail mais case « Dépôt de garantie versé » décochée (définition unique) → la carte ne
+      // dit ni « versé » ni « restitué » (relecture Fable 14/10).
+      _pushEv(c.rail, { type: 'dg-verse', date: c.debut, montant: Number(b.dg) || 0, nonVerse: _dgVerseMontant(b) <= 0 }, c.debut);
     }
     // I-DATE (CDC-LOYERS-DESIGN §4, surface 7) — une restitution N'EST DATÉE QUE PAR SON
     // VIREMENT. Avant, la carte se déclenchait aussi sur `dgRestitueMontant` et se datait de

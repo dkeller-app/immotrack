@@ -79,7 +79,12 @@ describe('garde-fou : pas d\'escHtml seul dans une chaîne JS d\'attribut on…=
     expect(files.length).toBeGreaterThan(20);
     const fautes = [];
     for (const f of files) {
-      readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+      const src = readFileSync(f, 'utf8');
+      // Indirection (relecture Opus 14/10) : « const refA = escHtml(x) » puis refA dans un gestionnaire on…=.
+      const pre = [...new Set([...src.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:escHtml|esc)\(/g)].map((x) => x[1]))];
+      const reVar = pre.length ? new RegExp('(\\+\\s*|\\$\\{)\\s*(' + pre.map((n) => n.replace(/\$/g, '\\$')).join('|') + ')\\b(?!\\s*\\()') : null;
+      const lignes = src.split('\n');
+      lignes.forEach((l, i) => {
         const re = /\bon[a-z]+=\\?"/g; let m;
         while ((m = re.exec(l))) {
           // segment de l'attribut : jusqu'au guillemet fermant (hors ${…})
@@ -91,6 +96,16 @@ describe('garde-fou : pas d\'escHtml seul dans une chaîne JS d\'attribut on…=
           }
           const seg = l.slice(m.index, k).replace(/escHtml\(_frAttr\(/g, '_frAttr(');  // escHtml(_frAttr(x)) ≡ _lyQ(x)
           if (/(\\'|'|« )\s*(\+\s*|\$\{)\s*(escHtml|esc)\(/.test(seg)) fautes.push(relative(repoRoot, f) + ':' + (i + 1));
+          else if (reVar) {
+            // la DERNIÈRE déclaration de la variable avant cette ligne doit être un escHtml/esc (même nom, autre fonction = autre sens)
+            for (const mv of seg.matchAll(new RegExp(reVar.source, 'g'))) {
+              const nom = mv[2];
+              const decl = new RegExp('\\b(?:const|let|var)\\s+' + nom.replace(/\$/g, '\\$') + '\\s*=\\s*([^;]*)');
+              let derniere = null;
+              for (let j = i; j >= 0 && derniere === null; j--) { const d = decl.exec(lignes[j]); if (d) derniere = d[1]; }
+              if (derniere !== null && /^(?:escHtml|esc)\(/.test(derniere.trim())) { fautes.push(relative(repoRoot, f) + ':' + (i + 1) + ' (' + nom + ' pré-échappée par escHtml)'); break; }
+            }
+          }
         }
       });
     }
