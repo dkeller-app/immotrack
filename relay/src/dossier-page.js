@@ -2,7 +2,7 @@
 import { typesPourCategorie } from '../../js/core/pieces-candidature.js';
 
 // Bumpé à chaque changement de dossier.js / dossier.css (cache navigateur du formulaire public).
-const ASSET_VERSION = '2';
+const ASSET_VERSION = '3';   // VERIF-DOCUMENTS : information sur les contrôles des pièces
 const CATS_PIECES = ['identite', 'domicile', 'situation', 'ressources', 'garant'];
 
 function jsonForScript(v) {

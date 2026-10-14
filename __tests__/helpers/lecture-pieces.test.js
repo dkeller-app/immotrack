@@ -93,3 +93,23 @@ describe('recherche du code et conversion des images', () => {
     expect(imageVersCanvas({ width: 0, height: 0 }, creerCanvas)).toBeNull();
   });
 });
+
+describe('page 1 en JPEG pour la lecture IA (lot 3)', () => {
+  it('PDF : page 1 rendue (intent print) puis réduite jusqu\'à passer sous la taille admise', async () => {
+    const { pageVersImage, IMAGE_MAX_CARACTERES } = await import('../../js/core/lecture-pieces.js');
+    const f = fauxPdf({ pages: 3 });
+    const essais = [];
+    const versJpeg = (c, q) => { essais.push([c.width, q]); return 'data:image/jpeg;base64,' + 'A'.repeat(essais.length < 4 ? IMAGE_MAX_CARACTERES + 10 : 100); };
+    const u = await pageVersImage({ octets: PDF, mime: 'application/pdf' }, { pdfjs: f.pdfjs, creerCanvas, versJpeg });
+    expect(u.length).toBeLessThanOrEqual(IMAGE_MAX_CARACTERES);
+    expect(f.rendus).toEqual([1]);
+    expect(essais.map((e) => e[1])).toEqual([0.82, 0.7, 0.55, 0.82]);
+    expect(essais[3][0]).toBe(1280);   // 2e essai à 80 % de 1 600 px
+  });
+  it('image trop lourde même réduite → null (rien n\'est envoyé) ; format inconnu → null', async () => {
+    const { pageVersImage, IMAGE_MAX_CARACTERES } = await import('../../js/core/lecture-pieces.js');
+    const gros = () => 'x'.repeat(IMAGE_MAX_CARACTERES + 1);
+    expect(await pageVersImage({ octets: new Uint8Array([1]), mime: 'image/png' }, { creerCanvas, chargerImage: async () => ({ source: {}, largeur: 3000, hauteur: 4000 }), versJpeg: gros })).toBeNull();
+    expect(await pageVersImage({ octets: new Uint8Array([1]), mime: 'text/plain' }, { creerCanvas, versJpeg: gros })).toBeNull();
+  });
+});

@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.740';
+const IMMOTRACK_VERSION = '15.741';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -8412,6 +8412,7 @@ function setParamsTab(tab, el2) {
   if(tab==='mandataire') rMandRef();
   if(tab==='rules')  rParamsRules();
   if(tab==='profile') rParamsProfile(); // v15.04 USER-PROFILE-FILTERS Phase 4
+  if(tab==='candidatures' && typeof rParamsCandidatures==='function') rParamsCandidatures(); // VERIF-DOCUMENTS lot 4
 }
 
 function loadBailTemplateEditor() {
@@ -13317,7 +13318,7 @@ async function _relayPullCandidatures(opts) {
       // PAS DE PURGE (modèle reopen). On stoppe juste le re-pull de ce lien + backref D13.
       link.candId = cand.id; link.status = 'collected'; link.deposed = (link.deposed || 0) + 1;
       link._lastSubmittedAt = res.submittedAt || link._lastSubmittedAt || ''; // réf. dédup ré-ouverture
-      { const _cid = cand.id; setTimeout(() => { _candVerifierEmployeur(_cid).catch(()=>{}); _candVerifierPieces(_cid).catch(()=>{}); }, 0); } // constat Annuaire des entreprises + vérification des pièces sur l'appareil (après saveDB)
+      { const _cid = cand.id; setTimeout(() => { _candVerifierEmployeur(_cid).catch(()=>{}); _candVerifierPieces(_cid).catch(()=>{}); const _R = _candVerifReglages(); if(_R.ia && _R.iaMode === 'reception') _candIaLancer(_cid, { auto: true }).catch(()=>{}); }, 0); } // constat Annuaire des entreprises + vérification des pièces sur l'appareil (après saveDB)
       if (typeof _stamp === 'function') _stamp(link); else link._modifiedAt = Date.now();
       imported++;
     } catch (e) {
@@ -13491,7 +13492,7 @@ function _candPointsAVerifier(c){
         detail:'« ' + (d.originalName || d.name) + ' » : ' + hl.map(x => x.libelle.charAt(0).toLowerCase() + x.libelle.slice(1)).join(', ') + ' — pièce absente de la liste du décret n° 2015-1437. Il n\'est pas utile de la conserver.',
         source:'décret n° 2015-1437, annexes I et II · contrôle sur le nom du fichier', url: PC.SOURCES_PIECES.decret.url,
         date: d.uploadedAt ? 'le ' + fd(String(d.uploadedAt).slice(0,10)) : '',
-        actionsHtml: `<button class="btn bs bb" onclick="_candPieceHorsListeSupprimer(${escHtml(JSON.stringify(d.id))})">${_uiIcon('trash',14)} Supprimer cette pièce</button><button class="btn bs bb" onclick="_candPieceHorsListeConserver(${escHtml(JSON.stringify(d.id))})">Conserver</button>` });
+        actionsHtml: `<button class="btn bs bb" onclick="_candPieceHorsListeSupprimer('${_lyQ(d.id)}')">${_uiIcon('trash',14)} Supprimer cette pièce</button><button class="btn bs bb" onclick="_candPieceHorsListeConserver('${_lyQ(d.id)}')">Conserver</button>` });
     });
   }
   // VERIF-DOCUMENTS — constats des pièces (2D-Doc, indices techniques), rangés par pièce, sans total.
@@ -13594,7 +13595,7 @@ async function _candVerifierPieces(candId, opts){
   if(!c || c.statut === 'refuse') return;           // dossier non retenu : aucune lecture de plus (minimisation)
   if(_candVerifPiecesEnCours.has(candId)) return;
   const docs = (DB.documents||[]).filter(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(candId)
-    && (opts.force ? VP.pieceConcernee(d) : VP.aAnalyser(d)) && (!opts.docId || d.id === opts.docId));
+    && (opts.force ? VP.pieceConcernee(d) : VP.aAnalyser(d)) && (!opts.docId || String(d.id) === String(opts.docId)));
   if(!docs.length) return;
   _candVerifPiecesEnCours.add(candId);
   let change = false;
@@ -13635,11 +13636,25 @@ async function _candVerifierPieces(candId, opts){
   }
 }
 // Ligne « Vérification » sous une pièce (fiche candidat). Vert seulement pour « Signature de l'État vérifiée ».
+// État affiché d'une pièce : vérification locale, puis (bulletins, contrat) lecture par l'IA et règles de cohérence.
+function _candVerifEtat(d){
+  const VP = window.VerifPieces; const R = _candVerifReglages();
+  let e = R.locaux ? VP.etatAffiche(d, d.verif) : { etat: 'aucun_controle', libelle: '', phrase: '', positif: false, icone: 'info', detail: false };
+  if(R.ia && VP.typeLectureIa && VP.typeLectureIa(d)){
+    const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === d.parentId);
+    const ana = c ? _candIaAnalyse(c) : null;
+    e = VP.etatIa(d, ana && ana.parPiece[d.id], e, _candIaOcr.actif === true) || e;
+  }
+  return e;
+}
+function _candVrfIco(n){ return { seal:'seal', calc:'calc', doc:'doc', clock:'clock', minus:'minus', info:'info', sparkle:'sparkle', check:'check' }[n] || 'info'; }
 function _candVerifLigneHtml(d){
-  const VP = window.VerifPieces; if(!VP || !d || !_candVerifReglages().locaux) return '';
-  const e = VP.etatAffiche(d, d.verif);
-  const ico = { seal:'seal', calc:'calc', doc:'doc', clock:'clock', minus:'minus', info:'info' }[e.icone] || 'info';
-  const q = escHtml(JSON.stringify(d.id));
+  const VP = window.VerifPieces; const R = _candVerifReglages();
+  if(!VP || !d || (!R.locaux && !R.ia)) return '';
+  const e = _candVerifEtat(d);
+  if(!e.libelle && !e.phrase) return '';
+  const ico = _candVrfIco(e.icone);
+  const q = '\'' + _lyQ(d.id) + '\'';
   return '<div class="cand-vrf' + (e.positif ? ' ok' : '') + '">' + _uiIcon(ico, 15)
     + '<div class="bx">' + (e.libelle ? '<b class="st">' + escHtml(e.libelle) + '</b> — ' : '') + escHtml(e.phrase) + '</div>'
     + (e.detail ? '<button class="btn bs bb" onclick="_candVerifDetail(' + q + ')">' + _uiIcon('eye', 14) + ' Détail</button>' : '')
@@ -13647,11 +13662,11 @@ function _candVerifLigneHtml(d){
 }
 // Constats des pièces pour la carte « Points à vérifier » (ordre des pièces, sans total).
 function _candVerifConstats(c){
-  const VP = window.VerifPieces; if(!VP || !_candVerifReglages().locaux) return [];
+  const VP = window.VerifPieces; if(!VP) return [];
   const out = [];
-  (DB.documents||[]).filter(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(c.id) && d.verif)
+  if(_candVerifReglages().locaux) (DB.documents||[]).filter(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(c.id) && d.verif)
     .forEach(d => {
-      const q = escHtml(JSON.stringify(d.id));
+      const q = '\'' + _lyQ(d.id) + '\'';
       (d.verif.constats || []).forEach(k => {
         const p = Object.assign({}, k);
         p.actionsHtml = (k.svair ? '<a class="btn bs bb" href="' + escHtml(VP.URL_SVAIR) + '" target="_blank" rel="noopener">' + _uiIcon('external', 14) + ' Vérifier sur impots.gouv</a>' : '')
@@ -13659,6 +13674,17 @@ function _candVerifConstats(c){
         out.push(p);
       });
     });
+  // Lot 3 : constats des règles de cohérence sur les bulletins lus par l'IA (valeurs proposées par l'IA, à vérifier).
+  if(_candVerifReglages().ia){
+    const ana = _candIaAnalyse(c);
+    ana.constats.forEach(k => {
+      const p = Object.assign({}, k);
+      const dp = k.pieceId ? (DB.documents||[]).find(x => x && x.id === k.pieceId) : null;
+      if(dp && dp.verifIa && dp.verifIa.le) p.date = 'lu le ' + fd(String(dp.verifIa.le).slice(0, 10));
+      if(dp) p.actionsHtml = '<button class="btn bs bb" onclick="_candVerifDetail(\'' + _lyQ(dp.id) + '\')">' + _uiIcon('eye', 14) + ' Voir le détail</button>';
+      out.push(p);
+    });
+  }
   return out;
 }
 function _candVerifCopier(txt){
@@ -13668,13 +13694,13 @@ function _candVerifCopier(txt){
 // Couche « Détail » d'une vérification (page plein écran sur téléphone, M-16).
 function _candVerifDetail(docId){
   const VP = window.VerifPieces; if(!VP) return;
-  const d = (DB.documents||[]).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat'); if(!d) return;
+  const d = (DB.documents||[]).find(x => x && !x._deleted && String(x.id) === String(docId) && x.parentType === 'candidat'); if(!d) return;
   const det = VP.detail(d, d.verif);
-  const q = escHtml(JSON.stringify(d.id));
-  const e = det.etat;
+  const q = '\'' + _lyQ(d.id) + '\'';
+  const e = _candVerifEtat(d);
   let h = '<div class="vp-piece">' + _uiIcon('doc', 16) + '<div><div class="nm">' + escHtml(det.piece) + '</div>'
     + '<div class="mu sm">' + (d.verif ? 'Vérifiée sur l\'appareil le ' + escHtml(det.le) : 'Pas encore vérifiée') + '</div></div></div>';
-  h += '<div class="cand-vrf solo' + (e.positif ? ' ok' : '') + '">' + _uiIcon({ seal:'seal', calc:'calc', doc:'doc', clock:'clock', minus:'minus' }[e.icone] || 'info', 15)
+  h += '<div class="cand-vrf solo' + (e.positif ? ' ok' : '') + '">' + _uiIcon(_candVrfIco(e.icone), 15)
     + '<div class="bx">' + (e.libelle ? '<b class="st">' + escHtml(e.libelle) + '</b> — ' : '') + escHtml(e.phrase) + '</div></div>';
   const dd = det.deuxDDoc;
   if(dd){
@@ -13691,8 +13717,8 @@ function _candVerifDetail(docId){
     if(dd.etat === 'valide') h += '<div class="cand-keep">' + _uiIcon('info', 15) + '<span>Une signature valide prouve que le document a été émis par son autorité et que les données du code n\'ont pas été modifiées depuis. Pour un avis d\'imposition, elle ne prouve pas qu\'il s\'agit du dernier avis émis : le service de vérification d\'impots.gouv le dit, avec les deux références ci-dessous.</span></div>';
     if(dd.svair){
       h += '<div class="vp-refs">'
-        + (dd.svair.numeroFiscal ? '<div class="r"><span class="k">Numéro fiscal</span><span class="v">' + escHtml(dd.svair.numeroFiscal) + '</span><button class="btn bs bb" onclick="_candVerifCopier(' + escHtml(JSON.stringify(String(dd.svair.numeroFiscal))) + ')">' + _uiIcon('copy', 14) + ' Copier</button></div>' : '')
-        + (dd.svair.referenceAvis ? '<div class="r"><span class="k">Référence de l\'avis</span><span class="v">' + escHtml(dd.svair.referenceAvis) + '</span><button class="btn bs bb" onclick="_candVerifCopier(' + escHtml(JSON.stringify(String(dd.svair.referenceAvis))) + ')">' + _uiIcon('copy', 14) + ' Copier</button></div>' : '')
+        + (dd.svair.numeroFiscal ? '<div class="r"><span class="k">Numéro fiscal</span><span class="v">' + escHtml(dd.svair.numeroFiscal) + '</span><button class="btn bs bb" onclick="_candVerifCopier(\'' + _lyQ(String(dd.svair.numeroFiscal)) + '\')">' + _uiIcon('copy', 14) + ' Copier</button></div>' : '')
+        + (dd.svair.referenceAvis ? '<div class="r"><span class="k">Référence de l\'avis</span><span class="v">' + escHtml(dd.svair.referenceAvis) + '</span><button class="btn bs bb" onclick="_candVerifCopier(\'' + _lyQ(String(dd.svair.referenceAvis)) + '\')">' + _uiIcon('copy', 14) + ' Copier</button></div>' : '')
         + '</div>';
     }
   }
@@ -13703,7 +13729,7 @@ function _candVerifDetail(docId){
       + '<div class="src">Source : ' + (p.url ? '<a href="' + escHtml(p.url) + '" target="_blank" rel="noopener">' + escHtml(p.source) + '</a>' : escHtml(p.source)) + (p.date ? ' · ' + escHtml(p.date) : '') + '</div></div>').join('') + '</div>';
   }
   if(det.indices){
-    const m = det.indices.metadonnees || {}; const LP = window.IndicesPdfLireDate || null;
+    const m = det.indices.metadonnees || {};
     h += '<div class="ct">Informations internes du fichier (sans IA)</div><div class="kvg vp-kv">'
       + '<div class="k">Logiciel de création</div><div class="v">' + escHtml(m.createur || '—') + '</div>'
       + '<div class="k">Logiciel producteur</div><div class="v">' + escHtml(m.producteur || '—') + '</div>'
@@ -13712,12 +13738,230 @@ function _candVerifDetail(docId){
       + '<div class="k">Enregistrements</div><div class="v">' + escHtml(String(det.indices.enregistrements || '—')) + '</div></div>'
       + '<div class="mu sm">Ces informations sont déclarées par les logiciels qui ont produit le fichier. Elles ne permettent pas de conclure : un fichier ré-enregistré, compressé ou imprimé en PDF les modifie.</div>';
   }
+  if(typeof _candIaDetailHtml === 'function') h += _candIaDetailHtml(d);
   el('vp-title').textContent = 'Vérification de la pièce';
   el('vp-body').innerHTML = h;
   el('vp-foot').innerHTML = ((dd && dd.svair) || det.constats.some(k => k.svair) ? '<a class="btn bs" href="' + escHtml(VP.URL_SVAIR) + '" target="_blank" rel="noopener">' + _uiIcon('external', 14) + ' Service de vérification d\'impots.gouv</a>' : '')
-    + '<button class="btn bs" onclick="_candVerifierPieces(' + escHtml(JSON.stringify(d.parentId)) + ',{force:true,docId:' + q + ',toast:true})">' + _uiIcon('refresh', 14) + ' Vérifier à nouveau</button>'
+    + '<button class="btn bs" onclick="_candVerifierPieces(\'' + _lyQ(d.parentId) + '\',{force:true,docId:' + q + ',toast:true})">' + _uiIcon('refresh', 14) + ' Vérifier à nouveau</button>'
     + '<button class="btn bp" onclick="closeM(\'ov-verif-piece\')">Fermer</button>';
   openM('ov-verif-piece');
+}
+// ── VERIF-DOCUMENTS lot 3 : lecture des bulletins de salaire (et page 1 du contrat) par l'IA, à la demande ────────────
+// Seule la page 1 de ces pièces part, en image, vers le relais (route authentifiée /ai/structure, tâche bulletin-paie,
+// lecture Mistral OCR sur le point d'accès UE ; interrupteur AI_OCR). L'IA recopie ; les règles (regles-bulletin.js)
+// produisent les constats ; chaque valeur se corrige (journal d'audit). Résultat posé sur la pièce (`verifIa`), purgé avec elle.
+let _candIaOcr = { actif: null, le: 0 };
+function _candIaClient(){
+  const cfg = (typeof _relayCfg === 'function') ? _relayCfg() : null;
+  return (cfg && window.IaClient) ? window.IaClient.creerClientIA({ base: cfg.base, getToken: cfg.getToken }) : null;
+}
+async function _candIaDispo(force){
+  if(!_candVerifReglages().ia) return false;
+  if(!force && _candIaOcr.actif !== null && Date.now() - _candIaOcr.le < 600000) return _candIaOcr.actif;
+  const cl = _candIaClient(); if(!cl) return false;
+  let s = null; try{ s = await cl.statut(); }catch(e){ s = null; }
+  _candIaOcr = { actif: !!(s && s.ok && s.ocr && s.ocr.actif), le: Date.now() };
+  return _candIaOcr.actif;
+}
+function _candIaPieces(c){
+  const VP = window.VerifPieces; if(!VP || !VP.typeLectureIa) return [];
+  return (DB.documents||[]).filter(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(c.id)
+    && VP.typeLectureIa(d) && /^(application\/pdf|image\/jpeg|image\/png)$/i.test(String(d.mime || '')));
+}
+function _candIaAnalyse(c){
+  const VP = window.VerifPieces, RB = window.ReglesBulletin;
+  const out = { parPiece: {}, constats: [] };
+  if(!VP || !RB || !c) return out;
+  const grp = { candidat: [], garant: [] };
+  _candIaPieces(c).forEach(d => (d.category === 'garant' || /^II\./.test(String(d.pieceType || '')) ? grp.garant : grp.candidat)
+    .push({ id: d.id, nom: d.originalName || d.name || 'pièce', type: VP.typeLectureIa(d), ia: d.verifIa || null, recu: d.uploadedAt }));
+  for(const qui of ['candidat', 'garant']){
+    if(!grp[qui].length) continue;
+    const g = c.garant || {};
+    const recu = grp[qui].map(p => p.recu).filter(Boolean).sort().pop() || '';
+    const a = RB.analyserBulletins({ pieces: grp[qui], identite: qui === 'garant' ? { nom: g.nom, prenom: g.prenom } : { nom: c.nom, prenom: c.prenom },
+      siretDeclare: qui === 'candidat' ? c.employeurSiren : '', recuLe: recu, qui });
+    Object.assign(out.parPiece, a.parPiece); out.constats.push(...a.constats);
+  }
+  return out;
+}
+function _candIaAFaire(c){ return _candIaPieces(c).filter(d => !d.verifIa || d.verifIa.erreur); }
+function _candIaLotHtml(c){
+  const R = _candVerifReglages();
+  if(!R.ia || !c || c.statut === 'refuse' || c.statut === 'converti') return '';
+  const a = _candIaAFaire(c); if(!a.length) return '';
+  if(_candIaOcr.actif === null || Date.now() - _candIaOcr.le > 600000){
+    _candIaDispo().then(ok => { try{ if(ok && el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden') && _ficheCandidatOuverte === c.id) openFicheCandidat(c.id); }catch(e){} }).catch(() => {});
+    return '';
+  }
+  if(!_candIaOcr.actif) return '';
+  const nb = a.filter(d => window.VerifPieces.typeLectureIa(d) === 'bulletin').length, nc = a.length - nb;
+  const quoi = [nb ? nb + ' bulletin' + (nb > 1 ? 's' : '') + ' de salaire' : '', nc ? 'la première page du contrat de travail' : ''].filter(Boolean).join(' et ');
+  return '<div class="cand-ia-lot">' + _uiIcon('sparkle', 16) + '<div class="tx"><b>Lecture par l\'IA</b> : ' + escHtml(quoi) + ' peuvent être lus pour vérifier les calculs, les cumuls, l\'employeur et la date d\'entrée. Rien n\'est envoyé sans ce clic.</div>'
+    + '<button class="btn bs" onclick="_candIaOuvrir(\'' + _lyQ(c.id) + '\')">' + _uiIcon('sparkle', 14) + ' Lire avec l\'IA</button></div>';
+}
+function _candIaOuvrir(candId){
+  const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === candId); if(!c) return;
+  const a = _candIaAFaire(c); if(!a.length){ showToast('Aucune pièce à lire.', 'info'); return; }
+  const T = window.IaTransparence; const n = T && T.noticeBulletins ? T.noticeBulletins() : null;
+  let h = '<div style="font-size:13.5px;color:var(--t1)">' + escHtml(n ? n.intro : '') + '</div>'
+    + '<div class="ct">Ce qui est envoyé</div><div class="cand-ia-envoi">' + a.map(d => '<div class="it">' + _uiIcon('doc', 14) + '<span class="n">' + escHtml(d.originalName || d.name || 'pièce') + '</span><span class="m">page 1</span></div>').join('') + '</div>';
+  if(n) h += n.sections.map(s => '<div class="cand-keep">' + _uiIcon({ upload:'upload', shield:'shield', trash:'trash', check:'check' }[s.icone] || 'info', 15) + '<span><b>' + escHtml(s.titre) + '.</b> ' + escHtml(s.texte) + '</span></div>').join('');
+  el('vp-title').textContent = n ? n.titre : 'Lire avec l\'IA';
+  el('vp-body').innerHTML = h;
+  el('vp-foot').innerHTML = '<button class="btn bs" onclick="closeM(\'ov-verif-piece\')">Annuler</button>'
+    + '<button class="btn bp" onclick="closeM(\'ov-verif-piece\');_candIaLancer(\'' + _lyQ(c.id) + '\')">' + _uiIcon('sparkle', 14) + ' Lancer la lecture</button>';
+  openM('ov-verif-piece');
+}
+const _candIaEnCours = new Set();
+async function _candIaLancer(candId, opts){
+  opts = opts || {};
+  const LP = window.LecturePieces, VP = window.VerifPieces;
+  const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === candId);
+  if(!LP || !VP || !c || c.statut === 'refuse' || !_candVerifReglages().ia || _candIaEnCours.has(candId)) return;
+  if(!(await _candIaDispo(true))){ if(!opts.auto) showToast('Lecture par l\'IA pas encore ouverte sur ce compte.', 'info'); return; }
+  const cl = _candIaClient(); if(!cl) return;
+  const docs = _candIaAFaire(c); if(!docs.length) return;
+  _candIaEnCours.add(candId);
+  if(!opts.auto) showToast('Lecture en cours…', 'info', 2500);
+  let lues = 0, arret = null;
+  try{
+    let pdfjs = null;
+    const creerCanvas = (w, h) => { const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w)); cv.height = Math.max(1, Math.round(h)); return cv; };
+    const chargerImage = async (octets, mime) => { const bmp = await createImageBitmap(new Blob([octets], { type: mime })); return { source: bmp, largeur: bmp.width, hauteur: bmp.height }; };
+    const versJpeg = (cv, q) => cv.toDataURL('image/jpeg', q);
+    for(const d of docs){
+      let dataUrl = null; try{ dataUrl = await _attachmentLoadBinary(d); }catch(e){ dataUrl = null; }
+      if(!dataUrl) continue;
+      if(/pdf/i.test(d.mime) && !pdfjs){ await _ensurePdfjsLoaded(); pdfjs = window.pdfjsLib; }
+      let image = null;
+      try{ image = await LP.pageVersImage({ octets: _dataUrlToUint8(dataUrl), mime: d.mime }, { pdfjs, creerCanvas, chargerImage, versJpeg }); }catch(e){ image = null; }
+      const cible = (DB.documents||[]).find(x => x && !x._deleted && x.id === d.id); if(!cible) continue;
+      if(!image){ cible.verifIa = { le: new Date().toISOString(), type: VP.typeLectureIa(cible), lu: { lisible: false }, corrections: {} }; _stamp(cible); lues++; continue; }
+      const r = await cl.structurer('bulletin-paie', { type: VP.typeLectureIa(cible), images: [image] });
+      image = null;                                                // l'image n'est gardée nulle part
+      const cible2 = (DB.documents||[]).find(x => x && !x._deleted && x.id === d.id); if(!cible2) continue;   // pièce supprimée pendant la lecture
+      if(!r.ok){
+        if(['disabled', 'quota', 'offline', 'auth'].includes(r.code)){ arret = r.code; break; }
+        cible2.verifIa = { le: new Date().toISOString(), type: VP.typeLectureIa(cible2), erreur: r.code || 'unavailable' }; _stamp(cible2); lues++;
+        continue;
+      }
+      cible2.verifIa = { le: new Date().toISOString(), type: VP.typeLectureIa(cible2), lu: r.data || {}, rejets: Number(r.rejets) || 0, modele: String(r.modele || '').slice(0, 60), corrections: {} };
+      _stamp(cible2); lues++;
+      try{ if(typeof _auditLog === 'function') _auditLog('update', 'attachment', cible2.id, 'lecture par l\'IA (page 1, ' + cible2.verifIa.type + ')'); }catch(e){}
+    }
+  }catch(e){ console.warn('[lecture IA] reportée', e && e.message); arret = arret || 'unavailable'; }
+  finally{ _candIaEnCours.delete(candId); }
+  if(lues) saveDB();
+  if(!opts.auto){
+    const M = { disabled: 'Lecture par l\'IA pas encore ouverte sur ce compte.', quota: 'Limite de lectures du jour atteinte : reprise possible demain.', offline: 'Pas de réseau : lecture reportée.', auth: 'Session à renouveler : lecture reportée.', unavailable: 'Service de lecture indisponible : réessayer plus tard.' };
+    showToast(arret ? (M[arret] || M.unavailable) : (lues ? 'Lecture terminée : constats dans « Points à vérifier »' : 'Aucune pièce lue'), arret ? 'warn' : 'ok', 4000);
+  }
+  try{ if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden') && _ficheCandidatOuverte === candId) openFicheCandidat(candId); }catch(e){}
+}
+// Section « Lecture par l'IA » de la couche Détail : valeurs lues (corrigeables), règles appliquées, constats.
+function _candIaDetailHtml(d){
+  const VP = window.VerifPieces, RB = window.ReglesBulletin;
+  if(!VP || !RB || !VP.typeLectureIa(d) || !_candVerifReglages().ia) return '';
+  const ia = d.verifIa;
+  if(!ia) return '<div class="ct">Lecture par l\'IA</div><div class="mu sm">Pas encore lue : bouton « Lire avec l\'IA » dans la carte des pièces.</div>';
+  if(ia.erreur) return '<div class="ct">Lecture par l\'IA</div><div class="mu sm">Le service de lecture n\'a pas répondu le ' + escHtml(fd(String(ia.le).slice(0, 10))) + ' : relancer depuis la carte des pièces.</div>';
+  const c = (DB.candidats||[]).find(x => x && x.id === d.parentId);
+  const ana = c ? _candIaAnalyse(c) : { parPiece: {}, constats: [] };
+  const e = ana.parPiece[d.id] || { regles: [], constats: [] };
+  const v = RB.valeursRetenues(ia) || {};
+  const champs = ia.type === 'contrat' ? RB.CHAMPS_CONTRAT : RB.CHAMPS_BULLETIN;
+  const q = '\'' + _lyQ(d.id) + '\'';
+  const aff = (k) => { const x = v[k]; if(x == null) return ''; return RB.NUMERIQUES.includes(k) ? String(x).replace('.', ',') : String(x); };
+  let h = '<div class="ct">Lecture par l\'IA</div>'
+    + '<div class="cand-ia-bandeau">' + _uiIcon('sparkle', 15) + '<span><b>' + escHtml(window.IaTransparence ? window.IaTransparence.MENTION_PROPOSITION : 'Proposé par l\'IA, à vérifier') + '.</b> Valeurs lues le ' + escHtml(fd(String(ia.le).slice(0, 10))) + ' sur la première page ; les règles, elles, sont écrites. Corriger une valeur relance les règles.</span></div>';
+  if(v.lisible === false) return h + '<div class="mu sm">La page n\'a pas pu être lue : aucune règle appliquée.</div>';
+  h += '<div class="cand-ia-champs">' + champs.map(([k, lib]) => {
+    const corr = ia.corrections && Object.prototype.hasOwnProperty.call(ia.corrections, k);
+    return '<label class="f"><span class="k">' + escHtml(lib) + (corr ? ' <em class="mu">(corrigé)</em>' : '') + '</span><input class="inp" data-champ="' + escHtml(k) + '" value="' + escHtml(aff(k)) + '" inputmode="' + (RB.NUMERIQUES.includes(k) ? 'decimal' : 'text') + '"></label>';
+  }).join('') + '</div>'
+    + '<div><button class="btn bs" onclick="_candIaCorriger(' + q + ')">' + _uiIcon('save', 14) + ' Enregistrer les corrections</button></div>';
+  if(e.regles.length) h += '<div class="ct">Règles appliquées</div><div class="cand-ia-regles">' + e.regles.map(r => '<div class="r' + (r.ok ? ' ok' : '') + '">' + _uiIcon(r.ok ? 'check' : 'calc', 15)
+    + '<span><b>' + escHtml(r.titre) + '</b> ' + escHtml(r.detail || '') + '<span class="s">' + (r.source && r.source.url ? '<a href="' + escHtml(r.source.url) + '" target="_blank" rel="noopener">' + escHtml(r.source.libelle) + '</a>' : escHtml((r.source && r.source.libelle) || '')) + '</span></span></div>').join('') + '</div>';
+  const autres = ana.constats.filter(k => k.pieceId === d.id && !e.constats.includes(k));
+  if(autres.length) h += autres.map(k => '<div class="cand-pvi"><div class="tt">' + _uiIcon('doc', 15) + '<span>' + escHtml(k.titre) + '</span></div><div class="dd">' + escHtml(k.detail || '') + '</div></div>').join('');
+  return h;
+}
+function _candIaCorriger(docId){
+  const RB = window.ReglesBulletin; if(!RB) return;
+  const d = (DB.documents||[]).find(x => x && !x._deleted && String(x.id) === String(docId) && x.parentType === 'candidat');
+  if(!d || !d.verifIa || !d.verifIa.lu) return;
+  const ia = d.verifIa; if(!ia.corrections) ia.corrections = {};
+  const avant = RB.valeursRetenues(ia) || {};
+  const refus = [], modifies = [], nouvelles = {};
+  for(const inp of document.querySelectorAll('#vp-body .cand-ia-champs input[data-champ]')){
+    const k = inp.getAttribute('data-champ');
+    const r = RB.lireSaisie(k, inp.value);
+    if(!r.ok){ refus.push(k); continue; }
+    if(String(avant[k] == null ? '' : avant[k]) === String(r.valeur == null ? '' : r.valeur)) continue;
+    nouvelles[k] = r.valeur; modifies.push(k);
+  }
+  if(refus.length){ showToast('Valeur non reconnue : ' + refus.length + ' champ(s) à revoir (formats : 2 193,04 · 2026-08 · 04/09/2023).', 'warn', 5000); return; }
+  if(!modifies.length){ showToast('Aucune modification', 'info'); return; }
+  for(const k of modifies){
+    const lu = ia.lu[k] == null ? null : ia.lu[k];
+    if(String(lu == null ? '' : lu) === String(nouvelles[k] == null ? '' : nouvelles[k])) delete ia.corrections[k];
+    else ia.corrections[k] = { avant: lu, apres: nouvelles[k], le: new Date().toISOString() };
+  }
+  _stamp(d);
+  try{ if(typeof _auditLog === 'function') _auditLog('update', 'attachment', d.id, 'correction de la lecture IA : ' + modifies.join(', ')); }catch(e){}
+  saveDB();
+  showToast('Corrections enregistrées : règles recalculées', 'ok');
+  _candVerifDetail(docId);
+  try{ if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(d.parentId); }catch(e){}
+}
+// ── VERIF-DOCUMENTS lot 4 : Paramètres › Candidatures (vérification des pièces) ───────────────────────────────────
+function _candVerifParams(){ if(!DB.params) DB.params = {}; if(!DB.params.verifPieces) DB.params.verifPieces = {}; return DB.params.verifPieces; }
+function rParamsCandidatures(){
+  const host = el('params-candidatures'); if(!host) return;
+  const R = _candVerifReglages();
+  const coche = (b) => b ? ' checked' : '';
+  host.innerHTML = '<div class="card"><div class="ct" style="margin-top:0">Vérification des pièces des candidats</div>'
+    + '<div class="vp-reglage"><div class="tx"><b>Contrôles sur l\'appareil</b>Signature 2D-Doc des avis d\'imposition et des pièces qui en portent un (contrôle de l\'État, contre la liste de confiance de France Titres) ; informations internes des fichiers PDF (logiciels, dates, textes superposés). Rien ne quitte l\'appareil.</div>'
+    + '<label class="sw-l"><input type="checkbox"' + coche(R.locaux) + ' onchange="_candVerifReglerLocaux(this.checked)"> Activé</label></div>'
+    + '<div class="vp-reglage"><div class="tx"><b>Lecture des bulletins de salaire par l\'IA</b>Mistral AI, lecture effectuée dans l\'Union européenne. Contrôle des calculs, des cumuls, des périodes, du nom et de l\'employeur ; chaque valeur lue se corrige. Seule la première page des bulletins et du contrat de travail est envoyée.'
+    + (R.ia ? '<div class="vp-modes"><label><input type="radio" name="vp-mode"' + coche(R.iaMode === 'demande') + ' onchange="_candVerifReglerModeIa(\'demande\')"><span><b>À la demande</b> — un bouton dans chaque fiche ; seuls les dossiers étudiés sont lus.</span></label>'
+      + '<label><input type="radio" name="vp-mode"' + coche(R.iaMode === 'reception') + ' onchange="_candVerifReglerModeIa(\'reception\')"><span><b>À la réception du dossier</b> — chaque dossier reçu est lu automatiquement.</span></label></div>' : '')
+    + '<div style="margin-top:8px"><button class="btn bs bb" onclick="_candVerifNoticeIa(false)">' + _uiIcon('info', 14) + ' Lire la notice</button></div></div>'
+    + '<label class="sw-l"><input type="checkbox"' + coche(R.ia) + ' onchange="_candVerifReglerIa(this.checked)"> Activé</label></div></div>'
+    + '<div class="card"><div class="ct" style="margin-top:0">Ce qui n\'est jamais fait</div><div class="cand-keep">' + _uiIcon('shield', 15) + '<span>Aucun score, aucun classement, aucun refus automatique. Aucune pièce supplémentaire demandée au candidat pour vérifier. Aucune vérification automatisée sur impots.gouv : le service de vérification des avis reste manuel.</span></div></div>';
+}
+function _candVerifReglerLocaux(on){
+  _candVerifParams().locaux = !!on; saveDB();
+  showToast(on ? 'Contrôles sur l\'appareil activés' : 'Contrôles sur l\'appareil désactivés', on ? 'ok' : 'warn');
+  rParamsCandidatures();
+}
+function _candVerifReglerIa(on){
+  if(on && !_candVerifParams().noticeIaLue){ _candVerifNoticeIa(true); rParamsCandidatures(); return; }
+  _candVerifParams().ia = !!on; saveDB();
+  try{ if(typeof _auditLog === 'function') _auditLog('update', 'params', 'verifPieces', on ? 'lecture des bulletins par l\'IA activée' : 'lecture des bulletins par l\'IA désactivée'); }catch(e){}
+  showToast(on ? 'Lecture des bulletins par l\'IA activée' : 'Lecture des bulletins par l\'IA désactivée', on ? 'ok' : 'warn');
+  rParamsCandidatures();
+}
+function _candVerifReglerModeIa(mode){
+  _candVerifParams().iaMode = mode === 'reception' ? 'reception' : 'demande'; saveDB();
+  showToast(mode === 'reception' ? 'Lecture automatique à la réception du dossier' : 'Lecture à la demande', 'ok');
+}
+// Notice (première activation : validation explicite ; ensuite relisible).
+function _candVerifNoticeIa(pourActiver){
+  const T = window.IaTransparence; const n = T && T.noticeBulletins ? T.noticeBulletins() : null; if(!n) return;
+  el('vp-title').textContent = n.titre;
+  el('vp-body').innerHTML = '<div style="font-size:13.5px;color:var(--t1)">' + escHtml(n.intro) + '</div>'
+    + n.sections.map(s => '<div class="cand-keep">' + _uiIcon({ upload:'upload', shield:'shield', trash:'trash', check:'check' }[s.icone] || 'info', 15) + '<span><b>' + escHtml(s.titre) + '.</b> ' + escHtml(s.texte) + '</span></div>').join('');
+  el('vp-foot').innerHTML = pourActiver
+    ? '<button class="btn bs" onclick="closeM(\'ov-verif-piece\')">Annuler</button><button class="btn bp" onclick="_candVerifActiverIa()">' + _uiIcon('check', 14) + ' Activer la lecture</button>'
+    : '<button class="btn bp" onclick="closeM(\'ov-verif-piece\')">Fermer</button>';
+  openM('ov-verif-piece');
+}
+function _candVerifActiverIa(){
+  _candVerifParams().noticeIaLue = new Date().toISOString();
+  closeM('ov-verif-piece');
+  _candVerifReglerIa(true);
 }
 function _candVerifDatePdf(s){
   const m = String(s || '').match(/^(?:D:)?(\d{4})(\d{2})?(\d{2})?/);
@@ -13725,7 +13969,7 @@ function _candVerifDatePdf(s){
 }
 // Pièce reçue hors liste : suppression réelle (même routine que la purge — décision Didier 12/10, Q2).
 function _candPieceHorsListeSupprimer(docId){
-  const d = (DB.documents||[]).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat'); if(!d) return;
+  const d = (DB.documents||[]).find(x => x && !x._deleted && String(x.id) === String(docId) && x.parentType === 'candidat'); if(!d) return;
   if(!confirm2('Supprimer la pièce « ' + (d.originalName || d.name) + ' » ?\n\nElle est effacée de l\'app et du stockage en ligne (RGPD). Action irréversible.')) return;
   const candId = d.parentId;
   const p = _candEffacerPieces([d]);
@@ -13736,7 +13980,7 @@ function _candPieceHorsListeSupprimer(docId){
   openFicheCandidat(candId);
 }
 function _candPieceHorsListeConserver(docId){
-  const d = (DB.documents||[]).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat'); if(!d) return;
+  const d = (DB.documents||[]).find(x => x && !x._deleted && String(x.id) === String(docId) && x.parentType === 'candidat'); if(!d) return;
   d.horsListeConservee = true; _stamp(d);
   try{ if(typeof _auditLog==='function') _auditLog('update','attachment',docId,'pièce signalée hors liste conservée par décision du bailleur'); }catch(e){}
   saveDB(); openFicheCandidat(d.parentId);
@@ -14336,6 +14580,7 @@ function openFicheCandidat(id){
           </label>
         </div>
         <div style="margin-top:12px">${piecesGroupedHtml}</div>
+        ${typeof _candIaLotHtml === 'function' ? _candIaLotHtml(c) : ''}
       </div>
       </div>
       <div class="fc-side">

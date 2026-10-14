@@ -149,3 +149,39 @@ describe('formulation', () => {
     expect(constatsDePiece(AVIS, null)).toEqual([]);
   });
 });
+
+describe('lot 3 : état d\'une pièce lue par l\'IA', async () => {
+  const { etatIa, typeLectureIa } = await import('../../js/core/verif-pieces.js');
+  const { noticeBulletins } = await import('../../js/core/ia-transparence.js');
+  const BUL = { ...AVIS, pieceType: 'I.D.2', originalName: 'bulletin-aout.pdf' };
+  const base = { etat: 'aucun_controle', libelle: '', phrase: 'Aucun code 2D-Doc, aucun indice technique relevé.', positif: false, icone: 'info', detail: true };
+  it('types lus : bulletins et contrat (candidat et garant), rien d\'autre', () => {
+    expect(['I.D.2', 'II.E.3', 'I.C.1', 'II.D.1', 'I.D.1', ''].map((t) => typeLectureIa({ pieceType: t }))).toEqual(['bulletin', 'bulletin', 'contrat', 'contrat', null, null]);
+  });
+  it('non lancée : proposée seulement si la lecture est disponible ; jamais verte', () => {
+    expect(etatIa(BUL, null, base, false)).toBe(base);
+    expect(etatIa(BUL, { etat: 'ia_non_lancee' }, base, true)).toMatchObject({ etat: 'ia_non_lancee', libelle: 'Lecture par l\'IA non lancée', positif: false });
+  });
+  it('écart, sans écart, illisible, reportée : libellés factuels, mention « lu par l\'IA, à vérifier »', () => {
+    const ec = etatIa(BUL, { etat: 'ecart', regles: [], constats: [{ titre: 'Bulletin août 2026 : le net à payer ne correspond pas au net avant impôt moins l\'impôt prélevé à la source.' }] }, base, true);
+    expect(ec).toMatchObject({ etat: 'ecart', libelle: 'Écart relevé', positif: false });
+    expect(ec.phrase).toBe('le net à payer ne correspond pas au net avant impôt moins l\'impôt prélevé à la source (lu par l\'IA, à vérifier).');
+    expect(etatIa(BUL, { etat: 'sans_ecart', regles: [1, 2, 3], constats: [] }, base, true).phrase).toBe('3 règles appliquées (calculs, cumuls, nom, employeur) (lu par l\'IA, à vérifier).');
+    expect(etatIa(BUL, { etat: 'illisible' }, base, true).libelle).toBe('Lecture impossible');
+    expect(etatIa(BUL, { etat: 'ia_erreur' }, base, true).etat).toBe('reportee');
+    expect(etatIa({ ...BUL, pieceType: 'I.C.1' }, { etat: 'lu' }, base, true).phrase).toContain('date d\'entrée');
+  });
+  it('une signature de l\'État vérifiée reste prioritaire, sauf écart relevé par les règles', () => {
+    const sig = { etat: 'signature_valide', positif: true };
+    expect(etatIa(BUL, { etat: 'sans_ecart', regles: [], constats: [] }, sig, true)).toBe(sig);
+    expect(etatIa(BUL, { etat: 'ecart', regles: [], constats: [] }, sig, true).etat).toBe('ecart');
+  });
+  it('notice : ce qui part, qui lit, ce qui est gardé ; ton neutre ; rétention selon la constante', () => {
+    const n = noticeBulletins({ retentionZero: false });
+    const t = JSON.stringify(n);
+    expect(t).toContain('première page de chaque bulletin');
+    expect(t).toContain('30 jours au plus');
+    expect(t).not.toMatch(/\b(tu|vous|votre|vos)\b/i);
+    expect(JSON.stringify(noticeBulletins({ retentionZero: true }))).toContain('ne conserve ni les images ni le texte');
+  });
+});

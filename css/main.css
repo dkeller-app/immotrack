@@ -9447,6 +9447,42 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .vp-kv .k{color:var(--t2)}
 .vp-kv .v{color:var(--t1);overflow-wrap:anywhere}
 #vp-foot{flex-wrap:wrap;gap:8px}
+/* Lot 3 : lecture des bulletins par l'IA (à la demande) */
+.cand-ia-lot{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;border:1px solid var(--bor);background:var(--sur2);border-radius:10px;padding:10px 12px;margin-top:10px}
+.cand-ia-lot svg{flex:0 0 auto;margin-top:2px;color:var(--t2)}
+.cand-ia-lot .tx{flex:1;min-width:220px;font-size:12.5px;color:var(--t2);line-height:1.45}
+.cand-ia-lot .tx b{color:var(--t1)}
+.cand-ia-envoi{display:flex;flex-direction:column;gap:6px}
+.cand-ia-envoi .it{display:flex;gap:9px;align-items:center;padding:8px 10px;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur2);font-size:12.5px;color:var(--t1)}
+.cand-ia-envoi .it svg{color:var(--t2);flex:0 0 auto}
+.cand-ia-envoi .n{flex:1;min-width:0;overflow-wrap:anywhere}
+.cand-ia-envoi .m{color:var(--t3);font-size:11.5px;white-space:nowrap}
+.cand-ia-bandeau{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--bor);background:var(--sur2);border-radius:var(--r);padding:9px 11px;font-size:12.5px;color:var(--t2);line-height:1.45}
+.cand-ia-bandeau svg{flex:0 0 auto;margin-top:2px}
+.cand-ia-bandeau b{color:var(--t1)}
+.cand-ia-champs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.cand-ia-champs .f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cand-ia-champs .k{font-size:11.5px;font-weight:600;color:var(--t2)}
+.cand-ia-champs .inp{min-height:34px;font-variant-numeric:tabular-nums}
+.cand-ia-regles{display:flex;flex-direction:column}
+.cand-ia-regles .r{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--bor2,var(--bor));font-size:12.5px;color:var(--t2);line-height:1.45}
+.cand-ia-regles .r:last-child{border-bottom:none}
+.cand-ia-regles .r svg{flex:0 0 auto;margin-top:2px;color:var(--t2)}
+.cand-ia-regles .r.ok svg{color:var(--pos)}
+.cand-ia-regles .r b{color:var(--t1)}
+.cand-ia-regles .s{display:block;font-size:11.5px;color:var(--t3);margin-top:2px}
+.cand-ia-regles .s a{color:var(--t2)}
+/* Lot 4 : Paramètres › Candidatures */
+.vp-reglage{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bor2,var(--bor))}
+.vp-reglage:last-child{border-bottom:none}
+.vp-reglage .tx{flex:1;min-width:0;font-size:12.5px;color:var(--t2);line-height:1.45}
+.vp-reglage .tx b{display:block;color:var(--t1);font-size:13.5px;margin-bottom:2px}
+.vp-reglage .sw-l{display:flex;gap:8px;align-items:center;font-size:12.5px;font-weight:600;color:var(--t2);min-height:44px;cursor:pointer}
+.vp-reglage .sw-l input{width:18px;height:18px;accent-color:var(--acc)}
+.vp-modes{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.vp-modes label{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--t2);padding:8px 10px;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur);min-height:44px;cursor:pointer}
+.vp-modes label b{color:var(--t1)}
+.vp-modes input{accent-color:var(--acc);margin-top:3px}
 @media (max-width:767px){
   .cand-vrf{margin-left:2px;flex-wrap:wrap}
   .cand-vrf .btn{min-height:44px}
@@ -9456,7 +9492,10 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   #ov-verif-piece .m-foot{display:grid;grid-template-columns:1fr;gap:8px}
   #ov-verif-piece .m-foot .btn{width:100%;min-height:46px;justify-content:center;white-space:normal;text-align:center}
   #ov-verif-piece .m-foot .btn.bp{order:-1}
-  .vp-refs .btn,.vp-tbl .btn{min-height:44px}
+  .vp-refs .btn,.vp-tbl .btn,.cand-ia-lot .btn{min-height:44px}
+  .cand-ia-lot .btn{width:100%;justify-content:center}
+  .cand-ia-champs{grid-template-columns:1fr}
+  .cand-ia-champs .inp{font-size:16px;min-height:44px}
   .vp-refs .k{min-width:0;width:100%}
 }
 @media (max-width:767px){

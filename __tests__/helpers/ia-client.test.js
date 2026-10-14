@@ -29,7 +29,7 @@ describe('client IA — appels', () => {
   });
   it('statut', async () => {
     const r = await client(() => rep(200, { actif: true, limites: { audioSecJour: 3600 }, usageJour: { appels: 1 } })).statut();
-    expect(r).toEqual({ ok: true, actif: true, limites: { audioSecJour: 3600 }, usageJour: { appels: 1 }, video: { actif: false } });
+    expect(r).toEqual({ ok: true, actif: true, limites: { audioSecJour: 3600 }, usageJour: { appels: 1 }, video: { actif: false }, ocr: { actif: false } });
   });
   it('statut : l’état des lieux filmé n’est ouvert que si le relais l’annonce (EDL-VIDEO-IA)', async () => {
     const v = { actif: true, fichierMaxOctets: 52428800, priseMaxSec: 180, imagesParAppel: 8, imagesJour: 2000 };
@@ -38,6 +38,7 @@ describe('client IA — appels', () => {
   });
   it('503 video_disabled → disabled ; quota d’images → message dédié', () => {
     expect(codeDepuisReponse(503, { error: 'video_disabled' })).toBe('disabled');
+    expect(codeDepuisReponse(503, { error: 'ocr_disabled' })).toBe('disabled');
     expect(codeDepuisReponse(503, { error: 'autre' })).toBe('unavailable');
     expect(messageErreur('quota', { motif: 'images' }).texte).toMatch(/images/);
   });

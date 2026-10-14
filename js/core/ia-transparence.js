@@ -136,3 +136,20 @@ export function edlAAideIA(edl) {
   if (c && typeof c === 'object' && Object.keys(c).length) return true;
   return edlAPhotosVideo(edl);   // EDL-VIDEO-IA : une photo de la vidéo gardée = aide de l'IA
 }
+
+/**
+ * VERIF-DOCUMENTS lot 3 — notice de la lecture des bulletins de salaire par l'IA (écran « Lire avec l'IA »).
+ * Ce qui part, qui le traite, ce qui est gardé, ce que fait l'IA. Ton neutre.
+ */
+export function noticeBulletins({ retentionZero = RETENTION_ZERO } = {}) {
+  return {
+    titre: 'Lire les bulletins avec l’IA',
+    intro: 'L’IA lit les montants ; des règles écrites vérifient les calculs. Aucun avis n’est donné sur la personne.',
+    sections: [
+      { icone: 'upload', titre: 'Ce qui part', texte: 'La première page de chaque bulletin de salaire et du contrat de travail, en image. Pièce d’identité, avis d’imposition et justificatif de domicile restent sur l’appareil.' },
+      { icone: 'shield', titre: 'Qui la lit', texte: `${FOURNISSEUR}, société française, lecture effectuée dans l’Union européenne (point d’accès européen), sous-traitant de Propryo. ${phraseConservationFournisseur(retentionZero).replace('ni l’enregistrement ni le texte', 'ni les images ni le texte')}` },
+      { icone: 'trash', titre: 'Ce qui est gardé', texte: 'Seules les valeurs lues (période, montants, employeur, dates) sont gardées avec le dossier ; elles sont supprimées avec lui. L’image envoyée n’est pas conservée par Propryo.' },
+      { icone: 'check', titre: 'Ce que fait l’IA', texte: `${MENTION_PROPOSITION} : l’IA recopie les valeurs, chaque valeur se corrige, et les constats viennent de règles écrites (Code du travail, art. R3243-1 ; arrêté du 25/02/2016). Aucun score, aucun classement, aucune décision automatique.` },
+    ],
+  };
+}

@@ -126,3 +126,40 @@ export async function analyserFichier(fichier, deps) {
   }
   return { illisible: true, estPdf: false, codes: [], texte: '' };
 }
+
+// ── Lot 3 : page 1 d'une pièce en JPEG, pour la lecture IA (seule cette page est envoyée — minimisation) ──
+export const IMAGE_MAX_CARACTERES = 1050 * 1024;   // le relais refuse au-delà de 1 100 Kio (tâche bulletin-paie)
+/**
+ * @param {{octets:Uint8Array, mime:string}} fichier
+ * @param {{pdfjs?, creerCanvas, chargerImage?, versJpeg:(canvas, qualite:number)=>string}} deps
+ * @returns {Promise<string|null>} data URL JPEG, ou null si la page ne peut pas être rendue sous la taille admise
+ */
+export async function pageVersImage(fichier, deps, largeurCible = 1600) {
+  const mime = String((fichier && fichier.mime) || '').toLowerCase();
+  let source, largeur, hauteur, detruire = null;
+  if (mime === 'application/pdf') {
+    const doc = await deps.pdfjs.getDocument({ data: fichier.octets.slice(), isEvalSupported: false }).promise;
+    detruire = () => { try { doc.destroy && doc.destroy(); } catch { /* rien */ } };
+    try {
+      const page = await doc.getPage(1);
+      const vp1 = page.getViewport({ scale: 1 }); const k = Math.min(3, largeurCible / vp1.width);
+      const vp = page.getViewport({ scale: k });
+      source = deps.creerCanvas(Math.ceil(vp.width), Math.ceil(vp.height));
+      const g = source.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, source.width, source.height);
+      await page.render({ canvasContext: g, viewport: vp, intent: 'print' }).promise;
+      largeur = source.width; hauteur = source.height;
+    } catch (e) { detruire(); throw e; }
+  } else if (mime === 'image/jpeg' || mime === 'image/png') {
+    const img = await deps.chargerImage(fichier.octets, mime);
+    source = img.source; largeur = img.largeur; hauteur = img.hauteur;
+  } else return null;
+  try {
+    for (const echelle of [1, 0.8, 0.65]) {
+      const k = Math.min(1, (largeurCible * echelle) / largeur);
+      const c = deps.creerCanvas(Math.round(largeur * k), Math.round(hauteur * k));
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(source, 0, 0, c.width, c.height);
+      for (const q of [0.82, 0.7, 0.55]) { const u = deps.versJpeg(c, q); if (u && u.length <= IMAGE_MAX_CARACTERES) return u; }
+    }
+    return null;
+  } finally { if (detruire) detruire(); }
+}

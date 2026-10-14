@@ -17,7 +17,8 @@ export function codeDepuisReponse(status, body) {
   if (status === 401 || status === 403) return 'auth';
   if (status === 429) return 'quota';
   // 503 video_disabled = état des lieux filmé pas encore ouvert (interrupteur AI_VIDEO du relais).
-  if (status === 404 || (status === 503 && (e === 'ai_disabled' || e === 'video_disabled'))) return 'disabled';
+  // 503 ocr_disabled = lecture des bulletins pas encore ouverte (interrupteur AI_OCR du relais, VERIF-DOCUMENTS).
+  if (status === 404 || (status === 503 && (e === 'ai_disabled' || e === 'video_disabled' || e === 'ocr_disabled'))) return 'disabled';
   if (status === 413) return 'too_large';
   if (status === 415) return 'format';
   if (status === 422) return 'refused';
@@ -56,7 +57,9 @@ export function creerClientIA({ base, getToken, fetchImpl, enLigne } = {}) {
       // Absent (relais d'avant) ou actif=false → la fonction « Filmer » reste masquée.
       const v = r.body.video && typeof r.body.video === 'object' ? r.body.video : null;
       return { ok: true, actif: !!r.body.actif, limites: r.body.limites || null, usageJour: r.body.usageJour || null,
-        video: v ? { actif: v.actif === true, fichierMaxOctets: Number(v.fichierMaxOctets) || 0, priseMaxSec: Number(v.priseMaxSec) || 0, imagesParAppel: Number(v.imagesParAppel) || 8, imagesJour: Number(v.imagesJour) || 0 } : { actif: false } };
+        video: v ? { actif: v.actif === true, fichierMaxOctets: Number(v.fichierMaxOctets) || 0, priseMaxSec: Number(v.priseMaxSec) || 0, imagesParAppel: Number(v.imagesParAppel) || 8, imagesJour: Number(v.imagesJour) || 0 } : { actif: false },
+        // `ocr` : lecture des bulletins de salaire (VERIF-DOCUMENTS) ; absent ou actif≠true → bouton masqué.
+        ocr: { actif: !!(r.body.ocr && r.body.ocr.actif === true) } };
     },
     async transcrire(audio, { task = 'edl-piece', lang = 'fr', mime } = {}) {
       const type = String(mime || (audio && audio.type) || 'audio/webm');

@@ -9,12 +9,13 @@
 
 import { ETAT, TYPES_DOCUMENT, TYPES_AVIS_IMPOT, SOURCE_2DDOC, champsConserves, comparerAvecTexte, identiteConcorde, familleDuType, referencesSvair, URL_SVAIR } from './deux-d-doc.js';
 import { indicesTechniques } from './indices-pdf.js';
+import { TYPES_BULLETIN as TB, TYPES_CONTRAT as TC } from './regles-bulletin.js';
 
 export const VERSION_VERIF = 1;
 /** Types de pièces (liste fermée du décret, pieces-candidature.js) */
 export const TYPES_AVIS = Object.freeze(['I.D.1', 'II.E.1']);
-export const TYPES_BULLETIN = Object.freeze(['I.D.2', 'II.E.3']);
-export const TYPES_CONTRAT = Object.freeze(['I.C.1', 'II.D.1']);
+export const TYPES_BULLETIN = TB;
+export const TYPES_CONTRAT = TC;
 const REESSAI_MS = 60 * 60 * 1000;     // une vérification reportée est retentée au plus une fois par heure
 
 export const SOURCE_AVIS_2DDOC = {
@@ -203,4 +204,33 @@ export function detail(doc, verif) {
     constats: (verif && verif.constats) || [],
     indices: verif && verif.indices ? verif.indices : null
   };
+}
+
+// ── Lot 3 : lecture IA des bulletins (règles dans regles-bulletin.js) ──
+/** Pièce lue par l'IA : bulletin ou page 1 du contrat de travail (candidat ou garant), sinon null. */
+export function typeLectureIa(doc) {
+  const t = String((doc && doc.pieceType) || '');
+  if (TYPES_BULLETIN.includes(t)) return 'bulletin';
+  if (TYPES_CONTRAT.includes(t)) return 'contrat';
+  return null;
+}
+/**
+ * État affiché d'une pièce lue (ou à lire) par l'IA. `e` = sortie analyserBulletins().parPiece[id] ; `base` = état local
+ * (etatAffiche). La signature de l'État (vérifiée ou non conforme) reste prioritaire. `iaDispo` : bouton de lecture proposé.
+ */
+export function etatIa(doc, e, base, iaDispo) {
+  if (base && (base.etat === 'signature_valide' || base.etat === 'code_non_conforme') && !(e && e.etat === 'ecart')) return base;
+  const tag = ' (lu par l\'IA, à vérifier)';
+  if (!e || e.etat === 'ia_non_lancee') {
+    if (!iaDispo) return base;
+    return { etat: 'ia_non_lancee', libelle: 'Lecture par l\'IA non lancée', phrase: base && base.etat === 'indice' ? base.phrase : 'aucune donnée envoyée tant que la lecture n\'est pas lancée.', positif: false, icone: 'sparkle', detail: !!(base && base.detail) };
+  }
+  if (e.etat === 'illisible') return { etat: 'illisible', libelle: 'Lecture impossible', phrase: 'la page n\'a pas pu être lue (photo floue ou coupée). Aucun constat.', positif: false, icone: 'minus', detail: true };
+  if (e.etat === 'ia_erreur') return { etat: 'reportee', libelle: 'Lecture par l\'IA reportée', phrase: 'le service de lecture n\'a pas répondu ; relancer plus tard.', positif: false, icone: 'clock', detail: false };
+  if (e.etat === 'ecart') {
+    const c = e.constats[0]; const t = c ? c.titre.replace(/^Bulletin [^:]*: /, '') : '';
+    return { etat: 'ecart', libelle: 'Écart relevé', phrase: (t ? t.replace(/\.$/, '') : 'une règle n\'est pas satisfaite') + (e.constats.length > 1 ? ', et d\'autres points' : '') + tag + '.', positif: false, icone: 'calc', detail: true };
+  }
+  if (e.etat === 'sans_ecart') return { etat: 'sans_ecart', libelle: 'Aucun écart relevé', phrase: `${e.regles.length} règle${e.regles.length > 1 ? 's' : ''} appliquée${e.regles.length > 1 ? 's' : ''} (calculs, cumuls, nom, employeur)${tag}.`, positif: false, icone: 'check', detail: true };
+  return { etat: 'lu', libelle: 'Lu par l\'IA', phrase: typeLectureIa(doc) === 'contrat' ? 'employeur et date d\'entrée comparés aux bulletins (à vérifier).' : 'valeurs lues, à vérifier.', positif: false, icone: 'sparkle', detail: true };
 }

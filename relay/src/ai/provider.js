@@ -3,6 +3,7 @@
 //   const ia = makeAiProvider(env, fetchImpl);
 //   await ia.transcrire({ audio, mime, langue, vocabulaire })  → { text, segments, audioSec, modele }
 //   await ia.structurer({ tache, messages, jsonSchema, input, delaiMs? })  → { data, jetonsE, jetonsS, modele }
+//   await ia.lireDocument({ tache, image, jsonSchema, consigne, delaiMs? })  → { data, pages, modele }   (OCR, point d'accès UE)
 //   (les messages peuvent contenir des images `image_url` : tâche edl-photos, même modèle Mistral Small 4,
 //    entrée texte + image — https://docs.mistral.ai/models/mistral-small-4-0-26-03, relevé le 14/10/2026)
 //
@@ -16,13 +17,16 @@
 // Erreurs : toujours une AiError { code } — 'unavailable' (réseau, délai, 5xx, 429 fournisseur),
 // 'refused' (4xx fournisseur : format non accepté…), 'invalid_output' (réponse illisible). Jamais de
 // contenu (audio, texte) dans le message d'erreur.
-import { FAKE_TRANSCRIPTION, FAKE_TEXTE, fauxEdlPiece, fauxEdlPhotos, fauxIncidentLocataire, fauxConstatArtisan, fauxLectureFacture } from './fake.js';
+import { FAKE_TRANSCRIPTION, FAKE_TEXTE, fauxEdlPiece, fauxEdlPhotos, fauxIncidentLocataire, fauxConstatArtisan, fauxLectureFacture, fauxBulletinPaie } from './fake.js';
 
 export class AiError extends Error {
   constructor(code, status) { super(`ai_${code}`); this.code = code; this.status = status || 0; }
 }
 
 export const MISTRAL_BASE = 'https://api.mistral.ai';
+// Lecture de documents (VERIF-DOCUMENTS) : point d'accès UE imposé par défaut, modèle d'OCR à annotations structurées.
+export const OCR_BASE_UE = 'https://api.eu.mistral.ai';
+export const OCR_MODELE = 'mistral-ocr-latest';
 export const DEFAUTS = {
   modeleTranscription: 'voxtral-mini-latest',
   modeleStructure: 'mistral-small-latest',
@@ -101,6 +105,28 @@ function mistral(env, fetchImpl) {
       const u = j.usage || {};
       return { data, jetonsE: Number(u.prompt_tokens) || 0, jetonsS: Number(u.completion_tokens) || 0, modele: j.model || mS };
     },
+    // Lecture d'UNE page (image) par le modèle d'OCR, avec annotation structurée selon le schéma de la tâche.
+    // Point d'accès : MISTRAL_OCR_BASE_URL, par défaut l'UE (jamais le point d'accès mondial par défaut). Le texte
+    // reconnu (markdown) n'est ni renvoyé ni journalisé : seule l'annotation (les champs demandés) ressort.
+    async lireDocument({ tache, image, jsonSchema, consigne, delaiMs: delaiTache }) {
+      const baseOcr = String(env.MISTRAL_OCR_BASE_URL || OCR_BASE_UE).replace(/\/+$/, '');
+      const body = {
+        model: env.AI_MODEL_OCR || OCR_MODELE,
+        document: { type: 'image_url', image_url: image },
+        document_annotation_format: { type: 'json_schema', json_schema: { name: String(tache).replace(/[^a-z0-9_-]/gi, '_'), schema: jsonSchema, strict: true } },
+        document_annotation_prompt: consigne,
+        include_image_base64: false,
+      };
+      const j = await appel(fetchImpl, `${baseOcr}/v1/ocr`, {
+        method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      }, Math.max(delaiMs, Number(delaiTache) || 0));
+      const a = j && j.document_annotation;
+      let data;
+      try { data = typeof a === 'string' ? JSON.parse(a) : a; } catch { throw new AiError('invalid_output'); }
+      if (!data || typeof data !== 'object') throw new AiError('invalid_output');
+      const pages = Number(j.usage_info && j.usage_info.pages_processed) || 1;
+      return { data, pages, modele: j.model || body.model };
+    },
   };
 }
 
@@ -116,6 +142,10 @@ function fake() {
       if (!FAUX[tache]) throw new AiError('refused', 400);
       const data = FAUX[tache](input);
       return { data, jetonsE: Math.ceil(JSON.stringify(input).length / 4), jetonsS: Math.ceil(JSON.stringify(data).length / 4), modele: 'fake' };
+    },
+    async lireDocument({ tache, input }) {
+      if (tache !== 'bulletin-paie') throw new AiError('refused', 400);
+      return { data: fauxBulletinPaie(input), pages: 1, modele: 'fake' };
     },
   };
 }

@@ -9,17 +9,20 @@ import { extraireFonction } from './_extraction-source.js';
 import * as DeuxDDoc from '../../js/core/deux-d-doc.js';
 import * as VerifPieces from '../../js/core/verif-pieces.js';
 import * as PiecesCand from '../../js/core/pieces-candidature.js';
+import * as ReglesBulletin from '../../js/core/regles-bulletin.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
-const SRC = ['_candVerifReglages', '_ensureZxing', '_zxingLecteur', '_candVerifLigneHtml', '_candVerifConstats', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
+const SRC = ['_candVerifReglages', '_ensureZxing', '_zxingLecteur', '_candVerifEtat', '_candVrfIco', '_candIaPieces', '_candIaAnalyse', '_candVerifLigneHtml', '_candVerifConstats', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
   .map((n) => extraireFonction(P1, n)).join('\n') + '\n'
   + 'async ' + extraireFonction(P1, '_tddocConfiance') + '\n'
   + 'async ' + extraireFonction(P1, '_candVerifierPieces') + '\n'
   + extraireFonction(P2, '_candSetPieceType');
 
 const escHtml = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** Échappement réel de l'app (_lyQ, app-part2.js) : d'abord pour la chaîne JS (\ et '), puis pour le HTML. */
+const lyQ = (s) => escHtml(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 /** Décodage HTML d'une valeur d'attribut (ce que fait le navigateur avant d'exécuter le gestionnaire). */
 const decoder = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, '\'').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 /** Exécute le JavaScript d'un attribut on…= et rend les arguments reçus par la fonction appelée. */
@@ -35,7 +38,7 @@ function monter(DB, { analyse, binaire = 'data:application/pdf;base64,JVBERg==',
   const j = { saves: 0, toasts: [], fiche: 0, fetches: [], lus: 0, modale: null };
   const dom = { 'vp-title': { textContent: '' }, 'vp-body': { innerHTML: '' }, 'vp-foot': { innerHTML: '' }, 'ov-fiche-candidat': { classList: { contains: () => false } }, 'ov-verif-piece': { classList: { contains: () => false } } };
   const window = {
-    DeuxDDoc, VerifPieces, PiecesCand, ZXing: { DecodeHintType: { TRY_HARDER: 3, POSSIBLE_FORMATS: 2 }, BarcodeFormat: { DATA_MATRIX: 5 }, MultiFormatReader: function () { this.setHints = () => {}; } }, __immoHorsLigne: horsLigne,
+    DeuxDDoc, VerifPieces, PiecesCand, ReglesBulletin, ZXing: { DecodeHintType: { TRY_HARDER: 3, POSSIBLE_FORMATS: 2 }, BarcodeFormat: { DATA_MATRIX: 5 }, MultiFormatReader: function () { this.setHints = () => {}; } }, __immoHorsLigne: horsLigne,
     LecturePieces: { analyserFichier: async () => { j.lus++; if (analyse instanceof Error) throw analyse; return analyse; } },
     pdfjsLib: {}
   };
@@ -46,12 +49,12 @@ function monter(DB, { analyse, binaire = 'data:application/pdf;base64,JVBERg==',
     _dataUrlToUint8: () => new Uint8Array([1, 2, 3]), createImageBitmap: async () => ({ width: 1, height: 1 }), Blob,
     _stamp: (o) => { o._modifiedAt = 'stamp'; }, saveDB: () => { j.saves++; }, showToast: (m) => j.toasts.push(m),
     openFicheCandidat: () => { j.fiche++; }, openM: (id) => { j.modale = id; }, el: (id) => dom[id] || null, escHtml,
-    _uiIcon: (n) => '<svg data-i="' + n + '"></svg>', _lyQ: (s) => String(s), fd: (s) => s.split('-').reverse().join('/'),
+    _uiIcon: (n) => '<svg data-i="' + n + '"></svg>', _lyQ: lyQ, fd: (s) => s.split('-').reverse().join('/'),
     _auditLog: () => {}, _ficheCandidatOuverte: 'c1', _candVerifEnCours: new Set(), _candVerifPiecesEnCours: new Set(),
     _tddocMagasin: null, _tddocMagasinLe: 0, _tddocMagasinPromesse: null, _zxingPromesse: null
   };
   const noms = Object.keys(deps).filter((n) => !['_tddocMagasin', '_tddocMagasinLe', '_tddocMagasinPromesse', '_zxingPromesse'].includes(n));
-  const prelude = 'let _tddocMagasin = null, _tddocMagasinLe = 0, _tddocMagasinPromesse = null; let _zxingPromesse = null;\n';
+  const prelude = 'let _tddocMagasin = null, _tddocMagasinLe = 0, _tddocMagasinPromesse = null; let _zxingPromesse = null; let _candIaOcr = { actif: null, le: 0 };\n';
   const exp = '\nreturn { _candVerifierPieces, _candVerifLigneHtml, _candVerifDetail, _candPointsAVerifier, _candSetPieceType, _candVerifReglages };';
   const app = new Function(...noms, prelude + SRC + exp)(...noms.map((n) => deps[n]));
   return { app, j, dom };
@@ -172,13 +175,24 @@ describe('échappement des gestionnaires on…= (identifiant hostile)', () => {
   });
   it('type de la pièce (onchange de la liste) : forme sûre dans le rendu', () => {
     const f = extraireFonction(P2, '_renderCandidatPiecesGrouped');
-    expect(f).toContain('onchange="_candSetPieceType(\' + escHtml(JSON.stringify(d.id)) + \', this.value)"');
-    const attr = '_candSetPieceType(' + escHtml(JSON.stringify(HOSTILE)) + ', this.value)';
+    expect(f).toContain("onchange=\"_candSetPieceType(\\'' + _lyQ(d.id) + '\\', this.value)\"");
+    const attr = '_candSetPieceType(\'' + lyQ(HOSTILE) + '\', this.value)';
     const recus = []; new Function('_candSetPieceType', 'self', decoder(attr).replace(/\bthis\b/g, 'self'))((...x) => recus.push(x), { value: 'I.D.1' });
     expect(recus[0]).toEqual([HOSTILE, 'I.D.1']);
     // l'ancienne forme (guillemets seuls) cassait la chaîne JS sur « &quot; » contenu dans l'identifiant
     const ancien = '_candSetPieceType(' + JSON.stringify(HOSTILE).replace(/"/g, '&quot;') + ', this.value)';
     expect(() => new Function('_candSetPieceType', 'self', decoder(ancien).replace(/\bthis\b/g, 'self'))(() => {}, {})).toThrow();
+  });
+  it('identifiant numérique (pièces créées par nid()) : retrouvé malgré le passage en chaîne', async () => {
+    const DB = parc([AVIS({ id: 1760000000123 })]);
+    const { app, j } = monter(DB, { analyse: SANS_CODE });
+    await app._candVerifierPieces('c1');
+    const a = appelDe(app._candVerifLigneHtml(DB.documents[0]), 'onclick', '_candVerifDetail');
+    expect(a).toEqual(['1760000000123']);
+    app._candVerifDetail(a[0]);
+    expect(j.modale).toBe('ov-verif-piece');
+    app._candSetPieceType('1760000000123', 'I.D.2');
+    expect(DB.documents[0].pieceType).toBe('I.D.2');
   });
   it('aucune chaîne JS entre apostrophes avec escHtml collé dans les nouveaux gestionnaires', () => {
     for (const n of ['_candVerifLigneHtml', '_candVerifConstats', '_candVerifDetail']) {

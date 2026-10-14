@@ -225,3 +225,9 @@ export function fauxConstatArtisan(input) {
 export function fauxLectureFacture() {
   return { entreprise: 'Plomberie Weber', siret: null, date: null, numero: 'F-2026-1042', montantHT: 107.27, tva: 10.73, montantTTC: 118, lignes: [{ libelle: 'Remplacement joint et collier de siphon', montant: 118 }], travaux: 'Remplacement du joint et du collier du siphon.', constatProbable: 'usure' };
 }
+// VERIF-DOCUMENTS : lecture simulée d'un bulletin (août 2026, net à payer cohérent) ou de la page 1 d'un contrat — données fictives.
+export function fauxBulletinPaie(input) {
+  if (input && input.type === 'contrat') return { lisible: true, salarie: 'DUPONT Camille', employeur: 'Clinique des Trois-Frontières', siret: '00000000100017', dateDebut: '2022-05-02', typeContrat: 'CDI' };
+  return { lisible: true, periode: '2026-08', salarie: 'DUPONT Camille', employeur: 'Clinique des Trois-Frontières', siret: '00000000100017', dateEntree: '2022-05-02',
+    brut: 2950, netSocial: 2312.6, netAvantImpot: 2291.4, impotBase: 2341.8, impotTaux: 4.2, impotMontant: 98.36, netAPayer: 2193.04, netImposable: 2341.8, cumulNetImposable: 18734.4 };
+}

@@ -17128,7 +17128,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.740 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.741 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17546,7 +17546,7 @@ function _renderCandidatPiecesGrouped(cand){
     const opts = '<option value=""' + (cur ? '' : ' selected') + '>Type non précisé</option>'
       + types.map(t => '<option value="' + escHtml(t.id) + '"' + (t.id === cur ? ' selected' : '') + '>' + escHtml(t.libelle) + '</option>').join('');
     return '<div class="cand-piece">' + _attachmentRowHtml(d)
-      + '<label class="cand-piece-type"><span>Type</span><select class="inp' + (cur ? '' : ' np') + '" onchange="_candSetPieceType(' + escHtml(JSON.stringify(d.id)) + ', this.value)" aria-label="Type de la pièce « ' + escHtml(d.originalName || d.name || '') + ' »">' + opts + '</select></label>'
+      + '<label class="cand-piece-type"><span>Type</span><select class="inp' + (cur ? '' : ' np') + '" onchange="_candSetPieceType(\'' + _lyQ(d.id) + '\', this.value)" aria-label="Type de la pièce « ' + escHtml(d.originalName || d.name || '') + ' »">' + opts + '</select></label>'
       + (typeof _candVerifLigneHtml === 'function' ? _candVerifLigneHtml(d) : '')   // VERIF-DOCUMENTS : état de la vérification
       + '</div>';
   };
@@ -17583,7 +17583,7 @@ function _renderCandidatPiecesGrouped(cand){
 
 // CANDIDATURES-CONFORMITE lot 2 — type d'une pièce de candidat (liste fermée du décret, contrôlée).
 function _candSetPieceType(docId, typeId) {
-  const d = (DB.documents || []).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat');
+  const d = (DB.documents || []).find(x => x && !x._deleted && String(x.id) === String(docId) && x.parentType === 'candidat');
   if (!d) return;
   const val = String(typeId || '');
   if (window.PiecesCand && !window.PiecesCand.typeValide(String(d.category || ''), val)) { showToast('Type de pièce non reconnu pour cette catégorie', 'warn'); return; }

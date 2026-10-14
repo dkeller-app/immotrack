@@ -14,6 +14,7 @@ import { makeAiProvider, fournisseurActif, AiError } from './provider.js';
 import { limites, lireUsageJour, decider, enregistrer } from './quota.js';
 import { tache, JSON_MAX_IMAGES } from './tasks/index.js';
 import { videoActif, annonceVideo, VIDEO_DEFAUTS } from './video.js';
+import { ocrActif, annonceOcr } from './ocr.js';
 
 export const AUDIO_TYPES = new Set(['audio/mp3', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/x-wav']);
 export const AUDIO_MAX_DEFAUT = 10 * 1024 * 1024;   // 10 Mo ≈ 20 min d'Opus, ≈ 5 min de WAV 16 kHz
@@ -60,7 +61,7 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     const lim = limites(c.env);
     const u = await lireUsageJour(c.env.SESSIONS_KV, gate.userId);
     const f = fournisseurActif(c.env);
-    return c.json({ actif: !!f, fournisseur: f, limites: lim, usageJour: { appels: u.appels, audioSec: u.audioSec, images: u.images || 0 }, video: annonceVideo(c.env, lim.imagesJour) });
+    return c.json({ actif: !!f, fournisseur: f, limites: lim, usageJour: { appels: u.appels, audioSec: u.audioSec, images: u.images || 0 }, video: annonceVideo(c.env, lim.imagesJour), ocr: annonceOcr(c.env) });
   });
 
   app.post('/ai/transcribe', async (c) => {
@@ -131,6 +132,7 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     // Taille d'abord (vidéo éteinte : une tâche vidéo garde le plafond texte de 256 Kio, comme avant).
     if (taille > ((t.video && !video) ? JSON_MAX : (t.JSON_MAX || JSON_MAX))) { mesure('structure', 413, { tache: t.nom }); return c.json({ error: 'too_large' }, 413); }
     if (t.video && !video) { mesure('structure', 503, { tache: t.nom }); return c.json({ error: 'video_disabled' }, 503); }
+    if (t.ocr && !ocrActif(c.env)) { mesure('structure', 503, { tache: t.nom }); return c.json({ error: 'ocr_disabled' }, 503); }
     const v = t.validerEntree(body.input);
     if (!v.ok) { mesure('structure', 400, { tache: t.nom, raison: v.raison }); return c.json({ error: 'bad_input', raison: v.raison }, 400); }
 
@@ -143,7 +145,10 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     await compter(kv, gate.userId, nImages ? { appels: 1, images: nImages } : { appels: 1 });   // réservation avant l'appel payant
     let r;
     try {
-      r = await ia.structurer({ tache: t.nom, messages: t.messages(v.input), jsonSchema: t.jsonSchema, input: v.input, delaiMs: t.DELAI_MS });
+      r = t.ocr
+        // Lecture de document (OCR, point d'accès UE) : une page, annotation selon le schéma de la tâche ; pas de jetons facturés.
+        ? Object.assign(await ia.lireDocument({ tache: t.nom, image: v.input.images[0], jsonSchema: t.schema ? t.schema(v.input) : t.jsonSchema, consigne: t.consigne ? t.consigne(v.input) : '', input: v.input, delaiMs: t.DELAI_MS }), { jetonsE: 0, jetonsS: 0 })
+        : await ia.structurer({ tache: t.nom, messages: t.messages(v.input), jsonSchema: t.jsonSchema, input: v.input, delaiMs: t.DELAI_MS });
     } catch (e) {
       return erreurIA(c, 'structure', e, t0);
     }

@@ -324,6 +324,7 @@ import * as Employeur from './core/employeur.js';
 import * as DeuxDDoc from './core/deux-d-doc.js';
 import * as LecturePieces from './core/lecture-pieces.js';
 import * as VerifPieces from './core/verif-pieces.js';
+import * as ReglesBulletin from './core/regles-bulletin.js';
 
 // LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
 import {
@@ -826,6 +827,7 @@ window.Employeur = Employeur;
 window.DeuxDDoc = DeuxDDoc;
 window.LecturePieces = LecturePieces;
 window.VerifPieces = VerifPieces;
+window.ReglesBulletin = ReglesBulletin;
 window._candidatVersLocataire = _candidatVersLocataire;
 window._candidatVersGarant = _candidatVersGarant;
 window._nouveauCandidat = _nouveauCandidat;
