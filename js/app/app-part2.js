@@ -15249,7 +15249,7 @@ function _renderLogFichePanelCompta(log, ref) {
         <select class="inp" style="width:100px" onchange="setLogFicheComptaYear(this.value)">${yearOpts}</select>
       </div>
       <div class="compta-toolbar-right">
-        <button class="btn bs bb" onclick="openNewMv();showToast('Penser à sélectionner « ${escHtml(ref)} » dans le champ Logement','info',4000)">+ Mouvement</button>
+        <button class="btn bs bb" onclick="openNewMv();showToast('Penser à sélectionner « ${refSafe} » dans le champ Logement','info',4000)">+ Mouvement</button>
         <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(ref)}')">＋ Faire une quittance</button>
         <button class="btn bs bb" onclick="_goFromLogFiche('mouvements')" title="Voir tous les mouvements dans l'onglet">↗ Onglet Mouvements</button>
       </div>
@@ -15665,7 +15665,7 @@ function _incRender() {
     titre = 'Message au locataire'; sub = 'À relire avant envoi';
     body = _incMessageHtml(inc);
     // ESPACE LOCATAIRE : dépôt dans le fil du locataire, par geste explicite après relecture (secondaire, M-4).
-    const elDepot = (window.EspaceLoc && window.EspaceLoc.disponiblePourIncident(inc)) ? `<button type="button" class="btn bs" onclick="EspaceLoc.envoyerTexteIncident('${escHtml(String(inc.id))}')">${_uiIcon('send', 14)} Déposer dans l'espace locataire</button>` : '';
+    const elDepot = (window.EspaceLoc && window.EspaceLoc.disponiblePourIncident(inc)) ? `<button type="button" class="btn bs" onclick="EspaceLoc.envoyerTexteIncident('${_lyQ(String(inc.id))}')">${_uiIcon('send', 14)} Déposer dans l'espace locataire</button>` : '';
     foot = `<button type="button" class="btn bs" onclick="_incGo('fiche')">Retour</button><button type="button" class="btn bs" onclick="_incCopierMessage()">${_uiIcon('doc', 14)} Copier</button>${elDepot}<button type="button" class="btn bp" onclick="_incEnvoyerMessage()">${_uiIcon('send', 14)} Envoyer le message</button>`;
   } else {
     titre = _incElLbl(inc) + (inc.nature ? ' — ' + _incNatLbl(inc).toLowerCase() : '');
@@ -28643,7 +28643,7 @@ function _bankPendingIntroHtml() {
     const n = pend[String(a.id)].length;
     return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid #3b7ef6;background:rgba(59,126,246,.06);border-radius:8px;margin-bottom:6px;font-size:12.5px">'
       + '<span>↩ <b>' + n + ' ligne' + (n > 1 ? 's' : '') + ' en attente</b> sur <b>' + escHtml(a.label || 'Compte') + '</b></span>'
-      + '<button class="btn bp" style="margin-left:auto;font-size:12px" onclick="_bankResumePending(\'' + escHtml(String(a.id)) + '\')">Reprendre sans fichier →</button>'
+      + '<button class="btn bp" style="margin-left:auto;font-size:12px" onclick="_bankResumePending(\'' + _lyQ(String(a.id)) + '\')">Reprendre sans fichier →</button>'
       + '</div>';
   }).join('') + '</div>';
 }

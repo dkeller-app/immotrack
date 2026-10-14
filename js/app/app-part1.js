@@ -6162,7 +6162,7 @@ function _renderMenuPerso() {
   const ov = document.getElementById('ov-menu-perso'); if (!ov) return;
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
   const on = _menuGetOn();
-  const chips = Object.keys(_MENU_PRESETS).map(p => '<button class="mp-pre' + (_menuIsPreset(p) ? ' on' : '') + '" onclick="_menuApplyPreset(\'' + esc(p) + '\')">' + esc(p) + '</button>').join('')
+  const chips = Object.keys(_MENU_PRESETS).map(p => '<button class="mp-pre' + (_menuIsPreset(p) ? ' on' : '') + '" onclick="_menuApplyPreset(\'' + _lyQ(p) + '\')">' + esc(p) + '</button>').join('')
     + '<span class="mp-pre' + (Object.keys(_MENU_PRESETS).some(_menuIsPreset) ? '' : ' on') + '">Sur-mesure</span>';
   const zones = _MENU_ZONES.map(z => '<div class="mp-zone"><div class="mp-zt">' + esc(z.z) + '</div>' + z.ids.map(id => {
     const lk = _MENU_LOCKED.includes(id), isOn = on.has(id);
@@ -10629,7 +10629,7 @@ function _mvRenderProvenance(m) {
     const freres = (DB.mouvements || []).filter(x => x && !x._deleted && x._splitGroup === m._splitGroup);
     bits.push(_uiIcon('scissors') + ' <b>' + freres.length + ' parts</b> issues du même virement'
       + (m._splitSourceLib ? ' <span class="mu sm">(' + escHtml(m._splitSourceLib) + ')</span>' : '')
-      + ' · <a onclick="_mvUndoSplit(\'' + escHtml(m._splitGroup) + '\')" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">↩ défaire le découpage</a>');
+      + ' · <a onclick="_mvUndoSplit(\'' + _lyQ(m._splitGroup) + '\')" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">↩ défaire le découpage</a>');
   }
 
   // ⑧.1b — date du relevé si elle a été déplacée, avec retour possible
