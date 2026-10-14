@@ -86,6 +86,8 @@ const COLLECTIONS = [
   // Incidents (0057) AVANT documents : le contrôle RLS d'une pièce du dossier de preuves (entite_of_document,
   // branche 'incident') lit la ligne incident — elle doit exister quand la pièce est insérée.
   { coll: 'incidents',       enumerate: db => db.incidents || [],                       key: r => String(r.id) + espTag(r), sources: db => db.incidents || [] },
+  // Carnet d'artisans (0060) : aucune ligne n'en dépend ; rattaché à la SCI.
+  { coll: 'artisans',        enumerate: db => db.artisans || [],                        key: r => String(r.id) + espTag(r), sources: db => db.artisans || [] },
   { coll: 'documents',       enumerate: db => db.documents || [],                       key: r => String(r.id) + espTag(r), sources: db => db.documents || [] },
   { coll: 'mouvements',      enumerate: db => db.mouvements || [],                       key: r => String(r.id) + espTag(r), sources: db => db.mouvements || [] },
   { coll: 'quittances',      enumerate: db => db.quittances || [],                      key: r => String(r.id) + espTag(r), sources: db => db.quittances || [] },
