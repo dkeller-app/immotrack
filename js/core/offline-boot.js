@@ -310,6 +310,7 @@ export function filtrerEdlParEspacesAutorises(edls, espacesAutorises) {
 export const COLLECTIONS_TAGUEES = [
   'entites', 'immeubles', 'logements', 'documents', 'mouvements',
   'quittances', 'edl', 'mrh', 'agenda', 'candidats', 'baux_evenements', 'incidents',
+  'artisans',
 ];
 
 /** Un enregistrement appartient-il à un espace qu'on a encore le droit de voir ? */

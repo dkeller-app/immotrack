@@ -184,6 +184,11 @@ const MAPPERS = {
     const st = ['signale', 'en_cours', 'resolu'].includes(o.statut) ? o.statut : null
     return { id: ctx.detUuid('incident', String(o.id)), legacy_id: String(o.id ?? ''), entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, immeuble_id: o.imm ? (ctx.immeubleByNom.get(norm(o.imm)) || null) : null, logement_id: o.logRef ? (ctx.logementByRef.get(norm(o.logRef)) || null) : null, statut: st, date_signalement: dateOnly(o.creeLe), ...base(o, ctx) }
   },
+  // CIRCUIT D'UN INCIDENT — carnet d'artisans (migration 0060). Scope par SCI (artisan.entity) ; sinon NULL → membres
+  // pleins seulement (RLS fail-closed). La fiche complète (métiers, contact, note privée) vit dans legacy_raw.
+  artisans(o, ctx) {
+    return { id: ctx.detUuid('artisan', String(o.id)), legacy_id: String(o.id ?? ''), entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, ...base(o, ctx) }
+  },
   // Journal des baux signés (migration 0054, table baux_evenements de 0017). Rattaché au bail par la
   // ref du logement : bail_id = même id déterministe que la ligne `baux` (detUuid('bail', ref)) ;
   // bail_debut distingue les baux successifs d'un même logement. RLS par entité via entite_of_bail.

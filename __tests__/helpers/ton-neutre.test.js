@@ -13,7 +13,7 @@
  *   - fichiers entiers : courriers / e-mails aux locataires, candidats et garants, congé, texte officiel de la
  *     déclaration d'occupation (impots.gouv), motifs de pièces de candidature ;
  *   - lignes isolées (liste TIERS ci-dessous) : message envoyé au locataire / candidat / invité, texte imprimé
- *     d'un bail ou d'un décompte de charges, assistant de signature présentiel (le signataire lit l'écran).
+ *     d'un bail ou d'un décompte de charges. L'assistant de signature présentiel est lui AUSSI au ton neutre (décision 14/10).
  * Une ligne nouvelle qui tutoie ou vouvoie le propriétaire fait donc échouer ce test : la reformuler, jamais
  * l'ajouter à la liste sans raison « tiers » écrite.
  */
@@ -37,8 +37,8 @@ const EXCLUS_FICHIERS = new Set([
 
 const FICHIERS = [
   'index.html',
-  'js/app/app-part1.js', 'js/app/app-part2.js', 'js/app/app-part3.js',
-  'js/app/supabase-entry.js', 'js/app/supabase-boot.js', 'js/app/doc-express.js', 'js/app/espace-locataire-app.js',
+  // tous les scripts de js/app (y compris les nouveaux : circuit incident…), sauf la configuration
+  ...lister('js/app', /\.js$/).filter(f => !/supabase-config/.test(f)),
   ...lister('js/core', /\.js$/),
   ...lister('js/components', /\.js$/),
   ...lister('js/helpers', /\.global\.js$/),
@@ -89,17 +89,6 @@ const TIERS = [
   ['js/app/app-part3.js', 'Vous êtes invité·e à accéder', 'SMS à l\'invité'],
   ['js/app/app-part3.js', 'Je vous invite à accéder à mon espace', 'message à l\'invité'],
   ['js/app/app-part3.js', 'Cliquez sur le lien ci-dessous pour créer votre compte', 'message à l\'invité'],
-  // assistant de signature présentiel : le signataire (bailleur OU locataire) lit l'écran (fenêtre d'impression)
-  ['js/app/app-part1.js', "Veuillez parapher cette page", 'assistant de signature'],
-  ['js/app/app-part1.js', 'au signataire suivant', 'assistant de signature'],
-  ['js/app/app-part1.js', 'Vous signerez à la <b>dernière étape</b>', 'assistant de signature'],
-  ['js/app/app-part1.js', 'Faites défiler le bail', 'assistant de signature'],
-  ['js/app/app-part1.js', 'Tracez vos <b>initiales', 'assistant de signature'],
-  ['js/app/app-part1.js', 'Votre paraphe n', 'assistant de signature'],
-  ['js/app/app-part1.js', 'Tracez votre paraphe avant de valider', 'assistant de signature'],
-  ['js/app/app-part1.js', 'Phase 2 — Signature locataire', 'assistant de signature (locataire)'],
-  ['js/app/app-part1.js', 'Affichée au-dessus de votre signature', 'assistant de signature'],
-  ['js/app/app-part1.js', 'Cliquez sur <b>« ✓ Sauvegarder', 'assistant de signature'],
 ]
 
 // ── détection ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -130,6 +119,7 @@ const RE_ENCLITIQUE = /(?<![\p{L}\p{N}_-])[\p{L}]{3,}[es]-(?:le|la|les|en|y|toi|
 const FAUX_POSITIFS = [
   ['js/app/app-part1.js', 'recharge en fluide frigorigène', 'décret 87-712 : nom « recharge »'],
   ['js/app/app-part1.js', 'vérifie son email par code', '3e personne : le signataire vérifie son e-mail'],
+  ['js/app/incident-circuit-app.js', '>Rendez-vous<', 'nom commun « rendez-vous » (créneau d\'intervention)'],
 ]
 
 /** Tous les indices de 2e personne d'une ligne (déjà privée de ses commentaires). */

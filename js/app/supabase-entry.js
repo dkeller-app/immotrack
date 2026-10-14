@@ -892,6 +892,31 @@ async function boot() {
     upload: async (path, blob, mime) => { const { error } = await client.storage.from('espace-files').upload(path, blob, { contentType: mime || 'application/pdf', upsert: false }); if (error && !/exists|duplicate/i.test(error.message || '')) throw new Error(error.message); return path },
   }
 
+  // CIRCUIT D'UN INCIDENT (migration 0060) — accès BORNÉS du client connecté (RLS par SCI) : liens et dépôts des
+  // artisans (lecture), publication du résultat au locataire (colonnes resultat* seulement), fonctions ar_acces_* et
+  // ar_devis_decider. Le jeton de l'artisan n'arrive jamais ici : seule son empreinte (ar_acces_emettre).
+  const _IC_TABLES = ['artisan_acces', 'artisan_depots', 'locataire_signalements']
+  const _IC_RPC = ['ar_acces_emettre', 'ar_acces_revoquer', 'ar_acces_valider', 'ar_devis_decider']
+  const _icT = t => { if (!_IC_TABLES.includes(t)) throw new Error('table hors circuit incident'); return client.from(t) }
+  window.__immoIncidentCircuit = {
+    pret: () => !!_cloudEspaceId,
+    espacePropre: () => _cloudEspaceId,
+    espaceDeSeg: seg => _espaceOfEntiteSeg(seg),
+    select: async (t, filtres, colonnes) => {
+      let q = _icT(t).select(colonnes || '*')
+      for (const [k, v] of Object.entries(filtres || {})) q = Array.isArray(v) ? q.in(k, v) : (v === null ? q.is(k, null) : q.eq(k, v))
+      const { data, error } = await q
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+    publierResultat: async (signalementId, resultat) => {
+      const { data, error } = await _icT('locataire_signalements').update({ resultat, resultat_publie_le: new Date().toISOString() }).eq('id', signalementId).select('id')
+      if (error) throw new Error(error.message)
+      return (data || []).length === 1
+    },
+    rpc: async (fn, args) => { if (!_IC_RPC.includes(fn)) throw new Error('fonction hors circuit incident'); const { data, error } = await client.rpc(fn, args); if (error) throw Object.assign(new Error(error.message), { code: error.code }); return data },
+  }
+
   window.__immoPartage = {
     listMembers: _listMembers,
     listEntites: _listEntites,

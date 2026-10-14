@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.738';
+const IMMOTRACK_VERSION = '15.739';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -18447,7 +18447,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'var el=document.getElementById(id);if(!el)return;'
     /* En mode wizard : canvas plus grand (250x80 au lieu de 70x27) pour signature au doigt confortable + label plus explicite */
     +  'var w=window._wizMode?250:70,hh=window._wizMode?80:27;'
-    +  'var lbl=window._wizMode?\'Veuillez parapher cette page :\':\'Paraphes :\';'
+    +  'var lbl=window._wizMode?\'Parapher cette page :\':\'Paraphes :\';'
     /* v12.85 : si mode wizard "sans locataire" actif, filtrer _SIGS pour ne garder que le bailleur */
     +  'var sigs=_SIGS;'
     +  'if(window._wizMode&&window._wizSignWithLocataires===false){'
@@ -18666,7 +18666,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'ov.innerHTML="<div class=\\"wizV2-card\\" style=\\"text-align:center;padding:34px 18px\\">"'
     +    '+"<div style=\\"font-size:44px\\">\\u2705</div>"'
     +    '+"<h2 style=\\"margin:8px 0 4px\\">"+nm(prevSigId)+" a sign\\u00e9</h2>"'
-    +    '+"<p style=\\"color:#475569\\">Passez l\\u2019appareil au signataire suivant.</p>"'
+    +    '+"<p style=\\"color:#475569\\">Passer l\\u2019appareil au signataire suivant.</p>"'
     +    '+"<div style=\\"background:#dcfce7;border:1px solid #bbf7d0;color:#14532d;border-radius:8px;padding:12px;font-weight:600;margin:14px auto;max-width:320px\\">\\ud83d\\udd8a\\ufe0f Au tour de : "+nm(nextSigId)+"</div>"'
     +    '+"<button class=\\"btn-wiz\\" onclick=\\"window._wizV2Current=1;_wizV2Render();_wizV2ScrollTop();\\" style=\\"background:#ff5a3c;color:#fff\\">"+nm(nextSigId)+" est pr\\u00eat \\u2192 continuer</button>"'
     +  '+"</div>";'
@@ -18721,7 +18721,7 @@ function previewBailData(bail, log, ref, opts) {
     /* width/height : la page a sa hauteur AVANT le décodage de l'image → « Aller à la page N » tombe juste. */
     +  'h+="<img src=\\""+page.imgDataUrl+"\\" class=\\"wizV2-img\\" loading=\\"lazy\\" width=\\""+Math.round(page.width||893)+"\\" height=\\""+Math.round(page.height||1263)+"\\" alt=\\"Page "+n+"\\">";'
     +  'if(page.noParaphe){'
-    +    'if(page.kind==="signatures"){h+="<div class=\\"wizV2-pg-note\\">✍ <b>Page des signatures.</b> Vous signerez à la <b>dernière étape</b>, après le paraphe des pages : la signature est reportée automatiquement ici.</div>";}'
+    +    'if(page.kind==="signatures"){h+="<div class=\\"wizV2-pg-note\\">✍ <b>Page des signatures.</b> La signature se fait à la <b>dernière étape</b>, après le paraphe des pages ; elle est reportée automatiquement ici.</div>";}'
     +  '}else if(!pr.error){'
     +    'h+="<div class=\\"wizV2-parbar\\" id=\\"wizV2-parbar-"+n+"\\">"+_wizV2ParBar(n)+"</div>";'
     +  '}'
@@ -18739,7 +18739,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'if(cur>pages.length){var pv=document.getElementById("wiz-prev-btn");if(pv)pv.style.visibility="";var nt=document.getElementById("wiz-next-btn");if(nt)nt.style.background="";return _wizV2RenderFinal();}'
     +  'var _pr=_wizV2PadResult();'
     +  'var html="<div class=\\"wizV2-doc\\">";'
-    +  'html+="<div class=\\"wizV2-intro\\">Faites défiler le bail. Sur chaque page à parapher, cliquez <b>« Parapher »</b> : vous tracez votre paraphe une seule fois, il est ensuite apposé page par page, avec l\\u2019heure. Les annexes sont présentées juste avant la page des signatures.</div>";'
+    +  'html+="<div class=\\"wizV2-intro\\">Faire défiler le bail. Sur chaque page à parapher, cliquer sur <b>« Parapher »</b> : le paraphe se trace une seule fois, il est ensuite apposé page par page, avec l\\u2019heure. Les annexes sont présentées juste avant la page des signatures.</div>";'
     /* S1 — filet visuel : liste de signataires vide → erreur affichée, jamais un parcours muet. */
     +  'if(_pr.error){html+="<div class=\\"wizV2-no-paraphe\\" style=\\"background:#fee2e2;border-color:#dc2626;color:#991b1b\\">⛔ <b>Aucune case de paraphe à afficher.</b><br>"+_pr.error.message+"</div>";}'
     +  'var grp=_wizV2AnnexGroups(),blk=grp.length?_wizV2AnnexBlockHtml(grp,_pr):"",placed=false,locked=_wizV2NeedsAnnex();'
@@ -18770,9 +18770,9 @@ function previewBailData(bail, log, ref, opts) {
     +  'var s=_SIGS.filter(function(x){return x.id===sigId;})[0];var nom=_wizV2Esc(s?(s.nomCourt||s.id):sigId);'
     +  'var sh=document.createElement("div");sh.className="wizV2-sheet";sh.setAttribute("role","dialog");sh.setAttribute("aria-modal","true");sh.setAttribute("aria-label","Paraphe");'
     +  'sh.innerHTML="<div class=\\"wizV2-sheet-card\\"><div class=\\"wizV2-sheet-head\\"><button type=\\"button\\" class=\\"wizV2-sheet-back\\">‹ Retour</button><b>Paraphe — "+nom+"</b><button type=\\"button\\" class=\\"wizV2-sheet-x\\">Fermer</button></div>"'
-    +    '+"<div class=\\"wizV2-sheet-body\\"><p>Tracez vos <b>initiales une seule fois</b>. Ensuite, un clic sur « Parapher » les appose sur chaque page, page par page, avec l\\u2019heure.</p>"'
+    +    '+"<div class=\\"wizV2-sheet-body\\"><p>Tracer les <b>initiales une seule fois</b>. Ensuite, un clic sur « Parapher » les appose sur chaque page, page par page, avec l\\u2019heure.</p>"'
     +    '+"<canvas class=\\"wizV2-pad-canvas wizV2-sheet-pad\\" width=\\"560\\" height=\\"180\\"></canvas>"'
-    +    '+"<p class=\\"wizV2-sheet-hint\\">Votre paraphe n\\u2019est jamais apposé sans votre clic sur la page concernée.</p></div>"'
+    +    '+"<p class=\\"wizV2-sheet-hint\\">Le paraphe n\\u2019est jamais apposé sans un clic du signataire sur la page concernée.</p></div>"'
     +    '+"<div class=\\"wizV2-sheet-foot\\"><button type=\\"button\\" class=\\"wizV2-sheet-clr\\">Effacer</button><button type=\\"button\\" class=\\"wizV2-sheet-ok\\">Valider et parapher la page "+n+"</button></div></div>";'
     +  'document.body.appendChild(sh);'
     +  'var c=sh.querySelector("canvas");initPad(c);'
@@ -18784,7 +18784,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'sh.querySelector(".wizV2-sheet-clr").onclick=function(){c.getContext("2d").clearRect(0,0,c.width,c.height);};'
     +  'sh.querySelector(".wizV2-sheet-ok").onclick=function(){'
     +    'var data=c.getContext("2d").getImageData(0,0,c.width,c.height).data;var ink=false;for(var i=3;i<data.length;i+=4){if(data[i]>0){ink=true;break;}}'
-    +    'if(!ink){alert("Tracez votre paraphe avant de valider.");return;}'
+    +    'if(!ink){alert("Tracer le paraphe avant de valider.");return;}'
     +    'window._wizV2ParapheImg=window._wizV2ParapheImg||{};window._wizV2ParapheImg[sigId]=c.toDataURL("image/png");'
     +    'close();_wizV2Parapher(n,sigId);'
     +  '};'
@@ -18868,7 +18868,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'html+="<div class=\\"wizV2-page-label\\">✅ Étape finale — Signatures + Confirmation</div>";'
     /* v13.08 — bandeau différent en phase 2 locataire */
     +  'if(window._wizV2Phase2){'
-    +    'html+="<div style=\\"padding:14px;background:#dcfce7;border-left:4px solid #16a34a;border-radius:6px;margin-bottom:16px;font-size:11pt\\"><b>📨 Phase 2 — Signature locataire</b><br>Le bailleur a déjà paraphé et signé ce bail. Vous (le locataire) ajoutez maintenant vos paraphes et votre signature pour finaliser le bail bilatéralement.</div>";'
+    +    'html+="<div style=\\"padding:14px;background:#dcfce7;border-left:4px solid #16a34a;border-radius:6px;margin-bottom:16px;font-size:11pt\\"><b>📨 Phase 2 — Signature locataire</b><br>Le bailleur a déjà paraphé et signé ce bail. Le locataire ajoute maintenant ses paraphes et sa signature pour finaliser le bail bilatéralement.</div>";'
     +  '}else{'
     +    'html+="<div style=\\"padding:14px;background:#dcfce7;border-left:4px solid #16a34a;border-radius:6px;margin-bottom:16px;font-size:11pt\\"><b>"+nbParaphees+" page(s) paraphée(s) sur "+pages.length+" pages physiques.</b><br>Dernière étape : signatures finales + confirmation de lecture.</div>";'
     +  '}'
@@ -18889,12 +18889,12 @@ function previewBailData(bail, log, ref, opts) {
     /* checkbox "Lu et approuvé" sous le canvas */
     +    'html+="<label style=\\"display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:10px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:6px;cursor:pointer;font-size:10.5pt\\">";'
     +    'html+="<input type=\\"checkbox\\" id=\\"wizV2-lu-"+s.id+"\\" data-sig=\\""+s.id+"\\" style=\\"width:22px;height:22px;flex-shrink:0;margin-top:1px;cursor:pointer\\""+(luBy[s.id]?" checked":"")+">";'
-    +    'html+="<span><b>« Lu et approuvé »</b> — "+s.nomCourt+" <span style=\\"color:#c00;font-weight:bold\\">*</span><br><span style=\\"font-size:9pt;color:#666\\">Affichée au-dessus de votre signature dans le PDF</span></span>";'
+    +    'html+="<span><b>« Lu et approuvé »</b> — "+s.nomCourt+" <span style=\\"color:#c00;font-weight:bold\\">*</span><br><span style=\\"font-size:9pt;color:#666\\">Affichée au-dessus de la signature dans le PDF</span></span>";'
     +    'html+="</label>";'
     +    'html+="</div>";'
     +  '});'
     +  'html+="</div>";'
-    +  'html+="<div style=\\"font-size:10pt;color:#666;text-align:center;padding:14px 10px 6px\\">Toutes les cases « Lu et approuvé » et signatures doivent être complétées.<br>Cliquez sur <b>« ✓ Sauvegarder »</b> ci-dessous pour finaliser.</div>";'
+    +  'html+="<div style=\\"font-size:10pt;color:#666;text-align:center;padding:14px 10px 6px\\">Toutes les cases « Lu et approuvé » et signatures doivent être complétées.<br>Cliquer sur <b>« ✓ Sauvegarder »</b> ci-dessous pour finaliser.</div>";'
     +  'html+="</div>";'
     +  'ov.innerHTML=html;'
     /* Init signature pads + restaurer si déjà signés */

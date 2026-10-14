@@ -572,7 +572,7 @@ async function importerSignalements() {
   if (enCours.length) { try { liste = liste.concat(await API().select('locataire_signalements', { id: enCours })) } catch (e) { /* reprise au prochain passage */ } }
   if (!D.incidents) D.incidents = []
   let n = 0
-  const aEnregistrer = []
+  const aEnregistrer = [], crees = []
   for (const s of liste) {
     const x = etat.acces.find((a) => a.id === s.acces_id); const t = x ? locationDe(x) : null
     if (!t) continue
@@ -603,6 +603,7 @@ async function importerSignalements() {
       D.documents.push(doc)
     })
     if (G('_auditLog')) W._auditLog('create', 'incident', inc.id, 'signalé depuis l\'espace locataire')
+    crees.push(inc)
     aEnregistrer.push(s.id)
     n++
   }
@@ -612,6 +613,8 @@ async function importerSignalements() {
     if (G('_refreshAfterMutation')) W._refreshAfterMutation()
     rafraichirAccueil()
     toast(n === 1 ? 'Nouveau signalement reçu depuis l\'espace locataire (registre des incidents).' : n + ' nouveaux signalements reçus depuis l\'espace locataire.', 'info', 6000)
+    // Circuit d'un incident (0060) : l'artisan du carnet qui couvre le métier est prévenu (D6).
+    if (W.IncCircuit && typeof W.IncCircuit.apresImport === 'function') for (const inc of crees) W.IncCircuit.apresImport(inc)
   }
   return n
 }

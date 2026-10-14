@@ -16,7 +16,7 @@
 // Erreurs : toujours une AiError { code } — 'unavailable' (réseau, délai, 5xx, 429 fournisseur),
 // 'refused' (4xx fournisseur : format non accepté…), 'invalid_output' (réponse illisible). Jamais de
 // contenu (audio, texte) dans le message d'erreur.
-import { FAKE_TRANSCRIPTION, FAKE_TEXTE, fauxEdlPiece, fauxEdlPhotos } from './fake.js';
+import { FAKE_TRANSCRIPTION, FAKE_TEXTE, fauxEdlPiece, fauxEdlPhotos, fauxIncidentLocataire, fauxConstatArtisan, fauxLectureFacture } from './fake.js';
 
 export class AiError extends Error {
   constructor(code, status) { super(`ai_${code}`); this.code = code; this.status = status || 0; }
@@ -112,8 +112,9 @@ function fake() {
       return { text: FAKE_TEXTE, segments: FAKE_TRANSCRIPTION.map((s) => ({ ...s })), audioSec: Math.max(1, Math.round(octets / 4000)), modele: 'fake' };
     },
     async structurer({ tache, input }) {
-      if (tache !== 'edl-piece' && tache !== 'edl-photos') throw new AiError('refused', 400);
-      const data = tache === 'edl-photos' ? fauxEdlPhotos(input) : fauxEdlPiece(input);
+      const FAUX = { 'edl-piece': fauxEdlPiece, 'edl-photos': fauxEdlPhotos, 'incident-locataire': fauxIncidentLocataire, 'constat-artisan': fauxConstatArtisan, 'lecture-facture': fauxLectureFacture };
+      if (!FAUX[tache]) throw new AiError('refused', 400);
+      const data = FAUX[tache](input);
       return { data, jetonsE: Math.ceil(JSON.stringify(input).length / 4), jetonsS: Math.ceil(JSON.stringify(data).length / 4), modele: 'fake' };
     },
   };
